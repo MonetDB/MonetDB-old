@@ -9,8 +9,18 @@ from tzlocal import get_localzone
 from Streams.jsonschemas import CREATE_STREAMS_SCHEMA, DELETE_STREAMS_SCHEMA
 from Streams.streamscontext import IOTStreamsException, IOTStreams
 
-Stream_context = IOTStreams()
-local_tz = get_localzone()  # for the correction of dates we must add the system's timezone
+Streams_Context = None
+Create_Streams_Validator = None
+Delete_Streams_Validator = None
+Local_Timezone = None
+
+
+def init_rest_resources():
+    global Streams_Context, Create_Streams_Validator, Delete_Streams_Validator, Local_Timezone
+    Local_Timezone = get_localzone()  # for the correction of dates we must add the system's timezone
+    Create_Streams_Validator = Draft4Validator(CREATE_STREAMS_SCHEMA, format_checker=FormatChecker())
+    Delete_Streams_Validator = Draft4Validator(DELETE_STREAMS_SCHEMA, format_checker=FormatChecker())
+    Streams_Context = IOTStreams()
 
 
 class StreamInput(Resource):
@@ -18,22 +28,22 @@ class StreamInput(Resource):
 
     def get(self, schema_name, stream_name):  # check a single stream data
         try:  # check if stream exists, if not return 404
-            stream = Stream_context.get_existing_stream(schema_name, stream_name)
-        except IOTStreamsException as ex:
+            stream = Streams_Context.get_existing_stream(schema_name, stream_name)
+        except BaseException as ex:
             return ex.message, 404
-        return stream.get_data_dictionary(), 200
+        return stream.get_data_dictionary(include_number_tuples=True), 200
 
     def post(self, schema_name, stream_name):  # add data to a stream
-        current_stamp = datetime.datetime.now(pytz.utc).astimezone(local_tz).isoformat()
+        current_stamp = datetime.datetime.now(pytz.utc).astimezone(Local_Timezone).isoformat()
 
         try:  # check if stream exists, if not return 404
-            stream = Stream_context.get_existing_stream(schema_name, stream_name)
-        except IOTStreamsException as ex:
+            stream = Streams_Context.get_existing_stream(schema_name, stream_name)
+        except BaseException as ex:
             return ex.message, 404
 
         try:  # validate and insert data, if not return 400
             stream.validate_and_insert(json.loads(request.data), current_stamp)
-        except Exception as ex:
+        except BaseException as ex:
             return ex.message, 400
         return '', 201  # all ok, return 201
 
@@ -42,14 +52,11 @@ class StreamsInfo(Resource):
     """Collect all streams information"""
 
     def get(self):  # get all streams data
-        return Stream_context.get_streams_data(), 200
+        return Streams_Context.get_streams_data(), 200
 
 
 class StreamsHandling(Resource):
     """Admin class for creating/deleting streams"""
-
-    CREATE_STREAMS_VALIDATOR = Draft4Validator(CREATE_STREAMS_SCHEMA, format_checker=FormatChecker())
-    DELETE_STREAMS_VALIDATOR = Draft4Validator(DELETE_STREAMS_SCHEMA, format_checker=FormatChecker())
 
     def __init__(self):
         super(StreamsHandling, self).__init__()
@@ -57,9 +64,9 @@ class StreamsHandling(Resource):
     def post(self):
         try:
             schema_to_validate = json.loads(request.data)
-            StreamsHandling.CREATE_STREAMS_VALIDATOR.validate(schema_to_validate)
-            Stream_context.add_new_stream(schema_to_validate)
-        except Exception as ex:
+            Create_Streams_Validator.validate(schema_to_validate)
+            Streams_Context.add_new_stream(schema_to_validate)
+        except BaseException as ex:
             return ex.message, 400
         else:
             return '', 201
@@ -67,12 +74,12 @@ class StreamsHandling(Resource):
     def delete(self):
         try:
             schema_to_validate = json.loads(request.data)
-            StreamsHandling.DELETE_STREAMS_VALIDATOR.validate(schema_to_validate)
-        except Exception as ex:
+            Delete_Streams_Validator.validate(schema_to_validate)
+        except BaseException as ex:
             return ex.message, 400
 
         try:  # check if stream exists, if not return 404
-            Stream_context.delete_existing_stream(schema_to_validate)
-        except IOTStreamsException as ex:
+            Streams_Context.delete_existing_stream(schema_to_validate)
+        except BaseException as ex:
             return ex.message, 404
         return '', 204

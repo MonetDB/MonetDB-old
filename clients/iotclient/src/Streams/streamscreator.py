@@ -1,8 +1,7 @@
 from jsonschema import Draft4Validator, FormatChecker
-
-from Streams.flushing import TupleBasedFlushing, TimeBasedFlushing
-from Streams.streams import DataCellStream
-from Streams.datatypes import *  # the datatypes.py import must be here in order to the reflection work
+from flushing import TupleBasedFlushing, TimeBasedFlushing
+from streams import DataCellStream
+from datatypes import *  # the datatypes.py import must be here in order to the reflection work
 
 
 class ColumnsValidationException(Exception):
@@ -24,13 +23,12 @@ SWITCHER = {('char', 'varchar', 'character varying', 'text', 'string', 'clob', '
             ('boolean'): 'BooleanType'}
 
 
-def validate_schema_and_create_stream(schema):
+def validate_schema_and_create_stream(schema, created=False):
     validated_columns = {}  # dictionary of name -> data_types
     errors = {}
 
     for column in schema['columns']:  # create the data types dictionary
         next_type = column['type']
-        #  column['name'] = '\'' + column['name'] + '\''  # placing the name between \' to avoid problems with SQL words
         next_name = column['name']
 
         if next_name in validated_columns:
@@ -40,7 +38,7 @@ def validate_schema_and_create_stream(schema):
         for tuple_keys, class_name in SWITCHER.iteritems():  # allocate the proper type wrapper
             if next_type in tuple_keys:
                 try:
-                    reflection_class = globals()[class_name]
+                    reflection_class = globals()[class_name]  # import everything from datatypes!!!
                     new_column = reflection_class(**column)  # pass the json entry as kwargs
                     if 'default' in column:
                         new_column.set_default_value(column['default'])
@@ -81,5 +79,5 @@ def validate_schema_and_create_stream(schema):
                   "required": required_fields, "additionalProperties": False}
     }, format_checker=FormatChecker())
 
-    return DataCellStream(schema_name=schema['schema'], stream_name=schema['stream'],
-                          flush_method=flushing_method, columns=validated_columns, validation_schema=json_schema)
+    return DataCellStream(schema_name=schema['schema'], stream_name=schema['stream'], flush_method=flushing_method,
+                          columns=validated_columns, validation_schema=json_schema, created=created)

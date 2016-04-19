@@ -32,3 +32,7 @@ def init_logging():
     except (Exception, OSError) as ex:
         print >> sys.stderr, ex
         sys.exit(1)
+
+
+def add_log(lvl, message, *args, **kwargs):
+    logger.log(lvl, message, *args, **kwargs)

@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_restful import Api
 
-from restresources import StreamInput, StreamsInfo, StreamsHandling
+from restresources import StreamInput, StreamsInfo, StreamsHandling  # , ServerHandler
 
 
 def start_flask_iot_app(host, port):
@@ -21,4 +21,5 @@ def start_flask_admin_app(host, port):
 
     admin_api.add_resource(StreamsInfo, '/streams')
     admin_api.add_resource(StreamsHandling, '/context')
+    #  admin_api.add_resource(ServerHandler, '/server')
     admin_app.run(host=host, port=port, threaded=True)

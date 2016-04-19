@@ -1,15 +1,7 @@
-DATE_REG = "^((([0-9][0-9][0-9][1-9])|([1-9][0-9][0-9][0-9])|([0-9][1-9][0-9][0-9])|([0-9][0-9][1-9][0-9]))-((0[13578])|(1[02]))-((0[1-9])|([12][0-9])|(3[01])))|((([0-9][0-9][0-9][1-9])|([1-9][0-9][0-9][0-9])|([0-9][1-9][0-9][0-9])|([0-9][0-9][1-9][0-9]))-((0[469])|11)-((0[1-9])|([12][0-9])|(30)))|(((000[48])|([0-9]0-9)|([0-9][1-9][02468][048])|([1-9][0-9][02468][048])|([0-9]0-9)|([0-9][1-9][13579][26])|([1-9][0-9][13579][26]))-02-((0[1-9])|([12][0-9])))|((([0-9][0-9][0-9][1-9])|([1-9][0-9][0-9][0-9])|([0-9][1-9][0-9][0-9])|([0-9][0-9][1-9][0-9]))-02-((0[1-9])|([1][0-9])|([2][0-8])))$"
-TIME_REG = "^(([0-1]?[0-9])|([2][0-3])):([0-5]?[0-9])(:([0-5]?[0-9]))?$"
-TIMESTAMP_REG = "^(?:[1-9][0-9]{3}-(?:(?:0[1-9]|1[0-2])-(?:0[1-9]|1[0-9]|2[0-8])|(?:0[13-9]|1[0-2])-(?:29|30)|(?:0[13578]|1[02])-31)|(?:[1-9][0-9](?:0[48]|[2468][048]|[13579][26])|(?:[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:Z|[+-][01][0-9]:[0-5][0-9])$"
 UUID_REG = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 
-CREATE_STREAMS_SCHEMA = {
-    "title": "JSON schema to create a stream",
-    "description": "Validate the inserted properties",
-    "$schema": "http://json-schema.org/draft-04/schema#",
-    "id": "http://monetdb.com/schemas/iot_create.json",
+STREAM_SCHEMA = {
     "type": "object",
-
     "properties": {
         "schema": {"type": "string"},
         "stream": {"type": "string"},
@@ -180,11 +172,26 @@ CREATE_STREAMS_SCHEMA = {
     "additionalProperties": False
 }
 
+CONFIG_FILE_SCHEMA = {
+    "title": "JSON schema to load configuration file",
+    "description": "Validate the inserted properties",
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "array",
+    "items": STREAM_SCHEMA
+}
+
+CREATE_STREAMS_SCHEMA = {
+    "title": "JSON schema to create a stream",
+    "description": "Validate the inserted properties",
+    "$schema": "http://json-schema.org/draft-04/schema#",
+}
+
+CREATE_STREAMS_SCHEMA.update(STREAM_SCHEMA)
+
 DELETE_STREAMS_SCHEMA = {
     "title": "JSON schema to delete a stream",
     "description": "Validate the inserted properties",
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "id": "http://monetdb.com/schemas/iot_delete.json",
     "type": "object",
 
     "properties": {

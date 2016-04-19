@@ -90,7 +90,7 @@ class StreamDataType(object):
         return self.pack_parsed_values(extracted_values, counter, parameters)
 
     def to_json_representation(self):  # get a json representation of the data type while checking the stream's info
-        json_data = {'type': self._data_type, 'nullable': self._is_nullable}
+        json_data = {'name': self._column_name, 'type': self._data_type, 'nullable': self._is_nullable}
         if self._default_value is not None:
             json_data['default'] = self._default_value
         return json_data

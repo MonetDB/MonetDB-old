@@ -5,10 +5,11 @@ from datatypes import TimestampType, DataValidationException
 from flushing import TimeBasedFlushing, TupleBasedFlushing
 from Settings.mapiconnection import mapi_create_stream, mapi_flush_baskets
 from Settings.filesystem import get_baskets_base_location
+from Settings.iotlogger import add_log
 from Utilities.filecreator import create_file_if_not_exists, get_hidden_file_name
 from Utilities.readwritelock import RWLock
 
-IMP_TIMESTAMP_COLUMN_NAME = 'implicit_timestamp'
+IMPLICIT_TIMESTAMP_COLUMN_NAME = 'implicit_timestamp'
 
 
 def represents_int(s):
@@ -29,13 +30,13 @@ class StreamException(Exception):
 class DataCellStream(object):
     """Representation of the stream for validation"""
 
-    def __init__(self, schema_name, stream_name, flush_method, columns, validation_schema):
+    def __init__(self, schema_name, stream_name, flush_method, columns, validation_schema, created=False):
         self._schema_name = schema_name  # name of the schema
         self._stream_name = stream_name  # name of the stream
         self._tuples_in_per_basket = 0  # for efficiency
         self._flush_method = flush_method  # instance of StreamFlushingMethod
         self._columns = columns  # dictionary of name -> data_types
-        self._timestamps_handler = TimestampType(name=IMP_TIMESTAMP_COLUMN_NAME, type="timestamp")  # implicit timestamp
+        self._timestamps_handler = TimestampType(name=IMPLICIT_TIMESTAMP_COLUMN_NAME, type="timestamp")  # timestamp
         self._validation_schema = validation_schema  # json validation schema for the inserts
         self._monitor = RWLock()  # baskets lock to protect files (the server is multi-threaded)
         self._base_path = os.path.join(get_baskets_base_location(), schema_name, stream_name)
@@ -55,30 +56,46 @@ class DataCellStream(object):
         os.makedirs(self._current_base_path)
         for key in self._columns.keys():  # create the files for the columns and timestamp
             create_file_if_not_exists(os.path.join(self._current_base_path, key), hidden=True)
-        create_file_if_not_exists(os.path.join(self._current_base_path, IMP_TIMESTAMP_COLUMN_NAME), hidden=True)
+        create_file_if_not_exists(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME), hidden=True)
+
+        if created:  # when the stream is reloaded from the config file, the create SQL statement is not sent
+            column_string = ','.join([column.create_stream_sql() for column in self._columns.values()])
+            mapi_create_stream(self._schema_name, self._stream_name, column_string)
+
+    def get_schema_name(self):
+        return self._schema_name
+
+    def get_stream_name(self):
+        return self._stream_name
 
     def start_stream(self):
-        column_string = ','.join([column.create_stream_sql() for column in self._columns.values()])
-        mapi_create_stream(self._schema_name, self._stream_name, column_string)
         if isinstance(self._flush_method, TimeBasedFlushing):  # start the time based flush on another thread
             self._flush_method.init_local_thread(self)  # pass the time_based_flush method
+        add_log(20, 'Started stream %s.%s' % (self._schema_name, self._stream_name))
 
     def stop_stream(self):
         if isinstance(self._flush_method, TimeBasedFlushing):
             self._flush_method.stop_local_thread()  # stop the time flushing thread
         self.time_based_flush(last=True)  # flush the baskets while deleting (also works for tuple based flushing)
+        add_log(20, 'Stopped stream %s.%s' % (self._schema_name, self._stream_name))
 
-    def get_data_dictionary(self):
+    def get_data_dictionary(self, include_number_tuples=False):
         self._monitor.acquire_read()
-        dic = {'schema': self._schema_name, 'name': self._stream_name,
-               'tuples_inserted_per_basket': self._tuples_in_per_basket,
-               'flush': self._flush_method.get_dictionary_info(),
-               'columns': {key: value.to_json_representation() for key, value in self._columns.iteritems()}}
+
+        dic = {'schema': self._schema_name, 'stream': self._stream_name,
+               'flushing': self._flush_method.get_dictionary_info(),
+               'columns': [value.to_json_representation() for value in self._columns.values()]}
+
+        #  when writing the data to config file, we don't serialize the number of tuples inserted on the baskets
+        if include_number_tuples:
+            dic['tuples_inserted_per_basket'] = self._tuples_in_per_basket
+
         self._monitor.release()
         return dic
 
     def flush_baskets(self, last=False):  # the monitor has to be acquired in write mode before running this method!!!
         mapi_flush_baskets(self._schema_name, self._stream_name, self._current_base_path)
+        add_log(20, 'Flushed stream %s.%s baskets' % (self._schema_name, self._stream_name))
         if not last:  # when stopping the stream, we don't want to continue to create more baskets files
             self._tuples_in_per_basket = 0
             self._baskets_counter += 1
@@ -86,7 +103,8 @@ class DataCellStream(object):
             os.makedirs(self._current_base_path)
             for key in self._columns.keys():
                 create_file_if_not_exists(os.path.join(self._current_base_path, key), hidden=True)
-            create_file_if_not_exists(os.path.join(self._current_base_path, IMP_TIMESTAMP_COLUMN_NAME), hidden=True)
+            create_file_if_not_exists(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME),
+                                      hidden=True)
 
     def time_based_flush(self, last=False):
         self._monitor.acquire_write()
@@ -150,7 +168,7 @@ class DataCellStream(object):
 
         # write the implicit timestamp
         time_basket_fp = open(get_hidden_file_name(os.path.join(self._current_base_path,
-                                                                IMP_TIMESTAMP_COLUMN_NAME)), 'ab')
+                                                                IMPLICIT_TIMESTAMP_COLUMN_NAME)), 'ab')
         time_basket_fp.write(timestamps_binary_array)
         time_basket_fp.flush()
         time_basket_fp.close()
@@ -160,3 +178,4 @@ class DataCellStream(object):
             self.flush_baskets(last=False)
 
         self._monitor.release()
+        add_log(20, 'Inserted %d tuples to stream %s.%s' % (total_tuples, self._schema_name, self._stream_name))

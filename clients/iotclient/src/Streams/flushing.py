@@ -4,6 +4,8 @@ from threading import Thread, Event
 
 
 class StoppableThread(Thread):
+    """Stoppable Thread"""
+
     def __init__(self):
         Thread.__init__(self)
         self.stop_event = Event()
@@ -17,10 +19,12 @@ class StoppableThread(Thread):
 
 
 class IntervalTimer(StoppableThread):
+    """Thread working with a timed interval basis"""
+
     def __init__(self, interval, worker_func):
         super(IntervalTimer, self).__init__()
         self._interval = interval  # in seconds
-        self._worker_func = worker_func
+        self._worker_func = worker_func  # function/method to execute periodically
 
     def run(self):
         while not self.stop_event.is_set():
@@ -30,6 +34,7 @@ class IntervalTimer(StoppableThread):
 
 class StreamFlushingMethod(object):
     """Base class for flushing"""
+
     __metaclass__ = ABCMeta
 
     def __init__(self):
@@ -41,6 +46,8 @@ class StreamFlushingMethod(object):
 
 
 class TimeBasedFlushing(StreamFlushingMethod):
+    """Time based flushing"""
+
     def __init__(self, interval, time_unit):
         super(TimeBasedFlushing, self).__init__()
         self._interval = interval
@@ -61,13 +68,15 @@ class TimeBasedFlushing(StreamFlushingMethod):
         self._local_thread.stop()
 
     def get_dictionary_info(self):
-        return {'method': 'time', 'unit': self._time_unit, 'interval': self._interval}
+        return {'base': 'time', 'unit': self._time_unit, 'interval': self._interval}
 
 
 class TupleBasedFlushing(StreamFlushingMethod):
+    """Tuple based flushing"""
+
     def __init__(self, limit):
         super(TupleBasedFlushing, self).__init__()
         self.limit = limit
 
     def get_dictionary_info(self):
-        return {'method': 'tuple', 'limit': self.limit}
+        return {'base': 'tuple', 'number': self.limit}
