@@ -341,6 +341,7 @@ extern int sql_trans_precommit(sql_trans *tr);
 extern int sql_trans_persistcommit(sql_trans *tr);
 extern int sql_trans_force_persistcommit(lng id);
 extern int sql_trans_htm_garbagecollect(int ts);
+extern int sql_trans_get_htm_garbagecollect(int *ts);
 extern int sql_trans_abort(sql_trans *tr);
 
 extern sql_type *sql_trans_create_type(sql_trans *tr, sql_schema * s, const char *sqlname, int digits, int scale, int radix, const char *impl);

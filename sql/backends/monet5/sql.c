@@ -446,6 +446,13 @@ SQLhtmgarbagecollect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
+SQLgetHTMgarbagecollect(int *ret)
+{
+	*ret = mvc_get_htm_garbagecollect();
+    return MAL_SUCCEED;
+}
+
+str
 SQLshutdown_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str msg;

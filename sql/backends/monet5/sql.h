@@ -74,6 +74,7 @@ sql5_export str SQLprecommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 sql5_export str SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 sql5_export str SQLforcepersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 sql5_export str SQLhtmgarbagecollect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+sql5_export str SQLgetHTMgarbagecollect(int *ret);
 sql5_export str SQLshutdown_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLtransaction2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLcatalog(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

@@ -15,3 +15,6 @@ CREATE PROCEDURE forcepersistcommit(id bigint)
 
 CREATE PROCEDURE htmgarbagecollect(ts int)
 	EXTERNAL name sql.htmgarbagecollect;
+
+CREATE FUNCTION gethtmgarbagecollect() RETURNS integer
+	EXTERNAL name sql.gethtmgarbagecollect;

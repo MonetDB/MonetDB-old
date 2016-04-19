@@ -440,6 +440,13 @@ mvc_htm_garbagecollect(int ts) {
 }
 
 int
+mvc_get_htm_garbagecollect(void) {
+	int ts=0;
+    sql_trans_get_htm_garbagecollect(&ts);
+	return ts;
+}
+
+int
 mvc_abort(mvc *m)
 {
 	sql_trans *tr = m->session->tr;

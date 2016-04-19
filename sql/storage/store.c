@@ -3640,6 +3640,13 @@ sql_trans_htm_garbagecollect(int ts)
 }
 
 int
+sql_trans_get_htm_garbagecollect(int *ts)
+{
+	*ts = keep_persisted_log_files;
+	return SQL_OK;
+}
+
+int
 sql_trans_abort(sql_trans *tr)
 {
 	int result = LOG_OK;
