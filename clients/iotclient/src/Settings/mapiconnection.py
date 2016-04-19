@@ -28,11 +28,15 @@ def mapi_create_stream(schema, stream, columns):
         Connection.execute("CREATE SCHEMA " + schema + ";")
     except:
         pass
-    sql_str = ''.join(["CREATE STREAM TABLE ", schema, ".", stream, " (", columns, ");"])
-    Connection.execute(sql_str)
+
+    try:  # attempt to create te stream table
+        Connection.execute(''.join(["CREATE STREAM TABLE ", schema, ".", stream, " (", columns, ");"]))
+    except:
+        pass
 
 
 def mapi_flush_baskets(schema, stream, baskets):
-    # this procedure does not work yet. Have to check it with Martin
-    # Connection.execute(''.join(["CALL iot.push(\"", schema, "\",\"", stream, "\",\"", baskets, "\");"]))
-    pass
+    try:
+        Connection.execute(''.join(["CALL iot.push(\"", schema, "\",\"", stream, "\",\"", baskets, "\");"]))
+    except:
+        pass

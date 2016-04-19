@@ -1,15 +1,13 @@
 import os
 from collections import defaultdict
 
-from datatypes import TimestampType, DataValidationException
+from datatypes import TimestampType, TextType, DataValidationException
 from flushing import TimeBasedFlushing, TupleBasedFlushing
 from Settings.mapiconnection import mapi_create_stream, mapi_flush_baskets
-from Settings.filesystem import get_baskets_base_location
+from Settings.filesystem import get_baskets_base_location, get_host_identifier
 from Settings.iotlogger import add_log
 from Utilities.filecreator import create_file_if_not_exists, get_hidden_file_name
 from Utilities.readwritelock import RWLock
-
-IMPLICIT_TIMESTAMP_COLUMN_NAME = 'implicit_timestamp'
 
 
 def represents_int(s):
@@ -18,6 +16,23 @@ def represents_int(s):
         return True
     except ValueError:
         return False
+
+IMPLICIT_TIMESTAMP_COLUMN_NAME = 'implicit_timestamp'
+Timestamps_Handler = TimestampType(name=IMPLICIT_TIMESTAMP_COLUMN_NAME, type="timestamp")  # timestamp
+Create_SQL_array = [Timestamps_Handler.create_stream_sql()]  # array for SQL creation
+
+HOST_IDENTIFIER_COLUMN_NAME = 'host_identifier'
+Hostname_Bin_Value = None
+
+
+def init_streams_hosts():
+    global Hostname_Bin_Value
+
+    host_identifier = get_host_identifier()
+    if host_identifier is not None:
+        hosts_handler = TextType(name=HOST_IDENTIFIER_COLUMN_NAME, type="text")  # host_identifier
+        Hostname_Bin_Value = hosts_handler.process_values([host_identifier])
+        Create_SQL_array.append(hosts_handler.create_stream_sql())
 
 
 class StreamException(Exception):
@@ -36,10 +51,10 @@ class DataCellStream(object):
         self._tuples_in_per_basket = 0  # for efficiency
         self._flush_method = flush_method  # instance of StreamFlushingMethod
         self._columns = columns  # dictionary of name -> data_types
-        self._timestamps_handler = TimestampType(name=IMPLICIT_TIMESTAMP_COLUMN_NAME, type="timestamp")  # timestamp
         self._validation_schema = validation_schema  # json validation schema for the inserts
         self._monitor = RWLock()  # baskets lock to protect files (the server is multi-threaded)
         self._base_path = os.path.join(get_baskets_base_location(), schema_name, stream_name)
+
         if not os.path.exists(self._base_path):
             os.makedirs(self._base_path)
             self._baskets_counter = 1
@@ -49,18 +64,21 @@ class DataCellStream(object):
                 for elem in dirs:  # for each directory found, flush it
                     dir_path = os.path.join(self._base_path, str(elem))
                     mapi_flush_baskets(self._schema_name, self._stream_name, dir_path)
-                self._baskets_counter = max(dirs) + 1  # the current basket number will be the next one
+                self._baskets_counter = max(dirs) + 1  # increment current basket number
             else:
                 self._baskets_counter = 1
         self._current_base_path = os.path.join(self._base_path, str(self._baskets_counter))
         os.makedirs(self._current_base_path)
+
         for key in self._columns.keys():  # create the files for the columns and timestamp
             create_file_if_not_exists(os.path.join(self._current_base_path, key), hidden=True)
         create_file_if_not_exists(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME), hidden=True)
+        if Hostname_Bin_Value is not None:
+            create_file_if_not_exists(os.path.join(self._current_base_path, HOST_IDENTIFIER_COLUMN_NAME), hidden=True)
 
         if created:  # when the stream is reloaded from the config file, the create SQL statement is not sent
-            column_string = ','.join([column.create_stream_sql() for column in self._columns.values()])
-            mapi_create_stream(self._schema_name, self._stream_name, column_string)
+            sql_array = [column.create_stream_sql() for column in self._columns.values()]
+            mapi_create_stream(self._schema_name, self._stream_name, ','.join(sql_array + Create_SQL_array))
 
     def get_schema_name(self):
         return self._schema_name
@@ -101,10 +119,14 @@ class DataCellStream(object):
             self._baskets_counter += 1
             self._current_base_path = os.path.join(self._base_path, str(self._baskets_counter))
             os.makedirs(self._current_base_path)
+
             for key in self._columns.keys():
                 create_file_if_not_exists(os.path.join(self._current_base_path, key), hidden=True)
             create_file_if_not_exists(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME),
                                       hidden=True)
+            if Hostname_Bin_Value is not None:
+                create_file_if_not_exists(os.path.join(self._current_base_path, HOST_IDENTIFIER_COLUMN_NAME),
+                                          hidden=True)
 
     def time_based_flush(self, last=False):
         self._monitor.acquire_write()
@@ -152,13 +174,17 @@ class DataCellStream(object):
 
         # prepare variables outside the lock for more parallelism
         total_tuples = len(new_data)
-        bin_value = self._timestamps_handler.process_values([timestamp])
-        timestamps_binary_array = ''.join([bin_value for _ in xrange(total_tuples)])
-        is_flushing_tuple_based = isinstance(self._flush_method, TupleBasedFlushing)
+
+        timestamp_bin_value = Timestamps_Handler.process_values([timestamp])
+        timestamps_binary_array = ''.join([timestamp_bin_value for _ in xrange(total_tuples)])
+
+        if Hostname_Bin_Value is not None:
+            hosts_binary_array = ''.join([Hostname_Bin_Value for _ in xrange(total_tuples)])
+
         # supposing that the flushing method never changes we can do this outside the lock
+        is_flushing_tuple_based = isinstance(self._flush_method, TupleBasedFlushing)
 
         self._monitor.acquire_write()
-
         for key, inserts in transposed_data.iteritems():  # now write the binary data
             # open basket in binary mode and append the new entries
             basket_fp = open(get_hidden_file_name(os.path.join(self._current_base_path, key)), 'ab')
@@ -172,6 +198,13 @@ class DataCellStream(object):
         time_basket_fp.write(timestamps_binary_array)
         time_basket_fp.flush()
         time_basket_fp.close()
+
+        if Hostname_Bin_Value is not None:  # write the host name if applicable
+            hosts_basket_fp = open(get_hidden_file_name(os.path.join(self._current_base_path,
+                                                                     HOST_IDENTIFIER_COLUMN_NAME)), 'ab')
+            hosts_basket_fp.write(hosts_binary_array)
+            hosts_basket_fp.flush()
+            hosts_basket_fp.close()
 
         self._tuples_in_per_basket += total_tuples
         if is_flushing_tuple_based and self._tuples_in_per_basket >= self._flush_method.limit:

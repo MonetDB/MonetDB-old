@@ -2,8 +2,9 @@ import getopt
 import sys
 import threading
 
+from uuid import getnode as get_mac
 from Settings import filesystem, iotlogger
-from Streams import streamscontext
+from Streams import streamscontext, streams
 from Flask import restresources
 from Flask.app import start_flask_iot_app, start_flask_admin_app
 from Settings.mapiconnection import init_monetdb_connection
@@ -11,9 +12,11 @@ from Settings.mapiconnection import init_monetdb_connection
 
 def main(argv):
     try:
-        opts, args = getopt.getopt(argv[1:], 'f:l:c:ih:ip:ah:ap:ch:cp:cd:cu',
-                                   ['filesystem=', 'logfile=', 'configfile=', 'ihost=', 'iport=', 'ahost=', 'aport=',
-                                    'chostname=', 'cport=', 'cdatabase=', 'cuser='])
+        opts, args = getopt.getopt(argv[1:], 'f:l:c:u:n:ih:ip:ah:ap:dh:dp:dd:du',
+                                   ['filesystem=', 'logfile=', 'configfile=', 'useidentifier=', 'name='
+                                                                                                'ihost=', 'iport=',
+                                    'ahost=', 'aport=',
+                                    'dhostname=', 'dport=', 'ddatabase=', 'duser='])
     except getopt.GetoptError:
         print >> sys.stderr, "Error while parsing the arguments!"
         sys.exit(1)
@@ -28,7 +31,10 @@ def main(argv):
     connection_port = 50000
     connection_user = 'monetdb'
     connection_database = 'iotdb'
+
     new_configfile_location = None
+    use_host_identifier = False
+    host_identifier = None
 
     for opt, arg in opts:
         if opt in ('-f', '--filesystem'):
@@ -37,6 +43,10 @@ def main(argv):
             iotlogger.set_logging_location(arg)
         elif opt in ('-c', '--configfile'):
             new_configfile_location = arg
+        elif opt in ('-u', '--useidentifier'):
+            use_host_identifier = bool(arg)
+        elif opt in ('-n', '--name'):
+            host_identifier = arg
 
         elif opt in ('-ih', '--ihost'):
             app_host = arg
@@ -47,18 +57,24 @@ def main(argv):
         elif opt in ('-ap', '--aport'):
             admin_port = int(arg)
 
-        elif opt in ('-ch', '--chostname'):
+        elif opt in ('-dh', '--dhostname'):
             connection_hostname = arg
-        elif opt in ('-cp', '--cport'):
+        elif opt in ('-dp', '--dport'):
             connection_port = int(arg)
-        elif opt in ('-cu', '--cuser'):
+        elif opt in ('-du', '--duser'):
             connection_user = arg
-        elif opt in ('-cd', '--cdatabase'):
+        elif opt in ('-dd', '--ddatabase'):
             connection_database = arg
+
+    if use_host_identifier and host_identifier is None:  # get the machine MAC address as default identifier
+        host_identifier = ':'.join(("%012X" % get_mac())[i:i + 2] for i in range(0, 12, 2))
+    if not use_host_identifier:  # in case of the user sets the host_identifier but not the use_host_identifier flag
+        host_identifier = None
 
     # WARNING The initiation order must be this!!!
     iotlogger.init_logging()  # init logging context
-    filesystem.init_file_system(new_configfile_location)  # init filesystem
+    filesystem.init_file_system(host_identifier, new_configfile_location)  # init filesystem
+    streams.init_streams_hosts()  # init hostname column for streams
     # init mapi connection
     init_monetdb_connection(connection_hostname, connection_port, connection_user, connection_database)
     streamscontext.init_streams_context()  # init streams context
