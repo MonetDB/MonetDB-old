@@ -2127,6 +2127,9 @@ logger_restart(logger *lg)
 
 /* Clean-up write-ahead log files already persisted in the BATs.
  * Update the LOGFILE and delete all bak- files as well.
+ *
+ * a positive value for keep_persisted_log_files indicates the number of old WAL files to clean up
+ * a negative value for keep_persisted_log_files indicates the timestamp
  */
 static int
 logger_cleanup_old(logger *lg, int keep_persisted_log_files)
@@ -2136,12 +2139,33 @@ logger_cleanup_old(logger *lg, int keep_persisted_log_files)
 	int farmid = BBPselectfarm(lg->dbfarm_role, 0, offheap);
 	int cleanupResultLog = 0;
 	int cleanupResultBak = 0;
+	char *lgpath = NULL;
+	struct stat lgstat;
 
-	// Calculate offset based on the number of files to keep
-	id = lg->id - keep_persisted_log_files - 1;
+	if (keep_persisted_log_files > 0) {
+		// Calculate offset based on the number of files to keep
+		id = lg->id - keep_persisted_log_files - 1;
+	} else { /* keep_persisted_log_files < 0 */
+		id = lg->id;
+	}
 
 	// Stop cleaning up once bak- files are no longer found
 	while (id > 0 && (cleanupResultLog == LOG_OK || cleanupResultBak == LOG_OK)) {
+		if (keep_persisted_log_files < 0) {
+			/* Check the last modified timestamp of this logfile.
+			 * If any error occurs just ignore it and move on to the next logfile */
+			snprintf(buf, sizeof(buf), LLFMT, id);
+			lgpath = GDKfilepath(farmid, lg->dir, LOGFILE, buf);
+			if (lgpath != NULL) {
+				if (stat(lgpath, &lgstat) == 0 &&
+					!lgstat.st_mtime < -keep_persisted_log_files){
+					id = id - 1;
+					GDKfree(lgpath);
+					continue;
+				}
+				GDKfree(lgpath);
+			}
+		}
 		// clean up the WAL file
 		if (lg->debug & 1) {
 			snprintf(buf, sizeof(buf), "%s%s." LLFMT, lg->dir, LOGFILE, id);
@@ -2204,7 +2228,7 @@ logger_cleanup(logger *lg, int keep_persisted_log_files)
 
 	GDKunlink(farmid, lg->dir, LOGFILE, buf);
 
-	if (keep_persisted_log_files > 0) {
+	if (keep_persisted_log_files != 0) {
 		// Clean up the old WAL files as well, if any
 		// We will ignore the output of logger_cleanup_old
 		logger_cleanup_old(lg, keep_persisted_log_files);
