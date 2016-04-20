@@ -2,7 +2,6 @@ import ctypes
 import os
 import sys
 
-
 # check http://stackoverflow.com/questions/25432139/python-cross-platform-hidden-file
 
 

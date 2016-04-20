@@ -3,9 +3,9 @@ import os
 import sys
 
 if sys.platform in ("linux", "linux2", "darwin"):
-    logging_location = '/var/log/iotdaemon/iot.log'
+    logging_location = '/var/log/iot/iot.log'
 elif sys.platform == "win32":
-    logging_location = os.path.relpath("iot.log")
+    logging_location = os.path.join(os.path.dirname(__file__), os.pardir, 'iot.log')
 
 logging_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 logger = logging.getLogger("IOTLog")

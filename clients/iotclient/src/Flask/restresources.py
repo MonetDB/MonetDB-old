@@ -1,6 +1,7 @@
 import datetime
 import json
 import pytz
+import sys
 
 from flask import request
 from flask_restful import Resource
@@ -8,6 +9,7 @@ from jsonschema import Draft4Validator, FormatChecker
 from tzlocal import get_localzone
 from Streams.jsonschemas import CREATE_STREAMS_SCHEMA, DELETE_STREAMS_SCHEMA
 from Streams.streamscontext import IOTStreamsException, IOTStreams
+from Settings.iotlogger import add_log
 
 Streams_Context = None
 Create_Streams_Validator = None
@@ -17,19 +19,26 @@ Local_Timezone = None
 
 def init_rest_resources():
     global Streams_Context, Create_Streams_Validator, Delete_Streams_Validator, Local_Timezone
+
     Local_Timezone = get_localzone()  # for the correction of dates we must add the system's timezone
     Create_Streams_Validator = Draft4Validator(CREATE_STREAMS_SCHEMA, format_checker=FormatChecker())
     Delete_Streams_Validator = Draft4Validator(DELETE_STREAMS_SCHEMA, format_checker=FormatChecker())
-    Streams_Context = IOTStreams()
+    try:
+        Streams_Context = IOTStreams()
+    except BaseException as ex:
+        print >> sys.stderr, ex
+        add_log(50, ex.message)
+        sys.exit(1)
 
 
-class StreamInput(Resource):
+class StreamInput(Resource):  # TODO these operations are not atomic!!!
     """RESTful API for stream's input"""
 
     def get(self, schema_name, stream_name):  # check a single stream data
         try:  # check if stream exists, if not return 404
             stream = Streams_Context.get_existing_stream(schema_name, stream_name)
         except BaseException as ex:
+            add_log(50, ex.message)
             return ex.message, 404
         return stream.get_data_dictionary(include_number_tuples=True), 200
 
@@ -39,13 +48,15 @@ class StreamInput(Resource):
         try:  # check if stream exists, if not return 404
             stream = Streams_Context.get_existing_stream(schema_name, stream_name)
         except BaseException as ex:
+            add_log(50, ex.message)
             return ex.message, 404
 
         try:  # validate and insert data, if not return 400
             stream.validate_and_insert(json.loads(request.data), current_stamp)
         except BaseException as ex:
+            add_log(50, ex.message)
             return ex.message, 400
-        return '', 201  # all ok, return 201
+        return '', 201
 
 
 class StreamsInfo(Resource):
@@ -67,6 +78,7 @@ class StreamsHandling(Resource):
             Create_Streams_Validator.validate(schema_to_validate)
             Streams_Context.add_new_stream(schema_to_validate)
         except BaseException as ex:
+            add_log(50, ex.message)
             return ex.message, 400
         else:
             return '', 201
@@ -76,10 +88,12 @@ class StreamsHandling(Resource):
             schema_to_validate = json.loads(request.data)
             Delete_Streams_Validator.validate(schema_to_validate)
         except BaseException as ex:
+            add_log(50, ex.message)
             return ex.message, 400
 
         try:  # check if stream exists, if not return 404
             Streams_Context.delete_existing_stream(schema_to_validate)
         except BaseException as ex:
+            add_log(50, ex.message)
             return ex.message, 404
         return '', 204

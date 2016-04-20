@@ -130,8 +130,11 @@ class DataCellStream(object):
 
     def time_based_flush(self, last=False):
         self._monitor.acquire_write()
-        if self._tuples_in_per_basket > 0:
-            self.flush_baskets(last)
+        try:
+            if self._tuples_in_per_basket > 0:
+                self.flush_baskets(last)
+        except BaseException as ex:
+            add_log(50, ex.message)
         self._monitor.release()
 
     def validate_and_insert(self, new_data, timestamp):
@@ -185,30 +188,33 @@ class DataCellStream(object):
         is_flushing_tuple_based = isinstance(self._flush_method, TupleBasedFlushing)
 
         self._monitor.acquire_write()
-        for key, inserts in transposed_data.iteritems():  # now write the binary data
-            # open basket in binary mode and append the new entries
-            basket_fp = open(get_hidden_file_name(os.path.join(self._current_base_path, key)), 'ab')
-            basket_fp.write(inserts)
-            basket_fp.flush()
-            basket_fp.close()
+        try:
+            for key, inserts in transposed_data.iteritems():  # now write the binary data
+                # open basket in binary mode and append the new entries
+                basket_fp = open(get_hidden_file_name(os.path.join(self._current_base_path, key)), 'ab')
+                basket_fp.write(inserts)
+                basket_fp.flush()
+                basket_fp.close()
 
-        # write the implicit timestamp
-        time_basket_fp = open(get_hidden_file_name(os.path.join(self._current_base_path,
-                                                                IMPLICIT_TIMESTAMP_COLUMN_NAME)), 'ab')
-        time_basket_fp.write(timestamps_binary_array)
-        time_basket_fp.flush()
-        time_basket_fp.close()
+            # write the implicit timestamp
+            time_basket_fp = open(get_hidden_file_name(os.path.join(self._current_base_path,
+                                                                    IMPLICIT_TIMESTAMP_COLUMN_NAME)), 'ab')
+            time_basket_fp.write(timestamps_binary_array)
+            time_basket_fp.flush()
+            time_basket_fp.close()
 
-        if Hostname_Bin_Value is not None:  # write the host name if applicable
-            hosts_basket_fp = open(get_hidden_file_name(os.path.join(self._current_base_path,
-                                                                     HOST_IDENTIFIER_COLUMN_NAME)), 'ab')
-            hosts_basket_fp.write(hosts_binary_array)
-            hosts_basket_fp.flush()
-            hosts_basket_fp.close()
+            if Hostname_Bin_Value is not None:  # write the host name if applicable
+                hosts_basket_fp = open(get_hidden_file_name(os.path.join(self._current_base_path,
+                                                                         HOST_IDENTIFIER_COLUMN_NAME)), 'ab')
+                hosts_basket_fp.write(hosts_binary_array)
+                hosts_basket_fp.flush()
+                hosts_basket_fp.close()
 
-        self._tuples_in_per_basket += total_tuples
-        if is_flushing_tuple_based and self._tuples_in_per_basket >= self._flush_method.limit:
-            self.flush_baskets(last=False)
+            self._tuples_in_per_basket += total_tuples
+            if is_flushing_tuple_based and self._tuples_in_per_basket >= self._flush_method.limit:
+                self.flush_baskets(last=False)
 
+            add_log(20, 'Inserted %d tuples to stream %s.%s' % (total_tuples, self._schema_name, self._stream_name))
+        except BaseException as ex:
+            add_log(50, ex.message)
         self._monitor.release()
-        add_log(20, 'Inserted %d tuples to stream %s.%s' % (total_tuples, self._schema_name, self._stream_name))

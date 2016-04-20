@@ -6,3 +6,5 @@ python-dateutil==2.5.2
 pytz==2016.3
 pymonetdb==0.1.1
 tzlocal==1.2.2
+Sphinx==1.4.1
+sphinx-rtd-theme==0.1.9

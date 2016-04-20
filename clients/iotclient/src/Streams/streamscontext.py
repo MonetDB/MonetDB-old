@@ -31,13 +31,13 @@ class IOTStreams:
         self.reload_config_file()
 
     def reload_config_file(self):  # the write lock must be set before running this method!!! (except on the beginning)
+        with open(get_configfile_location(), 'r') as infile:  # read the config searching for existing streams
+            data = json.load(infile)  # if the configuration file is invalid, then the context is left untouched
+            Config_File_Validator.validate(data)
+
         for value in self._context.values():  # stop the current streams
             value.stop_stream()
         self._context = {}
-
-        with open(get_configfile_location(), 'r') as infile:  # read the config searching for existing streams
-            data = json.load(infile)
-            Config_File_Validator.validate(data)
 
         stream_dic = {}
         for entry in data:
@@ -61,7 +61,6 @@ class IOTStreams:
             self._locker.release()
             raise IOTStreamsException('The stream ' + validating_schema['stream'] + ' in schema ' +
                                       validating_schema['schema'] + ' already exists!')
-
         try:
             new_stream = validate_schema_and_create_stream(validating_schema, created=True)
             self._context[concat_name] = new_stream
@@ -79,7 +78,6 @@ class IOTStreams:
             self._locker.release()
             raise IOTStreamsException('The stream ' + validating_schema['stream'] + ' in schema ' +
                                       validating_schema['schema'] + ' does not exist!')
-
         try:
             old_stream = self._context[concat_name]
             del self._context[concat_name]

@@ -14,8 +14,7 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv[1:], 'f:l:c:u:n:ih:ip:ah:ap:dh:dp:dd:du',
                                    ['filesystem=', 'logfile=', 'configfile=', 'useidentifier=', 'name='
-                                                                                                'ihost=', 'iport=',
-                                    'ahost=', 'aport=',
+                                    'ihost=', 'iport=', 'ahost=', 'aport=',
                                     'dhostname=', 'dport=', 'ddatabase=', 'duser='])
     except getopt.GetoptError:
         print >> sys.stderr, "Error while parsing the arguments!"

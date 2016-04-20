@@ -1,6 +1,7 @@
 import os
 import sys
 
+from iotlogger import add_log
 from Utilities.filecreator import create_file_if_not_exists
 
 BASKETS_BASE_DIRECTORY = "baskets"
@@ -9,7 +10,7 @@ CONFIG_FILE_DEFAULT_NAME = "config.json"
 if sys.platform in ("linux", "linux2", "darwin"):
     filesystem_location = '/etc/iotcollector'
 elif sys.platform == "win32":
-    filesystem_location = os.path.dirname(os.path.realpath(__file__))
+    filesystem_location = os.path.join(os.path.dirname(__file__), os.pardir)
 
 Baskets_Base_Location = None
 Config_File_Location = None
@@ -38,6 +39,7 @@ def init_file_system(host_identifier=None, new_configfile_location=None):
         Host_Identifier = host_identifier
     except (Exception, OSError) as ex:
         print >> sys.stderr, ex
+        add_log(50, ex.message)
         sys.exit(1)
 
 

@@ -2,6 +2,8 @@ import sys
 import pymonetdb
 import getpass
 
+from Settings.iotlogger import add_log
+
 Connection = None
 
 
@@ -13,9 +15,12 @@ def init_monetdb_connection(hostname, port, user_name, database):
     try:  # the autocommit is set to true so each statement will be independent
         Connection = pymonetdb.connect(hostname=hostname, port=port, username=user_name, password=user_password,
                                        database=database, autocommit=True)
-        print >> sys.stdout, 'User %s connected successfully to database %s' % (user_name, database)
+        log_message = 'User %s connected successfully to database %s' % (user_name, database)
+        print >> sys.stdout, log_message
+        add_log(20, log_message)
     except BaseException as ex:
         print >> sys.stderr, ex.message
+        add_log(50, ex.message)
         sys.exit(1)
 
 
@@ -31,12 +36,14 @@ def mapi_create_stream(schema, stream, columns):
 
     try:  # attempt to create te stream table
         Connection.execute(''.join(["CREATE STREAM TABLE ", schema, ".", stream, " (", columns, ");"]))
-    except:
+    except BaseException as ex:
+        add_log(40, ex.message)
         pass
 
 
 def mapi_flush_baskets(schema, stream, baskets):
     try:
         Connection.execute(''.join(["CALL iot.push(\"", schema, "\",\"", stream, "\",\"", baskets, "\");"]))
-    except:
+    except BaseException as ex:
+        add_log(40, ex.message)
         pass
