@@ -276,7 +276,7 @@ man_pages = [
 
 # Grouping the document tree into Texinfo files. List of tuples
 # (source start file, target name, title, author,
-#  dir menu entry, description, c	ategory)
+#  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'MonetDBIOTWebServer', u'MonetDB IOT WebServer Documentation',
      author, 'MonetDBIOTWebServer', 'One line description of project.',

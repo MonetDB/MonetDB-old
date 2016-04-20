@@ -150,7 +150,7 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 	pnet[pnettop].modname = GDKstrdup(getModuleId(sig));
 	pnet[pnettop].fcnname = GDKstrdup(getFunctionId(sig));
 	snprintf(buf,IDLENGTH,"petri_%d",pnettop);
-	s = newFunction("iot", buf, FUNCTIONsymbol);
+	s = newFunction(iotRef, putName(buf,strlen(buf)), FUNCTIONsymbol);
 	nmb = s->def;
 	setArgType(nmb, nmb->stmt[0],0, TYPE_void);
     (void) newStmt(nmb, sqlRef, transactionRef);
@@ -304,6 +304,7 @@ PNexecute( void *n)
 {
 	PNnode *node= (PNnode *) n;
 	int i,j, idx;
+	str msg=  MAL_SUCCEED;
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s\n",node->modname, node->fcnname);
 	// first grab exclusive access to all streams.
 	MT_lock_set(&iotLock);
@@ -315,10 +316,10 @@ PNexecute( void *n)
 
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s all locked\n",node->modname, node->fcnname);
 
-	runMALsequence(mal_clients, node->mb, 1, 0, node->stk, 0, 0);
+	msg = runMALsequence(mal_clients, node->mb, 1, 0, node->stk, 0, 0);
 	node->status = PNPAUSED;
 
-	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s transition done\n",node->modname, node->fcnname);
+	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s transition done:%s\n",node->modname, node->fcnname, (msg != MAL_SUCCEED?msg:""));
 
 	MT_lock_set(&iotLock);
 	for ( i=0; i< j &&  node->enabled && node->places[i]; i++) {
@@ -330,7 +331,7 @@ PNexecute( void *n)
 }
 
 static void
-PNcontroller(void *dummy)
+PNscheduler(void *dummy)
 {
 	int idx = -1, i, j;
 	int k = -1;
@@ -339,6 +340,7 @@ PNcontroller(void *dummy)
 	str msg = MAL_SUCCEED;
 	lng t, analysis, now;
 	int claimed[MAXBSKT];
+	timestamp ts, tn;
 
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.controller started\n");
 	cntxt = mal_clients; /* run as admin in SQL mode*/
@@ -348,7 +350,6 @@ PNcontroller(void *dummy)
 	status = PNRUNNING;
 
 	while( pnettop > 0){
-		_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.controller next  step\n");
 		if (cycleDelay)
 			MT_sleep_ms(cycleDelay);  /* delay to make it more tractable */
 		while (status == PNPAUSED)	{ /* scheduler is paused */
@@ -365,8 +366,9 @@ PNcontroller(void *dummy)
 		now = GDKusec();
 		for (k = i = 0; i < pnettop; i++) 
 		if ( pnet[i].status == PNRUNNING ){
-			// check if all baskets are available and non-empty
 			pnet[i].enabled = 1;
+
+			// check if all baskets are available and non-empty
 			for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].places[j]; j++) {
 				idx = pnet[i].places[j];
 				if (baskets[idx].status == BSKTRUNNING && 
@@ -374,11 +376,7 @@ PNcontroller(void *dummy)
 					pnet[i].enabled = 0;
 					break;
 				}
-			}
-			if (pnet[i].enabled) {
-				timestamp ts, tn;
 				/* only look at large enough baskets */
-				/* check heart beat delays */
 				if (baskets[idx].beat) {
 					(void) MTIMEunix_epoch(&ts);
 					(void) MTIMEtimestamp_add(&tn, &baskets[idx].seen, &baskets[idx].beat);
@@ -387,6 +385,9 @@ PNcontroller(void *dummy)
 						break;
 					}
 				}
+			}
+
+			if (pnet[i].enabled) {
 				/* a basket can enable at most one transition */
 				for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].places[j]; j++) 
 					if( claimed[pnet[i].places[j]]){
@@ -414,7 +415,6 @@ PNcontroller(void *dummy)
 			if (pnet[i].enabled ) {
 				_DEBUG_PETRINET_ mnstr_printf(PNout, "#Run transition %s \n", pnet[i].fcnname);
 
-				(void) MTIMEcurrent_timestamp(&baskets[idx].seen);
 				t = GDKusec();
 				pnet[i].cycles++;
 				// Fork MAL execution thread 
@@ -456,9 +456,9 @@ PNstartScheduler(void)
 	int s;
 	(void) s;
 
-	_DEBUG_PETRINET_ mnstr_printf(PNout, "#Start PNcontroller\n");
-	if (status== PNINIT && MT_create_thread(&pid, PNcontroller, &s, MT_THR_JOINABLE) != 0){
-		_DEBUG_PETRINET_ mnstr_printf(PNout, "#Start PNcontroller failed\n");
+	_DEBUG_PETRINET_ mnstr_printf(PNout, "#Start PNscheduler\n");
+	if (status== PNINIT && MT_create_thread(&pid, PNscheduler, &s, MT_THR_JOINABLE) != 0){
+		_DEBUG_PETRINET_ mnstr_printf(PNout, "#Start PNscheduler failed\n");
 		GDKerror( "petrinet creation failed");
 	}
 	(void) pid;
