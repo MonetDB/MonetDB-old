@@ -2158,7 +2158,8 @@ logger_cleanup_old(logger *lg, int keep_persisted_log_files)
 			lgpath = GDKfilepath(farmid, lg->dir, LOGFILE, buf);
 			if (lgpath != NULL) {
 				if (stat(lgpath, &lgstat) == 0 &&
-					!lgstat.st_mtime < -keep_persisted_log_files){
+					!(lgstat.st_mtime < -keep_persisted_log_files)){
+					/* Skip this log file, it's not old enough */
 					id = id - 1;
 					GDKfree(lgpath);
 					continue;
