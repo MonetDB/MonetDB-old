@@ -1213,17 +1213,22 @@ str ALGsubrangejoin1(ptr *dimsResL, ptr *dimsResR, const ptr *dimL, const ptr *d
 	return ALGsubrangejoin2(dimsResL, dimsResR, dimL, dimsL, dimR1, dimR2, dimsR, NULL, NULL, li, hi, estimate);
 }
 
-
-str ARRgroup(ptr *groupsRes, ptr *arrayRes, const ptr *dim, const ptr *dims, const int *l, const int *h) {
-
+str ARRgroup2(ptr *groupsRes, ptr *arrayRes, const ptr *groupsCands, const ptr *dim, const ptr *dims, const int *l, const int *h) {
 	gdk_analytic_dimension *dimension = (gdk_analytic_dimension*)*dim;
 	gdk_array *array = (gdk_array*)*dims;
+	gdk_dimension_group *dimGrp;
 
-	gdk_array_groups *groups = array2groups(array);
+	gdk_array_groups *groups = NULL;
+	if(groupsCands)
+		groups = (gdk_array_groups*)*groupsCands;
+	else
+		groups = array2groups(array);
 
 	/*update the limits for the current dimension */
-	groups->groups[dimension->dimNum]->min = *l;
-	groups->groups[dimension->dimNum]->max = *h;
+	dimGrp = groups->groups[dimension->dimNum];
+	dimGrp->min = *l;
+	dimGrp->max = *h;
+	dimGrp->elsNum = (dimGrp->max - dimGrp->min + 1)/dimGrp->step;
 
 	*groupsRes = groups;
 	*arrayRes = arrayCopy(array);
@@ -1231,20 +1236,179 @@ str ARRgroup(ptr *groupsRes, ptr *arrayRes, const ptr *dim, const ptr *dims, con
 	return MAL_SUCCEED;
 }
 
-str ARRprojectGroups(bat *res, const ptr *groups_in, const ptr *dim, const ptr *dims) {
-	(void)*res;
-	(void)*groups_in;
-	(void)*dim;
-	(void)*dims;
+str ARRgroup1(ptr *groupsRes, ptr *arrayRes, const ptr *dim, const ptr *dims, const int *l, const int *h) {
+	return ARRgroup2(groupsRes, arrayRes, NULL, dim, dims, l, h);
+}
+
+str ARRprojectGroups(bat *groupOidsRes, ptr *groupsRes, const ptr *groups_in, const ptr *dims) {
+	gdk_array_groups *groups = (gdk_array_groups*)*groups_in;
+	gdk_array *array = (gdk_array*)*dims;
+
+	BAT *resBAT = NULL;
+	oid *els = NULL;
+
+
+	gdk_dimension *dim = NULL;
+	gdk_dimension_group *dimGrp = NULL;
+
+	int j;
+	oid jumpSize = 1, repeatElement=1, repeatGroup=1, repeatGroupElement=1;
+	oid idx =0, grp=0, rE, rG;
+	unsigned int k;
+
+	/* compute the number of elements in each group */
+	unsigned short i;
+	oid groupSize = 1; 
+	oid cellsNum = 1;
+	for(i=0; i<groups->dimsNum; i++)
+		groupSize *= groups->groups[i]->elsNum;
+	for(i=0; i<array->dimsNum; i++)
+		cellsNum *= array->dims[i]->elsNum;
+	repeatGroup = cellsNum;
+	
+	if((resBAT = BATnew(TYPE_void, TYPE_oid, groupSize*cellsNum, TRANSIENT)) == NULL)
+        return createException(MAL, "arrays.projectGroups", "Problem creating BAT");
+	els = (oid*) Tloc(resBAT, BUNfirst(resBAT));
+
+	/* find the oids that belong to the same group (with the minimum oid being 0) */
+	/* initialise the oids considering only the first dimension */
+	dim = array->dims[0];
+	dimGrp = groups->groups[0];
+	repeatGroup/=array->dims[0]->elsNum;
+
+	for(rG = 0; rG <repeatGroup; rG++) { 
+		for(k=dim->min; k<=dim->max; k+=dim->step) { /*for each value of x*/
+			for(grp=0; grp<groupSize; grp+=dimGrp->elsNum) { /*the group of the cell*/
+				for(j=dimGrp->min; j<=dimGrp->max; j+=dimGrp->step, idx++) {
+					/* if it is out of the limits of the array either on the left
+					* or the right then add nill */
+					if(((j<0) & ((unsigned int)-j>k)) || ((j>0) & (k+j>dim->max)))
+						els[idx] = oid_nil;
+					else
+						els[idx] = k+j;
+				}
+			}
+		}
+	}
+
+	/* consider the rest of the dimensions */
+	for(i=1; i<groups->dimsNum; i++) {
+		/*the repeatElement is increased according to 
+ 		* the number of elements in the dimension just processed */
+		repeatElement*=dim->elsNum; 		
+		repeatGroupElement*=dimGrp->elsNum;
+		jumpSize*=dim->elsNum;
+
+		dim = array->dims[i];
+		dimGrp = groups->groups[i];
+		
+		/*the repeatGroup is increased according to 
+ 		* the number of elements in the grouped dimension to be processed */
+		repeatGroup /= dimGrp->elsNum;
+	
+		idx=0;
+		for(rG = 0; rG <repeatGroup; rG++) { 
+			for(k=dim->min; k<=dim->max; k+=dim->step) { /*for each value of x*/
+				for(grp=0; grp<repeatElement*groupSize; grp+=repeatGroupElement*dimGrp->elsNum) { /*the group of the cell*/
+					for(j=dimGrp->min; j<=dimGrp->max; j+=dimGrp->step) {
+						/* if it is out of the limits of the array either on the left
+						* or the right then add nill */
+						if(((j<0) & ((unsigned int)-j>k)) || ((j>0) & (k+j>dim->max)))
+							for(rE=0; rE<repeatGroupElement; rE++, idx++)
+								els[idx] = oid_nil;
+						else
+							for(rE=0; rE<repeatGroupElement; rE++, idx++)
+								if(els[idx] != oid_nil)
+									els[idx] += jumpSize*(k+j);
+					}
+				}
+			}
+		}
+	}	
+
+	BATsetcount(resBAT, groupSize*cellsNum);
+    resBAT->tsorted = 1;
+    resBAT->trevsorted = resBAT->batCount <= 1;
+    resBAT->tkey = 1;
+/*    b->tdense = (b->batCount <= 1 || b->batCount == b->batCount);
+    if (b->batCount == 1 || b->batCount == b->batCount)
+        b->tseqbase = b->hseqbase;
+*/  
+	resBAT->tseqbase = 0;
+  	resBAT->hsorted = 1;
+    resBAT->hdense = 1;
+    resBAT->hseqbase = 0;
+    resBAT->hkey = 1;
+    resBAT->hrevsorted = resBAT->batCount <= 1;
+
+	BBPkeepref(*groupOidsRes = resBAT->batCacheid);
+	*groupsRes = groups;
+
+	GDKfree(array);
 
 	return MAL_SUCCEED;
 }
 
-str ARRsubsum(bat *res, const bat *vals, const ptr* groups_in, const ptr *array_in) {
-	(void)*res;
-	(void)*vals;
-	(void)*groups_in;
-	(void)*array_in;
+str ARRsubsum(bat *res, const bat *vals, const bat* groupsOids, const ptr* groupsRanges) {
+
+	BAT *valsBAT, *groupsBAT, *resBAT;
+	oid valsNum, groupSize;
+	int *values; /* TODO: Should change this to consider all types */
+	oid *grpVals;
+	hge *resVals; /*TODO: Change this to consider all possible cases */
+
+	oid i, j;
+	unsigned short k;
+
+	gdk_array_groups *groups = (gdk_array_groups*)*groupsRanges;
+	groupSize = 1;
+	for(k=0; k<groups->dimsNum; k++)
+		groupSize *= groups->groups[k]->elsNum;
+
+	if ((valsBAT = BATdescriptor(*vals)) == NULL) {
+       	throw(MAL, "aggr.subsum", RUNTIME_OBJECT_MISSING);
+    }
+
+	if ((groupsBAT = BATdescriptor(*groupsOids)) == NULL) {
+		BBPunfix(valsBAT->batCacheid);
+       	throw(MAL, "aggr.subsum", RUNTIME_OBJECT_MISSING);
+    }
+
+	valsNum = BATcount(valsBAT);
+
+	values = (int*)Tloc(valsBAT, BUNfirst(valsBAT));
+	grpVals = (oid*)Tloc(groupsBAT, BUNfirst(groupsBAT));
+
+	if((resBAT = BATnew(TYPE_void, TYPE_hge, valsNum, TRANSIENT)) == NULL)
+        return createException(MAL, "aggr.subsum", "Problem creating BAT");
+	resVals = (hge*) Tloc(resBAT, BUNfirst(resBAT));
+
+	for(i=0; i<valsNum; i++) { /* for each cell */
+		resVals[i] = 0;
+		for(j=0; j<groupSize; j++) { /* consider all cells in its group */
+			if(grpVals[j+i*groupSize] != oid_nil) { /* if the oid is valid (i.e. inside the array)*/
+				resVals[i] += values[grpVals[j+i*groupSize]];
+			}
+		}		
+	}	
+
+	BATsetcount(resBAT, valsNum);
+    resBAT->tsorted = 0;
+    resBAT->trevsorted = resBAT->batCount <= 1;
+    resBAT->tkey = 0;
+	resBAT->tseqbase = 0;
+  	resBAT->hsorted = 1;
+    resBAT->hdense = 1;
+    resBAT->hseqbase = 0;
+    resBAT->hkey = 1;
+    resBAT->hrevsorted = resBAT->batCount <= 1;
+
+	BBPkeepref(*res = resBAT->batCacheid);
+
+	BBPunfix(valsBAT->batCacheid);
+	BBPunfix(groupsBAT->batCacheid);
+
+	GDKfree(groups);
 
 	return MAL_SUCCEED;
 }

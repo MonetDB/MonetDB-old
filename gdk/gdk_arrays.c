@@ -320,7 +320,7 @@ BAT *projectCells(gdk_array* dimCands, gdk_array *array) {
 		return NULL;
 	resOIDs = (oid*)Tloc(resBAT, BUNfirst(resBAT));
 
-	/* the oids if all but the first dimension are 0 */
+	/* the oids in all but the first dimension are 0 */
 	dim = dimCands->dims[0];
 	if(dim->idxs) {
 		for(i=0; i<dim->elsNum ; i++, j++)

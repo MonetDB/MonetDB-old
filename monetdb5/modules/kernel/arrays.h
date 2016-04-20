@@ -71,9 +71,10 @@ algebra_export str ALGouterjoin(bat *res, const bat *l, const bat *r);
 algebra_export str ALGarrayCount(wrd *res, const ptr *array);
 //algebra_export str ALGproject(bat *result, const ptr* candDims, const bat* candBAT);
 
-algebra_export str ARRsubsum(bat *res, const bat *vals, const ptr* groups, const ptr *array); 
+algebra_export str ARRsubsum(bat *res, const bat *vals, const bat* diffs, const ptr* groups); 
 
-algebra_export str ARRgroup(ptr *groupsRes, ptr *arrayRes, const ptr *dim, const ptr *dims, const int *l, const int *h);
-algebra_export str ARRprojectGroups(bat *res, const ptr *groups, const ptr *dim, const ptr *dims);
+algebra_export str ARRgroup1(ptr *groupsRes, ptr *arrayRes, const ptr *dim, const ptr *dims, const int *l, const int *h);
+algebra_export str ARRgroup2(ptr *groupsRes, ptr *arrayRes, const ptr *groupsCands, const ptr *dim, const ptr *dims, const int *l, const int *h);
+algebra_export str ARRprojectGroups(bat *resOids, ptr* groupsRes, const ptr *groups, const ptr *dims);
 
 #endif /* _ARRAYS_H */
