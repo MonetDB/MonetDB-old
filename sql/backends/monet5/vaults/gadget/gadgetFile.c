@@ -281,13 +281,17 @@ headerInit_(Header* h, char* bytes)
         h->headerOk = 1;
 }
 
+
+// The compiler complains if headerlength is defined as a variable
+#define HEADERLENGTH 264
+
 void
 headerInit(Header *h, FILE *blob)
 {
     long index = 0;
-    int npart, headerlength = 264;
-    char headerbytes[headerlength];
-    long retval = fread(headerbytes, headerlength, 1, blob);
+    int npart;
+    char headerbytes[HEADERLENGTH];
+    long retval = fread(headerbytes, HEADERLENGTH, 1, blob);
     int binbytes[2];
     (void) retval;
     assert(retval);
