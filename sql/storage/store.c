@@ -3642,7 +3642,10 @@ sql_trans_htm_garbagecollect(int ts)
 int
 sql_trans_get_htm_garbagecollect(int *ts)
 {
-	*ts = keep_persisted_log_files;
+	if (keep_persisted_log_files < 0)
+		*ts = -keep_persisted_log_files;
+	else
+		*ts = 0;
 	return SQL_OK;
 }
 
