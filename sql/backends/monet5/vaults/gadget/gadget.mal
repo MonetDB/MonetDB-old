@@ -1,0 +1,99 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.  If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright 2008-2015 MonetDB B.V.
+
+module gadget;
+
+pattern listdirall(dirname:str):void
+address gadgetListDirAll
+comment "Attach all GADGET files in the directory";
+
+pattern listdir(dirname:str):void
+address gadgetListDir
+comment "Attach all GADGET files in the directory";
+
+pattern listdirpattern(dirname:str, pattern:str):void
+address gadgetListDirPat
+comment "Attach all GADGET file in the directory, giving a pattern";
+
+pattern attach(fname:str):void
+address gadgetAttach
+comment "Opens a GADGET file, loads metadata into the catalog and creates a table";
+
+pattern attachall(tname:str,fname:str...):void
+address gadgetAttachAll
+comment "Opens all GADGET files, loads their metadata into the catalog and creates a single table, name tname, for all of them";
+
+pattern load(tablename:str):void
+address gadgetLoadTable
+comment "Load a GADGET table from an attached file";
+
+pattern loadall(tablename:str):void
+address gadgetLoadTableAll
+comment "Load a GADGET table from an attached file";
+
+pattern import(tablename:str):void
+address gadgetImportTable
+comment "Import a GADGET table from an attached file";
+
+pattern link(tablename:str):void
+address gadgetLinkTable
+comment "Link with GADGET table from an attached file using MMAP";
+
+pattern export(tablename :str): void
+address gadgetExportTable
+comment "Export a table to a GADGET file";
+
+pattern checktable(mvc:int, tablename :str):int
+address gadgetCheckTable
+comment "Check if table was loaded";
+
+pattern analyzetable(mvc:int, status:int, tablename :str):int
+address gadgetAnalyzeTable
+comment "Analyze table";
+
+pattern bind(tid:int, mvc:int, schema:str, table:str, column:str, access:int ):bat[:any_1]
+address mvc_gadget_bind_wrap
+comment "Bind the 'schema.table.column' BAT with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern bind(tid:int, mvc:int, schema:str, table:str, column:str, access:int )(uid:bat[:oid],uval:bat[:any_1])
+address mvc_gadget_bind_wrap
+comment "Bind the 'schema.table.column' BAT with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern bind(tid:int, mvc:int, schema:str, table:str, column:str, access:int, part_nr:int, nr_parts:int ):bat[:any_1]
+address mvc_gadget_bind_wrap
+comment "Bind the 'schema.table.column' BAT partition with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern bind(tid:int, mvc:int, schema:str, table:str, column:str, access:int, part_nr:int, nr_parts:int )(uid:bat[:oid],uval:bat[:any_1])
+address mvc_gadget_bind_wrap
+comment "Bind the 'schema.table.column' BAT with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern tid(id:int, mvc:int, sname:str, tname:str):bat[:oid] 
+address gadgetTid
+comment "Return the tables tid column.";
+
+pattern tid(id:int, mvc:int, sname:str, tname:str, part_nr:int, nr_parts:int ):bat[:oid] 
+address gadgetTid
+comment "Return the tables tid column.";
+
+pattern phkeyconvert(x:flt, y:flt, z:flt, baseSize:flt, nbits:int):lng
+address gadgetPHkeyConvert
+comment "Convert a 3D coordinate to a peano hilbert key"
+
+pattern phkeyinvert(phkey:lng, baseSize:flt, nbits:int)(x:bat[:flt], y:bat[:flt], z:bat[:flt], cSize:bat[:flt])
+address gadgetPHkeyInvert
+comment "Invert a peano hilbert key to left bottom 3D coordinate of the cell and its length"

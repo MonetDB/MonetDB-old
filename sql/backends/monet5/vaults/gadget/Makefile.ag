@@ -1,0 +1,51 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.  If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+
+INCLUDES = ../ \
+       ../../ \
+       ../../../../include \
+	   ../../../../common \
+	   ../../../../storage \
+	   ../../../../server \
+	   ../../../../../monetdb5/modules/atoms \
+	   ../../../../../monetdb5/modules/kernel \
+	   ../../../../../monetdb5/mal \
+	   ../../../../../monetdb5/modules/mal \
+	   ../../../../../monetdb5/optimizer \
+	   ../../../../../monetdb5/scheduler \
+	   ../../../../../clients/mapilib \
+	   ../../../../../common/options \
+	   ../../../../../common/stream \
+	   ../../../../../common/utils \
+	   ../../../../../gdk \
+	   $(READLINE_INCS)
+
+lib__gadget = {
+	MODULE
+	DIR = libdir/monetdb5
+	SOURCES = gadgetFile.c peano.c gadget.c
+	LIBS = ../../../../../monetdb5/tools/libmonetdb5
+}
+
+headers_gadgetmal = {
+	HEADERS = mal
+	DIR = libdir/monetdb5
+	SOURCES = gadget.mal
+}
+
+headers_gadgetsql = {
+	HEADERS = sql
+	DIR = libdir/monetdb5/createdb
+	SOURCES = 82_gadget.sql
+}
+
+headers_gadgetautoload = {
+	HEADERS = mal
+	DIR = libdir/monetdb5/autoload
+	SOURCES = 82_gadget.mal
+}
+
+EXTRA_DIST = 82_gadget.mal  gadget.mal  82_gadget.sql gadgetFile.h peano.h gadget.h
