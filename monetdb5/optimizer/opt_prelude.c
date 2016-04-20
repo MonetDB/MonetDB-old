@@ -228,6 +228,9 @@ str ilikesubselectRef;
 str userRef;
 str vectorRef;
 str zero_or_oneRef;
+str gadgetRef;
+str checktableRef;
+str analyzetableRef;
 
 void optimizerInit(void)
 {
@@ -444,6 +447,9 @@ void optimizerInit(void)
 	vectorRef = putName("vector",6);
 	zero_or_oneRef = putName("zero_or_one",11);
 	userRef = putName("user",4);
+  gadgetRef = putName("gadget",6);
+  checktableRef = putName("checktable",10);
+  analyzetableRef = putName("analyzetable",12);
 
 	/*
 	 * Set the optimizer debugging flag

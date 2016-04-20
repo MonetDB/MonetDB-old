@@ -121,6 +121,8 @@ static struct PIPELINES {
 	 "optimizer.profiler();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
+
+
 /* The no_mitosis pipe line is (and should be kept!) identical to the
  * default pipeline, except that optimizer mitosis is omitted.  It is
  * used mainly to make some tests work deterministically, and to check
@@ -223,6 +225,41 @@ static struct PIPELINES {
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
  */
+/*The gadget pipe line is (and should be kept!) identical to the
+ * default pipeline, except that optimizer gadget is added.
+ *
+ * NOTE:
+ * If you change the gadget pipe, please also update the man page
+ * (see tools/mserver/mserver5.1) accordingly!
+ */
+
+	{"gadget_pipe",
+	 "optimizer.inline();"
+	 "optimizer.candidates();"
+	 "optimizer.remap();"
+	 "optimizer.costModel();"
+	 "optimizer.coercions();"
+	 "optimizer.evaluate();"
+	 "optimizer.aliases();"
+	 "optimizer.pushselect();"
+	 "optimizer.mitosis();"
+	 "optimizer.mergetable();"
+	 "optimizer.deadcode();"
+	 "optimizer.aliases();"
+	 "optimizer.constants();"
+	 "optimizer.commonTerms();"
+	 "optimizer.reorder();"
+	 "optimizer.deadcode();"
+	 "optimizer.reduce();"
+	 "optimizer.matpack();"
+	 "optimizer.dataflow();"
+	 "optimizer.querylog();"
+	 "optimizer.multiplex();"
+	 "optimizer.generator();"
+	 "optimizer.profiler();"
+	 "optimizer.gadget();"
+	 "optimizer.garbageCollector();",
+	 "stable", NULL, NULL, 1},
 /* sentinel */
 	{NULL, NULL, NULL, NULL, NULL, 0}
 };

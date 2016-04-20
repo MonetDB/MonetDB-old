@@ -114,6 +114,14 @@ pattern optimizer.factorize(mod:str, fcn:str):str
 address OPTwrapper
 comment "Turn function into a factory";
 
+#opt_gadget.mal
+
+pattern optimizer.gadget():str
+address OPTwrapper;
+pattern optimizer.gadget(mod:str, fcn:str):str
+address OPTwrapper
+comment "Lazy load of gadget files"
+
 #opt_garbagecollector.mal
 
 pattern optimizer.garbageCollector():str

@@ -140,6 +140,7 @@ struct OPTcatalog {
 {"deadcode",	0,	0,	0,	DEBUG_OPT_DEADCODE},
 {"evaluate",	0,	0,	0,	DEBUG_OPT_EVALUATE},
 {"factorize",	0,	0,	0,	DEBUG_OPT_FACTORIZE},
+{"gadget",		0,	0,	0,	DEBUG_OPT_GADGET},
 {"garbage",		0,	0,	0,	DEBUG_OPT_GARBAGE},
 {"generator",	0,	0,	0,	DEBUG_OPT_GENERATOR},
 {"history",		0,	0,	0,	DEBUG_OPT_HISTORY},
