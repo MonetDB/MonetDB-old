@@ -15,8 +15,8 @@ By default a column is not nullable, but the pair :code:`"nullable": true` can b
 Text Types
 ==========
 
-Text, String, Character Large Object
-------------------------------------
+Text, String, CLOB, Character Large Object
+------------------------------------------
 
 MonetDB's string types with unbounded length. The insertion must be provided as a JSON string.
 
@@ -30,15 +30,37 @@ UUID
 
 An *Universally Unique Identifier* according to `RFC 4122 <https://www.ietf.org/rfc/rfc4122.txt>`_. The insertion as a JSON string is validated against the regular expression :code:`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`.
 
-Inet
-----
+MAC
+---
 
-An *IPv4* address. The insertion as a JSON string is validated against the regular expression :code:`^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$` with further semantic validation.
+A *Media Access Control Address* identifier. The insertion as a JSON string is validated against the regular expression :code:`^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$`. As MonetDB doesn't have a MAC equivalent data type yet, the data is stored as :code:`char(17)`.
 
 URL
 ---
 
 An *Uniform Resource Locator* as a specific type of an URI is validated according to `RFC 3987 <https://www.ietf.org/rfc/rfc3987.txt>`_. The insertion must also be a JSON String.
+
+Inet
+----
+
+An *IPv4* address. The insertion as a JSON string is validated against the regular expression :code:`^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$` with further semantic validation.
+
+InetSix
+-------
+
+An *IPv6* address. The value must be a JSON String. As MonetDB doesn't have an Ipv6 equivalent data type yet, the data is stored as :code:`char(45)`.
+
+.. warning:: Currently this validation is made with Python *socket.inet_pton()* function that is currently available only in some UNIX systems. `Check the documentation for further details <https://docs.python.org/2.7/library/socket.html#socket.inet_pton>`_.
+
+Regex
+-----
+
+A string allways validated with a provided regular expression. The JSON must contain a :code:`regex` key with the regular expression. As MonetDB doesn't have a Regex equivalent data type yet, the data is stored as :code:`string`.
+
+Enum
+----
+
+A SQL :code:`CHAR` type validated against a pre-defined array. During creation, the :code:`values` key must be present with a JSON array of Strings containing the values of the enum (ex: :code:`"values": ["red", "blue", "green"]`). The default value if provided must be one of the values.
 
 Number Types
 ============
@@ -90,22 +112,14 @@ As in numbers, a minimum and maximum values can be added for validation. The ins
 Date
 ----
 
-A regular date in the Gregorian Calendar, expressed in format "YYYY-MM-DD".
+A regular date in the Gregorian Calendar, expressed in format :code:`YYYY-MM-DD`.
 
 Time
 ----
 
-The time of day expressed in format "HH:MM:SS.sss".
+The time of day expressed in format :code:`HH:MM:SS.sss`. If the pair :code:`"timezone": false` is provided, the timezone will be truncated.
 
 Timestamp
 ---------
 
-A timestamp according to `RFC 3339 <https://www.ietf.org/rfc/rfc3339.txt>`_ with timezone. The regular expression is the standard `ISO 8601 with timezone format <https://en.wikipedia.org/wiki/ISO_8601>`_.
-
-Enum Type
-=========
-
-Enum
-----
-
-A SQL :code:`CHAR` type validated against a pre-defined array. During creation, the :code:`values` key must be present with a JSON array of Strings containing the values of the enum (ex: :code:`"values": ["red", "blue", "green"]`). The default value if provided must be one of the values.
+A timestamp according to `RFC 3339 <https://www.ietf.org/rfc/rfc3339.txt>`_ with timezone. The regular expression is the standard `ISO 8601 with timezone format <https://en.wikipedia.org/wiki/ISO_8601>`_. If the pair :code:`"timezone": false` is provided, the timezone will be truncated.

@@ -10,17 +10,23 @@ class ColumnsValidationException(Exception):
         self.message = error_messages  # dictionary of name ->  error message
 
 
-SWITCHER = {('char', 'varchar', 'character varying', 'text', 'string', 'clob', 'character large object',
-             'inet', 'url', 'uuid'): 'TextType',
+SWITCHER = {('text', 'string', 'clob', 'character large object'): 'TextType',
+            ('uuid'): 'UUIDType',
+            ('mac'): 'MACType',
+            ('url'): 'URLType',
+            ('inet'): 'INet',
+            ('inet6'): 'INetSix',
+            ('regex'): 'RegexType',
+            ('char', 'character', 'varchar', 'character varying'): 'LimitedTextType',
             ('enum'): 'EnumType',
+            ('boolean'): 'BooleanType',
             ('tinyint', 'smallint', 'int', 'integer', 'bigint'): 'SmallIntegerType',
             ('hugeint'): 'HugeIntegerType',
             ('real', 'float', 'double'): 'FloatType',
             ('decimal', 'numeric'): 'DecimalType',
             ('date'): 'DateType',
             ('time'): 'TimeType',
-            ('timestamp'): 'TimestampType',
-            ('boolean'): 'BooleanType'}
+            ('timestamp'): 'TimestampType'}
 
 
 def validate_schema_and_create_stream(schema, created=False):

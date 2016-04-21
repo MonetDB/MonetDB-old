@@ -35,6 +35,70 @@ STREAM_SCHEMA = {
                 "anyOf": [{
                     "properties": {
                         "name": {"type": "string"},
+                        "type": {"type": "string", "enum": ["text", "string", "character large object"]},
+                        "nullable": {"type": "boolean"},
+                        "default": {"type": "string"}
+                    },
+                    "required": ["name", "type"],
+                    "additionalProperties": False
+                }, {
+                    "properties": {
+                        "name": {"type": "string"},
+                        "type": {"type": "string", "enum": ["uuid"]},
+                        "nullable": {"type": "boolean"},
+                        "default": {"type": "string", "pattern": UUID_REGEX}
+                    },
+                    "required": ["name", "type"],
+                    "additionalProperties": False
+                }, {
+                    "properties": {
+                        "name": {"type": "string"},
+                        "type": {"type": "string", "enum": ["mac"]},
+                        "nullable": {"type": "boolean"},
+                        "default": {"type": "string", "pattern": MAC_ADDRESS_REGEX}
+                    },
+                    "required": ["name", "type"],
+                    "additionalProperties": False
+                }, {
+                    "properties": {
+                        "name": {"type": "string"},
+                        "type": {"type": "string", "enum": ["url"]},
+                        "nullable": {"type": "boolean"},
+                        "default": {"type": "string", "format": "uri"}
+                    },
+                    "required": ["name", "type"],
+                    "additionalProperties": False
+                }, {
+                    "properties": {
+                        "name": {"type": "string"},
+                        "type": {"type": "string", "enum": ["inet"]},
+                        "nullable": {"type": "boolean"},
+                        "default": {"type": "string", "format": "ipv4"}
+                    },
+                    "required": ["name", "type"],
+                    "additionalProperties": False
+                }, {
+                    "properties": {
+                        "name": {"type": "string"},
+                        "type": {"type": "string", "enum": ["inet6"]},
+                        "nullable": {"type": "boolean"},
+                        "default": {"type": "string", "format": "ipv6"}
+                    },
+                    "required": ["name", "type"],
+                    "additionalProperties": False
+                }, {
+                    "properties": {
+                        "name": {"type": "string"},
+                        "type": {"type": "string", "enum": ["regex"]},
+                        "nullable": {"type": "boolean"},
+                        "regex": {"type": "string"},
+                        "default": {"type": "string"}
+                    },
+                    "required": ["name", "type", "regex"],
+                    "additionalProperties": False
+                }, {
+                    "properties": {
+                        "name": {"type": "string"},
                         "type": {"type": "string", "enum": ["char", "character", "varchar", "character varying"]},
                         "nullable": {"type": "boolean"},
                         "limit": {"type": "integer", "minimum": 1},
@@ -45,9 +109,19 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["text", "string", "character large object"]},
+                        "type": {"type": "string", "enum": ["enum"]},
                         "nullable": {"type": "boolean"},
+                        "values": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"type": "string"}},
                         "default": {"type": "string"}
+                    },
+                    "required": ["name", "type", "values"],
+                    "additionalProperties": False
+                }, {
+                    "properties": {
+                        "name": {"type": "string"},
+                        "type": {"type": "string", "enum": ["boolean"]},
+                        "nullable": {"type": "boolean"},
+                        "default": {"type": "boolean"}
                     },
                     "required": ["name", "type"],
                     "additionalProperties": False
@@ -90,15 +164,6 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["boolean"]},
-                        "nullable": {"type": "boolean"},
-                        "default": {"type": "boolean"}
-                    },
-                    "required": ["name", "type"],
-                    "additionalProperties": False
-                }, {
-                    "properties": {
-                        "name": {"type": "string"},
                         "type": {"type": "string", "enum": ["date"]},
                         "nullable": {"type": "boolean"},
                         "default": {"type": "string", "format": "date"},
@@ -114,7 +179,8 @@ STREAM_SCHEMA = {
                         "nullable": {"type": "boolean"},
                         "default": {"type": "string", "pattern": TIME_REGEX},
                         "minimum": {"type": "string", "pattern": TIME_REGEX},
-                        "maximum": {"type": "string", "pattern": TIME_REGEX}
+                        "maximum": {"type": "string", "pattern": TIME_REGEX},
+                        "timezone": {"type": "boolean"}
                     },
                     "required": ["name", "type"],
                     "additionalProperties": False
@@ -125,46 +191,10 @@ STREAM_SCHEMA = {
                         "nullable": {"type": "boolean"},
                         "default": {"type": "string", "format": "date-time"},
                         "minimum": {"type": "string", "format": "date-time"},
-                        "maximum": {"type": "string", "format": "date-time"}
+                        "maximum": {"type": "string", "format": "date-time"},
+                        "timezone": {"type": "boolean"}
                     },
                     "required": ["name", "type"],
-                    "additionalProperties": False
-                }, {
-                    "properties": {
-                        "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["uuid"]},
-                        "nullable": {"type": "boolean"},
-                        "default": {"type": "string", "pattern": UUID_REGEX}
-                    },
-                    "required": ["name", "type"],
-                    "additionalProperties": False
-                }, {
-                    "properties": {
-                        "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["inet"]},
-                        "nullable": {"type": "boolean"},
-                        "default": {"type": "string", "format": "ipv4"}
-                    },
-                    "required": ["name", "type"],
-                    "additionalProperties": False
-                }, {
-                    "properties": {
-                        "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["url"]},
-                        "nullable": {"type": "boolean"},
-                        "default": {"type": "string", "format": "uri"}
-                    },
-                    "required": ["name", "type"],
-                    "additionalProperties": False
-                }, {
-                    "properties": {
-                        "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["enum"]},
-                        "nullable": {"type": "boolean"},
-                        "values": {"type": "array", "minItems": 1, "uniqueItems": False, "items": {"type": "string"}},
-                        "default": {"type": "string"}
-                    },
-                    "required": ["name", "type", "values"],
                     "additionalProperties": False
                 }]
             }

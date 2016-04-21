@@ -1,13 +1,15 @@
+import copy
 import datetime
 import dateutil
 import itertools
-import struct
-import copy
 import math
+import re
+import struct
+
 
 from abc import ABCMeta, abstractmethod
 from dateutil import parser
-from jsonschemas import UUID_REGEX
+from jsonschemas import UUID_REGEX, MAC_ADDRESS_REGEX, TIME_REGEX
 
 # Later check the byte order https://docs.python.org/2/library/struct.html#byte-order-size-and-alignment
 # Also check the consequences of aligment on packing HUGEINTs!
@@ -59,9 +61,11 @@ class StreamDataType(object):
     def get_default_value(self):  # get the default value representation in the data type
         return self._default_value
 
-    @abstractmethod
     def add_json_schema_entry(self, schema):  # add the entry for the stream's corresponding json schema
-        pass  # must be done after setting the default value!!!
+        dic = {}  # must be done after setting the default value!!!
+        if hasattr(self, '_default_value'):
+            dic['default'] = self._default_value
+        schema[self._column_name] = dic
 
     def prepare_parameters(self):  # prepare arguments for the binary conversion
         return {}
@@ -86,7 +90,6 @@ class StreamDataType(object):
 
         if errors:
             raise DataValidationException(errors=errors)
-
         return self.pack_parsed_values(extracted_values, counter, parameters)
 
     def to_json_representation(self):  # get a json representation of the data type while checking the stream's info
@@ -95,30 +98,35 @@ class StreamDataType(object):
             json_data['default'] = self._default_value
         return json_data
 
-    @abstractmethod
-    def get_sql_params(self):  # get other possible parameters such as if nullable, default value, maximum and minimum
-        return []
+    def process_sql_parameters(self, array):  # get other possible parameters such as a limit, minimum and maximum
+        pass
 
     def create_stream_sql(self):  # get column creation statement on SQL
-        array = [self._column_name, " "]
-        array.extend(self.get_sql_params())
+        array = [self._column_name, " ", self._data_type]
+        self.process_sql_parameters(array)  # add extra parameters to the SQL statement
+
+        if self._default_value is not None:
+            array.extend([" DEFAULT '", str(self._default_value), "'"])
+        if not self._is_nullable:
+            array.append(" NOT NULL")
         return ''.join(array)
 
 
-class BaseTextType(StreamDataType):
-    __metaclass__ = ABCMeta
+class TextType(StreamDataType):
+    """Covers: TEXT, STRING, CLOB and CHARACTER LARGE OBJECT"""
 
     def __init__(self, **kwargs):
-        super(BaseTextType, self).__init__(**kwargs)
+        super(TextType, self).__init__(**kwargs)
 
     def get_nullable_constant(self):
         return NIL_STRING
 
     def set_default_value(self, default_value):
-        self._default_value = None
+        self._default_value = default_value
 
     def add_json_schema_entry(self, schema):
-        pass
+        super(TextType, self).add_json_schema_entry(schema)
+        schema[self._column_name]['type'] = 'string'
 
     def prepare_parameters(self):
         return {'lengths_sum': 0}
@@ -132,78 +140,156 @@ class BaseTextType(StreamDataType):
         string_pack = "".join(extracted_values)
         return struct.pack(ALIGNMENT + str(parameters['lengths_sum']) + 's', string_pack)
 
-    def get_sql_params(self):
-        return []
+
+class UUIDType(TextType):
+    """Covers: UUID"""
+
+    def __init__(self, **kwargs):
+        super(UUIDType, self).__init__(**kwargs)
+
+    def add_json_schema_entry(self, schema):
+        super(UUIDType, self).add_json_schema_entry(schema)
+        schema[self._column_name]['pattern'] = UUID_REGEX
+
+    def prepare_parameters(self):
+        return {}
+
+    def process_next_value(self, entry, counter, parameters, errors):
+        return str(entry) + '\n'
+
+    def pack_parsed_values(self, extracted_values, counter, parameters):
+        string_pack = "".join(extracted_values)
+        return struct.pack(ALIGNMENT + str(37 * counter) + 's', string_pack)
 
 
-class TextType(BaseTextType):
-    """Covers: CHAR, VARCHAR, CHARACTER VARYING, TEXT, STRING, CLOB and CHARACTER LARGE OBJECT
-        Also Inet, URL and UUID"""
+class MACType(TextType):
+    """Covers: MAC addresses"""
+
+    def __init__(self, **kwargs):
+        super(MACType, self).__init__(**kwargs)
+
+    def add_json_schema_entry(self, schema):
+        super(MACType, self).add_json_schema_entry(schema)
+        schema[self._column_name]['pattern'] = MAC_ADDRESS_REGEX
+
+    def prepare_parameters(self):
+        return {}
+
+    def process_next_value(self, entry, counter, parameters, errors):
+        return str(entry) + '\n'
+
+    def pack_parsed_values(self, extracted_values, counter, parameters):
+        string_pack = "".join(extracted_values)
+        return struct.pack(ALIGNMENT + str(18 * counter) + 's', string_pack)
+
+    def process_sql_parameters(self, array):
+        array[2] = 'char(17)'  # A MAC Address has 17 characters
+
+
+class URLType(TextType):
+    """Covers: URL"""
+
+    def __init__(self, **kwargs):
+        super(URLType, self).__init__(**kwargs)
+
+    def add_json_schema_entry(self, schema):
+        super(URLType, self).add_json_schema_entry(schema)
+        schema[self._column_name]['format'] = 'uri'
+
+
+class INet(TextType):
+    """Covers: Inet"""
+
+    def __init__(self, **kwargs):
+        super(INet, self).__init__(**kwargs)
+
+    def add_json_schema_entry(self, schema):
+        super(INet, self).add_json_schema_entry(schema)
+        schema[self._column_name]['format'] = 'ipv4'
+
+
+class INetSix(TextType):
+    """Covers: Inet6"""
+
+    def __init__(self, **kwargs):
+        super(INetSix, self).__init__(**kwargs)
+
+    def add_json_schema_entry(self, schema):
+        super(INetSix, self).add_json_schema_entry(schema)
+        schema[self._column_name]['format'] = 'ipv6'
+
+    # http://stackoverflow.com/questions/166132/maximum-length-of-the-textual-representation-of-an-ipv6-address
+    def process_sql_parameters(self, array):
+        array[2] = 'char(45)'
+
+
+class RegexType(TextType):
+    """Covers: Regex"""
 
     def __init__(self, **kwargs):
         super(TextType, self).__init__(**kwargs)
-        if 'limit' in kwargs:
-            self._limit = int(kwargs['limit'])
+        self._regex = re.compile(kwargs['regex'])
+
+    def set_default_value(self, default_value):
+        if self._regex.match(default_value) is None:
+            raise Exception('The default value does not match with the regular expression!')
+        self._default_value = default_value
 
     def add_json_schema_entry(self, schema):
-        dic = {"type": "string"}
+        super(RegexType, self).add_json_schema_entry(schema)
+        schema[self._column_name]['pattern'] = self._regex
 
-        if hasattr(self, '_limit'):  # limit is not used in uri, inet or uuid
-            dic['maxLength'] = self._limit
-        elif self._data_type == 'url':
-            dic['format'] = 'uri'
-        elif self._data_type == 'inet':
-            dic['format'] = 'ipv4'
-        elif self._data_type == 'uuid':
-            dic['pattern'] = UUID_REGEX
+    def to_json_representation(self):
+        json_value = super(RegexType, self).to_json_representation()
+        json_value['regex'] = self._regex
+        return json_value
 
-        if hasattr(self, '_default_value'):
-            dic['default'] = self._default_value
+    def process_sql_parameters(self, array):
+        array[2] = 'string'  # Store as string
 
-        schema[self._column_name] = dic
+
+class LimitedTextType(TextType):
+    """Covers: CHAR, CHARACTER, VARCHAR, CHARACTER VARYING"""
+
+    def __init__(self, **kwargs):
+        super(LimitedTextType, self).__init__(**kwargs)
+        self._limit = int(kwargs['limit'])
+
+    def add_json_schema_entry(self, schema):
+        super(LimitedTextType, self).add_json_schema_entry(schema)
+        schema[self._column_name]['maxLength'] = self._limit
 
     def set_default_value(self, default_value):
         str_value = str(default_value)
         parsed_len = len(str_value)
-        if hasattr(self, '_limit') and parsed_len > self._limit:
+        if parsed_len > self._limit:
             raise Exception('The default string is higher than the limit: %d > %d' % (parsed_len, self._limit))
         self._default_value = str_value
 
     def to_json_representation(self):
-        json_value = super(TextType, self).to_json_representation()
-        if hasattr(self, '_limit'):
-            json_value['limit'] = self._limit
+        json_value = super(LimitedTextType, self).to_json_representation()
+        json_value['limit'] = self._limit
         return json_value
 
-    def get_sql_params(self):  # TODO fiz inet!!
-        array = [self._data_type]
-        if hasattr(self, '_limit'):
-            array.extend(["(", str(self._limit), ")"])
-        if self._default_value is not None:
-            array.extend([" DEFAULT '", str(self._default_value), "'"])
-        if not self._is_nullable:
-            array.extend([" NOT NULL"])
-        return array
+    def process_sql_parameters(self, array):
+        array[2] += ''.join(["(", str(self._limit), ")"])  # add the limit restriction after the type declaration
 
 
-class EnumType(BaseTextType):
-    """Covers: enums of strings"""
+class EnumType(TextType):
+    """Covers: Enum of strings"""
 
     def __init__(self, **kwargs):
         super(EnumType, self).__init__(**kwargs)
         self._values = kwargs['values']
-        self._max_length = max([len(x) for x in self._values])  # for sql create query
 
     def add_json_schema_entry(self, schema):
-        dic = {"type": "string", "enum": self._values}
-        if hasattr(self, '_default_value'):
-            dic['default'] = self._default_value
-        schema[self._column_name] = dic
+        super(EnumType, self).add_json_schema_entry(schema)
+        schema[self._column_name]['enum'] = self._values
 
     def set_default_value(self, default_value):
         str_value = str(default_value)
         if str_value not in self._values:
-            raise Exception('The default value is not in the enumeration!')
+            raise Exception('The default value is not present in the enumeration!')
         self._default_value = str_value
 
     def to_json_representation(self):
@@ -211,16 +297,16 @@ class EnumType(BaseTextType):
         json_value['values'] = self._values
         return json_value
 
-    def get_sql_params(self):
-        array = ["char(", str(self._max_length), ")"]
+    def create_stream_sql(self):
+        max_length = max([len(y) for y in self._values])
+        array = [self._column_name, " char(", str(max_length), ")"]
         if self._default_value is not None:
             array.extend([" DEFAULT '", str(self._default_value), "'"])
         if not self._is_nullable:
-            array.extend([" NOT NULL"])
-        array.extend([" CHECK (", self._column_name, " IN ("])
-        array.extend(','.join(map(lambda x: "\'" + x + "\'", self._values)))
-        array.extend(["))"])
-        return array
+            array.append(" NOT NULL")
+        array.extend([" CHECK (", self._column_name, " IN (", ','.join(map(lambda x: "\'" + x + "\'", self._values)),
+                      "))"])
+        return ''.join(array)
 
 
 class BooleanType(StreamDataType):
@@ -230,10 +316,8 @@ class BooleanType(StreamDataType):
         super(BooleanType, self).__init__(**kwargs)
 
     def add_json_schema_entry(self, schema):
-        dic = {"type": "boolean"}
-        if hasattr(self, '_default_value'):
-            dic['default'] = self._default_value
-        schema[self._column_name] = dic
+        super(BooleanType, self).add_json_schema_entry(schema)
+        schema[self._column_name]['type'] = 'boolean'
 
     def set_default_value(self, default_value):
         self._default_value = bool(default_value)
@@ -249,14 +333,6 @@ class BooleanType(StreamDataType):
     def pack_parsed_values(self, extracted_values, counter, parameters):
         return struct.pack(ALIGNMENT + str(counter) + 'b', *extracted_values)
 
-    def get_sql_params(self):
-        array = [self._data_type]
-        if self._default_value is not None:
-            array.extend([" DEFAULT ", str(self._default_value)])
-        if not self._is_nullable:
-            array.extend([" NOT NULL"])
-        return array
-
 
 class NumberBaseType(StreamDataType):
     __metaclass__ = ABCMeta
@@ -271,14 +347,11 @@ class NumberBaseType(StreamDataType):
             raise Exception('The minimum value is higher than the maximum!')
 
     def add_json_schema_entry(self, schema):
-        dic = {}
-        if hasattr(self, '_default_value'):
-            dic['default'] = self._default_value
+        super(NumberBaseType, self).add_json_schema_entry(schema)
         if hasattr(self, '_minimum'):  # we can add numbers to schema
-            dic['minimum'] = self._minimum
+            schema[self._column_name]['minimum'] = self._minimum
         if hasattr(self, '_maximum'):
-            dic['maximum'] = self._maximum
-        schema[self._column_name] = dic
+            schema[self._column_name]['maximum'] = self._maximum
 
     @abstractmethod
     def process_default_value(self, value):
@@ -304,12 +377,9 @@ class NumberBaseType(StreamDataType):
             json_value['maximum'] = self._maximum
         return json_value
 
-    def get_sql_params(self):
-        array = [self._data_type]
-        if self._default_value is not None:
-            array.extend([" DEFAULT ", str(self._default_value)])
-        if not self._is_nullable:
-            array.extend([" NOT NULL"])
+    def create_stream_sql(self):
+        string = super(NumberBaseType, self).create_stream_sql()
+        array = []
         if hasattr(self, '_minimum') and not hasattr(self, '_maximum'):
             array.extend([" CHECK (", self._column_name, " > ", str(self._minimum), ")"])
         elif hasattr(self, '_maximum') and not hasattr(self, '_minimum'):
@@ -317,7 +387,7 @@ class NumberBaseType(StreamDataType):
         elif hasattr(self, '_maximum') and hasattr(self, '_minimum'):
             array.extend([" CHECK (", self._column_name, " BETWEEN ", str(self._minimum),
                           " AND ", str(self._maximum), ")"])
-        return array
+        return string.join(array)
 
 
 class SmallIntegerType(NumberBaseType):
@@ -463,10 +533,8 @@ class DecimalType(NumberBaseType):
         json_value['scale'] = self._scale
         return json_value
 
-    def get_sql_params(self):  # override the column type to include the precision and scale
-        array = super(DecimalType, self).get_sql_params()
-        array[0] = ''.join([self._data_type, " (", str(self._precision), ",", str(self._scale), ")"])
-        return array
+    def process_sql_parameters(self, array):  # add the precision and scale
+        array.append(''.join(["(", str(self._precision), ",", str(self._scale), ")"]))
 
 
 class BaseDateTimeType(StreamDataType):  # The validation of time variables can't be done on the schema
@@ -484,12 +552,6 @@ class BaseDateTimeType(StreamDataType):  # The validation of time variables can'
             raise Exception('The minimum value is higher than the maximum!')
         self._default_value_text = None  # needed later for the SQL creation statement
 
-    def add_json_schema_entry(self, schema):
-        dic = {}
-        if hasattr(self, '_default_value'):
-            dic['default'] = str(self._default_value)
-        schema[self._column_name] = dic
-
     def set_default_value(self, default_value):
         parsed_val = self.parse_entry(default_value)  # Process the default value as others
         if hasattr(self, '_minimum') and not hasattr(self, '_maximum') and parsed_val < self._minimum:
@@ -506,19 +568,20 @@ class BaseDateTimeType(StreamDataType):  # The validation of time variables can'
 
     def to_json_representation(self):
         json_value = super(BaseDateTimeType, self).to_json_representation()
+        json_value['type'] = 'string'
         if hasattr(self, '_minimum'):
             json_value['minimum'] = self._minimum_text
         if hasattr(self, '_maximum'):
             json_value['maximum'] = self._maximum_text
         return json_value
 
-    def get_sql_params(self):
-        array = [self._data_type]
+    def create_stream_sql(self):
+        array = [self._column_name, " ", self._data_type]
         if self._default_value is not None:
-            array.extend([" DEFAULT ", str(self._default_value_text)])
+            array.extend([" DEFAULT '", str(self._default_value_text), "'"])
         if not self._is_nullable:
-            array.extend([" NOT NULL"])
-        return array
+            array.append(" NOT NULL")
+        return ''.join(array)
 
     @abstractmethod
     def parse_entry(self, entry):
@@ -530,7 +593,6 @@ class BaseDateTimeType(StreamDataType):  # The validation of time variables can'
 
     def process_next_value(self, entry, counter, parameters, errors):
         parsed = self.parse_entry(entry)
-
         if hasattr(self, '_minimum') and not hasattr(self, '_maximum') and parsed < self._minimum:
             errors[counter] = 'The value is higher than the minimum!'
         elif hasattr(self, '_maximum') and not hasattr(self, '_minimum') and parsed > self._maximum:
@@ -549,9 +611,7 @@ class DateType(BaseDateTimeType):  # Stored as an uint with the number of days s
 
     def add_json_schema_entry(self, schema):
         super(DateType, self).add_json_schema_entry(schema)
-        entry = schema[self._column_name]
-        entry['type'] = 'string'
-        entry['format'] = 'date'
+        schema[self._column_name]['format'] = 'date'
 
     def get_nullable_constant(self):
         return INT32_MIN  # Checked from MonetDB's source code
@@ -572,18 +632,23 @@ class TimeType(BaseDateTimeType):  # Stored as an uint with the number of millis
 
     def __init__(self, **kwargs):
         super(TimeType, self).__init__(**kwargs)
+        if 'timezone' in kwargs:
+            self._has_timezone = bool(kwargs['timezone'])
+        else:
+            self._has_timezone = True
 
     def get_nullable_constant(self):
         return INT32_MIN  # Checked from MonetDB's source code
 
     def add_json_schema_entry(self, schema):
         super(TimeType, self).add_json_schema_entry(schema)
-        entry = schema[self._column_name]
-        entry['type'] = 'string'
-        entry['format'] = 'time'
+        schema[self._column_name]['pattern'] = TIME_REGEX
 
     def parse_entry(self, entry):
-        return datetime.datetime.strptime(str(entry), "%H:%M:%S.%f")
+        parsed_time = datetime.datetime.strptime(str(entry), "%H:%M:%S.%f")
+        if not self._has_timezone:
+            parsed_time = parsed_time.replace(tzinfo=None)
+        return parsed_time
 
     def pack_next_value(self, parsed, counter, parameters, errors):
         hour0 = copy.deepcopy(parsed).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -598,18 +663,23 @@ class TimestampType(BaseDateTimeType):  # it's represented with the two integers
 
     def __init__(self, **kwargs):
         super(TimestampType, self).__init__(**kwargs)
+        if 'timezone' in kwargs:
+            self._has_timezone = bool(kwargs['timezone'])
+        else:
+            self._has_timezone = True
 
     def get_nullable_constant(self):
         return [0, INT32_MIN]  # Checked from MonetDB's source code
 
     def add_json_schema_entry(self, schema):
         super(TimestampType, self).add_json_schema_entry(schema)
-        entry = schema[self._column_name]
-        entry['type'] = 'string'
-        entry['format'] = 'date-time'
+        schema[self._column_name]['format'] = 'date-time'
 
     def parse_entry(self, entry):
-        return dateutil.parser.parse(entry)
+        parsed_timestamp = dateutil.parser.parse(entry)
+        if not self._has_timezone:
+            parsed_timestamp = parsed_timestamp.replace(tzinfo=None)
+        return parsed_timestamp
 
     def pack_next_value(self, parsed, counter, parameters, errors):
         hour0 = copy.deepcopy(parsed).replace(hour=0, minute=0, second=0, microsecond=0)
