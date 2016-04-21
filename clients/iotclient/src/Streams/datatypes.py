@@ -7,7 +7,7 @@ import math
 
 from abc import ABCMeta, abstractmethod
 from dateutil import parser
-from jsonschemas import UUID_REG
+from jsonschemas import UUID_REGEX
 
 # Later check the byte order https://docs.python.org/2/library/struct.html#byte-order-size-and-alignment
 # Also check the consequences of aligment on packing HUGEINTs!
@@ -155,7 +155,7 @@ class TextType(BaseTextType):
         elif self._data_type == 'inet':
             dic['format'] = 'ipv4'
         elif self._data_type == 'uuid':
-            dic['pattern'] = UUID_REG
+            dic['pattern'] = UUID_REGEX
 
         if hasattr(self, '_default_value'):
             dic['default'] = self._default_value
@@ -175,7 +175,7 @@ class TextType(BaseTextType):
             json_value['limit'] = self._limit
         return json_value
 
-    def get_sql_params(self):
+    def get_sql_params(self):  # TODO fiz inet!!
         array = [self._data_type]
         if hasattr(self, '_limit'):
             array.extend(["(", str(self._limit), ")"])
@@ -583,7 +583,7 @@ class TimeType(BaseDateTimeType):  # Stored as an uint with the number of millis
         entry['format'] = 'time'
 
     def parse_entry(self, entry):
-        return datetime.datetime.strptime(str(entry), "%H:%M:%S")
+        return datetime.datetime.strptime(str(entry), "%H:%M:%S.%f")
 
     def pack_next_value(self, parsed, counter, parameters, errors):
         hour0 = copy.deepcopy(parsed).replace(hour=0, minute=0, second=0, microsecond=0)

@@ -53,7 +53,7 @@ Custom name of the host. By default is the host's MAC address.
 Web Server Listening
 --------------------
 
-For security purposes, two web servers are created by the application. On the administration server are present operations to create and delete streams, while on application server the insert operations are present instead. The administration server should be listening on the host only, while the application server should be listening to the outside.
+For security purposes, two web servers are created by the application. On the administration server are present operations to create and delete streams, while on application server the insert operations are present instead. The administration server should be listening on the host only, while the application server should be listening to all interfaces.
 
 **-ih  - -ihost=**
 
@@ -94,5 +94,3 @@ Name of the user to authenticate. By default is user :code:`monetdb`.
 **-dd  - -ddatabase=**
 
 Name of database to use. By default is :code:`iotdb` database.
-
-

@@ -1,4 +1,6 @@
-UUID_REG = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+UUID_REGEX = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+MAC_ADDRESS_REGEX = "^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"
+TIME_REGEX = "^([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])\.\d{3}$"
 
 STREAM_SCHEMA = {
     "type": "object",
@@ -33,7 +35,7 @@ STREAM_SCHEMA = {
                 "anyOf": [{
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["char", "varchar", "character varying"]},
+                        "type": {"type": "string", "enum": ["char", "character", "varchar", "character varying"]},
                         "nullable": {"type": "boolean"},
                         "limit": {"type": "integer", "minimum": 1},
                         "default": {"type": "string"}
@@ -110,9 +112,9 @@ STREAM_SCHEMA = {
                         "name": {"type": "string"},
                         "type": {"type": "string", "enum": ["time"]},
                         "nullable": {"type": "boolean"},
-                        "default": {"type": "string", "format": "time"},
-                        "minimum": {"type": "string", "format": "time"},
-                        "maximum": {"type": "string", "format": "time"}
+                        "default": {"type": "string", "pattern": TIME_REGEX},
+                        "minimum": {"type": "string", "pattern": TIME_REGEX},
+                        "maximum": {"type": "string", "pattern": TIME_REGEX}
                     },
                     "required": ["name", "type"],
                     "additionalProperties": False
@@ -132,7 +134,7 @@ STREAM_SCHEMA = {
                         "name": {"type": "string"},
                         "type": {"type": "string", "enum": ["uuid"]},
                         "nullable": {"type": "boolean"},
-                        "default": {"type": "string", "pattern": UUID_REG}
+                        "default": {"type": "string", "pattern": UUID_REGEX}
                     },
                     "required": ["name", "type"],
                     "additionalProperties": False

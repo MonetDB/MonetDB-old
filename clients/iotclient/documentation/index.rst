@@ -16,7 +16,5 @@ Contents:
    introduction.rst
    iot_server_arguments.rst
    restful_resources.rst
-   streams_creation.rst
    streams_data_types.rst
-   future_work.rst
-
+      conclusion.rst
