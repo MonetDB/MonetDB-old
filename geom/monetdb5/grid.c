@@ -57,13 +57,19 @@ fprintf(stderr, "maxSize: %zu capacity: %zu\n", maxSize, BATcapacity((r1)));    
 
 
 
-#define GRIDcmp(x1Vals, y1Vals, br1, g1,                                          \
-                x2Vals, y2Vals, br2 ,g2,                                          \
+#define GRIDcmp(x1Vals, y1Vals, g1,                                               \
+                x2Vals, y2Vals, g2,                                               \
                 cellR, cellS, r1, r2, seq1, seq2, msg)                            \
 do {                                                                              \
+BUN r1b, r2b;                                                                     \
+lng * r1Vals, * r2Vals;                                                           \
 if ((cellR) >= (g1)->cellsNum || (cellS) >= (g2)->cellsNum)                       \
 	continue;                                                                     \
 GRIDextend(g1, g2, cellR, cellS, r1, r2, msg);                                    \
+r1Vals = (lng*)Tloc(r1, BUNfirst(r1));                                            \
+r2Vals = (lng*)Tloc(r2, BUNfirst(r2));                                            \
+r1b = BATcount(r1);                                                               \
+r2b = BATcount(r2);                                                               \
 /* compare points of R in cellR with points of S in cellS */                      \
 /* TODO: the outer relation should be the one with more points */                 \
 for (size_t m = (g1)->dir[(cellR)]; m < (g1)->dir[(cellR)+1]; m++) {              \
@@ -75,15 +81,14 @@ for (size_t m = (g1)->dir[(cellR)]; m < (g1)->dir[(cellR)+1]; m++) {            
 		lng x2v = (x2Vals)[oid2];                                                 \
 		lng y2v = (y2Vals)[oid2];                                                 \
 		double ddist = (x2v-x1v)*(x2v-x1v)+(y2v-y1v)*(y2v-y1v);                   \
-		if (ddist <= distsqr) {                                                   \
-/* TODO: Now that you have reserved space in advance, use Tloc+predication */     \
-			oid o1 = oid1+seq1;                                                   \
-			oid o2 = oid2+seq2;                                                   \
-			bunfastapp_nocheck_inc((r1), (br1), &o1);                             \
-			bunfastapp_nocheck_inc((r2), (br2), &o2);                             \
-		}                                                                         \
+		r1Vals[r1b] = oid1 + seq1;                                                \
+		r2Vals[r2b] = oid2 + seq2;                                                \
+		r1b += ddist <= distsqr;                                                  \
+		r2b += ddist <= distsqr;                                                  \
 	}                                                                             \
 }                                                                                 \
+BATsetcount(r1, r1b);                                                             \
+BATsetcount(r2, r2b);                                                             \
 } while (0)
 
 typedef struct Grid Grid;
@@ -119,7 +124,7 @@ countSetBits(uint64_t *resBitvector, size_t vectorSize)
 	return num;
 }
 
-#ifndef NDEBUG
+#if 0
 static void
 grid_print(Grid * g)
 {
@@ -379,9 +384,7 @@ grid_create_mbr(Grid * g, BAT *bx, BAT *by, mbr *m, dbl * d)
 	/* TODO: move here the code for compressing the index */
 
 	g->cellsPerAxis = 0;
-#ifndef NDEBUG
-	grid_print(g);
-#endif
+
 	return MAL_SUCCEED;
 }
 
@@ -788,7 +791,6 @@ GRIDdistancesubjoin(bat *res1, bat * res2,bat * x1, bat * y1, bat * x2, bat * y2
 	oid seq1, seq2;
 	double distance = (double)*d;
 	double distsqr = (distance)*(distance);
-	BUN br1, br2;
 	str msg = MAL_SUCCEED;
 
 	assert (distance > 0);
@@ -858,8 +860,6 @@ GRIDdistancesubjoin(bat *res1, bat * res2,bat * x1, bat * y1, bat * x2, bat * y2
 	y2Vals = (lng*)Tloc(y2BAT, BUNfirst(y2BAT));
 	BATsetaccess(r1, BAT_APPEND);
 	BATsetaccess(r2, BAT_APPEND);
-	br1=BUNlast(r1);
-	br2=BUNlast(r2);
 
 	if ((mbb = GDKmalloc(sizeof(mbr))) == NULL) {
 		msg = createException(MAL, "grid.distance", "malloc failed");
@@ -889,7 +889,7 @@ GRIDdistancesubjoin(bat *res1, bat * res2,bat * x1, bat * y1, bat * x2, bat * y2
 			size_t R[] = {min,            min,              min,   min, min+1, min+g1->cellsX, min+g1->cellsX+1};
 			size_t S[] = {min+g1->cellsX, min+g1->cellsX+1, min+1, min, min,   min,            min             };
 			for (size_t k = 0; k < 7; k++)
-				GRIDcmp(x1Vals, y1Vals, br1, g1, x2Vals, y2Vals, br2, g2, R[k], S[k], r1, r2, seq1, seq2, msg);
+				GRIDcmp(x1Vals, y1Vals, g1, x2Vals, y2Vals, g2, R[k], S[k], r1, r2, seq1, seq2, msg);
 		}
 	}
 
@@ -925,7 +925,6 @@ distancejoin_clean:
 	return msg;
 
 distancejoin_fail:
-bunins_failed:
 	*res1 = 0;
 	*res2 = 0;
 	if (r1) BBPunfix(r1->batCacheid);
