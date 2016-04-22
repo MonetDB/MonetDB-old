@@ -1,6 +1,6 @@
 import os
-from collections import defaultdict
 
+from collections import defaultdict, OrderedDict
 from datatypes import TimestampType, TextType, DataValidationException
 from flushing import TimeBasedFlushing, TupleBasedFlushing
 from Settings.mapiconnection import mapi_create_stream, mapi_flush_baskets
@@ -78,7 +78,7 @@ class DataCellStream(object):
 
         if created:  # when the stream is reloaded from the config file, the create SQL statement is not sent
             sql_array = [column.create_stream_sql() for column in self._columns.values()]
-            mapi_create_stream(self._schema_name, self._stream_name, ','.join(sql_array + Create_SQL_array))
+            mapi_create_stream(self._schema_name, self._stream_name, ', '.join(sql_array + Create_SQL_array))
 
     def get_schema_name(self):
         return self._schema_name
@@ -140,7 +140,7 @@ class DataCellStream(object):
     def validate_and_insert(self, new_data, timestamp):
         self._validation_schema.validate(new_data)  # validate the stream's schema first
 
-        batch_errors = {}  # dictionary of column_name -> array of errors
+        batch_errors = OrderedDict()  # dictionary of column_name -> array of errors
         column_names = self._columns.keys()
         tuple_counter = 0
 
@@ -181,7 +181,7 @@ class DataCellStream(object):
         timestamp_bin_value = Timestamps_Handler.process_values([timestamp])
         timestamps_binary_array = ''.join([timestamp_bin_value for _ in xrange(total_tuples)])
 
-        if Hostname_Bin_Value is not None:
+        if Hostname_Bin_Value is not None:  # write the host name if applicable
             hosts_binary_array = ''.join([Hostname_Bin_Value for _ in xrange(total_tuples)])
 
         # supposing that the flushing method never changes we can do this outside the lock
@@ -203,7 +203,7 @@ class DataCellStream(object):
             time_basket_fp.flush()
             time_basket_fp.close()
 
-            if Hostname_Bin_Value is not None:  # write the host name if applicable
+            if Hostname_Bin_Value is not None:  # the variable never changes
                 hosts_basket_fp = open(get_hidden_file_name(os.path.join(self._current_base_path,
                                                                          HOST_IDENTIFIER_COLUMN_NAME)), 'ab')
                 hosts_basket_fp.write(hosts_binary_array)

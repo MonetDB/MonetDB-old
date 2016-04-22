@@ -1,3 +1,5 @@
+import collections
+
 from jsonschema import Draft4Validator, FormatChecker
 from flushing import TupleBasedFlushing, TimeBasedFlushing
 from streams import DataCellStream
@@ -30,8 +32,8 @@ SWITCHER = {('text', 'string', 'clob', 'character large object'): 'TextType',
 
 
 def validate_schema_and_create_stream(schema, created=False):
-    validated_columns = {}  # dictionary of name -> data_types
-    errors = {}
+    validated_columns = collections.OrderedDict()  # dictionary of name -> data_types
+    errors = collections.OrderedDict()
 
     for column in schema['columns']:  # create the data types dictionary
         next_type = column['type']
@@ -66,7 +68,7 @@ def validate_schema_and_create_stream(schema, created=False):
     else:
         flushing_method = TupleBasedFlushing(limit=int(flushing_object['number']))
 
-    properties = {}
+    properties = collections.OrderedDict()
     required_fields = []
 
     for key, value in validated_columns.iteritems():

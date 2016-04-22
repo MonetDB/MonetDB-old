@@ -27,7 +27,7 @@ class IOTStreams:
 
     def __init__(self):
         self._locker = RWLock()
-        self._context = {}  # dictionary of schema_name + '.' + stream_name -> DataCellStream
+        self._context = collections.OrderedDict()  # dictionary of schema_name + '.' + stream_name -> DataCellStream
         self.reload_config_file()
 
     def reload_config_file(self):  # the write lock must be set before running this method!!! (except on the beginning)
@@ -37,9 +37,9 @@ class IOTStreams:
 
         for value in self._context.values():  # stop the current streams
             value.stop_stream()
-        self._context = {}
+        self._context = collections.OrderedDict()
 
-        stream_dic = {}
+        stream_dic = collections.OrderedDict()
         for entry in data:
             next_stream = validate_schema_and_create_stream(entry, created=False)
             next_name = IOTStreams.get_context_entry_name(next_stream.get_schema_name(), next_stream.get_stream_name())
