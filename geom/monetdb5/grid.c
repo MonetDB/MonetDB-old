@@ -45,7 +45,7 @@ if (maxSize > GDK_oid_max) {                                                    
 		goto distancejoin_fail;                                                    \
 }                                                                                  \
 while (maxSize > BATcapacity((r1))) {                                              \
-fprintf(stderr, "maxSize: %zu capacity: %zu\n", maxSize, BATcapacity((r1))); \
+fprintf(stderr, "maxSize: %zu capacity: %zu\n", maxSize, BATcapacity((r1)));       \
 	if ((BATextend((r1), BATgrows((r1))) != GDK_SUCCEED) ||                        \
 		(BATextend((r2), BATgrows((r2))) != GDK_SUCCEED)) {                        \
 		(msg) = createException(MAL, "grid.distance",                              \
@@ -53,51 +53,53 @@ fprintf(stderr, "maxSize: %zu capacity: %zu\n", maxSize, BATcapacity((r1))); \
 		goto distancejoin_fail;                                                    \
 	}                                                                              \
 }                                                                                  \
-/* fprintf(stderr, "Comparing [%zu](%zu)-[%zu](%zu)\n",                            \
-                   cellR, g1->dir[cellR+1]-g1->dir[cellR],                         \
-                   cellS, g2->dir[cellS+1]-g2->dir[cellS]); */                     \
 } while (0)
 
 
 
-#define GRIDcmp(x1Vals, y1Vals, br1, g1, x2Vals, y2Vals, br2, g2, cellR, cellS, r1, r2, msg) \
-do {                                                                               \
-if ((cellR) > (g1)->cellsNum || (cellS) > (g2)->cellsNum)                          \
-	continue;                                                                      \
-GRIDextend(g1, g2, cellR, cellS, r1, r2, msg);                                     \
-/* compare points of R in cellR with points of S in cellS */                       \
-/* TODO: the outer relation should be the one with more points */                  \
-for (size_t m = (g1)->dir[(cellR)]; m < (g1)->dir[(cellR)+1]; m++) {               \
-	oid oid1 = m;                                                                  \
-	lng x1v = (x1Vals)[oid1];                                                      \
-	lng y1v = (y1Vals)[oid1];                                                      \
-	for (size_t n = (g2)->dir[(cellS)]; n < (g2)->dir[(cellS)+1]; n++) {           \
-		size_t oid2 = n;                                                           \
-		lng x2v = (x2Vals)[oid2];                                                  \
-		lng y2v = (y2Vals)[oid2];                                                  \
-		double ddist = (x2v-x1v)*(x2v-x1v)+(y2v-y1v)*(y2v-y1v);                    \
-/* fprintf(stderr, "The distance between [%lld,%lld] and [%lld,%lld] is %f (requested distance: %f)\n",x1v,y1v,x2v,y2v,ddist,distsqr); */ \
+#define GRIDcmp(x1Vals, y1Vals, br1, g1,                                          \
+                x2Vals, y2Vals, br2 ,g2,                                          \
+                cellR, cellS, r1, r2, seq1, seq2, msg)                            \
+do {                                                                              \
+if ((cellR) >= (g1)->cellsNum || (cellS) >= (g2)->cellsNum)                       \
+	continue;                                                                     \
+GRIDextend(g1, g2, cellR, cellS, r1, r2, msg);                                    \
+/* compare points of R in cellR with points of S in cellS */                      \
+/* TODO: the outer relation should be the one with more points */                 \
+for (size_t m = (g1)->dir[(cellR)]; m < (g1)->dir[(cellR)+1]; m++) {              \
+	oid oid1 = m;                                                                 \
+	lng x1v = (x1Vals)[oid1];                                                     \
+	lng y1v = (y1Vals)[oid1];                                                     \
+	for (size_t n = (g2)->dir[(cellS)]; n < (g2)->dir[(cellS)+1]; n++) {          \
+		size_t oid2 = n;                                                          \
+		lng x2v = (x2Vals)[oid2];                                                 \
+		lng y2v = (y2Vals)[oid2];                                                 \
+		double ddist = (x2v-x1v)*(x2v-x1v)+(y2v-y1v)*(y2v-y1v);                   \
 		if (ddist <= distsqr) {                                                   \
-			 bunfastapp_nocheck_inc((r1), (br1), &oid1);                          \
-			 bunfastapp_nocheck_inc((r2), (br2), &oid2);                          \
+/* TODO: Now that you have reserved space in advance, use Tloc+predication */     \
+			oid o1 = oid1+seq1;                                                   \
+			oid o2 = oid2+seq2;                                                   \
+			bunfastapp_nocheck_inc((r1), (br1), &o1);                             \
+			bunfastapp_nocheck_inc((r2), (br2), &o2);                             \
 		}                                                                         \
 	}                                                                             \
 }                                                                                 \
 } while (0)
 
+typedef struct Grid Grid;
 struct Grid {
-	dbl xmin;			/* grid universe: minimum X value */
-	dbl ymin;			/* grid universe: minimum Y value */
-	dbl xmax;			/* grid universe: maximum X value */
-	dbl ymax;			/* grid universe: maximum Y value */
-	mbr mbb;
+	dbl xmin;			/* minimum X value of input BATs   */
+	dbl ymin;			/* minimum Y value of input BATs   */
+	dbl xmax;			/* maximum X value of input BATs   */
+	dbl ymax;			/* maximum Y value of input BATs   */
+	mbr mbb;			/* grid universe (might differ from the input values) */
 	bte shift;
-	size_t cellsNum;		/* number of cells                 */
-	size_t cellsPerAxis;	/* number of cells per axis        */
-	size_t cellsX;
-	size_t cellsY;
-	bat xbat;				/* bat id for X coordinates        */
-	bat ybat;				/* bat id for Y coordinates        */
+	size_t cellsNum;	/* number of cells                 */
+	size_t cellsPerAxis;/* number of cells per axis        */
+	size_t cellsX;		/* number of cells in X axis       */
+	size_t cellsY;		/* number of cells in Y axis       */
+	bat xbat;			/* bat id for X coordinates        */
+	bat ybat;			/* bat id for Y coordinates        */
 	oid * dir;			/* the grid directory              */
 	oid * oids;			/* heap where the index is stored  */
 };
@@ -127,8 +129,8 @@ grid_print(Grid * g)
 	fprintf(stderr, "- MBB     : [%f %f, %f %f]\n", g->mbb.xmin, g->mbb.ymin, g->mbb.xmax, g->mbb.ymax);
 	fprintf(stderr, "- Cells  X: %zu, Y: %zu, total: %zu, per axis: %zu\n", g->cellsX, g->cellsY, g->cellsNum, g->cellsPerAxis);
 	m = ceil(log10(g->dir[g->cellsNum]));
-	n = ceil(log10(g->cellsY));
-	o = ceil(log10(g->cellsX));
+	n = ceil(log10(g->cellsY-1));
+	o = ceil(log10(g->cellsX-1));
 	m = m > o ? m : o;
 
 	fprintf(stderr, "- Directory\n");
@@ -263,16 +265,12 @@ grid_create(BAT *bx, BAT *by)
 
 	/* TODO: move here the code for compressing the index */
 
-#ifndef NDEBUG
-	grid_print(g);
-#endif
 	return g;
 }
 
-static Grid *
-grid_create_mbr(BAT *bx, BAT *by, mbr *m, dbl * d)
+static str
+grid_create_mbr(Grid * g, BAT *bx, BAT *by, mbr *m, dbl * d)
 {
-	Grid * g;
 	lng *xVals, *yVals;
 	size_t i, cnt;
 	dbl fxa, fxb, fya, fyb;
@@ -280,9 +278,6 @@ grid_create_mbr(BAT *bx, BAT *by, mbr *m, dbl * d)
 	assert(BATcount(bx) == BATcount(by));
 	assert(BATcount(bx) > 0);
 	assert((*d) > 0);
-
-	if ((g = GDKmalloc(sizeof(Grid))) == NULL)
-		return g;
 
 	g->xbat = bx->batCacheid;
 	g->ybat = by->batCacheid;
@@ -298,27 +293,37 @@ grid_create_mbr(BAT *bx, BAT *by, mbr *m, dbl * d)
 	g->xmax = m->xmax;
 	g->ymax = m->ymax;
 
+#if 0
 #ifndef NDEBUG
 	fprintf(stderr, "grid borders: [%f %f, %f %f]\n", g->mbb.xmin, g->mbb.ymin, g->mbb.xmax, g->mbb.ymax);
 #endif
+#endif
 	/* determine the appropriate number of cells */
-	g->cellsX = (m->xmax - m->xmin)/(*d);
-	g->cellsY = (m->ymax - m->ymin)/(*d);
+	g->cellsX = (size_t)ceil((m->xmax - m->xmin)/(*d))+1;
+	g->cellsY = (size_t)ceil((m->ymax - m->ymin)/(*d))+1;
+	if ((size_t)(m->xmax-m->xmin)/(*d) == (size_t)g->cellsX*(*d))
+		g->cellsX++;
+	if ((m->ymax-m->ymin)/(*d) == g->cellsY*(*d))
+		g->cellsY++;
+	g->mbb.xmax = g->mbb.xmin + g->cellsX*(*d);
+	g->mbb.ymax = g->mbb.ymin + g->cellsY*(*d);
 
 	/* how many bits do we need? */
 	g->shift = (bte)ceil(log2(g->cellsX>g->cellsY?g->cellsX:g->cellsY));
 	cnt = BATcount(bx);
 	g->cellsNum = g->cellsX * g->cellsY;
+#if 0
 #ifndef NDEBUG
 	fprintf(stderr, "shift: %d\n", g->shift);
 	fprintf(stderr, "Cells: x=%zu, y=%zu (total: %zu)\n", g->cellsX, g->cellsY, g->cellsNum);
+#endif
 #endif
 
 	/* allocate space for the directory */
 	if ((g->dir = GDKmalloc((g->cellsNum+1)*sizeof(oid))) == NULL) {
 		GDKfree(g);
 		g = NULL;
-		return g;
+		return createException(MAL, "grid.create_mbr", MAL_MALLOC_FAIL);
 	}
 	for (i = 0; i <= g->cellsNum; i++)
 		g->dir[i] = 0;
@@ -327,7 +332,7 @@ grid_create_mbr(BAT *bx, BAT *by, mbr *m, dbl * d)
 	if((g->oids = GDKmalloc(BATcount(bx)*sizeof(oid))) == NULL) {
 		GDKfree(g);
 		g = NULL;
-		return g;
+		return createException(MAL, "grid.create_mbr", MAL_MALLOC_FAIL);
 	}
 
 	/* compute the index */
@@ -336,9 +341,11 @@ grid_create_mbr(BAT *bx, BAT *by, mbr *m, dbl * d)
 	fxb = (double)g->mbb.xmin*fxa;
 	fya = ((double)g->cellsY/(g->mbb.ymax-g->mbb.ymin));
 	fyb = (double)g->mbb.ymin*fya;
+#if 0
 #ifndef NDEBUG
 	fprintf(stderr, "Coefficients: fxa=%f, fxb=%f\n", fxa, fxb);
 	fprintf(stderr, "Coefficients: fya=%f, fyb=%f\n", fya, fyb);
+#endif
 #endif
 
 	cnt = BATcount(bx);
@@ -375,8 +382,7 @@ grid_create_mbr(BAT *bx, BAT *by, mbr *m, dbl * d)
 #ifndef NDEBUG
 	grid_print(g);
 #endif
-
-	return g;
+	return MAL_SUCCEED;
 }
 
 
@@ -387,6 +393,7 @@ grid_create_bats(Grid ** gg1, Grid **gg2, mbr ** common, BAT *bx1, BAT *by1, BAT
 	lng *x1Vals, *y1Vals, *x2Vals, *y2Vals;
 	size_t i, cnt1, cnt2;
 	mbr *m1 = NULL, *m2 = NULL, *mi = NULL, *mu = NULL;
+	str msg = MAL_SUCCEED;
 
 	assert(BATcount(bx1) == BATcount(by1));
 	assert(BATcount(bx2) == BATcount(by2));
@@ -399,13 +406,8 @@ grid_create_bats(Grid ** gg1, Grid **gg2, mbr ** common, BAT *bx1, BAT *by1, BAT
 		((m2 = GDKmalloc(sizeof(mbr))) == NULL) ||
 		((g1 = GDKmalloc(sizeof(Grid))) == NULL) ||
 		((g2 = GDKmalloc(sizeof(Grid))) == NULL)) {
-		if (mi) GDKfree(mi);
-		if (mu) GDKfree(mu);
-		if (m1) GDKfree(m1);
-		if (m2) GDKfree(m2);
-		if (g1) GDKfree(g1);
-		if (g2) GDKfree(g2);
-		return createException(MAL, "grid.create_bats", MAL_MALLOC_FAIL);
+		msg=createException(MAL, "grid.create_bats", MAL_MALLOC_FAIL);
+		goto grid_create_bats_fail;
 	}
 
 	g1->xbat = bx1->batCacheid;
@@ -439,9 +441,11 @@ grid_create_bats(Grid ** gg1, Grid **gg2, mbr ** common, BAT *bx1, BAT *by1, BAT
 	g1->mbb.ymin=g1->ymin;
 	g1->mbb.xmax=g1->xmax;
 	g1->mbb.ymax=g1->ymax;
+#if 0
 #ifndef NDEBUG
 	fprintf(stderr, "Outer relation limits: [%f %f, %f %f]\n", g1->mbb.xmin, g1->mbb.ymin, g1->mbb.xmax, g1->mbb.ymax);
 	fprintf(stderr, "Outer relation limits: [%f %f, %f %f]\n", g1->xmin, g1->ymin, g1->xmax, g1->ymax);
+#endif
 #endif
 	cnt2 = BATcount(bx2);
 	g2->xmin = g2->xmax = x2Vals[0];
@@ -464,40 +468,36 @@ grid_create_bats(Grid ** gg1, Grid **gg2, mbr ** common, BAT *bx1, BAT *by1, BAT
 	g2->mbb.ymin=g2->ymin;
 	g2->mbb.xmax=g2->xmax;
 	g2->mbb.ymax=g2->ymax;
+#if 0
 #ifndef NDEBUG
 	fprintf(stderr, "Outer relation limits: [%f %f, %f %f]\n", g2->mbb.xmin, g2->mbb.ymin, g2->mbb.xmax, g2->mbb.ymax);
 	fprintf(stderr, "Outer relation limits: [%f %f, %f %f]\n", g2->xmin, g2->ymin, g2->xmax, g2->ymax);
 #endif
-
+#endif
 	m1->xmin = g1->mbb.xmin - *d; m1->ymin = g1->mbb.ymin - *d; m1->xmax = g1->mbb.xmax + *d; m1->ymax = g1->mbb.ymax + *d;
 	m2->xmin = g2->mbb.xmin - *d; m2->ymin = g2->mbb.ymin - *d; m2->xmax = g2->mbb.xmax + *d; m2->ymax = g2->mbb.ymax + *d;
 
 	/* compute the intersection between the two coverages */
 	mbrIntersection(&mi, &m1, &m2);  /* query the grid only on the intersecting mbr */
 	mbrUnion(&mu, &m1, &m2);         /* create the grid index on the union of the two universes */
+#if 0
 #ifndef NDEBUG
 	fprintf(stderr, "outer relation mbb: [%f %f, %f %f]\n", m1->xmin, m1->ymin, m1->xmax, m1->ymax);
 	fprintf(stderr, "inner relation mbb: [%f %f, %f %f]\n", m2->xmin, m2->ymin, m2->xmax, m2->ymax);
 	fprintf(stderr, "  intersection mbb: [%f %f, %f %f]\n", mi->xmin, mi->ymin, mi->xmax, mi->ymax);
 	fprintf(stderr, "         union mbb: [%f %f, %f %f]\n", mu->xmin, mu->ymin, mu->xmax, mu->ymax);
 #endif
-
+#endif
 	/* if the two mbbs do not intersect, return an empty result */
-	if (mbr_isnil(mi)) {
-		GDKfree(mi);
-		GDKfree(mu);
-		GDKfree(m1);
-		GDKfree(m2);
-		GDKfree(g1);
-		GDKfree(g2);
-		g1 = NULL;
-		g2 = NULL;
-		return MAL_SUCCEED;
-	}
+	if (mbr_isnil(mi))
+		goto grid_create_bats_return; 
 
 	/* create grid index using a common grid */
-	g1 = grid_create_mbr(bx1, by1, mu, d);
-	g2 = grid_create_mbr(bx2, by2, mu, d);
+	if ( grid_create_mbr(g1, bx1, by1, mu, d) != MAL_SUCCEED ||
+		 grid_create_mbr(g2, bx2, by2, mu, d) != MAL_SUCCEED) {
+		msg = createException(MAL, "grid.create_bats", "Could not create the grid index");
+		goto grid_create_bats_return;
+	}
 
 	/* TODO: move here the code for compressing the index */
 	*gg1 = g1;
@@ -507,7 +507,19 @@ grid_create_bats(Grid ** gg1, Grid **gg2, mbr ** common, BAT *bx1, BAT *by1, BAT
 	GDKfree(m1);
 	GDKfree(m2);
 
-	return MAL_SUCCEED;
+grid_create_bats_return:
+	return msg;
+
+grid_create_bats_fail:
+	if (mi) GDKfree(mi);
+	if (mu) GDKfree(mu);
+	if (m1) GDKfree(m1);
+	if (m2) GDKfree(m2);
+	if (g1) GDKfree(g1);
+	if (g2) GDKfree(g2);
+	g1 = NULL;
+	g2 = NULL;
+	goto grid_create_bats_return;
 }
 
 str
@@ -774,7 +786,6 @@ GRIDdistancesubjoin(bat *res1, bat * res2,bat * x1, bat * y1, bat * x2, bat * y2
 	BAT *r1 = NULL, *r2 = NULL;
 	mbr * mbb = NULL;
 	oid seq1, seq2;
-	double fxa, fya, fxb, fyb;
 	double distance = (double)*d;
 	double distsqr = (distance)*(distance);
 	BUN br1, br2;
@@ -784,12 +795,17 @@ GRIDdistancesubjoin(bat *res1, bat * res2,bat * x1, bat * y1, bat * x2, bat * y2
 
 	(void)nil;
 	(void)estimate;
-	(void)seq1;
-	(void)seq2;
 	(void)num1;
 	(void)num2;
 	(void)s1;
 	(void)s2;
+
+	/* allocate space for the results */
+	if (((r1 = BATnew(TYPE_void, TYPE_oid, 0, TRANSIENT)) == NULL) ||
+		((r2 = BATnew(TYPE_void, TYPE_oid, 0, TRANSIENT)) == NULL)) {
+		msg = createException(MAL, "grid.distance", "could not create BATs for storing the join results");
+		goto distancejoin_fail;
+	}
 
 	/* get the X and Y BATs*/
 	if((x1BAT = BATdescriptor(*x1)) == NULL) {
@@ -815,30 +831,35 @@ GRIDdistancesubjoin(bat *res1, bat * res2,bat * x1, bat * y1, bat * x2, bat * y2
 		goto distancejoin_fail;
 	}
 	if(x1BAT->hseqbase != y1BAT->hseqbase || BATcount(x1BAT) != BATcount(y1BAT)) {
-		msg = createException(MAL, "grid.distance", "BATs must have dense heads");
-		goto distancejoin_fail;
+		/* hack for hanlding the Cartesian product introduced by mitosis        */
+		/* Compare only bats with the same seqbase                              */
+		/* TODO: make mitosis aware of filter functions utilizing multiple BATs */
+		goto distancejoin_returnempty;
 	}
 	if (!BAThdense(x2BAT) || !BAThdense(y2BAT)) {
 		msg = createException(MAL, "grid.distance", "BATs must have dense heads");
 		goto distancejoin_fail;
 	}
 	if(x2BAT->hseqbase != y2BAT->hseqbase || BATcount(x2BAT) != BATcount(y2BAT)) {
-		msg = createException(MAL, "grid.distance", "BATs must have dense heads");
-		goto distancejoin_fail;
+		/* hack for mitosis */
+		goto distancejoin_returnempty;
 	}
-	num1 = BATcount(x1BAT);
-	num2 = BATcount(x2BAT);
-	seq1 = x1BAT->hseqbase;
-	seq2 = x2BAT->hseqbase;
-
 	assert(x1BAT->ttype == TYPE_lng);
 	assert(y1BAT->ttype == TYPE_lng);
 	assert(x2BAT->ttype == TYPE_lng);
 	assert(y2BAT->ttype == TYPE_lng);
+	num1 = BATcount(x1BAT);
+	num2 = BATcount(x2BAT);
+	seq1 = x1BAT->hseqbase;
+	seq2 = x2BAT->hseqbase;
 	x1Vals = (lng*)Tloc(x1BAT, BUNfirst(x1BAT));
 	y1Vals = (lng*)Tloc(y1BAT, BUNfirst(y1BAT));
 	x2Vals = (lng*)Tloc(x2BAT, BUNfirst(x2BAT));
 	y2Vals = (lng*)Tloc(y2BAT, BUNfirst(y2BAT));
+	BATsetaccess(r1, BAT_APPEND);
+	BATsetaccess(r2, BAT_APPEND);
+	br1=BUNlast(r1);
+	br2=BUNlast(r2);
 
 	if ((mbb = GDKmalloc(sizeof(mbr))) == NULL) {
 		msg = createException(MAL, "grid.distance", "malloc failed");
@@ -852,58 +873,54 @@ GRIDdistancesubjoin(bat *res1, bat * res2,bat * x1, bat * y1, bat * x2, bat * y2
 	}
 
 	/* find which cells have to be examined */
-	fxa = ((double)g1->cellsX/(double)(g1->mbb.xmax-g1->mbb.xmin));
-	fxb = (double)g1->mbb.xmin*fxa; 
-	fya = ((double)g1->cellsY/(double)(g1->mbb.ymax-g1->mbb.ymin));
-	fyb = (double)g1->mbb.ymin*fya; 
+	minCellx = (size_t)((mbb->xmin)/(*d) - g1->mbb.xmin/(*d));
+	maxCellx = (size_t)((mbb->xmax)/(*d) - g1->mbb.xmin/(*d));
+	minCelly = (size_t)((mbb->ymin)/(*d) - g1->mbb.ymin/(*d));
+	maxCelly = (size_t)((mbb->ymax)/(*d) - g1->mbb.ymin/(*d));
 
-	minCellx = (double)(mbb->xmin)*fxa - fxb;
-	maxCellx = (double)(mbb->xmax)*fxa - fxb;
-	minCelly = (double)(mbb->ymin)*fya - fyb;
-	maxCelly = (double)(mbb->ymax)*fya - fyb;
-
-	/* allocate space for the results */
-	if (((r1 = BATnew(TYPE_void, TYPE_oid, 0, TRANSIENT)) == NULL) ||
-		((r2 = BATnew(TYPE_void, TYPE_oid, 0, TRANSIENT)) == NULL)) {
-		msg = createException(MAL, "grid.distance", "could not create BATs for storing the join results");
-		goto distancejoin_fail;
-	}
-	BATsetaccess(r1, BAT_APPEND);
-	BATsetaccess(r2, BAT_APPEND);
-	br1=BUNlast(r1);
-	br2=BUNlast(r2);
-
+	assert(maxCellx < g1->cellsX && maxCellx < g2->cellsX);
+	assert(maxCelly < g1->cellsY && maxCelly < g2->cellsY);
 
 	/* perform the distance join */
 	for (size_t i = minCellx; i <= maxCellx; i++) {
 		for (size_t j = minCelly; j <= maxCelly; j++) {
 			/* define which cells should be compared */
 			size_t min = i + g1->cellsX*j;
-			size_t R[] = {min,              min,            min,   min, min+1 , min+g1->cellsX, min+g1->cellsX+1};
-			size_t S[] = {min+g1->cellsX+1, min+g1->cellsX, min+1, min, min,    min,            min             };
+			size_t R[] = {min,            min,              min,   min, min+1, min+g1->cellsX, min+g1->cellsX+1};
+			size_t S[] = {min+g1->cellsX, min+g1->cellsX+1, min+1, min, min,   min,            min             };
 			for (size_t k = 0; k < 7; k++)
-				GRIDcmp(x1Vals, y1Vals, br1, g1, x2Vals, y2Vals, br2, g2, R[k], S[k], r1, r2, msg);
+				GRIDcmp(x1Vals, y1Vals, br1, g1, x2Vals, y2Vals, br2, g2, R[k], S[k], r1, r2, seq1, seq2, msg);
 		}
 	}
 
+distancejoin_returnempty:
 	/* keep the results */
 	//BATderiveProps(r1, false);
 	//BATderiveProps(r2, false);
+	r1->tsorted = false;
+	r1->trevsorted = false;
+	r2->tsorted = false;
+	r2->trevsorted = false;
 	*res1 = r1->batCacheid;
 	*res2 = r2->batCacheid;
 	BBPkeepref(*res1);
 	BBPkeepref(*res2);
+distancejoin_clean:
 	/* clean up */
-	BBPunfix(x1BAT->batCacheid);
-	BBPunfix(y1BAT->batCacheid);
-	BBPunfix(x2BAT->batCacheid);
-	BBPunfix(y2BAT->batCacheid);
-	GDKfree(g1->dir);
-	GDKfree(g1->oids);
-	GDKfree(g1);
-	GDKfree(g2->dir);
-	GDKfree(g2->oids);
-	GDKfree(g2);
+	if (x1BAT) BBPunfix(x1BAT->batCacheid);
+	if (y1BAT) BBPunfix(y1BAT->batCacheid);
+	if (x2BAT) BBPunfix(x2BAT->batCacheid);
+	if (y2BAT) BBPunfix(y2BAT->batCacheid);
+	if (g1) {
+		if (g1->dir)  GDKfree(g1->dir);
+		if (g1->oids) GDKfree(g1->oids);
+		GDKfree(g1);
+	}
+	if (g2) {
+		if (g2->dir)  GDKfree(g2->dir);
+		if (g2->oids) GDKfree(g2->oids);
+		GDKfree(g2);
+	}
 
 	return msg;
 
@@ -913,25 +930,7 @@ bunins_failed:
 	*res2 = 0;
 	if (r1) BBPunfix(r1->batCacheid);
 	if (r2) BBPunfix(r2->batCacheid);
-	if (x1BAT) BBPunfix(x1BAT->batCacheid);
-	if (y1BAT) BBPunfix(y1BAT->batCacheid);
-	if (x2BAT) BBPunfix(x2BAT->batCacheid);
-	if (y2BAT) BBPunfix(y2BAT->batCacheid);
-	if (g1) {
-		if(g1->dir) 
-			GDKfree(g1->dir);
-		if (g1->oids)
-			GDKfree(g1->oids);
-		GDKfree(g1);
-	}
-	if (g2) {
-		if(g2->dir) 
-			GDKfree(g2->dir);
-		if (g2->oids) 
-			GDKfree(g2->oids);
-		GDKfree(g2);
-	}
-	return msg;
+	goto distancejoin_clean;
 }
 
 #if 0
