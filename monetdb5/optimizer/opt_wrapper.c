@@ -73,6 +73,7 @@ struct{
 	{"dumpQEP", &OPTdumpQEPImplementation},
 	{"evaluate", &OPTevaluateImplementation},
 	{"factorize", &OPTfactorizeImplementation},
+	{"gadget", &OPTgadgetImplementation},
 	{"garbageCollector", &OPTgarbageCollectorImplementation},
 	{"generator", &OPTgeneratorImplementation},
 	{"inline", &OPTinlineImplementation},
