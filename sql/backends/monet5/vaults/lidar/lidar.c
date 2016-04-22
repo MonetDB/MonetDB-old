@@ -223,8 +223,8 @@ LIDARinitCatalog(mvc *m)
 		mvc_create_column_(m, lidar_tbl, "file_id", "int", 32);
 		mvc_create_column_(m, lidar_tbl, "name", "varchar", 255);
 		mvc_create_column_(m, lidar_tbl, "FileSourceId", "int", 32);
-		mvc_create_column_(m, lidar_tbl, "VersionMajor", "char", 1);
-		mvc_create_column_(m, lidar_tbl, "VersionMinor", "char", 1);
+		mvc_create_column_(m, lidar_tbl, "VersionMajor", "int", 16);
+		mvc_create_column_(m, lidar_tbl, "VersionMinor", "int", 16);
 		mvc_create_column_(m, lidar_tbl, "DataFormatId", "char", 1);
 		mvc_create_column_(m, lidar_tbl, "CreationDOY", "int", 32);
 		mvc_create_column_(m, lidar_tbl, "CreationYear", "int", 32);
@@ -620,7 +620,8 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int RecordsCount, PointRecordsCount, DataOffset;
 	int HeaderPadding, ByteSize, BaseByteSize, CreationDOY;
 	int CreationYear, Reserved, DataRecordLength, HeaderSize, FileSourceId;
-	char VersionMajor, VersionMinor, DataFormatId;
+	int VersionMajor, VersionMinor;
+	char DataFormatId;
 	str WKT, WKT_CompoundOK, Proj4;
 	/* columns */
 	double ScaleX, ScaleY, ScaleZ, OffsetX, OffsetY, OffsetZ;
@@ -747,9 +748,9 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	store_funcs.append_col(m->session->tr,
 			mvc_bind_column(m, lidar_tbl, "FileSourceId"), &FileSourceId, TYPE_int);
 	store_funcs.append_col(m->session->tr,
-			mvc_bind_column(m, lidar_tbl, "VersionMajor"), &VersionMajor, TYPE_str);
+						   mvc_bind_column(m, lidar_tbl, "VersionMajor"), &VersionMajor, TYPE_int);
 	store_funcs.append_col(m->session->tr,
-			mvc_bind_column(m, lidar_tbl, "VersionMinor"), &VersionMinor, TYPE_str);
+						   mvc_bind_column(m, lidar_tbl, "VersionMinor"), &VersionMinor, TYPE_int);
 	store_funcs.append_col(m->session->tr,
 			mvc_bind_column(m, lidar_tbl, "DataFormatId"), &DataFormatId, TYPE_str);
 	store_funcs.append_col(m->session->tr,
