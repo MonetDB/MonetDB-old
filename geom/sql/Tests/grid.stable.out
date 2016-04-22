@@ -92,6 +92,47 @@ Ready.
 % 3,	3 # length
 [ 149,	149	]
 [ 149,	151	]
+#SELECT * FROM points1 p1, points2 p2 WHERE [p1.x, p1.y] distance [p2.x, p2.y,  1] ORDER BY p1.x, p1.y;
+% sys.p1,	sys.p1,	sys.p2,	sys.p2 # table_name
+% x,	y,	x,	y # name
+% bigint,	bigint,	bigint,	bigint # type
+% 1,	1,	1,	1 # length
+#SELECT * FROM points1 p1, points2 p2 WHERE [p1.x, p1.y] distance [p2.x, p2.y,1.5] ORDER BY p1.x, p1.y;
+% sys.p1,	sys.p1,	sys.p2,	sys.p2 # table_name
+% x,	y,	x,	y # name
+% bigint,	bigint,	bigint,	bigint # type
+% 3,	3,	3,	3 # length
+[ 100,	100,	99,	101	]
+[ 150,	150,	149,	149	]
+#SELECT * FROM points1 p1, points2 p2 WHERE [p1.x, p1.y] distance [p2.x, p2.y, 31] ORDER BY p1.x, p1.y;
+% sys.p1,	sys.p1,	sys.p2,	sys.p2 # table_name
+% x,	y,	x,	y # name
+% bigint,	bigint,	bigint,	bigint # type
+% 3,	3,	3,	3 # length
+[ 100,	100,	99,	101	]
+[ 100,	150,	101,	180	]
+[ 150,	150,	149,	149	]
+#SELECT * FROM points1 p1, points2 p2 WHERE [p1.x, p1.y] distance [p2.x, p2.y,500] ORDER BY p1.x, p1.y;
+% sys.p1,	sys.p1,	sys.p2,	sys.p2 # table_name
+% x,	y,	x,	y # name
+% bigint,	bigint,	bigint,	bigint # type
+% 3,	3,	3,	3 # length
+[ 100,	100,	99,	101	]
+[ 100,	100,	149,	151	]
+[ 100,	100,	101,	180	]
+[ 100,	100,	149,	149	]
+[ 100,	150,	149,	151	]
+[ 100,	150,	99,	101	]
+[ 100,	150,	149,	149	]
+[ 100,	150,	101,	180	]
+[ 150,	100,	149,	151	]
+[ 150,	100,	99,	101	]
+[ 150,	100,	149,	149	]
+[ 150,	100,	101,	180	]
+[ 150,	150,	149,	151	]
+[ 150,	150,	101,	180	]
+[ 150,	150,	149,	149	]
+[ 150,	150,	99,	101	]
 #DROP TABLE points1;
 #DROP TABLE points2;
 
