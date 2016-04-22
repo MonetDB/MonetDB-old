@@ -260,6 +260,8 @@ geom_export str mbrEqual(bit *out, mbr **b1, mbr **b2);
 geom_export str mbrEqual_wkb(bit *out, wkb **geom1WKB, wkb **geom2WKB);
 geom_export str mbrDistance(dbl *out, mbr **b1, mbr **b2);
 geom_export str mbrDistance_wkb(dbl *out, wkb **geom1WKB, wkb **geom2WKB);
+geom_export str mbrIntersection(mbr **r, mbr **b1, mbr **b2);
+geom_export str mbrUnion(mbr **r, mbr **b1, mbr **b2);
 
 geom_export str wkbCoordinateFromWKB(dbl*, wkb**, int*);
 geom_export str wkbCoordinateFromMBR(dbl*, mbr**, int*);
@@ -294,3 +296,6 @@ geom_export str wkbCoordinateFromMBR_bat(bat *outBAT_id, bat *inBAT_id, int* coo
 
 geom_export int geom_catalog_upgrade(void *, int);
 geom_export str geom_sql_upgrade(int);
+
+geom_export int mbr_isnil(mbr *m);
+

@@ -7,4 +7,4 @@
 -------------------------------------------------------------------------
 ----------------------- GRID related functions --------------------------
 -------------------------------------------------------------------------
-CREATE FILTER FUNCTION distance(x1 bigint, y1 bigint, x2 bigint, y2 bigint, distance int) EXTERNAL NAME grid.distance;
+CREATE FILTER FUNCTION distance(x1 bigint, y1 bigint, x2 bigint, y2 bigint, distance double) EXTERNAL NAME grid.distance;

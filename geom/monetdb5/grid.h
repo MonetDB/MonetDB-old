@@ -24,6 +24,6 @@
 #endif
 
 
-geom_export str GRIDdistance(bit * res, lng * x1, lng * y1, lng * x2, lng * y2, int * distance);
-geom_export str GRIDdistancesubselect(bat * res, bat * x1, bat * y1, bat * cand1, lng * x2, lng * y2, int * distance, bit * anti);
-geom_export str GRIDdistancesubjoin(bat *res1, bat * res2,bat * x1, bat * y1, bat * x2, bat * y2, int * distance, bat * s1, bat * s2, bit * nil, lng * estimate);
+geom_export str GRIDdistance(bit * res, lng * x1, lng * y1, lng * x2, lng * y2, dbl * distance);
+geom_export str GRIDdistancesubselect(bat * res, bat * x1, bat * y1, bat * cand1, lng * x2, lng * y2, dbl * distance, bit * anti);
+geom_export str GRIDdistancesubjoin(bat *res1, bat * res2,bat * x1, bat * y1, bat * x2, bat * y2, dbl * distance, bat * s1, bat * s2, bit * nil, lng * estimate);

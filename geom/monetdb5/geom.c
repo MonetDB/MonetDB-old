@@ -1873,7 +1873,7 @@ str geom_epilogue(void *ret) {
 }
 
 /* Check if fixed-sized atom mbr is null */
-static int mbr_isnil(mbr *m) {
+int mbr_isnil(mbr *m) {
 	if (!m || m->xmin == flt_nil || m->ymin == flt_nil ||
 	    m->xmax == flt_nil || m->ymax == flt_nil)
 		return 1;
@@ -4354,6 +4354,47 @@ str mbrOverlaps(bit *out, mbr **b1, mbr **b2) {
 		*out = 0;
 	else //they cannot overlap if b2 is left, right, above or below b1
 		*out = !((*b2)->ymax < (*b1)->ymin || (*b2)->ymin > (*b1)->ymax || (*b2)->xmax < (*b1)->xmin || (*b2)->xmin > (*b1)->xmax);
+	return MAL_SUCCEED;
+}
+
+/*returns the intersection of two mbrs */
+str mbrIntersection(mbr **r, mbr **b1, mbr **b2) {
+	bit overlap;
+	mbrOverlaps(&overlap, b1, b2);
+	if (overlap == 0) {
+		*r = mbr_nil;
+	} else {
+		(*r)->xmin = ((*b1)->xmin < (*b2)->xmin) ? (*b2)->xmin : (*b1)->xmin;
+		(*r)->ymin = ((*b1)->ymin < (*b2)->ymin) ? (*b2)->ymin : (*b1)->ymin;
+		(*r)->xmax = ((*b1)->xmax > (*b2)->xmax) ? (*b2)->xmax : (*b1)->xmax;
+		(*r)->ymax = ((*b1)->ymax > (*b2)->ymax) ? (*b2)->ymax : (*b1)->ymax;
+	}
+	return MAL_SUCCEED;
+}
+
+/*returns the union of two mbrs */
+str mbrUnion(mbr **r, mbr **b1, mbr **b2) {
+	bit overlap;
+	mbrOverlaps(&overlap, b1, b2);
+	if (mbr_isnil(*b1) && mbr_isnil(*b2)) {
+		*r = mbr_nil;
+	} else if (mbr_isnil(*b1)) {
+		(*r)->xmin = (*b2)->xmin;
+		(*r)->ymin = (*b2)->ymin;
+		(*r)->xmax = (*b2)->xmax;
+		(*r)->ymax = (*b2)->ymax;
+	} else if (mbr_isnil(*b2)) {
+		(*r)->xmin = (*b1)->xmin;
+		(*r)->ymin = (*b1)->ymin;
+		(*r)->xmax = (*b1)->xmax;
+		(*r)->ymax = (*b1)->ymax;
+	} else {
+		(*r)->xmin = ((*b1)->xmin > (*b2)->xmin) ? (*b2)->xmin : (*b1)->xmin;
+		(*r)->ymin = ((*b1)->ymin > (*b2)->ymin) ? (*b2)->ymin : (*b1)->ymin;
+		(*r)->xmax = ((*b1)->xmax < (*b2)->xmax) ? (*b2)->xmax : (*b1)->xmax;
+		(*r)->ymax = ((*b1)->ymax < (*b2)->ymax) ? (*b2)->ymax : (*b1)->ymax;
+	}
+
 	return MAL_SUCCEED;
 }
 
