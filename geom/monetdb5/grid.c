@@ -28,11 +28,11 @@
 
 #define maximumNumberOfCells(max, bitsNum, add) \
 do {                                            \
-    int i = 0;                                  \
-    size_t res = 0;                             \
-    for(i = 0; i < bitsNum; i++)                \
-        res = (res << 1) | 1;                   \
-    max = res + add;                            \
+	int i = 0;                                  \
+	size_t res = 0;                             \
+	for(i = 0; i < bitsNum; i++)                \
+		res = (res << 1) | 1;                   \
+	max = res + add;                            \
 } while (0)
 
 #define GRIDextend(g1, g2, cellR, cellS, r1, r2, msg)                              \
@@ -41,54 +41,75 @@ do {                                                                            
 BUN maxSize = BATcount((r1)) +                                                     \
               ((g1)->dir[(cellR)+1]-(g1)->dir[(cellR)])*                           \
               ((g2)->dir[(cellS)+1]-(g2)->dir[(cellS)]);                           \
-if (maxSize > GDK_oid_max) {                                                       \
-		(msg) = createException(MAL, "grid.distance", "overflow of head value");   \
-		goto distancejoin_fail;                                                    \
-}                                                                                  \
-while (maxSize > BATcapacity((r1))) {                                              \
-fprintf(stderr, "maxSize: %zu capacity: %zu\n", maxSize, BATcapacity((r1)));       \
-	if ((BATextend((r1), BATgrows((r1))) != GDK_SUCCEED) ||                        \
-		(BATextend((r2), BATgrows((r2))) != GDK_SUCCEED)) {                        \
-		(msg) = createException(MAL, "grid.distance",                              \
-                            "could not extend BATs for storing the join results"); \
-		goto distancejoin_fail;                                                    \
+	if (maxSize > GDK_oid_max) {                                                   \
+			(msg) = createException(MAL,"grid.distance","overflow of head value"); \
+			goto distancejoin_fail;                                                \
 	}                                                                              \
-}                                                                                  \
+	while (maxSize > BATcapacity((r1))) {                                          \
+		if ((BATextend((r1), BATgrows((r1))) != GDK_SUCCEED) ||                    \
+			(BATextend((r2), BATgrows((r2))) != GDK_SUCCEED)) {                    \
+			(msg) = createException(MAL, "grid.distance",                          \
+					"could not extend BATs for storing the join results");         \
+			goto distancejoin_fail;                                                \
+		}                                                                          \
+	}                                                                              \
 } while (0)
 
-
+#define GRIDdist(r1Vals, oid1, seq1, r1b, x1v, y1v,                               \
+                 r2Vals, oid2, seq2, r2b, x2v, y2v)                               \
+do {                                                                              \
+	dbl ddist = ((x2v)-(x1v))*((x2v)-(x1v))+((y2v)-(y1v))*((y2v)-(y1v));          \
+	(r1Vals)[(r1b)] = (oid1) + (seq1);                                            \
+	(r2Vals)[(r2b)] = (oid2) + (seq2);                                            \
+	(r1b) += ddist <= distsqr;                                                    \
+	(r2b) += ddist <= distsqr;                                                    \
+} while(0)
 
 #define GRIDcmp(x1Vals, y1Vals, g1,                                               \
                 x2Vals, y2Vals, g2,                                               \
                 cellR, cellS, r1, r2, seq1, seq2, msg)                            \
 do {                                                                              \
-BUN r1b, r2b;                                                                     \
-lng * r1Vals, * r2Vals;                                                           \
-if ((cellR) >= (g1)->cellsNum || (cellS) >= (g2)->cellsNum)                       \
-	continue;                                                                     \
-GRIDextend(g1, g2, cellR, cellS, r1, r2, msg);                                    \
-r1Vals = (lng*)Tloc(r1, BUNfirst(r1));                                            \
-r2Vals = (lng*)Tloc(r2, BUNfirst(r2));                                            \
-r1b = BATcount(r1);                                                               \
-r2b = BATcount(r2);                                                               \
-/* compare points of R in cellR with points of S in cellS */                      \
-for (size_t m = (g1)->dir[(cellR)]; m < (g1)->dir[(cellR)+1]; m++) {              \
-	oid oid1 = m;                                                                 \
-	lng x1v = (x1Vals)[oid1];                                                     \
-	lng y1v = (y1Vals)[oid1];                                                     \
-	for (size_t n = (g2)->dir[(cellS)]; n < (g2)->dir[(cellS)+1]; n++) {          \
-		size_t oid2 = n;                                                          \
-		lng x2v = (x2Vals)[oid2];                                                 \
-		lng y2v = (y2Vals)[oid2];                                                 \
-		double ddist = (x2v-x1v)*(x2v-x1v)+(y2v-y1v)*(y2v-y1v);                   \
-		r1Vals[r1b] = oid1 + seq1;                                                \
-		r2Vals[r2b] = oid2 + seq2;                                                \
-		r1b += ddist <= distsqr;                                                  \
-		r2b += ddist <= distsqr;                                                  \
+	BUN r1b, r2b;                                                                 \
+	oid m;                                                                        \
+	lng * r1Vals, * r2Vals;                                                       \
+	if ((cellR) >= (g1)->cellsNum || (cellS) >= (g2)->cellsNum)                   \
+		continue;                                                                 \
+	GRIDextend(g1, g2, cellR, cellS, r1, r2, msg);                                \
+	r1Vals = (lng*)Tloc(r1, BUNfirst(r1));                                        \
+	r2Vals = (lng*)Tloc(r2, BUNfirst(r2));                                        \
+	r1b = BATcount(r1);                                                           \
+	r2b = BATcount(r2);                                                           \
+	m = (g1)->dir[(cellR)];                                                       \
+	if (GRIDcount(g1, cellR) > 16) {                                              \
+		/* compare points of R in cellR with points of S in cellS */              \
+		for (m = (g1)->dir[(cellR)]; m < (g1)->dir[(cellR)+1]-16; m+=16) {        \
+			for (oid n = (g2)->dir[(cellS)]; n < (g2)->dir[(cellS)+1]; n++) {     \
+				oid oid2 = n;                                                     \
+				lng x2v = (x2Vals)[oid2];                                         \
+				lng y2v = (y2Vals)[oid2];                                         \
+				for(oid oid1 = m; oid1 < m+16; oid1++) {                          \
+					lng x1v = (x1Vals)[oid1];                                     \
+					lng y1v = (y1Vals)[oid1];                                     \
+					GRIDdist(r1Vals, oid1, seq1, r1b, x1v, y1v,                   \
+							 r2Vals, oid2, seq2, r2b, x2v, y2v);                  \
+				}                                                                 \
+			}                                                                     \
+		}                                                                         \
 	}                                                                             \
-}                                                                                 \
-BATsetcount(r1, r1b);                                                             \
-BATsetcount(r2, r2b);                                                             \
+	for (; m < (g1)->dir[(cellR)+1]; m++) {                                       \
+		oid oid1 = m;                                                             \
+		lng x1v = (x1Vals)[oid1];                                                 \
+		lng y1v = (y1Vals)[oid1];                                                 \
+		for (oid n = (g2)->dir[(cellS)]; n < (g2)->dir[(cellS)+1]; n++) {         \
+			oid oid2 = n;                                                         \
+			lng x2v = (x2Vals)[oid2];                                             \
+			lng y2v = (y2Vals)[oid2];                                             \
+			GRIDdist(r1Vals, oid1, seq1, r1b, x1v, y1v,                           \
+					 r2Vals, oid2, seq2, r2b, x2v, y2v);                          \
+		}                                                                         \
+	}                                                                             \
+	BATsetcount(r1, r1b);                                                         \
+	BATsetcount(r2, r2b);                                                         \
 } while (0)
 
 typedef struct Grid Grid;
