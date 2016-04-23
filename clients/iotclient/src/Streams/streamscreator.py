@@ -1,3 +1,5 @@
+import collections
+
 from jsonschema import Draft4Validator, FormatChecker
 from flushing import TupleBasedFlushing, TimeBasedFlushing
 from streams import DataCellStream
@@ -9,29 +11,28 @@ class ColumnsValidationException(Exception):
         super(ColumnsValidationException, self).__init__()
         self.message = error_messages  # dictionary of name ->  error message
 
-
-SWITCHER = {('text', 'string', 'clob', 'character large object'): 'TextType',
-            ('uuid'): 'UUIDType',
-            ('mac'): 'MACType',
-            ('url'): 'URLType',
-            ('inet'): 'INet',
-            ('inet6'): 'INetSix',
-            ('regex'): 'RegexType',
-            ('char', 'character', 'varchar', 'character varying'): 'LimitedTextType',
-            ('enum'): 'EnumType',
-            ('boolean'): 'BooleanType',
-            ('tinyint', 'smallint', 'int', 'integer', 'bigint'): 'SmallIntegerType',
-            ('hugeint'): 'HugeIntegerType',
-            ('real', 'float', 'double'): 'FloatType',
-            ('decimal', 'numeric'): 'DecimalType',
-            ('date'): 'DateType',
-            ('time'): 'TimeType',
-            ('timestamp'): 'TimestampType'}
+SWITCHER = [{'types': ['text', 'string', 'clob', 'character large object'], 'class': 'TextType'},
+    {'types': ['uuid'], 'class': 'UUIDType'},
+    {'types': ['mac'], 'class': 'MACType'},
+    {'types': ['url'], 'class': 'URLType'},
+    {'types': ['inet'], 'class': 'INet'},
+    {'types': ['inet6'], 'class': 'INetSix'},
+    {'types': ['regex'], 'class': 'RegexType'},
+    {'types': ['char', 'character', 'varchar', 'character varying'], 'class': 'LimitedTextType'},
+    {'types': ['enum'], 'class': 'EnumType'},
+    {'types': ['boolean'], 'class': 'BooleanType'},
+    {'types': ['tinyint', 'smallint', 'int', 'integer', 'bigint'], 'class': 'SmallIntegerType'},
+    {'types': ['hugeint'], 'class': 'HugeIntegerType'},
+    {'types': ['real', 'float', 'double'], 'class': 'FloatType'},
+    {'types': ['decimal', 'numeric'], 'class': 'DecimalType'},
+    {'types': ['date'], 'class': 'DateType'},
+    {'types': ['time'], 'class': 'TimeType'},
+    {'types': ['timestamp'], 'class': 'TimestampType'}]
 
 
 def validate_schema_and_create_stream(schema, created=False):
-    validated_columns = {}  # dictionary of name -> data_types
-    errors = {}
+    validated_columns = collections.OrderedDict()  # dictionary of name -> data_types
+    errors = collections.OrderedDict()
 
     for column in schema['columns']:  # create the data types dictionary
         next_type = column['type']
@@ -41,10 +42,10 @@ def validate_schema_and_create_stream(schema, created=False):
             errors[next_name] = 'The column ' + next_name + ' is duplicated!'
             continue
 
-        for tuple_keys, class_name in SWITCHER.iteritems():  # allocate the proper type wrapper
-            if next_type in tuple_keys:
+        for entry in SWITCHER:  # allocate the proper type wrapper
+            if next_type in entry['types']:
                 try:
-                    reflection_class = globals()[class_name]  # import everything from datatypes!!!
+                    reflection_class = globals()[entry['class']]  # import everything from datatypes!!!
                     new_column = reflection_class(**column)  # pass the json entry as kwargs
                     if 'default' in column:
                         new_column.set_default_value(column['default'])
@@ -66,7 +67,7 @@ def validate_schema_and_create_stream(schema, created=False):
     else:
         flushing_method = TupleBasedFlushing(limit=int(flushing_object['number']))
 
-    properties = {}
+    properties = collections.OrderedDict()
     required_fields = []
 
     for key, value in validated_columns.iteritems():
