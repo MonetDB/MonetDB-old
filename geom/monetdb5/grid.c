@@ -926,11 +926,11 @@ GRIDdistancesubjoin(bat *res1, bat * res2,bat * x1, bat * y1, bat * x2, bat * y2
 			size_t R[] = {min,            min,              min,   min, min+1, min+g1->cellsX, min+g1->cellsX+1};
 			size_t S[] = {min+g1->cellsX, min+g1->cellsX+1, min+1, min, min,   min,            min             };
 			for (size_t k = 0; k < 7; k++) {
-//				if (GRIDcount(g1,R[k]) > GRIDcount(g2,S[k])) {
+				if (GRIDcount(g1,R[k]) > GRIDcount(g2,S[k])) {
 					GRIDcmp(x1Vals, y1Vals, g1, x2Vals, y2Vals, g2, R[k], S[k], r1, r2, seq1, seq2, msg);
-//				} else {
-//					GRIDcmp(x2Vals, y2Vals, g2, x1Vals, y1Vals, g1, S[k], R[k], r2, r1, seq2, seq1, msg);
-//				}
+				} else {
+					GRIDcmp(x2Vals, y2Vals, g2, x1Vals, y1Vals, g1, S[k], R[k], r2, r1, seq2, seq1, msg);
+				}
 			}
 		}
 	}
