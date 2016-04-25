@@ -15,7 +15,7 @@ INCLUDES = ../lib \
 lib__geom = {
 	MODULE
 	DIR = libdir/monetdb5
-	SOURCES = geom.h geom.c geomBulk.c geom_upgrade.c grid.h grid.c
+	SOURCES = geom.h geom.c geomBulk.c geom_upgrade.c grid.h grid_impl.h grid.c
 	LIBS = ../lib/libgeom \
 		   ../../gdk/libbat \
 	       ../../common/stream/libstream \
@@ -45,6 +45,20 @@ headers_autoload_grid = {
 	HEADERS = mal
 	DIR = libdir/monetdb5/autoload
 	SOURCES = 31_grid.mal
+}
+
+headers_mal_grid_hge = {
+	COND = HAVE_HGE
+	HEADERS = mal
+	DIR = libdir/monetdb5
+	SOURCES = grid_hge.mal
+}
+
+headers_autoload_grid_hge = {
+	COND = HAVE_HGE
+	HEADERS = mal
+	DIR = libdir/monetdb5/autoload
+	SOURCES = 31_grid_hge.mal
 }
 
 EXTRA_DIST = 30_geom.mal geom.mal 31_grid.mal grid.mal

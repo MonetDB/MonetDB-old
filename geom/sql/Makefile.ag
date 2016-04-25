@@ -16,4 +16,11 @@ headers_sql_grid = {
 	SOURCES = 41_grid.sql
 }
 
+headers_sql_grid_hge = {
+	COND = HAVE_HGE
+	HEADERS = sql
+	DIR = libdir/monetdb5/createdb
+	SOURCES = 41_grid_hge.sql
+}
+
 EXTRA_DIST_DIR = Tests

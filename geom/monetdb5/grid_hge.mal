@@ -1,0 +1,16 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.  If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+
+module grid_hge;
+command grid.distance(x1:hge, y1:hge, x2:hge, y2:hge, d:dbl) :bit
+address GRIDdistance_hge
+comment "Return true when the cartesian distance between two points is less than the specified distance";
+command grid.distancesubselect(x1:bat[:hge], y1:bat[:hge], cand1:bat[:oid], x2:hge, y2:hge, d:dbl, anti:bit):bat[:oid]
+address GRIDdistancesubselect_hge
+comment "Return the OIDs of points that are close to the specified point";
+command grid.distancesubjoin(x1:bat[:hge], y1:bat[:hge], x2:bat[:hge], y2:bat[:hge], d:dbl, s1:bat[:oid], s2:bat[:oid], nil_matches:bit, estimate:lng)(r1:bat[:oid],r2:bat[:oid])
+address GRIDdistancesubjoin
+comment "Returns the point pairs that with distance less than the specified distance";

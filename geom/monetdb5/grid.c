@@ -13,27 +13,44 @@
 
 #include "grid.h"
 
-#define GRID_VERSION 1
-#define POINTSPERCELL 100000
+static size_t
+countSetBits(uint64_t *resBitvector, size_t vectorSize)
+{
+	size_t num = 0 ;
+	for(size_t k = 0; k < vectorSize; k++) {
+		uint64_t b = resBitvector[k];
+		for(uint64_t j = 0; j < BITSNUM; j++) {
+			num += b & 0x01;
+			b >>= 1;
+		}
+	}
 
-#define BITSNUM 64
-#define SHIFT 6  /* division with 64 */
-#define ONES ((1<<(SHIFT))-1) /* 63 */
-#define get(bitVector, bitPos) (((bitVector) >> (bitPos)) & 0x01) 
-#define set(bitVector, bitPos, value) ((bitVector) |= ((value)<<(bitPos))) 
-#define setbv(bitVector, bitPos, value) set((bitVector)[(bitPos) >> SHIFT], (bitPos) & ONES, (value))
-#define unset(bitVector, bitPos) ((bitVector) &= ~((uint64_t)1<<(bitPos)))
-#define common(bitVector, bitPos, value) ((bitVector) &= (0xFFFFFFFFFFFFFFFF ^ (((1-value))<<(bitPos))))
-#define GRIDcount(g, c) (g)->dir[(c)+1] - (g)->dir[(c)]
+	return num;
+}
 
-#define maximumNumberOfCells(max, bitsNum, add) \
-do {                                            \
-	int i = 0;                                  \
-	size_t res = 0;                             \
-	for(i = 0; i < bitsNum; i++)                \
-		res = (res << 1) | 1;                   \
-	max = res + add;                            \
-} while (0)
+#define TP bte
+#include "grid_impl.h"
+#undef TP
+#define TP sht
+#include "grid_impl.h"
+#undef TP
+#define TP int
+#include "grid_impl.h"
+#undef TP
+#define TP lng
+#include "grid_impl.h"
+#undef TP
+#ifdef HAVE_HGE
+#define TP hge
+#include "grid_impl.h"
+#undef TP
+#endif
+#define TP flt
+#include "grid_impl.h"
+#undef TP
+#define TP dbl
+#include "grid_impl.h"
+#undef TP
 
 #define GRIDextend(g1, g2, cellR, cellS, r1, r2, msg)                             \
 do {                                                                              \
@@ -65,32 +82,37 @@ do {                                                                            
 	(r2b) += ddist <= distsqr;                                                    \
 } while(0)
 
-#define GRIDcmp(x1Vals, y1Vals, g1,                                               \
-                x2Vals, y2Vals, g2,                                               \
+#define GRIDcmp(tpe, x1BAT, y1BAT, g1,                                            \
+                     x2BAT, y2BAT, g2,                                            \
                 cellR, cellS, r1, r2, seq1, seq2, msg)                            \
 do {                                                                              \
 	BUN r1b, r2b;                                                                 \
+	tpe *x1Vals, *y1Vals, *x2Vals, *y2Vals;                                       \
+	oid *r1Vals, *r2Vals;                                                         \
 	oid m;                                                                        \
-	lng * r1Vals, * r2Vals;                                                       \
 	if ((cellR) >= (g1)->cellsNum || (cellS) >= (g2)->cellsNum)                   \
 		continue;                                                                 \
 	GRIDextend(g1, g2, cellR, cellS, r1, r2, msg);                                \
-	r1Vals = (lng*)Tloc(r1, BUNfirst(r1));                                        \
-	r2Vals = (lng*)Tloc(r2, BUNfirst(r2));                                        \
+	x1Vals = (tpe*)Tloc(x1BAT, BUNfirst(x1BAT));                                  \
+	y1Vals = (tpe*)Tloc(y1BAT, BUNfirst(y1BAT));                                  \
+	x2Vals = (tpe*)Tloc(x2BAT, BUNfirst(x2BAT));                                  \
+	y2Vals = (tpe*)Tloc(y2BAT, BUNfirst(y2BAT));                                  \
+	r1Vals = (oid*)Tloc(r1, BUNfirst(r1));                                        \
+	r2Vals = (oid*)Tloc(r2, BUNfirst(r2));                                        \
 	r1b = BATcount(r1);                                                           \
 	r2b = BATcount(r2);                                                           \
 	m = (g1)->dir[(cellR)];                                                       \
 	if (GRIDcount(g1, cellR) > 16) {                                              \
 		/* compare points of R in cellR with points of S in cellS */              \
-		for (; m < (g1)->dir[(cellR)+1]-16; m+=16) {        \
+		for (; m < (g1)->dir[(cellR)+1]-16; m+=16) {                              \
 			for (oid n = (g2)->dir[(cellS)]; n < (g2)->dir[(cellS)+1]; n++) {     \
 				oid oid2 = (g2)->oids[n];                                         \
-				lng x2v = (x2Vals)[oid2];                                         \
-				lng y2v = (y2Vals)[oid2];                                         \
+				tpe x2v = (x2Vals)[oid2];                                         \
+				tpe y2v = (y2Vals)[oid2];                                         \
 				for(oid o1 = m; o1 < m+16; o1++) {                                \
 					oid oid1 = (g1)->oids[o1];                                    \
-					lng x1v = (x1Vals)[oid1];                                     \
-					lng y1v = (y1Vals)[oid1];                                     \
+					tpe x1v = (x1Vals)[oid1];                                     \
+					tpe y1v = (y1Vals)[oid1];                                     \
 					GRIDdist(r1Vals, oid1, seq1, r1b, x1v, y1v,                   \
 							 r2Vals, oid2, seq2, r2b, x2v, y2v);                  \
 				}                                                                 \
@@ -99,12 +121,12 @@ do {                                                                            
 	}                                                                             \
 	for (; m < (g1)->dir[(cellR)+1]; m++) {                                       \
 		oid oid1 = (g1)->oids[m];                                                 \
-		lng x1v = (x1Vals)[oid1];                                                 \
-		lng y1v = (y1Vals)[oid1];                                                 \
+		tpe x1v = (x1Vals)[oid1];                                                 \
+		tpe y1v = (y1Vals)[oid1];                                                 \
 		for (oid n = (g2)->dir[(cellS)]; n < (g2)->dir[(cellS)+1]; n++) {         \
 			oid oid2 = (g2)->oids[n];                                             \
-			lng x2v = (x2Vals)[oid2];                                             \
-			lng y2v = (y2Vals)[oid2];                                             \
+			tpe x2v = (x2Vals)[oid2];                                             \
+			tpe y2v = (y2Vals)[oid2];                                             \
 			GRIDdist(r1Vals, oid1, seq1, r1b, x1v, y1v,                           \
 					 r2Vals, oid2, seq2, r2b, x2v, y2v);                          \
 		}                                                                         \
@@ -113,38 +135,30 @@ do {                                                                            
 	BATsetcount(r2, r2b);                                                         \
 } while (0)
 
-typedef struct Grid Grid;
-struct Grid {
-	dbl xmin;			/* minimum X value of input BATs   */
-	dbl ymin;			/* minimum Y value of input BATs   */
-	dbl xmax;			/* maximum X value of input BATs   */
-	dbl ymax;			/* maximum Y value of input BATs   */
-	mbr mbb;			/* grid universe (might differ from the input values) */
-	bte shift;
-	size_t cellsNum;	/* number of cells                 */
-	size_t cellsPerAxis;/* number of cells per axis        */
-	size_t cellsX;		/* number of cells in X axis       */
-	size_t cellsY;		/* number of cells in Y axis       */
-	bat xbat;			/* bat id for X coordinates        */
-	bat ybat;			/* bat id for Y coordinates        */
-	oid * dir;			/* the grid directory              */
-	oid * oids;			/* heap where the index is stored  */
-};
+#define GRIDjoin(tpe,                                                             \
+                 x1BAT, y1BAT, g1, x2BAT, y2BAT, g2,                              \
+                 R, S, r1, r2, seq1, seq2, msg)                                   \
+do {                                                                              \
+	/* perform the distance join */                                               \
+	for (size_t i = minCellx; i <= maxCellx; i++) {                               \
+		for (size_t j = minCelly; j <= maxCelly; j++) {                           \
+			/* define which cells should be compared */                           \
+			size_t min = i + g1->cellsX*j;                                        \
+			size_t R[] = {min,            min,              min,   min, min+1, min+g1->cellsX, min+g1->cellsX+1}; \
+			size_t S[] = {min+g1->cellsX, min+g1->cellsX+1, min+1, min, min,   min,            min             }; \
+			for (size_t k = 0; k < 7; k++) {                                      \
+				if (GRIDcount(g1,R[k]) > GRIDcount(g2,S[k])) {                    \
+					GRIDcmp(tpe, x1BAT, y1BAT, g1, x2BAT, y2BAT,                  \
+                                 g2, R[k], S[k], r1, r2, seq1, seq2, msg);        \
+				} else {                                                          \
+					GRIDcmp(tpe, x2BAT, y2BAT, g2, x1BAT, y1BAT,                  \
+                                 g1, S[k], R[k], r2, r1, seq2, seq1, msg);        \
+				}                                                                 \
+			}                                                                     \
+		}                                                                         \
+	}                                                                             \
+} while(0)
 
-static size_t
-countSetBits(uint64_t *resBitvector, size_t vectorSize)
-{
-	size_t num = 0 ;
-	for(size_t k = 0; k < vectorSize; k++) {
-		uint64_t b = resBitvector[k];
-		for(uint64_t j = 0; j < BITSNUM; j++) {
-			num += b & 0x01;
-			b >>= 1;
-		}
-	}
-
-	return num;
-}
 #if 0
 static void
 grid_print(Grid * g)
@@ -201,109 +215,6 @@ grid_print(Grid * g)
 	fprintf(stderr, "\r]\n");
 }
 #endif
-
-static Grid *
-grid_create(BAT *bx, BAT *by)
-{
-	Grid * g;
-	lng *xVals, *yVals;
-	size_t i, cnt;
-	dbl fxa, fxb, fya, fyb;
-
-	assert(BATcount(bx) == BATcount(by));
-	assert(BATcount(bx) > 0);
-
-	if ((g = GDKmalloc(sizeof(Grid))) == NULL)
-		return g;
-
-	g->xbat = bx->batCacheid;
-	g->ybat = by->batCacheid;
-	xVals = (lng*)Tloc(bx, BUNfirst(bx));
-	yVals = (lng*)Tloc(by, BUNfirst(by));
-
-	/* determine the appropriate number of cells */
-	g->shift = 2;
-	maximumNumberOfCells(g->cellsNum, g->shift*2, 1);
-	maximumNumberOfCells(g->cellsPerAxis, g->shift, 0);
-
-	cnt = BATcount(bx);
-	while(cnt/g->cellsNum > POINTSPERCELL) {
-		/* use one more bit per axis */
-		g->shift++;
-		maximumNumberOfCells(g->cellsNum, g->shift*2, 1);
-		maximumNumberOfCells(g->cellsPerAxis, g->shift, 0);
-	}
-
-	/* find min and max values for X and y coordinates */
-	g->xmin = g->xmax = xVals[0];
-	for (i = 1; i < cnt; i++) {
-		lng val = xVals[i];
-		if(g->xmin > val)
-			g->xmin = val;
-		if(g->xmax < val)
-			g->xmax = val;
-	}
-	g->ymin = g->ymax = yVals[0];
-	for (i = 1; i < cnt; i++) {
-		lng val = yVals[i];
-		if(g->ymin > val)
-			g->ymin = val;
-		if(g->ymax < val)
-			g->ymax = val;
-	}
-
-	/* allocate space for the directory */
-	if ((g->dir = GDKmalloc((g->cellsNum+1)*sizeof(oid))) == NULL) {
-		GDKfree(g);
-		g = NULL;
-		return g;
-	}
-	for (i = 0; i < g->cellsNum; i++)
-		g->dir[i] = 0;
-
-	/* allocate space for the index */
-	if((g->oids = GDKmalloc(BATcount(bx)*sizeof(oid))) == NULL) {
-		GDKfree(g);
-		g = NULL;
-		return g;
-	}
-
-	/* compute the index */
-	/* step 1: compute the histogram of cell frequencies */
-	fxa = ((double)g->cellsPerAxis/(double)(g->xmax-g->xmin));
-	fxb = (double)g->xmin*fxa;
-	fya = ((double)g->cellsPerAxis/(double)(g->ymax-g->ymin));
-	fyb = (double)g->ymin*fya;
-
-	cnt = BATcount(bx);
-	for (i = 0; i < cnt; i++) {
-		oid cellx = (double)xVals[i]*fxa - fxb;
-		oid celly = (double)yVals[i]*fya - fyb;
-		oid cell = ((cellx << g->shift) | celly);
-		g->dir[cell+1]++;
-	}
-
-	/* step 2: compute the directory pointers */
-	for (i = 1; i < g->cellsNum; i++)
-		g->dir[i] += g->dir[i-1];
-
-	/* step 3: fill in the oid array */
-	for (size_t i = 0; i < cnt; i++) {
-		oid cellx = (double)xVals[i]*fxa - fxb;
-		oid celly = (double)yVals[i]*fya - fyb;
-		oid cell = ((cellx << g->shift) | celly);
-		g->oids[g->dir[cell]++] = i;
-	}
-
-	/* step 4: adjust the directory pointers */
-	for (size_t i = g->cellsNum; i > 0; i--)
-		g->dir[i+1] = g->dir[i];
-	g->dir[0] = 0;
-
-	/* TODO: move here the code for compressing the index */
-
-	return g;
-}
 
 static str
 grid_create_mbr(Grid * g, BAT *bx, BAT *by, mbr *m, dbl * d)
@@ -563,265 +474,11 @@ grid_create_bats_fail:
 }
 
 str
-GRIDdistance(bit * res, lng * x1, lng * y1, lng * x2, lng * y2, dbl * d)
-{
-	str r = MAL_SUCCEED;
-
-	if ((res = GDKmalloc(sizeof(bit))) == NULL)
-		r = createException(MAL, "grid.distance", MAL_MALLOC_FAIL);
-	else {
-		*res = ((*x2-*x1)*(*x2-*x1)+(*y2-*y1)*(*y2-*y1))<(*d)*(*d);
-	}
-
-	return r;
-}
-
-str
-GRIDdistancesubselect(bat * res, bat * x1, bat * y1, bat * cand1, lng * x2, lng * y2, dbl * d, bit * anti)
-{
-	size_t minCellx, minCelly, maxCellx, maxCelly, cellx, celly;
-	size_t *borderCells, *internalCells;
-	size_t borderCellsNum, internalCellsNum, totalCellsNum;
-	size_t i, j, bvsize, num;
-	uint64_t * bv, * cbv;
-	double fxa, fxb, fya, fyb;
-	BAT *x1BAT = NULL, *y1BAT = NULL, *cBAT = NULL;
-	lng * x1Vals = NULL, * y1Vals = NULL;
-	oid * resVals = NULL;
-	oid seq;
-	Grid * g = NULL;
-	mbr mbb;
-	BAT *r;
-	BUN p, q;
-	BATiter pi;
-	BUN resNum = 0;
-	assert (*d > 0);
-
-	/* get the X and Y BATs*/
-	if((x1BAT = BATdescriptor(*x1)) == NULL)
-		throw(MAL, "grid.distance", RUNTIME_OBJECT_MISSING);
-	if((y1BAT = BATdescriptor(*y1)) == NULL) {
-		BBPunfix(x1BAT->batCacheid);
-		throw(MAL, "grid.distance", RUNTIME_OBJECT_MISSING);
-	}
-	if((cBAT = BATdescriptor(*cand1)) == NULL) {
-		BBPunfix(x1BAT->batCacheid);
-		BBPunfix(y1BAT->batCacheid);
-		throw(MAL, "grid.distance", RUNTIME_OBJECT_MISSING);
-	}
-
-	/* check if the BATs have dense heads and are aligned */
-	if (!BAThdense(x1BAT) || !BAThdense(y1BAT)) {
-		BBPunfix(x1BAT->batCacheid);
-		BBPunfix(y1BAT->batCacheid);
-		BBPunfix(cBAT->batCacheid);
-		return createException(MAL, "grid.distance", "BATs must have dense heads");
-	}
-	if(x1BAT->hseqbase != y1BAT->hseqbase
-		|| BATcount(x1BAT) != BATcount(y1BAT)
-		|| x1BAT->hseqbase != cBAT->hseqbase) {
-		BBPunfix(x1BAT->batCacheid);
-		BBPunfix(y1BAT->batCacheid);
-		BBPunfix(cBAT->batCacheid);
-		return createException(MAL, "grid.distance", "BATs must be aligned");
-	}
-	num = BATcount(x1BAT);
-	seq = x1BAT->hseqbase;
-
-	assert(x1BAT->ttype == TYPE_lng);
-	assert(y1BAT->ttype == TYPE_lng);
-	x1Vals = (lng*)Tloc(x1BAT, BUNfirst(x1BAT));
-	y1Vals = (lng*)Tloc(y1BAT, BUNfirst(y1BAT));
-
-	/* initialize the bit vectors */
-	bvsize = (num >> SHIFT) + ((num & ONES) > 0);
-	if ((bv = GDKmalloc(bvsize * sizeof(uint64_t))) == NULL)
-		throw(MAL, "grid.distance", MAL_MALLOC_FAIL);
-	for (i = 0; i < bvsize; i++)
-		bv[i] = 0;
-
-	if ((cbv = GDKmalloc(bvsize * sizeof(uint64_t))) == NULL) {
-		GDKfree(bv);
-		throw(MAL, "grid.distance", MAL_MALLOC_FAIL);
-	}
-	for (i = 0; i < bvsize; i++)
-		cbv[i] = 0;
-
-	pi = bat_iterator(cBAT);
-	BATloop(cBAT, p, q) {
-		oid o = *(oid*)BUNtail(pi, p) - seq;
-		size_t blockNum = o >> SHIFT;
-		uint64_t bitPos = o & ONES;
-		set(cbv[blockNum], bitPos, 1);
-	}
-	BBPunfix(cBAT->batCacheid);
-
-	/* compute the grid index */
-	if((g = grid_create(x1BAT, y1BAT)) == NULL) {
-		BBPunfix(x1BAT->batCacheid);
-		BBPunfix(y1BAT->batCacheid);
-		GDKfree(bv);
-		GDKfree(cbv);
-		return createException(MAL, "grid.distance", "Could not compute the grid index");
-	}
-
-	/* find which cells have to be examined */
-	fxa = ((double)g->cellsPerAxis/(double)(g->xmax-g->xmin));
-	fxb = (double)g->xmin*fxa; 
-	fya = ((double)g->cellsPerAxis/(double)(g->ymax-g->ymin));
-	fyb = (double)g->ymin*fya; 
-	//mbb = (mbr) {.xmin = 0, .ymin = 0, .xmax = 0, .ymax = 0}
-	mbb = (mbr) { .xmin = *x2 - *d, .ymin = *y2 - *d, .xmax = *x2 + *d, .ymax = *y2 + *d};
-	if (mbb.xmin > g->xmax || mbb.xmax < g->xmin ||
-		mbb.ymin > g->ymax || mbb.ymax < g->ymin) {
-
-		/* no results */
-		BBPunfix(x1BAT->batCacheid);
-		BBPunfix(y1BAT->batCacheid);
-		GDKfree(bv);
-		GDKfree(cbv);
-		if ((r = BATnew(TYPE_void, TYPE_oid, 0, TRANSIENT)) == NULL)
-			return createException(MAL, "grid.distance", "could not create a BAT for storing the results");
-		*res = r->batCacheid;
-		BBPkeepref(*res);
-
-		return MAL_SUCCEED;
-	}
-
-	mbb.xmin = (mbb.xmin < g->xmin) ? g->xmin : mbb.xmin;
-	mbb.xmax = (mbb.xmax > g->xmax) ? g->xmax : mbb.xmax; 
-	mbb.ymin = (mbb.ymin < g->ymin) ? g->ymin : mbb.ymin;
-	mbb.ymax = (mbb.ymax > g->ymax) ? g->ymax : mbb.ymax; 
-
-	minCellx = (double)(mbb.xmin)*fxa - fxb;
-	maxCellx = (double)(mbb.xmax)*fxa - fxb;
-	minCelly = (double)(mbb.ymin)*fya - fyb;
-	maxCelly = (double)(mbb.ymax)*fya - fyb;
-
-	/* split the cells in border and internal ones */
-	totalCellsNum = (maxCellx - minCellx + 1)*(maxCelly - minCelly + 1);
-	borderCellsNum = (maxCellx - minCellx + 1) + (maxCelly - minCelly + 1) - 1; /* per axis, remove the corner cell that has been added twice */
-	if(maxCellx > minCellx && maxCelly > minCelly)
-		borderCellsNum = borderCellsNum*2 - 2; /* subtract the two corner cells that have been added twice */
-	internalCellsNum = totalCellsNum - borderCellsNum;
-
-	if((borderCells = (size_t*)GDKmalloc((borderCellsNum + 1) * sizeof(size_t*))) == NULL) {
-		BBPunfix(x1BAT->batCacheid);
-		BBPunfix(y1BAT->batCacheid);
-		GDKfree(bv);
-		GDKfree(cbv);
-		return createException(MAL, "grid.distance", MAL_MALLOC_FAIL);
-	}
-	if((internalCells = (size_t*)GDKmalloc((internalCellsNum + 1) * sizeof(size_t*))) == NULL) {
-		BBPunfix(x1BAT->batCacheid);
-		BBPunfix(y1BAT->batCacheid);
-		GDKfree(borderCells);
-		GDKfree(bv);
-		GDKfree(cbv);
-		return createException(MAL, "grid.distance", MAL_MALLOC_FAIL);
-	}
-
-	borderCellsNum = 0;
-	internalCellsNum = 0;
-	for(cellx = minCellx ; cellx <= maxCellx; cellx++) {
-		for(celly = minCelly ; celly <= maxCelly ; celly++) {
-			size_t cellId = (cellx << g->shift) | celly;
-			unsigned short border = (cellx == minCellx) | (cellx == maxCellx) | (celly == minCelly) | (celly == maxCelly);
-			borderCells[borderCellsNum] = cellId;
-			internalCells[internalCellsNum] = cellId;
-			borderCellsNum += border;
-			internalCellsNum += 1 - border;
-		}
-	}
-
-	/* process cells along the border */
-	for (i = 0; i < borderCellsNum; i++) {
-		size_t cellId = borderCells[i];
-		size_t offsetStartIdx = g->dir[cellId];
-		size_t offsetEndIdx = g->dir[cellId+1]; /* exclusive */
-		for(j = offsetStartIdx; j < offsetEndIdx; j++) {
-			size_t o = g->oids[j];
-			size_t blockNum = o >> SHIFT;
-			uint64_t bitPos = o & ONES;
-			size_t mask = (mbb.xmin <= x1Vals[o]) & (mbb.xmax >= x1Vals[o]) & 
-				(mbb.ymin <= y1Vals[o]) & (mbb.ymax >= y1Vals[o]);
-			set(bv[blockNum], bitPos, mask);
-		}
-	} 
-	GDKfree(borderCells);
-	BBPunfix(x1BAT->batCacheid);
-	BBPunfix(y1BAT->batCacheid);
-
-	/* process internal cells */
-	for (i = 0; i < internalCellsNum; i++) {
-		size_t cellId = internalCells[i];
-		size_t offsetStartIdx = g->dir[cellId];
-		size_t offsetEndIdx = g->dir[cellId+1]; /* exclusive */
-		for(j = offsetStartIdx; j < offsetEndIdx; j++) {
-			size_t o = g->oids[j];
-			size_t blockNum = o >> SHIFT;
-			uint64_t bitPos = o & ONES;
-			set(bv[blockNum], bitPos, 0x01);
-		}
-	}
-	GDKfree(internalCells);
-	GDKfree(g->oids);
-	GDKfree(g->dir);
-	GDKfree(g);
-
-	/* anti */
-	if (*anti) {
-		for (i = 0; i < bvsize; i++)
-			bv[i] = ~bv[i];
-		for (i = num % BITSNUM; i < BITSNUM; i++)
-			set(bv[bvsize-1], i, 0);
-	}
-
-	/* & the bit vectors*/
-	for (i = 0; i < bvsize; i++)
-		bv[i] &= cbv[i];
-	GDKfree(cbv);
-
-	/* allocate a BAT for the results */
-	resNum = countSetBits(bv, bvsize);
-	if ((r = BATnew(TYPE_void, TYPE_oid, resNum+1, TRANSIENT)) == NULL) {
-		GDKfree(bv);
-		return createException(MAL, "grid.distance", "could not create a BAT for storing the results");
-	}
-
-	/* project the bit vector */
-	resVals = (oid*)Tloc(r, BUNfirst(r));
-	j = 0;
-	for(i = 0; i < bvsize; i++) {
-		uint64_t b = bv[i];
-		oid o = i * BITSNUM + seq;
-		for(short l = 0; l < BITSNUM; l++) {
-			resVals[j] = o;
-			j += b & 0x01;
-			b >>= 1;
-			o++;
-		}
-	}
-
-	GDKfree(bv);
-	//BATderiveProps(r, false);
-	BATsetcount(r, resNum);
-	//BATseqbase(r, 0);
-	r->tsorted = true;
-	r->trevsorted = false;
-	*res = r->batCacheid;
-	BBPkeepref(*res);
-
-	return MAL_SUCCEED;
-}
-
-str
 GRIDdistancesubjoin(bat *res1, bat * res2,bat * x1, bat * y1, bat * x2, bat * y2, dbl * d, bat * s1, bat * s2, bit * nil, lng * estimate)
 {
 	size_t num1, num2;
 	size_t minCellx, minCelly, maxCellx, maxCelly;
 	BAT *x1BAT = NULL, *y1BAT = NULL, *x2BAT = NULL, *y2BAT = NULL;
-	lng * x1Vals = NULL, * y1Vals = NULL, *x2Vals = NULL, *y2Vals = NULL;
 	Grid * g1 = NULL, * g2 = NULL;
 	BAT *r1 = NULL, *r2 = NULL;
 	mbr * mbb = NULL;
@@ -883,18 +540,13 @@ GRIDdistancesubjoin(bat *res1, bat * res2,bat * x1, bat * y1, bat * x2, bat * y2
 		/* hack for mitosis */
 		goto distancejoin_returnempty;
 	}
-	assert(x1BAT->ttype == TYPE_lng);
-	assert(y1BAT->ttype == TYPE_lng);
-	assert(x2BAT->ttype == TYPE_lng);
-	assert(y2BAT->ttype == TYPE_lng);
+	assert(x1BAT->ttype == y1BAT->ttype);
+	assert(y2BAT->ttype == y2BAT->ttype);
+	assert(x1BAT->ttype == x1BAT->ttype);
 	num1 = BATcount(x1BAT);
 	num2 = BATcount(x2BAT);
 	seq1 = x1BAT->hseqbase;
 	seq2 = x2BAT->hseqbase;
-	x1Vals = (lng*)Tloc(x1BAT, BUNfirst(x1BAT));
-	y1Vals = (lng*)Tloc(y1BAT, BUNfirst(y1BAT));
-	x2Vals = (lng*)Tloc(x2BAT, BUNfirst(x2BAT));
-	y2Vals = (lng*)Tloc(y2BAT, BUNfirst(y2BAT));
 	BATsetaccess(r1, BAT_APPEND);
 	BATsetaccess(r2, BAT_APPEND);
 
@@ -918,22 +570,36 @@ GRIDdistancesubjoin(bat *res1, bat * res2,bat * x1, bat * y1, bat * x2, bat * y2
 	assert(maxCellx < g1->cellsX && maxCellx < g2->cellsX);
 	assert(maxCelly < g1->cellsY && maxCelly < g2->cellsY);
 
-	/* perform the distance join */
-	for (size_t i = minCellx; i <= maxCellx; i++) {
-		for (size_t j = minCelly; j <= maxCelly; j++) {
-			/* define which cells should be compared */
-			size_t min = i + g1->cellsX*j;
-			size_t R[] = {min,            min,              min,   min, min+1, min+g1->cellsX, min+g1->cellsX+1};
-			size_t S[] = {min+g1->cellsX, min+g1->cellsX+1, min+1, min, min,   min,            min             };
-			for (size_t k = 0; k < 7; k++) {
-				if (GRIDcount(g1,R[k]) > GRIDcount(g2,S[k])) {
-					GRIDcmp(x1Vals, y1Vals, g1, x2Vals, y2Vals, g2, R[k], S[k], r1, r2, seq1, seq2, msg);
-				} else {
-					GRIDcmp(x2Vals, y2Vals, g2, x1Vals, y1Vals, g1, S[k], R[k], r2, r1, seq2, seq1, msg);
-				}
-			}
-		}
+	switch (x1BAT->ttype) {
+		case TYPE_bte:
+			GRIDjoin(bte, x1BAT, y1BAT, g1, x2BAT, y2BAT, g2, R, S, r1, r2, seq1, seq2, msg);
+			break
+			;;
+		case TYPE_sht:
+			GRIDjoin(sht, x1BAT, y1BAT, g1, x2BAT, y2BAT, g2, R, S, r1, r2, seq1, seq2, msg);
+			break
+			;;
+		case TYPE_int:
+			GRIDjoin(int, x1BAT, y1BAT, g1, x2BAT, y2BAT, g2, R, S, r1, r2, seq1, seq2, msg);
+			break
+			;;
+		case TYPE_lng:
+			GRIDjoin(lng, x1BAT, y1BAT, g1, x2BAT, y2BAT, g2, R, S, r1, r2, seq1, seq2, msg);
+			break
+			;;
+		case TYPE_flt:
+			GRIDjoin(flt, x1BAT, y1BAT, g1, x2BAT, y2BAT, g2, R, S, r1, r2, seq1, seq2, msg);
+			break
+			;;
+		case TYPE_dbl:
+			GRIDjoin(dbl, x1BAT, y1BAT, g1, x2BAT, y2BAT, g2, R, S, r1, r2, seq1, seq2, msg);
+			break
+			;;
+		default:
+			msg = createException(MAL, "grid.subjoin", "Unsupported data type");
+			goto distancejoin_fail;
 	}
+
 
 distancejoin_returnempty:
 	/* keep the results */
