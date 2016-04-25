@@ -2,8 +2,8 @@ Flask-RESTful==0.3.5
 jsonschema==2.5.1
 rfc3987==1.3.5
 strict-rfc3339==0.6
-python-dateutil==2.5.2
-pytz==2016.3
+python-dateutil==2.5.3
+pytz==2016.4
 pymonetdb==0.1.1
 tzlocal==1.2.2
 Sphinx==1.4.1

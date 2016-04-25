@@ -4,7 +4,7 @@
 Available Data Types
 ********************
 
-The following list contains the available data types for columns creation on the stream engine. The list was made as much compatible with `MonetDB's data types <https://www.monetdb.org/Documentation/Manuals/SQLreference/Datatypes>`_. For each column definiton, one of the types from the list must be provided along with its name.	
+The following list contains the available data types for columns creation on the stream engine. The list was made as much compatible with `MonetDB's data types <https://www.monetdb.org/Documentation/Manuals/SQLreference/Datatypes>`_. For each column definition, one of the types from the list must be provided along with its name.
 
 By default a column is not nullable, but the pair :code:`"nullable": true` can be provided to make it nullable. There is also the possibility to add a default value if the column value is not present on a JSON insert tuple (ex: :code:`"default": "text"`). The default value is validated against the column's validation during the stream creation.
 
@@ -23,7 +23,7 @@ MonetDB's string types with unbounded length. The insertion must be provided as 
 Char, Character, Varchar, Character Varying
 -------------------------------------------
 
-MonetDB's string types with a bounded length. The :code:`limit` parameter must be provided as an interger. The insertion must be provided as a JSON string within the limit.
+MonetDB's string types with a bounded length. The :code:`limit` parameter must be provided as an integer. The insertion must be provided as a JSON string within the limit.
 
 UUID
 ----
@@ -55,7 +55,7 @@ An *IPv6* address. The value must be a JSON String. As MonetDB doesn't have an I
 Regex
 -----
 
-A string allways validated with a provided regular expression. The JSON must contain a :code:`regex` key with the regular expression. As MonetDB doesn't have a Regex equivalent data type yet, the data is stored as :code:`string`.
+A string always validated with a provided regular expression. The JSON must contain a :code:`regex` key with the regular expression. As MonetDB doesn't have a Regex equivalent data type yet, the data is stored as :code:`string`.
 
 Enum
 ----

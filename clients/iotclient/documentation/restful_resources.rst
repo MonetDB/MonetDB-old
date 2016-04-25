@@ -1,11 +1,10 @@
 .. _restful_resources:
 
-
 *****************
 RESTful Resources
 *****************
 
-Bellow is lested the available RESTful resource for both servers on IOT application. In case of error, the server will return the error message with the respective HTTP response code. 
+Bellow is listed the available RESTful resources for both servers on the server. In case of error, the server will return the error message with the respective HTTP response code.
 
 .. important:: All the keywords provided on JSON must be lower case, as well the column data types.
 
@@ -109,7 +108,7 @@ Same resource as streams_ .
 
 **POST**
 
-Insert a batch of tuples on the provided stream in the URL. The insert must be an array of JSON object with pairs of column-value. All tuples are validaded according to the defined data types on each column. If there is an invalid tuple, none of the tuples is inserted. The implicit timestamp and the host identifier are automatically added. Bellow is shown an example to insert several tuples on the stream in streams_:
+Insert a batch of tuples on the provided stream in the URL. The insert must be an array of JSON object with pairs of column-value. All tuples are validated according to the defined data types on each column. If there is an invalid tuple, none of the tuples is inserted. The implicit timestamp and the host identifier are automatically added. Bellow is shown an example to insert several tuples on the stream in streams_:
 
 .. code-block:: json
 

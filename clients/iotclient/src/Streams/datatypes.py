@@ -571,11 +571,11 @@ class BaseDateTimeType(StreamDataType):  # The validation of time variables can'
             return self.pack_next_value(None, counter, parameters, errors)
         parsed = self.parse_entry(entry)
         if hasattr(self, '_minimum') and not hasattr(self, '_maximum') and parsed < self._minimum:
-            errors[counter] = 'The value is higher than the minimum: %s < %s!' % (self._minimum_text, parsed)
+            errors[counter] = 'The value is higher than the minimum: %s < %s!' % (parsed, self._minimum_text)
         elif hasattr(self, '_maximum') and not hasattr(self, '_minimum') and parsed > self._maximum:
             errors[counter] = 'The value is higher than the maximum: %s > %s!' % (parsed, self._maximum_text)
         elif hasattr(self, '_maximum') and hasattr(self, '_minimum') and parsed < self._minimum:
-            errors[counter] = 'The value is out of range: %s < %s!' % (self._minimum_text, parsed)
+            errors[counter] = 'The value is out of range: %s < %s!' % (parsed, self._minimum_text)
         elif hasattr(self, '_maximum') and hasattr(self, '_minimum') and parsed > self._maximum:
             errors[counter] = 'The value is out of range: %s > %s!' % (parsed, self._maximum_text)
         return self.pack_next_value(parsed, counter, parameters, errors)

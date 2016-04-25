@@ -38,7 +38,7 @@ def init_file_system(host_identifier=None, new_configfile_location=None):
 
         Host_Identifier = host_identifier
     except (Exception, OSError) as ex:
-        print >> sys.stderr, ex
+        print >> sys.stdout, ex
         add_log(50, ex.message)
         sys.exit(1)
 

@@ -1,29 +1,45 @@
 import getopt
+import signal
 import sys
-import threading
 
 from uuid import getnode as get_mac
-from Settings import filesystem, iotlogger
-from Streams import streamscontext, streams
-from Flask import restresources
 from Flask.app import start_flask_iot_app, start_flask_admin_app
+from Flask.restresources import init_rest_resources
+from Settings.filesystem import init_file_system, set_filesystem_location
+from Settings.iotlogger import init_logging, add_log, set_logging_location
 from Settings.mapiconnection import init_monetdb_connection
+from Streams.streamscontext import init_streams_context
+from Streams.streams import init_streams_hosts
+from Utilities.customthreading import StoppableThread
+
+thread1 = None
+thread2 = None
+
+
+def signal_handler(signal, frame):
+    print >> sys.stdout, 'Kill me!!'
+    thread1.stop()
+    thread2.stop()
+    add_log(20, 'Stopped IOT Stream Server')
+    sys.exit(0)
 
 
 def main(argv):
+    global thread1, thread2
+
     try:
-        opts, args = getopt.getopt(argv[1:], 'f:l:c:u:n:ih:ip:ah:ap:dh:dp:dd:du',
-                                   ['filesystem=', 'logfile=', 'configfile=', 'useidentifier=', 'name='
+        opts, args = getopt.getopt(argv[1:], 'f:l:c:ui:in:ih:ip:ah:ap:h:p:d:u',
+                                   ['filesystem=', 'log=', 'config=', 'useidentifier=', 'name='
                                     'ihost=', 'iport=', 'ahost=', 'aport=',
-                                    'dhostname=', 'dport=', 'ddatabase=', 'duser='])
+                                    'host=', 'port=', 'database=', 'user='])
     except getopt.GetoptError:
-        print >> sys.stderr, "Error while parsing the arguments!"
+        print >> sys.stdout, "Error while parsing the arguments!"
         sys.exit(1)
 
     app_host = '0.0.0.0'
     app_port = 8000
 
-    admin_host = '0.0.0.0'
+    admin_host = '127.0.0.1'
     admin_port = 8001
 
     connection_hostname = '127.0.0.1'
@@ -37,14 +53,14 @@ def main(argv):
 
     for opt, arg in opts:
         if opt in ('-f', '--filesystem'):
-            filesystem.set_filesystem_location(arg)
-        elif opt in ('-l', '--logfile'):
-            iotlogger.set_logging_location(arg)
-        elif opt in ('-c', '--configfile'):
+            set_filesystem_location(arg)
+        elif opt in ('-l', '--log'):
+            set_logging_location(arg)
+        elif opt in ('-c', '--config'):
             new_configfile_location = arg
-        elif opt in ('-u', '--useidentifier'):
+        elif opt in ('-ui', '--useidentifier'):
             use_host_identifier = bool(arg)
-        elif opt in ('-n', '--name'):
+        elif opt in ('-in', '--name'):
             host_identifier = arg
 
         elif opt in ('-ih', '--ihost'):
@@ -56,13 +72,13 @@ def main(argv):
         elif opt in ('-ap', '--aport'):
             admin_port = int(arg)
 
-        elif opt in ('-dh', '--dhostname'):
+        elif opt in ('-h', '--host'):
             connection_hostname = arg
-        elif opt in ('-dp', '--dport'):
+        elif opt in ('-p', '--port'):
             connection_port = int(arg)
-        elif opt in ('-du', '--duser'):
+        elif opt in ('-u', '--user'):
             connection_user = arg
-        elif opt in ('-dd', '--ddatabase'):
+        elif opt in ('-d', '--database'):
             connection_database = arg
 
     if use_host_identifier and host_identifier is None:  # get the machine MAC address as default identifier
@@ -71,22 +87,24 @@ def main(argv):
         host_identifier = None
 
     # WARNING The initiation order must be this!!!
-    iotlogger.init_logging()  # init logging context
-    filesystem.init_file_system(host_identifier, new_configfile_location)  # init filesystem
-    streams.init_streams_hosts()  # init hostname column for streams
+    init_logging()  # init logging context
+    init_file_system(host_identifier, new_configfile_location)  # init filesystem
+    init_streams_hosts()  # init hostname column for streams
     # init mapi connection
     init_monetdb_connection(connection_hostname, connection_port, connection_user, connection_database)
-    streamscontext.init_streams_context()  # init streams context
-    restresources.init_rest_resources()  # init validators for RESTful requests
+    init_streams_context()  # init streams context
+    init_rest_resources()  # init validators for RESTful requests
 
-    t1 = threading.Thread(target=start_flask_admin_app, args=(admin_host, admin_port))
-    t2 = threading.Thread(target=start_flask_iot_app, args=(app_host, app_port))
-    t1.start()
-    t2.start()
-    iotlogger.add_log(20, 'Started IOT Stream Server')
-    t1.join()
-    t2.join()
-    iotlogger.add_log(20, 'Stopped IOT Stream Server')
+    thread1 = StoppableThread(target=start_flask_admin_app, args=(admin_host, admin_port))
+    thread2 = StoppableThread(target=start_flask_iot_app, args=(app_host, app_port))
+    thread1.start()
+    thread2.start()
+    add_log(20, 'Started IOT Stream Server')
+    signal.signal(signal.SIGINT, signal_handler)
+
+    thread1.join()
+    thread2.join()
+    add_log(20, 'Stopped IOT Stream Server')
 
 if __name__ == "__main__":
     main(sys.argv)

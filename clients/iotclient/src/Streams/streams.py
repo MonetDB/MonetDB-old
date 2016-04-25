@@ -39,7 +39,7 @@ class StreamException(Exception):
     """Exception fired when the validation of a stream insert fails"""
 
     def __init__(self, messages):
-        self.messages = messages  # dictionary of column -> list of error messages
+        self.message = messages  # dictionary of column -> list of error messages
 
 
 class DataCellStream(object):
@@ -71,10 +71,10 @@ class DataCellStream(object):
         os.makedirs(self._current_base_path)
 
         for key in self._columns.keys():  # create the files for the columns and timestamp
-            create_file_if_not_exists(os.path.join(self._current_base_path, key), hidden=True)
-        create_file_if_not_exists(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME), hidden=True)
+            create_file_if_not_exists(os.path.join(self._current_base_path, key), hidden=False)
+        create_file_if_not_exists(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME), hidden=False)
         if Hostname_Bin_Value is not None:
-            create_file_if_not_exists(os.path.join(self._current_base_path, HOST_IDENTIFIER_COLUMN_NAME), hidden=True)
+            create_file_if_not_exists(os.path.join(self._current_base_path, HOST_IDENTIFIER_COLUMN_NAME), hidden=False)
 
         if created:  # when the stream is reloaded from the config file, the create SQL statement is not sent
             sql_array = [column.create_stream_sql() for column in self._columns.values()]
@@ -100,9 +100,9 @@ class DataCellStream(object):
     def get_data_dictionary(self, include_number_tuples=False):
         self._monitor.acquire_read()
 
-        dic = {'schema': self._schema_name, 'stream': self._stream_name,
-               'flushing': self._flush_method.get_dictionary_info(),
-               'columns': [value.to_json_representation() for value in self._columns.values()]}
+        dic = OrderedDict({'schema': self._schema_name, 'stream': self._stream_name,
+                           'flushing': self._flush_method.get_dictionary_info(),
+                           'columns': [value.to_json_representation() for value in self._columns.values()]})
 
         #  when writing the data to config file, we don't serialize the number of tuples inserted on the baskets
         if include_number_tuples:
@@ -121,12 +121,12 @@ class DataCellStream(object):
             os.makedirs(self._current_base_path)
 
             for key in self._columns.keys():
-                create_file_if_not_exists(os.path.join(self._current_base_path, key), hidden=True)
+                create_file_if_not_exists(os.path.join(self._current_base_path, key), hidden=False)
             create_file_if_not_exists(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME),
-                                      hidden=True)
+                                      hidden=False)
             if Hostname_Bin_Value is not None:
                 create_file_if_not_exists(os.path.join(self._current_base_path, HOST_IDENTIFIER_COLUMN_NAME),
-                                          hidden=True)
+                                          hidden=False)
 
     def time_based_flush(self, last=False):
         self._monitor.acquire_write()
@@ -158,7 +158,7 @@ class DataCellStream(object):
                     batch_errors[value].append('Problem while parsing this column in tuple: ' + str(tuple_counter))
 
         if batch_errors:
-            raise StreamException(messages=batch_errors)
+            raise StreamException(message=batch_errors)
 
         transposed_data = defaultdict(list)  # transpose the inserts to benefit the MonetDB's column storage
         for entry in new_data:
@@ -173,7 +173,7 @@ class DataCellStream(object):
                 batch_errors[key] = ex.message
 
         if batch_errors:
-            raise StreamException(messages=batch_errors)
+            raise StreamException(message=batch_errors)
 
         # prepare variables outside the lock for more parallelism
         total_tuples = len(new_data)

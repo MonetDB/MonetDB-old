@@ -7,7 +7,6 @@ if sys.platform in ("linux", "linux2", "darwin"):
 elif sys.platform == "win32":
     logging_location = os.path.join(os.path.dirname(__file__), os.pardir, 'iot.log')
 
-logging_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 logger = logging.getLogger("IOTLog")
 
 
@@ -21,7 +20,7 @@ def init_logging():
     try:
         logger = logging.getLogger("IOTLog")
         logger.setLevel(logging.DEBUG)
-        formatter = logging.Formatter(logging_format)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
         logging_path = os.path.dirname(logging_location)
         if not os.path.exists(logging_path):
@@ -30,7 +29,7 @@ def init_logging():
         log_handler.setFormatter(formatter)
         logger.addHandler(log_handler)
     except (Exception, OSError) as ex:
-        print >> sys.stderr, ex
+        print >> sys.stdout, ex
         sys.exit(1)
 
 

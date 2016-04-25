@@ -26,7 +26,7 @@ def init_rest_resources():
     try:
         Streams_Context = IOTStreams()
     except BaseException as ex:
-        print >> sys.stderr, ex
+        print >> sys.stdout, ex
         add_log(50, ex.message)
         sys.exit(1)
 
@@ -56,7 +56,7 @@ class StreamInput(Resource):  # TODO these operations are not atomic!!!
         except BaseException as ex:
             add_log(50, ex.message)
             return ex.message, 400
-        return '', 201
+        return 'The insertions were made with success!', 201
 
 
 class StreamsInfo(Resource):
@@ -81,7 +81,7 @@ class StreamsHandling(Resource):
             add_log(50, ex.message)
             return ex.message, 400
         else:
-            return '', 201
+            return 'The stream was created with success!', 201
 
     def delete(self):
         try:
@@ -96,4 +96,4 @@ class StreamsHandling(Resource):
         except BaseException as ex:
             add_log(50, ex.message)
             return ex.message, 404
-        return '', 204
+        return 'The stream was deleted with success!', 204

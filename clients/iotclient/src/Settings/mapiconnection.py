@@ -10,7 +10,10 @@ Connection = None
 def init_monetdb_connection(hostname, port, user_name, database):
     global Connection
 
-    user_password = getpass.getpass(prompt='User password:')
+    user_password = getpass.getpass(prompt='Insert password for user ' + user_name + ':')
+
+    if user_password == '':
+        user_password = 'monetdb'
 
     try:  # the autocommit is set to true so each statement will be independent
         Connection = pymonetdb.connect(hostname=hostname, port=port, username=user_name, password=user_password,
@@ -19,7 +22,7 @@ def init_monetdb_connection(hostname, port, user_name, database):
         print >> sys.stdout, log_message
         add_log(20, log_message)
     except BaseException as ex:
-        print >> sys.stderr, ex.message
+        print >> sys.stdout, ex.message
         add_log(50, ex.message)
         sys.exit(1)
 

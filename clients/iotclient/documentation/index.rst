@@ -18,4 +18,3 @@ Contents:
    restful_resources.rst
    streams_data_types.rst
    conclusion.rst
-
