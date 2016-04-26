@@ -704,8 +704,18 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (s) *s = 0;
 
 	tname_low = toLower(bname);
+
+	/* Find the last dot in the filename and replace it with '\0' if
+	 * it exists. This removes the extension part of the file, unless
+	 * the extension part itself contains a dot character.
+	 */
+	p = strrchr(tname_low, '.');
+	if (p != NULL) {
+		*p = '\0';
+	}
+
 	/* Sanitize table name by substituting dot characters ('.') for underscores
-	 * ('_')
+	 * ('_').
 	 */
 	while ((p = strchr(tname_low, '.')) != NULL) {
 		*p = '_';
