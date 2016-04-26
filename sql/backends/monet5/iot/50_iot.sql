@@ -40,9 +40,28 @@ create procedure iot.deactivate()
 create procedure iot.cycles(n integer)
 	external name iot.cycles;
 
+-- set the scheduler periodic delay
+create procedure iot.period(n integer)
+	external name iot.period;
+
 -- deliver a new basket with tuples
 create procedure iot.basket("schema" string, "table" string, dirpath string)
 	external name iot.basket;
+
+-- triggering conditions for each stream
+create procedure iot.threshold("schema" string, "table" string, elem int)
+	external name iot.threshold;
+
+create procedure iot.beat("schema" string, "table" string, msec int)
+	external name iot.beat;
+
+-- cleaup activities 
+create procedure iot.window("schema" string, "table" string, elem int)
+	external name iot.window;
+
+create procedure iot.window("schema" string, "table" string, elem int, slide int)
+	external name iot.window;
+
 
 -- Inspection tables
 create function iot.baskets()

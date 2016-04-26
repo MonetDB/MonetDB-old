@@ -81,6 +81,19 @@ int enabled[MAXPN];     /*array that contains the id's of all queries that are e
 static int status = PNINIT;
 static int cycleDelay = 1000; /* be careful, it affects response/throughput timings */
 
+str PNperiod(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	int period = *getArgReference_int(stk, pci, 1);
+	
+	(void) cntxt;
+	(void) mb;
+
+	if ( period < 0)
+		throw(MAL,"iot.period","Period should >= 0");
+	cycleDelay = period;
+	return MAL_SUCCEED;
+}
+
 str PNanalyseWrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	Module scope;
@@ -164,7 +177,7 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 	pnet[pnettop].mb = nmb;
 	pnet[pnettop].stk = prepareMALstack(nmb, nmb->vsize);
 
-	pnet[pnettop].status = PNPAUSED;
+	pnet[pnettop].status = PNREADY;
 	pnet[pnettop].cycles = 0;
 	pnet[pnettop].seen = *timestamp_nil;
 	/* all the rest is zero */
@@ -216,7 +229,7 @@ PNactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 str
 PNdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	return PNstatus(cntxt, mb, stk, pci, PNPAUSED);
+	return PNstatus(cntxt, mb, stk, pci, PNREADY);
 }
 
 str
@@ -317,14 +330,14 @@ PNexecute( void *n)
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s all locked\n",node->modname, node->fcnname);
 
 	msg = runMALsequence(mal_clients, node->mb, 1, 0, node->stk, 0, 0);
-	node->status = PNPAUSED;
+	node->status = PNREADY;
 
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s transition done:%s\n",node->modname, node->fcnname, (msg != MAL_SUCCEED?msg:""));
 
 	MT_lock_set(&iotLock);
 	for ( i=0; i< j &&  node->enabled && node->places[i]; i++) {
 		idx = node->places[i];
-		baskets[idx].status = BSKTRUNNING;
+		baskets[idx].status = BSKTAVAILABLE;
 	}
 	MT_lock_unset(&iotLock);
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s all unlocked\n",node->modname, node->fcnname);
@@ -339,7 +352,7 @@ PNscheduler(void *dummy)
 	Client cntxt;
 	str msg = MAL_SUCCEED;
 	lng t, analysis, now;
-	int claimed[MAXBSKT];
+	char claimed[MAXBSKT];
 	timestamp ts, tn;
 
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.controller started\n");
@@ -347,36 +360,35 @@ PNscheduler(void *dummy)
 	 if( strcmp(cntxt->scenario, "sql") )
 		 SQLinitEnvironment(cntxt, NULL, NULL, NULL);
 
-	status = PNRUNNING;
+	status = PNRUNNING; // global state 
 
 	while( pnettop > 0){
 		if (cycleDelay)
 			MT_sleep_ms(cycleDelay);  /* delay to make it more tractable */
-		while (status == PNPAUSED)	{ /* scheduler is paused */
+		while (status == PNREADY)	{ /* scheduler is paused */
 			MT_sleep_ms(cycleDelay);  
 			_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.controller paused\n");
 		}
 
-		/* collect latest statistics, note that we don't need a lock here,
+		/* Determine which continuous query are eligble to run
+  		   Collect latest statistics, note that we don't need a lock here,
 		   because the count need not be accurate to the usec. It will simply
 		   come back. We also only have to check the places that are marked
-		   non empty. */
-		for(i=0; i< MAXBSKT; i++)
-			claimed[i]=0;
+		   non empty. You can only trigger on empty baskets using a heartbeat */
+		memset((void*) claimed, 0, MAXBSKT);
 		now = GDKusec();
 		for (k = i = 0; i < pnettop; i++) 
-		if ( pnet[i].status == PNRUNNING ){
+		if ( pnet[i].status == PNREADY ){
 			pnet[i].enabled = 1;
 
 			// check if all baskets are available and non-empty
 			for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].places[j]; j++) {
 				idx = pnet[i].places[j];
-				if (baskets[idx].status == BSKTRUNNING && 
-					(baskets[idx].count == 0  || baskets[idx].count < baskets[idx].threshold )) { /* nothing to take care of */
+				if (baskets[idx].status != BSKTAVAILABLE ){
 					pnet[i].enabled = 0;
 					break;
 				}
-				/* only look at large enough baskets */
+				/* first consider the heart beat trigger */
 				if (baskets[idx].beat) {
 					(void) MTIMEunix_epoch(&ts);
 					(void) MTIMEtimestamp_add(&tn, &baskets[idx].seen, &baskets[idx].beat);
@@ -384,11 +396,16 @@ PNscheduler(void *dummy)
 						pnet[i].enabled = 0;
 						break;
 					}
+				} else
+				/* consider baskets that are properly filled */
+				if (baskets[idx].threshold > baskets[idx].count){
+					pnet[i].enabled = 0;
+					break;
 				}
 			}
 
 			if (pnet[i].enabled) {
-				/* a basket can enable at most one transition */
+				/* a basket can be used at most one continuous query at a time */
 				for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].places[j]; j++) 
 					if( claimed[pnet[i].places[j]]){
 						_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet: %s.%s enabled twice,disgarded \n", pnet[i].modname, pnet[i].fcnname);
@@ -416,11 +433,11 @@ PNscheduler(void *dummy)
 				_DEBUG_PETRINET_ mnstr_printf(PNout, "#Run transition %s \n", pnet[i].fcnname);
 
 				t = GDKusec();
-				pnet[i].cycles++;
 				// Fork MAL execution thread 
 				if (MT_create_thread(&pnet[i].tid, PNexecute, (void*) (pnet+i), MT_THR_JOINABLE) < 0){
 					msg= createException(MAL,"petrinet.controller","Can not fork the thread");
-				}
+				} else
+					pnet[i].cycles++;
 				pnet[i].time += GDKusec() - t + analysis;   /* keep around in microseconds */
 				if (msg != MAL_SUCCEED ){
 					char buf[BUFSIZ];
@@ -431,6 +448,7 @@ PNscheduler(void *dummy)
 						GDKfree(msg);
 					/* abort current transaction  */
 				} else {
+					/* mark the time is started the query */
 					(void) MTIMEcurrent_timestamp(&pnet[i].seen);
 					for (j = 0; j < MAXBSKT && pnet[i].places[j]; j++) {
 						idx = pnet[i].places[j];

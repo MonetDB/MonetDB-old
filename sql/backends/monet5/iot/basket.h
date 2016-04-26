@@ -63,7 +63,7 @@ typedef struct{
 
 
 /* individual streams can be paused and restarted */
-#define BSKTRUNNING   1      
+#define BSKTAVAILABLE   1      
 #define BSKTPAUSED    2
 #define BSKTLOCKED    3
 
@@ -77,6 +77,10 @@ iot_export str BSKTdump(void *ret);
 
 iot_export str BSKTactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+
+iot_export str BSKTthreshold(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 iot_export str BSKTtable( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTtableerrors(bat *nmeId, bat *errorId);

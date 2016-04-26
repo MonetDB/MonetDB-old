@@ -50,6 +50,10 @@ pattern drop(mod:str,fcn:str)
 address PNdrop
 comment "Remove a transitions from the Petri net controller";
 
+pattern period(t:int)
+address PNsetCycleDelay
+comment "Control the scheduler cycle time in ms.";
+
 pattern analyse(mod:str, fcn:str)
 address PNanalyseWrapper
 comment "Check the input/output relationship";

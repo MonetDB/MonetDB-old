@@ -40,7 +40,7 @@
 
 #define PNINIT 0
 #define PNRUNNING 1
-#define PNPAUSED 2       /* not active now */
+#define PNREADY 2       /* not active now */
 
 #define PAUSEDEFAULT 1000
 
@@ -51,6 +51,8 @@ iot_export str PNdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 iot_export str PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNdrop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNdump(void *ret);
+
+iot_export str PNperiod(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 iot_export str PNanalysis(Client cntxt, MalBlkPtr mb, int pn);
 iot_export str PNanalyseWrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

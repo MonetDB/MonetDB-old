@@ -61,21 +61,21 @@ command drop(sch:str,tbl:str):void
 address BSKTdrop
 comment "Remove the basket";
 
-command threshold(sch:str,tbl:str,N:int):bit
+command iot.threshold(sch:str,tbl:str,N:int):bit
 address BSKTthreshold
 comment "Set an acceptance threshold of N events before inspecting";
 
-command window(sch:str,tbl:str,N:lng, S:lng):void
-address BSKTwindow
-comment "Use a window of N event and slide S afterwards";
-
-command timewindow(sch:str,tbl:str, N:lng, S:lng):void
-address BSKTtimewindow
-comment "Use a window of N milliseconds and slide S milliseconds afterwards";
-
-command beat(sch:str,tbl:str,N:lng):bit
+command iot.beat(sch:str,tbl:str,N:lng):bit
 address BSKTbeat
 comment "Set an delay to N milliseconds";
+
+command iot.window(sch:str,tbl:str,N:lng):void
+address BSKTwindow
+comment "Use a window of precisely N events and slide afterwards";
+
+command iot.window(sch:str,tbl:str,N:lng, S:lng):void
+address BSKTwindow
+comment "Use a window of precisely N events and slide S events afterwards";
 
 command reset():void
 address BSKTreset

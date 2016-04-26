@@ -205,13 +205,13 @@ BSKTactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			throw(SQL,"basket.activate","Stream table %s.%s not accessible to activate\n",sch,tbl);
 		if( baskets[idx].status == BSKTPAUSED){
 			MT_lock_set(&iotLock);
-			baskets[idx].status = BSKTRUNNING;
+			baskets[idx].status = BSKTAVAILABLE;
 			MT_lock_unset(&iotLock);
 		}
 	} else {
 		MT_lock_set(&iotLock);
 		for( idx =1; idx <bsktTop;  idx++)
-			baskets[idx].status = BSKTRUNNING;
+			baskets[idx].status = BSKTAVAILABLE;
 		MT_lock_unset(&iotLock);
 	}
 	return MAL_SUCCEED;
@@ -233,7 +233,7 @@ BSKTdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		idx = BSKTlocate(sch, tbl);
 		if( idx == 0)
 			throw(SQL,"basket.activate","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
-		if( baskets[idx].status == BSKTRUNNING){
+		if( baskets[idx].status == BSKTAVAILABLE ){
 			MT_lock_set(&iotLock);
 			baskets[idx].status = BSKTPAUSED;
 			MT_lock_unset(&iotLock);
@@ -244,6 +244,68 @@ BSKTdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			baskets[idx].status = BSKTPAUSED;
 		MT_lock_unset(&iotLock);
 	}
+	return MAL_SUCCEED;
+}
+
+str
+BSKTthreshold(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	str sch = *getArgReference_str(stk,pci,1);
+	str tbl = *getArgReference_str(stk,pci,2);
+	int elm = *getArgReference_int(stk,pci,3);
+	int idx;
+
+	(void) cntxt;
+	(void) mb;
+
+	if( elm < 0)
+		throw(SQL,"basket.beat","Positive number of elements expected]n");
+	idx = BSKTlocate(sch, tbl);
+	if( idx == 0)
+		throw(SQL,"basket.threshold","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+	baskets[idx].threshold = elm;
+	return MAL_SUCCEED;
+}
+
+str
+BSKTbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	str sch = *getArgReference_str(stk,pci,1);
+	str tbl = *getArgReference_str(stk,pci,2);
+	int ticks = *getArgReference_int(stk,pci,3);
+	int idx;
+
+	(void) cntxt;
+	(void) mb;
+
+	if( ticks < 0)
+		throw(SQL,"basket.beat","Positive beat expected]n");
+	idx = BSKTlocate(sch, tbl);
+	if( idx == 0)
+		throw(SQL,"basket.beat","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+	baskets[idx].beat = ticks;
+	return MAL_SUCCEED;
+}
+
+str
+BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	str sch = *getArgReference_str(stk,pci,1);
+	str tbl = *getArgReference_str(stk,pci,2);
+	int elm = *getArgReference_int(stk,pci,3);
+	int idx;
+
+	(void) cntxt;
+	(void) mb;
+	if( elm < 0)
+		throw(SQL,"basket.window","Positive beat expected]n");
+	idx = BSKTlocate(sch, tbl);
+	if( idx == 0)
+		throw(SQL,"basket.window","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+	baskets[idx].winsize = elm;
+	baskets[idx].winstride = elm;
+	if ( pci->argc == 5)
+		baskets[idx].winstride = *getArgReference_int(stk,pci,4);
 	return MAL_SUCCEED;
 }
 
@@ -272,6 +334,7 @@ BSKTbindColumn(Client cntxt, str sch, str tbl, str col)
 		b = store_funcs.bind_col(m->session->tr,c,RDONLY);
 	return b;
 }
+
 str
 BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
