@@ -2850,9 +2850,19 @@ rel2bin_select( mvc *sql, sql_rel *rel, list *refs)
 	while(pushDimensionSelections(&sel));
 	if(sel->op1->type == st_join && sel->op1->op1->type == st_tid && 
 		isArray(sel->op1->op1->op4.tval) && sel->op1->op2->type == st_bat) {
-	
-		sel = stmt_mbr(sql->sa, sel, sel->op1->op1);
-		//clearJoins(&(sel->op1));		
+
+		/*find where the selections over dimensions start*/
+		stmt *selDims = sel;
+		while(selDims && selDims->op1->type != st_dimension)
+			selDims = selDims->op3;	
+		if(selDims)
+			sel = stmt_mbr(sql->sa, sel, selDims, sel->op1->op1);
+		else
+			sel = stmt_mbr(sql->sa, sel, sel->op1->op1, NULL);
+
+		/*We could split the selections in two groups those over non-dimensions and
+ 		* those over dimensions. Anyway, the two do not interact with each other
+ 		* but only through the MBR */ 
 	}
 	////if it is an array we need to project the cells
 	//sel = addCells(sql, sel);

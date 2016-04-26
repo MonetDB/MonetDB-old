@@ -1256,10 +1256,11 @@ stmt *stmt_left_join(sql_allocator *sa, stmt *op1, stmt *op2) {
 	return s;
 }
 
-stmt *stmt_mbr(sql_allocator *sa, stmt *op1, stmt *op2) {
+stmt *stmt_mbr(sql_allocator *sa, stmt *op1, stmt *op2, stmt *op3) {
 	stmt *s = stmt_create(sa, st_mbr);
     s->op1 = op1;
     s->op2 = op2;
+	s->op3 = op3;
 
 	return s;
 }

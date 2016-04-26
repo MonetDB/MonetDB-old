@@ -2142,19 +2142,24 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			break;
 		}
 		case st_mbr: {
-			int l, r;
+			int l, r, m;
 
 			if ((l = _dumpstmt(sql, mb, s->op1)) < 0)
             	return -1;
 			if ((r = _dumpstmt(sql, mb, s->op2)) < 0)
                 return -1;
+			if(s->op3 && (m = _dumpstmt(sql, mb, s->op3)) < 0)
+				return -1;
 
 			q = newStmt2(mb, algebraRef, "mbr");
-			q = pushArgument(mb, q, l); //the dimsResult
-			snprintf(nme, SMALLBUFSIZ, "Y_%d", l);
-            if((arraySecondVar = findVariable(mb, nme)) >= 0)
-				q = pushArgument(mb, q, arraySecondVar); //the oids result
-			q = pushArgument(mb, q, r); //the array
+			q = pushArgument(mb, q, l); //the oids
+//			snprintf(nme, SMALLBUFSIZ, "Y_%d", l);
+//            if((arraySecondVar = findVariable(mb, nme)) >= 0)
+//				q = pushArgument(mb, q, arraySecondVar); //the oids result
+			q = pushArgument(mb, q, r); //the array or the candDims
+			if(s->op3)
+				q = pushArgument(mb, q, m); //the array
+
 			
 			if (q == NULL)
 				return -1;
