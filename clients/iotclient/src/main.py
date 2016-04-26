@@ -2,6 +2,7 @@ import getopt
 import signal
 import sys
 
+from multiprocessing import Process
 from uuid import getnode as get_mac
 from Flask.app import start_flask_iot_app, start_flask_admin_app
 from Flask.restresources import init_rest_resources
@@ -10,22 +11,18 @@ from Settings.iotlogger import init_logging, add_log, set_logging_location
 from Settings.mapiconnection import init_monetdb_connection
 from Streams.streamscontext import init_streams_context
 from Streams.streams import init_streams_hosts
-from Utilities.customthreading import StoppableThread
 
-thread1 = None
-thread2 = None
+subprocess1 = None
+subprocess2 = None
 
 
 def signal_handler(signal, frame):
-    print >> sys.stdout, 'Kill me!!'
-    thread1.stop()
-    thread2.stop()
-    add_log(20, 'Stopped IOT Stream Server')
-    sys.exit(0)
+    subprocess1.terminate()
+    subprocess2.terminate()
 
 
 def main(argv):
-    global thread1, thread2
+    global subprocess1, subprocess2
 
     try:
         opts, args = getopt.getopt(argv[1:], 'f:l:c:ui:in:ih:ip:ah:ap:h:p:d:u',
@@ -95,15 +92,15 @@ def main(argv):
     init_streams_context()  # init streams context
     init_rest_resources()  # init validators for RESTful requests
 
-    thread1 = StoppableThread(target=start_flask_admin_app, args=(admin_host, admin_port))
-    thread2 = StoppableThread(target=start_flask_iot_app, args=(app_host, app_port))
-    thread1.start()
-    thread2.start()
+    subprocess1 = Process(target=start_flask_admin_app, args=(admin_host, admin_port))
+    subprocess2 = Process(target=start_flask_iot_app, args=(app_host, app_port))
+    subprocess1.start()
+    subprocess2.start()
     add_log(20, 'Started IOT Stream Server')
     signal.signal(signal.SIGINT, signal_handler)
 
-    thread1.join()
-    thread2.join()
+    subprocess1.join()
+    subprocess2.join()
     add_log(20, 'Stopped IOT Stream Server')
 
 if __name__ == "__main__":
