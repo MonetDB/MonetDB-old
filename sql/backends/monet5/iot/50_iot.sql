@@ -41,8 +41,8 @@ create procedure iot.cycles(n integer)
 	external name iot.cycles;
 
 -- deliver a new basket with tuples
-create procedure iot.push("schema" string, "table" string, dirpath string)
-	external name iot.push;
+create procedure iot.basket("schema" string, "table" string, dirpath string)
+	external name iot.basket;
 
 -- Inspection tables
 create function iot.baskets()

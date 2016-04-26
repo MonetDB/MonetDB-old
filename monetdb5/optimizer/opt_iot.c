@@ -90,6 +90,16 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if( j == btop)
 				btop++;
 		}
+		if( getModuleId(p)== iotRef && getFunctionId(p) == basketRef){
+			OPTDEBUGiot mnstr_printf(cntxt->fdout, "#iot stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+			schemas[btop]= getVarConstant(mb, getArg(p,1)).val.sval;
+			tables[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
+			for( j =0; j< btop ; j++)
+			if( strcmp(schemas[j], schemas[j+1])==0  && strcmp(tables[j],tables[j+1]) ==0)
+				break;
+			if( j == btop)
+				btop++;
+		}
 	}
 	if( btop == MAXBSKT || btop == 0)
 		return 0;
