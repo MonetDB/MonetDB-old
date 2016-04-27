@@ -164,6 +164,13 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if( getModuleId(p)== iotRef && getFunctionId(p)==errorRef)
 				noerror++;
 			if (p->token == ENDsymbol && btop > 0 && noerror==0) {
+				// empty all baskets used
+				for( j=0; j<btop; j++)
+				if( done[j]==0) {
+					p= newStmt(mb,basketRef,finishRef);
+					p= pushStr(mb,p, schemas[j]);
+					p= pushStr(mb,p, tables[j]);
+				}
 				/* catch any exception left behind */
 				r = newAssignment(mb);
 				j = getArg(r, 0) = newVariable(mb, GDKstrdup("SQLexception"), TYPE_str);

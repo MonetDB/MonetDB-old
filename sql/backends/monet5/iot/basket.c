@@ -95,6 +95,7 @@ static str
 BSKTnewbasket(sql_schema *s, sql_table *t)
 {
 	int i, idx;
+	int colcnt=0;
 	node *o;
 
 	// Don't introduce the same basket twice
@@ -117,10 +118,10 @@ BSKTnewbasket(sql_schema *s, sql_table *t)
 			MT_lock_unset(&iotLock);
 			throw(MAL,"baskets.register","Unsupported type %d",tpe);
 		}
-		baskets[idx].count++;
+		colcnt++;
 	}
 	// collect the column names
-	baskets[idx].cols = (str*) GDKzalloc(sizeof(str) * (baskets[idx].count+1));
+	baskets[idx].cols = (str*) GDKzalloc(sizeof(str) * (colcnt+1));
 	for (i=0, o = t->columns.set->h; o; o = o->next){
         sql_column *col = o->data;
 		baskets[idx].cols[i++]=  col->base.name;
@@ -510,6 +511,8 @@ BSKTpushBasket(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		assert( access (buf,R_OK) == 0);
 		//unlink(buf);
 	}
+	baskets[bskt].status = BSKTAVAILABLE;
+	baskets[bskt].count = cnt;
 
 recover:
 	/* reset all BATs when they are misaligned or error occurred */
@@ -526,6 +529,42 @@ recover:
     (void) mb;
     return msg;
 }
+
+/* remove tuples from a basket according to the sliding policy */
+str
+BSKTfinish(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    str sch = *getArgReference_str(stk, pci, 1);
+    str tbl = *getArgReference_str(stk, pci, 2);
+	BAT *b;
+	node *n;
+	mvc *m = NULL;
+	str msg;
+	int bskt;
+
+	(void) mb;
+	(void) stk;
+	(void) pci;
+
+	msg= getSQLContext(cntxt,NULL, &m, NULL);
+    bskt = BSKTlocate(sch,tbl);
+	if (bskt == 0)
+		throw(SQL, "iot.finish", "Could not find the basket %s.%s",sch,tbl);
+
+	if( msg ==MAL_SUCCEED)
+	/* reset all stream BATs to empty*/
+	for( n = baskets[bskt].table->columns.set->h; n; n= n->next){
+		sql_column *c = n->data;
+		b = store_funcs.bind_col(m->session->tr,c,RDONLY);
+		assert( b );
+		// use the proper basket policy
+		BATsetcount(b,0);
+		BBPunfix(b->batCacheid);
+	}
+	baskets[bskt].count= 0;
+	return msg;
+}
+
 str
 BSKTdump(void *ret)
 {

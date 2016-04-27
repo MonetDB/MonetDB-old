@@ -84,7 +84,7 @@ iot_export str BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 
 iot_export str BSKTtable( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTtableerrors(bat *nmeId, bat *errorId);
-iot_export str BSKTerror(void  *ret, str *sch, str *fcn, str *msg);
+iot_export str BSKTfinish( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 //iot_export str BSKTnewbasket(sql_schema *s, sql_table *t);
 iot_export str BSKTdrop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

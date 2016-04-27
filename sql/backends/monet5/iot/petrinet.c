@@ -335,6 +335,7 @@ PNexecute( void *n)
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s transition done:%s\n",node->modname, node->fcnname, (msg != MAL_SUCCEED?msg:""));
 
 	MT_lock_set(&iotLock);
+	// empty the baskets according to their policy
 	for ( i=0; i< j &&  node->enabled && node->places[i]; i++) {
 		idx = node->places[i];
 		baskets[idx].status = BSKTAVAILABLE;
@@ -398,7 +399,7 @@ PNscheduler(void *dummy)
 					}
 				} else
 				/* consider baskets that are properly filled */
-				if (baskets[idx].threshold > baskets[idx].count){
+				if (baskets[idx].threshold > baskets[idx].count || baskets[idx].count == 0){
 					pnet[i].enabled = 0;
 					break;
 				}

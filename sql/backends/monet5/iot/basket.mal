@@ -81,6 +81,10 @@ command reset():void
 address BSKTreset
 comment "Remove all baskets";
 
+pattern finish(sch:str, tbl:str):void
+address BSKTfinish
+comment "Empty the basket using the prevaling policy";
+
 pattern iot.basket(sch:str, tbl:str, dir:str):void
 address BSKTpushBasket
 comment "Push a directory with the binary files";
