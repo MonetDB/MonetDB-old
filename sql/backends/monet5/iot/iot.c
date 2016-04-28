@@ -185,11 +185,3 @@ IOTcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	return PNcycles(cntxt,mb,stk,pci);
 }
-
-str
-BSKTerror(void *ret, str *sch, str *fcn, str *msg)
-{
-	(void) ret;
-	_DEBUG_IOT_ mnstr_printf(IOTout,"#IOTerror: %s.%s:%s\n",*sch, *fcn,*msg);
-	return MAL_SUCCEED;
-}

@@ -751,6 +751,48 @@ BSKTcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
+static str
+BSKTerrorInternal(bat *ret, str sname, str tname, str err)
+{
+	int idx;
+	idx = BSKTlocate(sname,tname);
+	if( idx == 0)
+		throw(SQL,"basket.error","Stream table %s.%s not accessible for commit\n",sname,tname);
+
+	if( baskets[idx].errors == NULL)
+		baskets[idx].errors = BATnew(TYPE_void, TYPE_str, 0, TRANSIENT);
+		
+	if( baskets[idx].errors == NULL)
+		throw(SQL,"basket.error",MAL_MALLOC_FAIL);
+
+	BUNappend(baskets[idx].errors, err, FALSE);
+	
+	BBPkeepref(*ret = baskets[idx].errors->batCacheid);
+	return MAL_SUCCEED;
+}
+
+str
+BSKTerror(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	bat *ret  = getArgReference_bat(stk,pci,0);
+    str sname = *getArgReference_str(stk, pci, 1);
+    str tname = *getArgReference_str(stk, pci, 2);
+    str err = *getArgReference_str(stk, pci, 3);
+	int idx;
+	str msg = MAL_SUCCEED;
+	(void) cntxt;
+	(void) mb;
+
+	idx = BSKTlocate(sname,tname);
+	if( idx == 0)
+		throw(SQL,"basket.error","Stream table %s.%s not accessible for commit\n",sname,tname);
+
+	MT_lock_set(&iotLock);
+	msg = BSKTerrorInternal(ret,sname,tname,err);
+	MT_lock_unset(&iotLock);
+	return msg;
+}
+
 str
 BSKTupdate (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
