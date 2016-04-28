@@ -89,4 +89,6 @@ extern int need_handling_exception;
 
 #define PRINT_FOR_DEBUG 0
 
+#define ONLY_COMPUTE_OPT_TIME 0
+
 #endif /*_SQL_RDF_H */

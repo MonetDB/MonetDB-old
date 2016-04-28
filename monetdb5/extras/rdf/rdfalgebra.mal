@@ -33,6 +33,10 @@ command rdf_exception_join(s1:bat[:oid], o1:bat[:oid], s2:bat[:oid], o2:bat[:oid
 address RDFexception_join
 comment "Union join with the input consists of a dense S bat and an exception S. The output are two BATs S and O of satisfied S and corresponding O's"
 
+command rdf_dense_join(s1:bat[:oid], o1:bat[:oid], scand:bat[:oid])(:bat[:oid],:bat[:oid])
+address RDFdense_join
+comment "Join with dense gAT. s1 is the dense BAT"
+
 command rdf_merge_join(s1:bat[:oid], o1:bat[:oid], scand:bat[:oid])(:bat[:oid],:bat[:oid])
 address RDFmerge_join
 comment "Merge join between a set of candidate S's and . The output are two BATs S and O of statisfied S and corresponding O's"

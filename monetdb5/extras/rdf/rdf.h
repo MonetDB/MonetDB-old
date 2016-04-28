@@ -69,6 +69,9 @@ rdf_export str
 RDFexception_join(bat *ret1, bat *ret2, bat *sdense, bat *o1, bat *s2, bat *o2, bat *scand); 
 
 rdf_export str
+RDFdense_join(bat *ret1, bat *ret2, bat *sdenseid, bat *o1id, bat *scandid); 
+
+rdf_export str
 RDFmerge_join(bat *ret1, bat *ret2, bat *s1id, bat *o1id, bat *scandid); 
 
 #define RDF_MIN_LITERAL (((oid) 1) << ((sizeof(oid)==8)?59:27))

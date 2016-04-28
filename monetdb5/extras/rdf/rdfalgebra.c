@@ -216,6 +216,80 @@ RDFexception_join(bat *ret1, bat *ret2, bat *sdenseid, bat *o1id, bat *s2id, bat
 }
 
 /* 
+ * This function performs the join given the set of S candidates with a dense S column
+ * NO exception handling
+ * Input: 
+ * - S1 BAT (dense bat), o1 BAT 
+ * */
+str 
+RDFdense_join(bat *ret1, bat *ret2, bat *sdenseid, bat *o1id, bat *scandid){
+	BAT *resS = NULL, *resO = NULL; 	
+	BAT *sdense, *o1, *scand; 
+	oid *sdensept, *o1pt, *scandpt, *resSpt, *resOpt; 
+	BUN estimate  = 0; 
+	int cnt1 = 0, cntcand = 0; 
+	int i = 0; 
+	BUN min_sdense, max_sdense; 
+	int rescnt = 0;
+
+	if ((sdense = BATdescriptor(*sdenseid)) == NULL) {
+		throw(MAL, "rdf.RDFexception_join", RUNTIME_OBJECT_MISSING);
+	}
+	if ((o1 = BATdescriptor(*o1id)) == NULL) {
+		BBPunfix(sdense->batCacheid); 
+		throw(MAL, "rdf.RDFexception_join", RUNTIME_OBJECT_MISSING);
+	}
+	if ((scand = BATdescriptor(*scandid)) == NULL) { 
+		BBPunfix(sdense->batCacheid); 
+		BBPunfix(o1->batCacheid); 	
+		throw(MAL, "rdf.RDFexception_join", RUNTIME_OBJECT_MISSING);
+	}
+
+	sdensept = (oid *) Tloc(sdense, BUNfirst(sdense));
+	o1pt = (oid *) Tloc(o1, BUNfirst(o1)); 
+	scandpt = (oid *) Tloc(scand, BUNfirst(scand)); 
+
+	/*Estimate the total size of the output = the size of 
+	  the candidate BAT and the exception BAT */
+
+	estimate = BATcount(scand);  
+
+	resS = BATnew(TYPE_void, TYPE_oid, estimate, TRANSIENT);
+	resO = BATnew(TYPE_void, TYPE_oid, estimate, TRANSIENT);
+	resSpt = (oid *) Tloc(resS, BUNfirst(resS)); 
+	resOpt = (oid *) Tloc(resO, BUNfirst(resO));
+
+	cnt1 = (int) BATcount(sdense); 
+	cntcand = (int) BATcount(scand); 
+	min_sdense = sdensept[0]; 
+	max_sdense = sdensept[cnt1-1]; 
+
+	i = 0;
+	//printf("Number of cand = %d | Number of input = %d | Number of exception = %d\n", cntcand, cnt1, cnt2); 	
+
+	while (i < cntcand){
+		//fetch the result from dense
+		if (scandpt[i] >= min_sdense && scandpt[i] <= max_sdense){
+			resSpt[rescnt] = scandpt[i]; 
+			resOpt[rescnt] = o1pt[scandpt[i] - min_sdense]; 
+			rescnt++;
+		}
+		i++; 
+	}
+
+	//printf("Number of results %d\n", rescnt); 	
+	BATsetcount(resS,rescnt);
+	BATsetcount(resO,rescnt);
+	*ret1 = resS->batCacheid;
+	*ret2 = resO->batCacheid; 
+	BBPkeepref(*ret1);
+	BBPkeepref(*ret2);
+
+	return MAL_SUCCEED; 
+}
+
+
+/* 
  * This function performs the join given the set of S candidates with a S column
  * considering the exception data. 
  * Input: 

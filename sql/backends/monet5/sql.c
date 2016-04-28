@@ -177,7 +177,9 @@ sql_symbol2relation(mvc *c, symbol *sym)
 		#endif
 		eT = clock(); 
 		printf("----- Optimization time: %f mseconds.\n", 1000*((float)(eT - sT))/CLOCKS_PER_SEC);
-		
+		#if ONLY_COMPUTE_OPT_TIME
+		return NULL; 
+		#endif
 		}
 	}
 	return r;
