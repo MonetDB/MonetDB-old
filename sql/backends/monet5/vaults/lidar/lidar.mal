@@ -14,6 +14,10 @@ pattern attach(fname:str):void
 address LIDARattach
 comment "Open a LIDAR file and return catalog of the table HDUs";
 
+pattern attach(fname:str, tname:str):void
+address LIDARattach
+comment "Attach to a specific table"
+
 pattern load(tablename:str):void
 address LIDARloadTable
 comment "Load a LIDAR table from an attached file";

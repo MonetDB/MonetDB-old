@@ -612,6 +612,7 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	LASReaderH reader = NULL;
 	LASHeaderH header = NULL;
 	str fname = *getArgReference_str(stk, pci, 1);
+	str tname = NULL;
 	oid fid, tid, cid, rid = oid_nil;
 	char *tname_low = NULL, *s, bname[BUFSIZ];
 	char *p;
@@ -627,6 +628,19 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* columns */
 	double ScaleX, ScaleY, ScaleZ, OffsetX, OffsetY, OffsetZ;
 	double MinX, MinY, MinZ, MaxX, MaxY, MaxZ;
+
+	if (pci->argc == 3) {
+		tname = *getArgReference_str(stk, pci, 2);
+	}
+	else if (pci->argc == 2) {
+		tname = fname;
+	}
+
+#ifndef NDEBUG
+	if (tname != NULL) {
+		fprintf(stderr, "Initial table name: %s\n", tname);
+	}
+#endif
 
 	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
 		return msg;
@@ -696,8 +710,8 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	tid = store_funcs.count_col(tr, col, 1) + 1;
 
 	/* extract the file name from the absolute path */
-	if ((s = strrchr(fname, DIR_SEP)) == NULL)
-		s = fname;
+	if ((s = strrchr(tname, DIR_SEP)) == NULL)
+		s = tname;
 	else
 		s++;
 	strcpy(bname, s);
