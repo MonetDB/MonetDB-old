@@ -564,7 +564,7 @@ wrapup:
 
 str PNinputplaces(bat *schemaId, bat *tableId, bat *modnameId, bat *fcnnameId)
 {
-	BAT *schema, *table, *modname = NULL, *fcnname = NULL;
+	BAT *schema, *table = NULL, *modname = NULL, *fcnname = NULL;
 	int i,j;
 
 	schema = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
@@ -615,7 +615,7 @@ wrapup:
 
 str PNoutputplaces(bat *schemaId, bat *tableId, bat *modnameId, bat *fcnnameId)
 {
-	BAT *schema, *table, *modname = NULL, *fcnname = NULL;
+	BAT *schema, *table = NULL, *modname = NULL, *fcnname = NULL;
 	int i,j;
 
 	schema = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
