@@ -36,6 +36,12 @@ create procedure iot.deactivate("schema" string, name string)
 create procedure iot.deactivate()
 	external name iot.deactivate;
 
+create procedure iot.deregister("schema" string, name string)
+	external name iot.deregister;
+
+create procedure iot.deregister()
+	external name iot.deregister;
+
 -- resume with limited the number of scheduler before next pause
 create procedure iot.cycles(n integer)
 	external name iot.cycles;

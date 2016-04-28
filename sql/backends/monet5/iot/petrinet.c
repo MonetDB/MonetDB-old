@@ -160,6 +160,7 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 	if (i != pnettop)
 		throw(MAL, "petrinet.register", "Duplicate definition of transition");
 
+	memset((void*) (pnet+pnettop), 0, sizeof(PNnode));
 	pnet[pnettop].modname = GDKstrdup(getModuleId(sig));
 	pnet[pnettop].fcnname = GDKstrdup(getFunctionId(sig));
 	snprintf(buf,IDLENGTH,"petri_%d",pnettop);
@@ -230,6 +231,46 @@ PNactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 str
 PNdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	return PNstatus(cntxt, mb, stk, pci, PNREADY);
+}
+
+/*Remove a specific continuous query from the scheduler */
+str
+PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	str modname= NULL;
+	str fcnname= NULL;
+	int i;
+
+	(void) cntxt;
+	(void) mb;
+	PNdump(&i);
+	MT_lock_set(&iotLock);
+	if ( pci->argc == 3){
+		modname= *getArgReference_str(stk,pci,1);
+		fcnname= *getArgReference_str(stk,pci,2);
+		i = PNlocate(modname,fcnname);
+		if ( i == pnettop){
+			MT_lock_unset(&iotLock);
+			throw(SQL,"iot.pause","Continuous query not found");
+		}
+		GDKfree(pnet[i].modname);
+		GDKfree(pnet[i].fcnname);
+		for( ; i <pnettop-1;i++)
+			pnet[i]= pnet[i+1];
+		memset((void*) (pnet+i), 0, sizeof(PNnode));
+		pnettop--;
+		_DEBUG_PETRINET_ mnstr_printf(PNout, "#scheduler deregistered %s.%s\n", modname,fcnname);
+		MT_lock_unset(&iotLock);
+		return MAL_SUCCEED;
+	}
+	for ( i = 0; i < pnettop; i++){
+		GDKfree(pnet[i].modname);
+		GDKfree(pnet[i].fcnname);
+		memset((void*) (pnet+i), 0, sizeof(PNnode));
+	}
+	pnettop = 0;
+	_DEBUG_PETRINET_ mnstr_printf(PNout, "#scheduler deregistered all\n");
+	MT_lock_unset(&iotLock);
+	return MAL_SUCCEED;
 }
 
 str

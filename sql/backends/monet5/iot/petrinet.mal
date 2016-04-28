@@ -42,13 +42,13 @@ pattern step(cnt:int)
 address PNstep
 comment "Limit number of petrinet steps";
 
-pattern drop()
-address PNdrop
-comment "Remove all transitions from the Petri net controller";
+pattern iot.deregister()
+address PNderegister
+comment "Remove all query from the Petri-net controller";
 
-pattern drop(mod:str,fcn:str)
-address PNdrop
-comment "Remove a transitions from the Petri net controller";
+pattern iot.deregister(mod:str,fcn:str)
+address PNderegister
+comment "Remove a query from the Petri-net controller";
 
 pattern period(t:int)
 address PNsetCycleDelay
