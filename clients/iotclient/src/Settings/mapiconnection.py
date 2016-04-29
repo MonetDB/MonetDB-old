@@ -22,8 +22,8 @@ def init_monetdb_connection(hostname, port, user_name, database):
         print >> sys.stdout, log_message
         add_log(20, log_message)
     except BaseException as ex:
-        print >> sys.stdout, ex.message
-        add_log(50, ex.message)
+        print >> sys.stdout, ex
+        add_log(50, ex)
         sys.exit(1)
 
 
@@ -38,15 +38,21 @@ def mapi_create_stream(schema, stream, columns):
         pass
 
     try:  # attempt to create te stream table
-        Connection.execute(''.join(["CREATE STREAM TABLE ", schema, ".", stream, " (", columns, ");"]))
+        Connection.execute("SET SCHEMA " + schema + ";")
+        Connection.execute(''.join(["CREATE STREAM TABLE ", stream, " (", columns, ");"]))
     except BaseException as ex:
-        add_log(40, ex.message)
+        add_log(40, ex)
         pass
 
 
 def mapi_flush_baskets(schema, stream, baskets):
     try:
-        Connection.execute(''.join(["CALL iot.push(\"", schema, "\",\"", stream, "\",\"", baskets, "\");"]))
+        Connection.execute("SET SCHEMA iot;")
+    except:
+        pass
+
+    try:
+        Connection.execute(''.join(["CALL iot.basket('", schema, "','", stream, "','", baskets, "');"]))
     except BaseException as ex:
-        add_log(40, ex.message)
+        add_log(40, ex)
         pass

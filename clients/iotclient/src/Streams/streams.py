@@ -38,8 +38,8 @@ def init_streams_hosts():
 class StreamException(Exception):
     """Exception fired when the validation of a stream insert fails"""
 
-    def __init__(self, messages):
-        self.message = messages  # dictionary of column -> list of error messages
+    def __init__(self, message):
+        self.message = message  # dictionary of column -> list of error messages
 
 
 class DataCellStream(object):
@@ -134,7 +134,7 @@ class DataCellStream(object):
             if self._tuples_in_per_basket > 0:
                 self.flush_baskets(last)
         except BaseException as ex:
-            add_log(50, ex.message)
+            add_log(50, ex)
         self._monitor.release()
 
     def validate_and_insert(self, new_data, timestamp):
@@ -170,7 +170,7 @@ class DataCellStream(object):
             try:
                 transposed_data[key] = data_type.process_values(values)  # convert into binary
             except DataValidationException as ex:
-                batch_errors[key] = ex.message
+                batch_errors[key] = ex
 
         if batch_errors:
             raise StreamException(message=batch_errors)
@@ -213,8 +213,9 @@ class DataCellStream(object):
             self._tuples_in_per_basket += total_tuples
             if is_flushing_tuple_based and self._tuples_in_per_basket >= self._flush_method.limit:
                 self.flush_baskets(last=False)
-
-            add_log(20, 'Inserted %d tuples to stream %s.%s' % (total_tuples, self._schema_name, self._stream_name))
         except BaseException as ex:
-            add_log(50, ex.message)
-        self._monitor.release()
+            self._monitor.release()
+            add_log(50, ex)
+        else:
+            self._monitor.release()
+            add_log(20, 'Inserted %d tuples to stream %s.%s' % (total_tuples, self._schema_name, self._stream_name))

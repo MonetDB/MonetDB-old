@@ -53,7 +53,7 @@ def validate_schema_and_create_stream(schema, created=False):
                         new_column.set_nullable(column['nullable'])
                     validated_columns[next_name] = new_column
                 except Exception as ex:
-                    errors[next_name] = ex.message
+                    errors[next_name] = ex
                 break
 
     if errors:

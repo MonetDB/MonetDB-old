@@ -12,8 +12,8 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys
-import os
+# import sys
+# import os
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -110,7 +110,7 @@ pygments_style = 'sphinx'
 # If true, keep warnings as "system message" paragraphs in the built documents.
 #keep_warnings = False
 
-# If true, `todo` and `todoList` produce output, else they produce nothing.
+# If true, `ttodo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
 
 
