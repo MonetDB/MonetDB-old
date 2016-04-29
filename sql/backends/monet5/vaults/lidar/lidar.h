@@ -28,5 +28,47 @@ lidar_export str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 lidar_export str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 lidar_export str LIDARexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 lidar_export str LIDARprelude(void *ret);
-#endif
 
+
+typedef struct lidar_header_info {
+	/* Table */
+	int recordsCount;
+	int pointRecordsCount;
+	int dataOffset;
+	int headerPadding;
+	int byteSize;
+	int baseByteSize;
+	int creationDOY;
+	int creationYear;
+	int reserved;
+	int dataRecordLength;
+	int headerSize;
+	int fileSourceId;
+	int versionMajor;
+	int versionMinor;
+	char dataFormatId;
+	str WKT;
+	str WKT_CompoundOK;
+	str proj4;
+	/* Columns */
+	double scaleX;
+	double scaleY;
+	double scaleZ;
+	double offsetX;
+	double offsetY;
+	double offsetZ;
+	double minX;
+	double minY;
+	double minZ;
+	double maxX;
+	double maxY;
+	double maxZ;
+} lidar_info;
+
+typedef struct either_lidar_header {
+	str msg;
+	lidar_info *hi;
+} lidar_header;
+
+lidar_header *LIDARopenFile(str fname);
+#endif
