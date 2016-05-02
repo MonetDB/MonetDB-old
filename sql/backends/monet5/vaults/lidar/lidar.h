@@ -46,7 +46,7 @@ typedef struct lidar_header_info {
 	int fileSourceId;
 	int versionMajor;
 	int versionMinor;
-	char dataFormatId;
+	int dataFormatId;
 	str WKT;
 	str WKT_CompoundOK;
 	str proj4;

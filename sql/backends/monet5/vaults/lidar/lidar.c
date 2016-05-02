@@ -429,8 +429,8 @@ str LIDARexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	LASHeader_SetSoftwareId(header, "MonetDB B.V.");
 /*	LASHeader_SetSRS */
 	LASHeader_SetSystemId(header, "MonetDB B.V.");
-	LASHeader_SetVersionMajor(header, '1');
-	LASHeader_SetVersionMinor(header, '2');
+	LASHeader_SetVersionMajor(header, 1);
+	LASHeader_SetVersionMinor(header, 2);
 
 	/* Create the writer*/
 	MT_lock_set(&mt_lidar_lock);
@@ -824,7 +824,7 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	store_funcs.append_col(m->session->tr,
 						   mvc_bind_column(m, lidar_tbl, "VersionMinor"), &header->hi->versionMinor, TYPE_int);
 	store_funcs.append_col(m->session->tr,
-						   mvc_bind_column(m, lidar_tbl, "DataFormatId"), &header->hi->dataFormatId, TYPE_str);
+						   mvc_bind_column(m, lidar_tbl, "DataFormatId"), &header->hi->dataFormatId, TYPE_int);
 	store_funcs.append_col(m->session->tr,
 						   mvc_bind_column(m, lidar_tbl, "CreationDOY"), &header->hi->creationDOY, TYPE_int);
 	store_funcs.append_col(m->session->tr,
