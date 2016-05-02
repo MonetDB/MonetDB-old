@@ -612,7 +612,7 @@ LIDARopenFile(str fname)
 	res->hi = NULL;
 	/* check if file exists */
 	if (access(fname, F_OK) == -1) {
-		res->msg = createException(MAL, "lidar.test", "File %s not found.", fname);
+		res->msg = createException(MAL, "lidar.openfile", "File %s not found.", fname);
 		return res;
 	}
 
@@ -622,7 +622,7 @@ LIDARopenFile(str fname)
 	reader = LASReader_Create(fname);
 	MT_lock_unset(&mt_lidar_lock);
 	if (LASError_GetErrorCount() != 0) {
-		res->msg = createException(MAL, "lidar.test", "Error accessing LIDAR file %s (%s)",
+		res->msg = createException(MAL, "lidar.openfile", "Error accessing LIDAR file %s (%s)",
 							  fname, LASError_GetLastErrorMsg());
 		return res;
 	}
@@ -630,7 +630,7 @@ LIDARopenFile(str fname)
 	/* get the header */
 	header = LASReader_GetHeader(reader);
 	if (!header) {
-		res->msg = createException(MAL, "lidar.test", "Error accessing LIDAR file %s (%s)",
+		res->msg = createException(MAL, "lidar.openfile", "Error accessing LIDAR file %s (%s)",
 							  fname, LASError_GetLastErrorMsg());
 		return res;
 	}
@@ -695,7 +695,6 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	oid fid, tid, cid, rid = oid_nil;
 	char *tname_low = NULL, *s, bname[BUFSIZ];
 	char *p;
-	//long rows;
 	int cnum;
 	lidar_header *header;
 	/* table */
