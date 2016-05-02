@@ -689,6 +689,7 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_schema *sch;
 	sql_table *lidar_fl, *lidar_tbl, *lidar_col, *tbl = NULL;
 	sql_column *col;
+	sql_subtype t;
 	str msg = MAL_SUCCEED;
 	str fname = *getArgReference_str(stk, pci, 1);
 	str tname = NULL;
@@ -697,16 +698,9 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	char *p;
 	int cnum;
 	lidar_header *header;
-	/* table */
-	/* int RecordsCount, PointRecordsCount, DataOffset; */
-	/* int HeaderPadding, ByteSize, BaseByteSize, CreationDOY; */
-	/* int CreationYear, Reserved, DataRecordLength, HeaderSize, FileSourceId; */
-	/* int VersionMajor, VersionMinor; */
-	/* char DataFormatId; */
-	/* str WKT, WKT_CompoundOK, Proj4; */
-	/* columns */
-	/* double ScaleX, ScaleY, ScaleZ, OffsetX, OffsetY, OffsetZ; */
-	/* double MinX, MinY, MinZ, MaxX, MaxY, MaxZ; */
+	struct stat buf;
+	int decimal_digitsX, decimal_digitsY, decimal_digitsZ;
+	int total_digitsX, total_digitsY, total_digitsZ;
 
 	if (pci->argc == 3) {
 		tname = *getArgReference_str(stk, pci, 2);
@@ -886,18 +880,54 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	store_funcs.append_col(m->session->tr,
 						   mvc_bind_column(m, lidar_col, "MaxZ"), &header->hi->maxZ, TYPE_dbl);
 
-	free(header->hi);
-	free(header);
-
 	/* add a lidar_column tuple */
 	col = mvc_bind_column(m, lidar_col, "id");
 	cid = store_funcs.count_col(tr, col, 1) + 1;
 	/* create an SQL table to hold the LIDAR table */
 	cnum = 3;//x, y, z. TODO: Add all available columnt
 	tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, cnum);
-	mvc_create_column_(m, tbl, "x", "double", 64);
-	mvc_create_column_(m, tbl, "y", "double", 64);
-	mvc_create_column_(m, tbl, "z", "double", 64);
+	/* mvc_create_column_(m, tbl, "x", "double", 64); */
+	/* mvc_create_column_(m, tbl, "y", "double", 64); */
+	/* mvc_create_column_(m, tbl, "z", "double", 64); */
+
+	decimal_digitsX = (int)ceil(-log(header->hi->scaleX)/log(10));
+	decimal_digitsY = (int)ceil(-log(header->hi->scaleY)/log(10));
+	decimal_digitsZ = (int)ceil(-log(header->hi->scaleZ)/log(10));
+
+	total_digitsX = decimal_digitsX + (int)ceil(log(header->hi->maxX)/log(10));
+	total_digitsY = decimal_digitsY + (int)ceil(log(header->hi->maxY)/log(10));
+	total_digitsZ = decimal_digitsZ + (int)ceil(log(header->hi->maxZ)/log(10));
+
+#ifndef NDEBUG
+	fprintf(stderr, "Scale: %f %f %f\n",
+			header->hi->scaleX,
+			header->hi->scaleY,
+			header->hi->scaleZ);
+	fprintf(stderr, "Number of decimal digits %d %d %d\n",
+			(int)ceil(-log(header->hi->scaleX)/log(10)),
+			(int)ceil(-log(header->hi->scaleY)/log(10)),
+			(int)ceil(-log(header->hi->scaleZ)/log(10)));
+
+	fprintf(stderr, "Number of digits %d %d %d\n",
+			(int)ceil(log(header->hi->maxX)/log(10)),
+			(int)ceil(log(header->hi->maxY)/log(10)),
+			(int)ceil(log(header->hi->maxZ)/log(10)));
+
+	fprintf(stderr, "decimal digits: %d %d %d\n", decimal_digitsX, decimal_digitsY, decimal_digitsZ);
+	fprintf(stderr, "total digits: %d %d %d\n", total_digitsX, total_digitsY, total_digitsZ);
+#endif
+
+	sql_find_subtype(&t, "decimal", total_digitsX, decimal_digitsX);
+	mvc_create_column(m, tbl, "x", &t);
+
+	sql_find_subtype(&t, "decimal", total_digitsY, decimal_digitsY);
+	mvc_create_column(m, tbl, "y", &t);
+
+	sql_find_subtype(&t, "decimal", total_digitsZ, decimal_digitsZ);
+	mvc_create_column(m, tbl, "z", &t);
+
+	free(header->hi);
+	free(header);
 
 	return MAL_SUCCEED;
 }
