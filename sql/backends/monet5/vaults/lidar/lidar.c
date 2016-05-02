@@ -23,6 +23,9 @@
 #include <liblas/capi/las_version.h>
 #include <liblas/capi/las_config.h>
 
+#include <sys/stat.h>
+#include <dirent.h>
+
 #include <lidar.h>
 #include <mutils.h>
 #include <sql_mvc.h>
@@ -603,6 +606,24 @@ LIDARtest(int *res, str *fname)
 }
 
 lidar_header *
+LIDARopenDir(str fname) {
+	lidar_header *res = (lidar_header *)malloc(sizeof(lidar_header));
+	DIR *dir = opendir(fname);
+	// struct dirent *ep;
+
+
+	res->msg = NULL;
+	res->hi = NULL;
+	if (dir == NULL) {
+		res->msg = createException(MAL, "lidar.attach", "Error accessing directory %s (%s)",
+								   fname, strerror(errno));
+		return res;
+	}
+
+	return res;
+}
+
+lidar_header *
 LIDARopenFile(str fname)
 {
 	lidar_header *res = (lidar_header *)malloc(sizeof(lidar_header));
@@ -720,12 +741,31 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
 		return msg;
 
-	header = LIDARopenFile(fname);
-	/* See if anything were wrong */
-	if (header->msg != NULL) {
-		msg = header->msg;
-		free(header);
+	stat(fname, &buf);
+	if (S_ISDIR(buf.st_mode)) {
+		header = LIDARopenDir(fname);
+		if (header->msg != NULL) {
+			msg = header->msg;
+			free(header);
+			return msg;
+		}
+#ifndef NDEBUG
+		fprintf(stderr, "Path: %s is a directory.\n", fname);
+		msg = createException(MAL, "lidar.attach", "Unimplemented functionality");
 		return msg;
+#endif
+	}
+	else {
+#ifndef NDEBUG
+		fprintf(stderr, "Path: %s is a file.\n", fname);
+#endif
+		header = LIDARopenFile(fname);
+		/* See if anything went wrong */
+		if (header->msg != NULL) {
+			msg = header->msg;
+			free(header);
+			return msg;
+		}
 	}
 
 	/* if needed, instantiate the schema and gather all appropriate tables */

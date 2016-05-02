@@ -71,4 +71,5 @@ typedef struct either_lidar_header {
 } lidar_header;
 
 lidar_header *LIDARopenFile(str fname);
+lidar_header *LIDARopenDir(str fname);
 #endif
