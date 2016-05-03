@@ -242,6 +242,7 @@ static struct PIPELINES {
 	 "optimizer.evaluate();"
 	 "optimizer.aliases();"
 	 "optimizer.pushselect();"
+	 "optimizer.gadget();"
 	 "optimizer.mitosis();"
 	 "optimizer.mergetable();"
 	 "optimizer.deadcode();"
@@ -257,7 +258,6 @@ static struct PIPELINES {
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
-	 "optimizer.gadget();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* sentinel */
