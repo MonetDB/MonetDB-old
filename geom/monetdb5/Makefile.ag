@@ -15,7 +15,7 @@ INCLUDES = ../lib \
 lib__geom = {
 	MODULE
 	DIR = libdir/monetdb5
-	SOURCES = geom.h geom.c geomBulk.c geom_upgrade.c grid.h grid_impl.h grid.c
+	SOURCES = geom.h geom.c geomBulk.c geom_upgrade.c grid.h grid_impl.h grid_create_impl.h grid.c
 	LIBS = ../lib/libgeom \
 		   ../../gdk/libbat \
 	       ../../common/stream/libstream \

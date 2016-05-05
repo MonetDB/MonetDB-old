@@ -63,26 +63,62 @@ struct Grid {
 	oid * oids;			/* heap where the index is stored  */
 };
 
-#define GRID_distance_scalar(TPE) \
-	geom_export str GRIDdistance_##TPE (bit * res, TPE * x1, TPE * y1, TPE * x2, TPE * y2, dbl * distance)
-#define GRID_distancesubselect_scalar(TPE) \
-	geom_export str GRIDdistancesubselect_##TPE (bat * res, bat * x1, bat * y1, bat * cand1, TPE * x2, TPE * y2, dbl * distance, bit * anti)
+#define GRID_dist(TP1,TP2) \
+str GRIDdistance_##TP1##_##TP2 (bit * res, TP1 * x1, TP1 * y1, TP2 * x2, TP2 * y2, dbl * d); \
+str GRIDdistancesubselect_##TP1##_##TP2 (bat * res, bat * x1, bat * y1, bat * cand1, TP2 * x2, TP2 * y2, dbl * d, bit * anti);
 
-GRID_distance_scalar(bte);
-GRID_distancesubselect_scalar(bte);
-GRID_distance_scalar(sht);
-GRID_distancesubselect_scalar(sht);
-GRID_distance_scalar(int);
-GRID_distancesubselect_scalar(int);
-GRID_distance_scalar(lng);
-GRID_distancesubselect_scalar(lng);
+GRID_dist(bte,bte);
+GRID_dist(bte,sht);
+GRID_dist(bte,int);
+GRID_dist(bte,lng);
+GRID_dist(bte,flt);
+GRID_dist(bte,dbl);
+GRID_dist(sht,bte);
+GRID_dist(sht,sht);
+GRID_dist(sht,int);
+GRID_dist(sht,lng);
+GRID_dist(sht,flt);
+GRID_dist(sht,dbl);
+GRID_dist(int,bte);
+GRID_dist(int,sht);
+GRID_dist(int,int);
+GRID_dist(int,lng);
+GRID_dist(int,flt);
+GRID_dist(int,dbl);
+GRID_dist(lng,bte);
+GRID_dist(lng,sht);
+GRID_dist(lng,int);
+GRID_dist(lng,lng);
+GRID_dist(lng,flt);
+GRID_dist(lng,dbl);
+GRID_dist(flt,bte);
+GRID_dist(flt,sht);
+GRID_dist(flt,int);
+GRID_dist(flt,lng);
+GRID_dist(flt,flt);
+GRID_dist(flt,dbl);
+GRID_dist(dbl,bte);
+GRID_dist(dbl,sht);
+GRID_dist(dbl,int);
+GRID_dist(dbl,lng);
+GRID_dist(dbl,flt);
+GRID_dist(dbl,dbl);
 #ifdef HAVE_HGE
-GRID_distance_scalar(hge);
-GRID_distancesubselect_scalar(hge);
+GRID_dist(bte,hge);
+GRID_dist(sht,hge);
+GRID_dist(int,hge);
+GRID_dist(lng,hge);
+GRID_dist(hge,bte);
+GRID_dist(hge,sht);
+GRID_dist(hge,int);
+GRID_dist(hge,lng);
+GRID_dist(hge,hge);
+GRID_dist(hge,flt);
+GRID_dist(hge,dbl);
+GRID_dist(flt,hge);
+GRID_dist(dbl,hge);
 #endif
-GRID_distance_scalar(flt);
-GRID_distancesubselect_scalar(flt);
-GRID_distance_scalar(dbl);
-GRID_distancesubselect_scalar(dbl);
 
+// geom_export str GRIDdistance(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+// geom_export str GRIDdistancesubselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 geom_export str GRIDdistancesubjoin(bat *res1, bat * res2,bat * x1, bat * y1, bat * x2, bat * y2, dbl * distance, bat * s1, bat * s2, bit * nil, lng * estimate);

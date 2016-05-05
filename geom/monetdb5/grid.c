@@ -29,28 +29,299 @@ countSetBits(uint64_t *resBitvector, size_t vectorSize)
 }
 
 #define TP bte
-#include "grid_impl.h"
+#include "grid_create_impl.h"
 #undef TP
 #define TP sht
-#include "grid_impl.h"
+#include "grid_create_impl.h"
 #undef TP
 #define TP int
-#include "grid_impl.h"
+#include "grid_create_impl.h"
 #undef TP
 #define TP lng
-#include "grid_impl.h"
+#include "grid_create_impl.h"
 #undef TP
 #ifdef HAVE_HGE
 #define TP hge
-#include "grid_impl.h"
+#include "grid_create_impl.h"
 #undef TP
 #endif
 #define TP flt
-#include "grid_impl.h"
+#include "grid_create_impl.h"
 #undef TP
 #define TP dbl
-#include "grid_impl.h"
+#include "grid_create_impl.h"
 #undef TP
+#define TP1 bte
+#define TP2 bte
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 bte
+#define TP2 sht
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 bte
+#define TP2 int
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 bte
+#define TP2 lng
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#ifdef HAVE_HGE
+#define TP1 bte
+#define TP2 hge
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#endif
+#define TP1 bte
+#define TP2 flt
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 bte
+#define TP2 dbl
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 sht
+#define TP2 bte
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 sht
+#define TP2 sht
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 sht
+#define TP2 int
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 sht
+#define TP2 lng
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#ifdef HAVE_HGE
+#define TP1 sht
+#define TP2 hge
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#endif
+#define TP1 sht
+#define TP2 flt
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 sht
+#define TP2 dbl
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 int
+#define TP2 bte
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 int
+#define TP2 sht
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 int
+#define TP2 int
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 int
+#define TP2 lng
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#ifdef HAVE_HGE
+#define TP1 int
+#define TP2 hge
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#endif
+#define TP1 int
+#define TP2 flt
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 int
+#define TP2 dbl
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 lng
+#define TP2 bte
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 lng
+#define TP2 sht
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 lng
+#define TP2 int
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 lng
+#define TP2 lng
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#ifdef HAVE_HGE
+#define TP1 lng
+#define TP2 hge
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#endif
+#define TP1 lng
+#define TP2 flt
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 lng
+#define TP2 dbl
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#ifdef HAVE_HGE
+#define TP1 hge
+#define TP2 bte
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#endif
+#ifdef HAVE_HGE
+#define TP1 hge
+#define TP2 sht
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#endif
+#ifdef HAVE_HGE
+#define TP1 hge
+#define TP2 int
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#endif
+#ifdef HAVE_HGE
+#define TP1 hge
+#define TP2 lng
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#endif
+#ifdef HAVE_HGE
+#define TP1 hge
+#define TP2 hge
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#endif
+#ifdef HAVE_HGE
+#define TP1 hge
+#define TP2 flt
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#endif
+#ifdef HAVE_HGE
+#define TP1 hge
+#define TP2 dbl
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#endif
+#define TP1 flt
+#define TP2 bte
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 flt
+#define TP2 sht
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 flt
+#define TP2 int
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 flt
+#define TP2 lng
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#ifdef HAVE_HGE
+#define TP1 flt
+#define TP2 hge
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#endif
+#define TP1 flt
+#define TP2 flt
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 flt
+#define TP2 dbl
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 dbl
+#define TP2 bte
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 dbl
+#define TP2 sht
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 dbl
+#define TP2 int
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 dbl
+#define TP2 lng
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#ifdef HAVE_HGE
+#define TP1 dbl
+#define TP2 hge
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#endif
+#define TP1 dbl
+#define TP2 flt
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
+#define TP1 dbl
+#define TP2 dbl
+#include "grid_impl.h"
+#undef TP1
+#undef TP2
 
 #define GRIDextend(g1, g2, cellR, cellS, r1, r2, msg)                             \
 do {                                                                              \
@@ -473,6 +744,475 @@ grid_create_bats_fail:
 	goto grid_create_bats_return;
 }
 
+static str
+distance_typesswitchloop(BUN * ret, const void *lft, int tp1, int incr1,
+						 const void *rgt, int tp2, int incr2,
+						 void *restrict dst, int tp, BUN cnt,
+						 BUN start, BUN end, const oid *restrict cand,
+						 const oid *candend, oid candoff,
+						 int abort_on_error, const char *func)
+{
+
+	BUN r;
+	tp1 = ATOMbasetype(tp1);
+	tp2 = ATOMbasetype(tp2);
+	tp = ATOMbasetype(tp);
+
+	switch (tp1) {
+		case TYPE_bte :
+			switch (tp2) {
+				case TYPE_bte :
+					r = distance_bte_bte(lft, incr1, rgt, incr2,
+							dst, GDK_bte_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_sht :
+					r = distance_bte_sht(lft, incr1, rgt, incr2,
+							dst, GDK_sht_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_int :
+					r = distance_bte_int(lft, incr1, rgt, incr2,
+							dst, GDK_int_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_lng :
+					r = distance_bte_lng(lft, incr1, rgt, incr2,
+							dst, GDK_lng_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+#ifdef HAVE_HGE
+				case TYPE_hge :
+					r = distance_bte_hge(lft, incr1, rgt, incr2,
+							dst, GDK_hge_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+#endif
+				case TYPE_flt :
+					r = distance_bte_flt(lft, incr1, rgt, incr2,
+							dst, GDK_flt_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_dbl :
+					r = distance_bte_dbl(lft, incr1, rgt, incr2,
+							dst, GDK_dbl_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				default:
+					goto unsupported;
+			}
+		case TYPE_sht :
+			switch (tp2) {
+				case TYPE_bte :
+					r = distance_sht_bte(lft, incr1, rgt, incr2,
+							dst, GDK_bte_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_sht :
+					r = distance_sht_sht(lft, incr1, rgt, incr2,
+							dst, GDK_sht_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_int :
+					r = distance_sht_int(lft, incr1, rgt, incr2,
+							dst, GDK_int_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_lng :
+					r = distance_sht_lng(lft, incr1, rgt, incr2,
+							dst, GDK_lng_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+#ifdef HAVE_HGE
+				case TYPE_hge :
+					r = distance_sht_hge(lft, incr1, rgt, incr2,
+							dst, GDK_hge_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+#endif
+				case TYPE_flt :
+					r = distance_sht_flt(lft, incr1, rgt, incr2,
+							dst, GDK_flt_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_dbl :
+					r = distance_sht_dbl(lft, incr1, rgt, incr2,
+							dst, GDK_dbl_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				default:
+					goto unsupported;
+			}
+		case TYPE_int :
+			switch (tp2) {
+				case TYPE_bte :
+					r = distance_int_bte(lft, incr1, rgt, incr2,
+							dst, GDK_bte_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_sht :
+					r = distance_int_sht(lft, incr1, rgt, incr2,
+							dst, GDK_sht_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_int :
+					r = distance_int_int(lft, incr1, rgt, incr2,
+							dst, GDK_int_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_lng :
+					r = distance_int_lng(lft, incr1, rgt, incr2,
+							dst, GDK_lng_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+#ifdef HAVE_HGE
+				case TYPE_hge :
+					r = distance_int_hge(lft, incr1, rgt, incr2,
+							dst, GDK_hge_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+#endif
+				case TYPE_flt :
+					r = distance_int_flt(lft, incr1, rgt, incr2,
+							dst, GDK_flt_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_dbl :
+					r = distance_int_dbl(lft, incr1, rgt, incr2,
+							dst, GDK_dbl_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				default:
+					goto unsupported;
+			}
+		case TYPE_lng :
+			switch (tp2) {
+				case TYPE_bte :
+					r = distance_lng_bte(lft, incr1, rgt, incr2,
+							dst, GDK_bte_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_sht :
+					r = distance_lng_sht(lft, incr1, rgt, incr2,
+							dst, GDK_sht_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_int :
+					r = distance_lng_int(lft, incr1, rgt, incr2,
+							dst, GDK_int_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_lng :
+					r = distance_lng_lng(lft, incr1, rgt, incr2,
+							dst, GDK_lng_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+#ifdef HAVE_HGE
+				case TYPE_hge :
+					r = distance_lng_hge(lft, incr1, rgt, incr2,
+							dst, GDK_hge_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+#endif
+				case TYPE_flt :
+					r = distance_lng_flt(lft, incr1, rgt, incr2,
+							dst, GDK_flt_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_dbl :
+					r = distance_lng_dbl(lft, incr1, rgt, incr2,
+							dst, GDK_dbl_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				default:
+					goto unsupported;
+			}
+#ifdef HAVE_HGE
+		case TYPE_hge :
+			switch (tp2) {
+				case TYPE_bte :
+					r = distance_hge_bte(lft, incr1, rgt, incr2,
+							dst, GDK_bte_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_sht :
+					r = distance_hge_sht(lft, incr1, rgt, incr2,
+							dst, GDK_sht_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_int :
+					r = distance_hge_int(lft, incr1, rgt, incr2,
+							dst, GDK_int_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_lng :
+					r = distance_hge_lng(lft, incr1, rgt, incr2,
+							dst, GDK_lng_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_hge :
+					r = distance_hge_hge(lft, incr1, rgt, incr2,
+							dst, GDK_hge_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_flt :
+					r = distance_hge_flt(lft, incr1, rgt, incr2,
+							dst, GDK_flt_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_dbl :
+					r = distance_hge_dbl(lft, incr1, rgt, incr2,
+							dst, GDK_dbl_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				default:
+					goto unsupported;
+			}
+#endif
+		case TYPE_flt :
+			switch (tp2) {
+				case TYPE_bte :
+					r = distance_flt_bte(lft, incr1, rgt, incr2,
+							dst, GDK_bte_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_sht :
+					r = distance_flt_sht(lft, incr1, rgt, incr2,
+							dst, GDK_sht_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_int :
+					r = distance_flt_int(lft, incr1, rgt, incr2,
+							dst, GDK_int_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_lng :
+					r = distance_flt_lng(lft, incr1, rgt, incr2,
+							dst, GDK_lng_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+#ifdef HAVE_HGE
+				case TYPE_hge :
+					r = distance_flt_hge(lft, incr1, rgt, incr2,
+							dst, GDK_hge_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+#endif
+				case TYPE_flt :
+					r = distance_flt_flt(lft, incr1, rgt, incr2,
+							dst, GDK_flt_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_dbl :
+					r = distance_flt_dbl(lft, incr1, rgt, incr2,
+							dst, GDK_dbl_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				default:
+					goto unsupported;
+			}
+		case TYPE_dbl :
+			switch (tp2) {
+				case TYPE_bte :
+					r = distance_dbl_bte(lft, incr1, rgt, incr2,
+							dst, GDK_bte_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_sht :
+					r = distance_dbl_sht(lft, incr1, rgt, incr2,
+							dst, GDK_sht_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_int :
+					r = distance_dbl_int(lft, incr1, rgt, incr2,
+							dst, GDK_int_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_lng :
+					r = distance_dbl_lng(lft, incr1, rgt, incr2,
+							dst, GDK_lng_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+#ifdef HAVE_HGE
+				case TYPE_hge :
+					r = distance_dbl_hge(lft, incr1, rgt, incr2,
+							dst, GDK_hge_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+#endif
+				case TYPE_flt :
+					r = distance_dbl_flt(lft, incr1, rgt, incr2,
+							dst, GDK_flt_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				case TYPE_dbl :
+					r = distance_dbl_dbl(lft, incr1, rgt, incr2,
+							dst, GDK_dbl_max, cnt, start, end,
+							cand, candend, candoff, abort_on_error);
+					break;
+				default:
+					goto unsupported;
+			}
+		default:
+			goto unsupported;
+	}
+
+	*ret = r;
+	return MAL_SUCCEED;
+
+unsupported:
+	return createException(MAL, "GRIDdistance", "%s: type combination (add(%s,%s)->%s) not supported.\n", func, ATOMname(tp1), ATOMname(tp2), ATOMname(tp))
+}
+
+static str
+GRIDdistance_(ValPtr ret, const ValRecord *lft, const ValRecord *rgt, int abort_on_error)
+{
+	return distance_typeswitchloop(VALptr(lft), lft->vtype, 0,
+					VALptr(rgt), rgt->vtype, 0,
+					VALget(ret), ret->vtype, 1,
+					0, 1, NULL, NULL, 0,
+					abort_on_error, "GRIDdistance");
+}
+
+str
+GRIDdistance(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	(void) mb;
+
+	return GRIDdistance_(&stk->stk[getArg(pci, 0)], &stk->stk[getArg(pci, 1)], &stk->stk[getArg(pci, 2)], 1) != MAL_SUCCEED;
+#if 0
+	str msg = MAL_SUCCEED;
+	BUN nils;
+	ValPtr ret;
+	ValRecord *lft1;
+	ValRecord *rgt1;
+	int abort_on_error;
+
+	void *lft;
+	int tp1;
+	int incr1;
+	void *rgt;
+	int tp2;
+	int incr2;
+	void *dst;
+	int tp;
+	BUN cnt;
+	BUN start;
+	BUN end;
+	oid * cand;
+	oid *candend;
+	oid candoff;
+	char *func;
+
+	(void)cntxt;
+	(void)mb;
+
+	ret = stk->stk[getArg(pci, 0)];
+	lft1 = stk->stk[getArg(pci, 1)];
+	rgt1 = stk->stk[getArg(pci, 2)];
+	abort_on_error = 1;
+	
+	lft = VALptr(lft1);
+	tp1 = lft->vtype;
+	incr1 = 0;
+	rgt = VALptr(rgt1);
+	tp2 = rgt->vtype;
+	incr2 = 0;
+	dst = VALget(ret);
+	tp = ret->vtype;
+	cnt = 1;
+	start = 0;
+	end = 1;
+	cand = NULL;
+	candend = NULL;
+	candoff = 0;
+	func = "VARcalcadd";
+
+	tp1 = ATOMbasetype(tp1);
+	tp2 = ATOMbasetype(tp2);
+	tp = ATOMbasetype(tp);
+
+	switch (tp1) {
+	case TYPE_bte:
+		switch (tp2) {
+		case TYPE_bte:
+			switch (tp) {
+			case TYPE_bte:
+				nils = add_bte_bte_bte(lft, incr1, rgt, incr2,
+								       dst, GDK_bte_max, cnt,
+								       start, end,
+								       cand, candend, candoff,
+								       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		default:
+			goto unsupported;
+		}
+		break;
+	default:
+		goto unsupported;
+	}
+
+
+distance_return;
+	if (nils == BUN_NONE)
+		msg = mythrow(MAL, "calc.+", OPERATION_FAILED);
+
+	return msg;
+
+unsupported:
+	nils = BUN_NONE;
+	goto distance_return;
+#endif 
+}
+
+#if 0
+str
+GRIDdistancesubselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void)cntxt;
+	(void)mb;
+	(void)stk;
+	(void)pci;
+
+	return MAL_SUCCEED;
+}
+#endif
+
+#if 0
+static str
+GRIDdistance_(bit * res, void * x1, void * y1, void * x2, void * y2, dbl * d)
+{
+	(void)res;
+	(void)x1;
+	(void)y1;
+	(void)x2;
+	(void)y2;
+	(void)d;
+
+	return MAL_SUCCEED;
+}
+
+static str
+GRIDdistancesubselect_(bat * res, bat * x1, bat * y1, bat * cand1, void * x2, void * y2, dbl * d, bit * anti)
+{
+	(void)res;
+	(void)x1;
+	(void)y1;
+	(void)cand1;
+	(void)x2;
+	(void)y2;
+	(void)d;
+	(void)anti;
+
+	return MAL_SUCCEED;
+}
+#endif
+
 str
 GRIDdistancesubjoin(bat *res1, bat * res2,bat * x1, bat * y1, bat * x2, bat * y2, dbl * d, bat * s1, bat * s2, bit * nil, lng * estimate)
 {
@@ -639,3 +1379,4 @@ distancejoin_fail:
 	if (r2) BBPunfix(r2->batCacheid);
 	goto distancejoin_clean;
 }
+
