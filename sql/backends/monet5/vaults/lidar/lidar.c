@@ -970,6 +970,68 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
+#define READ_ARRAY(BAT_TYPE)										\
+static BAT *														\
+read_array_##BAT_TYPE(str fname,									\
+					  double (*callback)(LASPointH),				\
+					  long rows, double scale,						\
+					  int *error_code)								\
+{																	\
+	BAT *b;														\
+	BAT_TYPE *d = NULL;											\
+	LASPointH p = NULL;											\
+	LASReaderH reader;												\
+	int i;															\
+																	\
+	b = BATnew(TYPE_void, TYPE_##BAT_TYPE, rows, PERSISTENT);		\
+																	\
+	if (b == NULL) {												\
+		*error_code = 1;											\
+		goto cleanup##BAT_TYPE;									\
+	}																\
+																	\
+	MT_lock_set(&mt_lidar_lock);									\
+	LASError_Reset();												\
+	reader = LASReader_Create(fname);								\
+	MT_lock_unset(&mt_lidar_lock);									\
+	if (LASError_GetErrorCount() != 0) {							\
+		*error_code = 2;											\
+		return NULL;												\
+	}																\
+																	\
+	BATseqbase(b, 0);												\
+	d = (BAT_TYPE *) Tloc(b, BUNfirst(b));							\
+																	\
+	p = LASReader_GetNextPoint(reader);							\
+	i = 0;															\
+	while(p) {														\
+		d[i] = callback(p)/scale;									\
+		p = LASReader_GetNextPoint(reader);						\
+		i++;														\
+	}																\
+cleanup##BAT_TYPE:													\
+	MT_lock_set(&mt_lidar_lock);									\
+	if (p != NULL) LASPoint_Destroy(p);							\
+	if (reader != NULL) LASReader_Destroy(reader);					\
+	MT_lock_unset(&mt_lidar_lock);									\
+																	\
+	return b;														\
+}
+
+
+/* Define functions for reading into different typed columns */
+READ_ARRAY(bte)
+
+READ_ARRAY(sht)
+
+READ_ARRAY(int)
+
+READ_ARRAY(lng)
+
+#ifdef HAVE_HGE
+READ_ARRAY(hge)
+#endif
+
 str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	mvc *m = NULL;
@@ -980,19 +1042,17 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str fname;
 	str msg = MAL_SUCCEED;
 	oid rid = oid_nil, frid = oid_nil, tid = oid_nil;
-	int fid, i;
+	int fid;
 #ifndef NDEBUG
 	int time0;
 #endif
 	int *tpcode = NULL;
 	long *rep = NULL, *wid = NULL, rows;
-	LASReaderH reader = NULL;
-	LASHeaderH header = NULL;
-	LASPointH p = NULL;
-	dbl *px = NULL, *py = NULL, *pz = NULL;
 	BAT *x = NULL, *y = NULL, *z = NULL;
 	size_t sz;
-	double scalex, scaley, scalez, offsetx, offsety, offsetz;
+	int precisionx, precisiony, precisionz;
+	double scalex, scaley, scalez;
+	int error_code;
 
 	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
 		return msg;
@@ -1043,38 +1103,18 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	col = mvc_bind_column(m, lidar_cl, "file_id");
 	tid = table_funcs.column_find_row(m->session->tr, col, (void *)&fid, NULL);
-	col = mvc_bind_column(m, lidar_cl, "OffsetX");
-	offsetx = *(double*)table_funcs.column_find_value(m->session->tr, col, tid);
-	col = mvc_bind_column(m, lidar_cl, "OffsetY");
-	offsety = *(double*)table_funcs.column_find_value(m->session->tr, col, tid);
-	col = mvc_bind_column(m, lidar_cl, "OffsetZ");
-	offsetz = *(double*)table_funcs.column_find_value(m->session->tr, col, tid);
 	col = mvc_bind_column(m, lidar_cl, "ScaleX");
 	scalex = *(double*)table_funcs.column_find_value(m->session->tr, col, tid);
-	col = mvc_bind_column(m, lidar_cl, "ScaleX");
+	col = mvc_bind_column(m, lidar_cl, "ScaleY");
 	scaley = *(double*)table_funcs.column_find_value(m->session->tr, col, tid);
-	col = mvc_bind_column(m, lidar_cl, "ScaleX");
+	col = mvc_bind_column(m, lidar_cl, "ScaleZ");
 	scalez = *(double*)table_funcs.column_find_value(m->session->tr, col, tid);
-
-
-	/* open the LAS/LAZ file */
-	MT_lock_set(&mt_lidar_lock);
-	LASError_Reset();
-	reader = LASReader_Create(fname);
-	MT_lock_unset(&mt_lidar_lock);
-	if (LASError_GetErrorCount() != 0) {
-		msg = createException(MAL, "lidar.lidarload", "Error accessing LIDAR file %s (%s)",
-							  fname, LASError_GetLastErrorMsg());
-		return msg;
-	}
-
-	/* get the header */
-	header = LASReader_GetHeader(reader);
-	if (!header) {
-		msg = createException(MAL, "lidar.lidarload", "Error accessing LIDAR file %s (%s)",
-							  fname, LASError_GetLastErrorMsg());
-		return msg;
-	}
+	col = mvc_bind_column(m, lidar_cl, "PrecisionX");
+	precisionx = *(sht*)table_funcs.column_find_value(m->session->tr, col, tid);
+	col = mvc_bind_column(m, lidar_cl, "PrecisionY");
+	precisiony = *(sht*)table_funcs.column_find_value(m->session->tr, col, tid);
+	col = mvc_bind_column(m, lidar_cl, "PrecisionZ");
+	precisionz = *(sht*)table_funcs.column_find_value(m->session->tr, col, tid);
 
 	/* data load */
 	col = mvc_bind_column(m, lidar_tbl, "PointRecordsCount");
@@ -1086,81 +1126,113 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	colx = mvc_bind_column(m, tbl, "x");
 	coly = mvc_bind_column(m, tbl, "y");
 	colz = mvc_bind_column(m, tbl, "z");
-	x = BATnew(TYPE_void, TYPE_dbl, rows, PERSISTENT);
-	y = BATnew(TYPE_void, TYPE_dbl, rows, PERSISTENT);
-	z = BATnew(TYPE_void, TYPE_dbl, rows, PERSISTENT);
+
+	/* Read X, Y, and Z based on the column's precision */
+	switch(precisionx) {
+	case 2:
+		x = read_array_bte(fname, LASPoint_GetX, rows, scalex, &error_code);
+		break;
+	case 4:
+		x = read_array_sht(fname, LASPoint_GetX, rows, scalex, &error_code);
+		break;
+	case 8:
+		x = read_array_int(fname, LASPoint_GetX, rows, scalex, &error_code);
+		break;
+	case 16:
+		x = read_array_int(fname, LASPoint_GetX, rows, scalex, &error_code);
+		break;
+	case 32:
+		x = read_array_lng(fname, LASPoint_GetX, rows, scalex, &error_code);
+		break;
+#ifdef HAVE_HGE
+	case 64:
+		x = read_array_hge(fname, LASPoint_GetX, rows, scalex, &error_code);
+		break;
+#endif
+	default:
+		x = NULL;
+		error_code = 3;
+	}
+	switch(precisiony) {
+	case 2:
+		y = read_array_bte(fname, LASPoint_GetY, rows, scaley, &error_code);
+		break;
+	case 4:
+		y = read_array_sht(fname, LASPoint_GetY, rows, scaley, &error_code);
+		break;
+	case 8:
+		y = read_array_int(fname, LASPoint_GetY, rows, scaley, &error_code);
+		break;
+	case 16:
+		y = read_array_int(fname, LASPoint_GetY, rows, scaley, &error_code);
+		break;
+	case 32:
+		y = read_array_lng(fname, LASPoint_GetY, rows, scaley, &error_code);
+		break;
+#ifdef HAVE_HGE
+	case 64:
+		y = read_array_hge(fname, LASPoint_GetY, rows, scaley, &error_code);
+		break;
+#endif
+	default:
+		y = NULL;
+		error_code = 4;
+	}
+	switch(precisionz) {
+	case 2:
+		z = read_array_bte(fname, LASPoint_GetZ, rows, scalez, &error_code);
+		break;
+	case 4:
+		z = read_array_sht(fname, LASPoint_GetZ, rows, scalez, &error_code);
+		break;
+	case 8:
+		z = read_array_int(fname, LASPoint_GetZ, rows, scalez, &error_code);
+		break;
+	case 16:
+		z = read_array_int(fname, LASPoint_GetZ, rows, scalez, &error_code);
+		break;
+	case 32:
+		z = read_array_lng(fname, LASPoint_GetZ, rows, scalez, &error_code);
+		break;
+#ifdef HAVE_HGE
+	case 64:
+		z = read_array_hge(fname, LASPoint_GetZ, rows, scalez, &error_code);
+		break;
+#endif
+	default:
+		z = NULL;
+		error_code = 5;
+	}
 
 	if ( x == NULL || y == NULL || z == NULL) {
 		GDKfree(tpcode);
 		GDKfree(rep);
 		GDKfree(wid);
-		MT_lock_set(&mt_lidar_lock);
-		if (p != NULL) LASPoint_Destroy(p);
-		if (header != NULL) LASHeader_Destroy(header);
-		if (reader != NULL) LASReader_Destroy(reader);
-		MT_lock_unset(&mt_lidar_lock);
-		msg = createException(MAL, "lidar.lidarload", "Malloc failed");
-		return msg;
-	}
-
-	BATseqbase(x, 0);
-	BATseqbase(y, 0);
-	BATseqbase(z, 0);
-
-	px = (dbl *) Tloc(x, BUNfirst(x));
-	py = (dbl *) Tloc(y, BUNfirst(y));
-	pz = (dbl *) Tloc(z, BUNfirst(z));
-
-	p = LASReader_GetNextPoint(reader);
-	i = 0;
-	while (p) {
-#ifndef NDEBUG
-		/* print the details of a few points when in debug mode */
-		if ( i % 1000000 == 0 ) {
-			double x = LASPoint_GetX(p);
-			double y = LASPoint_GetY(p);
-			double z = LASPoint_GetZ(p);
-			long rawx = LASPoint_GetRawX(p);
-			long rawy = LASPoint_GetRawY(p);
-			long rawz = LASPoint_GetRawZ(p);
-			unsigned short intensity = LASPoint_GetIntensity (p);
-			unsigned short returnno =LASPoint_GetReturnNumber (p);
-			unsigned short noofreturns = LASPoint_GetNumberOfReturns (p);
-			unsigned short scandir = LASPoint_GetScanDirection (p);
-			unsigned short flightline = LASPoint_GetFlightLineEdge (p);
-			unsigned char flags = LASPoint_GetScanFlags (p);
-			unsigned char class = LASPoint_GetClassification (p);
-			double t = LASPoint_GetTime(p);
-			char anglerank = LASPoint_GetScanAngleRank (p);
-			unsigned short sourceid = LASPoint_GetPointSourceId (p);
-			fprintf(stderr,
-					"(point # %d)"
-					"X (raw)           : %f (%ld)\n"
-					"Z (raw)           : %f (%ld)\n"
-					"Z (raw)           : %f (%ld)\n"
-					"intensity         : %d\n"
-					"return number     : %d\n"
-					"number of returns : %d\n"
-					"scan direction    : %d\n"
-					"flight line edge  : %d\n"
-					"scan flags        : %lc\n"
-					"classification    : %lc\n"
-					"time              : %f\n"
-					"scan angle rank   : %lc\n"
-					"point source id   : %d\n",
-					i, x, rawx, y, rawy, z, rawz,
-					intensity, returnno, noofreturns,
-					scandir, flightline, flags, class,
-					t, anglerank, sourceid);
+		switch (error_code) {
+		case 1:
+			msg = createException(MAL, "lidar.lidarload", "Malloc failed");
+			break;
+		case 2:
+			msg = createException(MAL, "lidar.lidarload",
+								  "Error accessing LIDAR file %s (%s)",
+								  fname, LASError_GetLastErrorMsg());
+			break;
+		case 3:
+			msg = createException(MAL, "lidar.lidarload",
+								  "Unknown precision for X column (%d)",
+								  precisionx);
+			break;
+		case 4:
+			msg = createException(MAL, "lidar.lidarload",
+								  "Unknown precision for Y column (%d)",
+								  precisiony);
+			break;
+		case 5:
+			msg = createException(MAL, "lidar.lidarload",
+								  "Unknown precision for Z column (%d)",
+								  precisionz);
 		}
-#endif
-		//TODO: Add a flag that indicates whether LiDAR points should be validited up front
-		px[i] = LASPoint_GetRawX(p) * scalex + offsetx;
-		py[i] = LASPoint_GetRawY(p) * scaley + offsety;
-		pz[i] = LASPoint_GetRawZ(p) * scalez + offsetz;
-
-		p = LASReader_GetNextPoint(reader);
-		i++;
+		return msg;
 	}
 
 	BATsetcount(x, rows);
@@ -1179,6 +1251,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BATmode(x, PERSISTENT);
 	BATmode(y, PERSISTENT);
 	BATmode(z, PERSISTENT);
+
 	store_funcs.append_col(m->session->tr, colx, x, TYPE_bat);
 	store_funcs.append_col(m->session->tr, coly, y, TYPE_bat);
 	store_funcs.append_col(m->session->tr, colz, z, TYPE_bat);
@@ -1194,12 +1267,6 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	GDKfree(tpcode);
 	GDKfree(rep);
 	GDKfree(wid);
-
-	MT_lock_set(&mt_lidar_lock);
-	if (p != NULL) LASPoint_Destroy(p);
-	if (header != NULL) LASHeader_Destroy(header);
-	if (reader != NULL) LASReader_Destroy(reader);
-	MT_lock_unset(&mt_lidar_lock);
 
 	return msg;
 }
