@@ -228,7 +228,7 @@ LIDARinitCatalog(mvc *m)
 		mvc_create_column_(m, lidar_tbl, "FileSourceId", "int", 32);
 		mvc_create_column_(m, lidar_tbl, "VersionMajor", "int", 16);
 		mvc_create_column_(m, lidar_tbl, "VersionMinor", "int", 16);
-		mvc_create_column_(m, lidar_tbl, "DataFormatId", "char", 1);
+		mvc_create_column_(m, lidar_tbl, "DataFormatId", "int", 16);
 		mvc_create_column_(m, lidar_tbl, "CreationDOY", "int", 32);
 		mvc_create_column_(m, lidar_tbl, "CreationYear", "int", 32);
 		mvc_create_column_(m, lidar_tbl, "RecordsCount", "int", 32);
