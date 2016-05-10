@@ -30,7 +30,7 @@ Set the filesystem directory where the baskets will be created. By default in UN
 
 **-l  - -log=**
 
-Location of logfile. On the logfile is reported when streams are created or removed, when tuples are inserted and when the baskets are flushed. By default in UNIX systems is :code:`/var/log/iot/iot.log`, while on Windows is the :code:`iot.log` on the directory where the :code:`main.py` script was invoked.
+Location of logfile. On the logfile is reported when streams are created or removed, when tuples are inserted and when the baskets are flushed. By default in UNIX systems is :code:`/var/log/iot/iot.log`, while on Windows is the :code:`iot.log` on the directory where the :code:`main.py` script was called.
 
 **-c  - -config=**
 
@@ -41,18 +41,18 @@ Host Identifier
 
 If the *useidentifier* parameter is provided, an extra column on streams will be added with a custom name of the host for later identification. 
 
-**-ui  - -useidentifier=**
+**-ui  - -useidentifier**
 
-Boolean to indicate if the extra column will be added.
+Use a host identifier for every new stream.
 
 **-in  - -name=**
 
-Custom name of the host. By default is the host's MAC address.
+Host identifier name. By default is the host's MAC address.
 
 Web Server Listening
 --------------------
 
-For security purposes, two web servers are created by the application. On the administration server are present operations to create and delete streams, while on application server the insert operations are present instead. The administration server should be listening on the host only, while the application server should be listening to all interfaces.
+For security purposes, two web servers are created by the application. On the administration server it's present operations to create and delete streams, while on application server the insert operations are present instead. The administration server should be listening on the host only, while the application server should be listening to all interfaces.
 
 **-ih  - -ihost=**
 
@@ -64,18 +64,18 @@ Listening port of the application (IOT) server. By default is on port :code:`800
 
 **-ah  - -ahost=**
 
-Listening host of the administration (IOT) server. By default is on :code:`127.0.0.1`.
+Listening host of the administration server. By default is on :code:`127.0.0.1`.
 
 **-ap  - -aport=**
 
-Listening port of the administration (IOT) server. By default is on port :code:`8001`.
+Listening port of the administration server. By default is on port :code:`8001`.
 
 Database Connection
 -------------------
 
 Credentials for the MAPI connection to MonetDB database.
 
-.. note:: The user password will be prompted during the initialization of the server.
+.. note:: The user's password will be prompted during the initialization of the server.
 
 **-d  - -host=**
 

@@ -38,7 +38,7 @@ A *Media Access Control Address* identifier. The insertion as a JSON string is v
 URL
 ---
 
-An *Uniform Resource Locator* as a specific type of an URI is validated according to `RFC 3987 <https://www.ietf.org/rfc/rfc3987.txt>`_. The insertion must also be a JSON String.
+An *Uniform Resource Locator* as a specific type of an URI is validated according to `RFC 3987 <https://www.ietf.org/rfc/rfc3987.txt>`_. The insertion must be a JSON String.
 
 Inet
 ----
@@ -117,9 +117,9 @@ A regular date in the Gregorian Calendar, expressed in format :code:`YYYY-MM-DD`
 Time
 ----
 
-The time of day expressed in format :code:`HH:MM:SS.sss`. If the pair :code:`"timezone": false` is provided, the timezone will be truncated.
+The time of day expressed in format :code:`HH:MM:SS.sss`. If the pair :code:`"timezone": false` is provided, the timezone will be discarded.
 
 Timestamp
 ---------
 
-A timestamp according to `RFC 3339 <https://www.ietf.org/rfc/rfc3339.txt>`_ with timezone. The regular expression is the standard `ISO 8601 with timezone format <https://en.wikipedia.org/wiki/ISO_8601>`_. If the pair :code:`"timezone": false` is provided, the timezone will be truncated.
+A timestamp according to `RFC 3339 <https://www.ietf.org/rfc/rfc3339.txt>`_ with timezone. The regular expression is the standard `ISO 8601 with timezone format <https://en.wikipedia.org/wiki/ISO_8601>`_. If the pair :code:`"timezone": false` is provided, the timezone will be discarded.

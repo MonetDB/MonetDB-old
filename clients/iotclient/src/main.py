@@ -36,7 +36,7 @@ def main(argv):
 
     try:
         opts, args = getopt.getopt(argv[1:], 'f:l:c:ui:in:ih:ip:ah:ap:h:p:d:u',
-                                   ['filesystem=', 'log=', 'config=', 'useidentifier=', 'name='
+                                   ['filesystem=', 'log=', 'config=', 'useidentifier', 'name='
                                     'ihost=', 'iport=', 'ahost=', 'aport=',
                                     'host=', 'port=', 'database=', 'user='])
     except getopt.GetoptError:
@@ -66,7 +66,7 @@ def main(argv):
         elif opt in ('-c', '--config'):
             new_configfile_location = arg
         elif opt in ('-ui', '--useidentifier'):
-            use_host_identifier = bool(arg)
+            use_host_identifier = True
         elif opt in ('-in', '--name'):
             host_identifier = arg
 
