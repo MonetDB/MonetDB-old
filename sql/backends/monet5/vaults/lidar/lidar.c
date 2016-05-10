@@ -263,6 +263,9 @@ LIDARinitCatalog(mvc *m)
 		mvc_create_column_(m, lidar_col, "MaxX", "double", 64);
 		mvc_create_column_(m, lidar_col, "MaxY", "double", 64);
 		mvc_create_column_(m, lidar_col, "MaxZ", "double", 64);
+		mvc_create_column_(m, lidar_col, "PrecisionX", "int", 16);
+		mvc_create_column_(m, lidar_col, "PrecisionY", "int", 16);
+		mvc_create_column_(m, lidar_col, "PrecisionZ", "int", 16);
 	}
 }
 
@@ -720,8 +723,8 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int cnum;
 	lidar_header *header;
 	struct stat buf;
-	int decimal_digitsX, decimal_digitsY, decimal_digitsZ;
-	int total_digitsX, total_digitsY, total_digitsZ;
+	int scaleX, scaleY, scaleZ;
+	int precisionX, precisionY, precisionZ;
 
 	if (pci->argc == 3) {
 		tname = *getArgReference_str(stk, pci, 2);
@@ -784,10 +787,6 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	col = mvc_bind_column(m, lidar_fl, "name");
 	rid = table_funcs.column_find_row(m->session->tr, col, fname, NULL);
 	if (rid != oid_nil) {
-		/* MT_lock_set(&mt_lidar_lock); */
-		/* if (header != NULL) LASHeader_Destroy(header); */
-		/* if (reader != NULL) LASReader_Destroy(reader); */
-		/* MT_lock_unset(&mt_lidar_lock); */
 		msg = createException(SQL, "lidar.attach", "File %s already attached\n", fname);
 		return msg;
 	}
@@ -835,13 +834,36 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* or as regular SQL table */
 	tbl = mvc_bind_table(m, sch, tname_low);
 	if (rid != oid_nil || tbl) {
-		/* MT_lock_set(&mt_lidar_lock); */
-		/* if (header != NULL) LASHeader_Destroy(header); */
-		/* if (reader != NULL) LASReader_Destroy(reader); */
-		/* MT_lock_unset(&mt_lidar_lock); */
 		msg = createException(SQL, "lidar.attach", "Table %s already exists\n", tname_low);
 		return msg;
 	}
+
+	scaleX = (int)ceil(-log(header->hi->scaleX)/log(10));
+	scaleY = (int)ceil(-log(header->hi->scaleY)/log(10));
+	scaleZ = (int)ceil(-log(header->hi->scaleZ)/log(10));
+
+	precisionX = scaleX + (int)ceil(log(header->hi->maxX)/log(10));
+	precisionY = scaleY + (int)ceil(log(header->hi->maxY)/log(10));
+	precisionZ = scaleZ + (int)ceil(log(header->hi->maxZ)/log(10));
+
+#ifndef NDEBUG
+	fprintf(stderr, "Scale: %f %f %f\n",
+			header->hi->scaleX,
+			header->hi->scaleY,
+			header->hi->scaleZ);
+	fprintf(stderr, "Decimal type scale: %d %d %d\n",
+			(int)ceil(-log(header->hi->scaleX)/log(10)),
+			(int)ceil(-log(header->hi->scaleY)/log(10)),
+			(int)ceil(-log(header->hi->scaleZ)/log(10)));
+
+	fprintf(stderr, "Decimal type precision: %d %d %d\n",
+			(int)ceil(log(header->hi->maxX)/log(10)),
+			(int)ceil(log(header->hi->maxY)/log(10)),
+			(int)ceil(log(header->hi->maxZ)/log(10)));
+
+	fprintf(stderr, "decimal digits: %d %d %d\n", scaleX, scaleY, scaleZ);
+	fprintf(stderr, "total digits: %d %d %d\n", precisionX, precisionY, precisionZ);
+#endif
 
 	/* store data */
 	store_funcs.append_col(m->session->tr,
@@ -919,6 +941,12 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 						   mvc_bind_column(m, lidar_col, "MaxY"), &header->hi->maxY, TYPE_dbl);
 	store_funcs.append_col(m->session->tr,
 						   mvc_bind_column(m, lidar_col, "MaxZ"), &header->hi->maxZ, TYPE_dbl);
+	store_funcs.append_col(m->session->tr,
+						   mvc_bind_column(m, lidar_col, "PrecisionX"), &precisionX, TYPE_int);
+	store_funcs.append_col(m->session->tr,
+						   mvc_bind_column(m, lidar_col, "PrecisionY"), &precisionY, TYPE_int);
+	store_funcs.append_col(m->session->tr,
+						   mvc_bind_column(m, lidar_col, "PrecisionZ"), &precisionZ, TYPE_int);
 
 	/* add a lidar_column tuple */
 	col = mvc_bind_column(m, lidar_col, "id");
@@ -926,44 +954,14 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* create an SQL table to hold the LIDAR table */
 	cnum = 3;//x, y, z. TODO: Add all available columnt
 	tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, cnum);
-	/* mvc_create_column_(m, tbl, "x", "double", 64); */
-	/* mvc_create_column_(m, tbl, "y", "double", 64); */
-	/* mvc_create_column_(m, tbl, "z", "double", 64); */
 
-	decimal_digitsX = (int)ceil(-log(header->hi->scaleX)/log(10));
-	decimal_digitsY = (int)ceil(-log(header->hi->scaleY)/log(10));
-	decimal_digitsZ = (int)ceil(-log(header->hi->scaleZ)/log(10));
-
-	total_digitsX = decimal_digitsX + (int)ceil(log(header->hi->maxX)/log(10));
-	total_digitsY = decimal_digitsY + (int)ceil(log(header->hi->maxY)/log(10));
-	total_digitsZ = decimal_digitsZ + (int)ceil(log(header->hi->maxZ)/log(10));
-
-#ifndef NDEBUG
-	fprintf(stderr, "Scale: %f %f %f\n",
-			header->hi->scaleX,
-			header->hi->scaleY,
-			header->hi->scaleZ);
-	fprintf(stderr, "Number of decimal digits %d %d %d\n",
-			(int)ceil(-log(header->hi->scaleX)/log(10)),
-			(int)ceil(-log(header->hi->scaleY)/log(10)),
-			(int)ceil(-log(header->hi->scaleZ)/log(10)));
-
-	fprintf(stderr, "Number of digits %d %d %d\n",
-			(int)ceil(log(header->hi->maxX)/log(10)),
-			(int)ceil(log(header->hi->maxY)/log(10)),
-			(int)ceil(log(header->hi->maxZ)/log(10)));
-
-	fprintf(stderr, "decimal digits: %d %d %d\n", decimal_digitsX, decimal_digitsY, decimal_digitsZ);
-	fprintf(stderr, "total digits: %d %d %d\n", total_digitsX, total_digitsY, total_digitsZ);
-#endif
-
-	sql_find_subtype(&t, "decimal", total_digitsX, decimal_digitsX);
+	sql_find_subtype(&t, "decimal", precisionX, scaleX);
 	mvc_create_column(m, tbl, "x", &t);
 
-	sql_find_subtype(&t, "decimal", total_digitsY, decimal_digitsY);
+	sql_find_subtype(&t, "decimal", precisionY, scaleY);
 	mvc_create_column(m, tbl, "y", &t);
 
-	sql_find_subtype(&t, "decimal", total_digitsZ, decimal_digitsZ);
+	sql_find_subtype(&t, "decimal", precisionZ, scaleZ);
 	mvc_create_column(m, tbl, "z", &t);
 
 	free(header->hi);
