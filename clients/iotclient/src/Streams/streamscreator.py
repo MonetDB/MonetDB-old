@@ -1,9 +1,9 @@
 import collections
 
 from jsonschema import Draft4Validator, FormatChecker
+
 from flushing import TupleBasedFlushing, TimeBasedFlushing
 from streams import DataCellStream
-from datatypes import *  # the datatypes.py import must be here in order to the reflection work
 
 
 class ColumnsValidationException(Exception):
@@ -12,22 +12,22 @@ class ColumnsValidationException(Exception):
         self.message = error_messages  # dictionary of name ->  error message
 
 SWITCHER = [{'types': ['text', 'string', 'clob', 'character large object'], 'class': 'TextType'},
-    {'types': ['uuid'], 'class': 'UUIDType'},
-    {'types': ['mac'], 'class': 'MACType'},
-    {'types': ['url'], 'class': 'URLType'},
-    {'types': ['inet'], 'class': 'INet'},
-    {'types': ['inet6'], 'class': 'INetSix'},
-    {'types': ['regex'], 'class': 'RegexType'},
-    {'types': ['char', 'character', 'varchar', 'character varying'], 'class': 'LimitedTextType'},
-    {'types': ['enum'], 'class': 'EnumType'},
-    {'types': ['boolean'], 'class': 'BooleanType'},
-    {'types': ['tinyint', 'smallint', 'int', 'integer', 'bigint'], 'class': 'SmallIntegerType'},
-    {'types': ['hugeint'], 'class': 'HugeIntegerType'},
-    {'types': ['real', 'float', 'double'], 'class': 'FloatType'},
-    {'types': ['decimal', 'numeric'], 'class': 'DecimalType'},
-    {'types': ['date'], 'class': 'DateType'},
-    {'types': ['time'], 'class': 'TimeType'},
-    {'types': ['timestamp'], 'class': 'TimestampType'}]
+            {'types': ['uuid'], 'class': 'UUIDType'},
+            {'types': ['mac'], 'class': 'MACType'},
+            {'types': ['url'], 'class': 'URLType'},
+            {'types': ['inet'], 'class': 'INet'},
+            {'types': ['inet6'], 'class': 'INetSix'},
+            {'types': ['regex'], 'class': 'RegexType'},
+            {'types': ['char', 'character', 'varchar', 'character varying'], 'class': 'LimitedTextType'},
+            {'types': ['enum'], 'class': 'EnumType'},
+            {'types': ['bool', 'boolean'], 'class': 'BooleanType'},
+            {'types': ['tinyint', 'smallint', 'int', 'integer', 'bigint'], 'class': 'SmallIntegerType'},
+            {'types': ['hugeint'], 'class': 'HugeIntegerType'},
+            {'types': ['real', 'float', 'double', 'double precision'], 'class': 'FloatType'},
+            {'types': ['dec', 'decimal', 'numeric'], 'class': 'DecimalType'},
+            {'types': ['date'], 'class': 'DateType'},
+            {'types': ['time'], 'class': 'TimeType'},
+            {'types': ['timestamp'], 'class': 'TimestampType'}]
 
 
 def validate_schema_and_create_stream(schema, created=False):

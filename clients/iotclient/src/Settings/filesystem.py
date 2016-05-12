@@ -1,8 +1,9 @@
-import os
 import sys
 
-from iotlogger import add_log
+import os
 from Utilities.filecreator import create_file_if_not_exists
+
+from iotlogger import add_log
 
 BASKETS_BASE_DIRECTORY = "baskets"
 CONFIG_FILE_DEFAULT_NAME = "config.json"
@@ -12,7 +13,7 @@ if sys.platform in ("linux", "linux2", "darwin"):
 elif sys.platform == "win32":
     filesystem_location = os.path.join(os.path.dirname(__file__), os.pardir)
 
-Baskets_Base_Location = None
+Baskets_Location = None
 Config_File_Location = None
 Host_Identifier = None
 
@@ -23,7 +24,7 @@ def set_filesystem_location(new_location):
 
 
 def init_file_system(host_identifier=None, new_configfile_location=None):
-    global Baskets_Base_Location, Config_File_Location, Host_Identifier
+    global Baskets_Location, Config_File_Location, Host_Identifier
 
     try:
         Baskets_Base_Location = os.path.join(filesystem_location, BASKETS_BASE_DIRECTORY)
@@ -44,7 +45,7 @@ def init_file_system(host_identifier=None, new_configfile_location=None):
 
 
 def get_baskets_base_location():
-    return Baskets_Base_Location
+    return Baskets_Location
 
 
 def get_configfile_location():

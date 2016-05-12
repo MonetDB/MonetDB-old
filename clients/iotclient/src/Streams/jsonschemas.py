@@ -119,7 +119,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["boolean"]},
+                        "type": {"type": "string", "enum": ["bool", "boolean"]},
                         "nullable": {"type": "boolean"},
                         "default": {"type": "boolean"}
                     },
@@ -140,7 +140,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["real", "float", "double"]},
+                        "type": {"type": "string", "enum": ["real", "float", "double", "double precision"]},
                         "nullable": {"type": "boolean"},
                         "default": {"type": "number"},
                         "minimum": {"type": "number"},
@@ -151,7 +151,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["decimal", "numeric"]},
+                        "type": {"type": "string", "enum": ["dec", "decimal", "numeric"]},
                         "nullable": {"type": "boolean"},
                         "precision": {"type": "integer", "minimum": 1, "maximum": 38},
                         "scale": {"type": "integer", "minimum": 0},

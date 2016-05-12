@@ -4,11 +4,11 @@ import sys
 import os
 
 if sys.platform in ("linux", "linux2", "darwin"):
-    logging_location = '/var/log/iot/iotclient.log'
+    logging_location = '/var/log/iot/iotapi.log'
 elif sys.platform == "win32":
-    logging_location = os.path.join(os.path.dirname(__file__), os.pardir, 'iotclient.log')
+    logging_location = os.path.join(os.path.dirname(__file__), os.pardir, 'iotapi.log')
 
-logger = logging.getLogger("IOTClientLog")
+logger = logging.getLogger("IOTAPILog")
 
 
 def set_logging_location(new_location):

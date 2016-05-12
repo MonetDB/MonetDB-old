@@ -1,5 +1,5 @@
+from Utilities.customthreading import PeriodicalThread
 from abc import ABCMeta, abstractmethod
-from Utilities.customthreading import IntervalTimer
 
 
 class StreamFlushingMethod(object):
@@ -31,7 +31,7 @@ class TimeBasedFlushing(StreamFlushingMethod):
             interval = self._interval * 60
         else:
             interval = self._interval * 3600
-        self._local_thread = IntervalTimer(interval, stream.time_based_flush)
+        self._local_thread = PeriodicalThread(interval, stream.time_based_flush)
         self._local_thread.start()
 
     def stop_local_thread(self):

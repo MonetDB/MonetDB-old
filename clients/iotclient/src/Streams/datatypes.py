@@ -1,14 +1,14 @@
 import copy
 import datetime
-import dateutil
 import itertools
 import math
-import re
 import struct
 
-
+import dateutil
+import re
 from abc import ABCMeta, abstractmethod
 from dateutil import parser
+
 from jsonschemas import UUID_REGEX, MAC_ADDRESS_REGEX, TIME_REGEX
 
 # Later check the byte order https://docs.python.org/2/library/struct.html#byte-order-size-and-alignment
@@ -310,7 +310,7 @@ class EnumType(TextType):
 
 
 class BooleanType(StreamDataType):
-    """Covers: BOOLEAN"""
+    """Covers: BOOL[EAN]"""
 
     def __init__(self, **kwargs):
         super(BooleanType, self).__init__(**kwargs)
@@ -465,7 +465,7 @@ class DecimalType(NumberBaseType):
         if 'scale' in kwargs:
             self._scale = kwargs['scale']
         else:
-            self._scale = 0
+            self._scale = 3
 
         if self._scale > self._precision:
             raise Exception('The scale must be between 0 and the precision!')
