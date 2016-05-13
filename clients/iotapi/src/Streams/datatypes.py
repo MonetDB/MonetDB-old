@@ -1,4 +1,3 @@
-import itertools
 import struct
 from abc import ABCMeta, abstractmethod
 from datetime import date, time, datetime
@@ -27,25 +26,31 @@ class StreamDataType(object):
     def __init__(self, **kwargs):
         self._column_name = kwargs['name']  # name of the column
         self._data_type = kwargs['type']  # SQL name of the type
-        self._location = kwargs['location'] + '.tail'  # Location of the file
+        # self._location = kwargs['location'] + '.tail'  # Location of the file
+
+    def is_file_mode_binary(self):
+        return True
 
     @abstractmethod
     def read_next_batch(self, file_pointer, count):
         return []
 
-    def to_json_representation(self):
-        return {'name': self._column_name, 'type': self._data_type}
+    def fetch_new_tuples(self, count):
+        file_pointer = open(self._location, 'rb')
 
 
 class TextType(StreamDataType):
-    """Covers: TEXT, STRING, CLOB and CHARACTER LARGE OBJECT"""
+    """Covers: CHAR, VARCHAR, CLOB"""
 
     def __init__(self, **kwargs):
         super(TextType, self).__init__(**kwargs)
         self._nullable_constant = NIL_STRING
 
+    def is_file_mode_binary(self):
+        return False
+
     def read_next_batch(self, file_pointer, count):
-        array = list(itertools.islice(file_pointer, count))
+        array = file_pointer.readlines()
         return map(lambda x: None if x == self._nullable_constant else x[:-1], array)
 
 
@@ -62,7 +67,7 @@ class BooleanType(StreamDataType):
 
 
 class SmallIntegerType(StreamDataType):
-    """Covers: TINYINT, SMALLINT, INT[EGER], BIGINT"""
+    """Covers: TINYINT, SMALLINT, INTEGER, BIGINT"""
 
     def __init__(self, **kwargs):
         super(SmallIntegerType, self).__init__(**kwargs)
@@ -98,7 +103,7 @@ class HugeIntegerType(StreamDataType):
 
 
 class FloatType(StreamDataType):
-    """Covers: REAL, FLOAT and DOUBLE"""
+    """Covers: REAL, DOUBLE"""
 
     def __init__(self, **kwargs):
         super(FloatType, self).__init__(**kwargs)
@@ -112,7 +117,7 @@ class FloatType(StreamDataType):
 
 
 class DecimalType(StreamDataType):
-    """Covers: DECIMAL and NUMERIC"""
+    """Covers: DECIMAL"""
 
     def __init__(self, **kwargs):
         super(DecimalType, self).__init__(**kwargs)

@@ -1,13 +1,14 @@
-import os
-
 from collections import defaultdict, OrderedDict
-from datatypes import TimestampType, TextType, DataValidationException
-from flushing import TimeBasedFlushing, TupleBasedFlushing
-from Settings.mapiconnection import mapi_create_stream, mapi_flush_baskets
+
+import os
 from Settings.filesystem import get_baskets_base_location, get_host_identifier
 from Settings.iotlogger import add_log
+from Settings.mapiconnection import mapi_create_stream, mapi_flush_baskets
 from Utilities.filecreator import create_file_if_not_exists, get_hidden_file_name
 from Utilities.readwritelock import RWLock
+
+from datatypes import TimestampType, TextType, DataValidationException
+from flushing import TimeBasedFlushing, TupleBasedFlushing
 
 
 def represents_int(s):
@@ -42,7 +43,7 @@ class StreamException(Exception):
         self.message = message  # dictionary of column -> list of error messages
 
 
-class DataCellStream(object):
+class IOTStream(object):
     """Representation of the stream for validation"""
 
     def __init__(self, schema_name, stream_name, flush_method, columns, validation_schema, created=False):

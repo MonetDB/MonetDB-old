@@ -1,10 +1,11 @@
 import json
 
-from streamscreator import *
 from Settings.filesystem import get_configfile_location
 from Utilities.readwritelock import RWLock
-from jsonschemas import CONFIG_FILE_SCHEMA
 from jsonschema import Draft4Validator, FormatChecker
+
+from jsonschemas import CONFIG_FILE_SCHEMA
+from streamscreator import *
 
 Config_File_Location = None
 Config_File_Validator = None
@@ -20,7 +21,7 @@ class IOTStreamsException(Exception):
     pass
 
 
-class IOTStreams:
+class IOTStreamsContext(object):
     @classmethod
     def get_context_entry_name(cls, schema_name, stream_name):
         return schema_name + '.' + stream_name
@@ -42,7 +43,8 @@ class IOTStreams:
         stream_dic = collections.OrderedDict()
         for entry in data:
             next_stream = validate_schema_and_create_stream(entry, created=False)
-            next_name = IOTStreams.get_context_entry_name(next_stream.get_schema_name(), next_stream.get_stream_name())
+            next_name = IOTStreamsContext.get_context_entry_name(next_stream.get_schema_name(),
+                                                                 next_stream.get_stream_name())
             stream_dic[next_name] = next_stream
         self._context = stream_dic  # dictionary of schema_name + '.' + stream_name -> DataCellStream
 
@@ -55,7 +57,7 @@ class IOTStreams:
             json.dump(data, outfile)
 
     def add_new_stream(self, validating_schema):
-        concat_name = IOTStreams.get_context_entry_name(validating_schema['schema'], validating_schema['stream'])
+        concat_name = IOTStreamsContext.get_context_entry_name(validating_schema['schema'], validating_schema['stream'])
         self._locker.acquire_write()
         if concat_name in self._context:
             self._locker.release()
@@ -72,7 +74,7 @@ class IOTStreams:
         self._locker.release()
 
     def delete_existing_stream(self, validating_schema):
-        concat_name = IOTStreams.get_context_entry_name(validating_schema['schema'], validating_schema['stream'])
+        concat_name = IOTStreamsContext.get_context_entry_name(validating_schema['schema'], validating_schema['stream'])
         self._locker.acquire_write()
         if concat_name not in self._context:
             self._locker.release()
@@ -89,7 +91,7 @@ class IOTStreams:
         self._locker.release()
 
     def get_existing_stream(self, schema_name, stream_name):
-        concat_name = IOTStreams.get_context_entry_name(schema_name, stream_name)
+        concat_name = IOTStreamsContext.get_context_entry_name(schema_name, stream_name)
         self._locker.acquire_read()
         if concat_name not in self._context:
             self._locker.release()

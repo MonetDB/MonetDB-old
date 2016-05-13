@@ -3,7 +3,7 @@ import collections
 from jsonschema import Draft4Validator, FormatChecker
 
 from flushing import TupleBasedFlushing, TimeBasedFlushing
-from streams import DataCellStream
+from streams import IOTStream
 
 
 class ColumnsValidationException(Exception):
@@ -86,5 +86,5 @@ def validate_schema_and_create_stream(schema, created=False):
                   "required": required_fields, "additionalProperties": False}
     }, format_checker=FormatChecker())
 
-    return DataCellStream(schema_name=schema['schema'], stream_name=schema['stream'], flush_method=flushing_method,
-                          columns=validated_columns, validation_schema=json_schema, created=created)
+    return IOTStream(schema_name=schema['schema'], stream_name=schema['stream'], flush_method=flushing_method,
+                     columns=validated_columns, validation_schema=json_schema, created=created)

@@ -1,15 +1,6 @@
 import collections
 
 
-class DataCellStream(object):
-    """Representation of a stream"""
-
-    def __init__(self, schema_name, stream_name, columns):
-        self._schema_name = schema_name  # name of the schema
-        self._stream_name = stream_name  # name of the stream
-        self._columns = columns  # dictionary of name -> data_types
-
-
 class IOTStreams(object):
     """Stream's context"""
 

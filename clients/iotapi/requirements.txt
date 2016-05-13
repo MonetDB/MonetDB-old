@@ -1,7 +1,8 @@
 git+https://github.com/dpallot/simple-websocket-server.git
+pymonetdb==0.1.1
 python-dateutil==2.5.3
 pytz==2016.4
-pymonetdb==0.1.1
-tzlocal==1.2.2
 Sphinx==1.4.1
 sphinx-rtd-theme==0.1.9
+tzlocal==1.2.2
+watchdog==0.8.3
