@@ -8,7 +8,7 @@ PUBSUB_STREAMS_SCHEMA = {
         "properties": {
             "schema": {"type": "string"},
             "stream": {"type": "string"},
-            "action": {"type": "string", "enum": ["sub", "subscribe", "desub", "desubscribe", "read"]},
+            "action": {"type": "string", "enum": ["sub", "subscribe", "desub", "desubscribe"]},
         },
         "required": ["schema", "stream", "action"],
         "additionalProperties": False
@@ -17,6 +17,17 @@ PUBSUB_STREAMS_SCHEMA = {
             "action": {"type": "string", "enum": ["info"]}
         },
         "required": ["action"],
+        "additionalProperties": False
+    }, {
+        "properties": {
+            "schema": {"type": "string"},
+            "stream": {"type": "string"},
+            "action": {"type": "string", "enum": ["read"]},
+            "basket": {"type": "integer", "minimum": 1, "default": 1},
+            "limit": {"type": "integer", "minimum": 0, "default": 0},
+            "offset": {"type": "integer", "minimum": 0, "default": 0}
+        },
+        "required": ["schema", "stream", "action"],
         "additionalProperties": False
     }]
 }
