@@ -23,9 +23,13 @@ def init_stream_polling_thread(interval):
 
 # elem[0] is schema. elem[1] is name, elem[2] is column name, elem[3] is type, elem[4] is location, elem[5] is typewidth
 def stream_polling():
+    current_streams = Streams_context.get_existing_streams()
+    retained_streams = []
+    new_streams = {}
     array = fetch_streams()  # TODO check whenever stream's columns are updated
-    for key, group in groupby(array, lambda x: x[0] + '.' + x[1]):
-        if not Streams_context.is_stream_in_context(key):
+
+    for key, group in groupby(array, lambda x: Streams_context.get_context_entry_name(x[0], x[1])):
+        if key not in current_streams:
             columns = {}
 
             for elem in group:
@@ -33,5 +37,9 @@ def stream_polling():
                 kwargs = {'name': elem[2], 'type': elem[3], 'location': elem[4], 'typewidth': elem[5]}
                 new_column = reflection_class(kwargs)
                 columns[elem[2]] = new_column
+                new_streams[key] = DataCellStream(key, columns)
+        else:
+            retained_streams.append(key)
 
-            Streams_context.add_stream(key, DataCellStream(key, columns))
+    retained_streams_final = [key for key in current_streams if key in retained_streams]
+    Streams_context.merge_context(retained_streams_final, new_streams)

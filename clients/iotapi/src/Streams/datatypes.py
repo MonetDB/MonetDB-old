@@ -1,7 +1,7 @@
 import struct
-from abc import ABCMeta, abstractmethod
 from datetime import date, time, datetime
 
+from abc import ABCMeta, abstractmethod
 from dateutil.relativedelta import relativedelta
 
 ALIGNMENT = '<'  # for now is little-endian for Intel CPU's
@@ -34,9 +34,6 @@ class StreamDataType(object):
     @abstractmethod
     def read_next_batch(self, file_pointer, count):
         return []
-
-    def fetch_new_tuples(self, count):
-        file_pointer = open(self._location, 'rb')
 
 
 class TextType(StreamDataType):
