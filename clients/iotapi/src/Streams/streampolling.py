@@ -5,15 +5,17 @@ from Utilities.customthreading import PeriodicalThread
 
 from streamscontext import Streams_context, DataCellStream
 
-SWITCHER = [{'types': ['clob', 'char', 'varchar'], 'class': 'TextType'},
-            {'types': ['boolean'], 'class': 'BooleanType'},
+SWITCHER = [{'types': ['clob', 'char', 'varchar', 'url'], 'class': 'TextType'},
             {'types': ['tinyint', 'smallint', 'int', 'bigint'], 'class': 'SmallIntegerType'},
             {'types': ['hugeint'], 'class': 'HugeIntegerType'},
             {'types': ['real', 'double'], 'class': 'FloatType'},
             {'types': ['decimal'], 'class': 'DecimalType'},
+            {'types': ['boolean'], 'class': 'BooleanType'},
             {'types': ['date'], 'class': 'DateType'},
             {'types': ['time'], 'class': 'TimeType'},
-            {'types': ['timestamp'], 'class': 'TimestampType'}]
+            {'types': ['timestamp'], 'class': 'TimestampType'},
+            {'types': ['inet'], 'class': 'INetType'},
+            {'types': ['uuid'], 'class': 'UUIDType'}]
 
 
 def init_stream_polling_thread(interval):

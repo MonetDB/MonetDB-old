@@ -259,14 +259,14 @@ class EnumType(TextType):
         return ''.join(array)
 
 
-class INetSix(TextType):
+class INetSixType(TextType):
     """Covers: Inet6"""
 
     def __init__(self, **kwargs):
-        super(INetSix, self).__init__(**kwargs)
+        super(INetSixType, self).__init__(**kwargs)
 
     def add_json_schema_entry(self, schema):
-        super(INetSix, self).add_json_schema_entry(schema)
+        super(INetSixType, self).add_json_schema_entry(schema)
         schema[self._column_name]['format'] = 'ipv6'
 
     # http://stackoverflow.com/questions/166132/maximum-length-of-the-textual-representation-of-an-ipv6-address
@@ -274,17 +274,17 @@ class INetSix(TextType):
         array[2] = 'char(45)'
 
 
-class INet(StreamDataType):
+class INetType(StreamDataType):
     """Covers: Inet"""
 
     def __init__(self, **kwargs):
-        super(INet, self).__init__(**kwargs)
+        super(INetType, self).__init__(**kwargs)
 
     def get_nullable_constant(self):
         return "0"  # has to trick because it is impossible to get a null value from a valid IPv4 address in MonetDB
 
     def add_json_schema_entry(self, schema):
-        super(INet, self).add_json_schema_entry(schema)
+        super(INetType, self).add_json_schema_entry(schema)
         schema[self._column_name]['pattern'] = IPV4_REGEX
 
     def process_next_value(self, entry, counter, parameters, errors):

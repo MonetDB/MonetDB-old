@@ -2,11 +2,13 @@ import struct
 
 import os
 from Settings.filesystem import get_baskets_base_location
+from Utilities.readwritelock import RWLock
 from WebSockets.websockets import notify_clients
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
 BASKETS_COUNT_FILE = 'count'
+
 
 def represents_int(s):
     try:
@@ -26,56 +28,95 @@ class StreamBasketsHandler(FileSystemEventHandler):
     def on_created(self, event):  # whenever a basket directory is created, notify to subscribed clients
         if isinstance(event, 'DirCreatedEvent'):
             basket_string = os.path.basename(os.path.normpath(event.src_path))
-            self._stream.baskets.append_basket(basket_string)
-            notify_clients(self._stream.schema_name, self._stream.stream_name)
+            self._stream.append_basket(basket_string)
+            notify_clients(self._stream.get_schema_name(), self._stream.get_stream_name())
+
+    def on_deleted(self, event):
+        if isinstance(event, 'DirDeletedEvent'):
+            basket_string = os.path.basename(os.path.normpath(event.src_path))
+            self._stream.delete_basket(basket_string)
 
 
-class DataCellStream(object):
+class IOTStream(object):
     """Representation of a stream"""
 
     def __init__(self, schema_name, stream_name, columns):
-        self.schema_name = schema_name  # name of the schema
-        self.stream_name = stream_name  # name of the stream
+        self._schema_name = schema_name  # name of the schema
+        self._stream_name = stream_name  # name of the stream
         self._columns = columns  # dictionary of name -> data_types
         self._base_path = os.path.join(get_baskets_base_location(), schema_name, stream_name)
-        self.baskets = {}  # dictionary of basket_number -> total_tuples
+        self._baskets = {}  # dictionary of basket_number -> total_tuples
         for name in os.listdir(self._base_path):
             self.append_basket(name)
+        self._lock = RWLock()
         self._observer = Observer()
         self._observer.schedule(StreamBasketsHandler(stream=self), self._base_path, recursive=False)
         self._observer.start()
+
+    def get_schema_name(self):
+        return self._schema_name
+
+    def get_stream_name(self):
+        return self._stream_name
 
     def append_basket(self, path):
         if represents_int(path):
             with open(os.path.join(self._base_path, path)) as f:
                 count = struct.unpack('i', f.read(4))[0]
-                self.baskets[int(path)] = count
+                self._lock.acquire_write()
+                self._baskets[int(path)] = count
+                self._lock.release()
 
-    # TODO add delete basket!!!!
+    def delete_basket(self, path):
+        if represents_int(path):
+            number = int(path)
+            self._lock.acquire_write()
+            if number in self._baskets:
+                del self._baskets[number]
+            self._lock.release()
+
+    def get_next_basket_number_tuple(self, basket_number):
+        self._lock.acquire_read()
+        if basket_number in self._baskets:
+            self._lock.release()
+            return basket_number, self._baskets[basket_number]
+        else:
+            filtered = filter(lambda x: x > basket_number, self._baskets.keys())
+            if len(filtered) > 0:
+                min_basket_number = min(filtered)
+                min_basket_tuples = self._baskets[min_basket_number]
+                self._lock.release()
+                return min_basket_number, min_basket_tuples
+            else:
+                self._lock.release()
+                return None, None
 
     def read_tuples(self, basket_number, limit, offset):
         results = {column: [] for column in self._columns.keys()}
-        current_basket = int(basket_number)
+        current_basket_number = int(basket_number)
         read_tuples = 0
+        skipped_tuples = 0
         finished = False
 
         while True:
-            if current_basket not in self.baskets:
+            current_basket_number, current_tuple_number = self.get_next_basket_number_tuple(current_basket_number)
+            if current_basket_number is None:
                 finished = True
                 break
-            offset -= self.baskets[current_basket]
-            if offset < 0:
+            if skipped_tuples + current_tuple_number > offset:
+                offset = offset - skipped_tuples
                 break
-            current_basket += 1
+            skipped_tuples += current_tuple_number
+            current_basket_number += 1
 
         if not finished:
-            offset = abs(offset)
-
             while True:
-                if current_basket not in self.baskets:
+                current_basket_number, current_tuple_number = self.get_next_basket_number_tuple(current_basket_number)
+                if current_basket_number is None or read_tuples >= limit:
                     break
-                next_path = os.path.join(self._base_path, str(current_basket))
-                next_read_size = min(self.baskets[current_basket], limit)
+
+                next_path = os.path.join(self._base_path, str(current_basket_number))
+                next_read_size = min(limit - read_tuples, current_tuple_number) - offset
 
                 for key, column in self._columns.iteritems():
                     next_file_name = os.path.join(next_path, key)
@@ -85,12 +126,11 @@ class DataCellStream(object):
                     file_pointer = open(next_file_name, open_string)
                     results[key].append(column.read_next_batch(file_pointer, offset, next_read_size))
 
-                offset = 0
-                current_basket += 1
                 read_tuples += next_read_size
-                limit -= self.baskets[current_basket]
-                if limit <= 0:
-                    break
+                offset = 0
+                current_basket_number += 1
 
         # TODO check if this is viable, it could be 1000 tuples!!!!
-        return {'total': read_tuples, 'tuples': zip(*results)}  # TODO not done this way!!!
+        keys = results.keys()
+        tuples = [dict(zip(keys, values)) for values in zip(*(results[k] for k in keys))]
+        return {'total': read_tuples, 'tuples': tuples}

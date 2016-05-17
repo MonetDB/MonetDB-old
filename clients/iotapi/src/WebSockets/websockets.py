@@ -37,7 +37,7 @@ def desubscribe_removed_streams(concatenated_names):
 class IOTAPI(WebSocket):
     def __init__(self):
         super(IOTAPI, self).__init__()
-        self._subscriptions = {}
+        self._subscriptions = {}  # dictionary of schema + '.' + stream -> IOTStream
         self._locker = RWLock()
 
     def handleMessage(self):
