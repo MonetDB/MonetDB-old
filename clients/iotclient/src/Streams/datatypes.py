@@ -9,14 +9,17 @@ import re
 from abc import ABCMeta, abstractmethod
 from dateutil import parser
 
-from jsonschemas import UUID_REGEX, MAC_ADDRESS_REGEX, TIME_REGEX
+from jsonschemas import UUID_REGEX, MAC_ADDRESS_REGEX, TIME_REGEX, IPV4_REGEX
 
 # Later check the byte order https://docs.python.org/2/library/struct.html#byte-order-size-and-alignment
 # Also check the consequences of aligment on packing HUGEINTs!
 # The null constants might change from system to system due to different CPU's
-ALIGNMENT = '<'  # for now is little-endian for Intel CPU's
+LITTLE_ENDIAN_ALIGNMENT = '<'  # for now is little-endian for Intel CPU's
+BIG_ENDIAN_ALIGNMENT = '>'
+UUID_SIZE = 16
 
 NIL_STRING = "\200"
+NIL_UUID = "00000000-0000-0000-0000-000000000000"
 
 INT8_MIN = 0x80
 INT16_MIN = 0x8000
@@ -51,12 +54,12 @@ class StreamDataType(object):
     def is_nullable(self):  # check if the column is nullable or not
         return self._is_nullable
 
+    @abstractmethod
     def get_nullable_constant(self):  # get the nullable constant if the column is nullable
         return None
 
-    @abstractmethod
     def set_default_value(self, default_value):  # set the default value representation in the data type
-        self._default_value = None
+        self._default_value = default_value
 
     def get_default_value(self):  # get the default value representation in the data type
         return self._default_value
@@ -120,9 +123,6 @@ class TextType(StreamDataType):
     def get_nullable_constant(self):
         return NIL_STRING
 
-    def set_default_value(self, default_value):
-        self._default_value = default_value
-
     def add_json_schema_entry(self, schema):
         super(TextType, self).add_json_schema_entry(schema)
         schema[self._column_name]['type'] = 'string'
@@ -137,28 +137,7 @@ class TextType(StreamDataType):
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
         string_pack = "".join(extracted_values)
-        return struct.pack(ALIGNMENT + str(parameters['lengths_sum']) + 's', string_pack)
-
-
-class UUIDType(TextType):
-    """Covers: UUID"""
-
-    def __init__(self, **kwargs):
-        super(UUIDType, self).__init__(**kwargs)
-
-    def add_json_schema_entry(self, schema):
-        super(UUIDType, self).add_json_schema_entry(schema)
-        schema[self._column_name]['pattern'] = UUID_REGEX
-
-    def prepare_parameters(self):
-        return {}
-
-    def process_next_value(self, entry, counter, parameters, errors):
-        return str(entry) + '\n'
-
-    def pack_parsed_values(self, extracted_values, counter, parameters):
-        string_pack = "".join(extracted_values)
-        return struct.pack(ALIGNMENT + str(37 * counter) + 's', string_pack)
+        return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(parameters['lengths_sum']) + 's', string_pack)
 
 
 class MACType(TextType):
@@ -171,15 +150,12 @@ class MACType(TextType):
         super(MACType, self).add_json_schema_entry(schema)
         schema[self._column_name]['pattern'] = MAC_ADDRESS_REGEX
 
-    def prepare_parameters(self):
-        return {}
-
     def process_next_value(self, entry, counter, parameters, errors):
         return str(entry) + '\n'
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
         string_pack = "".join(extracted_values)
-        return struct.pack(ALIGNMENT + str(18 * counter) + 's', string_pack)
+        return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(18 * counter) + 's', string_pack)
 
     def process_sql_parameters(self, array):
         array[2] = 'char(17)'  # A MAC Address has 17 characters
@@ -194,32 +170,6 @@ class URLType(TextType):
     def add_json_schema_entry(self, schema):
         super(URLType, self).add_json_schema_entry(schema)
         schema[self._column_name]['format'] = 'uri'
-
-
-class INet(TextType):
-    """Covers: Inet"""
-
-    def __init__(self, **kwargs):
-        super(INet, self).__init__(**kwargs)
-
-    def add_json_schema_entry(self, schema):
-        super(INet, self).add_json_schema_entry(schema)
-        schema[self._column_name]['format'] = 'ipv4'
-
-
-class INetSix(TextType):
-    """Covers: Inet6"""
-
-    def __init__(self, **kwargs):
-        super(INetSix, self).__init__(**kwargs)
-
-    def add_json_schema_entry(self, schema):
-        super(INetSix, self).add_json_schema_entry(schema)
-        schema[self._column_name]['format'] = 'ipv6'
-
-    # http://stackoverflow.com/questions/166132/maximum-length-of-the-textual-representation-of-an-ipv6-address
-    def process_sql_parameters(self, array):
-        array[2] = 'char(45)'
 
 
 class RegexType(TextType):
@@ -309,6 +259,108 @@ class EnumType(TextType):
         return ''.join(array)
 
 
+class INetSix(TextType):
+    """Covers: Inet6"""
+
+    def __init__(self, **kwargs):
+        super(INetSix, self).__init__(**kwargs)
+
+    def add_json_schema_entry(self, schema):
+        super(INetSix, self).add_json_schema_entry(schema)
+        schema[self._column_name]['format'] = 'ipv6'
+
+    # http://stackoverflow.com/questions/166132/maximum-length-of-the-textual-representation-of-an-ipv6-address
+    def process_sql_parameters(self, array):
+        array[2] = 'char(45)'
+
+
+class INet(StreamDataType):
+    """Covers: Inet"""
+
+    def __init__(self, **kwargs):
+        super(INet, self).__init__(**kwargs)
+
+    def get_nullable_constant(self):
+        return "0"  # has to trick because it is impossible to get a null value from a valid IPv4 address in MonetDB
+
+    def add_json_schema_entry(self, schema):
+        super(INet, self).add_json_schema_entry(schema)
+        schema[self._column_name]['pattern'] = IPV4_REGEX
+
+    def process_next_value(self, entry, counter, parameters, errors):
+        array = [0, 0, 0, 0, 0, 0, 0, 0]  # according to MonetDB's source code
+
+        if entry == self.get_nullable_constant():
+            array[7] = 1
+            return array
+
+        components = re.split(r'[./]+', entry)
+        for i in range(4):
+            array[i] = int(components[i])
+        if len(components) > 4:  # if it has a mask add it to the array
+            array[4] = int(components[4])
+        else:
+            array[4] = 32
+
+        return array
+
+    def pack_parsed_values(self, extracted_values, counter, parameters):
+        extracted_values = list(itertools.chain(*extracted_values))
+        return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter << 3) + 'B', *extracted_values)  # arrays of 8 uchars
+
+
+class UUIDType(StreamDataType):
+    """Covers: UUID"""
+
+    def __init__(self, **kwargs):
+        super(UUIDType, self).__init__(**kwargs)
+
+    def get_nullable_constant(self):
+        return NIL_UUID
+
+    def add_json_schema_entry(self, schema):
+        super(UUIDType, self).add_json_schema_entry(schema)
+        schema[self._column_name]['pattern'] = UUID_REGEX
+
+    def process_next_value(self, entry, counter, parameters, errors):
+        array = UUID_SIZE * [0]
+        j = 0
+        s = 0
+
+        for i in range(UUID_SIZE):
+            if j in (8, 12, 16, 20):  # do nothing with the dashes
+                s += 1
+
+            next_char = ord(entry[s])
+            if 48 <= next_char <= 57:  # between '0' and '9'
+                array[i] = next_char - 48
+            elif 97 <= next_char <= 102:  # between 'a' and 'f'
+                array[i] = next_char - 87
+            elif 65 <= next_char <= 70:  # between 'A' and 'F'
+                array[i] = next_char - 55
+
+            s += 1
+            j += 1
+            array[i] <<= 4
+            next_char = ord(entry[s])
+
+            if 48 <= next_char <= 57:  # between '0' and '9'
+                array[i] |= next_char - 48
+            elif 97 <= next_char <= 102:  # between 'a' and 'f'
+                array[i] |= next_char - 87
+            elif 65 <= next_char <= 70:  # between 'A' and 'F'
+                array[i] |= next_char - 55
+
+            s += 1
+            j += 1
+
+        return array
+
+    def pack_parsed_values(self, extracted_values, counter, parameters):
+        extracted_values = list(itertools.chain(*extracted_values))
+        return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter << 4) + 'B', *extracted_values)  # arrays of 16 uchars
+
+
 class BooleanType(StreamDataType):
     """Covers: BOOL[EAN]"""
 
@@ -331,7 +383,7 @@ class BooleanType(StreamDataType):
         return 0
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
-        return struct.pack(ALIGNMENT + str(counter) + 'b', *extracted_values)
+        return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + 'b', *extracted_values)
 
 
 class NumberBaseType(StreamDataType):
@@ -406,7 +458,7 @@ class SmallIntegerType(NumberBaseType):
         return int(entry)
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
-        return struct.pack(ALIGNMENT + str(counter) + self._pack_sym, *extracted_values)
+        return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + self._pack_sym, *extracted_values)
 
 
 class HugeIntegerType(NumberBaseType):
@@ -427,7 +479,7 @@ class HugeIntegerType(NumberBaseType):
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
         extracted_values = list(itertools.chain(*extracted_values))
-        return struct.pack(ALIGNMENT + str(counter << 1) + 'Q', *extracted_values)
+        return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter << 1) + 'Q', *extracted_values)
 
 
 class FloatType(NumberBaseType):
@@ -450,7 +502,7 @@ class FloatType(NumberBaseType):
         return float(entry)
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
-        return struct.pack(ALIGNMENT + str(counter) + self._pack_sym, *extracted_values)
+        return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + self._pack_sym, *extracted_values)
 
 
 class DecimalType(NumberBaseType):
@@ -515,7 +567,7 @@ class DecimalType(NumberBaseType):
         if self._pack_sym == 'Q':
             extracted_values = list(itertools.chain(*extracted_values))
             counter <<= 1  # duplicate the counter for packing
-        return struct.pack(ALIGNMENT + str(counter) + self._pack_sym, *extracted_values)
+        return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + self._pack_sym, *extracted_values)
 
     def to_json_representation(self):
         json_value = super(DecimalType, self).to_json_representation()
@@ -610,7 +662,7 @@ class DateType(BaseDateTimeType):  # Stored as an uint with the number of days s
         return int((parsed - day0).days) + 366
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
-        return struct.pack(ALIGNMENT + str(counter) + 'I', *extracted_values)
+        return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + 'I', *extracted_values)
 
 
 class TimeType(BaseDateTimeType):  # Stored as an uint with the number of milliseconds since hour 00:00:00
@@ -641,7 +693,7 @@ class TimeType(BaseDateTimeType):  # Stored as an uint with the number of millis
         return int(delta.total_seconds()) * 1000 + int(delta.microseconds) / 1000
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
-        return struct.pack(ALIGNMENT + str(counter) + 'I', *extracted_values)
+        return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + 'I', *extracted_values)
 
 
 class TimestampType(BaseDateTimeType):  # it's represented with the two integers from time and date
@@ -676,4 +728,4 @@ class TimestampType(BaseDateTimeType):  # it's represented with the two integers
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
         concat_array = list(itertools.chain(*extracted_values))
-        return struct.pack(ALIGNMENT + str(counter << 1) + 'I', *concat_array)
+        return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter << 1) + 'I', *concat_array)

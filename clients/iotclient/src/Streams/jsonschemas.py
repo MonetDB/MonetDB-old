@@ -1,4 +1,5 @@
 UUID_REGEX = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+IPV4_REGEX = "^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}(?:\/[0-2]\d|\/3[0-2])?$"
 MAC_ADDRESS_REGEX = "^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"
 TIME_REGEX = "^([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])\.\d{3}$"
 
@@ -73,7 +74,7 @@ STREAM_SCHEMA = {
                         "name": {"type": "string"},
                         "type": {"type": "string", "enum": ["inet"]},
                         "nullable": {"type": "boolean"},
-                        "default": {"type": "string", "format": "ipv4"}
+                        "default": {"type": "string", "pattern": IPV4_REGEX}
                     },
                     "required": ["name", "type"],
                     "additionalProperties": False
