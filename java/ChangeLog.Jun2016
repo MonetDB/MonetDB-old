@@ -1,6 +1,30 @@
 # ChangeLog file for java
 # This file is updated with Maddlog
 
+* Sun May  8 2016 Jennie Zhang <y.zhang@cwi.nl>
+- ResultSet.setFetchSize(): added a dummy implementation to get rid
+  of the SQLFeatureNotSupportedException. In MonetDB, it does not
+  make sense to set the fetch size of a result set. If one really
+  wants to set the fetch size, one should use Statement.setFetchSize()
+  instead.
+
+* Thu Apr 21 2016 Martin van Dinther <martin.van.dinther@monetdbsolutions.com>
+- Fixed resource leak in ResultSetMetaData. It created and cached a ResultSet
+  object for each column but never closed the ResultSet objects.
+
+* Thu Mar 31 2016 Martin van Dinther <martin.van.dinther@monetdbsolutions.com>
+- Corrected DatabaseMetaData methods which accept a catalog filter argument.
+  Those methods will now filter the results on the specified catalog name,
+  whereas previously the catalog filter argument was ignored.
+- Corrected output of column KEY_SEQ of DatabaseMetaData methods:
+  getPrimaryKeys(), getImportedKeys(), getExportedKeys() and
+  getCrossReference(). It now starts at 1 instead of 0 previously.
+
+* Thu Mar 24 2016 Martin van Dinther <martin.van.dinther@monetdbsolutions.com>
+- Corrected DatabaseMetaData.getSchemas() by returning 2 instead of 3 columns.
+- Improved DatabaseMetaData.getColumns() by returning two additional
+  columns: IS_AUTOINCREMENT and IS_GENERATEDCOLUMN.
+
 * Thu Mar 17 2016 Martin van Dinther <martin.van.dinther@monetdbsolutions.com>
 - Improved DatabaseMetaData.getTypeInfo(). It now returns better information
   on LITERAL_PREFIX, LITERAL_SUFFIX, CREATE_PARAMS, CASE_SENSITIVE,

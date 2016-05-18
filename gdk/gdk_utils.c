@@ -49,19 +49,6 @@ static char THRprintbuf[BUFSIZ];
 #define chdir _chdir
 #endif
 
-#ifdef NDEBUG
-#ifndef NVALGRIND
-#define NVALGRIND NDEBUG
-#endif
-#endif
-
-#if defined(__GNUC__) && defined(HAVE_VALGRIND)
-#include <valgrind.h>
-#else
-#define VALGRIND_MALLOCLIKE_BLOCK(addr, sizeB, rzB, is_zeroed)
-#define VALGRIND_FREELIKE_BLOCK(addr, rzB)
-#endif
-
 static volatile ATOMIC_FLAG GDKstopped = ATOMIC_FLAG_INIT;
 static void GDKunlockHome(void);
 
@@ -883,7 +870,7 @@ GDKreallocmax(void *blk, size_t size, size_t *maxsize, int emergency)
 			GDKfatal("fatal\n");
 		else
 			GDKerror("GDKreallocmax: failed for "
-				 SZFMT " bytes", newsize);
+				 SZFMT " bytes", size);
 	}
 	return ptr;
 }
@@ -939,9 +926,6 @@ GDKmmap(const char *path, int mode, size_t len)
 		}
 	}
 	if (ret != NULL) {
-		/* since mmap directly have content we say it's zero-ed
-		 * memory */
-		VALGRIND_MALLOCLIKE_BLOCK(ret, len, 0, 1);
 		meminc(len);
 	}
 	return ret;
@@ -954,7 +938,6 @@ GDKmunmap(void *addr, size_t size)
 	int ret;
 
 	ret = MT_munmap(addr, size);
-	VALGRIND_FREELIKE_BLOCK(addr, 0);
 	if (ret == 0)
 		memdec(size);
 	return ret == 0 ? GDK_SUCCEED : GDK_FAIL;
@@ -1240,19 +1223,31 @@ GDKexiting(void)
 	return stopped;
 }
 
-void
-GDKprepareExit(void)
-{
-	if (ATOMIC_TAS(GDKstopped, GDKstoppedLock) != 0)
-		return;
-	if (GDKvmtrim_id)
-		MT_join_thread(GDKvmtrim_id);
-}
-
 static struct serverthread {
 	struct serverthread *next;
 	MT_Id pid;
 } *serverthread;
+
+void
+GDKprepareExit(void)
+{
+	struct serverthread *st;
+
+	if (ATOMIC_TAS(GDKstopped, GDKstoppedLock) != 0)
+		return;
+	if (GDKvmtrim_id)
+		MT_join_thread(GDKvmtrim_id);
+
+	MT_lock_set(&GDKthreadLock);
+	for (st = serverthread; st; st = serverthread) {
+		MT_lock_unset(&GDKthreadLock);
+		MT_join_thread(st->pid);
+		MT_lock_set(&GDKthreadLock);
+		serverthread = st->next;
+		GDKfree(st);
+	}
+	MT_lock_unset(&GDKthreadLock);
+}
 
 /* Register a thread that should be waited for in GDKreset.  The
  * thread must exit by itself when GDKexiting() returns true. */
@@ -1299,23 +1294,28 @@ GDKreset(int status)
 
 	if (status == 0) {
 		/* they had their chance, now kill them */
+		int killed = 0;
 		MT_lock_set(&GDKthreadLock);
 		for (t = GDKthreads, s = t + THREADS; t < s; t++) {
 			if (t->pid) {
 				MT_Id victim = t->pid;
 
 				if (t->pid != pid) {
-					fprintf(stderr, "#GDKexit: killing thread %d\n", MT_kill_thread(victim));
+					int e;
+
+					killed = 1;
+					e = MT_kill_thread(victim);
+					fprintf(stderr, "#GDKexit: killing thread %d\n", e);
 					GDKnrofthreads --;
 				}
 			}
 		}
 		assert(GDKnrofthreads <= 1);
 		/* all threads ceased running, now we can clean up */
-#if 0
-		/* we can't clean up after killing threads */
-		BBPexit();
-#endif
+		if (!killed) {
+			/* we can't clean up after killing threads */
+			BBPexit();
+		}
 		GDKlog(GDKLOGOFF);
 		GDKunlockHome();
 #if !defined(USE_PTHREAD_LOCKS) && !defined(NDEBUG)
@@ -1362,12 +1362,17 @@ void
 GDKexit(int status)
 {
 	if (GDKlockFile == NULL) {
+#ifdef HAVE_EMBEDDED
+		return;
+#endif
 		/* no database lock, so no threads, so exit now */
 		exit(status);
 	}
 	GDKprepareExit();
 	GDKreset(status);
+#ifndef HAVE_EMBEDDED
 	MT_exit_thread(-1);
+#endif
 }
 
 /*
