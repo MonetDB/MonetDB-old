@@ -2,7 +2,6 @@ import json
 
 from Settings.filesystem import get_configfile_location
 from Utilities.readwritelock import RWLock
-from jsonschema import Draft4Validator, FormatChecker
 
 from jsonschemas import CONFIG_FILE_SCHEMA
 from streamscreator import *

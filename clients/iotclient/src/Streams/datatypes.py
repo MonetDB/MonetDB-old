@@ -2,21 +2,17 @@ import copy
 import datetime
 import itertools
 import math
+import re
 import struct
+from abc import ABCMeta, abstractmethod
 
 import dateutil
-import re
-from abc import ABCMeta, abstractmethod
 from dateutil import parser
 
 from jsonschemas import UUID_REGEX, MAC_ADDRESS_REGEX, TIME_REGEX, IPV4_REGEX
 
-# Later check the byte order https://docs.python.org/2/library/struct.html#byte-order-size-and-alignment
-# Also check the consequences of aligment on packing HUGEINTs!
-# The null constants might change from system to system due to different CPU's
-LITTLE_ENDIAN_ALIGNMENT = '<'  # for now is little-endian for Intel CPU's
-BIG_ENDIAN_ALIGNMENT = '>'
-UUID_SIZE = 16
+# The null constants might change from system to system due to different CPU's limits
+LITTLE_ENDIAN_ALIGNMENT = '<'  # for now it is little-endian
 
 NIL_STRING = "\200"
 NIL_UUID = "00000000-0000-0000-0000-000000000000"
@@ -323,11 +319,11 @@ class UUIDType(StreamDataType):
         schema[self._column_name]['pattern'] = UUID_REGEX
 
     def process_next_value(self, entry, counter, parameters, errors):
-        array = UUID_SIZE * [0]
+        array = 16 * [0]
         j = 0
         s = 0
 
-        for i in range(UUID_SIZE):
+        for i in range(16):
             if j in (8, 12, 16, 20):  # do nothing with the dashes
                 s += 1
 
@@ -353,7 +349,6 @@ class UUIDType(StreamDataType):
 
             s += 1
             j += 1
-
         return array
 
     def pack_parsed_values(self, extracted_values, counter, parameters):

@@ -28,8 +28,8 @@ class StreamBasketsHandler(FileSystemEventHandler):
     def on_created(self, event):  # whenever a basket directory is created, notify to subscribed clients
         if isinstance(event, 'DirCreatedEvent'):
             basket_string = os.path.basename(os.path.normpath(event.src_path))
-            self._stream.append_basket(basket_string)
-            notify_clients(self._stream.get_schema_name(), self._stream.get_stream_name())
+            count = self._stream.append_basket(basket_string)
+            notify_clients(self._stream.get_schema_name(), self._stream.get_stream_name(), count)
 
     def on_deleted(self, event):
         if isinstance(event, 'DirDeletedEvent'):
@@ -49,6 +49,7 @@ class IOTStream(object):
         for name in os.listdir(self._base_path):
             self.append_basket(name)
         self._lock = RWLock()
+
         self._observer = Observer()
         self._observer.schedule(StreamBasketsHandler(stream=self), self._base_path, recursive=False)
         self._observer.start()
@@ -66,6 +67,8 @@ class IOTStream(object):
                 self._lock.acquire_write()
                 self._baskets[int(path)] = count
                 self._lock.release()
+                return count
+        return 0
 
     def delete_basket(self, path):
         if represents_int(path):
@@ -126,7 +129,6 @@ class IOTStream(object):
                 offset = 0
                 current_basket_number += 1
 
-        # TODO check if this is viable, it could be 1000 tuples!!!!
-        keys = results.keys()
+        keys = results.keys()  # TODO check if this is viable for many tuples!!
         tuples = [dict(zip(keys, values)) for values in zip(*(results[k] for k in keys))]
         return {'total': read_tuples, 'tuples': tuples}

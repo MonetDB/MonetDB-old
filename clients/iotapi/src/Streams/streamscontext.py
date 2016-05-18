@@ -5,7 +5,7 @@ from WebSockets.websockets import desubscribe_removed_streams
 
 
 class IOTStreams(object):
-    """Stream's context"""
+    """Streams context"""
 
     @classmethod
     def get_context_entry_name(cls, schema_name, stream_name):

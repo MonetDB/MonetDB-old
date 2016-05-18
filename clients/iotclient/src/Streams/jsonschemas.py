@@ -3,6 +3,28 @@ IPV4_REGEX = "^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]
 MAC_ADDRESS_REGEX = "^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"
 TIME_REGEX = "^([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])\.\d{3}$"
 
+TIMED_FLUSH_IDENTIFIER = "time"
+TUPLE_FLUSH_IDENTIFIER = "tuple"
+
+UNBOUNDED_TEXT_TYPES = ["text", "string", "clob", "character large object"]
+BOUNDED_TEXT_TYPES = ["char", "character", "varchar", "character varying"]
+UUID_TYPE = ["uuid"]
+MAC_TYPE = ["mac"]
+URL_TYPE = ["url"]
+INET_TYPE = ["inet"]
+INET6_TYPE = ["inet6"]
+REGEX_TYPE = ["regex"]
+ENUM_TYPE = ["enum"]
+BOOLEAN_TYPE = ["bool", "boolean"]
+SMALL_INTEGERS = ["tinyint", "smallint", "int", "integer", "bigint"]
+HUGE_INTEGER = ["hugeint"]
+INTEGERS = SMALL_INTEGERS + HUGE_INTEGER
+FLOATING_POINT_PRECISION_TYPES = ["real", "float", "double", "double precision"]
+DECIMAL_TYPES = ["dec", "decimal", "numeric"]
+DATE_TYPE = ["date"]
+TIME_TYPE = ["time"]
+TIMESTAMP_TYPE = ["timestamp"]
+
 STREAM_SCHEMA = {
     "type": "object",
     "properties": {
@@ -12,7 +34,7 @@ STREAM_SCHEMA = {
             "type": "object",
             "oneOf": [{
                 "properties": {
-                    "base": {"type": "string", "enum": ["time"]},
+                    "base": {"type": "string", "enum": [TIMED_FLUSH_IDENTIFIER]},
                     "interval": {"type": "integer", "minimum": 1},
                     "unit": {"type": "string", "enum": ["s", "m", "h"]}
                 },
@@ -20,7 +42,7 @@ STREAM_SCHEMA = {
                 "additionalProperties": False
             }, {
                 "properties": {
-                    "base": {"type": "string", "enum": ["tuple"]},
+                    "base": {"type": "string", "enum": [TUPLE_FLUSH_IDENTIFIER]},
                     "number": {"type": "integer", "minimum": 1}
                 },
                 "required": ["base", "number"],
@@ -36,7 +58,7 @@ STREAM_SCHEMA = {
                 "anyOf": [{
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["text", "string", "character large object"]},
+                        "type": {"type": "string", "enum": UNBOUNDED_TEXT_TYPES},
                         "nullable": {"type": "boolean"},
                         "default": {"type": "string"}
                     },
@@ -45,7 +67,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["uuid"]},
+                        "type": {"type": "string", "enum": UUID_TYPE},
                         "nullable": {"type": "boolean"},
                         "default": {"type": "string", "pattern": UUID_REGEX}
                     },
@@ -54,7 +76,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["mac"]},
+                        "type": {"type": "string", "enum": MAC_TYPE},
                         "nullable": {"type": "boolean"},
                         "default": {"type": "string", "pattern": MAC_ADDRESS_REGEX}
                     },
@@ -63,7 +85,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["url"]},
+                        "type": {"type": "string", "enum": URL_TYPE},
                         "nullable": {"type": "boolean"},
                         "default": {"type": "string", "format": "uri"}
                     },
@@ -72,7 +94,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["inet"]},
+                        "type": {"type": "string", "enum": INET_TYPE},
                         "nullable": {"type": "boolean"},
                         "default": {"type": "string", "pattern": IPV4_REGEX}
                     },
@@ -81,7 +103,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["inet6"]},
+                        "type": {"type": "string", "enum": INET6_TYPE},
                         "nullable": {"type": "boolean"},
                         "default": {"type": "string", "format": "ipv6"}
                     },
@@ -90,7 +112,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["regex"]},
+                        "type": {"type": "string", "enum": REGEX_TYPE},
                         "nullable": {"type": "boolean"},
                         "regex": {"type": "string"},
                         "default": {"type": "string"}
@@ -100,7 +122,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["char", "character", "varchar", "character varying"]},
+                        "type": {"type": "string", "enum": BOUNDED_TEXT_TYPES},
                         "nullable": {"type": "boolean"},
                         "limit": {"type": "integer", "minimum": 1},
                         "default": {"type": "string"}
@@ -110,7 +132,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["enum"]},
+                        "type": {"type": "string", "enum": ENUM_TYPE},
                         "nullable": {"type": "boolean"},
                         "values": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"type": "string"}},
                         "default": {"type": "string"}
@@ -120,7 +142,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["bool", "boolean"]},
+                        "type": {"type": "string", "enum": BOOLEAN_TYPE},
                         "nullable": {"type": "boolean"},
                         "default": {"type": "boolean"}
                     },
@@ -129,8 +151,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string",
-                                 "enum": ["tinyint", "smallint", "int", "integer", "bigint", "hugeint"]},
+                        "type": {"type": "string", "enum": INTEGERS},
                         "nullable": {"type": "boolean"},
                         "default": {"type": "integer"},
                         "minimum": {"type": "integer"},
@@ -141,7 +162,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["real", "float", "double", "double precision"]},
+                        "type": {"type": "string", "enum": FLOATING_POINT_PRECISION_TYPES},
                         "nullable": {"type": "boolean"},
                         "default": {"type": "number"},
                         "minimum": {"type": "number"},
@@ -152,7 +173,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["dec", "decimal", "numeric"]},
+                        "type": {"type": "string", "enum": DECIMAL_TYPES},
                         "nullable": {"type": "boolean"},
                         "precision": {"type": "integer", "minimum": 1, "maximum": 38},
                         "scale": {"type": "integer", "minimum": 0},
@@ -165,7 +186,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["date"]},
+                        "type": {"type": "string", "enum": DATE_TYPE},
                         "nullable": {"type": "boolean"},
                         "default": {"type": "string", "format": "date"},
                         "minimum": {"type": "string", "format": "date"},
@@ -176,7 +197,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["time"]},
+                        "type": {"type": "string", "enum": TIME_TYPE},
                         "nullable": {"type": "boolean"},
                         "default": {"type": "string", "pattern": TIME_REGEX},
                         "minimum": {"type": "string", "pattern": TIME_REGEX},
@@ -188,7 +209,7 @@ STREAM_SCHEMA = {
                 }, {
                     "properties": {
                         "name": {"type": "string"},
-                        "type": {"type": "string", "enum": ["timestamp"]},
+                        "type": {"type": "string", "enum": TIMESTAMP_TYPE},
                         "nullable": {"type": "boolean"},
                         "default": {"type": "string", "format": "date-time"},
                         "minimum": {"type": "string", "format": "date-time"},

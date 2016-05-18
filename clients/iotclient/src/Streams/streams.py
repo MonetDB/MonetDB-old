@@ -1,6 +1,6 @@
+import os
 from collections import defaultdict, OrderedDict
 
-import os
 from Settings.filesystem import get_baskets_base_location, get_host_identifier
 from Settings.iotlogger import add_log
 from Settings.mapiconnection import mapi_create_stream, mapi_flush_baskets
@@ -20,7 +20,7 @@ def represents_int(s):
 
 IMPLICIT_TIMESTAMP_COLUMN_NAME = 'implicit_timestamp'
 Timestamps_Handler = TimestampType(name=IMPLICIT_TIMESTAMP_COLUMN_NAME, type="timestamp")  # timestamp
-Create_SQL_array = [Timestamps_Handler.create_stream_sql()]  # array for SQL creation
+Extra_columns_SQL = [Timestamps_Handler.create_stream_sql()]  # array for SQL creation
 
 HOST_IDENTIFIER_COLUMN_NAME = 'host_identifier'
 Hostname_Bin_Value = None
@@ -33,7 +33,7 @@ def init_streams_hosts():
     if host_identifier is not None:
         hosts_handler = TextType(name=HOST_IDENTIFIER_COLUMN_NAME, type="text")  # host_identifier
         Hostname_Bin_Value = hosts_handler.process_values([host_identifier])
-        Create_SQL_array.append(hosts_handler.create_stream_sql())
+        Extra_columns_SQL.append(hosts_handler.create_stream_sql())
 
 
 class StreamException(Exception):
@@ -71,7 +71,7 @@ class IOTStream(object):
         self._current_base_path = os.path.join(self._base_path, str(self._baskets_counter))
         os.makedirs(self._current_base_path)
 
-        for key in self._columns.keys():  # create the files for the columns and timestamp
+        for key in self._columns.keys():  # create files for the columns, timestamp and hostname
             create_file_if_not_exists(os.path.join(self._current_base_path, key), hidden=False)
         create_file_if_not_exists(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME), hidden=False)
         if Hostname_Bin_Value is not None:
@@ -79,7 +79,7 @@ class IOTStream(object):
 
         if created:  # when the stream is reloaded from the config file, the create SQL statement is not sent
             sql_array = [column.create_stream_sql() for column in self._columns.values()]
-            mapi_create_stream(self._schema_name, self._stream_name, ', '.join(sql_array + Create_SQL_array))
+            mapi_create_stream(self._schema_name, self._stream_name, ', '.join(sql_array + Extra_columns_SQL))
 
     def get_schema_name(self):
         return self._schema_name

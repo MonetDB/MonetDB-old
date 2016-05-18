@@ -3,6 +3,9 @@ import collections
 from jsonschema import Draft4Validator, FormatChecker
 
 from flushing import TupleBasedFlushing, TimeBasedFlushing
+from jsonschemas import UNBOUNDED_TEXT_TYPES, BOUNDED_TEXT_TYPES, SMALL_INTEGERS, HUGE_INTEGER, \
+    FLOATING_POINT_PRECISION_TYPES, DECIMAL_TYPES, DATE_TYPE, TIME_TYPE, TIMESTAMP_TYPE, BOOLEAN_TYPE, INET_TYPE, \
+    INET6_TYPE, MAC_TYPE, URL_TYPE, UUID_TYPE, REGEX_TYPE, ENUM_TYPE, TIMED_FLUSH_IDENTIFIER
 from streams import IOTStream
 
 
@@ -11,23 +14,24 @@ class ColumnsValidationException(Exception):
         super(ColumnsValidationException, self).__init__()
         self.message = error_messages  # dictionary of name ->  error message
 
-SWITCHER = [{'types': ['text', 'string', 'clob', 'character large object'], 'class': 'TextType'},
-            {'types': ['char', 'character', 'varchar', 'character varying'], 'class': 'LimitedTextType'},
-            {'types': ['tinyint', 'smallint', 'int', 'integer', 'bigint'], 'class': 'SmallIntegerType'},
-            {'types': ['hugeint'], 'class': 'HugeIntegerType'},
-            {'types': ['real', 'float', 'double', 'double precision'], 'class': 'FloatType'},
-            {'types': ['dec', 'decimal', 'numeric'], 'class': 'DecimalType'},
-            {'types': ['date'], 'class': 'DateType'},
-            {'types': ['time'], 'class': 'TimeType'},
-            {'types': ['timestamp'], 'class': 'TimestampType'},
-            {'types': ['bool', 'boolean'], 'class': 'BooleanType'},
-            {'types': ['inet'], 'class': 'INetType'},
-            {'types': ['inet6'], 'class': 'INetSixType'},
-            {'types': ['mac'], 'class': 'MACType'},
-            {'types': ['url'], 'class': 'URLType'},
-            {'types': ['uuid'], 'class': 'UUIDType'},
-            {'types': ['regex'], 'class': 'RegexType'},
-            {'types': ['enum'], 'class': 'EnumType'}]
+
+SWITCHER = [{'types': UNBOUNDED_TEXT_TYPES, 'class': 'TextType'},
+            {'types': BOUNDED_TEXT_TYPES, 'class': 'LimitedTextType'},
+            {'types': SMALL_INTEGERS, 'class': 'SmallIntegerType'},
+            {'types': HUGE_INTEGER, 'class': 'HugeIntegerType'},
+            {'types': FLOATING_POINT_PRECISION_TYPES, 'class': 'FloatType'},
+            {'types': DECIMAL_TYPES, 'class': 'DecimalType'},
+            {'types': DATE_TYPE, 'class': 'DateType'},
+            {'types': TIME_TYPE, 'class': 'TimeType'},
+            {'types': TIMESTAMP_TYPE, 'class': 'TimestampType'},
+            {'types': BOOLEAN_TYPE, 'class': 'BooleanType'},
+            {'types': INET_TYPE, 'class': 'INetType'},
+            {'types': INET6_TYPE, 'class': 'INetSixType'},
+            {'types': MAC_TYPE, 'class': 'MACType'},
+            {'types': URL_TYPE, 'class': 'URLType'},
+            {'types': UUID_TYPE, 'class': 'UUIDType'},
+            {'types': REGEX_TYPE, 'class': 'RegexType'},
+            {'types': ENUM_TYPE, 'class': 'EnumType'}]
 
 
 def validate_schema_and_create_stream(schema, created=False):
@@ -61,10 +65,10 @@ def validate_schema_and_create_stream(schema, created=False):
 
     flushing_object = schema['flushing']  # check the flush method
     flush_string = flushing_object['base']
-    if flush_string == 'time':
+    if flush_string == TIMED_FLUSH_IDENTIFIER:  # time based flushing
         flushing_method = TimeBasedFlushing(interval=int(flushing_object['interval']),
                                             time_unit=flushing_object['unit'])
-    else:
+    else:  # tuple based flushing
         flushing_method = TupleBasedFlushing(limit=int(flushing_object['number']))
 
     properties = collections.OrderedDict()

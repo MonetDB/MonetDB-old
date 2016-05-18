@@ -47,4 +47,3 @@ def fetch_streams():
     except BaseException as ex:
         print >> sys.stdout, ex
         add_log(50, ex)
-        sys.exit(1)
