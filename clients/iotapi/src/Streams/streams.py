@@ -1,6 +1,6 @@
+import os
 import struct
 
-import os
 from Settings.filesystem import get_baskets_base_location
 from Utilities.readwritelock import RWLock
 from WebSockets.websockets import notify_clients
@@ -120,11 +120,7 @@ class IOTStream(object):
 
                 for key, column in self._columns.iteritems():
                     next_file_name = os.path.join(next_path, key)
-                    open_string = 'r'
-                    if not column.is_file_mode_binary():
-                        open_string += 'u'
-                    file_pointer = open(next_file_name, open_string)
-                    results[key].append(column.read_next_batch(file_pointer, offset, next_read_size))
+                    results[key].append(column.read_next_tuples(next_file_name, offset, next_read_size))
 
                 read_tuples += next_read_size
                 offset = 0

@@ -12,22 +12,22 @@ class ColumnsValidationException(Exception):
         self.message = error_messages  # dictionary of name ->  error message
 
 SWITCHER = [{'types': ['text', 'string', 'clob', 'character large object'], 'class': 'TextType'},
-            {'types': ['uuid'], 'class': 'UUIDType'},
-            {'types': ['mac'], 'class': 'MACType'},
-            {'types': ['url'], 'class': 'URLType'},
-            {'types': ['inet'], 'class': 'INetType'},
-            {'types': ['inet6'], 'class': 'INetSixType'},
-            {'types': ['regex'], 'class': 'RegexType'},
             {'types': ['char', 'character', 'varchar', 'character varying'], 'class': 'LimitedTextType'},
-            {'types': ['enum'], 'class': 'EnumType'},
-            {'types': ['bool', 'boolean'], 'class': 'BooleanType'},
             {'types': ['tinyint', 'smallint', 'int', 'integer', 'bigint'], 'class': 'SmallIntegerType'},
             {'types': ['hugeint'], 'class': 'HugeIntegerType'},
             {'types': ['real', 'float', 'double', 'double precision'], 'class': 'FloatType'},
             {'types': ['dec', 'decimal', 'numeric'], 'class': 'DecimalType'},
             {'types': ['date'], 'class': 'DateType'},
             {'types': ['time'], 'class': 'TimeType'},
-            {'types': ['timestamp'], 'class': 'TimestampType'}]
+            {'types': ['timestamp'], 'class': 'TimestampType'},
+            {'types': ['bool', 'boolean'], 'class': 'BooleanType'},
+            {'types': ['inet'], 'class': 'INetType'},
+            {'types': ['inet6'], 'class': 'INetSixType'},
+            {'types': ['mac'], 'class': 'MACType'},
+            {'types': ['url'], 'class': 'URLType'},
+            {'types': ['uuid'], 'class': 'UUIDType'},
+            {'types': ['regex'], 'class': 'RegexType'},
+            {'types': ['enum'], 'class': 'EnumType'}]
 
 
 def validate_schema_and_create_stream(schema, created=False):
