@@ -1,7 +1,5 @@
-import collections
-
 from Utilities.readwritelock import RWLock
-from WebSockets.websockets import desubscribe_removed_streams
+from WebSockets.websockets import unsubscribe_removed_streams
 
 
 class IOTStreams(object):
@@ -12,7 +10,7 @@ class IOTStreams(object):
         return schema_name + '.' + stream_name
 
     def __init__(self):
-        self._context = collections.OrderedDict()  # dictionary of schema_name + '.' + stream_name -> DataCellStream
+        self._context = {}  # dictionary of schema_name + '.' + stream_name -> DataCellStream
         self._locker = RWLock()
 
     def get_existing_streams(self):
@@ -28,7 +26,7 @@ class IOTStreams(object):
             del self._context[k]
         self._context.update(new_streams)
         self._locker.release()
-        desubscribe_removed_streams(removed_streams)
+        unsubscribe_removed_streams(removed_streams)
 
     def get_existing_stream(self, concatenated_name):
         self._locker.acquire_read()

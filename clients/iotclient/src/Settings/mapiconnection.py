@@ -12,9 +12,6 @@ def init_monetdb_connection(hostname, port, user_name, database):
 
     user_password = getpass.getpass(prompt='Insert password for user ' + user_name + ':')
 
-    if user_password == '':
-        user_password = 'monetdb'
-
     try:  # the autocommit is set to true so each statement will be independent
         Connection = pymonetdb.connect(hostname=hostname, port=port, username=user_name, password=user_password,
                                        database=database, autocommit=True)

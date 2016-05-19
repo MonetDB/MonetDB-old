@@ -19,17 +19,11 @@ CLIENTS_INPUTS_SCHEMA = {
         "additionalProperties": False
     }, {
         "properties": {
-            "action": {"type": "string", "enum": ["info"]}
-        },
-        "required": ["action"],
-        "additionalProperties": False
-    }, {
-        "properties": {
             "schema": {"type": "string"},
             "stream": {"type": "string"},
             "action": {"type": "string", "enum": READ_OPTS},
             "basket": {"type": "integer", "minimum": 1, "default": 1},
-            "limit": {"type": "integer", "minimum": 0, "default": 0},
+            "limit": {"type": "integer", "minimum": 0, "default": 100},
             "offset": {"type": "integer", "minimum": 0, "default": 0}
         },
         "required": ["schema", "stream", "action"],

@@ -22,10 +22,3 @@ def create_file_if_not_exists(path, hidden=False, init_text=None):
         if hidden and sys.platform == "win32":
             ctypes.windll.kernel32.SetFileAttributesW(path, 0X02)
     return path
-
-
-def get_hidden_file_name(path):
-    if sys.platform in ("linux", "linux2", "darwin"):
-        head, tail = os.path.split(path)
-        path = os.path.join(head, '.' + tail)
-    return path

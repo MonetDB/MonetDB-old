@@ -1,6 +1,7 @@
 import os
 import struct
 
+from datatypes import LITTLE_ENDIAN_ALIGNMENT
 from Settings.filesystem import get_baskets_base_location
 from Utilities.readwritelock import RWLock
 from WebSockets.websockets import notify_clients
@@ -63,7 +64,7 @@ class IOTStream(object):
     def append_basket(self, path):
         if represents_int(path):
             with open(os.path.join(self._base_path, path)) as f:
-                count = struct.unpack('i', f.read(4))[0]
+                count = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + '1i', f.read(4))[0]
                 self._lock.acquire_write()
                 self._baskets[int(path)] = count
                 self._lock.release()

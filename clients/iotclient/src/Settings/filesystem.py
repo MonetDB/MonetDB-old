@@ -32,10 +32,10 @@ def init_file_system(host_identifier=None, new_configfile_location=None):
             os.makedirs(Baskets_Location)
 
         if new_configfile_location is not None:
-            Config_File_Location = create_file_if_not_exists(new_configfile_location, hidden=False, init_text='[]')
+            Config_File_Location = create_file_if_not_exists(new_configfile_location, init_text='[]')
         else:
             Config_File_Location = create_file_if_not_exists(
-                os.path.join(Filesystem_Location, CONFIG_FILE_DEFAULT_NAME), hidden=False, init_text='[]')
+                os.path.join(Filesystem_Location, CONFIG_FILE_DEFAULT_NAME), init_text='[]')
 
         Host_Identifier = host_identifier
     except (Exception, OSError) as ex:

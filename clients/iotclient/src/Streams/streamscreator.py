@@ -1,19 +1,17 @@
 import collections
 
 from jsonschema import Draft4Validator, FormatChecker
-
-from flushing import TupleBasedFlushing, TimeBasedFlushing
+from datatypes import *
 from jsonschemas import UNBOUNDED_TEXT_TYPES, BOUNDED_TEXT_TYPES, SMALL_INTEGERS, HUGE_INTEGER, \
     FLOATING_POINT_PRECISION_TYPES, DECIMAL_TYPES, DATE_TYPE, TIME_TYPE, TIMESTAMP_TYPE, BOOLEAN_TYPE, INET_TYPE, \
     INET6_TYPE, MAC_TYPE, URL_TYPE, UUID_TYPE, REGEX_TYPE, ENUM_TYPE, TIMED_FLUSH_IDENTIFIER
-from streams import IOTStream
+from streams import TupleBasedStream, TimeBasedStream
 
 
 class ColumnsValidationException(Exception):
     def __init__(self, error_messages):
         super(ColumnsValidationException, self).__init__()
         self.message = error_messages  # dictionary of name ->  error message
-
 
 SWITCHER = [{'types': UNBOUNDED_TEXT_TYPES, 'class': 'TextType'},
             {'types': BOUNDED_TEXT_TYPES, 'class': 'LimitedTextType'},
@@ -63,14 +61,6 @@ def validate_schema_and_create_stream(schema, created=False):
     if errors:
         raise ColumnsValidationException(error_messages=errors)
 
-    flushing_object = schema['flushing']  # check the flush method
-    flush_string = flushing_object['base']
-    if flush_string == TIMED_FLUSH_IDENTIFIER:  # time based flushing
-        flushing_method = TimeBasedFlushing(interval=int(flushing_object['interval']),
-                                            time_unit=flushing_object['unit'])
-    else:  # tuple based flushing
-        flushing_method = TupleBasedFlushing(limit=int(flushing_object['number']))
-
     properties = collections.OrderedDict()
     required_fields = []
 
@@ -86,9 +76,14 @@ def validate_schema_and_create_stream(schema, created=False):
         "id": "http://monetdb.com/schemas/iot_create.json",
         "type": "array",
         "minItems": 1,
-        "items": {"type": "object", "properties": properties,
-                  "required": required_fields, "additionalProperties": False}
+        "items": {"type": "object", "properties": properties, "required": required_fields,
+                  "additionalProperties": False}
     }, format_checker=FormatChecker())
 
-    return IOTStream(schema_name=schema['schema'], stream_name=schema['stream'], flush_method=flushing_method,
-                     columns=validated_columns, validation_schema=json_schema, created=created)
+    flushing_object = schema['flushing']  # check the flush method
+    if flushing_object['base'] == TIMED_FLUSH_IDENTIFIER:
+        return TimeBasedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
+                              validation_schema=json_schema, created=created, interval=int(flushing_object['interval']),
+                              time_unit=flushing_object['unit'])
+    return TupleBasedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
+                               validation_schema=json_schema, created=created, limit=int(flushing_object['number']))

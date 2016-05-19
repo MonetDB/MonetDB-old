@@ -2,8 +2,9 @@ from itertools import groupby
 
 from Settings.mapiconnection import fetch_streams
 from Utilities.customthreading import PeriodicalThread
-
-from streamscontext import Streams_context, DataCellStream
+from datatypes import *
+from streams import IOTStream
+from streamscontext import Streams_context
 
 SWITCHER = [{'types': ['clob', 'char', 'varchar', 'url'], 'class': 'TextType'},
             {'types': ['tinyint', 'smallint', 'int', 'bigint'], 'class': 'SmallIntegerType'},
@@ -23,7 +24,7 @@ def init_stream_polling_thread(interval):
     thread.start()
 
 
-# elem[0] is schema. elem[1] is name, elem[2] is column name, elem[3] is type, elem[4] is location, elem[5] is typewidth
+# elem[0] is schema. elem[1] is name, elem[2] is column name, elem[3] is type, elem[4] is typewidth
 def stream_polling():
     current_streams = Streams_context.get_existing_streams()
     retained_streams = []
@@ -35,11 +36,13 @@ def stream_polling():
             columns = {}
 
             for elem in group:
-                reflection_class = globals()[elem[3]]  # import everything from datatypes!!!
-                kwargs = {'name': elem[2], 'type': elem[3], 'location': elem[4], 'typewidth': elem[5]}
-                new_column = reflection_class(kwargs)
-                columns[elem[2]] = new_column
-                new_streams[key] = DataCellStream(key, columns)
+                for entry in SWITCHER:  # allocate the proper type wrapper
+                    if elem[3] in entry['types']:
+                        reflection_class = globals()[entry['class']]  # import everything from datatypes!!!
+                        new_column = reflection_class({'name': elem[2], 'type': elem[3], 'typewidth': elem[4]})
+                        columns[elem[2]] = new_column
+                        new_streams[key] = IOTStream(key, columns)
+                    break
         else:
             retained_streams.append(key)
 

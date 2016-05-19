@@ -12,9 +12,6 @@ def init_monetdb_connection(hostname, port, user_name, database):
 
     user_password = getpass.getpass(prompt='Insert password for user ' + user_name + ':')
 
-    if user_password == '':
-        user_password = 'monetdb'
-
     try:  # the autocommit is set to true so each statement will be independent
         Connection = pymonetdb.connect(hostname=hostname, port=port, username=user_name, password=user_password,
                                        database=database, autocommit=True)
@@ -35,15 +32,12 @@ def close_monetdb_connection():
 def fetch_streams():
     try:  # TODO paginate results?
         cursor = Connection.cursor()
-        sql_string = """
-          SELECT storage."schema", storage."table", storage."column", storage."type", storage."location",
-          storage."typewidth"
+        sql_string = """SELECT storage."schema", storage."table", storage."column", storage."type", storage."typewidth"
           FROM (SELECT "schema", "table", "column", "type" FROM sys.storage) AS storage
           INNER JOIN (SELECT "name" FROM sys.tables WHERE type=4) AS tables ON (storage."table"=tables."name")
-          INNER JOIN (SELECT "name" FROM sys.schemas) AS schemas ON (storage."schema"=schemas."name");
-        """.replace('\n', ' ')
+          INNER JOIN (SELECT "name" FROM sys.schemas) AS schemas ON (storage."schema"=schemas."name");"""\
+            .replace('\n', ' ')
         cursor.execute(sql_string)
         return cursor.fetchall()
     except BaseException as ex:
-        print >> sys.stdout, ex
         add_log(50, ex)

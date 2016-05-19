@@ -541,7 +541,7 @@ class DecimalType(NumberBaseType):
     def check_value_precision(self, value, text):
         number_digits = int(math.ceil(math.log10(abs(value))))
         if number_digits > self._precision:
-            raise Exception('Too many digits on %s value: %s > %s!' % (text, number_digits, self._precision))
+            raise Exception('Too many digits on %s: %s > %s!' % (text, number_digits, self._precision))
 
     def add_json_schema_entry(self, schema):
         super(DecimalType, self).add_json_schema_entry(schema)
