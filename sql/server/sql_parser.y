@@ -531,7 +531,7 @@ int yydebug=1;
 %token  START TRANSACTION READ WRITE ONLY ISOLATION LEVEL
 %token  UNCOMMITTED COMMITTED sqlREPEATABLE SERIALIZABLE DIAGNOSTICS sqlSIZE STORAGE
 
-%token <sval> ASYMMETRIC SYMMETRIC ORDER BY
+%token <sval> ASYMMETRIC SYMMETRIC ORDER ORDERED BY IMPRINTS
 %token <operation> EXISTS ESCAPE HAVING sqlGROUP sqlNULL
 %token <operation> FROM FOR MATCH
 
@@ -588,7 +588,7 @@ SQLCODE SQLERROR UNDER WHENEVER
 %token CHECK CONSTRAINT CREATE
 %token TYPE PROCEDURE FUNCTION AGGREGATE RETURNS EXTERNAL sqlNAME DECLARE
 %token CALL LANGUAGE 
-%token ANALYZE MINMAX SQL_EXPLAIN SQL_PLAN SQL_DEBUG SQL_TRACE SQL_DOT PREPARE EXECUTE
+%token ANALYZE MINMAX SQL_EXPLAIN SQL_PLAN SQL_DEBUG SQL_TRACE PREPARE EXECUTE
 %token DEFAULT DISTINCT DROP
 %token FOREIGN
 %token RENAME ENCRYPTED UNENCRYPTED PASSWORD GRANT REVOKE ROLE ADMIN INTO
@@ -660,21 +660,6 @@ sqlstmt:
 			  m->scanner.key = 0;
 			}
    sql SCOLON 		{
-			  if (m->sym) {
-				append_symbol(m->sym->data.lval, $3);
-				$$ = m->sym;
-			  } else {
-				m->sym = $$ = $3;
-			  }
-			  YYACCEPT;
-			}
-
- | SQL_DOT 		{
-		  	  m->emod |= mod_dot;
-			  m->scanner.as = m->scanner.yycur; 
-			  m->scanner.key = 0;
-			}
-	sql SCOLON 	{
 			  if (m->sym) {
 				append_symbol(m->sym->data.lval, $3);
 				$$ = m->sym;
@@ -1262,6 +1247,8 @@ index_def:
 
 opt_index_type:
      UNIQUE		{ $$ = hash_idx; }
+ |   ORDERED		{ $$ = ordered_idx; }
+ |   IMPRINTS		{ $$ = imprints_idx; }
  |   /* empty */	{ $$ = hash_idx; }
  ;
 
@@ -5102,11 +5089,11 @@ non_reserved_word:
 |  TIME 	{ $$ = sa_strdup(SA, "time"); }
 |  TIMESTAMP	{ $$ = sa_strdup(SA, "timestamp"); }
 |  INTERVAL	{ $$ = sa_strdup(SA, "interval"); }
+|  IMPRINTS	{ $$ = sa_strdup(SA, "imprints"); }
 
 |  PREPARE	{ $$ = sa_strdup(SA, "prepare"); }
 |  EXECUTE	{ $$ = sa_strdup(SA, "execute"); }
 |  SQL_EXPLAIN	{ $$ = sa_strdup(SA, "explain"); }
-|  SQL_DOT	{ $$ = sa_strdup(SA, "dot"); }
 |  SQL_DEBUG	{ $$ = sa_strdup(SA, "debug"); }
 |  SQL_TRACE	{ $$ = sa_strdup(SA, "trace"); }
 |  sqlTEXT     	{ $$ = sa_strdup(SA, "text"); }
@@ -5167,7 +5154,8 @@ lngval:
  		{
 		  char *end = NULL, *s = $1;
 		  int l = _strlen(s);
-
+		  // errno might be non-zero due to other people's code
+		  errno = 0;
 		  if (l <= 19) {
 		  	$$ = strtoll(s,&end,10);
 		  } else {
@@ -5189,7 +5177,8 @@ intval:
  		{
 		  char *end = NULL, *s = $1;
 		  int l = _strlen(s);
-
+		  // errno might be non-zero due to other people's code
+		  errno = 0;
 		  if (l <= 10) {
 		  	$$ = strtol(s,&end,10);
 		  } else {

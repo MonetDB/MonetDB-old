@@ -522,8 +522,12 @@ load_column(sql_trans *tr, sql_table *t, oid rid)
 	sz = *(int *)v;				_DELETE(v);
 	v = table_funcs.column_find_value(tr, find_sql_column(columns, "type_scale"), rid);
 	d = *(int *)v;				_DELETE(v);
-	if (!sql_find_subtype(&c->type, tpe, sz, d))
-		sql_init_subtype(&c->type, sql_trans_bind_type(tr, t->s, tpe), sz, d);
+	if (!sql_find_subtype(&c->type, tpe, sz, d)) {
+		sql_type *lt = sql_trans_bind_type(tr, t->s, tpe);
+		if (lt == NULL) 
+			GDKfatal("SQL type %s missing", tpe);
+		sql_init_subtype(&c->type, lt, sz, d);
+	}
 	_DELETE(tpe);
 	c->def = NULL;
 	def = table_funcs.column_find_value(tr, find_sql_column(columns, "default"), rid);
@@ -741,8 +745,12 @@ load_arg(sql_trans *tr, sql_func * f, oid rid)
 	scale = *(int *)v;	_DELETE(v);
 
 	tpe = table_funcs.column_find_value(tr, find_sql_column(args, "type"), rid);
-	if (!sql_find_subtype(&a->type, tpe, digits, scale))
-		sql_init_subtype(&a->type, sql_trans_bind_type(tr, f->s, tpe), digits, scale);
+	if (!sql_find_subtype(&a->type, tpe, digits, scale)) {
+		sql_type *lt = sql_trans_bind_type(tr, f->s, tpe);
+		if (lt == NULL) 
+			GDKfatal("SQL type %s missing", tpe);
+		sql_init_subtype(&a->type, lt, digits, scale);
+	}
 	_DELETE(tpe);
 	return a;
 }
@@ -1363,11 +1371,13 @@ store_load(void) {
 	sqlid id = 0;
 
 	sa = sa_create();
-	MT_lock_unset(&bs_lock);
 	types_init(sa, logger_debug);
 
 #define FUNC_OIDS 2000
+	// TODO: Niels: Are we fine running this twice?
+#ifndef HAVE_EMBEDDED
 	assert( store_oid <= FUNC_OIDS );
+#endif
 	/* we store some spare oids */
 	store_oid = FUNC_OIDS;
 
@@ -1609,6 +1619,7 @@ store_init(int debug, store_type store, int readonly, int singleuser, logger_set
 	}
 
 	/* create the initial store structure or re-load previous data */
+	MT_lock_unset(&bs_lock);
 	return store_load();
 }
 
@@ -1710,7 +1721,11 @@ store_manager(void)
 		}
 
 		MT_lock_set(&bs_lock);
-        	if (GDKexiting() || (!need_flush && logger_funcs.changes() < 1000000 && shared_transactions_drift < shared_drift_threshold)) {
+        	if (GDKexiting()) {
+            		MT_lock_unset(&bs_lock);
+            		return;
+        	}
+        	if ((!need_flush && logger_funcs.changes() < 1000000 && shared_transactions_drift < shared_drift_threshold)) {
             		MT_lock_unset(&bs_lock);
             		continue;
         	}
@@ -1718,7 +1733,7 @@ store_manager(void)
         	while (store_nr_active) { /* find a moment to flush */
             		MT_lock_unset(&bs_lock);
 			if (GDKexiting())
-				continue;
+				return;
             		MT_sleep_ms(timeout);
             		MT_lock_set(&bs_lock);
         	}
@@ -1738,9 +1753,9 @@ store_manager(void)
 			/* re-set the store_oid */
 			store_oid = 0;
 			/* reload the store and the global transactions */
+			MT_lock_unset(&bs_lock);
 			res = store_load();
 			if (res < 0) {
-				MT_lock_unset(&bs_lock);
 				GDKfatal("shared write-ahead log store re-load failure");
 			}
 			MT_lock_set(&bs_lock);

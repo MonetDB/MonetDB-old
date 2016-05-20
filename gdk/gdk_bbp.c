@@ -262,12 +262,11 @@ static int BBPunloadCnt = 0;
 static MT_Lock GDKunloadLock MT_LOCK_INITIALIZER("GDKunloadLock");
 
 void
-BBPlock(const char *nme)
+BBPlock(void)
 {
 	int i;
 
 	/* wait for all pending unloads to finish */
-	(void) nme;
 	MT_lock_set(&GDKunloadLock);
 	while (BBPunloadCnt > 0) {
 		MT_lock_unset(&GDKunloadLock);
@@ -288,11 +287,10 @@ BBPlock(const char *nme)
 }
 
 void
-BBPunlock(const char *nme)
+BBPunlock(void)
 {
 	int i;
 
-	(void) nme;
 	for (i = BBP_BATMASK; i >= 0; i--)
 		MT_lock_unset(&GDKswapLock(i));
 	for (i = BBP_THREADMASK; i >= 0; i--)
@@ -729,7 +727,8 @@ fixsorted(void)
 					b = BATdescriptor(bid);
 					bi = bat_iterator(b);
 				}
-				if (ATOMcmp(b->ttype,
+				if (b == NULL ||
+				    ATOMcmp(b->ttype,
 					    BUNtail(bi, bs->T.nosorted - 1),
 					    BUNtail(bi, bs->T.nosorted)) <= 0) {
 					/* incorrect hint */
@@ -764,7 +763,8 @@ fixsorted(void)
 					b = BATdescriptor(bid);
 					bi = bat_iterator(b);
 				}
-				if (ATOMcmp(b->ttype,
+				if (b == NULL ||
+				    ATOMcmp(b->ttype,
 					    BUNtail(bi, bs->T.norevsorted - 1),
 					    BUNtail(bi, bs->T.norevsorted)) >= 0) {
 					/* incorrect hint */
@@ -1295,7 +1295,7 @@ void
 BBPresetfarms(void)
 {
 	BBPexit();
-	BBPunlock("BBPexit");
+	BBPunlock();
 	BBPsize = 0;
 	if (BBPfarms[0].dirname != NULL) {
 		GDKfree((void*) BBPfarms[0].dirname);
@@ -1389,7 +1389,11 @@ BBPinit(void)
 		GDKfatal("BBPinit: cannot properly prepare process %s. Please check whether your disk is full or write-protected", BAKDIR);
 
 	/* cleanup any leftovers (must be done after BBPrecover) */
-	BBPdiskscan(GDKfilepath(0, NULL, BATDIR, NULL));
+	{
+		char *d = GDKfilepath(0, NULL, BATDIR, NULL);
+		BBPdiskscan(d);
+		GDKfree(d);
+	}
 
 #if SIZEOF_SIZE_T == 8 && SIZEOF_OID == 8
 	if (oidsize == SIZEOF_INT)
@@ -1432,7 +1436,7 @@ BBPexit(void)
 	bat i;
 	int skipped;
 
-	BBPlock("BBPexit");	/* stop all threads ever touching more descriptors */
+	BBPlock();	/* stop all threads ever touching more descriptors */
 
 	/* free all memory (just for leak-checking in Purify) */
 	do {
@@ -1446,8 +1450,13 @@ BBPexit(void)
 						skipped = 1;
 						continue;
 					}
-					/* NIELS ?? Why reduce share count, it's done in VIEWdestroy !!
 					if (isVIEW(b)) {
+						/* "manually"
+						 * decrement parent
+						 * references, since
+						 * VIEWdestroy doesn't
+						 * (and can't here due
+						 * to locks) do it */
 						bat hp = VIEWhparent(b), tp = VIEWtparent(b);
 						bat vhp = VIEWvhparent(b), vtp = VIEWvtparent(b);
 						if (hp) {
@@ -1466,11 +1475,10 @@ BBPexit(void)
 							BBP_cache(vtp)->batSharecnt--;
 							--BBP_lrefs(vtp);
 						}
-					}*/
-					if (isVIEW(b))
 						VIEWdestroy(b);
-					else
+					} else {
 						BATfree(b);
+					}
 				}
 				BBPuncacheit(i, TRUE);
 				if (BBP_logical(i) != BBP_bak(i))
@@ -1621,7 +1629,11 @@ BBPdir_subcommit(int cnt, bat *subcommit)
 	char *p;
 	int n;
 
+#ifndef NDEBUG
 	assert(subcommit != NULL);
+	for (n = 2; n < cnt; n++)
+		assert(subcommit[n - 1] < subcommit[n]);
+#endif
 
 	if ((nbbpf = GDKfilelocate(0, "BBP", "w", "dir")) == NULL)
 		return GDK_FAIL;
@@ -3935,10 +3947,9 @@ force_move(int farmid, const char *srcdir, const char *dstdir, const char *name)
 gdk_return
 BBPrecover(int farmid)
 {
-	str bakdirpath = GDKfilepath(farmid, NULL, BAKDIR, NULL);
-	str leftdirpath = GDKfilepath(farmid, NULL, LEFTDIR, NULL);
-
-	DIR *dirp = opendir(bakdirpath);
+	str bakdirpath;
+	str leftdirpath;
+	DIR *dirp;
 	struct dirent *dent;
 	long_str path, dstpath;
 	bat i;
@@ -3947,7 +3958,17 @@ BBPrecover(int farmid)
 	int dirseen = FALSE;
 	str dstdir;
 
+	bakdirpath = GDKfilepath(farmid, NULL, BAKDIR, NULL);
+	leftdirpath = GDKfilepath(farmid, NULL, LEFTDIR, NULL);
+	if (bakdirpath == NULL || leftdirpath == NULL) {
+		GDKfree(bakdirpath);
+		GDKfree(leftdirpath);
+		return GDK_FAIL;
+	}
+	dirp = opendir(bakdirpath);
 	if (dirp == NULL) {
+		GDKfree(bakdirpath);
+		GDKfree(leftdirpath);
 		return GDK_SUCCEED;	/* nothing to do */
 	}
 	memcpy(dstpath, BATDIR, j);
@@ -3959,6 +3980,8 @@ BBPrecover(int farmid)
 	if (mkdir(leftdirpath, 0755) < 0 && errno != EEXIST) {
 		GDKsyserror("BBPrecover: cannot create directory %s\n", leftdirpath);
 		closedir(dirp);
+		GDKfree(bakdirpath);
+		GDKfree(leftdirpath);
 		return GDK_FAIL;
 	}
 
@@ -4046,6 +4069,7 @@ BBPrecover_subdir(void)
 	struct dirent *dent;
 	gdk_return ret = GDK_SUCCEED;
 
+	GDKfree(subdirpath);
 	if (dirp == NULL) {
 		return GDK_SUCCEED;	/* nothing to do */
 	}
@@ -4075,7 +4099,6 @@ BBPrecover_subdir(void)
 
 	if (ret != GDK_SUCCEED)
 		GDKerror("BBPrecover_subdir: recovery failed. Please check whether your disk is full or write-protected.\n");
-	GDKfree(subdirpath);
 	return ret;
 }
 
@@ -4214,6 +4237,17 @@ BBPdiskscan(const char *parent)
 			delete = b == NULL;
 			if (!delete)
 				b->T->imprints = (Imprints *) 1;
+		} else if (strncmp(p + 1, "horderidx", 9) == 0) {
+			delete = TRUE;
+		} else if (strncmp(p + 1, "torderidx", 9) == 0) {
+#ifdef PERSISTENTIDX
+			BAT *b = getdesc(bid);
+			delete = b == NULL;
+			if (!delete)
+				b->T->orderidx = (Heap *) 1;
+#else
+			delete = TRUE;
+#endif
 		} else if (strncmp(p + 1, "priv", 4) != 0 &&
 			   strncmp(p + 1, "new", 3) != 0 &&
 			   strncmp(p + 1, "head", 4) != 0 &&
@@ -4246,7 +4280,7 @@ BBPatom_drop(int atom)
 	const char *nme = ATOMname(atom);
 	int unknown = ATOMunknown_add(nme);
 
-	BBPlock("BBPatom_drop");
+	BBPlock();
 	for (i = 0; i < (bat) ATOMIC_GET(BBPsize, BBPsizeLock); i++) {
 		if (BBPvalid(i)) {
 			BATstore *b = BBP_desc(i);
@@ -4260,7 +4294,7 @@ BBPatom_drop(int atom)
 				b->B.ttype = unknown;
 		}
 	}
-	BBPunlock("BBPatom_drop");
+	BBPunlock();
 }
 
 void
@@ -4269,7 +4303,7 @@ BBPatom_load(int atom)
 	const char *nme;
 	int i, unknown;
 
-	BBPlock("BBPatom_load");
+	BBPlock();
 	nme = ATOMname(atom);
 	unknown = ATOMunknown_find(nme);
 	ATOMunknown_del(unknown);
@@ -4286,17 +4320,26 @@ BBPatom_load(int atom)
 				b->B.ttype = atom;
 		}
 	}
-	BBPunlock("BBPatom_load");
+	BBPunlock();
 }
 #endif
 
 void
 gdk_bbp_reset(void)
 {
-	memset((char*) BBP, 0, sizeof(BBP));
+	int i;
+
+	while (BBPlimit > 0) {
+		BBPlimit -= BBPINIT;
+		assert(BBPlimit >= 0);
+		GDKfree(BBP[BBPlimit >> BBPINITLOG]);
+	}
+	memset(BBP, 0, sizeof(BBP));
 	BBPlimit = 0;
 	BBPsize = 0;
-	memset((char*) BBPfarms, 0, sizeof(BBPfarms));
+	for (i = 0; i < MAXFARMS; i++)
+		GDKfree((void *) BBPfarms[i].dirname); /* loose "const" */
+	memset(BBPfarms, 0, sizeof(BBPfarms));
 	BBP_hash = 0;
 	BBP_mask = 0;
 	stamp = 0;
@@ -4309,8 +4352,8 @@ gdk_bbp_reset(void)
 
 	locked_by = 0;
 	BBPunloadCnt = 0;
-	memset((char*) lastused, 0, sizeof(lastused));
-	memset((char*) bbptrim, 0, sizeof(bbptrim));
+	memset(lastused, 0, sizeof(lastused));
+	memset(bbptrim, 0, sizeof(bbptrim));
 	bbptrimfirst = BBPMAXTRIM;
 	bbptrimlast = 0;
 	bbptrimmax = BBPMAXTRIM;
