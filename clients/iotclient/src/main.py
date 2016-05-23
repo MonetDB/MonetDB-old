@@ -1,4 +1,5 @@
 import getopt
+import getpass
 import signal
 import sys
 import time
@@ -21,14 +22,27 @@ def signal_handler(signal, frame):
     subprocess.terminate()
 
 
-def start_process(admin_host, admin_port, app_host, app_port):
+def start_process(admin_host, admin_port, app_host, app_port, host_identifier, new_configfile_location,
+                  connection_hostname, connection_port, connection_user, connection_password, connection_database):
+    # WARNING The initiation order must be this!!!
+    init_logging()  # init logging context
+    init_file_system(host_identifier, new_configfile_location)  # init filesystem
+    init_streams_hosts()  # init hostname column for streams
+    # init mapi connection
+    init_monetdb_connection(connection_hostname, connection_port, connection_user, connection_password,
+                            connection_database)
+    init_streams_context()  # init streams context
+    init_rest_resources()  # init validators for RESTful requests
+
     thread1 = Thread(target=start_flask_admin_app, args=(admin_host, admin_port))
     thread2 = Thread(target=start_flask_iot_app, args=(app_host, app_port))
     thread1.start()
     time.sleep(1)  # problem while handling Flask's loggers, so it is used this sleep
     thread2.start()
+    add_log(20, 'Started IOT Stream Server')
     thread1.join()
     thread2.join()
+    add_log(20, 'Stopped IOT Stream Server')
 
 
 def main(argv):
@@ -93,21 +107,13 @@ def main(argv):
     if not use_host_identifier:  # in case of the user sets the host_identifier but not the use_host_identifier flag
         host_identifier = None
 
-    # WARNING The initiation order must be this!!!
-    init_logging()  # init logging context
-    init_file_system(host_identifier, new_configfile_location)  # init filesystem
-    init_streams_hosts()  # init hostname column for streams
-    # init mapi connection
-    init_monetdb_connection(connection_hostname, connection_port, connection_user, connection_database)
-    init_streams_context()  # init streams context
-    init_rest_resources()  # init validators for RESTful requests
-
-    subprocess = Process(target=start_process, args=(admin_host, admin_port, app_host, app_port))
+    connection_password = getpass.getpass(prompt='Insert password for user ' + connection_user + ':')
+    subprocess = Process(target=start_process, args=(admin_host, admin_port, app_host, app_port, host_identifier,
+                                                     new_configfile_location, connection_hostname, connection_port,
+                                                     connection_user, connection_password, connection_database))
     subprocess.start()
-    add_log(20, 'Started IOT Stream Server')
     signal.signal(signal.SIGINT, signal_handler)
     subprocess.join()
-    add_log(20, 'Stopped IOT Stream Server')
 
 if __name__ == "__main__":
     main(sys.argv)

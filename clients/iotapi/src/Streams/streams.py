@@ -4,7 +4,7 @@ import struct
 from datatypes import LITTLE_ENDIAN_ALIGNMENT
 from Settings.filesystem import get_baskets_base_location
 from Utilities.readwritelock import RWLock
-from WebSockets.websockets import notify_clients
+from WebSockets.websockets import notify_stream_inserts_to_clients
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
@@ -30,7 +30,7 @@ class StreamBasketsHandler(FileSystemEventHandler):
         if isinstance(event, 'DirCreatedEvent'):
             basket_string = os.path.basename(os.path.normpath(event.src_path))
             count = self._stream.append_basket(basket_string)
-            notify_clients(self._stream.get_schema_name(), self._stream.get_stream_name(), count)
+            notify_stream_inserts_to_clients(self._stream.get_schema_name(), self._stream.get_stream_name(), count)
 
     def on_deleted(self, event):
         if isinstance(event, 'DirDeletedEvent'):

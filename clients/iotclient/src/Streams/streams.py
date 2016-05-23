@@ -120,8 +120,8 @@ class BaseIOTStream(object):
 
     def flush_baskets(self, last=False):  # the monitor has to be acquired in write mode before running this method!!!
         # write the tuple count in the basket
-        basket_counter_file_pointer = open(os.path.join(self._current_base_path, BASKETS_COUNT_FILE), "w+")
-        basket_counter_file_pointer.write(struct.pack(LITTLE_ENDIAN_ALIGNMENT + "1i", self._tuples_in_per_basket))
+        basket_counter_file_pointer = open(os.path.join(self._current_base_path, BASKETS_COUNT_FILE), "w+b")
+        basket_counter_file_pointer.write(struct.pack(LITTLE_ENDIAN_ALIGNMENT + "i", self._tuples_in_per_basket))
         basket_counter_file_pointer.flush()
         basket_counter_file_pointer.close()
         mapi_flush_baskets(self._schema_name, self._stream_name, self._current_base_path)
@@ -227,16 +227,19 @@ class TupleBasedStream(BaseIOTStream):
 
     def validate_and_insert(self, new_data, timestamp):
         super(TupleBasedStream, self).validate_and_insert(new_data, timestamp)
+        flag = False
         self._monitor.acquire_write()
         try:
             if self._tuples_in_per_basket >= self._limit:
                 self.flush_baskets(last=False)
+                flag = True
         except BaseException as ex:
             self._monitor.release()
             add_log(50, ex)
         else:
             self._monitor.release()
-            add_log(20, 'Flushed stream %s.%s baskets' % (self._schema_name, self._stream_name))
+            if flag:
+                add_log(20, 'Flushed stream %s.%s baskets' % (self._schema_name, self._stream_name))
 
 
 class TimeBasedStream(BaseIOTStream):
@@ -258,16 +261,19 @@ class TimeBasedStream(BaseIOTStream):
         return {'base': 'time', 'unit': self._time_unit, 'interval': self._interval}
 
     def time_based_flush(self):
+        flag = False
         self._monitor.acquire_write()
         try:
-            if self._tuples_in_per_basket > 0:
+            if self._tuples_in_per_basket > 0:  # flush only when there are tuples in the baskets
                 self.flush_baskets(last=False)
+                flag = True
         except BaseException as ex:
             self._monitor.release()
             add_log(50, ex)
         else:
             self._monitor.release()
-            add_log(20, 'Flushed stream %s.%s baskets' % (self._schema_name, self._stream_name))
+            if flag:
+                add_log(20, 'Flushed stream %s.%s baskets' % (self._schema_name, self._stream_name))
 
     def start_stream(self):
         self._local_thread.start()  # start the time based flush on another thread

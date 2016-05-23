@@ -33,7 +33,7 @@ def fetch_streams():
     try:  # TODO paginate results?
         cursor = Connection.cursor()
         sql_string = """SELECT storage."schema", storage."table", storage."column", storage."type", storage."typewidth"
-          FROM (SELECT "schema", "table", "column", "type" FROM sys.storage) AS storage
+          FROM (SELECT "schema", "table", "column", "type", "typewidth" FROM sys.storage) AS storage
           INNER JOIN (SELECT "name" FROM sys.tables WHERE type=4) AS tables ON (storage."table"=tables."name")
           INNER JOIN (SELECT "name" FROM sys.schemas) AS schemas ON (storage."schema"=schemas."name");"""\
             .replace('\n', ' ')

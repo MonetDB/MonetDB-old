@@ -4,11 +4,9 @@ import itertools
 import math
 import re
 import struct
-from abc import ABCMeta, abstractmethod
 
-import dateutil
 from dateutil import parser
-
+from abc import ABCMeta, abstractmethod
 from jsonschemas import UUID_REGEX, MAC_ADDRESS_REGEX, TIME_REGEX, IPV4_REGEX
 
 # The null constants might change from system to system due to different CPU's limits
@@ -704,7 +702,7 @@ class TimestampType(BaseDateTimeType):  # it's represented with the two integers
         schema[self._column_name]['format'] = 'date-time'
 
     def parse_entry(self, entry):
-        parsed_timestamp = dateutil.parser.parse(entry)
+        parsed_timestamp = parser.parse(entry)
         if not self._has_timezone:
             parsed_timestamp = parsed_timestamp.replace(tzinfo=None)
         return parsed_timestamp

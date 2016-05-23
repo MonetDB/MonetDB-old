@@ -3,7 +3,6 @@ import sys
 
 from Settings.iotlogger import add_log
 from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
-from Streams.streamscontext import Streams_context, IOTStreams
 from Utilities.readwritelock import RWLock
 from jsonschema import Draft4Validator, FormatChecker
 
@@ -15,14 +14,6 @@ WebClients = []  # TODO this probably won't scale for many
 WebClientsLock = RWLock()
 
 
-def notify_stream_inserts_to_clients(schema_name, stream_name, count):
-    concatenated_name = IOTStreams.get_context_entry_name(schema_name, stream_name)
-    WebClientsLock.acquire_read()
-    for client in WebClients:
-        client.send_notification_message(concatenated_name, schema_name, stream_name, count)
-    WebClientsLock.release()
-
-
 def unsubscribe_removed_streams(concatenated_names):
     WebClientsLock.acquire_read()
     for name in concatenated_names:
@@ -31,6 +22,16 @@ def unsubscribe_removed_streams(concatenated_names):
     WebClientsLock.release()
     for name in concatenated_names:
         add_log(20, ''.join(['Stream ', name, ' removed']))
+
+from Streams.streamscontext import Streams_context, IOTStreams  # avoid circular dependency
+
+
+def notify_stream_inserts_to_clients(schema_name, stream_name, count):
+    concatenated_name = IOTStreams.get_context_entry_name(schema_name, stream_name)
+    WebClientsLock.acquire_read()
+    for client in WebClients:
+        client.send_notification_message(concatenated_name, schema_name, stream_name, count)
+    WebClientsLock.release()
 
 
 class IOTAPI(WebSocket):

@@ -8,7 +8,7 @@ from flask_restful import Resource
 from jsonschema import Draft4Validator, FormatChecker
 from tzlocal import get_localzone
 from Streams.jsonschemas import CREATE_STREAMS_SCHEMA, DELETE_STREAMS_SCHEMA
-from Streams.streamscontext import IOTStreams
+from Streams.streamscontext import IOTStreamsContext
 from Settings.iotlogger import add_log
 
 Streams_Context = None
@@ -23,7 +23,7 @@ def init_rest_resources():
     Create_Streams_Validator = Draft4Validator(CREATE_STREAMS_SCHEMA, format_checker=FormatChecker())
     Delete_Streams_Validator = Draft4Validator(DELETE_STREAMS_SCHEMA, format_checker=FormatChecker())
     try:
-        Streams_Context = IOTStreams()
+        Streams_Context = IOTStreamsContext()
     except BaseException as ex:
         print >> sys.stdout, ex
         add_log(50, ex)
@@ -80,6 +80,8 @@ class StreamsHandling(Resource):
             add_log(50, ex)
             return ex, 400
         else:
+            add_log(20, ''.join['The stream ', schema_to_validate['schema'], '.', schema_to_validate['stream'],
+                                ' was created'])
             return 'The stream was created with success!', 201
 
     def delete(self):
@@ -95,4 +97,6 @@ class StreamsHandling(Resource):
         except BaseException as ex:
             add_log(50, ex)
             return ex, 404
+        add_log(20, ''.join['The stream ', schema_to_validate['schema'], '.', schema_to_validate['stream'],
+                            ' was deleted'])
         return 'The stream was deleted with success!', 204
