@@ -288,16 +288,14 @@ class INetType(StreamDataType):
 
         if entry == self.get_nullable_constant():
             array[7] = 1
-            return array
-
-        components = re.split(r'[./]+', entry)
-        for i in range(4):
-            array[i] = int(components[i])
-        if len(components) > 4:  # if it has a mask add it to the array
-            array[4] = int(components[4])
         else:
-            array[4] = 32
-
+            components = re.split(r'[./]+', entry)
+            for i in xrange(4):
+                array[i] = int(components[i])
+            if len(components) > 4:  # if it has a mask add it to the array
+                array[4] = int(components[4])
+            else:
+                array[4] = 32
         return array
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
@@ -323,7 +321,7 @@ class UUIDType(StreamDataType):
         j = 0
         s = 0
 
-        for i in range(16):
+        for i in xrange(16):
             if j in (8, 12, 16, 20):  # do nothing with the dashes
                 s += 1
 
@@ -338,8 +336,8 @@ class UUIDType(StreamDataType):
             s += 1
             j += 1
             array[i] <<= 4
-            next_char = ord(entry[s])
 
+            next_char = ord(entry[s])
             if 48 <= next_char <= 57:  # between '0' and '9'
                 array[i] |= next_char - 48
             elif 97 <= next_char <= 102:  # between 'a' and 'f'

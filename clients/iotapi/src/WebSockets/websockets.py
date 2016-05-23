@@ -30,7 +30,7 @@ def unsubscribe_removed_streams(concatenated_names):
             client.remove_subscribed_stream(name)
     WebClientsLock.release()
     for name in concatenated_names:
-        add_log(20, ''.join(['Stream removed: ', name]))
+        add_log(20, ''.join(['Stream ', name, ' removed']))
 
 
 class IOTAPI(WebSocket):
@@ -81,7 +81,7 @@ class IOTAPI(WebSocket):
         self._subscriptions[concatenated_name] = stream
         self._locker.release()
         self.sendMessage({"subscribed": "Subscribed to " + concatenated_name})
-        add_log(20, ''.join(['Client ', self.address[0], 'subscribed stream ', concatenated_name]))
+        add_log(20, ''.join(['Client ', self.address[0], 'subscribed to stream ', concatenated_name]))
 
     def unsubscribe(self, concatenated_name):
         self._locker.acquire_write()
@@ -92,27 +92,31 @@ class IOTAPI(WebSocket):
             del self._subscriptions[concatenated_name]
             self._locker.release()
             self.sendMessage({"unsubscribed": "Unsubscribed to " + concatenated_name})
-            add_log(20, ''.join(['Client ', self.address[0], ' unsubscribed stream ', concatenated_name]))
+            add_log(20, ''.join(['Client ', self.address[0], ' unsubscribed to stream ', concatenated_name]))
 
     def remove_subscribed_stream(self, concatenated_name):
         self._locker.acquire_write()
         if concatenated_name in self._subscriptions:
             del self._subscriptions[concatenated_name]
         self._locker.release()
-        self.sendMessage({"removed": "Stream removed from context: " + concatenated_name})
+        self.sendMessage({"removed": 'Stream ' + concatenated_name + ' removed from context'})
 
     def send_notification_message(self, concatenated_name, schema_name, stream_name, count):
         self._locker.acquire_read()
         if concatenated_name in self._subscriptions:
             self._locker.release()
             self.sendMessage({'notification': {'schema': schema_name, 'stream': stream_name, 'tuples': count}})
-            add_log(20, ''.join(['Stream notification sent to client ', self.address[0]]))
+            add_log(20, ''.join(['Stream ', concatenated_name, ' notification sent to client ', self.address[0]]))
         else:
             self._locker.release()
 
     def read_stream_batch(self, concatenated_name, basket_number, limit, offset):
-        stream = Streams_context.get_existing_stream(concatenated_name)
-        self.sendMessage(stream.read_tuples(basket_number, limit, offset))
+        try:
+            stream = Streams_context.get_existing_stream(concatenated_name)
+            self.sendMessage(stream.read_tuples(basket_number, limit, offset))
+        except BaseException as ex:
+            self.sendMessage({"error": ex})
+            add_log(50, ex)
 
 
 def init_websockets(host, port):
