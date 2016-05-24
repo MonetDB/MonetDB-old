@@ -11,27 +11,28 @@ from Streams.jsonschemas import CREATE_STREAMS_SCHEMA, DELETE_STREAMS_SCHEMA
 from Streams.streamscontext import IOTStreamsContext
 from Settings.iotlogger import add_log
 
-Streams_Context = None
-Create_Streams_Validator = None
-Delete_Streams_Validator = None
+Streams_Context = IOTStreamsContext()
+Create_Streams_Validator = Draft4Validator(CREATE_STREAMS_SCHEMA, format_checker=FormatChecker())
+Delete_Streams_Validator = Draft4Validator(DELETE_STREAMS_SCHEMA, format_checker=FormatChecker())
 Local_Timezone = get_localzone()  # for the correction of dates we must add the system's timezone
 
 
 def init_rest_resources():
-    global Streams_Context, Create_Streams_Validator, Delete_Streams_Validator, Local_Timezone
+    global Streams_Context
 
-    Create_Streams_Validator = Draft4Validator(CREATE_STREAMS_SCHEMA, format_checker=FormatChecker())
-    Delete_Streams_Validator = Draft4Validator(DELETE_STREAMS_SCHEMA, format_checker=FormatChecker())
     try:
         Streams_Context = IOTStreamsContext()
     except BaseException as ex:
-        print >> sys.stdout, ex
+        print ex
         add_log(50, ex)
         sys.exit(1)
 
 
 class StreamInput(Resource):
     """RESTful API for stream's input"""
+
+    def __init__(self):
+        super(StreamInput, self).__init__()
 
     def get(self, schema_name, stream_name):  # check a single stream data
         try:  # check if stream exists, if not return 404
@@ -60,6 +61,9 @@ class StreamInput(Resource):
 
 class StreamsInfo(Resource):
     """Collect all streams information"""
+
+    def __init__(self):
+        super(StreamsInfo, self).__init__()
 
     def get(self):  # get all streams data
         return Streams_Context.get_streams_data(), 200

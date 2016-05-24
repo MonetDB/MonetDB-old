@@ -3,23 +3,22 @@ import sys
 
 import os
 
-if sys.platform in ("linux", "linux2", "darwin"):
-    logging_location = '/var/log/iot/iotapi.log'
-elif sys.platform == "win32":
-    logging_location = os.path.join(os.path.dirname(__file__), os.pardir, 'iotapi.log')
-
-logger = logging.getLogger("IOTAPILog")
+Logger = logging.getLogger("IOTAPILog")
 
 
-def set_logging_location(new_location):
-    global logging_location
-    logging_location = new_location
+def init_logging(new_location):
+    global Logger
 
+    if new_location is None:
+        if sys.platform in ("linux", "linux2", "darwin"):
+            logging_location = '/var/log/iot/iotapi.log'
+        elif sys.platform == "win32":
+            logging_location = os.path.join(os.path.dirname(__file__), os.pardir, 'iotapi.log')
+    else:
+        logging_location = new_location
 
-def init_logging():
-    global logger
     try:
-        logger = logging.getLogger("IOTLog")
+        logger = logging.getLogger("IOTAPILog")
         logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
@@ -35,4 +34,4 @@ def init_logging():
 
 
 def add_log(lvl, message, *args, **kwargs):
-    logger.log(lvl, message, *args, **kwargs)
+    Logger.log(lvl, message, *args, **kwargs)

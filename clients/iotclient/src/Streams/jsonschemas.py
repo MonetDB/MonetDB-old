@@ -5,6 +5,7 @@ TIME_REGEX = "^([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])\.\d{3}$"
 
 TIMED_FLUSH_IDENTIFIER = "time"
 TUPLE_FLUSH_IDENTIFIER = "tuple"
+AUTO_FLUSH_IDENTIFIER = "auto"
 
 UNBOUNDED_TEXT_TYPES = ["text", "string", "clob", "character large object"]
 BOUNDED_TEXT_TYPES = ["char", "character", "varchar", "character varying"]
@@ -46,6 +47,12 @@ STREAM_SCHEMA = {
                     "number": {"type": "integer", "minimum": 1}
                 },
                 "required": ["base", "number"],
+                "additionalProperties": False
+            }, {
+                "properties": {
+                    "base": {"type": "string", "enum": [AUTO_FLUSH_IDENTIFIER]},
+                },
+                "required": ["base"],
                 "additionalProperties": False
             }]
         },

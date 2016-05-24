@@ -3,9 +3,10 @@ import collections
 
 from Settings.filesystem import get_configfile_location
 from Utilities.readwritelock import RWLock
+from streamscreator import validate_schema_and_create_stream
 from jsonschema import Draft4Validator, FormatChecker
 from jsonschemas import CONFIG_FILE_SCHEMA
-from streamscreator import validate_schema_and_create_stream
+
 
 Config_File_Location = None
 Config_File_Validator = None
@@ -29,7 +30,6 @@ class IOTStreamsContext(object):
     def __init__(self):
         self._locker = RWLock()
         self._context = collections.OrderedDict()  # dictionary of schema_name + '.' + stream_name -> DataCellStream
-        self.reload_config_file()
 
     def reload_config_file(self):  # the write lock must be set before running this method!!! (except on the beginning)
         with open(get_configfile_location(), 'r') as infile:  # read the config searching for existing streams
@@ -52,7 +52,7 @@ class IOTStreamsContext(object):
             value.start_stream()
 
     def update_config_file(self):  # the write lock must be set before running this method!!!
-        data = [value.get_data_dictionary(include_number_tuples=False) for value in self._context.values()]
+        data = [value.get_data_dictionary() for value in self._context.values()]
         with open(get_configfile_location(), 'w') as outfile:  # re-write the whole config file
             json.dump(data, outfile)
 

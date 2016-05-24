@@ -4,8 +4,8 @@ from jsonschema import Draft4Validator, FormatChecker
 from datatypes import *
 from jsonschemas import UNBOUNDED_TEXT_TYPES, BOUNDED_TEXT_TYPES, SMALL_INTEGERS, HUGE_INTEGER, \
     FLOATING_POINT_PRECISION_TYPES, DECIMAL_TYPES, DATE_TYPE, TIME_TYPE, TIMESTAMP_TYPE, BOOLEAN_TYPE, INET_TYPE, \
-    INET6_TYPE, MAC_TYPE, URL_TYPE, UUID_TYPE, REGEX_TYPE, ENUM_TYPE, TIMED_FLUSH_IDENTIFIER
-from streams import TupleBasedStream, TimeBasedStream
+    INET6_TYPE, MAC_TYPE, URL_TYPE, UUID_TYPE, REGEX_TYPE, ENUM_TYPE, TIMED_FLUSH_IDENTIFIER, TUPLE_FLUSH_IDENTIFIER
+from streams import TupleBasedStream, TimeBasedStream, AutoFlushedStream
 
 
 class ColumnsValidationException(Exception):
@@ -83,7 +83,10 @@ def validate_schema_and_create_stream(schema, created=False):
     flushing_object = schema['flushing']  # check the flush method
     if flushing_object['base'] == TIMED_FLUSH_IDENTIFIER:
         return TimeBasedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
-                              validation_schema=json_schema, created=created, interval=int(flushing_object['interval']),
-                              time_unit=flushing_object['unit'])
-    return TupleBasedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
-                               validation_schema=json_schema, created=created, limit=int(flushing_object['number']))
+                               validation_schema=json_schema, created=created,
+                               interval=int(flushing_object['interval']), time_unit=flushing_object['unit'])
+    elif flushing_object['base'] == TUPLE_FLUSH_IDENTIFIER:
+        return TupleBasedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
+                            validation_schema=json_schema, created=created, limit=int(flushing_object['number']))
+    return AutoFlushedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
+                            validation_schema=json_schema, created=created)

@@ -1,34 +1,26 @@
 import sys
-
 import os
 
 from iotlogger import add_log
 
-BASKETS_BASE_DIRECTORY = "baskets"
-
-if sys.platform in ("linux", "linux2", "darwin"):
-    Filesystem_Location = '/etc/iotcollector'
-elif sys.platform == "win32":
-    Filesystem_Location = os.path.join(os.path.dirname(__file__), os.pardir)
-
 Baskets_Location = None
 
 
-def set_filesystem_location(new_location):
-    global Filesystem_Location
-    Filesystem_Location = new_location
-
-
-def init_file_system():
+def init_file_system(new_location=None):
     global Baskets_Location
 
+    if new_location is None:
+        if sys.platform in ("linux", "linux2", "darwin"):
+            new_location = '/etc/iotcollector'
+        elif sys.platform == "win32":
+            new_location = os.path.join(os.path.dirname(__file__), os.pardir)
+    else:
+        new_location = new_location
+
     try:
-        Baskets_Location = os.path.join(Filesystem_Location, BASKETS_BASE_DIRECTORY)
+        Baskets_Location = os.path.join(new_location, "baskets")
         if not os.path.exists(Baskets_Location):
             os.makedirs(Baskets_Location)
-
-        if not os.path.exists(Filesystem_Location):
-            os.makedirs(Filesystem_Location)
     except (Exception, OSError) as ex:
         print >> sys.stdout, ex
         add_log(50, ex)

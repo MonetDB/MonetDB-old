@@ -3,7 +3,7 @@ import struct
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict, OrderedDict
 
-from Settings.filesystem import get_baskets_base_location, get_host_identifier
+from Settings.filesystem import get_baskets_location
 from Settings.iotlogger import add_log
 from Settings.mapiconnection import mapi_create_stream, mapi_flush_baskets
 from Utilities.filecreator import create_file_if_not_exists
@@ -17,7 +17,9 @@ Timestamps_Handler = TimestampType(name=IMPLICIT_TIMESTAMP_COLUMN_NAME, type="ti
 Extra_columns_SQL = [Timestamps_Handler.create_stream_sql()]  # array for SQL creation
 
 HOST_IDENTIFIER_COLUMN_NAME = 'host_identifier'
+Use_Host_Identifier = False
 Hostname_Bin_Value = None
+
 BASKETS_COUNT_FILE = 'count'
 
 
@@ -29,13 +31,14 @@ def represents_int(s):
         return False
 
 
-def init_streams_hosts():
-    global Hostname_Bin_Value
+def init_streams_hosts(use_host_identifier, host_identifier):
+    global Use_Host_Identifier, Hostname_Bin_Value
 
-    host_identifier = get_host_identifier()
-    if host_identifier is not None:
-        hosts_handler = TextType(name=HOST_IDENTIFIER_COLUMN_NAME, type="text")  # host_identifier
-        Hostname_Bin_Value = hosts_handler.process_values([host_identifier])
+    hosts_handler = TextType(name=HOST_IDENTIFIER_COLUMN_NAME, type="text")  # host_identifier
+    Hostname_Bin_Value = hosts_handler.process_values([host_identifier])
+
+    if use_host_identifier:
+        Use_Host_Identifier = True
         Extra_columns_SQL.append(hosts_handler.create_stream_sql())
 
 
@@ -57,7 +60,7 @@ class BaseIOTStream(object):
         self._columns = columns  # dictionary of name -> data_types
         self._validation_schema = validation_schema  # json validation schema for the inserts
         self._monitor = RWLock()  # baskets lock to protect files (the server is multi-threaded)
-        self._base_path = os.path.join(get_baskets_base_location(), schema_name, stream_name)
+        self._base_path = os.path.join(get_baskets_location(), schema_name, stream_name)
 
         if not os.path.exists(self._base_path):
             os.makedirs(self._base_path)
@@ -76,8 +79,9 @@ class BaseIOTStream(object):
 
         for key in self._columns.keys():  # create files for the columns, timestamp and hostname
             create_file_if_not_exists(os.path.join(self._current_base_path, key))
+
         create_file_if_not_exists(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME))
-        if Hostname_Bin_Value is not None:
+        if Use_Host_Identifier:
             create_file_if_not_exists(os.path.join(self._current_base_path, HOST_IDENTIFIER_COLUMN_NAME))
 
         if created:  # when the stream is reloaded from the config file, the create SQL statement is not sent
@@ -97,8 +101,8 @@ class BaseIOTStream(object):
         self._monitor.acquire_write()
         try:
             self.flush_baskets(last=True)
-        except:
-            pass
+        except BaseException as ex:
+            add_log(50, ex)
         self._monitor.release()
         add_log(20, 'Stopped stream %s.%s' % (self._schema_name, self._stream_name))
 
@@ -135,7 +139,7 @@ class BaseIOTStream(object):
             for key in self._columns.keys():
                 create_file_if_not_exists(os.path.join(self._current_base_path, key))
             create_file_if_not_exists(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME))
-            if Hostname_Bin_Value is not None:
+            if Use_Host_Identifier:
                 create_file_if_not_exists(os.path.join(self._current_base_path, HOST_IDENTIFIER_COLUMN_NAME))
 
     def validate_and_insert(self, new_data, timestamp):
@@ -182,7 +186,7 @@ class BaseIOTStream(object):
         timestamp_bin_value = Timestamps_Handler.process_values([timestamp])
         timestamps_binary_array = ''.join([timestamp_bin_value for _ in xrange(total_tuples)])
 
-        if Hostname_Bin_Value is not None:  # write the host name if applicable
+        if Use_Host_Identifier:  # write the host name if applicable
             hosts_binary_array = ''.join([Hostname_Bin_Value for _ in xrange(total_tuples)])
 
         self._monitor.acquire_write()
@@ -200,7 +204,7 @@ class BaseIOTStream(object):
             time_basket_fp.flush()
             time_basket_fp.close()
 
-            if Hostname_Bin_Value is not None:  # the variable never changes
+            if Use_Host_Identifier:  # the variable never changes
                 hosts_basket_fp = open(os.path.join(self._current_base_path, HOST_IDENTIFIER_COLUMN_NAME), 'ab')
                 hosts_basket_fp.write(hosts_binary_array)
                 hosts_basket_fp.flush()
@@ -280,5 +284,27 @@ class TimeBasedStream(BaseIOTStream):
         super(TimeBasedStream, self).start_stream()
 
     def stop_stream(self):
-        self._local_thread.stop() # stop the time flushing thread
+        self._local_thread.stop()  # stop the time flushing thread
         super(TimeBasedStream, self).stop_stream()
+
+
+class AutoFlushedStream(BaseIOTStream):
+    """Stream with flush every time a new batch is inserted"""
+
+    def __init__(self, schema_name, stream_name, columns, validation_schema, created):
+        super(AutoFlushedStream, self).__init__(schema_name, stream_name, columns, validation_schema, created)
+
+    def get_flushing_dictionary(self):
+        return {'base': 'auto'}
+
+    def validate_and_insert(self, new_data, timestamp):
+        super(AutoFlushedStream, self).validate_and_insert(new_data, timestamp)
+        self._monitor.acquire_write()
+        try:
+            self.flush_baskets(last=False)
+        except BaseException as ex:
+            self._monitor.release()
+            add_log(50, ex)
+        else:
+            self._monitor.release()
+            add_log(20, 'Flushed stream %s.%s baskets' % (self._schema_name, self._stream_name))

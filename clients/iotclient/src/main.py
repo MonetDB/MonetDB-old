@@ -3,17 +3,18 @@ import getpass
 import signal
 import sys
 import time
+import os
 
 from multiprocessing import Process
 from threading import Thread
 from uuid import getnode as get_mac
 from Flask.app import start_flask_iot_app, start_flask_admin_app
 from Flask.restresources import init_rest_resources
-from Settings.filesystem import init_file_system, set_filesystem_location
-from Settings.iotlogger import init_logging, add_log, set_logging_location
+from Settings.filesystem import init_file_system
+from Settings.iotlogger import init_logging, add_log
 from Settings.mapiconnection import init_monetdb_connection, close_monetdb_connection
-from Streams.streamscontext import init_streams_context
 from Streams.streams import init_streams_hosts
+from Streams.streamscontext import init_streams_context
 
 subprocess = None
 
@@ -22,15 +23,14 @@ def signal_handler(signal, frame):
     subprocess.terminate()
 
 
-def start_process(admin_host, admin_port, app_host, app_port, host_identifier, new_configfile_location,
-                  connection_hostname, connection_port, connection_user, connection_password, connection_database):
+def start_process(filesystem_location, logging_location, use_host_identifier, host_identifier, admin_host, admin_port,
+                  app_host, app_port, con_hostname, con_port, con_user, con_password, con_database):
     # WARNING The initiation order must be this!!!
-    init_logging()  # init logging context
-    init_file_system(host_identifier, new_configfile_location)  # init filesystem
-    init_streams_hosts()  # init hostname column for streams
+    init_logging(logging_location)  # init logging context
+    init_file_system(filesystem_location)  # init filesystem
+    init_streams_hosts(use_host_identifier, host_identifier)  # init hostname column for streams
     # init mapi connection
-    init_monetdb_connection(connection_hostname, connection_port, connection_user, connection_password,
-                            connection_database)
+    init_monetdb_connection(con_hostname, con_port, con_user, con_password, con_database)
     init_streams_context()  # init streams context
     init_rest_resources()  # init validators for RESTful requests
 
@@ -50,36 +50,33 @@ def main(argv):
     global subprocess
 
     try:
-        opts, args = getopt.getopt(argv[1:], 'f:l:c:ui:in:ih:ip:ah:ap:h:p:d:u',
-                                   ['filesystem=', 'log=', 'config=', 'useidentifier', 'name='
-                                    'ihost=', 'iport=', 'ahost=', 'aport=',
-                                    'host=', 'port=', 'database=', 'user='])
+        opts, args = getopt.getopt(argv[1:], 'f:l:ui:in:ih:ip:ah:ap:h:p:d:u',
+                                   ['filesystem=', 'log=', 'useidentifier', 'name=', 'ihost=', 'iport=', 'ahost=',
+                                    'aport=', 'host=', 'port=', 'database=', 'user='])
     except getopt.GetoptError:
-        print >> sys.stdout, "Error while parsing the arguments!"
+        print 'Error while parsing the arguments!'
         sys.exit(1)
 
-    app_host = '0.0.0.0'
-    app_port = 8000
-
-    admin_host = '127.0.0.1'
-    admin_port = 8001
-
-    connection_hostname = '127.0.0.1'
-    connection_port = 50000
-    connection_user = 'monetdb'
-    connection_database = 'iotdb'
-
-    new_configfile_location = None
+    filesystem_location = None
+    logging_location = None
     use_host_identifier = False
     host_identifier = None
 
+    app_host = '0.0.0.0'
+    app_port = 8000
+    admin_host = '127.0.0.1'
+    admin_port = 8001
+
+    con_hostname = '127.0.0.1'
+    con_port = 50000
+    con_user = 'monetdb'
+    con_database = 'iotdb'
+
     for opt, arg in opts:
         if opt in ('-f', '--filesystem'):
-            set_filesystem_location(arg)
+            filesystem_location = arg
         elif opt in ('-l', '--log'):
-            set_logging_location(arg)
-        elif opt in ('-c', '--config'):
-            new_configfile_location = arg
+            logging_location = arg
         elif opt in ('-ui', '--useidentifier'):
             use_host_identifier = True
         elif opt in ('-in', '--name'):
@@ -95,23 +92,22 @@ def main(argv):
             admin_port = int(arg)
 
         elif opt in ('-h', '--host'):
-            connection_hostname = arg
+            con_hostname = arg
         elif opt in ('-p', '--port'):
-            connection_port = int(arg)
+            con_port = int(arg)
         elif opt in ('-u', '--user'):
-            connection_user = arg
+            con_user = arg
         elif opt in ('-d', '--database'):
-            connection_database = arg
+            con_database = arg
 
-    if use_host_identifier and host_identifier is None:  # get the machine MAC address as default identifier
+    if host_identifier is None:  # get the machine MAC address as default identifier
         host_identifier = ':'.join(("%012X" % get_mac())[i:i + 2] for i in range(0, 12, 2))
-    if not use_host_identifier:  # in case of the user sets the host_identifier but not the use_host_identifier flag
-        host_identifier = None
+        print 'Using host identifier: ', host_identifier, os.linesep
 
-    connection_password = getpass.getpass(prompt='Insert password for user ' + connection_user + ':')
-    subprocess = Process(target=start_process, args=(admin_host, admin_port, app_host, app_port, host_identifier,
-                                                     new_configfile_location, connection_hostname, connection_port,
-                                                     connection_user, connection_password, connection_database))
+    con_password = getpass.getpass(prompt='Insert password for user ' + con_user + ':')
+    subprocess = Process(target=start_process, args=(filesystem_location, logging_location, use_host_identifier,
+                                                     host_identifier, admin_host, admin_port, app_host, app_port,
+                                                     con_hostname, con_port, con_user, con_password, con_database))
     subprocess.start()
     signal.signal(signal.SIGINT, signal_handler)
     subprocess.join()
