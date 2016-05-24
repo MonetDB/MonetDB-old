@@ -1,19 +1,46 @@
 import getopt
+import getpass
 import signal
 import sys
 
+from multiprocessing import Process
+from threading import Thread
 from Settings.filesystem import init_file_system, set_filesystem_location
 from Settings.iotlogger import init_logging, add_log, set_logging_location
-from Settings.mapiconnection import init_monetdb_connection
+from Settings.mapiconnection import init_monetdb_connection, close_monetdb_connection
 from Streams.streampolling import init_stream_polling_thread
 from WebSockets.websockets import init_websockets, terminate_websockets
 
+subprocess = None
 
-def close_sig_handler(signal, frame):
+
+def signal_handler(signal, frame):
+    subprocess.terminate()
+
+
+def start_process(sockets_host, sockets_port, connection_hostname, connection_port, connection_user,
+                  connection_password, connection_database):
+    # WARNING The initiation order must be this!!!
+    init_logging()  # init logging context
+    init_file_system()  # init filesystem
+    # init mapi connection
+    init_monetdb_connection(connection_hostname, connection_port, connection_user, connection_password,
+                            connection_database)
+    init_stream_polling_thread(60)  # start polling
+
+    thread1 = Thread(target=init_websockets, args=(sockets_host, sockets_port))
+    thread1.start()
+    add_log(20, 'Started IOT API Server')
+    thread1.join()
+
     terminate_websockets()
+    close_monetdb_connection()
+    add_log(20, 'Stopped IOT API Server')
 
 
 def main(argv):
+    global subprocess
+
     try:
         opts, args = getopt.getopt(argv[1:], 'f:l:sh:sp:h:p:d:u',
                                    ['filesystem=', 'log=', 'shost=', 'sport=', 'host=', 'port=', 'database=', 'user='])
@@ -48,18 +75,12 @@ def main(argv):
         elif opt in ('-d', '--database'):
             connection_database = arg
 
-    # WARNING The initiation order must be this!!!
-    init_logging()  # init logging context
-    init_file_system()  # init filesystem
-    # init mapi connection
-    init_monetdb_connection(connection_hostname, connection_port, connection_user, connection_database)
-    init_stream_polling_thread(60)  # start polling
-
-    add_log(20, 'Started IOT API Server')
-    signal.signal(signal.SIGINT, close_sig_handler)
-    init_websockets(sockets_host, sockets_port)
-    add_log(20, 'Stopped IOT API Server')
-
+    connection_password = getpass.getpass(prompt='Insert password for user ' + connection_user + ':')
+    subprocess = Process(target=start_process, args=(sockets_host, sockets_port, connection_hostname, connection_port,
+                                                     connection_user, connection_password, connection_database))
+    subprocess.start()
+    signal.signal(signal.SIGINT, signal_handler)
+    subprocess.join()
 
 if __name__ == "__main__":
     main(sys.argv)

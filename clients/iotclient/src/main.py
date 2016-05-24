@@ -11,7 +11,7 @@ from Flask.app import start_flask_iot_app, start_flask_admin_app
 from Flask.restresources import init_rest_resources
 from Settings.filesystem import init_file_system, set_filesystem_location
 from Settings.iotlogger import init_logging, add_log, set_logging_location
-from Settings.mapiconnection import init_monetdb_connection
+from Settings.mapiconnection import init_monetdb_connection, close_monetdb_connection
 from Streams.streamscontext import init_streams_context
 from Streams.streams import init_streams_hosts
 
@@ -42,6 +42,7 @@ def start_process(admin_host, admin_port, app_host, app_port, host_identifier, n
     add_log(20, 'Started IOT Stream Server')
     thread1.join()
     thread2.join()
+    close_monetdb_connection()
     add_log(20, 'Stopped IOT Stream Server')
 
 
