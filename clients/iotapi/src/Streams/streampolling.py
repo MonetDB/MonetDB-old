@@ -4,7 +4,7 @@ from Settings.mapiconnection import fetch_streams
 from Utilities.customthreading import PeriodicalThread
 from datatypes import *
 from streams import IOTStream
-from streamscontext import Streams_context
+from streamscontext import Streams_Context
 
 SWITCHER = [{'types': ['clob', 'char', 'varchar', 'url'], 'class': 'TextType'},
             {'types': ['tinyint', 'smallint', 'int', 'bigint'], 'class': 'SmallIntegerType'},
@@ -26,12 +26,12 @@ def init_stream_polling_thread(interval):
 
 # elem[0] is schema. elem[1] is name, elem[2] is column name, elem[3] is type, elem[4] is typewidth
 def stream_polling():
-    current_streams = Streams_context.get_existing_streams()
+    current_streams = Streams_Context.get_existing_streams()
     retained_streams = []
     new_streams = {}
     array = fetch_streams()  # TODO check whenever stream's columns are updated
 
-    for key, group in groupby(array, lambda x: Streams_context.get_context_entry_name(x[0], x[1])):
+    for key, group in groupby(array, lambda x: Streams_Context.get_context_entry_name(x[0], x[1])):
         if key not in current_streams:
             columns = {}
 
@@ -47,4 +47,4 @@ def stream_polling():
             retained_streams.append(key)
 
     retained_streams_final = [key for key in current_streams if key in retained_streams]
-    Streams_context.merge_context(retained_streams_final, new_streams)
+    Streams_Context.merge_context(retained_streams_final, new_streams)

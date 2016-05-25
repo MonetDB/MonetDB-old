@@ -43,8 +43,8 @@ Returns a JSON file with details about all the streams currently created on the 
 	      "base": "tuple",
 	      "number": 50
 	    },
-	    "stream": "measures",
-	    "schema": "temperature"
+	    "stream": "temperature",
+	    "schema": "measures"
 	  }
 	]
 
@@ -60,8 +60,8 @@ Bellow is the JSON used to create the stream in streams_:
 .. code-block:: json
 
 	{
-	  "schema": "temperature",
-	  "stream": "measures",
+	  "schema": "measures",
+	  "stream": "temperature",
 	  "flushing": {
 	    "base": "tuple",
 	    "number": 50
@@ -87,8 +87,8 @@ Deletes an existing stream. Only the stream's schema and name are required. To d
 .. code-block:: json
 
 	{
-	  "schema": "temperature",
-	  "stream": "measures"
+	  "schema": "measures",
+	  "stream": "temperature"
 	}
 
 Application Server

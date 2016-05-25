@@ -1,8 +1,8 @@
-.. _starting_webserver:
+.. _starting_webapi:
 
-***********************
-Starting the web server
-***********************
+********************
+Starting the web api
+********************
 
 The packages listened on :code:`requirements.txt` file must be installed before running the server. To avoid conflicts with other versions of the packages existing on the host machine, is recommended to create a Python virtual environment for the server. `About Python virtual environments <http://docs.python-guide.org/en/latest/dev/virtualenvs/>`_.
 
@@ -26,45 +26,29 @@ Paths
 
 **-f - -filesystem=**
 
-Set the filesystem directory where the baskets will be created. By default in UNIX systems is on :code:`/etc/iotclient` directory, while on Windows is on the directory where the :code:`main.py` script was invoked. While bootstrapping the web server, a :code:`baskets` directory is created.
+Set the filesystem directory where the baskets will be created. By default in UNIX systems is on :code:`/etc/iotapi` directory, while on Windows is on the directory where the :code:`main.py` script was invoked.
 
 **-l  - -log=**
 
 Location of logfile. On the logfile is reported when streams are created or removed, when tuples are inserted and when the baskets are flushed. By default in UNIX systems is :code:`/var/log/iot/iotapi.log`, while on Windows is the :code:`iotapi.log` on the directory where the :code:`main.py` script was called.
 
-Host Identifier
----------------
 
-If the *useidentifier* parameter is provided, an extra column on streams will be added with a custom name of the host for later identification. 
+Web API Listening and Behavior
+------------------------------
 
-**-ui  - -useidentifier**
+Customize the Web API server parameters and behavior.
 
-Use a host identifier for every new stream.
-
-**-in  - -name=**
-
-Host identifier name. By default is the host's MAC address.
-
-Web Server Listening
---------------------
-
-For security purposes, two web servers are created by the application. On the administration server it's present operations to create and delete streams, while on application server the insert operations are present instead. The administration server should be listening on the host only, while the application server should be listening to all interfaces.
-
-**-ih  - -ihost=**
+**-sh  - -shost=**
 
 Listening host of the application (IOT) server. By default is on :code:`0.0.0.0`.
 
-**-ip  - -iport=**
+**-sp  - -sport=**
 
-Listening port of the application (IOT) server. By default is on port :code:`8000`.
+Listening port of the application (IOT) server. By default is on port :code:`8002`.
 
-**-ah  - -ahost=**
+**-pi  - -polling=**
 
-Listening host of the administration server. By default is on :code:`127.0.0.1`.
-
-**-ap  - -aport=**
-
-Listening port of the administration server. By default is on port :code:`8001`.
+Set the polling interval to MonetDB database for updates. By default is :code:`60` seconds.
 
 Database Connection
 -------------------

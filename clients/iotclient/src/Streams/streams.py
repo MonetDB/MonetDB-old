@@ -59,7 +59,7 @@ class BaseIOTStream(object):
         self._tuples_in_per_basket = 0  # for efficiency
         self._columns = columns  # dictionary of name -> data_types
         self._validation_schema = validation_schema  # json validation schema for the inserts
-        self._monitor = RWLock()  # baskets lock to protect files (the server is multi-threaded)
+        self._baskets_lock = RWLock()  # baskets lock to protect files (the server is multi-threaded)
         self._base_path = os.path.join(get_baskets_location(), schema_name, stream_name)
 
         if not os.path.exists(self._base_path):
@@ -106,12 +106,12 @@ class BaseIOTStream(object):
         add_log(20, 'Started stream %s.%s' % (self._schema_name, self._stream_name))
 
     def stop_stream(self):
-        self._monitor.acquire_write()
+        self._baskets_lock.acquire_write()
         try:
             self.flush_baskets(last=True)
         except BaseException as ex:
             add_log(50, ex)
-        self._monitor.release()
+        self._baskets_lock.release()
         add_log(20, 'Stopped stream %s.%s' % (self._schema_name, self._stream_name))
 
     @abstractmethod
@@ -119,15 +119,15 @@ class BaseIOTStream(object):
         return {}
 
     def get_data_dictionary(self, include_number_tuples=False):
-        self._monitor.acquire_read()
         dic = OrderedDict({'schema': self._schema_name, 'stream': self._stream_name,
-                           'flushing': self.get_flushing_dictionary(),
                            'columns': [value.to_json_representation() for value in self._columns.values()]})
-
+        self._baskets_lock.acquire_read()
+        flushing = self.get_flushing_dictionary()
         #  when writing the data to config file, we don't serialize the number of tuples inserted on the baskets
         if include_number_tuples:
             dic['tuples_inserted_per_basket'] = self._tuples_in_per_basket
-        self._monitor.release()
+        self._baskets_lock.release()
+        dic['flushing'] = flushing
         return dic
 
     def flush_baskets(self, last=False):  # the monitor has to be acquired in write mode before running this method!!!
@@ -204,7 +204,7 @@ class BaseIOTStream(object):
         if Use_Host_Identifier:  # write the host name if applicable
             hosts_binary_array = ''.join([Hostname_Bin_Value for _ in xrange(total_tuples)])
 
-        self._monitor.acquire_write()
+        self._baskets_lock.acquire_write()
         try:
             for key, inserts in transposed_data.iteritems():  # now write the binary data
                 # open basket in binary mode and append the new entries
@@ -227,10 +227,10 @@ class BaseIOTStream(object):
 
             self._tuples_in_per_basket += total_tuples
         except BaseException as ex:
-            self._monitor.release()
+            self._baskets_lock.release()
             add_log(50, ex)
         else:
-            self._monitor.release()
+            self._baskets_lock.release()
             add_log(20, 'Inserted %d tuples to stream %s.%s' % (total_tuples, self._schema_name, self._stream_name))
 
 
@@ -247,16 +247,16 @@ class TupleBasedStream(BaseIOTStream):
     def validate_and_insert(self, new_data, timestamp):
         super(TupleBasedStream, self).validate_and_insert(new_data, timestamp)
         flag = False
-        self._monitor.acquire_write()
+        self._baskets_lock.acquire_write()
         try:
             if self._tuples_in_per_basket >= self._limit:
                 self.flush_baskets(last=False)
                 flag = True
         except BaseException as ex:
-            self._monitor.release()
+            self._baskets_lock.release()
             add_log(50, ex)
         else:
-            self._monitor.release()
+            self._baskets_lock.release()
             if flag:
                 add_log(20, 'Flushed stream %s.%s baskets' % (self._schema_name, self._stream_name))
 
@@ -281,16 +281,16 @@ class TimeBasedStream(BaseIOTStream):
 
     def time_based_flush(self):
         flag = False
-        self._monitor.acquire_write()
+        self._baskets_lock.acquire_write()
         try:
             if self._tuples_in_per_basket > 0:  # flush only when there are tuples in the baskets
                 self.flush_baskets(last=False)
                 flag = True
         except BaseException as ex:
-            self._monitor.release()
+            self._baskets_lock.release()
             add_log(50, ex)
         else:
-            self._monitor.release()
+            self._baskets_lock.release()
             if flag:
                 add_log(20, 'Flushed stream %s.%s baskets' % (self._schema_name, self._stream_name))
 
@@ -314,12 +314,12 @@ class AutoFlushedStream(BaseIOTStream):
 
     def validate_and_insert(self, new_data, timestamp):
         super(AutoFlushedStream, self).validate_and_insert(new_data, timestamp)
-        self._monitor.acquire_write()
+        self._baskets_lock.acquire_write()
         try:
             self.flush_baskets(last=False)
         except BaseException as ex:
-            self._monitor.release()
+            self._baskets_lock.release()
             add_log(50, ex)
         else:
-            self._monitor.release()
+            self._baskets_lock.release()
             add_log(20, 'Flushed stream %s.%s baskets' % (self._schema_name, self._stream_name))

@@ -13,7 +13,7 @@ def init_file_system(new_location=None):
 
     if new_location is None:
         if sys.platform in ("linux", "linux2", "darwin"):
-            filesystem_location = '/etc/iotcollector'
+            filesystem_location = '/etc/iotclient'
         elif sys.platform == "win32":
             filesystem_location = os.path.join(os.path.dirname(__file__), os.pardir)
     else:

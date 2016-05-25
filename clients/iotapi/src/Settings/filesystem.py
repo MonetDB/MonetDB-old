@@ -11,7 +11,7 @@ def init_file_system(new_location=None):
 
     if new_location is None:
         if sys.platform in ("linux", "linux2", "darwin"):
-            new_location = '/etc/iotcollector'
+            new_location = '/etc/iotapi'
         elif sys.platform == "win32":
             new_location = os.path.join(os.path.dirname(__file__), os.pardir)
     else:
@@ -22,7 +22,7 @@ def init_file_system(new_location=None):
         if not os.path.exists(Baskets_Location):
             os.makedirs(Baskets_Location)
     except (Exception, OSError) as ex:
-        print >> sys.stdout, ex
+        print ex
         add_log(50, ex)
         sys.exit(1)
 

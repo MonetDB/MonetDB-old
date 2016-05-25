@@ -18,14 +18,14 @@ def signal_handler(signal, frame):
     subprocess.terminate()
 
 
-def start_process(filesystem_location, logging_location, sockets_host, sockets_port, connection_hostname, con_port,
-                  con_user, con_password, con_database):
+def start_process(polling_interval, filesystem_location, logging_location, sockets_host, sockets_port,
+                  connection_hostname, con_port, con_user, con_password, con_database):
     # WARNING The initiation order must be this!!!
     init_logging(logging_location)  # init logging context
     init_file_system(filesystem_location)  # init filesystem
     # init mapi connection
     init_monetdb_connection(connection_hostname, con_port, con_user, con_password, con_database)
-    init_stream_polling_thread(60)  # start polling
+    init_stream_polling_thread(polling_interval)  # start polling
 
     thread1 = Thread(target=init_websockets, args=(sockets_host, sockets_port))
     thread1.start()
@@ -41,12 +41,13 @@ def main(argv):
     global subprocess
 
     try:
-        opts, args = getopt.getopt(argv[1:], 'f:l:sh:sp:h:p:d:u',
-                                   ['filesystem=', 'log=', 'shost=', 'sport=', 'host=', 'port=', 'database=', 'user='])
+        opts, args = getopt.getopt(argv[1:], 'pi:f:l:sh:sp:h:p:d:u', ['polling=', 'filesystem=', 'log=', 'shost=',
+                                                                      'sport=', 'host=', 'port=', 'database=', 'user='])
     except getopt.GetoptError:
-        print >> sys.stdout, "Error while parsing the arguments!"
+        print "Error while parsing the arguments!"
         sys.exit(1)
 
+    polling_interval = 60
     filesystem_location = None
     logging_location = None
     sockets_host = '0.0.0.0'
@@ -58,7 +59,9 @@ def main(argv):
     con_database = 'iotdb'
 
     for opt, arg in opts:
-        if opt in ('-f', '--filesystem'):
+        if opt in ('-pi', '--polling'):
+            polling_interval = int(arg)
+        elif opt in ('-f', '--filesystem'):
             filesystem_location = arg
         elif opt in ('-l', '--log'):
             logging_location = arg
@@ -77,8 +80,9 @@ def main(argv):
             con_database = arg
 
     con_password = getpass.getpass(prompt='Insert password for user ' + con_user + ':')
-    subprocess = Process(target=start_process, args=(filesystem_location, logging_location, sockets_host, sockets_port,
-                                                     con_hostname, con_port, con_user, con_password, con_database))
+    subprocess = Process(target=start_process, args=(polling_interval, filesystem_location, logging_location,
+                                                     sockets_host, sockets_port, con_hostname, con_port, con_user,
+                                                     con_password, con_database))
     subprocess.start()
     signal.signal(signal.SIGINT, signal_handler)
     subprocess.join()

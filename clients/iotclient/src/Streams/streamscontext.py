@@ -102,6 +102,7 @@ class IOTStreamsContext(object):
 
     def get_streams_data(self):
         self._locker.acquire_read()
-        res = [value.get_data_dictionary(include_number_tuples=True) for value in self._context.values()]
+        res = {'count': len(self._context),
+               'details': [value.get_data_dictionary(include_number_tuples=True) for value in self._context.values()]}
         self._locker.release()
         return res

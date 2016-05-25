@@ -7,6 +7,7 @@ from Utilities.readwritelock import RWLock
 from WebSockets.websockets import notify_stream_inserts_to_clients
 from watchdog.events import FileSystemEventHandler, DirCreatedEvent, DirDeletedEvent
 from watchdog.observers import Observer
+from collections import OrderedDict
 
 BASKETS_COUNT_FILE = 'count'
 
@@ -46,7 +47,7 @@ class IOTStream(object):
         self._stream_name = stream_name  # name of the stream
         self._columns = columns  # dictionary of name -> data_types
         self._base_path = os.path.join(get_baskets_base_location(), schema_name, stream_name)
-        self._lock = RWLock()
+        self._baskets_lock = RWLock()
         self._baskets = {}  # dictionary of basket_number -> total_tuples
         for name in os.listdir(self._base_path):
             self.append_basket(name)
@@ -60,38 +61,48 @@ class IOTStream(object):
     def get_stream_name(self):
         return self._stream_name
 
+    def get_data_dictionary(self):
+        dic = OrderedDict({'schema': self._schema_name, 'stream': self._stream_name,
+                           'columns': [value.to_json_representation() for value in self._columns.values()]})
+        self._baskets_lock.acquire_read()
+        baskets = {'count': len(self._baskets),
+                   'details': [{'number': k, 'total': v} for k, v in self._baskets.items()]}
+        self._baskets_lock.release()
+        dic['baskets'] = baskets
+        return dic
+
     def append_basket(self, path):
         if represents_int(path):
             with open(os.path.join(self._base_path, path, BASKETS_COUNT_FILE)) as f:
                 count = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + 'i', f.read(4))[0]
-                self._lock.acquire_write()
+                self._baskets_lock.acquire_write()
                 self._baskets[int(path)] = count
-                self._lock.release()
+                self._baskets_lock.release()
                 return count
         return 0
 
     def delete_basket(self, path):
         if represents_int(path):
             number = int(path)
-            self._lock.acquire_write()
+            self._baskets_lock.acquire_write()
             if number in self._baskets:
                 del self._baskets[number]
-            self._lock.release()
+            self._baskets_lock.release()
 
     def get_next_basket_number_tuple(self, basket_number):
-        self._lock.acquire_read()
+        self._baskets_lock.acquire_read()
         if basket_number in self._baskets:
-            self._lock.release()
+            self._baskets_lock.release()
             return basket_number, self._baskets[basket_number]
         else:
             filtered = filter(lambda x: x > basket_number, self._baskets.keys())
             if len(filtered) > 0:
                 min_basket_number = min(filtered)
                 min_basket_tuples = self._baskets[min_basket_number]
-                self._lock.release()
+                self._baskets_lock.release()
                 return min_basket_number, min_basket_tuples
             else:
-                self._lock.release()
+                self._baskets_lock.release()
                 return None, None
 
     def read_tuples(self, basket_number, limit, offset):

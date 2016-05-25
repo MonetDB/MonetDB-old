@@ -52,6 +52,9 @@ class StreamDataType(object):
         file_pointer.close()
         return results
 
+    def to_json_representation(self):  # get a json representation of the data type while checking the stream's info
+        return {'name': self._column_name, 'type': self._data_type}
+
 
 class TextType(StreamDataType):
     """Covers: CHAR, VARCHAR, CLOB and URL"""
