@@ -119,12 +119,17 @@ class UUIDType(StreamDataType):
         iterator = iter(array)
 
         for _ in xrange(limit):
-            next_uuid = ''.join(map(lambda x: "%02x" % x, [next(iterator) for _ in xrange(16)]))
-            next_uuid = ''.join([next_uuid[:8], '-', next_uuid[8:12], '-', next_uuid[12:16], '-', next_uuid[16:20],
-                                 '-', next_uuid[20:]])
-            if next_uuid == NIL_UUID:
-                next_uuid = None
-            results.append(next_uuid)
+            next_uuid = []
+            for i in xrange(20):
+                if i in (4, 7, 10, 13):
+                    next_uuid.append("-")
+                else:
+                    next_uuid.append("%02x" % next(iterator))
+
+            built_uuid = ''.join(next_uuid)
+            if built_uuid == NIL_UUID:
+                built_uuid = None
+            results.append(built_uuid)
         return results
 
 
@@ -178,7 +183,7 @@ class HugeIntegerType(StreamDataType):
         results = []
         iterator = iter(array)  # has to iterate two values at once, so use iterator
         for value in iterator:
-            next_huge = value + (next(iterator) << 64)
+            next_huge = next(iterator) + (value << 64)
             if next_huge == self._nullable_constant:
                 results.append(None)
             else:
@@ -229,7 +234,7 @@ class DecimalType(StreamDataType):
             results = []
             iterator = iter(array)  # has to iterate two values at once, so use iterator
             for value in iterator:
-                next_huge_decimal = value + (next(iterator) << 64)
+                next_huge_decimal = next(iterator) + (value << 64)
                 if next_huge_decimal == self._nullable_constant:
                     results.append(None)
                 else:
@@ -302,8 +307,8 @@ class TimestampType(StreamDataType):  # it's represented with the two integers f
             if value == INT32_MIN and second_value == 0:
                 results.append(None)
             else:  # dates in python start on year 1, so we must subtract one year
-                read_date = date.fromordinal(value) - relativedelta(years=1)
-                div1, milliseconds = divmod(second_value, 1000)
+                read_date = date.fromordinal(second_value) - relativedelta(years=1)
+                div1, milliseconds = divmod(value, 1000)
                 div2, second = divmod(div1, 60)
                 hour, minute = divmod(div2, 60)
                 results.append(datetime.combine(read_date, time(hour=hour, minute=minute, second=second,

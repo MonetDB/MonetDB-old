@@ -84,9 +84,17 @@ class BaseIOTStream(object):
         if Use_Host_Identifier:
             create_file_if_not_exists(os.path.join(self._current_base_path, HOST_IDENTIFIER_COLUMN_NAME))
 
+        # WARNING DELETE this code afterwards is for debugging purposes for now
+        basket_counter_file_pointer = open(os.path.join(self._current_base_path, BASKETS_COUNT_FILE), "w+b")
+        basket_counter_file_pointer.write(struct.pack(LITTLE_ENDIAN_ALIGNMENT + "i",0))
+        basket_counter_file_pointer.flush()
+        basket_counter_file_pointer.close()
+        # END WARNING
+
         if created:  # when the stream is reloaded from the config file, the create SQL statement is not sent
             sql_array = [column.create_stream_sql() for column in self._columns.values()]
             mapi_create_stream(self._schema_name, self._stream_name, ', '.join(sql_array + Extra_columns_SQL))
+            add_log(20, ''.join(['The stream ', self._schema_name, '.', self._stream_name, ' was created']))
 
     def get_schema_name(self):
         return self._schema_name
@@ -135,6 +143,13 @@ class BaseIOTStream(object):
             self._baskets_counter += 1
             self._current_base_path = os.path.join(self._base_path, str(self._baskets_counter))
             os.makedirs(self._current_base_path)
+
+            # WARNING DELETE this code afterwards is for debugging purposes for now
+            basket_counter_file_pointer = open(os.path.join(self._current_base_path, BASKETS_COUNT_FILE), "w+b")
+            basket_counter_file_pointer.write(struct.pack(LITTLE_ENDIAN_ALIGNMENT + "i", 0))
+            basket_counter_file_pointer.flush()
+            basket_counter_file_pointer.close()
+            # END WARNING
 
             for key in self._columns.keys():
                 create_file_if_not_exists(os.path.join(self._current_base_path, key))

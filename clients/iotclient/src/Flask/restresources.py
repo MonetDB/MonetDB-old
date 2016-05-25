@@ -84,8 +84,6 @@ class StreamsHandling(Resource):
             add_log(50, ex)
             return ex, 400
         else:
-            add_log(20, ''.join['The stream ', schema_to_validate['schema'], '.', schema_to_validate['stream'],
-                                ' was created'])
             return 'The stream was created with success!', 201
 
     def delete(self):

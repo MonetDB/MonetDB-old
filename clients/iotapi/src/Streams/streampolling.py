@@ -40,9 +40,9 @@ def stream_polling():
                     if elem[3] in entry['types']:
                         reflection_class = globals()[entry['class']]  # import everything from datatypes!!!
                         new_column = reflection_class(**{'name': elem[2], 'type': elem[3], 'typewidth': elem[4]})
-                        columns[elem[2]] = new_column
-                        new_streams[key] = IOTStream(elem[0], elem[1], **columns)
-                    break
+                        columns[elem[2]] = new_column  # add new column to the dictionary
+                        break
+            new_streams[key] = IOTStream(schema_name=elem[0], stream_name=elem[1], columns=columns)
         else:
             retained_streams.append(key)
 

@@ -5,7 +5,7 @@ from datatypes import LITTLE_ENDIAN_ALIGNMENT
 from Settings.filesystem import get_baskets_base_location
 from Utilities.readwritelock import RWLock
 from WebSockets.websockets import notify_stream_inserts_to_clients
-from watchdog.events import FileSystemEventHandler
+from watchdog.events import FileSystemEventHandler, DirCreatedEvent, DirDeletedEvent
 from watchdog.observers import Observer
 
 BASKETS_COUNT_FILE = 'count'
@@ -27,13 +27,13 @@ class StreamBasketsHandler(FileSystemEventHandler):
         self._stream = stream
 
     def on_created(self, event):  # whenever a basket directory is created, notify to subscribed clients
-        if isinstance(event, 'DirCreatedEvent'):
+        if isinstance(event, DirCreatedEvent):
             basket_string = os.path.basename(os.path.normpath(event.src_path))
             count = self._stream.append_basket(basket_string)
             notify_stream_inserts_to_clients(self._stream.get_schema_name(), self._stream.get_stream_name(), count)
 
     def on_deleted(self, event):
-        if isinstance(event, 'DirDeletedEvent'):
+        if isinstance(event, DirDeletedEvent):
             basket_string = os.path.basename(os.path.normpath(event.src_path))
             self._stream.delete_basket(basket_string)
 
@@ -46,11 +46,10 @@ class IOTStream(object):
         self._stream_name = stream_name  # name of the stream
         self._columns = columns  # dictionary of name -> data_types
         self._base_path = os.path.join(get_baskets_base_location(), schema_name, stream_name)
+        self._lock = RWLock()
         self._baskets = {}  # dictionary of basket_number -> total_tuples
         for name in os.listdir(self._base_path):
             self.append_basket(name)
-        self._lock = RWLock()
-
         self._observer = Observer()
         self._observer.schedule(StreamBasketsHandler(stream=self), self._base_path, recursive=False)
         self._observer.start()
@@ -63,8 +62,8 @@ class IOTStream(object):
 
     def append_basket(self, path):
         if represents_int(path):
-            with open(os.path.join(self._base_path, path)) as f:
-                count = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + '1i', f.read(4))[0]
+            with open(os.path.join(self._base_path, path, BASKETS_COUNT_FILE)) as f:
+                count = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + 'i', f.read(4))[0]
                 self._lock.acquire_write()
                 self._baskets[int(path)] = count
                 self._lock.release()
@@ -124,7 +123,7 @@ class IOTStream(object):
 
                 for key, column in self._columns.iteritems():
                     next_file_name = os.path.join(next_path, key)
-                    results[key].append(column.read_next_tuples(next_file_name, offset, next_read_size))
+                    results[key] += column.read_next_tuples(next_file_name, offset, next_read_size)
 
                 read_tuples += next_read_size
                 offset = 0

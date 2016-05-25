@@ -32,10 +32,6 @@ Set the filesystem directory where the baskets will be created. By default in UN
 
 Location of logfile. On the logfile is reported when streams are created or removed, when tuples are inserted and when the baskets are flushed. By default in UNIX systems is :code:`/var/log/iot/iot.log`, while on Windows is the :code:`iot.log` on the directory where the :code:`main.py` script was called.
 
-**-c  - -config=**
-
-Location of the JSON file where the information of existing streams on the server will be stored. By default is the :code:`config.json` file on filesystem directory.
-
 Host Identifier
 ---------------
 

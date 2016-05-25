@@ -43,7 +43,7 @@ An *Uniform Resource Locator* as a specific type of an URI is validated accordin
 Inet
 ----
 
-An *IPv4* address. The insertion as a JSON string is validated against the regular expression :code:`^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$` with further semantic validation.
+An *IPv4* address. The insertion as a JSON string is validated against the regular expression :code:`^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}(?:\/[0-2]\d|\/3[0-2])?$`.
 
 InetSix
 -------
