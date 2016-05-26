@@ -15,8 +15,8 @@ The client must always provide a JSON string in a request with a request field i
 
 The following sections explain the available :code:`request` fields.
 
-sub
----
+sub/subscribe
+-------------
 
 Subscribes for new basket creations from a specific stream. Whenever a basket is created, the server sends a notification message indicating the number of inserted tuples in the new basket. The user has to specify the stream's name and schema. To subscribe to a temperature stream, the following would suffice:
 
@@ -28,8 +28,8 @@ Subscribes for new basket creations from a specific stream. Whenever a basket is
         "stream": "temperature"
     }
 
-unsub
------
+unsub/unsubscribe
+-----------------
 
 Unsubscribes a previous subscribed stream for a client. The user has to specify the stream's name and schema. The example is the same as above, just changing the request keyword.
 
@@ -86,7 +86,7 @@ An internal error occurred in the server during a client's request. The :code:`m
 
     {
         "response": "error",
-        "message": "Stream measures.temperature not present in the user's subscriptions!"
+        "message": "Stream measures.temperature is not present in the user's subscriptions!"
     }
 
 subscribed
@@ -146,7 +146,7 @@ Notification of a new basket creation from a subscribed stream. The message cont
 read
 ----
 
-Response message for a read query. Contains the reconstructed tuples listening. The tuples are listened in the say they are inserted in the RESTful webserver. If a column has a null value, the JSON's :code:`null` value will be listened. A possible query result for the above stream:
+Response message for a read query. Contains the reconstructed tuples listening. The tuples are listened in the say they are inserted in the RESTful Webserver. If a column has a null value, the JSON's :code:`null` value will be listened. A possible query result for the above stream:
 
 .. code-block:: json
 
@@ -174,7 +174,7 @@ Response message for a read query. Contains the reconstructed tuples listening. 
 info
 ----
 
-Message with details about a stream including both columns and baskets details. Note that the possible types list are restricted to the MonetDB kernel.  A possible example for the above stream:
+Message with details about a stream including both columns and baskets details. Note that the possible types list are restricted to the MonetDB kernel. A possible example for the above stream:
 
 .. code-block:: json
 
@@ -212,7 +212,7 @@ Message with details about a stream including both columns and baskets details. 
 data
 ----
 
-Return a info messaging regarding all the streams in the system. An example with the temperatures stream:
+Returns a info message regarding all the streams in the system. An example with the temperatures stream:
 
 .. code-block:: json
 

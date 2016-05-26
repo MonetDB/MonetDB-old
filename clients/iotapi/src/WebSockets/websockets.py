@@ -69,7 +69,7 @@ class IOTAPI(WebSocket):
             elif input_schema['request'] in UNSUBSCRIBE_OPTS:
                 self.unsubscribe(input_schema['schema'], input_schema['stream'])
             elif input_schema['request'] in READ_OPTS:
-                self.read_stream_batch(input_schema['schema'],input_schema['stream'], int(input_schema['basket']),
+                self.read_stream_batch(input_schema['schema'], input_schema['stream'], int(input_schema['basket']),
                                        int(input_schema['limit']), int(input_schema['offset']))
             elif input_schema['request'] in INFO_OPTS:
                 if len(input_schema) == 1:  # get all streams information
@@ -95,7 +95,7 @@ class IOTAPI(WebSocket):
         if concatenated_name not in self._subscriptions:
             self._subscriptions_locker.release()
             self.sendJSONMessage(response="error", message={"message": "Stream " + concatenated_name +
-                                                                       " not present in the user's subscriptions!"})
+                                                                       " is not present in the user's subscriptions!"})
         else:
             del self._subscriptions[concatenated_name]
             self._subscriptions_locker.release()
