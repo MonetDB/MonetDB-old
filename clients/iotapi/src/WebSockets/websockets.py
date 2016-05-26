@@ -26,11 +26,10 @@ def unsubscribe_removed_streams(concatenated_names):
 from Streams.streamscontext import Streams_Context, IOTStreams  # avoid circular dependency
 
 
-def notify_stream_inserts_to_clients(schema_name, stream_name, count):
-    concatenated_name = IOTStreams.get_context_entry_name(schema_name, stream_name)
+def notify_stream_inserts_to_clients(schema_name, stream_name, basket_number, count):
     WebClientsLock.acquire_read()
     for client in WebClients:
-        client.send_notification_message(concatenated_name, schema_name, stream_name, count)
+        client.send_notification_message(schema_name, stream_name, basket_number, count)
     WebClientsLock.release()
 
 
@@ -43,8 +42,8 @@ class IOTAPI(WebSocket):
         self._subscriptions_locker = RWLock()
 
     def sendJSONMessage(self, response, message):  # IMPORTANT always use this method to send messages to clients!!!!!
-        json_message = json.dumps({'response': response, 'message': message})
-        super(IOTAPI, self).sendMessage(json_message)  # send JSON Strings to clients
+        message['response'] = response
+        super(IOTAPI, self).sendMessage(json.dumps(message))  # send JSON Strings to clients
 
     def handleConnected(self):  # overriden
         WebClientsLock.acquire_write()
@@ -60,75 +59,77 @@ class IOTAPI(WebSocket):
 
     def handleMessage(self):  # overriden
         if self.opcode != 0x1:  # TEXT frame
-            self.sendJSONMessage(response="error", message="Only TEXT frames allowed!")
+            self.sendJSONMessage(response="error", message={"message": "Only TEXT frames allowed!"})
         try:
             input_schema = json.loads(self.data)
             Client_Messages_Validator.validate(input_schema)
 
             if input_schema['request'] in SUBSCRIBE_OPTS:
-                self.subscribe(IOTStreams.get_context_entry_name(input_schema['schema'], input_schema['stream']))
+                self.subscribe(input_schema['schema'], input_schema['stream'])
             elif input_schema['request'] in UNSUBSCRIBE_OPTS:
-                self.unsubscribe(IOTStreams.get_context_entry_name(input_schema['schema'], input_schema['stream']))
+                self.unsubscribe(input_schema['schema'], input_schema['stream'])
             elif input_schema['request'] in READ_OPTS:
-                concatenated_name = IOTStreams.get_context_entry_name(input_schema['schema'], input_schema['stream'])
-                self.read_stream_batch(concatenated_name, int(input_schema['basket']), int(input_schema['limit']),
-                                       int(input_schema['offset']))
+                self.read_stream_batch(input_schema['schema'],input_schema['stream'], int(input_schema['basket']),
+                                       int(input_schema['limit']), int(input_schema['offset']))
             elif input_schema['request'] in INFO_OPTS:
                 if len(input_schema) == 1:  # get all streams information
                     self.get_streams_data()
                 else:
-                    self.get_stream_info(IOTStreams.get_context_entry_name(input_schema['schema'],
-                                                                           input_schema['stream']))
+                    self.get_stream_info(input_schema['schema'], input_schema['stream'])
         except BaseException as ex:
-            self.sendJSONMessage(response="error", message=ex)
+            self.sendJSONMessage(response="error", message={"message": str(ex)})
             add_log(50, ex)
 
-    def subscribe(self, concatenated_name):
+    def subscribe(self, schema_name, stream_name):
+        concatenated_name = IOTStreams.get_context_entry_name(schema_name, stream_name)
         stream = Streams_Context.get_existing_stream(concatenated_name)
         self._subscriptions_locker.acquire_write()
         self._subscriptions[concatenated_name] = stream
         self._subscriptions_locker.release()
-        self.sendJSONMessage(response="subscribed", message="Subscribed to " + concatenated_name)
+        self.sendJSONMessage(response="subscribed", message={'schema': schema_name, 'stream': stream_name})
         add_log(20, ''.join(['Client ', self.address[0], 'subscribed to stream ', concatenated_name]))
 
-    def unsubscribe(self, concatenated_name):
+    def unsubscribe(self, schema_name, stream_name):
+        concatenated_name = IOTStreams.get_context_entry_name(schema_name, stream_name)
         self._subscriptions_locker.acquire_write()
         if concatenated_name not in self._subscriptions:
             self._subscriptions_locker.release()
-            self.sendJSONMessage(response="error", message="Stream " + concatenated_name +
-                                                           " not present in subscriptions!")
+            self.sendJSONMessage(response="error", message={"message": "Stream " + concatenated_name +
+                                                                       " not present in the user's subscriptions!"})
         else:
             del self._subscriptions[concatenated_name]
             self._subscriptions_locker.release()
-            self.sendJSONMessage(response="unsubscribed", message="Unsubscribed to " + concatenated_name)
+            self.sendJSONMessage(response="unsubscribed", message={'schema': schema_name, 'stream': stream_name})
             add_log(20, ''.join(['Client ', self.address[0], ' unsubscribed to stream ', concatenated_name]))
 
     def remove_subscribed_stream(self, concatenated_name):
+        names = concatenated_name.split('.')
         self._subscriptions_locker.acquire_write()
         if concatenated_name in self._subscriptions:
             del self._subscriptions[concatenated_name]
         self._subscriptions_locker.release()
-        self.sendJSONMessage(response="removed", message='Stream ' + concatenated_name + ' removed from context')
+        self.sendJSONMessage(response="removed", message={'schema': names[0], 'stream': names[1]})
 
-    def send_notification_message(self, concatenated_name, schema_name, stream_name, count):
+    def send_notification_message(self, schema_name, stream_name, basket_number, count):
+        concatenated_name = IOTStreams.get_context_entry_name(schema_name, stream_name)
         self._subscriptions_locker.acquire_read()
         if concatenated_name in self._subscriptions:
             self._subscriptions_locker.release()
-            self.sendJSONMessage(response="notification",
-                                 message={'schema': schema_name, 'stream': stream_name, 'tuples': count})
+            self.sendJSONMessage(response="notification", message={'schema': schema_name, 'stream': stream_name,
+                                                                   'basket': basket_number, 'count': count})
             add_log(20, ''.join(['Stream ', concatenated_name, ' notification sent to client ', self.address[0]]))
         else:
             self._subscriptions_locker.release()
 
-    def read_stream_batch(self, concatenated_name, basket_number, limit, offset):
-        stream = Streams_Context.get_existing_stream(concatenated_name)
+    def read_stream_batch(self, schema_name, stream_name, basket_number, limit, offset):
+        stream = Streams_Context.get_existing_stream(IOTStreams.get_context_entry_name(schema_name, stream_name))
         self.sendJSONMessage(response="read", message=stream.read_tuples(basket_number, limit, offset))
 
     def get_streams_data(self):
         self.sendJSONMessage(response="data", message=Streams_Context.get_streams_data())
 
-    def get_stream_info(self, concatenated_name):
-        stream = Streams_Context.get_existing_stream(concatenated_name)
+    def get_stream_info(self, schema_name, stream_name):
+        stream = Streams_Context.get_existing_stream(IOTStreams.get_context_entry_name(schema_name, stream_name))
         self.sendJSONMessage(response="info", message=stream.get_data_dictionary())
 
 

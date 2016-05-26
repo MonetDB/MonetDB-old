@@ -31,7 +31,8 @@ class StreamBasketsHandler(FileSystemEventHandler):
         if isinstance(event, DirCreatedEvent):
             basket_string = os.path.basename(os.path.normpath(event.src_path))
             count = self._stream.append_basket(basket_string)
-            notify_stream_inserts_to_clients(self._stream.get_schema_name(), self._stream.get_stream_name(), count)
+            notify_stream_inserts_to_clients(self._stream.get_schema_name(), self._stream.get_stream_name(),
+                                             int(basket_string), count)
 
     def on_deleted(self, event):
         if isinstance(event, DirDeletedEvent):
@@ -65,10 +66,11 @@ class IOTStream(object):
         dic = OrderedDict({'schema': self._schema_name, 'stream': self._stream_name,
                            'columns': [value.to_json_representation() for value in self._columns.values()]})
         self._baskets_lock.acquire_read()
-        baskets = {'count': len(self._baskets),
-                   'details': [{'number': k, 'total': v} for k, v in self._baskets.items()]}
+        count = len(self._baskets)
+        listing = [{'number': k, 'count': v} for k, v in self._baskets.items()]
         self._baskets_lock.release()
-        dic['baskets'] = baskets
+        dic['baskets_count'] = count
+        dic['baskets_listing'] = listing
         return dic
 
     def append_basket(self, path):
@@ -142,4 +144,4 @@ class IOTStream(object):
 
         keys = results.keys()  # TODO check if this is viable for many tuples!!
         tuples = [dict(zip(keys, values)) for values in zip(*(results[k] for k in keys))]
-        return {'total': read_tuples, 'tuples': tuples}
+        return {'schema': self._schema_name, 'stream': self._stream_name, 'count': read_tuples, 'tuples': tuples}
