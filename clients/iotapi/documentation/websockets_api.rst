@@ -185,11 +185,14 @@ Message with details about a stream including both columns and baskets details. 
         "columns": [
             {
                 "name": "sensorid",
-                "type": "clob"
+                "type": "clob",
+                "nullable": false,
+                "default": "living room"
             },
             {
                 "name": "temperature",
-                "type": "real"
+                "type": "real",
+                "nullable": false
             }
         ],
         "baskets_count": 3,
@@ -225,11 +228,14 @@ Returns a info message regarding all the streams in the system. An example with 
             "columns": [
                 {
                     "name": "sensorid",
-                    "type": "clob"
+                    "type": "clob",
+                    "nullable": false,
+                    "default": "living room"
                 },
                 {
                     "name": "temperature",
-                    "type": "real"
+                    "type": "real",
+                    "nullable": false
                 }
             ],
             "baskets_count": 3,

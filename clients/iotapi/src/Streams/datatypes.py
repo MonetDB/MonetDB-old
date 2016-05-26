@@ -20,13 +20,17 @@ FLOAT_NAN = struct.unpack('f', '\xff\xff\x7f\xff')[0]
 DOUBLE_NAN = struct.unpack('d', '\xff\xff\xff\xff\xff\xff\xef\xff')[0]
 
 
+# elem[0] is column name, elem[1] is type, elem[2] is type_digits, elem[3] is type_scale elem[4] is default value
+# elem[5] is nullable
 class StreamDataType(object):
     """MonetDB's data types for reading base class"""
     __metaclass__ = ABCMeta
 
-    def __init__(self, **kwargs):
-        self._column_name = kwargs['name']  # name of the column
-        self._data_type = kwargs['type']  # SQL name of the type
+    def __init__(self, *args):
+        self._column_name = args[0]  # name of the column
+        self._data_type = args[1]  # SQL name of the type
+        self._default_value = args[4]  # default value text
+        self._is_nullable = args[5]  # is nullable
 
     def is_file_mode_binary(self):
         return True
@@ -53,14 +57,17 @@ class StreamDataType(object):
         return results
 
     def to_json_representation(self):  # get a json representation of the data type while checking the stream's info
-        return {'name': self._column_name, 'type': self._data_type}
+        dic = {'name': self._column_name, 'type': self._data_type, 'nullable': self._is_nullable}
+        if self._default_value is not None:
+            dic['default'] = self._default_value
+        return dic
 
 
 class TextType(StreamDataType):
-    """Covers: CHAR, VARCHAR, CLOB and URL"""
+    """Covers: CLOB and Url"""
 
-    def __init__(self, **kwargs):
-        super(TextType, self).__init__(**kwargs)
+    def __init__(self, *args):
+        super(TextType, self).__init__(*args)
         self._nullable_constant = NIL_STRING
 
     def is_file_mode_binary(self):
@@ -81,11 +88,24 @@ class TextType(StreamDataType):
         return array
 
 
+class LimitedTextType(TextType):
+    """Covers: CHAR and VARCHAR"""
+
+    def __init__(self, *args):
+        super(LimitedTextType, self).__init__(*args)
+        self._limit = args[2]
+
+    def to_json_representation(self):
+        json_value = super(LimitedTextType, self).to_json_representation()
+        json_value['limit'] = self._limit
+        return json_value
+
+
 class INetType(StreamDataType):
     """Covers: Inet"""
 
-    def __init__(self, **kwargs):
-        super(INetType, self).__init__(**kwargs)
+    def __init__(self, *args):
+        super(INetType, self).__init__(*args)
 
     def skip_tuples(self, file_pointer, offset):
         file_pointer.seek(offset << 3)
@@ -109,8 +129,8 @@ class INetType(StreamDataType):
 class UUIDType(StreamDataType):
     """Covers: UUID"""
 
-    def __init__(self, **kwargs):
-        super(UUIDType, self).__init__(**kwargs)
+    def __init__(self, *args):
+        super(UUIDType, self).__init__(*args)
 
     def skip_tuples(self, file_pointer, offset):
         file_pointer.seek(offset << 4)
@@ -139,8 +159,8 @@ class UUIDType(StreamDataType):
 class BooleanType(StreamDataType):
     """Covers: BOOLEAN"""
 
-    def __init__(self, **kwargs):
-        super(BooleanType, self).__init__(**kwargs)
+    def __init__(self, *args):
+        super(BooleanType, self).__init__(*args)
         self._nullable_constant = INT8_MIN
 
     def skip_tuples(self, file_pointer, offset):
@@ -154,8 +174,8 @@ class BooleanType(StreamDataType):
 class SmallIntegerType(StreamDataType):
     """Covers: TINYINT, SMALLINT, INTEGER, BIGINT"""
 
-    def __init__(self, **kwargs):
-        super(SmallIntegerType, self).__init__(**kwargs)
+    def __init__(self, *args):
+        super(SmallIntegerType, self).__init__(*args)
         self._pack_sym = {'tinyint': 'b', 'smallint': 'h', 'int': 'i', 'integer': 'i', 'bigint': 'q'} \
             .get(self._data_type)
         self._size = struct.calcsize(self._pack_sym)
@@ -174,8 +194,8 @@ class SmallIntegerType(StreamDataType):
 class HugeIntegerType(StreamDataType):
     """Covers: HUGEINT"""
 
-    def __init__(self, **kwargs):
-        super(HugeIntegerType, self).__init__(**kwargs)
+    def __init__(self, *args):
+        super(HugeIntegerType, self).__init__(*args)
         self._nullable_constant = INT128_MIN
 
     def skip_tuples(self, file_pointer, offset):
@@ -197,8 +217,8 @@ class HugeIntegerType(StreamDataType):
 class FloatType(StreamDataType):
     """Covers: REAL, DOUBLE"""
 
-    def __init__(self, **kwargs):
-        super(FloatType, self).__init__(**kwargs)
+    def __init__(self, *args):
+        super(FloatType, self).__init__(*args)
         self._pack_sym = {'real': 'f', 'float': 'd', 'double': 'd'}.get(self._data_type)
         self._size = struct.calcsize(self._pack_sym)
         self._nullable_constant = {'real': FLOAT_NAN, 'float': DOUBLE_NAN, 'double': DOUBLE_NAN}.get(self._data_type)
@@ -215,12 +235,24 @@ class FloatType(StreamDataType):
 class DecimalType(StreamDataType):
     """Covers: DECIMAL"""
 
-    def __init__(self, **kwargs):
-        super(DecimalType, self).__init__(**kwargs)
+    def __init__(self, *args):
+        super(DecimalType, self).__init__(*args)
+        self._precision = args[2]
+        self._scale = args[3]
 
-        self._pack_sym = {'1': 'b', '2': 'h', '4': 'i', '8': 'q', '16': 'Q'}.get(kwargs['typewidth'])
-        self._nullable_constant = {'1': INT8_MIN, '2': INT16_MIN, '4': INT32_MIN, '8': INT64_MIN, '16': INT128_MIN} \
-            .get(kwargs['typewidth'])
+        if self._precision <= 2:  # calculate the number of bytes to use according to the precision
+            self._pack_sym = 'b'
+        elif 2 < self._precision <= 4:
+            self._pack_sym = 'h'
+        elif 4 < self._precision <= 8:
+            self._pack_sym = 'i'
+        elif 8 < self._precision <= 18:
+            self._pack_sym = 'q'
+        elif 18 < self._precision <= 38:
+            self._pack_sym = 'Q'
+
+        self._nullable_constant = {'b': INT8_MIN, 'h': INT16_MIN, 'i': INT32_MIN, 'q': INT64_MIN, 'Q': INT128_MIN} \
+            .get(self._pack_sym)
         self._size = struct.calcsize(self._pack_sym)
         if self._pack_sym == 'Q':
             self._size <<= 1  # has to read two values at once
@@ -244,12 +276,18 @@ class DecimalType(StreamDataType):
                     results.append(next_huge_decimal)
             return results
 
+    def to_json_representation(self):
+        json_value = super(DecimalType, self).to_json_representation()
+        json_value['precision'] = self._precision
+        json_value['scale'] = self._scale
+        return json_value
+
 
 class DateType(StreamDataType):  # Stored as an uint with the number of days since day 1 of month 1 (Jan) from year 0
     """Covers: DATE"""
 
-    def __init__(self, **kwargs):
-        super(DateType, self).__init__(**kwargs)
+    def __init__(self, *args):
+        super(DateType, self).__init__(*args)
         self._nullable_constant = INT32_MIN
 
     def skip_tuples(self, file_pointer, offset):
@@ -269,8 +307,8 @@ class DateType(StreamDataType):  # Stored as an uint with the number of days sin
 class TimeType(StreamDataType):  # Stored as an uint with the number of milliseconds since hour 00:00:00
     """Covers: TIME"""
 
-    def __init__(self, **kwargs):
-        super(TimeType, self).__init__(**kwargs)
+    def __init__(self, *args):
+        super(TimeType, self).__init__(*args)
         self._nullable_constant = INT32_MIN
 
     def skip_tuples(self, file_pointer, offset):
@@ -290,12 +328,20 @@ class TimeType(StreamDataType):  # Stored as an uint with the number of millisec
                                .isoformat())
         return results
 
+    def to_json_representation(self):
+        json_value = super(TimeType, self).to_json_representation()
+        if self._data_type == 'timez':
+            json_value['with_timezone'] = True
+        else:
+            json_value['with_timezone'] = False
+        return json_value
+
 
 class TimestampType(StreamDataType):  # it's represented with the two integers from time and date
     """Covers: TIMESTAMP"""
 
-    def __init__(self, **kwargs):
-        super(TimestampType, self).__init__(**kwargs)
+    def __init__(self, *args):
+        super(TimestampType, self).__init__(*args)
 
     def skip_tuples(self, file_pointer, offset):
         file_pointer.seek(offset << 3)
@@ -317,3 +363,11 @@ class TimestampType(StreamDataType):  # it's represented with the two integers f
                 results.append(datetime.combine(read_date, time(hour=hour, minute=minute, second=second,
                                                                 microsecond=milliseconds * 1000)).isoformat())
         return results
+
+    def to_json_representation(self):
+        json_value = super(TimestampType, self).to_json_representation()
+        if self._data_type == 'timestamptz':
+            json_value['with_timezone'] = True
+        else:
+            json_value['with_timezone'] = False
+        return json_value

@@ -1,4 +1,3 @@
-import getpass
 import sys
 
 import pymonetdb
@@ -30,11 +29,12 @@ def close_monetdb_connection():
 def fetch_streams():
     try:  # TODO paginate results?
         cursor = Connection.cursor()
-        sql_string = """SELECT storage."schema", storage."table", storage."column", storage."type", storage."typewidth"
-          FROM (SELECT "schema", "table", "column", "type", "typewidth" FROM sys.storage) AS storage
-          INNER JOIN (SELECT "name" FROM sys.tables WHERE type=4) AS tables ON (storage."table"=tables."name")
-          INNER JOIN (SELECT "name" FROM sys.schemas) AS schemas ON (storage."schema"=schemas."name");"""\
-            .replace('\n', ' ')
+        sql_string = """SELECT schemas."name" as schema, tables."name" as table, columns."name" as column,
+             columns."type", columns."type_digits", columns."type_scale", columns."default", columns."null" FROM
+             (SELECT "id", "name", "schema_id" FROM sys.tables WHERE type=4) AS tables INNER JOIN (SELECT "id", "name"
+             FROM sys.schemas) AS schemas ON (tables."schema_id"=schemas."id") INNER JOIN  (SELECT "table_id", "name",
+             "type", "type_digits", "type_scale", "default", "null" FROM sys.columns) AS columns ON
+             (columns."table_id"=tables."id");""".replace('\n', ' ')  # important STREAM TABLES TYPE is 4
         cursor.execute(sql_string)
         return cursor.fetchall()
     except BaseException as ex:

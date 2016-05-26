@@ -60,7 +60,7 @@ class StreamDataType(object):
 
     def add_json_schema_entry(self, schema):  # add the entry for the stream's corresponding json schema
         dic = {}  # must be done after setting the default value!!!
-        if hasattr(self, '_default_value'):
+        if self._default_value is not None:
             dic['default'] = self._default_value
         schema[self._column_name] = dic
 
@@ -663,6 +663,7 @@ class TimeType(BaseDateTimeType):  # Stored as an uint with the number of millis
         super(TimeType, self).__init__(**kwargs)
         if 'timezone' in kwargs:
             self._has_timezone = kwargs['timezone']
+            self._data_type = 'timez'
         else:
             self._has_timezone = True
 
@@ -694,6 +695,7 @@ class TimestampType(BaseDateTimeType):  # it's represented with the two integers
         super(TimestampType, self).__init__(**kwargs)
         if 'timezone' in kwargs:
             self._has_timezone = kwargs['timezone']
+            self._data_type = 'timestampz'
         else:
             self._has_timezone = True
 
