@@ -35,13 +35,13 @@ Location of logfile. On the logfile is reported when streams are created or remo
 Host Identifier
 ---------------
 
-If the *useidentifier* parameter is provided, an extra column on streams will be added with a custom name of the host for later identification. 
+If the *identifier* parameter is provided, an extra column on streams will be added with a custom name of the host for later identification.
 
-**-ui  - -useidentifier**
+**-i  - -identifier**
 
 Use a host identifier for every new stream.
 
-**-in  - -name**
+**-n  - -name**
 
 Host identifier name. By default is the host's MAC address.
 

@@ -72,26 +72,26 @@ def main():
     parser = argparse.ArgumentParser(description='IOT Web Server for MonetDB', epilog="There might exist bugs!",
                                      add_help=False)
     parser.add_argument('-f', '--filesystem', type=check_path, nargs='?', default=DEFAULT_FILESYSTEM,
-                        help='Baskets\' location directory (default: %s)' % DEFAULT_FILESYSTEM)
+                        help='Baskets location directory (default: %s)' % DEFAULT_FILESYSTEM, metavar='DIRECTORY')
     parser.add_argument('-l', '--log', type=check_path, nargs='?', default=DEFAULT_LOGGING,
-                        help='Logging file location (default: %s)' % DEFAULT_LOGGING)
-    parser.add_argument('-ui', '--useidentifier', action='store_true',
-                        help='Add a host identifier to created streams. By default will not be added')
-    parser.add_argument('-in', '--name', nargs='?',
+                        help='Logging file location (default: %s)' % DEFAULT_LOGGING, metavar='FILE_PATH')
+    parser.add_argument('-i', '--identifier', action='store_true',
+                        help='Add a host identifier to the created streams. By default will not be added')
+    parser.add_argument('-n', '--name', nargs='?',
                         default=':'.join(("%012X" % get_mac())[i:i + 2] for i in range(0, 12, 2)),
-                        help='Host identifier name. If not provided, the machine\'s MAC address will be used')
+                        help='Host identifier name. If not provided, the machine MAC address will be used')
     parser.add_argument('-ih', '--ihost', type=check_ipv4_address, nargs='?', default='0.0.0.0',
-                        help='Administration server host (default: 0.0.0.0)')
+                        help='Administration server host (default: 0.0.0.0)', metavar='HOST')
     parser.add_argument('-ip', '--iport', type=check_positive_int, nargs='?', default=8000,
-                        help='Administration server port (default: 8000)')
+                        help='Administration server port (default: 8000)', metavar='PORT')
     parser.add_argument('-ah', '--ahost', type=check_ipv4_address, nargs='?', default='127.0.0.1',
-                        help='Application server host (default: 127.0.0.1)')
+                        help='Application server host (default: 127.0.0.1)', metavar='HOST')
     parser.add_argument('-ap', '--aport', type=check_positive_int, nargs='?', default=8001,
-                        help='Application server port (default: 8001)')
+                        help='Application server port (default: 8001)', metavar='PORT')
     parser.add_argument('-h', '--host', nargs='?', default='127.0.0.1',
-                        help='MonetDB database host (default: 127.0.0.1)')
+                        help='MonetDB database host (default: 127.0.0.1)', metavar='HOST')
     parser.add_argument('-p', '--port', type=check_positive_int, nargs='?', default=50000,
-                        help='Database listening port (default: 50000)')
+                        help='Database listening port (default: 50000)', metavar='PORT')
     parser.add_argument('-d', '--database', nargs='?', default='iotdb', help='Database name (default: iotdb)')
     parser.add_argument('-u', '--user', nargs='?', default='monetdb', help='Database user (default: monetdb)')
     parser.add_argument('--help', action='store_true', help='Display this help')

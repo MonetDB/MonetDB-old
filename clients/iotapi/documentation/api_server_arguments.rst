@@ -45,7 +45,7 @@ Listening host of the application (IOT) server. By default is on :code:`0.0.0.0`
 
 Listening port of the application (IOT) server. By default is on port :code:`8002`.
 
-**-pi  - -polling**
+**-po  - -polling**
 
 Set the polling interval in seconds to MonetDB database for streams updates. By default is :code:`60` seconds.
 

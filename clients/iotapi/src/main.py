@@ -62,19 +62,19 @@ def main():
     parser = argparse.ArgumentParser(description='IOT Web API for MonetDB', epilog="There might exist bugs!",
                                      add_help=False)
     parser.add_argument('-f', '--filesystem', type=check_path, nargs='?', default=DEFAULT_FILESYSTEM,
-                        help='Baskets\' location directory (default: %s)' % DEFAULT_FILESYSTEM)
+                        help='Baskets location directory (default: %s)' % DEFAULT_FILESYSTEM, metavar='DIRECTORY')
     parser.add_argument('-l', '--log', type=check_path, nargs='?', default=DEFAULT_LOGGING,
-                        help='Logging file location (default: %s)' % DEFAULT_LOGGING)
-    parser.add_argument('-pi', '--polling', type=check_positive_int, nargs='?', default=60,
+                        help='Logging file location (default: %s)' % DEFAULT_LOGGING, metavar='FILE_PATH')
+    parser.add_argument('-po', '--polling', type=check_positive_int, nargs='?', default=60,
                         help='Polling interval in seconds to the database for streams updates (default: 60)')
     parser.add_argument('-sh', '--shost', type=check_ipv4_address, nargs='?', default='0.0.0.0',
-                        help='Web API server host (default: 0.0.0.0)')
+                        help='Web API server host (default: 0.0.0.0)', metavar='HOST')
     parser.add_argument('-sp', '--sport', type=check_positive_int, nargs='?', default=8002,
-                        help='Web API server port (default: 8002)')
+                        help='Web API server port (default: 8002)', metavar='PORT')
     parser.add_argument('-h', '--host', nargs='?', default='127.0.0.1',
-                        help='MonetDB database host (default: 127.0.0.1)')
+                        help='MonetDB database host (default: 127.0.0.1)', metavar='HOST')
     parser.add_argument('-p', '--port', type=check_positive_int, nargs='?', default=50000,
-                        help='Database listening port (default: 50000)')
+                        help='Database listening port (default: 50000)', metavar='PORT')
     parser.add_argument('-d', '--database', nargs='?', default='iotdb', help='Database name (default: iotdb)')
     parser.add_argument('-u', '--user', nargs='?', default='monetdb', help='Database user (default: monetdb)')
     parser.add_argument('--help', action='store_true', help='Display this help')
