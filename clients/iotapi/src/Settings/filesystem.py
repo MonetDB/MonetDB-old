@@ -1,21 +1,18 @@
-import sys
 import os
+import sys
 
 from iotlogger import add_log
 
 Baskets_Location = None
 
+if sys.platform in ("linux", "linux2", "darwin"):
+    DEFAULT_FILESYSTEM = '/etc/iotapi'
+elif sys.platform == "win32":
+    DEFAULT_FILESYSTEM = os.path.join(os.path.dirname(__file__), os.pardir)
+
 
 def init_file_system(new_location=None):
     global Baskets_Location
-
-    if new_location is None:
-        if sys.platform in ("linux", "linux2", "darwin"):
-            new_location = '/etc/iotapi'
-        elif sys.platform == "win32":
-            new_location = os.path.join(os.path.dirname(__file__), os.pardir)
-    else:
-        new_location = new_location
 
     try:
         Baskets_Location = os.path.join(new_location, "baskets")

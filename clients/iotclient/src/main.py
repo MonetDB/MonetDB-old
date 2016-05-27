@@ -1,18 +1,19 @@
-import getopt
+import argparse
 import getpass
+import os
 import signal
 import sys
 import time
-import os
 
+from IPy import IP
 from multiprocessing import Process
 from threading import Thread
 from uuid import getnode as get_mac
 from Flask.app import start_flask_iot_app, start_flask_admin_app
 from Flask.restresources import init_rest_resources
-from Settings.filesystem import init_file_system
-from Settings.iotlogger import init_logging, add_log
-from Settings.mapiconnection import init_monetdb_connection, close_monetdb_connection
+from Settings.filesystem import init_file_system, DEFAULT_FILESYSTEM
+from Settings.iotlogger import init_logging, add_log, DEFAULT_LOGGING
+from Settings.mapiconnection import init_monetdb_connection
 from Streams.streams import init_streams_hosts
 from Streams.streamscontext import init_streams_context
 
@@ -21,12 +22,12 @@ subprocess = None
 
 def signal_handler(signal, frame):
     subprocess.terminate()
+    add_log(20, 'Stopped IOT Stream Server')
 
 
-def start_process(filesystem_location, logging_location, use_host_identifier, host_identifier, admin_host, admin_port,
-                  app_host, app_port, con_hostname, con_port, con_user, con_password, con_database):
+def start_process(filesystem_location, use_host_identifier, host_identifier, admin_host, admin_port, app_host, app_port,
+                  con_hostname, con_port, con_user, con_password, con_database):
     # WARNING The initiation order must be this!!!
-    init_logging(logging_location)  # init logging context
     init_file_system(filesystem_location)  # init filesystem
     init_streams_hosts(use_host_identifier, host_identifier)  # init hostname column for streams
     # init mapi connection
@@ -42,75 +43,80 @@ def start_process(filesystem_location, logging_location, use_host_identifier, ho
     add_log(20, 'Started IOT Stream Server')
     thread1.join()
     thread2.join()
-    close_monetdb_connection()
-    add_log(20, 'Stopped IOT Stream Server')
 
 
-def main(argv):
+def check_path(value):
+    if not os.path.isabs(value):
+        raise argparse.ArgumentTypeError("%s is an invalid path" % value)
+    return value
+
+
+def check_positive_int(value):
+    ivalue = int(value)
+    if ivalue <= 0:
+        raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
+    return ivalue
+
+
+def check_ipv4_address(value):
+    try:
+        IP(value)
+    except:
+        raise argparse.ArgumentTypeError("%s is an invalid IPv4 address" % value)
+    return value
+
+
+def main():
     global subprocess
 
+    parser = argparse.ArgumentParser(description='IOT Web Server for MonetDB', epilog="There might exist bugs!",
+                                     add_help=False)
+    parser.add_argument('-f', '--filesystem', type=check_path, nargs='?', default=DEFAULT_FILESYSTEM,
+                        help='Baskets\' location directory (default: %s)' % DEFAULT_FILESYSTEM)
+    parser.add_argument('-l', '--log', type=check_path, nargs='?', default=DEFAULT_LOGGING,
+                        help='Logging file location (default: %s)' % DEFAULT_LOGGING)
+    parser.add_argument('-ui', '--useidentifier', action='store_true',
+                        help='Add a host identifier to created streams. By default will not be added')
+    parser.add_argument('-in', '--name', nargs='?',
+                        default=':'.join(("%012X" % get_mac())[i:i + 2] for i in range(0, 12, 2)),
+                        help='Host identifier name. If not provided, the machine\'s MAC address will be used')
+    parser.add_argument('-ih', '--ihost', type=check_ipv4_address, nargs='?', default='0.0.0.0',
+                        help='Administration server host (default: 0.0.0.0)')
+    parser.add_argument('-ip', '--iport', type=check_positive_int, nargs='?', default=8000,
+                        help='Administration server port (default: 8000)')
+    parser.add_argument('-ah', '--ahost', type=check_ipv4_address, nargs='?', default='127.0.0.1',
+                        help='Application server host (default: 127.0.0.1)')
+    parser.add_argument('-ap', '--aport', type=check_positive_int, nargs='?', default=8001,
+                        help='Application server port (default: 8001)')
+    parser.add_argument('-h', '--host', nargs='?', default='127.0.0.1',
+                        help='MonetDB database host (default: 127.0.0.1)')
+    parser.add_argument('-p', '--port', type=check_positive_int, nargs='?', default=50000,
+                        help='Database listening port (default: 50000)')
+    parser.add_argument('-d', '--database', nargs='?', default='iotdb', help='Database name (default: iotdb)')
+    parser.add_argument('-u', '--user', nargs='?', default='monetdb', help='Database user (default: monetdb)')
+    parser.add_argument('--help', action='store_true', help='Display this help')
+
     try:
-        opts, args = getopt.getopt(argv[1:], 'f:l:ui:in:ih:ip:ah:ap:h:p:d:u',
-                                   ['filesystem=', 'log=', 'useidentifier', 'name=', 'ihost=', 'iport=', 'ahost=',
-                                    'aport=', 'host=', 'port=', 'database=', 'user='])
-    except getopt.GetoptError:
-        print 'Error while parsing the arguments!'
+        args = vars(parser.parse_args())
+    except BaseException as ex:
+        print ex
         sys.exit(1)
 
-    filesystem_location = None
-    logging_location = None
-    use_host_identifier = False
-    host_identifier = None
+    if args['help']:
+        parser.print_help()
+        sys.exit(0)
 
-    app_host = '0.0.0.0'
-    app_port = 8000
-    admin_host = '127.0.0.1'
-    admin_port = 8001
+    print 'Using host identifier: ', args['name'], os.linesep
 
-    con_hostname = '127.0.0.1'
-    con_port = 50000
-    con_user = 'monetdb'
-    con_database = 'iotdb'
-
-    for opt, arg in opts:
-        if opt in ('-f', '--filesystem'):
-            filesystem_location = arg
-        elif opt in ('-l', '--log'):
-            logging_location = arg
-        elif opt in ('-ui', '--useidentifier'):
-            use_host_identifier = True
-        elif opt in ('-in', '--name'):
-            host_identifier = arg
-
-        elif opt in ('-ih', '--ihost'):
-            app_host = arg
-        elif opt in ('-ip', '--iport'):
-            app_port = int(arg)
-        elif opt in ('-ah', '--ahost'):
-            admin_host = arg
-        elif opt in ('-ap', '--aport'):
-            admin_port = int(arg)
-
-        elif opt in ('-h', '--host'):
-            con_hostname = arg
-        elif opt in ('-p', '--port'):
-            con_port = int(arg)
-        elif opt in ('-u', '--user'):
-            con_user = arg
-        elif opt in ('-d', '--database'):
-            con_database = arg
-
-    if host_identifier is None:  # get the machine MAC address as default identifier
-        host_identifier = ':'.join(("%012X" % get_mac())[i:i + 2] for i in range(0, 12, 2))
-        print 'Using host identifier: ', host_identifier, os.linesep
-
-    con_password = getpass.getpass(prompt='Insert password for user ' + con_user + ':')
-    subprocess = Process(target=start_process, args=(filesystem_location, logging_location, use_host_identifier,
-                                                     host_identifier, admin_host, admin_port, app_host, app_port,
-                                                     con_hostname, con_port, con_user, con_password, con_database))
+    con_password = getpass.getpass(prompt='Insert password for user ' + args['user'] + ':')
+    init_logging(args['log'])  # init logging context
+    subprocess = Process(target=start_process, args=(args['filesystem'], args['useidentifier'], args['name'],
+                                                     args['ihost'], args['iport'], args['ahost'], args['aport'],
+                                                     args['host'], args['port'], args['user'], con_password,
+                                                     args['database']))
     subprocess.start()
     signal.signal(signal.SIGINT, signal_handler)
     subprocess.join()
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()

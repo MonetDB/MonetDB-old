@@ -24,31 +24,30 @@ Paths
 
 .. important:: Make sure the current user has permissions on the locations provided.
 
-**-f - -filesystem=**
+**-f - -filesystem**
 
 Set the filesystem directory where the baskets will be created. By default in UNIX systems is on :code:`/etc/iotapi` directory, while on Windows is on the directory where the :code:`main.py` script was invoked.
 
-**-l  - -log=**
+**-l  - -log**
 
 Location of logfile. On the logfile is reported when streams are created or removed, when tuples are inserted and when the baskets are flushed. By default in UNIX systems is :code:`/var/log/iot/iotapi.log`, while on Windows is the :code:`iotapi.log` on the directory where the :code:`main.py` script was called.
-
 
 Web API Listening and Behavior
 ------------------------------
 
 Customize the Web API server parameters and behavior.
 
-**-sh  - -shost=**
+**-sh  - -shost**
 
 Listening host of the application (IOT) server. By default is on :code:`0.0.0.0`.
 
-**-sp  - -sport=**
+**-sp  - -sport**
 
 Listening port of the application (IOT) server. By default is on port :code:`8002`.
 
-**-pi  - -polling=**
+**-pi  - -polling**
 
-Set the polling interval to MonetDB database for updates. By default is :code:`60` seconds.
+Set the polling interval in seconds to MonetDB database for streams updates. By default is :code:`60` seconds.
 
 Database Connection
 -------------------
@@ -57,18 +56,25 @@ Credentials for the MAPI connection to MonetDB database.
 
 .. note:: The user's password will be prompted during the initialization of the server.
 
-**-d  - -host=**
+**-d  - -host**
 
 Listening host of MonetDB database. By default is on :code:`127.0.0.1`.
 
-**-d  - -port=**
+**-d  - -port**
 
 Listening port of MonetDB database. By default is on port :code:`50000`.
 
-**-u  - -user=**
+**-u  - -user**
 
 Name of the user to authenticate. By default is user :code:`monetdb`.
 
-**-d  - -database=**
+**-d  - -database**
 
 Name of database to use. By default is :code:`iotdb` database.
+
+Help
+----
+
+**- -help**
+
+Display arguments help.

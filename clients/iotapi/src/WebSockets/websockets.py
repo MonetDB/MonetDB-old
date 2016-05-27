@@ -137,6 +137,7 @@ def init_websockets(host, port):
     global WebSocketServer
     try:
         WebSocketServer = SimpleWebSocketServer(host, port, IOTAPI)
+        print ''.join(['Starting Websockets server: ws://', host, ':', str(port), "/"])
         WebSocketServer.serveforever()
     except (BaseException, OSError) as ex:
         print ex

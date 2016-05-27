@@ -2,29 +2,21 @@ import logging
 import sys
 import os
 
-Logger = logging.getLogger("IOTClientLog")
+Logger = logging.getLogger("IOTServerLog")
+
+if sys.platform in ("linux", "linux2", "darwin"):
+    DEFAULT_LOGGING = '/var/log/iot/iotserver.log'
+elif sys.platform == "win32":
+    DEFAULT_LOGGING = os.path.join(os.path.dirname(__file__), os.pardir, 'iotserver.log')
 
 
-def init_logging(new_location=None):
-    global Logger
-
-    if new_location is None:
-        if sys.platform in ("linux", "linux2", "darwin"):
-            logging_location = '/var/log/iot/iotclient.log'
-        elif sys.platform == "win32":
-            logging_location = os.path.join(os.path.dirname(__file__), os.pardir, 'iotclient.log')
-    else:
-        logging_location = new_location
-
+def init_logging(logging_location):
     try:
-        Logger = logging.getLogger("IOTClientLog")
         Logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
         logging_path = os.path.dirname(logging_location)
         if not os.path.exists(logging_path):
             os.makedirs(logging_path)
-
         log_handler = logging.FileHandler(logging_location, mode='a+')
         log_handler.setFormatter(formatter)
         Logger.addHandler(log_handler)

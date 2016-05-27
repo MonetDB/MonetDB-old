@@ -7,17 +7,14 @@ from Utilities.filecreator import create_file_if_not_exists
 Baskets_Location = None
 Configfile_Location = None
 
+if sys.platform in ("linux", "linux2", "darwin"):
+    DEFAULT_FILESYSTEM = '/etc/iotserver'
+elif sys.platform == "win32":
+    DEFAULT_FILESYSTEM = os.path.join(os.path.dirname(__file__), os.pardir)
 
-def init_file_system(new_location=None):
+
+def init_file_system(filesystem_location):
     global Baskets_Location, Configfile_Location
-
-    if new_location is None:
-        if sys.platform in ("linux", "linux2", "darwin"):
-            filesystem_location = '/etc/iotclient'
-        elif sys.platform == "win32":
-            filesystem_location = os.path.join(os.path.dirname(__file__), os.pardir)
-    else:
-        filesystem_location = new_location
 
     try:
         Baskets_Location = os.path.join(filesystem_location, "baskets")

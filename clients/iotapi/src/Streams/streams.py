@@ -50,6 +50,8 @@ class IOTStream(object):
         self._base_path = os.path.join(get_baskets_base_location(), schema_name, stream_name)
         self._baskets_lock = RWLock()
         self._baskets = {}  # dictionary of basket_number -> total_tuples
+        if not os.path.exists(self._base_path):
+            os.makedirs(self._base_path)
         for name in os.listdir(self._base_path):
             self.append_basket(name)
         self._observer = Observer()

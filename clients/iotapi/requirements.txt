@@ -1,4 +1,5 @@
 git+https://github.com/dpallot/simple-websocket-server.git
+IPy==0.83
 jsonschema==2.5.1
 pymonetdb==0.1.1
 python-dateutil==2.5.3
