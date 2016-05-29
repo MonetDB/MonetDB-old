@@ -1314,8 +1314,17 @@ PCRElikesubselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, con
 		}
 	}
 
-	if (use_re) {
-		res = re_likesubselect(&bn, b, s, *pat, *caseignore, *anti);
+	if (use_re) { 
+		if (s && s->S->cand == CAND_NEG) {
+			res = re_likesubselect(&bn, b, NULL, *pat, *caseignore, *anti);
+			if (bn) {
+				BAT *x = bn;
+				bn = BATminuscand(x, s);
+				BBPunfix(x->batCacheid); 
+			}
+		} else {
+			res = re_likesubselect(&bn, b, s, *pat, *caseignore, *anti);
+		}
 	} else if (ppat == NULL) {
 		/* no pattern and no special characters: can use normal select */
 		bn = BATselect(b, s, *pat, NULL, 1, 1, *anti);
@@ -1324,7 +1333,17 @@ PCRElikesubselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, con
 		else
 			res = MAL_SUCCEED;
 	} else {
-		res = pcre_likesubselect(&bn, b, s, ppat, *caseignore, *anti);
+		if (s && s->S->cand == CAND_NEG) {
+
+			res = pcre_likesubselect(&bn, b, NULL, ppat, *caseignore, *anti);
+			if (bn) {
+				BAT *x = bn;
+				bn = BATminuscand(x, s);
+				BBPunfix(x->batCacheid); 
+			}
+		} else {
+			res = pcre_likesubselect(&bn, b, s, ppat, *caseignore, *anti);
+		}
 	}
 	BBPunfix(b->batCacheid);
 	if (s)

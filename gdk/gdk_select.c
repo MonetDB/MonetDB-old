@@ -1935,9 +1935,12 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 	     int li, int hi, int anti)
 {
 	if (s && s->S->cand == CAND_NEG) {
-		BAT *p = BATselect_pos(b, NULL, tl, th, li, hi, anti);
-		BAT *x = BATminuscand(p, s);
-		BBPunfix(p->batCacheid); 
+		BAT *p = BATselect_pos(b, NULL, tl, th, li, hi, anti), *x = NULL;
+
+		if (p) {
+			x = BATminuscand(p, s);
+			BBPunfix(p->batCacheid); 
+		}
 		return x;
 	} else {
 		return BATselect_pos(b, s, tl, th, li, hi, anti);
