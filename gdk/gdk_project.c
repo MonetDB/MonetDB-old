@@ -183,8 +183,88 @@ bunins_failed:
 	return GDK_FAIL;
 }
 
+static BAT *
+candidates(BAT *d)
+{
+	BAT *tids = BATnew(TYPE_void, TYPE_void, 0, TRANSIENT);
+
+	if (!tids)
+		return NULL;
+	tids->H->seq = d->S->negfirst;
+	tids->T->seq = d->S->negfirst;
+	BATsetcount(tids, d->S->negcount);
+	tids->H->revsorted = 0;
+	tids->T->revsorted = 0;
+
+	tids->T->key = 1;
+	tids->T->dense = 1;
+	tids->H->key = 1;
+	tids->H->dense = 1;
+
+	if (BATcount(d)) {
+		BAT *diff = BATdiff(tids, d, NULL, NULL, 0, BUN_NONE);
+
+		BBPunfix(tids->batCacheid);
+		BATseqbase(diff, d->S->negfirst);
+		tids = diff;
+	}
+	return tids;
+}
+
+static BAT * BATproject_pos(BAT *l, BAT *r);
 BAT *
-BATproject(BAT *l, BAT *r)
+BATproject(BAT *s, BAT *b) 
+{
+	if (s->S->cand == CAND_NEG) {
+		if (BATcount(s) == 0) {
+			BBPfix(b->batCacheid);
+			return b;
+		} else {
+			BUN cnt = BATcount(b);
+			BAT *n; 
+			oid h = b->hseqbase, off = h, end = h + BATcount(b);
+			oid *d = (oid*)Tloc(s,0), *e = d + BATcount(s);
+			
+			if (BATcount(s) < cnt)
+		       		cnt -= BATcount(s);
+			n = BATnew( TYPE_void, b->ttype, cnt, TRANSIENT);
+			if (!n)
+				return n;
+			assert(s->T->type == TYPE_oid);
+			/* later optimize (assume small delete lists) */
+			for(;d<e && *d < h; d++) 
+				;
+			if (*d == h) {
+				h = *d+1;
+				d++;
+			}
+			BATseqbase(n, s->S->negfirst);
+			for(;d<e && *d < end; d++){
+				BATappend(n, BATslice(b,h-off,*d-off), FALSE);
+				h = *d+1;
+			}
+			if (h < end)
+				BATappend(n, BATslice(b,h-off,end-off), FALSE);
+			return n;
+		}
+	} else {
+		BAT *ob = b, *r;
+
+		if (b->S->cand == CAND_NEG) { /* convert to CAND_POS */
+			b = candidates(b);
+
+			if (!b)
+				return NULL;
+		}
+		r = BATproject_pos(s, b);
+		if (ob != b)
+			BBPunfix(b->batCacheid);
+		return r;
+	}
+}
+	
+static BAT *
+BATproject_pos(BAT *l, BAT *r)
 {
 	BAT *bn;
 	oid lo, hi;
@@ -439,13 +519,40 @@ BATprojectchain(BAT **bats)
 	const void *nil;	/* nil representation for last BAT */
 	BUN p, cnt, off;
 	oid hseq, tseq;
-	int allnil = 0, nonil = 1;
+	int allnil = 0, nonil = 1, neg = 0;
 	int stringtrick = 0;
 
 	/* count number of participating BATs and allocate some
 	 * temporary work space */
-	for (n = 0; bats[n]; n++)
-		;
+	for (n = 0; bats[n]; n++) {
+		/* fallback BATprojects */
+		if (bats[n]->S->cand == CAND_NEG) 
+			neg = 1;
+	}
+	if (neg) {
+		BAT *cur = bats[0];
+		BBPfix(cur->batCacheid);
+		if (cur->S->cand == CAND_NEG)
+			assert(0);
+		for (i = 1; i<n; i++ ) {
+			if (bats[i]->S->cand == CAND_NEG) {
+				BAT *c = candidates(bats[i]);
+
+				if (!c)
+					return NULL;
+				b = BATproject(cur, c);
+				assert(b);
+				BBPunfix(c->batCacheid);
+				//b = BATminuscand(cur, bats[i]);
+			} else {
+				b = BATproject(cur, bats[i]);
+				assert(b);
+			}
+			BBPunfix(cur->batCacheid);
+			cur = b;
+		}
+		return cur;
+	}
 	ba = GDKmalloc(sizeof(*ba) * n);
 	b = *bats++;
 	cnt = BATcount(b);	/* this will be the size of the output */

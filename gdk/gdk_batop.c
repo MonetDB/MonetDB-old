@@ -1724,3 +1724,94 @@ BATintersectcand(BAT *a, BAT *b)
 	bn->T->nonil = 1;
 	return virtualize(bn);
 }
+
+/* minus two candidate lists and produce a new one
+ *
+ * candidate lists are VOID-headed BATs with an OID tail which is
+ * sorted and unique.
+ */
+BAT *
+BATminuscand(BAT *a, BAT *b)
+{
+	BAT *bn;
+	const oid *restrict ap, *restrict bp, *ape, *bpe;
+	oid *restrict p;
+	BUN cnt;
+
+	BATcheck(a, "BATminuscand", NULL);
+	BATcheck(b, "BATminuscand", NULL);
+	assert(a->htype == TYPE_void);
+	assert(b->htype == TYPE_void);
+	assert(ATOMtype(a->ttype) == TYPE_oid);
+	assert(ATOMtype(b->ttype) == TYPE_oid);
+	assert(a->tsorted);
+	assert(b->tsorted);
+	assert(a->tkey);
+	//assert(b->tkey);
+	assert(a->T->nonil);
+	assert(b->T->nonil);
+
+	if (BATcount(a) == 0) {
+		BAT *x = newdensecand(0, 0);
+		BATsetcount(x,0);
+		return x;
+	}
+	if (BATcount(b) == 0) {
+		BBPfix(a->batCacheid);
+		return a;
+	}
+
+	cnt = BATcount(a);
+	if (BATcount(b) < cnt)
+		cnt -= BATcount(b);
+	bn = BATnew(TYPE_void, TYPE_oid, cnt, TRANSIENT);
+	if (bn == NULL)
+		return NULL;
+	p = (oid *) Tloc(bn, BUNfirst(bn));
+	assert(b->ttype == TYPE_oid);
+	if (a->ttype == TYPE_void) {
+		oid c = a->tseqbase, ce = c + BATcount(a), cur = 0;
+		/* a->ttype == TYPE_void, b->ttype == TYPE_oid */
+		bp = (const oid *) Tloc(b, BUNfirst(b));
+		bpe = bp + BATcount(b);
+		cur = *bp;
+		while (c < ce && bp <= bpe) {
+			if (c < cur) {
+				*p++ = c++;
+			} else {
+				if (c == cur)
+					c++;
+				cur = *bp++;
+			}
+		}
+		while (c<ce)
+			*p++ = c++;
+	} else {
+		/* a->ttype == TYPE_oid, b->ttype == TYPE_oid */
+		ap = (const oid *) Tloc(a, BUNfirst(a));
+		ape = ap + BATcount(a);
+		bp = (const oid *) Tloc(b, BUNfirst(b));
+		bpe = bp + BATcount(b);
+		while (ap < ape && bp <= bpe) {
+			if (*ap < *bp)
+				*p++ = *ap++;
+			else {
+				if (*ap == *bp)
+					ap++;
+				bp++;
+			}
+		}
+		while (ap<ape)
+			*p++ = *ap++;
+	}
+
+	/* properties */
+	BATsetcount(bn, (BUN) (p - (oid *) Tloc(bn, BUNfirst(bn))));
+	BATseqbase(bn, 0);
+	bn->trevsorted = BATcount(bn) <= 1;
+	bn->tsorted = 1;
+	bn->tkey = 1;
+	bn->T->nil = 0;
+	bn->T->nonil = 1;
+	return virtualize(bn);
+}

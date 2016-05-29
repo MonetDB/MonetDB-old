@@ -2453,7 +2453,7 @@ DELTAproject(bat *result, const bat *sub, const bat *col, const bat *uid, const 
 		throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
 	}
 
-	if (i && BATcount(s) == 0) {
+	if (i && BATcount(s) == 0 && s->S->cand != CAND_NEG) {
 		res = BATproject(s, i);
 		BBPunfix(s->batCacheid);
 		if (i)
@@ -2689,6 +2689,34 @@ SQLtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 	} else {
 		nr += inr;
+	}
+
+	/* new negative-candidates list */
+	if (store_funcs.count_del(tr, t)) {
+		BAT *d = store_funcs.bind_del(tr, t, RD_INS), *s;
+
+		if (pci->argc == 6) {	/* partitioned version */
+			BAT *nd = NULL;
+			oid e = sb + nr;
+
+			if ( (s = BATselect(d, NULL, &sb, &e, 1, 1, 0)) == NULL || (nd = BATproject(s, d)) == NULL) {
+				if (s)
+					BBPunfix(s->batCacheid);
+				return NULL;
+			}
+			BBPunfix(s->batCacheid);
+			BBPunfix(d->batCacheid);
+			d = nd;
+		}
+		BATsort(&s, NULL, NULL, d, NULL, NULL, 0, 0); 
+		bat_destroy(d);
+		if (!(s->batDirty&2)) 
+			BATsetaccess(s, BAT_READ);
+		BBPkeepref(*res = s->batCacheid);
+		s->S->cand = CAND_NEG;
+		s->S->negfirst = sb;
+		s->S->negcount = nr;
+		return MAL_SUCCEED;
 	}
 
 	/* create void,void bat with length and oid's set */

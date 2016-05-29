@@ -767,6 +767,9 @@ gdk_export void *VALget(ValPtr v);
 gdk_export int VALcmp(const ValRecord *p, const ValRecord *q);
 gdk_export int VALisnil(const ValRecord *v);
 
+#define CAND_LIST 1
+#define CAND_NEG 2
+#define CAND_BIT 3
 /*
  * @- The BAT record
  * The elements of the BAT structure are introduced in the remainder.
@@ -851,7 +854,8 @@ typedef struct {
 	 restricted:2,		/* access privileges */
 	 persistence:1,		/* should the BAT persist on disk? */
 	 role:8,		/* role of the bat */
-	 unused:15;		/* value=0 for now */
+	 cand:2,		/* 0 bat, 1 candidate list, 2 neg cand list, 3 compressed bit vector */ 
+	 unused:13;		/* value=0 for now */
 	int sharecnt;		/* incoming view count */
 
 	/* delta status administration */
@@ -860,6 +864,8 @@ typedef struct {
 	BUN inserted;		/* start of inserted elements */
 	BUN count;		/* tuple count */
 	BUN capacity;		/* tuple capacity */
+	BUN negfirst;		/* seqbase */
+	BUN negcount;		/* total count of CAND_NEG list */
 } BATrec;
 
 typedef struct PROPrec PROPrec;
@@ -3087,6 +3093,7 @@ gdk_export BAT *BATunique(BAT *b, BAT *s);
 
 gdk_export BAT *BATmergecand(BAT *a, BAT *b);
 gdk_export BAT *BATintersectcand(BAT *a, BAT *b);
+gdk_export BAT *BATminuscand(BAT *a, BAT *b);
 
 gdk_export gdk_return BATfirstn(BAT **topn, BAT **gids, BAT *b, BAT *cands, BAT *grps, BUN n, int asc, int distinct);
 

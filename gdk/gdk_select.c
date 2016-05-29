@@ -1207,8 +1207,8 @@ BAT_scanselect(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 		/* in the case where equi==1, the check is x == *tl */	\
 	} while (0)
 
-BAT *
-BATselect(BAT *b, BAT *s, const void *tl, const void *th,
+static BAT *
+BATselect_pos(BAT *b, BAT *s, const void *tl, const void *th,
 	     int li, int hi, int anti)
 {
 	int hval, lval, equi, t, lnil, hash;
@@ -1926,6 +1926,22 @@ BATthetaselect(BAT *b, BAT *s, const void *val, const char *op)
 	}
 	GDKerror("BATthetaselect: unknown operator.\n");
 	return NULL;
+}
+
+static BAT * BATselect_pos(BAT *b, BAT *s, const void *tl, const void *th, int li, int hi, int anti);
+
+BAT *
+BATselect(BAT *b, BAT *s, const void *tl, const void *th,
+	     int li, int hi, int anti)
+{
+	if (s && s->S->cand == CAND_NEG) {
+		BAT *p = BATselect_pos(b, NULL, tl, th, li, hi, anti);
+		BAT *x = BATminuscand(p, s);
+		BBPunfix(p->batCacheid); 
+		return x;
+	} else {
+		return BATselect_pos(b, s, tl, th, li, hi, anti);
+	}
 }
 
 #define VALUE(s, x)	(s##vars ? \

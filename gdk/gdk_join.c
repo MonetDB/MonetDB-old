@@ -3883,6 +3883,10 @@ BATouterjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_mat
 gdk_return
 BATsemijoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate)
 {
+	if (r->S->cand == CAND_NEG && !sl && !sr && !nil_matches) {
+		*r1p = BATminuscand(l,r);
+		return GDK_SUCCEED;
+	}
 	return subleftjoin(r1p, r2p, l, r, sl, sr, nil_matches,
 			   0, 1, 0, estimate, "BATsemijoin", GDKusec());
 }
