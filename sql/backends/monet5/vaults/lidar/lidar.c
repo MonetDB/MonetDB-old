@@ -1128,78 +1128,59 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	colz = mvc_bind_column(m, tbl, "z");
 
 	/* Read X, Y, and Z based on the column's precision */
-	switch(precisionx) {
-	case 2:
+	if (precisionx <= 2)
 		x = read_array_bte(fname, LASPoint_GetX, rows, scalex, &error_code);
-		break;
-	case 4:
+	else if (precisionx <= 4)
 		x = read_array_sht(fname, LASPoint_GetX, rows, scalex, &error_code);
-		break;
-	case 8:
+	else if (precisionx <= 8)
 		x = read_array_int(fname, LASPoint_GetX, rows, scalex, &error_code);
-		break;
-	case 16:
+	else if (precisionx <= 16)
 		x = read_array_int(fname, LASPoint_GetX, rows, scalex, &error_code);
-		break;
-	case 32:
+	else if (precisionx <= 32)
 		x = read_array_lng(fname, LASPoint_GetX, rows, scalex, &error_code);
-		break;
 #ifdef HAVE_HGE
-	case 64:
+	else if (precisionx <= 64)
 		x = read_array_hge(fname, LASPoint_GetX, rows, scalex, &error_code);
-		break;
 #endif
-	default:
+	else {
 		x = NULL;
 		error_code = 3;
 	}
-	switch(precisiony) {
-	case 2:
+
+	if (precisiony <= 2)
 		y = read_array_bte(fname, LASPoint_GetY, rows, scaley, &error_code);
-		break;
-	case 4:
+	else if (precisiony <= 4)
 		y = read_array_sht(fname, LASPoint_GetY, rows, scaley, &error_code);
-		break;
-	case 8:
+	else if (precisiony <= 8)
 		y = read_array_int(fname, LASPoint_GetY, rows, scaley, &error_code);
-		break;
-	case 16:
+	else if (precisiony <= 16)
 		y = read_array_int(fname, LASPoint_GetY, rows, scaley, &error_code);
-		break;
-	case 32:
+	else if (precisiony <= 32)
 		y = read_array_lng(fname, LASPoint_GetY, rows, scaley, &error_code);
-		break;
 #ifdef HAVE_HGE
-	case 64:
+	else if (precisiony <= 64)
 		y = read_array_hge(fname, LASPoint_GetY, rows, scaley, &error_code);
-		break;
 #endif
-	default:
+	else {
 		y = NULL;
 		error_code = 4;
 	}
-	switch(precisionz) {
-	case 2:
+
+	if (precisionz <= 2)
 		z = read_array_bte(fname, LASPoint_GetZ, rows, scalez, &error_code);
-		break;
-	case 4:
+	else if (precisionz <= 4)
 		z = read_array_sht(fname, LASPoint_GetZ, rows, scalez, &error_code);
-		break;
-	case 8:
+	else if (precisionz <= 8)
 		z = read_array_int(fname, LASPoint_GetZ, rows, scalez, &error_code);
-		break;
-	case 16:
+	else if (precisionz <= 16)
 		z = read_array_int(fname, LASPoint_GetZ, rows, scalez, &error_code);
-		break;
-	case 32:
+	else if (precisionz <= 32)
 		z = read_array_lng(fname, LASPoint_GetZ, rows, scalez, &error_code);
-		break;
 #ifdef HAVE_HGE
-	case 64:
+	else if (precisionz <= 64)
 		z = read_array_hge(fname, LASPoint_GetZ, rows, scalez, &error_code);
-		break;
 #endif
-	default:
+	else {
 		z = NULL;
 		error_code = 5;
 	}
