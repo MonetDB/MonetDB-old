@@ -929,7 +929,7 @@ cloneVariable(MalBlkPtr tm, MalBlkPtr mb, int x)
 	return res;
 }
 
-/* generate a new variable name based on a patter with 1 %d argument*/
+/* generate a new variable name based on a pattern with 1 %d argument*/
 void
 renameVariable(MalBlkPtr mb, int id, str pattern, int newid)
 {
@@ -1255,7 +1255,6 @@ convertConstant(int type, ValPtr vr)
 	case TYPE_oid:
 	case TYPE_flt:
 	case TYPE_dbl:
-	case TYPE_wrd:
 	case TYPE_lng:
 #ifdef HAVE_HGE
 	case TYPE_hge:
