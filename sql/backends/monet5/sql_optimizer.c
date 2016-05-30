@@ -157,8 +157,11 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe)
 				q->token = REMsymbol;	/* they are ignored */
 		}
 	}
-	if (be->mvc->emod & mod_debug)
-		addtoMalBlkHistory(mb, "getStatistics");
+	if (be->mvc->emod & mod_debug){
+		addtoMalBlkHistory(mb);
+		c->curprg->def->keephistory = TRUE;
+	} else
+		c->curprg->def->keephistory = FALSE;
 }
 
 static str
@@ -211,7 +214,7 @@ optimizeQuery(Client c)
 		if (c->listing)
 			printFunction(c->fdout, mb, 0, c->listing);
 		if (be->mvc->debug) {
-			msg = runMALDebugger(c, c->curprg);
+			msg = runMALDebugger(c, c->curprg->def);
 			if (msg != MAL_SUCCEED)
 				GDKfree(msg); /* ignore error */
 		}

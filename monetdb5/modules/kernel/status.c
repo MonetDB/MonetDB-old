@@ -200,12 +200,12 @@ SYSmemStatistics(bat *ret, bat *ret2)
 {
 	struct Mallinfo m;
 	BAT *b, *bn;
-	wrd i;
+	lng i;
 
 	m = MT_mallinfo();
 
 	bn = BATnew(TYPE_void,TYPE_str, 32, TRANSIENT);
-	b = BATnew(TYPE_void, TYPE_wrd, 32, TRANSIENT);
+	b = BATnew(TYPE_void, TYPE_lng, 32, TRANSIENT);
 	if (b == 0 || bn == 0) {
 		if ( b) BBPunfix(b->batCacheid);
 		if ( bn) BBPunfix(bn->batCacheid);
@@ -215,35 +215,35 @@ SYSmemStatistics(bat *ret, bat *ret2)
 	BATseqbase(bn,0);
 
 	/* store counters, ignore errors */
-	i = (wrd) (GDKmem_cursize() - memincr);
+	i = (lng) (GDKmem_cursize() - memincr);
 	memincr = GDKmem_cursize();
 	BUNappend(bn, "memincr", FALSE);
 	BUNappend(b, &i, FALSE);
-	i = (wrd) m.arena;
+	i = (lng) m.arena;
 	BUNappend(bn, "arena", FALSE);
 	BUNappend(b, &i, FALSE);
-	i = (wrd) m.ordblks;
+	i = (lng) m.ordblks;
 	BUNappend(bn, "ordblks", FALSE);
 	BUNappend(b, &i, FALSE);
-	i = (wrd) m.smblks;
+	i = (lng) m.smblks;
 	BUNappend(bn, "smblks", FALSE);
 	BUNappend(b, &i, FALSE);
-	i = (wrd) m.hblkhd;
+	i = (lng) m.hblkhd;
 	BUNappend(bn, "hblkhd", FALSE);
 	BUNappend(b, &i, FALSE);
-	i = (wrd) m.hblks;
+	i = (lng) m.hblks;
 	BUNappend(bn, "hblks", FALSE);
 	BUNappend(b, &i, FALSE);
-	i = (wrd) m.usmblks;
+	i = (lng) m.usmblks;
 	BUNappend(bn, "usmblks", FALSE);
 	BUNappend(b, &i, FALSE);
-	i = (wrd) m.fsmblks;
+	i = (lng) m.fsmblks;
 	BUNappend(bn, "fsmblks", FALSE);
 	BUNappend(b, &i, FALSE);
-	i = (wrd) m.uordblks;
+	i = (lng) m.uordblks;
 	BUNappend(bn, "uordblks", FALSE);
 	BUNappend(b, &i, FALSE);
-	i = (wrd) m.fordblks;
+	i = (lng) m.fordblks;
 	BUNappend(bn, "fordblks", FALSE);
 	BUNappend(b, &i, FALSE);
 	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
@@ -290,7 +290,7 @@ SYSmem_usage(bat *ret, bat *ret2, const lng *minsize)
 	}
 	BATseqbase(b,0);
 	BATseqbase(bn,0);
-	BBPlock("SYSmem_usage");
+	BBPlock();
 	for (i = 1; i < getBBPsize(); i++) {
 		BAT *c = BBPquickdesc(i,0);
 		str s;
@@ -381,7 +381,7 @@ SYSmem_usage(bat *ret, bat *ret2, const lng *minsize)
 	BUNappend(bn, "_tot/swapmem", FALSE);
 	BUNappend(b, &tot, FALSE);
 
-	BBPunlock("SYSmem_usage");
+	BBPunlock();
 	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 	*ret = bn->batCacheid;
 	BBPkeepref(bn->batCacheid);
@@ -408,7 +408,7 @@ SYSvm_usage(bat *ret, bat *ret2, const lng *minsize)
 	}
 	BATseqbase(b,0);
 	BATseqbase(bn,0);
-	BBPlock("SYSvm_usage");
+	BBPlock();
 	for (i = 1; i < getBBPsize(); i++) {
 		BAT *c;
 		str s;
@@ -463,7 +463,7 @@ SYSvm_usage(bat *ret, bat *ret2, const lng *minsize)
 	BUNappend(bn, "_tot/vm", FALSE);
 	BUNappend(b, &sz, FALSE);
 
-	BBPunlock("SYSvm_usage");
+	BBPunlock();
 	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 	*ret = bn->batCacheid;
 	BBPkeepref(bn->batCacheid);
