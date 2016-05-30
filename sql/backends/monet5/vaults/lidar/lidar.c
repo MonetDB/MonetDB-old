@@ -1038,7 +1038,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_schema *sch;
 	sql_table *lidar_fl, *lidar_tbl, *lidar_cl, *tbl = NULL;
 	sql_column *col, *colx, *coly, *colz;
-	str tname = *getArgReference_str(stk, pci, 1);
+	str tname = toLower(*getArgReference_str(stk, pci, 1));
 	str fname;
 	str msg = MAL_SUCCEED;
 	oid rid = oid_nil, frid = oid_nil, tid = oid_nil;
