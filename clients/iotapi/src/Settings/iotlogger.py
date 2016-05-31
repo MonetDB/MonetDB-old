@@ -12,13 +12,11 @@ elif sys.platform == "win32":
 
 def init_logging(logging_location):
     try:
-        Logger.setLevel(logging.DEBUG)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         logging_path = os.path.dirname(logging_location)
         if not os.path.exists(logging_path):
             os.makedirs(logging_path)
         log_handler = logging.FileHandler(logging_location, mode='a+')
-        log_handler.setFormatter(formatter)
+        log_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         Logger.addHandler(log_handler)
     except (Exception, OSError) as ex:
         print ex

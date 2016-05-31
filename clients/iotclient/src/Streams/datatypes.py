@@ -1,12 +1,13 @@
 import copy
 import datetime
+import iso8601
 import itertools
 import math
 import re
 import struct
 
-from dateutil import parser
 from abc import ABCMeta, abstractmethod
+from dateutil import parser
 from jsonschemas import UUID_REGEX, MAC_ADDRESS_REGEX, TIME_REGEX, IPV4_REGEX
 
 # The null constants might change from system to system due to different CPU's limits
@@ -548,11 +549,10 @@ class DecimalType(NumberBaseType):
 
     def process_next_value(self, entry, counter, parameters, errors):
         self.check_value_precision(entry, 'entry')
-        parsed_value = int(entry)
         if self._pack_sym != 'Q':
-            return parsed_value
+            return int(entry)
         else:
-            return [parsed_value & INT64_MAX, (parsed_value >> 64) & INT64_MAX]
+            return [int(entry) & INT64_MAX, (int(entry) >> 64) & INT64_MAX]
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
         if self._pack_sym == 'Q':
@@ -610,7 +610,7 @@ class BaseDateTimeType(StreamDataType):  # The validation of time variables can'
         pass
 
     def process_next_value(self, entry, counter, parameters, errors):
-        if entry == self.get_nullable_constant():  # have to do this trick due to Python's datetime limitations
+        if entry == self.get_nullable_constant():  # have to do this trick due to Python datetime limitations
             return self.pack_next_value(None, counter, parameters, errors)
         parsed = self.parse_entry(entry)
         if hasattr(self, '_minimum') and not hasattr(self, '_maximum') and parsed < self._minimum:
@@ -643,7 +643,7 @@ class DateType(BaseDateTimeType):  # Stored as an uint with the number of days s
         schema[self._column_name]['format'] = 'date'
 
     def parse_entry(self, entry):
-        return datetime.datetime.strptime(str(entry), "%Y-%m-%d")
+        return datetime.datetime.strptime(entry, "%Y-%m-%d")
 
     def pack_next_value(self, parsed, counter, parameters, errors):
         if parsed is None:
@@ -663,7 +663,6 @@ class TimeType(BaseDateTimeType):  # Stored as an uint with the number of millis
         super(TimeType, self).__init__(**kwargs)
         if 'timezone' in kwargs:
             self._has_timezone = kwargs['timezone']
-            self._data_type = 'timez'
         else:
             self._has_timezone = True
 
@@ -672,10 +671,14 @@ class TimeType(BaseDateTimeType):  # Stored as an uint with the number of millis
         schema[self._column_name]['pattern'] = TIME_REGEX
 
     def parse_entry(self, entry):
-        parsed_time = datetime.datetime.strptime(str(entry), "%H:%M:%S.%f")
-        if not self._has_timezone:
-            parsed_time = parsed_time.replace(tzinfo=None)
-        return parsed_time
+        parsed = parser.parse(entry)
+        if self._has_timezone:
+            string = parsed.strftime("%z")
+            delta = datetime.timedelta(hours=int(string[1:3]), minutes=int(string[3:5]))
+            if string[0] == '-':
+                delta = -delta
+            parsed = parsed.replace(tzinfo=None) - delta
+        return parsed
 
     def pack_next_value(self, parsed, counter, parameters, errors):
         if parsed is None:
@@ -687,6 +690,15 @@ class TimeType(BaseDateTimeType):  # Stored as an uint with the number of millis
     def pack_parsed_values(self, extracted_values, counter, parameters):
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + 'I', *extracted_values)
 
+    def process_sql_parameters(self, array):
+        if self._has_timezone:
+            array[2] = 'time with timezone'
+
+    def to_json_representation(self):
+        json_value = super(TimeType, self).to_json_representation()
+        json_value['has_timezone'] = self._has_timezone
+        return json_value
+
 
 class TimestampType(BaseDateTimeType):  # it's represented with the two integers from time and date
     """Covers: TIMESTAMP"""
@@ -695,7 +707,6 @@ class TimestampType(BaseDateTimeType):  # it's represented with the two integers
         super(TimestampType, self).__init__(**kwargs)
         if 'timezone' in kwargs:
             self._has_timezone = kwargs['timezone']
-            self._data_type = 'timestampz'
         else:
             self._has_timezone = True
 
@@ -704,10 +715,14 @@ class TimestampType(BaseDateTimeType):  # it's represented with the two integers
         schema[self._column_name]['format'] = 'date-time'
 
     def parse_entry(self, entry):
-        parsed_timestamp = parser.parse(entry)
-        if not self._has_timezone:
-            parsed_timestamp = parsed_timestamp.replace(tzinfo=None)
-        return parsed_timestamp
+        parsed = iso8601.parse_date(entry)
+        if self._has_timezone:
+            string = parsed.strftime("%z")
+            delta = datetime.timedelta(hours=int(string[1:3]), minutes=int(string[3:5]))
+            if string[0] == '-':
+                delta = -delta
+            parsed = parsed.replace(tzinfo=None) - delta
+        return parsed
 
     def pack_next_value(self, parsed, counter, parameters, errors):
         if parsed is None:
@@ -722,3 +737,12 @@ class TimestampType(BaseDateTimeType):  # it's represented with the two integers
     def pack_parsed_values(self, extracted_values, counter, parameters):
         concat_array = list(itertools.chain(*extracted_values))
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter << 1) + 'I', *concat_array)
+
+    def process_sql_parameters(self, array):
+        if self._has_timezone:
+            array[2] = 'timestamp with timezone'
+
+    def to_json_representation(self):
+        json_value = super(TimestampType, self).to_json_representation()
+        json_value['has_timezone'] = self._has_timezone
+        return json_value

@@ -94,7 +94,7 @@ def main():
                         help='Database listening port (default: 50000)', metavar='PORT')
     parser.add_argument('-d', '--database', nargs='?', default='iotdb', help='Database name (default: iotdb)')
     parser.add_argument('-u', '--user', nargs='?', default='monetdb', help='Database user (default: monetdb)')
-    parser.add_argument('--help', action='store_true', help='Display this help')
+    parser.add_argument('-he', '--help', action='store_true', help='Display this help')
 
     try:
         args = vars(parser.parse_args())
@@ -110,7 +110,7 @@ def main():
 
     con_password = getpass.getpass(prompt='Insert password for user ' + args['user'] + ':')
     init_logging(args['log'])  # init logging context
-    subprocess = Process(target=start_process, args=(args['filesystem'], args['useidentifier'], args['name'],
+    subprocess = Process(target=start_process, args=(args['filesystem'], args['identifier'], args['name'],
                                                      args['ihost'], args['iport'], args['ahost'], args['aport'],
                                                      args['host'], args['port'], args['user'], con_password,
                                                      args['database']))

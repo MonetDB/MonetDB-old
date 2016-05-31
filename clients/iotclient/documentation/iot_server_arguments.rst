@@ -92,6 +92,6 @@ Name of database to use. By default is :code:`iotdb` database.
 Help
 ----
 
-**- -help**
+**-he  - -help**
 
 Display arguments help.

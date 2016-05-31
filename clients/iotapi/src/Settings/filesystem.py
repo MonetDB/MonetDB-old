@@ -11,11 +11,11 @@ elif sys.platform == "win32":
     DEFAULT_FILESYSTEM = os.path.join(os.path.dirname(__file__), os.pardir)
 
 
-def init_file_system(new_location=None):
+def init_file_system(filesystem_location):
     global Baskets_Location
 
     try:
-        Baskets_Location = os.path.join(new_location, "baskets")
+        Baskets_Location = os.path.join(filesystem_location, "baskets")
         if not os.path.exists(Baskets_Location):
             os.makedirs(Baskets_Location)
     except (Exception, OSError) as ex:

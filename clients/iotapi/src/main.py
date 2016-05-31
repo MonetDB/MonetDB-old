@@ -77,7 +77,7 @@ def main():
                         help='Database listening port (default: 50000)', metavar='PORT')
     parser.add_argument('-d', '--database', nargs='?', default='iotdb', help='Database name (default: iotdb)')
     parser.add_argument('-u', '--user', nargs='?', default='monetdb', help='Database user (default: monetdb)')
-    parser.add_argument('--help', action='store_true', help='Display this help')
+    parser.add_argument('-he', '--help', action='store_true', help='Display this help')
 
     try:
         args = vars(parser.parse_args())

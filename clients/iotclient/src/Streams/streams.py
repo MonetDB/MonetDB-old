@@ -86,7 +86,7 @@ class BaseIOTStream(object):
 
         # WARNING DELETE this code afterwards is for debugging purposes for now
         basket_counter_file_pointer = open(os.path.join(self._current_base_path, BASKETS_COUNT_FILE), "w+b")
-        basket_counter_file_pointer.write(struct.pack(LITTLE_ENDIAN_ALIGNMENT + "i",0))
+        basket_counter_file_pointer.write(struct.pack(LITTLE_ENDIAN_ALIGNMENT + "i", 0))
         basket_counter_file_pointer.flush()
         basket_counter_file_pointer.close()
         # END WARNING
