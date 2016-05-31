@@ -29,7 +29,6 @@ extern void bat_destroy(BAT *b);
 extern BAT *bat_new(int ht, int tt, BUN size, int role);
 
 extern BUN append_inserted(BAT *b, BAT *i );
-extern BUN copy_inserted(BAT *b, BAT *i );
 
 extern BAT *ebats[MAXATOMS];
 
@@ -42,7 +41,6 @@ extern log_bid e_ubat(int type);
 extern log_bid ebat_copy(log_bid b, oid ibase, int temp);
 extern void bat_utils_init(void);
 
-extern sql_schema * tr_find_schema( sql_trans *tr, sql_schema *s);
 extern sql_table * tr_find_table( sql_trans *tr, sql_table *t);
 extern sql_column * tr_find_column( sql_trans *tr, sql_column *c);
 extern sql_idx * tr_find_idx( sql_trans *tr, sql_idx *i);

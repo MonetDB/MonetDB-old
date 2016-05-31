@@ -354,6 +354,11 @@ BATattach(int tt, const char *heapfile, int role)
 	BATkey(bn, TRUE);
 	BATsetcapacity(bn, cap);
 	BATsetcount(bn, cap);
+	/*
+	 * Unless/until we invest in a scan to check that there indeed
+	 * are no NIL values, we cannot safely assume there are none.
+	 */
+	bn->T->nonil = 0;
 	if (cap > 1) {
 		bn->tsorted = 0;
 		bn->trevsorted = 0;
@@ -912,10 +917,13 @@ BATcopy(BAT *b, int ht, int tt, int writable, int role)
 			oid inc = (cur != oid_nil);
 
 			bn->H->heap.free = bn->T->heap.free = 0;
-			if (ht)
+			if (ht) {
 				bn->H->heap.free = bunstocopy * sizeof(oid);
-			else
+				bn->H->heap.dirty |= bunstocopy > 0;
+			} else {
 				bn->T->heap.free = bunstocopy * sizeof(oid);
+				bn->T->heap.dirty |= bunstocopy > 0;
+			}
 			while (bunstocopy--) {
 				*dst++ = cur;
 				cur += inc;
@@ -927,9 +935,11 @@ BATcopy(BAT *b, int ht, int tt, int writable, int role)
 			bn->H->heap.free = bn->T->heap.free = 0;
 			if (ht) {
 				bn->H->heap.free = bunstocopy * Hsize(bn);
+				bn->H->heap.dirty |= bunstocopy > 0;
 				memcpy(Hloc(bn, 0), Hloc(b, p), bn->H->heap.free);
 			} else {
 				bn->T->heap.free = bunstocopy * Tsize(bn);
+				bn->T->heap.dirty |= bunstocopy > 0;
 				memcpy(Tloc(bn, 0), Tloc(b, p), bn->T->heap.free);
 			}
 		}

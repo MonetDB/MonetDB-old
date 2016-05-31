@@ -43,6 +43,8 @@ int digits2bits(int digits)
 		return 8;
 	else if (digits < 5) 
 		return 16;
+	else if (digits <= 8) 
+		return 27;
 	else if (digits < 10) 
 		return 32;
 	else if (digits < 17) 
@@ -72,9 +74,9 @@ int bits2digits(int bits)
 		return 6;
 	else if (bits < 24) 
 		return 7;
-	else if (bits < 27) 
+	else if (bits <= 27) 
 		return 8;
-	else if (bits < 30) 
+	else if (bits <= 30) 
 		return 9;
 	else if (bits <= 32) 
 		return 10;
@@ -135,6 +137,7 @@ base_init(sql_allocator *sa, sql_base * b, sqlid id, int flag, const char *name)
 	b->rtime = 0;
 	b->flag = flag;
 	b->name = NULL;
+	b->refcnt = 1;
 	if (name)
 		b->name = sa_strdup(sa,name);
 }
@@ -363,6 +366,8 @@ is_subtype(sql_subtype *sub, sql_subtype *super)
 	if (super->digits == 0 && super->type->eclass == EC_STRING && 
 	    (sub->type->eclass == EC_STRING || sub->type->eclass == EC_CHAR))
 		return 1;
+	if (super->digits != sub->digits && sub->type->eclass == EC_CHAR)
+		return 0;
 	/* subtypes are only equal iff
 	   they map onto the same systemtype */
 	return (type_cmp(sub->type, super->type) == 0);
@@ -1531,7 +1536,7 @@ sqltypeinit( sql_allocator *sa)
 	sql_create_func(sa, "localtime", "sql", "current_time", NULL, NULL, TME, SCALE_NONE);
 	sql_create_func(sa, "localtimestamp", "sql", "current_timestamp", NULL, NULL, TMESTAMP, SCALE_NONE);
 
-	sql_create_func(sa, "sql_sub", "mtime", "diff", DTE, DTE, MONINT, SCALE_FIX);
+	sql_create_func(sa, "sql_sub", "mtime", "diff", DTE, DTE, INT, SCALE_FIX);
 	sql_create_func(sa, "sql_sub", "mtime", "diff", TMETZ, TMETZ, SECINT, SCALE_NONE);
 	sql_create_func(sa, "sql_sub", "mtime", "diff", TME, TME, SECINT, SCALE_FIX);
 	sql_create_func(sa, "sql_sub", "mtime", "diff", TMESTAMPTZ, TMESTAMPTZ, SECINT, SCALE_NONE);
@@ -1621,7 +1626,7 @@ sqltypeinit( sql_allocator *sa)
 		sql_create_func(sa, "concat", "calc", "+", *t, *t, *t, DIGITS_ADD);
 		sql_create_func(sa, "ascii", "str", "ascii", *t, NULL, INT, SCALE_NONE);
 		sql_create_func(sa, "code", "str", "unicode", INT, NULL, *t, SCALE_NONE);
-		sql_create_func(sa, "length", "str", "stringlength", *t, NULL, INT, SCALE_NONE);
+		sql_create_func(sa, "length", "str", "length", *t, NULL, INT, SCALE_NONE);
 		sql_create_func(sa, "right", "str", "stringright", *t, INT, *t, SCALE_NONE);
 		sql_create_func(sa, "left", "str", "stringleft", *t, INT, *t, SCALE_NONE);
 		sql_create_func(sa, "upper", "str", "toUpper", *t, NULL, *t, SCALE_NONE);

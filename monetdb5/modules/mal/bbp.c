@@ -481,4 +481,3 @@ str CMDbbp(bat *ID, bat *NS, bat *HT, bat *TT, bat *CNT, bat *REFCNT, bat *LREFC
 	BBPkeepref(*KIND = kind->batCacheid);
 	return MAL_SUCCEED;
 }
-

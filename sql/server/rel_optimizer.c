@@ -1711,7 +1711,32 @@ rel_no_rename_exps( list *exps )
 static void
 rel_rename_exps( mvc *sql, list *exps1, list *exps2)
 {
+	int pos = 0;
 	node *n, *m;
+
+	/* check if a column uses an alias earlier in the list */
+	for (n = exps1->h, m = exps2->h; n && m; n = n->next, m = m->next, pos++) {
+		sql_exp *e2 = m->data;
+
+		if (e2->type == e_column) {
+			sql_exp *ne = NULL;
+
+			if (e2->l) 
+				ne = exps_bind_column2(exps2, e2->l, e2->r);
+			if (!ne && !e2->l)
+				ne = exps_bind_column(exps2, e2->r, NULL);
+			if (ne) {
+				int p = list_position(exps2, ne);
+
+				if (p < pos) {
+					ne = list_fetch(exps1, p);
+					if (e2->l)
+						e2->l = exp_relname(ne);
+					e2->r = exp_name(ne);
+				}
+			}
+		}
+	}
 
 	assert(list_length(exps1) == list_length(exps2)); 
 	for (n = exps1->h, m = exps2->h; n && m; n = n->next, m = m->next) {
@@ -1967,6 +1992,8 @@ exp_push_down_prj(mvc *sql, sql_exp *e, sql_rel *f, sql_rel *t)
 		list *l = e->l, *nl = NULL;
 	        sql_exp *ne = NULL;
 
+		if (e->type == e_func && exp_unsafe(e))
+			return NULL;
 		if (!l) {
 			return e;
 		} else {
@@ -2149,6 +2176,39 @@ exps_share_expensive_exp( list *exps, list *shared )
 	return 0;
 }
 
+static int ambigious_ref( list *exps, sql_exp *e);
+static int
+ambigious_refs( list *exps, list *refs) 
+{
+	node *n;
+
+	if (!refs)
+		return 0;
+	for(n=refs->h; n; n = n->next) {
+		if (ambigious_ref(exps, n->data))
+			return 1;
+	}
+	return 0;
+}
+
+static int
+ambigious_ref( list *exps, sql_exp *e) 
+{
+	sql_exp *ne = NULL;
+
+	if (e->type == e_column) {
+		if (e->l) 
+			ne = exps_bind_column2(exps, e->l, e->r);
+		if (!ne && !e->l)
+			ne = exps_bind_column(exps, e->r, NULL);
+		if (ne && e != ne) 
+			return 1;
+	}
+	if (e->type == e_func) 
+		return ambigious_refs(exps, e->l);
+	return 0;
+}
+
 static sql_rel *
 rel_merge_projects(int *changes, mvc *sql, sql_rel *rel) 
 {
@@ -2171,20 +2231,18 @@ rel_merge_projects(int *changes, mvc *sql, sql_rel *rel)
 			sql_exp *e = n->data, *ne = NULL;
 
 			/* We do not handle expressions pointing back in the list */
-			if (e->type == e_column) {
-				if (e->l) 
-					ne = exps_bind_column2(exps, e->l, e->r);
-				if (!ne && !e->l)
-					ne = exps_bind_column(exps, e->r, NULL);
-				if (ne && e != ne) {
-					all = 0;
-					break;
-				} else {
-					ne = NULL;
-				}
+			if (ambigious_ref(exps, e)) {
+				all = 0;
+				break;
 			}
 			ne = exp_push_down_prj(sql, e, prj, prj->l);
-			if (ne && ne->type == e_column) { /* check if the refered alias name isn't used twice */
+			/* check if the refered alias name isn't used twice */
+			if (ne && ambigious_ref(rel->exps, ne)) {
+				all = 0;
+				break;
+			}
+			/*
+			if (ne && ne->type == e_column) { 
 				sql_exp *nne = NULL;
 
 				if (ne->l)
@@ -2196,6 +2254,7 @@ rel_merge_projects(int *changes, mvc *sql, sql_rel *rel)
 					break;
 				}
 			}
+			*/
 			if (ne) {
 				exp_setname(sql->sa, ne, exp_relname(e), exp_name(e));
 				list_append(rel->exps, ne);
@@ -3544,16 +3603,19 @@ rel_push_select_down_join(int *changes, mvc *sql, sql_rel *rel)
 		for (n = exps->h; n; n = n->next) { 
 			sql_exp *e = n->data;
 			if (e->type == e_cmp && !e->f && !is_complex_exp(e->flag)) {
+				sql_rel *nr = NULL;
 				sql_exp *re = e->r, *ne = rel_find_exp(r, re);
 
 				if (ne && ne->card >= CARD_AGGR) /* possibly changed because of apply rewrites */
 					re->card = ne->card;
 
 				if (re->card >= CARD_AGGR) {
-					rel->l = rel_push_join(sql, r, e->l, re, NULL, e);
+					nr = rel_push_join(sql, r, e->l, re, NULL, e);
 				} else {
-					rel->l = rel_push_select(sql, r, e->l, e);
+					nr = rel_push_select(sql, r, e->l, e);
 				}
+				if (nr)
+					rel->l = nr;
 				/* only pushed down selects are counted */
 				if (r == rel->l) {
 					(*changes)++;
@@ -3712,7 +3774,7 @@ rel_push_semijoin_down(int *changes, mvc *sql, sql_rel *rel)
 {
 	(void)*changes;
 	if (is_semi(rel->op) && rel->exps && rel->l) {
-		operator_type op = rel->op;
+		operator_type op = rel->op, lop;
 		node *n;
 		sql_rel *l = rel->l, *ll = NULL, *lr = NULL;
 		sql_rel *r = rel->r;
@@ -3727,6 +3789,7 @@ rel_push_semijoin_down(int *changes, mvc *sql, sql_rel *rel)
 		if (!is_join(l->op) || rel_is_ref(l))
 			return rel;
 
+		lop = l->op;
 		ll = l->l;
 		lr = l->r;
 		/* semijoin shouldn't be based on right relation of join */
@@ -3758,9 +3821,9 @@ rel_push_semijoin_down(int *changes, mvc *sql, sql_rel *rel)
 			l = rel_crossproduct(sql->sa, lr, r, op);
 		l->exps = nsexps;
 		if (right)
-			rel = rel_crossproduct(sql->sa, l, lr, op_join);
+			rel = rel_crossproduct(sql->sa, l, lr, lop);
 		else
-			rel = rel_crossproduct(sql->sa, l, ll, op_join);
+			rel = rel_crossproduct(sql->sa, l, ll, lop);
 		rel->exps = njexps;
 	}
 	return rel;
@@ -4680,7 +4743,7 @@ exps_remove_dictexps(mvc *sql, list *exps, sql_rel *r)
 static sql_rel *
 rel_remove_join(int *changes, mvc *sql, sql_rel *rel)
 {
-	if (is_join(rel->op)) {
+	if (is_join(rel->op) && !is_outerjoin(rel->op)) {
 		sql_rel *l = rel->l;
 		sql_rel *r = rel->r;
 		int lconst = 0, rconst = 0;
@@ -4840,9 +4903,7 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 
 				if (is_column(e->type) && exp_is_atom(e)) {
 					list_append(exps, e);
-				} else if (e->type == e_column /*||
-					   e->type == e_func ||
-					   e->type == e_convert*/) {
+				} else if (e->type == e_column) {
 					if (e->name && e->name[0] == 'L')
 						return rel;
 					list_append(exps, e);
@@ -7407,7 +7468,19 @@ rel_apply_rewrite(int *changes, mvc *sql, sql_rel *rel)
 			r->r = r->l;
 			r->l = rel;
 			rel = r; 
-		} else { /* both used or unused */
+		} else if (rused && lused) { /* both used */
+			sql_rel *la = rel, *ra = rel_create(sql->sa);
+
+			ra->l = la->l;
+			ra->op = la->op;
+			ra->flag = la->flag;
+			la->r = r->l;
+			ra->r = r->r;
+
+			r->l = la;
+			r->r = ra;
+			rel = r; 
+		} else { /* both unused */
 			int flag = rel->flag;
 			node *n;
 			/* rewrite apply into join (later use flag, loj, join or exists (which is antijoin)) */

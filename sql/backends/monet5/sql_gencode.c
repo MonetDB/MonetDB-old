@@ -741,8 +741,7 @@ _dump_2(MalBlkPtr mb, char *mod, char *name, int o1, int o2)
 static int
 dump_2(backend *sql, MalBlkPtr mb, stmt *s, char *mod, char *name)
 {
-	int o1 = _dumpstmt(sql, mb, s->op1);
-	int o2 = _dumpstmt(sql, mb, s->op2);
+	int o1, o2;
 
 	if ((o1 = _dumpstmt(sql, mb, s->op1)) < 0)
 		return -1;
@@ -805,7 +804,7 @@ dump_joinN(backend *sql, MalBlkPtr mb, stmt *s)
 		return -1;
 	mod = sql_func_mod(s->op4.funcval->func);
 	fimp = sql_func_imp(s->op4.funcval->func);
-	fimp = strconcat(fimp, "subjoin");
+	fimp = sa_strconcat(sql->mvc->sa, fimp, "subjoin");
 
 	/* dump left and right operands */
 	_dumpstmt(sql, mb, s->op1);
@@ -1367,7 +1366,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 
 					mod = sql_func_mod(f);
 					fimp = sql_func_imp(f);
-					fimp = strconcat(fimp, "subselect");
+					fimp = sa_strconcat(sql->mvc->sa, fimp, "subselect");
 					q = newStmt(mb, mod, convertOperator(fimp));
 					// push pointer to the SQL structure into the MAL call
 					// allows getting argument names for example
@@ -1715,15 +1714,21 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 					return s->nr;
 				}
 				/* projections, ie left is void headed */
-				if (cmp == cmp_project)
+				if (cmp == cmp_project) {
 					q = newStmt1(mb, algebraRef, "leftfetchjoin");
-				else
+				} else
 					q = newStmt2(mb, algebraRef, leftjoinRef);
 				q = pushArgument(mb, q, l);
 				q = pushArgument(mb, q, r);
 				if (q == NULL)
 					return -1;
 				s->nr = getDestVar(q);
+				if (cmp == cmp_project && s->key) {
+					q = newStmt1(mb, batRef, "setKey");
+					q = pushArgument(mb, q, s->nr);
+					q = pushBit(mb, q, TRUE);
+					s->nr = getDestVar(q);
+				}
 				return s->nr;
 			}
 
