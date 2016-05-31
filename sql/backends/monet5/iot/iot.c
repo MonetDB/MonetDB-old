@@ -94,7 +94,7 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		msg = IOTprocedureStmt(cntxt, mb, sch, nme);
 		if (msg)
 			return msg;
-		s = findSymbolInModule(cntxt->nspace, putName(nme, strlen(nme)));
+		s = findSymbolInModule(cntxt->nspace, putName(nme));
 		if (s == NULL)
 			throw(SQL, "iot.query", "Definition missing");
 		qry = s->def;
@@ -114,15 +114,15 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	_DEBUG_IOT_ fprintf(stderr,"#iot: bake a new continuous query plan\n");
-	scope = findModule(cntxt->nspace, putName(sch, strlen(sch)));
-	s = newFunction(putName(sch, strlen(sch)), putName(nme, strlen(nme)), FUNCTIONsymbol);
+	scope = findModule(cntxt->nspace, putName(sch));
+	s = newFunction(putName(sch), putName(nme), FUNCTIONsymbol);
 	if (s == NULL)
 		throw(SQL, "iot.query", "Procedure code does not exist.");
 	freeMalBlk(s->def);
 	s->def = copyMalBlk(qry);
 	p = getInstrPtr(s->def, 0);
-	setModuleId(p, putName(sch, strlen(sch)));
-	setFunctionId(p, putName(nme, strlen(nme)));
+	setModuleId(p, putName(sch));
+	setFunctionId(p, putName(nme));
 	insertSymbol(scope, s);
 	_DEBUG_IOT_ printFunction(cntxt->fdout, s->def, 0, LIST_MAL_ALL);
 	/* optimize the code and register at scheduler */
@@ -131,7 +131,7 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		msg = optimizeMALBlock(cntxt, s->def);
 		if (msg == MAL_SUCCEED) 
 			msg = optimizerCheck(cntxt, s->def, "optimizer.iot", 1, GDKusec() - clk);
-		addtoMalBlkHistory(mb, "iot");
+		addtoMalBlkHistory(mb);
 	}
 	if (msg == MAL_SUCCEED) {
 		_DEBUG_IOT_ fprintf(stderr,"#iot: continuous query plan\n");

@@ -44,12 +44,12 @@ static struct PIPELINES {
  */
 	{"minimal_pipe",
 	 "optimizer.inline();"
-	 "optimizer.candidates();"
 	 "optimizer.remap();"
 	 "optimizer.deadcode();"
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
+	 "optimizer.candidates();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The default pipe line contains as of Feb2010
@@ -63,7 +63,6 @@ static struct PIPELINES {
  */
 	{"default_pipe",
 	 "optimizer.inline();"
-	 "optimizer.candidates();"
 	 "optimizer.remap();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
@@ -86,6 +85,7 @@ static struct PIPELINES {
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
+	 "optimizer.candidates();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /*
@@ -93,7 +93,6 @@ static struct PIPELINES {
  */
 	{"volcano_pipe",
 	 "optimizer.inline();"
-	 "optimizer.candidates();"
 	 "optimizer.remap();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
@@ -117,6 +116,7 @@ static struct PIPELINES {
 	 "optimizer.generator();"
 	 "optimizer.volcano();"
 	 "optimizer.profiler();"
+	 "optimizer.candidates();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The no_mitosis pipe line is (and should be kept!) identical to the
@@ -132,7 +132,6 @@ static struct PIPELINES {
 	{"no_mitosis_pipe",
 	 "optimizer.inline();"
 	 "optimizer.remap();"
-	 "optimizer.candidates();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
@@ -153,6 +152,7 @@ static struct PIPELINES {
 	 "optimizer.multiplex();"
 	 "optimizer.profiler();"
 	 "optimizer.generator();"
+	 "optimizer.candidates();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The sequential pipe line is (and should be kept!) identical to the
@@ -167,7 +167,6 @@ static struct PIPELINES {
  */
 	{"sequential_pipe",
 	 "optimizer.inline();"
-	 "optimizer.candidates();"
 	 "optimizer.remap();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
@@ -188,6 +187,7 @@ static struct PIPELINES {
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
+	 "optimizer.candidates();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* Experimental pipelines stressing various components under
@@ -460,7 +460,7 @@ compileOptimizer(Client cntxt, str name)
 		if (strcmp(pipes[i].name, name) == 0 && pipes[i].mb == 0) {
 			/* precompile the pipeline as MAL string */
 			MCinitClientRecord(&c, cntxt->user, 0, 0);
-			c.nspace = newModule(NULL, putName("user", 4));
+			c.nspace = newModule(NULL, putName("user"));
 			c.father = cntxt;	/* to avoid conflicts on GDKin */
 			c.fdout = cntxt->fdout;
 			if (setScenario(&c, "mal"))

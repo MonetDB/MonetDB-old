@@ -53,7 +53,7 @@ pattern update(sch:str,tbl:str, cols:bat[:any]...)
 address BSKTupdate
 comment "Dump the new tuples into the basket";
 
-pattern clear_table(sch:str,tbl:str):wrd
+pattern clear_table(sch:str,tbl:str):lng
 address BSKTclear
 comment "Remove the basket";
 

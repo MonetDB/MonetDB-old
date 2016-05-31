@@ -349,8 +349,14 @@ GDKextendf(int fd, size_t size, const char *fn)
 		 * is not supported on the file system, or if neither
 		 * function exists */
 		rt = ftruncate(fd, (off_t) size);
-		if (rt != 0)
+		if (rt != 0) {
+			/* extending failed, try to reduce file size
+			 * back to original */
+			int err = errno;
+			(void) ftruncate(fd, stb.st_size);
+			errno = err; /* restore for error message */
 			GDKsyserror("GDKextendf: could not extend file\n");
+		}
 	}
 	IODEBUG fprintf(stderr, "#GDKextend %s " SZFMT " -> " SZFMT " %dms%s\n",
 			fn, (size_t) stb.st_size, size,
@@ -1044,6 +1050,7 @@ BATprintcolumns(stream *s, int argc, BAT *argv[])
 		mnstr_write(s, "  ]\n", 1, 4);
 	}
 
+	GDKfree(buf);
 	GDKfree(colinfo);
 
 	return GDK_SUCCEED;

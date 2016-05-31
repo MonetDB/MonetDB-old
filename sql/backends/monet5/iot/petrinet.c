@@ -102,9 +102,9 @@ str PNanalyseWrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str fcnnme = *getArgReference_str(stk, pci, 2);
 
 	(void) mb;
-	scope = findModule(cntxt->nspace, putName(modnme, (int) strlen(modnme)));
+	scope = findModule(cntxt->nspace, putName(modnme));
 	if (scope)
-		s = findSymbolInModule(scope, putName(fcnnme, (int) strlen(fcnnme)));
+		s = findSymbolInModule(scope, putName(fcnnme));
 	if (s == NULL)
 		throw(MAL, "petrinet.analysis", "Could not find function");
 
@@ -120,9 +120,9 @@ str PNregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str fcnnme = *getArgReference_str(stk, pci, 2);
 
 	(void) mb;
-	scope = findModule(cntxt->nspace, putName(modnme, (int) strlen(modnme)));
+	scope = findModule(cntxt->nspace, putName(modnme));
 	if (scope)
-		s = findSymbolInModule(scope, putName(fcnnme, (int) strlen(fcnnme)));
+		s = findSymbolInModule(scope, putName(fcnnme));
 
 	if (s == NULL)
 		throw(MAL, "petrinet.register", "Could not find function");
@@ -164,7 +164,7 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 	pnet[pnettop].modname = GDKstrdup(getModuleId(sig));
 	pnet[pnettop].fcnname = GDKstrdup(getFunctionId(sig));
 	snprintf(buf,IDLENGTH,"petri_%d",pnettop);
-	s = newFunction(iotRef, putName(buf,strlen(buf)), FUNCTIONsymbol);
+	s = newFunction(iotRef, putName(buf), FUNCTIONsymbol);
 	nmb = s->def;
 	setArgType(nmb, nmb->stmt[0],0, TYPE_void);
     (void) newStmt(nmb, sqlRef, transactionRef);

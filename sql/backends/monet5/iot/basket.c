@@ -456,7 +456,6 @@ BSKTpushBasket(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		case TYPE_oid:
 		case TYPE_flt:
 		case TYPE_dbl:
-		case TYPE_wrd:
 		case TYPE_lng:
 #ifdef HAVE_HGE
 		case TYPE_hge:
@@ -759,7 +758,7 @@ BSKTdelete(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 BSKTclear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-    wrd *res = getArgReference_wrd(stk, pci, 0);
+    lng *res = getArgReference_lng(stk, pci, 0);
     mvc *m = NULL;
     str msg;
     str sname = *getArgReference_str(stk, pci, 1);

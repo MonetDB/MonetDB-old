@@ -9,6 +9,7 @@
 %define bits 32
 %else
 %define bits 64
+%define with_int128=1
 %endif
 
 # only add .oidXX suffix if oid size differs from bit size
@@ -44,22 +45,27 @@
 # and build the geom modules.  On RedHat Enterprise Linux and
 # derivatives (CentOS, Scientific Linux), the geos library is not
 # available.  However, the geos library is available in the Extra
-# Packages for Enterprise Linux (EPEL).  In other words, we can check
-# the fedpkgs macro (see above).
+# Packages for Enterprise Linux (EPEL).  However, On RHEL 6, the geos
+# library is too old for us, so we need an extra check for an
+# up-to-date version of RHEL.
 %if %{fedpkgs}
+%if %{?rhel:0}%{!?rhel:1} || 0%{?rhel} >= 7
 %define with_geos 1
+%endif
 %endif
 
 # On Fedora, the liblas library is available, and so we can require it
 # and build the lidar modules.  On RedHat Enterprise Linux and
-# derivatives (CentOS, Scientific Linux), the liblas library is not
-# available, even with EPEL available.
-%if %{?rhel:0}%{!?rhel:1}
+# derivatives (CentOS, Scientific Linux), the liblas library is only
+# available if EPEL is enabled, and then only on version 7.
+%if %{fedpkgs}
+%if %{?rhel:0}%{!?rhel:1} || 0%{?rhel} >= 7
 # If the _without_lidar macro is not set, the MonetDB-lidar RPM will
 # be created.  The macro can be set when using mock by passing it the
 # flag --without=lidar.
 %if %{?_without_lidar:0}%{!?_without_lidar:1}
 %define with_lidar 1
+%endif
 %endif
 %endif
 
@@ -107,23 +113,29 @@ URL: http://www.monetdb.org/
 Source: http://dev.monetdb.org/downloads/sources/Jul2015-SP4/%{name}-%{version}.tar.bz2
 
 # we need systemd for the _unitdir macro to exist
+%if %{?rhel:0}%{!?rhel:1} || 0%{?rhel} >= 7
+# RHEL >= 7, and all current Fedora
 BuildRequires: systemd
+%endif
 BuildRequires: bison
 BuildRequires: bzip2-devel
 %if %{?with_fits:1}%{!?with_fits:0}
 BuildRequires: cfitsio-devel
 %endif
 %if %{?with_geos:1}%{!?with_geos:0}
-BuildRequires: geos-devel >= 3.0.0
+BuildRequires: geos-devel >= 3.4.0
 %endif
 BuildRequires: gsl-devel
 %if %{?with_lidar:1}%{!?with_lidar:0}
-BuildRequires: liblas-devel gdal-devel libgeotiff-devel
+BuildRequires: liblas-devel >= 1.8.0
+BuildRequires: gdal-devel
+BuildRequires: libgeotiff-devel
 # Fedora 22 liblas-devel does not depend on liblas:
-BuildRequires: liblas
+BuildRequires: liblas >= 1.8.0
 %endif
 BuildRequires: libatomic_ops-devel
 BuildRequires: libcurl-devel
+BuildRequires: xz-devel
 # BuildRequires: libmicrohttpd-devel
 # BuildRequires: libsphinxclient-devel
 BuildRequires: libuuid-devel
@@ -763,13 +775,15 @@ systemd-tmpfiles --create %{_sysconfdir}/tmpfiles.d/monetdbd.conf
 %if %{?rhel:0}%{!?rhel:1} || 0%{?rhel} >= 7
 # RHEL >= 7, and all current Fedora
 %{_sysconfdir}/tmpfiles.d/monetdbd.conf
+%{_unitdir}/monetdbd.service
 %else
 # RedHat Enterprise Linux < 7
 %dir %attr(775,monetdb,monetdb) %{_localstatedir}/run/monetdb
 %exclude %{_sysconfdir}/tmpfiles.d/monetdbd.conf
+# no _unitdir macro
+%exclude %{_prefix}/lib/systemd/system/monetdbd.service
 %endif
 %config(noreplace) %{_localstatedir}/monetdb5/dbfarm/.merovingian_properties
-%{_unitdir}/monetdbd.service
 %{_libdir}/monetdb5/autoload/??_sql.mal
 %{_libdir}/monetdb5/lib_sql.so
 %{_libdir}/monetdb5/*.sql
@@ -925,31 +939,43 @@ developer, but if you do want to test, this is the package you need.
 	--enable-console=yes \
 	--enable-debug=no \
 	--enable-developer=no \
+	--enable-embedded=no \
+	--enable-embedded-r=no \
 	--enable-fits=%{?with_fits:yes}%{!?with_fits:no} \
 	--enable-gdk=yes \
 	--enable-geom=%{?with_geos:yes}%{!?with_geos:no} \
 	--enable-gsl=yes \
 	--enable-instrument=no \
+	--enable-int128=%{?with_int128:yes}%{!?with_int128:no} \
 	--enable-jdbc=no \
 	--enable-lidar=%{?with_lidar:yes}%{!?with_lidar:no} \
+	--enable-mapi=yes \
 	--enable-merocontrol=no \
 	--enable-microhttpd=no \
 	--enable-monetdb5=yes \
+	--enable-netcdf=no \
 	--enable-odbc=yes \
 	--enable-oid32=%{?oid32:yes}%{!?oid32:no} \
 	--enable-optimize=yes \
 	--enable-profile=no \
 	--enable-rintegration=%{?with_rintegration:yes}%{!?with_rintegration:no} \
+	--enable-shp=no \
 	--enable-sql=yes \
 	--enable-strict=no \
 	--enable-testing=yes \
 	--with-ant=no \
 	--with-bz2=yes \
+	--with-curl=yes \
+	--with-gdal=yes \
 	--with-geos=%{?with_geos:yes}%{!?with_geos:no} \
 	--with-java=no \
 	--with-liblas=%{?with_lidar:yes}%{!?with_lidar:no} \
+	--with-libxml2=yes \
+	--with-lzma=yes \
+	--with-openssl=yes \
 	--with-perl=yes \
 	--with-perl-libdir=lib/perl5 \
+	--with-proj=no \
 	--with-pthread=yes \
 	--with-python2=yes \
 	--with-python3=%{?rhel:no}%{!?rhel:yes} \
@@ -957,6 +983,7 @@ developer, but if you do want to test, this is the package you need.
 	--with-samtools=%{?with_samtools:yes}%{!?with_samtools:no} \
 	--with-sphinxclient=no \
 	--with-unixodbc=yes \
+	--with-uuid=yes \
 	--with-valgrind=no \
 	%{?comp_cc:CC="%{comp_cc}"}
 

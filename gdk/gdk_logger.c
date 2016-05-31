@@ -565,10 +565,24 @@ log_read_create(logger *lg, trans *tr, char *name)
 		}
 		*ta = 0;
 		ta++;		/* skip over , */
+		if (strcmp(ha, "wrd") == 0) {
+#if SIZEOF_SSIZE_T == SIZEOF_INT
+			ha = "int";
+#else
+			ha = "lng";
+#endif
+		}
 		if (strcmp(ha, "vid") == 0) {
 			ht = -1;
 		} else {
 			ht = ATOMindex(ha);
+		}
+		if (strcmp(ta, "wrd") == 0) {
+#if SIZEOF_SSIZE_T == SIZEOF_INT
+			ta = "int";
+#else
+			ta = "lng";
+#endif
 		}
 		if (strcmp(ta, "vid") == 0) {
 			tt = -1;
@@ -2806,6 +2820,7 @@ logger_add_bat(logger *lg, BAT *b, const char *name)
 	bid = b->batCacheid;
 	if (lg->debug & 1)
 		fprintf(stderr, "#create %s\n", name);
+	assert(log_find(lg->catalog_bid, lg->dcatalog, bid) == BUN_NONE);
 	lg->changes += BATcount(b) + 1;
 	BUNappend(lg->catalog_bid, &bid, FALSE);
 	BUNappend(lg->catalog_nme, name, FALSE);
