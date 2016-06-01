@@ -3,6 +3,7 @@ import os
 import sys
 
 Logger = logging.getLogger("IOTAPILog")
+Logger.setLevel(logging.INFO)
 
 if sys.platform in ("linux", "linux2", "darwin"):
     DEFAULT_LOGGING = '/var/log/iot/iotapi.log'

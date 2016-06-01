@@ -3,6 +3,7 @@ import sys
 import os
 
 Logger = logging.getLogger("IOTServerLog")
+Logger.setLevel(logging.INFO)
 
 if sys.platform in ("linux", "linux2", "darwin"):
     DEFAULT_LOGGING = '/var/log/iot/iotserver.log'

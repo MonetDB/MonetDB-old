@@ -60,12 +60,8 @@ def mapi_create_stream(schema, stream, columns):
         Connection.execute("CREATE SCHEMA " + schema + ";")
     except:
         pass
-
-    try:  # attempt to create the stream table
-        Connection.execute("SET SCHEMA " + schema + ";")
-        Connection.execute(''.join(["CREATE STREAM TABLE ", stream, " (", columns, ");"]))
-    except BaseException as ex:
-        add_log(40, ex)
+    Connection.execute("SET SCHEMA " + schema + ";")
+    Connection.execute(''.join(["CREATE STREAM TABLE ", stream, " (", columns, ");"]))
 
 
 def mapi_flush_baskets(schema, stream, baskets):
@@ -73,7 +69,6 @@ def mapi_flush_baskets(schema, stream, baskets):
         Connection.execute("SET SCHEMA iot;")
     except:
         pass
-
     try:
         Connection.execute(''.join(["CALL iot.basket('", schema, "','", stream, "','", baskets, "');"]))
     except BaseException as ex:

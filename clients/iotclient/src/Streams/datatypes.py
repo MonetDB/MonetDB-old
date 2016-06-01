@@ -667,7 +667,7 @@ class TimeType(BaseDateTimeType):  # Stored as an uint with the number of millis
         if 'timezone' in kwargs:
             self._has_timezone = kwargs['timezone']
         else:
-            self._has_timezone = True
+            self._has_timezone = False
 
     def add_json_schema_entry(self, schema):
         super(TimeType, self).add_json_schema_entry(schema)
@@ -695,7 +695,7 @@ class TimeType(BaseDateTimeType):  # Stored as an uint with the number of millis
 
     def process_sql_parameters(self, array):
         if self._has_timezone:
-            array[2] = 'time with timezone'
+            array[2] = 'time with time zone'
 
     def to_json_representation(self):
         json_value = super(TimeType, self).to_json_representation()
@@ -711,7 +711,7 @@ class TimestampType(BaseDateTimeType):  # it's represented with the two integers
         if 'timezone' in kwargs:
             self._has_timezone = kwargs['timezone']
         else:
-            self._has_timezone = True
+            self._has_timezone = False
 
     def add_json_schema_entry(self, schema):
         super(TimestampType, self).add_json_schema_entry(schema)
@@ -743,7 +743,7 @@ class TimestampType(BaseDateTimeType):  # it's represented with the two integers
 
     def process_sql_parameters(self, array):
         if self._has_timezone:
-            array[2] = 'timestamp with timezone'
+            array[2] = 'timestamp with time zone'
 
     def to_json_representation(self):
         json_value = super(TimestampType, self).to_json_representation()

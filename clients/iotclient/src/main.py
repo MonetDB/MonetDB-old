@@ -82,12 +82,12 @@ def main():
                         help='Host identifier name. If not provided, the machine MAC address will be used')
     parser.add_argument('-ih', '--ihost', type=check_ipv4_address, nargs='?', default='0.0.0.0',
                         help='Administration server host (default: 0.0.0.0)', metavar='HOST')
-    parser.add_argument('-ip', '--iport', type=check_positive_int, nargs='?', default=8000,
-                        help='Administration server port (default: 8000)', metavar='PORT')
+    parser.add_argument('-ip', '--iport', type=check_positive_int, nargs='?', default=8001,
+                        help='Administration server port (default: 8001)', metavar='PORT')
     parser.add_argument('-ah', '--ahost', type=check_ipv4_address, nargs='?', default='127.0.0.1',
                         help='Application server host (default: 127.0.0.1)', metavar='HOST')
-    parser.add_argument('-ap', '--aport', type=check_positive_int, nargs='?', default=8001,
-                        help='Application server port (default: 8001)', metavar='PORT')
+    parser.add_argument('-ap', '--aport', type=check_positive_int, nargs='?', default=8000,
+                        help='Application server port (default: 8000)', metavar='PORT')
     parser.add_argument('-h', '--host', nargs='?', default='127.0.0.1',
                         help='MonetDB database host (default: 127.0.0.1)', metavar='HOST')
     parser.add_argument('-p', '--port', type=check_positive_int, nargs='?', default=50000,

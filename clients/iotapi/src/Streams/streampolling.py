@@ -33,20 +33,21 @@ def stream_polling():
     new_streams = {}
     array = fetch_streams()  # TODO check whenever stream's columns are updated
 
-    for key, group in groupby(array, lambda x: Streams_Context.get_context_entry_name(x[0], x[1])):
-        if key not in current_streams:
-            columns = {}
+    if array is not None:
+        for key, group in groupby(array, lambda x: Streams_Context.get_context_entry_name(x[0], x[1])):
+            if key not in current_streams:
+                columns = {}
 
-            for elem in group:
-                for entry in SWITCHER:  # allocate the proper type wrapper
-                    if elem[3] in entry['types']:
-                        reflection_class = globals()[entry['class']]  # import everything from datatypes!!!
-                        new_column = reflection_class(*elem[2:])
-                        columns[elem[2]] = new_column  # add new column to the dictionary
-                        break
-            new_streams[key] = IOTStream(schema_name=elem[0], stream_name=elem[1], columns=columns)
-        else:
-            retained_streams.append(key)
+                for elem in group:
+                    for entry in SWITCHER:  # allocate the proper type wrapper
+                        if elem[3] in entry['types']:
+                            reflection_class = globals()[entry['class']]  # import everything from datatypes!!!
+                            new_column = reflection_class(*elem[2:])
+                            columns[elem[2]] = new_column  # add new column to the dictionary
+                            break
+                new_streams[key] = IOTStream(schema_name=elem[0], stream_name=elem[1], columns=columns)
+            else:
+                retained_streams.append(key)
 
     retained_streams_final = [key for key in current_streams if key in retained_streams]
     Streams_Context.merge_context(retained_streams_final, new_streams)

@@ -14,10 +14,10 @@ def init_monetdb_connection(hostname, port, user_name, user_password, database):
                                        database=database, autocommit=True)
         Connection.execute("SET SCHEMA iot;")
         log_message = 'User %s connected successfully to database %s' % (user_name, database)
-        print >> sys.stdout, log_message
+        print log_message
         add_log(20, log_message)
     except BaseException as ex:
-        print >> sys.stdout, ex
+        print ex
         add_log(50, ex)
         sys.exit(1)
 
