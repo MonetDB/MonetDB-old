@@ -4,9 +4,15 @@ import os
 import pymonetdb
 import sys
 import unittest
-from datatypestests import TextTest, URLTest, INetTest, UUIDTest, BooleanTest, TinyIntegerTest, SmallIntegerTest, \
-    IntegerTest, BigIntegerTest, HugeIntegerTest, RealPointTest, FloatPointTest, DecimalTest, DateTest, \
-    TimeWithoutTimezoneTest, TimeWithTimezoneTest, TimestampWithoutTimezoneTest, TimestampWithTimezoneTest
+
+from datatypesinsertstests import TextTest, URLTest, INetTest, UUIDTest, BooleanTest, TinyIntegerTest,\
+    SmallIntegerTest, IntegerTest, BigIntegerTest, HugeIntegerTest, RealPointTest, FloatPointTest, DecimalTest,\
+    DateTest, TimeWithoutTimezoneTest, TimeWithTimezoneTest, TimestampWithoutTimezoneTest, TimestampWithTimezoneTest,\
+    NullableTextTest, NullableURLTest, NullableINetTest, NullableUUIDTest, NullableBooleanTest,\
+    NullableTinyIntegerTest, NullableSmallIntegerTest, NullableIntegerTest, NullableBigIntegerTest,\
+    NullableHugeIntegerTest, NullableRealPointTest, NullableFloatPointTest, NullableDecimalTest, NullableDateTest,\
+    NullableTimeWithoutTimezoneTest, NullableTimeWithTimezoneTest, NullableTimestampWithoutTimezoneTest,\
+    NullableTimestampWithTimezoneTest
 
 
 def check_positive_int(value):
@@ -24,7 +30,7 @@ def check_path(value):
 
 def main():
     parser = argparse.ArgumentParser(description='IOT Web Server Tester', add_help=False)
-    parser.add_argument('-n', '--number', type=check_positive_int, nargs='?', default=1000,
+    parser.add_argument('-n', '--number', type=check_positive_int, nargs='?', default=1,
                         help='Number of inserts (default: 1000)', metavar='NUMBER')
     parser.add_argument('-f', '--filepath', type=check_path, nargs='?', default='/tmp',
                         help='Temp file location (default: %s)' % '/tmp', metavar='FILE_PATH')
@@ -55,26 +61,47 @@ def main():
         sys.exit(1)
 
     inserts = args['number']
-    temp_path = args['filepath']
-    tests = (TextTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             URLTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             INetTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             UUIDTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             BooleanTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             TinyIntegerTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             SmallIntegerTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             IntegerTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             BigIntegerTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             HugeIntegerTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             RealPointTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             FloatPointTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             DecimalTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path, precision=5,
-                         scale=1),
-             DateTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             TimeWithoutTimezoneTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             TimeWithTimezoneTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             TimestampWithoutTimezoneTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path),
-             TimestampWithTimezoneTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=temp_path))
+    file_path = args['filepath']
+    tests = (
+        # random inserts tests
+        TextTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        URLTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        INetTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        UUIDTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        BooleanTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        TinyIntegerTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        SmallIntegerTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        IntegerTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        BigIntegerTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        HugeIntegerTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        RealPointTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        FloatPointTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        DecimalTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path, precision=5, scale=1),
+        DateTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        TimeWithoutTimezoneTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        TimeWithTimezoneTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        TimestampWithoutTimezoneTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        TimestampWithTimezoneTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
+        # nullables inserts tests
+        NullableTextTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableURLTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableINetTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableUUIDTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableBooleanTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableTinyIntegerTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableSmallIntegerTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableIntegerTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableBigIntegerTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableHugeIntegerTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableRealPointTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableFloatPointTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableDecimalTest(mapi_connection=mapi_connection, temp_path=file_path, precision=5, scale=1),
+        NullableDateTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableTimeWithoutTimezoneTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableTimeWithTimezoneTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableTimestampWithoutTimezoneTest(mapi_connection=mapi_connection, temp_path=file_path),
+        NullableTimestampWithTimezoneTest(mapi_connection=mapi_connection, temp_path=file_path)
+    )
 
     suite = unittest.TestSuite(tests=tests)
     unittest.TextTestRunner(verbosity=2).run(suite)

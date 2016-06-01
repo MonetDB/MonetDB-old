@@ -16,12 +16,12 @@ LITTLE_ENDIAN_ALIGNMENT = '<'  # for now it is little-endian
 NIL_STRING = "\200"
 NIL_UUID = "00000000-0000-0000-0000-000000000000"
 
-INT8_MIN = 0x80
-INT16_MIN = 0x8000
-INT32_MIN = 0x80000000
-INT64_MIN = 0x8000000000000000
-INT64_MAX = 0xFFFFFFFFFFFFFFFF
-INT128_MIN = 0x80000000000000000000000000000000
+INT8_MIN = -128
+INT16_MIN = -32768
+INT32_MIN = -2147483648
+INT64_MIN = -9223372036854775808
+INT64_MAX = +9223372036854775807
+INT128_MIN = -340282366920938463463374607431768211456
 
 FLOAT_NAN = struct.unpack('f', '\xff\xff\x7f\xff')[0]
 DOUBLE_NAN = struct.unpack('d', '\xff\xff\xff\xff\xff\xff\xef\xff')[0]
@@ -370,6 +370,8 @@ class BooleanType(StreamDataType):
         return INT8_MIN
 
     def process_next_value(self, entry, counter, parameters, errors):
+        if entry == self.get_nullable_constant():
+            return self.get_nullable_constant()
         if bool(entry):
             return 1
         return 0
@@ -464,10 +466,10 @@ class HugeIntegerType(NumberBaseType):
         schema[self._column_name]['type'] = 'integer'
 
     def get_nullable_constant(self):
-        return INT128_MIN
+        return 0x80000000000000000000000000000000
 
     def process_next_value(self, entry, counter, parameters, errors):
-        return [entry & INT64_MAX, (entry >> 64) & INT64_MAX]
+        return [entry & 0xFFFFFFFFFFFFFFFF, (entry >> 64) & 0xFFFFFFFFFFFFFFFF]
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
         extracted_values = list(itertools.chain(*extracted_values))
@@ -536,9 +538,10 @@ class DecimalType(NumberBaseType):
             .get(self._pack_sym)
 
     def check_value_precision(self, value, text):
-        number_digits = int(math.ceil(math.log10(abs(value))))
-        if number_digits > self._precision:
-            raise Exception('Too many digits on %s: %s > %s!' % (text, number_digits, self._precision))
+        if value != self._nullable_constant:
+            number_digits = int(math.ceil(math.log10(abs(value))))
+            if number_digits > self._precision:
+                raise Exception('Too many digits on %s: %s > %s!' % (text, number_digits, self._precision))
 
     def add_json_schema_entry(self, schema):
         super(DecimalType, self).add_json_schema_entry(schema)
@@ -552,7 +555,7 @@ class DecimalType(NumberBaseType):
         if self._pack_sym != 'Q':
             return int(entry)
         else:
-            return [int(entry) & INT64_MAX, (int(entry) >> 64) & INT64_MAX]
+            return [int(entry) & 0xFFFFFFFFFFFFFFFF, (int(entry) >> 64) & 0xFFFFFFFFFFFFFFFF]
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
         if self._pack_sym == 'Q':
@@ -647,7 +650,7 @@ class DateType(BaseDateTimeType):  # Stored as an uint with the number of days s
 
     def pack_next_value(self, parsed, counter, parameters, errors):
         if parsed is None:
-            return INT32_MIN
+            return 0x80000000
         day0 = copy.deepcopy(parsed).replace(year=1, month=1, day=1)
         # the minyear in python is 1, but for the representation is 0, so why the add
         return int((parsed - day0).days) + 366
@@ -682,7 +685,7 @@ class TimeType(BaseDateTimeType):  # Stored as an uint with the number of millis
 
     def pack_next_value(self, parsed, counter, parameters, errors):
         if parsed is None:
-            return INT32_MIN
+            return 0x80000000
         hour0 = copy.deepcopy(parsed).replace(hour=0, minute=0, second=0, microsecond=0)
         delta = parsed - hour0
         return int(delta.total_seconds()) * 1000 + int(delta.microseconds) / 1000
@@ -726,7 +729,7 @@ class TimestampType(BaseDateTimeType):  # it's represented with the two integers
 
     def pack_next_value(self, parsed, counter, parameters, errors):
         if parsed is None:
-            return [0, INT32_MIN]
+            return [0, 0x80000000]
         hour0 = copy.deepcopy(parsed).replace(hour=0, minute=0, second=0, microsecond=0)
         day0 = copy.deepcopy(parsed).replace(year=1, month=1, day=1)
         days = int((parsed - day0).days) + 366

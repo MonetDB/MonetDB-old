@@ -170,6 +170,7 @@ class UUIDTest(BaseStringText):
     def runTest(self):
         super(UUIDTest, self).runTest()
 
+
 class BooleanTest(DataTypesTest):
 
     def __init__(self, mapi_connection, number_inserts, temp_path):
@@ -396,3 +397,304 @@ class TimestampWithTimezoneTest(BaseStringText):
 
     def get_next_batch(self, number_inserts):
         return [faker.iso8601(tzinfo=timezone(faker.timezone())) for _ in xrange(number_inserts)]
+
+
+class NullablesTest(unittest.TestCase):
+    __metaclass__ = ABCMeta
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullablesTest, self).__init__()
+        self._mapi_connection = mapi_connection
+        self._data_type = self.get_data_type()
+        self._temp_path = os.path.join(temp_path, self._data_type.replace(' ', '_'))
+        self._data_type = self.get_data_type()
+
+    @abstractmethod
+    def get_data_type(self):
+        return 'none'
+
+    @abstractmethod
+    def get_null_value(self):
+        return 'none'
+
+    def runTest(self):
+        try:
+            self._mapi_connection.execute("DROP TABLE sql_insert;")
+            self._mapi_connection.execute("DROP TABLE binary_insert;")
+        except:
+            pass
+
+        self._mapi_connection.execute("CREATE TABLE sql_insert (val " + self.get_data_type() + ");")
+        self._mapi_connection.execute("CREATE TABLE binary_insert (val " + self.get_data_type() + ");")
+
+        # make the null value sql insert
+        self._mapi_connection.execute("INSERT INTO sql_insert VALUES (null);")
+
+        # make the null value binary insert
+        with open(self._temp_path, 'w+b') as fp:
+            fp.write(self.get_null_value())
+            fp.flush()
+        self._mapi_connection.execute("COPY BINARY INTO binary_insert FROM ('" + self._temp_path + "');")
+
+        cursor = self._mapi_connection.cursor()
+        cursor.execute("SELECT val FROM sql_insert;")
+        sql_inserts = cursor.fetchall()
+        cursor.execute("SELECT val FROM binary_insert;")
+        binary_inserts = cursor.fetchall()
+
+        self._mapi_connection.execute("DROP TABLE sql_insert;")
+        self._mapi_connection.execute("DROP TABLE binary_insert;")
+
+        try:
+            os.remove(self._temp_path)
+        except:
+            pass
+        self.assertListEqual(sql_inserts, binary_inserts)  # the lists must be equal!!
+
+
+class NullableTextTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableTextTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'clob'
+
+    def get_null_value(self):
+        serializer = TextType(**{'name': 'val', 'type': 'clob'})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+
+class NullableURLTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableURLTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'url'
+
+    def get_null_value(self):
+        serializer = URLType(**{'name': 'val', 'type': 'url'})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+    @unittest.skip("Data conversion problem")
+    def runTest(self):
+        super(NullableURLTest, self).runTest()
+
+
+class NullableINetTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableINetTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'inet'
+
+    def get_null_value(self):
+        serializer = INetType(**{'name': 'val', 'type': 'inet'})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+    @unittest.skip("Data conversion problem")
+    def runTest(self):
+        super(NullableINetTest, self).runTest()
+
+
+class NullableUUIDTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableUUIDTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'uuid'
+
+    def get_null_value(self):
+        serializer = UUIDType(**{'name': 'val', 'type': 'uuid'})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+    @unittest.skip("Data conversion problem")
+    def runTest(self):
+        super(NullableUUIDTest, self).runTest()
+
+
+class NullableBooleanTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableBooleanTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'boolean'
+
+    def get_null_value(self):
+        serializer = BooleanType(**{'name': 'val', 'type': 'boolean'})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+
+class NullableTinyIntegerTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableTinyIntegerTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'tinyint'
+
+    def get_null_value(self):
+        serializer = SmallIntegerType(**{'name': 'val', 'type': 'tinyint'})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+
+class NullableSmallIntegerTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableSmallIntegerTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'smallint'
+
+    def get_null_value(self):
+        serializer = SmallIntegerType(**{'name': 'val', 'type': 'smallint'})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+
+class NullableIntegerTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableIntegerTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'integer'
+
+    def get_null_value(self):
+        serializer = SmallIntegerType(**{'name': 'val', 'type': 'integer'})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+
+class NullableBigIntegerTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableBigIntegerTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'bigint'
+
+    def get_null_value(self):
+        serializer = SmallIntegerType(**{'name': 'val', 'type': 'bigint'})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+
+class NullableHugeIntegerTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableHugeIntegerTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'hugeint'
+
+    def get_null_value(self):
+        serializer = HugeIntegerType(**{'name': 'val', 'type': 'hugeint'})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+
+class NullableRealPointTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableRealPointTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'real'
+
+    def get_null_value(self):
+        serializer = FloatType(**{'name': 'val', 'type': 'real'})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+
+class NullableFloatPointTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableFloatPointTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'float'
+
+    def get_null_value(self):
+        serializer = FloatType(**{'name': 'val', 'type': 'float'})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+
+class NullableDecimalTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path, precision, scale):
+        self._precision = precision
+        self._scale = scale
+        super(NullableDecimalTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return "decimal (" + str(self._precision) + "," + str(self._scale) + ")"
+
+    def get_null_value(self):
+        serial = DecimalType(**{'name': 'val', 'type': 'decimal', 'precision': self._precision, 'scale': self._scale})
+        return serial.process_values([serial.get_nullable_constant()])
+
+
+class NullableDateTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableDateTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'date'
+
+    def get_null_value(self):
+        serializer = DateType(**{'name': 'val', 'type': 'date'})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+
+class NullableTimeWithoutTimezoneTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableTimeWithoutTimezoneTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'time'
+
+    def get_null_value(self):
+        serializer = TimeType(**{'name': 'val', 'type': 'time', 'timezone': False})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+
+class NullableTimeWithTimezoneTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableTimeWithTimezoneTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'time WITH TIME ZONE'
+
+    def get_null_value(self):
+        serializer = TimeType(**{'name': 'val', 'type': 'time', 'timezone': True})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+
+class NullableTimestampWithoutTimezoneTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableTimestampWithoutTimezoneTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'timestamp'
+
+    def get_null_value(self):
+        serializer = TimestampType(**{'name': 'val', 'type': 'timestamp', 'timezone': False})
+        return serializer.process_values([serializer.get_nullable_constant()])
+
+
+class NullableTimestampWithTimezoneTest(NullablesTest):
+
+    def __init__(self, mapi_connection, temp_path):
+        super(NullableTimestampWithTimezoneTest, self).__init__(mapi_connection, temp_path)
+
+    def get_data_type(self):
+        return 'timestamp WITH TIME ZONE'
+
+    def get_null_value(self):
+        serializer = TimestampType(**{'name': 'val', 'type': 'timestamp', 'timezone': False})
+        return serializer.process_values([serializer.get_nullable_constant()])
