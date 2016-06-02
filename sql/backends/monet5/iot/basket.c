@@ -476,7 +476,7 @@ BSKTpushBasket(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BATsetcount(b, bcnt + fsize/ ATOMsize(b->ttype));
 		break;
 		case TYPE_str:
-			while (fgets(line, MAXLINE, f) != 0){
+			while (fgets(line, MAXLINE, f) != 0){ //Use getline? http://man7.org/linux/man-pages/man3/getline.3.html
 				if ( line[i= strlen(line)-1] != '\n')
 					msg= createException(MAL,"iot.basket","string too long\n");
 				else{

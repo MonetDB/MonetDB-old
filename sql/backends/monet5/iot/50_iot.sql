@@ -68,24 +68,30 @@ create procedure iot.window("schema" string, "table" string, elem int)
 create procedure iot.window("schema" string, "table" string, elem int, slide int)
 	external name iot.window;
 
-
 -- Inspection tables
 create function iot.baskets()
-returns table( "schema" string,  "table" string, "status" string,  threshold int, winsize int, winstride int,  timeslice int, timestride int, beat int, seen timestamp, events int)
+returns table( "schema" string, "table" string, "status" string, threshold int, winsize int, winstride int, timeslice int, timestride int, beat int, seen timestamp, events int)
 external name iot.baskets;
 
 create function iot.queries()
- returns table( "schema" string,  "function" string, "status" string, lastrun timestamp, cycles int, events int, time bigint, error string)
+ returns table( "schema" string, "function" string, "status" string, lastrun timestamp, cycles int, events int, time bigint, error string)
  external name iot.queries;
 
 create function iot.inputplaces()
- returns table( "s" string,  "t" string, "sch" string, "qry" string)
+ returns table( "s" string, "t" string, "sch" string, "qry" string)
  external name iot.inputplaces;
 
 create function iot.outputplaces()
- returns table( "s" string,  "t" string, "sch" string, "qry" string)
+ returns table( "s" string, "t" string, "sch" string, "qry" string)
  external name iot.outputplaces;
 
 -- create function iot.errors()
 -- returns table( "schema" string,  "table" string, error string)
 -- external name iot.errors;
+
+-- tables for iotwebserver
+
+CREATE TABLE iot.webserverflushing (table_id INTEGER, flushing TINYINT, unit TINYINT NULL, "interval" INTEGER NULL);
+
+CREATE TABLE iot.webservervalidation (column_id INTEGER, special TINYINT NULL, validation1 string NULL, validation2 string NULL);
+

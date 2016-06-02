@@ -75,6 +75,8 @@ def main():
                         help='Baskets location directory (default: %s)' % DEFAULT_FILESYSTEM, metavar='DIRECTORY')
     parser.add_argument('-l', '--log', type=check_path, nargs='?', default=DEFAULT_LOGGING,
                         help='Logging file location (default: %s)' % DEFAULT_LOGGING, metavar='FILE_PATH')
+    parser.add_argument('-po', '--polling', type=check_positive_int, nargs='?', default=60,
+                        help='Polling interval in seconds to the database for streams updates (default: 60)')
     parser.add_argument('-i', '--identifier', action='store_true',
                         help='Add a host identifier to the created streams. By default will not be added')
     parser.add_argument('-n', '--name', nargs='?',
@@ -94,7 +96,7 @@ def main():
                         help='Database listening port (default: 50000)', metavar='PORT')
     parser.add_argument('-d', '--database', nargs='?', default='iotdb', help='Database name (default: iotdb)')
     parser.add_argument('-u', '--user', nargs='?', default='monetdb', help='Database user (default: monetdb)')
-    parser.add_argument('-he', '--help', action='store_true', help='Display this help')
+    parser.add_argument('-?', '--help', action='store_true', help='Display this help')
 
     try:
         args = vars(parser.parse_args())

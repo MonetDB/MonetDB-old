@@ -128,9 +128,9 @@ class URLTest(BaseStringText):
     def get_next_batch(self, number_inserts):
         return [faker.uri() for _ in xrange(number_inserts)]
 
-    @unittest.skip("Data conversion problem")
-    def runTest(self):
-        super(URLTest, self).runTest()
+    #@unittest.skip("Data conversion problem")
+    #def runTest(self):
+    #    super(URLTest, self).runTest()
 
 
 class INetTest(BaseStringText):
@@ -147,10 +147,6 @@ class INetTest(BaseStringText):
     def get_next_batch(self, number_inserts):
         return [faker.ipv4() for _ in xrange(number_inserts)]
 
-    @unittest.skip("Data conversion problem")
-    def runTest(self):
-        super(INetTest, self).runTest()
-
 
 class UUIDTest(BaseStringText):
 
@@ -165,10 +161,6 @@ class UUIDTest(BaseStringText):
 
     def get_next_batch(self, number_inserts):
         return [str(uuid.uuid4()) for _ in xrange(number_inserts)]
-
-    @unittest.skip("Data conversion problem")
-    def runTest(self):
-        super(UUIDTest, self).runTest()
 
 
 class BooleanTest(DataTypesTest):
@@ -477,9 +469,9 @@ class NullableURLTest(NullablesTest):
         serializer = URLType(**{'name': 'val', 'type': 'url'})
         return serializer.process_values([serializer.get_nullable_constant()])
 
-    @unittest.skip("Data conversion problem")
-    def runTest(self):
-        super(NullableURLTest, self).runTest()
+    #@unittest.skip("Data conversion problem")
+    #def runTest(self):
+    #    super(NullableURLTest, self).runTest()
 
 
 class NullableINetTest(NullablesTest):
@@ -494,10 +486,6 @@ class NullableINetTest(NullablesTest):
         serializer = INetType(**{'name': 'val', 'type': 'inet'})
         return serializer.process_values([serializer.get_nullable_constant()])
 
-    @unittest.skip("Data conversion problem")
-    def runTest(self):
-        super(NullableINetTest, self).runTest()
-
 
 class NullableUUIDTest(NullablesTest):
 
@@ -510,10 +498,6 @@ class NullableUUIDTest(NullablesTest):
     def get_null_value(self):
         serializer = UUIDType(**{'name': 'val', 'type': 'uuid'})
         return serializer.process_values([serializer.get_nullable_constant()])
-
-    @unittest.skip("Data conversion problem")
-    def runTest(self):
-        super(NullableUUIDTest, self).runTest()
 
 
 class NullableBooleanTest(NullablesTest):

@@ -3512,6 +3512,10 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return msg;
 }
 
+int INET_TPE = ATOMindex("inet");
+int UUID_TPE = ATOMindex("uuid");
+int URL_TPE = ATOMindex("url");
+
 /* str mvc_bin_import_table_wrap(.., str *sname, str *tname, str *fname..);
  * binary attachment only works for simple binary types.
  * Non-simple types require each line to contain a valid ascii representation
@@ -3552,9 +3556,10 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 		const char *fname = *getArgReference_str(stk, pci, i);
 		size_t flen = strlen(fname);
 		char *fn;
+		int tpe = col->type.type->localtype;
 
-		if (ATOMvarsized(col->type.type->localtype) && col->type.type->localtype != TYPE_str)
-			throw(SQL, "sql", "Failed to attach file %s", *getArgReference_str(stk, pci, i));
+		if (ATOMvarsized(tpe) && tpe != TYPE_str && tpe != URL_TPE && tpe != UUID_TPE)
+			throw(SQL, "sql", "Failed to attach file %s", fname);
 		fn = GDKmalloc(flen + 1);
 		GDKstrFromStr((unsigned char *) fn, (const unsigned char *) fname, flen);
 		if (fn == NULL)
@@ -3573,24 +3578,26 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 		sql_column *col = n->data;
 		BAT *c = NULL;
 		int tpe = col->type.type->localtype;
+		char *next_file = *getArgReference_str(stk, pci, i);
 
 		/* handle the various cases */
-		if (tpe < TYPE_str || tpe == TYPE_date || tpe == TYPE_daytime || tpe == TYPE_timestamp) {
-			c = BATattach(col->type.type->localtype, *getArgReference_str(stk, pci, i), PERSISTENT);
+		if (tpe < TYPE_str || tpe == TYPE_date || tpe == TYPE_daytime || tpe == TYPE_timestamp || tpe == INET_TPE || tpe == UUID_TPE) {
+			c = BATattach(tpe, next_file, PERSISTENT);
 			if (c == NULL)
-				throw(SQL, "sql", "Failed to attach file %s", *getArgReference_str(stk, pci, i));
+				throw(SQL, "sql", "Failed to attach file %s", next_file);
 			BATsetaccess(c, BAT_READ);
 			BATderiveProps(c, 0);
-		} else if (tpe == TYPE_str) {
+		} else if (tpe == TYPE_str || tpe == URL_TPE) {
 			/* get the BAT and fill it with the strings */
-			c = BATnew(TYPE_void, TYPE_str, 0, PERSISTENT);
+			c = BATnew(TYPE_void, tpe, 0, PERSISTENT);
 			if (c == NULL)
 				throw(SQL, "sql", MAL_MALLOC_FAIL);
 			BATseqbase(c, 0);
 			/* this code should be extended to deal with larger text strings. */
-			f = fopen(*getArgReference_str(stk, pci, i), "r");
+			/* UPDATE try http://man7.org/linux/man-pages/man3/getline.3.html ? However there is no way to use GDKmalloc with it */
+			f = fopen(next_file, "r");
 			if (f == NULL)
-				throw(SQL, "sql", "Failed to re-open file %s", *getArgReference_str(stk, pci, i));
+				throw(SQL, "sql", "Failed to re-open file %s", next_file);
 
 			buf = GDKmalloc(bufsiz);
 			if (!buf) {
@@ -3606,7 +3613,7 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			fclose(f);
 			GDKfree(buf);
 		} else {
-			throw(SQL, "sql", "Failed to attach file %s", *getArgReference_str(stk, pci, i));
+			throw(SQL, "sql", "Failed to attach file %s", next_file);
 		}
 		if (i != (pci->retc + 2) && cnt != BATcount(c))
 			throw(SQL, "sql", "binary files for table '%s' have inconsistent counts", tname);
