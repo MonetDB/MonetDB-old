@@ -3512,10 +3512,6 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return msg;
 }
 
-int INET_TPE = ATOMindex("inet");
-int UUID_TPE = ATOMindex("uuid");
-int URL_TPE = ATOMindex("url");
-
 /* str mvc_bin_import_table_wrap(.., str *sname, str *tname, str *fname..);
  * binary attachment only works for simple binary types.
  * Non-simple types require each line to contain a valid ascii representation
@@ -3537,6 +3533,10 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	FILE *f;
 	char *buf;
 	int bufsiz = 128 * BLOCK;
+	int INET_TPE = ATOMindex("inet");
+	int UUID_TPE = ATOMindex("uuid");
+	int URL_TPE = ATOMindex("url");
+
 
 	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
 		return msg;
