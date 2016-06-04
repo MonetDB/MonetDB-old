@@ -454,6 +454,7 @@ void optimizerInit(void)
 	subsortRef = putName("subsort");
 	takeRef= putName("take");
 	transRef= putName("trans");
+	transactionRef= putName("transaction");
 	timestampRef = putName("timestamp");
 	not_uniqueRef= putName("not_unique");
 	sampleRef= putName("sample");

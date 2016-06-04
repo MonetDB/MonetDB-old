@@ -228,7 +228,12 @@ addQueryToCache(Client c)
 {
 	str msg = NULL;
 
+	chkProgram(c->fdout, c->nspace, c->curprg->def);
 	insertSymbol(c->nspace, c->curprg);
+	if( c->curprg->def->errors){
+		showScriptException(c->fdout, c->curprg->def, 0, MAL, "MAL program contains errors");
+		GDKfree(msg);
+	}
 	msg = optimizeQuery(c);
 	if (msg != MAL_SUCCEED) {
 		showScriptException(c->fdout, c->curprg->def, 0, MAL, "%s", msg);

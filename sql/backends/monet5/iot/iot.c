@@ -112,12 +112,16 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			return msg;
 		qry = cntxt->curprg->def;
 	}
+	chkProgram(cntxt->fdout,cntxt->nspace,qry);
+	if( qry->errors)
+		msg = createException(SQL,"iot.query","Error in iot query");
 
 	_DEBUG_IOT_ fprintf(stderr,"#iot: bake a new continuous query plan\n");
 	scope = findModule(cntxt->nspace, putName(sch));
 	s = newFunction(putName(sch), putName(nme), FUNCTIONsymbol);
 	if (s == NULL)
-		throw(SQL, "iot.query", "Procedure code does not exist.");
+		msg = createException(SQL, "iot.query", "Procedure code does not exist.");
+
 	freeMalBlk(s->def);
 	s->def = copyMalBlk(qry);
 	p = getInstrPtr(s->def, 0);

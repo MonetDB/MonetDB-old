@@ -40,8 +40,6 @@
 		fnd= 1; break;\
 	}
 
-#undef OPTDEBUGiot
-#define OPTDEBUGiot
 int
 OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -220,6 +218,11 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     for (; i<limit; i++)
         if (old[i])
             pushInstruction(mb,old[i]);
+
+    /* Defense line against incorrect plans */
+	chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+	chkFlow(cntxt->fdout, mb);
+	chkDeclarations(cntxt->fdout, mb);
 
 	OPTDEBUGiot {
 		mnstr_printf(cntxt->fdout, "#iot optimizer final\n");

@@ -37,7 +37,7 @@
 #define iot_export extern
 #endif
 
-#define _DEBUG_IOT_ if(1)
+#define _DEBUG_IOT_ if(0)
 #define IOTout mal_clients[0].fdout
 
 iot_export MT_Lock iotLock;

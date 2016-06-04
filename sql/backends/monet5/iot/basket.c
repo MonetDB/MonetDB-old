@@ -33,8 +33,7 @@
 #include "mal_builder.h"
 #include "opt_prelude.h"
 
-//#define _DEBUG_BASKET_ if(0)
-#define _DEBUG_BASKET_ 
+#define _DEBUG_BASKET_ if(0)
 
 str statusname[4] = { "<unknown>", "active", "paused", "locked" };
 

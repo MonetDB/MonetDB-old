@@ -23,7 +23,7 @@
 #include "sql_scenario.h"
 #include "basket.h"
 
-#define _DEBUG_PETRINET_ if(1)
+#define _DEBUG_PETRINET_ if(0)
 
 #define PNout mal_clients[1].fdout
 /*#define  _BASKET_SIZE_*/
