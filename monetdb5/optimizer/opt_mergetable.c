@@ -439,6 +439,7 @@ mat_apply3(MalBlkPtr mb, InstrPtr p, matlist_t *ml, int m, int n, int o, int mva
 		mat_add_var(ml, r[k], NULL, getArg(r[k], 0), mat_type(ml->v, m),  -1, -1);
 		pushInstruction(mb, r[k]);
 	}
+	GDKfree(r);
 }
 
 static void
@@ -761,7 +762,7 @@ mat_aggr(MalBlkPtr mb, InstrPtr p, mat_t *mat, int m)
 		setFunctionId(cond, eqRef); 
 		getArg(cond,0) = newTmpVariable(mb, TYPE_bit);
 		cond = pushArgument(mb, cond, getArg(w, 0));
-		cond = pushWrd(mb, cond, 0);
+		cond = pushLng(mb, cond, 0);
 		pushInstruction(mb,cond);
 
 		y = newInstruction(mb, ASSIGNsymbol);
@@ -904,7 +905,7 @@ mat_group_aggr(MalBlkPtr mb, InstrPtr p, mat_t *mat, int b, int g, int e)
 	getArg(ai1,0) = newTmpVariable(mb, tp);
 
 	if (isAvg) { /* counts */
-		tp2 = newBatType(TYPE_oid, TYPE_wrd);
+		tp2 = newBatType(TYPE_oid, TYPE_lng);
 		ai10 = newInstruction(mb, ASSIGNsymbol);
 		setModuleId(ai10,matRef);
 		setFunctionId(ai10,packRef);
@@ -940,7 +941,7 @@ mat_group_aggr(MalBlkPtr mb, InstrPtr p, mat_t *mat, int b, int g, int e)
 	if (isAvg) {
 		InstrPtr r,s,v,w, cond;
 
-		/* wrd s = sum counts */
+		/* lng s = sum counts */
  		s = newInstruction(mb, ASSIGNsymbol);
 		setModuleId(s, aggrRef);
 		setFunctionId(s, subsumRef);
@@ -958,7 +959,7 @@ mat_group_aggr(MalBlkPtr mb, InstrPtr p, mat_t *mat, int b, int g, int e)
 		setFunctionId(cond, eqRef); 
 		getArg(cond,0) = newTmpVariable(mb, newBatType(TYPE_oid, TYPE_bit));
 		cond = pushArgument(mb, cond, getArg(s, 0));
-		cond = pushWrd(mb, cond, 0);
+		cond = pushLng(mb, cond, 0);
 		pushInstruction(mb,cond);
 
 		w = newInstruction(mb, ASSIGNsymbol);
@@ -966,7 +967,7 @@ mat_group_aggr(MalBlkPtr mb, InstrPtr p, mat_t *mat, int b, int g, int e)
 		setFunctionId(w, ifthenelseRef); 
 		getArg(w,0) = newTmpVariable(mb, tp2);
 		w = pushArgument(mb, w, getArg(cond, 0));
-		w = pushNil(mb, w, TYPE_wrd);
+		w = pushNil(mb, w, TYPE_lng);
 		w = pushArgument(mb, w, getArg(s, 0));
 		pushInstruction(mb,w);
 
@@ -1045,7 +1046,7 @@ mat_pack_group(MalBlkPtr mb, matlist_t *ml, int g)
 		
 		getArg(grp,0) = mat[ogrp].mv;
 		grp = pushReturn(mb, grp, mat[oext].mv);
-		grp = pushReturn(mb, grp, newTmpVariable(mb, newBatType( TYPE_oid, TYPE_wrd)));
+		grp = pushReturn(mb, grp, newTmpVariable(mb, newBatType( TYPE_oid, TYPE_lng)));
 		grp = pushArgument(mb, grp, getArg(mat[attr].mi, 0));
 		if (cur) 
 			grp = pushArgument(mb, grp, getArg(cur, 0));
@@ -1380,7 +1381,8 @@ mat_topn(MalBlkPtr mb, InstrPtr p, matlist_t *ml, int m, int n, int o)
 	if (is_slice) {
 		ValRecord cst;
 		cst.vtype= getArgType(mb,p,2);
-		cst.val.wval= 0;
+		cst.val.lval= 0;
+		cst.len = 0;
 		zero = defConstant(mb, cst.vtype, &cst);
 	}
 	assert( (n<0 && o<0) || 
@@ -1477,6 +1479,8 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 	matlist_t ml;
 	int oldtop, fm, fn, fo, fe, i, k, m, n, o, e, slimit;
 	int size=0, match, actions=0, distinct_topn = 0, /*topn_res = 0,*/ groupdone = 0, *vars;
+	char buf[256];
+	lng usec = GDKusec();
 
 	old = mb->stmt;
 	oldtop= mb->stop;
@@ -1834,5 +1838,15 @@ cleanup:
 	GDKfree(ml.v);
 	GDKfree(ml.horigin);
 	GDKfree(ml.torigin);
+    /* Defense line against incorrect plans */
+    if( actions > 0){
+        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+        chkFlow(cntxt->fdout, mb);
+        chkDeclarations(cntxt->fdout, mb);
+    }
+    /* keep all actions taken as a post block comment */
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","mergetable",actions,GDKusec() - usec);
+    newComment(mb,buf);
+
 	return actions;
 }

@@ -19,6 +19,8 @@ OPTquerylogImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	int argc, io, user,nice,sys,idle,iowait,load, arg, start,finish, name;
 	int xtime=0, rtime = 0, tuples=0;
 	InstrPtr defineQuery = NULL;
+	char buf[256];
+	lng usec = GDKusec();
 
 
 	// query log needed?
@@ -83,8 +85,8 @@ OPTquerylogImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	q = pushReturn(mb,q,idle);
 	q = pushReturn(mb,q,iowait);
 	q = newAssignment(mb);
-	tuples= getArg(q,0) = newVariable(mb,GDKstrdup("tuples"),TYPE_wrd);
-	(void) pushWrd(mb,q,1);
+	tuples= getArg(q,0) = newVariable(mb,GDKstrdup("tuples"),TYPE_lng);
+	(void) pushLng(mb,q,1);
 
 	for (i = 1; i < limit; i++) {
 		p = old[i];
@@ -168,11 +170,11 @@ OPTquerylogImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			q = newAssignment(mb);
 			q = pushLng(mb,q,0);
 			q = newAssignment(mb);
-			q = pushWrd(mb,q,0);
-			tuples= getArg(q,0)= newVariable(mb,GDKstrdup("tuples"),TYPE_wrd);
+			q = pushLng(mb,q,0);
+			tuples= getArg(q,0)= newVariable(mb,GDKstrdup("tuples"),TYPE_lng);
 			newFcnCall(mb,"profiler","setMemoryFlag");
 			q->argc--;
-			pushWrd(mb,q,1);
+			pushLng(mb,q,1);
 			q = newStmt(mb, "alarm", "usec");
 			xtime = getArg(q,0)= newVariable(mb,GDKstrdup("xtime"),TYPE_lng);
 		}
@@ -182,5 +184,15 @@ OPTquerylogImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 		if(old[i])
 			freeInstruction(old[i]);
 	GDKfree(old);
+	    /* Defense line against incorrect plans */
+    if( 1){
+        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+        chkFlow(cntxt->fdout, mb);
+        chkDeclarations(cntxt->fdout, mb);
+    }
+    /* keep all actions taken as a post block comment */
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","querylog",1,GDKusec() - usec);
+    newComment(mb,buf);
+
 	return 1;
 }

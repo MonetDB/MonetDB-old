@@ -565,10 +565,24 @@ log_read_create(logger *lg, trans *tr, char *name)
 		}
 		*ta = 0;
 		ta++;		/* skip over , */
+		if (strcmp(ha, "wrd") == 0) {
+#if SIZEOF_SSIZE_T == SIZEOF_INT
+			ha = "int";
+#else
+			ha = "lng";
+#endif
+		}
 		if (strcmp(ha, "vid") == 0) {
 			ht = -1;
 		} else {
 			ht = ATOMindex(ha);
+		}
+		if (strcmp(ta, "wrd") == 0) {
+#if SIZEOF_SSIZE_T == SIZEOF_INT
+			ta = "int";
+#else
+			ta = "lng";
+#endif
 		}
 		if (strcmp(ta, "vid") == 0) {
 			tt = -1;
@@ -1092,9 +1106,11 @@ logger_readlogs(logger *lg, FILE *fp, char *filename)
 			if (lid < lg->id) {
 				lg->id = lid;
 			}
-			/* if this is a shared logger, write the id in
-			 * the shared file */
-			logger_update_catalog_file(lg, lg->local_dir, LOGFILE_SHARED, lg->local_dbfarm_role);
+			if (lg->shared) {
+				/* if this is a shared logger, write the id in
+				 * the shared file */
+				logger_update_catalog_file(lg, lg->local_dir, LOGFILE_SHARED, lg->local_dbfarm_role);
+			}
 		}
 	}
 	return res;
@@ -1848,6 +1864,7 @@ logger_new(int debug, const char *fn, const char *logdir, int version, preversio
 
 	lg->debug = debug;
 	lg->shared = shared;
+	lg->local_dbfarm_role = 0; /* only used if lg->shared */
 
 	lg->changes = 0;
 	lg->version = version;

@@ -174,6 +174,10 @@ wrapup:
 void
 resetMalBlk(MalBlkPtr mb, int stop)
 {
+	int i;
+
+	for(i=0; i<stop; i++) 
+		mb->stmt[i] ->typechk = TYPE_UNKNOWN;
 	mb->stop = stop;
 }
 
@@ -513,6 +517,7 @@ oldmoveInstruction(InstrPtr new, InstrPtr p)
 	memcpy((char *) new, (char *) p, space);
 	setFunctionId(new, getFunctionId(p));
 	setModuleId(new, getModuleId(p));
+	new->typechk = TYPE_UNKNOWN;
 }
 
 /* Query optimizers walk their way through a MAL program block. They
@@ -1255,7 +1260,6 @@ convertConstant(int type, ValPtr vr)
 	case TYPE_oid:
 	case TYPE_flt:
 	case TYPE_dbl:
-	case TYPE_wrd:
 	case TYPE_lng:
 #ifdef HAVE_HGE
 	case TYPE_hge:

@@ -37,7 +37,6 @@ ptr getArgReference(MalStkPtr stk, InstrPtr pci, int k)
 	case TYPE_sht:  return (ptr) &v->val.shval;
 	case TYPE_bat:  return (ptr) &v->val.bval;
 	case TYPE_int:  return (ptr) &v->val.ival;
-	case TYPE_wrd:  return (ptr) &v->val.wval;
 	case TYPE_bte:  return (ptr) &v->val.btval;
 	case TYPE_oid:  return (ptr) &v->val.oval;
 	case TYPE_ptr:  return (ptr) &v->val.pval;
@@ -580,7 +579,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 					backup[i].len = 0;
 					backup[i].val.pval = 0;
 					garbage[i] = -1;
-					if (stk->stk[a].vtype == TYPE_bat && getEndOfLife(mb, a) == stkpc && isNotUsedIn(pci, i + 1, a))
+					if (stk->stk[a].vtype == TYPE_bat && getEndScope(mb, a) == stkpc && isNotUsedIn(pci, i + 1, a))
 						garbage[i] = a;
 
 					if (i < pci->retc && stk->stk[a].vtype == TYPE_bat) {
@@ -744,6 +743,9 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 							BBPincref(lhs->val.bval, TRUE);
 					}
 					ret = runMALsequence(cntxt, pci->blk, 1, pci->blk->stop, nstk, stk, pci);
+					for (ii = 0; ii < nstk->stktop; ii++)
+						if (ATOMextern(nstk->stk[ii].vtype))
+							GDKfree(nstk->stk[ii].val.pval);
 					GDKfree(nstk);
 				}
 				break;
@@ -1059,12 +1061,6 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 				break;
 			case TYPE_int:
 				if (v->val.ival != int_nil)
-					stkpc = pci->jump;
-				else
-					stkpc++;
-				break;
-			case TYPE_wrd:
-				if (v->val.wval != wrd_nil)
 					stkpc = pci->jump;
 				else
 					stkpc++;

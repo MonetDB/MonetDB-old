@@ -98,7 +98,6 @@ static char* FunctionBasePath(void) {
 CREATE_SQL_FUNCTION_PTR(str,batbte_dec2_dbl,(bat*, int*, bat*));
 CREATE_SQL_FUNCTION_PTR(str,batsht_dec2_dbl,(bat*, int*, bat*));
 CREATE_SQL_FUNCTION_PTR(str,batint_dec2_dbl,(bat*, int*, bat*));
-CREATE_SQL_FUNCTION_PTR(str,batwrd_dec2_dbl,(bat*, int*, bat*));
 CREATE_SQL_FUNCTION_PTR(str,batlng_dec2_dbl,(bat*, int*, bat*));
 CREATE_SQL_FUNCTION_PTR(str,bathge_dec2_dbl,(bat*, int*, bat*));
 CREATE_SQL_FUNCTION_PTR(str,batstr_2time_timestamp,(bat*, bat*, int*));
@@ -440,8 +439,8 @@ str ConvertToSQLType(Client cntxt, BAT *b, sql_subtype *sql_subtype, BAT **ret_b
 //! [RETURN_VALUES] Step 4: It collects the return values and converts them back into BATs
 //! If 'mapped' is set to True, it will fork a separate process at [FORK_PROCESS] that executes Step 1-3, the process will then write the return values into memory mapped files and exit, then Step 4 is executed by the main process
 str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped) {
-    sql_func * sqlfun = *(sql_func**) getArgReference(stk, pci, pci->retc);
-    str exprStr = *getArgReference_str(stk, pci, pci->retc + 1);
+    sql_func * sqlfun;
+    str exprStr;
 
     const int additional_columns = 3;
     int i = 1, ai = 0;
@@ -467,8 +466,8 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     void **mmap_ptrs = NULL;
     size_t *mmap_sizes = NULL;
 #endif
-    bit varres = sqlfun ? sqlfun->varres : 0;
-    int retcols = !varres ? pci->retc : -1;
+    bit varres;
+    int retcols;
     bool gstate = 0;
     int unnamedArgs = 0;
     bit parallel_aggregation = grouped && mapped;
@@ -485,6 +484,16 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
               "Embedded Python has not been enabled. Start server with --set %s=true",
               pyapi_enableflag);
     }
+
+    if (!pyapiInitialized) {
+        throw(MAL, "pyapi.eval",
+              "Embedded Python is enabled but an error was thrown during initialization.");
+    }
+
+    sqlfun = *(sql_func**) getArgReference(stk, pci, pci->retc);
+    exprStr = *getArgReference_str(stk, pci, pci->retc + 1);
+    varres = sqlfun ? sqlfun->varres : 0;
+    retcols = !varres ? pci->retc : -1;
 
     VERBOSE_MESSAGE("PyAPI Start\n");
 
@@ -1126,9 +1135,6 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                         case TYPE_lng:
                             NP_SPLIT_BAT(lng);
                             break;
-                        case TYPE_wrd:
-                            NP_SPLIT_BAT(wrd);
-                            break;
                         case TYPE_flt:
                             NP_SPLIT_BAT(flt);
                             break;
@@ -1613,11 +1619,12 @@ str
     if (PyAPIEnabled()) {
         MT_lock_set(&pyapiLock);
         if (!pyapiInitialized) {
+            str msg = MAL_SUCCEED;
             char* iar = NULL;
             Py_Initialize();
             PyRun_SimpleString("import numpy");
             import_array1(iar);
-            _connection_init();
+            msg = _connection_init();
             marshal_module = PyImport_Import(PyString_FromString("marshal"));
             if (marshal_module == NULL) {
                 return createException(MAL, "pyapi.eval", "Failed to load Marshal module.");
@@ -1630,7 +1637,6 @@ str
             LOAD_SQL_FUNCTION_PTR(batbte_dec2_dbl, "lib_sql.dll");
             LOAD_SQL_FUNCTION_PTR(batsht_dec2_dbl, "lib_sql.dll");
             LOAD_SQL_FUNCTION_PTR(batint_dec2_dbl, "lib_sql.dll");
-            LOAD_SQL_FUNCTION_PTR(batwrd_dec2_dbl, "lib_sql.dll");
             LOAD_SQL_FUNCTION_PTR(batlng_dec2_dbl, "lib_sql.dll");
 #ifdef HAVE_HGE
             LOAD_SQL_FUNCTION_PTR(bathge_dec2_dbl, "lib_sql.dll");
@@ -1641,6 +1647,10 @@ str
             LOAD_SQL_FUNCTION_PTR(batstr_2_date, "lib_sql.dll");
             LOAD_SQL_FUNCTION_PTR(batdbl_num2dec_lng, "lib_sql.dll");
             LOAD_SQL_FUNCTION_PTR(SQLbatstr_cast, "lib_sql.dll");
+            if (msg != MAL_SUCCEED) {
+                MT_lock_unset(&pyapiLock);
+                return msg;
+            }
             pyapiInitialized++;
         }
         MT_lock_unset(&pyapiLock);
@@ -2414,9 +2424,6 @@ BAT *PyObject_ConvertToBAT(PyReturn *ret, sql_subtype *type, int bat_type, int i
     case TYPE_lng:
         NP_CREATE_BAT(b, lng);
         break;
-    case TYPE_wrd:
-        NP_CREATE_BAT(b, wrd);
-        break;
     case TYPE_flt:
         NP_CREATE_BAT(b, flt);
         break;
@@ -2722,9 +2729,6 @@ str ConvertFromSQLType(Client cntxt, BAT *b, sql_subtype *sql_subtype, BAT **ret
                 break;
             case TYPE_int:
                 res = (*batint_dec2_dbl_ptr)(&result, &hpos, &b->batCacheid);
-                break;
-            case TYPE_wrd:
-                res = (*batwrd_dec2_dbl_ptr)(&result, &hpos, &b->batCacheid);
                 break;
             case TYPE_lng:
                 res = (*batlng_dec2_dbl_ptr)(&result, &hpos, &b->batCacheid);
