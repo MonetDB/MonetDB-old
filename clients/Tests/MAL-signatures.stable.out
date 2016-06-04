@@ -1889,6 +1889,62 @@ pattern batpyapi.subeval_aggr(fptr:ptr,expr:str,arg:any...):any...
 address PyAPIevalAggr;
 comment grouped aggregates through Python
 
+pattern basket.append(mvc:int,sch:str,tbl:str,col:str,val:any):int 
+address BSKTappend;
+comment Append new tuples to a basket
+
+pattern basket.activate(sch:str,tbl:str):void 
+address BSKTactivate;
+comment Re-activate the stream
+
+pattern basket.bind(sch:str,tbl:str,col:str):bat[:any] 
+address BSKTbind;
+comment access the stream basket column
+
+pattern basket.clear_table(sch:str,tbl:str):lng 
+address BSKTclear;
+comment Remove the basket
+
+pattern basket.commit(mvc:any,sch:str,tbl:str):void 
+address BSKTcommit;
+comment Make the basket available for the scheduler
+
+command basket.drop(sch:str,tbl:str):void 
+address BSKTdrop;
+comment Remove the basket
+
+pattern basket.delete(mvc:int,sch:str,tbl:str,val:bat[:oid]):int 
+address BSKTdelete;
+comment Append new tuples to a basket
+
+pattern basket.deactivate(sch:str,tbl:str):void 
+address BSKTdeactivate;
+comment Deactivate the stream
+
+command basket.errors() (l:bat[:str],m:bat[:str]) 
+address BSKTtableerrors;
+comment Return the table with all errors
+
+pattern basket.finish(sch:str,tbl:str):void 
+address BSKTfinish;
+comment Empty the basket using the prevaling policy
+
+command basket.reset():void 
+address BSKTreset;
+comment Remove all baskets
+
+pattern basket.register(sch:str,tbl:str):void 
+address BSKTregister;
+comment Initialize a new basket based on a specific table definition
+
+pattern basket.update(sch:str,tbl:str,cols:bat[:any]...):void 
+address BSKTupdate;
+comment Dump the new tuples into the basket
+
+pattern basket.update(sch:str,tbl:str,cols:any...):void 
+address BSKTupdate;
+comment Dump the new tuples into the basket
+
 command batsql.alpha(dec:dbl,theta:bat[:dbl]):bat[:dbl] 
 address SQLcst_alpha_bat;
 comment BAT implementation of astronomy alpha function
@@ -29985,6 +30041,86 @@ command inet.#tostr():void
 address INETtoString;
 comment Convert inet to string equivalent
 
+pattern iot.activate():void 
+address IOTactivate;
+comment Activate stream or continuous query
+
+pattern iot.activate(sch:str,nme:str):void 
+address IOTactivate;
+comment Activate stream or continuous query
+
+pattern iot.baskets() (sch:bat[:str],nme:bat[:str],status:bat[:str],threshold:bat[:int],winsize:bat[:int],winstride:bat[:int],timeslice:bat[:int],timestride:bat[:int],beat:bat[:int],seen:bat[:timestamp],events:bat[:int]) 
+address BSKTtable;
+comment Inspect the iot baskets
+
+pattern iot.basket(sch:str,tbl:str,dir:str):void 
+address BSKTpushBasket;
+comment Push a directory with the binary files
+
+command iot.beat(sch:str,tbl:str,N:lng):bit 
+address BSKTbeat;
+comment Set an delay to N milliseconds
+
+pattern iot.deregister(mod:str,fcn:str):void 
+address PNderegister;
+comment Remove a query from the Petri-net controller
+
+pattern iot.deregister():void 
+address PNderegister;
+comment Remove all query from the Petri-net controller
+
+pattern iot.deactivate():void 
+address IOTdeactivate;
+comment Deactivate stream or continuous query
+
+pattern iot.deactivate(sch:str,nme:str):void 
+address IOTdeactivate;
+comment Deactivate stream or continuous query
+
+command iot.error(sch:str,fcn:str,msg:str):void 
+address BSKTerror;
+comment Save exception message 
+
+command iot.errors() (nme:bat[:str],error:bat[:str]) 
+address BSKTtableerrors;
+comment Return a table the erroneous events found during query processing
+
+command iot.inputplaces() (sch:bat[:str],tbl:bat[:str],mod:bat[:str],fcn:bat[:str]) 
+address PNinputplaces;
+comment Inspect the destination of the places
+
+command iot.outputplaces() (sch:bat[:str],tbl:bat[:str],mod:bat[:str],fcn:bat[:str]) 
+address PNoutputplaces;
+comment Inspect the output places
+
+command iot.queries() (mod:bat[:str],fcn:bat[:str],status:bat[:str],lastrun:bat[:timestamp],cycles:bat[:int],events:bat[:int],time:bat[:lng],error:bat[:str]) 
+address PNtable;
+comment Inspect the iot queries
+
+pattern iot.query(name:str,def:str):void 
+address IOTquery;
+comment Add a new continuous query.
+
+pattern iot.query(qry:str):void 
+address IOTquery;
+comment Add a new continuous query.
+
+pattern iot.step(cnt:int):void 
+address IOTstop;
+comment Make a limited series of transition steps
+
+command iot.threshold(sch:str,tbl:str,N:int):bit 
+address BSKTthreshold;
+comment Set an acceptance threshold of N events before inspecting
+
+command iot.window(sch:str,tbl:str,N:lng,S:lng):void 
+address BSKTwindow;
+comment Use a window of precisely N events and slide S events afterwards
+
+command iot.window(sch:str,tbl:str,N:lng):void 
+address BSKTwindow;
+comment Use a window of precisely N events and slide afterwards
+
 command io.export(b:bat[:any_2],filepath:str):void 
 address IOexport;
 comment Export a BAT as ASCII to a file. If the 'filepath' is not absolute, it is put into the $DBPATH directory. Success of failure is indicated.
@@ -31379,6 +31515,12 @@ comment Expand inline functions
 
 pattern optimizer.inline():str 
 address OPTwrapper;
+pattern optimizer.iot(mod:str,fcn:str):str 
+address OPTwrapper;
+comment Simulate iot style execution
+
+pattern optimizer.iot():str 
+address OPTwrapper;
 pattern optimizer.json(mod:str,fcn:str):str 
 address OPTwrapper;
 comment Unroll the mat.pack operation
@@ -31584,6 +31726,42 @@ comment Replace _all_ matches of "pattern" in "origin_str" with "replacement".	 
 command pcre.sql2pcre(pat:str,esc:str):str 
 address PCREsql2pcre;
 comment Convert a SQL like pattern with the given escape character into a PCRE pattern.
+
+pattern petrinet.analyse(mod:str,fcn:str):void 
+address PNanalyseWrapper;
+comment Check the input/output relationship
+
+pattern petrinet.activate():void 
+address PNactivate;
+comment Activate all continuous query
+
+pattern petrinet.activate(mod:str,fcn:str):void 
+address PNactivate;
+comment Activate a continuous query
+
+command petrinet.dump():void 
+address PNdump;
+comment Show the status of the Petri net
+
+pattern petrinet.deactivate():void 
+address PNdeactivate;
+comment Deactivate all continuous query
+
+pattern petrinet.deactivate(mod:str,fcn:str):void 
+address PNdeactivate;
+comment Deactivate a continuous query
+
+pattern petrinet.period(t:int):void 
+address PNsetCycleDelay;
+comment Control the scheduler cycle time in ms.
+
+pattern petrinet.register(mod:str,fcn:str):void 
+address PNregister;
+comment Add a continous MAL query to the Petri net. It will analysethe MAL block to determine the input/output dependencies. 
+
+pattern petrinet.step(cnt:int):void 
+address PNstep;
+comment Limit number of petrinet steps
 
 command profiler.cpuload(user:lng,nice:lng,sys:lng,idle:lng,iowait:lng) (cycles:int,io:int) 
 address CMDcpuloadPercentage;

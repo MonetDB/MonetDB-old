@@ -32,6 +32,7 @@ Ready.
 [ "tmp"	]
 [ "json"	]
 [ "profiler"	]
+[ "iot"	]
 [ "bam"	]
 [ "ft"	]
 #drop function ft.func;

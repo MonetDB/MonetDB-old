@@ -69,6 +69,7 @@ Ready.
 \dSs
 \dSf
 \dn bam
+\dn iot
 \dn json
 \dn profiler
 \dn sys
@@ -78,6 +79,8 @@ Ready.
 \dSt bam.pg
 \dSt bam.rg
 \dSt bam.sq
+\dSt iot.webserverflushing
+\dSt iot.webservervalidation
 \dSt sys._columns
 \dSt sys._tables
 \dSt sys.args
@@ -361,6 +364,7 @@ Ready.
 \dSf sys."zorder_decode_y"
 \dSf sys."zorder_encode"
 SYSTEM SCHEMA  bam
+SYSTEM SCHEMA  iot
 SYSTEM SCHEMA  json
 SYSTEM SCHEMA  profiler
 SYSTEM SCHEMA  sys
@@ -789,6 +793,7 @@ SYSTEM FUNCTION  sys.zorder_decode_x
 SYSTEM FUNCTION  sys.zorder_decode_y
 SYSTEM FUNCTION  sys.zorder_encode
 CREATE SCHEMA "bam" AUTHORIZATION "monetdb";
+CREATE SCHEMA "iot" AUTHORIZATION "monetdb";
 CREATE SCHEMA "json" AUTHORIZATION "monetdb";
 CREATE SCHEMA "profiler" AUTHORIZATION "monetdb";
 CREATE SCHEMA "sys";
@@ -798,6 +803,8 @@ CREATE TABLE "bam"."files" ("file_id" BIGINT NOT NULL, "file_location" CHARACTER
 CREATE TABLE "bam"."pg" ("id" CHARACTER LARGE OBJECT NOT NULL, "file_id" BIGINT NOT NULL, "pn" CHARACTER LARGE OBJECT, "cl" CHARACTER LARGE OBJECT, "pp" CHARACTER LARGE OBJECT, "vn" CHARACTER LARGE OBJECT, CONSTRAINT "pg_pkey_id_file_id" PRIMARY KEY ("id", "file_id"), CONSTRAINT "pg_fkey_file_id" FOREIGN KEY ("file_id") REFERENCES "bam"."files" ("file_id"));
 CREATE TABLE "bam"."rg" ("id" CHARACTER LARGE OBJECT NOT NULL, "file_id" BIGINT NOT NULL, "cn" CHARACTER LARGE OBJECT, "ds" CHARACTER LARGE OBJECT, "dt" TIMESTAMP, "fo" CHARACTER LARGE OBJECT, "ks" CHARACTER LARGE OBJECT, "lb" CHARACTER LARGE OBJECT, "pg" CHARACTER LARGE OBJECT, "pi" INTEGER, "pl" CHARACTER LARGE OBJECT, "pu" CHARACTER LARGE OBJECT, "sm" CHARACTER LARGE OBJECT, CONSTRAINT "rg_pkey_id_file_id" PRIMARY KEY ("id", "file_id"), CONSTRAINT "rg_fkey_file_id" FOREIGN KEY ("file_id") REFERENCES "bam"."files" ("file_id"));
 CREATE TABLE "bam"."sq" ("sn" CHARACTER LARGE OBJECT NOT NULL, "file_id" BIGINT NOT NULL, "ln" INTEGER, "as" INTEGER, "m5" CHARACTER LARGE OBJECT, "sp" CHARACTER LARGE OBJECT, "ur" CHARACTER LARGE OBJECT, CONSTRAINT "sq_pkey_sn_file_id" PRIMARY KEY ("sn", "file_id"), CONSTRAINT "sq_fkey_file_id" FOREIGN KEY ("file_id") REFERENCES "bam"."files" ("file_id"));
+CREATE TABLE "iot"."webserverflushing" ("table_id" INTEGER, "flushing" TINYINT, "unit" TINYINT, "interval" INTEGER);
+CREATE TABLE "iot"."webservervalidation" ("column_id" INTEGER, "special" TINYINT, "validation1" CHARACTER LARGE OBJECT, "validation2" CHARACTER LARGE OBJECT);
 CREATE TABLE "sys"."_columns" ("id" INTEGER, "name" VARCHAR(1024), "type" VARCHAR(1024), "type_digits" INTEGER, "type_scale" INTEGER, "table_id" INTEGER, "default" VARCHAR(2048), "null" BOOLEAN, "number" INTEGER, "storage" VARCHAR(2048));
 CREATE TABLE "sys"."_tables" ("id" INTEGER, "name" VARCHAR(1024), "schema_id" INTEGER, "query" VARCHAR(2048), "type" SMALLINT, "system" BOOLEAN, "commit_action" SMALLINT, "access" SMALLINT);
 CREATE TABLE "sys"."args" ("id" INTEGER, "func_id" INTEGER, "name" VARCHAR(256), "type" VARCHAR(1024), "type_digits" INTEGER, "type_scale" INTEGER, "inout" TINYINT, "number" INTEGER);
@@ -1287,6 +1294,7 @@ drop function pcre_replace(string, string, string, string);
 % varchar,	int,	int,	boolean # type
 % 8,	1,	1,	5 # length
 [ "bam",	3,	3,	true	]
+[ "iot",	3,	3,	true	]
 [ "json",	3,	3,	true	]
 [ "profiler",	3,	3,	true	]
 [ "sys",	2,	3,	true	]
@@ -1297,12 +1305,14 @@ drop function pcre_replace(string, string, string, string);
 % .s,	.t,	.L,	.t,	.t,	.t,	.t # table_name
 % name,	name,	query,	type,	system,	commit_action,	access # name
 % varchar,	varchar,	varchar,	smallint,	boolean,	smallint,	smallint # type
-% 3,	17,	597,	1,	5,	1,	1 # length
+% 3,	19,	597,	1,	5,	1,	1 # length
 [ "bam",	"export",	NULL,	0,	true,	0,	0	]
 [ "bam",	"files",	NULL,	0,	true,	0,	0	]
 [ "bam",	"pg",	NULL,	0,	true,	0,	0	]
 [ "bam",	"rg",	NULL,	0,	true,	0,	0	]
 [ "bam",	"sq",	NULL,	0,	true,	0,	0	]
+[ "iot",	"webserverflushing",	NULL,	0,	true,	0,	0	]
+[ "iot",	"webservervalidation",	NULL,	0,	true,	0,	0	]
 [ "sys",	"_columns",	NULL,	0,	true,	0,	0	]
 [ "sys",	"_tables",	NULL,	0,	true,	0,	0	]
 [ "sys",	"args",	NULL,	0,	true,	0,	0	]
@@ -1358,7 +1368,7 @@ drop function pcre_replace(string, string, string, string);
 % sys.t,	sys.c,	sys.c,	sys.c,	sys.c,	sys.c,	sys.c,	sys.c,	sys.c # table_name
 % name,	name,	type,	type_digits,	type_scale,	default,	null,	number,	storage # name
 % varchar,	varchar,	varchar,	int,	int,	varchar,	boolean,	int,	varchar # type
-% 17,	20,	9,	4,	1,	0,	5,	2,	0 # length
+% 19,	20,	9,	4,	1,	0,	5,	2,	0 # length
 [ "_columns",	"id",	"int",	32,	0,	NULL,	true,	0,	NULL	]
 [ "_columns",	"id",	"int",	32,	0,	NULL,	true,	0,	NULL	]
 [ "_columns",	"name",	"varchar",	1024,	0,	NULL,	true,	1,	NULL	]
@@ -1735,6 +1745,14 @@ drop function pcre_replace(string, string, string, string);
 [ "users",	"name",	"varchar",	1024,	0,	NULL,	true,	0,	NULL	]
 [ "users",	"fullname",	"varchar",	2024,	0,	NULL,	true,	1,	NULL	]
 [ "users",	"default_schema",	"int",	9,	0,	NULL,	true,	2,	NULL	]
+[ "webserverflushing",	"table_id",	"int",	32,	0,	NULL,	true,	0,	NULL	]
+[ "webserverflushing",	"flushing",	"tinyint",	8,	0,	NULL,	true,	1,	NULL	]
+[ "webserverflushing",	"unit",	"tinyint",	8,	0,	NULL,	true,	2,	NULL	]
+[ "webserverflushing",	"interval",	"int",	32,	0,	NULL,	true,	3,	NULL	]
+[ "webservervalidation",	"column_id",	"int",	32,	0,	NULL,	true,	0,	NULL	]
+[ "webservervalidation",	"special",	"tinyint",	8,	0,	NULL,	true,	1,	NULL	]
+[ "webservervalidation",	"validation1",	"clob",	0,	0,	NULL,	true,	2,	NULL	]
+[ "webservervalidation",	"validation2",	"clob",	0,	0,	NULL,	true,	3,	NULL	]
 #select s.name, f.name, replace(replace(pcre_replace(pcre_replace(pcre_replace(f.func, '--.*
 #', '', ''), '[ 	
 #]+', ' ', 'm'), '^ ', '', ''), '( ', '('), ' )', ')') as query, f.mod, f.language, f.type, f.side_effect, f.varres, f.vararg from sys.functions f left outer join sys.schemas s on f.schema_id = s.id order by s.name, f.name, query;
@@ -1753,6 +1771,25 @@ drop function pcre_replace(string, string, string, string);
 [ "bam",	"sam_export",	"create procedure bam.sam_export(output_path string) external name bam.sam_export;",	"bam",	1,	2,	true,	false,	false	]
 [ "bam",	"seq_char",	"create function bam.seq_char(ref_pos int, alg_seq string, alg_pos int, alg_cigar string) returns char(1) external name bam.seq_char;",	"bam",	1,	1,	false,	false,	false	]
 [ "bam",	"seq_length",	"create function bam.seq_length(cigar string) returns int external name bam.seq_length;",	"bam",	1,	1,	false,	false,	false	]
+[ "iot",	"activate",	"create procedure iot.activate(\"schema\" string, name string) external name iot.activate;",	"iot",	1,	2,	true,	false,	false	]
+[ "iot",	"activate",	"create procedure iot.activate() external name iot.activate;",	"iot",	1,	2,	true,	false,	false	]
+[ "iot",	"basket",	"create procedure iot.basket(\"schema\" string, \"table\" string, dirpath string) external name iot.basket;",	"iot",	1,	2,	true,	false,	false	]
+[ "iot",	"baskets",	"create function iot.baskets() returns table(\"schema\" string, \"table\" string, \"status\" string, threshold int, winsize int, winstride int, timeslice int, timestride int, beat int, seen timestamp, events int) external name iot.baskets;",	"iot",	1,	5,	false,	false,	false	]
+[ "iot",	"beat",	"create procedure iot.beat(\"schema\" string, \"table\" string, msec int) external name iot.beat;",	"iot",	1,	2,	true,	false,	false	]
+[ "iot",	"cycles",	"create procedure iot.cycles(n integer) external name iot.cycles;",	"iot",	1,	2,	true,	false,	false	]
+[ "iot",	"deactivate",	"create procedure iot.deactivate(\"schema\" string, name string) external name iot.deactivate;",	"iot",	1,	2,	true,	false,	false	]
+[ "iot",	"deactivate",	"create procedure iot.deactivate() external name iot.deactivate;",	"iot",	1,	2,	true,	false,	false	]
+[ "iot",	"deregister",	"create procedure iot.deregister(\"schema\" string, name string) external name iot.deregister;",	"iot",	1,	2,	true,	false,	false	]
+[ "iot",	"deregister",	"create procedure iot.deregister() external name iot.deregister;",	"iot",	1,	2,	true,	false,	false	]
+[ "iot",	"inputplaces",	"create function iot.inputplaces() returns table(\"s\" string, \"t\" string, \"sch\" string, \"qry\" string) external name iot.inputplaces;",	"iot",	1,	5,	false,	false,	false	]
+[ "iot",	"outputplaces",	"create function iot.outputplaces() returns table(\"s\" string, \"t\" string, \"sch\" string, \"qry\" string) external name iot.outputplaces;",	"iot",	1,	5,	false,	false,	false	]
+[ "iot",	"period",	"create procedure iot.period(n integer) external name iot.period;",	"iot",	1,	2,	true,	false,	false	]
+[ "iot",	"queries",	"create function iot.queries() returns table(\"schema\" string, \"function\" string, \"status\" string, lastrun timestamp, cycles int, events int, time bigint, error string) external name iot.queries;",	"iot",	1,	5,	false,	false,	false	]
+[ "iot",	"query",	"create procedure iot.query(\"schema\" string, name string) external name iot.query;",	"iot",	1,	2,	true,	false,	false	]
+[ "iot",	"query",	"create procedure iot.query(qry string) external name iot.query;",	"iot",	1,	2,	true,	false,	false	]
+[ "iot",	"threshold",	"create procedure iot.threshold(\"schema\" string, \"table\" string, elem int) external name iot.threshold;",	"iot",	1,	2,	true,	false,	false	]
+[ "iot",	"window",	"create procedure iot.window(\"schema\" string, \"table\" string, elem int) external name iot.window;",	"iot",	1,	2,	true,	false,	false	]
+[ "iot",	"window",	"create procedure iot.window(\"schema\" string, \"table\" string, elem int, slide int) external name iot.window;",	"iot",	1,	2,	true,	false,	false	]
 [ "json",	"filter",	"create function json.filter(js json, name bigint) returns json external name json.filter;",	"json",	1,	1,	false,	false,	false	]
 [ "json",	"filter",	"create function json.filter(js json, name integer) returns json external name json.filter;",	"json",	1,	1,	false,	false,	false	]
 [ "json",	"filter",	"create function json.filter(js json, name tinyint) returns json external name json.filter;",	"json",	1,	1,	false,	false,	false	]
@@ -3307,6 +3344,25 @@ drop function pcre_replace(string, string, string, string);
 [ "bam",	"sam_export",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "bam",	"seq_char",	"ref_pos",	"int",	32,	0,	1,	"alg_seq",	"clob",	0,	0,	1,	"alg_pos",	"int",	32,	0,	1,	"alg_cigar",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "bam",	"seq_length",	"cigar",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"activate",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"activate",	"name",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"basket",	"table",	"clob",	0,	0,	1,	"dirpath",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"baskets",	"table",	"clob",	0,	0,	0,	"status",	"clob",	0,	0,	0,	"threshold",	"int",	32,	0,	0,	"winsize",	"int",	32,	0,	0,	"winstride",	"int",	32,	0,	0,	"timeslice",	"int",	32,	0,	0,	"timestride",	"int",	32,	0,	0,	"beat",	"int",	32,	0,	0,	"seen",	"timestamp",	7,	0,	0,	"events",	"int",	32,	0,	0,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"beat",	"table",	"clob",	0,	0,	1,	"msec",	"int",	32,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"cycles",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"deactivate",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"deactivate",	"name",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"deregister",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"deregister",	"name",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"inputplaces",	"t",	"clob",	0,	0,	0,	"sch",	"clob",	0,	0,	0,	"qry",	"clob",	0,	0,	0,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"outputplaces",	"t",	"clob",	0,	0,	0,	"sch",	"clob",	0,	0,	0,	"qry",	"clob",	0,	0,	0,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"period",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"queries",	"function",	"clob",	0,	0,	0,	"status",	"clob",	0,	0,	0,	"lastrun",	"timestamp",	7,	0,	0,	"cycles",	"int",	32,	0,	0,	"events",	"int",	32,	0,	0,	"time",	"bigint",	64,	0,	0,	"error",	"clob",	0,	0,	0,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"query",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"query",	"name",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"threshold",	"table",	"clob",	0,	0,	1,	"elem",	"int",	32,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"window",	"table",	"clob",	0,	0,	1,	"elem",	"int",	32,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "iot",	"window",	"table",	"clob",	0,	0,	1,	"elem",	"int",	32,	0,	1,	"slide",	"int",	32,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "json",	"filter",	"js",	"json",	0,	0,	1,	"name",	"bigint",	64,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "json",	"filter",	"js",	"json",	0,	0,	1,	"name",	"int",	32,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "json",	"filter",	"js",	"json",	0,	0,	1,	"name",	"tinyint",	8,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
@@ -5349,6 +5405,8 @@ drop function pcre_replace(string, string, string, string);
 [ "abs"	]
 [ "acos"	]
 [ "acos"	]
+[ "activate"	]
+[ "activate"	]
 [ "all"	]
 [ "alpha"	]
 [ "analyze"	]
@@ -5372,7 +5430,10 @@ drop function pcre_replace(string, string, string, string);
 [ "bam_loader_file"	]
 [ "bam_loader_files"	]
 [ "bam_loader_repos"	]
+[ "basket"	]
+[ "baskets"	]
 [ "bbp"	]
+[ "beat"	]
 [ "bit_and"	]
 [ "bit_and"	]
 [ "bit_and"	]
@@ -5458,6 +5519,7 @@ drop function pcre_replace(string, string, string, string);
 [ "current_time"	]
 [ "current_timestamp"	]
 [ "curtime"	]
+[ "cycles"	]
 [ "date_to_str"	]
 [ "day"	]
 [ "day"	]
@@ -5467,6 +5529,8 @@ drop function pcre_replace(string, string, string, string);
 [ "dayofweek"	]
 [ "dayofyear"	]
 [ "db_users"	]
+[ "deactivate"	]
+[ "deactivate"	]
 [ "debug"	]
 [ "degrees"	]
 [ "dense_rank"	]
@@ -5487,6 +5551,8 @@ drop function pcre_replace(string, string, string, string);
 [ "dependencies_tables_on_views"	]
 [ "dependencies_views_on_functions"	]
 [ "dependencies_views_on_triggers"	]
+[ "deregister"	]
+[ "deregister"	]
 [ "diff"	]
 [ "diff"	]
 [ "difference"	]
@@ -5583,6 +5649,7 @@ drop function pcre_replace(string, string, string, string);
 [ "index"	]
 [ "index"	]
 [ "index"	]
+[ "inputplaces"	]
 [ "insert"	]
 [ "insert"	]
 [ "insert"	]
@@ -5763,12 +5830,14 @@ drop function pcre_replace(string, string, string, string);
 [ "optimizers"	]
 [ "or"	]
 [ "output"	]
+[ "outputplaces"	]
 [ "password_hash"	]
 [ "patindex"	]
 [ "patindex"	]
 [ "patindex"	]
 [ "pause"	]
 [ "pause"	]
+[ "period"	]
 [ "pi"	]
 [ "power"	]
 [ "power"	]
@@ -5795,6 +5864,9 @@ drop function pcre_replace(string, string, string, string);
 [ "quantile"	]
 [ "quantile"	]
 [ "quantile"	]
+[ "queries"	]
+[ "query"	]
+[ "query"	]
 [ "querycache"	]
 [ "querylog"	]
 [ "querylog_calls"	]
@@ -6819,6 +6891,7 @@ drop function pcre_replace(string, string, string, string);
 [ "text"	]
 [ "text"	]
 [ "text"	]
+[ "threshold"	]
 [ "time_to_str"	]
 [ "times"	]
 [ "timestamp_to_str"	]
@@ -6864,6 +6937,8 @@ drop function pcre_replace(string, string, string, string);
 [ "var_samp"	]
 [ "week"	]
 [ "weekofyear"	]
+[ "window"	]
+[ "window"	]
 [ "xor"	]
 [ "year"	]
 [ "year"	]
