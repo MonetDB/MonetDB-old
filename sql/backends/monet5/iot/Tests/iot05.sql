@@ -1,5 +1,6 @@
 -- introduce a heartbeat query
 set schema iot;
+set optimizer='iot_pipe';
 
 declare hbclk1 integer;
 declare hbclk2 integer;

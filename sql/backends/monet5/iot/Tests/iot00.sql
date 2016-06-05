@@ -1,5 +1,6 @@
 -- A simple continuous query.
 set schema iot;
+set optimizer='iot_pipe';
 
 create stream table stmp (t timestamp, sensor integer, val decimal(8,2)) ;
 create table result(like stmp);
