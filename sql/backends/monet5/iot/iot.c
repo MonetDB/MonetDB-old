@@ -75,7 +75,6 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg = NULL;
 	InstrPtr p;
 	Module scope;
-	lng clk = GDKusec();
 	char buf[BUFSIZ], name[IDLENGTH];
 	static int iotquerycnt=0;
 
@@ -116,7 +115,7 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( qry->errors)
 		msg = createException(SQL,"iot.query","Error in iot query");
 
-	_DEBUG_IOT_ fprintf(stderr,"#iot: bake a new continuous query plan\n");
+	_DEBUG_IOT_ fprintf(stderr,"#iot: register a new continuous query plan\n");
 	scope = findModule(cntxt->nspace, putName(sch));
 	s = newFunction(putName(sch), putName(nme), FUNCTIONsymbol);
 	if (s == NULL)
@@ -130,13 +129,8 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	insertSymbol(scope, s);
 	_DEBUG_IOT_ printFunction(cntxt->fdout, s->def, 0, LIST_MAL_ALL);
 	/* optimize the code and register at scheduler */
-	if (msg == MAL_SUCCEED) {
-		addOptimizers(cntxt, s->def,"iot_pipe");
-		msg = optimizeMALBlock(cntxt, s->def);
-		if (msg == MAL_SUCCEED) 
-			msg = optimizerCheck(cntxt, s->def, "optimizer.iot", 1, GDKusec() - clk);
+	if (msg == MAL_SUCCEED) 
 		addtoMalBlkHistory(mb);
-	}
 	if (msg == MAL_SUCCEED) {
 		_DEBUG_IOT_ fprintf(stderr,"#iot: continuous query plan\n");
 		msg = PNregisterInternal(cntxt, s->def);
