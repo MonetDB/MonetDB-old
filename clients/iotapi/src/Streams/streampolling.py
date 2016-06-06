@@ -14,7 +14,7 @@ SWITCHER = [{'types': ['clob', 'url'], 'class': 'TextType'},
             {'types': ['decimal'], 'class': 'DecimalType'},
             {'types': ['boolean'], 'class': 'BooleanType'},
             {'types': ['date'], 'class': 'DateType'},
-            {'types': ['time', 'timez'], 'class': 'TimeType'},
+            {'types': ['time', 'timetz'], 'class': 'TimeType'},
             {'types': ['timestamp', 'timestamptz'], 'class': 'TimestampType'},
             {'types': ['inet'], 'class': 'INetType'},
             {'types': ['uuid'], 'class': 'UUIDType'}]

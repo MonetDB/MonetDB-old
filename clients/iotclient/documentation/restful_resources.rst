@@ -28,17 +28,16 @@ Returns a JSON file with details about all the streams currently created on the 
 	  {
 	    "tuples_inserted_per_basket": 1,
 	    "columns": [
-	      {
-		"type": "real",
-		"name": "temperature",
-		"nullable": false
-	      },
-	      {
-		"type": "text",
-		"name": "sensorid",
-		"nullable": false
-	      }
-	    ],
+        {
+		    "type": "real",
+		    "name": "temperature",
+		    "nullable": false
+        },
+        {
+		    "type": "text",
+		    "name": "sensorid",
+		    "nullable": false
+        }],
 	    "flushing": {
 	      "base": "tuple",
 	      "number": 50
@@ -53,7 +52,7 @@ Returns a JSON file with details about all the streams currently created on the 
 
 **POST**
 
-Creates a stream using a pre-defined JSON schema. The JSON must include the stream's schema, the stream's name, the stream's columns and the flushing method. The flushing can be either time based, tuple based or automatic (:code:`auto`). For tuple based flushing, the number of tuples to flush must be provided using the :code:`number` field. In time based flushing, the :code:`interval` field tells the time units between flushes and the :code:`unit` field must be "s", "m" or "h" for seconds, minutes or hours respectively. In automatic flushing, the baskets are flushed whenver a new batch is inserted. For columns `see data types for details <streams_data_types.html#data_types>`__.
+Creates a stream using a pre-defined JSON schema. The JSON must include the stream's schema, the stream's name, the stream's columns and the flushing method. The flushing can be either time based, tuple based or automatic (:code:`auto`). For tuple based flushing, the number of tuples to flush must be provided using the :code:`interval` field. In time based flushing, the :code:`interval` field tells the time units between flushes and the :code:`unit` field must be "s", "m" or "h" for seconds, minutes or hours respectively. In automatic flushing, the baskets are flushed whenever a new batch is inserted. For columns `see data types for details <streams_data_types.html#data_types>`__.
 
 Bellow is the JSON used to create the stream in streams_:
 
@@ -64,8 +63,8 @@ Bellow is the JSON used to create the stream in streams_:
 	  "stream": "temperature",
 	  "flushing": {
 	    "base": "tuple",
-	    "number": 50
-	    },
+	    "interval": 50
+      },
 	  "columns": [
 	    {
 	      "type": "real",

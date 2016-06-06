@@ -2,7 +2,6 @@ import os
 import sys
 
 from iotlogger import add_log
-from Utilities.filecreator import create_file_if_not_exists
 
 Baskets_Location = None
 

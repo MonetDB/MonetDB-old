@@ -1,3 +1,4 @@
+import json
 import os
 import struct
 from abc import ABCMeta, abstractmethod
@@ -10,17 +11,15 @@ from Utilities.filecreator import create_file_if_not_exists
 from Utilities.readwritelock import RWLock
 
 from Utilities.customthreading import PeriodicalThread
-from datatypes import TimestampType, TextType, DataValidationException, LITTLE_ENDIAN_ALIGNMENT
+from datatypes import TimestampWithTimeZoneType, TextType, LITTLE_ENDIAN_ALIGNMENT
 
 IMPLICIT_TIMESTAMP_COLUMN_NAME = 'implicit_timestamp'
-Timestamps_Handler = TimestampType(name=IMPLICIT_TIMESTAMP_COLUMN_NAME, type="timestamp")  # timestamp
+Timestamps_Handler = TimestampWithTimeZoneType(name=IMPLICIT_TIMESTAMP_COLUMN_NAME, type="timestamp")  # timestamp
 Extra_columns_SQL = [Timestamps_Handler.create_stream_sql()]  # array for SQL creation
 
 HOST_IDENTIFIER_COLUMN_NAME = 'host_identifier'
 Use_Host_Identifier = False
 Hostname_Bin_Value = None
-
-BASKETS_COUNT_FILE = 'count'
 
 
 def represents_int(s):
@@ -34,31 +33,24 @@ def represents_int(s):
 def init_streams_hosts(use_host_identifier, host_identifier):
     global Use_Host_Identifier, Hostname_Bin_Value
 
-    hosts_handler = TextType(name=HOST_IDENTIFIER_COLUMN_NAME, type="text")  # host_identifier
+    hosts_handler = TextType(name=HOST_IDENTIFIER_COLUMN_NAME, type="string")  # host_identifier
     Hostname_Bin_Value = hosts_handler.process_values([host_identifier])
-
     if use_host_identifier:
         Use_Host_Identifier = True
         Extra_columns_SQL.append(hosts_handler.create_stream_sql())
-
-
-class StreamException(Exception):
-    """Exception fired when the validation of a stream insert fails"""
-
-    def __init__(self, message):
-        self.message = message  # dictionary of column -> list of error messages
 
 
 class BaseIOTStream(object):
     """Representation of a stream for validation"""
     __metaclass__ = ABCMeta
 
-    def __init__(self, schema_name, stream_name, columns, validation_schema, created=False):
+    def __init__(self, schema_name, stream_name, columns, validation_schema, table_id=None):
         self._schema_name = schema_name  # name of the schema
         self._stream_name = stream_name  # name of the stream
         self._tuples_in_per_basket = 0  # for efficiency
         self._columns = columns  # dictionary of name -> data_types
         self._validation_schema = validation_schema  # json validation schema for the inserts
+        self._table_id = table_id
         self._baskets_lock = RWLock()  # baskets lock to protect files (the server is multi-threaded)
         self._base_path = os.path.join(get_baskets_location(), schema_name, stream_name)
 
@@ -84,23 +76,21 @@ class BaseIOTStream(object):
         if Use_Host_Identifier:
             create_file_if_not_exists(os.path.join(self._current_base_path, HOST_IDENTIFIER_COLUMN_NAME))
 
-        # WARNING DELETE this code afterwards is for debugging purposes for now
-        basket_counter_file_pointer = open(os.path.join(self._current_base_path, BASKETS_COUNT_FILE), "w+b")
-        basket_counter_file_pointer.write(struct.pack(LITTLE_ENDIAN_ALIGNMENT + "i", 0))
-        basket_counter_file_pointer.flush()
-        basket_counter_file_pointer.close()
-        # END WARNING
-
-        if created:  # when the stream is reloaded from the config file, the create SQL statement is not sent
-            sql_array = [column.create_stream_sql() for column in self._columns.values()]
-            mapi_create_stream(self._schema_name, self._stream_name, ', '.join(sql_array + Extra_columns_SQL))
-            add_log(20, ''.join(['The stream ', self._schema_name, '.', self._stream_name, ' was created']))
-
     def get_schema_name(self):
         return self._schema_name
 
     def get_stream_name(self):
         return self._stream_name
+
+    def get_sql_create_statement(self):
+        return ', '.join([column.create_stream_sql() for column in self._columns.values()] + Extra_columns_SQL)
+
+    def set_table_id(self, table_id):
+        self._table_id = table_id
+
+    @abstractmethod
+    def get_flushing_sql_statement(self):  # insert for iot.webserverflushing table
+        return ""
 
     def start_stream(self):
         add_log(20, 'Started stream %s.%s' % (self._schema_name, self._stream_name))
@@ -115,7 +105,7 @@ class BaseIOTStream(object):
         add_log(20, 'Stopped stream %s.%s' % (self._schema_name, self._stream_name))
 
     @abstractmethod
-    def get_flushing_dictionary(self):
+    def get_flushing_dictionary(self):  # for information about the stream
         return {}
 
     def get_data_dictionary(self, include_number_tuples=False):
@@ -132,10 +122,7 @@ class BaseIOTStream(object):
 
     def flush_baskets(self, last=False):  # the monitor has to be acquired in write mode before running this method!!!
         # write the tuple count in the basket
-        basket_counter_file_pointer = open(os.path.join(self._current_base_path, BASKETS_COUNT_FILE), "w+b")
-        basket_counter_file_pointer.write(struct.pack(LITTLE_ENDIAN_ALIGNMENT + "i", self._tuples_in_per_basket))
-        basket_counter_file_pointer.flush()
-        basket_counter_file_pointer.close()
+
         mapi_flush_baskets(self._schema_name, self._stream_name, self._current_base_path)
 
         if not last:  # when stopping the stream, we don't want to continue to create more baskets files
@@ -143,13 +130,6 @@ class BaseIOTStream(object):
             self._baskets_counter += 1
             self._current_base_path = os.path.join(self._base_path, str(self._baskets_counter))
             os.makedirs(self._current_base_path)
-
-            # WARNING DELETE this code afterwards is for debugging purposes for now
-            basket_counter_file_pointer = open(os.path.join(self._current_base_path, BASKETS_COUNT_FILE), "w+b")
-            basket_counter_file_pointer.write(struct.pack(LITTLE_ENDIAN_ALIGNMENT + "i", 0))
-            basket_counter_file_pointer.flush()
-            basket_counter_file_pointer.close()
-            # END WARNING
 
             for key in self._columns.keys():
                 create_file_if_not_exists(os.path.join(self._current_base_path, key))
@@ -178,7 +158,7 @@ class BaseIOTStream(object):
                     batch_errors[value].append('Problem while parsing this column in tuple: ' + str(tuple_counter))
 
         if batch_errors:
-            raise StreamException(message=batch_errors)
+            raise Exception(message=json.dumps(batch_errors))  # dictionary of column -> list of error messages
 
         transposed_data = defaultdict(list)  # transpose the inserts to benefit the MonetDB's column storage
         for entry in new_data:
@@ -189,11 +169,11 @@ class BaseIOTStream(object):
             data_type = self._columns[key]  # get the correspondent column
             try:
                 transposed_data[key] = data_type.process_values(values)  # convert into binary
-            except DataValidationException as ex:
+            except BaseException as ex:
                 batch_errors[key] = ex
 
         if batch_errors:
-            raise StreamException(message=batch_errors)
+            raise Exception(message=json.dumps(batch_errors))  # dictionary of column -> list of error messages
 
         # prepare variables outside the lock for more parallelism
         total_tuples = len(new_data)
@@ -237,19 +217,22 @@ class BaseIOTStream(object):
 class TupleBasedStream(BaseIOTStream):
     """Stream with tuple based flushing"""
 
-    def __init__(self, schema_name, stream_name, columns, validation_schema, created, limit):
-        super(TupleBasedStream, self).__init__(schema_name, stream_name, columns, validation_schema, created)
-        self._limit = limit
+    def __init__(self, schema_name, stream_name, columns, validation_schema, interval):
+        super(TupleBasedStream, self).__init__(schema_name, stream_name, columns, validation_schema)
+        self._interval = interval
 
     def get_flushing_dictionary(self):
-        return {'base': 'tuple', 'number': self._limit}
+        return {'base': 'tuple', 'number': self._interval}
+
+    def get_flushing_sql_statement(self):  # insert for iot.webserverflushing table
+        return ''.join([",1,", str(self._interval), ",NULL"])
 
     def validate_and_insert(self, new_data, timestamp):
         super(TupleBasedStream, self).validate_and_insert(new_data, timestamp)
         flag = False
         self._baskets_lock.acquire_write()
         try:
-            if self._tuples_in_per_basket >= self._limit:
+            if self._tuples_in_per_basket >= self._interval:
                 self.flush_baskets(last=False)
                 flag = True
         except BaseException as ex:
@@ -264,8 +247,8 @@ class TupleBasedStream(BaseIOTStream):
 class TimeBasedStream(BaseIOTStream):
     """Stream with time based flushing"""
 
-    def __init__(self, schema_name, stream_name, columns, validation_schema, created, interval, time_unit):
-        super(TimeBasedStream, self).__init__(schema_name, stream_name, columns, validation_schema, created)
+    def __init__(self, schema_name, stream_name, columns, validation_schema, interval, time_unit):
+        super(TimeBasedStream, self).__init__(schema_name, stream_name, columns, validation_schema)
         self._time_unit = time_unit
         self._interval = interval
         if time_unit == "s":
@@ -278,6 +261,9 @@ class TimeBasedStream(BaseIOTStream):
 
     def get_flushing_dictionary(self):
         return {'base': 'time', 'unit': self._time_unit, 'interval': self._interval}
+
+    def get_flushing_sql_statement(self):  # insert for iot.webserverflushing table
+        return ''.join([",2,", str(self._interval), ",", self._time_unit])
 
     def time_based_flush(self):
         flag = False
@@ -306,17 +292,20 @@ class TimeBasedStream(BaseIOTStream):
 class AutoFlushedStream(BaseIOTStream):
     """Stream with flush every time a new batch is inserted"""
 
-    def __init__(self, schema_name, stream_name, columns, validation_schema, created):
-        super(AutoFlushedStream, self).__init__(schema_name, stream_name, columns, validation_schema, created)
+    def __init__(self, schema_name, stream_name, columns, validation_schema):
+        super(AutoFlushedStream, self).__init__(schema_name, stream_name, columns, validation_schema)
 
     def get_flushing_dictionary(self):
         return {'base': 'auto'}
+
+    def get_flushing_sql_statement(self):  # insert for iot.webserverflushing table
+        return ",3,NULL,NULL"
 
     def validate_and_insert(self, new_data, timestamp):
         super(AutoFlushedStream, self).validate_and_insert(new_data, timestamp)
         self._baskets_lock.acquire_write()
         try:
-            self.flush_baskets(last=False)
+            self.flush_baskets(last=False)  # there will be always items on the baskets
         except BaseException as ex:
             self._baskets_lock.release()
             add_log(50, ex)

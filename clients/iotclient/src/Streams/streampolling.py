@@ -3,21 +3,30 @@ from itertools import groupby
 from Settings.mapiconnection import fetch_streams
 from Utilities.customthreading import PeriodicalThread
 from datatypes import *
-from streams import IOTStream
+from streams import BaseIOTStream
 from streamscontext import Streams_Context
 
 SWITCHER = [{'types': ['clob', 'url'], 'class': 'TextType'},
             {'types': ['char', 'varchar'], 'class': 'LimitedTextType'},
-            {'types': ['tinyint', 'smallint', 'int', 'bigint'], 'class': 'SmallIntegerType'},
-            {'types': ['hugeint'], 'class': 'HugeIntegerType'},
+            {'types': ['tinyint', 'smallint', 'int', 'wrd', 'bigint'], 'class': 'SmallIntegerType'},
             {'types': ['real', 'double'], 'class': 'FloatType'},
             {'types': ['decimal'], 'class': 'DecimalType'},
             {'types': ['boolean'], 'class': 'BooleanType'},
             {'types': ['date'], 'class': 'DateType'},
-            {'types': ['time', 'timez'], 'class': 'TimeType'},
-            {'types': ['timestamp', 'timestamptz'], 'class': 'TimestampType'},
+            {'types': ['time'], 'class': 'TimeWithoutTimeZoneType'},
+            {'types': ['timetz'], 'class': 'TimeWithTimeZoneType'},
+            {'types': ['timestamp'], 'class': 'TimestampWithoutTimeZoneType'},
+            {'types': ['timestamptz'], 'class': 'TimestampWithTimeZoneType'},
             {'types': ['inet'], 'class': 'INetType'},
             {'types': ['uuid'], 'class': 'UUIDType'}]
+
+FLUSHING_STREAMS = {1: 'TupleBasedStream', 2: 'TimeBasedStream', 3: 'AutoFlushedStream'}  # Use Try Get
+
+SPECIAL_TYPES = {1: 'MACType', 2: 'RegexType', 3: 'EnumType', 4: 'INetSixType'}  # Use Try Get
+
+
+def polling_add_hugeint_type():
+    SWITCHER.append({'types': ['hugeint'], 'class': 'HugeIntegerType'})
 
 
 def init_stream_polling_thread(interval):
@@ -45,7 +54,7 @@ def stream_polling():
                             new_column = reflection_class(*elem[2:])
                             columns[elem[2]] = new_column  # add new column to the dictionary
                             break
-                new_streams[key] = IOTStream(schema_name=elem[0], stream_name=elem[1], columns=columns)
+                new_streams[key] = BaseIOTStream(schema_name=elem[0], stream_name=elem[1], columns=columns)
             else:
                 retained_streams.append(key)
 

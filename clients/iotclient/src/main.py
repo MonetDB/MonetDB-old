@@ -15,7 +15,6 @@ from Settings.filesystem import init_file_system, DEFAULT_FILESYSTEM
 from Settings.iotlogger import init_logging, add_log, DEFAULT_LOGGING
 from Settings.mapiconnection import init_monetdb_connection
 from Streams.streams import init_streams_hosts
-from Streams.streamscontext import init_streams_context
 
 subprocess = None
 
@@ -32,7 +31,6 @@ def start_process(filesystem_location, use_host_identifier, host_identifier, adm
     init_streams_hosts(use_host_identifier, host_identifier)  # init hostname column for streams
     # init mapi connection
     init_monetdb_connection(con_hostname, con_port, con_user, con_password, con_database)
-    init_streams_context()  # init streams context
     init_rest_resources()  # init validators for RESTful requests
 
     thread1 = Thread(target=start_flask_admin_app, args=(admin_host, admin_port))

@@ -91,7 +91,7 @@ create function iot.outputplaces()
 
 -- tables for iotwebserver
 
-CREATE TABLE iot.webserverflushing (table_id INTEGER, flushing TINYINT, unit TINYINT NULL, "interval" INTEGER NULL);
+CREATE TABLE iot.webserverflushing (table_id INTEGER, base TINYINT, "interval" INTEGER NULL, unit TINYINT NULL);
 
 CREATE TABLE iot.webservervalidation (column_id INTEGER, special TINYINT NULL, validation1 string NULL, validation2 string NULL);
 

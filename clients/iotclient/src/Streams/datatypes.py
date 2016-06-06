@@ -2,6 +2,7 @@ import copy
 import datetime
 import iso8601
 import itertools
+import json
 import math
 import re
 import struct
@@ -20,17 +21,13 @@ INT8_MIN = -128
 INT16_MIN = -32768
 INT32_MIN = -2147483648
 INT64_MIN = -9223372036854775808
-INT64_MAX = +9223372036854775807
+INT64_MAX = 9223372036854775807
 INT128_MIN = -340282366920938463463374607431768211456
 
 FLOAT_NAN = struct.unpack('f', '\xff\xff\x7f\xff')[0]
 DOUBLE_NAN = struct.unpack('d', '\xff\xff\xff\xff\xff\xff\xef\xff')[0]
 
-
-class DataValidationException(Exception):
-    def __init__(self, errors):
-        super(DataValidationException, self).__init__()
-        self.message = errors  # dictionary of row_number -> error
+ENUM_TYPE_SEPARATOR = '\r'
 
 
 class StreamDataType(object):
@@ -40,11 +37,12 @@ class StreamDataType(object):
     def __init__(self, **kwargs):
         self._column_name = kwargs['name']  # name of the column
         self._data_type = kwargs['type']  # SQL name of the type
-        self._is_nullable = False  # boolean
-        self._default_value = None
-
-    def set_nullable(self, value):  # set if the column is nullable or not
-        self._is_nullable = value
+        self._is_nullable = kwargs.get('nullable', True)  # boolean
+        if 'default' in kwargs:
+            self._default_value = self.set_default_value(kwargs['default'])
+        else:
+            self._default_value = None
+        self._column_id = kwargs.get('id', None)
 
     def is_nullable(self):  # check if the column is nullable or not
         return self._is_nullable
@@ -58,6 +56,12 @@ class StreamDataType(object):
 
     def get_default_value(self):  # get the default value representation in the data type
         return self._default_value
+
+    def set_column_id(self, column_id):  # set column id for iot.webservervalidation table
+        self._column_id = column_id
+
+    def get_column_id(self):
+        return self._column_id
 
     def add_json_schema_entry(self, schema):  # add the entry for the stream's corresponding json schema
         dic = {}  # must be done after setting the default value!!!
@@ -87,7 +91,7 @@ class StreamDataType(object):
             extracted_values.append(self.process_next_value(entry, counter, parameters, errors))
 
         if errors:
-            raise DataValidationException(errors=errors)
+            raise Exception(errors=json.dumps(errors))  # dictionary of row_number -> error
         return self.pack_parsed_values(extracted_values, counter, parameters)
 
     def to_json_representation(self):  # get a json representation of the data type while checking the stream's info
@@ -107,6 +111,9 @@ class StreamDataType(object):
         if not self._is_nullable:
             array.append(" NOT NULL")
         return ''.join(array)
+
+    def get_extra_sql_statement(self):  # data to iot.webservervalidation
+        return ",NULL,NULL,NULL"
 
 
 class TextType(StreamDataType):
@@ -155,6 +162,9 @@ class MACType(TextType):
     def process_sql_parameters(self, array):
         array[2] = 'char(17)'  # A MAC Address has 17 characters
 
+    def get_extra_sql_statement(self):
+        return ",1,NULL,NULL"
+
 
 class URLType(TextType):
     """Covers: URL"""
@@ -171,8 +181,9 @@ class RegexType(TextType):
     """Covers: Regex"""
 
     def __init__(self, **kwargs):
-        super(TextType, self).__init__(**kwargs)
+        super(RegexType, self).__init__(**kwargs)
         self._regex = re.compile(kwargs['regex'])
+        self._regex_text = kwargs['regex']
 
     def set_default_value(self, default_value):
         if self._regex.match(default_value) is None:
@@ -190,6 +201,9 @@ class RegexType(TextType):
 
     def process_sql_parameters(self, array):
         array[2] = 'string'  # Store as string
+
+    def get_extra_sql_statement(self):
+        return ",2," + self._regex_text + ",NULL"
 
 
 class LimitedTextType(TextType):
@@ -242,16 +256,11 @@ class EnumType(TextType):
         json_value['values'] = self._values
         return json_value
 
-    def create_stream_sql(self):
-        max_length = max([len(y) for y in self._values])
-        array = [self._column_name, " char(", str(max_length), ")"]
-        if self._default_value is not None:
-            array.extend([" DEFAULT '", str(self._default_value), "'"])
-        if not self._is_nullable:
-            array.append(" NOT NULL")
-        array.extend([" CHECK (", self._column_name, " IN (", ','.join(map(lambda x: "\'" + x + "\'", self._values)),
-                      "))"])
-        return ''.join(array)
+    def process_sql_parameters(self, array):
+        array[2] = 'char(' + str(max([len(y) for y in self._values])) + ')'  # char with max length of enum values
+
+    def get_extra_sql_statement(self):
+        return ",3," + ENUM_TYPE_SEPARATOR.join(self._values) + ",NULL"
 
 
 class INetSixType(TextType):
@@ -267,6 +276,9 @@ class INetSixType(TextType):
     # http://stackoverflow.com/questions/166132/maximum-length-of-the-textual-representation-of-an-ipv6-address
     def process_sql_parameters(self, array):
         array[2] = 'char(45)'
+
+    def get_extra_sql_statement(self):
+        return ",4,NULL,NULL"
 
 
 class INetType(StreamDataType):
@@ -323,7 +335,6 @@ class UUIDType(StreamDataType):
         for i in xrange(16):
             if j in (8, 12, 16, 20):  # do nothing with the dashes
                 s += 1
-
             next_char = ord(entry[s])
             if 48 <= next_char <= 57:  # between '0' and '9'
                 array[i] = next_char - 48
@@ -331,11 +342,9 @@ class UUIDType(StreamDataType):
                 array[i] = next_char - 87
             elif 65 <= next_char <= 70:  # between 'A' and 'F'
                 array[i] = next_char - 55
-
             s += 1
             j += 1
             array[i] <<= 4
-
             next_char = ord(entry[s])
             if 48 <= next_char <= 57:  # between '0' and '9'
                 array[i] |= next_char - 48
@@ -343,7 +352,6 @@ class UUIDType(StreamDataType):
                 array[i] |= next_char - 87
             elif 65 <= next_char <= 70:  # between 'A' and 'F'
                 array[i] |= next_char - 55
-
             s += 1
             j += 1
         return array
@@ -385,61 +393,58 @@ class NumberBaseType(StreamDataType):
 
     def __init__(self, **kwargs):
         super(NumberBaseType, self).__init__(**kwargs)
-        if 'minimum' in kwargs:
-            self._minimum = kwargs['minimum']
-        if 'maximum' in kwargs:
-            self._maximum = kwargs['maximum']
-        if hasattr(self, '_minimum') and hasattr(self, '_maximum') and self._minimum > self._maximum:
+        self._minimum = kwargs.get('minimum', None)
+        self._maximum = kwargs.get('maximum', None)
+        if self._minimum is not None and self._maximum is not None and self._minimum > self._maximum:
             raise Exception('The minimum value is higher than the maximum!')
 
     def add_json_schema_entry(self, schema):
         super(NumberBaseType, self).add_json_schema_entry(schema)
-        if hasattr(self, '_minimum'):  # we can add numbers to schema
+        if self._minimum is not None:  # we can add numbers to schema
             schema[self._column_name]['minimum'] = self._minimum
-        if hasattr(self, '_maximum'):
+        if self._maximum is not None:
             schema[self._column_name]['maximum'] = self._maximum
 
     def set_default_value(self, default_value):
-        if hasattr(self, '_minimum') and not hasattr(self, '_maximum') and default_value < self._minimum:
+        if self._minimum is not None and self._maximum is None and default_value < self._minimum:
             raise Exception('The default value is less than the minimum: %s < %s!' % (default_value, self._minimum))
-        elif hasattr(self, '_maximum') and not hasattr(self, '_minimum') and default_value > self._maximum:
+        elif self._minimum is None and self._maximum is not None and default_value > self._maximum:
             raise Exception('The default value is higher than the maximum: %s > %s!' % (default_value, self._maximum))
-        elif hasattr(self, '_maximum') and hasattr(self, '_minimum') and default_value < self._minimum:
+        elif self._minimum is not None and self._maximum is not None and default_value < self._minimum:
             raise Exception('The default value is out of range: %s < %s!' % (default_value, self._minimum))
-        elif hasattr(self, '_maximum') and hasattr(self, '_minimum') and default_value > self._maximum:
+        elif self._minimum is not None and self._maximum is not None and default_value > self._maximum:
             raise Exception('The default value is out of range: %s > %s!' % (default_value, self._maximum))
         self._default_value = default_value
 
     def to_json_representation(self):
         json_value = super(NumberBaseType, self).to_json_representation()
-        if hasattr(self, '_minimum'):
+        if self._minimum is not None:
             json_value['minimum'] = self._minimum
-        if hasattr(self, '_maximum'):
+        if self._maximum is not None:
             json_value['maximum'] = self._maximum
         return json_value
 
-    def create_stream_sql(self):
-        string = super(NumberBaseType, self).create_stream_sql()
-
-        if hasattr(self, '_minimum') and not hasattr(self, '_maximum'):
-            return string + ''.join([" CHECK (", self._column_name, " > ", str(self._minimum), ")"])
-        elif hasattr(self, '_maximum') and not hasattr(self, '_minimum'):
-            return string + ''.join([" CHECK (", self._column_name, " < ", str(self._maximum), ")"])
-        elif hasattr(self, '_maximum') and hasattr(self, '_minimum'):
-            return string + ''.join([" CHECK (", self._column_name, " BETWEEN ", str(self._minimum),
-                                     " AND ", str(self._maximum), ")"])
-        return string
+    def get_extra_sql_statement(self):
+        res_str = ",NULL,"
+        if self._minimum is not None:
+            res_str += str(self._minimum) + ","
+        else:
+            res_str += "NULL,"
+        if self._maximum is not None:
+            res_str += str(self._maximum)
+        else:
+            res_str += "NULL"
 
 
 class SmallIntegerType(NumberBaseType):
-    """Covers: TINYINT, SMALLINT, INT[EGER], BIGINT"""
+    """Covers: TINYINT, SMALLINT, INT[EGER], WRD, BIGINT"""
 
     def __init__(self, **kwargs):
         super(SmallIntegerType, self).__init__(**kwargs)
-        self._pack_sym = {'tinyint': 'b', 'smallint': 'h', 'int': 'i', 'integer': 'i', 'bigint': 'q'} \
+        self._pack_sym = {'tinyint': 'b', 'smallint': 'h', 'int': 'i', 'integer': 'i', 'wrd': 'q', 'bigint': 'q'} \
             .get(kwargs['type'])
         self._nullable_constant = {'tinyint': INT8_MIN, 'smallint': INT16_MIN, 'int': INT32_MIN, 'integer': INT32_MIN,
-                                   'bigint': INT64_MIN}.get(kwargs['type'])
+                                   'wrd': INT64_MIN, 'bigint': INT64_MIN}.get(kwargs['type'])
 
     def add_json_schema_entry(self, schema):
         super(SmallIntegerType, self).add_json_schema_entry(schema)
@@ -504,23 +509,16 @@ class DecimalType(NumberBaseType):
 
     def __init__(self, **kwargs):
         super(DecimalType, self).__init__(**kwargs)
-        if 'precision' in kwargs:
-            self._precision = kwargs['precision']
-        else:
-            self._precision = 18
-        if 'scale' in kwargs:
-            self._scale = kwargs['scale']
-        else:
-            self._scale = 3
-
+        self._precision = kwargs.get('precision', 18)
+        self._scale = kwargs.get('scale', 3)
         if self._scale > self._precision:
             raise Exception('The scale must be between 0 and the precision!')
 
         if self._default_value is not None:
             self.check_value_precision(self._default_value, 'default')
-        if hasattr(self, '_minimum'):
+        if self._minimum is not None:
             self.check_value_precision(self._minimum, 'minimum')
-        if hasattr(self, '_maximum'):
+        if self._maximum is not None:
             self.check_value_precision(self._maximum, 'maximum')
 
         if self._precision <= 2:  # calculate the number of bytes to use according to the precision
@@ -581,58 +579,73 @@ class BaseDateTimeType(StreamDataType):  # The validation of time variables can'
         if 'minimum' in kwargs:
             self._minimum_text = kwargs['minimum']  # to show on json representation
             self._minimum = self.parse_entry(kwargs['minimum'])
+        else:
+            self._minimum = None
         if 'maximum' in kwargs:
             self._maximum_text = kwargs['maximum']  # to show on json representation
             self._maximum = self.parse_entry(kwargs['maximum'])
-        if hasattr(self, '_minimum') and hasattr(self, '_maximum') and self._minimum > self._maximum:
+        else:
+            self._maximum = None
+        if self._minimum is not None and self._maximum is not None and self._minimum > self._maximum:
             raise Exception('The minimum value is higher than the maximum!')
 
-    def get_nullable_constant(self):
+    def get_nullable_constant(self):  # had to add this to bypass python's datetime limits
         return "0"
 
     @abstractmethod
-    def parse_entry(self, entry):
+    def parse_entry(self, entry):  # convert the string to datetime instance
         pass
-
-    def set_default_value(self, default_value):
-        parsed_val = self.parse_entry(default_value)  # Process the default value as the others
-        if hasattr(self, '_minimum') and not hasattr(self, '_maximum') and parsed_val < self._minimum:
-            raise Exception('The default value is less than the minimum: %s < %s!'
-                            % (default_value, self._minimum_text))
-        elif hasattr(self, '_maximum') and not hasattr(self, '_minimum') and parsed_val > self._maximum:
-            raise Exception('The default value is higher than the maximum: %s > %s!'
-                            % (default_value, self._maximum_text))
-        elif hasattr(self, '_maximum') and hasattr(self, '_minimum') and parsed_val < self._minimum:
-            raise Exception('The default value is out of range: %s < %s!' % (default_value, self._minimum_text))
-        elif hasattr(self, '_maximum') and hasattr(self, '_minimum') and parsed_val > self._maximum:
-            raise Exception('The default value is out of range: %s > %s!' % (default_value, self._maximum_text))
-        self._default_value = default_value
 
     @abstractmethod
     def pack_next_value(self, parsed, counter, parameters, errors):
         pass
 
+    def set_default_value(self, default_value):
+        parsed_val = self.parse_entry(default_value)  # Process the default value as the others
+        if self._minimum is not None and self._maximum is None and parsed_val < self._minimum:
+            raise Exception('The default value is less than the minimum: %s < %s!'
+                            % (default_value, self._minimum_text))
+        elif self._minimum is None and self._maximum is not None and parsed_val > self._maximum:
+            raise Exception('The default value is higher than the maximum: %s > %s!'
+                            % (default_value, self._maximum_text))
+        elif self._minimum is not None and self._maximum is not None and parsed_val < self._minimum:
+            raise Exception('The default value is out of range: %s < %s!' % (default_value, self._minimum_text))
+        elif self._minimum is not None and self._maximum is not None and parsed_val > self._maximum:
+            raise Exception('The default value is out of range: %s > %s!' % (default_value, self._maximum_text))
+        self._default_value = default_value
+
     def process_next_value(self, entry, counter, parameters, errors):
         if entry == self.get_nullable_constant():  # have to do this trick due to Python datetime limitations
             return self.pack_next_value(None, counter, parameters, errors)
         parsed = self.parse_entry(entry)
-        if hasattr(self, '_minimum') and not hasattr(self, '_maximum') and parsed < self._minimum:
+        if self._minimum is not None and self._maximum is None and parsed < self._minimum:
             errors[counter] = 'The value is higher than the minimum: %s < %s!' % (parsed, self._minimum_text)
-        elif hasattr(self, '_maximum') and not hasattr(self, '_minimum') and parsed > self._maximum:
+        elif self._minimum is None and self._maximum is not None and parsed > self._maximum:
             errors[counter] = 'The value is higher than the maximum: %s > %s!' % (parsed, self._maximum_text)
-        elif hasattr(self, '_maximum') and hasattr(self, '_minimum') and parsed < self._minimum:
+        elif self._minimum is not None and self._maximum is not None and parsed < self._minimum:
             errors[counter] = 'The value is out of range: %s < %s!' % (parsed, self._minimum_text)
-        elif hasattr(self, '_maximum') and hasattr(self, '_minimum') and parsed > self._maximum:
+        elif self._minimum is not None and self._maximum is not None and parsed > self._maximum:
             errors[counter] = 'The value is out of range: %s > %s!' % (parsed, self._maximum_text)
         return self.pack_next_value(parsed, counter, parameters, errors)
 
     def to_json_representation(self):
         json_value = super(BaseDateTimeType, self).to_json_representation()
-        if hasattr(self, '_minimum'):
+        if self._minimum is not None:
             json_value['minimum'] = self._minimum_text
-        if hasattr(self, '_maximum'):
+        if self._maximum is not None:
             json_value['maximum'] = self._maximum_text
         return json_value
+
+    def get_extra_sql_statement(self):
+        res_str = ",NULL,"
+        if self._minimum is not None:
+            res_str += str(self._minimum_text) + ","
+        else:
+            res_str += "NULL,"
+        if self._maximum is not None:
+            res_str += str(self._maximum_text)
+        else:
+            res_str += "NULL"
 
 
 class DateType(BaseDateTimeType):  # Stored as an uint with the number of days since day 1 of month 1 (Jan) from year 0
@@ -659,29 +672,18 @@ class DateType(BaseDateTimeType):  # Stored as an uint with the number of days s
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + 'I', *extracted_values)
 
 
-class TimeType(BaseDateTimeType):  # Stored as an uint with the number of milliseconds since hour 00:00:00
+class TimeWithoutTimeZoneType(BaseDateTimeType):  # Stored as an uint with the number of milliseconds since hour00:00:00
     """Covers: TIME"""
 
     def __init__(self, **kwargs):
-        super(TimeType, self).__init__(**kwargs)
-        if 'timezone' in kwargs:
-            self._has_timezone = kwargs['timezone']
-        else:
-            self._has_timezone = False
+        super(TimeWithoutTimeZoneType, self).__init__(**kwargs)
 
     def add_json_schema_entry(self, schema):
-        super(TimeType, self).add_json_schema_entry(schema)
+        super(TimeWithoutTimeZoneType, self).add_json_schema_entry(schema)
         schema[self._column_name]['pattern'] = TIME_REGEX
 
     def parse_entry(self, entry):
-        parsed = parser.parse(entry)
-        if self._has_timezone:
-            string = parsed.strftime("%z")
-            delta = datetime.timedelta(hours=int(string[1:3]), minutes=int(string[3:5]))
-            if string[0] == '-':
-                delta = -delta
-            parsed = parsed.replace(tzinfo=None) - delta
-        return parsed
+        return parser.parse(entry)
 
     def pack_next_value(self, parsed, counter, parameters, errors):
         if parsed is None:
@@ -693,39 +695,38 @@ class TimeType(BaseDateTimeType):  # Stored as an uint with the number of millis
     def pack_parsed_values(self, extracted_values, counter, parameters):
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + 'I', *extracted_values)
 
+
+class TimeWithTimeZoneType(TimeWithoutTimeZoneType):
+    """Covers: TIME WITH TIME ZONE"""
+
+    def __init__(self, **kwargs):
+        super(TimeWithTimeZoneType, self).__init__(**kwargs)
+
+    def parse_entry(self, entry):
+        parsed = parser.parse(entry)
+        string = parsed.strftime("%z")
+        delta = datetime.timedelta(hours=int(string[1:3]), minutes=int(string[3:5]))
+        if string[0] == '-':
+            delta = -delta
+        parsed = parsed.replace(tzinfo=None) - delta
+        return parsed
+
     def process_sql_parameters(self, array):
-        if self._has_timezone:
-            array[2] = 'time with time zone'
-
-    def to_json_representation(self):
-        json_value = super(TimeType, self).to_json_representation()
-        json_value['has_timezone'] = self._has_timezone
-        return json_value
+        array[2] = 'time with time zone'
 
 
-class TimestampType(BaseDateTimeType):  # it's represented with the two integers from time and date
+class TimestampWithoutTimeZoneType(BaseDateTimeType):  # it's represented with the two integers from time and date
     """Covers: TIMESTAMP"""
 
     def __init__(self, **kwargs):
-        super(TimestampType, self).__init__(**kwargs)
-        if 'timezone' in kwargs:
-            self._has_timezone = kwargs['timezone']
-        else:
-            self._has_timezone = False
+        super(TimestampWithoutTimeZoneType, self).__init__(**kwargs)
 
     def add_json_schema_entry(self, schema):
-        super(TimestampType, self).add_json_schema_entry(schema)
+        super(TimestampWithoutTimeZoneType, self).add_json_schema_entry(schema)
         schema[self._column_name]['format'] = 'date-time'
 
     def parse_entry(self, entry):
-        parsed = iso8601.parse_date(entry)
-        if self._has_timezone:
-            string = parsed.strftime("%z")
-            delta = datetime.timedelta(hours=int(string[1:3]), minutes=int(string[3:5]))
-            if string[0] == '-':
-                delta = -delta
-            parsed = parsed.replace(tzinfo=None) - delta
-        return parsed
+        return iso8601.parse_date(entry)
 
     def pack_next_value(self, parsed, counter, parameters, errors):
         if parsed is None:
@@ -741,11 +742,21 @@ class TimestampType(BaseDateTimeType):  # it's represented with the two integers
         concat_array = list(itertools.chain(*extracted_values))
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter << 1) + 'I', *concat_array)
 
-    def process_sql_parameters(self, array):
-        if self._has_timezone:
-            array[2] = 'timestamp with time zone'
 
-    def to_json_representation(self):
-        json_value = super(TimestampType, self).to_json_representation()
-        json_value['has_timezone'] = self._has_timezone
-        return json_value
+class TimestampWithTimeZoneType(TimestampWithoutTimeZoneType):
+    """Covers: TIMESTAMP WITH TIME ZONE"""
+
+    def __init__(self, **kwargs):
+        super(TimestampWithTimeZoneType, self).__init__(**kwargs)
+
+    def parse_entry(self, entry):
+        parsed = iso8601.parse_date(entry)
+        string = parsed.strftime("%z")
+        delta = datetime.timedelta(hours=int(string[1:3]), minutes=int(string[3:5]))
+        if string[0] == '-':
+            delta = -delta
+        parsed = parsed.replace(tzinfo=None) - delta
+        return parsed
+
+    def process_sql_parameters(self, array):
+        array[2] = 'timestamp with time zone'
