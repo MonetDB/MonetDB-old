@@ -11,7 +11,7 @@ begin
 end;
 
 call iot.query('iot','cq00');
-call iot.query('insert into iot.result select min(t), count(*), avg(val) from iot.stmp;');
+--call iot.query('insert into iot.result select min(t), count(*), avg(val) from iot.stmp;');
 
 select * from  iot.baskets();
 select * from  iot.queries();

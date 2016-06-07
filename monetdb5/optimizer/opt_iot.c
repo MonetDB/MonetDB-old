@@ -52,9 +52,11 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int done[MAXBSKT]= {0};
 	int btop=0;
 	int noerror=0;
+	int cq;
 
 	(void) pci;
 
+	cq= strncmp(getFunctionId(getInstrPtr(mb,0)),"cq",2) == 0;
 	old = mb->stmt;
 	limit = mb->stop;
 	slimit = mb->ssize;
@@ -162,13 +164,14 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if( getModuleId(p)== iotRef && getFunctionId(p)==errorRef)
 				noerror++;
 			if (p->token == ENDsymbol && btop > 0 && noerror==0) {
-				// empty all baskets used
-				for( j=0; j<btop; j++)
+				// empty all baskets used only when we are optimizing a cq
+				for( j=0; cq && j<btop; j++)
 				if( done[j]==0) {
 					p= newStmt(mb,basketRef,finishRef);
 					p= pushStr(mb,p, schemas[j]);
 					p= pushStr(mb,p, tables[j]);
 				}
+
 				/* catch any exception left behind */
 				r = newAssignment(mb);
 				j = getArg(r, 0) = newVariable(mb, GDKstrdup("SQLexception"), TYPE_str);

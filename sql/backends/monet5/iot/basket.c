@@ -331,7 +331,7 @@ BSKTbindColumn(Client cntxt, str sch, str tbl, str col)
 
 
 	if( c)
-		b = store_funcs.bind_col(m->session->tr,c,RDONLY);
+		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
 	return b;
 }
 
@@ -423,7 +423,7 @@ BSKTpushBasket(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		_DEBUG_BASKET_ mnstr_printf(BSKTout,"Attach the file %s\n",buf);
 		if( access (buf,R_OK))
 			throw(MAL,"iot.basket","Could not access the column %s file %s\n",c->base.name, buf);
-		b = store_funcs.bind_col(m->session->tr,c,RDONLY);
+		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
 		if( b == 0)
 			throw(MAL,"iot.basket","Could not access the column %s\n",c->base.name);
 	}
@@ -442,7 +442,7 @@ BSKTpushBasket(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		(void) fseek(f,0, SEEK_END);
 		fsize = ftell(f);
 		rewind(f);
-		b = store_funcs.bind_col(m->session->tr,c,RDONLY);
+		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
 		assert( b);
 		bcnt = BATcount(b);
 
@@ -492,7 +492,7 @@ BSKTpushBasket(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* check for mis-aligned columns */
 	for( n = baskets[bskt].table->columns.set->h; msg == MAL_SUCCEED && n; n= n->next){
 		sql_column *c = n->data;
-		b = store_funcs.bind_col(m->session->tr,c,RDONLY);
+		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
 		assert( b );
 		if( first){
 			first = 0;
@@ -517,7 +517,7 @@ recover:
 	if( msg != MAL_SUCCEED)
 	for( n = baskets[bskt].table->columns.set->h; n; n= n->next){
 		sql_column *c = n->data;
-		b = store_funcs.bind_col(m->session->tr,c,RDONLY);
+		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
 		assert( b );
 		BATsetcount(b,0);
 		BBPunfix(b->batCacheid);
@@ -565,7 +565,7 @@ BSKTfinish(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 shiftcolumns:
 		for( n = baskets[bskt].table->columns.set->h; n; n= n->next){
 			sql_column *c = n->data;
-			b = store_funcs.bind_col(m->session->tr,c,RDONLY);
+			b = store_funcs.bind_col(m->session->tr,c,RD_INS);
 			assert( b );
 			cnt=BATcount(b);
 			if( cnt < stride)
@@ -605,7 +605,7 @@ shiftcolumns:
 		lng *first, *last, stop;
 		n = baskets[bskt].table->columns.set->h; 
 		c = n->data;
-		b = store_funcs.bind_col(m->session->tr,c,RDONLY);
+		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
 		assert( b );
 		if( b->ttype !=TYPE_timestamp)
 			throw(SQL, "iot.finish", "Could not find the leading 'iotclk' in %s.%s",sch,tbl);
@@ -621,7 +621,7 @@ shiftcolumns:
 	/* default action: reset all stream BATs to empty*/
 	for( n = baskets[bskt].table->columns.set->h; n; n= n->next){
 		sql_column *c = n->data;
-		b = store_funcs.bind_col(m->session->tr,c,RDONLY);
+		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
 		assert( b );
 		// use the proper basket policy
 		BATsetcount(b,0);
@@ -651,7 +651,7 @@ BSKTdump(void *ret)
 			cnt = 0;
 			n = baskets[bskt].table->columns.set->h;
 			c = n->data;
-			b = store_funcs.bind_col(m->session->tr,c,RDONLY);
+			b = store_funcs.bind_col(m->session->tr,c,RD_INS);
 			if( b){
 				cnt = BATcount(b);
 				BBPunfix(b->batCacheid);
@@ -684,26 +684,18 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     str sname = *getArgReference_str(stk, pci, 2);
     str tname = *getArgReference_str(stk, pci, 3);
     str cname = *getArgReference_str(stk, pci, 4);
-    ptr ins = getArgReference(stk, pci, 5);
+    ptr value = getArgReference(stk, pci, 5);
     int tpe = getArgType(mb, pci, 5);
     sql_schema *s;
     sql_table *t;
     sql_column *c;
-    BAT *bn=0, *b = 0;
+    BAT *bn=0, *binsert = 0;
 
     *res = 0;
     if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
         return msg;
     if ((msg = checkSQLContext(cntxt)) != NULL)
         return msg;
-    if (tpe > GDKatomcnt)
-        tpe = TYPE_bat;
-    if (tpe == TYPE_bat && (ins = BATdescriptor(*(int *) ins)) == NULL)
-        throw(SQL, "basket.append", "Cannot access descriptor");
-    if (ATOMextern(tpe))
-        ins = *(ptr *) ins;
-    if ( tpe == TYPE_bat)
-        b =  (BAT*) ins;
 
     s = mvc_bind_schema(m, sname);
     if (s == NULL)
@@ -712,18 +704,24 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ( t)
 		c= mvc_bind_column(m, t, cname);
 	else throw(SQL,"basket.append","Stream table %s.%s not accessible for append\n",sname,tname);
-	if( c) {
-		bn = store_funcs.bind_col(m->session->tr,c,RDONLY);
-		if( bn){
-			if( tpe == TYPE_bat)
-				BATappend(bn, b, TRUE);
-			else BUNappend(bn, ins, TRUE);
-			BBPunfix(bn->batCacheid);
-		}
-	} else throw(SQL,"basket.append","Stream column %s.%s.%s not accessible for append\n",sname,tname,cname);
-	if (tpe == TYPE_bat) {
-		BBPunfix(((BAT *) ins)->batCacheid);
-	}
+	if( c == NULL) 
+		throw(SQL,"basket.append","Stream column %s.%s.%s not accessible for append\n",sname,tname,cname);
+
+    if ( isaBatType(tpe) && (binsert = BATdescriptor(*(int *) value)) == NULL)
+        throw(SQL, "basket.append", "Cannot access source descriptor");
+	if ( ATOMextern(tpe))
+		value = *(ptr*) value;
+
+	bn = store_funcs.bind_col(m->session->tr,c,RD_INS);
+	if( bn){
+		if (binsert)
+			BATappend(bn, binsert, TRUE);
+		else
+			BUNappend(bn, value, TRUE);
+		BBPunfix(bn->batCacheid);
+	} else throw(SQL, "basket.append", "Cannot access target descriptor");
+	if (binsert )
+		BBPunfix(((BAT *) binsert)->batCacheid);
 	return MAL_SUCCEED;
 }
 
@@ -787,7 +785,7 @@ BSKTclear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for( i=0; baskets[idx].cols[i]; i++){
 		c= mvc_bind_column(m, t, baskets[idx].cols[i]);
 		if( c){
-			b = store_funcs.bind_col(m->session->tr,c,RDONLY);
+			b = store_funcs.bind_col(m->session->tr,c,RD_INS);
 			if(b){
 				BATsetcount(b,0);
 				BBPunfix(b->batCacheid);
