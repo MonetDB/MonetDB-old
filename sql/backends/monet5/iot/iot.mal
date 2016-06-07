@@ -41,9 +41,9 @@ pattern deactivate():void
 address IOTdeactivate
 comment "Deactivate stream or continuous query";
 
-pattern step(cnt:int):void
-address IOTstop
-comment "Make a limited series of transition steps";
+pattern receptor(sch:str,nme:str,dir:str)
+address IOTreceptor
+comment "External basket location";
 
 command errors()(nme:bat[:str],error:bat[:str])
 address BSKTtableerrors

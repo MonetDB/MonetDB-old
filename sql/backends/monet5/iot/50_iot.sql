@@ -42,7 +42,7 @@ create procedure iot.deregister("schema" string, name string)
 create procedure iot.deregister()
 	external name iot.deregister;
 
--- resume with limited the number of scheduler before next pause
+-- resume with limited the number of scheduler loops before next pause
 create procedure iot.cycles(n integer)
 	external name iot.cycles;
 
@@ -54,7 +54,13 @@ create procedure iot.period(n integer)
 create procedure iot.basket("schema" string, "table" string, dirpath string)
 	external name iot.basket;
 
--- triggering conditions for each stream
+-- input/output places
+create procedure iot.receptor("schema" string, "table" string, dir string)
+	external name iot.receptor;
+create procedure iot.emitter("schema" string, "table" string, dir string)
+	external name iot.emitter;
+
+
 create procedure iot.threshold("schema" string, "table" string, elem int)
 	external name iot.threshold;
 
@@ -62,6 +68,13 @@ create procedure iot.beat("schema" string, "table" string, msec int)
 	external name iot.beat;
 
 -- cleaup activities 
+create procedure iot.tumble()
+	external name iot.tumble;
+create procedure iot.tumble("schema" string, "table" string)
+	external name iot.tumble;
+create procedure iot.tumble("schema" string, "table" string, elem int)
+	external name iot.tumble;
+
 create procedure iot.window("schema" string, "table" string, elem int)
 	external name iot.window;
 

@@ -55,6 +55,8 @@ static int BSKTnewEntry(void)
 	for (i = 1; i < bsktLimit; i++)
 		if (baskets[i].table_name == NULL)
 			break;
+	MT_lock_init(&baskets[i].lock,"bsktlock");
+
 	bsktTop++;
 	return i;
 }
@@ -261,8 +263,12 @@ BSKTthreshold(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( elm < 0)
 		throw(SQL,"basket.beat","Positive number of elements expected]n");
 	idx = BSKTlocate(sch, tbl);
-	if( idx == 0)
-		throw(SQL,"basket.threshold","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+	if( idx == 0){
+		BSKTregisterInternal(cntxt, mb, sch, tbl);
+		idx = BSKTlocate(sch, tbl);
+		if( idx ==0)
+			throw(SQL,"basket.threshold","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+	}
 	baskets[idx].threshold = elm;
 	return MAL_SUCCEED;
 }
@@ -281,8 +287,12 @@ BSKTbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( ticks < 0)
 		throw(SQL,"basket.beat","Positive beat expected]n");
 	idx = BSKTlocate(sch, tbl);
-	if( idx == 0)
-		throw(SQL,"basket.beat","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+	if( idx == 0){
+		BSKTregisterInternal(cntxt, mb, sch, tbl);
+		idx = BSKTlocate(sch, tbl);
+		if( idx ==0)
+			throw(SQL,"basket.beat","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+	}
 	baskets[idx].beat = ticks;
 	return MAL_SUCCEED;
 }
@@ -300,8 +310,12 @@ BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( elm < 0)
 		throw(SQL,"basket.window","Positive beat expected]n");
 	idx = BSKTlocate(sch, tbl);
-	if( idx == 0)
-		throw(SQL,"basket.window","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+	if( idx == 0){
+		BSKTregisterInternal(cntxt, mb, sch, tbl);
+		idx = BSKTlocate(sch, tbl);
+		if( idx ==0)
+			throw(SQL,"basket.window","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+	}
 	baskets[idx].winsize = elm;
 	baskets[idx].winstride = elm;
 	if ( pci->argc == 5)
@@ -537,98 +551,89 @@ recover:
 		*first=*n;\
 }
 
-str
-BSKTfinish(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+static str
+BSKTtumbleInternal(Client cntxt, str sch, str tbl, int stride)
 {
-    str sch = *getArgReference_str(stk, pci, 1);
-    str tbl = *getArgReference_str(stk, pci, 2);
 	BAT *b;
-	BUN cnt, stride;
+	BUN cnt;
 	node *n;
 	mvc *m = NULL;
 	str msg;
 	int bskt;
 
-	(void) mb;
-	(void) stk;
-	(void) pci;
-
 	msg= getSQLContext(cntxt,NULL, &m, NULL);
 	if( msg )
-		throw(SQL,"iot.finish","Missing SQL context");
+		throw(SQL,"iot.tumble","Missing SQL context");
     bskt = BSKTlocate(sch,tbl);
 	if (bskt == 0)
-		throw(SQL, "iot.finish", "Could not find the basket %s.%s",sch,tbl);
+		throw(SQL, "iot.tumble", "Could not find the basket %s.%s",sch,tbl);
 
-	/* window stride option */
-	if( baskets[bskt].winsize && (stride =baskets[bskt].winstride)){
-shiftcolumns:
-		for( n = baskets[bskt].table->columns.set->h; n; n= n->next){
-			sql_column *c = n->data;
-			b = store_funcs.bind_col(m->session->tr,c,RD_INS);
-			assert( b );
-			cnt=BATcount(b);
-			if( cnt < stride)
-				break;
-
-			switch(ATOMstorage(b->ttype)){
-			case TYPE_bit:ColumnShift(b,bit,stride); break;
-			case TYPE_bte:ColumnShift(b,bte,stride); break;
-			case TYPE_sht:ColumnShift(b,sht,stride); break;
-			case TYPE_int:ColumnShift(b,int,stride); break;
-			case TYPE_oid:ColumnShift(b,oid,stride); break;
-			case TYPE_flt:ColumnShift(b,flt,stride); break;
-			case TYPE_dbl:ColumnShift(b,dbl,stride); break;
-			case TYPE_lng:ColumnShift(b,lng,stride); break;
-#ifdef HAVE_HGE
-			case TYPE_hge:ColumnShift(b,hge,stride); break;
-#endif
-			case TYPE_str:
-				switch(b->T->width){
-				case 1: ColumnShift(b,bte,stride); break;
-				case 2: ColumnShift(b,sht,stride); break;
-				case 4: ColumnShift(b,int,stride); break;
-				case 8: ColumnShift(b,lng,stride); break;
-				}
-					break;
-			default: break;
-			}
-			BATsetcount(b, BATcount(b)-stride);
-			BBPunfix(b->batCacheid);
-		}
-		return MAL_SUCCEED;
-	}
-	
-	/* time stride option, prepare a new stride based on the leading 'iotclk' */
-	if( baskets[bskt].timeslice && baskets[bskt].timestride){
-		sql_column *c;
-		lng *first, *last, stop;
-		n = baskets[bskt].table->columns.set->h; 
-		c = n->data;
-		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
-		assert( b );
-		if( b->ttype !=TYPE_timestamp)
-			throw(SQL, "iot.finish", "Could not find the leading 'iotclk' in %s.%s",sch,tbl);
-		first= (lng*) Tloc(b, BUNfirst(b));
-		last = (lng*) Tloc(b, BUNlast(b));
-		stride =0;
-		stop = *first + baskets[bskt].timestride;
-		for( ; first < last; first++)
-			if (*first >stop) break;
-		goto shiftcolumns;
-	}
-
-	/* default action: reset all stream BATs to empty*/
 	for( n = baskets[bskt].table->columns.set->h; n; n= n->next){
 		sql_column *c = n->data;
 		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
 		assert( b );
-		// use the proper basket policy
-		BATsetcount(b,0);
+		cnt=BATcount(b);
+		if( stride == -1)
+			stride = (int) cnt;
+
+		switch(ATOMstorage(b->ttype)){
+		case TYPE_bit:ColumnShift(b,bit,stride); break;
+		case TYPE_bte:ColumnShift(b,bte,stride); break;
+		case TYPE_sht:ColumnShift(b,sht,stride); break;
+		case TYPE_int:ColumnShift(b,int,stride); break;
+		case TYPE_oid:ColumnShift(b,oid,stride); break;
+		case TYPE_flt:ColumnShift(b,flt,stride); break;
+		case TYPE_dbl:ColumnShift(b,dbl,stride); break;
+		case TYPE_lng:ColumnShift(b,lng,stride); break;
+#ifdef HAVE_HGE
+		case TYPE_hge:ColumnShift(b,hge,stride); break;
+#endif
+		case TYPE_str:
+			switch(b->T->width){
+			case 1: ColumnShift(b,bte,stride); break;
+			case 2: ColumnShift(b,sht,stride); break;
+			case 4: ColumnShift(b,int,stride); break;
+			case 8: ColumnShift(b,lng,stride); break;
+			}
+				break;
+		default: break;
+		}
+		if( stride == -1)
+			BATsetcount(b, 0);
+		else BATsetcount(b, BATcount(b)-stride);
 		BBPunfix(b->batCacheid);
 	}
-	baskets[bskt].count= 0;
 	return msg;
+}
+
+str
+BSKTtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	str sch;
+	str tbl;
+	int elm = -1;
+	int idx;
+
+	(void) cntxt;
+	(void) mb;
+
+	sch = *getArgReference_str(stk,pci,1);
+	tbl = *getArgReference_str(stk,pci,2);
+	if( pci->argc ==4){
+		/* clear a named stream  partially*/
+		elm = *getArgReference_int(stk,pci,3);
+		if( elm < 0)
+			throw(SQL,"basket.tumble","Positive slide value expected");
+	}
+
+	idx = BSKTlocate(sch, tbl);
+	if( idx == 0){
+		BSKTregisterInternal(cntxt, mb, sch, tbl);
+		idx = BSKTlocate(sch, tbl);
+		if( idx ==0)
+			throw(SQL,"basket.window","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+	}
+	return BSKTtumbleInternal(cntxt, sch, tbl, elm);
 }
 
 str

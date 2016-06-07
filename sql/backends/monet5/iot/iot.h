@@ -27,25 +27,14 @@
 #include "basket.h"
 #include "petrinet.h"
 
-#ifdef WIN32
-#ifndef LIBIOT
-#define iot_export extern __declspec(dllimport)
-#else
-#define iot_export extern __declspec(dllexport)
-#endif
-#else
-#define iot_export extern
-#endif
-
 #define _DEBUG_IOT_ if(0)
-#define IOTout mal_clients[0].fdout
 
 iot_export MT_Lock iotLock;
 
 iot_export str IOTactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str IOTdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str IOTcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str IOTpush(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str IOTreceptor(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str IOTemitter(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str IOTdump(void *ret);
 #endif

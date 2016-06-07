@@ -31,7 +31,7 @@ comment "Re-activate the stream";
 
 pattern deactivate(sch:str,tbl:str):void
 address BSKTdeactivate
-comment "Deactivate the stream";
+comment "Deactivate the stream when the stream is empty";
 
 pattern append(mvc:int, sch:str, tbl:str, col:str, val:any):int
 address BSKTappend
@@ -65,25 +65,24 @@ command iot.threshold(sch:str,tbl:str,N:int):bit
 address BSKTthreshold
 comment "Set an acceptance threshold of N events before inspecting";
 
-command iot.beat(sch:str,tbl:str,N:lng):bit
+pattern iot.beat(sch:str,tbl:str,N:int)
 address BSKTbeat
 comment "Set an delay to N milliseconds";
 
-command iot.window(sch:str,tbl:str,N:lng):void
-address BSKTwindow
-comment "Use a window of precisely N events and slide afterwards";
+pattern iot.tumble(sch:str,tbl:str)
+address BSKTtumble
+comment "clear the stream table";
+pattern iot.tumble(sch:str,tbl:str,N:int)
+address BSKTtumble
+comment "Remove at most N events from the stream ";
 
-command iot.window(sch:str,tbl:str,N:lng, S:lng):void
+pattern iot.window(sch:str,tbl:str,N:int)
 address BSKTwindow
-comment "Use a window of precisely N events and slide S events afterwards";
+comment "Use a window of precisely N events";
 
 command reset():void
 address BSKTreset
 comment "Remove all baskets";
-
-pattern finish(sch:str, tbl:str):void
-address BSKTfinish
-comment "Empty the basket using the prevaling policy";
 
 pattern iot.basket(sch:str, tbl:str, dir:str):void
 address BSKTpushBasket

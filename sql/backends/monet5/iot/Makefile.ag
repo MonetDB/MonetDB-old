@@ -36,7 +36,9 @@ INCLUDES = .. \
 lib__iot = {
 	MODULE
 	DIR = libdir/monetdb5
-	SOURCES = iot.c basket.c petrinet.c
+	SOURCES = iot.c iot.h \
+		basket.c basket.h \
+		petrinet.c petrinet.h
 	LIBS = ../../../../monetdb5/tools/libmonetdb5 \
 		../../../../gdk/libbat 
 }

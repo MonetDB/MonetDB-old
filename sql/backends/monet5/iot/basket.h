@@ -26,7 +26,7 @@
 #include "sql.h"
 
 #ifdef WIN32
-#ifndef LIBDATACELL
+#ifndef LIBIOT
 #define iot_export extern __declspec(dllimport)
 #else
 #define iot_export extern __declspec(dllexport)
@@ -59,6 +59,11 @@ typedef struct{
 	int cycles; 
 	/* collected errors */
 	BAT *errors;
+	/* concurrency control between petrinet/{receptor,emitter} */
+	MT_Lock lock;
+	MT_Id pid;
+	/* input/output destinations */
+	str source;
 } *Basket, BasketRec;
 
 
@@ -81,6 +86,7 @@ iot_export str BSKTdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPt
 iot_export str BSKTthreshold(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 iot_export str BSKTtable( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTtableerrors(bat *nmeId, bat *errorId);

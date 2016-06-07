@@ -167,7 +167,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				// empty all baskets used only when we are optimizing a cq
 				for( j=0; cq && j<btop; j++)
 				if( done[j]==0) {
-					p= newStmt(mb,basketRef,finishRef);
+					p= newStmt(mb,iotRef,tumbleRef);
 					p= pushStr(mb,p, schemas[j]);
 					p= pushStr(mb,p, tables[j]);
 				}

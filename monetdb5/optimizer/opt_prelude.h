@@ -219,6 +219,7 @@ opt_export  str subsumRef;
 opt_export  str subavgRef;
 opt_export  str subsortRef;
 opt_export  str timestampRef;
+opt_export	str tumbleRef;
 opt_export  str transactionRef;
 opt_export  str takeRef;
 opt_export  str transRef;

@@ -28,6 +28,8 @@
 #include "sql_gencode.h"
 
 MT_Lock iotLock MT_LOCK_INITIALIZER("iotLock");
+#define IOTout mal_clients[1].fdout
+
 
 // locate the SQL procedure in the catalog
 static str
@@ -82,9 +84,6 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	_DEBUG_IOT_ fprintf(stderr,"#iot: register the continues query %s.%s()\n",sch,nme);
 
 	/* check existing of the pre-compiled and activated function */
-	// if( pci->argc == 3&&  PNisregistered(sch,nme) ) return MAL_SUCCEED;
-		//throw(SQL, "iot.query", "already activated");
-
 	if (pci->argc == 3) {
 		sch = *getArgReference_str(stk, pci, 1);
 		nme = *getArgReference_str(stk, pci, 2);
@@ -110,7 +109,9 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if (msg)
 			return msg;
 		qry = cntxt->curprg->def;
-	}
+	} else
+		throw(SQL,"iot.query","Definition %s.%s incompatible argument\n",sch,nme);
+
 	chkProgram(cntxt->fdout,cntxt->nspace,qry);
 	if( qry->errors)
 		msg = createException(SQL,"iot.query","Error in iot query");
@@ -178,8 +179,51 @@ IOTdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return PNdeactivate(cntxt,mb,stk,pci);
 }
 
-str
-IOTcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+/* handling the external event input/output baskets */
+#undef _DEBUG_IOT_ 
+#define _DEBUG_IOT_ 
+static void
+IOTreceptorThread(void *dummy)
 {
-	return PNcycles(cntxt,mb,stk,pci);
+	int idx = *(int*)dummy;
+    _DEBUG_IOT_ mnstr_printf(IOTout, "#iot.receptor %s.%s started for %s\n",
+		baskets[idx].schema_name, 
+		baskets[idx].table_name, 
+		baskets[idx].source);
+	/* continously scan the container for baskets */
+}
+
+str
+IOTreceptor(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	str sch = *getArgReference_str(stk, pci, 1);
+	str tbl = *getArgReference_str(stk, pci, 2);
+	str dir = *getArgReference_str(stk, pci, 3);
+    int *idx= (int*) GDKmalloc(sizeof(int));
+
+    *idx = BSKTlocate(sch, tbl);
+    if( *idx == 0){
+        BSKTregister(cntxt, mb, stk, pci);
+        *idx = BSKTlocate(sch, tbl);
+        if( *idx ==0)
+            throw(SQL,"iot.receptor","Stream table %s.%s not accessible\n",sch,tbl);
+    }
+	baskets[*idx].source = GDKstrdup(dir);
+
+    _DEBUG_IOT_ mnstr_printf(cntxt->fdout, "#Start iot.receptor thread %s.%s\n",sch,tbl);
+    if (MT_create_thread(&baskets[*idx].pid, IOTreceptorThread, (void*)idx, MT_THR_JOINABLE) != 0){
+        _DEBUG_IOT_ mnstr_printf(cntxt->fdout, "#Start iot.receptor failed\n");
+		throw(SQL, "iot.receptor", "Receptor could not be started");
+    }
+	return MAL_SUCCEED;
+}
+
+str
+IOTemitter(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	throw(SQL, "iot.emitter", "Receptor missing");
 }
