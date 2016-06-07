@@ -315,6 +315,7 @@ void optimizerInit(void)
 	eqRef = putName("==");
 	disconnectRef= putName("disconnect");
 	evalRef = putName("eval");
+	errorRef = putName("error");
 	execRef = putName("exec");
 	expandRef = putName("expand");
 	exportOperationRef = putName("exportOperation");
@@ -354,6 +355,7 @@ void optimizerInit(void)
 	ilikeRef = putName("ilike");
 	not_likeRef = putName("not_like");
 	not_ilikeRef = putName("not_ilike");
+	iotRef = putName("iot");
 	lockRef = putName("lock");
 	lookupRef = putName("lookup");
 	malRef = putName("mal");
