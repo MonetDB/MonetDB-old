@@ -2,10 +2,10 @@ import sys
 import pymonetdb
 
 from Settings.iotlogger import add_log
-from src.Streams.streamscontext import IOTStreams
-from src.Streams.jsonschemas import init_create_streams_schema
-from src.Streams.streamcreator import creator_add_hugeint_type
-from src.Streams.streampolling import polling_add_hugeint_type
+from Streams.streamscontext import IOTStreams
+from Streams.jsonschemas import init_create_streams_schema
+from Streams.streamcreator import creator_add_hugeint_type
+from Streams.streampolling import polling_add_hugeint_type
 
 Connection = None
 
@@ -20,7 +20,7 @@ def init_monetdb_connection(hostname, port, user_name, user_password, database):
         print log_message
         add_log(20, log_message)
 
-        if check_hugeint_type()[0] > 0:
+        if check_hugeint_type() > 0:
             polling_add_hugeint_type()
             creator_add_hugeint_type()
             init_create_streams_schema(add_hugeint=True)
@@ -40,7 +40,7 @@ def check_hugeint_type():
     Connection.execute("START TRANSACTION")
     cursor = Connection.cursor()
     cursor.execute("SELECT COUNT(*) FROM sys.types WHERE sqlname='hugeint'")
-    result = cursor.fetchall()
+    result = cursor.fetchall()[0]
     Connection.commit()
     return result
 
@@ -49,21 +49,22 @@ def mapi_get_webserver_streams():
     try:
         Connection.execute("START TRANSACTION")
         cursor = Connection.cursor()
-        sql_string = """SELECT tables."id", tables."name", schemas."name" as schema, tables."name" as table,
-            flushing."flushing", flushing."unit", flushing."interval" FROM (SELECT "id", "name", "schema_id"
-            FROM sys.tables WHERE type=4) AS tables INNER JOIN (SELECT "id", "name" FROM sys.schemas) AS schemas ON
-            (tables."schema_id"=schemas."id") LEFT JOIN (SELECT "table_id", "flushing", "unit", "interval"
-            FROM iot.webserverflushing) AS flushing ON (tables."id"=flushing."table_id")""".replace('\n', ' ')
+        sql_string = """SELECT tables."id", tables."name", schemas."name" AS schema, tables."name" AS table,
+            extras."has_hostname", extras."flushing", extras."unit", extras."interval" FROM (SELECT "id", "name",
+            "schema_id" FROM sys.tables WHERE type=4) AS tables INNER JOIN (SELECT "id", "name" FROM sys.schemas)
+            AS schemas ON (tables."schema_id"=schemas."id") LEFT JOIN (SELECT "table_id", "has_hostname", "flushing",
+            "unit", "interval" FROM iot.webserverstreams) AS extras ON (tables."id"=extras."table_id")"""\
+            .replace('\n', ' ')
         cursor.execute(sql_string)
         tables = cursor.fetchall()
 
         cursor = Connection.cursor()
-        sql_string = """SELECT columns."table_id", columns."name" as column, columns."type", columns."type_digits",
+        sql_string = """SELECT columns."table_id", columns."name" AS column, columns."type", columns."type_digits",
             columns."type_scale", columns."default", columns."null", extras."special", extras."validation1",
             extras."validation2" FROM (SELECT "id", "table_id", "name", "type", "type_digits", "type_scale",
             "default", "null" FROM sys.columns) AS columns INNER JOIN (SELECT "id" FROM sys.tables WHERE type=4)
             AS tables ON (tables."id"=columns."table_id") LEFT JOIN (SELECT "column_id", "special", "validation1",
-            "validation2" FROM iot.webservervalidation) AS extras ON (columns."id"=extras."column_id")"""\
+            "validation2" FROM iot.webservercolumns) AS extras ON (columns."id"=extras."column_id")"""\
             .replace('\n', ' ')
         cursor.execute(sql_string)
         columns = cursor.fetchall()
@@ -78,50 +79,59 @@ def mapi_get_webserver_streams():
 def mapi_create_stream(stream):
     schema = stream.get_schema_name()
     table = stream.get_stream_name()
+    flush_statement = stream.get_webserverstreams_sql_statement()
+    columns_dictionary = stream.get_columns_extra_sql_statements()  # dictionary of column_name -> partial SQL statement
 
     try:
-        Connection.execute("START TRANSACTION")
         try:  # create schema if not exists, ignore the error if already exists
+            Connection.execute("START TRANSACTION")
             Connection.execute("CREATE SCHEMA " + schema)
+            Connection.commit()
         except:
-            pass
+            Connection.commit()
+        Connection.execute("START TRANSACTION")
         Connection.execute(''.join(["CREATE STREAM TABLE ", IOTStreams.get_context_entry_name(schema, table), " (",
                                     stream.get_sql_create_statement(), ")"]))
-
         cursor = Connection.cursor()
-        cursor.execute("SELECT id from sys.schemas where name='" + schema + "'")  # get the created table schema_id
-        schema_id = cursor.fetchall()[0]
-        cursor.execute(''.join(["SELECT id from sys.tables where schema_id=", str(schema_id), " AND name='", stream,
+        cursor.execute("SELECT id FROM sys.schemas WHERE \"name\"='" + schema + "'")
+        schema_id = str(cursor.fetchall()[0][0])
+        cursor.execute(''.join(["SELECT id FROM sys.tables WHERE schema_id=", schema_id, " AND \"name\"='", stream,
                                 "'"]))  # get the created table id
-        table_id = int(cursor.fetchall()[0])
-        cursor.execute(''.join(["INSERT INTO iot.webserverflushing VALUES (", str(table_id),
-                                stream.get_flushing_sql_statement(), ")"]))
+        table_id = str(cursor.fetchall()[0][0])
+        cursor.execute(''.join(["INSERT INTO iot.webserverstreams VALUES (", table_id, flush_statement, ")"]))
+        cursor.execute('SELECT id, "name" FROM sys.columns WHERE table_id=' + table_id)
+        columns = cursor.fetchall()
 
+        inserts = []
+        colums_ids = ','.join(map(lambda x: str(x[0]), columns))
+        for key, value in columns_dictionary.iteritems():
+            for entry in columns:  # the imp_timestamp and host identifier are also fetched!!
+                if entry[1] == key:  # check for column's name
+                    inserts.append(''.join(['(', entry[0], value, ')']))  # append the sql statement
+                    break
+
+        cursor.execute("INSERT INTO iot.webservercolumns VALUES " + ','.join(inserts))
         Connection.commit()
-        # TODO insert on the tables
-        stream.set_table_id(table_id)
+        stream.set_delete_ids(table_id, colums_ids)
     except BaseException as ex:
         add_log(50, ex)
-        return None
 
 
 def mapi_delete_stream(schema, stream, stream_id, columns_ids):
     try:
         Connection.execute("START TRANSACTION")
         Connection.execute("DROP TABLE " + IOTStreams.get_context_entry_name(schema, stream))
-        Connection.execute("DELETE FROM iot.webserverflushing WHERE table_id=" + stream_id)
-        Connection.execute("DELETE FROM iot.webservervalidation WHERE column_id IN (" + ','.join(columns_ids) + ")")
-        return Connection.commit()
+        Connection.execute("DELETE FROM iot.webserverstreams WHERE table_id=" + stream_id)
+        Connection.execute("DELETE FROM iot.webservercolumns WHERE column_id IN (" + columns_ids + ")")
+        Connection.commit()
     except BaseException as ex:
         add_log(50, ex)
-        return None
 
 
 def mapi_flush_baskets(schema, stream, baskets):
     try:
         Connection.execute("START TRANSACTION")
         Connection.execute(''.join(["CALL iot.basket('", schema, "','", stream, "','", baskets, "')"]))
-        return Connection.commit()
+        Connection.commit()
     except BaseException as ex:
         add_log(40, ex)
-        return 0

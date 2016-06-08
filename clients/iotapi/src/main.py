@@ -65,7 +65,7 @@ def main():
                         help='Baskets location directory (default: %s)' % DEFAULT_FILESYSTEM, metavar='DIRECTORY')
     parser.add_argument('-l', '--log', type=check_path, nargs='?', default=DEFAULT_LOGGING,
                         help='Logging file location (default: %s)' % DEFAULT_LOGGING, metavar='FILE_PATH')
-    parser.add_argument('-po', '--polling', type=check_positive_int, nargs='?', default=60,
+    parser.add_argument('-po', '--polling', type=check_positive_int, nargs='?', default=60, metavar='POLLING',
                         help='Polling interval in seconds to the database for streams updates (default: 60)')
     parser.add_argument('-sh', '--shost', type=check_ipv4_address, nargs='?', default='0.0.0.0',
                         help='Web API server host (default: 0.0.0.0)', metavar='HOST')

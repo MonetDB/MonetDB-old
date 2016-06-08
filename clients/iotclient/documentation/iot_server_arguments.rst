@@ -32,18 +32,18 @@ Set the filesystem directory where the baskets will be created. By default in UN
 
 Location of logfile. On the logfile is reported when streams are created or removed, when tuples are inserted and when the baskets are flushed. By default in UNIX systems is :code:`/var/log/iot/iotserver.log`, while on Windows is the :code:`iotserver.log` on the directory where the :code:`main.py` script was called.
 
-Host Identifier
----------------
+Web Server Behavior
+-------------------
 
-If the *identifier* parameter is provided, an extra column on streams will be added with a custom name of the host for later identification.
-
-**-i  - -identifier**
-
-Use a host identifier for every new stream.
+If a stream is created with a hostname, an extra column on streams will be added with a custom name of the host for later identification.
 
 **-n  - -name**
 
 Host identifier name. By default is the host's MAC address.
+
+**-po  - -polling**
+
+Set the polling interval in seconds to MonetDB database for streams updates. By default is :code:`60` seconds.
 
 Web Server Listening
 --------------------
@@ -69,7 +69,7 @@ Listening port of the administration server. By default is on port :code:`8001`.
 Database Connection
 -------------------
 
-Credentials for the MAPI connection to MonetDB database.
+Credentials for the MAPI connection to the MonetDB database.
 
 .. note:: The user's password will be prompted during the initialization of the server.
 

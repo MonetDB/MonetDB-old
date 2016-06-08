@@ -18,8 +18,9 @@ def load_src(name, fpath):
 load_src("jsonschemas", "../src/Streams/jsonschemas.py")
 load_src("datatypes", "../src/Streams/datatypes.py")
 
-from datatypes import TextType, URLType, INetType, UUIDType, BooleanType, SmallIntegerType, \
-    HugeIntegerType, FloatType, DecimalType, DateType, TimeType, TimestampType
+from datatypes import TextType, URLType, INetType, UUIDType, BooleanType, SmallIntegerType,\
+    HugeIntegerType, FloatType, DecimalType, DateType, TimeWithoutTimeZoneType, TimeWithTimeZoneType,\
+    TimestampWithoutTimeZoneType, TimestampWithTimeZoneType
 
 faker = Factory.create()
 
@@ -53,34 +54,34 @@ class DataTypesTest(unittest.TestCase):
 
     def runTest(self):
         try:
-            self._mapi_connection.execute("DROP TABLE sql_insert;")
-            self._mapi_connection.execute("DROP TABLE binary_insert;")
+            self._mapi_connection.execute("DROP TABLE sql_insert")
+            self._mapi_connection.execute("DROP TABLE binary_insert")
         except:
             pass
 
-        self._mapi_connection.execute("CREATE TABLE sql_insert (val " + self.get_data_type() + ");")
-        self._mapi_connection.execute("CREATE TABLE binary_insert (val " + self.get_data_type() + ");")
+        self._mapi_connection.execute("CREATE TABLE sql_insert (val " + self.get_data_type() + ")")
+        self._mapi_connection.execute("CREATE TABLE binary_insert (val " + self.get_data_type() + ")")
 
         # make SQL inserts
         next_batch = self.get_next_batch(self._number_inserts)
         self._mapi_connection.execute("INSERT INTO sql_insert VALUES " +
-                                      ','.join("(" + v + ")" for v in self.convert_batch_to_sql(next_batch)) + ";")
+                                      ','.join("(" + v + ")" for v in self.convert_batch_to_sql(next_batch)))
 
         # make binary inserts
         binary_array = self._serializer.process_values(next_batch)
         with open(self._temp_path, 'w+b') as fp:
             fp.write(binary_array)
             fp.flush()
-        self._mapi_connection.execute("COPY BINARY INTO binary_insert FROM ('" + self._temp_path + "');")
+        self._mapi_connection.execute("COPY BINARY INTO binary_insert FROM ('" + self._temp_path + "')")
 
         cursor = self._mapi_connection.cursor()
-        cursor.execute("SELECT val FROM sql_insert;")
+        cursor.execute("SELECT val FROM sql_insert")
         sql_inserts = cursor.fetchall()
-        cursor.execute("SELECT val FROM binary_insert;")
+        cursor.execute("SELECT val FROM binary_insert")
         binary_inserts = cursor.fetchall()
 
-        self._mapi_connection.execute("DROP TABLE sql_insert;")
-        self._mapi_connection.execute("DROP TABLE binary_insert;")
+        self._mapi_connection.execute("DROP TABLE sql_insert")
+        self._mapi_connection.execute("DROP TABLE binary_insert")
 
         try:
             os.remove(self._temp_path)
@@ -339,7 +340,7 @@ class TimeWithoutTimezoneTest(BaseStringText):
         return 'time'
 
     def get_serializer(self):
-        return TimeType(**{'name': 'val', 'type': 'time', 'timezone': False})
+        return TimeWithoutTimeZoneType(**{'name': 'val', 'type': 'time'})
 
     def get_next_batch(self, number_inserts):
         return [faker.date_time().time().strftime('%H:%M:%S.%f%z') for _ in xrange(number_inserts)]
@@ -351,10 +352,10 @@ class TimeWithTimezoneTest(BaseStringText):
         super(TimeWithTimezoneTest, self).__init__(mapi_connection, number_inserts, temp_path)
 
     def get_data_type(self):
-        return 'time WITH TIME ZONE'
+        return 'time with time zone'
 
     def get_serializer(self):
-        return TimeType(**{'name': 'val', 'type': 'time', 'timezone': True})
+        return TimeWithTimeZoneType(**{'name': 'val', 'type': 'time with time zone'})
 
     def get_next_batch(self, number_inserts):
         return [faker.date_time(tzinfo=timezone(faker.timezone())).strftime('%H:%M:%S.%f%z')
@@ -370,7 +371,7 @@ class TimestampWithoutTimezoneTest(BaseStringText):
         return 'timestamp'
 
     def get_serializer(self):
-        return TimestampType(**{'name': 'val', 'type': 'timestamp', 'timezone': False})
+        return TimestampWithoutTimeZoneType(**{'name': 'val', 'type': 'timestamp'})
 
     def get_next_batch(self, number_inserts):
         return [faker.iso8601(tzinfo=None) for _ in xrange(number_inserts)]
@@ -382,10 +383,10 @@ class TimestampWithTimezoneTest(BaseStringText):
         super(TimestampWithTimezoneTest, self).__init__(mapi_connection, number_inserts, temp_path)
 
     def get_data_type(self):
-        return 'timestamp WITH TIME ZONE'
+        return 'timestamp with time zone'
 
     def get_serializer(self):
-        return TimestampType(**{'name': 'val', 'type': 'timestamp', 'timezone': True})
+        return TimestampWithTimeZoneType(**{'name': 'val', 'type': 'timestamp with time zone'})
 
     def get_next_batch(self, number_inserts):
         return [faker.iso8601(tzinfo=timezone(faker.timezone())) for _ in xrange(number_inserts)]
@@ -411,31 +412,31 @@ class NullablesTest(unittest.TestCase):
 
     def runTest(self):
         try:
-            self._mapi_connection.execute("DROP TABLE sql_insert;")
-            self._mapi_connection.execute("DROP TABLE binary_insert;")
+            self._mapi_connection.execute("DROP TABLE sql_insert")
+            self._mapi_connection.execute("DROP TABLE binary_insert")
         except:
             pass
 
-        self._mapi_connection.execute("CREATE TABLE sql_insert (val " + self.get_data_type() + ");")
-        self._mapi_connection.execute("CREATE TABLE binary_insert (val " + self.get_data_type() + ");")
+        self._mapi_connection.execute("CREATE TABLE sql_insert (val " + self.get_data_type() + ")")
+        self._mapi_connection.execute("CREATE TABLE binary_insert (val " + self.get_data_type() + ")")
 
         # make the null value sql insert
-        self._mapi_connection.execute("INSERT INTO sql_insert VALUES (null);")
+        self._mapi_connection.execute("INSERT INTO sql_insert VALUES (null)")
 
         # make the null value binary insert
         with open(self._temp_path, 'w+b') as fp:
             fp.write(self.get_null_value())
             fp.flush()
-        self._mapi_connection.execute("COPY BINARY INTO binary_insert FROM ('" + self._temp_path + "');")
+        self._mapi_connection.execute("COPY BINARY INTO binary_insert FROM ('" + self._temp_path + "')")
 
         cursor = self._mapi_connection.cursor()
-        cursor.execute("SELECT val FROM sql_insert;")
+        cursor.execute("SELECT val FROM sql_insert")
         sql_inserts = cursor.fetchall()
-        cursor.execute("SELECT val FROM binary_insert;")
+        cursor.execute("SELECT val FROM binary_insert")
         binary_inserts = cursor.fetchall()
 
-        self._mapi_connection.execute("DROP TABLE sql_insert;")
-        self._mapi_connection.execute("DROP TABLE binary_insert;")
+        self._mapi_connection.execute("DROP TABLE sql_insert")
+        self._mapi_connection.execute("DROP TABLE binary_insert")
 
         try:
             os.remove(self._temp_path)
@@ -641,7 +642,7 @@ class NullableTimeWithoutTimezoneTest(NullablesTest):
         return 'time'
 
     def get_null_value(self):
-        serializer = TimeType(**{'name': 'val', 'type': 'time', 'timezone': False})
+        serializer = TimeWithoutTimeZoneType(**{'name': 'val', 'type': 'time', 'timezone': False})
         return serializer.process_values([serializer.get_nullable_constant()])
 
 
@@ -651,10 +652,10 @@ class NullableTimeWithTimezoneTest(NullablesTest):
         super(NullableTimeWithTimezoneTest, self).__init__(mapi_connection, temp_path)
 
     def get_data_type(self):
-        return 'time WITH TIME ZONE'
+        return 'time with time zone'
 
     def get_null_value(self):
-        serializer = TimeType(**{'name': 'val', 'type': 'time', 'timezone': True})
+        serializer = TimeWithTimeZoneType(**{'name': 'val', 'type': 'time with time zone'})
         return serializer.process_values([serializer.get_nullable_constant()])
 
 
@@ -667,7 +668,7 @@ class NullableTimestampWithoutTimezoneTest(NullablesTest):
         return 'timestamp'
 
     def get_null_value(self):
-        serializer = TimestampType(**{'name': 'val', 'type': 'timestamp', 'timezone': False})
+        serializer = TimestampWithoutTimeZoneType(**{'name': 'val', 'type': 'timestamp'})
         return serializer.process_values([serializer.get_nullable_constant()])
 
 
@@ -677,8 +678,8 @@ class NullableTimestampWithTimezoneTest(NullablesTest):
         super(NullableTimestampWithTimezoneTest, self).__init__(mapi_connection, temp_path)
 
     def get_data_type(self):
-        return 'timestamp WITH TIME ZONE'
+        return 'timestamp with time zone'
 
     def get_null_value(self):
-        serializer = TimestampType(**{'name': 'val', 'type': 'timestamp', 'timezone': False})
+        serializer = TimestampWithTimeZoneType(**{'name': 'val', 'type': 'timestamp with time zone'})
         return serializer.process_values([serializer.get_nullable_constant()])

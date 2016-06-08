@@ -20,13 +20,14 @@ The administration server provides resources to create and delete streams. Shoul
 
 **GET**
 
-Returns a JSON file with details about all the streams currently created on the webserver. For each stream besides its schema and name, it provides the currently number of tuples inserted on the baskets per column, description of columns (`See data types <streams_data_types.html#data_types>`__), the flushing method (`See streams creation for details <streams_creation.html#creating_streams>`__). An example is shown bellow:
+Returns a JSON file with details about all the streams currently created on the webserver. For each stream besides its schema, name and if has the hostname column, it provides the currently number of tuples inserted on the baskets per column, description of columns (`See data types <streams_data_types.html#data_types>`__), the flushing method (`See streams creation for details <streams_creation.html#creating_streams>`__). An example is shown bellow:
 
 .. code-block:: json
 
 	[
 	  {
 	    "tuples_inserted_per_basket": 1,
+	    "hostname": false,
 	    "columns": [
         {
 		    "type": "real",
@@ -52,7 +53,7 @@ Returns a JSON file with details about all the streams currently created on the 
 
 **POST**
 
-Creates a stream using a pre-defined JSON schema. The JSON must include the stream's schema, the stream's name, the stream's columns and the flushing method. The flushing can be either time based, tuple based or automatic (:code:`auto`). For tuple based flushing, the number of tuples to flush must be provided using the :code:`interval` field. In time based flushing, the :code:`interval` field tells the time units between flushes and the :code:`unit` field must be "s", "m" or "h" for seconds, minutes or hours respectively. In automatic flushing, the baskets are flushed whenever a new batch is inserted. For columns `see data types for details <streams_data_types.html#data_types>`__.
+Creates a stream using a pre-defined JSON schema. The JSON must include the stream's schema, the stream's name, the stream's columns and the flushing method. The flushing can be either time based, tuple based or automatic (:code:`auto`). For tuple based flushing, the number of tuples to flush must be provided using the :code:`interval` field. In time based flushing, the :code:`interval` field tells the time units between flushes and the :code:`unit` field must be "s", "m" or "h" for seconds, minutes or hours respectively. In automatic flushing, the baskets are flushed whenever a new batch is inserted. For columns `see data types for details <streams_data_types.html#data_types>`__. Additionaly a hostname parameter can be provided, and if it's true then an additional column will be created with the iot web server host name.
 
 Bellow is the JSON used to create the stream in streams_:
 
@@ -61,6 +62,7 @@ Bellow is the JSON used to create the stream in streams_:
 	{
 	  "schema": "measures",
 	  "stream": "temperature",
+	  "hostname": false,
 	  "flushing": {
 	    "base": "tuple",
 	    "interval": 50

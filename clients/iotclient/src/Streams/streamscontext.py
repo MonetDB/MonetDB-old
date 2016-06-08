@@ -21,9 +21,9 @@ class IOTStreams(object):
             raise Exception('The stream ' + validating_schema['stream'] + ' in schema ' + validating_schema['schema'] +
                             ' already exists!')
         try:
-            new_stream = validate_schema_and_create_stream(validating_schema, created=True)
-            self._context[concat_name] = new_stream
+            new_stream = validate_schema_and_create_stream(validating_schema)
             new_stream.start_stream()
+            self._context[concat_name] = new_stream
         except:
             self._locker.release()
             raise
@@ -69,10 +69,9 @@ class IOTStreams(object):
 
     def get_streams_data(self):
         self._locker.acquire_read()
-        res = {'streams_count': len(self._context), 'streams_listing':
-            [value.get_data_dictionary(include_number_tuples=True) for value in self._context.values()]}
+        res = {'streams_count': len(self._context),
+               'streams_listing': [value.get_data_dictionary() for value in self._context.values()]}
         self._locker.release()
         return res
-
 
 Streams_Context = IOTStreams()

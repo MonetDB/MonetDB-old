@@ -17,7 +17,7 @@ INET6_TYPE = ["inet6"]
 REGEX_TYPE = ["regex"]
 ENUM_TYPE = ["enum"]
 BOOLEAN_TYPE = ["bool", "boolean"]
-SMALL_INTEGERS = ["tinyint", "smallint", "int", "integer", "wrd", "bigint"]
+SMALL_INTEGERS_TYPES = ["tinyint", "smallint", "int", "integer", "wrd", "bigint"]
 HUGE_INTEGER_TYPE = ["hugeint"]
 FLOATING_POINT_PRECISION_TYPES = ["real", "float", "double", "double precision"]
 DECIMAL_TYPES = ["dec", "decimal", "numeric"]
@@ -34,9 +34,9 @@ def init_create_streams_schema(add_hugeint=True):
     global CREATE_STREAMS_SCHEMA
 
     if add_hugeint:
-        integers = SMALL_INTEGERS + HUGE_INTEGER_TYPE
+        integers = SMALL_INTEGERS_TYPES + HUGE_INTEGER_TYPE
     else:
-        integers = SMALL_INTEGERS
+        integers = SMALL_INTEGERS_TYPES
 
     CREATE_STREAMS_SCHEMA = {
         "title": "JSON schema to create a stream",
@@ -46,6 +46,7 @@ def init_create_streams_schema(add_hugeint=True):
         "properties": {
             "schema": {"type": "string"},
             "stream": {"type": "string"},
+            "hostname": {"type": "boolean", "default": False},
             "flushing": {
                 "type": "object",
                 "oneOf": [{
@@ -253,7 +254,10 @@ DELETE_STREAMS_SCHEMA = {
     "description": "Validate the inserted properties",
     "$schema": "http://json-schema.org/draft-04/schema#",
     "type": "object",
-    "properties": {"schema": {"type": "string"}, "stream": {"type": "string"}},
+    "properties": {
+        "schema": {"type": "string"},
+        "stream": {"type": "string"}
+    },
     "required": ["schema", "stream"],
     "additionalProperties": False
 }

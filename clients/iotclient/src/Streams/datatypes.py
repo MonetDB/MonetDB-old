@@ -42,7 +42,6 @@ class StreamDataType(object):
             self._default_value = self.set_default_value(kwargs['default'])
         else:
             self._default_value = None
-        self._column_id = kwargs.get('id', None)
 
     def is_nullable(self):  # check if the column is nullable or not
         return self._is_nullable
@@ -56,12 +55,6 @@ class StreamDataType(object):
 
     def get_default_value(self):  # get the default value representation in the data type
         return self._default_value
-
-    def set_column_id(self, column_id):  # set column id for iot.webservervalidation table
-        self._column_id = column_id
-
-    def get_column_id(self):
-        return self._column_id
 
     def add_json_schema_entry(self, schema):  # add the entry for the stream's corresponding json schema
         dic = {}  # must be done after setting the default value!!!

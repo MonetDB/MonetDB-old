@@ -32,7 +32,7 @@ class StreamInput(Resource):
         except BaseException as ex:
             add_log(50, ex)
             return ex, 404
-        return stream.get_data_dictionary(include_number_tuples=True), 200
+        return stream.get_data_dictionary(), 200
 
     def post(self, schema_name, stream_name):  # add data to a stream
         current_stamp = datetime.datetime.now(pytz.utc).astimezone(Local_Timezone).isoformat()

@@ -24,11 +24,11 @@ def signal_handler(signal, frame):
     add_log(20, 'Stopped IOT Stream Server')
 
 
-def start_process(filesystem_location, use_host_identifier, host_identifier, admin_host, admin_port, app_host, app_port,
-                  con_hostname, con_port, con_user, con_password, con_database):
+def start_process(filesystem_location, host_identifier, admin_host, admin_port, app_host, app_port, con_hostname,
+                  con_port, con_user, con_password, con_database):
     # WARNING The initiation order must be this!!!
     init_file_system(filesystem_location)  # init filesystem
-    init_streams_hosts(use_host_identifier, host_identifier)  # init hostname column for streams
+    init_streams_hosts(host_identifier)  # init hostname column for streams
     # init mapi connection
     init_monetdb_connection(con_hostname, con_port, con_user, con_password, con_database)
     init_rest_resources()  # init validators for RESTful requests
@@ -73,10 +73,8 @@ def main():
                         help='Baskets location directory (default: %s)' % DEFAULT_FILESYSTEM, metavar='DIRECTORY')
     parser.add_argument('-l', '--log', type=check_path, nargs='?', default=DEFAULT_LOGGING,
                         help='Logging file location (default: %s)' % DEFAULT_LOGGING, metavar='FILE_PATH')
-    parser.add_argument('-po', '--polling', type=check_positive_int, nargs='?', default=60,
+    parser.add_argument('-po', '--polling', type=check_positive_int, nargs='?', default=60, metavar='POLLING',
                         help='Polling interval in seconds to the database for streams updates (default: 60)')
-    parser.add_argument('-i', '--identifier', action='store_true',
-                        help='Add a host identifier to the created streams. By default will not be added')
     parser.add_argument('-n', '--name', nargs='?',
                         default=':'.join(("%012X" % get_mac())[i:i + 2] for i in range(0, 12, 2)),
                         help='Host identifier name. If not provided, the machine MAC address will be used')
@@ -106,14 +104,13 @@ def main():
         parser.print_help()
         sys.exit(0)
 
-    print 'Using host identifier: ', args['name'], os.linesep
+    print 'Using host identifier: ', args['name']
 
     con_password = getpass.getpass(prompt='Insert password for user ' + args['user'] + ':')
     init_logging(args['log'])  # init logging context
-    subprocess = Process(target=start_process, args=(args['filesystem'], args['identifier'], args['name'],
-                                                     args['ihost'], args['iport'], args['ahost'], args['aport'],
-                                                     args['host'], args['port'], args['user'], con_password,
-                                                     args['database']))
+    subprocess = Process(target=start_process, args=(args['filesystem'], args['name'], args['ihost'], args['iport'],
+                                                     args['ahost'], args['aport'], args['host'], args['port'],
+                                                     args['user'], con_password, args['database']))
     subprocess.start()
     signal.signal(signal.SIGINT, signal_handler)
     subprocess.join()

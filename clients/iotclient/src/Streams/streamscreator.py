@@ -3,16 +3,16 @@ import json
 
 from jsonschema import Draft4Validator, FormatChecker
 from datatypes import *
-from jsonschemas import UNBOUNDED_TEXT_TYPES, BOUNDED_TEXT_TYPES, SMALL_INTEGERS, HUGE_INTEGER_TYPE,\
+from jsonschemas import UNBOUNDED_TEXT_TYPES, BOUNDED_TEXT_TYPES, SMALL_INTEGERS_TYPES, HUGE_INTEGER_TYPE,\
     FLOATING_POINT_PRECISION_TYPES, DECIMAL_TYPES, DATE_TYPE, TIME_WITHOUT_TIMEZONE_TYPE, BOOLEAN_TYPE, INET_TYPE,\
     TIME_WITH_TIMEZONE_TYPE, TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE, INET6_TYPE, MAC_TYPE,\
     URL_TYPE, UUID_TYPE, REGEX_TYPE, ENUM_TYPE, TIMED_FLUSH_IDENTIFIER, TUPLE_FLUSH_IDENTIFIER
 from streams import TupleBasedStream, TimeBasedStream, AutoFlushedStream
-from src.Settings.mapiconnection import mapi_create_stream
+from Settings.mapiconnection import mapi_create_stream
 
-SWITCHER = [{'types': UNBOUNDED_TEXT_TYPES, 'class': 'TextType'},
+Switcher = [{'types': UNBOUNDED_TEXT_TYPES, 'class': 'TextType'},
             {'types': BOUNDED_TEXT_TYPES, 'class': 'LimitedTextType'},
-            {'types': SMALL_INTEGERS, 'class': 'SmallIntegerType'},
+            {'types': SMALL_INTEGERS_TYPES, 'class': 'SmallIntegerType'},
             {'types': FLOATING_POINT_PRECISION_TYPES, 'class': 'FloatType'},
             {'types': DECIMAL_TYPES, 'class': 'DecimalType'},
             {'types': DATE_TYPE, 'class': 'DateType'},
@@ -31,7 +31,7 @@ SWITCHER = [{'types': UNBOUNDED_TEXT_TYPES, 'class': 'TextType'},
 
 
 def creator_add_hugeint_type():
-    SWITCHER.append({'types': HUGE_INTEGER_TYPE, 'class': 'HugeIntegerType'})
+    Switcher.append({'types': HUGE_INTEGER_TYPE, 'class': 'HugeIntegerType'})
 
 
 def validate_schema_and_create_stream(schema):
@@ -46,7 +46,7 @@ def validate_schema_and_create_stream(schema):
             errors[next_name] = 'The column ' + next_name + ' is duplicated!'
             continue
 
-        for entry in SWITCHER:  # allocate the proper type wrapper
+        for entry in Switcher:  # allocate the proper type wrapper
             if next_type in entry['types']:
                 try:
                     reflection_class = globals()[entry['class']]  # import everything from datatypes!!!
@@ -75,13 +75,14 @@ def validate_schema_and_create_stream(schema):
     flushing_object = schema['flushing']  # check the flush method
     if flushing_object['base'] == TIMED_FLUSH_IDENTIFIER:
         res = TimeBasedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
-                              validation_schema=json_schema, interval=int(flushing_object['interval']),
-                              time_unit=flushing_object['unit'])
+                              validation_schema=json_schema, has_hostname=schema['hostname'],
+                              interval=flushing_object['interval'], time_unit=flushing_object['unit'])
     elif flushing_object['base'] == TUPLE_FLUSH_IDENTIFIER:
         res = TupleBasedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
-                               validation_schema=json_schema, interval=int(flushing_object['number']))
+                               validation_schema=json_schema, has_hostname=schema['hostname'],
+                               interval=flushing_object['interval'])
     else:
         res = AutoFlushedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
-                                validation_schema=json_schema)
-    mapi_create_stream(res) # send the CREATE STREAM TABLE statement when the create json request is made
+                                validation_schema=json_schema, has_hostname=schema['hostname'])
+    mapi_create_stream(res)  # send the CREATE STREAM TABLE statement when the create json request is made
     return res
