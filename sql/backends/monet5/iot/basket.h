@@ -25,16 +25,6 @@
 #include "mal_interpreter.h"
 #include "sql.h"
 
-#ifdef WIN32
-#ifndef LIBIOT
-#define iot_export extern __declspec(dllimport)
-#else
-#define iot_export extern __declspec(dllexport)
-#endif
-#else
-#define iot_export extern
-#endif
-
 /* #define _DEBUG_DATACELL     debug this module */
 #define BSKTout GDKout
 #define MAXBSKT 64
@@ -102,8 +92,9 @@ iot_export str BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 iot_export str BSKTdelete(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTclear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str BSKTpushBasket(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTimport(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTupdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTerror(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTimportInternal(int bskt);
 
 #endif

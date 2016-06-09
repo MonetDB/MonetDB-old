@@ -2,7 +2,12 @@ iot00
 iot01
 iot02
 iot03
+#iot05
+iot10
+iot12
+iot15
+receptor00
 receptor01
-cleaup
-petrinet00
+cleanup
+#petrinet00
 webtest

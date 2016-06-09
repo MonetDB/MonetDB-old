@@ -26,7 +26,6 @@
 #define _DEBUG_PETRINET_ if(1)
 
 #define PNout mal_clients[1].fdout
-/*#define  _BASKET_SIZE_*/
 
 #ifdef WIN32
 #ifndef LIBDATACELL
@@ -53,6 +52,7 @@ iot_export str PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 iot_export str PNdump(void *ret);
 
 iot_export str PNperiod(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 iot_export str PNanalysis(Client cntxt, MalBlkPtr mb, int pn);
 iot_export str PNanalyseWrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

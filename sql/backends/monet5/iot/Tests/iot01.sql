@@ -14,7 +14,12 @@ insert into stmp values('2005-09-23 12:34:26.000',1,11.0);
 insert into stmp values('2005-09-23 12:34:27.000',1,12.0);
 insert into stmp values('2005-09-23 12:34:28.000',1,13.0);
 
+-- deactivate all when streams are empty.
+call iot.deactivate();
+
+-- stream table should be empty now
 select * from stmp;
+-- and result delivered
 select * from result;
 
 select * from  iot.queries();

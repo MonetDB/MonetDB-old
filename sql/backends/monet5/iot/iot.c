@@ -191,6 +191,7 @@ IOTreceptorThread(void *dummy)
 		baskets[idx].table_name, 
 		baskets[idx].source);
 	/* continously scan the container for baskets */
+		BSKTimportInternal(idx);
 }
 
 str

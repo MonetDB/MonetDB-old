@@ -27,6 +27,16 @@
 #include "basket.h"
 #include "petrinet.h"
 
+#ifdef WIN32
+#ifndef LIBIOT
+#define iot_export extern __declspec(dllimport)
+#else
+#define iot_export extern __declspec(dllexport)
+#endif
+#else
+#define iot_export extern
+#endif
+
 #define _DEBUG_IOT_ if(0)
 
 iot_export MT_Lock iotLock;

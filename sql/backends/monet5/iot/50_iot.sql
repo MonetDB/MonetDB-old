@@ -81,6 +81,8 @@ create procedure iot.window("schema" string, "table" string, elem int)
 create procedure iot.window("schema" string, "table" string, elem int, slide int)
 	external name iot.window;
 
+create procedure iot.wait() external name iot.wait;
+
 -- Inspection tables
 create function iot.baskets()
 returns table( "schema" string, "table" string, "status" string, threshold int, winsize int, winstride int, timeslice int, timestride int, beat int, seen timestamp, events int)

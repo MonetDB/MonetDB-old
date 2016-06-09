@@ -385,6 +385,22 @@ PNexecute( void *n)
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s all unlocked\n",node->modname, node->fcnname);
 }
 
+/* keep track of running tasks */
+static int PNtasks;
+
+str
+PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	while (PNtasks)	{ /* scheduler is paused */
+		_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#petrinet.controller %d outstanding tasks\n", PNtasks);
+		MT_sleep_ms(cycleDelay);  
+	}
+	return MAL_SUCCEED;
+}
+
 static void
 PNscheduler(void *dummy)
 {
@@ -419,6 +435,7 @@ PNscheduler(void *dummy)
 		   non empty. You can only trigger on empty baskets using a heartbeat */
 		memset((void*) claimed, 0, MAXBSKT);
 		now = GDKusec();
+		PNtasks=0;
 		for (k = i = 0; i < pnettop; i++) 
 		if ( pnet[i].status == PNREADY ){
 			pnet[i].enabled = 1;
@@ -464,8 +481,11 @@ PNscheduler(void *dummy)
 				enabled[k++] = i;
 				_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet: %s.%s enabled \n", pnet[i].modname, pnet[i].fcnname);
 			} 
+			PNtasks += pnet[i].enabled;
 		}
 		analysis = GDKusec() - now;
+		if( PNtasks)
+			_DEBUG_PETRINET_ mnstr_printf(PNout, "#Run %d queries\n", PNtasks);
 
 		/* Execute each enabled transformation */
 		/* Tricky part is here a single stream used by multiple transitions */

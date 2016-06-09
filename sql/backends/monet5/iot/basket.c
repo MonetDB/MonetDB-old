@@ -399,13 +399,9 @@ BSKTreset(void *ret)
 
 /* collect the binary files and append them to what we have */
 #define MAXLINE 4096
-str 
-BSKTpushBasket(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+str
+BSKTimportInternal(int bskt)
 {
-    str sch = *getArgReference_str(stk, pci, 1);
-    str tbl = *getArgReference_str(stk, pci, 2);
-    str dir = *getArgReference_str(stk, pci, 3);
-    int bskt;
 	char buf[PATHLENGTH];
 	node *n;
 	mvc *m = NULL;
@@ -416,14 +412,7 @@ BSKTpushBasket(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	FILE *f;
 	long fsize;
 	char line[MAXLINE];
-
-	msg= getSQLContext(cntxt,NULL, &m, NULL);
-	if( msg != MAL_SUCCEED)
-		return msg;
-	BSKTregisterInternal(cntxt, mb, sch, tbl);
-    bskt = BSKTlocate(sch,tbl);
-	if (bskt == 0)
-		throw(SQL, "iot.basket", "Could not find the basket %s.%s",sch,tbl);
+	str dir = baskets[bskt].source;
 
 	// check access permission to directory first
 	if( access (dir , F_OK | R_OK)){
@@ -538,8 +527,28 @@ recover:
 	}
 
 	MT_lock_unset(&iotLock);
-    (void) mb;
     return msg;
+}
+
+str 
+BSKTimport(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    str sch = *getArgReference_str(stk, pci, 1);
+    str tbl = *getArgReference_str(stk, pci, 2);
+    str dir = *getArgReference_str(stk, pci, 3);
+    int bskt;
+	str msg= MAL_SUCCEED;
+	mvc *m = NULL;
+
+	msg= getSQLContext(cntxt,NULL, &m, NULL);
+	if( msg != MAL_SUCCEED)
+		return msg;
+	BSKTregisterInternal(cntxt, mb, sch, tbl);
+    bskt = BSKTlocate(sch,tbl);
+	if (bskt == 0)
+		throw(SQL, "iot.basket", "Could not find the basket %s.%s",sch,tbl);
+	baskets[bskt].source = GDKstrdup(dir);
+	return BSKTimportInternal(bskt);
 }
 
 /* remove tuples from a basket according to the sliding policy */

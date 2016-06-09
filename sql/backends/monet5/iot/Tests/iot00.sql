@@ -20,6 +20,7 @@ select * from  iot.outputplaces();
 
 -- stop all continuous queries
 call iot.deactivate();
+call iot.wait();
 
 insert into stmp values('2005-09-23 12:34:26.736',1,12.34);
 select * from stmp;
