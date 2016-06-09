@@ -49,22 +49,21 @@ def mapi_get_webserver_streams():
     try:
         Connection.execute("START TRANSACTION")
         cursor = Connection.cursor()
-        sql_string = """SELECT tables."id", tables."name", schemas."name" AS schema, tables."name" AS table,
-            extras."has_hostname", extras."flushing", extras."unit", extras."interval" FROM (SELECT "id", "name",
-            "schema_id" FROM sys.tables WHERE type=4) AS tables INNER JOIN (SELECT "id", "name" FROM sys.schemas)
-            AS schemas ON (tables."schema_id"=schemas."id") LEFT JOIN (SELECT "table_id", "has_hostname", "flushing",
-            "unit", "interval" FROM iot.webserverstreams) AS extras ON (tables."id"=extras."table_id")"""\
-            .replace('\n', ' ')
+        sql_string = """SELECT tables."id", schemas."name" AS schema, tables."name" AS table, extras."has_hostname",
+            extras."base", extras."interval", extras."unit" FROM (SELECT "id", "name", "schema_id" FROM sys.tables
+            WHERE type=4) AS tables INNER JOIN (SELECT "id", "name" FROM sys.schemas) AS schemas ON
+            (tables."schema_id"=schemas."id") LEFT JOIN (SELECT "table_id", "has_hostname", "base", "interval", "unit"
+            FROM iot.webserverstreams) AS extras ON (tables."id"=extras."table_id")""".replace('\n', ' ')
         cursor.execute(sql_string)
         tables = cursor.fetchall()
 
         cursor = Connection.cursor()
-        sql_string = """SELECT columns."table_id", columns."name" AS column, columns."type", columns."type_digits",
-            columns."type_scale", columns."default", columns."null", extras."special", extras."validation1",
-            extras."validation2" FROM (SELECT "id", "table_id", "name", "type", "type_digits", "type_scale",
-            "default", "null" FROM sys.columns) AS columns INNER JOIN (SELECT "id" FROM sys.tables WHERE type=4)
-            AS tables ON (tables."id"=columns."table_id") LEFT JOIN (SELECT "column_id", "special", "validation1",
-            "validation2" FROM iot.webservercolumns) AS extras ON (columns."id"=extras."column_id")"""\
+        sql_string = """SELECT columns."column_id", columns."table_id", columns."name" AS column, columns."type",
+            columns."type_digits", columns."type_scale", columns."default", columns."null", extras."special",
+            extras."validation1", extras."validation2" FROM (SELECT "id", "table_id", "name", "type", "type_digits",
+            "type_scale", "default", "null" FROM sys.columns) AS columns INNER JOIN (SELECT "id" FROM sys.tables
+            WHERE type=4) AS tables ON (tables."id"=columns."table_id") LEFT JOIN (SELECT "column_id", "special",
+            "validation1", "validation2" FROM iot.webservercolumns) AS extras ON (columns."id"=extras."column_id")"""\
             .replace('\n', ' ')
         cursor.execute(sql_string)
         columns = cursor.fetchall()

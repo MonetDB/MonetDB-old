@@ -3,35 +3,36 @@ import json
 
 from jsonschema import Draft4Validator, FormatChecker
 from datatypes import *
-from jsonschemas import UNBOUNDED_TEXT_TYPES, BOUNDED_TEXT_TYPES, SMALL_INTEGERS_TYPES, HUGE_INTEGER_TYPE,\
-    FLOATING_POINT_PRECISION_TYPES, DECIMAL_TYPES, DATE_TYPE, TIME_WITHOUT_TIMEZONE_TYPE, BOOLEAN_TYPE, INET_TYPE,\
-    TIME_WITH_TIMEZONE_TYPE, TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE, INET6_TYPE, MAC_TYPE,\
-    URL_TYPE, UUID_TYPE, REGEX_TYPE, ENUM_TYPE, TIMED_FLUSH_IDENTIFIER, TUPLE_FLUSH_IDENTIFIER
+from jsonschemas import UNBOUNDED_TEXT_INPUTS, BOUNDED_TEXT_INPUTS, SMALL_INTEGERS_TYPES, HUGE_INTEGER_TYPE, \
+    FLOATING_POINT_PRECISION_INPUTS, DECIMAL_INPUTS, DATE_TYPE, TIME_WITHOUT_TIMEZONE_TYPE, \
+    TIME_WITH_TIMEZONE_TYPE_EXTERNAL, TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL, \
+    BOOLEAN_INPUTS, INET_TYPE, INET6_TYPE, MAC_TYPE, URL_TYPE, UUID_TYPE, REGEX_TYPE, ENUM_TYPE, \
+    TIMED_FLUSH_IDENTIFIER, TUPLE_FLUSH_IDENTIFIER
 from streams import TupleBasedStream, TimeBasedStream, AutoFlushedStream
 from Settings.mapiconnection import mapi_create_stream
 
-Switcher = [{'types': UNBOUNDED_TEXT_TYPES, 'class': 'TextType'},
-            {'types': BOUNDED_TEXT_TYPES, 'class': 'LimitedTextType'},
+Switcher = [{'types': UNBOUNDED_TEXT_INPUTS, 'class': 'TextType'},
+            {'types': BOUNDED_TEXT_INPUTS, 'class': 'LimitedTextType'},
             {'types': SMALL_INTEGERS_TYPES, 'class': 'SmallIntegerType'},
-            {'types': FLOATING_POINT_PRECISION_TYPES, 'class': 'FloatType'},
-            {'types': DECIMAL_TYPES, 'class': 'DecimalType'},
-            {'types': DATE_TYPE, 'class': 'DateType'},
-            {'types': TIME_WITHOUT_TIMEZONE_TYPE, 'class': 'TimeWithoutTimeZoneType'},
-            {'types': TIME_WITH_TIMEZONE_TYPE, 'class': 'TimeWithTimeZoneType'},
-            {'types': TIMESTAMP_WITHOUT_TIMEZONE_TYPE, 'class': 'TimestampWithoutTimeZoneType'},
-            {'types': TIMESTAMP_WITH_TIMEZONE_TYPE, 'class': 'TimestampWithTimeZoneType'},
-            {'types': BOOLEAN_TYPE, 'class': 'BooleanType'},
-            {'types': INET_TYPE, 'class': 'INetType'},
-            {'types': INET6_TYPE, 'class': 'INetSixType'},
-            {'types': MAC_TYPE, 'class': 'MACType'},
-            {'types': URL_TYPE, 'class': 'URLType'},
-            {'types': UUID_TYPE, 'class': 'UUIDType'},
-            {'types': REGEX_TYPE, 'class': 'RegexType'},
-            {'types': ENUM_TYPE, 'class': 'EnumType'}]
+            {'types': FLOATING_POINT_PRECISION_INPUTS, 'class': 'FloatType'},
+            {'types': DECIMAL_INPUTS, 'class': 'DecimalType'},
+            {'types': [DATE_TYPE], 'class': 'DateType'},
+            {'types': [TIME_WITHOUT_TIMEZONE_TYPE], 'class': 'TimeWithoutTimeZoneType'},
+            {'types': [TIME_WITH_TIMEZONE_TYPE_EXTERNAL], 'class': 'TimeWithTimeZoneType'},
+            {'types': [TIMESTAMP_WITHOUT_TIMEZONE_TYPE], 'class': 'TimestampWithoutTimeZoneType'},
+            {'types': [TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL], 'class': 'TimestampWithTimeZoneType'},
+            {'types': BOOLEAN_INPUTS, 'class': 'BooleanType'},
+            {'types': [INET_TYPE], 'class': 'INetType'},
+            {'types': [INET6_TYPE], 'class': 'INetSixType'},
+            {'types': [MAC_TYPE], 'class': 'MACType'},
+            {'types': [URL_TYPE], 'class': 'URLType'},
+            {'types': [UUID_TYPE], 'class': 'UUIDType'},
+            {'types': [REGEX_TYPE], 'class': 'RegexType'},
+            {'types': [ENUM_TYPE], 'class': 'EnumType'}]
 
 
 def creator_add_hugeint_type():
-    Switcher.append({'types': HUGE_INTEGER_TYPE, 'class': 'HugeIntegerType'})
+    Switcher.append({'types': [HUGE_INTEGER_TYPE], 'class': 'HugeIntegerType'})
 
 
 def validate_schema_and_create_stream(schema):
@@ -51,7 +52,7 @@ def validate_schema_and_create_stream(schema):
                 try:
                     reflection_class = globals()[entry['class']]  # import everything from datatypes!!!
                     validated_columns[next_name] = reflection_class(**column)  # pass the json entry as kwargs
-                except Exception as ex:
+                except BaseException as ex:
                     errors[next_name] = ex
                 break
     if errors:

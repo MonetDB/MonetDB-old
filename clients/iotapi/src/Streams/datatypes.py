@@ -328,14 +328,6 @@ class TimeType(StreamDataType):  # Stored as an uint with the number of millisec
                                .isoformat())
         return results
 
-    def to_json_representation(self):
-        json_value = super(TimeType, self).to_json_representation()
-        if self._data_type == 'timez':
-            json_value['with_timezone'] = True
-        else:
-            json_value['with_timezone'] = False
-        return json_value
-
 
 class TimestampType(StreamDataType):  # it's represented with the two integers from time and date
     """Covers: TIMESTAMP"""
@@ -363,11 +355,3 @@ class TimestampType(StreamDataType):  # it's represented with the two integers f
                 results.append(datetime.combine(read_date, time(hour=hour, minute=minute, second=second,
                                                                 microsecond=milliseconds * 1000)).isoformat())
         return results
-
-    def to_json_representation(self):
-        json_value = super(TimestampType, self).to_json_representation()
-        if self._data_type == 'timestamptz':
-            json_value['with_timezone'] = True
-        else:
-            json_value['with_timezone'] = False
-        return json_value

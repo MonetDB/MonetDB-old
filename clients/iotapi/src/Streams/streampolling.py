@@ -1,5 +1,4 @@
 from itertools import groupby
-
 from Settings.mapiconnection import fetch_streams
 from Utilities.customthreading import PeriodicalThread
 from datatypes import *

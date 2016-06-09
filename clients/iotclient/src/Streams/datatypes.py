@@ -30,7 +30,7 @@ DOUBLE_NAN = struct.unpack('d', '\xff\xff\xff\xff\xff\xff\xef\xff')[0]
 ENUM_TYPE_SEPARATOR = '\r'
 
 
-class StreamDataType(object):
+class StreamDataType:
     """MonetDB's data types for validation base class"""
     __metaclass__ = ABCMeta
 
@@ -38,7 +38,7 @@ class StreamDataType(object):
         self._column_name = kwargs['name']  # name of the column
         self._data_type = kwargs['type']  # SQL name of the type
         self._is_nullable = kwargs.get('nullable', True)  # boolean
-        if 'default' in kwargs:
+        if 'default' in kwargs and kwargs['default'] is not None:
             self._default_value = self.set_default_value(kwargs['default'])
         else:
             self._default_value = None
@@ -189,7 +189,7 @@ class RegexType(TextType):
 
     def to_json_representation(self):
         json_value = super(RegexType, self).to_json_representation()
-        json_value['regex'] = self._regex.pattern
+        json_value['regex'] = self._regex_text
         return json_value
 
     def process_sql_parameters(self, array):
@@ -418,15 +418,17 @@ class NumberBaseType(StreamDataType):
         return json_value
 
     def get_extra_sql_statement(self):
-        res_str = ",NULL,"
+        res_str = [",NULL,"]
         if self._minimum is not None:
-            res_str += str(self._minimum) + ","
+            res_str.append(str(self._minimum))
+            res_str.append(",")
         else:
-            res_str += "NULL,"
+            res_str.append("NULL,")
         if self._maximum is not None:
-            res_str += str(self._maximum)
+            res_str.append(str(self._maximum))
         else:
-            res_str += "NULL"
+            res_str.append("NULL")
+        return ''.join(res_str)
 
 
 class SmallIntegerType(NumberBaseType):
@@ -434,10 +436,10 @@ class SmallIntegerType(NumberBaseType):
 
     def __init__(self, **kwargs):
         super(SmallIntegerType, self).__init__(**kwargs)
-        self._pack_sym = {'tinyint': 'b', 'smallint': 'h', 'int': 'i', 'integer': 'i', 'wrd': 'q', 'bigint': 'q'} \
+        self._pack_sym = {'tinyint': 'b', 'smallint': 'h', 'int': 'i', 'integer': 'i', 'bigint': 'q'}\
             .get(kwargs['type'])
         self._nullable_constant = {'tinyint': INT8_MIN, 'smallint': INT16_MIN, 'int': INT32_MIN, 'integer': INT32_MIN,
-                                   'wrd': INT64_MIN, 'bigint': INT64_MIN}.get(kwargs['type'])
+                                   'bigint': INT64_MIN}.get(kwargs['type'])
 
     def add_json_schema_entry(self, schema):
         super(SmallIntegerType, self).add_json_schema_entry(schema)
@@ -480,8 +482,9 @@ class FloatType(NumberBaseType):
     def __init__(self, **kwargs):
         super(FloatType, self).__init__(**kwargs)
         this_type = kwargs['type']
-        self._pack_sym = {'real': 'f', 'float': 'd', 'double': 'd'}.get(this_type)
-        self._nullable_constant = {'real': FLOAT_NAN, 'float': DOUBLE_NAN, 'double': DOUBLE_NAN}.get(this_type)
+        self._pack_sym = {'real': 'f', 'float': 'd', 'double': 'd', 'double precision': 'd'}.get(this_type)
+        self._nullable_constant = {'real': FLOAT_NAN, 'float': DOUBLE_NAN, 'double': DOUBLE_NAN,
+                                   'double precision': DOUBLE_NAN}.get(this_type)
 
     def add_json_schema_entry(self, schema):
         super(FloatType, self).add_json_schema_entry(schema)
@@ -630,15 +633,17 @@ class BaseDateTimeType(StreamDataType):  # The validation of time variables can'
         return json_value
 
     def get_extra_sql_statement(self):
-        res_str = ",NULL,"
+        res_str = [",NULL,"]
         if self._minimum is not None:
-            res_str += str(self._minimum_text) + ","
+            res_str.append(self._minimum_text)
+            res_str.append(",")
         else:
-            res_str += "NULL,"
+            res_str.append("NULL,")
         if self._maximum is not None:
-            res_str += str(self._maximum_text)
+            res_str.append(self._maximum_text)
         else:
-            res_str += "NULL"
+            res_str.append("NULL")
+        return ''.join(res_str)
 
 
 class DateType(BaseDateTimeType):  # Stored as an uint with the number of days since day 1 of month 1 (Jan) from year 0
@@ -704,9 +709,6 @@ class TimeWithTimeZoneType(TimeWithoutTimeZoneType):
         parsed = parsed.replace(tzinfo=None) - delta
         return parsed
 
-    def process_sql_parameters(self, array):
-        array[2] = 'time with time zone'
-
 
 class TimestampWithoutTimeZoneType(BaseDateTimeType):  # it's represented with the two integers from time and date
     """Covers: TIMESTAMP"""
@@ -750,6 +752,3 @@ class TimestampWithTimeZoneType(TimestampWithoutTimeZoneType):
             delta = -delta
         parsed = parsed.replace(tzinfo=None) - delta
         return parsed
-
-    def process_sql_parameters(self, array):
-        array[2] = 'timestamp with time zone'

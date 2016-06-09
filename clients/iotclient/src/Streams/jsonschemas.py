@@ -7,25 +7,42 @@ TIMED_FLUSH_IDENTIFIER = "time"
 TUPLE_FLUSH_IDENTIFIER = "tuple"
 AUTO_FLUSH_IDENTIFIER = "auto"
 
-UNBOUNDED_TEXT_TYPES = ["text", "string", "clob", "character large object"]
-BOUNDED_TEXT_TYPES = ["char", "character", "varchar", "character varying"]
-UUID_TYPE = ["uuid"]
-MAC_TYPE = ["mac"]
-URL_TYPE = ["url"]
-INET_TYPE = ["inet"]
-INET6_TYPE = ["inet6"]
-REGEX_TYPE = ["regex"]
-ENUM_TYPE = ["enum"]
-BOOLEAN_TYPE = ["bool", "boolean"]
-SMALL_INTEGERS_TYPES = ["tinyint", "smallint", "int", "integer", "wrd", "bigint"]
-HUGE_INTEGER_TYPE = ["hugeint"]
-FLOATING_POINT_PRECISION_TYPES = ["real", "float", "double", "double precision"]
-DECIMAL_TYPES = ["dec", "decimal", "numeric"]
-DATE_TYPE = ["date"]
-TIME_WITHOUT_TIMEZONE_TYPE = ["time"]
-TIME_WITH_TIMEZONE_TYPE = ["time with time zone", "timetz"]
-TIMESTAMP_WITHOUT_TIMEZONE_TYPE = ["timestamp"]
-TIMESTAMP_WITH_TIMEZONE_TYPE = ["timestamp with time zone", "timestamptz"]
+UNBOUNDED_TEXT_TYPE = "clob"
+UNBOUNDED_TEXT_INPUTS = [UNBOUNDED_TEXT_TYPE, "text", "string", "character large object"]
+BOUNDED_TEXT_TYPES = ["char", "varchar"]
+BOUNDED_TEXT_INPUTS = BOUNDED_TEXT_TYPES + ["character", "character varying"]
+
+UUID_TYPE = "uuid"
+MAC_TYPE = "mac"
+URL_TYPE = "url"
+INET_TYPE = "inet"
+INET6_TYPE = "inet6"
+REGEX_TYPE = "regex"
+ENUM_TYPE = "enum"
+
+BOOLEAN_TYPE = "boolean"
+BOOLEAN_INPUTS = [BOOLEAN_TYPE, "bool"]
+
+SMALL_INTEGERS_TYPES = ["tinyint", "smallint", "int", "integer", "bigint"]
+HUGE_INTEGER_TYPE = "hugeint"
+
+FLOATING_POINT_PRECISION_TYPES = ["real", "double"]
+FLOATING_POINT_PRECISION_INPUTS = FLOATING_POINT_PRECISION_TYPES + ["float", "double precision"]
+
+DECIMAL_TYPE = "decimal"
+DECIMAL_INPUTS = [DECIMAL_TYPE, "dec", "numeric"]
+
+DATE_TYPE = "date"
+
+TIME_WITHOUT_TIMEZONE_TYPE = "time"
+TIME_WITH_TIMEZONE_TYPE_INTERNAL = "timetz"
+TIME_WITH_TIMEZONE_TYPE_EXTERNAL = "time with time zone"
+TIME_INPUTS = [TIME_WITHOUT_TIMEZONE_TYPE, TIME_WITH_TIMEZONE_TYPE_EXTERNAL]
+
+TIMESTAMP_WITHOUT_TIMEZONE_TYPE = "timestamp"
+TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL = "timestamptz"
+TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL = "timestamp with time zone"
+TIMESTAMP_INPUTS = [TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL]
 
 CREATE_STREAMS_SCHEMA = None
 
@@ -34,7 +51,7 @@ def init_create_streams_schema(add_hugeint=True):
     global CREATE_STREAMS_SCHEMA
 
     if add_hugeint:
-        integers = SMALL_INTEGERS_TYPES + HUGE_INTEGER_TYPE
+        integers = SMALL_INTEGERS_TYPES.append(HUGE_INTEGER_TYPE)
     else:
         integers = SMALL_INTEGERS_TYPES
 
@@ -81,7 +98,7 @@ def init_create_streams_schema(add_hugeint=True):
                     "anyOf": [{
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string", "enum": UNBOUNDED_TEXT_TYPES},
+                            "type": {"type": "string", "enum": UNBOUNDED_TEXT_INPUTS},
                             "nullable": {"type": "boolean", "default": True},
                             "default": {"type": "string"}
                         },
@@ -90,7 +107,7 @@ def init_create_streams_schema(add_hugeint=True):
                     }, {
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string", "enum": UUID_TYPE},
+                            "type": {"type": "string", "enum": [UUID_TYPE]},
                             "nullable": {"type": "boolean", "default": True},
                             "default": {"type": "string", "pattern": UUID_REGEX}
                         },
@@ -99,7 +116,7 @@ def init_create_streams_schema(add_hugeint=True):
                     }, {
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string", "enum": MAC_TYPE},
+                            "type": {"type": "string", "enum": [MAC_TYPE]},
                             "nullable": {"type": "boolean", "default": True},
                             "default": {"type": "string", "pattern": MAC_ADDRESS_REGEX}
                         },
@@ -108,7 +125,7 @@ def init_create_streams_schema(add_hugeint=True):
                     }, {
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string", "enum": URL_TYPE},
+                            "type": {"type": "string", "enum": [URL_TYPE]},
                             "nullable": {"type": "boolean", "default": True},
                             "default": {"type": "string", "format": "uri"}
                         },
@@ -117,7 +134,7 @@ def init_create_streams_schema(add_hugeint=True):
                     }, {
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string", "enum": INET_TYPE},
+                            "type": {"type": "string", "enum": [INET_TYPE]},
                             "nullable": {"type": "boolean", "default": True},
                             "default": {"type": "string", "pattern": IPV4_REGEX}
                         },
@@ -126,7 +143,7 @@ def init_create_streams_schema(add_hugeint=True):
                     }, {
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string", "enum": INET6_TYPE},
+                            "type": {"type": "string", "enum": [INET6_TYPE]},
                             "nullable": {"type": "boolean", "default": True},
                             "default": {"type": "string", "format": "ipv6"}
                         },
@@ -135,7 +152,7 @@ def init_create_streams_schema(add_hugeint=True):
                     }, {
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string", "enum": REGEX_TYPE},
+                            "type": {"type": "string", "enum": [REGEX_TYPE]},
                             "nullable": {"type": "boolean", "default": True},
                             "regex": {"type": "string"},
                             "default": {"type": "string"}
@@ -145,7 +162,7 @@ def init_create_streams_schema(add_hugeint=True):
                     }, {
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string", "enum": BOUNDED_TEXT_TYPES},
+                            "type": {"type": "string", "enum": BOUNDED_TEXT_INPUTS},
                             "nullable": {"type": "boolean", "default": True},
                             "limit": {"type": "integer", "minimum": 1},
                             "default": {"type": "string"}
@@ -155,7 +172,7 @@ def init_create_streams_schema(add_hugeint=True):
                     }, {
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string", "enum": ENUM_TYPE},
+                            "type": {"type": "string", "enum": [ENUM_TYPE]},
                             "nullable": {"type": "boolean", "default": True},
                             "values": {"type": "array", "minItems": 1, "uniqueItems": True,
                                        "items": {"type": "string"}},
@@ -166,7 +183,7 @@ def init_create_streams_schema(add_hugeint=True):
                     }, {
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string", "enum": BOOLEAN_TYPE},
+                            "type": {"type": "string", "enum": BOOLEAN_INPUTS},
                             "nullable": {"type": "boolean", "default": True},
                             "default": {"type": "boolean"}
                         },
@@ -186,7 +203,7 @@ def init_create_streams_schema(add_hugeint=True):
                     }, {
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string", "enum": FLOATING_POINT_PRECISION_TYPES},
+                            "type": {"type": "string", "enum": FLOATING_POINT_PRECISION_INPUTS},
                             "nullable": {"type": "boolean", "default": True},
                             "default": {"type": "number"},
                             "minimum": {"type": "number"},
@@ -197,7 +214,7 @@ def init_create_streams_schema(add_hugeint=True):
                     }, {
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string", "enum": DECIMAL_TYPES},
+                            "type": {"type": "string", "enum": DECIMAL_INPUTS},
                             "nullable": {"type": "boolean", "default": True},
                             "precision": {"type": "integer", "minimum": 1, "maximum": 38, "default": 18},
                             "scale": {"type": "integer", "minimum": 0, "default": 3},
@@ -210,7 +227,7 @@ def init_create_streams_schema(add_hugeint=True):
                     }, {
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string", "enum": DATE_TYPE},
+                            "type": {"type": "string", "enum": [DATE_TYPE]},
                             "nullable": {"type": "boolean", "default": True},
                             "default": {"type": "string", "format": "date"},
                             "minimum": {"type": "string", "format": "date"},
@@ -221,7 +238,7 @@ def init_create_streams_schema(add_hugeint=True):
                     }, {
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string", "enum": TIME_WITHOUT_TIMEZONE_TYPE + TIME_WITH_TIMEZONE_TYPE},
+                            "type": {"type": "string", "enum": TIME_INPUTS},
                             "nullable": {"type": "boolean", "default": True},
                             "default": {"type": "string", "pattern": TIME_REGEX},
                             "minimum": {"type": "string", "pattern": TIME_REGEX},
@@ -232,8 +249,7 @@ def init_create_streams_schema(add_hugeint=True):
                     }, {
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string",
-                                     "enum": TIMESTAMP_WITHOUT_TIMEZONE_TYPE + TIMESTAMP_WITH_TIMEZONE_TYPE},
+                            "type": {"type": "string", "enum": TIMESTAMP_INPUTS},
                             "nullable": {"type": "boolean", "default": True},
                             "default": {"type": "string", "format": "date-time"},
                             "minimum": {"type": "string", "format": "date-time"},
