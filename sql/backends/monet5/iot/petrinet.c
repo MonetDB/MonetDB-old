@@ -48,7 +48,7 @@
 
 #define MAXPN 200           /* it is the minimum, if we need more space GDKrealloc */
 
-static str statusname[6] = { "<unknown>", "active", "paused"};
+static str statusname[6] = { "init", "running", "ready"};
 
 static void
 PNstartScheduler(void);
