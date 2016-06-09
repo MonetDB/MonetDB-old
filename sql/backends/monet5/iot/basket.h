@@ -24,6 +24,19 @@
 #include "mal.h"
 #include "mal_interpreter.h"
 #include "sql.h"
+#include "iot.h"
+
+#ifndef iot_export
+#ifdef WIN32
+#ifndef LIBIOT
+#define iot_export extern __declspec(dllimport)
+#else
+#define iot_export extern __declspec(dllexport)
+#endif
+#else
+#define iot_export extern
+#endif
+#endif
 
 /* #define _DEBUG_DATACELL     debug this module */
 #define BSKTout GDKout
@@ -58,9 +71,9 @@ typedef struct{
 
 
 /* individual streams can be paused and restarted */
-#define BSKTAVAILABLE   1      
-#define BSKTPAUSED    2
-#define BSKTLOCKED    3
+#define BSKTAVAILABLE   1   /* initialized*/
+#define BSKTWAIT        2		/* waiting for new data */
+#define BSKTLOCKED      3		/* in use for processing */
 
 iot_export BasketRec *baskets;
 

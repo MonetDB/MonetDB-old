@@ -35,7 +35,7 @@
 
 #define _DEBUG_BASKET_ if(0)
 
-str statusname[4] = { "<unknown>", "active", "paused", "locked" };
+str statusname[4] = { "<unknown>", "available", "wait", "locked" };
 
 BasketRec *baskets;   /* the global iot catalog */
 static int bsktTop = 0, bsktLimit = 0;
@@ -109,7 +109,7 @@ BSKTnewbasket(sql_schema *s, sql_table *t)
 	baskets[idx].table_name = GDKstrdup(t->base.name);
 	baskets[idx].seen = * timestamp_nil;
 
-	baskets[idx].status = BSKTPAUSED;
+	baskets[idx].status = BSKTWAIT;
 	baskets[idx].count = 0;
 	for (o = t->columns.set->h; o; o = o->next){
         sql_column *col = o->data;
@@ -205,7 +205,7 @@ BSKTactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		idx = BSKTlocate(sch, tbl);
 		if( idx == 0)
 			throw(SQL,"basket.activate","Stream table %s.%s not accessible to activate\n",sch,tbl);
-		if( baskets[idx].status == BSKTPAUSED){
+		if( baskets[idx].status == BSKTWAIT){
 			MT_lock_set(&iotLock);
 			baskets[idx].status = BSKTAVAILABLE;
 			MT_lock_unset(&iotLock);
@@ -237,13 +237,13 @@ BSKTdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			throw(SQL,"basket.activate","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
 		if( baskets[idx].status == BSKTAVAILABLE ){
 			MT_lock_set(&iotLock);
-			baskets[idx].status = BSKTPAUSED;
+			baskets[idx].status = BSKTWAIT;
 			MT_lock_unset(&iotLock);
 		}
 	} else {
 		MT_lock_set(&iotLock);
 		for( idx =1; idx <bsktTop;  idx++)
-			baskets[idx].status = BSKTPAUSED;
+			baskets[idx].status = BSKTWAIT;
 		MT_lock_unset(&iotLock);
 	}
 	return MAL_SUCCEED;
