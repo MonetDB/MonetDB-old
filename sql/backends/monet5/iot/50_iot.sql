@@ -106,7 +106,7 @@ create function iot.outputplaces()
 
 -- tables for iotwebserver
 
-CREATE TABLE iot.webserverstreams (table_id INTEGER, has_hostname BOOLEAN, base TINYINT, "interval" INTEGER NULL, unit TINYINT NULL);
+CREATE TABLE iot.webserverstreams (table_id INTEGER, base TINYINT, "interval" INTEGER NULL, unit TINYINT NULL);
 
 CREATE TABLE iot.webservercolumns (column_id INTEGER, special TINYINT NULL, validation1 STRING NULL, validation2 STRING NULL);
 
