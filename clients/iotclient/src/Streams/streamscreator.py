@@ -8,7 +8,8 @@ from jsonschemas import UNBOUNDED_TEXT_INPUTS, BOUNDED_TEXT_INPUTS, SMALL_INTEGE
     TIME_WITH_TIMEZONE_TYPE_EXTERNAL, TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL, \
     BOOLEAN_INPUTS, INET_TYPE, INET6_TYPE, MAC_TYPE, URL_TYPE, UUID_TYPE, REGEX_TYPE, ENUM_TYPE, \
     TIMED_FLUSH_IDENTIFIER, TUPLE_FLUSH_IDENTIFIER
-from streams import TupleBasedStream, TimeBasedStream, AutoFlushedStream
+from streams import TupleBasedStream, TimeBasedStream, AutoFlushedStream, IMPLICIT_TIMESTAMP_COLUMN_NAME,\
+    HOST_IDENTIFIER_COLUMN_NAME
 from Settings.mapiconnection import mapi_create_stream
 
 Switcher = [{'types': UNBOUNDED_TEXT_INPUTS, 'class': 'TextType'},
@@ -47,6 +48,10 @@ def validate_schema_and_create_stream(schema):
             errors[next_name] = 'The column ' + next_name + ' is duplicated!'
             continue
 
+        if next_name in (IMPLICIT_TIMESTAMP_COLUMN_NAME, HOST_IDENTIFIER_COLUMN_NAME):
+            errors[next_name] = 'The column name ' + next_name + ' is reserved!'
+            continue
+
         for entry in Switcher:  # allocate the proper type wrapper
             if next_type in entry['types']:
                 try:
@@ -76,14 +81,14 @@ def validate_schema_and_create_stream(schema):
     flushing_object = schema['flushing']  # check the flush method
     if flushing_object['base'] == TIMED_FLUSH_IDENTIFIER:
         res = TimeBasedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
-                              validation_schema=json_schema, has_hostname=schema['hostname'],
+                              validation_schema=json_schema, has_timestamp=True, has_hostname=schema['hostname'],
                               interval=flushing_object['interval'], time_unit=flushing_object['unit'])
     elif flushing_object['base'] == TUPLE_FLUSH_IDENTIFIER:
         res = TupleBasedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
-                               validation_schema=json_schema, has_hostname=schema['hostname'],
+                               validation_schema=json_schema, has_timestamp=True, has_hostname=schema['hostname'],
                                interval=flushing_object['interval'])
     else:
         res = AutoFlushedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
-                                validation_schema=json_schema, has_hostname=schema['hostname'])
+                                validation_schema=json_schema, has_timestamp=True, has_hostname=schema['hostname'])
     mapi_create_stream(res)  # send the CREATE STREAM TABLE statement when the create json request is made
     return res

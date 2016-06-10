@@ -27,10 +27,10 @@ def init_stream_polling_thread(interval):
 # elem[0] is schema. elem[1] is name, elem[2] is column name, elem[3] is type, elem[4] is type_digits
 # elem[5] is type_scale elem[6] is default value elem[7] is nullable
 def stream_polling():
-    current_streams = Streams_Context.get_existing_streams()
+    array = fetch_streams()  # TODO check whenever stream's columns are updated
     retained_streams = []
     new_streams = {}
-    array = fetch_streams()  # TODO check whenever stream's columns are updated
+    current_streams = Streams_Context.get_existing_streams()
 
     if array is not None:
         for key, group in groupby(array, lambda x: Streams_Context.get_context_entry_name(x[0], x[1])):
@@ -48,5 +48,4 @@ def stream_polling():
             else:
                 retained_streams.append(key)
 
-    retained_streams_final = [key for key in current_streams if key in retained_streams]
-    Streams_Context.merge_context(retained_streams_final, new_streams)
+    Streams_Context.merge_context(retained_streams, new_streams)

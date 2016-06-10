@@ -1,5 +1,5 @@
-import sys
 import pymonetdb
+import sys
 
 from Settings.iotlogger import add_log
 from Streams.streamscontext import IOTStreams
@@ -49,11 +49,11 @@ def mapi_get_webserver_streams():
     try:
         Connection.execute("START TRANSACTION")
         cursor = Connection.cursor()
-        sql_string = """SELECT tables."id", schemas."name" AS schema, tables."name" AS table, extras."has_hostname",
-            extras."base", extras."interval", extras."unit" FROM (SELECT "id", "name", "schema_id" FROM sys.tables
-            WHERE type=4) AS tables INNER JOIN (SELECT "id", "name" FROM sys.schemas) AS schemas ON
-            (tables."schema_id"=schemas."id") LEFT JOIN (SELECT "table_id", "has_hostname", "base", "interval", "unit"
-            FROM iot.webserverstreams) AS extras ON (tables."id"=extras."table_id")""".replace('\n', ' ')
+        sql_string = """SELECT tables."id", schemas."name" AS schema, tables."name" AS table, extras."base",
+            extras."interval", extras."unit" FROM (SELECT "id", "name", "schema_id" FROM sys.tables WHERE type=4)
+            AS tables INNER JOIN (SELECT "id", "name" FROM sys.schemas) AS schemas ON (tables."schema_id"=schemas."id")
+            LEFT JOIN (SELECT "table_id", "has_hostname", "base", "interval", "unit" FROM iot.webserverstreams)
+            AS extras ON (tables."id"=extras."table_id")""".replace('\n', ' ')
         cursor.execute(sql_string)
         tables = cursor.fetchall()
 
@@ -72,7 +72,7 @@ def mapi_get_webserver_streams():
         return tables, columns
     except BaseException as ex:
         add_log(50, ex)
-        return [], []
+        raise
 
 
 def mapi_create_stream(stream):
@@ -98,7 +98,7 @@ def mapi_create_stream(stream):
                                 "'"]))  # get the created table id
         table_id = str(cursor.fetchall()[0][0])
         cursor.execute(''.join(["INSERT INTO iot.webserverstreams VALUES (", table_id, flush_statement, ")"]))
-        cursor.execute('SELECT id, "name" FROM sys.columns WHERE table_id=' + table_id)
+        cursor.execute("SELECT id, \"name\" FROM sys.columns WHERE table_id=" + table_id)
         columns = cursor.fetchall()
 
         inserts = []
@@ -114,6 +114,7 @@ def mapi_create_stream(stream):
         stream.set_delete_ids(table_id, colums_ids)
     except BaseException as ex:
         add_log(50, ex)
+        raise
 
 
 def mapi_delete_stream(schema, stream, stream_id, columns_ids):
@@ -125,6 +126,7 @@ def mapi_delete_stream(schema, stream, stream_id, columns_ids):
         Connection.commit()
     except BaseException as ex:
         add_log(50, ex)
+        raise
 
 
 def mapi_flush_baskets(schema, stream, baskets):

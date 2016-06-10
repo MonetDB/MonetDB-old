@@ -45,9 +45,22 @@ class IOTStreams(object):
             raise
         self._locker.release()
 
-    def update_context(self, new_context):
+    def get_existing_streams(self):  # To use with next method!!
         self._locker.acquire_write()
-        self._context = new_context
+        return list(self._context.keys())
+
+    def merge_context(self, retained_streams, new_streams):  # To use with above method!!
+        try:
+            removed_streams = {key: value for (key, value) in self._context if key not in retained_streams}
+            for key, value in removed_streams.iteritems():
+                del self._context[key]
+                value.stop_stream()
+            self._context.update(new_streams)
+            for value in new_streams.values():
+                value.start_stream()
+        except:
+            self._locker.release()
+            raise
         self._locker.release()
 
     def get_existing_stream(self, schema_name, stream_name):

@@ -13,7 +13,7 @@ from datatypes import TimestampWithTimeZoneType, TextType
 
 IMPLICIT_TIMESTAMP_COLUMN_NAME = 'implicit_timestamp'
 Implicit_Timestamp_Handler = TimestampWithTimeZoneType(name=IMPLICIT_TIMESTAMP_COLUMN_NAME, type="timestamp")
-Implicit_Timestamp_SQL = [Implicit_Timestamp_Handler.create_stream_sql()]
+Implicit_Timestamp_SQL = Implicit_Timestamp_Handler.create_stream_sql()
 
 HOST_IDENTIFIER_COLUMN_NAME = 'hostname_identifier'
 Hostname_Binary_Value = None
@@ -40,13 +40,14 @@ class BaseIOTStream:
     """Representation of a stream for validation"""
     __metaclass__ = ABCMeta
 
-    def __init__(self, schema_name, stream_name, columns, validation_schema, has_hostname,
+    def __init__(self, schema_name, stream_name, columns, validation_schema, has_timestamp, has_hostname,
                  table_id="", columns_ids=""):
         self._schema_name = schema_name  # name of the schema
         self._stream_name = stream_name  # name of the stream
         self._tuples_in_per_basket = 0  # for efficiency
         self._columns = columns  # dictionary of name -> data_types
         self._validation_schema = validation_schema  # json validation schema for the inserts
+        self._has_timestamp = has_timestamp  # add timestamp column or not
         self._has_hostname = has_hostname  # add hostname column or not
         self._table_id = table_id  # for delete statement on table iot.webserverstreams
         self._columns_ids = columns_ids  # for delete statement on table iot.webservercolumns
@@ -70,8 +71,8 @@ class BaseIOTStream:
 
         for key in self._columns.keys():  # create files for the columns, timestamp and hostname
             create_file_if_not_exists(os.path.join(self._current_base_path, key))
-
-        create_file_if_not_exists(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME))
+        if self._has_timestamp:
+            create_file_if_not_exists(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME))
         if self._has_hostname:
             create_file_if_not_exists(os.path.join(self._current_base_path, HOST_IDENTIFIER_COLUMN_NAME))
 
@@ -82,7 +83,9 @@ class BaseIOTStream:
         return self._stream_name
 
     def get_sql_create_statement(self):  # for CREATE STREAM TABLE statement
-        base_sql = ','.join([column.create_stream_sql() for column in self._columns.values()] + Implicit_Timestamp_SQL)
+        base_sql = ','.join([column.create_stream_sql() for column in self._columns.values()])
+        if self._has_timestamp:
+            base_sql += ',' + Implicit_Timestamp_SQL
         if self._has_hostname:
             base_sql += ',' + Hostname_SQL
         return base_sql
@@ -116,8 +119,8 @@ class BaseIOTStream:
         return {}
 
     def get_data_dictionary(self):
-        dic = OrderedDict({'schema': self._schema_name, 'stream': self._stream_name, 'hostname': self._has_hostname,
-                           'flushing': self.get_flushing_dictionary(),
+        dic = OrderedDict({'schema': self._schema_name, 'stream': self._stream_name, 'has_hostname': self._has_hostname,
+                           'has_timestamp': self._has_timestamp, 'flushing': self.get_flushing_dictionary(),
                            'columns': [value.to_json_representation() for value in self._columns.values()]})
         self._baskets_lock.acquire_read()
         dic['tuples_inserted_per_basket'] = self._tuples_in_per_basket
@@ -136,7 +139,8 @@ class BaseIOTStream:
 
             for key in self._columns.keys():
                 create_file_if_not_exists(os.path.join(self._current_base_path, key))
-            create_file_if_not_exists(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME))
+            if self._has_timestamp:
+                create_file_if_not_exists(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME))
             if self._has_hostname:
                 create_file_if_not_exists(os.path.join(self._current_base_path, HOST_IDENTIFIER_COLUMN_NAME))
 
@@ -181,8 +185,9 @@ class BaseIOTStream:
         # prepare variables outside the lock for more parallelism
         total_tuples = len(new_data)
 
-        timestamp_bin_value = Implicit_Timestamp_Handler.process_values([timestamp])
-        timestamps_binary_array = ''.join([timestamp_bin_value for _ in xrange(total_tuples)])
+        if self._has_timestamp:
+            timestamp_bin_value = Implicit_Timestamp_Handler.process_values([timestamp])
+            timestamps_binary_array = ''.join([timestamp_bin_value for _ in xrange(total_tuples)])
 
         if self._has_hostname:  # write the host name if applicable
             hosts_binary_array = ''.join([Hostname_Binary_Value for _ in xrange(total_tuples)])
@@ -196,11 +201,11 @@ class BaseIOTStream:
                 basket_fp.flush()
                 basket_fp.close()
 
-            # write the implicit timestamp
-            time_basket_fp = open(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME), 'ab')
-            time_basket_fp.write(timestamps_binary_array)
-            time_basket_fp.flush()
-            time_basket_fp.close()
+            if self._has_timestamp:  # write the implicit timestamp
+                time_basket_fp = open(os.path.join(self._current_base_path, IMPLICIT_TIMESTAMP_COLUMN_NAME), 'ab')
+                time_basket_fp.write(timestamps_binary_array)
+                time_basket_fp.flush()
+                time_basket_fp.close()
 
             if self._has_hostname:  # the variable never changes
                 hosts_basket_fp = open(os.path.join(self._current_base_path, HOST_IDENTIFIER_COLUMN_NAME), 'ab')
@@ -220,17 +225,17 @@ class BaseIOTStream:
 class TupleBasedStream(BaseIOTStream):
     """Stream with tuple based flushing"""
 
-    def __init__(self, schema_name, stream_name, columns, validation_schema, has_hostname, table_id, columns_ids,
-                 interval):
-        super(TupleBasedStream, self).__init__(schema_name, stream_name, columns, validation_schema, has_hostname,
-                                               table_id, columns_ids)
+    def __init__(self, schema_name, stream_name, columns, validation_schema, has_timestamp, has_hostname, table_id,
+                 columns_ids, interval):
+        super(TupleBasedStream, self).__init__(schema_name, stream_name, columns, validation_schema, has_timestamp,
+                                               has_hostname, table_id, columns_ids)
         self._interval = interval
 
     def get_flushing_dictionary(self):
         return {'base': 'tuple', 'interval': self._interval}
 
     def get_webserverstreams_sql_statement(self):  # insert for iot.webserverflushing table
-        return ''.join([",1,", str(self._has_hostname), ",", str(self._interval), ",NULL"])
+        return ''.join([",1,", str(self._interval), ",NULL"])
 
     def validate_and_insert(self, new_data, timestamp):
         super(TupleBasedStream, self).validate_and_insert(new_data, timestamp)
@@ -252,10 +257,10 @@ class TupleBasedStream(BaseIOTStream):
 class TimeBasedStream(BaseIOTStream):
     """Stream with time based flushing"""
 
-    def __init__(self, schema_name, stream_name, columns, validation_schema, has_hostname, table_id, columns_ids,
-                 interval, time_unit):
-        super(TimeBasedStream, self).__init__(schema_name, stream_name, columns, validation_schema, has_hostname,
-                                              table_id, columns_ids)
+    def __init__(self, schema_name, stream_name, columns, validation_schema, has_timestamp, has_hostname, table_id,
+                 columns_ids, interval, time_unit):
+        super(TimeBasedStream, self).__init__(schema_name, stream_name, columns, validation_schema, has_timestamp,
+                                              has_hostname, table_id, columns_ids)
         self._time_unit = time_unit
         self._interval = interval
         if time_unit == "s":
@@ -270,7 +275,7 @@ class TimeBasedStream(BaseIOTStream):
         return {'base': 'time', 'interval': self._interval, 'unit': self._time_unit}
 
     def get_webserverstreams_sql_statement(self):  # insert for iot.webserverflushing table
-        return ''.join([",2,", str(self._has_hostname), ",", str(self._interval), ",", self._time_unit])
+        return ''.join([",2,", str(self._interval), ",", self._time_unit])
 
     def time_based_flush(self):
         flag = False
@@ -299,15 +304,16 @@ class TimeBasedStream(BaseIOTStream):
 class AutoFlushedStream(BaseIOTStream):
     """Stream with flush every time a new batch is inserted"""
 
-    def __init__(self, schema_name, stream_name, columns, validation_schema, has_hostname, table_id, columns_ids):
-        super(AutoFlushedStream, self).__init__(schema_name, stream_name, columns, validation_schema, has_hostname,
-                                                table_id, columns_ids)
+    def __init__(self, schema_name, stream_name, columns, validation_schema, has_timestamp, has_hostname, table_id,
+                 columns_ids):
+        super(AutoFlushedStream, self).__init__(schema_name, stream_name, columns, validation_schema, has_timestamp,
+                                                has_hostname, table_id, columns_ids)
 
     def get_flushing_dictionary(self):
         return {'base': 'auto'}
 
     def get_webserverstreams_sql_statement(self):  # insert for iot.webserverflushing table
-        return ''.join([",3,", str(self._has_hostname), ",NULL,NULL"])
+        return ",3,NULL,NULL"
 
     def validate_and_insert(self, new_data, timestamp):
         super(AutoFlushedStream, self).validate_and_insert(new_data, timestamp)
