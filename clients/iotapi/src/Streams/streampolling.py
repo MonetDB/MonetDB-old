@@ -1,14 +1,13 @@
 from itertools import groupby
+from .datatypes import *
+from .streams import IOTStream
+from .streamscontext import Streams_Context
 from Settings.mapiconnection import fetch_streams
 from Utilities.customthreading import PeriodicalThread
-from datatypes import *
-from streams import IOTStream
-from streamscontext import Streams_Context
 
-SWITCHER = [{'types': ['clob', 'url'], 'class': 'TextType'},
+Switcher = [{'types': ['clob', 'url'], 'class': 'TextType'},
             {'types': ['char', 'varchar'], 'class': 'LimitedTextType'},
             {'types': ['tinyint', 'smallint', 'int', 'bigint'], 'class': 'SmallIntegerType'},
-            {'types': ['hugeint'], 'class': 'HugeIntegerType'},
             {'types': ['real', 'double'], 'class': 'FloatType'},
             {'types': ['decimal'], 'class': 'DecimalType'},
             {'types': ['boolean'], 'class': 'BooleanType'},
@@ -17,6 +16,10 @@ SWITCHER = [{'types': ['clob', 'url'], 'class': 'TextType'},
             {'types': ['timestamp', 'timestamptz'], 'class': 'TimestampType'},
             {'types': ['inet'], 'class': 'INetType'},
             {'types': ['uuid'], 'class': 'UUIDType'}]
+
+
+def polling_add_hugeint_type():
+    Switcher.append({'types': ['hugeint'], 'class': 'HugeIntegerType'})
 
 
 def init_stream_polling_thread(interval):
@@ -30,15 +33,15 @@ def stream_polling():
     array = fetch_streams()  # TODO check whenever stream's columns are updated
     retained_streams = []
     new_streams = {}
-    current_streams = Streams_Context.get_existing_streams()
+    current_streams = get_streams_context().get_existing_streams()
 
     if array is not None:
-        for key, group in groupby(array, lambda x: Streams_Context.get_context_entry_name(x[0], x[1])):
+        for key, group in groupby(array, lambda x: get_streams_context().get_context_entry_name(x[0], x[1])):
             if key not in current_streams:
                 columns = {}
 
                 for elem in group:
-                    for entry in SWITCHER:  # allocate the proper type wrapper
+                    for entry in Switcher:  # allocate the proper type wrapper
                         if elem[3] in entry['types']:
                             reflection_class = globals()[entry['class']]  # import everything from datatypes!!!
                             new_column = reflection_class(*elem[2:])

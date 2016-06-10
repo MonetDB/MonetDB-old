@@ -1,16 +1,16 @@
 from collections import OrderedDict, defaultdict
 from jsonschema import Draft4Validator, FormatChecker
-from datatypes import *
-from streams import TupleBasedStream, TimeBasedStream, AutoFlushedStream, IMPLICIT_TIMESTAMP_COLUMN_NAME,\
-    HOST_IDENTIFIER_COLUMN_NAME
-from streamscontext import Streams_Context
-from Settings.iotlogger import add_log
-from Settings.mapiconnection import mapi_get_webserver_streams
-from Utilities.customthreading import PeriodicalThread
-from jsonschemas import UNBOUNDED_TEXT_TYPE, BOUNDED_TEXT_TYPES, SMALL_INTEGERS_TYPES, HUGE_INTEGER_TYPE, \
+from .datatypes import *
+from .jsonschemas import UNBOUNDED_TEXT_TYPE, BOUNDED_TEXT_TYPES, SMALL_INTEGERS_TYPES, HUGE_INTEGER_TYPE, \
     FLOATING_POINT_PRECISION_TYPES, DECIMAL_TYPE, DATE_TYPE, TIME_WITHOUT_TIMEZONE_TYPE, \
     TIME_WITH_TIMEZONE_TYPE_INTERNAL, TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL, \
     BOOLEAN_TYPE, INET_TYPE, URL_TYPE, UUID_TYPE, INET6_TYPE, MAC_TYPE, REGEX_TYPE, ENUM_TYPE
+from .streams import TupleBasedStream, TimeBasedStream, AutoFlushedStream, IMPLICIT_TIMESTAMP_COLUMN_NAME,\
+    HOST_IDENTIFIER_COLUMN_NAME
+from .streamscontext import get_streams_context
+from Settings.iotlogger import add_log
+from Settings.mapiconnection import init_monetdb_connection, mapi_get_webserver_streams
+from Utilities.customthreading import PeriodicalThread
 
 Switcher = [{'types': [UNBOUNDED_TEXT_TYPE], 'class': 'TextType'},
             {'types': BOUNDED_TEXT_TYPES, 'class': 'LimitedTextType'},
@@ -32,7 +32,7 @@ Switcher = [{'types': [UNBOUNDED_TEXT_TYPE], 'class': 'TextType'},
             {'types': [ENUM_TYPE], 'class': 'EnumType'}]
 
 INTEGER_TYPES = SMALL_INTEGERS_TYPES
-FLOATING_POINT_TYPES = FLOATING_POINT_PRECISION_TYPES + DECIMAL_TYPE
+FLOATING_POINT_TYPES = FLOATING_POINT_PRECISION_TYPES + [DECIMAL_TYPE]
 DATETIME_TYPES = [DATE_TYPE, TIME_WITHOUT_TIMEZONE_TYPE, TIME_WITH_TIMEZONE_TYPE_INTERNAL,
                   TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL]
 
@@ -40,15 +40,16 @@ DATETIME_TYPES = [DATE_TYPE, TIME_WITHOUT_TIMEZONE_TYPE, TIME_WITH_TIMEZONE_TYPE
 def polling_add_hugeint_type():
     global INTEGER_TYPES
     Switcher.append({'types': [HUGE_INTEGER_TYPE], 'class': 'HugeIntegerType'})
-    INTEGER_TYPES += HUGE_INTEGER_TYPE
+    INTEGER_TYPES += [HUGE_INTEGER_TYPE]
 
 
-def init_stream_polling_thread(interval):
-    thread = PeriodicalThread(interval=interval, worker_func=stream_polling)
+def init_stream_polling_thread(interval, connection, con_hostname, con_port, con_user, con_password, con_database):
+    thread = PeriodicalThread(interval=interval, worker_func=stream_polling,
+                              argument=[connection, con_hostname, con_port, con_user, con_password, con_database])
     thread.start()
 
 
-def stream_polling():
+def stream_polling(arguments):
     retained_streams = []
     new_streams = {}  # dictionary of schema_name + '.' + stream_name -> DataCellStream
     # for tables [0] -> id, [1] -> schema, [2] -> name, [3] -> base, [4] -> interval, [5] -> unit
@@ -57,16 +58,17 @@ def stream_polling():
 
     # for columns [0] -> id, [1] -> table_id, [2] -> name, [3] -> type, [4] -> type_digits, [5] -> type_scale,
     # [6] -> default, [7] -> is_null, [8] -> special, [9] -> validation1, [10] -> validation2
-    tables, columns = mapi_get_webserver_streams()  # TODO check whenever stream's columns are updated
+    tables, columns = mapi_get_webserver_streams(arguments[0])  # TODO check whenever stream's columns are updated
     grouped_columns = defaultdict(list)  # group the columns to the respective tables
     for entry in columns:
         grouped_columns[entry[1]].append(entry)
 
-    current_streams = Streams_Context.get_existing_streams()  # array of concatenated names
+    context = get_streams_context()
+    current_streams = context.get_existing_streams()  # array of concatenated names
 
     for entry in tables:
         try:
-            next_concatenated_name = Streams_Context.get_context_entry_name(entry[1], entry[2])
+            next_concatenated_name = context.get_context_entry_name(entry[1], entry[2])
             if next_concatenated_name not in current_streams:
                 retrieved_columns = grouped_columns[entry[0]]
                 built_columns = {}  # dictionary of name -> data_types
@@ -149,22 +151,26 @@ def stream_polling():
                 }, format_checker=FormatChecker())
 
                 columns_ids = ','.join(map(lambda x: str(x[0]), retrieved_columns))
+                mapi_connection = init_monetdb_connection(arguments[1], arguments[2], arguments[3], arguments[4],
+                                                          arguments[5])
 
                 if entry[3] == 1:  # TupleBasedStream
                     new_stream = TupleBasedStream(schema_name=entry[1], stream_name=entry[2], columns=built_columns,
                                                   validation_schema=json_schema, has_timestamp=has_timestamp,
-                                                  has_hostname=has_hostname, table_id=str(entry[0]),
-                                                  columns_ids=columns_ids, interval=int(entry[4]))
+                                                  has_hostname=has_hostname, connection=mapi_connection,
+                                                  table_id=str(entry[0]), columns_ids=columns_ids,
+                                                  interval=int(entry[4]))
                 elif entry[3] == 2:  # TimeBasedStream
                     new_stream = TimeBasedStream(schema_name=entry[1], stream_name=entry[2], columns=built_columns,
                                                  validation_schema=json_schema, has_timestamp=has_timestamp,
-                                                 has_hostname=has_hostname, table_id=str(entry[0]),
-                                                 columns_ids=columns_ids, interval=int(entry[4]), time_unit=entry[5])
+                                                 has_hostname=has_hostname, connection=mapi_connection,
+                                                 table_id=str(entry[0]), columns_ids=columns_ids,
+                                                 interval=int(entry[4]), time_unit=entry[5])
                 else:  # AutoFlushedStream
                     new_stream = AutoFlushedStream(schema_name=entry[1], stream_name=entry[2], columns=built_columns,
                                                    validation_schema=json_schema, has_timestamp=has_timestamp,
-                                                   has_hostname=has_hostname, table_id=str(entry[0]),
-                                                   columns_ids=columns_ids)
+                                                   has_hostname=has_hostname, connection=mapi_connection,
+                                                   table_id=str(entry[0]), columns_ids=columns_ids)
                 new_streams[next_concatenated_name] = new_stream
             else:
                 retained_streams.append(next_concatenated_name)
@@ -172,4 +178,4 @@ def stream_polling():
             add_log(50, ex)
             continue
 
-    Streams_Context.merge_context(retained_streams, new_streams)
+        context.merge_context(retained_streams, new_streams)

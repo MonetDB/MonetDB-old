@@ -9,7 +9,8 @@ from multiprocessing import Process
 from threading import Thread
 from Settings.filesystem import init_file_system, DEFAULT_FILESYSTEM
 from Settings.iotlogger import init_logging, add_log, DEFAULT_LOGGING
-from Settings.mapiconnection import init_monetdb_connection
+from Settings.mapiconnection import init_monetdb_connection, check_hugeint_type
+from Streams.streampolling import polling_add_hugeint_type
 from Streams.streampolling import init_stream_polling_thread
 from WebSockets.websockets import init_websockets
 
@@ -27,6 +28,10 @@ def start_process(polling_interval, filesystem_location, sockets_host, sockets_p
     init_file_system(filesystem_location)  # init filesystem
     # init mapi connection
     init_monetdb_connection(connection_hostname, con_port, con_user, con_password, con_database)
+
+    if check_hugeint_type():
+        polling_add_hugeint_type()
+
     init_stream_polling_thread(polling_interval)  # start polling
 
     thread1 = Thread(target=init_websockets, args=(sockets_host, sockets_port))

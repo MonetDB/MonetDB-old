@@ -1,6 +1,6 @@
 import logging
-import sys
 import os
+import sys
 
 Logger = logging.getLogger("IOTServerLog")
 Logger.setLevel(logging.INFO)

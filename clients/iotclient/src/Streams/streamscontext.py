@@ -1,17 +1,25 @@
-import collections
-
+from collections import OrderedDict
+from .streamscreator import validate_schema_and_create_stream
+from Settings.mapiconnection import mapi_create_stream, mapi_delete_stream, init_monetdb_connection
 from Utilities.readwritelock import RWLock
-from streamscreator import validate_schema_and_create_stream
+
+Streams_Context = None
 
 
-class IOTStreams(object):
+class IOTStreams:
     @classmethod
     def get_context_entry_name(cls, schema_name, stream_name):
         return schema_name + '.' + stream_name
 
-    def __init__(self):
+    def __init__(self, con_hostname, con_port, con_user, con_password, con_database):
         self._locker = RWLock()
-        self._context = collections.OrderedDict()  # dictionary of schema_name + '.' + stream_name -> DataCellStream
+        self._context = OrderedDict()  # dictionary of schema_name + '.' + stream_name -> IOTStream
+        self._connection = init_monetdb_connection(con_hostname, con_port, con_user, con_password, con_database)
+        self._con_hostname = con_hostname
+        self._con_port = con_port
+        self._con_user = con_user
+        self._con_password = con_password  # TODO check this!!!
+        self._con_database = con_database
 
     def add_new_stream(self, validating_schema):
         concat_name = IOTStreams.get_context_entry_name(validating_schema['schema'], validating_schema['stream'])
@@ -21,7 +29,9 @@ class IOTStreams(object):
             raise Exception('The stream ' + validating_schema['stream'] + ' in schema ' + validating_schema['schema'] +
                             ' already exists!')
         try:
-            new_stream = validate_schema_and_create_stream(validating_schema)
+            new_stream = validate_schema_and_create_stream(validating_schema, self._con_hostname, self._con_port,
+                                                           self._con_user, self._con_password, self._con_database)
+            mapi_create_stream(self._connection, concat_name, new_stream)
             new_stream.start_stream()
             self._context[concat_name] = new_stream
         except:
@@ -40,6 +50,7 @@ class IOTStreams(object):
             old_stream = self._context[concat_name]
             del self._context[concat_name]
             old_stream.stop_stream()
+            mapi_delete_stream(self._connection, concat_name, old_stream.get_table_id(), old_stream.get_columns_ids())
         except:
             self._locker.release()
             raise
@@ -55,9 +66,9 @@ class IOTStreams(object):
             for key, value in removed_streams.iteritems():
                 del self._context[key]
                 value.stop_stream()
-            self._context.update(new_streams)
             for value in new_streams.values():
                 value.start_stream()
+            self._context.update(new_streams)
         except:
             self._locker.release()
             raise
@@ -80,4 +91,11 @@ class IOTStreams(object):
         self._locker.release()
         return res
 
-Streams_Context = IOTStreams()
+
+def init_streams_context(con_hostname, con_port, con_user, con_password, con_database):
+    global Streams_Context
+    Streams_Context = IOTStreams(con_hostname, con_port, con_user, con_password, con_database)
+
+
+def get_streams_context():
+    return Streams_Context

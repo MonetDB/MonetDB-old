@@ -1,15 +1,15 @@
-import json
 import os
 
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict, OrderedDict
+from json import dumps
+from .datatypes import TimestampWithTimeZoneType, TextType
 from Settings.filesystem import get_baskets_location
 from Settings.iotlogger import add_log
-from Settings.mapiconnection import mapi_flush_baskets, mapi_delete_stream
+from Settings.mapiconnection import close_monetdb_connection, mapi_flush_baskets
 from Utilities.filecreator import create_file_if_not_exists
 from Utilities.readwritelock import RWLock
 from Utilities.customthreading import PeriodicalThread
-from datatypes import TimestampWithTimeZoneType, TextType
 
 IMPLICIT_TIMESTAMP_COLUMN_NAME = 'implicit_timestamp'
 Implicit_Timestamp_Handler = TimestampWithTimeZoneType(name=IMPLICIT_TIMESTAMP_COLUMN_NAME, type="timestamp")
@@ -40,7 +40,7 @@ class BaseIOTStream:
     """Representation of a stream for validation"""
     __metaclass__ = ABCMeta
 
-    def __init__(self, schema_name, stream_name, columns, validation_schema, has_timestamp, has_hostname,
+    def __init__(self, schema_name, stream_name, columns, validation_schema, has_timestamp, has_hostname, connection,
                  table_id="", columns_ids=""):
         self._schema_name = schema_name  # name of the schema
         self._stream_name = stream_name  # name of the stream
@@ -49,6 +49,7 @@ class BaseIOTStream:
         self._validation_schema = validation_schema  # json validation schema for the inserts
         self._has_timestamp = has_timestamp  # add timestamp column or not
         self._has_hostname = has_hostname  # add hostname column or not
+        self._connection = connection  # to be init later
         self._table_id = table_id  # for delete statement on table iot.webserverstreams
         self._columns_ids = columns_ids  # for delete statement on table iot.webservercolumns
         self._baskets_lock = RWLock()  # baskets lock to protect files (the server is multi-threaded)
@@ -62,7 +63,7 @@ class BaseIOTStream:
             if dirs:
                 for elem in dirs:  # for each directory found, flush it
                     dir_path = os.path.join(self._base_path, str(elem))
-                    mapi_flush_baskets(self._schema_name, self._stream_name, dir_path)
+                    mapi_flush_baskets(self._connection, self._schema_name, self._stream_name, dir_path)
                 self._baskets_counter = max(dirs) + 1  # increment current basket number
             else:
                 self._baskets_counter = 1
@@ -97,6 +98,12 @@ class BaseIOTStream:
         self._table_id = table_id
         self._columns_ids = columns_ids
 
+    def get_table_id(self):  # for the delete statement
+        return self._table_id
+
+    def get_columns_ids(self):  # for the delete statement
+        return self._columns_ids
+
     @abstractmethod
     def get_webserverstreams_sql_statement(self):  # insert for iot.webserverflushing table
         return ""
@@ -108,7 +115,7 @@ class BaseIOTStream:
         self._baskets_lock.acquire_write()
         try:
             self.flush_baskets(last=True)
-            mapi_delete_stream(self._schema_name, self._stream_name, self._table_id, self._columns_ids)
+            close_monetdb_connection(self._connection)
         except BaseException as ex:
             add_log(50, ex)
         self._baskets_lock.release()
@@ -129,7 +136,7 @@ class BaseIOTStream:
 
     def flush_baskets(self, last=False):  # the monitor has to be acquired in write mode before running this method!!!
         # write the tuple count in the basket
-        mapi_flush_baskets(self._schema_name, self._stream_name, self._current_base_path)
+        mapi_flush_baskets(self._connection, self._schema_name, self._stream_name, self._current_base_path)
 
         if not last:  # when stopping the stream, we don't want to continue to create more baskets files
             self._tuples_in_per_basket = 0
@@ -165,7 +172,7 @@ class BaseIOTStream:
                     batch_errors[value].append('Problem while parsing this column in tuple: ' + str(tuple_counter))
 
         if batch_errors:
-            raise Exception(message=json.dumps(batch_errors))  # dictionary of column -> list of error messages
+            raise Exception(message=dumps(batch_errors))  # dictionary of column -> list of error messages
 
         transposed_data = defaultdict(list)  # transpose the inserts to benefit the MonetDB's column storage
         for entry in new_data:
@@ -180,7 +187,7 @@ class BaseIOTStream:
                 batch_errors[key] = ex
 
         if batch_errors:
-            raise Exception(message=json.dumps(batch_errors))  # dictionary of column -> list of error messages
+            raise Exception(message=dumps(batch_errors))  # dictionary of column -> list of error messages
 
         # prepare variables outside the lock for more parallelism
         total_tuples = len(new_data)

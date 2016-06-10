@@ -1,12 +1,11 @@
-import json
 import sys
 
-from Settings.iotlogger import add_log
-from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
-from Utilities.readwritelock import RWLock
+from json import loads, dumps
 from jsonschema import Draft4Validator, FormatChecker
-
-from jsonschemas import CLIENTS_INPUTS_SCHEMA, SUBSCRIBE_OPTS, UNSUBSCRIBE_OPTS, READ_OPTS, INFO_OPTS
+from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
+from .jsonschemas import CLIENTS_INPUTS_SCHEMA, SUBSCRIBE_OPTS, UNSUBSCRIBE_OPTS, READ_OPTS, INFO_OPTS
+from Settings.iotlogger import add_log
+from Utilities.readwritelock import RWLock
 
 Client_Messages_Validator = Draft4Validator(CLIENTS_INPUTS_SCHEMA, format_checker=FormatChecker())
 WebSocketServer = None
@@ -23,7 +22,7 @@ def unsubscribe_removed_streams(concatenated_names):
     for name in concatenated_names:
         add_log(20, ''.join(['Stream ', name, ' removed']))
 
-from Streams.streamscontext import Streams_Context, IOTStreams  # avoid circular dependency
+from ..Streams.streamscontext import Streams_Context, IOTStreams  # avoid circular dependency
 
 
 def notify_stream_inserts_to_clients(schema_name, stream_name, basket_number, count):
@@ -43,7 +42,7 @@ class IOTAPI(WebSocket):
 
     def sendJSONMessage(self, response, message):  # IMPORTANT always use this method to send messages to clients!!!!!
         message['response'] = response
-        super(IOTAPI, self).sendMessage(json.dumps(message))  # send JSON Strings to clients
+        super(IOTAPI, self).sendMessage(dumps(message))  # send JSON Strings to clients
 
     def handleConnected(self):  # overriden
         WebClientsLock.acquire_write()
@@ -61,7 +60,7 @@ class IOTAPI(WebSocket):
         if self.opcode != 0x1:  # TEXT frame
             self.sendJSONMessage(response="error", message={"message": "Only TEXT frames allowed!"})
         try:
-            input_schema = json.loads(self.data)
+            input_schema = loads(self.data)
             Client_Messages_Validator.validate(input_schema)
 
             if input_schema['request'] in SUBSCRIBE_OPTS:

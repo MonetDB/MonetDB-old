@@ -1,7 +1,7 @@
 import struct
+
 from abc import ABCMeta, abstractmethod
 from datetime import date, time, datetime
-
 from dateutil.relativedelta import relativedelta
 
 LITTLE_ENDIAN_ALIGNMENT = '<'  # for now is little-endian for Intel CPU's

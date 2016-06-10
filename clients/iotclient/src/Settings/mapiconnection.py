@@ -1,64 +1,37 @@
-import pymonetdb
-import sys
-
+from pymonetdb import connect
 from Settings.iotlogger import add_log
-from Streams.streamscontext import IOTStreams
-from Streams.jsonschemas import init_create_streams_schema
-from Streams.streamcreator import creator_add_hugeint_type
-from Streams.streampolling import polling_add_hugeint_type
-
-Connection = None
 
 
 def init_monetdb_connection(hostname, port, user_name, user_password, database):
-    global Connection
-
-    try:  # the autocommit is set to true so each statement will be independent
-        Connection = pymonetdb.connect(hostname=hostname, port=port, username=user_name, password=user_password,
-                                       database=database, autocommit=False)
-        log_message = 'User %s connected successfully to database %s' % (user_name, database)
-        print log_message
-        add_log(20, log_message)
-
-        if check_hugeint_type() > 0:
-            polling_add_hugeint_type()
-            creator_add_hugeint_type()
-            init_create_streams_schema(add_hugeint=True)
-        else:
-            init_create_streams_schema(add_hugeint=False)
-    except BaseException as ex:
-        print ex
-        add_log(50, ex)
-        sys.exit(1)
+    return connect(hostname=hostname, port=port, username=user_name, password=user_password, database=database,
+                   autocommit=False)  # the autocommit is set to true so each statement will be independent
 
 
-def close_monetdb_connection():
-    Connection.close()
+def close_monetdb_connection(connection):
+    connection.close()
 
 
-def check_hugeint_type():
-    Connection.execute("START TRANSACTION")
-    cursor = Connection.cursor()
+def check_hugeint_type(connection):
+    cursor = connection.cursor()
     cursor.execute("SELECT COUNT(*) FROM sys.types WHERE sqlname='hugeint'")
-    result = cursor.fetchall()[0]
-    Connection.commit()
-    return result
+    result = cursor.fetchall()[0][0]
+    connection.commit()
+    return result > 0
 
 
-def mapi_get_webserver_streams():
+def mapi_get_webserver_streams(connection):
     try:
-        Connection.execute("START TRANSACTION")
-        cursor = Connection.cursor()
+        cursor = connection.cursor()
         sql_string = """SELECT tables."id", schemas."name" AS schema, tables."name" AS table, extras."base",
             extras."interval", extras."unit" FROM (SELECT "id", "name", "schema_id" FROM sys.tables WHERE type=4)
             AS tables INNER JOIN (SELECT "id", "name" FROM sys.schemas) AS schemas ON (tables."schema_id"=schemas."id")
-            LEFT JOIN (SELECT "table_id", "has_hostname", "base", "interval", "unit" FROM iot.webserverstreams)
-            AS extras ON (tables."id"=extras."table_id")""".replace('\n', ' ')
+            LEFT JOIN (SELECT "table_id", "base", "interval", "unit" FROM iot.webserverstreams) AS extras
+            ON (tables."id"=extras."table_id")""".replace('\n', ' ')
         cursor.execute(sql_string)
         tables = cursor.fetchall()
 
-        cursor = Connection.cursor()
-        sql_string = """SELECT columns."column_id", columns."table_id", columns."name" AS column, columns."type",
+        cursor = connection.cursor()
+        sql_string = """SELECT columns."id", columns."table_id", columns."name" AS column, columns."type",
             columns."type_digits", columns."type_scale", columns."default", columns."null", extras."special",
             extras."validation1", extras."validation2" FROM (SELECT "id", "table_id", "name", "type", "type_digits",
             "type_scale", "default", "null" FROM sys.columns) AS columns INNER JOIN (SELECT "id" FROM sys.tables
@@ -68,30 +41,27 @@ def mapi_get_webserver_streams():
         cursor.execute(sql_string)
         columns = cursor.fetchall()
 
-        Connection.commit()
+        connection.commit()
         return tables, columns
     except BaseException as ex:
         add_log(50, ex)
         raise
 
 
-def mapi_create_stream(stream):
+def mapi_create_stream(connection, concatenated_name, stream):
     schema = stream.get_schema_name()
-    table = stream.get_stream_name()
     flush_statement = stream.get_webserverstreams_sql_statement()
     columns_dictionary = stream.get_columns_extra_sql_statements()  # dictionary of column_name -> partial SQL statement
 
     try:
         try:  # create schema if not exists, ignore the error if already exists
-            Connection.execute("START TRANSACTION")
-            Connection.execute("CREATE SCHEMA " + schema)
-            Connection.commit()
+            connection.execute("CREATE SCHEMA " + schema)
+            connection.commit()
         except:
-            Connection.commit()
-        Connection.execute("START TRANSACTION")
-        Connection.execute(''.join(["CREATE STREAM TABLE ", IOTStreams.get_context_entry_name(schema, table), " (",
-                                    stream.get_sql_create_statement(), ")"]))
-        cursor = Connection.cursor()
+            pass
+        connection.execute(''.join(["CREATE STREAM TABLE ", concatenated_name, " (", stream.get_sql_create_statement(),
+                                    ")"]))
+        cursor = connection.cursor()
         cursor.execute("SELECT id FROM sys.schemas WHERE \"name\"='" + schema + "'")
         schema_id = str(cursor.fetchall()[0][0])
         cursor.execute(''.join(["SELECT id FROM sys.tables WHERE schema_id=", schema_id, " AND \"name\"='", stream,
@@ -110,29 +80,27 @@ def mapi_create_stream(stream):
                     break
 
         cursor.execute("INSERT INTO iot.webservercolumns VALUES " + ','.join(inserts))
-        Connection.commit()
+        connection.commit()
         stream.set_delete_ids(table_id, colums_ids)
     except BaseException as ex:
         add_log(50, ex)
         raise
 
 
-def mapi_delete_stream(schema, stream, stream_id, columns_ids):
+def mapi_delete_stream(connection, concatenated_name, stream_id, columns_ids):
     try:
-        Connection.execute("START TRANSACTION")
-        Connection.execute("DROP TABLE " + IOTStreams.get_context_entry_name(schema, stream))
-        Connection.execute("DELETE FROM iot.webserverstreams WHERE table_id=" + stream_id)
-        Connection.execute("DELETE FROM iot.webservercolumns WHERE column_id IN (" + columns_ids + ")")
-        Connection.commit()
+        connection.execute("DROP TABLE " + concatenated_name)
+        connection.execute("DELETE FROM iot.webserverstreams WHERE table_id=" + stream_id)
+        connection.execute("DELETE FROM iot.webservercolumns WHERE column_id IN (" + columns_ids + ")")
+        connection.commit()
     except BaseException as ex:
         add_log(50, ex)
         raise
 
 
-def mapi_flush_baskets(schema, stream, baskets):
+def mapi_flush_baskets(connection, schema, stream, baskets):
     try:
-        Connection.execute("START TRANSACTION")
-        Connection.execute(''.join(["CALL iot.basket('", schema, "','", stream, "','", baskets, "')"]))
-        Connection.commit()
+        connection.execute(''.join(["CALL iot.basket('", schema, "','", stream, "','", baskets, "')"]))
+        connection.commit()
     except BaseException as ex:
         add_log(40, ex)

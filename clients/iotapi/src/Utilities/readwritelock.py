@@ -1,11 +1,9 @@
 import threading
 
 
-#  Adapted from https://majid.info/blog/a-reader-writer-lock-for-python/
-
-
-class RWLock:
-    """A simple reader-writer lock Several readers can hold the lock simultaneously, XOR one writer. Write locks have priority over reads to prevent write starvation."""
+class RWLock:  # Adapted from https://majid.info/blog/a-reader-writer-lock-for-python/
+    """A simple reader-writer lock Several readers can hold the lock simultaneously, XOR one writer.
+    Write locks have priority over reads to prevent write starvation."""
 
     def __init__(self):
         self.rwlock = 0
@@ -33,7 +31,7 @@ class RWLock:
         self.monitor.release()
 
     def promote(self):
-        """Promote an already-acquired read lock to a write lock WARNING: it is very easy to deadlock with this method"""
+        """Promote an already-acquired read lock to a write lock WARNING:it is very easy to deadlock with this method"""
         self.monitor.acquire()
         self.rwlock -= 1
         while self.rwlock != 0:

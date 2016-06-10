@@ -2,7 +2,7 @@ from Utilities.readwritelock import RWLock
 from WebSockets.websockets import unsubscribe_removed_streams
 
 
-class IOTStreams(object):
+class IOTStreams:
     """Streams context"""
 
     @classmethod

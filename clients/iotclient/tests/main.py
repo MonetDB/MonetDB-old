@@ -5,7 +5,7 @@ import pymonetdb
 import sys
 import unittest
 
-from datatypesinsertstests import TextTest, URLTest, INetTest, UUIDTest, BooleanTest, TinyIntegerTest,\
+from .datatypesinsertstests import TextTest, URLTest, INetTest, UUIDTest, BooleanTest, TinyIntegerTest,\
     SmallIntegerTest, IntegerTest, BigIntegerTest, HugeIntegerTest, RealPointTest, FloatPointTest, DecimalTest,\
     DateTest, TimeWithoutTimezoneTest, TimeWithTimezoneTest, TimestampWithoutTimezoneTest, TimestampWithTimezoneTest,\
     NullableTextTest, NullableURLTest, NullableINetTest, NullableUUIDTest, NullableBooleanTest,\

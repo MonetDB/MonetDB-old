@@ -23,7 +23,8 @@ ENUM_TYPE = "enum"
 BOOLEAN_TYPE = "boolean"
 BOOLEAN_INPUTS = [BOOLEAN_TYPE, "bool"]
 
-SMALL_INTEGERS_TYPES = ["tinyint", "smallint", "int", "integer", "bigint"]
+SMALL_INTEGERS_TYPES = ["tinyint", "smallint", "int", "bigint"]
+SMALL_INTEGERS_INPUTS = SMALL_INTEGERS_TYPES + ["integer"]
 HUGE_INTEGER_TYPE = "hugeint"
 
 FLOATING_POINT_PRECISION_TYPES = ["real", "double"]
@@ -47,13 +48,16 @@ TIMESTAMP_INPUTS = [TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYP
 CREATE_STREAMS_SCHEMA = None
 
 
+def get_create_streams_schema():
+    return CREATE_STREAMS_SCHEMA
+
 def init_create_streams_schema(add_hugeint=True):
     global CREATE_STREAMS_SCHEMA
 
     if add_hugeint:
-        integers = SMALL_INTEGERS_TYPES.append(HUGE_INTEGER_TYPE)
+        integers = SMALL_INTEGERS_INPUTS.append(HUGE_INTEGER_TYPE)
     else:
-        integers = SMALL_INTEGERS_TYPES
+        integers = SMALL_INTEGERS_INPUTS
 
     CREATE_STREAMS_SCHEMA = {
         "title": "JSON schema to create a stream",

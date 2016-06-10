@@ -1,6 +1,6 @@
 from flask import Flask
 from flask_restful import Api
-from restresources import StreamInput, StreamsInfo, StreamsHandling
+from .restresources import StreamInput, StreamsInfo, StreamsHandling
 
 
 def start_flask_iot_app(host, port):

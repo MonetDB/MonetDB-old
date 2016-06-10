@@ -1,20 +1,19 @@
-import collections
-import json
-
+from collections import OrderedDict
+from json import dumps
 from jsonschema import Draft4Validator, FormatChecker
-from datatypes import *
-from jsonschemas import UNBOUNDED_TEXT_INPUTS, BOUNDED_TEXT_INPUTS, SMALL_INTEGERS_TYPES, HUGE_INTEGER_TYPE, \
+from .datatypes import *
+from .jsonschemas import UNBOUNDED_TEXT_INPUTS, BOUNDED_TEXT_INPUTS, SMALL_INTEGERS_INPUTS, HUGE_INTEGER_TYPE, \
     FLOATING_POINT_PRECISION_INPUTS, DECIMAL_INPUTS, DATE_TYPE, TIME_WITHOUT_TIMEZONE_TYPE, \
     TIME_WITH_TIMEZONE_TYPE_EXTERNAL, TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL, \
     BOOLEAN_INPUTS, INET_TYPE, INET6_TYPE, MAC_TYPE, URL_TYPE, UUID_TYPE, REGEX_TYPE, ENUM_TYPE, \
     TIMED_FLUSH_IDENTIFIER, TUPLE_FLUSH_IDENTIFIER
-from streams import TupleBasedStream, TimeBasedStream, AutoFlushedStream, IMPLICIT_TIMESTAMP_COLUMN_NAME,\
+from .streams import TupleBasedStream, TimeBasedStream, AutoFlushedStream, IMPLICIT_TIMESTAMP_COLUMN_NAME,\
     HOST_IDENTIFIER_COLUMN_NAME
-from Settings.mapiconnection import mapi_create_stream
+from Settings.mapiconnection import init_monetdb_connection
 
 Switcher = [{'types': UNBOUNDED_TEXT_INPUTS, 'class': 'TextType'},
             {'types': BOUNDED_TEXT_INPUTS, 'class': 'LimitedTextType'},
-            {'types': SMALL_INTEGERS_TYPES, 'class': 'SmallIntegerType'},
+            {'types': SMALL_INTEGERS_INPUTS, 'class': 'SmallIntegerType'},
             {'types': FLOATING_POINT_PRECISION_INPUTS, 'class': 'FloatType'},
             {'types': DECIMAL_INPUTS, 'class': 'DecimalType'},
             {'types': [DATE_TYPE], 'class': 'DateType'},
@@ -36,9 +35,9 @@ def creator_add_hugeint_type():
     Switcher.append({'types': [HUGE_INTEGER_TYPE], 'class': 'HugeIntegerType'})
 
 
-def validate_schema_and_create_stream(schema):
-    validated_columns = collections.OrderedDict()  # dictionary of name -> data_types
-    errors = collections.OrderedDict()
+def validate_schema_and_create_stream(schema, con_hostname, con_port, con_user, con_password, con_database):
+    validated_columns = OrderedDict()  # dictionary of name -> data_types
+    errors = OrderedDict()
 
     for column in schema['columns']:  # create the data types dictionary
         next_type = column['type']
@@ -61,9 +60,9 @@ def validate_schema_and_create_stream(schema):
                     errors[next_name] = ex
                 break
     if errors:
-        raise Exception(message=json.dumps(errors))  # dictionary of name ->  error message
+        raise Exception(message=dumps(errors))  # dictionary of name ->  error message
 
-    properties = collections.OrderedDict()
+    properties = OrderedDict()
     req_fields = []
 
     for key, value in validated_columns.iteritems():
@@ -79,16 +78,20 @@ def validate_schema_and_create_stream(schema):
     }, format_checker=FormatChecker())
 
     flushing_object = schema['flushing']  # check the flush method
+    mapi_connection = init_monetdb_connection(con_hostname, con_port, con_user, con_password, con_database)
+
     if flushing_object['base'] == TIMED_FLUSH_IDENTIFIER:
         res = TimeBasedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
                               validation_schema=json_schema, has_timestamp=True, has_hostname=schema['hostname'],
-                              interval=flushing_object['interval'], time_unit=flushing_object['unit'])
+                              connection=mapi_connection, interval=flushing_object['interval'],
+                              time_unit=flushing_object['unit'], table_id="", columns_ids="")
     elif flushing_object['base'] == TUPLE_FLUSH_IDENTIFIER:
         res = TupleBasedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
                                validation_schema=json_schema, has_timestamp=True, has_hostname=schema['hostname'],
-                               interval=flushing_object['interval'])
+                               connection=mapi_connection, interval=flushing_object['interval'], table_id="",
+                               columns_ids="")
     else:
         res = AutoFlushedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
-                                validation_schema=json_schema, has_timestamp=True, has_hostname=schema['hostname'])
-    mapi_create_stream(res)  # send the CREATE STREAM TABLE statement when the create json request is made
+                                validation_schema=json_schema, has_timestamp=True, has_hostname=schema['hostname'],
+                                connection=mapi_connection, table_id="", columns_ids="")
     return res

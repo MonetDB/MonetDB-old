@@ -1,4 +1,4 @@
-import time
+from time import sleep
 from threading import Thread, Event
 
 
@@ -28,4 +28,4 @@ class PeriodicalThread(StoppableThread):
     def run(self):
         while not self.stop_event.is_set():
             self._worker_func()
-            time.sleep(self._interval)
+            sleep(self._interval)

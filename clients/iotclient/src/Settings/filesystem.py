@@ -1,7 +1,7 @@
 import os
 import sys
 
-from iotlogger import add_log
+from .iotlogger import add_log
 
 Baskets_Location = None
 

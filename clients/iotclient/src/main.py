@@ -13,8 +13,12 @@ from Flask.app import start_flask_iot_app, start_flask_admin_app
 from Flask.restresources import init_rest_resources
 from Settings.filesystem import init_file_system, DEFAULT_FILESYSTEM
 from Settings.iotlogger import init_logging, add_log, DEFAULT_LOGGING
-from Settings.mapiconnection import init_monetdb_connection
+from Settings.mapiconnection import init_monetdb_connection, check_hugeint_type
 from Streams.streams import init_streams_hosts
+from Streams.jsonschemas import init_create_streams_schema
+from Streams.streamscontext import init_streams_context
+from Streams.streamscreator import creator_add_hugeint_type
+from Streams.streampolling import polling_add_hugeint_type, init_stream_polling_thread
 
 subprocess = None
 
@@ -24,14 +28,32 @@ def signal_handler(signal, frame):
     add_log(20, 'Stopped IOT Stream Server')
 
 
-def start_process(filesystem_location, host_identifier, admin_host, admin_port, app_host, app_port, con_hostname,
-                  con_port, con_user, con_password, con_database):
-    # WARNING The initiation order must be this!!!
-    init_file_system(filesystem_location)  # init filesystem
-    init_streams_hosts(host_identifier)  # init hostname column for streams
-    # init mapi connection
-    init_monetdb_connection(con_hostname, con_port, con_user, con_password, con_database)
-    init_rest_resources()  # init validators for RESTful requests
+def start_process(filesystem_location, polling, host_identifier, admin_host, admin_port, app_host, app_port,
+                  con_hostname, con_port, con_user, con_password, con_database):
+    try:
+        # WARNING The initiation order must be this!!!
+        init_file_system(filesystem_location)  # init filesystem
+
+        connection = init_monetdb_connection(con_hostname, con_port, con_user, con_password, con_database)
+        if check_hugeint_type(connection):
+            polling_add_hugeint_type()
+            creator_add_hugeint_type()
+            init_create_streams_schema(add_hugeint=True)
+        else:
+            init_create_streams_schema(add_hugeint=False)
+
+        init_streams_context(con_hostname, con_port, con_user, con_password, con_database)
+        init_streams_hosts(host_identifier)  # init hostname column for streams
+        init_rest_resources()  # init validators for RESTful requests
+        init_stream_polling_thread(polling, connection, con_hostname, con_port, con_user, con_password, con_database)
+
+        log_message = 'User %s connected successfully to database %s' % (con_user, con_database)
+        print log_message
+        add_log(20, log_message)
+    except BaseException as ex:
+        print ex
+        add_log(50, ex)
+        sys.exit(1)
 
     thread1 = Thread(target=start_flask_admin_app, args=(admin_host, admin_port))
     thread2 = Thread(target=start_flask_iot_app, args=(app_host, app_port))
@@ -108,9 +130,9 @@ def main():
 
     con_password = getpass.getpass(prompt='Insert password for user ' + args['user'] + ':')
     init_logging(args['log'])  # init logging context
-    subprocess = Process(target=start_process, args=(args['filesystem'], args['name'], args['ihost'], args['iport'],
-                                                     args['ahost'], args['aport'], args['host'], args['port'],
-                                                     args['user'], con_password, args['database']))
+    subprocess = Process(target=start_process, args=(args['filesystem'], args['polling'], args['name'], args['ihost'],
+                                                     args['iport'], args['ahost'], args['aport'], args['host'],
+                                                     args['port'], args['user'], con_password, args['database']))
     subprocess.start()
     signal.signal(signal.SIGINT, signal_handler)
     subprocess.join()

@@ -1,15 +1,15 @@
-import copy
-import datetime
-import iso8601
-import itertools
-import json
-import math
-import re
 import struct
 
 from abc import ABCMeta, abstractmethod
+from copy import deepcopy
+from datetime import datetime, timedelta
 from dateutil import parser
-from jsonschemas import UUID_REGEX, MAC_ADDRESS_REGEX, TIME_REGEX, IPV4_REGEX
+from iso8601 import parse_date
+from itertools import chain
+from json import dumps
+from math import ceil, log10
+from re import compile, split
+from .jsonschemas import UUID_REGEX, MAC_ADDRESS_REGEX, TIME_REGEX, IPV4_REGEX
 
 # The null constants might change from system to system due to different CPU's limits
 LITTLE_ENDIAN_ALIGNMENT = '<'  # for now it is little-endian
@@ -84,7 +84,7 @@ class StreamDataType:
             extracted_values.append(self.process_next_value(entry, counter, parameters, errors))
 
         if errors:
-            raise Exception(errors=json.dumps(errors))  # dictionary of row_number -> error
+            raise Exception(errors=dumps(errors))  # dictionary of row_number -> error
         return self.pack_parsed_values(extracted_values, counter, parameters)
 
     def to_json_representation(self):  # get a json representation of the data type while checking the stream's info
@@ -175,7 +175,7 @@ class RegexType(TextType):
 
     def __init__(self, **kwargs):
         super(RegexType, self).__init__(**kwargs)
-        self._regex = re.compile(kwargs['regex'])
+        self._regex = compile(kwargs['regex'])
         self._regex_text = kwargs['regex']
 
     def set_default_value(self, default_value):
@@ -293,7 +293,7 @@ class INetType(StreamDataType):
         if entry == self.get_nullable_constant():
             array[7] = 1
         else:
-            components = re.split(r'[./]+', entry)
+            components = split(r'[./]+', entry)
             for i in xrange(4):
                 array[i] = int(components[i])
             if len(components) > 4:  # if it has a mask add it to the array
@@ -303,7 +303,7 @@ class INetType(StreamDataType):
         return array
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
-        extracted_values = list(itertools.chain(*extracted_values))
+        extracted_values = list(chain(*extracted_values))
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter << 3) + 'B', *extracted_values)  # arrays of 8 uchars
 
 
@@ -350,7 +350,7 @@ class UUIDType(StreamDataType):
         return array
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
-        extracted_values = list(itertools.chain(*extracted_values))
+        extracted_values = list(chain(*extracted_values))
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter << 4) + 'B', *extracted_values)  # arrays of 16 uchars
 
 
@@ -472,7 +472,7 @@ class HugeIntegerType(NumberBaseType):
         return [entry & 0xFFFFFFFFFFFFFFFF, (entry >> 64) & 0xFFFFFFFFFFFFFFFF]
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
-        extracted_values = list(itertools.chain(*extracted_values))
+        extracted_values = list(chain(*extracted_values))
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter << 1) + 'Q', *extracted_values)
 
 
@@ -533,7 +533,7 @@ class DecimalType(NumberBaseType):
 
     def check_value_precision(self, value, text):
         if value != self._nullable_constant:
-            number_digits = int(math.ceil(math.log10(abs(value))))
+            number_digits = int(ceil(log10(abs(value))))
             if number_digits > self._precision:
                 raise Exception('Too many digits on %s: %s > %s!' % (text, number_digits, self._precision))
 
@@ -553,7 +553,7 @@ class DecimalType(NumberBaseType):
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
         if self._pack_sym == 'Q':
-            extracted_values = list(itertools.chain(*extracted_values))
+            extracted_values = list(chain(*extracted_values))
             counter <<= 1  # duplicate the counter for packing
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + self._pack_sym, *extracted_values)
 
@@ -657,12 +657,12 @@ class DateType(BaseDateTimeType):  # Stored as an uint with the number of days s
         schema[self._column_name]['format'] = 'date'
 
     def parse_entry(self, entry):
-        return datetime.datetime.strptime(entry, "%Y-%m-%d")
+        return datetime.strptime(entry, "%Y-%m-%d")
 
     def pack_next_value(self, parsed, counter, parameters, errors):
         if parsed is None:
             return 0x80000000
-        day0 = copy.deepcopy(parsed).replace(year=1, month=1, day=1)
+        day0 = deepcopy(parsed).replace(year=1, month=1, day=1)
         # the minyear in python is 1, but for the representation is 0, so why the add
         return int((parsed - day0).days) + 366
 
@@ -686,7 +686,7 @@ class TimeWithoutTimeZoneType(BaseDateTimeType):  # Stored as an uint with the n
     def pack_next_value(self, parsed, counter, parameters, errors):
         if parsed is None:
             return 0x80000000
-        hour0 = copy.deepcopy(parsed).replace(hour=0, minute=0, second=0, microsecond=0)
+        hour0 = deepcopy(parsed).replace(hour=0, minute=0, second=0, microsecond=0)
         delta = parsed - hour0
         return int(delta.total_seconds()) * 1000 + int(delta.microseconds) / 1000
 
@@ -703,7 +703,7 @@ class TimeWithTimeZoneType(TimeWithoutTimeZoneType):
     def parse_entry(self, entry):
         parsed = parser.parse(entry)
         string = parsed.strftime("%z")
-        delta = datetime.timedelta(hours=int(string[1:3]), minutes=int(string[3:5]))
+        delta = timedelta(hours=int(string[1:3]), minutes=int(string[3:5]))
         if string[0] == '-':
             delta = -delta
         parsed = parsed.replace(tzinfo=None) - delta
@@ -721,20 +721,20 @@ class TimestampWithoutTimeZoneType(BaseDateTimeType):  # it's represented with t
         schema[self._column_name]['format'] = 'date-time'
 
     def parse_entry(self, entry):
-        return iso8601.parse_date(entry)
+        return parse_date(entry)
 
     def pack_next_value(self, parsed, counter, parameters, errors):
         if parsed is None:
             return [0, 0x80000000]
-        hour0 = copy.deepcopy(parsed).replace(hour=0, minute=0, second=0, microsecond=0)
-        day0 = copy.deepcopy(parsed).replace(year=1, month=1, day=1)
+        hour0 = deepcopy(parsed).replace(hour=0, minute=0, second=0, microsecond=0)
+        day0 = deepcopy(parsed).replace(year=1, month=1, day=1)
         days = int((parsed - day0).days) + 366
         delta = parsed - hour0
         milliseconds = int(delta.total_seconds()) * 1000 + int(delta.microseconds) / 1000
         return [milliseconds, days]
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
-        concat_array = list(itertools.chain(*extracted_values))
+        concat_array = list(chain(*extracted_values))
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter << 1) + 'I', *concat_array)
 
 
@@ -745,9 +745,9 @@ class TimestampWithTimeZoneType(TimestampWithoutTimeZoneType):
         super(TimestampWithTimeZoneType, self).__init__(**kwargs)
 
     def parse_entry(self, entry):
-        parsed = iso8601.parse_date(entry)
+        parsed = parse_date(entry)
         string = parsed.strftime("%z")
-        delta = datetime.timedelta(hours=int(string[1:3]), minutes=int(string[3:5]))
+        delta = timedelta(hours=int(string[1:3]), minutes=int(string[3:5]))
         if string[0] == '-':
             delta = -delta
         parsed = parsed.replace(tzinfo=None) - delta
