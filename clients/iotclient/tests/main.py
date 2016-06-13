@@ -1,11 +1,11 @@
 import argparse
 import getpass
 import os
-import pymonetdb
 import sys
 import unittest
 
-from .datatypesinsertstests import TextTest, URLTest, INetTest, UUIDTest, BooleanTest, TinyIntegerTest,\
+from monetdb.sql import connect
+from datatypesinsertstests import TextTest, URLTest, INetTest, UUIDTest, BooleanTest, TinyIntegerTest,\
     SmallIntegerTest, IntegerTest, BigIntegerTest, HugeIntegerTest, RealPointTest, FloatPointTest, DecimalTest,\
     DateTest, TimeWithoutTimezoneTest, TimeWithTimezoneTest, TimestampWithoutTimezoneTest, TimestampWithTimezoneTest,\
     NullableTextTest, NullableURLTest, NullableINetTest, NullableUUIDTest, NullableBooleanTest,\
@@ -54,8 +54,8 @@ def main():
 
     try:
         con_password = getpass.getpass(prompt='Insert password for user ' + args['user'] + ':')
-        mapi_connection = pymonetdb.connect(hostname=args['host'], port=args['port'], username=args['user'],
-                                            password=con_password, database=args['database'], autocommit=True)
+        mapi_connection = connect(hostname=args['host'], port=args['port'], username=args['user'],
+                                  password=con_password, database=args['database'], autocommit=True)
     except BaseException as ex:
         print ex
         sys.exit(1)

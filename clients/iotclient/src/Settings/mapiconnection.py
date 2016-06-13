@@ -1,4 +1,4 @@
-from pymonetdb import connect
+from monetdb.sql import connect
 from Settings.iotlogger import add_log
 
 

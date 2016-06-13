@@ -9,7 +9,7 @@ from itertools import chain
 from json import dumps
 from math import ceil, log10
 from re import compile, split
-from .jsonschemas import UUID_REGEX, MAC_ADDRESS_REGEX, TIME_REGEX, IPV4_REGEX
+from jsonschemas import UUID_REGEX, MAC_ADDRESS_REGEX, TIME_REGEX, IPV4_REGEX
 
 # The null constants might change from system to system due to different CPU's limits
 LITTLE_ENDIAN_ALIGNMENT = '<'  # for now it is little-endian
