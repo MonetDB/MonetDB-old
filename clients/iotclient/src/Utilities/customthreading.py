@@ -20,7 +20,7 @@ class StoppableThread(Thread):
 class PeriodicalThread(StoppableThread):
     """Thread working with a timed interval basis"""
 
-    def __init__(self, interval, worker_func, argument, *args, **kwargs):
+    def __init__(self, interval, worker_func, argument=None, *args, **kwargs):
         super(PeriodicalThread, self).__init__(*args, **kwargs)
         self._interval = interval  # in seconds
         self._worker_func = worker_func  # function/method to execute periodically
@@ -28,5 +28,8 @@ class PeriodicalThread(StoppableThread):
 
     def run(self):
         while not self.stop_event.is_set():
-            self._worker_func(self._argument)
+            if self._argument is not None:
+                self._worker_func(self._argument)
+            else:
+                self._worker_func()
             sleep(self._interval)

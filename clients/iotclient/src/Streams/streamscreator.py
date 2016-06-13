@@ -83,13 +83,13 @@ def validate_schema_and_create_stream(schema, con_hostname, con_port, con_user, 
     if flushing_object['base'] == TIMED_FLUSH_IDENTIFIER:
         res = TimeBasedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
                               validation_schema=json_schema, has_timestamp=True, has_hostname=schema['hostname'],
-                              connection=mapi_connection, interval=flushing_object['interval'],
-                              time_unit=flushing_object['unit'], table_id="", columns_ids="")
+                              connection=mapi_connection, table_id="", columns_ids="",
+                              interval=flushing_object['interval'], time_unit=flushing_object['unit'])
     elif flushing_object['base'] == TUPLE_FLUSH_IDENTIFIER:
         res = TupleBasedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
                                validation_schema=json_schema, has_timestamp=True, has_hostname=schema['hostname'],
-                               connection=mapi_connection, interval=flushing_object['interval'], table_id="",
-                               columns_ids="")
+                               connection=mapi_connection, table_id="", columns_ids="",
+                               interval=flushing_object['interval'])
     else:
         res = AutoFlushedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
                                 validation_schema=json_schema, has_timestamp=True, has_hostname=schema['hostname'],

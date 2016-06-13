@@ -51,11 +51,12 @@ CREATE_STREAMS_SCHEMA = None
 def get_create_streams_schema():
     return CREATE_STREAMS_SCHEMA
 
+
 def init_create_streams_schema(add_hugeint=True):
     global CREATE_STREAMS_SCHEMA
 
     if add_hugeint:
-        integers = SMALL_INTEGERS_INPUTS.append(HUGE_INTEGER_TYPE)
+        integers = SMALL_INTEGERS_INPUTS + [HUGE_INTEGER_TYPE]
     else:
         integers = SMALL_INTEGERS_INPUTS
 

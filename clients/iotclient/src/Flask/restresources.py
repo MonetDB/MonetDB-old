@@ -2,7 +2,7 @@ from datetime import datetime
 from flask import request
 from flask_restful import Resource
 from json import loads
-from jsonschema import Draft4Validator, FormatChecker
+from jsonschema import Draft4Validator, FormatChecker, ValidationError
 from pytz import utc
 from tzlocal import get_localzone
 from Settings.iotlogger import add_log
@@ -30,7 +30,7 @@ class StreamInput(Resource):
             stream = get_streams_context().get_existing_stream(schema_name, stream_name)
         except BaseException as ex:
             add_log(50, ex)
-            return ex, 404
+            return ex.message, 404
         return stream.get_data_dictionary(), 200
 
     def post(self, schema_name, stream_name):  # add data to a stream
@@ -40,13 +40,13 @@ class StreamInput(Resource):
             stream = get_streams_context().get_existing_stream(schema_name, stream_name)
         except BaseException as ex:
             add_log(50, ex)
-            return ex, 404
+            return ex.message, 404
 
         try:  # validate and insert data, if not return 400
             stream.validate_and_insert(loads(request.data), current_stamp)
-        except BaseException as ex:
+        except (ValidationError, BaseException) as ex:
             add_log(50, ex)
-            return ex, 400
+            return ex.message, 400
         return 'The insertions were made with success!', 201
 
 
@@ -71,9 +71,9 @@ class StreamsHandling(Resource):
             schema_to_validate = loads(request.data)
             Create_Streams_Validator.validate(schema_to_validate)
             get_streams_context().add_new_stream(schema_to_validate)
-        except BaseException as ex:
+        except (ValidationError, BaseException) as ex:
             add_log(50, ex)
-            return ex, 400
+            return ex.message, 400
         add_log(20, ''.join(['The stream ', schema_to_validate['schema'], '.', schema_to_validate['stream'],
                              ' was created']))
         return 'The stream was created with success!', 201
@@ -84,13 +84,13 @@ class StreamsHandling(Resource):
             Delete_Streams_Validator.validate(schema_to_validate)
         except BaseException as ex:
             add_log(50, ex)
-            return ex, 400
+            return ex.message, 400
 
         try:  # check if stream exists, if not return 404
             get_streams_context().delete_existing_stream(schema_to_validate)
         except BaseException as ex:
             add_log(50, ex)
-            return ex, 404
+            return ex.message, 404
         add_log(20, ''.join(['The stream ', schema_to_validate['schema'], '.', schema_to_validate['stream'],
                             ' was deleted']))
         return 'The stream was deleted with success!', 204

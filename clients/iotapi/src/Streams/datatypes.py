@@ -1,6 +1,7 @@
 import struct
 
 from abc import ABCMeta, abstractmethod
+from collections import OrderedDict
 from datetime import date, time, datetime
 from dateutil.relativedelta import relativedelta
 
@@ -57,10 +58,8 @@ class StreamDataType(object):
         return results
 
     def to_json_representation(self):  # get a json representation of the data type while checking the stream's info
-        dic = {'name': self._column_name, 'type': self._data_type, 'nullable': self._is_nullable}
-        if self._default_value is not None:
-            dic['default'] = self._default_value
-        return dic
+        return OrderedDict((('name', self._column_name), ('type', self._data_type),
+                            ('default', self._default_value), ('nullable', self._is_nullable)))
 
 
 class TextType(StreamDataType):
@@ -329,7 +328,7 @@ class TimeType(StreamDataType):  # Stored as an uint with the number of millisec
         return results
 
 
-class TimestampType(StreamDataType):  # it's represented with the two integers from time and date
+class TimestampType(StreamDataType):  # It is represented with the two integers from time and date
     """Covers: TIMESTAMP"""
 
     def __init__(self, *args):

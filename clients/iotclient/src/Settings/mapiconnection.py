@@ -26,7 +26,7 @@ def mapi_get_webserver_streams(connection):
             extras."interval", extras."unit" FROM (SELECT "id", "name", "schema_id" FROM sys.tables WHERE type=4)
             AS tables INNER JOIN (SELECT "id", "name" FROM sys.schemas) AS schemas ON (tables."schema_id"=schemas."id")
             LEFT JOIN (SELECT "table_id", "base", "interval", "unit" FROM iot.webserverstreams) AS extras
-            ON (tables."id"=extras."table_id")""".replace('\n', ' ')
+            ON (tables."id"=extras."table_id") ORDER BY tables."id" """.replace('\n', ' ')
         cursor.execute(sql_string)
         tables = cursor.fetchall()
 
@@ -34,10 +34,10 @@ def mapi_get_webserver_streams(connection):
         sql_string = """SELECT columns."id", columns."table_id", columns."name" AS column, columns."type",
             columns."type_digits", columns."type_scale", columns."default", columns."null", extras."special",
             extras."validation1", extras."validation2" FROM (SELECT "id", "table_id", "name", "type", "type_digits",
-            "type_scale", "default", "null" FROM sys.columns) AS columns INNER JOIN (SELECT "id" FROM sys.tables
-            WHERE type=4) AS tables ON (tables."id"=columns."table_id") LEFT JOIN (SELECT "column_id", "special",
-            "validation1", "validation2" FROM iot.webservercolumns) AS extras ON (columns."id"=extras."column_id")"""\
-            .replace('\n', ' ')
+            "type_scale", "default", "null", "number" FROM sys.columns) AS columns INNER JOIN (SELECT "id"
+            FROM sys.tables WHERE type=4) AS tables ON (tables."id"=columns."table_id") LEFT JOIN
+            (SELECT "column_id", "special", "validation1", "validation2" FROM iot.webservercolumns) AS extras
+            ON (columns."id"=extras."column_id") ORDER BY columns."table_id", columns."number" """.replace('\n', ' ')
         cursor.execute(sql_string)
         columns = cursor.fetchall()
 
@@ -45,11 +45,13 @@ def mapi_get_webserver_streams(connection):
         return tables, columns
     except BaseException as ex:
         add_log(50, ex)
+        connection.rollback()
         raise
 
 
 def mapi_create_stream(connection, concatenated_name, stream):
     schema = stream.get_schema_name()
+    table = stream.get_stream_name()
     flush_statement = stream.get_webserverstreams_sql_statement()
     columns_dictionary = stream.get_columns_extra_sql_statements()  # dictionary of column_name -> partial SQL statement
 
@@ -58,13 +60,13 @@ def mapi_create_stream(connection, concatenated_name, stream):
             connection.execute("CREATE SCHEMA " + schema)
             connection.commit()
         except:
-            pass
+            connection.rollback()
         connection.execute(''.join(["CREATE STREAM TABLE ", concatenated_name, " (", stream.get_sql_create_statement(),
                                     ")"]))
         cursor = connection.cursor()
         cursor.execute("SELECT id FROM sys.schemas WHERE \"name\"='" + schema + "'")
         schema_id = str(cursor.fetchall()[0][0])
-        cursor.execute(''.join(["SELECT id FROM sys.tables WHERE schema_id=", schema_id, " AND \"name\"='", stream,
+        cursor.execute(''.join(["SELECT id FROM sys.tables WHERE schema_id=", schema_id, " AND \"name\"='", table,
                                 "'"]))  # get the created table id
         table_id = str(cursor.fetchall()[0][0])
         cursor.execute(''.join(["INSERT INTO iot.webserverstreams VALUES (", table_id, flush_statement, ")"]))
@@ -72,18 +74,19 @@ def mapi_create_stream(connection, concatenated_name, stream):
         columns = cursor.fetchall()
 
         inserts = []
-        colums_ids = ','.join(map(lambda x: str(x[0]), columns))
+        columns_ids = ','.join(map(lambda x: str(x[0]), columns))
         for key, value in columns_dictionary.iteritems():
             for entry in columns:  # the imp_timestamp and host identifier are also fetched!!
                 if entry[1] == key:  # check for column's name
-                    inserts.append(''.join(['(', entry[0], value, ')']))  # append the sql statement
+                    inserts.append(''.join(['(', str(entry[0]), value, ')']))  # append the sql statement
                     break
 
         cursor.execute("INSERT INTO iot.webservercolumns VALUES " + ','.join(inserts))
         connection.commit()
-        stream.set_delete_ids(table_id, colums_ids)
+        stream.set_delete_ids(table_id, columns_ids)
     except BaseException as ex:
         add_log(50, ex)
+        connection.rollback()
         raise
 
 
@@ -95,6 +98,7 @@ def mapi_delete_stream(connection, concatenated_name, stream_id, columns_ids):
         connection.commit()
     except BaseException as ex:
         add_log(50, ex)
+        connection.rollback()
         raise
 
 
@@ -104,3 +108,4 @@ def mapi_flush_baskets(connection, schema, stream, baskets):
         connection.commit()
     except BaseException as ex:
         add_log(40, ex)
+        connection.rollback()

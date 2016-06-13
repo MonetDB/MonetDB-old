@@ -1,6 +1,7 @@
 import struct
 
 from abc import ABCMeta, abstractmethod
+from collections import OrderedDict
 from copy import deepcopy
 from datetime import datetime, timedelta
 from dateutil import parser
@@ -39,7 +40,7 @@ class StreamDataType:
         self._data_type = kwargs['type']  # SQL name of the type
         self._is_nullable = kwargs.get('nullable', True)  # boolean
         if 'default' in kwargs and kwargs['default'] is not None:
-            self._default_value = self.set_default_value(kwargs['default'])
+            self._default_value = self.process_default_value(kwargs['default'])
         else:
             self._default_value = None
 
@@ -50,8 +51,8 @@ class StreamDataType:
     def get_nullable_constant(self):  # get the nullable constant if the column is nullable
         return None
 
-    def set_default_value(self, default_value):  # set the default value representation in the data type
-        self._default_value = default_value
+    def process_default_value(self, default_value):  # process the default value representation in the data type
+        return default_value
 
     def get_default_value(self):  # get the default value representation in the data type
         return self._default_value
@@ -88,21 +89,19 @@ class StreamDataType:
         return self.pack_parsed_values(extracted_values, counter, parameters)
 
     def to_json_representation(self):  # get a json representation of the data type while checking the stream's info
-        json_data = {'name': self._column_name, 'type': self._data_type, 'nullable': self._is_nullable}
-        if self._default_value is not None:
-            json_data['default'] = self._default_value
-        return json_data
+        return OrderedDict((('name', self._column_name), ('type', self._data_type),
+                            ('default', self._default_value), ('nullable', self._is_nullable)))
 
     def process_sql_parameters(self, array):  # get other possible parameters such as a limit, minimum and maximum
         pass
 
     def create_stream_sql(self):  # get column creation statement on SQL
         array = [self._column_name, " ", self._data_type]
-        self.process_sql_parameters(array)  # add extra parameters to the SQL statement
         if self._default_value is not None:
             array.extend([" DEFAULT '", str(self._default_value), "'"])
         if not self._is_nullable:
             array.append(" NOT NULL")
+        self.process_sql_parameters(array)  # add extra parameters to the SQL statement
         return ''.join(array)
 
     def get_extra_sql_statement(self):  # data to iot.webservervalidation
@@ -174,14 +173,14 @@ class RegexType(TextType):
     """Covers: Regex"""
 
     def __init__(self, **kwargs):
-        super(RegexType, self).__init__(**kwargs)
         self._regex = compile(kwargs['regex'])
         self._regex_text = kwargs['regex']
+        super(RegexType, self).__init__(**kwargs)
 
-    def set_default_value(self, default_value):
+    def process_default_value(self, default_value):
         if self._regex.match(default_value) is None:
             raise Exception('The default value does not match with the regular expression!')
-        self._default_value = default_value
+        return default_value
 
     def add_json_schema_entry(self, schema):
         super(RegexType, self).add_json_schema_entry(schema)
@@ -196,27 +195,27 @@ class RegexType(TextType):
         array[2] = 'string'  # Store as string
 
     def get_extra_sql_statement(self):
-        return ",2," + self._regex_text + ",NULL"
+        return ",2,'" + self._regex_text + "',NULL"
 
 
 class LimitedTextType(TextType):
     """Covers: CHAR, CHARACTER, VARCHAR, CHARACTER VARYING"""
 
     def __init__(self, **kwargs):
-        super(LimitedTextType, self).__init__(**kwargs)
         self._limit = kwargs['limit']
+        super(LimitedTextType, self).__init__(**kwargs)
 
     def add_json_schema_entry(self, schema):
         super(LimitedTextType, self).add_json_schema_entry(schema)
         schema[self._column_name]['maxLength'] = self._limit
 
-    def set_default_value(self, default_value):
+    def process_default_value(self, default_value):
         str_value = str(default_value)
         parsed_len = len(str_value)
         if parsed_len > self._limit:
             raise Exception('The default string\'s length is longer than the limit: %d > %d!'
                             % (parsed_len, self._limit))
-        self._default_value = str_value
+        return default_value
 
     def to_json_representation(self):
         json_value = super(LimitedTextType, self).to_json_representation()
@@ -231,18 +230,18 @@ class EnumType(TextType):
     """Covers: Enum of strings"""
 
     def __init__(self, **kwargs):
-        super(EnumType, self).__init__(**kwargs)
         self._values = kwargs['values']
+        super(EnumType, self).__init__(**kwargs)
 
     def add_json_schema_entry(self, schema):
         super(EnumType, self).add_json_schema_entry(schema)
         schema[self._column_name]['enum'] = self._values
 
-    def set_default_value(self, default_value):
+    def process_default_value(self, default_value):
         str_value = str(default_value)
         if str_value not in self._values:
             raise Exception('The default value is not present in the enumeration!')
-        self._default_value = str_value
+        return default_value
 
     def to_json_representation(self):
         json_value = super(EnumType, self).to_json_representation()
@@ -253,7 +252,7 @@ class EnumType(TextType):
         array[2] = 'char(' + str(max([len(y) for y in self._values])) + ')'  # char with max length of enum values
 
     def get_extra_sql_statement(self):
-        return ",3," + ENUM_TYPE_SEPARATOR.join(self._values) + ",NULL"
+        return ",3,'" + ENUM_TYPE_SEPARATOR.join(self._values) + "',NULL"
 
 
 class INetSixType(TextType):
@@ -364,8 +363,11 @@ class BooleanType(StreamDataType):
         super(BooleanType, self).add_json_schema_entry(schema)
         schema[self._column_name]['type'] = 'boolean'
 
-    def set_default_value(self, default_value):
-        self._default_value = bool(default_value)
+    def process_default_value(self, default_value):
+        if bool(default_value):
+            return 1
+        else:
+            return 0
 
     def get_nullable_constant(self):
         return INT8_MIN
@@ -385,11 +387,11 @@ class NumberBaseType(StreamDataType):
     __metaclass__ = ABCMeta
 
     def __init__(self, **kwargs):
-        super(NumberBaseType, self).__init__(**kwargs)
         self._minimum = kwargs.get('minimum', None)
         self._maximum = kwargs.get('maximum', None)
         if self._minimum is not None and self._maximum is not None and self._minimum > self._maximum:
             raise Exception('The minimum value is higher than the maximum!')
+        super(NumberBaseType, self).__init__(**kwargs)
 
     def add_json_schema_entry(self, schema):
         super(NumberBaseType, self).add_json_schema_entry(schema)
@@ -398,7 +400,7 @@ class NumberBaseType(StreamDataType):
         if self._maximum is not None:
             schema[self._column_name]['maximum'] = self._maximum
 
-    def set_default_value(self, default_value):
+    def process_default_value(self, default_value):
         if self._minimum is not None and self._maximum is None and default_value < self._minimum:
             raise Exception('The default value is less than the minimum: %s < %s!' % (default_value, self._minimum))
         elif self._minimum is None and self._maximum is not None and default_value > self._maximum:
@@ -407,7 +409,7 @@ class NumberBaseType(StreamDataType):
             raise Exception('The default value is out of range: %s < %s!' % (default_value, self._minimum))
         elif self._minimum is not None and self._maximum is not None and default_value > self._maximum:
             raise Exception('The default value is out of range: %s > %s!' % (default_value, self._maximum))
-        self._default_value = default_value
+        return default_value
 
     def to_json_representation(self):
         json_value = super(NumberBaseType, self).to_json_representation()
@@ -420,12 +422,11 @@ class NumberBaseType(StreamDataType):
     def get_extra_sql_statement(self):
         res_str = [",NULL,"]
         if self._minimum is not None:
-            res_str.append(str(self._minimum))
-            res_str.append(",")
+            res_str.append("'" + str(self._minimum) + "',")
         else:
             res_str.append("NULL,")
         if self._maximum is not None:
-            res_str.append(str(self._maximum))
+            res_str.append("'" + str(self._maximum) + "'")
         else:
             res_str.append("NULL")
         return ''.join(res_str)
@@ -435,11 +436,11 @@ class SmallIntegerType(NumberBaseType):
     """Covers: TINYINT, SMALLINT, INT[EGER], WRD, BIGINT"""
 
     def __init__(self, **kwargs):
-        super(SmallIntegerType, self).__init__(**kwargs)
         self._pack_sym = {'tinyint': 'b', 'smallint': 'h', 'int': 'i', 'integer': 'i', 'bigint': 'q'}\
             .get(kwargs['type'])
         self._nullable_constant = {'tinyint': INT8_MIN, 'smallint': INT16_MIN, 'int': INT32_MIN, 'integer': INT32_MIN,
                                    'bigint': INT64_MIN}.get(kwargs['type'])
+        super(SmallIntegerType, self).__init__(**kwargs)
 
     def add_json_schema_entry(self, schema):
         super(SmallIntegerType, self).add_json_schema_entry(schema)
@@ -480,11 +481,11 @@ class FloatType(NumberBaseType):
     """Covers: REAL, FLOAT and DOUBLE"""
 
     def __init__(self, **kwargs):
-        super(FloatType, self).__init__(**kwargs)
         this_type = kwargs['type']
         self._pack_sym = {'real': 'f', 'float': 'd', 'double': 'd', 'double precision': 'd'}.get(this_type)
         self._nullable_constant = {'real': FLOAT_NAN, 'float': DOUBLE_NAN, 'double': DOUBLE_NAN,
                                    'double precision': DOUBLE_NAN}.get(this_type)
+        super(FloatType, self).__init__(**kwargs)
 
     def add_json_schema_entry(self, schema):
         super(FloatType, self).add_json_schema_entry(schema)
@@ -504,18 +505,10 @@ class DecimalType(NumberBaseType):
     """Covers: DECIMAL and NUMERIC"""
 
     def __init__(self, **kwargs):
-        super(DecimalType, self).__init__(**kwargs)
         self._precision = kwargs.get('precision', 18)
         self._scale = kwargs.get('scale', 3)
         if self._scale > self._precision:
             raise Exception('The scale must be between 0 and the precision!')
-
-        if self._default_value is not None:
-            self.check_value_precision(self._default_value, 'default')
-        if self._minimum is not None:
-            self.check_value_precision(self._minimum, 'minimum')
-        if self._maximum is not None:
-            self.check_value_precision(self._maximum, 'maximum')
 
         if self._precision <= 2:  # calculate the number of bytes to use according to the precision
             self._pack_sym = 'b'
@@ -530,6 +523,14 @@ class DecimalType(NumberBaseType):
 
         self._nullable_constant = {'b': INT8_MIN, 'h': INT16_MIN, 'i': INT32_MIN, 'q': INT64_MIN, 'Q': INT128_MIN} \
             .get(self._pack_sym)
+
+        super(DecimalType, self).__init__(**kwargs)
+        if self._default_value is not None:
+            self.check_value_precision(self._default_value, 'default')
+        if self._minimum is not None:
+            self.check_value_precision(self._minimum, 'minimum')
+        if self._maximum is not None:
+            self.check_value_precision(self._maximum, 'maximum')
 
     def check_value_precision(self, value, text):
         if value != self._nullable_constant:
@@ -564,14 +565,13 @@ class DecimalType(NumberBaseType):
         return json_value
 
     def process_sql_parameters(self, array):  # add the precision and scale
-        array.append(''.join(["(", str(self._precision), ",", str(self._scale), ")"]))
+        array[2] += ''.join(["(", str(self._precision), ",", str(self._scale), ")"])
 
 
 class BaseDateTimeType(StreamDataType):  # The validation of time variables can't be done on the schema
     __metaclass__ = ABCMeta
 
     def __init__(self, **kwargs):
-        super(BaseDateTimeType, self).__init__(**kwargs)
         if 'minimum' in kwargs:
             self._minimum_text = kwargs['minimum']  # to show on json representation
             self._minimum = self.parse_entry(kwargs['minimum'])
@@ -584,6 +584,7 @@ class BaseDateTimeType(StreamDataType):  # The validation of time variables can'
             self._maximum = None
         if self._minimum is not None and self._maximum is not None and self._minimum > self._maximum:
             raise Exception('The minimum value is higher than the maximum!')
+        super(BaseDateTimeType, self).__init__(**kwargs)
 
     def get_nullable_constant(self):  # had to add this to bypass python's datetime limits
         return "0"
@@ -596,7 +597,7 @@ class BaseDateTimeType(StreamDataType):  # The validation of time variables can'
     def pack_next_value(self, parsed, counter, parameters, errors):
         pass
 
-    def set_default_value(self, default_value):
+    def process_default_value(self, default_value):
         parsed_val = self.parse_entry(default_value)  # Process the default value as the others
         if self._minimum is not None and self._maximum is None and parsed_val < self._minimum:
             raise Exception('The default value is less than the minimum: %s < %s!'
@@ -608,7 +609,7 @@ class BaseDateTimeType(StreamDataType):  # The validation of time variables can'
             raise Exception('The default value is out of range: %s < %s!' % (default_value, self._minimum_text))
         elif self._minimum is not None and self._maximum is not None and parsed_val > self._maximum:
             raise Exception('The default value is out of range: %s > %s!' % (default_value, self._maximum_text))
-        self._default_value = default_value
+        return default_value
 
     def process_next_value(self, entry, counter, parameters, errors):
         if entry == self.get_nullable_constant():  # have to do this trick due to Python datetime limitations
@@ -635,12 +636,11 @@ class BaseDateTimeType(StreamDataType):  # The validation of time variables can'
     def get_extra_sql_statement(self):
         res_str = [",NULL,"]
         if self._minimum is not None:
-            res_str.append(self._minimum_text)
-            res_str.append(",")
+            res_str.append("'" + self._minimum_text + "',")
         else:
             res_str.append("NULL,")
         if self._maximum is not None:
-            res_str.append(self._maximum_text)
+            res_str.append("'" + self._maximum_text + "'")
         else:
             res_str.append("NULL")
         return ''.join(res_str)
@@ -709,8 +709,13 @@ class TimeWithTimeZoneType(TimeWithoutTimeZoneType):
         parsed = parsed.replace(tzinfo=None) - delta
         return parsed
 
+    def to_json_representation(self):
+        json_value = super(TimeWithTimeZoneType, self).to_json_representation()
+        json_value['type'] = 'time with time zone'
+        return json_value
 
-class TimestampWithoutTimeZoneType(BaseDateTimeType):  # it's represented with the two integers from time and date
+
+class TimestampWithoutTimeZoneType(BaseDateTimeType):  # It is represented with the two integers from time and date
     """Covers: TIMESTAMP"""
 
     def __init__(self, **kwargs):
@@ -752,3 +757,8 @@ class TimestampWithTimeZoneType(TimestampWithoutTimeZoneType):
             delta = -delta
         parsed = parsed.replace(tzinfo=None) - delta
         return parsed
+
+    def to_json_representation(self):
+        json_value = super(TimestampWithTimeZoneType, self).to_json_representation()
+        json_value['type'] = 'timestamp with time zone'
+        return json_value

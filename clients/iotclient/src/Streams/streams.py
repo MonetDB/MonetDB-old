@@ -92,7 +92,7 @@ class BaseIOTStream:
         return base_sql
 
     def get_columns_extra_sql_statements(self):  # for iot.webservercolumns table
-        return {key: value.get_extra_sql_statement() for (key, value) in self._columns}
+        return OrderedDict({key: value.get_extra_sql_statement() for (key, value) in self._columns.iteritems()})
 
     def set_delete_ids(self, table_id, columns_ids):  # for the delete statement
         self._table_id = table_id
@@ -126,12 +126,14 @@ class BaseIOTStream:
         return {}
 
     def get_data_dictionary(self):
-        dic = OrderedDict({'schema': self._schema_name, 'stream': self._stream_name, 'has_hostname': self._has_hostname,
-                           'has_timestamp': self._has_timestamp, 'flushing': self.get_flushing_dictionary(),
-                           'columns': [value.to_json_representation() for value in self._columns.values()]})
+        dic = OrderedDict((('schema', self._schema_name), ('stream', self._stream_name),
+                           ('has_timestamp', self._has_timestamp), ('has_hostname', self._has_hostname),
+                           ('flushing', self.get_flushing_dictionary())))
+        flushing = dic['flushing']
         self._baskets_lock.acquire_read()
-        dic['tuples_inserted_per_basket'] = self._tuples_in_per_basket
+        flushing['tuples_inserted_per_basket'] = self._tuples_in_per_basket
         self._baskets_lock.release()
+        dic['columns'] = [value.to_json_representation() for value in self._columns.values()]
         return dic
 
     def flush_baskets(self, last=False):  # the monitor has to be acquired in write mode before running this method!!!
@@ -232,14 +234,14 @@ class BaseIOTStream:
 class TupleBasedStream(BaseIOTStream):
     """Stream with tuple based flushing"""
 
-    def __init__(self, schema_name, stream_name, columns, validation_schema, has_timestamp, has_hostname, table_id,
-                 columns_ids, interval):
+    def __init__(self, schema_name, stream_name, columns, validation_schema, has_timestamp, has_hostname, connection,
+                 table_id, columns_ids, interval):
         super(TupleBasedStream, self).__init__(schema_name, stream_name, columns, validation_schema, has_timestamp,
-                                               has_hostname, table_id, columns_ids)
+                                               has_hostname, connection, table_id, columns_ids)
         self._interval = interval
 
     def get_flushing_dictionary(self):
-        return {'base': 'tuple', 'interval': self._interval}
+        return OrderedDict((('base', 'tuple'), ('interval', self._interval)))
 
     def get_webserverstreams_sql_statement(self):  # insert for iot.webserverflushing table
         return ''.join([",1,", str(self._interval), ",NULL"])
@@ -264,10 +266,10 @@ class TupleBasedStream(BaseIOTStream):
 class TimeBasedStream(BaseIOTStream):
     """Stream with time based flushing"""
 
-    def __init__(self, schema_name, stream_name, columns, validation_schema, has_timestamp, has_hostname, table_id,
-                 columns_ids, interval, time_unit):
+    def __init__(self, schema_name, stream_name, columns, validation_schema, has_timestamp, has_hostname, connection,
+                 table_id, columns_ids, interval, time_unit):
         super(TimeBasedStream, self).__init__(schema_name, stream_name, columns, validation_schema, has_timestamp,
-                                              has_hostname, table_id, columns_ids)
+                                              has_hostname, connection, table_id, columns_ids)
         self._time_unit = time_unit
         self._interval = interval
         if time_unit == "s":
@@ -276,13 +278,13 @@ class TimeBasedStream(BaseIOTStream):
             calc_time = interval * 60
         else:
             calc_time = interval * 3600
-        self._local_thread = PeriodicalThread(calc_time, self.time_based_flush)
+        self._local_thread = PeriodicalThread(interval=calc_time, worker_func=self.time_based_flush)
 
     def get_flushing_dictionary(self):
-        return {'base': 'time', 'interval': self._interval, 'unit': self._time_unit}
+        return OrderedDict((('base', 'time'), ('interval', self._interval), ('unit', self._time_unit)))
 
     def get_webserverstreams_sql_statement(self):  # insert for iot.webserverflushing table
-        return ''.join([",2,", str(self._interval), ",", self._time_unit])
+        return ''.join([",2,", str(self._interval), ",'", self._time_unit, "'"])
 
     def time_based_flush(self):
         flag = False
@@ -311,13 +313,13 @@ class TimeBasedStream(BaseIOTStream):
 class AutoFlushedStream(BaseIOTStream):
     """Stream with flush every time a new batch is inserted"""
 
-    def __init__(self, schema_name, stream_name, columns, validation_schema, has_timestamp, has_hostname, table_id,
-                 columns_ids):
+    def __init__(self, schema_name, stream_name, columns, validation_schema, has_timestamp, has_hostname, connection,
+                 table_id, columns_ids):
         super(AutoFlushedStream, self).__init__(schema_name, stream_name, columns, validation_schema, has_timestamp,
-                                                has_hostname, table_id, columns_ids)
+                                                has_hostname, connection, table_id, columns_ids)
 
     def get_flushing_dictionary(self):
-        return {'base': 'auto'}
+        return OrderedDict({'base': 'auto'})
 
     def get_webserverstreams_sql_statement(self):  # insert for iot.webserverflushing table
         return ",3,NULL,NULL"

@@ -65,8 +65,8 @@ class IOTStream:
         return self._stream_name
 
     def get_data_dictionary(self):
-        dic = OrderedDict({'schema': self._schema_name, 'stream': self._stream_name,
-                           'columns': [value.to_json_representation() for value in self._columns.values()]})
+        dic = OrderedDict((('schema', self._schema_name), ('stream', self._stream_name),
+                           ('columns', [value.to_json_representation() for value in self._columns.values()])))
         self._baskets_lock.acquire_read()
         count = len(self._baskets)
         listing = [{'number': k, 'count': v} for k, v in self._baskets.items()]
@@ -146,4 +146,5 @@ class IOTStream:
 
         keys = results.keys()  # TODO check if this is viable for many tuples!!
         tuples = [dict(zip(keys, values)) for values in zip(*(results[k] for k in keys))]
-        return {'schema': self._schema_name, 'stream': self._stream_name, 'count': read_tuples, 'tuples': tuples}
+        return OrderedDict((('schema', self._schema_name), ('stream', self._stream_name), ('count', read_tuples),
+                            ('tuples', tuples)))

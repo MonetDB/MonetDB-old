@@ -58,11 +58,14 @@ class IOTStreams:
 
     def get_existing_streams(self):  # To use with next method!!
         self._locker.acquire_write()
-        return list(self._context.keys())
+        return self._context.keys()
+
+    def release_lock(self):  # To use with next method!!
+        self._locker.release()
 
     def merge_context(self, retained_streams, new_streams):  # To use with above method!!
         try:
-            removed_streams = {key: value for (key, value) in self._context if key not in retained_streams}
+            removed_streams = {key: value for (key, value) in self._context.iteritems() if key not in retained_streams}
             for key, value in removed_streams.iteritems():
                 del self._context[key]
                 value.stop_stream()
@@ -86,8 +89,8 @@ class IOTStreams:
 
     def get_streams_data(self):
         self._locker.acquire_read()
-        res = {'streams_count': len(self._context),
-               'streams_listing': [value.get_data_dictionary() for value in self._context.values()]}
+        res = OrderedDict((('streams_count', len(self._context)),
+                           ('streams_listing', [value.get_data_dictionary() for value in self._context.values()])))
         self._locker.release()
         return res
 

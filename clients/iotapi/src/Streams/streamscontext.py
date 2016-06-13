@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from Utilities.readwritelock import RWLock
 from WebSockets.websockets import unsubscribe_removed_streams
 
@@ -39,8 +40,8 @@ class IOTStreams:
 
     def get_streams_data(self):
         self._locker.acquire_read()
-        res = {'streams_count': len(self._context),
-               'streams_listing': [value.get_data_dictionary() for value in self._context.values()]}
+        res = OrderedDict((('streams_count', len(self._context)),
+                           ('streams_listing', [value.get_data_dictionary() for value in self._context.values()])))
         self._locker.release()
         return res
 
