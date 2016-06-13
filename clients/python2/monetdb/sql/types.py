@@ -34,6 +34,8 @@ TINYINT = 'tinyint'
 
 URL = 'url'
 INET = 'inet'
+UUID = 'uuid'
+JSON = 'json'
 
 # Not on the website:
 SHORTINT = 'shortint'
@@ -47,7 +49,9 @@ TIMETZ = 'timetz'
 # full names and aliases, spaces are replaced with underscores
 CHARACTER = CHAR
 CHARACTER_VARYING = VARCHAR
-CHARACHTER_LARGE_OBJECT = CLOB
+CHARACTER_LARGE_OBJECT = CLOB
 BINARY_LARGE_OBJECT = BLOB
 NUMERIC = DECIMAL
 DOUBLE_PRECISION = DOUBLE
+BOOL = BOOLEAN
+INTEGER = INT

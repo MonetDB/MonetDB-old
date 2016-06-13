@@ -28,6 +28,7 @@ def _extract_timezone(data):
 
     return data[:-6], datetime.timedelta(hours=sign * int(data[-5:-3]), minutes=sign * int(data[-2:]))
 
+
 def strip(data):
     """ returns a python string, with chopped off quotes,
     and replaced escape characters"""
@@ -75,6 +76,7 @@ def py_timestamp(data):
     else:
         return datetime.datetime.strptime(data, '%Y-%m-%d %H:%M:%S')
 
+
 def py_timestamptz(data):
     """ Returns a python Timestamp where data contains a tz code
     """
@@ -90,31 +92,33 @@ mapping = {
     types.VARCHAR: strip,
     types.CLOB: strip,
     types.BLOB: str,
-    types.DECIMAL: Decimal,
-    types.SMALLINT: int,
-    types.INT: int,
     types.WRD: int,
+    types.SERIAL: int,
+    types.TINYINT: int,
+    types.SMALLINT: int,
+    types.SHORTINT: int,
+    types.MEDIUMINT: int,
+    types.INT: int,
+    types.LONGINT: int,
     types.BIGINT: int,
     types.HUGEINT: int,
-    types.SERIAL: int,
     types.REAL: float,
+    types.FLOAT: float,
     types.DOUBLE: float,
+    types.DECIMAL: Decimal,
     types.BOOLEAN: py_bool,
     types.DATE: py_date,
     types.TIME: py_time,
+    types.TIMETZ: py_timetz,
     types.TIMESTAMP: py_timestamp,
     types.TIMESTAMPTZ: py_timestamptz,
-    types.TIMETZ: py_timetz,
     types.INTERVAL: strip,
     types.MONTH_INTERVAL: strip,
     types.SEC_INTERVAL: strip,
-    types.TINYINT: int,
-    types.SHORTINT: int,
-    types.MEDIUMINT: int,
-    types.LONGINT: int,
-    types.FLOAT: float,
     types.URL: strip,
     types.INET: str,
+    types.UUID: strip,
+    types.JSON: strip
 }
 
 
