@@ -26,18 +26,6 @@
 #include "sql.h"
 #include "iot.h"
 
-#ifndef iot_export
-#ifdef WIN32
-#ifndef LIBIOT
-#define iot_export extern __declspec(dllimport)
-#else
-#define iot_export extern __declspec(dllexport)
-#endif
-#else
-#define iot_export extern
-#endif
-#endif
-
 /* #define _DEBUG_DATACELL     debug this module */
 #define BSKTout GDKout
 #define MAXBSKT 64
@@ -52,7 +40,7 @@ typedef struct{
 	int threshold ; /* bound to determine scheduling eligibility */
 	int winsize, winstride; /* sliding window operations */
 	lng timeslice, timestride; /* temporal sliding window, determined by first temporal component */
-	lng beat;	/* milliseconds delay */
+	lng heartbeat;	/* milliseconds delay between actions */
 	int count;	/* number of events available in basket */
 
 	/* statistics */
@@ -71,25 +59,24 @@ typedef struct{
 
 
 /* individual streams can be paused and restarted */
-#define BSKTAVAILABLE   1   /* initialized*/
-#define BSKTWAIT        2		/* waiting for new data */
-#define BSKTLOCKED      3		/* in use for processing */
+#define BSKTWAIT  		 1  /* waiting for new data*/
+#define BSKTFILLED       2	/* some data available */
 
 iot_export BasketRec *baskets;
 
 iot_export str BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTregisterInternal(Client cntxt, MalBlkPtr mb, str sch, str tbl);
 iot_export str BSKTregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str BSKTreset(void *ret);
 iot_export int BSKTlocate(str sch, str tbl);
 iot_export str BSKTdump(void *ret);
 
-iot_export str BSKTactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str BSKTdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-
 iot_export str BSKTthreshold(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str BSKTbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTreset(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTsettumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 iot_export str BSKTtable( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTtableerrors(bat *nmeId, bat *errorId);
@@ -102,12 +89,10 @@ iot_export int BSKTlocate(str sch, str tbl);
 iot_export int BSKTunlocate(str sch, str tbl);
 iot_export int BSKTlocate(str sch, str tbl);
 iot_export str BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str BSKTdelete(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str BSKTclear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str BSKTcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTimportInternal(Client cntxt, int bskt);
 iot_export str BSKTimport(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str BSKTupdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTerror(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str BSKTimportInternal(int bskt);
+iot_export str BSKTlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTunlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 #endif

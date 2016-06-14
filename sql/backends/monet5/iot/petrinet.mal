@@ -22,20 +22,20 @@ address PNregister
 comment "Add a continous MAL query to the Petri net. It will analyse
 the MAL block to determine the input/output dependencies. ";
 
-pattern activate(mod:str, fcn:str)
-address PNactivate
+pattern resume(mod:str, fcn:str)
+address PNresume
 comment "Activate a continuous query";
 
-pattern activate()
-address PNactivate
+pattern resume()
+address PNresume
 comment "Activate all continuous query";
 
-pattern deactivate(mod:str, fcn:str)
-address PNdeactivate
+pattern pause(mod:str, fcn:str)
+address PNpause
 comment "Deactivate a continuous query";
 
-pattern deactivate()
-address PNdeactivate
+pattern pause()
+address PNpause
 comment "Deactivate all continuous query";
 
 pattern step(cnt:int)
@@ -53,14 +53,6 @@ comment "Remove a query from the Petri-net controller";
 pattern period(t:int)
 address PNsetCycleDelay
 comment "Control the scheduler cycle time in ms.";
-
-pattern analyse(mod:str, fcn:str)
-address PNanalyseWrapper
-comment "Check the input/output relationship";
-
-pattern iot.wait()
-address PNwait
-comment "Wait until there is no task enabled";
 
 command iot.queries() (mod:bat[:str],fcn:bat[:str], status:bat[:str],lastrun:bat[:timestamp],cycles:bat[:int], events:bat[:int],time:bat[:lng],error:bat[:str])
 address PNtable

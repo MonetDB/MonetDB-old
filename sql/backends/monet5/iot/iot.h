@@ -24,8 +24,6 @@
 #include "mal_interpreter.h"
 #include "sql.h"
 #include "sql_scenario.h"
-#include "basket.h"
-#include "petrinet.h"
 
 #ifdef WIN32
 #ifndef LIBIOT

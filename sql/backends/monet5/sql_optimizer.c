@@ -108,7 +108,6 @@ SQLgetSpace(mvc *m, MalBlkPtr mb)
 				if( c && isStream(c->t->type)){
 					setModuleId(p, basketRef);
 					p->argc = 5;
-					delArgument(p,1);
 					pipe= "iot_pipe";
 				}
 			}

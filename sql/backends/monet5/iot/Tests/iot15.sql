@@ -10,7 +10,6 @@ iot.pause();
 iot.query('iot','temp_view');
 iot.dump();
 iot.resume();
-iot.stop();
-
+iot.wait(2);
 select * from temp_view;
 drop view temp_view;

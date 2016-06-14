@@ -22,10 +22,11 @@
  */
 
 #include "monetdb_config.h"
-#include "iot.h"
-#include "opt_iot.h"
 #include "sql_optimizer.h"
 #include "sql_gencode.h"
+#include "opt_iot.h"
+#include "basket.h"
+#include "petrinet.h"
 
 MT_Lock iotLock MT_LOCK_INITIALIZER("iotLock");
 #define IOTout mal_clients[1].fdout
@@ -142,41 +143,13 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 IOTactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str sch, tbl;
-	int idx = 0;
-
-	if( pci->argc == pci->retc){
-		(void) BSKTactivate(cntxt,mb,stk,pci);
-	} else {
-		sch = *getArgReference_str(stk, pci, 1);
-		tbl = *getArgReference_str(stk, pci, 2);
-		_DEBUG_IOT_ fprintf(stderr,"#iot: activate %s.%s\n",sch,tbl);
-		/* check for registration */
-		idx = BSKTlocate(sch, tbl);
-		if( idx )
-		(void) BSKTactivate(cntxt,mb,stk,pci);
-	}
-	return PNactivate(cntxt,mb,stk,pci);
+	return PNresume(cntxt,mb,stk,pci);
 }
 
 str
 IOTdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str sch, tbl;
-	int idx = 0;
-
-	if( pci->argc == pci->retc){
-		(void) BSKTdeactivate(cntxt,mb,stk,pci);
-	} else {
-		sch = *getArgReference_str(stk, pci, 1);
-		tbl = *getArgReference_str(stk, pci, 2);
-		_DEBUG_IOT_ fprintf(stderr,"#iot: deactivate %s.%s\n",sch,tbl);
-		/* check for registration */
-		idx = BSKTlocate(sch, tbl);
-		if( idx )
-			(void) BSKTdeactivate(cntxt,mb,stk,pci);
-	}
-	return PNdeactivate(cntxt,mb,stk,pci);
+	return PNpause(cntxt,mb,stk,pci);
 }
 
 /* handling the external event input/output baskets */
@@ -191,7 +164,7 @@ IOTreceptorThread(void *dummy)
 		baskets[idx].table_name, 
 		baskets[idx].source);
 	/* continously scan the container for baskets */
-		BSKTimportInternal(idx);
+		BSKTimportInternal(mal_clients, idx);
 }
 
 str
@@ -204,7 +177,7 @@ IOTreceptor(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
     *idx = BSKTlocate(sch, tbl);
     if( *idx == 0){
-        BSKTregister(cntxt, mb, stk, pci);
+        BSKTregisterInternal(cntxt, mb, sch, tbl);
         *idx = BSKTlocate(sch, tbl);
         if( *idx ==0)
             throw(SQL,"iot.receptor","Stream table %s.%s not accessible\n",sch,tbl);

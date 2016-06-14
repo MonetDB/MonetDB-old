@@ -207,6 +207,7 @@ freeMalBlk(MalBlkPtr mb)
 
 	if (mb->history)
 		freeMalBlk(mb->history);
+	mb->history = 0;
 	if (mb->binding)
 		GDKfree(mb->binding);
 	mb->binding = 0;

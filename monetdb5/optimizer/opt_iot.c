@@ -34,7 +34,7 @@
 #include "opt_dataflow.h"
 
 #define MAXBSKT 64
-#define isstream(S,T) \
+#define getStreamTableInfo(S,T) \
 	for(fnd=0, k= 0; k< btop; k++) \
 	if( strcmp(schemas[k], S)== 0 && strcmp(tables[k], T)== 0 ){ \
 		fnd= 1; break;\
@@ -50,13 +50,18 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str  tables[MAXBSKT];
 	int  mvc[MAXBSKT];
 	int done[MAXBSKT]= {0};
-	int btop=0;
+	int btop=0, lastmvc;
 	int noerror=0;
-	int cq;
+	int cq= strncmp(getFunctionId(getInstrPtr(mb,0)),"cq",2) == 0;
+	char buf[256];
+	lng usec = GDKusec();
 
 	(void) pci;
 
-	cq= strncmp(getFunctionId(getInstrPtr(mb,0)),"cq",2) == 0;
+	OPTDEBUGiot {
+		mnstr_printf(cntxt->fdout, "#iot optimizer start\n");
+		printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
+	} 
 	old = mb->stmt;
 	limit = mb->stop;
 	slimit = mb->ssize;
@@ -64,29 +69,27 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* first analyse the query for streaming tables */
 	for (i = 1; i < limit && btop <MAXBSKT; i++){
 		p = old[i];
-		if( getModuleId(p)== basketRef && (getFunctionId(p)== registerRef || getFunctionId(p)== bindRef || getFunctionId(p)== clear_tableRef)  ){
+		if( getModuleId(p)== basketRef && (getFunctionId(p)== registerRef || getFunctionId(p)== bindRef )  ){
 			OPTDEBUGiot mnstr_printf(cntxt->fdout, "#iot stream table %s.%s\n", getModuleId(p), getFunctionId(p));
-			schemas[btop]= getVarConstant(mb, getArg(p,1)).val.sval;
-			tables[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
-			mvc[btop] = getArg(p,0);
+			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
+			tables[btop]= getVarConstant(mb, getArg(p,3)).val.sval;
 			for( j =0; j< btop ; j++)
 			if( strcmp(schemas[j], schemas[j+1])==0  && strcmp(tables[j],tables[j+1]) ==0)
 				break;
-			mvc[j] = getArg(p,0);
+			lastmvc = mvc[j] = getArg(p,0);
 			done[j]= done[j] || getFunctionId(p)== registerRef;
 			if( j == btop)
 				btop++;
 		}
-		if( getModuleId(p)== basketRef && (getFunctionId(p) == appendRef || getFunctionId(p) == deleteRef )){
+		if( getModuleId(p)== basketRef && getFunctionId(p) == appendRef ){
 			OPTDEBUGiot mnstr_printf(cntxt->fdout, "#iot stream table %s.%s\n", getModuleId(p), getFunctionId(p));
 			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,3)).val.sval;
-			mvc[btop] = getArg(p,0);
 			for( j =0; j< btop ; j++)
 			if( strcmp(schemas[j], schemas[j+1])==0  && strcmp(tables[j],tables[j+1]) ==0)
 				break;
 
-			mvc[j] = getArg(p,0);
+			lastmvc  = mvc[j] = getArg(p,0);
 			if( j == btop)
 				btop++;
 		}
@@ -100,12 +103,19 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if( j == btop)
 				btop++;
 		}
+		if( getModuleId(p)== sqlRef && getFunctionId(p) == appendRef )
+			lastmvc = getArg(p,0);
+		if (!cq && getModuleId(p) == sqlRef && getFunctionId(p) == affectedRowsRef )
+			lastmvc = getArg(p,0);
+		if( getModuleId(p)== iotRef && getFunctionId(p) == tumbleRef){
+			lastmvc = getArg(p,1);
+		}
 	}
 	if( btop == MAXBSKT || btop == 0)
 		return 0;
 
 	OPTDEBUGiot {
-		mnstr_printf(cntxt->fdout, "#iot optimizer started\n");
+		mnstr_printf(cntxt->fdout, "#iot optimizer started with %d streams, mvc %d\n", btop,lastmvc);
 		printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
 	}
 		(void) stk;
@@ -118,13 +128,6 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return 0;
 
 	pushInstruction(mb, old[0]);
-	// register all baskets used
-	for( j=0; j<btop; j++)
-	if( done[j]==0) {
-		p= newStmt(mb,basketRef,registerRef);
-		p= pushStr(mb,p, schemas[j]);
-		p= pushStr(mb,p, tables[j]);
-	}
 	for (i = 1; i < limit; i++)
 		if (old[i]) {
 			p = old[i];
@@ -133,13 +136,30 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				freeInstruction(p);
 				continue;
 			}
+			if(getModuleId(p) == sqlRef && getFunctionId(p)== mvcRef){
+				pushInstruction(mb,p);
+				k= getArg(p,0);
+				// register all baskets used
+				for( j=0; j<btop; j++)
+				if( done[j]==0) {
+					p= newStmt(mb,basketRef,registerRef);
+					p= pushArgument(mb,p,k);
+					p= pushStr(mb,p, schemas[j]);
+					p= pushStr(mb,p, tables[j]);
+					alias[k] = getArg(p,0);
+				}
+				continue;
+			}
+			// register all baskets used after the mvc had been determined
 			if (getModuleId(p) == sqlRef && getFunctionId(p) == tidRef ){
-				isstream(getVarConstant(mb,getArg(p,2)).val.sval, getVarConstant(mb,getArg(p,3)).val.sval );
+				getStreamTableInfo(getVarConstant(mb,getArg(p,2)).val.sval, getVarConstant(mb,getArg(p,3)).val.sval );
+				OPTDEBUGiot 
+					mnstr_printf(cntxt->fdout, "#iot optimizer found stream %d\n",fnd);
 				if( fnd){
 					alias[getArg(p,0)] = -1;
 					freeInstruction(p);
+					continue;
 				}
-				continue;
 			}
 			if (getModuleId(p) == algebraRef && getFunctionId(p) == projectionRef && alias[getArg(p,1)] < 0){
 				alias[getArg(p,0)] = getArg(p,2);
@@ -148,16 +168,10 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			}
 
 			if (getModuleId(p) == sqlRef && getFunctionId(p) == affectedRowsRef ){
-				for(j = 0; j < btop; j++){
-					r =  newStmt(mb, basketRef, commitRef);
-					if (alias[mvc[j]] > 0)
-						r =  pushArgument(mb,r, alias[mvc[j]]);
-					else
-						r =  pushArgument(mb,r, mvc[j]);
-					r =  pushStr(mb,r, schemas[j]);
-					r =  pushStr(mb,r, tables[j]);
-				}
-				freeInstruction(p);
+				if(cq)
+					freeInstruction(p);
+				else 
+					pushInstruction(mb,p);
 				continue;
 			}
 
@@ -165,9 +179,17 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				noerror++;
 			if (p->token == ENDsymbol && btop > 0 && noerror==0) {
 				// empty all baskets used only when we are optimizing a cq
-				for( j=0; cq && j<btop; j++)
+				for(j = 0; cq && j < btop; j++){
+					r =  newStmt(mb, basketRef, tumbleRef);
+					r =  pushArgument(mb,r, lastmvc);
+					r =  pushStr(mb,r, schemas[j]);
+					r =  pushStr(mb,r, tables[j]);
+				}
+				/* non-contiguous queries call for releasing the lock on the basket */
+				for( j=0; !cq && j<btop; j++)
 				if( done[j]==0) {
-					p= newStmt(mb,iotRef,tumbleRef);
+					p= newStmt(mb,basketRef,commitRef);
+					p= pushArgument(mb,p, lastmvc);
 					p= pushStr(mb,p, schemas[j]);
 					p= pushStr(mb,p, tables[j]);
 				}
@@ -208,7 +230,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					getArg(p, j) = alias[getArg(p, j)];
 
 			if (getModuleId(p) == sqlRef && getFunctionId(p) == appendRef ){
-				isstream(getVarConstant(mb,getArg(p,2)).val.sval, getVarConstant(mb,getArg(p,3)).val.sval );
+				//getStreamTableInfo(getVarConstant(mb,getArg(p,3)).val.sval, getVarConstant(mb,getArg(p,4)).val.sval );
 				/* the appends come in multiple steps.
 				   The first initializes an basket update statement,
 				   which is triggered when we commit the transaction.
@@ -226,12 +248,16 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
 	chkFlow(cntxt->fdout, mb);
 	chkDeclarations(cntxt->fdout, mb);
+    /* keep all actions taken as a post block comment */
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","iot", btop, GDKusec() - usec);
+    newComment(mb,buf);
 
 	OPTDEBUGiot {
 		mnstr_printf(cntxt->fdout, "#iot optimizer final\n");
 		printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
 	} 
 	GDKfree(alias);
+	GDKfree(old);
 	return btop > 0;
 }
 

@@ -21,41 +21,32 @@
 #define _PETRINET_
 #include "mal_interpreter.h"
 #include "sql_scenario.h"
+#include "iot.h"
 #include "basket.h"
 
-#define _DEBUG_PETRINET_ if(1)
+#define _DEBUG_PETRINET_ if(0)
 
-#define PNout mal_clients[1].fdout
-
-#ifdef WIN32
-#ifndef LIBDATACELL
-#define iot_export extern __declspec(dllimport)
-#else
-#define iot_export extern __declspec(dllexport)
-#endif
-#else
-#define iot_export extern
-#endif
+#define PNout mal_clients[0].fdout
 
 #define PNINIT 0
-#define PNRUNNING 1
-#define PNREADY 2       /* not active now */
+#define PNRUNNING 1	   /* query is running */
+#define PNWAIT 2       /* wait for data */
+#define PNPAUSED 3     /* not active now */
 
 #define PAUSEDEFAULT 1000
 
 iot_export str PNregisterInternal(Client cntxt, MalBlkPtr mb);
 iot_export str PNregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str PNactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str PNdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str PNresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str PNpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNdump(void *ret);
 
 iot_export str PNperiod(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 iot_export str PNanalysis(Client cntxt, MalBlkPtr mb, int pn);
-iot_export str PNanalyseWrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNtable(bat *modnameId, bat *fcnnameId, bat *statusId, bat *seenId, bat *cyclesId, bat *eventsId, bat *timeId, bat * errorId);
 iot_export str PNinputplaces(bat *schemaId, bat *streamId, bat *modnameId, bat *fcnnameId);
 iot_export str PNoutputplaces(bat *schemaId, bat *streamId, bat *modnameId, bat *fcnnameId);

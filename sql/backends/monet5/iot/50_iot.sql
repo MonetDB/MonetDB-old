@@ -24,17 +24,20 @@ create procedure iot.query(qry string)
 create procedure iot.query("schema" string, name string)
 	external name iot.query;
 
-create procedure iot.activate("schema" string, name string)
-	external name iot.activate;
+create procedure iot.resume("schema" string, name string)
+	external name iot.resume;
 
-create procedure iot.activate()
-	external name iot.activate;
+create procedure iot.resume()
+	external name iot.resume;
 
-create procedure iot.deactivate("schema" string, name string)
-	external name iot.deactivate;
+create procedure iot.pause("schema" string, name string)
+	external name iot.pause;
 
-create procedure iot.deactivate()
-	external name iot.deactivate;
+create procedure iot.pause()
+	external name iot.pause;
+
+create procedure iot.wait(cycles integer)
+	external name iot.wait;
 
 create procedure iot.deregister("schema" string, name string)
 	external name iot.deregister;
@@ -61,17 +64,10 @@ create procedure iot.emitter("schema" string, "table" string, dir string)
 	external name iot.emitter;
 
 
-create procedure iot.threshold("schema" string, "table" string, elem int)
-	external name iot.threshold;
-
-create procedure iot.beat("schema" string, "table" string, msec int)
-	external name iot.beat;
+create procedure iot.heartbeat("schema" string, "table" string, msec int)
+	external name iot.heartbeat;
 
 -- cleaup activities 
-create procedure iot.tumble()
-	external name iot.tumble;
-create procedure iot.tumble("schema" string, "table" string)
-	external name iot.tumble;
 create procedure iot.tumble("schema" string, "table" string, elem int)
 	external name iot.tumble;
 
@@ -81,11 +77,9 @@ create procedure iot.window("schema" string, "table" string, elem int)
 create procedure iot.window("schema" string, "table" string, elem int, slide int)
 	external name iot.window;
 
-create procedure iot.wait() external name iot.wait;
-
 -- Inspection tables
 create function iot.baskets()
-returns table( "schema" string, "table" string, "status" string, threshold int, winsize int, winstride int, timeslice int, timestride int, beat int, seen timestamp, events int)
+returns table( "schema" string, "table" string, "status" string, threshold int, winsize int, winstride int, timeslice int, timestride int, heartbeat int, seen timestamp, events int)
 external name iot.baskets;
 
 create function iot.queries()
