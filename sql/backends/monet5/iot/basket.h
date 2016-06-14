@@ -41,7 +41,7 @@ typedef struct{
 	int winsize, winstride; /* sliding window operations */
 	lng timeslice, timestride; /* temporal sliding window, determined by first temporal component */
 	lng heartbeat;	/* milliseconds delay between actions */
-	int count;	/* number of events available in basket */
+	BUN count;	/* number of events available in basket */
 
 	/* statistics */
 	int status;		/* (DE)ACTIVATE */

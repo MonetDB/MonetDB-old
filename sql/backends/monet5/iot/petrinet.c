@@ -296,14 +296,14 @@ str PNdump(void *ret)
 			mnstr_printf(PNout, "#%s\n", pnet[i].error);
 		for (k = 0; k < MAXBSKT && pnet[i].places[k]; k++){
 			idx = pnet[i].places[k];
-			mnstr_printf(PNout, "#<--\t%s basket %d %d\n",
+			mnstr_printf(PNout, "#<--\t%s basket "BUNFMT" %d\n",
 					baskets[idx].table_name,
 					baskets[idx].count,
 					baskets[idx].status);
 		}
 		for (k = 0; k <MAXBSKT &&  pnet[i].targets[k]; k++){
 			idx = pnet[i].targets[k];
-			mnstr_printf(PNout, "#-->\t%s basket %d %d\n",
+			mnstr_printf(PNout, "#-->\t%s basket "BUNFMT" %d\n",
 					baskets[idx].table_name,
 					baskets[idx].count,
 					baskets[idx].status);
@@ -434,7 +434,7 @@ PNscheduler(void *dummy)
 					}
 				} else
 				/* consider baskets that are properly filled */
-				if (baskets[idx].threshold > baskets[idx].count || baskets[idx].count == 0){
+				if ( (BUN)baskets[idx].threshold > baskets[idx].count || baskets[idx].count == 0){
 					pnet[i].enabled = 0;
 					break;
 				}

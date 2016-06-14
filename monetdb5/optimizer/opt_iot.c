@@ -50,7 +50,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str  tables[MAXBSKT];
 	int  mvc[MAXBSKT];
 	int done[MAXBSKT]= {0};
-	int btop=0, lastmvc;
+	int btop=0, lastmvc=0;
 	int noerror=0;
 	int cq= strncmp(getFunctionId(getInstrPtr(mb,0)),"cq",2) == 0;
 	char buf[256];

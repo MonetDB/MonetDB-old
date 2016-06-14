@@ -26,6 +26,7 @@
  */
 
 #include "monetdb_config.h"
+#include <unistd.h>
 #include "gdk.h"
 #include "iot.h"
 #include "basket.h"
@@ -384,7 +385,7 @@ BSKTimportInternal(Client cntxt, int bskt)
 		break;
 		case TYPE_str:
 			while (fgets(line, MAXLINE, f) != 0){ //Use getline? http://man7.org/linux/man-pages/man3/getline.3.html
-				if ( line[i= strlen(line)-1] != '\n')
+				if ( line[i= (int) strlen(line)-1] != '\n')
 					msg= createException(MAL,"iot.basket","string too long\n");
 				else{
 					line[i] = 0;
@@ -609,7 +610,7 @@ BSKTdump(void *ret)
 				BBPunfix(b->batCacheid);
 			}
 
-			mnstr_printf(GDKout, "#baskets[%2d] %s.%s columns %d threshold %d window=[%d,%d] time window=[" LLFMT "," LLFMT "] beat " LLFMT " milliseconds" BUNFMT"\n",
+			mnstr_printf(GDKout, "#baskets[%2d] %s.%s columns "BUNFMT" threshold %d window=[%d,%d] time window=[" LLFMT "," LLFMT "] beat " LLFMT " milliseconds" BUNFMT"\n",
 					bskt,
 					baskets[bskt].schema_name,
 					baskets[bskt].table_name,
