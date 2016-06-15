@@ -1,68 +1,77 @@
 from collections import OrderedDict, defaultdict
 from json import dumps
 from jsonschema import Draft4Validator, FormatChecker
-from .datatypes import *
+from .datatypes import TextType, LimitedTextType, SmallIntegerType, HugeIntegerType, FloatType, DecimalType, DateType, \
+    TimeWithoutTimeZoneType, TimeWithTimeZoneType, TimestampWithoutTimeZoneType, TimestampWithTimeZoneType, \
+    IntervalType, BooleanType, INetType, INetSixType, MACType, URLType, UUIDType, RegexType, EnumType,\
+    ENUM_TYPE_SEPARATOR
 from .jsonschemas import UNBOUNDED_TEXT_TYPE, BOUNDED_TEXT_TYPES, SMALL_INTEGERS_TYPES, HUGE_INTEGER_TYPE,\
     FLOATING_POINT_PRECISION_TYPES, DECIMAL_TYPE, DATE_TYPE, TIME_WITHOUT_TIMEZONE_TYPE,\
-    TIME_WITH_TIMEZONE_TYPE_INTERNAL, TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL,\
-    BOOLEAN_TYPE, INET_TYPE, URL_TYPE, UUID_TYPE, INET6_TYPE, MAC_TYPE, REGEX_TYPE, ENUM_TYPE
+    TIME_WITH_TIMEZONE_TYPE_INTERNAL, TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL, \
+    INTERVAL_INPUTS, BOOLEAN_TYPE, INET_TYPE, URL_TYPE, UUID_TYPE, INET6_TYPE, MAC_TYPE, REGEX_TYPE, ENUM_TYPE, \
+    SECOND_INTERVAL_TYPE, MONTH_INTERVAL_TYPE
 from .streams import TupleBasedStream, TimeBasedStream, AutoFlushedStream, IMPLICIT_TIMESTAMP_COLUMN_NAME,\
     HOST_IDENTIFIER_COLUMN_NAME
 from .streamscontext import get_streams_context
 from Settings.iotlogger import add_log
-from Settings.mapiconnection import init_monetdb_connection, mapi_get_webserver_streams
+from Settings.mapiconnection import init_monetdb_connection, mapi_get_database_streams
 from Utilities.customthreading import PeriodicalThread
 
-Switcher = [{'types': [UNBOUNDED_TEXT_TYPE], 'class': 'TextType'},
-            {'types': BOUNDED_TEXT_TYPES, 'class': 'LimitedTextType'},
-            {'types': SMALL_INTEGERS_TYPES, 'class': 'SmallIntegerType'},
-            {'types': FLOATING_POINT_PRECISION_TYPES, 'class': 'FloatType'},
-            {'types': [DECIMAL_TYPE], 'class': 'DecimalType'},
-            {'types': [BOOLEAN_TYPE], 'class': 'BooleanType'},
-            {'types': [DATE_TYPE], 'class': 'DateType'},
-            {'types': [TIME_WITHOUT_TIMEZONE_TYPE], 'class': 'TimeWithoutTimeZoneType'},
-            {'types': [TIME_WITH_TIMEZONE_TYPE_INTERNAL], 'class': 'TimeWithTimeZoneType'},
-            {'types': [TIMESTAMP_WITHOUT_TIMEZONE_TYPE], 'class': 'TimestampWithoutTimeZoneType'},
-            {'types': [TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL], 'class': 'TimestampWithTimeZoneType'},
-            {'types': [URL_TYPE], 'class': 'URLType'},
-            {'types': [INET_TYPE], 'class': 'INetType'},
-            {'types': [UUID_TYPE], 'class': 'UUIDType'},
-            {'types': [INET6_TYPE], 'class': 'INetSixType'},
-            {'types': [MAC_TYPE], 'class': 'MACType'},
-            {'types': [REGEX_TYPE], 'class': 'RegexType'},
-            {'types': [ENUM_TYPE], 'class': 'EnumType'}]
+Switcher = [{'types': [UNBOUNDED_TEXT_TYPE], 'class': TextType},
+            {'types': BOUNDED_TEXT_TYPES, 'class': LimitedTextType},
+            {'types': SMALL_INTEGERS_TYPES, 'class': SmallIntegerType},
+            {'types': FLOATING_POINT_PRECISION_TYPES, 'class': FloatType},
+            {'types': [DECIMAL_TYPE], 'class': DecimalType},
+            {'types': [BOOLEAN_TYPE], 'class': BooleanType},
+            {'types': [DATE_TYPE], 'class': DateType},
+            {'types': [TIME_WITHOUT_TIMEZONE_TYPE], 'class': TimeWithoutTimeZoneType},
+            {'types': [TIME_WITH_TIMEZONE_TYPE_INTERNAL], 'class': TimeWithTimeZoneType},
+            {'types': [TIMESTAMP_WITHOUT_TIMEZONE_TYPE], 'class': TimestampWithoutTimeZoneType},
+            {'types': [TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL], 'class': TimestampWithTimeZoneType},
+            {'types': INTERVAL_INPUTS, 'class': IntervalType},
+            {'types': [URL_TYPE], 'class': URLType},
+            {'types': [INET_TYPE], 'class': INetType},
+            {'types': [UUID_TYPE], 'class': UUIDType},
+            {'types': [INET6_TYPE], 'class': INetSixType},
+            {'types': [MAC_TYPE], 'class': MACType},
+            {'types': [REGEX_TYPE], 'class': RegexType},
+            {'types': [ENUM_TYPE], 'class': EnumType}]
 
-INTEGER_TYPES = list(SMALL_INTEGERS_TYPES)
+INTEGER_AND_INTERVAL_TYPES = SMALL_INTEGERS_TYPES + [SECOND_INTERVAL_TYPE] + [MONTH_INTERVAL_TYPE]
 FLOATING_POINT_TYPES = FLOATING_POINT_PRECISION_TYPES + [DECIMAL_TYPE]
 DATETIME_TYPES = [DATE_TYPE, TIME_WITHOUT_TIMEZONE_TYPE, TIME_WITH_TIMEZONE_TYPE_INTERNAL,
                   TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL]
 
+INTERVALS_DICTIONARY = {1: "interval year", 2: "interval year to month", 3: "interval month", 4: "interval day",
+                        5: "interval day to hour", 6: "interval day to minute", 7: "interval day to second",
+                        8: "interval hour", 9: "interval hour to minute", 10: "interval hour to second",
+                        11: "interval minute", 12: "interval minute to second", 13: "interval second"}
+
 
 def polling_add_hugeint_type():
-    global INTEGER_TYPES
-    Switcher.append({'types': [HUGE_INTEGER_TYPE], 'class': 'HugeIntegerType'})
-    INTEGER_TYPES += [HUGE_INTEGER_TYPE]
+    global INTEGER_AND_INTERVAL_TYPES
+    INTEGER_AND_INTERVAL_TYPES += [HUGE_INTEGER_TYPE]
+    Switcher.append({'types': [HUGE_INTEGER_TYPE], 'class': HugeIntegerType})
 
 
 def init_stream_polling_thread(interval, connection, con_hostname, con_port, con_user, con_password, con_database):
-    thread = PeriodicalThread(interval=interval, worker_func=stream_polling,
-                              argument=[connection, con_hostname, con_port, con_user, con_password, con_database])
-    thread.start()
+    PeriodicalThread(interval=interval, worker_func=stream_polling,
+                     argument=[connection, con_hostname, con_port, con_user, con_password, con_database]).start()
 
 
 def stream_polling(argument):
-    retained_streams = []
-    new_streams = {}  # dictionary of schema_name + '.' + stream_name -> DataCellStream
-    # for tables [0] -> id, [1] -> schema, [2] -> name, [3] -> base, [4] -> interval, [5] -> unit
     # FLUSHING_STREAMS = {1: 'TupleBasedStream', 2: 'TimeBasedStream', 3: 'AutoFlushedStream'}
     # SPECIAL_TYPES = {1: 'MACType', 2: 'RegexType', 3: 'EnumType', 4: 'INetSixType'}
-
-    # for columns [0] -> id, [1] -> table_id, [2] -> name, [3] -> type, [4] -> type_digits, [5] -> type_scale,
+    # for tables: [0] -> id, [1] -> schema, [2] -> name, [3] -> base, [4] -> interval, [5] -> unit
+    # for columns: [0] -> id, [1] -> table_id, [2] -> name, [3] -> type, [4] -> type_digits, [5] -> type_scale,
     # [6] -> default_value, [7] -> is_null, [8] -> special, [9] -> validation1, [10] -> validation2
+
+    retained_streams = []
+    new_streams = {}
     context = get_streams_context()
 
     try:
-        tables, columns = mapi_get_webserver_streams(argument[0])  # TODO check whenever stream's columns are updated
+        tables, columns = mapi_get_database_streams(argument[0])  # TODO check whenever stream's columns are updated
         grouped_columns = defaultdict(list)  # group the columns to the respective tables
         for entry in columns:
             grouped_columns[entry[1]].append(entry)
@@ -108,13 +117,15 @@ def stream_polling(argument):
                                 kwargs_dic['type'] = next_switch
                                 if next_switch in BOUNDED_TEXT_TYPES:
                                     kwargs_dic['limit'] = column[4]
-                                elif next_switch in INTEGER_TYPES:
+                                elif next_switch in INTEGER_AND_INTERVAL_TYPES:
                                     if default_value is not None:
                                         kwargs_dic['default'] = int(default_value)
                                     if column[9] is not None:
                                         kwargs_dic['minimum'] = int(column[9])
                                     if column[10] is not None:
                                         kwargs_dic['maximum'] = int(column[10])
+                                    if next_switch in (SECOND_INTERVAL_TYPE, MONTH_INTERVAL_TYPE):
+                                        kwargs_dic['type'] = INTERVALS_DICTIONARY.get(column[4])
                                 elif next_switch in FLOATING_POINT_TYPES:
                                     if default_value is not None:
                                         kwargs_dic['default'] = float(default_value)
@@ -136,7 +147,7 @@ def stream_polling(argument):
                             valid_type = False
                             for variable in Switcher:  # allocate the proper type wrapper
                                 if kwargs_dic['type'] in variable['types']:
-                                    reflection_class = globals()[variable['class']]
+                                    reflection_class = variable['class']()
                                     built_columns[kwargs_dic['name']] = reflection_class(**kwargs_dic)
                                     valid_type = True
                                     break

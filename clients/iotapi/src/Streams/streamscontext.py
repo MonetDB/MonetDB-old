@@ -11,7 +11,7 @@ class IOTStreams:
         return schema_name + '.' + stream_name
 
     def __init__(self):
-        self._context = {}  # dictionary of schema_name + '.' + stream_name -> DataCellStream
+        self._context = {}  # dictionary of schema_name + '.' + stream_name -> IOTStream
         self._locker = RWLock()
 
     def get_existing_streams(self):

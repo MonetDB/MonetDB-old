@@ -1,50 +1,44 @@
-import sys
-
 from monetdb.sql import connect
-from ..Settings.iotlogger import add_log
-
-Connection = None
+from .iotlogger import add_log
 
 
 def init_monetdb_connection(hostname, port, user_name, user_password, database):
-    global Connection
-
-    try:  # the autocommit is set to true so each statement will be independent
-        Connection = connect(hostname=hostname, port=port, username=user_name, password=user_password,
-                             database=database, autocommit=True)
-        log_message = 'User %s connected successfully to database %s' % (user_name, database)
-        print log_message
-        add_log(20, log_message)
-    except BaseException as ex:
-        print ex
-        add_log(50, ex)
-        sys.exit(1)
+    return connect(hostname=hostname, port=port, username=user_name, password=user_password, database=database)
 
 
-def close_monetdb_connection():
-    Connection.close()
+def close_monetdb_connection(connection):
+    connection.close()
 
 
-def check_hugeint_type():
-    Connection.execute("START TRANSACTION")
-    cursor = Connection.cursor()
+def check_hugeint_type(connection):
+    cursor = connection.cursor()
     cursor.execute("SELECT COUNT(*) FROM sys.types WHERE sqlname='hugeint'")
     result = cursor.fetchall()[0][0]
-    Connection.commit()
-    return result
+    connection.commit()
+    return result > 0
 
 
-def fetch_streams():
+def mapi_get_database_streams(connection):
     try:
-        cursor = Connection.cursor()
-        sql_string = """SELECT schemas."name" as schema, tables."name" as table, columns."name" as column,
-             columns."type", columns."type_digits", columns."type_scale", columns."default", columns."null" FROM
+        cursor = connection.cursor()
+        sql_string = """SELECT tables."id", schemas."name" AS schema, tables."name" AS table FROM
              (SELECT "id", "name", "schema_id" FROM sys.tables WHERE type=4) AS tables INNER JOIN (SELECT "id", "name"
-             FROM sys.schemas) AS schemas ON (tables."schema_id"=schemas."id") INNER JOIN (SELECT "table_id", "name",
-             "type", "type_digits", "type_scale", "default", "null" FROM sys.columns) AS columns ON
-             (columns."table_id"=tables."id")""".replace('\n', ' ')
+             FROM sys.schemas) AS schemas ON (tables."schema_id"=schemas."id")""".replace('\n', ' ')
         cursor.execute(sql_string)
-        return cursor.fetchall()
+        tables = cursor.fetchall()
+
+        cursor = connection.cursor()
+        sql_string = """SELECT columns."table_id", columns."name" AS column, columns."type", columns."type_digits",
+            columns."type_scale", columns."default", columns."null" FROM (SELECT "table_id", "name", "type",
+            "type_digits", "type_scale", "default", "null", "number" FROM sys.columns) AS columns INNER JOIN
+            (SELECT "id" FROM sys.tables WHERE type=4) AS tables ON (tables."id"=columns."table_id")
+            ORDER BY columns."table_id", columns."number" """.replace('\n', ' ')
+        cursor.execute(sql_string)
+        columns = cursor.fetchall()
+
+        connection.commit()
+        return tables, columns
     except BaseException as ex:
         add_log(50, ex)
+        connection.rollback()
         raise

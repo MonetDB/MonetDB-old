@@ -145,6 +145,5 @@ class IOTStream:
                 current_basket_number += 1
 
         keys = results.keys()  # TODO check if this is viable for many tuples!!
-        tuples = [dict(zip(keys, values)) for values in zip(*(results[k] for k in keys))]
         return OrderedDict((('schema', self._schema_name), ('stream', self._stream_name), ('count', read_tuples),
-                            ('tuples', tuples)))
+                            ('tuples', [dict(zip(keys, values)) for values in zip(*(results[k] for k in keys))])))

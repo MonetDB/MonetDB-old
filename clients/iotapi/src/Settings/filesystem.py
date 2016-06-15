@@ -6,7 +6,7 @@ from .iotlogger import add_log
 Baskets_Location = None
 
 if sys.platform in ("linux", "linux2", "darwin"):
-    DEFAULT_FILESYSTEM = '/etc/iotapi'
+    DEFAULT_FILESYSTEM = '/var/iotapi'
 elif sys.platform == "win32":
     DEFAULT_FILESYSTEM = os.path.join(os.path.dirname(__file__), os.pardir)
 

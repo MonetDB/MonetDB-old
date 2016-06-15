@@ -22,7 +22,7 @@ def unsubscribe_removed_streams(concatenated_names):
     for name in concatenated_names:
         add_log(20, ''.join(['Stream ', name, ' removed']))
 
-from ..Streams.streamscontext import Streams_Context, IOTStreams  # avoid circular dependency
+from Streams.streamscontext import Streams_Context, IOTStreams  # avoid circular dependency
 
 
 def notify_stream_inserts_to_clients(schema_name, stream_name, basket_number, count):

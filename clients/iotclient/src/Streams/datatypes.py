@@ -374,7 +374,7 @@ class BooleanType(StreamDataType):
 
     def process_next_value(self, entry, counter, parameters, errors):
         if entry == self.get_nullable_constant():
-            return self.get_nullable_constant()
+            return entry
         if bool(entry):
             return 1
         return 0
@@ -450,7 +450,7 @@ class SmallIntegerType(NumberBaseType):
         return self._nullable_constant
 
     def process_next_value(self, entry, counter, parameters, errors):
-        return int(entry)
+        return entry
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + self._pack_sym, *extracted_values)
@@ -495,7 +495,7 @@ class FloatType(NumberBaseType):
         return self._nullable_constant
 
     def process_next_value(self, entry, counter, parameters, errors):
-        return float(entry)
+        return entry
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + self._pack_sym, *extracted_values)
@@ -550,7 +550,8 @@ class DecimalType(NumberBaseType):
         if self._pack_sym != 'Q':
             return int(entry)
         else:
-            return [int(entry) & 0xFFFFFFFFFFFFFFFF, (int(entry) >> 64) & 0xFFFFFFFFFFFFFFFF]
+            var = int(entry)
+            return [var & 0xFFFFFFFFFFFFFFFF, (var >> 64) & 0xFFFFFFFFFFFFFFFF]
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
         if self._pack_sym == 'Q':
@@ -762,3 +763,32 @@ class TimestampWithTimeZoneType(TimestampWithoutTimeZoneType):
         json_value = super(TimestampWithTimeZoneType, self).to_json_representation()
         json_value['type'] = 'timestamp with time zone'
         return json_value
+
+
+class IntervalType(NumberBaseType):
+    """Covers: INTERVAL"""
+
+    def __init__(self, **kwargs):
+        interval = kwargs['type'][9:].split(" to ")[-1]
+        self._multiplier = {'second': 1000, 'minute': 60000, 'hour': 3600000, 'day': 86400000, 'month': 1, 'year': 12} \
+            .get(interval)
+        self._nullable_constant = {'second': INT64_MIN, 'minute': INT64_MIN, 'hour': INT64_MIN, 'day': INT64_MIN,
+                                   'month': INT32_MIN, 'year': INT32_MIN}.get(interval)
+        self._pack_sym = {'second': 'q', 'minute': 'q', 'hour': 'q', 'day': 'q', 'month': 'i', 'year': 'i'} \
+            .get(interval)
+        super(IntervalType, self).__init__(**kwargs)
+
+    def add_json_schema_entry(self, schema):
+        super(IntervalType, self).add_json_schema_entry(schema)
+        schema[self._column_name]['type'] = 'integer'
+
+    def get_nullable_constant(self):
+        return self._nullable_constant
+
+    def process_next_value(self, entry, counter, parameters, errors):
+        if entry == self.get_nullable_constant():
+            return entry
+        return entry * self._multiplier
+
+    def pack_parsed_values(self, extracted_values, counter, parameters):
+        return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + self._pack_sym, *extracted_values)

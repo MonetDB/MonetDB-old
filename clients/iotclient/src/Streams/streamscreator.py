@@ -1,34 +1,37 @@
 from collections import OrderedDict
 from json import dumps
 from jsonschema import Draft4Validator, FormatChecker
-from .datatypes import *
+from .datatypes import TextType, LimitedTextType, SmallIntegerType, FloatType, DecimalType, DateType, \
+    TimeWithoutTimeZoneType, TimeWithTimeZoneType, TimestampWithoutTimeZoneType, TimestampWithTimeZoneType, \
+    IntervalType, BooleanType, INetType, INetSixType, MACType, URLType, UUIDType, RegexType, EnumType
 from .jsonschemas import UNBOUNDED_TEXT_INPUTS, BOUNDED_TEXT_INPUTS, SMALL_INTEGERS_INPUTS, HUGE_INTEGER_TYPE, \
     FLOATING_POINT_PRECISION_INPUTS, DECIMAL_INPUTS, DATE_TYPE, TIME_WITHOUT_TIMEZONE_TYPE, \
     TIME_WITH_TIMEZONE_TYPE_EXTERNAL, TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL, \
-    BOOLEAN_INPUTS, INET_TYPE, INET6_TYPE, MAC_TYPE, URL_TYPE, UUID_TYPE, REGEX_TYPE, ENUM_TYPE, \
+    INTERVAL_INPUTS, BOOLEAN_INPUTS, INET_TYPE, INET6_TYPE, MAC_TYPE, URL_TYPE, UUID_TYPE, REGEX_TYPE, ENUM_TYPE, \
     TIMED_FLUSH_IDENTIFIER, TUPLE_FLUSH_IDENTIFIER
 from .streams import TupleBasedStream, TimeBasedStream, AutoFlushedStream, IMPLICIT_TIMESTAMP_COLUMN_NAME,\
     HOST_IDENTIFIER_COLUMN_NAME
 from Settings.mapiconnection import init_monetdb_connection
 
-Switcher = [{'types': UNBOUNDED_TEXT_INPUTS, 'class': 'TextType'},
-            {'types': BOUNDED_TEXT_INPUTS, 'class': 'LimitedTextType'},
-            {'types': SMALL_INTEGERS_INPUTS, 'class': 'SmallIntegerType'},
-            {'types': FLOATING_POINT_PRECISION_INPUTS, 'class': 'FloatType'},
-            {'types': DECIMAL_INPUTS, 'class': 'DecimalType'},
-            {'types': [DATE_TYPE], 'class': 'DateType'},
-            {'types': [TIME_WITHOUT_TIMEZONE_TYPE], 'class': 'TimeWithoutTimeZoneType'},
-            {'types': [TIME_WITH_TIMEZONE_TYPE_EXTERNAL], 'class': 'TimeWithTimeZoneType'},
-            {'types': [TIMESTAMP_WITHOUT_TIMEZONE_TYPE], 'class': 'TimestampWithoutTimeZoneType'},
-            {'types': [TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL], 'class': 'TimestampWithTimeZoneType'},
-            {'types': BOOLEAN_INPUTS, 'class': 'BooleanType'},
-            {'types': [INET_TYPE], 'class': 'INetType'},
-            {'types': [INET6_TYPE], 'class': 'INetSixType'},
-            {'types': [MAC_TYPE], 'class': 'MACType'},
-            {'types': [URL_TYPE], 'class': 'URLType'},
-            {'types': [UUID_TYPE], 'class': 'UUIDType'},
-            {'types': [REGEX_TYPE], 'class': 'RegexType'},
-            {'types': [ENUM_TYPE], 'class': 'EnumType'}]
+Switcher = [{'types': UNBOUNDED_TEXT_INPUTS, 'class': TextType},
+            {'types': BOUNDED_TEXT_INPUTS, 'class': LimitedTextType},
+            {'types': SMALL_INTEGERS_INPUTS, 'class': SmallIntegerType},
+            {'types': FLOATING_POINT_PRECISION_INPUTS, 'class': FloatType},
+            {'types': DECIMAL_INPUTS, 'class': DecimalType},
+            {'types': [DATE_TYPE], 'class': DateType},
+            {'types': [TIME_WITHOUT_TIMEZONE_TYPE], 'class': TimeWithoutTimeZoneType},
+            {'types': [TIME_WITH_TIMEZONE_TYPE_EXTERNAL], 'class': TimeWithTimeZoneType},
+            {'types': [TIMESTAMP_WITHOUT_TIMEZONE_TYPE], 'class': TimestampWithoutTimeZoneType},
+            {'types': [TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL], 'class': TimestampWithTimeZoneType},
+            {'types': INTERVAL_INPUTS, 'class': IntervalType},
+            {'types': BOOLEAN_INPUTS, 'class': BooleanType},
+            {'types': [INET_TYPE], 'class': INetType},
+            {'types': [INET6_TYPE], 'class': INetSixType},
+            {'types': [MAC_TYPE], 'class': MACType},
+            {'types': [URL_TYPE], 'class': URLType},
+            {'types': [UUID_TYPE], 'class': UUIDType},
+            {'types': [REGEX_TYPE], 'class': RegexType},
+            {'types': [ENUM_TYPE], 'class': EnumType}]
 
 
 def creator_add_hugeint_type():
@@ -54,7 +57,7 @@ def validate_schema_and_create_stream(schema, con_hostname, con_port, con_user, 
         for entry in Switcher:  # allocate the proper type wrapper
             if next_type in entry['types']:
                 try:
-                    reflection_class = globals()[entry['class']]  # import everything from datatypes!!!
+                    reflection_class = entry['class']()  # use reflection
                     validated_columns[next_name] = reflection_class(**column)  # pass the json entry as kwargs
                 except BaseException as ex:
                     errors[next_name] = ex

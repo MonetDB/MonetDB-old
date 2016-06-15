@@ -7,12 +7,13 @@ import unittest
 from monetdb.sql import connect
 from datatypesinsertstests import TextTest, URLTest, INetTest, UUIDTest, BooleanTest, TinyIntegerTest,\
     SmallIntegerTest, IntegerTest, BigIntegerTest, HugeIntegerTest, RealPointTest, FloatPointTest, DecimalTest,\
-    DateTest, TimeWithoutTimezoneTest, TimeWithTimezoneTest, TimestampWithoutTimezoneTest, TimestampWithTimezoneTest,\
-    NullableTextTest, NullableURLTest, NullableINetTest, NullableUUIDTest, NullableBooleanTest,\
+    DateTest, TimeWithoutTimezoneTest, TimeWithTimezoneTest, TimestampWithoutTimezoneTest, TimestampWithTimezoneTest, \
+    MonthIntervalTest, YearIntervalTest, SecondIntervalTest, MinuteIntervalTest, HourIntervalTest, DayIntervalTest,\
+    NullableTextTest, NullableURLTest,NullableINetTest, NullableUUIDTest, NullableBooleanTest,\
     NullableTinyIntegerTest, NullableSmallIntegerTest, NullableIntegerTest, NullableBigIntegerTest,\
     NullableHugeIntegerTest, NullableRealPointTest, NullableFloatPointTest, NullableDecimalTest, NullableDateTest,\
     NullableTimeWithoutTimezoneTest, NullableTimeWithTimezoneTest, NullableTimestampWithoutTimezoneTest,\
-    NullableTimestampWithTimezoneTest
+    NullableTimestampWithTimezoneTest, NullableMonthIntervalTest, NullableSecondIntervalTest
 
 
 def check_positive_int(value):
@@ -53,58 +54,27 @@ def main():
         sys.exit(0)
 
     try:
-        con_password = getpass.getpass(prompt='Insert password for user ' + args['user'] + ':')
-        mapi_connection = connect(hostname=args['host'], port=args['port'], username=args['user'],
-                                  password=con_password, database=args['database'], autocommit=True)
+        con_pass = getpass.getpass(prompt='Insert password for user ' + args['user'] + ':')
+        mapi_connection = connect(hostname=args['host'], port=args['port'], username=args['user'], password=con_pass,
+                                  database=args['database'], autocommit=True)
     except BaseException as ex:
         print ex
         sys.exit(1)
 
-    inserts = args['number']
-    file_path = args['filepath']
-    tests = (
-        # random inserts tests
-        TextTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        URLTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        INetTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        UUIDTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        BooleanTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        TinyIntegerTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        SmallIntegerTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        IntegerTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        BigIntegerTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        HugeIntegerTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        RealPointTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        FloatPointTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        DecimalTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path, precision=5, scale=1),
-        DateTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        TimeWithoutTimezoneTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        TimeWithTimezoneTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        TimestampWithoutTimezoneTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        TimestampWithTimezoneTest(mapi_connection=mapi_connection, number_inserts=inserts, temp_path=file_path),
-        # nullables inserts tests
-        NullableTextTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableURLTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableINetTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableUUIDTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableBooleanTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableTinyIntegerTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableSmallIntegerTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableIntegerTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableBigIntegerTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableHugeIntegerTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableRealPointTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableFloatPointTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableDecimalTest(mapi_connection=mapi_connection, temp_path=file_path, precision=5, scale=1),
-        NullableDateTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableTimeWithoutTimezoneTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableTimeWithTimezoneTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableTimestampWithoutTimezoneTest(mapi_connection=mapi_connection, temp_path=file_path),
-        NullableTimestampWithTimezoneTest(mapi_connection=mapi_connection, temp_path=file_path)
-    )
+    kwargs = {'mapi_connection': mapi_connection, 'number_inserts': args['number'], 'temp_path': args['filepath'],
+              'precision': 5, 'scale': 1}
+    tests = [TextTest, URLTest, INetTest, UUIDTest, BooleanTest, TinyIntegerTest, SmallIntegerTest, IntegerTest,
+             BigIntegerTest, HugeIntegerTest, RealPointTest, FloatPointTest, DecimalTest, DateTest,
+             TimeWithoutTimezoneTest, TimeWithTimezoneTest, TimestampWithoutTimezoneTest, TimestampWithTimezoneTest,
+             MonthIntervalTest, YearIntervalTest, SecondIntervalTest, MinuteIntervalTest, HourIntervalTest,
+             DayIntervalTest, NullableTextTest, NullableURLTest, NullableINetTest, NullableUUIDTest,
+             NullableBooleanTest, NullableTinyIntegerTest, NullableSmallIntegerTest, NullableIntegerTest,
+             NullableBigIntegerTest, NullableHugeIntegerTest, NullableRealPointTest, NullableFloatPointTest,
+             NullableDecimalTest, NullableDateTest, NullableTimeWithoutTimezoneTest, NullableTimeWithTimezoneTest,
+             NullableTimestampWithoutTimezoneTest, NullableTimestampWithTimezoneTest, NullableMonthIntervalTest,
+             NullableSecondIntervalTest]
 
-    suite = unittest.TestSuite(tests=tests)
-    unittest.TextTestRunner(verbosity=2).run(suite)
+    unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(tests=map(lambda x: x(**kwargs), tests)))
     mapi_connection.close()
 
 if __name__ == '__main__':

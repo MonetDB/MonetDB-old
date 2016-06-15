@@ -21,27 +21,25 @@ FLOAT_NAN = struct.unpack('f', '\xff\xff\x7f\xff')[0]
 DOUBLE_NAN = struct.unpack('d', '\xff\xff\xff\xff\xff\xff\xef\xff')[0]
 
 
-# elem[0] is column name, elem[1] is type, elem[2] is type_digits, elem[3] is type_scale elem[4] is default value
-# elem[5] is nullable
 class StreamDataType(object):
     """MonetDB's data types for reading base class"""
     __metaclass__ = ABCMeta
 
-    def __init__(self, *args):
-        self._column_name = args[0]  # name of the column
-        self._data_type = args[1]  # SQL name of the type
-        self._default_value = args[4]  # default value text
-        self._is_nullable = args[5]  # is nullable
+    def __init__(self, **kwargs):
+        self._column_name = kwargs['name']  # name of the column
+        self._data_type = kwargs['type']  # SQL name of the type
+        self._default_value = kwargs['default']  # default value text
+        self._is_nullable = kwargs['nullable']  # is nullable
 
     def is_file_mode_binary(self):
         return True
 
     @abstractmethod
-    def skip_tuples(self, file_pointer, offset):
+    def skip_tuples(self, fp, offset):
         pass
 
     @abstractmethod
-    def read_next_batch(self, file_pointer, limit):
+    def read_next_batch(self, fp, limit):
         pass
 
     def read_next_tuples(self, file_name, offset, read_size):
@@ -65,21 +63,21 @@ class StreamDataType(object):
 class TextType(StreamDataType):
     """Covers: CLOB and Url"""
 
-    def __init__(self, *args):
-        super(TextType, self).__init__(*args)
+    def __init__(self, **kwargs):
+        super(TextType, self).__init__(**kwargs)
         self._nullable_constant = NIL_STRING
 
     def is_file_mode_binary(self):
         return False
 
-    def skip_tuples(self, file_pointer, offset):
+    def skip_tuples(self, fp, offset):
         for _ in xrange(offset):
-            next(file_pointer)
+            next(fp)
 
-    def read_next_batch(self, file_pointer, limit):
+    def read_next_batch(self, fp, limit):
         array = []
         for _ in xrange(limit):
-            next_line = next(file_pointer)
+            next_line = next(fp)
             if next_line == self._nullable_constant:
                 array.append(None)
             else:
@@ -90,9 +88,9 @@ class TextType(StreamDataType):
 class LimitedTextType(TextType):
     """Covers: CHAR and VARCHAR"""
 
-    def __init__(self, *args):
-        super(LimitedTextType, self).__init__(*args)
-        self._limit = args[2]
+    def __init__(self, **kwargs):
+        super(LimitedTextType, self).__init__(**kwargs)
+        self._limit = kwargs['digits']
 
     def to_json_representation(self):
         json_value = super(LimitedTextType, self).to_json_representation()
@@ -103,16 +101,16 @@ class LimitedTextType(TextType):
 class INetType(StreamDataType):
     """Covers: Inet"""
 
-    def __init__(self, *args):
-        super(INetType, self).__init__(*args)
+    def __init__(self, **kwargs):
+        super(INetType, self).__init__(**kwargs)
 
-    def skip_tuples(self, file_pointer, offset):
-        file_pointer.seek(offset << 3)
+    def skip_tuples(self, fp, offset):
+        fp.seek(offset << 3)
 
-    def read_next_batch(self, file_pointer, limit):
+    def read_next_batch(self, fp, limit):
         results = []
         read_size = limit << 3
-        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(read_size) + 'B', file_pointer.read(read_size))
+        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(read_size) + 'B', fp.read(read_size))
         iterator = iter(array)
 
         for _ in xrange(limit):
@@ -128,16 +126,16 @@ class INetType(StreamDataType):
 class UUIDType(StreamDataType):
     """Covers: UUID"""
 
-    def __init__(self, *args):
-        super(UUIDType, self).__init__(*args)
+    def __init__(self, **kwargs):
+        super(UUIDType, self).__init__(**kwargs)
 
-    def skip_tuples(self, file_pointer, offset):
-        file_pointer.seek(offset << 4)
+    def skip_tuples(self, fp, offset):
+        fp.seek(offset << 4)
 
-    def read_next_batch(self, file_pointer, limit):
+    def read_next_batch(self, fp, limit):
         results = []
         read_size = limit << 4
-        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(read_size) + 'B', file_pointer.read(read_size))
+        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(read_size) + 'B', fp.read(read_size))
         iterator = iter(array)
 
         for _ in xrange(limit):
@@ -158,50 +156,49 @@ class UUIDType(StreamDataType):
 class BooleanType(StreamDataType):
     """Covers: BOOLEAN"""
 
-    def __init__(self, *args):
-        super(BooleanType, self).__init__(*args)
+    def __init__(self, **kwargs):
+        super(BooleanType, self).__init__(**kwargs)
         self._nullable_constant = INT8_MIN
 
-    def skip_tuples(self, file_pointer, offset):
-        file_pointer.seek(offset)
+    def skip_tuples(self, fp, offset):
+        fp.seek(offset)
 
-    def read_next_batch(self, file_pointer, limit):
-        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + 'b', file_pointer.read(limit))
+    def read_next_batch(self, fp, limit):
+        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + 'b', fp.read(limit))
         return map(lambda x: None if x == self._nullable_constant else bool(x), array)
 
 
 class SmallIntegerType(StreamDataType):
     """Covers: TINYINT, SMALLINT, INTEGER, BIGINT"""
 
-    def __init__(self, *args):
-        super(SmallIntegerType, self).__init__(*args)
+    def __init__(self, **kwargs):
+        super(SmallIntegerType, self).__init__(**kwargs)
         self._pack_sym = {'tinyint': 'b', 'smallint': 'h', 'int': 'i', 'integer': 'i', 'bigint': 'q'} \
             .get(self._data_type)
         self._size = struct.calcsize(self._pack_sym)
         self._nullable_constant = {'tinyint': INT8_MIN, 'smallint': INT16_MIN, 'int': INT32_MIN, 'integer': INT32_MIN,
                                    'bigint': INT64_MIN}.get(self._data_type)
 
-    def skip_tuples(self, file_pointer, offset):
-        file_pointer.seek(offset * self._size)
+    def skip_tuples(self, fp, offset):
+        fp.seek(offset * self._size)
 
-    def read_next_batch(self, file_pointer, limit):
-        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + self._pack_sym,
-                              file_pointer.read(limit * self._size))
+    def read_next_batch(self, fp, limit):
+        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + self._pack_sym, fp.read(limit * self._size))
         return map(lambda x: None if x == self._nullable_constant else int(x), array)
 
 
 class HugeIntegerType(StreamDataType):
     """Covers: HUGEINT"""
 
-    def __init__(self, *args):
-        super(HugeIntegerType, self).__init__(*args)
+    def __init__(self, **kwargs):
+        super(HugeIntegerType, self).__init__(**kwargs)
         self._nullable_constant = INT128_MIN
 
-    def skip_tuples(self, file_pointer, offset):
-        file_pointer.seek(offset << 4)
+    def skip_tuples(self, fp, offset):
+        fp.seek(offset << 4)
 
-    def read_next_batch(self, file_pointer, limit):  # [entry & INT64_MAX, (entry >> 64) & INT64_MAX]
-        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit << 1) + 'Q', file_pointer.read(limit << 4))
+    def read_next_batch(self, fp, limit):  # [entry & INT64_MAX, (entry >> 64) & INT64_MAX]
+        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit << 1) + 'Q', fp.read(limit << 4))
         results = []
         iterator = iter(array)  # has to iterate two values at once, so use iterator
         for value in iterator:
@@ -216,28 +213,27 @@ class HugeIntegerType(StreamDataType):
 class FloatType(StreamDataType):
     """Covers: REAL, DOUBLE"""
 
-    def __init__(self, *args):
-        super(FloatType, self).__init__(*args)
+    def __init__(self, **kwargs):
+        super(FloatType, self).__init__(**kwargs)
         self._pack_sym = {'real': 'f', 'float': 'd', 'double': 'd'}.get(self._data_type)
         self._size = struct.calcsize(self._pack_sym)
         self._nullable_constant = {'real': FLOAT_NAN, 'float': DOUBLE_NAN, 'double': DOUBLE_NAN}.get(self._data_type)
 
-    def skip_tuples(self, file_pointer, offset):
-        file_pointer.seek(offset * self._size)
+    def skip_tuples(self, fp, offset):
+        fp.seek(offset * self._size)
 
-    def read_next_batch(self, file_pointer, limit):
-        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + self._pack_sym,
-                              file_pointer.read(limit * self._size))
+    def read_next_batch(self, fp, limit):
+        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + self._pack_sym, fp.read(limit * self._size))
         return map(lambda x: None if x == self._nullable_constant else float(x), array)
 
 
 class DecimalType(StreamDataType):
     """Covers: DECIMAL"""
 
-    def __init__(self, *args):
-        super(DecimalType, self).__init__(*args)
-        self._precision = args[2]
-        self._scale = args[3]
+    def __init__(self, **kwargs):
+        super(DecimalType, self).__init__(**kwargs)
+        self._precision = kwargs['digits']
+        self._scale = kwargs['scale']
 
         if self._precision <= 2:  # calculate the number of bytes to use according to the precision
             self._pack_sym = 'b'
@@ -256,12 +252,11 @@ class DecimalType(StreamDataType):
         if self._pack_sym == 'Q':
             self._size <<= 1  # has to read two values at once
 
-    def skip_tuples(self, file_pointer, offset):
-        file_pointer.seek(offset * self._size)
+    def skip_tuples(self, fp, offset):
+        fp.seek(offset * self._size)
 
-    def read_next_batch(self, file_pointer, limit):
-        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + self._pack_sym,
-                              file_pointer.read(limit * self._size))
+    def read_next_batch(self, fp, limit):
+        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + self._pack_sym, fp.read(limit * self._size))
         if self._pack_sym != 'Q':
             return map(lambda x: None if x == self._nullable_constant else float(x), array)
         else:
@@ -285,15 +280,15 @@ class DecimalType(StreamDataType):
 class DateType(StreamDataType):  # Stored as an uint with the number of days since day 1 of month 1 (Jan) from year 0
     """Covers: DATE"""
 
-    def __init__(self, *args):
-        super(DateType, self).__init__(*args)
+    def __init__(self, **kwargs):
+        super(DateType, self).__init__(**kwargs)
         self._nullable_constant = INT32_MIN
 
-    def skip_tuples(self, file_pointer, offset):
-        file_pointer.seek(offset << 2)
+    def skip_tuples(self, fp, offset):
+        fp.seek(offset << 2)
 
-    def read_next_batch(self, file_pointer, limit):
-        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + 'I', file_pointer.read(limit << 2))
+    def read_next_batch(self, fp, limit):
+        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + 'I', fp.read(limit << 2))
         results = []
         for value in array:
             if value == self._nullable_constant:
@@ -306,15 +301,17 @@ class DateType(StreamDataType):  # Stored as an uint with the number of days sin
 class TimeType(StreamDataType):  # Stored as an uint with the number of milliseconds since hour 00:00:00
     """Covers: TIME"""
 
-    def __init__(self, *args):
-        super(TimeType, self).__init__(*args)
+    def __init__(self, **kwargs):
+        super(TimeType, self).__init__(**kwargs)
         self._nullable_constant = INT32_MIN
+        if self._data_type == 'timetz':
+            self._data_type = 'time with time zone'
 
-    def skip_tuples(self, file_pointer, offset):
-        file_pointer.seek(offset << 2)
+    def skip_tuples(self, fp, offset):
+        fp.seek(offset << 2)
 
-    def read_next_batch(self, file_pointer, limit):
-        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + 'I', file_pointer.read(limit << 2))
+    def read_next_batch(self, fp, limit):
+        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + 'I', fp.read(limit << 2))
         results = []
         for value in array:
             if value == self._nullable_constant:
@@ -331,14 +328,16 @@ class TimeType(StreamDataType):  # Stored as an uint with the number of millisec
 class TimestampType(StreamDataType):  # It is represented with the two integers from time and date
     """Covers: TIMESTAMP"""
 
-    def __init__(self, *args):
-        super(TimestampType, self).__init__(*args)
+    def __init__(self, **kwargs):
+        super(TimestampType, self).__init__(**kwargs)
+        if self._data_type == 'timestamptz':
+            self._data_type = 'timestamp with time zone'
 
-    def skip_tuples(self, file_pointer, offset):
-        file_pointer.seek(offset << 3)
+    def skip_tuples(self, fp, offset):
+        fp.seek(offset << 3)
 
-    def read_next_batch(self, file_pointer, limit):
-        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit << 1) + 'I', file_pointer.read(limit << 3))
+    def read_next_batch(self, fp, limit):
+        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit << 1) + 'I', fp.read(limit << 3))
         results = []
         iterator = iter(array)  # has to iterate two values at once, so use iterator
 
@@ -354,3 +353,30 @@ class TimestampType(StreamDataType):  # It is represented with the two integers 
                 results.append(datetime.combine(read_date, time(hour=hour, minute=minute, second=second,
                                                                 microsecond=milliseconds * 1000)).isoformat())
         return results
+
+INTERVALS_DICTIONARY = {1: "interval year", 2: "interval year to month", 3: "interval month", 4: "interval day",
+                        5: "interval day to hour", 6: "interval day to minute", 7: "interval day to second",
+                        8: "interval hour", 9: "interval hour to minute", 10: "interval hour to second",
+                        11: "interval minute", 12: "interval minute to second", 13: "interval second"}
+
+
+class IntervalType(StreamDataType):
+    """Covers: INTERVAL"""
+
+    def __init__(self, **kwargs):
+        super(IntervalType, self).__init__(**kwargs)
+        if kwargs['digits'] < 4:
+            self._pack_sym = 'i'
+            self._nullable_constant = INT32_MIN
+        else:
+            self._pack_sym = 'q'
+            self._nullable_constant = INT64_MIN
+        self._size = struct.calcsize(self._pack_sym)
+        self._data_type = INTERVALS_DICTIONARY.get(kwargs['switch'])
+
+    def skip_tuples(self, fp, offset):
+        fp.seek(offset * self._size)
+
+    def read_next_batch(self, fp, limit):
+        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + self._pack_sym, fp.read(limit * self._size))
+        return map(lambda x: None if x == self._nullable_constant else int(x), array)

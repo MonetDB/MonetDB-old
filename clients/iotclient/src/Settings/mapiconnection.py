@@ -1,10 +1,10 @@
 from monetdb.sql import connect
-from Settings.iotlogger import add_log
+from .iotlogger import add_log
 
 
 def init_monetdb_connection(hostname, port, user_name, user_password, database):
     return connect(hostname=hostname, port=port, username=user_name, password=user_password, database=database,
-                   autocommit=False)  # the autocommit is set to true so each statement will be independent
+                   autocommit=False)
 
 
 def close_monetdb_connection(connection):
@@ -19,7 +19,7 @@ def check_hugeint_type(connection):
     return result > 0
 
 
-def mapi_get_webserver_streams(connection):
+def mapi_get_database_streams(connection):
     try:
         cursor = connection.cursor()
         sql_string = """SELECT tables."id", schemas."name" AS schema, tables."name" AS table, extras."base",

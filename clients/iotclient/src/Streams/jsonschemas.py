@@ -45,6 +45,13 @@ TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL = "timestamptz"
 TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL = "timestamp with time zone"
 TIMESTAMP_INPUTS = [TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL]
 
+SECOND_INTERVAL_TYPE = "sec_interval"
+MONTH_INTERVAL_TYPE = "month_interval"
+INTERVAL_INPUTS = ["interval second", "interval minute", "interval hour", "interval day", "interval month",
+                   "interval year", "interval year to month", "interval day to hour", "interval day to minute",
+                   "interval day to second", "interval hour to minute", "interval hour to second",
+                   "interval minute to second"]
+
 CREATE_STREAMS_SCHEMA = None
 
 
@@ -56,9 +63,9 @@ def init_create_streams_schema(add_hugeint=True):
     global CREATE_STREAMS_SCHEMA
 
     if add_hugeint:
-        integers = SMALL_INTEGERS_INPUTS + [HUGE_INTEGER_TYPE]
+        integers_and_intervals = SMALL_INTEGERS_INPUTS + [HUGE_INTEGER_TYPE] + INTERVAL_INPUTS
     else:
-        integers = SMALL_INTEGERS_INPUTS
+        integers_and_intervals = SMALL_INTEGERS_INPUTS + INTERVAL_INPUTS
 
     CREATE_STREAMS_SCHEMA = {
         "title": "JSON schema to create a stream",
@@ -197,7 +204,7 @@ def init_create_streams_schema(add_hugeint=True):
                     }, {
                         "properties": {
                             "name": {"type": "string"},
-                            "type": {"type": "string", "enum": integers},
+                            "type": {"type": "string", "enum": integers_and_intervals},
                             "nullable": {"type": "boolean", "default": True},
                             "default": {"type": "integer"},
                             "minimum": {"type": "integer"},

@@ -24,15 +24,22 @@ def signal_handler(signal, frame):
 
 def start_process(polling_interval, filesystem_location, sockets_host, sockets_port, connection_hostname, con_port,
                   con_user, con_password, con_database):
-    # WARNING The initiation order must be this!!!
-    init_file_system(filesystem_location)  # init filesystem
-    # init mapi connection
-    init_monetdb_connection(connection_hostname, con_port, con_user, con_password, con_database)
+    try:
+        # WARNING The initiation order must be this!!!
+        init_file_system(filesystem_location)  # init filesystem
 
-    if check_hugeint_type():
-        polling_add_hugeint_type()
+        connection = init_monetdb_connection(connection_hostname, con_port, con_user, con_password, con_database)
+        if check_hugeint_type(connection):
+            polling_add_hugeint_type()
+        init_stream_polling_thread(polling_interval, connection)  # start polling
 
-    init_stream_polling_thread(polling_interval)  # start polling
+        log_message = 'User %s connected successfully to database %s' % (con_user, con_database)
+        print log_message
+        add_log(20, log_message)
+    except BaseException as ex:
+        print ex
+        add_log(50, ex)
+        sys.exit(1)
 
     thread1 = Thread(target=init_websockets, args=(sockets_host, sockets_port))
     thread1.start()

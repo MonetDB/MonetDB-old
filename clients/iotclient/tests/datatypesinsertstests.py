@@ -20,7 +20,7 @@ load_src("datatypes", "../src/Streams/datatypes.py")
 
 from datatypes import TextType, URLType, INetType, UUIDType, BooleanType, SmallIntegerType,\
     HugeIntegerType, FloatType, DecimalType, DateType, TimeWithoutTimeZoneType, TimeWithTimeZoneType,\
-    TimestampWithoutTimeZoneType, TimestampWithTimeZoneType
+    TimestampWithoutTimeZoneType, TimestampWithTimeZoneType, IntervalType
 
 faker = Factory.create()
 
@@ -28,13 +28,13 @@ faker = Factory.create()
 class DataTypesTest(unittest.TestCase):
     __metaclass__ = ABCMeta
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
+    def __init__(self, **kwargs):
         super(DataTypesTest, self).__init__()
-        self._mapi_connection = mapi_connection
-        self._number_inserts = number_inserts
+        self._mapi_connection = kwargs['mapi_connection']
+        self._number_inserts = kwargs['number_inserts']
         self._data_type = self.get_data_type()
         self._serializer = self.get_serializer()
-        self._temp_path = os.path.join(temp_path, self._data_type.replace(' ', '_'))
+        self._temp_path = os.path.join(kwargs['temp_path'], self._data_type.replace(' ', '_'))
 
     @abstractmethod
     def get_data_type(self):
@@ -93,8 +93,8 @@ class DataTypesTest(unittest.TestCase):
 class BaseStringText(DataTypesTest):
     __metaclass__ = ABCMeta
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(BaseStringText, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(BaseStringText, self).__init__(**kwargs)
 
     def convert_batch_to_sql(self, batch):
         return ["'" + val + "'" for val in batch]
@@ -102,8 +102,8 @@ class BaseStringText(DataTypesTest):
 
 class TextTest(BaseStringText):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(TextTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(TextTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'clob'
@@ -117,8 +117,8 @@ class TextTest(BaseStringText):
 
 class URLTest(BaseStringText):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(URLTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(URLTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'url'
@@ -129,15 +129,15 @@ class URLTest(BaseStringText):
     def get_next_batch(self, number_inserts):
         return [faker.uri() for _ in xrange(number_inserts)]
 
-    #@unittest.skip("Data conversion problem")
-    #def runTest(self):
+    #  @unittest.skip("Data conversion problem")
+    #  def runTest(self):
     #    super(URLTest, self).runTest()
 
 
 class INetTest(BaseStringText):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(INetTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(INetTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'inet'
@@ -151,8 +151,8 @@ class INetTest(BaseStringText):
 
 class UUIDTest(BaseStringText):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(UUIDTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(UUIDTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'uuid'
@@ -166,8 +166,8 @@ class UUIDTest(BaseStringText):
 
 class BooleanTest(DataTypesTest):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(BooleanTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(BooleanTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'boolean'
@@ -185,8 +185,8 @@ class BooleanTest(DataTypesTest):
 class BaseIntegerTest(DataTypesTest):
     __metaclass__ = ABCMeta
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(BaseIntegerTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(BaseIntegerTest, self).__init__(**kwargs)
 
     def get_serializer(self):
         return SmallIntegerType(**{'name': 'val', 'type': self.get_data_type()})
@@ -197,8 +197,8 @@ class BaseIntegerTest(DataTypesTest):
 
 class TinyIntegerTest(BaseIntegerTest):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(TinyIntegerTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(TinyIntegerTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'tinyint'
@@ -209,8 +209,8 @@ class TinyIntegerTest(BaseIntegerTest):
 
 class SmallIntegerTest(BaseIntegerTest):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(SmallIntegerTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(SmallIntegerTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'smallint'
@@ -221,8 +221,8 @@ class SmallIntegerTest(BaseIntegerTest):
 
 class IntegerTest(BaseIntegerTest):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(IntegerTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(IntegerTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'integer'
@@ -233,8 +233,8 @@ class IntegerTest(BaseIntegerTest):
 
 class BigIntegerTest(BaseIntegerTest):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(BigIntegerTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(BigIntegerTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'bigint'
@@ -245,8 +245,8 @@ class BigIntegerTest(BaseIntegerTest):
 
 class HugeIntegerTest(BaseIntegerTest):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(HugeIntegerTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(HugeIntegerTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'hugeint'
@@ -261,8 +261,8 @@ class HugeIntegerTest(BaseIntegerTest):
 
 class RealPointTest(BaseIntegerTest):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(RealPointTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(RealPointTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'real'
@@ -276,8 +276,8 @@ class RealPointTest(BaseIntegerTest):
 
 class FloatPointTest(BaseIntegerTest):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(FloatPointTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(FloatPointTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'float'
@@ -295,10 +295,10 @@ class FloatPointTest(BaseIntegerTest):
 
 class DecimalTest(BaseIntegerTest):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path, precision, scale):
-        self._precision = precision
-        self._scale = scale
-        super(DecimalTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        self._precision = kwargs['precision']
+        self._scale = kwargs['scale']
+        super(DecimalTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return "decimal (" + str(self._precision) + "," + str(self._scale) + ")"
@@ -318,8 +318,8 @@ class DecimalTest(BaseIntegerTest):
 
 class DateTest(BaseStringText):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(DateTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(DateTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'date'
@@ -333,8 +333,8 @@ class DateTest(BaseStringText):
 
 class TimeWithoutTimezoneTest(BaseStringText):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(TimeWithoutTimezoneTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(TimeWithoutTimezoneTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'time'
@@ -348,8 +348,8 @@ class TimeWithoutTimezoneTest(BaseStringText):
 
 class TimeWithTimezoneTest(BaseStringText):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(TimeWithTimezoneTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(TimeWithTimezoneTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'time with time zone'
@@ -364,8 +364,8 @@ class TimeWithTimezoneTest(BaseStringText):
 
 class TimestampWithoutTimezoneTest(BaseStringText):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(TimestampWithoutTimezoneTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(TimestampWithoutTimezoneTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'timestamp'
@@ -379,8 +379,8 @@ class TimestampWithoutTimezoneTest(BaseStringText):
 
 class TimestampWithTimezoneTest(BaseStringText):
 
-    def __init__(self, mapi_connection, number_inserts, temp_path):
-        super(TimestampWithTimezoneTest, self).__init__(mapi_connection, number_inserts, temp_path)
+    def __init__(self, **kwargs):
+        super(TimestampWithTimezoneTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'timestamp with time zone'
@@ -392,14 +392,104 @@ class TimestampWithTimezoneTest(BaseStringText):
         return [faker.iso8601(tzinfo=timezone(faker.timezone())) for _ in xrange(number_inserts)]
 
 
+class MonthIntervalTest(BaseIntegerTest):
+
+    def __init__(self, **kwargs):
+        super(MonthIntervalTest, self).__init__(**kwargs)
+
+    def get_data_type(self):
+        return 'interval month'
+
+    def get_serializer(self):
+        return IntervalType(**{'name': 'val', 'type': 'interval month'})
+
+    def get_next_batch(self, number_inserts):
+        return [random.randint(-21474, 21474) for _ in xrange(number_inserts)]
+
+
+class YearIntervalTest(BaseIntegerTest):
+
+    def __init__(self, **kwargs):
+        super(YearIntervalTest, self).__init__(**kwargs)
+
+    def get_data_type(self):
+        return 'interval year'
+
+    def get_serializer(self):
+        return IntervalType(**{'name': 'val', 'type': 'interval year'})
+
+    def get_next_batch(self, number_inserts):
+        return [random.randint(-21474, 21474) for _ in xrange(number_inserts)]
+
+
+class SecondIntervalTest(BaseIntegerTest):
+
+    def __init__(self, **kwargs):
+        super(SecondIntervalTest, self).__init__(**kwargs)
+
+    def get_data_type(self):
+        return 'interval second'
+
+    def get_serializer(self):
+        return IntervalType(**{'name': 'val', 'type': 'interval second'})
+
+    def get_next_batch(self, number_inserts):
+        return [random.randint(-9223, 9223) for _ in xrange(number_inserts)]
+
+
+class MinuteIntervalTest(BaseIntegerTest):
+
+    def __init__(self, **kwargs):
+        super(MinuteIntervalTest, self).__init__(**kwargs)
+
+    def get_data_type(self):
+        return 'interval minute'
+
+    def get_serializer(self):
+        return IntervalType(**{'name': 'val', 'type': 'interval minute'})
+
+    def get_next_batch(self, number_inserts):
+        return [random.randint(-9223, 9223) for _ in xrange(number_inserts)]
+
+
+class HourIntervalTest(BaseIntegerTest):
+
+    def __init__(self, **kwargs):
+        super(HourIntervalTest, self).__init__(**kwargs)
+
+    def get_data_type(self):
+        return 'interval hour'
+
+    def get_serializer(self):
+        return IntervalType(**{'name': 'val', 'type': 'interval hour'})
+
+    def get_next_batch(self, number_inserts):
+        return [random.randint(-9223, 9223) for _ in xrange(number_inserts)]
+
+
+class DayIntervalTest(BaseIntegerTest):
+
+    def __init__(self, **kwargs):
+        super(DayIntervalTest, self).__init__(**kwargs)
+
+    def get_data_type(self):
+        return 'interval day'
+
+    def get_serializer(self):
+        return IntervalType(**{'name': 'val', 'type': 'interval day'})
+
+    def get_next_batch(self, number_inserts):
+        return [random.randint(-9223, 9223) for _ in xrange(number_inserts)]
+
+
 class NullablesTest(unittest.TestCase):
     __metaclass__ = ABCMeta
 
-    def __init__(self, mapi_connection, temp_path):
+    def __init__(self, **kwargs):
         super(NullablesTest, self).__init__()
-        self._mapi_connection = mapi_connection
+        self._mapi_connection = kwargs['mapi_connection']
         self._data_type = self.get_data_type()
-        self._temp_path = os.path.join(temp_path, self._data_type.replace(' ', '_'))
+        self._temp_path = os.path.join(kwargs['temp_path'], self._data_type.replace(' ', '_'))
         self._data_type = self.get_data_type()
 
     @abstractmethod
@@ -407,7 +497,7 @@ class NullablesTest(unittest.TestCase):
         return 'none'
 
     @abstractmethod
-    def get_null_value(self):
+    def get_serializer(self):
         return 'none'
 
     def runTest(self):
@@ -422,10 +512,11 @@ class NullablesTest(unittest.TestCase):
 
         # make the null value sql insert
         self._mapi_connection.execute("INSERT INTO sql_insert VALUES (null)")
+        serializer = self.get_serializer()
 
         # make the null value binary insert
         with open(self._temp_path, 'w+b') as fp:
-            fp.write(self.get_null_value())
+            fp.write(serializer.process_values([serializer.get_nullable_constant()]))
             fp.flush()
         self._mapi_connection.execute("COPY BINARY INTO binary_insert FROM ('" + self._temp_path + "')")
 
@@ -447,239 +538,245 @@ class NullablesTest(unittest.TestCase):
 
 class NullableTextTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableTextTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self,  **kwargs):
+        super(NullableTextTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'clob'
 
-    def get_null_value(self):
-        serializer = TextType(**{'name': 'val', 'type': 'clob'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return TextType(**{'name': 'val', 'type': 'clob'})
 
 
 class NullableURLTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableURLTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableURLTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'url'
 
-    def get_null_value(self):
-        serializer = URLType(**{'name': 'val', 'type': 'url'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return URLType(**{'name': 'val', 'type': 'url'})
 
-    #@unittest.skip("Data conversion problem")
-    #def runTest(self):
+    #  @unittest.skip("Data conversion problem")
+    #  def runTest(self):
     #    super(NullableURLTest, self).runTest()
 
 
 class NullableINetTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableINetTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableINetTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'inet'
 
-    def get_null_value(self):
-        serializer = INetType(**{'name': 'val', 'type': 'inet'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return INetType(**{'name': 'val', 'type': 'inet'})
 
 
 class NullableUUIDTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableUUIDTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableUUIDTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'uuid'
 
-    def get_null_value(self):
-        serializer = UUIDType(**{'name': 'val', 'type': 'uuid'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return UUIDType(**{'name': 'val', 'type': 'uuid'})
 
 
 class NullableBooleanTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableBooleanTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableBooleanTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'boolean'
 
-    def get_null_value(self):
-        serializer = BooleanType(**{'name': 'val', 'type': 'boolean'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return BooleanType(**{'name': 'val', 'type': 'boolean'})
 
 
 class NullableTinyIntegerTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableTinyIntegerTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableTinyIntegerTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'tinyint'
 
-    def get_null_value(self):
-        serializer = SmallIntegerType(**{'name': 'val', 'type': 'tinyint'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return SmallIntegerType(**{'name': 'val', 'type': 'tinyint'})
 
 
 class NullableSmallIntegerTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableSmallIntegerTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableSmallIntegerTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'smallint'
 
-    def get_null_value(self):
-        serializer = SmallIntegerType(**{'name': 'val', 'type': 'smallint'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return SmallIntegerType(**{'name': 'val', 'type': 'smallint'})
 
 
 class NullableIntegerTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableIntegerTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableIntegerTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'integer'
 
-    def get_null_value(self):
-        serializer = SmallIntegerType(**{'name': 'val', 'type': 'integer'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return SmallIntegerType(**{'name': 'val', 'type': 'integer'})
 
 
 class NullableBigIntegerTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableBigIntegerTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableBigIntegerTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'bigint'
 
-    def get_null_value(self):
-        serializer = SmallIntegerType(**{'name': 'val', 'type': 'bigint'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return SmallIntegerType(**{'name': 'val', 'type': 'bigint'})
 
 
 class NullableHugeIntegerTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableHugeIntegerTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableHugeIntegerTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'hugeint'
 
-    def get_null_value(self):
-        serializer = HugeIntegerType(**{'name': 'val', 'type': 'hugeint'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return HugeIntegerType(**{'name': 'val', 'type': 'hugeint'})
 
 
 class NullableRealPointTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableRealPointTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableRealPointTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'real'
 
-    def get_null_value(self):
-        serializer = FloatType(**{'name': 'val', 'type': 'real'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return FloatType(**{'name': 'val', 'type': 'real'})
 
 
 class NullableFloatPointTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableFloatPointTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableFloatPointTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'float'
 
-    def get_null_value(self):
-        serializer = FloatType(**{'name': 'val', 'type': 'float'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return FloatType(**{'name': 'val', 'type': 'float'})
 
 
 class NullableDecimalTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path, precision, scale):
-        self._precision = precision
-        self._scale = scale
-        super(NullableDecimalTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        self._precision = kwargs['precision']
+        self._scale = kwargs['scale']
+        super(NullableDecimalTest, self).__init__(**kwargs)
 
     def get_data_type(self):
-        return "decimal (" + str(self._precision) + "," + str(self._scale) + ")"
+        return ''.join(["decimal(", str(self._precision), ",", str(self._scale), ")"])
 
-    def get_null_value(self):
-        serial = DecimalType(**{'name': 'val', 'type': 'decimal', 'precision': self._precision, 'scale': self._scale})
-        return serial.process_values([serial.get_nullable_constant()])
+    def get_serializer(self):
+        return DecimalType(**{'name': 'val', 'type': 'decimal', 'precision': self._precision, 'scale': self._scale})
 
 
 class NullableDateTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableDateTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableDateTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'date'
 
-    def get_null_value(self):
-        serializer = DateType(**{'name': 'val', 'type': 'date'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return DateType(**{'name': 'val', 'type': 'date'})
 
 
 class NullableTimeWithoutTimezoneTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableTimeWithoutTimezoneTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableTimeWithoutTimezoneTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'time'
 
-    def get_null_value(self):
-        serializer = TimeWithoutTimeZoneType(**{'name': 'val', 'type': 'time', 'timezone': False})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return TimeWithoutTimeZoneType(**{'name': 'val', 'type': 'time'})
 
 
 class NullableTimeWithTimezoneTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableTimeWithTimezoneTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableTimeWithTimezoneTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'time with time zone'
 
-    def get_null_value(self):
-        serializer = TimeWithTimeZoneType(**{'name': 'val', 'type': 'time with time zone'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return TimeWithTimeZoneType(**{'name': 'val', 'type': 'time with time zone'})
 
 
 class NullableTimestampWithoutTimezoneTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableTimestampWithoutTimezoneTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableTimestampWithoutTimezoneTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'timestamp'
 
-    def get_null_value(self):
-        serializer = TimestampWithoutTimeZoneType(**{'name': 'val', 'type': 'timestamp'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return TimestampWithoutTimeZoneType(**{'name': 'val', 'type': 'timestamp'})
 
 
 class NullableTimestampWithTimezoneTest(NullablesTest):
 
-    def __init__(self, mapi_connection, temp_path):
-        super(NullableTimestampWithTimezoneTest, self).__init__(mapi_connection, temp_path)
+    def __init__(self, **kwargs):
+        super(NullableTimestampWithTimezoneTest, self).__init__(**kwargs)
 
     def get_data_type(self):
         return 'timestamp with time zone'
 
-    def get_null_value(self):
-        serializer = TimestampWithTimeZoneType(**{'name': 'val', 'type': 'timestamp with time zone'})
-        return serializer.process_values([serializer.get_nullable_constant()])
+    def get_serializer(self):
+        return TimestampWithTimeZoneType(**{'name': 'val', 'type': 'timestamp with time zone'})
+
+
+class NullableMonthIntervalTest(NullablesTest):
+
+    def __init__(self, **kwargs):
+        super(NullableMonthIntervalTest, self).__init__(**kwargs)
+
+    def get_data_type(self):
+        return 'interval month'
+
+    def get_serializer(self):
+        return IntervalType(**{'name': 'val', 'type': 'interval month'})
+
+
+class NullableSecondIntervalTest(NullablesTest):
+
+    def __init__(self, **kwargs):
+        super(NullableSecondIntervalTest, self).__init__(**kwargs)
+
+    def get_data_type(self):
+        return 'interval second'
+
+    def get_serializer(self):
+        return IntervalType(**{'name': 'val', 'type': 'interval second'})
