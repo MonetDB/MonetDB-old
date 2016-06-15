@@ -1,11 +1,10 @@
-import os
-import random
-import uuid
-import unittest
-
 from abc import ABCMeta, abstractmethod
 from faker import Factory
 from pytz import timezone
+from os import path, remove
+from random import choice, randint, uniform
+from unittest import TestCase, skip
+from uuid import uuid4
 
 
 def load_src(name, fpath):
@@ -18,14 +17,13 @@ def load_src(name, fpath):
 load_src("jsonschemas", "../src/Streams/jsonschemas.py")
 load_src("datatypes", "../src/Streams/datatypes.py")
 
-from datatypes import TextType, URLType, INetType, UUIDType, BooleanType, SmallIntegerType,\
-    HugeIntegerType, FloatType, DecimalType, DateType, TimeWithoutTimeZoneType, TimeWithTimeZoneType,\
-    TimestampWithoutTimeZoneType, TimestampWithTimeZoneType, IntervalType
+from datatypes import TextType, URLType, INetType, UUIDType, BooleanType, SmallIntegerType, HugeIntegerType, FloatType,\
+    DecimalType, DateType, TimeType, TimestampType, IntervalType
 
 faker = Factory.create()
 
 
-class DataTypesTest(unittest.TestCase):
+class DataTypesTest(TestCase):
     __metaclass__ = ABCMeta
 
     def __init__(self, **kwargs):
@@ -34,7 +32,7 @@ class DataTypesTest(unittest.TestCase):
         self._number_inserts = kwargs['number_inserts']
         self._data_type = self.get_data_type()
         self._serializer = self.get_serializer()
-        self._temp_path = os.path.join(kwargs['temp_path'], self._data_type.replace(' ', '_'))
+        self._temp_path = path.join(kwargs['temp_path'], self._data_type.replace(' ', '_'))
 
     @abstractmethod
     def get_data_type(self):
@@ -84,7 +82,7 @@ class DataTypesTest(unittest.TestCase):
         self._mapi_connection.execute("DROP TABLE binary_insert")
 
         try:
-            os.remove(self._temp_path)
+            remove(self._temp_path)
         except:
             pass
         self.assertListEqual(sql_inserts, binary_inserts)  # the lists must be equal!!
@@ -129,10 +127,6 @@ class URLTest(BaseStringText):
     def get_next_batch(self, number_inserts):
         return [faker.uri() for _ in xrange(number_inserts)]
 
-    #  @unittest.skip("Data conversion problem")
-    #  def runTest(self):
-    #    super(URLTest, self).runTest()
-
 
 class INetTest(BaseStringText):
 
@@ -161,7 +155,7 @@ class UUIDTest(BaseStringText):
         return UUIDType(**{'name': 'val', 'type': 'uuid'})
 
     def get_next_batch(self, number_inserts):
-        return [str(uuid.uuid4()) for _ in xrange(number_inserts)]
+        return [str(uuid4()) for _ in xrange(number_inserts)]
 
 
 class BooleanTest(DataTypesTest):
@@ -204,7 +198,7 @@ class TinyIntegerTest(BaseIntegerTest):
         return 'tinyint'
 
     def get_next_batch(self, number_inserts):
-        return [random.randint(-127, 127) for _ in xrange(number_inserts)]
+        return [randint(-127, 127) for _ in xrange(number_inserts)]
 
 
 class SmallIntegerTest(BaseIntegerTest):
@@ -216,7 +210,7 @@ class SmallIntegerTest(BaseIntegerTest):
         return 'smallint'
 
     def get_next_batch(self, number_inserts):
-        return [random.randint(-32768, 32767) for _ in xrange(number_inserts)]
+        return [randint(-32767, 32767) for _ in xrange(number_inserts)]
 
 
 class IntegerTest(BaseIntegerTest):
@@ -228,7 +222,7 @@ class IntegerTest(BaseIntegerTest):
         return 'integer'
 
     def get_next_batch(self, number_inserts):
-        return [random.randint(-2147483648, 2147483647) for _ in xrange(number_inserts)]
+        return [randint(-2147483647, 2147483647) for _ in xrange(number_inserts)]
 
 
 class BigIntegerTest(BaseIntegerTest):
@@ -240,7 +234,7 @@ class BigIntegerTest(BaseIntegerTest):
         return 'bigint'
 
     def get_next_batch(self, number_inserts):
-        return [random.randint(-9223372036854775808, 9223372036854775807) for _ in xrange(number_inserts)]
+        return [randint(-9223372036854775807, 9223372036854775807) for _ in xrange(number_inserts)]
 
 
 class HugeIntegerTest(BaseIntegerTest):
@@ -255,8 +249,8 @@ class HugeIntegerTest(BaseIntegerTest):
         return HugeIntegerType(**{'name': 'val', 'type': 'hugeint'})
 
     def get_next_batch(self, number_inserts):
-        return [random.randint(0x8000000000000000000000000000000,
-                               0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF) for _ in xrange(number_inserts)]
+        return [randint(0x8000000000000000000000000000000,
+                        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF) for _ in xrange(number_inserts)]
 
 
 class RealPointTest(BaseIntegerTest):
@@ -271,7 +265,7 @@ class RealPointTest(BaseIntegerTest):
         return FloatType(**{'name': 'val', 'type': 'real'})
 
     def get_next_batch(self, number_inserts):
-        return [random.uniform(1.40e-45, 3.40e+38) for _ in xrange(number_inserts)]
+        return [uniform(1.40e-45, 3.40e+38) for _ in xrange(number_inserts)]
 
 
 class FloatPointTest(BaseIntegerTest):
@@ -286,9 +280,9 @@ class FloatPointTest(BaseIntegerTest):
         return FloatType(**{'name': 'val', 'type': 'float'})
 
     def get_next_batch(self, number_inserts):
-        return [random.uniform(4.94e-324, 1.79e+308) for _ in xrange(number_inserts)]
+        return [uniform(4.94e-324, 1.79e+308) for _ in xrange(number_inserts)]
 
-    @unittest.skip("Float conversion problem")
+    @skip("Float conversion problem")
     def runTest(self):
         super(FloatPointTest, self).runTest()
 
@@ -309,9 +303,9 @@ class DecimalTest(BaseIntegerTest):
     def get_next_batch(self, number_inserts):
         range_start = -1 * ((10 ** (self._precision - 1)) - 1)
         range_end = (10 ** (self._precision - 1)) - 1
-        return [random.randint(range_start, range_end) for _ in xrange(number_inserts)]
+        return [randint(range_start, range_end) for _ in xrange(number_inserts)]
 
-    @unittest.skip("Float conversion problem")
+    @skip("Float conversion problem")
     def runTest(self):
         super(DecimalTest, self).runTest()
 
@@ -331,7 +325,10 @@ class DateTest(BaseStringText):
         return [faker.date() for _ in xrange(number_inserts)]
 
 
-class TimeWithoutTimezoneTest(BaseStringText):
+timezones = ['America/Los_Angeles', 'Europe/Madrid', 'America/Argentina/San_Juan', 'Europe/London']
+
+
+class TimeWithoutTimezoneTest(DataTypesTest):
 
     def __init__(self, **kwargs):
         super(TimeWithoutTimezoneTest, self).__init__(**kwargs)
@@ -340,10 +337,14 @@ class TimeWithoutTimezoneTest(BaseStringText):
         return 'time'
 
     def get_serializer(self):
-        return TimeWithoutTimeZoneType(**{'name': 'val', 'type': 'time'})
+        return TimeType(**{'name': 'val', 'type': 'time'})
 
     def get_next_batch(self, number_inserts):
-        return [faker.date_time().time().strftime('%H:%M:%S.%f%z') for _ in xrange(number_inserts)]
+        return [faker.date_time(tzinfo=timezone(choice(timezones))).strftime('%H:%M:%S%z')
+                for _ in xrange(number_inserts)]
+
+    def convert_batch_to_sql(self, batch):
+        return ["str_to_time('" + val + "','%H:%M:%S%z')" for val in batch]
 
 
 class TimeWithTimezoneTest(BaseStringText):
@@ -355,10 +356,10 @@ class TimeWithTimezoneTest(BaseStringText):
         return 'time with time zone'
 
     def get_serializer(self):
-        return TimeWithTimeZoneType(**{'name': 'val', 'type': 'time with time zone'})
+        return TimeType(**{'name': 'val', 'type': 'time with time zone'})
 
     def get_next_batch(self, number_inserts):
-        return [faker.date_time(tzinfo=timezone(faker.timezone())).strftime('%H:%M:%S.%f%z')
+        return [faker.date_time(tzinfo=timezone(faker.timezone())).strftime('%H:%M:%S%z')
                 for _ in xrange(number_inserts)]
 
 
@@ -371,10 +372,10 @@ class TimestampWithoutTimezoneTest(BaseStringText):
         return 'timestamp'
 
     def get_serializer(self):
-        return TimestampWithoutTimeZoneType(**{'name': 'val', 'type': 'timestamp'})
+        return TimestampType(**{'name': 'val', 'type': 'timestamp'})
 
     def get_next_batch(self, number_inserts):
-        return [faker.iso8601(tzinfo=None) for _ in xrange(number_inserts)]
+        return [faker.iso8601(tzinfo=timezone(faker.timezone())) for _ in xrange(number_inserts)]
 
 
 class TimestampWithTimezoneTest(BaseStringText):
@@ -386,7 +387,7 @@ class TimestampWithTimezoneTest(BaseStringText):
         return 'timestamp with time zone'
 
     def get_serializer(self):
-        return TimestampWithTimeZoneType(**{'name': 'val', 'type': 'timestamp with time zone'})
+        return TimestampType(**{'name': 'val', 'type': 'timestamp with time zone'})
 
     def get_next_batch(self, number_inserts):
         return [faker.iso8601(tzinfo=timezone(faker.timezone())) for _ in xrange(number_inserts)]
@@ -404,7 +405,7 @@ class MonthIntervalTest(BaseIntegerTest):
         return IntervalType(**{'name': 'val', 'type': 'interval month'})
 
     def get_next_batch(self, number_inserts):
-        return [random.randint(-21474, 21474) for _ in xrange(number_inserts)]
+        return [randint(-21474, 21474) for _ in xrange(number_inserts)]
 
 
 class YearIntervalTest(BaseIntegerTest):
@@ -419,7 +420,7 @@ class YearIntervalTest(BaseIntegerTest):
         return IntervalType(**{'name': 'val', 'type': 'interval year'})
 
     def get_next_batch(self, number_inserts):
-        return [random.randint(-21474, 21474) for _ in xrange(number_inserts)]
+        return [randint(-21474, 21474) for _ in xrange(number_inserts)]
 
 
 class SecondIntervalTest(BaseIntegerTest):
@@ -434,7 +435,7 @@ class SecondIntervalTest(BaseIntegerTest):
         return IntervalType(**{'name': 'val', 'type': 'interval second'})
 
     def get_next_batch(self, number_inserts):
-        return [random.randint(-9223, 9223) for _ in xrange(number_inserts)]
+        return [randint(-9223, 9223) for _ in xrange(number_inserts)]
 
 
 class MinuteIntervalTest(BaseIntegerTest):
@@ -449,7 +450,7 @@ class MinuteIntervalTest(BaseIntegerTest):
         return IntervalType(**{'name': 'val', 'type': 'interval minute'})
 
     def get_next_batch(self, number_inserts):
-        return [random.randint(-9223, 9223) for _ in xrange(number_inserts)]
+        return [randint(-9223, 9223) for _ in xrange(number_inserts)]
 
 
 class HourIntervalTest(BaseIntegerTest):
@@ -464,7 +465,7 @@ class HourIntervalTest(BaseIntegerTest):
         return IntervalType(**{'name': 'val', 'type': 'interval hour'})
 
     def get_next_batch(self, number_inserts):
-        return [random.randint(-9223, 9223) for _ in xrange(number_inserts)]
+        return [randint(-9223, 9223) for _ in xrange(number_inserts)]
 
 
 class DayIntervalTest(BaseIntegerTest):
@@ -479,17 +480,17 @@ class DayIntervalTest(BaseIntegerTest):
         return IntervalType(**{'name': 'val', 'type': 'interval day'})
 
     def get_next_batch(self, number_inserts):
-        return [random.randint(-9223, 9223) for _ in xrange(number_inserts)]
+        return [randint(-9223, 9223) for _ in xrange(number_inserts)]
 
 
-class NullablesTest(unittest.TestCase):
+class NullablesTest(TestCase):
     __metaclass__ = ABCMeta
 
     def __init__(self, **kwargs):
         super(NullablesTest, self).__init__()
         self._mapi_connection = kwargs['mapi_connection']
         self._data_type = self.get_data_type()
-        self._temp_path = os.path.join(kwargs['temp_path'], self._data_type.replace(' ', '_'))
+        self._temp_path = path.join(kwargs['temp_path'], self._data_type.replace(' ', '_'))
         self._data_type = self.get_data_type()
 
     @abstractmethod
@@ -530,7 +531,7 @@ class NullablesTest(unittest.TestCase):
         self._mapi_connection.execute("DROP TABLE binary_insert")
 
         try:
-            os.remove(self._temp_path)
+            remove(self._temp_path)
         except:
             pass
         self.assertListEqual(sql_inserts, binary_inserts)  # the lists must be equal!!
@@ -558,10 +559,6 @@ class NullableURLTest(NullablesTest):
 
     def get_serializer(self):
         return URLType(**{'name': 'val', 'type': 'url'})
-
-    #  @unittest.skip("Data conversion problem")
-    #  def runTest(self):
-    #    super(NullableURLTest, self).runTest()
 
 
 class NullableINetTest(NullablesTest):
@@ -719,7 +716,7 @@ class NullableTimeWithoutTimezoneTest(NullablesTest):
         return 'time'
 
     def get_serializer(self):
-        return TimeWithoutTimeZoneType(**{'name': 'val', 'type': 'time'})
+        return TimeType(**{'name': 'val', 'type': 'time'})
 
 
 class NullableTimeWithTimezoneTest(NullablesTest):
@@ -731,7 +728,7 @@ class NullableTimeWithTimezoneTest(NullablesTest):
         return 'time with time zone'
 
     def get_serializer(self):
-        return TimeWithTimeZoneType(**{'name': 'val', 'type': 'time with time zone'})
+        return TimeType(**{'name': 'val', 'type': 'time with time zone'})
 
 
 class NullableTimestampWithoutTimezoneTest(NullablesTest):
@@ -743,7 +740,7 @@ class NullableTimestampWithoutTimezoneTest(NullablesTest):
         return 'timestamp'
 
     def get_serializer(self):
-        return TimestampWithoutTimeZoneType(**{'name': 'val', 'type': 'timestamp'})
+        return TimestampType(**{'name': 'val', 'type': 'timestamp'})
 
 
 class NullableTimestampWithTimezoneTest(NullablesTest):
@@ -755,7 +752,7 @@ class NullableTimestampWithTimezoneTest(NullablesTest):
         return 'timestamp with time zone'
 
     def get_serializer(self):
-        return TimestampWithTimeZoneType(**{'name': 'val', 'type': 'timestamp with time zone'})
+        return TimestampType(**{'name': 'val', 'type': 'timestamp with time zone'})
 
 
 class NullableMonthIntervalTest(NullablesTest):

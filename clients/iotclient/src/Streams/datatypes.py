@@ -5,12 +5,12 @@ from collections import OrderedDict
 from copy import deepcopy
 from datetime import datetime, timedelta
 from dateutil import parser
-from iso8601 import parse_date
 from itertools import chain
 from json import dumps
 from math import ceil, log10
 from re import compile, split
-from jsonschemas import UUID_REGEX, MAC_ADDRESS_REGEX, TIME_REGEX, IPV4_REGEX
+from jsonschemas import UUID_REGEX, MAC_ADDRESS_REGEX, TIME_REGEX, IPV4_REGEX, TIME_WITH_TIMEZONE_TYPE_INTERNAL,\
+    TIME_WITH_TIMEZONE_TYPE_EXTERNAL, TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL, TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL
 
 # The null constants might change from system to system due to different CPU's limits
 LITTLE_ENDIAN_ALIGNMENT = '<'  # for now it is little-endian
@@ -671,18 +671,24 @@ class DateType(BaseDateTimeType):  # Stored as an uint with the number of days s
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + 'I', *extracted_values)
 
 
-class TimeWithoutTimeZoneType(BaseDateTimeType):  # Stored as an uint with the number of milliseconds since hour00:00:00
+class TimeType(BaseDateTimeType):  # Stored as an uint with the number of milliseconds since hour00:00:00
     """Covers: TIME"""
 
     def __init__(self, **kwargs):
-        super(TimeWithoutTimeZoneType, self).__init__(**kwargs)
+        super(TimeType, self).__init__(**kwargs)
 
     def add_json_schema_entry(self, schema):
-        super(TimeWithoutTimeZoneType, self).add_json_schema_entry(schema)
+        super(TimeType, self).add_json_schema_entry(schema)
         schema[self._column_name]['pattern'] = TIME_REGEX
 
     def parse_entry(self, entry):
-        return parser.parse(entry)
+        parsed = parser.parse(entry)
+        string = parsed.strftime("%z")
+        delta = timedelta(hours=int(string[1:3]), minutes=int(string[3:5]))
+        if string[0] == '-':
+            delta = -delta
+        parsed = parsed.replace(tzinfo=None) - delta
+        return parsed
 
     def pack_next_value(self, parsed, counter, parameters, errors):
         if parsed is None:
@@ -694,12 +700,22 @@ class TimeWithoutTimeZoneType(BaseDateTimeType):  # Stored as an uint with the n
     def pack_parsed_values(self, extracted_values, counter, parameters):
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + 'I', *extracted_values)
 
+    def to_json_representation(self):
+        json_value = super(TimeType, self).to_json_representation()
+        if self._data_type == TIME_WITH_TIMEZONE_TYPE_INTERNAL:
+            json_value['type'] = TIME_WITH_TIMEZONE_TYPE_EXTERNAL
+        return json_value
 
-class TimeWithTimeZoneType(TimeWithoutTimeZoneType):
-    """Covers: TIME WITH TIME ZONE"""
+
+class TimestampType(BaseDateTimeType):  # It is represented with the two integers from time and date
+    """Covers: TIMESTAMP"""
 
     def __init__(self, **kwargs):
-        super(TimeWithTimeZoneType, self).__init__(**kwargs)
+        super(TimestampType, self).__init__(**kwargs)
+
+    def add_json_schema_entry(self, schema):
+        super(TimestampType, self).add_json_schema_entry(schema)
+        schema[self._column_name]['format'] = 'date-time'
 
     def parse_entry(self, entry):
         parsed = parser.parse(entry)
@@ -709,25 +725,6 @@ class TimeWithTimeZoneType(TimeWithoutTimeZoneType):
             delta = -delta
         parsed = parsed.replace(tzinfo=None) - delta
         return parsed
-
-    def to_json_representation(self):
-        json_value = super(TimeWithTimeZoneType, self).to_json_representation()
-        json_value['type'] = 'time with time zone'
-        return json_value
-
-
-class TimestampWithoutTimeZoneType(BaseDateTimeType):  # It is represented with the two integers from time and date
-    """Covers: TIMESTAMP"""
-
-    def __init__(self, **kwargs):
-        super(TimestampWithoutTimeZoneType, self).__init__(**kwargs)
-
-    def add_json_schema_entry(self, schema):
-        super(TimestampWithoutTimeZoneType, self).add_json_schema_entry(schema)
-        schema[self._column_name]['format'] = 'date-time'
-
-    def parse_entry(self, entry):
-        return parse_date(entry)
 
     def pack_next_value(self, parsed, counter, parameters, errors):
         if parsed is None:
@@ -743,25 +740,10 @@ class TimestampWithoutTimeZoneType(BaseDateTimeType):  # It is represented with 
         concat_array = list(chain(*extracted_values))
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter << 1) + 'I', *concat_array)
 
-
-class TimestampWithTimeZoneType(TimestampWithoutTimeZoneType):
-    """Covers: TIMESTAMP WITH TIME ZONE"""
-
-    def __init__(self, **kwargs):
-        super(TimestampWithTimeZoneType, self).__init__(**kwargs)
-
-    def parse_entry(self, entry):
-        parsed = parse_date(entry)
-        string = parsed.strftime("%z")
-        delta = timedelta(hours=int(string[1:3]), minutes=int(string[3:5]))
-        if string[0] == '-':
-            delta = -delta
-        parsed = parsed.replace(tzinfo=None) - delta
-        return parsed
-
     def to_json_representation(self):
-        json_value = super(TimestampWithTimeZoneType, self).to_json_representation()
-        json_value['type'] = 'timestamp with time zone'
+        json_value = super(TimestampType, self).to_json_representation()
+        if self._data_type == TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL:
+            json_value['type'] = TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL
         return json_value
 
 
@@ -770,11 +752,11 @@ class IntervalType(NumberBaseType):
 
     def __init__(self, **kwargs):
         interval = kwargs['type'][9:].split(" to ")[-1]
-        self._multiplier = {'second': 1000, 'minute': 60000, 'hour': 3600000, 'day': 86400000, 'month': 1, 'year': 12} \
+        self._multiplier = {'second': 1000, 'minute': 60000, 'hour': 3600000, 'day': 86400000, 'month': 1, 'year': 12}\
             .get(interval)
         self._nullable_constant = {'second': INT64_MIN, 'minute': INT64_MIN, 'hour': INT64_MIN, 'day': INT64_MIN,
                                    'month': INT32_MIN, 'year': INT32_MIN}.get(interval)
-        self._pack_sym = {'second': 'q', 'minute': 'q', 'hour': 'q', 'day': 'q', 'month': 'i', 'year': 'i'} \
+        self._pack_sym = {'second': 'q', 'minute': 'q', 'hour': 'q', 'day': 'q', 'month': 'i', 'year': 'i'}\
             .get(interval)
         super(IntervalType, self).__init__(**kwargs)
 

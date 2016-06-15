@@ -1,15 +1,13 @@
 from collections import OrderedDict, defaultdict
 from json import dumps
 from jsonschema import Draft4Validator, FormatChecker
-from .datatypes import TextType, LimitedTextType, SmallIntegerType, HugeIntegerType, FloatType, DecimalType, DateType, \
-    TimeWithoutTimeZoneType, TimeWithTimeZoneType, TimestampWithoutTimeZoneType, TimestampWithTimeZoneType, \
-    IntervalType, BooleanType, INetType, INetSixType, MACType, URLType, UUIDType, RegexType, EnumType,\
-    ENUM_TYPE_SEPARATOR
+from .datatypes import TextType, LimitedTextType, SmallIntegerType, HugeIntegerType, FloatType, DecimalType, DateType,\
+    TimeType, TimestampType, IntervalType, BooleanType, INetType, INetSixType, MACType, URLType, UUIDType, RegexType,\
+    EnumType, ENUM_TYPE_SEPARATOR
 from .jsonschemas import UNBOUNDED_TEXT_TYPE, BOUNDED_TEXT_TYPES, SMALL_INTEGERS_TYPES, HUGE_INTEGER_TYPE,\
-    FLOATING_POINT_PRECISION_TYPES, DECIMAL_TYPE, DATE_TYPE, TIME_WITHOUT_TIMEZONE_TYPE,\
-    TIME_WITH_TIMEZONE_TYPE_INTERNAL, TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL, \
-    INTERVAL_INPUTS, BOOLEAN_TYPE, INET_TYPE, URL_TYPE, UUID_TYPE, INET6_TYPE, MAC_TYPE, REGEX_TYPE, ENUM_TYPE, \
-    SECOND_INTERVAL_TYPE, MONTH_INTERVAL_TYPE
+    FLOATING_POINT_PRECISION_TYPES, DECIMAL_TYPE, DATE_TYPE, TIME_WITHOUT_TIMEZONE_TYPE, MONTH_INTERVAL_TYPE,\
+    TIME_WITH_TIMEZONE_TYPE_INTERNAL, TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL,\
+    BOOLEAN_TYPE, INET_TYPE, URL_TYPE, UUID_TYPE, INET6_TYPE, MAC_TYPE, REGEX_TYPE, ENUM_TYPE, SECOND_INTERVAL_TYPE
 from .streams import TupleBasedStream, TimeBasedStream, AutoFlushedStream, IMPLICIT_TIMESTAMP_COLUMN_NAME,\
     HOST_IDENTIFIER_COLUMN_NAME
 from .streamscontext import get_streams_context
@@ -24,11 +22,9 @@ Switcher = [{'types': [UNBOUNDED_TEXT_TYPE], 'class': TextType},
             {'types': [DECIMAL_TYPE], 'class': DecimalType},
             {'types': [BOOLEAN_TYPE], 'class': BooleanType},
             {'types': [DATE_TYPE], 'class': DateType},
-            {'types': [TIME_WITHOUT_TIMEZONE_TYPE], 'class': TimeWithoutTimeZoneType},
-            {'types': [TIME_WITH_TIMEZONE_TYPE_INTERNAL], 'class': TimeWithTimeZoneType},
-            {'types': [TIMESTAMP_WITHOUT_TIMEZONE_TYPE], 'class': TimestampWithoutTimeZoneType},
-            {'types': [TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL], 'class': TimestampWithTimeZoneType},
-            {'types': INTERVAL_INPUTS, 'class': IntervalType},
+            {'types': [TIME_WITHOUT_TIMEZONE_TYPE, TIME_WITH_TIMEZONE_TYPE_INTERNAL], 'class': TimeType},
+            {'types': [TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL], 'class': TimestampType},
+            {'types': [SECOND_INTERVAL_TYPE, MONTH_INTERVAL_TYPE], 'class': IntervalType},
             {'types': [URL_TYPE], 'class': URLType},
             {'types': [INET_TYPE], 'class': INetType},
             {'types': [UUID_TYPE], 'class': UUIDType},

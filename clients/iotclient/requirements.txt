@@ -1,7 +1,6 @@
 fake-factory==0.5.7
 Flask-RESTful==0.3.5
 IPy==0.83
-iso8601==0.1.11
 jsonschema==2.5.1
 python-dateutil==2.5.3
 python-monetdb==11.24.0

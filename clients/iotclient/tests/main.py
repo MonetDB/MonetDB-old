@@ -2,9 +2,9 @@ import argparse
 import getpass
 import os
 import sys
-import unittest
 
 from monetdb.sql import connect
+from unittest import TextTestRunner, TestSuite
 from datatypesinsertstests import TextTest, URLTest, INetTest, UUIDTest, BooleanTest, TinyIntegerTest,\
     SmallIntegerTest, IntegerTest, BigIntegerTest, HugeIntegerTest, RealPointTest, FloatPointTest, DecimalTest,\
     DateTest, TimeWithoutTimezoneTest, TimeWithTimezoneTest, TimestampWithoutTimezoneTest, TimestampWithTimezoneTest, \
@@ -74,7 +74,7 @@ def main():
              NullableTimestampWithoutTimezoneTest, NullableTimestampWithTimezoneTest, NullableMonthIntervalTest,
              NullableSecondIntervalTest]
 
-    unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(tests=map(lambda x: x(**kwargs), tests)))
+    TextTestRunner(verbosity=2).run(TestSuite(tests=map(lambda x: x(**kwargs), tests)))
     mapi_connection.close()
 
 if __name__ == '__main__':
