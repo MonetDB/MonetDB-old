@@ -65,7 +65,7 @@ pattern iot.tumble(sch:str,tbl:str,N:int)
 address BSKTsettumble
 comment "Set the window tumbling at most N events from the stream ";
 
-pattern iot.window(mvc:int,sch:str,tbl:str,N:int)
+unsafe pattern iot.window(sch:str,tbl:str,N:int)
 address BSKTwindow
 comment "Use a window of precisely N events";
 

@@ -234,6 +234,7 @@ str unlockRef;
 str unpackRef;
 str unpinRef;
 str updateRef;
+str windowRef;
 str timestampRef;
 str tumbleRef;
 str transactionRef;
@@ -466,6 +467,7 @@ void optimizerInit(void)
 	unpackRef = putName("unpack");
 	unpinRef = putName("unpin");
 	updateRef = putName("update");
+	windowRef = putName("window");
 	subselectRef = putName("subselect");
 	thetasubselectRef = putName("thetasubselect");
 	likesubselectRef = putName("likesubselect");

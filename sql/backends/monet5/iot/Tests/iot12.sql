@@ -31,9 +31,10 @@ end;
 -- alternative is a simple query
 call iot.query('iot','clk1');
 call iot.query('iot','clk3');
+call iot.pause();
 
-select * from  iot.baskets();
-select * from  iot.queries();
+--select * from  iot.baskets();
+--select * from  iot.queries();
 
 select hbclk1, hbclk2;
 call iot.resume();

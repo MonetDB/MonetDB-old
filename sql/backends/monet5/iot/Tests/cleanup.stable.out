@@ -1,0 +1,40 @@
+stdout of test 'cleanup` in directory 'sql/backends/monet5/iot` itself:
+
+
+# 00:19:46 >  
+# 00:19:46 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=38802" "--set" "mapi_usock=/var/tmp/mtest-14198/.s.monetdb.38802" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mk/iot//Linux/var/MonetDB/mTests_sql_backends_monet5_iot"
+# 00:19:46 >  
+
+# MonetDB 5 server v11.24.0
+# This is an unreleased version
+# Serving database 'mTests_sql_backends_monet5_iot', using 8 threads
+# Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs and 128bit integers dynamically linked
+# Found 15.589 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2016 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://vienna.da.cwi.nl:38802/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-14198/.s.monetdb.38802
+# MonetDB/GIS module loaded
+# MonetDB/SQL module loaded
+# MonetDB/iot loaded
+
+Ready.
+
+# 00:19:46 >  
+# 00:19:46 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-14198" "--port=38802"
+# 00:19:46 >  
+
+#set schema iot;
+#drop procedure cq00;
+#drop procedure clk1;
+#drop procedure clk3;
+#drop table result;
+#drop table stmp;
+#drop table stmp1;
+#drop table stmp2;
+
+# 00:19:46 >  
+# 00:19:46 >  "Done."
+# 00:19:46 >  
+

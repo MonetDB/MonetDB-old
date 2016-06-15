@@ -52,7 +52,6 @@
 static str statusname[6] = { "init", "running", "waiting", "paused"};
 
 /* keep track of running tasks */
-static int PNtasks;
 static int PNcycle;
 
 static void
@@ -66,7 +65,7 @@ typedef struct {
 
 	int status;     /* query status waiting/running/paused */
 	int enabled;	/* all baskets are available */
-	int places[MAXBSKT], targets[MAXBSKT];
+	int inputs[MAXBSKT], outputs[MAXBSKT];
 
 	MT_Id	tid;
 	int delay;      /* maximum delay between calls */
@@ -294,15 +293,15 @@ str PNdump(void *ret)
 				i, pnet[i].modname, pnet[i].fcnname, statusname[pnet[i].status], pnet[i].delay, pnet[i].cycles, pnet[i].events, pnet[i].time / 1000);
 		if (pnet[i].error)
 			mnstr_printf(PNout, "#%s\n", pnet[i].error);
-		for (k = 0; k < MAXBSKT && pnet[i].places[k]; k++){
-			idx = pnet[i].places[k];
+		for (k = 0; k < MAXBSKT && pnet[i].inputs[k]; k++){
+			idx = pnet[i].inputs[k];
 			mnstr_printf(PNout, "#<--\t%s basket "BUNFMT" %d\n",
 					baskets[idx].table_name,
 					baskets[idx].count,
 					baskets[idx].status);
 		}
-		for (k = 0; k <MAXBSKT &&  pnet[i].targets[k]; k++){
-			idx = pnet[i].targets[k];
+		for (k = 0; k <MAXBSKT &&  pnet[i].outputs[k]; k++){
+			idx = pnet[i].outputs[k];
 			mnstr_printf(PNout, "#-->\t%s basket "BUNFMT" %d\n",
 					baskets[idx].table_name,
 					baskets[idx].count,
@@ -313,12 +312,12 @@ str PNdump(void *ret)
 	return MAL_SUCCEED;
 }
 
-/* check the routine for input/output relationships */
+/* Collect all input/output basket roles */
 /* Make sure we do not re-use the same source more than once */
 str
 PNanalysis(Client cntxt, MalBlkPtr mb, int pn)
 {
-	int i, j, idx, k=0;
+	int i, j, idx, k=0,role;
 	InstrPtr p;
 	str msg= MAL_SUCCEED, sch,tbl;
 	(void) pn;
@@ -328,15 +327,23 @@ PNanalysis(Client cntxt, MalBlkPtr mb, int pn)
 		if (getModuleId(p) == basketRef && getFunctionId(p) == registerRef){
 			sch = getVarConstant(mb, getArg(p,2)).val.sval;
 			tbl = getVarConstant(mb, getArg(p,3)).val.sval;
+			role = getVarConstant(mb, getArg(p,4)).val.ival;
 			msg =BSKTregister(cntxt,mb,0,p);
 			idx =  BSKTlocate(sch, tbl);
 			// make sure we have only one reference
-			for(j=0; j< k; j++)
-				if( pnet[pn].targets[j] == idx)
-					break;
-			if ( j == k)
-				pnet[pn].places[k++]= idx;
-			p->token= REMsymbol; // no need to execute it anymore
+			if( role == 0 ){
+				for(j=0; j< k; j++)
+					if( pnet[pn].inputs[j] == idx)
+						break;
+				if ( j == k)
+					pnet[pn].inputs[k++]= idx;
+			} else {
+				for(j=0; j< k; j++)
+					if( pnet[pn].outputs[j] == idx)
+						break;
+				if ( j == k)
+					pnet[pn].outputs[k++]= idx;
+			}
 		}
 	}
 	return msg;
@@ -357,29 +364,32 @@ static void
 PNexecute( void *n)
 {
 	PNnode *node= (PNnode *) n;
-	int i,j, idx;
+	int j;
 	str msg=  MAL_SUCCEED;
 	lng t = GDKusec();
 
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s\n",node->modname, node->fcnname);
 	// first grab exclusive access to all streams.
-	for (j = 0; j < MAXBSKT &&  node->places[j]; j++) {
-		idx = node->places[j];
-		MT_lock_set(&baskets[idx].lock);
-	}
+	for (j = 0; j < MAXBSKT &&  node->inputs[j]; j++) 
+		MT_lock_set(&baskets[node->inputs[j]].lock);
+	for (j = 0; j < MAXBSKT &&  node->outputs[j]; j++) 
+		MT_lock_set(&baskets[node->outputs[j]].lock);
 
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s all locked\n",node->modname, node->fcnname);
 
 	msg = runMALsequence(mal_clients, node->mb, 1, 0, node->stk, 0, 0);
 
-	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s transition done:%s\n",node->modname, node->fcnname, (msg != MAL_SUCCEED?msg:""));
+	_DEBUG_PETRINET_ 
+		mnstr_printf(PNout, "#petrinet.execute %s.%s transition done:%s\n",
+		node->modname, node->fcnname, (msg != MAL_SUCCEED?msg:""));
 
 	// empty the baskets according to their policy
-	for ( i=0; i< j &&  node->places[i]; i++) {
-		idx = node->places[i];
-		MT_lock_unset(&baskets[idx].lock);
-	}
-	pnet[node->places[0]].time += GDKusec() - t;   /* keep around in microseconds */
+	for (j = 0; j < MAXBSKT &&  node->inputs[j]; j++) 
+		MT_lock_unset(&baskets[node->inputs[j]].lock);
+	for (j = 0; j < MAXBSKT &&  node->outputs[j]; j++) 
+		MT_lock_unset(&baskets[node->outputs[j]].lock);
+
+	pnet[node->inputs[0]].time += GDKusec() - t;   /* keep around in microseconds */
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s all unlocked\n",node->modname, node->fcnname);
 	node->status = PNWAIT;
 }
@@ -417,9 +427,9 @@ PNscheduler(void *dummy)
 		if ( pnet[i].status == PNWAIT ){
 			pnet[i].enabled = 1;
 
-			// check if all baskets are available and non-empty
-			for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].places[j]; j++) {
-				idx = pnet[i].places[j];
+			// check if all input baskets are available and non-empty
+			for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].inputs[j]; j++) {
+				idx = pnet[i].inputs[j];
 				if (baskets[idx].status != BSKTFILLED ){
 					pnet[i].enabled = 0;
 					break;
@@ -441,18 +451,27 @@ PNscheduler(void *dummy)
 			}
 
 			if (pnet[i].enabled) {
-				/* a basket can be used at most one continuous query at a time */
-				for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].places[j]; j++) 
-					if( claimed[pnet[i].places[j]]){
+				/* a basket can be used in at most one continuous query at a time */
+				for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].inputs[j]; j++) 
+					if( claimed[pnet[i].inputs[j]]){
+						_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet: %s.%s enabled twice,disgarded \n", pnet[i].modname, pnet[i].fcnname);
+						pnet[i].enabled = 0;
+						break;
+					} 
+				for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].outputs[j]; j++) 
+					if( claimed[pnet[i].outputs[j]]){
 						_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet: %s.%s enabled twice,disgarded \n", pnet[i].modname, pnet[i].fcnname);
 						pnet[i].enabled = 0;
 						break;
 					} 
 
 				/* rule out all others */
-				if( pnet[i].enabled)
-					for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].places[j]; j++) 
-						claimed[pnet[i].places[j]]= 1;
+				if( pnet[i].enabled){
+					for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].inputs[j]; j++) 
+						claimed[pnet[i].inputs[j]]= 1;
+					for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].outputs[j]; j++) 
+						claimed[pnet[i].outputs[j]]= 1;
+				}
 
 				/*save the ids of all continuous queries that can be executed */
 				enabled[k++] = i;
@@ -462,7 +481,6 @@ PNscheduler(void *dummy)
 		}
 		analysis = GDKusec() - now;
 
-		PNtasks = pntasks;
 		/* Execute each enabled transformation */
 		/* Tricky part is here a single stream used by multiple transitions */
 		for (m = 0; m < k; m++) {
@@ -488,8 +506,8 @@ PNscheduler(void *dummy)
 				} else {
 					/* mark the time the query is started */
 					(void) MTIMEcurrent_timestamp(&pnet[i].seen);
-					for (j = 0; j < MAXBSKT && pnet[i].places[j]; j++) {
-						idx = pnet[i].places[j];
+					for (j = 0; j < MAXBSKT && pnet[i].inputs[j]; j++) {
+						idx = pnet[i].inputs[j];
 						(void) MTIMEcurrent_timestamp(&baskets[idx].seen);
 					}
 				}
@@ -635,9 +653,9 @@ str PNinputplaces(bat *schemaId, bat *tableId, bat *modnameId, bat *fcnnameId)
 
 	for (i = 0; i < pnettop; i++) {
 		_DEBUG_PETRINET_ mnstr_printf(PNout, "#collect input places %s.%s\n", pnet[i].modname, pnet[i].fcnname);
-		for( j =0; j < MAXBSKT && pnet[i].places[j]; j++){
-			BUNappend(schema, baskets[pnet[i].places[j]].schema_name, FALSE);
-			BUNappend(table, baskets[pnet[i].places[j]].table_name, FALSE);
+		for( j =0; j < MAXBSKT && pnet[i].inputs[j]; j++){
+			BUNappend(schema, baskets[pnet[i].inputs[j]].schema_name, FALSE);
+			BUNappend(table, baskets[pnet[i].inputs[j]].table_name, FALSE);
 			BUNappend(modname, pnet[i].modname, FALSE);
 			BUNappend(fcnname, pnet[i].fcnname, FALSE);
 		}
@@ -656,7 +674,7 @@ wrapup:
 		BBPunfix(modname->batCacheid);
 	if (fcnname)
 		BBPunfix(fcnname->batCacheid);
-	throw(MAL, "iot.places", MAL_MALLOC_FAIL);
+	throw(MAL, "iot.inputs", MAL_MALLOC_FAIL);
 }
 
 str PNoutputplaces(bat *schemaId, bat *tableId, bat *modnameId, bat *fcnnameId)
@@ -685,9 +703,9 @@ str PNoutputplaces(bat *schemaId, bat *tableId, bat *modnameId, bat *fcnnameId)
 	BATseqbase(fcnname, 0);
 
 	for (i = 0; i < pnettop; i++) 
-	for( j =0; j < MAXBSKT && pnet[i].targets[j]; j++){
-		BUNappend(schema, baskets[pnet[i].targets[j]].schema_name, FALSE);
-		BUNappend(table, baskets[pnet[i].targets[j]].table_name, FALSE);
+	for( j =0; j < MAXBSKT && pnet[i].outputs[j]; j++){
+		BUNappend(schema, baskets[pnet[i].outputs[j]].schema_name, FALSE);
+		BUNappend(table, baskets[pnet[i].outputs[j]].table_name, FALSE);
 		BUNappend(modname, pnet[i].modname, FALSE);
 		BUNappend(fcnname, pnet[i].fcnname, FALSE);
 	}
@@ -705,5 +723,5 @@ wrapup:
 		BBPunfix(modname->batCacheid);
 	if (fcnname)
 		BBPunfix(fcnname->batCacheid);
-	throw(MAL, "iot.places", MAL_MALLOC_FAIL);
+	throw(MAL, "iot.outputs", MAL_MALLOC_FAIL);
 }

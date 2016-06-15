@@ -1,0 +1,76 @@
+stdout of test 'iot02` in directory 'sql/backends/monet5/iot` itself:
+
+
+# 08:21:23 >  
+# 08:21:23 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=30217" "--set" "mapi_usock=/var/tmp/mtest-634/.s.monetdb.30217" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mk/iot//Linux/var/MonetDB/mTests_sql_backends_monet5_iot"
+# 08:21:23 >  
+
+# MonetDB 5 server v11.24.0
+# This is an unreleased version
+# Serving database 'mTests_sql_backends_monet5_iot', using 8 threads
+# Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs and 128bit integers dynamically linked
+# Found 15.589 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2016 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://vienna.da.cwi.nl:30217/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-634/.s.monetdb.30217
+# MonetDB/GIS module loaded
+# MonetDB/SQL module loaded
+# MonetDB/iot loaded
+
+Ready.
+
+# 08:21:23 >  
+# 08:21:23 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-634" "--port=30217"
+# 08:21:23 >  
+
+#set schema iot;
+#set optimizer='iot_pipe';
+#create stream table stmp1 (t timestamp, sensor integer, val decimal(8,2)) ;
+#create table result1(like stmp1);
+#create table result2(like stmp1);
+#create procedure cq02()
+#begin
+#	call iot.tumble('iot','stmp1',1);
+#	insert into result1 select * from stmp1 where val <12;
+#	insert into result2 select * from stmp1 where val >12;
+#end;
+#insert into stmp1 values('2005-09-23 12:34:26.000',1,11.0);
+[ 1	]
+#insert into stmp1 values('2005-09-23 12:34:27.000',1,11.0);
+[ 1	]
+#insert into stmp1 values('2005-09-23 12:34:28.000',1,13.0);
+[ 1	]
+#insert into stmp1 values('2005-09-23 12:34:28.000',1,13.0);
+[ 1	]
+#select 'RESULT';
+% .L # table_name
+% single_value # name
+% char # type
+% 6 # length
+[ "RESULT"	]
+#select * from stmp1;
+% iot.stmp1,	iot.stmp1,	iot.stmp1 # table_name
+% t,	sensor,	val # name
+% timestamp,	int,	decimal # type
+% 26,	1,	10 # length
+#select * from result1;
+% iot.result1,	iot.result1,	iot.result1 # table_name
+% t,	sensor,	val # name
+% timestamp,	int,	decimal # type
+% 26,	1,	10 # length
+[ 2005-09-23 12:34:26.000000,	1,	11.00	]
+[ 2005-09-23 12:34:27.000000,	1,	11.00	]
+#select * from result2;
+% iot.result2,	iot.result2,	iot.result2 # table_name
+% t,	sensor,	val # name
+% timestamp,	int,	decimal # type
+% 26,	1,	10 # length
+[ 2005-09-23 12:34:28.000000,	1,	13.00	]
+[ 2005-09-23 12:34:28.000000,	1,	13.00	]
+
+# 08:21:23 >  
+# 08:21:23 >  "Done."
+# 08:21:23 >  
+

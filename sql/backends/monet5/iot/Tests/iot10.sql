@@ -10,7 +10,7 @@ create procedure collector()
 begin
 	update tmp_aggregate
 		set tmp_total = tmp_total + (select sum(val) from iot.stmp10),
-			tmp_count = tmp_total + (select count(*) from iot.stmp10);
+			tmp_count = tmp_count + (select count(*) from iot.stmp10);
 	delete from iot.stmp10;
 end;
 
@@ -19,11 +19,11 @@ select * from stmp10;
 
 call iot.query('iot','collector');
 
-select * from iot.baskets();
-select * from iot.queries();
+--select * from iot.baskets();
+--select * from iot.queries();
 
 call iot.resume();
-call iot.wait(2);
+call iot.wait(1);
 
 select * from tmp_aggregate;
 

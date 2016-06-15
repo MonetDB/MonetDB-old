@@ -15,8 +15,8 @@ call iot.query('iot','cq00');
 
 select * from  iot.baskets();
 select * from  iot.queries();
-select * from  iot.inputplaces();
-select * from  iot.outputplaces();
+select * from  iot.inputs();
+select * from  iot.outputs();
 
 -- stop all continuous queries and wait for it
 call iot.pause();
@@ -32,5 +32,5 @@ call iot.wait(1);
 select 'RESULT';
 select * from result;
 
-select * from  iot.baskets();
-select * from  iot.queries();
+--select * from  iot.baskets();
+--select * from  iot.queries();

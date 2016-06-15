@@ -48,8 +48,8 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int *alias;
 	str  schemas[MAXBSKT];
 	str  tables[MAXBSKT];
-	int  mvc[MAXBSKT];
-	int done[MAXBSKT]= {0};
+	int input[MAXBSKT]= {0};
+	int output[MAXBSKT]= {0};
 	int btop=0, lastmvc=0;
 	int noerror=0;
 	int cq= strncmp(getFunctionId(getInstrPtr(mb,0)),"cq",2) == 0;
@@ -74,10 +74,9 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,3)).val.sval;
 			for( j =0; j< btop ; j++)
-			if( strcmp(schemas[j], schemas[j+1])==0  && strcmp(tables[j],tables[j+1]) ==0)
+			if( strcmp(schemas[j], schemas[btop])==0  && strcmp(tables[j],tables[btop]) ==0)
 				break;
-			lastmvc = mvc[j] = getArg(p,0);
-			done[j]= done[j] || getFunctionId(p)== registerRef;
+			input[j]= 1;
 			if( j == btop)
 				btop++;
 		}
@@ -86,10 +85,10 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,3)).val.sval;
 			for( j =0; j< btop ; j++)
-			if( strcmp(schemas[j], schemas[j+1])==0  && strcmp(tables[j],tables[j+1]) ==0)
+			if( strcmp(schemas[j], schemas[btop])==0  && strcmp(tables[j],tables[btop]) ==0)
 				break;
 
-			lastmvc  = mvc[j] = getArg(p,0);
+			output[j]= output[j] || 1;
 			if( j == btop)
 				btop++;
 		}
@@ -98,7 +97,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			schemas[btop]= getVarConstant(mb, getArg(p,1)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
 			for( j =0; j< btop ; j++)
-			if( strcmp(schemas[j], schemas[j+1])==0  && strcmp(tables[j],tables[j+1]) ==0)
+			if( strcmp(schemas[j], schemas[btop])==0  && strcmp(tables[j],tables[btop]) ==0)
 				break;
 			if( j == btop)
 				btop++;
@@ -138,15 +137,17 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			}
 			if(getModuleId(p) == sqlRef && getFunctionId(p)== mvcRef){
 				pushInstruction(mb,p);
-				k= getArg(p,0);
+				lastmvc = getArg(p,0);
 				// register all baskets used
 				for( j=0; j<btop; j++)
-				if( done[j]==0) {
+				if( input[j] || output[j]) {
 					p= newStmt(mb,basketRef,registerRef);
-					p= pushArgument(mb,p,k);
+					p= pushArgument(mb,p,lastmvc);
 					p= pushStr(mb,p, schemas[j]);
 					p= pushStr(mb,p, tables[j]);
-					alias[k] = getArg(p,0);
+					p= pushInt(mb,p, output[j]);
+					alias[lastmvc] = getArg(p,0);
+					lastmvc = getArg(p,0);
 				}
 				continue;
 			}
@@ -161,6 +162,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					continue;
 				}
 			}
+
 			if (getModuleId(p) == algebraRef && getFunctionId(p) == projectionRef && alias[getArg(p,1)] < 0){
 				alias[getArg(p,0)] = getArg(p,2);
 				freeInstruction(p);
@@ -179,19 +181,22 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				noerror++;
 			if (p->token == ENDsymbol && btop > 0 && noerror==0) {
 				// empty all baskets used only when we are optimizing a cq
-				for(j = 0; cq && j < btop; j++){
+				for(j = 0; j < btop; j++)
+				if( input[j] && output[j]==0){
 					r =  newStmt(mb, basketRef, tumbleRef);
 					r =  pushArgument(mb,r, lastmvc);
 					r =  pushStr(mb,r, schemas[j]);
 					r =  pushStr(mb,r, tables[j]);
+					lastmvc = getArg(r,0);
 				}
 				/* non-contiguous queries call for releasing the lock on the basket */
-				for( j=0; !cq && j<btop; j++)
-				if( done[j]==0) {
+				for( j=btop-1; j>= 0; j--)
+				if( input[j] || output[j]) {
 					p= newStmt(mb,basketRef,commitRef);
 					p= pushArgument(mb,p, lastmvc);
 					p= pushStr(mb,p, schemas[j]);
 					p= pushStr(mb,p, tables[j]);
+					lastmvc = getArg(p,0);
 				}
 
 				/* catch any exception left behind */
@@ -224,17 +229,13 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				break;
 			}
 
-
 			for (j = 0; j < p->argc; j++)
 				if (alias[getArg(p, j)] > 0)
 					getArg(p, j) = alias[getArg(p, j)];
 
-			if (getModuleId(p) == sqlRef && getFunctionId(p) == appendRef ){
-				//getStreamTableInfo(getVarConstant(mb,getArg(p,3)).val.sval, getVarConstant(mb,getArg(p,4)).val.sval );
-				/* the appends come in multiple steps.
-				   The first initializes an basket update statement,
-				   which is triggered when we commit the transaction.
-				 */
+			if ( (getModuleId(p) == sqlRef ||getModuleId(p)== basketRef) && getFunctionId(p) == appendRef ){
+				getArg(p,1) = lastmvc;
+				lastmvc = getArg(p,0);
 			}
 			pushInstruction(mb, p);
 		}

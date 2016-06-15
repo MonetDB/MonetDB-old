@@ -17,9 +17,10 @@
 
 module basket;
 
-pattern register(mvc:int,sch:str,tbl:str):int
+pattern register(mvc:int,sch:str,tbl:str, role:int):int
 address BSKTregister
-comment "Initialize a new basket based on a specific table definition";
+comment "Initialize a new basket based on a specific table definition.
+roles:input =0, output=2";
 
 pattern bind(mvc:int,sch:str,tbl:str,col:str):bat[:any]
 address BSKTbind
@@ -32,7 +33,7 @@ comment "Append new tuples to a basket";
 pattern clear_table(sname:str,tname:str):lng
 address mvc_clear_table_wrap;
 
-pattern tumble(mvc:any, sch:str, tbl:str):void
+pattern tumble(mvc:any, sch:str, tbl:str):int
 address BSKTtumble
 comment "Make the basket available for the scheduler";
 
@@ -40,7 +41,7 @@ pattern settumble(sch:str, tbl:str, n:int):void
 address BSKTsettumble
 comment "Make the basket available for the scheduler";
 
-pattern commit(mvc:any, sch:str, tbl:str):void
+pattern commit(mvc:any, sch:str, tbl:str):int
 address BSKTcommit
 comment "Make the basket available after updates";
 
@@ -48,7 +49,7 @@ pattern reset(mvc:int,sch:str,tbl:str):int
 address BSKTreset
 comment "Remove a basket content";
 
-command drop(mvc:int,sch:str,tbl:str):void
+command drop(mvc:int,sch:str,tbl:str):int
 address BSKTdrop
 comment "Remove the basket";
 

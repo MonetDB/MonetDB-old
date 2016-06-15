@@ -231,6 +231,7 @@ opt_export  str unpackRef;
 opt_export  str unpinRef;
 opt_export  str unlockRef;
 opt_export  str updateRef;
+opt_export  str windowRef;
 opt_export  str subselectRef;
 opt_export  str thetasubselectRef;
 opt_export  str likesubselectRef;

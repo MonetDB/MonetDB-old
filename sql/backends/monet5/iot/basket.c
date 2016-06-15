@@ -223,8 +223,8 @@ BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	(void) cntxt;
 	(void) mb;
-	if( elm < 0)
-		throw(SQL,"basket.window","Positive beat expected]n");
+	if( elm <= 0)
+		throw(SQL,"basket.window","Positive slice expected]n");
 	idx = BSKTlocate(sch, tbl);
 	if( idx == 0){
 		BSKTregisterInternal(cntxt, mb, sch, tbl);
@@ -233,9 +233,6 @@ BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			throw(SQL,"basket.window","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
 	}
 	baskets[idx].winsize = elm;
-	baskets[idx].winstride = elm;
-	if ( pci->argc == 5)
-		baskets[idx].winstride = *getArgReference_int(stk,pci,4);
 	return MAL_SUCCEED;
 }
 
@@ -272,10 +269,26 @@ BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str sch = *getArgReference_str(stk,pci,2);
 	str tbl = *getArgReference_str(stk,pci,3);
 	str col = *getArgReference_str(stk,pci,4);
+	BAT *bn, *b = BSKTbindColumn(cntxt, sch,tbl,col);
+	int bskt;
 
-	BAT *b = BSKTbindColumn(cntxt, sch,tbl,col);
+	*ret = 0;
 	if( b){
-		BBPkeepref(*ret =  b->batCacheid);
+		bskt = BSKTlocate(sch,tbl);
+		if( bskt > 0){
+			if( baskets[bskt].winsize >0){
+				bn = VIEWcreate(0,b);
+				if( bn){
+					VIEWbounds(b,bn, 0, baskets[bskt].winsize);
+					BBPkeepref(*ret =  bn->batCacheid);
+					BBPunfix(b->batCacheid);
+				} else {
+					BBPunfix(b->batCacheid);
+					throw(SQL,"iot.bind","Can not create view %s.%s.%s["BUNFMT"]",sch,tbl,col,baskets[bskt].winsize );
+				}
+			} else
+				BBPkeepref(*ret =  b->batCacheid);
+		}
 		return MAL_SUCCEED;
 	}
 	(void) mb;
@@ -610,7 +623,7 @@ BSKTdump(void *ret)
 				BBPunfix(b->batCacheid);
 			}
 
-			mnstr_printf(GDKout, "#baskets[%2d] %s.%s columns "BUNFMT" threshold %d window=[%d,%d] time window=[" LLFMT "," LLFMT "] beat " LLFMT " milliseconds" BUNFMT"\n",
+			mnstr_printf(GDKout, "#baskets[%2d] %s.%s columns "BUNFMT" threshold %d window=["BUNFMT","BUNFMT"] time window=[" LLFMT "," LLFMT "] beat " LLFMT " milliseconds" BUNFMT"\n",
 					bskt,
 					baskets[bskt].schema_name,
 					baskets[bskt].table_name,
@@ -663,7 +676,7 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
     if ( isaBatType(tpe) && (binsert = BATdescriptor(*(int *) value)) == NULL)
         throw(SQL, "basket.append", "Cannot access source descriptor");
-	if ( ATOMextern(tpe))
+	if ( !isaBatType(tpe) && ATOMextern(getColumnType(tpe)))
 		value = *(ptr*) value;
 
 	bskt = BSKTlocate(sname,tname);

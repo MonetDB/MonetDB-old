@@ -74,9 +74,6 @@ create procedure iot.tumble("schema" string, "table" string, elem int)
 create procedure iot.window("schema" string, "table" string, elem int)
 	external name iot.window;
 
-create procedure iot.window("schema" string, "table" string, elem int, slide int)
-	external name iot.window;
-
 -- Inspection tables
 create function iot.baskets()
 returns table( "schema" string, "table" string, "status" string, threshold int, winsize int, winstride int, timeslice int, timestride int, heartbeat int, seen timestamp, events int)
@@ -86,11 +83,11 @@ create function iot.queries()
  returns table( "schema" string, "function" string, "status" string, lastrun timestamp, cycles int, events int, time bigint, error string)
  external name iot.queries;
 
-create function iot.inputplaces()
+create function iot.inputs()
  returns table( "s" string, "t" string, "sch" string, "qry" string)
  external name iot.inputplaces;
 
-create function iot.outputplaces()
+create function iot.outputs()
  returns table( "s" string, "t" string, "sch" string, "qry" string)
  external name iot.outputplaces;
 

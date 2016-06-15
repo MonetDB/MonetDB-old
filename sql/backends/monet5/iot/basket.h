@@ -38,7 +38,7 @@ typedef struct{
 	str *cols;
 
 	int threshold ; /* bound to determine scheduling eligibility */
-	int winsize, winstride; /* sliding window operations */
+	BUN winsize, winstride; /* sliding window operations */
 	lng timeslice, timestride; /* temporal sliding window, determined by first temporal component */
 	lng heartbeat;	/* milliseconds delay between actions */
 	BUN count;	/* number of events available in basket */
