@@ -17,81 +17,40 @@
 
 module basket;
 
-pattern bind(sch:str,tbl:str,col:str):bat[:any]
-address BSKTbind
-comment "access the stream basket column";
-
-pattern register(sch:str,tbl:str):void
+pattern register(mvc:int,sch:str,tbl:str):int
 address BSKTregister
 comment "Initialize a new basket based on a specific table definition";
 
-pattern activate(sch:str,tbl:str):void
-address BSKTactivate
-comment "Re-activate the stream";
-
-pattern deactivate(sch:str,tbl:str):void
-address BSKTdeactivate
-comment "Deactivate the stream when the stream is empty";
+pattern bind(mvc:int,sch:str,tbl:str,col:str):bat[:any]
+address BSKTbind
+comment "access the stream basket column";
 
 pattern append(mvc:int, sch:str, tbl:str, col:str, val:any):int
 address BSKTappend
 comment "Append new tuples to a basket";
 
-pattern delete(mvc:int, sch:str, tbl:str, val:bat[:oid]):int
-address BSKTdelete
-comment "Append new tuples to a basket";
+pattern clear_table(sname:str,tname:str):lng
+address mvc_clear_table_wrap;
+
+pattern tumble(mvc:any, sch:str, tbl:str):void
+address BSKTtumble
+comment "Make the basket available for the scheduler";
+
+pattern settumble(sch:str, tbl:str, n:int):void
+address BSKTsettumble
+comment "Make the basket available for the scheduler";
 
 pattern commit(mvc:any, sch:str, tbl:str):void
 address BSKTcommit
-comment "Make the basket available for the scheduler";
+comment "Make the basket available after updates";
 
-pattern update(sch:str,tbl:str, cols:any...)
-address BSKTupdate
-comment "Dump the new tuples into the basket";
+pattern reset(mvc:int,sch:str,tbl:str):int
+address BSKTreset
+comment "Remove a basket content";
 
-pattern update(sch:str,tbl:str, cols:bat[:any]...)
-address BSKTupdate
-comment "Dump the new tuples into the basket";
-
-pattern clear_table(sch:str,tbl:str):lng
-address BSKTclear
-comment "Remove the basket";
-
-command drop(sch:str,tbl:str):void
+command drop(mvc:int,sch:str,tbl:str):void
 address BSKTdrop
 comment "Remove the basket";
-
-command iot.threshold(sch:str,tbl:str,N:int):bit
-address BSKTthreshold
-comment "Set an acceptance threshold of N events before inspecting";
-
-pattern iot.beat(sch:str,tbl:str,N:int)
-address BSKTbeat
-comment "Set an delay to N milliseconds";
-
-pattern iot.tumble(sch:str,tbl:str)
-address BSKTtumble
-comment "clear the stream table";
-pattern iot.tumble(sch:str,tbl:str,N:int)
-address BSKTtumble
-comment "Remove at most N events from the stream ";
-
-pattern iot.window(sch:str,tbl:str,N:int)
-address BSKTwindow
-comment "Use a window of precisely N events";
-
-command reset():void
-address BSKTreset
-comment "Remove all baskets";
-
-pattern iot.import(sch:str, tbl:str, dir:str):void
-address BSKTimportBasket
-comment "Import a single directory with the binary files for a stream table";
-
-pattern iot.baskets()(sch:bat[:str],nme:bat[:str], status:bat[:str], threshold:bat[:int], winsize:bat[:int], winstride:bat[:int], timeslice:bat[:int], 
-timestride:bat[:int], beat:bat[:int], seen:bat[:timestamp], events:bat[:int])
-address BSKTtable
-comment "Inspect the iot baskets";
 
 command errors() (l:bat[:str],m:bat[:str])
 address BSKTtableerrors

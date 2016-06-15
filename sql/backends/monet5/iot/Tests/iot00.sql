@@ -18,18 +18,18 @@ select * from  iot.queries();
 select * from  iot.inputplaces();
 select * from  iot.outputplaces();
 
--- stop all continuous queries
-call iot.deactivate();
-call iot.wait();
+-- stop all continuous queries and wait for it
+call iot.pause();
 
 insert into stmp values('2005-09-23 12:34:26.736',1,12.34);
 select * from stmp;
 
 -- reactivate all continuous queries
-call iot.activate();
+call iot.resume();
+-- wait for 1 cycle in the scheduler
+call iot.wait(1);
 
--- wait until the scheduler handled them
-select * from  iot.queries();
+select 'RESULT';
 select * from result;
 
 select * from  iot.baskets();
