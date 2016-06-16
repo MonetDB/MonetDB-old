@@ -501,10 +501,10 @@ BSKTtumbleInternal(Client cntxt, str sch, str tbl, int stride)
 		sql_column *c = n->data;
 		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
 		assert( b );
-		if( stride > -1)
-			cnt = (BUN) stride ;
+		if( stride != -1)
+			cnt = (BUN) stride;
 		else
-			cnt=BATcount(b);
+			cnt= BATcount(b);
 
 		switch(ATOMstorage(b->ttype)){
 		case TYPE_bit:ColumnShift(b,bit,cnt); break;
@@ -545,7 +545,7 @@ BSKTtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str sch;
 	str tbl;
-	int elm = -1;
+	BUN elm = oid_nil;
 	int idx;
 
 	(void) cntxt;
@@ -560,7 +560,7 @@ BSKTtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		idx = BSKTlocate(sch, tbl);
 		if( idx ==0)
 			throw(SQL,"basket.tumble","Stream table %s.%s not accessible \n",sch,tbl);
-		elm = baskets[idx].winstride;
+		elm =(int) baskets[idx].winstride;
 	}
 	return BSKTtumbleInternal(cntxt, sch, tbl, elm);
 }
