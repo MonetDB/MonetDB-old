@@ -21,15 +21,17 @@ Switcher = [{'types': ['clob', 'url'], 'class': TextType},
             {'types': ['inet'], 'class': INetType},
             {'types': ['uuid'], 'class': UUIDType}]
 
-# this queue will be use to determine the best type to calculate the output size of the baskets
-Queue = [['boolean', 'tinyint'], ['smallint'], ['int', 'real', 'date', 'time', 'timetz', 'month_interval'],
-         ['bigint', 'sec_interval', 'double', 'timestamp', 'timestamptz', 'inet'], ['decimal'], ['uuid'],
-         ['clob', 'url', 'char', 'varchar']]
+# This list is used to determine the column to calculate the output size of the baskets. The list is in order of
+# preferences to make the calculation (from highest to lowest). We give preference to smaller types first, in order to
+# get more efficient computation (faster file reading).
+Types_Preferences = [['boolean', 'tinyint'], ['smallint'], ['int', 'real', 'date', 'time', 'timetz', 'month_interval'],
+                     ['bigint', 'sec_interval', 'double', 'timestamp', 'timestamptz', 'inet'], ['decimal'], ['uuid'],
+                     ['clob', 'url', 'char', 'varchar']]
 
 
 def polling_add_hugeint_type():
     Switcher.append({'types': ['hugeint'], 'class': HugeIntegerType})
-    Queue[5].append('hugeint')
+    Types_Preferences[5].append('hugeint')
 
 
 def init_stream_polling_thread(interval, connection):
@@ -84,7 +86,7 @@ def stream_polling(arguments):
                         break
 
                     for i in xrange(7):  # the queue has 7 entries
-                        if column[2] in Queue[i] and i < current_index:
+                        if column[2] in Types_Preferences[i] and i < current_index:
                             current_index = i
                             calc_column = new_column
                             break
