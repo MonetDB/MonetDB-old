@@ -1,5 +1,6 @@
 import sys
 
+from collections import OrderedDict
 from json import loads, dumps
 from jsonschema import Draft4Validator, FormatChecker
 from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
@@ -40,9 +41,8 @@ class IOTAPI(WebSocket):
         self._subscriptions = {}  # dictionary of schema + '.' + stream -> IOTStream
         self._subscriptions_locker = RWLock()
 
-    def sendJSONMessage(self, response, message):  # IMPORTANT always use this method to send messages to clients!!!!!
-        message['response'] = response
-        super(IOTAPI, self).sendMessage(dumps(message))  # send JSON Strings to clients
+    def sendJSONMessage(self, message):  # IMPORTANT always use this method to send messages to clients!!!!!
+        super(IOTAPI, self).sendMessage(dumps(OrderedDict(message)))  # send JSON Strings to clients
 
     def handleConnected(self):  # overriden
         WebClientsLock.acquire_write()
@@ -58,7 +58,7 @@ class IOTAPI(WebSocket):
 
     def handleMessage(self):  # overriden
         if self.opcode != 0x1:  # TEXT frame
-            self.sendJSONMessage(response="error", message={"message": "Only TEXT frames allowed!"})
+            self.sendJSONMessage((('response', 'error'), ('message', 'Only TEXT frames allowed!')))
         try:
             input_schema = loads(self.data)
             Client_Messages_Validator.validate(input_schema)
@@ -68,15 +68,17 @@ class IOTAPI(WebSocket):
             elif input_schema['request'] in UNSUBSCRIBE_OPTS:
                 self.unsubscribe(input_schema['schema'], input_schema['stream'])
             elif input_schema['request'] in READ_OPTS:
-                self.read_stream_batch(input_schema['schema'], input_schema['stream'], int(input_schema['basket']),
-                                       int(input_schema['limit']), int(input_schema['offset']))
+                basket = input_schema.get('basket', 1)
+                limit = input_schema.get('limit', 100)
+                offset = input_schema.get('offset', 0)
+                self.read_stream_batch(input_schema['schema'], input_schema['stream'], basket, limit, offset)
             elif input_schema['request'] in INFO_OPTS:
                 if len(input_schema) == 1:  # get all streams information
                     self.get_streams_data()
                 else:
                     self.get_stream_info(input_schema['schema'], input_schema['stream'])
         except BaseException as ex:
-            self.sendJSONMessage(response="error", message={"message": str(ex)})
+            self.sendJSONMessage((('response', 'error'), ('message', str(ex))))
             add_log(50, ex)
 
     def subscribe(self, schema_name, stream_name):
@@ -85,7 +87,7 @@ class IOTAPI(WebSocket):
         self._subscriptions_locker.acquire_write()
         self._subscriptions[concatenated_name] = stream
         self._subscriptions_locker.release()
-        self.sendJSONMessage(response="subscribed", message={'schema': schema_name, 'stream': stream_name})
+        self.sendJSONMessage((('response', 'subscribed'), ('schema', schema_name), ('stream', stream_name)))
         add_log(20, ''.join(['Client ', self.address[0], 'subscribed to stream ', concatenated_name]))
 
     def unsubscribe(self, schema_name, stream_name):
@@ -93,12 +95,13 @@ class IOTAPI(WebSocket):
         self._subscriptions_locker.acquire_write()
         if concatenated_name not in self._subscriptions:
             self._subscriptions_locker.release()
-            self.sendJSONMessage(response="error", message={"message": "Stream " + concatenated_name +
-                                                                       " is not present in the user's subscriptions!"})
+            self.sendJSONMessage((('response', 'error'),
+                                  ('message', 'Stream ' + concatenated_name +
+                                   ' is not present in the user\'s subscriptions!')))
         else:
             del self._subscriptions[concatenated_name]
             self._subscriptions_locker.release()
-            self.sendJSONMessage(response="unsubscribed", message={'schema': schema_name, 'stream': stream_name})
+            self.sendJSONMessage((('response', 'unsubscribed'), ('schema', schema_name), ('stream', stream_name)))
             add_log(20, ''.join(['Client ', self.address[0], ' unsubscribed to stream ', concatenated_name]))
 
     def remove_subscribed_stream(self, concatenated_name):
@@ -107,29 +110,29 @@ class IOTAPI(WebSocket):
         if concatenated_name in self._subscriptions:
             del self._subscriptions[concatenated_name]
         self._subscriptions_locker.release()
-        self.sendJSONMessage(response="removed", message={'schema': names[0], 'stream': names[1]})
+        self.sendJSONMessage((('response', 'removed'), ('schema', names[0]), ('stream', names[1])))
 
     def send_notification_message(self, schema_name, stream_name, basket_number, count):
         concatenated_name = IOTStreams.get_context_entry_name(schema_name, stream_name)
         self._subscriptions_locker.acquire_read()
         if concatenated_name in self._subscriptions:
             self._subscriptions_locker.release()
-            self.sendJSONMessage(response="notification", message={'schema': schema_name, 'stream': stream_name,
-                                                                   'basket': basket_number, 'count': count})
+            self.sendJSONMessage((('response', 'notification'), ('schema', schema_name), ('stream', stream_name),
+                                  ('basket', basket_number), ('count', count)))
             add_log(20, ''.join(['Stream ', concatenated_name, ' notification sent to client ', self.address[0]]))
         else:
             self._subscriptions_locker.release()
 
     def read_stream_batch(self, schema_name, stream_name, basket_number, limit, offset):
         stream = Streams_Context.get_existing_stream(IOTStreams.get_context_entry_name(schema_name, stream_name))
-        self.sendJSONMessage(response="read", message=stream.read_tuples(basket_number, limit, offset))
+        self.sendJSONMessage((('response', 'read'),) + stream.read_tuples(basket_number, limit, offset))
 
     def get_streams_data(self):
-        self.sendJSONMessage(response="data", message=Streams_Context.get_streams_data())
+        self.sendJSONMessage((('response', 'data'),) + Streams_Context.get_streams_data())
 
     def get_stream_info(self, schema_name, stream_name):
         stream = Streams_Context.get_existing_stream(IOTStreams.get_context_entry_name(schema_name, stream_name))
-        self.sendJSONMessage(response="info", message=stream.get_data_dictionary())
+        self.sendJSONMessage((('response', 'info'),) + stream.get_data_dictionary())
 
 
 def init_websockets(host, port):

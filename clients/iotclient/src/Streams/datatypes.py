@@ -22,9 +22,6 @@ INT8_MIN = -128
 INT16_MIN = -32768
 INT32_MIN = -2147483648
 INT64_MIN = -9223372036854775808
-INT64_MAX = 9223372036854775807
-INT128_MIN = -340282366920938463463374607431768211456
-
 FLOAT_NAN = struct.unpack('f', '\xff\xff\x7f\xff')[0]
 DOUBLE_NAN = struct.unpack('d', '\xff\xff\xff\xff\xff\xff\xef\xff')[0]
 
@@ -521,8 +518,8 @@ class DecimalType(NumberBaseType):
         elif 18 < self._precision <= 38:
             self._pack_sym = 'Q'
 
-        self._nullable_constant = {'b': INT8_MIN, 'h': INT16_MIN, 'i': INT32_MIN, 'q': INT64_MIN, 'Q': INT128_MIN} \
-            .get(self._pack_sym)
+        self._nullable_constant = {'b': INT8_MIN, 'h': INT16_MIN, 'i': INT32_MIN, 'q': INT64_MIN,
+                                   'Q': 0x80000000000000000000000000000000}.get(self._pack_sym)
 
         super(DecimalType, self).__init__(**kwargs)
         if self._default_value is not None:
@@ -671,7 +668,7 @@ class DateType(BaseDateTimeType):  # Stored as an uint with the number of days s
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + 'I', *extracted_values)
 
 
-class TimeType(BaseDateTimeType):  # Stored as an uint with the number of milliseconds since hour00:00:00
+class TimeType(BaseDateTimeType):  # Stored as an uint with the number of milliseconds since hour 00:00:00
     """Covers: TIME"""
 
     def __init__(self, **kwargs):

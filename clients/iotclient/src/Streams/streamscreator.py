@@ -2,7 +2,8 @@ from collections import OrderedDict
 from json import dumps
 from jsonschema import Draft4Validator, FormatChecker
 from .datatypes import TextType, LimitedTextType, SmallIntegerType, FloatType, DecimalType, DateType, EnumType,\
-    TimeType, TimestampType, IntervalType, BooleanType, INetType, INetSixType, MACType, URLType, UUIDType, RegexType
+    HugeIntegerType, TimeType, TimestampType, IntervalType, BooleanType, INetType, INetSixType, MACType, URLType,\
+    UUIDType, RegexType
 from .jsonschemas import UNBOUNDED_TEXT_INPUTS, BOUNDED_TEXT_INPUTS, SMALL_INTEGERS_INPUTS, HUGE_INTEGER_TYPE,\
     FLOATING_POINT_PRECISION_INPUTS, DECIMAL_INPUTS, DATE_TYPE, TIME_INPUTS, TIMESTAMP_INPUTS, INTERVAL_INPUTS,\
     BOOLEAN_INPUTS, INET_TYPE, INET6_TYPE, MAC_TYPE, URL_TYPE, UUID_TYPE, REGEX_TYPE, ENUM_TYPE,\
@@ -31,7 +32,7 @@ Switcher = [{'types': UNBOUNDED_TEXT_INPUTS, 'class': TextType},
 
 
 def creator_add_hugeint_type():
-    Switcher.append({'types': [HUGE_INTEGER_TYPE], 'class': 'HugeIntegerType'})
+    Switcher.append({'types': [HUGE_INTEGER_TYPE], 'class': HugeIntegerType})
 
 
 def validate_schema_and_create_stream(schema, con_hostname, con_port, con_user, con_password, con_database):
@@ -53,8 +54,7 @@ def validate_schema_and_create_stream(schema, con_hostname, con_port, con_user, 
         for entry in Switcher:  # allocate the proper type wrapper
             if next_type in entry['types']:
                 try:
-                    reflection_class = entry['class']()  # use reflection
-                    validated_columns[next_name] = reflection_class(**column)  # pass the json entry as kwargs
+                    validated_columns[next_name] = entry['class'](**column)  # pass the json entry as kwargs
                 except BaseException as ex:
                     errors[next_name] = ex
                 break

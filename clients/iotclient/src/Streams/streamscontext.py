@@ -90,7 +90,7 @@ class IOTStreams:
     def get_streams_data(self):
         self._locker.acquire_read()
         res = OrderedDict((('streams_count', len(self._context)),
-                           ('streams_listing', [value.get_data_dictionary() for value in self._context.values()])))
+                           'streams_listing', [value.get_data_dictionary() for value in self._context.values()]))
         self._locker.release()
         return res
 

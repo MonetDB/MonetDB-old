@@ -1,22 +1,19 @@
 import struct
 
 from abc import ABCMeta, abstractmethod
-from collections import OrderedDict
 from datetime import date, time, datetime
 from dateutil.relativedelta import relativedelta
+from os import SEEK_END
 
 LITTLE_ENDIAN_ALIGNMENT = '<'  # for now is little-endian for Intel CPU's
 
 NIL_STRING = "\200\n"  # added newline for performance
 NIL_UUID = "00000000-0000-0000-0000-000000000000"
 
-INT8_MIN = 0x80
-INT16_MIN = 0x8000
-INT32_MIN = 0x80000000
-INT64_MIN = 0x8000000000000000
-INT64_MAX = 0xFFFFFFFFFFFFFFFF
-INT128_MIN = 0x80000000000000000000000000000000
-
+INT8_MIN = -128
+INT16_MIN = -32768
+INT32_MIN = -2147483648
+INT64_MIN = -9223372036854775808
 FLOAT_NAN = struct.unpack('f', '\xff\xff\x7f\xff')[0]
 DOUBLE_NAN = struct.unpack('d', '\xff\xff\xff\xff\xff\xff\xef\xff')[0]
 
@@ -31,8 +28,15 @@ class StreamDataType(object):
         self._default_value = kwargs['default']  # default value text
         self._is_nullable = kwargs['nullable']  # is nullable
 
+    def get_column_name(self):
+        return self._column_name
+
     def is_file_mode_binary(self):
         return True
+
+    @abstractmethod
+    def calculate_file_size(self, fp):
+        pass
 
     @abstractmethod
     def skip_tuples(self, fp, offset):
@@ -56,12 +60,12 @@ class StreamDataType(object):
         return results
 
     def to_json_representation(self):  # get a json representation of the data type while checking the stream's info
-        return OrderedDict((('name', self._column_name), ('type', self._data_type),
-                            ('default', self._default_value), ('nullable', self._is_nullable)))
+        return (('name', self._column_name), ('type', self._data_type),
+                ('default', self._default_value), ('nullable', self._is_nullable))
 
 
 class TextType(StreamDataType):
-    """Covers: CLOB and Url"""
+    """Covers: CLOB and URL"""
 
     def __init__(self, **kwargs):
         super(TextType, self).__init__(**kwargs)
@@ -69,6 +73,9 @@ class TextType(StreamDataType):
 
     def is_file_mode_binary(self):
         return False
+
+    def calculate_file_size(self, fp):
+        return sum(1 for _ in fp)
 
     def skip_tuples(self, fp, offset):
         for _ in xrange(offset):
@@ -93,9 +100,7 @@ class LimitedTextType(TextType):
         self._limit = kwargs['digits']
 
     def to_json_representation(self):
-        json_value = super(LimitedTextType, self).to_json_representation()
-        json_value['limit'] = self._limit
-        return json_value
+        return super(LimitedTextType, self).to_json_representation() + (('limit', self._limit),)
 
 
 class INetType(StreamDataType):
@@ -103,6 +108,10 @@ class INetType(StreamDataType):
 
     def __init__(self, **kwargs):
         super(INetType, self).__init__(**kwargs)
+
+    def calculate_file_size(self, fp):
+        fp.seek(0, SEEK_END)
+        return fp.tell() >> 3  # a inet has a size of 8 bytes
 
     def skip_tuples(self, fp, offset):
         fp.seek(offset << 3)
@@ -129,6 +138,10 @@ class UUIDType(StreamDataType):
     def __init__(self, **kwargs):
         super(UUIDType, self).__init__(**kwargs)
 
+    def calculate_file_size(self, fp):
+        fp.seek(0, SEEK_END)
+        return fp.tell() >> 4  # a inet has a size of 16 bytes
+
     def skip_tuples(self, fp, offset):
         fp.seek(offset << 4)
 
@@ -145,7 +158,6 @@ class UUIDType(StreamDataType):
                     next_uuid.append("-")
                 else:
                     next_uuid.append("%02x" % next(iterator))
-
             built_uuid = ''.join(next_uuid)
             if built_uuid == NIL_UUID:
                 built_uuid = None
@@ -158,14 +170,17 @@ class BooleanType(StreamDataType):
 
     def __init__(self, **kwargs):
         super(BooleanType, self).__init__(**kwargs)
-        self._nullable_constant = INT8_MIN
+
+    def calculate_file_size(self, fp):
+        fp.seek(0, SEEK_END)
+        return fp.tell()  # a boolean has a size of 1 byte
 
     def skip_tuples(self, fp, offset):
         fp.seek(offset)
 
     def read_next_batch(self, fp, limit):
         array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + 'b', fp.read(limit))
-        return map(lambda x: None if x == self._nullable_constant else bool(x), array)
+        return map(lambda x: None if x == INT8_MIN else bool(x), array)
 
 
 class SmallIntegerType(StreamDataType):
@@ -175,16 +190,20 @@ class SmallIntegerType(StreamDataType):
         super(SmallIntegerType, self).__init__(**kwargs)
         self._pack_sym = {'tinyint': 'b', 'smallint': 'h', 'int': 'i', 'integer': 'i', 'bigint': 'q'} \
             .get(self._data_type)
-        self._size = struct.calcsize(self._pack_sym)
+        self._size = {'tinyint': 0, 'smallint': 1, 'int': 2, 'integer': 2, 'bigint': 3}.get(self._data_type)
         self._nullable_constant = {'tinyint': INT8_MIN, 'smallint': INT16_MIN, 'int': INT32_MIN, 'integer': INT32_MIN,
                                    'bigint': INT64_MIN}.get(self._data_type)
 
+    def calculate_file_size(self, fp):
+        fp.seek(0, SEEK_END)
+        return fp.tell() >> self._size
+
     def skip_tuples(self, fp, offset):
-        fp.seek(offset * self._size)
+        fp.seek(offset << self._size)
 
     def read_next_batch(self, fp, limit):
-        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + self._pack_sym, fp.read(limit * self._size))
-        return map(lambda x: None if x == self._nullable_constant else int(x), array)
+        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + self._pack_sym, fp.read(limit << self._size))
+        return map(lambda x: None if x == self._nullable_constant else x, array)
 
 
 class HugeIntegerType(StreamDataType):
@@ -192,21 +211,25 @@ class HugeIntegerType(StreamDataType):
 
     def __init__(self, **kwargs):
         super(HugeIntegerType, self).__init__(**kwargs)
-        self._nullable_constant = INT128_MIN
+
+    def calculate_file_size(self, fp):
+        fp.seek(0, SEEK_END)
+        return fp.tell() >> 4
 
     def skip_tuples(self, fp, offset):
         fp.seek(offset << 4)
 
-    def read_next_batch(self, fp, limit):  # [entry & INT64_MAX, (entry >> 64) & INT64_MAX]
+    def read_next_batch(self, fp, limit):
         array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit << 1) + 'Q', fp.read(limit << 4))
         results = []
         iterator = iter(array)  # has to iterate two values at once, so use iterator
         for value in iterator:
-            next_huge = next(iterator) + (value << 64)
-            if next_huge == self._nullable_constant:
+            second_value = next(iterator)
+            next_huge = (second_value << 64) + value
+            if next_huge == 0x80000000000000000000000000000000:
                 results.append(None)
             else:
-                results.append(int(next_huge))
+                results.append(next_huge)
         return results
 
 
@@ -216,15 +239,19 @@ class FloatType(StreamDataType):
     def __init__(self, **kwargs):
         super(FloatType, self).__init__(**kwargs)
         self._pack_sym = {'real': 'f', 'float': 'd', 'double': 'd'}.get(self._data_type)
-        self._size = struct.calcsize(self._pack_sym)
+        self._size = {'real': 2, 'float': 3, 'double': 3}.get(self._data_type)
         self._nullable_constant = {'real': FLOAT_NAN, 'float': DOUBLE_NAN, 'double': DOUBLE_NAN}.get(self._data_type)
 
+    def calculate_file_size(self, fp):
+        fp.seek(0, SEEK_END)
+        return fp.tell() >> self._size
+
     def skip_tuples(self, fp, offset):
-        fp.seek(offset * self._size)
+        fp.seek(offset << self._size)
 
     def read_next_batch(self, fp, limit):
-        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + self._pack_sym, fp.read(limit * self._size))
-        return map(lambda x: None if x == self._nullable_constant else float(x), array)
+        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + self._pack_sym, fp.read(limit << self._size))
+        return map(lambda x: None if x == self._nullable_constant else x, array)
 
 
 class DecimalType(StreamDataType):
@@ -246,35 +273,40 @@ class DecimalType(StreamDataType):
         elif 18 < self._precision <= 38:
             self._pack_sym = 'Q'
 
-        self._nullable_constant = {'b': INT8_MIN, 'h': INT16_MIN, 'i': INT32_MIN, 'q': INT64_MIN, 'Q': INT128_MIN} \
-            .get(self._pack_sym)
-        self._size = struct.calcsize(self._pack_sym)
-        if self._pack_sym == 'Q':
-            self._size <<= 1  # has to read two values at once
+        self._nullable_constant = {'b': INT8_MIN, 'h': INT16_MIN, 'i': INT32_MIN, 'q': INT64_MIN,
+                                   'Q': 0x80000000000000000000000000000000}.get(self._pack_sym)
+        self._size = {'b': 0, 'h': 1, 'i': 2, 'q': 3, 'Q': 4}.get(self._pack_sym)
+
+    def calculate_file_size(self, fp):
+        fp.seek(0, SEEK_END)
+        return fp.tell() >> self._size
 
     def skip_tuples(self, fp, offset):
-        fp.seek(offset * self._size)
+        fp.seek(offset << self._size)
 
     def read_next_batch(self, fp, limit):
-        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + self._pack_sym, fp.read(limit * self._size))
         if self._pack_sym != 'Q':
+            array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + self._pack_sym, fp.read(limit << self._size))
             return map(lambda x: None if x == self._nullable_constant else float(x), array)
         else:
+            array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit << 1) + self._pack_sym,
+                                  fp.read(limit << self._size))
             results = []
             iterator = iter(array)  # has to iterate two values at once, so use iterator
             for value in iterator:
-                next_huge_decimal = next(iterator) + (value << 64)
+                second_value = next(iterator)
+                next_huge_decimal = (second_value << 64) + value
                 if next_huge_decimal == self._nullable_constant:
                     results.append(None)
                 else:
-                    results.append(next_huge_decimal)
+                    results.append(float(next_huge_decimal))
             return results
 
     def to_json_representation(self):
-        json_value = super(DecimalType, self).to_json_representation()
-        json_value['precision'] = self._precision
-        json_value['scale'] = self._scale
-        return json_value
+        return super(DecimalType, self).to_json_representation() + \
+               (('precision', self._precision), ('scale', self._scale),)
+
+year_delta = relativedelta(years=1)
 
 
 class DateType(StreamDataType):  # Stored as an uint with the number of days since day 1 of month 1 (Jan) from year 0
@@ -282,7 +314,10 @@ class DateType(StreamDataType):  # Stored as an uint with the number of days sin
 
     def __init__(self, **kwargs):
         super(DateType, self).__init__(**kwargs)
-        self._nullable_constant = INT32_MIN
+
+    def calculate_file_size(self, fp):
+        fp.seek(0, SEEK_END)
+        return fp.tell() >> 2
 
     def skip_tuples(self, fp, offset):
         fp.seek(offset << 2)
@@ -291,10 +326,10 @@ class DateType(StreamDataType):  # Stored as an uint with the number of days sin
         array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + 'I', fp.read(limit << 2))
         results = []
         for value in array:
-            if value == self._nullable_constant:
+            if value == 0x80000000:
                 results.append(None)
             else:  # dates in python start on year 1, so we must subtract one year
-                results.append((date.fromordinal(value) - relativedelta(years=1)).isoformat())
+                results.append((date.fromordinal(value) - year_delta).isoformat())
         return results
 
 
@@ -303,9 +338,12 @@ class TimeType(StreamDataType):  # Stored as an uint with the number of millisec
 
     def __init__(self, **kwargs):
         super(TimeType, self).__init__(**kwargs)
-        self._nullable_constant = INT32_MIN
         if self._data_type == 'timetz':
             self._data_type = 'time with time zone'
+
+    def calculate_file_size(self, fp):
+        fp.seek(0, SEEK_END)
+        return fp.tell() >> 2
 
     def skip_tuples(self, fp, offset):
         fp.seek(offset << 2)
@@ -314,13 +352,16 @@ class TimeType(StreamDataType):  # Stored as an uint with the number of millisec
         array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + 'I', fp.read(limit << 2))
         results = []
         for value in array:
-            if value == self._nullable_constant:
+            if value == 0x80000000:
                 results.append(None)
             else:
-                div1, milliseconds = divmod(value, 1000)
-                div2, second = divmod(div1, 60)
-                hour, minute = divmod(div2, 60)
-                results.append(time(hour=hour, minute=minute, second=second, microsecond=milliseconds * 1000)
+                hour = value / 3600000
+                aux1 = hour * 3600000
+                minute = (value - aux1) / 60000
+                aux2 = minute * 60000
+                second = (value - aux1 - aux2) / 1000
+                millisecond = value - aux1 - aux2 - (second * 1000)
+                results.append(time(hour=hour, minute=minute, second=second, microsecond=millisecond * 1000)
                                .isoformat())
         return results
 
@@ -333,6 +374,10 @@ class TimestampType(StreamDataType):  # It is represented with the two integers 
         if self._data_type == 'timestamptz':
             self._data_type = 'timestamp with time zone'
 
+    def calculate_file_size(self, fp):
+        fp.seek(0, SEEK_END)
+        return fp.tell() >> 3
+
     def skip_tuples(self, fp, offset):
         fp.seek(offset << 3)
 
@@ -343,15 +388,18 @@ class TimestampType(StreamDataType):  # It is represented with the two integers 
 
         for value in iterator:
             second_value = next(iterator)
-            if value == INT32_MIN and second_value == 0:
+            if value == 0 and second_value == 0x80000000:
                 results.append(None)
             else:  # dates in python start on year 1, so we must subtract one year
-                read_date = date.fromordinal(second_value) - relativedelta(years=1)
-                div1, milliseconds = divmod(value, 1000)
-                div2, second = divmod(div1, 60)
-                hour, minute = divmod(div2, 60)
+                read_date = date.fromordinal(second_value) - year_delta
+                hour = value / 3600000
+                aux1 = hour * 3600000
+                minute = (value - aux1) / 60000
+                aux2 = minute * 60000
+                second = (value - aux1 - aux2) / 1000
+                millisecond = value - aux1 - aux2 - (second * 1000)
                 results.append(datetime.combine(read_date, time(hour=hour, minute=minute, second=second,
-                                                                microsecond=milliseconds * 1000)).isoformat())
+                                                                microsecond=millisecond)).isoformat())
         return results
 
 INTERVALS_DICTIONARY = {1: "interval year", 2: "interval year to month", 3: "interval month", 4: "interval day",
@@ -368,15 +416,20 @@ class IntervalType(StreamDataType):
         if kwargs['digits'] < 4:
             self._pack_sym = 'i'
             self._nullable_constant = INT32_MIN
+            self._size = 2
         else:
             self._pack_sym = 'q'
             self._nullable_constant = INT64_MIN
-        self._size = struct.calcsize(self._pack_sym)
-        self._data_type = INTERVALS_DICTIONARY.get(kwargs['switch'])
+            self._size = 3
+        self._data_type = INTERVALS_DICTIONARY.get(kwargs['digits'])
+
+    def calculate_file_size(self, fp):
+        fp.seek(0, SEEK_END)
+        return fp.tell() >> self._size
 
     def skip_tuples(self, fp, offset):
-        fp.seek(offset * self._size)
+        fp.seek(offset << self._size)
 
     def read_next_batch(self, fp, limit):
-        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + self._pack_sym, fp.read(limit * self._size))
+        array = struct.unpack(LITTLE_ENDIAN_ALIGNMENT + str(limit) + self._pack_sym, fp.read(limit << self._size))
         return map(lambda x: None if x == self._nullable_constant else int(x), array)

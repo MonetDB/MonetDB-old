@@ -14,7 +14,7 @@ CLIENTS_INPUTS_SCHEMA = {
         "properties": {
             "schema": {"type": "string"},
             "stream": {"type": "string"},
-            "request": {"type": "string", "enum": CONCAT_SUB_OPTS},
+            "request": {"type": "string", "enum": CONCAT_SUB_OPTS + INFO_OPTS},
         },
         "required": ["schema", "stream", "request"],
         "additionalProperties": False
@@ -26,14 +26,6 @@ CLIENTS_INPUTS_SCHEMA = {
             "basket": {"type": "integer", "minimum": 1, "default": 1},
             "limit": {"type": "integer", "minimum": 0, "default": 100},
             "offset": {"type": "integer", "minimum": 0, "default": 0}
-        },
-        "required": ["schema", "stream", "request"],
-        "additionalProperties": False
-    }, {
-        "properties": {
-            "schema": {"type": "string"},
-            "stream": {"type": "string"},
-            "request": {"type": "string", "enum": INFO_OPTS}  # for one stream
         },
         "required": ["schema", "stream", "request"],
         "additionalProperties": False

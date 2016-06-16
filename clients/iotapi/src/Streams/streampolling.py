@@ -21,9 +21,15 @@ Switcher = [{'types': ['clob', 'url'], 'class': TextType},
             {'types': ['inet'], 'class': INetType},
             {'types': ['uuid'], 'class': UUIDType}]
 
+# this queue will be use to determine the best type to calculate the output size of the baskets
+Queue = [['boolean', 'tinyint'], ['smallint'], ['int', 'real', 'date', 'time', 'timetz', 'month_interval'],
+         ['bigint', 'sec_interval', 'double', 'timestamp', 'timestamptz', 'inet'], ['decimal'], ['uuid'],
+         ['clob', 'url', 'char', 'varchar']]
+
 
 def polling_add_hugeint_type():
     Switcher.append({'types': ['hugeint'], 'class': HugeIntegerType})
+    Queue[5].append('hugeint')
 
 
 def init_stream_polling_thread(interval, connection):
@@ -56,6 +62,7 @@ def stream_polling(arguments):
                 retrieved_columns = grouped_columns[entry[0]]
                 built_columns = OrderedDict()  # dictionary of name -> data_types
                 errors = OrderedDict()
+                current_index = 7  # preference index to calculate the baskets sizes
                 for column in retrieved_columns:
                     if column[5] is not None:
                         default_value = column[5][1:-1]
@@ -67,21 +74,31 @@ def stream_polling(arguments):
                     valid_type = False
                     for variable in Switcher:  # allocate the proper type wrapper
                         if column[2] in variable['types']:
-                            built_columns[column[1]] = variable['class'](**kwargs_dic)
+                            new_column = variable['class'](**kwargs_dic)
+                            built_columns[column[1]] = new_column
                             valid_type = True
                             break
+
                     if not valid_type:
-                        errors[column[1]] = 'Not valid type: ' + column[2]
+                        errors[column[1]] = 'Not supported type: ' + column[2]
                         break
+
+                    for i in xrange(7):  # the queue has 7 entries
+                        if column[2] in Queue[i] and i < current_index:
+                            current_index = i
+                            calc_column = new_column
+                            break
+
                 if len(errors) > 0:
                     add_log(40, dumps(errors))
                     continue
 
                 new_streams[next_concatenated_name] = IOTStream(schema_name=entry[1], stream_name=entry[2],
-                                                                columns=built_columns)
+                                                                columns=built_columns, calc_column=calc_column)
             else:
                 retained_streams.append(next_concatenated_name)
         except BaseException as ex:
             add_log(50, ex)
             continue
+
     Streams_Context.merge_context(retained_streams, new_streams)

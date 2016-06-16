@@ -3,7 +3,8 @@ import os
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict, OrderedDict
 from json import dumps
-from .datatypes import TimestampWithTimeZoneType, TextType
+from shutil import rmtree
+from .datatypes import TimestampType, TextType
 from Settings.filesystem import get_baskets_location
 from Settings.iotlogger import add_log
 from Settings.mapiconnection import close_monetdb_connection, mapi_flush_baskets
@@ -12,7 +13,7 @@ from Utilities.readwritelock import RWLock
 from Utilities.customthreading import PeriodicalThread
 
 IMPLICIT_TIMESTAMP_COLUMN_NAME = 'implicit_timestamp'
-Implicit_Timestamp_Handler = TimestampWithTimeZoneType(name=IMPLICIT_TIMESTAMP_COLUMN_NAME, type="timestamp")
+Implicit_Timestamp_Handler = TimestampType(name=IMPLICIT_TIMESTAMP_COLUMN_NAME, type="timestamp with time zone")
 Implicit_Timestamp_SQL = Implicit_Timestamp_Handler.create_stream_sql()
 
 HOST_IDENTIFIER_COLUMN_NAME = 'hostname_identifier'
@@ -119,6 +120,7 @@ class BaseIOTStream:
         except BaseException as ex:
             add_log(50, ex)
         self._baskets_lock.release()
+        rmtree(self._base_path, ignore_errors=True)
         add_log(20, 'Stopped stream %s.%s' % (self._schema_name, self._stream_name))
 
     @abstractmethod
