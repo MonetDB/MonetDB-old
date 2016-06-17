@@ -17,4 +17,4 @@ Contents:
    iot_server_arguments.rst
    restful_resources.rst
    streams_data_types.rst
-   conclusion.rst
+   about.rst

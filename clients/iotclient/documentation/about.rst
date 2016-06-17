@@ -1,18 +1,8 @@
-.. _future_work:
-
-**********************
-Final Acknowledgements
-**********************
-
-Future Work
-===========
-
-Currently the project is on a testing phase.
-
 .. _about-the-project:
 
+*****************
 About the Project
-=================
+*****************
 
 .. _Send questions and suggestions to e-mail.: P.E.Ferreira@cwi.nl
 

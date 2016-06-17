@@ -72,6 +72,8 @@ Tinyint, Smallint, Int, Integer, Bigint, Hugeint
 
 Signed integers. The type name specifies its bit capacity. If the value is grater than the bit capacity, it will be truncated. The insertion must be provided as a JSON integer.
 
+.. warning:: At the initiation of the server, is checked if Hugeint type is supported. If not then it can't be used to create new streams.
+
 +--------------+----------+
 | **Type**     | **Size** |
 +--------------+----------+
@@ -86,15 +88,15 @@ Signed integers. The type name specifies its bit capacity. If the value is grate
 | Hugeint      | 128      |
 +--------------+----------+
 
-Real, Float, Double
--------------------
+Real, Float, Double, Double precision
+-------------------------------------
 
 Floating point numbers. The type name specifies its bit capacity. If the value is grater than the bit capacity, it will be truncated. Real is 32 bit, while Float and Double are 64 bit. The insertion must be provided as a JSON float.
 
-Decimal, Numeric
-----------------
+Decimal, Dec, Numeric
+---------------------
 
-Numbers with a specific precision and scale. The precision must be between 1 and 38 (default 18), and the scale between 0 and the precision (default 0). The insertion must be provided as a JSON float.
+Numbers with a specific precision and scale. The precision must be between 1 and 18 (default 18), and the scale between 0 and the precision (default 0). The insertion must be provided as a JSON float. If Hugeint type is available then the max precision possible will be 38.
 
 Boolean Type
 ============
@@ -114,12 +116,17 @@ Date
 
 A regular date in the Gregorian Calendar, expressed in format :code:`YYYY-MM-DD`.
 
-Time
-----
+Time, Time with time zone
+-------------------------
 
-The time of day expressed in format :code:`HH:MM:SS.sss`. If the pair :code:`"timezone": false` is provided, the timezone will be discarded.
+The time of day expressed in format :code:`HH:MM:SS.sss`. A timezone can also be provided.
 
-Timestamp
+Timestamp, Timestamp with time zone
+-----------------------------------
+
+A timestamp according to `RFC 3339 <https://www.ietf.org/rfc/rfc3339.txt>`_ with timezone. The regular expression is the standard `ISO 8601 with timezone format <https://en.wikipedia.org/wiki/ISO_8601>`_. A timezone can also be provided.
+
+Intervals
 ---------
 
-A timestamp according to `RFC 3339 <https://www.ietf.org/rfc/rfc3339.txt>`_ with timezone. The regular expression is the standard `ISO 8601 with timezone format <https://en.wikipedia.org/wiki/ISO_8601>`_. If the pair :code:`"timezone": false` is provided, the timezone will be discarded.
+Intervals of time according to the grammar provided in `MonetDB documentation <https://www.monetdb.org/Documentation/SQLreference/Temporal>`_ without the precision. The insertion must be provided as a JSON integer.

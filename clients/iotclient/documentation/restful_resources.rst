@@ -20,33 +20,40 @@ The administration server provides resources to create and delete streams. Shoul
 
 **GET**
 
-Returns a JSON file with details about all the streams currently created on the webserver. For each stream besides its schema, name and if has the hostname column, it provides the currently number of tuples inserted on the baskets per column, description of columns (`See data types <streams_data_types.html#data_types>`__), the flushing method (`See streams creation for details <streams_creation.html#creating_streams>`__). An example is shown bellow:
+Returns a JSON file with details about all the streams currently created on the webserver. For each stream besides its schema, name, if has the hostname column and and an implicit timestamp (streams created in MonetDB don't have this timestamp), it provides the currently number of tuples inserted on the baskets per column, description of columns (`See data types <streams_data_types.html#data_types>`__), the flushing method (`See streams creation for details <streams_creation.html#creating_streams>`__). An example is shown bellow:
 
 .. code-block:: json
 
-	[
-	  {
-	    "tuples_inserted_per_basket": 1,
-	    "hostname": false,
-	    "columns": [
-        {
-		    "type": "real",
-		    "name": "temperature",
-		    "nullable": false
-        },
-        {
-		    "type": "text",
-		    "name": "sensorid",
-		    "nullable": false
-        }],
-	    "flushing": {
-	      "base": "tuple",
-	      "number": 50
-	    },
-	    "stream": "temperature",
-	    "schema": "measures"
-	  }
-	]
+	{
+	    "streams_count": 1,
+        "streams_listing": [
+          {
+            "schema": "measures",
+            "stream": "temperature",
+            "has_timestamp": true,
+            "has_hostname": false,
+            "columns": [
+                {
+                    "name": "temperature",
+                    "type": "real",
+                    "default": null,
+                    "nullable": false
+                },
+                {
+                    "name": "sensorid",
+                    "type": "text",
+                    "default": null,
+                    "nullable": false
+                }
+            ],
+            "flushing": {
+              "base": "tuple",
+              "interval": 50
+              "tuples_inserted_per_basket": 0
+            }
+          }
+	    ]
+    }
 
 /context
 --------
@@ -69,13 +76,13 @@ Bellow is the JSON used to create the stream in streams_:
       },
 	  "columns": [
 	    {
-	      "type": "real",
 	      "name": "temperature",
+	      "type": "real",
 	      "nullable": false
 	    },
 	    {
-	      "type": "text",
 	      "name": "sensorid",
+	      "type": "text",
 	      "nullable": false
 	    }
 	  ]
@@ -102,7 +109,7 @@ The application server provides resources to make insertions on streams. Should 
 
 **GET**
 
-Same resource as streams_ .
+Provides the details of a single stream displayed in streams_ .
 
 /stream/<schema_name>/<stream_name>
 -----------------------------------

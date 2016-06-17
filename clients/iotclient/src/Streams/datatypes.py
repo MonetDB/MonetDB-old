@@ -17,6 +17,7 @@ LITTLE_ENDIAN_ALIGNMENT = '<'  # for now it is little-endian
 
 NIL_STRING = "\200"
 NIL_UUID = "00000000-0000-0000-0000-000000000000"
+ENUM_TYPE_SEPARATOR = '\r'
 
 INT8_MIN = -128
 INT16_MIN = -32768
@@ -24,8 +25,6 @@ INT32_MIN = -2147483648
 INT64_MIN = -9223372036854775808
 FLOAT_NAN = struct.unpack('f', '\xff\xff\x7f\xff')[0]
 DOUBLE_NAN = struct.unpack('d', '\xff\xff\xff\xff\xff\xff\xef\xff')[0]
-
-ENUM_TYPE_SEPARATOR = '\r'
 
 
 class StreamDataType:
@@ -86,8 +85,8 @@ class StreamDataType:
         return self.pack_parsed_values(extracted_values, counter, parameters)
 
     def to_json_representation(self):  # get a json representation of the data type while checking the stream's info
-        return OrderedDict((('name', self._column_name), ('type', self._data_type),
-                            ('default', self._default_value), ('nullable', self._is_nullable)))
+        return (('name', self._column_name), ('type', self._data_type), ('default', self._default_value),
+                ('nullable', self._is_nullable))
 
     def process_sql_parameters(self, array):  # get other possible parameters such as a limit, minimum and maximum
         pass
@@ -184,9 +183,7 @@ class RegexType(TextType):
         schema[self._column_name]['pattern'] = self._regex.pattern
 
     def to_json_representation(self):
-        json_value = super(RegexType, self).to_json_representation()
-        json_value['regex'] = self._regex_text
-        return json_value
+        return super(RegexType, self).to_json_representation() + (('regex', self._regex_text),)
 
     def process_sql_parameters(self, array):
         array[2] = 'string'  # Store as string
@@ -215,9 +212,7 @@ class LimitedTextType(TextType):
         return default_value
 
     def to_json_representation(self):
-        json_value = super(LimitedTextType, self).to_json_representation()
-        json_value['limit'] = self._limit
-        return json_value
+        return super(LimitedTextType, self).to_json_representation() + (('limit', self._limit),)
 
     def process_sql_parameters(self, array):
         array[2] += ''.join(["(", str(self._limit), ")"])  # add the limit restriction after the type declaration
@@ -241,9 +236,7 @@ class EnumType(TextType):
         return default_value
 
     def to_json_representation(self):
-        json_value = super(EnumType, self).to_json_representation()
-        json_value['values'] = self._values
-        return json_value
+        return super(EnumType, self).to_json_representation() + (('values', self._values),)
 
     def process_sql_parameters(self, array):
         array[2] = 'char(' + str(max([len(y) for y in self._values])) + ')'  # char with max length of enum values
@@ -411,9 +404,9 @@ class NumberBaseType(StreamDataType):
     def to_json_representation(self):
         json_value = super(NumberBaseType, self).to_json_representation()
         if self._minimum is not None:
-            json_value['minimum'] = self._minimum
+            json_value += (('minimum', self._minimum), )
         if self._maximum is not None:
-            json_value['maximum'] = self._maximum
+            json_value += (('maximum', self._maximum),)
         return json_value
 
     def get_extra_sql_statement(self):
@@ -557,10 +550,8 @@ class DecimalType(NumberBaseType):
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + self._pack_sym, *extracted_values)
 
     def to_json_representation(self):
-        json_value = super(DecimalType, self).to_json_representation()
-        json_value['precision'] = self._precision
-        json_value['scale'] = self._scale
-        return json_value
+        return super(DecimalType, self).to_json_representation() + \
+               (('precision', self._precision), ('scale', self._scale),)
 
     def process_sql_parameters(self, array):  # add the precision and scale
         array[2] += ''.join(["(", str(self._precision), ",", str(self._scale), ")"])
@@ -626,9 +617,9 @@ class BaseDateTimeType(StreamDataType):  # The validation of time variables can'
     def to_json_representation(self):
         json_value = super(BaseDateTimeType, self).to_json_representation()
         if self._minimum is not None:
-            json_value['minimum'] = self._minimum_text
+            json_value += (('minimum', self._minimum_text),)
         if self._maximum is not None:
-            json_value['maximum'] = self._maximum_text
+            json_value += (('maximum', self._maximum_text),)
         return json_value
 
     def get_extra_sql_statement(self):
@@ -697,12 +688,6 @@ class TimeType(BaseDateTimeType):  # Stored as an uint with the number of millis
     def pack_parsed_values(self, extracted_values, counter, parameters):
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter) + 'I', *extracted_values)
 
-    def to_json_representation(self):
-        json_value = super(TimeType, self).to_json_representation()
-        if self._data_type == TIME_WITH_TIMEZONE_TYPE_INTERNAL:
-            json_value['type'] = TIME_WITH_TIMEZONE_TYPE_EXTERNAL
-        return json_value
-
 
 class TimestampType(BaseDateTimeType):  # It is represented with the two integers from time and date
     """Covers: TIMESTAMP"""
@@ -736,12 +721,6 @@ class TimestampType(BaseDateTimeType):  # It is represented with the two integer
     def pack_parsed_values(self, extracted_values, counter, parameters):
         concat_array = list(chain(*extracted_values))
         return struct.pack(LITTLE_ENDIAN_ALIGNMENT + str(counter << 1) + 'I', *concat_array)
-
-    def to_json_representation(self):
-        json_value = super(TimestampType, self).to_json_representation()
-        if self._data_type == TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL:
-            json_value['type'] = TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL
-        return json_value
 
 
 class IntervalType(NumberBaseType):

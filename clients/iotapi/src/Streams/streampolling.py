@@ -27,6 +27,7 @@ Switcher = [{'types': ['clob', 'url'], 'class': TextType},
 Types_Preferences = [['boolean', 'tinyint'], ['smallint'], ['int', 'real', 'date', 'time', 'timetz', 'month_interval'],
                      ['bigint', 'sec_interval', 'double', 'timestamp', 'timestamptz', 'inet'], ['decimal'], ['uuid'],
                      ['clob', 'url', 'char', 'varchar']]
+DEFAULT_PREFERENCE_INDEX = len(Types_Preferences)
 
 
 def polling_add_hugeint_type():
@@ -64,10 +65,10 @@ def stream_polling(arguments):
                 retrieved_columns = grouped_columns[entry[0]]
                 built_columns = OrderedDict()  # dictionary of name -> data_types
                 errors = OrderedDict()
-                current_index = 7  # preference index to calculate the baskets sizes
+                current_index = DEFAULT_PREFERENCE_INDEX  # preference index to calculate the baskets sizes
                 for column in retrieved_columns:
                     if column[5] is not None:
-                        default_value = column[5][1:-1]
+                        default_value = column[5][1:-1]  # remove the ''
                     else:
                         default_value = None
                     kwargs_dic = {'name': column[1], 'type': column[2], 'default': default_value, 'nullable': column[6],

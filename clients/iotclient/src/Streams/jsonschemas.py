@@ -64,8 +64,10 @@ def init_create_streams_schema(add_hugeint=True):
 
     if add_hugeint:
         integers_and_intervals = SMALL_INTEGERS_INPUTS + [HUGE_INTEGER_TYPE] + INTERVAL_INPUTS
+        max_precision = 38
     else:
         integers_and_intervals = SMALL_INTEGERS_INPUTS + INTERVAL_INPUTS
+        max_precision = 18
 
     CREATE_STREAMS_SCHEMA = {
         "title": "JSON schema to create a stream",
@@ -228,7 +230,7 @@ def init_create_streams_schema(add_hugeint=True):
                             "name": {"type": "string"},
                             "type": {"type": "string", "enum": DECIMAL_INPUTS},
                             "nullable": {"type": "boolean", "default": True},
-                            "precision": {"type": "integer", "minimum": 1, "maximum": 38, "default": 18},
+                            "precision": {"type": "integer", "minimum": 1, "maximum": max_precision, "default": 18},
                             "scale": {"type": "integer", "minimum": 0, "default": 3},
                             "default": {"type": "number"},
                             "minimum": {"type": "number"},

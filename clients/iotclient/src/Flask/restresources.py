@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from datetime import datetime
 from flask import request
 from flask_restful import Resource
@@ -31,7 +32,7 @@ class StreamInput(Resource):
         except BaseException as ex:
             add_log(50, ex)
             return ex.message, 404
-        return stream.get_data_dictionary(), 200
+        return OrderedDict(stream.get_data_dictionary()), 200
 
     def post(self, schema_name, stream_name):  # add data to a stream
         current_stamp = datetime.now(utc).astimezone(Local_Timezone).isoformat()
@@ -57,7 +58,7 @@ class StreamsInfo(Resource):
         super(StreamsInfo, self).__init__()
 
     def get(self):  # get all streams data
-        return get_streams_context().get_streams_data(), 200
+        return OrderedDict(get_streams_context().get_streams_data()), 200
 
 
 class StreamsHandling(Resource):

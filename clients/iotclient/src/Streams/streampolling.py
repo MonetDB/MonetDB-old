@@ -4,11 +4,11 @@ from jsonschema import Draft4Validator, FormatChecker
 from .datatypes import TextType, LimitedTextType, SmallIntegerType, HugeIntegerType, FloatType, DecimalType, DateType,\
     TimeType, TimestampType, IntervalType, BooleanType, INetType, INetSixType, MACType, URLType, UUIDType, RegexType,\
     EnumType, ENUM_TYPE_SEPARATOR
-from .jsonschemas import UNBOUNDED_TEXT_TYPE, BOUNDED_TEXT_TYPES, SMALL_INTEGERS_TYPES, HUGE_INTEGER_TYPE,\
+from .jsonschemas import UNBOUNDED_TEXT_TYPE, BOUNDED_TEXT_TYPES, SMALL_INTEGERS_TYPES, HUGE_INTEGER_TYPE, TIME_INPUTS,\
     FLOATING_POINT_PRECISION_TYPES, DECIMAL_TYPE, DATE_TYPE, TIME_WITHOUT_TIMEZONE_TYPE, MONTH_INTERVAL_TYPE,\
     TIME_WITH_TIMEZONE_TYPE_INTERNAL, TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL,\
     BOOLEAN_TYPE, INET_TYPE, URL_TYPE, UUID_TYPE, INET6_TYPE, MAC_TYPE, REGEX_TYPE, ENUM_TYPE, SECOND_INTERVAL_TYPE,\
-    INTERVAL_INPUTS
+    INTERVAL_INPUTS, TIMESTAMP_INPUTS, TIME_WITH_TIMEZONE_TYPE_EXTERNAL, TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL
 from .streams import TupleBasedStream, TimeBasedStream, AutoFlushedStream, IMPLICIT_TIMESTAMP_COLUMN_NAME,\
     HOST_IDENTIFIER_COLUMN_NAME
 from .streamscontext import get_streams_context
@@ -23,8 +23,8 @@ Switcher = [{'types': [UNBOUNDED_TEXT_TYPE], 'class': TextType},
             {'types': [DECIMAL_TYPE], 'class': DecimalType},
             {'types': [BOOLEAN_TYPE], 'class': BooleanType},
             {'types': [DATE_TYPE], 'class': DateType},
-            {'types': [TIME_WITHOUT_TIMEZONE_TYPE, TIME_WITH_TIMEZONE_TYPE_INTERNAL], 'class': TimeType},
-            {'types': [TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL], 'class': TimestampType},
+            {'types': TIME_INPUTS, 'class': TimeType},
+            {'types': TIMESTAMP_INPUTS, 'class': TimestampType},
             {'types': INTERVAL_INPUTS, 'class': IntervalType},
             {'types': [URL_TYPE], 'class': URLType},
             {'types': [INET_TYPE], 'class': INetType},
@@ -34,7 +34,7 @@ Switcher = [{'types': [UNBOUNDED_TEXT_TYPE], 'class': TextType},
             {'types': [REGEX_TYPE], 'class': RegexType},
             {'types': [ENUM_TYPE], 'class': EnumType}]
 
-INTEGER_AND_INTERVAL_TYPES = SMALL_INTEGERS_TYPES + [SECOND_INTERVAL_TYPE] + [MONTH_INTERVAL_TYPE]
+INTEGER_AND_INTERVAL_TYPES = SMALL_INTEGERS_TYPES + [SECOND_INTERVAL_TYPE, MONTH_INTERVAL_TYPE]
 FLOATING_POINT_TYPES = FLOATING_POINT_PRECISION_TYPES + [DECIMAL_TYPE]
 DATETIME_TYPES = [DATE_TYPE, TIME_WITHOUT_TIMEZONE_TYPE, TIME_WITH_TIMEZONE_TYPE_INTERNAL,
                   TIMESTAMP_WITHOUT_TIMEZONE_TYPE, TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL]
@@ -140,6 +140,10 @@ def stream_polling(argument):
                                         kwargs_dic['minimum'] = column[9]
                                     if column[10] is not None:
                                         kwargs_dic['maximum'] = column[10]
+                                    if next_switch == TIME_WITH_TIMEZONE_TYPE_INTERNAL:
+                                        kwargs_dic['type'] = TIME_WITH_TIMEZONE_TYPE_EXTERNAL
+                                    elif next_switch == TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL:
+                                        kwargs_dic['type'] = TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL
 
                             valid_type = False
                             for variable in Switcher:  # allocate the proper type wrapper

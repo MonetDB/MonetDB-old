@@ -158,15 +158,18 @@ Response message for a read query. Contains the reconstructed tuples listening. 
         "tuples": [
             {
                 "sensorid": "living room",
-                "temperature": 32.6
+                "temperature": 32.6,
+                "implicit_timestamp": "2016-06-17T09:23:22+00:00"
             },
             {
                 "sensorid": "kitchen",
-                "temperature": 34.2
+                "temperature": 34.2,
+                "implicit_timestamp": "2016-06-17T09:23:22+00:00"
             },
             {
                 "sensorid": "bathroom",
-                "temperature": 28.9
+                "temperature": 28.9,
+                "implicit_timestamp": "2016-06-17T09:23:22+00:00"
             }
         ]
     }
@@ -192,7 +195,14 @@ Message with details about a stream including both columns and baskets details. 
             {
                 "name": "temperature",
                 "type": "real",
-                "nullable": false
+                "nullable": false,
+                "default": null
+            },
+            {
+                "name": "implicit_timestamp",
+                "type": "timestamp with time zone",
+                "nullable": false,
+                "default": null
             }
         ],
         "baskets_count": 3,
@@ -235,7 +245,14 @@ Returns a info message regarding all the streams in the system. An example with 
                 {
                     "name": "temperature",
                     "type": "real",
-                    "nullable": false
+                    "nullable": false,
+                    "default": null
+                },
+                {
+                    "name": "implicit_timestamp",
+                    "type": "timestamp with time zone",
+                    "nullable": false,
+                    "default": null
                 }
             ],
             "baskets_count": 3,

@@ -16,4 +16,4 @@ Contents:
    introduction.rst
    api_server_arguments.rst
    websockets_api.rst
-   conclusion.rst
+   about.rst

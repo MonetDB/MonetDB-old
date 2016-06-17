@@ -80,7 +80,7 @@ class IOTStream:
         listing = [OrderedDict((('number', k), ('count', v))) for k, v in self._baskets.items()]
         self._baskets_lock.release()
         return (('schema', self._schema_name), ('stream', self._stream_name),
-                ('columns', [OrderedDict(value.to_json_representation()) for value in self._columns.values()]),
+                ('columns', [OrderedDict((value.to_json_representation())) for value in self._columns.values()]),
                 ('baskets_count', count), ('baskets_listing', listing))
 
     def append_basket(self, path):
