@@ -76,21 +76,22 @@ def validate_schema_and_create_stream(schema, con_hostname, con_port, con_user, 
         "items": {"type": "object", "properties": properties, "required": req_fields, "additionalProperties": False}
     }, format_checker=FormatChecker())
 
+    has_hostname = schema.get('has_hostname', False)
     flushing_object = schema['flushing']  # check the flush method
     mapi_connection = init_monetdb_connection(con_hostname, con_port, con_user, con_password, con_database)
 
     if flushing_object['base'] == TIMED_FLUSH_IDENTIFIER:
         res = TimeBasedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
-                              validation_schema=json_schema, has_timestamp=True, has_hostname=schema['hostname'],
+                              validation_schema=json_schema, has_timestamp=True, has_hostname=has_hostname,
                               connection=mapi_connection, table_id="", columns_ids="",
                               interval=flushing_object['interval'], time_unit=flushing_object['unit'])
     elif flushing_object['base'] == TUPLE_FLUSH_IDENTIFIER:
         res = TupleBasedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
-                               validation_schema=json_schema, has_timestamp=True, has_hostname=schema['hostname'],
+                               validation_schema=json_schema, has_timestamp=True, has_hostname=has_hostname,
                                connection=mapi_connection, table_id="", columns_ids="",
                                interval=flushing_object['interval'])
     else:
         res = AutoFlushedStream(schema_name=schema['schema'], stream_name=schema['stream'], columns=validated_columns,
-                                validation_schema=json_schema, has_timestamp=True, has_hostname=schema['hostname'],
+                                validation_schema=json_schema, has_timestamp=True, has_hostname=has_hostname,
                                 connection=mapi_connection, table_id="", columns_ids="")
     return res

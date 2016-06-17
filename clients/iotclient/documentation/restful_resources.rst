@@ -27,31 +27,31 @@ Returns a JSON file with details about all the streams currently created on the 
 	{
 	    "streams_count": 1,
         "streams_listing": [
-          {
-            "schema": "measures",
-            "stream": "temperature",
-            "has_timestamp": true,
-            "has_hostname": false,
-            "columns": [
-                {
-                    "name": "temperature",
-                    "type": "real",
-                    "default": null,
-                    "nullable": false
-                },
-                {
-                    "name": "sensorid",
-                    "type": "text",
-                    "default": null,
-                    "nullable": false
+            {
+                "schema": "measures",
+                "stream": "temperature",
+                "has_timestamp": true,
+                "has_hostname": false,
+                "columns": [
+                    {
+                        "name": "temperature",
+                        "type": "real",
+                        "default": null,
+                        "nullable": false
+                    },
+                    {
+                        "name": "sensorid",
+                        "type": "text",
+                        "default": null,
+                        "nullable": false
+                    }
+                ],
+                "flushing": {
+                    "base": "tuple",
+                    "interval": 50,
+                    "tuples_inserted_per_basket": 0
                 }
-            ],
-            "flushing": {
-              "base": "tuple",
-              "interval": 50
-              "tuples_inserted_per_basket": 0
             }
-          }
 	    ]
     }
 
@@ -60,32 +60,32 @@ Returns a JSON file with details about all the streams currently created on the 
 
 **POST**
 
-Creates a stream using a pre-defined JSON schema. The JSON must include the stream's schema, the stream's name, the stream's columns and the flushing method. The flushing can be either time based, tuple based or automatic (:code:`auto`). For tuple based flushing, the number of tuples to flush must be provided using the :code:`interval` field. In time based flushing, the :code:`interval` field tells the time units between flushes and the :code:`unit` field must be "s", "m" or "h" for seconds, minutes or hours respectively. In automatic flushing, the baskets are flushed whenever a new batch is inserted. For columns `see data types for details <streams_data_types.html#data_types>`__. Additionaly a hostname parameter can be provided, and if it's true then an additional column will be created with the iot web server host name.
+Creates a stream using a pre-defined JSON schema. The JSON must include the stream's schema, the stream's name, the stream's columns and the flushing method. The flushing can be either time based, tuple based or automatic (:code:`auto`). For tuple based flushing, the number of tuples to flush must be provided using the :code:`interval` field. In time based flushing, the :code:`interval` field tells the time units between flushes and the :code:`unit` field must be "s", "m" or "h" for seconds, minutes or hours respectively. In automatic flushing, the baskets are flushed whenever a new batch is inserted. For columns `see data types for details <streams_data_types.html#data_types>`__. Additionally a hostname parameter can be provided, and if it's true then an additional column will be created with the iot web server hostname.
 
 Bellow is the JSON used to create the stream in streams_:
 
 .. code-block:: json
 
 	{
-	  "schema": "measures",
-	  "stream": "temperature",
-	  "hostname": false,
-	  "flushing": {
-	    "base": "tuple",
-	    "interval": 50
-      },
-	  "columns": [
-	    {
-	      "name": "temperature",
-	      "type": "real",
-	      "nullable": false
-	    },
-	    {
-	      "name": "sensorid",
-	      "type": "text",
-	      "nullable": false
-	    }
-	  ]
+        "schema": "measures",
+        "stream": "temperature",
+        "has_hostname": false,
+        "flushing": {
+            "base": "tuple",
+            "interval": 50
+        },
+        "columns": [
+            {
+                "name": "temperature",
+                "type": "real",
+                "nullable": false
+            },
+            {
+                "name": "sensorid",
+                "type": "text",
+                "nullable": false
+            }
+        ]
 	}
 
 **DELETE**
@@ -95,8 +95,8 @@ Deletes an existing stream. Only the stream's schema and name are required. To d
 .. code-block:: json
 
 	{
-	  "schema": "measures",
-	  "stream": "temperature"
+        "schema": "measures",
+        "stream": "temperature"
 	}
 
 Application Server
@@ -121,16 +121,16 @@ Insert a batch of tuples on the provided stream in the URL. The insert must be a
 .. code-block:: json
 
 	[
-	  {
-	    "sensorid": "living room",
-	    "temperature": 32.6
-	  },
-	  {
-	    "sensorid": "kitchen",
-	    "temperature": 34.2
-	  },
-	  {
-	    "sensorid": "bathroom",
-	    "temperature": 28.9
-	  }
+        {
+            "sensorid": "living room",
+            "temperature": 32.6
+        },
+        {
+            "sensorid": "kitchen",
+            "temperature": 34.2
+        },
+        {
+            "sensorid": "bathroom",
+            "temperature": 28.9
+        }
 	]

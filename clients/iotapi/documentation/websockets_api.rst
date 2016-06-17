@@ -233,42 +233,44 @@ Returns a info message regarding all the streams in the system. An example with 
         "response": "data",
         "streams_count": 1,
         "streams_listing": [
-            "schema": "measures",
-            "stream": "temperature",
-            "columns": [
-                {
-                    "name": "sensorid",
-                    "type": "clob",
-                    "nullable": false,
-                    "default": "living room"
-                },
-                {
-                    "name": "temperature",
-                    "type": "real",
-                    "nullable": false,
-                    "default": null
-                },
-                {
-                    "name": "implicit_timestamp",
-                    "type": "timestamp with time zone",
-                    "nullable": false,
-                    "default": null
-                }
-            ],
-            "baskets_count": 3,
-            "baskets_listing": [
-                {
-                    "number": 1,
-                    "count": 20
-                },
-                {
-                    "number": 2,
-                    "count": 25
-                },
-                {
-                    "number": 3,
-                    "count": 12
-                }
-            ]
+            {
+                "schema": "measures",
+                "stream": "temperature",
+                "columns": [
+                    {
+                        "name": "sensorid",
+                        "type": "clob",
+                        "nullable": false,
+                        "default": "living room"
+                    },
+                    {
+                        "name": "temperature",
+                        "type": "real",
+                        "nullable": false,
+                        "default": null
+                    },
+                    {
+                        "name": "implicit_timestamp",
+                        "type": "timestamp with time zone",
+                        "nullable": false,
+                        "default": null
+                    }
+                ],
+                "baskets_count": 3,
+                "baskets_listing": [
+                    {
+                        "number": 1,
+                        "count": 20
+                    },
+                    {
+                        "number": 2,
+                        "count": 25
+                    },
+                    {
+                        "number": 3,
+                        "count": 12
+                    }
+                ]
+            }
         ]
     }

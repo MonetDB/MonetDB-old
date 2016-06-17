@@ -77,7 +77,7 @@ def init_create_streams_schema(add_hugeint=True):
         "properties": {
             "schema": {"type": "string"},
             "stream": {"type": "string"},
-            "hostname": {"type": "boolean", "default": False},
+            "has_hostname": {"type": "boolean", "default": False},
             "flushing": {
                 "type": "object",
                 "oneOf": [{
@@ -168,8 +168,8 @@ def init_create_streams_schema(add_hugeint=True):
                             "name": {"type": "string"},
                             "type": {"type": "string", "enum": [REGEX_TYPE]},
                             "nullable": {"type": "boolean", "default": True},
-                            "regex": {"type": "string"},
-                            "default": {"type": "string"}
+                            "default": {"type": "string"},
+                            "regex": {"type": "string"}
                         },
                         "required": ["name", "type", "regex"],
                         "additionalProperties": False
@@ -178,8 +178,8 @@ def init_create_streams_schema(add_hugeint=True):
                             "name": {"type": "string"},
                             "type": {"type": "string", "enum": BOUNDED_TEXT_INPUTS},
                             "nullable": {"type": "boolean", "default": True},
-                            "limit": {"type": "integer", "minimum": 1},
-                            "default": {"type": "string"}
+                            "default": {"type": "string"},
+                            "limit": {"type": "integer", "minimum": 1}
                         },
                         "required": ["name", "type", "limit"],
                         "additionalProperties": False
@@ -188,9 +188,9 @@ def init_create_streams_schema(add_hugeint=True):
                             "name": {"type": "string"},
                             "type": {"type": "string", "enum": [ENUM_TYPE]},
                             "nullable": {"type": "boolean", "default": True},
+                            "default": {"type": "string"},
                             "values": {"type": "array", "minItems": 1, "uniqueItems": True,
-                                       "items": {"type": "string"}},
-                            "default": {"type": "string"}
+                                       "items": {"type": "string"}}
                         },
                         "required": ["name", "type", "values"],
                         "additionalProperties": False
@@ -230,9 +230,9 @@ def init_create_streams_schema(add_hugeint=True):
                             "name": {"type": "string"},
                             "type": {"type": "string", "enum": DECIMAL_INPUTS},
                             "nullable": {"type": "boolean", "default": True},
+                            "default": {"type": "number"},
                             "precision": {"type": "integer", "minimum": 1, "maximum": max_precision, "default": 18},
                             "scale": {"type": "integer", "minimum": 0, "default": 3},
-                            "default": {"type": "number"},
                             "minimum": {"type": "number"},
                             "maximum": {"type": "number"}
                         },
