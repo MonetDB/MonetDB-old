@@ -61,6 +61,7 @@ runtimeProfileInit(Client cntxt, MalBlkPtr mb, MalStkPtr stk)
 	str q;
 
 	MT_lock_set(&mal_delayLock);
+	mb->inuse ++;	// reference count the number of active invocations
 	if ( QRYqueue == 0)
 		QRYqueue = (QueryQueue) GDKzalloc( sizeof (struct QRYQUEUE) * (qsize= 256));
 	else
@@ -101,6 +102,7 @@ runtimeProfileFinish(Client cntxt, MalBlkPtr mb)
 	(void) cntxt;
 
 	MT_lock_set(&mal_delayLock);
+	mb->inuse --;	// reference count the number of active invocations
 	for( i=j=0; i< qtop; i++)
 	if ( QRYqueue[i].mb != mb)
 		QRYqueue[j++] = QRYqueue[i];
