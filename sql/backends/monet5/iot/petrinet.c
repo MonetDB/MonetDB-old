@@ -49,7 +49,7 @@
 
 #define MAXPN 200           /* it is the minimum, if we need more space GDKrealloc */
 
-static str statusname[6] = { "init", "running", "waiting", "paused"};
+static str statusname[6] = { "init", "running", "waiting", "paused","stopping"};
 
 /* keep track of running tasks */
 static int PNcycle;
@@ -227,7 +227,18 @@ PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 	(void) mb;
 	_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#scheduler wait cycle %d steps %d\n",old,steps);
-	while( PNcycle < old + steps)
+	while(pnstatus == PNRUNNING && PNcycle < old + steps)
+		MT_sleep_ms(20);
+	return MAL_SUCCEED;
+}
+
+/* safely stop the engine by stopping all CQ firt */
+str
+PNstop(void){
+	int i=0;
+	_DEBUG_PETRINET_ mnstr_printf(PNout, "#scheduler being stopped\n");
+	pnstatus = PNSTOP;
+	while( i++ < 10000 && pnstatus != PNINIT)
 		MT_sleep_ms(20);
 	return MAL_SUCCEED;
 }
@@ -413,7 +424,7 @@ PNscheduler(void *dummy)
 
 	pnstatus = PNRUNNING; // global state 
 
-	while( pnettop > 0){
+	while( pnettop > 0 && pnstatus != PNSTOP && cntxt->mode != FINISHCLIENT){
 		PNcycle++;
 		/* Determine which continuous query are eligble to run
   		   Collect latest statistics, note that we don't need a lock here,

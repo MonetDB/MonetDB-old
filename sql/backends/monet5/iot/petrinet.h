@@ -32,6 +32,7 @@
 #define PNRUNNING 1	   /* query is running */
 #define PNWAIT 2       /* wait for data */
 #define PNPAUSED 3     /* not active now */
+#define PNSTOP 4	  /* stop all activity */
 
 #define PAUSEDEFAULT 1000
 
@@ -42,6 +43,7 @@ iot_export str PNresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 iot_export str PNpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str PNstop(void);
 iot_export str PNdump(void *ret);
 
 iot_export str PNperiod(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

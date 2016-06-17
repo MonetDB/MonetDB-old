@@ -39,6 +39,9 @@ create procedure iot.pause()
 create procedure iot.wait(cycles integer)
 	external name iot.wait;
 
+create procedure iot.stop()
+	external name iot.stop;
+
 create procedure iot.deregister("schema" string, name string)
 	external name iot.deregister;
 

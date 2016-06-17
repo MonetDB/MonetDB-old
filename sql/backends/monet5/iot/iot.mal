@@ -45,6 +45,10 @@ pattern wait(t:int):void
 address PNwait
 comment "wait for quiet moment";
 
+pattern stop():void
+address PNstop
+comment "Wait for all actions ceased";
+
 pattern receptor(sch:str,nme:str,dir:str)
 address IOTreceptor
 comment "External basket location";
