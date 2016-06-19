@@ -2547,6 +2547,7 @@ str transactionRef;
 void trimMalBlk(MalBlkPtr mb);
 void trimMalVariables(MalBlkPtr mb, MalStkPtr stk);
 void trimMalVariables_(MalBlkPtr mb, bit *used, MalStkPtr glb);
+str tumbleRef;
 void typeChecker(stream *out, Module scope, MalBlkPtr mb, InstrPtr p, int silent);
 int tzone_fromstr(const char *buf, int *len, tzone **d);
 tzone tzone_local;
@@ -2560,6 +2561,7 @@ str updateRef;
 void updateScenario(str scen, str nme, MALfcn fcn);
 str userRef;
 str vectorRef;
+str windowRef;
 str zero_or_oneRef;
 
 # stream

@@ -22,6 +22,7 @@
 
 #include "mal.h"
 #include "mal_interpreter.h"
+#include "mal_client.h"
 #include "sql.h"
 #include "sql_scenario.h"
 

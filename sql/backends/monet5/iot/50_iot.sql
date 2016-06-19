@@ -57,8 +57,8 @@ create procedure iot.period(n integer)
 	external name iot.period;
 
 -- deliver a new basket with tuples
-create procedure iot.basket("schema" string, "table" string, dirpath string)
-	external name iot.basket;
+create procedure iot.import("schema" string, "table" string, dirpath string)
+	external name iot.import;
 
 -- input/output places
 create procedure iot.receptor("schema" string, "table" string, dir string)

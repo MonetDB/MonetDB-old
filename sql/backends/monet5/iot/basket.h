@@ -36,6 +36,7 @@ typedef struct{
 	sql_schema *schema;
 	sql_table *table;
 	str *cols;
+	BAT *bats[MAXBSKT];	/* the bats comprising the basket */
 
 	int threshold ; /* bound to determine scheduling eligibility */
 	BUN winsize, winstride; /* sliding window operations */
@@ -94,5 +95,6 @@ iot_export str BSKTimport(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 iot_export str BSKTerror(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTunlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export void BSKTclean(int idx);
 
 #endif

@@ -235,11 +235,18 @@ PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 /* safely stop the engine by stopping all CQ firt */
 str
 PNstop(void){
-	int i=0;
+	int i,cnt;
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#scheduler being stopped\n");
+
 	pnstatus = PNSTOP;
-	while( i++ < 10000 && pnstatus != PNINIT)
+	do{
 		MT_sleep_ms(20);
+		for(cnt=0,  i = 0; i < pnettop; i++){
+			cnt += pnet[i].status == PNRUNNING;
+		}
+	} while(cnt);
+	BSKTclean(0);
+	_DEBUG_PETRINET_ mnstr_printf(PNout, "#all queries stopped \n");
 	return MAL_SUCCEED;
 }
 

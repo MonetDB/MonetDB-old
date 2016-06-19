@@ -74,7 +74,7 @@ address BSKTwindow
 comment "Use a window of precisely N events";
 
 pattern iot.import(sch:str, tbl:str, dir:str):void
-address BSKTimportBasket
+address BSKTimport
 comment "Import a single directory with the binary files for a stream table";
 
 pattern iot.baskets()(sch:bat[:str],nme:bat[:str], status:bat[:str], threshold:bat[:int], winsize:bat[:int], winstride:bat[:int], timeslice:bat[:int], 

@@ -64,18 +64,31 @@ static int BSKTnewEntry(void)
 
 
 // free all malloced space
-static void
+void
 BSKTclean(int idx)
 {
-	GDKfree(baskets[idx].schema_name);
-	GDKfree(baskets[idx].table_name);
-	baskets[idx].schema_name = NULL;
-	baskets[idx].table_name = NULL;
+	if( idx){
+		GDKfree(baskets[idx].schema_name);
+		GDKfree(baskets[idx].table_name);
+		baskets[idx].schema_name = NULL;
+		baskets[idx].table_name = NULL;
 
-	BBPreclaim(baskets[idx].errors);
-	baskets[idx].winstride = -1;
-	baskets[idx].errors = NULL;
-	baskets[idx].count = 0;
+		BBPreclaim(baskets[idx].errors);
+		baskets[idx].winstride = -1;
+		baskets[idx].errors = NULL;
+		baskets[idx].count = 0;
+	}
+	for(idx = 1; idx < bsktTop; idx++){
+		GDKfree(baskets[idx].schema_name);
+		GDKfree(baskets[idx].table_name);
+		baskets[idx].schema_name = NULL;
+		baskets[idx].table_name = NULL;
+
+		BBPreclaim(baskets[idx].errors);
+		baskets[idx].winstride = -1;
+		baskets[idx].errors = NULL;
+		baskets[idx].count = 0;
+	}
 }
 
 // locate the basket in the catalog
@@ -181,12 +194,17 @@ str
 BSKTregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str sch, tbl;
+	str msg= MAL_SUCCEED;
 
 	(void) stk;
 	(void) pci;
 	sch = getVarConstant(mb, getArg(pci,2)).val.sval;
 	tbl = getVarConstant(mb, getArg(pci,3)).val.sval;
-	return BSKTregisterInternal(cntxt,mb,sch,tbl);
+	msg = BSKTregisterInternal(cntxt,mb,sch,tbl);
+	// also lock the basket
+	if( msg == MAL_SUCCEED){
+	}
+	return msg;
 }
 
 str
@@ -233,6 +251,7 @@ BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			throw(SQL,"basket.window","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
 	}
 	baskets[idx].winsize = elm;
+	baskets[idx].winstride = elm;
 	return MAL_SUCCEED;
 }
 
@@ -407,15 +426,19 @@ BSKTimportInternal(Client cntxt, int bskt)
 				}
 			}
 			BATsetcount(b, bcnt );
+			break;
+		default:
+			msg= createException(MAL,"iot.basket","Import type not yet supported\n");
 		}
 		(void) fclose(f);
 	}
 
-	/* check for mis-aligned columns */
+	/* check for mis-aligned columns and derive properties */
 	for( n = baskets[bskt].table->columns.set->h; msg == MAL_SUCCEED && n; n= n->next){
 		sql_column *c = n->data;
 		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
 		assert( b );
+		BATderiveProps(b, FALSE);
 		if( first){
 			first = 0;
 			cnt = BATcount(b);
@@ -431,8 +454,8 @@ BSKTimportInternal(Client cntxt, int bskt)
 		assert( access (buf,R_OK) == 0);
 		//unlink(buf);
 	}
-	baskets[bskt].status = BSKTWAIT;
 	baskets[bskt].count = cnt;
+	baskets[bskt].status = BSKTFILLED;
 
 recover:
 	/* reset all BATs when they are misaligned or error occurred */
@@ -545,7 +568,7 @@ BSKTtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str sch;
 	str tbl;
-	BUN elm = oid_nil;
+	int elm = -1;
 	int idx;
 
 	(void) cntxt;
@@ -560,8 +583,9 @@ BSKTtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		idx = BSKTlocate(sch, tbl);
 		if( idx ==0)
 			throw(SQL,"basket.tumble","Stream table %s.%s not accessible \n",sch,tbl);
-		elm =(int) baskets[idx].winstride;
 	}
+	/* also take care of time-based tumbling */
+	elm =(int) baskets[idx].winstride;
 	return BSKTtumbleInternal(cntxt, sch, tbl, elm);
 }
 
@@ -594,6 +618,7 @@ BSKTcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	idx = BSKTlocate(sch, tbl);
 	if( idx ==0)
 		throw(SQL,"basket.commit","Stream table %s.%s not accessible to empty\n",sch,tbl);
+	/* release the basket lock */
 	return MAL_SUCCEED;
 }
 
@@ -657,6 +682,7 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     sql_column *c;
     BAT *bn=0, *binsert = 0;
 	int bskt;
+	BUN cnt =0;
 
     *res = 0;
     if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
@@ -692,10 +718,15 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BATappend(bn, binsert, TRUE);
 		else
 			BUNappend(bn, value, TRUE);
+		cnt = BATcount(bn);
+		BATderiveProps(bn, FALSE);
 		BBPunfix(bn->batCacheid);
-		baskets[bskt].count = BATcount(bn);
-		baskets[bskt].status = BSKTFILLED;
 	} else throw(SQL, "basket.append", "Cannot access target descriptor");
+	
+	if(cnt){
+		baskets[bskt].count = cnt;
+		baskets[bskt].status = BSKTFILLED;
+	}
 	if (binsert )
 		BBPunfix(((BAT *) binsert)->batCacheid);
 	return MAL_SUCCEED;

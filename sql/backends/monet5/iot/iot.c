@@ -31,19 +31,19 @@
 MT_Lock iotLock MT_LOCK_INITIALIZER("iotLock");
 #define IOTout mal_clients[1].fdout
 
-
 // locate the SQL procedure in the catalog
 static str
 IOTprocedureStmt(Client cntxt, MalBlkPtr mb, str schema, str nme)
 {
 	mvc *m = NULL;
-	str msg = getSQLContext(cntxt, mb, &m, NULL);
+	str msg = MAL_SUCCEED;
 	sql_schema  *s;
 	backend *be;
 	node *o;
 	sql_func *f;
 	/*sql_trans *tr;*/
 
+	msg = getSQLContext(cntxt, mb, &m, NULL);
 	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
 		return msg;
 	s = mvc_bind_schema(m, schema);
@@ -96,6 +96,9 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		s = findSymbolInModule(cntxt->nspace, putName(nme));
 		if (s == NULL)
 			throw(SQL, "iot.query", "Definition missing");
+		//snprintf(name, IDLENGTH,"cq_%s",getFunctionId(getInstrPtr(s->def,0)));
+		/* re-package the MAL block for the petrinet */
+		//nme = name;
 		qry = s->def;
 	} else if (pci->argc == 2){
 		// pre-create the new procedure
