@@ -34,3 +34,4 @@ select * from result;
 
 --select * from  iot.baskets();
 --select * from  iot.queries();
+call iot.stop();

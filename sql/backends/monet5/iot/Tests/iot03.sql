@@ -14,10 +14,10 @@ end;
 call iot.query('iot','cq03');
 call iot.pause('iot','cq03');
 
-insert into stmp3 values('2005-09-23 12:34:26.000',1,11.0);
+insert into stmp3 values('2005-09-23 12:34:26.000',1,9.0);
 insert into stmp3 values('2005-09-23 12:34:27.000',1,11.0);
 insert into stmp3 values('2005-09-23 12:34:28.000',1,13.0);
-insert into stmp3 values('2005-09-23 12:34:28.000',1,13.0);
+insert into stmp3 values('2005-09-23 12:34:28.000',1,15.0);
 
 call iot.resume('iot','cq03');
 call iot.wait(4);
@@ -25,5 +25,7 @@ call iot.wait(4);
 select * from stmp3;
 select * from result3;
 
+call iot.stop();
 --select * from  iot.queries();
 drop table stmp3;
+drop table result3;

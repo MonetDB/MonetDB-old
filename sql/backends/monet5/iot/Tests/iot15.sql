@@ -13,3 +13,4 @@ iot.resume();
 iot.wait(2);
 select * from temp_view;
 drop view temp_view;
+call iot.stop();

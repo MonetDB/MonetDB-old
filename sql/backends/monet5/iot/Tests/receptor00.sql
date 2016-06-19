@@ -1,5 +1,6 @@
 -- test to read the baskets from a source
 set schema iot;
+set optimizer='iot_pipe';
 create stream table temps( iotclk timestamp, room string , temperature real);
 
 declare basketdir string;

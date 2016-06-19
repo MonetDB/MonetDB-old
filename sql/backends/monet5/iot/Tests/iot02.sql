@@ -24,10 +24,11 @@ insert into stmp1 values('2005-09-23 12:34:28.000',1,13.0);
 call iot.resume('iot','cq02');
 
 -- wait for 1 cycle in the scheduler
-call iot.wait(1);
+call iot.wait(5);
 
 select 'RESULT';
 select * from stmp1;
 select * from result1;
 select * from result2;
 
+call iot.stop();

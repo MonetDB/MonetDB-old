@@ -38,7 +38,7 @@ call iot.pause();
 
 select hbclk1, hbclk2;
 call iot.resume();
-call iot.wait(2);
+call iot.wait(10);
 select hbclk1, hbclk2;
 
-
+call iot.stop();

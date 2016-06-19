@@ -30,22 +30,20 @@ Ready.
 #create table atemps( iotclk timestamp, cnt int , temperature real);
 #declare baskets string;
 #set baskets= '/ufs/mk/baskets/measures/temperatures/';
+#select * from ntemps;
+% iot.ntemps,	iot.ntemps,	iot.ntemps # table_name
+% iotclk,	room,	temperature # name
+% timestamp,	clob,	real # type
+% 26,	11,	15 # length
+[ 2016-04-25 11:09:57.658000,	"living room",	32.3	]
+[ 2016-04-25 11:09:57.658000,	"kitchen",	30.1	]
+[ 2016-04-25 11:09:57.658000,	"bedroom",	29.9	]
+[ 2016-04-25 11:09:57.658000,	"bathroom",	28.6	]
+[ 2016-04-25 11:09:57.658000,	"dining room",	30	]
 #create procedure web00()
 #begin
 #    insert into atemps select min(iotclk), count(*), avg(temperature) from temps;
 #end;
-#select * from  iot.baskets();
-% .,	.,	.,	.,	.,	.,	.,	.,	.,	.,	. # table_name
-% schema,	table,	status,	threshold,	winsize,	winstride,	timeslice,	timestride,	beat,	seen,	events # name
-% clob,	clob,	clob,	int,	int,	int,	int,	int,	int,	timestamp,	int # type
-% 3,	5,	6,	1,	1,	1,	1,	1,	1,	26,	1 # length
-[ "iot",	"temps",	"active",	0,	0,	0,	0,	0,	0,	NULL,	5	]
-#select * from  iot.queries();
-% .,	.,	.,	.,	.,	.,	.,	. # table_name
-% schema,	function,	status,	lastrun,	cycles,	events,	time,	error # name
-% clob,	clob,	clob,	timestamp,	int,	int,	bigint,	clob # type
-% 3,	5,	6,	26,	1,	1,	1,	0 # length
-[ "iot",	"web00",	"paused",	NULL,	0,	0,	0,	""	]
 
 # 22:26:06 >  
 # 22:26:06 >  "Done."

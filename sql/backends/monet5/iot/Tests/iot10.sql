@@ -28,3 +28,4 @@ call iot.wait(1);
 select * from tmp_aggregate;
 
 drop table stmp10;
+call iot.stop();
