@@ -258,27 +258,18 @@ BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 static BAT *
 BSKTbindColumn(Client cntxt, str sch, str tbl, str col)
 {
-	BAT *b = NULL;
-	mvc *m = NULL;
-	sql_schema *s = NULL;
-	sql_table *t = NULL;
-	sql_column *c = NULL;
+	int bskt;
+	int i;
 
-	if( BSKTlocate(sch,tbl) < 0)
-		return b;
+	if( (idx = BSKTlocate(sch,tbl) < 0))
+		return NULL;
 
-	if( getSQLContext(cntxt,NULL, &m, NULL) )
-		return 0;
-	s= mvc_bind_schema(m, sch);
-	if ( s)
-		t= mvc_bind_table(m, s, tbl);
-	if ( t)
-		c= mvc_bind_column(m, t, col);
-
-
-	if( c)
-		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
-	return b;
+	for( i=0; i < MAXCOLS && baskets[idx].cols[i]; i++)
+		if( strcmp(basket[idx].cols[i], col)== 0)
+			break;
+	if(  i < MAXCOLS)
+		return baskets[idx].bats[i];
+	return NULL;
 }
 
 str
@@ -747,30 +738,15 @@ BSKTreset(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BAT *b;
 
     *res = 0;
-    if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
-        return msg;
-    if ((msg = checkSQLContext(cntxt)) != NULL)
-        return msg;
-    s = mvc_bind_schema(m, sname);
-    if (s == NULL)
-        throw(SQL, "basket.clear", "Schema missing");
-    t = mvc_bind_table(m, s, tname);
-	if ( t == NULL)
-		throw(SQL,"basket.clear","Stream table %s.%s not accessible for clearing\n",sname,tname);
 	idx = BSKTlocate(sname,tname);
 	if( idx <= 0)
 		throw(SQL,"basket.clear","Stream table %s.%s not registered \n",sname,tname);
 	// do actual work
 	MT_lock_set(&baskets[idx].lock);
 	for( i=0; baskets[idx].cols[i]; i++){
-		c= mvc_bind_column(m, t, baskets[idx].cols[i]);
-		if( c){
-			b = store_funcs.bind_col(m->session->tr,c,RD_INS);
-			if(b){
-				BATsetcount(b,0);
-				BBPunfix(b->batCacheid);
-			}
-		}
+		b = baskets[idx].bats[i];
+		if(b)
+			BATsetcount(b,0);
 	}
 	baskets[idx].status = BSKTWAIT;
 	MT_lock_unset(&baskets[idx].lock);
