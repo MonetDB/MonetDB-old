@@ -104,7 +104,7 @@ def mapi_delete_stream(connection, concatenated_name, stream_id, columns_ids):
 
 def mapi_flush_baskets(connection, schema, stream, baskets):
     try:
-        connection.execute(''.join(["CALL iot.basket('", schema, "','", stream, "','", baskets, "')"]))
+        connection.execute(''.join(["CALL iot.import('", schema, "','", stream, "','", baskets, "')"]))
         connection.commit()
     except BaseException as ex:
         add_log(40, ex)
