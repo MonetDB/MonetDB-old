@@ -62,6 +62,7 @@ typedef struct {
 	str fcnname;
 	MalBlkPtr mb;       /* Query block */
 	MalStkPtr stk;    	/* might be handy */
+	Client client;		/* MAL client context for this query */
 
 	int status;     /* query status waiting/running/paused */
 	int enabled;	/* all baskets are available */
@@ -164,6 +165,13 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 	pnet[pnettop].mb = nmb;
 	pnet[pnettop].stk = prepareMALstack(nmb, nmb->vsize);
 
+	pnet[pnettop].client = MCinitClient(0,0,0);
+	if ( pnet[pnettop].client == NULL)
+		throw(MAL,"petrinet.register","Failed to create client record for continous query");
+	msg = SQLinitClient(pnet[pnettop].client);
+	if( msg)
+		return msg;
+	
 	pnet[pnettop].status = PNWAIT;
 	pnet[pnettop].cycles = 0;
 	pnet[pnettop].seen = *timestamp_nil;
@@ -238,12 +246,15 @@ PNstop(void){
 	int i,cnt;
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#scheduler being stopped\n");
 
-	pnstatus = PNSTOP;
+	pnstatus = PNSTOP; // avoid starting new continuous queries
+	for(cnt=0,  i = 0; i < pnettop; i++)
+	if( pnet[i].client )
+		pnet[i].client->itrace ='x';
+
 	do{
 		MT_sleep_ms(20);
-		for(cnt=0,  i = 0; i < pnettop; i++){
-			cnt += pnet[i].status == PNRUNNING;
-		}
+		for(cnt=0,  i = 0; i < pnettop; i++)
+			cnt += pnet[i].status != PNWAIT;
 	} while(cnt);
 	BSKTclean(0);
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#all queries stopped \n");
@@ -271,6 +282,7 @@ PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		}
 		GDKfree(pnet[i].modname);
 		GDKfree(pnet[i].fcnname);
+		MCcloseClient(pnet[i].client);
 		for( ; i <pnettop-1;i++)
 			pnet[i]= pnet[i+1];
 		memset((void*) (pnet+i), 0, sizeof(PNnode));
@@ -282,6 +294,7 @@ PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	for ( i = 0; i < pnettop; i++){
 		GDKfree(pnet[i].modname);
 		GDKfree(pnet[i].fcnname);
+		MCcloseClient(pnet[i].client);
 		memset((void*) (pnet+i), 0, sizeof(PNnode));
 	}
 	pnettop = 0;
@@ -395,7 +408,7 @@ PNexecute( void *n)
 
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s all locked\n",node->modname, node->fcnname);
 
-	msg = runMALsequence(mal_clients, node->mb, 1, 0, node->stk, 0, 0);
+	msg = runMALsequence(node->client, node->mb, 1, 0, node->stk, 0, 0);
 
 	_DEBUG_PETRINET_ 
 		mnstr_printf(PNout, "#petrinet.execute %s.%s transition done:%s\n",
@@ -425,8 +438,16 @@ PNscheduler(void *dummy)
 	timestamp ts, tn;
 
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.controller started\n");
-	cntxt = mal_clients; /* run as admin in SQL mode*/
-	 if( strcmp(cntxt->scenario, "sql") )
+	cntxt = MCinitClient(0,0,0); /* run as admin in SQL mode*/
+	if( cntxt){
+		if( SQLinitClient(cntxt) != MAL_SUCCEED)
+			GDKerror("Could not initialize PNscheduler");
+	}else{
+		GDKerror("Could not initialize PNscheduler");
+		return;
+	}
+		
+	 if( cntxt->scenario == NULL || strcmp(cntxt->scenario, "sql") )
 		 SQLinitEnvironment(cntxt, NULL, NULL, NULL);
 
 	pnstatus = PNRUNNING; // global state 
@@ -545,6 +566,7 @@ PNscheduler(void *dummy)
 		}
 
 	}
+	MCcloseClient(cntxt);
 	pnstatus = PNINIT;
 	_DEBUG_PETRINET_ mnstr_flush(PNout);
 	(void) dummy;

@@ -171,12 +171,20 @@ static void
 IOTreceptorThread(void *dummy)
 {
 	int idx = *(int*)dummy;
+	Client cntxt = MCinitClient(0, mal_clients[0].fdin, mal_clients[0].fdout);
+
+	if( cntxt == NULL)
+		return;
+	//SQLinitClient(cntxt);
     _DEBUG_IOT_ mnstr_printf(IOTout, "#iot.receptor %s.%s started for %s\n",
 		baskets[idx].schema_name, 
 		baskets[idx].table_name, 
 		baskets[idx].source);
 	/* continously scan the container for baskets */
-		BSKTimportInternal(mal_clients, idx);
+		BSKTimportInternal(cntxt, idx);
+    _DEBUG_IOT_ mnstr_printf(IOTout, "#iot.receptor %s.%s imported the  file\n",
+		baskets[idx].schema_name, 
+		baskets[idx].table_name);
 }
 
 str

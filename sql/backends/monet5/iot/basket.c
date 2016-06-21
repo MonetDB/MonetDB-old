@@ -74,8 +74,8 @@ BSKTclean(int idx)
 		baskets[idx].table_name = NULL;
 
 		BBPreclaim(baskets[idx].errors);
-		baskets[idx].winstride = -1;
 		baskets[idx].errors = NULL;
+		baskets[idx].winstride = -1;
 		baskets[idx].count = 0;
 	}
 	for(idx = 1; idx < bsktTop; idx++){
@@ -85,8 +85,8 @@ BSKTclean(int idx)
 		baskets[idx].table_name = NULL;
 
 		BBPreclaim(baskets[idx].errors);
-		baskets[idx].winstride = -1;
 		baskets[idx].errors = NULL;
+		baskets[idx].winstride = -1;
 		baskets[idx].count = 0;
 	}
 }
@@ -607,15 +607,11 @@ BSKTdump(void *ret)
 	int bskt;
 	BUN cnt;
 	BAT *b;
-	mvc *m = NULL;
 	str msg = MAL_SUCCEED;
 
 	mnstr_printf(GDKout, "#baskets table\n");
 	for (bskt = 1; bskt < bsktLimit; bskt++)
 		if (baskets[bskt].table_name) {
-			msg = getSQLContext(mal_clients, 0, &m, NULL);
-			if ( msg != MAL_SUCCEED)
-				break;
 			cnt = 0;
 			b = baskets[bskt].bats[0];
 			if( b)
@@ -680,6 +676,48 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	if (binsert )
 		BBPunfix(((BAT *) binsert)->batCacheid);
+	return MAL_SUCCEED;
+}
+
+str
+BSKTupdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    int *res = getArgReference_int(stk, pci, 0);
+    str sname = *getArgReference_str(stk, pci, 2);
+    str tname = *getArgReference_str(stk, pci, 3);
+    str cname = *getArgReference_str(stk, pci, 4);
+    bat rows = *getArgReference_bat(stk, pci, 5);
+    bat val = *getArgReference_bat(stk, pci, 6);
+    BAT *bn=0, *rid=0, *bval = 0;
+	int bskt;
+
+	return 0;
+	(void) cntxt;
+	(void) mb;
+    *res = 0;
+
+    rid = BATdescriptor(rows);
+	if( rid == NULL)
+        throw(SQL, "basket.append", "Cannot access source oid descriptor");
+    bval = BATdescriptor(val);
+	if( bval == NULL){
+		BBPunfix(rid->batCacheid);
+        throw(SQL, "basket.append", "Cannot access source descriptor");
+	}
+
+	bskt = BSKTlocate(sname,tname);
+	if( bskt == 0)
+		throw(SQL, "basket.append", "Cannot access basket descriptor %s.%s",sname,tname);
+	bn = BSKTbindColumn(sname,tname,cname);
+
+	if( bn){
+		void_replace_bat(bn, rid, bval, TRUE);
+		BATderiveProps(bn, FALSE);
+	} else throw(SQL, "basket.append", "Cannot access target column %s.%s.%s",sname,tname,cname);
+	
+	baskets[bskt].status = BSKTFILLED;
+	BBPunfix(rid->batCacheid);
+	BBPunfix(bval->batCacheid);
 	return MAL_SUCCEED;
 }
 
@@ -894,7 +932,7 @@ BSKTtableerrors(bat *nameId, bat *errorId)
 	}
 
 	for (i = 1; i < bsktTop; i++)
-		if (BATcount(baskets[i].errors) > 0) {
+		if (baskets[i].errors && BATcount(baskets[i].errors) > 0) {
 			bi = bat_iterator(baskets[i].errors);
 			BATloop(baskets[i].errors, p, q)
 			{

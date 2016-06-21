@@ -94,9 +94,9 @@ create function iot.outputs()
  returns table( "s" string, "t" string, "sch" string, "qry" string)
  external name iot.outputplaces;
 
--- create function iot.errors()
--- returns table( "schema" string,  "table" string, error string)
--- external name iot.errors;
+create function iot.errors()
+returns table( "table" string, error string)
+external name iot.errors;
 
 -- tables for iotwebserver
 
