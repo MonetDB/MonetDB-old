@@ -10,4 +10,5 @@ call iot.import('iot','temps', concat(basketdir,'1'));
 
 select * from temps;
 
+select * from iot.errors();
 drop table temps;

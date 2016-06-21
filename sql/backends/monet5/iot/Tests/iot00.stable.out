@@ -116,6 +116,14 @@ Ready.
 % timestamp,	int,	decimal # type
 % 26,	1,	10 # length
 [ 2005-09-23 12:34:26.736000,	1,	12.34	]
+#select * from iot.errors();
+% .,	. # table_name
+% table,	error # name
+% clob,	clob # type
+% 0,	0 # length
+#drop procedure cq00;
+#drop table stmp;
+#drop table result;
 
 # 22:26:05 >  
 # 22:26:05 >  "Done."

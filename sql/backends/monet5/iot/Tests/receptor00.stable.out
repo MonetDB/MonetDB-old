@@ -40,6 +40,11 @@ Ready.
 [ 2016-04-25 11:09:57.658000,	"bedroom",	29.9	]
 [ 2016-04-25 11:09:57.658000,	"bathroom",	28.6	]
 [ 2016-04-25 11:09:57.658000,	"dining room",	30	]
+#select * from iot.errors();
+% .,	. # table_name
+% table,	error # name
+% clob,	clob # type
+% 0,	0 # length
 #drop table temps;
 
 # 23:00:08 >  

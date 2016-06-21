@@ -2,30 +2,25 @@
 set schema iot;
 set optimizer='iot_pipe';
 
-declare hbclk1 integer;
-declare hbclk2 integer;
-declare cnt integer;
+-- we don't have global variables
+create stream table clocks(cnt integer,clk1 integer, clk2 integer);
+insert into clocks values(0,0,0);
 
-set hbclk1 = 0;
-set hbclk2 = 0;
-set cnt = 0;
-
--- continuous queries should be encapsulated in procedures
--- this way their naming becomes easier, and mult-statement
--- actions are better supported.
-
---However, these queries won't run because the SQL context
---holding the variables is not generally known
 create procedure clk1()
 begin
-	set hbclk1 = hbclk1+1;
+	call iot.heartbeat('iot','clocks',1000);
+	update iot.clocks
+		set clk1 = clk1+1,
+		cnt = cnt +1;
 end;
 
 create procedure clk3()
 begin
-	set hbclk1 = hbclk1+1;
-	set hbclk2 = hbclk2+2;
-	--set cnt =(select count(*) from stmp);
+	call iot.heartbeat('iot','clocks',3000);
+	update clocks
+		set clk1 = clk1+1,
+			clk2 = clk2+2,
+			cnt = cnt +1;
 end;
 
 -- alternative is a simple query
@@ -36,9 +31,14 @@ call iot.pause();
 --select * from  iot.baskets();
 --select * from  iot.queries();
 
-select hbclk1, hbclk2;
+select * from clocks;
 call iot.resume();
 call iot.wait(10);
-select hbclk1, hbclk2;
+select * from clocks;
 
 call iot.stop();
+select * from iot.errors();
+drop procedure clk1;
+drop procedure clk3;
+drop table clocks;
+

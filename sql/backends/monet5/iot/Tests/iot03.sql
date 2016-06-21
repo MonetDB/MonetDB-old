@@ -27,5 +27,7 @@ select * from result3;
 
 call iot.stop();
 --select * from  iot.queries();
+select * from iot.errors();
+drop procedure cq03;
 drop table stmp3;
 drop table result3;

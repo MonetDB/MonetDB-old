@@ -52,6 +52,12 @@ Ready.
 % decimal,	decimal # type
 % 10,	10 # length
 [ 12.34,	1.00	]
+#select * from iot.errors();
+% .,	. # table_name
+% table,	error # name
+% clob,	clob # type
+% 0,	0 # length
+#drop procedure collector;
 #drop table stmp10;
 
 # 23:37:15 >  

@@ -27,5 +27,8 @@ call iot.wait(1);
 
 select * from tmp_aggregate;
 
-drop table stmp10;
 call iot.stop();
+select * from iot.errors();
+drop procedure collector;
+drop table stmp10;
+drop table tmp_aggregate;

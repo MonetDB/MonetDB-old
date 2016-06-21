@@ -28,3 +28,4 @@ select * from input1;
 select * from output1;
 
 call iot.stop();
+select * from iot.errors();

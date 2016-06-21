@@ -17,11 +17,12 @@ end;
 
 call iot.query('iot','collecttemps');
 call iot.resume();
-call iot.wait(2);
+call iot.wait(50);
 select * from temps;
 select * from tempresult;
 
 call iot.stop();
+select * from iot.errors();
 drop procedure collecttemps;
 drop table tempresult;
 drop table temps;
