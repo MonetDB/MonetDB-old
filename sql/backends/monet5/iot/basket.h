@@ -29,14 +29,13 @@
 /* #define _DEBUG_DATACELL     debug this module */
 #define BSKTout GDKout
 #define MAXBSKT 64
+#define MAXCOLS 128
 
 typedef struct{
 	str schema_name;	/* schema for the basket */
 	str table_name;	/* table that represents the basket */
-	sql_schema *schema;
-	sql_table *table;
-	str *cols;
-	BAT *bats[MAXBSKT];	/* the bats comprising the basket */
+	str cols[MAXCOLS];	/* column names */
+	BAT *bats[MAXCOLS];	/* the bats comprising the basket */
 
 	int threshold ; /* bound to determine scheduling eligibility */
 	BUN winsize, winstride; /* sliding window operations */

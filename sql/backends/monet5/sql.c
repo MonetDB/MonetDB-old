@@ -2900,7 +2900,7 @@ mvc_export_table_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (mvc_export_result(cntxt->sqlcontext, s, res))
 		msg = createException(SQL, "sql.resultset", "failed");
 	if( s != cntxt->fdout)
-		mnstr_close(s);
+		close_stream(s);
   wrapup_result_set1:
 	BBPunfix(order->batCacheid);
 	if( tbl) BBPunfix(tblId);
@@ -3511,7 +3511,7 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			for (i = 0; i < width_len; i++) {
 				if (fixed_widths[i] == STREAM_FWF_FIELD_SEP) {
 					fixed_widths[i] = '\0';
-					widths[current_width_entry++] = (size_t) atoll(val_start);
+					widths[current_width_entry++] = (size_t) strtoll(val_start, NULL, 10);
 					val_start = fixed_widths + i + 1;
 				}
 			}
