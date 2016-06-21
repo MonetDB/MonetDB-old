@@ -30,6 +30,10 @@ pattern append(mvc:int, sch:str, tbl:str, col:str, val:any):int
 address BSKTappend
 comment "Append new tuples to a basket";
 
+pattern update(mvc:int, sch:str, tbl:str, col:str, rid:bat[:oid],val:bat[:any]):int
+address BSKTupdate
+comment "Update tuples in a basket";
+
 pattern clear_table(sname:str,tname:str):lng
 address mvc_clear_table_wrap;
 
