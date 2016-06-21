@@ -108,10 +108,10 @@ BSKTlocate(str sch, str tbl)
 
 // Instantiate a basket description for a particular table
 static str
-BSKTnewbasket(sql_schema *s, sql_table *t)
+BSKTnewbasket(mvc *m, sql_schema *s, sql_table *t)
 {
-	int i, idx;
-	int colcnt=0;
+	int i, idx, colcnt=0;
+	BAT *b;
 	node *o;
 
 	// Don't introduce the same basket twice
@@ -128,7 +128,9 @@ BSKTnewbasket(sql_schema *s, sql_table *t)
 	baskets[idx].count = 0;
 
 	baskets[idx].winstride = -1; /* all tuples are removed */
-	for (o = t->columns.set->h; o; o = o->next){
+	
+	// Check the column types first
+	for (o = t->columns.set->h; o && colcnt <MAXCOLS; o = o->next){
         sql_column *col = o->data;
         int tpe = col->type.type->localtype;
 
@@ -138,24 +140,29 @@ BSKTnewbasket(sql_schema *s, sql_table *t)
 		}
 		colcnt++;
 	}
-	// collect the column names
-	baskets[idx].cols = (str*) GDKzalloc(sizeof(str) * (colcnt+1));
-	for (i=0, o = t->columns.set->h; o; o = o->next){
+	if( colcnt == MAXCOLS){
+		BSKTclean(idx);
+		throw(MAL,"baskets.register","too many columns");
+	}
+
+	// collect the column names and the storage
+	i=0;
+	for ( i=0, o = t->columns.set->h; i <colcnt && o; o = o->next){
         sql_column *col = o->data;
-		baskets[idx].cols[i++]=  col->base.name;
+		b = store_funcs.bind_col(m->session->tr,col,RD_INS);
+		assert(b);
+		BBPfix(b->batCacheid);
+		baskets[idx].bats[i]= b;
+		baskets[idx].cols[i++]=  GDKstrdup(col->base.name);
 	}
 	
-	//
+	// Create the error table
 	baskets[idx].errors = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
-	if (baskets[idx].table_name == NULL ||
-	    baskets[idx].errors == NULL) {
+	if (baskets[idx].table_name == NULL || baskets[idx].errors == NULL) {
 		BSKTclean(idx);
 		MT_lock_unset(&iotLock);
 		throw(MAL,"baskets.register",MAL_MALLOC_FAIL);
 	}
-
-	baskets[idx].schema = s;
-	baskets[idx].table = t;
 	MT_lock_unset(&iotLock);
 	return MAL_SUCCEED;
 }
@@ -186,7 +193,7 @@ BSKTregisterInternal(Client cntxt, MalBlkPtr mb, str sch, str tbl)
 	if (t == NULL)
 		throw(SQL, "iot.register", "Table missing '%s'", tbl);
 
-	msg=  BSKTnewbasket(s, t);
+	msg=  BSKTnewbasket(m, s, t);
 	return msg;
 }
 
@@ -256,16 +263,15 @@ BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 static BAT *
-BSKTbindColumn(Client cntxt, str sch, str tbl, str col)
+BSKTbindColumn(str sch, str tbl, str col)
 {
-	int bskt;
-	int i;
+	int idx =0,i;
 
-	if( (idx = BSKTlocate(sch,tbl) < 0))
+	if( (idx = BSKTlocate(sch,tbl)) < 0)
 		return NULL;
 
 	for( i=0; i < MAXCOLS && baskets[idx].cols[i]; i++)
-		if( strcmp(basket[idx].cols[i], col)== 0)
+		if( strcmp(baskets[idx].cols[i], col)== 0)
 			break;
 	if(  i < MAXCOLS)
 		return baskets[idx].bats[i];
@@ -279,8 +285,11 @@ BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str sch = *getArgReference_str(stk,pci,2);
 	str tbl = *getArgReference_str(stk,pci,3);
 	str col = *getArgReference_str(stk,pci,4);
-	BAT *bn, *b = BSKTbindColumn(cntxt, sch,tbl,col);
+	BAT *bn, *b = BSKTbindColumn(sch,tbl,col);
 	int bskt;
+
+	(void) cntxt;
+	(void) mb;
 
 	*ret = 0;
 	if( b){
@@ -291,17 +300,15 @@ BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				if( bn){
 					VIEWbounds(b,bn, 0, baskets[bskt].winsize);
 					BBPkeepref(*ret =  bn->batCacheid);
-					BBPunfix(b->batCacheid);
-				} else {
-					BBPunfix(b->batCacheid);
+				} else
 					throw(SQL,"iot.bind","Can not create view %s.%s.%s["BUNFMT"]",sch,tbl,col,baskets[bskt].winsize );
-				}
-			} else
-				BBPkeepref(*ret =  b->batCacheid);
+			} else{
+				BBPkeepref( *ret = b->batCacheid);
+				BBPfix(b->batCacheid); // don't loose it
+			}
 		}
 		return MAL_SUCCEED;
 	}
-	(void) mb;
 	throw(SQL,"iot.bind","Stream table column '%s.%s.%s' not found",sch,tbl,col);
 }
 
@@ -329,16 +336,16 @@ str
 BSKTimportInternal(Client cntxt, int bskt)
 {
 	char buf[PATHLENGTH];
-	node *n;
 	mvc *m;
 	BAT *b;
-	int first=1,i;
+	int first=1,i,j;
 	BUN cnt =0, bcnt=0;
 	str msg= MAL_SUCCEED;
 	FILE *f;
 	long fsize;
 	char line[MAXLINE];
 	str dir = baskets[bskt].source;
+	str cname= NULL;
 
 	msg= getSQLContext(cntxt,NULL, &m, NULL);
 	if( msg != MAL_SUCCEED)
@@ -349,32 +356,32 @@ BSKTimportInternal(Client cntxt, int bskt)
 	}
 	
 	/* check for missing files */
-	for( n = baskets[bskt].table->columns.set->h; n; n= n->next){
-		sql_column *c = n->data;
-		snprintf(buf,PATHLENGTH, "%s%c%s",dir,DIR_SEP, c->base.name);
+	for( i=0; i < MAXCOLS && baskets[bskt].cols[i]; i++){
+		cname = baskets[bskt].cols[i];
+		snprintf(buf,PATHLENGTH, "%s%c%s",dir,DIR_SEP, cname);
 		_DEBUG_BASKET_ mnstr_printf(BSKTout,"Attach the file %s\n",buf);
 		if( access (buf,R_OK))
-			throw(MAL,"iot.basket","Could not access the column %s file %s\n",c->base.name, buf);
-		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
+			throw(MAL,"iot.basket","Could not access the column %s file %s\n",cname, buf);
+		b = baskets[bskt].bats[i];
 		if( b == 0)
-			throw(MAL,"iot.basket","Could not access the column %s\n",c->base.name);
+			throw(MAL,"iot.basket","Could not access the column %s\n",cname);
 	}
 
 	// types are already checked during stream initialization
 	MT_lock_set(&iotLock);
-	for( n = baskets[bskt].table->columns.set->h; msg == MAL_SUCCEED && n; n= n->next){
-		sql_column *c = n->data;
-		snprintf(buf,PATHLENGTH, "%s%c%s",dir,DIR_SEP, c->base.name);
+	for( i=0; i < MAXCOLS && baskets[bskt].cols[i]; i++){
+		cname = baskets[bskt].cols[i];
+		snprintf(buf,PATHLENGTH, "%s%c%s",dir,DIR_SEP, cname);
 		_DEBUG_BASKET_ mnstr_printf(BSKTout,"Attach the file %s\n",buf);
 		f=  fopen(buf,"r");
 		if( f == NULL){
-			msg= createException(MAL,"iot.basket","Could not access the column %s file %s\n",c->base.name, buf);
+			msg= createException(MAL,"iot.basket","Could not access the column %s file %s\n",cname, buf);
 			break;
 		}
 		(void) fseek(f,0, SEEK_END);
 		fsize = ftell(f);
 		rewind(f);
-		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
+		b = baskets[bskt].bats[i];
 		assert( b);
 		bcnt = BATcount(b);
 
@@ -392,26 +399,24 @@ BSKTimportInternal(Client cntxt, int bskt)
 		case TYPE_hge:
 #endif
 			if( BATextend(b, bcnt + fsize / ATOMsize(b->ttype)) != GDK_SUCCEED){
-				BBPunfix(b->batCacheid);
 				(void) fclose(f);
-				msg= createException(MAL,"iot.basket","Could not extend basket %s\n",c->base.name);
+				msg= createException(MAL,"iot.basket","Could not extend basket %s\n",baskets[bskt].cols[i]);
 				goto recover;
 			}
 			/* append the binary partition */
 			if( fread(Tloc(b, BUNlast(b)),1,fsize, f) != (size_t) fsize){
-				BBPunfix(b->batCacheid);
 				(void) fclose(f);
-				msg= createException(MAL,"iot.basket","Could not read complete basket file %s\n",c->base.name);
+				msg= createException(MAL,"iot.basket","Could not read complete basket file %s\n",baskets[bskt].cols[i]);
 				goto recover;
 			}
 			BATsetcount(b, bcnt + fsize/ ATOMsize(b->ttype));
 		break;
 		case TYPE_str:
 			while (fgets(line, MAXLINE, f) != 0){ //Use getline? http://man7.org/linux/man-pages/man3/getline.3.html
-				if ( line[i= (int) strlen(line)-1] != '\n')
+				if ( line[j= (int) strlen(line)-1] != '\n')
 					msg= createException(MAL,"iot.basket","string too long\n");
 				else{
-					line[i] = 0;
+					line[j] = 0;
 					BUNappend(b, line, TRUE);
 					bcnt++;
 				}
@@ -425,9 +430,8 @@ BSKTimportInternal(Client cntxt, int bskt)
 	}
 
 	/* check for mis-aligned columns and derive properties */
-	for( n = baskets[bskt].table->columns.set->h; msg == MAL_SUCCEED && n; n= n->next){
-		sql_column *c = n->data;
-		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
+	for( i=0; i < MAXCOLS && baskets[bskt].cols[i]; i++){
+		b = baskets[bskt].bats[i];
 		assert( b );
 		BATderiveProps(b, FALSE);
 		if( first){
@@ -435,13 +439,11 @@ BSKTimportInternal(Client cntxt, int bskt)
 			cnt = BATcount(b);
 		} else
 		if( cnt != BATcount(b))
-			msg= createException(MAL,"iot.basket","Columns mis-aligned %s\n",c->base.name);
-		BBPunfix(b->batCacheid);
+			msg= createException(MAL,"iot.basket","Columns mis-aligned %s\n",baskets[bskt].cols[i]);
 	}
 	/* remove the basket files */
-	for( n = baskets[bskt].table->columns.set->h; n; n= n->next){
-		sql_column *c = n->data;
-		snprintf(buf,PATHLENGTH, "%s%c%s",dir,DIR_SEP, c->base.name);
+	for( i=0; i < MAXCOLS && baskets[bskt].cols[i]; i++){
+		snprintf(buf,PATHLENGTH, "%s%c%s",dir,DIR_SEP, baskets[bskt].cols[i]);
 		assert( access (buf,R_OK) == 0);
 		//unlink(buf);
 	}
@@ -451,12 +453,10 @@ BSKTimportInternal(Client cntxt, int bskt)
 recover:
 	/* reset all BATs when they are misaligned or error occurred */
 	if( msg != MAL_SUCCEED)
-	for( n = baskets[bskt].table->columns.set->h; n; n= n->next){
-		sql_column *c = n->data;
-		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
+	for( i=0; i < MAXCOLS && baskets[bskt].cols[i]; i++){
+		b = baskets[bskt].bats[i];
 		assert( b );
 		BATsetcount(b,0);
-		BBPunfix(b->batCacheid);
 	}
 
 	MT_lock_unset(&iotLock);
@@ -470,12 +470,7 @@ BSKTimport(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     str tbl = *getArgReference_str(stk, pci, 2);
     str dir = *getArgReference_str(stk, pci, 3);
     int bskt;
-	str msg= MAL_SUCCEED;
-	mvc *m = NULL;
 
-	msg= getSQLContext(cntxt,NULL, &m, NULL);
-	if( msg != MAL_SUCCEED)
-		return msg;
 	BSKTregisterInternal(cntxt, mb, sch, tbl);
     bskt = BSKTlocate(sch,tbl);
 	if (bskt == 0)
@@ -498,22 +493,16 @@ BSKTtumbleInternal(Client cntxt, str sch, str tbl, int stride)
 {
 	BAT *b;
 	BUN cnt;
-	node *n;
-	mvc *m = NULL;
-	str msg;
-	int bskt;
+	int i, bskt;
+	(void) cntxt;
 
-	msg= getSQLContext(cntxt,NULL, &m, NULL);
-	if( msg )
-		throw(SQL,"iot.tumble","Missing SQL context");
     bskt = BSKTlocate(sch,tbl);
 	if (bskt == 0)
 		throw(SQL, "iot.tumble", "Could not find the basket %s.%s",sch,tbl);
 
 	_DEBUG_BASKET_ mnstr_printf(BSKTout,"Tumble %s.%s %d elements\n",sch,tbl,stride);
-	for( n = baskets[bskt].table->columns.set->h; n; n= n->next){
-		sql_column *c = n->data;
-		b = store_funcs.bind_col(m->session->tr,c,RD_INS);
+	for(i=0; i< MAXCOLS && baskets[bskt].cols[i]; i++){
+		b = baskets[bskt].bats[i];
 		assert( b );
 		if( stride != -1)
 			cnt = (BUN) stride;
@@ -548,9 +537,8 @@ BSKTtumbleInternal(Client cntxt, str sch, str tbl, int stride)
 		if( BATcount(b) == 0){
 			baskets[bskt].status = BSKTWAIT;
 		}
-		BBPunfix(b->batCacheid);
 	}
-	return msg;
+	return MAL_SUCCEED;
 }
 
 /* set the tumbling properties */
@@ -619,8 +607,6 @@ BSKTdump(void *ret)
 	int bskt;
 	BUN cnt;
 	BAT *b;
-	node *n;
-	sql_column *c;
 	mvc *m = NULL;
 	str msg = MAL_SUCCEED;
 
@@ -631,13 +617,9 @@ BSKTdump(void *ret)
 			if ( msg != MAL_SUCCEED)
 				break;
 			cnt = 0;
-			n = baskets[bskt].table->columns.set->h;
-			c = n->data;
-			b = store_funcs.bind_col(m->session->tr,c,RD_INS);
-			if( b){
+			b = baskets[bskt].bats[0];
+			if( b)
 				cnt = BATcount(b);
-				BBPunfix(b->batCacheid);
-			}
 
 			mnstr_printf(GDKout, "#baskets[%2d] %s.%s columns "BUNFMT" threshold %d window=["BUNFMT","BUNFMT"] time window=[" LLFMT "," LLFMT "] beat " LLFMT " milliseconds" BUNFMT"\n",
 					bskt,
@@ -661,35 +643,17 @@ str
 BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
     int *res = getArgReference_int(stk, pci, 0);
-    mvc *m = NULL;
-    str msg;
     str sname = *getArgReference_str(stk, pci, 2);
     str tname = *getArgReference_str(stk, pci, 3);
     str cname = *getArgReference_str(stk, pci, 4);
     ptr value = getArgReference(stk, pci, 5);
     int tpe = getArgType(mb, pci, 5);
-    sql_schema *s;
-    sql_table *t;
-    sql_column *c;
     BAT *bn=0, *binsert = 0;
 	int bskt;
 	BUN cnt =0;
 
+	(void) cntxt;
     *res = 0;
-    if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
-        return msg;
-    if ((msg = checkSQLContext(cntxt)) != NULL)
-        return msg;
-
-    s = mvc_bind_schema(m, sname);
-    if (s == NULL)
-        throw(SQL, "basket.append", "Schema missing");
-    t = mvc_bind_table(m, s, tname);
-	if ( t)
-		c= mvc_bind_column(m, t, cname);
-	else throw(SQL,"basket.append","Stream table %s.%s not accessible for append\n",sname,tname);
-	if( c == NULL) 
-		throw(SQL,"basket.append","Stream column %s.%s.%s not accessible for append\n",sname,tname,cname);
 
     if ( isaBatType(tpe) && (binsert = BATdescriptor(*(int *) value)) == NULL)
         throw(SQL, "basket.append", "Cannot access source descriptor");
@@ -697,22 +661,18 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		value = *(ptr*) value;
 
 	bskt = BSKTlocate(sname,tname);
-	if( bskt == 0){
-		BSKTnewbasket(s,t);
-		bskt = BSKTlocate(sname,tname);
-		if( bskt == 0)
-			throw(SQL, "basket.append", "Cannot access basket descriptor");
-	}
-	bn = store_funcs.bind_col(m->session->tr,c,RD_INS);
+	if( bskt == 0)
+		throw(SQL, "basket.append", "Cannot access basket descriptor %s.%s",sname,tname);
+	bn = BSKTbindColumn(sname,tname,cname);
+
 	if( bn){
 		if (binsert)
 			BATappend(bn, binsert, TRUE);
 		else
 			BUNappend(bn, value, TRUE);
 		cnt = BATcount(bn);
-		BATderiveProps(bn, FALSE);
-		BBPunfix(bn->batCacheid);
-	} else throw(SQL, "basket.append", "Cannot access target descriptor");
+		//BATderiveProps(bn, FALSE);
+	} else throw(SQL, "basket.append", "Cannot access target column %s.%s.%s",sname,tname,cname);
 	
 	if(cnt){
 		baskets[bskt].count = cnt;
@@ -727,15 +687,12 @@ str
 BSKTreset(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
     lng *res = getArgReference_lng(stk, pci, 0);
-    mvc *m = NULL;
-    str msg;
     str sname = *getArgReference_str(stk, pci, 2);
     str tname = *getArgReference_str(stk, pci, 3);
-    sql_schema *s;
-    sql_table *t;
-	sql_column *c;
 	int i, idx;
 	BAT *b;
+	(void) cntxt;
+	(void) mb;
 
     *res = 0;
 	idx = BSKTlocate(sname,tname);
@@ -817,6 +774,7 @@ BSKTtable (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BAT *bn = NULL;
 
 	(void) mb;
+	(void) cntxt;
 
 	schema = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (schema == 0)
@@ -876,7 +834,7 @@ BSKTtable (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BUNappend(timestride, &baskets[i].timestride, FALSE);
 			BUNappend(beat, &baskets[i].heartbeat, FALSE);
 			BUNappend(seen, &baskets[i].seen, FALSE);
-			bn = BSKTbindColumn(cntxt,baskets[i].schema_name, baskets[i].table_name, baskets[i].cols[0]);
+			bn = BSKTbindColumn(baskets[i].schema_name, baskets[i].table_name, baskets[i].cols[0]);
 			baskets[i].events = bn ? (int) BATcount( bn): 0;
 			BUNappend(events, &baskets[i].events, FALSE);
 		}

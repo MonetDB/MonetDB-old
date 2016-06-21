@@ -80,6 +80,7 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	Module scope;
 	char buf[BUFSIZ], name[IDLENGTH];
 	static int iotquerycnt=0;
+	int i;
 
 
 	_DEBUG_IOT_ fprintf(stderr,"#iot: register the continues query %s.%s()\n",sch,nme);
@@ -139,6 +140,14 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (msg == MAL_SUCCEED) {
 		_DEBUG_IOT_ fprintf(stderr,"#iot: continuous query plan\n");
 		msg = PNregisterInternal(cntxt, s->def);
+	}
+
+	// register all the baskets mentioned in the plan
+	for( i=1; i< s->def->stop;i++){
+		p= getInstrPtr(s->def,i);
+		if( getModuleId(p) == basketRef && getFunctionId(p)== registerRef){
+			BSKTregister(cntxt,s->def,0,p);
+		}
 	}
 	return msg;
 }
