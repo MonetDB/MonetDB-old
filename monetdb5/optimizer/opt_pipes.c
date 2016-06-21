@@ -483,9 +483,9 @@ compileOptimizer(Client cntxt, str name)
 			/* we must clear c.mythread because we're reusing a Thread
 			 * and must not delete that one */
 			c.mythread = 0;
-			/* destroy bstream using free */
-			free(c.fdin->buf);
-			free(c.fdin);
+			/* WHY? destroy bstream using free */
+			//free(c.fdin->buf);
+			//free(c.fdin);
 			/* remove garbage from previous connection */
 			if (c.nspace) {
 				freeModule(c.nspace);

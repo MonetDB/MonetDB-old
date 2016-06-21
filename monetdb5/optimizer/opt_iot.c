@@ -182,7 +182,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if (p->token == ENDsymbol && btop > 0 && noerror==0) {
 				// empty all baskets used only when we are optimizing a cq
 				for(j = 0; j < btop; j++)
-				if( input[j] ){
+				if( input[j] && !output[j] ){
 					r =  newStmt(mb, basketRef, tumbleRef);
 					r =  pushArgument(mb,r, lastmvc);
 					r =  pushStr(mb,r, schemas[j]);
