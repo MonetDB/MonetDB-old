@@ -93,7 +93,7 @@ def init_create_streams_schema(add_hugeint=True):
                         "base": {"type": "string", "enum": [TUPLE_FLUSH_IDENTIFIER]},
                         "interval": {"type": "integer", "minimum": 1}
                     },
-                    "required": ["base", "number"],
+                    "required": ["base", "interval"],
                     "additionalProperties": False
                 }, {
                     "properties": {

@@ -64,7 +64,7 @@ class BaseIOTStream:
             if dirs:
                 for elem in dirs:  # for each directory found, flush it
                     dir_path = os.path.join(self._base_path, str(elem))
-                    mapi_flush_baskets(self._connection, self._schema_name, self._stream_name, dir_path)
+                    # mapi_flush_baskets(self._connection, self._schema_name, self._stream_name, dir_path)
                 self._baskets_counter = max(dirs) + 1  # increment current basket number
             else:
                 self._baskets_counter = 1
@@ -124,8 +124,8 @@ class BaseIOTStream:
         add_log(20, 'Stopped stream %s.%s' % (self._schema_name, self._stream_name))
 
     @abstractmethod
-    def get_flushing_dictionary(self):  # for information about the stream
-        return {}
+    def get_flushing_dictionary(self, number_tuples):  # for information about the stream
+        return ()
 
     def get_data_dictionary(self):
         self._baskets_lock.acquire_read()
@@ -134,12 +134,11 @@ class BaseIOTStream:
         return ((('schema', self._schema_name), ('stream', self._stream_name), ('has_timestamp', self._has_timestamp),
                  ('has_hostname', self._has_hostname),
                  ('columns', [OrderedDict((value.to_json_representation())) for value in self._columns.values()]),
-                 ('flushing', OrderedDict(self.get_flushing_dictionary()
-                                          + (('tuples_inserted_per_basket', number_tuples),)))))
+                 ('flushing', OrderedDict((self.get_flushing_dictionary(number_tuples))))))
 
     def flush_baskets(self, last=False):  # the monitor has to be acquired in write mode before running this method!!!
         # write the tuple count in the basket
-        mapi_flush_baskets(self._connection, self._schema_name, self._stream_name, self._current_base_path)
+        # mapi_flush_baskets(self._connection, self._schema_name, self._stream_name, self._current_base_path)
 
         if not last:  # when stopping the stream, we don't want to continue to create more baskets files
             self._tuples_in_per_basket = 0
@@ -241,8 +240,8 @@ class TupleBasedStream(BaseIOTStream):
                                                has_hostname, connection, table_id, columns_ids)
         self._interval = interval
 
-    def get_flushing_dictionary(self):
-        return (('base', 'tuple'), ('interval', self._interval))
+    def get_flushing_dictionary(self, number_tuples):
+        return (('base', 'tuple'), ('interval', self._interval), ('tuples_inserted_per_basket', number_tuples))
 
     def get_webserverstreams_sql_statement(self):  # insert for iot.webserverflushing table
         return ''.join([",1,", str(self._interval), ",NULL"])
@@ -281,8 +280,9 @@ class TimeBasedStream(BaseIOTStream):
             calc_time = interval * 3600
         self._local_thread = PeriodicalThread(interval=calc_time, worker_func=self.time_based_flush)
 
-    def get_flushing_dictionary(self):
-        return (('base', 'time'), ('interval', self._interval), ('unit', self._time_unit))
+    def get_flushing_dictionary(self, number_tuples):
+        return (('base', 'time'), ('interval', self._interval), ('unit', self._time_unit),
+                ('tuples_inserted_per_basket', number_tuples))
 
     def get_webserverstreams_sql_statement(self):  # insert for iot.webserverflushing table
         return ''.join([",2,", str(self._interval), ",'", self._time_unit, "'"])
@@ -319,8 +319,8 @@ class AutoFlushedStream(BaseIOTStream):
         super(AutoFlushedStream, self).__init__(schema_name, stream_name, columns, validation_schema, has_timestamp,
                                                 has_hostname, connection, table_id, columns_ids)
 
-    def get_flushing_dictionary(self):
-        return (('base', 'auto'))
+    def get_flushing_dictionary(self, number_tuples):
+        return (('base', 'auto'), ('tuples_inserted_per_basket', number_tuples))
 
     def get_webserverstreams_sql_statement(self):  # insert for iot.webserverflushing table
         return ",3,NULL,NULL"

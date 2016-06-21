@@ -30,7 +30,7 @@ def check_path(value):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='IOT Web Server Tester', add_help=False)
+    parser = argparse.ArgumentParser(description='IOT Web Server Binary Imports Tester', add_help=False)
     parser.add_argument('-n', '--number', type=check_positive_int, nargs='?', default=1000,
                         help='Number of inserts (default: 1000)', metavar='NUMBER')
     parser.add_argument('-f', '--filepath', type=check_path, nargs='?', default='/tmp',
