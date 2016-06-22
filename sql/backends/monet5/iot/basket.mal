@@ -22,6 +22,10 @@ address BSKTregister
 comment "Initialize a new basket based on a specific table definition.
 roles:input =0, output=2";
 
+pattern tid(mvc:int,sch:str,tbl:str):bat[:oid]
+address BSKTtid
+comment "Collect the candidates for a basket";
+
 pattern bind(mvc:int,sch:str,tbl:str,col:str):bat[:any]
 address BSKTbind
 comment "access the stream basket column";

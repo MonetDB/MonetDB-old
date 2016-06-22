@@ -1190,8 +1190,7 @@ SQLCacheRemove(Client c, str nme)
 	if (getInstrPtr(s->def, 0)->token == FACTORYsymbol)
 		shutdownFactoryByName(c, c->nspace, nme);
 	else{
-		if( s->def->inuse ==0)
-			deleteSymbol(c->nspace, s);
+		deleteSymbol(c->nspace, s);
 	}
 	return MAL_SUCCEED;
 }

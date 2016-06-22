@@ -279,6 +279,34 @@ BSKTbindColumn(str sch, str tbl, str col)
 }
 
 str
+BSKTtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	bat *ret = getArgReference_bat(stk,pci,0);
+	str sch = *getArgReference_str(stk,pci,2);
+	str tbl = *getArgReference_str(stk,pci,3);
+	BAT *tids, *b;
+	int bskt;
+	
+	(void) cntxt;
+	(void) mb;
+
+	bskt = BSKTlocate(sch,tbl);
+	if( bskt == 0)	
+		throw(SQL,"basket.bind","Stream table column '%s.%s' not found",sch,tbl);
+	b = baskets[bskt].bats[0];
+
+    tids = BATnew(TYPE_void, TYPE_void, 0, TRANSIENT);
+    if (tids == NULL)
+        throw(SQL, "basket.tid", MAL_MALLOC_FAIL);
+    BATsetcount(tids, BATcount(b));
+    BATseqbase(tids, 0);
+    BATseqbase(BATmirror(tids), 0);
+
+	BBPkeepref( *ret = tids->batCacheid);
+	return MAL_SUCCEED;
+}
+
+str
 BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	bat *ret = getArgReference_bat(stk,pci,0);
@@ -336,7 +364,6 @@ str
 BSKTimportInternal(Client cntxt, int bskt)
 {
 	char buf[PATHLENGTH];
-	mvc *m;
 	BAT *b;
 	int first=1,i,j;
 	BUN cnt =0, bcnt=0;
@@ -347,9 +374,7 @@ BSKTimportInternal(Client cntxt, int bskt)
 	str dir = baskets[bskt].source;
 	str cname= NULL;
 
-	msg= getSQLContext(cntxt,NULL, &m, NULL);
-	if( msg != MAL_SUCCEED)
-		return msg;
+	(void)cntxt;
 	// check access permission to directory first
 	if( access (dir , F_OK | R_OK)){
 		throw(SQL, "iot.basket", "Could not access the basket directory %s. error %d",dir,errno);
@@ -692,7 +717,6 @@ BSKTupdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     BAT *bn=0, *rid=0, *bval = 0;
 	int bskt;
 
-	return 0;
 	(void) cntxt;
 	(void) mb;
     *res = 0;

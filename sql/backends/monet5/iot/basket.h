@@ -64,6 +64,7 @@ typedef struct{
 
 iot_export BasketRec *baskets;
 
+iot_export str BSKTtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTregisterInternal(Client cntxt, MalBlkPtr mb, str sch, str tbl);
 iot_export str BSKTregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

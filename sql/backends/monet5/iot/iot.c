@@ -181,9 +181,10 @@ IOTreceptorThread(void *dummy)
 		baskets[idx].source);
 	/* continously scan the container for baskets */
 		BSKTimportInternal(cntxt, idx);
-    _DEBUG_IOT_ mnstr_printf(GDKout, "#iot.receptor %s.%s imported the  file\n",
+    _DEBUG_IOT_ mnstr_printf(GDKout, "#iot.receptor %s.%s imported the file, "BUNFMT" records\n",
 		baskets[idx].schema_name, 
-		baskets[idx].table_name);
+		baskets[idx].table_name,
+		baskets[idx].count);
 }
 
 str
