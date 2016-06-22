@@ -79,8 +79,8 @@ def main():
     time.sleep(5)
 
     if iot_client.returncode is None and iot_api.returncode is None:
-        TextTestRunner(verbosity=2).run(TestSuite(tests=[NullablesTest(iot_client_path=iot_client_path,
-                                                                       iot_api_path=iot_api_path)]))
+        TextTestRunner(verbosity=2).run(TestSuite(tests=[
+            NullablesTest(iot_client_path=iot_client_path, iot_api_path=iot_api_path)]))
     else:
         print 'Processes finished', iot_client.returncode, iot_api.returncode
         shutil.rmtree(test_dir, ignore_errors=True)

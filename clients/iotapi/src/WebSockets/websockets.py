@@ -68,10 +68,10 @@ class IOTAPI(WebSocket):
             elif input_schema['request'] in UNSUBSCRIBE_OPTS:
                 self.unsubscribe(input_schema['schema'], input_schema['stream'])
             elif input_schema['request'] in READ_OPTS:
-                basket = input_schema.get('basket', 1)
                 limit = input_schema.get('limit', 100)
                 offset = input_schema.get('offset', 0)
-                self.read_stream_batch(input_schema['schema'], input_schema['stream'], basket, limit, offset)
+                self.read_stream_batch(input_schema['schema'], input_schema['stream'],
+                                       input_schema['basket'], limit, offset)
             elif input_schema['request'] in INFO_OPTS:
                 if len(input_schema) == 1:  # get all streams information
                     self.get_streams_data()
@@ -88,7 +88,7 @@ class IOTAPI(WebSocket):
         self._subscriptions[concatenated_name] = stream
         self._subscriptions_locker.release()
         self.sendJSONMessage((('response', 'subscribed'), ('schema', schema_name), ('stream', stream_name)))
-        add_log(20, ''.join(['Client ', self.address[0], 'subscribed to stream ', concatenated_name]))
+        add_log(20, ''.join(['Client ', self.address[0], ' subscribed to stream ', concatenated_name]))
 
     def unsubscribe(self, schema_name, stream_name):
         concatenated_name = IOTStreams.get_context_entry_name(schema_name, stream_name)
