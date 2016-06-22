@@ -29,7 +29,6 @@
 #include "petrinet.h"
 
 MT_Lock iotLock MT_LOCK_INITIALIZER("iotLock");
-#define IOTout mal_clients[1].fdout
 
 // locate the SQL procedure in the catalog
 static str
@@ -176,13 +175,13 @@ IOTreceptorThread(void *dummy)
 	if( cntxt == NULL)
 		return;
 	//SQLinitClient(cntxt);
-    _DEBUG_IOT_ mnstr_printf(IOTout, "#iot.receptor %s.%s started for %s\n",
+    _DEBUG_IOT_ mnstr_printf(GDKout, "#iot.receptor %s.%s started for %s\n",
 		baskets[idx].schema_name, 
 		baskets[idx].table_name, 
 		baskets[idx].source);
 	/* continously scan the container for baskets */
 		BSKTimportInternal(cntxt, idx);
-    _DEBUG_IOT_ mnstr_printf(IOTout, "#iot.receptor %s.%s imported the  file\n",
+    _DEBUG_IOT_ mnstr_printf(GDKout, "#iot.receptor %s.%s imported the  file\n",
 		baskets[idx].schema_name, 
 		baskets[idx].table_name);
 }

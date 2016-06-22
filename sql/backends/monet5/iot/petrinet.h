@@ -26,8 +26,6 @@
 
 #define _DEBUG_PETRINET_ if(0)
 
-#define PNout mal_clients[0].fdout
-
 #define PNINIT 0
 #define PNRUNNING 1	   /* query is running */
 #define PNWAIT 2       /* wait for data */

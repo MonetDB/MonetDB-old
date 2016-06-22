@@ -122,7 +122,7 @@ BSKTnewbasket(mvc *m, sql_schema *s, sql_table *t)
 
 	baskets[idx].schema_name = GDKstrdup(s->base.name);
 	baskets[idx].table_name = GDKstrdup(t->base.name);
-	baskets[idx].seen = * timestamp_nil;
+	(void) MTIMEcurrent_timestamp(&baskets[idx].seen);
 
 	baskets[idx].status = BSKTWAIT;
 	baskets[idx].count = 0;
@@ -537,6 +537,7 @@ BSKTtumbleInternal(Client cntxt, str sch, str tbl, int stride)
 		if( BATcount(b) == 0){
 			baskets[bskt].status = BSKTWAIT;
 		}
+		BATderiveProps(b, FALSE);
 	}
 	return MAL_SUCCEED;
 }
@@ -667,7 +668,7 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		else
 			BUNappend(bn, value, TRUE);
 		cnt = BATcount(bn);
-		//BATderiveProps(bn, FALSE);
+		BATderiveProps(bn, FALSE);
 	} else throw(SQL, "basket.append", "Cannot access target column %s.%s.%s",sname,tname,cname);
 	
 	if(cnt){
