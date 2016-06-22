@@ -518,8 +518,9 @@ BSKTexportInternal(Client cntxt, int bskt)
 
 	(void)cntxt;
 	// check access permission to directory first
+	(void) mkdir(dir,0755);
 	if( access (dir , F_OK | R_OK)){
-		throw(SQL, "iot.basket", "Could not access the basket directory %s. error %d",dir,errno);
+		throw(SQL, "iot.basket", "Could not access the target basket directory %s. error %d",dir,errno);
 	}
 	
 	/* check for leftover files */
