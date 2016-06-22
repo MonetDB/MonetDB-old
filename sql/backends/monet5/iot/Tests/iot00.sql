@@ -13,10 +13,10 @@ end;
 call iot.query('iot','cq00');
 --call iot.query('insert into iot.result select min(t), count(*), avg(val) from iot.stmp;');
 
-select * from  iot.baskets();
-select * from  iot.queries();
-select * from  iot.inputs();
-select * from  iot.outputs();
+--select * from  iot.baskets();
+--select * from  iot.queries();
+--select * from  iot.inputs();
+--select * from  iot.outputs();
 
 -- stop all continuous queries and wait for it
 call iot.pause();

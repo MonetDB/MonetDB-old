@@ -50,8 +50,8 @@ Ready.
 % char # type
 % 6 # length
 [ "RESULT"	]
-#select * from stmp1;
-% iot.stmp1,	iot.stmp1,	iot.stmp1 # table_name
+#select * from stmp2;
+% iot.stmp2,	iot.stmp2,	iot.stmp2 # table_name
 % t,	sensor,	val # name
 % timestamp,	int,	decimal # type
 % 26,	1,	10 # length
@@ -62,6 +62,7 @@ Ready.
 % 26,	1,	10 # length
 [ 2005-09-23 12:34:26.000000,	1,	11.00	]
 [ 2005-09-23 12:34:27.000000,	1,	11.00	]
+[ 2005-09-23 12:34:27.000000,	1,	11.00	]
 #select * from result2;
 % iot.result2,	iot.result2,	iot.result2 # table_name
 % t,	sensor,	val # name
@@ -69,6 +70,20 @@ Ready.
 % 26,	1,	10 # length
 [ 2005-09-23 12:34:28.000000,	1,	13.00	]
 [ 2005-09-23 12:34:28.000000,	1,	13.00	]
+[ 2005-09-23 12:34:28.000000,	1,	13.00	]
+[ 2005-09-23 12:34:28.000000,	1,	13.00	]
+[ 2005-09-23 12:34:28.000000,	1,	13.00	]
+[ 2005-09-23 12:34:28.000000,	1,	13.00	]
+[ 2005-09-23 12:34:28.000000,	1,	13.00	]
+#select * from iot.errors();
+% .,	. # table_name
+% table,	error # name
+% clob,	clob # type
+% 0,	0 # length
+#drop procedure cq02;
+#drop table stmp2;
+#drop table result1;
+#drop table result2;
 
 # 08:21:23 >  
 # 08:21:23 >  "Done."

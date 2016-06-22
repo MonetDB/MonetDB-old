@@ -73,29 +73,6 @@ Ready.
 #begin
 #	insert into result select min(t), count(*), avg(val) from stmp;
 #end;
-#select * from  iot.baskets();
-% .,	.,	.,	.,	.,	.,	.,	.,	.,	.,	. # table_name
-% schema,	table,	status,	threshold,	winsize,	winstride,	timeslice,	timestride,	heartbeat,	seen,	events # name
-% clob,	clob,	clob,	int,	int,	int,	int,	int,	int,	timestamp,	int # type
-% 3,	4,	7,	1,	1,	2,	1,	1,	1,	26,	1 # length
-[ "iot",	"stmp",	"waiting",	0,	0,	-1,	0,	0,	0,	NULL,	0	]
-#select * from  iot.queries();
-% .,	.,	.,	.,	.,	.,	.,	. # table_name
-% schema,	function,	status,	lastrun,	cycles,	events,	time,	error # name
-% clob,	clob,	clob,	timestamp,	int,	int,	bigint,	clob # type
-% 3,	4,	7,	26,	1,	1,	1,	0 # length
-[ "iot",	"cq00",	"waiting",	NULL,	0,	0,	0,	""	]
-#select * from  iot.inputplaces();
-% .,	.,	.,	. # table_name
-% s,	t,	sch,	qry # name
-% clob,	clob,	clob,	clob # type
-% 3,	4,	3,	4 # length
-[ "iot",	"stmp",	"iot",	"cq00"	]
-#select * from  iot.outputplaces();
-% .,	.,	.,	. # table_name
-% s,	t,	sch,	qry # name
-% clob,	clob,	clob,	clob # type
-% 0,	0,	0,	0 # length
 #insert into stmp values('2005-09-23 12:34:26.736',1,12.34);
 [ 1	]
 #select * from stmp;
