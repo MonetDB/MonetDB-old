@@ -207,7 +207,6 @@ typedef struct MALBLK {
 	int inlineProp;				/* inline property */
 	int unsafeProp;				/* unsafe property */
 
-	int inuse;					/* reference count the number of active invocations */
 	int errors;					/* left over errors */
 	int typefixed;				/* no undetermined instruction */
 	int flowfixed;				/* all flow instructions are fixed */

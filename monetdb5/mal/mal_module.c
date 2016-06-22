@@ -229,8 +229,6 @@ void deleteSymbol(Module scope, Symbol prg){
 	InstrPtr sig;
 	int t;
 
-	if( prg->def->inuse)
-		return; // still being used
 	sig = getSignature(prg);
 	if( getModuleId(sig) && getModuleId(sig)!= scope->name ){
 		/* move the definition to the proper place */
