@@ -237,6 +237,10 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				getArg(p,1) = lastmvc;
 				lastmvc = getArg(p,0);
 			}
+			if ( (getModuleId(p) == sqlRef ||getModuleId(p)== basketRef) && getFunctionId(p) == updateRef ){
+				getArg(p,1) = lastmvc;
+				lastmvc = getArg(p,0);
+			}
 			pushInstruction(mb, p);
 		}
 
