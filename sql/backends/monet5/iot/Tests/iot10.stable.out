@@ -38,20 +38,29 @@ Ready.
 #			tmp_count = tmp_count + (select count(*) from iot.stmp10);
 #	delete from iot.stmp10;
 #end;
-#insert into stmp10 values('2005-09-23 12:34:26.736',1,12.34);
+#insert into stmp10 values('2005-09-23 12:34:26.000',1,9.0);
+[ 1	]
+#insert into stmp10 values('2005-09-23 12:34:27.000',1,11.0);
+[ 1	]
+#insert into stmp10 values('2005-09-23 12:34:28.000',1,13.0);
+[ 1	]
+#insert into stmp10 values('2005-09-23 12:34:28.000',1,15.0);
 [ 1	]
 #select * from stmp10;
 % iot.stmp10,	iot.stmp10,	iot.stmp10 # table_name
 % t,	sensor,	val # name
 % timestamp,	int,	decimal # type
 % 26,	1,	10 # length
-[ 2005-09-23 12:34:26.736000,	1,	12.34	]
+[ 2005-09-23 12:34:26.000000,	1,	9.00	]
+[ 2005-09-23 12:34:27.000000,	1,	11.00	]
+[ 2005-09-23 12:34:28.000000,	1,	13.00	]
+[ 2005-09-23 12:34:28.000000,	1,	15.00	]
 #select * from tmp_aggregate;
 % iot.tmp_aggregate,	iot.tmp_aggregate # table_name
 % tmp_total,	tmp_count # name
 % decimal,	decimal # type
 % 10,	10 # length
-[ 12.34,	1.00	]
+[ 48.00,	4.00	]
 #select * from iot.errors();
 % .,	. # table_name
 % table,	error # name
