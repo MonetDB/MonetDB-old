@@ -60,6 +60,9 @@ create procedure iot.period(n integer)
 create procedure iot.import("schema" string, "table" string, dirpath string)
 	external name iot.import;
 
+create procedure iot.export("schema" string, "table" string, dirpath string)
+	external name iot.export;
+
 -- input/output places
 create procedure iot.receptor("schema" string, "table" string, dir string)
 	external name iot.receptor;

@@ -504,6 +504,108 @@ BSKTimport(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return BSKTimportInternal(cntxt,bskt);
 }
 
+static str
+BSKTexportInternal(Client cntxt, int bskt)
+{
+	char buf[PATHLENGTH];
+	BAT *b;
+	int i;
+	str msg= MAL_SUCCEED;
+	FILE *f;
+	long fsize;
+	str dir = baskets[bskt].source;
+	str cname= NULL;
+
+	(void)cntxt;
+	// check access permission to directory first
+	if( access (dir , F_OK | R_OK)){
+		throw(SQL, "iot.basket", "Could not access the basket directory %s. error %d",dir,errno);
+	}
+	
+	/* check for leftover files */
+	for( i=0; i < MAXCOLS && baskets[bskt].cols[i]; i++){
+		cname = baskets[bskt].cols[i];
+		snprintf(buf,PATHLENGTH, "%s%c%s",dir,DIR_SEP, cname);
+		_DEBUG_BASKET_ mnstr_printf(BSKTout,"Check for the file %s\n",buf);
+		if( !access (buf,R_OK))
+			throw(MAL,"iot.export","Left over %s file %s\n",cname, buf);
+		b = baskets[bskt].bats[i];
+		if( b == 0)
+			throw(MAL,"iot.export","Could not access the column %s\n",cname);
+	}
+
+	// types are already checked during stream initialization
+	MT_lock_set(&iotLock);
+	for( i=0; i < MAXCOLS && baskets[bskt].cols[i]; i++){
+		cname = baskets[bskt].cols[i];
+		snprintf(buf,PATHLENGTH, "%s%c%s",dir,DIR_SEP, cname);
+		_DEBUG_BASKET_ mnstr_printf(BSKTout,"Attach the file %s\n",buf);
+		f=  fopen(buf,"w");
+		if( f == NULL){
+			msg= createException(MAL,"iot.export","Could not access the column %s file %s\n",cname, buf);
+			break;
+		}
+		b = baskets[bskt].bats[i];
+		assert( b);
+
+		switch(ATOMstorage(b->ttype)){
+		case TYPE_bit:
+		case TYPE_bte:
+		case TYPE_sht:
+		case TYPE_int:
+		case TYPE_void:
+		case TYPE_oid:
+		case TYPE_flt:
+		case TYPE_dbl:
+		case TYPE_lng:
+#ifdef HAVE_HGE
+		case TYPE_hge:
+#endif
+			/* append the binary partition */
+			fsize = BATcount(b) * ATOMsize(b->ttype);
+			if( fwrite(Tloc(b, BUNlast(b)),1,fsize, f) != (size_t) fsize){
+				(void) fclose(f);
+				msg= createException(MAL,"iot.export","Could not write complete basket file %s\n",baskets[bskt].cols[i]);
+				goto recover;
+			}
+		break;
+		case TYPE_str:
+			msg= createException(MAL,"iot.export","Export type string not yet supported\n");
+			break;
+		default:
+			msg= createException(MAL,"iot.export","export type not yet supported\n");
+		}
+		(void) fclose(f);
+	}
+
+	/* reset all BATs when they are exported */
+	for( i=0; i < MAXCOLS && baskets[bskt].cols[i]; i++){
+		b = baskets[bskt].bats[i];
+		assert( b );
+		BATsetcount(b,0);
+	}
+
+recover:
+	MT_lock_unset(&iotLock);
+    return msg;
+}
+
+str 
+BSKTexport(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    str sch = *getArgReference_str(stk, pci, 1);
+    str tbl = *getArgReference_str(stk, pci, 2);
+    str dir = *getArgReference_str(stk, pci, 3);
+    int bskt;
+
+	BSKTregisterInternal(cntxt, mb, sch, tbl);
+    bskt = BSKTlocate(sch,tbl);
+	if (bskt == 0)
+		throw(SQL, "iot.basket", "Could not find the basket %s.%s",sch,tbl);
+	baskets[bskt].source = GDKstrdup(dir);
+	return BSKTexportInternal(cntxt,bskt);
+}
+
 /* remove tuples from a basket according to the sliding policy */
 #define ColumnShift(B,TPE, STRIDE) { \
 	TPE *first= (TPE*) Tloc(B, BUNfirst(B));\

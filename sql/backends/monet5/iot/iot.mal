@@ -77,6 +77,10 @@ pattern iot.import(sch:str, tbl:str, dir:str):void
 address BSKTimport
 comment "Import a single directory with the binary files for a stream table";
 
+pattern iot.export(sch:str, tbl:str, dir:str):void
+address BSKTexport
+comment "Export a stream table to binary files;
+
 pattern iot.baskets()(sch:bat[:str],nme:bat[:str], status:bat[:str], threshold:bat[:int], winsize:bat[:int], winstride:bat[:int], timeslice:bat[:int], 
 timestride:bat[:int], heartbeat:bat[:int], seen:bat[:timestamp], events:bat[:int])
 address BSKTtable

@@ -84,7 +84,7 @@ int pnettop = 0;
 int enabled[MAXPN];     /*array that contains the id's of all queries that are enable to fire*/
 
 static int pnstatus = PNINIT;
-static int cycleDelay = 500; /* be careful, it affects response/throughput timings */
+static int cycleDelay = 50; /* be careful, it affects response/throughput timings */
 
 str PNperiod(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
