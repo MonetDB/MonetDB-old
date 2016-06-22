@@ -88,7 +88,19 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if( strcmp(schemas[j], schemas[btop])==0  && strcmp(tables[j],tables[btop]) ==0)
 				break;
 
-			output[j]= output[j] || 1;
+			output[j]= 1;
+			if( j == btop)
+				btop++;
+		}
+		if( getModuleId(p)== basketRef && getFunctionId(p) == updateRef ){
+			OPTDEBUGiot mnstr_printf(cntxt->fdout, "#iot stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
+			tables[btop]= getVarConstant(mb, getArg(p,3)).val.sval;
+			for( j =0; j< btop ; j++)
+			if( strcmp(schemas[j], schemas[btop])==0  && strcmp(tables[j],tables[btop]) ==0)
+				break;
+
+			output[j]= 1;
 			if( j == btop)
 				btop++;
 		}
@@ -157,8 +169,10 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				OPTDEBUGiot 
 					mnstr_printf(cntxt->fdout, "#iot optimizer found stream %d\n",fnd);
 				if( fnd){
+					getModuleId(p) = basketRef;
+					pushInstruction(mb,p);
 					alias[getArg(p,0)] = -1;
-					freeInstruction(p);
+					//freeInstruction(p);
 					continue;
 				}
 			}
