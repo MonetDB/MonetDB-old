@@ -3,7 +3,7 @@ set schema iot;
 set optimizer='iot_pipe';
 
 create stream table stmp10 (t timestamp, sensor integer, val decimal(8,2)) ;
-iot.window('iot','stmp10',2);
+call iot.window('iot','stmp10',2);
 
 create table tmp_aggregate(tmp_total decimal(8,2), tmp_count decimal(8,2));
 insert into tmp_aggregate values(0.0,0.0);

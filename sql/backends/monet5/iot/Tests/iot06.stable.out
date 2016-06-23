@@ -1,0 +1,137 @@
+stdout of test 'iot06` in directory 'sql/backends/monet5/iot` itself:
+
+
+# 22:48:47 >  
+# 22:48:47 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=32806" "--set" "mapi_usock=/var/tmp/mtest-25263/.s.monetdb.32806" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mk/iot//Linux/var/MonetDB/mTests_sql_backends_monet5_iot"
+# 22:48:47 >  
+
+# MonetDB 5 server v11.24.0
+# This is an unreleased version
+# Serving database 'mTests_sql_backends_monet5_iot', using 8 threads
+# Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs and 128bit integers dynamically linked
+# Found 15.589 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2016 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://vienna.da.cwi.nl:32806/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-25263/.s.monetdb.32806
+# MonetDB/GIS module loaded
+# MonetDB/SQL module loaded
+# MonetDB/iot loaded
+
+Ready.
+
+# 22:48:48 >  
+# 22:48:48 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-25263" "--port=32806"
+# 22:48:48 >  
+
+#set schema iot;
+#set optimizer='iot_pipe';
+#create stream table tmp06 (t timestamp, sensor integer, val decimal(8,2)) ;
+#create table result(like tmp06);
+#create procedure cq06()
+#begin
+#	insert into result select min(t), count(*), avg(val) from tmp06;
+#end;
+#call iot.show('iot','cq06');
+% .explain # table_name
+% mal # name
+% clob # type
+% 63 # length
+unsafe function iot.cq06():void;
+    X_1 := sql.mvc();
+    X_33 := basket.register(X_1,"iot","tmp06",0);
+barrier X_56 := language.dataflow();
+    C_2:bat[:oid] := basket.tid(X_1,"iot","tmp06");
+    X_5:bat[:timestamp] := basket.bind(X_33,"iot","tmp06","t");
+    X_8 := aggr.min(X_5);
+exit X_56;
+    X_9 := sql.append(X_33,"iot","result","t",X_8);
+    X_11 := aggr.count(X_5);
+    X_12 := calc.int(X_11);
+    X_13 := sql.append(X_9,"iot","result","sensor",X_12);
+    X_15:bat[:int] := basket.bind(X_13,"iot","tmp06","val");
+    X_17:bat[:dbl] := batcalc.dbl(2,X_15);
+    X_19:dbl := aggr.avg(X_17);
+    X_20 := calc.int(X_19,8,2);
+    X_22 := sql.append(X_13,"iot","result","val",X_20);
+    X_34 := basket.tumble(X_22,"iot","tmp06");
+    basket.commit(X_34,"iot","tmp06");
+catch SQLexception:str;
+    iot.error("user","cq06",SQLexception);
+exit SQLexception:str;
+catch MALexception:str;
+    iot.error("user","cq06",MALexception);
+exit MALexception:str;
+end iot.cq06;
+#inline               actions= 0 time=4 usec 
+#candidates           actions= 1 time=1 usec 
+#remap                actions= 1 time=15 usec 
+#iot                  actions= 1 time=34 usec 
+#costmodel            actions= 1 time=1 usec 
+#coercion             actions= 0 time=2 usec 
+#evaluate             actions= 0 time=4 usec 
+#aliases              actions= 0 time=9 usec 
+#mergetable           actions= 0 time=45 usec 
+#deadcode             actions= 0 time=9 usec 
+#aliases              actions= 0 time=8 usec 
+#constants            actions= 3 time=8 usec 
+#commonTerms          actions= 0 time=6 usec 
+#projectionpath       actions= 0 time=9 usec 
+#deadcode             actions= 0 time=8 usec 
+#reduce               actions=33 time=27 usec 
+#matpack              actions= 0 time=4 usec 
+#dataflow             actions=29 time=34 usec 
+#multiplex            actions= 0 time=4 usec 
+#profiler             actions= 1 time=1 usec 
+#garbagecollector     actions= 1 time=23 usec 
+#total                actions= 1 time=396 usec 
+#select iot.gettumble('iot','tmp06');
+% .L # table_name
+% gettumble_single_value # name
+% int # type
+% 2 # length
+[ -1	]
+#select iot.gettumble('iot','tmp06');
+% .L # table_name
+% gettumble_single_value # name
+% int # type
+% 1 # length
+[ 5	]
+#select iot.getwindow('iot','tmp06');
+% .L # table_name
+% getwindow_single_value # name
+% int # type
+% 1 # length
+[ 0	]
+#select iot.getwindow('iot','tmp06');
+% .L # table_name
+% getwindow_single_value # name
+% int # type
+% 1 # length
+[ 7	]
+#select iot.getheartbeat('iot','tmp06');
+% .L # table_name
+% getheartbeat_single_value # name
+% int # type
+% 1 # length
+[ 0	]
+#select iot.getheartbeat('iot','tmp06');
+% .L # table_name
+% getheartbeat_single_value # name
+% int # type
+% 1 # length
+[ 8	]
+#select * from iot.errors();
+% .,	. # table_name
+% table,	error # name
+% clob,	clob # type
+% 0,	0 # length
+#drop procedure cq06;
+#drop table tmp06;
+#drop table result;
+
+# 22:48:48 >  
+# 22:48:48 >  "Done."
+# 22:48:48 >  
+

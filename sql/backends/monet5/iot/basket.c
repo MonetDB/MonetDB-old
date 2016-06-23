@@ -239,6 +239,24 @@ BSKTheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
+BSKTgetheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	int *ret = getArgReference_int(stk,pci,0);
+	str sch = *getArgReference_str(stk,pci,1);
+	str tbl = *getArgReference_str(stk,pci,2);
+	int idx;
+
+	(void) cntxt;
+	(void) mb;
+
+	idx = BSKTlocate(sch, tbl);
+	if( idx == 0)
+		throw(SQL,"basket.heartbeat","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+	*ret = baskets[idx].heartbeat;
+	return MAL_SUCCEED;
+}
+
+str
 BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str sch = *getArgReference_str(stk,pci,1);
@@ -259,6 +277,23 @@ BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	baskets[idx].winsize = elm;
 	baskets[idx].winstride = elm;
+	return MAL_SUCCEED;
+}
+
+str
+BSKTgetwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	int *ret = getArgReference_int(stk,pci,0);
+	str sch = *getArgReference_str(stk,pci,1);
+	str tbl = *getArgReference_str(stk,pci,2);
+	int idx;
+
+	(void) cntxt;
+	(void) mb;
+	idx = BSKTlocate(sch, tbl);
+	if( idx == 0)
+		throw(SQL,"basket.window","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+	*ret = baskets[idx].winsize;
 	return MAL_SUCCEED;
 }
 
@@ -698,6 +733,28 @@ BSKTtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
+BSKTgettumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	int *ret;
+	str sch;
+	str tbl;
+	int idx;
+
+	(void) cntxt;
+	(void) mb;
+
+	ret = getArgReference_int(stk,pci,0);
+	sch = *getArgReference_str(stk,pci,1);
+	tbl = *getArgReference_str(stk,pci,2);
+
+	idx = BSKTlocate(sch, tbl);
+	if( idx == 0)
+		throw(SQL,"basket.tumble","Stream table %s.%s not accessible \n",sch,tbl);
+	*ret  =(int) baskets[idx].winstride;
+	return MAL_SUCCEED;
+}
+
+str
 BSKTsettumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str sch = *getArgReference_str(stk,pci,1);
@@ -708,7 +765,7 @@ BSKTsettumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 	idx = BSKTlocate(sch, tbl);
 	if( idx ==0)
-		throw(SQL,"basket.tumble","Stream table %s.%s not accessible to empty\n",sch,tbl);
+		throw(SQL,"basket.tumble","Stream table %s.%s not accessible\n",sch,tbl);
 	baskets[idx].winstride = *(int*)getArgReference_int(stk,pci,3);
 	return MAL_SUCCEED;
 }
@@ -725,7 +782,7 @@ BSKTcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	idx = BSKTlocate(sch, tbl);
 	if( idx ==0)
-		throw(SQL,"basket.commit","Stream table %s.%s not accessible to empty\n",sch,tbl);
+		throw(SQL,"basket.commit","Stream table %s.%s not accessible\n",sch,tbl);
 	/* release the basket lock */
 	return MAL_SUCCEED;
 }

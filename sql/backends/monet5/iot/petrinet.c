@@ -123,8 +123,38 @@ PNlocate(str modname, str fcnname)
 	int i;
 	for (i = 0; i < pnettop; i++)
 		if (strcmp(pnet[i].modname, modname) == 0 && strcmp(pnet[i].fcnname, fcnname) == 0)
-			break;
+			return i;
 	return i;
+}
+
+str
+PNshow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	str sch = *getArgReference_str(stk,pci,1);
+	str fcn = *getArgReference_str(stk,pci,2);
+	int idx;
+	int i;
+	InstrPtr p;
+	Symbol s;
+
+	(void) cntxt;
+	(void) mb;
+
+	idx = PNlocate(sch, fcn);
+	if( idx == pnettop)
+		throw(SQL,"basket.commit","Continous query %s.%s not accessible\n",sch,fcn);
+	/* release the basket lock */
+	for( i= 1; i< pnet[idx].mb->stop; i++){
+		p= getInstrPtr(pnet[idx].mb,i);
+		if( strcmp(getModuleId(p),sch) == 0 && strcmp(getFunctionId(p), fcn) ==0){
+			s = findSymbol(0,getModuleId(p), getFunctionId(p));
+			if( s) {
+				printFunction(cntxt->fdout, s->def, 0, LIST_MAL_NAME | LIST_MAL_VALUE  | LIST_MAL_MAPI);
+				return MAL_SUCCEED;
+			}
+		}
+	}
+	throw(SQL,"basket.commit","Continous query %s.%s not accessible\n",sch,fcn);
 }
 
 /* A transition is only allowed when all inputs are privately used */

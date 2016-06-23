@@ -73,9 +73,12 @@ iot_export str BSKTdump(void *ret);
 
 iot_export str BSKTthreshold(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTgetheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTgetwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTreset(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTsettumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTgettumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 

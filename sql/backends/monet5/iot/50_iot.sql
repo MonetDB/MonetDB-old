@@ -70,20 +70,35 @@ create procedure iot.emitter("schema" string, "table" string, dir string)
 	external name iot.emitter;
 
 
-create procedure iot.heartbeat("schema" string, "table" string, msec int)
+create procedure iot.heartbeat("schema" string, "table" string, msec integer)
 	external name iot.heartbeat;
 
 -- cleaup activities 
-create procedure iot.tumble("schema" string, "table" string, elem int)
+create procedure iot.tumble("schema" string, "table" string, elem integer)
 	external name iot.tumble;
 
-create procedure iot.window("schema" string, "table" string, elem int)
+create procedure iot.window("schema" string, "table" string, elem integer)
 	external name iot.window;
 
 -- Inspection tables
+create procedure iot."explain"("schema" string, "table" string)
+external name iot."explain";
+
+create function iot.gettumble("schema" string, "table" string) returns integer
+external name iot.gettumble;
+
+create function iot.getwindow("schema" string, "table" string) returns integer
+external name iot.getwindow;
+
+create function iot.getheartbeat("schema" string, "table" string) returns integer
+external name iot.getheartbeat;
+
 create function iot.baskets()
 returns table( "schema" string, "table" string, "status" string, threshold int, winsize int, winstride int, timeslice int, timestride int, heartbeat int, seen timestamp, events int)
 external name iot.baskets;
+
+create procedure iot.show("schema" string, "query" string)
+external name iot.show;
 
 create function iot.queries()
  returns table( "schema" string, "function" string, "status" string, lastrun timestamp, cycles int, events int, time bigint, error string)
