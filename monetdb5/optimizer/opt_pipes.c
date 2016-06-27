@@ -46,12 +46,12 @@ static struct PIPELINES {
  */
 	{"minimal_pipe",
 	 "optimizer.inline();"
-	 "optimizer.candidates();"
 	 "optimizer.remap();"
 	 "optimizer.deadcode();"
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
+	 "optimizer.candidates();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The default pipe line contains as of Feb2010
@@ -65,13 +65,12 @@ static struct PIPELINES {
  */
 	{"default_pipe",
 	 "optimizer.inline();"
-	 "optimizer.candidates();"
 	 "optimizer.remap();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
-	 "optimizer.aliases();"
 	 "optimizer.pushselect();"
+	 "optimizer.aliases();"
 	 "optimizer.mitosis();"
 	 "optimizer.mergetable();"
 	 "optimizer.deadcode();"
@@ -88,6 +87,7 @@ static struct PIPELINES {
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
+	 "optimizer.candidates();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /*
@@ -95,7 +95,6 @@ static struct PIPELINES {
  */
 	{"volcano_pipe",
 	 "optimizer.inline();"
-	 "optimizer.candidates();"
 	 "optimizer.remap();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
@@ -119,6 +118,7 @@ static struct PIPELINES {
 	 "optimizer.generator();"
 	 "optimizer.volcano();"
 	 "optimizer.profiler();"
+	 "optimizer.candidates();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The no_mitosis pipe line is (and should be kept!) identical to the
@@ -134,7 +134,6 @@ static struct PIPELINES {
 	{"no_mitosis_pipe",
 	 "optimizer.inline();"
 	 "optimizer.remap();"
-	 "optimizer.candidates();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
@@ -155,6 +154,7 @@ static struct PIPELINES {
 	 "optimizer.multiplex();"
 	 "optimizer.profiler();"
 	 "optimizer.generator();"
+	 "optimizer.candidates();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The sequential pipe line is (and should be kept!) identical to the
@@ -169,7 +169,6 @@ static struct PIPELINES {
  */
 	{"sequential_pipe",
 	 "optimizer.inline();"
-	 "optimizer.candidates();"
 	 "optimizer.remap();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
@@ -190,6 +189,7 @@ static struct PIPELINES {
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
+	 "optimizer.candidates();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* Experimental pipelines stressing various components under
@@ -238,6 +238,17 @@ static struct PIPELINES {
  * as it is intended for internal use.",
  */
 #include "opt_pipes.h"
+#include "optimizer_private.h"
+
+static MT_Lock pipeLock MT_LOCK_INITIALIZER("pipeLock");
+
+void
+optPipeInit(void)
+{
+#ifdef NEED_MT_LOCK_INIT
+	MT_lock_init(&pipeLock, "pipeLock");
+#endif
+}
 
 /* the session_pipe is the one defined by the user */
 str
@@ -247,14 +258,19 @@ addPipeDefinition(Client cntxt, str name, str pipe)
 	str msg;
 	struct PIPELINES oldpipe;
 
+	MT_lock_set(&pipeLock);
 	for (i = 0; i < MAXOPTPIPES && pipes[i].name; i++)
 		if (strcmp(name, pipes[i].name) == 0)
 			break;
 
-	if (i == MAXOPTPIPES)
+	if (i == MAXOPTPIPES) {
+		MT_lock_unset(&pipeLock);
 		throw(MAL, "optimizer.addPipeDefinition", "Out of slots");
-	if (pipes[i].name && pipes[i].builtin)
+	}
+	if (pipes[i].name && pipes[i].builtin) {
+		MT_lock_unset(&pipeLock);
 		throw(MAL, "optimizer.addPipeDefinition", "No overwrite of built in allowed");
+	}
 
 	/* save old value */
 	oldpipe = pipes[i];
@@ -262,15 +278,18 @@ addPipeDefinition(Client cntxt, str name, str pipe)
 	pipes[i].def = GDKstrdup(pipe);
 	pipes[i].status = GDKstrdup("experimental");
 	pipes[i].mb = NULL;
+	MT_lock_unset(&pipeLock);
 	msg = compileOptimizer(cntxt, name);
 	if (msg) {
 		/* failed: restore old value */
+		MT_lock_set(&pipeLock);
 		GDKfree(pipes[i].name);
 		GDKfree(pipes[i].def);
 		if (pipes[i].mb)
 			freeMalBlk(pipes[i].mb);
 		GDKfree(pipes[i].status);
 		pipes[i] = oldpipe;
+		MT_lock_unset(&pipeLock);
 	} else {
 		/* succeeded: destroy old value */
 		if (oldpipe.name)
@@ -281,11 +300,6 @@ addPipeDefinition(Client cntxt, str name, str pipe)
 			freeMalBlk(oldpipe.mb);
 		if (oldpipe.status)
 			GDKfree(oldpipe.status);
-		if (++i < MAXOPTPIPES) {
-			pipes[i].name = pipes[i].def = pipes[i].status = pipes[i].prerequisite = NULL;
-			pipes[i].mb = NULL;
-			pipes[i].builtin = 0;
-		}
 	}
 	return msg;
 }
@@ -430,15 +444,18 @@ compileOptimizer(Client cntxt, str name)
 	ClientRec c;
 
 	memset((char*)&c, 0, sizeof(c));
+	MT_lock_set(&pipeLock);
 	for (i = 0; i < MAXOPTPIPES && pipes[i].name; i++) {
 		if (strcmp(pipes[i].name, name) == 0 && pipes[i].mb == 0) {
 			/* precompile the pipeline as MAL string */
-			MCinitClientRecord(&c,(oid) 1, 0, 0);
-			c.nspace = newModule(NULL, putName("user", 4));
+			MCinitClientRecord(&c, cntxt->user, 0, 0);
+			c.nspace = newModule(NULL, putName("user"));
 			c.father = cntxt;	/* to avoid conflicts on GDKin */
 			c.fdout = cntxt->fdout;
-			if (setScenario(&c, "mal"))
+			if (setScenario(&c, "mal")) {
+				MT_lock_unset(&pipeLock);
 				throw(MAL, "optimizer.addOptimizerPipe", "failed to set scenario");
+			}
 			(void) MCinitClientThread(&c);
 			for (j = 0; j < MAXOPTPIPES && pipes[j].def; j++) {
 				if (pipes[j].mb == NULL) {
@@ -454,6 +471,8 @@ compileOptimizer(Client cntxt, str name)
 			/* don't cleanup thread info since the thread continues to
 			 * exist, just this client record is closed */
 			c.errbuf = NULL;
+			/* we must clear c.mythread because we're reusing a Thread
+			 * and must not delete that one */
 			c.mythread = 0;
 			/* destroy bstream using free */
 			free(c.fdin->buf);
@@ -464,12 +483,13 @@ compileOptimizer(Client cntxt, str name)
 				c.nspace = 0;
 			}
 			MCcloseClient(&c);
-			if (msg != MAL_SUCCEED || 
-			   (msg = validateOptimizerPipes()) != MAL_SUCCEED)
-				return msg;
+			if (msg != MAL_SUCCEED ||
+				(msg = validateOptimizerPipes()) != MAL_SUCCEED)
+				break;
 		}
 	}
-	return MAL_SUCCEED;
+	MT_lock_unset(&pipeLock);
+	return msg;
 }
 
 str
@@ -484,7 +504,7 @@ addOptimizerPipe(Client cntxt, MalBlkPtr mb, str name)
 			break;
 
 	if (i == MAXOPTPIPES)
-		throw(MAL, "optimizer.addOptimizerPipe", "Out of slots");;
+		throw(MAL, "optimizer.addOptimizerPipe", "Out of slots");
 
 	if (pipes[i].mb == NULL)
 		msg = compileOptimizer(cntxt, name);

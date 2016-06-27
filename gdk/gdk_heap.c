@@ -561,6 +561,9 @@ HEAPfree(Heap *h, int remove)
 					  " " PTRFMT "\n",
 					  h->size, PTRFMTCAST h->base);
 			GDKfree(h->base);
+		} else if (h->storage == STORE_CMEM) {
+			//heap is stored in regular C memory rather than GDK memory,so we call free()
+			free(h->base);
 		} else {	/* mapped file, or STORE_PRIV */
 			gdk_return ret = GDKmunmap(h->base, h->size);
 
@@ -575,6 +578,16 @@ HEAPfree(Heap *h, int remove)
 					  h->size, (int) ret);
 		}
 	}
+#ifdef HAVE_FORK
+	if (h->storage == STORE_MMAPABS)  { 
+		// heap is stored in a mmap() file, but h->filename points to the absolute path
+		if (h->filename && unlink(h->filename) < 0 && errno != ENOENT) {
+			perror(h->filename);
+		}
+		GDKfree(h->filename);
+		h->filename = NULL;
+	}
+#endif
 	h->base = NULL;
 	if (h->filename) {
 		if (remove) {
@@ -713,7 +726,7 @@ HEAPsave_intern(Heap *h, const char *nme, const char *ext, const char *suffix)
 	HEAPDEBUG {
 		fprintf(stderr, "#HEAPsave(%s.%s,storage=%d,free=" SZFMT ",size=" SZFMT ")\n", nme, ext, (int) h->newstorage, h->free, h->size);
 	}
-	return GDKsave(h->farmid, nme, ext, h->base, h->free, store);
+	return GDKsave(h->farmid, nme, ext, h->base, h->free, store, TRUE);
 }
 
 gdk_return

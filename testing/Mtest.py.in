@@ -190,8 +190,15 @@ if isatty and os.isatty(sys.stdin.fileno()):
                 if res is not None:
                     ttywidth = int(res.group(1))
             if ttywidth < 60:
-                # rediculously narrow tty, ignore value
+                # ridiculously narrow tty, ignore value
                 ttywidth = 0
+
+if os.name == 'nt':
+    p = os.path.join(sys.prefix, 'Lib')
+    if 'PYTHONPATH' in os.environ:
+        p = os.environ['PYTHONPATH'] + os.pathsep + p
+    os.environ['PYTHONPATH'] = p
+    os.environ['PYTHONHOME'] = sys.prefix
 
 import string                   # for whitespace
 def splitcommand(cmd):
@@ -306,6 +313,8 @@ CONDITIONALS = {
     'HAVE_JAVAMEROCONTROL' : "@HAVE_JAVAMEROCONTROL_FALSE@",
     'HAVE_LIBBZ2'          : "@HAVE_LIBBZ2_FALSE@",
     'HAVE_LIBR'            : "@HAVE_LIBR_FALSE@",
+    'HAVE_LIBPANDAS'       : "@HAVE_LIBPANDAS_FALSE@",
+    'HAVE_LIBPY'           : "@HAVE_LIBPY_FALSE@",
     'HAVE_LIBXML'          : "@HAVE_LIBXML_FALSE@",
     'HAVE_LIBZ'            : "@HAVE_LIBZ_FALSE@",
     'HAVE_LIDAR'           : "@HAVE_LIDAR_FALSE@",
@@ -334,6 +343,7 @@ CONDITIONALS = {
     'HAVE_JDBCTESTS_DIR'   : "",
     'HAVE_JDBCTESTS'       : "",
     'HAVE_PHP'             : "",
+    'HAVE_PYMONETDB'       : "",
     'HAVE_RUBY'            : "",
     'MERCURIAL'            : "",
     'RELEASERUN'           : "",
@@ -600,11 +610,21 @@ def startswithpath(str,pre) :
 if sys.version_info[0] == 2:
     import urllib
     path = urllib.url2pathname
-    url = urllib.pathname2url
+    def url(str) :
+        url = urllib.pathname2url(str)
+        # on Windows, C:\tmp\foo becomes ///C:/tmp/foo, turn into /C:/tmp/foo
+        if url.startswith('///'):
+            url = url[2:]
+        return url
 elif sys.version_info[0] == 3:
     import urllib.request
     path = urllib.request.url2pathname
-    url = urllib.request.pathname2url
+    def url(str) :
+        url = urllib.request.pathname2url(str)
+        # on Windows, C:\tmp\foo becomes ///C:/tmp/foo, turn into /C:/tmp/foo
+        if url.startswith('///'):
+            url = url[2:]
+        return url
 
 def try_open(path, mode) :
     try:
@@ -1110,7 +1130,7 @@ def find_test_dirs(thisdir) :
     return testdirs
 ### find_test_dirs(thisdir) #
 
-def PerformDir(env, testdir, testlist, BusyPorts) :
+def PerformDir(env, testdir, testlist, BusyPorts, all_tests = False) :
     td = 0
     elem = None
     FdOut = F_SKIP
@@ -1212,7 +1232,7 @@ def PerformDir(env, testdir, testlist, BusyPorts) :
         alllinks = []
         for TST,COND in testlist:
             os.environ['TST'] = TST
-            tt, FtOut, FtErr, bodyline, reason, links = RunTest(env, TST, BusyPorts, COND, oktests, length)
+            tt, FtOut, FtErr, bodyline, reason, links = RunTest(env, TST, BusyPorts, COND, oktests, length, all_tests)
             alllinks.extend(links)
             if tt:
                 t = "%7.3f" % tt
@@ -1331,7 +1351,7 @@ def ApproveOutput (env, TST) :
                 patch = os.path.join(os.sep, 'tmp')
             patch = os.path.join(patch, "%s.patch-%s" % (os.path.basename(stableOUTPUT), str(os.getpid())))
             f = open(patch + '.0', 'w')
-            proc = process.Popen(['diff', '-Bb', '-I^[#=]', '-U0',
+            proc = process.Popen(['diff', '-Bb', '-I^[#=]', '-I^MAPI *=', '-U0',
                                   stableOUTPUT, testOUTPUT],
                                  stdout = f, universal_newlines = True)
             proc.wait()
@@ -1738,7 +1758,7 @@ def CategorizeResult(TST, SockTime):
         e = SockTime
     return o, e
 
-def RunTest(env, TST, BusyPorts, COND, oktests, length) :
+def RunTest(env, TST, BusyPorts, COND, oktests, length, all_tests) :
     global setpgrp
     Failed = F_SKIP
     FailedOut = F_SKIP
@@ -2052,7 +2072,7 @@ def RunTest(env, TST, BusyPorts, COND, oktests, length) :
         TestErr.close()
 
         t0 = time.time()
-        tres = DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOUT, CTIMEOUT, TIMEOUT, ME, MAPIsockets, length, nomito, threads)
+        tres = DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOUT, CTIMEOUT, TIMEOUT, ME, MAPIsockets, length, nomito, threads, COND, all_tests)
         if tres == 'segfault':
             # rename core file, if any -- might have to check
             # /proc/sys/kernel/core_pattern in the future but hopefully
@@ -2681,7 +2701,7 @@ def mapi_ping(port,lang) :
     return False
 ### mapi_ping() #
 
-def DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOUT, CTIMEOUT, TIMEOUT, ME, MAPIsockets, length, nomito, threads) :
+def DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOUT, CTIMEOUT, TIMEOUT, ME, MAPIsockets, length, nomito, threads, COND, all_tests) :
     ATJOB2 = ""
     STDERR.flush()
     if quiet:
@@ -2776,9 +2796,13 @@ def DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOU
             Srvr.extend(PROLOGUE)
 
             # enable r integration in server
-            if CONDITIONALS['HAVE_LIBR'] and CONDITIONALS['NOT_WIN32']:
+            if (not all_tests or (COND != None and "HAVE_LIBR" in COND)) and CONDITIONALS['HAVE_LIBR'] and CONDITIONALS['NOT_WIN32']:
                 Srvr.extend(['--set', 'embedded_r=yes'])
 
+            # enable Python integration in server
+            if (not all_tests or (COND != None and "HAVE_LIBPY" in COND)) and CONDITIONALS['HAVE_LIBPY']:
+                Srvr.extend(['--set', 'embedded_py=true'])
+                
             pSrvr, pSrvrTimer = LaunchIt(Srvr, '\nio.printf("\\nReady.\\n");\n', SrvrOut, SrvrErr, TIMEOUT)
             ln="dummy"
             while 0 < len(ln) and not ln.startswith('Ready.'):
@@ -2794,14 +2818,17 @@ def DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOU
                 CollectIt(pSrvr.stdout, SrvrOut)
                 pSrvr.wait()
                 pSrvrTimer.cancel()
-                if returnCode(pSrvr) == 'error':
-                    time.sleep(120)
-                    pSrvr, pSrvrTimer = LaunchIt(Srvr, '\nio.printf("\\nReady.\\n");\n', SrvrOut, SrvrErr, TIMEOUT)
-                    ln="dummy"
-                    while 0 < len(ln) and not ln.startswith('Ready.'):
-                        ln=pSrvr.stdout.readline()
-                        SrvrOut.write(ln)
-                        SrvrOut.flush()
+                if returnCode(pSrvr) == 'error' and sys.platform == 'linux2':
+                    x = process.Popen(['netstat', '-an'], stdout = process.PIPE, stderr = process.PIPE, universal_newlines = True)
+                    out, err = x.communicate()
+                    if out.count('TIME_WAIT') > 100:
+                        time.sleep(120)
+                        pSrvr, pSrvrTimer = LaunchIt(Srvr, '\nio.printf("\\nReady.\\n");\n', SrvrOut, SrvrErr, TIMEOUT)
+                        ln="dummy"
+                        while 0 < len(ln) and not ln.startswith('Ready.'):
+                            ln=pSrvr.stdout.readline()
+                            SrvrOut.write(ln)
+                            SrvrOut.flush()
                 if not ln.startswith('Ready.'):
                     ServerReady = False
 
@@ -2813,15 +2840,18 @@ def DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOU
                     CollectIt(pSrvr.stdout, SrvrOut)
                     pSrvr.wait()
                     pSrvrTimer.cancel()
-                    if returnCode(pSrvr) == 'error':
-                        time.sleep(120)
-                        ServerReady = True
-                        pSrvr, pSrvrTimer = LaunchIt(Srvr, '\nio.printf("\\nReady.\\n");\n', SrvrOut, SrvrErr, TIMEOUT)
-                        ln="dummy"
-                        while 0 < len(ln) and not ln.startswith('Ready.'):
-                            ln=pSrvr.stdout.readline()
-                            SrvrOut.write(ln)
-                            SrvrOut.flush()
+                    if returnCode(pSrvr) == 'error' and sys.platform == 'linux2':
+                        x = process.Popen(['netstat', '-an'], stdout = process.PIPE, stderr = process.PIPE, universal_newlines = True)
+                        out, err = x.communicate()
+                        if out.count('TIME_WAIT') > 100:
+                            time.sleep(120)
+                            ServerReady = True
+                            pSrvr, pSrvrTimer = LaunchIt(Srvr, '\nio.printf("\\nReady.\\n");\n', SrvrOut, SrvrErr, TIMEOUT)
+                            ln="dummy"
+                            while 0 < len(ln) and not ln.startswith('Ready.'):
+                                ln=pSrvr.stdout.readline()
+                                SrvrOut.write(ln)
+                                SrvrOut.flush()
                     if not ln.startswith('Ready.'):
                         ServerReady = False
 
@@ -3208,7 +3238,7 @@ def ReadMapproveRc(f) :
 
 THISFILE = os.path.basename(sys.argv[0])
 THISPATH = os.path.realpath(os.path.dirname(sys.argv[0]))
-dftIGNORE = '^#'
+dftIGNORE = r'^\(| \|\)#'
 TSTDBG = str(2+8)
 TSTTHREADS = "0"
 dftTSTPREF = "mTests"
@@ -3580,6 +3610,7 @@ def main(argv) :
     CONDITIONALS['RELEASERUN'] = releaserun
     jenkins = False
     addreqs = False
+    all_tests = False
     global global_timeout
     if THISFILE == "Mtest.py":
         _IGNORE = dftIGNORE
@@ -3642,6 +3673,8 @@ def main(argv) :
             par['SYSTEM'] = ''
         else:
             par['SYSTEM'] = a
+            # -S option implies --nopatch
+            par['NOPATCH'] = True
     for v in vars:
         a = opts.get(v)
         if a is not None:
@@ -3660,6 +3693,12 @@ def main(argv) :
     # hence, we set them at runtime.
     # X == true   =>  @X_TRUE@='',  @X_FALSE@='#'
     # X == false  =>  @X_TRUE@='#', @X_FALSE@=''
+    try:
+        import pymonetdb
+    except ImportError:
+        print('Python available, but pymonetdb package not available')
+    else:
+        CONDITIONALS['HAVE_PYMONETDB'] = '#'
     if CheckExec('php'):
         CONDITIONALS['HAVE_PHP'] = '#'
 #     else:
@@ -4129,9 +4168,10 @@ def main(argv) :
                 tsts = "tests "+str(testlist)
             else:
                 tsts = "all tests"
+                all_tests = True
             if verbose:
                 print("\nRunning %s in directory %s.\n" % (tsts , testdirs[0]))
-            t_, elem, diff = PerformDir(env, testdirs[0], testlist, BusyPorts)
+            t_, elem, diff = PerformDir(env, testdirs[0], testlist, BusyPorts, all_tests)
             if elem is not None:
                 if diff <= F_OK:
                     body_good.append(elem)
@@ -4141,7 +4181,7 @@ def main(argv) :
             if verbose:
                 print("\nRunning all tests in directories %s.\n" % str(testdirs))
             for d in testdirs:
-                t, elem, diff = PerformDir(env, d, [], BusyPorts)
+                t, elem, diff = PerformDir(env, d, [], BusyPorts, True)
                 t_ = t_ + t
                 if elem is not None:
                     if diff <= F_OK:

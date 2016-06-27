@@ -297,6 +297,8 @@ typedef struct sql_arg {
 #define FUNC_LANG_R   3 /* create .. language R */
 #define FUNC_LANG_C   4
 #define FUNC_LANG_J   5
+#define FUNC_LANG_PY  6 /* create .. language Python */
+#define FUNC_LANG_MAP_PY  7 /* create .. language PYTHON_MAP */
 
 #define LANG_EXT(l)  (l>FUNC_LANG_SQL)
 
@@ -360,11 +362,14 @@ typedef enum idx_type {
 	join_idx,
 	oph_idx,		/* order preserving hash */
 	no_idx,			/* no idx, ie no storage */
+	imprints_idx,
+	ordered_idx,
 	new_idx_types
 } idx_type;
 
 #define hash_index(t) 		(t == hash_idx || t == oph_idx )
 #define idx_has_column(t) 	(hash_index(t) || t == join_idx)
+#define oid_index(t)		(t == join_idx)
 
 typedef struct sql_idx {
 	sql_base base;

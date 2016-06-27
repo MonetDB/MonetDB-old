@@ -24,7 +24,6 @@
 #include "mapi.h"
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/stat.h>
 #include <errno.h>
 #ifdef HAVE_STRING_H
 #include <string.h>
@@ -1987,7 +1986,7 @@ static int
 doFileBulk(Mapi mid, stream *fp)
 {
 	char *buf = NULL;
-	size_t length;
+	ssize_t length;
 	MapiHdl hdl = mapi_get_active(mid);
 	MapiMsg rc = MOK;
 	size_t bufsize = 0;
@@ -2012,9 +2011,10 @@ doFileBulk(Mapi mid, stream *fp)
 			if (hdl == NULL)
 				break;	/* nothing more to do */
 			buf[0] = 0;
+			length = 0; /* handle error like EOF */
 		} else {
 			buf[length] = 0;
-			if (strlen(buf) < length) {
+			if (strlen(buf) < (size_t) length) {
 				fprintf(stderr, "NULL byte in input\n");
 				errseen = 1;
 				break;
@@ -2027,7 +2027,7 @@ doFileBulk(Mapi mid, stream *fp)
 		}
 
 		assert(hdl != NULL);
-		mapi_query_part(hdl, buf, length);
+		mapi_query_part(hdl, buf, (size_t) length);
 		CHECK_RESULT(mid, hdl, continue, buf);
 
 		/* if not at EOF, make sure there is a newline in the
@@ -2195,7 +2195,11 @@ doFile(Mapi mid, stream *fp, int useinserts, int interactive, int save_history)
 #endif
 
 	(void) save_history;	/* not used if no readline */
-	if (getFile(fp) && isatty(fileno(getFile(fp)))) {
+	if (getFile(fp) && isatty(fileno(getFile(fp)))
+#ifdef WIN32			/* isatty may not give expected result */
+	    && formatter != TESTformatter
+#endif
+		) {
 		interactive = 1;
 		setPrompt();
 		prompt = promptbuf;
@@ -2207,8 +2211,10 @@ doFile(Mapi mid, stream *fp, int useinserts, int interactive, int save_history)
 		fp = callback_stream(&rl, myread, NULL, mydestroy, mnstr_name(fp));
 #endif
 	}
+#ifdef HAVE_ICONV
 	if (encoding)
 		fp = iconv_rstream(fp, encoding, mnstr_name(fp));
+#endif
 
 	if (!interactive && !echoquery)
 		return doFileBulk(mid, fp);
@@ -2939,6 +2945,7 @@ main(int argc, char **argv)
 	char *command = NULL;
 	char *dbname = NULL;
 	char *output = NULL;	/* output format as string */
+	FILE *fp = NULL;
 	int trace = 0;
 	int dump = 0;
 	int useinserts = 0;
@@ -2950,7 +2957,6 @@ main(int argc, char **argv)
 	int option_index = 0;
 	int settz = 1;
 	int autocommit = 1;	/* autocommit mode default on */
-	struct stat statb;
 	char user_set_as_flag = 0;
 	static struct option long_options[] = {
 		{"autocommit", 0, 0, 'a'},
@@ -3047,13 +3053,16 @@ main(int argc, char **argv)
 			break;
 #ifdef HAVE_ICONV
 		case 'E':
+			assert(optarg);
 			encoding = optarg;
 			break;
 #endif
 		case 'L':
+			assert(optarg);
 			logfile = strdup(optarg);
 			break;
 		case 'l':
+			assert(optarg);
 			/* accept unambiguous prefix of language */
 			if (strcmp(optarg, "sql") == 0 ||
 			    strcmp(optarg, "sq") == 0 ||
@@ -3076,15 +3085,18 @@ main(int argc, char **argv)
 			}
 			break;
 		case 'n':
+			assert(optarg);
 			nullstring = optarg;
 			break;
 		case 'u':
+			assert(optarg);
 			if (user)
 				free(user);
 			user = strdup(optarg);
 			user_set_as_flag = 1;
 			break;
 		case 'f':
+			assert(optarg);
 			if (output != NULL)
 				free(output);
 			output = strdup(optarg);	/* output format */
@@ -3106,9 +3118,11 @@ main(int argc, char **argv)
 			}
 			break;
 		case 'h':
+			assert(optarg);
 			host = optarg;
 			break;
 		case 'p':
+			assert(optarg);
 			port = atoi(optarg);
 			break;
 		case 'D':
@@ -3118,20 +3132,25 @@ main(int argc, char **argv)
 			useinserts = 1;
 			break;
 		case 'd':
+			assert(optarg);
 			dbname = optarg;
 			break;
 		case 's':
+			assert(optarg);
 			command = optarg;
 			break;
 		case 'w':
+			assert(optarg);
 			pagewidth = atoi(optarg);
 			pagewidthset = pagewidth != 0;
 			break;
 		case 'r':
+			assert(optarg);
 			rowsperpage = atoi(optarg);
 			break;
 #ifdef HAVE_POPEN
 		case '|':
+			assert(optarg);
 			pager = optarg;
 			break;
 #endif
@@ -3211,7 +3230,7 @@ main(int argc, char **argv)
 	has_fileargs = optind != argc;
 
 	if (dbname == NULL && has_fileargs &&
-	    (stat(argv[optind], &statb) != 0 || !S_ISREG(statb.st_mode))) {
+	    (fp = fopen(argv[optind], "r")) == NULL) {
 		dbname = argv[optind];
 		optind++;
 		has_fileargs = optind != argc;
@@ -3303,6 +3322,7 @@ main(int argc, char **argv)
 	if (command != NULL) {
 #ifdef HAVE_ICONV
 		iconv_t cd_in;
+		int free_command = 0;
 
 		if (encoding != NULL &&
 		    (cd_in = iconv_open("utf-8", encoding)) != (iconv_t) -1) {
@@ -3312,6 +3332,7 @@ main(int argc, char **argv)
 			int factor = 4;
 			size_t tolen = factor * fromlen + 1;
 			char *to = malloc(tolen);
+			free_command = 1;
 
 		  try_again:
 			command = to;
@@ -3348,15 +3369,19 @@ main(int argc, char **argv)
 		timerStart();
 		c = doRequest(mid, command);
 		timerEnd();
+#ifdef HAVE_ICONV
+		if (free_command)
+			free(command);
+#endif
 	}
 
 	if (optind < argc) {
 		/* execute from file(s) */
 		while (optind < argc) {
-			FILE *fp;
 			stream *s;
 
-			if ((fp = fopen(argv[optind], "r")) == NULL) {
+			if (fp == NULL &&
+			    (fp = fopen(argv[optind], "r")) == NULL) {
 				fprintf(stderr, "%s: cannot open\n", argv[optind]);
 				c |= 1;
 			} else if ((s = file_rastream(fp, argv[optind])) == NULL) {
@@ -3366,6 +3391,7 @@ main(int argc, char **argv)
 				c |= doFile(mid, s, useinserts, interactive, save_history);
 				close_stream(s);
 			}
+			fp = NULL;
 			optind++;
 		}
 	} else if (command && mapi_get_active(mid))

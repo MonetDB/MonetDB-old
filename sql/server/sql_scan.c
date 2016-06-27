@@ -176,6 +176,8 @@ scanner_init_keywords(void)
 	keywords_insert("FOR", FOR);
 	keywords_insert("FOREIGN", FOREIGN);
 	keywords_insert("FROM", FROM);
+	keywords_insert("FWF", FWF);
+
 	keywords_insert("REFERENCES", REFERENCES);
 
 	keywords_insert("MATCH", MATCH);
@@ -194,6 +196,7 @@ scanner_init_keywords(void)
 	keywords_insert("GROUP", sqlGROUP);
 	keywords_insert("HAVING", HAVING);
 	keywords_insert("ILIKE", ILIKE);
+	keywords_insert("IMPRINTS", IMPRINTS);
 	keywords_insert("IN", sqlIN);
 	keywords_insert("INNER", INNER);
 	keywords_insert("INTO", INTO);
@@ -215,6 +218,7 @@ scanner_init_keywords(void)
 	keywords_insert("OPTION", OPTION);
 	keywords_insert("OR", OR);
 	keywords_insert("ORDER", ORDER);
+	keywords_insert("ORDERED", ORDERED);
 	keywords_insert("OUTER", OUTER);
 	keywords_insert("OVER", OVER);
 	keywords_insert("PARTITION", PARTITION);
@@ -349,7 +353,6 @@ scanner_init_keywords(void)
 	keywords_insert("PLAN", SQL_PLAN);
 	keywords_insert("DEBUG", SQL_DEBUG);
 	keywords_insert("TRACE", SQL_TRACE);
-	keywords_insert("DOT", SQL_DOT);
 	keywords_insert("PREPARE", PREPARE);
 	keywords_insert("PREP", PREPARE);
 	keywords_insert("EXECUTE", EXECUTE);

@@ -22,8 +22,7 @@
 #include <sql_storage.h>
 #include <sql_keyword.h>
 #include <sql_atom.h>
-
-#include <mapi.h>
+#include <sql_query.h>
 
 #define ERRSIZE 8192
 
@@ -60,7 +59,6 @@
 #define mod_debug 	1
 #define mod_trace 	2
 #define mod_explain 	4 
-#define mod_dot 	8 
 /* locked needs unlocking */
 #define mod_locked 	16 
 
@@ -97,7 +95,7 @@ typedef struct mvc {
 	int argc;
 	int argmax;
 	struct symbol *sym;
-	int point_query;	/* mark when a query is a point query */
+	int no_mitosis;		/* run query without mitosis */
 
 	int user_id;
 	int role_id;
