@@ -207,46 +207,11 @@ rel_orderby(mvc *sql, sql_rel *l)
 	return rel;
 }
 
-static const char * 
-rel_get_name( sql_rel *rel )
-{
-	switch(rel->op) {
-	case op_table:
-		if (rel->r) 
-			return exp_name(rel->r);
-		return NULL;
-	case op_basetable: 
-		return NULL;
-	default:
-		if (rel->l)
-			return rel_get_name(rel->l);
-	}
-	return NULL;
-}
-
 /* forward refs */
 static sql_rel * rel_setquery(mvc *sql, sql_rel *rel, symbol *sq);
 static sql_rel * rel_joinquery(mvc *sql, sql_rel *rel, symbol *sq);
 static sql_rel * rel_crossquery(mvc *sql, sql_rel *rel, symbol *q);
 static sql_rel * rel_unionjoinquery(mvc *sql, sql_rel *rel, symbol *sq);
-
-void
-rel_add_intern(mvc *sql, sql_rel *rel)
-{
-	if (rel->op == op_project && rel->l && rel->exps && !need_distinct(rel)) {
-		list *prjs = rel_projections(sql, rel->l, NULL, 1, 1);
-		node *n;
-	
-		for(n=prjs->h; n; n = n->next) {
-			sql_exp *e = n->data;
-
-			if (is_intern(e)) {
-				append(rel->exps, e);
-				n->data = NULL;
-			}
-		}
-	}
-}
 
 static sql_rel *
 rel_table_optname(mvc *sql, sql_rel *sq, symbol *optname)
@@ -286,7 +251,6 @@ rel_table_optname(mvc *sql, sql_rel *sq, symbol *optname)
 			}
 		}
 	}
-	rel_add_intern(sql, sq);
 	return sq;
 }
 
@@ -757,13 +721,12 @@ rel_values( mvc *sql, symbol *tableref)
 	return r;
 }
 
-static sql_rel *
+sql_rel *
 table_ref(mvc *sql, sql_rel *rel, symbol *tableref)
 {
 	char *tname = NULL;
 	sql_table *t = NULL;
 
-	(void)rel;
 	if (tableref->token == SQL_NAME) {
 		dlist *name = tableref->data.lval->h->data.lval;
 		sql_rel *temp_table = NULL;
@@ -1416,7 +1379,7 @@ rel_filter(mvc *sql, sql_rel *rel, list *l, list *r, char *sname, char *filter_o
 			return sql_error(sql, 02, "SELECT: cannot use non GROUP BY column in query results without an aggregate function");
 	}
 	if (exps_card(r) <= CARD_ATOM /*&& exp_is_atom(rs) */) {
-		if (exps_card(l) == exps_card(r))  /* bin compare op */
+		if (exps_card(l) == exps_card(r) || rel->processed)  /* bin compare op */
 			return rel_select(sql->sa, rel, e);
 
 		if (/*is_semi(rel->op) ||*/ is_outerjoin(rel->op)) {
@@ -1497,7 +1460,7 @@ rel_compare_exp_(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_exp *rs2,
 	}
 	if (rs->card <= CARD_ATOM && exp_is_atom(rs) && 
 	   (!rs2 || (rs2->card <= CARD_ATOM && exp_is_atom(rs2)))) {
-		if (ls->card == rs->card && !rs2)  /* bin compare op */
+		if ((ls->card == rs->card && !rs2) || rel->processed)  /* bin compare op */
 			return rel_select(sql->sa, rel, e);
 
 		if (/*is_semi(rel->op) ||*/ is_outerjoin(rel->op)) {
@@ -1519,7 +1482,7 @@ rel_compare_exp_(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_exp *rs2,
 		/* push select into the given relation */
 		return rel_push_select(sql, rel, L, e);
 	} else { /* join */
-		if (is_semi(rel->op) || is_outerjoin(rel->op)) {
+		if (is_semi(rel->op) || (is_outerjoin(rel->op) && !is_processed((rel)))) {
 			rel_join_add_exp(sql->sa, rel, e);
 			return rel;
 		}
@@ -4637,13 +4600,13 @@ rel_select_exp(mvc *sql, sql_rel *rel, SelectNode *sn, exp_kind ek)
 		return NULL;
 
 	if (sn->limit || sn->offset) {
-		sql_subtype *wrd = sql_bind_localtype("wrd");
+		sql_subtype *lng = sql_bind_localtype("lng");
 		list *exps = new_exp_list(sql->sa);
 
 		if (sn->limit) {
 			sql_exp *l = rel_value_exp( sql, NULL, sn->limit, 0, ek);
 
-			if (!l || !(l=rel_check_type(sql, wrd, l, type_equal)))
+			if (!l || !(l=rel_check_type(sql, lng, l, type_equal)))
 				return NULL;
 			if ((ek.card != card_relation && sn->limit) &&
 				(ek.card == card_value && sn->limit)) {
@@ -4656,7 +4619,7 @@ rel_select_exp(mvc *sql, sql_rel *rel, SelectNode *sn, exp_kind ek)
 			append(exps, NULL);
 		if (sn->offset) {
 			sql_exp *o = rel_value_exp( sql, NULL, sn->offset, 0, ek);
-			if (!o || !(o=rel_check_type(sql, wrd, o, type_equal)))
+			if (!o || !(o=rel_check_type(sql, lng, o, type_equal)))
 				return NULL;
 			append(exps, o);
 		}
@@ -4944,29 +4907,6 @@ rel_joinquery_(mvc *sql, sql_rel *rel, symbol *tab1, int natural, jt jointype, s
 
 	if (js && js->token != SQL_USING) {	/* On sql_logical_exp */
 		rel = rel_logical_exp(sql, rel, js, sql_where);
-
-		if (!rel)
-			return rel;
-		if (l_nil || r_nil) { /* add projection for correct NOT NULL */
-			list *outexps = new_exp_list(sql->sa), *exps;
-			node *m;
-
-			exps = rel_projections(sql, t1, rel_get_name(t1), 1, 1);
-			for (m = exps->h; m; m = m->next) {
-				sql_exp *ls = m->data;
-				if (l_nil)
-					set_has_nil(ls);
-				append(outexps, ls);
-			}
-			exps = rel_projections(sql, t2, rel_get_name(t2), 1, 1);
-			for (m = exps->h; m; m = m->next) {
-				sql_exp *rs = m->data;
-				if (r_nil)
-					set_has_nil(rs);
-				append(outexps, rs);
-			}
-			rel = rel_project(sql->sa, rel, outexps);
-		}
 	} else if (js) {	/* using */
 		char rname[16], *rnme;
 		dnode *n = js->data.lval->h;

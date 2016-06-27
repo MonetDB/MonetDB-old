@@ -156,11 +156,6 @@ gdk_export BUN HASHlist(Hash *h, BUN i);
 #else
 #define hash_oid(H,V)	hash_lng(H,V)
 #endif
-#if SIZEOF_WRD == SIZEOF_INT
-#define hash_wrd(H,V)	hash_int(H,V)
-#else
-#define hash_wrd(H,V)	hash_lng(H,V)
-#endif
 
 #define hash_flt(H,V)	hash_int(H,V)
 #define hash_dbl(H,V)	hash_lng(H,V)
@@ -227,6 +222,7 @@ gdk_export BUN HASHlist(Hash *h, BUN i);
 		} else {						\
 			BUN _c = HASHprobe((b)->T->hash, (v));		\
 			HASHputall((b)->T->hash, (i), _c);		\
+			(b)->T->hash->heap->dirty = TRUE;		\
 		}							\
 	} while (0)
 

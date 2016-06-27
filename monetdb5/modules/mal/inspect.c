@@ -159,7 +159,7 @@ INSPECTgetAllSignatures(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					fcnDefinition(t->def, getSignature(t), sig, 0,sig,BLOCK);
 					a= strstr(sig,"address");
 					if(a) *a = 0;
-					BUNappend(b, strchr(sig, '('), FALSE);
+					BUNappend(b, (a = strchr(sig, '(')) ? a : "", FALSE);
 				}
 			}
 		s = s->outer;
@@ -215,7 +215,7 @@ INSPECTgetDefinition(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BAT *b;
 	(void)mb;
 
-	s = findSymbol(cntxt->nspace, putName(*mod,strlen(*mod)), putName(*fcn, strlen(*fcn)));
+	s = findSymbol(cntxt->nspace, putName(*mod), putName(*fcn));
 	if (s == 0)
 		throw(MAL, "inspect.getDefinition", RUNTIME_SIGNATURE_MISSING);
 
@@ -252,7 +252,7 @@ INSPECTgetSignature(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BAT *b;
 	(void) mb;
 
-	s = findSymbol(cntxt->nspace, getName(*mod,strlen(*mod)), putName(*fcn, strlen(*fcn)));
+	s = findSymbol(cntxt->nspace, getName(*mod), putName(*fcn));
 	if (s == 0)
 		throw(MAL, "inspect.getSignature", RUNTIME_SIGNATURE_MISSING);
 	b = BATnew(TYPE_void, TYPE_str, 12, TRANSIENT);
@@ -266,8 +266,10 @@ INSPECTgetSignature(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 			ps = instruction2str(s->def, 0, getSignature(s), 0);
 			c = strchr(ps, '(');
-			if (c == 0)
+			if (c == 0) {
+				GDKfree(ps);
 				continue;
+			}
 			tail= strstr(c,"address");
 			if( tail)
 				*tail = 0;
@@ -295,7 +297,7 @@ INSPECTgetAddress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BAT *b;
 	(void) mb;
 
-	s = findSymbol(cntxt->nspace, getName(*mod,strlen(*mod)), putName(*fcn, strlen(*fcn)));
+	s = findSymbol(cntxt->nspace, getName(*mod), putName(*fcn));
 	if (s == 0)
 		throw(MAL, "inspect.getAddress", RUNTIME_SIGNATURE_MISSING);
 	b = BATnew(TYPE_void, TYPE_str, 12, TRANSIENT);
@@ -309,8 +311,10 @@ INSPECTgetAddress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 			ps = instruction2str(s->def, 0, getSignature(s), 0);
 			c = strchr(ps, '(');
-			if (c == 0)
+			if (c == 0) {
+				GDKfree(ps);
 				continue;
+			}
 			tail= strstr(c,"address");
 			if( tail){
 				*tail = 0;
@@ -338,7 +342,7 @@ INSPECTgetComment(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BAT *b;
 	(void) mb;
 
-	s = findSymbol(cntxt->nspace, getName(*mod,strlen(*mod)), putName(*fcn, strlen(*fcn)));
+	s = findSymbol(cntxt->nspace, getName(*mod), putName(*fcn));
 	if (s == 0)
 		throw(MAL, "inspect.getComment", RUNTIME_SIGNATURE_MISSING);
 	b = BATnew(TYPE_void, TYPE_str, 12, TRANSIENT);
@@ -369,7 +373,7 @@ INSPECTgetSource(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	size_t len,lim;
 	(void) mb;
 
-	s = findSymbol( cntxt->nspace, getName(*mod,strlen(*mod)), putName(*fcn, strlen(*fcn)));
+	s = findSymbol( cntxt->nspace, getName(*mod), putName(*fcn));
 	if (s == 0)
 		throw(MAL, "inspect.getSource", RUNTIME_SIGNATURE_MISSING);
 
@@ -545,7 +549,7 @@ INSPECTgetFunctionSize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	Symbol s;
 	(void) mb;
 
-	s = findSymbol(cntxt->nspace, getName(*mod,strlen(*mod)), putName(*fcn, strlen(*fcn)));
+	s = findSymbol(cntxt->nspace, getName(*mod), putName(*fcn));
 	if (s == 0)
 		throw(MAL, "inspect.getSize", RUNTIME_SIGNATURE_MISSING);
 	*ret= INSPECTcalcSize(s->def);
@@ -569,7 +573,7 @@ INSPECTshowFunction3(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	str fcnnme = getArgName(mb, p, 2);
 	Symbol s = NULL;
 
-	s = findSymbol(cntxt->nspace,getName(modnme,strlen(modnme)), putName(fcnnme, strlen(fcnnme)));
+	s = findSymbol(cntxt->nspace,getName(modnme), putName(fcnnme));
 
 	if (s == NULL){
 		char buf[BUFSIZ];

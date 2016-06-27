@@ -67,9 +67,10 @@
  * Instead, we maintain a simple lock with each connection, which can be
  * used to issue a safe, but blocking get/put/exec/register request.
  */
+#ifdef HAVE_MAPI
 
 static connection conns = NULL;
-static unsigned char localtype = 0;
+static unsigned char localtype = 0177;
 
 static inline str RMTquery(MapiHdl *ret, str func, Mapi conn, str query);
 static inline str RMTinternalcopyfrom(BAT **ret, char *hdr, stream *in);
@@ -494,7 +495,7 @@ str RMTget(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	}
 	GDKfree(rt);
 
-	if (isaBatType(rtype) && (localtype == 0 || localtype != c->type ))
+	if (isaBatType(rtype) && (localtype == 0177 || localtype != c->type ))
 	{
 		int t, s;
 		ptr r;
@@ -527,7 +528,7 @@ str RMTget(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 
 		if (ATOMvarsized(t)) {
 			while (mapi_fetch_row(mhdl)) {
-				var = mapi_fetch_field(mhdl, 0); 
+				var = mapi_fetch_field(mhdl, 1); 
 				if( var == NULL)
 					BUNappend(b, str_nil, FALSE);
 				else 
@@ -535,7 +536,7 @@ str RMTget(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 			}
 		} else
 			while (mapi_fetch_row(mhdl)) {
-				var = mapi_fetch_field(mhdl, 0); 
+				var = mapi_fetch_field(mhdl, 1); 
 				if (var == NULL)
 					var = "nil";
 				s = 0;
@@ -678,12 +679,12 @@ str RMTput(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 		msg = createException(MAL, "remote.put", "unsupported type: %s", tpe);
 		GDKfree(tpe);
 		return msg;
-	} else if (isaBatType(type) && *(int*) value != 0) {
+	} else if (isaBatType(type) && *(bat*) value != 0) {
 		BATiter bi;
 		/* naive approach using bat.new() and bat.insert() calls */
 		char *tail;
 		char qbuf[BUFSIZ];
-		int bid;
+		bat bid;
 		BAT *b = NULL;
 		BUN p, q;
 		str tailv;
@@ -691,7 +692,7 @@ str RMTput(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 
 		tail = getTypeIdentifier(getColumnType(type));
 
-		bid = *(int *)value;
+		bid = *(bat *)value;
 		if (bid != 0) {
 			if ((b = BATdescriptor(bid)) == NULL){
 				MT_lock_unset(&c->lock);
@@ -791,9 +792,7 @@ str RMTregisterInternal(Client cntxt, str conn, str mod, str fcn)
 		throw(ILLARG, "remote.register", ILLEGAL_ARGUMENT ": connection name is NULL or nil");
 
 	/* find local definition */
-	sym = findSymbol(cntxt->nspace,
-			putName(mod, strlen(mod)),
-			putName(fcn, strlen(fcn)));
+	sym = findSymbol(cntxt->nspace, putName(mod), putName(fcn));
 	if (sym == NULL)
 		throw(MAL, "remote.register", ILLEGAL_ARGUMENT ": no such function: %s.%s", mod, fcn);
 
@@ -1340,3 +1339,4 @@ RMTisalive(int *ret, str *conn)
 	return MAL_SUCCEED;
 }
 
+#endif // HAVE_MAPI

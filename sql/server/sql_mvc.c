@@ -27,43 +27,44 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 {
 	int first = 0;
 
-	logger_settings *log_settings = (struct logger_settings *) GDKmalloc(sizeof(struct logger_settings));
+	logger_settings log_settings;
 	/* Set the default WAL directory. "sql_logs" by default */
-	log_settings->logdir = "sql_logs";
+	log_settings.logdir = "sql_logs";
 	/* Get and pass on the WAL directory location, if set */
 	if (GDKgetenv("gdk_logdir") != NULL) {
-		log_settings->logdir = GDKgetenv("gdk_logdir");
+		log_settings.logdir = GDKgetenv("gdk_logdir");
 	}
 	/* Get and pass on the shared WAL directory location, if set */
-	log_settings->shared_logdir = GDKgetenv("gdk_shared_logdir");
+	log_settings.shared_logdir = GDKgetenv("gdk_shared_logdir");
 	/* Get and pass on the shared WAL drift threshold, if set.
 	 * -1 by default, meaning it should be ignored, since it is not set */
-	log_settings->shared_drift_threshold = GDKgetenv_int("gdk_shared_drift_threshold", -1);
+	log_settings.shared_drift_threshold = GDKgetenv_int("gdk_shared_drift_threshold", -1);
 
 	/* Get and pass on the flag how many WAL files should be preserved.
 	 * 0 by default - keeps only the current WAL file. */
-	log_settings->keep_persisted_log_files = GDKgetenv_int("gdk_keep_persisted_log_files", 0);
+	log_settings.keep_persisted_log_files = GDKgetenv_int("gdk_keep_persisted_log_files", 0);
 
 	mvc_debug = debug&4;
 	if (mvc_debug) {
-		fprintf(stderr, "#mvc_init logdir %s\n", log_settings->logdir);
-		fprintf(stderr, "#mvc_init keep_persisted_log_files %d\n", log_settings->keep_persisted_log_files);
-		if (log_settings->shared_logdir != NULL) {
-			fprintf(stderr, "#mvc_init shared_logdir %s\n", log_settings->shared_logdir);
+		fprintf(stderr, "#mvc_init logdir %s\n", log_settings.logdir);
+		fprintf(stderr, "#mvc_init keep_persisted_log_files %d\n", log_settings.keep_persisted_log_files);
+		if (log_settings.shared_logdir != NULL) {
+			fprintf(stderr, "#mvc_init shared_logdir %s\n", log_settings.shared_logdir);
 		}
-		fprintf(stderr, "#mvc_init shared_drift_threshold %d\n", log_settings->shared_drift_threshold);
+		fprintf(stderr, "#mvc_init shared_drift_threshold %d\n", log_settings.shared_drift_threshold);
 	}
 	keyword_init();
 	scanner_init_keywords();
 
 
-	if ((first = store_init(debug, store, ro, su, log_settings, stk)) < 0) {
+	if ((first = store_init(debug, store, ro, su, &log_settings, stk)) < 0) {
 		fprintf(stderr, "!mvc_init: unable to create system tables\n");
 		return -1;
 	}
 	if (first || catalog_version) {
 		sql_schema *s;
 		sql_table *t;
+		sqlid tid = 0, ntid, cid = 0, ncid;
 		mvc *m = mvc_create(0, stk, 0, NULL, NULL);
 
 		m->sa = sa_create();
@@ -80,12 +81,15 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 
 		if (!first) {
 			t = mvc_bind_table(m, s, "tables");
+			tid = t->base.id;
 			mvc_drop_table(m, s, t, 0);
 			t = mvc_bind_table(m, s, "columns");
+			cid = t->base.id;
 			mvc_drop_table(m, s, t, 0);
 		}
 
 		t = mvc_create_view(m, s, "tables", SQL_PERSIST, "SELECT \"id\", \"name\", \"schema_id\", \"query\", CAST(CASE WHEN \"system\" THEN \"type\" + 10 /* system table/view */ ELSE (CASE WHEN \"commit_action\" = 0 THEN \"type\" /* table/view */ ELSE \"type\" + 20 /* global temp table */ END) END AS SMALLINT) AS \"type\", \"system\", \"commit_action\", \"access\", CASE WHEN (NOT \"system\" AND \"commit_action\" > 0) THEN 1 ELSE 0 END AS \"temporary\" FROM \"sys\".\"_tables\" WHERE \"type\" <> 2 UNION ALL SELECT \"id\", \"name\", \"schema_id\", \"query\", CAST(\"type\" + 30 /* local temp table */ AS SMALLINT) AS \"type\", \"system\", \"commit_action\", \"access\", 1 AS \"temporary\" FROM \"tmp\".\"_tables\";", 1);
+		ntid = t->base.id;
 		mvc_create_column_(m, t, "id", "int", 32);
 		mvc_create_column_(m, t, "name", "varchar", 1024);
 		mvc_create_column_(m, t, "schema_id", "int", 32);
@@ -101,10 +105,18 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 			int p = PRIV_SELECT;
 			int zero = 0;
 			sql_table *privs = find_sql_table(s, "privileges");
+			sql_table *deps = find_sql_table(s, "dependencies");
+			sql_column *depids = find_sql_column(deps, "id");
+			oid rid;
+
 			table_funcs.table_insert(m->session->tr, privs, &t->base.id, &pub, &p, &zero, &zero);
+			while ((rid = table_funcs.column_find_row(m->session->tr, depids, &tid, NULL)) != oid_nil) {
+				table_funcs.column_update_value(m->session->tr, depids, rid, &ntid);
+			}
 		}
 
 		t = mvc_create_view(m, s, "columns", SQL_PERSIST, "SELECT * FROM (SELECT p.* FROM \"sys\".\"_columns\" AS p UNION ALL SELECT t.* FROM \"tmp\".\"_columns\" AS t) AS columns;", 1);
+		ncid = t->base.id;
 		mvc_create_column_(m, t, "id", "int", 32);
 		mvc_create_column_(m, t, "name", "varchar", 1024);
 		mvc_create_column_(m, t, "type", "varchar", 1024);
@@ -121,7 +133,14 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 			int p = PRIV_SELECT;
 			int zero = 0;
 			sql_table *privs = find_sql_table(s, "privileges");
+			sql_table *deps = find_sql_table(s, "dependencies");
+			sql_column *depids = find_sql_column(deps, "id");
+			oid rid;
+
 			table_funcs.table_insert(m->session->tr, privs, &t->base.id, &pub, &p, &zero, &zero);
+			while ((rid = table_funcs.column_find_row(m->session->tr, depids, &cid, NULL)) != oid_nil) {
+				table_funcs.column_update_value(m->session->tr, depids, rid, &ncid);
+			}
 		} else {
 			sql_create_env(m, s);
 			sql_create_privileges(m, s);
@@ -1729,7 +1748,7 @@ val_get_number(ValRecord *v)
 		if (v->vtype == TYPE_bit)
 			if (v->val.btval)
 				return 1;
-			return 0;
+		return 0;
 	}
 	return 0;
 }

@@ -148,7 +148,7 @@ round_body_nonil(TYPE v, int d, int s, int r)
 			lres = ((v + rnd) / scales[dff]) * scales[dff];
 		else
 			lres = ((v - rnd) / scales[dff]) * scales[dff];
-#if TPE(TYPE) != TYPE_lng && (TPE(TYPE) != TYPE_wrd || SIZEOF_WRD != SIZEOF_LNG) && (!defined(HAVE_HGE) || TPE(TYPE) != TYPE_hge)
+#if TPE(TYPE) != TYPE_lng && (!defined(HAVE_HGE) || TPE(TYPE) != TYPE_hge)
 		assert((lng) GDKmin(TYPE) < lres && lres <= (lng) GDKmax(TYPE));
 #endif
 		res = (TYPE) lres;
@@ -160,7 +160,7 @@ round_body_nonil(TYPE v, int d, int s, int r)
 			lres = ((v + rnd) / scales[dff]) * scales[dff];
 		else
 			lres = ((v - rnd) / scales[dff]) * scales[dff];
-#if TPE(TYPE) != TYPE_lng && (TPE(TYPE) != TYPE_wrd || SIZEOF_WRD != SIZEOF_LNG) && (!defined(HAVE_HGE) || TPE(TYPE) != TYPE_hge)
+#if TPE(TYPE) != TYPE_lng && (!defined(HAVE_HGE) || TPE(TYPE) != TYPE_hge)
 		assert((lng) GDKmin(TYPE) < lres && lres <= (lng) GDKmax(TYPE));
 #endif
 		res = (TYPE) lres;
@@ -295,6 +295,8 @@ str_2dec(TYPE *res, const str *val, const int *d, const int *sc)
 		digits--;
 	}
 	if (digits < 0)
+		throw(SQL, STRING(TYPE), "decimal (%s) doesn't have format (%d.%d)", *val, *d, *sc);
+	if (*d < 0 || *d >= (int) (sizeof(scales) / sizeof(scales[0])))
 		throw(SQL, STRING(TYPE), "decimal (%s) doesn't have format (%d.%d)", *val, *d, *sc);
 
 	value = decimal_from_str(s, &end);

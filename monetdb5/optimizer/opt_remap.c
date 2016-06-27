@@ -35,8 +35,8 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 
 	snprintf(buf,1024,"bat%s",mod);
 	p= newInstruction(mb,ASSIGNsymbol);
-	setModuleId(p,putName(buf, strlen(buf)));
-	setFunctionId(p,putName(fcn, strlen(fcn)));
+	setModuleId(p,putName(buf));
+	setFunctionId(p,putName(fcn));
 
 	for(i=0; i<pci->retc; i++)
 		if (i<1)
@@ -228,7 +228,8 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 					goto terminateMX;
 				if (getModuleId(q)){
 					snprintf(buf,1024,"bat%s",getModuleId(q));
-					setModuleId(q,putName(buf,strlen(buf)));
+					setModuleId(q,putName(buf));
+					q->typechk = TYPE_UNKNOWN;
 
 					actions++;
 					/* now see if we can resolve the instruction */
@@ -247,6 +248,7 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 					getArg(q,1)= refbat;
 				
 					actions++;
+					q->typechk = TYPE_UNKNOWN;
 					typeChecker(cntxt->fdout, cntxt->nspace,mq,q,TRUE);
 					if( q->typechk== TYPE_UNKNOWN)
 						goto terminateMX;
@@ -324,7 +326,7 @@ OPTremapSwitched(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module
 	for(i=0;OperatorMap[i].src;i++)
 	if( strcmp(fcn,OperatorMap[i].src)==0){
 		/* found a candidate for a switch */
-		getVarConstant(mb, getArg(pci, 2)).val.sval = putName(OperatorMap[i].dst,OperatorMap[i].len);
+		getVarConstant(mb, getArg(pci, 2)).val.sval = putNameLen(OperatorMap[i].dst,OperatorMap[i].len);
 		getVarConstant(mb, getArg(pci, 2)).len = OperatorMap[i].len;
 		r= getArg(pci,3); getArg(pci,3)=getArg(pci,4);getArg(pci,4)=r;
 		r= OPTremapDirect(cntxt,mb, stk, pci, scope);
@@ -348,6 +350,8 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	InstrPtr *old, p;
 	int i, limit, slimit, doit= 0;
 	Module scope = cntxt->nspace;
+	lng usec = GDKusec();
+	char buf[256];
 
 	(void) pci;
 	old = mb->stmt;
@@ -378,7 +382,7 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				if( OPTmultiplexInline(cntxt,mb,p,mb->stop-1) )
 					doit++;
 				OPTDEBUGremap
-					mnstr_printf(cntxt->fdout,"#doit %d\n",doit);
+					mnstr_printf(cntxt->fdout,"#actions %d\n",doit);
 			} else if (OPTremapDirect(cntxt, mb, stk, p, scope) ||
 				OPTremapSwitched(cntxt, mb, stk, p, scope)) {
 				freeInstruction(p); 
@@ -395,16 +399,16 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			setFunctionId(sum, sumRef);
 			setFunctionId(cnt, countRef);
 			getArg(sum,0) = newTmpVariable(mb, getArgType(mb, p, 1));
-			getArg(cnt,0) = newTmpVariable(mb, newBatType(TYPE_oid,TYPE_wrd));
+			getArg(cnt,0) = newTmpVariable(mb, newBatType(TYPE_oid,TYPE_lng));
 			pushInstruction(mb, sum);
 			pushInstruction(mb, cnt);
 
 			t = newInstruction(mb, ASSIGNsymbol);
 			setModuleId(t, batcalcRef);
-			setFunctionId(t, putName("==", strlen("==")));
+			setFunctionId(t, putName("=="));
 			getArg(t,0) = newTmpVariable(mb, newBatType(TYPE_oid,TYPE_bit));
 			t = pushArgument(mb, t, getDestVar(cnt));
-			t = pushWrd(mb, t, 0);
+			t = pushLng(mb, t, 0);
 			pushInstruction(mb, t);
 			iszero = t;
 
@@ -418,7 +422,7 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 			t = newInstruction(mb, ASSIGNsymbol);
 			setModuleId(t, batcalcRef);
-			setFunctionId(t, putName("ifthenelse", strlen("ifthenelse")));
+			setFunctionId(t, putName("ifthenelse"));
 			getArg(t,0) = newTmpVariable(mb, getArgType(mb, p, 0));
 			t = pushArgument(mb, t, getDestVar(iszero));
 			t = pushNil(mb, t, TYPE_dbl);
@@ -458,5 +462,15 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	if (doit) 
 		chkTypes(cntxt->fdout, cntxt->nspace,mb,TRUE);
+    /* Defense line against incorrect plans */
+    if( mb->errors == 0 && doit > 0){
+        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+        chkFlow(cntxt->fdout, mb);
+        chkDeclarations(cntxt->fdout, mb);
+    }
+    /* keep all actions taken as a post block comment */
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","remap",doit,GDKusec() - usec);
+    newComment(mb,buf);
+
 	return mb->errors? 0: doit;
 }
