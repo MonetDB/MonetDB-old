@@ -38,6 +38,10 @@ pattern update(mvc:int, sch:str, tbl:str, col:str, rid:bat[:oid],val:bat[:any]):
 address BSKTupdate
 comment "Update tuples in a basket";
 
+pattern delete(mvc:int, sch:str, tbl:str, rid:bat[:oid]):int
+address BSKTdelete
+comment "Remove tuples from a basket";
+
 pattern clear_table(sname:str,tname:str):lng
 address mvc_clear_table_wrap;
 

@@ -22,8 +22,8 @@ call iot.pause();
 --select * from  iot.queries();
 
 select * from clocks;
+call iot.cycles('iot','clk1',5);
 call iot.resume();
-call iot.wait(5);
 select * from clocks;
 
 call iot.stop();

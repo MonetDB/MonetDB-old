@@ -42,6 +42,10 @@ pattern step(cnt:int)
 address PNstep
 comment "Limit number of petrinet steps";
 
+pattern iot.cycles(sch:str,qry:str,lim:int)
+address PNcycles
+comment "Deactivate a continuous query after lim invocations";
+
 pattern iot.deregister()
 address PNderegister
 comment "Remove all query from the Petri-net controller";

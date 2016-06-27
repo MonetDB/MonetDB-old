@@ -80,6 +80,9 @@ create procedure iot.tumble("schema" string, "table" string, elem integer)
 create procedure iot.window("schema" string, "table" string, elem integer)
 	external name iot.window;
 
+create procedure iot.cycles("schema" string, "query" string, elem integer)
+	external name iot.cycles;
+
 -- Inspection tables
 create procedure iot."explain"("schema" string, "table" string)
 external name iot."explain";

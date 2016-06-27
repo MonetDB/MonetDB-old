@@ -85,6 +85,10 @@ pattern iot.getwindow(sch:str,tbl:str):int
 address BSKTgetwindow
 comment "Set the window tumbling at most N events from the stream ";
 
+pattern iot.cycles(sch:str,qry:str,lim:int)
+address PNcycles
+comment "Limit the number invocations of a query";
+
 pattern iot.show(sch:str,tbl:str)
 address PNshow
 comment "Show the continuous MAL plan";

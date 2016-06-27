@@ -1,10 +1,12 @@
 iot00
 iot02
 iot03
+iot04
 iot06
 iot10
 iot12
 iot13
+iot14
 #iot15
 receptor00
 receptor01
@@ -12,3 +14,4 @@ receptor01
 webtest
 inputoutput
 export00
+logger

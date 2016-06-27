@@ -67,6 +67,9 @@ typedef struct {
 	int status;     /* query status waiting/running/paused */
 	int enabled;	/* all baskets are available */
 	int inputs[MAXBSKT], outputs[MAXBSKT];
+	
+	int limit;		/* limit the number of invocations before dying */
+	lng heartbeat;		/* heart beat for procedures */
 
 	MT_Id	tid;
 	int delay;      /* maximum delay between calls */
@@ -78,7 +81,7 @@ typedef struct {
 	lng time;       /* total time spent for all invocations */
 } PNnode;
 
-PNnode pnet[MAXPN]={0};
+PNnode pnet[MAXPN];
 int pnettop = 0;
 
 int enabled[MAXPN];     /*array that contains the id's of all queries that are enable to fire*/
@@ -99,6 +102,17 @@ str PNperiod(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
+str
+PNheartbeat(str mod, str fcn, int ticks)
+{
+	int i;
+	for(i=0;i<pnettop;i++)
+	if( strcmp(pnet[i].modname,mod) == 0 && strcmp(pnet[i].fcnname,fcn)==0){
+		pnet[i].heartbeat = ticks;
+		return MAL_SUCCEED;
+	}
+	throw(MAL,"iot.heartbeat","Can not access stream, nor qeury");
+}
 str PNregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	Module scope;
@@ -203,7 +217,7 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 		return msg;
 	
 	pnet[pnettop].status = PNWAIT;
-	pnet[pnettop].cycles = 0;
+	pnet[pnettop].limit = -1; // unbounded invocations
 	pnet[pnettop].seen = *timestamp_nil;
 	/* all the rest is zero */
 
@@ -292,6 +306,18 @@ PNstop(void){
 }
 
 /*Remove a specific continuous query from the scheduler */
+static void
+PNderegisterInternal(int i){
+	MT_lock_set(&iotLock);
+	GDKfree(pnet[i].modname);
+	GDKfree(pnet[i].fcnname);
+	MCcloseClient(pnet[i].client);
+	memset((void*) (pnet+i), 0, sizeof(PNnode));
+	for( ; i<pnettop-1; i++)
+		pnet[i] = pnet[i+1];
+	pnettop--;
+	MT_lock_unset(&iotLock);
+}
 str
 PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	str modname= NULL;
@@ -301,7 +327,6 @@ PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	(void) cntxt;
 	(void) mb;
 	PNdump(&i);
-	MT_lock_set(&iotLock);
 	if ( pci->argc == 3){
 		modname= *getArgReference_str(stk,pci,1);
 		fcnname= *getArgReference_str(stk,pci,2);
@@ -310,36 +335,30 @@ PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 			MT_lock_unset(&iotLock);
 			throw(SQL,"iot.pause","Continuous query not found");
 		}
-		GDKfree(pnet[i].modname);
-		GDKfree(pnet[i].fcnname);
-		MCcloseClient(pnet[i].client);
-		for( ; i <pnettop-1;i++)
-			pnet[i]= pnet[i+1];
-		memset((void*) (pnet+i), 0, sizeof(PNnode));
-		pnettop--;
+		PNderegisterInternal(i);
 		_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler deregistered %s.%s\n", modname,fcnname);
-		MT_lock_unset(&iotLock);
 		return MAL_SUCCEED;
 	}
-	for ( i = 0; i < pnettop; i++){
-		GDKfree(pnet[i].modname);
-		GDKfree(pnet[i].fcnname);
-		MCcloseClient(pnet[i].client);
-		memset((void*) (pnet+i), 0, sizeof(PNnode));
-	}
-	pnettop = 0;
+	for ( i = pnettop-1; i >= 0 ; i--)
+		PNderegisterInternal(i);
 	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler deregistered all\n");
-	MT_lock_unset(&iotLock);
 	return MAL_SUCCEED;
 }
 
 str
 PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler cycles set \n");
+	str modname= *getArgReference_str(stk,pci,1);
+	str fcnname= *getArgReference_str(stk,pci,2);
+	int limit= *getArgReference_int(stk,pci,3);
+	int i = PNlocate(modname,fcnname);
+
+	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler set limit \n");
 	(void) cntxt;
 	(void) mb;
-	(void) stk;
-	(void) pci;
+	if( i != pnettop)
+		pnet[i].limit = limit;
+	else 
+		throw(SQL,"iot.limit","Continuous query not found");
 	return MAL_SUCCEED;
 }
 
@@ -494,17 +513,29 @@ PNscheduler(void *dummy)
 		pntasks=0;
 		for (k = i = 0; i < pnettop; i++) 
 		if ( pnet[i].status == PNWAIT ){
+			int force = 0;
 			pnet[i].enabled = 1;
 
+			// check for a hardbeat set on the query
+			if (pnet[i].heartbeat) {
+				(void) MTIMEunix_epoch(&ts);
+				(void) MTIMEtimestamp_add(&tn, &pnet[i].seen, &pnet[i].heartbeat);
+				if (tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs)) {
+					pnet[i].enabled = 0;
+					PNcycle--; // it does not count as a valid cycle.
+					break;
+				} else force = 1;
+			} 
+				/* consider baskets that are properly filled */
 			// check if all input baskets are available and non-empty
 			for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].inputs[j]; j++) {
 				idx = pnet[i].inputs[j];
-				if (baskets[idx].status != BSKTFILLED  && baskets[idx].heartbeat == 0 ){
+				if (baskets[idx].status != BSKTFILLED  && baskets[idx].heartbeat == 0 && force == 0  ){
 					pnet[i].enabled = 0;
 					break;
 				}
 				/* first consider the heart beat trigger */
-				if (baskets[idx].heartbeat) {
+				if (baskets[idx].heartbeat && force == 0) {
 					(void) MTIMEunix_epoch(&ts);
 					(void) MTIMEtimestamp_add(&tn, &baskets[idx].seen, &baskets[idx].heartbeat);
 					if (tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs)) {
@@ -514,7 +545,7 @@ PNscheduler(void *dummy)
 					}
 				} else
 				/* consider baskets that are properly filled */
-				if ( (BUN)baskets[idx].threshold > baskets[idx].count || baskets[idx].count == 0){
+				if ( ( (BUN)baskets[idx].threshold > baskets[idx].count || baskets[idx].count == 0 ) &&  force == 0){
 					pnet[i].enabled = 0;
 					break;
 				}
@@ -588,6 +619,9 @@ PNscheduler(void *dummy)
 		if(pnet[enabled[m]].tid){
 			_DEBUG_PETRINET_ mnstr_printf(GDKout, "#Terminate query thread %s \n", pnet[enabled[m]].fcnname);
 			MT_join_thread(pnet[enabled[m]].tid);
+			pnet[enabled[m]].limit--;
+			if( pnet[enabled[m]].limit == 0)
+				PNderegisterInternal(enabled[m]);
 		}
 
 		_DEBUG_PETRINET_ if (pnstatus == PNRUNNING && cycleDelay) MT_sleep_ms(cycleDelay);  /* delay to make it more tractable */
@@ -608,7 +642,6 @@ PNstartScheduler(void)
 {
 	MT_Id pid;
 	int s;
-	(void) s;
 
 	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#Start PNscheduler\n");
 	if (pnstatus== PNINIT && MT_create_thread(&pid, PNscheduler, &s, MT_THR_JOINABLE) != 0){

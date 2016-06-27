@@ -30,6 +30,7 @@
 #include "gdk.h"
 #include "iot.h"
 #include "basket.h"
+#include "petrinet.h"
 #include "mal_exception.h"
 #include "mal_builder.h"
 #include "opt_prelude.h"
@@ -228,12 +229,8 @@ BSKTheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( ticks < 0)
 		throw(SQL,"basket.heartbeat","Positive heartbeat expected]n");
 	idx = BSKTlocate(sch, tbl);
-	if( idx == 0){
-		BSKTregisterInternal(cntxt, mb, sch, tbl);
-		idx = BSKTlocate(sch, tbl);
-		if( idx ==0)
-			throw(SQL,"basket.heartbeat","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
-	}
+	if( idx == 0)
+		return PNheartbeat(sch,tbl,ticks);
 	baskets[idx].heartbeat = ticks;
 	return MAL_SUCCEED;
 }
@@ -250,8 +247,12 @@ BSKTgetheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 
 	idx = BSKTlocate(sch, tbl);
-	if( idx == 0)
-		throw(SQL,"basket.heartbeat","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+	if( idx == 0){
+		BSKTregisterInternal(cntxt, mb, sch, tbl);
+		idx = BSKTlocate(sch, tbl);
+		if( idx == 0)
+			throw(SQL,"basket.heartbeat","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+	}
 	*ret = baskets[idx].heartbeat;
 	return MAL_SUCCEED;
 }
@@ -598,7 +599,7 @@ BSKTexportInternal(Client cntxt, int bskt)
 		case TYPE_hge:
 #endif
 			/* append the binary partition */
-			fsize = BATcount(b) * ATOMsize(b->ttype);
+			fsize = (long) BATcount(b) * ATOMsize(b->ttype);
 			if( fwrite(Tloc(b, BUNlast(b)),1,fsize, f) != (size_t) fsize){
 				(void) fclose(f);
 				msg= createException(MAL,"iot.export","Could not write complete basket file %s\n",baskets[bskt].cols[i]);
@@ -903,6 +904,41 @@ BSKTupdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	baskets[bskt].status = BSKTFILLED;
 	BBPunfix(rid->batCacheid);
 	BBPunfix(bval->batCacheid);
+	return MAL_SUCCEED;
+}
+
+str
+BSKTdelete(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    int *res = getArgReference_int(stk, pci, 0);
+    str sname = *getArgReference_str(stk, pci, 2);
+    str tname = *getArgReference_str(stk, pci, 3);
+    bat rows = *getArgReference_bat(stk, pci, 4);
+    BAT *b=0, *rid=0;
+	int i,idx;
+
+	(void) cntxt;
+	(void) mb;
+    *res = 0;
+
+    rid = BATdescriptor(rows);
+	if( rid == NULL)
+        throw(SQL, "basket.delete", "Cannot access source oid descriptor");
+
+	idx = BSKTlocate(sname,tname);
+	if( idx == 0)
+		throw(SQL, "basket.delete", "Cannot access basket descriptor %s.%s",sname,tname);
+	for( i=0; baskets[idx].cols[i]; i++){
+		b = baskets[idx].bats[i];
+		if(b){
+			(void) BATdel(b, rid);
+			BATderiveProps(b, FALSE);
+		}
+	}
+
+	baskets[idx].status = BSKTFILLED;
+	BBPunfix(rid->batCacheid);
+	*res = *getArgReference_int(stk,pci,1);
 	return MAL_SUCCEED;
 }
 
