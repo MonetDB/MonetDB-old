@@ -31,7 +31,7 @@ insert into sdel values('2005-09-23 12:34:26.736',3,12.34);
 select * from sdel;
 
 call iot.resume();
-call iot.wait(2);
+call iot.cycles('iot','sdel',1);
 select * from sdel;
 
 drop procedure sdel00;

@@ -209,12 +209,14 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 	pnet[pnettop].mb = nmb;
 	pnet[pnettop].stk = prepareMALstack(nmb, nmb->vsize);
 
-	pnet[pnettop].client = MCinitClient(0,0,0);
-	if ( pnet[pnettop].client == NULL)
-		throw(MAL,"petrinet.register","Failed to create client record for continous query");
-	msg = SQLinitClient(pnet[pnettop].client);
-	if( msg)
-		return msg;
+	if(pnet[pnettop].client == 0){
+		pnet[pnettop].client = MCinitClient(0,0,0);
+		if ( pnet[pnettop].client == NULL)
+			throw(MAL,"petrinet.register","Failed to create client record for continous query");
+		msg = SQLinitClient(pnet[pnettop].client);
+		if( msg)
+			return msg;
+	}
 	
 	pnet[pnettop].status = PNWAIT;
 	pnet[pnettop].limit = -1; // unbounded invocations
@@ -245,7 +247,7 @@ PNstatus( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int newstatus
 		i = PNlocate(modname,fcnname);
 		if ( i == pnettop){
 			MT_lock_unset(&iotLock);
-			throw(SQL,"iot.pause","Continuous query not found");
+			throw(SQL,"iot.pause","Continuous query %s.%s not found",modname,fcnname);
 		}
 		pnet[i].status = newstatus;
 		_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler status %s.%s %s\n", modname,fcnname, statusname[newstatus]);
@@ -278,7 +280,7 @@ PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	int steps= *(int*) getArgReference(stk,pci,1);
 
 	(void) mb;
-	_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#scheduler wait cycle %d steps %d\n",old,steps);
+	_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#scheduler wait steps %d\n",steps -old);
 	while(pnstatus == PNRUNNING && PNcycle < old + steps)
 		MT_sleep_ms(20);
 	return MAL_SUCCEED;
@@ -311,13 +313,14 @@ PNderegisterInternal(int i){
 	MT_lock_set(&iotLock);
 	GDKfree(pnet[i].modname);
 	GDKfree(pnet[i].fcnname);
-	MCcloseClient(pnet[i].client);
+	//MCcloseClient(pnet[i].client);
 	memset((void*) (pnet+i), 0, sizeof(PNnode));
 	for( ; i<pnettop-1; i++)
 		pnet[i] = pnet[i+1];
 	pnettop--;
 	MT_lock_unset(&iotLock);
 }
+
 str
 PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	str modname= NULL;
@@ -352,7 +355,7 @@ PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	int limit= *getArgReference_int(stk,pci,3);
 	int i = PNlocate(modname,fcnname);
 
-	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler set limit \n");
+	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler set cycle limit %s.%s %d \n",modname,fcnname,limit);
 	(void) cntxt;
 	(void) mb;
 	if( i != pnettop)
@@ -516,15 +519,15 @@ PNscheduler(void *dummy)
 			int force = 0;
 			pnet[i].enabled = 1;
 
-			// check for a hardbeat set on the query
+			// check for a heartbeat set on the query
+			// It ensures that it can be executed regardless other conditions
 			if (pnet[i].heartbeat) {
 				(void) MTIMEunix_epoch(&ts);
 				(void) MTIMEtimestamp_add(&tn, &pnet[i].seen, &pnet[i].heartbeat);
-				if (tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs)) {
-					pnet[i].enabled = 0;
-					PNcycle--; // it does not count as a valid cycle.
+				if ( !(tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs))  ){
+					force =1;
 					break;
-				} else force = 1;
+				} 
 			} 
 				/* consider baskets that are properly filled */
 			// check if all input baskets are available and non-empty
@@ -540,7 +543,6 @@ PNscheduler(void *dummy)
 					(void) MTIMEtimestamp_add(&tn, &baskets[idx].seen, &baskets[idx].heartbeat);
 					if (tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs)) {
 						pnet[i].enabled = 0;
-						PNcycle--; // it does not count as a valid cycle.
 						break;
 					}
 				} else
@@ -581,6 +583,7 @@ PNscheduler(void *dummy)
 			pntasks += pnet[i].enabled;
 		}
 		analysis = GDKusec() - now;
+		_DEBUG_PETRINET_ mnstr_printf(GDKout, "#Transition enabled %d \n", k);
 
 		/* Execute each enabled transformation */
 		/* Tricky part is here a single stream used by multiple transitions */
@@ -617,7 +620,7 @@ PNscheduler(void *dummy)
 		/* after one sweep all threads should be released */
 		for (m = 0; m < k; m++)
 		if(pnet[enabled[m]].tid){
-			_DEBUG_PETRINET_ mnstr_printf(GDKout, "#Terminate query thread %s \n", pnet[enabled[m]].fcnname);
+			_DEBUG_PETRINET_ mnstr_printf(GDKout, "#Terminate query thread %s limit %d \n", pnet[enabled[m]].fcnname, pnet[enabled[m]].limit);
 			MT_join_thread(pnet[enabled[m]].tid);
 			pnet[enabled[m]].limit--;
 			if( pnet[enabled[m]].limit == 0)
@@ -632,6 +635,7 @@ PNscheduler(void *dummy)
 		}
 
 	}
+	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#petrinet.scheduler stopped\n");
 	MCcloseClient(cntxt);
 	pnstatus = PNINIT;
 	(void) dummy;

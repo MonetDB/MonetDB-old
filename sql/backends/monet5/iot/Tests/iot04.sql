@@ -28,6 +28,7 @@ select * from stmp;
 call iot.cycles('iot','cq00',2);
 call iot.resume();
 -- wait for 1 cycle in the scheduler
+call iot.wait(3);
 
 select 'RESULT';
 select * from result;
