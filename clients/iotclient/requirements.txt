@@ -1,4 +1,4 @@
-fake-factory>=0.5.7
+fake-factory>=0.5.8
 Flask-RESTful>=0.3.5
 IPy>=0.83
 jsonschema>=2.5.1

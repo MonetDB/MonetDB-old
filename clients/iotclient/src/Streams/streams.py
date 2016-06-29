@@ -64,7 +64,7 @@ class BaseIOTStream:
             if dirs:
                 for elem in dirs:  # for each directory found, flush it
                     dir_path = os.path.join(self._base_path, str(elem))
-                    # mapi_flush_baskets(self._connection, self._schema_name, self._stream_name, dir_path)
+                    mapi_flush_baskets(self._connection, self._schema_name, self._stream_name, dir_path)
                 self._baskets_counter = max(dirs) + 1  # increment current basket number
             else:
                 self._baskets_counter = 1
@@ -138,7 +138,7 @@ class BaseIOTStream:
 
     def flush_baskets(self, last=False):  # the monitor has to be acquired in write mode before running this method!!!
         # write the tuple count in the basket
-        # mapi_flush_baskets(self._connection, self._schema_name, self._stream_name, self._current_base_path)
+        mapi_flush_baskets(self._connection, self._schema_name, self._stream_name, self._current_base_path)
 
         if not last:  # when stopping the stream, we don't want to continue to create more baskets files
             self._tuples_in_per_basket = 0
