@@ -8,6 +8,7 @@
 
 /*
  * Author: K. Kyzirakos
+ * Author: P. Koutsourakis
  *
  * This module contains primitives for accessing data in LiDAR file format.
  */
@@ -35,8 +36,8 @@
 
 static MT_Lock mt_lidar_lock;
 
-#define LIDAR_LOCK MT_lock_set(&mt_lidar_lock) 
-#define LIDAR_UNLOCK MT_lock_unset(&mt_lidar_lock) 
+#define LIDAR_LOCK MT_lock_set(&mt_lidar_lock)
+#define LIDAR_UNLOCK MT_lock_unset(&mt_lidar_lock)
 
 #define LIDAR_INS_COL "INSERT INTO lidar_columns(id, name, type, units, number, table_id) \
 	 VALUES(%d,'%s','%s','%s',%d,%d);"
@@ -210,7 +211,7 @@ static void
 LIDARinitCatalog(mvc *m)
 {
 	sql_schema *sch;
-	sql_table *lidar_fl, *lidar_tbl, *lidar_col;
+	sql_table *lidar_fl, *lidar_tbl, *lidar_col, *vault_journal;
 
 	sch = mvc_bind_schema(m, "sys");
 
@@ -268,6 +269,15 @@ LIDARinitCatalog(mvc *m)
 		mvc_create_column_(m, lidar_col, "PrecisionX", "int", 16);
 		mvc_create_column_(m, lidar_col, "PrecisionY", "int", 16);
 		mvc_create_column_(m, lidar_col, "PrecisionZ", "int", 16);
+	}
+
+	vault_journal = mvc_bind_table(m, sch, "vault_journal");
+	if (vault_journal == NULL) {
+		vault_journal = mvc_create_table(m, sch, "vault_journal", tt_table, 0, SQL_PERSIST, 0, 4);
+		mvc_create_column_(m, vault_journal, "table_id", "int", 32);
+		mvc_create_column_(m, vault_journal, "table_name", "varchar", 255);
+		mvc_create_column_(m, vault_journal, "vault_type", "varchar", 255);
+		mvc_create_column_(m, vault_journal, "version", "varchar", 10);
 	}
 }
 
@@ -708,12 +718,14 @@ LIDARopenFile(str fname)
 	return res;
 }
 
+
+#define LIDAR_READER_VERSION "1.8.0"
 str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	mvc *m = NULL;
 	sql_trans *tr;
 	sql_schema *sch;
-	sql_table *lidar_fl, *lidar_tbl, *lidar_col, *tbl = NULL;
+	sql_table *lidar_fl, *lidar_tbl, *lidar_col, *tbl = NULL, *tables_catalog;
 	sql_column *col;
 	sql_subtype t;
 	str msg = MAL_SUCCEED;
@@ -727,6 +739,8 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	struct stat buf;
 	int scaleX, scaleY, scaleZ;
 	int precisionX, precisionY, precisionZ;
+	int *gtid;
+	char *istmt=NULL;
 
 	if (pci->argc == 3) {
 		tname = *getArgReference_str(stk, pci, 2);
@@ -784,6 +798,7 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	lidar_fl = mvc_bind_table(m, sch, "lidar_files");
 	lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
 	lidar_col = mvc_bind_table(m, sch, "lidar_columns");
+	/* vault_journal = mvc_bind_table(m, sch, "vault_journal"); */
 
 	/* check if the file is already attached */
 	col = mvc_bind_column(m, lidar_fl, "name");
@@ -828,6 +843,21 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	 */
 	while ((p = strchr(tname_low, '.')) != NULL) {
 		*p = '_';
+	}
+
+	/* add data to vault journal */
+	tables_catalog = mvc_bind_table(m, sch, "_tables");
+	col = mvc_bind_column(m, tables_catalog, "name");
+	rid = table_funcs.column_find_row(m->session->tr, col, tname_low, NULL);
+	col = mvc_bind_column(m, tables_catalog, "id");
+	gtid = (int *)table_funcs.column_find_value(m->session->tr, col, rid);
+
+	istmt = (char *) GDKzalloc(8192);
+	snprintf(istmt, 8192, "INSERT INTO sys.vault_journal VALUES(%d, 'lidar', '%s', '%s')", *gtid, LIDAR_READER_VERSION, tname_low);
+	msg = SQLstatementIntern(cntxt, &istmt, "LIDARattach", TRUE, FALSE, NULL);
+	GDKfree(istmt);
+	if (msg) {
+		return msg;
 	}
 
 	/* check table name for existence in the lidar catalog */
@@ -949,6 +979,9 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 						   mvc_bind_column(m, lidar_col, "PrecisionY"), &precisionY, TYPE_int);
 	store_funcs.append_col(m->session->tr,
 						   mvc_bind_column(m, lidar_col, "PrecisionZ"), &precisionZ, TYPE_int);
+
+	/* Add the metadata to the sys.statistics table for each column. */
+
 
 	/* add a lidar_column tuple */
 	col = mvc_bind_column(m, lidar_col, "id");
@@ -1157,15 +1190,6 @@ str LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname)
 		z = NULL;
 		error_code = 5;
 	}
-/* ||||||| base */
-/* 	x = BATnew(TYPE_void, TYPE_dbl, rows, PERSISTENT); */
-/* 	y = BATnew(TYPE_void, TYPE_dbl, rows, PERSISTENT); */
-/* 	z = BATnew(TYPE_void, TYPE_dbl, rows, PERSISTENT); */
-/* ======= */
-/* 	x = COLnew(0, TYPE_dbl, rows, PERSISTENT); */
-/* 	y = COLnew(0, TYPE_dbl, rows, PERSISTENT); */
-/* 	z = COLnew(0, TYPE_dbl, rows, PERSISTENT); */
-/* >>>>>>> other */
 
 	if ( x == NULL || y == NULL || z == NULL) {
 		GDKfree(tpcode);
@@ -1198,126 +1222,7 @@ str LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname)
 		return msg;
 	}
 
-/* <<<<<<< local */
-/* ||||||| base */
-/* 	BATseqbase(x, 0); */
-/* 	BATseqbase(y, 0); */
-/* 	BATseqbase(z, 0); */
 
-/* 	px = (dbl *) Tloc(x, BUNfirst(x)); */
-/* 	py = (dbl *) Tloc(y, BUNfirst(y)); */
-/* 	pz = (dbl *) Tloc(z, BUNfirst(z)); */
-
-/* 	p = LASReader_GetNextPoint(reader); */
-/* 	i = 0; */
-/* 	while (p) { */
-/* #ifndef NDEBUG */
-/* 		/\* print the details of a few points when in debug mode *\/ */
-/* 		if ( i % 1000000 == 0 ) { */
-/* 			double x = LASPoint_GetX(p); */
-/* 			double y = LASPoint_GetY(p); */
-/* 			double z = LASPoint_GetZ(p); */
-/* 			long rawx = LASPoint_GetRawX(p); */
-/* 			long rawy = LASPoint_GetRawY(p); */
-/* 			long rawz = LASPoint_GetRawZ(p); */
-/* 			unsigned short intensity = LASPoint_GetIntensity (p); */
-/* 			unsigned short returnno =LASPoint_GetReturnNumber (p); */
-/* 			unsigned short noofreturns = LASPoint_GetNumberOfReturns (p); */
-/* 			unsigned short scandir = LASPoint_GetScanDirection (p); */
-/* 			unsigned short flightline = LASPoint_GetFlightLineEdge (p); */
-/* 			unsigned char flags = LASPoint_GetScanFlags (p); */
-/* 			unsigned char class = LASPoint_GetClassification (p); */
-/* 			double t = LASPoint_GetTime(p); */
-/* 			char anglerank = LASPoint_GetScanAngleRank (p); */
-/* 			unsigned short sourceid = LASPoint_GetPointSourceId (p); */
-/* 				fprintf(stderr, */
-/* 				"(point # %d)" */
-/* 				"X (raw)           : %f (%ld)\n" */
-/* 				"Z (raw)           : %f (%ld)\n" */
-/* 				"Z (raw)           : %f (%ld)\n" */
-/* 				"intensity         : %d\n" */
-/* 				"return number     : %d\n" */
-/* 				"number of returns : %d\n" */
-/* 				"scan direction    : %d\n" */
-/* 				"flight line edge  : %d\n" */
-/* 				"scan flags        : %lc\n" */
-/* 				"classification    : %lc\n" */
-/* 				"time              : %f\n" */
-/* 				"scan angle rank   : %lc\n" */
-/* 				"point source id   : %d\n", */
-/* 			i, x, rawx, y, rawy, z, rawz, */
-/* 			intensity, returnno, noofreturns, */
-/* 			scandir, flightline, flags, class, */
-/* 			t, anglerank, sourceid); */
-/* 		} */
-/* #endif */
-/* 		//TODO: Add a flag that indicates whether LiDAR points should be validited up front */
-/* 		px[i] = LASPoint_GetRawX(p) * scalex + offsetx; */
-/* 		py[i] = LASPoint_GetRawY(p) * scaley + offsety; */
-/* 		pz[i] = LASPoint_GetRawZ(p) * scalez + offsetz; */
-
-/*         	p = LASReader_GetNextPoint(reader); */
-/* 		i++; */
-/* 	} */
-
-/* ======= */
-/* 	px = (dbl *) Tloc(x, 0); */
-/* 	py = (dbl *) Tloc(y, 0); */
-/* 	pz = (dbl *) Tloc(z, 0); */
-
-/* 	p = LASReader_GetNextPoint(reader); */
-/* 	i = 0; */
-/* 	while (p) { */
-/* #ifndef NDEBUG */
-/* 		/\* print the details of a few points when in debug mode *\/ */
-/* 		if ( i % 1000000 == 0 ) { */
-/* 			double x = LASPoint_GetX(p); */
-/* 			double y = LASPoint_GetY(p); */
-/* 			double z = LASPoint_GetZ(p); */
-/* 			long rawx = LASPoint_GetRawX(p); */
-/* 			long rawy = LASPoint_GetRawY(p); */
-/* 			long rawz = LASPoint_GetRawZ(p); */
-/* 			unsigned short intensity = LASPoint_GetIntensity (p); */
-/* 			unsigned short returnno =LASPoint_GetReturnNumber (p); */
-/* 			unsigned short noofreturns = LASPoint_GetNumberOfReturns (p); */
-/* 			unsigned short scandir = LASPoint_GetScanDirection (p); */
-/* 			unsigned short flightline = LASPoint_GetFlightLineEdge (p); */
-/* 			unsigned char flags = LASPoint_GetScanFlags (p); */
-/* 			unsigned char class = LASPoint_GetClassification (p); */
-/* 			double t = LASPoint_GetTime(p); */
-/* 			char anglerank = LASPoint_GetScanAngleRank (p); */
-/* 			unsigned short sourceid = LASPoint_GetPointSourceId (p); */
-/* 				fprintf(stderr, */
-/* 				"(point # %d)" */
-/* 				"X (raw)           : %f (%ld)\n" */
-/* 				"Z (raw)           : %f (%ld)\n" */
-/* 				"Z (raw)           : %f (%ld)\n" */
-/* 				"intensity         : %d\n" */
-/* 				"return number     : %d\n" */
-/* 				"number of returns : %d\n" */
-/* 				"scan direction    : %d\n" */
-/* 				"flight line edge  : %d\n" */
-/* 				"scan flags        : %lc\n" */
-/* 				"classification    : %lc\n" */
-/* 				"time              : %f\n" */
-/* 				"scan angle rank   : %lc\n" */
-/* 				"point source id   : %d\n", */
-/* 			i, x, rawx, y, rawy, z, rawz, */
-/* 			intensity, returnno, noofreturns, */
-/* 			scandir, flightline, flags, class, */
-/* 			t, anglerank, sourceid); */
-/* 		} */
-/* #endif */
-/* 		//TODO: Add a flag that indicates whether LiDAR points should be validited up front */
-/* 		px[i] = LASPoint_GetRawX(p) * scalex + offsetx; */
-/* 		py[i] = LASPoint_GetRawY(p) * scaley + offsety; */
-/* 		pz[i] = LASPoint_GetRawZ(p) * scalez + offsetz; */
-
-/*         	p = LASReader_GetNextPoint(reader); */
-/* 		i++; */
-/* 	} */
-
-/* >>>>>>> other */
 	BATsetcount(x, rows);
 	BATsetcount(y, rows);
 	BATsetcount(z, rows);
@@ -1449,7 +1354,7 @@ LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
   } else {
     if (tbl->access == TABLE_WRITABLE)
       *res = LIDAR_TABLE_ANALYZE;
-    else 
+    else
       *res = LIDAR_TABLE_DONE;
 
 #ifndef NDEBUG
@@ -1532,7 +1437,7 @@ LIDARAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     return MAL_SUCCEED;
 }
 
-static BAT * 
+static BAT *
 mvc_bind(mvc *m, char *sname, char *tname, char *cname, int access)
 {
     sql_trans *tr = m->session->tr;
