@@ -305,13 +305,13 @@ static void
 printBATproperties(stream *f, BAT *b)
 {
 	mnstr_printf(f, " count=" BUNFMT " lrefs=%d ",
-			BATcount(b), BBP_lrefs(abs(b->batCacheid)));
-	if (BBP_refs(abs(b->batCacheid)) - 1)
-		mnstr_printf(f, " refs=%d ", BBP_refs(abs(b->batCacheid)));
+			BATcount(b), BBP_lrefs(b->batCacheid));
+	if (BBP_refs(b->batCacheid) - 1)
+		mnstr_printf(f, " refs=%d ", BBP_refs(b->batCacheid));
 	if (b->batSharecnt)
 		mnstr_printf(f, " views=%d", b->batSharecnt);
-	if (b->T->heap.parentid)
-		mnstr_printf(f, "view on %s ", BBPname(b->T->heap.parentid));
+	if (b->theap.parentid)
+		mnstr_printf(f, "view on %s ", BBPname(b->theap.parentid));
 }
 /* MAL debugger parser
  * The debugger structure is inherited from GDB.
@@ -484,14 +484,7 @@ retryRead:
 		case 'f':   /* finish */
 		case 'n':   /* next */
 		case 's':   /* step */
-			if (strncmp("span", b, 4) == 0) {
-				Lifespan span = setLifespan(mb);
-				if ( span){
-					debugLifespan(cntxt, mb, span);
-					GDKfree(span);
-				}
-				continue;
-			} else if (strncmp("scenarios", b, 9) == 0) {
+			if (strncmp("scenarios", b, 9) == 0) {
 				showAllScenarios(out);
 				continue;
 			} else if (strncmp("scenario", b, 3) == 0) {
@@ -1247,7 +1240,8 @@ printStackHdr(stream *f, MalBlkPtr mb, ValPtr v, int index)
 		nme = nmebuf;
 	} else
 		nme = n->name;
-	mnstr_printf(f, "#[%d] %5s = ", index, nme);
+	mnstr_printf(f, "#[%2d] %5s", index, nme);
+	mnstr_printf(f, " (%d,%d,%d) = ", getBeginScope(mb,index), getLastUpdate(mb,index),getEndScope(mb, index));
 	if (v)
 		ATOMprint(v->vtype, VALptr(v), f);
 }
@@ -1263,11 +1257,9 @@ printStackElm(stream *f, MalBlkPtr mb, ValPtr v, int index, BUN cnt, BUN first)
 	printStackHdr(f, mb, v, index);
 
 	if (v && v->vtype == TYPE_bat) {
-		int i = v->val.ival;
-		BAT *b = BBPquickdesc(abs(i), TRUE);
+		bat i = v->val.bval;
+		BAT *b = BBPquickdesc(i, TRUE);
 
-		if (i < 0)
-			b = BATmirror(b);
 		if (b) {
 			nme = getTypeName(newColumnType(b->ttype));
 			mnstr_printf(f, " :%s rows="BUNFMT, nme, BATcount(b));
@@ -1286,8 +1278,6 @@ printStackElm(stream *f, MalBlkPtr mb, ValPtr v, int index, BUN cnt, BUN first)
 	mnstr_printf(f, " %s", (isVarConstant(mb, index) ? " constant" : ""));
 	/* mnstr_printf(f, " %s", (isVarUsed(mb,index) ? "": " not used" ));*/
 	mnstr_printf(f, " %s", (isVarTypedef(mb, index) ? " type variable" : ""));
-	if (getEndOfLife(mb, index))
-		mnstr_printf(f, " eolife=%d ", getEndOfLife(mb, index));
 	GDKfree(nme);
 	mnstr_printf(f, "\n");
 	GDKfree(nmeOnStk);
@@ -1363,7 +1353,7 @@ printBatProperties(stream *f, VarPtr n, ValPtr v, str props)
 					BBPunfix(b[1]->batCacheid);
 				return;
 			}
-			p = BUNfnd(BATmirror(b[0]), props);
+			p = BUNfnd(b[0], props);
 			if (p != BUN_NONE) {
 				BATiter bi = bat_iterator(b[1]);
 				mnstr_printf(f, " %s\n", (str) BUNtail(bi, p));
@@ -1434,27 +1424,4 @@ debugOptimizers(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (pci)
 		removeInstruction(mb, pci);
 	return MAL_SUCCEED;
-}
-
-void
-debugLifespan(Client cntxt, MalBlkPtr mb, Lifespan span)
-{
-	int i;
-	char name[BUFSIZ];
-
-	for (i = 0; i < mb->vtop; i++) {
-		if (isTmpVar(mb, i))
-			snprintf(name, BUFSIZ, "%c%d ", TMPMARKER, getVar(mb, i)->tmpindex);
-		else
-			snprintf(name, BUFSIZ, "%s ", getVar(mb, i)->name);
-		mnstr_printf(cntxt->fdout, "#%8s eolife=%4d range %4d - %4d  ",
-				name,
-				getEndOfLife(mb,i),
-				getBeginLifespan(span, i),
-				getEndLifespan(span, i));
-		if (getLastUpdate(span, i))
-			mnstr_printf(cntxt->fdout, "last update %d \n", getLastUpdate(span, i));
-		else
-			mnstr_printf(cntxt->fdout, "constant \n");
-	}
 }

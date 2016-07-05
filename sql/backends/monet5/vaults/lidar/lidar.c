@@ -16,7 +16,6 @@
 #include <glob.h>
 
 /* clash with GDK? */
-// #undef htype
 // #undef ttype
 
 #include <liblas/capi/liblas.h>
@@ -402,9 +401,9 @@ str LIDARexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bats_dbl[1] = store_funcs.bind_col(tr, cols[1], 0);
 	bats_dbl[2] = store_funcs.bind_col(tr, cols[2], 0);
 
-	cols_dbl[0] = (dbl*)Tloc(bats_dbl[0], BUNfirst(bats_dbl[0]));
-	cols_dbl[1] = (dbl*)Tloc(bats_dbl[1], BUNfirst(bats_dbl[1]));
-	cols_dbl[2] = (dbl*)Tloc(bats_dbl[2], BUNfirst(bats_dbl[2]));
+	cols_dbl[0] = (dbl*)Tloc(bats_dbl[0], 0);
+	cols_dbl[1] = (dbl*)Tloc(bats_dbl[1], 0);
+	cols_dbl[2] = (dbl*)Tloc(bats_dbl[2], 0);
 
 	nrows = store_funcs.count_col(tr, cols[0], 1);
 
@@ -983,7 +982,7 @@ read_array_##BAT_TYPE(str fname,									\
 	LASReaderH reader;												\
 	int i;															\
 																	\
-	b = BATnew(TYPE_void, TYPE_##BAT_TYPE, rows, PERSISTENT);		\
+	b = COLnew(0, TYPE_##BAT_TYPE, rows, PERSISTENT);				\
 																	\
 	if (b == NULL) {												\
 		*error_code = 1;											\
@@ -1184,6 +1183,15 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		z = NULL;
 		error_code = 5;
 	}
+/* ||||||| base */
+/* 	x = BATnew(TYPE_void, TYPE_dbl, rows, PERSISTENT); */
+/* 	y = BATnew(TYPE_void, TYPE_dbl, rows, PERSISTENT); */
+/* 	z = BATnew(TYPE_void, TYPE_dbl, rows, PERSISTENT); */
+/* ======= */
+/* 	x = COLnew(0, TYPE_dbl, rows, PERSISTENT); */
+/* 	y = COLnew(0, TYPE_dbl, rows, PERSISTENT); */
+/* 	z = COLnew(0, TYPE_dbl, rows, PERSISTENT); */
+/* >>>>>>> other */
 
 	if ( x == NULL || y == NULL || z == NULL) {
 		GDKfree(tpcode);
@@ -1216,6 +1224,126 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	}
 
+/* <<<<<<< local */
+/* ||||||| base */
+/* 	BATseqbase(x, 0); */
+/* 	BATseqbase(y, 0); */
+/* 	BATseqbase(z, 0); */
+
+/* 	px = (dbl *) Tloc(x, BUNfirst(x)); */
+/* 	py = (dbl *) Tloc(y, BUNfirst(y)); */
+/* 	pz = (dbl *) Tloc(z, BUNfirst(z)); */
+
+/* 	p = LASReader_GetNextPoint(reader); */
+/* 	i = 0; */
+/* 	while (p) { */
+/* #ifndef NDEBUG */
+/* 		/\* print the details of a few points when in debug mode *\/ */
+/* 		if ( i % 1000000 == 0 ) { */
+/* 			double x = LASPoint_GetX(p); */
+/* 			double y = LASPoint_GetY(p); */
+/* 			double z = LASPoint_GetZ(p); */
+/* 			long rawx = LASPoint_GetRawX(p); */
+/* 			long rawy = LASPoint_GetRawY(p); */
+/* 			long rawz = LASPoint_GetRawZ(p); */
+/* 			unsigned short intensity = LASPoint_GetIntensity (p); */
+/* 			unsigned short returnno =LASPoint_GetReturnNumber (p); */
+/* 			unsigned short noofreturns = LASPoint_GetNumberOfReturns (p); */
+/* 			unsigned short scandir = LASPoint_GetScanDirection (p); */
+/* 			unsigned short flightline = LASPoint_GetFlightLineEdge (p); */
+/* 			unsigned char flags = LASPoint_GetScanFlags (p); */
+/* 			unsigned char class = LASPoint_GetClassification (p); */
+/* 			double t = LASPoint_GetTime(p); */
+/* 			char anglerank = LASPoint_GetScanAngleRank (p); */
+/* 			unsigned short sourceid = LASPoint_GetPointSourceId (p); */
+/* 				fprintf(stderr, */
+/* 				"(point # %d)" */
+/* 				"X (raw)           : %f (%ld)\n" */
+/* 				"Z (raw)           : %f (%ld)\n" */
+/* 				"Z (raw)           : %f (%ld)\n" */
+/* 				"intensity         : %d\n" */
+/* 				"return number     : %d\n" */
+/* 				"number of returns : %d\n" */
+/* 				"scan direction    : %d\n" */
+/* 				"flight line edge  : %d\n" */
+/* 				"scan flags        : %lc\n" */
+/* 				"classification    : %lc\n" */
+/* 				"time              : %f\n" */
+/* 				"scan angle rank   : %lc\n" */
+/* 				"point source id   : %d\n", */
+/* 			i, x, rawx, y, rawy, z, rawz, */
+/* 			intensity, returnno, noofreturns, */
+/* 			scandir, flightline, flags, class, */
+/* 			t, anglerank, sourceid); */
+/* 		} */
+/* #endif */
+/* 		//TODO: Add a flag that indicates whether LiDAR points should be validited up front */
+/* 		px[i] = LASPoint_GetRawX(p) * scalex + offsetx; */
+/* 		py[i] = LASPoint_GetRawY(p) * scaley + offsety; */
+/* 		pz[i] = LASPoint_GetRawZ(p) * scalez + offsetz; */
+
+/*         	p = LASReader_GetNextPoint(reader); */
+/* 		i++; */
+/* 	} */
+
+/* ======= */
+/* 	px = (dbl *) Tloc(x, 0); */
+/* 	py = (dbl *) Tloc(y, 0); */
+/* 	pz = (dbl *) Tloc(z, 0); */
+
+/* 	p = LASReader_GetNextPoint(reader); */
+/* 	i = 0; */
+/* 	while (p) { */
+/* #ifndef NDEBUG */
+/* 		/\* print the details of a few points when in debug mode *\/ */
+/* 		if ( i % 1000000 == 0 ) { */
+/* 			double x = LASPoint_GetX(p); */
+/* 			double y = LASPoint_GetY(p); */
+/* 			double z = LASPoint_GetZ(p); */
+/* 			long rawx = LASPoint_GetRawX(p); */
+/* 			long rawy = LASPoint_GetRawY(p); */
+/* 			long rawz = LASPoint_GetRawZ(p); */
+/* 			unsigned short intensity = LASPoint_GetIntensity (p); */
+/* 			unsigned short returnno =LASPoint_GetReturnNumber (p); */
+/* 			unsigned short noofreturns = LASPoint_GetNumberOfReturns (p); */
+/* 			unsigned short scandir = LASPoint_GetScanDirection (p); */
+/* 			unsigned short flightline = LASPoint_GetFlightLineEdge (p); */
+/* 			unsigned char flags = LASPoint_GetScanFlags (p); */
+/* 			unsigned char class = LASPoint_GetClassification (p); */
+/* 			double t = LASPoint_GetTime(p); */
+/* 			char anglerank = LASPoint_GetScanAngleRank (p); */
+/* 			unsigned short sourceid = LASPoint_GetPointSourceId (p); */
+/* 				fprintf(stderr, */
+/* 				"(point # %d)" */
+/* 				"X (raw)           : %f (%ld)\n" */
+/* 				"Z (raw)           : %f (%ld)\n" */
+/* 				"Z (raw)           : %f (%ld)\n" */
+/* 				"intensity         : %d\n" */
+/* 				"return number     : %d\n" */
+/* 				"number of returns : %d\n" */
+/* 				"scan direction    : %d\n" */
+/* 				"flight line edge  : %d\n" */
+/* 				"scan flags        : %lc\n" */
+/* 				"classification    : %lc\n" */
+/* 				"time              : %f\n" */
+/* 				"scan angle rank   : %lc\n" */
+/* 				"point source id   : %d\n", */
+/* 			i, x, rawx, y, rawy, z, rawz, */
+/* 			intensity, returnno, noofreturns, */
+/* 			scandir, flightline, flags, class, */
+/* 			t, anglerank, sourceid); */
+/* 		} */
+/* #endif */
+/* 		//TODO: Add a flag that indicates whether LiDAR points should be validited up front */
+/* 		px[i] = LASPoint_GetRawX(p) * scalex + offsetx; */
+/* 		py[i] = LASPoint_GetRawY(p) * scaley + offsety; */
+/* 		pz[i] = LASPoint_GetRawZ(p) * scalez + offsetz; */
+
+/*         	p = LASReader_GetNextPoint(reader); */
+/* 		i++; */
+/* 	} */
+
+/* >>>>>>> other */
 	BATsetcount(x, rows);
 	BATsetcount(y, rows);
 	BATsetcount(z, rows);

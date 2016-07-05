@@ -43,6 +43,12 @@ int digits2bits(int digits)
 		return 8;
 	else if (digits < 5) 
 		return 16;
+	else if (digits <= 5) 
+		return 17;
+	else if (digits <= 6) 
+		return 20;
+	else if (digits <= 7) 
+		return 24;
 	else if (digits <= 8) 
 		return 27;
 	else if (digits < 10) 
@@ -1760,9 +1766,9 @@ sqltypeinit( sql_allocator *sa)
 				sres, FALSE, F_FUNC, SCALE_FIX);
 	}
 	sres = create_arg(sa, NULL, sql_create_subtype(sa, TABLE, 0, 0), ARG_OUT); 
-	/* copyfrom fname (arg 9) */
+	/* copyfrom fname (arg 10) */
 	f=sql_create_func_(sa, "copyfrom", "sql", "copy_from",
-	 	list_append( list_append( list_append( list_append( list_append(list_append (list_append (list_append(list_append(sa_list(sa), 
+	 	list_append( list_append( list_append( list_append( list_append(list_append (list_append (list_append(list_append(list_append(sa_list(sa),
 			create_arg(sa, NULL, sql_create_subtype(sa, STR, 0, 0), ARG_IN)), 
 			create_arg(sa, NULL, sql_create_subtype(sa, STR, 0, 0), ARG_IN)), 
 			create_arg(sa, NULL, sql_create_subtype(sa, STR, 0, 0), ARG_IN)), 
@@ -1771,7 +1777,8 @@ sqltypeinit( sql_allocator *sa)
 			create_arg(sa, NULL, sql_create_subtype(sa, STR, 0, 0), ARG_IN)), 
 			create_arg(sa, NULL, sql_create_subtype(sa, LNG, 0, 0), ARG_IN)), 
 			create_arg(sa, NULL, sql_create_subtype(sa, LNG, 0, 0), ARG_IN)), 
-			create_arg(sa, NULL, sql_create_subtype(sa, INT, 0, 0), ARG_IN)), sres, FALSE, F_UNION, SCALE_FIX);
+			create_arg(sa, NULL, sql_create_subtype(sa, INT, 0, 0), ARG_IN)),
+			create_arg(sa, NULL, sql_create_subtype(sa, STR, 0, 0), ARG_IN)), sres, FALSE, F_UNION, SCALE_FIX);
 	f->varres = 1;
 
 	/* bincopyfrom */

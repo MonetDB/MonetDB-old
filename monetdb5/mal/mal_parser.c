@@ -795,6 +795,7 @@ helpInfo(Client cntxt, str *help)
 	if (MALkeyword(cntxt, "comment", 7)) {
 		skipSpace(cntxt);
 		if ((l = stringLength(cntxt))) {
+			GDKfree(*help);
 			*help = strCopy(cntxt, l);
 			if (*help)
 				advance(cntxt, l - 1);
@@ -1148,6 +1149,11 @@ fcnHeader(Client cntxt, int kind)
 	curInstr = getInstrPtr(curBlk, 0);
 
 	if (currChar(cntxt) != '('){
+		if (cntxt->backup) {
+			freeSymbol(cntxt->curprg);
+			cntxt->curprg = cntxt->backup;
+			cntxt->backup = 0;
+		}
 		parseError(cntxt, "function header '(' expected\n");
 		skipToEnd(cntxt);
 		return curBlk;
@@ -1159,6 +1165,7 @@ fcnHeader(Client cntxt, int kind)
 
 	if (isModuleDefined(cntxt->nspace, getModuleId(curInstr)) == FALSE) {
 		if (cntxt->backup) {
+			freeSymbol(cntxt->curprg);
 			cntxt->curprg = cntxt->backup;
 			cntxt->backup = 0;
 		}
@@ -1180,6 +1187,7 @@ fcnHeader(Client cntxt, int kind)
 			if (ch == ')')
 				break;
 			if (cntxt->backup) {
+				freeSymbol(cntxt->curprg);
 				cntxt->curprg = cntxt->backup;
 				cntxt->backup = 0;
 			}
@@ -1261,6 +1269,7 @@ fcnHeader(Client cntxt, int kind)
 		if (currChar(cntxt) != ')') {
 			freeInstruction(curInstr);
 			if (cntxt->backup) {
+				freeSymbol(cntxt->curprg);
 				cntxt->curprg = cntxt->backup;
 				cntxt->backup = 0;
 			}

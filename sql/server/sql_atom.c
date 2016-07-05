@@ -13,6 +13,16 @@
 
 static int atom_debug = 0;
 
+void
+atom_init( atom *a )
+{
+	a->isnull = 1;
+	a->data.vtype = 0;
+	a->tpe.type = NULL;
+	a->d = 0;
+	a->varid = 0;
+}
+
 static atom *
 atom_create( sql_allocator *sa )
 {
@@ -252,8 +262,7 @@ atom_general(sql_allocator *sa, sql_subtype *tpe, const char *val)
 			VALset(&a->data, a->data.vtype, p);
 			SA_VALcopy(sa, &a->data, &a->data);
 
-			if (p && ATOMextern(a->data.vtype) == 0)
-				GDKfree(p);
+			GDKfree(p);
 			/*_DELETE(val);*/
 		}
 	} else { 

@@ -93,7 +93,7 @@ typedef struct{
 #endif
 #define Manifoldbody(...)												\
 	do {																\
-		switch(ATOMstorage(mut->args[0].b->T->type)){					\
+		switch(ATOMstorage(mut->args[0].b->ttype)){						\
 		case TYPE_bte: ManifoldLoop(bte,__VA_ARGS__); break;			\
 		case TYPE_sht: ManifoldLoop(sht,__VA_ARGS__); break;			\
 		case TYPE_int: ManifoldLoop(int,__VA_ARGS__); break;			\
@@ -302,11 +302,11 @@ MANIFOLDevaluate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 				o = mat[i].b->tseqbase;
 				mat[i].first = mat[i].last = (void*) &o;
 			} else {
-				mat[i].first = (void*)  Tloc(mat[i].b, BUNfirst(mat[i].b));
+				mat[i].first = (void*)  Tloc(mat[i].b, 0);
 				mat[i].last = (void*) Tloc(mat[i].b, BUNlast(mat[i].b));
 			}
 			mat[i].bi = bat_iterator(mat[i].b);
-			mat[i].o = BUNfirst(mat[i].b);
+			mat[i].o = 0;
 			mat[i].q = BUNlast(mat[i].b);
 		} else {
 			mat[i].last = mat[i].first = (void *) getArgReference(stk,pci,i);
@@ -321,20 +321,17 @@ MANIFOLDevaluate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	}
 
 	// prepare result variable
-	mat[0].b =BATnew(TYPE_void, getColumnType(getArgType(mb,pci,0)), cnt, TRANSIENT);
+	mat[0].b =COLnew(mat[mut.fvar].b->hseqbase, getColumnType(getArgType(mb,pci,0)), cnt, TRANSIENT);
 	if ( mat[0].b == NULL){
 		msg= createException(MAL,"mal.manifold",MAL_MALLOC_FAIL);
 		goto wrapup;
 	}
-	mat[0].b->hsorted= 0;
-	mat[0].b->hrevsorted= 0;
-	mat[0].b->T->nonil=0;
+	mat[0].b->tnonil=0;
 	mat[0].b->tsorted=0;
 	mat[0].b->trevsorted=0;
 	mat[0].bi = bat_iterator(mat[0].b);
-	mat[0].first = (void *)  Tloc(mat[0].b, BUNfirst(mat[0].b));
+	mat[0].first = (void *)  Tloc(mat[0].b, 0);
 	mat[0].last = (void *)  Tloc(mat[0].b, BUNlast(mat[0].b));
-	BATseqbase(mat[0].b, mat[mut.fvar].b->H->seq);
 
 	mut.pci = copyInstruction(pci);
 	mut.pci->fcn = fcn;
