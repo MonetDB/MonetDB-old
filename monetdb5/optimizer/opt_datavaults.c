@@ -7,7 +7,7 @@
  */
 
 #include "monetdb_config.h"
-#include "opt_gadget.h"
+#include "opt_datavaults.h"
 #include "mal_interpreter.h"	/* for showErrors() */
 #include "mal_builder.h"
 /*
@@ -39,13 +39,13 @@ checkTable(int *res, int *action, MalBlkPtr mb, InstrPtr p, TABLE **tabs, int nu
     if ( num_tabs && ((num_tabs % DEFAULT_NUM_TABLES) == 0)) {
 		*tabs = (TABLE*) GDKrealloc(tabs, sizeof(TABLE) * (num_tabs*2));
         if (!tabs) {
-            throw(MAL, "optimizer.gadget", "Realloc failed");
+            throw(MAL, "optimizer.datavaults", "Realloc failed");
         }
     }
     for(i = 0; i < num_tabs; i++) {
         if ( tabs[i]->sname && (strcmp(tabs[i]->sname, sname) == 0) && (strcmp(tabs[i]->tname, tname) == 0)) { 
             r = newInstruction(mb,ASSIGNsymbol);
-            setModuleId(r, gadgetRef);
+            setModuleId(r, datavaultsRef);
             setFunctionId(r, getFunctionId(p));
             getArg(r,0) = getArg(p,0);
             for (j = 1; j < p->retc; j++) {
@@ -64,7 +64,7 @@ checkTable(int *res, int *action, MalBlkPtr mb, InstrPtr p, TABLE **tabs, int nu
     }
 
     c = newInstruction(mb,ASSIGNsymbol);
-    setModuleId(c, gadgetRef);
+    setModuleId(c, datavaultsRef);
     setFunctionId(c, checktableRef);
     getArg(c,0) = newTmpVariable(mb, TYPE_int);
     c = pushArgument(mb, c, getArg(p,1+upd));
@@ -73,7 +73,7 @@ checkTable(int *res, int *action, MalBlkPtr mb, InstrPtr p, TABLE **tabs, int nu
     pushInstruction(mb,c);
 
     a = newInstruction(mb,ASSIGNsymbol);
-    setModuleId(a, gadgetRef);
+    setModuleId(a, datavaultsRef);
     setFunctionId(a, analyzetableRef);
     getArg(a,0) = newTmpVariable(mb, TYPE_int);
     a = pushArgument(mb, a, getArg(p,1+upd));
@@ -83,7 +83,7 @@ checkTable(int *res, int *action, MalBlkPtr mb, InstrPtr p, TABLE **tabs, int nu
     pushInstruction(mb,a);
 
     r = newInstruction(mb,ASSIGNsymbol);
-    setModuleId(r, gadgetRef);
+    setModuleId(r, datavaultsRef);
     setFunctionId(r, getFunctionId(p));
     getArg(r,0) = getArg(p,0);
     for (j = 1; j < p->retc; j++) {
@@ -111,14 +111,14 @@ checkTable(int *res, int *action, MalBlkPtr mb, InstrPtr p, TABLE **tabs, int nu
 }
 
 int
-OPTgadgetImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+OPTdatavaultsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
     InstrPtr p, *old;
     int i, limit, slimit, action=0;
     TABLE **tabs = NULL;
     int num_tabs = 0;
 
-	mnstr_printf(cntxt->fdout, "Gadget optimizer started\n");
+	mnstr_printf(cntxt->fdout, "Datavaults optimizer started\n");
 	(void) cntxt;
 	(void) stk;
 	(void) pci;
@@ -159,9 +159,9 @@ OPTgadgetImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
         GDKfree(tabs);
     }
 
-#ifdef DEBUG_OPT_GADGET
+#ifdef DEBUG_OPT_DATAVAULTS
 	if (0 && action) {
-		mnstr_printf(cntxt->fdout, "gadget %d\n", action);
+		mnstr_printf(cntxt->fdout, "datavaults %d\n", action);
 		printFunction(cntxt->fdout, mb, 0, LIST_MAL_ALL);
 	}
 #endif

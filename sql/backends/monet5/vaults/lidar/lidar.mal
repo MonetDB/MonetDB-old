@@ -25,3 +25,58 @@ comment "Load a LIDAR table from an attached file";
 pattern export(tablename:str, fname:str, type:str):void
 address LIDARexportTable
 comment "Exporta LIDAR table to a LAS/LAZ file"
+
+pattern checktable(mvc:int, tablename :str):int
+address LIDARCheckTable
+comment "Check if table was loaded";
+
+function checktab(tablename :str):int;
+    x = checktable(0, tablename);
+    return x;
+end checktab;
+
+pattern analyzetable(mvc:int, status:int, tablename :str):int
+address LIDARAnalyzeTable
+comment "Analyze table";
+
+function analyzetab(status:int, tablename:str) :int;
+    x = analyzetable(0, status, tablename);
+    return x;
+end analyzetab;
+
+pattern bind(tid:int, mvc:int, schema:str, table:str, column:str, access:int ):bat[:any_1]
+address mvc_LIDAR_bind_wrap
+comment "Bind the 'schema.table.column' BAT with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern bind(tid:int, mvc:int, schema:str, table:str, column:str, access:int )(uid:bat[:oid],uval:bat[:any_1])
+address mvc_LIDAR_bind_wrap
+comment "Bind the 'schema.table.column' BAT with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern bind(tid:int, mvc:int, schema:str, table:str, column:str, access:int, part_nr:int, nr_parts:int ):bat[:any_1]
+address mvc_LIDAR_bind_wrap
+comment "Bind the 'schema.table.column' BAT partition with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern bind(tid:int, mvc:int, schema:str, table:str, column:str, access:int, part_nr:int, nr_parts:int )(uid:bat[:oid],uval:bat[:any_1])
+address mvc_LIDAR_bind_wrap
+comment "Bind the 'schema.table.column' BAT with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern tid(id:int, mvc:int, sname:str, tname:str):bat[:oid] 
+address LIDARTid
+comment "Return the tables tid column.";
+
+pattern tid(id:int, mvc:int, sname:str, tname:str, part_nr:int, nr_parts:int ):bat[:oid] 
+address LIDARTid
+comment "Return the tables tid column.";
+

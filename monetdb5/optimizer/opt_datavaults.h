@@ -6,14 +6,14 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
-#ifndef _OPT_GADGET_
-#define _OPT_GADGET_
+#ifndef _OPT_DATAVAULTS_
+#define _OPT_DATAVAULTS_
 #include "opt_prelude.h"
 #include "opt_support.h"
 
 opt_export int
-OPTgadgetImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+OPTdatavaultsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
-#define OPTDEBUGgadget  if ( optDebug & ((lng)1 <<DEBUG_OPT_GADGET) )
+#define OPTDEBUGdatavaults  if ( optDebug & ((lng)1 <<DEBUG_OPT_DATAVAULTS) )
 
 #endif

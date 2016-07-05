@@ -33,13 +33,16 @@
 #include <clients.h>
 #include <mal_exception.h>
 
+static MT_Lock mt_lidar_lock;
+
+#define LIDAR_LOCK MT_lock_set(&mt_lidar_lock) 
+#define LIDAR_UNLOCK MT_lock_unset(&mt_lidar_lock) 
+
 #define LIDAR_INS_COL "INSERT INTO lidar_columns(id, name, type, units, number, table_id) \
 	 VALUES(%d,'%s','%s','%s',%d,%d);"
 #define FILE_INS "INSERT INTO lidar_files(id, name) VALUES (%d, '%s');"
 #define DEL_TABLE "DELETE FROM lidarfiles;"
 #define ATTACHDIR "CALL lidarattach('%s');"
-
-static MT_Lock mt_lidar_lock;
 
 #ifndef NDEBUG
 static
@@ -979,7 +982,7 @@ read_array_##BAT_TYPE(str fname,									\
 	BAT *b;														\
 	BAT_TYPE *d = NULL;											\
 	LASPointH p = NULL;											\
-	LASReaderH reader;												\
+	LASReaderH reader = NULL;												\
 	int i;															\
 																	\
 	b = COLnew(0, TYPE_##BAT_TYPE, rows, PERSISTENT);				\
@@ -1030,13 +1033,11 @@ READ_ARRAY(lng)
 READ_ARRAY(hge)
 #endif
 
-str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+static
+str LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname)
 {
-	mvc *m = NULL;
-	sql_schema *sch;
-	sql_table *lidar_fl, *lidar_tbl, *lidar_cl, *tbl = NULL;
+	sql_table *lidar_fl, *lidar_cl, *tbl = NULL;
 	sql_column *col, *colx, *coly, *colz;
-	str tname = toLower(*getArgReference_str(stk, pci, 1));
 	str fname;
 	str msg = MAL_SUCCEED;
 	oid rid = oid_nil, frid = oid_nil, tid = oid_nil;
@@ -1047,35 +1048,9 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int *tpcode = NULL;
 	long *rep = NULL, *wid = NULL, rows;
 	BAT *x = NULL, *y = NULL, *z = NULL;
-	size_t sz;
 	int precisionx, precisiony, precisionz;
 	double scalex, scaley, scalez;
 	int error_code;
-
-	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
-		return msg;
-	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
-		return msg;
-	sch = mvc_bind_schema(m, "sys");
-
-	lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
-	if (lidar_tbl == NULL) {
-		msg = createException(MAL, "lidar.loadtable", "LIDAR catalog is missing.\n");
-		return msg;
-	}
-
-	tbl = mvc_bind_table(m, sch, tname);
-	if (tbl == NULL) {
-		msg = createException(MAL, "lidar.loadtable", "Could not find table %s.\n", tname);
-		return msg;
-	}
-
-	col = mvc_bind_column(m, tbl, "x");
-	sz = store_funcs.count_col(m->session->tr, col, 1);
-	if (sz != 0) {
-		msg = createException(MAL, "lidar.loadtable", "Table %s is not empty.\n", tname);
-		return msg;
-	}
 
 	col = mvc_bind_column(m, lidar_tbl, "name");
 	rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
@@ -1379,10 +1354,390 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return msg;
 }
 
+str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    mvc *m = NULL;
+    sql_table *lidar_tbl, *tbl;
+	sql_schema *sch;
+	str tname = toLower(*getArgReference_str(stk, pci, 1));
+    sql_column *col;
+	str msg = MAL_SUCCEED;
+	size_t sz;
+
+	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
+		return msg;
+	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
+		return msg;
+
+	sch = mvc_bind_schema(m, "sys");
+
+	lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
+	if (lidar_tbl == NULL) {
+		msg = createException(MAL, "lidar.loadtable", "LIDAR catalog is missing.\n");
+		return msg;
+	}
+
+    tbl = mvc_bind_table(m, sch, tname);
+	if (tbl == NULL) {
+		msg = createException(MAL, "lidar.loadtable", "Could not find table %s.\n", tname);
+		return msg;
+	}
+
+	col = mvc_bind_column(m, tbl, "x");
+	sz = store_funcs.count_col(m->session->tr, col, 1);
+	if (sz != 0) {
+		msg = createException(MAL, "lidar.loadtable", "Table %s is not empty.\n", tname);
+		return msg;
+	}
+
+	return LIDARloadTable_(m, sch, lidar_tbl, tname);
+}
+
 str
 LIDARprelude(void *ret) {
 	(void) ret;
 	MT_lock_init(&mt_lidar_lock, "lidar.lock");
 
 	return MAL_SUCCEED;
+}
+
+str
+LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+  mvc *m = NULL;
+  str msg = MAL_SUCCEED;
+  size_t sz;
+  sql_schema *sch = NULL;
+  sql_table *lidar_tbl, *tbl = NULL;
+  sql_column *col;
+  oid rid = oid_nil;
+  str tname = *getArgReference_str(stk, pci, 2);
+  int *res = getArgReference_int(stk, pci, 0);
+
+  if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
+    return msg;
+  if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
+    return msg;
+
+  sch = mvc_bind_schema(m, "sys");
+  lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
+  if (lidar_tbl == NULL) {
+    msg = createException(MAL, "lidar.check", "LIDAR catalog is missing.\n");
+    return msg;
+  }
+
+  /*Check if is a table which belongs to lidar_tables*/
+  col = mvc_bind_column(m, lidar_tbl, "name");
+  rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
+  if (rid == oid_nil) {
+    return MAL_SUCCEED;
+  }
+
+  tbl = mvc_bind_table(m, sch, tname);
+  if (tbl == NULL) {
+    msg = createException(MAL, "lidar.check", "Could not find table %s.\n", tname);
+    return msg;
+  }
+
+  col = mvc_bind_column(m, tbl, "id");
+  sz = store_funcs.count_col(m->session->tr, col, 1);
+
+  if (sz == 0) {
+    /*Lets load the table*/
+    msg = LIDARloadTable_(m, sch, lidar_tbl, tname);
+    *res = LIDAR_TABLE_LOADED;
+  } else {
+    if (tbl->access == TABLE_WRITABLE)
+      *res = LIDAR_TABLE_ANALYZE;
+    else 
+      *res = LIDAR_TABLE_DONE;
+
+#ifndef NDEBUG
+    fprintf(stderr, "The table %s is already loaded and its status is %d!!!\n", tname, *res);
+#endif
+  }
+
+  return msg;
+}
+
+str
+LIDARAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    mvc *m = NULL;
+    str msg = MAL_SUCCEED;
+    char readonly[BUFSIZ], analyze[BUFSIZ];
+    char *sr, *sa;
+    sql_schema *sch = NULL;
+    sql_table *lidar_tbl;
+    sql_column *col;
+    oid rid = oid_nil;
+    int status = *getArgReference_int(stk, pci, 2);
+    str tname = *getArgReference_str(stk, pci, 3);
+    int *res = getArgReference_int(stk, pci, 0);
+
+    if (status != LIDAR_TABLE_ANALYZE) {
+        *res = status;
+        return msg;
+    }
+
+    if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
+        return msg;
+    if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
+        return msg;
+
+    sch = mvc_bind_schema(m, "sys");
+    lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
+    if (lidar_tbl == NULL) {
+        msg = createException(MAL, "lidar.analyze", "LIDAR catalog is missing.\n");
+        return msg;
+    }
+
+    /*Check if is a table which belongs to lidar_tables*/
+    col = mvc_bind_column(m, lidar_tbl, "name");
+    rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
+    if (rid == oid_nil) {
+        msg = createException(MAL, "lidar.analyze", "Table %s is unknown to the LIDAR catalog. Attach first the containing file\n", tname);
+        return msg;
+    }
+
+
+    /*Set table read only*/
+    sr = readonly;
+    snprintf(readonly, BUFSIZ, "alter table %s set read only;", tname);
+
+#ifndef NDEBUG
+    fprintf(stderr, "The readonly stmt is: %s!!!\n", readonly);
+#endif
+    LIDAR_LOCK;
+    msg = SQLstatementIntern(cntxt, &sr, "lidar.analyze", TRUE, FALSE, NULL);
+    LIDAR_UNLOCK;
+    if (msg)
+        return msg;
+
+    /*Analyze table*/
+    sa = analyze;
+    snprintf(analyze, BUFSIZ, "analyze sys.%s (id, posX, posY, posZ) minmax;", tname);
+
+#ifndef NDEBUG
+    fprintf(stderr, "The analyze stmt is: %s!!!\n", analyze);
+#endif
+    LIDAR_LOCK;
+    msg = SQLstatementIntern(cntxt, &sa, "lidar.analyze", TRUE, FALSE, NULL);
+    LIDAR_UNLOCK;
+    if (msg)
+        return msg;
+
+    *res = LIDAR_TABLE_DONE;
+
+    return MAL_SUCCEED;
+}
+
+static BAT * 
+mvc_bind(mvc *m, char *sname, char *tname, char *cname, int access)
+{
+    sql_trans *tr = m->session->tr;
+    BAT *b = NULL;
+    sql_schema *s = NULL;
+    sql_table *t = NULL;
+    sql_column *c = NULL;
+
+    s = mvc_bind_schema(m, sname);
+    if (s == NULL)
+        return NULL;
+    t = mvc_bind_table(m, s, tname);
+    if (t == NULL)
+        return NULL;
+    c = mvc_bind_column(m, t, cname);
+    if (c == NULL)
+        return NULL;
+
+    b = store_funcs.bind_col(tr, c, access);
+    return b;
+}
+
+/* str mvc_bind_wrap(int *bid, str *sname, str *tname, str *cname, int *access); */
+str
+mvc_lidar_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    int upd = (pci->argc == 8 || pci->argc == 10);
+    BAT *b = NULL, *bn;
+    bat *bid = getArgReference_bat(stk, pci, 0);
+    int coltype = getColumnType(getArgType(mb, pci, 0));
+    mvc *m = NULL;
+    str msg;
+    int status = *getArgReference_int(stk, pci, 1 + upd);
+    str *sname = getArgReference_str(stk, pci, 3 + upd);
+    str *tname = getArgReference_str(stk, pci, 4 + upd);
+    str *cname = getArgReference_str(stk, pci, 5 + upd);
+    int *access = getArgReference_int(stk, pci, 6 + upd);
+
+    if (!*access && status == LIDAR_TABLE_LOADED)
+        *access = RD_INS;
+
+    printf (" Level 0\n" );
+    if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
+        return msg;
+    if ((msg = checkSQLContext(cntxt)) != NULL)
+        return msg;
+    b = mvc_bind(m, *sname, *tname, *cname, *access);
+    if (b && b->ttype != coltype)
+        throw(SQL,"sql.bind","tail type mismatch");
+    if (b) {
+        printf ("argc %d upd %d", pci->argc, upd);
+        if (pci->argc == (9 + upd) && getArgType(mb, pci, 7 + upd) == TYPE_int) {
+            BUN cnt = BATcount(b), psz;
+            /* partitioned access */
+            int part_nr = *getArgReference_int(stk, pci, 7 + upd);
+            int nr_parts = *getArgReference_int(stk, pci, 8 + upd);
+            printf (" Level 1\n" );
+
+            if (*access == 0) {
+                psz = cnt ? (cnt / nr_parts) : 0;
+                bn = BATslice(b, part_nr * psz, (part_nr + 1 == nr_parts) ? cnt : ((part_nr + 1) * psz));
+                BATseqbase(bn, part_nr * psz);
+            } else {
+                /* BAT b holds the UPD_ID bat */
+                oid l, h;
+                BAT *c = mvc_bind(m, *sname, *tname, *cname, 0);
+                if (c == NULL)
+                    throw(SQL,"sql.bind","Cannot access the update column");
+
+                cnt = BATcount(c);
+                psz = cnt ? (cnt / nr_parts) : 0;
+                l = part_nr * psz;
+                h = (part_nr + 1 == nr_parts) ? cnt : ((part_nr + 1) * psz);
+                h--;
+                bn = BATselect(b, NULL, &l, &h, 1, 1, 0);
+                BBPunfix(c->batCacheid);
+            }
+            BBPunfix(b->batCacheid);
+            b = bn;
+        } else if (upd) {
+            BAT *uv = mvc_bind(m, *sname, *tname, *cname, RD_UPD_VAL);
+            bat *uvl = getArgReference_bat(stk, pci, 1);
+            printf (" Level 2\n" );
+
+            if (uv == NULL)
+                throw(SQL,"sql.bind","Cannot access the update column");
+            BBPkeepref(*bid = b->batCacheid);
+            BBPkeepref(*uvl = uv->batCacheid);
+            return MAL_SUCCEED;
+        }
+        if (upd) {
+            bat *uvl = getArgReference_bat(stk, pci, 1);
+            printf (" Level 3\n" );
+
+            if (BATcount(b)) {
+                BAT *uv = mvc_bind(m, *sname, *tname, *cname, RD_UPD_VAL);
+                BAT *ui = mvc_bind(m, *sname, *tname, *cname, RD_UPD_ID);
+                BAT *id;
+                BAT *vl;
+                if (ui == NULL)
+                    throw(SQL,"sql.bind","Cannot access the insert column");
+                if (uv == NULL)
+                    throw(SQL,"sql.bind","Cannot access the update column");
+                id = BATproject(b, ui);
+                vl = BATproject(b, uv);
+                assert(BATcount(id) == BATcount(vl));
+                bat_destroy(ui);
+                bat_destroy(uv);
+                BBPkeepref(*bid = id->batCacheid);
+                BBPkeepref(*uvl = vl->batCacheid);
+            } else {
+                sql_schema *s = mvc_bind_schema(m, *sname);
+                sql_table *t = mvc_bind_table(m, s, *tname);
+                sql_column *c = mvc_bind_column(m, t, *cname);
+
+                *bid = e_bat(TYPE_oid);
+                *uvl = e_bat(c->type.type->localtype);
+            }
+            BBPunfix(b->batCacheid);
+        } else {
+            printf (" Level 4\n" );
+            BBPkeepref(*bid = b->batCacheid);
+        }
+        return MAL_SUCCEED;
+    }
+    if (*sname && strcmp(*sname, str_nil) != 0)
+        throw(SQL, "sql.bind", "unable to find %s.%s(%s)", *sname, *tname, *cname);
+    throw(SQL, "sql.bind", "unable to find %s(%s)", *tname, *cname);
+}
+
+/* str SQLtid(bat *result, mvc *m, str *sname, str *tname) */
+str
+LIDARTid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    bat *res = getArgReference_bat(stk, pci, 0);
+    mvc *m = NULL;
+    str msg;
+    sql_trans *tr;
+    str sname = *getArgReference_str(stk, pci, 3);
+    str tname = *getArgReference_str(stk, pci, 4);
+
+    sql_schema *s;
+    sql_table *t;
+    sql_column *c;
+    BAT *tids;
+    size_t nr, inr = 0;
+    oid sb = 0;
+
+    *res = bat_nil;
+    if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
+        return msg;
+    tr = m->session->tr;
+    if ((msg = checkSQLContext(cntxt)) != NULL)
+        return msg;
+    s = mvc_bind_schema(m, sname);
+    if (s == NULL)
+        throw(SQL, "sql.tid", "3F000!Schema missing");
+    t = mvc_bind_table(m, s, tname);
+    if (t == NULL)
+        throw(SQL, "sql.tid", "42S02!Table missing");
+    c = t->columns.set->h->data;
+
+    nr = store_funcs.count_col(tr, c, 1);
+
+    if (isTable(t) && t->access == TABLE_WRITABLE && (t->base.flag != TR_NEW /* alter */ ) &&
+            t->persistence == SQL_PERSIST && !t->commit_action)
+        inr = store_funcs.count_col(tr, c, 0);
+    nr -= inr;
+    if (pci->argc == 6) {	/* partitioned version */
+        size_t cnt = nr;
+        int part_nr = *getArgReference_int(stk, pci, 5);
+        int nr_parts = *getArgReference_int(stk, pci, 6);
+
+        nr /= nr_parts;
+        sb = (oid) (part_nr * nr);
+        if (nr_parts == (part_nr + 1)) {	/* last part gets the inserts */
+            nr = cnt - (part_nr * nr);	/* keep rest */
+            nr += inr;
+        }
+    } else {
+        nr += inr;
+    }
+
+    /* create void,void bat with length and oid's set */
+    tids = BATnew(TYPE_void, TYPE_void, 0, TRANSIENT);
+    if (tids == NULL)
+        throw(SQL, "sql.tid", MAL_MALLOC_FAIL);
+    BATsetcount(tids, (BUN) nr);
+    BATseqbase(tids, sb);
+    BATseqbase(BATmirror(tids), sb);
+
+    if (store_funcs.count_del(tr, t)) {
+        BAT *d = store_funcs.bind_del(tr, t, RD_INS);
+        BAT *diff;
+        if( d == NULL)
+            throw(SQL,"sql.tid","Can not bind delete column");
+
+        diff = BATdiff(tids, d, NULL, NULL, 0, BUN_NONE);
+        BBPunfix(d->batCacheid);
+        BBPunfix(tids->batCacheid);
+        BATseqbase(diff, sb);
+        tids = diff;
+    }
+
+    if (!(tids->batDirty&2)) BATsetaccess(tids, BAT_READ);
+    BBPkeepref(*res = tids->batCacheid);
+    return MAL_SUCCEED;
 }

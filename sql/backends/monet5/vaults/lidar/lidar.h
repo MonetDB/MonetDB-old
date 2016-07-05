@@ -28,6 +28,10 @@ lidar_export str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 lidar_export str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 lidar_export str LIDARexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 lidar_export str LIDARprelude(void *ret);
+lidar_export str LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+lidar_export str LIDARAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+lidar_export str mvc_lidar_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+lidar_export str LIDARTid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 
 typedef struct lidar_header_info {
@@ -69,6 +73,14 @@ typedef struct either_lidar_header {
 	str msg;
 	lidar_info *hi;
 } lidar_header;
+
+typedef enum {
+    LIDAR_TABLE_UNLOADED,
+    LIDAR_TABLE_LOADED,
+    LIDAR_TABLE_ANALYZE,
+    LIDAR_TABLE_DONE
+} LIDAR_STATUS;
+
 
 lidar_header *LIDARopenFile(str fname);
 lidar_header *LIDARopenDir(str fname);
