@@ -1130,13 +1130,13 @@ str gadgetLoadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
   colvelX = mvc_bind_column(m, tbl, "velx"); 
   colvelY = mvc_bind_column(m, tbl, "vely"); 
   colvelZ = mvc_bind_column(m, tbl, "velz"); 
-  id = BATnew(TYPE_void, TYPE_lng, h.npartTotal, PERSISTENT); 
-  posX = BATnew(TYPE_void, TYPE_flt, h.npartTotal, PERSISTENT); 
-  posY = BATnew(TYPE_void, TYPE_flt, h.npartTotal, PERSISTENT); 
-  posZ = BATnew(TYPE_void, TYPE_flt, h.npartTotal, PERSISTENT); 
-  velX = BATnew(TYPE_void, TYPE_flt, h.npartTotal, PERSISTENT); 
-  velY = BATnew(TYPE_void, TYPE_flt, h.npartTotal, PERSISTENT); 
-  velZ = BATnew(TYPE_void, TYPE_flt, h.npartTotal, PERSISTENT); 
+  id = COLnew(0, TYPE_lng, h.npartTotal, PERSISTENT); 
+  posX = COLnew(0, TYPE_flt, h.npartTotal, PERSISTENT); 
+  posY = COLnew(0, TYPE_flt, h.npartTotal, PERSISTENT); 
+  posZ = COLnew(0, TYPE_flt, h.npartTotal, PERSISTENT); 
+  velX = COLnew(0, TYPE_flt, h.npartTotal, PERSISTENT); 
+  velY = COLnew(0, TYPE_flt, h.npartTotal, PERSISTENT); 
+  velZ = COLnew(0, TYPE_flt, h.npartTotal, PERSISTENT); 
 
   if ( id == NULL || posX == NULL || posY == NULL || posZ == NULL || velX == NULL || velY == NULL || velZ == NULL) { 
     fclose(stream);
@@ -1144,21 +1144,13 @@ str gadgetLoadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     return msg; 
   } 
 
-  BATseqbase(id, 0);
-  BATseqbase(posX, 0);
-  BATseqbase(posY, 0);
-  BATseqbase(posZ, 0);
-  BATseqbase(velX, 0);
-  BATseqbase(velY, 0);
-  BATseqbase(velZ, 0);
-
-  pid = (lng *) Tloc(id, BUNfirst(id));
-  pposX = (flt *) Tloc(posX, BUNfirst(posX));
-  pposY = (flt *) Tloc(posY, BUNfirst(posY));
-  pposZ = (flt *) Tloc(posZ, BUNfirst(posZ));
-  pvelX = (flt *) Tloc(velX, BUNfirst(velX));
-  pvelY = (flt *) Tloc(velY, BUNfirst(velY));
-  pvelZ = (flt *) Tloc(velZ, BUNfirst(velZ));
+  pid = (lng *) Tloc(id, 0);
+  pposX = (flt *) Tloc(posX, 0);
+  pposY = (flt *) Tloc(posY, 0);
+  pposZ = (flt *) Tloc(posZ, 0);
+  pvelX = (flt *) Tloc(velX, 0);
+  pvelY = (flt *) Tloc(velY, 0);
+  pvelZ = (flt *) Tloc(velZ, 0);
 
   posB = (char*)GDKmalloc(sizeof(char) * 12 * h.npartTotal);
   velB = (char*)GDKmalloc(sizeof(char) * 12 * h.npartTotal);
@@ -1397,34 +1389,26 @@ str gadgetLoadTableAll(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
   colvelY = mvc_bind_column(m, tbl, "vely"); 
   colvelZ = mvc_bind_column(m, tbl, "velz"); 
 
-  id = BATnew(TYPE_void, TYPE_lng, npartTotal, PERSISTENT); 
-  posX = BATnew(TYPE_void, TYPE_flt, npartTotal, PERSISTENT); 
-  posY = BATnew(TYPE_void, TYPE_flt, npartTotal, PERSISTENT); 
-  posZ = BATnew(TYPE_void, TYPE_flt, npartTotal, PERSISTENT); 
-  velX = BATnew(TYPE_void, TYPE_flt, npartTotal, PERSISTENT); 
-  velY = BATnew(TYPE_void, TYPE_flt, npartTotal, PERSISTENT); 
-  velZ = BATnew(TYPE_void, TYPE_flt, npartTotal, PERSISTENT); 
+  id = COLnew(0, TYPE_lng, npartTotal, PERSISTENT); 
+  posX = COLnew(0, TYPE_flt, npartTotal, PERSISTENT); 
+  posY = COLnew(0, TYPE_flt, npartTotal, PERSISTENT); 
+  posZ = COLnew(0, TYPE_flt, npartTotal, PERSISTENT); 
+  velX = COLnew(0, TYPE_flt, npartTotal, PERSISTENT); 
+  velY = COLnew(0, TYPE_flt, npartTotal, PERSISTENT); 
+  velZ = COLnew(0, TYPE_flt, npartTotal, PERSISTENT); 
 
   if ( id == NULL || posX == NULL || posY == NULL || posZ == NULL || velX == NULL || velY == NULL || velZ == NULL) { 
     msg = createException(MAL, "gadget.gadgetload", "Malloc failed"); 
     goto out;
   } 
 
-  BATseqbase(id, 0);
-  BATseqbase(posX, 0);
-  BATseqbase(posY, 0);
-  BATseqbase(posZ, 0);
-  BATseqbase(velX, 0);
-  BATseqbase(velY, 0);
-  BATseqbase(velZ, 0);
-
-  pid = (lng *) Tloc(id, BUNfirst(id));
-  pposX = (flt *) Tloc(posX, BUNfirst(posX));
-  pposY = (flt *) Tloc(posY, BUNfirst(posY));
-  pposZ = (flt *) Tloc(posZ, BUNfirst(posZ));
-  pvelX = (flt *) Tloc(velX, BUNfirst(velX));
-  pvelY = (flt *) Tloc(velY, BUNfirst(velY));
-  pvelZ = (flt *) Tloc(velZ, BUNfirst(velZ));
+  pid = (lng *) Tloc(id, 0);
+  pposX = (flt *) Tloc(posX, 0);
+  pposY = (flt *) Tloc(posY, 0);
+  pposZ = (flt *) Tloc(posZ, 0);
+  pvelX = (flt *) Tloc(velX, 0);
+  pvelY = (flt *) Tloc(velY, 0);
+  pvelZ = (flt *) Tloc(velZ, 0);
 
   for (i = 0; i < numFiles; i++) {
     posB = (char*)GDKmalloc(sizeof(char) * 12 * hs[i].npartTotal);
@@ -1671,40 +1655,30 @@ gadgetLoadTableAll_(mvc *m, sql_schema *sch, sql_table *gadget_tbl, char *tname)
   colsnapnum = mvc_bind_column(m, tbl, "snapnum"); 
   colphkey = mvc_bind_column(m, tbl, "phkey"); 
 
-  id = BATnew(TYPE_void, TYPE_lng, npartTotal, PERSISTENT); 
-  posX = BATnew(TYPE_void, TYPE_flt, npartTotal, PERSISTENT); 
-  posY = BATnew(TYPE_void, TYPE_flt, npartTotal, PERSISTENT); 
-  posZ = BATnew(TYPE_void, TYPE_flt, npartTotal, PERSISTENT); 
-  velX = BATnew(TYPE_void, TYPE_flt, npartTotal, PERSISTENT); 
-  velY = BATnew(TYPE_void, TYPE_flt, npartTotal, PERSISTENT); 
-  velZ = BATnew(TYPE_void, TYPE_flt, npartTotal, PERSISTENT); 
-  snapnum = BATnew(TYPE_void, TYPE_int, npartTotal, PERSISTENT); 
-  phkey = BATnew(TYPE_void, TYPE_int, npartTotal, PERSISTENT); 
+  id = COLnew(0, TYPE_lng, npartTotal, PERSISTENT); 
+  posX = COLnew(0, TYPE_flt, npartTotal, PERSISTENT); 
+  posY = COLnew(0, TYPE_flt, npartTotal, PERSISTENT); 
+  posZ = COLnew(0, TYPE_flt, npartTotal, PERSISTENT); 
+  velX = COLnew(0, TYPE_flt, npartTotal, PERSISTENT); 
+  velY = COLnew(0, TYPE_flt, npartTotal, PERSISTENT); 
+  velZ = COLnew(0, TYPE_flt, npartTotal, PERSISTENT); 
+  snapnum = COLnew(0, TYPE_int, npartTotal, PERSISTENT); 
+  phkey = COLnew(0, TYPE_int, npartTotal, PERSISTENT); 
 
   if ( id == NULL || posX == NULL || posY == NULL || posZ == NULL || velX == NULL || velY == NULL || velZ == NULL || snapnum == NULL || phkey == NULL) { 
     msg = createException(MAL, "gadget.gadgetload", "Malloc failed"); 
     goto out;
   } 
 
-  BATseqbase(id, 0);
-  BATseqbase(posX, 0);
-  BATseqbase(posY, 0);
-  BATseqbase(posZ, 0);
-  BATseqbase(velX, 0);
-  BATseqbase(velY, 0);
-  BATseqbase(velZ, 0);
-  BATseqbase(snapnum, 0);
-  BATseqbase(phkey, 0);
-
-  pid = (lng *) Tloc(id, BUNfirst(id));
-  pposX = (flt *) Tloc(posX, BUNfirst(posX));
-  pposY = (flt *) Tloc(posY, BUNfirst(posY));
-  pposZ = (flt *) Tloc(posZ, BUNfirst(posZ));
-  pvelX = (flt *) Tloc(velX, BUNfirst(velX));
-  pvelY = (flt *) Tloc(velY, BUNfirst(velY));
-  pvelZ = (flt *) Tloc(velZ, BUNfirst(velZ));
-  psnapnum = (int *) Tloc(snapnum, BUNfirst(snapnum));
-  pphkey = (int *) Tloc(phkey, BUNfirst(phkey));
+  pid = (lng *) Tloc(id, 0);
+  pposX = (flt *) Tloc(posX, 0);
+  pposY = (flt *) Tloc(posY, 0);
+  pposZ = (flt *) Tloc(posZ, 0);
+  pvelX = (flt *) Tloc(velX, 0);
+  pvelY = (flt *) Tloc(velY, 0);
+  pvelZ = (flt *) Tloc(velZ, 0);
+  psnapnum = (int *) Tloc(snapnum, 0);
+  pphkey = (int *) Tloc(phkey, 0);
 
   for (i = 0; i < numFiles; i++) {
     int m = 0;
@@ -2113,7 +2087,7 @@ mvc_gadget_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
       if (*access == 0) {
         psz = cnt ? (cnt / nr_parts) : 0;
         bn = BATslice(b, part_nr * psz, (part_nr + 1 == nr_parts) ? cnt : ((part_nr + 1) * psz));
-        BATseqbase(bn, part_nr * psz);
+        BAThseqbase(bn, part_nr * psz);
       } else {
         /* BAT b holds the UPD_ID bat */
         oid l, h;
@@ -2236,12 +2210,11 @@ gadgetTid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
   }
 
   /* create void,void bat with length and oid's set */
-  tids = BATnew(TYPE_void, TYPE_void, 0, TRANSIENT);
+  tids = COLnew(sb, TYPE_void, 0, TRANSIENT);
   if (tids == NULL)
     throw(SQL, "sql.tid", MAL_MALLOC_FAIL);
   BATsetcount(tids, (BUN) nr);
-  BATseqbase(tids, sb);
-  BATseqbase(BATmirror(tids), sb);
+  BATtseqbase(tids, sb);
 
   if (store_funcs.count_del(tr, t)) {
     BAT *d = store_funcs.bind_del(tr, t, RD_INS);
@@ -2252,7 +2225,7 @@ gadgetTid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     diff = BATdiff(tids, d, NULL, NULL, 0, BUN_NONE);
     BBPunfix(d->batCacheid);
     BBPunfix(tids->batCacheid);
-    BATseqbase(diff, sb);
+    BAThseqbase(diff, sb);
     tids = diff;
   }
 
@@ -2300,14 +2273,10 @@ gadgetPHkeyInvert(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
   if ((msg = checkSQLContext(cntxt)) != NULL)
     return msg;
 
-  x = BATnew(TYPE_void, TYPE_flt, 0, TRANSIENT);
-  BATseqbase(x, 0);
-  y = BATnew(TYPE_void, TYPE_flt, 0, TRANSIENT);
-  BATseqbase(y, 0);
-  z = BATnew(TYPE_void, TYPE_flt, 0, TRANSIENT);
-  BATseqbase(z, 0);
-  cSize = BATnew(TYPE_void, TYPE_flt, 0, TRANSIENT);
-  BATseqbase(cSize, 0);
+  x = COLnew(0, TYPE_flt, 0, TRANSIENT);
+  y = COLnew(0, TYPE_flt, 0, TRANSIENT);
+  z = COLnew(0, TYPE_flt, 0, TRANSIENT);
+  cSize = COLnew(0, TYPE_flt, 0, TRANSIENT);
 
   if (x == NULL || y == NULL || z == NULL || cSize == NULL) {
     if (x)
