@@ -74,7 +74,7 @@
 #define DEBUG_OPT_JSON				54
 #define DEBUG_OPT_GEOSPATIAL			55
 #define DEBUG_OPT_VOLCANO			10
-#define DEBUG_OPT_GADGET			56
+#define DEBUG_OPT_DATAVAULTS			56
 
 #define DEBUG_OPT(X) ((lng) 1 << (X))
 opt_export lng optDebug;

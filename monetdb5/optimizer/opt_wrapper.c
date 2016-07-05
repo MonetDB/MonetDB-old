@@ -36,7 +36,7 @@
 #include "opt_deadcode.h"
 #include "opt_evaluate.h"
 #include "opt_factorize.h"
-#include "opt_gadget.h"
+#include "opt_datavaults.h"
 #include "opt_garbageCollector.h"
 #include "opt_generator.h"
 #include "opt_inline.h"
@@ -73,7 +73,7 @@ struct{
 	{"dumpQEP", &OPTdumpQEPImplementation},
 	{"evaluate", &OPTevaluateImplementation},
 	{"factorize", &OPTfactorizeImplementation},
-	{"gadget", &OPTgadgetImplementation},
+	{"datavaults", &OPTdatavaultsImplementation},
 	{"garbageCollector", &OPTgarbageCollectorImplementation},
 	{"generator", &OPTgeneratorImplementation},
 	{"inline", &OPTinlineImplementation},

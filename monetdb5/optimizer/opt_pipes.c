@@ -225,15 +225,15 @@ static struct PIPELINES {
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
  */
-/*The gadget pipe line is (and should be kept!) identical to the
- * default pipeline, except that optimizer gadget is added.
+/*The datavaults pipe line is (and should be kept!) identical to the
+ * default pipeline, except that optimizer datavaults is added.
  *
  * NOTE:
- * If you change the gadget pipe, please also update the man page
+ * If you change the datavaults pipe, please also update the man page
  * (see tools/mserver/mserver5.1) accordingly!
  */
 
-	{"gadget_pipe",
+	{"datavaults_pipe",
 	 "optimizer.inline();"
 	 "optimizer.candidates();"
 	 "optimizer.remap();"
@@ -242,7 +242,7 @@ static struct PIPELINES {
 	 "optimizer.evaluate();"
 	 "optimizer.aliases();"
 	 "optimizer.pushselect();"
-	 "optimizer.gadget();"
+	 "optimizer.datavaults();"
 	 "optimizer.mitosis();"
 	 "optimizer.mergetable();"
 	 "optimizer.deadcode();"
