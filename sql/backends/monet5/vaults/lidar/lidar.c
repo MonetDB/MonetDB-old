@@ -1222,7 +1222,6 @@ str LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname)
 		return msg;
 	}
 
-
 	BATsetcount(x, rows);
 	BATsetcount(y, rows);
 	BATsetcount(z, rows);
@@ -1499,7 +1498,7 @@ mvc_lidar_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
             if (*access == 0) {
                 psz = cnt ? (cnt / nr_parts) : 0;
                 bn = BATslice(b, part_nr * psz, (part_nr + 1 == nr_parts) ? cnt : ((part_nr + 1) * psz));
-                BATseqbase(bn, part_nr * psz);
+                BAThseqbase(bn, part_nr * psz);
             } else {
                 /* BAT b holds the UPD_ID bat */
                 oid l, h;
@@ -1622,12 +1621,11 @@ LIDARTid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     }
 
     /* create void,void bat with length and oid's set */
-    tids = BATnew(TYPE_void, TYPE_void, 0, TRANSIENT);
+    tids = COLnew(sb, TYPE_void, 0, TRANSIENT);
     if (tids == NULL)
         throw(SQL, "sql.tid", MAL_MALLOC_FAIL);
     BATsetcount(tids, (BUN) nr);
-    BATseqbase(tids, sb);
-    BATseqbase(BATmirror(tids), sb);
+    BATtseqbase(tids, sb);
 
     if (store_funcs.count_del(tr, t)) {
         BAT *d = store_funcs.bind_del(tr, t, RD_INS);
@@ -1638,7 +1636,7 @@ LIDARTid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
         diff = BATdiff(tids, d, NULL, NULL, 0, BUN_NONE);
         BBPunfix(d->batCacheid);
         BBPunfix(tids->batCacheid);
-        BATseqbase(diff, sb);
+        BAThseqbase(diff, sb);
         tids = diff;
     }
 
