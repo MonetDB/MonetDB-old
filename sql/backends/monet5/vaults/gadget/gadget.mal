@@ -51,7 +51,7 @@ address gadgetCheckTable
 comment "Check if table was loaded";
 
 function checktab(tablename :str):int;
-    x = checktable(0, tablename);
+    x := checktable(0, tablename);
     return x;
 end checktab;
 
@@ -60,7 +60,7 @@ address gadgetAnalyzeTable
 comment "Analyze table";
 
 function analyzetab(status:int, tablename:str) :int;
-    x = analyzetable(0, status, tablename);
+    x := analyzetable(0, status, tablename);
     return x;
 end analyzetab;
 
