@@ -998,8 +998,7 @@ read_array_##BAT_TYPE(str fname,									\
 		return NULL;												\
 	}																\
 																	\
-	BATseqbase(b, 0);												\
-	d = (BAT_TYPE *) Tloc(b, BUNfirst(b));							\
+	d = (BAT_TYPE *) Tloc(b, 0);									\
 																	\
 	p = LASReader_GetNextPoint(reader);							\
 	i = 0;															\
