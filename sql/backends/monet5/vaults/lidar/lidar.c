@@ -9,6 +9,7 @@
 /*
  * Author: K. Kyzirakos
  * Author: P. Koutsourakis
+ * Author: R. Gonclaves
  *
  * This module contains primitives for accessing data in LiDAR file format.
  */
@@ -725,7 +726,7 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	mvc *m = NULL;
 	sql_trans *tr;
 	sql_schema *sch;
-	sql_table *lidar_fl, *lidar_tbl, *lidar_col, *tbl = NULL, *tables_catalog;
+	sql_table *lidar_fl, *lidar_tbl, *lidar_col, *tbl = NULL;
 	sql_column *col;
 	sql_subtype t;
 	str msg = MAL_SUCCEED;
@@ -739,7 +740,6 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	struct stat buf;
 	int scaleX, scaleY, scaleZ;
 	int precisionX, precisionY, precisionZ;
-	int *gtid;
 	char *istmt=NULL;
 
 	if (pci->argc == 3) {
@@ -798,7 +798,6 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	lidar_fl = mvc_bind_table(m, sch, "lidar_files");
 	lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
 	lidar_col = mvc_bind_table(m, sch, "lidar_columns");
-	/* vault_journal = mvc_bind_table(m, sch, "vault_journal"); */
 
 	/* check if the file is already attached */
 	col = mvc_bind_column(m, lidar_fl, "name");
@@ -843,21 +842,6 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	 */
 	while ((p = strchr(tname_low, '.')) != NULL) {
 		*p = '_';
-	}
-
-	/* add data to vault journal */
-	tables_catalog = mvc_bind_table(m, sch, "_tables");
-	col = mvc_bind_column(m, tables_catalog, "name");
-	rid = table_funcs.column_find_row(m->session->tr, col, tname_low, NULL);
-	col = mvc_bind_column(m, tables_catalog, "id");
-	gtid = (int *)table_funcs.column_find_value(m->session->tr, col, rid);
-
-	istmt = (char *) GDKzalloc(8192);
-	snprintf(istmt, 8192, "INSERT INTO sys.vault_journal VALUES(%d, 'lidar', '%s', '%s')", *gtid, LIDAR_READER_VERSION, tname_low);
-	msg = SQLstatementIntern(cntxt, &istmt, "LIDARattach", TRUE, FALSE, NULL);
-	GDKfree(istmt);
-	if (msg) {
-		return msg;
 	}
 
 	/* check table name for existence in the lidar catalog */
@@ -980,9 +964,6 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	store_funcs.append_col(m->session->tr,
 						   mvc_bind_column(m, lidar_col, "PrecisionZ"), &precisionZ, TYPE_int);
 
-	/* Add the metadata to the sys.statistics table for each column. */
-
-
 	/* add a lidar_column tuple */
 	col = mvc_bind_column(m, lidar_col, "id");
 	cid = store_funcs.count_col(tr, col, 1) + 1;
@@ -998,6 +979,14 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	sql_find_subtype(&t, "decimal", precisionZ, scaleZ);
 	mvc_create_column(m, tbl, "z", &t);
+
+	istmt = (char *) GDKzalloc(8192);
+	snprintf(istmt, 8192, "INSERT INTO sys.vault_journal VALUES(%d, 'lidar', '%s', '%s');", tbl->base.id, LIDAR_READER_VERSION, tname_low);
+	msg = SQLstatementIntern(cntxt, &istmt, "LIDARattach", TRUE, FALSE, NULL);
+	GDKfree(istmt);
+	if (msg) {
+		return msg;
+	}
 
 	free(header->hi);
 	free(header);
@@ -1067,9 +1056,9 @@ READ_ARRAY(hge)
 #endif
 
 static
-str LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname)
+str LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_table *tbl)
 {
-	sql_table *lidar_fl, *lidar_cl, *tbl = NULL;
+	sql_table *lidar_fl, *lidar_cl;
 	sql_column *col, *colx, *coly, *colz;
 	str fname;
 	str msg = MAL_SUCCEED;
@@ -1294,7 +1283,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	}
 
-	return LIDARloadTable_(m, sch, lidar_tbl, tname);
+	return LIDARloadTable_(m, sch, lidar_tbl, tname, tbl);
 }
 
 str
@@ -1348,7 +1337,7 @@ LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
   if (sz == 0) {
     /*Lets load the table*/
-    msg = LIDARloadTable_(m, sch, lidar_tbl, tname);
+    msg = LIDARloadTable_(m, sch, lidar_tbl, tname, tbl);
     *res = LIDAR_TABLE_LOADED;
   } else {
     if (tbl->access == TABLE_WRITABLE)
