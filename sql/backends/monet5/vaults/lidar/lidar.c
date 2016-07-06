@@ -741,11 +741,10 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int scaleX, scaleY, scaleZ;
 	int precisionX, precisionY, precisionZ;
 	char *istmt=NULL, *cstmt=NULL;
-	char maxval[BUFSIZ], minval[BUFSIZ];
+	char maxval[BUFSIZ], minval[BUFSIZ], col_type[BUFSIZ];
 	lng nils = 0;
 	lng uniq = 0;
 	lng sz = 0;
-	int width = 4;
 
 	if (pci->argc == 3) {
 		tname = *getArgReference_str(stk, pci, 2);
@@ -997,13 +996,47 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	col = mvc_bind_column(m, tbl, "x");
 	snprintf(minval, BUFSIZ, "%lf", header->hi->minX);
 	snprintf(maxval, BUFSIZ, "%lf", header->hi->maxX);
+	snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
 	if (!col) {
 		GDKfree(cstmt);
 		return createException(SQL, "lidar.attach", "cannot bind column x");
 	}
-	snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s);", col->base.id, col->type.type->sqlname, width, sz, sz, uniq, nils, minval, maxval, (header->hi->minX == header->hi->maxX) ? "true" : "false");
+	snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, (header->hi->minX == header->hi->maxX) ? "true" : "false");
 	msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
+	if (msg) {
+		GDKfree(cstmt);
+		return msg;
+	}
 
+	col = mvc_bind_column(m, tbl, "y");
+	snprintf(minval, BUFSIZ, "%lf", header->hi->minY);
+	snprintf(maxval, BUFSIZ, "%lf", header->hi->maxY);
+	snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
+	if (!col) {
+		GDKfree(cstmt);
+		return createException(SQL, "lidar.attach", "cannot bind column x");
+	}
+	snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, (header->hi->minY == header->hi->maxY) ? "true" : "false");
+	msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
+	if (msg) {
+		GDKfree(cstmt);
+		return msg;
+	}
+
+	col = mvc_bind_column(m, tbl, "z");
+	snprintf(minval, BUFSIZ, "%lf", header->hi->minZ);
+	snprintf(maxval, BUFSIZ, "%lf", header->hi->maxZ);
+	snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
+	if (!col) {
+		GDKfree(cstmt);
+		return createException(SQL, "lidar.attach", "cannot bind column x");
+	}
+	snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, (header->hi->minZ == header->hi->maxZ) ? "true" : "false");
+	msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
+	if (msg) {
+		GDKfree(cstmt);
+		return msg;
+	}
 	GDKfree(cstmt);
 
 	free(header->hi);
