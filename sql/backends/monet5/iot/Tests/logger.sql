@@ -10,9 +10,9 @@ begin
 end;
 
 call iot.query('iot','cqlogger');
-call iot.heartbeat('iot','cqlogger',1000);
+call iot.heartbeat('iot','log',1000);
 
--- wait for 1 cycle in the scheduler
+-- wait for 2 cycles in the scheduler
 call iot.wait(2);
 
 select 'RESULT';
