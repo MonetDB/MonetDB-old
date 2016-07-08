@@ -985,7 +985,7 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	mvc_create_column(m, tbl, "z", &t);
 
 	istmt = (char *) GDKzalloc(8192);
-	snprintf(istmt, 8192, "INSERT INTO sys.vault_journal VALUES(%d, 'lidar', '%s', '%s');", tbl->base.id, LIDAR_READER_VERSION, tname_low);
+	snprintf(istmt, 8192, "INSERT INTO sys.vault_journal VALUES(%d, '%s', 'lidar', '%s');", tbl->base.id, tname_low, LIDAR_READER_VERSION);
 	msg = SQLstatementIntern(cntxt, &istmt, "LIDARattach", TRUE, FALSE, NULL);
 	GDKfree(istmt);
 	if (msg) {
