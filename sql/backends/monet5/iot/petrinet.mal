@@ -54,8 +54,8 @@ pattern iot.deregister(mod:str,fcn:str)
 address PNderegister
 comment "Remove a query from the Petri-net controller";
 
-pattern period(t:int)
-address PNsetCycleDelay
+pattern iot.period(t:int)
+address PNperiod
 comment "Control the scheduler cycle time in ms.";
 
 command iot.queries() (mod:bat[:str],fcn:bat[:str], status:bat[:str],lastrun:bat[:timestamp],cycles:bat[:int], events:bat[:int],time:bat[:lng],error:bat[:str])
