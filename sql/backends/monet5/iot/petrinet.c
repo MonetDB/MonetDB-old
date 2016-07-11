@@ -96,8 +96,8 @@ str PNperiod(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) cntxt;
 	(void) mb;
 
-	if ( period < 0)
-		throw(MAL,"iot.period","Period should >= 0");
+	if (period < 0)
+		throw(MAL,"iot.period","The period should be >= 0\n");
 	cycleDelay = period;
 	return MAL_SUCCEED;
 }
@@ -106,13 +106,19 @@ str
 PNheartbeat(str mod, str fcn, int ticks)
 {
 	int i;
-	for(i=0;i<pnettop;i++)
-	if( strcmp(pnet[i].modname,mod) == 0 && strcmp(pnet[i].fcnname,fcn)==0){
-		pnet[i].heartbeat = ticks;
-		return MAL_SUCCEED;
+
+	if (ticks <= 0)
+		throw(MAL,"iot.heartbeat","The heartbeat should be > 0\n");
+
+	for(i = 0; i < pnettop; i++) {
+		if(strcmp(pnet[i].modname,mod) == 0 && strcmp(pnet[i].fcnname,fcn) == 0) {
+			pnet[i].heartbeat = ticks;
+			return MAL_SUCCEED;
+		}
 	}
-	throw(MAL,"iot.heartbeat","Can not access stream, nor qeury");
+	throw(MAL,"iot.heartbeat","Cannot access stream, nor query\n");
 }
+
 str PNregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	Module scope;
@@ -126,7 +132,7 @@ str PNregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		s = findSymbolInModule(scope, putName(fcnnme));
 
 	if (s == NULL)
-		throw(MAL, "petrinet.register", "Could not find function");
+		throw(MAL, "petrinet.register", "Could not find function\n");
 
 	return PNregisterInternal(cntxt,s->def);
 }
@@ -175,7 +181,7 @@ PNshow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 PNregisterInternal(Client cntxt, MalBlkPtr mb)
 {
-	int i, init= pnettop == 0;
+	int i, init = pnettop == 0;
 	InstrPtr sig,q;
 	str msg = MAL_SUCCEED;
 	MalBlkPtr nmb;
@@ -186,10 +192,10 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 	if (pnettop == MAXPN) 
 		GDKerror("petrinet.register:Too many transitions");
 
-	sig= getInstrPtr(mb,0);
+	sig = getInstrPtr(mb,0);
 	i = PNlocate(getModuleId(sig), getFunctionId(sig));
 	if (i != pnettop)
-		throw(MAL, "petrinet.register", "Duplicate definition of transition");
+		throw(MAL, "petrinet.register", "Duplicate definition of transition\n");
 
 	memset((void*) (pnet+pnettop), 0, sizeof(PNnode));
 	pnet[pnettop].modname = GDKstrdup(getModuleId(sig));
@@ -200,7 +206,7 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 	setArgType(nmb, nmb->stmt[0],0, TYPE_void);
     (void) newStmt(nmb, sqlRef, transactionRef);
 	(void) newStmt(nmb,pnet[pnettop].modname, pnet[pnettop].fcnname);
-    q= newStmt(nmb, sqlRef, commitRef);
+    q = newStmt(nmb, sqlRef, commitRef);
 	setArgType(nmb,q, 0, TYPE_void);
 	pushEndInstruction(nmb);
 	chkProgram(cntxt->fdout, cntxt->nspace, nmb);
@@ -209,15 +215,15 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 	pnet[pnettop].mb = nmb;
 	pnet[pnettop].stk = prepareMALstack(nmb, nmb->vsize);
 
-	if(pnet[pnettop].client == 0){
+	if(pnet[pnettop].client == NULL) {
 		pnet[pnettop].client = MCinitClient(0,0,0);
-		if ( pnet[pnettop].client == NULL)
-			throw(MAL,"petrinet.register","Failed to create client record for continous query");
+		if (pnet[pnettop].client == NULL)
+			throw(MAL,"petrinet.register","Failed to create client record for continous query\n");
 		msg = SQLinitClient(pnet[pnettop].client);
-		if( msg)
+		if(msg)
 			return msg;
 	}
-	
+
 	pnet[pnettop].status = PNWAIT;
 	pnet[pnettop].limit = -1; // unbounded invocations
 	pnet[pnettop].seen = *timestamp_nil;
@@ -225,17 +231,19 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 
 	msg = PNanalysis(cntxt, mb, pnettop);
 	/* start the scheduler if analysis does not show errors */
-	if( msg == MAL_SUCCEED && init)
-		PNstartScheduler();
-	if( msg == MAL_SUCCEED)
+	if(msg == MAL_SUCCEED) {
+		if(init) {
+			PNstartScheduler();
+		}
 		pnettop++;
+	}
 	return msg;
 }
 
 static str
 PNstatus( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int newstatus){
-	str modname= NULL;
-	str fcnname= NULL;
+	str modname = NULL;
+	str fcnname = NULL;
 	int i;
 
 	(void) cntxt;
@@ -247,16 +255,16 @@ PNstatus( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int newstatus
 		i = PNlocate(modname,fcnname);
 		if ( i == pnettop){
 			MT_lock_unset(&iotLock);
-			throw(SQL,"iot.pause","Continuous query %s.%s not found",modname,fcnname);
+			throw(SQL,"iot.pause","Continuous query %s.%s not found\n", modname, fcnname);
 		}
 		pnet[i].status = newstatus;
-		_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler status %s.%s %s\n", modname,fcnname, statusname[newstatus]);
+		_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler status %s.%s %s\n", modname, fcnname, statusname[newstatus]);
 		MT_lock_unset(&iotLock);
 		return MAL_SUCCEED;
 	}
 	for ( i = 0; i < pnettop; i++){
 		pnet[i].status = newstatus;
-		_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler status %s.%s  %s\n", pnet[i].modname, pnet[i].fcnname, statusname[newstatus]);
+		_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler status %s.%s: %s\n", pnet[i].modname, pnet[i].fcnname, statusname[newstatus]);
 	}
 	MT_lock_unset(&iotLock);
 	return MAL_SUCCEED;
@@ -264,13 +272,13 @@ PNstatus( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int newstatus
 
 str
 PNresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#resume scheduler \n");
+	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#resume scheduler\n");
 	return PNstatus(cntxt, mb, stk, pci, PNWAIT);
 }
 
 str
 PNpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#pause scheduler \n");
+	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#pause scheduler\n");
 	return PNstatus(cntxt, mb, stk, pci, PNPAUSED);
 }
 
@@ -303,7 +311,7 @@ PNstop(void){
 			cnt += pnet[i].status != PNWAIT;
 	} while(cnt);
 	BSKTclean(0);
-	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#all queries stopped \n");
+	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#all queries stopped\n");
 	return MAL_SUCCEED;
 }
 
@@ -336,10 +344,10 @@ PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		i = PNlocate(modname,fcnname);
 		if ( i == pnettop){
 			MT_lock_unset(&iotLock);
-			throw(SQL,"iot.pause","Continuous query not found");
+			throw(SQL,"iot.pause","Continuous query %s.%s not found\n", modname, fcnname);
 		}
 		PNderegisterInternal(i);
-		_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler deregistered %s.%s\n", modname,fcnname);
+		_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler deregistered %s.%s\n", modname, fcnname);
 		return MAL_SUCCEED;
 	}
 	for ( i = pnettop-1; i >= 0 ; i--)
@@ -355,13 +363,13 @@ PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	int limit= *getArgReference_int(stk,pci,3);
 	int i = PNlocate(modname,fcnname);
 
-	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler set cycle limit %s.%s %d \n",modname,fcnname,limit);
+	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler set cycle limit %s.%s %d\n",modname,fcnname,limit);
 	(void) cntxt;
 	(void) mb;
 	if( i != pnettop)
 		pnet[i].limit = limit;
 	else 
-		throw(SQL,"iot.limit","Continuous query not found");
+		throw(SQL,"iot.limit","Continuous query not found\n");
 	return MAL_SUCCEED;
 }
 

@@ -5,7 +5,7 @@ set optimizer='iot_pipe';
 create stream table tmp13 (t timestamp, sensor integer, val decimal(8,2)) ;
 create table agenda13(t timestamp, cnt integer, msg string);
 
--- Queries can fire based on bohth the actual state of the streams and heartbeat
+-- Queries can fire based on both the actual state of the streams and heartbeat
 call iot.window('iot','tmp13',4);
 
 -- every 5 seconds inspect the basket regardless filling
