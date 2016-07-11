@@ -35,6 +35,10 @@
 #include "mal_builder.h"
 #include "opt_prelude.h"
 
+#ifdef _MSC_VER
+#define access(file, mode)  _access(file, mode)
+#endif
+
 #define _DEBUG_BASKET_ if(0)
 
 str statusname[3] = { "<unknown>", "waiting", "filled" };
