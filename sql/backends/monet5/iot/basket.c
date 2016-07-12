@@ -50,19 +50,18 @@ static int bsktTop = 0, bsktLimit = 0;
 static int BSKTnewEntry(void)
 {
 	int i = bsktTop;
+	BasketRec *bnew;
+
 	if (bsktLimit == 0) {
 		bsktLimit = MAXBSKT;
 		baskets = (BasketRec *) GDKzalloc(bsktLimit * sizeof(BasketRec));
-		for (i = 0; i < bsktLimit; i++) { /* init the new entries as null */
-			baskets[i].table_name == NULL;
-		}
 		bsktTop = 1; /* entry 0 is used as non-initialized */
 	} else if (bsktTop + 1 == bsktLimit) {
+		bnew = (BasketRec *) GDKzalloc((bsktLimit+MAXBSKT) * sizeof(BasketRec));
+		memcpy((char*) bnew, (char*) baskets, bsktLimit * sizeof(BasketRec));
 		bsktLimit += MAXBSKT;
-		baskets = (BasketRec *) GDKrealloc(baskets, bsktLimit * sizeof(BasketRec));
-		for (i = bsktTop + 1; i < bsktLimit; i++) { /* init the new entries as null */
-			baskets[i].table_name == NULL;
-		}
+		GDKfree(baskets);
+		baskets = bnew;
 	}
 	
 	for (i = 1; i < bsktLimit; i++) { /* find an available slot */
@@ -234,6 +233,7 @@ BSKTheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str tbl = *getArgReference_str(stk,pci,2);
 	int ticks = *getArgReference_int(stk,pci,3);
 	int idx;
+	str msg;
 
 	(void) cntxt;
 	(void) mb;
@@ -241,8 +241,13 @@ BSKTheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( ticks < 0)
 		throw(SQL,"basket.heartbeat","Positive heartbeat expected\n");
 	idx = BSKTlocate(sch, tbl);
-	if( idx == 0)
-		return PNheartbeat(sch,tbl,ticks);
+	if( idx == 0){
+		// register the stream when you set a heartbeat on it
+		msg = BSKTregisterInternal(cntxt,mb,sch,tbl);
+		if( msg != MAL_SUCCEED)
+			return PNheartbeat(sch,tbl,ticks);
+		idx = BSKTlocate(sch, tbl);
+	}
 	baskets[idx].heartbeat = ticks;
 	return MAL_SUCCEED;
 }
