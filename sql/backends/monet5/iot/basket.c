@@ -291,7 +291,7 @@ BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		BSKTregisterInternal(cntxt, mb, sch, tbl);
 		idx = BSKTlocate(sch, tbl);
 		if( idx ==0)
-			throw(SQL,"basket.window","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+			throw(SQL,"basket.window","Stream table %s.%s not accessible\n",sch,tbl);
 	}
 	baskets[idx].winsize = elm;
 	baskets[idx].winstride = elm;
@@ -310,7 +310,7 @@ BSKTgetwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 	idx = BSKTlocate(sch, tbl);
 	if( idx == 0)
-		throw(SQL,"basket.window","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+		throw(SQL,"basket.window","Stream table %s.%s not accessible\n",sch,tbl);
 	*ret = baskets[idx].winsize;
 	return MAL_SUCCEED;
 }
