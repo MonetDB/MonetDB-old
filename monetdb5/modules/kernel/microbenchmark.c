@@ -43,23 +43,18 @@ BATrandom(BAT **bn, oid *base, lng *size, int *domain, int seed)
 		return GDK_FAIL;
 	}
 
-	b = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
+	b = COLnew(*base, TYPE_int, n, TRANSIENT);
 	if (b == NULL)
 		return GDK_FAIL;
 	if (n == 0) {
 		b->tsorted = 1;
 		b->trevsorted = 0;
-		b->hsorted = 1;
-		b->hrevsorted = 0;
 		b->tdense = FALSE;
-		b->hdense = TRUE;
-		BATseqbase(b, *base);
 		BATkey(b, TRUE);
-		BATkey(BATmirror(b), TRUE);
 		*bn = b;
 		return GDK_SUCCEED;
 	}
-	val = (int *) Tloc(b, BUNfirst(b));
+	val = (int *) Tloc(b, 0);
 
 	/* create BUNs with random distribution */
 	if (seed != int_nil)
@@ -81,15 +76,10 @@ BATrandom(BAT **bn, oid *base, lng *size, int *domain, int seed)
 	}
 
 	BATsetcount(b, n);
-	b->hsorted = 1;
-	b->hrevsorted = 0;
-	b->hdense = TRUE;
-	BATseqbase(b, *base);
-	BATkey(b, TRUE);
 	b->tsorted = FALSE;
 	b->trevsorted = FALSE;
 	b->tdense = FALSE;
-	BATkey(BATmirror(b), FALSE);
+	BATkey(b, FALSE);
 	*bn = b;
 	return GDK_SUCCEED;
 }
@@ -113,23 +103,18 @@ BATuniform(BAT **bn, oid *base, lng *size, int *domain)
 		return GDK_FAIL;
 	}
 
-	b = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
+	b = COLnew(*base, TYPE_int, n, TRANSIENT);
 	if (b == NULL)
 		return GDK_FAIL;
 	if (n == 0) {
 		b->tsorted = 1;
 		b->trevsorted = 0;
-		b->hsorted = 1;
-		b->hrevsorted = 0;
 		b->tdense = FALSE;
-		b->hdense = TRUE;
-		BATseqbase(b, *base);
 		BATkey(b, TRUE);
-		BATkey(BATmirror(b), TRUE);
 		*bn = b;
 		return GDK_SUCCEED;
 	}
-	val = (int *) Tloc(b, BUNfirst(b));
+	val = (int *) Tloc(b, 0);
 
 	/* create BUNs with uniform distribution */
         for (v = 0, i = 0; i < n; i++) {
@@ -148,15 +133,10 @@ BATuniform(BAT **bn, oid *base, lng *size, int *domain)
 	}
 
 	BATsetcount(b, n);
-	b->hsorted = 1;
-	b->hrevsorted = 0;
-	b->hdense = TRUE;
-	BATseqbase(b, *base);
-	BATkey(b, TRUE);
 	b->tsorted = FALSE;
 	b->trevsorted = FALSE;
 	b->tdense = FALSE;
-	BATkey(BATmirror(b), *size <= *domain);
+	BATkey(b, *size <= *domain);
 	*bn = b;
 	return GDK_SUCCEED;
 }
@@ -186,23 +166,18 @@ BATskewed(BAT **bn, oid *base, lng *size, int *domain, int *skew)
 		return GDK_FAIL;
 	}
 
-	b = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
+	b = COLnew(*base, TYPE_int, n, TRANSIENT);
 	if (b == NULL)
 		return GDK_FAIL;
 	if (n == 0) {
 		b->tsorted = 1;
 		b->trevsorted = 0;
-		b->hsorted = 1;
-		b->hrevsorted = 0;
 		b->tdense = FALSE;
-		b->hdense = TRUE;
-		BATseqbase(b, *base);
 		BATkey(b, TRUE);
-		BATkey(BATmirror(b), TRUE);
 		*bn = b;
 		return GDK_SUCCEED;
 	}
-	val = (int *) Tloc(b, BUNfirst(b));
+	val = (int *) Tloc(b, 0);
 
 	/* create BUNs with skewed distribution */
 	for (i = 0; i < skewedSize; i++)
@@ -220,15 +195,10 @@ BATskewed(BAT **bn, oid *base, lng *size, int *domain, int *skew)
 	}
 
 	BATsetcount(b, n);
-	b->hsorted = 1;
-	b->hrevsorted = 0;
-	b->hdense = TRUE;
-	BATseqbase(b, *base);
-	BATkey(b, TRUE);
 	b->tsorted = FALSE;
 	b->trevsorted = FALSE;
 	b->tdense = FALSE;
-	BATkey(BATmirror(b), *size <= *domain);
+	BATkey(b, *size <= *domain);
 	*bn = b;
 	return GDK_SUCCEED;
 }
@@ -276,24 +246,19 @@ BATnormal(BAT **bn, oid *base, lng *size, int *domain, int *stddev, int *mean)
 		return GDK_FAIL;
 	}
 
-	b = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
+	b = COLnew(*base, TYPE_int, n, TRANSIENT);
 	if (b == NULL) {
 		return GDK_FAIL;
         }
 	if (n == 0) {
 		b->tsorted = 1;
 		b->trevsorted = 0;
-		b->hsorted = 1;
-		b->hrevsorted = 0;
 		b->tdense = FALSE;
-		b->hdense = TRUE;
-		BATseqbase(b, *base);
 		BATkey(b, TRUE);
-		BATkey(BATmirror(b), TRUE);
 		*bn = b;
 		return GDK_SUCCEED;
 	}
-	val = (int *) Tloc(b, BUNfirst(b));
+	val = (int *) Tloc(b, 0);
 
 	abs = (unsigned int *) GDKmalloc(d * sizeof(unsigned int));
 	if (abs == NULL) {
@@ -342,15 +307,10 @@ BATnormal(BAT **bn, oid *base, lng *size, int *domain, int *stddev, int *mean)
 
 
 	BATsetcount(b, n);
-	b->hsorted = 1;
-	b->hrevsorted = 0;
-	b->hdense = TRUE;
-	BATseqbase(b, *base);
-	BATkey(b, TRUE);
 	b->tsorted = FALSE;
 	b->trevsorted = FALSE;
 	b->tdense = FALSE;
-	BATkey(BATmirror(b), n<2);
+	BATkey(b, n<2);
 	*bn = b;
 	return GDK_SUCCEED;
 }
@@ -405,24 +365,20 @@ str
 MBMmix(bat *bn, bat *batid)
 {
 	BUN n, r, i;
-	BUN firstbun, p, q;
 	BAT *b;
 
 	if ((b = BATdescriptor(*batid)) == NULL)
                 throw(MAL, "microbenchmark.mix", RUNTIME_OBJECT_MISSING);
 
 	n = BATcount(b);
-	firstbun = BUNfirst(b);
 	/* mix BUNs randomly */
 	for (r = i = 0; i < n; i++) {
 		BUN idx = i + ((r += (BUN) rand()) % (n - i));
 		int val;
 
-		p = firstbun + i;
-		q = firstbun + idx;
-		val = *(int *) Tloc(b, p);
-		*(int *) Tloc(b, p) = *(int *) Tloc(b, q);
-		*(int *) Tloc(b, q) = val;
+		val = *(int *) Tloc(b, i);
+		*(int *) Tloc(b, i) = *(int *) Tloc(b, idx);
+		*(int *) Tloc(b, idx) = val;
 	}
 
 	BBPunfix(b->batCacheid);
