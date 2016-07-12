@@ -23,23 +23,27 @@ CREATE STREAM TABLE stations (implicit_timestamp timestamp, mmsi int, lat real, 
 INSERT INTO iot.webserverstreams
 	SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'vessels' AND sch.name = 'ais';
 
--- We don't set the tumbling, so no tuple will be reused in the following window
-CALL iot.heartbeat('ais', 'vessels', 8000);
--- The stations send less often, therefore the heartbeat is 10 seconds
-CALL iot.heartbeat('ais', 'stations', 10000);
+INSERT INTO iot.webserverstreams
+	SELECT tabl.id, 2 , 10, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'stations' AND sch.name = 'ais';
 
 --Q6 For each station calulate ship within a radios of 3 km -- Stream join
 
-CREATE STREAM TABLE ais06r (calc_time timestamp, smmsi int, vmmsi int, distance float);
+CREATE TABLE ais06r (calc_time timestamp, smmsi int, vmmsi int, distance float);
 
 CREATE PROCEDURE ais06q()
 BEGIN
 	INSERT INTO ais06r
 		WITH data1 AS (SELECT mmsi, lat, lon FROM vessels WHERE (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM vessels GROUP BY mmsi)), 
 		data2 AS (SELECT mmsi, lat, lon FROM stations WHERE (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM stations GROUP BY mmsi)), 
-		calculations AS (SELECT d1.mmsi AS smmsi, d2.mmsi AS vmmsi, km_distance(d1.lat, d1.lon, d2.lat, d2.lon) AS distance FROM data1 d1 CROSS JOIN data2 d2)
-		SELECT current_timestamp, smmsi, vmmsi, distance FROM calculations WHERE distance < 3;
+		calculations AS (SELECT d1.mmsi AS smmsi, d2.mmsi AS vmmsi, km_distance(d1.lat, d1.lon, d2.lat, d2.lon) AS distance FROM data1 d1 CROSS JOIN data2 d2),
+		data_time AS (SELECT current_timestamp AS cur_time)
+		SELECT cur_time, smmsi, vmmsi, distance FROM calculations CROSS JOIN data_time WHERE distance < 3;
 END;
 
 CALL iot.query('ais', 'ais06q');
+CALL iot.pause();
+-- We don't set the tumbling, so no tuple will be reused in the following window
+CALL iot.heartbeat('ais', 'vessels', 8000);
+CALL iot.heartbeat('ais', 'stations', 10000);
+CALL iot.resume();
 

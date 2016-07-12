@@ -10,12 +10,9 @@ CREATE STREAM TABLE vessels (implicit_timestamp timestamp, mmsi int, lat real, l
 INSERT INTO iot.webserverstreams
 	SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'vessels' AND sch.name = 'ais';
 
--- We don't set the tumbling, so no tuple will be reused in the following window
-CALL iot.heartbeat('ais', 'vessels', 8000); 
-
 --Q2 Number of ship per hour -- Stream only
 
-CREATE STREAM TABLE ais02r (calc_time timestamp, number_ships int);
+CREATE TABLE ais02r (calc_time timestamp, number_ships int);
 
 CREATE PROCEDURE ais02q()
 BEGIN
@@ -24,4 +21,8 @@ BEGIN
 END;
 
 CALL iot.query('ais', 'ais02q');
+CALL iot.pause();
+-- We don't set the tumbling, so no tuple will be reused in the following window
+CALL iot.heartbeat('ais', 'vessels', 8000);
+CALL iot.resume();
 

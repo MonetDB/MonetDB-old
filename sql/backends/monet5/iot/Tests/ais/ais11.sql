@@ -10,12 +10,9 @@ CREATE STREAM TABLE vessels (implicit_timestamp timestamp, mmsi int, lat real, l
 INSERT INTO iot.webserverstreams
 	SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'vessels' AND sch.name = 'ais';
 
--- We don't set the tumbling, so no tuple will be reused in the following window
-CALL iot.heartbeat('ais', 'vessels', 8000);
-
 --Q11 Calculate average speed per ship -- Stream only
 
-CREATE STREAM TABLE ais11r (calc_time timestamp, mmsi int, speed_sum float, speed_count int);
+CREATE TABLE ais11r (calc_time timestamp, mmsi int, speed_sum float, speed_count int);
 
 CREATE VIEW ais11v AS SELECT calc_time, mmsi, speed_sum / speed_count AS average_speed FROM ais11r;
 
@@ -33,4 +30,8 @@ BEGIN
 END;
 
 CALL iot.query('ais', 'ais11q');
+CALL iot.pause();
+-- We don't set the tumbling, so no tuple will be reused in the following window
+CALL iot.heartbeat('ais', 'vessels', 8000);
+CALL iot.resume();
 

@@ -10,18 +10,20 @@ CREATE STREAM TABLE vessels (implicit_timestamp timestamp, mmsi int, lat real, l
 INSERT INTO iot.webserverstreams
 	SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'vessels' AND sch.name = 'ais';
 
--- We don't set the tumbling, so no tuple will be reused in the following window
-CALL iot.heartbeat('ais', 'vessels', 8000); 
-
 --Q4 Ship turning degree > 180 -- Stream only
 
-CREATE STREAM TABLE ais04r (calc_time timestamp, mmsi int);
+CREATE TABLE ais04r (calc_time timestamp, mmsi int);
 
 CREATE PROCEDURE ais04q()
 BEGIN
 	INSERT INTO ais04r
-		SELECT current_timestamp, mmsi FROM vessels WHERE sys.abs(rotais) > 180 AND (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM vessels GROUP BY mmsi);
+		WITH data_time AS (SELECT current_timestamp AS cur_time)
+		SELECT cur_time, mmsi FROM vessels CROSS JOIN data_time WHERE sys.abs(rotais) > 180 AND (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM vessels GROUP BY mmsi);
 END;
 
 CALL iot.query('ais', 'ais04q');
+CALL iot.pause();
+-- We don't set the tumbling, so no tuple will be reused in the following window
+CALL iot.heartbeat('ais', 'vessels', 8000);
+CALL iot.resume();
 
