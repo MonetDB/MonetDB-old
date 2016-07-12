@@ -107,8 +107,8 @@ PNheartbeat(str mod, str fcn, int ticks)
 {
 	int i;
 
-	if (ticks <= 0)
-		throw(MAL,"iot.heartbeat","The heartbeat should be > 0\n");
+	if (ticks < 0)
+		throw(MAL,"iot.heartbeat","The heartbeat should be >= 0\n");
 
 	for(i = 0; i < pnettop; i++) {
 		if(strcmp(pnet[i].modname,mod) == 0 && strcmp(pnet[i].fcnname,fcn) == 0) {

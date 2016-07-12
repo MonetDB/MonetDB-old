@@ -11,7 +11,7 @@ INSERT INTO iot.webserverstreams
 	SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'vessels' AND sch.name = 'ais';
 
 -- We don't set the tumbling, so no tuple will be reused in the following window
-CALL iot.heartbeat('ais', 'vessels', 8000); 
+CALL iot.heartbeat('ais', 'vessels', 8000);
 
 --Q1 Calculate speed of ships per hour (in knots) -- Stream only
 

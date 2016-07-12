@@ -66,9 +66,9 @@ create procedure iot.export("schema" string, "table" string, dirpath string)
 -- input/output places
 create procedure iot.receptor("schema" string, "table" string, dir string)
 	external name iot.receptor;
+
 create procedure iot.emitter("schema" string, "table" string, dir string)
 	external name iot.emitter;
-
 
 create procedure iot.heartbeat("schema" string, "table" string, msec integer)
 	external name iot.heartbeat;
@@ -84,7 +84,6 @@ create procedure iot.cycles("schema" string, "query" string, elem integer)
 	external name iot.cycles;
 
 -- Inspection tables
-
 create function iot.gettumble("schema" string, "table" string) returns integer
 external name iot.gettumble;
 
@@ -118,7 +117,6 @@ returns table( "table" string, error string)
 external name iot.errors;
 
 -- tables for iotwebserver
-
 CREATE TABLE iot.webserverstreams (table_id INTEGER, base TINYINT, "interval" INTEGER NULL, unit CHAR(1) NULL);
 
 CREATE TABLE iot.webservercolumns (column_id INTEGER, special TINYINT NULL, validation1 STRING NULL, validation2 STRING NULL);
