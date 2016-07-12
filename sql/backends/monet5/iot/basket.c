@@ -49,24 +49,32 @@ static int bsktTop = 0, bsktLimit = 0;
 // Find an empty slot in the basket catalog
 static int BSKTnewEntry(void)
 {
-	int i;
+	int i = bsktTop;
 	if (bsktLimit == 0) {
 		bsktLimit = MAXBSKT;
 		baskets = (BasketRec *) GDKzalloc(bsktLimit * sizeof(BasketRec));
+		for (i = 0; i < bsktLimit; i++) { /* init the new entries as null */
+			baskets[i].table_name == NULL;
+		}
 		bsktTop = 1; /* entry 0 is used as non-initialized */
-	} else if (bsktTop +1 == bsktLimit) {
+	} else if (bsktTop + 1 == bsktLimit) {
 		bsktLimit += MAXBSKT;
 		baskets = (BasketRec *) GDKrealloc(baskets, bsktLimit * sizeof(BasketRec));
+		for (i = bsktTop + 1; i < bsktLimit; i++) { /* init the new entries as null */
+			baskets[i].table_name == NULL;
+		}
 	}
-	for (i = 1; i < bsktLimit; i++)
+	
+	for (i = 1; i < bsktLimit; i++) { /* find an available slot */
 		if (baskets[i].table_name == NULL)
 			break;
-	MT_lock_init(&baskets[i].lock,"bsktlock");
-
-	bsktTop++;
+	}
+	if(i >= bsktTop) { /* if it's the last one we need to increment bsktTop */
+		bsktTop++;
+	}
+	MT_lock_init(&baskets[i].lock,"bsktlock");	
 	return i;
 }
-
 
 // free all malloced space
 void
@@ -141,13 +149,13 @@ BSKTnewbasket(mvc *m, sql_schema *s, sql_table *t)
 
         if ( !(tpe <= TYPE_str || tpe == TYPE_date || tpe == TYPE_daytime || tpe == TYPE_timestamp) ){
 			MT_lock_unset(&iotLock);
-			throw(MAL,"baskets.register","Unsupported type %d",tpe);
+			throw(MAL,"baskets.register","Unsupported type %d\n",tpe);
 		}
 		colcnt++;
 	}
 	if( colcnt == MAXCOLS){
 		BSKTclean(idx);
-		throw(MAL,"baskets.register","too many columns");
+		throw(MAL,"baskets.register","Too many columns\n");
 	}
 
 	// collect the column names and the storage
@@ -192,11 +200,11 @@ BSKTregisterInternal(Client cntxt, MalBlkPtr mb, str sch, str tbl)
 
 	s = mvc_bind_schema(m, sch);
 	if (s == NULL)
-		throw(SQL, "iot.register", "Schema missing");
+		throw(SQL, "iot.register", "Schema missing\n");
 
 	t = mvc_bind_table(m, s, tbl);
 	if (t == NULL)
-		throw(SQL, "iot.register", "Table missing '%s'", tbl);
+		throw(SQL, "iot.register", "Table missing '%s'\n", tbl);
 
 	msg=  BSKTnewbasket(m, s, t);
 	return msg;
@@ -231,7 +239,7 @@ BSKTheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 
 	if( ticks < 0)
-		throw(SQL,"basket.heartbeat","Positive heartbeat expected]n");
+		throw(SQL,"basket.heartbeat","Positive heartbeat expected\n");
 	idx = BSKTlocate(sch, tbl);
 	if( idx == 0)
 		return PNheartbeat(sch,tbl,ticks);
@@ -272,7 +280,7 @@ BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) cntxt;
 	(void) mb;
 	if( elm <= 0)
-		throw(SQL,"basket.window","Positive slice expected]n");
+		throw(SQL,"basket.window","Positive slice expected\n");
 	idx = BSKTlocate(sch, tbl);
 	if( idx == 0){
 		BSKTregisterInternal(cntxt, mb, sch, tbl);
@@ -332,7 +340,7 @@ BSKTtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	bskt = BSKTlocate(sch,tbl);
 	if( bskt == 0)	
-		throw(SQL,"basket.bind","Stream table column '%s.%s' not found",sch,tbl);
+		throw(SQL,"basket.bind","Stream table column '%s.%s' not found\n",sch,tbl);
 	b = baskets[bskt].bats[0];
 
     tids = BATnew(TYPE_void, TYPE_void, 0, TRANSIENT);
@@ -369,7 +377,7 @@ BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					VIEWbounds(b,bn, 0, baskets[bskt].winsize);
 					BBPkeepref(*ret =  bn->batCacheid);
 				} else
-					throw(SQL,"iot.bind","Can not create view %s.%s.%s["BUNFMT"]",sch,tbl,col,baskets[bskt].winsize );
+					throw(SQL,"iot.bind","Can not create view %s.%s.%s["BUNFMT"]\n",sch,tbl,col,baskets[bskt].winsize );
 			} else{
 				BBPkeepref( *ret = b->batCacheid);
 				BBPfix(b->batCacheid); // don't loose it
@@ -377,7 +385,7 @@ BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 		return MAL_SUCCEED;
 	}
-	throw(SQL,"iot.bind","Stream table column '%s.%s.%s' not found",sch,tbl,col);
+	throw(SQL,"iot.bind","Stream table column '%s.%s.%s' not found\n",sch,tbl,col);
 }
 
 str
@@ -391,7 +399,7 @@ BSKTdrop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 	bskt = BSKTlocate(sch,tbl);
 	if (bskt == 0)
-		throw(SQL, "basket.drop", "Could not find the basket %s.%s",sch,tbl);
+		throw(SQL, "basket.drop", "Could not find the basket %s.%s\n",sch,tbl);
 	MT_lock_set(&iotLock);
 	BSKTclean(bskt);
 	MT_lock_unset(&iotLock);
@@ -417,7 +425,7 @@ BSKTimportInternal(Client cntxt, int bskt)
 	(void)cntxt;
 	// check access permission to directory first
 	if( access (dir , F_OK | R_OK)){
-		throw(SQL, "iot.basket", "Could not access the basket directory %s. error %d",dir,errno);
+		throw(SQL, "iot.basket", "Could not access the basket directory %s. error %d\n",dir,errno);
 	}
 	
 	/* check for missing files */
