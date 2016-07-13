@@ -1,9 +1,9 @@
 stdout of test 'bug02` in directory 'sql/backends/monet5/iot` itself:
 
 
-# 16:06:35 >  
-# 16:06:35 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=36465" "--set" "mapi_usock=/var/tmp/mtest-21122/.s.monetdb.36465" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mk/iot//Linux/var/MonetDB/mTests_sql_backends_monet5_iot"
-# 16:06:35 >  
+# 09:56:30 >  
+# 09:56:30 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=31933" "--set" "mapi_usock=/var/tmp/mtest-28297/.s.monetdb.31933" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mk/iot//Linux/var/MonetDB/mTests_sql_backends_monet5_iot"
+# 09:56:30 >  
 
 # MonetDB 5 server v11.24.0
 # This is an unreleased version
@@ -13,20 +13,22 @@ stdout of test 'bug02` in directory 'sql/backends/monet5/iot` itself:
 # Copyright (c) 1993-July 2008 CWI.
 # Copyright (c) August 2008-2016 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
-# Listening for connection requests on mapi:monetdb://vienna.da.cwi.nl:36465/
-# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-21122/.s.monetdb.36465
+# Listening for connection requests on mapi:monetdb://vienna.da.cwi.nl:31933/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-28297/.s.monetdb.31933
 # MonetDB/GIS module loaded
 # MonetDB/SQL module loaded
 # MonetDB/iot loaded
 
 Ready.
 
-# 16:06:35 >  
-# 16:06:35 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-21122" "--port=36465"
-# 16:06:35 >  
+# 09:56:30 >  
+# 09:56:30 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-28297" "--port=31933"
+# 09:56:30 >  
 
+#set schema iot;
+#set optimizer='iot_pipe';
 
-# 16:06:35 >  
-# 16:06:35 >  "Done."
-# 16:06:35 >  
+# 09:56:30 >  
+# 09:56:30 >  "Done."
+# 09:56:30 >  
 

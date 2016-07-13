@@ -6,7 +6,7 @@ set optimizer='iot_pipe';
 create stream table clocks(cnt integer,clk1 integer);
 insert into clocks values(0,0);
 
-call iot.heartbeat('iot','clocks',1000);
+call iot.heartbeat('iot','clocks',5);
 create procedure clk1()
 begin
 	update iot.clocks
@@ -18,15 +18,16 @@ end;
 call iot.query('iot','clk1');
 call iot.pause();
 
---select * from  iot.baskets();
---select * from  iot.queries();
-
 select * from clocks;
 call iot.cycles('iot','clk1',5);
 call iot.resume();
 select * from clocks;
 
+-- wait long enough to let the cycles run
+call iot.wait(1000);
 call iot.stop();
+--select * from  iot.baskets();
+select * from  iot.queries();
 select * from iot.errors();
 drop procedure clk1;
 drop table clocks;

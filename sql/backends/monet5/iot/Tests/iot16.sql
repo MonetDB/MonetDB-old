@@ -7,8 +7,8 @@ create stream table winheart(cnt integer,clk1 integer);
 call iot.window('iot','winheart',2);
 call iot.heartbeat('iot','winheart',75);
 
-select * from  iot.baskets();
-select * from  iot.queries();
+select winsize, winstride, heartbeat from  iot.baskets();
+select *from  iot.queries();
 
 drop table winheart;
 

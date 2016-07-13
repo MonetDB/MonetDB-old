@@ -291,6 +291,7 @@ PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#scheduler wait steps %d\n",steps -old);
 	while(pnstatus == PNRUNNING && PNcycle < old + steps)
 		MT_sleep_ms(20);
+	_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#wait finished %d\n",PNcycle -old );
 	return MAL_SUCCEED;
 }
 
@@ -537,7 +538,7 @@ PNscheduler(void *dummy)
 					break;
 				} 
 			} 
-				/* consider baskets that are properly filled */
+			/* consider baskets that are properly filled */
 			// check if all input baskets are available and non-empty
 			for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].inputs[j]; j++) {
 				idx = pnet[i].inputs[j];
@@ -630,7 +631,7 @@ PNscheduler(void *dummy)
 		if(pnet[enabled[m]].tid){
 			_DEBUG_PETRINET_ mnstr_printf(GDKout, "#Terminate query thread %s limit %d \n", pnet[enabled[m]].fcnname, pnet[enabled[m]].limit);
 			MT_join_thread(pnet[enabled[m]].tid);
-			pnet[enabled[m]].limit--;
+			if( pnet[enabled[m]].limit > 0) pnet[enabled[m]].limit--;
 			if( pnet[enabled[m]].limit == 0)
 				PNderegisterInternal(enabled[m]);
 		}

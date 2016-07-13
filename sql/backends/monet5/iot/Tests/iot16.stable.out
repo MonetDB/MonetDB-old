@@ -28,13 +28,13 @@ Ready.
 #set schema iot;
 #set optimizer='iot_pipe';
 #create stream table winheart(cnt integer,clk1 integer);
-#select * from  iot.baskets();
-% .,	.,	.,	.,	.,	.,	.,	.,	.,	.,	. # table_name
-% schema,	table,	status,	threshold,	winsize,	winstride,	timeslice,	timestride,	heartbeat,	seen,	events # name
-% clob,	clob,	clob,	int,	int,	int,	int,	int,	int,	timestamp,	int # type
-% 3,	8,	7,	1,	1,	1,	1,	1,	2,	26,	1 # length
-[ "iot",	"winheart",	"waiting",	0,	2,	2,	0,	0,	75,	2016-07-12 21:23:11.000000,	0	]
-#select * from  iot.queries();
+#select winsize, winstride, heartbeat from  iot.baskets();
+% .L,	.L,	.L # table_name
+% winsize,	winstride,	heartbeat # name
+% int,	int,	int # type
+% 1,	1,	2 # length
+[ 2,	2,	75	]
+#select *from  iot.queries();
 % .,	.,	.,	.,	.,	.,	.,	. # table_name
 % schema,	function,	status,	lastrun,	cycles,	events,	time,	error # name
 % clob,	clob,	clob,	timestamp,	int,	int,	bigint,	clob # type

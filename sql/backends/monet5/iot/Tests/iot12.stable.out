@@ -1,0 +1,62 @@
+stdout of test 'iot12` in directory 'sql/backends/monet5/iot` itself:
+
+
+# 14:26:14 >  
+# 14:26:14 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=32265" "--set" "mapi_usock=/var/tmp/mtest-830/.s.monetdb.32265" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mk/iot//Linux/var/MonetDB/mTests_sql_backends_monet5_iot"
+# 14:26:14 >  
+
+# MonetDB 5 server v11.24.0
+# This is an unreleased version
+# Serving database 'mTests_sql_backends_monet5_iot', using 8 threads
+# Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs and 128bit integers dynamically linked
+# Found 15.589 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2016 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://vienna.da.cwi.nl:32265/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-830/.s.monetdb.32265
+# MonetDB/GIS module loaded
+# MonetDB/SQL module loaded
+# MonetDB/iot loaded
+
+Ready.
+
+# 14:26:15 >  
+# 14:26:15 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-830" "--port=32265"
+# 14:26:15 >  
+
+#set schema iot;
+#set optimizer='iot_pipe';
+#create stream table clocks(cnt integer,clk1 integer);
+#insert into clocks values(0,0);
+[ 1	]
+#create procedure clk1()
+#begin
+#	update iot.clocks
+#		set clk1 = clk1+1,
+#		cnt = cnt +1;
+#end;
+#select * from clocks;
+% iot.clocks,	iot.clocks # table_name
+% cnt,	clk1 # name
+% int,	int # type
+% 1,	1 # length
+[ 1,	1	]
+#select * from clocks;
+% iot.clocks,	iot.clocks # table_name
+% cnt,	clk1 # name
+% int,	int # type
+% 1,	1 # length
+[ 9,	9	]
+#select * from iot.errors();
+% .,	. # table_name
+% table,	error # name
+% clob,	clob # type
+% 0,	0 # length
+#drop procedure clk1;
+#drop table clocks;
+
+# 14:26:15 >  
+# 14:26:15 >  "Done."
+# 14:26:15 >  
+

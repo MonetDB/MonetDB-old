@@ -25,16 +25,16 @@ insert into stmp values('2005-09-23 12:34:26.736',1,12.34);
 select * from stmp;
 
 -- let the cq run only wanse
-call iot.cycles('iot','cq00',2);
+call iot.cycles('iot','cq00',1);
 call iot.resume();
 -- wait for 1 cycle in the scheduler
-call iot.wait(3);
+call iot.wait(10);
 
 select 'RESULT';
 select * from result;
 
 --select * from  iot.baskets();
---select * from  iot.queries();
+select * from  iot.queries();
 select * from iot.errors();
 call iot.stop();
 drop procedure cq00;
