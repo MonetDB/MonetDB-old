@@ -663,7 +663,7 @@ simpleTypeId(Client cntxt)
 		cntxt->yycur--; /* keep it */
 		return -1;
 	}
-	tpe = getTypeIndex(CURRENT(cntxt), l, -1);
+	tpe = getAtomIndex(CURRENT(cntxt), l, -1);
 	if (tpe < 0) {
 		parseError(cntxt, "Type identifier expected\n");
 		cntxt->yycur -= l; /* keep it */
@@ -690,53 +690,21 @@ parseTypeId(Client cntxt, int defaultType)
 			return TYPE_bat;
 		}
 
-		if (currChar(cntxt) == ']') {
-			i = newBatType(TYPE_void, tt);
-			if (kt > 0)
-				setAnyColumnIndex(i, kt);
-			nextChar(cntxt); /* skip ] */
-			skipSpace(cntxt);
-			return i;
-		}
-		/* Backward compatibility parsing of :bat[:oid,:type] */
-		if( tt != TYPE_oid){
-			parseError(cntxt, "':oid' expected\n");
-			return i;
-		}
-		if (currChar(cntxt) != ',')
-				parseError(cntxt, "',' expected\n");
-		nextChar(cntxt); /* skip , */
-		skipSpace(cntxt);
-		if (currChar(cntxt) == ':') {
-			tt = simpleTypeId(cntxt);
-			kt = typeAlias(cntxt, tt);
-		} else
-			tt = TYPE_any;
-
-		i = newBatType(TYPE_void, tt);
+		i = newBatType(tt);
 		if (kt > 0)
-			setAnyColumnIndex(i, kt);
+			setTypeIndex(i, kt);
 
 		if (currChar(cntxt) != ']')
 			parseError(cntxt, "']' expected\n");
-		nextChar(cntxt); /* skip ']' */
+		nextChar(cntxt); // skip ']' 
 		skipSpace(cntxt);
 		return i;
-	}
-	/* A pure BAT as generic type should be avoided .*/
-	if (s[0] == ':' && 
-	   ((s[1] == 'b' && s[2] == 'a' && s[3] == 't')  || 
-	    (s[1] == 'B' && s[2] == 'A' && s[3] == 'T')) && 
-	   !idCharacter[(int) s[4]]) {
-		advance(cntxt, 4);
-		//parseError(cntxt, "':bat[:oid,:any]' expected\n");
-		return TYPE_bat;
 	}
 	if (currChar(cntxt) == ':') {
 		tt = simpleTypeId(cntxt);
 		kt = typeAlias(cntxt, tt);
 		if (kt > 0)
-			setAnyColumnIndex(tt, kt);
+			setTypeIndex(tt, kt);
 		return tt;
 	}
 	parseError(cntxt, "<type identifier> expected\n");
@@ -1149,6 +1117,11 @@ fcnHeader(Client cntxt, int kind)
 	curInstr = getInstrPtr(curBlk, 0);
 
 	if (currChar(cntxt) != '('){
+		if (cntxt->backup) {
+			freeSymbol(cntxt->curprg);
+			cntxt->curprg = cntxt->backup;
+			cntxt->backup = 0;
+		}
 		parseError(cntxt, "function header '(' expected\n");
 		skipToEnd(cntxt);
 		return curBlk;
@@ -1160,6 +1133,7 @@ fcnHeader(Client cntxt, int kind)
 
 	if (isModuleDefined(cntxt->nspace, getModuleId(curInstr)) == FALSE) {
 		if (cntxt->backup) {
+			freeSymbol(cntxt->curprg);
 			cntxt->curprg = cntxt->backup;
 			cntxt->backup = 0;
 		}
@@ -1181,6 +1155,7 @@ fcnHeader(Client cntxt, int kind)
 			if (ch == ')')
 				break;
 			if (cntxt->backup) {
+				freeSymbol(cntxt->curprg);
 				cntxt->curprg = cntxt->backup;
 				cntxt->backup = 0;
 			}
@@ -1262,6 +1237,7 @@ fcnHeader(Client cntxt, int kind)
 		if (currChar(cntxt) != ')') {
 			freeInstruction(curInstr);
 			if (cntxt->backup) {
+				freeSymbol(cntxt->curprg);
 				cntxt->curprg = cntxt->backup;
 				cntxt->backup = 0;
 			}

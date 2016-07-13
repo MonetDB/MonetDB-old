@@ -639,7 +639,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 						if (isaBatType(t)) {
 							bat bid = stk->stk[a].val.bval;
 							BAT *_b = BATdescriptor(bid);
-							t = getColumnType(t);
+							t = getBatType(t);
 							assert(stk->stk[a].vtype == TYPE_bat);
 							assert(bid == 0 ||
 								   bid == bat_nil ||
@@ -664,7 +664,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 
 					if (isaBatType(t)) {
 						bat bid = stk->stk[a].val.bval;
-						t = getColumnType(t);
+						t = getBatType(t);
 						assert(stk->stk[a].vtype == TYPE_bat);
 						assert(bid == 0 ||
 							   bid == bat_nil ||
@@ -803,7 +803,8 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 						if (garbage[i] == -1 && stk->stk[getArg(pci, i)].vtype == TYPE_bat &&
 							stk->stk[getArg(pci, i)].val.bval != bat_nil &&
 							stk->stk[getArg(pci, i)].val.bval != 0) {
-							b = BBPquickdesc(abs(stk->stk[getArg(pci, i)].val.bval), FALSE);
+							assert(stk->stk[getArg(pci, i)].val.bval > 0);
+							b = BBPquickdesc(stk->stk[getArg(pci, i)].val.bval, FALSE);
 							if (b == NULL) {
 								if (ret == MAL_SUCCEED)
 									ret = createException(MAL, "mal.propertyCheck", RUNTIME_OBJECT_MISSING);
@@ -843,7 +844,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 							}
 							if (garbage[i] >= 0) {
 								PARDEBUG mnstr_printf(GDKstdout, "#GC pc=%d bid=%d %s done\n", stkpc, bid, getVarName(mb, garbage[i]));
-								bid = abs(stk->stk[garbage[i]].val.bval);
+								bid = stk->stk[garbage[i]].val.bval;
 								stk->stk[garbage[i]].val.bval = bat_nil;
 								BBPdecref(bid, TRUE);
 							}
@@ -1387,7 +1388,7 @@ void garbageElement(Client cntxt, ValPtr v)
 		 * allowed during the execution of a GDK operation.
 		 * All references should be logical.
 		 */
-		bat bid = abs(v->val.bval);
+		bat bid = v->val.bval;
 		/* printf("garbage collecting: %d lrefs=%d refs=%d\n",
 		   bid, BBP_lrefs(bid),BBP_refs(bid));*/
 		v->val.bval = bat_nil;
