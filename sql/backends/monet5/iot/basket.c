@@ -428,22 +428,19 @@ BSKTimportInternal(Client cntxt, int bskt)
 	str cname= NULL;
 
 	(void)cntxt;
-	// check access permission to directory first
-	if( access (dir , F_OK | R_OK)){
-		throw(SQL, "iot.basket", "Could not access the basket directory %s. error %d\n",dir,errno);
-	}
-	
 	/* check for missing files */
 	for( i=0; i < MAXCOLS && baskets[bskt].cols[i]; i++){
 		cname = baskets[bskt].cols[i];
 		snprintf(buf,PATHLENGTH, "%s%c%s",dir,DIR_SEP, cname);
 		_DEBUG_BASKET_ mnstr_printf(BSKTout,"Attach the file %s\n",buf);
-		if( access (buf,R_OK))
+		f=  fopen(buf,"r");
+		if( f == NULL)
 			throw(MAL,"iot.basket","Could not access the column %s file %s\n",cname, buf);
-		b = baskets[bskt].bats[i];
-		if( b == 0)
-			throw(MAL,"iot.basket","Could not access the column %s\n",cname);
+		fclose(f);
 	}
+
+	if(msg != MAL_SUCCEED)
+		return msg;
 
 	// types are already checked during stream initialization
 	MT_lock_set(&iotLock);
@@ -522,7 +519,6 @@ BSKTimportInternal(Client cntxt, int bskt)
 	/* remove the basket files */
 	for( i=0; i < MAXCOLS && baskets[bskt].cols[i]; i++){
 		snprintf(buf,PATHLENGTH, "%s%c%s",dir,DIR_SEP, baskets[bskt].cols[i]);
-		assert( access (buf,R_OK) == 0);
 		//unlink(buf);
 	}
 	baskets[bskt].count = cnt;
@@ -572,20 +568,16 @@ BSKTexportInternal(Client cntxt, int bskt)
 	(void)cntxt;
 	// check access permission to directory first
 	(void) mkdir(dir,0755);
-	if( access (dir , F_OK | R_OK)){
-		throw(SQL, "iot.basket", "Could not access the target basket directory %s. error %d",dir,errno);
-	}
 	
 	/* check for leftover files */
 	for( i=0; i < MAXCOLS && baskets[bskt].cols[i]; i++){
 		cname = baskets[bskt].cols[i];
 		snprintf(buf,PATHLENGTH, "%s%c%s",dir,DIR_SEP, cname);
-		_DEBUG_BASKET_ mnstr_printf(BSKTout,"Check for the file %s\n",buf);
-		if( !access (buf,R_OK))
-			throw(MAL,"iot.export","Left over %s file %s\n",cname, buf);
-		b = baskets[bskt].bats[i];
-		if( b == 0)
-			throw(MAL,"iot.export","Could not access the column %s\n",cname);
+		_DEBUG_BASKET_ mnstr_printf(BSKTout,"Attach the file %s\n",buf);
+		f=  fopen(buf,"w");
+		if( f == NULL)
+			throw(MAL,"iot.export","Could not access the column %s file %s\n",cname, buf);
+		fclose(f);
 	}
 
 	// types are already checked during stream initialization
