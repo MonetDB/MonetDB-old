@@ -231,13 +231,18 @@ BSKTheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str sch = *getArgReference_str(stk,pci,1);
 	str tbl = *getArgReference_str(stk,pci,2);
-	int ticks = *getArgReference_int(stk,pci,3);
+	lng ticks;
 	int idx;
 	str msg;
 
 	(void) cntxt;
 	(void) mb;
 
+	if( getArgType(mb,pci,3) == TYPE_int){
+		idx = *getArgReference_int(stk,pci,3);
+		ticks = idx;
+	} else
+		ticks = *getArgReference_lng(stk,pci,3);
 	if( ticks < 0)
 		throw(SQL,"basket.heartbeat","Positive heartbeat expected\n");
 	idx = BSKTlocate(sch, tbl);
@@ -255,7 +260,7 @@ BSKTheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 BSKTgetheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int *ret = getArgReference_int(stk,pci,0);
+	lng *ret = getArgReference_lng(stk,pci,0);
 	str sch = *getArgReference_str(stk,pci,1);
 	str tbl = *getArgReference_str(stk,pci,2);
 	int idx;

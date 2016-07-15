@@ -73,7 +73,11 @@ pattern iot.heartbeat(sch:str,tbl:str,N:int)
 address BSKTheartbeat
 comment "Set an delay to N milliseconds";
 
-pattern iot.getheartbeat(sch:str,tbl:str):int
+pattern iot.heartbeat(sch:str,tbl:str,N:lng)
+address BSKTheartbeat
+comment "Set an delay to N milliseconds";
+
+pattern iot.getheartbeat(sch:str,tbl:str):lng
 address BSKTgetheartbeat
 comment "Get the hearbeat delay";
 

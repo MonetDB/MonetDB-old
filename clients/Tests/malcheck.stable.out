@@ -7,9 +7,8 @@ stdout of test 'malcheck` in directory 'clients` itself:
 
 BSKTdrop: missing for MAL command drop in sql/backends/monet5/iot/basket.mal
 BSKTerror: missing for MAL command error in sql/backends/monet5/iot/iot.mal
-BSKTimportBasket: missing for MAL pattern iot.import in sql/backends/monet5/iot/iot.mal
+PNstop: missing for MAL pattern stop in sql/backends/monet5/iot/iot.mal
 PNstep: missing for MAL pattern step in sql/backends/monet5/iot/petrinet.mal
-PNsetCycleDelay: missing for MAL pattern period in sql/backends/monet5/iot/petrinet.mal
 
 # 15:16:26 >  
 # 15:16:26 >  "Done."
