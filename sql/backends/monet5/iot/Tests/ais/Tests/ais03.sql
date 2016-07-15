@@ -1,4 +1,3 @@
-CREATE SCHEMA ais;
 SET SCHEMA ais;
 SET optimizer = 'iot_pipe';
 
@@ -10,18 +9,18 @@ CREATE STREAM TABLE vessels (implicit_timestamp timestamp, mmsi int, lat real, l
 INSERT INTO iot.webserverstreams
 	SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'vessels' AND sch.name = 'ais';
 
---Q4 Ship turning degree > 180 -- Stream only
+--Q3 Currently anchorred ship -- Stream only
 
-CREATE TABLE ais04r (calc_time timestamp, mmsi int);
+CREATE TABLE ais03r (calc_time timestamp, mmsi int);
 
-CREATE PROCEDURE ais04q()
+CREATE PROCEDURE ais03q()
 BEGIN
-	INSERT INTO ais04r
+	INSERT INTO ais03r
 		WITH data_time AS (SELECT current_timestamp AS cur_time)
-		SELECT cur_time, mmsi FROM vessels CROSS JOIN data_time WHERE sys.abs(rotais) > 180 AND (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM vessels GROUP BY mmsi);
+		SELECT cur_time, mmsi FROM vessels CROSS JOIN data_time WHERE nav_status = 1 AND (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM vessels GROUP BY mmsi);
 END;
 
-CALL iot.query('ais', 'ais04q');
+CALL iot.query('ais', 'ais03q');
 CALL iot.pause();
 -- We don't set the tumbling, so no tuple will be reused in the following window
 CALL iot.heartbeat('ais', 'vessels', 8000);

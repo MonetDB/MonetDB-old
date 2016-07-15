@@ -1,4 +1,3 @@
-CREATE SCHEMA ais;
 SET SCHEMA ais;
 SET optimizer = 'iot_pipe';
 

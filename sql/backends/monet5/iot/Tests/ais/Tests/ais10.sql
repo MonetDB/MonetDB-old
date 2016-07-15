@@ -1,4 +1,3 @@
-CREATE SCHEMA ais;
 SET SCHEMA ais;
 SET optimizer = 'iot_pipe';
 
@@ -35,20 +34,19 @@ CREATE TABLE vessels (implicit_timestamp timestamp, mmsi int, lat real, lon real
 INSERT INTO iot.webserverstreams
 	SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'vessels' AND sch.name = 'ais';
 
---Q9 Notify when a ship S arrived at an harbor -- Stream + static
+--Q10 Estimated time of arrival of ship S at harbor H -- Stream join + static
 
-CREATE STREAM TABLE ais09r (calc_time timestamp, harbor char(32), mmsi int, implicit_timestamp timestamp);
+CREATE STREAM TABLE ais10r (calc_time timestamp, harbor char(32), mmsi int, time_left float); /* in hours */
 
-CREATE PROCEDURE ais09q()
+CREATE PROCEDURE ais10q()
 BEGIN
-	INSERT INTO ais09r
-		WITH data AS (SELECT mmsi, implicit_timestamp, geographic_to_cartesian(lat, lon) AS calc_point FROM vessels),
-		results AS (SELECT harbor, mmsi, min(implicit_timestamp) AS calc_min FROM data CROSS JOIN static_locations WHERE sys.st_contains(field, calc_point) AND (harbor, mmsi) NOT IN (SELECT harbor, mmsi FROM ais09r) GROUP BY harbor, mmsi),
+	INSERT INTO ais10r
+		WITH data AS (SELECT harbor, mmsi, sog, sys.Distance(field, geographic_to_cartesian(lat, lon)) AS distance FROM vessels CROSS JOIN static_locations WHERE (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM vessels GROUP BY mmsi)),
 		data_time AS (SELECT current_timestamp AS cur_time)
-		SELECT cur_time, harbor, mmsi, calc_min FROM results CROSS JOIN data_time;
+		SELECT cur_time, harbor, mmsi, distance / sog * 1.852 FROM data CROSS JOIN data_time WHERE distance > 0;
 END;
 
-CALL iot.query('ais', 'ais09q');
+CALL iot.query('ais', 'ais10q');
 CALL iot.pause();
 -- We don't set the tumbling, so no tuple will be reused in the following window
 CALL iot.heartbeat('ais', 'vessels', 8000);
