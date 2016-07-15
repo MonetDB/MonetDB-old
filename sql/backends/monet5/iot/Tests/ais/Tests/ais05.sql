@@ -13,12 +13,11 @@ BEGIN
 END;
 
 -- Vessels positions reports table based on AIS messages types 1, 2 and 3
-CREATE STREAM TABLE vessels (implicit_timestamp timestamp, mmsi int, lat real, lon real, nav_status tinyint, sog real, rotais smallint);
+CREATE STREAM TABLE vessels5 (implicit_timestamp timestamp, mmsi int, lat real, lon real, nav_status tinyint, sog real, rotais smallint);
 
 -- Position reports are sent every 3-5 seconds so is resonable to consume the tuples arrived on the last 8 seconds
 -- Inserts for iot web server (providing time based flush of 8 seconds)
-INSERT INTO iot.webserverstreams
-	SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'vessels' AND sch.name = 'ais';
+INSERT INTO iot.webserverstreams SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'vessels5' AND sch.name = 'ais';
 
 --Q5 Closest ship to each other -- Stream only
 
@@ -27,7 +26,7 @@ CREATE TABLE ais05r (calc_time timestamp, mmsi1 int, mmsi2 int, distance float);
 CREATE PROCEDURE ais05q()
 BEGIN
 	INSERT INTO ais05r 
-		WITH data AS (SELECT mmsi, lat, lon FROM vessels WHERE (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM vessels GROUP BY mmsi)),
+		WITH data AS (SELECT mmsi, lat, lon FROM vessels5 WHERE (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM vessels5 GROUP BY mmsi)),
 		distances AS (SELECT d1.mmsi AS mmsi1, d2.mmsi AS mmsi2, km_distance(d1.lat, d1.lon, d2.lat, d2.lon) AS distance FROM data d1 CROSS JOIN data d2 WHERE NOT d1.mmsi = d2.mmsi),
 		data_time AS (SELECT current_timestamp AS cur_time)
 		SELECT cur_time, mmsi1, mmsi2, distance FROM distances CROSS JOIN data_time WHERE (mmsi1, distance) IN (SELECT mmsi1, min(distance) FROM distances GROUP BY mmsi1);
@@ -36,6 +35,13 @@ END;
 CALL iot.query('ais', 'ais05q');
 CALL iot.pause();
 -- We don't set the tumbling, so no tuple will be reused in the following window
-CALL iot.heartbeat('ais', 'vessels', 8000);
+CALL iot.heartbeat('ais', 'vessels5', 8000);
 CALL iot.resume();
+
+CALL iot.pause();
+DELETE FROM iot.webserverstreams;
+DROP PROCEDURE ais05q;
+DROP FUNCTION km_distance;
+DROP TABLE vessels5;
+DROP TABLE ais05r;
 

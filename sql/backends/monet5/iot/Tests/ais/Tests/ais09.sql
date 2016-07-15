@@ -27,12 +27,11 @@ INSERT INTO static_locations VALUES ('Westhaven', 'POLYGON( (3871.6739966 324.80
 INSERT INTO static_locations VALUES ('Mercuriushaven', 'POLYGON( (3872.72450963 330.277569199 5048.02561402, 3873.1986563 329.657593618 5047.70235253, 3872.92006997 329.040734675 5047.95635149, 3873.11386675 328.884805095 5047.81782161, 3873.41352071 329.00959555 5047.57975505, 3873.61782996 329.465350531 5047.39323713, 3873.33890872 330.429316655 5047.54427072, 3872.9540041 330.381842104 5047.84271947, 3872.72450963 330.277569199 5048.02561402) )'); /* Mercuriushaven */
 
 -- Vessels positions reports table based on AIS messages types 1, 2 and 3
-CREATE TABLE vessels (implicit_timestamp timestamp, mmsi int, lat real, lon real, nav_status tinyint, sog real, rotais smallint);
+CREATE TABLE vessels9 (implicit_timestamp timestamp, mmsi int, lat real, lon real, nav_status tinyint, sog real, rotais smallint);
 
 -- Position reports are sent every 3-5 seconds so is resonable to consume the tuples arrived on the last 8 seconds
 -- Inserts for iot web server (providing time based flush of 8 seconds)
-INSERT INTO iot.webserverstreams
-	SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'vessels' AND sch.name = 'ais';
+INSERT INTO iot.webserverstreams SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'vessels9' AND sch.name = 'ais';
 
 --Q9 Notify when a ship S arrived at an harbor -- Stream + static
 
@@ -41,7 +40,7 @@ CREATE STREAM TABLE ais09r (calc_time timestamp, harbor char(32), mmsi int, impl
 CREATE PROCEDURE ais09q()
 BEGIN
 	INSERT INTO ais09r
-		WITH data AS (SELECT mmsi, implicit_timestamp, geographic_to_cartesian(lat, lon) AS calc_point FROM vessels),
+		WITH data AS (SELECT mmsi, implicit_timestamp, geographic_to_cartesian(lat, lon) AS calc_point FROM vessels9),
 		results AS (SELECT harbor, mmsi, min(implicit_timestamp) AS calc_min FROM data CROSS JOIN static_locations WHERE sys.st_contains(field, calc_point) AND (harbor, mmsi) NOT IN (SELECT harbor, mmsi FROM ais09r) GROUP BY harbor, mmsi),
 		data_time AS (SELECT current_timestamp AS cur_time)
 		SELECT cur_time, harbor, mmsi, calc_min FROM results CROSS JOIN data_time;
@@ -50,6 +49,14 @@ END;
 CALL iot.query('ais', 'ais09q');
 CALL iot.pause();
 -- We don't set the tumbling, so no tuple will be reused in the following window
-CALL iot.heartbeat('ais', 'vessels', 8000);
+CALL iot.heartbeat('ais', 'vessels9', 8000);
 CALL iot.resume();
+
+CALL iot.pause();
+DELETE FROM iot.webserverstreams;
+DROP PROCEDURE ais09q;
+DROP FUNCTION geographic_to_cartesian;
+DROP TABLE static_locations;
+DROP TABLE vessels9;
+DROP TABLE ais09r;
 
