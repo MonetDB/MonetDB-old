@@ -1,4 +1,4 @@
--- A simple heartbeat continuous query.
+-- A simple heartbeat continuous query triggered.
 set schema iot;
 set optimizer='iot_pipe';
 
@@ -12,8 +12,8 @@ end;
 call iot.query('iot','cqlogger');
 call iot.heartbeat('iot','log',1000);
 
--- wait for 2 cycles in the scheduler
-call iot.wait(2);
+-- wait for 2 seconds
+call iot.wait(2000);
 
 select 'RESULT';
 select * from log;

@@ -17,6 +17,8 @@
 
 module petrinet;
 
+pattern register(mod:str, fcn:str, calls:int)
+address PNregister;
 pattern register(mod:str, fcn:str)
 address PNregister
 comment "Add a continous MAL query to the Petri net. It will analyse
@@ -41,10 +43,6 @@ comment "Deactivate all continuous query";
 pattern step(cnt:int)
 address PNstep
 comment "Limit number of petrinet steps";
-
-pattern iot.cycles(sch:str,qry:str,lim:int)
-address PNcycles
-comment "Deactivate a continuous query after lim invocations";
 
 pattern iot.deregister()
 address PNderegister

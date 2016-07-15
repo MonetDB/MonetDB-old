@@ -20,7 +20,8 @@ insert into stmp3 values('2005-09-23 12:34:28.000',1,13.0);
 insert into stmp3 values('2005-09-23 12:34:28.000',1,15.0);
 
 call iot.resume('iot','cq03');
-call iot.wait(4);
+-- wait a few seconds
+call iot.wait(5000);
 
 select * from stmp3;
 select * from result3;

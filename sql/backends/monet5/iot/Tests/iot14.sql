@@ -21,7 +21,7 @@ begin
 	delete from sdel where sensor = 3;
 end;
 
-call iot.query('iot','sdel00');
+call iot.query('iot','sdel00',3);
 call iot.show('iot','sdel00');
 call iot.pause();
 insert into sdel values('2005-09-23 12:34:26.736',1,12.34);
@@ -31,8 +31,8 @@ insert into sdel values('2005-09-23 12:34:26.736',3,12.34);
 select * from sdel;
 
 call iot.resume();
-call iot.cycles('iot','sdel00',1);
-call iot.wait(10);
+-- wait a few seconds
+call iot.wait(5000);
 select * from sdel;
 
 drop procedure sdel00;

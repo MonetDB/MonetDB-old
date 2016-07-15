@@ -48,6 +48,7 @@
 #include "opt_prelude.h"
 
 #define MAXPN 200           /* it is the minimum, if we need more space GDKrealloc */
+#define PNDELAY 20			/* forced delay between PN scheduler cycles */
 
 static str statusname[6] = { "init", "running", "waiting", "paused","stopping"};
 
@@ -125,6 +126,7 @@ str PNregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	Symbol s = 0;
 	str modnme = *getArgReference_str(stk, pci, 1);
 	str fcnnme = *getArgReference_str(stk, pci, 2);
+	int calls = 1;
 
 	(void) mb;
 	scope = findModule(cntxt->nspace, putName(modnme));
@@ -134,7 +136,9 @@ str PNregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (s == NULL)
 		throw(MAL, "petrinet.register", "Could not find function\n");
 
-	return PNregisterInternal(cntxt,s->def);
+	if( pci->argc > 3)
+		calls = *getArgReference_int(stk,pci,2);
+	return PNregisterInternal(cntxt,s->def,calls);
 }
 
 static int
@@ -179,7 +183,7 @@ PNshow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 /* A transition is only allowed when all inputs are privately used */
 str
-PNregisterInternal(Client cntxt, MalBlkPtr mb)
+PNregisterInternal(Client cntxt, MalBlkPtr mb, int calls)
 {
 	int i, init = pnettop == 0;
 	InstrPtr sig,q;
@@ -194,8 +198,12 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 
 	sig = getInstrPtr(mb,0);
 	i = PNlocate(getModuleId(sig), getFunctionId(sig));
-	if (i != pnettop)
-		throw(MAL, "petrinet.register", "Duplicate definition of transition\n");
+	if (i != pnettop){
+		// restart the  query
+		pnet[pnettop].status = PNWAIT;
+		pnet[pnettop].limit = calls; 
+		return MAL_SUCCEED;
+	}
 
 	memset((void*) (pnet+pnettop), 0, sizeof(PNnode));
 	pnet[pnettop].modname = GDKstrdup(getModuleId(sig));
@@ -225,7 +233,7 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 	}
 
 	pnet[pnettop].status = PNWAIT;
-	pnet[pnettop].limit = -1; // unbounded invocations
+	pnet[pnettop].limit = calls; 
 	pnet[pnettop].seen = *timestamp_nil;
 	/* all the rest is zero */
 
@@ -285,20 +293,21 @@ PNpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 str
 PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	int old = PNcycle;
-	int steps= *(int*) getArgReference(stk,pci,1);
+	int delay= *getArgReference_int(stk,pci,1);
+	lng clk = GDKms();
 
 	(void) mb;
-	_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#scheduler wait steps %d\n",steps -old);
-	while(pnstatus == PNRUNNING && PNcycle < old + steps)
-		MT_sleep_ms(20);
-	_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#wait finished %d\n",PNcycle -old );
+	_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#scheduler wait %d ms\n",delay);
+	while( GDKms() < clk + delay )
+		MT_sleep_ms(PNDELAY);
+	_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#wait finished after %d cycles\n",PNcycle -old );
 	return MAL_SUCCEED;
 }
 
 /* safely stop the engine by stopping all CQ firt */
 str
 PNstop(void){
-	int i,cnt;
+	int i,cnt,limit = 20;
 	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler being stopped\n");
 
 	pnstatus = PNSTOP; // avoid starting new continuous queries
@@ -307,10 +316,10 @@ PNstop(void){
 		pnet[i].client->itrace ='x';
 
 	do{
-		MT_sleep_ms(20);
+		MT_sleep_ms(PNDELAY);
 		for(cnt=0,  i = 0; i < pnettop; i++)
 			cnt += pnet[i].status != PNWAIT;
-	} while(cnt);
+	} while(limit-- > 0 && cnt);
 	BSKTclean(0);
 	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#all queries stopped\n");
 	return MAL_SUCCEED;
@@ -456,9 +465,10 @@ static void
 PNexecute( void *n)
 {
 	PNnode *node= (PNnode *) n;
-	int j;
+	int j,idx;
 	str msg=  MAL_SUCCEED;
 	lng t = GDKusec();
+	timestamp ts;
 
 	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#petrinet.execute %s.%s\n",node->modname, node->fcnname);
 	// first grab exclusive access to all streams.
@@ -474,6 +484,16 @@ PNexecute( void *n)
 	_DEBUG_PETRINET_ 
 		mnstr_printf(GDKout, "#petrinet.execute %s.%s transition done:%s\n",
 		node->modname, node->fcnname, (msg != MAL_SUCCEED?msg:""));
+
+	// remember the time last accessed
+	(void) MTIMEcurrent_timestamp(&ts);
+	for (j = 0; j < MAXBSKT &&  (idx = node->inputs[j]); j++) 
+	if (baskets[idx].heartbeat ) 
+		baskets[idx].seen= ts;
+	for (j = 0; j < MAXBSKT &&  (idx = node->outputs[j]); j++) 
+	if (baskets[idx].heartbeat ) 
+		baskets[idx].seen= ts;
+	node->seen = ts;
 
 	// empty the baskets according to their policy
 	for (j = 0; j < MAXBSKT &&  node->inputs[j]; j++) 
@@ -497,6 +517,7 @@ PNscheduler(void *dummy)
 	lng t, analysis, now;
 	char claimed[MAXBSKT];
 	timestamp ts, tn;
+	int force=0;
 
 	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#petrinet.controller started\n");
 	cntxt = MCinitClient(0,0,0); /* run as admin in SQL mode*/
@@ -525,41 +546,64 @@ PNscheduler(void *dummy)
 		pntasks=0;
 		for (k = i = 0; i < pnettop; i++) 
 		if ( pnet[i].status == PNWAIT ){
-			int force = 0;
 			pnet[i].enabled = 1;
 
-			// check for a heartbeat set on the query
-			// It ensures that it can be executed regardless other conditions
-			if (pnet[i].heartbeat) {
-				(void) MTIMEunix_epoch(&ts);
-				(void) MTIMEtimestamp_add(&tn, &pnet[i].seen, &pnet[i].heartbeat);
-				if ( !(tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs))  ){
+			if( pnet[m].limit == 0) pnet[m].enabled = 0;
+
+			/* queries coming with a heartbeat overrule those in baskets */
+			if( pnet[i].heartbeat > 0){
+				(void) MTIMEcurrent_timestamp(&ts);
+				(void) MTIMEtimestamp_add(&tn, &pnet[idx].seen, &pnet[idx].heartbeat);
+				if ( tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs)) {
+					_DEBUG_PETRINET_ mnstr_printf(GDKout,"# now %d.%d fire %d.%d,disable\n", ts.days,ts.msecs, tn.days,tn.msecs);
 					force =1;
 					break;
-				} 
-			} 
+				} else {
+				_DEBUG_PETRINET_ mnstr_printf(GDKout,"# now %d.%d fire %d.%d enable[%d]\n", ts.days,ts.msecs, tn.days,tn.msecs,i);
+				}
+			}
+
 			/* consider baskets that are properly filled */
-			// check if all input baskets are available and non-empty
-			for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].inputs[j]; j++) {
+			/* check if all input baskets are available and non-empty, and not controlled by a heartbeat */
+			for (j = 0; force == 0 && j < MAXBSKT &&  pnet[i].enabled && pnet[i].inputs[j]; j++) {
 				idx = pnet[i].inputs[j];
-				if (baskets[idx].status != BSKTFILLED  && baskets[idx].heartbeat == 0 && force == 0  ){
+				if (baskets[idx].status != BSKTFILLED  && baskets[idx].heartbeat == 0 ){
 					pnet[i].enabled = 0;
 					break;
 				}
-				/* first consider the heart beat trigger */
-				if (baskets[idx].heartbeat && force == 0) {
-					(void) MTIMEunix_epoch(&ts);
+				/* consider the heart beat trigger, which overrules the filling test */
+				if (baskets[idx].heartbeat ) {
+					(void) MTIMEcurrent_timestamp(&ts);
 					(void) MTIMEtimestamp_add(&tn, &baskets[idx].seen, &baskets[idx].heartbeat);
-					if (tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs)) {
+					if ( !(tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs)) ){
+						_DEBUG_PETRINET_ mnstr_printf(GDKout,"#A now %d.%d fire %d.%d,disable\n", ts.days,ts.msecs, tn.days,tn.msecs);
 						pnet[i].enabled = 0;
 						break;
+					} else {
+					_DEBUG_PETRINET_ mnstr_printf(GDKout,"#A now %d.%d fire %d.%d enable[%d]\n", ts.days,ts.msecs, tn.days,tn.msecs,i);
 					}
 				} else
 				/* consider baskets that are properly filled */
-				if ( ( (BUN)baskets[idx].threshold > baskets[idx].count || baskets[idx].count == 0 ) &&  force == 0){
+				if ( (BUN)baskets[idx].threshold > baskets[idx].count || baskets[idx].count == 0 ){
 					pnet[i].enabled = 0;
 					break;
 				}
+			}
+			/* check if all output baskets are not controlled by a heartbeat */
+			for (j = 0; force == 0 && j < MAXBSKT &&  pnet[i].enabled && pnet[i].outputs[j]; j++) {
+				idx = pnet[i].outputs[j];
+				if (baskets[idx].heartbeat ) {
+					(void) MTIMEcurrent_timestamp(&ts);
+					(void) MTIMEtimestamp_add(&tn, &baskets[idx].seen, &baskets[idx].heartbeat);
+					if ( !(tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs)) ){
+						_DEBUG_PETRINET_ mnstr_printf(GDKout,"#B now %d.%d fire %d.%d,disable\n", ts.days,ts.msecs, tn.days,tn.msecs);
+						pnet[i].enabled = 0;
+						break;
+					}
+					else {
+					_DEBUG_PETRINET_ mnstr_printf(GDKout,"#B now %d.%d fire %d.%d enable[%d]\n", ts.days,ts.msecs, tn.days,tn.msecs,i);
+					}
+				} 
 			}
 
 			if (pnet[i].enabled) {
@@ -632,12 +676,14 @@ PNscheduler(void *dummy)
 			_DEBUG_PETRINET_ mnstr_printf(GDKout, "#Terminate query thread %s limit %d \n", pnet[enabled[m]].fcnname, pnet[enabled[m]].limit);
 			MT_join_thread(pnet[enabled[m]].tid);
 			if( pnet[enabled[m]].limit > 0) pnet[enabled[m]].limit--;
-			if( pnet[enabled[m]].limit == 0)
-				PNderegisterInternal(enabled[m]);
+			if(  pnet[enabled[m]].limit  ==0)
+				 pnet[enabled[m]].status = PNPAUSED; 
+			//if( pnet[enabled[m]].limit == 0)
+				//PNderegisterInternal(enabled[m]);
 		}
 
 		_DEBUG_PETRINET_ if (pnstatus == PNRUNNING && cycleDelay) MT_sleep_ms(cycleDelay);  /* delay to make it more tractable */
-		MT_sleep_ms(2);  
+		MT_sleep_ms(PNDELAY);  
 		while (pnstatus == PNPAUSED)	{ /* scheduler is paused */
 			MT_sleep_ms(cycleDelay);  
 			_DEBUG_PETRINET_ mnstr_printf(GDKout, "#petrinet.controller paused\n");

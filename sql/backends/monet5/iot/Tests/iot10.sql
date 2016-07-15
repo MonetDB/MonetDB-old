@@ -28,7 +28,8 @@ call iot.query('iot','collector');
 --select * from iot.queries();
 
 call iot.resume();
-call iot.wait(1);
+-- wait a few seconds
+call iot.wait(5000);
 
 select * from tmp_aggregate;
 

@@ -42,6 +42,7 @@ iot_export MT_Lock iotLock;
 
 iot_export str IOTactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str IOTdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str IOTqueryProc(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str IOTreceptor(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str IOTemitter(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

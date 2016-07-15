@@ -34,7 +34,7 @@
 
 #define PAUSEDEFAULT 1000
 
-iot_export str PNregisterInternal(Client cntxt, MalBlkPtr mb);
+iot_export str PNregisterInternal(Client cntxt, MalBlkPtr mb, int calls);
 iot_export str PNregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

@@ -3,32 +3,39 @@ set schema iot;
 set optimizer='iot_pipe';
 
 -- we don't have global variables
-create stream table clocks(cnt integer,clk1 integer);
+create stream table clocks(cnt integer,clk integer);
 insert into clocks values(0,0);
 
-call iot.heartbeat('iot','clocks',5);
-create procedure clk1()
+create table clocklog( t timestamp, clk integer);
+
+call iot.heartbeat('iot','clocks',2000);
+
+create procedure clk()
 begin
 	update iot.clocks
-		set clk1 = clk1+1,
+		set clk = clk+1,
 		cnt = cnt +1;
+	insert into clocklog values (current_timestamp(),(select clk from iot.clocks));
 end;
 
--- alternative is a simple query
-call iot.query('iot','clk1');
-call iot.pause();
+select * from clocks;
 
-select * from clocks;
-call iot.cycles('iot','clk1',5);
-call iot.resume();
-select * from clocks;
+-- run a continuous query a limited number of times
+call iot.query('iot','clk',5);
 
 -- wait long enough to let the cycles run
-call iot.wait(1000);
-call iot.stop();
+call iot.wait(5000);
+select * from clocks;
+--select * from clocklog;
+call iot.wait(5000);
+select * from clocks;
+--select * from clocklog;
+call iot.wait(5000);
+select * from clocks;
+--select * from clocklog;
 --select * from  iot.baskets();
-select * from  iot.queries();
+--select * from  iot.queries();
 select * from iot.errors();
-drop procedure clk1;
+drop procedure clk;
 drop table clocks;
-
+drop table clocklog;

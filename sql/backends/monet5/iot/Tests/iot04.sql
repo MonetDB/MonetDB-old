@@ -10,7 +10,7 @@ begin
 	insert into result select min(t), count(*), avg(val) from stmp;
 end;
 
-call iot.query('iot','cq00');
+call iot.query('iot','cq00',1);
 --call iot.query('insert into iot.result select min(t), count(*), avg(val) from iot.stmp;');
 
 --select * from  iot.baskets();
@@ -25,16 +25,15 @@ insert into stmp values('2005-09-23 12:34:26.736',1,12.34);
 select * from stmp;
 
 -- let the cq run only wanse
-call iot.cycles('iot','cq00',1);
 call iot.resume();
--- wait for 1 cycle in the scheduler
-call iot.wait(10);
+-- wait a few seconds
+call iot.wait(5000);
 
 select 'RESULT';
 select * from result;
 
 --select * from  iot.baskets();
-select * from  iot.queries();
+--select * from  iot.queries();
 select * from iot.errors();
 call iot.stop();
 drop procedure cq00;

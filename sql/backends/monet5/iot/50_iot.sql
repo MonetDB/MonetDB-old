@@ -18,7 +18,13 @@
 create schema iot;
 
 -- register and start a continuous query
+create procedure iot.query(qry string, maxcalls integer)
+	external name iot.query;
+
 create procedure iot.query(qry string)
+	external name iot.query;
+
+create procedure iot.query("schema" string, name string, maxcalls integer)
 	external name iot.query;
 
 create procedure iot.query("schema" string, name string)
@@ -47,10 +53,6 @@ create procedure iot.deregister("schema" string, name string)
 
 create procedure iot.deregister()
 	external name iot.deregister;
-
--- resume with limited the number of scheduler loops before next pause
-create procedure iot.cycles(n integer)
-	external name iot.cycles;
 
 -- set the scheduler periodic delay
 create procedure iot.period(n integer)

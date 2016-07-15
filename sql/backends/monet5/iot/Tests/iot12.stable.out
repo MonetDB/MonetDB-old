@@ -38,16 +38,28 @@ Ready.
 #end;
 #select * from clocks;
 % iot.clocks,	iot.clocks # table_name
-% cnt,	clk1 # name
+% cnt,	clk # name
+% int,	int # type
+% 1,	1 # length
+[ 0,	0	]
+#select * from clocks;
+% iot.clocks,	iot.clocks # table_name
+% cnt,	clk # name
 % int,	int # type
 % 1,	1 # length
 [ 1,	1	]
 #select * from clocks;
 % iot.clocks,	iot.clocks # table_name
-% cnt,	clk1 # name
+% cnt,	clk # name
 % int,	int # type
 % 1,	1 # length
-[ 9,	9	]
+[ 3,	3	]
+#select * from clocks;
+% iot.clocks,	iot.clocks # table_name
+% cnt,	clk # name
+% int,	int # type
+% 1,	1 # length
+[ 5,	5	]
 #select * from iot.errors();
 % .,	. # table_name
 % table,	error # name

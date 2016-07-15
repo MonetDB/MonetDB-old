@@ -1,4 +1,4 @@
--- introduce a heartbeat and windo directly on a stream
+-- introduce a heartbeat and window directly on a stream
 set schema iot;
 set optimizer='iot_pipe';
 
