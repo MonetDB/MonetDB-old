@@ -1,0 +1,49 @@
+stdout of test 'ais04` in directory 'sql/backends/monet5/iot/Tests/ais` itself:
+
+
+# 22:36:56 >  
+# 22:36:56 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=32280" "--set" "mapi_usock=/var/tmp/mtest-17740/.s.monetdb.32280" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mk/iot//Linux/var/MonetDB/mTests_sql_backends_monet5_iot_Tests_ais"
+# 22:36:56 >  
+
+# MonetDB 5 server v11.24.0
+# This is an unreleased version
+# Serving database 'mTests_sql_backends_monet5_iot_Tests_ais', using 8 threads
+# Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs and 128bit integers dynamically linked
+# Found 15.589 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2016 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://vienna.da.cwi.nl:32280/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-17740/.s.monetdb.32280
+# MonetDB/GIS module loaded
+# MonetDB/SQL module loaded
+# MonetDB/iot loaded
+
+Ready.
+
+# 22:36:56 >  
+# 22:36:56 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-17740" "--port=32280"
+# 22:36:56 >  
+
+#SET SCHEMA ais;
+#SET optimizer = 'iot_pipe';
+#CREATE STREAM TABLE vessels4 (implicit_timestamp timestamp, mmsi int, lat real, lon real, nav_status tinyint, sog real, rotais smallint);
+#INSERT INTO iot.webserverstreams SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'vessels4' AND sch.name = 'ais';
+[ 1	]
+#CREATE TABLE ais04r (calc_time timestamp, mmsi int);
+#CREATE PROCEDURE ais04q()
+#BEGIN
+#	INSERT INTO ais04r
+#		WITH data_time AS (SELECT current_timestamp AS cur_time)
+#		SELECT cur_time, mmsi FROM vessels4 CROSS JOIN data_time WHERE sys.abs(rotais) > 180 AND (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM vessels4 GROUP BY mmsi);
+#END;
+#DELETE FROM iot.webserverstreams;
+[ 1	]
+#DROP PROCEDURE ais04q;
+#DROP TABLE vessels4;
+#DROP TABLE ais04r;
+
+# 22:36:56 >  
+# 22:36:56 >  "Done."
+# 22:36:56 >  
+

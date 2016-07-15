@@ -304,26 +304,6 @@ PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	return MAL_SUCCEED;
 }
 
-/* safely stop the engine by stopping all CQ firt */
-str
-PNstop(void){
-	int i,cnt,limit = 20;
-	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler being stopped\n");
-
-	pnstatus = PNSTOP; // avoid starting new continuous queries
-	for(cnt=0,  i = 0; i < pnettop; i++)
-	if( pnet[i].client )
-		pnet[i].client->itrace ='x';
-
-	do{
-		MT_sleep_ms(PNDELAY);
-		for(cnt=0,  i = 0; i < pnettop; i++)
-			cnt += pnet[i].status != PNWAIT;
-	} while(limit-- > 0 && cnt);
-	BSKTclean(0);
-	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#all queries stopped\n");
-	return MAL_SUCCEED;
-}
 
 /*Remove a specific continuous query from the scheduler */
 static void
@@ -363,6 +343,32 @@ PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	for ( i = pnettop-1; i >= 0 ; i--)
 		PNderegisterInternal(i);
 	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler deregistered all\n");
+	return MAL_SUCCEED;
+}
+
+/* safely stop the engine by stopping all CQ firt */
+str
+PNstop(void){
+	int i,cnt,limit = 20;
+	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler being stopped\n");
+
+	pnstatus = PNSTOP; // avoid starting new continuous queries
+	for(cnt=0,  i = 0; i < pnettop; i++)
+	if( pnet[i].client )
+		pnet[i].client->itrace ='x';
+
+	do{
+		MT_sleep_ms(PNDELAY);
+		for(cnt=0,  i = 0; i < pnettop; i++)
+			cnt += pnet[i].status != PNWAIT;
+	} while(limit-- > 0 && cnt);
+
+	if( limit == 0)
+	for(i = pnnettop-1; i >= pnettop; i--)
+	if( pnet[i].client )
+		PNderegisterInternal(i);
+
+	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#all queries stopped\n");
 	return MAL_SUCCEED;
 }
 

@@ -74,6 +74,8 @@ create procedure iot.emitter("schema" string, "table" string, dir string)
 
 create procedure iot.heartbeat("schema" string, "table" string, msec integer)
 	external name iot.heartbeat;
+create procedure iot.heartbeat("schema" string, "table" string, msec bigint)
+	external name iot.heartbeat;
 
 -- cleaup activities 
 create procedure iot.tumble("schema" string, "table" string, elem integer)
@@ -92,7 +94,7 @@ external name iot.gettumble;
 create function iot.getwindow("schema" string, "table" string) returns integer
 external name iot.getwindow;
 
-create function iot.getheartbeat("schema" string, "table" string) returns integer
+create function iot.getheartbeat("schema" string, "table" string) returns bigint
 external name iot.getheartbeat;
 
 create function iot.baskets()

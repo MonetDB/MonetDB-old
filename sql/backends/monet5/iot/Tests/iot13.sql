@@ -22,6 +22,7 @@ call iot.pause();
 insert into tmp13 values('2005-09-23 12:34:26.736',1,12.34);
 insert into tmp13 values('2005-09-23 12:34:26.736',1,12.35);
 insert into tmp13 values('2005-09-23 12:34:26.736',1,12.36);
+--insert into tmp13 values('2005-09-23 12:34:26.736',1,12.37);
 select * from tmp13;
 
 -- reactivate all continuous queries

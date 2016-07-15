@@ -113,13 +113,13 @@ end iot.cq06;
 #select iot.getheartbeat('iot','tmp06');
 % .L # table_name
 % getheartbeat_single_value # name
-% int # type
+% bigint # type
 % 1 # length
 [ 0	]
 #select iot.getheartbeat('iot','tmp06');
 % .L # table_name
 % getheartbeat_single_value # name
-% int # type
+% bigint # type
 % 1 # length
 [ 8	]
 #select * from iot.errors();

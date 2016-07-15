@@ -1,0 +1,34 @@
+stderr of test 'ais03` in directory 'sql/backends/monet5/iot/Tests/ais` itself:
+
+
+# 22:36:56 >  
+# 22:36:56 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=32280" "--set" "mapi_usock=/var/tmp/mtest-17740/.s.monetdb.32280" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mk/iot//Linux/var/MonetDB/mTests_sql_backends_monet5_iot_Tests_ais"
+# 22:36:56 >  
+
+# builtin opt 	gdk_dbpath = /export/scratch1/mk/iot//Linux/var/monetdb5/dbfarm/demo
+# builtin opt 	gdk_debug = 0
+# builtin opt 	gdk_vmtrim = no
+# builtin opt 	monet_prompt = >
+# builtin opt 	monet_daemon = no
+# builtin opt 	mapi_port = 50000
+# builtin opt 	mapi_open = false
+# builtin opt 	mapi_autosense = false
+# builtin opt 	sql_optimizer = default_pipe
+# builtin opt 	sql_debug = 0
+# cmdline opt 	gdk_nr_threads = 0
+# cmdline opt 	mapi_open = true
+# cmdline opt 	mapi_port = 32280
+# cmdline opt 	mapi_usock = /var/tmp/mtest-17740/.s.monetdb.32280
+# cmdline opt 	monet_prompt = 
+# cmdline opt 	gdk_dbpath = /export/scratch1/mk/iot//Linux/var/MonetDB/mTests_sql_backends_monet5_iot_Tests_ais
+# cmdline opt 	gdk_debug = 536870922
+
+# 22:36:56 >  
+# 22:36:56 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-17740" "--port=32280"
+# 22:36:56 >  
+
+
+# 22:36:56 >  
+# 22:36:56 >  "Done."
+# 22:36:56 >  
+
