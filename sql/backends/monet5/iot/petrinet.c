@@ -104,7 +104,7 @@ str PNperiod(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
-PNheartbeat(str mod, str fcn, int ticks)
+PNheartbeat(str mod, str fcn, lng ticks)
 {
 	int i;
 
@@ -364,7 +364,7 @@ PNstop(void){
 	} while(limit-- > 0 && cnt);
 
 	if( limit == 0)
-	for(i = pnnettop-1; i >= pnettop; i--)
+	for(i = pnettop-1; i >= pnettop; i--)
 	if( pnet[i].client )
 		PNderegisterInternal(i);
 

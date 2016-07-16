@@ -44,7 +44,7 @@ iot_export str PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 iot_export str PNshow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNstop(void);
 iot_export str PNdump(void *ret);
-iot_export str PNheartbeat(str mod, str fcn, int ticks);
+iot_export str PNheartbeat(str mod, str fcn, lng ticks);
 
 iot_export str PNperiod(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 

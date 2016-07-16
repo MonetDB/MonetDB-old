@@ -316,7 +316,7 @@ BSKTgetwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	idx = BSKTlocate(sch, tbl);
 	if( idx == 0)
 		throw(SQL,"basket.window","Stream table %s.%s not accessible\n",sch,tbl);
-	*ret = baskets[idx].winsize;
+	*ret = (int) baskets[idx].winsize;
 	return MAL_SUCCEED;
 }
 
