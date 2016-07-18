@@ -1,4 +1,3 @@
-CREATE SCHEMA ais;
 SET SCHEMA ais;
 SET optimizer = 'iot_pipe';
 
@@ -42,7 +41,7 @@ CREATE PROCEDURE ais07q()
 BEGIN
 	INSERT INTO ais07r
 		WITH data AS (SELECT mmsi, geographic_to_cartesian(lat, lon) AS calc_point FROM vessels7 WHERE (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM vessels7 WHERE nav_status = 1 GROUP BY mmsi)),
-		results AS (SELECT harbor, mmsi FROM data CROSS JOIN static_locations, data_time WHERE sys.st_contains(field, calc_point)),
+		results AS (SELECT harbor, mmsi FROM data CROSS JOIN static_locations WHERE sys.st_contains(field, calc_point)),
 		data_time AS (SELECT current_timestamp AS cur_time)
 		SELECT cur_time, harbor, mmsi FROM results CROSS JOIN data_time;
 END;

@@ -40,7 +40,7 @@ CREATE STREAM TABLE ais10r (calc_time timestamp, harbor char(32), mmsi int, time
 CREATE PROCEDURE ais10q()
 BEGIN
 	INSERT INTO ais10r
-		WITH data AS (SELECT harbor, mmsi, sog, sys.Distance(field, geographic_to_cartesian(lat, lon)) AS distance FROM vessels10 CROSS JOIN static_locations WHERE (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM vessels10 GROUP BY mmsi)),
+		WITH data AS (SELECT harbor, mmsi, sog, sys.st_distance(field, geographic_to_cartesian(lat, lon)) AS distance FROM vessels10 CROSS JOIN static_locations WHERE (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM vessels10 GROUP BY mmsi)),
 		data_time AS (SELECT current_timestamp AS cur_time)
 		SELECT cur_time, harbor, mmsi, distance / sog * 1.852 FROM data CROSS JOIN data_time WHERE distance > 0;
 END;

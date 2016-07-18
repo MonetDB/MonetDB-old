@@ -37,8 +37,10 @@ CALL iot.pause();
 DELETE FROM iot.webserverstreams;
 DROP PROCEDURE ais11q;
 DROP TABLE vessels11;
+DROP VIEW ais11v;
 DROP TABLE ais11r;
 
 CALL iot.stop();
+SET SCHEMA sys;
 DROP SCHEMA ais;
 
