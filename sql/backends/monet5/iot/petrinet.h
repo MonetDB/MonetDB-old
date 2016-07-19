@@ -34,23 +34,23 @@
 
 #define PAUSEDEFAULT 1000
 
-iot_export str PNregisterInternal(Client cntxt, MalBlkPtr mb, int calls);
-iot_export str PNregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str PNresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str PNpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str PNshow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str PNstop(void);
-iot_export str PNdump(void *ret);
-iot_export str PNheartbeat(str mod, str fcn, lng ticks);
+sql5_export str PNregisterInternal(Client cntxt, MalBlkPtr mb, int calls);
+sql5_export str PNregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str PNresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str PNpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str PNshow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str PNstop(void);
+sql5_export str PNdump(void *ret);
+sql5_export str PNheartbeat(str mod, str fcn, lng ticks);
 
-iot_export str PNperiod(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str PNperiod(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
-iot_export str PNanalysis(Client cntxt, MalBlkPtr mb, int pn);
-iot_export str PNtable(bat *modnameId, bat *fcnnameId, bat *statusId, bat *seenId, bat *cyclesId, bat *eventsId, bat *timeId, bat * errorId);
-iot_export str PNinputplaces(bat *schemaId, bat *streamId, bat *modnameId, bat *fcnnameId);
-iot_export str PNoutputplaces(bat *schemaId, bat *streamId, bat *modnameId, bat *fcnnameId);
+sql5_export str PNanalysis(Client cntxt, MalBlkPtr mb, int pn);
+sql5_export str PNtable(bat *modnameId, bat *fcnnameId, bat *statusId, bat *seenId, bat *cyclesId, bat *eventsId, bat *timeId, bat * errorId);
+sql5_export str PNinputplaces(bat *schemaId, bat *streamId, bat *modnameId, bat *fcnnameId);
+sql5_export str PNoutputplaces(bat *schemaId, bat *streamId, bat *modnameId, bat *fcnnameId);
 #endif
 
