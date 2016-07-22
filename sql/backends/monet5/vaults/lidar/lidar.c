@@ -772,11 +772,9 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			free(header);
 			return msg;
 		}
-#ifndef NDEBUG
 		fprintf(stderr, "Path: %s is a directory.\n", fname);
 		msg = createException(MAL, "lidar.attach", "Unimplemented functionality");
 		return msg;
-#endif
 	}
 	else {
 #ifndef NDEBUG
