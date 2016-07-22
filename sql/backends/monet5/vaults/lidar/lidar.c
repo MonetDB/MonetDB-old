@@ -719,9 +719,159 @@ LIDARopenFile(str fname)
 	return res;
 }
 
+typedef enum {
+	PARAMS_ALL_OFF               =    0,
+	PARAM_GPS_TIME               =    1, /* t */
+	PARAM_SCAN_ANGLE             =    2, /* a */
+	PARAM_INTENSITY              =    4, /* i */
+	PARAM_N_RETURNS              =    8, /* n */
+	PARAM_N_THIS_RETURN          =   16, /* r */
+	PARAM_CLASSIFICATION_NUMBER  =   32, /* c */
+	PARAM_USER_DATA              =   64, /* u */
+	PARAM_POINT_SOURCE_ID        =  128, /* p */
+	PARAM_EDGE_OF_FLIGHT_LINE    =  256, /* e */
+	PARAM_DIRECTION_OF_SCAN_FLAG =  512, /* d */
+	PARAM_RED_CHANNEL            = 1024, /* R */
+	PARAM_GREEN_CHANNEL          = 2048, /* G */
+	PARAM_BLUE_CHANNEL           = 4096, /* B */
+	PARAM_VERTEX_INDEX           = 8192  /* M */
+} ParameterValues;
+
+typedef struct input_parameters {
+	int cnum;
+	int parameters;
+} InputParameters;
+
+/* Parse the parameter string that specifies what columns will be
+ * read.
+ */
+static void
+parse_parameters(str params, InputParameters *parsed) {
+	parsed->cnum = 0;
+	parsed->parameters = PARAMS_ALL_OFF;
+	for (char *p = params; *p != '\0'; p++) {
+		switch (*p) {
+		case 't':
+			if (!(parsed->parameters ^ PARAM_GPS_TIME)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_GPS_TIME;
+			parsed->cnum++;
+			break;
+		case 'a':
+			if (!(parsed->parameters ^ PARAM_SCAN_ANGLE)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_SCAN_ANGLE;
+			parsed->cnum++;
+			break;
+		case 'i':
+			if (!(parsed->parameters ^ PARAM_INTENSITY)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_INTENSITY;
+			parsed->cnum++;
+			break;
+		case 'n':
+			if (!(parsed->parameters ^ PARAM_N_RETURNS)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_N_RETURNS;
+			parsed->cnum++;
+			break;
+		case 'r':
+			if (!(parsed->parameters ^ PARAM_N_THIS_RETURN)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_N_THIS_RETURN;
+			parsed->cnum++;
+			break;
+		case 'c':
+			if (!(parsed->parameters ^ PARAM_CLASSIFICATION_NUMBER)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_CLASSIFICATION_NUMBER;
+			parsed->cnum++;
+			break;
+		case 'u':
+			if (!(parsed->parameters ^ PARAM_USER_DATA)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_USER_DATA;
+			parsed->cnum++;
+			break;
+		case 'p':
+			if (!(parsed->parameters ^ PARAM_POINT_SOURCE_ID)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_POINT_SOURCE_ID;
+			parsed->cnum++;
+			break;
+		case 'e':
+			if (!(parsed->parameters ^ PARAM_EDGE_OF_FLIGHT_LINE)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_EDGE_OF_FLIGHT_LINE;
+			parsed->cnum++;
+			break;
+		case 'd':
+			if (!(parsed->parameters ^ PARAM_DIRECTION_OF_SCAN_FLAG)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_DIRECTION_OF_SCAN_FLAG;
+			parsed->cnum++;
+			break;
+		case 'R':
+			if (!(parsed->parameters ^ PARAM_RED_CHANNEL)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_RED_CHANNEL;
+			parsed->cnum++;
+			break;
+		case 'G':
+			if (!(parsed->parameters ^ PARAM_GREEN_CHANNEL)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_GREEN_CHANNEL;
+			parsed->cnum++;
+			break;
+		case 'B':
+			if (!(parsed->parameters ^ PARAM_BLUE_CHANNEL)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_BLUE_CHANNEL;
+			parsed->cnum++;
+			break;
+		case 'M':
+			if (!(parsed->parameters ^ PARAM_VERTEX_INDEX)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_VERTEX_INDEX;
+			parsed->cnum++;
+			break;
+		default:
+			fprintf(stderr, "WARNING: Unknown parameter char: %c. Ignoring.\n", *p);
+		}
+	}
+}
 
 #define LIDAR_READER_VERSION "1.8.0"
-str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+str
+LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	mvc *m = NULL;
 	sql_trans *tr;
@@ -732,10 +882,12 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg = MAL_SUCCEED;
 	str fname = *getArgReference_str(stk, pci, 1);
 	str tname = NULL;
+	str params = NULL;
+	InputParameters input_params;
 	oid fid, tid, cid, rid = oid_nil;
 	char *tname_low = NULL, *s, bname[BUFSIZ];
 	char *p;
-	int cnum;
+	/* int cnum; */
 	lidar_header *header;
 	struct stat buf;
 	int scaleX, scaleY, scaleZ;
@@ -746,11 +898,23 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	lng uniq = 0;
 	lng sz = 0;
 
-	if (pci->argc == 3) {
-		tname = *getArgReference_str(stk, pci, 2);
-	}
-	else if (pci->argc == 2) {
+	switch(pci->argc) {
+	case 2:
 		tname = fname;
+		break;
+	case 3:
+		tname = *getArgReference_str(stk, pci, 2);
+		break;
+	case 4:
+		tname = *getArgReference_str(stk, pci, 2);
+		params = *getArgReference_str(stk, pci, 3);
+#ifndef NDEBUG
+		fprintf(stderr, "Params: %s\n", params);
+#endif
+		break;
+	default:
+		msg = createException(MAL, "lidar.attach", "Wrong number of arguments");
+		return msg;
 	}
 
 #ifndef NDEBUG
@@ -970,8 +1134,9 @@ str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	col = mvc_bind_column(m, lidar_col, "id");
 	cid = store_funcs.count_col(tr, col, 1) + 1;
 	/* create an SQL table to hold the LIDAR table */
-	cnum = 3;//x, y, z. TODO: Add all available columnt
-	tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, cnum);
+	/* cnum = 3;//x, y, z. TODO: Add all available columnt */
+	parse_parameters(params, &input_params);
+	tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, input_params.cnum);
 
 	sql_find_subtype(&t, "decimal", precisionX, scaleX);
 	mvc_create_column(m, tbl, "x", &t);

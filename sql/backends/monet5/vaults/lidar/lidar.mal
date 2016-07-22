@@ -18,6 +18,10 @@ pattern attach(fname:str, tname:str):void
 address LIDARattach
 comment "Attach to a specific table"
 
+pattern attach(fname:str, tname:str, params:str):void
+address LIDARattach
+comment "Attach to a specific table, with parameters"
+
 pattern load(tablename:str):void
 address LIDARloadTable
 comment "Load a LIDAR table from an attached file";
@@ -72,11 +76,10 @@ comment "Bind the 'schema.table.column' BAT with access kind:
 	1 - inserts
 	2 - updates";
 
-pattern tid(id:int, mvc:int, sname:str, tname:str):bat[:oid] 
+pattern tid(id:int, mvc:int, sname:str, tname:str):bat[:oid]
 address LIDARTid
 comment "Return the tables tid column.";
 
-pattern tid(id:int, mvc:int, sname:str, tname:str, part_nr:int, nr_parts:int ):bat[:oid] 
+pattern tid(id:int, mvc:int, sname:str, tname:str, part_nr:int, nr_parts:int ):bat[:oid]
 address LIDARTid
 comment "Return the tables tid column.";
-
