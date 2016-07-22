@@ -1213,12 +1213,12 @@ static BAT *														\
 read_array_##BAT_TYPE(str fname,									\
 					  double (*callback)(LASPointH),				\
 					  long rows, double scale,						\
-					  int *error_code)								\
+					  short use_scale,  int *error_code)			\
 {																	\
 	BAT *b;														\
 	BAT_TYPE *d = NULL;											\
 	LASPointH p = NULL;											\
-	LASReaderH reader = NULL;												\
+	LASReaderH reader = NULL;										\
 	int i;															\
 																	\
 	b = COLnew(0, TYPE_##BAT_TYPE, rows, PERSISTENT);				\
@@ -1242,7 +1242,12 @@ read_array_##BAT_TYPE(str fname,									\
 	p = LASReader_GetNextPoint(reader);							\
 	i = 0;															\
 	while(p) {														\
-		d[i] = callback(p)/scale;									\
+		if (use_scale) {											\
+			d[i] = callback(p)/scale;								\
+		}															\
+		else { 													\
+			d[i] = callback(p); 									\
+		}															\
 		p = LASReader_GetNextPoint(reader);						\
 		i++;														\
 	}																\
@@ -1287,6 +1292,7 @@ str LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sq
 	int precisionx, precisiony, precisionz;
 	double scalex, scaley, scalez;
 	int error_code;
+	short use_scale;
 
 	col = mvc_bind_column(m, lidar_tbl, "name");
 	rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
@@ -1337,19 +1343,20 @@ str LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sq
 	colz = mvc_bind_column(m, tbl, "z");
 
 	/* Read X, Y, and Z based on the column's precision */
+	use_scale = 1;
 	if (precisionx <= 2)
-		x = read_array_bte(fname, LASPoint_GetX, rows, scalex, &error_code);
+		x = read_array_bte(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
 	else if (precisionx <= 4)
-		x = read_array_sht(fname, LASPoint_GetX, rows, scalex, &error_code);
+		x = read_array_sht(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
 	else if (precisionx <= 8)
-		x = read_array_int(fname, LASPoint_GetX, rows, scalex, &error_code);
+		x = read_array_int(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
 	else if (precisionx <= 16)
-		x = read_array_int(fname, LASPoint_GetX, rows, scalex, &error_code);
+		x = read_array_int(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
 	else if (precisionx <= 32)
-		x = read_array_lng(fname, LASPoint_GetX, rows, scalex, &error_code);
+		x = read_array_lng(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
 #ifdef HAVE_HGE
 	else if (precisionx <= 64)
-		x = read_array_hge(fname, LASPoint_GetX, rows, scalex, &error_code);
+		x = read_array_hge(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
 #endif
 	else {
 		x = NULL;
@@ -1357,18 +1364,18 @@ str LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sq
 	}
 
 	if (precisiony <= 2)
-		y = read_array_bte(fname, LASPoint_GetY, rows, scaley, &error_code);
+		y = read_array_bte(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
 	else if (precisiony <= 4)
-		y = read_array_sht(fname, LASPoint_GetY, rows, scaley, &error_code);
+		y = read_array_sht(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
 	else if (precisiony <= 8)
-		y = read_array_int(fname, LASPoint_GetY, rows, scaley, &error_code);
+		y = read_array_int(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
 	else if (precisiony <= 16)
-		y = read_array_int(fname, LASPoint_GetY, rows, scaley, &error_code);
+		y = read_array_int(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
 	else if (precisiony <= 32)
-		y = read_array_lng(fname, LASPoint_GetY, rows, scaley, &error_code);
+		y = read_array_lng(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
 #ifdef HAVE_HGE
 	else if (precisiony <= 64)
-		y = read_array_hge(fname, LASPoint_GetY, rows, scaley, &error_code);
+		y = read_array_hge(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
 #endif
 	else {
 		y = NULL;
@@ -1376,25 +1383,25 @@ str LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sq
 	}
 
 	if (precisionz <= 2)
-		z = read_array_bte(fname, LASPoint_GetZ, rows, scalez, &error_code);
+		z = read_array_bte(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
 	else if (precisionz <= 4)
-		z = read_array_sht(fname, LASPoint_GetZ, rows, scalez, &error_code);
+		z = read_array_sht(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
 	else if (precisionz <= 8)
-		z = read_array_int(fname, LASPoint_GetZ, rows, scalez, &error_code);
+		z = read_array_int(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
 	else if (precisionz <= 16)
-		z = read_array_int(fname, LASPoint_GetZ, rows, scalez, &error_code);
+		z = read_array_int(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
 	else if (precisionz <= 32)
-		z = read_array_lng(fname, LASPoint_GetZ, rows, scalez, &error_code);
+		z = read_array_lng(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
 #ifdef HAVE_HGE
 	else if (precisionz <= 64)
-		z = read_array_hge(fname, LASPoint_GetZ, rows, scalez, &error_code);
+		z = read_array_hge(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
 #endif
 	else {
 		z = NULL;
 		error_code = 5;
 	}
 
-	if ( x == NULL || y == NULL || z == NULL) {
+	if ( x == NULL || y == NULL || z == NULL ) {
 		GDKfree(tpcode);
 		GDKfree(rep);
 		GDKfree(wid);
