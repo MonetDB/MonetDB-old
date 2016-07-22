@@ -747,7 +747,7 @@ typedef struct input_parameters {
  */
 static void
 parse_parameters(str params, InputParameters *parsed) {
-	parsed->cnum = 0;
+	parsed->cnum = 3; 			/* We are loading x, y, and z no matter what. */
 	parsed->parameters = PARAMS_ALL_OFF;
 	for (char *p = params; *p != '\0'; p++) {
 		switch (*p) {
