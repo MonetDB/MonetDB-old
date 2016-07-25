@@ -720,21 +720,25 @@ LIDARopenFile(str fname)
 }
 
 typedef enum {
-	PARAMS_ALL_OFF               =    0,
-	PARAM_GPS_TIME               =    1, /* t */
-	PARAM_SCAN_ANGLE             =    2, /* a */
-	PARAM_INTENSITY              =    4, /* i */
-	PARAM_N_RETURNS              =    8, /* n */
-	PARAM_N_THIS_RETURN          =   16, /* r */
-	PARAM_CLASSIFICATION_NUMBER  =   32, /* c */
-	PARAM_USER_DATA              =   64, /* u */
-	PARAM_POINT_SOURCE_ID        =  128, /* p */
-	PARAM_EDGE_OF_FLIGHT_LINE    =  256, /* e */
-	PARAM_DIRECTION_OF_SCAN_FLAG =  512, /* d */
-	PARAM_RED_CHANNEL            = 1024, /* R */
-	PARAM_GREEN_CHANNEL          = 2048, /* G */
-	PARAM_BLUE_CHANNEL           = 4096, /* B */
-	PARAM_VERTEX_INDEX           = 8192  /* M */
+	PARAMS_ALL_OFF               =       0,
+	PARAM_X_COORD                =     0x1, /* x or X */
+	PARAM_Y_COORD                =     0x2, /* y or Y */
+	PARAM_Z_COORD                =     0x4, /* z or Z */
+	PARAM_N_RETURNS              =     0x8, /* n */
+	PARAM_N_THIS_RETURN          =    0x10, /* r */
+	PARAM_CLASSIFICATION_NUMBER  =    0x20, /* c */
+	PARAM_USER_DATA              =    0x40, /* u */
+	PARAM_POINT_SOURCE_ID        =    0x80, /* p */
+	PARAM_EDGE_OF_FLIGHT_LINE    =   0x100, /* e */
+	PARAM_DIRECTION_OF_SCAN_FLAG =   0x200, /* d */
+	PARAM_RED_CHANNEL            =   0x400, /* R */
+	PARAM_GREEN_CHANNEL          =   0x800, /* G */
+	PARAM_BLUE_CHANNEL           =  0x1000, /* B */
+	PARAM_VERTEX_INDEX           =  0x2000, /* M */
+	PARAM_GPS_TIME               =  0x4000, /* t */
+	PARAM_SCAN_ANGLE             =  0x8000, /* a */
+	PARAM_INTENSITY              = 0x10000, /* i */
+	PARAMS_END_SENTINEL
 } ParameterValues;
 
 typedef struct input_parameters {
@@ -747,10 +751,37 @@ typedef struct input_parameters {
  */
 static void
 parse_parameters(str params, InputParameters *parsed) {
-	parsed->cnum = 3; 			/* We are loading x, y, and z no matter what. */
+	parsed->cnum = 0;
 	parsed->parameters = PARAMS_ALL_OFF;
 	for (char *p = params; *p != '\0'; p++) {
 		switch (*p) {
+		case 'x':
+		case 'X':
+			if (!(parsed->parameters ^ PARAM_X_COORD)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_X_COORD;
+			parsed->cnum++;
+			break;
+		case 'y':
+		case 'Y':
+			if (!(parsed->parameters ^ PARAM_Y_COORD)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_Y_COORD;
+			parsed->cnum++;
+			break;
+		case 'z':
+		case 'Z':
+			if (!(parsed->parameters ^ PARAM_Z_COORD)) {
+				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
+				continue;
+			}
+			parsed->parameters |= PARAM_Z_COORD;
+			parsed->cnum++;
+			break;
 		case 't':
 			if (!(parsed->parameters ^ PARAM_GPS_TIME)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
@@ -1133,19 +1164,92 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* add a lidar_column tuple */
 	col = mvc_bind_column(m, lidar_col, "id");
 	cid = store_funcs.count_col(tr, col, 1) + 1;
+
 	/* create an SQL table to hold the LIDAR table */
-	/* cnum = 3;//x, y, z. TODO: Add all available columnt */
-	parse_parameters(params, &input_params);
+	if (params != NULL) {
+		parse_parameters(params, &input_params);
+	}
+	else {
+		/* If no parameter string is given read x, y, and z */
+		input_params.cnum = 3;
+		input_params.parameters = PARAM_X_COORD | PARAM_Y_COORD | PARAM_Z_COORD;
+	}
 	tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, input_params.cnum);
 
-	sql_find_subtype(&t, "decimal", precisionX, scaleX);
-	mvc_create_column(m, tbl, "x", &t);
-
-	sql_find_subtype(&t, "decimal", precisionY, scaleY);
-	mvc_create_column(m, tbl, "y", &t);
-
-	sql_find_subtype(&t, "decimal", precisionZ, scaleZ);
-	mvc_create_column(m, tbl, "z", &t);
+	for (int x = 1; x < PARAMS_END_SENTINEL; x <<= 1) {
+		if (input_params.parameters & x) {
+			switch(x) {
+			case PARAM_X_COORD:
+				sql_find_subtype(&t, "decimal", precisionX, scaleX);
+				mvc_create_column(m, tbl, "x", &t);
+				break;
+			case PARAM_Y_COORD:
+				sql_find_subtype(&t, "decimal", precisionY, scaleY);
+				mvc_create_column(m, tbl, "y", &t);
+				break;
+			case PARAM_Z_COORD:
+				sql_find_subtype(&t, "decimal", precisionZ, scaleZ);
+				mvc_create_column(m, tbl, "z", &t);
+				break;
+			case PARAM_GPS_TIME:
+				sql_find_subtype(&t, "double", 0, 0);
+				mvc_create_column(m, tbl, "gpstime", &t);
+				break;
+			case PARAM_SCAN_ANGLE:
+				sql_find_subtype(&t, "tinyint", 0, 0);
+				mvc_create_column(m, tbl, "scan_angle", &t);
+				break;
+			case PARAM_INTENSITY:
+				sql_find_subtype(&t, "smallint", 0, 0);
+				mvc_create_column(m, tbl, "intensity", &t);
+				break;
+			case PARAM_N_RETURNS:
+				sql_find_subtype(&t, "smallint", 0, 0);
+				mvc_create_column(m, tbl, "n_returns", &t);
+				break;
+			case PARAM_N_THIS_RETURN:
+				sql_find_subtype(&t, "smallint", 0, 0);
+				mvc_create_column(m, tbl, "n_this_return", &t);
+				break;
+			case PARAM_CLASSIFICATION_NUMBER:
+				sql_find_subtype(&t, "tinyint", 0, 0);
+				mvc_create_column(m, tbl, "classification_number", &t);
+				break;
+			case PARAM_USER_DATA:
+				sql_find_subtype(&t, "tinyint", 0, 0);
+				mvc_create_column(m, tbl, "user_data", &t);
+				break;
+			case PARAM_POINT_SOURCE_ID:
+				sql_find_subtype(&t, "smallint", 0, 0);
+				mvc_create_column(m, tbl, "point_source_id", &t);
+				break;
+			case PARAM_EDGE_OF_FLIGHT_LINE:
+				sql_find_subtype(&t, "smallint", 0, 0);
+				mvc_create_column(m, tbl, "edge_of_flight_line", &t);
+				break;
+			case PARAM_DIRECTION_OF_SCAN_FLAG:
+				sql_find_subtype(&t, "smallint", 0, 0);
+				mvc_create_column(m, tbl, "direction_of_scan_flag", &t);
+				break;
+			case PARAM_RED_CHANNEL:
+				sql_find_subtype(&t, "smallint", 0, 0);
+				mvc_create_column(m, tbl, "red_channel", &t);
+				break;
+			case PARAM_GREEN_CHANNEL:
+				sql_find_subtype(&t, "smallint", 0, 0);
+				mvc_create_column(m, tbl, "green_channel", &t);
+				break;
+			case PARAM_BLUE_CHANNEL:
+				sql_find_subtype(&t, "smallint", 0, 0);
+				mvc_create_column(m, tbl, "blue_channel", &t);
+				break;
+			case PARAM_VERTEX_INDEX:
+				sql_find_subtype(&t, "integer", 0, 0);
+				mvc_create_column(m, tbl, "vertex_index", &t);
+				break;
+			}
+		}
+	}
 
 	istmt = (char *) GDKzalloc(8192);
 	snprintf(istmt, 8192, "INSERT INTO sys.vault_journal VALUES(%d, '%s', 'lidar', '%s');", tbl->base.id, tname_low, LIDAR_READER_VERSION);
@@ -1157,48 +1261,42 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	cstmt = GDKzalloc(8192);
 	col = mvc_bind_column(m, tbl, "x");
-	snprintf(minval, BUFSIZ, "%lf", header->hi->minX);
-	snprintf(maxval, BUFSIZ, "%lf", header->hi->maxX);
-	snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
-	if (!col) {
-		GDKfree(cstmt);
-		return createException(SQL, "lidar.attach", "cannot bind column x");
-	}
-	snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, (header->hi->minX == header->hi->maxX) ? "true" : "false");
-	msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
-	if (msg) {
-		GDKfree(cstmt);
-		return msg;
+	if (col) {
+		snprintf(minval, BUFSIZ, "%lf", header->hi->minX);
+		snprintf(maxval, BUFSIZ, "%lf", header->hi->maxX);
+		snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
+		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, (header->hi->minX == header->hi->maxX) ? "true" : "false");
+		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
+		if (msg) {
+			GDKfree(cstmt);
+			return msg;
+		}
 	}
 
 	col = mvc_bind_column(m, tbl, "y");
-	snprintf(minval, BUFSIZ, "%lf", header->hi->minY);
-	snprintf(maxval, BUFSIZ, "%lf", header->hi->maxY);
-	snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
-	if (!col) {
-		GDKfree(cstmt);
-		return createException(SQL, "lidar.attach", "cannot bind column x");
+	if (col) {
+		snprintf(minval, BUFSIZ, "%lf", header->hi->minY);
+		snprintf(maxval, BUFSIZ, "%lf", header->hi->maxY);
+		snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
+		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, (header->hi->minY == header->hi->maxY) ? "true" : "false");
+		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
+		if (msg) {
+			GDKfree(cstmt);
+			return msg;
+		}
 	}
-	snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, (header->hi->minY == header->hi->maxY) ? "true" : "false");
-	msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
-	if (msg) {
-		GDKfree(cstmt);
-		return msg;
-	}
-
 	col = mvc_bind_column(m, tbl, "z");
-	snprintf(minval, BUFSIZ, "%lf", header->hi->minZ);
-	snprintf(maxval, BUFSIZ, "%lf", header->hi->maxZ);
-	snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
-	if (!col) {
-		GDKfree(cstmt);
-		return createException(SQL, "lidar.attach", "cannot bind column x");
-	}
-	snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, (header->hi->minZ == header->hi->maxZ) ? "true" : "false");
-	msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
-	if (msg) {
-		GDKfree(cstmt);
-		return msg;
+	if (col) {
+		snprintf(minval, BUFSIZ, "%lf", header->hi->minZ);
+		snprintf(maxval, BUFSIZ, "%lf", header->hi->maxZ);
+		snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
+
+		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, (header->hi->minZ == header->hi->maxZ) ? "true" : "false");
+		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
+		if (msg) {
+			GDKfree(cstmt);
+			return msg;
+		}
 	}
 	GDKfree(cstmt);
 
