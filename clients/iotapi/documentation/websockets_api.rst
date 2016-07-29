@@ -15,28 +15,28 @@ The client must always provide a JSON string in a request with a request field i
 
 The following sections explain the available :code:`request` fields.
 
-sub/subscribe
--------------
+subscribe
+---------
 
 Subscribes for new basket creations from a specific stream. Whenever a basket is created, the server sends a notification message indicating the number of inserted tuples in the new basket. The user has to specify the stream's name and schema. To subscribe to a temperature stream, the following would suffice:
 
 .. code-block:: json
 
     {
-        "request": "sub",
+        "request": "subscribe",
         "schema": "measures",
         "stream": "temperature"
     }
 
-unsub/unsubscribe
------------------
+unsubscribe
+-----------
 
 Unsubscribes a previous subscribed stream for a client. The user has to specify the stream's name and schema. The example is the same as above, just changing the request keyword.
 
 .. code-block:: json
 
     {
-        "request": "unsub",
+        "request": "unsubscribe",
         "schema": "measures",
         "stream": "temperature"
     }

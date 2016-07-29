@@ -1,5 +1,5 @@
-SUBSCRIBE_OPTS = ["sub", "subscribe"]
-UNSUBSCRIBE_OPTS = ["unsub", "unsubscribe"]
+SUBSCRIBE_OPTS = ["subscribe"]
+UNSUBSCRIBE_OPTS = ["unsubscribe"]
 INFO_OPTS = ["info"]
 READ_OPTS = ["read"]
 
