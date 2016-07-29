@@ -169,7 +169,7 @@ BSKTnewbasket(mvc *m, sql_schema *s, sql_table *t)
 	}
 	
 	// Create the error table
-	baskets[idx].errors = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	baskets[idx].errors = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (baskets[idx].table_name == NULL || baskets[idx].errors == NULL) {
 		BSKTclean(idx);
 		MT_lock_unset(&iotLock);
@@ -353,12 +353,11 @@ BSKTtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(SQL,"basket.bind","Stream table column '%s.%s' not found\n",sch,tbl);
 	b = baskets[bskt].bats[0];
 
-    tids = BATnew(TYPE_void, TYPE_void, 0, TRANSIENT);
+    tids = COLnew(0, TYPE_void, 0, TRANSIENT);
     if (tids == NULL)
         throw(SQL, "basket.tid", MAL_MALLOC_FAIL);
     BATsetcount(tids, BATcount(b));
-    BATseqbase(tids, 0);
-    BATseqbase(BATmirror(tids), 0);
+	BATsettrivprop(tids);
 
 	BBPkeepref( *ret = tids->batCacheid);
 	return MAL_SUCCEED;
@@ -513,7 +512,7 @@ BSKTimportInternal(Client cntxt, int bskt)
 	for( i=0; i < MAXCOLS && baskets[bskt].cols[i]; i++){
 		b = baskets[bskt].bats[i];
 		assert( b );
-		BATderiveProps(b, FALSE);
+		BATsettrivprop(b);
 		if( first){
 			first = 0;
 			cnt = BATcount(b);
@@ -659,7 +658,7 @@ BSKTexport(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 /* remove tuples from a basket according to the sliding policy */
 #define ColumnShift(B,TPE, STRIDE) { \
-	TPE *first= (TPE*) Tloc(B, BUNfirst(B));\
+	TPE *first= (TPE*) Tloc(B, 0);\
 	TPE *n = first+STRIDE;\
 	TPE *last=  (TPE*) Tloc(B, BUNlast(B));\
 	for( ; n < last; n++, first++)\
@@ -700,7 +699,7 @@ BSKTtumbleInternal(Client cntxt, str sch, str tbl, int stride)
 		case TYPE_hge:ColumnShift(b,hge,cnt); break;
 #endif
 		case TYPE_str:
-			switch(b->T->width){
+			switch(b->twidth){
 			case 1: ColumnShift(b,bte,cnt); break;
 			case 2: ColumnShift(b,sht,cnt); break;
 			case 4: ColumnShift(b,int,cnt); break;
@@ -715,7 +714,7 @@ BSKTtumbleInternal(Client cntxt, str sch, str tbl, int stride)
 		if( BATcount(b) == 0){
 			baskets[bskt].status = BSKTWAIT;
 		}
-		BATderiveProps(b, FALSE);
+		BATsettrivprop(b);
 	}
 	return MAL_SUCCEED;
 }
@@ -854,7 +853,7 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
     if ( isaBatType(tpe) && (binsert = BATdescriptor(*(int *) value)) == NULL)
         throw(SQL, "basket.append", "Cannot access source descriptor");
-	if ( !isaBatType(tpe) && ATOMextern(getColumnType(tpe)))
+	if ( !isaBatType(tpe) && ATOMextern(getBatType(tpe)))
 		value = *(ptr*) value;
 
 	bskt = BSKTlocate(sname,tname);
@@ -868,7 +867,7 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		else
 			BUNappend(bn, value, TRUE);
 		cnt = BATcount(bn);
-		BATderiveProps(bn, FALSE);
+		BATsettrivprop(bn);
 	} else throw(SQL, "basket.append", "Cannot access target column %s.%s.%s",sname,tname,cname);
 	
 	if(cnt){
@@ -912,7 +911,7 @@ BSKTupdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	if( bn){
 		void_replace_bat(bn, rid, bval, TRUE);
-		BATderiveProps(bn, FALSE);
+		BATsettrivprop(bn);
 	} else throw(SQL, "basket.append", "Cannot access target column %s.%s.%s",sname,tname,cname);
 	
 	baskets[bskt].status = BSKTFILLED;
@@ -946,7 +945,7 @@ BSKTdelete(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		b = baskets[idx].bats[i];
 		if(b){
 			(void) BATdel(b, rid);
-			BATderiveProps(b, FALSE);
+			BATsettrivprop(b);
 		}
 	}
 
@@ -992,7 +991,7 @@ BSKTerrorInternal(bat *ret, str sname, str tname, str err)
 		throw(SQL,"basket.error","Stream table %s.%s not accessible for commit\n",sname,tname);
 
 	if( baskets[idx].errors == NULL)
-		baskets[idx].errors = BATnew(TYPE_void, TYPE_str, 0, TRANSIENT);
+		baskets[idx].errors = COLnew(0, TYPE_str, 0, TRANSIENT);
 		
 	if( baskets[idx].errors == NULL)
 		throw(SQL,"basket.error",MAL_MALLOC_FAIL);
@@ -1049,51 +1048,39 @@ BSKTtable (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 	(void) cntxt;
 
-	schema = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	schema = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (schema == 0)
 		goto wrapup;
-	BATseqbase(schema, 0);
-	name = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	name = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (name == 0)
 		goto wrapup;
-	BATseqbase(status, 0);
-	status = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	status = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (status == 0)
 		goto wrapup;
-	BATseqbase(status, 0);
-	threshold = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
+	threshold = COLnew(0, TYPE_int, BATTINY, TRANSIENT);
 	if (threshold == 0)
 		goto wrapup;
-	BATseqbase(threshold, 0);
-	winsize = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
+	winsize = COLnew(0, TYPE_int, BATTINY, TRANSIENT);
 	if (winsize == 0)
 		goto wrapup;
-	BATseqbase(winsize, 0);
-	winstride = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
+	winstride = COLnew(0, TYPE_int, BATTINY, TRANSIENT);
 	if (winstride == 0)
 		goto wrapup;
-	BATseqbase(winstride, 0);
-	timeslice = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
+	timeslice = COLnew(0, TYPE_int, BATTINY, TRANSIENT);
 	if (timeslice == 0)
 		goto wrapup;
-	BATseqbase(timeslice, 0);
-	timestride = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
+	timestride = COLnew(0, TYPE_int, BATTINY, TRANSIENT);
 	if (timestride == 0)
 		goto wrapup;
-	BATseqbase(timestride, 0);
-	beat = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
+	beat = COLnew(0, TYPE_int, BATTINY, TRANSIENT);
 	if (beat == 0)
 		goto wrapup;
-	BATseqbase(beat, 0);
-	seen = BATnew(TYPE_void, TYPE_timestamp, BATTINY, TRANSIENT);
+	seen = COLnew(0, TYPE_timestamp, BATTINY, TRANSIENT);
 	if (seen == 0)
 		goto wrapup;
-	BATseqbase(seen, 0);
-	events = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
+	events = COLnew(0, TYPE_int, BATTINY, TRANSIENT);
 	if (events == 0)
 		goto wrapup;
-	BATseqbase(events, 0);
-
 
 	for (i = 1; i < bsktTop; i++)
 		if (baskets[i].table_name) {
@@ -1157,10 +1144,10 @@ BSKTtableerrors(bat *nameId, bat *errorId)
 	BATiter bi;
 	BUN p, q;
 	int i;
-	name = BATnew(TYPE_void, TYPE_str, BATTINY, PERSISTENT);
+	name = COLnew(0, TYPE_str, BATTINY, PERSISTENT);
 	if (name == 0)
 		throw(SQL, "baskets.errors", MAL_MALLOC_FAIL);
-	error = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	error = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (error == 0) {
 		BBPunfix(name->batCacheid);
 		throw(SQL, "baskets.errors", MAL_MALLOC_FAIL);

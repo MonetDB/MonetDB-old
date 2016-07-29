@@ -907,8 +907,7 @@ mvc_import_table(Client cntxt, BAT ***bats, mvc *m, bstream *bs, sql_table *t, c
 		}
 		if (as.error) {
 			if( !best) sql_error(m, 500, "%s", as.error);
-			if (as.error != M5OutOfMemory)
-				GDKfree(as.error);
+			freeException(as.error);
 			as.error = NULL;
 		}
 		for (n = t->columns.set->h, i = 0; n; n = n->next, i++) {
@@ -1720,7 +1719,7 @@ mvc_export_head(backend *b, stream *s, int res_id, int only_header)
 	/* tuple count */
 	if (only_header) {
 		if (t->order) {
-			order = BBPquickdesc(abs(t->order), FALSE);
+			order = BBPquickdesc(t->order, FALSE);
 			if (!order)
 				return -1;
 

@@ -190,37 +190,6 @@ static struct PIPELINES {
 	 "optimizer.candidates();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
-/* Experimental pipelines stressing various components under
- * development.  Do not use any of these pipelines in production
- * settings!
-	{"recycler_pipe",
-	 "optimizer.inline();"
-	 "optimizer.remap();"
-	 "optimizer.costModel();"
-	 "optimizer.coercions();"
-	 "optimizer.evaluate();"
-	 "optimizer.aliases();"
-	 "optimizer.pushselect();"
-	 "optimizer.mitosis();"
-	 "optimizer.mergetable();"
-	 "optimizer.aliases();"
-	 "optimizer.deadcode();"
-	 "optimizer.constants();"
-	 "optimizer.commonTerms();"
-	 "optimizer.projectionpath();"
-	 "optimizer.reorder();"
-	 "optimizer.deadcode();"
-	 "optimizer.reduce();"
-	 "optimizer.matpack();"
-	 "optimizer.dataflow();"
-	 "optimizer.recycler();"
-	 "optimizer.querylog();"
-	 "optimizer.multiplex();"
-	 "optimizer.generator();"
-	 "optimizer.profiler();"
-	 "optimizer.garbageCollector();",
-	 "stable", NULL, NULL, 1},
- */
 	{"iot_pipe",
 	 "optimizer.inline();"
 	 "optimizer.candidates();"
@@ -358,26 +327,23 @@ getPipeCatalog(bat *nme, bat *def, bat *stat)
 	BAT *b, *bn, *bs;
 	int i;
 
-	b = BATnew(TYPE_void, TYPE_str, 20, TRANSIENT);
+	b = COLnew(0, TYPE_str, 20, TRANSIENT);
 	if (b == NULL)
 		throw(MAL, "optimizer.getpipeDefinition", MAL_MALLOC_FAIL);
 
-	bn = BATnew(TYPE_void, TYPE_str, 20, TRANSIENT);
+	bn = COLnew(0, TYPE_str, 20, TRANSIENT);
 	if (bn == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(MAL, "optimizer.getpipeDefinition", MAL_MALLOC_FAIL);
 	}
 
-	bs = BATnew(TYPE_void, TYPE_str, 20, TRANSIENT);
+	bs = COLnew(0, TYPE_str, 20, TRANSIENT);
 	if (bs == NULL) {
 		BBPunfix(b->batCacheid);
 		BBPunfix(bn->batCacheid);
 		throw(MAL, "optimizer.getpipeDefinition", MAL_MALLOC_FAIL);
 	}
 
-	BATseqbase(b, 0);
-	BATseqbase(bn, 0);
-	BATseqbase(bs, 0);
 	for (i = 0; i < MAXOPTPIPES && pipes[i].name; i++) {
 		if (pipes[i].prerequisite && getAddress(GDKout, NULL, optimizerRef, pipes[i].prerequisite, TRUE) == NULL)
 			continue;

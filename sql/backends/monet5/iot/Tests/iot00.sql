@@ -26,8 +26,8 @@ select * from stmp;
 
 -- reactivate all continuous queries
 call iot.resume();
--- wait for 1 cycle in the scheduler
-call iot.wait(1);
+-- wait for 2 seconds 
+call iot.wait(2000);
 
 select 'RESULT';
 select * from result;

@@ -663,7 +663,7 @@ simpleTypeId(Client cntxt)
 		cntxt->yycur--; /* keep it */
 		return -1;
 	}
-	tpe = getTypeIndex(CURRENT(cntxt), l, -1);
+	tpe = getAtomIndex(CURRENT(cntxt), l, -1);
 	if (tpe < 0) {
 		parseError(cntxt, "Type identifier expected\n");
 		cntxt->yycur -= l; /* keep it */
@@ -690,53 +690,21 @@ parseTypeId(Client cntxt, int defaultType)
 			return TYPE_bat;
 		}
 
-		if (currChar(cntxt) == ']') {
-			i = newBatType(TYPE_void, tt);
-			if (kt > 0)
-				setAnyColumnIndex(i, kt);
-			nextChar(cntxt); /* skip ] */
-			skipSpace(cntxt);
-			return i;
-		}
-		/* Backward compatibility parsing of :bat[:oid,:type] */
-		if( tt != TYPE_oid){
-			parseError(cntxt, "':oid' expected\n");
-			return i;
-		}
-		if (currChar(cntxt) != ',')
-				parseError(cntxt, "',' expected\n");
-		nextChar(cntxt); /* skip , */
-		skipSpace(cntxt);
-		if (currChar(cntxt) == ':') {
-			tt = simpleTypeId(cntxt);
-			kt = typeAlias(cntxt, tt);
-		} else
-			tt = TYPE_any;
-
-		i = newBatType(TYPE_void, tt);
+		i = newBatType(tt);
 		if (kt > 0)
-			setAnyColumnIndex(i, kt);
+			setTypeIndex(i, kt);
 
 		if (currChar(cntxt) != ']')
 			parseError(cntxt, "']' expected\n");
-		nextChar(cntxt); /* skip ']' */
+		nextChar(cntxt); // skip ']' 
 		skipSpace(cntxt);
 		return i;
-	}
-	/* A pure BAT as generic type should be avoided .*/
-	if (s[0] == ':' && 
-	   ((s[1] == 'b' && s[2] == 'a' && s[3] == 't')  || 
-	    (s[1] == 'B' && s[2] == 'A' && s[3] == 'T')) && 
-	   !idCharacter[(int) s[4]]) {
-		advance(cntxt, 4);
-		//parseError(cntxt, "':bat[:oid,:any]' expected\n");
-		return TYPE_bat;
 	}
 	if (currChar(cntxt) == ':') {
 		tt = simpleTypeId(cntxt);
 		kt = typeAlias(cntxt, tt);
 		if (kt > 0)
-			setAnyColumnIndex(tt, kt);
+			setTypeIndex(tt, kt);
 		return tt;
 	}
 	parseError(cntxt, "<type identifier> expected\n");
@@ -817,7 +785,8 @@ binding(Client cntxt, MalBlkPtr curBlk, InstrPtr curInstr, int flag)
 	if (l > 0) {
 		varid = findVariableLength(curBlk, CURRENT(cntxt), l);
 		if (varid < 0) {
-			varid = newVariable(curBlk, idCopy(cntxt, l), TYPE_any);
+			varid = newVariable(curBlk, CURRENT(cntxt), l, TYPE_any);
+			advance(cntxt, l);
 			if ( varid < 0)
 				return curInstr;
 			type = typeElm(cntxt, TYPE_any);
@@ -864,7 +833,6 @@ term(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr, int ret)
 {
 	int i, idx, flag, free = 1;
 	ValRecord cst;
-	str v = NULL;
 	int cstidx = -1;
 	malType tpe = TYPE_any;
 
@@ -914,8 +882,8 @@ term(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr, int ret)
 		}
 	} else if ((i = idLength(cntxt))) {
 		if ((idx = findVariableLength(curBlk, CURRENT(cntxt), i)) == -1) {
-			v = idCopy(cntxt, i);
-			idx = newVariable(curBlk, v, TYPE_any);
+			idx = newVariable(curBlk, CURRENT(cntxt), i, TYPE_any);
+			advance(cntxt, i);
 			if( idx <0)
 				return 0;
 		} else {
@@ -1149,6 +1117,11 @@ fcnHeader(Client cntxt, int kind)
 	curInstr = getInstrPtr(curBlk, 0);
 
 	if (currChar(cntxt) != '('){
+		if (cntxt->backup) {
+			freeSymbol(cntxt->curprg);
+			cntxt->curprg = cntxt->backup;
+			cntxt->backup = 0;
+		}
 		parseError(cntxt, "function header '(' expected\n");
 		skipToEnd(cntxt);
 		return curBlk;
@@ -1160,6 +1133,7 @@ fcnHeader(Client cntxt, int kind)
 
 	if (isModuleDefined(cntxt->nspace, getModuleId(curInstr)) == FALSE) {
 		if (cntxt->backup) {
+			freeSymbol(cntxt->curprg);
 			cntxt->curprg = cntxt->backup;
 			cntxt->backup = 0;
 		}
@@ -1181,6 +1155,7 @@ fcnHeader(Client cntxt, int kind)
 			if (ch == ')')
 				break;
 			if (cntxt->backup) {
+				freeSymbol(cntxt->curprg);
 				cntxt->curprg = cntxt->backup;
 				cntxt->backup = 0;
 			}
@@ -1262,6 +1237,7 @@ fcnHeader(Client cntxt, int kind)
 		if (currChar(cntxt) != ')') {
 			freeInstruction(curInstr);
 			if (cntxt->backup) {
+				freeSymbol(cntxt->curprg);
 				cntxt->curprg = cntxt->backup;
 				cntxt->backup = 0;
 			}
@@ -1355,7 +1331,6 @@ parseCommandPattern(Client cntxt, int kind)
 		insertSymbol(findModule(cntxt->nspace, modnme), curPrg);
 	else
 		return (MalBlkPtr) parseError(cntxt, "<module> not found\n");
-	trimMalBlk(curBlk);
 	chkProgram(cntxt->fdout, cntxt->nspace, curBlk);
 	if (cntxt->backup) {
 		cntxt->curprg = cntxt->backup;
@@ -1480,7 +1455,6 @@ parseEnd(Client cntxt)
 		}
 		pushEndInstruction(curBlk);
 		insertSymbol(cntxt->nspace, cntxt->curprg);
-		trimMalBlk(cntxt->curprg->def);
 		cntxt->blkmode = 0;
 		curBlk->typefixed = 0;
 		chkProgram(cntxt->fdout, cntxt->nspace, cntxt->curprg->def);
@@ -1527,8 +1501,8 @@ parseEnd(Client cntxt)
 
 #define GETvariable	\
 	if ((varid = findVariableLength(curBlk, CURRENT(cntxt), l)) == -1) { \
-		arg = idCopy(cntxt, l);	 \
-		varid = newVariable(curBlk, arg, TYPE_any);	\
+		varid = newVariable(curBlk, CURRENT(cntxt),l, TYPE_any);	\
+		advance(cntxt, l);\
 		assert(varid >=  0);\
 	} else \
 		advance(cntxt, l);

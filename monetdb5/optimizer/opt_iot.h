@@ -25,5 +25,5 @@
 
 //#define OPTDEBUGiot   if (1)
 #define OPTDEBUGiot  if (optDebug & ((lng) 1 << DEBUG_OPT_IOT))
-opt_export int OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+mal_export int OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 #endif

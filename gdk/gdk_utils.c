@@ -310,6 +310,9 @@ int GDK_vm_trim = 1;
  * fall-back for other compilers. */
 #include "gdk_atomic.h"
 static volatile ATOMIC_TYPE GDK_mallocedbytes_estimate = 0;
+#ifndef NDEBUG
+static volatile lng GDK_mallocedbytes_limit = -1;
+#endif
 static volatile ATOMIC_TYPE GDK_vm_cursize = 0;
 #ifdef GDK_VM_KEEPHISTO
 volatile ATOMIC_TYPE GDK_vm_nallocs[MAX_BIT] = { 0 };
@@ -589,18 +592,13 @@ GDKinit(opt *set, int setlen)
 		}
 	}
 
-	GDKkey = BATnew(TYPE_void, TYPE_str, 100, TRANSIENT);
-	GDKval = BATnew(TYPE_void, TYPE_str, 100, TRANSIENT);
+	GDKkey = COLnew(0, TYPE_str, 100, TRANSIENT);
+	GDKval = COLnew(0, TYPE_str, 100, TRANSIENT);
 	if (GDKkey == NULL || GDKval == NULL) {
 		/* no cleanup necessary before GDKfatal */
 		GDKfatal("GDKinit: Could not create environment BAT");
 	}
-	BATseqbase(GDKkey,0);
-	BATkey(GDKkey, BOUND2BTRUE);
 	BATrename(GDKkey, "environment_key");
-
-	BATseqbase(GDKval,0);
-	BATkey(GDKval, BOUND2BTRUE);
 	BATrename(GDKval, "environment_val");
 
 	/* store options into environment BATs */
@@ -1686,6 +1684,16 @@ GDKmalloc_prefixsize(size_t size)
 	return s;
 }
 
+void
+GDKsetmemorylimit(lng nbytes)
+{
+	(void) nbytes;
+#ifndef NDEBUG
+	GDK_mallocedbytes_limit = nbytes;
+#endif
+}
+
+
 /*
  * The emergency flag can be set to force a fatal error if needed.
  * Otherwise, the caller is able to deal with the lack of memory.
@@ -1703,6 +1711,13 @@ GDKmallocmax(size_t size, size_t *maxsize, int emergency)
 		GDKfatal("GDKmallocmax: called with size " SZFMT "", size);
 #endif
 	}
+#ifndef NDEBUG
+	/* fail malloc for testing purposes depending on set limit */
+	if (GDK_mallocedbytes_limit >= 0 &&
+	    size > (size_t) GDK_mallocedbytes_limit) {
+		return NULL;
+	}
+#endif
 	size = (size + 7) & ~7;	/* round up to a multiple of eight */
 	s = GDKmalloc_prefixsize(size);
 	if (s == NULL) {
@@ -1715,6 +1730,7 @@ GDKmallocmax(size_t size, size_t *maxsize, int emergency)
 			}
 			GDKfatal("GDKmallocmax: failed for " SZFMT " bytes", size);
 		} else {
+			/* TODO why are we printing this on stderr? */
 			fprintf(stderr, "#GDKmallocmax: recovery ok. Continuing..\n");
 		}
 	}

@@ -96,7 +96,7 @@ newFcnCall(MalBlkPtr mb, char *mod, char *fcn)
 InstrPtr
 newComment(MalBlkPtr mb, const char *val)
 {
-	InstrPtr q = newInstruction(NULL,REMsymbol);
+	InstrPtr q = newInstruction(mb, REMsymbol);
 	ValRecord cst;
 
 	if (q == NULL)
@@ -110,11 +110,11 @@ newComment(MalBlkPtr mb, const char *val)
 	getArg(q,0) = defConstant(mb,TYPE_str,&cst);
 	clrVarConstant(mb,getArg(q,0));
 	setVarDisabled(mb,getArg(q,0));
-	pushInstruction(mb, q);
 	if (mb->errors) {
 		freeInstruction(q);
 		return NULL;
 	}
+	pushInstruction(mb, q);
 	return q;
 }
 
@@ -128,7 +128,7 @@ newCatchStmt(MalBlkPtr mb, str nme)
 		return NULL;
 	q->barrier = CATCHsymbol;
 	if ( i< 0) {
-		if ((getArg(q,0)= newVariable(mb, GDKstrdup(nme),TYPE_str)) < 0) {
+		if ((getArg(q,0)= newVariable(mb, nme, strlen(nme),TYPE_str)) < 0) {
 			freeInstruction(q);
 			return NULL;
 		}
@@ -146,7 +146,7 @@ newRaiseStmt(MalBlkPtr mb, str nme)
 		return NULL;
 	q->barrier = RAISEsymbol;
 	if ( i< 0) {
-		if ((getArg(q,0)= newVariable(mb, GDKstrdup(nme),TYPE_str)) < 0) {
+		if ((getArg(q,0)= newVariable(mb, nme, strlen(nme),TYPE_str)) < 0) {
 			freeInstruction(q);
 			return NULL;
 		}
@@ -165,7 +165,7 @@ newExitStmt(MalBlkPtr mb, str nme)
 		return NULL;
 	q->barrier = EXITsymbol;
 	if ( i< 0) {
-		if ((getArg(q,0)= newVariable(mb, GDKstrdup(nme),TYPE_str)) < 0) {
+		if ((getArg(q,0)= newVariable(mb, nme,strlen(nme),TYPE_str)) < 0) {
 			freeInstruction(q);
 			return NULL;
 		}
@@ -536,7 +536,7 @@ pushNilType(MalBlkPtr mb, InstrPtr q, char *tpe)
 
 	if (q == NULL)
 		return NULL;
-	idx= getTypeIndex(tpe, -1, TYPE_any);
+	idx= getAtomIndex(tpe, -1, TYPE_any);
 	if( idx < 0 || idx >= GDKatomcnt || idx >= MAXATOMS)
 		return NULL;
 	cst.vtype=TYPE_void;
@@ -606,7 +606,7 @@ pushEmptyBAT(MalBlkPtr mb, InstrPtr q, int tpe)
 	getFunctionId(q) = getName("new");
 
 	q = pushArgument(mb, q, newTypeVariable(mb,TYPE_void));
-	q = pushArgument(mb, q, newTypeVariable(mb,getColumnType(tpe)));
+	q = pushArgument(mb, q, newTypeVariable(mb,getBatType(tpe)));
 	q = pushZero(mb,q,TYPE_lng);
 	return q;
 }

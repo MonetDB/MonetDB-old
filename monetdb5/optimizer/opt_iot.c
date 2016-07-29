@@ -215,7 +215,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 				/* catch any exception left behind */
 				r = newAssignment(mb);
-				j = getArg(r, 0) = newVariable(mb, GDKstrdup("SQLexception"), TYPE_str);
+				j = getArg(r, 0) = newVariable(mb, "SQLexception", 12, TYPE_str);
 				setVarUDFtype(mb, j);
 				r->barrier = CATCHsymbol;
 
@@ -228,7 +228,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				getArg(r, 0) = j;
 				r->barrier = EXITsymbol;
 				r = newAssignment(mb);
-				j = getArg(r, 0) = newVariable(mb, GDKstrdup("MALexception"), TYPE_str);
+				j = getArg(r, 0) = newVariable(mb, "MALexception",12, TYPE_str);
 				setVarUDFtype(mb, j);
 				r->barrier = CATCHsymbol;
 

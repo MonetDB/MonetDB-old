@@ -298,6 +298,7 @@ PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 	(void) mb;
 	_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#scheduler wait %d ms\n",delay);
+	delay = delay < PNDELAY? 2*PNDELAY:delay;
 	while( GDKms() < clk + delay )
 		MT_sleep_ms(PNDELAY);
 	_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#wait finished after %d cycles\n",PNcycle -old );
@@ -349,11 +350,11 @@ PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 /* safely stop the engine by stopping all CQ firt */
 str
 PNstop(void){
-	int i,cnt,limit = 20;
+	int i, cnt,limit = 20;
 	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#scheduler being stopped\n");
 
 	pnstatus = PNSTOP; // avoid starting new continuous queries
-	for(cnt=0,  i = 0; i < pnettop; i++)
+	for( i = 0; i < pnettop; i++)
 	if( pnet[i].client )
 		pnet[i].client->itrace ='x';
 
@@ -363,7 +364,7 @@ PNstop(void){
 			cnt += pnet[i].status != PNWAIT;
 	} while(limit-- > 0 && cnt);
 
-	if( limit == 0)
+	if( cnt == 0)
 	for(i = pnettop-1; i >= pnettop; i--)
 	if( pnet[i].client )
 		PNderegisterInternal(i);
@@ -485,7 +486,8 @@ PNexecute( void *n)
 
 	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#petrinet.execute %s.%s all locked\n",node->modname, node->fcnname);
 
-	msg = runMALsequence(node->client, node->mb, 1, 0, node->stk, 0, 0);
+	if( pnstatus != PNSTOP)
+		msg = runMALsequence(node->client, node->mb, 1, 0, node->stk, 0, 0);
 
 	_DEBUG_PETRINET_ 
 		mnstr_printf(GDKout, "#petrinet.execute %s.%s transition done:%s\n",
@@ -642,7 +644,9 @@ PNscheduler(void *dummy)
 			pntasks += pnet[i].enabled;
 		}
 		analysis = GDKusec() - now;
-		_DEBUG_PETRINET_ mnstr_printf(GDKout, "#Transition enabled %d \n", k);
+		_DEBUG_PETRINET_ if(k) mnstr_printf(GDKout, "#Transitions enabled: %d \n", k);
+		if( pnstatus == PNSTOP)
+			continue;
 
 		/* Execute each enabled transformation */
 		/* Tricky part is here a single stream used by multiple transitions */
@@ -697,7 +701,7 @@ PNscheduler(void *dummy)
 
 	}
 	_DEBUG_PETRINET_ mnstr_printf(GDKout, "#petrinet.scheduler stopped\n");
-	MCcloseClient(cntxt);
+	//MCcloseClient(cntxt);
 	pnstatus = PNINIT;
 	(void) dummy;
 }
@@ -723,38 +727,30 @@ PNtable(bat *modnameId, bat *fcnnameId, bat *statusId, bat *seenId, bat *cyclesI
 	BAT *modname = NULL, *fcnname = NULL, *status = NULL, *seen = NULL, *cycles = NULL, *events = NULL, *time = NULL, *error = NULL;
 	int i;
 
-	modname = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	modname = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (modname == 0)
 		goto wrapup;
-	BATseqbase(modname, 0);
-	fcnname = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	fcnname = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (fcnname == 0)
 		goto wrapup;
-	BATseqbase(fcnname, 0);
-	status = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	status = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (status == 0)
 		goto wrapup;
-	BATseqbase(status, 0);
-	seen = BATnew(TYPE_void, TYPE_timestamp, BATTINY, TRANSIENT);
+	seen = COLnew(0, TYPE_timestamp, BATTINY, TRANSIENT);
 	if (seen == 0)
 		goto wrapup;
-	BATseqbase(seen, 0);
-	cycles = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
+	cycles = COLnew(0, TYPE_int, BATTINY, TRANSIENT);
 	if (cycles == 0)
 		goto wrapup;
-	BATseqbase(cycles, 0);
-	events = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
+	events = COLnew(0, TYPE_int, BATTINY, TRANSIENT);
 	if (events == 0)
 		goto wrapup;
-	BATseqbase(events, 0);
-	time = BATnew(TYPE_void, TYPE_lng, BATTINY, TRANSIENT);
+	time = COLnew(0, TYPE_lng, BATTINY, TRANSIENT);
 	if (time == 0)
 		goto wrapup;
-	BATseqbase(time, 0);
-	error = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	error = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (error == 0)
 		goto wrapup;
-	BATseqbase(error, 0);
 
 	for (i = 0; i < pnettop; i++) {
 		BUNappend(modname, pnet[i].modname, FALSE);
@@ -800,25 +796,21 @@ str PNinputplaces(bat *schemaId, bat *tableId, bat *modnameId, bat *fcnnameId)
 	BAT *schema, *table = NULL, *modname = NULL, *fcnname = NULL;
 	int i,j;
 
-	schema = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	schema = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (schema == 0)
 		goto wrapup;
-	BATseqbase(schema, 0);
 
-	table = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	table = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (table == 0)
 		goto wrapup;
-	BATseqbase(table, 0);
 
-	modname = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	modname = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (modname == 0)
 		goto wrapup;
-	BATseqbase(modname, 0);
 
-	fcnname = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	fcnname = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (fcnname == 0)
 		goto wrapup;
-	BATseqbase(fcnname, 0);
 
 	for (i = 0; i < pnettop; i++) {
 		_DEBUG_PETRINET_ mnstr_printf(GDKout, "#collect input places %s.%s\n", pnet[i].modname, pnet[i].fcnname);
@@ -851,25 +843,21 @@ str PNoutputplaces(bat *schemaId, bat *tableId, bat *modnameId, bat *fcnnameId)
 	BAT *schema, *table = NULL, *modname = NULL, *fcnname = NULL;
 	int i,j;
 
-	schema = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	schema = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (schema == 0)
 		goto wrapup;
-	BATseqbase(schema, 0);
 
-	table = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	table = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (table == 0)
 		goto wrapup;
-	BATseqbase(table, 0);
 
-	modname = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	modname = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (modname == 0)
 		goto wrapup;
-	BATseqbase(modname, 0);
 
-	fcnname = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	fcnname = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (fcnname == 0)
 		goto wrapup;
-	BATseqbase(fcnname, 0);
 
 	for (i = 0; i < pnettop; i++) 
 	for( j =0; j < MAXBSKT && pnet[i].outputs[j]; j++){

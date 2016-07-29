@@ -55,36 +55,27 @@ static MT_Lock errorlock MT_LOCK_INITIALIZER("errorlock");
 static BAT *
 void_bat_create(int adt, BUN nr)
 {
-	BAT *b = BATnew(TYPE_void, adt, BATTINY, PERSISTENT);
+	BAT *b = COLnew(0, adt, BATTINY, PERSISTENT);
 
 	/* check for correct structures */
 	if (b == NULL)
 		return b;
-	if (BATmirror(b))
-		BATseqbase(b, 0);
 	BATsetaccess(b, BAT_APPEND);
 	if (nr > BATTINY && adt && BATextend(b, nr) != GDK_SUCCEED) {
 		BBPunfix(b->batCacheid);
 		return NULL;
 	}
 
-	b->hsorted = TRUE;
-	b->hrevsorted = FALSE;
-	b->H->norevsorted = 1;
-	b->hkey = TRUE;
-	b->H->nil = FALSE;
-	b->H->nonil = TRUE;
-
 	/* disable all properties here */
 	b->tsorted = FALSE;
 	b->trevsorted = FALSE;
-	b->T->nosorted = 0;
-	b->T->norevsorted = 0;
+	b->tnosorted = 0;
+	b->tnorevsorted = 0;
 	b->tdense = FALSE;
-	b->T->nodense = 0;
+	b->tnodense = 0;
 	b->tkey = FALSE;
-	b->T->nokey[0] = 0;
-	b->T->nokey[1] = 1;
+	b->tnokey[0] = 0;
+	b->tnokey[1] = 1;
 	return b;
 }
 
@@ -177,7 +168,7 @@ check_BATs(Tablet *as)
 	cnt = BATcount(fmt[i].c);
 	base = fmt[i].c->hseqbase;
 
-	if (!BAThdense(fmt[i].c) || as->nr != cnt)
+	if (as->nr != cnt)
 		return oid_nil;
 
 	for (i = 0; i < as->nr_attrs; i++) {
@@ -187,9 +178,9 @@ check_BATs(Tablet *as)
 		b = fmt[i].c;
 		if (b == NULL)
 			continue;
-		offset = BUNfirst(b) + as->offset;
+		offset = as->offset;
 
-		if (BATcount(b) != cnt || !BAThdense(b) || b->hseqbase != base)
+		if (BATcount(b) != cnt || b->hseqbase != base)
 			return oid_nil;
 
 		fmt[i].p = offset;
@@ -236,7 +227,10 @@ TABLETcollect(BAT **bats, Tablet *as)
 		bats[j] = fmt[i].c;
 		BBPfix(bats[j]->batCacheid);
 		BATsetaccess(fmt[i].c, BAT_READ);
-		BATderiveProps(fmt[i].c, 0);
+		fmt[i].c->tsorted = fmt[i].c->trevsorted = 0;
+		fmt[i].c->tkey = 0;
+		fmt[i].c->tnil = fmt[i].c->tnonil = 0;
+		BATsettrivprop(fmt[i].c);
 
 		if (cnt != BATcount(fmt[i].c))
 			throw(SQL, "copy", "Count " BUNFMT " differs from " BUNFMT "\n", BATcount(fmt[i].c), cnt);
@@ -260,13 +254,16 @@ TABLETcollect_parts(BAT **bats, Tablet *as, BUN offset)
 		if (fmt[i].skip)
 			continue;
 		b = fmt[i].c;
+		b->tsorted = b->trevsorted = 0;
+		b->tkey = 0;
+		b->tnil = b->tnonil = 0;
+		BATsettrivprop(b);
 		BATsetaccess(b, BAT_READ);
 		bv = BATslice(b, (offset > 0) ? offset - 1 : 0, BATcount(b));
 		bats[j] = bv;
-		BATderiveProps(bv, 0);
 
 		b->tkey = (offset > 0) ? FALSE : bv->tkey;
-		b->T->nonil &= bv->T->nonil;
+		b->tnonil &= bv->tnonil;
 		b->tdense &= bv->tdense;
 		if (b->tsorted != bv->tsorted)
 			b->tsorted = 0;
@@ -327,7 +324,7 @@ TABLET_error(stream *s)
    with UDP, where you may loose most of the information using short writes
 */
 static inline int
-output_line(char **buf, int *len, char **localbuf, int *locallen, Column *fmt, stream *fd, BUN nr_attrs, ptr id)
+output_line(char **buf, int *len, char **localbuf, int *locallen, Column *fmt, stream *fd, BUN nr_attrs, oid id)
 {
 	BUN i;
 	int fill = 0;
@@ -335,10 +332,9 @@ output_line(char **buf, int *len, char **localbuf, int *locallen, Column *fmt, s
 	for (i = 0; i < nr_attrs; i++) {
 		if (fmt[i].c == NULL)
 			continue;
-		fmt[i].p = BUNfnd(BATmirror(fmt[i].c), id);
-
-		if (fmt[i].p == BUN_NONE)
+		if (id < fmt[i].c->hseqbase || id >= fmt[i].c->hseqbase + BATcount(fmt[i].c))
 			break;
+		fmt[i].p = id - fmt[i].c->hseqbase;
 	}
 	if (i == nr_attrs) {
 		for (i = 0; i < nr_attrs; i++) {
@@ -416,7 +412,7 @@ output_line_dense(char **buf, int *len, char **localbuf, int *locallen, Column *
 }
 
 static inline int
-output_line_lookup(char **buf, int *len, Column *fmt, stream *fd, BUN nr_attrs, BUN id)
+output_line_lookup(char **buf, int *len, Column *fmt, stream *fd, BUN nr_attrs, oid id)
 {
 	BUN i;
 
@@ -424,7 +420,7 @@ output_line_lookup(char **buf, int *len, Column *fmt, stream *fd, BUN nr_attrs, 
 		Column *f = fmt + i;
 
 		if (f->c) {
-			char *p = BUNtail(f->ci, id +BUNfirst(f->c));
+			char *p = BUNtail(f->ci, id - f->c->hseqbase);
 
 			if (!p || ATOMcmp(f->adt, ATOMnilptr(f->adt), p) == 0) {
 				size_t l = strlen(f->nullstr);
@@ -520,9 +516,9 @@ output_file_default(Tablet *as, BAT *order, stream *fd)
 	char *buf = GDKzalloc(len);
 	char *localbuf = GDKzalloc(len);
 	BUN p, q;
+	oid id;
 	BUN i = 0;
-	BUN offset = BUNfirst(order) + as->offset;
-	BATiter orderi = bat_iterator(order);
+	BUN offset = as->offset;
 
 	if (buf == NULL || localbuf == NULL) {
 		if (buf)
@@ -531,10 +527,8 @@ output_file_default(Tablet *as, BAT *order, stream *fd)
 			GDKfree(localbuf);
 		return -1;
 	}
-	for (q = offset + as->nr, p = offset; p < q; p++) {
-		ptr h = BUNhead(orderi, p);
-
-		if ((res = output_line(&buf, &len, &localbuf, &locallen, as->format, fd, as->nr_attrs, h)) < 0) {
+	for (q = offset + as->nr, p = offset, id = order->hseqbase + offset; p < q; p++, id++) {
+		if ((res = output_line(&buf, &len, &localbuf, &locallen, as->format, fd, as->nr_attrs, id)) < 0) {
 			GDKfree(buf);
 			GDKfree(localbuf);
 			return res;
@@ -582,19 +576,18 @@ output_file_dense(Tablet *as, stream *fd)
 }
 
 static int
-output_file_ordered(Tablet *as, BAT *order, stream *fd, oid base)
+output_file_ordered(Tablet *as, BAT *order, stream *fd)
 {
 	int len = BUFSIZ, res = 0;
 	char *buf = GDKzalloc(len);
 	BUN p, q;
 	BUN i = 0;
-	BUN offset = BUNfirst(order) + as->offset;
-	BATiter orderi = bat_iterator(order);
+	BUN offset = as->offset;
 
 	if (buf == NULL)
 		return -1;
 	for (q = offset + as->nr, p = offset; p < q; p++, i++) {
-		BUN h = (BUN) (*(oid *) BUNhead(orderi, p) - base);
+		oid h = order->hseqbase + p;
 
 		if ((res = output_line_lookup(&buf, &len, as->format, fd, as->nr_attrs, h)) < 0) {
 			GDKfree(buf);
@@ -625,10 +618,10 @@ TABLEToutput_file(Tablet *as, BAT *order, stream *s)
 		as->nr = maxnr;
 
 	if ((base = check_BATs(as)) != oid_nil) {
-		if (BAThdense(order) && order->hseqbase == base)
+		if (order->hseqbase == base)
 			ret = output_file_dense(as, s);
 		else
-			ret = output_file_ordered(as, order, s, base);
+			ret = output_file_ordered(as, order, s);
 	} else {
 		ret = output_file_default(as, order, s);
 	}
@@ -720,7 +713,7 @@ tablet_error(READERtask *task, lng row, int col, const char *msg, const char *fc
 		BUNappend(task->cntxt->error_msg, msg, FALSE);
 		BUNappend(task->cntxt->error_input, fcn, FALSE);
 		if (task->as->error == NULL && (msg == NULL || (task->as->error = GDKstrdup(msg)) == NULL))
-			task->as->error = M5OutOfMemory;
+			task->as->error = createException(MAL, "sql.copy_from", MAL_MALLOC_FAIL);
 		if (row != lng_nil)
 			task->rowerror[row]++;
 #ifdef _DEBUG_TABLET_
@@ -732,7 +725,7 @@ tablet_error(READERtask *task, lng row, int col, const char *msg, const char *fc
 	} else {
 		MT_lock_set(&errorlock);
 		if (task->as->error == NULL && (msg == NULL || (task->as->error = GDKstrdup(msg)) == NULL))
-			task->as->error = M5OutOfMemory;
+			task->as->error = createException(MAL, "sql.copy_from", MAL_MALLOC_FAIL);
 		task->errorcnt++;
 		MT_lock_unset(&errorlock);
 	}
@@ -889,7 +882,7 @@ SQLinsert_val(READERtask *task, int col, int idx)
 	/* include testing on the terminating null byte !! */
 	if (s == 0) {
 		adt = fmt->nildata;
-		fmt->c->T->nonil = 0;
+		fmt->c->tnonil = 0;
 	} else
 		adt = fmt->frstr(fmt, fmt->adt, s);
 
@@ -915,7 +908,7 @@ SQLinsert_val(READERtask *task, int col, int idx)
 			GDKfree(s);
 			buf[sizeof(buf)-1]=0;
 			if (task->as->error == NULL && (task->as->error = GDKstrdup(buf)) == NULL)
-				task->as->error = M5OutOfMemory;
+				task->as->error = createException(MAL, "sql.copy_from", MAL_MALLOC_FAIL);
 			task->rowerror[idx]++;
 			task->errorcnt++;
 			if (BUNappend(task->cntxt->error_row, &row, FALSE) != GDK_SUCCEED ||
@@ -932,7 +925,7 @@ SQLinsert_val(READERtask *task, int col, int idx)
 		GDKfree(err);
 		/* replace it with a nil */
 		adt = fmt->nildata;
-		fmt->c->T->nonil = 0;
+		fmt->c->tnonil = 0;
 	}
 	bunfastapp(fmt->c, adt);
 	return ret;
@@ -973,9 +966,11 @@ SQLworker_column(READERtask *task, int col)
 
 	for (i = 0; i < task->top[task->cur]; i++) {
 		if (!fmt[col].skip && SQLinsert_val(task, col, i) < 0) {
+			BATsetcount(fmt[col].c, BATcount(fmt[col].c));
 			return -1;
 		}
 	}
+	BATsetcount(fmt[col].c, BATcount(fmt[col].c));
 
 	return 0;
 }
@@ -1587,14 +1582,10 @@ create_rejects_table(Client cntxt)
 {
 	MT_lock_set(&mal_contextLock);
 	if (cntxt->error_row == NULL) {
-		cntxt->error_row = BATnew(TYPE_void, TYPE_lng, 0, TRANSIENT);
-		BATseqbase(cntxt->error_row, 0);
-		cntxt->error_fld = BATnew(TYPE_void, TYPE_int, 0, TRANSIENT);
-		BATseqbase(cntxt->error_fld, 0);
-		cntxt->error_msg = BATnew(TYPE_void, TYPE_str, 0, TRANSIENT);
-		BATseqbase(cntxt->error_msg, 0);
-		cntxt->error_input = BATnew(TYPE_void, TYPE_str, 0, TRANSIENT);
-		BATseqbase(cntxt->error_input, 0);
+		cntxt->error_row = COLnew(0, TYPE_lng, 0, TRANSIENT);
+		cntxt->error_fld = COLnew(0, TYPE_int, 0, TRANSIENT);
+		cntxt->error_msg = COLnew(0, TYPE_str, 0, TRANSIENT);
+		cntxt->error_input = COLnew(0, TYPE_str, 0, TRANSIENT);
 		if (cntxt->error_row == NULL || cntxt->error_fld == NULL || cntxt->error_msg == NULL || cntxt->error_input == NULL) {
 			if (cntxt->error_row)
 				BBPunfix(cntxt->error_row->batCacheid);
@@ -1715,7 +1706,7 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 		task->fields[i] = GDKzalloc(sizeof(char *) * task->limit);
 		if (task->fields[i] == 0) {
 			if (task->as->error == NULL)
-				as->error = M5OutOfMemory;
+				as->error = createException(MAL, "sql.copy_from", MAL_MALLOC_FAIL);
 			goto bailout;
 		}
 #ifdef MLOCK_TST
@@ -1863,7 +1854,7 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 			int width;
 
 			for (attr = 0; attr < as->nr_attrs; attr++) {
-				width = as->format[attr].c->T->width;
+				width = as->format[attr].c->twidth;
 				switch (width){
 				case 1:
 					trimerrors(bte);
