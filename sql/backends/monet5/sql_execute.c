@@ -23,7 +23,6 @@
 #include "sql_execute.h"
 #include "sql_env.h"
 #include "sql_mvc.h"
-#include "sql_readline.h"
 #include "sql_user.h"
 #include <sql_optimizer.h>
 #include <sql_datetime.h>
@@ -77,7 +76,7 @@ SQLsetTrace(Client cntxt)
 	int k;
 
 	startTrace("sql_traces");
-	initTrace();
+	clearTrace();
 
 	for(k= mb->stop-1; k>0; k--)
 		if( getInstrPtr(mb,k)->token ==ENDsymbol)

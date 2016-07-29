@@ -16,7 +16,6 @@
 # All Rights Reserved.
 
 # This loads the MonetDB/DataCell module
-library iot;
 include iot;
 include basket;
 include petrinet;

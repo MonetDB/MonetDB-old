@@ -382,7 +382,7 @@ SQLtransaction2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return msg;
 }
 
-static str
+str
 create_table_or_view(mvc *sql, char *sname, sql_table *t, int temp)
 {
 	sql_allocator *osa;
@@ -471,6 +471,78 @@ create_table_or_view(mvc *sql, char *sname, sql_table *t, int temp)
 	}
 	sql->sa = osa;
 	return MAL_SUCCEED;
+}
+
+str 
+create_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *columns, size_t ncols) {	
+    size_t i;
+    sql_table *t;
+    sql_schema *s;
+    mvc *sql = NULL;
+    str msg = MAL_SUCCEED;
+
+	if ((msg = getSQLContext(cntxt, NULL, &sql, NULL)) != NULL)
+		return msg;
+	if ((msg = checkSQLContext(cntxt)) != NULL)
+		return msg;
+
+	/* for some reason we don't have an allocator here so make one */
+	sql->sa = sa_create();
+
+    if (!sname) sname = "sys";
+	if (!(s = mvc_bind_schema(sql, sname))) {
+		msg = sql_error(sql, 02, "3F000!CREATE TABLE: no such schema '%s'", sname);
+		goto cleanup;
+	}
+	if (!(t = mvc_create_table(sql, s, tname, tt_table, 0, SQL_DECLARED_TABLE, CA_COMMIT, -1))) {
+		msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not create table '%s'", tname);
+		goto cleanup;
+	}
+
+    for(i = 0; i < ncols; i++) {
+        BAT *b = columns[i].b;
+        sql_subtype *tpe = sql_bind_localtype(ATOMname(b->ttype));
+        sql_column *col = NULL;
+
+        if (!tpe) {
+    		msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not find type for column");
+    		goto cleanup;
+        }
+
+        col = mvc_create_column(sql, t, columns[i].name, tpe);
+        if (!col) {
+    		msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not create column %s", columns[i].name);
+    		goto cleanup;
+        }
+    }
+    msg = create_table_or_view(sql, sname, t, 0);
+    if (msg != MAL_SUCCEED) {
+    	goto cleanup;
+    }
+    t = mvc_bind_table(sql, s, tname);
+    if (!t) {
+		msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not bind table %s", tname);
+		goto cleanup;
+    }
+    for(i = 0; i < ncols; i++) {
+        BAT *b = columns[i].b;
+        sql_column *col = NULL;
+
+        col = mvc_bind_column(sql,t, columns[i].name);
+        if (!col) {
+    		msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not bind column %s", columns[i].name);
+    		goto cleanup;
+        }
+        msg = mvc_append_column(sql->session->tr, col, b);
+        if (msg != MAL_SUCCEED) {
+        	goto cleanup;
+        }
+    }
+
+cleanup:
+    sa_destroy(sql->sa);
+    sql->sa = NULL;
+    return msg;
 }
 
 static int
@@ -2031,6 +2103,14 @@ mvc_bind_idxbat_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (*sname)
 		throw(SQL, "sql.idxbind", "unable to find index %s for %s.%s", *iname, *sname, *tname);
 	throw(SQL, "sql.idxbind", "unable to find index %s for %s", *iname, *tname);
+}
+
+str mvc_append_column(sql_trans *t, sql_column *c, BAT *ins) {
+	int res = store_funcs.append_col(t, c, ins, TYPE_bat);
+	if (res != 0) {
+		throw(SQL, "sql.append", "Cannot append values");
+	}
+	return MAL_SUCCEED;
 }
 
 /*mvc_append_wrap(int *bid, str *sname, str *tname, str *cname, ptr d) */
@@ -4834,7 +4914,7 @@ SQLoptimizersUpdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	BAT *sch, *tab, *col, *type, *loc, *cnt, *atom, *size, *heap, *indices, *phash, *sort, *imprints, *mode, *oidx;
+	BAT *sch, *tab, *col, *type, *loc, *cnt, *atom, *size, *heap, *indices, *phash, *sort, *imprints, *mode, *revsort, *key, *oidx;
 	mvc *m = NULL;
 	str msg;
 	sql_trans *tr;
@@ -4855,7 +4935,9 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bat *rphash = getArgReference_bat(stk, pci, 11);
 	bat *rimprints = getArgReference_bat(stk, pci, 12);
 	bat *rsort = getArgReference_bat(stk, pci, 13);
-	bat *roidx = getArgReference_bat(stk, pci, 14);
+	bat *rrevsort = getArgReference_bat(stk, pci, 14);
+	bat *rkey = getArgReference_bat(stk, pci, 15);
+	bat *roidx = getArgReference_bat(stk, pci, 16);
 	str sname = 0;
 	str tname = 0;
 	str cname = 0;
@@ -4880,10 +4962,13 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	phash = COLnew(0, TYPE_bit, 0, TRANSIENT);
 	imprints = COLnew(0, TYPE_lng, 0, TRANSIENT);
 	sort = COLnew(0, TYPE_bit, 0, TRANSIENT);
+	revsort = COLnew(0, TYPE_bit, 0, TRANSIENT);
+	key = COLnew(0, TYPE_bit, 0, TRANSIENT);
 	oidx = COLnew(0, TYPE_lng, 0, TRANSIENT);
 
 	if (sch == NULL || tab == NULL || col == NULL || type == NULL || mode == NULL || loc == NULL || imprints == NULL || 
-	    sort == NULL || cnt == NULL || atom == NULL || size == NULL || heap == NULL || indices == NULL || phash == NULL || oidx == NULL) {
+	    sort == NULL || cnt == NULL || atom == NULL || size == NULL || heap == NULL || indices == NULL || phash == NULL ||
+	    revsort == NULL || key == NULL || oidx == NULL) {
 		if (sch)
 			BBPunfix(sch->batCacheid);
 		if (tab)
@@ -4912,6 +4997,10 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BBPunfix(imprints->batCacheid);
 		if (sort)
 			BBPunfix(sort->batCacheid);
+		if (revsort)
+			BBPunfix(revsort->batCacheid);
+		if (key)
+			BBPunfix(key->batCacheid);
 		if (oidx)
 			BBPunfix(oidx->batCacheid);
 		throw(SQL, "sql.storage", MAL_MALLOC_FAIL);
@@ -5010,8 +5099,20 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 								/*printf(" indices "BUNFMT, bn->thash?bn->thash->heap->size:0); */
 								/*printf("\n"); */
 
-								w = BATtordered(bn);
-								BUNappend(sort, &w, FALSE);
+								bitval = BATtordered(bn);
+								if (!bitval && bn->tnosorted == 0)
+									bitval = bit_nil;
+								BUNappend(sort, &bitval, FALSE);
+
+								bitval = BATtrevordered(bn);
+								if (!bitval && bn->tnorevsorted == 0)
+									bitval = bit_nil;
+								BUNappend(revsort, &bitval, FALSE);
+
+								bitval = BATtkey(bn);
+								if (!bitval && bn->tnokey[0] == 0 && bn->tnokey[1] == 0)
+									bitval = bit_nil;
+								BUNappend(key, &bitval, FALSE);
 
 								sz = bn->torderidx ? bn->torderidx->free : 0;
 								BUNappend(oidx, &sz, FALSE);
@@ -5089,8 +5190,18 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 									BUNappend(imprints, &sz, FALSE);
 									/*printf(" indices "BUNFMT, bn->thash?bn->thash->heap->size:0); */
 									/*printf("\n"); */
-									w = BATtordered(bn);
-									BUNappend(sort, &w, FALSE);
+									bitval = BATtordered(bn);
+									if (!bitval && bn->tnosorted == 0)
+										bitval = bit_nil;
+									BUNappend(sort, &bitval, FALSE);
+									bitval = BATtrevordered(bn);
+									if (!bitval && bn->tnorevsorted == 0)
+										bitval = bit_nil;
+									BUNappend(revsort, &bitval, FALSE);
+									bitval = BATtkey(bn);
+									if (!bitval && bn->tnokey[0] == 0 && bn->tnokey[1] == 0)
+										bitval = bit_nil;
+									BUNappend(key, &bitval, FALSE);
 									sz = bn->torderidx ? bn->torderidx->free : 0;
 									BUNappend(oidx, &sz, FALSE);
 									BBPunfix(bn->batCacheid);
@@ -5114,6 +5225,8 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BBPkeepref(*rphash = phash->batCacheid);
 	BBPkeepref(*rimprints = imprints->batCacheid);
 	BBPkeepref(*rsort = sort->batCacheid);
+	BBPkeepref(*rrevsort = revsort->batCacheid);
+	BBPkeepref(*rkey = key->batCacheid);
 	BBPkeepref(*roidx = oidx->batCacheid);
 	return MAL_SUCCEED;
 }
