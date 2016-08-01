@@ -352,6 +352,8 @@ BSKTtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( bskt == 0)	
 		throw(SQL,"basket.bind","Stream table column '%s.%s' not found\n",sch,tbl);
 	b = baskets[bskt].bats[0];
+	if( b == 0)
+		throw(SQL,"basket.bind","Stream table reference column '%s.%s' not accessible\n",sch,tbl);
 
     tids = COLnew(0, TYPE_void, 0, TRANSIENT);
     if (tids == NULL)
@@ -464,6 +466,7 @@ BSKTimportInternal(Client cntxt, int bskt)
 		assert( b);
 		bcnt = BATcount(b);
 
+		if( fsize > 0)
 		switch(ATOMstorage(b->ttype)){
 		case TYPE_bit:
 		case TYPE_bte:
@@ -657,9 +660,9 @@ BSKTexport(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 /* remove tuples from a basket according to the sliding policy */
-#define ColumnShift(B,TPE, STRIDE) { \
+#define ColumnShift(B,TPE, CNT) { \
 	TPE *first= (TPE*) Tloc(B, 0);\
-	TPE *n = first+STRIDE;\
+	TPE *n = first+CNT;\
 	TPE *last=  (TPE*) Tloc(B, BUNlast(B));\
 	for( ; n < last; n++, first++)\
 		*first=*n;\
@@ -710,7 +713,9 @@ BSKTtumbleInternal(Client cntxt, str sch, str tbl, int stride)
 		}
 		if( stride == -1)
 			BATsetcount(b, 0);
-		else BATsetcount(b, BATcount(b)-cnt);
+		else 
+		if( BATcount(b) >= cnt)
+			BATsetcount(b, BATcount(b)-cnt);
 		if( BATcount(b) == 0){
 			baskets[bskt].status = BSKTWAIT;
 		}
@@ -974,8 +979,10 @@ BSKTreset(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	MT_lock_set(&baskets[idx].lock);
 	for( i=0; baskets[idx].cols[i]; i++){
 		b = baskets[idx].bats[i];
-		if(b)
+		if(b){
 			BATsetcount(b,0);
+			BATsettrivprop(b);
+		}
 	}
 	baskets[idx].status = BSKTWAIT;
 	MT_lock_unset(&baskets[idx].lock);

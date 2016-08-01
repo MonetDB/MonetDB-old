@@ -35,7 +35,7 @@ select * from result;
 --select * from  iot.baskets();
 --select * from  iot.queries();
 select * from iot.errors();
-call iot.stop();
+call iot.pause();
 drop procedure cq00;
 drop table stmp;
 drop table result;

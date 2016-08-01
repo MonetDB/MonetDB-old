@@ -24,7 +24,7 @@
 #include "iot.h"
 #include "basket.h"
 
-#define _DEBUG_PETRINET_ if(0)
+//#define _DEBUG_PETRINET_ 
 
 #define PNINIT 0
 #define PNRUNNING 1	   /* query is running */

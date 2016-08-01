@@ -17,7 +17,7 @@ INSERT INTO testing VALUES (now(), 2, 2);
 INSERT INTO testing VALUES (now(), 3, 3);
 
 CALL iot.show('sys', 'cquery');
-CALL iot.stop();
+CALL iot.pause();
 
 DROP PROCEDURE cquery;
 DROP TABLE testout;
