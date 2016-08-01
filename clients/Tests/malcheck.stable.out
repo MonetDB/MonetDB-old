@@ -5,6 +5,7 @@ stdout of test 'malcheck` in directory 'clients` itself:
 # 15:15:51 >  "./malcheck.sh" "malcheck"
 # 15:15:51 >  
 
+OPTsetDebugStr: missing for MAL command mdb.traceOptimizer in monetdb5/optimizer/optimizer.mal
 BSKTdrop: missing for MAL command drop in sql/backends/monet5/iot/basket.mal
 BSKTerror: missing for MAL command error in sql/backends/monet5/iot/iot.mal
 PNstop: missing for MAL pattern stop in sql/backends/monet5/iot/iot.mal

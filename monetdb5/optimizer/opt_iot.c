@@ -58,10 +58,10 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	(void) pci;
 
-	OPTDEBUGiot {
-		mnstr_printf(cntxt->fdout, "#iot optimizer start\n");
-		printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
-	} 
+#ifdef DEBUG_OPT_IOT
+	mnstr_printf(cntxt->fdout, "#iot optimizer start\n");
+	printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
+#endif
 	old = mb->stmt;
 	limit = mb->stop;
 	slimit = mb->ssize;
@@ -70,7 +70,9 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for (i = 1; i < limit && btop <MAXBSKT; i++){
 		p = old[i];
 		if( getModuleId(p)== basketRef && (getFunctionId(p)== registerRef || getFunctionId(p)== bindRef )  ){
-			OPTDEBUGiot mnstr_printf(cntxt->fdout, "#iot stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+#ifdef DEBUG_OPT_IOT
+			mnstr_printf(cntxt->fdout, "#iot stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+#endif
 			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,3)).val.sval;
 			for( j =0; j< btop ; j++)
@@ -81,7 +83,9 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				btop++;
 		}
 		if( getModuleId(p)== basketRef && getFunctionId(p) == appendRef ){
-			OPTDEBUGiot mnstr_printf(cntxt->fdout, "#iot stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+#ifdef DEBUG_OPT_IOT
+			mnstr_printf(cntxt->fdout, "#iot stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+#endif
 			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,3)).val.sval;
 			for( j =0; j< btop ; j++)
@@ -93,7 +97,9 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				btop++;
 		}
 		if( getModuleId(p)== basketRef && getFunctionId(p) == updateRef ){
-			OPTDEBUGiot mnstr_printf(cntxt->fdout, "#iot stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+#ifdef DEBUG_OPT_IOT
+			mnstr_printf(cntxt->fdout, "#iot stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+#endif
 			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,3)).val.sval;
 			for( j =0; j< btop ; j++)
@@ -105,7 +111,9 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				btop++;
 		}
 		if( getModuleId(p)== iotRef && getFunctionId(p) == basketRef){
-			OPTDEBUGiot mnstr_printf(cntxt->fdout, "#iot stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+#ifdef DEBUG_OPT_IOT
+			mnstr_printf(cntxt->fdout, "#iot stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+#endif
 			schemas[btop]= getVarConstant(mb, getArg(p,1)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
 			for( j =0; j< btop ; j++)
@@ -125,11 +133,11 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( btop == MAXBSKT || btop == 0)
 		return 0;
 
-	OPTDEBUGiot {
-		mnstr_printf(cntxt->fdout, "#iot optimizer started with %d streams, mvc %d\n", btop,lastmvc);
-		printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
-	}
-		(void) stk;
+#ifdef DEBUG_OPT_IOT
+	mnstr_printf(cntxt->fdout, "#iot optimizer started with %d streams, mvc %d\n", btop,lastmvc);
+	printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
+#endif
+	(void) stk;
 
 	alias = (int *) GDKzalloc(mb->vtop * 2 * sizeof(int));
 	if (alias == 0)
@@ -166,8 +174,9 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			// register all baskets used after the mvc had been determined
 			if (getModuleId(p) == sqlRef && getFunctionId(p) == tidRef ){
 				getStreamTableInfo(getVarConstant(mb,getArg(p,2)).val.sval, getVarConstant(mb,getArg(p,3)).val.sval );
-				OPTDEBUGiot 
-					mnstr_printf(cntxt->fdout, "#iot optimizer found stream %d\n",fnd);
+#ifdef DEBUG_OPT_IOT
+				mnstr_printf(cntxt->fdout, "#iot optimizer found stream %d\n",fnd);
+#endif
 				if( fnd){
 					getModuleId(p) = basketRef;
 					pushInstruction(mb,p);
@@ -271,10 +280,10 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","iot", btop, GDKusec() - usec);
     newComment(mb,buf);
 
-	OPTDEBUGiot {
-		mnstr_printf(cntxt->fdout, "#iot optimizer final\n");
-		printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
-	} 
+#ifdef DEBUG_OPT_IOT
+	mnstr_printf(cntxt->fdout, "#iot optimizer final\n");
+	printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
+#endif
 	GDKfree(alias);
 	GDKfree(old);
 	return btop > 0;
