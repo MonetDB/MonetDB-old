@@ -16,6 +16,7 @@ begin
 end;
 
 call iot.query('iot','web00');
+call iot.show('iot','web00');
 
 call iot.stop();
 --select * from  iot.baskets();

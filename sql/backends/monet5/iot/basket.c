@@ -516,13 +516,20 @@ BSKTimportInternal(Client cntxt, int bskt)
 	for( i=0; i < MAXCOLS && baskets[bskt].cols[i]; i++){
 		b = baskets[bskt].bats[i];
 		assert( b );
-		BATsettrivprop(b);
 		if( first){
 			first = 0;
 			cnt = BATcount(b);
 		} else
 		if( cnt != BATcount(b))
 			msg= createException(MAL,"iot.basket","Columns mis-aligned %s\n",baskets[bskt].cols[i]);
+		b->tnil= 0;
+		b->tnonil= 0;
+		b->tnokey[0] = 0;
+		b->tnokey[1] = 0;
+		b->tsorted = 0;
+		b->tnosorted = 0;
+		b->tnorevsorted = 0;
+		BATsettrivprop(b);
 	}
 	/* remove the basket files */
 	for( i=0; i < MAXCOLS && baskets[bskt].cols[i]; i++){

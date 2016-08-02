@@ -37,8 +37,18 @@ Ready.
 % .explain # table_name
 % mal # name
 % clob # type
+% 29 # length
+function user.petri_0():void;
+    sql.transaction();
+    user.iot_cq06();
+    sql.commit();
+end user.petri_0;
+#call iot.show('iot','cq06');
+% .explain # table_name
+% mal # name
+% clob # type
 % 63 # length
-unsafe function iot.cq06():void;
+unsafe function user.iot_cq06():void;
     X_0 := sql.mvc();
     X_32 := basket.register(X_0,"iot","tmp06",0);
 barrier X_60 := language.dataflow();
@@ -63,8 +73,8 @@ exit SQLexception:str;
 catch MALexception:str;
     iot.error("user","cq06",MALexception);
 exit MALexception:str;
-end iot.cq06;
-#inline               actions= 0 time=4 usec 
+end user.iot_cq06;
+#inline               actions= 0 time=2 usec 
 #candidates           actions= 1 time=1 usec 
 #remap                actions= 1 time=15 usec 
 #iot                  actions= 1 time=34 usec 

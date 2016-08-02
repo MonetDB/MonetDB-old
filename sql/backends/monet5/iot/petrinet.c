@@ -144,8 +144,10 @@ static int
 PNlocate(str modname, str fcnname)
 {
 	int i;
+	char name[IDLENGTH];
+	snprintf(name,IDLENGTH,"%s_%s",modname,fcnname);
 	for (i = 0; i < pnettop; i++)
-		if (strcmp(pnet[i].modname, modname) == 0 && strcmp(pnet[i].fcnname, fcnname) == 0)
+		if (strcmp(pnet[i].modname, userRef) == 0 && strcmp(pnet[i].fcnname, name) == 0)
 			return i;
 	return i;
 }
@@ -159,10 +161,12 @@ PNshow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int i;
 	InstrPtr p;
 	Symbol s;
+	char name[IDLENGTH];
 
 	(void) cntxt;
 	(void) mb;
 
+	snprintf(name,IDLENGTH,"%s_%s",sch,fcn);
 	idx = PNlocate(sch, fcn);
 	if( idx == pnettop)
 		throw(SQL,"basket.commit","Continous query %s.%s not accessible\n",sch,fcn);
@@ -170,8 +174,8 @@ PNshow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	printFunction(cntxt->fdout, pnet[idx].mb, 0, LIST_MAL_NAME | LIST_MAL_VALUE  | LIST_MAL_MAPI);
 	for( i= 1; i< pnet[idx].mb->stop; i++){
 		p= getInstrPtr(pnet[idx].mb,i);
-		if(getFunctionId(p) && strcmp(getFunctionId(p), fcn) ==0){
-			s = findSymbol(0,userRef, getFunctionId(p));
+		if(getFunctionId(p) && strcmp(getFunctionId(p), name) ==0){
+			s = findSymbol(cntxt->nspace,userRef, getFunctionId(p));
 			if( s) {
 				printFunction(cntxt->fdout, s->def, 0, LIST_MAL_NAME | LIST_MAL_VALUE  | LIST_MAL_MAPI);
 				return MAL_SUCCEED;
@@ -199,7 +203,7 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb, int calls)
 		GDKerror("petrinet.register:Too many transitions");
 
 	sig = getInstrPtr(mb,0);
-	i = PNlocate(getModuleId(sig), getFunctionId(sig));
+	i = PNlocate(userRef, getFunctionId(sig));
 	if (i != pnettop){
 		// restart the  query
 		pnet[pnettop].status = PNWAIT;
@@ -208,14 +212,14 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb, int calls)
 	}
 
 	memset((void*) (pnet+pnettop), 0, sizeof(PNnode));
-	pnet[pnettop].modname = GDKstrdup(getModuleId(sig));
+	pnet[pnettop].modname = GDKstrdup(userRef);
 	pnet[pnettop].fcnname = GDKstrdup(getFunctionId(sig));
 	snprintf(buf,IDLENGTH,"petri_%d",pnettop);
-	s = newFunction(iotRef, putName(buf), FUNCTIONsymbol);
+	s = newFunction(userRef, putName(buf), FUNCTIONsymbol);
 	nmb = s->def;
 	setArgType(nmb, nmb->stmt[0],0, TYPE_void);
     (void) newStmt(nmb, sqlRef, transactionRef);
-	(void) newStmt(nmb,pnet[pnettop].modname, pnet[pnettop].fcnname);
+	(void) newStmt(nmb, userRef,getFunctionId(sig));
     q = newStmt(nmb, sqlRef, commitRef);
 	setArgType(nmb,q, 0, TYPE_void);
 	pushEndInstruction(nmb);

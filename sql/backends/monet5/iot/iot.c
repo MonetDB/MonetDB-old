@@ -69,7 +69,6 @@ IOTprocedureStmt(Client cntxt, MalBlkPtr mb, str schema, str nme)
 str
 IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str sch= NULL;
 	str nme= NULL;
 	str def= NULL;
 	int calls = -1;
@@ -78,7 +77,6 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	MalBlkPtr qry;
 	str msg = NULL;
 	InstrPtr p;
-	Module scope;
 	char buf[BUFSIZ], name[IDLENGTH];
 	static int iotquerycnt=0;
 	int i;
@@ -86,14 +84,13 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( pci->argc > 2)
 		calls = *getArgReference_int(stk,pci,2);
 
-	_DEBUG_IOT_ fprintf(stderr,"#iot: register the continues query %s.%s()\n",sch,nme);
+	_DEBUG_IOT_ fprintf(stderr,"#iot: register the continues query %s.%s()\n",userRef,nme);
 
 	// pre-create the new procedure
-	sch = "user";
 	snprintf(name, IDLENGTH,"cquery_%d",iotquerycnt++);
 	def = *getArgReference_str(stk, pci, 1);
 	// package it as a procedure in the current schema [todo]
-	snprintf(buf,BUFSIZ,"create procedure %s.%s() begin %s; end",sch,name,def);
+	snprintf(buf,BUFSIZ,"create procedure %s.%s() begin %s; end",userRef,name,def);
 	_DEBUG_IOT_ fprintf(stderr,"#iot.compile: %s\n",buf);
 	nme = name;
 	msg = SQLstatementIntern(cntxt, &def, nme, 1, 0, 0);
@@ -106,17 +103,16 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		msg = createException(SQL,"iot.query","Error in iot query");
 
 	_DEBUG_IOT_ fprintf(stderr,"#iot: register a new continuous query plan\n");
-	scope = findModule(cntxt->nspace, putName(sch));
-	s = newFunction(putName(sch), putName(nme), FUNCTIONsymbol);
+	s = newFunction(userRef, putName(nme), FUNCTIONsymbol);
 	if (s == NULL)
 		msg = createException(SQL, "iot.query", "Procedure code does not exist.");
 
 	freeMalBlk(s->def);
 	s->def = copyMalBlk(qry);
 	p = getInstrPtr(s->def, 0);
-	setModuleId(p, putName(sch));
+	setModuleId(p, userRef);
 	setFunctionId(p, putName(nme));
-	insertSymbol(scope, s);
+	insertSymbol(cntxt->nspace, s);
 	_DEBUG_IOT_ printFunction(cntxt->fdout, s->def, 0, LIST_MAL_ALL);
 	/* optimize the code and register at scheduler */
 	if (msg == MAL_SUCCEED) 
@@ -146,15 +142,16 @@ IOTqueryProc(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	MalBlkPtr qry;
 	str msg = NULL;
 	InstrPtr p;
-	Module scope;
+	//Module scope;
 	int i;
-
+	char name[IDLENGTH];
 
 	_DEBUG_IOT_ fprintf(stderr,"#iot: register the continues query %s.%s()\n",sch,nme);
 
 	/* check existing of the pre-compiled and activated function */
 	sch = *getArgReference_str(stk, pci, 1);
 	nme = *getArgReference_str(stk, pci, 2);
+	snprintf(name,IDLENGTH,"%s_%s",sch,nme);
 
 	if( pci->argc > 3)
 		calls = *getArgReference_int(stk,pci,3);
@@ -167,9 +164,6 @@ IOTqueryProc(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	s = findSymbolInModule(cntxt->nspace, putName(nme));
 	if (s == NULL)
 		throw(SQL, "iot.query", "Definition missing");
-	//snprintf(name, IDLENGTH,"cq_%s",getFunctionId(getInstrPtr(s->def,0)));
-	/* re-package the MAL block for the petrinet */
-	//nme = name;
 	qry = s->def;
 
 	chkProgram(cntxt->fdout,cntxt->nspace,qry);
@@ -177,17 +171,16 @@ IOTqueryProc(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		msg = createException(SQL,"iot.query","Error in iot query");
 
 	_DEBUG_IOT_ fprintf(stderr,"#iot: register a new continuous query plan\n");
-	scope = findModule(cntxt->nspace, putName(sch));
-	s = newFunction(putName(sch), putName(nme), FUNCTIONsymbol);
+	s = newFunction(userRef, putName(name), FUNCTIONsymbol);
 	if (s == NULL)
 		msg = createException(SQL, "iot.query", "Procedure code does not exist.");
 
 	freeMalBlk(s->def);
 	s->def = copyMalBlk(qry);
 	p = getInstrPtr(s->def, 0);
-	setModuleId(p, putName(sch));
-	setFunctionId(p, putName(nme));
-	insertSymbol(scope, s);
+	setModuleId(p,userRef);
+	setFunctionId(p, putName(name));
+	insertSymbol(cntxt->nspace, s);
 	_DEBUG_IOT_ printFunction(cntxt->fdout, s->def, 0, LIST_MAL_ALL);
 	/* optimize the code and register at scheduler */
 	if (msg == MAL_SUCCEED) 
