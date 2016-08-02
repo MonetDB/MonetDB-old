@@ -247,7 +247,7 @@ Module findModule(Module scope, str name){
 			scope= scope->link;
 	}
 	/* default is always matched with current */
-	if( def->name==NULL) return NULL;
+	if( def == NULL || def->name==NULL) return NULL;
 	return def;
 }
 int isModuleDefined(Module scope, str name){

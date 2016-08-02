@@ -68,10 +68,10 @@ Ready.
 # 15:59:58 >  
 
 #select * from iot.baskets();
-% .,	.,	.,	.,	.,	.,	.,	.,	.,	.,	. # table_name
-% schema,	table,	status,	threshold,	winsize,	winstride,	timeslice,	timestride,	heartbeat,	seen,	events # name
-% clob,	clob,	clob,	int,	int,	int,	int,	int,	int,	timestamp,	int # type
-% 0,	0,	0,	1,	1,	1,	1,	1,	1,	26,	1 # length
+% .,	.,	.,	.,	.,	.,	.,	.,	.,	. # table_name
+% schema,	table,	status,	winsize,	winstride,	timeslice,	timestride,	heartbeat,	seen,	events # name
+% clob,	clob,	clob,	int,	int,	int,	int,	int,	timestamp,	int # type
+% 0,	0,	0,	1,	1,	1,	1,	1,	26,	1 # length
 
 # 15:59:58 >  
 # 15:59:58 >  "Done."

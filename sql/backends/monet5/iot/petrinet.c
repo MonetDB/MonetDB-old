@@ -167,10 +167,11 @@ PNshow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( idx == pnettop)
 		throw(SQL,"basket.commit","Continous query %s.%s not accessible\n",sch,fcn);
 	/* release the basket lock */
+	printFunction(cntxt->fdout, pnet[idx].mb, 0, LIST_MAL_NAME | LIST_MAL_VALUE  | LIST_MAL_MAPI);
 	for( i= 1; i< pnet[idx].mb->stop; i++){
 		p= getInstrPtr(pnet[idx].mb,i);
-		if( strcmp(getModuleId(p),sch) == 0 && strcmp(getFunctionId(p), fcn) ==0){
-			s = findSymbol(0,getModuleId(p), getFunctionId(p));
+		if(getFunctionId(p) && strcmp(getFunctionId(p), fcn) ==0){
+			s = findSymbol(0,userRef, getFunctionId(p));
 			if( s) {
 				printFunction(cntxt->fdout, s->def, 0, LIST_MAL_NAME | LIST_MAL_VALUE  | LIST_MAL_MAPI);
 				return MAL_SUCCEED;
@@ -298,16 +299,14 @@ PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	int old = PNcycle;
 #endif
 	int delay= *getArgReference_int(stk,pci,1);
-	lng clk = GDKms();
 
 	(void) cntxt;
 	(void) mb;
 #ifdef DEBUG_PETRINET
 	mnstr_printf(cntxt->fdout, "#scheduler wait %d ms\n",delay);
 #endif
-	delay = delay < PNDELAY? 2*PNDELAY:delay;
-	while( GDKms() < clk + delay )
-		MT_sleep_ms(PNDELAY);
+	delay = delay < PNDELAY? PNDELAY:delay;
+	MT_sleep_ms(delay);
 #ifdef DEBUG_PETRINET
 	mnstr_printf(cntxt->fdout, "#wait finished after %d cycles\n",PNcycle -old );
 #endif
@@ -636,7 +635,7 @@ PNscheduler(void *dummy)
 					}
 				} else
 				/* consider baskets that are properly filled */
-				if ( (BUN)baskets[idx].threshold > baskets[idx].count || baskets[idx].count == 0 ){
+				if ( baskets[idx].count == 0 ){
 					pnet[i].enabled = 0;
 					break;
 				}

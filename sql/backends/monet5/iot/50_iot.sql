@@ -98,7 +98,7 @@ create function iot.getheartbeat("schema" string, "table" string) returns bigint
 external name iot.getheartbeat;
 
 create function iot.baskets()
-returns table( "schema" string, "table" string, "status" string, threshold int, winsize int, winstride int, timeslice int, timestride int, heartbeat int, seen timestamp, events int)
+returns table( "schema" string, "table" string, "status" string, winsize int, winstride int, timeslice int, timestride int, heartbeat int, seen timestamp, events int)
 external name iot.baskets;
 
 create procedure iot.show("schema" string, "query" string)
