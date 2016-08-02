@@ -42,7 +42,7 @@ create procedure iot.pause("schema" string, name string)
 create procedure iot.pause()
 	external name iot.pause;
 
-create procedure iot.wait(cycles integer)
+create procedure iot.wait(ms integer)
 	external name iot.wait;
 
 create procedure iot.stop()

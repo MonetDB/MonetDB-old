@@ -772,7 +772,7 @@ PNscheduler(void *dummy)
 #ifdef DEBUG_PETRINET
 	mnstr_printf(GDKout, "#petrinet.scheduler stopped\n");
 #endif
-	//MCcloseClient(cntxt);
+	MCcloseClient(cntxt);
 	pnstatus = PNINIT;
 	(void) dummy;
 }

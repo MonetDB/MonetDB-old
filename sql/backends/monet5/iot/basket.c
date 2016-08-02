@@ -660,11 +660,11 @@ BSKTexport(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 /* remove tuples from a basket according to the sliding policy */
-#define ColumnShift(B,TPE, CNT) { \
+#define ColumnShift(B,TPE) { \
 	TPE *first= (TPE*) Tloc(B, 0);\
-	TPE *n = first+CNT;\
+	TPE *n = first + (stride == -1 ? BATcount(b): (BUN) stride);\
 	TPE *last=  (TPE*) Tloc(B, BUNlast(B));\
-	for( ; n < last; n++, first++)\
+	for(cnt=0 ; n < last; cnt++, n++, first++)\
 		*first=*n;\
 }
 
@@ -684,41 +684,38 @@ BSKTtumbleInternal(Client cntxt, str sch, str tbl, int stride)
 	for(i=0; i< MAXCOLS && baskets[bskt].cols[i]; i++){
 		b = baskets[bskt].bats[i];
 		assert( b );
-		if( stride != -1)
-			cnt = (BUN) stride;
-		else
-			cnt= BATcount(b);
 
 		switch(ATOMstorage(b->ttype)){
-		case TYPE_bit:ColumnShift(b,bit,cnt); break;
-		case TYPE_bte:ColumnShift(b,bte,cnt); break;
-		case TYPE_sht:ColumnShift(b,sht,cnt); break;
-		case TYPE_int:ColumnShift(b,int,cnt); break;
-		case TYPE_oid:ColumnShift(b,oid,cnt); break;
-		case TYPE_flt:ColumnShift(b,flt,cnt); break;
-		case TYPE_dbl:ColumnShift(b,dbl,cnt); break;
-		case TYPE_lng:ColumnShift(b,lng,cnt); break;
+		case TYPE_bit:ColumnShift(b,bit); break;
+		case TYPE_bte:ColumnShift(b,bte); break;
+		case TYPE_sht:ColumnShift(b,sht); break;
+		case TYPE_int:ColumnShift(b,int); break;
+		case TYPE_oid:ColumnShift(b,oid); break;
+		case TYPE_flt:ColumnShift(b,flt); break;
+		case TYPE_dbl:ColumnShift(b,dbl); break;
+		case TYPE_lng:ColumnShift(b,lng); break;
 #ifdef HAVE_HGE
-		case TYPE_hge:ColumnShift(b,hge,cnt); break;
+		case TYPE_hge:ColumnShift(b,hge); break;
 #endif
 		case TYPE_str:
 			switch(b->twidth){
-			case 1: ColumnShift(b,bte,cnt); break;
-			case 2: ColumnShift(b,sht,cnt); break;
-			case 4: ColumnShift(b,int,cnt); break;
-			case 8: ColumnShift(b,lng,cnt); break;
+			case 1: ColumnShift(b,bte); break;
+			case 2: ColumnShift(b,sht); break;
+			case 4: ColumnShift(b,int); break;
+			case 8: ColumnShift(b,lng); break;
 			}
 				break;
-		default: break;
+		default: 
+			throw(SQL, "iot.tumble", "Could not find the basket column storage %s.%s[%d]",sch,tbl,i);
 		}
-		if( stride == -1)
-			BATsetcount(b, 0);
-		else 
-		if( BATcount(b) >= cnt)
-			BATsetcount(b, BATcount(b)-cnt);
-		if( BATcount(b) == 0){
+
+		mnstr_printf(BSKTout,"#Tumbled %s.%s[%d] "BUNFMT" elements\n",sch,tbl,i,cnt);
+		BATsetcount(b, cnt);
+		baskets[bskt].count = BATcount(b);
+		if( cnt == 0)
 			baskets[bskt].status = BSKTWAIT;
-		}
+		b->tnil = b->tnonil = 0;
+		b->tsorted = b->trevsorted = 0;
 		BATsettrivprop(b);
 	}
 	return MAL_SUCCEED;

@@ -13,7 +13,7 @@ begin
 	insert into result1 select * from stmp2 where val <12;
 	insert into result2 select * from stmp2 where val >12;
 end;
-call iot.query('iot','cq02');
+call iot.query('iot','cq02',4);
 call iot.pause('iot','cq02');
 
 insert into stmp2 values('2005-09-23 12:34:26.000',1,11.0);
@@ -25,14 +25,13 @@ call iot.resume('iot','cq02');
 
 -- wait for 5 seconds for handler
 
+call iot.wait(5000);
+call iot.pause();
 select 'RESULT';
---call iot.cycles('iot','cq02',4);
-call iot.wait(2000);
 select * from stmp2;
 select * from result1;
 select * from result2;
 
-call iot.pause();
 select * from iot.errors();
 drop procedure cq02;
 drop table stmp2;
