@@ -247,6 +247,7 @@ LIDARinitCatalog(mvc *m)
 		mvc_create_column_(m, lidar_tbl, "WKT", "varchar", 255);
 		mvc_create_column_(m, lidar_tbl, "WKT_CompoundOK", "varchar", 255);
 		mvc_create_column_(m, lidar_tbl, "Proj4", "varchar", 255);
+		mvc_create_column_(m, lidar_tbl, "LoadParams", "int", 32);
 	}
 
 	lidar_col = mvc_bind_table(m, sch, "lidar_columns");
@@ -1078,6 +1079,15 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	fprintf(stderr, "total digits: %d %d %d\n", precisionX, precisionY, precisionZ);
 #endif
 
+	/* Parse the input parameters */
+	if (params != NULL) {
+		parse_parameters(params, &input_params);
+	}
+	else {
+		/* If no parameter string is given read x, y, and z */
+		input_params.cnum = 3;
+		input_params.parameters = PARAM_X_COORD | PARAM_Y_COORD | PARAM_Z_COORD;
+	}
 	/* store data */
 	store_funcs.append_col(m->session->tr,
 						   mvc_bind_column(m, lidar_tbl, "id"), &tid, TYPE_int);
@@ -1121,6 +1131,8 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 						   mvc_bind_column(m, lidar_tbl, "WKT_CompoundOK"), header->hi->WKT_CompoundOK, TYPE_str);
 	store_funcs.append_col(m->session->tr,
 						   mvc_bind_column(m, lidar_tbl, "Proj4"), header->hi->proj4, TYPE_str);
+	store_funcs.append_col(m->session->tr,
+						   mvc_bind_column(m, lidar_tbl, "LoadParams"), &input_params.parameters, TYPE_int);
 
 
 	/* store */
@@ -1166,14 +1178,6 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	cid = store_funcs.count_col(tr, col, 1) + 1;
 
 	/* create an SQL table to hold the LIDAR table */
-	if (params != NULL) {
-		parse_parameters(params, &input_params);
-	}
-	else {
-		/* If no parameter string is given read x, y, and z */
-		input_params.cnum = 3;
-		input_params.parameters = PARAM_X_COORD | PARAM_Y_COORD | PARAM_Z_COORD;
-	}
 	tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, input_params.cnum);
 
 	for (int x = 1; x < PARAMS_END_SENTINEL; x <<= 1) {
@@ -1376,7 +1380,7 @@ static
 str LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_table *tbl)
 {
 	sql_table *lidar_fl, *lidar_cl;
-	sql_column *col, *colx, *coly, *colz;
+	sql_column *col; /*, *colx, *coly, *colz;*/
 	str fname;
 	str msg = MAL_SUCCEED;
 	oid rid = oid_nil, frid = oid_nil, tid = oid_nil;
@@ -1386,8 +1390,11 @@ str LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sq
 #endif
 	int *tpcode = NULL;
 	long *rep = NULL, *wid = NULL, rows;
-	BAT *x = NULL, *y = NULL, *z = NULL;
+	/* BAT *x = NULL, *y = NULL, *z = NULL; */
+	BAT *bat = NULL;
+	sql_column *column;
 	int precisionx, precisiony, precisionz;
+	int input_params;
 	double scalex, scaley, scalez;
 	int error_code;
 	short use_scale;
@@ -1414,20 +1421,6 @@ str LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sq
 		msg = createException(MAL, "lidar.loadtable", "Could not find table lidar_columns.\n");
 		return msg;
 	}
-	col = mvc_bind_column(m, lidar_cl, "file_id");
-	tid = table_funcs.column_find_row(m->session->tr, col, (void *)&fid, NULL);
-	col = mvc_bind_column(m, lidar_cl, "ScaleX");
-	scalex = *(double*)table_funcs.column_find_value(m->session->tr, col, tid);
-	col = mvc_bind_column(m, lidar_cl, "ScaleY");
-	scaley = *(double*)table_funcs.column_find_value(m->session->tr, col, tid);
-	col = mvc_bind_column(m, lidar_cl, "ScaleZ");
-	scalez = *(double*)table_funcs.column_find_value(m->session->tr, col, tid);
-	col = mvc_bind_column(m, lidar_cl, "PrecisionX");
-	precisionx = *(sht*)table_funcs.column_find_value(m->session->tr, col, tid);
-	col = mvc_bind_column(m, lidar_cl, "PrecisionY");
-	precisiony = *(sht*)table_funcs.column_find_value(m->session->tr, col, tid);
-	col = mvc_bind_column(m, lidar_cl, "PrecisionZ");
-	precisionz = *(sht*)table_funcs.column_find_value(m->session->tr, col, tid);
 
 	/* data load */
 	col = mvc_bind_column(m, lidar_tbl, "PointRecordsCount");
@@ -1436,129 +1429,144 @@ str LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sq
 	fprintf(stderr,"#Loading %ld rows in table %s\n", rows, tname);
 	time0 = GDKms();
 #endif
-	colx = mvc_bind_column(m, tbl, "x");
-	coly = mvc_bind_column(m, tbl, "y");
-	colz = mvc_bind_column(m, tbl, "z");
+	/* colx = mvc_bind_column(m, tbl, "x"); */
+	/* coly = mvc_bind_column(m, tbl, "y"); */
+	/* colz = mvc_bind_column(m, tbl, "z"); */
+	col = mvc_bind_column(m, lidar_tbl, "LoadParams");
+	input_params = *(int*)table_funcs.column_find_value(m->session->tr, col, rid);
 
-	/* Read X, Y, and Z based on the column's precision */
-	use_scale = 1;
-	if (precisionx <= 2)
-		x = read_array_bte(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
-	else if (precisionx <= 4)
-		x = read_array_sht(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
-	else if (precisionx <= 8)
-		x = read_array_int(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
-	else if (precisionx <= 16)
-		x = read_array_int(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
-	else if (precisionx <= 32)
-		x = read_array_lng(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
+	for (int x = 1; x < PARAMS_END_SENTINEL; x <<= 1) {
+		if (input_params & x) {
+			switch(x) {
+			case(PARAM_X_COORD):
+				col = mvc_bind_column(m, lidar_cl, "file_id");
+				tid = table_funcs.column_find_row(m->session->tr, col, (void *)&fid, NULL);
+				col = mvc_bind_column(m, lidar_cl, "ScaleX");
+				scalex = *(double*)table_funcs.column_find_value(m->session->tr, col, tid);
+				col = mvc_bind_column(m, lidar_cl, "PrecisionX");
+				precisionx = *(sht*)table_funcs.column_find_value(m->session->tr, col, tid);
+				use_scale = 1;
+				if (precisionx <= 2)
+					bat = read_array_bte(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
+				else if (precisionx <= 4)
+					bat = read_array_sht(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
+				else if (precisionx <= 8)
+					bat = read_array_int(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
+				else if (precisionx <= 16)
+					bat = read_array_int(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
+				else if (precisionx <= 32)
+					bat = read_array_lng(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
 #ifdef HAVE_HGE
-	else if (precisionx <= 64)
-		x = read_array_hge(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
+				else if (precisionx <= 64)
+					bat = read_array_hge(fname, LASPoint_GetX, rows, scalex, use_scale, &error_code);
 #endif
-	else {
-		x = NULL;
-		error_code = 3;
-	}
-
-	if (precisiony <= 2)
-		y = read_array_bte(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
-	else if (precisiony <= 4)
-		y = read_array_sht(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
-	else if (precisiony <= 8)
-		y = read_array_int(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
-	else if (precisiony <= 16)
-		y = read_array_int(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
-	else if (precisiony <= 32)
-		y = read_array_lng(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
+				else {
+					bat = NULL;
+					error_code = 3;
+				}
+				column = mvc_bind_column(m, tbl, "x");
+				break;
+			case(PARAM_Y_COORD):
+				col = mvc_bind_column(m, lidar_cl, "file_id");
+				tid = table_funcs.column_find_row(m->session->tr, col, (void *)&fid, NULL);
+				col = mvc_bind_column(m, lidar_cl, "ScaleY");
+				scaley = *(double*)table_funcs.column_find_value(m->session->tr, col, tid);
+				col = mvc_bind_column(m, lidar_cl, "PrecisionY");
+				precisiony = *(sht*)table_funcs.column_find_value(m->session->tr, col, tid);
+				use_scale = 1;
+				if (precisiony <= 2)
+					bat = read_array_bte(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
+				else if (precisiony <= 4)
+					bat = read_array_sht(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
+				else if (precisiony <= 8)
+					bat = read_array_int(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
+				else if (precisiony <= 16)
+					bat = read_array_int(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
+				else if (precisiony <= 32)
+					bat = read_array_lng(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
 #ifdef HAVE_HGE
-	else if (precisiony <= 64)
-		y = read_array_hge(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
+				else if (precisiony <= 64)
+					bat = read_array_hge(fname, LASPoint_GetY, rows, scaley, use_scale, &error_code);
 #endif
-	else {
-		y = NULL;
-		error_code = 4;
-	}
-
-	if (precisionz <= 2)
-		z = read_array_bte(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
-	else if (precisionz <= 4)
-		z = read_array_sht(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
-	else if (precisionz <= 8)
-		z = read_array_int(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
-	else if (precisionz <= 16)
-		z = read_array_int(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
-	else if (precisionz <= 32)
-		z = read_array_lng(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
+				else {
+					bat = NULL;
+					error_code = 4;
+				}
+				column = mvc_bind_column(m, tbl, "y");
+				break;
+			case(PARAM_Z_COORD):
+				col = mvc_bind_column(m, lidar_cl, "file_id");
+				tid = table_funcs.column_find_row(m->session->tr, col, (void *)&fid, NULL);
+				col = mvc_bind_column(m, lidar_cl, "ScaleZ");
+				scalez = *(double*)table_funcs.column_find_value(m->session->tr, col, tid);
+				col = mvc_bind_column(m, lidar_cl, "PrecisionZ");
+				precisionz = *(sht*)table_funcs.column_find_value(m->session->tr, col, tid);
+				if (precisionz <= 2)
+					bat = read_array_bte(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
+				else if (precisionz <= 4)
+					bat = read_array_sht(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
+				else if (precisionz <= 8)
+					bat = read_array_int(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
+				else if (precisionz <= 16)
+					bat = read_array_int(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
+				else if (precisionz <= 32)
+					bat = read_array_lng(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
 #ifdef HAVE_HGE
-	else if (precisionz <= 64)
-		z = read_array_hge(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
+				else if (precisionz <= 64)
+					bat = read_array_hge(fname, LASPoint_GetZ, rows, scalez, use_scale, &error_code);
 #endif
-	else {
-		z = NULL;
-		error_code = 5;
-	}
-
-	if ( x == NULL || y == NULL || z == NULL ) {
-		GDKfree(tpcode);
-		GDKfree(rep);
-		GDKfree(wid);
-		switch (error_code) {
-		case 1:
-			msg = createException(MAL, "lidar.lidarload", "Malloc failed");
-			break;
-		case 2:
-			msg = createException(MAL, "lidar.lidarload",
-								  "Error accessing LIDAR file %s (%s)",
-								  fname, LASError_GetLastErrorMsg());
-			break;
-		case 3:
-			msg = createException(MAL, "lidar.lidarload",
-								  "Unknown precision for X column (%d)",
-								  precisionx);
-			break;
-		case 4:
-			msg = createException(MAL, "lidar.lidarload",
-								  "Unknown precision for Y column (%d)",
-								  precisiony);
-			break;
-		case 5:
-			msg = createException(MAL, "lidar.lidarload",
-								  "Unknown precision for Z column (%d)",
-								  precisionz);
+				else {
+					bat = NULL;
+					error_code = 5;
+				}
+				column = mvc_bind_column(m, tbl, "z");
+				break;
+			}
+			if ( bat == NULL ) {
+				GDKfree(tpcode);
+				GDKfree(rep);
+				GDKfree(wid);
+				switch (error_code) {
+				case 1:
+					msg = createException(MAL, "lidar.lidarload", "Malloc failed");
+					break;
+				case 2:
+					msg = createException(MAL, "lidar.lidarload",
+										  "Error accessing LIDAR file %s (%s)",
+										  fname, LASError_GetLastErrorMsg());
+					break;
+				case 3:
+					msg = createException(MAL, "lidar.lidarload",
+										  "Unknown precision for X column (%d)",
+										  precisionx);
+					break;
+				case 4:
+					msg = createException(MAL, "lidar.lidarload",
+										  "Unknown precision for Y column (%d)",
+										  precisiony);
+					break;
+				case 5:
+					msg = createException(MAL, "lidar.lidarload",
+										  "Unknown precision for Z column (%d)",
+										  precisionz);
+					break;
+				}
+				return msg;
+			}
+			BATsetcount(bat, rows);
+			bat->tsorted = 0;
+			bat->trevsorted = 0;
+			BATmode(bat, PERSISTENT);
+			store_funcs.append_col(m->session->tr, column, bat, TYPE_bat);
+			BBPdecref(bat->batCacheid, TRUE);
+			BBPunfix(bat->batCacheid);
 		}
-		return msg;
 	}
 
-	BATsetcount(x, rows);
-	BATsetcount(y, rows);
-	BATsetcount(z, rows);
 
-	x->tsorted = 0;
-	x->trevsorted = 0;
-	y->tsorted = 0;
-	y->trevsorted = 0;
-	z->tsorted = 0;
-	z->trevsorted = 0;
 #ifndef NDEBUG
 	fprintf(stderr,"#File loaded in %d ms\t", GDKms() - time0);
 #endif
-	BATmode(x, PERSISTENT);
-	BATmode(y, PERSISTENT);
-	BATmode(z, PERSISTENT);
-
-	store_funcs.append_col(m->session->tr, colx, x, TYPE_bat);
-	store_funcs.append_col(m->session->tr, coly, y, TYPE_bat);
-	store_funcs.append_col(m->session->tr, colz, z, TYPE_bat);
-#ifndef NDEBUG
-	fprintf(stderr,"#Total time %d ms\n", GDKms() - time0);
-#endif
-	BBPdecref(x->batCacheid, TRUE);
-	BBPdecref(y->batCacheid, TRUE);
-	BBPdecref(z->batCacheid, TRUE);
-	BBPunfix(x->batCacheid);
-	BBPunfix(y->batCacheid);
-	BBPunfix(z->batCacheid);
 	GDKfree(tpcode);
 	GDKfree(rep);
 	GDKfree(wid);
