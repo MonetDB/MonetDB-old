@@ -52,6 +52,7 @@ CALL iot.pause();
 CALL iot.heartbeat('ais', 'vessels7', 8000);
 CALL iot.resume();
 
+CALL iot.wait(2000);
 CALL iot.pause();
 DELETE FROM iot.webserverstreams;
 DROP PROCEDURE ais07q;

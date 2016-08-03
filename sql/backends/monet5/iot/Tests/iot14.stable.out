@@ -63,27 +63,37 @@ Ready.
 % .explain # table_name
 % mal # name
 % clob # type
+% 29 # length
+function user.petri_0():void;
+    sql.transaction();
+    user.iot_sdel00();
+    sql.commit();
+end user.petri_0;
+#call iot.show('iot','sdel00');
+% .explain # table_name
+% mal # name
+% clob # type
 % 61 # length
-unsafe function iot.sdel00():void;
-    X_1 := sql.mvc();
-    X_24 := basket.register(X_1,"iot","sdel",0);
-barrier X_47 := language.dataflow();
-    C_2:bat[:oid] := basket.tid(X_1,"iot","sdel");
-    X_5:bat[:int] := basket.bind(X_24,"iot","sdel","sensor");
-    C_9 := algebra.subselect(X_5,3,3,true,false,false);
-    X_12 := algebra.projection(C_9,C_2);
-    basket.delete(X_24,"iot","sdel",X_12);
-    X_25 := basket.tumble(X_24,"iot","sdel");
-    basket.commit(X_25,"iot","sdel");
-exit X_47;
+unsafe function user.iot_sdel00():void;
+    X_0 := sql.mvc();
+    X_20 := basket.register(X_0,"iot","sdel",0);
+barrier X_48 := language.dataflow();
+    C_1:bat[:oid] := basket.tid(X_0,"iot","sdel");
+    X_4:bat[:int] := basket.bind(X_20,"iot","sdel","sensor");
+    C_10 := algebra.subselect(X_4,3,3,true,false,false);
+    X_14 := algebra.projection(C_10,C_1);
+    basket.delete(X_20,"iot","sdel",X_14);
+    X_24 := basket.tumble(X_20,"iot","sdel");
+    basket.commit(X_24,"iot","sdel");
+exit X_48;
 catch SQLexception:str;
     iot.error("user","sdel00",SQLexception);
 exit SQLexception:str;
 catch MALexception:str;
     iot.error("user","sdel00",MALexception);
 exit MALexception:str;
-end iot.sdel00;
-#inline               actions= 0 time=0 usec 
+end user.iot_sdel00;
+#inline               actions= 0 time=1 usec 
 #candidates           actions= 1 time=0 usec 
 #remap                actions= 0 time=2 usec 
 #iot                  actions= 1 time=18 usec 
@@ -103,8 +113,15 @@ end iot.sdel00;
 #dataflow             actions=26 time=17 usec 
 #multiplex            actions= 0 time=2 usec 
 #profiler             actions= 1 time=1 usec 
-#garbagecollector     actions= 1 time=14 usec 
-#total                actions= 1 time=207 usec 
+#garbagecollector     actions= 1 time=12 usec 
+#total                actions= 1 time=200 usec 
+#select * from sdel;
+% iot.sdel,	iot.sdel,	iot.sdel # table_name
+% t,	sensor,	val # name
+% timestamp,	int,	decimal # type
+% 26,	1,	10 # length
+[ 2005-09-23 12:34:26.736000,	1,	12.34	]
+[ 2005-09-23 12:34:26.736000,	4,	12.34	]
 #insert into sdel values('2005-09-23 12:34:26.736',1,12.34);
 [ 1	]
 #insert into sdel values('2005-09-23 12:34:26.736',3,12.34);
@@ -124,6 +141,14 @@ end iot.sdel00;
 [ 2005-09-23 12:34:26.736000,	3,	12.34	]
 [ 2005-09-23 12:34:26.736000,	4,	12.34	]
 [ 2005-09-23 12:34:26.736000,	3,	12.34	]
+#call iot.stop();
+#pnstop waiting for  0 queries 
+#select 'final state';
+% .L # table_name
+% single_value # name
+% char # type
+% 11 # length
+[ "final state"	]
 #select * from sdel;
 % iot.sdel,	iot.sdel,	iot.sdel # table_name
 % t,	sensor,	val # name

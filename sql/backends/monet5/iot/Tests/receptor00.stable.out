@@ -30,6 +30,45 @@ Ready.
 #create stream table temps( iotclk timestamp, room string , temperature real);
 #declare basketdir string;
 #set basketdir= '/ufs/mk/baskets/measures/temperatures/';
+#explain call iot.import('iot','temps', concat(basketdir,'1'));
+% .explain # table_name
+% mal # name
+% clob # type
+% 127 # length
+function user.s5_1(A0:str,A1:str,A2:str):void;
+    X_9:void := querylog.define("explain call iot.import(\\'iot\\',\\'temps\\', concat(basketdir,\\'1\\'));","default_pipe",7);
+    X_0 := sql.mvc();
+    X_5:str := sql.getVariable(X_0,"basketdir");
+    X_7:str := calc.+(X_5,A2);
+    iot.import(A0,A1,X_7);
+end user.s5_1;
+#inline               actions= 0 time=0 usec 
+#remap                actions= 0 time=2 usec 
+#costmodel            actions= 1 time=1 usec 
+#coercion             actions= 1 time=3 usec 
+#evaluate             actions= 0 time=1 usec 
+#aliases              actions= 3 time=4 usec 
+#mergetable           actions= 0 time=12 usec 
+#deadcode             actions= 0 time=2 usec 
+#aliases              actions= 0 time=2 usec 
+#constants            actions= 0 time=1 usec 
+#commonTerms          actions= 0 time=2 usec 
+#projectionpath       actions= 0 time=2 usec 
+#deadcode             actions= 0 time=2 usec 
+#reorder              actions= 1 time=11 usec 
+#reduce               actions=21 time=5 usec 
+#matpack              actions= 0 time=2 usec 
+#dataflow             actions=26 time=7 usec 
+#multiplex            actions= 0 time=2 usec 
+#profiler             actions= 1 time=1 usec 
+#candidates           actions= 1 time=0 usec 
+#garbagecollector     actions= 1 time=6 usec 
+#total                actions= 1 time=134 usec 
+#select * from iot.errors();
+% .,	. # table_name
+% table,	error # name
+% clob,	clob # type
+% 0,	0 # length
 #select * from temps;
 % iot.temps,	iot.temps,	iot.temps # table_name
 % iotclk,	room,	temperature # name
@@ -40,11 +79,6 @@ Ready.
 [ 2016-04-25 11:09:57.658000,	"bedroom",	29.9	]
 [ 2016-04-25 11:09:57.658000,	"bathroom",	28.6	]
 [ 2016-04-25 11:09:57.658000,	"dining room",	30	]
-#select * from iot.errors();
-% .,	. # table_name
-% table,	error # name
-% clob,	clob # type
-% 0,	0 # length
 #drop table temps;
 
 # 23:00:08 >  

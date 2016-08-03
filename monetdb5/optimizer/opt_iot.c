@@ -57,6 +57,15 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	lng usec = GDKusec();
 
 	(void) pci;
+	// Check applicability of optimizer by looking for streams
+	for(i =0; i< mb->stop; i++){
+		p= getInstrPtr(mb,i);
+		if( getModuleId(p) == basketRef||
+			getModuleId(p) == iotRef)
+			break;
+	}
+	if( i == mb->stop)
+		return 0;
 
 #ifdef DEBUG_OPT_IOT
 	mnstr_printf(cntxt->fdout, "#iot optimizer start\n");

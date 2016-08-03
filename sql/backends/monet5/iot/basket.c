@@ -481,7 +481,7 @@ BSKTimportInternal(Client cntxt, int bskt)
 #ifdef HAVE_HGE
 		case TYPE_hge:
 #endif
-			if( BATextend(b, bcnt + fsize / ATOMsize(b->ttype)) != GDK_SUCCEED){
+			if( BATextend(b, (bcnt + fsize) / ATOMsize(b->ttype)) != GDK_SUCCEED){
 				(void) fclose(f);
 				msg= createException(MAL,"iot.basket","Could not extend basket %s\n",baskets[bskt].cols[i]);
 				goto recover;
@@ -492,13 +492,14 @@ BSKTimportInternal(Client cntxt, int bskt)
 				msg= createException(MAL,"iot.basket","Could not read complete basket file %s\n",baskets[bskt].cols[i]);
 				goto recover;
 			}
-			BATsetcount(b, bcnt + fsize/ ATOMsize(b->ttype));
-		break;
+			BATsetcount(b, (bcnt + fsize)/ ATOMsize(b->ttype));
+			break;
 		case TYPE_str:
 			while (fgets(line, MAXLINE, f) != 0){ //Use getline? http://man7.org/linux/man-pages/man3/getline.3.html
-				if ( line[j= (int) strlen(line)-1] != '\n')
+				if ( line[j= (int) strlen(line)-1] != '\n'){
 					msg= createException(MAL,"iot.basket","string too long\n");
-				else{
+					goto recover;
+				} else{
 					line[j] = 0;
 					BUNappend(b, line, TRUE);
 					bcnt++;
@@ -508,6 +509,7 @@ BSKTimportInternal(Client cntxt, int bskt)
 			break;
 		default:
 			msg= createException(MAL,"iot.basket","Import type not yet supported\n");
+			goto recover;
 		}
 		(void) fclose(f);
 	}
@@ -520,13 +522,16 @@ BSKTimportInternal(Client cntxt, int bskt)
 			first = 0;
 			cnt = BATcount(b);
 		} else
-		if( cnt != BATcount(b))
+		if( cnt != BATcount(b)){
 			msg= createException(MAL,"iot.basket","Columns mis-aligned %s\n",baskets[bskt].cols[i]);
+			goto recover;
+		}
 		b->tnil= 0;
 		b->tnonil= 0;
 		b->tnokey[0] = 0;
 		b->tnokey[1] = 0;
 		b->tsorted = 0;
+		b->trevsorted = 0;
 		b->tnosorted = 0;
 		b->tnorevsorted = 0;
 		BATsettrivprop(b);
@@ -546,6 +551,15 @@ recover:
 		b = baskets[bskt].bats[i];
 		assert( b );
 		BATsetcount(b,0);
+		b->tnil= 0;
+		b->tnonil= 0;
+		b->tnokey[0] = 0;
+		b->tnokey[1] = 0;
+		b->tsorted = 0;
+		b->trevsorted = 0;
+		b->tnosorted = 0;
+		b->tnorevsorted = 0;
+		BATsettrivprop(b);
 	}
 
 	MT_lock_unset(&iotLock);
@@ -972,6 +986,8 @@ BSKTdelete(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			else
 				baskets[idx].status = BSKTFILLED;
 			b->tnil = 0;
+			b->tnosorted = 0;
+			b->tnorevsorted = 0;
 			b->tnokey[0] = 0;
 			b->tnokey[1] = 0;
 			BATsettrivprop(b);

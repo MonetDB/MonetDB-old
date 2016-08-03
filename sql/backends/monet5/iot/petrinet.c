@@ -283,18 +283,18 @@ PNstatus( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int newstatus
 
 str
 PNresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	str msg= MAL_SUCCEED;
 #ifdef DEBUG_PETRINET
 	mnstr_printf(GDKout, "#resume scheduler\n");
 #endif
-	return PNstatus(cntxt, mb, stk, pci, PNWAIT);
-}
-
-str
-PNpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-#ifdef DEBUG_PETRINET
-	mnstr_printf(GDKout, "#pause scheduler\n");
-#endif
-	return PNstatus(cntxt, mb, stk, pci, PNPAUSED);
+	if ( pci->argc == 3)
+		msg= PNstatus(cntxt, mb, stk, pci, PNWAIT);
+	else {
+		MT_lock_set(&iotLock);
+		pnstatus = PNRUNNING;
+		MT_lock_unset(&iotLock);
+	}
+	return msg;
 }
 
 str
@@ -315,6 +315,23 @@ PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	mnstr_printf(cntxt->fdout, "#wait finished after %d cycles\n",PNcycle -old );
 #endif
 	return MAL_SUCCEED;
+}
+
+str
+PNpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	str msg= MAL_SUCCEED;
+#ifdef DEBUG_PETRINET
+	mnstr_printf(GDKout, "#pause scheduler or individual queries\n");
+#endif
+	if ( pci->argc == 3)
+		msg= PNstatus(cntxt, mb, stk, pci, PNPAUSED);
+	else {
+		MT_lock_set(&iotLock);
+		pnstatus = PNPAUSED;
+		MT_lock_unset(&iotLock);
+	}
+	// we should wait for all queries to become paused
+	return msg;
 }
 
 
@@ -365,7 +382,7 @@ PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 /* safely stop the engine by stopping all CQ firt */
 str
 PNstop(void){
-	int i, cnt,limit = 200;
+	int i, cnt;
 #ifdef DEBUG_PETRINET
 	mnstr_printf(GDKout, "#scheduler being stopped\n");
 #endif
@@ -375,17 +392,15 @@ PNstop(void){
 	MT_lock_unset(&iotLock);
 
 	do{
-		MT_sleep_ms(PNDELAY);
+		MT_sleep_ms(1000);
 		for(cnt=0,  i = 0; i < pnettop; i++)
 			cnt += pnet[i].status != PNWAIT;
-	} while(limit-- > 0 && cnt);
-
-
 #ifdef DEBUG_PETRINET
-	mnstr_printf(GDKout, "#all queries stopped after limit %d\n", limit);
 #endif
+		mnstr_printf(GDKout, "#pnstop waiting for  %d queries \n", cnt);
+	} while(pnstatus != PNINIT );
+
 /*
-	if( cnt == 0)
 	for(i = pnettop-1; i >= pnettop; i--)
 		PNderegisterInternal(i);
 */
@@ -498,6 +513,8 @@ PNexecute( Client cntxt, int idx)
 	lng t = GDKusec();
 	timestamp ts;
 
+	if( pnstatus != PNRUNNING)
+		return;
 #ifdef DEBUG_PETRINET
 	mnstr_printf(GDKout, "#petrinet.execute %s.%s\n",node->modname, node->fcnname);
 #endif
@@ -512,8 +529,7 @@ PNexecute( Client cntxt, int idx)
 	printFunction(cntxt->fdout, node->mb, 0, LIST_MAL_NAME | LIST_MAL_VALUE  | LIST_MAL_MAPI);
 #endif
 
-	if( pnstatus != PNSTOP)
-		(void)runMALsequence(cntxt, node->mb, 1, 0, node->stk, 0, 0);
+	(void)runMALsequence(cntxt, node->mb, 1, 0, node->stk, 0, 0);
 
 #ifdef DEBUG_PETRINET
 	mnstr_printf(GDKout, "#petrinet.execute %s.%s transition done:\n", node->modname, node->fcnname);
@@ -571,8 +587,10 @@ PNscheduler(void *dummy)
 		return;
 	}
 		
-	 if( cntxt->scenario == NULL || strcmp(cntxt->scenario, "sql") )
+/*
+	 if( cntxt->scenario == NULL )
 		 SQLinitEnvironment(cntxt, NULL, NULL, NULL);
+*/
 
 	MT_lock_set(&iotLock);
 	pnstatus = PNRUNNING; // global state 
@@ -775,7 +793,7 @@ PNscheduler(void *dummy)
 #ifdef DEBUG_PETRINET
 	mnstr_printf(GDKout, "#petrinet.scheduler stopped\n");
 #endif
-	MCcloseClient(cntxt);
+	//MCcloseClient(cntxt);
 	pnstatus = PNINIT;
 	(void) dummy;
 }
