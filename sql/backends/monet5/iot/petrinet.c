@@ -283,18 +283,10 @@ PNstatus( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int newstatus
 
 str
 PNresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	str msg= MAL_SUCCEED;
 #ifdef DEBUG_PETRINET
 	mnstr_printf(GDKout, "#resume scheduler\n");
 #endif
-	if ( pci->argc == 3)
-		msg= PNstatus(cntxt, mb, stk, pci, PNWAIT);
-	else {
-		MT_lock_set(&iotLock);
-		pnstatus = PNRUNNING;
-		MT_lock_unset(&iotLock);
-	}
-	return msg;
+	return PNstatus(cntxt, mb, stk, pci, PNWAIT);
 }
 
 str
@@ -302,6 +294,7 @@ PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 #ifdef DEBUG_PETRINET
 	int old = PNcycle;
 #endif
+	int cnt=0, i;
 	int delay= *getArgReference_int(stk,pci,1);
 
 	(void) cntxt;
@@ -311,7 +304,10 @@ PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 #endif
 	delay = delay < PNDELAY? PNDELAY:delay;
 	MT_sleep_ms(delay);
+	for(cnt=0,  i = 0; i < pnettop; i++)
+		cnt += pnet[i].status != PNWAIT;
 #ifdef DEBUG_PETRINET
+	mnstr_printf(cntxt->fdout, "#pnstop %d waiting for  %d queries \n", pnettop, cnt);
 	mnstr_printf(cntxt->fdout, "#wait finished after %d cycles\n",PNcycle -old );
 #endif
 	return MAL_SUCCEED;
@@ -319,19 +315,10 @@ PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 str
 PNpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	str msg= MAL_SUCCEED;
 #ifdef DEBUG_PETRINET
 	mnstr_printf(GDKout, "#pause scheduler or individual queries\n");
 #endif
-	if ( pci->argc == 3)
-		msg= PNstatus(cntxt, mb, stk, pci, PNPAUSED);
-	else {
-		MT_lock_set(&iotLock);
-		pnstatus = PNPAUSED;
-		MT_lock_unset(&iotLock);
-	}
-	// we should wait for all queries to become paused
-	return msg;
+	return PNstatus(cntxt, mb, stk, pci, PNPAUSED);
 }
 
 
@@ -395,10 +382,10 @@ PNstop(void){
 		MT_sleep_ms(1000);
 		for(cnt=0,  i = 0; i < pnettop; i++)
 			cnt += pnet[i].status != PNWAIT;
+		mnstr_printf(GDKout, "#pnstop waiting for  %d queries \n", cnt);
 #ifdef DEBUG_PETRINET
 #endif
-		mnstr_printf(GDKout, "#pnstop waiting for  %d queries \n", cnt);
-	} while(pnstatus != PNINIT );
+	} while(pnstatus != PNINIT && cnt > 0);
 
 /*
 	for(i = pnettop-1; i >= pnettop; i--)
@@ -580,23 +567,20 @@ PNscheduler(void *dummy)
 #endif
 	cntxt = MCinitClient(0,bstream_create(fin,0),fout);
 	if( cntxt){
-		if( SQLinitClient(cntxt) != MAL_SUCCEED)
+		if( SQLinitClient(cntxt) != MAL_SUCCEED){
 			GDKerror("Could not initialize PNscheduler");
+			mnstr_printf(GDKout, "#petrinet.controller could not initalize\n");
+		}
 	}else{
 		GDKerror("Could not initialize PNscheduler");
 		return;
 	}
 		
-/*
-	 if( cntxt->scenario == NULL )
-		 SQLinitEnvironment(cntxt, NULL, NULL, NULL);
-*/
-
 	MT_lock_set(&iotLock);
 	pnstatus = PNRUNNING; // global state 
 	MT_lock_unset(&iotLock);
 
-	while( pnettop > 0 && pnstatus != PNSTOP ){
+	while( pnstatus != PNSTOP ){
 		PNcycle++;
 		/* Determine which continuous query are eligble to run
   		   Collect latest statistics, note that we don't need a lock here,
@@ -788,7 +772,6 @@ PNscheduler(void *dummy)
 			mnstr_printf(GDKout, "#petrinet.controller paused\n");
 #endif
 		}
-
 	}
 #ifdef DEBUG_PETRINET
 	mnstr_printf(GDKout, "#petrinet.scheduler stopped\n");

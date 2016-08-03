@@ -17,7 +17,7 @@ end;
 
 call iot.query('iot','collecttemps');
 call iot.resume();
-call iot.wait(1);
+call iot.wait(1000);
 select * from temps;
 select * from tempresult;
 

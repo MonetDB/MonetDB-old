@@ -13,7 +13,7 @@ call iot.query('iot','cqlogger');
 call iot.heartbeat('iot','log',1000);
 
 -- wait for 2 seconds
-call iot.wait(2000);
+call iot.wait(4000);
 
 select 'RESULT';
 select * from log;

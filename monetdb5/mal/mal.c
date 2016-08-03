@@ -167,7 +167,11 @@ void mserver_reset(void)
  * Beware, mal_exit is also called during a SIGTERM from the monetdb tool
  */
 
+static int serverstopped;
 void mal_exit(void){
+	if( serverstopped) 
+		return;
+	serverstopped = 1;
 	mserver_reset();
 	GDKexit(0); 	/* properly end GDK */
 }
