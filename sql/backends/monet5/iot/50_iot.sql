@@ -74,6 +74,7 @@ create procedure iot.emitter("schema" string, "table" string, dir string)
 
 create procedure iot.heartbeat("schema" string, "table" string, msec integer)
 	external name iot.heartbeat;
+
 create procedure iot.heartbeat("schema" string, "table" string, msec bigint)
 	external name iot.heartbeat;
 

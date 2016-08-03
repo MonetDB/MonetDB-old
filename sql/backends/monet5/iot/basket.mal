@@ -28,7 +28,7 @@ comment "Collect the candidates for a basket";
 
 pattern bind(mvc:int,sch:str,tbl:str,col:str):bat[:any]
 address BSKTbind
-comment "access the stream basket column";
+comment "Access the stream basket column";
 
 pattern append(mvc:int, sch:str, tbl:str, col:str, val:any):int
 address BSKTappend
@@ -47,7 +47,7 @@ address mvc_clear_table_wrap;
 
 pattern tumble(mvc:any, sch:str, tbl:str):int
 address BSKTtumble
-comment "Make the basket available for the scheduler";
+comment "Apply tumbling to the basket";
 
 pattern settumble(sch:str, tbl:str, n:int):void
 address BSKTsettumble

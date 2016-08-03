@@ -21,7 +21,7 @@ CREATE STREAM TABLE stations (implicit_timestamp timestamp, mmsi int, lat real, 
 -- Inserts for iot web server (providing time based flush of 8 seconds)
 INSERT INTO iot.webserverstreams SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'vessels6' AND sch.name = 'ais';
 
-INSERT INTO iot.webserverstreams SELECT tabl.id, 2 , 10, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'stations' AND sch.name = 'ais';
+INSERT INTO iot.webserverstreams SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'stations' AND sch.name = 'ais';
 
 --Q6 For each station calulate ship within a radios of 3 km -- Stream join
 
@@ -41,7 +41,7 @@ CALL iot.query('ais', 'ais06q');
 CALL iot.pause();
 -- We don't set the tumbling, so no tuple will be reused in the following window
 CALL iot.heartbeat('ais', 'vessels6', 8000);
-CALL iot.heartbeat('ais', 'stations', 10000);
+CALL iot.heartbeat('ais', 'stations', 8000);
 CALL iot.resume();
 
 CALL iot.pause();

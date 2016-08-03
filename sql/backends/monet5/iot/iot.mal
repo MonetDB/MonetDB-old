@@ -67,7 +67,7 @@ comment "Return a table the erroneous events found during query processing";
 
 command error(sch:str,fcn:str,msg:str)
 address BSKTerror
-comment "Save exception message ";
+comment "Save an exception message";
 
 pattern iot.heartbeat(sch:str,tbl:str,N:int)
 address BSKTheartbeat
@@ -83,11 +83,11 @@ comment "Get the hearbeat delay";
 
 pattern iot.tumble(sch:str,tbl:str,N:int)
 address BSKTsettumble
-comment "Set the window tumbling at most N events from the stream ";
+comment "Set the window tumbling at most N events from the stream";
 
 pattern iot.gettumble(sch:str,tbl:str):int
 address BSKTgettumble
-comment "Get the window tumbling size orf the stream ";
+comment "Get the window tumbling size of the stream";
 
 unsafe pattern iot.window(sch:str,tbl:str,N:int)
 address BSKTwindow
@@ -95,7 +95,7 @@ comment "Use a window of precisely N events";
 
 pattern iot.getwindow(sch:str,tbl:str):int
 address BSKTgetwindow
-comment "Set the window tumbling at most N events from the stream ";
+comment "Set the window tumbling at most N events from the stream";
 
 pattern iot.show(sch:str,tbl:str)
 address PNshow

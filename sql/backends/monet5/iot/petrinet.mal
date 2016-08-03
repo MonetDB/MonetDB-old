@@ -22,7 +22,7 @@ address PNregister;
 pattern register(mod:str, fcn:str)
 address PNregister
 comment "Add a continous MAL query to the Petri net. It will analyse
-the MAL block to determine the input/output dependencies. ";
+the MAL block to determine the input/output dependencies.";
 
 pattern resume(mod:str, fcn:str)
 address PNresume
@@ -30,7 +30,7 @@ comment "Activate a continuous query";
 
 pattern resume()
 address PNresume
-comment "Activate all continuous query";
+comment "Activate all continuous queries";
 
 pattern pause(mod:str, fcn:str)
 address PNpause
@@ -38,7 +38,7 @@ comment "Deactivate a continuous query";
 
 pattern pause()
 address PNpause
-comment "Deactivate all continuous query";
+comment "Deactivate all continuous queries";
 
 pattern step(cnt:int)
 address PNstep
