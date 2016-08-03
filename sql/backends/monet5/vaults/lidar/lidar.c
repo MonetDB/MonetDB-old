@@ -752,39 +752,18 @@ typedef struct input_parameters {
  */
 static void
 parse_parameters(str params, InputParameters *parsed) {
-	parsed->cnum = 0;
-	parsed->parameters = PARAMS_ALL_OFF;
+	/* x, y, and z are always loaded */
+	parsed->cnum = 3;
+	parsed->parameters = PARAM_X_COORD | PARAM_Y_COORD | PARAM_Z_COORD;
+
+	if (params == NULL) {
+		return;
+	}
+
 	for (char *p = params; *p != '\0'; p++) {
 		switch (*p) {
-		case 'x':
-		case 'X':
-			if (!(parsed->parameters ^ PARAM_X_COORD)) {
-				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
-				continue;
-			}
-			parsed->parameters |= PARAM_X_COORD;
-			parsed->cnum++;
-			break;
-		case 'y':
-		case 'Y':
-			if (!(parsed->parameters ^ PARAM_Y_COORD)) {
-				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
-				continue;
-			}
-			parsed->parameters |= PARAM_Y_COORD;
-			parsed->cnum++;
-			break;
-		case 'z':
-		case 'Z':
-			if (!(parsed->parameters ^ PARAM_Z_COORD)) {
-				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
-				continue;
-			}
-			parsed->parameters |= PARAM_Z_COORD;
-			parsed->cnum++;
-			break;
 		case 't':
-			if (!(parsed->parameters ^ PARAM_GPS_TIME)) {
+			if ((parsed->parameters & PARAM_GPS_TIME)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
 				continue;
 			}
@@ -792,7 +771,7 @@ parse_parameters(str params, InputParameters *parsed) {
 			parsed->cnum++;
 			break;
 		case 'a':
-			if (!(parsed->parameters ^ PARAM_SCAN_ANGLE)) {
+			if ((parsed->parameters & PARAM_SCAN_ANGLE)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
 				continue;
 			}
@@ -800,7 +779,7 @@ parse_parameters(str params, InputParameters *parsed) {
 			parsed->cnum++;
 			break;
 		case 'i':
-			if (!(parsed->parameters ^ PARAM_INTENSITY)) {
+			if ((parsed->parameters & PARAM_INTENSITY)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
 				continue;
 			}
@@ -808,7 +787,7 @@ parse_parameters(str params, InputParameters *parsed) {
 			parsed->cnum++;
 			break;
 		case 'n':
-			if (!(parsed->parameters ^ PARAM_N_RETURNS)) {
+			if ((parsed->parameters & PARAM_N_RETURNS)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
 				continue;
 			}
@@ -816,7 +795,7 @@ parse_parameters(str params, InputParameters *parsed) {
 			parsed->cnum++;
 			break;
 		case 'r':
-			if (!(parsed->parameters ^ PARAM_N_THIS_RETURN)) {
+			if ((parsed->parameters & PARAM_N_THIS_RETURN)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
 				continue;
 			}
@@ -824,7 +803,7 @@ parse_parameters(str params, InputParameters *parsed) {
 			parsed->cnum++;
 			break;
 		case 'c':
-			if (!(parsed->parameters ^ PARAM_CLASSIFICATION_NUMBER)) {
+			if ((parsed->parameters & PARAM_CLASSIFICATION_NUMBER)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
 				continue;
 			}
@@ -832,7 +811,7 @@ parse_parameters(str params, InputParameters *parsed) {
 			parsed->cnum++;
 			break;
 		case 'u':
-			if (!(parsed->parameters ^ PARAM_USER_DATA)) {
+			if ((parsed->parameters & PARAM_USER_DATA)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
 				continue;
 			}
@@ -840,7 +819,7 @@ parse_parameters(str params, InputParameters *parsed) {
 			parsed->cnum++;
 			break;
 		case 'p':
-			if (!(parsed->parameters ^ PARAM_POINT_SOURCE_ID)) {
+			if ((parsed->parameters & PARAM_POINT_SOURCE_ID)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
 				continue;
 			}
@@ -848,7 +827,7 @@ parse_parameters(str params, InputParameters *parsed) {
 			parsed->cnum++;
 			break;
 		case 'e':
-			if (!(parsed->parameters ^ PARAM_EDGE_OF_FLIGHT_LINE)) {
+			if ((parsed->parameters & PARAM_EDGE_OF_FLIGHT_LINE)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
 				continue;
 			}
@@ -856,7 +835,7 @@ parse_parameters(str params, InputParameters *parsed) {
 			parsed->cnum++;
 			break;
 		case 'd':
-			if (!(parsed->parameters ^ PARAM_DIRECTION_OF_SCAN_FLAG)) {
+			if ((parsed->parameters & PARAM_DIRECTION_OF_SCAN_FLAG)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
 				continue;
 			}
@@ -864,7 +843,7 @@ parse_parameters(str params, InputParameters *parsed) {
 			parsed->cnum++;
 			break;
 		case 'R':
-			if (!(parsed->parameters ^ PARAM_RED_CHANNEL)) {
+			if ((parsed->parameters & PARAM_RED_CHANNEL)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
 				continue;
 			}
@@ -872,7 +851,7 @@ parse_parameters(str params, InputParameters *parsed) {
 			parsed->cnum++;
 			break;
 		case 'G':
-			if (!(parsed->parameters ^ PARAM_GREEN_CHANNEL)) {
+			if ((parsed->parameters & PARAM_GREEN_CHANNEL)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
 				continue;
 			}
@@ -880,7 +859,7 @@ parse_parameters(str params, InputParameters *parsed) {
 			parsed->cnum++;
 			break;
 		case 'B':
-			if (!(parsed->parameters ^ PARAM_BLUE_CHANNEL)) {
+			if ((parsed->parameters & PARAM_BLUE_CHANNEL)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
 				continue;
 			}
@@ -888,7 +867,7 @@ parse_parameters(str params, InputParameters *parsed) {
 			parsed->cnum++;
 			break;
 		case 'M':
-			if (!(parsed->parameters ^ PARAM_VERTEX_INDEX)) {
+			if ((parsed->parameters & PARAM_VERTEX_INDEX)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
 				continue;
 			}
@@ -1080,14 +1059,8 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 
 	/* Parse the input parameters */
-	if (params != NULL) {
-		parse_parameters(params, &input_params);
-	}
-	else {
-		/* If no parameter string is given read x, y, and z */
-		input_params.cnum = 3;
-		input_params.parameters = PARAM_X_COORD | PARAM_Y_COORD | PARAM_Z_COORD;
-	}
+	parse_parameters(params, &input_params);
+
 	/* store data */
 	store_funcs.append_col(m->session->tr,
 						   mvc_bind_column(m, lidar_tbl, "id"), &tid, TYPE_int);
@@ -1180,9 +1153,9 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* create an SQL table to hold the LIDAR table */
 	tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, input_params.cnum);
 
-	for (int x = 1; x < PARAMS_END_SENTINEL; x <<= 1) {
-		if (input_params.parameters & x) {
-			switch(x) {
+	for (int prm = 1; prm < PARAMS_END_SENTINEL; prm <<= 1) {
+		if (input_params.parameters & prm) {
+			switch(prm) {
 			case PARAM_X_COORD:
 				sql_find_subtype(&t, "decimal", precisionX, scaleX);
 				mvc_create_column(m, tbl, "x", &t);
