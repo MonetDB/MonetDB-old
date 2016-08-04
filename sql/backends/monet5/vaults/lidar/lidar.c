@@ -1927,7 +1927,7 @@ mvc_lidar_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     int upd = (pci->argc == 8 || pci->argc == 10);
     BAT *b = NULL, *bn;
     bat *bid = getArgReference_bat(stk, pci, 0);
-    int coltype = getColumnType(getArgType(mb, pci, 0));
+    int coltype = getBatType(getArgType(mb, pci, 0));
     mvc *m = NULL;
     str msg;
     int status = *getArgReference_int(stk, pci, 1 + upd);

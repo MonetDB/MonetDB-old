@@ -16,5 +16,4 @@
 # All Rights Reserved.
 
 # This loads the MonetDB/SQL module
-library gadget;
 include gadget;
