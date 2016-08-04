@@ -753,6 +753,7 @@ typedef struct input_parameters {
 static void
 parse_parameters(str params, InputParameters *parsed) {
 	/* x, y, and z are always loaded */
+    char *p = NULL;
 	parsed->cnum = 3;
 	parsed->parameters = PARAM_X_COORD | PARAM_Y_COORD | PARAM_Z_COORD;
 
@@ -760,7 +761,7 @@ parse_parameters(str params, InputParameters *parsed) {
 		return;
 	}
 
-	for (char *p = params; *p != '\0'; p++) {
+	for (p = params; *p != '\0'; p++) {
 		switch (*p) {
 		case 'x':
 		case 'X':
@@ -916,6 +917,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	lng nils = 0;
 	lng uniq = 0;
 	lng sz = 0;
+    int prm = 0;
 
 	switch(pci->argc) {
 	case 2:
@@ -1161,7 +1163,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* create an SQL table to hold the LIDAR table */
 	tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, input_params.cnum);
 
-	for (int prm = 1; prm < PARAMS_END_SENTINEL; prm <<= 1) {
+	for (prm = 1; prm < PARAMS_END_SENTINEL; prm <<= 1) {
 		if (input_params.parameters & prm) {
 			switch(prm) {
 			case PARAM_X_COORD:
@@ -1471,7 +1473,7 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 	str fname;
 	str msg = MAL_SUCCEED;
 	oid rid = oid_nil, frid = oid_nil, tid = oid_nil;
-	int fid;
+	int fid, prm = 0;
 #ifndef NDEBUG
 	int time0;
 #endif
@@ -1480,7 +1482,7 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 	/* BAT *x = NULL, *y = NULL, *z = NULL; */
 	BAT *bat = NULL;
 	sql_column *column;
-	int precisionx, precisiony, precisionz;
+	int precisionx = 0, precisiony = 0, precisionz = 0;
 	int input_params;
 	double scalex, scaley, scalez;
 	int error_code;
@@ -1521,7 +1523,7 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 	col = mvc_bind_column(m, lidar_tbl, "LoadParams");
 	input_params = *(int*)table_funcs.column_find_value(m->session->tr, col, rid);
 
-	for (int prm = 1; prm < PARAMS_END_SENTINEL; prm <<= 1) {
+	for (prm = 1; prm < PARAMS_END_SENTINEL; prm <<= 1) {
 		if (input_params & prm) {
 			switch(prm) {
 			case PARAM_X_COORD:
