@@ -1231,7 +1231,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				mvc_create_column(m, tbl, "blue_channel", &t);
 				break;
 			case PARAM_VERTEX_INDEX:
-				sql_find_subtype(&t, "integer", 0, 0);
+				sql_find_subtype(&t, "int", 0, 0);
 				mvc_create_column(m, tbl, "vertex_index", &t);
 				break;
 			}
@@ -1253,7 +1253,6 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		snprintf(maxval, BUFSIZ, "%lf", header->hi->maxX);
 		snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
 		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s,%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, "false", "false");
-		printf("%s\n", cstmt);
 		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
 		if (msg) {
 			GDKfree(cstmt);
