@@ -1252,7 +1252,8 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		snprintf(minval, BUFSIZ, "%lf", header->hi->minX);
 		snprintf(maxval, BUFSIZ, "%lf", header->hi->maxX);
 		snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
-		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, (header->hi->minX == header->hi->maxX) ? "true" : "false");
+		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s,%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, "false", "false");
+		printf("%s\n", cstmt);
 		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
 		if (msg) {
 			GDKfree(cstmt);
@@ -1265,7 +1266,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		snprintf(minval, BUFSIZ, "%lf", header->hi->minY);
 		snprintf(maxval, BUFSIZ, "%lf", header->hi->maxY);
 		snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
-		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, (header->hi->minY == header->hi->maxY) ? "true" : "false");
+		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s,%s);", col->base.id, col_type, precisionY, sz, sz, uniq, nils, minval, maxval, "false", "false");
 		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
 		if (msg) {
 			GDKfree(cstmt);
@@ -1277,8 +1278,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		snprintf(minval, BUFSIZ, "%lf", header->hi->minZ);
 		snprintf(maxval, BUFSIZ, "%lf", header->hi->maxZ);
 		snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
-
-		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, (header->hi->minZ == header->hi->maxZ) ? "true" : "false");
+		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s,%s);", col->base.id, col_type, precisionZ, sz, sz, uniq, nils, minval, maxval, "false", "false");
 		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
 		if (msg) {
 			GDKfree(cstmt);
