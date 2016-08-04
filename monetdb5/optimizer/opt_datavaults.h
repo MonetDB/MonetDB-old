@@ -11,7 +11,7 @@
 #include "opt_prelude.h"
 #include "opt_support.h"
 
-opt_export int
+mal_export int
 OPTdatavaultsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 #define OPTDEBUGdatavaults  if ( optDebug & ((lng)1 <<DEBUG_OPT_DATAVAULTS) )

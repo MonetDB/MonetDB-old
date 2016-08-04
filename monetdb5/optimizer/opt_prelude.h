@@ -238,7 +238,7 @@ mal_export  str not_ilikeRef;
 mal_export  str userRef;
 mal_export  str vectorRef;
 mal_export  str zero_or_oneRef;
-opt_export  str datavaultsRef;
-opt_export  str checktableRef;
-opt_export  str analyzetableRef;
+mal_export  str datavaultsRef;
+mal_export  str checktableRef;
+mal_export  str analyzetableRef;
 #endif
