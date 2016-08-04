@@ -194,37 +194,6 @@ static struct PIPELINES {
 	 "optimizer.candidates();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
-/* Experimental pipelines stressing various components under
- * development.  Do not use any of these pipelines in production
- * settings!
-	{"recycler_pipe",
-	 "optimizer.inline();"
-	 "optimizer.remap();"
-	 "optimizer.costModel();"
-	 "optimizer.coercions();"
-	 "optimizer.evaluate();"
-	 "optimizer.aliases();"
-	 "optimizer.pushselect();"
-	 "optimizer.mitosis();"
-	 "optimizer.mergetable();"
-	 "optimizer.aliases();"
-	 "optimizer.deadcode();"
-	 "optimizer.constants();"
-	 "optimizer.commonTerms();"
-	 "optimizer.projectionpath();"
-	 "optimizer.reorder();"
-	 "optimizer.deadcode();"
-	 "optimizer.reduce();"
-	 "optimizer.matpack();"
-	 "optimizer.dataflow();"
-	 "optimizer.recycler();"
-	 "optimizer.querylog();"
-	 "optimizer.multiplex();"
-	 "optimizer.generator();"
-	 "optimizer.profiler();"
-	 "optimizer.garbageCollector();",
-	 "stable", NULL, NULL, 1},
- */
 /*The datavaults pipe line is (and should be kept!) identical to the
  * default pipeline, except that optimizer datavaults is added.
  *
@@ -387,7 +356,7 @@ getPipeCatalog(bat *nme, bat *def, bat *stat)
 	}
 
 	for (i = 0; i < MAXOPTPIPES && pipes[i].name; i++) {
-		if (pipes[i].prerequisite && getAddress(GDKout, NULL, optimizerRef, pipes[i].prerequisite, TRUE) == NULL)
+		if (pipes[i].prerequisite && getAddress(GDKout, NULL, pipes[i].prerequisite, TRUE) == NULL)
 			continue;
 		BUNappend(b, pipes[i].name, FALSE);
 		BUNappend(bn, pipes[i].def, FALSE);
@@ -493,7 +462,7 @@ compileOptimizer(Client cntxt, str name)
 			(void) MCinitClientThread(&c);
 			for (j = 0; j < MAXOPTPIPES && pipes[j].def; j++) {
 				if (pipes[j].mb == NULL) {
-					if (pipes[j].prerequisite && getAddress(c.fdout, NULL, optimizerRef, pipes[j].prerequisite, TRUE) == NULL)
+					if (pipes[j].prerequisite && getAddress(c.fdout, NULL, pipes[j].prerequisite, TRUE) == NULL)
 						continue;
 					MSinitClientPrg(&c, "user", pipes[j].name);
 					msg = compileString(&sym, &c, pipes[j].def);

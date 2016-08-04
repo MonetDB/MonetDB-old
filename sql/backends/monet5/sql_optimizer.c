@@ -23,6 +23,7 @@
 #include "monetdb_config.h"
 #include "mal_builder.h"
 #include "mal_debugger.h"
+#include "mal_runtime.h"
 #include "opt_prelude.h"
 #include "sql_mvc.h"
 #include "sql_optimizer.h"
@@ -124,11 +125,6 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe)
 				q->token = REMsymbol;	/* they are ignored */
 		}
 	}
-	if (be->mvc->emod & mod_debug){
-		addtoMalBlkHistory(mb);
-		c->curprg->def->keephistory = TRUE;
-	} else
-		c->curprg->def->keephistory = FALSE;
 }
 
 static str
@@ -138,7 +134,10 @@ sqlJIToptimizer(Client c, MalBlkPtr mb, backend *be)
 	str pipe = getSQLoptimizer(be->mvc);
 
 	addOptimizers(c, mb, pipe);
+
+	mb->keephistory = be->mvc->emod & mod_debug;
 	msg = optimizeMALBlock(c, mb);
+	mb->keephistory = FALSE;
 	if (msg)
 		return msg;
 
@@ -162,7 +161,6 @@ optimizeQuery(Client c)
 	be = (backend *) c->sqlcontext;
 	assert(be && be->mvc);	/* SQL clients should always have their state set */
 
-	trimMalBlk(c->curprg->def);
 	c->blkmode = 0;
 	mb = c->curprg->def;
 	chkProgram(c->fdout, c->nspace, mb);

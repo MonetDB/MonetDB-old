@@ -26,7 +26,6 @@
 #include "sql_execute.h"
 #include "sql_env.h"
 #include "sql_mvc.h"
-#include "sql_readline.h"
 #include "sql_user.h"
 #include "sql_datetime.h"
 #include "mal_io.h"
@@ -190,10 +189,12 @@ SQLepilogue(void *ret)
 	str res;
 
 	(void) ret;
+	MT_lock_set(&sql_contextLock);
 	if (SQLinitialized) {
 		mvc_exit();
 		SQLinitialized = FALSE;
 	}
+	MT_lock_unset(&sql_contextLock);
 	/* this function is never called, but for the style of it, we clean
 	 * up our own mess */
 	res = msab_retreatScenario(m);
@@ -379,7 +380,6 @@ SQLautocommit(Client c, mvc *m)
 {
 	if (m->session->auto_commit && m->session->active) {
 		if (mvc_status(m) < 0) {
-			RECYCLEdrop(0);
 			mvc_rollback(m, 0, NULL);
 		} else if (mvc_commit(m, 0, NULL) < 0) {
 			return handle_error(m, c->fdout, 0);
@@ -606,7 +606,6 @@ SQLexitClient(Client c)
 				(void) handle_error(m, c->fdout, 0);
 		}
 		if (m->session->active) {
-			RECYCLEdrop(0);
 			mvc_rollback(m, 0, NULL);
 		}
 
@@ -620,6 +619,7 @@ SQLexitClient(Client c)
 		c->sqlcontext = NULL;
 	}
 	c->state[MAL_SCENARIO_READER] = NULL;
+	MALexitClient(c);
 	return MAL_SUCCEED;
 }
 
@@ -765,7 +765,6 @@ SQLreader(Client c)
 #endif
 	/*
 	 * Distinguish between console reading and mclient connections.
-	 * The former comes with readline functionality.
 	 */
 	while (more) {
 		more = FALSE;
@@ -938,6 +937,12 @@ SQLparser(Client c)
 	 * this point if this is a recursive call. */
 	if (!m->sa)
 		m->sa = sa_create();
+	if (!m->sa) {
+		mnstr_printf(out, "!Could not create SQL allocator\n");
+		mnstr_flush(out);
+		c->mode = FINISHCLIENT;
+		throw(SQL, "SQLparser", "Could not create SQL allocator");
+	}
 
 	m->emode = m_normal;
 	m->emod = mod_none;
@@ -983,7 +988,6 @@ SQLparser(Client c)
 					mnstr_printf(out, "!COMMIT: commit failed while " "enabling auto_commit\n");
 					msg = createException(SQL, "SQLparser", "Xauto_commit (commit) failed");
 				} else if (!commit && mvc_rollback(m, 0, NULL) < 0) {
-					RECYCLEdrop(0);
 					mnstr_printf(out, "!COMMIT: rollback failed while " "disabling auto_commit\n");
 					msg = createException(SQL, "SQLparser", "Xauto_commit (rollback) failed");
 				}

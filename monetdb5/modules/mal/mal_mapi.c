@@ -117,26 +117,27 @@ doChallenge(void *data)
 	stream *fdin = block_stream(((struct challengedata *) data)->in);
 	stream *fdout = block_stream(((struct challengedata *) data)->out);
 	bstream *bs;
-	int len = 0;
+	ssize_t len = 0;
 
 #ifdef _MSC_VER
 	srand((unsigned int) GDKusec());
 #endif
-	GDKfree(data);
 	if (buf == NULL || fdin == NULL || fdout == NULL){
-		if (fdin) {
-			mnstr_close(fdin);
-			mnstr_destroy(fdin);
-		}
-		if (fdout) {
-			mnstr_close(fdout);
-			mnstr_destroy(fdout);
-		}
+		if (fdin)
+			close_stream(fdin);
+		else
+			close_stream(((struct challengedata *) data)->in);
+		if (fdout)
+			close_stream(fdout);
+		else
+			close_stream(((struct challengedata *) data)->out);
+		GDKfree(data);
 		if (buf)
 			GDKfree(buf);
 		GDKsyserror("SERVERlisten:"MAL_MALLOC_FAIL);
 		return;
 	}
+	GDKfree(data);
 
 	/* generate the challenge string */
 	generateChallenge(challenge, 8, 12);
@@ -155,12 +156,10 @@ doChallenge(void *data)
 	free(algos);
 	mnstr_flush(fdout);
 	/* get response */
-	if ((len = (int) mnstr_read_block(fdin, buf, 1, BLOCK)) < 0) {
-		/* the client must have gone away, so no reason to write something */
-		mnstr_close(fdin);
-		mnstr_destroy(fdin);
-		mnstr_close(fdout);
-		mnstr_destroy(fdout);
+	if ((len = mnstr_read_block(fdin, buf, 1, BLOCK)) < 0) {
+		/* the client must have gone away, so no reason to write anything */
+		close_stream(fdin);
+		close_stream(fdout);
 		GDKfree(buf);
 		return;
 	}
@@ -175,16 +174,9 @@ doChallenge(void *data)
 	bs = bstream_create(fdin, 128 * BLOCK);
 
 	if (bs == NULL){
-		if (fdin) {
-			mnstr_close(fdin);
-			mnstr_destroy(fdin);
-		}
-		if (fdout) {
-			mnstr_close(fdout);
-			mnstr_destroy(fdout);
-		}
-		if (buf)
-			GDKfree(buf);
+		close_stream(fdin);
+		close_stream(fdout);
+		GDKfree(buf);
 		GDKsyserror("SERVERlisten:"MAL_MALLOC_FAIL);
 		return;
 	}
@@ -365,15 +357,43 @@ SERVERlistenThread(SOCKET *Sock)
 		fflush(stdout);
 #endif
 		data = GDKmalloc(sizeof(*data));
+		if (data == NULL) {
+			closesocket(msgsock);
+			showException(GDKstdout, MAL, "initClient",
+						  "cannot allocate memory");
+			continue;
+		}
 		data->in = socket_rastream(msgsock, "Server read");
 		data->out = socket_wastream(msgsock, "Server write");
-		if (MT_create_thread(&tid, doChallenge, data, MT_THR_JOINABLE)) {
+		if (data->in == NULL || data->out == NULL) {
+			if (data->out) {
+				/* send message if we can */
+				mnstr_printf(data->out,
+							 "!internal server error (cannot allocate "
+							 "enough memory), please try again later\n");
+				mnstr_flush(data->out);
+			}
+			showException(GDKstdout, MAL, "initClient",
+						  "cannot allocate memory");
+			closesocket(msgsock);
+			if (data->in)
+				mnstr_destroy(data->in);
+			if (data->out)
+				mnstr_destroy(data->out);
+			GDKfree(data);
+			continue;
+		}
+		if (MT_create_thread(&tid, doChallenge, data, MT_THR_JOINABLE) < 0) {
 			mnstr_printf(data->out, "!internal server error (cannot fork new "
 						 "client thread), please try again later\n");
 			mnstr_flush(data->out);
 			showException(GDKstdout, MAL, "initClient",
 						  "cannot fork new client thread");
+			closesocket(msgsock);
+			mnstr_destroy(data->in);
+			mnstr_destroy(data->out);
 			GDKfree(data);
+			continue;
 		}
 		GDKregister(tid);
 	} while (!ATOMIC_GET(serverexiting, atomicLock) &&
@@ -1391,7 +1411,6 @@ SERVERfetch_field_bat(bat *bid, int *key){
 		}
 		BUNappend(b,fld, FALSE);
 	}
-	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	*bid = b->batCacheid;
 	BBPkeepref(*bid);
 	return MAL_SUCCEED;
@@ -1601,7 +1620,7 @@ SERVERmapi_rpc_bat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	key= getArgReference_int(stk,pci,pci->retc);
 	qry= getArgReference_str(stk,pci,pci->retc+1);
 	accessTest(*key, "rpc");
-	tt= getColumnType(getVarType(mb,getArg(pci,0)));
+	tt= getBatType(getVarType(mb,getArg(pci,0)));
 
 	hdl= mapi_query(mid, *qry);
 	catchErrors("mapi.rpc");
@@ -1614,7 +1633,6 @@ SERVERmapi_rpc_bat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		SERVERfieldAnalysis(fld2, tt, &tval);
 		BUNappend(b,VALptr(&tval), FALSE);
 	}
-	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	*ret = b->batCacheid;
 	BBPkeepref(*ret);
 
@@ -1650,7 +1668,7 @@ SERVERput(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 		/* reconstruct the object */
 		ht = getTypeName(TYPE_oid);
-		tt = getTypeName(getColumnType(tpe));
+		tt = getTypeName(getBatType(tpe));
 		snprintf(buf,BUFSIZ,"%s:= bat.new(:%s,%s);", *nme, ht,tt );
 		len = (int) strlen(buf);
 		snprintf(buf+len,BUFSIZ-len,"%s:= io.import(%s,tuples);", *nme, *nme);
@@ -1729,8 +1747,8 @@ SERVERbindBAT(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		tab= getArgReference_str(stk,pci,pci->retc+2);
 		col= getArgReference_str(stk,pci,pci->retc+3);
 		i= *getArgReference_int(stk,pci,pci->retc+4);
-		tn = getTypeName(getColumnType(getVarType(mb,getDestVar(pci))));
-		snprintf(buf,BUFSIZ,"%s:bat[:oid,:%s]:=sql.bind(\"%s\",\"%s\",\"%s\",%d);",
+		tn = getTypeName(getBatType(getVarType(mb,getDestVar(pci))));
+		snprintf(buf,BUFSIZ,"%s:bat[:%s]:=sql.bind(\"%s\",\"%s\",\"%s\",%d);",
 			getVarName(mb,getDestVar(pci)),
 			tn,
 			*nme, *tab,*col,i);
@@ -1738,15 +1756,15 @@ SERVERbindBAT(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	} else if( pci->argc == 5) {
 		tab= getArgReference_str(stk,pci,pci->retc+2);
 		i= *getArgReference_int(stk,pci,pci->retc+3);
-		snprintf(buf,BUFSIZ,"%s:bat[:void,:oid]:=sql.bind(\"%s\",\"%s\",0,%d);",
+		snprintf(buf,BUFSIZ,"%s:bat[:oid]:=sql.bind(\"%s\",\"%s\",0,%d);",
 			getVarName(mb,getDestVar(pci)),*nme, *tab,i);
 	} else {
 		str hn,tn;
 		int target= getArgType(mb,pci,0);
 		hn= getTypeName(TYPE_oid);
-		tn= getTypeName(getColumnType(target));
-		snprintf(buf,BUFSIZ,"%s:bat[:%s,:%s]:=bbp.bind(\"%s\");",
-			getVarName(mb,getDestVar(pci)), hn,tn, *nme);
+		tn= getTypeName(getBatType(target));
+		snprintf(buf,BUFSIZ,"%s:bat[:%s]:=bbp.bind(\"%s\");",
+			getVarName(mb,getDestVar(pci)), tn, *nme);
 		GDKfree(hn);
 		GDKfree(tn);
 	}

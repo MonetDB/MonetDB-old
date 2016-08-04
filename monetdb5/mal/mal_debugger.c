@@ -517,7 +517,7 @@ retryRead:
 					continue;
 				}
 				for (i = 0; i < MAXSCOPE; i++) {
-					fs = fsym->subscope[i];
+					fs = fsym->space[i];
 					while (fs != NULL) {
 						printSignature(out, fs, 0);
 						fs = fs->peer;
@@ -525,13 +525,10 @@ retryRead:
 				}
 				continue;
 			} else{
-				Module s;
-				mnstr_printf(out,"#");
-				for( s= cntxt->nspace; s; s= s->outer) {
-					mnstr_printf(out,"%s",s->name);
-					if( s->subscope==0) mnstr_printf(out,"?");
-					if(s->outer) mnstr_printf(out,",");
-				}
+				Module m;
+				mnstr_printf(out,"#%s ",cntxt->nspace->name);
+				for( m = getModuleChain(); m; m = m->next)
+					mnstr_printf(out,"%s ",m->name);
 				mnstr_printf(out,"\n");
 			}
 		}
@@ -586,7 +583,7 @@ retryRead:
 						continue;
 					}
 					for (i = 0; i < MAXSCOPE; i++) {
-						fs = fsym->subscope[i];
+						fs = fsym->space[i];
 						while (fs != NULL) {
 							printStack(out, fs->def, 0);
 							fs = fs->peer;
@@ -603,7 +600,7 @@ retryRead:
 				}
 				/* display the overloaded symbol definition */
 				for (i = 0; i < MAXSCOPE; i++) {
-					fs = fsym->subscope[i];
+					fs = fsym->space[i];
 					while (fs != NULL) {
 						if (strcmp(fs->name, fcnname) == 0)
 							printStack(out, fs->def, 0);
@@ -874,7 +871,7 @@ retryRead:
 						continue;
 					}
 					for (i = 0; i < MAXSCOPE; i++) {
-						fs = fsym->subscope[i];
+						fs = fsym->space[i];
 						while (fs != NULL) {
 							printFunction(out, fs->def, 0, lstng);
 							fs = fs->peer;
@@ -917,10 +914,6 @@ partial:
 			}
 			continue;
 		}
-		case '?':
-			if (!isspace((int) b[1]))
-				showHelp(cntxt->nspace, b + 1, out);
-			continue;
 		case 'h':
 			if (strncmp("help", b, 2) == 0)
 				mdbHelp(out);
@@ -1192,7 +1185,7 @@ printBATelm(stream *f, bat i, BUN cnt, BUN first)
 
 	b = BATdescriptor(i);
 	if (b) {
-		tpe = getTypeName(newColumnType(b->ttype));
+		tpe = getTypeName(newBatType(b->ttype));
 		mnstr_printf(f, ":%s ", tpe);
 		GDKfree(tpe);
 		printBATproperties(f, b);
@@ -1229,18 +1222,11 @@ printBATelm(stream *f, bat i, BUN cnt, BUN first)
 void
 printStackHdr(stream *f, MalBlkPtr mb, ValPtr v, int index)
 {
-	str nme;
-	char nmebuf[PATHLENGTH];
 	VarPtr n = getVar(mb, index);
 
 	if (v == 0 && isVarConstant(mb, index))
 		v = &getVarConstant(mb, index);
-	if (n->tmpindex) {
-		snprintf(nmebuf, PATHLENGTH, "%c%d", TMPMARKER, n->tmpindex);
-		nme = nmebuf;
-	} else
-		nme = n->name;
-	mnstr_printf(f, "#[%2d] %5s", index, nme);
+	mnstr_printf(f, "#[%2d] %5s", index, n->id);
 	mnstr_printf(f, " (%d,%d,%d) = ", getBeginScope(mb,index), getLastUpdate(mb,index),getEndScope(mb, index));
 	if (v)
 		ATOMprint(v->vtype, VALptr(v), f);
@@ -1261,7 +1247,7 @@ printStackElm(stream *f, MalBlkPtr mb, ValPtr v, int index, BUN cnt, BUN first)
 		BAT *b = BBPquickdesc(i, TRUE);
 
 		if (b) {
-			nme = getTypeName(newColumnType(b->ttype));
+			nme = getTypeName(newBatType(b->ttype));
 			mnstr_printf(f, " :%s rows="BUNFMT, nme, BATcount(b));
 		} else {
 			nme = getTypeName(n->type);
@@ -1296,7 +1282,7 @@ printBatDetails(stream *f, bat bid)
 
 	/* at this level we don't know bat kernel primitives */
 	mnstr_printf(f, "#Show info for %d\n", bid);
-	fcn = getAddress(f, "bat", "bat", "BKCinfo", 0);
+	fcn = getAddress(f, "bat", "BKCinfo", 0);
 	if (fcn) {
 		(*fcn)(&ret,&ret2, &bid);
 		b[0] = BATdescriptor(ret);
@@ -1330,7 +1316,7 @@ printBatProperties(stream *f, VarPtr n, ValPtr v, str props)
 		BUN p;
 
 		/* at this level we don't know bat kernel primitives */
-		fcn = getAddress(f, "bat", "bat", "BKCinfo", 0);
+		fcn = getAddress(f, "bat", "BKCinfo", 0);
 		if (fcn) {
 			BAT *b[2];
 			str res;

@@ -49,7 +49,6 @@
 #include "opt_profiler.h"
 #include "opt_pushselect.h"
 #include "opt_querylog.h"
-#include "opt_recycler.h"
 #include "opt_reduce.h"
 #include "opt_remap.h"
 #include "opt_remoteQueries.h"
@@ -84,7 +83,6 @@ struct{
 	{"profiler", &OPTprofilerImplementation},
 	{"pushselect", &OPTpushselectImplementation},
 	{"querylog", &OPTquerylogImplementation},
-	{"recycler", &OPTrecyclerImplementation},
 	{"reduce", &OPTreduceImplementation},
 	{"remap", &OPTremapImplementation},
 	{"remoteQueries", &OPTremoteQueriesImplementation},
@@ -92,7 +90,7 @@ struct{
 	{"volcano", &OPTvolcanoImplementation},
 	{0,0}
 };
-opt_export str OPTwrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+mal_export str OPTwrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 
 #define OPTIMIZERDEBUG if (0) 
 

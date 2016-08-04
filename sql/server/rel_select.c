@@ -25,6 +25,8 @@
 #include "mal.h"		/* for have_hge */
 #endif
 
+#define check_card(card,f) ((card == card_none && !f->res) || (card != card_none && f->res) || card == card_loader)
+
 static void
 rel_setsubquery(sql_rel*r)
 {
@@ -99,21 +101,6 @@ rel_table_projections( mvc *sql, sql_rel *rel, char *tname, int level )
 	default:
 		return NULL;
 	}
-}
-
-sql_rel *
-rel_table_func(sql_allocator *sa, sql_rel *l, sql_exp *f, list *exps, int kind)
-{
-	sql_rel *rel = rel_create(sa);
-
-	rel->flag = kind;
-	rel->l = l; /* relation before call */
-	rel->r = f; /* expression (table func call) */
-	rel->op = op_table;
-	rel->exps = exps;
-	rel->card = CARD_MULTI;
-	rel->nrcols = list_length(exps);
-	return rel;
 }
 
 static sql_rel*
@@ -597,13 +584,11 @@ static sql_exp *
 rel_op_(mvc *sql, sql_schema *s, char *fname, exp_kind ek)
 {
 	sql_subfunc *f = NULL;
-	int type = (ek.card == card_none)?F_PROC:
-		   ((ek.card == card_relation)?F_UNION:F_FUNC);
+	int type = (ek.card == card_loader)?F_LOADER:((ek.card == card_none)?F_PROC:
+		   ((ek.card == card_relation)?F_UNION:F_FUNC));
 
 	f = sql_bind_func(sql->sa, s, fname, NULL, NULL, type);
-	if (f && 
-		((ek.card == card_none && !f->res) || 
-		 (ek.card != card_none && f->res))) {
+	if (f && check_card(ek.card, f)) {
 		return exp_op(sql->sa, NULL, f);
 	} else {
 		return sql_error(sql, 02,
@@ -1345,22 +1330,38 @@ rel_filter(mvc *sql, sql_rel *rel, list *l, list *r, char *sname, char *filter_o
 	/* find filter function */
 	f = sql_bind_func_(sql->sa, s, filter_op, tl, F_FILT);
 
-	if (!f) {
-		if ((f = sql_find_func(sql->sa, s, filter_op, list_length(exps), F_FILT, NULL)) != NULL) { 
-			node *n,*m = f->func->ops->h;
-			list *nexps = sa_list(sql->sa);
-			for(n = exps->h, m = f->func->ops->h; m && n; m = m->next, n = n->next) {
-				sql_arg *a = m->data;
-				sql_exp *e = n->data;
+	if (!f) 
+		f = find_func(sql, s, filter_op, list_length(exps), F_FILT, NULL);
+	if (f) {
+		node *n,*m = f->func->ops->h;
+		list *nexps = sa_list(sql->sa);
 
-				e = rel_check_type(sql, &a->type, e, type_equal);
-				list_append(nexps, e);
-			}
-			exps = nexps;
+		for(n=l->h; m && n; m = m->next, n = n->next) {
+			sql_arg *a = m->data;
+			sql_exp *e = n->data;
+
+			e = rel_check_type(sql, &a->type, e, type_equal);
+			if (!e)
+				return NULL;
+			list_append(nexps, e);
 		}
+		l = nexps;
+		nexps = sa_list(sql->sa);
+		for(n=r->h; m && n; m = m->next, n = n->next) {
+			sql_arg *a = m->data;
+			sql_exp *e = n->data;
+
+			e = rel_check_type(sql, &a->type, e, type_equal);
+			if (!e)
+				return NULL;
+			list_append(nexps, e);
+		}
+		r = nexps;
 	}
-	if (!f)
+	if (!f) {
+		return sql_error(sql, 02, "SELECT: no such FILTER function '%s'", filter_op);
 		return NULL;
+	}
 	e = exp_filter(sql->sa, l, r, f, anti);
 
 	/* atom or row => select */
@@ -1378,7 +1379,7 @@ rel_filter(mvc *sql, sql_rel *rel, list *l, list *r, char *sname, char *filter_o
 		else
 			return sql_error(sql, 02, "SELECT: cannot use non GROUP BY column in query results without an aggregate function");
 	}
-	if (exps_card(r) <= CARD_ATOM /*&& exp_is_atom(rs) */) {
+	if (exps_card(r) <= CARD_ATOM && exps_are_atoms(r)) {
 		if (exps_card(l) == exps_card(r) || rel->processed)  /* bin compare op */
 			return rel_select(sql->sa, rel, e);
 
@@ -2537,13 +2538,14 @@ rel_op(mvc *sql, symbol *se, exp_kind ek )
 	return rel_op_(sql, s, fname, ek);
 }
 
+
 sql_exp *
 rel_unop_(mvc *sql, sql_exp *e, sql_schema *s, char *fname, int card)
 {
 	sql_subfunc *f = NULL;
 	sql_subtype *t = NULL;
-	int type = (card == card_none)?F_PROC:
-		   ((card == card_relation)?F_UNION:F_FUNC);
+	int type = (card == card_loader)?F_LOADER:((card == card_none)?F_PROC:
+		   ((card == card_relation)?F_UNION:F_FUNC));
 
 	if (!s)
 		s = sql->session->schema;
@@ -2553,9 +2555,7 @@ rel_unop_(mvc *sql, sql_exp *e, sql_schema *s, char *fname, int card)
 	 * the value to the type needed by this function!
 	 */
 	if (!f &&
-	   (f = find_func(sql, s, fname, 1, type, NULL)) != NULL &&
-	   ((card == card_none && !f->res) || 
-	    (card != card_none && f->res))) {
+	   (f = find_func(sql, s, fname, 1, type, NULL)) != NULL && check_card(card, f)) {
 
 		if (!f->func->vararg) {
 			sql_arg *a = f->func->ops->h->data;
@@ -2565,9 +2565,7 @@ rel_unop_(mvc *sql, sql_exp *e, sql_schema *s, char *fname, int card)
 		if (!e) 
 			f = NULL;
 	}
-	if (f &&
-	   ((card == card_none && !f->res) || 
-	    (card != card_none && f->res))) {
+	if (f && check_card(card, f)) {
 		sql_arg *ares = f->func->res?f->func->res->h->data:NULL;
 		if (ares && ares->type.scale == INOUT) {
 			sql_subtype *res = f->res->h->data;
@@ -2599,24 +2597,26 @@ rel_unop(mvc *sql, sql_rel **rel, symbol *se, int fs, exp_kind ek)
 	char *sname = qname_schema(l->data.lval);
 	sql_schema *s = sql->session->schema;
 	exp_kind iek = {type_value, card_column, FALSE};
-	sql_exp *e = rel_value_exp(sql, rel, l->next->data.sym, fs, iek);
+	sql_exp *e = NULL;
 	sql_subfunc *f = NULL;
 	sql_subtype *t = NULL;
-	int type = (ek.card == card_none)?F_PROC:F_FUNC;
+	int type = (ek.card == card_loader)?F_LOADER:((ek.card == card_none)?F_PROC:F_FUNC);
 
 	if (sname)
 		s = mvc_bind_schema(sql, sname);
 
 	if (!s)
 		return NULL;
-	if (!e)
-		f = find_func(sql, s, fname, 1, F_AGGR, NULL);
-	if (!e && f) { /* possibly we cannot resolve the argument as the function maybe an aggregate */
-		/* reset error */
-		sql->session->status = 0;
-		sql->errstr[0] = '\0';
-		return rel_aggr(sql, rel, se, fs);
+	f = find_func(sql, s, fname, 1, F_AGGR, NULL);
+	if (f) { 
+		e = rel_aggr(sql, rel, se, fs);
+		if (e)
+			return e;
 	}
+	/* reset error */
+	sql->session->status = 0;
+	sql->errstr[0] = '\0';
+       	e = rel_value_exp(sql, rel, l->next->data.sym, fs, iek);
 	if (!e)
 		return NULL;
 
@@ -2664,9 +2664,11 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 	sql_exp *res = NULL;
 	sql_subtype *t1, *t2;
 	sql_subfunc *f = NULL;
-	int type = (card == card_none)?F_PROC:
-		   ((card == card_relation)?F_UNION:F_FUNC);
-
+	int type = (card == card_loader)?F_LOADER:((card == card_none)?F_PROC:
+		   ((card == card_relation)?F_UNION:F_FUNC));
+	if (card == card_loader) {
+		card = card_none;
+	}
 	t1 = exp_subtype(l);
 	t2 = exp_subtype(r);
 
@@ -2711,9 +2713,7 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 			r = res;
 		}
 	}
-	if (f && 
-	   ((card == card_none && !f->res) || 
-	    (card != card_none && f->res))) {
+	if (f && check_card(card,f)) {
 		if (f->func->fix_scale == SCALE_FIX) {
 			l = exp_fix_scale(sql, t2, l, 0, 0);
 			r = exp_fix_scale(sql, t1, r, 0, 0);
@@ -2783,8 +2783,7 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 			node *m = f->func->ops->h;
 			sql_arg *a = m->data;
 
-			if (!((card == card_none && !f->res) || 
-	    	    	      (card != card_none && f->res)))
+			if (!check_card(card,f))
 				continue;
 
 			prev = f;
@@ -2808,9 +2807,7 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 			t1 = exp_subtype(l);
 			t2 = exp_subtype(r);
 			f = bind_func(sql, s, fname, t1, t2, type);
-			if (f && 
-	     	    	   ((card == card_none && !f->res) || 
-	    	    	    (card != card_none && f->res))) {
+			if (f && check_card(card,f)) {
 				if (f->func->fix_scale == SCALE_FIX) {
 					l = exp_fix_scale(sql, t2, l, 0, 0);
 					r = exp_fix_scale(sql, t1, r, 0, 0);
@@ -2841,9 +2838,7 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 		t1 = exp_subtype(l);
 		(void) exp_subtype(r);
 
-		if ((f = bind_member_func(sql, s, fname, t1, 2, NULL)) != NULL &&
-	     	   ((card == card_none && !f->res) || 
-	    	    (card != card_none && f->res))) {
+		if ((f = bind_member_func(sql, s, fname, t1, 2, NULL)) != NULL && check_card(card,f)) {
 			/* try finding function based on first argument */
 			node *m = f->func->ops->h;
 			sql_arg *a = m->data;
@@ -2861,9 +2856,7 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 		l = ol;
 		r = or;
 		/* everything failed, fall back to bind on function name only */
-		if ((f = find_func(sql, s, fname, 2, type, NULL)) != NULL &&
-	     	   ((card == card_none && !f->res) || 
-	    	    (card != card_none && f->res))) {
+		if ((f = find_func(sql, s, fname, 2, type, NULL)) != NULL && check_card(card,f)) {
 
 			if (!f->func->vararg) {
 				node *m = f->func->ops->h;
@@ -2898,7 +2891,8 @@ rel_binop(mvc *sql, sql_rel **rel, symbol *se, int f, exp_kind ek)
 	char *sname = qname_schema(dl->data.lval);
 	sql_schema *s = sql->session->schema;
 	exp_kind iek = {type_value, card_column, FALSE};
-	int type = (ek.card == card_none)?F_PROC:F_FUNC;
+	int type = (ek.card == card_loader)?F_LOADER:((ek.card == card_none)?F_PROC:F_FUNC);
+
 	sql_subfunc *sf = NULL;
 
 	if (sname)
@@ -2973,8 +2967,8 @@ rel_nop(mvc *sql, sql_rel **rel, symbol *se, int fs, exp_kind ek)
 	sql_schema *s = sql->session->schema;
 	exp_kind iek = {type_value, card_column, FALSE};
 	int table_func = (ek.card == card_relation);
-	int type = (ek.card == card_none)?F_PROC:
-		   ((ek.card == card_relation)?F_UNION:F_FUNC);
+	int type = (ek.card == card_loader)?F_LOADER:((ek.card == card_none)?F_PROC:
+		   ((ek.card == card_relation)?F_UNION:F_FUNC));
 
 	for (; ops; ops = ops->next, nr_args++) {
 		sql_exp *e = rel_value_exp(sql, rel, ops->data.sym, fs, iek);
