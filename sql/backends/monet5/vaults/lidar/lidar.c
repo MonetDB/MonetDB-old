@@ -1304,6 +1304,7 @@ typedef union retval {
 
 static RetVal readValue(LASPointH p, ParameterValues param) {
 	RetVal ret;
+	LASColorH color;
 
 	switch(param) {
 	case PARAM_X_COORD:
@@ -1315,8 +1316,50 @@ static RetVal readValue(LASPointH p, ParameterValues param) {
 	case PARAM_Z_COORD:
 		ret.val_dbl = LASPoint_GetZ(p);
 		break;
+	case PARAM_GPS_TIME:
+		ret.val_dbl = LASPoint_GetTime(p);
+		break;
+	case PARAM_SCAN_ANGLE:
+		ret.val_bte = LASPoint_GetScanAngleRank(p);
+		break;
+	case PARAM_INTENSITY:
+		ret.val_sht = LASPoint_GetIntensity(p);
+		break;
+	case PARAM_N_RETURNS:
+		ret.val_sht = LASPoint_GetNumberOfReturns(p);
+		break;
+	case PARAM_N_THIS_RETURN:
+		ret.val_sht = LASPoint_GetReturnNumber(p);
+		break;
+	case PARAM_CLASSIFICATION_NUMBER:
+		ret.val_bte = LASPoint_GetClassification(p);
+		break;
+	case PARAM_USER_DATA:
+		ret.val_bte = LASPoint_GetUserData(p);
+		break;
+	case PARAM_POINT_SOURCE_ID:
+		ret.val_sht = LASPoint_GetPointSourceId(p);
+		break;
+	case PARAM_EDGE_OF_FLIGHT_LINE:
+		ret.val_sht = LASPoint_GetFlightLineEdge(p);
+		break;
+	case PARAM_DIRECTION_OF_SCAN_FLAG:
+		ret.val_sht = LASPoint_GetScanDirection(p);
+		break;
+	case PARAM_RED_CHANNEL:
+		color = LASPoint_GetColor(p);
+		ret.val_sht = LASColor_GetRed(color);
+		break;
+	case PARAM_GREEN_CHANNEL:
+		color = LASPoint_GetColor(p);
+		ret.val_sht = LASColor_GetRed(color);
+		break;
+	case PARAM_BLUE_CHANNEL:
+		color = LASPoint_GetColor(p);
+		ret.val_sht = LASColor_GetRed(color);
+		break;
 	default:
-		fprintf(stderr, "Unimplemented\n");
+		fprintf(stderr, "readValue: Unimplemented\n");
 	}
 
 	return ret;
@@ -1363,8 +1406,34 @@ read_array_##BAT_TYPE(str fname,									\
 			value = readValue(p, val);								\
 			d[i] = value.val_dbl/scale;							\
 			break;													\
+		case PARAM_GPS_TIME:										\
+			value = readValue(p, val);								\
+			d[i] = value.val_dbl;									\
+			break;													\
+		case PARAM_SCAN_ANGLE:										\
+		case PARAM_CLASSIFICATION_NUMBER:							\
+		case PARAM_USER_DATA:										\
+			value = readValue(p, val);								\
+			d[i] = value.val_bte;									\
+			break;													\
+		case PARAM_INTENSITY:										\
+		case PARAM_N_RETURNS:										\
+		case PARAM_N_THIS_RETURN:									\
+		case PARAM_POINT_SOURCE_ID:								\
+		case PARAM_EDGE_OF_FLIGHT_LINE:							\
+		case PARAM_DIRECTION_OF_SCAN_FLAG:							\
+		case PARAM_RED_CHANNEL:									\
+		case PARAM_GREEN_CHANNEL:									\
+		case PARAM_BLUE_CHANNEL:									\
+			value = readValue(p, val);								\
+			d[i] = value.val_sht;									\
+			break;													\
+		case PARAM_VERTEX_INDEX:									\
+			d[i] = i;												\
+			break;													\
 		default:													\
-			fprintf(stderr, "Unimplemented\n");					\
+			fprintf(stderr,										\
+					"read_array_##BAT_TYPE: Unimplemented\n");		\
 		}															\
 		p = LASReader_GetNextPoint(reader);						\
 		i++;														\
@@ -1391,6 +1460,8 @@ READ_ARRAY(lng)
 #ifdef HAVE_HGE
 READ_ARRAY(hge)
 #endif
+
+READ_ARRAY(dbl)
 
 static str
 LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_table *tbl)
@@ -1534,6 +1605,65 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 				}
 				column = mvc_bind_column(m, tbl, "z");
 				break;
+			case PARAM_GPS_TIME:
+				bat = read_array_dbl(fname, prm, rows, 0, &error_code);
+				column = mvc_bind_column(m, tbl, "gpstime");
+				break;
+			case PARAM_SCAN_ANGLE:
+				bat = read_array_bte(fname, prm, rows, 0, &error_code);
+				column = mvc_bind_column(m, tbl, "scan_angle");
+				break;
+			case PARAM_INTENSITY:
+				bat = read_array_sht(fname, prm, rows, 0, &error_code);
+				column = mvc_bind_column(m, tbl, "intensity");
+				break;
+			case PARAM_N_RETURNS:
+				bat = read_array_sht(fname, prm, rows, 0, &error_code);
+				column = mvc_bind_column(m, tbl, "n_returns");
+				break;
+			case PARAM_N_THIS_RETURN:
+				bat = read_array_sht(fname, prm, rows, 0, &error_code);
+				column = mvc_bind_column(m, tbl, "n_this_return");
+				break;
+			case PARAM_CLASSIFICATION_NUMBER:
+				bat = read_array_bte(fname, prm, rows, 0, &error_code);
+				column = mvc_bind_column(m, tbl, "classification_number");
+				break;
+			case PARAM_USER_DATA:
+				bat = read_array_bte(fname, prm, rows, 0, &error_code);
+				column = mvc_bind_column(m, tbl, "user_data");
+				break;
+			case PARAM_POINT_SOURCE_ID:
+				bat = read_array_sht(fname, prm, rows, 0, &error_code);
+				column = mvc_bind_column(m, tbl, "point_source_id");
+				break;
+			case PARAM_EDGE_OF_FLIGHT_LINE:
+				bat = read_array_sht(fname, prm, rows, 0, &error_code);
+				column = mvc_bind_column(m, tbl, "edge_of_flight_line");
+				break;
+			case PARAM_DIRECTION_OF_SCAN_FLAG:
+				bat = read_array_sht(fname, prm, rows, 0, &error_code);
+				column = mvc_bind_column(m, tbl, "direction_of_scan_flag");
+				break;
+			case PARAM_RED_CHANNEL:
+				bat = read_array_sht(fname, prm, rows, 0, &error_code);
+				column = mvc_bind_column(m, tbl, "red_channel");
+				break;
+			case PARAM_GREEN_CHANNEL:
+				bat = read_array_sht(fname, prm, rows, 0, &error_code);
+				column = mvc_bind_column(m, tbl, "green_channel");
+				break;
+			case PARAM_BLUE_CHANNEL:
+				bat = read_array_sht(fname, prm, rows, 0, &error_code);
+				column = mvc_bind_column(m, tbl, "blue_channel");
+				break;
+			case PARAM_VERTEX_INDEX:
+				bat = read_array_int(fname, prm, rows, 0, &error_code);
+				column = mvc_bind_column(m, tbl, "vertex_index");
+				break;
+			default:
+				fprintf(stderr, "LIDARloadTable_: unimplemented 0x%x\n", prm);
+				abort();
 			}
 			if ( bat == NULL ) {
 				GDKfree(tpcode);
