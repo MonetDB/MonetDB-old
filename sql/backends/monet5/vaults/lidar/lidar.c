@@ -762,6 +762,14 @@ parse_parameters(str params, InputParameters *parsed) {
 
 	for (char *p = params; *p != '\0'; p++) {
 		switch (*p) {
+		case 'x':
+		case 'X':
+		case 'y':
+		case 'Y':
+		case 'z':
+		case 'Z':
+			/* Just ignore these */
+			break;
 		case 't':
 			if ((parsed->parameters & PARAM_GPS_TIME)) {
 				fprintf(stderr, "WARNING: Parameter %c already set. Ignoring.\n", *p);
