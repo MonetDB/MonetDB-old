@@ -630,20 +630,46 @@ typedef struct either_lidar_header {
 
 static str *
 LIDARopenPath(str fname, int *len) {
-	str *res = NULL;
+	str *ret = NULL;
 	struct stat buf;
+	DIR *dir;
+	struct dirent *dir_entry;
+	str path;
+	int idx = 0;
 
 	stat(fname, &buf);
 	if (S_ISDIR(buf.st_mode)) {
-		*len = 1;
+		*len = 0;
+		dir = opendir(fname);
+		while((dir_entry = readdir(dir)) != NULL) {
+			if (dir_entry->d_type == DT_REG)
+				(*len)++;
+		}
+		closedir(dir);
+		ret = (str *)malloc((*len)*sizeof(str));
+		path = (str)malloc(strlen(fname) + 256);
+		dir = opendir(fname);
+		while((dir_entry = readdir(dir)) != NULL) {
+			if (dir_entry->d_type == DT_REG) {
+				strncpy(path, fname, strlen(fname));
+				path[strlen(fname)] = '\0';
+				strncat(path, dir_entry->d_name, strlen(dir_entry->d_name));
+				ret[idx++] = strdup(path);
+#ifndef NDEBUG
+				printf("file: %s %d\n", path, *len);
+#endif
+			}
+		}
+		closedir(dir);
+		free(path);
 	}
 	else {
 		*len = 1;
-		res = (str *)malloc(sizeof(str));
-		res[0] = fname;
+		ret = (str *)malloc(sizeof(str));
+		ret[0] = strdup(fname);
 	}
 
-	return res;
+	return ret;
 }
 
 static lidar_header *
@@ -913,8 +939,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	oid fid, tid, cid, rid = oid_nil;
 	char *tname_low = NULL, *s, bname[BUFSIZ];
 	char *p;
-	/* int cnum; */
-	lidar_header *header;
+	lidar_header *header = NULL;
 	int scaleX, scaleY, scaleZ;
 	int precisionX, precisionY, precisionZ;
 	char *istmt=NULL, *cstmt=NULL;
@@ -925,6 +950,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int prm = 0, files_len = 0, idx;
 	str *files = NULL;
 	str filename;
+	double minimumX, maximumX, minimumY, maximumY, minimumZ, maximumZ;
 
 	switch(pci->argc) {
 	case 2:
@@ -956,24 +982,6 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
 		return msg;
 
-/* 	stat(fname, &buf); */
-/* 	if (S_ISDIR(buf.st_mode)) { */
-/* 		header = LIDARopenDir(fname); */
-/* 		if (header->msg != NULL) { */
-/* 			msg = header->msg; */
-/* 			free(header); */
-/* 			return msg; */
-/* 		} */
-/* 		fprintf(stderr, "Path: %s is a directory.\n", fname); */
-/* 		msg = createException(MAL, "lidar.attach", "Unimplemented functionality"); */
-/* 		return msg; */
-/* 	} */
-/* 	else { */
-/* #ifndef NDEBUG */
-/* 		fprintf(stderr, "Path: %s is a file.\n", fname); */
-/* #endif */
-/* 	} */
-
 	/* if needed, instantiate the schema and gather all appropriate tables */
 	tr = m->session->tr;
 	sch = mvc_bind_schema(m, "sys");
@@ -993,8 +1001,55 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 							  fname, LASError_GetLastErrorMsg());
 		return msg;
 	}
-	idx = 0;
-	for (filename = files[idx]; idx < files_len; idx++) {
+
+#ifndef NDEBUG
+	printf("tname: %s\n", tname);
+#endif
+	/* extract the file name from the absolute path */
+	if ((s = strrchr(tname, DIR_SEP)) == NULL)
+		s = tname;
+	else
+		s++;
+	strcpy(bname, s);
+	if (s) *s = 0;
+
+	tname_low = toLower(bname);
+
+	/* Find the last dot in the filename and replace it with '\0' if
+	 * it exists. This removes the extension part of the file, unless
+	 * the extension part itself contains a dot character.
+	 */
+	p = strrchr(tname_low, '.');
+	if (p != NULL) {
+		*p = '\0';
+	}
+
+	/* Sanitize table name by substituting dot characters ('.') for underscores
+	 * ('_').
+	 */
+	while ((p = strchr(tname_low, '.')) != NULL) {
+		*p = '_';
+	}
+
+#ifndef NDEBUG
+	printf("tablename: %s\n", tname_low);
+#endif
+
+	/* check table name for existence in the lidar catalog */
+	col = mvc_bind_column(m, lidar_tbl, "name");
+	rid = table_funcs.column_find_row(m->session->tr, col, tname_low, NULL);
+	/* or as regular SQL table */
+	tbl = mvc_bind_table(m, sch, tname_low);
+	if (rid != oid_nil || tbl) {
+		msg = createException(SQL, "lidar.attach", "Table %s already exists\n", tname_low);
+		return msg;
+	}
+
+	for (idx = 0; idx < files_len; idx++) {
+		filename = files[idx];
+		if (header != NULL) {
+			free(header);
+		}
 		header = LIDARopenFile(filename);
 		/* See if anything went wrong */
 		if (header->msg != NULL) {
@@ -1005,9 +1060,9 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 		/* check if the file is already attached */
 		col = mvc_bind_column(m, lidar_fl, "name");
-		rid = table_funcs.column_find_row(m->session->tr, col, fname, NULL);
+		rid = table_funcs.column_find_row(m->session->tr, col, filename, NULL);
 		if (rid != oid_nil) {
-			msg = createException(SQL, "lidar.attach", "File %s already attached\n", fname);
+			msg = createException(SQL, "lidar.attach", "File %s already attached\n", filename);
 			return msg;
 		}
 
@@ -1017,46 +1072,10 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		store_funcs.append_col(m->session->tr,
 							   mvc_bind_column(m, lidar_fl, "id"), &fid, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_fl, "name"), fname, TYPE_str);
+							   mvc_bind_column(m, lidar_fl, "name"), filename, TYPE_str);
 		/* table.id++ */
 		col = mvc_bind_column(m, lidar_tbl, "id");
 		tid = store_funcs.count_col(tr, col, 1) + 1;
-
-		/* extract the file name from the absolute path */
-		if ((s = strrchr(tname, DIR_SEP)) == NULL)
-			s = tname;
-		else
-			s++;
-		strcpy(bname, s);
-		if (s) *s = 0;
-
-		tname_low = toLower(bname);
-
-		/* Find the last dot in the filename and replace it with '\0' if
-		 * it exists. This removes the extension part of the file, unless
-		 * the extension part itself contains a dot character.
-		 */
-		p = strrchr(tname_low, '.');
-		if (p != NULL) {
-			*p = '\0';
-		}
-
-		/* Sanitize table name by substituting dot characters ('.') for underscores
-		 * ('_').
-		 */
-		while ((p = strchr(tname_low, '.')) != NULL) {
-			*p = '_';
-		}
-
-		/* check table name for existence in the lidar catalog */
-		col = mvc_bind_column(m, lidar_tbl, "name");
-		rid = table_funcs.column_find_row(m->session->tr, col, tname_low, NULL);
-		/* or as regular SQL table */
-		tbl = mvc_bind_table(m, sch, tname_low);
-		if (rid != oid_nil || tbl) {
-			msg = createException(SQL, "lidar.attach", "Table %s already exists\n", tname_low);
-			return msg;
-		}
 
 		scaleX = (int)ceil(-log(header->hi->scaleX)/log(10));
 		scaleY = (int)ceil(-log(header->hi->scaleY)/log(10));
@@ -1172,10 +1191,44 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 							   mvc_bind_column(m, lidar_col, "PrecisionY"), &precisionY, TYPE_int);
 		store_funcs.append_col(m->session->tr,
 							   mvc_bind_column(m, lidar_col, "PrecisionZ"), &precisionZ, TYPE_int);
+		if (idx == 0) {
+			minimumX = header->hi->minX;
+			minimumY = header->hi->minY;
+			minimumZ = header->hi->minZ;
+			maximumX = header->hi->maxX;
+			maximumY = header->hi->maxY;
+			maximumZ = header->hi->maxZ;
+		}
+		else {
+			if (header->hi->minX < minimumX) {
+				minimumX = header->hi->minX;
+			}
+			if (header->hi->minY < minimumY) {
+				minimumY = header->hi->minY;
+			}
+			if (header->hi->minZ < minimumZ) {
+				minimumZ = header->hi->minZ;
+			}
+
+			if (header->hi->maxX > maximumX) {
+				maximumX = header->hi->maxX;
+			}
+			if (header->hi->maxY > maximumY) {
+				maximumY = header->hi->maxY;
+			}
+			if (header->hi->maxZ > maximumZ) {
+				maximumZ = header->hi->maxZ;
+			}
+		}
 		/* add a lidar_column tuple */
 		col = mvc_bind_column(m, lidar_col, "id");
 		cid = store_funcs.count_col(tr, col, 1) + 1;
 	}
+
+	for (idx = 0; idx < files_len; idx++) {
+		free(files[idx]);
+	}
+	free(files);
 
 	/* create an SQL table to hold the LIDAR table */
 	tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, input_params.cnum);
@@ -1266,8 +1319,8 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	cstmt = GDKzalloc(8192);
 	col = mvc_bind_column(m, tbl, "x");
 	if (col) {
-		snprintf(minval, BUFSIZ, "%lf", header->hi->minX);
-		snprintf(maxval, BUFSIZ, "%lf", header->hi->maxX);
+		snprintf(minval, BUFSIZ, "%lf", minimumX);
+		snprintf(maxval, BUFSIZ, "%lf", maximumX);
 		snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
 		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s,%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, "false", "false");
 		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
@@ -1279,8 +1332,8 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	col = mvc_bind_column(m, tbl, "y");
 	if (col) {
-		snprintf(minval, BUFSIZ, "%lf", header->hi->minY);
-		snprintf(maxval, BUFSIZ, "%lf", header->hi->maxY);
+		snprintf(minval, BUFSIZ, "%lf", minimumY);
+		snprintf(maxval, BUFSIZ, "%lf", maximumY);
 		snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
 		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s,%s);", col->base.id, col_type, precisionY, sz, sz, uniq, nils, minval, maxval, "false", "false");
 		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
@@ -1291,8 +1344,8 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	col = mvc_bind_column(m, tbl, "z");
 	if (col) {
-		snprintf(minval, BUFSIZ, "%lf", header->hi->minZ);
-		snprintf(maxval, BUFSIZ, "%lf", header->hi->maxZ);
+		snprintf(minval, BUFSIZ, "%lf", minimumZ);
+		snprintf(maxval, BUFSIZ, "%lf", maximumZ);
 		snprintf(col_type, BUFSIZ, "%s(%u,%u)", col->type.type->sqlname, col->type.digits, col->type.scale);
 		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s,%s);", col->base.id, col_type, precisionZ, sz, sz, uniq, nils, minval, maxval, "false", "false");
 		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
