@@ -69,11 +69,6 @@ typedef struct lidar_header_info {
 	double maxZ;
 } lidar_info;
 
-typedef struct either_lidar_header {
-	str msg;
-	lidar_info *hi;
-} lidar_header;
-
 typedef enum {
     LIDAR_TABLE_UNLOADED,
     LIDAR_TABLE_LOADED,
@@ -82,6 +77,4 @@ typedef enum {
 } LIDAR_STATUS;
 
 
-lidar_header *LIDARopenFile(str fname);
-lidar_header *LIDARopenDir(str fname);
 #endif
