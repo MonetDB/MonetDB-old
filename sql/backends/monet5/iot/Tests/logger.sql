@@ -9,8 +9,8 @@ begin
 	insert into log values(now(), iot.getheartbeat('iot','cqlogger'));
 end;
 
-call iot.query('iot','cqlogger');
 call iot.heartbeat('iot','log',1000);
+call iot.query('iot','cqlogger');
 
 -- wait for 2 seconds
 call iot.wait(4000);

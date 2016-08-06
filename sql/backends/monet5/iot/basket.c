@@ -695,7 +695,7 @@ static str
 BSKTtumbleInternal(Client cntxt, str sch, str tbl, int stride)
 {
 	BAT *b;
-	BUN cnt= 0, shift;
+	BUN cnt= 0, shift=0;
 	int i, bskt;
 	(void) cntxt;
 
