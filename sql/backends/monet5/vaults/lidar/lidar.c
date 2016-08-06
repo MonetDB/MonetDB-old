@@ -1535,19 +1535,19 @@ READ_ARRAY(hge)
 READ_ARRAY(dbl)
 
 static str
-LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_table *tbl)
+LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_table *tbl, oid rid)
 {
 	sql_table *lidar_fl, *lidar_cl;
 	sql_column *col; /*, *colx, *coly, *colz;*/
 	str fname;
 	str msg = MAL_SUCCEED;
-	oid rid = oid_nil, frid = oid_nil, tid = oid_nil;
+	oid frid = oid_nil, tid = oid_nil;
 	int fid, prm = 0;
 #ifndef NDEBUG
 	int time0;
 #endif
 	int *tpcode = NULL;
-	long *rep = NULL, *wid = NULL, rows;
+	long *rep = NULL, *wid = NULL, rows = 0;
 	/* BAT *x = NULL, *y = NULL, *z = NULL; */
 	BAT *bat = NULL;
 	sql_column *column;
@@ -1556,12 +1556,12 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 	double scalex, scaley, scalez;
 	int error_code;
 
-	col = mvc_bind_column(m, lidar_tbl, "name");
-	rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
-	if (rid == oid_nil) {
-		msg = createException(MAL, "lidar.loadtable", "Table %s is unknown to the LIDAR catalog. Attach first the containing file\n", tname);
-		return msg;
-	}
+	/* col = mvc_bind_column(m, lidar_tbl, "name"); */
+	/* rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL); */
+	/* if (rid == oid_nil) { */
+	/* 	msg = createException(MAL, "lidar.loadtable", "Table %s is unknown to the LIDAR catalog. Attach first the containing file\n", tname); */
+	/* 	return msg; */
+	/* } */
 
 	/* Open LIDAR file */
 	col = mvc_bind_column(m, lidar_tbl, "file_id");
@@ -1797,6 +1797,8 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     sql_column *col;
 	str msg = MAL_SUCCEED;
 	size_t sz;
+	char *filenames_query = GDKmalloc(BUFSIZ);
+	res_table *fres = NULL;
 
 	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
 		return msg;
@@ -1824,7 +1826,32 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	}
 
-	return LIDARloadTable_(m, sch, lidar_tbl, tname, tbl);
+	snprintf(filenames_query, BUFSIZ, "SELECT id FROM lidar_tables WHERE name='%s';", tname);
+	msg = SQLstatementIntern(cntxt, &filenames_query, "rows", 1, 0, &fres);
+	if (msg != MAL_SUCCEED) {
+		return msg;
+	}
+	GDKfree(filenames_query);
+
+	if (fres) {
+		BATiter fs_rid = bat_iterator(BATdescriptor(fres->cols[0].b));
+		oid id = 0, cnt = BATcount(fs_rid.b);
+#ifndef NDEBUG
+		printf("count: %ld\n", cnt);
+#endif
+		for (id = 0; id < cnt; id++) {
+			int rid = *(int*)BUNtail(fs_rid, id);
+#ifndef NDEBUG
+			printf("id, rid: %ld %d\n", id, rid);
+#endif
+			msg = LIDARloadTable_(m, sch, lidar_tbl, tname, tbl, rid - 1);
+			if (msg != MAL_SUCCEED) {
+				return msg;
+			}
+		}
+	}
+
+	return msg;
 }
 
 str
@@ -1838,8 +1865,13 @@ LIDARprelude(void *ret) {
 str
 LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str msg = MAL_SUCCEED;
+	(void)cntxt;
+	(void)mb;
+	(void)stk;
+	(void)pci;
+#if 0
   mvc *m = NULL;
-  str msg = MAL_SUCCEED;
   size_t sz;
   sql_schema *sch = NULL;
   sql_table *lidar_tbl, *tbl = NULL;
@@ -1890,7 +1922,7 @@ LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     fprintf(stderr, "The table %s is already loaded and its status is %d!!!\n", tname, *res);
 #endif
   }
-
+#endif
   return msg;
 }
 
