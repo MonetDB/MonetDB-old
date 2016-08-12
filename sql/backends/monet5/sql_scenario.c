@@ -26,7 +26,6 @@
 #include "sql_execute.h"
 #include "sql_env.h"
 #include "sql_mvc.h"
-#include "sql_readline.h"
 #include "sql_user.h"
 #include "sql_datetime.h"
 #include "mal_io.h"
@@ -190,10 +189,12 @@ SQLepilogue(void *ret)
 	str res;
 
 	(void) ret;
+	MT_lock_set(&sql_contextLock);
 	if (SQLinitialized) {
 		mvc_exit();
 		SQLinitialized = FALSE;
 	}
+	MT_lock_unset(&sql_contextLock);
 	/* this function is never called, but for the style of it, we clean
 	 * up our own mess */
 	res = msab_retreatScenario(m);
@@ -240,8 +241,10 @@ SQLinit(void)
 		SQLdebug |= 64;
 	if (readonly)
 		SQLdebug |= 32;
-	if ((SQLnewcatalog = mvc_init(SQLdebug, store_bat, readonly, single_user, 0)) < 0)
+	if ((SQLnewcatalog = mvc_init(SQLdebug, store_bat, readonly, single_user, 0)) < 0) {
+		MT_lock_unset(&sql_contextLock);
 		throw(SQL, "SQLinit", "Catalogue initialization failed");
+	}
 	SQLinitialized = TRUE;
 	MT_lock_unset(&sql_contextLock);
 	if (MT_create_thread(&sqllogthread, (void (*)(void *)) mvc_logmanager, NULL, MT_THR_JOINABLE) != 0) {
@@ -618,6 +621,7 @@ SQLexitClient(Client c)
 		c->sqlcontext = NULL;
 	}
 	c->state[MAL_SCENARIO_READER] = NULL;
+	MALexitClient(c);
 	return MAL_SUCCEED;
 }
 
@@ -763,7 +767,6 @@ SQLreader(Client c)
 #endif
 	/*
 	 * Distinguish between console reading and mclient connections.
-	 * The former comes with readline functionality.
 	 */
 	while (more) {
 		more = FALSE;

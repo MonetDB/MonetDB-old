@@ -171,8 +171,6 @@ idCopy(Client cntxt, int length)
 	memcpy(s, CURRENT(cntxt), (size_t) length);
 	s[length] = 0;
 	/* avoid a clash with old temporaries */
-	if (s[0] == TMPMARKER)
-		s[0] = REFMARKER;
 	advance(cntxt, length);
 	return s;
 }
@@ -182,7 +180,6 @@ MALlookahead(Client cntxt, str kw, int length)
 {
 	int i;
 
-	skipSpace(cntxt);
 	/* avoid double test or use lowercase only. */
 	if (currChar(cntxt) == *kw &&
 		strncmp(CURRENT(cntxt), kw, length) == 0 &&
@@ -919,7 +916,10 @@ parseAtom(Client cntxt)
 		tpe = TYPE_void;  /* no type qualifier */
 	else
 		tpe = parseTypeId(cntxt, TYPE_int);
-	malAtomDefinition(cntxt->fdout, modnme, tpe);
+	if( malAtomDefinition(cntxt->fdout, modnme, tpe) < 0){
+		skipToEnd(cntxt);
+		return 0;
+	}
 	cntxt->nspace = fixModule(cntxt->nspace, modnme);
 	cntxt->nspace->isAtomModule = TRUE;
 	skipSpace(cntxt);
@@ -928,8 +928,7 @@ parseAtom(Client cntxt)
 }
 
 /*
- * It might be handy to clone a module.
- * It gets a copy of all functions known at the point of creation.
+ * All modules, except 'user', should be global
  */
 static str parseModule(Client cntxt)
 {
@@ -942,6 +941,8 @@ static str parseModule(Client cntxt)
 		return parseError(cntxt, "<module path> expected\n");
 	modnme = putNameLen(nxt, l);
 	advance(cntxt, l);
+	if( ! isModuleDefined(cntxt->nspace,modnme))
+		newModule(NULL,modnme);
 	cntxt->nspace = fixModule(cntxt->nspace, modnme);
 	skipSpace(cntxt);
 	helpInfo(cntxt, &cntxt->nspace->help);
@@ -1063,6 +1064,11 @@ fcnHeader(Client cntxt, int kind)
 	if (currChar(cntxt) == '.') {
 		nextChar(cntxt); /* skip '.' */
 		modnme = fnme;
+		if (isModuleDefined(cntxt->nspace, modnme) == FALSE) {
+			parseError(cntxt, "<module> name not defined\n");
+			skipToEnd(cntxt);
+			return curBlk;
+		}
 		l = operatorLength(cntxt);
 		if (l == 0)
 			l = idLength(cntxt);
@@ -1073,7 +1079,8 @@ fcnHeader(Client cntxt, int kind)
 		}
 		fnme = putNameLen(((char *) CURRENT(cntxt)), l);
 		advance(cntxt, l);
-	}
+	} else 
+		modnme= cntxt->nspace->name;
 
 	/* temporary suspend capturing statements in main block */
 	if (cntxt->backup){
@@ -1081,38 +1088,20 @@ fcnHeader(Client cntxt, int kind)
 		skipToEnd(cntxt);
 		return 0;
 	}
-	cntxt->backup = cntxt->curprg;
-	cntxt->curprg = newFunction(putName("user"), fnme, kind);
-	curPrg = cntxt->curprg;
-	curBlk = curPrg->def;
-	curBlk->flowfixed = 0;
-	curBlk->typefixed = 0;
-	curInstr = getInstrPtr(curBlk, 0);
-
 	if (currChar(cntxt) != '('){
-		if (cntxt->backup) {
-			freeSymbol(cntxt->curprg);
-			cntxt->curprg = cntxt->backup;
-			cntxt->backup = 0;
-		}
 		parseError(cntxt, "function header '(' expected\n");
 		skipToEnd(cntxt);
 		return curBlk;
 	}
 	advance(cntxt, 1);
 
-	setModuleId(curInstr, modnme ? putName(modnme) :
-			putName(cntxt->nspace->name));
-
-	if (isModuleDefined(cntxt->nspace, getModuleId(curInstr)) == FALSE) {
-		if (cntxt->backup) {
-			freeSymbol(cntxt->curprg);
-			cntxt->curprg = cntxt->backup;
-			cntxt->backup = 0;
-		}
-		parseError(cntxt, "<module> name not defined\n");
-		return curBlk;
-	}
+	cntxt->backup = cntxt->curprg;
+	cntxt->curprg = newFunction( modnme, fnme, kind);
+	curPrg = cntxt->curprg;
+	curBlk = curPrg->def;
+	curBlk->flowfixed = 0;
+	curBlk->typefixed = 0;
+	curInstr = getInstrPtr(curBlk, 0);
 
 	/* get calling parameters */
 	ch = currChar(cntxt);
@@ -1323,7 +1312,6 @@ parseCommandPattern(Client cntxt, int kind)
  * [note, command and patterns do not have a MAL block]
  */
 	if (MALkeyword(cntxt, "address", 7)) {
-		str nme;
 		int i;
 		i = idLength(cntxt);
 		if (i == 0) {
@@ -1331,13 +1319,17 @@ parseCommandPattern(Client cntxt, int kind)
 			return 0;
 		}
 		cntxt->blkmode = 0;
-		nme = idCopy(cntxt, i);
 		if (getModuleId(curInstr))
 			setModuleId(curInstr, NULL);
 		setModuleScope(curInstr,
 				findModule(cntxt->nspace, modnme));
-		curInstr->fcn = getAddress(cntxt->fdout, cntxt->srcFile, modnme, nme, 0);
-		curBlk->binding = nme;
+
+		memcpy(curBlk->binding, CURRENT(cntxt), (size_t)(i < IDLENGTH? i:IDLENGTH-1));
+		curBlk->binding[(i< IDLENGTH? i:IDLENGTH-1)] = 0;
+		/* avoid a clash with old temporaries */
+		advance(cntxt, i);
+		curInstr->fcn = getAddress(cntxt->fdout, cntxt->srcFile, curBlk->binding, 0);
+
 		if (cntxt->nspace->isAtomModule) {
 			if (curInstr->fcn == NULL) {
 				parseError(cntxt, "<address> not found\n");
@@ -1379,7 +1371,7 @@ parseFunction(Client cntxt, int kind)
 			return 0;
 		}
 		nme = idCopy(cntxt, i);
-		curInstr->fcn = getAddress(cntxt->fdout, cntxt->srcFile, cntxt->nspace->name, nme, 0);
+		curInstr->fcn = getAddress(cntxt->fdout, cntxt->srcFile, nme, 0);
 		GDKfree(nme);
 		if (curInstr->fcn == NULL) {
 			parseError(cntxt, "<address> not found\n");
@@ -1476,7 +1468,7 @@ parseEnd(Client cntxt)
 	if ((varid = findVariableLength(curBlk, CURRENT(cntxt), l)) == -1) { \
 		varid = newVariable(curBlk, CURRENT(cntxt),l, TYPE_any);	\
 		advance(cntxt, l);\
-		assert(varid >=  0);\
+		if(varid <  0) return;\
 	} else \
 		advance(cntxt, l);
 

@@ -46,6 +46,10 @@ renderTerm(MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int idx, int flg)
 	int varid = getArg(p,idx);
 
 	buf = GDKzalloc(maxlen);
+	if( buf== NULL){
+		GDKerror("renderTerm:Failed to allocate");
+		return 0;
+	}
 	// show the name when required or is used
 	if ((flg & LIST_MAL_NAME) && !isVarConstant(mb,varid) && !isVarTypedef(mb,varid)) {
 		nme = getVarName(mb,varid);
@@ -194,7 +198,7 @@ fcnDefinition(MalBlkPtr mb, InstrPtr p, str s, int flg, str base, size_t len)
 		if(t < base + len) *t++ = ')';
 	}
 
-	if (mb->binding)
+	if (mb->binding[0])
 		snprintf(t,(len-(t-base))," address %s;", mb->binding);
 	else
 		if( t <base + len) sprintf(t, ";");

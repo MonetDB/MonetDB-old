@@ -1513,6 +1513,12 @@ sql_update_default(Client c, mvc *sql)
 			"create procedure sys.droporderindex(sys string, tab string, col string)\n"
 			"external name sql.droporderindex;\n");
 
+	/* 24_zorder.sql */
+	pos += snprintf(buf + pos, bufsize - pos,
+			"drop function sys.zorder_decode_y;\n"
+			"drop function sys.zorder_decode_x;\n"
+			"drop function sys.zorder_encode;\n");
+
 	/* 75_storagemodel.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
 			"drop view sys.tablestoragemodel;\n"
@@ -1524,6 +1530,8 @@ sql_update_default(Client c, mvc *sql)
 			"drop function sys.\"storage\"(string);\n"
 			"drop view sys.\"storage\";\n"
 			"drop function sys.\"storage\"();\n"
+			"alter table sys.storagemodelinput add column \"revsorted\" boolean;\n"
+			"alter table sys.storagemodelinput add column \"unique\" boolean;\n"
 			"alter table sys.storagemodelinput add column \"orderidx\" bigint;\n"
 			"create function sys.\"storage\"()\n"
 			"returns table (\n"
@@ -1541,6 +1549,8 @@ sql_update_default(Client c, mvc *sql)
 			" phash boolean,\n"
 			" \"imprints\" bigint,\n"
 			" sorted boolean,\n"
+			" revsorted boolean,\n"
+			" \"unique\" boolean,\n"
 			" orderidx bigint\n"
 			")\n"
 			"external name sql.\"storage\";\n"
@@ -1561,6 +1571,8 @@ sql_update_default(Client c, mvc *sql)
 			" phash boolean,\n"
 			" \"imprints\" bigint,\n"
 			" sorted boolean,\n"
+			" revsorted boolean,\n"
+			" \"unique\" boolean,\n"
 			" orderidx bigint\n"
 			")\n"
 			"external name sql.\"storage\";\n"
@@ -1580,6 +1592,8 @@ sql_update_default(Client c, mvc *sql)
 			" phash boolean,\n"
 			" \"imprints\" bigint,\n"
 			" sorted boolean,\n"
+			" revsorted boolean,\n"
+			" \"unique\" boolean,\n"
 			" orderidx bigint\n"
 			")\n"
 			"external name sql.\"storage\";\n"
@@ -1599,6 +1613,8 @@ sql_update_default(Client c, mvc *sql)
 			" phash boolean,\n"
 			" \"imprints\" bigint,\n"
 			" sorted boolean,\n"
+			" revsorted boolean,\n"
+			" \"unique\" boolean,\n"
 			" orderidx bigint\n"
 			")\n"
 			"external name sql.\"storage\";\n"
@@ -1606,7 +1622,7 @@ sql_update_default(Client c, mvc *sql)
 			"begin\n"
 			" delete from sys.storagemodelinput;\n"
 			" insert into sys.storagemodelinput\n"
-			" select X.\"schema\", X.\"table\", X.\"column\", X.\"type\", X.typewidth, X.count, 0, X.typewidth, false, X.sorted, X.orderidx from sys.\"storage\"() X;\n"
+			" select X.\"schema\", X.\"table\", X.\"column\", X.\"type\", X.typewidth, X.count, 0, X.typewidth, false, X.sorted, X.revsorted, X.\"unique\", X.orderidx from sys.\"storage\"() X;\n"
 			" update sys.storagemodelinput\n"
 			" set reference = true\n"
 			" where concat(concat(\"schema\",\"table\"), \"column\") in (\n"
@@ -1635,6 +1651,8 @@ sql_update_default(Client c, mvc *sql)
 			" hashes bigint,\n"
 			" \"imprints\" bigint,\n"
 			" sorted boolean,\n"
+			" revsorted boolean,\n"
+			" \"unique\" boolean,\n"
 			" orderidx bigint)\n"
 			"begin\n"
 			" return select I.\"schema\", I.\"table\", I.\"column\", I.\"type\", I.\"count\",\n"
@@ -1642,7 +1660,7 @@ sql_update_default(Client c, mvc *sql)
 			" heapsize(I.\"type\", I.\"distinct\", I.\"atomwidth\"),\n"
 			" hashsize(I.\"reference\", I.\"count\"),\n"
 			" imprintsize(I.\"count\",I.\"type\"),\n"
-			" I.sorted, I.orderidx\n"
+			" I.sorted, I.revsorted, I.\"unique\", I.orderidx\n"
 			" from sys.storagemodelinput I;\n"
 			"end;\n"
 			"create view sys.storagemodel as select * from sys.storagemodel();\n"
@@ -1655,6 +1673,11 @@ sql_update_default(Client c, mvc *sql)
 			" sum(case when sorted = false then 8 * count else 0 end) as auxiliary\n"
 			"from sys.storagemodel() group by \"schema\",\"table\";\n"
 			"update sys._tables set system = true where name in ('storage', 'storagemodel', 'tablestoragemodel') and schema_id = (select id from sys.schemas where name = 'sys');\n");
+
+	/* 80_statistics.sql */
+	pos += snprintf(buf + pos, bufsize - pos,
+			"alter table sys.statistics add column \"revsorted\" boolean;\n");
+
 	pos += snprintf(buf + pos, bufsize - pos,
 			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('storage', 'storagemodel') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n",
 			F_UNION);

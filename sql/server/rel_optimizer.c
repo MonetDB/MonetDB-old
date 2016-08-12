@@ -223,6 +223,8 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 	switch (rel->op) {
 	case op_basetable:
 	case op_table:
+		if (rel->op == op_table && rel->l) 
+			rel_properties(sql, gp, rel->l);
 		break;
 	case op_join: 
 	case op_left: 
@@ -587,34 +589,6 @@ order_join_expressions(mvc *sql, list *dje, list *rels)
 	free(keys);
 	free(pos);
 	return res;
-}
-
-static sql_exp *
-rel_find_column( sql_allocator *sa, sql_rel *rel, const char *tname, const char *cname )
-{
-	if (!rel)
-		return NULL;
-
-	if (rel->exps && (is_project(rel->op) || is_base(rel->op))) {
-		sql_exp *e = exps_bind_column2(rel->exps, tname, cname);
-		if (e)
-			return exp_alias(sa, e->rname, exp_name(e), tname, cname, exp_subtype(e), e->card, has_nil(e), is_intern(e));
-	}
-	if (is_project(rel->op) && rel->l) {
-		return rel_find_column(sa, rel->l, tname, cname);
-	} else if (is_join(rel->op)) {
-		sql_exp *e = rel_find_column(sa, rel->l, tname, cname);
-		if (!e)
-			e = rel_find_column(sa, rel->r, tname, cname);
-		return e;
-	} else if (is_set(rel->op) ||
-		   is_sort(rel) ||
-		   is_semi(rel->op) ||
-		   is_select(rel->op)) {
-		if (rel->l)
-			return rel_find_column(sa, rel->l, tname, cname);
-	}
-	return NULL;
 }
 
 static int
@@ -7839,6 +7813,10 @@ rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 	switch (rel->op) {
 	case op_basetable:
 	case op_table:
+		if (rel->op == op_table && rel->l) 
+			rel->l = rewrite(sql, rel->l, rewriter, has_changes);
+		if (rel->op == op_table && rel->l) 
+			rel->l = rewrite_topdown(sql, rel->l, rewriter, has_changes);
 		break;
 	case op_join: 
 	case op_left: 
