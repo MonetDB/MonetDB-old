@@ -496,6 +496,19 @@ BKCgetColumnType(str *res, const bat *bid)
 }
 
 str
+BKCgetCount(lng *res, const bat *bid)
+{
+	*res = lng_nil;
+	if (BBPcheck(*bid, "bat.getCount")) {
+		BAT *b = BBPquickdesc(*bid, 0);
+
+		if (b != NULL)
+			*res = (lng) BATcount(b);
+	}
+	return MAL_SUCCEED;
+}
+
+str
 BKCgetRole(str *res, const bat *bid)
 {
 	BAT *b;

@@ -77,6 +77,10 @@ command getCapacity(b:bat[:any_1]):lng
 address BKCgetCapacity
 comment "Returns the current allocation size (in max number of elements) of a BAT.";
 
+command getCount(b:bat[:any_1]):lng
+address BKCgetCount
+comment "Returns the current tuple count of a BAT.";
+
 command getColumnType( b:bat[:any_1] ) :str 
 address BKCgetColumnType 
 comment "Returns the type of the tail column of a BAT, as an integer type number.";

@@ -29,6 +29,7 @@ mal_export str BKCbun_inplace_force(bat *r, const bat *bid, const oid *id, const
 mal_export str BKCbat_inplace_force(bat *r, const bat *bid, const bat *rid, const bat *uid, const bit *force);
 mal_export str BKCgetCapacity(lng *res, const bat *bid);
 mal_export str BKCgetColumnType(str *res, const bat *bid);
+mal_export str BKCgetCount(lng *res, const bat *bid);
 mal_export str BKCgetRole(str *res, const bat *bid);
 mal_export str BKCsetkey(bat *res, const bat *bid, const bit *param);
 mal_export str BKCisSorted(bit *res, const bat *bid);
