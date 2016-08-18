@@ -126,7 +126,7 @@ str
 PNheartbeat(Client cntxt,str mod, str fcn, lng ticks)
 {
 	Module scope;
-	Symbol s;
+	Symbol s=  NULL;
 	int i;
 	str msg;
 	char buf[IDLENGTH];
@@ -494,6 +494,7 @@ str PNdump(void *ret)
 
 /* Collect all input/output basket roles */
 /* Make sure we do not re-use the same source more than once */
+/* Avoid any concurreny conflict */
 str
 PNanalysis(Client cntxt, MalBlkPtr mb, int pn)
 {
@@ -564,10 +565,12 @@ PNexecute( Client cntxt, int idx)
 	mnstr_printf(GDKout, "#petrinet.execute %s.%s\n",node->modname, node->fcnname);
 #endif
 	// first grab exclusive access to all streams.
+	/*
 	for (j = 0; j < MAXBSKT &&  node->inputs[j]; j++) 
 		MT_lock_set(&baskets[node->inputs[j]].lock);
 	for (j = 0; j < MAXBSKT &&  node->outputs[j]; j++) 
 		MT_lock_set(&baskets[node->outputs[j]].lock);
+*/
 
 #ifdef DEBUG_PETRINET
 	mnstr_printf(GDKout, "#petrinet.execute %s.%s all locked\n",node->modname, node->fcnname);
@@ -590,11 +593,13 @@ PNexecute( Client cntxt, int idx)
 		baskets[idx].seen= ts;
 	node->seen = ts;
 
-	// empty the baskets according to their policy
+	 // empty the baskets according to their policy
+ /*
 	for (j = 0; j < MAXBSKT &&  node->inputs[j]; j++) 
 		MT_lock_unset(&baskets[node->inputs[j]].lock);
 	for (j = 0; j < MAXBSKT &&  node->outputs[j]; j++) 
 		MT_lock_unset(&baskets[node->outputs[j]].lock);
+*/
 
 	pnet[node->inputs[0]].time += GDKusec() - t;   /* keep around in microseconds */
 #ifdef DEBUG_PETRINET
@@ -727,6 +732,7 @@ PNscheduler(void *dummy)
 				} 
 			}
 
+			/* avoid concurrency conflicts */
 			if (pnet[i].enabled) {
 				/* a basket can be used in at most one continuous query at a time */
 				for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].inputs[j]; j++) 
@@ -890,7 +896,7 @@ PNtable(bat *modnameId, bat *fcnnameId, bat *statusId, bat *seenId, bat *runsId,
 		goto wrapup;
 
 	for (i = 0; i < pnettop; i++) {
-		lng avg= pnet[i].time / pnet[i].runs;
+		lng avg= pnet[i].runs? pnet[i].time / pnet[i].runs:0;
 		BUNappend(modname, pnet[i].modname, FALSE);
 		BUNappend(fcnname, pnet[i].fcnname, FALSE);
 		BUNappend(status, statusname[pnet[i].status], FALSE);

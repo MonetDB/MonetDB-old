@@ -223,9 +223,6 @@ BSKTregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sch = getVarConstant(mb, getArg(pci,2)).val.sval;
 	tbl = getVarConstant(mb, getArg(pci,3)).val.sval;
 	msg = BSKTregisterInternal(cntxt,mb,sch,tbl);
-	// also lock the basket
-	if( msg == MAL_SUCCEED){
-	}
 	return msg;
 }
 
@@ -858,7 +855,42 @@ BSKTcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	idx = BSKTlocate(sch, tbl);
 	if( idx ==0)
 		throw(SQL,"basket.commit","Stream table %s.%s not accessible\n",sch,tbl);
+	return MAL_SUCCEED;
+}
+
+str
+BSKTlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	str sch = *getArgReference_str(stk,pci,2);
+	str tbl = *getArgReference_str(stk,pci,3);
+	int idx;
+
+	(void) cntxt;
+	(void) mb;
+
+	idx = BSKTlocate(sch, tbl);
+	if( idx ==0)
+		throw(SQL,"basket.lock","Stream table %s.%s not accessible\n",sch,tbl);
 	/* release the basket lock */
+	MT_lock_set(&baskets[idx].lock);
+	return MAL_SUCCEED;
+}
+
+str
+BSKTunlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	str sch = *getArgReference_str(stk,pci,2);
+	str tbl = *getArgReference_str(stk,pci,3);
+	int idx;
+
+	(void) cntxt;
+	(void) mb;
+
+	idx = BSKTlocate(sch, tbl);
+	if( idx ==0)
+		throw(SQL,"basket.lock","Stream table %s.%s not accessible\n",sch,tbl);
+	/* release the basket lock */
+	MT_lock_unset(&baskets[idx].lock);
 	return MAL_SUCCEED;
 }
 

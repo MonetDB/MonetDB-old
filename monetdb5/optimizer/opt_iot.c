@@ -167,15 +167,20 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if(getModuleId(p) == sqlRef && getFunctionId(p)== mvcRef){
 				pushInstruction(mb,p);
 				lastmvc = getArg(p,0);
-				// register all baskets used
-				for( j=0; j<btop; j++)
-				if( input[j] || output[j]) {
+				// register and lock all baskets used
+				for( j=0; j<btop; j++){
 					p= newStmt(mb,basketRef,registerRef);
 					p= pushArgument(mb,p,lastmvc);
 					p= pushStr(mb,p, schemas[j]);
 					p= pushStr(mb,p, tables[j]);
 					p= pushInt(mb,p, output[j]);
 					alias[lastmvc] = getArg(p,0);
+					lastmvc = getArg(p,0);
+	
+					p= newStmt(mb,basketRef,lockRef);
+					p= pushArgument(mb,p,lastmvc);
+					p= pushStr(mb,p, schemas[j]);
+					p= pushStr(mb,p, tables[j]);
 					lastmvc = getArg(p,0);
 				}
 				continue;
@@ -221,15 +226,6 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					r =  pushStr(mb,r, tables[j]);
 					lastmvc = getArg(r,0);
 				}
-				/* non-contiguous queries call for releasing the lock on the basket */
-				for( j=btop-1; j>= 0; j--)
-				if( input[j] || output[j]) {
-					p= newStmt(mb,basketRef,commitRef);
-					p= pushArgument(mb,p, lastmvc);
-					p= pushStr(mb,p, schemas[j]);
-					p= pushStr(mb,p, tables[j]);
-					lastmvc = getArg(p,0);
-				}
 
 				/* catch any exception left behind */
 				r = newAssignment(mb);
@@ -258,6 +254,21 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				r = newAssignment(mb);
 				getArg(r, 0) = j;
 				r->barrier = EXITsymbol;
+
+				/* non-contiguous queries call for releasing the lock on the basket */
+				for( j=btop-1; j>= 0; j--){
+					r= newStmt(mb,basketRef,unlockRef);
+					r= pushArgument(mb,r,lastmvc);
+					r= pushStr(mb,r, schemas[j]);
+					r= pushStr(mb,r, tables[j]);
+					lastmvc= getArg(r,0);
+
+				}
+					//p= newStmt(mb,basketRef,commitRef);
+					//p= pushArgument(mb,p, lastmvc);
+					//p= pushStr(mb,p, schemas[j]);
+					//p= pushStr(mb,p, tables[j]);
+					//lastmvc = getArg(p,0);
 				break;
 			}
 

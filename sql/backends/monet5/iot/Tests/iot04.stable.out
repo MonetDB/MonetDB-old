@@ -52,7 +52,6 @@ Ready.
 % t,	sensor,	val # name
 % timestamp,	int,	decimal # type
 % 26,	1,	10 # length
-[ 2005-09-23 12:34:26.736000,	1,	12.34	]
 #select * from iot.errors();
 % .,	. # table_name
 % table,	error # name

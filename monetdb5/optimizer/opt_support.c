@@ -468,6 +468,10 @@ hasSideEffects(InstrPtr p, int strict)
 	if ( getModuleId(p) == iotRef)
 		return TRUE;
 	if ( getModuleId(p) == basketRef){
+		if( getFunctionId(p) == lockRef)
+			return TRUE;
+		if( getFunctionId(p) == unlockRef)
+			return TRUE;
 		if( getFunctionId(p) == registerRef)
 			return TRUE;
 	}
