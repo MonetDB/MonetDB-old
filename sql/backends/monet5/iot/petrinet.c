@@ -75,8 +75,8 @@ typedef struct {
 	int delay;      /* maximum delay between calls */
 	timestamp seen; /* last executed */
 
-	int cycles;     /* number of invocations of the factory */
-	int events;     /* number of events consumed */
+	int runs;     /* number of invocations of the continuous query */
+	//int events;     /* number of events consumed by all (sum of tumblings) */
 	str error;      /* last error seen */
 	lng time;       /* total time spent for all invocations */
 } PNnode;
@@ -133,13 +133,6 @@ PNheartbeat(Client cntxt,str mod, str fcn, lng ticks)
 
 	if (ticks < 0)
 		throw(MAL,"iot.heartbeat","The heartbeat should be >= 0\n");
-	scope = findModule(cntxt->nspace, putName(mod));
-	if (scope)
-		s = findSymbolInModule(scope, putName(fcn));
-
-	if (s == NULL)
-		throw(MAL, "iot.heartbeat", "Could not find function\n");
-
 	snprintf(buf,IDLENGTH,"%s_%s",mod,fcn);
 	for(i = 0; i < pnettop; i++) {
 		if(strcmp(pnet[i].modname,userRef) == 0 && strcmp(pnet[i].fcnname,buf) == 0) {
@@ -147,12 +140,28 @@ PNheartbeat(Client cntxt,str mod, str fcn, lng ticks)
 			return MAL_SUCCEED;
 		}
 	}
+
+	scope = findModule(cntxt->nspace, putName(mod));
+	if (scope)
+		s = findSymbolInModule(scope, putName(fcn));
+
+	if (s == NULL)
+		throw(MAL, "iot.heartbeat", "Could not find function %s.%s\n",mod,fcn);
+
 	msg = PNregisterInternal(cntxt,s->def,0);
 	if( msg){
 		GDKfree(msg);
 		throw(MAL,"iot.heartbeat","Cannot access stream, nor active query\n");
 	}
-	return MAL_SUCCEED;
+	// try it again
+	snprintf(buf,IDLENGTH,"%s_%s",mod,fcn);
+	for(i = 0; i < pnettop; i++) {
+		if(strcmp(pnet[i].modname,userRef) == 0 && strcmp(pnet[i].fcnname,buf) == 0) {
+			pnet[i].heartbeat = ticks;
+			return MAL_SUCCEED;
+		}
+	}
+	throw(MAL, "iot.heartbeat", "Could not find function %s.%s\n",mod,fcn);
 }
 
 str PNregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
@@ -412,14 +421,17 @@ PNstop(void){
 
 	MT_lock_set(&iotLock);
 	pnstatus = PNSTOP; // avoid starting new continuous queries
+	// warn all queries to stop
+	for(i = 0; i < pnettop; i++)
+			pnet[i].status = PNPAUSED;
 	MT_lock_unset(&iotLock);
 
 	do{
 		MT_sleep_ms(1000);
 		for(cnt=0,  i = 0; i < pnettop; i++)
-			cnt += pnet[i].status != PNWAIT;
-		mnstr_printf(GDKout, "#pnstop waiting for  %d queries \n", cnt);
+			cnt += (pnet[i].status != PNWAIT && pnet[i].status != PNPAUSED);
 #ifdef DEBUG_PETRINET
+		mnstr_printf(GDKout, "#pnstop waiting for  %d queries \n", cnt);
 #endif
 	} while(pnstatus != PNINIT && cnt > 0);
 
@@ -457,8 +469,8 @@ str PNdump(void *ret)
 	int i, k, idx;
 	mnstr_printf(GDKout, "#scheduler status %s\n", statusname[pnstatus]);
 	for (i = 0; i < pnettop; i++) {
-		mnstr_printf(GDKout, "#[%d]\t%s.%s %s delay %d cycles %d events %d time " LLFMT " ms\n",
-				i, pnet[i].modname, pnet[i].fcnname, statusname[pnet[i].status], pnet[i].delay, pnet[i].cycles, pnet[i].events, pnet[i].time / 1000);
+		mnstr_printf(GDKout, "#[%d]\t%s.%s %s delay %d runs %d time " LLFMT " ms\n",
+				i, pnet[i].modname, pnet[i].fcnname, statusname[pnet[i].status], pnet[i].delay, pnet[i].runs, pnet[i].time / 1000);
 		if (pnet[i].error)
 			mnstr_printf(GDKout, "#%s\n", pnet[i].error);
 		for (k = 0; k < MAXBSKT && pnet[i].inputs[k]; k++){
@@ -588,7 +600,10 @@ PNexecute( Client cntxt, int idx)
 #ifdef DEBUG_PETRINET
 	mnstr_printf(GDKout, "#petrinet.execute %s.%s all unlocked\n",node->modname, node->fcnname);
 #endif
-	node->status = PNWAIT;
+	MT_lock_set(&iotLock);
+	if( node->status != PNPAUSED)
+		node->status = PNWAIT;
+	MT_lock_unset(&iotLock);
 }
 
 static void
@@ -772,7 +787,7 @@ PNscheduler(void *dummy)
 					msg= createException(MAL,"petrinet.controller","Can not fork the thread");
 				} else
 */
-					pnet[i].cycles++;
+					pnet[i].runs++;
 				pnet[i].time += GDKusec() - t + analysis;   /* keep around in microseconds */
 				if (msg != MAL_SUCCEED ){
 					char buf[BUFSIZ];
@@ -847,9 +862,9 @@ PNstartScheduler(void)
 
 /* inspection  routines */
 str
-PNtable(bat *modnameId, bat *fcnnameId, bat *statusId, bat *seenId, bat *cyclesId, bat *eventsId, bat *timeId, bat * errorId)
+PNtable(bat *modnameId, bat *fcnnameId, bat *statusId, bat *seenId, bat *runsId, bat *timeId, bat * errorId)
 {
-	BAT *modname = NULL, *fcnname = NULL, *status = NULL, *seen = NULL, *cycles = NULL, *events = NULL, *time = NULL, *error = NULL;
+	BAT *modname = NULL, *fcnname = NULL, *status = NULL, *seen = NULL, *runs = NULL, *time = NULL, *error = NULL;
 	int i;
 
 	modname = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
@@ -864,11 +879,8 @@ PNtable(bat *modnameId, bat *fcnnameId, bat *statusId, bat *seenId, bat *cyclesI
 	seen = COLnew(0, TYPE_timestamp, BATTINY, TRANSIENT);
 	if (seen == 0)
 		goto wrapup;
-	cycles = COLnew(0, TYPE_int, BATTINY, TRANSIENT);
-	if (cycles == 0)
-		goto wrapup;
-	events = COLnew(0, TYPE_int, BATTINY, TRANSIENT);
-	if (events == 0)
+	runs = COLnew(0, TYPE_int, BATTINY, TRANSIENT);
+	if (runs == 0)
 		goto wrapup;
 	time = COLnew(0, TYPE_lng, BATTINY, TRANSIENT);
 	if (time == 0)
@@ -878,21 +890,20 @@ PNtable(bat *modnameId, bat *fcnnameId, bat *statusId, bat *seenId, bat *cyclesI
 		goto wrapup;
 
 	for (i = 0; i < pnettop; i++) {
+		lng avg= pnet[i].time / pnet[i].runs;
 		BUNappend(modname, pnet[i].modname, FALSE);
 		BUNappend(fcnname, pnet[i].fcnname, FALSE);
 		BUNappend(status, statusname[pnet[i].status], FALSE);
 		BUNappend(seen, &pnet[i].seen, FALSE);
-		BUNappend(cycles, &pnet[i].cycles, FALSE);
-		BUNappend(events, &pnet[i].events, FALSE);
-		BUNappend(time, &pnet[i].time, FALSE);
+		BUNappend(runs, &pnet[i].runs, FALSE);
+		BUNappend(time, &avg, FALSE);
 		BUNappend(error, (pnet[i].error ? pnet[i].error : ""), FALSE);
 	}
 	BBPkeepref(*modnameId = modname->batCacheid);
 	BBPkeepref(*fcnnameId = fcnname->batCacheid);
 	BBPkeepref(*statusId = status->batCacheid);
 	BBPkeepref(*seenId = seen->batCacheid);
-	BBPkeepref(*cyclesId = cycles->batCacheid);
-	BBPkeepref(*eventsId = events->batCacheid);
+	BBPkeepref(*runsId = runs->batCacheid);
 	BBPkeepref(*timeId = time->batCacheid);
 	BBPkeepref(*errorId = error->batCacheid);
 	return MAL_SUCCEED;
@@ -905,10 +916,8 @@ wrapup:
 		BBPunfix(status->batCacheid);
 	if (seen)
 		BBPunfix(seen->batCacheid);
-	if (cycles)
-		BBPunfix(cycles->batCacheid);
-	if (events)
-		BBPunfix(events->batCacheid);
+	if (runs)
+		BBPunfix(runs->batCacheid);
 	if (time)
 		BBPunfix(time->batCacheid);
 	if (error)

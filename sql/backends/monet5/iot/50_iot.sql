@@ -106,7 +106,7 @@ create procedure iot.show("schema" string, "query" string)
 external name iot.show;
 
 create function iot.queries()
- returns table( "schema" string, "function" string, "status" string, lastrun timestamp, cycles int, events int, time bigint, error string)
+ returns table( "schema" string, "function" string, "status" string, lastrun timestamp, runs int, avgtime bigint, error string)
  external name iot.queries;
 
 create function iot.inputs()

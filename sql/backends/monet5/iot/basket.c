@@ -253,6 +253,9 @@ BSKTheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		// register the stream when you set a heartbeat on it
 		msg = BSKTregisterInternal(cntxt,mb,sch,tbl);
 		if( msg != MAL_SUCCEED){
+			// we found a table instead of stream table
+			if( strstr(msg,"Only allowed for stream tables") )
+				return msg;
 			GDKfree(msg);
 			return PNheartbeat(cntxt,sch,tbl,ticks);
 		}

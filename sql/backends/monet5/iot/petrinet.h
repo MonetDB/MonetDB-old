@@ -50,7 +50,7 @@ sql5_export str PNgetheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 sql5_export str PNperiod(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 sql5_export str PNanalysis(Client cntxt, MalBlkPtr mb, int pn);
-sql5_export str PNtable(bat *modnameId, bat *fcnnameId, bat *statusId, bat *seenId, bat *cyclesId, bat *eventsId, bat *timeId, bat * errorId);
+sql5_export str PNtable(bat *modnameId, bat *fcnnameId, bat *statusId, bat *seenId, bat *runsId, bat *timeId, bat * errorId);
 sql5_export str PNinputplaces(bat *schemaId, bat *streamId, bat *modnameId, bat *fcnnameId);
 sql5_export str PNoutputplaces(bat *schemaId, bat *streamId, bat *modnameId, bat *fcnnameId);
 #endif

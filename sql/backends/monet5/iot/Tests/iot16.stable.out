@@ -35,10 +35,10 @@ Ready.
 % 1,	1,	2 # length
 [ 2,	2,	75	]
 #select *from  iot.queries();
-% .,	.,	.,	.,	.,	.,	.,	. # table_name
-% schema,	function,	status,	lastrun,	cycles,	events,	time,	error # name
-% clob,	clob,	clob,	timestamp,	int,	int,	bigint,	clob # type
-% 0,	0,	0,	26,	1,	1,	1,	0 # length
+% .,	.,	.,	.,	.,	.,	. # table_name
+% schema,	function,	status,	lastrun,	runs,	avgtime,	error # name
+% clob,	clob,	clob,	timestamp,	int,	bigint,	clob # type
+% 0,	0,	0,	26,	1,	1,	0 # length
 #drop table winheart;
 
 # 23:23:11 >  

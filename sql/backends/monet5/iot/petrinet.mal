@@ -56,7 +56,7 @@ pattern iot.period(t:int)
 address PNperiod
 comment "Control the scheduler cycle time in ms.";
 
-command iot.queries() (mod:bat[:str],fcn:bat[:str], status:bat[:str],lastrun:bat[:timestamp],cycles:bat[:int], events:bat[:int],time:bat[:lng],error:bat[:str])
+command iot.queries() (mod:bat[:str],fcn:bat[:str], status:bat[:str],lastrun:bat[:timestamp],runs:bat[:int], time:bat[:lng],error:bat[:str])
 address PNtable
 comment "Inspect the iot queries";
 

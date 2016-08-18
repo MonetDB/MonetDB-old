@@ -1,5 +1,6 @@
 -- removal from a stream
 set schema iot;
+set optimizer='iot_pipe';
 
 create stream table sdel (t timestamp, sensor integer, val decimal(8,2)) ;
 
