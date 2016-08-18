@@ -44,7 +44,8 @@ sql5_export str PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 sql5_export str PNshow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str PNstop(void);
 sql5_export str PNdump(void *ret);
-sql5_export str PNheartbeat(str mod, str fcn, lng ticks);
+sql5_export str PNheartbeat(Client cntxt,str mod, str fcn, lng ticks);
+sql5_export str PNgetheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 sql5_export str PNperiod(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 

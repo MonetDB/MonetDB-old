@@ -2,7 +2,7 @@
 set schema iot;
 set optimizer='iot_pipe';
 
-create table log(t timestamp,b integer);
+create stream table log(t timestamp,b integer);
 
 create procedure cqlogger()
 begin

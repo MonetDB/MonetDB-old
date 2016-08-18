@@ -103,20 +103,56 @@ str PNperiod(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
-PNheartbeat(str mod, str fcn, lng ticks)
+PNgetheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+    lng *ret = getArgReference_lng(stk,pci,0);
+    str mod = *getArgReference_str(stk,pci,1);
+    str fcn = *getArgReference_str(stk,pci,2);
+    int i;
+	char buf[IDLENGTH];
+
+	(void) cntxt;
+	(void) mb;
+	snprintf(buf,IDLENGTH,"%s_%s",mod,fcn);
+	for(i = 0; i < pnettop; i++) 
+		if(strcmp(pnet[i].modname,userRef) == 0 && strcmp(pnet[i].fcnname,buf) == 0) {
+			*ret = pnet[i].heartbeat;
+			return MAL_SUCCEED;
+		}
+	throw(MAL,"iot.getheartbeat","Stream table or query '%s.%s' not found",mod,fcn);
+}
+
+str 
+PNheartbeat(Client cntxt,str mod, str fcn, lng ticks)
+{
+	Module scope;
+	Symbol s;
 	int i;
+	str msg;
+	char buf[IDLENGTH];
 
 	if (ticks < 0)
 		throw(MAL,"iot.heartbeat","The heartbeat should be >= 0\n");
+	scope = findModule(cntxt->nspace, putName(mod));
+	if (scope)
+		s = findSymbolInModule(scope, putName(fcn));
 
+	if (s == NULL)
+		throw(MAL, "iot.heartbeat", "Could not find function\n");
+
+	snprintf(buf,IDLENGTH,"%s_%s",mod,fcn);
 	for(i = 0; i < pnettop; i++) {
-		if(strcmp(pnet[i].modname,mod) == 0 && strcmp(pnet[i].fcnname,fcn) == 0) {
+		if(strcmp(pnet[i].modname,userRef) == 0 && strcmp(pnet[i].fcnname,buf) == 0) {
 			pnet[i].heartbeat = ticks;
 			return MAL_SUCCEED;
 		}
 	}
-	throw(MAL,"iot.heartbeat","Cannot access stream, nor query\n");
+	msg = PNregisterInternal(cntxt,s->def,0);
+	if( msg){
+		GDKfree(msg);
+		throw(MAL,"iot.heartbeat","Cannot access stream, nor active query\n");
+	}
+	return MAL_SUCCEED;
 }
 
 str PNregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
@@ -308,7 +344,7 @@ PNwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		cnt += pnet[i].status != PNWAIT;
 #ifdef DEBUG_PETRINET
 	mnstr_printf(cntxt->fdout, "#pnstop %d waiting for  %d queries \n", pnettop, cnt);
-	mnstr_printf(cntxt->fdout, "#wait finished after %d cycles\n",PNcycle -old );
+	mnstr_printf(cntxt->fdout, "#wait finished after %d queries ran\n",PNcycle -old );
 #endif
 	return MAL_SUCCEED;
 }
@@ -477,6 +513,16 @@ PNanalysis(Client cntxt, MalBlkPtr mb, int pn)
 					pnet[pn].outputs[k++]= idx;
 			}
 		}
+		if (getModuleId(p) == basketRef && getFunctionId(p) == appendRef){
+			sch = getVarConstant(mb, getArg(p,2)).val.sval;
+			tbl = getVarConstant(mb, getArg(p,3)).val.sval;
+			idx =  BSKTlocate(sch, tbl);
+			for(j=0; j< k; j++)
+				if( pnet[pn].outputs[j] == idx)
+					break;
+			if ( j == k)
+				pnet[pn].outputs[k++]= idx;
+		}
 	}
 	return msg;
 }
@@ -581,7 +627,6 @@ PNscheduler(void *dummy)
 	MT_lock_unset(&iotLock);
 
 	while( pnstatus != PNSTOP ){
-		PNcycle++;
 		/* Determine which continuous query are eligble to run
   		   Collect latest statistics, note that we don't need a lock here,
 		   because the count need not be accurate to the usec. It will simply
@@ -706,6 +751,7 @@ PNscheduler(void *dummy)
 #ifdef DEBUG_PETRINET
 		if(k) mnstr_printf(GDKout, "#Transitions enabled: %d \n", k);
 #endif
+		PNcycle += k;
 		if( pnstatus == PNSTOP)
 			continue;
 

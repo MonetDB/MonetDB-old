@@ -118,7 +118,7 @@ BSKTlocate(str sch, str tbl)
 	return 0;
 }
 
-// Instantiate a basket description for a particular table
+// Instantiate a basket description for a particular stream table
 static str
 BSKTnewbasket(mvc *m, sql_schema *s, sql_table *t)
 {
@@ -129,6 +129,9 @@ BSKTnewbasket(mvc *m, sql_schema *s, sql_table *t)
 	// Don't introduce the same basket twice
 	if( BSKTlocate(s->base.name, t->base.name) > 0)
 		return MAL_SUCCEED;
+	if( !isStream(t->type))
+		throw(MAL,"basket.register","Only allowed for stream tables");
+
 	MT_lock_set(&iotLock);
 	idx = BSKTnewEntry();
 
@@ -249,8 +252,10 @@ BSKTheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( idx == 0){
 		// register the stream when you set a heartbeat on it
 		msg = BSKTregisterInternal(cntxt,mb,sch,tbl);
-		if( msg != MAL_SUCCEED)
-			return PNheartbeat(sch,tbl,ticks);
+		if( msg != MAL_SUCCEED){
+			GDKfree(msg);
+			return PNheartbeat(cntxt,sch,tbl,ticks);
+		}
 		idx = BSKTlocate(sch, tbl);
 	}
 	baskets[idx].heartbeat = ticks;
@@ -263,6 +268,7 @@ BSKTgetheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	lng *ret = getArgReference_lng(stk,pci,0);
 	str sch = *getArgReference_str(stk,pci,1);
 	str tbl = *getArgReference_str(stk,pci,2);
+	str msg;
 	int idx;
 
 	(void) cntxt;
@@ -270,10 +276,14 @@ BSKTgetheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	idx = BSKTlocate(sch, tbl);
 	if( idx == 0){
-		BSKTregisterInternal(cntxt, mb, sch, tbl);
+		msg =BSKTregisterInternal(cntxt, mb, sch, tbl);
+		if( msg != MAL_SUCCEED){
+			GDKfree(msg);
+			return PNgetheartbeat(cntxt,mb,stk,pci);
+		}
 		idx = BSKTlocate(sch, tbl);
 		if( idx == 0)
-			throw(SQL,"basket.heartbeat","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+			throw(SQL,"basket.heartbeat","Stream table %s.%s not active\n",sch,tbl);
 	}
 	*ret = baskets[idx].heartbeat;
 	return MAL_SUCCEED;
@@ -286,6 +296,7 @@ BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str tbl = *getArgReference_str(stk,pci,2);
 	int elm = *getArgReference_int(stk,pci,3);
 	int idx;
+	str msg;
 
 	(void) cntxt;
 	(void) mb;
@@ -293,7 +304,9 @@ BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(SQL,"basket.window","Positive slice expected\n");
 	idx = BSKTlocate(sch, tbl);
 	if( idx == 0){
-		BSKTregisterInternal(cntxt, mb, sch, tbl);
+		msg= BSKTregisterInternal(cntxt, mb, sch, tbl);
+		if( msg != MAL_SUCCEED)
+			return msg;
 		idx = BSKTlocate(sch, tbl);
 		if( idx ==0)
 			throw(SQL,"basket.window","Stream table %s.%s not accessible\n",sch,tbl);
@@ -572,9 +585,12 @@ BSKTimport(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     str sch = *getArgReference_str(stk, pci, 1);
     str tbl = *getArgReference_str(stk, pci, 2);
     str dir = *getArgReference_str(stk, pci, 3);
+	str msg;
     int bskt;
 
-	BSKTregisterInternal(cntxt, mb, sch, tbl);
+	msg = BSKTregisterInternal(cntxt, mb, sch, tbl);
+	if( msg != MAL_SUCCEED)
+		return msg;
     bskt = BSKTlocate(sch,tbl);
 	if (bskt == 0)
 		throw(SQL, "iot.basket", "Could not find the basket %s.%s",sch,tbl);
@@ -671,9 +687,12 @@ BSKTexport(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     str sch = *getArgReference_str(stk, pci, 1);
     str tbl = *getArgReference_str(stk, pci, 2);
     str dir = *getArgReference_str(stk, pci, 3);
+	str msg;
     int bskt;
 
-	BSKTregisterInternal(cntxt, mb, sch, tbl);
+	msg =BSKTregisterInternal(cntxt, mb, sch, tbl);
+	if( msg != MAL_SUCCEED)
+		return msg;
     bskt = BSKTlocate(sch,tbl);
 	if (bskt == 0)
 		throw(SQL, "iot.basket", "Could not find the basket %s.%s",sch,tbl);
@@ -763,6 +782,7 @@ BSKTtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str tbl;
 	int elm = -1;
 	int idx;
+	str msg;
 
 	(void) cntxt;
 	(void) mb;
@@ -772,7 +792,9 @@ BSKTtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	idx = BSKTlocate(sch, tbl);
 	if( idx == 0){
-		BSKTregisterInternal(cntxt, mb, sch, tbl);
+		msg = BSKTregisterInternal(cntxt, mb, sch, tbl);
+		if( msg != MAL_SUCCEED)
+			return msg;
 		idx = BSKTlocate(sch, tbl);
 		if( idx ==0)
 			throw(SQL,"basket.tumble","Stream table %s.%s not accessible \n",sch,tbl);
