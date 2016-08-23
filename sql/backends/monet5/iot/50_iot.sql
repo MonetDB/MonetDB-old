@@ -39,6 +39,12 @@ create procedure iot.resume()
 create procedure iot.pause("schema" string, name string)
 	external name iot.pause;
 
+create procedure iot.keep("schema" string, name string)
+	external name iot.keep;
+
+create procedure iot.release("schema" string, name string)
+	external name iot.release;
+
 create procedure iot.pause()
 	external name iot.pause;
 
@@ -99,7 +105,7 @@ create function iot.getheartbeat("schema" string, "table" string) returns bigint
 external name iot.getheartbeat;
 
 create function iot.baskets()
-returns table( "schema" string, "table" string, "status" string, winsize int, winstride int, timeslice int, timestride int, heartbeat int, seen timestamp, events int)
+returns table( "schema" string, "table" string, "status" string, winsize int, winstride int, timeslice int, timestride int, heartbeat int, seen timestamp, "count" bigint, events bigint)
 external name iot.baskets;
 
 create procedure iot.show("schema" string, "query" string)

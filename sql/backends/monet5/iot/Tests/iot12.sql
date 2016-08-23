@@ -9,6 +9,8 @@ insert into clocks values(0,0);
 create table clocklog( t timestamp, clk integer);
 
 call iot.heartbeat('iot','clocks',2000);
+-- avoid loosing the tuples in the stream table
+call iot.window('iot','clocks',-1);
 
 create procedure clk()
 begin

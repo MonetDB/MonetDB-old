@@ -685,10 +685,6 @@ PNscheduler(void *dummy)
 			/* check if all input baskets are available and non-empty, and not controlled by a heartbeat */
 			for (j = 0; force == 0 && j < MAXBSKT &&  pnet[i].enabled && pnet[i].inputs[j]; j++) {
 				idx = pnet[i].inputs[j];
-				if (baskets[idx].status != BSKTFILLED  && baskets[idx].heartbeat == 0 ){
-					pnet[i].enabled = 0;
-					break;
-				}
 				/* consider the heart beat trigger, which overrules the filling test */
 				if (baskets[idx].heartbeat ) {
 					(void) MTIMEcurrent_timestamp(&ts);
@@ -705,8 +701,12 @@ PNscheduler(void *dummy)
 #endif
 					}
 				} else
-				/* consider baskets that are properly filled */
-				if ( baskets[idx].count == 0 ){
+				/* consider execution only if baskets are properly filled */
+				if ( baskets[idx].winsize > 0 && (BUN) baskets[idx].winsize > baskets[idx].count){
+					pnet[i].enabled = 0;
+					break;
+				} else
+				if (baskets[idx].winsize != -1 && baskets[idx].count == 0 ){
 					pnet[i].enabled = 0;
 					break;
 				}

@@ -52,6 +52,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int output[MAXBSKT]= {0};
 	int btop=0, lastmvc=0;
 	int noerror=0;
+	int mvcseen = 0;
 	int cq= strncmp(getFunctionId(getInstrPtr(mb,0)),"cq",2) == 0;
 	char buf[256];
 	lng usec = GDKusec();
@@ -167,6 +168,17 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if(getModuleId(p) == sqlRef && getFunctionId(p)== mvcRef){
 				pushInstruction(mb,p);
 				lastmvc = getArg(p,0);
+				// watch out for second transaction in same block
+				if( mvcseen){
+					// unlock the tables
+					for( j=btop-1; j>= 0; j--){
+						r= newStmt(mb,basketRef,unlockRef);
+						r= pushArgument(mb,r,lastmvc);
+						r= pushStr(mb,r, schemas[j]);
+						r= pushStr(mb,r, tables[j]);
+						lastmvc= getArg(r,0);
+					}
+				}
 				// register and lock all baskets used
 				for( j=0; j<btop; j++){
 					p= newStmt(mb,basketRef,registerRef);
@@ -183,6 +195,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					p= pushStr(mb,p, tables[j]);
 					lastmvc = getArg(p,0);
 				}
+				mvcseen=1;
 				continue;
 			}
 			// register all baskets used after the mvc had been determined
@@ -262,7 +275,6 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					r= pushStr(mb,r, schemas[j]);
 					r= pushStr(mb,r, tables[j]);
 					lastmvc= getArg(r,0);
-
 				}
 					//p= newStmt(mb,basketRef,commitRef);
 					//p= pushArgument(mb,p, lastmvc);

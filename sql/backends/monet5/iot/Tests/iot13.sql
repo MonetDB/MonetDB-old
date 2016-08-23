@@ -13,7 +13,12 @@ call iot.heartbeat('iot','tmp13',1000);
 
 create procedure cq13()
 begin
-	insert into agenda13 select count(*), 'full batch' from tmp13;
+	declare b boolean;
+	set b = (select count(*) > 0 from tmp13);
+	if (b)
+	then
+		insert into agenda13 select count(*), 'full batch' from tmp13;
+	end if;
 end;
 
 call iot.query('iot','cq13');
@@ -23,7 +28,6 @@ insert into tmp13 values('2005-09-23 12:34:26.736',1,12.34);
 insert into tmp13 values('2005-09-23 12:34:26.736',1,12.35);
 insert into tmp13 values('2005-09-23 12:34:26.736',1,12.36);
 --insert into tmp13 values('2005-09-23 12:34:26.736',1,12.37);
-select * from tmp13;
 
 -- reactivate all continuous queries
 call iot.resume();

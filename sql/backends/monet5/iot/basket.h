@@ -37,7 +37,7 @@ typedef struct{
 	str cols[MAXCOLS];	/* column names */
 	BAT *bats[MAXCOLS];	/* the bats comprising the basket */
 
-	BUN winsize, winstride; /* sliding window operations */
+	int winsize, winstride; /* sliding window operations */
 	lng timeslice, timestride; /* temporal sliding window, determined by first temporal component */
 	lng heartbeat;	/* milliseconds delay between actions */
 	BUN count;	/* number of events available in basket */
@@ -57,10 +57,6 @@ typedef struct{
 } *Basket, BasketRec;
 
 
-/* individual streams can be paused and restarted */
-#define BSKTWAIT  		 1  /* waiting for new data*/
-#define BSKTFILLED       2	/* some data available */
-
 sql5_export BasketRec *baskets;
 
 sql5_export str BSKTtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
@@ -74,6 +70,8 @@ sql5_export str BSKTthreshold(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPt
 sql5_export str BSKTheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str BSKTgetheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str BSKTkeep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str BSKTrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str BSKTgetwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str BSKTreset(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str BSKTsettumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

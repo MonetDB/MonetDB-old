@@ -97,6 +97,14 @@ pattern iot.getwindow(sch:str,tbl:str):int
 address BSKTgetwindow
 comment "Set the window tumbling at most N events from the stream";
 
+pattern iot.keep(sch:str,tbl:str):int
+address BSKTkeep
+comment "Don't remove tuples from the stream";
+
+pattern iot.release(sch:str,tbl:str):int
+address BSKTrelease
+comment "Reset the tumble parameters";
+
 pattern iot.show(sch:str,tbl:str)
 address PNshow
 comment "Show the continuous MAL plan";
@@ -110,7 +118,7 @@ address BSKTexport
 comment "Export a stream table to binary files";
 
 pattern iot.baskets()(sch:bat[:str],nme:bat[:str], status:bat[:str], winsize:bat[:int], winstride:bat[:int], timeslice:bat[:int], 
-timestride:bat[:int], heartbeat:bat[:int], seen:bat[:timestamp], events:bat[:int])
+timestride:bat[:int], heartbeat:bat[:int], seen:bat[:timestamp], count:bat[:lng] ,events:bat[:lng])
 address BSKTtable
 comment "Inspect the iot baskets";
 

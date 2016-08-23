@@ -139,7 +139,6 @@ BSKTnewbasket(mvc *m, sql_schema *s, sql_table *t)
 	baskets[idx].table_name = GDKstrdup(t->base.name);
 	(void) MTIMEcurrent_timestamp(&baskets[idx].seen);
 
-	baskets[idx].status = BSKTWAIT;
 	baskets[idx].count = 0;
 
 	baskets[idx].winstride = -1; /* all tuples are removed */
@@ -294,14 +293,13 @@ BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str sch = *getArgReference_str(stk,pci,1);
 	str tbl = *getArgReference_str(stk,pci,2);
-	int elm = *getArgReference_int(stk,pci,3);
+	int winsize = *getArgReference_int(stk,pci,3);
+	int winstride;
 	int idx;
 	str msg;
 
 	(void) cntxt;
 	(void) mb;
-	if( elm <= 0)
-		throw(SQL,"basket.window","Positive slice expected\n");
 	idx = BSKTlocate(sch, tbl);
 	if( idx == 0){
 		msg= BSKTregisterInternal(cntxt, mb, sch, tbl);
@@ -311,8 +309,57 @@ BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if( idx ==0)
 			throw(SQL,"basket.window","Stream table %s.%s not accessible\n",sch,tbl);
 	}
-	baskets[idx].winsize = elm;
-	baskets[idx].winstride = elm;
+	if( pci->argc == 5)
+		winstride = *getArgReference_int(stk,pci,4);
+	else winstride = winsize;
+	baskets[idx].winsize = winsize;
+	baskets[idx].winstride = winstride;
+	return MAL_SUCCEED;
+}
+
+str
+BSKTkeep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	str sch = *getArgReference_str(stk,pci,1);
+	str tbl = *getArgReference_str(stk,pci,2);
+	int idx;
+	str msg;
+
+	(void) cntxt;
+	(void) mb;
+	idx = BSKTlocate(sch, tbl);
+	if( idx == 0){
+		msg= BSKTregisterInternal(cntxt, mb, sch, tbl);
+		if( msg != MAL_SUCCEED)
+			return msg;
+		idx = BSKTlocate(sch, tbl);
+		if( idx ==0)
+			throw(SQL,"basket.window","Stream table %s.%s not accessible\n",sch,tbl);
+	}
+	baskets[idx].winsize = - baskets[idx].winsize -1;
+	return MAL_SUCCEED;
+}
+
+str
+BSKTrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	str sch = *getArgReference_str(stk,pci,1);
+	str tbl = *getArgReference_str(stk,pci,2);
+	int idx;
+	str msg;
+
+	(void) cntxt;
+	(void) mb;
+	idx = BSKTlocate(sch, tbl);
+	if( idx == 0){
+		msg= BSKTregisterInternal(cntxt, mb, sch, tbl);
+		if( msg != MAL_SUCCEED)
+			return msg;
+		idx = BSKTlocate(sch, tbl);
+		if( idx ==0)
+			throw(SQL,"basket.window","Stream table %s.%s not accessible\n",sch,tbl);
+	}
+	baskets[idx].winsize = - baskets[idx].winsize -1;
 	return MAL_SUCCEED;
 }
 
@@ -402,7 +449,7 @@ BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					VIEWbounds(b,bn, 0, baskets[bskt].winsize);
 					BBPkeepref(*ret =  bn->batCacheid);
 				} else
-					throw(SQL,"iot.bind","Can not create view %s.%s.%s["BUNFMT"]\n",sch,tbl,col,baskets[bskt].winsize );
+					throw(SQL,"iot.bind","Can not create view %s.%s.%s[%d]\n",sch,tbl,col,baskets[bskt].winsize );
 			} else{
 				BBPkeepref( *ret = b->batCacheid);
 				BBPfix(b->batCacheid); // don't loose it
@@ -555,7 +602,6 @@ BSKTimportInternal(Client cntxt, int bskt)
 		//unlink(buf);
 	}
 	baskets[bskt].count = cnt;
-	baskets[bskt].status = BSKTFILLED;
 
 recover:
 	/* reset all BATs when they are misaligned or error occurred */
@@ -754,8 +800,6 @@ BSKTtumbleInternal(Client cntxt, str sch, str tbl, int stride)
 		_DEBUG_BASKET_ mnstr_printf(BSKTout,"#Tumbled %s.%s[%d] "BUNFMT" elements\n",sch,tbl,i,cnt);
 		BATsetcount(b, cnt);
 		baskets[bskt].count = BATcount(b);
-		if( cnt == 0)
-			baskets[bskt].status = BSKTWAIT;
 		b->tnil = 0;
 		if( shift < BATcount(b)){
 			b->tnokey[0] -= shift;
@@ -799,6 +843,9 @@ BSKTtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if( idx ==0)
 			throw(SQL,"basket.tumble","Stream table %s.%s not accessible \n",sch,tbl);
 	}
+	// don't tumble when the window constraint has not been set to at least 0
+	if( baskets[idx].winsize < 0)
+		return MAL_SUCCEED;
 	/* also take care of time-based tumbling */
 	elm =(int) baskets[idx].winstride;
 	return BSKTtumbleInternal(cntxt, sch, tbl, elm);
@@ -882,6 +929,7 @@ BSKTunlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str sch = *getArgReference_str(stk,pci,2);
 	str tbl = *getArgReference_str(stk,pci,3);
 	int idx;
+	BAT *b;
 
 	(void) cntxt;
 	(void) mb;
@@ -889,7 +937,12 @@ BSKTunlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	idx = BSKTlocate(sch, tbl);
 	if( idx ==0)
 		throw(SQL,"basket.lock","Stream table %s.%s not accessible\n",sch,tbl);
+	/* this is also the place to administer the size of the basket */
+    b = BSKTbindColumn(sch,tbl, baskets[idx].cols[0]);
+	if( b)
+		baskets[idx].count = BATcount(b);
 	/* release the basket lock */
+
 	MT_lock_unset(&baskets[idx].lock);
 	return MAL_SUCCEED;
 }
@@ -910,7 +963,7 @@ BSKTdump(void *ret)
 			if( b)
 				cnt = BATcount(b);
 
-			mnstr_printf(GDKout, "#baskets[%2d] %s.%s columns "BUNFMT" window=["BUNFMT","BUNFMT"] time window=[" LLFMT "," LLFMT "] beat " LLFMT " milliseconds" BUNFMT"\n",
+			mnstr_printf(GDKout, "#baskets[%2d] %s.%s columns "BUNFMT" window=[%d,%d] time window=[" LLFMT "," LLFMT "] beat " LLFMT " milliseconds" BUNFMT"\n",
 					bskt,
 					baskets[bskt].schema_name,
 					baskets[bskt].table_name,
@@ -938,7 +991,6 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     int tpe = getArgType(mb, pci, 5);
     BAT *bn=0, *binsert = 0;
 	int bskt;
-	BUN cnt =0;
 
 	(void) cntxt;
     *res = 0;
@@ -958,14 +1010,9 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BATappend(bn, binsert, TRUE);
 		else
 			BUNappend(bn, value, TRUE);
-		cnt = BATcount(bn);
 		BATsettrivprop(bn);
 	} else throw(SQL, "basket.append", "Cannot access target column %s.%s.%s",sname,tname,cname);
 	
-	if(cnt){
-		baskets[bskt].count = cnt;
-		baskets[bskt].status = BSKTFILLED;
-	}
 	if (binsert )
 		BBPunfix(((BAT *) binsert)->batCacheid);
 	return MAL_SUCCEED;
@@ -1006,7 +1053,6 @@ BSKTupdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		BATsettrivprop(bn);
 	} else throw(SQL, "basket.append", "Cannot access target column %s.%s.%s",sname,tname,cname);
 	
-	baskets[bskt].status = BSKTFILLED;
 	BBPunfix(rid->batCacheid);
 	BBPunfix(bval->batCacheid);
 	return MAL_SUCCEED;
@@ -1038,10 +1084,6 @@ BSKTdelete(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if(b){
 			(void) BATdel(b, rid);
 			baskets[idx].count = BATcount(b);
-			if( BATcount(b) == 0)
-				baskets[idx].status = BSKTWAIT;
-			else
-				baskets[idx].status = BSKTFILLED;
 			b->tnil = 0;
 			b->tnosorted = 0;
 			b->tnorevsorted = 0;
@@ -1079,7 +1121,6 @@ BSKTreset(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BATsettrivprop(b);
 		}
 	}
-	baskets[idx].status = BSKTWAIT;
 	MT_lock_unset(&baskets[idx].lock);
 	return MAL_SUCCEED;
 }
@@ -1139,8 +1180,9 @@ BSKTtable (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bat *timestrideId = getArgReference_bat(stk,pci,6);
 	bat *beatId = getArgReference_bat(stk,pci,7);
 	bat *seenId = getArgReference_bat(stk,pci,8);
-	bat *eventsId = getArgReference_bat(stk,pci,9);
-	BAT *schema = NULL, *name = NULL, *status = NULL,  *seen = NULL, *events = NULL;
+	bat *countId = getArgReference_bat(stk,pci,9);
+	bat *eventsId = getArgReference_bat(stk,pci,10);
+	BAT *schema = NULL, *name = NULL, *status = NULL,  *seen = NULL, *counts = NULL, *events = NULL;
 	BAT *winsize = NULL, *winstride = NULL, *beat = NULL;
 	BAT *timeslice = NULL, *timestride = NULL;
 	int i;
@@ -1176,7 +1218,10 @@ BSKTtable (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	seen = COLnew(0, TYPE_timestamp, BATTINY, TRANSIENT);
 	if (seen == 0)
 		goto wrapup;
-	events = COLnew(0, TYPE_int, BATTINY, TRANSIENT);
+	counts = COLnew(0, TYPE_lng, BATTINY, TRANSIENT);
+	if (counts == 0)
+		goto wrapup;
+	events = COLnew(0, TYPE_lng, BATTINY, TRANSIENT);
 	if (events == 0)
 		goto wrapup;
 
@@ -1192,7 +1237,8 @@ BSKTtable (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BUNappend(beat, &baskets[i].heartbeat, FALSE);
 			BUNappend(seen, &baskets[i].seen, FALSE);
 			bn = BSKTbindColumn(baskets[i].schema_name, baskets[i].table_name, baskets[i].cols[0]);
-			baskets[i].events = bn ? (int) BATcount( bn): 0;
+			BUNappend(counts, &baskets[i].count, FALSE);
+			baskets[i].events = bn ? (lng) BATcount( bn): 0;
 			BUNappend(events, &baskets[i].events, FALSE);
 		}
 
@@ -1205,6 +1251,7 @@ BSKTtable (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BBPkeepref(*timestrideId = timestride->batCacheid);
 	BBPkeepref(*beatId = beat->batCacheid);
 	BBPkeepref(*seenId = seen->batCacheid);
+	BBPkeepref(*countId = counts->batCacheid);
 	BBPkeepref(*eventsId = events->batCacheid);
 	return MAL_SUCCEED;
 wrapup:
@@ -1226,6 +1273,8 @@ wrapup:
 		BBPunfix(beat->batCacheid);
 	if (seen)
 		BBPunfix(seen->batCacheid);
+	if (counts)
+		BBPunfix(counts->batCacheid);
 	if (events)
 		BBPunfix(events->batCacheid);
 	throw(SQL, "iot.baskets", MAL_MALLOC_FAIL);

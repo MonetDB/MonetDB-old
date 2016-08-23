@@ -18,17 +18,20 @@ insert into stmp10 values('2005-09-23 12:34:26.000',1,9.0);
 insert into stmp10 values('2005-09-23 12:34:27.000',1,11.0);
 insert into stmp10 values('2005-09-23 12:34:28.000',1,13.0);
 insert into stmp10 values('2005-09-23 12:34:28.000',1,15.0);
-select * from stmp10;
+select "count" from iot.baskets();
 
-call iot.window('iot','stmp10',2);
+-- avoid emptying the stmp10
+call iot.keep('iot','stmp10');
+select * from stmp10;
+call iot.release('iot','stmp10');
+
 call iot.query('iot','collector');
 
 --select * from iot.baskets();
 --select * from iot.queries();
 
-call iot.resume();
 -- wait a few seconds
-call iot.wait(5000);
+call iot.wait(2000);
 
 select * from tmp_aggregate;
 

@@ -23,9 +23,9 @@ insert into stmp2 values('2005-09-23 12:34:28.000',1,13.0);
 
 call iot.resume('iot','cq02');
 
--- wait for 5 seconds for handler
+-- wait for a few seconds for handler
 
-call iot.wait(5000);
+call iot.wait(2000);
 call iot.pause();
 select 'RESULT';
 select * from stmp2;

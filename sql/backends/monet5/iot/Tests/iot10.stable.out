@@ -46,6 +46,12 @@ Ready.
 [ 1	]
 #insert into stmp10 values('2005-09-23 12:34:28.000',1,15.0);
 [ 1	]
+#select "count" from iot.baskets();
+% .L # table_name
+% count # name
+% bigint # type
+% 1 # length
+[ 4	]
 #select * from stmp10;
 % iot.stmp10,	iot.stmp10,	iot.stmp10 # table_name
 % t,	sensor,	val # name
@@ -53,6 +59,8 @@ Ready.
 % 26,	1,	10 # length
 [ 2005-09-23 12:34:26.000000,	1,	9.00	]
 [ 2005-09-23 12:34:27.000000,	1,	11.00	]
+[ 2005-09-23 12:34:28.000000,	1,	13.00	]
+[ 2005-09-23 12:34:28.000000,	1,	15.00	]
 #select * from tmp_aggregate;
 % iot.tmp_aggregate,	iot.tmp_aggregate # table_name
 % tmp_total,	tmp_count # name
