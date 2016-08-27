@@ -367,6 +367,48 @@ PNpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 }
 
 
+/* safely stop a single CQ at the end of a round */
+static str
+PNstopInternal(int idx){
+#ifdef DEBUG_PETRINET
+	mnstr_printf(GDKout, "#scheduler stops %d\n",idx);
+#endif
+
+	MT_lock_set(&iotLock);
+	while(pnet[idx].status != PNWAIT && pnet[idx].status != PNPAUSED){
+		MT_sleep_ms(1000);
+	}
+	pnet[idx].status = PNPAUSED;
+	MT_lock_unset(&iotLock);
+	return MAL_SUCCEED;
+}
+
+str
+PNstop(void){
+	int i, cnt;
+#ifdef DEBUG_PETRINET
+	mnstr_printf(GDKout, "#scheduler being stopped\n");
+#endif
+
+	pnstatus = PNSTOP; // avoid starting new continuous queries
+	// warn all queries to stop
+	for(i = 0; i < pnettop; i++)
+		PNstopInternal(i);
+
+	// wait for any leftover running queries
+	do{
+		for(cnt=0,  i = 0; i < pnettop; i++)
+			cnt += (pnet[i].status != PNWAIT && pnet[i].status != PNPAUSED);
+#ifdef DEBUG_PETRINET
+		mnstr_printf(GDKout, "#pnstop waiting for  %d queries \n", cnt);
+#endif
+		if(cnt)
+			MT_sleep_ms(1000);
+	} while(pnstatus != PNINIT && cnt > 0);
+
+	return MAL_SUCCEED;
+}
+
 /*Remove a specific continuous query from the scheduler */
 static void
 PNderegisterInternal(int i){
@@ -403,43 +445,12 @@ PNderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 #endif
 		return MAL_SUCCEED;
 	}
+	PNstop();
 	for ( i = pnettop-1; i >= 0 ; i--)
 		PNderegisterInternal(i);
 #ifdef DEBUG_PETRINET
 	mnstr_printf(GDKout, "#scheduler deregistered all\n");
 #endif
-	return MAL_SUCCEED;
-}
-
-/* safely stop the engine by stopping all CQ firt */
-str
-PNstop(void){
-	int i, cnt;
-#ifdef DEBUG_PETRINET
-	mnstr_printf(GDKout, "#scheduler being stopped\n");
-#endif
-
-	MT_lock_set(&iotLock);
-	pnstatus = PNSTOP; // avoid starting new continuous queries
-	// warn all queries to stop
-	for(i = 0; i < pnettop; i++)
-			pnet[i].status = PNPAUSED;
-	MT_lock_unset(&iotLock);
-
-	do{
-		MT_sleep_ms(1000);
-		for(cnt=0,  i = 0; i < pnettop; i++)
-			cnt += (pnet[i].status != PNWAIT && pnet[i].status != PNPAUSED);
-#ifdef DEBUG_PETRINET
-		mnstr_printf(GDKout, "#pnstop waiting for  %d queries \n", cnt);
-#endif
-	} while(pnstatus != PNINIT && cnt > 0);
-
-/*
-	for(i = pnettop-1; i >= pnettop; i--)
-		PNderegisterInternal(i);
-*/
-
 	return MAL_SUCCEED;
 }
 
@@ -655,6 +666,7 @@ PNscheduler(void *dummy)
 		memset((void*) claimed, 0, MAXBSKT);
 		now = GDKusec();
 		pntasks=0;
+		MT_lock_set(&iotLock); // analysis should be done with exclusive access
 		for (k = i = 0; i < pnettop; i++) 
 		if ( pnet[i].status == PNWAIT ){
 			pnet[i].enabled = 1;
@@ -768,6 +780,7 @@ PNscheduler(void *dummy)
 			} 
 			pntasks += pnet[i].enabled;
 		}
+		MT_lock_unset(&iotLock); 
 		analysis = GDKusec() - now;
 #ifdef DEBUG_PETRINET
 		if(k) mnstr_printf(GDKout, "#Transitions enabled: %d \n", k);
