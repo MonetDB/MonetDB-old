@@ -28,33 +28,6 @@ Ready.
 #set schema iot;
 #set optimizer='iot_pipe';
 #create stream table sdel (t timestamp, sensor integer, val decimal(8,2)) ;
-#insert into sdel values('2005-09-23 12:34:26.736',1,12.34);
-[ 1	]
-#insert into sdel values('2005-09-23 12:34:26.736',2,12.34);
-[ 1	]
-#insert into sdel values('2005-09-23 12:34:26.736',3,12.34);
-[ 1	]
-#insert into sdel values('2005-09-23 12:34:26.736',4,12.34);
-[ 1	]
-#select * from sdel;
-% iot.sdel,	iot.sdel,	iot.sdel # table_name
-% t,	sensor,	val # name
-% timestamp,	int,	decimal # type
-% 26,	1,	10 # length
-[ 2005-09-23 12:34:26.736000,	1,	12.34	]
-[ 2005-09-23 12:34:26.736000,	2,	12.34	]
-[ 2005-09-23 12:34:26.736000,	3,	12.34	]
-[ 2005-09-23 12:34:26.736000,	4,	12.34	]
-#delete from sdel where sensor = 2;
-[ 1	]
-#select * from sdel;
-% iot.sdel,	iot.sdel,	iot.sdel # table_name
-% t,	sensor,	val # name
-% timestamp,	int,	decimal # type
-% 26,	1,	10 # length
-[ 2005-09-23 12:34:26.736000,	1,	12.34	]
-[ 2005-09-23 12:34:26.736000,	3,	12.34	]
-[ 2005-09-23 12:34:26.736000,	4,	12.34	]
 #create procedure sdel00()
 #begin
 #	delete from sdel where sensor = 3;
@@ -77,21 +50,22 @@ end user.petri_0;
 unsafe function user.iot_sdel00():void;
     X_0 := sql.mvc();
     X_20 := basket.register(X_0,"iot","sdel",0);
-barrier X_48 := language.dataflow();
+    X_24 := basket.lock(X_20,"iot","sdel");
+barrier X_49 := language.dataflow();
     C_1:bat[:oid] := basket.tid(X_0,"iot","sdel");
     X_4:bat[:int] := basket.bind(X_20,"iot","sdel","sensor");
     C_10 := algebra.subselect(X_4,3,3,true,false,false);
     X_14 := algebra.projection(C_10,C_1);
     basket.delete(X_20,"iot","sdel",X_14);
-    X_24 := basket.tumble(X_20,"iot","sdel");
-    basket.commit(X_24,"iot","sdel");
-exit X_48;
+    X_25 := basket.tumble(X_24,"iot","sdel");
+exit X_49;
 catch SQLexception:str;
     iot.error("user","sdel00",SQLexception);
 exit SQLexception:str;
 catch MALexception:str;
     iot.error("user","sdel00",MALexception);
 exit MALexception:str;
+    basket.unlock(X_25,"iot","sdel");
 end user.iot_sdel00;
 #inline               actions= 0 time=1 usec 
 #candidates           actions= 1 time=0 usec 
@@ -120,8 +94,6 @@ end user.iot_sdel00;
 % t,	sensor,	val # name
 % timestamp,	int,	decimal # type
 % 26,	1,	10 # length
-[ 2005-09-23 12:34:26.736000,	1,	12.34	]
-[ 2005-09-23 12:34:26.736000,	4,	12.34	]
 #insert into sdel values('2005-09-23 12:34:26.736',1,12.34);
 [ 1	]
 #insert into sdel values('2005-09-23 12:34:26.736',3,12.34);
@@ -136,8 +108,7 @@ end user.iot_sdel00;
 % timestamp,	int,	decimal # type
 % 26,	1,	10 # length
 [ 2005-09-23 12:34:26.736000,	1,	12.34	]
-[ 2005-09-23 12:34:26.736000,	4,	12.34	]
-[ 2005-09-23 12:34:26.736000,	1,	12.34	]
+[ 2005-09-23 12:34:26.736000,	3,	12.34	]
 [ 2005-09-23 12:34:26.736000,	4,	12.34	]
 [ 2005-09-23 12:34:26.736000,	3,	12.34	]
 #call iot.stop();
@@ -153,8 +124,6 @@ end user.iot_sdel00;
 % t,	sensor,	val # name
 % timestamp,	int,	decimal # type
 % 26,	1,	10 # length
-[ 2005-09-23 12:34:26.736000,	1,	12.34	]
-[ 2005-09-23 12:34:26.736000,	4,	12.34	]
 [ 2005-09-23 12:34:26.736000,	1,	12.34	]
 [ 2005-09-23 12:34:26.736000,	4,	12.34	]
 #drop procedure sdel00;

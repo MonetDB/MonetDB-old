@@ -12,6 +12,8 @@ end;
 call iot.query('iot','sdel00',3);
 call iot.show('iot','sdel00');
 call iot.pause();
+call iot.keep('iot','sdel');
+
 select * from sdel;
 insert into sdel values('2005-09-23 12:34:26.736',1,12.34);
 insert into sdel values('2005-09-23 12:34:26.736',3,12.34);
@@ -27,5 +29,6 @@ call iot.stop();
 select 'final state';
 select * from sdel;
 
+--select * from iot.errors();
 drop procedure sdel00;
 drop table sdel;
