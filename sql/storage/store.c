@@ -789,7 +789,8 @@ load_func(sql_trans *tr, sql_schema *s, sqlid fid, subrids *rs)
 	t->res = NULL;
 	t->s = s;
 	t->fix_scale = SCALE_EQ;
-	 if (t->lang != FUNC_LANG_INT) {
+	t->sa = tr->sa;
+	if (t->lang != FUNC_LANG_INT) {
 		t->query = t->imp;
 		t->imp = NULL;
 	}
@@ -2430,6 +2431,7 @@ func_dup(sql_trans *tr, int flag, sql_func *of, sql_schema * s)
 			list_append(f->res, arg_dup(sa, n->data));
 	}
 	f->s = s;
+	f->sa = sa;
 	return f;
 }
 
@@ -2616,7 +2618,7 @@ rollforward_changeset_updates(sql_trans *tr, changeset * fs, changeset * ts, sql
 						ts->nelm = tbn->next;
 					//if (tr->parent != gtrans) {
 						if (!ts->dset)
-							ts->dset = list_new(tr->sa, ts->destroy);
+							ts->dset = list_new(tr->parent->sa, ts->destroy);
 						list_move_data(ts->set, ts->dset, tb);
 					//} else {
 						//cs_remove_node(ts, tbn);
@@ -4755,7 +4757,7 @@ sql_trans_alter_default(sql_trans *tr, sql_column *col, char *val)
 		return col;	/* no change */
 
 	if (!col->def || !val || strcmp(col->def, val) != 0) {
-		void *p = val ? val : ATOMnilptr(TYPE_str);
+		void *p = val ? val : (void *) ATOMnilptr(TYPE_str);
 		sql_schema *syss = find_sql_schema(tr, isGlobal(col->t)?"sys":"tmp"); 
 		sql_table *syscolumn = find_sql_table(syss, "_columns");
 		sql_column *col_ids = find_sql_column(syscolumn, "id");
@@ -4782,7 +4784,7 @@ sql_trans_alter_storage(sql_trans *tr, sql_column *col, char *storage)
 		return col;	/* no change */
 
 	if (!col->storage_type || !storage || strcmp(col->storage_type, storage) != 0) {
-		void *p = storage ? storage : ATOMnilptr(TYPE_str);
+		void *p = storage ? storage : (void *) ATOMnilptr(TYPE_str);
 		sql_schema *syss = find_sql_schema(tr, isGlobal(col->t)?"sys":"tmp"); 
 		sql_table *syscolumn = find_sql_table(syss, "_columns");
 		sql_column *col_ids = find_sql_column(syscolumn, "id");
@@ -5270,7 +5272,7 @@ sql_trans_create_trigger(sql_trans *tr, sql_table *t, const char *name,
 	sql_trigger *ni = SA_ZNEW(tr->sa, sql_trigger);
 	sql_schema *syss = find_sql_schema(tr, isGlobal(t)?"sys":"tmp");
 	sql_table *systrigger = find_sql_table(syss, "triggers");
-	str nilptr = ATOMnilptr(TYPE_str);
+	const char *nilptr = ATOMnilptr(TYPE_str);
 
 	assert(name);
 	base_init(tr->sa, &ni->base, next_oid(), TR_NEW, name);

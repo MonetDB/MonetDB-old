@@ -16,7 +16,6 @@
 #define TMPMARKER '_'
 #define REFMARKER 'X'
 #define REFMARKERC 'C'
-#define refMarker(M,I)  (isVarCList(M,I)? 'C':'X')
 
 #define newBatType(T)  (1<<16 |  (T & 0377) )
 #define getBatType(X)  ((X) & 0377 )
@@ -65,7 +64,6 @@ mal_export str getTypeName(malType tpe);
 mal_export str getTypeIdentifier(malType tpe);
 mal_export int getAtomIndex(str nme, int len, int deftpe);
 #define idcmp(n, m)	strcmp(n, m)
-mal_export int isTmpName(const char *n);
 mal_export int isIdentifier(str s);
 mal_export int findGDKtype(int type);	/* used in src/mal/mal_interpreter.c */
 

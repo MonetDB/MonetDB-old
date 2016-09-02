@@ -543,22 +543,9 @@ typedef signed char bit;
 typedef signed char bte;
 typedef short sht;
 
-#ifdef MONET_OID32
-#define SIZEOF_OID	SIZEOF_INT
-typedef unsigned int oid;
-#else
 #define SIZEOF_OID	SIZEOF_SIZE_T
 typedef size_t oid;
-#endif
-#if SIZEOF_OID == SIZEOF_SIZE_T
 #define OIDFMT		SZFMT
-#else
-#if SIZEOF_OID == SIZEOF_INT
-#define OIDFMT		"%u"
-#else
-#define OIDFMT		ULLFMT
-#endif
-#endif
 
 typedef int bat;		/* Index into BBP */
 typedef void *ptr;		/* Internal coding of types */
@@ -808,7 +795,6 @@ gdk_export int VALisnil(const ValRecord *v);
 typedef struct {
 	/* dynamic bat properties */
 	MT_Id tid;		/* which thread created it */
-	int stamp;		/* BAT recent creation stamp */
 	unsigned int
 	 copiedtodisk:1,	/* once written */
 	 dirty:2,		/* dirty wrt disk? */
@@ -897,7 +883,6 @@ typedef struct BATiter {
 #define batInserted	S.inserted
 #define batCount	S.count
 #define batCapacity	S.capacity
-#define batStamp	S.stamp
 #define batSharecnt	S.sharecnt
 #define batRestricted	S.restricted
 #define batRole		S.role
@@ -1260,7 +1245,7 @@ gdk_export bte ATOMelmshift(int sz);
 
 #define bunfastapp(b, t)						\
 	do {								\
-		register BUN _p = BUNlast(b);				\
+		BUN _p = BUNlast(b);					\
 		if (_p >= BATcapacity(b)) {				\
 			if (_p == BUN_MAX || BATcount(b) == BUN_MAX) {	\
 				GDKerror("bunfastapp: too many elements to accomodate (" BUNFMT ")\n", BUN_MAX); \
@@ -1633,10 +1618,6 @@ gdk_export void GDKqsort_rev(void *h, void *t, const void *base, size_t n, int h
  * @tab BBPincref (bat bi, int logical)
  * @item int
  * @tab BBPdecref (bat bi, int logical)
- * @item void
- * @tab BBPhot (bat bi)
- * @item void
- * @tab BBPcold (bat bi)
  * @item str
  * @tab BBPname (bat bi)
  * @item bat
@@ -1686,7 +1667,6 @@ typedef struct {
 	str options;		/* A string list of options */
 	int refs;		/* in-memory references on which the loaded status of a BAT relies */
 	int lrefs;		/* logical references on which the existence of a BAT relies */
-	int lastused;		/* BBP LRU stamp */
 	volatile int status;	/* status mask used for spin locking */
 	/* MT_Id pid;           non-zero thread-id if this BAT is private */
 } BBPrec;
@@ -1712,14 +1692,12 @@ gdk_export BBPrec *BBP[N_BBPINIT];
 #define BBP_desc(i)	BBP[(i)>>BBPINITLOG][(i)&(BBPINIT-1)].desc
 #define BBP_refs(i)	BBP[(i)>>BBPINITLOG][(i)&(BBPINIT-1)].refs
 #define BBP_lrefs(i)	BBP[(i)>>BBPINITLOG][(i)&(BBPINIT-1)].lrefs
-#define BBP_lastused(i)	BBP[(i)>>BBPINITLOG][(i)&(BBPINIT-1)].lastused
 #define BBP_status(i)	BBP[(i)>>BBPINITLOG][(i)&(BBPINIT-1)].status
 #define BBP_pid(i)	BBP[(i)>>BBPINITLOG][(i)&(BBPINIT-1)].pid
 
 /* macros that nicely check parameters */
 #define BBPcacheid(b)	((b)->batCacheid)
 #define BBPstatus(i)	(BBPcheck((i),"BBPstatus")?BBP_status(i):-1)
-gdk_export int BBPcurstamp(void);
 #define BBPrefs(i)	(BBPcheck((i),"BBPrefs")?BBP_refs(i):-1)
 #define BBPcache(i)	(BBPcheck((i),"BBPcache")?BBP_cache(i):(BAT*) NULL)
 #define BBPname(i)						\
@@ -1737,8 +1715,6 @@ gdk_export int BBPcurstamp(void);
 
 gdk_export void BBPlock(void);
 
-gdk_export void BBPhot(bat b);
-gdk_export void BBPcold(bat b);
 gdk_export void BBPunlock(void);
 
 gdk_export str BBPlogical(bat b, str buf);
@@ -1896,13 +1872,13 @@ gdk_export BAT *BBPquickdesc(bat b, int delaccess);
 typedef struct {
 	/* simple attributes */
 	char name[IDLENGTH];
-	int storage;		/* stored as another type? */
+	short storage;		/* stored as another type? */
 	short linear;		/* atom can be ordered linearly */
 	short size;		/* fixed size of atom */
 	short align;		/* alignment condition for values */
 
 	/* automatically generated fields */
-	ptr atomNull;		/* global nil value */
+	const void *atomNull;	/* global nil value */
 
 	/* generic (fixed + varsized atom) ADT functions */
 	int (*atomFromStr) (const char *src, int *len, ptr *dst);
@@ -2488,7 +2464,7 @@ gdk_export void *THRdata[THREADDATA];
 #ifndef GDK_NOLINK
 
 static inline bat
-BBPcheck(register bat x, register const char *y)
+BBPcheck(bat x, const char *y)
 {
 	if (x && x != bat_nil) {
 		assert(x > 0);
@@ -2503,9 +2479,9 @@ BBPcheck(register bat x, register const char *y)
 }
 
 static inline BAT *
-BATdescriptor(register bat i)
+BATdescriptor(bat i)
 {
-	register BAT *b = NULL;
+	BAT *b = NULL;
 
 	if (BBPcheck(i, "BATdescriptor")) {
 		BBPfix(i);

@@ -34,11 +34,13 @@
 #include "opt_costModel.h"
 #include "opt_dataflow.h"
 #include "opt_deadcode.h"
+#include "opt_emptybind.h"
 #include "opt_evaluate.h"
 #include "opt_factorize.h"
 #include "opt_garbageCollector.h"
 #include "opt_generator.h"
 #include "opt_inline.h"
+#include "opt_jit.h"
 #include "opt_projectionpath.h"
 #include "opt_matpack.h"
 #include "opt_json.h"
@@ -48,7 +50,6 @@
 #include "opt_profiler.h"
 #include "opt_pushselect.h"
 #include "opt_querylog.h"
-#include "opt_recycler.h"
 #include "opt_reduce.h"
 #include "opt_remap.h"
 #include "opt_remoteQueries.h"
@@ -68,6 +69,7 @@ struct{
 	{"costModel", &OPTcostModelImplementation},
 	{"dataflow", &OPTdataflowImplementation},
 	{"deadcode", &OPTdeadcodeImplementation},
+	{"emptybind", &OPTemptybindImplementation},
 	{"evaluate", &OPTevaluateImplementation},
 	{"factorize", &OPTfactorizeImplementation},
 	{"garbageCollector", &OPTgarbageCollectorImplementation},
@@ -76,13 +78,13 @@ struct{
 	{"projectionpath", &OPTprojectionpathImplementation},
 	{"matpack", &OPTmatpackImplementation},
 	{"json", &OPTjsonImplementation},
+	{"jit", &OPTjitImplementation},
 	{"mergetable", &OPTmergetableImplementation},
 	{"mitosis", &OPTmitosisImplementation},
 	{"multiplex", &OPTmultiplexImplementation},
 	{"profiler", &OPTprofilerImplementation},
 	{"pushselect", &OPTpushselectImplementation},
 	{"querylog", &OPTquerylogImplementation},
-	{"recycler", &OPTrecyclerImplementation},
 	{"reduce", &OPTreduceImplementation},
 	{"remap", &OPTremapImplementation},
 	{"remoteQueries", &OPTremoteQueriesImplementation},
@@ -90,14 +92,13 @@ struct{
 	{"volcano", &OPTvolcanoImplementation},
 	{0,0}
 };
-opt_export str OPTwrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+mal_export str OPTwrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 
 #define OPTIMIZERDEBUG if (0) 
 
 str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	str modnme = "(NONE)";
-	str fcnnme = 0;
-	str msg= MAL_SUCCEED;
+	str fcnnme = "(NONE)";
 	Symbol s= NULL;
 	int i, actions = 0;
 	char optimizer[256];
@@ -138,12 +139,6 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 		stk= 0;
 	} else if( p ) 
 		removeInstruction(mb, p);
-	if( mb->errors ){
-		/* when we have errors, we still want to see them */
-		addtoMalBlkHistory(mb);
-		return MAL_SUCCEED;
-	}
-
 
 	for ( i=0; codes[i].nme; i++)
 		if ( strcmp(codes[i].nme, optimizer)== 0 ){
@@ -151,7 +146,7 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 			break;	
 		}
 	if ( codes[i].nme == 0)
-		throw(MAL, optimizer, RUNTIME_OBJECT_UNDEFINED ":%s.%s", modnme, fcnnme);
+		throw(MAL, optimizer, "Optimizer implementation '%s' missing", fcnnme);
 
 	OPTIMIZERDEBUG {
 		mnstr_printf(cntxt->fdout,"=FINISHED %s  %d\n",optimizer, actions);
@@ -166,6 +161,6 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	addtoMalBlkHistory(mb);
 	if ( mb->errors)
 		throw(MAL, optimizer, PROGRAM_GENERAL ":%s.%s", modnme, fcnnme);
-	return msg;
+	return MAL_SUCCEED;
 }
 
