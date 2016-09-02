@@ -37,11 +37,13 @@
 #define card_column 	2
 #define card_set	3 /* some operators require only a set (IN/EXISTS) */
 #define card_relation 	4
+#define card_loader 	5
+
+
 /* allowed to reduce (in the where and having parts we can reduce) */
 
 /* different query execution modes (emode) */
 #define m_normal 	0
-#define m_inplace 	1 
 #define m_execute 	2
 #define m_prepare 	3
 #define m_plan 		4
@@ -51,7 +53,7 @@
 #define m_instantiate 	5
 #define m_deps 		6
 
-#define QUERY_MODE(m) (m==m_normal || m==m_inplace || m==m_instantiate || m==m_deps)
+#define QUERY_MODE(m) (m==m_normal || m==m_instantiate || m==m_deps)
 
 
 /* different query execution modifiers (emod) */

@@ -120,6 +120,7 @@ runtimeProfileFinish(Client cntxt, MalBlkPtr mb)
 	}
 
 	qtop = j;
+	QRYqueue[qtop].query = NULL; /* sentinel for SYSMONqueue() */
 	MT_lock_unset(&mal_delayLock);
 }
 
@@ -200,8 +201,7 @@ runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Runt
 	
 	if(malProfileMode > 0){
 		pci->wbytes += getVolume(stk, pci, 1);
-		if (pci->recycle)
-			pci->rbytes += getVolume(stk, pci, 0);
+		pci->rbytes += getVolume(stk, pci, 0);
 		profilerEvent(mb, stk, pci, FALSE, cntxt->username);
 	}
 	if( malProfileMode < 0){

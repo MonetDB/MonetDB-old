@@ -59,7 +59,7 @@ void_bat_create(int adt, BUN nr)
 
 	/* check for correct structures */
 	if (b == NULL)
-		return b;
+		return NULL;
 	BATsetaccess(b, BAT_APPEND);
 	if (nr > BATTINY && adt && BATextend(b, nr) != GDK_SUCCEED) {
 		BBPunfix(b->batCacheid);
@@ -126,6 +126,10 @@ TABLETadt_toStr(void *extra, char **buf, int *len, int type, ptr a)
 			GDKfree(*buf);
 			*len = 2 * l + 3;
 			*buf = GDKzalloc(*len);
+			if( buf == NULL){
+				GDKerror("Tabletadt_toStr" MAL_MALLOC_FAIL);
+				return 0;
+			}
 		}
 		dst = *buf;
 		dst[0] = '"';
@@ -198,13 +202,13 @@ TABLETcreate_bats(Tablet *as, BUN est)
 		if (fmt[i].skip)
 			continue;
 		fmt[i].c = void_bat_create(fmt[i].adt, est);
-		fmt[i].ci = bat_iterator(fmt[i].c);
 		if (!fmt[i].c) {
 			for (j = 0; j < i; j++)
 				if (!fmt[i].skip)
 					BBPdecref(fmt[j].c->batCacheid, FALSE);
 			throw(SQL, "copy", "Failed to create bat of size " BUNFMT "\n", as->nr);
 		}
+		fmt[i].ci = bat_iterator(fmt[i].c);
 	}
 	return MAL_SUCCEED;
 }
@@ -229,7 +233,6 @@ TABLETcollect(BAT **bats, Tablet *as)
 		BATsetaccess(fmt[i].c, BAT_READ);
 		fmt[i].c->tsorted = fmt[i].c->trevsorted = 0;
 		fmt[i].c->tkey = 0;
-		fmt[i].c->tnil = fmt[i].c->tnonil = 0;
 		BATsettrivprop(fmt[i].c);
 
 		if (cnt != BATcount(fmt[i].c))
@@ -256,7 +259,6 @@ TABLETcollect_parts(BAT **bats, Tablet *as, BUN offset)
 		b = fmt[i].c;
 		b->tsorted = b->trevsorted = 0;
 		b->tkey = 0;
-		b->tnil = b->tnonil = 0;
 		BATsettrivprop(b);
 		BATsetaccess(b, BAT_READ);
 		bv = BATslice(b, (offset > 0) ? offset - 1 : 0, BATcount(b));
@@ -355,6 +357,8 @@ output_line(char **buf, int *len, char **localbuf, int *locallen, Column *fmt, s
 				if (fill + l + f->seplen >= *len) {
 					/* extend the buffer */
 					*buf = GDKrealloc(*buf, fill + l + f->seplen + BUFSIZ);
+					if( buf == NULL)
+						return -1;
 					*len = fill + l + f->seplen + BUFSIZ;
 					if (*buf == NULL)
 						return -1;
@@ -395,6 +399,8 @@ output_line_dense(char **buf, int *len, char **localbuf, int *locallen, Column *
 			if (fill + l + f->seplen >= *len) {
 				/* extend the buffer */
 				*buf = GDKrealloc(*buf, fill + l + f->seplen + BUFSIZ);
+				if( buf == NULL)
+					return 0;
 				*len = fill + l + f->seplen + BUFSIZ;
 				if (*buf == NULL)
 					return -1;
@@ -713,7 +719,7 @@ tablet_error(READERtask *task, lng row, int col, const char *msg, const char *fc
 		BUNappend(task->cntxt->error_msg, msg, FALSE);
 		BUNappend(task->cntxt->error_input, fcn, FALSE);
 		if (task->as->error == NULL && (msg == NULL || (task->as->error = GDKstrdup(msg)) == NULL))
-			task->as->error = M5OutOfMemory;
+			task->as->error = createException(MAL, "sql.copy_from", MAL_MALLOC_FAIL);
 		if (row != lng_nil)
 			task->rowerror[row]++;
 #ifdef _DEBUG_TABLET_
@@ -725,7 +731,7 @@ tablet_error(READERtask *task, lng row, int col, const char *msg, const char *fc
 	} else {
 		MT_lock_set(&errorlock);
 		if (task->as->error == NULL && (msg == NULL || (task->as->error = GDKstrdup(msg)) == NULL))
-			task->as->error = M5OutOfMemory;
+			task->as->error = createException(MAL, "sql.copy_from", MAL_MALLOC_FAIL);
 		task->errorcnt++;
 		MT_lock_unset(&errorlock);
 	}
@@ -899,6 +905,7 @@ SQLinsert_val(READERtask *task, int col, int idx)
 			if (s) {
 				size_t slen = mystrlen(s);
 				char *scpy = GDKmalloc(slen + 1);
+				assert(scpy);
 				if (scpy)
 					mycpstr(scpy, s);
 				s = scpy;
@@ -908,7 +915,7 @@ SQLinsert_val(READERtask *task, int col, int idx)
 			GDKfree(s);
 			buf[sizeof(buf)-1]=0;
 			if (task->as->error == NULL && (task->as->error = GDKstrdup(buf)) == NULL)
-				task->as->error = M5OutOfMemory;
+				task->as->error = createException(MAL, "sql.copy_from", MAL_MALLOC_FAIL);
 			task->rowerror[idx]++;
 			task->errorcnt++;
 			if (BUNappend(task->cntxt->error_row, &row, FALSE) != GDK_SUCCEED ||
@@ -1706,7 +1713,7 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 		task->fields[i] = GDKzalloc(sizeof(char *) * task->limit);
 		if (task->fields[i] == 0) {
 			if (task->as->error == NULL)
-				as->error = M5OutOfMemory;
+				as->error = createException(MAL, "sql.copy_from", MAL_MALLOC_FAIL);
 			goto bailout;
 		}
 #ifdef MLOCK_TST
@@ -1722,6 +1729,10 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 		}
 	}
 	task->rowerror = (bte *) GDKzalloc(sizeof(bte) * task->limit);
+	if( task->rowerror == NULL){
+		tablet_error(task, lng_nil, int_nil, "memory allocation failed", "SQLload_file:failed to alloc rowerror buffer");
+		goto bailout;
+	}
 
 	MT_create_thread(&task->tid, SQLproducer, (void *) task, MT_THR_JOINABLE);
 #ifdef _DEBUG_TABLET_

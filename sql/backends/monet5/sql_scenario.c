@@ -26,7 +26,6 @@
 #include "sql_execute.h"
 #include "sql_env.h"
 #include "sql_mvc.h"
-#include "sql_readline.h"
 #include "sql_user.h"
 #include "sql_datetime.h"
 #include "mal_io.h"
@@ -190,10 +189,12 @@ SQLepilogue(void *ret)
 	str res;
 
 	(void) ret;
+	MT_lock_set(&sql_contextLock);
 	if (SQLinitialized) {
 		mvc_exit();
 		SQLinitialized = FALSE;
 	}
+	MT_lock_unset(&sql_contextLock);
 	/* this function is never called, but for the style of it, we clean
 	 * up our own mess */
 	res = msab_retreatScenario(m);
@@ -240,8 +241,10 @@ SQLinit(void)
 		SQLdebug |= 64;
 	if (readonly)
 		SQLdebug |= 32;
-	if ((SQLnewcatalog = mvc_init(SQLdebug, store_bat, readonly, single_user, 0)) < 0)
+	if ((SQLnewcatalog = mvc_init(SQLdebug, store_bat, readonly, single_user, 0)) < 0) {
+		MT_lock_unset(&sql_contextLock);
 		throw(SQL, "SQLinit", "Catalogue initialization failed");
+	}
 	SQLinitialized = TRUE;
 	MT_lock_unset(&sql_contextLock);
 	if (MT_create_thread(&sqllogthread, (void (*)(void *)) mvc_logmanager, NULL, MT_THR_JOINABLE) != 0) {
@@ -379,7 +382,6 @@ SQLautocommit(Client c, mvc *m)
 {
 	if (m->session->auto_commit && m->session->active) {
 		if (mvc_status(m) < 0) {
-			RECYCLEdrop(0);
 			mvc_rollback(m, 0, NULL);
 		} else if (mvc_commit(m, 0, NULL) < 0) {
 			return handle_error(m, c->fdout, 0);
@@ -606,7 +608,6 @@ SQLexitClient(Client c)
 				(void) handle_error(m, c->fdout, 0);
 		}
 		if (m->session->active) {
-			RECYCLEdrop(0);
 			mvc_rollback(m, 0, NULL);
 		}
 
@@ -620,6 +621,7 @@ SQLexitClient(Client c)
 		c->sqlcontext = NULL;
 	}
 	c->state[MAL_SCENARIO_READER] = NULL;
+	MALexitClient(c);
 	return MAL_SUCCEED;
 }
 
@@ -765,7 +767,6 @@ SQLreader(Client c)
 #endif
 	/*
 	 * Distinguish between console reading and mclient connections.
-	 * The former comes with readline functionality.
 	 */
 	while (more) {
 		more = FALSE;
@@ -888,7 +889,6 @@ cachable(mvc *m, stmt *s)
 	/* we don't store empty sequences, nor queries with a large footprint */
 	if( (s && s->type == st_none) || sa_size(m->sa) > MAX_QUERY)
 		return 0;
-	/* remainders covers: m_execute, m_inplace, m_normal*/
 	return 1;
 }
 
@@ -938,6 +938,12 @@ SQLparser(Client c)
 	 * this point if this is a recursive call. */
 	if (!m->sa)
 		m->sa = sa_create();
+	if (!m->sa) {
+		mnstr_printf(out, "!Could not create SQL allocator\n");
+		mnstr_flush(out);
+		c->mode = FINISHCLIENT;
+		throw(SQL, "SQLparser", "Could not create SQL allocator");
+	}
 
 	m->emode = m_normal;
 	m->emod = mod_none;
@@ -983,7 +989,6 @@ SQLparser(Client c)
 					mnstr_printf(out, "!COMMIT: commit failed while " "enabling auto_commit\n");
 					msg = createException(SQL, "SQLparser", "Xauto_commit (commit) failed");
 				} else if (!commit && mvc_rollback(m, 0, NULL) < 0) {
-					RECYCLEdrop(0);
 					mnstr_printf(out, "!COMMIT: rollback failed while " "disabling auto_commit\n");
 					msg = createException(SQL, "SQLparser", "Xauto_commit (rollback) failed");
 				}
@@ -1061,12 +1066,9 @@ SQLparser(Client c)
 			sqlcleanup(m, err);
 			goto finalize;
 		}
-		m->emode = m_inplace;
 		scanner_query_processed(&(m->scanner));
 	} else if (caching(m) && cachable(m, NULL) && m->emode != m_prepare && (be->q = qc_match(m->qc, m->sym, m->args, m->argc, m->scanner.key ^ m->session->schema->base.id)) != NULL) {
 		/* query template was found in the query cache */
-		if (!(m->emod & (mod_explain | mod_debug | mod_trace )))
-			m->emode = m_inplace;
 		scanner_query_processed(&(m->scanner));
 	} else {
 		sql_rel *r;
@@ -1096,8 +1098,12 @@ SQLparser(Client c)
 			 * and bake a MAL program for it.
 			 */
 			char *q = query_cleaned(QUERY(m->scanner));
+			char qname[IDLENGTH];
+			(void) snprintf(qname, IDLENGTH, "%c%d_%d", (m->emode == m_prepare?'p':'s'), m->qc->id++, m->qc->clientid);
+
 			be->q = qc_insert(m->qc, m->sa,	/* the allocator */
 					  r,	/* keep relational query */
+					  qname, /* its MAL name) */
 					  m->sym,	/* the sql symbol tree */
 					  m->args,	/* the argument list */
 					  m->argc, m->scanner.key ^ m->session->schema->base.id,	/* the statement hash key */
@@ -1113,12 +1119,8 @@ SQLparser(Client c)
 			/* passed over to query cache, used during dumpproc */
 			m->sa = NULL;
 			m->sym = NULL;
-
 			/* register name in the namespace */
 			be->q->name = putName(be->q->name);
-			/* unless a query modifier has been set, we directly call the cached plan */
-			if (m->emode == m_normal && m->emod == mod_none)
-				m->emode = m_inplace;
 		}
 	}
 	if (err)
@@ -1126,11 +1128,10 @@ SQLparser(Client c)
 	if (err == 0) {
 		/* no parsing error encountered, finalize the code of the query wrapper */
 		if (be->q) {
-			if (m->emode == m_prepare)
+			if (m->emode == m_prepare){
 				/* For prepared queries, return a table with result set structure*/
+				/* optimize the code block and rename it */
 				err = mvc_export_prepare(m, c->fdout, be->q, "");
-			else if (m->emode == m_inplace) {
-				/* everything ready for a fast call */
 			} else if( m->emode == m_execute || m->emode == m_normal || m->emode == m_plan){
 				/* call procedure generation (only in cache mode) */
 				backend_call(be, c, be->q);
@@ -1138,13 +1139,12 @@ SQLparser(Client c)
 		}
 
 		pushEndInstruction(c->curprg->def);
-
 		/* check the query wrapper for errors */
 		chkTypes(c->fdout, c->nspace, c->curprg->def, TRUE);
 
 		/* in case we had produced a non-cachable plan, the optimizer should be called */
-		if (opt && !c->curprg->def->errors ) {
-			str msg = optimizeQuery(c);
+		if (opt ) {
+			str msg = SQLoptimizeQuery(c, c->curprg->def);
 
 			if (msg != MAL_SUCCEED) {
 				sqlcleanup(m, err);

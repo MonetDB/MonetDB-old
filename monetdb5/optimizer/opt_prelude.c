@@ -48,6 +48,8 @@ str projectdeltaRef;
 str binddbatRef;
 str bindidxRef;
 str bindRef;
+str emptybindRef;
+str emptybindidxRef;
 str bpmRef;
 str bstreamRef;
 str calcRef;
@@ -104,6 +106,7 @@ str inplaceRef;
 str intRef;
 str ioRef;
 str iteratorRef;
+str jitRef;
 str jsonRef;
 str subjoinRef;
 str subleftjoinRef;
@@ -185,7 +188,6 @@ str rankRef;
 str dense_rankRef;
 str raiseRef;
 str reconnectRef;
-str recycleRef;
 str refineRef;
 str registerRef;
 str remapRef;
@@ -258,6 +260,7 @@ void optimizerInit(void)
 	attachRef = putName("attach");
 	avgRef = putName("avg");
 	arrayRef = putName("array");
+	batRef = putName("bat");
 	batcalcRef = putName("batcalc");
 	basketRef = putName("basket");
 	batstrRef = putName("batstr");
@@ -276,6 +279,8 @@ void optimizerInit(void)
 	binddbatRef = putName("bind_dbat");
 	bindidxRef = putName("bind_idxbat");
 	bindRef = putName("bind");
+	emptybindRef = putName("emptybind");
+	emptybindidxRef = putName("emptybindidx");
 	bpmRef = putName("bpm");
 	bstreamRef = putName("bstream");
 	calcRef = putName("calc");
@@ -340,14 +345,17 @@ void optimizerInit(void)
 	subbandjoinRef = putName("subbandjoin");
 	subrangejoinRef = putName("subrangejoin");
 	subthetajoinRef = putName("subthetajoin");
+	jitRef = putName("jit");
 	jsonRef = putName("json");
 	languageRef= putName("language");
 	projectionRef = putName("projection");
 	likesubselectRef = putName("likesubselect");
-	ilikesubselectRef = putName("ilikesubselect");
 	listRef = putName("list");
 	likeRef = putName("like");
 	ilikeRef = putName("ilike");
+	ilikesubselectRef = putName("ilikesubselect");
+	likethetasubselectRef = putName("likethetasubselect");
+	ilikethetasubselectRef = putName("ilikethetasubselect");
 	not_likeRef = putName("not_like");
 	not_ilikeRef = putName("not_ilike");
 	lockRef = putName("lock");
@@ -411,7 +419,6 @@ void optimizerInit(void)
 	dense_rankRef = putName("dense_rank");
 	raiseRef = putName("raise");
 	reconnectRef = putName("reconnect");
-	recycleRef = putName("recycle");
 	refineRef = putName("refine");
 	registerRef = putName("register");
 	remapRef = putName("remap");
@@ -459,25 +466,9 @@ void optimizerInit(void)
 	unpackRef = putName("unpack");
 	unpinRef = putName("unpin");
 	updateRef = putName("update");
+	userRef = putName("user");
 	subselectRef = putName("subselect");
 	thetasubselectRef = putName("thetasubselect");
-	likesubselectRef = putName("likesubselect");
-	likethetasubselectRef = putName("likethetasubselect");
-	ilikesubselectRef = putName("ilikesubselect");
-	ilikethetasubselectRef = putName("ilikethetasubselect");
 	vectorRef = putName("vector");
 	zero_or_oneRef = putName("zero_or_one");
-	userRef = putName("user");
-
-	/*
-	 * Set the optimizer debugging flag
-	 */
-	{
-		int ret;
-		str ref= GDKgetenv("opt_debug");
-		if ( ref)
-			OPTsetDebugStr(&ret,&ref);
-	}
-
-	batRef = putName("bat");
 }

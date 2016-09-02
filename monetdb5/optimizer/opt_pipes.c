@@ -7,9 +7,7 @@
  */
 
 /*
- * @f opt_pipes
- * @a M.L. Kersten
- * @-
+ * author M.L. Kersten
  * The default SQL optimizer pipeline can be set per server.  See the
  * optpipe setting in monetdb(1) when using merovingian.  During SQL
  * initialization, the optimizer pipeline is checked against the
@@ -69,6 +67,7 @@ static struct PIPELINES {
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
+	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
 	 "optimizer.aliases();"
 	 "optimizer.mitosis();"
@@ -88,6 +87,7 @@ static struct PIPELINES {
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
+	 "optimizer.jit();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /*
@@ -99,8 +99,9 @@ static struct PIPELINES {
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
-	 "optimizer.aliases();"
+	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
+	 "optimizer.aliases();"
 	 "optimizer.mitosis();"
 	 "optimizer.mergetable();"
 	 "optimizer.deadcode();"
@@ -119,6 +120,7 @@ static struct PIPELINES {
 	 "optimizer.volcano();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
+	 "optimizer.jit();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The no_mitosis pipe line is (and should be kept!) identical to the
@@ -137,8 +139,9 @@ static struct PIPELINES {
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
-	 "optimizer.aliases();"
+	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
+	 "optimizer.aliases();"
 	 "optimizer.mergetable();"
 	 "optimizer.deadcode();"
 	 "optimizer.aliases();"
@@ -155,6 +158,7 @@ static struct PIPELINES {
 	 "optimizer.profiler();"
 	 "optimizer.generator();"
 	 "optimizer.candidates();"
+	 "optimizer.jit();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The sequential pipe line is (and should be kept!) identical to the
@@ -173,8 +177,9 @@ static struct PIPELINES {
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
-	 "optimizer.aliases();"
+	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
+	 "optimizer.aliases();"
 	 "optimizer.mergetable();"
 	 "optimizer.deadcode();"
 	 "optimizer.aliases();"
@@ -190,6 +195,7 @@ static struct PIPELINES {
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
+	 "optimizer.jit();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* Experimental pipelines stressing various components under
@@ -201,8 +207,9 @@ static struct PIPELINES {
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
-	 "optimizer.aliases();"
+	 "optimizer.emptycolumn();"
 	 "optimizer.pushselect();"
+	 "optimizer.aliases();"
 	 "optimizer.mitosis();"
 	 "optimizer.mergetable();"
 	 "optimizer.aliases();"
@@ -350,7 +357,7 @@ getPipeCatalog(bat *nme, bat *def, bat *stat)
 	}
 
 	for (i = 0; i < MAXOPTPIPES && pipes[i].name; i++) {
-		if (pipes[i].prerequisite && getAddress(GDKout, NULL, optimizerRef, pipes[i].prerequisite, TRUE) == NULL)
+		if (pipes[i].prerequisite && getAddress(GDKout, NULL, pipes[i].prerequisite, TRUE) == NULL)
 			continue;
 		BUNappend(b, pipes[i].name, FALSE);
 		BUNappend(bn, pipes[i].def, FALSE);
@@ -456,7 +463,7 @@ compileOptimizer(Client cntxt, str name)
 			(void) MCinitClientThread(&c);
 			for (j = 0; j < MAXOPTPIPES && pipes[j].def; j++) {
 				if (pipes[j].mb == NULL) {
-					if (pipes[j].prerequisite && getAddress(c.fdout, NULL, optimizerRef, pipes[j].prerequisite, TRUE) == NULL)
+					if (pipes[j].prerequisite && getAddress(c.fdout, NULL, pipes[j].prerequisite, TRUE) == NULL)
 						continue;
 					MSinitClientPrg(&c, "user", pipes[j].name);
 					msg = compileString(&sym, &c, pipes[j].def);
