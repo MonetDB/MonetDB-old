@@ -1,4 +1,5 @@
 from monetdb.sql import connect
+
 from .iotlogger import add_log
 
 

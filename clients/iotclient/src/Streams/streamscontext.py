@@ -1,7 +1,9 @@
 from collections import OrderedDict
-from .streamscreator import validate_schema_and_create_stream
-from Settings.mapiconnection import mapi_create_stream, mapi_delete_stream, init_monetdb_connection
+
 from Utilities.readwritelock import RWLock
+
+from Settings.mapiconnection import mapi_create_stream, mapi_delete_stream, init_monetdb_connection
+from .streamscreator import validate_schema_and_create_stream
 
 Streams_Context = None
 

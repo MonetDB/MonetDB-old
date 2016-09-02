@@ -1,16 +1,15 @@
 import struct
-
 from abc import ABCMeta, abstractmethod
-from collections import OrderedDict
 from copy import deepcopy
 from datetime import datetime, timedelta
-from dateutil import parser
 from itertools import chain
 from json import dumps
 from math import ceil, log10
 from re import compile, split
-from jsonschemas import UUID_REGEX, MAC_ADDRESS_REGEX, TIME_REGEX, IPV4_REGEX, TIME_WITH_TIMEZONE_TYPE_INTERNAL,\
-    TIME_WITH_TIMEZONE_TYPE_EXTERNAL, TIMESTAMP_WITH_TIMEZONE_TYPE_INTERNAL, TIMESTAMP_WITH_TIMEZONE_TYPE_EXTERNAL
+
+from dateutil import parser
+
+from jsonschemas import UUID_REGEX, MAC_ADDRESS_REGEX, TIME_REGEX, IPV4_REGEX
 
 # The null constants might change from system to system due to different CPU's limits
 LITTLE_ENDIAN_ALIGNMENT = '<'  # for now it is little-endian

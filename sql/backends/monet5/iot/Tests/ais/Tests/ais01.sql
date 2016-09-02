@@ -3,15 +3,15 @@ SET SCHEMA ais;
 SET optimizer = 'iot_pipe';
 
 -- Vessels positions reports table based on AIS messages types 1, 2 and 3
-CREATE STREAM TABLE vessels1 (implicit_timestamp timestamp, mmsi int, lat real, lon real, nav_status tinyint, sog real, rotais smallint);
+CREATE STREAM TABLE vessels1 (implicit_timestamp timestamp, mmsi int, lat real, lon real, nav_status smallint, sog real, rotais smallint);
 
 -- Position reports are sent every 3-5 seconds so is resonable to consume the tuples arrived on the last 8 seconds
 -- Inserts for iot web server (providing time based flush of 8 seconds)
 INSERT INTO iot.webserverstreams SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl INNER JOIN sys.schemas sch ON tabl.schema_id = sch.id WHERE tabl.name = 'vessels1' AND sch.name = 'ais';
 
---Q1 Calculate speed of ships per hour (in knots) -- Stream only
+--Q1 Calculate speed of ships (in knots) -- Stream only
 
-CREATE TABLE ais01r (calc_time timestamp, mmsi int, sog real);
+CREATE STREAM TABLE ais01r (calc_time timestamp, mmsi int, sog real);
 
 CREATE PROCEDURE ais01q()
 BEGIN	

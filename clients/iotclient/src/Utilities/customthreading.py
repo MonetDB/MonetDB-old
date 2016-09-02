@@ -1,5 +1,5 @@
-from time import sleep
 from threading import Thread, Event
+from time import sleep
 
 
 class StoppableThread(Thread):

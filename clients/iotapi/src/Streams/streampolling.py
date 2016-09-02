@@ -1,12 +1,14 @@
 from collections import OrderedDict, defaultdict
 from json import dumps
+
+from Settings.iotlogger import add_log
+from Settings.mapiconnection import mapi_get_database_streams
+from Utilities.customthreading import PeriodicalThread
+
 from .datatypes import TextType, LimitedTextType, SmallIntegerType, HugeIntegerType, FloatType, DecimalType,\
     BooleanType, DateType, TimeType, TimestampType, INetType, UUIDType, IntervalType
 from .streams import IOTStream
 from .streamscontext import Streams_Context
-from Settings.iotlogger import add_log
-from Settings.mapiconnection import mapi_get_database_streams
-from Utilities.customthreading import PeriodicalThread
 
 Switcher = [{'types': ['clob', 'url'], 'class': TextType},
             {'types': ['char', 'varchar'], 'class': LimitedTextType},

@@ -1,6 +1,9 @@
 from collections import OrderedDict
 from json import dumps
+
 from jsonschema import Draft4Validator, FormatChecker
+
+from Settings.mapiconnection import init_monetdb_connection
 from .datatypes import TextType, LimitedTextType, SmallIntegerType, FloatType, DecimalType, DateType, EnumType,\
     HugeIntegerType, TimeType, TimestampType, IntervalType, BooleanType, INetType, INetSixType, MACType, URLType,\
     UUIDType, RegexType
@@ -10,7 +13,6 @@ from .jsonschemas import UNBOUNDED_TEXT_INPUTS, BOUNDED_TEXT_INPUTS, SMALL_INTEG
     TIMED_FLUSH_IDENTIFIER, TUPLE_FLUSH_IDENTIFIER
 from .streams import TupleBasedStream, TimeBasedStream, AutoFlushedStream, IMPLICIT_TIMESTAMP_COLUMN_NAME,\
     HOST_IDENTIFIER_COLUMN_NAME
-from Settings.mapiconnection import init_monetdb_connection
 
 Switcher = [{'types': UNBOUNDED_TEXT_INPUTS, 'class': TextType},
             {'types': BOUNDED_TEXT_INPUTS, 'class': LimitedTextType},

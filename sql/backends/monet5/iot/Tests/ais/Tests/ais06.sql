@@ -13,7 +13,7 @@ BEGIN
 END;
 
 -- Vessels positions reports table based on AIS messages types 1, 2 and 3
-CREATE STREAM TABLE vessels6 (implicit_timestamp timestamp, mmsi int, lat real, lon real, nav_status tinyint, sog real, rotais smallint);
+CREATE STREAM TABLE vessels6 (implicit_timestamp timestamp, mmsi int, lat real, lon real, nav_status smallint, sog real, rotais smallint);
 -- Stations positions reports table based on AIS message type 4
 CREATE STREAM TABLE stations (implicit_timestamp timestamp, mmsi int, lat real, lon real);
 
@@ -25,16 +25,16 @@ INSERT INTO iot.webserverstreams SELECT tabl.id, 2 , 8, 's' FROM sys.tables tabl
 
 --Q6 For each station calulate ship within a radios of 3 km -- Stream join
 
-CREATE TABLE ais06r (calc_time timestamp, smmsi int, vmmsi int, distance float);
+CREATE STREAM TABLE ais06r (calc_time timestamp, smmsi int, vmmsi int, distance float);
 
 CREATE PROCEDURE ais06q()
 BEGIN
 	INSERT INTO ais06r
 		WITH data1 AS (SELECT mmsi, lat, lon FROM vessels6 WHERE (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM vessels6 GROUP BY mmsi)), 
 		data2 AS (SELECT mmsi, lat, lon FROM stations WHERE (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM stations GROUP BY mmsi)), 
-		calculations AS (SELECT d1.mmsi AS smmsi, d2.mmsi AS vmmsi, km_distance(d1.lat, d1.lon, d2.lat, d2.lon) AS distance FROM data1 d1 CROSS JOIN data2 d2),
+		calculations AS (SELECT d1.mmsi AS smmsi, d2.mmsi AS vmmsi, km_distance(d1.lat, d1.lon, d2.lat, d2.lon) AS distance FROM data1 d1 INNER JOIN data2 d2 ON km_distance(d1.lat, d1.lon, d2.lat, d2.lon) < 3),
 		data_time AS (SELECT current_timestamp AS cur_time)
-		SELECT cur_time, smmsi, vmmsi, distance FROM calculations CROSS JOIN data_time WHERE distance < 3;
+		SELECT cur_time, smmsi, vmmsi, distance FROM calculations CROSS JOIN data_time;
 END;
 
 CALL iot.query('ais', 'ais06q');

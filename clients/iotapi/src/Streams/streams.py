@@ -1,11 +1,11 @@
 import os
-
 from collections import OrderedDict
-from watchdog.events import FileSystemEventHandler, DirCreatedEvent, DirDeletedEvent
-from watchdog.observers import Observer
+
 from Settings.filesystem import get_baskets_base_location
 from Utilities.readwritelock import RWLock
 from WebSockets.websockets import notify_stream_inserts_to_clients
+from watchdog.events import FileSystemEventHandler, DirCreatedEvent, DirDeletedEvent
+from watchdog.observers import Observer
 
 
 def represents_int(s):

@@ -2,9 +2,10 @@ import argparse
 import getpass
 import os
 import sys
+from unittest import TextTestRunner, TestSuite
 
 from monetdb.sql import connect
-from unittest import TextTestRunner, TestSuite
+
 from datatypesinsertstests import TextTest, URLTest, INetTest, UUIDTest, BooleanTest, TinyIntegerTest,\
     SmallIntegerTest, IntegerTest, BigIntegerTest, HugeIntegerTest, RealPointTest, FloatPointTest, DecimalTest,\
     DateTest, TimeWithoutTimezoneTest, TimeWithTimezoneTest, TimestampWithoutTimezoneTest, TimestampWithTimezoneTest, \

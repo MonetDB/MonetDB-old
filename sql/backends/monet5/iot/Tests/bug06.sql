@@ -17,5 +17,5 @@ INSERT INTO temperature VALUES (now(), 1, 1), (now(), 2, 2), (now(), 3, 3), (now
 
 SELECT * FROM results; /* should have only 1 row, where "tuples" column value is 3 */
 
-CALL getwindow('iot','temperature'); /* should not hang! */
+SELECT getwindow('iot','temperature');
 

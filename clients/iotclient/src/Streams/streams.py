@@ -1,16 +1,17 @@
 import os
-
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict, OrderedDict
 from json import dumps
 from shutil import rmtree
-from .datatypes import TimestampType, TextType
+
+from Utilities.customthreading import PeriodicalThread
+from Utilities.filecreator import create_file_if_not_exists
+from Utilities.readwritelock import RWLock
+
 from Settings.filesystem import get_baskets_location
 from Settings.iotlogger import add_log
 from Settings.mapiconnection import close_monetdb_connection, mapi_flush_baskets
-from Utilities.filecreator import create_file_if_not_exists
-from Utilities.readwritelock import RWLock
-from Utilities.customthreading import PeriodicalThread
+from .datatypes import TimestampType, TextType
 
 IMPLICIT_TIMESTAMP_COLUMN_NAME = 'implicit_timestamp'
 Implicit_Timestamp_Handler = TimestampType(name=IMPLICIT_TIMESTAMP_COLUMN_NAME, type="timestamp with time zone")

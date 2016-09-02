@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_restful import Api
+
 from .restresources import StreamInput, StreamsInfo, StreamsHandling
 
 

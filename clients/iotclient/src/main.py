@@ -4,21 +4,22 @@ import os
 import signal
 import sys
 import time
-
-from IPy import IP
 from multiprocessing import Process
 from threading import Thread
 from uuid import getnode as get_mac
+
+from IPy import IP
+
 from Flask.app import start_flask_iot_app, start_flask_admin_app
 from Flask.restresources import init_rest_resources
 from Settings.filesystem import init_file_system, DEFAULT_FILESYSTEM
 from Settings.iotlogger import init_logging, add_log, DEFAULT_LOGGING
 from Settings.mapiconnection import init_monetdb_connection, check_hugeint_type
-from Streams.streams import init_streams_hosts
 from Streams.jsonschemas import init_create_streams_schema
+from Streams.streampolling import polling_add_hugeint_type, init_stream_polling_thread
+from Streams.streams import init_streams_hosts
 from Streams.streamscontext import init_streams_context
 from Streams.streamscreator import creator_add_hugeint_type
-from Streams.streampolling import polling_add_hugeint_type, init_stream_polling_thread
 
 subprocess = None
 

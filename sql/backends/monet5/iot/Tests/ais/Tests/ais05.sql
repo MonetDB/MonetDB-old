@@ -13,7 +13,7 @@ BEGIN
 END;
 
 -- Vessels positions reports table based on AIS messages types 1, 2 and 3
-CREATE STREAM TABLE vessels5 (implicit_timestamp timestamp, mmsi int, lat real, lon real, nav_status tinyint, sog real, rotais smallint);
+CREATE STREAM TABLE vessels5 (implicit_timestamp timestamp, mmsi int, lat real, lon real, nav_status smallint, sog real, rotais smallint);
 
 -- Position reports are sent every 3-5 seconds so is resonable to consume the tuples arrived on the last 8 seconds
 -- Inserts for iot web server (providing time based flush of 8 seconds)
@@ -27,7 +27,7 @@ CREATE PROCEDURE ais05q()
 BEGIN
 	INSERT INTO ais05r 
 		WITH data AS (SELECT mmsi, lat, lon FROM vessels5 WHERE (implicit_timestamp, mmsi) IN (SELECT max(implicit_timestamp), mmsi FROM vessels5 GROUP BY mmsi)),
-		distances AS (SELECT d1.mmsi AS mmsi1, d2.mmsi AS mmsi2, km_distance(d1.lat, d1.lon, d2.lat, d2.lon) AS distance FROM data d1 CROSS JOIN data d2 WHERE NOT d1.mmsi = d2.mmsi),
+		distances AS (SELECT d1.mmsi AS mmsi1, d2.mmsi AS mmsi2, km_distance(d1.lat, d1.lon, d2.lat, d2.lon) AS distance FROM data d1 INNER JOIN data d2 ON d1.mmsi <> d2.mmsi),
 		data_time AS (SELECT current_timestamp AS cur_time)
 		SELECT cur_time, mmsi1, mmsi2, distance FROM distances CROSS JOIN data_time WHERE (mmsi1, distance) IN (SELECT mmsi1, min(distance) FROM distances GROUP BY mmsi1);
 END;

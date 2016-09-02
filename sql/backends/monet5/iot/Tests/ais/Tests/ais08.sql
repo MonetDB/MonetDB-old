@@ -2,7 +2,7 @@ SET SCHEMA ais;
 SET optimizer = 'iot_pipe';
 
 -- Vessels positions reports table based on AIS messages types 1, 2 and 3
-CREATE STREAM TABLE vessels8 (implicit_timestamp timestamp, mmsi int, lat real, lon real, nav_status tinyint, sog real, rotais smallint);
+CREATE STREAM TABLE vessels8 (implicit_timestamp timestamp, mmsi int, lat real, lon real, nav_status smallint, sog real, rotais smallint);
 
 -- Position reports are sent every 3-5 seconds so is resonable to consume the tuples arrived on the last 8 seconds
 -- Inserts for iot web server (providing time based flush of 8 seconds)

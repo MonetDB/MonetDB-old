@@ -1,10 +1,11 @@
 from abc import ABCMeta, abstractmethod
-from faker import Factory
-from pytz import timezone
 from os import path, remove
 from random import choice, randint, uniform
 from unittest import TestCase, skip
 from uuid import uuid4
+
+from faker import Factory
+from pytz import timezone
 
 
 def load_src(name, fpath):

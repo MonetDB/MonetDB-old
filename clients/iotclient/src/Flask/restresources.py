@@ -1,11 +1,13 @@
 from collections import OrderedDict
 from datetime import datetime
+from json import loads
+
 from flask import request
 from flask_restful import Resource
-from json import loads
 from jsonschema import Draft4Validator, FormatChecker, ValidationError
 from pytz import utc
 from tzlocal import get_localzone
+
 from Settings.iotlogger import add_log
 from Streams.jsonschemas import get_create_streams_schema, DELETE_STREAMS_SCHEMA
 from Streams.streamscontext import get_streams_context

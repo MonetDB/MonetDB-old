@@ -1,6 +1,11 @@
 from collections import OrderedDict, defaultdict
 from json import dumps
+
+from Utilities.customthreading import PeriodicalThread
 from jsonschema import Draft4Validator, FormatChecker
+
+from Settings.iotlogger import add_log
+from Settings.mapiconnection import init_monetdb_connection, mapi_get_database_streams
 from .datatypes import TextType, LimitedTextType, SmallIntegerType, HugeIntegerType, FloatType, DecimalType, DateType,\
     TimeType, TimestampType, IntervalType, BooleanType, INetType, INetSixType, MACType, URLType, UUIDType, RegexType,\
     EnumType, ENUM_TYPE_SEPARATOR
@@ -12,9 +17,6 @@ from .jsonschemas import UNBOUNDED_TEXT_TYPE, BOUNDED_TEXT_TYPES, SMALL_INTEGERS
 from .streams import TupleBasedStream, TimeBasedStream, AutoFlushedStream, IMPLICIT_TIMESTAMP_COLUMN_NAME,\
     HOST_IDENTIFIER_COLUMN_NAME
 from .streamscontext import get_streams_context
-from Settings.iotlogger import add_log
-from Settings.mapiconnection import init_monetdb_connection, mapi_get_database_streams
-from Utilities.customthreading import PeriodicalThread
 
 Switcher = [{'types': [UNBOUNDED_TEXT_TYPE], 'class': TextType},
             {'types': BOUNDED_TEXT_TYPES, 'class': LimitedTextType},
