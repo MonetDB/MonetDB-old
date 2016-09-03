@@ -1,0 +1,182 @@
+stdout of test 'iot11` in directory 'sql/backends/monet5/iot` itself:
+
+
+# 11:31:24 >  
+# 11:31:24 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=34677" "--set" "mapi_usock=/var/tmp/mtest-10879/.s.monetdb.34677" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mk/iot//Linux/var/MonetDB/mTests_sql_backends_monet5_iot"
+# 11:31:24 >  
+
+# MonetDB 5 server v11.24.0
+# This is an unreleased version
+# Serving database 'mTests_sql_backends_monet5_iot', using 8 threads
+# Compiled for x86_64-unknown-linux-gnu/64bit with 128bit integers
+# Found 15.589 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2016 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://vienna.da.cwi.nl:34677/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-10879/.s.monetdb.34677
+# MonetDB/GIS module loaded
+# MonetDB/SQL module loaded
+# MonetDB/iot loaded
+
+Ready.
+
+# 11:31:25 >  
+# 11:31:25 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-10879" "--port=34677"
+# 11:31:25 >  
+
+#set schema iot;
+#set optimizer='iot_pipe';
+#create stream table sdel11 (t timestamp, sensor integer, val decimal(8,2)) ;
+#insert into sdel11 values('2005-09-23 12:34:26.736',1,12.31);
+[ 1	]
+#insert into sdel11 values('2005-09-23 12:34:26.736',2,12.32);
+[ 1	]
+#insert into sdel11 values('2005-09-23 12:34:26.736',3,12.33);
+[ 1	]
+#insert into sdel11 values('2005-09-23 12:34:26.736',4,12.34);
+[ 1	]
+#insert into sdel11 values('2005-09-23 12:34:26.736',2,12.35);
+[ 1	]
+#explain select * from sdel11;
+% .explain # table_name
+% mal # name
+% clob # type
+% 80 # length
+function user.s6_1():void;
+    X_45:void := querylog.define("explain select * from sdel11;","iot_pipe",40);
+    X_0 := sql.mvc();
+    X_51 := basket.register(X_0,"iot","sdel11",0);
+    X_55 := basket.lock(X_51,"iot","sdel11");
+barrier X_80 := language.dataflow();
+    X_4:bat[:timestamp] := basket.bind(X_51,"iot","sdel11","t");
+    X_8:bat[:int] := basket.bind(X_51,"iot","sdel11","sensor");
+    X_11:bat[:int] := basket.bind(X_51,"iot","sdel11","val");
+    X_15 := bat.new(nil:str);
+    X_17 := bat.new(nil:str);
+    X_18 := bat.new(nil:str);
+    X_19 := bat.new(nil:int);
+    X_21 := bat.new(nil:int);
+    X_22 := bat.append(X_15,"iot.sdel11");
+    X_24 := bat.append(X_17,"t");
+    X_25 := bat.append(X_18,"timestamp");
+    X_27 := bat.append(X_19,7);
+    X_29 := bat.append(X_21,0);
+    X_30 := bat.append(X_22,"iot.sdel11");
+    X_31 := bat.append(X_24,"sensor");
+    X_32 := bat.append(X_25,"int");
+    X_34 := bat.append(X_27,32);
+    X_36 := bat.append(X_29,0);
+    X_37 := bat.append(X_30,"iot.sdel11");
+    X_38 := bat.append(X_31,"val");
+    X_39 := bat.append(X_32,"decimal");
+    X_41 := bat.append(X_34,8);
+    X_43 := bat.append(X_36,2);
+exit X_80;
+    sql.resultSet(X_37,X_38,X_39,X_41,X_43,X_4,X_8,X_11);
+    X_56 := basket.tumble(X_55,"iot","sdel11");
+catch SQLexception:str;
+    iot.error("user","s6_1",SQLexception);
+exit SQLexception:str;
+catch MALexception:str;
+    iot.error("user","s6_1",MALexception);
+exit MALexception:str;
+    basket.unlock(X_56,"iot","sdel11");
+end user.s6_1;
+#inline               actions= 0 time=1 usec 
+#candidates           actions= 1 time=1 usec 
+#remap                actions= 0 time=4 usec 
+#iot                  actions= 1 time=27 usec 
+#costmodel            actions= 1 time=1 usec 
+#coercion             actions= 0 time=1 usec 
+#evaluate             actions= 0 time=3 usec 
+#aliases              actions= 0 time=7 usec 
+#mergetable           actions= 0 time=32 usec 
+#deadcode             actions= 1 time=6 usec 
+#aliases              actions= 0 time=6 usec 
+#constants            actions= 3 time=9 usec 
+#commonTerms          actions= 0 time=5 usec 
+#projectionpath       actions= 0 time=2 usec 
+#deadcode             actions= 0 time=6 usec 
+#reduce               actions=30 time=8 usec 
+#matpack              actions= 0 time=3 usec 
+#dataflow             actions=30 time=19 usec 
+#multiplex            actions= 0 time=3 usec 
+#profiler             actions= 1 time=1 usec 
+#garbagecollector     actions= 1 time=19 usec 
+#total                actions= 1 time=258 usec 
+#explain delete from sdel11 where sensor = 2;
+% .explain # table_name
+% mal # name
+% clob # type
+% 95 # length
+function user.s7_1(A0:int):void;
+    X_19:void := querylog.define("explain delete from sdel11 where sensor = 2;","iot_pipe",21);
+    X_0 := sql.mvc();
+    X_25 := basket.register(X_0,"iot","sdel11",0);
+    X_29 := basket.lock(X_25,"iot","sdel11");
+    C_1:bat[:oid] := basket.tid(X_0,"iot","sdel11");
+    X_4:bat[:int] := basket.bind(X_25,"iot","sdel11","sensor");
+    C_9 := algebra.subselect(X_4,A0,A0,true,false,false);
+    X_13 := algebra.projection(C_9,C_1);
+    X_15 := basket.delete(X_25,"iot","sdel11",X_13);
+    X_16 := aggr.count(X_13);
+    sql.affectedRows(X_15,X_16);
+    X_30 := basket.tumble(X_29,"iot","sdel11");
+catch SQLexception:str;
+    iot.error("user","s7_1",SQLexception);
+exit SQLexception:str;
+catch MALexception:str;
+    iot.error("user","s7_1",MALexception);
+exit MALexception:str;
+    basket.unlock(X_30,"iot","sdel11");
+end user.s7_1;
+# optimizer.mitosis()
+# optimizer.dataflow()
+#inline               actions= 0 time=1 usec 
+#candidates           actions= 1 time=1 usec 
+#remap                actions= 0 time=2 usec 
+#iot                  actions= 1 time=22 usec 
+#costmodel            actions= 1 time=1 usec 
+#coercion             actions= 0 time=2 usec 
+#evaluate             actions= 0 time=3 usec 
+#aliases              actions= 1 time=6 usec 
+#mergetable           actions= 0 time=19 usec 
+#deadcode             actions= 0 time=5 usec 
+#aliases              actions= 0 time=4 usec 
+#constants            actions= 4 time=4 usec 
+#commonTerms          actions= 0 time=4 usec 
+#projectionpath       actions= 0 time=3 usec 
+#deadcode             actions= 0 time=5 usec 
+#reduce               actions=30 time=7 usec 
+#matpack              actions= 0 time=2 usec 
+#multiplex            actions= 0 time=2 usec 
+#profiler             actions= 1 time=1 usec 
+#garbagecollector     actions= 1 time=13 usec 
+#total                actions= 1 time=183 usec 
+#select * from sdel11;
+% iot.sdel11,	iot.sdel11,	iot.sdel11 # table_name
+% t,	sensor,	val # name
+% timestamp,	int,	decimal # type
+% 26,	1,	10 # length
+[ 2005-09-23 12:34:26.736000,	1,	12.31	]
+[ 2005-09-23 12:34:26.736000,	2,	12.32	]
+[ 2005-09-23 12:34:26.736000,	3,	12.33	]
+[ 2005-09-23 12:34:26.736000,	4,	12.34	]
+[ 2005-09-23 12:34:26.736000,	2,	12.35	]
+#delete from sdel11 where sensor = 2;
+[ 2	]
+#select * from sdel11;
+% iot.sdel11,	iot.sdel11,	iot.sdel11 # table_name
+% t,	sensor,	val # name
+% timestamp,	int,	decimal # type
+% 26,	1,	10 # length
+[ 2005-09-23 12:34:26.736000,	1,	12.31	]
+[ 2005-09-23 12:34:26.736000,	3,	12.33	]
+[ 2005-09-23 12:34:26.736000,	4,	12.34	]
+#drop table sdel11;
+
+# 11:31:25 >  
+# 11:31:25 >  "Done."
+# 11:31:25 >  
+

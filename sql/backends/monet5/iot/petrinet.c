@@ -270,7 +270,7 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb, int calls)
 	pushEndInstruction(nmb);
 	chkProgram(cntxt->fdout, cntxt->nspace, nmb);
 #ifdef DEBUG_PETRINET
-	printFunction(cntxt->fdout, nmb, 0, LIST_MAL_ALL);
+	printFunction(cntxt->fdout, nmb, 0, LIST_MAL_SCHEDULER);
 #endif
 
 	pnet[pnettop].mb = nmb;
@@ -681,13 +681,13 @@ PNscheduler(void *dummy)
 				(void) MTIMEcurrent_timestamp(&ts);
 				(void) MTIMEtimestamp_add(&tn, &pnet[idx].seen, &pnet[idx].heartbeat);
 				if ( tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs)) {
-#ifdef DEBUG_PETRINET
+#ifdef DEBUG_PETRINET_SCHEDULER
 					mnstr_printf(GDKout,"# now %d.%d fire %d.%d,disable\n", ts.days,ts.msecs, tn.days,tn.msecs);
 #endif
 					force =1;
 					break;
 				} else {
-#ifdef DEBUG_PETRINET
+#ifdef DEBUG_PETRINET_SCHEDULER
 				mnstr_printf(GDKout,"# now %d.%d fire %d.%d enable[%d]\n", ts.days,ts.msecs, tn.days,tn.msecs,i);
 #endif
 				}
@@ -702,13 +702,13 @@ PNscheduler(void *dummy)
 					(void) MTIMEcurrent_timestamp(&ts);
 					(void) MTIMEtimestamp_add(&tn, &baskets[idx].seen, &baskets[idx].heartbeat);
 					if ( !(tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs)) ){
-#ifdef DEBUG_PETRINET
+#ifdef DEBUG_PETRINET_SCHEDULER
 						mnstr_printf(GDKout,"#A now %d.%d fire %d.%d,disable\n", ts.days,ts.msecs, tn.days,tn.msecs);
 #endif
 						pnet[i].enabled = 0;
 						break;
 					} else {
-#ifdef DEBUG_PETRINET
+#ifdef DEBUG_PETRINET_SCHEDULER
 					mnstr_printf(GDKout,"#A now %d.%d fire %d.%d enable[%d]\n", ts.days,ts.msecs, tn.days,tn.msecs,i);
 #endif
 					}
@@ -730,14 +730,14 @@ PNscheduler(void *dummy)
 					(void) MTIMEcurrent_timestamp(&ts);
 					(void) MTIMEtimestamp_add(&tn, &baskets[idx].seen, &baskets[idx].heartbeat);
 					if ( !(tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs)) ){
-#ifdef DEBUG_PETRINET
+#ifdef DEBUG_PETRINET_SCHEDULER
 						mnstr_printf(GDKout,"#B now %d.%d fire %d.%d,disable\n", ts.days,ts.msecs, tn.days,tn.msecs);
 #endif
 						pnet[i].enabled = 0;
 						break;
 					}
 					else {
-#ifdef DEBUG_PETRINET
+#ifdef DEBUG_PETRINET_SCHEDULER
 					mnstr_printf(GDKout,"#B now %d.%d fire %d.%d enable[%d]\n", ts.days,ts.msecs, tn.days,tn.msecs,i);
 #endif
 					}
@@ -749,7 +749,7 @@ PNscheduler(void *dummy)
 				/* a basket can be used in at most one continuous query at a time */
 				for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].inputs[j]; j++) 
 					if( claimed[pnet[i].inputs[j]]){
-#ifdef DEBUG_PETRINET
+#ifdef DEBUG_PETRINET_SCHEDULER
 						mnstr_printf(GDKout, "#petrinet: %s.%s enabled twice,disgarded \n", pnet[i].modname, pnet[i].fcnname);
 #endif
 						pnet[i].enabled = 0;
@@ -757,7 +757,7 @@ PNscheduler(void *dummy)
 					} 
 				for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].outputs[j]; j++) 
 					if( claimed[pnet[i].outputs[j]]){
-#ifdef DEBUG_PETRINET
+#ifdef DEBUG_PETRINET_SCHEDULER
 						mnstr_printf(GDKout, "#petrinet: %s.%s enabled twice,disgarded \n", pnet[i].modname, pnet[i].fcnname);
 #endif
 						pnet[i].enabled = 0;
@@ -774,7 +774,7 @@ PNscheduler(void *dummy)
 
 				/*save the ids of all continuous queries that can be executed */
 				enabled[k++] = i;
-#ifdef DEBUG_PETRINET
+#ifdef DEBUG_PETRINET_SCHEDULER
 				mnstr_printf(GDKout, "#petrinet: %s.%s enabled \n", pnet[i].modname, pnet[i].fcnname);
 #endif
 			} 
@@ -782,7 +782,7 @@ PNscheduler(void *dummy)
 		}
 		MT_lock_unset(&iotLock); 
 		analysis = GDKusec() - now;
-#ifdef DEBUG_PETRINET
+#ifdef DEBUG_PETRINET_SCHEDULER
 		if(k) mnstr_printf(GDKout, "#Transitions enabled: %d \n", k);
 #endif
 		PNcycle += k;

@@ -336,7 +336,8 @@ BSKTkeep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if( idx ==0)
 			throw(SQL,"basket.window","Stream table %s.%s not accessible\n",sch,tbl);
 	}
-	baskets[idx].winsize = - baskets[idx].winsize -1;
+	if( baskets[idx].winsize >= 0)
+		baskets[idx].winsize = - baskets[idx].winsize -1;
 	return MAL_SUCCEED;
 }
 
@@ -359,7 +360,8 @@ BSKTrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if( idx ==0)
 			throw(SQL,"basket.window","Stream table %s.%s not accessible\n",sch,tbl);
 	}
-	baskets[idx].winsize = - baskets[idx].winsize -1;
+	if( baskets[idx].winsize < 0)
+		baskets[idx].winsize = - baskets[idx].winsize -1;
 	return MAL_SUCCEED;
 }
 
