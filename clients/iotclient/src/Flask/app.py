@@ -1,8 +1,12 @@
+import logging
+
 from flask import Flask
 from flask_restful import Api
 
 from .restresources import StreamInput, StreamsInfo, StreamsHandling
 
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)  # disable logging messages to the stderr
 
 def start_flask_iot_app(host, port):
     iot_app = Flask(__name__)
