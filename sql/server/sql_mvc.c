@@ -283,7 +283,7 @@ sql_trans_deref( sql_trans *tr )
 	return tr->parent;
 }
 
-int
+static int
 mvc_commit_prepare(mvc *m, int chain, const char *name, sql_trans *tr) {
 	sql_trans *cur = m->session->tr, *ctr;
 	int result = SQL_OK;//, wait = 0;

@@ -150,7 +150,6 @@ extern int mvc_debug_on(mvc *m, int flag);
 #define has_snapshots(tr) ((tr) && (tr)->parent && (tr)->parent->parent)
 
 extern void mvc_trans(mvc *c);
-extern int mvc_commit_prepare(mvc *m, int chain, const char *name, sql_trans *tr);
 extern void mvc_commit_finish(mvc *m, int chain, const char *name);
 extern int mvc_commit(mvc *c, int chain, const char *name);
 extern int mvc_precommit(mvc *m, int chain, const char *name, lng id);
