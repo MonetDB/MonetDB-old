@@ -382,7 +382,6 @@ mvc_commit(mvc *m, int chain, const char *name)
 	int result = SQL_OK;//, wait = 0;
 
 	if ((result = mvc_commit_prepare(m, chain, name, tr)) != SQL_OK) {
-		store_unlock();
 		return 0;
 	}
 
@@ -416,7 +415,6 @@ mvc_precommit(mvc *m, int chain, const char *name, lng id) {
 	tr->precommit_id = id;
 
 	if ((result = mvc_commit_prepare(m, chain, name, tr)) != SQL_OK) {
-		store_unlock();
 		return 0;
 	}
 
