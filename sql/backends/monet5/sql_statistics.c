@@ -110,7 +110,7 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				if (tbl && strcmp(bt->name, tbl))
 					continue;
 				tfnd = 1;
-				if (isTable(t->type) && t->columns.set)
+				if (isTable(t) && t->columns.set)
 					for (ncol = (t)->columns.set->h; ncol; ncol = ncol->next) {
 						sql_base *bc = ncol->data;
 						sql_column *c = (sql_column *) ncol->data;

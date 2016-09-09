@@ -471,14 +471,13 @@ typedef enum table_types {
 	tt_replica_table = 6	/* multiple replica of the same table */
 } table_types;
 
-#define isTable(f) 	  ((f) == tt_table || (f) == tt_stream)
-#define isView(f)  	  ((f) == tt_view)
-#define isMergeTable(f)   ((f) == tt_merge_table)
-#define isStream(f)  	  ((f) == tt_stream)
-#define isRemote(f)  	  ((f) == tt_remote)
-#define isReplicaTable(f) ((f) == tt_replica_table)
-#define isKindOfTable(f)  (isTable(f) || isMergeTable(f) || \
-	       	           isRemote(f) || isReplicaTable(f))
+#define isTable(x) 	  (x->type==tt_table || x->type==tt_stream)
+#define isView(x)  	  (x->type==tt_view)
+#define isMergeTable(x)   (x->type==tt_merge_table)
+#define isStream(x)  	  (x->type==tt_stream)
+#define isRemote(x)  	  (x->type==tt_remote)
+#define isReplicaTable(x) (x->type==tt_replica_table)
+#define isKindOfTable(x)  (isTable(x) || isMergeTable(x) || isRemote(x) || isReplicaTable(x))
 
 #define TABLE_WRITABLE	0
 #define TABLE_READONLY	1

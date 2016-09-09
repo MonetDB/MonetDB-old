@@ -609,7 +609,7 @@ rel_basetable(mvc *sql, sql_table *t, const char *atname)
 	rel->op = op_basetable;
 	rel->exps = new_exp_list(sa);
 
-	if (isRemote(t->type)) 
+	if (isRemote(t)) 
 		tname = mapiuri_table(t->query, sql->sa, tname);
 	for (cn = t->columns.set->h; cn; cn = cn->next) {
 		sql_column *c = cn->data;

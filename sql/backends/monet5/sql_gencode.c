@@ -1097,7 +1097,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			if (q == NULL)
 				return -1;
 			s->nr = getDestVar(q);
-			if (t && (!isRemote(t->type) && !isMergeTable(t->type)) && s->partition) {
+			if (t && (!isRemote(t) && !isMergeTable(t)) && s->partition) {
 				sql_trans *tr = sql->mvc->session->tr;
 				BUN rows = (BUN) store_funcs.count_col(tr, t->columns.set->h->data, 1);
 				setRowCnt(mb,getArg(q,0),rows);
@@ -1139,7 +1139,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			if (s->flag != RD_INS && s->partition) {
 				sql_trans *tr = sql->mvc->session->tr;
 
-				if (c && (!isRemote(c->t->type) && !isMergeTable(c->t->type))) {
+				if (c && (!isRemote(c->t) && !isMergeTable(c->t))) {
 					BUN rows = (BUN) store_funcs.count_col(tr, c, 1);
 					setRowCnt(mb,getArg(q,0),rows);
 					if (t->p && 0)
@@ -1179,7 +1179,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			if (s->flag != RD_INS && s->partition) {
 				sql_trans *tr = sql->mvc->session->tr;
 
-				if (i && (!isRemote(i->t->type) && !isMergeTable(i->t->type))) {
+				if (i && (!isRemote(i->t) && !isMergeTable(i->t))) {
 					BUN rows = (BUN) store_funcs.count_idx(tr, i, 1);
 					setRowCnt(mb,getArg(q,0),rows);
 					if (t->p && 0)

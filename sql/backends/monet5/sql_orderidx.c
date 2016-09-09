@@ -46,7 +46,7 @@ sql_createorderindex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (s == NULL)
 		throw(SQL, "sql.createorderindex", "unknown schema %s", sch);
 	t = mvc_bind_table(m, s, tbl);
-	if (t == NULL || !isTable(t->type))
+	if (t == NULL || !isTable(t))
 		throw(SQL, "sql.createorderindex", "unknown table %s.%s",
 		      sch, tbl);
 	c = mvc_bind_column(m, t, col);
@@ -87,7 +87,7 @@ sql_droporderindex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (s == NULL)
 		throw(SQL, "sql.droporderindex", "unknown schema %s", sch);
 	t = mvc_bind_table(m, s, tbl);
-	if (t == NULL )
+	if (t == NULL || !isTable(t))
 		throw(SQL, "sql.droporderindex", "unknown table %s.%s",
 		      sch, tbl);
 	c = mvc_bind_column(m, t, col);

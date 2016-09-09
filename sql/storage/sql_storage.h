@@ -14,12 +14,10 @@
 
 #define COLSIZE	1024
 
-#define isPersistent(f)	((f) == SQL_PERSIST || (f) == SQL_STREAM)
-
-#define isNew(x)  	((x)->base.flag == TR_NEW)
-#define isTemp(x) 	(isNew((x)->t)||!(isPersistent((x)->t->persistence)))
-#define isTempTable(x)  ((x)->persistence!=SQL_PERSIST&&(x)->persistence!=SQL_STREAM)
-#define isGlobal(x)     ((x)->persistence!=SQL_LOCAL_TEMP && \
+#define isNew(x)  ((x)->base.flag == TR_NEW)
+#define isTemp(x) (isNew((x)->t)||(x)->t->persistence!=SQL_PERSIST)
+#define isTempTable(x)   ((x)->persistence!=SQL_PERSIST)
+#define isGlobal(x)      ((x)->persistence!=SQL_LOCAL_TEMP && \
 			  (x)->persistence!=SQL_DECLARED_TABLE)
 #define isGlobalTemp(x)  ((x)->persistence==SQL_GLOBAL_TEMP)
 #define isTempSchema(x)  (strcmp((x)->base.name, "tmp") == 0 || \

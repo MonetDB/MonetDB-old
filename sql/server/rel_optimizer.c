@@ -5682,7 +5682,7 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 	case op_basetable: {
 		sql_table *t = rel->l;
 
-		if (t && (isMergeTable(t->type) || isReplicaTable(t->type))) 
+		if (t && (isMergeTable(t) || isReplicaTable(t))) 
 			return rel;
 	}
 		/* fall through */
@@ -7302,7 +7302,7 @@ rel_merge_table_rewrite(int *changes, mvc *sql, sql_rel *rel)
 	if (is_basetable(rel->op) && rel->l) {
 		sql_table *t = rel->l;
 
-		if (isMergeTable(t->type)) {
+		if (isMergeTable(t)) {
 			/* instantiate merge tabel */
 			sql_rel *nrel = NULL;
 			char *tname = t->base.name;
@@ -7385,7 +7385,7 @@ rel_merge_table_rewrite(int *changes, mvc *sql, sql_rel *rel)
 
 					/* do not include empty partitions */
 					if ((nrel || nt->next) && 
-					   pt && isTable(pt->type) && pt->access == TABLE_READONLY && !store_funcs.count_col(sql->session->tr, pt->columns.set->h->data, 1)){
+					   pt && isTable(pt) && pt->access == TABLE_READONLY && !store_funcs.count_col(sql->session->tr, pt->columns.set->h->data, 1)){
 						continue;
 					}
 
@@ -7397,7 +7397,7 @@ rel_merge_table_rewrite(int *changes, mvc *sql, sql_rel *rel)
 						sql_exp *ne = m->data;
 						int i;
 
-						if (pt && isTable(pt->type) && pt->access == TABLE_READONLY && sel && (nrel || nt->next) && 
+						if (pt && isTable(pt) && pt->access == TABLE_READONLY && sel && (nrel || nt->next) && 
 							((first && (i=find_col_exp(cols, e)) != -1) ||
 							(!first && pos[j] > 0))) {
 							/* check if the part falls within the bounds of the select expression else skip this (keep at least on part-table) */

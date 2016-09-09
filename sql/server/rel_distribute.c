@@ -25,7 +25,7 @@ has_remote_or_replica( sql_rel *rel )
 	case op_basetable: {
 		sql_table *t = rel->l;
 
-		if (t && (isReplicaTable(t->type) || isRemote(t->type))) 
+		if (t && (isReplicaTable(t) || isRemote(t))) 
 			return 1;
 		break;
 	}
@@ -84,7 +84,7 @@ rewrite_replica( mvc *sql, sql_rel *rel, sql_table *t, sql_table *p, int remote_
 	rel_destroy(rel);
 
 	/* set_remote() */
-	if (remote_prop && p && isRemote(p->type)) {
+	if (remote_prop && p && isRemote(p)) {
 		char *uri = p->query;
 		prop *p = r->p = prop_create(sql->sa, PROP_REMOTE, r->p); 
 
@@ -115,7 +115,7 @@ replica(mvc *sql, sql_rel *rel, char *uri)
 	case op_basetable: {
 		sql_table *t = rel->l;
 
-		if (t && isReplicaTable(t->type)) {
+		if (t && isReplicaTable(t)) {
 			node *n;
 
 			if (uri) {
@@ -123,7 +123,7 @@ replica(mvc *sql, sql_rel *rel, char *uri)
 				for (n = t->tables.set->h; n; n = n->next) {
 					sql_table *p = n->data;
 	
-					if (isRemote(p->type) && strcmp(uri, p->query) == 0) {
+					if (isRemote(p) && strcmp(uri, p->query) == 0) {
 						rel = rewrite_replica(sql, rel, t, p, 0);
 						break;
 					}
@@ -206,7 +206,7 @@ distribute(mvc *sql, sql_rel *rel)
 		sql_table *t = rel->l;
 
 		/* set_remote() */
-		if (t && isRemote(t->type)) {
+		if (t && isRemote(t)) {
 			char *uri = t->query;
 
 			p = rel->p = prop_create(sql->sa, PROP_REMOTE, rel->p); 

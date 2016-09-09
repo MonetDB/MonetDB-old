@@ -129,7 +129,7 @@ BSKTnewbasket(mvc *m, sql_schema *s, sql_table *t)
 	// Don't introduce the same basket twice
 	if( BSKTlocate(s->base.name, t->base.name) > 0)
 		return MAL_SUCCEED;
-	if( !isStream(t->type))
+	if( !isStream(t))
 		throw(MAL,"basket.register","Only allowed for stream tables");
 
 	MT_lock_set(&iotLock);

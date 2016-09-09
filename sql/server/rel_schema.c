@@ -634,7 +634,7 @@ create_column(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 	int res = SQL_OK;
 
 (void)ss;
-	if (alter && !isTable(t->type)) {
+	if (alter && !isTable(t)) {
 		sql_error(sql, 02, "42000!ALTER TABLE: cannot add column to VIEW '%s'\n", t->base.name);
 		return SQL_ERR;
 	}
@@ -661,7 +661,7 @@ table_element(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 {
 	int res = SQL_OK;
 
-	if (alter && (isView(t->type) || ((isMergeTable(t->type) || isReplicaTable(t->type)) && (s->token != SQL_TABLE && s->token != SQL_DROP_TABLE && cs_size(&t->tables)>0)) || (isTable(t->type) && (s->token == SQL_TABLE || s->token == SQL_DROP_TABLE)) )){
+	if (alter && (isView(t) || ((isMergeTable(t) || isReplicaTable(t)) && (s->token != SQL_TABLE && s->token != SQL_DROP_TABLE && cs_size(&t->tables)>0)) || (isTable(t) && (s->token == SQL_TABLE || s->token == SQL_DROP_TABLE)) )){
 		char *msg = "";
 
 		switch (s->token) {
@@ -698,8 +698,8 @@ table_element(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 		}
 		sql_error(sql, 02, "42000!ALTER TABLE: cannot %s %s '%s'\n",
 				msg, 
-				isMergeTable(t->type)?"MERGE TABLE":
-				isReplicaTable(t->type)?"REPLICA TABLE":"VIEW",
+				isMergeTable(t)?"MERGE TABLE":
+				isReplicaTable(t)?"REPLICA TABLE":"VIEW",
 				t->base.name);
 		return SQL_ERR;
 	}
@@ -830,7 +830,7 @@ table_element(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 			sql_error(sql, 02, "42000!ALTER TABLE: cannot drop column '%s': table is a system table\n", cname);
 			return SQL_ERR;
 		}
-		if (isView(t->type)) {
+		if (isView(t)) {
 			sql_error(sql, 02, "42000!ALTER TABLE: cannot drop column '%s': '%s' is a view\n", cname, t->base.name);
 			return SQL_ERR;
 		}
@@ -881,12 +881,12 @@ rel_create_table(mvc *sql, sql_schema *ss, int temp, const char *sname, const ch
 	if (sname && !(s = mvc_bind_schema(sql, sname)))
 		return sql_error(sql, 02, "3F000!CREATE TABLE: no such schema '%s'", sname);
 
-	if (!isPersistent(temp) && isTable(tt) && 
+	if (temp != SQL_PERSIST && tt == tt_table && 
 			commit_action == CA_COMMIT)
 		commit_action = CA_DELETE;
 	
 	if (temp != SQL_DECLARED_TABLE) {
-		if (!isPersistent(temp) && isTable(tt)) {
+		if (temp != SQL_PERSIST && tt == tt_table) {
 			s = mvc_bind_schema(sql, "tmp");
 			if (temp == SQL_LOCAL_TEMP && sname && strcmp(sname, s->base.name) != 0)
 				return sql_error(sql, 02, "3F000!CREATE TABLE: local tempory tables should be stored in the '%s' schema", s->base.name);
@@ -926,7 +926,7 @@ rel_create_table(mvc *sql, sql_schema *ss, int temp, const char *sname, const ch
 			if (res == SQL_ERR) 
 				return NULL;
 		}
-		temp = isTable(tt)?temp:SQL_PERSIST;
+		temp = (tt == tt_table)?temp:SQL_PERSIST;
 		return rel_table(sql, DDL_CREATE_TABLE, sname, t, temp);
 	} else { /* [col name list] as subquery with or without data */
 		sql_rel *sq = NULL, *res = NULL;
@@ -951,7 +951,7 @@ rel_create_table(mvc *sql, sql_schema *ss, int temp, const char *sname, const ch
 		}
 
 		/* insert query result into this table */
-		temp = isTable(tt)?temp:SQL_PERSIST;
+		temp = (tt == tt_table)?temp:SQL_PERSIST;
 		res = rel_table(sql, DDL_CREATE_TABLE, sname, t, temp);
 		if (with_data) {
 			res = rel_insert(sql, res, sq);
@@ -1305,7 +1305,7 @@ sql_alter_table(mvc *sql, dlist *qname, symbol *te)
 
 		res = rel_table(sql, DDL_ALTER_TABLE, sname, nt, 0);
 
-		if (!isTable(nt->type))
+		if (!isTable(nt))
 			return res;
 
 		/* new columns need update with default values */
@@ -1844,7 +1844,7 @@ rel_create_index(mvc *sql, char *iname, idx_type itype, dlist *qname, dlist *col
 	t = mvc_bind_table(sql, s, tname);
 	if (!t) {
 		return sql_error(sql, 02, "42S02!CREATE INDEX: no such table '%s'", tname);
-	} else if (isView(t->type)) {
+	} else if (isView(t)) {
 		return sql_error(sql, 02, "42S02!CREATE INDEX: cannot create index on view '%s'", tname);
 	}
 	sname = get_schema_name( sql, sname, tname);

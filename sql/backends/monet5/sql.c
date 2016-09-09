@@ -450,7 +450,7 @@ create_table_or_view(mvc *sql, char *sname, sql_table *t, int temp)
 		}
 	}
 	/* also create dependencies */
-	if (nt->query && isView(nt->type)) {
+	if (nt->query && isView(nt)) {
 		sql_rel *r = NULL;
 
 		sql->sa = sa_create();
@@ -559,7 +559,7 @@ table_has_updates(sql_trans *tr, sql_table *t)
 		if ( b == 0)
 			return -1;
 		cnt |= BATcount(b) > 0;
-		if (isTable(t->type) && t->access != TABLE_READONLY && (t->base.flag != TR_NEW /* alter */ ) &&
+		if (isTable(t) && t->access != TABLE_READONLY && (t->base.flag != TR_NEW /* alter */ ) &&
 		    t->persistence == SQL_PERSIST && !t->commit_action)
 			cnt |= store_funcs.count_col(tr, c, 0) > 0;
 		BBPunfix(b->batCacheid);
@@ -634,7 +634,7 @@ alter_table(Client cntxt, mvc *sql, char *sname, sql_table *t)
 		sql_column *c = n->data;
 		sql_column *nc = mvc_bind_column(sql, nt, c->base.name);
 
-		if (c->null != nc->null && isTable(nt->type)) {
+		if (c->null != nc->null && isTable(nt)) {
 			mvc_null(sql, nc, c->null);
 			/* for non empty check for nulls */
 			if (c->null == 0) {
@@ -725,7 +725,7 @@ drop_table(mvc *sql, char *sname, char *tname, int drop_action)
 	}
 	if (!t) {
 		return sql_message("42S02!DROP TABLE: no such table '%s'", tname);
-	} else if (isView(t->type)) {
+	} else if (isView(t)) {
 		return sql_message("42000!DROP TABLE: cannot drop VIEW '%s'", tname);
 	} else if (t->system) {
 		return sql_message("42000!DROP TABLE: cannot drop system table '%s'", tname);
@@ -778,7 +778,7 @@ drop_view(mvc *sql, char *sname, char *tname, int drop_action)
 		return sql_message("42000!DROP VIEW: access denied for %s to schema '%s'", stack_get_string(sql, "current_user"), ss->base.name);
 	} else if (!t) {
 		return sql_message("42S02!DROP VIEW: unknown view '%s'", tname);
-	} else if (!isView(t->type)) {
+	} else if (!isView(t)) {
 		return sql_message("42000!DROP VIEW: unable to drop view '%s': is a table", tname);
 	} else if (t->system) {
 		return sql_message("42000!DROP VIEW: cannot drop system view '%s'", tname);
@@ -1112,7 +1112,7 @@ create_trigger(mvc *sql, char *sname, char *tname, char *triggername, int time, 
 	if (!(t = mvc_bind_table(sql, s, tname)))
 		return sql_message("3F000!CREATE TRIGGER: unknown table '%s'", tname);
 
-	if (isView(t->type))
+	if (isView(t))
 		return sql_message("3F000!CREATE TRIGGER: cannot create trigger on view '%s'", tname);
 
 	tri = mvc_create_trigger(sql, t, triggername, time, orientation, event, old_name, new_name, condition, query);
@@ -2010,7 +2010,7 @@ mvc_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	if (*sname && strcmp(*sname, str_nil) != 0)
 		throw(SQL, "sql.bind", "unable to find %s.%s(%s)", *sname, *tname, *cname);
-	throw(SQL, "sql.bind", "Unable to find %s.%s(%s) partition %d", *sname, *tname, *cname, *access);
+	throw(SQL, "sql.bind", "unable to find %s(%s)", *tname, *cname);
 }
 
 /* str mvc_bind_idxbat_wrap(int *bid, str *sname, str *tname, str *iname, int *access); */
@@ -2744,7 +2744,7 @@ SQLtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	nr = store_funcs.count_col(tr, c, 1);
 
-	if (isTable(t->type) && t->access == TABLE_WRITABLE && (t->base.flag != TR_NEW /* alter */ ) &&
+	if (isTable(t) && t->access == TABLE_WRITABLE && (t->base.flag != TR_NEW /* alter */ ) &&
 	    t->persistence == SQL_PERSIST && !t->commit_action)
 		inr = store_funcs.count_col(tr, c, 0);
 	nr -= inr;
@@ -5023,7 +5023,7 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					sql_table *t = (sql_table *) bt;
 					if( tname && strcmp(bt->name, tname) )
 						continue;
-					if (isTable(t->type))
+					if (isTable(t))
 						if (t->columns.set)
 							for (ncol = (t)->columns.set->h; ncol; ncol = ncol->next) {
 								sql_base *bc = ncol->data;
@@ -5117,7 +5117,7 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 								BBPunfix(bn->batCacheid);
 							}
 
-					if (isTable(t->type))
+					if (isTable(t))
 						if (t->idxs.set)
 							for (ncol = (t)->idxs.set->h; ncol; ncol = ncol->next) {
 								sql_base *bc = ncol->data;

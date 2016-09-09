@@ -7,7 +7,7 @@
  */
 
 /*
- * M.L. Kersten
+ * author M.L. Kersten
  * The default SQL optimizer pipeline can be set per server.  See the
  * optpipe setting in monetdb(1) when using merovingian.  During SQL
  * initialization, the optimizer pipeline is checked against the
@@ -67,6 +67,7 @@ static struct PIPELINES {
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
+	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
 	 "optimizer.aliases();"
 	 "optimizer.mitosis();"
@@ -86,6 +87,7 @@ static struct PIPELINES {
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
+	 "optimizer.jit();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /*
@@ -97,8 +99,9 @@ static struct PIPELINES {
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
-	 "optimizer.aliases();"
+	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
+	 "optimizer.aliases();"
 	 "optimizer.mitosis();"
 	 "optimizer.mergetable();"
 	 "optimizer.deadcode();"
@@ -117,6 +120,7 @@ static struct PIPELINES {
 	 "optimizer.volcano();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
+	 "optimizer.jit();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The no_mitosis pipe line is (and should be kept!) identical to the
@@ -135,8 +139,9 @@ static struct PIPELINES {
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
-	 "optimizer.aliases();"
+	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
+	 "optimizer.aliases();"
 	 "optimizer.mergetable();"
 	 "optimizer.deadcode();"
 	 "optimizer.aliases();"
@@ -153,6 +158,7 @@ static struct PIPELINES {
 	 "optimizer.profiler();"
 	 "optimizer.generator();"
 	 "optimizer.candidates();"
+	 "optimizer.jit();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The sequential pipe line is (and should be kept!) identical to the
@@ -171,8 +177,9 @@ static struct PIPELINES {
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
-	 "optimizer.aliases();"
+	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
+	 "optimizer.aliases();"
 	 "optimizer.mergetable();"
 	 "optimizer.deadcode();"
 	 "optimizer.aliases();"
@@ -188,18 +195,23 @@ static struct PIPELINES {
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
+	 "optimizer.jit();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
+/* Experimental pipelines stressing various components under
+ * development.  Do not use any of these pipelines in production
+ * settings!
+ */
 	{"iot_pipe",
 	 "optimizer.inline();"
-	 "optimizer.candidates();"
 	 "optimizer.remap();"
 	 "optimizer.iot();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
-	 "optimizer.aliases();"
+	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
+	 "optimizer.aliases();"
 	 "optimizer.mitosis();"
 	 "optimizer.mergetable();"
 	 "optimizer.deadcode();"
@@ -216,6 +228,8 @@ static struct PIPELINES {
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
+	 "optimizer.candidates();"
+	 "optimizer.jit();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* sentinel */
@@ -448,7 +462,10 @@ compileOptimizer(Client cntxt, str name)
 				MT_lock_unset(&pipeLock);
 				throw(MAL, "optimizer.addOptimizerPipe", "failed to set scenario");
 			}
-			(void) MCinitClientThread(&c);
+			if( MCinitClientThread(&c) < 0){
+				MT_lock_unset(&pipeLock);
+				throw(MAL, "optimizer.addOptimizerPipe", "failed to create client thread");
+			}
 			for (j = 0; j < MAXOPTPIPES && pipes[j].def; j++) {
 				if (pipes[j].mb == NULL) {
 					if (pipes[j].prerequisite && getAddress(c.fdout, NULL, pipes[j].prerequisite, TRUE) == NULL)
@@ -466,9 +483,9 @@ compileOptimizer(Client cntxt, str name)
 			/* we must clear c.mythread because we're reusing a Thread
 			 * and must not delete that one */
 			c.mythread = 0;
-			/* WHY? destroy bstream using free */
-			//free(c.fdin->buf);
-			//free(c.fdin);
+			/* destroy bstream using free */
+			free(c.fdin->buf);
+			free(c.fdin);
 			/* remove garbage from previous connection */
 			if (c.nspace) {
 				freeModule(c.nspace);

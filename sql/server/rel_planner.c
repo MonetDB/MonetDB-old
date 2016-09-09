@@ -132,7 +132,7 @@ rel_getcount(mvc *sql, sql_rel *rel)
 	case op_basetable: {
 		sql_table *t = rel->l;
 
-		if (t && isTable(t->type))
+		if (t && isTable(t))
 			return (lng)store_funcs.count_col(sql->session->tr, t->columns.set->h->data, 1);
 		if (!t && rel->r) /* dict */
 			return (lng)sql_trans_dist_count(sql->session->tr, rel->r);
@@ -158,7 +158,7 @@ rel_getwidth(mvc *sql, sql_rel *rel)
 	case op_basetable: {
 		sql_table *t = rel->l;
 
-		if (t && isTable(t->type))
+		if (t && isTable(t))
 			return 4*list_length(rel->exps);
 		return 0;
 	}	

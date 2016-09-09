@@ -114,7 +114,7 @@ idx_destroy(sql_idx * i)
 	list_remove_data(i->t->s->idxs, i);
 	list_destroy(i->columns);
 	i->columns = NULL;
-	if (isTable(i->t->type))
+	if (isTable(i->t))
 		store_funcs.destroy_idx(NULL, i);
 }
 
@@ -136,7 +136,7 @@ column_destroy(sql_column *c)
 		return;
 	if (c->po)
 		column_destroy(c->po);
-	if (isTable(c->t->type))
+	if (isTable(c->t))
 		store_funcs.destroy_col(NULL, c);
 }
 
@@ -152,7 +152,7 @@ table_destroy(sql_table *t)
 	cs_destroy(&t->triggers);
 	cs_destroy(&t->columns);
 	cs_destroy(&t->tables);
-	if (isTable(t->type))
+	if (isTable(t))
 		store_funcs.destroy_del(NULL, t);
 }
 
@@ -420,7 +420,7 @@ load_idx(sql_trans *tr, sql_table *t, oid rid)
 	ni->t = t;
 	ni->key = NULL;
 
-	if (isTable(ni->t->type) && idx_has_column(ni->type))
+	if (isTable(ni->t) && idx_has_column(ni->type))
 		store_funcs.create_idx(tr, ni);
 
 	kc_id = find_sql_column(objects, "id");
@@ -551,7 +551,7 @@ load_column(sql_trans *tr, sql_table *t, oid rid)
 	else
 		_DELETE(st);
 	c->t = t;
-	if (isTable(c->t->type))
+	if (isTable(c->t))
 		store_funcs.create_col(tr, c);
 	c->sorted = sql_trans_is_sorted(tr, c);
 	c->dcount = 0;
@@ -587,7 +587,7 @@ load_tables_of_tables(sql_trans *tr, sql_schema *s)
 		sql_table *t = n->data;
 		oid r = oid_nil;
 
-		if (isMergeTable(t->type) || isReplicaTable(t->type)) {
+		if (isMergeTable(t) || isReplicaTable(t)) {
 			rids *rs = table_funcs.rids_select(tr, mt_id, &t->base.id, &t->base.id, NULL);
 
 			rs = table_funcs.rids_orderby(tr, rs, mt_nr); 
@@ -631,9 +631,9 @@ load_table(sql_trans *tr, sql_schema *s, sqlid tid, subrids *nrs)
 	t->persistence = SQL_PERSIST; 
 	if (t->commit_action)
 		t->persistence = SQL_GLOBAL_TEMP;
-	if (isStream(t->type))
+	if (isStream(t))
 		t->persistence = SQL_STREAM;
-	if (isRemote(t->type))
+	if (isRemote(t))
 		t->persistence = SQL_REMOTE;
 	t->cleared = 0;
 	v = table_funcs.column_find_value(tr, find_sql_column(tables, "access"),rid);
@@ -649,7 +649,7 @@ load_table(sql_trans *tr, sql_schema *s, sqlid tid, subrids *nrs)
 	cs_new(&t->triggers, tr->sa, (fdestroy) &trigger_destroy);
 	cs_new(&t->tables, tr->sa, (fdestroy) NULL);
 
-	if (isTable(t->type)) {
+	if (isTable(t)) {
 		if (store_funcs.create_del(tr, t) != LOG_OK) {
 			if (bs_debug)
 				fprintf(stderr, "#\tload table %s missing 'deletes'", t->base.name);
@@ -663,7 +663,7 @@ load_table(sql_trans *tr, sql_schema *s, sqlid tid, subrids *nrs)
 	for(rid = table_funcs.subrids_next(nrs); rid != oid_nil; rid = table_funcs.subrids_next(nrs)) 
 		cs_add(&t->columns, load_column(tr, t, rid), TR_OLD);
 
-	if (!isKindOfTable(t->type))
+	if (!isKindOfTable(t))
 		return t;
 
 	/* load idx's first as the may be needed by the keys */
@@ -1195,7 +1195,7 @@ bootstrap_create_column(sql_trans *tr, sql_table *t, char *name, char *sqltype, 
 	col->storage_type = NULL;
 	cs_add(&t->columns, col, TR_NEW);
 
-	if (isTable(col->t->type))
+	if (isTable(col->t))
 		store_funcs.create_col(tr, col);
 	tr->schema_updates ++;
 	return col;
@@ -1207,7 +1207,7 @@ create_sql_table_with_id(sql_allocator *sa, int id, const char *name, sht type, 
 	sql_table *t = SA_ZNEW(sa, sql_table);
 
 	assert(sa);
-	assert((isPersistent(persistence) ||
+	assert((persistence==SQL_PERSIST ||
 		persistence==SQL_DECLARED_TABLE || 
 		commit_action) && commit_action>=0);
 	assert(id);
@@ -1324,7 +1324,7 @@ bootstrap_create_table(sql_trans *tr, sql_schema *s, char *name)
 	t->s = s;
 	cs_add(&s->tables, t, TR_NEW);
 
-	if (isTable(t->type))
+	if (isTable(t))
 		store_funcs.create_del(tr, t);
 	tr->schema_updates ++;
 	return t;
@@ -2023,7 +2023,7 @@ idx_dup(sql_trans *tr, int flag, sql_idx * i, sql_table *t)
 	 * on savepoints from tr->parent to new tr */
 	if ((isNew(i) && flag == TR_NEW && tr->parent == gtrans) ||
 	    (i->base.allocated && tr->parent != gtrans))
-		if (isTable(ni->t->type)) 
+		if (isTable(ni->t)) 
 			store_funcs.dup_idx(tr, i, ni);
 
 	if (isNew(i) && flag == TR_NEW && tr->parent == gtrans) 
@@ -2075,7 +2075,7 @@ sql_trans_copy_idx( sql_trans *tr, sql_table *t, sql_idx *i )
 	cs_add(&t->idxs, ni, TR_NEW);
 
 	if (isDeclaredTable(i->t)) 
-	if (!isDeclaredTable(t) && isTable(ni->t->type) && idx_has_column(ni->type))
+	if (!isDeclaredTable(t) && isTable(ni->t) && idx_has_column(ni->type))
 		store_funcs.create_idx(tr, ni);
 	if (!isDeclaredTable(t))
 		table_funcs.table_insert(tr, sysidx, &ni->base.id, &t->base.id, &ni->type, ni->base.name);
@@ -2143,7 +2143,7 @@ column_dup(sql_trans *tr, int flag, sql_column *oc, sql_table *t)
 	 * on savepoints from tr->parent to new tr */
 	if ((isNew(oc) && flag == TR_NEW && tr->parent == gtrans) ||
 	    (oc->base.allocated && tr->parent != gtrans))
-		if (isTable(c->t->type)) 
+		if (isTable(c->t)) 
 			store_funcs.dup_col(tr, oc, c);
 	if (isNew(oc) && flag == TR_NEW && tr->parent == gtrans) 
 		oc->base.flag = TR_OLD;
@@ -2256,7 +2256,7 @@ sql_trans_copy_column( sql_trans *tr, sql_table *t, sql_column *c )
 	cs_add(&t->columns, col, TR_NEW);
 
 	if (isDeclaredTable(c->t)) 
-	if (isTable(t->type))
+	if (isTable(t))
 		if (store_funcs.create_col(tr, col) == LOG_ERR)
 			return NULL;
 	if (!isDeclaredTable(t)) {
@@ -2323,7 +2323,7 @@ table_dup(sql_trans *tr, int flag, sql_table *ot, sql_schema *s)
 	 * on savepoints from tr->parent to new tr */
 	if ((isNew(ot) && flag == TR_NEW && tr->parent == gtrans) ||
 	    (ot->base.allocated && tr->parent != gtrans))
-		if (isTable(t->type)) 
+		if (isTable(t)) 
 			store_funcs.dup_del(tr, ot, t);
 
 	t->s = s;
@@ -2511,7 +2511,7 @@ schema_dup(sql_trans *tr, int flag, sql_schema *os, sql_trans *o)
 		for (n = os->tables.set->h; n; n = n->next) {
 			sql_table *ot = n->data;
 
-			if (ot->persistence != SQL_LOCAL_TEMP && (isMergeTable(ot->type) || isReplicaTable(ot->type)))
+			if (ot->persistence != SQL_LOCAL_TEMP && (isMergeTable(ot) || isReplicaTable(ot)))
 				table_of_tables_dup(tr, ot, s, flag);
 		}
 		if (tr->parent == gtrans)
@@ -2758,7 +2758,7 @@ static sql_idx *
 rollforward_create_idx(sql_trans *tr, sql_idx * i, int mode)
 {
 
-	if (isTable(i->t->type) && idx_has_column(i->type)) {
+	if (isTable(i->t) && idx_has_column(i->type)) {
 		int p = (tr->parent == gtrans && !isTempTable(i->t));
 
 		if ((p && mode == R_SNAPSHOT && store_funcs.snapshot_create_idx(tr, i) != LOG_OK) ||
@@ -2812,7 +2812,7 @@ rollforward_create_seq(sql_trans *tr, sql_sequence *k, int mode)
 static sql_column *
 rollforward_create_column(sql_trans *tr, sql_column *c, int mode)
 {
-	if (isTable(c->t->type)) {
+	if (isTable(c->t)) {
 		int p = (tr->parent == gtrans && !isTempTable(c->t));
 
 		if ((p && mode == R_SNAPSHOT && store_funcs.snapshot_create_col(tr, c) != LOG_OK) ||
@@ -2848,13 +2848,13 @@ rollforward_create_table(sql_trans *tr, sql_table *t, int mode)
 	if (bs_debug) 
 		fprintf(stderr, "#create table %s\n", t->base.name);
 
-	if (isKindOfTable(t->type) && isGlobal(t)) {
+	if (isKindOfTable(t) && isGlobal(t)) {
 		int p = (tr->parent == gtrans && !isTempTable(t));
 
 		/* only register columns without commit action tables */
 		ok = rollforward_changeset_creates(tr, &t->columns, (rfcfunc) &rollforward_create_column, mode);
 
-		if (isTable(t->type)) {
+		if (isTable(t)) {
 			if (p && mode == R_SNAPSHOT)
 				store_funcs.snapshot_create_del(tr, t);
 			else if (p && mode == R_LOG)
@@ -2882,7 +2882,7 @@ rollforward_create_table(sql_trans *tr, sql_table *t, int mode)
 static int
 rollforward_drop_column(sql_trans *tr, sql_column *c, int mode)
 {
-	if (isTable(c->t->type)) {
+	if (isTable(c->t)) {
 		int p = (tr->parent == gtrans);
 
 		if (p && mode == R_LOG)
@@ -2898,7 +2898,7 @@ rollforward_drop_idx(sql_trans *tr, sql_idx * i, int mode)
 {
 	int ok = LOG_OK;
 
-	if (isTable(i->t->type)) {
+	if (isTable(i->t)) {
 		int p = (tr->parent == gtrans);
 
 		if (p && mode == R_LOG)
@@ -2970,7 +2970,7 @@ rollforward_drop_table(sql_trans *tr, sql_table *t, int mode)
 {
 	int ok = LOG_OK;
 
-	if (isTable(t->type)) {
+	if (isTable(t)) {
 		int p = (tr->parent == gtrans);
 
 		if (p && mode == R_LOG)
@@ -3017,7 +3017,7 @@ rollforward_update_table(sql_trans *tr, sql_table *ft, sql_table *tt, int mode)
 	int ok = LOG_OK;
 
 	/* cannot update views and temporary tables */
-	if (isView(ft->type) || isTempTable(ft))
+	if (isView(ft) || isTempTable(ft))
 		return ok;
 
 	ok = rollforward_changeset_updates(tr, &ft->columns, &tt->columns, &tt->base, (rfufunc) NULL, (rfcfunc) &rollforward_create_column, (rfdfunc) &rollforward_drop_column, (dupfunc) &column_dup, mode);
@@ -3033,7 +3033,7 @@ rollforward_update_table(sql_trans *tr, sql_table *ft, sql_table *tt, int mode)
 	if (ok != LOG_OK) 
 		return LOG_ERR;
 
-	if (isTable(ft->type)) {
+	if (isTable(ft)) {
 		if (p && mode == R_SNAPSHOT) {
 			ok = store_funcs.snapshot_table(tr, ft, tt);
 		} else if (p && mode == R_LOG) {
@@ -3101,7 +3101,7 @@ rollforward_update_schema(sql_trans *tr, sql_schema *fs, sql_schema *ts, int mod
 				node *nxt = n->next;
 				sql_table *t = n->data;
 	
-				if ((isTable(t->type) && isGlobal(t) &&
+				if ((isTable(t) && isGlobal(t) &&
 				    t->commit_action != CA_PRESERVE) || 
 				    t->commit_action == CA_DELETE) {
 					sql_trans_clear_table(tr, t);
@@ -3171,7 +3171,7 @@ validate_tables(sql_schema *s, sql_schema *os)
 				continue;
 
  			ot = find_sql_table(os, t->base.name);
-			if (ot && isKindOfTable(ot->type) && isKindOfTable(t->type)) {
+			if (ot && isKindOfTable(ot) && isKindOfTable(t)) {
 				if ((t->base.wtime && (t->base.wtime < ot->base.rtime || t->base.wtime < ot->base.wtime)) ||
 				    (t->base.rtime && (t->base.rtime < ot->base.wtime))) 
 					return 0;
@@ -3291,7 +3291,7 @@ reset_idx(sql_trans *tr, sql_idx *fi, sql_idx *pfi)
 {
 	/* did we access the idx or is the global changed after we started */
 	if (fi->base.rtime || fi->base.wtime || tr->stime < pfi->base.wtime) {
-		if (isTable(fi->t->type)) 
+		if (isTable(fi->t)) 
 			store_funcs.destroy_idx(NULL, fi);
 		fi->base.wtime = fi->base.rtime = 0;
 	}
@@ -3304,7 +3304,7 @@ reset_column(sql_trans *tr, sql_column *fc, sql_column *pfc)
 	/* did we access the column or is the global changed after we started */
 	if (fc->base.rtime || fc->base.wtime || tr->stime < pfc->base.wtime) {
 
-		if (isTable(fc->t->type)) 
+		if (isTable(fc->t)) 
 			store_funcs.destroy_col(NULL, fc);
 
 		fc->null = pfc->null;
@@ -3337,14 +3337,14 @@ reset_seq(sql_trans *tr, sql_sequence *ft, sql_sequence *pft)
 static int
 reset_table(sql_trans *tr, sql_table *ft, sql_table *pft)
 {
-	if (isView(ft->type) || isTempTable(ft))
+	if (isView(ft) || isTempTable(ft))
 		return LOG_OK;
 
 	/* did we access the table or did the global change */
 	if (ft->base.rtime || ft->base.wtime || tr->stime < pft->base.wtime) {
 		int ok = LOG_OK;
 
-		if (isTable(ft->type)) 
+		if (isTable(ft)) 
 			store_funcs.destroy_del(NULL, ft);
 
 		ft->base.wtime = ft->base.rtime = 0;
@@ -3397,7 +3397,7 @@ reset_schema(sql_trans *tr, sql_schema *fs, sql_schema *pfs)
 				node *nxt = n->next;
 				sql_table *t = n->data;
 	
-				if ((isTable(t->type) && isGlobal(t) &&
+				if ((isTable(t) && isGlobal(t) &&
 				    t->commit_action != CA_PRESERVE) || 
 				    t->commit_action == CA_DELETE) {
 					sql_trans_clear_table(tr, t);
@@ -3429,7 +3429,7 @@ reset_schema(sql_trans *tr, sql_schema *fs, sql_schema *pfs)
 			for (n = pfs->tables.set->h; n; n = n->next) {
 				sql_table *ot = n->data;
 
-				if (ot->persistence != SQL_LOCAL_TEMP && (isMergeTable(ot->type) || isReplicaTable(ot->type)))
+				if (ot->persistence != SQL_LOCAL_TEMP && (isMergeTable(ot) || isReplicaTable(ot)))
 					reset_table_of_tables_dup(ot, fs, ot->base.flag);
 			}
 		}
@@ -3884,19 +3884,19 @@ sys_drop_table(sql_trans *tr, sql_table *t, int drop_action)
 	table_funcs.table_delete(tr, systable, rid);
 	sys_drop_keys(tr, t, drop_action);
 	sys_drop_idxs(tr, t, drop_action);
-	if (isMergeTable(t->type) || isReplicaTable(t->type))
+	if (isMergeTable(t) || isReplicaTable(t))
 		sys_table_del_tables(tr, t, drop_action);
 
 	sql_trans_drop_dependencies(tr, t->base.id);
 
-	if (isKindOfTable(t->type) || isView(t->type))
+	if (isKindOfTable(t) || isView(t))
 		sys_drop_columns(tr, t, drop_action);
 
 	if (isGlobal(t)) 
 		tr->schema_updates ++;
 
 	if (drop_action) 
-		sql_trans_drop_all_dependencies(tr, t->s, t->base.id, !isView(t->type) ? TABLE_DEPENDENCY : VIEW_DEPENDENCY);
+		sql_trans_drop_all_dependencies(tr, t->s, t->base.id, !isView(t) ? TABLE_DEPENDENCY : VIEW_DEPENDENCY);
 }
 
 static void
@@ -4287,8 +4287,8 @@ sql_trans_create_table(sql_trans *tr, sql_schema *s, const char *name, const cha
 
 	/* temps all belong to a special tmp schema and only views/remote
 	   have a query */
-	assert( (isTable(t->type) ||
-		(!isTempTable(t) || (strcmp(s->base.name, "tmp") == 0) || isDeclaredTable(t))) || (isView(t->type) && !sql) || isStream(t->type) || (isRemote(t->type) && !sql));
+	assert( (isTable(t) ||
+		(!isTempTable(t) || (strcmp(s->base.name, "tmp") == 0) || isDeclaredTable(t))) || (isView(t) && !sql) || isStream(t) || (isRemote(t) && !sql));
 
 	t->query = sql ? sa_strdup(tr->sa, sql) : NULL;
 	t->s = s;
@@ -4296,12 +4296,12 @@ sql_trans_create_table(sql_trans *tr, sql_schema *s, const char *name, const cha
 	if (sz < 0)
 		t->sz = COLSIZE;
 	cs_add(&s->tables, t, TR_NEW);
-	if (isStream(t->type))
+	if (isStream(t))
 		t->persistence = SQL_STREAM;
-	if (isRemote(t->type))
+	if (isRemote(t))
 		t->persistence = SQL_REMOTE;
 
-	if (isTable(t->type)) {
+	if (isTable(t)) {
 		if (store_funcs.create_del(tr, t) != LOG_OK) {
 			if (bs_debug)
 				fprintf(stderr, "#\tload table %s missing 'deletes'", t->base.name);
@@ -4521,7 +4521,7 @@ sql_trans_create_column(sql_trans *tr, sql_table *t, const char *name, sql_subty
 		return NULL;
  	col = create_sql_column(tr->sa, t, name, tpe );
 
-	if (isTable(col->t->type))
+	if (isTable(col->t))
 		if (store_funcs.create_col(tr, col) == LOG_ERR)
 			return NULL;
 	if (!isDeclaredTable(t))
@@ -4578,7 +4578,7 @@ sql_trans_drop_column(sql_trans *tr, sql_table *t, int id, int drop_action)
 		list_append(tr->dropped, local_id);
 	}
 	
-	if (isKindOfTable(t->type))
+	if (isKindOfTable(t))
 		sys_drop_column(tr, col, drop_action);
 
 	col->base.wtime = t->base.wtime = t->s->base.wtime = tr->wtime = tr->wstime;
@@ -4690,7 +4690,7 @@ sql_trans_alter_storage(sql_trans *tr, sql_column *col, char *storage)
 int
 sql_trans_is_sorted( sql_trans *tr, sql_column *col )
 {
-	if (col && isTable(col->t->type) && store_funcs.sorted_col && store_funcs.sorted_col(tr, col))
+	if (col && isTable(col->t) && store_funcs.sorted_col && store_funcs.sorted_col(tr, col))
 		return 1;
 	return 0;
 }
@@ -4701,7 +4701,7 @@ sql_trans_dist_count( sql_trans *tr, sql_column *col )
 	if (col->dcount)
 		return col->dcount;
 
-	if (col && isTable(col->t->type)) {
+	if (col && isTable(col->t)) {
 		/* get from statistics */
 		sql_schema *sys = find_sql_schema(tr, "sys");
 		sql_table *stats = find_sql_table(sys, "statistics");
@@ -4726,7 +4726,7 @@ sql_trans_dist_count( sql_trans *tr, sql_column *col )
 int
 sql_trans_ranges( sql_trans *tr, sql_column *col, void **min, void **max )
 {
-	if (col && isTable(col->t->type)) {
+	if (col && isTable(col->t)) {
 		/* get from statistics */
 		sql_schema *sys = find_sql_schema(tr, "sys");
 		sql_table *stats = find_sql_table(sys, "statistics");
@@ -5056,7 +5056,7 @@ sql_trans_create_idx(sql_trans *tr, sql_table *t, const char *name, idx_type it)
 	cs_add(&t->idxs, ni, TR_NEW);
 	list_append(t->s->idxs, ni);
 
-	if (!isDeclaredTable(t) && isTable(ni->t->type) && idx_has_column(ni->type))
+	if (!isDeclaredTable(t) && isTable(ni->t) && idx_has_column(ni->type))
 		store_funcs.create_idx(tr, ni);
 	if (!isDeclaredTable(t))
 		table_funcs.table_insert(tr, sysidx, &ni->base.id, &t->base.id, &ni->type, ni->base.name);
@@ -5396,7 +5396,7 @@ sql_session_reset(sql_session *s, int ac)
 		for (n = tmp->tables.set->h; n; n = n->next) {
 			sql_table *t = n->data;
 
-			if (isGlobal(t) && isKindOfTable(t->type))
+			if (isGlobal(t) && isKindOfTable(t))
 				sql_trans_clear_table(s->tr, t);
 		}
 	}
