@@ -687,6 +687,7 @@ GDKreset(int status)
 		GDKfree(st);
 	}
 	MT_lock_unset(&GDKthreadLock);
+	join_detached_threads();
 
 	if (status == 0) {
 		/* they had their chance, now kill them */
@@ -1896,8 +1897,13 @@ GDKstrndup(const char *s, size_t n)
 void *
 GDKmmap(const char *path, int mode, size_t len)
 {
-	void *ret = MT_mmap(path, mode, len);
+	void *ret;
 
+	if (GDKvm_cursize() + len >= GDK_vm_maxsize) {
+		GDKerror("allocating too much virtual address space\n");
+		return NULL;
+	}
+	ret = MT_mmap(path, mode, len);
 	if (ret == NULL) {
 		GDKmemfail("GDKmmap", len);
 	}

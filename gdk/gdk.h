@@ -1872,13 +1872,13 @@ gdk_export BAT *BBPquickdesc(bat b, int delaccess);
 typedef struct {
 	/* simple attributes */
 	char name[IDLENGTH];
-	int storage;		/* stored as another type? */
+	short storage;		/* stored as another type? */
 	short linear;		/* atom can be ordered linearly */
 	short size;		/* fixed size of atom */
 	short align;		/* alignment condition for values */
 
 	/* automatically generated fields */
-	ptr atomNull;		/* global nil value */
+	const void *atomNull;	/* global nil value */
 
 	/* generic (fixed + varsized atom) ADT functions */
 	int (*atomFromStr) (const char *src, int *len, ptr *dst);

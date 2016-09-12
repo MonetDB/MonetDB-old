@@ -7,9 +7,7 @@
  */
 
 /*
- * @f opt_pipes
- * @a M.L. Kersten
- * @-
+ * author M.L. Kersten
  * The default SQL optimizer pipeline can be set per server.  See the
  * optpipe setting in monetdb(1) when using merovingian.  During SQL
  * initialization, the optimizer pipeline is checked against the
@@ -69,6 +67,7 @@ static struct PIPELINES {
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
+	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
 	 "optimizer.aliases();"
 	 "optimizer.mitosis();"
@@ -88,6 +87,7 @@ static struct PIPELINES {
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
+	 "optimizer.jit();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /*
@@ -99,8 +99,9 @@ static struct PIPELINES {
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
-	 "optimizer.aliases();"
+	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
+	 "optimizer.aliases();"
 	 "optimizer.mitosis();"
 	 "optimizer.mergetable();"
 	 "optimizer.deadcode();"
@@ -119,6 +120,7 @@ static struct PIPELINES {
 	 "optimizer.volcano();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
+	 "optimizer.jit();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 
@@ -139,8 +141,9 @@ static struct PIPELINES {
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
-	 "optimizer.aliases();"
+	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
+	 "optimizer.aliases();"
 	 "optimizer.mergetable();"
 	 "optimizer.deadcode();"
 	 "optimizer.aliases();"
@@ -157,6 +160,7 @@ static struct PIPELINES {
 	 "optimizer.profiler();"
 	 "optimizer.generator();"
 	 "optimizer.candidates();"
+	 "optimizer.jit();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The sequential pipe line is (and should be kept!) identical to the
@@ -175,8 +179,9 @@ static struct PIPELINES {
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
-	 "optimizer.aliases();"
+	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
+	 "optimizer.aliases();"
 	 "optimizer.mergetable();"
 	 "optimizer.deadcode();"
 	 "optimizer.aliases();"
@@ -192,8 +197,41 @@ static struct PIPELINES {
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
+	 "optimizer.jit();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
+/* Experimental pipelines stressing various components under
+ * development.  Do not use any of these pipelines in production
+ * settings!
+	{"recycler_pipe",
+	 "optimizer.inline();"
+	 "optimizer.remap();"
+	 "optimizer.costModel();"
+	 "optimizer.coercions();"
+	 "optimizer.evaluate();"
+	 "optimizer.emptycolumn();"
+	 "optimizer.pushselect();"
+	 "optimizer.aliases();"
+	 "optimizer.mitosis();"
+	 "optimizer.mergetable();"
+	 "optimizer.aliases();"
+	 "optimizer.deadcode();"
+	 "optimizer.constants();"
+	 "optimizer.commonTerms();"
+	 "optimizer.projectionpath();"
+	 "optimizer.reorder();"
+	 "optimizer.deadcode();"
+	 "optimizer.reduce();"
+	 "optimizer.matpack();"
+	 "optimizer.dataflow();"
+	 "optimizer.recycler();"
+	 "optimizer.querylog();"
+	 "optimizer.multiplex();"
+	 "optimizer.generator();"
+	 "optimizer.profiler();"
+	 "optimizer.garbageCollector();",
+	 "stable", NULL, NULL, 1},
+*/
 /*The datavaults pipe line is (and should be kept!) identical to the
  * default pipeline, except that optimizer datavaults is added.
  *
@@ -459,14 +497,17 @@ compileOptimizer(Client cntxt, str name)
 				MT_lock_unset(&pipeLock);
 				throw(MAL, "optimizer.addOptimizerPipe", "failed to set scenario");
 			}
-			(void) MCinitClientThread(&c);
+			if( MCinitClientThread(&c) < 0){
+				MT_lock_unset(&pipeLock);
+				throw(MAL, "optimizer.addOptimizerPipe", "failed to create client thread");
+			}
 			for (j = 0; j < MAXOPTPIPES && pipes[j].def; j++) {
 				if (pipes[j].mb == NULL) {
 					if (pipes[j].prerequisite && getAddress(c.fdout, NULL, pipes[j].prerequisite, TRUE) == NULL)
 						continue;
 					MSinitClientPrg(&c, "user", pipes[j].name);
 					msg = compileString(&sym, &c, pipes[j].def);
-					if (msg != MAL_SUCCEED) 
+					if (msg != MAL_SUCCEED)
 						break;
 					pipes[j].mb = copyMalBlk(sym->def);
 				}

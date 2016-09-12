@@ -54,10 +54,10 @@ static struct{
 #define LOGLEN 8192
 #define lognew()  loglen = 0; logbase = logbuffer; *logbase = 0;
 
-#define logadd(...) {														\
+#define logadd(...) {													\
 	do {																\
-		loglen += snprintf(logbase+loglen, LOGLEN -1 - loglen, __VA_ARGS__); \
-		assert(loglen < LOGLEN); \
+		if (loglen < LOGLEN)											\
+			loglen += snprintf(logbase+loglen, LOGLEN - loglen, __VA_ARGS__); \
 	} while (0);}
 
 
@@ -190,18 +190,20 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
 
 		/* generate actual call statement */
 		stmt = instruction2str(mb, stk, pci, LIST_MAL_ALL);
-		c = stmt;
+		if (stmt) {
+			c = stmt;
 
-		while (c && *c && isspace((int)*c))
-			c++;
-		if( *c){
-			stmtq = mal_quote(c, strlen(c));
-			if (stmtq != NULL) {
-				logadd("\"stmt\":\"%s\",%s", stmtq,prettify);
-				GDKfree(stmtq);
+			while (*c && isspace((int)*c))
+				c++;
+			if( *c){
+				stmtq = mal_quote(c, strlen(c));
+				if (stmtq != NULL) {
+					logadd("\"stmt\":\"%s\",%s", stmtq,prettify);
+					GDKfree(stmtq);
+				}
 			}
-		} 
-		GDKfree(stmt);
+			GDKfree(stmt);
+		}
 
 		// ship the beautified version as well
 
