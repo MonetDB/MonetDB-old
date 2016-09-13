@@ -43,15 +43,16 @@ Ready.
 % mal # name
 % clob # type
 % 80 # length
-function user.s6_1():void;
-    X_45:void := querylog.define("explain select * from sdel11;","iot_pipe",40);
+function user.s12_1():void;
+    X_45:void := querylog.define("explain select * from sdel11;","iot_pipe",41);
     X_0 := sql.mvc();
-    X_51 := basket.register(X_0,"iot","sdel11",0);
-    X_55 := basket.lock(X_51,"iot","sdel11");
+    X_50 := basket.register(X_0,"iot","sdel11",0);
+    X_54 := basket.lock(X_50,"iot","sdel11");
+    X_1:bat[:oid] := basket.tid(X_0,"iot","sdel11");
+    X_4:bat[:timestamp] := basket.bind(X_50,"iot","sdel11","t");
+    X_8:bat[:int] := basket.bind(X_50,"iot","sdel11","sensor");
+    X_11:bat[:int] := basket.bind(X_50,"iot","sdel11","val");
 barrier X_80 := language.dataflow();
-    X_4:bat[:timestamp] := basket.bind(X_51,"iot","sdel11","t");
-    X_8:bat[:int] := basket.bind(X_51,"iot","sdel11","sensor");
-    X_11:bat[:int] := basket.bind(X_51,"iot","sdel11","val");
     X_15 := bat.new(nil:str);
     X_17 := bat.new(nil:str);
     X_18 := bat.new(nil:str);
@@ -74,22 +75,22 @@ barrier X_80 := language.dataflow();
     X_43 := bat.append(X_36,2);
 exit X_80;
     sql.resultSet(X_37,X_38,X_39,X_41,X_43,X_4,X_8,X_11);
-    X_56 := basket.tumble(X_55,"iot","sdel11");
+    X_55 := basket.tumble(X_54,"iot","sdel11");
 catch SQLexception:str;
-    iot.error("user","s6_1",SQLexception);
+    iot.error("user","s12_1",SQLexception);
 exit SQLexception:str;
 catch MALexception:str;
-    iot.error("user","s6_1",MALexception);
+    iot.error("user","s12_1",MALexception);
 exit MALexception:str;
-    basket.unlock(X_56,"iot","sdel11");
-end user.s6_1;
-#inline               actions= 0 time=1 usec 
-#candidates           actions= 1 time=1 usec 
-#remap                actions= 0 time=4 usec 
-#iot                  actions= 1 time=27 usec 
-#costmodel            actions= 1 time=1 usec 
-#coercion             actions= 0 time=1 usec 
-#evaluate             actions= 0 time=3 usec 
+    basket.unlock(X_55,"iot","sdel11");
+end user.s12_1;
+#inline               actions= 0 time=0 usec 
+#remap                actions= 0 time=2 usec 
+#iot                  actions= 1 time=28 usec 
+#costmodel            actions= 1 time=2 usec 
+#coercion             actions= 0 time=2 usec 
+#evaluate             actions= 0 time=4 usec 
+#emptybind            actions= 0 time=6 usec 
 #aliases              actions= 0 time=7 usec 
 #mergetable           actions= 0 time=32 usec 
 #deadcode             actions= 1 time=6 usec 
@@ -110,27 +111,27 @@ end user.s6_1;
 % mal # name
 % clob # type
 % 95 # length
-function user.s7_1(A0:int):void;
+function user.s14_1():void;
     X_19:void := querylog.define("explain delete from sdel11 where sensor = 2;","iot_pipe",21);
     X_0 := sql.mvc();
-    X_25 := basket.register(X_0,"iot","sdel11",0);
-    X_29 := basket.lock(X_25,"iot","sdel11");
-    C_1:bat[:oid] := basket.tid(X_0,"iot","sdel11");
-    X_4:bat[:int] := basket.bind(X_25,"iot","sdel11","sensor");
-    C_9 := algebra.subselect(X_4,A0,A0,true,false,false);
-    X_13 := algebra.projection(C_9,C_1);
-    X_15 := basket.delete(X_25,"iot","sdel11",X_13);
+    X_24 := basket.register(X_0,"iot","sdel11",0);
+    X_28 := basket.lock(X_24,"iot","sdel11");
+    X_1:bat[:oid] := basket.tid(X_0,"iot","sdel11");
+    X_4:bat[:int] := basket.bind(X_24,"iot","sdel11","sensor");
+    C_9 := algebra.subselect(X_4,2,2,true,false,false);
+    X_13 := algebra.projection(C_9,X_1);
+    X_15 := basket.delete(X_24,"iot","sdel11",X_13);
     X_16 := aggr.count(X_13);
     sql.affectedRows(X_15,X_16);
-    X_30 := basket.tumble(X_29,"iot","sdel11");
+    X_29 := basket.tumble(X_28,"iot","sdel11");
 catch SQLexception:str;
-    iot.error("user","s7_1",SQLexception);
+    iot.error("user","s14_1",SQLexception);
 exit SQLexception:str;
 catch MALexception:str;
-    iot.error("user","s7_1",MALexception);
+    iot.error("user","s14_1",MALexception);
 exit MALexception:str;
-    basket.unlock(X_30,"iot","sdel11");
-end user.s7_1;
+    basket.unlock(X_29,"iot","sdel11");
+end user.s14_1;
 # optimizer.mitosis()
 # optimizer.dataflow()
 #inline               actions= 0 time=1 usec 

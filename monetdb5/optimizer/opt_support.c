@@ -451,6 +451,9 @@ hasSideEffects(InstrPtr p, int strict)
 		if( getFunctionId(p) == assertRef) return TRUE;
 		return FALSE;
 	}
+	if (getModuleId(p) == basketRef || getModuleId(p) == iotRef){
+		return TRUE;
+	}
 	if (getModuleId(p) == constraintsRef)
 		return FALSE;
 	if( getModuleId(p) == mapiRef){

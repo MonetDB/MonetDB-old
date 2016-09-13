@@ -315,7 +315,7 @@ SQLrun(Client c, backend *be, mvc *m){
 	msg = SQLoptimizeQuery(c,mb);
 	mb->keephistory = FALSE;
 
-	if( mb->errors){
+	if( msg != MAL_SUCCEED || mb->errors){
 		freeMalBlk(mb);
 		return msg;
 	}

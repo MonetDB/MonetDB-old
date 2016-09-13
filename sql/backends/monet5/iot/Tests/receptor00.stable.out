@@ -35,14 +35,14 @@ Ready.
 % mal # name
 % clob # type
 % 127 # length
-function user.s5_1(A0:str,A1:str,A2:str):void;
+function user.s10_1():void;
     X_9:void := querylog.define("explain call iot.import(\\'iot\\',\\'temps\\', concat(basketdir,\\'1\\'));","default_pipe",7);
     X_0 := sql.mvc();
     X_5:str := sql.getVariable(X_0,"basketdir");
-    X_7:str := calc.+(X_5,A2);
-    iot.import(A0,A1,X_7);
-end user.s5_1;
-#inline               actions= 0 time=0 usec 
+    X_7:str := calc.+(X_5,"1");
+    iot.import("iot","temps",X_7);
+end user.s10_1;
+#inline               actions= 0 time=1 usec 
 #remap                actions= 0 time=2 usec 
 #costmodel            actions= 1 time=1 usec 
 #coercion             actions= 1 time=3 usec 

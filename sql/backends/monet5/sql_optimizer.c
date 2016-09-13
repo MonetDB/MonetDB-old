@@ -61,11 +61,12 @@ SQLgetColumnSize(sql_trans *tr, sql_column *c, int access)
 }
 
 static lng 
-SQLgetSpace(mvc *m, MalBlkPtr mb, int prepare)
+SQLgetSpace(mvc *m, MalBlkPtr mb, int prepare, str *alterpipe)
 {
 	sql_trans *tr = m->session->tr;
-	lng size,space = 0, i; 
+	lng space, size ,i; 
 
+	space = 0;
 	for (i = 0; i < mb->stop; i++) {
 		InstrPtr p = mb->stmt[i];
         char *f = getFunctionId(p);
@@ -80,11 +81,12 @@ SQLgetSpace(mvc *m, MalBlkPtr mb, int prepare)
             t = mvc_bind_table(m, s, tname);
             if (t && isStream(t)) {
                 setModuleId(p, basketRef);
+				*alterpipe= "iot_pipe";
                 continue;
             }
         }
 
-        if (getModuleId(p) == sqlRef && (f == appendRef || f == updateRef || f == deleteRef)) {
+        if (getModuleId(p) == sqlRef && (f == appendRef || f == updateRef || f == deleteRef )) {
             char *sname = getVarConstant(mb, getArg(p, 2 )).val.sval;
             char *tname = getVarConstant(mb, getArg(p, 3 )).val.sval;
             sql_schema *s = mvc_bind_schema(m, sname);
@@ -94,6 +96,7 @@ SQLgetSpace(mvc *m, MalBlkPtr mb, int prepare)
             t = mvc_bind_table(m, s, tname);
             if (t && isStream(t)) {
                 setModuleId(p, basketRef);
+                *alterpipe= "iot_pipe";
                 continue;
             }
         }
@@ -114,15 +117,20 @@ SQLgetSpace(mvc *m, MalBlkPtr mb, int prepare)
 			t = mvc_bind_table(m, s, tname);
 			if (!t)
 				continue;
+			if (isStream(t)) {
+				setModuleId(p, basketRef);
+				*alterpipe= "iot_pipe";
+				p->argc =5;	// ignore partition
+			}
 			c = mvc_bind_column(m, t, cname);
-			if (!s)
+			if (!c)
 				continue;
 
 			/* we have to sum the cost of all three components of a BAT */
-			if (c && (!isRemote(c->t) && !isMergeTable(c->t))) {
+			if ((!isRemote(c->t) && !isMergeTable(c->t))) {
 				size = SQLgetColumnSize(tr, c, access);
 				space += size;	// accumulate once
-				if( !prepare && size == 0  && ! t->system){
+				if( !prepare && size == 0  && ! t->system && !isStream(t)){
 					//mnstr_printf(GDKout,"found empty column %s.%s.%s prepare %d size "LLFMT"\n",sname,tname,cname,prepare,size);
 					setFunctionId(p, emptybindRef);
 				}
@@ -139,7 +147,13 @@ SQLgetSpace(mvc *m, MalBlkPtr mb, int prepare)
 			if (getFunctionId(p) == bindidxRef) {
 				sql_idx *i = mvc_bind_idx(m, s, idxname);
 
-				if (i && (!isRemote(i->t) && !isMergeTable(i->t))) {
+				if (isStream(i->t)) {
+					setModuleId(p, basketRef);
+					p->argc =5;	// ignore partition
+					*alterpipe= "iot_pipe";
+				}
+
+				if (i && (!isRemote(i->t) && !isMergeTable(i->t) )) {
 					b = store_funcs.bind_idx(tr, i, RDONLY);
 					if (b) {
 						space += (size =getBatSpace(b));
@@ -148,14 +162,14 @@ SQLgetSpace(mvc *m, MalBlkPtr mb, int prepare)
 							size = SQLgetColumnSize(tr, c, access);
 						}
 
-						if( !prepare && size == 0 && ! i->t->system){
+						if( !prepare && size == 0 && ! i->t->system && !isStream(i->t)){
 							setFunctionId(p, emptybindidxRef);
 							//mnstr_printf(GDKout,"found empty column %s.%s.%s prepare %d size "LLFMT"\n",sname,tname,idxname,prepare,size);
 						}
 						BBPunfix(b->batCacheid);
 					}
 				}
-			}
+			} 
 		}
 	}
 	return space;
@@ -181,12 +195,18 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe, int prepare)
 	backend *be;
 	str msg= MAL_SUCCEED;
 	lng space;
+	str alterpipe = "default_pipe";
 
 	be = (backend *) c->sqlcontext;
 	assert(be && be->mvc);	/* SQL clients should always have their state set */
 
-	space = SQLgetSpace(be->mvc, mb, prepare);
-	if(space && (pipe == NULL || strcmp(pipe,"default_pipe")== 0)){
+	space = SQLgetSpace(be->mvc, mb, prepare, &alterpipe);
+	if( pipe )
+		pipe = strcmp(pipe,"default_pipe") ? pipe: alterpipe;
+    if (msg)
+        GDKfree(msg);   /* what to do with an error? */
+
+	if(pipe == NULL || strcmp(pipe,"default_pipe")== 0){
 		/* for queries with a potential large footprint and running the default pipe line,
 		 * we can switch to a better one. */
 		if( space > (lng)(0.8 * MT_npages() * MT_pagesize())  && GDKnr_threads > 1){

@@ -50,14 +50,12 @@ end user.petri_0;
 % 63 # length
 unsafe function user.iot_cq06():void;
     X_0 := sql.mvc();
-    X_32 := basket.register(X_0,"iot","tmp06",0);
-    X_36 := basket.lock(X_32,"iot","tmp06");
-barrier X_61 := language.dataflow();
-    C_1:bat[:oid] := basket.tid(X_0,"iot","tmp06");
-    X_4:bat[:timestamp] := basket.bind(X_32,"iot","tmp06","t");
+    X_31 := basket.register(X_0,"iot","tmp06",0);
+    X_35 := basket.lock(X_31,"iot","tmp06");
+    X_1:bat[:oid] := basket.tid(X_0,"iot","tmp06");
+    X_4:bat[:timestamp] := basket.bind(X_31,"iot","tmp06","t");
     X_8 := aggr.min(X_4);
-exit X_61;
-    X_10 := sql.append(X_36,"iot","result","t",X_8);
+    X_10 := sql.append(X_35,"iot","result","t",X_8);
     X_12 := aggr.count(X_4);
     X_13 := calc.int(X_12);
     X_15 := sql.append(X_10,"iot","result","sensor",X_13);
@@ -66,14 +64,14 @@ exit X_61;
     X_24:dbl := aggr.avg(X_20);
     X_25 := calc.int(X_24,8,2);
     X_28 := sql.append(X_15,"iot","result","val",X_25);
-    X_37 := basket.tumble(X_28,"iot","tmp06");
+    X_36 := basket.tumble(X_28,"iot","tmp06");
 catch SQLexception:str;
     iot.error("user","cq06",SQLexception);
 exit SQLexception:str;
 catch MALexception:str;
     iot.error("user","cq06",MALexception);
 exit MALexception:str;
-    basket.unlock(X_37,"iot","tmp06");
+    basket.unlock(X_36,"iot","tmp06");
 end user.iot_cq06;
 #inline               actions= 0 time=2 usec 
 #candidates           actions= 1 time=1 usec 

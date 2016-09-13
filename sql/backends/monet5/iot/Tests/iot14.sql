@@ -20,6 +20,7 @@ insert into sdel values('2005-09-23 12:34:26.736',3,12.34);
 insert into sdel values('2005-09-23 12:34:26.736',4,12.34);
 insert into sdel values('2005-09-23 12:34:26.736',3,12.34);
 select * from sdel;
+select count(*) from sdel;
 
 call iot.resume();
 -- wait a few seconds

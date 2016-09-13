@@ -49,23 +49,21 @@ end user.petri_0;
 % 61 # length
 unsafe function user.iot_sdel00():void;
     X_0 := sql.mvc();
-    X_20 := basket.register(X_0,"iot","sdel",0);
-    X_24 := basket.lock(X_20,"iot","sdel");
-barrier X_49 := language.dataflow();
-    C_1:bat[:oid] := basket.tid(X_0,"iot","sdel");
-    X_4:bat[:int] := basket.bind(X_20,"iot","sdel","sensor");
+    X_19 := basket.register(X_0,"iot","sdel",0);
+    X_23 := basket.lock(X_19,"iot","sdel");
+    X_1:bat[:oid] := basket.tid(X_0,"iot","sdel");
+    X_4:bat[:int] := basket.bind(X_19,"iot","sdel","sensor");
     C_10 := algebra.subselect(X_4,3,3,true,false,false);
-    X_14 := algebra.projection(C_10,C_1);
-    basket.delete(X_20,"iot","sdel",X_14);
-    X_25 := basket.tumble(X_24,"iot","sdel");
-exit X_49;
+    X_14 := algebra.projection(C_10,X_1);
+    basket.delete(X_19,"iot","sdel",X_14);
+    X_24 := basket.tumble(X_23,"iot","sdel");
 catch SQLexception:str;
     iot.error("user","sdel00",SQLexception);
 exit SQLexception:str;
 catch MALexception:str;
     iot.error("user","sdel00",MALexception);
 exit MALexception:str;
-    basket.unlock(X_25,"iot","sdel");
+    basket.unlock(X_24,"iot","sdel");
 end user.iot_sdel00;
 #inline               actions= 0 time=1 usec 
 #candidates           actions= 1 time=0 usec 
@@ -111,8 +109,12 @@ end user.iot_sdel00;
 [ 2005-09-23 12:34:26.736000,	3,	12.34	]
 [ 2005-09-23 12:34:26.736000,	4,	12.34	]
 [ 2005-09-23 12:34:26.736000,	3,	12.34	]
-#call iot.stop();
-#pnstop waiting for  0 queries 
+#select count(*) from sdel;
+% iot.L1 # table_name
+% L1 # name
+% bigint # type
+% 1 # length
+[ 4	]
 #select 'final state';
 % .L # table_name
 % single_value # name
