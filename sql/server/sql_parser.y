@@ -296,6 +296,7 @@ int yydebug=1;
 	XML_value_expression
 	XML_primary
 	opt_comma_string_value_expression
+	graph_reaches_exp
 
 %type <type>
 	data_type
@@ -553,6 +554,8 @@ int yydebug=1;
 %token XMLVALIDATE RETURNING LOCATION ID ACCORDING XMLSCHEMA URI XMLAGG
 %token FILTER
 
+/* GRAPH tokens */
+%token REACHES
 
 /* operators */
 %left UNION EXCEPT INTERSECT CORRESPONDING UNIONJOIN
@@ -3321,6 +3324,7 @@ pred_exp:
 		  else
 			$$ = _symbol_create_symbol(SQL_NOT, $2); }
  |   predicate	{ $$ = $1; }
+ |   graph_reaches_exp /* Disable NOT */
  ;
 
 comparison_predicate:
@@ -3735,6 +3739,16 @@ param:
 	  sql_add_param(m, NULL, NULL);
 	  $$ = _symbol_create_int( SQL_PARAMETER, nr ); 
 	}
+
+
+graph_reaches_exp:
+	column_ref REACHES column_ref
+		{
+			dlist *l = L();
+			append_list(l, $1);
+			append_list(l, $3);
+			$$ = _symbol_create_list(SQL_GRAPH_REACHES, l);
+		}
 
 /*
 <window function> ::= <window function type> OVER <window name or specification>
@@ -5199,6 +5213,7 @@ non_reserved_word:
 |  MINMAX	{ $$ = sa_strdup(SA, "MinMax"); }
 |  STORAGE	{ $$ = sa_strdup(SA, "storage"); }
 |  GEOMETRY	{ $$ = sa_strdup(SA, "geometry"); }
+|  REACHES  { $$ = sa_strdup(SA, "reaches"); }
 ;
 
 name_commalist:
