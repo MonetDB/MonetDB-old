@@ -471,6 +471,7 @@ scanner_init_keywords(void)
 
 	// Graph-related keywords
 	keywords_insert("REACHES", REACHES);
+	keywords_insert("EDGE", EDGE);
 }
 
 #define find_keyword_bs(lc, s) find_keyword(lc->rs->buf+lc->rs->pos+s)

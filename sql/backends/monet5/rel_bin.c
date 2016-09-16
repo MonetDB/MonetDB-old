@@ -1338,6 +1338,7 @@ rel2bin_args( mvc *sql, sql_rel *rel, list *args)
 	case op_left: 
 	case op_right: 
 	case op_full: 
+	case op_spfw:
 
 	case op_apply: 
 	case op_semi: 
@@ -1345,7 +1346,7 @@ rel2bin_args( mvc *sql, sql_rel *rel, list *args)
 
 	case op_union: 
 	case op_inter: 
-	case op_except: 
+	case op_except:
 		args = rel2bin_args(sql, rel->l, args);
 		args = rel2bin_args(sql, rel->r, args);
 		break;
@@ -4637,6 +4638,9 @@ subrel_bin(mvc *sql, sql_rel *rel, list *refs)
 	case op_ddl:
 		s = rel2bin_ddl(sql, rel, refs);
 		break;
+	case op_spfw:
+		// todo
+		return NULL;
 	}
 	if (s && rel_is_ref(rel)) {
 		list_append(refs, rel);

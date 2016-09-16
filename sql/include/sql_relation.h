@@ -156,6 +156,7 @@ typedef enum operator_type {
 	op_groupby,	
 	op_topn,
 	op_sample,
+	op_spfw,
 	op_insert, 	/* insert(l=table, r insert expressions) */ 
 	op_update, 	/* update(l=table, r update expressions) */
 	op_delete 	/* delete(l=table, r delete expression) */

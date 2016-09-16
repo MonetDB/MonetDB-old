@@ -7,6 +7,7 @@
  */
 
 %{
+// #define YYDEBUG 1
 #include "monetdb_config.h"
 #include <sql_mem.h>
 #include "sql_parser.h"
@@ -119,9 +120,9 @@ UTF8_strlen(const char *val)
 }
 %{
 extern int sqllex( YYSTYPE *yylval, void *m );
-/* enable to activate debugging support
+/* enable to activate debugging support*/
 int yydebug=1;
-*/
+//*/
 %}
 
 	/* symbolic tokens */
@@ -297,6 +298,8 @@ int yydebug=1;
 	XML_primary
 	opt_comma_string_value_expression
 	graph_reaches_exp
+	graph_reaches_column_def
+	graph_reaches_edges_table
 
 %type <type>
 	data_type
@@ -555,7 +558,7 @@ int yydebug=1;
 %token FILTER
 
 /* GRAPH tokens */
-%token REACHES
+%token REACHES EDGE
 
 /* operators */
 %left UNION EXCEPT INTERSECT CORRESPONDING UNIONJOIN
@@ -3303,6 +3306,7 @@ predicate:
  |  existence_test
  |  filter_exp
  |  scalar_exp
+ |  graph_reaches_exp
  ;
 
 pred_exp:
@@ -3324,7 +3328,6 @@ pred_exp:
 		  else
 			$$ = _symbol_create_symbol(SQL_NOT, $2); }
  |   predicate	{ $$ = $1; }
- |   graph_reaches_exp /* Disable NOT */
  ;
 
 comparison_predicate:
@@ -3742,13 +3745,28 @@ param:
 
 
 graph_reaches_exp:
-	column_ref REACHES column_ref
-		{
-			dlist *l = L();
-			append_list(l, $1);
-			append_list(l, $3);
-			$$ = _symbol_create_list(SQL_GRAPH_REACHES, l);
-		}
+    graph_reaches_column_def REACHES graph_reaches_column_def OVER graph_reaches_edges_table EDGE '(' graph_reaches_column_def ',' graph_reaches_column_def ')'
+        {
+            dlist *l = L();
+            append_symbol(l, $1);
+            append_symbol(l, $3);
+            append_symbol(l, $5);
+            append_symbol(l, $8);
+            append_symbol(l, $10);
+            $$ = _symbol_create_list(SQL_GRAPH_REACHES, l);
+        }
+ ;
+
+graph_reaches_column_def:
+    ident { $$ = _symbol_create_list( SQL_COLUMN, append_string(L(), $1)); }
+    | ident '.' ident { $$ = _symbol_create_list( SQL_COLUMN, append_string(append_string(L(), $1), $3)); }
+ ;
+
+graph_reaches_edges_table:
+    qname opt_table_name 	{ dlist *l = L();
+	  		  append_list(l, $1);
+	  	  	  append_symbol(l, $2);
+	  		  $$ = _symbol_create_list(SQL_NAME, l); }
 
 /*
 <window function> ::= <window function type> OVER <window name or specification>
@@ -5213,7 +5231,7 @@ non_reserved_word:
 |  MINMAX	{ $$ = sa_strdup(SA, "MinMax"); }
 |  STORAGE	{ $$ = sa_strdup(SA, "storage"); }
 |  GEOMETRY	{ $$ = sa_strdup(SA, "geometry"); }
-|  REACHES  { $$ = sa_strdup(SA, "reaches"); }
+// |  REACHES  { $$ = sa_strdup(SA, "reaches"); } // Disabled as the parser allows value_exp . ident
 ;
 
 name_commalist:

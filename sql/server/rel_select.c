@@ -21,6 +21,7 @@
 #include "rel_schema.h"
 #include "rel_remote.h"
 #include "rel_sequence.h"
+#include "rel_graph.h"
 #ifdef HAVE_HGE
 #include "mal.h"		/* for have_hge */
 #endif
@@ -2753,6 +2754,8 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 	case SQL_EXCEPT:
 	case SQL_INTERSECT:
 		return rel_setquery(sql, rel, sc);
+	case SQL_GRAPH_REACHES:
+		return rel_graph_reaches(sql, rel, sc);
 	default: {
 		sql_exp *re, *le = rel_value_exp(sql, &rel, sc, f, ek);
 

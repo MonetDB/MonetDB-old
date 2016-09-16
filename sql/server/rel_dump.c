@@ -283,6 +283,8 @@ op2string(operator_type op)
 		return "topn";
 	case op_sample:
 		return "sample";
+	case op_spfw:
+		return "spfw";
 	case op_insert: 
 	case op_update: 
 	case op_delete: 
@@ -384,6 +386,7 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 	case op_union: 
 	case op_inter: 
 	case op_except: 
+	case op_spfw:
 		r = "join";
 		if (rel->op == op_left)
 			r = "left outer join";
@@ -414,6 +417,8 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 			r = "except";
 		else if (!rel->exps && rel->op == op_join)
 			r = "crossproduct";
+		else if(rel->op == op_spfw)
+			r = "spfw";
 		print_indent(sql, fout, depth, decorate);
 		if (need_distinct(rel))
 			mnstr_printf(fout, "distinct ");
