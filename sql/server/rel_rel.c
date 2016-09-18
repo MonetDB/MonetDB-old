@@ -1189,3 +1189,16 @@ rel_find_column( sql_allocator *sa, sql_rel *rel, const char *tname, const char 
 	return NULL;
 }
 
+sql_rel *rel_spfw(mvc *sql, sql_rel *l, sql_rel *edges, list *lst_exps)
+{
+    sql_rel *rel = rel_create(sql->sa);
+    rel->l = l;
+    rel->r = edges;
+    rel->op = op_spfw;
+    rel->exps = lst_exps;
+    rel->card = l->card;
+    rel->nrcols = l->nrcols; // TODO +1, the cost of the path
+    rel->processed = 1; // *to be checked, still don't get as it is supposed to be used *
+
+    return rel;
+}

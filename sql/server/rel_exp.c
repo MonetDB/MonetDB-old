@@ -1783,3 +1783,15 @@ exp_flatten(mvc *sql, sql_exp *e)
 	return NULL;
 }
 
+list *
+exp_spfw(mvc *sql, sql_exp *qfrom, sql_exp *qto, sql_exp *efrom, sql_exp *eto)
+{
+	list *result = sa_list(sql->sa);
+
+	list_append(result, qfrom);
+	list_append(result, qto);
+	list_append(result, efrom);
+	list_append(result, eto);
+
+	return result;
+}

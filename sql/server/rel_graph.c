@@ -44,7 +44,7 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq){
 	sql_exp* qto = NULL; // reference to the `to' column
 	exp_kind dummy = {0}; // dummy param, required by rel_value_exp
 	symbol* sym_edges_tbl = NULL; // the table edges in the ast
-	sql_rel* tbl_edges = NULL; // the edges table
+	sql_rel* tbl_edges = NULL; // the edges table exp~
 	symbol* sym_edges_from = NULL; // reference to the `edges from' column in the ast
 	symbol* sym_edges_to = NULL; // ref to the `edges to' column in the ast
 	sql_exp* efrom = NULL; // ref to the edges column `from'
@@ -56,7 +56,7 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq){
 
 	// let's see what we have got so far
 	dump = rel2str(sql, rel);
-	printf("Input relation: %s\n", dump);
+	printf("Input relation: %s", dump);
 
 	lstoperands = sq->data.lval->h;
 	sym_qfrom = lstoperands->data.sym; // first operand symbol( dlist( table, column ) )
@@ -98,14 +98,13 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq){
 	if(!qto) return NULL; // cannot convert qto into the same type of eto
 
 	// build the new operator graphjoin operator
-	result = rel_create(sql->sa);
-	result->l = rel;
-	result->r = tbl_edges;
-	result->op = op_spfw;
-	result->exps = NULL; // TODO: TO BE DONE!
-	result->card = rel->card;
-	result->nrcols = rel->nrcols;
-	result->processed = 1; // *to be checked *
+	result = rel_spfw(sql, rel, tbl_edges, exp_spfw(sql, qfrom, qto, efrom, eto));
+	(void) result; // -Werror, unutilised variable bla bla..
 
+	// let's if what we are creating makes sense
+	dump = rel2str(sql, result);
+	printf("Output relation: %s\n", dump);
+
+	// atm just ignore the operator otherwise it will cause a crash down in the phases
 	return rel;
 }

@@ -310,7 +310,7 @@ find_ref( list *refs, sql_rel *rel )
 void
 rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int decorate) 
 { 
-	char *r = NULL;
+	const char *r = NULL;
 
 	if (!rel)
 		return;
@@ -541,6 +541,7 @@ rel_print_refs(mvc *sql, stream* fout, sql_rel *rel, int depth, list *refs, int 
 	case op_union: 
 	case op_inter: 
 	case op_except: 
+	case op_spfw: // TODO: what are these refs?
 		rel_print_refs(sql, fout, rel->l, depth, refs, decorate);
 		rel_print_refs(sql, fout, rel->r, depth, refs, decorate);
 		if (rel_is_ref(rel->l) && !find_ref(refs, rel->l)) {
@@ -577,8 +578,6 @@ rel_print_refs(mvc *sql, stream* fout, sql_rel *rel, int depth, list *refs, int 
 			list_append(refs, rel->r);
 		}
 		break;
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 }
 

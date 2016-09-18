@@ -143,4 +143,7 @@ extern int is_identity( sql_exp *e, sql_rel *r);
 
 extern atom *exp_flatten(mvc *sql, sql_exp *e);
 
+// columns referenced in the spfw operator
+extern list *exp_spfw(mvc *sql, sql_exp *qfrom, sql_exp *qto, sql_exp *efrom, sql_exp *eto);
+
 #endif /* _REL_EXP_H_ */
