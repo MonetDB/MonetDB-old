@@ -577,6 +577,8 @@ rel_print_refs(mvc *sql, stream* fout, sql_rel *rel, int depth, list *refs, int 
 			list_append(refs, rel->r);
 		}
 		break;
+    case op_spfw:
+        break; // TODO, just allow to compile ftb
 	}
 }
 

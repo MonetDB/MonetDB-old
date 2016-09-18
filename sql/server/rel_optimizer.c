@@ -155,6 +155,8 @@ name_find_column( sql_rel *rel, char *rname, char *name, int pnr, sql_rel **bt )
 	case op_update:
 	case op_delete:
 		break;
+	case op_spfw:
+	    break; // TODO, just allow to compile ftb
 	}
 	if (alias) { /* we found an expression with the correct name, but
 			we need sql_columns */
@@ -256,6 +258,8 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 		if (rel->r) 
 			rel_properties(sql, gp, rel->r);
 		break;
+    case op_spfw:
+        break; // TODO, just allow to compile ftb
 	}
 
 	switch (rel->op) {
@@ -290,6 +294,8 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 	case op_delete:
 	case op_ddl:
 		break;
+	case op_spfw:
+        break; // TODO, just allow to compile ftb
 	}
 }
 
@@ -1094,6 +1100,8 @@ rel_join_order(mvc *sql, sql_rel *rel)
 		rel->l = rel_join_order(sql, rel->l);
 		rel->r = rel_join_order(sql, rel->r);
 		break;
+    case op_spfw:
+        break; // TODO, just allow to compile ftb
 	}
 	if (is_join(rel->op) && rel->exps && !rel_is_ref(rel)) {
 		rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes); 
@@ -5665,6 +5673,8 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 		break;
 	case op_apply: 
 		break;
+    case op_spfw:
+        break; // TODO, just allow to compile ftb
 	}
 }
 
@@ -5771,6 +5781,8 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 	case op_anti: 
 	case op_ddl:
 		return rel;
+    case op_spfw:
+        break; // TODO, just allow to compile ftb
 	}
 	return rel;
 }
@@ -5850,6 +5862,8 @@ rel_dce_down(mvc *sql, sql_rel *rel, list *refs, int skip_proj)
 		if (rel->r)
 			rel->r = rel_dce_down(sql, rel->r, refs, 0);
 		return rel;
+    case op_spfw:
+        break; // TODO, just allow to compile ftb
 	case op_apply: 
 		assert(0);
 	}
@@ -5943,6 +5957,8 @@ rel_add_projects(mvc *sql, sql_rel *rel)
 		if (rel->r)
 			rel->r = rel_add_projects(sql, rel->r);
 		return rel;
+    case op_spfw:
+        break; // TODO, just allow to compile ftb
 	}
 	return rel;
 }
@@ -7570,6 +7586,8 @@ rel_uses_exps(sql_rel *rel, list *exps )
 	case op_update:
 	case op_delete:
 		return rel_uses_exps(rel->r, exps);
+    case op_spfw:
+        break; // TODO, just allow to compile ftb
 	}
 	return 0;
 }
@@ -7756,6 +7774,8 @@ rel_rename(mvc *sql, sql_rel *rel, list *aliases)
 		nrel->r = rel_rename(sql, rel->r, naliases);
 		nrel->exps = exps_rename_up(sql, rel->exps, naliases);
 		return nrel;
+    case op_spfw:
+        break; // TODO, just allow to compile ftb
 	}
 	assert(0);
 	return nrel;
@@ -7817,6 +7837,8 @@ rel_apply_rename(mvc *sql, sql_rel *rel)
 	case op_delete:
 		rel->r = rel_apply_rename(sql, rel->r);
 		return rel;
+    case op_spfw:
+        break; // TODO, just allow to compile ftb
 	}
 	assert(0);
 	return rel;
@@ -8173,6 +8195,8 @@ rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 		rel->l = rewrite(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite(sql, rel->r, rewriter, has_changes);
 		break;
+    case op_spfw:
+        break; // TODO, just allow to compile ftb
 	}
 	rel = rewriter(&changes, sql, rel);
 	if (changes) {
@@ -8230,6 +8254,8 @@ rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 		rel->l = rewrite_topdown(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite_topdown(sql, rel->r, rewriter, has_changes);
 		break;
+    case op_spfw:
+        break; // TODO, just allow to compile ftb
 	}
 	return rel;
 }

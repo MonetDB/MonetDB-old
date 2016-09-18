@@ -868,6 +868,8 @@ rel_bind_path_(sql_rel *rel, sql_exp *e, list *path )
 		break;
 	case op_ddl:
 		break;
+	case op_spfw:
+	    break; // TODO
 	}
 	if (found)
 		list_prepend(path, rel);

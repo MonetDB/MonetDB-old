@@ -59,6 +59,7 @@ find_basetables( sql_rel *rel, list *tables )
 	case op_left: 
 	case op_right: 
 	case op_full: 
+    case op_spfw:
 
 	case op_semi: 
 	case op_anti: 
