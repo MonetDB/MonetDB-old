@@ -16,6 +16,7 @@
 #include "rel_select.h"
 #include "rel_updates.h"
 #include "rel_optimizer.h"
+#include "rel_dump.h"
 #include "sql_env.h"
 
 #define OUTER_ZERO 64
@@ -4550,6 +4551,15 @@ rel2bin_ddl(mvc *sql, sql_rel *rel, list *refs)
 }
 
 static stmt *
+rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
+{
+	printf("[Codegen] Input relation: %s\n", rel_to_str(sql, rel));
+
+	// for the time being, just ignore spfw and generate the code for the upper table
+	return subrel_bin(sql, rel->l, refs);
+}
+
+static stmt *
 subrel_bin(mvc *sql, sql_rel *rel, list *refs) 
 {
 	stmt *s = NULL;
@@ -4639,8 +4649,8 @@ subrel_bin(mvc *sql, sql_rel *rel, list *refs)
 		s = rel2bin_ddl(sql, rel, refs);
 		break;
 	case op_spfw:
-		// todo
-		return NULL;
+		s = rel2bin_spfw(sql, rel, refs);
+		break;
 	}
 	if (s && rel_is_ref(rel)) {
 		list_append(refs, rel);

@@ -3839,6 +3839,10 @@ rel_projections_(mvc *sql, sql_rel *rel)
 	case op_topn:
 	case op_sample:
 		return rel_projections_(sql, rel->l);
+
+	case op_spfw:
+		// TODO: what's the difference with rel_projections, without the trailing underscore?
+		return rel_projections_(sql, rel->l); // TODO: +1 for the score
 	default:
 		return NULL;
 	}

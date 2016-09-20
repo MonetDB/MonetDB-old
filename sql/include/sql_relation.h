@@ -135,7 +135,7 @@ typedef struct expression {
 #define DDL_ALTER_TABLE_DEL_TABLE  64
 #define DDL_ALTER_TABLE_SET_ACCESS  65
 
-#define MAXOPS 21
+#define MAXOPS 22
 
 typedef enum operator_type {
 	op_basetable = 0,
@@ -221,6 +221,8 @@ typedef enum operator_type {
 	(op == op_insert || op == op_update || op == op_delete)
 #define is_sample(op) \
 	(op == op_sample)
+#define is_spfw(op) \
+	(op == op_spfw)
 
 /* NO NIL semantics of aggr operations */
 #define need_no_nil(e) \

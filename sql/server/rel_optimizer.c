@@ -6,7 +6,7 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
-/*#define DEBUG*/
+#define DEBUG // */
 
 #include "monetdb_config.h"
 #include "rel_optimizer.h"
@@ -20,6 +20,8 @@
 #include "mal.h"		/* for have_hge */
 #endif
 #include "mtime.h"
+
+
 
 #define new_func_list(sa) sa_list(sa)
 #define new_col_list(sa) sa_list(sa)
@@ -109,6 +111,7 @@ name_find_column( sql_rel *rel, char *rname, char *name, int pnr, sql_rel **bt )
 	case op_apply: 
 	case op_semi: 
 	case op_anti: 
+	case op_spfw:
 		/* first right (possible subquery) */
 		c = name_find_column( rel->r, rname, name, pnr, bt);
 		if (!c) 
@@ -155,8 +158,6 @@ name_find_column( sql_rel *rel, char *rname, char *name, int pnr, sql_rel **bt )
 	case op_update:
 	case op_delete:
 		break;
-	case op_spfw:
-	    break; // TODO, just allow to compile ftb
 	}
 	if (alias) { /* we found an expression with the correct name, but
 			we need sql_columns */
@@ -240,6 +241,7 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 	case op_union: 
 	case op_inter: 
 	case op_except: 
+	case op_spfw:
 		rel_properties(sql, gp, rel->l);
 		rel_properties(sql, gp, rel->r);
 		break;
@@ -258,8 +260,6 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 		if (rel->r) 
 			rel_properties(sql, gp, rel->r);
 		break;
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 
 	switch (rel->op) {
@@ -268,34 +268,8 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 		if (!find_prop(rel->p, PROP_COUNT))
 			rel->p = prop_create(sql->sa, PROP_COUNT, rel->p);
 		break;
-	case op_join: 
-	case op_left: 
-	case op_right: 
-	case op_full: 
-
-	case op_apply: 
-	case op_semi: 
-	case op_anti: 
-
-	case op_union: 
-	case op_inter: 
-	case op_except: 
+	default:
 		break;
-
-	case op_project:
-	case op_groupby:
-	case op_topn:
-	case op_sample:
-	case op_select:
-		break;
-
-	case op_insert:
-	case op_update:
-	case op_delete:
-	case op_ddl:
-		break;
-	case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 }
 
@@ -1078,7 +1052,8 @@ rel_join_order(mvc *sql, sql_rel *rel)
 
 	case op_union: 
 	case op_inter: 
-	case op_except: 
+	case op_except:
+	case op_spfw:
 		rel->l = rel_join_order(sql, rel->l);
 		rel->r = rel_join_order(sql, rel->r);
 		break;
@@ -1100,8 +1075,6 @@ rel_join_order(mvc *sql, sql_rel *rel)
 		rel->l = rel_join_order(sql, rel->l);
 		rel->r = rel_join_order(sql, rel->r);
 		break;
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 	if (is_join(rel->op) && rel->exps && !rel_is_ref(rel)) {
 		rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes); 
@@ -5558,7 +5531,8 @@ rel_used(sql_rel *rel)
 			rel_used(rel->l);
 		if (rel->r) 
 			rel_used(rel->r);
-	} else if (is_topn(rel->op) || is_select(rel->op) || is_sample(rel->op)) {
+	} else if (is_topn(rel->op) || is_select(rel->op) || is_sample(rel->op) || is_spfw(rel->op)) {
+		// TODO: I didn't understand this part, why does it set rel = rel->l
 		rel_used(rel->l);
 		rel = rel->l;
 	} else if (rel->op == op_table && rel->r) {
@@ -5665,7 +5639,8 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 	case op_right: 
 	case op_full: 
 	case op_semi: 
-	case op_anti: 
+	case op_anti:
+	case op_spfw: // TODO: to be checked
 		exps_mark_used(sql->sa, rel, rel->l);
 		exps_mark_used(sql->sa, rel, rel->r);
 		rel_mark_used(sql, rel->l, 0);
@@ -5673,8 +5648,6 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 		break;
 	case op_apply: 
 		break;
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 }
 
@@ -5780,9 +5753,8 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 	case op_semi: 
 	case op_anti: 
 	case op_ddl:
+	case op_spfw:
 		return rel;
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 	return rel;
 }
@@ -5857,13 +5829,12 @@ rel_dce_down(mvc *sql, sql_rel *rel, list *refs, int skip_proj)
 	case op_full: 
 	case op_semi: 
 	case op_anti: 
+	case op_spfw:
 		if (rel->l)
 			rel->l = rel_dce_down(sql, rel->l, refs, 0);
 		if (rel->r)
 			rel->r = rel_dce_down(sql, rel->r, refs, 0);
 		return rel;
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	case op_apply: 
 		assert(0);
 	}
@@ -5952,13 +5923,12 @@ rel_add_projects(mvc *sql, sql_rel *rel)
 	case op_apply: 
 	case op_semi: 
 	case op_anti: 
+	case op_spfw:
 		if (rel->l)
 			rel->l = rel_add_projects(sql, rel->l);
 		if (rel->r)
 			rel->r = rel_add_projects(sql, rel->r);
 		return rel;
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 	return rel;
 }
@@ -7569,6 +7539,7 @@ rel_uses_exps(sql_rel *rel, list *exps )
 	case op_union: 
 	case op_inter: 
 	case op_except: 
+	case op_spfw:
 		return (rel_uses_exps(rel->l, exps) ||	rel_uses_exps(rel->r, exps)); 
 	case op_project:
 	case op_select: 
@@ -7586,8 +7557,6 @@ rel_uses_exps(sql_rel *rel, list *exps )
 	case op_update:
 	case op_delete:
 		return rel_uses_exps(rel->r, exps);
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 	return 0;
 }
@@ -7756,6 +7725,7 @@ rel_rename(mvc *sql, sql_rel *rel, list *aliases)
 	case op_union: 
 	case op_inter: 
 	case op_except: 
+	case op_spfw:
 		nrel->l = rel_rename(sql, rel->l, aliases);
 		nrel->r = rel_rename(sql, rel->r, aliases);
 		nrel->exps = exps_rename_up(sql, rel->exps, aliases);
@@ -7774,8 +7744,6 @@ rel_rename(mvc *sql, sql_rel *rel, list *aliases)
 		nrel->r = rel_rename(sql, rel->r, naliases);
 		nrel->exps = exps_rename_up(sql, rel->exps, naliases);
 		return nrel;
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 	assert(0);
 	return nrel;
@@ -7816,6 +7784,7 @@ rel_apply_rename(mvc *sql, sql_rel *rel)
 	case op_union: 
 	case op_inter: 
 	case op_except: 
+	case op_spfw:
 		rel->l = rel_apply_rename(sql, rel->l);
 		rel->r = rel_apply_rename(sql, rel->r);
 		return rel;
@@ -7837,8 +7806,6 @@ rel_apply_rename(mvc *sql, sql_rel *rel)
 	case op_delete:
 		rel->r = rel_apply_rename(sql, rel->r);
 		return rel;
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 	assert(0);
 	return rel;
@@ -8173,7 +8140,8 @@ rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 
 	case op_union: 
 	case op_inter: 
-	case op_except: 
+	case op_except:
+	case op_spfw:
 		rel->l = rewrite(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite(sql, rel->r, rewriter, has_changes);
 		break;
@@ -8195,8 +8163,6 @@ rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 		rel->l = rewrite(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite(sql, rel->r, rewriter, has_changes);
 		break;
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 	rel = rewriter(&changes, sql, rel);
 	if (changes) {
@@ -8233,6 +8199,7 @@ rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 	case op_union: 
 	case op_inter: 
 	case op_except: 
+	case op_spfw:
 		rel->l = rewrite_topdown(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite_topdown(sql, rel->r, rewriter, has_changes);
 		break;
@@ -8254,11 +8221,15 @@ rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 		rel->l = rewrite_topdown(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite_topdown(sql, rel->r, rewriter, has_changes);
 		break;
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 	return rel;
 }
+
+#ifdef DEBUG
+#define DBGREL(id) printf("[optimizer (%d)] %s: %s", level, id, rel_to_str(sql, rel));
+#else
+#define DBGREL(id)
+#endif
 
 static sql_rel *
 _rel_optimizer(mvc *sql, sql_rel *rel, int level) 
@@ -8274,10 +8245,12 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 	int i;
 	for (i = 0; i < MAXOPS; i++) {
 		if (gp.cnt[i]> 0)
-			printf("%s %d\n", op2string((operator_type)i), gp.cnt[i]);
+			printf("[rel_optimizer (%d)] %s %d\n", level, op2string((operator_type)i), gp.cnt[i]);
 	}
 }
 #endif
+
+	DBGREL("At the start");
 
 	/* simple merging of projects */
 	if (gp.cnt[op_project] || gp.cnt[op_ddl]) {
@@ -8425,6 +8398,7 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 	if (level <= 0 && mvc_debug_on(sql,8))
 		rel = rewrite_topdown(sql, rel, &rel_add_dicts, &changes);
 
+	// TODO how can it reach level #10 here?
 	if (changes && level > 10) {
 		assert(0);
 		return rel;
@@ -8432,6 +8406,8 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 
 	if (changes || level == 0)
 		return _rel_optimizer(sql, rel, ++level);
+
+	DBGREL("At the end");
 
 	return rel;
 }

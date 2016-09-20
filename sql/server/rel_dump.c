@@ -1343,3 +1343,20 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 	return rel;
 }
 
+// copied and pasted from codegen
+str
+rel_to_str(mvc *sql, sql_rel *rel)
+{
+	buffer *b;
+	stream *s = buffer_wastream(b = buffer_create(1024), "rel_dump");
+	list *refs = sa_list(sql->sa);
+	char *res = NULL;
+
+	rel_print_refs(sql, s, rel, 0, refs, 0);
+	rel_print_(sql, s, rel, 0, refs, 0);
+	mnstr_printf(s, "\n");
+	res = buffer_get_buf(b);
+	buffer_destroy(b);
+	mnstr_destroy(s);
+	return res;
+}

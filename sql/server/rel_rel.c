@@ -222,6 +222,10 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname )
 		*p = rel;
 		if (rel->l)
 			return rel_bind_column_(sql, p, rel->l, cname);
+		break;
+	case op_spfw:
+		assert(rel->l != NULL && "spfw always expects a left relation");
+		return rel_bind_column_(sql, p, rel->l, cname);
 	default:
 		return NULL;
 	}
@@ -809,6 +813,9 @@ rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int int
 	case op_topn:
 	case op_sample:
 		return rel_projections(sql, rel->l, tname, settname, intern );
+	case op_spfw:
+		// TODO: +1 for the score
+		return rel_projections(sql, rel->l, tname, settname, intern);
 	default:
 		return NULL;
 	}
@@ -840,6 +847,7 @@ rel_bind_path_(sql_rel *rel, sql_exp *e, list *path )
 	case op_select:
 	case op_topn:
 	case op_sample:
+	case op_spfw:
 		found = rel_bind_path_(rel->l, e, path);
 		break;
 
@@ -868,8 +876,6 @@ rel_bind_path_(sql_rel *rel, sql_exp *e, list *path )
 		break;
 	case op_ddl:
 		break;
-	case op_spfw:
-	    break; // TODO
 	}
 	if (found)
 		list_prepend(path, rel);
@@ -1198,7 +1204,7 @@ sql_rel *rel_spfw(mvc *sql, sql_rel *l, sql_rel *edges, list *lst_exps)
     rel->exps = lst_exps;
     rel->card = l->card;
     rel->nrcols = l->nrcols; // TODO +1, the cost of the path
-    rel->processed = 1; // *to be checked, still don't get as it is supposed to be used *
+//    rel->processed = 1; // *to be checked, still don't get as it is supposed to be used *
 
     return rel;
 }

@@ -16,25 +16,6 @@
 #include "rel_rel.h"
 #include "rel_select.h"
 
-// copied and pasted from codegen
-static str
-rel2str( mvc *sql, sql_rel *rel)
-{
-	buffer *b;
-	stream *s = buffer_wastream(b = buffer_create(1024), "rel_dump");
-	list *refs = sa_list(sql->sa);
-	char *res = NULL;
-
-	rel_print_refs(sql, s, rel, 0, refs, 0);
-	rel_print_(sql, s, rel, 0, refs, 0);
-	mnstr_printf(s, "\n");
-	res = buffer_get_buf(b);
-	buffer_destroy(b);
-	mnstr_destroy(s);
-	return res;
-}
-
-
 sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq){
 	str dump = NULL;
 	dnode* lstoperands = NULL; // temp to navigate over the operands
@@ -54,9 +35,12 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq){
 
 	assert(sq->token == SQL_GRAPH_REACHES && "Invalid label in the AST, expected SQL_GRAPH_REACHES");
 
+	// disable stmt caching for this query as WIP
+	sql->caching = false;
+
 	// let's see what we have got so far
-	dump = rel2str(sql, rel);
-	printf("Input relation: %s", dump);
+	dump = rel_to_str(sql, rel);
+	printf("[Semantic analysis] Input relation: %s", dump);
 
 	lstoperands = sq->data.lval->h;
 	sym_qfrom = lstoperands->data.sym; // first operand symbol( dlist( table, column ) )
@@ -99,12 +83,10 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq){
 
 	// build the new operator graphjoin operator
 	result = rel_spfw(sql, rel, tbl_edges, exp_spfw(sql, qfrom, qto, efrom, eto));
-	(void) result; // -Werror, unutilised variable bla bla..
 
 	// let's if what we are creating makes sense
-	dump = rel2str(sql, result);
-	printf("Output relation: %s\n", dump);
+	dump = rel_to_str(sql, result);
+	printf("[Semantic analysis] Output relation: %s\n", dump);
 
-	// atm just ignore the operator otherwise it will cause a crash down in the phases
-	return rel;
+	return result;
 }

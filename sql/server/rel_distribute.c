@@ -43,6 +43,7 @@ has_remote_or_replica( sql_rel *rel )
 	case op_union: 
 	case op_inter: 
 	case op_except: 
+    case op_spfw:
 		if (has_remote_or_replica( rel->l ) ||
 		    has_remote_or_replica( rel->r ))
 			return 1;
@@ -65,8 +66,6 @@ has_remote_or_replica( sql_rel *rel )
 		if (rel->r && has_remote_or_replica( rel->r )) 
 			return 1;
 		break;
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 	return 0;
 }
@@ -157,6 +156,7 @@ replica(mvc *sql, sql_rel *rel, char *uri)
 	case op_union: 
 	case op_inter: 
 	case op_except: 
+    case op_spfw:
 		rel->l = replica(sql, rel->l, uri);
 		rel->r = replica(sql, rel->r, uri);
 		break;
@@ -177,8 +177,6 @@ replica(mvc *sql, sql_rel *rel, char *uri)
 	case op_delete:
 		rel->r = replica(sql, rel->r, uri);
 		break;
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 	return rel;
 }
@@ -301,7 +299,8 @@ rel_remote_func(mvc *sql, sql_rel *rel)
 
 	case op_union: 
 	case op_inter: 
-	case op_except: 
+	case op_except:
+    case op_spfw:
 		rel->l = rel_remote_func(sql, rel->l);
 		rel->r = rel_remote_func(sql, rel->r);
 		break;
@@ -322,8 +321,6 @@ rel_remote_func(mvc *sql, sql_rel *rel)
 	case op_delete:
 		rel->r = rel_remote_func(sql, rel->r);
 		break;
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 	if (find_prop(rel->p, PROP_REMOTE) != NULL) {
 		list *exps = rel_projections(sql, rel, NULL, 1, 1);
