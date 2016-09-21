@@ -38,11 +38,20 @@ run(c2, 'INSERT INTO htmtest VALUES (5, 50)')
 #run(c3, 'INSERT INTO htmtest VALUES (6, 60)')
 
 run(c2, 'CALL precommit(2)')
-run(c1, 'CALL precommit(1)')
+try:
+    run(c1, 'CALL precommit(1)')
+except:
+    print "precommit failed\n"
 #run(c3, 'CALL precommit(3)')
 
-run(c1, 'CALL persistcommit(1)')
+try:
+    run(c1, 'CALL persistcommit(1)')
+except:
+    print "persistcommit failed\n"
 run(c2, 'CALL persistcommit(2)')
 
-query(c1, 'SELECT * FROM htmtest')
+try:
+    query(c1, 'SELECT * FROM htmtest')
+except:
+    print "select fails on aborted transaction\n"
 query(c2, 'SELECT * FROM htmtest')

@@ -3157,6 +3157,22 @@ rollforward_trans(sql_trans *tr, int mode)
 	return ok;
 }
 
+/* 2PC
+ * Concurrent precommit's can currently not be handled. This because we use
+ * the per column, table, schema, transaction timestamps for the apply (in memory 
+ * update of all structures including the BATS). Therefor we now have a global
+ * flag indicating that a pre-commit has happend and we are waiting until
+ * the persistcommit. 
+ *
+ * Improvements over this (too) simple scheme are
+ * 	1) Add a timeout after which we will again failback to allowing new
+ * 	pre-commits etc. Problem is we cannot ever apply the pending pre-commit.
+ *
+ * 	2) Have a list of in-flight precommits, each with a non overlapping
+ * 	set of updated tables. This would (at least) allow for concurrent
+ * 	different table updates and inserts.
+ * 2PC
+ */
 static int
 validate_tables(sql_schema *s, sql_schema *os)
 {
@@ -3475,8 +3491,11 @@ sql_trans_validate(sql_trans *tr)
 {
 	node *n;
 
-	/* depends on the iso level */
+	/* We cannot handle other outstanding precommits */
+	if (tr->parent == gtrans && gtrans->precommit_id)
+		return 0;
 
+	/* depends on the iso level */
 	if (tr->schema_number != store_schema_number())
 		return 0;
 
@@ -3574,6 +3593,8 @@ sql_trans_precommit(sql_trans *tr)
 		if (result == LOG_OK)
 			result = logger_funcs.log_tend();
 		tr->schema_number = store_schema_number();
+		/* Mark current precommit in flight */
+		gtrans->precommit_id = tr->precommit_id;
 		return (result==LOG_OK)?SQL_OK:SQL_ERR;
 	}
 	return (result==LOG_OK)?SQL_OK:SQL_ERR;
@@ -3595,8 +3616,10 @@ sql_trans_persistcommit(sql_trans *tr)
 	if (result == LOG_OK) {
 		/* Mark the transaction as globally persisted as well */
 		result = logger_funcs.log_persist_precommit(tr->precommit_id);
+		assert(tr->precommit_id == gtrans->precommit_id);
+		gtrans->precommit_id = 0;
 	}
-    return (result==LOG_OK)?SQL_OK:SQL_ERR;
+    	return (result==LOG_OK)?SQL_OK:SQL_ERR;
 }
 
 int
