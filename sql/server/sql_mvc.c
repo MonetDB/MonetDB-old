@@ -439,26 +439,18 @@ mvc_precommit(mvc *m, int chain, const char *name, lng id) {
 }
 
 int
-mvc_persistcommit(mvc *m, int chain, const char *name, lng id) {
+mvc_persistcommit(mvc *m, int chain, const char *name, lng id) 
+{
 	int result = SQL_OK;//, wait = 0;
 	sql_trans *tr = m->session->tr;
+
 	if (tr->precommit_id != id) {
 		(void)sql_error(m, 010, "40000!PERSISTCOMMIT: transaction is aborted because pre-commit transaction id missmatch. Transaction was either not pre-commited or aborted.");
 		return -1;
 	}
 	
-    if (tr->wtime == 0) {
-        if (!chain)
-            sql_trans_end(m->session);
-        m->type = Q_TRANS;
-        if (mvc_debug)
-            fprintf(stderr, "#mvc_persistcommit %s done\n", (name) ? name : "");
-        store_unlock();
-        return 0;
-    }
-
 	store_lock();
-	if ((result = sql_trans_persistcommit(tr)) != SQL_OK) {
+	if (tr->wtime != 0 && (result = sql_trans_persistcommit(tr)) != SQL_OK) {
 		char *msg = sql_message("40000!PERSISTCOMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
 		GDKfatal("%s", msg);
 		_DELETE(msg);
