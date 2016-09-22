@@ -34,15 +34,23 @@ run(c1, 'INSERT INTO htmtest VALUES (4, 40)')
 c2 = connect(False)
 run(c2, 'INSERT INTO htmtest VALUES (5, 50)')
 
-#c3 = connect(False)
-#run(c3, 'INSERT INTO htmtest VALUES (6, 60)')
+c3 = connect(False)
+run(c3, 'SELECT * FROM htmtest')
 
 run(c2, 'CALL precommit(2)')
 try:
     run(c1, 'CALL precommit(1)')
 except:
     print "precommit failed\n"
-#run(c3, 'CALL precommit(3)')
+
+try:
+    run(c3, 'CALL precommit(3)')
+except:
+    print "precommit read-only transaction failed\n"
+try:
+    run(c3, 'CALL persistcommit(3)')
+except:
+    print "persistcommit read-only transaction failed\n"
 
 try:
     run(c1, 'CALL persistcommit(1)')
