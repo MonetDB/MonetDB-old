@@ -284,7 +284,8 @@ sql_trans_deref( sql_trans *tr )
 }
 
 static int
-mvc_commit_prepare(mvc *m, int chain, const char *name, sql_trans *tr) {
+mvc_commit_prepare(mvc *m, int chain, const char *name, sql_trans *tr) 
+{
 	sql_trans *cur = m->session->tr, *ctr;
 	int result = SQL_OK;//, wait = 0;
 
@@ -381,13 +382,16 @@ mvc_commit(mvc *m, int chain, const char *name)
 	sql_trans *tr = m->session->tr;
 	int result = SQL_OK;//, wait = 0;
 
+	/* error ie allready unlocked */
 	if ((result = mvc_commit_prepare(m, chain, name, tr)) != SQL_OK) {
-		return 0;
+		if (result == 0) /* done but correct */
+			return SQL_OK;
+		return result;
 	}
 
 	if (sql_trans_validate(tr)) {
 		/* execute commit */
-        tr->precommit_id = 0;
+        	tr->precommit_id = 0;
 		if ((result = sql_trans_commit(tr)) != SQL_OK) {
 			char *msg;
 			store_unlock();
@@ -403,19 +407,22 @@ mvc_commit(mvc *m, int chain, const char *name)
 	}
 
 	mvc_commit_finish(m, chain, name);
-
 	return result;
 }
 
 int
-mvc_precommit(mvc *m, int chain, const char *name, lng id) {
+mvc_precommit(mvc *m, int chain, const char *name, lng id) 
+{
 	int result = SQL_OK;//, wait = 0;
 	sql_trans *tr = m->session->tr;
 	// set precommit_id
 	tr->precommit_id = id;
 
+	/* error ie allready unlocked */
 	if ((result = mvc_commit_prepare(m, chain, name, tr)) != SQL_OK) {
-		return 0;
+		if (result == 0) /* done but correct */
+			return SQL_OK;
+		return result;
 	}
 
 	if (sql_trans_validate(tr)) {
@@ -457,7 +464,6 @@ mvc_persistcommit(mvc *m, int chain, const char *name, lng id)
 	}
 	// clean up
 	mvc_commit_finish(m, chain, name);
-
 	return result;
 }
 
