@@ -8225,8 +8225,9 @@ rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 	return rel;
 }
 
+// only to debug spfw
 #ifdef DEBUG
-#define DBGREL(id) printf("[optimizer (%d)] %s: %s", level, id, rel_to_str(sql, rel));
+#define DBGREL(id) if(gp.cnt[op_spfw]){ printf("[optimizer (%d)] %s: %s", level, id, rel_to_str(sql, rel)); }
 #else
 #define DBGREL(id)
 #endif

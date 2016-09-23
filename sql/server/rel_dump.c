@@ -1360,3 +1360,18 @@ rel_to_str(mvc *sql, sql_rel *rel)
 	mnstr_destroy(s);
 	return res;
 }
+
+str
+exp_to_str(mvc *sql, sql_exp *exp)
+{
+	buffer *b;
+	stream *s = buffer_wastream(b = buffer_create(1024), "exp_dump");
+	char *res = NULL;
+
+	exp_print(sql, s, exp, 0, /*comma = */ 0, 0);
+	mnstr_printf(s, "\n");
+	res = buffer_get_buf(b);
+	buffer_destroy(b);
+	mnstr_destroy(s);
+	return res;
+}

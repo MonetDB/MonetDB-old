@@ -2771,6 +2771,37 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			if (q == NULL)
 				return -1;
 		} break;
+		case st_mkgraph: {
+
+		} break;
+		case st_spfw: {
+			stmt *qfrom = NULL, *qto = NULL, *efrom = NULL, *eto = NULL;
+			int left = -1, edges = -1;
+			node* n = NULL;
+
+			left = _dumpstmt(sql, mb, s->op1);
+			if(left < 0)
+				return -1;
+
+			edges = _dumpstmt(sql, mb, s->op2);
+			if(edges < 0)
+				return -1;
+
+			// retrieve the columns
+			n = s->op4.lval->h;
+			qfrom = n->data;
+			n = n->next;
+			qto = n->data;
+			n = n->next;
+			efrom = n->data;
+			n = n->next;
+			eto = n->data;
+
+			(void) qfrom;
+			(void) qto;
+			(void) efrom;
+			(void) eto;
+		} break;
 		}
 		if (mb->errors)
 			return -1;

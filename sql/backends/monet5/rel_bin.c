@@ -4553,10 +4553,81 @@ rel2bin_ddl(mvc *sql, sql_rel *rel, list *refs)
 static stmt *
 rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
 {
-	printf("[Codegen] Input relation: %s\n", rel_to_str(sql, rel));
+	stmt *edges = NULL, *spfw = NULL, *graph = NULL;
+	stmt *left = NULL, right = NULL;
+	stmt *c = NULL, *g = NULL, *groups = NULL, *smpl = NULL;
+	stmt *D = NULL;
+	stmt *p0 = NULL, *p1 = NULL;
+	list *l = NULL;
+	stmt *e_from = NULL, *e_to = NULL, *q_from = NULL, *q_to = NULL;
+	node *n = NULL;
 
-	// for the time being, just ignore spfw and generate the code for the upper table
-	return subrel_bin(sql, rel->l, refs);
+	// materialize the input relations
+	left = subrel_bin(sql->sa, rel->l, refs);
+	if(!left) return NULL;
+	(void) right;
+	edges = subrel_bin(sql->sa, rel->r, refs);
+	if(!edges) return NULL;
+
+	// refer to the columns
+	assert(rel->exps->cnt == 4 && "Expected four columns as input (ftb)"); // TODO weights missing
+	n = rel->exps->h;
+	q_from = exp_bin(sql->sa, n->data, left, NULL, NULL, NULL, NULL, NULL);
+	n = n->next;
+	q_to = exp_bin(sql->sa, n->data, left, NULL, NULL, NULL, NULL, NULL);
+	n = n->next;
+	e_from = exp_bin(sql->sa, n->data, edges, NULL, NULL, NULL, NULL, NULL);
+	n = n->next;
+	e_to = exp_bin(sql->sa, n->data, edges, NULL, NULL, NULL, NULL, NULL);
+
+	// create the graph
+	// this is, like, super fun!
+	l = sa_list(sql->sa);
+	list_append(l, e_from);
+	list_append(l, e_to);
+	c = stmt_concat(sql->sa, l);
+	g = stmt_group(sql->sa, c, NULL, NULL, NULL);
+	groups = stmt_result(sql->sa, g, 0);
+	smpl = stmt_result(sql->sa, g, 1);
+	e_from = stmt_mkpartition(sql->sa, groups, 0, 2);
+	e_to = stmt_mkpartition(sql->sa, groups, 1, 2);
+	graph = stmt_mkgraph(sql->sa, e_from, e_to);
+
+	// map the values in qfrom, qto into vertex IDs
+	D = stmt_project(sql->sa, smpl, c); // domain
+
+	// make the operator
+	spfw = stmt_spfw(sql->sa, left, graph);
+
+
+
+//	spfw->op4.lval = sa_list(sql->sa);
+//	for(node* n = rel->exps->h; n; n = n->next){
+//		list_append(spfw->op4.lval, exp_bin(sql, n->data, left, edges, NULL, NULL, NULL, NULL));
+//	}
+//
+//	// input columns (for debug reasons)
+//	do { // damn c
+//		int i = 0;
+//		for(node* n = left->op4.lval->h; n; n = n->next, i++){
+//			stmt* s = n->data;
+//			printf("[%d] %s %s, with f: %s %s, type: %d, tbl: %p\n", i, s->tname, s->cname, table_name(sql->sa, s), column_name(sql->sa, s), s->type, s->op4.tval);
+//		}
+//	} while(0);
+//
+//	// apply the filter
+//	r = stmt_result(sql->sa, spfw, 0);
+//	l = sa_list(sql->sa);
+//	for(node *n = left->op4.lval->h; n; n = n->next) {
+//		stmt *col = n->data;
+//
+//		if (col->nrcols == 0) /* constant */
+//			col = stmt_const(sql->sa, r, col);
+//		else
+//			col = stmt_project(sql->sa, r, col);
+//		list_append(l, col);
+//	}
+//	return stmt_list(sql->sa, l);
 }
 
 static stmt *

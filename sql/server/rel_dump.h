@@ -19,5 +19,6 @@ extern const char *op2string(operator_type op);
 extern sql_rel *rel_read(mvc *sql, char *ra, int *pos, list *refs);
 
 extern str rel_to_str(mvc *sql, sql_rel *rel);
+extern str exp_to_str(mvc *sql, sql_exp *exp);
 
 #endif /*_REL_DUMP_H_*/

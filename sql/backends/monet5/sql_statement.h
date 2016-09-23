@@ -94,7 +94,13 @@ typedef enum stmt_type {
 	st_cond,
 	st_control_end,
 	st_return,
-	st_assign
+	st_assign,
+
+	// these are new kids in the town
+	st_concat,
+	st_mkgraph,
+	st_mkpartition,
+	st_spfw,
 } st_type;
 
 /* flag to indicate anti join/select */
@@ -239,6 +245,10 @@ extern stmt *stmt_while(sql_allocator *sa, stmt *cond, stmt *whilestmts);
 extern stmt *stmt_if(sql_allocator *sa, stmt *cond, stmt *ifstmts, stmt *elsestmts);
 extern stmt *stmt_return(sql_allocator *sa, stmt *val, int nr_of_declared_tables);
 extern stmt *stmt_assign(sql_allocator *sa, const char *varname, stmt *val, int level);
+
+extern stmt *stmt_concat(sql_allocator *sa, list *l);
+extern stmt *stmt_mkgraph(sql_allocator *sa, stmt *from, stmt *to); // + weights
+extern stmt *stmt_spfw(sql_allocator *sa, stmt* l, stmt* edges);
 
 extern sql_subtype *tail_type(stmt *st);
 extern int stmt_has_null(stmt *s);

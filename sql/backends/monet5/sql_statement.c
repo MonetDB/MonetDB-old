@@ -120,6 +120,9 @@ st_type2string(st_type type)
 		ST(control_end);
 		ST(return);
 		ST(assign);
+
+		ST(mkgraph);
+		ST(spfw);
 	default:
 		return "unknown";	/* just needed for broken compilers ! */
 	}
@@ -320,6 +323,8 @@ stmt_deps(list *dep_list, stmt *s, int depend_type, int dir)
 
 			case st_uselect:
 			case st_uselect2:
+
+			case st_spfw:
 				if (s->op1)
 					push(s->op1);
 				if (s->op2)
@@ -1361,6 +1366,7 @@ _column_name(sql_allocator *sa, stmt *st)
 	case st_tdiff:
 	case st_tinter:
 	case st_convert:
+	case st_spfw:
 		return column_name(sa, st->op1);
 	case st_Nop:
 	{
@@ -1432,6 +1438,7 @@ _table_name(sql_allocator *sa, stmt *st)
 	case st_tdiff:
 	case st_tinter:
 	case st_aggr:
+	case st_spfw:
 		return table_name(sa, st->op1);
 
 	case st_table_clear:
@@ -1489,6 +1496,7 @@ schema_name(sql_allocator *sa, stmt *st)
 	case st_convert:
 	case st_Nop:
 	case st_aggr:
+	case st_spfw:
 		return schema_name(sa, st->op1);
 	case st_alias:
 		/* there are no schema aliases, ie look into the base column */
@@ -1589,6 +1597,51 @@ stmt_assign(sql_allocator *sa, const char *varname, stmt *val, int level)
 	s->op1 = stmt_atom_string(sa, sa_strdup(sa, varname));
 	s->op2 = val;
 	s->flag = (level << 1);
+	return s;
+}
+
+stmt *
+stmt_concat(sql_allocator *sa, list* l)
+{
+	stmt *s = stmt_create(sa, st_concat);
+	s->op4.lval = l;
+	s->nr = 1;
+	return s;
+}
+
+stmt *
+stmt_mkgraph(sql_allocator *sa, stmt* from, stmt* to)
+{
+	stmt *s = stmt_create(sa, st_mkgraph);
+	s->op1 = from;
+	s->op2 = to;
+  	s->nrcols = 3; // 4 with the weights
+	return s;
+}
+
+stmt *
+stmt_mkpartition(sql_allocator *sa, stmt* st, int partno, int num_partitions)
+{
+	stmt *s = stmt_create(sa, st_mkpartition);
+	list *l = sa_list(sa);
+	s->op1 = st;
+	list_append(l, (void*) partno);
+	list_append(l, (void*) num_partitions);
+	s->op4 = l;
+	s->nrcols = 1;
+	return s;
+}
+
+stmt *
+stmt_spfw(sql_allocator *sa, stmt* l, stmt* edges)
+{
+	stmt *s = stmt_create(sa, st_spfw);
+	s->op1 = l;
+	s->op2 = edges;
+
+	// strong suspects these are the output cols of the operator
+	s->nrcols = 2;
+
 	return s;
 }
 

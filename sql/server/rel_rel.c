@@ -815,7 +815,7 @@ rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int int
 		return rel_projections(sql, rel->l, tname, settname, intern );
 	case op_spfw:
 		// TODO: +1 for the score
-		return rel_projections(sql, rel->l, tname, settname, intern);
+		return rel_projections(sql, rel->l, tname, settname, intern );
 	default:
 		return NULL;
 	}
