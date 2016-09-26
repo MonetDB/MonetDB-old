@@ -121,7 +121,10 @@ st_type2string(st_type type)
 		ST(return);
 		ST(assign);
 
-		ST(mkgraph);
+		ST(concat);
+		ST(exp2vrtx);
+		ST(mkpartition);
+		ST(prefixsum);
 		ST(spfw);
 	default:
 		return "unknown";	/* just needed for broken compilers ! */
@@ -286,6 +289,7 @@ stmt_deps(list *dep_list, stmt *s, int depend_type, int dir)
 				s->optimized = -1;
 			switch (s->type) {
 			case st_list:
+			case st_concat:
 				list_deps(dep_list, s->op4.lval, depend_type, dir);
 				break;
 				/* simple case of statements of only statements */
@@ -324,6 +328,9 @@ stmt_deps(list *dep_list, stmt *s, int depend_type, int dir)
 			case st_uselect:
 			case st_uselect2:
 
+			case st_exp2vrtx:
+			case st_mkpartition:
+			case st_prefixsum:
 			case st_spfw:
 				if (s->op1)
 					push(s->op1);
@@ -1605,17 +1612,19 @@ stmt_concat(sql_allocator *sa, list* l)
 {
 	stmt *s = stmt_create(sa, st_concat);
 	s->op4.lval = l;
-	s->nr = 1;
+	s->nrcols = 1;
 	return s;
 }
 
 stmt *
-stmt_mkgraph(sql_allocator *sa, stmt* from, stmt* to)
+stmt_exp2vrtx(sql_allocator *sa, stmt *from, stmt *to, stmt *domain)
 {
-	stmt *s = stmt_create(sa, st_mkgraph);
+	stmt *s = stmt_create(sa, st_exp2vrtx);
 	s->op1 = from;
 	s->op2 = to;
-  	s->nrcols = 3; // 4 with the weights
+	s->op3 = domain;
+	s->nrcols = from->nrcols + to->nrcols;
+	assert(s->nrcols == from->nrcols *2 && "from & to are supposed to have the same number of columns");
 	return s;
 }
 
@@ -1624,20 +1633,33 @@ stmt_mkpartition(sql_allocator *sa, stmt* st, int partno, int num_partitions)
 {
 	stmt *s = stmt_create(sa, st_mkpartition);
 	list *l = sa_list(sa);
+
 	s->op1 = st;
-	list_append(l, (void*) partno);
-	list_append(l, (void*) num_partitions);
-	s->op4 = l;
+
+	list_append(l, (void*) (intptr_t) partno);
+	list_append(l, (void*) (intptr_t) num_partitions);
+	s->op4.lval = l;
 	s->nrcols = 1;
 	return s;
 }
 
 stmt *
-stmt_spfw(sql_allocator *sa, stmt* l, stmt* edges)
+stmt_prefixsum(sql_allocator *sa, stmt* op)
+{
+	stmt *s = stmt_create(sa, st_prefixsum);
+	s->op1 = op;
+  	s->nrcols = 1;
+	return s;
+}
+
+
+stmt *
+stmt_spfw(sql_allocator *sa, stmt* qfrom, stmt *qto, stmt* graph)
 {
 	stmt *s = stmt_create(sa, st_spfw);
-	s->op1 = l;
-	s->op2 = edges;
+	s->op1 = qfrom;
+	s->op2 = qto;
+	s->op3 = graph;
 
 	// strong suspects these are the output cols of the operator
 	s->nrcols = 2;

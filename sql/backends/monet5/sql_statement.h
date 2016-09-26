@@ -96,10 +96,11 @@ typedef enum stmt_type {
 	st_return,
 	st_assign,
 
-	// these are new kids in the town
+	// there are new kids in the town
 	st_concat,
-	st_mkgraph,
+	st_exp2vrtx,
 	st_mkpartition,
+	st_prefixsum,
 	st_spfw,
 } st_type;
 
@@ -247,8 +248,11 @@ extern stmt *stmt_return(sql_allocator *sa, stmt *val, int nr_of_declared_tables
 extern stmt *stmt_assign(sql_allocator *sa, const char *varname, stmt *val, int level);
 
 extern stmt *stmt_concat(sql_allocator *sa, list *l);
-extern stmt *stmt_mkgraph(sql_allocator *sa, stmt *from, stmt *to); // + weights
-extern stmt *stmt_spfw(sql_allocator *sa, stmt* l, stmt* edges);
+extern stmt *stmt_exp2vrtx(sql_allocator *sa, stmt *from, stmt *to, stmt *domain);
+extern stmt *stmt_mkpartition(sql_allocator *sa, stmt* st, int partno, int num_partitions);
+extern stmt *stmt_prefixsum(sql_allocator *sa, stmt* op);
+extern stmt *stmt_spfw(sql_allocator *sa, stmt* qfrom, stmt *qto, stmt* graph);
+
 
 extern sql_subtype *tail_type(stmt *st);
 extern int stmt_has_null(stmt *s);

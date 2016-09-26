@@ -95,7 +95,6 @@ str getTraceRef;
 str generatorRef;
 str grabRef;
 str graphRef;
-str graph_makeRef;
 str groupRef;
 str subgroupRef;
 str subgroupdoneRef;
@@ -329,7 +328,6 @@ void optimizerInit(void)
 	generatorRef = putName("generator");
 	grabRef = putName("grab");
 	graphRef = putName("graph");
-	graph_makeRef = putName("gmake");
 	groupRef = putName("group");
 	subgroupRef = putName("subgroup");
 	subgroupdoneRef= putName("subgroupdone");

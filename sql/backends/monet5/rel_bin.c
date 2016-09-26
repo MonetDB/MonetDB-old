@@ -4554,34 +4554,36 @@ static stmt *
 rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
 {
 	stmt *edges = NULL, *spfw = NULL, *graph = NULL;
-	stmt *left = NULL, right = NULL;
+	stmt *left = NULL, *right = NULL;
 	stmt *c = NULL, *g = NULL, *groups = NULL, *smpl = NULL;
-	stmt *D = NULL;
-	stmt *p0 = NULL, *p1 = NULL;
+	stmt *D = NULL, *vrtx = NULL;
 	list *l = NULL;
+	stmt *filter = NULL;
+	stmt *result = NULL;
 	stmt *e_from = NULL, *e_to = NULL, *q_from = NULL, *q_to = NULL;
-	node *n = NULL;
+	stmt *mk_perm = NULL;
+	node *n = NULL; // generic var to iterate through a list
 
 	// materialize the input relations
-	left = subrel_bin(sql->sa, rel->l, refs);
+	left = subrel_bin(sql, rel->l, refs);
 	if(!left) return NULL;
 	(void) right;
-	edges = subrel_bin(sql->sa, rel->r, refs);
+	edges = subrel_bin(sql, rel->r, refs);
 	if(!edges) return NULL;
 
 	// refer to the columns
-	assert(rel->exps->cnt == 4 && "Expected four columns as input (ftb)"); // TODO weights missing
+	assert(rel->exps->cnt == 4 && "Expected four columns as input (ftb)"); // TODO weights are missing
 	n = rel->exps->h;
-	q_from = exp_bin(sql->sa, n->data, left, NULL, NULL, NULL, NULL, NULL);
+	q_from = exp_bin(sql, n->data, left, NULL, NULL, NULL, NULL, NULL);
 	n = n->next;
-	q_to = exp_bin(sql->sa, n->data, left, NULL, NULL, NULL, NULL, NULL);
+	q_to = exp_bin(sql, n->data, left, NULL, NULL, NULL, NULL, NULL);
 	n = n->next;
-	e_from = exp_bin(sql->sa, n->data, edges, NULL, NULL, NULL, NULL, NULL);
+	e_from = exp_bin(sql, n->data, edges, NULL, NULL, NULL, NULL, NULL);
 	n = n->next;
-	e_to = exp_bin(sql->sa, n->data, edges, NULL, NULL, NULL, NULL, NULL);
+	e_to = exp_bin(sql, n->data, edges, NULL, NULL, NULL, NULL, NULL);
 
 	// create the graph
-	// this is, like, super fun!
+	// this is, like, super fun....
 	l = sa_list(sql->sa);
 	list_append(l, e_from);
 	list_append(l, e_to);
@@ -4591,43 +4593,45 @@ rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
 	smpl = stmt_result(sql->sa, g, 1);
 	e_from = stmt_mkpartition(sql->sa, groups, 0, 2);
 	e_to = stmt_mkpartition(sql->sa, groups, 1, 2);
-	graph = stmt_mkgraph(sql->sa, e_from, e_to);
+	// mkgraph (naive approach)
+	e_from = stmt_order(sql->sa, e_from, /* direction = */ 0);
+	mk_perm = stmt_result(sql->sa, e_from, 1);
+	e_from = stmt_prefixsum(sql->sa, e_from);
+	// FIXME e_weights = stmt_project(sql->sa, mk_perm, e_weights) etc..
+	e_to = stmt_project(sql->sa, mk_perm, e_to);
+	l = sa_list(sql->sa);
+	list_append(l, e_from);
+	list_append(l, e_to);
+	// FIXME list_append(l, e_weights);
+	graph = stmt_list(sql->sa, l);
 
 	// map the values in qfrom, qto into vertex IDs
 	D = stmt_project(sql->sa, smpl, c); // domain
+	// TODO I was not able to figure out how to perform a join with a candidate list at this layer
+	// postpone the translation at the mal codegen ftb
+	vrtx = stmt_exp2vrtx(sql->sa, q_from, q_to, D);
+	q_from = stmt_result(sql->sa, vrtx, 0);
+	q_to = stmt_result(sql->sa, vrtx, 1);
 
-	// make the operator
-	spfw = stmt_spfw(sql->sa, left, graph);
+	// finally execute the shortest path operator
+	spfw = stmt_spfw(sql->sa, q_from, q_to, graph);
 
+	// apply the selection filter
+	filter = stmt_result(sql->sa, spfw, 0);
+	l = sa_list(sql->sa);
+	for(node *n = left->op4.lval->h; n; n = n->next){
+		stmt *col = n->data;
+		if(col->nrcols == 0)
+			col = stmt_const(sql->sa, filter, col);
+		else
+			col = stmt_project(sql->sa, filter, col);
+		list_append(l, col);
+	}
+	result = stmt_list(sql->sa, l);
 
+	print_tree(sql->sa, result); // FIXME debug only
 
-//	spfw->op4.lval = sa_list(sql->sa);
-//	for(node* n = rel->exps->h; n; n = n->next){
-//		list_append(spfw->op4.lval, exp_bin(sql, n->data, left, edges, NULL, NULL, NULL, NULL));
-//	}
-//
-//	// input columns (for debug reasons)
-//	do { // damn c
-//		int i = 0;
-//		for(node* n = left->op4.lval->h; n; n = n->next, i++){
-//			stmt* s = n->data;
-//			printf("[%d] %s %s, with f: %s %s, type: %d, tbl: %p\n", i, s->tname, s->cname, table_name(sql->sa, s), column_name(sql->sa, s), s->type, s->op4.tval);
-//		}
-//	} while(0);
-//
-//	// apply the filter
-//	r = stmt_result(sql->sa, spfw, 0);
-//	l = sa_list(sql->sa);
-//	for(node *n = left->op4.lval->h; n; n = n->next) {
-//		stmt *col = n->data;
-//
-//		if (col->nrcols == 0) /* constant */
-//			col = stmt_const(sql->sa, r, col);
-//		else
-//			col = stmt_project(sql->sa, r, col);
-//		list_append(l, col);
-//	}
-//	return stmt_list(sql->sa, l);
+	return result;
 }
 
 static stmt *

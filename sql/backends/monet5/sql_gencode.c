@@ -2771,36 +2771,199 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			if (q == NULL)
 				return -1;
 		} break;
-		case st_mkgraph: {
+		case st_concat: {
+			int ref_cpy = -1;
+			int ref_op = -1;
+			node *n = s->op4.lval->h;
 
+			// for the first value, copy the bat
+			ref_op = _dumpstmt(sql, mb, n->data);
+			if(ref_op < 0)
+				return -1;
+
+			q = newStmt(mb, batRef, copyRef);
+			q = pushArgument(mb, q, ref_op);
+			ref_cpy = getDestVar(q);
+
+			// for the remaining operands, append them to the copied bat
+			for (n = n->next; n; n = n->next){
+				ref_op = _dumpstmt(sql, mb, n->data);
+				if(ref_op < 0)
+					return -1;
+
+				q = newStmt(mb, batRef, appendRef);
+				q = pushArgument(mb, q, ref_cpy);
+				q = pushArgument(mb, q, ref_op);
+//				q = pushBit(mb, q, TRUE); // FIXME: should it be forced?
+				ref_cpy = getDestVar(q);
+			}
+			s->nr = ref_cpy;
+		} break;
+		case st_exp2vrtx: {
+			int ref_left = -1, ref_right = -1, ref_domain = 1;
+			InstrPtr cnt1 = NULL, cnt2 = NULL;
+			InstrPtr stmt_if = NULL, stmt_else = NULL, stmt_endif = NULL;
+			InstrPtr join = NULL, cmp = NULL, cmp_not = NULL;
+			int /*jl1 = -1,*/ jl2 = -1, /*jl3 = -1,*/ jr1 = -1, jr2 = -1, jr3 = -1;
+			InstrPtr qfrom_oid = NULL, qto_oid = NULL;
+
+			// process the operands
+			ref_left = _dumpstmt(sql, mb, s->op1);
+			if(ref_left < 0)
+				return -1;
+			ref_right = _dumpstmt(sql, mb, s->op2);
+			if(ref_right < 0)
+				return -1;
+			ref_domain = _dumpstmt(sql, mb, s->op3);
+			if(ref_domain < 0)
+				return -1;
+
+			cnt1 = newStmt(mb, aggrRef, countRef);
+			pushArgument(mb, cnt1, ref_left);
+
+			// let's start with the first join
+			jr1 = newTmpVariable(mb, TYPE_any);
+			join = newStmt(mb, algebraRef, "subsemijoin");
+			pushReturn(mb, join, jr1);
+			pushArgument(mb, join, ref_left);
+			pushArgument(mb, join, ref_domain);
+			pushNil(mb, join, TYPE_bat);
+			pushNil(mb, join, TYPE_bat);
+			pushBit(mb, join, FALSE);
+			pushLng(mb, q, getDestVar(cnt1));
+//			jl1 = getDestVar(join);
+
+			// second join
+			jr2 = newTmpVariable(mb, TYPE_any);
+			join = newStmt(mb, algebraRef, "subsemijoin");
+			pushReturn(mb, join, jr2);
+			pushArgument(mb, join, ref_right);
+			pushArgument(mb, join, ref_domain);
+			pushArgument(mb, join, jr1);
+			pushNil(mb, join, TYPE_bat);
+			pushBit(mb, join, FALSE);
+			pushLng(mb, q, getDestVar(cnt1));
+			jl2 = getDestVar(join);
+
+//			qtemp = newTmpVariable(mb, TYPE_bat); // qfrom
+			qto_oid = newAssignment(mb); // qto
+			pushArgument(mb, qto_oid, jr2);
+
+			cnt1 = newStmt(mb, aggrRef, countRef);
+			pushArgument(mb, cnt1, jr1);
+			cnt2 = newStmt(mb, aggrRef, countRef);
+			pushArgument(mb, cnt2, jr2);
+
+			// if |jr1| > |jr2|
+			cmp = newStmt(mb, "calc", "==");
+			pushArgument(mb, cmp, getDestVar(cnt1));
+			pushArgument(mb, cmp, getDestVar(cnt2));
+			stmt_if = newAssignment(mb);
+			stmt_if->barrier = BARRIERsymbol;
+			stmt_if = pushArgument(mb, stmt_if, getDestVar(cmp));
+
+			// third join
+			jr3 = newTmpVariable(mb, TYPE_any);
+			join = newStmt(mb, algebraRef, "subsemijoin");
+			pushReturn(mb, join, jr3);
+			pushArgument(mb, join, ref_left);
+			pushArgument(mb, join, ref_domain);
+			pushArgument(mb, join, jl2); // candidate list for ref_left
+			pushNil(mb, join, TYPE_bat);
+			pushBit(mb, join, FALSE);
+			pushArgument(mb, join, getDestVar(cnt2));
+//			jl3 = getDestVar(join);
+
+			qfrom_oid = newAssignment(mb);
+			pushArgument(mb, qfrom_oid, jr3);
+
+			stmt_endif = newAssignment(mb);
+			getArg(stmt_endif, 0) = getDestVar(cmp);
+			stmt_endif->argc = stmt_endif->retc = 1;
+			stmt_endif->barrier = EXITsymbol;
+
+			// else |jr1| == |jr2|
+			cmp_not = newStmt(mb, calcRef, notRef);
+			pushArgument(mb, cmp_not, getDestVar(cmp));
+			stmt_else = newAssignment(mb);
+			stmt_else->barrier = BARRIERsymbol;
+			stmt_else = pushArgument(mb, stmt_else, getDestVar(cmp_not));
+
+			qfrom_oid = newAssignment(mb);
+			pushArgument(mb, qfrom_oid, jr1);
+
+			stmt_endif = newAssignment(mb);
+			getArg(stmt_endif, 0) = getDestVar(cmp_not);
+			stmt_endif->argc = stmt_endif->retc = 1;
+			stmt_endif->barrier = EXITsymbol;
+
+			// abi convention for st_result
+			s->nr = getDestVar(qfrom_oid);
+			renameVariable(mb, getDestVar(qto_oid), "r1_%d", s->nr);
+		} break;
+		case st_mkpartition: {
+			int ref_stmt = -1;
+			node *n = s->op4.lval->h;
+			int partno = -1, num_partitions = -1;
+
+			ref_stmt = _dumpstmt(sql, mb, s->op1);
+			if(ref_stmt < 0)
+				return -1;
+
+			partno = (int) (intptr_t) n->data;
+			n = n->next;
+			num_partitions = (int) (intptr_t) n->data;
+
+			q = newStmt(mb, batRef, partitionRef);
+			q = pushArgument(mb, q, ref_stmt);
+			q = pushInt(mb, q, num_partitions);
+			q = pushInt(mb, q, partno);
+
+			s->nr = getDestVar(q);
+		} break;
+		case st_prefixsum: {
+			int ref_stmt = _dumpstmt(sql, mb, s->op1);
+			if(ref_stmt < 0)
+				return -1;
+			q = newStmt(mb, graphRef, "prefixsum");
+			q = pushArgument(mb, q, ref_stmt);
+			s->nr = getDestVar(q);
 		} break;
 		case st_spfw: {
-			stmt *qfrom = NULL, *qto = NULL, *efrom = NULL, *eto = NULL;
-			int left = -1, edges = -1;
+			int left = -1, right = -1, qfrom = -1, qto = -1;
 			node* n = NULL;
 
 			left = _dumpstmt(sql, mb, s->op1);
 			if(left < 0)
 				return -1;
 
-			edges = _dumpstmt(sql, mb, s->op2);
-			if(edges < 0)
+			right = _dumpstmt(sql, mb, s->op2);
+			if(right < 0)
 				return -1;
 
-			// retrieve the columns
-			n = s->op4.lval->h;
-			qfrom = n->data;
-			n = n->next;
-			qto = n->data;
-			n = n->next;
-			efrom = n->data;
-			n = n->next;
-			eto = n->data;
+			if(_dumpstmt(sql, mb, s->op3) < 0)
+				return -1;
 
-			(void) qfrom;
-			(void) qto;
-			(void) efrom;
-			(void) eto;
+			n = s->op3->op4.lval->h;
+			qfrom = ((stmt *) n->data)->nr;
+			n = n->next;
+			qto = ((stmt *) n->data)->nr;
+			// TODO weights
+
+			// spfw(V:bat[:oid], E:bat[:oid], W:bat[:lng], qf:bat[:oid], qt:bat[:oid])
+			q = newStmt(mb, graphRef, "spfw");
+			pushReturn(mb, q, newTmpVariable(mb, TYPE_bat));
+			pushReturn(mb, q, newTmpVariable(mb, TYPE_bat));
+			pushArgument(mb, q, qfrom);
+			pushArgument(mb, q, qto);
+			pushNil(mb, q, TYPE_bat);
+			pushArgument(mb, q, left);
+			pushArgument(mb, q, right);
+
+			// abi convention for st_result
+			s->nr = getDestVar(q); // qfrom
+			renameVariable(mb, getArg(q, 1), "r1_%d", s->nr); // qto
+			renameVariable(mb, getArg(q, 2), "r2_%d", s->nr); // weights
 		} break;
 		}
 		if (mb->errors)
