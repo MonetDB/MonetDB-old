@@ -1714,6 +1714,7 @@ static void
 stack_push_children(sql_stack *stk, stmt *s)
 {
 	switch (s->type) {
+	case st_concat:
 	case st_list:
 		stack_push_list(stk, s->op4.lval);
 		break;
@@ -1786,6 +1787,7 @@ print_stmt(sql_allocator *sa, stmt *s)
 	case st_atom:
 		printf("z%d := '%s':%s\n", s->nr, atom2string(sa, s->op4.aval), s->op4.aval->tpe.type->base.name);
 		break;
+	case st_concat:
 	case st_list:{
 		node *n;
 		printf("z%d := %s(", s->nr, st_type2string(s->type));

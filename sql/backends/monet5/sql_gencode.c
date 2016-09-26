@@ -2824,25 +2824,25 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			// let's start with the first join
 			jr1 = newTmpVariable(mb, TYPE_any);
 			join = newStmt(mb, algebraRef, "subsemijoin");
-			pushReturn(mb, join, jr1);
-			pushArgument(mb, join, ref_left);
-			pushArgument(mb, join, ref_domain);
-			pushNil(mb, join, TYPE_bat);
-			pushNil(mb, join, TYPE_bat);
-			pushBit(mb, join, FALSE);
-			pushLng(mb, q, getDestVar(cnt1));
+			join = pushReturn(mb, join, jr1);
+			join = pushArgument(mb, join, ref_left);
+			join = pushArgument(mb, join, ref_domain);
+			join = pushNil(mb, join, TYPE_bat);
+			join = pushNil(mb, join, TYPE_bat);
+			join = pushBit(mb, join, FALSE);
+			join = pushArgument(mb, join, getDestVar(cnt1));
 //			jl1 = getDestVar(join);
 
 			// second join
 			jr2 = newTmpVariable(mb, TYPE_any);
 			join = newStmt(mb, algebraRef, "subsemijoin");
-			pushReturn(mb, join, jr2);
-			pushArgument(mb, join, ref_right);
-			pushArgument(mb, join, ref_domain);
-			pushArgument(mb, join, jr1);
-			pushNil(mb, join, TYPE_bat);
-			pushBit(mb, join, FALSE);
-			pushLng(mb, q, getDestVar(cnt1));
+			join = pushReturn(mb, join, jr2);
+			join = pushArgument(mb, join, ref_right);
+			join = pushArgument(mb, join, ref_domain);
+			join = pushArgument(mb, join, jr1);
+			join = pushNil(mb, join, TYPE_bat);
+			join = pushBit(mb, join, FALSE);
+			join = pushArgument(mb, join, getDestVar(cnt1));
 			jl2 = getDestVar(join);
 
 //			qtemp = newTmpVariable(mb, TYPE_bat); // qfrom
@@ -2856,8 +2856,8 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 
 			// if |jr1| > |jr2|
 			cmp = newStmt(mb, "calc", "==");
-			pushArgument(mb, cmp, getDestVar(cnt1));
-			pushArgument(mb, cmp, getDestVar(cnt2));
+			cmp = pushArgument(mb, cmp, getDestVar(cnt1));
+			cmp = pushArgument(mb, cmp, getDestVar(cnt2));
 			stmt_if = newAssignment(mb);
 			stmt_if->barrier = BARRIERsymbol;
 			stmt_if = pushArgument(mb, stmt_if, getDestVar(cmp));
@@ -2865,13 +2865,13 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			// third join
 			jr3 = newTmpVariable(mb, TYPE_any);
 			join = newStmt(mb, algebraRef, "subsemijoin");
-			pushReturn(mb, join, jr3);
-			pushArgument(mb, join, ref_left);
-			pushArgument(mb, join, ref_domain);
-			pushArgument(mb, join, jl2); // candidate list for ref_left
-			pushNil(mb, join, TYPE_bat);
-			pushBit(mb, join, FALSE);
-			pushArgument(mb, join, getDestVar(cnt2));
+			join = pushReturn(mb, join, jr3);
+			join = pushArgument(mb, join, ref_left);
+			join = pushArgument(mb, join, ref_domain);
+			join = pushArgument(mb, join, jl2); // candidate list for ref_left
+			join = pushNil(mb, join, TYPE_bat);
+			join = pushBit(mb, join, FALSE);
+			join = pushArgument(mb, join, getDestVar(cnt2));
 //			jl3 = getDestVar(join);
 
 			qfrom_oid = newAssignment(mb);
@@ -2884,7 +2884,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 
 			// else |jr1| == |jr2|
 			cmp_not = newStmt(mb, calcRef, notRef);
-			pushArgument(mb, cmp_not, getDestVar(cmp));
+			cmp_not = pushArgument(mb, cmp_not, getDestVar(cmp));
 			stmt_else = newAssignment(mb);
 			stmt_else->barrier = BARRIERsymbol;
 			stmt_else = pushArgument(mb, stmt_else, getDestVar(cmp_not));
@@ -2952,13 +2952,13 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 
 			// spfw(V:bat[:oid], E:bat[:oid], W:bat[:lng], qf:bat[:oid], qt:bat[:oid])
 			q = newStmt(mb, graphRef, "spfw");
-			pushReturn(mb, q, newTmpVariable(mb, TYPE_bat));
-			pushReturn(mb, q, newTmpVariable(mb, TYPE_bat));
-			pushArgument(mb, q, qfrom);
-			pushArgument(mb, q, qto);
-			pushNil(mb, q, TYPE_bat);
-			pushArgument(mb, q, left);
-			pushArgument(mb, q, right);
+			q = pushReturn(mb, q, newTmpVariable(mb, TYPE_bat));
+			q = pushReturn(mb, q, newTmpVariable(mb, TYPE_bat));
+			q = pushArgument(mb, q, qfrom);
+			q = pushArgument(mb, q, qto);
+			q = pushNil(mb, q, TYPE_bat);
+			q = pushArgument(mb, q, left);
+			q = pushArgument(mb, q, right);
 
 			// abi convention for st_result
 			s->nr = getDestVar(q); // qfrom
