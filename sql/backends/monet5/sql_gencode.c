@@ -2781,7 +2781,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			if(ref_op < 0)
 				return -1;
 
-			q = newStmt(mb, batRef, copyRef);
+			q = newStmt(mb, algebraRef, copyRef);
 			q = pushArgument(mb, q, ref_op);
 			ref_cpy = getDestVar(q);
 
@@ -2806,6 +2806,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			InstrPtr join = NULL, cmp = NULL, cmp_not = NULL;
 			int /*jl1 = -1,*/ jl2 = -1, /*jl3 = -1,*/ jr1 = -1, jr2 = -1, jr3 = -1;
 			InstrPtr qfrom_oid = NULL, qto_oid = NULL;
+			int qtemp = -1;
 
 			// process the operands
 			ref_left = _dumpstmt(sql, mb, s->op1);
@@ -2845,7 +2846,10 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			join = pushArgument(mb, join, getDestVar(cnt1));
 			jl2 = getDestVar(join);
 
-//			qtemp = newTmpVariable(mb, TYPE_bat); // qfrom
+			qfrom_oid = newAssignment(mb);
+			qfrom_oid = pushNil(mb, qfrom_oid, TYPE_bat);
+			qtemp = getDestVar(qfrom_oid);
+
 			qto_oid = newAssignment(mb); // qto
 			pushArgument(mb, qto_oid, jr2);
 
@@ -2875,10 +2879,11 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 //			jl3 = getDestVar(join);
 
 			qfrom_oid = newAssignment(mb);
-			pushArgument(mb, qfrom_oid, jr3);
+			getArg(qfrom_oid, 0) = qtemp; // dest
+			qfrom_oid = pushArgument(mb, qfrom_oid, jr3);
 
 			stmt_endif = newAssignment(mb);
-			getArg(stmt_endif, 0) = getDestVar(cmp);
+			getArg(stmt_endif, 0) = getDestVar(stmt_if);
 			stmt_endif->argc = stmt_endif->retc = 1;
 			stmt_endif->barrier = EXITsymbol;
 
@@ -2890,15 +2895,16 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			stmt_else = pushArgument(mb, stmt_else, getDestVar(cmp_not));
 
 			qfrom_oid = newAssignment(mb);
+			getArg(qfrom_oid, 0) = qtemp; // dest
 			pushArgument(mb, qfrom_oid, jr1);
 
 			stmt_endif = newAssignment(mb);
-			getArg(stmt_endif, 0) = getDestVar(cmp_not);
+			getArg(stmt_endif, 0) = getDestVar(stmt_else);
 			stmt_endif->argc = stmt_endif->retc = 1;
 			stmt_endif->barrier = EXITsymbol;
 
 			// abi convention for st_result
-			s->nr = getDestVar(qfrom_oid);
+			s->nr = qtemp; // = qfrom_oid
 			renameVariable(mb, getDestVar(qto_oid), "r1_%d", s->nr);
 		} break;
 		case st_mkpartition: {
@@ -2929,41 +2935,103 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			q = pushArgument(mb, q, ref_stmt);
 			s->nr = getDestVar(q);
 		} break;
-		case st_spfw: {
-			int left = -1, right = -1, qfrom = -1, qto = -1;
-			node* n = NULL;
+		case st_slices: {
+			int ref_stmt = -1;
+			int num_slices = s->flag;
+			InstrPtr hseqbase_oid = NULL;
+			InstrPtr hseqbase_lng = NULL;
+			InstrPtr count = NULL;
+			InstrPtr interval = NULL;
+			InstrPtr step = NULL;
 
-			left = _dumpstmt(sql, mb, s->op1);
-			if(left < 0)
+			if(num_slices < 1)
 				return -1;
 
-			right = _dumpstmt(sql, mb, s->op2);
-			if(right < 0)
+			ref_stmt = _dumpstmt(sql, mb, s->op1);
+			if(ref_stmt < 0)
+				return -1;
+
+			hseqbase_oid = newStmt(mb, "bat", "getSequenceBase");
+			hseqbase_oid = pushArgument(mb, hseqbase_oid, ref_stmt);
+
+			hseqbase_lng = newStmt(mb, "calc", "lng");
+			hseqbase_lng = pushArgument(mb, hseqbase_lng, getDestVar(hseqbase_oid));
+
+			count = newStmt(mb, "aggr", "count");
+			count = pushArgument(mb, count, ref_stmt);
+
+			interval = newStmt(mb, "calc", "-");
+			interval = pushArgument(mb, interval, getDestVar(count));
+			interval = pushArgument(mb, interval, getDestVar(hseqbase_lng));
+
+			// assume that interval % num_slices == 0
+			step = newStmt(mb, "calc", "/");
+			step = pushArgument(mb, step, getDestVar(interval));
+			step = pushLng(mb, step, (lng) num_slices);
+
+			for(int i = 0; i < num_slices; i++){
+				InstrPtr start = NULL, end_plus_1 = NULL, end = NULL,
+						slice_indexed = NULL, slice_final = NULL;
+
+				start = newStmt(mb, "calc", "*");
+				start = pushArgument(mb, start, getDestVar(step));
+				start = pushLng(mb, start, i);
+
+				end_plus_1 = newStmt(mb, "calc", "+");
+				end_plus_1 = pushArgument(mb, end_plus_1, getDestVar(start));
+				end_plus_1 = pushArgument(mb, end_plus_1, getDestVar(step));
+
+				end = newStmt(mb, "calc", "-");
+				end = pushArgument(mb, end, getDestVar(end_plus_1));
+				end = pushLng(mb, end, 1);
+
+				slice_indexed = newStmt(mb, "algebra", "slice");
+				slice_indexed = pushArgument(mb, slice_indexed, ref_stmt);
+				slice_indexed = pushArgument(mb, slice_indexed, getDestVar(start));
+				slice_indexed = pushArgument(mb, slice_indexed, getDestVar(end));
+
+				// reset hseqbase = 0
+				slice_final = newStmt(mb, "bat", "resetSequenceBase");
+				slice_final = pushArgument(mb, slice_final, getDestVar(slice_indexed));
+
+				// abi convention
+				if(i==0){
+					s->nr = getDestVar(slice_final);
+				} else {
+					snprintf(mb->var[getDestVar(slice_final)]->id, IDLENGTH, "r%d_%d", i, s->nr);
+				}
+			}
+		} break;
+		case st_spfw: {
+			int efrom = -1, eto = -1, qfrom = -1, qto = -1;
+			node* n = NULL;
+
+			qfrom = _dumpstmt(sql, mb, s->op1);
+			if(qfrom < 0)
+				return -1;
+
+			qto = _dumpstmt(sql, mb, s->op2);
+			if(qto < 0)
 				return -1;
 
 			if(_dumpstmt(sql, mb, s->op3) < 0)
 				return -1;
 
 			n = s->op3->op4.lval->h;
-			qfrom = ((stmt *) n->data)->nr;
+			efrom = ((stmt *) n->data)->nr;
 			n = n->next;
-			qto = ((stmt *) n->data)->nr;
+			eto = ((stmt *) n->data)->nr;
 			// TODO weights
 
-			// spfw(V:bat[:oid], E:bat[:oid], W:bat[:lng], qf:bat[:oid], qt:bat[:oid])
+			// command spfw(qf:bat[:oid], qt:bat[:oid], V:bat[:oid], E:bat[:oid]) --> :bat[:oid]
 			q = newStmt(mb, graphRef, "spfw");
-			q = pushReturn(mb, q, newTmpVariable(mb, TYPE_bat));
-			q = pushReturn(mb, q, newTmpVariable(mb, TYPE_bat));
 			q = pushArgument(mb, q, qfrom);
 			q = pushArgument(mb, q, qto);
-			q = pushNil(mb, q, TYPE_bat);
-			q = pushArgument(mb, q, left);
-			q = pushArgument(mb, q, right);
+			q = pushArgument(mb, q, efrom);
+			q = pushArgument(mb, q, eto);
 
-			// abi convention for st_result
-			s->nr = getDestVar(q); // qfrom
-			renameVariable(mb, getArg(q, 1), "r1_%d", s->nr); // qto
-			renameVariable(mb, getArg(q, 2), "r2_%d", s->nr); // weights
+			// abi convention
+			s->nr = getDestVar(q); // filter
 		} break;
 		}
 		if (mb->errors)
@@ -3021,6 +3089,10 @@ backend_dumpstmt(backend *be, MalBlkPtr mb, stmt *s, int top, int add_end)
 	}
 	if (add_end)
 		pushEndInstruction(mb);
+
+	// dump the plan
+	printf("MAL plan: %s\n", mal2str(mb, 0, mb->stop));
+
 	return 0;
 }
 

@@ -115,6 +115,10 @@ command getSequenceBase( b:bat[:any_1]):oid
 address BKCgetSequenceBase
 comment "Get the sequence base for the void column of a BAT.";
 
+command resetSequenceBase( b:bat[:any_1]) :bat[:any_1]
+address BKCresetSequenceBase
+comment "Reset the base index for the input BAT to position zero.";
+
 command isSorted(b:bat[:any_1]) :bit 
 address BKCisSorted
 comment "Returns true if BAT values are ordered.";

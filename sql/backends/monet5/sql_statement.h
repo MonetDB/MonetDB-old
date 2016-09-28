@@ -101,6 +101,7 @@ typedef enum stmt_type {
 	st_exp2vrtx,
 	st_mkpartition,
 	st_prefixsum,
+	st_slices,
 	st_spfw,
 } st_type;
 
@@ -251,6 +252,7 @@ extern stmt *stmt_concat(sql_allocator *sa, list *l);
 extern stmt *stmt_exp2vrtx(sql_allocator *sa, stmt *from, stmt *to, stmt *domain);
 extern stmt *stmt_mkpartition(sql_allocator *sa, stmt* st, int partno, int num_partitions);
 extern stmt *stmt_prefixsum(sql_allocator *sa, stmt* op);
+extern stmt *stmt_slices(sql_allocator *sa, stmt* op, int num);
 extern stmt *stmt_spfw(sql_allocator *sa, stmt* qfrom, stmt *qto, stmt* graph);
 
 

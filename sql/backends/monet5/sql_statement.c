@@ -125,6 +125,7 @@ st_type2string(st_type type)
 		ST(exp2vrtx);
 		ST(mkpartition);
 		ST(prefixsum);
+		ST(slices);
 		ST(spfw);
 	default:
 		return "unknown";	/* just needed for broken compilers ! */
@@ -331,6 +332,7 @@ stmt_deps(list *dep_list, stmt *s, int depend_type, int dir)
 			case st_exp2vrtx:
 			case st_mkpartition:
 			case st_prefixsum:
+			case st_slices:
 			case st_spfw:
 				if (s->op1)
 					push(s->op1);
@@ -1643,6 +1645,17 @@ stmt_mkpartition(sql_allocator *sa, stmt* st, int partno, int num_partitions)
 	return s;
 }
 
+
+stmt *
+stmt_slices(sql_allocator *sa, stmt* op, int num_partitions){
+	stmt *s = stmt_create(sa, st_slices);
+	s->op1 = op;
+	s->flag = num_partitions;
+	s->nrcols = num_partitions;
+
+	return s;
+}
+
 stmt *
 stmt_prefixsum(sql_allocator *sa, stmt* op)
 {
@@ -1834,6 +1847,9 @@ print_stmt(sql_allocator *sa, stmt *s)
 			break;
 		case st_aggr:
 			printf("%s, ", s->op4.aggrval->aggr->base.name);
+			break;
+		case st_slices:
+			printf("%d, ", s->flag);
 			break;
 		default:
 			break;

@@ -1031,6 +1031,22 @@ BKCgetSequenceBase(oid *r, const bat *bid)
 	return MAL_SUCCEED;
 }
 
+str
+BKCresetSequenceBase(bat *ret, const bat *bid)
+{
+	BAT* b;
+
+	if ((b = BATdescriptor(*bid)) == NULL) {
+		throw(MAL, "bat.resetSequenceBase", RUNTIME_OBJECT_MISSING);
+	}
+
+	b->hseqbase = 0;
+	*ret = b->batCacheid;
+	BBPkeepref(b->batCacheid);
+
+	return MAL_SUCCEED;
+}
+
 /*
  * Shrinking a void-headed BAT using a list of oids to ignore.
  */

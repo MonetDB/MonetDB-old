@@ -52,6 +52,7 @@ mal_export str BKCsave2(void *r, const bat *bid);
 mal_export str BKCsetHash(bit *ret, const bat *bid);
 mal_export str BKCsetImprints(bit *ret, const bat *bid);
 mal_export str BKCgetSequenceBase(oid *r, const bat *bid);
+mal_export str BKCresetSequenceBase(bat *ret, const bat *bid);
 mal_export str BKCshrinkBAT(bat *ret, const bat *bid, const bat *did);
 mal_export str BKCreuseBAT(bat *ret, const bat *bid, const bat *did);
 mal_export str BKCshrinkBATmap(bat *ret, const bat *bid, const bat *did);

@@ -2959,7 +2959,8 @@ insert_check_ukey(mvc *sql, list *inserts, sql_key *k, stmt *idx_inserts)
 				stmt *cs = list_fetch(inserts, c->c->colnr); 
 
 				if (orderby_grp)
-					orderby = stmt_reorder(sql->sa, cs->op1, 1, orderby_ids, orderby_grp);
+					orderby = stmt_reorder(sql->sa, 	// strong suspects these are the output cols of the operator
+cs->op1, 1, orderby_ids, orderby_grp);
 				else
 					orderby = stmt_order(sql->sa, cs->op1, 1);
 				orderby_ids = stmt_result(sql->sa, orderby, 1);
@@ -4558,10 +4559,10 @@ rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
 	stmt *c = NULL, *g = NULL, *groups = NULL, *smpl = NULL;
 	stmt *D = NULL, *vrtx = NULL;
 	list *l = NULL;
-	stmt *filter = NULL;
-	stmt *result = NULL;
+	stmt *split = NULL;
 	stmt *e_from = NULL, *e_to = NULL, *q_from = NULL, *q_to = NULL;
 	stmt *mk_perm = NULL;
+	stmt *result = NULL;
 	node *n = NULL; // generic var to iterate through a list
 
 	// materialize the input relations
@@ -4591,8 +4592,9 @@ rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
 	g = stmt_group(sql->sa, c, NULL, NULL, NULL);
 	groups = stmt_result(sql->sa, g, 0);
 	smpl = stmt_result(sql->sa, g, 1);
-	e_from = stmt_mkpartition(sql->sa, groups, 0, 2);
-	e_to = stmt_mkpartition(sql->sa, groups, 1, 2);
+	split = stmt_slices(sql->sa, groups, 2);
+	e_from = stmt_result(sql->sa, split, 0);
+	e_to = stmt_result(sql->sa, split, 1);
 	// mkgraph (naive approach)
 	e_from = stmt_order(sql->sa, e_from, /* direction = */ 0);
 	mk_perm = stmt_result(sql->sa, e_from, 1);
@@ -4613,19 +4615,19 @@ rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
 	q_from = stmt_result(sql->sa, vrtx, 0);
 	q_to = stmt_result(sql->sa, vrtx, 1);
 
-	// finally execute the shortest path operator
+	// execute the shortest path operator
 	spfw = stmt_spfw(sql->sa, q_from, q_to, graph);
 
-	// apply the selection filter
-	filter = stmt_result(sql->sa, spfw, 0);
+	// almost done, create the new resultset
 	l = sa_list(sql->sa);
-	for(node *n = left->op4.lval->h; n; n = n->next){
-		stmt *col = n->data;
-		if(col->nrcols == 0)
-			col = stmt_const(sql->sa, filter, col);
-		else
-			col = stmt_project(sql->sa, filter, col);
-		list_append(l, col);
+	for( n = left->op4.lval->h; n; n = n->next ) {
+		stmt *c = n->data;
+		const char *rnme = table_name(sql->sa, c);
+		const char *nme = column_name(sql->sa, c);
+		stmt *s = stmt_project(sql->sa, spfw, column(sql->sa, c));
+
+		s = stmt_alias(sql->sa, s, rnme, nme);
+		list_append(l, s);
 	}
 	result = stmt_list(sql->sa, l);
 
