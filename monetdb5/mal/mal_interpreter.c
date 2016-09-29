@@ -475,8 +475,11 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 	if (stk == NULL)
 		throw(MAL, "mal.interpreter", MAL_STACK_FAIL);
 
-
-	printf("[DEBUG] [Interpreter] MAL Plan: %s\n", mal2str(mb, 0, mb->stop));
+	do { // DEBUG ONLY
+		char * value = getenv("MALPLAN");
+		if(value != NULL && strcmp(value, "1") == 0)
+			printf("[DEBUG] [Interpreter] MAL Plan: %s\n", mal2str(mb, 0, mb->stop));
+	} while(0);
 
 	/* prepare extended backup and garbage structures */
 	if (startpc+1 == stoppc) {

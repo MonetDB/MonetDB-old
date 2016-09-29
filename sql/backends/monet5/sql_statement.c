@@ -1625,8 +1625,7 @@ stmt_exp2vrtx(sql_allocator *sa, stmt *from, stmt *to, stmt *domain)
 	s->op1 = from;
 	s->op2 = to;
 	s->op3 = domain;
-	s->nrcols = from->nrcols + to->nrcols;
-	assert(s->nrcols == from->nrcols *2 && "from & to are supposed to have the same number of columns");
+	s->nrcols = 3;
 	return s;
 }
 
@@ -1667,15 +1666,14 @@ stmt_prefixsum(sql_allocator *sa, stmt* op)
 
 
 stmt *
-stmt_spfw(sql_allocator *sa, stmt* qfrom, stmt *qto, stmt* graph)
+stmt_spfw(sql_allocator *sa, stmt* query, stmt* graph)
 {
 	stmt *s = stmt_create(sa, st_spfw);
-	s->op1 = qfrom;
-	s->op2 = qto;
-	s->op3 = graph;
+	s->op1 = query;
+	s->op2 = graph;
 
 	// strong suspects these are the output cols of the operator
-	s->nrcols = 2;
+	s->nrcols = 1;
 
 	return s;
 }

@@ -2800,11 +2800,12 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			s->nr = ref_cpy;
 		} break;
 		case st_exp2vrtx: {
+			// this stmt became a mess
 			int ref_left = -1, ref_right = -1, ref_domain = 1;
 			InstrPtr cnt1 = NULL, cnt2 = NULL;
 			InstrPtr stmt_if = NULL, stmt_else = NULL, stmt_endif = NULL;
 			InstrPtr join = NULL, cmp = NULL, cmp_not = NULL;
-			int /*jl1 = -1,*/ jl2 = -1, /*jl3 = -1,*/ jr1 = -1, jr2 = -1, jr3 = -1;
+			int jl1 = -1, jl2 = -1, /*jl3 = -1,*/ jr1 = -1, jr2 = -1, jr3 = -1;
 			InstrPtr qfrom_oid = NULL, qto_oid = NULL;
 			int qtemp = -1;
 
@@ -2832,7 +2833,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			join = pushNil(mb, join, TYPE_bat);
 			join = pushBit(mb, join, FALSE);
 			join = pushArgument(mb, join, getDestVar(cnt1));
-//			jl1 = getDestVar(join);
+			jl1 = getDestVar(join);
 
 			// second join
 			jr2 = newTmpVariable(mb, TYPE_any);
@@ -2840,7 +2841,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			join = pushReturn(mb, join, jr2);
 			join = pushArgument(mb, join, ref_right);
 			join = pushArgument(mb, join, ref_domain);
-			join = pushArgument(mb, join, jr1);
+			join = pushArgument(mb, join, jl1);
 			join = pushNil(mb, join, TYPE_bat);
 			join = pushBit(mb, join, FALSE);
 			join = pushArgument(mb, join, getDestVar(cnt1));
@@ -2876,7 +2877,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			join = pushNil(mb, join, TYPE_bat);
 			join = pushBit(mb, join, FALSE);
 			join = pushArgument(mb, join, getDestVar(cnt2));
-//			jl3 = getDestVar(join);
+//			jl3 = getDestVar(join); // jl3 is the same of jl2
 
 			qfrom_oid = newAssignment(mb);
 			getArg(qfrom_oid, 0) = qtemp; // dest
@@ -2904,8 +2905,9 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			stmt_endif->barrier = EXITsymbol;
 
 			// abi convention for st_result
-			s->nr = qtemp; // = qfrom_oid
-			renameVariable(mb, getDestVar(qto_oid), "r1_%d", s->nr);
+			s->nr = jl2;
+			renameVariable(mb, getDestVar(qfrom_oid), "r1_%d", s->nr);
+			renameVariable(mb, getDestVar(qto_oid), "r2_%d", s->nr);
 		} break;
 		case st_mkpartition: {
 			int ref_stmt = -1;
@@ -3003,35 +3005,40 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			}
 		} break;
 		case st_spfw: {
-			int efrom = -1, eto = -1, qfrom = -1, qto = -1;
+			const /*size_t*/ int query_sz = 3; // num operands for the query
+			const /*size_t*/ int graph_sz = 2; // num operands for the graph
 			node* n = NULL;
 
-			qfrom = _dumpstmt(sql, mb, s->op1);
-			if(qfrom < 0)
+			// generate the query
+			if(_dumpstmt(sql, mb, s->op1) < 0)
 				return -1;
 
-			qto = _dumpstmt(sql, mb, s->op2);
-			if(qto < 0)
+			// generate the graph
+			if(_dumpstmt(sql, mb, s->op2) < 0)
 				return -1;
-
-			if(_dumpstmt(sql, mb, s->op3) < 0)
-				return -1;
-
-			n = s->op3->op4.lval->h;
-			efrom = ((stmt *) n->data)->nr;
-			n = n->next;
-			eto = ((stmt *) n->data)->nr;
-			// TODO weights
 
 			// command spfw(qf:bat[:oid], qt:bat[:oid], V:bat[:oid], E:bat[:oid]) --> :bat[:oid]
 			q = newStmt(mb, graphRef, "spfw");
-			q = pushArgument(mb, q, qfrom);
-			q = pushArgument(mb, q, qto);
-			q = pushArgument(mb, q, efrom);
-			q = pushArgument(mb, q, eto);
+
+			// set the query params
+			assert(s->op1->type == st_list && s->op1->op4.lval->cnt == query_sz);
+			n = s->op1->op4.lval->h;
+			for(int i = 0; i < query_sz; i++){
+				q = pushArgument(mb, q, ((stmt*) n->data)->nr);
+				n = n->next;
+			}
+
+			// set the graph params
+			assert(s->op2->type == st_list && s->op2->op4.lval->cnt == graph_sz);
+			n = s->op2->op4.lval->h;
+			for(int i = 0; i < graph_sz; i++){
+				q = pushArgument(mb, q, ((stmt*) n->data)->nr);
+				n = n->next;
+			}
 
 			// abi convention
 			s->nr = getDestVar(q); // filter
+			#undef sz
 		} break;
 		}
 		if (mb->errors)

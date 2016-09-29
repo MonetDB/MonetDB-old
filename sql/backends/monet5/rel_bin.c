@@ -4554,13 +4554,14 @@ rel2bin_ddl(mvc *sql, sql_rel *rel, list *refs)
 static stmt *
 rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
 {
-	stmt *edges = NULL, *spfw = NULL, *graph = NULL;
+	stmt *edges = NULL, *spfw = NULL, *graph = NULL, *query = NULL;
 	stmt *left = NULL, *right = NULL;
 	stmt *c = NULL, *g = NULL, *groups = NULL, *smpl = NULL;
 	stmt *D = NULL, *vrtx = NULL;
 	list *l = NULL;
 	stmt *split = NULL;
-	stmt *e_from = NULL, *e_to = NULL, *q_from = NULL, *q_to = NULL;
+	stmt *e_from = NULL, *e_to = NULL;
+	stmt *q_from = NULL, *q_to = NULL;
 	stmt *mk_perm = NULL;
 	stmt *result = NULL;
 	node *n = NULL; // generic var to iterate through a list
@@ -4596,7 +4597,7 @@ rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
 	e_from = stmt_result(sql->sa, split, 0);
 	e_to = stmt_result(sql->sa, split, 1);
 	// mkgraph (naive approach)
-	e_from = stmt_order(sql->sa, e_from, /* direction = */ 0);
+	e_from = stmt_order(sql->sa, e_from, /* direction (0 = DESC, 1 = ASC) = */ 1);
 	mk_perm = stmt_result(sql->sa, e_from, 1);
 	e_from = stmt_prefixsum(sql->sa, e_from);
 	// FIXME e_weights = stmt_project(sql->sa, mk_perm, e_weights) etc..
@@ -4612,11 +4613,13 @@ rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
 	// TODO I was not able to figure out how to perform a join with a candidate list at this layer
 	// postpone the translation at the mal codegen ftb
 	vrtx = stmt_exp2vrtx(sql->sa, q_from, q_to, D);
-	q_from = stmt_result(sql->sa, vrtx, 0);
-	q_to = stmt_result(sql->sa, vrtx, 1);
+	l = sa_list(sql->sa);
+	for(int i = 0; i < 3; i++)
+		list_append(l, stmt_result(sql->sa, vrtx, i));
+	query = stmt_list(sql->sa, l);
 
 	// execute the shortest path operator
-	spfw = stmt_spfw(sql->sa, q_from, q_to, graph);
+	spfw = stmt_spfw(sql->sa, query, graph);
 
 	// almost done, create the new resultset
 	l = sa_list(sql->sa);
