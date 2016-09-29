@@ -1656,10 +1656,11 @@ stmt_slices(sql_allocator *sa, stmt* op, int num_partitions){
 }
 
 stmt *
-stmt_prefixsum(sql_allocator *sa, stmt* op)
+stmt_prefixsum(sql_allocator *sa, stmt* op, stmt* domain_cardinality)
 {
 	stmt *s = stmt_create(sa, st_prefixsum);
 	s->op1 = op;
+	s->op2 = domain_cardinality;
   	s->nrcols = 1;
 	return s;
 }

@@ -2930,11 +2930,18 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			s->nr = getDestVar(q);
 		} break;
 		case st_prefixsum: {
-			int ref_stmt = _dumpstmt(sql, mb, s->op1);
+			int ref_stmt = -1, ref_cardinality = -1; ;
+
+			ref_stmt = _dumpstmt(sql, mb, s->op1);
 			if(ref_stmt < 0)
 				return -1;
+			ref_cardinality = _dumpstmt(sql, mb, s->op2);
+			if(ref_cardinality < 0)
+				return -1;
+
 			q = newStmt(mb, graphRef, "prefixsum");
 			q = pushArgument(mb, q, ref_stmt);
+			q = pushArgument(mb, q, ref_cardinality);
 			s->nr = getDestVar(q);
 		} break;
 		case st_slices: {

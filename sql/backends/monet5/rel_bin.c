@@ -4557,7 +4557,8 @@ rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
 	stmt *edges = NULL, *spfw = NULL, *graph = NULL, *query = NULL;
 	stmt *left = NULL, *right = NULL;
 	stmt *c = NULL, *g = NULL, *groups = NULL, *smpl = NULL;
-	stmt *D = NULL, *vrtx = NULL;
+	sql_subaggr *aggr_count = NULL;
+	stmt *D = NULL, *D_sz = NULL, *vrtx = NULL;
 	list *l = NULL;
 	stmt *split = NULL;
 	stmt *e_from = NULL, *e_to = NULL;
@@ -4599,7 +4600,9 @@ rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
 	// mkgraph (naive approach)
 	e_from = stmt_order(sql->sa, e_from, /* direction (0 = DESC, 1 = ASC) = */ 1);
 	mk_perm = stmt_result(sql->sa, e_from, 1);
-	e_from = stmt_prefixsum(sql->sa, e_from);
+	aggr_count = sql_bind_aggr(sql->sa, sql->session->schema, "count", NULL);
+	D_sz = stmt_aggr(sql->sa, smpl, NULL, NULL, aggr_count, 1, 0);
+	e_from = stmt_prefixsum(sql->sa, e_from, D_sz);
 	// FIXME e_weights = stmt_project(sql->sa, mk_perm, e_weights) etc..
 	e_to = stmt_project(sql->sa, mk_perm, e_to);
 	l = sa_list(sql->sa);
