@@ -63,7 +63,7 @@ str K3Mbuild(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	bit newtree = !k3m_tree;
 	k3m_tree_tpe *k3m_tree_alloc = NULL;
 	(void) cntxt;
-	MT_lock_set(&k3m_lock, "K3Mbuild");
+	MT_lock_set(&k3m_lock);
 
 	if (!isaBatType(getArgType(mb,pci,0)) || !isaBatType(getArgType(mb,pci,1)) ||
 			!isaBatType(getArgType(mb,pci,2)) || !isaBatType(getArgType(mb,pci,3))) {
@@ -158,7 +158,7 @@ str K3Mbuild(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 			k3m_tree->tree = k3m_insert_node(k3m_tree->tree, &k3m_tree_alloc->tree[i]);
 		}
 	}
-	MT_lock_unset(&k3m_lock, "K3Mbuild");
+	MT_lock_unset(&k3m_lock);
 	ret = BATnew(TYPE_void, TYPE_bit, 0, TRANSIENT);
 	BUNappend(ret, &b, 0);
 	*getArgReference_bat(stk, pci, 0) = ret->batCacheid;
@@ -179,7 +179,7 @@ str K3Mfree(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	(void) stk;
 	(void) pci;
 
-	MT_lock_set(&k3m_lock, "K3Mfree");
+	MT_lock_set(&k3m_lock);
 
 	for (i = 0; i < k3m_allocs_pos; i++) {
 		GDKfree(k3m_allocs[i]->tree);
@@ -192,7 +192,7 @@ str K3Mfree(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	k3m_allocs_size = K3M_ALLOCS_DEFAULT_SIZE;
 	k3m_tree = NULL;
 
-	MT_lock_unset(&k3m_lock, "K3Mfree");
+	MT_lock_unset(&k3m_lock);
 
 	ret = BATnew(TYPE_void, TYPE_bit, 0, TRANSIENT);
 	BUNappend(ret, &b, 0);
