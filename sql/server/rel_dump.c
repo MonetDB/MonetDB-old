@@ -343,13 +343,13 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 				mnstr_printf(fout, "%s(%s.%s)", 
 					isStream(t)?"stream":
 					isRemote(t)&&decorate?"REMOTE":
-					isReplicaTable(t)?"REPLICA":"table",
+					isReplicaTable(t)?"REPLICA":"basetable",
 					sname, tname);
 			else
 		  		mnstr_printf(fout, "%s(%s)", 
 					isStream(t)?"stream":
 					isRemote(t)&&decorate?"REMOTE":
-					isReplicaTable(t)?"REPLICA":"table",
+					isReplicaTable(t)?"REPLICA":"basetable",
 					tname);
 		}	
 		if (rel->exps) 
@@ -386,7 +386,6 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 	case op_union: 
 	case op_inter: 
 	case op_except: 
-	case op_spfw:
 		r = "join";
 		if (rel->op == op_left)
 			r = "left outer join";
@@ -417,8 +416,6 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 			r = "except";
 		else if (!rel->exps && rel->op == op_join)
 			r = "crossproduct";
-		else if(rel->op == op_spfw)
-			r = "spfw";
 		print_indent(sql, fout, depth, decorate);
 		if (need_distinct(rel))
 			mnstr_printf(fout, "distinct ");
@@ -506,6 +503,29 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 		if (rel->exps)
 			exps_print(sql, fout, rel->exps, depth, 1, 0);
 	} 	break;
+	case op_spfw: {
+		print_indent(sql, fout, depth, decorate);
+		mnstr_printf(fout, "spfw (");
+#define spfw_print_rel( REL ) \
+		if (rel_is_ref( REL )) { \
+			int nr = find_ref(refs, REL ); \
+			print_indent(sql, fout, depth+1, decorate); \
+			mnstr_printf(fout, "& REF %d ", nr); \
+		} else { \
+			rel_print_(sql, fout, REL, depth+1, refs, decorate); \
+		} /* macro spfw_print_rel */
+
+		spfw_print_rel(rel->l);
+		mnstr_printf(fout, ",");
+		spfw_print_rel(rel->r);
+		mnstr_printf(fout, ",");
+		spfw_print_rel( rel_edges(rel) );
+#undef spfw_print_rel
+
+		print_indent(sql, fout, depth, decorate);
+		mnstr_printf(fout, ")");
+		exps_print(sql, fout, rel->exps, depth, 1, 0);
+	} break;
 	default:
 		assert(0);
 	}

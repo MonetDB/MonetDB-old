@@ -241,7 +241,6 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 	case op_union: 
 	case op_inter: 
 	case op_except: 
-	case op_spfw:
 		rel_properties(sql, gp, rel->l);
 		rel_properties(sql, gp, rel->r);
 		break;
@@ -259,6 +258,11 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 	case op_delete:
 		if (rel->r) 
 			rel_properties(sql, gp, rel->r);
+		break;
+	case op_spfw:
+		rel_properties(sql, gp, rel->l);
+		rel_properties(sql, gp, rel->r);
+		rel_properties(sql, gp, rel_edges(rel));
 		break;
 	}
 
@@ -1053,7 +1057,6 @@ rel_join_order(mvc *sql, sql_rel *rel)
 	case op_union: 
 	case op_inter: 
 	case op_except:
-	case op_spfw:
 		rel->l = rel_join_order(sql, rel->l);
 		rel->r = rel_join_order(sql, rel->r);
 		break;
@@ -1074,6 +1077,11 @@ rel_join_order(mvc *sql, sql_rel *rel)
 	case op_delete:
 		rel->l = rel_join_order(sql, rel->l);
 		rel->r = rel_join_order(sql, rel->r);
+		break;
+	case op_spfw:
+		rel->l = rel_join_order(sql, rel->l);
+		rel->r = rel_join_order(sql, rel->r);
+		rel_edges(rel) = rel_join_order(sql, rel_edges(rel));
 		break;
 	}
 	if (is_join(rel->op) && rel->exps && !rel_is_ref(rel)) {
@@ -5526,13 +5534,12 @@ exps_used(list *l)
 static void
 rel_used(sql_rel *rel)
 {
-	if (is_join(rel->op) || is_set(rel->op) || is_semi(rel->op)) {
+	if (is_join(rel->op) || is_set(rel->op) || is_semi(rel->op) || is_spfw(rel->op)) {
 		if (rel->l) 
 			rel_used(rel->l);
 		if (rel->r) 
 			rel_used(rel->r);
-	} else if (is_topn(rel->op) || is_select(rel->op) || is_sample(rel->op) || is_spfw(rel->op)) {
-		// TODO: I didn't understand this part, why does it set rel = rel->l
+	} else if (is_topn(rel->op) || is_select(rel->op) || is_sample(rel->op)) {
 		rel_used(rel->l);
 		rel = rel->l;
 	} else if (rel->op == op_table && rel->r) {
@@ -5640,11 +5647,19 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 	case op_full: 
 	case op_semi: 
 	case op_anti:
-	case op_spfw: // TODO: to be checked
 		exps_mark_used(sql->sa, rel, rel->l);
 		exps_mark_used(sql->sa, rel, rel->r);
 		rel_mark_used(sql, rel->l, 0);
 		rel_mark_used(sql, rel->r, 0);
+		break;
+
+	case op_spfw: // TODO: to be checked
+		exps_mark_used(sql->sa, rel, rel->l);
+		exps_mark_used(sql->sa, rel, rel->r);
+		exps_mark_used(sql->sa, rel, rel_edges(rel));
+		rel_mark_used(sql, rel->l, 0);
+		rel_mark_used(sql, rel->r, 0);
+		rel_mark_used(sql, rel_edges(rel), 0);
 		break;
 	case op_apply: 
 		break;
@@ -5834,7 +5849,10 @@ rel_dce_down(mvc *sql, sql_rel *rel, list *refs, int skip_proj)
 			rel->l = rel_dce_down(sql, rel->l, refs, 0);
 		if (rel->r)
 			rel->r = rel_dce_down(sql, rel->r, refs, 0);
+		if (is_spfw(rel->op))
+			((sql_spfw*) rel)->edges = rel_dce_down(sql, rel_edges(rel), refs, 0);
 		return rel;
+
 	case op_apply: 
 		assert(0);
 	}
@@ -5938,6 +5956,8 @@ rel_dce(mvc *sql, sql_rel *rel)
 {
 	list *refs = sa_list(sql->sa);
 	node *n;
+
+	printf("[DCE] %s\n", rel_to_str(sql, rel));
 
 	rel = rel_add_projects(sql, rel);
 	rel_used(rel);
@@ -8141,7 +8161,6 @@ rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 	case op_union: 
 	case op_inter: 
 	case op_except:
-	case op_spfw:
 		rel->l = rewrite(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite(sql, rel->r, rewriter, has_changes);
 		break;
@@ -8163,6 +8182,12 @@ rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 		rel->l = rewrite(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite(sql, rel->r, rewriter, has_changes);
 		break;
+	case op_spfw: {
+		sql_spfw *spfw = (sql_spfw*) rel;
+		rel->l = rewrite(sql, rel->l, rewriter, has_changes);
+		rel->r = rewrite(sql, rel->r, rewriter, has_changes);
+		spfw->edges = rewrite(sql, spfw->edges, rewriter, has_changes);
+	} break;
 	}
 	rel = rewriter(&changes, sql, rel);
 	if (changes) {
@@ -8199,7 +8224,6 @@ rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 	case op_union: 
 	case op_inter: 
 	case op_except: 
-	case op_spfw:
 		rel->l = rewrite_topdown(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite_topdown(sql, rel->r, rewriter, has_changes);
 		break;
@@ -8221,13 +8245,19 @@ rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 		rel->l = rewrite_topdown(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite_topdown(sql, rel->r, rewriter, has_changes);
 		break;
+	case op_spfw: {
+		sql_spfw *spfw = (sql_spfw*) rel;
+		rel->l = rewrite_topdown(sql, rel->l, rewriter, has_changes);
+		rel->r = rewrite_topdown(sql, rel->r, rewriter, has_changes);
+		spfw->edges = rewrite_topdown(sql, spfw->edges, rewriter, has_changes);
+	} break;
 	}
 	return rel;
 }
 
 // only to debug spfw
 #ifdef DEBUG
-#define DBGREL(id) if(gp.cnt[op_spfw]){ printf("[optimizer (%d)] %s: %s", level, id, rel_to_str(sql, rel)); }
+#define DBGREL(id) if(gp.cnt[op_spfw]){ printf("[optimizer (%d)] %s: %s", level, id, rel_to_str(sql, rel)); fflush(stdout); }
 #else
 #define DBGREL(id)
 #endif

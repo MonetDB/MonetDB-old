@@ -293,4 +293,12 @@ typedef struct relation {
 	void *p;	/* properties for the optimizer, distribution */
 } sql_rel;
 
+// graph extension
+typedef struct {
+	sql_rel base;
+	sql_rel *edges;
+} sql_spfw;
+
+#define rel_edges(rel_spfw) ((sql_spfw*) rel_spfw)->edges
+
 #endif /* SQL_RELATION_H */

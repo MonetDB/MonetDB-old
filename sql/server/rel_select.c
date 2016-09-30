@@ -3842,7 +3842,10 @@ rel_projections_(mvc *sql, sql_rel *rel)
 
 	case op_spfw:
 		// TODO: what's the difference with rel_projections, without the trailing underscore?
-		return rel_projections_(sql, rel->l); // TODO: +1 for the score
+		exps = rel_projections_(sql, rel->l);
+		rexps = rel_projections_(sql, rel->r);
+		exps = list_merge( exps, rexps, (fdup)NULL); // TODO: +1 for the score
+		return exps;
 	default:
 		return NULL;
 	}

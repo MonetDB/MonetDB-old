@@ -16,6 +16,11 @@
 #include "rel_rel.h"
 #include "rel_select.h"
 
+//sql_rel *rel_edges(sql_rel *spfw){
+//	assert(is_spfw(spfw->op));
+//	return ((sql_spfw*) spfw)->edges;
+//}
+
 sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq){
 	str dump = NULL;
 	dnode* lstoperands = NULL; // temp to navigate over the operands
@@ -25,6 +30,8 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq){
 	sql_exp* qto = NULL; // reference to the `to' column
 	exp_kind dummy = {0}; // dummy param, required by rel_value_exp
 	symbol* sym_edges_tbl = NULL; // the table edges in the ast
+	sql_rel* left = NULL; // the first input relation we want to join
+	sql_rel* right = NULL; // the second input relation we want to join
 	sql_rel* tbl_edges = NULL; // the edges table exp~
 	symbol* sym_edges_from = NULL; // reference to the `edges from' column in the ast
 	symbol* sym_edges_to = NULL; // ref to the `edges to' column in the ast
@@ -52,8 +59,33 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq){
 	qto = rel_value_exp(sql, &rel, sym_qto, sql_where, dummy);
 	if(!qto) return NULL; // cannot refer to qto
 
-	// assume for the time being qfrom and qto come from the same table
-	// if they are not properly joined => result explosion!
+	// FIXME h0rr1bl3 h4ck
+	if(rel->op == op_join && !rel->exps){ // cross product
+		sql_rel *cpl, *cpr;
+		sql_exp *l1 = rel_value_exp(sql, (sql_rel**) &(rel->l), sym_qfrom, sql_where, dummy);
+		sql_exp *l2 = NULL;
+
+		if(l1 != NULL){
+			cpl = rel->l;
+			cpr = rel->r;
+		} else {
+			cpl = rel->r;
+			cpr = rel->l;
+		}
+
+		l2 = rel_value_exp(sql, &cpr, sym_qto, sql_where, dummy);
+		if(l2 != NULL){
+			// the horrible hack did work (doh)
+			left = cpl;
+			right = cpr;
+		} else {
+			fprintf(stderr, "[rel_graph_reaches] Hack failed, cannot replace the above xproduct\n");
+		}
+	} else {
+		fprintf(stderr, "[rel_graph_reaches] Assuming left & right are from the same relation\n");
+		left = rel;
+		right = rel;
+	}
 
 	// edges table
 	lstoperands = lstoperands->next;
@@ -82,9 +114,9 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq){
 	if(!qto) return NULL; // cannot convert qto into the same type of eto
 
 	// build the new operator graphjoin operator
-	result = rel_spfw(sql, rel, tbl_edges, exp_spfw(sql, qfrom, qto, efrom, eto));
+	result = rel_spfw(sql, left, right, tbl_edges, exp_spfw(sql, qfrom, qto, efrom, eto));
 
-	// let's if what we are creating makes sense
+	// let us see if what we are creating makes sense
 	dump = rel_to_str(sql, result);
 	printf("[Semantic analysis] Output relation: %s\n", dump);
 

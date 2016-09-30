@@ -1339,7 +1339,6 @@ rel2bin_args( mvc *sql, sql_rel *rel, list *args)
 	case op_left: 
 	case op_right: 
 	case op_full: 
-	case op_spfw:
 
 	case op_apply: 
 	case op_semi: 
@@ -1371,6 +1370,11 @@ rel2bin_args( mvc *sql, sql_rel *rel, list *args)
 	case op_update:
 	case op_delete:
 		args = rel2bin_args(sql, rel->r, args);
+		break;
+	case op_spfw:
+		args = rel2bin_args(sql, rel->l, args);
+		args = rel2bin_args(sql, rel->r, args);
+		args = rel2bin_args(sql, rel_edges(rel), args);
 		break;
 	}
 	return args;
@@ -4551,6 +4555,20 @@ rel2bin_ddl(mvc *sql, sql_rel *rel, list *refs)
 	return s;
 }
 
+static list*
+spfw_project(mvc *sql, list* l, stmt *spfw, stmt *input){
+	for( node* n = input->op4.lval->h; n; n = n->next ) {
+		stmt *c = n->data;
+		const char *rnme = table_name(sql->sa, c);
+		const char *nme = column_name(sql->sa, c);
+		stmt *s = stmt_project(sql->sa, spfw, column(sql->sa, c));
+
+		s = stmt_alias(sql->sa, s, rnme, nme);
+		list_append(l, s);
+	}
+	return l;
+}
+
 static stmt *
 rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
 {
@@ -4570,8 +4588,9 @@ rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
 	// materialize the input relations
 	left = subrel_bin(sql, rel->l, refs);
 	if(!left) return NULL;
-	(void) right;
-	edges = subrel_bin(sql, rel->r, refs);
+	right = subrel_bin(sql, rel->r, refs);
+	if(!right) return NULL;
+	edges = subrel_bin(sql, rel_edges(rel), refs);
 	if(!edges) return NULL;
 
 	// refer to the columns
@@ -4579,7 +4598,7 @@ rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
 	n = rel->exps->h;
 	q_from = exp_bin(sql, n->data, left, NULL, NULL, NULL, NULL, NULL);
 	n = n->next;
-	q_to = exp_bin(sql, n->data, left, NULL, NULL, NULL, NULL, NULL);
+	q_to = exp_bin(sql, n->data, right, NULL, NULL, NULL, NULL, NULL);
 	n = n->next;
 	e_from = exp_bin(sql, n->data, edges, NULL, NULL, NULL, NULL, NULL);
 	n = n->next;
@@ -4626,15 +4645,8 @@ rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
 
 	// almost done, create the new resultset
 	l = sa_list(sql->sa);
-	for( n = left->op4.lval->h; n; n = n->next ) {
-		stmt *c = n->data;
-		const char *rnme = table_name(sql->sa, c);
-		const char *nme = column_name(sql->sa, c);
-		stmt *s = stmt_project(sql->sa, spfw, column(sql->sa, c));
-
-		s = stmt_alias(sql->sa, s, rnme, nme);
-		list_append(l, s);
-	}
+	spfw_project(sql, l, spfw, left);
+	spfw_project(sql, l, spfw, right);
 	result = stmt_list(sql->sa, l);
 
 	print_tree(sql->sa, result); // FIXME debug only
