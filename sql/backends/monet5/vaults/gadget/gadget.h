@@ -32,6 +32,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "vault.h"
 #include "peano.h"
 
 #ifdef WIN32
@@ -67,18 +68,8 @@ gadget_export str gadgetLinksTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, In
 gadget_export str gadgetExportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 gadget_export str gadgetCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 gadget_export str gadgetAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-gadget_export str mvc_gadget_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-gadget_export str gadgetTid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 gadget_export str gadgetPHkeyConvert(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 gadget_export str gadgetPHkeyInvert(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 #endif
 
 typedef unsigned char uchar;
-
-typedef enum {
-    GADGET_TABLE_UNLOADED,
-    GADGET_TABLE_LOADED,
-    GADGET_TABLE_ANALYZE,
-    GADGET_TABLE_DONE
-} GADGET_STATUS;
-
