@@ -10,6 +10,7 @@
 #define _LIDAR_
 #include "mal.h"
 #include "mal_client.h"
+#include "vault.h"
 
 #ifdef WIN32
 #ifndef LIBLIDAR
@@ -30,9 +31,6 @@ lidar_export str LIDARexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 lidar_export str LIDARprelude(void *ret);
 lidar_export str LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 lidar_export str LIDARAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-lidar_export str mvc_lidar_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-lidar_export str LIDARTid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-
 
 typedef struct lidar_header_info {
 	/* Table */
@@ -68,13 +66,5 @@ typedef struct lidar_header_info {
 	double maxY;
 	double maxZ;
 } lidar_info;
-
-typedef enum {
-    LIDAR_TABLE_UNLOADED,
-    LIDAR_TABLE_LOADED,
-    LIDAR_TABLE_ANALYZE,
-    LIDAR_TABLE_DONE
-} LIDAR_STATUS;
-
 
 #endif
