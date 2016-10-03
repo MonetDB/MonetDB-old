@@ -238,7 +238,7 @@ str ilikesubselectRef;
 str userRef;
 str vectorRef;
 str zero_or_oneRef;
-str datavaultsRef;
+str vaultRef;
 str checktableRef;
 str analyzetableRef;
 
@@ -468,7 +468,7 @@ void optimizerInit(void)
 	thetasubselectRef = putName("thetasubselect");
 	vectorRef = putName("vector");
 	zero_or_oneRef = putName("zero_or_one");
-	datavaultsRef = putName("datavaults");
+	vaultRef = putName("vault");
 	checktableRef = putName("checktable");
 	analyzetableRef = putName("analyzetable");
 }
