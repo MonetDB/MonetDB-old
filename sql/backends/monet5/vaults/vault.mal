@@ -6,7 +6,11 @@
 
 module vault;
 
-pattern import(src:str,trg:str):timestamp
+command prelude() :void
+address VLTprelude;
+vault.prelude();
+
+command import(src:str,trg:str):timestamp
 address VLTimport
 comment "Use FTP to copy a remote file to the cache";
 
@@ -26,12 +30,60 @@ command getdirectory():str
 address VLTgetLocation
 comment "Return the location of the root vault directory";
 
-pattern prelude():void
-address VLTprelude
-comment "Initialize the vault.";
-
 command epiloque():void
 address VLTepilogue
 comment "Cleanup the vault.";
 
-vault.prelude();
+command checktable(mvc:int, tablename :str) (readerID:int, status:int)
+address VLTcheckTable
+comment "Check if table was loaded";
+
+function checktab(tablename :str) (:int, :int);
+    (x:int, y:int) := checktable(0:int, tablename);
+    return (x, y);
+end checktab;
+
+pattern analyzetable(readerID:int, status:int, tablename :str) :int
+address VLTanalyzeTable
+comment "Analyze table";
+
+function analyzetab(status:int, tablename:str) :int;
+    x := analyzetable(-1, status, tablename);
+    return x;
+end analyzetab;
+
+pattern bind(status:int, mvc:int, schema:str, table:str, column:str, access:int ):bat[:any_1]
+address mvc_VLT_bind_wrap
+comment "Bind the 'schema.table.column' BAT with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern bind(status:int, mvc:int, schema:str, table:str, column:str, access:int )(uid:bat[:oid],uval:bat[:any_1])
+address mvc_VLT_bind_wrap
+comment "Bind the 'schema.table.column' BAT with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern bind(status:int, mvc:int, schema:str, table:str, column:str, access:int, part_nr:int, nr_parts:int ):bat[:any_1]
+address mvc_VLT_bind_wrap
+comment "Bind the 'schema.table.column' BAT partition with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern bind(status:int, mvc:int, schema:str, table:str, column:str, access:int, part_nr:int, nr_parts:int )(uid:bat[:oid],uval:bat[:any_1])
+address mvc_VLT_bind_wrap
+comment "Bind the 'schema.table.column' BAT with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern tid(tatus:int, mvc:int, sname:str, tname:str):bat[:oid] 
+address VLTTid
+comment "Return the tables tid column.";
+
+pattern tid(tatus:int, mvc:int, sname:str, tname:str, part_nr:int, nr_parts:int ):bat[:oid] 
+address VLTTid
+comment "Return the tables tid column.";
