@@ -42,3 +42,6 @@ update vault
   lru = null
   where  created < t;
 end;
+
+create procedure vaultchecktab(tname string) external name vault.checktab;
+create procedure vaultanalyzetab(status int, tname string) external name vault.analyzetab;
