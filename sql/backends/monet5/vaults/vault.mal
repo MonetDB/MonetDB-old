@@ -34,7 +34,7 @@ command epiloque():void
 address VLTepilogue
 comment "Cleanup the vault.";
 
-command checktable(mvc:int, tablename :str) (readerID:int, status:int)
+pattern checktable(mvc:int, tablename :str) (readerID:int, status:int)
 address VLTcheckTable
 comment "Check if table was loaded";
 

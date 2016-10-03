@@ -290,6 +290,11 @@ VLTcheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
   	int reader_id = 0, *res = NULL;
   	str tname = NULL;
   
+  	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
+    	return msg;
+  	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
+    	return msg;
+
   	if (pci->argc == 4) {	
 	  	tname = *getArgReference_str(stk, pci, 3);
   		printf("Table name%s\n", tname);
@@ -303,16 +308,13 @@ VLTcheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     	return msg;
   	}
 
-	printf("I am here\n");
   	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
     	return msg;
-	printf("I am here\n");
   	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
     	return msg;
-	printf("I am here\n");
 
   	sch = mvc_bind_schema(m, "sys");
-  	vaults_tbl = mvc_bind_table(m, sch, "vaults_journal");
+  	vaults_tbl = mvc_bind_table(m, sch, "vault_journal");
   	if (vaults_tbl == NULL) {
     	msg = createException(MAL, "vaults.check", "VAULTS catalog is missing.\n");
     	return msg;
@@ -364,8 +366,8 @@ VLTanalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     sql_column *col;
     oid rid = oid_nil;
     int reader_id = *getArgReference_int(stk, pci, 1);
-    int status = *getArgReference_int(stk, pci, 3);
-    str tname = *getArgReference_str(stk, pci, 4);
+    int status = *getArgReference_int(stk, pci, 2);
+    str tname = *getArgReference_str(stk, pci, 3);
     int *res = getArgReference_int(stk, pci, 0);
 
     if (status != VAULT_TABLE_ANALYZE) {
@@ -379,7 +381,7 @@ VLTanalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
         return msg;
 
     sch = mvc_bind_schema(m, "sys");
-    vaults_tbl = mvc_bind_table(m, sch, "vaults_journal");
+    vaults_tbl = mvc_bind_table(m, sch, "vault_journal");
     if (vaults_tbl == NULL) {
         msg = createException(MAL, "vaults.analyze", "VAULTS catalog is missing.\n");
         return msg;

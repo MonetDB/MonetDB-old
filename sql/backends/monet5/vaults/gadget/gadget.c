@@ -1967,11 +1967,7 @@ gadgetAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
   int status, *res;
   str tname = NULL;
 
-  if (pci->argc == 5) {
-      status = *getArgReference_int(stk, pci, 3);
-      tname = *getArgReference_str(stk, pci, 4);
-      res = getArgReference_int(stk, pci, 1);
-  } else if (pci->argc == 4) {
+  if (pci->argc == 4) {
       status = *getArgReference_int(stk, pci, 2);
       tname = *getArgReference_str(stk, pci, 3);
       res = getArgReference_int(stk, pci, 0);
