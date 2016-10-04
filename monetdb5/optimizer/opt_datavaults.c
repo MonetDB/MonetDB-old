@@ -67,8 +67,11 @@ checkTable(int *res, int *action, MalBlkPtr mb, InstrPtr p, TABLE **tabs, int nu
     setModuleId(c, vaultRef);
     setFunctionId(c, checktableRef);
     getArg(c,0) = newTmpVariable(mb, TYPE_int);
+	setVarUDFtype(mb,getArg(c,0));
 	setVarFixed(mb,getArg(c,0));
     c = pushArgument(mb, c, newTmpVariable(mb, TYPE_int));
+	setVarUDFtype(mb,getArg(c,1));
+	setVarFixed(mb,getArg(c,1));
     c = pushArgument(mb, c, getArg(p,1+upd));
     c = pushArgument(mb, c, getArg(p,3+upd));
     c->retc = 2;
@@ -79,6 +82,8 @@ checkTable(int *res, int *action, MalBlkPtr mb, InstrPtr p, TABLE **tabs, int nu
     setModuleId(a, vaultRef);
     setFunctionId(a, analyzetableRef);
     getArg(a,0) = newTmpVariable(mb, TYPE_int);
+	setVarUDFtype(mb,getArg(a,0));
+	setVarFixed(mb,getArg(a,0));
     a = pushArgument(mb, a, getArg(c,0));
     a = pushArgument(mb, a, getArg(c,1));
     a = pushArgument(mb, a, getArg(p,3+upd));
