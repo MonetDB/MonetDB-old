@@ -446,7 +446,6 @@ geom_sql_upgrade(int olddb)
 	pos += snprintf(buf + pos, bufsize - pos, "CREATE FUNCTION ST_DelaunayTriangles(geom Geometry, tolerance double, flags integer) RETURNS Geometry EXTERNAL NAME geom.\"DelaunayTriangles\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "CREATE FUNCTION ST_Dump(geom Geometry) RETURNS TABLE(id string, polygonWKB Geometry) EXTERNAL NAME geom.\"Dump\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "CREATE FUNCTION ST_DumpPoints(geom Geometry) RETURNS TABLE(path string, pointG Geometry) EXTERNAL NAME geom.\"DumpPoints\";\n");
-	pos += snprintf(buf + pos, bufsize - pos, "CREATE FUNCTION Contains(a Geometry, x double, y double) RETURNS BOOLEAN external name geom.\"Contains\";\n");
 	/* populate the spatial_ref_sys table */
 	pos += snprintf(buf + pos, bufsize - pos, "COPY 3911 RECORDS INTO spatial_ref_sys FROM STDIN USING DELIMITERS '|','\\n','\\'';\n");
 	pos += snprintf(buf + pos, bufsize - pos, "3819|'EPSG'|3819|'GEOGCS[\"HD1909\",DATUM[\"Hungarian_Datum_1909\",SPHEROID[\"Bessel 1841\",6377397.155,299.1528128,AUTHORITY[\"EPSG\",\"7004\"]],TOWGS84[595.48,121.69,515.35,4.115,-2.9383,0.853,-3.408],AUTHORITY[\"EPSG\",\"1024\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"3819\"]]'|'+proj=longlat +ellps=bessel +towgs84=595.48,121.69,515.35,4.115,-2.9383,0.853,-3.408 +no_defs'\n");
