@@ -46,21 +46,21 @@ pattern export(tablename :str): void
 address gadgetExportTable
 comment "Export a table to a GADGET file";
 
-pattern checktable(mvc:int, tablename :str):int
+pattern checktable(mvc:int, tablename :str) (:int, :int)
 address gadgetCheckTable
 comment "Check if table was loaded";
 
-function checktab(tablename :str):int;
-    x := checktable(0, tablename);
-    return x;
+function checktab(tablename :str) (:int, :int);
+    (x,y) := checktable(0, tablename);
+    return (x, y);
 end checktab;
 
-pattern analyzetable(mvc:int, status:int, tablename :str):int
+pattern analyzetable(readerID:int, status:int, tablename :str):int
 address gadgetAnalyzeTable
 comment "Analyze table";
 
 function analyzetab(status:int, tablename:str) :int;
-    x := analyzetable(0, status, tablename);
+    x := analyzetable(-1, status, tablename);
     return x;
 end analyzetab;
 

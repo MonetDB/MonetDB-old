@@ -45,7 +45,7 @@ checkTable(int *res, int *action, MalBlkPtr mb, InstrPtr p, TABLE **tabs, int nu
     for(i = 0; i < num_tabs; i++) {
         if ( tabs[i]->sname && (strcmp(tabs[i]->sname, sname) == 0) && (strcmp(tabs[i]->tname, tname) == 0)) { 
             r = newInstruction(mb,ASSIGNsymbol);
-            setModuleId(r, datavaultsRef);
+            setModuleId(r, vaultRef);
             setFunctionId(r, getFunctionId(p));
             getArg(r,0) = getArg(p,0);
             for (j = 1; j < p->retc; j++) {
@@ -64,26 +64,34 @@ checkTable(int *res, int *action, MalBlkPtr mb, InstrPtr p, TABLE **tabs, int nu
     }
 
     c = newInstruction(mb,ASSIGNsymbol);
-    setModuleId(c, datavaultsRef);
+    setModuleId(c, vaultRef);
     setFunctionId(c, checktableRef);
     getArg(c,0) = newTmpVariable(mb, TYPE_int);
+	setVarUDFtype(mb,getArg(c,0));
+	setVarFixed(mb,getArg(c,0));
+    c = pushArgument(mb, c, newTmpVariable(mb, TYPE_int));
+	setVarUDFtype(mb,getArg(c,1));
+	setVarFixed(mb,getArg(c,1));
     c = pushArgument(mb, c, getArg(p,1+upd));
     c = pushArgument(mb, c, getArg(p,3+upd));
-    c->retc = 1;
+    c->retc = 2;
+    c->argc = 4;
     pushInstruction(mb,c);
 
     a = newInstruction(mb,ASSIGNsymbol);
-    setModuleId(a, datavaultsRef);
+    setModuleId(a, vaultRef);
     setFunctionId(a, analyzetableRef);
     getArg(a,0) = newTmpVariable(mb, TYPE_int);
-    a = pushArgument(mb, a, getArg(p,1+upd));
+	setVarUDFtype(mb,getArg(a,0));
+	setVarFixed(mb,getArg(a,0));
     a = pushArgument(mb, a, getArg(c,0));
+    a = pushArgument(mb, a, getArg(c,1));
     a = pushArgument(mb, a, getArg(p,3+upd));
     a->retc = 1;
     pushInstruction(mb,a);
 
     r = newInstruction(mb,ASSIGNsymbol);
-    setModuleId(r, datavaultsRef);
+    setModuleId(r, vaultRef);
     setFunctionId(r, getFunctionId(p));
     getArg(r,0) = getArg(p,0);
     for (j = 1; j < p->retc; j++) {
@@ -94,7 +102,7 @@ checkTable(int *res, int *action, MalBlkPtr mb, InstrPtr p, TABLE **tabs, int nu
         r = pushArgument(mb, r, getArg(p,j));
     }
     //r->retc = p->retc;
-    printf("R argc %d p argx %d \n", r->argc, p->argc);
+    printf("R argc %d p argc %d \n", r->argc, p->argc);
     pushInstruction(mb,r);
 
     /*Add info about the table*/
@@ -153,11 +161,15 @@ OPTdatavaultsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 
     if (tabs) {
         for (i = 0; i < num_tabs; i++) {
-            if (tabs[i])
+            if (tabs[i]) {
+				GDKfree(tabs[i]->sname);
+				GDKfree(tabs[i]->tname);
                 GDKfree(tabs[i]);
+            }
         }
         GDKfree(tabs);
     }
+
 
 #ifdef DEBUG_OPT_DATAVAULTS
 	if (0 && action) {

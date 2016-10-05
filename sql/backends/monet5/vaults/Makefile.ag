@@ -19,6 +19,8 @@ INCLUDES = ../../../include \
 	   ../../../../common/options \
 	   ../../../../common/stream \
 	   ../../../../common/utils \
+	   ./lidar \
+	   ./gadget \
 	   ../../../../gdk
 
 lib__vault = {
@@ -26,6 +28,8 @@ lib__vault = {
 	DIR = libdir/monetdb5
 	SOURCES = vault.c
 	LIBS = ../../../../monetdb5/tools/libmonetdb5 \
+	       ./lidar/lib_lidar \
+	       ./gadget/lib_gadget \
 	       ../../../../gdk/libbat $(curl_LIBS)
 }
 

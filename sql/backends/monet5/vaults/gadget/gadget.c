@@ -1904,8 +1904,8 @@ gadgetCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
   sql_table *gadget_tbl, *tbl = NULL;
   sql_column *col;
   oid rid = oid_nil;
-  str tname = *getArgReference_str(stk, pci, 2);
-  int *res = getArgReference_int(stk, pci, 0);
+  str tname = *getArgReference_str(stk, pci, 3);
+  int *res = getArgReference_int(stk, pci, 1);
 
   if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
     return msg;
@@ -1938,12 +1938,12 @@ gadgetCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
   if (sz == 0) {
     /*Lets load the table*/
     msg = gadgetLoadTableAll_(m, sch, gadget_tbl, tname);
-    *res = GADGET_TABLE_LOADED;
+    *res = VAULT_TABLE_LOADED;
   } else {
     if (tbl->access == TABLE_WRITABLE)
-      *res = GADGET_TABLE_ANALYZE;
+      *res = VAULT_TABLE_ANALYZE;
     else 
-      *res = GADGET_TABLE_DONE;
+      *res = VAULT_TABLE_DONE;
 
 #ifndef NDEBUG
     fprintf(stderr, "The table %s is already loaded and its status is %d!!!\n", tname, *res);
@@ -1964,11 +1964,19 @@ gadgetAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
   sql_table *gadget_tbl;
   sql_column *col;
   oid rid = oid_nil;
-  int status = *getArgReference_int(stk, pci, 2);
-  str tname = *getArgReference_str(stk, pci, 3);
-  int *res = getArgReference_int(stk, pci, 0);
+  int status, *res;
+  str tname = NULL;
 
-  if (status != GADGET_TABLE_ANALYZE) {
+  if (pci->argc == 4) {
+      status = *getArgReference_int(stk, pci, 2);
+      tname = *getArgReference_str(stk, pci, 3);
+      res = getArgReference_int(stk, pci, 0);
+  } else {
+      msg = createException(MAL, "gadget.analyze", "incorrect number of arguments.\n");
+      return msg;
+  }
+
+  if (status != VAULT_TABLE_ANALYZE) {
     *res = status;
     return msg;
   }
@@ -2020,217 +2028,8 @@ gadgetAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
   if (msg)
     return msg;
     
-  *res = GADGET_TABLE_DONE;
+  *res = VAULT_TABLE_DONE;
 
-  return MAL_SUCCEED;
-}
-
-static BAT *
-mvc_bind(mvc *m, char *sname, char *tname, char *cname, int access)
-{
-  sql_trans *tr = m->session->tr;
-  BAT *b = NULL;
-  sql_schema *s = NULL;
-  sql_table *t = NULL;
-  sql_column *c = NULL;
-
-  s = mvc_bind_schema(m, sname);
-  if (s == NULL)
-    return NULL;
-  t = mvc_bind_table(m, s, tname);
-  if (t == NULL)
-    return NULL;
-  c = mvc_bind_column(m, t, cname);
-  if (c == NULL)
-    return NULL;
-
-  b = store_funcs.bind_col(tr, c, access);
-  return b;
-}
-
-/* str mvc_bind_wrap(int *bid, str *sname, str *tname, str *cname, int *access); */
-str
-mvc_gadget_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-  int upd = (pci->argc == 8 || pci->argc == 10);
-  BAT *b = NULL, *bn;
-  bat *bid = getArgReference_bat(stk, pci, 0);
-  int coltype = getBatType(getArgType(mb, pci, 0));
-  mvc *m = NULL;
-  str msg;
-  int status = *getArgReference_int(stk, pci, 1 + upd);
-  str *sname = getArgReference_str(stk, pci, 3 + upd);
-  str *tname = getArgReference_str(stk, pci, 4 + upd);
-  str *cname = getArgReference_str(stk, pci, 5 + upd);
-  int *access = getArgReference_int(stk, pci, 6 + upd);
-
-  if (!*access && status == GADGET_TABLE_LOADED)
-    *access = RD_INS;
-
-  printf (" Level 0\n" );
-  if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
-    return msg;
-  if ((msg = checkSQLContext(cntxt)) != NULL)
-    return msg;
-  b = mvc_bind(m, *sname, *tname, *cname, *access);
-  if (b && b->ttype != coltype)
-    throw(SQL,"sql.bind","tail type mismatch");
-  if (b) {
-    printf ("argc %d upd %d", pci->argc, upd);
-    if (pci->argc == (9 + upd) && getArgType(mb, pci, 7 + upd) == TYPE_int) {
-      BUN cnt = BATcount(b), psz;
-      /* partitioned access */
-      int part_nr = *getArgReference_int(stk, pci, 7 + upd);
-      int nr_parts = *getArgReference_int(stk, pci, 8 + upd);
-      printf (" Level 1\n" );
-
-      if (*access == 0) {
-        psz = cnt ? (cnt / nr_parts) : 0;
-        bn = BATslice(b, part_nr * psz, (part_nr + 1 == nr_parts) ? cnt : ((part_nr + 1) * psz));
-        BAThseqbase(bn, part_nr * psz);
-      } else {
-        /* BAT b holds the UPD_ID bat */
-        oid l, h;
-        BAT *c = mvc_bind(m, *sname, *tname, *cname, 0);
-        if (c == NULL)
-          throw(SQL,"sql.bind","Cannot access the update column");
-
-        cnt = BATcount(c);
-        psz = cnt ? (cnt / nr_parts) : 0;
-        l = part_nr * psz;
-        h = (part_nr + 1 == nr_parts) ? cnt : ((part_nr + 1) * psz);
-        h--;
-        bn = BATselect(b, NULL, &l, &h, 1, 1, 0);
-        BBPunfix(c->batCacheid);
-      }
-      BBPunfix(b->batCacheid);
-      b = bn;
-    } else if (upd) {
-      BAT *uv = mvc_bind(m, *sname, *tname, *cname, RD_UPD_VAL);
-      bat *uvl = getArgReference_bat(stk, pci, 1);
-      printf (" Level 2\n" );
-
-      if (uv == NULL)
-        throw(SQL,"sql.bind","Cannot access the update column");
-      BBPkeepref(*bid = b->batCacheid);
-      BBPkeepref(*uvl = uv->batCacheid);
-      return MAL_SUCCEED;
-    }
-    if (upd) {
-      bat *uvl = getArgReference_bat(stk, pci, 1);
-      printf (" Level 3\n" );
-
-      if (BATcount(b)) {
-        BAT *uv = mvc_bind(m, *sname, *tname, *cname, RD_UPD_VAL);
-        BAT *ui = mvc_bind(m, *sname, *tname, *cname, RD_UPD_ID);
-        BAT *id;
-        BAT *vl;
-        if (ui == NULL)
-          throw(SQL,"sql.bind","Cannot access the insert column");
-        if (uv == NULL)
-          throw(SQL,"sql.bind","Cannot access the update column");
-        id = BATproject(b, ui);
-        vl = BATproject(b, uv);
-        assert(BATcount(id) == BATcount(vl));
-        bat_destroy(ui);
-        bat_destroy(uv);
-        BBPkeepref(*bid = id->batCacheid);
-        BBPkeepref(*uvl = vl->batCacheid);
-      } else {
-        sql_schema *s = mvc_bind_schema(m, *sname);
-        sql_table *t = mvc_bind_table(m, s, *tname);
-        sql_column *c = mvc_bind_column(m, t, *cname);
-
-        *bid = e_bat(TYPE_oid);
-        *uvl = e_bat(c->type.type->localtype);
-      }
-      BBPunfix(b->batCacheid);
-    } else {
-      printf (" Level 4\n" );
-      BBPkeepref(*bid = b->batCacheid);
-    }
-    return MAL_SUCCEED;
-  }
-  if (*sname && strcmp(*sname, str_nil) != 0)
-    throw(SQL, "sql.bind", "unable to find %s.%s(%s)", *sname, *tname, *cname);
-  throw(SQL, "sql.bind", "unable to find %s(%s)", *tname, *cname);
-}
-
-/* str SQLtid(bat *result, mvc *m, str *sname, str *tname) */
-str
-gadgetTid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-  bat *res = getArgReference_bat(stk, pci, 0);
-  mvc *m = NULL;
-  str msg;
-  sql_trans *tr;
-  str sname = *getArgReference_str(stk, pci, 3);
-  str tname = *getArgReference_str(stk, pci, 4);
-
-  sql_schema *s;
-  sql_table *t;
-  sql_column *c;
-  BAT *tids;
-  size_t nr, inr = 0;
-  oid sb = 0;
-
-  *res = bat_nil;
-  if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
-    return msg;
-  tr = m->session->tr;
-  if ((msg = checkSQLContext(cntxt)) != NULL)
-    return msg;
-  s = mvc_bind_schema(m, sname);
-  if (s == NULL)
-    throw(SQL, "sql.tid", "3F000!Schema missing");
-  t = mvc_bind_table(m, s, tname);
-  if (t == NULL)
-    throw(SQL, "sql.tid", "42S02!Table missing");
-  c = t->columns.set->h->data;
-
-  nr = store_funcs.count_col(tr, c, 1);
-
-  if (isTable(t) && t->access == TABLE_WRITABLE && (t->base.flag != TR_NEW /* alter */ ) &&
-      t->persistence == SQL_PERSIST && !t->commit_action)
-    inr = store_funcs.count_col(tr, c, 0);
-  nr -= inr;
-  if (pci->argc == 6) {	/* partitioned version */
-    size_t cnt = nr;
-    int part_nr = *getArgReference_int(stk, pci, 5);
-    int nr_parts = *getArgReference_int(stk, pci, 6);
-
-    nr /= nr_parts;
-    sb = (oid) (part_nr * nr);
-    if (nr_parts == (part_nr + 1)) {	/* last part gets the inserts */
-      nr = cnt - (part_nr * nr);	/* keep rest */
-      nr += inr;
-    }
-  } else {
-    nr += inr;
-  }
-
-  /* create void,void bat with length and oid's set */
-  tids = COLnew(sb, TYPE_void, 0, TRANSIENT);
-  if (tids == NULL)
-    throw(SQL, "sql.tid", MAL_MALLOC_FAIL);
-  BATsetcount(tids, (BUN) nr);
-  BATtseqbase(tids, sb);
-
-  if (store_funcs.count_del(tr, t)) {
-    BAT *d = store_funcs.bind_del(tr, t, RD_INS);
-    BAT *diff;
-    if( d == NULL)
-      throw(SQL,"sql.tid","Can not bind delete column");
-
-    diff = BATdiff(tids, d, NULL, NULL, 0, BUN_NONE);
-    BBPunfix(d->batCacheid);
-    BBPunfix(tids->batCacheid);
-    BAThseqbase(diff, sb);
-    tids = diff;
-  }
-
-  if (!(tids->batDirty&2)) BATsetaccess(tids, BAT_READ);
-  BBPkeepref(*res = tids->batCacheid);
   return MAL_SUCCEED;
 }
 
