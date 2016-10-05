@@ -1847,7 +1847,7 @@ AS_VAR_IF([enable_pyintegration], [no], [], [
 		       enable_pyintegration=yes],
 		[AC_MSG_ERROR([--enable-pyintegration value must be yes|no|auto|absolute path of python-config])])
 	AS_VAR_IF([have_pyconfig], [], [
-	   	AC_PATH_PROG([PYCMD], [python-config], [no], [$PATH])
+	   	AC_PATH_PROG([PYCMD], [python2-config], [no], [$PATH])
 	   	AS_VAR_IF([PYCMD], [],
 	  		[AS_VAR_IF([enable_pyintegration], [yes],
 				[AC_MSG_ERROR([python-config library required for Python integration support])],
