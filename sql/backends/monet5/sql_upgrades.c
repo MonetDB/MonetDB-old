@@ -1980,8 +1980,7 @@ sql_update_geom_jun2016_sp2(Client c, mvc *sql)
 			"GRANT EXECUTE ON FUNCTION sys.ST_Collect(Geometry, Geometry) TO PUBLIC;\n"
 			"GRANT EXECUTE ON FUNCTION sys.ST_DelaunayTriangles(Geometry, double, integer) TO PUBLIC;\n"
 			"GRANT EXECUTE ON FUNCTION sys.ST_Dump(Geometry) TO PUBLIC;\n"
-			"GRANT EXECUTE ON FUNCTION sys.ST_DumpPoints(Geometry) TO PUBLIC;\n"
-			"GRANT EXECUTE ON FUNCTION sys.Contains(Geometry, double, double) TO PUBLIC;\n");
+			"GRANT EXECUTE ON FUNCTION sys.ST_DumpPoints(Geometry) TO PUBLIC;\n");
 
 	if (schema)
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
