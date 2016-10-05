@@ -4967,12 +4967,28 @@ Ready.
 [ "batcalc",	"lsh_noerror",	"pattern batcalc.lsh_noerror(v:sht,b:bat[:sht],s:bat[:oid]):bat[:sht] ",	"CMDbatLSH;",	"Return V << B with candidates list, out of range second operand causes NIL value"	]
 [ "batcalc",	"max",	"pattern batcalc.max(b1:bat[:any_1],b2:bat[:any_1]):bat[:any_1] ",	"CMDbatMAX;",	"Return bat with maximum value of each pair of inputs"	]
 [ "batcalc",	"max",	"pattern batcalc.max(b1:bat[:any_1],b2:bat[:any_1],s:bat[:oid]):bat[:any_1] ",	"CMDbatMAX;",	"Return bat with maximum value of each pair of inputs"	]
+[ "batcalc",	"max",	"pattern batcalc.max(b:bat[:any_1],v:any_1):bat[:any_1] ",	"CMDbatMAX;",	"Return bat with maximum value of each pair of inputs"	]
+[ "batcalc",	"max",	"pattern batcalc.max(b:bat[:any_1],v:any_1,s:bat[:oid]):bat[:any_1] ",	"CMDbatMAX;",	"Return bat with maximum value of each pair of inputs"	]
+[ "batcalc",	"max",	"pattern batcalc.max(v:any_1,b:bat[:any_1]):bat[:any_1] ",	"CMDbatMAX;",	"Return bat with maximum value of each pair of inputs"	]
+[ "batcalc",	"max",	"pattern batcalc.max(v:any_1,b:bat[:any_1],s:bat[:oid]):bat[:any_1] ",	"CMDbatMAX;",	"Return bat with maximum value of each pair of inputs"	]
 [ "batcalc",	"max_no_nil",	"pattern batcalc.max_no_nil(b1:bat[:any_1],b2:bat[:any_1]):bat[:any_1] ",	"CMDbatMAX_no_nil;",	"Return bat with maximum value of each pair of inputs, ignoring nil values"	]
 [ "batcalc",	"max_no_nil",	"pattern batcalc.max_no_nil(b1:bat[:any_1],b2:bat[:any_1],s:bat[:oid]):bat[:any_1] ",	"CMDbatMAX_no_nil;",	"Return bat with maximum value of each pair of inputs, ignoring nil values"	]
+[ "batcalc",	"max_no_nil",	"pattern batcalc.max_no_nil(b:bat[:any_1],v:any_1):bat[:any_1] ",	"CMDbatMAX_no_nil;",	"Return bat with maximum value of each pair of inputs, ignoring nil values"	]
+[ "batcalc",	"max_no_nil",	"pattern batcalc.max_no_nil(b:bat[:any_1],v:any_1,s:bat[:oid]):bat[:any_1] ",	"CMDbatMAX_no_nil;",	"Return bat with maximum value of each pair of inputs, ignoring nil values"	]
+[ "batcalc",	"max_no_nil",	"pattern batcalc.max_no_nil(v:any_1,b:bat[:any_1]):bat[:any_1] ",	"CMDbatMAX_no_nil;",	"Return bat with maximum value of each pair of inputs, ignoring nil values"	]
+[ "batcalc",	"max_no_nil",	"pattern batcalc.max_no_nil(v:any_1,b:bat[:any_1],s:bat[:oid]):bat[:any_1] ",	"CMDbatMAX_no_nil;",	"Return bat with maximum value of each pair of inputs, ignoring nil values"	]
 [ "batcalc",	"min",	"pattern batcalc.min(b1:bat[:any_1],b2:bat[:any_1]):bat[:any_1] ",	"CMDbatMIN;",	"Return bat with minimum value of each pair of inputs"	]
 [ "batcalc",	"min",	"pattern batcalc.min(b1:bat[:any_1],b2:bat[:any_1],s:bat[:oid]):bat[:any_1] ",	"CMDbatMIN;",	"Return bat with minimum value of each pair of inputs"	]
+[ "batcalc",	"min",	"pattern batcalc.min(b:bat[:any_1],v:any_1):bat[:any_1] ",	"CMDbatMIN;",	"Return bat with minimum value of each pair of inputs"	]
+[ "batcalc",	"min",	"pattern batcalc.min(b:bat[:any_1],v:any_1,s:bat[:oid]):bat[:any_1] ",	"CMDbatMIN;",	"Return bat with minimum value of each pair of inputs"	]
+[ "batcalc",	"min",	"pattern batcalc.min(v:any_1,b:bat[:any_1]):bat[:any_1] ",	"CMDbatMIN;",	"Return bat with minimum value of each pair of inputs"	]
+[ "batcalc",	"min",	"pattern batcalc.min(v:any_1,b:bat[:any_1],s:bat[:oid]):bat[:any_1] ",	"CMDbatMIN;",	"Return bat with minimum value of each pair of inputs"	]
 [ "batcalc",	"min_no_nil",	"pattern batcalc.min_no_nil(b1:bat[:any_1],b2:bat[:any_1]):bat[:any_1] ",	"CMDbatMIN_no_nil;",	"Return bat with minimum value of each pair of inputs, ignoring nil values"	]
 [ "batcalc",	"min_no_nil",	"pattern batcalc.min_no_nil(b1:bat[:any_1],b2:bat[:any_1],s:bat[:oid]):bat[:any_1] ",	"CMDbatMIN_no_nil;",	"Return bat with minimum value of each pair of inputs, ignoring nil values"	]
+[ "batcalc",	"min_no_nil",	"pattern batcalc.min_no_nil(b:bat[:any_1],v:any_1):bat[:any_1] ",	"CMDbatMIN_no_nil;",	"Return bat with minimum value of each pair of inputs, ignoring nil values"	]
+[ "batcalc",	"min_no_nil",	"pattern batcalc.min_no_nil(b:bat[:any_1],v:any_1,s:bat[:oid]):bat[:any_1] ",	"CMDbatMIN_no_nil;",	"Return bat with minimum value of each pair of inputs, ignoring nil values"	]
+[ "batcalc",	"min_no_nil",	"pattern batcalc.min_no_nil(v:any_1,b:bat[:any_1]):bat[:any_1] ",	"CMDbatMIN_no_nil;",	"Return bat with minimum value of each pair of inputs, ignoring nil values"	]
+[ "batcalc",	"min_no_nil",	"pattern batcalc.min_no_nil(v:any_1,b:bat[:any_1],s:bat[:oid]):bat[:any_1] ",	"CMDbatMIN_no_nil;",	"Return bat with minimum value of each pair of inputs, ignoring nil values"	]
 [ "batcalc",	"mod_noerror",	"pattern batcalc.mod_noerror(b1:bat[:bte],b2:bat[:bte]):bat[:bte] ",	"CMDbatMOD;",	"Return B1 % B2, divide by zero causes NIL value"	]
 [ "batcalc",	"mod_noerror",	"pattern batcalc.mod_noerror(b1:bat[:bte],b2:bat[:bte],s:bat[:oid]):bat[:bte] ",	"CMDbatMOD;",	"Return B1 % B2 with candidates list, divide by zero causes NIL value"	]
 [ "batcalc",	"mod_noerror",	"pattern batcalc.mod_noerror(b1:bat[:bte],b2:bat[:dbl]):bat[:dbl] ",	"CMDbatMOD;",	"Return B1 % B2, divide by zero causes NIL value"	]
@@ -7850,6 +7866,10 @@ Ready.
 [ "language",	"register",	"pattern language.register(m:str,f:str,code:str,help:str):void ",	"CMDregisterFunction;",	"Compile the code string to MAL and register it as a function."	]
 [ "language",	"sink",	"pattern language.sink(v:any...):void ",	"MALgarbagesink;",	"Variables to be considered together when triggering garbage collection.\nUsed in the dataflow blocks to avoid early release of values."	]
 [ "language",	"source",	"pattern language.source(f:str):void ",	"CMDevalFile;",	"Merge the instructions stored in the file with the current program."	]
+[ "lidar",	"attach",	"pattern lidar.attach(fname:str):void ",	"LIDARattach;",	"Open a LIDAR file and return catalog of the table HDUs"	]
+[ "lidar",	"export",	"pattern lidar.export(tablename:str,fname:str,type:str):void ",	"LIDARexportTable;",	"Exporta LIDAR table to a LAS/LAZ file"	]
+[ "lidar",	"load",	"pattern lidar.load(tablename:str):void ",	"LIDARloadTable;",	"Load a LIDAR table from an attached file"	]
+[ "lidar",	"prelude",	"command lidar.prelude():void ",	"LIDARprelude;",	""	]
 [ "lsst",	"angsep",	"command lsst.angsep(ra1:dbl,dec1:dbl,ra2:dbl,dec2:dbl):dbl ",	"qserv_angSep;",	"Returns the angular separation in degrees between two spherical\ncoordinate pairs (ra1,dec1) and (ra2,dec2)"	]
 [ "lsst",	"ptinsphbox",	"command lsst.ptinsphbox(ra:dbl,dec:dbl,ra_min:dbl,dec_min:dbl,ra_max:dbl,dec_max:dbl):int ",	"qserv_ptInSphBox;",	"Returns 1 if the given spherical longitude/latitude box contains the given position"	]
 [ "lsst",	"ptinsphcircle",	"command lsst.ptinsphcircle(ra:dbl,dec:dbl,ra_cen:dbl,dec_cen:dbl,radius:dbl):int ",	"qserv_ptInSphCircle;",	"Returns 1 if the given spherical longitude/latitude circle contains the given position"	]
@@ -8642,8 +8662,10 @@ Ready.
 [ "url",	"url",	"command url.url(s:str):url ",	"URLnew;",	"Create an URL from a string literal"	]
 [ "url",	"url",	"command url.url(s:url):url ",	"URLnoop;",	"Create an URL from a string literal"	]
 [ "user",	"main",	"function user.main():void;",	"",	""	]
+[ "user",	"main",	"function user.main():void;",	"",	""	]
+[ "user",	"main",	"function user.main():void;",	"",	""	]
+[ "user",	"main",	"function user.main():void;",	"",	""	]
 [ "user",	"s2_1",	"function user.s2_1():void;",	"",	""	]
-[ "user",	"sql.init",	"function user.sql.init():void;",	"",	""	]
 [ "uuid",	"#cmp",	"command uuid.#cmp():void ",	"UUIDcompare;",	""	]
 [ "uuid",	"#fromstr",	"command uuid.#fromstr():void ",	"UUIDfromString;",	""	]
 [ "uuid",	"#hash",	"command uuid.#hash():void ",	"UUIDhash;",	""	]
@@ -8704,30 +8726,8 @@ Ready.
 [ "zrule",	"define",	"command zrule.define(m:int,d:int,w:int,h:int,min:int):zrule ",	"MTIMEruleDef0;",	"Introduce a synomym timezone rule."	]
 [ "zrule",	"define",	"command zrule.define(m:int,d:str,w:int,h:int,min:int):zrule ",	"MTIMEruleDef1;",	"Introduce a synomym timezone rule."	]
 [ "zrule",	"define",	"command zrule.define(m:int,d:str,w:int,min:int):zrule ",	"MTIMEruleDef2;",	"Introduce a synomym timezone rule."	]
-pattern optimizer.emptycolumn(mod:str,fcn:str):str 
-address OPTwrapper;
-comment Evaluate empty set expressions.
 
-pattern optimizer.emptycolumn():str 
-address OPTwrapper;
-pattern sql.emptycolumn(mvc:int,schema:str,table:str,column:str,access:int,part_nr:int,nr_parts:int) (uid:bat[:oid],uval:bat[:any_1]) 
-address mvc_bind_wrap;
-pattern sql.emptycolumn(mvc:int,schema:str,table:str,column:str,access:int,part_nr:int,nr_parts:int):bat[:any_1] 
-address mvc_bind_wrap;
-pattern sql.emptycolumn(mvc:int,schema:str,table:str,column:str,access:int) (uid:bat[:oid],uval:bat[:any_1]) 
-address mvc_bind_wrap;
-pattern sql.emptycolumn(mvc:int,schema:str,table:str,column:str,access:int):bat[:any_1] 
-address mvc_bind_wrap;
-pattern sql.emptycolumnidx(mvc:int,schema:str,table:str,index:str,access:int,part_nr:int,nr_parts:int) (uid:bat[:oid],uval:bat[:any_1]) 
-address mvc_bind_idxbat_wrap;
-pattern sql.emptycolumnidx(mvc:int,schema:str,table:str,index:str,access:int,part_nr:int,nr_parts:int):bat[:any_1] 
-address mvc_bind_idxbat_wrap;
-pattern sql.emptycolumnidx(mvc:int,schema:str,table:str,index:str,access:int) (uid:bat[:oid],uval:bat[:any_1]) 
-address mvc_bind_idxbat_wrap;
-pattern sql.emptycolumnidx(mvc:int,schema:str,table:str,index:str,access:int):bat[:any_1] 
-address mvc_bind_idxbat_wrap;
-
-# 14:39:23 >  
-# 14:39:23 >  "Done."
-# 14:39:23 >  
+# 14:47:14 >  
+# 14:47:14 >  "Done."
+# 14:47:14 >  
 

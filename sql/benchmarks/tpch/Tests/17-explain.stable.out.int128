@@ -46,56 +46,52 @@ Ready.
 % .explain # table_name
 % mal # name
 % clob # type
-% 346 # length
-function user.s4_1():void;
-    X_134:void := querylog.define("explain select\n sum(l_extendedprice) / 7.0 as avg_yearly\nfrom\n lineitem,\n part\nwhere\n p_partkey = l_partkey\n and p_brand = \\'Brand#23\\'\n and p_container = \\'MED BOX\\'\n and l_quantity < (\n select\n 0.2 * avg(l_quantity)\n from\n lineitem\n where\n l_partkey = p_partkey\n );","sequential_pipe",38);
-    X_0 := sql.mvc();
-    C_1:bat[:oid] := sql.tid(X_0,"sys","lineitem");
-    X_4:bat[:int] := sql.bind(X_0,"sys","lineitem","l_partkey",0);
-    X_13 := algebra.projection(C_1,X_4);
-    X_16:bat[:str] := sql.bind(X_0,"sys","part","p_container",0);
-    X_24:bat[:str] := sql.bind(X_0,"sys","part","p_brand",0);
-    C_14:bat[:oid] := sql.tid(X_0,"sys","part");
-    C_32 := algebra.subselect(X_24,C_14,"Brand#23","Brand#23",true,false,false);
-    C_36 := algebra.subselect(X_16,C_32,"MED BOX","MED BOX",true,false,false);
-    X_37:bat[:int] := sql.bind(X_0,"sys","part","p_partkey",0);
-    X_44 := algebra.projection(C_36,X_37);
-    (X_53,r1_58) := algebra.subjoin(X_44,X_13,nil:BAT,nil:BAT,false,nil:lng);
-    X_58 := algebra.projection(X_53,X_44);
-    (X_59,r1_64) := algebra.subjoin(X_13,X_58,nil:BAT,nil:BAT,false,nil:lng);
-    X_61:bat[:int] := sql.bind(X_0,"sys","lineitem","l_orderkey",0);
-    X_68:bat[:int] := algebra.projectionpath(r1_58,C_1,X_61);
-    X_69:bat[:oid] := batcalc.identity(X_68);
-    X_72 := algebra.projection(r1_64,X_69);
-    (X_73,r1_78,r2_78) := group.subgroupdone(X_72);
-    X_76:bat[:lng] := sql.bind(X_0,"sys","lineitem","l_quantity",0);
-    X_82 := algebra.projection(C_1,X_76);
-    X_85:bat[:lng] := algebra.projectionpath(r1_78,r1_64,r1_58,X_82);
-    X_96 := algebra.projection(X_59,X_82);
-    X_97:bat[:dbl] := batcalc.dbl(2,X_96);
-    X_98:bat[:dbl] := aggr.subavg(X_97,X_73,r1_78,true,true);
-    X_108:bat[:lng] := sql.bind(X_0,"sys","lineitem","l_extendedprice",0);
-    X_86:bat[:dbl] := batcalc.dbl(2,X_85);
-    X_101:bat[:dbl] := batcalc.*(0.2,X_98);
-    X_103:bat[:bit] := batcalc.<(X_86,X_101);
-    C_106 := algebra.subselect(X_103,true,true,true,true,false);
-    X_118:bat[:lng] := algebra.projectionpath(C_106,r1_78,r1_64,r1_58,C_1,X_108);
-    X_119:hge := aggr.sum(X_118);
-    X_120 := calc.hge(2,X_119,39,5);
-    X_127:hge := calc./(X_120,700:hge);
-    sql.resultSet("sys.L3","avg_yearly","decimal",39,3,10,X_127);
-end user.s4_1;
-#inline               actions= 0 time=5 usec 
-#candidates           actions= 1 time=63 usec 
-#remap                actions= 5 time=108 usec 
-#costModel            actions= 1 time=46 usec 
-#coercions            actions= 0 time=4 usec 
-#evaluate             actions= 5 time=73 usec 
-#emptybind            actions= 0 time=5 usec 
-#pushselect           actions= 4 time=54 usec 
-#aliases              actions=17 time=47 usec 
-#mergetable           actions= 0 time=53 usec 
-#deadcode             actions=18 time=40 usec 
+% 83 # length
+function user.main():void;
+    X_710 := sql.mvc();
+    C_711:bat[:oid] := sql.tid(X_710,"sys","lineitem");
+    X_714:bat[:int] := sql.bind(X_710,"sys","lineitem","l_partkey",0);
+    X_723 := algebra.projection(C_711,X_714);
+    X_726:bat[:str] := sql.bind(X_710,"sys","part","p_container",0);
+    X_734:bat[:str] := sql.bind(X_710,"sys","part","p_brand",0);
+    C_724:bat[:oid] := sql.tid(X_710,"sys","part");
+    C_742 := algebra.subselect(X_734,C_724,"Brand#23","Brand#23",true,false,false);
+    C_746 := algebra.subselect(X_726,C_742,"MED BOX","MED BOX",true,false,false);
+    X_747:bat[:int] := sql.bind(X_710,"sys","part","p_partkey",0);
+    X_754 := algebra.projection(C_746,X_747);
+    (X_763,r1_62) := algebra.subjoin(X_754,X_723,nil:BAT,nil:BAT,false,nil:lng);
+    X_768 := algebra.projection(X_763,X_754);
+    (X_769,r1_68) := algebra.subjoin(X_723,X_768,nil:BAT,nil:BAT,false,nil:lng);
+    X_771:bat[:int] := sql.bind(X_710,"sys","lineitem","l_orderkey",0);
+    X_778:bat[:int] := algebra.projectionpath(r1_62,C_711,X_771);
+    X_779:bat[:oid] := batcalc.identity(X_778);
+    X_782 := algebra.projection(r1_68,X_779);
+    (X_783,r1_82,r2_82) := group.subgroupdone(X_782);
+    X_786:bat[:lng] := sql.bind(X_710,"sys","lineitem","l_quantity",0);
+    X_792 := algebra.projection(C_711,X_786);
+    X_795:bat[:lng] := algebra.projectionpath(r1_82,r1_68,r1_62,X_792);
+    X_805 := algebra.projection(X_769,X_792);
+    X_806:bat[:dbl] := batcalc.dbl(2,X_805);
+    X_807:bat[:dbl] := aggr.subavg(X_806,X_783,r1_82,true,true);
+    X_818:bat[:lng] := sql.bind(X_710,"sys","lineitem","l_extendedprice",0);
+    X_796:bat[:dbl] := batcalc.dbl(2,X_795);
+    X_811:bat[:dbl] := batcalc.*(X_807,0.2);
+    X_813:bat[:bit] := batcalc.<(X_796,X_811);
+    C_816 := algebra.subselect(X_813,true,true,true,true,false);
+    X_828:bat[:lng] := algebra.projectionpath(C_816,r1_82,r1_68,r1_62,C_711,X_818);
+    X_829:hge := aggr.sum(X_828);
+    X_830 := calc.hge(2,X_829,39,5);
+    X_837:hge := calc./(X_830,700:hge);
+    sql.resultSet("sys.L3","avg_yearly","decimal",39,3,10,X_837);
+end user.main;
+#inline               actions= 0 time=4 usec 
+#remap                actions= 5 time=26 usec 
+#costmodel            actions= 1 time=4 usec 
+#coercion             actions= 0 time=3 usec 
+#evaluate             actions= 9 time=39 usec 
+#emptybind            actions=27 time=45 usec 
+#aliases              actions=21 time=15 usec 
+#deadcode             actions=27 time=12 usec 
 #aliases              actions= 0 time=8 usec 
 #constants            actions=14 time=46 usec 
 #commonTerms          actions= 5 time=39 usec 

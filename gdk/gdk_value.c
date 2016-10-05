@@ -134,7 +134,9 @@ VALempty(ValPtr v)
 
 /* Create a copy of S into D, allocating space for external values
  * (non-fixed sized values).  See VALinit for a version where the
- * source is not in a VALRecord. */
+ * source is not in a VALRecord.
+ *
+ * Returns NULL In case of (malloc) failure. */
 ValPtr
 VALcopy(ValPtr d, const ValRecord *s)
 {
@@ -146,6 +148,8 @@ VALcopy(ValPtr d, const ValRecord *s)
 	} else if (s->vtype == TYPE_str) {
 		d->vtype = TYPE_str;
 		d->val.sval = GDKstrdup(s->val.sval);
+		if (d->val.sval == NULL)
+			return NULL;
 		d->len = strLen(d->val.sval);
 	} else if (s->vtype == TYPE_bit) {
 		d->vtype = s->vtype;
@@ -157,8 +161,9 @@ VALcopy(ValPtr d, const ValRecord *s)
 		d->vtype = s->vtype;
 		d->len = ATOMlen(d->vtype, p);
 		d->val.pval = GDKmalloc(d->len);
-		if( d->val.pval)
-			memcpy(d->val.pval, p, d->len);
+		if (d->val.pval == NULL)
+			return NULL;
+		memcpy(d->val.pval, p, d->len);
 	}
 	return d;
 }
@@ -166,7 +171,9 @@ VALcopy(ValPtr d, const ValRecord *s)
 /* Create a copy of the type value combination in TPE/S, allocating
  * space for external values (non-fixed sized values).  See VALcopy
  * for a version where the source is in a ValRecord, and see VALset
- * for a version where ownership of the source is transferred. */
+ * for a version where ownership of the source is transferred.
+ *
+ * Returns NULL in case of (malloc) failure. */
 ValPtr
 VALinit(ValPtr d, int tpe, const void *s)
 {
@@ -199,6 +206,8 @@ VALinit(ValPtr d, int tpe, const void *s)
 #endif
 	case TYPE_str:
 		d->val.sval = GDKstrdup(s);
+		if (d->val.sval == NULL)
+			return NULL;
 		d->len = strLen(s);
 		break;
 	case TYPE_ptr:
@@ -209,8 +218,9 @@ VALinit(ValPtr d, int tpe, const void *s)
 		assert(ATOMextern(ATOMstorage(tpe)));
 		d->len = ATOMlen(tpe, s);
 		d->val.pval = GDKmalloc(d->len);
-		if( d->val.pval)
-			memcpy(d->val.pval, s, d->len);
+		if (d->val.pval == NULL)
+			return NULL;
+		memcpy(d->val.pval, s, d->len);
 		break;
 	}
 	return d;
