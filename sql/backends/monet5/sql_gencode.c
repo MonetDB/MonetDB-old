@@ -2946,6 +2946,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 
 			// command spfw(qf:bat[:oid], qt:bat[:oid], V:bat[:oid], E:bat[:oid]) --> :bat[:oid]
 			q = newStmt(mb, graphRef, "spfw");
+			q = pushReturn(mb, q, newTmpVariable(mb, TYPE_bat));
 
 			// set the query params
 			assert(s->op1->type == st_list && s->op1->op4.lval->cnt == query_sz);
@@ -2965,6 +2966,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 
 			// abi convention
 			s->nr = getDestVar(q); // filter
+			renameVariable(mb, getArg(q, 1), "r1_%d", s->nr);
 		} break;
 		}
 		if (mb->errors)
