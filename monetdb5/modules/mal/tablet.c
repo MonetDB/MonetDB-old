@@ -59,7 +59,7 @@ void_bat_create(int adt, BUN nr)
 
 	/* check for correct structures */
 	if (b == NULL)
-		return b;
+		return NULL;
 	BATsetaccess(b, BAT_APPEND);
 	if (nr > BATTINY && adt && BATextend(b, nr) != GDK_SUCCEED) {
 		BBPunfix(b->batCacheid);
@@ -126,10 +126,8 @@ TABLETadt_toStr(void *extra, char **buf, int *len, int type, ptr a)
 			GDKfree(*buf);
 			*len = 2 * l + 3;
 			*buf = GDKzalloc(*len);
-			if( buf == NULL){
-				GDKerror("Tabletadt_toStr" MAL_MALLOC_FAIL);
+			if( *buf == NULL)
 				return 0;
-			}
 		}
 		dst = *buf;
 		dst[0] = '"';
@@ -202,13 +200,13 @@ TABLETcreate_bats(Tablet *as, BUN est)
 		if (fmt[i].skip)
 			continue;
 		fmt[i].c = void_bat_create(fmt[i].adt, est);
-		fmt[i].ci = bat_iterator(fmt[i].c);
 		if (!fmt[i].c) {
 			for (j = 0; j < i; j++)
 				if (!fmt[i].skip)
 					BBPdecref(fmt[j].c->batCacheid, FALSE);
 			throw(SQL, "copy", "Failed to create bat of size " BUNFMT "\n", as->nr);
 		}
+		fmt[i].ci = bat_iterator(fmt[i].c);
 	}
 	return MAL_SUCCEED;
 }
@@ -911,7 +909,7 @@ SQLinsert_val(READERtask *task, int col, int idx)
 				s = scpy;
 			}
 			MT_lock_set(&errorlock);
-			snprintf(buf, sizeof(buf), "line " LLFMT " field %d '%s' expected in '%s'", row, col, fmt->type, s ? s : buf);
+			snprintf(buf, sizeof(buf), "line " LLFMT " field %s '%s' expected in '%s'", row, fmt->name?fmt->name:"", fmt->type, s ? s : buf);
 			GDKfree(s);
 			buf[sizeof(buf)-1]=0;
 			if (task->as->error == NULL && (task->as->error = GDKstrdup(buf)) == NULL)
@@ -1996,7 +1994,8 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 #endif
 	for (i = 0; i < as->nr_attrs; i++) {
 		BAT *b = task->as->format[i].c;
-		BATsettrivprop(b);
+		if (b)
+			BATsettrivprop(b);
 		GDKfree(task->fields[i]);
 	}
 	GDKfree(task->fields);

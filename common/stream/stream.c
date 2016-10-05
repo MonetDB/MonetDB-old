@@ -598,8 +598,10 @@ void
 close_stream(stream *s)
 {
 	if (s) {
-		s->close(s);
-		s->destroy(s);
+		if (s->close)
+			s->close(s);
+		if (s->destroy)
+			s->destroy(s);
 	}
 }
 
@@ -1539,8 +1541,8 @@ stream_xzclose(stream *s)
 				if (fwrite(xz->buf, 1, sz, xz->fp) != sz) 
 					s->errnr = MNSTR_WRITE_ERROR;
 			}
+			fflush(xz->fp);
 		}
-		fflush(xz->fp);
 		fclose(xz->fp);
 		lzma_end(&xz->strm);
 		free(xz);
@@ -3236,7 +3238,8 @@ ic_close(stream *s)
 	struct icstream *ic = (struct icstream *) s->stream_data.p;
 
 	if (ic) {
-		ic_flush(s);
+		if (s->access == ST_WRITE)
+			ic_flush(s);
 		iconv_close(ic->cd);
 		mnstr_close(ic->s);
 		mnstr_destroy(ic->s);

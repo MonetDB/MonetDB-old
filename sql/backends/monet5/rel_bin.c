@@ -419,6 +419,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			stmt *orderby = NULL;
 			stmt *col = NULL;
 		
+			assert(0);
 			if (exps) {
 				for (en = exps->h; en; en = en->next) {
 					stmt *es;
@@ -891,11 +892,8 @@ sql_convert_arg(mvc *sql, int nr, sql_subtype *rt)
 
 	if (atom_null(a)) {
 		if (a->data.vtype != rt->type->localtype) {
-			ptr p;
-
 			a->data.vtype = rt->type->localtype;
-			p = ATOMnilptr(a->data.vtype);
-			VALset(&a->data, a->data.vtype, p);
+			VALinit(&a->data, a->data.vtype, ATOMnilptr(a->data.vtype));
 		}
 	}
 	a->tpe = *rt;
@@ -1802,6 +1800,10 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 			if (!s) {
 				assert(0);
 				return NULL;
+			}
+			if (s->nrcols == 0) {
+				stmt *l = bin_first_column(sql->sa, sub);
+				s = stmt_uselect(sql->sa, stmt_const(sql->sa, l, stmt_bool(sql->sa, 1)), s, cmp_equal, sel);
 			}
 			sel = s;
 		}

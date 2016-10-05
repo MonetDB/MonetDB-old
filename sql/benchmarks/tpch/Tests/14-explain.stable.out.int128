@@ -42,62 +42,58 @@ Ready.
 % .explain # table_name
 % mal # name
 % clob # type
-% 407 # length
-function user.s2_1(A0:sht,A1:str,A2:bte,A3:bte,A4:bte,A5:date,A6:date,A7:int):void;
-    X_120:void := querylog.define("explain select\n 100.00 * sum(case\n when p_type like \\'PROMO%\\'\n then l_extendedprice * (1 - l_discount)\n else 0\n end) / sum(l_extendedprice * (1 - l_discount)) as promo_revenue\nfrom\n lineitem,\n part\nwhere\n l_partkey = p_partkey\n and l_shipdate >= date \\'1995-09-01\\'\n and l_shipdate < date \\'1995-09-01\\' + interval \\'1\\' month;","sequential_pipe",55);
-    X_0 := sql.mvc();
-    X_5:bat[:date] := sql.bind(X_0,"sys","lineitem","l_shipdate",0);
-    C_2:bat[:oid] := sql.tid(X_0,"sys","lineitem");
-    X_18:date := mtime.addmonths(A6,A7);
-    C_133 := algebra.subselect(X_5,C_2,A5,X_18,true,false,false);
-    (C_8:bat[:oid],r1_17:bat[:date]) := sql.bind(X_0,"sys","lineitem","l_shipdate",2);
-    C_134 := algebra.subselect(r1_17,nil:bat[:oid],A5,X_18,true,false,false);
-    X_11:bat[:date] := sql.bind(X_0,"sys","lineitem","l_shipdate",1);
-    C_136 := algebra.subselect(X_11,C_2,A5,X_18,true,false,false);
-    C_19 := sql.subdelta(C_133,C_2,C_8,C_134,C_136);
-    X_23:bat[:int] := sql.bind(X_0,"sys","lineitem","l_partkey",0);
-    (C_25:bat[:oid],r1_34:bat[:int]) := sql.bind(X_0,"sys","lineitem","l_partkey",2);
-    X_27:bat[:int] := sql.bind(X_0,"sys","lineitem","l_partkey",1);
-    X_30 := sql.projectdelta(C_19,X_23,C_25,r1_34,X_27);
-    C_31:bat[:oid] := sql.tid(X_0,"sys","part");
-    X_33:bat[:int] := sql.bind(X_0,"sys","part","p_partkey",0);
-    (C_35:bat[:oid],r1_44:bat[:int]) := sql.bind(X_0,"sys","part","p_partkey",2);
-    X_37:bat[:int] := sql.bind(X_0,"sys","part","p_partkey",1);
-    X_39 := sql.projectdelta(C_31,X_33,C_35,r1_44,X_37);
-    (X_40,r1_49) := algebra.subjoin(X_30,X_39,nil:BAT,nil:BAT,false,nil:lng);
-    X_45:bat[:str] := sql.bind(X_0,"sys","part","p_type",0);
-    (C_47:bat[:oid],r1_56:bat[:str]) := sql.bind(X_0,"sys","part","p_type",2);
-    X_49:bat[:str] := sql.bind(X_0,"sys","part","p_type",1);
-    X_51 := sql.projectdelta(C_31,X_45,C_47,r1_56,X_49);
-    X_52 := algebra.projection(r1_49,X_51);
-    X_54:bat[:bit] := batalgebra.like(X_52,A1);
-    X_57:bat[:bit] := batcalc.isnil(X_54);
-    X_64:bat[:bit] := batcalc.ifthenelse(X_57,false,X_54);
-    X_66:bat[:lng] := sql.bind(X_0,"sys","lineitem","l_extendedprice",0);
-    (C_68:bat[:oid],r1_77:bat[:lng]) := sql.bind(X_0,"sys","lineitem","l_extendedprice",2);
-    X_70:bat[:lng] := sql.bind(X_0,"sys","lineitem","l_extendedprice",1);
-    X_73 := sql.projectdelta(C_19,X_66,C_68,r1_77,X_70);
-    X_74 := algebra.projection(X_40,X_73);
-    X_80 := calc.lng(A2,15,2);
-    X_82:bat[:lng] := sql.bind(X_0,"sys","lineitem","l_discount",0);
-    (C_84:bat[:oid],r1_93:bat[:lng]) := sql.bind(X_0,"sys","lineitem","l_discount",2);
-    X_86:bat[:lng] := sql.bind(X_0,"sys","lineitem","l_discount",1);
-    X_89 := sql.projectdelta(C_19,X_82,C_84,r1_93,X_86);
-    X_90 := algebra.projection(X_40,X_89);
-    X_91:bat[:lng] := batcalc.-(X_80,X_90);
-    X_94:bat[:hge] := batcalc.*(X_74,X_91);
-    X_97 := calc.hge(A3,33,4);
-    X_99:bat[:hge] := batcalc.ifthenelse(X_64,X_94,X_97);
-    X_101:hge := aggr.sum(X_99);
-    X_102:hge := calc.*(A0,X_101);
-    X_103 := calc.hge(5,X_102,39,9);
-    X_109 := calc.lng(A4,15,2);
-    X_111:bat[:lng] := batcalc.-(X_109,X_90);
-    X_112:bat[:hge] := batcalc.*(X_74,X_111);
-    X_113:hge := aggr.sum(X_112);
-    X_114:hge := calc./(X_103,X_113);
-    sql.resultSet(".L2","promo_revenue","decimal",39,5,10,X_114);
-end user.s2_1;
+% 80 # length
+function user.main():void;
+    X_716 := sql.mvc();
+    X_720:bat[:date] := sql.bind(X_716,"sys","lineitem","l_shipdate",0);
+    C_717:bat[:oid] := sql.tid(X_716,"sys","lineitem");
+    X_732:date := mtime.addmonths("1995-09-01",1);
+    C_733 := algebra.subselect(X_720,C_717,"1995-09-01",X_732,true,false,false);
+    X_737:bat[:int] := sql.bind(X_716,"sys","lineitem","l_partkey",0);
+    X_744 := algebra.projection(C_733,X_737);
+    C_745:bat[:oid] := sql.tid(X_716,"sys","part");
+    X_747:bat[:int] := sql.bind(X_716,"sys","part","p_partkey",0);
+    X_753 := algebra.projection(C_745,X_747);
+    (X_754,r1_53) := algebra.subjoin(X_744,X_753,nil:BAT,nil:BAT,false,nil:lng);
+    X_759:bat[:str] := sql.bind(X_716,"sys","part","p_type",0);
+    X_766:bat[:str] := algebra.projectionpath(r1_53,C_745,X_759);
+    X_768:bat[:bit] := batalgebra.like(X_766,"PROMO%");
+    X_771:bat[:bit] := batcalc.isnil(X_768);
+    X_776:bat[:bit] := batcalc.ifthenelse(X_771,false,X_768);
+    X_778:bat[:lng] := sql.bind(X_716,"sys","lineitem","l_extendedprice",0);
+    X_786:bat[:lng] := algebra.projectionpath(X_754,C_733,X_778);
+    X_794:bat[:lng] := sql.bind(X_716,"sys","lineitem","l_discount",0);
+    X_802:bat[:lng] := algebra.projectionpath(X_754,C_733,X_794);
+    X_803:bat[:lng] := batcalc.-(100:lng,X_802);
+    X_805:bat[:hge] := batcalc.*(X_786,X_803);
+    X_811:bat[:hge] := batcalc.ifthenelse(X_776,X_805,0:hge);
+    X_813:hge := aggr.sum(X_811);
+    X_815:hge := calc.*(X_813,1000);
+    X_816 := calc.hge(5,X_815,39,9);
+    X_825:hge := aggr.sum(X_805);
+    X_826:hge := calc./(X_816,X_825);
+    sql.resultSet("sys.L2","promo_revenue","decimal",39,5,10,X_826);
+end user.main;
+#inline               actions= 0 time=4 usec 
+#remap                actions= 9 time=139 usec 
+#costmodel            actions= 1 time=3 usec 
+#coercion             actions= 1 time=63 usec 
+#evaluate             actions=19 time=49 usec 
+#emptybind            actions=18 time=41 usec 
+#aliases              actions=29 time=15 usec 
+#deadcode             actions=19 time=10 usec 
+#aliases              actions= 0 time=7 usec 
+#constants            actions=19 time=23 usec 
+#commonTerms          actions= 2 time=16 usec 
+#projectionpath       actions= 3 time=13 usec 
+#reorder              actions= 1 time=54 usec 
+#deadcode             actions= 5 time=10 usec 
+#reduce               actions=118 time=33 usec 
+#multiplex            actions= 0 time=3 usec 
+#generator            actions= 0 time=2 usec 
+#profiler             actions= 1 time=73 usec 
+#garbageCollector     actions= 1 time=76 usec 
+#total                actions= 1 time=2323 usec 
 
 # 22:53:29 >  
 # 22:53:29 >  "Done."
