@@ -660,7 +660,7 @@ LIDARopenPath(str fname, int *len) {
 				strncat(path, dir_entry->d_name, strlen(dir_entry->d_name));
 				ret[idx++] = strdup(path);
 #ifndef NDEBUG
-				printf("file: %s %d\n", path, *len);
+				fprintf(stderr, "file: %s %d\n", path, *len);
 #endif
 			}
 		}
@@ -1008,8 +1008,9 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 #ifndef NDEBUG
-	printf("tname: %s\n", tname);
+	fprintf(stderr, "tname: %s\n", tname);
 #endif
+
 	/* extract the file name from the absolute path */
 	if ((s = strrchr(tname, DIR_SEP)) == NULL)
 		s = tname;
@@ -1037,7 +1038,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 #ifndef NDEBUG
-	printf("tablename: %s\n", tname_low);
+	fprintf(stderr, "tablename: %s\n", tname_low);
 #endif
 
 	/* check table name for existence in the lidar catalog */
@@ -1843,12 +1844,12 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		BATiter fs_rid = bat_iterator(BATdescriptor(fres->cols[0].b));
 		oid id = 0, cnt = BATcount(fs_rid.b);
 #ifndef NDEBUG
-		printf("count: %ld\n", cnt);
+		fprintf(stderr, "count: %ld\n", cnt);
 #endif
 		for (id = 0; id < cnt; id++) {
 			int rid = *(int*)BUNtail(fs_rid, id);
 #ifndef NDEBUG
-			printf("id, rid: %ld %d\n", id, rid);
+			fprintf(stderr, "id, rid: %ld %d\n", id, rid);
 #endif
 			msg = LIDARloadTable_(m, sch, lidar_tbl, tname, tbl, rid - 1);
 			if (msg != MAL_SUCCEED) {
@@ -1925,12 +1926,12 @@ LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BATiter fs_rid = bat_iterator(BATdescriptor(fres->cols[0].b));
 			oid id = 0, cnt = BATcount(fs_rid.b);
 #ifndef NDEBUG
-			printf("count: %ld\n", cnt);
+			fprintf(stderr, "count: %ld\n", cnt);
 #endif
 			for (id = 0; id < cnt; id++) {
 				int rid = *(int*)BUNtail(fs_rid, id);
 #ifndef NDEBUG
-				printf("id, rid: %ld %d\n", id, rid);
+				fprintf(stderr, "id, rid: %ld %d\n", id, rid);
 #endif
 				msg = LIDARloadTable_(m, sch, lidar_tbl, tname, tbl, rid - 1);
 				if (msg != MAL_SUCCEED) {
