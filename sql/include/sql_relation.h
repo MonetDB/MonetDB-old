@@ -60,12 +60,12 @@ typedef struct expression {
 #define APPLY_NOTEXISTS	64
 
 /* ASCENDING > 15 else we have problems with cmp types */
-#define ASCENDING	16
+#define ASCENDING	32
 #define CMPMASK		(ASCENDING-1)
 #define get_cmp(e) 	(e->flag&CMPMASK)
-#define ANTISEL	32
-#define HAS_NO_NIL	64
-#define EXP_INTERN	128
+#define ANTISEL	64
+#define HAS_NO_NIL	128
+#define EXP_INTERN	256
 
 #define UPD_COMP		1
 #define UPD_LOCKED		2
@@ -135,7 +135,7 @@ typedef struct expression {
 #define DDL_ALTER_TABLE_DEL_TABLE  64
 #define DDL_ALTER_TABLE_SET_ACCESS  65
 
-#define MAXOPS 22
+#define MAXOPS 21
 
 typedef enum operator_type {
 	op_basetable = 0,
@@ -156,7 +156,6 @@ typedef enum operator_type {
 	op_groupby,	
 	op_topn,
 	op_sample,
-	op_spfw,
 	op_insert, 	/* insert(l=table, r insert expressions) */ 
 	op_update, 	/* update(l=table, r update expressions) */
 	op_delete 	/* delete(l=table, r delete expression) */
@@ -221,8 +220,6 @@ typedef enum operator_type {
 	(op == op_insert || op == op_update || op == op_delete)
 #define is_sample(op) \
 	(op == op_sample)
-#define is_spfw(op) \
-	(op == op_spfw)
 
 /* NO NIL semantics of aggr operations */
 #define need_no_nil(e) \
@@ -295,10 +292,9 @@ typedef struct relation {
 
 // graph extension
 typedef struct {
-	sql_rel base;
+	list *src;
+	list *dst;
 	sql_rel *edges;
-} sql_spfw;
-
-#define rel_edges(rel_spfw) ((sql_spfw*) rel_spfw)->edges
+} graph_join;
 
 #endif /* SQL_RELATION_H */

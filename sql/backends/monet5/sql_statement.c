@@ -1619,13 +1619,12 @@ stmt_concat(sql_allocator *sa, list* l)
 }
 
 stmt *
-stmt_exp2vrtx(sql_allocator *sa, stmt *from, stmt *to, stmt *domain)
+stmt_exp2vrtx(sql_allocator *sa, stmt *q, stmt *domain)
 {
 	stmt *s = stmt_create(sa, st_exp2vrtx);
-	s->op1 = from;
-	s->op2 = to;
-	s->op3 = domain;
-	s->nrcols = 3;
+	s->op1 = q;
+	s->op2 = domain;
+	s->nrcols = 2;
 	return s;
 }
 

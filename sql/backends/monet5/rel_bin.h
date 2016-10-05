@@ -12,7 +12,7 @@
 #include "rel_semantic.h"
 #include "sql_statement.h"
 
-extern stmt * exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stmt *cnt, stmt *sel);
+extern stmt * exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stmt *cnt, stmt *sel, list *refs);
 extern stmt * rel_bin(mvc *sql, sql_rel *rel);
 extern stmt * output_rel_bin(mvc *sql, sql_rel *rel);
 

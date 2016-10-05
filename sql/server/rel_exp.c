@@ -137,6 +137,24 @@ exp_filter(sql_allocator *sa, list *l, list *r, sql_subfunc *f, int anti)
 }
 
 sql_exp *
+exp_graph_join(sql_allocator *sa, list *qsrc, list *qdst, sql_rel *graph, list *efrom, list *eto)
+{
+	sql_exp *e = exp_create(sa, e_cmp);
+	graph_join* g = NULL;
+
+	e->card = CARD_MULTI;
+	e->l = qsrc;
+	e->r = qdst;
+	e->f = g = SA_NEW(sa, graph_join);
+	g->src = efrom;
+	g->dst = eto;
+	g->edges = graph;
+	e->flag = cmp_filter_graph;
+
+	return e;
+}
+
+sql_exp *
 exp_or(sql_allocator *sa, list *l, list *r)
 {
 	sql_exp *f = NULL;
@@ -1141,7 +1159,7 @@ exp_is_join(sql_exp *e, list *rels)
 	 */
 	if (e->type == e_cmp && !is_complex_exp(e->flag) && e->l && e->r && !e->f && e->card >= CARD_AGGR && !complex_select(e))
 		return 0;
-	if (e->type == e_cmp && get_cmp(e) == cmp_filter && e->l && e->r && e->card >= CARD_AGGR)
+	if (e->type == e_cmp && (get_cmp(e) == cmp_filter || get_cmp(e) == cmp_filter_graph) && e->l && e->r && e->card >= CARD_AGGR)
 		return 0;
 	/* range expression */
 	if (e->type == e_cmp && !is_complex_exp(e->flag) && e->l && e->r && e->f && e->card >= CARD_AGGR && !complex_select(e)) 
@@ -1214,7 +1232,6 @@ rel_find_exp( sql_rel *rel, sql_exp *e)
 		case op_right:
 		case op_full:
 		case op_join:
-		case op_spfw:
 		case op_apply:
 			ne = rel_find_exp(rel->l, e);
 			if (!ne) 
@@ -1351,7 +1368,7 @@ exp_has_func( sql_exp *e )
 	case e_cmp:
 		if (e->flag == cmp_or) {
 			return (exps_has_func(e->l) || exps_has_func(e->r));
-		} else if (e->flag == cmp_in || e->flag == cmp_notin || get_cmp(e) == cmp_filter) {
+		} else if (e->flag == cmp_in || e->flag == cmp_notin || get_cmp(e) == cmp_filter || get_cmp(e) == cmp_filter_graph) {
 			return (exp_has_func(e->l) || exps_has_func(e->r));
 		} else {
 			return (exp_has_func(e->l) || exp_has_func(e->r) || 
@@ -1677,12 +1694,16 @@ exp_copy( sql_allocator *sa, sql_exp * e)
 		ne->flag = e->flag;
 		break;
 	case e_cmp:
-		if (e->flag == cmp_or || get_cmp(e) == cmp_filter) {
+		if (e->flag == cmp_or || get_cmp(e) == cmp_filter || get_cmp(e) == cmp_filter_graph) {
 			list *l = exps_copy(sa, e->l);
 			list *r = exps_copy(sa, e->r);
 			if (l && r) {
 				if (get_cmp(e) == cmp_filter)
 					ne = exp_filter(sa, l, r, e->f, is_anti(e));
+				else if (get_cmp(e) == cmp_filter_graph){
+					graph_join *g = e->f;
+					ne = exp_graph_join(sa, l, r, g->edges, g->src, g->dst);
+				}
 				else
 					ne = exp_or(sa, l, r);
 			}
@@ -1782,17 +1803,4 @@ exp_flatten(mvc *sql, sql_exp *e)
 		}
 	}
 	return NULL;
-}
-
-list *
-exp_spfw(mvc *sql, sql_exp *qfrom, sql_exp *qto, sql_exp *efrom, sql_exp *eto)
-{
-	list *result = sa_list(sql->sa);
-
-	list_append(result, qfrom);
-	list_append(result, qto);
-	list_append(result, efrom);
-	list_append(result, eto);
-
-	return result;
 }

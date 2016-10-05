@@ -2800,114 +2800,34 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			s->nr = ref_cpy;
 		} break;
 		case st_exp2vrtx: {
-			// this stmt became a mess
-			int ref_left = -1, ref_right = -1, ref_domain = 1;
-			InstrPtr cnt1 = NULL, cnt2 = NULL;
-			InstrPtr stmt_if = NULL, stmt_else = NULL, stmt_endif = NULL;
-			InstrPtr join = NULL, cmp = NULL, cmp_not = NULL;
-			int jl1 = -1, jl2 = -1, /*jl3 = -1,*/ jr1 = -1, jr2 = -1, jr3 = -1;
-			InstrPtr qfrom_oid = NULL, qto_oid = NULL;
-			int qtemp = -1;
+			int ref_left = -1, ref_domain = -1;
+			InstrPtr cnt = NULL;
+			InstrPtr join = NULL;
 
-			// process the operands
 			ref_left = _dumpstmt(sql, mb, s->op1);
-			if(ref_left < 0)
+			if (ref_left < 0)
 				return -1;
-			ref_right = _dumpstmt(sql, mb, s->op2);
-			if(ref_right < 0)
-				return -1;
-			ref_domain = _dumpstmt(sql, mb, s->op3);
-			if(ref_domain < 0)
+			ref_domain = _dumpstmt(sql, mb, s->op2);
+			if (ref_domain < 0)
 				return -1;
 
-			cnt1 = newStmt(mb, aggrRef, countRef);
-			pushArgument(mb, cnt1, ref_left);
+			// cardinality of left
+			cnt = newStmt(mb, aggrRef, countRef);
+			cnt = pushArgument(mb, cnt, ref_left);
 
-			// let's start with the first join
-			jr1 = newTmpVariable(mb, TYPE_any);
+			// perform the join
 			join = newStmt(mb, algebraRef, "subsemijoin");
-			join = pushReturn(mb, join, jr1);
+			join = pushReturn(mb, join, newTmpVariable(mb, TYPE_any));
 			join = pushArgument(mb, join, ref_left);
 			join = pushArgument(mb, join, ref_domain);
 			join = pushNil(mb, join, TYPE_bat);
 			join = pushNil(mb, join, TYPE_bat);
 			join = pushBit(mb, join, FALSE);
-			join = pushArgument(mb, join, getDestVar(cnt1));
-			jl1 = getDestVar(join);
+			join = pushArgument(mb, join, getDestVar(cnt));
 
-			// second join
-			jr2 = newTmpVariable(mb, TYPE_any);
-			join = newStmt(mb, algebraRef, "subsemijoin");
-			join = pushReturn(mb, join, jr2);
-			join = pushArgument(mb, join, ref_right);
-			join = pushArgument(mb, join, ref_domain);
-			join = pushArgument(mb, join, jl1);
-			join = pushNil(mb, join, TYPE_bat);
-			join = pushBit(mb, join, FALSE);
-			join = pushArgument(mb, join, getDestVar(cnt1));
-			jl2 = getDestVar(join);
-
-			qfrom_oid = newAssignment(mb);
-			qfrom_oid = pushNil(mb, qfrom_oid, TYPE_bat);
-			qtemp = getDestVar(qfrom_oid);
-
-			qto_oid = newAssignment(mb); // qto
-			pushArgument(mb, qto_oid, jr2);
-
-			cnt1 = newStmt(mb, aggrRef, countRef);
-			pushArgument(mb, cnt1, jr1);
-			cnt2 = newStmt(mb, aggrRef, countRef);
-			pushArgument(mb, cnt2, jr2);
-
-			// if |jr1| > |jr2|
-			cmp = newStmt(mb, "calc", "==");
-			cmp = pushArgument(mb, cmp, getDestVar(cnt1));
-			cmp = pushArgument(mb, cmp, getDestVar(cnt2));
-			stmt_if = newAssignment(mb);
-			stmt_if->barrier = BARRIERsymbol;
-			stmt_if = pushArgument(mb, stmt_if, getDestVar(cmp));
-
-			// third join
-			jr3 = newTmpVariable(mb, TYPE_any);
-			join = newStmt(mb, algebraRef, "subsemijoin");
-			join = pushReturn(mb, join, jr3);
-			join = pushArgument(mb, join, ref_left);
-			join = pushArgument(mb, join, ref_domain);
-			join = pushArgument(mb, join, jl2); // candidate list for ref_left
-			join = pushNil(mb, join, TYPE_bat);
-			join = pushBit(mb, join, FALSE);
-			join = pushArgument(mb, join, getDestVar(cnt2));
-//			jl3 = getDestVar(join); // jl3 is the same of jl2
-
-			qfrom_oid = newAssignment(mb);
-			getArg(qfrom_oid, 0) = qtemp; // dest
-			qfrom_oid = pushArgument(mb, qfrom_oid, jr3);
-
-			stmt_endif = newAssignment(mb);
-			getArg(stmt_endif, 0) = getDestVar(stmt_if);
-			stmt_endif->argc = stmt_endif->retc = 1;
-			stmt_endif->barrier = EXITsymbol;
-
-			// else |jr1| == |jr2|
-			cmp_not = newStmt(mb, calcRef, notRef);
-			cmp_not = pushArgument(mb, cmp_not, getDestVar(cmp));
-			stmt_else = newAssignment(mb);
-			stmt_else->barrier = BARRIERsymbol;
-			stmt_else = pushArgument(mb, stmt_else, getDestVar(cmp_not));
-
-			qfrom_oid = newAssignment(mb);
-			getArg(qfrom_oid, 0) = qtemp; // dest
-			pushArgument(mb, qfrom_oid, jr1);
-
-			stmt_endif = newAssignment(mb);
-			getArg(stmt_endif, 0) = getDestVar(stmt_else);
-			stmt_endif->argc = stmt_endif->retc = 1;
-			stmt_endif->barrier = EXITsymbol;
-
-			// abi convention for st_result
-			s->nr = jl2;
-			renameVariable(mb, getDestVar(qfrom_oid), "r1_%d", s->nr);
-			renameVariable(mb, getDestVar(qto_oid), "r2_%d", s->nr);
+			// abi convention
+			s->nr = getDestVar(join); // permutation
+			renameVariable(mb, getArg(join, 1), "r1_%d", s->nr); // values
 		} break;
 		case st_mkpartition: {
 			int ref_stmt = -1;
@@ -3012,7 +2932,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			}
 		} break;
 		case st_spfw: {
-			const /*size_t*/ int query_sz = 3; // num operands for the query
+			const /*size_t*/ int query_sz = 4; // num operands for the query
 			const /*size_t*/ int graph_sz = 2; // num operands for the graph
 			node* n = NULL;
 
@@ -3045,7 +2965,6 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 
 			// abi convention
 			s->nr = getDestVar(q); // filter
-			#undef sz
 		} break;
 		}
 		if (mb->errors)

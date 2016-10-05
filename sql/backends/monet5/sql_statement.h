@@ -249,7 +249,7 @@ extern stmt *stmt_return(sql_allocator *sa, stmt *val, int nr_of_declared_tables
 extern stmt *stmt_assign(sql_allocator *sa, const char *varname, stmt *val, int level);
 
 extern stmt *stmt_concat(sql_allocator *sa, list *l);
-extern stmt *stmt_exp2vrtx(sql_allocator *sa, stmt *from, stmt *to, stmt *domain);
+extern stmt *stmt_exp2vrtx(sql_allocator *sa, stmt *q, stmt *domain);
 extern stmt *stmt_mkpartition(sql_allocator *sa, stmt *st, int partno, int num_partitions);
 extern stmt *stmt_prefixsum(sql_allocator *sa, stmt *op, stmt *domain_cardinality);
 extern stmt *stmt_slices(sql_allocator *sa, stmt *op, int num);

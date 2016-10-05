@@ -12,9 +12,6 @@
 #include "rel_semantic.h"
 #include "sql_semantic.h"
 
-// Retrieve the referred edges relation for the spfw operator
-//sql_rel *rel_edges(sql_rel *spfw);
-
-sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq);
+sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context);
 
 #endif /* _REL_GRAPH_H_ */

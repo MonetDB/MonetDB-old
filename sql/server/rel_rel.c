@@ -77,25 +77,20 @@ rel_destroy(sql_rel *rel)
 	rel_destroy_(rel);
 }
 
-static sql_rel*
-rel_init(sql_rel* rel){
-	sql_ref_init(&rel->ref);
-	rel->l = rel->r = NULL;
-	rel->exps = NULL;
-	rel->nrcols = 0;
-	rel->flag = 0;
-	rel->card = CARD_ATOM;
-	rel->processed = 0;
-	rel->subquery = 0;
-	rel->p = NULL;
-	return rel;
-}
-
 sql_rel*
 rel_create( sql_allocator *sa )
 {
 	sql_rel *r = SA_NEW(sa, sql_rel);
-	return rel_init(r);
+	sql_ref_init(&r->ref);
+	r->l = r->r = NULL;
+	r->exps = NULL;
+	r->nrcols = 0;
+	r->flag = 0;
+	r->card = CARD_ATOM;
+	r->processed = 0;
+	r->subquery = 0;
+	r->p = NULL;
+	return r;
 }
 
 sql_rel *
@@ -177,8 +172,7 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname )
 	case op_join:
 	case op_left:
 	case op_right:
-	case op_full:
-	case op_spfw: {
+	case op_full: {
 		sql_rel *right = rel->r;
 
 		*p = rel;
@@ -815,11 +809,6 @@ rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int int
 	case op_topn:
 	case op_sample:
 		return rel_projections(sql, rel->l, tname, settname, intern );
-	case op_spfw:
-		// TODO: +1 for the score
-		exps = rel_projections(sql, rel->l, tname, settname, intern );
-		rexps = rel_projections(sql, rel->r, tname, settname, intern );
-		return list_merge(exps, rexps, NULL);
 	default:
 		return NULL;
 	}
@@ -840,7 +829,6 @@ rel_bind_path_(sql_rel *rel, sql_exp *e, list *path )
 	case op_right:
 	case op_full:
 	case op_apply:
-	case op_spfw:
 		/* first right (possible subquery) */
 		found = rel_bind_path_(rel->r, e, path);
 		if (!found)
@@ -1197,22 +1185,4 @@ rel_find_column( sql_allocator *sa, sql_rel *rel, const char *tname, const char 
 			return rel_find_column(sa, rel->l, tname, cname);
 	}
 	return NULL;
-}
-
-sql_rel *rel_spfw(mvc *sql, sql_rel *l, sql_rel *r, sql_rel *edges, list *lst_exps)
-{
-	sql_spfw *spfw = SA_NEW(sql->sa, sql_spfw);
-	sql_rel *rel = &(spfw->base);
-	rel_init(rel);
-
-    rel->l = l;
-    rel->r = r;
-    rel->op = op_spfw;
-    rel->exps = lst_exps;
-    rel->card = CARD_MULTI;
-    rel->nrcols = l->nrcols + r->nrcols; // TODO +1, the cost of the path
-//    rel->processed = 1; // *to be checked, still don't get as it is supposed to be used *
-    spfw->edges = edges;
-
-    return rel;
 }

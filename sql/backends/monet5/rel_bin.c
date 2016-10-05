@@ -202,7 +202,7 @@ static stmt *
 handle_in_exps( mvc *sql, sql_exp *ce, list *nl, stmt *left, stmt *right, stmt *grp, stmt *ext, stmt *cnt, stmt *sel, int in, int use_r) 
 {
 	node *n;
-	stmt *s = NULL, *c = exp_bin(sql, ce, left, right, grp, ext, cnt, NULL);
+	stmt *s = NULL, *c = exp_bin(sql, ce, left, right, grp, ext, cnt, NULL, NULL);
 
 	if (c->nrcols == 0) {
 		sql_subtype *bt = sql_bind_localtype("bit");
@@ -214,7 +214,7 @@ handle_in_exps( mvc *sql, sql_exp *ce, list *nl, stmt *left, stmt *right, stmt *
 
 		for( n = nl->h; n; n = n->next) {
 			sql_exp *e = n->data;
-			stmt *i = exp_bin(sql, use_r?e->r:e, left, right, grp, ext, cnt, NULL);
+			stmt *i = exp_bin(sql, use_r?e->r:e, left, right, grp, ext, cnt, NULL, NULL);
 			
 			i = stmt_binop(sql->sa, c, i, cmp); 
 			if (s)
@@ -234,7 +234,7 @@ handle_in_exps( mvc *sql, sql_exp *ce, list *nl, stmt *left, stmt *right, stmt *
 			s = sel;
 		for( n = nl->h; n; n = n->next) {
 			sql_exp *e = n->data;
-			stmt *i = exp_bin(sql, use_r?e->r:e, left, right, grp, ext, cnt, NULL);
+			stmt *i = exp_bin(sql, use_r?e->r:e, left, right, grp, ext, cnt, NULL, NULL);
 			
 			if (in) { 
 				i = stmt_uselect(sql->sa, c, i, cmp, sel); 
@@ -260,7 +260,7 @@ value_list( mvc *sql, list *vals)
 	s = stmt_temp(sql->sa, exp_subtype(vals->h->data));
 	for( n = vals->h; n; n = n->next) {
 		sql_exp *e = n->data;
-		stmt *i = exp_bin(sql, e, NULL, NULL, NULL, NULL, NULL, NULL);
+		stmt *i = exp_bin(sql, e, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 
 		if (list_length(vals) == 1)
 			return i;
@@ -271,14 +271,14 @@ value_list( mvc *sql, list *vals)
 }
 
 static stmt *
-exp_list( mvc *sql, list *exps, stmt *l, stmt *r, stmt *grp, stmt *ext, stmt *cnt, stmt *sel) 
+exp_list( mvc *sql, list *exps, stmt *l, stmt *r, stmt *grp, stmt *ext, stmt *cnt, stmt *sel, list *refs)
 {
 	node *n;
 	list *nl = sa_list(sql->sa);
 
 	for( n = exps->h; n; n = n->next) {
 		sql_exp *e = n->data;
-		stmt *i = exp_bin(sql, e, l, r, grp, ext, cnt, sel);
+		stmt *i = exp_bin(sql, e, l, r, grp, ext, cnt, sel, refs);
 		
 		if (n->next && i && i->type == st_table) /* relational statement */
 			l = i->op1;
@@ -289,7 +289,7 @@ exp_list( mvc *sql, list *exps, stmt *l, stmt *r, stmt *grp, stmt *ext, stmt *cn
 }
 
 stmt *
-exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stmt *cnt, stmt *sel) 
+exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stmt *cnt, stmt *sel, list *refs)
 {
 	stmt *s = NULL;
 
@@ -301,7 +301,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 	switch(e->type) {
 	case e_psm:
 		if (e->flag & PSM_SET) {
-			stmt *r = exp_bin(sql, e->l, left, right, grp, ext, cnt, sel);
+			stmt *r = exp_bin(sql, e->l, left, right, grp, ext, cnt, sel, refs);
 			return stmt_assign(sql->sa, e->name, r, GET_PSM_LEVEL(e->flag));
 		} else if (e->flag & PSM_VAR) {
 			if (e->f) /* TODO TABLE */
@@ -310,7 +310,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 				return stmt_var(sql->sa, e->name, &e->tpe, 1, GET_PSM_LEVEL(e->flag));
 		} else if (e->flag & PSM_RETURN) {
 			sql_exp *l = e->l;
-			stmt *r = exp_bin(sql, l, left, right, grp, ext, cnt, sel);
+			stmt *r = exp_bin(sql, l, left, right, grp, ext, cnt, sel, refs);
 
 			/* handle table returning functions */
 			if (l->type == e_psm && l->flag & PSM_REL) {
@@ -328,15 +328,15 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			}
 			return stmt_return(sql->sa, r, GET_PSM_LEVEL(e->flag));
 		} else if (e->flag & PSM_WHILE) {
-			stmt *cond = exp_bin(sql, e->l, left, right, grp, ext, cnt, sel);
-			stmt *stmts = exp_list(sql, e->r, left, right, grp, ext, cnt, sel);
+			stmt *cond = exp_bin(sql, e->l, left, right, grp, ext, cnt, sel, refs);
+			stmt *stmts = exp_list(sql, e->r, left, right, grp, ext, cnt, sel, refs);
 			return stmt_while(sql->sa, cond, stmts);
 		} else if (e->flag & PSM_IF) {
-			stmt *cond = exp_bin(sql, e->l, left, right, grp, cnt, ext, sel);
-			stmt *stmts = exp_list(sql, e->r, left, right, grp, cnt, ext, sel);
+			stmt *cond = exp_bin(sql, e->l, left, right, grp, cnt, ext, sel, refs);
+			stmt *stmts = exp_list(sql, e->r, left, right, grp, cnt, ext, sel, refs);
 			stmt *estmts = NULL;
 			if (e->f)
-				estmts = exp_list(sql, e->f, left, right, grp, ext, cnt, sel);
+				estmts = exp_list(sql, e->f, left, right, grp, ext, cnt, sel, refs);
 			return stmt_if(sql->sa, cond, stmts, estmts);
 		} else if (e->flag & PSM_REL) {
 			sql_rel *rel = e->l;
@@ -380,7 +380,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 		if (from->type->localtype == 0) {
 			l = stmt_atom(sql->sa, atom_general(sql->sa, to, NULL));
 		} else {
-	       		l = exp_bin(sql, e->l, left, right, grp, ext, cnt, sel);
+	       		l = exp_bin(sql, e->l, left, right, grp, ext, cnt, sel, refs);
 		}
 		if (!l) 
 			return NULL;
@@ -397,7 +397,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			for (en = exps->h; en; en = en->next) {
 				stmt *es;
 
-				es = exp_bin(sql, en->data, left, right, grp, ext, cnt, sel);
+				es = exp_bin(sql, en->data, left, right, grp, ext, cnt, sel, refs);
 				if (!es) 
 					return NULL;
 				if (es->nrcols > nrcols)
@@ -425,7 +425,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 				for (en = exps->h; en; en = en->next) {
 					stmt *es;
 
-					es = exp_bin(sql, en->data, left, right, NULL, NULL, NULL, sel);
+					es = exp_bin(sql, en->data, left, right, NULL, NULL, NULL, sel, refs);
 					col = es;
 					if (!es) 
 						return NULL;
@@ -445,7 +445,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			}
 			for (en = obe->h; en; en = en->next) {
 				sql_exp *orderbycole = en->data; 
-				stmt *orderbycols = exp_bin(sql, orderbycole, left, right, NULL, NULL, NULL, sel); 
+				stmt *orderbycols = exp_bin(sql, orderbycole, left, right, NULL, NULL, NULL, sel, refs);
 
 				if (!orderbycols) 
 					return NULL;
@@ -499,7 +499,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			for (en = attr->h; en; en = en->next) {
 				sql_exp *at = en->data;
 
-				as = exp_bin(sql, at, left, right, NULL, NULL, NULL, sel);
+				as = exp_bin(sql, at, left, right, NULL, NULL, NULL, sel, refs);
 
 				if (as && as->nrcols <= 0 && left) 
 					as = stmt_const(sql->sa, bin_first_column(sql->sa, left), as);
@@ -568,9 +568,9 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			for( n = args->h; n; n = n->next ) {
 				s = NULL;
 				if (!swapped)
-					s = exp_bin(sql, n->data, left, NULL, grp, ext, cnt, NULL); 
+					s = exp_bin(sql, n->data, left, NULL, grp, ext, cnt, NULL, refs);
 				if (!s && (first || swapped)) {
-					s = exp_bin(sql, n->data, right, NULL, grp, ext, cnt, NULL); 
+					s = exp_bin(sql, n->data, right, NULL, grp, ext, cnt, NULL, refs);
 					swapped = 1;
 				}
 				if (!s) 
@@ -584,7 +584,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 		       	ops = sa_list(sql->sa);
 			args = e->r;
 			for( n = args->h; n; n = n->next ) {
-				s = exp_bin(sql, n->data, (swapped || !right)?left:right, NULL, grp, ext, cnt, NULL); 
+				s = exp_bin(sql, n->data, (swapped || !right)?left:right, NULL, grp, ext, cnt, NULL, refs);
 				if (!s) 
 					return s;
 				list_append(ops, s);
@@ -605,6 +605,66 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 				s->flag |= ANTI;
 			return s;
 		}
+		if (get_cmp(e) == cmp_filter_graph) {
+			graph_join *g = e->f; // graph function
+			stmt *graph = NULL, *nodes = NULL;
+			stmt *qfrom = NULL, *qto =NULL, *efrom =NULL, *eto =NULL;
+			stmt *split = NULL;
+			list *l = NULL; // temporary list
+			stmt *groupby = NULL, *groups =NULL, *smpl = NULL, *smpl_sz = NULL; // we use the group by to generate the IDs in the domain
+			stmt *eperm = NULL; // the permutation for the sorted order of qfrom
+			sql_subaggr *aggr_count = sql_bind_aggr(sql->sa, sql->session->schema, "count", NULL);
+			stmt *domain =NULL, *query =NULL;
+			stmt *spfw =NULL;
+
+			// generate the depending expressions
+			graph = subrel_bin(sql, g->edges, refs);
+			if(!graph) return NULL;
+			assert(list_length(e->l) == list_length(e->r) && list_length(e->r) == list_length(g->src) && list_length(g->src) == list_length(g->dst));
+			assert(list_length(e->l) == 1 && "FTB: only simple case with a single column for src/dst");
+			qfrom = exp_bin(sql, ((list*) e->l)->h->data, left, right, grp, ext, cnt, NULL, refs);
+			if(!qfrom) { assert(0); return NULL; }
+			qto = exp_bin(sql, ((list*) e->r)->h->data, left, right, grp, ext, cnt, NULL, refs);
+			if(!qto) { assert(0); return NULL; }
+			efrom = exp_bin(sql, g->src->h->data, graph, NULL, NULL, NULL, NULL, NULL, refs);
+			if(!efrom) { assert(0); return NULL; }
+			eto = exp_bin(sql, g->dst->h->data, graph, NULL, NULL, NULL, NULL, NULL, refs);
+			if(!eto) { assert(0); return NULL; }
+
+			// find the domain and map the operands into it
+			// this is, like, super fun...
+			nodes = stmt_concat(sql->sa, list_append(list_append(sa_list(sql->sa), efrom), eto));
+			groupby = stmt_group(sql->sa, nodes, NULL, NULL, NULL);
+			groups = stmt_result(sql->sa, groupby, 0);
+			smpl = stmt_result(sql->sa, groupby, 1);
+			smpl_sz = stmt_aggr(sql->sa, smpl, NULL, NULL, aggr_count, 1, 0);
+			split = stmt_slices(sql->sa, groups, 2);
+			efrom = stmt_result(sql->sa, split, 0);
+			eto = stmt_result(sql->sa, split, 1);
+			efrom = stmt_order(sql->sa, efrom, /* direction (0 = DESC, 1 = ASC) = */ 1);
+			eperm = stmt_result(sql->sa, efrom, 1);
+			efrom = stmt_prefixsum(sql->sa, efrom, smpl_sz);
+			eto = stmt_project(sql->sa, eperm, eto);
+			graph = stmt_list(sql->sa, list_append(list_append(sa_list(sql->sa), efrom), eto));
+
+			// generate the query
+			domain = stmt_project(sql->sa, smpl, nodes);
+			qfrom = stmt_exp2vrtx(sql->sa, qfrom, domain);
+			qto = stmt_exp2vrtx(sql->sa, qto, domain);
+			l = sa_list(sql->sa);
+			list_append(l, stmt_result(sql->sa, qfrom, 0));
+			list_append(l, stmt_result(sql->sa, qto, 0));
+			list_append(l, stmt_result(sql->sa, qfrom, 1));
+			list_append(l, stmt_result(sql->sa, qto, 1));
+			query = stmt_list(sql->sa, l);
+
+			// run the operator
+			spfw = stmt_spfw(sql->sa, query, graph);
+
+			print_tree(sql->sa, spfw);
+
+			return spfw;
+		}
 		if (e->flag == cmp_in || e->flag == cmp_notin) {
 			return handle_in_exps(sql, e->l, e->r, left, right, grp, ext, cnt, sel, (e->flag == cmp_in), 0);
 		}
@@ -616,7 +676,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			sel1 = sel;
 			sel2 = sel;
 			for( n = l->h; n; n = n->next ) {
-				s = exp_bin(sql, n->data, left, right, grp, ext, cnt, sel1); 
+				s = exp_bin(sql, n->data, left, right, grp, ext, cnt, sel1, refs);
 				if (!s) 
 					return s;
 				if (sel1 && sel1->nrcols == 0 && s->nrcols == 0) {
@@ -635,7 +695,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			}
 			l = e->r;
 			for( n = l->h; n; n = n->next ) {
-				s = exp_bin(sql, n->data, left, right, grp, ext, cnt, sel2); 
+				s = exp_bin(sql, n->data, left, right, grp, ext, cnt, sel2, refs);
 				if (!s) 
 					return s;
 				if (sel2 && sel2->nrcols == 0 && s->nrcols == 0) {
@@ -681,27 +741,27 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			sql->opt_stats[0]++; 
 
 		if (!l) {
-			l = exp_bin(sql, e->l, left, NULL, grp, ext, cnt, sel);
+			l = exp_bin(sql, e->l, left, NULL, grp, ext, cnt, sel, refs);
 			swapped = 0;
 		}
 		if (!l && right) {
- 			l = exp_bin(sql, e->l, right, NULL, grp, ext, cnt, sel);
+ 			l = exp_bin(sql, e->l, right, NULL, grp, ext, cnt, sel, refs);
 			swapped = 1;
 		}
 		if (swapped || !right)
- 			r = exp_bin(sql, re, left, NULL, grp, ext, cnt, sel);
+ 			r = exp_bin(sql, re, left, NULL, grp, ext, cnt, sel, refs);
 		else
- 			r = exp_bin(sql, re, right, NULL, grp, ext, cnt, sel);
+ 			r = exp_bin(sql, re, right, NULL, grp, ext, cnt, sel, refs);
 		if (!r && !swapped) {
- 			r = exp_bin(sql, re, left, NULL, grp, ext, cnt, sel);
+ 			r = exp_bin(sql, re, left, NULL, grp, ext, cnt, sel, refs);
 			is_select = 1;
 		}
 		if (!r && swapped) {
- 			r = exp_bin(sql, re, right, NULL, grp, ext, cnt, sel);
+ 			r = exp_bin(sql, re, right, NULL, grp, ext, cnt, sel, refs);
 			is_select = 1;
 		}
 		if (re2)
- 			r2 = exp_bin(sql, re2, left, right, grp, ext, cnt, sel);
+ 			r2 = exp_bin(sql, re2, left, right, grp, ext, cnt, sel, refs);
 
 		if (!l || !r || (re2 && !r2)) {
 			assert(0);
@@ -1101,7 +1161,7 @@ rel_parse_value(mvc *m, char *query, char emode)
 			sql_exp *e = rel_value_exp2(m, &rel, sn->selection->h->data.sym->data.lval->h->data.sym, sql_sel, ek, &is_last);
 
 			if (!rel)
-				s = exp_bin(m, e, NULL, NULL, NULL, NULL, NULL, NULL); 
+				s = exp_bin(m, e, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 		}
 	}
 	GDKfree(query);
@@ -1216,7 +1276,7 @@ rel2bin_basetable( mvc *sql, sql_rel *rel)
 			append(l, s);
 			if (exps->h->next) {
 				sql_exp *at = exps->h->next->data;
-				stmt *u = exp_bin(sql, at, NULL, NULL, NULL, NULL, NULL, NULL);
+				stmt *u = exp_bin(sql, at, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 
 				append(l, u);
 			}
@@ -1261,7 +1321,7 @@ exp2bin_args( mvc *sql, sql_exp *e, list *args)
 	case e_psm:
 		return args;
 	case e_cmp:
-		if (e->flag == cmp_or || get_cmp(e) == cmp_filter) {
+		if (e->flag == cmp_or || get_cmp(e) == cmp_filter || get_cmp(e) == cmp_filter_graph) {
 			args = exps2bin_args(sql, e->l, args);
 			args = exps2bin_args(sql, e->r, args);
 		} else if (e->flag == cmp_in || e->flag == cmp_notin) {
@@ -1371,11 +1431,6 @@ rel2bin_args( mvc *sql, sql_rel *rel, list *args)
 	case op_delete:
 		args = rel2bin_args(sql, rel->r, args);
 		break;
-	case op_spfw:
-		args = rel2bin_args(sql, rel->l, args);
-		args = rel2bin_args(sql, rel->r, args);
-		args = rel2bin_args(sql, rel_edges(rel), args);
-		break;
 	}
 	return args;
 }
@@ -1407,7 +1462,7 @@ rel2bin_table( mvc *sql, sql_rel *rel, list *refs)
 				return NULL;
 		}
 
-		psub = exp_bin(sql, op, sub, NULL, NULL, NULL, NULL, NULL); /* table function */
+		psub = exp_bin(sql, op, sub, NULL, NULL, NULL, NULL, NULL, refs); /* table function */
 		if (!f || !psub) { 
 			assert(0);
 			return NULL;	
@@ -1482,7 +1537,7 @@ rel2bin_table( mvc *sql, sql_rel *rel, list *refs)
 		/* no relation names */
 		if (exp->l)
 			exp->l = NULL;
-		s = exp_bin(sql, exp, sub, NULL, NULL, NULL, NULL, NULL);
+		s = exp_bin(sql, exp, sub, NULL, NULL, NULL, NULL, NULL, refs);
 
 		if (!s) {
 			assert(0);
@@ -1539,9 +1594,9 @@ rel2bin_hash_lookup( mvc *sql, sql_rel *rel, stmt *left, stmt *right, sql_idx *i
 		if (e->type == e_cmp && e->flag == cmp_equal) {
 			sql_exp *ee = (swap_exp)?e->l:e->r;
 			if (swap_rel)
-				s = exp_bin(sql, ee, left, NULL, NULL, NULL, NULL, NULL);
+				s = exp_bin(sql, ee, left, NULL, NULL, NULL, NULL, NULL, NULL);
 			else
-				s = exp_bin(sql, ee, right, NULL, NULL, NULL, NULL, NULL);
+				s = exp_bin(sql, ee, right, NULL, NULL, NULL, NULL, NULL, NULL);
 		}
 
 		if (!s) 
@@ -1724,7 +1779,7 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 				}
 			}
 
-			s = exp_bin(sql, e, left, right, NULL, NULL, NULL, NULL);
+			s = exp_bin(sql, e, left, right, NULL, NULL, NULL, NULL, refs);
 			if (!s) {
 				assert(0);
 				return NULL;
@@ -1801,7 +1856,7 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 
 		/* continue with non equi-joins */
 		for( ; en; en = en->next ) {
-			stmt *s = exp_bin(sql, en->data, sub, NULL, NULL, NULL, NULL, sel);
+			stmt *s = exp_bin(sql, en->data, sub, NULL, NULL, NULL, NULL, sel, refs);
 
 			if (!s) {
 				assert(0);
@@ -1899,7 +1954,7 @@ rel2bin_semijoin( mvc *sql, sql_rel *rel, list *refs)
 			if (list_length(lje) && (idx || e->type != e_cmp || e->flag != cmp_equal))
 				break;
 
-			s = exp_bin(sql, en->data, left, right, NULL, NULL, NULL, NULL);
+			s = exp_bin(sql, en->data, left, right, NULL, NULL, NULL, NULL, refs);
 			if (!s) 
 				return NULL;
 			if (join_idx != sql->opt_stats[0])
@@ -1959,7 +2014,7 @@ rel2bin_semijoin( mvc *sql, sql_rel *rel, list *refs)
 
 		/* continue with non equi-joins */
 		for( ; en; en = en->next ) {
-			stmt *s = exp_bin(sql, en->data, sub, NULL, NULL, NULL, NULL, sel);
+			stmt *s = exp_bin(sql, en->data, sub, NULL, NULL, NULL, NULL, sel, refs);
 
 			if (!s) {
 				assert(0);
@@ -2365,11 +2420,11 @@ rel2bin_project( mvc *sql, sql_rel *rel, list *refs, sql_rel *topn)
 		if (!le) { /* Don't push only offset */
 			topn = NULL;
 		} else {
-			l = exp_bin(sql, le, NULL, NULL, NULL, NULL, NULL, NULL);
+			l = exp_bin(sql, le, NULL, NULL, NULL, NULL, NULL, NULL, refs);
 			if (oe) {
 				sql_subtype *lng = sql_bind_localtype("lng");
 				sql_subfunc *add = sql_bind_func_result(sql->sa, sql->session->schema, "sql_add", lng, lng, lng);
-				stmt *o = exp_bin(sql, oe, NULL, NULL, NULL, NULL, NULL, NULL);
+				stmt *o = exp_bin(sql, oe, NULL, NULL, NULL, NULL, NULL, NULL, refs);
 				l = stmt_binop(sql->sa, l, o, add);
 			}
 		}
@@ -2398,7 +2453,7 @@ rel2bin_project( mvc *sql, sql_rel *rel, list *refs, sql_rel *topn)
 	psub = stmt_list(sql->sa, pl);
 	for( en = rel->exps->h; en; en = en->next ) {
 		sql_exp *exp = en->data;
-		stmt *s = exp_bin(sql, exp, sub, psub, NULL, NULL, NULL, NULL);
+		stmt *s = exp_bin(sql, exp, sub, psub, NULL, NULL, NULL, NULL, refs);
 
 		if (!s) {
 			assert(0);
@@ -2430,7 +2485,7 @@ rel2bin_project( mvc *sql, sql_rel *rel, list *refs, sql_rel *topn)
 			sql_exp *orderbycole = n->data; 
  			int last = (n->next == NULL);
 
-			stmt *orderbycolstmt = exp_bin(sql, orderbycole, sub, psub, NULL, NULL, NULL, NULL); 
+			stmt *orderbycolstmt = exp_bin(sql, orderbycole, sub, psub, NULL, NULL, NULL, NULL, refs);
 
 			if (!orderbycolstmt) 
 				return NULL;
@@ -2484,7 +2539,7 @@ rel2bin_project( mvc *sql, sql_rel *rel, list *refs, sql_rel *topn)
 		for (en = oexps->h; en; en = en->next) {
 			stmt *orderby = NULL;
 			sql_exp *orderbycole = en->data; 
-			stmt *orderbycolstmt = exp_bin(sql, orderbycole, sub, psub, NULL, NULL, NULL, NULL); 
+			stmt *orderbycolstmt = exp_bin(sql, orderbycole, sub, psub, NULL, NULL, NULL, NULL, refs);
 
 			if (!orderbycolstmt) {
 				assert(0);
@@ -2556,7 +2611,7 @@ rel2bin_select( mvc *sql, sql_rel *rel, list *refs)
 	} 
 	for( en = rel->exps->h; en; en = en->next ) {
 		sql_exp *e = en->data;
-		stmt *s = exp_bin(sql, e, sub, NULL, NULL, NULL, NULL, sel);
+		stmt *s = exp_bin(sql, e, sub, NULL, NULL, NULL, NULL, sel, refs);
 
 		if (!s) {
 			assert(0);
@@ -2624,7 +2679,7 @@ rel2bin_groupby( mvc *sql, sql_rel *rel, list *refs)
 
 		for( en = exps->h; en; en = en->next ) {
 			sql_exp *e = en->data; 
-			stmt *gbcol = exp_bin(sql, e, sub, NULL, NULL, NULL, NULL, NULL); 
+			stmt *gbcol = exp_bin(sql, e, sub, NULL, NULL, NULL, NULL, NULL, refs);
 	
 			if (!gbcol) {
 				assert(0);
@@ -2661,12 +2716,12 @@ rel2bin_groupby( mvc *sql, sql_rel *rel, list *refs)
 		}
 
 		if (!aggrstmt)
-			aggrstmt = exp_bin(sql, aggrexp, sub, NULL, grp, ext, cnt, NULL); 
+			aggrstmt = exp_bin(sql, aggrexp, sub, NULL, grp, ext, cnt, NULL, refs);
 		/* maybe the aggr uses intermediate results of this group by,
 		   therefore we pass the group by columns too 
 		 */
 		if (!aggrstmt) 
-			aggrstmt = exp_bin(sql, aggrexp, sub, cursub, NULL, NULL, NULL, NULL); 
+			aggrstmt = exp_bin(sql, aggrexp, sub, cursub, NULL, NULL, NULL, NULL, refs);
 		if (!aggrstmt) {
 			assert(0);
 			return NULL;
@@ -2709,9 +2764,9 @@ rel2bin_topn( mvc *sql, sql_rel *rel, list *refs)
 		list *newl = sa_list(sql->sa);
 
 		if (le)
-			l = exp_bin(sql, le, NULL, NULL, NULL, NULL, NULL, NULL);
+			l = exp_bin(sql, le, NULL, NULL, NULL, NULL, NULL, NULL, refs);
 		if (oe)
-			o = exp_bin(sql, oe, NULL, NULL, NULL, NULL, NULL, NULL);
+			o = exp_bin(sql, oe, NULL, NULL, NULL, NULL, NULL, NULL, refs);
 
 		if (!l) 
 			l = stmt_atom_lng_nil(sql->sa);
@@ -2755,7 +2810,7 @@ rel2bin_sample( mvc *sql, sql_rel *rel, list *refs)
 		const char *cname = column_name(sql->sa, sc);
 		const char *tname = table_name(sql->sa, sc);
 
-		s = exp_bin(sql, rel->exps->h->data, NULL, NULL, NULL, NULL, NULL, NULL);
+		s = exp_bin(sql, rel->exps->h->data, NULL, NULL, NULL, NULL, NULL, NULL, refs);
 
 		if (!s)
 			s = stmt_atom_lng_nil(sql->sa);
@@ -4413,7 +4468,7 @@ rel2bin_psm(mvc *sql, sql_rel *rel)
 
 	for(n = rel->exps->h; n; n = n->next) {
 		sql_exp *e = n->data;
-		stmt *s = exp_bin(sql, e, sub, NULL, NULL, NULL, NULL, NULL);
+		stmt *s = exp_bin(sql, e, sub, NULL, NULL, NULL, NULL, NULL, NULL);
 
 		if (s && s->type == st_table) /* relational statement */
 			sub = s->op1;
@@ -4433,9 +4488,9 @@ rel2bin_seq(mvc *sql, sql_rel *rel, list *refs)
 	if (rel->l)  /* first construct the sub relation */
 		sl = subrel_bin(sql, rel->l, refs);
 
-	restart = exp_bin(sql, en->data, sl, NULL, NULL, NULL, NULL, NULL);
-	sname = exp_bin(sql, en->next->data, sl, NULL, NULL, NULL, NULL, NULL);
-	seq = exp_bin(sql, en->next->next->data, sl, NULL, NULL, NULL, NULL, NULL);
+	restart = exp_bin(sql, en->data, sl, NULL, NULL, NULL, NULL, NULL, refs);
+	sname = exp_bin(sql, en->next->data, sl, NULL, NULL, NULL, NULL, NULL, refs);
+	seq = exp_bin(sql, en->next->next->data, sl, NULL, NULL, NULL, NULL, NULL, refs);
 
 	(void)refs;
 	append(l, sname);
@@ -4448,12 +4503,12 @@ static stmt *
 rel2bin_trans(mvc *sql, sql_rel *rel, list *refs) 
 {
 	node *en = rel->exps->h;
-	stmt *chain = exp_bin(sql, en->data, NULL, NULL, NULL, NULL, NULL, NULL);
+	stmt *chain = exp_bin(sql, en->data, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 	stmt *name = NULL;
 
 	(void)refs;
 	if (en->next)
-		name = exp_bin(sql, en->next->data, NULL, NULL, NULL, NULL, NULL, NULL);
+		name = exp_bin(sql, en->next->data, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 	return stmt_trans(sql->sa, rel->flag, chain, name);
 }
 
@@ -4461,15 +4516,15 @@ static stmt *
 rel2bin_catalog(mvc *sql, sql_rel *rel, list *refs) 
 {
 	node *en = rel->exps->h;
-	stmt *action = exp_bin(sql, en->data, NULL, NULL, NULL, NULL, NULL, NULL);
+	stmt *action = exp_bin(sql, en->data, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 	stmt *sname = NULL, *name = NULL;
 	list *l = sa_list(sql->sa);
 
 	(void)refs;
 	en = en->next;
-	sname = exp_bin(sql, en->data, NULL, NULL, NULL, NULL, NULL, NULL);
+	sname = exp_bin(sql, en->data, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 	if (en->next) {
-		name = exp_bin(sql, en->next->data, NULL, NULL, NULL, NULL, NULL, NULL);
+		name = exp_bin(sql, en->next->data, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 	} else {
 		name = stmt_atom_string_nil(sql->sa);
 	}
@@ -4483,16 +4538,16 @@ static stmt *
 rel2bin_catalog_table(mvc *sql, sql_rel *rel, list *refs) 
 {
 	node *en = rel->exps->h;
-	stmt *action = exp_bin(sql, en->data, NULL, NULL, NULL, NULL, NULL, NULL);
+	stmt *action = exp_bin(sql, en->data, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 	stmt *table = NULL, *sname;
 	list *l = sa_list(sql->sa);
 
 	(void)refs;
 	en = en->next;
-	sname = exp_bin(sql, en->data, NULL, NULL, NULL, NULL, NULL, NULL);
+	sname = exp_bin(sql, en->data, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 	en = en->next;
 	if (en) 
-		table = exp_bin(sql, en->data, NULL, NULL, NULL, NULL, NULL, NULL);
+		table = exp_bin(sql, en->data, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 	append(l, sname);
 	append(l, table);
 	append(l, action);
@@ -4510,7 +4565,7 @@ rel2bin_catalog2(mvc *sql, sql_rel *rel, list *refs)
 		stmt *es = NULL;
 
 		if (en->data) {
-			es = exp_bin(sql, en->data, NULL, NULL, NULL, NULL, NULL, NULL);
+			es = exp_bin(sql, en->data, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 			if (!es) 
 				return NULL;
 		} else {
@@ -4555,104 +4610,104 @@ rel2bin_ddl(mvc *sql, sql_rel *rel, list *refs)
 	return s;
 }
 
-static list*
-spfw_project(mvc *sql, list* l, stmt *spfw, stmt *input){
-	for( node* n = input->op4.lval->h; n; n = n->next ) {
-		stmt *c = n->data;
-		const char *rnme = table_name(sql->sa, c);
-		const char *nme = column_name(sql->sa, c);
-		stmt *s = stmt_project(sql->sa, spfw, column(sql->sa, c));
-
-		s = stmt_alias(sql->sa, s, rnme, nme);
-		list_append(l, s);
-	}
-	return l;
-}
-
-static stmt *
-rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
-{
-	stmt *edges = NULL, *spfw = NULL, *graph = NULL, *query = NULL;
-	stmt *left = NULL, *right = NULL;
-	stmt *c = NULL, *g = NULL, *groups = NULL, *smpl = NULL;
-	sql_subaggr *aggr_count = NULL;
-	stmt *D = NULL, *D_sz = NULL, *vrtx = NULL;
-	list *l = NULL;
-	stmt *split = NULL;
-	stmt *e_from = NULL, *e_to = NULL;
-	stmt *q_from = NULL, *q_to = NULL;
-	stmt *mk_perm = NULL;
-	stmt *result = NULL;
-	node *n = NULL; // generic var to iterate through a list
-
-	// materialize the input relations
-	left = subrel_bin(sql, rel->l, refs);
-	if(!left) return NULL;
-	right = subrel_bin(sql, rel->r, refs);
-	if(!right) return NULL;
-	edges = subrel_bin(sql, rel_edges(rel), refs);
-	if(!edges) return NULL;
-
-	// refer to the columns
-	assert(rel->exps->cnt == 4 && "Expected four columns as input (ftb)"); // TODO weights are missing
-	n = rel->exps->h;
-	q_from = exp_bin(sql, n->data, left, NULL, NULL, NULL, NULL, NULL);
-	n = n->next;
-	q_to = exp_bin(sql, n->data, right, NULL, NULL, NULL, NULL, NULL);
-	n = n->next;
-	e_from = exp_bin(sql, n->data, edges, NULL, NULL, NULL, NULL, NULL);
-	n = n->next;
-	e_to = exp_bin(sql, n->data, edges, NULL, NULL, NULL, NULL, NULL);
-
-	// create the graph
-	// this is, like, super fun....
-	l = sa_list(sql->sa);
-	list_append(l, e_from);
-	list_append(l, e_to);
-	c = stmt_concat(sql->sa, l);
-	g = stmt_group(sql->sa, c, NULL, NULL, NULL);
-	groups = stmt_result(sql->sa, g, 0);
-	smpl = stmt_result(sql->sa, g, 1);
-	split = stmt_slices(sql->sa, groups, 2);
-	e_from = stmt_result(sql->sa, split, 0);
-	e_to = stmt_result(sql->sa, split, 1);
-	// mkgraph (naive approach)
-	e_from = stmt_order(sql->sa, e_from, /* direction (0 = DESC, 1 = ASC) = */ 1);
-	mk_perm = stmt_result(sql->sa, e_from, 1);
-	aggr_count = sql_bind_aggr(sql->sa, sql->session->schema, "count", NULL);
-	D_sz = stmt_aggr(sql->sa, smpl, NULL, NULL, aggr_count, 1, 0);
-	e_from = stmt_prefixsum(sql->sa, e_from, D_sz);
-	// FIXME e_weights = stmt_project(sql->sa, mk_perm, e_weights) etc..
-	e_to = stmt_project(sql->sa, mk_perm, e_to);
-	l = sa_list(sql->sa);
-	list_append(l, e_from);
-	list_append(l, e_to);
-	// FIXME list_append(l, e_weights);
-	graph = stmt_list(sql->sa, l);
-
-	// map the values in qfrom, qto into vertex IDs
-	D = stmt_project(sql->sa, smpl, c); // domain
-	// TODO I was not able to figure out how to perform a join with a candidate list at this layer
-	// postpone the translation at the mal codegen ftb
-	vrtx = stmt_exp2vrtx(sql->sa, q_from, q_to, D);
-	l = sa_list(sql->sa);
-	for(int i = 0; i < 3; i++)
-		list_append(l, stmt_result(sql->sa, vrtx, i));
-	query = stmt_list(sql->sa, l);
-
-	// execute the shortest path operator
-	spfw = stmt_spfw(sql->sa, query, graph);
-
-	// almost done, create the new resultset
-	l = sa_list(sql->sa);
-	spfw_project(sql, l, spfw, left);
-	spfw_project(sql, l, spfw, right);
-	result = stmt_list(sql->sa, l);
-
-	print_tree(sql->sa, result); // FIXME debug only
-
-	return result;
-}
+//static list*
+//spfw_project(mvc *sql, list* l, stmt *spfw, stmt *input){
+//	for( node* n = input->op4.lval->h; n; n = n->next ) {
+//		stmt *c = n->data;
+//		const char *rnme = table_name(sql->sa, c);
+//		const char *nme = column_name(sql->sa, c);
+//		stmt *s = stmt_project(sql->sa, spfw, column(sql->sa, c));
+//
+//		s = stmt_alias(sql->sa, s, rnme, nme);
+//		list_append(l, s);
+//	}
+//	return l;
+//}
+//
+//static stmt *
+//rel2bin_spfw(mvc *sql, sql_rel *rel, list *refs)
+//{
+//	stmt *edges = NULL, *spfw = NULL, *graph = NULL, *query = NULL;
+//	stmt *left = NULL, *right = NULL;
+//	stmt *c = NULL, *g = NULL, *groups = NULL, *smpl = NULL;
+//	sql_subaggr *aggr_count = NULL;
+//	stmt *D = NULL, *D_sz = NULL, *vrtx = NULL;
+//	list *l = NULL;
+//	stmt *split = NULL;
+//	stmt *e_from = NULL, *e_to = NULL;
+//	stmt *q_from = NULL, *q_to = NULL;
+//	stmt *mk_perm = NULL;
+//	stmt *result = NULL;
+//	node *n = NULL; // generic var to iterate through a list
+//
+//	// materialize the input relations
+//	left = subrel_bin(sql, rel->l, refs);
+//	if(!left) return NULL;
+//	right = subrel_bin(sql, rel->r, refs);
+//	if(!right) return NULL;
+//	edges = subrel_bin(sql, rel_edges(rel), refs);
+//	if(!edges) return NULL;
+//
+//	// refer to the columns
+//	assert(rel->exps->cnt == 4 && "Expected four columns as input (ftb)"); // TODO weights are missing
+//	n = rel->exps->h;
+//	q_from = exp_bin(sql, n->data, left, NULL, NULL, NULL, NULL, NULL);
+//	n = n->next;
+//	q_to = exp_bin(sql, n->data, right, NULL, NULL, NULL, NULL, NULL);
+//	n = n->next;
+//	e_from = exp_bin(sql, n->data, edges, NULL, NULL, NULL, NULL, NULL);
+//	n = n->next;
+//	e_to = exp_bin(sql, n->data, edges, NULL, NULL, NULL, NULL, NULL);
+//
+//	// create the graph
+//	// this is, like, super fun....
+//	l = sa_list(sql->sa);
+//	list_append(l, e_from);
+//	list_append(l, e_to);
+//	c = stmt_concat(sql->sa, l);
+//	g = stmt_group(sql->sa, c, NULL, NULL, NULL);
+//	groups = stmt_result(sql->sa, g, 0);
+//	smpl = stmt_result(sql->sa, g, 1);
+//	split = stmt_slices(sql->sa, groups, 2);
+//	e_from = stmt_result(sql->sa, split, 0);
+//	e_to = stmt_result(sql->sa, split, 1);
+//	// mkgraph (naive approach)
+//	e_from = stmt_order(sql->sa, e_from, /* direction (0 = DESC, 1 = ASC) = */ 1);
+//	mk_perm = stmt_result(sql->sa, e_from, 1);
+//	aggr_count = sql_bind_aggr(sql->sa, sql->session->schema, "count", NULL);
+//	D_sz = stmt_aggr(sql->sa, smpl, NULL, NULL, aggr_count, 1, 0);
+//	e_from = stmt_prefixsum(sql->sa, e_from, D_sz);
+//	// FIXME e_weights = stmt_project(sql->sa, mk_perm, e_weights) etc..
+//	e_to = stmt_project(sql->sa, mk_perm, e_to);
+//	l = sa_list(sql->sa);
+//	list_append(l, e_from);
+//	list_append(l, e_to);
+//	// FIXME list_append(l, e_weights);
+//	graph = stmt_list(sql->sa, l);
+//
+//	// map the values in qfrom, qto into vertex IDs
+//	D = stmt_project(sql->sa, smpl, c); // domain
+//	// TODO I was not able to figure out how to perform a join with a candidate list at this layer
+//	// postpone the translation at the mal codegen ftb
+//	vrtx = stmt_exp2vrtx(sql->sa, q_from, q_to, D);
+//	l = sa_list(sql->sa);
+//	for(int i = 0; i < 3; i++)
+//		list_append(l, stmt_result(sql->sa, vrtx, i));
+//	query = stmt_list(sql->sa, l);
+//
+//	// execute the shortest path operator
+//	spfw = stmt_spfw(sql->sa, query, graph);
+//
+//	// almost done, create the new resultset
+//	l = sa_list(sql->sa);
+//	spfw_project(sql, l, spfw, left);
+//	spfw_project(sql, l, spfw, right);
+//	result = stmt_list(sql->sa, l);
+//
+//	print_tree(sql->sa, result); // FIXME debug only
+//
+//	return result;
+//}
 
 static stmt *
 subrel_bin(mvc *sql, sql_rel *rel, list *refs) 
@@ -4742,9 +4797,6 @@ subrel_bin(mvc *sql, sql_rel *rel, list *refs)
 		break;
 	case op_ddl:
 		s = rel2bin_ddl(sql, rel, refs);
-		break;
-	case op_spfw:
-		s = rel2bin_spfw(sql, rel, refs);
 		break;
 	}
 	if (s && rel_is_ref(rel)) {

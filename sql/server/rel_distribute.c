@@ -42,8 +42,7 @@ has_remote_or_replica( sql_rel *rel )
 
 	case op_union: 
 	case op_inter: 
-	case op_except: 
-    case op_spfw:
+	case op_except:
 		if (has_remote_or_replica( rel->l ) ||
 		    has_remote_or_replica( rel->r ))
 			return 1;
@@ -155,8 +154,7 @@ replica(mvc *sql, sql_rel *rel, char *uri)
 
 	case op_union: 
 	case op_inter: 
-	case op_except: 
-    case op_spfw:
+	case op_except:
 		rel->l = replica(sql, rel->l, uri);
 		rel->r = replica(sql, rel->r, uri);
 		break;
@@ -272,8 +270,6 @@ distribute(mvc *sql, sql_rel *rel)
 	case op_delete:
 		rel->r = distribute(sql, rel->r);
 		break;
-    case op_spfw:
-        break; // TODO, just allow to compile ftb
 	}
 	return rel;
 }
@@ -300,7 +296,6 @@ rel_remote_func(mvc *sql, sql_rel *rel)
 	case op_union: 
 	case op_inter: 
 	case op_except:
-    case op_spfw:
 		rel->l = rel_remote_func(sql, rel->l);
 		rel->r = rel_remote_func(sql, rel->r);
 		break;

@@ -909,7 +909,7 @@ SQLinsert_val(READERtask *task, int col, int idx)
 				s = scpy;
 			}
 			MT_lock_set(&errorlock);
-			snprintf(buf, sizeof(buf), "line " LLFMT " field %d '%s' expected in '%s'", row, col, fmt->type, s ? s : buf);
+			snprintf(buf, sizeof(buf), "line " LLFMT " field %s '%s' expected in '%s'", row, fmt->name?fmt->name:"", fmt->type, s ? s : buf);
 			GDKfree(s);
 			buf[sizeof(buf)-1]=0;
 			if (task->as->error == NULL && (task->as->error = GDKstrdup(buf)) == NULL)
@@ -1994,7 +1994,8 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 #endif
 	for (i = 0; i < as->nr_attrs; i++) {
 		BAT *b = task->as->format[i].c;
-		BATsettrivprop(b);
+		if (b)
+			BATsettrivprop(b);
 		GDKfree(task->fields[i]);
 	}
 	GDKfree(task->fields);
