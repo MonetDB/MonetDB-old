@@ -651,12 +651,14 @@ LIDARopenPath(str fname, int *len) {
 		}
 		closedir(dir);
 		ret = (str *)malloc((*len)*sizeof(str));
-		path = (str)malloc(strlen(fname) + 256);
+		/* Maximum file name is 256 + one for the trailing '/' */
+		path = (str)malloc(strlen(fname) + 256 + 1);
 		dir = opendir(fname);
 		while((dir_entry = readdir(dir)) != NULL) {
 			if (dir_entry->d_type == DT_REG) {
 				strncpy(path, fname, strlen(fname));
-				path[strlen(fname)] = '\0';
+				path[strlen(fname)] = DIR_SEP;
+				path[strlen(fname) + 1] = '\0';
 				strncat(path, dir_entry->d_name, strlen(dir_entry->d_name));
 				ret[idx++] = strdup(path);
 #ifndef NDEBUG
@@ -957,6 +959,9 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str filename;
 	double minimumX, maximumX, minimumY, maximumY, minimumZ, maximumZ;
 
+	/* Remove the trailing slash if it exists */
+	if (fname[strlen(fname) - 1] == '/')
+		fname[strlen(fname) - 1] = '\0';
 	switch(pci->argc) {
 	case 2:
 		tname = fname;
