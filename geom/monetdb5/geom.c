@@ -5564,7 +5564,7 @@ BATgroupWKBWKBtoWKB(bat *outBAT_id, BAT *b, BAT *g, BAT *e, int skip_nils, oid m
                         GDKfree(grpWKBs);
                         BBPunfix(outBAT->batCacheid);
                         outBAT = NULL;
-                		throw(MAL, name, "Out WKB is NULL, if an exception wasn't thrown during the execution of %s it might means there is not enough geometries for the aggregation", name);
+                		throw(MAL, name, "Out WKB is NULL, if an exception wasn't thrown during the execution of %s it might mean that there is not enough geometries for the aggregation", name);
                     }
                     grpWKBs[gid] = outWKBs[gid];
                 }
@@ -5598,7 +5598,7 @@ BATgroupWKBWKBtoWKB(bat *outBAT_id, BAT *b, BAT *g, BAT *e, int skip_nils, oid m
             outBAT = NULL;
     		throw(MAL, name, "BUNappend failed");
         }
-        GDKfree(grpWKBs[i]);
+        //GDKfree(grpWKBs[i]);
     }
 
     if (nils < BUN_NONE) {
@@ -8202,7 +8202,7 @@ IsValidsubselect_intern(bat *lresBAT_id, bat *lBAT_id, bat *slBAT_id, char (*fun
 #endif
     bit *outs = NULL;
     oid *oids = NULL;
-    oid lo = 0;
+    oid slo = 0, lo = 0;
 
 	//get the descriptor of the BAT
 	if ((lBAT = BATdescriptor(*lBAT_id)) == NULL) {
@@ -8280,6 +8280,7 @@ IsValidsubselect_intern(bat *lresBAT_id, bat *lBAT_id, bat *slBAT_id, char (*fun
 #ifdef GEOMBULK_DEBUG
     gettimeofday(&start, NULL);
 #endif
+	if (lBAT->hseqbase != 0) assert(0);
 #ifdef OPENMP
     omp_set_dynamic(OPENCL_DYNAMIC);     // Explicitly disable dynamic teams
     omp_set_num_threads(OPENCL_THREADS);
@@ -8339,12 +8340,16 @@ IsValidsubselect_intern(bat *lresBAT_id, bat *lBAT_id, bat *slBAT_id, char (*fun
 	    slBAT_iters[0] = bat_iterator(slBAT);
     }
     lo = lBAT->hseqbase;
+	if (lBAT->hseqbase != 0) assert(0);
+	if (slBAT->hseqbase != 0) assert(0);
     for (p = 0; p < q; p++, lo++) {
         if (outs[p] == 1) {
             if (*slBAT_id != bat_nil) {
-                lo = *(oid *) BUNtail(slBAT_iters[0], p);
+                slo = *(oid *) BUNtail(slBAT_iters[0], p);
+            	BUNappend(lresBAT, &slo, FALSE);
+            } else {
+            	BUNappend(lresBAT, &lo, FALSE);
             }
-            BUNappend(lresBAT, &lo, FALSE);
         }
     }
 
@@ -8393,7 +8398,7 @@ IsTypesubselect_intern(bat *lresBAT_id, bat *lBAT_id, bat *slBAT_id, str *b, con
 #endif
     bit *outs = NULL;
     oid *oids = NULL;
-    oid lo = 0;
+    oid slo = 0, lo = 0;
     int globalRType;
 
 	//get the descriptor of the BAT
@@ -8474,12 +8479,14 @@ IsTypesubselect_intern(bat *lresBAT_id, bat *lBAT_id, bat *slBAT_id, str *b, con
 #ifdef GEOMBULK_DEBUG
     gettimeofday(&start, NULL);
 #endif
+	//if (lBAT->hseqbase != 0) assert(0);
 #ifdef OPENMP
     omp_set_dynamic(OPENCL_DYNAMIC);     // Explicitly disable dynamic teams
     omp_set_num_threads(OPENCL_THREADS);
     #pragma omp parallel for
 #endif
-    for (p = 0; p < q; p++) {
+    //for (p = 0; p < q; p++) {
+    for (p = lBAT->hseqbase; p < q; p++) {
         oid slOID = 0;
         wkb *aWKB = NULL;
         str bSTR = NULL;
@@ -8528,12 +8535,15 @@ IsTypesubselect_intern(bat *lresBAT_id, bat *lBAT_id, bat *slBAT_id, str *b, con
 	    slBAT_iters[0] = bat_iterator(slBAT);
     }
     lo = lBAT->hseqbase;
+	//if (lBAT->hseqbase != 0) assert(0);
     for (p = 0; p < q; p++, lo++) {
         if (outs[p] == 1) {
             if (*slBAT_id != bat_nil) {
-                lo = *(oid *) BUNtail(slBAT_iters[0], p);
-            }
-            BUNappend(lresBAT, &lo, FALSE);
+                slo = *(oid *) BUNtail(slBAT_iters[0], lo);
+            	BUNappend(lresBAT, &slo, FALSE);
+            } else {
+	            BUNappend(lresBAT, &lo, FALSE);
+	        }
         }
     }
 
@@ -8581,7 +8591,7 @@ WKBWKBtoBIT_bat(bat *lresBAT_id, bat *lBAT_id, bat *slBAT_id, wkb **b, str (*fun
 #endif
     bit *outs = NULL;
     oid *oids = NULL;
-    oid lo = 0;
+    oid slo = 0, lo = 0;
 
 	//get the descriptor of the BAT
 	if ((lBAT = BATdescriptor(*lBAT_id)) == NULL) {
@@ -8658,6 +8668,7 @@ WKBWKBtoBIT_bat(bat *lresBAT_id, bat *lBAT_id, bat *slBAT_id, wkb **b, str (*fun
 #ifdef GEOMBULK_DEBUG
     gettimeofday(&start, NULL);
 #endif
+	if (lBAT->hseqbase != 0) assert(0);
 #ifdef OPENMP
     omp_set_dynamic(OPENCL_DYNAMIC);     // Explicitly disable dynamic teams
     omp_set_num_threads(OPENCL_THREADS);
@@ -8703,12 +8714,16 @@ WKBWKBtoBIT_bat(bat *lresBAT_id, bat *lBAT_id, bat *slBAT_id, wkb **b, str (*fun
 	    slBAT_iters[0] = bat_iterator(slBAT);
     }
     lo = lBAT->hseqbase;
+	if (lBAT->hseqbase != 0) assert(0);
+	if (slBAT->hseqbase != 0) assert(0);
     for (p = 0; p < q; p++, lo++) {
         if (outs[p] == 1) {
             if (*slBAT_id != bat_nil) {
-                lo = *(oid *) BUNtail(slBAT_iters[0], p);
-            }
-            BUNappend(lresBAT, &lo, FALSE);
+                slo = *(oid *) BUNtail(slBAT_iters[0], p);
+            	BUNappend(lresBAT, &slo, FALSE);
+            } else {
+	            BUNappend(lresBAT, &lo, FALSE);
+	        }
         }
     }
 
@@ -8766,7 +8781,7 @@ WKBDBLDBLDBLINTtoBIT_bat(bat *lresBAT_id, bat *lBAT_id, bat *slBAT_id, double *d
 #endif
     bit *outs = NULL;
     oid *oids = NULL;
-    oid lo = 0;
+    oid slo = 0, lo = 0;
 
 	//get the descriptor of the BAT
 	if ((lBAT = BATdescriptor(*lBAT_id)) == NULL) {
@@ -8843,6 +8858,7 @@ WKBDBLDBLDBLINTtoBIT_bat(bat *lresBAT_id, bat *lBAT_id, bat *slBAT_id, double *d
 #ifdef GEOMBULK_DEBUG
     gettimeofday(&start, NULL);
 #endif
+	if (lBAT->hseqbase != 0) assert(0);
 #ifdef OPENMP
     omp_set_dynamic(OPENCL_DYNAMIC);     // Explicitly disable dynamic teams
     omp_set_num_threads(OPENCL_THREADS);
@@ -8894,12 +8910,16 @@ WKBDBLDBLDBLINTtoBIT_bat(bat *lresBAT_id, bat *lBAT_id, bat *slBAT_id, double *d
 	    slBAT_iters[0] = bat_iterator(slBAT);
     }
     lo = lBAT->hseqbase;
+	if (lBAT->hseqbase != 0) assert(0);
+	if (slBAT->hseqbase != 0) assert(0);
     for (p = 0; p < q; p++, lo++) {
         if (outs[p] == 1) {
             if (*slBAT_id != bat_nil) {
-                lo = *(oid *) BUNtail(slBAT_iters[0], p);
-            }
-            BUNappend(lresBAT, &lo, FALSE);
+                slo = *(oid *) BUNtail(slBAT_iters[0], p);
+	            BUNappend(lresBAT, &slo, FALSE);
+            } else {
+	            BUNappend(lresBAT, &lo, FALSE);
+	        }
         }
     }
 
