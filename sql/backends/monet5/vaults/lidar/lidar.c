@@ -758,8 +758,14 @@ LIDARopenFile(str fname)
 	return res;
 }
 
+/*
+ * We get a parameter string with one char for each case. If the char
+ * is there in the string we should read the respective column.
+ *
+ * The string is converted in a bit pattern that drives the read
+ * procedure.
+ */
 typedef enum {
-	PARAMS_ALL_OFF               =       0,
 	PARAM_X_COORD                =     0x1, /* x or X */
 	PARAM_Y_COORD                =     0x2, /* y or Y */
 	PARAM_Z_COORD                =     0x4, /* z or Z */
@@ -777,7 +783,6 @@ typedef enum {
 	PARAM_GPS_TIME               =  0x4000, /* t */
 	PARAM_SCAN_ANGLE             =  0x8000, /* a */
 	PARAM_INTENSITY              = 0x10000, /* i */
-	PARAMS_END_SENTINEL
 } ParameterValues;
 
 typedef struct input_parameters {
@@ -1244,7 +1249,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* create an SQL table to hold the LIDAR table */
 	tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, input_params.cnum);
 
-	for (prm = 1; prm < PARAMS_END_SENTINEL; prm <<= 1) {
+	for (prm = 1; prm <= PARAM_INTENSITY; prm <<= 1) {
 		if (input_params.parameters & prm) {
 			switch(prm) {
 			case PARAM_X_COORD:
@@ -1440,8 +1445,9 @@ static RetVal readValue(LASPointH p, ParameterValues param) {
 		color = LASPoint_GetColor(p);
 		ret.val_sht = LASColor_GetRed(color);
 		break;
-	default:
-		fprintf(stderr, "readValue: Unimplemented\n");
+	case PARAM_VERTEX_INDEX:
+		/* Do nothing: this data is implicit */
+		;
 	}
 
 	return ret;
@@ -1604,7 +1610,7 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 	col = mvc_bind_column(m, lidar_tbl, "LoadParams");
 	input_params = *(int*)table_funcs.column_find_value(m->session->tr, col, rid);
 
-	for (prm = 1; prm < PARAMS_END_SENTINEL; prm <<= 1) {
+	for (prm = 1; prm <= PARAM_INTENSITY; prm <<= 1) {
 		if (input_params & prm) {
 			switch(prm) {
 			case PARAM_X_COORD:
@@ -1936,7 +1942,7 @@ LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			for (id = 0; id < cnt; id++) {
 				int rid = *(int*)BUNtail(fs_rid, id);
 #ifndef NDEBUG
-				fprintf(stderr, "id, rid: %ld %d\n", id, rid);
+				fprintf(stderr, "id, rid: %zu %d\n", id, rid);
 #endif
 				msg = LIDARloadTable_(m, sch, lidar_tbl, tname, tbl, rid - 1);
 				if (msg != MAL_SUCCEED) {
