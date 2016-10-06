@@ -103,6 +103,7 @@ typedef enum stmt_type {
 	st_prefixsum,
 	st_slices,
 	st_spfw,
+	st_void2oid,
 } st_type;
 
 /* flag to indicate anti join/select */
@@ -254,6 +255,7 @@ extern stmt *stmt_mkpartition(sql_allocator *sa, stmt *st, int partno, int num_p
 extern stmt *stmt_prefixsum(sql_allocator *sa, stmt *op, stmt *domain_cardinality);
 extern stmt *stmt_slices(sql_allocator *sa, stmt *op, int num);
 extern stmt *stmt_spfw(sql_allocator *sa, stmt *query, stmt *graph);
+extern stmt *stmt_void2oid(sql_allocator *sa, stmt *op);
 
 
 extern sql_subtype *tail_type(stmt *st);

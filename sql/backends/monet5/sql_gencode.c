@@ -2965,8 +2965,18 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			}
 
 			// abi convention
-			s->nr = getDestVar(q); // filter
-			renameVariable(mb, getArg(q, 1), "r1_%d", s->nr);
+			s->nr = getDestVar(q); // filter src
+			renameVariable(mb, getArg(q, 1), "r1_%d", s->nr); // filter dst
+		} break;
+		case st_void2oid: {
+			int ref_op = _dumpstmt(sql, mb, s->op1);
+			if(ref_op < 0)
+				return -1;
+
+			q = newStmt(mb, graphRef, "void2oid");
+			q = pushArgument(mb, q, ref_op);
+
+			s->nr = getDestVar(q);
 		} break;
 		}
 		if (mb->errors)
