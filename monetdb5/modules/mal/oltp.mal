@@ -1,0 +1,22 @@
+module oltp;
+
+pattern init()
+address OLTPinit
+comment "Initialize the lock table";
+
+pattern reset()
+address OLTPreset
+comment "Reset the lock table";
+
+unsafe pattern lock(lck:str...):void
+address OLTPlock
+comment "Wait for all write locks needed";
+
+unsafe pattern release(lck:str...):void
+address OLTPrelease
+comment "Release for all write locks needed";
+
+pattern dump() (usr:bat[:str], qry:bat[:str], lck:bat[:str])
+address OLTPdump
+comment "Show status of lock table";
+

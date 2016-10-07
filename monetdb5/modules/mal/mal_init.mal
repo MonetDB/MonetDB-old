@@ -88,6 +88,7 @@ include txtsim;
 include tokenizer;
 
 # include transaction; no direct access anymore to avoid SQL interference
+include oltp;
 
 # scheduler components, experimental components
 include srvpool;

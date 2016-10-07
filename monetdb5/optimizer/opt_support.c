@@ -51,6 +51,7 @@ struct OPTcatalog {
 {"mergetable",	0,	0,	0},
 {"mitosis",		0,	0,	0},
 {"multiplex",	0,	0,	0},
+{"oltp",		0,	0,	0},
 {"origin",		0,	0,	0},
 {"peephole",	0,	0,	0},
 {"reduce",		0,	0,	0},
@@ -463,6 +464,8 @@ hasSideEffects(InstrPtr p, int strict)
 		getModuleId(p) != groupRef )
 		return TRUE;
 
+	if ( getModuleId(p) == oltpRef)
+		return TRUE;
 	if ( getModuleId(p) == remoteRef)
 		return TRUE;
 	return FALSE;
