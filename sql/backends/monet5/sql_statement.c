@@ -1668,11 +1668,12 @@ stmt_prefixsum(sql_allocator *sa, stmt* op, stmt* domain_cardinality)
 
 
 stmt *
-stmt_spfw(sql_allocator *sa, stmt* query, stmt* graph)
+stmt_spfw(sql_allocator *sa, stmt* query, stmt* graph, int flags)
 {
 	stmt *s = stmt_create(sa, st_spfw);
 	s->op1 = query;
 	s->op2 = graph;
+	s->flag = flags;
 
 	// strong suspects these are the output cols of the operator
 	s->nrcols = 1;

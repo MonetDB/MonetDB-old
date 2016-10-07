@@ -111,6 +111,8 @@ typedef enum stmt_type {
 #define ANTI ANTISEL
 #define GRP_DONE 32
 
+#define SPFW_CROSS_PRODUCT 0x1 /* Perform a cross product instead of a filter op~ */
+
 typedef struct stmt {
 	st_type type;
 	struct stmt *op1;
@@ -254,7 +256,7 @@ extern stmt *stmt_exp2vrtx(sql_allocator *sa, stmt *q, stmt *domain);
 extern stmt *stmt_mkpartition(sql_allocator *sa, stmt *st, int partno, int num_partitions);
 extern stmt *stmt_prefixsum(sql_allocator *sa, stmt *op, stmt *domain_cardinality);
 extern stmt *stmt_slices(sql_allocator *sa, stmt *op, int num);
-extern stmt *stmt_spfw(sql_allocator *sa, stmt *query, stmt *graph);
+extern stmt *stmt_spfw(sql_allocator *sa, stmt *query, stmt *graph, int flags);
 extern stmt *stmt_void2oid(sql_allocator *sa, stmt *op);
 
 
