@@ -287,89 +287,8 @@ LIDARinitCatalog(mvc *m)
 	}
 }
 
-#if 0
-static int
-lidar2mtype(int t)
-{
-	(void) t;
-	switch (t) {
-	case TBIT:
-	case TLOGICAL:
-		return TYPE_bit;
-	case TBYTE:
-	case TSBYTE:
-		return TYPE_bte;
-	case TSTRING:
-		return TYPE_str;
-	case TUSHORT:
-	case TSHORT:
-		return TYPE_sht;
-	case TUINT:
-	case TINT:
-		return TYPE_int;
-	case TLONG:
-	case TULONG:
-	case TLONGLONG:
-		return TYPE_lng;
-	case TFLOAT:
-		return TYPE_flt;
-	case TDOUBLE:
-		return TYPE_dbl;
-		/* missing */
-	case TCOMPLEX:
-	case TDBLCOMPLEX:
-		return -1;
-	}
-	return -1;
-}
-#endif
-
-#if 0
-static int
-lidar2subtype(sql_subtype *tpe, int t, long rep, long wid)
-{
-	(void)rep;
-	switch (t) {
-	case TBIT:
-	case TLOGICAL:
-		sql_find_subtype(tpe, "boolean", 0, 0);
-		break;
-	case TBYTE:
-	case TSBYTE:
-		sql_find_subtype(tpe, "char", 1, 0);
-		break;
-	case TSTRING:
-		sql_find_subtype(tpe, "varchar", (unsigned int)wid, 0);
-		break;
-	case TUSHORT:
-	case TSHORT:
-		sql_find_subtype(tpe, "smallint", 16, 0);
-		break;
-	case TUINT:
-	case TINT:
-		sql_find_subtype(tpe, "int", 32, 0);
-		break;
-	case TULONG:
-	case TLONG:
-	case TLONGLONG:
-		sql_find_subtype(tpe, "bigint", 64, 0);
-		break;
-	case TFLOAT:
-		sql_find_subtype(tpe, "real", 32, 0);
-		break;
-	case TDOUBLE:
-		sql_find_subtype(tpe, "double", 51, 0);
-		break;
-		/* missing */
-	case TCOMPLEX:
-	case TDBLCOMPLEX:
-		return -1;
-	}
-	return 1;
-}
-#endif
-
-str LIDARexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+str
+LIDARexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str msg = MAL_SUCCEED;
 //	int* res_id = *getArgReference_str(stk, pci, 1);
@@ -502,99 +421,6 @@ str LIDARexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
-
-str LIDARdir(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	(void) cntxt;
-	(void) mb;
-	(void) stk;
-	(void) pci;
-#if 0
-	str msg = MAL_SUCCEED;
-	str dir = *getArgReference_str(stk, pci, 1);
-	DIR *dp;
-	struct dirent *ep;
-	lidarfile *fptr;
-	char *s;
-	int status = 0;
-	(void)mb;
-
-	dp = opendir(dir);
-	if (dp != NULL) {
-		char stmt[BUFSIZ];
-		char fname[BUFSIZ];
-
-		s = stmt;
-
-		while ((ep = readdir(dp)) != NULL && !msg) {
-			snprintf(fname, BUFSIZ, "%s%s", dir, ep->d_name);
-			status = 0;
-			lidar_open_file(&fptr, fname, READONLY, &status);
-			if (status == 0) {
-				snprintf(stmt, BUFSIZ, ATTACHDIR, fname);
-				msg = SQLstatementIntern(cntxt, &s, "lidar.listofdir", TRUE, FALSE, NULL);
-				lidar_close_file(fptr, &status);
-			}
-		}
-		(void)closedir(dp);
-	} else
-		msg = createException(MAL, "listdir", "Couldn't open the directory");
-
-	return msg;
-#endif
-	return MAL_SUCCEED;
-}
-
-str LIDARdirpat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	(void) cntxt;
-	(void) mb;
-	(void) stk;
-	(void) pci;
-	return MAL_SUCCEED;
-#if 0
-	str msg = MAL_SUCCEED;
-	str dir = *getArgReference_str(stk, pci, 1);
-	str pat = *getArgReference_str(stk, pci, 2);
-	lidarfile *fptr;
-	char *s;
-	int status = 0;
-	glob_t globbuf;
-	char fulldirectory[BUFSIZ];
-	size_t j = 0;
-
-	(void)mb;
-	globbuf.gl_offs = 0;
-	snprintf(fulldirectory, BUFSIZ, "%s%s", dir, pat);
-	glob(fulldirectory, GLOB_DOOFFS, NULL, &globbuf);
-
-	/*	fprintf(stderr,"#fulldir: %s \nSize: %lu\n",fulldirectory, globbuf.gl_pathc);*/
-
-	if (globbuf.gl_pathc == 0)
-		throw(MAL, "listdir", "Couldn't open the directory or there are no files that match the pattern");
-
-	for (j = 0; j < globbuf.gl_pathc; j++) {
-		char stmt[BUFSIZ];
-		char fname[BUFSIZ];
-
-		s = stmt;
-		snprintf(fname, BUFSIZ, "%s", globbuf.gl_pathv[j]);
-		status = 0;
-		lidar_open_file(&fptr, fname, READONLY, &status);
-		if (status == 0) {
-			snprintf(stmt, BUFSIZ, ATTACHDIR, fname);
-			msg = SQLstatementIntern(cntxt, &s, "lidar.listofdirpat", TRUE, FALSE, NULL);
-			lidar_close_file(fptr, &status);
-			break;
-		}
-	}
-
-	return msg;
-#endif
-	return MAL_SUCCEED;
-}
-
-
 str
 LIDARtest(int *res, str *fname)
 {
@@ -633,7 +459,8 @@ typedef struct either_lidar_header {
 
 
 static str *
-LIDARopenPath(str fname, int *len) {
+LIDARopenPath(str fname, int *len)
+{
 	str *ret = NULL;
 	struct stat buf;
 	DIR *dir;
@@ -794,7 +621,8 @@ typedef struct input_parameters {
  * read.
  */
 static void
-parse_parameters(str params, InputParameters *parsed) {
+parse_parameters(str params, InputParameters *parsed)
+{
 	/* x, y, and z are always loaded */
     char *p = NULL;
 	parsed->cnum = 3;
@@ -1389,7 +1217,10 @@ typedef union retval {
 	dbl val_dbl;
 } RetVal;
 
-static RetVal readValue(LASPointH p, ParameterValues param) {
+/* Given a LASPointH, read a sigle value of the specified type */
+static RetVal
+readValue(LASPointH p, ParameterValues param)
+{
 	RetVal ret;
 	LASColorH color;
 
@@ -1455,6 +1286,9 @@ static RetVal readValue(LASPointH p, ParameterValues param) {
 	return ret;
 }
 
+/* Given a BAT type, this macro defines a function that reads a column
+ * from the LiDAR file.
+ */
 #define READ_ARRAY(BAT_TYPE)										\
 static BAT *														\
 read_array_##BAT_TYPE(str fname,									\
@@ -2043,4 +1877,99 @@ LIDARAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     *res = VAULT_TABLE_DONE;
 
     return MAL_SUCCEED;
+}
+
+
+/* Left over code to be examined and scavenged */
+
+
+str LIDARdir(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+#if 0
+	str msg = MAL_SUCCEED;
+	str dir = *getArgReference_str(stk, pci, 1);
+	DIR *dp;
+	struct dirent *ep;
+	lidarfile *fptr;
+	char *s;
+	int status = 0;
+	(void)mb;
+
+	dp = opendir(dir);
+	if (dp != NULL) {
+		char stmt[BUFSIZ];
+		char fname[BUFSIZ];
+
+		s = stmt;
+
+		while ((ep = readdir(dp)) != NULL && !msg) {
+			snprintf(fname, BUFSIZ, "%s%s", dir, ep->d_name);
+			status = 0;
+			lidar_open_file(&fptr, fname, READONLY, &status);
+			if (status == 0) {
+				snprintf(stmt, BUFSIZ, ATTACHDIR, fname);
+				msg = SQLstatementIntern(cntxt, &s, "lidar.listofdir", TRUE, FALSE, NULL);
+				lidar_close_file(fptr, &status);
+			}
+		}
+		(void)closedir(dp);
+	} else
+		msg = createException(MAL, "listdir", "Couldn't open the directory");
+
+	return msg;
+#endif
+	return MAL_SUCCEED;
+}
+
+str LIDARdirpat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	return MAL_SUCCEED;
+#if 0
+	str msg = MAL_SUCCEED;
+	str dir = *getArgReference_str(stk, pci, 1);
+	str pat = *getArgReference_str(stk, pci, 2);
+	lidarfile *fptr;
+	char *s;
+	int status = 0;
+	glob_t globbuf;
+	char fulldirectory[BUFSIZ];
+	size_t j = 0;
+
+	(void)mb;
+	globbuf.gl_offs = 0;
+	snprintf(fulldirectory, BUFSIZ, "%s%s", dir, pat);
+	glob(fulldirectory, GLOB_DOOFFS, NULL, &globbuf);
+
+	/*	fprintf(stderr,"#fulldir: %s \nSize: %lu\n",fulldirectory, globbuf.gl_pathc);*/
+
+	if (globbuf.gl_pathc == 0)
+		throw(MAL, "listdir", "Couldn't open the directory or there are no files that match the pattern");
+
+	for (j = 0; j < globbuf.gl_pathc; j++) {
+		char stmt[BUFSIZ];
+		char fname[BUFSIZ];
+
+		s = stmt;
+		snprintf(fname, BUFSIZ, "%s", globbuf.gl_pathv[j]);
+		status = 0;
+		lidar_open_file(&fptr, fname, READONLY, &status);
+		if (status == 0) {
+			snprintf(stmt, BUFSIZ, ATTACHDIR, fname);
+			msg = SQLstatementIntern(cntxt, &s, "lidar.listofdirpat", TRUE, FALSE, NULL);
+			lidar_close_file(fptr, &status);
+			break;
+		}
+	}
+
+	return msg;
+#endif
+	return MAL_SUCCEED;
 }
