@@ -2963,6 +2963,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 				q = pushArgument(mb, q, ((stmt*) n->data)->nr);
 				n = n->next;
 			}
+			q = pushBit(mb, q, s->flag & SPFW_CROSS_PRODUCT);
 
 			// abi convention
 			s->nr = getDestVar(q); // filter src

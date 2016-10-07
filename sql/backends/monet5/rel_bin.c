@@ -616,6 +616,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			sql_subaggr *aggr_count = sql_bind_aggr(sql->sa, sql->session->schema, "count", NULL);
 			stmt *domain =NULL, *query =NULL;
 			stmt *spfw =NULL;
+			int spfw_flags = 0;
 
 			// generate the depending expressions
 			graph = subrel_bin(sql, g->edges, refs);
@@ -660,7 +661,8 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			query = stmt_list(sql->sa, l);
 
 			// run the operator
-			spfw = stmt_spfw(sql->sa, query, graph);
+			if(right != NULL){ spfw_flags |= SPFW_CROSS_PRODUCT; }
+			spfw = stmt_spfw(sql->sa, query, graph, spfw_flags);
 
 			print_tree(sql->sa, spfw);
 
@@ -1754,7 +1756,7 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 			prop *p;
 
 			/* only handle simple joins here */		
-			if (exp_has_func(e) && e->flag != cmp_filter) {
+			if (exp_has_func(e) && (e->type != e_cmp || (e->flag != cmp_filter && e->flag != cmp_filter_graph))) {
 				if (!join && !list_length(lje)) {
 					stmt *l = bin_first_column(sql->sa, left);
 					stmt *r = bin_first_column(sql->sa, right);
@@ -1789,8 +1791,9 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 				idx = 1;
 
 			if (s->type != st_join && 
-			    s->type != st_join2 && 
-			    s->type != st_joinN) {
+			    s->type != st_join2 &&
+			    s->type != st_joinN &&
+			    s->type != st_spfw) {
 				/* predicate */
 				if (!list_length(lje) && s->nrcols == 0) { 
 					stmt *l = bin_first_column(sql->sa, left);
