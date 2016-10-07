@@ -2867,68 +2867,26 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 		case st_slices: {
 			int ref_stmt = -1;
 			int num_slices = s->flag;
-			InstrPtr hseqbase_oid = NULL;
-			InstrPtr hseqbase_lng = NULL;
-			InstrPtr count = NULL;
-			InstrPtr interval = NULL;
-			InstrPtr step = NULL;
 
+			// generate & validate the operands
 			if(num_slices < 1)
 				return -1;
-
 			ref_stmt = _dumpstmt(sql, mb, s->op1);
 			if(ref_stmt < 0)
 				return -1;
 
-			hseqbase_oid = newStmt(mb, "bat", "getSequenceBase");
-			hseqbase_oid = pushArgument(mb, hseqbase_oid, ref_stmt);
+			// create the statement
+			q = newStmt(mb, graphRef, "slicer");
+			getArg(q, 0) = newTmpVariable(mb, TYPE_bat);
+			for(int i = 1; i < num_slices; i++){
+				q = pushReturn(mb, q, newTmpVariable(mb, TYPE_bat));
+			}
+			q = pushArgument(mb, q, ref_stmt);
 
-			hseqbase_lng = newStmt(mb, "calc", "lng");
-			hseqbase_lng = pushArgument(mb, hseqbase_lng, getDestVar(hseqbase_oid));
-
-			count = newStmt(mb, "aggr", "count");
-			count = pushArgument(mb, count, ref_stmt);
-
-			interval = newStmt(mb, "calc", "-");
-			interval = pushArgument(mb, interval, getDestVar(count));
-			interval = pushArgument(mb, interval, getDestVar(hseqbase_lng));
-
-			// assume that interval % num_slices == 0
-			step = newStmt(mb, "calc", "/");
-			step = pushArgument(mb, step, getDestVar(interval));
-			step = pushLng(mb, step, (lng) num_slices);
-
-			for(int i = 0; i < num_slices; i++){
-				InstrPtr start = NULL, end_plus_1 = NULL, end = NULL,
-						slice_indexed = NULL, slice_final = NULL;
-
-				start = newStmt(mb, "calc", "*");
-				start = pushArgument(mb, start, getDestVar(step));
-				start = pushLng(mb, start, i);
-
-				end_plus_1 = newStmt(mb, "calc", "+");
-				end_plus_1 = pushArgument(mb, end_plus_1, getDestVar(start));
-				end_plus_1 = pushArgument(mb, end_plus_1, getDestVar(step));
-
-				end = newStmt(mb, "calc", "-");
-				end = pushArgument(mb, end, getDestVar(end_plus_1));
-				end = pushLng(mb, end, 1);
-
-				slice_indexed = newStmt(mb, "algebra", "slice");
-				slice_indexed = pushArgument(mb, slice_indexed, ref_stmt);
-				slice_indexed = pushArgument(mb, slice_indexed, getDestVar(start));
-				slice_indexed = pushArgument(mb, slice_indexed, getDestVar(end));
-
-				// reset hseqbase = 0
-				slice_final = newStmt(mb, "bat", "resetSequenceBase");
-				slice_final = pushArgument(mb, slice_final, getDestVar(slice_indexed));
-
-				// abi convention
-				if(i==0){
-					s->nr = getDestVar(slice_final);
-				} else {
-					snprintf(mb->var[getDestVar(slice_final)]->id, IDLENGTH, "r%d_%d", i, s->nr);
-				}
+			// abi convention
+			s->nr = getDestVar(q);
+			for(int i = 1; i < num_slices; i++) {
+				snprintf(mb->var[getDestVar(q)]->id, IDLENGTH, "r%d_%d", i, s->nr);
 			}
 		} break;
 		case st_spfw: {
@@ -2946,7 +2904,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 
 			// command spfw(qf:bat[:oid], qt:bat[:oid], V:bat[:oid], E:bat[:oid]) --> :bat[:oid]
 			q = newStmt(mb, graphRef, "spfw");
-			q = pushReturn(mb, q, newTmpVariable(mb, TYPE_bat));
+			q = pushReturn(mb, q, newTmpVariable(mb, TYPE_any));
 
 			// set the query params
 			assert(s->op1->type == st_list && s->op1->op4.lval->cnt == query_sz);
