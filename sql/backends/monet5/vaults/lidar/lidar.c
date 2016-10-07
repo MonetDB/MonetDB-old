@@ -1446,8 +1446,10 @@ static RetVal readValue(LASPointH p, ParameterValues param) {
 		ret.val_sht = LASColor_GetRed(color);
 		break;
 	case PARAM_VERTEX_INDEX:
-		/* Do nothing: this data is implicit */
-		;
+		/* This data is implicit. Set the return value just for the
+		 * compiler
+		 */
+		ret.val_bte = 0;
 	}
 
 	return ret;
@@ -1937,7 +1939,7 @@ LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BATiter fs_rid = bat_iterator(BATdescriptor(fres->cols[0].b));
 			oid id = 0, cnt = BATcount(fs_rid.b);
 #ifndef NDEBUG
-			fprintf(stderr, "count: %ld\n", cnt);
+			fprintf(stderr, "count: %zu\n", cnt);
 #endif
 			for (id = 0; id < cnt; id++) {
 				int rid = *(int*)BUNtail(fs_rid, id);
