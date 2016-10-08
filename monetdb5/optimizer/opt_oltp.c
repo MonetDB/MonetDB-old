@@ -60,8 +60,8 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			lcks = addLock(lcks, mb, p, p->retc + 1, p->retc + 2);
 		if( getModuleId(p) == sqlRef && getFunctionId(p) == deleteRef )
 			lcks = addLock(lcks, mb, p, p->retc + 1, p->retc + 2);
-		if( getModuleId(p) == sqlRef && getFunctionId(p) == catalogRef )
-			lcks = addLock(lcks, mb, p, p->retc + 1, p->retc + 2);
+		//if( getModuleId(p) == sqlRef && getFunctionId(p) == catalogRef )
+			//lcks = addLock(lcks, mb, p, p->retc + 1, p->retc + 2);
 	}
 	
 	if( lcks->argc == 1){
