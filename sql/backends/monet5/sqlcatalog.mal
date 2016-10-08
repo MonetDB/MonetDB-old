@@ -6,23 +6,23 @@
 
 module sqlcatalog;
 
-pattern create_seq( sname:str, seq:ptr)
+pattern create_seq( sname:str, seq:ptr, action:int)
 address SQLcreate_seq 
 comment "Catalog operation create_seq";
 
-pattern alter_seq( sname:str, seq:ptr) 
+pattern alter_seq( sname:str, seq:ptr, val:lng) 
 address SQLalter_seq 
 comment "Catalog operation alter_seq";
 
-pattern drop_seq( sname:str, nme:str) 
+pattern drop_seq( sname:str, nme:str, action:int) 
 address SQLdrop_seq 
 comment "Catalog operation drop_seq";
 
-pattern create_schema( sname:str, name:str) 
+pattern create_schema(sname:str, auth:str, action:int) 
 address SQLcreate_schema 
 comment "Catalog operation create_schema";
 
-pattern drop_schema( sname:str, action:int) 
+pattern drop_schema( sname:str, s:str, action:int) 
 address SQLdrop_schema 
 comment "Catalog operation drop_schema";
 
@@ -38,7 +38,7 @@ pattern drop_table( sname:str, name:str, action:int )
 address SQLdrop_table 
 comment "Catalog operation drop_table";
 
-pattern drop_view( sname:str, name:str,action:int) 
+pattern drop_view( sname:str, name:str, action:int) 
 address SQLdrop_view 
 comment "Catalog operation drop_view";
 
@@ -46,7 +46,7 @@ pattern drop_constraint( sname:str, name:str, action:int)
 address SQLdrop_constraint 
 comment "Catalog operation drop_constraint";
 
-pattern alter_table( sname:str, tbl:ptr) 
+pattern alter_table( sname:str, tbl:ptr, action:int) 
 address SQLalter_table 
 comment "Catalog operation alter_table";
 
@@ -82,15 +82,15 @@ pattern revoke_function( sname:str, fcnid:int, grantee:str, privs:int, grant:int
 address SQLrevoke_function 
 comment "Catalog operation revoke_function";
 
-pattern create_user( sname:str, passwrd:str,enc:int,schema:str,fullname:str) 
+pattern create_user( sname:str, passwrd:str, enc:int, schema:str, fullname:str) 
 address SQLcreate_user 
 comment "Catalog operation create_user";
 
-pattern drop_user(sname:str) 
+pattern drop_user(sname:str, action:int) 
 address SQLdrop_user 
 comment "Catalog operation drop_user";
 
-pattern alter_user( sname:str, passwrd:str,enc:int,schema:str,oldpasswrd:str) 
+pattern alter_user( sname:str, passwrd:str, enc:int, schema:str, oldpasswrd:str) 
 address SQLalter_user 
 comment "Catalog operation alter_user";
 
@@ -106,11 +106,11 @@ pattern drop_role( role:str)
 address SQLdrop_role 
 comment "Catalog operation drop_role";
 
-pattern drop_index( sname:str, iname:str) 
+pattern drop_index( sname:str, iname:str, action:int) 
 address SQLdrop_index 
 comment "Catalog operation drop_index";
 
-pattern drop_function( sname:str, fid:int, type:int, action:int) 
+pattern drop_function( sname:str, fname:str, fid:int, type:int, action:int) 
 address SQLdrop_function 
 comment "Catalog operation drop_function";
 
@@ -118,7 +118,7 @@ pattern create_function( sname:str, fcn:ptr)
 address SQLcreate_function 
 comment "Catalog operation create_function";
 
-pattern create_trigger( sname:str,tname:str, time:int, orientation:int,event:int,old:str,new:str,cond:str,qry:str) 
+pattern create_trigger( sname:str, tname:str, triggername:str, time:int, orientation:int, event:int, old:str, new:str, cond:str, qry:str) 
 address SQLcreate_trigger 
 comment "Catalog operation create_trigger";
 
@@ -126,14 +126,14 @@ pattern drop_trigger(sname:str,nme:str )
 address SQLdrop_trigger 
 comment "Catalog operation drop_trigger";
 
-pattern alter_add_table( sname:str,mtnme:str, psnme:str, ptnme:str) 
+pattern alter_add_table( sname:str, mtnme:str, psnme:str, ptnme:str) 
 address SQLalter_add_table 
 comment "Catalog operation alter_add_table";
 
-pattern alter_del_table( sname:str,mtnme:str, psnme:str, ptnme:str) 
+pattern alter_del_table( sname:str, mtnme:str, psnme:str, ptnme:str) 
 address SQLalter_del_table 
 comment "Catalog operation alter_del_table";
 
-pattern alter_set_table( sname:str, tnme:str, action:int) 
+pattern alter_set_table( sname:str, tnme:str, access:int) 
 address SQLalter_set_table 
 comment "Catalog operation alter_set_table";

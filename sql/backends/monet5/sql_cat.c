@@ -810,9 +810,11 @@ SQLdrop_schema(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {	mvc *sql = NULL;
 	str msg;
 	str sname = *getArgReference_str(stk, pci, 1); 
+	str notused = *getArgReference_str(stk, pci, 2); 
 	int action = *getArgReference_int(stk, pci, 3);
 	sql_schema *s;
 
+	(void) notused;
 	initcontext();
 	s = mvc_bind_schema(sql, sname);
 	if (!s) {
@@ -1235,7 +1237,7 @@ SQLalter_set_table(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg;
 	str sname = *getArgReference_str(stk, pci, 1); 
 	char *tname = SaveArgReference(stk, pci, 2);
-	int access = *getArgReference_int(stk, pci, 4);
+	int access = *getArgReference_int(stk, pci, 3);
 
 	initcontext();
 	msg = alter_table_set_access(sql, sname, tname, access);
