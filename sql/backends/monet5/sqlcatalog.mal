@@ -90,11 +90,16 @@ pattern drop_user(sname:str, action:int)
 address SQLdrop_user 
 comment "Catalog operation drop_user";
 
+pattern drop_user(sname:str, auth:str, action:int) 
+address SQLdrop_user 
+comment "Catalog operation drop_user";
+
+
 pattern alter_user( sname:str, passwrd:str, enc:int, schema:str, oldpasswrd:str) 
 address SQLalter_user 
 comment "Catalog operation alter_user";
 
-pattern rename_user( sname:str, newnme:str) 
+pattern rename_user( sname:str, newnme:str, action:int) 
 address SQLrename_user 
 comment "Catalog operation rename_user";
 
@@ -102,7 +107,10 @@ pattern create_role(sname:str,role:str,grator:int)
 address SQLcreate_role 
 comment "Catalog operation create_role";
 
-pattern drop_role( role:str) 
+pattern drop_role( auth:str, role:str, action:int) 
+address SQLdrop_role 
+comment "Catalog operation drop_role";
+pattern drop_role( role:str, action:int) 
 address SQLdrop_role 
 comment "Catalog operation drop_role";
 
@@ -126,11 +134,11 @@ pattern drop_trigger(sname:str,nme:str )
 address SQLdrop_trigger 
 comment "Catalog operation drop_trigger";
 
-pattern alter_add_table( sname:str, mtnme:str, psnme:str, ptnme:str) 
+pattern alter_add_table( sname:str, mtnme:str, psnme:str, ptnme:str, action:int) 
 address SQLalter_add_table 
 comment "Catalog operation alter_add_table";
 
-pattern alter_del_table( sname:str, mtnme:str, psnme:str, ptnme:str) 
+pattern alter_del_table( sname:str, mtnme:str, psnme:str, ptnme:str, action:int) 
 address SQLalter_del_table 
 comment "Catalog operation alter_del_table";
 
