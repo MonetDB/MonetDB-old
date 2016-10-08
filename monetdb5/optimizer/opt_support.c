@@ -401,9 +401,6 @@ hasSideEffects(InstrPtr p, int strict)
 		  getFunctionId(p) == clear_tableRef))
 		return TRUE;
 
-	if (getFunctionId(p) == depositRef)
-		return TRUE;
-
 	if (getModuleId(p) == malRef && getFunctionId(p) == multiplexRef)
 		return FALSE;
 
@@ -464,6 +461,8 @@ hasSideEffects(InstrPtr p, int strict)
 		getModuleId(p) != groupRef )
 		return TRUE;
 
+	if ( getModuleId(p) == sqlcatalogRef)
+		return TRUE;
 	if ( getModuleId(p) == oltpRef)
 		return TRUE;
 	if ( getModuleId(p) == remoteRef)

@@ -88,7 +88,7 @@ static struct PIPELINES {
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
 	 "optimizer.jit();"
-	 "optimizer.oltp();"
+	 //"optimizer.oltp();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /*
