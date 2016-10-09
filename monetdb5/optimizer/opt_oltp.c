@@ -18,7 +18,9 @@ addLock(InstrPtr lcks, MalBlkPtr mb, InstrPtr p, int sch, int tbl)
 	int i;
 	char buf[2 * IDLENGTH];
 
-	snprintf(buf, 2 * IDLENGTH, "%s#%s", (sch?getVarConstant(mb, getArg(p,sch)).val.sval : "global"), (tbl? getVarConstant(mb, getArg(p,tbl)).val.sval : ""));
+	snprintf(buf, 2 * IDLENGTH, "%s#%s", 
+		(sch?getVarConstant(mb, getArg(p,sch)).val.sval : "sqlcatalog"), 
+		(tbl? getVarConstant(mb, getArg(p,tbl)).val.sval : ""));
 	// add unique table names only
 	for( i=1; i< lcks->argc; i++)
 		if( strcmp(buf, getVarConstant(mb,getArg(lcks,i)).val.sval) == 0)
@@ -36,8 +38,6 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	lng usec = GDKusec();
 	char buf[256];
 
-	//if ( !optimizerIsApplied(mb,"multiplex") )
-		//return 0;
 	(void) pci;
 	(void) cntxt;
 	(void) stk;		/* to fool compilers */
@@ -69,7 +69,7 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return 0;
 	}
 
-	// the lock names should be sorted
+	// the lock names should be sorted for correct locking
 	for(i=1; i< lcks->argc; i++)
 		for(j=1; j< lcks->argc; j++)
 			if(strcmp(getVarConstant(mb,getArg(lcks,i)).val.sval, getVarConstant(mb,getArg(lcks,j)).val.sval) > 0){
@@ -104,10 +104,10 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
     /* Defense line against incorrect plans */
 	chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-	chkFlow(cntxt->fdout, mb);
-	chkDeclarations(cntxt->fdout, mb);
+	//chkFlow(cntxt->fdout, mb);
+	//chkDeclarations(cntxt->fdout, mb);
     /* keep all actions taken as a post block comment */
-    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","emptybind",actions,GDKusec() - usec);
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","oltp",actions,GDKusec() - usec);
     newComment(mb,buf);
 	return 1;
 }
