@@ -18,7 +18,7 @@ addLock(InstrPtr lcks, MalBlkPtr mb, InstrPtr p, int sch, int tbl)
 	int i;
 	char buf[2 * IDLENGTH];
 
-	snprintf(buf, 2 * IDLENGTH, "%s#%s", getVarConstant(mb, getArg(p,sch)).val.sval, getVarConstant(mb, getArg(p,tbl)).val.sval);
+	snprintf(buf, 2 * IDLENGTH, "%s#%s", (sch?getVarConstant(mb, getArg(p,sch)).val.sval : "global"), (tbl? getVarConstant(mb, getArg(p,tbl)).val.sval : ""));
 	// add unique table names only
 	for( i=1; i< lcks->argc; i++)
 		if( strcmp(buf, getVarConstant(mb,getArg(lcks,i)).val.sval) == 0)
@@ -60,8 +60,8 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			lcks = addLock(lcks, mb, p, p->retc + 1, p->retc + 2);
 		if( getModuleId(p) == sqlRef && getFunctionId(p) == deleteRef )
 			lcks = addLock(lcks, mb, p, p->retc + 1, p->retc + 2);
-		//if( getModuleId(p) == sqlRef && getFunctionId(p) == catalogRef )
-			//lcks = addLock(lcks, mb, p, p->retc + 1, p->retc + 2);
+		if( getModuleId(p) == sqlcatalogRef )
+			lcks = addLock(lcks, mb, p, 0,0);
 	}
 	
 	if( lcks->argc == 1){
