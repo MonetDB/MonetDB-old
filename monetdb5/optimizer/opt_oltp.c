@@ -81,7 +81,7 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	// Now optimize the code
 	if ( newMalBlkStmt(mb,mb->stop) < 0)
 		return 0;
-	pushInstruction(mb,0);
+	pushInstruction(mb,old[0]);
 	pushInstruction(mb,lcks);
 	for (i = 1; i < limit; i++) {
 		p = old[i];
@@ -104,8 +104,8 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
     /* Defense line against incorrect plans */
 	chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-	//chkFlow(cntxt->fdout, mb);
-	//chkDeclarations(cntxt->fdout, mb);
+	chkFlow(cntxt->fdout, mb);
+	chkDeclarations(cntxt->fdout, mb);
     /* keep all actions taken as a post block comment */
     snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","emptybind",actions,GDKusec() - usec);
     newComment(mb,buf);
