@@ -81,7 +81,9 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	// Now optimize the code
 	if ( newMalBlkStmt(mb,mb->stop) < 0)
 		return 0;
-	for (i = 0; i < limit; i++) {
+	pushInstruction(mb,0);
+	pushInstruction(mb,lcks);
+	for (i = 1; i < limit; i++) {
 		p = old[i];
 		if( p->token == ENDsymbol){
 			// unlock all if there is an error
@@ -94,9 +96,6 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			pushInstruction(mb,q);
 		}
 		pushInstruction(mb,p);
-
-		if( i == 1)
-			pushInstruction(mb,lcks);
 	} 
 	for(; i<slimit; i++)
 		if (old[i]) 
