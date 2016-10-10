@@ -497,7 +497,7 @@ x3d_3_psurface_buf(const GEOSGeometry *psur, char *output, int precision, int op
             {
                 ptr += sprintf(ptr, " ");
             }
-            ptr += sprintf(ptr, "%ud", (j + k));
+            ptr += sprintf(ptr, "%u", (j + k));
         }
         if (i < (ngeoms - 1) )
         {
@@ -618,7 +618,7 @@ x3d_3_collection_size(const GEOSGeometry *col, int precision, int opts, const ch
     for (i=0; i<ngeoms; i++)
     {
         const GEOSGeometry *subgeom = GEOSGetGeometryN(col, i);
-        size += ( sizeof("<Shape />") + defidlen ) * 2;
+        //size += ( sizeof("<Shape />") + defidlen ) * 2;
         switch (type) {
             case ( wkbPoint_mdb ):
                 size += x3d_3_point_size(subgeom, precision);
@@ -662,7 +662,7 @@ x3d_3_collection_buf(const GEOSGeometry *col, char *output, int precision, int o
     for (i=0; i<ngeoms; i++)
     {
         subgeom = GEOSGetGeometryN(col, i);
-        ptr += sprintf(ptr, "<Shape%s>", defid);
+        //ptr += sprintf(ptr, "<Shape%s>", defid);
         switch (type) {
             case ( wkbPoint_mdb ):
                 ptr += x3d_3_point_buf(subgeom, ptr, precision, opts);
@@ -690,7 +690,7 @@ x3d_3_collection_buf(const GEOSGeometry *col, char *output, int precision, int o
                 assert(0);
         }
 
-        ptr += printf(ptr, "</Shape>");
+        //ptr += printf(ptr, "</Shape>");
     }
 
     return (ptr-output);
