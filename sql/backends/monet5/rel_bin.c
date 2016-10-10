@@ -646,7 +646,6 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			eperm = stmt_result(sql->sa, efrom, 1);
 			efrom = stmt_prefixsum(sql->sa, efrom, smpl_sz);
 			eto = stmt_project(sql->sa, eperm, eto);
-			eto = stmt_void2oid(sql->sa, eto);
 			graph = stmt_list(sql->sa, list_append(list_append(sa_list(sql->sa), efrom), eto));
 
 			// generate the query
