@@ -3769,6 +3769,7 @@ wkbMakePolygon(wkb **out, wkb **external, const int *srid)
 	GEOSGeom geosGeometry, externalGeometry, linearRingGeometry;
 	bit closed = 0;
 	GEOSCoordSeq coordSeq_copy;
+	int geometryType;
 
 	if (wkb_isnil(*external) || *srid == int_nil) {
 		if ((*out = wkbNULLcopy()) == NULL)
@@ -3781,10 +3782,11 @@ wkbMakePolygon(wkb **out, wkb **external, const int *srid)
 		throw(MAL, "geom.Polygon", MAL_MALLOC_FAIL);
 
 	//check the type of the external geometry
-	if ((GEOSGeomTypeId(externalGeometry) + 1) != wkbLineString_mdb) {
+	geometryType = GEOSGeomTypeId(externalGeometry) + 1;
+	if (geometryType != wkbLineString_mdb) {
 		*out = NULL;
 		GEOSGeom_destroy(externalGeometry);
-		throw(MAL, "geom.Polygon", "Geometries should be LineString");
+		throw(MAL, "geom.Polygon", "Geometries should be LineString, but it is %s.", geom_type2str(geometryType, 0));
 	}
 	//check whether the linestring is closed
 	wkbIsClosed(&closed, external);
@@ -5598,7 +5600,7 @@ BATgroupWKBWKBtoWKB(bat *outBAT_id, BAT *b, BAT *g, BAT *e, int skip_nils, oid m
             outBAT = NULL;
     		throw(MAL, name, "BUNappend failed");
         }
-        GDKfree(grpWKBs[i]);
+        //GDKfree(grpWKBs[i]);
     }
 
     if (nils < BUN_NONE) {
