@@ -2135,6 +2135,25 @@ sql_update_jun2016_sp2(Client c, mvc *sql)
 	if (schema)
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
 
+	// Add the oltp delay support
+		pos += snprintf(buf + pos, bufsize - pos,
+			"create procedure sys.enable_oltp()"
+			"external name oltp.enable;"
+			"create procedure sys.disable_oltp()"
+			"external name oltp.disable;"
+			"create procedure sys.reset_oltp()"
+			"external name oltp.reset;"
+			"create function sys.oltp_locks()"
+			"returns table("
+			"	started timestamp,"
+			"	username  string,"
+			"	lockid  string,"
+			"	cnt  integer,"
+			"	query   string"
+			")"
+			"external name oltp.\"table\";"
+		);
+
 	assert(pos < bufsize);
 	printf("Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);

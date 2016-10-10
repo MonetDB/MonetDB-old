@@ -4,19 +4,27 @@ pattern init()
 address OLTPinit
 comment "Initialize the lock table";
 
+pattern enable()
+address OLTPenable
+comment "Enable the OLTP delay monitor";
+
+pattern disable()
+address OLTPdisable
+comment "Disable the OLTP delay monitor";
+
 pattern reset()
 address OLTPreset
-comment "Reset the lock table";
+comment "Reset the OLTP lock table";
 
-unsafe pattern lock(lck:str...):void
+pattern lock(lck:str...):void
 address OLTPlock
 comment "Wait for all write locks needed";
 
-unsafe pattern release(lck:str...):void
+pattern release(lck:str...):void
 address OLTPrelease
 comment "Release for all write locks needed";
 
-pattern dump() (usr:bat[:str], qry:bat[:str], lck:bat[:str])
-address OLTPdump
+pattern table() (start:bat[:timestamp], usr:bat[:str], lck:bat[:str], cnt:bat[:int], qry:bat[:str])
+address OLTPtable
 comment "Show status of lock table";
 
