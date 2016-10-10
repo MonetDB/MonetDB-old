@@ -100,3 +100,127 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
 
 	return result;
 }
+
+
+/*****************************************************************************
+ *                                                                           *
+ * CHEAPEST SUM, semantic phase                                              *
+ *                                                                           *
+ *****************************************************************************/
+
+static bool error_reported(mvc* sql){ return (sql->session->status < 0); }
+
+
+static sql_exp* bindg_ret(mvc *sql, sql_exp* bind1, sql_exp* bind2){
+	if (error_reported(sql)){ // an error already occurred
+		return NULL;
+	} else if(bind1 && bind2){
+		return sql_error(sql, ERR_AMBIGUOUS, "Ambiguous expression for CHEAPEST SUM: %s, %s", exp_name(bind1), exp_name(bind2));
+	} else if(bind1){
+		return bind1;
+	} else {
+		return bind2; // either if it has a value or it is null */
+	}
+}
+
+static sql_exp* bindg_exp(mvc *sql, sql_exp *exp, symbol *sym){
+	graph_join *g;
+	sql_exp* e;
+	exp_kind exp_kind_value = {type_value, card_column, TRUE};
+
+	assert(exp && "Expected an expression");
+
+	if(exp->type != e_cmp || get_cmp(exp) != cmp_filter_graph){
+		// this is not a graph join, move along
+		return NULL;
+	}
+
+	g = exp->f;
+
+	// try to bind the expression
+	e = rel_value_exp(sql, &(g->edges), sym, sql_sel, exp_kind_value);
+	if(!e){ return NULL; }
+
+	// an expression has already been bound
+	if(g->cost){
+		return sql_error(sql, 02, "TODO: At the moment you cannot bind multiple CHEAPEST SUM expression against the same join");
+	}
+
+	// found it!
+	g->cost = exp_label(sql->sa, e, ++sql->label);
+	return g->cost;
+}
+
+
+static sql_exp* bindg_exps(mvc *sql, list *exps, symbol *sym){
+	sql_exp *result = NULL;
+
+	// edge case
+	if(!exps || error_reported(sql)) return NULL;
+
+	for(node* n = exps->h; n; n = n->next){
+		sql_exp *bound = bindg_exp(sql, n->data, sym);
+		result = bindg_ret(sql, result, bound);
+		if(error_reported(sql)) return NULL; // ERROR! => stop processing
+	}
+
+	return result;
+}
+
+static sql_exp* bindg_rel(mvc *sql, sql_rel* relation, symbol *sym){
+	// edge case
+	if(!relation || error_reported(sql)) return NULL;
+
+	switch(relation->op){
+	case op_join:
+	case op_left:
+	case op_right:
+	case op_full:
+	case op_semi: {
+		sql_exp *exp1 = NULL, *exp2 = NULL, *exp3 = NULL, *ret = NULL;
+
+		exp1 = bindg_rel(sql, relation->l, sym);
+		exp2 = bindg_rel(sql, relation->r, sym);
+		ret = bindg_ret(sql, exp1, exp2);
+		exp3 = bindg_exps(sql, relation->exps, sym);
+		return bindg_ret(sql, ret, exp3);
+	} break;
+	case op_select: {
+		sql_exp* exp1 = bindg_exps(sql, relation->exps, sym);
+		sql_exp* exp2 = bindg_rel(sql, relation->l, sym);
+		return bindg_ret(sql, exp1, exp2);
+	} break;
+	case op_groupby:
+		// move up the tree
+		return bindg_rel(sql, relation->l, sym);
+	default:
+		return NULL;
+	}
+}
+
+
+sql_exp* rel_graph_cheapest_sum(mvc *sql, sql_rel **rel, symbol *sym, int context){
+	sql_exp* exp_bound = NULL;
+	sql_exp* result = NULL;
+
+	// Check the context is the SELECT clause
+	if(context != sql_sel){
+		sql_error(sql, 02, "CHEAPEST SUM is only allowed inside the SELECT clause");
+		return NULL;
+	}
+
+	// Check whether an argument has been specified
+	if(!sym->data.sym){
+		// TODO this should be already handled by the parser (i.e. it's not part of the language)
+		sql_error(sql, 02, "Empty argument for CHEAPEST SUM");
+		return NULL;
+	}
+
+	// Find the relation where the sub the expression binds to
+	exp_bound = bindg_rel(sql, *rel, sym);
+	if(!exp_bound){ return NULL; }
+
+	// Create the new column
+	result = exp_column(sql->sa, NULL, exp_bound->name, exp_subtype(exp_bound), (*rel)->card, /* has_nil = */ FALSE, /* is_intern = */ FALSE);
+	return result;
+}

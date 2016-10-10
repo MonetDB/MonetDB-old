@@ -149,6 +149,7 @@ exp_graph_join(sql_allocator *sa, list *qsrc, list *qdst, sql_rel *graph, list *
 	g->src = efrom;
 	g->dst = eto;
 	g->edges = graph;
+	g->cost = NULL;
 	e->flag = cmp_filter_graph;
 
 	return e;

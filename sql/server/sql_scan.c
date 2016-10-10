@@ -101,7 +101,7 @@ scanner_init_keywords(void)
 	keywords_insert("AVG", AGGR);
 	keywords_insert("MIN", AGGR);
 	keywords_insert("MAX", AGGR);
-	keywords_insert("SUM", AGGR);
+	keywords_insert("SUM", SUM); /* shared with aggr and cheapest_sum */
 	keywords_insert("PROD", AGGR);
 	keywords_insert("COUNT", AGGR);
 
@@ -470,8 +470,10 @@ scanner_init_keywords(void)
 	keywords_insert("GEOMETRYCOLLECTIONZM", GEOMETRYSUBTYPE);
 
 	// Graph-related keywords
-	keywords_insert("REACHES", REACHES);
+	keywords_insert("CHEAPEST", CHEAPEST);
 	keywords_insert("EDGE", EDGE);
+	keywords_insert("REACHES", REACHES);
+
 }
 
 #define find_keyword_bs(lc, s) find_keyword(lc->rs->buf+lc->rs->pos+s)

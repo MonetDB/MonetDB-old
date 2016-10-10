@@ -174,6 +174,7 @@ typedef enum tokens {
 	SQL_XMLVALIDATE,
 	SQL_XMLNAMESPACES,
 	SQL_GRAPH_REACHES,
+	SQL_GRAPH_CHEAPEST_SUM,
 } tokens;
 
 typedef enum jt {

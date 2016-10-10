@@ -4415,6 +4415,8 @@ rel_value_exp2(mvc *sql, sql_rel **rel, symbol *se, int f, exp_kind ek, int *is_
 	case SQL_XMLPI:
 	case SQL_XMLTEXT:
 		return rel_xml(sql, rel, se, f, ek);
+	case SQL_GRAPH_CHEAPEST_SUM:
+		return rel_graph_cheapest_sum(sql, rel, se, f);
 	default:
 		return rel_logical_value_exp(sql, rel, se, f);
 	}

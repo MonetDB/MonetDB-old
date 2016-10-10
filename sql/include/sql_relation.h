@@ -175,7 +175,7 @@ typedef enum operator_type {
 #define is_analytic(e) \
 	(e->type == e_func && ((sql_subfunc*)e->f)->func->type == F_ANALYTIC)
 #define is_base(op) \
-	(op == op_basetable || op == op_table)
+	(op == op_basetable|| op == op_table)
 #define is_basetable(op) \
 	(op == op_basetable)
 #define is_ddl(op) \
@@ -295,6 +295,7 @@ typedef struct {
 	list *src;
 	list *dst;
 	sql_rel *edges;
+	sql_exp *cost;
 } graph_join;
 
 #endif /* SQL_RELATION_H */
