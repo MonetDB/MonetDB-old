@@ -172,11 +172,13 @@ static sql_exp* bindg_rel(mvc *sql, sql_rel* relation, symbol *sym){
 	if(!relation || error_reported(sql)) return NULL;
 
 	switch(relation->op){
-	case op_join:
+	case op_full:
 	case op_left:
 	case op_right:
-	case op_full:
-	case op_semi: {
+	case op_semi:
+		assert("I haven't thought about these cases yet");
+		break;
+	case op_join: {
 		sql_exp *exp1 = NULL, *exp2 = NULL, *exp3 = NULL, *ret = NULL;
 
 		exp1 = bindg_rel(sql, relation->l, sym);
@@ -196,6 +198,8 @@ static sql_exp* bindg_rel(mvc *sql, sql_rel* relation, symbol *sym){
 	default:
 		return NULL;
 	}
+
+	return NULL; // silent the warning
 }
 
 
@@ -217,7 +221,8 @@ sql_exp* rel_graph_cheapest_sum(mvc *sql, sql_rel **rel, symbol *sym, int contex
 	}
 
 	// Find the relation where the sub the expression binds to
-	exp_bound = bindg_rel(sql, *rel, sym);
+	assert(is_project((*rel)->op) && "Unexpected relation type");
+	exp_bound = bindg_rel(sql, (*rel)->l, sym->data.sym);
 	if(!exp_bound){ return NULL; }
 
 	// Create the new column

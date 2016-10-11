@@ -1858,18 +1858,32 @@ print_stmt(sql_allocator *sa, stmt *s)
 		case st_aggr:
 			printf("%s, ", s->op4.aggrval->aggr->base.name);
 			break;
-		case st_slices:
-			printf("%d, ", s->flag);
-			break;
 		default:
 			break;
 		}
+
+		// input statements
 		if (s->op1)
 			printf("z%d", s->op1->nr);
 		if (s->op2)
 			printf(", z%d", s->op2->nr);
 		if (s->op3)
 			printf(", z%d", s->op3->nr);
+
+		// after the input statements
+		switch(s->type){
+		case st_alias: {
+			if(s->tname){ printf(", \"%s\"", s->tname); } else { printf(", NULL"); }
+			if(s->cname){ printf(", \"%s\"", s->cname); } else { printf(", NULL"); }
+		} break;
+		case st_result:
+		case st_slices:
+			printf(", %d", s->flag);
+			break;
+		default:
+			break;
+		}
+
 		printf(");\n");
 		break;
 	}

@@ -742,11 +742,38 @@ exps_has_nil(list *exps)
 	}
 }
 
+list*
+exps_projections(mvc *sql, list *l){
+	list* result = NULL;
+
+	if(!l) return NULL;
+
+	for(node *n = l->h; n; n = n->next){
+		sql_exp *e = n->data;
+		sql_exp *exp_to_project = NULL;
+
+		// if this is a graph join with an output column... then
+		if( e->type == e_cmp && get_cmp(e) == cmp_filter_graph ){
+			graph_join *g = e->f;
+			if(g->cost){
+				exp_to_project = exp_column(sql->sa, NULL, NULL, exp_subtype(g->cost), exp_card(g->cost), /* ftb */ FALSE, FALSE);
+			}
+		}
+
+		if( exp_to_project ){
+			if(!result) result = new_exp_list(sql->sa);
+			list_append(result, exp_to_project);
+		}
+	}
+
+	return result;
+}
+
 list *
 rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int intern )
 {
 	int label = sql->label;
-	list *rexps, *exps ;
+	list *rexps, *exps, *cond = NULL;
 
 	if (!rel || (is_subquery(rel) && is_project(rel->op)))
 		return new_exp_list(sql->sa);
@@ -765,6 +792,20 @@ rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int int
 			if (rel->op == op_full || rel->op == op_left)
 				exps_has_nil(rexps);
 			exps = list_merge( exps, rexps, (fdup)NULL);
+		}
+		cond = exps_projections(sql, rel->exps);
+		if (cond) {
+			list *copy = new_exp_list(sql->sa);
+			for(node *n = cond->h; n; n = n->next){
+				sql_exp *e = n->data;
+				// TODO copied from the handling of op_basetable, but not really understood
+				list_append(copy, e = exp_alias_or_copy(sql, tname, exp_name(e), rel, e));
+				if(!settname) exp_setrelname(sql->sa, e, label);
+			}
+			if(rel->op == op_full || rel->op == op_right || rel->op == op_left){
+				exps_has_nil(copy);
+			}
+			exps = list_merge(exps, copy, (fdup)NULL);
 		}
 		return exps;
 	case op_groupby:
@@ -808,7 +849,22 @@ rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int int
 	case op_select:
 	case op_topn:
 	case op_sample:
-		return rel_projections(sql, rel->l, tname, settname, intern );
+		exps = rel_projections(sql, rel->l, tname, settname, intern );
+		if(rel->op == op_select){
+			cond = exps_projections(sql, rel->exps);
+			if (cond){
+				list *copy = new_exp_list(sql->sa);
+				for(node *n = cond->h; n; n = n->next){
+					sql_exp *e = n->data;
+					// TODO copied from the handling of op_basetable, but not really understood
+					list_append(copy, e = exp_alias_or_copy(sql, tname, exp_name(e), rel, e));
+					if(!settname) exp_setrelname(sql->sa, e, label);
+				}
+				// TODO exps_has_nil
+				exps = list_merge(exps, copy, (fdup)NULL);
+			}
+		}
+		return exps;
 	default:
 		return NULL;
 	}

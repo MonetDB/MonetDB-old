@@ -112,6 +112,7 @@ typedef enum stmt_type {
 #define GRP_DONE 32
 
 #define SPFW_CROSS_PRODUCT 0x1 /* Perform a cross product instead of a filter op~ */
+#define SPFW_SHORTEST_PATH 0x2 /* Retrieve also the cost of the path */
 
 typedef struct stmt {
 	st_type type;

@@ -2886,12 +2886,12 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			// abi convention
 			s->nr = getDestVar(q);
 			for(int i = 1; i < num_slices; i++) {
-				snprintf(mb->var[getDestVar(q)]->id, IDLENGTH, "r%d_%d", i, s->nr);
+				snprintf(mb->var[getArg(q, i)]->id, IDLENGTH, "r%d_%d", i, s->nr);
 			}
 		} break;
 		case st_spfw: {
 			const /*size_t*/ int query_sz = 4; // num operands for the query
-			const /*size_t*/ int graph_sz = 2; // num operands for the graph
+			const /*size_t*/ int graph_sz = 2; // num operands 2 or 3
 			node* n = NULL;
 
 			// generate the query
@@ -2905,6 +2905,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			// command spfw(qf:bat[:oid], qt:bat[:oid], V:bat[:oid], E:bat[:oid]) --> :bat[:oid]
 			q = newStmt(mb, graphRef, "spfw");
 			q = pushReturn(mb, q, newTmpVariable(mb, TYPE_any));
+			q = pushReturn(mb, q, newTmpVariable(mb, TYPE_any));
 
 			// set the query params
 			assert(s->op1->type == st_list && s->op1->op4.lval->cnt == query_sz);
@@ -2915,17 +2916,28 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			}
 
 			// set the graph params
-			assert(s->op2->type == st_list && s->op2->op4.lval->cnt == graph_sz);
+			assert(s->op2->type == st_list && s->op2->op4.lval->cnt >= graph_sz);
 			n = s->op2->op4.lval->h;
 			for(int i = 0; i < graph_sz; i++){
 				q = pushArgument(mb, q, ((stmt*) n->data)->nr);
 				n = n->next;
 			}
+
+			// weights for the shortest path
+			if( n != NULL ){ // n is the last entry in s->op2->op4.lval
+				q = pushArgument(mb, q, ((stmt*) n->data)->nr);
+				assert(n->next == NULL && "Additional argument not handled");
+			} else {
+				q = pushNil(mb, q, TYPE_bat);
+			}
+
 			q = pushBit(mb, q, s->flag & SPFW_CROSS_PRODUCT);
+			q = pushBit(mb, q, s->flag & SPFW_SHORTEST_PATH);
 
 			// abi convention
 			s->nr = getDestVar(q); // filter src
 			renameVariable(mb, getArg(q, 1), "r1_%d", s->nr); // filter dst
+			renameVariable(mb, getArg(q, 2), "r2_%d", s->nr); // shortest path (if required)
 		} break;
 		case st_void2oid: {
 			int ref_op = _dumpstmt(sql, mb, s->op1);
