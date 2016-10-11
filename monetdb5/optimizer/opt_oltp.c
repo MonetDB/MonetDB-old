@@ -73,9 +73,9 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for(i=1; i< lcks->argc; i++)
 		for(j=1; j< lcks->argc; j++)
 			if(strcmp(getVarConstant(mb,getArg(lcks,i)).val.sval, getVarConstant(mb,getArg(lcks,j)).val.sval) > 0){
-				k = getArg(p,i);
-				getArg(p,i)= getArg(p,j);
-				getArg(p,j) = k;
+				k = getArg(lcks,i);
+				getArg(lcks,i)= getArg(lcks,j);
+				getArg(lcks,j) = k;
 			}
 	
 	// Now optimize the code
