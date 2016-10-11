@@ -12,6 +12,7 @@
 
 #include "mal_interpreter.h"
 #include "mal_scenario.h"
+#include "oltp.h"
 #include "opt_support.h"
 #include "opt_prelude.h"
 

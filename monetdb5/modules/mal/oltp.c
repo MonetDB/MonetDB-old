@@ -17,51 +17,49 @@
 #include "oltp.h"
 #include "mtime.h"
 
-#define MAXOLTPLOCK 256
 #define LOCKTIMEOUT 20 * 1000
-#define DELAY 20
+#define LOCKDELAY 20
 
 typedef struct{
-	Client cntxt;
-	lng start;
+	Client cntxt;	// user holding the write lock
+	lng start;		// time when it started
 	str query;
-	int used;
-	char lockname[2 * IDLENGTH];
+	int used;		// how often it used, for balancing
+	int locked;		// writelock set or not
 } OLTPlockRecord;
 
-static OLTPlockRecord oltp_locks[MAXOLTPLOCK];
-static int oltp_top;
+static OLTPlockRecord oltp_locks[MAXOLTPLOCKS];
 static int oltp_delay;
 
+/*
 static void
 OLTPdump_(Client cntxt, str msg)
 {
 	int i;
 
 	mnstr_printf(cntxt->fdout,"%s",msg);
-	for(i=0; i< oltp_top; i++)
-		mnstr_printf(cntxt->fdout,"#[%i] %3d %s\n",i, (oltp_locks[i].cntxt ? oltp_locks[i].cntxt->idx: -1), oltp_locks[i].lockname);
+	for(i=0; i< MAXOLTPLOCKS; i++)
+	if( oltp_locks[i].locked)
+		mnstr_printf(cntxt->fdout,"#[%i] %3d\n",i, (oltp_locks[i].cntxt ? oltp_locks[i].cntxt->idx: -1));
 }
+*/
 
 str
 OLTPreset(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	int i;
-	// release all locks held in reverse order
+{	int i;
 	(void) cntxt;
 	(void) mb;
 	(void) stk;
 	(void) pci;
 	
 	MT_lock_set(&mal_oltpLock);
-	for( i=0; i<oltp_top; i++){
-		oltp_locks[i].lockname[0] = 0;
+	for( i=0; i<MAXOLTPLOCKS; i++){
+		oltp_locks[i].locked = 0;
 		oltp_locks[i].cntxt = 0;
 		oltp_locks[i].start = 0;
 		oltp_locks[i].query = 0;
 		oltp_locks[i].used = 0;
 	}
-	oltp_top = 0;
 	MT_lock_unset(&mal_oltpLock);
 	return MAL_SUCCEED;
 }
@@ -92,64 +90,61 @@ OLTPinit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return OLTPreset(cntxt,mb,stk,pci);
 }
 
-// a naive locking scheme without queueing
-// only return when you can access all locks
+// The locking is based in the hash-table.
+// It contains all write locks outstanding
+// A transaction may proceed if no element in its read set is locked
 
 str
 OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int i,j,cnt;
+	int i,cnt,lck;
 	lng clk;
 	lng ms = GDKms();
-	int index[MAXOLTPLOCK];
 	str sql,cpy;
 
 	(void) stk;
 	if ( oltp_delay == FALSE )
 		return MAL_SUCCEED;
 
-	// prepare probing the lock table
-	MT_lock_set(&mal_oltpLock);
-	for( i=1; i< pci->argc; i++){
-		for(j=0; j< oltp_top; j++)
-			if( strcmp(oltp_locks[j].lockname, getVarConstant(mb, getArg(pci,i)).val.sval) == 0){
-				index[i] = j;
-				goto next;
-			}
-		if( j == MAXOLTPLOCK){
-			MT_lock_unset(&mal_oltpLock);
-			return MAL_SUCCEED;
-		}
-		if( j == oltp_top && oltp_top < MAXOLTPLOCK){
-			strcpy(oltp_locks[oltp_top].lockname, getVarConstant(mb, getArg(pci,i)).val.sval);
-			index[i] = j;
-			oltp_top++;
-		}
-		next: /*nothing*/;
-	}
 	clk = (lng) time(0);
 
-	MT_lock_unset(&mal_oltpLock);
-
 	do{
+		// checking the collision of read locks with write locks
+		// does not require a lock on the table.
+		// we can always try it again
+		for( i=1; i< pci->argc; i++){
+			lck= getVarConstant(mb, getArg(pci,i)).val.ival;
+			if( lck < 0 && oltp_locks[-lck].locked )
+				goto lockdelay;
+		}
+
 		MT_lock_set(&mal_oltpLock);
-		// check if all the locks are available first
+		// check if all the locks are available 
 		cnt = 0;
-		for( i=1; i< pci->argc; i++)
-			cnt +=(oltp_locks[index[i]].cntxt == cntxt || oltp_locks[index[i]].cntxt == 0);
+		for( i=1; i< pci->argc; i++){
+			lck= getVarConstant(mb, getArg(pci,i)).val.ival;
+			if ( lck > 0)
+				cnt += oltp_locks[lck].locked == 0;
+			else cnt++;
+		}
 
 		if( cnt == pci->argc -1){
 			for( i=1; i< pci->argc; i++){
-				oltp_locks[index[i]].cntxt = cntxt;
-				oltp_locks[index[i]].start = clk;
-				oltp_locks[index[i]].used++;
+				lck= getVarConstant(mb, getArg(pci,i)).val.ival;
+				if( lck > 0){
+					oltp_locks[i].cntxt = cntxt;
+					oltp_locks[i].start = clk;
+					oltp_locks[i].used++;
+					oltp_locks[i].locked = 1;
+				}
 			}
-			if(0) OLTPdump_(cntxt,"#grabbed the locks\n");
+			//OLTPdump_(cntxt,"#grabbed the locks\n");
 			MT_lock_unset(&mal_oltpLock);
 			return MAL_SUCCEED;
 		} else {
 			MT_lock_unset(&mal_oltpLock);
-			MT_sleep_ms(DELAY);
+lockdelay:
+			MT_sleep_ms(LOCKDELAY);
 		}
 	} while( GDKms() - ms < LOCKTIMEOUT);
 
@@ -166,7 +161,7 @@ OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 OLTPrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int i,j;
+	int i,lck;
 
 	(void) cntxt;
 	(void) stk;
@@ -175,12 +170,12 @@ OLTPrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	MT_lock_set(&mal_oltpLock);
 	for( i=1; i< pci->argc; i++){
-		for(j=0; j< oltp_top; j++)
-			if( strcmp(oltp_locks[j].lockname, getVarConstant(mb, getArg(pci,i)).val.sval) == 0){
-				oltp_locks[j].cntxt = 0;
-				oltp_locks[j].start = 0;
-				oltp_locks[j].query = 0;
-				continue;
+		lck= getVarConstant(mb, getArg(pci,i)).val.ival;
+		if( lck > 0){
+				oltp_locks[i].cntxt = 0;
+				oltp_locks[i].start = 0;
+				oltp_locks[i].query = 0;
+				oltp_locks[i].locked = 0;
 			}
 	}
 	//OLTPdump_(cntxt, "#released the locks\n");
@@ -207,7 +202,7 @@ OLTPtable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	bs = COLnew(0, TYPE_timestamp, 0, TRANSIENT);
 	bu = COLnew(0, TYPE_str, 0, TRANSIENT);
-	bl = COLnew(0, TYPE_str, 0, TRANSIENT);
+	bl = COLnew(0, TYPE_int, 0, TRANSIENT);
 	bc = COLnew(0, TYPE_int, 0, TRANSIENT);
 	bq = COLnew(0, TYPE_str, 0, TRANSIENT);
 
@@ -218,8 +213,8 @@ OLTPtable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if( bc) BBPunfix(bc->batCacheid);
 		if( bq) BBPunfix(bq->batCacheid);
 	}
-	for( i = 0; msg ==  MAL_SUCCEED && i < oltp_top; i++)
-	if (oltp_locks[i].lockname[0] ){
+	for( i = 0; msg ==  MAL_SUCCEED && i < MAXOLTPLOCKS; i++)
+	if (oltp_locks[i].locked ){
 		now = oltp_locks[i].start * 1000; // convert to timestamp microsecond
 		msg= MTIMEunix_epoch(&ts);
 		if ( msg == MAL_SUCCEED)
@@ -234,7 +229,7 @@ OLTPtable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BUNappend(bu, &oltp_locks[i].cntxt->username, FALSE);
 		else 
 			BUNappend(bu, str_nil, FALSE);
-		BUNappend(bl, &oltp_locks[i].lockname, FALSE);
+		BUNappend(bl, &oltp_locks[i].locked, FALSE);
 		BUNappend(bc, &oltp_locks[i].used, FALSE);
 		if( oltp_locks[i].query)
 			BUNappend(bq, &oltp_locks[i].query, FALSE);

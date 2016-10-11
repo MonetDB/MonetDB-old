@@ -259,4 +259,9 @@ typedef struct MALSTK {
 	ValRecord stk[FLEXIBLE_ARRAY_MEMBER];
 } MalStack, *MalStkPtr;
 
+#define MAXOLTPLOCKS  1024
+typedef unsigned char OLTPlocks[MAXOLTPLOCKS];
+
+#define OLTPclear(X)  memset((char*)X, 0, sizeof(X))
+
 #endif /*  _MAL_H*/

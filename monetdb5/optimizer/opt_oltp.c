@@ -7,35 +7,34 @@
  */
 
 /* author M.Kersten
- * This optimizer prepares a MAL block for locking
+ * This optimizer prepares a MAL block for delayed locking
+ * The objects are mapped to a fixed hash table to speedup testing later.
+ * We don't need the actual name of the objects
  */
 #include "monetdb_config.h"
 #include "opt_oltp.h"
 
-static InstrPtr
-addLock(InstrPtr lcks, MalBlkPtr mb, InstrPtr p, int sch, int tbl)
-{
-	int i;
+static void
+addLock(OLTPlocks locks, MalBlkPtr mb, InstrPtr p, int sch, int tbl)
+{	BUN hash;
 	char buf[2 * IDLENGTH];
 
 	snprintf(buf, 2 * IDLENGTH, "%s#%s", 
 		(sch?getVarConstant(mb, getArg(p,sch)).val.sval : "sqlcatalog"), 
 		(tbl? getVarConstant(mb, getArg(p,tbl)).val.sval : ""));
-	// add unique table names only
-	for( i=1; i< lcks->argc; i++)
-		if( strcmp(buf, getVarConstant(mb,getArg(lcks,i)).val.sval) == 0)
-			return lcks;
-	lcks= pushStr(mb,lcks, buf);
-	return lcks;
+	hash = strHash(buf) % MAXOLTPLOCKS ;
+	hash += (hash == 0);
+	locks[hash] = 1;
 }
 
 int
 OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{	int i,j,k,limit,slimit;
+{	int i, limit, slimit, updates=0;
 	InstrPtr p, q, lcks;
 	int actions = 0;
 	InstrPtr *old;
 	lng usec = GDKusec();
+	OLTPlocks wlocks, rlocks;
 	char buf[256];
 
 	(void) pci;
@@ -46,38 +45,56 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	limit= mb->stop;
 	slimit = mb->ssize;
 	
-	// First check and collect the binds needed.
+	// We use a fake collection of objects to speed up the checking later.
+	OLTPclear(wlocks);
+	OLTPclear(rlocks);
+
+	for (i = 0; i < limit; i++) {
+		p = old[i];
+		if( getModuleId(p) == sqlRef && getFunctionId(p) == bindRef)
+			addLock(rlocks, mb, p, p->retc + 1, p->retc + 2);
+		else
+		if( getModuleId(p) == sqlRef && getFunctionId(p) == bindidxRef)
+			addLock(rlocks, mb, p, p->retc + 1, p->retc + 2);
+		else
+		if( getModuleId(p) == sqlRef && getFunctionId(p) == appendRef ){
+			addLock(wlocks, mb, p, p->retc + 1, p->retc + 2);
+			updates++;
+		} else
+		if( getModuleId(p) == sqlRef && getFunctionId(p) == updateRef ){
+			addLock(wlocks, mb, p, p->retc + 1, p->retc + 2);
+			updates++;
+		} else
+		if( getModuleId(p) == sqlRef && getFunctionId(p) == deleteRef ){
+			addLock(wlocks, mb, p, p->retc + 1, p->retc + 2);
+			updates++;
+		} else
+		if( getModuleId(p) == sqlcatalogRef ){
+			addLock(wlocks, mb, p, 0,0);
+			updates++;
+		}
+	}
+	
+	if( updates == 0)
+		return 0;
+
 	lcks= newInstruction(mb, ASSIGNsymbol);
 	setModuleId(lcks, oltpRef);
 	setFunctionId(lcks, lockRef);
 	getArg(lcks,0)= newTmpVariable(mb, TYPE_void);
 
-	for (i = 0; i < limit; i++) {
-		p = old[i];
-		if( getModuleId(p) == sqlRef && getFunctionId(p) == appendRef )
-			lcks = addLock(lcks, mb, p, p->retc + 1, p->retc + 2);
-		if( getModuleId(p) == sqlRef && getFunctionId(p) == updateRef )
-			lcks = addLock(lcks, mb, p, p->retc + 1, p->retc + 2);
-		if( getModuleId(p) == sqlRef && getFunctionId(p) == deleteRef )
-			lcks = addLock(lcks, mb, p, p->retc + 1, p->retc + 2);
-		if( getModuleId(p) == sqlcatalogRef )
-			lcks = addLock(lcks, mb, p, 0,0);
-	}
-	
-	if( lcks->argc == 1){
+	for( i = 0; i< MAXOLTPLOCKS; i++)
+	if( wlocks[i])
+		lcks = pushInt(mb, lcks, i);
+	else 
+	if( rlocks[i])
+		lcks = pushInt(mb, lcks, -i);
+
+	if( lcks->argc == 1 ){
 		freeInstruction(lcks);
 		return 0;
 	}
 
-	// the lock names should be sorted for correct locking
-	for(i=1; i< lcks->argc; i++)
-		for(j=1; j< lcks->argc; j++)
-			if(strcmp(getVarConstant(mb,getArg(lcks,i)).val.sval, getVarConstant(mb,getArg(lcks,j)).val.sval) > 0){
-				k = getArg(lcks,i);
-				getArg(lcks,i)= getArg(lcks,j);
-				getArg(lcks,j) = k;
-			}
-	
 	// Now optimize the code
 	if ( newMalBlkStmt(mb,mb->stop) < 0)
 		return 0;
