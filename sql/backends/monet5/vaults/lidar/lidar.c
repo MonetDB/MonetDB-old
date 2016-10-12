@@ -1317,6 +1317,8 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 #endif
 	dbl *curr_dbl;
 
+	(void)tname;
+
 	/* col = mvc_bind_column(m, lidar_tbl, "name"); */
 	/* rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL); */
 	/* if (rid == oid_nil) { */
