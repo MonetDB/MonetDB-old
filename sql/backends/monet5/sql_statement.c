@@ -1675,8 +1675,8 @@ stmt_spfw(sql_allocator *sa, stmt* query, stmt* graph, int flags)
 	s->op2 = graph;
 	s->flag = flags;
 
-	// strong suspects these are the output cols of the operator
-	s->nrcols = 1;
+	s->nrcols = 2;
+	if(flags & SPFW_SHORTEST_PATH) { s->nrcols++; }
 
 	return s;
 }

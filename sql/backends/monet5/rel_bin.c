@@ -2611,6 +2611,7 @@ rel2bin_select( mvc *sql, sql_rel *rel, list *refs)
 	node *en, *n;
 	stmt *sub = NULL, *sel = NULL;
 	stmt *predicate = NULL;
+	list *shooortestpaths = sa_list(sql->sa);
 
 	if (rel->l) { /* first construct the sub relation */
 		sub = subrel_bin(sql, rel->l, refs);
@@ -2659,6 +2660,10 @@ rel2bin_select( mvc *sql, sql_rel *rel, list *refs)
 		} else {
 			sel = s;
 		}
+
+		if(s->type == st_spfw && (s->flag & SPFW_SHORTEST_PATH)){
+			list_append(shooortestpaths, s);
+		}
 	}
 
 	/* construct relation */
@@ -2674,6 +2679,13 @@ rel2bin_select( mvc *sql, sql_rel *rel, list *refs)
 			list_append(l, col);
 		}
 	}
+	for (n = shooortestpaths->h; n; n = n->next){
+		stmt *spfw = n->data;
+		stmt *s = stmt_result(sql->sa, spfw, 2);
+		s = stmt_alias(sql->sa, s, spfw->tname, spfw->cname);
+		list_append(l, s);
+	}
+
 	return stmt_list(sql->sa, l);
 }
 
