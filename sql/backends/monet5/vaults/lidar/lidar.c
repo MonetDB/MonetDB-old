@@ -40,8 +40,7 @@ static MT_Lock mt_lidar_lock;
 #define LIDAR_LOCK MT_lock_set(&mt_lidar_lock)
 #define LIDAR_UNLOCK MT_lock_unset(&mt_lidar_lock)
 
-#define LIDAR_INS_COL "INSERT INTO lidar_columns(id, name, type, units, number, table_id) \
-	 VALUES(%d,'%s','%s','%s',%d,%d);"
+#define LIDAR_INS_COL "INSERT INTO lidar_columns(id, name, type, units, number, table_id) VALUES(%d,'%s','%s','%s',%d,%d);"
 #define FILE_INS "INSERT INTO lidar_files(id, name) VALUES (%d, '%s');"
 #define DEL_TABLE "DELETE FROM lidarfiles;"
 #define ATTACHDIR "CALL lidarattach('%s');"
@@ -526,7 +525,7 @@ LIDARopenFile(str fname)
 	MT_lock_unset(&mt_lidar_lock);
 	if (LASError_GetErrorCount() != 0) {
 		res->msg = createException(MAL, "lidar.openfile", "Error accessing LIDAR file %s (%s)",
-							  fname, LASError_GetLastErrorMsg());
+								   fname, LASError_GetLastErrorMsg());
 		return res;
 	}
 
@@ -534,7 +533,7 @@ LIDARopenFile(str fname)
 	header = LASReader_GetHeader(reader);
 	if (!header) {
 		res->msg = createException(MAL, "lidar.openfile", "Error accessing LIDAR file %s (%s)",
-							  fname, LASError_GetLastErrorMsg());
+								   fname, LASError_GetLastErrorMsg());
 		return res;
 	}
 #ifndef NDEBUG
@@ -997,7 +996,6 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		store_funcs.append_col(m->session->tr,
 							   mvc_bind_column(m, lidar_tbl, "LoadParams"), &input_params.parameters, TYPE_int);
 
-
 		/* store */
 		store_funcs.append_col(m->session->tr,
 							   mvc_bind_column(m, lidar_col, "id"), &cid, TYPE_int);
@@ -1394,172 +1392,172 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 	for (prm = 1, idx=0; prm <= PARAM_INTENSITY; prm <<= 1) {
 		if (input_params & prm) {
 			switch (prm) {
-				case PARAM_X_COORD:
-					columns[idx] = mvc_bind_column(m, tbl, "x");
-					if (precisionx <= 2)
-						bats[idx] = COLnew(0, TYPE_bte, rows, PERSISTENT);
-					else if (precisionx <= 4)
-						bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
-					else if (precisionx <= 16)
-						bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
-					else if (precisionx <= 32)
-						bats[idx] = COLnew(0, TYPE_lng, rows, PERSISTENT);
-#ifdef HAVE_HGE
-					else if (precisionx <= 64)
-						bats[idx] = COLnew(0, TYPE_hge, rows, PERSISTENT);
-#endif
-					else { /* Unknown precision */
-						bats[idx] = NULL;
-						error_code = 3;
-					}
-					if (bats[idx] == NULL && error_code == 0) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_Y_COORD:
-					columns[idx] = mvc_bind_column(m, tbl, "y");
-					if (precisiony <= 2)
-						bats[idx] = COLnew(0, TYPE_bte, rows, PERSISTENT);
-					else if (precisiony <= 4)
-						bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
-					else if (precisiony <= 16)
-						bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
-					else if (precisiony <= 32)
-						bats[idx] = COLnew(0, TYPE_lng, rows, PERSISTENT);
-#ifdef HAVE_HGE
-					else if (precisiony <= 64)
-						bats[idx] = COLnew(0, TYPE_hge, rows, PERSISTENT);
-#endif
-					else { /* Unknown precision */
-						bats[idx] = NULL;
-						error_code = 4;
-					}
-					if (bats[idx] == NULL && error_code == 0) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_Z_COORD:
-					columns[idx] = mvc_bind_column(m, tbl, "z");
-					if (precisionz <= 2)
-						bats[idx] = COLnew(0, TYPE_bte, rows, PERSISTENT);
-					else if (precisionz <= 4)
-						bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
-					else if (precisionz <= 16)
-						bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
-					else if (precisionz <= 32)
-						bats[idx] = COLnew(0, TYPE_lng, rows, PERSISTENT);
-#ifdef HAVE_HGE
-					else if (precisionz <= 64)
-						bats[idx] = COLnew(0, TYPE_hge, rows, PERSISTENT);
-#endif
-					else { /* Unknown precision */
-						bats[idx] = NULL;
-						error_code = 5;
-					}
-					if (bats[idx] == NULL && error_code == 0) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_GPS_TIME:
-					columns[idx] = mvc_bind_column(m, tbl, "gpstime");
-					bats[idx] = COLnew(0, TYPE_dbl, rows, PERSISTENT);
-					if (bats[idx] == NULL) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_SCAN_ANGLE:
-					columns[idx] = mvc_bind_column(m, tbl, "scan_angle");
+			case PARAM_X_COORD:
+				columns[idx] = mvc_bind_column(m, tbl, "x");
+				if (precisionx <= 2)
 					bats[idx] = COLnew(0, TYPE_bte, rows, PERSISTENT);
-					if (bats[idx] == NULL) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_CLASSIFICATION_NUMBER:
-					columns[idx] = mvc_bind_column(m, tbl, "classification_number");
-					bats[idx] = COLnew(0, TYPE_bte, rows, PERSISTENT);
-					if (bats[idx] == NULL) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_USER_DATA:
-					columns[idx] = mvc_bind_column(m, tbl, "user_data");
-					bats[idx] = COLnew(0, TYPE_bte, rows, PERSISTENT);
-					if (bats[idx] == NULL) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_INTENSITY:
-					columns[idx] = mvc_bind_column(m, tbl, "intensity");
+				else if (precisionx <= 4)
 					bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
-					if (bats[idx] == NULL) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_N_RETURNS:
-					columns[idx] = mvc_bind_column(m, tbl, "n_returns");
-					bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
-					if (bats[idx] == NULL) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_N_THIS_RETURN:
-					columns[idx] = mvc_bind_column(m, tbl, "n_this_return");
-					bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
-					if (bats[idx] == NULL) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_POINT_SOURCE_ID:
-					columns[idx] = mvc_bind_column(m, tbl, "point_source_id");
-					bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
-					if (bats[idx] == NULL) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_EDGE_OF_FLIGHT_LINE:
-					columns[idx] = mvc_bind_column(m, tbl, "edge_of_flight_line");
-					bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
-					if (bats[idx] == NULL) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_DIRECTION_OF_SCAN_FLAG:
-					columns[idx] = mvc_bind_column(m, tbl, "direction_of_scan_flag");
-					bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
-					if (bats[idx] == NULL) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_RED_CHANNEL:
-					columns[idx] = mvc_bind_column(m, tbl, "red_channel");
-					bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
-					if (bats[idx] == NULL) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_GREEN_CHANNEL:
-					columns[idx] = mvc_bind_column(m, tbl, "green_channel");
-					bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
-					if (bats[idx] == NULL) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_BLUE_CHANNEL:
-					columns[idx] = mvc_bind_column(m, tbl, "blue_channel");
-					bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
-					if (bats[idx] == NULL) {
-						error_code = 1;
-					}
-					break;
-				case PARAM_VERTEX_INDEX:
-					columns[idx] = mvc_bind_column(m, tbl, "vertex_index");
+				else if (precisionx <= 16)
 					bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
-					if (bats[idx] == NULL) {
-						error_code = 1;
-					}
-					break;
-				default:
-					error_code = 2;
+				else if (precisionx <= 32)
+					bats[idx] = COLnew(0, TYPE_lng, rows, PERSISTENT);
+#ifdef HAVE_HGE
+				else if (precisionx <= 64)
+					bats[idx] = COLnew(0, TYPE_hge, rows, PERSISTENT);
+#endif
+				else { /* Unknown precision */
+					bats[idx] = NULL;
+					error_code = 3;
+				}
+				if (bats[idx] == NULL && error_code == 0) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_Y_COORD:
+				columns[idx] = mvc_bind_column(m, tbl, "y");
+				if (precisiony <= 2)
+					bats[idx] = COLnew(0, TYPE_bte, rows, PERSISTENT);
+				else if (precisiony <= 4)
+					bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				else if (precisiony <= 16)
+					bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
+				else if (precisiony <= 32)
+					bats[idx] = COLnew(0, TYPE_lng, rows, PERSISTENT);
+#ifdef HAVE_HGE
+				else if (precisiony <= 64)
+					bats[idx] = COLnew(0, TYPE_hge, rows, PERSISTENT);
+#endif
+				else { /* Unknown precision */
+					bats[idx] = NULL;
+					error_code = 4;
+				}
+				if (bats[idx] == NULL && error_code == 0) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_Z_COORD:
+				columns[idx] = mvc_bind_column(m, tbl, "z");
+				if (precisionz <= 2)
+					bats[idx] = COLnew(0, TYPE_bte, rows, PERSISTENT);
+				else if (precisionz <= 4)
+					bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				else if (precisionz <= 16)
+					bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
+				else if (precisionz <= 32)
+					bats[idx] = COLnew(0, TYPE_lng, rows, PERSISTENT);
+#ifdef HAVE_HGE
+				else if (precisionz <= 64)
+					bats[idx] = COLnew(0, TYPE_hge, rows, PERSISTENT);
+#endif
+				else { /* Unknown precision */
+					bats[idx] = NULL;
+					error_code = 5;
+				}
+				if (bats[idx] == NULL && error_code == 0) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_GPS_TIME:
+				columns[idx] = mvc_bind_column(m, tbl, "gpstime");
+				bats[idx] = COLnew(0, TYPE_dbl, rows, PERSISTENT);
+				if (bats[idx] == NULL) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_SCAN_ANGLE:
+				columns[idx] = mvc_bind_column(m, tbl, "scan_angle");
+				bats[idx] = COLnew(0, TYPE_bte, rows, PERSISTENT);
+				if (bats[idx] == NULL) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_CLASSIFICATION_NUMBER:
+				columns[idx] = mvc_bind_column(m, tbl, "classification_number");
+				bats[idx] = COLnew(0, TYPE_bte, rows, PERSISTENT);
+				if (bats[idx] == NULL) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_USER_DATA:
+				columns[idx] = mvc_bind_column(m, tbl, "user_data");
+				bats[idx] = COLnew(0, TYPE_bte, rows, PERSISTENT);
+				if (bats[idx] == NULL) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_INTENSITY:
+				columns[idx] = mvc_bind_column(m, tbl, "intensity");
+				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				if (bats[idx] == NULL) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_N_RETURNS:
+				columns[idx] = mvc_bind_column(m, tbl, "n_returns");
+				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				if (bats[idx] == NULL) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_N_THIS_RETURN:
+				columns[idx] = mvc_bind_column(m, tbl, "n_this_return");
+				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				if (bats[idx] == NULL) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_POINT_SOURCE_ID:
+				columns[idx] = mvc_bind_column(m, tbl, "point_source_id");
+				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				if (bats[idx] == NULL) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_EDGE_OF_FLIGHT_LINE:
+				columns[idx] = mvc_bind_column(m, tbl, "edge_of_flight_line");
+				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				if (bats[idx] == NULL) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_DIRECTION_OF_SCAN_FLAG:
+				columns[idx] = mvc_bind_column(m, tbl, "direction_of_scan_flag");
+				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				if (bats[idx] == NULL) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_RED_CHANNEL:
+				columns[idx] = mvc_bind_column(m, tbl, "red_channel");
+				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				if (bats[idx] == NULL) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_GREEN_CHANNEL:
+				columns[idx] = mvc_bind_column(m, tbl, "green_channel");
+				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				if (bats[idx] == NULL) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_BLUE_CHANNEL:
+				columns[idx] = mvc_bind_column(m, tbl, "blue_channel");
+				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				if (bats[idx] == NULL) {
+					error_code = 1;
+				}
+				break;
+			case PARAM_VERTEX_INDEX:
+				columns[idx] = mvc_bind_column(m, tbl, "vertex_index");
+				bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
+				if (bats[idx] == NULL) {
+					error_code = 1;
+				}
+				break;
+			default:
+				error_code = 2;
 			}
 			if(error_code != 0) {
 				GDKfree(tpcode);
@@ -1574,22 +1572,22 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 					break;
 				case 2:
 					msg = createException(MAL, "lidar.lidarload",
-							"unimplemented parameter: 0x%x", prm);
+										  "unimplemented parameter: 0x%x", prm);
 					break;
 				case 3:
 					msg = createException(MAL, "lidar.lidarload",
-							"Unknown precision for X column (%d)",
-							precisionx);
+										  "Unknown precision for X column (%d)",
+										  precisionx);
 					break;
 				case 4:
 					msg = createException(MAL, "lidar.lidarload",
-							"Unknown precision for Y column (%d)",
-							precisiony);
+										  "Unknown precision for Y column (%d)",
+										  precisiony);
 					break;
 				case 5:
 					msg = createException(MAL, "lidar.lidarload",
-							"Unknown precision for Z column (%d)",
-							precisionz);
+										  "Unknown precision for Z column (%d)",
+										  precisionz);
 					break;
 				}
 				return msg;
@@ -1605,7 +1603,7 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 	MT_lock_unset(&mt_lidar_lock);
 	if (LASError_GetErrorCount() != 0) {
 		msg = createException(MAL, "lidar.lidarload",
-				"Error accessing LiDAR file %s (%s)", fname, LASError_GetLastErrorMsg());
+							  "Error accessing LiDAR file %s (%s)", fname, LASError_GetLastErrorMsg());
 		GDKfree(tpcode);
 		GDKfree(rep);
 		GDKfree(wid);
@@ -1623,78 +1621,78 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 			if (input_params & prm) {
 				value = readValue(p, prm);
 				switch(prm) {
-					case PARAM_X_COORD:
-						if (precisionx <= 2) {
-							curr_bte = (bte *)arr[idx];
-							curr_bte[i] = value.val_dbl/scalex;
-						}
-						else if (precisionx <= 4) {
-							curr_sht = (sht *)arr[idx];
-							curr_sht[i] = value.val_dbl/scalex;
-						}
-						else if (precisionx <= 16) {
-							curr_int = (int *)arr[idx];
-							curr_int[i] = value.val_dbl/scalex;
-						}
-						else if (precisionx <= 32) {
-							curr_lng = (lng *)arr[idx];
-							curr_lng[i] = value.val_dbl/scalex;
-						}
+				case PARAM_X_COORD:
+					if (precisionx <= 2) {
+						curr_bte = (bte *)arr[idx];
+						curr_bte[i] = value.val_dbl/scalex;
+					}
+					else if (precisionx <= 4) {
+						curr_sht = (sht *)arr[idx];
+						curr_sht[i] = value.val_dbl/scalex;
+					}
+					else if (precisionx <= 16) {
+						curr_int = (int *)arr[idx];
+						curr_int[i] = value.val_dbl/scalex;
+					}
+					else if (precisionx <= 32) {
+						curr_lng = (lng *)arr[idx];
+						curr_lng[i] = value.val_dbl/scalex;
+					}
 #ifdef HAVE_HGE
-						else {
-							curr_hge = (hge *)arr[idx];
-							curr_hge[i] = value.val_dbl/scalex;
-						}
+					else {
+						curr_hge = (hge *)arr[idx];
+						curr_hge[i] = value.val_dbl/scalex;
+					}
 #endif
-						break;
-					case PARAM_Y_COORD:
-						if (precisiony <= 2) {
-							curr_bte = (bte *)arr[idx];
-							curr_bte[i] = value.val_dbl/scaley;
-						}
-						else if (precisiony <= 4) {
-							curr_sht = (sht *)arr[idx];
-							curr_sht[i] = value.val_dbl/scaley;
-						}
-						else if (precisiony <= 16) {
-							curr_int = (int *)arr[idx];
-							curr_int[i] = value.val_dbl/scaley;
-						}
-						else if (precisiony <= 32) {
-							curr_lng = (lng *)arr[idx];
-							curr_lng[i] = value.val_dbl/scaley;
-						}
+					break;
+				case PARAM_Y_COORD:
+					if (precisiony <= 2) {
+						curr_bte = (bte *)arr[idx];
+						curr_bte[i] = value.val_dbl/scaley;
+					}
+					else if (precisiony <= 4) {
+						curr_sht = (sht *)arr[idx];
+						curr_sht[i] = value.val_dbl/scaley;
+					}
+					else if (precisiony <= 16) {
+						curr_int = (int *)arr[idx];
+						curr_int[i] = value.val_dbl/scaley;
+					}
+					else if (precisiony <= 32) {
+						curr_lng = (lng *)arr[idx];
+						curr_lng[i] = value.val_dbl/scaley;
+					}
 #ifdef HAVE_HGE
-						else {
-							curr_hge = (hge *)arr[idx];
-							curr_hge[i] = value.val_dbl/scaley;
-						}
+					else {
+						curr_hge = (hge *)arr[idx];
+						curr_hge[i] = value.val_dbl/scaley;
+					}
 #endif
-						break;
-					case PARAM_Z_COORD:
-						if (precisionz <= 2) {
-							curr_bte = (bte *)arr[idx];
-							curr_bte[i] = value.val_dbl/scalez;
-						}
-						else if (precisionz <= 4) {
-							curr_sht = (sht *)arr[idx];
-							curr_sht[i] = value.val_dbl/scalez;
-						}
-						else if (precisionz <= 16) {
-							curr_int = (int *)arr[idx];
-							curr_int[i] = value.val_dbl/scalez;
-						}
-						else if (precisionz <= 32) {
-							curr_lng = (lng *)arr[idx];
-							curr_lng[i] = value.val_dbl/scalez;
-						}
+					break;
+				case PARAM_Z_COORD:
+					if (precisionz <= 2) {
+						curr_bte = (bte *)arr[idx];
+						curr_bte[i] = value.val_dbl/scalez;
+					}
+					else if (precisionz <= 4) {
+						curr_sht = (sht *)arr[idx];
+						curr_sht[i] = value.val_dbl/scalez;
+					}
+					else if (precisionz <= 16) {
+						curr_int = (int *)arr[idx];
+						curr_int[i] = value.val_dbl/scalez;
+					}
+					else if (precisionz <= 32) {
+						curr_lng = (lng *)arr[idx];
+						curr_lng[i] = value.val_dbl/scalez;
+					}
 #ifdef HAVE_HGE
-						else {
-							curr_hge = (hge *)arr[idx];
-							curr_hge[i] = value.val_dbl/scalez;
-						}
+					else {
+						curr_hge = (hge *)arr[idx];
+						curr_hge[i] = value.val_dbl/scalez;
+					}
 #endif
-						break;
+					break;
 				case PARAM_GPS_TIME:
 					curr_dbl = (dbl *)arr[idx];
 					curr_dbl[i] = value.val_dbl;
@@ -1762,11 +1760,11 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 
 str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-    mvc *m = NULL;
-    sql_table *lidar_tbl, *tbl;
+	mvc *m = NULL;
+	sql_table *lidar_tbl, *tbl;
 	sql_schema *sch;
 	str tname = toLower(*getArgReference_str(stk, pci, 1));
-    sql_column *col;
+	sql_column *col;
 	str msg = MAL_SUCCEED;
 	size_t sz;
 	char *filenames_query = GDKmalloc(BUFSIZ);
@@ -1785,7 +1783,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	}
 
-    tbl = mvc_bind_table(m, sch, tname);
+	tbl = mvc_bind_table(m, sch, tname);
 	if (tbl == NULL) {
 		msg = createException(MAL, "lidar.loadtable", "Could not find table %s.\n", tname);
 		return msg;
@@ -1837,46 +1835,46 @@ LIDARprelude(void *ret) {
 str
 LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-    str msg = MAL_SUCCEED;
-  	mvc *m = NULL;
-  	size_t sz;
-  	sql_schema *sch = NULL;
-  	sql_table *lidar_tbl, *tbl = NULL;
-  	sql_column *col;
-  	oid rid = oid_nil;
-  	str tname = *getArgReference_str(stk, pci, 3);
-  	int *res = getArgReference_int(stk, pci, 1);
+	str msg = MAL_SUCCEED;
+	mvc *m = NULL;
+	size_t sz;
+	sql_schema *sch = NULL;
+	sql_table *lidar_tbl, *tbl = NULL;
+	sql_column *col;
+	oid rid = oid_nil;
+	str tname = *getArgReference_str(stk, pci, 3);
+	int *res = getArgReference_int(stk, pci, 1);
 
-  	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
-    	return msg;
-  	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
-    	return msg;
+	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
+		return msg;
+	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
+		return msg;
 
-  	sch = mvc_bind_schema(m, "sys");
-  	lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
-  	if (lidar_tbl == NULL) {
-    	msg = createException(MAL, "lidar.check", "LIDAR catalog is missing.\n");
-    	return msg;
-  	}
+	sch = mvc_bind_schema(m, "sys");
+	lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
+	if (lidar_tbl == NULL) {
+		msg = createException(MAL, "lidar.check", "LIDAR catalog is missing.\n");
+		return msg;
+	}
 
-  	/*Check if is a table which belongs to lidar_tables*/
-  	col = mvc_bind_column(m, lidar_tbl, "name");
-  	rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
-  	if (rid == oid_nil) {
-    	return MAL_SUCCEED;
-  	}
+	/*Check if is a table which belongs to lidar_tables*/
+	col = mvc_bind_column(m, lidar_tbl, "name");
+	rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
+	if (rid == oid_nil) {
+		return MAL_SUCCEED;
+	}
 
-  	tbl = mvc_bind_table(m, sch, tname);
-  	if (tbl == NULL) {
-    	msg = createException(MAL, "lidar.check", "Could not find table %s.\n", tname);
-    	return msg;
-  	}
+	tbl = mvc_bind_table(m, sch, tname);
+	if (tbl == NULL) {
+		msg = createException(MAL, "lidar.check", "Could not find table %s.\n", tname);
+		return msg;
+	}
 
-  	col = mvc_bind_column(m, tbl, "x");
-  	sz = store_funcs.count_col(m->session->tr, col, 1);
+	col = mvc_bind_column(m, tbl, "x");
+	sz = store_funcs.count_col(m->session->tr, col, 1);
 
-  	if (sz == 0) {
-    	/*Lets load the table*/
+	if (sz == 0) {
+		/*Lets load the table*/
 		char *filenames_query = GDKmalloc(BUFSIZ);
 		res_table *fres = NULL;
 
@@ -1904,97 +1902,97 @@ LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				}
 			}
 		}
-    	*res = VAULT_TABLE_LOADED;
-  	} else {
-    	if (tbl->access == TABLE_WRITABLE)
-      		*res = VAULT_TABLE_ANALYZE;
-    	else
-      		*res = VAULT_TABLE_DONE;
+		*res = VAULT_TABLE_LOADED;
+	} else {
+		if (tbl->access == TABLE_WRITABLE)
+			*res = VAULT_TABLE_ANALYZE;
+		else
+			*res = VAULT_TABLE_DONE;
 
 #ifndef NDEBUG
-    	fprintf(stderr, "The table %s is already loaded and its status is %d!!!\n", tname, *res);
+		fprintf(stderr, "The table %s is already loaded and its status is %d!!!\n", tname, *res);
 #endif
-  	}
-  	return msg;
+	}
+	return msg;
 }
 
 str
 LIDARAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-    mvc *m = NULL;
-    str msg = MAL_SUCCEED;
-    char readonly[BUFSIZ], analyze[BUFSIZ];
-    char *sr, *sa;
-    sql_schema *sch = NULL;
-    sql_table *lidar_tbl;
-    sql_column *col;
-    oid rid = oid_nil;
-    int status, *res;
-    str tname = NULL;
+	mvc *m = NULL;
+	str msg = MAL_SUCCEED;
+	char readonly[BUFSIZ], analyze[BUFSIZ];
+	char *sr, *sa;
+	sql_schema *sch = NULL;
+	sql_table *lidar_tbl;
+	sql_column *col;
+	oid rid = oid_nil;
+	int status, *res;
+	str tname = NULL;
 
-    if (pci->argc == 4) {
-    	status = *getArgReference_int(stk, pci, 2);
-    	tname = *getArgReference_str(stk, pci, 3);
-    	res = getArgReference_int(stk, pci, 0);
-    } else {
-        msg = createException(MAL, "lidar.analyze", "incorrect number of arguments.\n");
-        return msg;
-    }
+	if (pci->argc == 4) {
+		status = *getArgReference_int(stk, pci, 2);
+		tname = *getArgReference_str(stk, pci, 3);
+		res = getArgReference_int(stk, pci, 0);
+	} else {
+		msg = createException(MAL, "lidar.analyze", "incorrect number of arguments.\n");
+		return msg;
+	}
 
-    if (status != VAULT_TABLE_ANALYZE) {
-        *res = status;
-        return msg;
-    }
+	if (status != VAULT_TABLE_ANALYZE) {
+		*res = status;
+		return msg;
+	}
 
-    if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
-        return msg;
-    if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
-        return msg;
+	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
+		return msg;
+	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
+		return msg;
 
-    sch = mvc_bind_schema(m, "sys");
-    lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
-    if (lidar_tbl == NULL) {
-        msg = createException(MAL, "lidar.analyze", "LIDAR catalog is missing.\n");
-        return msg;
-    }
+	sch = mvc_bind_schema(m, "sys");
+	lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
+	if (lidar_tbl == NULL) {
+		msg = createException(MAL, "lidar.analyze", "LIDAR catalog is missing.\n");
+		return msg;
+	}
 
-    /*Check if it is a table which belongs to lidar_tables*/
-    col = mvc_bind_column(m, lidar_tbl, "name");
-    rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
-    if (rid == oid_nil) {
-        msg = createException(MAL, "lidar.analyze", "Table %s is unknown to the LIDAR catalog. Attach first the containing file\n", tname);
-        return msg;
-    }
+	/*Check if it is a table which belongs to lidar_tables*/
+	col = mvc_bind_column(m, lidar_tbl, "name");
+	rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
+	if (rid == oid_nil) {
+		msg = createException(MAL, "lidar.analyze", "Table %s is unknown to the LIDAR catalog. Attach first the containing file\n", tname);
+		return msg;
+	}
 
-    /*Set table read only*/
-    sr = readonly;
-    snprintf(readonly, BUFSIZ, "alter table %s set read only;", tname);
-
-#ifndef NDEBUG
-    fprintf(stderr, "The readonly stmt is: %s!!!\n", readonly);
-#endif
-    LIDAR_LOCK;
-    msg = SQLstatementIntern(cntxt, &sr, "lidar.analyze", TRUE, FALSE, NULL);
-    LIDAR_UNLOCK;
-    if (msg)
-        return msg;
-
-    /*Analyze table*/
-    sa = analyze;
-    snprintf(analyze, BUFSIZ, "analyze sys.%s (id, posX, posY, posZ) minmax;", tname);
+	/*Set table read only*/
+	sr = readonly;
+	snprintf(readonly, BUFSIZ, "alter table %s set read only;", tname);
 
 #ifndef NDEBUG
-    fprintf(stderr, "The analyze stmt is: %s!!!\n", analyze);
+	fprintf(stderr, "The readonly stmt is: %s!!!\n", readonly);
 #endif
-    LIDAR_LOCK;
-    msg = SQLstatementIntern(cntxt, &sa, "lidar.analyze", TRUE, FALSE, NULL);
-    LIDAR_UNLOCK;
-    if (msg)
-        return msg;
+	LIDAR_LOCK;
+	msg = SQLstatementIntern(cntxt, &sr, "lidar.analyze", TRUE, FALSE, NULL);
+	LIDAR_UNLOCK;
+	if (msg)
+		return msg;
 
-    *res = VAULT_TABLE_DONE;
+	/*Analyze table*/
+	sa = analyze;
+	snprintf(analyze, BUFSIZ, "analyze sys.%s (id, posX, posY, posZ) minmax;", tname);
 
-    return MAL_SUCCEED;
+#ifndef NDEBUG
+	fprintf(stderr, "The analyze stmt is: %s!!!\n", analyze);
+#endif
+	LIDAR_LOCK;
+	msg = SQLstatementIntern(cntxt, &sa, "lidar.analyze", TRUE, FALSE, NULL);
+	LIDAR_UNLOCK;
+	if (msg)
+		return msg;
+
+	*res = VAULT_TABLE_DONE;
+
+	return MAL_SUCCEED;
 }
 
 
