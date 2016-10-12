@@ -3778,7 +3778,7 @@ rel_order_by_simple_column_exp(mvc *sql, sql_rel *r, symbol *column_r)
 static list *
 rel_projections_(mvc *sql, sql_rel *rel)
 {
-	list *rexps, *exps;
+	list *rexps, *exps ;
 
 	if (is_subquery(rel) && is_project(rel->op))
 		return new_exp_list(sql->sa);
@@ -3791,11 +3791,6 @@ rel_projections_(mvc *sql, sql_rel *rel)
 		exps = rel_projections_(sql, rel->l);
 		rexps = rel_projections_(sql, rel->r);
 		exps = list_merge( exps, rexps, (fdup)NULL);
-
-		if(rel->op == op_join){
-			exps = list_merge(exps, exps_projections(sql, rel->exps), NULL);
-		}
-
 		return exps;
 	case op_groupby:
 	case op_project:
@@ -3847,11 +3842,7 @@ rel_projections_(mvc *sql, sql_rel *rel)
 	case op_select:
 	case op_topn:
 	case op_sample:
-		exps = rel_projections_(sql, rel->l);
-		if(is_select(rel->op)){
-			exps = list_merge(exps, exps_projections(sql, rel->exps), NULL);
-		}
-		return exps;
+		return rel_projections_(sql, rel->l);
 	default:
 		return NULL;
 	}
