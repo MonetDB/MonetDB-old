@@ -1285,7 +1285,7 @@ readValue(LASPointH p, ParameterValues param)
 }
 
 static str
-LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_table *tbl, oid rid)
+LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, sql_table *tbl, oid rid)
 {
 	sql_table *lidar_fl, *lidar_cl;
 	sql_column *col, **columns;
@@ -1317,41 +1317,13 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 #endif
 	dbl *curr_dbl;
 
-	(void)tname;
-
-	/* col = mvc_bind_column(m, lidar_tbl, "name"); */
-	/* rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL); */
-	/* if (rid == oid_nil) { */
-	/* 	msg = createException(MAL, "lidar.loadtable", "Table %s is unknown to the LIDAR catalog. Attach first the containing file\n", tname); */
-	/* 	return msg; */
-	/* } */
-
-	/* Open LIDAR file */
-	col = mvc_bind_column(m, lidar_tbl, "file_id");
-	fid = *(int*)table_funcs.column_find_value(m->session->tr, col, rid);
-
-	lidar_fl = mvc_bind_table(m, sch, "lidar_files");
-	col = mvc_bind_column(m, lidar_fl, "id");
-	frid = table_funcs.column_find_row(m->session->tr, col, (void *)&fid, NULL);
-	col = mvc_bind_column(m, lidar_fl, "name");
-	fname = (char *)table_funcs.column_find_value(m->session->tr, col, frid);
-
-	lidar_cl = mvc_bind_table(m, sch, "lidar_columns");
-	if (lidar_cl == NULL) {
-		msg = createException(MAL, "lidar.loadtable", "Could not find table lidar_columns.\n");
-		return msg;
-	}
-
 	/* data load */
 	col = mvc_bind_column(m, lidar_tbl, "PointRecordsCount");
 	rows = *(int*)table_funcs.column_find_value(m->session->tr, col, rid);
 #ifndef NDEBUG
-	fprintf(stderr,"#Loading %ld rows in table %s\n", rows, tname);
+	fprintf(stderr,"#Loading %ld rows\n", rows);
 	time0 = GDKms();
 #endif
-	/* colx = mvc_bind_column(m, tbl, "x"); */
-	/* coly = mvc_bind_column(m, tbl, "y"); */
-	/* colz = mvc_bind_column(m, tbl, "z"); */
 	col = mvc_bind_column(m, lidar_tbl, "LoadParams");
 	input_params = *(int*)table_funcs.column_find_value(m->session->tr, col, rid);
 
@@ -1362,10 +1334,19 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 	bats = (BAT **)malloc(param_len*sizeof(BAT *));
 	columns = (sql_column **)malloc(param_len*sizeof(sql_column *));
 	arr = malloc(param_len*sizeof(void *));
-	if (bats == NULL) {
-		msg = createException(MAL, "lidar.loadtable", "malloc failed.\n");
+	if (bats == NULL || columns == NULL || arr == NULL) {
+		msg = createException(MAL, "lidar.loadtable", "Memory allocation failed.\n");
 		return msg;
 	}
+
+	lidar_cl = mvc_bind_table(m, sch, "lidar_columns");
+	if (lidar_cl == NULL) {
+		msg = createException(MAL, "lidar.loadtable", "Could not find table lidar_columns.\n");
+		return msg;
+	}
+
+	col = mvc_bind_column(m, lidar_tbl, "file_id");
+	fid = *(int*)table_funcs.column_find_value(m->session->tr, col, rid);
 
 	col = mvc_bind_column(m, lidar_cl, "file_id");
 	tid = table_funcs.column_find_row(m->session->tr, col, (void *)&fid, NULL);
@@ -1389,7 +1370,7 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 	precisionz = *(sht*)table_funcs.column_find_value(m->session->tr, col, tid);
 
 
-	/* This loop that creates the bats */
+	/* Create the bats */
 	error_code = 0;
 	for (prm = 1, idx=0; prm <= PARAM_INTENSITY; prm <<= 1) {
 		if (input_params & prm) {
@@ -1599,6 +1580,13 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 		}
 	}
 
+	/* Open LIDAR file */
+	lidar_fl = mvc_bind_table(m, sch, "lidar_files");
+	col = mvc_bind_column(m, lidar_fl, "id");
+	frid = table_funcs.column_find_row(m->session->tr, col, (void *)&fid, NULL);
+	col = mvc_bind_column(m, lidar_fl, "name");
+	fname = (char *)table_funcs.column_find_value(m->session->tr, col, frid);
+
 	MT_lock_set(&mt_lidar_lock);
 	LASError_Reset();
 	reader = LASReader_Create(fname);
@@ -1615,6 +1603,7 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 		return msg;
 	}
 
+	/* Read the values */
 	p = LASReader_GetNextPoint(reader);
 	idx = 0;
 	i = 0;
@@ -1732,11 +1721,13 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 		i++;
 	}
 
+	/* Close the file */
 	MT_lock_set(&mt_lidar_lock);
 	if (p != NULL) LASPoint_Destroy(p);
 	if (reader != NULL) LASReader_Destroy(reader);
 	MT_lock_unset(&mt_lidar_lock);
 
+	/* Append the values */
 	for(idx = 0; idx < param_len; idx++) {
 		BATsetcount(bats[idx], rows);
 		bats[idx]->tsorted = 0;
@@ -1750,6 +1741,8 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, str tname, sql_ta
 #ifndef NDEBUG
 	fprintf(stderr,"#File loaded in %d ms\t", GDKms() - time0);
 #endif
+
+	/* Clean up */
 	GDKfree(tpcode);
 	GDKfree(rep);
 	GDKfree(wid);
@@ -1816,7 +1809,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #ifndef NDEBUG
 			fprintf(stderr, "id, rid: %ld %d\n", id, rid);
 #endif
-			msg = LIDARloadTable_(m, sch, lidar_tbl, tname, tbl, rid - 1);
+			msg = LIDARloadTable_(m, sch, lidar_tbl, tbl, rid - 1);
 			if (msg != MAL_SUCCEED) {
 				return msg;
 			}
@@ -1898,7 +1891,7 @@ LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #ifndef NDEBUG
 				fprintf(stderr, "id, rid: %zu %d\n", id, rid);
 #endif
-				msg = LIDARloadTable_(m, sch, lidar_tbl, tname, tbl, rid - 1);
+				msg = LIDARloadTable_(m, sch, lidar_tbl, tbl, rid - 1);
 				if (msg != MAL_SUCCEED) {
 					return msg;
 				}
