@@ -17,12 +17,11 @@
 static void
 addLock(OLTPlocks locks, MalBlkPtr mb, InstrPtr p, int sch, int tbl)
 {	BUN hash;
-	char buf[2 * IDLENGTH];
+	char *r,*s;
 
-	snprintf(buf, 2 * IDLENGTH, "%s#%s", 
-		(sch?getVarConstant(mb, getArg(p,sch)).val.sval : "sqlcatalog"), 
-		(tbl? getVarConstant(mb, getArg(p,tbl)).val.sval : ""));
-	hash = strHash(buf) % MAXOLTPLOCKS ;
+	r =(sch?getVarConstant(mb, getArg(p,sch)).val.sval : "sqlcatalog");
+	s =(tbl? getVarConstant(mb, getArg(p,tbl)).val.sval : "");
+	hash = (strHash(r)  ^ strHash(s)) % MAXOLTPLOCKS ;
 	hash += (hash == 0);
 	locks[hash] = 1;
 }

@@ -230,7 +230,7 @@ OLTPtable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BUNappend(bu, &oltp_locks[i].cntxt->username, FALSE);
 		else 
 			BUNappend(bu, str_nil, FALSE);
-		BUNappend(bl, &oltp_locks[i].locked, FALSE);
+		BUNappend(bl, &i, FALSE);
 		BUNappend(bc, &oltp_locks[i].used, FALSE);
 		if( oltp_locks[i].query)
 			BUNappend(bq, &oltp_locks[i].query, FALSE);
