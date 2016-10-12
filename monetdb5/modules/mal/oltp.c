@@ -131,6 +131,7 @@ OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if( cnt == pci->argc -1){
 			for( i=1; i< pci->argc; i++){
 				lck= getVarConstant(mb, getArg(pci,i)).val.ival;
+				// only set the write locks
 				if( lck > 0){
 					oltp_locks[i].cntxt = cntxt;
 					oltp_locks[i].start = clk;
@@ -214,7 +215,7 @@ OLTPtable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if( bq) BBPunfix(bq->batCacheid);
 	}
 	for( i = 0; msg ==  MAL_SUCCEED && i < MAXOLTPLOCKS; i++)
-	if (oltp_locks[i].locked ){
+	if (oltp_locks[i].used ){
 		now = oltp_locks[i].start * 1000; // convert to timestamp microsecond
 		msg= MTIMEunix_epoch(&ts);
 		if ( msg == MAL_SUCCEED)
@@ -238,8 +239,8 @@ OLTPtable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	//OLTPdump_(cntxt,"#lock table\n");
 	BBPkeepref(*started = bs->batCacheid);
-	BBPkeepref(*userid = bl->batCacheid);
-	BBPkeepref(*lockid = bu->batCacheid);
+	BBPkeepref(*userid = bu->batCacheid);
+	BBPkeepref(*lockid = bl->batCacheid);
 	BBPkeepref(*used = bc->batCacheid);
 	BBPkeepref(*query = bq->batCacheid);
 	return msg;

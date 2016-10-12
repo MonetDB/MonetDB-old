@@ -18,7 +18,7 @@ create function sys.oltp_locks()
 returns table(
 	started timestamp,
 	username  string,
-	lockid  int,
+	lockid  integer,
 	cnt	integer,
 	query   string
 )
