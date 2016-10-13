@@ -64,7 +64,7 @@ Ready.
 % 126 # length
 function user.s8_1():void;
     X_38:void := querylog.define("explain copy into ttt from \\'/tmp/xyz\\';","default_pipe",18);
-    oltp.lock("sys#ttt");
+    oltp.lock(534);
 barrier X_58 := language.dataflow();
     X_0 := sql.mvc();
     (X_21:bat[:int],X_22:bat[:int],X_23:bat[:int]) := sql.copy_from(nil,"|","\\n",nil:str,"null","/tmp/xyz",-1,0,0,0,nil:str);
@@ -78,7 +78,7 @@ catch MALexception:str;
 exit MALexception:str;
 catch SQLexception:str;
 exit SQLexception:str;
-    oltp.release("sys#ttt");
+    oltp.release(534);
 end user.s8_1;
 #inline               actions= 0 time=1 usec 
 #candidates           actions= 1 time=14 usec 
@@ -131,7 +131,7 @@ end user.s8_1;
 % 126 # length
 function user.s24_1():void;
     X_38:void := querylog.define("explain copy into ttt from \\'/tmp/xyz\\';","user_1",18);
-    oltp.lock("sys#ttt");
+    oltp.lock(534);
 barrier X_58 := language.dataflow();
     X_0 := sql.mvc();
     (X_21:bat[:int],X_22:bat[:int],X_23:bat[:int]) := sql.copy_from(nil,"|","\\n",nil:str,"null","/tmp/xyz",-1,0,0,0,nil:str);
@@ -145,7 +145,7 @@ catch MALexception:str;
 exit MALexception:str;
 catch SQLexception:str;
 exit SQLexception:str;
-    oltp.release("sys#ttt");
+    oltp.release(534);
 end user.s24_1;
 #inline               actions= 0 time=1 usec 
 #candidates           actions= 1 time=14 usec 

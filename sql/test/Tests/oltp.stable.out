@@ -75,10 +75,10 @@ Ready.
 #select username,lockid,cnt,query from oltp_locks();
 % .L,	.L,	.L,	.L # table_name
 % username,	lockid,	cnt,	query # name
-% clob,	clob,	int,	clob # type
-% 12,	0,	1,	0 # length
-[ "sqlcatalog#",	NULL,	1,	NULL	]
-[ "sys#tmp_oltp",	NULL,	2,	NULL	]
+% clob,	int,	int,	clob # type
+% 0,	3,	1,	0 # length
+[ NULL,	225,	1,	NULL	]
+[ NULL,	801,	2,	NULL	]
 #insert into tmp_oltp values(4);
 [ 1	]
 #insert into tmp_oltp values(5);
@@ -97,15 +97,15 @@ Ready.
 #select username,lockid,cnt,query from oltp_locks();
 % .L,	.L,	.L,	.L # table_name
 % username,	lockid,	cnt,	query # name
-% clob,	clob,	int,	clob # type
-% 12,	0,	1,	0 # length
-[ "sys#tmp_oltp",	NULL,	1,	NULL	]
-[ "sqlcatalog#",	NULL,	1,	NULL	]
+% clob,	int,	int,	clob # type
+% 0,	3,	1,	0 # length
+[ NULL,	225,	1,	NULL	]
+[ NULL,	801,	1,	NULL	]
 #select username,lockid,cnt,query from oltp_locks();
 % .L,	.L,	.L,	.L # table_name
 % username,	lockid,	cnt,	query # name
-% clob,	clob,	int,	clob # type
-% 0,	0,	1,	0 # length
+% clob,	int,	int,	clob # type
+% 0,	1,	1,	0 # length
 
 # 21:18:59 >  
 # 21:18:59 >  "Done."
