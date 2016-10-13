@@ -15,7 +15,7 @@
 #include "opt_oltp.h"
 
 static void
-addLock(OLTPlocks locks, MalBlkPtr mb, InstrPtr p, int sch, int tbl)
+addLock(Client cntxt, OLTPlocks locks, MalBlkPtr mb, InstrPtr p, int sch, int tbl)
 {	BUN hash;
 	char *r,*s;
 
@@ -24,6 +24,12 @@ addLock(OLTPlocks locks, MalBlkPtr mb, InstrPtr p, int sch, int tbl)
 	hash = (strHash(r)  ^ strHash(s)) % MAXOLTPLOCKS ;
 	hash += (hash == 0);
 	locks[hash] = 1;
+#ifdef _DEBUG_OLP_
+	mnstr_printf(cntxt->fdout,"#addLock %s "BUNFMT", %s "BUNFMT" combined "BUNFMT"\n",
+		r, strHash(r), s, strHash(s),hash);
+#else
+	(void) cntxt;
+#endif
 }
 
 int
@@ -51,25 +57,25 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for (i = 0; i < limit; i++) {
 		p = old[i];
 		if( getModuleId(p) == sqlRef && getFunctionId(p) == bindRef)
-			addLock(rlocks, mb, p, p->retc + 1, p->retc + 2);
+			addLock(cntxt,rlocks, mb, p, p->retc + 1, p->retc + 2);
 		else
 		if( getModuleId(p) == sqlRef && getFunctionId(p) == bindidxRef)
-			addLock(rlocks, mb, p, p->retc + 1, p->retc + 2);
+			addLock(cntxt,rlocks, mb, p, p->retc + 1, p->retc + 2);
 		else
 		if( getModuleId(p) == sqlRef && getFunctionId(p) == appendRef ){
-			addLock(wlocks, mb, p, p->retc + 1, p->retc + 2);
+			addLock(cntxt,wlocks, mb, p, p->retc + 1, p->retc + 2);
 			updates++;
 		} else
 		if( getModuleId(p) == sqlRef && getFunctionId(p) == updateRef ){
-			addLock(wlocks, mb, p, p->retc + 1, p->retc + 2);
+			addLock(cntxt,wlocks, mb, p, p->retc + 1, p->retc + 2);
 			updates++;
 		} else
 		if( getModuleId(p) == sqlRef && getFunctionId(p) == deleteRef ){
-			addLock(wlocks, mb, p, p->retc + 1, p->retc + 2);
+			addLock(cntxt,wlocks, mb, p, p->retc + 1, p->retc + 2);
 			updates++;
 		} else
 		if( getModuleId(p) == sqlcatalogRef ){
-			addLock(wlocks, mb, p, 0,0);
+			addLock(cntxt,wlocks, mb, p, 0,0);
 			updates++;
 		}
 	}

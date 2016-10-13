@@ -133,10 +133,10 @@ OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				lck= getVarConstant(mb, getArg(pci,i)).val.ival;
 				// only set the write locks
 				if( lck > 0){
-					oltp_locks[i].cntxt = cntxt;
-					oltp_locks[i].start = clk;
-					oltp_locks[i].used++;
-					oltp_locks[i].locked = 1;
+					oltp_locks[lck].cntxt = cntxt;
+					oltp_locks[lck].start = clk;
+					oltp_locks[lck].used++;
+					oltp_locks[lck].locked = 1;
 				}
 			}
 			//OLTPdump_(cntxt,"#grabbed the locks\n");
