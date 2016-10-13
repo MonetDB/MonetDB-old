@@ -173,10 +173,10 @@ OLTPrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for( i=1; i< pci->argc; i++){
 		lck= getVarConstant(mb, getArg(pci,i)).val.ival;
 		if( lck > 0){
-				oltp_locks[i].cntxt = 0;
-				oltp_locks[i].start = 0;
-				oltp_locks[i].query = 0;
-				oltp_locks[i].locked = 0;
+				oltp_locks[lck].cntxt = 0;
+				oltp_locks[lck].start = 0;
+				oltp_locks[lck].query = 0;
+				oltp_locks[lck].locked = 0;
 			}
 	}
 	//OLTPdump_(cntxt, "#released the locks\n");
