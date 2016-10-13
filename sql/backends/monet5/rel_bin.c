@@ -23,6 +23,11 @@
 
 static stmt * subrel_bin(mvc *sql, sql_rel *rel, list *refs);
 
+// graph related functions
+static bool graph_is_spfw_output(const stmt *s);
+static bool graph_generate_shortest_path(stmt *s);
+static stmt *graph_exp_cost_atom(mvc *sql, stmt *spfw, stmt* const_weight);
+
 static stmt *
 refs_find_rel(list *refs, sql_rel *rel)
 {
@@ -615,8 +620,9 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			stmt *eperm = NULL; // the permutation for the sorted order of qfrom
 			sql_subaggr *aggr_count = sql_bind_aggr(sql->sa, sql->session->schema, "count", NULL);
 			stmt *domain =NULL, *query =NULL;
-			stmt *spfw =NULL;
+			stmt *spfw =NULL, *spfw_output =NULL;
 			stmt *weights = NULL;
+			bool compute_shortest_path = false;
 			int spfw_flags = 0;
 
 			// generate the depending expressions
@@ -633,6 +639,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			eto = exp_bin(sql, g->dst->h->data, graph, NULL, NULL, NULL, NULL, NULL, refs);
 			if(!eto) { assert(0); return NULL; }
 			if(g->cost){
+				compute_shortest_path = true; // yes, we want it
 				weights = exp_bin(sql, g->cost, graph, NULL, NULL, NULL, NULL, NULL, refs);
 				if(!weights) { assert(0); return NULL; }
 			}
@@ -656,7 +663,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			l = sa_list(sql->sa);
 			list_append(l, efrom);
 			list_append(l, eto);
-			if(weights) { list_append(l, weights); }
+			if(weights && weights->nrcols > 0) { list_append(l, weights); }
 			graph = stmt_list(sql->sa, l);
 
 			// generate the query
@@ -672,16 +679,28 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 
 			// create the operator
 			if(right != NULL){ spfw_flags |= SPFW_CROSS_PRODUCT; }
-			if(weights != NULL){ spfw_flags |= SPFW_SHORTEST_PATH; }
+			if(compute_shortest_path){ spfw_flags |= SPFW_SHORTEST_PATH; }
 			spfw = stmt_spfw(sql->sa, query, graph, spfw_flags);
-			if(weights != NULL){ // propagate the temp~ name for the column
+			if(compute_shortest_path){ // propagate the temp~ name for the column
 				spfw->tname = g->cost->rname;
 				spfw->cname = g->cost->name;
 			}
 
-			print_tree(sql->sa, spfw);
+			// if the user input is a constant, then let spfw perform a BFS and multiply
+			// the constant at the end with the result
+			if(weights && weights->nrcols == 0){ // this is actually a constant
+				stmt* cost = graph_exp_cost_atom(sql, spfw, weights);
+				if(!cost){
+					assert(0 && "Unable to generate the shortest path out of a constant");
+					return NULL;
+				}
+				// final output
+				spfw_output = stmt_spfw_output(sql->sa, spfw, cost);
+			} else {
+				spfw_output = spfw; // done
+			}
 
-			return spfw;
+			return spfw_output;
 		}
 		if (e->flag == cmp_in || e->flag == cmp_notin) {
 			return handle_in_exps(sql, e->l, e->r, left, right, grp, ext, cnt, sel, (e->flag == cmp_in), 0);
@@ -844,6 +863,88 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 		;
 	}
 	return s;
+}
+
+// True iff the given statement is spfw or the output of the spfw
+static bool graph_is_spfw_output(const stmt *s){
+	assert(s != NULL && "is_spfw_output(): null argument");
+	return (s->type == st_spfw) || (s->type == st_spfw_output);
+}
+
+
+// True iff the statement is an spfw output AND it outputs a shortest path column
+static bool graph_generate_shortest_path(stmt *s){
+	return graph_is_spfw_output(s) && (s->flag & SPFW_SHORTEST_PATH);
+}
+
+// When the user provides an atom as argument of CHEAPEST SUM ( .. ), the weight
+// is not forwarded to the SPFW operator. Instead the SPFW computes a BFS and
+// the input provided by the user is multiplied afterward with the
+// result of the BFS.
+static stmt *graph_exp_cost_atom(mvc *sql, stmt *spfw, stmt* const_weight){
+	sql_subfunc* fmult = NULL;
+	sql_subtype shortest_path_default_type;
+	stmt* bfs_output = NULL;
+	stmt* mult = NULL;
+	list* l = NULL;
+
+	assert(const_weight && "Null argument");
+	assert(const_weight->nrcols == 0 && "Expected an atom as input");
+
+	// get a reference to the cost computed by the spfw
+	bfs_output = stmt_result(sql->sa, spfw, 2);
+
+	// get a reference to the type lng
+	if(!sql_find_subtype(&shortest_path_default_type, "bigint", 64, 0)){
+		assert(0 && "Unable to bind type lng");
+		return NULL;
+	}
+
+	// decide the type of the final expression
+	switch(const_weight->op4.typeval.type->eclass){
+	case EC_NUM: { // integers
+		// if it is an integer, convert to lng, as this is the result of the BFS
+		const_weight = stmt_convert(sql->sa, const_weight, &(const_weight->op4.typeval), &shortest_path_default_type);
+		if(!const_weight){
+			assert(0 && "Unable to convert the type for the constant to lng");
+			return NULL;
+		}
+	} break;
+	case EC_DEC: { // float or double
+		// FIXME this always ends up in overflow, multiplying the result of the BFS by 10 ^ (number of digits in the atom)
+		// convert the result of the bfs to decimal
+		bfs_output = stmt_convert(sql->sa, bfs_output, &shortest_path_default_type, &(const_weight->op4.typeval));
+		if(!bfs_output){
+			assert(0 && "Unable to convert the result of spfw/bfs to decimal type");
+			return NULL;
+		}
+	} break;
+	default:
+		assert(0 && "Type not handled");
+		return NULL;
+	}
+
+	// transform the atom into a column
+	const_weight = const_column(sql->sa, const_weight);
+	if(!const_weight){
+		assert(0 && "Unable to materialize the column weights with a constant");
+		return NULL;
+	}
+
+	// get a reference to the function multiply
+	fmult = sql_bind_func(sql->sa, sql->session->schema, "sql_mul", &(const_weight->op4.typeval), &(const_weight->op4.typeval), F_FUNC);
+	if(!fmult){
+		assert(0 && "Unable to bind the function sql_mult (*)");
+		return NULL;
+	}
+
+	// perform the multiplication
+	l = sa_list(sql->sa);
+	list_append(l, const_weight);
+	list_append(l, bfs_output);
+	mult = stmt_Nop(sql->sa, stmt_list(sql->sa, l), fmult);
+
+	return mult;
 }
 
 static stmt *check_types(mvc *sql, sql_subtype *ct, stmt *s, check_type tpe);
@@ -1809,7 +1910,7 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 			if (s->type != st_join && 
 			    s->type != st_join2 &&
 			    s->type != st_joinN &&
-			    s->type != st_spfw) {
+			    !graph_is_spfw_output(s)) { // spfw can handle joins directly
 				/* predicate */
 				if (!list_length(lje) && s->nrcols == 0) { 
 					stmt *l = bin_first_column(sql->sa, left);
@@ -1832,7 +1933,7 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 			list_append(lje, s->op1);
 			list_append(rje, s->op2);
 
-			if(s->type == st_spfw && (s->flag & SPFW_SHORTEST_PATH)){
+			if(graph_generate_shortest_path(s)){
 				list_append(shoooortestpaths, s);
 			}
 		}
@@ -1887,7 +1988,7 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 				return NULL;
 			}
 
-			if ( s->type == st_spfw && (s->flag & SPFW_SHORTEST_PATH) ){
+			if (graph_generate_shortest_path(s)){
 				list_append(shoooortestpaths, s);
 			}
 
@@ -2661,7 +2762,7 @@ rel2bin_select( mvc *sql, sql_rel *rel, list *refs)
 			sel = s;
 		}
 
-		if(s->type == st_spfw && (s->flag & SPFW_SHORTEST_PATH)){
+		if(graph_generate_shortest_path(s)){
 			list_append(shooortestpaths, s);
 		}
 	}

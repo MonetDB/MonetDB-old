@@ -127,6 +127,7 @@ st_type2string(st_type type)
 		ST(prefixsum);
 		ST(slices);
 		ST(spfw);
+		ST(spfw_output);
 		ST(void2oid);
 	default:
 		return "unknown";	/* just needed for broken compilers ! */
@@ -335,6 +336,7 @@ stmt_deps(list *dep_list, stmt *s, int depend_type, int dir)
 			case st_prefixsum:
 			case st_slices:
 			case st_spfw:
+			case st_spfw_output:
 			case st_void2oid:
 				if (s->op1)
 					push(s->op1);
@@ -1677,6 +1679,20 @@ stmt_spfw(sql_allocator *sa, stmt* query, stmt* graph, int flags)
 
 	s->nrcols = 2;
 	if(flags & SPFW_SHORTEST_PATH) { s->nrcols++; }
+
+	return s;
+}
+
+stmt *
+stmt_spfw_output(sql_allocator *sa, stmt* spfw, stmt* shortest_path)
+{
+	stmt * s = stmt_create(sa, st_spfw_output);
+	s->op1 = spfw;
+	s->op2 = shortest_path;
+	s->nrcols = spfw->nrcols;
+	s->flag = spfw->flag;
+	s->tname = spfw->tname;
+	s->cname = spfw->cname;
 
 	return s;
 }

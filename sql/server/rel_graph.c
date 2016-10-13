@@ -16,7 +16,6 @@
 #include "rel_rel.h"
 #include "rel_select.h"
 
-
 sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
 	dnode* lstoperands = NULL; // temp to navigate over the operands
 	symbol* sym_qfrom = NULL; // the `from' column in the ast
@@ -229,3 +228,4 @@ sql_exp* rel_graph_cheapest_sum(mvc *sql, sql_rel **rel, symbol *sym, int contex
 	result = exp_column(sql->sa, NULL, exp_bound->name, exp_subtype(exp_bound), (*rel)->card, /* has_nil = */ FALSE, /* is_intern = */ FALSE);
 	return result;
 }
+

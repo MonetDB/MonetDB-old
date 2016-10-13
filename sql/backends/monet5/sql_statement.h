@@ -103,6 +103,7 @@ typedef enum stmt_type {
 	st_prefixsum,
 	st_slices,
 	st_spfw,
+	st_spfw_output,
 	st_void2oid,
 } st_type;
 
@@ -111,6 +112,7 @@ typedef enum stmt_type {
 #define ANTI ANTISEL
 #define GRP_DONE 32
 
+/* flags for st_spfw */
 #define SPFW_CROSS_PRODUCT 0x1 /* Perform a cross product instead of a filter op~ */
 #define SPFW_SHORTEST_PATH 0x2 /* Retrieve also the cost of the path */
 
@@ -258,8 +260,8 @@ extern stmt *stmt_mkpartition(sql_allocator *sa, stmt *st, int partno, int num_p
 extern stmt *stmt_prefixsum(sql_allocator *sa, stmt *op, stmt *domain_cardinality);
 extern stmt *stmt_slices(sql_allocator *sa, stmt *op, int num);
 extern stmt *stmt_spfw(sql_allocator *sa, stmt *query, stmt *graph, int flags);
+extern stmt *stmt_spfw_output(sql_allocator *sa, stmt* spfw, stmt* shortest_path);
 extern stmt *stmt_void2oid(sql_allocator *sa, stmt *op);
-
 
 extern sql_subtype *tail_type(stmt *st);
 extern int stmt_has_null(stmt *s);

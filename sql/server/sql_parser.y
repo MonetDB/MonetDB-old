@@ -7,7 +7,7 @@
  */
 
 %{
-#define YYDEBUG 1
+// #define YYDEBUG 1
 #include "monetdb_config.h"
 #include <sql_mem.h>
 #include "sql_parser.h"

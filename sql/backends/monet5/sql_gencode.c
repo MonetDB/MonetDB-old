@@ -2939,6 +2939,30 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			renameVariable(mb, getArg(q, 1), "r1_%d", s->nr); // filter dst
 			renameVariable(mb, getArg(q, 2), "r2_%d", s->nr); // shortest path (if required)
 		} break;
+		case st_spfw_output: {
+			InstrPtr p = NULL;
+
+			// generate spfw
+			if(_dumpstmt(sql, mb, s->op1) < 0)
+				return -1;
+
+			// generate the shortest path
+			if(_dumpstmt(sql, mb, s->op2) < 0)
+				return -1;
+
+			p = newAssignment(mb);
+			p = pushArgument(mb, p, _dumpstmt(sql, mb, stmt_result(sql->mvc->sa, s->op1, 0)));
+			s->nr = getDestVar(p); // forward the result of the join
+			q = p; // result
+
+			p = newAssignment(mb);
+			p = pushArgument(mb, p, _dumpstmt(sql, mb, stmt_result(sql->mvc->sa, s->op1, 1)));
+			renameVariable(mb, getDestVar(p), "r1_%d", s->nr); // as above
+
+			p = newAssignment(mb);
+			p = pushArgument(mb, p, s->op2->nr);
+			renameVariable(mb, getDestVar(p), "r2_%d", s->nr); // shortest path
+		} break;
 		case st_void2oid: {
 			int ref_op = _dumpstmt(sql, mb, s->op1);
 			if(ref_op < 0)
