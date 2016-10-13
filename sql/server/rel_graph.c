@@ -138,8 +138,15 @@ static sql_exp* bindg_exp(mvc *sql, sql_exp *exp, dlist *parse_tree){
 		return NULL;
 	}
 
+	(void) sql;
+	(void) g;
+	(void) e;
+	(void) exp_kind_value;
+	(void) table_ref;
+	(void) expr_weight;
+
 	table_ref = parse_tree->h->data.sval;
-	expr_weight = parse_tree->h->next->data.lval;
+	expr_weight = parse_tree->h->next->data.sym;
 
 
 	return NULL;
