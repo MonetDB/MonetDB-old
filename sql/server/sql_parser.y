@@ -338,6 +338,7 @@ int yydebug=1;
 	XML_PI_target
 	function_body
 	aggr
+	graph_CS_opt_table_ref
 
 %type <l>
 	passwd_schema
@@ -3772,8 +3773,51 @@ graph_reaches_edges_table:
 	  	  	  append_symbol(l, $2);
 	  		  $$ = _symbol_create_list(SQL_NAME, l); }
 
+
+graph_CS1_simple:
+	':' scalar_exp { $$ = $2; }
+
+
+graph_CS2_end_part1:
+	%empty  { $$ = L(); }
+	| '.' ident { $$ = append_string(L(), $2); }
+	| '.' ident '.' ident { $$ = append_string(L(), $2), $4); }
+	;
+
+graph_CS1_complex:
+	graph_CS2_end_part1
+
+
+graph_CS1_nonident: 
+
+graph_CS1_start: 
+	// simple case 
+	ident graph_CS1_simple { 			
+		dlist* l = L();
+		append_string(l, $1); // opt_table_name_ref
+		append_symbol(l, $2); // weight expression
+		$$ = _symbol_create_list( SQL_GRAPH_CHEAPEST_SUM, l ); 
+	}
+	
+	// messy case
+	| ident graph_CS1_complex {
+		dlist* l = L();
+		append_string(l, NULL); // no table reference
+		$$ = _symbol_create_list ( SQL_GRAPH_CHEAPEST_SUM, l );
+	}
+	
+// 	// 
+// 	| graph_CS1_nonident {	
+// 		dlist* l = L();
+// 		append_string(l, NULL); // no table reference
+// 		append_symbol(l, $1);
+// 		$$ = _symbol_create_list(SQL_GRAPH_CHEAPEST_SUM, l);
+// 	}
+	;
+
 graph_cheapest_sum:
-	CHEAPEST SUM '(' scalar_exp ')' { $$ = _symbol_create_symbol( SQL_GRAPH_CHEAPEST_SUM, $4 ); }
+	CHEAPEST SUM '(' graph_CS1_start ')' { $$ = $4; }
+	;
 
 /*
 <window function> ::= <window function type> OVER <window name or specification>

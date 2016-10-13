@@ -122,36 +122,46 @@ static sql_exp* bindg_ret(mvc *sql, sql_exp* bind1, sql_exp* bind2){
 	}
 }
 
-static sql_exp* bindg_exp(mvc *sql, sql_exp *exp, symbol *sym){
-	graph_join *g;
-	sql_exp* e;
+static sql_exp* bindg_exp(mvc *sql, sql_exp *exp, dlist *parse_tree){
+	graph_join *g =NULL;
+	sql_exp* e =NULL;
 	exp_kind exp_kind_value = {type_value, card_column, TRUE};
+	const char* table_ref = NULL; // the table referred (optional)
+	symbol* expr_weight = NULL; // the expression inside CHEAPEST SUM ( ... );
 
 	assert(exp && "Expected an expression");
+	assert(parse_tree && "The input argument parse_tree is NULL");
+	assert(parse_tree->cnt == 2 && "Expected two nodes in the root of the parse tree");
 
 	if(exp->type != e_cmp || get_cmp(exp) != cmp_filter_graph){
 		// this is not a graph join, move along
 		return NULL;
 	}
 
-	g = exp->f;
+	table_ref = parse_tree->h->data.sval;
+	expr_weight = parse_tree->h->next->data.lval;
 
-	// try to bind the expression
-	e = rel_value_exp(sql, &(g->edges), sym, sql_sel, exp_kind_value);
-	if(!e){ return NULL; }
 
-	// an expression has already been bound
-	if(g->cost){
-		return sql_error(sql, 02, "TODO: At the moment you cannot bind multiple CHEAPEST SUM expression against the same join");
-	}
+	return NULL;
 
-	// found it!
-	g->cost = exp_label(sql->sa, e, ++sql->label);
-	return g->cost;
+//	g = exp->f;
+//
+//	// try to bind the expression
+//	e = rel_value_exp(sql, &(g->edges), sym, sql_sel, exp_kind_value);
+//	if(!e){ return NULL; }
+//
+//	// an expression has already been bound
+//	if(g->cost){
+//		return sql_error(sql, 02, "TODO: At the moment you cannot bind multiple CHEAPEST SUM expression against the same join");
+//	}
+//
+//	// found it!
+//	g->cost = exp_label(sql->sa, e, ++sql->label);
+//	return g->cost;
 }
 
 
-static sql_exp* bindg_exps(mvc *sql, list *exps, symbol *sym){
+static sql_exp* bindg_exps(mvc *sql, list *exps, dlist *sym){
 	sql_exp *result = NULL;
 
 	// edge case
@@ -166,7 +176,7 @@ static sql_exp* bindg_exps(mvc *sql, list *exps, symbol *sym){
 	return result;
 }
 
-static sql_exp* bindg_rel(mvc *sql, sql_rel* relation, symbol *sym){
+static sql_exp* bindg_rel(mvc *sql, sql_rel* relation, dlist *sym){
 	// edge case
 	if(!relation || error_reported(sql)) return NULL;
 
@@ -213,15 +223,16 @@ sql_exp* rel_graph_cheapest_sum(mvc *sql, sql_rel **rel, symbol *sym, int contex
 	}
 
 	// Check whether an argument has been specified
-	if(!sym->data.sym){
-		// TODO this should be already handled by the parser (i.e. it's not part of the language)
+	if(!sym->data.lval){
+		// TODO: actually this case is not part of the parser language, i.e. it never occurs
+		// perhaps it should be implicitly treated as CHEAPEST SUM (1) ?
 		sql_error(sql, 02, "Empty argument for CHEAPEST SUM");
 		return NULL;
 	}
 
 	// Find the relation where the sub the expression binds to
 	assert(is_project((*rel)->op) && "Unexpected relation type");
-	exp_bound = bindg_rel(sql, (*rel)->l, sym->data.sym);
+	exp_bound = bindg_rel(sql, (*rel)->l, sym->data.lval);
 	if(!exp_bound){ return NULL; }
 
 	// Create the new column
