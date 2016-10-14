@@ -1097,6 +1097,9 @@ int scanner_symbol(mvc * c, int cur)
 			utf8_putchar(lc, cur); 
 			return scanner_token(lc, '|');
 		}
+	case ':': /* CHEAPEST SUM (e: expr) */
+		lc->started = 1;
+		return scanner_token(lc, ':');
 	}
 	(void)sql_error( c, 3, "unexpected symbol (%lc)", (wint_t) cur);
 	return LEX_ERROR;

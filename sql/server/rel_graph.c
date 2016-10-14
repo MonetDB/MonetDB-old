@@ -109,7 +109,6 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
 
 static bool error_reported(mvc* sql){ return (sql->session->status < 0); }
 
-
 static sql_exp* bindg_ret(mvc *sql, sql_exp* bind1, sql_exp* bind2){
 	if (error_reported(sql)){ // an error already occurred
 		return NULL;
@@ -122,60 +121,71 @@ static sql_exp* bindg_ret(mvc *sql, sql_exp* bind1, sql_exp* bind2){
 	}
 }
 
-static sql_exp* bindg_exp(mvc *sql, sql_exp *exp, dlist *parse_tree){
-	graph_join *g =NULL;
-	sql_exp* e =NULL;
-	exp_kind exp_kind_value = {type_value, card_column, TRUE};
+static sql_exp* bindg_filter_graph(mvc *sql, sql_exp *exp, dlist *parse_tree){
 	const char* table_ref = NULL; // the table referred (optional)
 	symbol* expr_weight = NULL; // the expression inside CHEAPEST SUM ( ... );
+	graph_join* g = NULL;
+	sql_exp* e = NULL;
+	exp_kind exp_kind_value = {type_value, card_column, TRUE};
 
 	assert(exp && "Expected an expression");
+	assert(exp->type == e_cmp && get_cmp(exp) == cmp_filter_graph && "Expected a graph filter exp~");
 	assert(parse_tree && "The input argument parse_tree is NULL");
 	assert(parse_tree->cnt == 2 && "Expected two nodes in the root of the parse tree");
 
-	if(exp->type != e_cmp || get_cmp(exp) != cmp_filter_graph){
-		// this is not a graph join, move along
-		return NULL;
-	}
-
-	(void) sql;
-	(void) g;
-	(void) e;
-	(void) exp_kind_value;
-	(void) table_ref;
-	(void) expr_weight;
+	g = exp->f;
 
 	table_ref = parse_tree->h->data.sval;
 	expr_weight = parse_tree->h->next->data.sym;
 
+	if (table_ref){ // use the table name to refer to the edge table
+		const char* tname = rel_name(g->edges);
 
-	return NULL;
+		// TODO shall we consider the schema as well?
+		assert(tname != NULL);
+		if(strcmp(tname, table_ref) == 0){
+			// force the binding against this relation
+			e = rel_value_exp(sql, &(g->edges), expr_weight, sql_sel, exp_kind_value);
+			if(!e){ return sql_error(sql, 02, "Cannot bind the cheapest sum expression in the subquery `%s'", tname); }
+		}
+	} else { // table name not given
+		// try to bind the expression a la `best effort'
+		e = rel_value_exp(sql, &(g->edges), expr_weight, sql_sel, exp_kind_value);
+	}
 
-//	g = exp->f;
-//
-//	// try to bind the expression
-//	e = rel_value_exp(sql, &(g->edges), sym, sql_sel, exp_kind_value);
-//	if(!e){ return NULL; }
-//
-//	// an expression has already been bound
-//	if(g->cost){
-//		return sql_error(sql, 02, "TODO: At the moment you cannot bind multiple CHEAPEST SUM expression against the same join");
-//	}
-//
-//	// found it!
-//	g->cost = exp_label(sql->sa, e, ++sql->label);
-//	return g->cost;
+	// did we bind our parse tree?
+	if(e){
+		if(g->cost){ // existing limitation, an expression has already been bound
+			return sql_error(sql, 02, "TODO: At the moment you cannot bind multiple CHEAPEST SUM expression against the same join");
+		}
+
+		// found it!
+		g->cost = exp_label(sql->sa, e, ++sql->label);
+		return g->cost;
+
+	} else { // no, we didn't bind it
+		return NULL;
+	}
 }
 
+static sql_exp* bindg_exp(mvc *sql, sql_exp *exp, dlist *parse_tree){
+	if(exp->type == e_cmp && get_cmp(exp) == cmp_filter_graph){
+		// ok this is a graph join
+		return bindg_filter_graph(sql, exp, parse_tree);
+	} else {
+		// this is not a graph join, move along
+		return NULL;
+	}
+}
 
-static sql_exp* bindg_exps(mvc *sql, list *exps, dlist *sym){
+static sql_exp* bindg_exps(mvc *sql, list *exps, dlist *parse_tree){
 	sql_exp *result = NULL;
 
 	// edge case
 	if(!exps || error_reported(sql)) return NULL;
 
 	for(node* n = exps->h; n; n = n->next){
-		sql_exp *bound = bindg_exp(sql, n->data, sym);
+		sql_exp *bound = bindg_exp(sql, n->data, parse_tree);
 		result = bindg_ret(sql, result, bound);
 		if(error_reported(sql)) return NULL; // ERROR! => stop processing
 	}
@@ -183,7 +193,7 @@ static sql_exp* bindg_exps(mvc *sql, list *exps, dlist *sym){
 	return result;
 }
 
-static sql_exp* bindg_rel(mvc *sql, sql_rel* relation, dlist *sym){
+static sql_exp* bindg_rel(mvc *sql, sql_rel* relation, dlist *parse_tree){
 	// edge case
 	if(!relation || error_reported(sql)) return NULL;
 
@@ -197,20 +207,20 @@ static sql_exp* bindg_rel(mvc *sql, sql_rel* relation, dlist *sym){
 	case op_join: {
 		sql_exp *exp1 = NULL, *exp2 = NULL, *exp3 = NULL, *ret = NULL;
 
-		exp1 = bindg_rel(sql, relation->l, sym);
-		exp2 = bindg_rel(sql, relation->r, sym);
+		exp1 = bindg_rel(sql, relation->l, parse_tree);
+		exp2 = bindg_rel(sql, relation->r, parse_tree);
 		ret = bindg_ret(sql, exp1, exp2);
-		exp3 = bindg_exps(sql, relation->exps, sym);
+		exp3 = bindg_exps(sql, relation->exps, parse_tree);
 		return bindg_ret(sql, ret, exp3);
 	} break;
 	case op_select: {
-		sql_exp* exp1 = bindg_exps(sql, relation->exps, sym);
-		sql_exp* exp2 = bindg_rel(sql, relation->l, sym);
+		sql_exp* exp1 = bindg_exps(sql, relation->exps, parse_tree);
+		sql_exp* exp2 = bindg_rel(sql, relation->l, parse_tree);
 		return bindg_ret(sql, exp1, exp2);
 	} break;
 	case op_groupby:
-		// move up the tree
-		return bindg_rel(sql, relation->l, sym);
+		// move up in the tree
+		return bindg_rel(sql, relation->l, parse_tree);
 	default:
 		return NULL;
 	}
@@ -218,23 +228,15 @@ static sql_exp* bindg_rel(mvc *sql, sql_rel* relation, dlist *sym){
 	return NULL; // silent the warning
 }
 
-
 sql_exp* rel_graph_cheapest_sum(mvc *sql, sql_rel **rel, symbol *sym, int context){
 	sql_exp* exp_bound = NULL;
 	sql_exp* result = NULL;
 
+	assert(sym->data.lval != NULL && "CHEAPEST SUM: empty parse tree");
+
 	// Check the context is the SELECT clause
 	if(context != sql_sel){
-		sql_error(sql, 02, "CHEAPEST SUM is only allowed inside the SELECT clause");
-		return NULL;
-	}
-
-	// Check whether an argument has been specified
-	if(!sym->data.lval){
-		// TODO: actually this case is not part of the parser language, i.e. it never occurs
-		// perhaps it should be implicitly treated as CHEAPEST SUM (1) ?
-		sql_error(sql, 02, "Empty argument for CHEAPEST SUM");
-		return NULL;
+		return sql_error(sql, 02, "CHEAPEST SUM is only allowed inside the SELECT clause");
 	}
 
 	// Find the relation where the sub the expression binds to
