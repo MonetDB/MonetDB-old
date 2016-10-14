@@ -129,8 +129,8 @@ CREATE TABLE "allnewtriples" (
 	"predicate" int    	NOT NULL,
 	"object"    int    	NOT NULL,
 	"explicit"  boolean	NOT NULL,
-	CONSTRAINT "allnewtriples_id_pkey" PRIMARY KEY ("id"),
-	CONSTRAINT "unique_key" UNIQUE ("subject", "predicate", "object")
+        CONSTRAINT "allnewtriples_id_pkey" PRIMARY KEY ("id"),
+        CONSTRAINT "unique_key" UNIQUE ("subject", "predicate", "object")
 );
 CREATE INDEX "allnewtriples_object_idx" ON "allnewtriples" ("object");
 CREATE INDEX "allnewtriples_predicate_idx" ON "allnewtriples" ("predicate");

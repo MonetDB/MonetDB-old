@@ -233,10 +233,38 @@ join_threads(void)
 	} while (waited);
 }
 
+void
+join_detached_threads(void)
+{
+	struct winthread *w;
+	int waited;
+
+	do {
+		waited = 0;
+		EnterCriticalSection(&winthread_cs);
+		for (w = winthreads; w; w = w->next) {
+			if ((w->flags & (DETACHED | WAITING)) == DETACHED) {
+				w->flags |= WAITING;
+				LeaveCriticalSection(&winthread_cs);
+				WaitForSingleObject(w->hdl, INFINITE);
+				CloseHandle(w->hdl);
+				rm_winthread(w);
+				waited = 1;
+				EnterCriticalSection(&winthread_cs);
+				break;
+			}
+		}
+		LeaveCriticalSection(&winthread_cs);
+	} while (waited);
+}
+
 int
 MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d)
 {
 	struct winthread *w = malloc(sizeof(*w));
+
+	if (w == NULL)
+		return -1;
 
 	if (winthread_cs_init == 0) {
 		/* we only get here before any threads are created,
@@ -449,14 +477,6 @@ rm_posthread_locked(struct posthread *p)
 }
 
 static void
-rm_posthread(struct posthread *p)
-{
-	pthread_mutex_lock(&posthread_lock);
-	rm_posthread_locked(p);
-	pthread_mutex_unlock(&posthread_lock);
-}
-
-static void
 thread_starter(void *arg)
 {
 	struct posthread *p = (struct posthread *) arg;
@@ -501,23 +521,18 @@ void
 join_detached_threads(void)
 {
 	struct posthread *p;
-	int waited;
 	pthread_t tid;
 
 	pthread_mutex_lock(&posthread_lock);
-	do {
-		waited = 0;
-		for (p = posthreads; p; p = p->next) {
-			tid = p->tid;
-			rm_posthread_locked(p);
-			free(p);
-			pthread_mutex_unlock(&posthread_lock);
-			pthread_join(tid, NULL);
-			pthread_mutex_lock(&posthread_lock);
-			waited = 1;
-			break;
-		}
-	} while (waited);
+	while (posthreads) {
+		p = posthreads;
+		posthreads = p->next;
+		tid = p->tid;
+		free(p);
+		pthread_mutex_unlock(&posthread_lock);
+		pthread_join(tid, NULL);
+		pthread_mutex_lock(&posthread_lock);
+	}
 	pthread_mutex_unlock(&posthread_lock);
 }
 
@@ -542,13 +557,15 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d)
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 	if (d == MT_THR_DETACHED) {
 		p = malloc(sizeof(struct posthread));
+		if (p == NULL) {
+#ifdef HAVE_PTHREAD_SIGMASK
+			MT_thread_sigmask(&orig_mask, NULL);
+#endif
+			return -1;
+		}
 		p->func = f;
 		p->arg = arg;
 		p->exited = 0;
-		pthread_mutex_lock(&posthread_lock);
-		p->next = posthreads;
-		posthreads = p;
-		pthread_mutex_unlock(&posthread_lock);
 		f = thread_starter;
 		arg = p;
 		newtp = &p->tid;
@@ -563,8 +580,13 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d)
 #else
 		*t = (MT_Id) (((size_t) *newtp) + 1);	/* use pthread-id + 1 */
 #endif
+		if (p) {
+			pthread_mutex_lock(&posthread_lock);
+			p->next = posthreads;
+			posthreads = p;
+			pthread_mutex_unlock(&posthread_lock);
+		}
 	} else if (p) {
-		rm_posthread(p);
 		free(p);
 	}
 #ifdef HAVE_PTHREAD_SIGMASK
@@ -788,6 +810,9 @@ MT_check_nr_cores_(void)
 	while (1) {
 		lng t0, t1;
 		MT_Id *threads = malloc(sizeof(MT_Id) * curr);
+
+		if (threads == NULL)
+			break;
 
 		t0 = GDKusec();
 		for (i = 0; i < curr; i++)

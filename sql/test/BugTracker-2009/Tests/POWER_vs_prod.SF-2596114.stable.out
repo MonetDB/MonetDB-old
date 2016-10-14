@@ -31,9 +31,9 @@ Ready.
 function user.s6_1():void;
     X_35:void := querylog.define("explain select power(x,2) from sf_2596114;","sequential_pipe",16);
     X_19 := bat.new(nil:str);
-    X_26 := bat.append(X_19,"sys.L");
+    X_26 := bat.append(X_19,"sys.L1");
     X_21 := bat.new(nil:str);
-    X_28 := bat.append(X_21,"power_x");
+    X_28 := bat.append(X_21,"L1");
     X_22 := bat.new(nil:str);
     X_30 := bat.append(X_22,"double");
     X_23 := bat.new(nil:int);
@@ -73,37 +73,56 @@ end user.s6_1;
 % .explain # table_name
 % mal # name
 % clob # type
-% 93 # length
-function user.s8_1():void;
-    X_34:void := querylog.define("explain select x*x from sf_2596114;","sequential_pipe",16);
-    X_18 := bat.new(nil:str);
-    X_25 := bat.append(X_18,"sys.L");
-    X_20 := bat.new(nil:str);
-    X_27 := bat.append(X_20,"sql_mul_x");
-    X_21 := bat.new(nil:str);
-    X_29 := bat.append(X_21,"double");
-    X_22 := bat.new(nil:int);
-    X_31 := bat.append(X_22,53);
-    X_24 := bat.new(nil:int);
-    X_33 := bat.append(X_24,0);
-    X_13 := bat.new(nil:dbl);
-    X_14:bat[:dbl] := batcalc.*(X_13,X_13);
-    sql.resultSet(X_25,X_27,X_29,X_31,X_33,X_14);
-end user.s8_1;
-#inline               actions= 0 time=3 usec 
-#candidates           actions= 1 time=16 usec 
-#remap                actions= 1 time=27 usec 
-#costModel            actions= 1 time=13 usec 
-#coercions            actions= 0 time=2 usec 
-#evaluate             actions= 0 time=3 usec 
-#emptybind            actions= 0 time=4 usec 
-#pushselect           actions= 0 time=3 usec 
-#aliases              actions= 1 time=16 usec 
-#mergetable           actions= 0 time=21 usec 
-#deadcode             actions= 2 time=15 usec 
-#aliases              actions= 0 time=4 usec 
-#constants            actions= 0 time=6 usec 
-#commonTerms          actions= 0 time=4 usec 
+% 61 # length
+function user.main():void;
+    X_1128 := bat.new(nil:str);
+    X_1135 := bat.append(X_1128,"sys.L1");
+    X_1130 := bat.new(nil:str);
+    X_1137 := bat.append(X_1130,"L1");
+    X_1131 := bat.new(nil:str);
+    X_1139 := bat.append(X_1131,"double");
+    X_1132 := bat.new(nil:int);
+    X_1141 := bat.append(X_1132,53);
+    X_1134 := bat.new(nil:int);
+    X_1143 := bat.append(X_1134,0);
+    X_1121 := bat.new(nil:dbl);
+    X_1124:bat[:dbl] := batmmath.pow(X_1121,2);
+    sql.resultSet(X_1135,X_1137,X_1139,X_1141,X_1143,X_1124);
+end user.main;
+#inline               actions= 0 time=2 usec 
+#remap                actions= 1 time=15 usec 
+#costmodel            actions= 1 time=2 usec 
+#coercion             actions= 1 time=8 usec 
+#evaluate             actions= 0 time=5 usec 
+#emptybind            actions= 5 time=21 usec 
+#aliases              actions= 1 time=8 usec 
+#mergetable           actions= 0 time=41 usec 
+#deadcode             actions= 6 time=11 usec 
+#aliases              actions= 0 time=5 usec 
+#constants            actions= 0 time=8 usec 
+#commonTerms          actions= 0 time=6 usec 
+#projectionpath       actions= 0 time=5 usec 
+#reorder              actions= 1 time=29 usec 
+#deadcode             actions= 0 time=7 usec 
+#reduce               actions=34 time=14 usec 
+#matpack              actions= 0 time=4 usec 
+#multiplex            actions= 0 time=3 usec 
+#profiler             actions= 1 time=1 usec 
+#candidates           actions= 1 time=1 usec 
+#garbagecollector     actions= 1 time=13 usec 
+#total                actions= 1 time=336 usec 
+#inline               actions= 0 time=1 usec 
+#remap                actions= 0 time=4 usec 
+#costmodel            actions= 1 time=1 usec 
+#coercion             actions= 0 time=2 usec 
+#evaluate             actions= 0 time=4 usec 
+#emptybind            actions= 0 time=8 usec 
+#aliases              actions= 0 time=5 usec 
+#mergetable           actions= 0 time=40 usec 
+#deadcode             actions= 0 time=8 usec 
+#aliases              actions= 0 time=5 usec 
+#constants            actions= 0 time=3 usec 
+#commonTerms          actions= 0 time=5 usec 
 #projectionpath       actions= 0 time=4 usec 
 #reorder              actions= 1 time=24 usec 
 #deadcode             actions= 0 time=5 usec 

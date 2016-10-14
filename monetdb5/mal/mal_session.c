@@ -97,6 +97,8 @@ MSresetClientPrg(Client cntxt)
 	p->gc = 0;
 	p->retc = 1;
 	p->argc = 1;
+	setModuleId(p, putName("user"));
+	setFunctionId(p, putName("main"));
 	/* remove any MAL history */
 	if (mb->history) {
 		freeMalBlk(mb->history);
@@ -470,6 +472,11 @@ MSserveClient(void *dummy)
 	}
 	if (!isAdministrator(c))
 		MCcloseClient(c);
+	if (strcmp(c->nspace->name, "user") == 0) {
+		GDKfree(c->nspace->space);
+		GDKfree(c->nspace);
+		c->nspace = NULL;
+	}
 }
 
 /*
@@ -505,8 +512,8 @@ MALexitClient(Client c)
 str
 MALreader(Client c)
 {
-	int r = 1;
 #ifndef HAVE_EMBEDDED
+	int r = 1;
 	if (c == mal_clients) {
 		r = readConsole(c);
 		if (r < 0 && c->fdin->eof == 0)
