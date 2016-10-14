@@ -1,13 +1,13 @@
-stdout of test 'TestAutocommitUpdates-4` in directory 'sql/test/2-phase-commit` itself:
+stdout of test 'TestAutocommitUpdates-4` in directory 'sql/test/HTM` itself:
 
 
 # 16:20:20 >  
-# 16:20:20 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=39416" "--set" "mapi_usock=/var/tmp/mtest-81546/.s.monetdb.39416" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/Users/dnedev/monetdb/installation/var/MonetDB/mTests_sql_test_2-phase-commit" "--set" "mal_listing=0"
+# 16:20:20 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=39416" "--set" "mapi_usock=/var/tmp/mtest-81546/.s.monetdb.39416" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/Users/dnedev/monetdb/installation/var/MonetDB/mTests_sql_test_HTM" "--set" "mal_listing=0"
 # 16:20:20 >  
 
 # MonetDB 5 server v11.22.0
 # This is an unreleased version
-# Serving database 'mTests_sql_test_2-phase-commit', using 4 threads
+# Serving database 'mTests_sql_test_HTM', using 4 threads
 # Compiled for x86_64-apple-darwin14.3.0/64bit with 64bit OIDs and 128bit integers dynamically linked
 # Found 8.000 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
