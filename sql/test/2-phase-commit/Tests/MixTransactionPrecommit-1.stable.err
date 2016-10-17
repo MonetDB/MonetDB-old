@@ -1,8 +1,8 @@
-stderr of test 'MixTransactionPrecommit-1` in directory 'sql/test/2-phase-commit` itself:
+stderr of test 'MixTransactionPrecommit-1` in directory 'sql/test/HTM` itself:
 
 
 # 15:18:28 >  
-# 15:18:28 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=35682" "--set" "mapi_usock=/var/tmp/mtest-79940/.s.monetdb.35682" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/Users/dnedev/monetdb/installation/var/MonetDB/mTests_sql_test_2-phase-commit" "--set" "mal_listing=0"
+# 15:18:28 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=35682" "--set" "mapi_usock=/var/tmp/mtest-79940/.s.monetdb.35682" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/Users/dnedev/monetdb/installation/var/MonetDB/mTests_sql_test_HTM" "--set" "mal_listing=0"
 # 15:18:28 >  
 
 # builtin opt 	gdk_dbpath = /Users/dnedev/monetdb/installation/var/monetdb5/dbfarm/demo
@@ -21,7 +21,7 @@ stderr of test 'MixTransactionPrecommit-1` in directory 'sql/test/2-phase-commit
 # cmdline opt 	mapi_usock = /var/tmp/mtest-79940/.s.monetdb.35682
 # cmdline opt 	monet_prompt = 
 # cmdline opt 	mal_listing = 2
-# cmdline opt 	gdk_dbpath = /Users/dnedev/monetdb/installation/var/MonetDB/mTests_sql_test_2-phase-commit
+# cmdline opt 	gdk_dbpath = /Users/dnedev/monetdb/installation/var/MonetDB/mTests_sql_test_HTM
 # cmdline opt 	mal_listing = 0
 # cmdline opt 	gdk_debug = 536870922
 

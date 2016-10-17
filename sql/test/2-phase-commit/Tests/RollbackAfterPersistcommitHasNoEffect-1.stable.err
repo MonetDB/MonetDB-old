@@ -1,8 +1,8 @@
-stderr of test 'RollbackAfterPersistcommitHasNoEffect-1` in directory 'sql/test/2-phase-commit` itself:
+stderr of test 'RollbackAfterPersistcommitHasNoEffect-1` in directory 'sql/test/HTM` itself:
 
 
 # 23:18:40 >  
-# 23:18:40 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=35631" "--set" "mapi_usock=/var/tmp/mtest-10386/.s.monetdb.35631" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/Users/dnedev/monetdb/installation/var/MonetDB/mTests_sql_test_2-phase-commit" "--set" "mal_listing=0"
+# 23:18:40 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=35631" "--set" "mapi_usock=/var/tmp/mtest-10386/.s.monetdb.35631" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/Users/dnedev/monetdb/installation/var/MonetDB/mTests_sql_test_HTM" "--set" "mal_listing=0"
 # 23:18:40 >  
 
 # builtin opt 	gdk_dbpath = /Users/dnedev/monetdb/installation/var/monetdb5/dbfarm/demo
@@ -21,7 +21,7 @@ stderr of test 'RollbackAfterPersistcommitHasNoEffect-1` in directory 'sql/test/
 # cmdline opt 	mapi_usock = /var/tmp/mtest-10386/.s.monetdb.35631
 # cmdline opt 	monet_prompt = 
 # cmdline opt 	mal_listing = 2
-# cmdline opt 	gdk_dbpath = /Users/dnedev/monetdb/installation/var/MonetDB/mTests_sql_test_2-phase-commit
+# cmdline opt 	gdk_dbpath = /Users/dnedev/monetdb/installation/var/MonetDB/mTests_sql_test_HTM
 # cmdline opt 	mal_listing = 0
 # cmdline opt 	gdk_debug = 536870922
 
