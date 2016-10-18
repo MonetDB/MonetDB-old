@@ -3804,7 +3804,8 @@ wkbMakePolygon(wkb **out, wkb **external, const int *srid)
 	//create a linearRing using the copy of the coordinates
 	linearRingGeometry = GEOSGeom_createLinearRing(coordSeq_copy);
 	if (linearRingGeometry == NULL) {
-		GEOSCoordSeq_destroy(coordSeq_copy);
+		//TODO: Make sure there is not a leak
+		//GEOSCoordSeq_destroy(coordSeq_copy);
 		throw(MAL, "geom.Polygon", "GEOSGeom_createLinearRing failed");
 	}
 
@@ -3832,7 +3833,7 @@ wkbMakeLine(wkb **out, wkb **geom1WKB, wkb **geom2WKB)
 	GEOSCoordSeq outCoordSeq;
 	const GEOSCoordSequence *geom1CoordSeq = NULL, *geom2CoordSeq = NULL;
 	unsigned int i = 0, geom1Size = 0, geom2Size = 0;
-	unsigned geom1Dimension = 0, geom2Dimension = 0;
+	unsigned int geom1Dimension = 0, geom2Dimension = 0;
 	double x, y, z;
     int srid;
 	str err = MAL_SUCCEED;
@@ -3879,7 +3880,7 @@ wkbMakeLine(wkb **out, wkb **geom1WKB, wkb **geom2WKB)
 		err = createException(MAL, "geom.MakeLine", "GEOSGeom_getDimensions failed");
 	}
 	else if (geom1Dimension != geom2Dimension) {
-		err = createException(MAL, "geom.MakeLine", "Geometries should be of the same dimension");
+		err = createException(MAL, "geom.MakeLine", "Geometries should be of the same dimension: dim1 %u and dim2 %u", geom1Dimension, geom2Dimension);
 	}
 	//get the number of coordinates in the two geometries
 	else if (!GEOSCoordSeq_getSize(geom1CoordSeq, &geom1Size) ||
@@ -10664,6 +10665,357 @@ DWithinXYZsubjoin(bat *lres, bat *rres, bat *lid, bat *xid, bat *yid, bat *zid, 
         throw(MAL, "DWithinXYZsubjoin", "It has estimate");
 
     return DWithinXYZsubjoin_intern(lres, rres, lid, xid, yid, zid, srid, dist, "geom.DWithinXYZsubjoin");
+}
+
+static str
+DNNXYZsubjoin_intern(bat *lres, bat *rres, bat *lid, bat *xid, bat*yid, bat *zid, int *srid, const char *name)
+{
+    str msg = MAL_SUCCEED;
+	BAT *xl, *xr, *bl, *bx, *by, *bz;
+	oid lo, ro;
+	BATiter lBAT_iter, xBAT_iter, yBAT_iter, zBAT_iter;
+    uint32_t j = 0;
+    BUN px = 0, py = 0, pz =0, pl = 0, qx = 0, qy = 0, qz = 0, ql = 0;
+	GEOSGeom *rGeometries = NULL;
+    mbr **rMBRs = NULL;
+    int outs = 0;
+    int numThreads = 1, i = 0;
+    GEOSGeom *lGeometries = NULL;
+    double dist = -1.0;
+#ifdef GEOMBULK_DEBUG
+    static struct timeval start, stop;
+    unsigned long long t;
+#endif
+
+	if( (bl= BATdescriptor(*lid)) == NULL )
+		throw(MAL, name, RUNTIME_OBJECT_MISSING);
+
+	if( (bx= BATdescriptor(*xid)) == NULL ){
+		BBPunfix(*lid);
+		throw(MAL, name, RUNTIME_OBJECT_MISSING);
+	}
+
+	if( (by= BATdescriptor(*yid)) == NULL ){
+		BBPunfix(*lid);
+		BBPunfix(*xid);
+		throw(MAL, name, RUNTIME_OBJECT_MISSING);
+	}
+
+	if( (bz= BATdescriptor(*zid)) == NULL ){
+		BBPunfix(*lid);
+		BBPunfix(*xid);
+		BBPunfix(*yid);
+		throw(MAL, name, RUNTIME_OBJECT_MISSING);
+	}
+
+	xl = COLnew(0, TYPE_oid, 0, TRANSIENT);
+	if ( xl == NULL){
+		BBPunfix(*lid);
+		BBPunfix(*xid);
+		BBPunfix(*yid);
+		BBPunfix(*zid);
+		throw(MAL, name, MAL_MALLOC_FAIL);
+	}
+
+	xr = COLnew(0, TYPE_oid, 0, TRANSIENT);
+	if ( xr == NULL){
+		BBPunfix(*lid);
+		BBPunfix(*xid);
+		BBPunfix(*yid);
+		BBPunfix(*zid);
+		BBPunfix(xl->batCacheid);
+		throw(MAL, name, MAL_MALLOC_FAIL);
+	}
+
+    if ( !BATcount(bx) || !BATcount(bl)) {
+		BBPunfix(*lid);
+		BBPunfix(*xid);
+		BBPunfix(*yid);
+		BBPunfix(*zid);
+    	BBPkeepref(*lres = xl->batCacheid);
+    	BBPkeepref(*rres = xr->batCacheid);
+        return MAL_SUCCEED;
+    }
+
+	/*iterator over the BATs*/
+	lBAT_iter = bat_iterator(bl);
+	xBAT_iter = bat_iterator(bx);
+	yBAT_iter = bat_iterator(by);
+	zBAT_iter = bat_iterator(bz);
+
+    /*Get the Geometry for the inner BAT*/
+    if ( (BATcount(bx)) && (rGeometries = (GEOSGeom*) GDKzalloc(sizeof(GEOSGeom) * BATcount(bx))) == NULL) {
+		BBPunfix(*lid);
+		BBPunfix(*xid);
+		BBPunfix(*yid);
+		BBPunfix(*zid);
+		BBPunfix(xl->batCacheid);
+		BBPunfix(xr->batCacheid);
+		throw(MAL, name, MAL_MALLOC_FAIL);
+    }
+    if ( (BATcount(bx)) && (rMBRs = (mbr**) GDKzalloc(sizeof(mbr*) * BATcount(bx))) == NULL) {
+        GDKfree(rGeometries);
+		BBPunfix(*lid);
+		BBPunfix(*xid);
+		BBPunfix(*yid);
+		BBPunfix(*zid);
+		BBPunfix(xl->batCacheid);
+		BBPunfix(xr->batCacheid);
+		throw(MAL, name, MAL_MALLOC_FAIL);
+    }
+#ifdef GEOMBULK_DEBUG
+    gettimeofday(&start, NULL);
+#endif
+    BATloop(bx, px, qx) {
+        GEOSGeom rGeos = NULL;
+        double *x, *y, *z;
+	    GEOSCoordSeq seq;
+        x = (double*) BUNtail(xBAT_iter, px);
+        y = (double*) BUNtail(yBAT_iter, px);
+        z = (double*) BUNtail(zBAT_iter, px);
+
+        /*Create Geometry*/
+        if (*x == dbl_nil || *y == dbl_nil || *z == dbl_nil) {
+            rGeos = GEOSGeom_createEmptyPoint();
+        } else {
+            //create the point from the coordinates
+            seq = GEOSCoordSeq_create(1, 3);
+
+            if (seq == NULL) {
+                GEOSCoordSeq_destroy(seq);
+                for (j = 0; j < px-1;j++) {
+                    GEOSGeom_destroy(rGeometries[j]);
+                    if (rMBRs[j])
+                        GDKfree(rMBRs[j]);
+                }
+                msg = createException(MAL, name, "GEOSCoordSeq_create failed");
+                break;
+            }
+
+            if (!GEOSCoordSeq_setOrdinate(seq, 0, 0, *x) ||
+                    !GEOSCoordSeq_setOrdinate(seq, 0, 1, *y) ||
+                    !GEOSCoordSeq_setOrdinate(seq, 0, 2, *z)) {
+                GEOSCoordSeq_destroy(seq);
+                for (j = 0; j < px-1;j++) {
+                    GEOSGeom_destroy(rGeometries[j]);
+                    if (rMBRs[j])
+                        GDKfree(rMBRs[j]);
+                }
+                msg = createException(MAL, name, "GEOSCoordSeq_setOrdinate failed");
+                break;
+            }
+
+            if ((rGeos = GEOSGeom_createPoint(seq)) == NULL) {
+                GEOSCoordSeq_destroy(seq);
+                for (j = 0; j < px-1;j++) {
+                    GEOSGeom_destroy(rGeometries[j]);
+                    if (rMBRs[j])
+                        GDKfree(rMBRs[j]);
+                }
+                msg = createException(MAL, name, "Failed to create GEOSGeometry from the coordinates");
+                break;
+            }
+
+            if (*srid != int_nil)
+                GEOSSetSRID(rGeos, *srid);
+        }
+        rGeometries[px] = rGeos;
+        rMBRs[px] = mbrFromGeos(rGeometries[px]);
+        if (mbr_isnil(rMBRs[px])) {
+            for (j = 0; j < px;j++) {
+                GEOSGeom_destroy(rGeometries[j]);
+                if (rMBRs[j])
+                    GDKfree(rMBRs[j]);
+            }
+            msg = createException(MAL, name, "Failed to create mbrFromGeos");
+            break;
+        }
+    }
+#ifdef GEOMBULK_DEBUG
+    gettimeofday(&stop, NULL);
+    t = 1000 * (stop.tv_sec - start.tv_sec) + (stop.tv_usec - start.tv_usec) / 1000;
+    fprintf(stdout, "%s first BATloop qx %d %llu ms\n", name, qx, t);
+#endif
+
+    if (msg != MAL_SUCCEED) {
+        GDKfree(rGeometries);
+        GDKfree(rMBRs);
+        BBPunfix(*lid);
+        BBPunfix(*xid);
+        BBPunfix(*yid);
+        BBPunfix(*zid);
+        BBPunfix(xl->batCacheid);
+        BBPunfix(xr->batCacheid);
+        return msg;
+    }
+#ifdef OPENMP
+    numThreads = OPENCL_THREADS;
+#endif
+    if ( (lGeometries = GDKmalloc(sizeof(GEOSGeom) * numThreads)) == NULL) {
+        GDKfree(rGeometries);
+        GDKfree(rMBRs);
+        BBPunfix(*lid);
+        BBPunfix(*xid);
+        BBPunfix(*yid);
+        BBPunfix(*zid);
+        BBPunfix(xl->batCacheid);
+        BBPunfix(xr->batCacheid);
+    }
+
+    lo = bl->hseqbase;
+#ifdef GEOMBULK_DEBUG
+    gettimeofday(&start, NULL);
+#endif
+    BATloop(bl, pl, ql) {
+        str err = NULL;
+        wkb *lWKB = NULL;
+	    mbr *lMBR = NULL;
+        ro = bx->hseqbase;
+        int lSRID = 0;
+        dist = -1;
+
+        lWKB = (wkb *) BUNtail(lBAT_iter, pl);
+        lGeometries[0] = wkb2geos(lWKB);
+        if ( !lGeometries[0] ) {
+            msg = createException(MAL, name, "wkb2geos failed");
+            break;
+        }
+
+        lSRID = GEOSGetSRID(lGeometries[0]);
+        if (lSRID != *srid) {
+            for (j = 0; j < numThreads; j++) {
+                GEOSGeom_destroy(lGeometries[j]);
+            }
+            msg = createException(MAL, name, "Geometries of different SRID");
+            break;
+        }
+
+	    lMBR = mbrFromGeos(lGeometries[0]);
+	    if (lMBR == NULL || mbr_isnil(lMBR)) {
+            GEOSGeom_destroy(lGeometries[0]);
+    		msg = createException(MAL, name, "mbrFromGeos failed");
+            break;
+        }
+
+        for (j = 1; j < numThreads; j++) {
+            lGeometries[j] = GEOSGeom_clone(lGeometries[0]);
+        }
+
+        //for (j = 0; j < BATcount(bx); j++, ro++) {
+#ifdef OPENMP               
+        //omp_set_dynamic(OPENCL_DYNAMIC);     // Explicitly disable dynamic teams
+        omp_set_dynamic(0);     // Explicitly disable dynamic teams
+        //omp_set_num_threads(OPENCL_THREADS);
+        omp_set_num_threads(1);
+        #pragma omp parallel for 
+#endif
+        for (j = 0; j < BATcount(bx); j++) {
+            mbr *rMBR = NULL;
+            double distance = 0.0;
+            int res = 0;
+            int tNum = 0;
+#ifdef OPENMP
+            tNum = omp_get_thread_num();
+#endif
+            GEOSGeom rGeometry = rGeometries[j];
+
+            if (msg != MAL_SUCCEED)
+                continue;
+
+            if(dist == -1) {
+                if ( (res = GEOSDistance(lGeometries[tNum], rGeometry, &distance)) == 0) {
+                    msg = createException(MAL, name, "GEOSDistance failed");
+#ifdef OPENMP                
+                    #pragma omp cancelregion
+#else
+                    break;
+#endif
+                }
+                dist = distance;
+                outs = j;
+            } else {
+	            rMBR = rMBRs[j]; 
+    	        if ((!(rMBR->ymax < (lMBR->ymin-dist) ||
+        	                    rMBR->ymin > (lMBR->ymax+dist) ||
+            	                rMBR->xmax < (lMBR->xmin-dist) ||
+                	            rMBR->xmin > (lMBR->xmax+dist)))) {
+                	if ( (res = GEOSDistance(lGeometries[tNum], rGeometry, &distance)) == 0) {
+                    	msg = createException(MAL, name, "GEOSDistance failed");
+#ifdef OPENMP                
+#pragma omp cancelregion
+#else
+                    	break;
+#endif
+                	}
+                	if (distance <= dist) {
+                		dist = distance;
+                		outs = j;
+                	}
+            	}
+        	}
+        }
+
+        for (j = 0; j < numThreads; j++) {
+            GEOSGeom_destroy(lGeometries[j]);
+            lGeometries[j] = NULL;
+        }
+        GDKfree(lMBR);
+
+        if (msg != MAL_SUCCEED)
+            break;
+
+        if (outs == -1)
+        	fprintf(stderr, "Failed to get point\n");
+       	else {
+	        ro += outs;
+	        BUNappend(xl, &lo, FALSE);
+    	    BUNappend(xr, &ro, FALSE);
+    	}
+        outs = -1;
+        lo++;
+    }
+#ifdef GEOMBULK_DEBUG
+    gettimeofday(&stop, NULL);
+    t = 1000 * (stop.tv_sec - start.tv_sec) + (stop.tv_usec - start.tv_usec) / 1000;
+    fprintf(stdout, "%s second BATloop ql %d %llu ms\n", name, ql, t);
+#endif
+
+    GDKfree(lGeometries);
+
+    for (j = 0; j < BATcount(bx);j++) {
+        GEOSGeom_destroy(rGeometries[j]);
+        GDKfree(rMBRs[j]);
+    }
+    GDKfree(rGeometries);
+    GDKfree(rMBRs);
+    
+    BBPunfix(*lid);
+    BBPunfix(*xid);
+    BBPunfix(*yid);
+    BBPunfix(*zid);
+
+    if (msg != MAL_SUCCEED) {
+	    BBPunfix(xl->batCacheid);
+    	BBPunfix(xr->batCacheid);
+    }  else {
+	    BBPkeepref(*lres = xl->batCacheid);
+    	BBPkeepref(*rres = xr->batCacheid);
+    }
+
+	return msg;
+}
+
+str
+DNNXYZsubjoin(bat *lres, bat *rres, bat *lid, bat *xid, bat *yid, bat *zid, int *srid, bat *sl, bat *sr, bit *nil_matches, lng *estimate)
+{
+    if (*sl != bat_nil || *sr != bat_nil)
+        throw(MAL, "DNNXYZsubjoin", "It has candidate lists");
+    if (*nil_matches == bit_nil)
+        throw(MAL, "DNNXYZsubjoin", "It has nil_matches");
+    if (*estimate != lng_nil)
+        throw(MAL, "DNNXYZsubjoin", "It has estimate");
+
+    return DNNXYZsubjoin_intern(lres, rres, lid, xid, yid, zid, srid, "geom.DNNXYZsubjoin");
 }
 
 static str
