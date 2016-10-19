@@ -8,11 +8,14 @@
 
 #ifndef _OLTP_H
 #define _OLTP_H
+
 #include "gdk.h"
 #include <stdarg.h>
 #include <time.h>
 #include "mal_exception.h"
 #include "mal_interpreter.h"
+
+#define _DEBUG_OLTP_
 
 mal_export str OLTPinit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str OLTPreset(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
