@@ -1774,6 +1774,8 @@ format_result(Mapi mid, MapiHdl hdl, char singleinstr)
 			continue;
 		case Q_UPDATE:
 			SQLqueryEcho(hdl);
+			if (formatter == RAWformatter)
+				CLEANrenderer(hdl);
 			if (formatter == RAWformatter ||
 			    formatter == TESTformatter)
 				mnstr_printf(toConsole, "[ " LLFMT "\t]\n", mapi_rows_affected(hdl));
@@ -1800,6 +1802,8 @@ format_result(Mapi mid, MapiHdl hdl, char singleinstr)
 			continue;
 		case Q_SCHEMA:
 			SQLqueryEcho(hdl);
+			if (formatter == RAWformatter)
+				CLEANrenderer(hdl);
 			if (formatter == TABLEformatter) {
 				mnstr_printf(toConsole, "operation successful");
 				if (singleinstr)
@@ -1811,6 +1815,8 @@ format_result(Mapi mid, MapiHdl hdl, char singleinstr)
 			continue;
 		case Q_TRANS:
 			SQLqueryEcho(hdl);
+			if (formatter == RAWformatter)
+				CLEANrenderer(hdl);
 			if (formatter == TABLEformatter)
 				mnstr_printf(toConsole,
 					     "auto commit mode: %s\n",
@@ -1818,6 +1824,8 @@ format_result(Mapi mid, MapiHdl hdl, char singleinstr)
 			continue;
 		case Q_PREPARE:
 			SQLqueryEcho(hdl);
+			if (formatter == RAWformatter)
+				CLEANrenderer(hdl);
 			if (formatter == TABLEformatter)
 				mnstr_printf(toConsole,
 					     "execute prepared statement "
