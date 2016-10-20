@@ -18,7 +18,7 @@
 #include "mtime.h"
 
 #define LOCKTIMEOUT 20 * 1000
-#define LOCKDELAY 200
+#define LOCKDELAY 20
 
 typedef struct{
 	Client cntxt;	// user holding the write lock
@@ -109,16 +109,14 @@ OLTPinit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int i,cnt,lck;
-	lng clk;
-	lng ms = GDKms();
+	int i,lck;
+	int clk;
 	str sql,cpy;
 
 	(void) stk;
 	if ( oltp_delay == FALSE )
 		return MAL_SUCCEED;
-
-	clk = (lng) time(0);
+	clk = GDKms();
 
 #ifdef _DEBUG_OLTP_
 	mnstr_printf(cntxt->fdout,"#OLTP %6d lock for client %d:", GDKms(), cntxt->idx);
@@ -142,19 +140,18 @@ OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 
 		MT_lock_set(&mal_oltpLock);
-		// check if all the locks are available 
-		cnt = 0;
+		// check if all write locks are available 
 		for( i=1; i< pci->argc; i++){
 			lck= getVarConstant(mb, getArg(pci,i)).val.ival;
-			if ( lck > 0)
-				cnt += oltp_locks[lck].locked == 0;
-			else cnt++;
+			if ( lck > 0 && oltp_locks[lck].locked )
+				break;
 		}
 
-		if( cnt == pci->argc -1){
+		if( i  == pci->argc ){
 #ifdef _DEBUG_OLTP_
 			mnstr_printf(cntxt->fdout,"#OLTP %6d set lock for client %d\n", GDKms(), cntxt->idx);
 #endif
+			clk = GDKms();
 			for( i=1; i< pci->argc; i++){
 				lck= getVarConstant(mb, getArg(pci,i)).val.ival;
 				// only set the write locks
@@ -165,7 +162,6 @@ OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					oltp_locks[lck].locked = 1;
 				}
 			}
-			//OLTPdump_(cntxt,"#grabbed the locks\n");
 			MT_lock_unset(&mal_oltpLock);
 			return MAL_SUCCEED;
 		} else {
@@ -173,8 +169,9 @@ OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #ifdef _DEBUG_OLTP_
 			mnstr_printf(cntxt->fdout,"#OLTP %d delay imposed for client %d\n", GDKms(), cntxt->idx);
 #endif
+			MT_sleep_ms(LOCKDELAY);
 		}
-	} while( GDKms() - ms < LOCKTIMEOUT);
+	} while( GDKms() - clk < LOCKTIMEOUT);
 
 #ifdef _DEBUG_OLTP_
 	mnstr_printf(cntxt->fdout,"#OLTP %6d proceed query for client %d\n", GDKms(), cntxt->idx);
@@ -184,7 +181,7 @@ OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	cpy = getName("copy_from");
 
 	for( i = 0; i < mb->stop; i++)
-		if( getModuleId(getInstrPtr(mb,i)) == sql && getFunctionId(getInstrPtr(mb,i)) == cpy){
+		if( getFunctionId(getInstrPtr(mb,i)) == cpy && getModuleId(getInstrPtr(mb,i)) == sql ){
 #ifdef _DEBUG_OLTP_
 			mnstr_printf(cntxt->fdout,"#OLTP %6d bail out a concurrent copy into %d\n", GDKms(), cntxt->idx);
 #endif
