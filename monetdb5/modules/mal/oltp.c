@@ -123,7 +123,6 @@ OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #ifdef _DEBUG_OLTP_
 	mnstr_printf(cntxt->fdout,"#OLTP lock for client %d:", cntxt->idx);
 	printInstruction(cntxt->fdout,mb,stk,pci, LIST_MAL_ALL);
-	mnstr_printf(cntxt->fdout,"\n");
 #endif
 	do{
 		// checking the collision of read locks with write locks
@@ -204,6 +203,10 @@ OLTPrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return MAL_SUCCEED;
 
 	MT_lock_set(&mal_oltpLock);
+#ifdef _DEBUG_OLTP_
+	mnstr_printf(cntxt->fdout,"#OLTP release the locks %d\n", cntxt->idx);
+	printInstruction(cntxt->fdout,mb,stk,pci, LIST_MAL_ALL);
+#endif
 	for( i=1; i< pci->argc; i++){
 		lck= getVarConstant(mb, getArg(pci,i)).val.ival;
 		if( lck > 0){
@@ -213,7 +216,6 @@ OLTPrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				oltp_locks[lck].locked = 0;
 			}
 	}
-	//OLTPdump_(cntxt, "#released the locks\n");
 	MT_lock_unset(&mal_oltpLock);
 	return MAL_SUCCEED;
 }
