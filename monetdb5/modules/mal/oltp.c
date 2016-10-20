@@ -18,7 +18,7 @@
 #include "mtime.h"
 
 #define LOCKTIMEOUT 20 * 1000
-#define LOCKDELAY 20
+#define LOCKDELAY 200
 
 typedef struct{
 	Client cntxt;	// user holding the write lock
@@ -202,6 +202,7 @@ OLTPrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ( oltp_delay == FALSE )
 		return MAL_SUCCEED;
 
+	MT_sleep_ms(LOCKDELAY); // testing
 	MT_lock_set(&mal_oltpLock);
 #ifdef _DEBUG_OLTP_
 	mnstr_printf(cntxt->fdout,"#OLTP release the locks %d:", cntxt->idx);
