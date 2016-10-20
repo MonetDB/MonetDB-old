@@ -204,7 +204,7 @@ OLTPrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	MT_lock_set(&mal_oltpLock);
 #ifdef _DEBUG_OLTP_
-	mnstr_printf(cntxt->fdout,"#OLTP release the locks %d\n", cntxt->idx);
+	mnstr_printf(cntxt->fdout,"#OLTP release the locks %d:", cntxt->idx);
 	printInstruction(cntxt->fdout,mb,stk,pci, LIST_MAL_ALL);
 #endif
 	for( i=1; i< pci->argc; i++){
