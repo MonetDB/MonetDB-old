@@ -15,6 +15,12 @@
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
  * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
+ *
+ * Acknowledgement
+ * ===============
+ * 
+ * The research leading to this code has been partially funded by the European
+ * Commission under FP7 programme project #611068.
  */
 
 package nl.cwi.monetdb.jdbc;

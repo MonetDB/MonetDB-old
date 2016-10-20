@@ -3,6 +3,13 @@
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 --
 -- Copyright 2008-2015 MonetDB B.V.
+--
+-- Acknowledgement
+-- ===============
+-- 
+-- The research leading to this code has been partially funded by the European
+-- Commission under FP7 programme project #611068.
+
 
 CREATE PROCEDURE precommit(id bigint)
 	EXTERNAL name sql.precommit;

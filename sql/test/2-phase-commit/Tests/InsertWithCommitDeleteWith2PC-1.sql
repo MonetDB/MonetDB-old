@@ -1,3 +1,9 @@
+-- Acknowledgement
+-- ===============
+-- 
+-- The research leading to this code has been partially funded by the European
+-- Commission under FP7 programme project #611068.
+
 INSERT INTO htmtest VALUES (19, 99), (20, 99), (21, 99);
 SELECT * FROM htmtest;
 
