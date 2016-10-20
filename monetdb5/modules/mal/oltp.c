@@ -130,8 +130,12 @@ OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		// we can always try it again
 		for( i=1; i< pci->argc; i++){
 			lck= getVarConstant(mb, getArg(pci,i)).val.ival;
-			if( lck < 0 && oltp_locks[-lck].locked )
-				goto lockdelay;
+			if( (lck < 0 && oltp_locks[-lck].locked) || (lck > 0 && oltp_locks[lck].locked))
+				break;
+		}
+		if ( i < pci->argc){
+			MT_sleep_ms(LOCKDELAY);
+			continue;
 		}
 #ifdef _DEBUG_OLTP_
 		mnstr_printf(cntxt->fdout,"#OLTP %6d lock does not cause conflict\n", GDKms());
@@ -166,11 +170,9 @@ OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			return MAL_SUCCEED;
 		} else {
 			MT_lock_unset(&mal_oltpLock);
-lockdelay:
 #ifdef _DEBUG_OLTP_
 			mnstr_printf(cntxt->fdout,"#OLTP %d delay imposed for client %d\n", GDKms(), cntxt->idx);
 #endif
-			MT_sleep_ms(LOCKDELAY);
 		}
 	} while( GDKms() - ms < LOCKTIMEOUT);
 
