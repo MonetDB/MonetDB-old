@@ -3735,7 +3735,7 @@ add_cache(struct MapiResultSet *result, char *line, int cacheall)
 	result->cache.line[result->cache.writer].rows = line;
 	result->cache.line[result->cache.writer].tuplerev = result->cache.tuplecount;
 	result->cache.line[result->cache.writer + 1].tuplerev = result->cache.tuplecount + 1;
-	if (*line == '[' || *line == '=') {
+	if (*line == '[' || *line == '=' || *line == '#') {
 		result->cache.line[result->cache.tuplecount++].tupleindex = result->cache.writer;
 		if (result->row_count < result->cache.first + result->cache.tuplecount)
 			result->row_count = result->cache.first + result->cache.tuplecount;
