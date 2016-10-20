@@ -136,7 +136,6 @@ OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #ifdef _DEBUG_OLTP_
 		mnstr_printf(cntxt->fdout,"#OLTP %6d lock does not cause conflict\n", GDKms());
 #endif
-		break;
 
 		MT_lock_set(&mal_oltpLock);
 		// check if all the locks are available 
@@ -202,7 +201,6 @@ OLTPrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ( oltp_delay == FALSE )
 		return MAL_SUCCEED;
 
-	MT_sleep_ms(LOCKDELAY); // testing
 	MT_lock_set(&mal_oltpLock);
 #ifdef _DEBUG_OLTP_
 	mnstr_printf(cntxt->fdout,"#OLTP %6d release the locks %d:", GDKms(), cntxt->idx);
