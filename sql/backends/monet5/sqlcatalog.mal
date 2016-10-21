@@ -145,3 +145,4 @@ comment "Catalog operation alter_del_table";
 pattern alter_set_table( sname:str, tnme:str, access:int) 
 address SQLalter_set_table 
 comment "Catalog operation alter_set_table";
+

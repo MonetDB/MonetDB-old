@@ -83,7 +83,8 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( updates == 0)
 		return 0;
 
-	lcks= newInstruction(mb, ASSIGNsymbol);
+	// Get a free instruction, don't get it from mb
+	lcks= newInstruction(0, ASSIGNsymbol);
 	setModuleId(lcks, oltpRef);
 	setFunctionId(lcks, lockRef);
 	getArg(lcks,0)= newTmpVariable(mb, TYPE_void);
@@ -101,7 +102,7 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	// Now optimize the code
-	if ( newMalBlkStmt(mb,mb->stop) < 0)
+	if ( newMalBlkStmt(mb,mb->ssize + 6) < 0)
 		return 0;
 	pushInstruction(mb,old[0]);
 	pushInstruction(mb,lcks);
@@ -120,7 +121,7 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		pushInstruction(mb,p);
 	} 
 	for(; i<slimit; i++)
-		if (old[i]) 
+		if( old[i])
 			freeInstruction(old[i]);
 	GDKfree(old);
 

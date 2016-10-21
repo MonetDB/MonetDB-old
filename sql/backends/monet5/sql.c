@@ -237,72 +237,6 @@ SQLmvc(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
-str
-SQLtransaction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	mvc *sql = NULL;
-	str msg;
-	int type = *getArgReference_int(stk, pci, 1);
-	int chain = *getArgReference_int(stk, pci, 2);
-	str name = *getArgReference_str(stk, pci, 3);
-	char buf[BUFSIZ];
-	int ret = 0;
-
-	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
-		return msg;
-	if ((msg = checkSQLContext(cntxt)) != NULL)
-		return msg;
-	if (name && strcmp(name, str_nil) == 0)
-		name = NULL;
-
-	switch (type) {
-	case DDL_RELEASE:
-		if (sql->session->auto_commit == 1)
-			throw(SQL, "sql.trans", "3BM30!RELEASE SAVEPOINT: not allowed in auto commit mode");
-		ret = mvc_release(sql, name);
-		if (ret < 0) {
-			snprintf(buf, BUFSIZ, "3B000!RELEASE SAVEPOINT: (%s) failed", name);
-			throw(SQL, "sql.trans", "%s", buf);
-		}
-		break;
-	case DDL_COMMIT:
-		if (sql->session->auto_commit == 1) {
-			if (name)
-				throw(SQL, "sql.trans", "3BM30!SAVEPOINT: not allowed in auto commit mode");
-			else
-				throw(SQL, "sql.trans", "2DM30!COMMIT: not allowed in auto commit mode");
-		}
-		ret = mvc_commit(sql, chain, name);
-		if (ret < 0 && !name)
-			throw(SQL, "sql.trans", "2D000!COMMIT: failed");
-		if (ret < 0 && name)
-			throw(SQL, "sql.trans", "3B000!SAVEPOINT: (%s) failed", name);
-		break;
-	case DDL_ROLLBACK:
-		if (sql->session->auto_commit == 1)
-			throw(SQL, "sql.trans", "2DM30!ROLLBACK: not allowed in auto commit mode");
-		ret = mvc_rollback(sql, chain, name);
-		if (ret < 0 && name) {
-			snprintf(buf, BUFSIZ, "3B000!ROLLBACK TO SAVEPOINT: (%s) failed", name);
-			throw(SQL, "sql.trans", "%s", buf);
-		}
-		break;
-	case DDL_TRANS:
-		if (sql->session->auto_commit == 0)
-			throw(SQL, "sql.trans", "25001!START TRANSACTION: cannot start a transaction within a transaction");
-		if (sql->session->active) {
-			mvc_rollback(sql, 0, NULL);
-		}
-		sql->session->auto_commit = 0;
-		sql->session->ac_on_commit = 1;
-		sql->session->level = chain;
-		(void) mvc_trans(sql);
-		break;
-	default:
-		throw(SQL, "sql.trans", "transaction unknown type");
-	}
-	return MAL_SUCCEED;
-}
 
 str
 SQLcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
@@ -354,31 +288,6 @@ SQLshutdown_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		/* administer the shutdown */
 		mnstr_printf(GDKstdout, "#%s\n", *getArgReference_str(stk, pci, 0));
 	}
-	return msg;
-}
-
-str
-SQLtransaction2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	mvc *sql = NULL;
-	str msg;
-
-	(void) stk;
-	(void) pci;
-
-	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
-		return msg;
-	if ((msg = checkSQLContext(cntxt)) != NULL)
-		return msg;
-	if (sql->session->auto_commit == 0)
-		throw(SQL, "sql.trans", "25001!START TRANSACTION: cannot start a transaction within a transaction");
-	if (sql->session->active) {
-		mvc_rollback(sql, 0, NULL);
-	}
-	sql->session->auto_commit = 0;
-	sql->session->ac_on_commit = 1;
-	sql->session->level = 0;
-	(void) mvc_trans(sql);
 	return msg;
 }
 

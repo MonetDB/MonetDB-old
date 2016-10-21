@@ -1,0 +1,7 @@
+# ChangeLog file for monetdb5
+# This file is updated with Maddlog
+
+* Thu Oct 20 2016 Martin Kersten <mk@cwi.nl>
+- The catalog functions have been turned into proper MAL instructions
+  for better readability and subsequent analysis.
+

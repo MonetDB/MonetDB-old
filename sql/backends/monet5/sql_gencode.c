@@ -2449,13 +2449,28 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 				return -1;
 			if (s->op2 && (r = _dumpstmt(sql, mb, s->op2)) < 0)
 				return -1;
-			q = newStmt(mb, sqlRef, "trans");
-			q = pushInt(mb, q, s->flag);
-			q = pushArgument(mb, q, l);
-			if (r > 0)
+			switch(s->flag){
+			case DDL_RELEASE:
+				q = newStmt(mb, sqlRef, transaction_releaseRef);
 				q = pushArgument(mb, q, r);
-			else
-				q = pushNil(mb, q, TYPE_str);
+				break;
+			case DDL_COMMIT:
+				q = newStmt(mb, sqlRef, transaction_commitRef);
+				q = pushArgument(mb, q, l);
+				q = pushArgument(mb, q, r);
+				break;
+			case DDL_ROLLBACK:
+				q = newStmt(mb, sqlRef, transaction_rollbackRef);
+				q = pushArgument(mb, q, l);
+				q = pushArgument(mb, q, r);
+				break;
+			case DDL_TRANS:
+				q = newStmt(mb, sqlRef, transaction_beginRef);
+				q = pushArgument(mb, q, l);
+				break;
+			default:
+				showException(GDKout, SQL, "sql.trans", "transaction unknown type");
+			}
 			if (q == NULL)
 				return -1;
 			s->nr = getDestVar(q);
