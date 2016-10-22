@@ -48,12 +48,14 @@ SQLtransaction_release(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	mvc *sql = NULL;
 	str msg;
-	str name = *getArgReference_str(stk, pci, 1);
+	int chain = *getArgReference_int(stk, pci, 1);
+	str name = *getArgReference_str(stk, pci, 2);
 	char buf[BUFSIZ];
 	int ret = 0;
 
 	initcontext();
 
+	(void) chain;
 	if (sql->session->auto_commit == 1)
 		throw(SQL, "sql.trans", "3BM30!RELEASE SAVEPOINT: not allowed in auto commit mode");
 	ret = mvc_release(sql, name);

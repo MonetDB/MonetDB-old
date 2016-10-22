@@ -6,7 +6,7 @@
 
 module sql;
 
-pattern transaction_release(name:str):void
+pattern transaction_release(chain:int,name:str):void
 address SQLtransaction_release
 comment "A transaction statement (type can be commit,release,rollback or start)";
 
