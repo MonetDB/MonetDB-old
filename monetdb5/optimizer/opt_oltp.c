@@ -84,9 +84,7 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return 0;
 
 	// Get a free instruction, don't get it from mb
-	lcks= newInstruction(0, ASSIGNsymbol);
-	setModuleId(lcks, oltpRef);
-	setFunctionId(lcks, lockRef);
+	lcks= newInstruction(0, oltpRef,lockRef);
 	getArg(lcks,0)= newTmpVariable(mb, TYPE_void);
 
 	for( i = 0; i< MAXOLTPLOCKS; i++)
