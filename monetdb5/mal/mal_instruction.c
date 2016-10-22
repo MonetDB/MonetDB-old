@@ -1273,6 +1273,7 @@ pushArgument(MalBlkPtr mb, InstrPtr p, int varid)
 	if (p == NULL)
 		return NULL;
 	if (varid < 0) {
+		assert(0);
 		freeInstruction(p);
 		return NULL;
 	}
