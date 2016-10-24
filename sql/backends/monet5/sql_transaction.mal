@@ -15,7 +15,7 @@ address SQLtransaction_commit
 comment "A transaction statement (type can be commit,release,rollback or start)";
 
 pattern transaction_rollback(chain:int,name:str):void
-address SQLtransaction_commit
+address SQLtransaction_rollback
 comment "A transaction statement (type can be commit,release,rollback or start)";
 
 pattern transaction_begin(chain:int,name:str):void
