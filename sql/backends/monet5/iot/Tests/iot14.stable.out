@@ -110,14 +110,14 @@ end user.iot_sdel00;
 [ 2005-09-23 12:34:26.736000,	4,	12.34	]
 [ 2005-09-23 12:34:26.736000,	3,	12.34	]
 #select count(*) from sdel;
-% iot.L1 # table_name
-% L1 # name
+% iot.L4 # table_name
+% L3 # name
 % bigint # type
 % 1 # length
 [ 4	]
 #select 'final state';
-% .L # table_name
-% single_value # name
+% .L2 # table_name
+% L2 # name
 % char # type
 % 11 # length
 [ "final state"	]

@@ -23,7 +23,7 @@
 InstrPtr
 newAssignment(MalBlkPtr mb)
 {
-	InstrPtr q = newInstruction(mb,ASSIGNsymbol);
+	InstrPtr q = newInstruction(mb,NULL,NULL);
 
 	if (q == NULL)
 		return NULL;
@@ -42,12 +42,10 @@ newAssignment(MalBlkPtr mb)
 InstrPtr
 newStmt(MalBlkPtr mb, const char *module, const char *name)
 {
-	InstrPtr q = newInstruction(mb,ASSIGNsymbol);
+	InstrPtr q = newInstruction(mb, putName(module), putName(name));
 
 	if (q == NULL)
 		return NULL;
-	setModuleId(q, putName(module));
-	setFunctionId(q, putName(name));
 	setDestVar(q, newTmpVariable(mb, TYPE_any));
 	if (getDestVar(q) < 0) {
 		freeInstruction(q);
@@ -64,7 +62,7 @@ newStmt(MalBlkPtr mb, const char *module, const char *name)
 InstrPtr
 newReturnStmt(MalBlkPtr mb)
 {
-	InstrPtr q = newInstruction(mb,ASSIGNsymbol);
+	InstrPtr q = newInstruction(mb, NULL,NULL);
 
 	if (q == NULL)
 		return NULL;
@@ -96,11 +94,13 @@ newFcnCall(MalBlkPtr mb, char *mod, char *fcn)
 InstrPtr
 newComment(MalBlkPtr mb, const char *val)
 {
-	InstrPtr q = newInstruction(mb, REMsymbol);
+	InstrPtr q = newInstruction(mb, NULL,NULL);
 	ValRecord cst;
 
 	if (q == NULL)
 		return NULL;
+	q->token = REMsymbol;
+	q->barrier = 0;
 	cst.vtype= TYPE_str;
 	if ((cst.val.sval= GDKstrdup(val)) == NULL) {
 		freeInstruction(q);
@@ -621,7 +621,10 @@ pushValue(MalBlkPtr mb, InstrPtr q, ValPtr vr)
 
 	if (q == NULL)
 		return NULL;
-	VALcopy(&cst, vr);
+	if (VALcopy(&cst, vr) == NULL) {
+		freeInstruction(q);
+		return NULL;
+	}
 	_t = defConstant(mb,cst.vtype,&cst);
 	return pushArgument(mb, q, _t);
 }

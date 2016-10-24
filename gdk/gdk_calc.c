@@ -60,11 +60,9 @@
 static gdk_return
 checkbats(BAT *b1, BAT *b2, const char *func)
 {
-	if (b2 != NULL) {
-		if (b1->batCount != b2->batCount) {
-			GDKerror("%s: inputs not the same size.\n", func);
-			return GDK_FAIL;
-		}
+	if (b1->batCount != b2->batCount) {
+		GDKerror("%s: inputs not the same size.\n", func);
+		return GDK_FAIL;
 	}
 	return GDK_SUCCEED;
 }
@@ -196,8 +194,6 @@ BATcalcnot(BAT *b, BAT *s)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalcnot", NULL);
-	if (checkbats(b, NULL, "BATcalcnot") != GDK_SUCCEED)
-		return NULL;
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
 	bn = COLnew(b->hseqbase, b->ttype, cnt, TRANSIENT);
@@ -315,8 +311,6 @@ BATcalcnegate(BAT *b, BAT *s)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalcnegate", NULL);
-	if (checkbats(b, NULL, "BATcalcnegate") != GDK_SUCCEED)
-		return NULL;
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
 	bn = COLnew(b->hseqbase, b->ttype, cnt, TRANSIENT);
@@ -444,8 +438,6 @@ BATcalcabsolute(BAT *b, BAT *s)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalcabsolute", NULL);
-	if (checkbats(b, NULL, "BATcalcabsolute") != GDK_SUCCEED)
-		return NULL;
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
 	bn = COLnew(b->hseqbase, b->ttype, cnt, TRANSIENT);
@@ -577,8 +569,6 @@ BATcalciszero(BAT *b, BAT *s)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalciszero", NULL);
-	if (checkbats(b, NULL, "BATcalciszero") != GDK_SUCCEED)
-		return NULL;
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
 	bn = COLnew(b->hseqbase, TYPE_bit, cnt, TRANSIENT);
@@ -708,8 +698,6 @@ BATcalcsign(BAT *b, BAT *s)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalcsign", NULL);
-	if (checkbats(b, NULL, "BATcalcsign") != GDK_SUCCEED)
-		return NULL;
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
 	bn = COLnew(b->hseqbase, TYPE_bte, cnt, TRANSIENT);
@@ -1122,6 +1110,182 @@ BATcalcmin_no_nil(BAT *b1, BAT *b2, BAT *s)
 }
 
 BAT *
+BATcalcmincst(BAT *b, const ValRecord *v, BAT *s)
+{
+	BAT *bn;
+	BUN nils;
+	BUN start, end, cnt;
+	BUN i;
+	const oid *restrict cand = NULL, *candend = NULL;
+	const void *restrict nil;
+	const void *p1, *p2;
+	BATiter bi;
+	int (*cmp)(const void *, const void *);
+
+	BATcheck(b, "BATcalcmincst", NULL);
+	if (ATOMtype(b->ttype) != v->vtype) {
+		GDKerror("BATcalcmincst: inputs have incompatible types\n");
+		return NULL;
+	}
+
+	CANDINIT(b, s, start, end, cnt, cand, candend);
+
+	nil = ATOMnilptr(b->ttype);
+	cmp = ATOMcompare(b->ttype);
+	p2 = VALptr(v);
+	if (cmp(p2, nil) == 0 ||
+	    (b->ttype == TYPE_void && b->tseqbase == oid_nil))
+		return BATconstant(b->hseqbase, b->ttype == TYPE_oid ? TYPE_void : b->ttype, nil, cnt, TRANSIENT);
+
+	bn = COLnew(b->hseqbase, b->ttype, cnt, TRANSIENT);
+	if (bn == NULL)
+		return NULL;
+	bi = bat_iterator(b);
+
+	for (i = 0; i < start; i++)
+		bunfastapp(bn, nil);
+	nils = start;
+	for (i = start; i < end; i++) {
+		if (cand) {
+			if (i < *cand - b->hseqbase) {
+				nils++;
+				bunfastapp(bn, nil);
+				continue;
+			}
+			assert(i == *cand - b->hseqbase);
+			if (++cand == candend)
+				end = i + 1;
+		}
+		p1 = BUNtail(bi, i);
+		if (cmp(p1, nil) == 0) {
+			nils++;
+			p1 = nil;
+		} else if (cmp(p1, p2) > 0) {
+			p1 = p2;
+		}
+		bunfastapp(bn, p1);
+	}
+	for (i = end; i < cnt; i++)
+		bunfastapp(bn, nil);
+	nils += cnt - end;
+	bn->tnil = nils > 0;
+	bn->tnonil = nils == 0;
+	if (cnt <= 1) {
+		bn->tsorted = 1;
+		bn->trevsorted = 1;
+		bn->tkey = 1;
+		bn->tdense = ATOMtype(b->ttype) == TYPE_oid;
+		if (bn->tdense)
+			bn->tseqbase = cnt == 1 ? *(oid*)Tloc(bn,0) : 0;
+	} else {
+		bn->tsorted = 0;
+		bn->trevsorted = 0;
+		bn->tkey = 0;
+		bn->tdense = 0;
+	}
+	return bn;
+  bunins_failed:
+	BBPreclaim(bn);
+	return NULL;
+}
+
+BAT *
+BATcalccstmin(const ValRecord *v, BAT *b, BAT *s)
+{
+	return BATcalcmincst(b, v, s);
+}
+
+BAT *
+BATcalcmincst_no_nil(BAT *b, const ValRecord *v, BAT *s)
+{
+	BAT *bn;
+	BUN nils;
+	BUN start, end, cnt;
+	BUN i;
+	const oid *restrict cand = NULL, *candend = NULL;
+	const void *restrict nil;
+	const void *p1, *p2;
+	BATiter bi;
+	int (*cmp)(const void *, const void *);
+
+	BATcheck(b, "BATcalcmincst", NULL);
+	if (ATOMtype(b->ttype) != v->vtype) {
+		GDKerror("BATcalcmincst: inputs have incompatible types\n");
+		return NULL;
+	}
+
+	CANDINIT(b, s, start, end, cnt, cand, candend);
+
+	nil = ATOMnilptr(b->ttype);
+	cmp = ATOMcompare(b->ttype);
+	p2 = VALptr(v);
+	if (b->ttype == TYPE_void &&
+	    b->tseqbase == oid_nil &&
+	    * (const oid *) p2 == oid_nil)
+		return BATconstant(b->hseqbase, TYPE_void, &oid_nil, cnt, TRANSIENT);
+
+	bn = COLnew(b->hseqbase, ATOMtype(b->ttype), cnt, TRANSIENT);
+	if (bn == NULL)
+		return NULL;
+	bi = bat_iterator(b);
+	if (cmp(p2, nil) == 0)
+		p2 = NULL;
+
+	for (i = 0; i < start; i++)
+		bunfastapp(bn, nil);
+	nils = start;
+	for (i = start; i < end; i++) {
+		if (cand) {
+			if (i < *cand - b->hseqbase) {
+				nils++;
+				bunfastapp(bn, nil);
+				continue;
+			}
+			assert(i == *cand - b->hseqbase);
+			if (++cand == candend)
+				end = i + 1;
+		}
+		p1 = BUNtail(bi, i);
+		if (p2) {
+			if (cmp(p1, nil) == 0) {
+				p1 = p2;
+			} else if (cmp(p1, p2) > 0) {
+				p1 = p2;
+			}
+		}
+		bunfastapp(bn, p1);
+	}
+	for (i = end; i < cnt; i++)
+		bunfastapp(bn, nil);
+	nils += cnt - end;
+	bn->tnil = nils > 0;
+	bn->tnonil = nils == 0;
+	if (cnt <= 1) {
+		bn->tsorted = 1;
+		bn->trevsorted = 1;
+		bn->tkey = 1;
+		bn->tdense = ATOMtype(b->ttype) == TYPE_oid;
+		if (bn->tdense)
+			bn->tseqbase = cnt == 1 ? *(oid*)Tloc(bn,0) : 0;
+	} else {
+		bn->tsorted = 0;
+		bn->trevsorted = 0;
+		bn->tkey = 0;
+		bn->tdense = 0;
+	}
+	return bn;
+  bunins_failed:
+	BBPreclaim(bn);
+	return NULL;
+}
+
+BAT *
+BATcalccstmin_no_nil(const ValRecord *v, BAT *b, BAT *s)
+{
+	return BATcalcmincst_no_nil(b, v, s);
+}
+
+BAT *
 BATcalcmax(BAT *b1, BAT *b2, BAT *s)
 {
 	BAT *bn;
@@ -1285,6 +1449,182 @@ BATcalcmax_no_nil(BAT *b1, BAT *b2, BAT *s)
   bunins_failed:
 	BBPreclaim(bn);
 	return NULL;
+}
+
+BAT *
+BATcalcmaxcst(BAT *b, const ValRecord *v, BAT *s)
+{
+	BAT *bn;
+	BUN nils;
+	BUN start, end, cnt;
+	BUN i;
+	const oid *restrict cand = NULL, *candend = NULL;
+	const void *restrict nil;
+	const void *p1, *p2;
+	BATiter bi;
+	int (*cmp)(const void *, const void *);
+
+	BATcheck(b, "BATcalcmaxcst", NULL);
+	if (ATOMtype(b->ttype) != v->vtype) {
+		GDKerror("BATcalcmaxcst: inputs have incompatible types\n");
+		return NULL;
+	}
+
+	CANDINIT(b, s, start, end, cnt, cand, candend);
+
+	nil = ATOMnilptr(b->ttype);
+	cmp = ATOMcompare(b->ttype);
+	p2 = VALptr(v);
+	if (cmp(p2, nil) == 0 ||
+	    (b->ttype == TYPE_void && b->tseqbase == oid_nil))
+		return BATconstant(b->hseqbase, b->ttype == TYPE_oid ? TYPE_void : b->ttype, nil, cnt, TRANSIENT);
+
+	bn = COLnew(b->hseqbase, b->ttype, cnt, TRANSIENT);
+	if (bn == NULL)
+		return NULL;
+	bi = bat_iterator(b);
+
+	for (i = 0; i < start; i++)
+		bunfastapp(bn, nil);
+	nils = start;
+	for (i = start; i < end; i++) {
+		if (cand) {
+			if (i < *cand - b->hseqbase) {
+				nils++;
+				bunfastapp(bn, nil);
+				continue;
+			}
+			assert(i == *cand - b->hseqbase);
+			if (++cand == candend)
+				end = i + 1;
+		}
+		p1 = BUNtail(bi, i);
+		if (cmp(p1, nil) == 0) {
+			nils++;
+			p1 = nil;
+		} else if (cmp(p1, p2) < 0) {
+			p1 = p2;
+		}
+		bunfastapp(bn, p1);
+	}
+	for (i = end; i < cnt; i++)
+		bunfastapp(bn, nil);
+	nils += cnt - end;
+	bn->tnil = nils > 0;
+	bn->tnonil = nils == 0;
+	if (cnt <= 1) {
+		bn->tsorted = 1;
+		bn->trevsorted = 1;
+		bn->tkey = 1;
+		bn->tdense = ATOMtype(b->ttype) == TYPE_oid;
+		if (bn->tdense)
+			bn->tseqbase = cnt == 1 ? *(oid*)Tloc(bn,0) : 0;
+	} else {
+		bn->tsorted = 0;
+		bn->trevsorted = 0;
+		bn->tkey = 0;
+		bn->tdense = 0;
+	}
+	return bn;
+  bunins_failed:
+	BBPreclaim(bn);
+	return NULL;
+}
+
+BAT *
+BATcalccstmax(const ValRecord *v, BAT *b, BAT *s)
+{
+	return BATcalcmaxcst(b, v, s);
+}
+
+BAT *
+BATcalcmaxcst_no_nil(BAT *b, const ValRecord *v, BAT *s)
+{
+	BAT *bn;
+	BUN nils;
+	BUN start, end, cnt;
+	BUN i;
+	const oid *restrict cand = NULL, *candend = NULL;
+	const void *restrict nil;
+	const void *p1, *p2;
+	BATiter bi;
+	int (*cmp)(const void *, const void *);
+
+	BATcheck(b, "BATcalcmaxcst", NULL);
+	if (ATOMtype(b->ttype) != v->vtype) {
+		GDKerror("BATcalcmaxcst: inputs have incompatible types\n");
+		return NULL;
+	}
+
+	CANDINIT(b, s, start, end, cnt, cand, candend);
+
+	nil = ATOMnilptr(b->ttype);
+	cmp = ATOMcompare(b->ttype);
+	p2 = VALptr(v);
+	if (b->ttype == TYPE_void &&
+	    b->tseqbase == oid_nil &&
+	    * (const oid *) p2 == oid_nil)
+		return BATconstant(b->hseqbase, TYPE_void, &oid_nil, cnt, TRANSIENT);
+
+	bn = COLnew(b->hseqbase, ATOMtype(b->ttype), cnt, TRANSIENT);
+	if (bn == NULL)
+		return NULL;
+	bi = bat_iterator(b);
+	if (cmp(p2, nil) == 0)
+		p2 = NULL;
+
+	for (i = 0; i < start; i++)
+		bunfastapp(bn, nil);
+	nils = start;
+	for (i = start; i < end; i++) {
+		if (cand) {
+			if (i < *cand - b->hseqbase) {
+				nils++;
+				bunfastapp(bn, nil);
+				continue;
+			}
+			assert(i == *cand - b->hseqbase);
+			if (++cand == candend)
+				end = i + 1;
+		}
+		p1 = BUNtail(bi, i);
+		if (p2) {
+			if (cmp(p1, nil) == 0) {
+				p1 = p2;
+			} else if (cmp(p1, p2) < 0) {
+				p1 = p2;
+			}
+		}
+		bunfastapp(bn, p1);
+	}
+	for (i = end; i < cnt; i++)
+		bunfastapp(bn, nil);
+	nils += cnt - end;
+	bn->tnil = nils > 0;
+	bn->tnonil = nils == 0;
+	if (cnt <= 1) {
+		bn->tsorted = 1;
+		bn->trevsorted = 1;
+		bn->tkey = 1;
+		bn->tdense = ATOMtype(b->ttype) == TYPE_oid;
+		if (bn->tdense)
+			bn->tseqbase = cnt == 1 ? *(oid*)Tloc(bn,0) : 0;
+	} else {
+		bn->tsorted = 0;
+		bn->trevsorted = 0;
+		bn->tkey = 0;
+		bn->tdense = 0;
+	}
+	return bn;
+  bunins_failed:
+	BBPreclaim(bn);
+	return NULL;
+}
+
+BAT *
+BATcalccstmax_no_nil(const ValRecord *v, BAT *b, BAT *s)
+{
+	return BATcalcmaxcst_no_nil(b, v, s);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -3183,9 +3523,6 @@ BATcalcaddcst(BAT *b, const ValRecord *v, BAT *s, int tp, int abort_on_error)
 
 	BATcheck(b, "BATcalcaddcst", NULL);
 
-	if (checkbats(b, NULL, "BATcalcaddcst") != GDK_SUCCEED)
-		return NULL;
-
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
 	bn = COLnew(b->hseqbase, tp, cnt, TRANSIENT);
@@ -3234,9 +3571,6 @@ BATcalccstadd(const ValRecord *v, BAT *b, BAT *s, int tp, int abort_on_error)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalccstadd", NULL);
-
-	if (checkbats(b, NULL, "BATcalccstadd") != GDK_SUCCEED)
-		return NULL;
 
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
@@ -3305,8 +3639,6 @@ BATcalcincrdecr(BAT *b, BAT *s, int abort_on_error,
 	bte one = 1;
 
 	BATcheck(b, func, NULL);
-	if (checkbats(b, NULL, func) != GDK_SUCCEED)
-		return NULL;
 
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
@@ -5180,9 +5512,6 @@ BATcalcsubcst(BAT *b, const ValRecord *v, BAT *s, int tp, int abort_on_error)
 
 	BATcheck(b, "BATcalcsubcst", NULL);
 
-	if (checkbats(b, NULL, "BATcalcsubcst") != GDK_SUCCEED)
-		return NULL;
-
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
 	bn = COLnew(b->hseqbase, tp, cnt, TRANSIENT);
@@ -5226,9 +5555,6 @@ BATcalccstsub(const ValRecord *v, BAT *b, BAT *s, int tp, int abort_on_error)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalccstsub", NULL);
-
-	if (checkbats(b, NULL, "BATcalccstsub") != GDK_SUCCEED)
-		return NULL;
 
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
@@ -7227,9 +7553,6 @@ BATcalcmulcst(BAT *b, const ValRecord *v, BAT *s, int tp, int abort_on_error)
 
 	BATcheck(b, "BATcalcmulcst", NULL);
 
-	if (checkbats(b, NULL, "BATcalcmulcst") != GDK_SUCCEED)
-		return NULL;
-
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
 	bn = COLnew(b->hseqbase, tp, cnt, TRANSIENT);
@@ -7283,9 +7606,6 @@ BATcalccstmul(const ValRecord *v, BAT *b, BAT *s, int tp, int abort_on_error)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalccstmul", NULL);
-
-	if (checkbats(b, NULL, "BATcalccstmul") != GDK_SUCCEED)
-		return NULL;
 
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
@@ -9266,9 +9586,6 @@ BATcalcdivcst(BAT *b, const ValRecord *v, BAT *s, int tp, int abort_on_error)
 
 	BATcheck(b, "BATcalcdivcst", NULL);
 
-	if (checkbats(b, NULL, "BATcalcdivcst") != GDK_SUCCEED)
-		return NULL;
-
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
 	bn = COLnew(b->hseqbase, tp, cnt, TRANSIENT);
@@ -9325,9 +9642,6 @@ BATcalccstdiv(const ValRecord *v, BAT *b, BAT *s, int tp, int abort_on_error)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalccstdiv", NULL);
-
-	if (checkbats(b, NULL, "BATcalccstdiv") != GDK_SUCCEED)
-		return NULL;
 
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
@@ -10848,9 +11162,6 @@ BATcalcmodcst(BAT *b, const ValRecord *v, BAT *s, int tp, int abort_on_error)
 
 	BATcheck(b, "BATcalcmodcst", NULL);
 
-	if (checkbats(b, NULL, "BATcalcmodcst") != GDK_SUCCEED)
-		return NULL;
-
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
 	bn = COLnew(b->hseqbase, tp, cnt, TRANSIENT);
@@ -10889,9 +11200,6 @@ BATcalccstmod(const ValRecord *v, BAT *b, BAT *s, int tp, int abort_on_error)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalccstmod", NULL);
-
-	if (checkbats(b, NULL, "BATcalccstmod") != GDK_SUCCEED)
-		return NULL;
 
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
@@ -11059,9 +11367,6 @@ BATcalcxorcst(BAT *b, const ValRecord *v, BAT *s)
 
 	BATcheck(b, "BATcalcxorcst", NULL);
 
-	if (checkbats(b, NULL, "BATcalcxorcst") != GDK_SUCCEED)
-		return NULL;
-
 	if (ATOMbasetype(b->ttype) != ATOMbasetype(v->vtype)) {
 		GDKerror("BATcalcxorcst: incompatible input types.\n");
 		return NULL;
@@ -11106,9 +11411,6 @@ BATcalccstxor(const ValRecord *v, BAT *b, BAT *s)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalccstxor", NULL);
-
-	if (checkbats(b, NULL, "BATcalccstxor") != GDK_SUCCEED)
-		return NULL;
 
 	if (ATOMbasetype(b->ttype) != ATOMbasetype(v->vtype)) {
 		GDKerror("BATcalccstxor: incompatible input types.\n");
@@ -11303,9 +11605,6 @@ BATcalcorcst(BAT *b, const ValRecord *v, BAT *s)
 
 	BATcheck(b, "BATcalcorcst", NULL);
 
-	if (checkbats(b, NULL, "BATcalcorcst") != GDK_SUCCEED)
-		return NULL;
-
 	if (ATOMbasetype(b->ttype) != ATOMbasetype(v->vtype)) {
 		GDKerror("BATcalcorcst: incompatible input types.\n");
 		return NULL;
@@ -11350,9 +11649,6 @@ BATcalccstor(const ValRecord *v, BAT *b, BAT *s)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalccstor", NULL);
-
-	if (checkbats(b, NULL, "BATcalccstor") != GDK_SUCCEED)
-		return NULL;
 
 	if (ATOMbasetype(b->ttype) != ATOMbasetype(v->vtype)) {
 		GDKerror("BATcalccstor: incompatible input types.\n");
@@ -11544,9 +11840,6 @@ BATcalcandcst(BAT *b, const ValRecord *v, BAT *s)
 
 	BATcheck(b, "BATcalcandcst", NULL);
 
-	if (checkbats(b, NULL, "BATcalcandcst") != GDK_SUCCEED)
-		return NULL;
-
 	if (ATOMbasetype(b->ttype) != ATOMbasetype(v->vtype)) {
 		GDKerror("BATcalcandcst: incompatible input types.\n");
 		return NULL;
@@ -11590,9 +11883,6 @@ BATcalccstand(const ValRecord *v, BAT *b, BAT *s)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalccstand", NULL);
-
-	if (checkbats(b, NULL, "BATcalccstand") != GDK_SUCCEED)
-		return NULL;
 
 	if (ATOMbasetype(b->ttype) != ATOMbasetype(v->vtype)) {
 		GDKerror("BATcalccstand: incompatible input types.\n");
@@ -11885,9 +12175,6 @@ BATcalclshcst(BAT *b, const ValRecord *v, BAT *s, int abort_on_error)
 
 	BATcheck(b, "BATcalclshcst", NULL);
 
-	if (checkbats(b, NULL, "BATcalclshcst") != GDK_SUCCEED)
-		return NULL;
-
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
 	bn = COLnew(b->hseqbase, b->ttype, cnt, TRANSIENT);
@@ -11925,9 +12212,6 @@ BATcalccstlsh(const ValRecord *v, BAT *b, BAT *s, int abort_on_error)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalccstlsh", NULL);
-
-	if (checkbats(b, NULL, "BATcalccstlsh") != GDK_SUCCEED)
-		return NULL;
 
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
@@ -12194,9 +12478,6 @@ BATcalcrshcst(BAT *b, const ValRecord *v, BAT *s, int abort_on_error)
 
 	BATcheck(b, "BATcalcrshcst", NULL);
 
-	if (checkbats(b, NULL, "BATcalcrshcst") != GDK_SUCCEED)
-		return NULL;
-
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
 	bn = COLnew(b->hseqbase, b->ttype, cnt, TRANSIENT);
@@ -12234,9 +12515,6 @@ BATcalccstrsh(const ValRecord *v, BAT *b, BAT *s, int abort_on_error)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalccstrsh", NULL);
-
-	if (checkbats(b, NULL, "BATcalccstrsh") != GDK_SUCCEED)
-		return NULL;
 
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
@@ -12642,9 +12920,6 @@ BATcalcbetweencstcst(BAT *b, const ValRecord *lo, const ValRecord *hi, BAT *s, i
 
 	BATcheck(b, "BATcalcbetweencstcst", NULL);
 
-	if (checkbats(b, NULL, "BATcalcbetweencstcst") != GDK_SUCCEED)
-		return NULL;
-
 	if (ATOMbasetype(b->ttype) != ATOMbasetype(lo->vtype) ||
 	    ATOMbasetype(b->ttype) != ATOMbasetype(hi->vtype)) {
 		GDKerror("BATcalcbetweencstcst: incompatible input types.\n");
@@ -12673,6 +12948,7 @@ BATcalcbetweenbatcst(BAT *b, BAT *lo, const ValRecord *hi, BAT *s, int sym)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalcbetweenbatcst", NULL);
+	BATcheck(lo, "BATcalcbetweenbatcst", NULL);
 
 	if (checkbats(b, lo, "BATcalcbetweenbatcst") != GDK_SUCCEED)
 		return NULL;
@@ -12706,6 +12982,7 @@ BATcalcbetweencstbat(BAT *b, const ValRecord *lo, BAT *hi, BAT *s, int sym)
 	const oid *restrict cand = NULL, *candend = NULL;
 
 	BATcheck(b, "BATcalcbetweencstbat", NULL);
+	BATcheck(hi, "BATcalcbetweencstbat", NULL);
 
 	if (checkbats(b, hi, "BATcalcbetweencstbat") != GDK_SUCCEED)
 		return NULL;
@@ -12815,13 +13092,30 @@ VARcalcbetween(ValPtr ret, const ValRecord *v, const ValRecord *lo,
 			l += incr2;					\
 		}							\
 	} while (0)
+#define IFTHENELSELOOP_oid()						\
+	do {								\
+		for (i = 0; i < cnt; i++) {				\
+			if (src[i] == bit_nil) {			\
+				((oid *) dst)[i] = oid_nil;		\
+				nils++;					\
+			} else if (src[i]) {				\
+				((oid *) dst)[i] = col1 ? ((oid *) col1)[k] : seq1; \
+			} else {					\
+				((oid *) dst)[i] = col2 ? ((oid *) col2)[k] : seq2; \
+			}						\
+			k += incr1;					\
+			l += incr2;					\
+			seq1 += incr1;					\
+			seq2 += incr2;					\
+		}							\
+	} while (0)
 
 static BAT *
 BATcalcifthenelse_intern(BAT *b,
 			 const void *col1, int incr1, const char *heap1,
-			 int width1, int nonil1,
+			 int width1, int nonil1, oid seq1,
 			 const void *col2, int incr2, const char *heap2,
-			 int width2, int nonil2,
+			 int width2, int nonil2, oid seq2,
 			 int tpe)
 {
 	BAT *bn;
@@ -12833,9 +13127,15 @@ BATcalcifthenelse_intern(BAT *b,
 	const bit *src;
 	BUN cnt = b->batCount;
 
-	assert(col2 != NULL);
+	/* col1 and col2 can only be NULL for void columns */
+	assert(col1 != NULL || ATOMtype(tpe) == TYPE_oid);
+	assert(col2 != NULL || ATOMtype(tpe) == TYPE_oid);
+	assert(col1 != NULL || heap1 == NULL);
+	assert(col2 != NULL || heap2 == NULL);
+	assert(col1 != NULL || incr1 == 1);
+	assert(col2 != NULL || incr2 == 1);
 
-	bn = COLnew(b->hseqbase, tpe, cnt, TRANSIENT);
+	bn = COLnew(b->hseqbase, ATOMtype(tpe), cnt, TRANSIENT);
 	if (bn == NULL)
 		return NULL;
 
@@ -12869,38 +13169,42 @@ BATcalcifthenelse_intern(BAT *b,
 	} else {
 		assert(heap1 == NULL);
 		assert(heap2 == NULL);
-		switch (bn->twidth) {
-		case 1:
-			IFTHENELSELOOP(bte);
-			break;
-		case 2:
-			IFTHENELSELOOP(sht);
-			break;
-		case 4:
-			IFTHENELSELOOP(int);
-			break;
-		case 8:
-			IFTHENELSELOOP(lng);
-			break;
+		if (ATOMtype(tpe) == TYPE_oid) {
+			IFTHENELSELOOP_oid();
+		} else {
+			switch (bn->twidth) {
+			case 1:
+				IFTHENELSELOOP(bte);
+				break;
+			case 2:
+				IFTHENELSELOOP(sht);
+				break;
+			case 4:
+				IFTHENELSELOOP(int);
+				break;
+			case 8:
+				IFTHENELSELOOP(lng);
+				break;
 #ifdef HAVE_HGE
-		case 16:
-			IFTHENELSELOOP(hge);
-			break;
+			case 16:
+				IFTHENELSELOOP(hge);
+				break;
 #endif
-		default:
-			for (i = 0; i < cnt; i++) {
-				if (src[i] == bit_nil) {
-					p = nil;
-					nils++;
-				} else if (src[i]) {
-					p = ((const char *) col1) + k * width1;
-				} else {
-					p = ((const char *) col2) + l * width2;
+			default:
+				for (i = 0; i < cnt; i++) {
+					if (src[i] == bit_nil) {
+						p = nil;
+						nils++;
+					} else if (src[i]) {
+						p = ((const char *) col1) + k * width1;
+					} else {
+						p = ((const char *) col2) + l * width2;
+					}
+					memcpy(dst, p, bn->twidth);
+					dst = (void *) ((char *) dst + bn->twidth);
+					k += incr1;
+					l += incr2;
 				}
-				memcpy(dst, p, bn->twidth);
-				dst = (void *) ((char *) dst + bn->twidth);
-				k += incr1;
-				l += incr2;
 			}
 		}
 	}
@@ -12935,8 +13239,8 @@ BATcalcifthenelse(BAT *b, BAT *b1, BAT *b2)
 		return NULL;
 	}
 	return BATcalcifthenelse_intern(b,
-					Tloc(b1, 0), 1, b1->tvheap ? b1->tvheap->base : NULL, b1->twidth, b1->tnonil,
-					Tloc(b2, 0), 1, b2->tvheap ? b2->tvheap->base : NULL, b2->twidth, b2->tnonil,
+					Tloc(b1, 0), 1, b1->tvheap ? b1->tvheap->base : NULL, b1->twidth, b1->tnonil, b1->tseqbase,
+					Tloc(b2, 0), 1, b2->tvheap ? b2->tvheap->base : NULL, b2->twidth, b2->tnonil, b2->tseqbase,
 					b1->ttype);
 }
 
@@ -12954,8 +13258,8 @@ BATcalcifthenelsecst(BAT *b, BAT *b1, const ValRecord *c2)
 		return NULL;
 	}
 	return BATcalcifthenelse_intern(b,
-					Tloc(b1, 0), 1, b1->tvheap ? b1->tvheap->base : NULL, b1->twidth, b1->tnonil,
-					VALptr(c2), 0, NULL, 0, !VALisnil(c2),
+					Tloc(b1, 0), 1, b1->tvheap ? b1->tvheap->base : NULL, b1->twidth, b1->tnonil, b1->tseqbase,
+					VALptr(c2), 0, NULL, 0, !VALisnil(c2), 0,
 					b1->ttype);
 }
 
@@ -12973,8 +13277,8 @@ BATcalcifthencstelse(BAT *b, const ValRecord *c1, BAT *b2)
 		return NULL;
 	}
 	return BATcalcifthenelse_intern(b,
-					VALptr(c1), 0, NULL, 0, !VALisnil(c1),
-					Tloc(b2, 0), 1, b2->tvheap ? b2->tvheap->base : NULL, b2->twidth, b2->tnonil,
+					VALptr(c1), 0, NULL, 0, !VALisnil(c1), 0,
+					Tloc(b2, 0), 1, b2->tvheap ? b2->tvheap->base : NULL, b2->twidth, b2->tnonil, b2->tseqbase,
 					c1->vtype);
 }
 
@@ -12985,15 +13289,13 @@ BATcalcifthencstelsecst(BAT *b, const ValRecord *c1, const ValRecord *c2)
 	BATcheck(c1, "BATcalcifthenelsecst", NULL);
 	BATcheck(c2, "BATcalcifthenelsecst", NULL);
 
-	if (checkbats(b, NULL, "BATcalcifthenelse") != GDK_SUCCEED)
-		return NULL;
 	if (b->ttype != TYPE_bit || c1->vtype != c2->vtype) {
 		GDKerror("BATcalcifthencstelsecst: \"then\" and \"else\" BATs have different types.\n");
 		return NULL;
 	}
 	return BATcalcifthenelse_intern(b,
-					VALptr(c1), 0, NULL, 0, !VALisnil(c1),
-					VALptr(c2), 0, NULL, 0, !VALisnil(c2),
+					VALptr(c1), 0, NULL, 0, !VALisnil(c1), 0,
+					VALptr(c2), 0, NULL, 0, !VALisnil(c2), 0,
 					c1->vtype);
 }
 

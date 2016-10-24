@@ -23,6 +23,29 @@ Ready.
 command aggr.avg(b:bat[:hge],g:bat[:oid],e:bat[:any_1]) (X_0:bat[:dbl],X_1:bat[:lng]) 
 address AGGRavg23_dbl;
 comment Grouped tail average on hge, also returns count
+[ "batcalc",	"max",	"pattern batcalc.max(b:bat[:any_1],v:any_1):bat[:any_1] ",	"CMDbatMAX;",	"Return bat with maximum value of each pair of inputs"	]
+[ "batcalc",	"max",	"pattern batcalc.max(b:bat[:any_1],v:any_1,s:bat[:oid]):bat[:any_1] ",	"CMDbatMAX;",	"Return bat with maximum value of each pair of inputs"	]
+[ "batcalc",	"max",	"pattern batcalc.max(v:any_1,b:bat[:any_1]):bat[:any_1] ",	"CMDbatMAX;",	"Return bat with maximum value of each pair of inputs"	]
+[ "batcalc",	"max",	"pattern batcalc.max(v:any_1,b:bat[:any_1],s:bat[:oid]):bat[:any_1] ",	"CMDbatMAX;",	"Return bat with maximum value of each pair of inputs"	]
+[ "batcalc",	"max_no_nil",	"pattern batcalc.max_no_nil(b:bat[:any_1],v:any_1):bat[:any_1] ",	"CMDbatMAX_no_nil;",	"Return bat with maximum value of each pair of inputs, ignoring nil values"	]
+[ "batcalc",	"max_no_nil",	"pattern batcalc.max_no_nil(b:bat[:any_1],v:any_1,s:bat[:oid]):bat[:any_1] ",	"CMDbatMAX_no_nil;",	"Return bat with maximum value of each pair of inputs, ignoring nil values"	]
+[ "batcalc",	"max_no_nil",	"pattern batcalc.max_no_nil(v:any_1,b:bat[:any_1]):bat[:any_1] ",	"CMDbatMAX_no_nil;",	"Return bat with maximum value of each pair of inputs, ignoring nil values"	]
+[ "batcalc",	"max_no_nil",	"pattern batcalc.max_no_nil(v:any_1,b:bat[:any_1],s:bat[:oid]):bat[:any_1] ",	"CMDbatMAX_no_nil;",	"Return bat with maximum value of each pair of inputs, ignoring nil values"	]
+[ "batcalc",	"min",	"pattern batcalc.min(b:bat[:any_1],v:any_1):bat[:any_1] ",	"CMDbatMIN;",	"Return bat with minimum value of each pair of inputs"	]
+[ "batcalc",	"min",	"pattern batcalc.min(b:bat[:any_1],v:any_1,s:bat[:oid]):bat[:any_1] ",	"CMDbatMIN;",	"Return bat with minimum value of each pair of inputs"	]
+[ "batcalc",	"min",	"pattern batcalc.min(v:any_1,b:bat[:any_1]):bat[:any_1] ",	"CMDbatMIN;",	"Return bat with minimum value of each pair of inputs"	]
+[ "batcalc",	"min",	"pattern batcalc.min(v:any_1,b:bat[:any_1],s:bat[:oid]):bat[:any_1] ",	"CMDbatMIN;",	"Return bat with minimum value of each pair of inputs"	]
+[ "batcalc",	"min_no_nil",	"pattern batcalc.min_no_nil(b:bat[:any_1],v:any_1):bat[:any_1] ",	"CMDbatMIN_no_nil;",	"Return bat with minimum value of each pair of inputs, ignoring nil values"	]
+[ "batcalc",	"min_no_nil",	"pattern batcalc.min_no_nil(b:bat[:any_1],v:any_1,s:bat[:oid]):bat[:any_1] ",	"CMDbatMIN_no_nil;",	"Return bat with minimum value of each pair of inputs, ignoring nil values"	]
+[ "batcalc",	"min_no_nil",	"pattern batcalc.min_no_nil(v:any_1,b:bat[:any_1]):bat[:any_1] ",	"CMDbatMIN_no_nil;",	"Return bat with minimum value of each pair of inputs, ignoring nil values"	]
+[ "batcalc",	"min_no_nil",	"pattern batcalc.min_no_nil(v:any_1,b:bat[:any_1],s:bat[:oid]):bat[:any_1] ",	"CMDbatMIN_no_nil;",	"Return bat with minimum value of each pair of inputs, ignoring nil values"	]
+[ "lidar",	"attach",	"pattern lidar.attach(fname:str):void ",	"LIDARattach;",	"Open a LIDAR file and return catalog of the table HDUs"	]
+[ "lidar",	"export",	"pattern lidar.export(tablename:str,fname:str,type:str):void ",	"LIDARexportTable;",	"Exporta LIDAR table to a LAS/LAZ file"	]
+[ "lidar",	"load",	"pattern lidar.load(tablename:str):void ",	"LIDARloadTable;",	"Load a LIDAR table from an attached file"	]
+[ "lidar",	"prelude",	"command lidar.prelude():void ",	"LIDARprelude;",	""	]
+[ "user",	"main",	"function user.main():void;",	"",	""	]
+[ "user",	"main",	"function user.main():void;",	"",	""	]
+[ "user",	"main",	"function user.main():void;",	"",	""	]
 
 command aggr.avg(b:bat[:hge],g:bat[:oid],e:bat[:any_1]):bat[:dbl] 
 address AGGRavg13_dbl;

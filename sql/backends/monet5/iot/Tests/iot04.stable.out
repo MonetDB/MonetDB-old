@@ -42,8 +42,8 @@ Ready.
 % 26,	1,	10 # length
 [ 2005-09-23 12:34:26.736000,	1,	12.34	]
 #select 'RESULT';
-% .L # table_name
-% single_value # name
+% .L2 # table_name
+% L2 # name
 % char # type
 % 6 # length
 [ "RESULT"	]
@@ -53,7 +53,7 @@ Ready.
 % timestamp,	int,	decimal # type
 % 26,	1,	10 # length
 #select * from iot.errors();
-% .,	. # table_name
+% .L1,	.L1 # table_name
 % table,	error # name
 % clob,	clob # type
 % 0,	0 # length

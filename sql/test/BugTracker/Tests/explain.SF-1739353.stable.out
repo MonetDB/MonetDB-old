@@ -75,8 +75,16 @@ Ready.
 # 12:04:37 >  Mtimeout -timeout 60  java nl.cwi.monetdb.client.JdbcClient -h toulouse -p 39801 -d mTests_sql_test_BugTracker -f "../../../../../dev/sql/test/BugTracker/Tests/explain.SF-1739353-data.sql"
 # 12:04:37 >  
 
-Operation successful
+# 11:07:50 >  
+# 11:07:50 >  "./explain.SF-1739353.SQL.sh" "explain.SF-1739353"
+# 11:07:50 >  
 
+
+# 11:07:50 >  
+# 11:07:50 >  Mtimeout -timeout 60  java nl.cwi.monetdb.client.JdbcClient -h localhost -p 33313 -d mTests_sql_test_BugTracker -f "../../../../../../../data/MonetDB/sql/test/BugTracker/Tests/explain.SF-1739353-data.sql"
+# 11:07:50 >  
+
+Operation successful
 +------------------------------------------------------------------------------------------------------+
 | mal    |
 +======================================================================================================+
@@ -113,29 +121,29 @@ Operation successful
 |     X_34 := bat.append(X_29,X_33,true);                                                              |
 |     sql.resultSet(X_43,X_45,X_46,X_48,X_50,X_34);                                                    |
 | end user.s4_1;                                                                                       |
-| #inline               actions= 0 time=1 usec                                                         |
-| #remap                actions= 0 time=2 usec                                                         |
+| #inline               actions= 0 time=2 usec                                                         |
+| #remap                actions= 0 time=3 usec                                                         |
 | #costmodel            actions= 1 time=2 usec                                                         |
-| #coercion             actions= 1 time=6 usec                                                         |
+| #coercion             actions= 1 time=8 usec                                                         |
 | #evaluate             actions= 0 time=4 usec                                                         |
-| #emptybind            actions= 1 time=6 usec                                                         |
-| #pushselect           actions= 4 time=27 usec                                                        |
-| #aliases              actions= 2 time=8 usec                                                         |
-| #mergetable           actions= 0 time=29 usec                                                        |
-| #deadcode             actions= 2 time=7 usec                                                         |
-| #aliases              actions= 0 time=5 usec                                                         |
-| #constants            actions= 3 time=7 usec                                                         |
-| #commonTerms          actions= 0 time=18 usec                                                        |
-| #projectionpath       actions= 0 time=5 usec                                                         |
-| #reorder              actions= 1 time=25 usec                                                        |
+| #emptybind            actions= 0 time=9 usec                                                         |
+| #pushselect           actions= 4 time=33 usec                                                        |
+| #aliases              actions= 2 time=10 usec                                                        |
+| #mergetable           actions= 0 time=41 usec                                                        |
+| #deadcode             actions= 2 time=9 usec                                                         |
+| #aliases              actions= 0 time=6 usec                                                         |
+| #constants            actions= 3 time=17 usec                                                        |
+| #commonTerms          actions= 0 time=6 usec                                                         |
+| #projectionpath       actions= 0 time=4 usec                                                         |
+| #reorder              actions= 1 time=37 usec                                                        |
 | #deadcode             actions= 0 time=6 usec                                                         |
-| #reduce               actions=27 time=8 usec                                                         |
-| #matpack              actions= 0 time=1 usec                                                         |
-| #multiplex            actions= 0 time=3 usec                                                         |
-| #profiler             actions= 1 time=5 usec                                                         |
-| #candidates           actions= 1 time=1 usec                                                         |
-| #garbagecollector     actions= 1 time=17 usec                                                        |
-| #total                actions= 1 time=285 usec                                                       |
+| #reduce               actions=27 time=10 usec                                                        |
+| #matpack              actions= 0 time=2 usec                                                         |
+| #multiplex            actions= 0 time=2 usec                                                         |
+| #profiler             actions= 1 time=4 usec                                                         |
+| #candidates           actions= 1 time=2 usec                                                         |
+| #garbagecollector     actions= 1 time=18 usec                                                        |
+| #total                actions= 1 time=343 usec                                                       |
 +------------------------------------------------------------------------------------------------------+
 56 rows
 

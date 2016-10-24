@@ -401,7 +401,7 @@ prepareMalBlk(MalBlkPtr mb, str s)
 }
 
 InstrPtr
-newInstruction(MalBlkPtr mb, int kind)
+newInstruction(MalBlkPtr mb, str modnme, str fcnnme)
 {
 	InstrPtr p = NULL;
 
@@ -423,8 +423,8 @@ newInstruction(MalBlkPtr mb, int kind)
 		p->maxarg = MAXARG;
 	}
 	p->typechk = TYPE_UNKNOWN;
-	setModuleId(p, NULL);
-	setFunctionId(p, NULL);
+	setModuleId(p, modnme);
+	setFunctionId(p, fcnnme);
 	p->fcn = NULL;
 	p->blk = NULL;
 	p->polymorphic = 0;
@@ -435,22 +435,8 @@ newInstruction(MalBlkPtr mb, int kind)
 	p->argv[0] = -1;			/* watch out for direct use in variable table */
 	/* Flow of control instructions are always marked as an assignment
 	 * with modifier */
-	switch (kind) {
-	case BARRIERsymbol:
-	case REDOsymbol:
-	case LEAVEsymbol:
-	case EXITsymbol:
-	case RETURNsymbol:
-	case YIELDsymbol:
-	case CATCHsymbol:
-	case RAISEsymbol:
-		p->token = ASSIGNsymbol;
-		p->barrier = kind;
-		break;
-	default:
-		p->token = kind;
-		p->barrier = 0;
-	}
+	p->token = ASSIGNsymbol;
+	p->barrier = 0;
 	p->gc = 0;
 	p->jump = 0;
 	return p;
@@ -857,7 +843,10 @@ copyVariable(MalBlkPtr dst, VarPtr v)
 	w->type = v->type;
 	w->flags = v->flags;
 	w->rowcnt = v->rowcnt;
-	VALcopy(&w->value, &v->value);
+	if (VALcopy(&w->value, &v->value) == NULL) {
+		GDKfree(w);
+		return -1;
+	}
 	dst->var[dst->vtop] = w;
 	return 0;
 }
@@ -1137,7 +1126,8 @@ convertConstant(int type, ValPtr vr)
 		ptr d = NULL;
 
 		if (isaBatType(type)) {
-			VALinit(vr, TYPE_bat, ATOMnilptr(TYPE_bat));
+			if (VALinit(vr, TYPE_bat, ATOMnilptr(TYPE_bat)) == NULL)
+				throw(MAL, "convertConstant", MAL_MALLOC_FAIL);
 			break;
 		}
 		/* see if an atomFromStr() function is available */
@@ -1215,7 +1205,8 @@ cpyConstant(MalBlkPtr mb, VarPtr vr)
 	int i;
 	ValRecord cst;
 
-	VALcopy(&cst, &vr->value);
+	if (VALcopy(&cst, &vr->value) == NULL)
+		return -1;
 
 	i = defConstant(mb, vr->type, &cst);
 	return i;
@@ -1544,7 +1535,9 @@ pushEndInstruction(MalBlkPtr mb)
 {
 	InstrPtr p;
 
-	p = newInstruction(mb, ENDsymbol);
+	p = newInstruction(mb, NULL, NULL);
+	p->token = ENDsymbol;
+	p->barrier = 0;
 	if (!p) {
 		mb->errors++;
 		showException(GDKout, MAL, "pushEndInstruction", "failed to create instruction (out of memory?)");

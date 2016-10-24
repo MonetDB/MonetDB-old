@@ -96,43 +96,43 @@ end user.iot_cq06;
 #garbagecollector     actions= 1 time=23 usec 
 #total                actions= 1 time=396 usec 
 #select iot.gettumble('iot','tmp06');
-% .L # table_name
-% gettumble_single_value # name
+% .L2 # table_name
+% L2 # name
 % int # type
 % 2 # length
 [ -1	]
 #select iot.gettumble('iot','tmp06');
-% .L # table_name
-% gettumble_single_value # name
+% .L2 # table_name
+% L2 # name
 % int # type
 % 1 # length
 [ 5	]
 #select iot.getwindow('iot','tmp06');
-% .L # table_name
-% getwindow_single_value # name
+% .L2 # table_name
+% L2 # name
 % int # type
 % 1 # length
 [ 0	]
 #select iot.getwindow('iot','tmp06');
-% .L # table_name
-% getwindow_single_value # name
+% .L2 # table_name
+% L2 # name
 % int # type
 % 1 # length
 [ 7	]
 #select iot.getheartbeat('iot','tmp06');
-% .L # table_name
-% getheartbeat_single_value # name
+% .L2 # table_name
+% L2 # name
 % bigint # type
 % 1 # length
 [ 0	]
 #select iot.getheartbeat('iot','tmp06');
-% .L # table_name
-% getheartbeat_single_value # name
+% .L2 # table_name
+% L2 # name
 % bigint # type
 % 1 # length
 [ 8	]
 #select * from iot.errors();
-% .,	. # table_name
+% .L1,	.L1 # table_name
 % table,	error # name
 % clob,	clob # type
 % 0,	0 # length

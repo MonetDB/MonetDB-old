@@ -55,7 +55,7 @@ Ready.
 # 16:20:25 >  
 
 #select s.name as "schema", f.name as "function", a.number as "argno", a.type as "argtype", case a.number when 0 then f.func else '' end as "definition" from sys.functions f, sys.schemas s, sys.args a where s.id = f.schema_id and f.id = a.func_id and f.id in (select * from sys.systemfunctions) order by s.name, f.name, f.id, a.number;
-% sys.L3,	sys.L3,	sys.L3,	sys.L3,	sys.L3 # table_name
+% sys.L4,	sys.L5,	sys.L6,	sys.L7,	sys.L10 # table_name
 % schema,	function,	argno,	argtype,	definition # name
 % varchar,	varchar,	int,	varchar,	varchar # type
 % 8,	35,	2,	14,	611 # length
@@ -939,6 +939,11 @@ Ready.
 [ "sys",	"levenshtein",	3,	"int",	""	]
 [ "sys",	"levenshtein",	4,	"int",	""	]
 [ "sys",	"levenshtein",	5,	"int",	""	]
+[ "sys",	"lidarattach",	0,	"clob",	"create procedure lidarattach(fname string) external name lidar.attach;"	]
+[ "sys",	"lidarexport",	0,	"clob",	"create procedure lidarexport(tname string, fname string, format string) external name lidar.export;"	]
+[ "sys",	"lidarexport",	1,	"clob",	""	]
+[ "sys",	"lidarexport",	2,	"clob",	""	]
+[ "sys",	"lidarload",	0,	"clob",	"create procedure lidarload(tname string) external name lidar.load;"	]
 [ "sys",	"like",	0,	"clob",	"create filter function \"like\"(val string, pat string, esc string) external name algebra.\"like\";"	]
 [ "sys",	"like",	1,	"clob",	""	]
 [ "sys",	"like",	2,	"clob",	""	]
