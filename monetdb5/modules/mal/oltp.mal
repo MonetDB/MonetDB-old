@@ -24,7 +24,7 @@ pattern release(lck:int...):void
 address OLTPrelease
 comment "Release for all write locks needed";
 
-pattern table() (start:bat[:timestamp], usr:bat[:str], unit:bat[:int], cnt:bat[:int], qry:bat[:str])
+pattern table() (start:bat[:timestamp], usr:bat[:str], unit:bat[:int], cnt:bat[:int])
 address OLTPtable
 comment "Show status of lock table";
 

@@ -19,8 +19,7 @@ returns table(
 	started timestamp,
 	username  string,
 	lockid  integer,
-	cnt	integer,
-	query   string
+	cnt	integer
 )
 external name oltp."table";
 
