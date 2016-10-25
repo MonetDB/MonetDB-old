@@ -14,10 +14,10 @@
 #include "gpu.h"
 #define GEOMBULK_DEBUG
 static str
-GpnpolyWithHoles(bat *out, int nvert, dbl *vx, dbl *vy, int nholes, dbl **hx, dbl **hy, int *hn, bat *point_x, bat *point_y)
+GpnpolyWithHoles(bat *out, int nvert, flt *vx, flt *vy, int nholes, flt **hx, flt **hy, int *hn, bat *point_x, bat *point_y)
 {
 	BAT *bo = NULL, *bpx = NULL, *bpy;
-	dbl *px = NULL, *py = NULL;
+	flt *px = NULL, *py = NULL;
 	BUN i = 0, cnt = 0;
 	bit *cs = NULL;
 	char **mc = NULL;
@@ -53,8 +53,8 @@ GpnpolyWithHoles(bat *out, int nvert, dbl *vx, dbl *vy, int nholes, dbl **hx, db
 	}
 
 	/*Iterate over the Point BATs and determine if they are in Polygon represented by vertex BATs */
-	px = (dbl *) Tloc(bpx, 0);
-	py = (dbl *) Tloc(bpy, 0);
+	px = (flt *) Tloc(bpx, 0);
+	py = (flt *) Tloc(bpy, 0);
 	cnt = BATcount(bpx);
 	cs = (bit *) Tloc(bo, 0);
 #ifdef GEOMBULK_DEBUG
@@ -62,7 +62,8 @@ GpnpolyWithHoles(bat *out, int nvert, dbl *vx, dbl *vy, int nholes, dbl **hx, db
 #endif
 
 	/*Call to the GPU function*/
-	pnpoly_GPU(&cs, nvert, cnt, px, py, vx, vy);
+	if (nvert && cnt)
+		pnpoly_GPU(&cs, nvert, cnt, px, py, vx, vy);
 
 	/*
 	 * Verify if GPU has enough memory to get all the data 
@@ -89,7 +90,7 @@ GpnpolyWithHoles(bat *out, int nvert, dbl *vx, dbl *vy, int nholes, dbl **hx, db
 }
 
 str
-geom_gpu_gcontains(bit *res, wkb **a, double *x, double *y, double *z, int *srid)
+geom_gpu_gcontains(bit *res, wkb **a, float *x, float *y, float *z, int *srid)
 {
     vertexWKB *verts = NULL;
 	wkb *geom = NULL;
