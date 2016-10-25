@@ -6,4 +6,4 @@
 
 CREATE FUNCTION G_Setup(flag integer) RETURNS BOOLEAN external name geom."gsetup";
 CREATE FUNCTION G_Reset(flag integer) RETURNS BOOLEAN external name geom."greset";
-CREATE FUNCTION G_Contains(a Geometry, x double, y double, z double, srid int) RETURNS BOOLEAN external name geom."gcontains";
+CREATE FUNCTION G_Contains(a Geometry, x real, y real, z real, srid int) RETURNS BOOLEAN external name geom."gcontains";
