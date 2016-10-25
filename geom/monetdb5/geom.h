@@ -184,10 +184,10 @@ geom_export str wkbDWithinXYZ_bat(bat *outBAT_id, bat *inBAT_id, bat *inXBAT_id,
 typedef struct {
 	int nvert;
     int nholes;
-	double *vert_x;
-    double *vert_y;
-    double **holes_x;
-    double **holes_y;
+	float *vert_x;
+    float *vert_y;
+    float **holes_x;
+    float **holes_y;
     int *holes_n;
 } vertexWKB;
 
