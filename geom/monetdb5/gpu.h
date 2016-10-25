@@ -25,6 +25,16 @@
 #define geom_export extern
 #endif
 
+typedef struct {
+	int nvert;
+    int nholes;
+	float *vert_x;
+    float *vert_y;
+    float **holes_x;
+    float **holes_y;
+    int *holes_n;
+} vertexWKBF;
+
 geom_export str geom_gpu_setup(bit *res, int *flag);
 geom_export str geom_gpu_reset(bit *res, int *flag);
 geom_export str geom_gpu_gcontains(bit *res, wkb **geom, float *x, float *y, float *z, int *srid);

@@ -39,8 +39,8 @@
 #endif
 
 #define OPENCL_DYNAMIC 1
-#define OPENCL_THREADS 8
-#define OPENMP  1
+#define OPENCL_THREADS 16
+#define OPENMP 1
 
 #ifdef OPENMP
 #include <omp.h>
@@ -184,15 +184,13 @@ geom_export str wkbDWithinXYZ_bat(bat *outBAT_id, bat *inBAT_id, bat *inXBAT_id,
 typedef struct {
 	int nvert;
     int nholes;
-	float *vert_x;
-    float *vert_y;
-    float **holes_x;
-    float **holes_y;
+	double *vert_x;
+    double *vert_y;
+    double **holes_x;
+    double **holes_y;
     int *holes_n;
-} vertexWKB;
+} vertexWKBD;
 
-geom_export str getVerts(wkb *geom, vertexWKB **res);
-geom_export void freeVerts(vertexWKB *verts);
 //LocateAlong
 //LocateBetween
 

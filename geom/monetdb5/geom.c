@@ -7806,14 +7806,14 @@ pnpoly_(bit *out, int nvert, dbl *vx, dbl *vy, int nholes, dbl **hx, dbl **hy, i
 
 /*TODO: better conversion from WKB*/
 /*TODO: Check if the allocations are working*/
-str
-getVerts(wkb *geom, vertexWKB **res)
+static str
+getVerts(wkb *geom, vertexWKBD **res)
 {
 	str err = NULL;
 	str geom_str = NULL, str_pt = NULL;
 	char *str2, *token, *subtoken;
 	char *saveptr1 = NULL, *saveptr2 = NULL;
-    vertexWKB *verts = NULL;
+    vertexWKBD *verts = NULL;
 
     /*Check if it is a Polygon*/
 
@@ -7822,7 +7822,7 @@ getVerts(wkb *geom, vertexWKB **res)
 	}
 
     str_pt = geom_str;
-    if ( (verts = (vertexWKB*) GDKzalloc(sizeof(vertexWKB))) == NULL) {
+    if ( (verts = (vertexWKBD*) GDKzalloc(sizeof(vertexWKBD))) == NULL) {
         throw(MAL, "geom.getVerts", MAL_MALLOC_FAIL);
     }
 
@@ -7831,11 +7831,11 @@ getVerts(wkb *geom, vertexWKB **res)
 
 	/*Lets get the polygon */
 	token = strtok_r(geom_str, ")", &saveptr1);
-    if ( (verts->vert_x = GDKmalloc(POLY_NUM_VERT * sizeof(float))) == NULL) {
+    if ( (verts->vert_x = GDKmalloc(POLY_NUM_VERT * sizeof(double))) == NULL) {
         GDKfree(verts);
         throw(MAL, "geom.getVerts", MAL_MALLOC_FAIL);
     }
-	if ( (verts->vert_y = GDKmalloc(POLY_NUM_VERT * sizeof(float))) == NULL) {
+	if ( (verts->vert_y = GDKmalloc(POLY_NUM_VERT * sizeof(double))) == NULL) {
         GDKfree(verts->vert_x);
         GDKfree(verts);
         throw(MAL, "geom.getVerts", MAL_MALLOC_FAIL);
@@ -7845,17 +7845,16 @@ getVerts(wkb *geom, vertexWKB **res)
 		subtoken = strtok_r(str2, ",", &saveptr2);
 		if (subtoken == NULL)
 			break;
-		//sscanf(subtoken, "%lf %lf", &(verts->vert_x[verts->nvert]), &(verts->vert_y[verts->nvert]));
-		sscanf(subtoken, "%f %f", &(verts->vert_x[verts->nvert]), &(verts->vert_y[verts->nvert]));
+		sscanf(subtoken, "%lf %lf", &(verts->vert_x[verts->nvert]), &(verts->vert_y[verts->nvert]));
 		verts->nvert++;
 		if ((verts->nvert % POLY_NUM_VERT) == 0) {
-			if ( (verts->vert_x = GDKrealloc(verts->vert_x, verts->nvert * 2 * sizeof(float))) == NULL) {
+			if ( (verts->vert_x = GDKrealloc(verts->vert_x, verts->nvert * 2 * sizeof(double))) == NULL) {
                 GDKfree(verts->vert_x);
                 GDKfree(verts->vert_y);
                 GDKfree(verts);
                 throw(MAL, "geom.getVerts", MAL_MALLOC_FAIL);
             }
-			if ( (verts->vert_y = GDKrealloc(verts->vert_y, verts->nvert * 2 * sizeof(float))) == NULL) {
+			if ( (verts->vert_y = GDKrealloc(verts->vert_y, verts->nvert * 2 * sizeof(double))) == NULL) {
                 GDKfree(verts->vert_x);
                 GDKfree(verts->vert_y);
                 GDKfree(verts);
@@ -7866,13 +7865,13 @@ getVerts(wkb *geom, vertexWKB **res)
 
 	token = strtok_r(NULL, ")", &saveptr1);
 	if (token) {
-		if ( (verts->holes_x = GDKzalloc(POLY_NUM_HOLE * sizeof(float *))) == NULL) {
+		if ( (verts->holes_x = GDKzalloc(POLY_NUM_HOLE * sizeof(double *))) == NULL) {
             GDKfree(verts->vert_x);
             GDKfree(verts->vert_y);
             GDKfree(verts);
             throw(MAL, "geom.getVerts", MAL_MALLOC_FAIL);
         }
-		if ( (verts->holes_y = GDKzalloc(POLY_NUM_HOLE * sizeof(float *))) == NULL) {
+		if ( (verts->holes_y = GDKzalloc(POLY_NUM_HOLE * sizeof(double *))) == NULL) {
             GDKfree(verts->holes_x);
             GDKfree(verts->vert_x);
             GDKfree(verts->vert_y);
@@ -7897,7 +7896,7 @@ getVerts(wkb *geom, vertexWKB **res)
 		token++;
 
 		if (!verts->holes_x[verts->nholes])
-			if ( (verts->holes_x[verts->nholes] = GDKzalloc(POLY_NUM_VERT * sizeof(float))) == NULL) {
+			if ( (verts->holes_x[verts->nholes] = GDKzalloc(POLY_NUM_VERT * sizeof(double))) == NULL) {
                 GDKfree(verts->holes_x);
                 GDKfree(verts->holes_y);
                 GDKfree(verts->holes_n);
@@ -7907,7 +7906,7 @@ getVerts(wkb *geom, vertexWKB **res)
                 throw(MAL, "geom.getVerts", MAL_MALLOC_FAIL);
             }
 		if (!verts->holes_y[verts->nholes])
-			if ( (verts->holes_y[verts->nholes] = GDKzalloc(POLY_NUM_VERT * sizeof(float))) == NULL) {
+			if ( (verts->holes_y[verts->nholes] = GDKzalloc(POLY_NUM_VERT * sizeof(double))) == NULL) {
                 GDKfree(verts->holes_x[verts->nholes]);
                 GDKfree(verts->holes_x);
                 GDKfree(verts->holes_y);
@@ -7922,11 +7921,10 @@ getVerts(wkb *geom, vertexWKB **res)
 			subtoken = strtok_r(str2, ",", &saveptr2);
 			if (subtoken == NULL)
 				break;
-			//sscanf(subtoken, "%lf %lf", &(verts->holes_x[verts->nholes][nhole]), &(verts->holes_y[verts->nholes][nhole]));
-			sscanf(subtoken, "%f %f", &(verts->holes_x[verts->nholes][nhole]), &(verts->holes_y[verts->nholes][nhole]));
+			sscanf(subtoken, "%lf %lf", &(verts->holes_x[verts->nholes][nhole]), &(verts->holes_y[verts->nholes][nhole]));
 			nhole++;
 			if ((nhole % POLY_NUM_VERT) == 0) {
-                if ( (verts->holes_x[verts->nholes] = GDKrealloc(verts->holes_x[verts->nholes], nhole * 2 * sizeof(float))) == NULL) {
+                if ( (verts->holes_x[verts->nholes] = GDKrealloc(verts->holes_x[verts->nholes], nhole * 2 * sizeof(double))) == NULL) {
                     GDKfree(verts->holes_x[verts->nholes]);
                     GDKfree(verts->holes_y[verts->nholes]);
                     GDKfree(verts->holes_x);
@@ -7937,7 +7935,7 @@ getVerts(wkb *geom, vertexWKB **res)
                     GDKfree(verts);
                     throw(MAL, "geom.getVerts", MAL_MALLOC_FAIL);
                 }
-                if ( (verts->holes_y[verts->nholes] = GDKrealloc(verts->holes_y[verts->nholes], nhole * 2 * sizeof(float))) == NULL) {
+                if ( (verts->holes_y[verts->nholes] = GDKrealloc(verts->holes_y[verts->nholes], nhole * 2 * sizeof(double))) == NULL) {
                     GDKfree(verts->holes_x[verts->nholes]);
                     GDKfree(verts->holes_y[verts->nholes]);
                     GDKfree(verts->holes_x);
@@ -7954,7 +7952,7 @@ getVerts(wkb *geom, vertexWKB **res)
 		verts->holes_n[verts->nholes] = nhole;
         verts->nholes++;
         if ((verts->nholes % POLY_NUM_HOLE) == 0) {
-            if ( (verts->holes_x = GDKrealloc(verts->holes_x, verts->nholes * 2 * sizeof(float *))) == NULL) {
+            if ( (verts->holes_x = GDKrealloc(verts->holes_x, verts->nholes * 2 * sizeof(double *))) == NULL) {
                 GDKfree(verts->holes_x[verts->nholes]);
                 GDKfree(verts->holes_y[verts->nholes]);
                 GDKfree(verts->holes_x);
@@ -7965,7 +7963,7 @@ getVerts(wkb *geom, vertexWKB **res)
                 GDKfree(verts);
                 throw(MAL, "geom.getVerts", MAL_MALLOC_FAIL);
             }
-            if ( (verts->holes_y = GDKrealloc(verts->holes_y, verts->nholes * 2 * sizeof(float *))) == NULL) {
+            if ( (verts->holes_y = GDKrealloc(verts->holes_y, verts->nholes * 2 * sizeof(double *))) == NULL) {
                 GDKfree(verts->holes_x[verts->nholes]);
                 GDKfree(verts->holes_y[verts->nholes]);
                 GDKfree(verts->holes_x);
@@ -7998,8 +7996,8 @@ getVerts(wkb *geom, vertexWKB **res)
     return MAL_SUCCEED;
 }
 
-void
-freeVerts(vertexWKB *verts)
+static void
+freeVerts(vertexWKBD *verts)
 {
     int j = 0;
 
@@ -8021,7 +8019,7 @@ freeVerts(vertexWKB *verts)
 str
 wkbContains_point_bat(bat *out, wkb **a, bat *point_x, bat *point_y)
 {
-    vertexWKB *verts = NULL;
+    vertexWKBD *verts = NULL;
 	wkb *geom = NULL;
 	str msg = NULL;
 
@@ -8041,7 +8039,7 @@ wkbContains_point_bat(bat *out, wkb **a, bat *point_x, bat *point_y)
 str
 wkbContainsXYZ(bit *out, wkb **a, dbl *px, dbl *py, dbl *pz, int *srid)
 {
-    vertexWKB *verts = NULL;
+    vertexWKBD *verts = NULL;
 	wkb *geom = NULL;
 	str msg = NULL;
 	(void) pz;
@@ -11124,7 +11122,7 @@ ContainsXYZsubjoin_intern(bat *lres, bat *rres, bat *lid, bat *xid, bat*yid, bat
     BATloop(bl, pl, ql) {
         str err = NULL;
         wkb *lWKB = NULL;
-        vertexWKB *verts = NULL;
+        vertexWKBD *verts = NULL;
         GEOSGeom lGeometry = NULL;
         ro = bx->hseqbase;
 
