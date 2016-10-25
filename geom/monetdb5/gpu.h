@@ -27,5 +27,5 @@
 
 geom_export str geom_gpu_setup(bit *res, int *flag);
 geom_export str geom_gpu_reset(bit *res, int *flag);
-geom_export str geom_gpu_gcontains(bit *res, wkb **geom, double *x, double *y, double *z, int *srid);
+geom_export str geom_gpu_gcontains(bit *res, wkb **geom, float *x, float *y, float *z, int *srid);
 geom_export str geom_gpu_gcontains_bat(int *res, wkb **geom, int *xBAT_id, int *yBAT_id, int *zBAT_id, int *srid);
