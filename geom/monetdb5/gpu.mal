@@ -14,12 +14,12 @@ command greset(a:int) :bit
 address geom_gpu_reset
 comment "Reset GPU";
 
-command gcontains(a:wkb, x:dbl, y:dbl, z:dbl, srid:int) :bit
+command gcontains(a:wkb, x:flt, y:flt, z:flt, srid:int) :bit
 address geom_gpu_gcontains
 comment "Returns true if the Geometry a 'spatially contains' Geometry b";
 
 module batgeom;
-command gcontains(a:wkb, px:bat[:dbl], py:bat[:dbl], pz:bat[:dbl], srid:int) :bat[:bit]
+command gcontains(a:wkb, px:bat[:flt], py:bat[:flt], pz:bat[:flt], srid:int) :bat[:bit]
 address geom_gpu_gcontains_bat
 comment "Returns true if the Geometry a 'spatially contains' Geometry b";
 
