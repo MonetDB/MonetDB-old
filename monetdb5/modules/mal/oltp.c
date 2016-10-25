@@ -22,8 +22,8 @@
 
 typedef struct{
 	Client cntxt;	// user holding the write lock
-	lng start;		// time when it started
-	lng retention;	// time when the lock is released
+	int start;		// time when it started
+	int retention;	// time when the lock is released
 	lng total;		// accumulated lock time
 	int used;		// how often it used, for balancing
 	int locked;		// writelock set or not
@@ -155,7 +155,7 @@ OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 			MT_sleep_ms(LOCKDELAY);
 		}
-	} while( lck - wait < LOCKTIMEOUT);
+	} while( clk - wait < LOCKTIMEOUT);
 
 #ifdef _DEBUG_OLTP_
 	mnstr_printf(cntxt->fdout,"#OLTP %6d proceed query for client %d\n", GDKms(), cntxt->idx);
