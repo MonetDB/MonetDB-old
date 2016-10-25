@@ -24,4 +24,5 @@ mal_export str OLTPdisable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 mal_export str OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str OLTPrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str OLTPtable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+mal_export str OLTPis_enabled(int *ret);
 #endif /* _OLTP_H */

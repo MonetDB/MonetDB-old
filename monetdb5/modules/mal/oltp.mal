@@ -28,3 +28,6 @@ pattern table() (start:bat[:timestamp], usr:bat[:str], unit:bat[:int], cnt:bat[:
 address OLTPtable
 comment "Show status of lock table";
 
+command isenabled():int
+address OLTPis_enabled
+comment "Query the OLTP state";

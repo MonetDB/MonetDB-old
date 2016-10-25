@@ -267,3 +267,9 @@ OLTPtable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BBPkeepref(*used = bc->batCacheid);
 	return msg;
 }
+
+str
+OLTPis_enabled(int *ret) {
+  *ret = oltp_delay;
+  return MAL_SUCCEED;
+}

@@ -23,3 +23,6 @@ returns table(
 )
 external name oltp."table";
 
+create function sys.oltp_is_enabled()
+returns integer
+external name oltp.isenabled;
