@@ -451,7 +451,7 @@ cleanup:
     return msg;
 }
 
-BAT *
+static BAT *
 mvc_bind(mvc *m, char *sname, char *tname, char *cname, int access)
 {
 	sql_trans *tr = m->session->tr;
