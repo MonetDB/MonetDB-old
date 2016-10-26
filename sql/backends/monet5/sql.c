@@ -127,23 +127,6 @@ sql_symbol2relation(mvc *c, symbol *sym)
 	return r;
 }
 
-stmt *
-sql_relation2stmt(mvc *c, sql_rel *r)
-{
-	stmt *s = NULL;
-
-	if (!r) {
-		return NULL;
-	} else {
-		if (c->emode == m_plan) {
-			rel_print(c, r, 0);
-		} else {
-			s = output_rel_bin(c, r);
-		}
-	}
-	return s;
-}
-
 /*
  * After the SQL statement has been executed, its data structures
  * should be garbage collected. For successful actions we have to finish
@@ -451,8 +434,8 @@ cleanup:
     return msg;
 }
 
-static BAT *
-mvc_bind(mvc *m, char *sname, char *tname, char *cname, int access)
+BAT *
+mvc_bind(mvc *m, const char *sname, const char *tname, const char *cname, int access)
 {
 	sql_trans *tr = m->session->tr;
 	BAT *b = NULL;

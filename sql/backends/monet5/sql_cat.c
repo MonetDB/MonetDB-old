@@ -687,14 +687,15 @@ UPGcreate_func(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str sname = *getArgReference_str(stk, pci, 1), osname;
 	str func = *getArgReference_str(stk, pci, 2);
 	stmt *s;
+	backend *be;
 
-	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
+	if ((msg = getSQLContext(cntxt, mb, &sql, &be)) != NULL)
 		return msg;
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 	osname = cur_schema(sql)->base.name;
 	mvc_set_schema(sql, sname);
-	s = sql_parse(sql, sa_create(), func, 0);
+	s = sql_parse(be, sa_create(), func, 0);
 	if (s && s->type == st_catalog) {
 		char *schema = ((stmt*)s->op1->op4.lval->h->data)->op4.aval->data.val.sval;
 		sql_func *func = (sql_func*)((stmt*)s->op1->op4.lval->t->data)->op4.aval->data.val.pval;
@@ -716,14 +717,15 @@ UPGcreate_view(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str sname = *getArgReference_str(stk, pci, 1), osname;
 	str view = *getArgReference_str(stk, pci, 2);
 	stmt *s;
+	backend *be;
 
-	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
+	if ((msg = getSQLContext(cntxt, mb, &sql, &be)) != NULL)
 		return msg;
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 	osname = cur_schema(sql)->base.name;
 	mvc_set_schema(sql, sname);
-	s = sql_parse(sql, sa_create(), view, 0);
+	s = sql_parse(be, sa_create(), view, 0);
 	if (s && s->type == st_catalog) {
 		char *schema = ((stmt*)s->op1->op4.lval->h->data)->op4.aval->data.val.sval;
 		sql_table *v = (sql_table*)((stmt*)s->op1->op4.lval->h->next->data)->op4.aval->data.val.pval;
