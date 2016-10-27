@@ -208,7 +208,6 @@ create_trigger(mvc *sql, char *sname, char *tname, char *triggername, int time, 
 		r = rel_parse(sql, s, buf, m_deps);
 		if (r)
 			r = rel_optimizer(sql, r);
-		/* TODO use relational part to find dependencies */
 		if (r) {
 			list *id_l = rel_dependencies(sql->sa, r);
 
