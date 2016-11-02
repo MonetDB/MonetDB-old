@@ -1,4 +1,4 @@
-# garbage collection strins
+# garbage collection strings
 
 	s0:= "hello";
 	s0:= "world";
@@ -9,3 +9,10 @@ barrier b1;
 	s1:= "bye";
 exit 	b1;
 	io.print(s1);
+	
+	t:= "0";
+barrier i:=0;
+	t:= t + "0";
+	redo i:= iterator.next(1,1000);
+exit i;
+	io.print(t);
