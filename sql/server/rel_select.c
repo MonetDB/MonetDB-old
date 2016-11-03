@@ -641,6 +641,8 @@ rel_named_table_function(mvc *sql, sql_rel *rel, symbol *query, int lateral)
 
 	if (query->data.lval->h->next->data.sym)
 		tname = query->data.lval->h->next->data.sym->data.lval->h->data.sval;
+	else
+		tname = make_label(sql->sa, ++sql->label);
 
 	/* column or table function */
 	sf = e->f;
@@ -1016,7 +1018,11 @@ rel_column_ref(mvc *sql, sql_rel **rel, symbol *column_r, int f)
 					*rel = rel_crossproduct(sql->sa, *rel, v, op_join);
 				else
 					*rel = v;
+				/*
 				exp = rel_bind_column(sql, *rel, cname, f);
+				if (!exp)
+				*/
+					exp = rel_bind_column2(sql, *rel, tname, cname, f);
 			}
 		}
 		if (!exp) {
@@ -1146,7 +1152,7 @@ convert_atom(atom *a, sql_subtype *rt)
 
 			a->data.vtype = rt->type->localtype;
 			p = ATOMnilptr(a->data.vtype);
-			VALinit(&a->data, a->data.vtype, p);
+			VALset(&a->data, a->data.vtype, (ptr) p);
 		}
 	}
 	a->tpe = *rt;
@@ -1169,7 +1175,7 @@ exp_convert_inplace(mvc *sql, sql_subtype *t, sql_exp *exp)
 	if (t->scale && t->type->eclass != EC_FLT)
 		return NULL;
 
-	if (a && atom_cast(a, t)) {
+	if (a && atom_cast(sql->sa, a, t)) {
 		convert_atom(a, t);
 		exp->tpe = *t;
 		return exp;

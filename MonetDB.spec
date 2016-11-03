@@ -1,5 +1,5 @@
 %define name MonetDB
-%define version 11.24.0
+%define version 11.26.0
 %{!?buildno: %global buildno %(date +%Y%m%d)}
 
 # groups of related archs
@@ -361,8 +361,10 @@ Group: Applications/Databases
 Requires: MonetDB5-server%{?_isa} = %{version}-%{release}
 Requires: %{name}-client%{?_isa} = %{version}-%{release}
 Requires: %{name}-client-odbc%{?_isa} = %{version}-%{release}
+%if (0%{?fedora} >= 22)
 Recommends: perl-DBD-monetdb >= 1.0
 Recommends: php-monetdb >= 1.0
+%endif
 Requires: %{name}-SQL-server5%{?_isa} = %{version}-%{release}
 Requires: python-monetdb >= 1.0
 
@@ -899,6 +901,17 @@ rm -f %{buildroot}%{_bindir}/Maddlog
 %postun -p /sbin/ldconfig
 
 %changelog
+* Fri Oct 07 2016 Sjoerd Mullender <sjoerd@acm.org> - 11.23.13-20161007
+- Rebuilt.
+- BZ#4058: Server crashes with a particular conditional query
+- BZ#4064: Assertion: column not found
+- BZ#4067: Relevant column name not printed when a CSV parsing error
+  occurs
+- BZ#4070: Extra condition in join predicate of explicit join produces
+  wrong MAL code
+- BZ#4074: Cannot use prepared statements when caching disabled
+- BZ#6065: CTE with row number and union fails within MAL
+
 * Wed Sep 28 2016 Sjoerd Mullender <sjoerd@acm.org> - 11.23.11-20160928
 - Rebuilt.
 

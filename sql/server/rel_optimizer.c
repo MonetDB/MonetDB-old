@@ -2719,7 +2719,7 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 				atom *ra = exp_flatten(sql, re);
 
 				if (la && ra) {
-					atom *a = atom_mul(la, ra);
+					atom *a = atom_mul(sql->sa, la, ra);
 
 					if (a) {
 						sql_exp *ne = exp_atom(sql->sa, a);
@@ -6505,7 +6505,7 @@ split_exp(mvc *sql, sql_exp *e, sql_rel *rel)
 		return e;
 	case e_aggr:
 	case e_func: 
-		if (!is_analytic(e)) {
+		if (!is_analytic(e) && !exp_has_sideeffect(e)) {
 			split_exps(sql, e->l, rel);
 			add_exps_too_project(sql, e->l, rel);
 		}
@@ -7541,6 +7541,11 @@ rel_merge_table_rewrite(int *changes, mvc *sql, sql_rel *rel)
 						}
 						assert(e->type == e_column);
 						exp_setname(sql->sa, ne, e->l, e->r);
+						/* make sure we don't include additional indices */
+						if (!n->next && m->next) {
+							m->next = NULL;
+							prel->exps->cnt = rel->exps->cnt;
+						}
 					}
 					first = 0;
 					if (!skip) {

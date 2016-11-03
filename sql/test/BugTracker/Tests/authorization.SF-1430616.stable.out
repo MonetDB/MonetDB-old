@@ -104,9 +104,9 @@ SELECT users.name, users.fullname, schemas.name
 
 auto commit mode: on
 sql> 
-# 17:04:40 >  
-# 17:04:40 >  Mtimeout -timeout 60  java nl.cwi.monetdb.client.JdbcClient -e -h localhost -p 38700 -d mTests_sql_test_BugTracker -f "../../../../../../../../scratch1/sjoerd/src/MonetDB/devel/sql/test/BugTracker/Tests/authorization.SF-1430616-drop_user.sql"
-# 17:04:40 >  
+# 15:04:00 >  
+# 15:04:00 >  Mtimeout -timeout 60  java nl.cwi.monetdb.client.JdbcClient -e -h localhost -p 36101 -d mTests_sql_test_BugTracker -f "../../../../../../../data/rc/clean/sql/test/BugTracker/Tests/authorization.SF-1430616-drop_user.sql"
+# 15:04:00 >  
 
 START TRANSACTION;
 Operation successful

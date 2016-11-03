@@ -10,11 +10,11 @@
  * The optimizer wrapper code is the interface to the MAL optimizer calls.
  * It prepares the environment for the optimizers to do their work and removes
  * the call itself to avoid endless recursions.
- * 
+ *
  * Before an optimizer is finished, it should leave a clean state behind.
  * Moreover, the information of the optimization step is saved for
  * debugging and analysis.
- * 
+ *
  * The wrapper expects the optimizers to return the number of
  * actions taken, i.e. number of succesful changes to the code.
 
@@ -36,7 +36,6 @@
 #include "opt_deadcode.h"
 #include "opt_emptybind.h"
 #include "opt_evaluate.h"
-#include "opt_factorize.h"
 #include "opt_datavaults.h"
 #include "opt_garbageCollector.h"
 #include "opt_generator.h"
@@ -72,7 +71,6 @@ struct{
 	{"deadcode", &OPTdeadcodeImplementation},
 	{"emptybind", &OPTemptybindImplementation},
 	{"evaluate", &OPTevaluateImplementation},
-	{"factorize", &OPTfactorizeImplementation},
 	{"datavaults", &OPTdatavaultsImplementation},
 	{"garbageCollector", &OPTgarbageCollectorImplementation},
 	{"generator", &OPTgeneratorImplementation},
@@ -96,7 +94,7 @@ struct{
 };
 mal_export str OPTwrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 
-#define OPTIMIZERDEBUG if (0) 
+#define OPTIMIZERDEBUG if (0)
 
 str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	str modnme = "(NONE)";
@@ -113,9 +111,9 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	if( p == NULL)
 		throw(MAL, "opt_wrapper", "missing optimizer statement");
 	snprintf(optimizer,256,"%s", fcnnme = getFunctionId(p));
-	
+
 	curmodnme = getModuleId(p);
-	OPTIMIZERDEBUG 
+	OPTIMIZERDEBUG
 		mnstr_printf(cntxt->fdout,"=APPLY OPTIMIZER %s\n",fcnnme);
 	if( p && p->argc > 1 ){
 		if( getArgType(mb,p,1) != TYPE_str ||
@@ -135,17 +133,17 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 		removeInstruction(mb, p);
 		s= findSymbol(cntxt->nspace, putName(modnme),putName(fcnnme));
 
-		if( s == NULL) 
+		if( s == NULL)
 			throw(MAL, optimizer, RUNTIME_OBJECT_UNDEFINED ":%s.%s", modnme, fcnnme);
 		mb = s->def;
 		stk= 0;
-	} else if( p ) 
+	} else if( p )
 		removeInstruction(mb, p);
 
 	for ( i=0; codes[i].nme; i++)
 		if ( strcmp(codes[i].nme, optimizer)== 0 ){
 			actions = (int)(*(codes[i].fcn))(cntxt, mb, stk,0);
-			break;	
+			break;
 		}
 	if ( codes[i].nme == 0)
 		throw(MAL, optimizer, "Optimizer implementation '%s' missing", fcnnme);
@@ -156,7 +154,7 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	}
 	usec= GDKusec() - usec;
 	DEBUGoptimizers
-		mnstr_printf(cntxt->fdout,"#optimizer %-11s %3d actions %5d MAL instructions ("SZFMT" K) " LLFMT" usec\n", optimizer, actions, mb->stop, 
+		mnstr_printf(cntxt->fdout,"#optimizer %-11s %3d actions %5d MAL instructions ("SZFMT" K) " LLFMT" usec\n", optimizer, actions, mb->stop,
 		((sizeof( MalBlkRecord) +mb->ssize * offsetof(InstrRecord, argv)+ mb->vtop * sizeof(int) /* argv estimate */ +mb->vtop* sizeof(VarRecord) + mb->vsize*sizeof(VarPtr)+1023)/1024),
 		usec);
 	QOTupdateStatistics(curmodnme,actions,usec);
