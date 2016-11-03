@@ -44,9 +44,7 @@ checkTable(int *res, int *action, MalBlkPtr mb, InstrPtr p, TABLE **tabs, int nu
     }
     for(i = 0; i < num_tabs; i++) {
         if ( tabs[i]->sname && (strcmp(tabs[i]->sname, sname) == 0) && (strcmp(tabs[i]->tname, tname) == 0)) { 
-            r = newInstruction(mb,ASSIGNsymbol);
-            setModuleId(r, vaultRef);
-            setFunctionId(r, getFunctionId(p));
+            r = newInstruction(0, vaultRef, getFunctionId(p));
             getArg(r,0) = getArg(p,0);
             for (j = 1; j < p->retc; j++) {
                 r = pushArgument(mb, r, getArg(p,j));
@@ -63,9 +61,7 @@ checkTable(int *res, int *action, MalBlkPtr mb, InstrPtr p, TABLE **tabs, int nu
         }
     }
 
-    c = newInstruction(mb,ASSIGNsymbol);
-    setModuleId(c, vaultRef);
-    setFunctionId(c, checktableRef);
+    c = newInstruction(0, vaultRef, checktableRef);
     getArg(c,0) = newTmpVariable(mb, TYPE_int);
 	setVarUDFtype(mb,getArg(c,0));
 	setVarFixed(mb,getArg(c,0));
@@ -78,9 +74,7 @@ checkTable(int *res, int *action, MalBlkPtr mb, InstrPtr p, TABLE **tabs, int nu
     c->argc = 4;
     pushInstruction(mb,c);
 
-    a = newInstruction(mb,ASSIGNsymbol);
-    setModuleId(a, vaultRef);
-    setFunctionId(a, analyzetableRef);
+    a = newInstruction(0, vaultRef, analyzetableRef);
     getArg(a,0) = newTmpVariable(mb, TYPE_int);
 	setVarUDFtype(mb,getArg(a,0));
 	setVarFixed(mb,getArg(a,0));
@@ -90,9 +84,7 @@ checkTable(int *res, int *action, MalBlkPtr mb, InstrPtr p, TABLE **tabs, int nu
     a->retc = 1;
     pushInstruction(mb,a);
 
-    r = newInstruction(mb,ASSIGNsymbol);
-    setModuleId(r, vaultRef);
-    setFunctionId(r, getFunctionId(p));
+    r = newInstruction(0, vaultRef, getFunctionId(p));
     getArg(r,0) = getArg(p,0);
     for (j = 1; j < p->retc; j++) {
         r = pushArgument(mb, r, getArg(p,j));
