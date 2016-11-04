@@ -401,35 +401,28 @@ prepareMalBlk(MalBlkPtr mb, str s)
 		trimexpand(mb, cnt, cnt);
 }
 
+/* The MAL records should be managed from a pool to
+ * avoid repeated alloc/free and reduce probability of
+ * memory fragmentation. (todo)
+ * The complicating factor is their variable size,
+ * which leads to growing records as a result of pushArguments
+ * Allocation of an instruction should always succeed.
+ */
 InstrPtr
-newInstruction(MalBlkPtr mb, str modnme, str fcnnme)
+newInstruction(str modnme, str fcnnme)
 {
 	InstrPtr p = NULL;
 
-	if (mb && mb->stop < mb->ssize) {
-		p = mb->stmt[mb->stop];
-
-		if (p && p->maxarg < MAXARG) {
-			assert(0);
-			p = NULL;
-		}
-		mb->stmt[mb->stop] = NULL;
-	}
+	p = GDKzalloc(MAXARG * sizeof(p->argv[0]) + offsetof(InstrRecord, argv));
 	if (p == NULL) {
-		p = GDKzalloc(MAXARG * sizeof(p->argv[0]) + offsetof(InstrRecord, argv));
-		if (p == NULL) {
-			showException(GDKout, MAL, "pushEndInstruction", "memory allocation failure");
-			return NULL;
-		}
-		p->maxarg = MAXARG;
+		showException(GDKout, MAL, "newEndInstruction", "memory allocation failure");
+		GDKfatal("newEndInstruction memory allocation failure");
+		return NULL;
 	}
+	p->maxarg = MAXARG;
 	p->typechk = TYPE_UNKNOWN;
 	setModuleId(p, modnme);
 	setFunctionId(p, fcnnme);
-	p->fcn = NULL;
-	p->blk = NULL;
-	p->polymorphic = 0;
-	p->varargs = 0;
 	p->argc = 1;
 	p->retc = 1;
 	p->mitosis = -1;
@@ -437,9 +430,6 @@ newInstruction(MalBlkPtr mb, str modnme, str fcnnme)
 	/* Flow of control instructions are always marked as an assignment
 	 * with modifier */
 	p->token = ASSIGNsymbol;
-	p->barrier = 0;
-	p->gc = 0;
-	p->jump = 0;
 	return p;
 }
 
@@ -557,13 +547,6 @@ moveInstruction(MalBlkPtr mb, int pc, int target)
 			mb->stmt[i] = mb->stmt[i - 1];
 		mb->stmt[i] = p;
 	}
-}
-
-void
-insertInstruction(MalBlkPtr mb, InstrPtr p, int pc)
-{
-	pushInstruction(mb, p);		/* to ensure room */
-	moveInstruction(mb, mb->stop - 1, pc);
 }
 
 /* Beware that the first argument of a signature is reserved for the
@@ -726,7 +709,7 @@ makeVarSpace(MalBlkPtr mb)
 		if (new == NULL) {
 			mb->errors++;
 			showScriptException(GDKout, mb, 0, MAL, "newMalBlk:no storage left\n");
-			assert(0);
+			GDKfatal("makeVarSpace:no storage left\n");
 			return -1;
 		}
 		memcpy((char *) new, (char *) mb->var, sizeof(VarPtr) * mb->vtop);
@@ -752,7 +735,7 @@ newVariable(MalBlkPtr mb, const char *name, size_t len, malType type)
 		getVar(mb, n) = (VarPtr) GDKzalloc(sizeof(VarRecord) );
 		if ( getVar(mb,n) == NULL) {
 			mb->errors++;
-			GDKerror("newVariable:" MAL_MALLOC_FAIL);
+			GDKfatal("newVariable:" MAL_MALLOC_FAIL);
 			return -1;
 		}
 	}
@@ -1279,45 +1262,31 @@ pushArgument(MalBlkPtr mb, InstrPtr p, int varid)
 	}
 	assert(varid >= 0);
 	if (p->argc + 1 == p->maxarg) {
-		InstrPtr pn;
-		int pc = 0, pclimit;
+		int i = 0;
 		int space = p->maxarg * sizeof(p->argv[0]) + offsetof(InstrRecord, argv);
+		InstrPtr pn = GDKmalloc(space + MAXARG * sizeof(p->argv[0]));
 
-		/* instructions are either created in isolation or are stored
-		 * on the program instruction stack already. In the latter
-		 * case, we may have to adjust their reference. It does not
-		 * make sense to locate it on the complete stack, because this
-		 * would jeopardise long MAL program.
-		 *
-		 * The alternative to this hack is to change the code in many
-		 * places and educate the programmer to not forget updating
-		 * the stmtblock after pushing the arguments. In sql_gencode
-		 * this alone would be >100 places and in the optimizers >
-		 * 30. In almost all cases the instructions have few
-		 * parameters. */
-		pclimit = mb->stop - 8;
-		pclimit = pclimit < 0 ? 0 : pclimit;
-		for (pc = mb->stop - 1; pc >= pclimit; pc--)
-			if (mb->stmt[pc] == p) 
-				break;
+		if (pn == NULL) 
+			GDKfatal("pushArgument: out of memory");
 
-		pn = GDKmalloc(space + MAXARG * sizeof(p->maxarg));
-		if (pn == NULL) {
-			freeInstruction(p);
-			return NULL;
-		}
 		memcpy(pn, p, space);
-		GDKfree(p);
 		pn->maxarg += MAXARG;
+
+		/* if the instruction is already stored in the MAL block
+		 * it should be replaced by an extended version.
+		 */
+		for (i = mb->stop - 1; i >= 0; i--)
+			if (mb->stmt[i] == p) {
+				mb->stmt[i] =  pn;
+				break;
+			}
+
+		GDKfree(p);
+		p = pn;
 		/* we have to keep track on the maximal arguments/block
 		 * because it is needed by the interpreter */
 		if (mb->maxarg < pn->maxarg)
 			mb->maxarg = pn->maxarg;
-		if( pc >= pclimit)
-			mb->stmt[pc] = pn;
-		//else 
-			// Keep it referenced from the block, assert(0);
-		p = pn;
 	}
 	p->argv[p->argc++] = varid;
 	return p;
@@ -1486,24 +1455,27 @@ setPolymorphic(InstrPtr p, int tpe, int force)
 
 }
 
-/* Instructions are simply appended to a MAL block. It is also the
- * place to collect information to speed-up use later on. */
+/* Instructions are simply appended to a MAL block. 
+ * The assumption is to push it when you are completely done
+ * with its preparation.
+ * Failures to allocate space is fatal.
+ * After a pushInstruction you can not extend the argument list anymore.
+ */
+
 void
 pushInstruction(MalBlkPtr mb, InstrPtr p)
 {
-	int i;
-
 	if (p == NULL)
 		return;
 
-	i = mb->stop;
-	if (i + 1 >= mb->ssize) {
+	if (mb->stop + 1 >= mb->ssize) {
 		int space = (mb->ssize + STMT_INCREMENT) * sizeof(InstrPtr);
 		InstrPtr *newblk = (InstrPtr *) GDKzalloc(space);
 
 		if (newblk == NULL) {
 			mb->errors++;
 			showException(GDKout, MAL, "pushInstruction", "out of memory (requested: %d bytes)", space);
+			GDKfatal("pushInstruction out of memory (requested: %d bytes)", space);
 			return;
 		}
 		memcpy(newblk, mb->stmt, mb->ssize * sizeof(InstrPtr));
@@ -1515,38 +1487,7 @@ pushInstruction(MalBlkPtr mb, InstrPtr p)
 	if(p->argc > 0 && p->argv[0] < 0){
 		mb->errors++;
 		showException(GDKout, MAL, "pushInstruction", "Illegal instruction (missing target variable)");
-		freeInstruction(p);
-		return;
+		return ;
 	}
-	if (mb->stmt[i]) {
-		/* if( getModuleId(mb->stmt[i] ) )
-		   printf("Garbage collect statement %s.%s\n",
-		   getModuleId(mb->stmt[i]), getFunctionId(mb->stmt[i])); */
-		freeInstruction(mb->stmt[i]);
-	}
-	mb->stmt[i] = p;
-
-	mb->stop++;
+	mb->stmt[mb->stop++] = p;
 }
-
-/* The END instruction has an optional name, which is only checked
- * during parsing; */
-void
-pushEndInstruction(MalBlkPtr mb)
-{
-	InstrPtr p;
-
-	p = newInstruction(mb, NULL, NULL);
-	p->token = ENDsymbol;
-	p->barrier = 0;
-	if (!p) {
-		mb->errors++;
-		showException(GDKout, MAL, "pushEndInstruction", "failed to create instruction (out of memory?)");
-		return;
-	}
-	p->argc = 0;
-	p->retc = 0;
-	p->argv[0] = 0;
-	pushInstruction(mb, p);
-}
-

@@ -313,7 +313,7 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 			InstrPtr q = mb->stmt[vars[var]]; /* BEWARE: the optimizer may not add or remove statements ! */
 
 			if (isLikeOp(q)) { /* TODO check if getArg(p, 3) value == TRUE */
-				InstrPtr r = newInstruction(mb, algebraRef, likesubselectRef);
+				InstrPtr r = newInstruction(algebraRef, likesubselectRef);
 				int has_cand = (getArgType(mb, p, 2) == newBatType(TYPE_oid)); 
 				int a, anti = (getFunctionId(q)[0] == 'n'), ignore_case = (getFunctionId(q)[anti?4:0] == 'i');
 

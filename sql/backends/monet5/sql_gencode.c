@@ -319,7 +319,7 @@ _create_relational_remote(mvc *m, char *mod, char *name, sql_rel *rel, stmt *cal
 	q = getArg(p, 0);
 
 	/* remote.exec(q, "sql", "register", "mod", "name", "relational_plan", "signature"); */
-	p = newInstruction(curBlk, remoteRef, execRef);
+	p = newInstruction(remoteRef, execRef);
 	p = pushArgument(curBlk, p, q);
 	p = pushStr(curBlk, p, sqlRef);
 	p = pushStr(curBlk, p, registerRef);
@@ -369,10 +369,10 @@ _create_relational_remote(mvc *m, char *mod, char *name, sql_rel *rel, stmt *cal
 	p = pushArgument(curBlk, p, getArg(o,0));
 	GDKfree(buf);
 	}
-	pushInstruction(curBlk, p);
+	(void) pushInstruction(curBlk, p);
 
 	/* (x1, x2, ..., xn) := remote.exec(q, "mod", "fcn"); */
-	p = newInstruction(curBlk, remoteRef, execRef);
+	p = newInstruction(remoteRef, execRef);
 	p = pushArgument(curBlk, p, q);
 	p = pushStr(curBlk, p, mod);
 	p = pushStr(curBlk, p, name);
@@ -411,7 +411,7 @@ _create_relational_remote(mvc *m, char *mod, char *name, sql_rel *rel, stmt *cal
 	p = newStmt(curBlk, remoteRef, disconnectRef);
 	p = pushArgument(curBlk, p, q);
 
-	p = newInstruction(curBlk, NULL, NULL);
+	p = newInstruction(NULL, NULL);
 	p->barrier= RETURNsymbol;
 	p->retc = p->argc = 0;
 	for (i = 0; i < curInstr->retc; i++)

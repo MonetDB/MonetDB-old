@@ -21,7 +21,7 @@
 
 #define DEBUG_MAL_INSTR
 /* #define DEBUG_REDUCE */
-#define MAXARG 8				/* was 4 BEWARE the code depends on this knowledge, where? */
+#define MAXARG 16				/* was 4 BEWARE the code depends on this knowledge, where? */
 #define STMT_INCREMENT 256
 #define MAL_VAR_WINDOW  32
 #define MAXVARS STMT_INCREMENT	/* >= STMT_INCREMENT */
@@ -114,7 +114,7 @@
 #define getGDKType(T) 		( T <= TYPE_str ? T : (T == TYPE_any ? TYPE_void : findGDKtype(T)))
 
 
-mal_export InstrPtr newInstruction(MalBlkPtr mb, str modnme, str fcnnme);
+mal_export InstrPtr newInstruction(str modnme, str fcnnme);
 mal_export InstrPtr copyInstruction(InstrPtr p);
 mal_export void oldmoveInstruction(InstrPtr dst, InstrPtr src);
 mal_export void clrInstruction(InstrPtr p);
@@ -137,7 +137,6 @@ mal_export MalBlkPtr getMalBlkHistory(MalBlkPtr mb, int idx);
 mal_export void trimMalVariables(MalBlkPtr mb, MalStkPtr stk);
 mal_export void trimMalVariables_(MalBlkPtr mb, MalStkPtr glb);
 mal_export void moveInstruction(MalBlkPtr mb, int pc, int target);
-mal_export void insertInstruction(MalBlkPtr mb, InstrPtr p, int pc);
 mal_export void removeInstruction(MalBlkPtr mb, InstrPtr p);
 mal_export void removeInstructionBlock(MalBlkPtr mb, int pc, int cnt);
 mal_export str operatorName(int i);
@@ -172,7 +171,6 @@ mal_export void setArgType(MalBlkPtr mb, InstrPtr p, int i, int tpe);
 mal_export void setReturnArgument(InstrPtr p, int varid);
 mal_export malType destinationType(MalBlkPtr mb, InstrPtr p);
 mal_export void setPolymorphic(InstrPtr p, int tpe, int force);
-mal_export void pushEndInstruction(MalBlkPtr mb);	/* used in src/mal/mal_parser.c */
 /* Utility macros to inspect an instruction */
 #define functionStart(X) ((X)->token == FUNCTIONsymbol || \
               (X)->token == COMMANDsymbol || \

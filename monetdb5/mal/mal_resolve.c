@@ -584,6 +584,8 @@ typeChecker(stream *out, Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 	int s1 = -1, i, k, olderrors;
 	Module m = 0;
 
+	assert(p);
+	assert(mb);
 	p->typechk = TYPE_UNKNOWN;
 	olderrors = mb->errors;
 	if ((p->fcn || p->blk) && p->token >= FCNcall && p->token <= PATcall) {

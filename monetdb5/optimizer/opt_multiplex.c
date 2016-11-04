@@ -233,7 +233,7 @@ OPTmultiplexImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 			if ( MANIFOLDtypecheck(cntxt,mb,p) != NULL){
 				setFunctionId(p, manifoldRef);
 				p->typechk = TYPE_UNKNOWN;
-				pushInstruction(mb, p);
+				(void) pushInstruction(mb, p);
 				actions++;
 				continue;
 			}
@@ -245,10 +245,10 @@ OPTmultiplexImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 				continue;
 			} 
 
-			pushInstruction(mb, p);
+			(void) pushInstruction(mb, p);
 			actions++;
 		} else if( old[i])
-			pushInstruction(mb, p);
+			(void) pushInstruction(mb, p);
 	}
 	for(;i<slimit; i++)
 		if( old[i])

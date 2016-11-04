@@ -1,11 +1,22 @@
-# garbage collection strins
-
-	s0:= "hello";
-	s0:= "world";
-	b1:= s0 == "world";
-	s1:= s0;
+# garbage collection strings
+#
+function tst();
+    s0:= "hello";
+    s0:= "world";
+    b1:= s0 == "world";
+    s1:= s0;
 barrier b1;
-	s2:= s1;
-	s1:= "bye";
-exit 	b1;
-	io.print(s1);
+    s2:= s1;
+    s1:= "bye";
+exit    b1;
+    io.print(s1);
+
+    t:= "0";
+barrier i:=0;
+    t:= t + "0";
+    redo i:= iterator.next(1,1000);
+exit i;
+    io.print(t);
+end tst;
+tst();
+

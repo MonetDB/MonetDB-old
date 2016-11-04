@@ -37,24 +37,25 @@ OPTmatpackImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 	for (i = 0; i < limit; i++) {
 		p = old[i];
 		if( getModuleId(p) == matRef  && getFunctionId(p) == packRef && isaBatType(getArgType(mb,p,1))) {
-			q = newInstruction(0, matRef, packIncrementRef);
+			q = newInstruction( matRef, packIncrementRef);
 			setDestVar(q, newTmpVariable(mb, getArgType(mb,p,1)));\
 			q = pushArgument(mb, q, getArg(p,1));
 			v = getArg(q,0);
 			q = pushInt(mb,q, p->argc - p->retc);
-			pushInstruction(mb,q);
 			typeChecker(cntxt->fdout, cntxt->nspace,mb,q,TRUE);
+			pushInstruction(mb,q);
 
 			for ( j = 2; j < p->argc; j++) {
-				q = newInstruction(0, matRef, packIncrementRef);
+				q = newInstruction(matRef, packIncrementRef);
 				q = pushArgument(mb, q, v);
 				q = pushArgument(mb, q, getArg(p,j));
 				setDestVar(q, newTmpVariable(mb, getVarType(mb,v)));
 				v = getArg(q,0);
-				pushInstruction(mb,q);
 				typeChecker(cntxt->fdout, cntxt->nspace,mb,q,TRUE);
+				pushInstruction(mb,q);
 			}
-			getArg(q,0) = getArg(p,0);
+			if( q) 
+				getArg(q,0) = getArg(p,0);
 			freeInstruction(p);
 			actions++;
 			continue;

@@ -13,6 +13,7 @@
 #include "mal_instruction.h" /* for pushEndInstruction() */
 #include "mal_interpreter.h" /* for showErrors(), runMAL(), garbageElement() */
 #include "mal_parser.h"	     /* for parseMAL() */
+#include "mal_builder.h"
 #include "mal_namespace.h"
 #include "mal_readline.h"
 #include "mal_authorize.h"

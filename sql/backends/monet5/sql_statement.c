@@ -314,7 +314,7 @@ stmt_var(backend *be, const char *varname, sql_subtype *t, int declare, int leve
 		if (buf == NULL)
 			return NULL;
 		(void) snprintf(buf, MAXIDENTLEN, "A%s", varname);
-		q = newInstruction(mb, NULL, NULL);
+		q = newInstruction(NULL, NULL);
 		if (q == NULL) {
 			GDKfree(buf);
 			return NULL;
@@ -359,7 +359,7 @@ stmt_vars(backend *be, const char *varname, sql_table *t, int declare, int level
 	if (buf == NULL)
 		return NULL;
 	(void) snprintf(buf, MAXIDENTLEN, "A%s", varname);
-	q = newInstruction(mb, NULL, NULL);
+	q = newInstruction(NULL, NULL);
 	if (q == NULL) {
 		GDKfree(buf);
 		return NULL;
@@ -1560,7 +1560,7 @@ select2_join2(backend *be, stmt *op1, stmt *op2, stmt *op3, int cmp, stmt *sub, 
 		if (q == NULL)
 			return NULL;
 		if (swapped) {
-			InstrPtr r = newInstruction(mb,  NULL, NULL);
+			InstrPtr r = newInstruction(NULL, NULL);
 			if (r == NULL)
 				return NULL;
 			getArg(r, 0) = newTmpVariable(mb, TYPE_any);
@@ -1945,7 +1945,7 @@ stmt_genjoin(backend *be, stmt *l, stmt *r, sql_subfunc *op, int anti, int swapp
 	q = pushNil(mb, q, TYPE_lng); /* estimate */
 
 	if (swapped) {
-		InstrPtr r = newInstruction(mb,  NULL, NULL);
+		InstrPtr r = newInstruction(NULL, NULL);
 		if (r == NULL)
 			return NULL;
 		getArg(r, 0) = newTmpVariable(mb, TYPE_any);
@@ -2027,7 +2027,7 @@ dump_export_header(mvc *sql, MalBlkPtr mb, list *l, int file, const char * forma
 	int tblId, nmeId, tpeId, lenId, scaleId, k;
 	InstrPtr p= NULL, list;
 
-	list = newInstruction(mb, sqlRef, export_tableRef);
+	list = newInstruction(sqlRef, export_tableRef);
 	getArg(list,0) = newTmpVariable(mb,TYPE_int);
 	if( file >= 0){
 		list  = pushArgument(mb, list, file);
@@ -2226,7 +2226,7 @@ dump_header(mvc *sql, MalBlkPtr mb, stmt *s, list *l)
 	int tblId, nmeId, tpeId, lenId, scaleId, k;
 	InstrPtr p = NULL, list;
 
-	list = newInstruction(mb,sqlRef, resultSetRef);
+	list = newInstruction(sqlRef, resultSetRef);
 	getArg(list,0) = newTmpVariable(mb,TYPE_int);
 	k = list->argc;
 	meta(tblId,TYPE_str);
@@ -3317,7 +3317,7 @@ stmt_return(backend *be, stmt *val, int nr_declared_tables)
 		InstrPtr k = newStmt(mb, sqlRef, "dropDeclaredTables");
 		(void) pushInt(mb, k, nr_declared_tables);
 	}
-	q = newInstruction(mb, NULL, NULL);
+	q = newInstruction(NULL, NULL);
 	if (q == NULL)
 		return NULL;
 	q->barrier= RETURNsymbol;
@@ -3366,7 +3366,7 @@ stmt_assign(backend *be, const char *varname, stmt *val, int level)
 		if (buf == NULL)
 			return NULL;
 		(void) snprintf(buf, MAXIDENTLEN, "A%s", varname);
-		q = newInstruction(mb, NULL, NULL);
+		q = newInstruction( NULL, NULL);
 		if (q == NULL) {
 			GDKfree(buf);
 			return NULL;
@@ -3375,10 +3375,20 @@ stmt_assign(backend *be, const char *varname, stmt *val, int level)
 		q = pushArgumentId(mb, q, buf);
 		if (q == NULL)
 			return NULL;
-		pushInstruction(mb, q);
-		if (mb->errors)
-			return NULL;
 		q->retc++;
+		q = pushArgument(mb, q, val->nr);
+		if (q){
+			stmt *s = stmt_create(be->mvc->sa, st_assign);
+
+			s->op2 = val;
+			s->flag = (level << 1);
+			s->q = q;
+			s->nr = 1;
+			pushInstruction(mb, q);
+			if (mb->errors)
+				return NULL;
+			return s;
+		}
 	} else {
 		q = newStmt(mb, sqlRef, setVariableRef);
 		q = pushArgument(mb, q, be->mvc_var);
@@ -3387,16 +3397,16 @@ stmt_assign(backend *be, const char *varname, stmt *val, int level)
 			return NULL;
 		getArg(q, 0) = be->mvc_var = newTmpVariable(mb, TYPE_int);
 		be->mvc_var = getDestVar(q);
-	}
-	q = pushArgument(mb, q, val->nr);
-	if (q){
-		stmt *s = stmt_create(be->mvc->sa, st_assign);
+		q = pushArgument(mb, q, val->nr);
+		if (q){
+			stmt *s = stmt_create(be->mvc->sa, st_assign);
 
-		s->op2 = val;
-		s->flag = (level << 1);
-		s->q = q;
-		s->nr = 1;
-		return s;
+			s->op2 = val;
+			s->flag = (level << 1);
+			s->q = q;
+			s->nr = 1;
+			return s;
+		}
 	}
 	return NULL;
 }

@@ -499,7 +499,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			garbage = garbages;
 			memset((char*) garbages, 0, 16 * sizeof(int));
 		}
-	} else if ( mb->maxarg > 16 ){
+	} else if ( mb->maxarg > MAXARG ){
 		backup = GDKzalloc(mb->maxarg * sizeof(ValRecord));
 		if( backup == NULL)
 			throw(MAL, "mal.interpreter", MAL_MALLOC_FAIL);

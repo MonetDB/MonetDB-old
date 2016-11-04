@@ -23,59 +23,41 @@
 InstrPtr
 newAssignment(MalBlkPtr mb)
 {
-	InstrPtr q = newInstruction(mb,NULL,NULL);
+	InstrPtr q = newInstruction(NULL,NULL);
 
-	if (q == NULL)
-		return NULL;
 	if ((getArg(q,0)= newTmpVariable(mb,TYPE_any)) < 0) {
 		freeInstruction(q);
 		return NULL;
 	}
 	pushInstruction(mb, q);
-	if (mb->errors) {
-		freeInstruction(q);
-		return NULL;
-	}
 	return q;
 }
 
 InstrPtr
 newStmt(MalBlkPtr mb, const char *module, const char *name)
 {
-	InstrPtr q = newInstruction(mb, putName(module), putName(name));
+	InstrPtr q = newInstruction(putName(module), putName(name));
 
-	if (q == NULL)
-		return NULL;
 	setDestVar(q, newTmpVariable(mb, TYPE_any));
 	if (getDestVar(q) < 0) {
 		freeInstruction(q);
 		return NULL;
 	}
 	pushInstruction(mb, q);
-	if (mb->errors) {
-		freeInstruction(q);
-		return NULL;
-	}
 	return q;
 }
 
 InstrPtr
 newReturnStmt(MalBlkPtr mb)
 {
-	InstrPtr q = newInstruction(mb, NULL,NULL);
+	InstrPtr q = newInstruction(NULL,NULL);
 
-	if (q == NULL)
-		return NULL;
 	if ((getArg(q,0)= newTmpVariable(mb,TYPE_any)) < 0) {
 		freeInstruction(q);
 		return NULL;
 	}
-	pushInstruction(mb, q);
-	if (mb->errors) {
-		freeInstruction(q);
-		return NULL;
-	}
 	q->barrier= RETURNsymbol;
+	pushInstruction(mb, q);
 	return q;
 }
 
@@ -84,7 +66,7 @@ newFcnCall(MalBlkPtr mb, char *mod, char *fcn)
 {
 	InstrPtr q = newAssignment(mb);
 
-	if (q == NULL || mod == NULL || fcn == NULL)
+	if (mod == NULL || fcn == NULL)
 		return NULL;
 	setModuleId(q, putName(mod));
 	setFunctionId(q, putName(fcn));
@@ -94,11 +76,9 @@ newFcnCall(MalBlkPtr mb, char *mod, char *fcn)
 InstrPtr
 newComment(MalBlkPtr mb, const char *val)
 {
-	InstrPtr q = newInstruction(mb, NULL,NULL);
+	InstrPtr q = newInstruction(NULL,NULL);
 	ValRecord cst;
 
-	if (q == NULL)
-		return NULL;
 	q->token = REMsymbol;
 	q->barrier = 0;
 	cst.vtype= TYPE_str;
@@ -124,8 +104,6 @@ newCatchStmt(MalBlkPtr mb, str nme)
 	InstrPtr q = newAssignment(mb);
 	int i= findVariable(mb,nme);
 
-	if (q == NULL)
-		return NULL;
 	q->barrier = CATCHsymbol;
 	if ( i< 0) {
 		if ((getArg(q,0)= newVariable(mb, nme, strlen(nme),TYPE_str)) < 0) {
@@ -142,8 +120,6 @@ newRaiseStmt(MalBlkPtr mb, str nme)
 	InstrPtr q = newAssignment(mb);
 	int i= findVariable(mb,nme);
 
-	if (q == NULL)
-		return NULL;
 	q->barrier = RAISEsymbol;
 	if ( i< 0) {
 		if ((getArg(q,0)= newVariable(mb, nme, strlen(nme),TYPE_str)) < 0) {
@@ -161,8 +137,6 @@ newExitStmt(MalBlkPtr mb, str nme)
 	InstrPtr q = newAssignment(mb);
 	int i= findVariable(mb,nme);
 
-	if (q == NULL)
-		return NULL;
 	q->barrier = EXITsymbol;
 	if ( i< 0) {
 		if ((getArg(q,0)= newVariable(mb, nme,strlen(nme),TYPE_str)) < 0) {
@@ -172,6 +146,21 @@ newExitStmt(MalBlkPtr mb, str nme)
 	} else
 		getArg(q,0) = i;
 	return q;
+}
+
+InstrPtr
+pushEndInstruction(MalBlkPtr mb)
+{
+    InstrPtr p;
+
+    p = newInstruction(NULL, NULL);
+    p->token = ENDsymbol;
+    p->barrier = 0;
+    p->argc = 0;
+    p->retc = 0;
+    p->argv[0] = 0;
+    pushInstruction(mb, p);
+	return p;
 }
 
 int

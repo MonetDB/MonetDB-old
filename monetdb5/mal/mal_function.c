@@ -33,7 +33,7 @@ Symbol newFunction(str mod, str nme,int kind){
 		return NULL;
 	}
 
-	p = newInstruction(NULL,mod,nme);
+	p = newInstruction(mod,nme);
 	p->token = kind;
 	p->barrier = 0;
 	if (p == NULL) {

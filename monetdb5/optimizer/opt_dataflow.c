@@ -112,7 +112,7 @@ static int
 dflowGarbagesink(MalBlkPtr mb, int var, InstrPtr *sink, int top){
 	InstrPtr r;
 	
-	r = newInstruction(NULL,languageRef, passRef);
+	r = newInstruction(languageRef, passRef);
 	getArg(r,0) = newTmpVariable(mb,TYPE_void);
 	r= pushArgument(mb,r, var);
 	sink[top++] = r;
@@ -249,14 +249,13 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			/* assumes that barrier entry/exit pairs are correct. */
 			/* A refinement is parallelize within a barrier block */
 			int copy= 1;
-			pushInstruction(mb,p);
 			for ( k = 0; k < p->retc; k++)
 				init[getArg(p,k)]=1;
+			pushInstruction(mb,p);
 			for ( i++; i<limit; i++) {
 				p = old[i];
 				for ( k = 0; k < p->retc; k++)
 					init[getArg(p,k)]=1;
-				pushInstruction(mb,p);
 
 				if (blockStart(p))
 					copy++;
@@ -264,6 +263,7 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 					copy--;
 					if ( copy == 0) break;
 				}
+				pushInstruction(mb,p);
 			}
 			// reset admin
 			(void) memset((char*)assigned, 0, vlimit * sizeof (int));

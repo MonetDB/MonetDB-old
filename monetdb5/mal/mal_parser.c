@@ -1484,8 +1484,8 @@ parseArguments(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr)
 		case 3: return 3;
 		default:
 			parseError(cntxt, "<factor> expected\n");
-			pushInstruction(curBlk, *curInstr);
 			skipToEnd(cntxt);
+			pushInstruction(curBlk, *curInstr);
 			return 1;
 		}
 		if (currChar(cntxt) == ',')
@@ -1513,7 +1513,7 @@ parseAssign(Client cntxt, int cntrl)
 
 	curPrg = cntxt->curprg;
 	curBlk = curPrg->def;
-	curInstr = newInstruction(curBlk, NULL, NULL);
+	curInstr = newInstruction(NULL, NULL);
 	
 	if( cntrl){
 		curInstr->token = ASSIGNsymbol;
@@ -1711,9 +1711,9 @@ part3:
 	if (currChar(cntxt) != ';')
 		parseError(cntxt, "';' expected\n");
 	skipToEnd(cntxt);
-	pushInstruction(curBlk, curInstr);
 	if (cntrl == RETURNsymbol && !(curInstr->token == ASSIGNsymbol || getModuleId(curInstr) != 0))
 		parseError(cntxt, "return assignment expected\n");
+	pushInstruction(curBlk, curInstr);
 }
 
 
@@ -1762,7 +1762,7 @@ parseMAL(Client cntxt, Symbol curPrg, int skipcomments)
 				*e = 0;
 			if (! skipcomments && e > start && curBlk->stop > 0 ) {
 				ValRecord cst;
-				curInstr = newInstruction(curBlk, NULL, NULL);
+				curInstr = newInstruction(NULL, NULL);
 				curInstr->token= REMsymbol;
 				curInstr->barrier= 0;
 				cst.vtype = TYPE_str;
