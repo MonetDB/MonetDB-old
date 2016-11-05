@@ -249,13 +249,14 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			/* assumes that barrier entry/exit pairs are correct. */
 			/* A refinement is parallelize within a barrier block */
 			int copy= 1;
+			pushInstruction(mb,p);
 			for ( k = 0; k < p->retc; k++)
 				init[getArg(p,k)]=1;
-			pushInstruction(mb,p);
 			for ( i++; i<limit; i++) {
 				p = old[i];
 				for ( k = 0; k < p->retc; k++)
 					init[getArg(p,k)]=1;
+				pushInstruction(mb,p);
 
 				if (blockStart(p))
 					copy++;
@@ -263,7 +264,6 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 					copy--;
 					if ( copy == 0) break;
 				}
-				pushInstruction(mb,p);
 			}
 			// reset admin
 			(void) memset((char*)assigned, 0, vlimit * sizeof (int));
