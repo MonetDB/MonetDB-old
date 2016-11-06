@@ -39,7 +39,7 @@ newSymbol(str nme, int kind)
 	cur->name = putName(nme);
 	cur->kind = kind;
 	cur->peer = NULL;
-	cur->def = newMalBlk(kind == FUNCTIONsymbol?MAXVARS : MAXARG, kind == FUNCTIONsymbol? STMT_INCREMENT : 2);
+	cur->def = newMalBlk(kind == FUNCTIONsymbol?MAXVARS : MAXARG, kind == FUNCTIONsymbol? STMT_INCREMENT/2 : 2);
 	if ( cur->def == NULL){
 		GDKfree(cur);
 		return NULL;
@@ -93,7 +93,7 @@ MalBlkPtr
 newMalBlk(int maxvars, int maxstmts)
 {
 	MalBlkPtr mb;
-	VarPtr *v;
+	VarRecord *v;
 
 	/* each MAL instruction implies at least on variable */
 	// TODO: this check/assignment makes little sense
@@ -101,7 +101,7 @@ newMalBlk(int maxvars, int maxstmts)
 	if (maxvars < maxstmts)
 		maxvars = maxvars;
 	*/
-	v = (VarPtr *) GDKzalloc(sizeof(VarPtr) * maxvars);
+	v = (VarRecord *) GDKzalloc(sizeof(VarRecord) * maxvars);
 	if (v == NULL) {
 		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
@@ -164,11 +164,9 @@ resizeMalBlk(MalBlkPtr mb, int maxstmt, int maxvar)
 		mb->stmt[i] = 0;
 	mb->ssize = maxstmt;
 
-	mb->var = (VarPtr*) GDKrealloc(mb->var, maxvar * sizeof (VarPtr));
+	mb->var = (VarRecord*) GDKrealloc(mb->var, maxvar * sizeof (VarRecord));
 	if ( mb->var == NULL)
 		goto wrapup;
-	for( i = mb->vsize; i < maxvar; i++)
-		mb->var[i] = 0;
 	mb->vsize = maxvar;
 	return;
 wrapup:
@@ -199,15 +197,13 @@ freeMalBlk(MalBlkPtr mb)
 			mb->stmt[i] = NULL;
 		}
 	mb->stop = 0;
-	for (i = 0; i < mb->vsize; i++)
-		if (mb->var[i]) {
-			freeVariable(mb, i);
-			mb->var[i] = 0;
-		}
 	mb->vtop = 0;
 	mb->vid = 0;
 	GDKfree(mb->stmt);
 	mb->stmt = 0;
+	for(i=0; i< mb->vtop; i++)
+	if (isVarConstant(mb, i))
+		VALclear(&getVarConstant(mb,i));
 	GDKfree(mb->var);
 	mb->var = 0;
 
@@ -240,7 +236,7 @@ copyMalBlk(MalBlkPtr old)
 	mb->history = NULL;
 	mb->keephistory = old->keephistory;
 	mb->dotfile = old->dotfile;
-	mb->var = (VarPtr *) GDKzalloc(sizeof(VarPtr) * old->vsize);
+	mb->var = (VarRecord *) GDKzalloc(sizeof(VarRecord) * old->vsize);
 	mb->activeClients = 1;
 
 	if (mb->var == NULL) {
@@ -249,18 +245,13 @@ copyMalBlk(MalBlkPtr old)
 		return NULL;
 	}
 	mb->vsize = old->vsize;
-
-	mb->vtop = 0;
+	mb->vtop = old->vtop;
 	mb->vid = old->vid;
+
+	// copy all variable records
 	for (i = 0; i < old->vtop; i++) {
-		if(getVar(old,i) && copyVariable(mb, getVar(old, i)) == -1){
-			GDKfree(mb->var);
-			GDKfree(mb);
-			GDKerror("copyVariable" MAL_MALLOC_FAIL);
-			return NULL;
-		}
-		if (getVar(old,i))
-			mb->vtop++;
+		mb->var[i]=  old->var[i];
+		VALcopy(&(mb->var[i].value), &(old->var[i].value));
 	}
 
 	mb->stmt = (InstrPtr *) GDKzalloc(sizeof(InstrPtr) * old->ssize);
@@ -336,13 +327,13 @@ getMalBlkHistory(MalBlkPtr mb, int idx)
 static void
 trimexpand(MalBlkPtr mb, int varsize, int stmtsize)
 {
-	VarRecord **v;
+	VarRecord *v;
 	InstrPtr *stmt;
 	int len, i;
 
 	assert(varsize > 0 && stmtsize > 0);
-	len = sizeof(ValPtr) * (mb->vtop + varsize);
-	v = (VarRecord **) GDKzalloc(len);
+	len = sizeof(VarRecord) * (mb->vtop + varsize);
+	v = (VarRecord *) GDKzalloc(len);
 	if (v == NULL)
 		return;
 	len = sizeof(InstrPtr) * (mb->ssize + stmtsize);
@@ -352,11 +343,8 @@ trimexpand(MalBlkPtr mb, int varsize, int stmtsize)
 		return;
 	}
 
-	memcpy((str) v, (str) mb->var, sizeof(ValPtr) * mb->vtop);
+	memcpy((str) v, (str) mb->var, sizeof(VarRecord) * mb->vtop);
 
-	for (i = mb->vtop; i < mb->vsize; i++)
-		if (mb->var[i])
-			freeVariable(mb, i);
 	if (mb->var)
 		GDKfree(mb->var);
 	mb->var = v;
@@ -381,13 +369,11 @@ trimexpand(MalBlkPtr mb, int varsize, int stmtsize)
  * which really consumes a lot of memcpy resources. The average MAL
  * string length could been derived from the test cases. An error in
  * the estimate is more expensive than just counting the lines.
- *
- * The MAL blocks act as instruction pools. Using a resetMALblock
- * makes the instructions available. */
+ */
 void
 prepareMalBlk(MalBlkPtr mb, str s)
 {
-	int cnt = STMT_INCREMENT;
+	int cnt = STMT_INCREMENT/2;
 
 	while (s) {
 		s = strchr(s, '\n');
@@ -578,8 +564,8 @@ findVariableLength(MalBlkPtr mb, str name, int len)
 	int j;
 
 	for (i = mb->vtop - 1; i >= 0; i--)
-		if (mb->var[i]) { /* mb->var[i]->id will always evaluate to true */
-			str s = mb->var[i]->id;
+	{ 
+			str s = mb->var[i].id;
 
 			j = 0;
 			if (s)
@@ -702,17 +688,17 @@ static int
 makeVarSpace(MalBlkPtr mb)
 {
 	if (mb->vtop >= mb->vsize) {
-		VarPtr *new;
+		VarRecord *new;
 		int s = mb->vsize * 2;
 
-		new = (VarPtr *) GDKzalloc(s * sizeof(VarPtr));
+		new = (VarRecord *) GDKzalloc(s * sizeof(VarRecord));
 		if (new == NULL) {
 			mb->errors++;
 			showScriptException(GDKout, mb, 0, MAL, "newMalBlk:no storage left\n");
 			GDKfatal("makeVarSpace:no storage left\n");
 			return -1;
 		}
-		memcpy((char *) new, (char *) mb->var, sizeof(VarPtr) * mb->vtop);
+		memcpy((char *) new, (char *) mb->var, sizeof(VarRecord) * mb->vtop);
 		GDKfree(mb->var);
 		mb->vsize = s;
 		mb->var = new;
@@ -731,19 +717,11 @@ newVariable(MalBlkPtr mb, const char *name, size_t len, malType type)
 	if (makeVarSpace(mb)) 
 		return -1;
 	n = mb->vtop;
-	if (getVar(mb, n) == NULL){
-		getVar(mb, n) = (VarPtr) GDKzalloc(sizeof(VarRecord) );
-		if ( getVar(mb,n) == NULL) {
-			mb->errors++;
-			GDKfatal("newVariable:" MAL_MALLOC_FAIL);
-			return -1;
-		}
-	}
 	if( name == 0 || len == 0)
-		(void) snprintf(mb->var[n]->id, IDLENGTH,"%c%c%d", REFMARKER, TMPMARKER,mb->vid++);
+		(void) snprintf(getVarName(mb,n), IDLENGTH,"%c%c%d", REFMARKER, TMPMARKER,mb->vid++);
 	else{
-		(void) strncpy( mb->var[n]->id, name,len);
-		mb->var[n]->id[len]=0;
+		(void) strncpy( getVarName(mb,n), name,len);
+		getVarName(mb,n)[len]=0;
 	}
 
 	setRowCnt(mb,n,0);
@@ -782,7 +760,7 @@ cloneVariable(MalBlkPtr tm, MalBlkPtr mb, int x)
 		setVarUDFtype(tm, res);
 	if (isVarCleanup(mb, x))
 		setVarCleanup(tm, res);
-	strncpy(getSTC(tm,x),getSTC(mb,x), 2 *IDLENGTH);
+	strncpy(getSTC(tm,x),getSTC(mb,x), IDLENGTH);
 	return res;
 }
 
@@ -791,7 +769,7 @@ void
 renameVariable(MalBlkPtr mb, int id, str pattern, int newid)
 {
 	assert(id >=0 && id <mb->vtop);
-	snprintf(mb->var[id]->id,IDLENGTH,pattern,newid);
+	snprintf(getVarName(mb,id),IDLENGTH,pattern,newid);
 }
 
 int
@@ -815,27 +793,6 @@ newTypeVariable(MalBlkPtr mb, malType type)
 	return n;
 }
 
-int
-copyVariable(MalBlkPtr dst, VarPtr v)
-{
-	VarPtr w;
-
-	w = (VarPtr) GDKzalloc(sizeof(VarRecord));
-	if( w == NULL)
-		return -1;
-	strcpy(w->id,v->id);
-	w->type = v->type;
-	w->flags = v->flags;
-	w->rowcnt = v->rowcnt;
-	if (VALcopy(&w->value, &v->value) == NULL) {
-		GDKfree(w);
-		return -1;
-	}
-	dst->var[dst->vtop] = w;
-	return 0;
-}
-
-
 void
 clearVariable(MalBlkPtr mb, int varid)
 {
@@ -856,12 +813,7 @@ clearVariable(MalBlkPtr mb, int varid)
 void
 freeVariable(MalBlkPtr mb, int varid)
 {
-	VarPtr v;
-
-	v = getVar(mb, varid);
 	clearVariable(mb, varid);
-	GDKfree(v);
-	getVar(mb, varid) = NULL;
 }
 
 /* A special action is to reduce the variable space by removing all
@@ -893,9 +845,9 @@ trimMalVariables_(MalBlkPtr mb, MalStkPtr glb)
 		}
         if (i > cnt) {
             /* remap temporary variables */
-            VarRecord *t = mb->var[cnt];
+            VarRecord t = mb->var[cnt];
             mb->var[cnt] = mb->var[i];
-            mb->var[i] = t;
+            mb->var[i] =  t;
         }
 
 		/* valgrind finds a leak when we move these variable record
@@ -1200,7 +1152,6 @@ int
 defConstant(MalBlkPtr mb, int type, ValPtr cst)
 {
 	int k;
-	ValPtr vr;
 	str msg;
 
 	if (isaBatType(type) && cst->vtype == TYPE_void) {
@@ -1241,8 +1192,9 @@ defConstant(MalBlkPtr mb, int type, ValPtr cst)
 		setVarCleanup(mb, k);
 	else
 		clrVarCleanup(mb, k);
-	vr = &getVarConstant(mb, k);
-	*vr = *cst;
+	VALcopy( &getVarConstant(mb, k),cst);
+	if (ATOMextern(cst->vtype) && cst->val.pval)
+		VALclear(cst);
 	return k;
 }
 
@@ -1361,15 +1313,6 @@ delArgument(InstrPtr p, int idx)
 		p->retc--;
 }
 
-void
-setVarType(MalBlkPtr mb, int i, int tpe)
-{
-	VarPtr v;
-	v = mb->var[i];
-
-	v->type = tpe;
-}
-
 /* Cleaning a variable type by setting it to TYPE_any possibly
  * invalidates all other type derivations in the program. Beware of
  * the exception variables. They are globally known. */
@@ -1382,7 +1325,7 @@ clrAllTypes(MalBlkPtr mb)
 	p = getInstrPtr(mb, 0);
 
 	for (i = p->argc; i < mb->vtop; i++)
-		if (!isVarUDFtype(mb, i) && isVarUsed(mb, i) && !isVarTypedef(mb, i) && !isVarConstant(mb, i) && !isExceptionVariable(mb->var[i]->id)) {
+		if (!isVarUDFtype(mb, i) && isVarUsed(mb, i) && !isVarTypedef(mb, i) && !isVarConstant(mb, i) && !isExceptionVariable( getVarName(mb,i)) ) {
 			setVarType(mb, i, TYPE_any);
 			clrVarCleanup(mb, i);
 			clrVarFixed(mb, i);
@@ -1414,7 +1357,7 @@ void
 setArgType(MalBlkPtr mb, InstrPtr p, int i, int tpe)
 {
 	assert(p->argv[i] < mb->vsize);
-	mb->var[getArg(p, i)]->type = tpe;
+	setVarType(mb,getArg(p, i),tpe);
 }
 
 void

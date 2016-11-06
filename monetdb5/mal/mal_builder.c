@@ -512,7 +512,7 @@ pushNil(MalBlkPtr mb, InstrPtr q, int tpe)
 		cst.vtype = TYPE_bat;
 		cst.val.bval = bat_nil;
 		_t = defConstant(mb,TYPE_bat,&cst);
-		mb->var[_t]->type = tpe;
+		getVarType(mb,_t) = tpe;
 	}
 	q= pushArgument(mb, q, _t);
 	setVarUDFtype(mb,getArg(q,q->argc-1)); /* needed */

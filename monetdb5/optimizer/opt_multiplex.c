@@ -53,9 +53,9 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			throw(MAL, "optimizer.multiplex", "Target type is missing");
 	}
 
-	mod = VALget(&getVar(mb, getArg(pci, pci->retc))->value);
+	mod = VALget(&getVarConstant(mb, getArg(pci, pci->retc)));
 	mod = putName(mod);
-	fcn = VALget(&getVar(mb, getArg(pci, pci->retc+1))->value);
+	fcn = VALget(&getVarConstant(mb, getArg(pci, pci->retc+1)));
 	fcn = putName(fcn);
 #ifndef NDEBUG
 	mnstr_printf(GDKstdout,"#WARNING To speedup %s.%s a bulk operator implementation is needed\n#", mod,fcn);

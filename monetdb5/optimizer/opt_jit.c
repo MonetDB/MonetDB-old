@@ -60,9 +60,9 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		 * X_535 := batcalc.-(100:lng, X_527); 
 		 */
 		if( getModuleId(p) == batcalcRef && *getFunctionId(p) == '-' && p->argc == 3 && isVarConstant(mb, getArg(p,1)) ){
-			q= getInstrPtr(mb, getVar(mb,getArg(p,2))->updated);
+			q= getInstrPtr(mb, getVarUpdated(mb,getArg(p,2)));
 			if ( q == 0)
-				q= getInstrPtr(mb, getVar(mb,getArg(p,2))->declared);
+				q= getInstrPtr(mb, getVarDeclared(mb,getArg(p,2)));
 			if( q && getArg(q,0) == getArg(p,2) && getModuleId(q) == algebraRef && getFunctionId(q) == projectionRef ){
 				getArg(p,2)=  getArg(q,2);
 				p= pushArgument(mb,p, getArg(q,1));

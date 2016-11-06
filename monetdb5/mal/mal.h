@@ -144,14 +144,14 @@ typedef struct SYMDEF {
 typedef struct VARRECORD {
 	char id[IDLENGTH];			/* use the space for the full name */
 	malType type;				/* internal type signature */
-	int flags;					/* see below, reserve some space */
+	short flags;					/* see below, reserve some space */
+	short depth;				/* scope block depth, set to -1 if not used */
+	short worker;				/* thread id of last worker producing it */
 	ValRecord value;
 	int declared;				/* pc index when it was first assigned */
 	int updated;				/* pc index when it was first updated */
 	int eolife;					/* pc index when it should be garbage collected */
-	int depth;					/* scope block depth, set to -1 if not used */
-	int worker;					/* thread id of last worker producing it */
-	char stc[2* IDLENGTH];		/* rendering schema.table.column, with little more space */
+	char stc[IDLENGTH];		    /* rendering schema.table.column (truncated) */
 	BUN rowcnt;					/* estimated row count*/
 } *VarPtr, VarRecord;
 
@@ -195,7 +195,7 @@ typedef struct MALBLK {
 	int vtop;					/* next free slot */
 	int vsize;					/* size of variable arena */
 	int vid;	 				/* generate local variable counter */
-	VarRecord **var;			/* Variable table */
+	VarRecord *var;				/* Variable table */
 	int stop;					/* next free slot */
 	int ssize;					/* byte size of arena */
 	InstrPtr *stmt;				/* Instruction location */

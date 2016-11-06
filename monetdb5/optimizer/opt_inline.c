@@ -29,8 +29,8 @@ static int OPTinlineMultiplex(Client cntxt, MalBlkPtr mb, InstrPtr p){
 	Symbol s;
 	str mod,fcn;
 
-	mod = VALget(&getVar(mb, getArg(p, 1))->value);
-	fcn = VALget(&getVar(mb, getArg(p, 2))->value);
+	mod = VALget(&getVarConstant(mb, getArg(p, 1)));
+	fcn = VALget(&getVarConstant(mb, getArg(p, 2)));
 	if( (s= findSymbol(cntxt->nspace, mod,fcn)) ==0 )
 		return FALSE;
 	/*

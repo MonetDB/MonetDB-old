@@ -389,7 +389,7 @@ MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start)
 	if (mb->errors == 0)
 		for (i = start; i < mb->vtop; i++) {
 			if (isVarUsed(mb,i) || !isTmpVar(mb,i)){
-				assert(!mb->var[i]->value.vtype || isVarConstant(mb, i));
+				assert(!getVarConstant(mb,i).vtype || isVarConstant(mb, i));
 				setVarUsed(mb,i);
 			}
 			if (glb && !isVarUsed(mb,i)) {

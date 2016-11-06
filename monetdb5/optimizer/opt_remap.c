@@ -25,8 +25,8 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 	InstrPtr p;
 
 	(void) stk;
-	mod = VALget(&getVar(mb, getArg(pci, retc+0))->value);
-	fcn = VALget(&getVar(mb, getArg(pci, retc+1))->value);
+	mod = VALget(&getVarConstant(mb, getArg(pci, retc+0)));
+	fcn = VALget(&getVarConstant(mb, getArg(pci, retc+1)));
 
 	if(strncmp(mod,"bat",3)==0)
 		mod+=3;
@@ -111,8 +111,8 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 
 
 	s= findSymbol(cntxt->nspace, 
-			VALget(&getVar(mb, getArg(p, retc+0))->value),
-			VALget(&getVar(mb, getArg(p, retc+1))->value));
+			VALget(&getVarConstant(mb, getArg(p, retc+0))),
+			VALget(&getVarConstant(mb, getArg(p, retc+1))));
 
 	if( s== NULL || !isSideEffectFree(s->def) || 
 		getInstrPtr(s->def,0)->retc != p->retc ) {
@@ -196,7 +196,7 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 		    !isaBatType(getArgType(mq, q, 1)) ){
 				/* handle nil assignment */
 				if( ATOMcmp(getArgGDKType(mq, q, 1),
-					VALptr(&getVar(mq, getArg(q,1))->value),
+					VALptr(&getVarConstant(mq, getArg(q,1))),
 					ATOMnilptr(getArgType(mq, q, 1))) == 0) {
 				ValRecord cst;
 				int tpe = newBatType(getArgType(mq, q, 1));
@@ -326,7 +326,7 @@ OPTremapSwitched(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module
 	    !isVarConstant(mb,getArg(pci,4)) &&
 		pci->argc != 5) 
 			return 0;
-	fcn = VALget(&getVar(mb, getArg(pci, 2))->value);
+	fcn = VALget(&getVarConstant(mb, getArg(pci, 2)));
 	for(i=0;OperatorMap[i].src;i++)
 	if( strcmp(fcn,OperatorMap[i].src)==0){
 		/* found a candidate for a switch */
@@ -373,8 +373,8 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			 * such as the calculator functions. It is particularly
 			 * geared at handling the PSM code.
 			 */
-			str mod = VALget(&getVar(mb, getArg(p, 1))->value);
-			str fcn = VALget(&getVar(mb, getArg(p, 2))->value);
+			str mod = VALget(&getVarConstant(mb, getArg(p, 1)));
+			str fcn = VALget(&getVarConstant(mb, getArg(p, 2)));
 			Symbol s = findSymbol(cntxt->nspace, mod,fcn);
 
 			if (s && s->def->inlineProp ){

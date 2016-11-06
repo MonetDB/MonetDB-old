@@ -77,7 +77,7 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 		n = mb->stop-1;
 		for (j = 0; j < p->argc; j++) {
 			if (getEndScope(mb,getArg(p,j)) == i && isaBatType(getArgType(mb, p, j)) ){
-				mb->var[getArg(p,j)]->eolife = n;
+				setVarEolife(mb,getArg(p,j), n);
 				p->gc |= GARBAGECONTROL;
 			} 
 		}
@@ -94,7 +94,7 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 						setVarFixed(mb,k);
 						q= pushNil(mb,q, getVarType(mb,k));
 						q->gc |= GARBAGECONTROL;
-						mb->var[k]->eolife = mb->stop-1;
+						setVarEolife(mb,k,mb->stop-1);
 						actions++;
 				}
 			}

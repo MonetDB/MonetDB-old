@@ -337,8 +337,8 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 		return fcnDefinition(mb, p, s, flg, base, len);
 	case REMsymbol:
 	case NOOPsymbol:
-		if(getVar(mb, getArg(p, 0))->value.val.sval && getVar(mb, getArg(p, 0))->value.len > 0) 
-			snprintf(t,(len-(t-base)), "#%s ", getVar(mb, getArg(p, 0))->value.val.sval);
+		if(getVarConstant(mb, getArg(p, 0)).val.sval && getVarConstant(mb, getArg(p, 0)).len > 0) 
+			snprintf(t,(len-(t-base)), "#%s ", getVarConstant(mb, getArg(p, 0)).val.sval);
 		else
 			snprintf(t, (len-(t-base)), "# ");
 		break;

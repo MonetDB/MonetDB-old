@@ -46,61 +46,75 @@
 #define getModName(M)		getModuleId(getInstrPtr(M,0))
 #define getPrgSize(M)		(M)->stop
 
-#define getVar(M,I)			(M)->var[I]
-#define getVarType(M,I)		((M)->var[I]->type)
-#define getVarName(M,I)		((M)->var[I]->id)
-#define getVarGDKType(M,I)	getGDKType((M)->var[I]->type)
+#define getVar(M,I)			&(M)->var[I]
+#define getVarType(M,I)		((M)->var[I].type)
+#define getVarName(M,I)		((M)->var[I].id)
+#define getVarGDKType(M,I)	getGDKType((M)->var[I].type)
+#define setVarType(M,I,V)   (M)->var[I].type = V
 
-#define clrVarFixed(M,I)		((M)->var[I]->flags &= ~VAR_FIXTYPE)
-#define setVarFixed(M,I)		((M)->var[I]->flags |= VAR_FIXTYPE)
-#define isVarFixed(M,I)		((M)->var[I]->flags & VAR_FIXTYPE)
+#define clrVarFixed(M,I)		((M)->var[I].flags &= ~VAR_FIXTYPE)
+#define setVarFixed(M,I)		((M)->var[I].flags |= VAR_FIXTYPE)
+#define isVarFixed(M,I)		((M)->var[I].flags & VAR_FIXTYPE)
 
-#define clrVarCleanup(M,I)		((M)->var[I]->flags &= ~VAR_CLEANUP)
-#define setVarCleanup(M,I)		((M)->var[I]->flags |= VAR_CLEANUP)
-#define isVarCleanup(M,I)		((M)->var[I]->flags & VAR_CLEANUP)
+#define clrVarCleanup(M,I)		((M)->var[I].flags &= ~VAR_CLEANUP)
+#define setVarCleanup(M,I)		((M)->var[I].flags |= VAR_CLEANUP)
+#define isVarCleanup(M,I)		((M)->var[I].flags & VAR_CLEANUP)
 #define isTmpVar(M,I)			(*getVarName(M,I) == REFMARKER && *(getVarName(M,I)+1) == TMPMARKER)
 
-#define clrVarUsed(M,I)		((M)->var[I]->flags &= ~VAR_USED)
-#define setVarUsed(M,I)		((M)->var[I]->flags |= VAR_USED)
-#define isVarUsed(M,I)		((M)->var[I]->flags & VAR_USED)
+#define clrVarUsed(M,I)		((M)->var[I].flags &= ~VAR_USED)
+#define setVarUsed(M,I)		((M)->var[I].flags |= VAR_USED)
+#define isVarUsed(M,I)		((M)->var[I].flags & VAR_USED)
 
-#define clrVarDisabled(M,I)		((M)->var[I]->flags &= ~VAR_DISABLED)
-#define setVarDisabled(M,I)		((M)->var[I]->flags |= VAR_DISABLED)
-#define isVarDisabled(M,I)		((M)->var[I]->flags & VAR_DISABLED)
+#define clrVarDisabled(M,I)		((M)->var[I].flags &= ~VAR_DISABLED)
+#define setVarDisabled(M,I)		((M)->var[I].flags |= VAR_DISABLED)
+#define isVarDisabled(M,I)		((M)->var[I].flags & VAR_DISABLED)
 
-#define clrVarInit(M,I)		((M)->var[I]->flags &= ~VAR_INIT)
-#define setVarInit(M,I)		((M)->var[I]->flags |= VAR_INIT)
-#define isVarInit(M,I)		((M)->var[I]->flags & VAR_INIT)
+#define clrVarInit(M,I)		((M)->var[I].flags &= ~VAR_INIT)
+#define setVarInit(M,I)		((M)->var[I].flags |= VAR_INIT)
+#define isVarInit(M,I)		((M)->var[I].flags & VAR_INIT)
 
-#define clrVarTypedef(M,I)		((M)->var[I]->flags &= ~VAR_TYPEVAR)
-#define setVarTypedef(M,I)		((M)->var[I]->flags |= VAR_TYPEVAR)
-#define isVarTypedef(M,I)		((M)->var[I]->flags & VAR_TYPEVAR)
+#define clrVarTypedef(M,I)		((M)->var[I].flags &= ~VAR_TYPEVAR)
+#define setVarTypedef(M,I)		((M)->var[I].flags |= VAR_TYPEVAR)
+#define isVarTypedef(M,I)		((M)->var[I].flags & VAR_TYPEVAR)
 
-#define clrVarUDFtype(M,I)		((M)->var[I]->flags &= ~VAR_UDFTYPE)
-#define setVarUDFtype(M,I)		((M)->var[I]->flags |= VAR_UDFTYPE)
-#define isVarUDFtype(M,I)		((M)->var[I]->flags & VAR_UDFTYPE)
+#define clrVarUDFtype(M,I)		((M)->var[I].flags &= ~VAR_UDFTYPE)
+#define setVarUDFtype(M,I)		((M)->var[I].flags |= VAR_UDFTYPE)
+#define isVarUDFtype(M,I)		((M)->var[I].flags & VAR_UDFTYPE)
 
-#define clrVarConstant(M,I)		((M)->var[I]->flags &= ~VAR_CONSTANT)
-#define setVarConstant(M,I)		((M)->var[I]->flags |= VAR_CONSTANT)
-#define isVarConstant(M,I)		((M)->var[I]->flags & VAR_CONSTANT)
+#define clrVarConstant(M,I)		((M)->var[I].flags &= ~VAR_CONSTANT)
+#define setVarConstant(M,I)		((M)->var[I].flags |= VAR_CONSTANT)
+#define isVarConstant(M,I)		((M)->var[I].flags & VAR_CONSTANT)
 
-#define setVarScope(M,I,S)		((M)->var[I]->depth = S)
-#define getVarScope(M,I)		((M)->var[I]->depth)
+#define setVarDeclared(M,I,X)	((M)->var[I].declared = X )
+#define getVarDeclared(M,I)		((M)->var[I].declared)
 
-#define clrVarCList(M,I)		((M)->var[I]->id[0]= REFMARKER)
-#define setVarCList(M,I)		((M)->var[I]->id[0]= REFMARKERC)
-#define isVarCList(M,I)			((M)->var[I]->id[0] == REFMARKERC)
+#define setVarUpdated(M,I,X)	((M)->var[I].updated = X )
+#define getVarUpdated(M,I)		((M)->var[I].updated)
 
-#define getVarConstant(M,I)	((M)->var[I]->value)
-#define getVarValue(M,I)	VALget(&(M)->var[I]->value)
+#define setVarEolife(M,I,X)	((M)->var[I].eolife = X )
+#define getVarEolife(M,I)		((M)->var[I].eolife)
 
-#define setRowCnt(M,I,C)	(M)->var[I]->rowcnt = C
-#define getRowCnt(M,I)		((M)->var[I]->rowcnt)
+#define setVarWorker(M,I,S)		((M)->var[I].worker = S)
+#define getVarWorker(M,I)		((M)->var[I].worker)
+
+#define setVarScope(M,I,S)		((M)->var[I].depth = S)
+#define getVarScope(M,I)		((M)->var[I].depth)
+
+#define clrVarCList(M,I)		((M)->var[I].id[0]= REFMARKER)
+#define setVarCList(M,I)		((M)->var[I].id[0]= REFMARKERC)
+#define isVarCList(M,I)			((M)->var[I].id[0] == REFMARKERC)
+
+#define getVarConstant(M,I)	((M)->var[I].value)
+#define getVarValue(M,I)	VALget(&((M)->var[I].value))
+
+#define setRowCnt(M,I,C)	(M)->var[I].rowcnt = C
+#define getRowCnt(M,I)		((M)->var[I].rowcnt)
 
 #define setMitosisPartition(P,C)	(P)->mitosis = C
 #define getMitosisPartition(P)		((P)->mitosis)
 
-#define getSTC(M,I)		((M)->var[I]->stc)
+#define getSTC(M,I)		((M)->var[I].stc)
+
 
 #define getDestVar(P)		(P)->argv[0]
 #define setDestVar(P,X)		(P)->argv[0]  =X
@@ -149,7 +163,6 @@ mal_export void setVarName(MalBlkPtr mb, int i, str nme);
 mal_export int newVariable(MalBlkPtr mb, const char *name, size_t len, malType type);
 mal_export int cloneVariable(MalBlkPtr dst, MalBlkPtr src, int varid);
 mal_export void renameVariable(MalBlkPtr mb, int i, str pattern, int newid);
-mal_export int copyVariable(MalBlkPtr dst, VarPtr v);
 mal_export int newTmpVariable(MalBlkPtr mb, malType type);
 mal_export int newTypeVariable(MalBlkPtr mb, malType type);
 mal_export void freeVariable(MalBlkPtr mb, int varid);
@@ -165,7 +178,6 @@ mal_export InstrPtr setArgument(MalBlkPtr mb, InstrPtr p, int idx, int varid);
 mal_export InstrPtr pushReturn(MalBlkPtr mb, InstrPtr p, int varid);
 mal_export InstrPtr pushArgumentId(MalBlkPtr mb, InstrPtr p, str name);
 mal_export void delArgument(InstrPtr p, int varid);
-mal_export void setVarType(MalBlkPtr mb, int i, int tpe);
 mal_export void clrAllTypes(MalBlkPtr mb);
 mal_export void setArgType(MalBlkPtr mb, InstrPtr p, int i, int tpe);
 mal_export void setReturnArgument(InstrPtr p, int varid);
