@@ -285,12 +285,12 @@ prepareMALstack(MalBlkPtr mb, int size)
 
 	assert(size >= mb->vsize);
 	stk = newGlobalStack(size);
-	//memset((char *)stk, 0, stackSize(size)); already set
-	//stk->stksize = size;
-	stk->stktop = mb->vtop;
-	stk->blk = mb;
+	if( stk) {
+		stk->stktop = mb->vtop;
+		stk->blk = mb;
 
-	initStack(0);
+		initStack(0);
+	}
 	return stk;
 }
 
@@ -420,6 +420,8 @@ callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *env, ValPtr argv[], char debug)
 		 */
 		if (*env == NULL) {
 			stk = prepareMALstack(mb, mb->vsize);
+			if( stk == NULL)
+				throw(MAL, "mal.interpreter", MAL_STACK_FAIL);
 			stk->up = 0;
 			*env = stk;
 		} else {

@@ -240,8 +240,10 @@ newPlant(MalBlkPtr mb)
 	for (p = plants; p < plim && p->factory; p++)
 		;
 	stk = newGlobalStack(mb->vsize);
-	if (lastPlant == MAXPLANTS || stk == NULL){
-		if( stk) GDKfree(stk);
+	if( stk == 0)
+		showException(GDKout,MAL,"newPlant",MAL_MALLOC_FAIL);
+	if (lastPlant == MAXPLANTS ){
+		GDKfree(stk);
 		return 0;
 	}
 	if (p == plim)

@@ -694,8 +694,7 @@ makeVarSpace(MalBlkPtr mb)
 		new = (VarRecord *) GDKzalloc(s * sizeof(VarRecord));
 		if (new == NULL) {
 			mb->errors++;
-			showScriptException(GDKout, mb, 0, MAL, "newMalBlk:no storage left\n");
-			GDKfatal("makeVarSpace:no storage left\n");
+			showException(GDKout, MAL, "newMalBlk",MAL_MALLOC_FAIL);
 			return -1;
 		}
 		memcpy((char *) new, (char *) mb->var, sizeof(VarRecord) * mb->vtop);

@@ -50,6 +50,7 @@
  */
 #include "monetdb_config.h"
 #include "mal_stack.h"
+#include "mal_exception.h"
 
 /* #define DEBUG_MAL_STACK*/
 
@@ -60,24 +61,28 @@ newGlobalStack(int size)
 
 	s = (MalStkPtr) GDKzalloc(stackSize(size) + offsetof(MalStack, stk));
 	if (s == NULL)
-		GDKfatal("newGlobalStack:can not obtain memory\n");
-	s->stksize = size;
+		showException(GDKout,MAL,"newGlobalStack",MAL_MALLOC_FAIL);
+	else
+		s->stksize = size;
 	return s;
 }
 
 MalStkPtr
 reallocGlobalStack(MalStkPtr old, int cnt)
 {
-	int k;
+	int newsize;
 	MalStkPtr s;
 
 	if (old->stksize > cnt)
 		return old;
-	k = ((cnt / STACKINCR) + 1) * STACKINCR;
-	s = newGlobalStack(k);
-	memcpy(s, old, stackSize(old->stksize));
-	s->stksize = k;
-	GDKfree(old);
+	newsize = offsetof(MalStack,stk) + ((cnt / STACKINCR) + 1) * STACKINCR;
+
+	s =  (MalStkPtr) GDKrealloc(old, newsize);
+	if( s) {
+		memset(s + offsetof(MalStack,stk) + old->stksize, 0, newsize - offsetof(MalStack,stk) + old->stksize);
+		s->stksize = newsize;
+	} else
+		showException(GDKout,MAL,"reallocGlobalStack",MAL_MALLOC_FAIL);
 	return s;
 }
 

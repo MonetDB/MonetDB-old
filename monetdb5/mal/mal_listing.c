@@ -376,9 +376,8 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 		snprintf(t,(len-(t-base)), ";");
 		advance(t,base,len);
 	}
-	/* we may accidentally overwrite */
-	if (t > s + len)
-		GDKfatal("instruction2str:");
+	/* we may accidentally overwritten, TODOt */
+	assert (t < s + len);
 	return base;
 }
 
