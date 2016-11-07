@@ -481,7 +481,9 @@ SQLinitClient(Client c)
 	c->state[MAL_SCENARIO_OPTIMIZE] = c;
 	c->sqlcontext = be;
 
-	initSQLreferences();
+    if (algebraRef == NULL)
+		throw(SQL, "SQLinitClient", "Namespace not properly initialized");
+
 	/* initialize the database with predefined SQL functions */
 	if (SQLnewcatalog == 0) {
 		/* check whether table sys.systemfunctions exists: if

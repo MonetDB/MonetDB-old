@@ -68,13 +68,6 @@ constantAtom(backend *sql, MalBlkPtr mb, atom *a)
  * To speedup code generation we freeze the references to the major module names.
  */
 
-void
-initSQLreferences(void)
-{
-	if (algebraRef == NULL)
-		GDKfatal("error initSQLreferences");
-}
-
 InstrPtr
 table_func_create_result(MalBlkPtr mb, InstrPtr q, sql_func *f, list *restypes)
 {

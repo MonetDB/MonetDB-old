@@ -364,7 +364,8 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 		throw(SQL, "SQLstatement", "Catalogue not available");
 	}
 
-	initSQLreferences();
+    if (algebraRef == NULL)
+		throw(SQL, "SQLstatement", "Namespace not properly initialized");
 	m = sql->mvc;
 	ac = m->session->auto_commit;
 	o = MNEW(mvc);
