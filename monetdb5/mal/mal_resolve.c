@@ -726,6 +726,8 @@ chkTypes(stream *out, Module s, MalBlkPtr mb, int silent)
 	InstrPtr p = 0;
 	int i, chk = 0;
 
+	if (mb->errors)
+		return;
 	for (i = 0; i < mb->stop; i++) {
 		p = getInstrPtr(mb, i);
 		assert (p != NULL);
@@ -767,11 +769,7 @@ chkProgram(stream *out, Module s, MalBlkPtr mb)
 /*	if( mb->flowfixed == 0)*/
 
 	chkTypes(out, s, mb, FALSE);
-	if (mb->errors)
-		return;
 	chkFlow(out, mb);
-	if (mb->errors)
-		return;
 	chkDeclarations(out, mb);
 	/* malGarbageCollector(mb); */
 }

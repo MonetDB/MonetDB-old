@@ -316,6 +316,8 @@ str runMAL(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr env)
 	 * allocate space for value stack the global stack should be large
 	 * enough
 	 */
+	if( mb->errors)
+		throw(MAL, "mal.interpreter", "Could contains errors");
 	cntxt->lastcmd= time(0);
 	if (env != NULL) {
 		stk = env;
@@ -405,6 +407,8 @@ callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *env, ValPtr argv[], char debug)
 	ValPtr lhs;
 	InstrPtr pci = getInstrPtr(mb, 0);
 
+	if( mb->errors)
+		throw(MAL, "mal.interpreter", "Program could contains errors");
 	cntxt->lastcmd= time(0);
 #ifdef DEBUG_CALLMAL
 	mnstr_printf(cntxt->fdout, "callMAL\n");
@@ -478,6 +482,10 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 	int stkpc = 0;
 	RuntimeProfileRecord runtimeProfile, runtimeProfileFunction;
 	lng lastcheck = 0;
+
+	if( mb->errors)
+		throw(MAL, "mal.interpreter", "Program could contains errors");
+
 #define CHECKINTERVAL 1000 /* how often do we check for client disconnect */
 	runtimeProfile.ticks = runtimeProfileFunction.ticks = 0;
 

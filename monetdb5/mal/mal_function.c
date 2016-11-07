@@ -744,6 +744,8 @@ void chkDeclarations(stream *out, MalBlkPtr mb){
 	short blks[MAXDEPTH], top= 0, blkId=1;
 	int dflow = -1;
 
+	if( mb->errors)
+		return;
 	blks[top] = blkId;
 
 	/* initialize the scope */
