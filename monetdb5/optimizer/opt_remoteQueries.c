@@ -94,7 +94,7 @@ RQcall2str(MalBlkPtr mb, InstrPtr p)
 				break;\
 		\
 		if( k== dbtop){\
-			r= newInstruction(mapiRef,lookupRef);\
+			r= newInstruction(mb,mapiRef,lookupRef);\
 			j= getArg(r,0)= newTmpVariable(mb, TYPE_int);\
 			r= pushArgument(mb,r, getArg(p,X));\
 			pushInstruction(mb,r);\
@@ -106,14 +106,14 @@ RQcall2str(MalBlkPtr mb, InstrPtr p)
 	} else j= location[getArg(p,0)];
 
 #define prepareRemote(X)\
-	r= newInstruction(mapiRef,rpcRef);\
+	r= newInstruction(mb,mapiRef,rpcRef);\
 	getArg(r,0)= newTmpVariable(mb, X);\
 	r= pushArgument(mb,r,j);
 
 #define putRemoteVariables()\
 	for(j=p->retc; j<p->argc; j++)\
 	if( location[getArg(p,j)] == 0 && !isVarConstant(mb,getArg(p,j)) ){\
-		q= newInstruction(mapiRef, putRef);\
+		q= newInstruction(mb,mapiRef, putRef);\
 		getArg(q,0)= newTmpVariable(mb, TYPE_void);\
 		q= pushArgument(mb,q,location[getArg(p,j)]);\
 		q= pushStr(mb,q, getVarName(mb,getArg(p,j)));\
@@ -309,7 +309,7 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 				/* perform locally */
 				for(j=p->retc; j<p->argc; j++)
 				if( location[getArg(p,j)]){
-					q= newInstruction(mapiRef,rpcRef);
+					q= newInstruction(mb,mapiRef,rpcRef);
 					getArg(q,0)= getArg(p,j);
 					q= pushArgument(mb,q,location[getArg(p,j)]);
 					snprintf(buf,BUFSIZ,"io.print(%s);",
@@ -324,13 +324,13 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 				doit++;
 			} else if (remoteSite){
 				/* single remote site involved */
-				r= newInstruction(mapiRef,rpcRef);
+				r= newInstruction(mb,mapiRef,rpcRef);
 				getArg(r,0)= newTmpVariable(mb, TYPE_void);
 				r= pushArgument(mb, r, remoteSite);
 
 				for(j=p->retc; j<p->argc; j++)
 				if( location[getArg(p,j)] == 0 && !isVarConstant(mb,getArg(p,j)) ){
-					q= newInstruction(mapiRef,putRef);
+					q= newInstruction(mb,mapiRef,putRef);
 					getArg(q,0)= newTmpVariable(mb, TYPE_void);
 					q= pushArgument(mb, q, remoteSite);
 					q= pushStr(mb,q, getVarName(mb,getArg(p,j)));

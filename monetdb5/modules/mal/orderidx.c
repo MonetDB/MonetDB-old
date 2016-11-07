@@ -89,7 +89,7 @@ OIDXcreateImplementation(Client cntxt, int tpe, BAT *b, int pieces)
 	resizeMalBlk(smb, 2*pieces+10, 2*pieces+10); // large enough
 	/* create the pack instruction first, as it will hold
 	 * intermediate variables */
-	pack = newInstruction(putName("bat"), putName("orderidx"));
+	pack = newInstruction(smb,putName("bat"), putName("orderidx"));
 	pack->argv[0] = newTmpVariable(smb, TYPE_void);
 	pack = pushArgument(smb, pack, arg);
 	setVarFixed(smb, getArg(pack, 0));

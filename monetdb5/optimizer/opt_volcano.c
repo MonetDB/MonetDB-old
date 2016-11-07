@@ -56,7 +56,7 @@ OPTvolcanoImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 				getFunctionId(p) == likesubselectRef ||
 				getFunctionId(p) == subjoinRef
 			){
-				q= newInstruction(languageRef,blockRef);
+				q= newInstruction(mb,languageRef,blockRef);
 				setDestVar(q, newTmpVariable(mb,TYPE_any));
 				q =  pushArgument(mb,q,mvcvar);
 				q =  pushArgument(mb,q,getArg(p,0));
@@ -68,7 +68,7 @@ OPTvolcanoImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 		}
 		if( count < MAXdelays && getModuleId(p) == groupRef ){
 			if( getFunctionId(p) == subgroupdoneRef ){
-				q= newInstruction(languageRef,blockRef);
+				q= newInstruction(mb,languageRef,blockRef);
 				setDestVar(q, newTmpVariable(mb,TYPE_any));
 				q =  pushArgument(mb,q,mvcvar);
 				q =  pushArgument(mb,q,getArg(p,0));

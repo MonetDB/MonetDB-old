@@ -180,7 +180,7 @@ OPTsql_appendImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 					 * setArgType(mb,q1,TYPE_lng) */
 					/* it will be added to the block and even my
 					 * re-use MAL instructions */
-					q1 = newInstruction(aggrRef,countRef);
+					q1 = newInstruction(mb,aggrRef,countRef);
 					getArg(q1,0) = newTmpVariable(mb, TYPE_lng);
 					q1 = pushArgument(mb, q1, getArg(p, 5));
 					pushInstruction(mb, q1);
@@ -189,7 +189,7 @@ OPTsql_appendImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 				/* push new v2 := algebra.slice( v0, 0, v1 ); */
 				/* use mal_builder.h primitives
 				 * q1 = newStmt(mb, algebraRef,sliceRef); */
-				q2 = newInstruction(algebraRef, sliceRef);
+				q2 = newInstruction(mb,algebraRef, sliceRef);
 				getArg(q2,0) = newTmpVariable(mb, TYPE_any);
 				q2 = pushArgument(mb, q2, getArg(p, 5));
 				q2 = pushLng(mb, q2, 0);

@@ -23,7 +23,7 @@
 InstrPtr
 newAssignment(MalBlkPtr mb)
 {
-	InstrPtr q = newInstruction(NULL,NULL);
+	InstrPtr q = newInstruction(mb,NULL,NULL);
 
 	if ((getArg(q,0)= newTmpVariable(mb,TYPE_any)) < 0) {
 		freeInstruction(q);
@@ -36,7 +36,7 @@ newAssignment(MalBlkPtr mb)
 InstrPtr
 newStmt(MalBlkPtr mb, const char *module, const char *name)
 {
-	InstrPtr q = newInstruction(putName(module), putName(name));
+	InstrPtr q = newInstruction(mb,putName(module), putName(name));
 
 	setDestVar(q, newTmpVariable(mb, TYPE_any));
 	if (getDestVar(q) < 0) {
@@ -50,7 +50,7 @@ newStmt(MalBlkPtr mb, const char *module, const char *name)
 InstrPtr
 newReturnStmt(MalBlkPtr mb)
 {
-	InstrPtr q = newInstruction(NULL,NULL);
+	InstrPtr q = newInstruction(mb,NULL,NULL);
 
 	if ((getArg(q,0)= newTmpVariable(mb,TYPE_any)) < 0) {
 		freeInstruction(q);
@@ -76,7 +76,7 @@ newFcnCall(MalBlkPtr mb, char *mod, char *fcn)
 InstrPtr
 newComment(MalBlkPtr mb, const char *val)
 {
-	InstrPtr q = newInstruction(NULL,NULL);
+	InstrPtr q = newInstruction(mb,NULL,NULL);
 	ValRecord cst;
 
 	q->token = REMsymbol;
@@ -154,7 +154,7 @@ pushEndInstruction(MalBlkPtr mb)
 {
     InstrPtr p;
 
-    p = newInstruction(NULL, NULL);
+    p = newInstruction(mb,NULL, NULL);
     p->token = ENDsymbol;
     p->barrier = 0;
     p->argc = 0;

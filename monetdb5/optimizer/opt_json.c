@@ -38,7 +38,7 @@ OPTjsonImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for (i = 0; i < limit; i++) {
 		p = old[i];
 		if( getModuleId(p) == sqlRef  && getFunctionId(p) == affectedRowsRef) {
-			q = newInstruction(jsonRef, resultSetRef);
+			q = newInstruction(mb,jsonRef, resultSetRef);
 			q = pushArgument(mb, q, bu);
 			q = pushArgument(mb, q, br);
 			q = pushArgument(mb, q, bj);
@@ -46,7 +46,7 @@ OPTjsonImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			p= getInstrPtr(mb,0);
 			setDestVar(q, newTmpVariable(mb, TYPE_str));
 			pushInstruction(mb,p);
-			q = newInstruction( NULL, NULL);
+			q = newInstruction(mb, NULL, NULL);
 			q->barrier = RETURNsymbol;
 			getArg(q,0)= getArg(p,0);
 			pushArgument(mb,q,j);

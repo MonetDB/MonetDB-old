@@ -1514,7 +1514,7 @@ parseAssign(Client cntxt, int cntrl)
 
 	curPrg = cntxt->curprg;
 	curBlk = curPrg->def;
-	curInstr = newInstruction(NULL, NULL);
+	curInstr = newInstruction(curBlk,NULL, NULL);
 	
 	if( cntrl){
 		curInstr->token = ASSIGNsymbol;
@@ -1763,7 +1763,7 @@ parseMAL(Client cntxt, Symbol curPrg, int skipcomments)
 				*e = 0;
 			if (! skipcomments && e > start && curBlk->stop > 0 ) {
 				ValRecord cst;
-				curInstr = newInstruction(NULL, NULL);
+				curInstr = newInstruction(curBlk,NULL, NULL);
 				curInstr->token= REMsymbol;
 				curInstr->barrier= 0;
 				cst.vtype = TYPE_str;

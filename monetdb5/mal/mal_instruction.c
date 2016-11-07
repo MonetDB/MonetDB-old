@@ -395,15 +395,22 @@ prepareMalBlk(MalBlkPtr mb, str s)
  * Allocation of an instruction should always succeed.
  */
 InstrPtr
-newInstruction(str modnme, str fcnnme)
+newInstruction(MalBlkPtr mb, str modnme, str fcnnme)
 {
 	InstrPtr p = NULL;
 
 	p = GDKzalloc(MAXARG * sizeof(p->argv[0]) + offsetof(InstrRecord, argv));
 	if (p == NULL) {
-		showException(GDKout, MAL, "newEndInstruction", "memory allocation failure");
-		GDKfatal("newEndInstruction memory allocation failure");
-		return NULL;
+		/* We are facing an hard problem.
+		 * The hack is to re-use an already allocated instruction.
+		 * The marking of the block as containing errors should protect further actions.
+		 */
+		showException(GDKout, MAL, "newEndInstruction", MAL_MALLOC_FAIL);
+		if( mb)
+			mb->errors ++;
+		else 
+			return NULL;
+	 	p = getInstrPtr(mb,0);
 	}
 	p->maxarg = MAXARG;
 	p->typechk = TYPE_UNKNOWN;
@@ -1439,8 +1446,8 @@ pushInstruction(MalBlkPtr mb, InstrPtr p)
 					return;
 				}		
 			}
-			freeInstruction(getInstrPtr(mb,1));
-			mb->stmt[1] = p;
+			freeInstruction(getInstrPtr(mb,0));
+			mb->stmt[0] = p;
 			return;
 		}
 		memset( ((char*)newblk)+ mb->ssize * sizeof(InstrPtr), 0, space -mb->ssize * sizeof(InstrPtr));
