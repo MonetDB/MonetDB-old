@@ -1208,31 +1208,38 @@ pushArgument(MalBlkPtr mb, InstrPtr p, int varid)
 	if (p == NULL)
 		return NULL;
 	if (varid < 0) {
-		freeInstruction(p);
-		return NULL;
+		/* leave everything as is in this exceptional programming error */
+		showException(GDKout,MAL,"pushArgument","improper variable id");
+		mb->errors ++;
+		return p;
 	}
-	assert(varid >= 0);
+	
 	if (p->argc + 1 == p->maxarg) {
 		int i = 0;
 		int space = p->maxarg * sizeof(p->argv[0]) + offsetof(InstrRecord, argv);
-		InstrPtr pn = GDKmalloc(space + MAXARG * sizeof(p->argv[0]));
+		InstrPtr pn = (InstrPtr) GDKrealloc(p,space + MAXARG * sizeof(p->argv[0]));
 
-		if (pn == NULL) 
-			GDKfatal("pushArgument: out of memory");
-
-		memcpy(pn, p, space);
+		if (pn == NULL) {
+			/* In the exceptional case we can not allocate more space
+			 * then we show an exception, mark the block as erroneous
+			 * and leave the instruction as is.
+			*/
+			mb->errors ++;
+			showException(GDKout,MAL,"pushArgument",MAL_MALLOC_FAIL);
+			return p;
+		}
 		pn->maxarg += MAXARG;
 
 		/* if the instruction is already stored in the MAL block
 		 * it should be replaced by an extended version.
 		 */
-		for (i = mb->stop - 1; i >= 0; i--)
-			if (mb->stmt[i] == p) {
-				mb->stmt[i] =  pn;
-				break;
-			}
+		if( p != pn)
+			for (i = mb->stop - 1; i >= 0; i--)
+				if (mb->stmt[i] == p) {
+					mb->stmt[i] =  pn;
+					break;
+				}
 
-		GDKfree(p);
 		p = pn;
 		/* we have to keep track on the maximal arguments/block
 		 * because it is needed by the interpreter */
@@ -1407,29 +1414,38 @@ setPolymorphic(InstrPtr p, int tpe, int force)
 void
 pushInstruction(MalBlkPtr mb, InstrPtr p)
 {
+	int i;
+	InstrPtr q;
+
 	if (p == NULL)
 		return;
 
 	if (mb->stop + 1 >= mb->ssize) {
 		int space = (mb->ssize + STMT_INCREMENT) * sizeof(InstrPtr);
-		InstrPtr *newblk = (InstrPtr *) GDKzalloc(space);
+		InstrPtr *newblk = (InstrPtr *) GDKrealloc(mb->stmt, space);
 
 		if (newblk == NULL) {
 			mb->errors++;
 			showException(GDKout, MAL, "pushInstruction", "out of memory (requested: %d bytes)", space);
-			GDKfatal("pushInstruction out of memory (requested: %d bytes)", space);
+			/* we are now left with the situation that the instruction is dangling .
+			 * The hack is to take an instruction out of the block that is likely not referenced independently
+			 * The last resort is to take any instruction out.
+			 */
+			for( i = 0; i < mb->stop; i++){
+				q= getInstrPtr(mb,i);
+				if( q->token == REMsymbol){
+					freeInstruction(q);
+					mb->stmt[i] = p;
+					return;
+				}		
+			}
+			freeInstruction(getInstrPtr(mb,1));
+			mb->stmt[1] = p;
 			return;
 		}
-		memcpy(newblk, mb->stmt, mb->ssize * sizeof(InstrPtr));
+		memset( ((char*)newblk)+ mb->ssize * sizeof(InstrPtr), 0, space -mb->ssize * sizeof(InstrPtr));
 		mb->ssize += STMT_INCREMENT;
-		GDKfree(mb->stmt);
 		mb->stmt = newblk;
-	}
-	/* A destination variable should be set */
-	if(p->argc > 0 && p->argv[0] < 0){
-		mb->errors++;
-		showException(GDKout, MAL, "pushInstruction", "Illegal instruction (missing target variable)");
-		return ;
 	}
 	mb->stmt[mb->stop++] = p;
 }

@@ -79,7 +79,7 @@ reallocGlobalStack(MalStkPtr old, int cnt)
 
 	s =  (MalStkPtr) GDKrealloc(old, newsize);
 	if( s) {
-		memset(s + offsetof(MalStack,stk) + old->stksize, 0, newsize - offsetof(MalStack,stk) + old->stksize);
+		memset(((char *)s) + offsetof(MalStack,stk) + old->stksize, 0, newsize - offsetof(MalStack,stk) + old->stksize);
 		s->stksize = newsize;
 	} else
 		showException(GDKout,MAL,"reallocGlobalStack",MAL_MALLOC_FAIL);
