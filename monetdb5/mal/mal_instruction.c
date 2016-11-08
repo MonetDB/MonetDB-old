@@ -97,22 +97,18 @@ newMalBlk(int maxvars, int maxstmts)
 
 	/* each MAL instruction implies at least on variable */
 	// TODO: this check/assignment makes little sense
-	/*
-	if (maxvars < maxstmts)
-		maxvars = maxvars;
-	*/
-	v = (VarRecord *) GDKzalloc(sizeof(VarRecord) * maxvars);
-	if (v == NULL) {
-		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
-		return NULL;
-	}
 	mb = (MalBlkPtr) GDKmalloc(sizeof(MalBlkRecord));
 	if (mb == NULL) {
-		GDKfree(v);
 		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
 	}
 
+	v = (VarRecord *) GDKzalloc(sizeof(VarRecord) * maxvars);
+	if (v == NULL) {
+		GDKfree(mb);
+		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
+		return NULL;
+	}
 	mb->var = v;
 	mb->vtop = 0;
 	mb->vid = 0;
@@ -147,30 +143,30 @@ newMalBlk(int maxvars, int maxstmts)
 	return mb;
 }
 
+/* We only grow until the MAL block can be disturbed */
 void
 resizeMalBlk(MalBlkPtr mb, int maxstmt, int maxvar)
 {
 	int i;
 
-	if ( maxvar < maxstmt)
-		maxvar = maxstmt;
-	if ( mb->ssize > maxstmt && mb->vsize > maxvar)
-		return ;
+	if( maxstmt > mb->ssize){
+		mb->stmt = (InstrPtr *) GDKrealloc(mb->stmt, maxstmt * sizeof(InstrPtr));
+		if ( mb->stmt ){
+			for ( i = mb->ssize; i < maxstmt; i++)
+				mb->stmt[i] = 0;
+			mb->ssize = maxstmt;
+		} else
+			GDKerror("resizeMalBlk:" MAL_MALLOC_FAIL);
+	}
 
-	mb->stmt = (InstrPtr *) GDKrealloc(mb->stmt, maxstmt * sizeof(InstrPtr));
-	if ( mb->stmt == NULL)
-		goto wrapup;
-	for ( i = mb->ssize; i < maxstmt; i++)
-		mb->stmt[i] = 0;
-	mb->ssize = maxstmt;
-
-	mb->var = (VarRecord*) GDKrealloc(mb->var, maxvar * sizeof (VarRecord));
-	if ( mb->var == NULL)
-		goto wrapup;
-	mb->vsize = maxvar;
-	return;
-wrapup:
-	GDKerror("resizeMalBlk:" MAL_MALLOC_FAIL);
+	if( maxvar > mb->vsize){
+		mb->var = (VarRecord*) GDKrealloc(mb->var, maxvar * sizeof (VarRecord));
+		if ( mb->var ){
+			memset( ((char*) mb->var) + sizeof(VarRecord) * mb->vsize, 0, (maxvar - mb->vsize) * sizeof(VarRecord));
+			mb->vsize = maxvar;
+		} else
+			GDKerror("resizeMalBlk:" MAL_MALLOC_FAIL);
+	}
 }
 /* The resetMalBlk code removes instructions, but without freeing the
  * space. This way the structure is prepared for re-use */
@@ -229,7 +225,7 @@ copyMalBlk(MalBlkPtr old)
 
 	mb = (MalBlkPtr) GDKzalloc(sizeof(MalBlkRecord));
 	if (mb == NULL) {
-		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
+		GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
 	}
 	mb->alternative = old->alternative;
@@ -241,7 +237,7 @@ copyMalBlk(MalBlkPtr old)
 
 	if (mb->var == NULL) {
 		GDKfree(mb);
-		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
+		GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
 	}
 	mb->vsize = old->vsize;
@@ -259,7 +255,7 @@ copyMalBlk(MalBlkPtr old)
 	if (mb->stmt == NULL) {
 		GDKfree(mb->var);
 		GDKfree(mb);
-		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
+		GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
 	}
 
@@ -315,54 +311,6 @@ getMalBlkHistory(MalBlkPtr mb, int idx)
 }
 
 
-/* The MalBlk structures potentially consume a lot a of space, because
- * it is not possible to precisely estimate the default sizes of the
- * var and stmt components. The routines below provide a mechanism to
- * handle the issue. The expandMalBlk routine takes the number of
- * new-lines as a parameter and guesses the size of variable and
- * statement table.
- *
- * Experience shows that trimming leads to memory fragmentation (140K
- * lost after server init) and is therefore turned off. */
-static void
-trimexpand(MalBlkPtr mb, int varsize, int stmtsize)
-{
-	VarRecord *v;
-	InstrPtr *stmt;
-	int len, i;
-
-	assert(varsize > 0 && stmtsize > 0);
-	len = sizeof(VarRecord) * (mb->vtop + varsize);
-	v = (VarRecord *) GDKzalloc(len);
-	if (v == NULL)
-		return;
-	len = sizeof(InstrPtr) * (mb->ssize + stmtsize);
-	stmt = (InstrPtr *) GDKzalloc(len);
-	if (stmt == NULL){
-		GDKfree(v);
-		return;
-	}
-
-	memcpy((str) v, (str) mb->var, sizeof(VarRecord) * mb->vtop);
-
-	if (mb->var)
-		GDKfree(mb->var);
-	mb->var = v;
-	mb->vsize = mb->vtop + varsize;
-
-	memcpy((str) stmt, (str) mb->stmt, sizeof(InstrPtr) * mb->stop);
-	for (i = mb->stop; i < mb->ssize; i++) {
-		if (mb->stmt[i]) {
-			freeInstruction(mb->stmt[i]);
-			mb->stmt[i] = NULL;
-		}
-	}
-	GDKfree(mb->stmt);
-	mb->stmt = stmt;
-
-	mb->ssize = mb->ssize + stmtsize;
-}
-
 /* Before compiling a large string, it makes sense to allocate
  * approximately enough space to keep the intermediate
  * code. Otherwise, we end up with a repeated extend on the MAL block,
@@ -383,8 +331,7 @@ prepareMalBlk(MalBlkPtr mb, str s)
 		}
 	}
 	cnt = (int) (cnt * 1.1);
-	if (cnt > mb->ssize || cnt > mb->vsize)
-		trimexpand(mb, cnt, cnt);
+	resizeMalBlk(mb, cnt, cnt);
 }
 
 /* The MAL records should be managed from a pool to
