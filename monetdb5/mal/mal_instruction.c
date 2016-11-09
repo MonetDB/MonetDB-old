@@ -145,30 +145,32 @@ newMalBlk(int elements)
 
 /* We only grow until the MAL block can be disturbed */
 void
-resizeMalBlk(MalBlkPtr mb, int maxstmt, int maxvar)
+resizeMalBlk(MalBlkPtr mb, int elements)
 {
 	int i;
 
-	if( maxstmt > mb->ssize){
-		mb->stmt = (InstrPtr *) GDKrealloc(mb->stmt, maxstmt * sizeof(InstrPtr));
+	assert(mb->vsize >= mb->ssize);
+	if( elements > mb->ssize){
+		mb->stmt = (InstrPtr *) GDKrealloc(mb->stmt, elements * sizeof(InstrPtr));
 		if ( mb->stmt ){
-			for ( i = mb->ssize; i < maxstmt; i++)
+			for ( i = mb->ssize; i < elements; i++)
 				mb->stmt[i] = 0;
-			mb->ssize = maxstmt;
+			mb->ssize = elements;
 		} else {
 			mb->errors++;
-			GDKerror("resizeMalBlk:" MAL_MALLOC_FAIL);
+			showException(GDKout, MAL, "resizeMalBlk", "out of memory (requested: %ld bytes)", elements * sizeof(InstrPtr));
 		}
 	}
 
-	if( maxvar > mb->vsize){
-		mb->var = (VarRecord*) GDKrealloc(mb->var, maxvar * sizeof (VarRecord));
+
+	if( elements > mb->vsize){
+		mb->var = (VarRecord*) GDKrealloc(mb->var, elements * sizeof (VarRecord));
 		if ( mb->var ){
-			memset( ((char*) mb->var) + sizeof(VarRecord) * mb->vsize, 0, (maxvar - mb->vsize) * sizeof(VarRecord));
-			mb->vsize = maxvar;
+			memset( ((char*) mb->var) + sizeof(VarRecord) * mb->vsize, 0, (elements - mb->vsize) * sizeof(VarRecord));
+			mb->vsize = elements;
 		} else{
 			mb->errors++;
-			GDKerror("resizeMalBlk:" MAL_MALLOC_FAIL);
+			showException(GDKout, MAL, "resizeMalBlk", "out of memory (requested: %ld bytes)", elements * sizeof (VarRecord));
 		}
 	}
 }
@@ -335,7 +337,7 @@ prepareMalBlk(MalBlkPtr mb, str s)
 		}
 	}
 	cnt = (int) (cnt * 1.1);
-	resizeMalBlk(mb, cnt, cnt);
+	resizeMalBlk(mb, cnt);
 }
 
 /* The MAL records should be managed from a pool to
@@ -649,7 +651,7 @@ makeVarSpace(MalBlkPtr mb)
 		VarRecord *new;
 		int s = mb->vsize + STMT_INCREMENT;
 
-		new = GDKrealloc(mb->var, s * sizeof(VarRecord));
+		new = (VarRecord*) GDKrealloc(mb->var, s * sizeof(VarRecord));
 		if (new == NULL) {
 			mb->errors++;
 			showException(GDKout, MAL, "newMalBlk",MAL_MALLOC_FAIL);
@@ -1185,7 +1187,7 @@ pushArgument(MalBlkPtr mb, InstrPtr p, int varid)
 			showException(GDKout,MAL,"pushArgument",MAL_MALLOC_FAIL);
 			return p;
 		}
-		memset( ((char*)p) + space, 0, MAXARG * sizeof(p->argv[0]));
+		memset( ((char*)pn) + space, 0, MAXARG * sizeof(pn->argv[0]));
 		pn->maxarg += MAXARG;
 
 		/* if the instruction is already stored in the MAL block
@@ -1376,17 +1378,13 @@ pushInstruction(MalBlkPtr mb, InstrPtr p)
 		return;
 
 	if (mb->stop + 1 >= mb->ssize) {
-		int space = (mb->ssize + STMT_INCREMENT) * sizeof(InstrPtr);
-		InstrPtr *newblk = (InstrPtr *) GDKrealloc(mb->stmt, space);
-
-		if (newblk == NULL) {
-			mb->errors++;
-			showException(GDKout, MAL, "pushInstruction", "out of memory (requested: %d bytes)", space);
+		resizeMalBlk(mb,mb->ssize + STMT_INCREMENT);
+		if( mb->errors){
 			/* we are now left with the situation that the instruction is dangling .
 			 * The hack is to take an instruction out of the block that is likely not referenced independently
-			 * The last resort is to take any instruction out.
+			 * The last resort is to take the first, which should always be there
 			 */
-			for( i = 0; i < mb->stop; i++){
+			for( i = 1; i < mb->stop; i++){
 				q= getInstrPtr(mb,i);
 				if( q->token == REMsymbol){
 					freeInstruction(q);
@@ -1398,9 +1396,6 @@ pushInstruction(MalBlkPtr mb, InstrPtr p)
 			mb->stmt[0] = p;
 			return;
 		}
-		memset( ((char*)newblk)+ mb->ssize * sizeof(InstrPtr), 0, space -mb->ssize * sizeof(InstrPtr));
-		mb->ssize += STMT_INCREMENT;
-		mb->stmt = newblk;
 	}
 	mb->stmt[mb->stop++] = p;
 }
