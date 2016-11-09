@@ -645,14 +645,13 @@ makeVarSpace(MalBlkPtr mb)
 		VarRecord *new;
 		int s = mb->vsize * 2;
 
-		new = (VarRecord *) GDKzalloc(s * sizeof(VarRecord));
+		new = GDKrealloc(mb->var, s * sizeof(VarRecord));
 		if (new == NULL) {
 			mb->errors++;
 			showException(GDKout, MAL, "newMalBlk",MAL_MALLOC_FAIL);
 			return -1;
 		}
-		memcpy((char *) new, (char *) mb->var, sizeof(VarRecord) * mb->vtop);
-		GDKfree(mb->var);
+		memset(new + mb->vsize, 0, (s - mb->vsize) * sizeof(VarRecord));
 		mb->vsize = s;
 		mb->var = new;
 	}
@@ -1240,22 +1239,19 @@ pushReturn(MalBlkPtr mb, InstrPtr p, int varid)
  * TODO */
 /* swallows name argument */
 InstrPtr
-pushArgumentId(MalBlkPtr mb, InstrPtr p, str name)
+pushArgumentId(MalBlkPtr mb, InstrPtr p, const char *name)
 {
 	int v;
 
-	if (p == NULL) {
-		GDKfree(name);
+	if (p == NULL)
 		return NULL;
-	}
 	v = findVariable(mb, name);
 	if (v < 0) {
 		if ((v = newVariable(mb, name, strlen(name), getAtomIndex(name, -1, TYPE_any))) < 0) {
 			freeInstruction(p);
 			return NULL;
 		}
-	} else
-		GDKfree(name);
+	}
 	return pushArgument(mb, p, v);
 }
 
