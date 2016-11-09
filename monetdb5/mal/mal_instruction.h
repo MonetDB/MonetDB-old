@@ -139,7 +139,7 @@ mal_export void freeSymbol(Symbol s);
 mal_export void freeSymbolList(Symbol s);
 mal_export void printSignature(stream *fd, Symbol s, int flg);
 
-mal_export MalBlkPtr newMalBlk(int maxvars, int maxstmts);
+mal_export MalBlkPtr newMalBlk(int elements);
 mal_export void resetMalBlk(MalBlkPtr mb, int stop);
 mal_export int newMalBlkStmt(MalBlkPtr mb, int maxstmts);
 mal_export void resizeMalBlk(MalBlkPtr mb, int maxstmt, int maxvar);

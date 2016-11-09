@@ -39,7 +39,7 @@ newSymbol(str nme, int kind)
 	cur->name = putName(nme);
 	cur->kind = kind;
 	cur->peer = NULL;
-	cur->def = newMalBlk(kind == FUNCTIONsymbol?MAXVARS : MAXARG, kind == FUNCTIONsymbol? STMT_INCREMENT/2 : 2);
+	cur->def = newMalBlk(kind == FUNCTIONsymbol? STMT_INCREMENT/2 : 2);
 	if ( cur->def == NULL){
 		GDKfree(cur);
 		return NULL;
@@ -90,7 +90,7 @@ newMalBlkStmt(MalBlkPtr mb, int maxstmts)
 }
 
 MalBlkPtr
-newMalBlk(int maxvars, int maxstmts)
+newMalBlk(int elements)
 {
 	MalBlkPtr mb;
 	VarRecord *v;
@@ -103,7 +103,7 @@ newMalBlk(int maxvars, int maxstmts)
 		return NULL;
 	}
 
-	v = (VarRecord *) GDKzalloc(sizeof(VarRecord) * maxvars);
+	v = (VarRecord *) GDKzalloc(sizeof(VarRecord) * elements);
 	if (v == NULL) {
 		GDKfree(mb);
 		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
@@ -112,7 +112,7 @@ newMalBlk(int maxvars, int maxstmts)
 	mb->var = v;
 	mb->vtop = 0;
 	mb->vid = 0;
-	mb->vsize = maxvars;
+	mb->vsize = elements;
 	mb->help = NULL;
 	mb->binding[0] = 0;
 	mb->tag = 0;
@@ -134,7 +134,7 @@ newMalBlk(int maxvars, int maxstmts)
 	mb->optimize = 0;
 	mb->stmt = NULL;
 	mb->activeClients = 1;
-	if (newMalBlkStmt(mb, maxstmts) < 0) {
+	if (newMalBlkStmt(mb, elements) < 0) {
 		GDKfree(mb->var);
 		GDKfree(mb->stmt);
 		GDKfree(mb);
@@ -155,8 +155,10 @@ resizeMalBlk(MalBlkPtr mb, int maxstmt, int maxvar)
 			for ( i = mb->ssize; i < maxstmt; i++)
 				mb->stmt[i] = 0;
 			mb->ssize = maxstmt;
-		} else
+		} else {
+			mb->errors++;
 			GDKerror("resizeMalBlk:" MAL_MALLOC_FAIL);
+		}
 	}
 
 	if( maxvar > mb->vsize){
@@ -164,8 +166,10 @@ resizeMalBlk(MalBlkPtr mb, int maxstmt, int maxvar)
 		if ( mb->var ){
 			memset( ((char*) mb->var) + sizeof(VarRecord) * mb->vsize, 0, (maxvar - mb->vsize) * sizeof(VarRecord));
 			mb->vsize = maxvar;
-		} else
+		} else{
+			mb->errors++;
 			GDKerror("resizeMalBlk:" MAL_MALLOC_FAIL);
+		}
 	}
 }
 /* The resetMalBlk code removes instructions, but without freeing the
@@ -643,7 +647,7 @@ makeVarSpace(MalBlkPtr mb)
 {
 	if (mb->vtop >= mb->vsize) {
 		VarRecord *new;
-		int s = mb->vsize * 2;
+		int s = mb->vsize + STMT_INCREMENT;
 
 		new = GDKrealloc(mb->var, s * sizeof(VarRecord));
 		if (new == NULL) {
@@ -651,7 +655,7 @@ makeVarSpace(MalBlkPtr mb)
 			showException(GDKout, MAL, "newMalBlk",MAL_MALLOC_FAIL);
 			return -1;
 		}
-		memset(new + mb->vsize, 0, (s - mb->vsize) * sizeof(VarRecord));
+		memset( ((char*) new) + mb->vsize * sizeof(VarRecord), 0, STMT_INCREMENT * sizeof(VarRecord));
 		mb->vsize = s;
 		mb->var = new;
 	}
@@ -1181,6 +1185,7 @@ pushArgument(MalBlkPtr mb, InstrPtr p, int varid)
 			showException(GDKout,MAL,"pushArgument",MAL_MALLOC_FAIL);
 			return p;
 		}
+		memset( ((char*)p) + space, 0, MAXARG * sizeof(p->argv[0]));
 		pn->maxarg += MAXARG;
 
 		/* if the instruction is already stored in the MAL block
