@@ -55,30 +55,30 @@
 /* #define DEBUG_MAL_STACK*/
 
 MalStkPtr
-newGlobalStack(int size)
+newGlobalStack(int elements)
 {
 	MalStkPtr s;
 
-	s = (MalStkPtr) GDKzalloc(stackSize(size) + offsetof(MalStack, stk));
+	s = (MalStkPtr) GDKzalloc(stackSize(elements) );
 	if (s == NULL)
 		showException(GDKout,MAL,"newGlobalStack",MAL_MALLOC_FAIL);
 	else
-		s->stksize = size;
+		s->stksize = elements;
 	return s;
 }
 
 MalStkPtr
-reallocGlobalStack(MalStkPtr old, int cnt)
+reallocGlobalStack(MalStkPtr old, int elements)
 {
 	MalStkPtr s;
 
-	if (old->stksize > cnt)
+	if (old->stksize > elements)
 		return old;
 
-	s =  (MalStkPtr) GDKrealloc(old, stackSize( cnt));
+	s =  (MalStkPtr) GDKrealloc(old, stackSize( elements));
 	if( s) {
-		memset(((char *)s) + stackSize(old->stksize), 0, stackSize(cnt) - stackSize(old->stksize) );
-		s->stksize = cnt;
+		memset(((char *)s) + stackSize(old->stksize), 0, stackSize(elements) - stackSize(old->stksize) );
+		s->stksize = elements;
 	} else
 		showException(GDKout,MAL,"reallocGlobalStack",MAL_MALLOC_FAIL);
 	return s;

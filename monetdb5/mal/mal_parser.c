@@ -859,6 +859,7 @@ term(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr, int ret)
 				setPolymorphic(*curInstr, cst.vtype, FALSE);
 				free = 0;
 			}
+			/* protect against leaks coming from constant reuse */
 			if (free && ATOMextern(cst.vtype) && cst.val.pval)
 				VALclear(&cst);
 			*curInstr = pushArgument(curBlk, *curInstr, cstidx);
@@ -869,8 +870,6 @@ term(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr, int ret)
 			tpe = typeElm(cntxt, cst.vtype);
 			if (tpe < 0)
 				return 3;
-			//if( cst.vtype == TYPE_str)
-				//mnstr_printf(cntxt->fdout,"#tpe %d cstvtype %d %s\n", tpe,cst.vtype, (char*)cst.val.pval);
 			cstidx = defConstant(curBlk, tpe, &cst);
 			setPolymorphic(*curInstr, tpe, FALSE);
 			if (flag)

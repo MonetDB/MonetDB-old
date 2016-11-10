@@ -158,7 +158,7 @@ resizeMalBlk(MalBlkPtr mb, int elements)
 			mb->ssize = elements;
 		} else {
 			mb->errors++;
-			showException(GDKout, MAL, "resizeMalBlk", "out of memory (requested: %ld bytes)", elements * sizeof(InstrPtr));
+			showException(GDKout, MAL, "resizeMalBlk", "out of memory (requested: "LLFMT" bytes)", (lng) elements * sizeof(InstrPtr));
 		}
 	}
 
@@ -170,7 +170,7 @@ resizeMalBlk(MalBlkPtr mb, int elements)
 			mb->vsize = elements;
 		} else{
 			mb->errors++;
-			showException(GDKout, MAL, "resizeMalBlk", "out of memory (requested: %ld bytes)", elements * sizeof (VarRecord));
+			showException(GDKout, MAL, "resizeMalBlk", "out of memory (requested: "LLFMT" bytes)", (lng) elements * sizeof(InstrPtr));
 		}
 	}
 }
