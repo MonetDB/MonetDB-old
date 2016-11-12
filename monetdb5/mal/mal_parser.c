@@ -1464,13 +1464,6 @@ parseEnd(Client cntxt)
  * This makes it easier to communicate types to MAL patterns.
  */
 
-#define GETvariable	\
-	if ((varid = findVariableLength(curBlk, CURRENT(cntxt), l)) == -1) { \
-		varid = newVariable(curBlk, CURRENT(cntxt),l, TYPE_any);	\
-		advance(cntxt, l);\
-		if(varid <  0) return;\
-	} else \
-		advance(cntxt, l);
 
 /* The parameter of parseArguments is the return value of the enclosing function. */
 static int
@@ -1514,6 +1507,7 @@ parseAssign(Client cntxt, int cntrl)
 	curPrg = cntxt->curprg;
 	curBlk = curPrg->def;
 	curInstr = newInstruction(curBlk,NULL, NULL);
+	pushInstruction(curBlk, curInstr);
 	
 	if( cntrl){
 		curInstr->token = ASSIGNsymbol;
@@ -1532,10 +1526,15 @@ parseAssign(Client cntxt, int cntrl)
 			if (l == 0 || i) {
 				parseError(cntxt, "<identifier> expected\n");
 				skipToEnd(cntxt);
-				freeInstruction(curInstr);
 				return;
 			}
-			GETvariable;
+			if ((varid = findVariableLength(curBlk, CURRENT(cntxt), l)) == -1) { 
+				varid = newVariable(curBlk, CURRENT(cntxt),l, TYPE_any);
+				advance(cntxt, l);
+				if(varid <  0)
+					return;
+			} else 
+				advance(cntxt, l);
 			if (currChar(cntxt) == ':') {
 				setVarUDFtype(curBlk, varid);
 				type = typeElm(cntxt, getVarType(curBlk, varid));
@@ -1570,14 +1569,12 @@ parseAssign(Client cntxt, int cntrl)
 			if (cntrl == LEAVEsymbol || cntrl == REDOsymbol ||
 				cntrl == RETURNsymbol || cntrl == EXITsymbol) {
 				curInstr->argv[0] = getBarrierEnvelop(curBlk);
-				pushInstruction(curBlk, curInstr);
 				if (currChar(cntxt) != ';')
 					parseError(cntxt, "<identifier> expected\n");
 				skipToEnd(cntxt);
 				return;
 			}
 			getArg(curInstr, 0) = newTmpVariable(curBlk, TYPE_any);
-			pushInstruction(curBlk, curInstr);
 			parseError(cntxt, "<identifier> expected\n");
 			skipToEnd(cntxt);
 			return;
@@ -1589,7 +1586,13 @@ parseAssign(Client cntxt, int cntrl)
 		}
 
 		/* Get target variable details*/
-		GETvariable;
+		if ((varid = findVariableLength(curBlk, CURRENT(cntxt), l)) == -1) { 
+			varid = newVariable(curBlk, CURRENT(cntxt),l, TYPE_any);
+			advance(cntxt, l);
+			if(varid <  0)
+				return;
+		} else 
+			advance(cntxt, l);
 		if (!(currChar(cntxt) == ':' && CURRENT(cntxt)[1] == '=')) {
 			curInstr->argv[0] = varid;
 			if (currChar(cntxt) == ':') {
@@ -1653,14 +1656,12 @@ FCNcallparse2:
 		} else {
 			parseError(cntxt, "<functionname> expected\n");
 			skipToEnd(cntxt);
-			pushInstruction(curBlk, curInstr);
 			return;
 		}
 		skipSpace(cntxt);
 		if (currChar(cntxt) != '(') {
 			parseError(cntxt, "'(' expected\n");
 			skipToEnd(cntxt);
-			pushInstruction(curBlk, curInstr);
 			return;
 		}
 		advance(cntxt, 1);
@@ -1683,7 +1684,13 @@ part2:  /* consume <operator><term> part of expression */
 		advance(cntxt, i);
 		curInstr->modname = putName("calc");
 		if ((l = idLength(cntxt)) && !(l == 3 && strncmp(CURRENT(cntxt), "nil", 3) == 0)) {
-			GETvariable;
+			if ((varid = findVariableLength(curBlk, CURRENT(cntxt), l)) == -1) { 
+				varid = newVariable(curBlk, CURRENT(cntxt),l, TYPE_any);
+				advance(cntxt, l);
+				if(varid <  0)
+					return;
+			} else 
+				advance(cntxt, l);
 			curInstr = pushArgument(curBlk, curInstr, varid);
 			goto part3;
 		}
@@ -1693,7 +1700,6 @@ part2:  /* consume <operator><term> part of expression */
 		}
 		parseError(cntxt, "<term> expected\n");
 		skipToEnd(cntxt);
-		pushInstruction(curBlk, curInstr);
 		return;
 	} else {
 		skipSpace(cntxt);
@@ -1703,7 +1709,6 @@ part2:  /* consume <operator><term> part of expression */
 			parseError(cntxt, "operator expected\n");
 			skipToEnd(cntxt);
 		}
-		pushInstruction(curBlk, curInstr);
 		return;
 	}
 part3:
@@ -1713,7 +1718,6 @@ part3:
 	skipToEnd(cntxt);
 	if (cntrl == RETURNsymbol && !(curInstr->token == ASSIGNsymbol || getModuleId(curInstr) != 0))
 		parseError(cntxt, "return assignment expected\n");
-	pushInstruction(curBlk, curInstr);
 }
 
 

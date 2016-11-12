@@ -72,7 +72,7 @@ reallocGlobalStack(MalStkPtr old, int elements)
 {
 	MalStkPtr s;
 
-	if (old->stksize > elements)
+	if (elements <= 0 || old->stksize > elements)
 		return old;
 
 	s =  (MalStkPtr) GDKrealloc(old, stackSize( elements));
