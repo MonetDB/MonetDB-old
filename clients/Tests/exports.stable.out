@@ -1542,6 +1542,7 @@ str OIDXorderidx(bat *ret, const bat *bid, const bit *stable);
 str OLTPdisable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 str OLTPenable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 str OLTPinit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+str OLTPis_enabled(int *ret);
 str OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 str OLTPrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 str OLTPreset(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

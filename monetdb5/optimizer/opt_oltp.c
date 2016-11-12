@@ -108,10 +108,8 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		p = old[i];
 		if( p->token == ENDsymbol){
 			// unlock all if there is an error
-			q= newCatchStmt(mb,"MALexception");
-			q= newExitStmt(mb,"MALexception");
-			q= newCatchStmt(mb,"SQLexception");
-			q= newExitStmt(mb,"SQLexception");
+			q= newCatchStmt(mb,"ANYexception");
+			q= newExitStmt(mb,"ANYexception");
 			q= copyInstruction(lcks);
 			setFunctionId(q, releaseRef);
 			pushInstruction(mb,q);

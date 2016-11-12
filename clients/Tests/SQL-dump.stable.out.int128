@@ -218,6 +218,7 @@ Ready.
 \dSf sys."newurl"
 \dSf sys."oltp_disable"
 \dSf sys."oltp_enable"
+\dSf sys."oltp_is_enabled"
 \dSf sys."oltp_locks"
 \dSf sys."oltp_reset"
 \dSf sys."optimizer_stats"
@@ -599,6 +600,7 @@ SYSTEM FUNCTION  sys.not_uniques
 SYSTEM FUNCTION  sys.octet_length
 SYSTEM FUNCTION  sys.oltp_disable
 SYSTEM FUNCTION  sys.oltp_enable
+SYSTEM FUNCTION  sys.oltp_is_enabled
 SYSTEM FUNCTION  sys.oltp_locks
 SYSTEM FUNCTION  sys.oltp_reset
 SYSTEM FUNCTION  sys.optimizer_stats
@@ -989,7 +991,8 @@ create function newurl(protocol string, hostname string, "port" int, file string
 create function newurl(protocol string, hostname string, file string) returns url external name url."new";
 create procedure sys.oltp_disable() external name oltp.disable;
 create procedure sys.oltp_enable() external name oltp.enable;
-create function sys.oltp_locks() returns table(started timestamp, username string, lockid integer, cnt integer, query string) external name oltp."table";
+create function sys.oltp_is_enabled() returns integer external name oltp.isenabled;
+create function sys.oltp_locks() returns table(started timestamp, username string, lockid integer, cnt integer) external name oltp."table";
 create procedure sys.oltp_reset() external name oltp.reset;
 create function sys.optimizer_stats () returns table (rewrite string, count int) external name sql.dump_opt_stats;
 create function sys.optimizers () returns table (name string, def string, status string) external name sql.optimizers;
@@ -2228,7 +2231,8 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"octet_length",	"nbytes",	"str",	0,	1,	false,	false,	false	]
 [ "sys",	"oltp_disable",	"create procedure sys.oltp_disable() external name oltp.disable;",	"oltp",	1,	2,	true,	false,	false	]
 [ "sys",	"oltp_enable",	"create procedure sys.oltp_enable() external name oltp.enable;",	"oltp",	1,	2,	true,	false,	false	]
-[ "sys",	"oltp_locks",	"create function sys.oltp_locks() returns table(started timestamp, username string, lockid integer, cnt integer, query string) external name oltp.\"table\";",	"oltp",	1,	5,	false,	false,	false	]
+[ "sys",	"oltp_is_enabled",	"create function sys.oltp_is_enabled() returns integer external name oltp.isenabled;",	"oltp",	1,	1,	false,	false,	false	]
+[ "sys",	"oltp_locks",	"create function sys.oltp_locks() returns table(started timestamp, username string, lockid integer, cnt integer) external name oltp.\"table\";",	"oltp",	1,	5,	false,	false,	false	]
 [ "sys",	"oltp_reset",	"create procedure sys.oltp_reset() external name oltp.reset;",	"oltp",	1,	2,	true,	false,	false	]
 [ "sys",	"optimizer_stats",	"create function sys.optimizer_stats () returns table (rewrite string, count int) external name sql.dump_opt_stats;",	"sql",	1,	5,	false,	false,	false	]
 [ "sys",	"optimizers",	"create function sys.optimizers () returns table (name string, def string, status string) external name sql.optimizers;",	"sql",	1,	5,	false,	false,	false	]
@@ -3960,7 +3964,8 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"octet_length",	"arg_1",	"varchar",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"oltp_disable",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"oltp_enable",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
-[ "sys",	"oltp_locks",	"username",	"clob",	0,	0,	0,	"lockid",	"int",	32,	0,	0,	"cnt",	"int",	32,	0,	0,	"query",	"clob",	0,	0,	0,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"oltp_is_enabled",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"oltp_locks",	"username",	"clob",	0,	0,	0,	"lockid",	"int",	32,	0,	0,	"cnt",	"int",	32,	0,	0,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"oltp_reset",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"optimizer_stats",	"count",	"int",	32,	0,	0,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"optimizers",	"def",	"clob",	0,	0,	0,	"status",	"clob",	0,	0,	0,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
@@ -6509,6 +6514,7 @@ drop function pcre_replace(string, string, string, string);
 [ "octet_length"	]
 [ "oltp_disable"	]
 [ "oltp_enable"	]
+[ "oltp_is_enabled"	]
 [ "oltp_locks"	]
 [ "oltp_reset"	]
 [ "optimizer_stats"	]

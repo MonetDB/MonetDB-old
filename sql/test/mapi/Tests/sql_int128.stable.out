@@ -275,12 +275,18 @@ end user.s12_1;
 % .explain # table_name
 % mal # name
 % clob # type
-% 134 # length
+% 135 # length
 function user.s30_1():void;
-    X_11:void := querylog.define("explain insert into sql_int128 values (123456789098765432101234567890987654321);","default_pipe",6);
+    X_11:void := querylog.define("explain insert into sql_int128 values (123456789098765432101234567890987654321);","default_pipe",12);
+    oltp.lock(817);
     X_0 := sql.mvc();
     X_3 := sql.append(X_0,"sys","sql_int128","i",123456789098765432101234567890987654321);
     sql.affectedRows(X_3,1);
+catch MALexception:str;
+exit MALexception:str;
+catch SQLexception:str;
+exit SQLexception:str;
+    oltp.release(817);
 end user.s30_1;
 # optimizer.mitosis()
 # optimizer.dataflow()
