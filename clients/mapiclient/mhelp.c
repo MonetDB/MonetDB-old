@@ -12,7 +12,23 @@
  * The SQL syntax help synopsis.
  */
 
-/* produce a synposis of the SQL syntax, inspired by a competing product */
+/* produce a synposis of the SQL syntax, inspired by a competing product.
+ * Use the conventional grammar constructs:
+ * [ A | B ]   optionally token A or B or none
+ * { A | B }   exactly one of the options should be chosen
+ * A [ ',' ...]  a comma separate lists of A elements
+ * { A | B } ... a series of A and Bs
+ * ( A B ) [','...] a series of AB,AB,AB,AB
+ *
+ * Ideally each major command line should point into the website for
+ * more details and variations not covered here.
+ * */
+
+#include "monetdb_config.h"
+#include <ctype.h>
+#include <string.h>
+#include "stream.h"
+#include "mhelp.h"
 
 typedef struct{
 	char *command;
@@ -26,30 +42,45 @@ SQLhelp sqlhelp[]={
 	// major commands
 	{ "ALTER TABLE",
 	  "",
-	  "ALTER TABLE qname ADD [ COLUMN ] { column_def | table_constraint }\n"
-	  "ALTER TABLE qname ADD TABLE qname\n"
-	  "ALTER TABLE qname ALTER alter_table_element\n"
-	  "ALTER TABLE qname DROP drop_table_element\n"
+	  "ALTER TABLE qname ADD [COLUMN] { column_def | table_constraint }\n"
+	  "ALTER TABLE qname ALTER [COLUMN] ident SET DEFAULT value\n"
+	  "ALTER TABLE qname ALTER [COLUMN] ident SET [NOT] NULL\n"
+	  "ALTER TABLE qname ALTER [COLUMN] ident DROP DEFAULT\n"
+	  "ALTER TABLE qname ALTER [COLUMN] ident SET STORAGE {string | NULL} \n"
+	  "ALTER TABLE qname DROP [COLUMN] ident [RESTRICT | CASCADE]\n"
+	  "ALTER TABLE qname DROP CONSTRAINT ident [RESTRICT | CASCADE]\n"
 	  "ALTER TABLE qname SET { { READ | INSERT } ONLY | READ WRITE }",
-	  "column_def,table_constraint,alter_table_element,drop_table_element",
-	0
+	  "column_def,table_constraint",
+	  "See also https://www.monetdb.org/Documentation/SQLreference/Alter"
+	},
+	{ "ALTER MERGE TABLE",
+	  "",
+	  "ALTER TABLE qname ADD TABLE qname\n"
+	  "ALTER TABLE qname DROP TABLE qname [RESTRICT | CASCADE]\n",
+	  "",
+	  "See also https://www.monetdb.org/Documentation/Cookbooks/SQLrecipes/DataPartitioning"
 	},
 	{ "ALTER SEQUENCE",
 	  "",
 	  "ALTER SEQUENCE ident [ AS datatype] [ RESTART [WITH start]] [INCREMENT BY increment]\n"
 	  "[MINVALUE minvalue | NO MINVALUE]  [MAXVALUE maxvalue | NOMAXVALUE] | [ [ NO] CYCLE]",
-	  0,0
+	  0,
+	  "See also https://www.monetdb.org/Documentation/Manuals/SQLreference/SerialTypes"
 	},
 	{ "ALTER USER",
 	  "",
-	  "ALTER USER ident { password_scheme  | RENAME TO ident }",
-	  "password_scheme", 0
+     "ALTER USER ident  WITH [ ENCRYPTED | UNENCRYPTED] PASSWORD string\n"
+     "ALTER USER ident  SET SCHEMA ident\n"
+     "ALTER USER ident  WITH [ENCRYPTED | UNENCRYPTED] PASSWORD SET SCHEMA ident\n"
+     "ALTER USER RENAME TO ident  \n"
+     "ALTER USER SET [ ENCRYPTED | UNENCRYPTED] PASSWORD string USING OLD PASSWORD string",
+	  0, "See also https://www.monetdb.org/Documentation/SQLreference/Users"
 	},
     { "ANALYZE",
 	  "Collect statistics for optimizations",
-	  "ANALYZE qname [column_list] [sample] [MINMAX]",
-	  "column_list,sample",
-	  0
+	  "ANALYZE qname [column_list] [SAMPLE size] [MINMAX]",
+	  "column_list",
+	  "See also https://www.monetdb.org/Documentation/Cookbooks/SQLrecipes/statistics"
 	},
 	{ "CALL",
 	  "",
@@ -57,9 +88,9 @@ SQLhelp sqlhelp[]={
 	  0,0
 	},
 	{ "CASE",
-	  "",
+	  "Case statement for procedures/functions",
 	  "CASE  scalar_expression [ when_statement ...]  [ELSE procedure_statement ... ] END CASE",
-	  0,0
+	  0,"See also https://www.monetdb.org/Documentation/SQLreference/Flowofcontrol"
 	},
     { "COMMIT",
 	  "Commit the current transaction",
@@ -67,19 +98,23 @@ SQLhelp sqlhelp[]={
 	  0,0
 	},
 	{ "COPY BINARY",
-	  "",
-	  "COPY [integer OFFSET] [integer RECORDS] BINARY INTO qname column_list FROM string_list [NO CONSTRAINT]",
-	  "",
+	  "Append binary representations into a table",
+	  "COPY [nrofrecords] BINARY INTO qname [column_list] FROM string [','...] [NO CONSTRAINT]",
+	  "nrofrecords",
 	  "see https://www.monetdb.org/Documentation/Cookbooks/SQLrecipes/BinaryBulkLoad"
 	},
 	{ "COPY INTO",
-	  "",
-	  "COPY query_expression INTO [STDOUT | string] [seps] [null_string]",
-	  "seps",
-	"see https://www.monetdb.org/Documentation/Cookbooks/SQLrecipes/LoadingBulkData"
+	  "Parse a csv-file into a table",
+	  "COPY [nrofrecords] INTO qname [column_list] FROM string [','...] [headerlist] [ separators]\n"
+	  " [NULL [AS] string] [LOCKED] [BEST EFFORT] [NO CONSTRAINT] [FWF '(' integer [','...]')'\n"
+	  "COPY [nrofrecords] INTO qname [column_list] FROM STDIN [headerlist] [ separators]\n"
+	  " [NULL [AS] string] [LOCKED] [BEST EFFORT] [NO CONSTRAINT]\n"
+	  "COPY query_expression INTO [STDOUT | string] [seps] [NULL [AS] string]",
+	  "nrofrecords,headerlist,separators",
+	  "See also https://www.monetdb.org/Documentation/Cookbooks/SQLrecipes/LoadingBulkData"
 	},
 	{ "COPY LOADER",
-	  "",
+	  "Copy into using a user supplied parsing function",
 	  "COPY LOADER INTO qname FROM qname '(' [ scalar_expression ... ] ')'",
 	 0,0
 	},
@@ -139,11 +174,21 @@ SQLhelp sqlhelp[]={
 	  "param,data_type,function_return,external_code",
 	  0
 	},
+	{ "CREATE MERGE TABLE",
+	  "",
+	  "CREATE MERGE TABLE qname table_source;",
+	  0, "See also https://www.monetdb.org/Documentation/Cookbooks/SQLrecipes/DataPartitioning"
+     },
 	{ "CREATE REMOTE TABLE",
 	  "",
 	  "CREATE REMOTE TABLE qname ON string",
 	 0,"remote name should match mapi:monetdb://host:port/database[/schema[/table]]"
 	},
+	{ "CREATE REPLICA TABLE",
+	  "",
+	  "CREATE REPLICA TABLE qname table_source;",
+	  0, "https://www.monetdb.org/Documentation/Cookbooks/SQLrecipes/TransactionReplication"
+     },
     { "CREATE SCHEMA",
 	  "",
 	  "CREATE SCHEMA schema_name [default_char_set] [path_spec] [schema_element]",
@@ -154,19 +199,17 @@ SQLhelp sqlhelp[]={
 	  "Define a new sequence generator",
 	  "CREATE SEQUENCE ident   [ AS datatype] [ START [WITH start]] [INCREMENT BY increment]\n"
 	  "[MINVALUE minvalue | NO MINVALUE] [MAXVALUE maxvalue | NOMAXVALUE] | [ [ NO] CYCLE]",
-	  0, 0
+	  0, "See also https://www.monetdb.org/Documentation/Manuals/SQLreference/SerialTypes"
 	},
 	{ "CREATE STREAM TABLE",
-	  "",
-	  "CREATE REMOTE TABLE qname ON string",
-	 0,"Temporary table, locked during updates/ continues query processing"
+	 "Temporary table, locked during updates/ continues query processing",
+	  "CREATE STREAM TABLE qname table_source \n",
+	 0,0
 	},
 	{ "CREATE TABLE",
 	  "",
 	  "CREATE TABLE qname table_source [STORAGE ident string]\n"
 	  "CREATE TABLE qname FROM LOADER function_ref\n"
-	  "CREATE REMOTE TABLE qname ON string"
-	  "CREATE [ STREAM | MERGE | REPLICA ] TABLE qname table_source;"
 	  "CREATE [ LOCAL | GLOBAL ] TEMP[ORARY] TABLE qname table_source [on_commit]",
 	  "table_source,on_commit,function_ref",0
 	},
@@ -178,7 +221,7 @@ SQLhelp sqlhelp[]={
 	  0
 	},
 	{ "CREATE TYPE",
-	  "",
+	  "Add user defined type to the type system ",
 	  "CREATE TYPE qname EXTERNAL NAME ident",
 	  0,0
 	},
@@ -188,32 +231,32 @@ SQLhelp sqlhelp[]={
 	  "column_list,query_expression", 0
 	},
 	{ "CURRENT_DATE",
-	  "",
+	  "Built-in function",
 	  "CURRENT_DATE [ '(' ')']",
 	 0,0
 	},
 	{ "CURRENT_TIME",
-	  "",
+	  "Built-in function",
 	  "CURRENT_TIME [ '(' ')']",
 	 0,0
 	},
 	{ "CURRENT_TIMESTAMP",
-	  "",
+	  "Built-in function",
 	  "CURRENT_TIMESTAMP [ '(' ')']",
 	 0,0
 	},
 	{ "EXPLAIN",
 	  "Give execution plan details",
 	  "EXPLAIN statement",
-	  0,0
+	  0,"See alsp https://www.monetdb.org/Documentation/Manuals/SQLreference/Explain"
 	},
 	{ "LOCAL_TIMESTAMP",
-	  "",
+	  "Built-in function",
 	  "LOCAL_TIMESTAMP [ '(' ')']",
 	 0,0
 	},
 	{ "EXTRACT",
-	   "",
+	   "Built-in function",
 	  "EXTRACT '(' { YEAR | MONTH | DAY | HOUR | MINUTE | SECOND } FROM scalar_expression ')'",
 	  0,0
 	},
@@ -300,13 +343,14 @@ SQLhelp sqlhelp[]={
 	  "IF  search_condition THEN procedure_statement ...\n"
 	  "[ELSE IF search_condition THEN procedure_statement ... ]...\n"
 	  "[ ELSE procedure_statement ... ] END IF",
-	  "search_condition,procedure_statement",0
+	  "search_condition,procedure_statement",
+	  "See also https://www.monetdb.org/Documentation/SQLreference/Flowofcontrol"
 	},
 	{ "INSERT",
 	  "",
 	  "[WITH with_list ] INSERT INTO qname [ column_list ] [ DEFAULT VALUES | VALUES row_values | query_expression]",
 	  "with_list,column_list,row_values,query_expression",
-	  0
+	  "See also https://www.monetdb.org/Documentation/SQLreference/Updates"
 	},
 	{ "GRANT",
 	  "Define access privileges",
@@ -355,9 +399,10 @@ SQLhelp sqlhelp[]={
       "[ ORDER BY expression [ ASC | DESC ] [',' ...] ]\n"
       "[ LIMIT { count | param } ]\n"
 	  "[ OFFSET { count | param} ]\n"
-	  "[ sample ]",
+	  "[ SAMPLE size ]\n"
+	  " select_expression {UNION | INTERSECT | EXCEPT} [ALL | DISTINCT] [CORRESPONDING] select_expression",
 	  "",
-	  0
+	  "See also https://www.monetdb.org/Documentation/SQLreference/TableExpressions"
 	},
 	{ "SET",
 	  "Assign a value to a variable or column",
@@ -414,6 +459,16 @@ SQLhelp sqlhelp[]={
 	  "SET USER '=' ident",
 	  0,0
 	},
+	{ "TABLE JOINS",
+	  "",
+	  "'(' joined_table ') |\n"
+	  "table_ref CROSS JOIN table_ref ')' |\n"
+	  "table_ref NATURAL [ INNER | LEFT | RIGHT | FULL] JOIN table_ref |\n"
+	  "table_ref UNION JOIN table_ref { ON search_condition | USING column_list } |\n"
+	  "table_ref [ INNER | LEFT | RIGHT | FULL] JOIN table_ref { ON search_condition | USING column_list } |\n",
+	   0,"See also https://www.monetdb.org/Documentation/SQLreference/TableExpressions"
+	},
+
 	{ "TRACE",
 	  "Give execution trace",
 	  "TRACE statement",
@@ -428,12 +483,22 @@ SQLhelp sqlhelp[]={
 	{ "WHILE",
 	  "",
 	  "[ident ':'] WHILE search_condition DO procedure_statement ... END WHILE [ident]",
-	  0,0
+	  0,"See also https://www.monetdb.org/Documentation/SQLreference/Flowofcontrol"
+	},
+	{ "WINDOW",
+	  "",
+	  "{RANK | DENSE_RANK | PERCENT_RANK | CUME_DIST} OVER window_name |\n"
+	  "{RANK | DENSE_RANK | PERCENT_RANK | CUME_DIST} OVER '(' \n"
+	  "[window_name] [PARTITION BY column_ref ... ]\n"
+	  "[ORDER BY sort_spec] \n"
+	  "{ROWS | RANGE} {UNBOUNDED PRECEDING | value PRECEDING | CURRENT ROW} \n"
+	  "[BETWEEN {UNBOUNDED FOLLOWING | value FOLLOWING | UNBOUNDED PRECEDING | value PRECEDING | CURRENT ROW} \n"
+	  "AND {UNBOUNDED FOLLOWING | value FOLLOWING | UNBOUNDED PRECEDING | value PRECEDING | CURRENT ROW} ]\n"
+	  "[EXCLUDING {CURRENT ROW | GROUP | TIES | NO OTHERS}",
+	  0,"See also https://www.monetdb.org/Documentation/Manuals/SQLreference/WindowFunctions"
 	},
 
 // The subgrammar rules
-	{ "alter_table_element",0,"[ COLUMN ] ident SET { DEFAULT value | NULL | NOT NULL | STORAGE {string | NULL} }\n"
-	"[ COLUMN ] ident DROP DEFAULT",0,0},
 	{ "assignment_list",0,"colum '=' search_condition | '(' column [','...] ')' '=' subquery","search_condition,column,subquery",0},
 	{ "authid",0,"restricted ident",0,0},
 	{ "column_def", 0, "COLUMN [ SERIAL | BIGSERIAL] | COLUMN data_type [ column_option ...]","column_option",0},
@@ -452,21 +517,21 @@ SQLhelp sqlhelp[]={
 	"datetime_type,interval_type,geometry_type",0},
 	{ "default_char_set",0,"DEFAULT CHARACTER SET ident",0,0},
 	{ "drop_table_element",0," { CONSTRAINT | TABLE | COLUMN | } ident [ { RESTRICT | CASCADE } ]",0,0},
-	{ "encrypted",0," ENCRYPTED | UNENCRYPTED ",0,0},
 	{ "end_time", 0 ,"SECOND  timestamp_precision\n,timestamp_precision",0,0},
 	{ "function_return",0,"ident data_type",0,0},
 	{ "generated_column",0," AUTO_INCREMENT | GENERATED ALWAYS AS IDENTITY [ '(' [ AS datatype] [ START [WITH start]] [INCREMENT BY increment]\n"
       "[MINVALUE minvalue | NO MINVALUE] [MAXVALUE maxvalue | NOMAXVALUE] | [ [ NO] CYCLE] ')' ] ",0,"see https://www.monetdb.org/Documentation/Manuals/SQLreference/SerialTypes"},
 	{ "global_privileges",0," { COPY FROM | COPY INTO } [ ',' ... ]",0,0},
 	{ "grantee",0," { PUBLIC | authid } ","authid",0},
+	{ "headerlist",0,"'(' ( ident [string] ) [',' ...]",0,0},
     { "ident", "An identifier", NULL, NULL, NULL },
     { "ident_list", 0 , "ident [ ',' ... ]", NULL, NULL },
 	{ "interval", 0 ,"INTERVAL [ '+' | '-' ] string  start_field TO end_field","start_field,end_time",0 },
     { "intval", "Integer value", NULL, NULL, NULL },
 	{ "isolevel", 0 ,"READ UNCOMMITTED | READ COMMITTED | REPEATABLE READ | SERIALIZABLE ",0,0},
+	{ "nrofrecords", "", "OFFSET integer | integer RECORDS | integer OFFSET integer RECORDS | integer RECORDS OFFSET integer", 0,0 },
 	{ "on_commit",0,"ON COMMIT { DELETE ROWS | PRESERVE ROWS | DROP }",0,0},
 	{ "param",0,"ident data_type",0,0},
-	{ "password_scheme",0,"[ WITH [ encrypted ] PASSWORD string ] | [WITH [ encrypted ] PASSWORD string] SET SCHEMA ident","encrypted",0},
 	{ "privileges",0," { ALL [PRIVILEGES ] | { INSERT | DELETE | EXECUTE | [ REFERENCES | SELECT | UPDATE } column_list ON "
 	  " { [TABLE] qname | routine_designator }  | global_privileges","global_privileges,routine_designator",0},
 	{ "procedure_statement",0," {transaction_statement | update_statement | grant |revoke | declare |set_statement | control_statement |select_single_row } ';'",
@@ -477,12 +542,15 @@ SQLhelp sqlhelp[]={
 	{ "qname",0,"ident [ '.' ident ['.' ident]]",0,0},
 	{ "reference_action",0, " ON { UPDATE | DELETE } {NO ACTION | CASCADE | RESTRICT | SET NULL | SET DEFAULT}",0,0},
 	{ "row_values",0, " '(' atom [ ',' atom]... ')' [ ',' row_values] ...", "atom", 0},
-	{ "sample",0," SAMPLE positive_integer_value | SAMPLE parameter",0,0},
 	{ "schema_name",0," ident | [ident] AUTHORIZATION authorization_ident",0,0},
 	{ "schema_element",0,"grant | revoke | create_statement | drop_statement | alter_statement",0,0},
-	{ "table_source", 0,"'(' table_element [ ',' ... ] ')' | column_list AS query_expression [ WITH [NO] DATA ] ","table_element",0},
+	{ "separators",0,"[USING] DELIMITERS field_sep_string [',' record_sep_string [',' quote_string]]",0,0},
+	{ "split_part",0,"SPLIT_PART '(' string ',' delimiter_string ',' field_index ')'",0,0,},
 	{ "table_constraint",0," CONSTRAINT [ ident ] { UNIQUE | PRIMARY KEY } column_list | FOREIGN KEY } column_list REFERENCES qname [ column_list ][ MATCH [ FULL | PARTIAL | SIMPLE]]",0,0},
 	{ "table_element",0, "column_def | table_constraint | column_option_list | LIKE qname","column_def,table_constraint,column_option_list",0},
+	{ "table_name",0," [AS] ident ['(' name [','...] ')' ]",0,0},
+	{ "table_ref",0," [LATERAL] func_ref [table_name] | [LATERAL] subquery | joined_table",0,0},
+	{ "table_source", 0,"'(' table_element [ ',' ... ] ')' | column_list AS query_expression [ WITH [NO] DATA ] ","table_element",0},
 	{ "transaction_statement",0,"commit | savepoint | release | rollback | start transaction | set local transaction" ,
 	 "commit,savepoint,release,rollback,start transaction,set local transaction" ,
 	0},
@@ -500,7 +568,22 @@ SQLhelp sqlhelp[]={
     { NULL, NULL, NULL, NULL, NULL }    /* End of list marker */
 };
 
-static char * sql_grammar_rule(char *word)
+// matching is against a substring of the command string
+static int strmatch(char *heap, char *needle)
+{
+	char heapbuf[2048], *s = heapbuf;
+	char needlebuf[2048], *t = needlebuf;
+
+	for( ; *heap ; heap++)
+		*s++ = (char) tolower((int) *heap);
+	*s = 0;
+	for( ; *needle ; needle++)
+		*t++ = (char) tolower((int) *needle);
+	*t = 0;
+	return strncmp(heapbuf,needlebuf, strlen(needlebuf))== 0;
+}
+
+static char * sql_grammar_rule(char *word, stream *toConsole)
 {
 	char buf[65], *s= buf;
 	int i;
@@ -508,10 +591,8 @@ static char * sql_grammar_rule(char *word)
 	*s = 0;
 
 	for(i=0; sqlhelp[i].command; i++){
-		if( strcasestr(sqlhelp[i].command, buf) && sqlhelp[i].synopsis == 0){
+		if( strmatch(sqlhelp[i].command, buf) && sqlhelp[i].synopsis == 0){
 			mnstr_printf(toConsole,"%s : %s\n",buf, sqlhelp[i].syntax);
-			if( (s = strchr(sqlhelp[i].syntax,',')) )
-				sql_grammar_rule(s+1);
 		}
 	}
 	while ( *word && (isalnum((int) *word || *word == '_')) ) word++;
@@ -519,13 +600,13 @@ static char * sql_grammar_rule(char *word)
 	return *word==',' ? word +1 :0;
 }
 
-static void sql_grammar(int idx)
+static void sql_grammar(int idx, stream *toConsole)
 {
 	char *t1;
 	if( sqlhelp[idx].synopsis == 0){
 		mnstr_printf(toConsole,"%s  :%s\n", sqlhelp[idx].command, sqlhelp[idx].syntax);
 		if( sqlhelp[idx].comments)
-			mnstr_printf(toConsole,"comments : %s\n", sqlhelp[idx].comments);
+			mnstr_printf(toConsole,"%s\n", sqlhelp[idx].comments);
 		return;
 	}
 	if( sqlhelp[idx].command)
@@ -544,14 +625,14 @@ static void sql_grammar(int idx)
 		t1 = sqlhelp[idx].rules;
 		if( t1 && *t1)
 		do
-			t1 = sql_grammar_rule(t1);
+			t1 = sql_grammar_rule(t1, toConsole);
 		while( t1 );
 	}
 	if( sqlhelp[idx].comments)
-		mnstr_printf(toConsole,"comments : %s\n", sqlhelp[idx].comments);
+		mnstr_printf(toConsole,"%s\n", sqlhelp[idx].comments);
 }
 
-static void sql_word(char *word, size_t maxlen)
+static void sql_word(char *word, size_t maxlen, stream *toConsole)
 {
 	size_t i;
 
@@ -560,95 +641,55 @@ static void sql_word(char *word, size_t maxlen)
 		mnstr_printf(toConsole," ");
 }
 
-static int match(char *pattern, char *word){
-	char *m;
-
-	m =strcasestr(pattern, word);
-	if ( m == 0)
-		return 0;
-	if( ! isspace((int) *(m + strlen(word))) )
-		return 0;
-	if( m != pattern && !isspace((int) *(m-1)) )
-		return 0;
-	return 1;
-}
-
-static void sql_help( char *pattern)
+void sql_help( char *pattern, stream *toConsole)
 {
-	char *wrd1, *wrd2,*wrd3, *s;
-	size_t maxlen= 0, len, all= 0;
-	int i, step, total=0, found = 0;
+	size_t maxlen= 0, len;
+	int i, step, total=0;
 	
 	if( *pattern == '\\')
 		pattern ++;
 	while( *pattern &&  !isspace((int) *pattern) ) { pattern++;}
+	while( *pattern && isspace((int) *pattern) ) { pattern++;}
+
 	if( *pattern &&  pattern[strlen(pattern)-1] == '\n')
 		pattern[strlen(pattern)-1] =0;
-	while(*pattern && isspace((int) *pattern) ) { pattern++;}
 
-	if( *pattern != '*')
-	for( i=0; *pattern && sqlhelp[i].command; i++)
-	if( strcasestr(sqlhelp[i].command, pattern) == sqlhelp[i].command ){
-		sql_grammar(i);
-		return;
-	}
+	if( *pattern && *pattern != '*')
+		for( i=0; *pattern && sqlhelp[i].command; i++)
+		if( strmatch(sqlhelp[i].command, pattern) ){
+			sql_grammar(i,toConsole);
+			return;
+		}
 		
-	wrd1 = pattern;
-	all = *wrd1 == '*';
-	while( *wrd1 &&  isspace((int) *wrd1) ) { wrd1++;}
-	s= wrd1;
-	while( *wrd1 &&  *s && isalnum((int) *s) ) { s++;}
-	*s = 0;
-
-	wrd2 = s+1;
-	while( *wrd2 && isspace((int) *wrd2) ) { wrd2++;}
-	s= wrd2;
-	while( *wrd2 && *s && isalnum((int) *s) ) { s++;}
-	*s = 0;
-
-	wrd3 = s+1;
-	while( *wrd3 && isspace((int) *wrd3) ) { wrd3++;}
-	s= wrd3;
-	while( *wrd3 && *s && isalnum((int) *s) ) { s++;}
-	*s = 0;
 	// collect the major topics
 	for( i=0; sqlhelp[i].command; i++){
-		if ( islower((int) sqlhelp[i].command[0])  &&  !all)
+		if ( islower((int) sqlhelp[i].command[0])  &&  *pattern != '*')
 			break;
 		total++;
 		if ( (len = strlen(sqlhelp[i].command)) > maxlen)
 			maxlen = len;
 	}
 
-	// provide summary of all major topics first
+	// provide summary of all major topics  (=search terms)
 	step = total / 4;
-	if( *wrd1 == 0){
-		for( i=0;  i < step; i++){
-			sql_word(sqlhelp[i].command, maxlen);
-			if( i + step < total)
-				sql_word(sqlhelp[i + step].command, maxlen);
-			if( i + 2 * step < total)
-				sql_word(sqlhelp[i + 2 * step].command, maxlen);
-			if( i + 3 * step < total)
-				sql_word(sqlhelp[i + 3 * step].command, maxlen);
-			if( i + 4 * step < total)
-				sql_word(sqlhelp[i + 4 * step].command, maxlen);
-			mnstr_printf(toConsole,"\n");
-		}
-		return;
+	for( i=0;  i < step; i++){
+		sql_word(sqlhelp[i].command, maxlen, toConsole);
+		if( i + step < total)
+			sql_word(sqlhelp[i + step].command, maxlen, toConsole);
+		if( i + 2 * step < total)
+			sql_word(sqlhelp[i + 2 * step].command, maxlen, toConsole);
+		if( i + 3 * step < total)
+			sql_word(sqlhelp[i + 3 * step].command, maxlen, toConsole);
+		if( i + 4 * step < total)
+			sql_word(sqlhelp[i + 4 * step].command, maxlen, toConsole);
+		mnstr_printf(toConsole,"\n");
 	}
-
-	for( i=0; sqlhelp[i].command; i++)
-	if( match(sqlhelp[i].command, wrd1) && (*wrd2 == 0 || match(sqlhelp[i].command,wrd2))  && (*wrd3 == 0 || match(sqlhelp[i].command,wrd3))) {
-		sql_grammar(i);
-		found++;
-	}
-	
-	if( found == 0)
-	for( i=0; sqlhelp[i].command; i++)
-	if( strcasestr(sqlhelp[i].command, wrd1) && (*wrd2 == 0 || strcasestr(sqlhelp[i].command,wrd2)) ) {
-		sql_grammar(i);
-		found++;
-	}
+	mnstr_printf(toConsole,"Using the conventional grammar constructs:\n");
+	mnstr_printf(toConsole,"[ A | B ]   optionally token A or B or none\n");
+	mnstr_printf(toConsole,"{ A | B }   exactly one of the options should be chosen\n");
+	mnstr_printf(toConsole,"A [ ',' ...]  a comma separate lists of A elements\n");
+	mnstr_printf(toConsole,"{ A | B } ... a series of A and Bs\n");
+	mnstr_printf(toConsole,"( A B ) [','...] a series of AB,AB,AB,AB\n");
+	mnstr_printf(toConsole,"For more search terms type: \\help *\n");
+	mnstr_printf(toConsole,"See also https://www.monetdb.org/Documentation/SQLreference\n");
 }
-	

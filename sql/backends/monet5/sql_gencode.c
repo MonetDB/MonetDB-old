@@ -176,7 +176,7 @@ _create_relational_function(mvc *m, char *mod, char *name, sql_rel *rel, stmt *c
 			char buf[64];
 
 			snprintf(buf,64,"A%s",nme);
-			varid = newVariable(curBlk, (char *)buf, strlen(buf), type);
+			varid = newVariable(curBlk, buf, strlen(buf), type);
 			curInstr = pushArgument(curBlk, curInstr, varid);
 			setVarType(curBlk, varid, type);
 			setVarUDFtype(curBlk, varid);
@@ -291,7 +291,7 @@ _create_relational_remote(mvc *m, char *mod, char *name, sql_rel *rel, stmt *cal
 			char buf[64];
 
 			snprintf(buf,64,"A%s",nme);
-			varid = newVariable(curBlk, (char*) buf,strlen(buf), type);
+			varid = newVariable(curBlk, buf,strlen(buf), type);
 			curInstr = pushArgument(curBlk, curInstr, varid);
 			setVarType(curBlk, varid, type);
 			setVarUDFtype(curBlk, varid);
@@ -504,8 +504,35 @@ backend_dumpstmt(backend *be, MalBlkPtr mb, sql_rel *r, int top, int add_end)
 		getArg(q, 0) = getArg(getInstrPtr(mb, 0), 0);
 		q->barrier = RETURNsymbol;
 	}
-	if (add_end)
+	if (add_end){
 		pushEndInstruction(mb);
+	}
+	// Always keep the SQL query around for monitoring
+	{
+		char *t, *tt;
+		InstrPtr q;
+
+		if (be->q && be->q->codestring) {
+			tt = t = GDKstrdup(be->q->codestring);
+			while (t && isspace((int) *t))
+				t++;
+		} else {
+			tt = t = GDKstrdup("-- no query");
+		}
+
+		q = newStmt(mb, querylogRef, defineRef);
+		if (q == NULL) {
+			GDKfree(tt);
+			goto cleanup;
+		}
+		q->token = REMsymbol;	// will be patched
+		setVarType(mb, getArg(q, 0), TYPE_void);
+		setVarUDFtype(mb, getArg(q, 0));
+		q = pushStr(mb, q, t);
+		GDKfree(tt);
+		q = pushStr(mb, q, getSQLoptimizer(be->mvc));
+	}
+cleanup:
 	return 0;
 }
 
@@ -610,31 +637,6 @@ backend_dumpproc(backend *be, Client c, cq *cq, sql_rel *r)
 	if (backend_dumpstmt(be, mb, r, 1, 1) < 0) 
 		goto cleanup;
 
-	// Always keep the SQL query around for monitoring
-	{
-		char *t, *tt;
-		InstrPtr q;
-
-		if (be->q && be->q->codestring) {
-			tt = t = GDKstrdup(be->q->codestring);
-			while (t && isspace((int) *t))
-				t++;
-		} else {
-			tt = t = GDKstrdup("-- no query");
-		}
-
-		q = newStmt(mb, querylogRef, defineRef);
-		if (q == NULL) {
-			GDKfree(tt);
-			goto cleanup;
-		}
-		q->token = REMsymbol;	// will be patched
-		setVarType(mb, getArg(q, 0), TYPE_void);
-		setVarUDFtype(mb, getArg(q, 0));
-		q = pushStr(mb, q, t);
-		GDKfree(tt);
-		q = pushStr(mb, q, getSQLoptimizer(be->mvc));
-	}
 	if (cq){
 		SQLaddQueryToCache(c);
 		// optimize this code the 'old' way
@@ -678,7 +680,7 @@ backend_call(backend *be, Client c, cq *cq)
 			atom *a = m->args[i];
 			sql_subtype *pt = cq->params + i;
 
-			if (!atom_cast(a, pt)) {
+			if (!atom_cast(m->sa, a, pt)) {
 				sql_error(m, 003, "wrong type for argument %d of " "function call: %s, expected %s\n", i + 1, atom_type(a)->type->sqlname, pt->type->sqlname);
 				break;
 			}
@@ -826,7 +828,7 @@ backend_create_sql_func(backend *be, sql_func *f, list *restypes, list *ops)
 	backup = c->curprg;
 	curPrg = c->curprg = newFunction(userRef, putName(f->base.name), FUNCTIONsymbol);
 	if( curPrg == NULL)
-		return -1;
+		goto cleanup;
 
 	curBlk = c->curprg->def;
 	curInstr = getInstrPtr(curBlk, 0);
@@ -850,9 +852,9 @@ backend_create_sql_func(backend *be, sql_func *f, list *restypes, list *ops)
 			stmt *s = n->data;
 			int type = tail_type(s)->type->localtype;
 			int varid = 0;
-			char *buf = GDKmalloc(MAXIDENTLEN);
+			char buf[IDLENGTH];
 
-			(void) snprintf(buf, MAXIDENTLEN, "A%d", argc);
+			(void) snprintf(buf, IDLENGTH, "A%d", argc);
 			varid = newVariable(curBlk, buf, strlen(buf), type);
 			curInstr = pushArgument(curBlk, curInstr, varid);
 			setVarType(curBlk, varid, type);
@@ -866,14 +868,12 @@ backend_create_sql_func(backend *be, sql_func *f, list *restypes, list *ops)
 			sql_arg *a = n->data;
 			int type = a->type.type->localtype;
 			int varid = 0;
-			char *buf = GDKmalloc(MAXIDENTLEN);
+			char buf[IDLENGTH];
 
-			if (buf == NULL) 
-				goto cleanup;
 			if (a->name)
-				(void) snprintf(buf, MAXIDENTLEN, "A%s", a->name);
+				(void) snprintf(buf, IDLENGTH, "A%s", a->name);
 			else
-				(void) snprintf(buf, MAXIDENTLEN, "A%d", argc);
+				(void) snprintf(buf, IDLENGTH, "A%d", argc);
 			varid = newVariable(curBlk, buf, strlen(buf), type);
 			curInstr = pushArgument(curBlk, curInstr, varid);
 			setVarType(curBlk, varid, type);
