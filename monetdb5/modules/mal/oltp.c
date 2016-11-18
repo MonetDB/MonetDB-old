@@ -23,7 +23,7 @@
 typedef struct{
 	Client cntxt;	// user holding the write lock
 	int start;		// time when it started
-	int retention;	// time when the lock is released
+	lng retention;	// time when the lock is released
 	lng total;		// accumulated lock time
 	int used;		// how often it used, for balancing
 	int locked;		// writelock set or not
@@ -178,7 +178,7 @@ str
 OLTPrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int i,lck;
-	int delay, clk;
+	lng delay,clk;
 
 	(void) cntxt;
 	(void) stk;
@@ -204,7 +204,7 @@ OLTPrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					delay = LOCKDELAY;
 				oltp_locks[lck].retention = clk + delay;
 #ifdef _DEBUG_OLTP_
-				mnstr_printf(cntxt->fdout,"#OLTP  retention period for lock %d: %d\n", lck,delay);
+				mnstr_printf(cntxt->fdout,"#OLTP  retention period for lock %d: "LLFMT"\n", lck,delay);
 #endif
 			}
 	}
