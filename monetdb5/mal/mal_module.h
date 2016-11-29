@@ -36,6 +36,7 @@ mal_export Module   findModule(Module scope, str name);
 mal_export Symbol   findSymbol(Module nspace, str mod, str fcn);
 mal_export int 		isModuleDefined(Module scope, str name);
 mal_export Symbol   findSymbolInModule(Module v, str fcn);
+mal_export MALfcn	findSymbolAddress(Module scope, str name);
 
 #define getSymbolIndex(N)  (int)(*(N))
 

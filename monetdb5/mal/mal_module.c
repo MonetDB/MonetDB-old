@@ -253,6 +253,7 @@ Module findModule(Module scope, str name){
 	if( def->name==NULL) return NULL;
 	return def;
 }
+
 int isModuleDefined(Module scope, str name){
 	if( name==NULL || scope==NULL) return FALSE;
 	if( name == scope->name) return TRUE;
@@ -263,6 +264,16 @@ int isModuleDefined(Module scope, str name){
 			scope= scope->link;
 	}
 	return FALSE;
+}
+
+/*
+ * Find the address of a specific function.
+ */
+MALfcn
+findSymbolAddress(Module scope, str name){
+	(void) scope;
+	(void) name;
+	return 0;
 }
 /*
  * The routine findSymbolInModule starts at a MAL scope level and searches
