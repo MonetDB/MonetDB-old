@@ -1610,7 +1610,7 @@ mvc_export_value(backend *b, stream *s, int qtype, str tn, str cn, str type, int
 	assert(qtype == Q_TABLE);
 
 	if (csv && 
-	   (mnstr_write(s, "&1 0 1 1 1\n", 11, 1) != 1 ||
+	   (mnstr_printf(s, "&1 0 1 1 1 "OIDFMT"\n", b->mb->tag) != 1 ||
 	   	/* fallback to default tuplecount (1) and id (0) */
 	    	/* TODO first header name then values */
 	    mnstr_write(s, "% ", 2, 1) != 1 || 
@@ -1681,7 +1681,7 @@ mvc_export_affrows(backend *b, stream *s, lng val, str w)
 
 	m->rowcnt = val;
 	stack_set_number(m, "rowcnt", m->rowcnt);
-	if (mnstr_write(s, "&2 ", 3, 1) != 1 || !mvc_send_lng(s, val) || mnstr_write(s, " ", 1, 1) != 1 || !mvc_send_lng(s, m->last_id) || mnstr_write(s, "\n", 1, 1) != 1)
+	if (mnstr_write(s, "&2 ", 3, 1) != 1 || !mvc_send_lng(s, val) || mnstr_write(s, " ", 1, 1) != 1 || !mvc_send_lng(s, m->last_id) || mnstr_write(s, " ", 1, 1) != 1 || !mvc_send_lng(s, (lng) b->mb->tag) || mnstr_write(s, "\n", 1, 1) != 1)
 		return -1;
 	if (mvc_export_warning(s, w) != 1)
 		return -1;
@@ -1739,6 +1739,9 @@ mvc_export_head(backend *b, stream *s, int res_id, int only_header)
 
 	/* row count, min(count, reply_size) */
 	if (!mvc_send_int(s, (m->reply_size >= 0 && (BUN) m->reply_size < count) ? m->reply_size : (int) count))
+		return -1;
+
+	if (mnstr_write(s, " ", 1, 1) != 1 || !mvc_send_lng(s, (lng) b->mb->tag))
 		return -1;
 
 	if (mnstr_write(s, "\n% ", 3, 1) != 1)

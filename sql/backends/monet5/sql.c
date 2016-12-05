@@ -2825,6 +2825,9 @@ mvc_result_set_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BBPunfix(bid);
 	}
 	/* now sent it to the channel cntxt->fdout */
+
+	((backend*)(cntxt->sqlcontext))->mb = mb;
+
 	if (mvc_export_result(cntxt->sqlcontext, cntxt->fdout, res))
 		msg = createException(SQL, "sql.resultset", "failed");
   wrapup_result_set:
@@ -3290,6 +3293,9 @@ mvc_affected_rows_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	assert(mtype == TYPE_lng);
 	nr = *getArgReference_lng(stk, pci, 2);
 	b = cntxt->sqlcontext;
+
+	b->mb = mb; // to allow query id export in result set
+
 	error = mvc_export_affrows(b, b->out, nr, "");
 	if (error)
 		throw(SQL, "sql.affectedRows", "failed");
@@ -3400,6 +3406,8 @@ mvc_scalar_value_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	b = cntxt->sqlcontext;
 	if (ATOMextern(mtype))
 		p = *(ptr *) p;
+
+	b->mb = mb; // for query id export
 
 	// scalar values are single-column result sets
 	mvc_result_table(b->mvc, 1, 1, NULL);
