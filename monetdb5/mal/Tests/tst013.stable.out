@@ -25,6 +25,10 @@ Ready.
 # 11:10:25 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-10484" "--port=37868"
 # 11:10:25 >  
 
+[ 2	]
+[ 3	]
+[ 4	]
+[ "leave loop"	]
 
 # 11:10:25 >  
 # 11:10:25 >  "Done."
