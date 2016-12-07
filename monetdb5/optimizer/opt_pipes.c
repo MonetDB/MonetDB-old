@@ -79,7 +79,7 @@ static struct PIPELINES {
 	 "optimizer.projectionpath();"
 	 "optimizer.deadcode();"
 	 "optimizer.reorder();"
-	 "optimizer.reduce();"
+//	 "optimizer.reduce();" deprecated
 	 "optimizer.matpack();"
 	 "optimizer.dataflow();"
 	 "optimizer.querylog();"
@@ -87,7 +87,7 @@ static struct PIPELINES {
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
-	 "optimizer.jit();"
+//	 "optimizer.jit();" awaiting the new batcalc api
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /*
@@ -111,7 +111,7 @@ static struct PIPELINES {
 	 "optimizer.projectionpath();"
 	 "optimizer.deadcode();"
 	 "optimizer.reorder();"
-	 "optimizer.reduce();"
+//	 "optimizer.reduce();" deprecated
 	 "optimizer.matpack();"
 	 "optimizer.dataflow();"
 	 "optimizer.querylog();"
@@ -120,7 +120,7 @@ static struct PIPELINES {
 	 "optimizer.volcano();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
-	 "optimizer.jit();"
+//	 "optimizer.jit();" awaiting the new batcalc api
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 
@@ -152,7 +152,7 @@ static struct PIPELINES {
 	 "optimizer.projectionpath();"
 	 "optimizer.reorder();"
 	 "optimizer.deadcode();"
-	 "optimizer.reduce();"
+//	 "optimizer.reduce();" deprecated
 	 "optimizer.matpack();"
 	 "optimizer.dataflow();"
 	 "optimizer.querylog();"
@@ -160,7 +160,7 @@ static struct PIPELINES {
 	 "optimizer.profiler();"
 	 "optimizer.generator();"
 	 "optimizer.candidates();"
-	 "optimizer.jit();"
+//	 "optimizer.jit();" awaiting the new batcalc api
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The sequential pipe line is (and should be kept!) identical to the
@@ -190,47 +190,19 @@ static struct PIPELINES {
 	 "optimizer.projectionpath();"
 	 "optimizer.reorder();"
 	 "optimizer.deadcode();"
-	 "optimizer.reduce();"
+//	 "optimizer.reduce();" deprecated
 	 "optimizer.matpack();"
 	 "optimizer.querylog();"
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
-	 "optimizer.jit();"
+//	 "optimizer.jit();" awaiting the new batcalc api
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* Experimental pipelines stressing various components under
  * development.  Do not use any of these pipelines in production
  * settings!
-	{"recycler_pipe",
-	 "optimizer.inline();"
-	 "optimizer.remap();"
-	 "optimizer.costModel();"
-	 "optimizer.coercions();"
-	 "optimizer.evaluate();"
-	 "optimizer.emptycolumn();"
-	 "optimizer.pushselect();"
-	 "optimizer.aliases();"
-	 "optimizer.mitosis();"
-	 "optimizer.mergetable();"
-	 "optimizer.aliases();"
-	 "optimizer.deadcode();"
-	 "optimizer.constants();"
-	 "optimizer.commonTerms();"
-	 "optimizer.projectionpath();"
-	 "optimizer.reorder();"
-	 "optimizer.deadcode();"
-	 "optimizer.reduce();"
-	 "optimizer.matpack();"
-	 "optimizer.dataflow();"
-	 "optimizer.recycler();"
-	 "optimizer.querylog();"
-	 "optimizer.multiplex();"
-	 "optimizer.generator();"
-	 "optimizer.profiler();"
-	 "optimizer.garbageCollector();",
-	 "stable", NULL, NULL, 1},
 */
 /*The datavaults pipe line is (and should be kept!) identical to the
  * default pipeline, except that optimizer datavaults is added.

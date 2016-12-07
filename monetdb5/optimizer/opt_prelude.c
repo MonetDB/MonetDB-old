@@ -247,9 +247,6 @@ str analyzetableRef;
 
 void optimizerInit(void)
 {
-#ifndef HAVE_EMBEDDED
-	assert(batRef == NULL);
-#endif
 	abortRef = putName("abort");
 	affectedRowsRef = putName("affectedRows");
 	aggrRef = putName("aggr");
