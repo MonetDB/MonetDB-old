@@ -1,9 +1,9 @@
 stderr of test 'tst013` in directory 'monetdb5/mal` itself:
 
 
-# 11:10:24 >  
-# 11:10:24 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=37868" "--set" "mapi_usock=/var/tmp/mtest-10484/.s.monetdb.37868" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/export/scratch1/mk/default//Linux/var/MonetDB/mTests_monetdb5_mal" "--set" "mal_listing=2" "--set" "embedded_r=yes"
-# 11:10:24 >  
+# 19:05:11 >  
+# 19:05:11 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=38318" "--set" "mapi_usock=/var/tmp/mtest-14145/.s.monetdb.38318" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mk/default//Linux/var/MonetDB/mTests_monetdb5_mal"
+# 19:05:11 >  
 
 # builtin opt 	gdk_dbpath = /export/scratch1/mk/default//Linux/var/monetdb5/dbfarm/demo
 # builtin opt 	gdk_debug = 0
@@ -17,21 +17,18 @@ stderr of test 'tst013` in directory 'monetdb5/mal` itself:
 # builtin opt 	sql_debug = 0
 # cmdline opt 	gdk_nr_threads = 0
 # cmdline opt 	mapi_open = true
-# cmdline opt 	mapi_port = 37868
-# cmdline opt 	mapi_usock = /var/tmp/mtest-10484/.s.monetdb.37868
+# cmdline opt 	mapi_port = 38318
+# cmdline opt 	mapi_usock = /var/tmp/mtest-14145/.s.monetdb.38318
 # cmdline opt 	monet_prompt = 
-# cmdline opt 	mal_listing = 2
 # cmdline opt 	gdk_dbpath = /export/scratch1/mk/default//Linux/var/MonetDB/mTests_monetdb5_mal
-# cmdline opt 	mal_listing = 2
-# cmdline opt 	embedded_r = yes
 # cmdline opt 	gdk_debug = 536870922
 
-# 13:20:00 >  
-# 13:20:00 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "--host=/var/tmp/mtest-18020" "--port=37961"
-# 13:20:00 >  
+# 19:05:11 >  
+# 19:05:11 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "--host=/var/tmp/mtest-14145" "--port=38318"
+# 19:05:11 >  
 
-        
-# 10:54:30 >  
-# 10:54:30 >  "Done."
-# 10:54:30 >  
+
+# 19:05:12 >  
+# 19:05:12 >  "Done."
+# 19:05:12 >  
 
