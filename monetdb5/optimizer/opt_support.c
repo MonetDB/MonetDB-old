@@ -32,13 +32,10 @@ struct OPTcatalog {
 {"commonTerms",	0,	0,	0},
 {"constants",	0,	0,	0},
 {"costModel",	0,	0,	0},
-{"crack",		0,	0,	0},
-{"datacyclotron",0,	0,	0},
 {"dataflow",	0,	0,	0},
 {"deadcode",	0,	0,	0},
 {"emptybind",	0,	0,	0},
 {"evaluate",	0,	0,	0},
-{"factorize",	0,	0,	0},
 {"datavaults",	0,	0,	0},
 {"garbage",		0,	0,	0},
 {"generator",	0,	0,	0},
@@ -52,16 +49,11 @@ struct OPTcatalog {
 {"mergetable",	0,	0,	0},
 {"mitosis",		0,	0,	0},
 {"multiplex",	0,	0,	0},
-{"origin",		0,	0,	0},
-{"peephole",	0,	0,	0},
 {"reduce",		0,	0,	0},
 {"remap",		0,	0,	0},
 {"remote",		0,	0,	0},
 {"reorder",		0,	0,	0},
 {"replication",	0,	0,	0},
-{"selcrack",	0,	0,	0},
-{"sidcrack",	0,	0,	0},
-{"strengthreduction",	0,	0,	0},
 {"pushselect",	0,	0,	0},
 { 0,	0,	0,	0}
 };
@@ -548,7 +540,7 @@ isOrderDepenent(InstrPtr p)
 {
     if( getModuleId(p) != batsqlRef)
         return 0;
-    if ( getFunctionId(p) == diffRef ||
+    if ( getFunctionId(p) == differenceRef ||
         getFunctionId(p) == row_numberRef ||
         getFunctionId(p) == rankRef ||
         getFunctionId(p) == dense_rankRef)
@@ -606,11 +598,11 @@ isMatJoinOp(InstrPtr p)
 {
 	return (isSubJoin(p) || (getModuleId(p) == algebraRef &&
                 (getFunctionId(p) == crossRef ||
-                 getFunctionId(p) == subjoinRef ||
-                 getFunctionId(p) == subantijoinRef || /* is not mat save */
-                 getFunctionId(p) == subthetajoinRef ||
-                 getFunctionId(p) == subbandjoinRef ||
-                 getFunctionId(p) == subrangejoinRef)
+                 getFunctionId(p) == joinRef ||
+                 getFunctionId(p) == antijoinRef || /* is not mat save */
+                 getFunctionId(p) == thetajoinRef ||
+                 getFunctionId(p) == bandjoinRef ||
+                 getFunctionId(p) == rangejoinRef)
 		));
 }
 
@@ -618,7 +610,7 @@ int
 isMatLeftJoinOp(InstrPtr p)
 {
 	return (getModuleId(p) == algebraRef && 
-		getFunctionId(p) == subleftjoinRef);
+		getFunctionId(p) == leftjoinRef);
 }
 
 int isDelta(InstrPtr p){
@@ -643,12 +635,12 @@ int isFragmentGroup2(InstrPtr p){
 		);
 }
 
-int isSubSelect(InstrPtr p)
+int isSelect(InstrPtr p)
 {
 	char *func = getFunctionId(p);
 	size_t l = func?strlen(func):0;
 	
-	return (l >= 9 && strcmp(func+l-9,"subselect") == 0);
+	return (l >= 6 && strcmp(func+l-6,"select") == 0);
 }
 
 int isSubJoin(InstrPtr p)
@@ -656,7 +648,7 @@ int isSubJoin(InstrPtr p)
 	char *func = getFunctionId(p);
 	size_t l = func?strlen(func):0;
 	
-	return (l >= 7 && strcmp(func+l-7,"subjoin") == 0);
+	return (l >= 7 && strcmp(func+l-7,"join") == 0);
 }
 
 int isMultiplex(InstrPtr p)
@@ -671,7 +663,7 @@ int isFragmentGroup(InstrPtr p){
 				getFunctionId(p)== projectRef ||
 				getFunctionId(p)== selectNotNilRef
 			))  ||
-			isSubSelect(p) ||
+			isSelect(p) ||
 			(getModuleId(p)== batRef && (
 				getFunctionId(p)== mirrorRef 
 			));

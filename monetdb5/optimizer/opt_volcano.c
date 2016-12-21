@@ -51,10 +51,10 @@ OPTvolcanoImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 		}
 
 		if( count < MAXdelays && getModuleId(p) == algebraRef ){
-			if( getFunctionId(p) == subselectRef ||
-				getFunctionId(p) == thetasubselectRef ||
-				getFunctionId(p) == likesubselectRef ||
-				getFunctionId(p) == subjoinRef
+			if( getFunctionId(p) == selectRef ||
+				getFunctionId(p) == thetaselectRef ||
+				getFunctionId(p) == likeselectRef ||
+				getFunctionId(p) == joinRef
 			){
 				q= newInstruction(0,languageRef,blockRef);
 				setDestVar(q, newTmpVariable(mb,TYPE_any));
@@ -67,7 +67,7 @@ OPTvolcanoImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 			continue;
 		}
 		if( count < MAXdelays && getModuleId(p) == groupRef ){
-			if( getFunctionId(p) == subgroupdoneRef ){
+			if( getFunctionId(p) == subgroupdoneRef || getFunctionId(p) == groupdoneRef ){
 				q= newInstruction(0,languageRef,blockRef);
 				setDestVar(q, newTmpVariable(mb,TYPE_any));
 				q =  pushArgument(mb,q,mvcvar);

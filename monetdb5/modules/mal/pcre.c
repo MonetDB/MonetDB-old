@@ -66,16 +66,16 @@ mal_export str BATPCREilike2(bat *ret, const bat *b, const str *pat);
 mal_export str BATPCREnotilike(bat *ret, const bat *b, const str *pat, const str *esc);
 mal_export str BATPCREnotilike2(bat *ret, const bat *b, const str *pat);
 
-mal_export str PCRElikesubselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, const str *esc, const bit *caseignore, const bit *anti);
-mal_export str PCRElikesubselect1(bat *ret, const bat *bid, const bat *cid, const str *pat, const str *esc, const bit *anti);
-mal_export str PCRElikesubselect3(bat *ret, const bat *bid, const bat *sid, const str *pat, const str *esc, const bit *anti);
-mal_export str PCRElikesubselect4(bat *ret, const bat *bid, const bat *cid, const str *pat, const bit *anti);
-mal_export str PCRElikesubselect5(bat *ret, const bat *bid, const bat *sid, const str *pat, const bit *anti);
+mal_export str PCRElikeselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, const str *esc, const bit *caseignore, const bit *anti);
+mal_export str PCRElikeselect1(bat *ret, const bat *bid, const bat *cid, const str *pat, const str *esc, const bit *anti);
+mal_export str PCRElikeselect3(bat *ret, const bat *bid, const bat *sid, const str *pat, const str *esc, const bit *anti);
+mal_export str PCRElikeselect4(bat *ret, const bat *bid, const bat *cid, const str *pat, const bit *anti);
+mal_export str PCRElikeselect5(bat *ret, const bat *bid, const bat *sid, const str *pat, const bit *anti);
 
-mal_export str LIKEsubjoin(bat *r1, bat *r2, const bat *lid, const bat *rid, const str *esc, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate);
-mal_export str LIKEsubjoin1(bat *r1, bat *r2, const bat *lid, const bat *rid, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate);
-mal_export str ILIKEsubjoin(bat *r1, bat *r2, const bat *lid, const bat *rid, const str *esc, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate);
-mal_export str ILIKEsubjoin1(bat *r1, bat *r2, const bat *lid, const bat *rid, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate);
+mal_export str LIKEjoin(bat *r1, bat *r2, const bat *lid, const bat *rid, const str *esc, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate);
+mal_export str LIKEjoin1(bat *r1, bat *r2, const bat *lid, const bat *rid, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate);
+mal_export str ILIKEjoin(bat *r1, bat *r2, const bat *lid, const bat *rid, const str *esc, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate);
+mal_export str ILIKEjoin1(bat *r1, bat *r2, const bat *lid, const bat *rid, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate);
 
 /* current implementation assumes simple %keyword% [keyw%]* */
 typedef struct RE {
@@ -316,7 +316,7 @@ pcre_compile_wrap(pcre **res, const char *pattern, bit insensitive)
 	} while (0)
 
 static str
-pcre_likesubselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int anti)
+pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int anti)
 {
 #ifdef HAVE_LIBPCRE
 	int options = PCRE_UTF8 | PCRE_MULTILINE;
@@ -348,18 +348,18 @@ pcre_likesubselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, i
 	}
 #ifdef HAVE_LIBPCRE
 	if ((re = pcre_compile(pat, options, &error, &errpos, NULL)) == NULL)
-		throw(MAL, "pcre.likesubselect",
+		throw(MAL, "pcre.likeselect",
 			  OPERATION_FAILED ": compilation of pattern \"%s\" failed\n", pat);
 	pe = pcre_study(re, 0, &error);
 	if (error != NULL) {
 		my_pcre_free(re);
 		pcre_free_study(pe);
-		throw(MAL, "pcre.likesubselect",
+		throw(MAL, "pcre.likeselect",
 			  OPERATION_FAILED ": studying pattern \"%s\" failed\n", pat);
 	}
 #else
 	if ((errcode = regcomp(&re, pat, options)) != 0) {
-		throw(MAL, "pcre.likesubselect",
+		throw(MAL, "pcre.likeselect",
 			  OPERATION_FAILED ": compilation of pattern \"%s\" failed\n", pat);
 	}
 #endif
@@ -371,7 +371,7 @@ pcre_likesubselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, i
 #else
 		regfree(&re);
 #endif
-		throw(MAL, "pcre.likesubselect", MAL_MALLOC_FAIL);
+		throw(MAL, "pcre.likeselect", MAL_MALLOC_FAIL);
 	}
 	off = b->hseqbase;
 
@@ -388,20 +388,15 @@ pcre_likesubselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, i
 		q = SORTfndfirst(s, &o);
 		p = SORTfndfirst(s, &b->hseqbase);
 		candlist = (const oid *) Tloc(s, p);
+#ifdef HAVE_LIBPCRE
+#define BODY     (pcre_exec(re, pe, v, (int) strlen(v), 0, 0, ovector, 10) >= 0)
+#else
+#define BODY     (regexec(&re, v, (size_t) 0, NULL, 0) != REG_NOMATCH)
+#endif
 		if (anti)
-			candscanloop(v && *v != '\200' &&
-#ifdef HAVE_LIBPCRE
-				pcre_exec(re, pe, v, (int) strlen(v), 0, 0, ovector, 10) == -1);
-#else
-				regexec(&re, v, (size_t) 0, NULL, 0) == REG_NOMATCH);
-#endif
+			candscanloop(v && *v != '\200' && !BODY);
 		else
-			candscanloop(v && *v != '\200' &&
-#ifdef HAVE_LIBPCRE
-				pcre_exec(re, pe, v, (int) strlen(v), 0, 0, ovector, 10) >= 0);
-#else
-				regexec(&re, v, (size_t) 0, NULL, 0) != REG_NOMATCH);
-#endif
+			candscanloop(v && *v != '\200' && BODY);
 	} else {
 		if (s) {
 			assert(BATtdense(s));
@@ -416,19 +411,9 @@ pcre_likesubselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, i
 			q = BUNlast(b) + off;
 		}
 		if (anti)
-			scanloop(v && *v != '\200' &&
-#ifdef HAVE_LIBPCRE
-				pcre_exec(re, pe, v, (int) strlen(v), 0, 0, ovector, 10) == -1);
-#else
-				regexec(&re, v, (size_t) 0, NULL, 0) == REG_NOMATCH);
-#endif
+			scanloop(v && *v != '\200' && !BODY);
 		else
-			scanloop(v && *v != '\200' &&
-#ifdef HAVE_LIBPCRE
-				pcre_exec(re, pe, v, (int) strlen(v), 0, 0, ovector, 10) >= 0);
-#else
-				regexec(&re, v, (size_t) 0, NULL, 0) != REG_NOMATCH);
-#endif
+			scanloop(v && *v != '\200' && BODY);
 	}
 #ifdef HAVE_LIBPCRE
 	my_pcre_free(re);
@@ -455,11 +440,11 @@ pcre_likesubselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, i
 	regfree(&re);
 #endif
 	*bnp = NULL;
-	throw(MAL, "pcre.likesubselect", OPERATION_FAILED);
+	throw(MAL, "pcre.likeselect", OPERATION_FAILED);
 }
 
 static str
-re_likesubselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int anti, int use_strcmp)
+re_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int anti, int use_strcmp)
 {
 	BATiter bi = bat_iterator(b);
 	BAT *bn;
@@ -474,14 +459,14 @@ re_likesubselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int
 
 	bn = COLnew(0, TYPE_oid, s ? BATcount(s) : BATcount(b), TRANSIENT);
 	if (bn == NULL)
-		throw(MAL, "pcre.likesubselect", MAL_MALLOC_FAIL);
+		throw(MAL, "pcre.likeselect", MAL_MALLOC_FAIL);
 	off = b->hseqbase;
 
 	if (!use_strcmp) {
 		nr = re_simple(pat);
 		re = re_create(pat, nr);
 		if (!re)
-			throw(MAL, "pcre.likesubselect", MAL_MALLOC_FAIL);
+			throw(MAL, "pcre.likeselect", MAL_MALLOC_FAIL);
 	}
 	if (s && !BATtdense(s)) {
 		const oid *candlist;
@@ -591,7 +576,7 @@ re_likesubselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int
 	re_destroy(re);
 	BBPreclaim(bn);
 	*bnp = NULL;
-	throw(MAL, "pcre.likesubselect", OPERATION_FAILED);
+	throw(MAL, "pcre.likeselect", OPERATION_FAILED);
 }
 
 #define MAX_NR_CAPTURES  1024 /* Maximal number of captured substrings in one original string */
@@ -1457,7 +1442,7 @@ BATPCREnotilike2(bat *ret, const bat *bid, const str *pat)
 }
 
 str
-PCRElikesubselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, const str *esc, const bit *caseignore, const bit *anti)
+PCRElikeselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, const str *esc, const bit *caseignore, const bit *anti)
 {
 	BAT *b, *s = NULL, *bn = NULL;
 	str res;
@@ -1494,7 +1479,7 @@ PCRElikesubselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, con
 			if (*caseignore) {
 				ppat = GDKmalloc(strlen(*pat) + 3);
 				if (ppat == NULL)
-					throw(MAL, "algebra.likesubselect", MAL_MALLOC_FAIL);
+					throw(MAL, "algebra.likeselect", MAL_MALLOC_FAIL);
 				ppat[0] = '^';
 				strcpy(ppat + 1, *pat);
 				strcat(ppat, "$");
@@ -1503,7 +1488,7 @@ PCRElikesubselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, con
 	}
 
 	if (use_re) {
-		res = re_likesubselect(&bn, b, s, *pat, *caseignore, *anti, use_strcmp);
+		res = re_likeselect(&bn, b, s, *pat, *caseignore, *anti, use_strcmp);
 	} else if (ppat == NULL) {
 		/* no pattern and no special characters: can use normal select */
 		bn = BATselect(b, s, *pat, NULL, 1, 1, *anti);
@@ -1512,7 +1497,7 @@ PCRElikesubselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, con
 		else
 			res = MAL_SUCCEED;
 	} else {
-		res = pcre_likesubselect(&bn, b, s, ppat, *caseignore, *anti);
+		res = pcre_likeselect(&bn, b, s, ppat, *caseignore, *anti);
 	}
 	BBPunfix(b->batCacheid);
 	if (s)
@@ -1527,33 +1512,33 @@ PCRElikesubselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, con
 }
 
 str
-PCRElikesubselect1(bat *ret, const bat *bid, const bat *cid, const str *pat, const str *esc, const bit *anti)
+PCRElikeselect1(bat *ret, const bat *bid, const bat *cid, const str *pat, const str *esc, const bit *anti)
 {
 	const bit f = TRUE;
-	return PCRElikesubselect2(ret, bid, cid, pat, esc, &f, anti);
+	return PCRElikeselect2(ret, bid, cid, pat, esc, &f, anti);
 }
 
 str
-PCRElikesubselect3(bat *ret, const bat *bid, const bat *sid, const str *pat, const str *esc, const bit *anti)
+PCRElikeselect3(bat *ret, const bat *bid, const bat *sid, const str *pat, const str *esc, const bit *anti)
 {
 	const bit f = FALSE;
-	return PCRElikesubselect2(ret, bid, sid, pat, esc, &f, anti);
+	return PCRElikeselect2(ret, bid, sid, pat, esc, &f, anti);
 }
 
 str
-PCRElikesubselect4(bat *ret, const bat *bid, const bat *cid, const str *pat, const bit *anti)
+PCRElikeselect4(bat *ret, const bat *bid, const bat *cid, const str *pat, const bit *anti)
 {
 	const bit f = TRUE;
 	const str esc ="";
-	return PCRElikesubselect2(ret, bid, cid, pat, &esc, &f, anti);
+	return PCRElikeselect2(ret, bid, cid, pat, &esc, &f, anti);
 }
 
 str
-PCRElikesubselect5(bat *ret, const bat *bid, const bat *sid, const str *pat, const bit *anti)
+PCRElikeselect5(bat *ret, const bat *bid, const bat *sid, const str *pat, const bit *anti)
 {
 	const bit f = FALSE;
 	const str esc ="";
-	return PCRElikesubselect2(ret, bid, sid, pat, &esc, &f, anti);
+	return PCRElikeselect2(ret, bid, sid, pat, &esc, &f, anti);
 }
 
 #include "gdk_cand.h"
@@ -1562,7 +1547,7 @@ PCRElikesubselect5(bat *ret, const bat *bid, const bat *sid, const str *pat, con
 #define VALUE(s, x)		(s##vars + VarHeapVal(s##vals, (x), s##width))
 
 static char *
-pcresubjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
+pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 			const char *esc, int caseignore)
 {
 	BUN lstart, lend, lcnt;
@@ -1848,7 +1833,7 @@ pcresubjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 }
 
 static str
-PCREsubjoin(bat *r1, bat *r2, bat lid, bat rid, bat slid, bat srid,
+PCREjoin(bat *r1, bat *r2, bat lid, bat rid, bat slid, bat srid,
 			const char *esc, int caseignore)
 {
 	BAT *left = NULL, *right = NULL, *candleft = NULL, *candright = NULL;
@@ -1881,7 +1866,7 @@ PCREsubjoin(bat *r1, bat *r2, bat lid, bat rid, bat slid, bat srid,
 	result2->tsorted = 1;
 	result2->trevsorted = 1;
 	result2->tdense = 1;
-	msg = pcresubjoin(result1, result2, left, right, candleft, candright,
+	msg = pcrejoin(result1, result2, left, right, candleft, candright,
 					  esc, caseignore);
 	if (msg)
 		goto fail;
@@ -1916,31 +1901,31 @@ PCREsubjoin(bat *r1, bat *r2, bat lid, bat rid, bat slid, bat srid,
 }
 
 str
-LIKEsubjoin(bat *r1, bat *r2, const bat *lid, const bat *rid, const str *esc, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate)
+LIKEjoin(bat *r1, bat *r2, const bat *lid, const bat *rid, const str *esc, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate)
 {
 	(void)nil_matches;
 	(void)estimate;
-	return PCREsubjoin(r1, r2, *lid, *rid, slid ? *slid : 0, srid ? *srid : 0, *esc, 0);
+	return PCREjoin(r1, r2, *lid, *rid, slid ? *slid : 0, srid ? *srid : 0, *esc, 0);
 }
 
 str
-LIKEsubjoin1(bat *r1, bat *r2, const bat *lid, const bat *rid, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate)
+LIKEjoin1(bat *r1, bat *r2, const bat *lid, const bat *rid, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate)
 {
 	const str esc = "";
-	return LIKEsubjoin(r1, r2, lid, rid, &esc, slid, srid, nil_matches, estimate);
+	return LIKEjoin(r1, r2, lid, rid, &esc, slid, srid, nil_matches, estimate);
 }
 
 str
-ILIKEsubjoin(bat *r1, bat *r2, const bat *lid, const bat *rid, const str *esc, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate)
+ILIKEjoin(bat *r1, bat *r2, const bat *lid, const bat *rid, const str *esc, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate)
 {
 	(void)nil_matches;
 	(void)estimate;
-	return PCREsubjoin(r1, r2, *lid, *rid, slid ? *slid : 0, srid ? *srid : 0, *esc, 1);
+	return PCREjoin(r1, r2, *lid, *rid, slid ? *slid : 0, srid ? *srid : 0, *esc, 1);
 }
 
 str
-ILIKEsubjoin1(bat *r1, bat *r2, const bat *lid, const bat *rid, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate)
+ILIKEjoin1(bat *r1, bat *r2, const bat *lid, const bat *rid, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate)
 {
 	const str esc = "";
-	return ILIKEsubjoin(r1, r2, lid, rid, &esc, slid,srid,nil_matches, estimate);
+	return ILIKEjoin(r1, r2, lid, rid, &esc, slid,srid,nil_matches, estimate);
 }

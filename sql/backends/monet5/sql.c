@@ -686,7 +686,7 @@ alter_table(Client cntxt, mvc *sql, char *sname, sql_table *t)
 }
 
 static char *
-drop_table(mvc *sql, char *sname, char *tname, int drop_action)
+drop_table(mvc *sql, char *sname, char *tname, int drop_action, int if_exists)
 {
 	sql_schema *s = NULL;
 	sql_table *t = NULL;
@@ -702,7 +702,11 @@ drop_table(mvc *sql, char *sname, char *tname, int drop_action)
 		t = mvc_bind_table(sql, s, tname);
 	}
 	if (!t) {
-		return sql_message("42S02!DROP TABLE: no such table '%s'", tname);
+		if (if_exists) {
+			return MAL_SUCCEED;
+		} else {
+			return sql_message("42S02!DROP TABLE: no such table '%s'", tname);
+		}
 	} else if (isView(t)) {
 		return sql_message("42000!DROP TABLE: cannot drop VIEW '%s'", tname);
 	} else if (t->system) {
@@ -1257,6 +1261,7 @@ SQLcatalog(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg;
 	int type = *getArgReference_int(stk, pci, 1);
 	str sname = *getArgReference_str(stk, pci, 2);
+	int if_exists = 0;
 
 	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
 		return msg;
@@ -1308,12 +1313,19 @@ SQLcatalog(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 		break;
 	}
+	case DDL_DROP_SCHEMA_IF_EXISTS:
+		if_exists = 1;
 	case DDL_DROP_SCHEMA:{
 		int action = *getArgReference_int(stk, pci, 4);
+
 		sql_schema *s = mvc_bind_schema(sql, sname);
 
 		if (!s) {
-			msg = sql_message("3F000!DROP SCHEMA: name %s does not exist", sname);
+			if (!if_exists) {
+				msg = sql_message("3F000!DROP SCHEMA: name %s does not exist", sname);
+			} else {
+				break;
+			}
 		} else if (!mvc_schema_privs(sql, s)) {
 			msg = sql_message("42000!DROP SCHEMA: access denied for %s to schema ;'%s'", stack_get_string(sql, "current_user"), s->base.name);
 		} else if (s == cur_schema(sql)) {
@@ -1336,13 +1348,17 @@ SQLcatalog(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		msg = create_table_or_view(sql, sname, t, temp);
 		break;
 	}
+	case DDL_DROP_TABLE_IF_EXISTS:
+		if_exists = 1;
 	case DDL_DROP_TABLE:{
 		int action = *getArgReference_int(stk, pci, 4);
 		str name = *getArgReference_str(stk, pci, 3);
 
-		msg = drop_table(sql, sname, name, action);
+		msg = drop_table(sql, sname, name, action, if_exists);
 		break;
 	}
+	case DDL_DROP_VIEW_IF_EXISTS:
+		if_exists = 1;
 	case DDL_DROP_VIEW:{
 		int action = *getArgReference_int(stk, pci, 4);
 		str name = *getArgReference_str(stk, pci, 3);
@@ -1547,6 +1563,8 @@ SQLcatalog(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 		return alter_table_set_access(sql, sname, tname, access);
 	}
+	case DDL_EMPTY:
+		break;
 	default:
 		throw(SQL, "sql.catalog", "catalog unknown type");
 	}
@@ -2367,7 +2385,7 @@ DELTAbat(bat *result, const bat *col, const bat *uid, const bat *uval, const bat
 str
 DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat *uval, const bat *ins)
 {
-	BAT *c, *cminu, *u_id, *u_val, *u, *i = NULL, *res;
+	BAT *c, *cminu = NULL, *u_id, *u_val, *u, *i = NULL, *res;
 	gdk_return ret;
 
 	if ((u_id = BBPquickdesc(*uid, 0)) == NULL)
@@ -4707,6 +4725,9 @@ vacuum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str (*func) (bat
 		throw(SQL, name, "42000!insufficient privileges");
 	if ((!list_empty(t->idxs.set) || !list_empty(t->keys.set)))
 		throw(SQL, name, "%s not allowed on tables with indices", name + 4);
+	if (t->system)
+		throw(SQL, name, "%s not allowed on system tables", name + 4);
+
 	if (has_snapshots(m->session->tr))
 		throw(SQL, name, "%s not allowed on snapshots", name + 4);
 	if (!m->session->auto_commit)
@@ -4797,6 +4818,7 @@ SQLvacuum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	node *o;
 	int ordered = 0;
 	BUN cnt = 0;
+	BUN dcnt;
 
 	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
 		return msg;
@@ -4813,9 +4835,14 @@ SQLvacuum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(SQL, "sql.vacuum", "42000!insufficient privileges");
 	if ((!list_empty(t->idxs.set) || !list_empty(t->keys.set)))
 		throw(SQL, "sql.vacuum", "vacuum not allowed on tables with indices");
+	if (t->system)
+		throw(SQL, "sql.vacuum", "vacuum not allowed on system tables");
+
 	if (has_snapshots(m->session->tr))
 		throw(SQL, "sql.vacuum", "vacuum not allowed on snapshots");
 
+	if (!m->session->auto_commit)
+		throw(SQL, "sql.vacuum", "vacuum only allowed in auto commit mode");
 	tr = m->session->tr;
 
 	for (o = t->columns.set->h; o && ordered == 0; o = o->next) {
@@ -4833,16 +4860,17 @@ SQLvacuum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( del == NULL)
 		throw(SQL, "sql.vacuum", "Can not access deletion column");
 
-	if (BATcount(del) > 0) {
+	dcnt = BATcount(del);
+	BBPunfix(del->batCacheid);
+	if (dcnt > 0) {
 		/* now decide on the algorithm */
 		if (ordered) {
-			if (BATcount(del) > cnt / 20)
-				SQLshrink(cntxt, mb, stk, pci);
+			if (dcnt > cnt / 20)
+				return SQLshrink(cntxt, mb, stk, pci);
 		} else {
-			SQLreuse(cntxt, mb, stk, pci);
+			return SQLreuse(cntxt, mb, stk, pci);
 		}
 	}
-	BBPunfix(del->batCacheid);
 	return MAL_SUCCEED;
 }
 
