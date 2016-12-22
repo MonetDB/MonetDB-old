@@ -220,6 +220,7 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe, int prepare)
 	if (msg){
 		return msg;
 	}
+	mb->keephistory |= be->mvc->emod & mod_debug;
 	if (be->mvc->no_mitosis) {
 		for (i = mb->stop - 1; i > 0; i--) {
 			q = getInstrPtr(mb, i);
@@ -249,7 +250,7 @@ SQLoptimizeFunction(Client c, MalBlkPtr mb)
 	msg = addOptimizers(c, mb, pipe, TRUE);
 	if (msg)
 		return msg;
-	mb->keephistory = be->mvc->emod & mod_debug;
+	mb->keephistory |= be->mvc->emod & mod_debug;
 	msg = optimizeMALBlock(c, mb);
 	mb->keephistory = FALSE;
 	return msg;
@@ -298,6 +299,7 @@ SQLoptimizeQuery(Client c, MalBlkPtr mb)
 	msg = addOptimizers(c, mb, pipe, FALSE);
 	if (msg)
 		return msg;
+	mb->keephistory |= be->mvc->emod & mod_debug;
 	msg = optimizeMALBlock(c, mb);
 	return msg;
 }

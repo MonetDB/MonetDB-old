@@ -463,7 +463,7 @@ la_bat_updates(logger *lg, logaction *la)
 	assert(b);
 	if (b) {
 		if (la->type == LOG_INSERT) {
-			BATappend(b, la->b, TRUE);
+			BATappend(b, la->b, NULL, TRUE);
 		} else if (la->type == LOG_UPDATE) {
 			BATiter vi = bat_iterator(la->b);
 			BATiter ii = bat_iterator(la->uid);
@@ -1254,16 +1254,12 @@ bm_subcommit(logger *lg, BAT *list_bid, BAT *list_nme, BAT *catalog_bid, BAT *ca
 	n[i++] = catalog_nme->batCacheid;
 	n[i++] = dcatalog->batCacheid;
 	if (BATcount(dcatalog) > (BATcount(catalog_nme)/2) && catalog_bid == list_bid && catalog_nme == list_nme && lg->catalog_bid == catalog_bid) {
-		BAT *bids, *nmes, *tids = bm_tids(catalog_bid, dcatalog), *b;
+		BAT *bids, *nmes, *tids = bm_tids(catalog_bid, dcatalog);
 
 		bids = logbat_new(TYPE_int, BATSIZE, PERSISTENT);
 		nmes = logbat_new(TYPE_str, BATSIZE, PERSISTENT);
-		b = BATproject(tids, catalog_bid);
-		BATappend(bids, b, TRUE);
-		logbat_destroy(b);
-		b = BATproject(tids, catalog_nme);
-		BATappend(nmes, b, TRUE);
-		logbat_destroy(b);
+		BATappend(bids, catalog_bid, tids, TRUE);
+		BATappend(nmes, catalog_nme, tids, TRUE);
 		logbat_destroy(tids);
 		BATclear(dcatalog, TRUE);
 
@@ -1377,8 +1373,6 @@ logger_load(int debug, const char* fn, char filename[PATHLENGTH], logger* lg)
 	/* this is intentional - even if catalog_bid is 0, but the logger is shared,
 	 * force it to find the persistent catalog */
 	if (catalog_bid == 0 &&	!lg->shared) {
-		log_bid bid = 0;
-
 		/* catalog does not exist, so the log file also
 		 * shouldn't exist */
 		if (fp != NULL) {
@@ -1401,22 +1395,19 @@ logger_load(int debug, const char* fn, char filename[PATHLENGTH], logger* lg)
 
 		/* give the catalog bats names so we can find them
 		 * next time */
-		bid = lg->catalog_bid->batCacheid;
-		BBPincref(bid, TRUE);
+		BBPincref(lg->catalog_bid->batCacheid, TRUE);
 		snprintf(bak, sizeof(bak), "%s_catalog_bid", fn);
 		if (BBPrename(lg->catalog_bid->batCacheid, bak) < 0)
 			logger_fatal("logger_load: BBPrename to %s failed",
 				     bak, 0, 0);
 
-		bid = lg->catalog_nme->batCacheid;
-		BBPincref(bid, TRUE);
+		BBPincref(lg->catalog_nme->batCacheid, TRUE);
 		snprintf(bak, sizeof(bak), "%s_catalog_nme", fn);
 		if (BBPrename(lg->catalog_nme->batCacheid, bak) < 0)
 			logger_fatal("logger_load: BBPrename to %s failed",
 				     bak, 0, 0);
 
-		bid = lg->dcatalog->batCacheid;
-		BBPincref(bid, TRUE);
+		BBPincref(lg->dcatalog->batCacheid, TRUE);
 		snprintf(bak, sizeof(bak), "%s_dcatalog", fn);
 		if (BBPrename(lg->dcatalog->batCacheid, bak) < 0)
 			logger_fatal("logger_load: BBPrename to %s failed",
@@ -1484,7 +1475,6 @@ logger_load(int debug, const char* fn, char filename[PATHLENGTH], logger* lg)
 			if (d == NULL)
 				logger_fatal("Logger_new: cannot create "
 					     "dcatalog bat", 0, 0, 0);
-			BBPincref(d->batCacheid, TRUE);
 			if (BBPrename(d->batCacheid, bak) < 0)
 				logger_fatal("logger_load: BBPrename to %s failed", bak, 0, 0);
 		}
@@ -1503,6 +1493,9 @@ logger_load(int debug, const char* fn, char filename[PATHLENGTH], logger* lg)
 		lg->catalog_bid = b;
 		lg->catalog_nme = n;
 		lg->dcatalog = d;
+		BBPincref(lg->catalog_bid->batCacheid, TRUE);
+		BBPincref(lg->catalog_nme->batCacheid, TRUE);
+		BBPincref(lg->dcatalog->batCacheid, TRUE);
 		BATloop(b, p, q) {
 			bat bid = *(log_bid *) Tloc(b, p);
 			oid pos = p;

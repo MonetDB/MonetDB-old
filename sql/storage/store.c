@@ -782,6 +782,8 @@ load_func(sql_trans *tr, sql_schema *s, sqlid fid, subrids *rs)
 	t->type = *(int *)v;			_DELETE(v);
 	v = table_funcs.column_find_value(tr, find_sql_column(funcs, "side_effect"), rid);
 	t->side_effect = *(bit *)v;		_DELETE(v);
+	if (t->type==F_FILT)
+		t->side_effect=FALSE;
 	v = table_funcs.column_find_value(tr, find_sql_column(funcs, "varres"), rid);
 	t->varres = *(bit *)v;	_DELETE(v);
 	v = table_funcs.column_find_value(tr, find_sql_column(funcs, "vararg"), rid);
@@ -1305,6 +1307,8 @@ dup_sql_table(sql_allocator *sa, sql_table *t)
 			*/
 	nt->tables.dset = NULL;
 	nt->tables.nelm = NULL;
+	/* record if table is a partition */
+	nt->p = t->p;
 	return nt;
 }
 
@@ -1380,9 +1384,7 @@ store_load(void) {
 
 #define FUNC_OIDS 2000
 	// TODO: Niels: Are we fine running this twice?
-#ifndef HAVE_EMBEDDED
-	assert( store_oid <= FUNC_OIDS );
-#endif
+	
 	/* we store some spare oids */
 	store_oid = FUNC_OIDS;
 
@@ -1581,7 +1583,7 @@ store_init(int debug, store_type store, int readonly, int singleuser, logger_set
 	/* get the set shared_drift_threshold
 	 * we will need it later in store_manager */
 	shared_drift_threshold = log_settings->shared_drift_threshold;
-	/* get the set shared_drift_threshold
+	/* get the set keep_persisted_log_files
 	 * we will need it later when calling logger_cleanup */
 	keep_persisted_log_files = log_settings->keep_persisted_log_files;
 
@@ -4060,7 +4062,7 @@ create_sql_func(sql_allocator *sa, const char *func, list *args, list *res, int 
 	t->type = type;
 	t->lang = lang;
 	t->sql = (lang==FUNC_LANG_SQL||lang==FUNC_LANG_MAL);
-	t->side_effect = res?FALSE:TRUE;
+	t->side_effect = (type==F_FILT||res)?FALSE:TRUE;
 	t->varres = varres;
 	t->vararg = vararg;
 	t->ops = args;
@@ -4088,7 +4090,7 @@ sql_trans_create_func(sql_trans *tr, sql_schema * s, const char *func, list *arg
 	t->type = type;
 	t->lang = lang;
 	t->sql = (lang==FUNC_LANG_SQL||lang==FUNC_LANG_MAL);
-	se = t->side_effect = res?FALSE:TRUE;
+	se = t->side_effect = (type==F_FILT||res)?FALSE:TRUE;
 	t->varres = varres;
 	t->vararg = vararg;
 	t->ops = sa_list(tr->sa);

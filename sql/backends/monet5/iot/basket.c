@@ -1009,7 +1009,7 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	if( bn){
 		if (binsert)
-			BATappend(bn, binsert, TRUE);
+			BATappend(bn, binsert, NULL, TRUE);
 		else
 			BUNappend(bn, value, TRUE);
 		BATsettrivprop(bn);
