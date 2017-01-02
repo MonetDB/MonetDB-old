@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
  /* (c) M. Kersten
@@ -49,6 +49,7 @@ struct OPTcatalog {
 {"mergetable",	0,	0,	0},
 {"mitosis",		0,	0,	0},
 {"multiplex",	0,	0,	0},
+{"oltp",		0,	0,	0},
 {"reduce",		0,	0,	0},
 {"remap",		0,	0,	0},
 {"remote",		0,	0,	0},
@@ -404,9 +405,6 @@ hasSideEffects(InstrPtr p, int strict)
 		  getFunctionId(p) == clear_tableRef))
 		return TRUE;
 
-	if (getFunctionId(p) == depositRef)
-		return TRUE;
-
 	if (getModuleId(p) == malRef && getFunctionId(p) == multiplexRef)
 		return FALSE;
 
@@ -428,6 +426,8 @@ hasSideEffects(InstrPtr p, int strict)
 		getModuleId(p) == rapiRef)
 		return TRUE;
 
+	if (getModuleId(p) == sqlcatalogRef)
+		return TRUE;
 	if (getModuleId(p) == sqlRef){
 		if (getFunctionId(p) == tidRef) return FALSE;
 		if (getFunctionId(p) == deltaRef) return FALSE;
@@ -467,6 +467,10 @@ hasSideEffects(InstrPtr p, int strict)
 		getModuleId(p) != groupRef )
 		return TRUE;
 
+	if ( getModuleId(p) == sqlcatalogRef)
+		return TRUE;
+	if ( getModuleId(p) == oltpRef)
+		return TRUE;
 	if ( getModuleId(p) == remoteRef)
 		return TRUE;
 	return FALSE;
@@ -516,7 +520,7 @@ isBlocking(InstrPtr p)
 
 	if( getModuleId(p) == aggrRef ||
 		getModuleId(p) == groupRef ||
-		getModuleId(p) == sqlRef )
+		getModuleId(p) == sqlcatalogRef )
 			return TRUE;
 	return FALSE;
 }

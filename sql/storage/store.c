@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -1729,12 +1729,10 @@ store_vacuum( sql_trans *tr )
 	for( n = s->tables.set->h; n; n = n->next) {
 		sql_table *t = n->data;
 		sql_column *c = t->columns.set->h->data;
-		int cnt = 0;
 
 		if (!store_funcs.count_col(tr, c, 0) && 
 		    !store_funcs.count_upd(tr, t) && 
-		    (cnt = store_funcs.count_del(tr, t)) > 128) {
-			/*printf("vacuum (%d) %s\n", cnt, t->base.name);*/
+		    store_funcs.count_del(tr, t) > 128) {
 			table_funcs.table_vacuum(tr, t);
 		}
 	}
