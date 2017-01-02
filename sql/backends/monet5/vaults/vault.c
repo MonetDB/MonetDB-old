@@ -420,29 +420,6 @@ VLTanalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     return MAL_SUCCEED;
 }
 
-static BAT *
-mvc_bind(mvc *m, char *sname, char *tname, char *cname, int access)
-{
-  sql_trans *tr = m->session->tr;
-  BAT *b = NULL;
-  sql_schema *s = NULL;
-  sql_table *t = NULL;
-  sql_column *c = NULL;
-
-  s = mvc_bind_schema(m, sname);
-  if (s == NULL)
-    return NULL;
-  t = mvc_bind_table(m, s, tname);
-  if (t == NULL)
-    return NULL;
-  c = mvc_bind_column(m, t, cname);
-  if (c == NULL)
-    return NULL;
-
-  b = store_funcs.bind_col(tr, c, access);
-  return b;
-}
-
 /* str mvc_bind_wrap(int *bid, str *sname, str *tname, str *cname, int *access); */
 str
 mvc_VLT_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
