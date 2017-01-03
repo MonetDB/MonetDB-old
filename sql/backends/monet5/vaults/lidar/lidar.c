@@ -608,7 +608,7 @@ typedef enum {
 	PARAM_VERTEX_INDEX           =  0x2000, /* M */
 	PARAM_GPS_TIME               =  0x4000, /* t */
 	PARAM_SCAN_ANGLE             =  0x8000, /* a */
-	PARAM_INTENSITY              = 0x10000, /* i */
+	PARAM_INTENSITY              = 0x10000  /* i */
 } ParameterValues;
 
 typedef struct input_parameters {
@@ -1610,7 +1610,7 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, sql_table *tbl, o
 	while(p) {
 		for(prm = 1, idx = 0; prm <= PARAM_INTENSITY; prm <<= 1) {
 			if (input_params & prm) {
-				value = readValue(p, prm);
+				value = readValue(p, (ParameterValues)prm);
 				switch(prm) {
 				case PARAM_X_COORD:
 					if (precisionx <= 2) {
@@ -1802,12 +1802,12 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		BATiter fs_rid = bat_iterator(BATdescriptor(fres->cols[0].b));
 		oid id = 0, cnt = BATcount(fs_rid.b);
 #ifndef NDEBUG
-		fprintf(stderr, "count: %ld\n", cnt);
+		fprintf(stderr, "count: " OIDFMT "\n", cnt);
 #endif
 		for (id = 0; id < cnt; id++) {
 			int rid = *(int*)BUNtail(fs_rid, id);
 #ifndef NDEBUG
-			fprintf(stderr, "id, rid: %ld %d\n", id, rid);
+			fprintf(stderr, "id, rid: " OIDFMT " %d\n", id, rid);
 #endif
 			msg = LIDARloadTable_(m, sch, lidar_tbl, tbl, rid - 1);
 			if (msg != MAL_SUCCEED) {
