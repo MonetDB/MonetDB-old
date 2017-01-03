@@ -30,6 +30,10 @@ pattern export(tablename:str, fname:str, type:str):void
 address LIDARexportTable
 comment "Exporta LIDAR table to a LAS/LAZ file"
 
+pattern unload(tablename:str):void
+address LIDARunload
+comment "Unload the data from a LIDAR table"
+
 command checktable(mvc:int, tablename :str) (:int, :int)
 address LIDARCheckTable
 comment "Check if table was loaded";

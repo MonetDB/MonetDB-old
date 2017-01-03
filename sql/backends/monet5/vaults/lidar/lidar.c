@@ -1990,6 +1990,53 @@ LIDARAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
+str
+LIDARunload(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
+	str msg = MAL_SUCCEED;
+	str tname = *getArgReference_str(stk, pci, 1);
+	mvc *m = NULL;
+	sql_schema *sch = NULL;
+	sql_table *lidar_tbl = NULL, *tbl = NULL;
+	sql_column *col = NULL;
+	oid rid = oid_nil;
+	BUN sz = 0;
+
+	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED) {
+		return msg;
+	}
+	/* XXX: Is the following really necessary? */
+	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
+			return msg;
+
+	sch = mvc_bind_schema(m, "sys");
+	lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
+	if (lidar_tbl == NULL) {
+		msg = createException(MAL, "lidar.check", "LIDAR catalog is missing.\n");
+		return msg;
+	}
+
+	/*Check if is a table which belongs to lidar_tables*/
+	col = mvc_bind_column(m, lidar_tbl, "name");
+	rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
+	if (rid == oid_nil) {
+		msg = createException(MAL, "lidar.check", "Could not find table %s.\n", tname);
+		return msg;
+	}
+
+	tbl = mvc_bind_table(m, sch, tname);
+	if (tbl == NULL) {
+		msg = createException(MAL, "lidar.check", "Could not find table %s.\n", tname);
+		return msg;
+	}
+
+	sz = mvc_clear_table(m, tbl);
+
+#ifndef NDEBUG
+	fprintf(stderr, "LIDARunload called for table: %s(" OIDFMT ")\n", tname, sz);
+#endif
+
+	return msg;
+}
 
 /* Left over code to be examined and scavenged */
 
@@ -2084,3 +2131,4 @@ str LIDARdirpat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 	return MAL_SUCCEED;
 }
+

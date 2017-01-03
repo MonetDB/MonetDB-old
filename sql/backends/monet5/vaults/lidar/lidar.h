@@ -31,6 +31,7 @@ lidar_export str LIDARexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 lidar_export str LIDARprelude(void *ret);
 lidar_export str LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 lidar_export str LIDARAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+lidar_export str LIDARunload(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 typedef struct lidar_header_info {
 	/* Table */
