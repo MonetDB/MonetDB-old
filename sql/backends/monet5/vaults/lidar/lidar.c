@@ -779,7 +779,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	char *tname_low = NULL, *s, bname[BUFSIZ];
 	char *p;
 	lidar_header *header = NULL;
-	int scaleX, scaleY, scaleZ;
+	int scaleX = 0, scaleY = 0, scaleZ = 0;
 	int precisionX, precisionY, precisionZ;
 	char *istmt=NULL, *cstmt=NULL;
 	char maxval[BUFSIZ], minval[BUFSIZ], col_type[BUFSIZ];
@@ -1999,7 +1999,6 @@ LIDARunload(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	sql_table *lidar_tbl = NULL, *tbl = NULL;
 	sql_column *col = NULL;
 	oid rid = oid_nil;
-	BUN sz = 0;
 
 	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED) {
 		return msg;
@@ -2029,10 +2028,10 @@ LIDARunload(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 		return msg;
 	}
 
-	sz = mvc_clear_table(m, tbl);
+	mvc_clear_table(m, tbl);
 
 #ifndef NDEBUG
-	fprintf(stderr, "LIDARunload called for table: %s(" OIDFMT ")\n", tname, sz);
+	fprintf(stderr, "LIDARunload called for table: %s\n", tname);
 #endif
 
 	return msg;
