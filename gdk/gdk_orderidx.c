@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -25,7 +25,9 @@ BATidxsync(void *arg)
 	struct idxsync *hs = arg;
 	Heap *hp = hs->hp;
 	int fd;
-	lng t0 = GDKusec();
+	lng t0 = 0;
+
+	ALGODEBUG t0 = GDKusec();
 
 	if (HEAPsave(hp, hp->filename, NULL) != GDK_SUCCEED ||
 	    (fd = GDKfdlocate(hp->farmid, hp->filename, "rb+", NULL)) < 0) {
@@ -58,11 +60,11 @@ int
 BATcheckorderidx(BAT *b)
 {
 	int ret;
-	lng t;
+	lng t = 0;
 
 	assert(b->batCacheid > 0);
-	t = GDKusec();
-	MT_lock_set(&GDKhashLock(abs(b->batCacheid)));
+	ALGODEBUG t = GDKusec();
+	MT_lock_set(&GDKhashLock(b->batCacheid));
 	if (b->torderidx == (Heap *) 1) {
 		Heap *hp;
 		const char *nme = BBP_physical(b->batCacheid);
@@ -92,7 +94,7 @@ BATcheckorderidx(BAT *b)
 					close(fd);
 					b->torderidx = hp;
 					ALGODEBUG fprintf(stderr, "#BATcheckorderidx: reusing persisted orderidx %d\n", b->batCacheid);
-					MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
+					MT_lock_unset(&GDKhashLock(b->batCacheid));
 					return 1;
 				}
 				close(fd);
@@ -104,8 +106,8 @@ BATcheckorderidx(BAT *b)
 		GDKfree(hp);
 		GDKclrerr();	/* we're not currently interested in errors */
 	}
-	ret = b->T->orderidx != NULL;
-	MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
+	ret = b->torderidx != NULL;
+	MT_lock_unset(&GDKhashLock(b->batCacheid));
 	ALGODEBUG if (ret) fprintf(stderr, "#BATcheckorderidx: already has orderidx %d, waited " LLFMT " usec\n", b->batCacheid, GDKusec() - t);
 	return ret;
 }
@@ -122,9 +124,9 @@ BATorderidx(BAT *b, int stable)
 
 	if (BATcheckorderidx(b))
 		return GDK_SUCCEED;
-	MT_lock_set(&GDKhashLock(abs(b->batCacheid)));
+	MT_lock_set(&GDKhashLock(b->batCacheid));
 	if (b->torderidx) {
-		MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
+		MT_lock_unset(&GDKhashLock(b->batCacheid));
 		return GDK_SUCCEED;
 	}
 	nme = BBP_physical(b->batCacheid);
@@ -137,7 +139,7 @@ BATorderidx(BAT *b, int stable)
 		if (m)
 			GDKfree(m->filename);
 		GDKfree(m);
-		MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
+		MT_lock_unset(&GDKhashLock(b->batCacheid));
 		return GDK_FAIL;
 	}
 	m->free = (BATcount(b) + ORDERIDXOFF) * SIZEOF_OID;
@@ -157,23 +159,23 @@ BATorderidx(BAT *b, int stable)
 		if (bn == NULL) {
 			HEAPfree(m, 1);
 			GDKfree(m);
-			MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
+			MT_lock_unset(&GDKhashLock(b->batCacheid));
 			return GDK_FAIL;
 		}
 		if (stable) {
-			if (GDKssort(Tloc(bn, BUNfirst(bn)), mv,
-				     bn->T->vheap ? bn->T->vheap->base : NULL,
+			if (GDKssort(Tloc(bn, 0), mv,
+				     bn->tvheap ? bn->tvheap->base : NULL,
 				     BATcount(bn), Tsize(bn), SIZEOF_OID,
 				     bn->ttype) < 0) {
 				HEAPfree(m, 1);
 				GDKfree(m);
-				MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
+				MT_lock_unset(&GDKhashLock(b->batCacheid));
 				BBPunfix(bn->batCacheid);
 				return GDK_FAIL;
 			}
 		} else {
-			GDKqsort(Tloc(bn, BUNfirst(bn)), mv,
-				 bn->T->vheap ? bn->T->vheap->base : NULL,
+			GDKqsort(Tloc(bn, 0), mv,
+				 bn->tvheap ? bn->tvheap->base : NULL,
 				 BATcount(bn), Tsize(bn), SIZEOF_OID,
 				 bn->ttype);
 		}
@@ -198,14 +200,14 @@ BATorderidx(BAT *b, int stable)
 
 	b->batDirtydesc = TRUE;
 	b->torderidx = m;
-	MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
+	MT_lock_unset(&GDKhashLock(b->batCacheid));
 
 	return GDK_SUCCEED;
 }
 
 #define UNARY_MERGE(TYPE)						\
 	do {								\
-		TYPE *v = (TYPE *) Tloc(b, BUNfirst(b));		\
+		TYPE *v = (TYPE *) Tloc(b, 0);				\
 		if (p < q) {						\
 			*mv++ = *p++;					\
 		}							\
@@ -221,7 +223,7 @@ BATorderidx(BAT *b, int stable)
 
 #define BINARY_MERGE(TYPE)						\
 	do {								\
-		TYPE *v = (TYPE *) Tloc(b, BUNfirst(b));		\
+		TYPE *v = (TYPE *) Tloc(b, 0);				\
 		if (p0 < q0 && p1 < q1) {				\
 			if (v[*p0 - b->hseqbase] <= v[*p1 - b->hseqbase]) { \
 				*mv++ = *p0++;				\
@@ -303,7 +305,7 @@ BATorderidx(BAT *b, int stable)
 #define NWAY_MERGE(TYPE)						\
 	do {								\
 		TYPE *minhp, t;						\
-		TYPE *v = (TYPE *) Tloc(b, BUNfirst(b));		\
+		TYPE *v = (TYPE *) Tloc(b, 0);				\
 		if ((minhp = (TYPE *) GDKmalloc(sizeof(TYPE)*n_ar)) == NULL) { \
 			goto bailout;					\
 		}							\
@@ -365,9 +367,9 @@ GDKmergeidx(BAT *b, BAT**a, int n_ar)
 
 	if (BATcheckorderidx(b))
 		return GDK_SUCCEED;
-	MT_lock_set(&GDKhashLock(abs(b->batCacheid)));
+	MT_lock_set(&GDKhashLock(b->batCacheid));
 	if (b->torderidx) {
-		MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
+		MT_lock_unset(&GDKhashLock(b->batCacheid));
 		return GDK_SUCCEED;
 	}
 	nmelen = strlen(nme) + 12;
@@ -379,7 +381,7 @@ GDKmergeidx(BAT *b, BAT**a, int n_ar)
 		if (m)
 			GDKfree(m->filename);
 		GDKfree(m);
-		MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
+		MT_lock_unset(&GDKhashLock(b->batCacheid));
 		return GDK_FAIL;
 	}
 	m->free = (BATcount(b) + ORDERIDXOFF) * SIZEOF_OID;
@@ -392,7 +394,7 @@ GDKmergeidx(BAT *b, BAT**a, int n_ar)
 		const oid *restrict p, *q;
 		/* One oid order bat, nothing to merge */
 		assert(BATcount(a[0]) == BATcount(b));
-		assert((VIEWtparent(a[0]) == -b->batCacheid ||
+		assert((VIEWtparent(a[0]) == b->batCacheid ||
 			VIEWtparent(a[0]) == VIEWtparent(b)) &&
 		       a[0]->torderidx);
 		p = (const oid *) a[0]->torderidx->base + ORDERIDXOFF;
@@ -413,17 +415,17 @@ GDKmergeidx(BAT *b, BAT**a, int n_ar)
 			assert(0);
 			HEAPfree(m, 1);
 			GDKfree(m);
-			MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
+			MT_lock_unset(&GDKhashLock(b->batCacheid));
 			return GDK_FAIL;
 		}
 	} else if (n_ar == 2) {
 		/* sort merge with 1 comparison per BUN */
 		const oid *restrict p0, *restrict p1, *q0, *q1;
 		assert(BATcount(a[0]) + BATcount(a[1]) == BATcount(b));
-		assert((VIEWtparent(a[0]) == -b->batCacheid ||
+		assert((VIEWtparent(a[0]) == b->batCacheid ||
 			VIEWtparent(a[0]) == VIEWtparent(b)) &&
 		       a[0]->torderidx);
-		assert((VIEWtparent(a[1]) == -b->batCacheid ||
+		assert((VIEWtparent(a[1]) == b->batCacheid ||
 			VIEWtparent(a[1]) == VIEWtparent(b)) &&
 		       a[1]->torderidx);
 		p0 = (const oid *) a[0]->torderidx->base + ORDERIDXOFF;
@@ -447,7 +449,7 @@ GDKmergeidx(BAT *b, BAT**a, int n_ar)
 			assert(0);
 			HEAPfree(m, 1);
 			GDKfree(m);
-			MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
+			MT_lock_unset(&GDKhashLock(b->batCacheid));
 			return GDK_FAIL;
 		}
 
@@ -463,11 +465,11 @@ GDKmergeidx(BAT *b, BAT**a, int n_ar)
 			GDKfree(q);
 			HEAPfree(m, 1);
 			GDKfree(m);
-			MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
+			MT_lock_unset(&GDKhashLock(b->batCacheid));
 			return GDK_FAIL;
 		}
 		for (i = 0; i < n_ar; i++) {
-			assert((VIEWtparent(a[i]) == -b->batCacheid ||
+			assert((VIEWtparent(a[i]) == b->batCacheid ||
 				VIEWtparent(a[i]) == VIEWtparent(b)) &&
 			       a[i]->torderidx);
 			p[i] = (oid *) a[i]->torderidx->base + ORDERIDXOFF;
@@ -514,7 +516,7 @@ GDKmergeidx(BAT *b, BAT**a, int n_ar)
 
 	b->batDirtydesc = TRUE;
 	b->torderidx = m;
-	MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
+	MT_lock_unset(&GDKhashLock(b->batCacheid));
 	return GDK_SUCCEED;
 }
 
@@ -524,13 +526,13 @@ OIDXfree(BAT *b)
 	if (b) {
 		Heap *hp;
 
-		MT_lock_set(&GDKhashLock(abs(b->batCacheid)));
+		MT_lock_set(&GDKhashLock(b->batCacheid));
 		if ((hp = b->torderidx) != NULL && hp != (Heap *) 1) {
 			b->torderidx = (Heap *) 1;
 			HEAPfree(hp, 0);
 			GDKfree(hp);
 		}
-		MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
+		MT_lock_unset(&GDKhashLock(b->batCacheid));
 	}
 }
 
@@ -540,7 +542,7 @@ OIDXdestroy(BAT *b)
 	if (b) {
 		Heap *hp;
 
-		MT_lock_set(&GDKhashLock(abs(b->batCacheid)));
+		MT_lock_set(&GDKhashLock(b->batCacheid));
 		if ((hp = b->torderidx) == (Heap *) 1) {
 			GDKunlink(BBPselectfarm(b->batRole, b->ttype, orderidxheap),
 				  BATDIR,
@@ -551,6 +553,6 @@ OIDXdestroy(BAT *b)
 			GDKfree(hp);
 		}
 		b->torderidx = NULL;
-		MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
+		MT_lock_unset(&GDKhashLock(b->batCacheid));
 	}
 }

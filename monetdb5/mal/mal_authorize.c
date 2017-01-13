@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -26,7 +26,18 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-
+#ifndef HAVE_EMBEDDED
+#ifdef HAVE_OPENSSL
+#include <openssl/md5.h>
+#include <openssl/sha.h>
+#include <openssl/ripemd.h>
+#else
+#ifdef HAVE_COMMONCRYPTO
+#define COMMON_DIGEST_FOR_OPENSSL
+#include <CommonCrypto/CommonDigest.h>
+#endif
+#endif
+#endif
 
 static str AUTHdecypherValue(str *ret, str *value);
 static str AUTHcypherValue(str *ret, str *value);
@@ -58,7 +69,7 @@ AUTHfindUser(const char *username)
 	BUN p;
 
 	if (BAThash(user, 0) == GDK_SUCCEED) {
-		HASHloop_str(cni, cni.b->T->hash, p, username) {
+		HASHloop_str(cni, cni.b->thash, p, username) {
 			oid pos = p;
 			if (BUNfnd(duser, &pos) == BUN_NONE)
 				return p;
@@ -123,11 +134,11 @@ AUTHcommit(void)
 	blist[0] = 0;
 
 	assert(user);
-	blist[1] = abs(user->batCacheid);
+	blist[1] = user->batCacheid;
 	assert(pass);
-	blist[2] = abs(pass->batCacheid);
+	blist[2] = pass->batCacheid;
 	assert(duser);
-	blist[3] = abs(duser->batCacheid);
+	blist[3] = duser->batCacheid;
 	TMsubcommit_list(blist, 4);
 }
 
@@ -157,12 +168,11 @@ AUTHinitTables(str *passwd) {
 	/* load/create users BAT */
 	bid = BBPindex("M5system_auth_user");
 	if (!bid) {
-		user = BATnew(TYPE_void, TYPE_str, 256, PERSISTENT);
+		user = COLnew(0, TYPE_str, 256, PERSISTENT);
 		if (user == NULL)
 			throw(MAL, "initTables.user", MAL_MALLOC_FAIL " user table");
-		BATseqbase(user,0);
 
-		BATkey(BATmirror(user), TRUE);
+		BATkey(user, TRUE);
 		BBPrename(BBPcacheid(user), "M5system_auth_user");
 		BATmode(user, PERSISTENT);
 	} else {
@@ -178,10 +188,9 @@ AUTHinitTables(str *passwd) {
 	/* load/create password BAT */
 	bid = BBPindex("M5system_auth_passwd_v2");
 	if (!bid) {
-		pass = BATnew(TYPE_void, TYPE_str, 256, PERSISTENT);
+		pass = COLnew(0, TYPE_str, 256, PERSISTENT);
 		if (pass == NULL)
 			throw(MAL, "initTables.passwd", MAL_MALLOC_FAIL " password table");
-		BATseqbase(pass,0);
 
 		BBPrename(BBPcacheid(pass), "M5system_auth_passwd_v2");
 		BATmode(pass, PERSISTENT);
@@ -195,45 +204,12 @@ AUTHinitTables(str *passwd) {
 	}
 	assert(pass);
 
-	/* convert an old authorization table */
-	if (user->htype == TYPE_oid) {
-		BAT *b;
-		char name[10];
-		bat blist[5];
-		assert(pass->htype == TYPE_oid);
-		blist[0] = 0;
-		b = COLcopy(user, user->ttype, 1, PERSISTENT);
-		BATseqbase(b, 0);
-		BATmode(b, PERSISTENT);
-		BATmode(user, TRANSIENT);
-		snprintf(name, sizeof(name), "tmp_%o", user->batCacheid);
-		BBPrename(user->batCacheid, name);
-		BBPrename(b->batCacheid, "M5system_auth_user");
-		blist[1] = user->batCacheid;
-		blist[2] = b->batCacheid;
-		BBPunfix(user->batCacheid);
-		user = b;
-		b = COLcopy(pass, pass->ttype, 1, PERSISTENT);
-		BATseqbase(b, 0);
-		BATmode(b, PERSISTENT);
-		BATmode(pass, TRANSIENT);
-		snprintf(name, sizeof(name), "tmp_%o", pass->batCacheid);
-		BBPrename(pass->batCacheid, name);
-		BBPrename(b->batCacheid, "M5system_auth_passwd_v2");
-		blist[3] = pass->batCacheid;
-		blist[4] = b->batCacheid;
-		BBPunfix(pass->batCacheid);
-		pass = b;
-		TMsubcommit_list(blist, 5);
-	}
-
 	/* load/create password BAT */
 	bid = BBPindex("M5system_auth_deleted");
 	if (!bid) {
-		duser = BATnew(TYPE_void, TYPE_oid, 256, PERSISTENT);
+		duser = COLnew(0, TYPE_oid, 256, PERSISTENT);
 		if (duser == NULL)
 			throw(MAL, "initTables.duser", MAL_MALLOC_FAIL " deleted user table");
-		BATseqbase(duser,0);
 
 		BBPrename(BBPcacheid(duser), "M5system_auth_deleted");
 		BATmode(duser, PERSISTENT);
@@ -783,71 +759,20 @@ AUTHcypherValue(str *ret, str *value)
  * current backend.  This check allows to at least forbid storing
  * trivial plain text passwords by a simple check.
  */
+#define concat(x,y)	x##y
+#define digestlength(h)	concat(h, _DIGEST_LENGTH)
 static str
 AUTHverifyPassword(str *passwd) 
 {
+#if !defined(HAVE_EMBEDDED) && (defined(HAVE_OPENSSL) || defined(HAVE_COMMONCRYPTO))
 	char *p = *passwd;
 	size_t len = strlen(p);
 
-#ifdef HAVE_RIPEMD160
-	if (strcmp(MONETDB5_PASSWDHASH, "RIPEMD160") == 0) {
-		if (len != 20 * 2)
-			throw(MAL, "verifyPassword",
-					"password is not 40 chars long, is it a hex "
-					"representation of a RIPEMD160 password hash?");
-	} else
-#endif
-#ifdef HAVE_SHA512
-	if (strcmp(MONETDB5_PASSWDHASH, "SHA512") == 0) {
-		if (len != 64 * 2)
-			throw(MAL, "verifyPassword",
-					"password is not 128 chars long, is it a hex "
-					"representation of a SHA-2 512-bits password hash?");
-	} else
-#endif
-#ifdef HAVE_SHA384
-	if (strcmp(MONETDB5_PASSWDHASH, "SHA384") == 0) {
-		if (len != 48 * 2)
-			throw(MAL, "verifyPassword",
-					"password is not 96 chars long, is it a hex "
-					"representation of a SHA-2 384-bits password hash?");
-	} else
-#endif
-#ifdef HAVE_SHA256
-	if (strcmp(MONETDB5_PASSWDHASH, "SHA256") == 0) {
-		if (len != 32 * 2)
-			throw(MAL, "verifyPassword",
-					"password is not 64 chars long, is it a hex "
-					"representation of a SHA-2 256-bits password hash?");
-	} else
-#endif
-#ifdef HAVE_SHA224
-	if (strcmp(MONETDB5_PASSWDHASH, "SHA224") == 0) {
-		if (len != 28 * 2)
-			throw(MAL, "verifyPassword",
-					"password is not 56 chars long, is it a hex "
-					"representation of a SHA-2 224-bits password hash?");
-	} else
-#endif
-#ifdef HAVE_SHA1
-	if (strcmp(MONETDB5_PASSWDHASH, "SHA1") == 0) {
-		if (len != 20 * 2)
-			throw(MAL, "verifyPassword",
-					"password is not 40 chars long, is it a hex "
-					"representation of a SHA-1 password hash?");
-	} else
-#endif
-#ifdef HAVE_MD5
-	if (strcmp(MONETDB5_PASSWDHASH, "MD5") == 0) {
-		if (len != 16 * 2)
-			throw(MAL, "verifyPassword",
-					"password is not 32 chars long, is it a hex "
-					"representation of an MD5 password hash?");
-	} else
-#endif
-	{
-		throw(MAL, "verifyPassword", "Unknown backend hash algorithm: %s",
-				MONETDB5_PASSWDHASH);
+	if (len != digestlength(MONETDB5_PASSWDHASH_TOKEN) * 2) {
+		throw(MAL, "verifyPassword",
+			  "password is not %d chars long, is it a hex "
+			  "representation of a %s password hash?",
+			  digestlength(MONETDB5_PASSWDHASH_TOKEN), MONETDB5_PASSWDHASH);
 	}
 	len++; // required in case all the checks above are false
 	while (*p != '\0') {
@@ -859,4 +784,9 @@ AUTHverifyPassword(str *passwd)
 	}
 
 	return(MAL_SUCCEED);
+#else
+	(void) passwd;
+	throw(MAL, "verifyPassword", "Unknown backend hash algorithm: %s",
+		  MONETDB5_PASSWDHASH);
+#endif
 }

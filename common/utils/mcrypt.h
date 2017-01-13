@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #ifndef _SEEN_MCRYPT_H
@@ -19,7 +19,4 @@ char *mcrypt_SHA512Sum(const char *string, size_t len);
 char *mcrypt_RIPEMD160Sum(const char *string, size_t len);
 char *mcrypt_BackendSum(const char *string, size_t len);
 char *mcrypt_hashPassword(const char *algo, const char *password, const char *challenge);
-#ifdef HAVE_EMBEDDED
-char* mcrypt_sum_fail(const char *string, size_t len);
-#endif
 #endif

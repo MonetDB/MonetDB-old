@@ -31,62 +31,80 @@ Ready.
 % .plan # table_name
 % rel # name
 % clob # type
-% 84 # length
+% 100 # length
 project (
 | group by (
-| | project (
-| | | table(sys.dbg) [ dbg.a, dbg.b ] COUNT 
-| | ) [ dbg.a, dbg.b, tinyint "2" as L3.L3 ]
-| ) [ dbg.a as d ] [ dbg.d, sys.sum no nil (dbg.b) as L1.L1, L1.L1 as L2.L2, L3.L3 ]
-) [ dbg.d, L1 as L1.L1, sys.sql_mul(sys.sql_div(L2, L3.L3), tinyint "2") as L3.f ]
+| | table(sys.dbg) [ dbg.a, dbg.b ] COUNT 
+| ) [ dbg.a as d ] [ dbg.d, sys.sum no nil (dbg.b) as L3.L3, L3.L3 as L6.L6 ]
+) [ dbg.d, L3 as L4.L3, sys.sql_mul(sys.sql_div(L6, tinyint "2" as L10.L10), tinyint "2") as L11.f ]
 #set optimizer = 'sequential_pipe';
 #explain SELECT a as d, SUM(b), (2 * (SUM(b) / (SELECT 2))) as f FROM dbg GROUP BY d;
 % .explain # table_name
 % mal # name
 % clob # type
-% 142 # length
-function user.s4_1(A0:bte,A1:bte):void;
-    X_59:void := querylog.define("explain select a as d, sum(b), (2 * (sum(b) / (select 2))) as f from dbg group by d;","sequential_pipe",38);
-    X_26 := bat.new(nil:oid,nil:str);
-    X_34 := bat.append(X_26,"sys.dbg");
-    X_43 := bat.append(X_34,"sys.L1");
-    X_52 := bat.append(X_43,"sys.L3");
-    X_29 := bat.new(nil:oid,nil:str);
-    X_36 := bat.append(X_29,"d");
-    X_45 := bat.append(X_36,"L1");
-    X_54 := bat.append(X_45,"f");
-    X_30 := bat.new(nil:oid,nil:str);
-    X_38 := bat.append(X_30,"int");
-    X_47 := bat.append(X_38,"bigint");
-    X_56 := bat.append(X_47,"bigint");
-    X_31 := bat.new(nil:oid,nil:int);
-    X_40 := bat.append(X_31,32);
-    X_49 := bat.append(X_40,64);
-    X_57 := bat.append(X_49,64);
-    X_33 := bat.new(nil:oid,nil:int);
-    X_42 := bat.append(X_33,0);
-    X_51 := bat.append(X_42,0);
-    X_58 := bat.append(X_51,0);
+% 145 # length
+function user.s8_1():void;
+    X_0:void := querylog.define("explain select a as d, sum(b), (2 * (sum(b) / (select 2))) as f from dbg group by d;","sequential_pipe",34:int);
+    X_29 := bat.new(nil:str);
+    X_36 := bat.append(X_29,"sys.dbg");
+    X_46 := bat.append(X_36,"sys.L4");
+    X_55 := bat.append(X_46,"sys.L11");
+    X_31 := bat.new(nil:str);
+    X_38 := bat.append(X_31,"d");
+    X_48 := bat.append(X_38,"L3");
+    X_57 := bat.append(X_48,"f");
+    X_32 := bat.new(nil:str);
+    X_40 := bat.append(X_32,"int");
+    X_50 := bat.append(X_40,"bigint");
+    X_59 := bat.append(X_50,"bigint");
+    X_33 := bat.new(nil:int);
+    X_42 := bat.append(X_33,32:int);
+    X_52 := bat.append(X_42,64:int);
+    X_60 := bat.append(X_52,64:int);
+    X_35 := bat.new(nil:int);
+    X_44 := bat.append(X_35,0:int);
+    X_54 := bat.append(X_44,0:int);
+    X_61 := bat.append(X_54,0:int);
     X_3 := sql.mvc();
     C_4:bat[:oid] := sql.tid(X_3,"sys","dbg");
-    X_7:bat[:int] := sql.bind(X_3,"sys","dbg","a",0);
+    X_7:bat[:int] := sql.bind(X_3,"sys","dbg","a",0:int);
     X_10 := algebra.projection(C_4,X_7);
-    (X_11,r1_11,r2_11) := group.subgroupdone(X_10);
-    X_14 := algebra.projection(r1_11,X_10);
-    X_17:bat[:int] := sql.bind(X_3,"sys","dbg","b",0);
+    (X_11,C1_14,r2_14) := group.subgroupdone(X_10);
+    X_14 := algebra.projection(C1_14,X_10);
+    X_17:bat[:int] := sql.bind(X_3,"sys","dbg","b",0:int);
     X_19 := algebra.projection(C_4,X_17);
-    X_20:bat[:lng] := aggr.subsum(X_19,X_11,r1_11,true,true);
-    X_21 := algebra.project(X_10,A1);
-    X_22 := algebra.projection(r1_11,X_21);
+    X_20:bat[:lng] := aggr.subsum(X_19,X_11,C1_14,true,true);
     X_15 := bat.setKey(X_14,true);
-    X_23:bat[:lng] := batcalc./(X_20,X_22);
-    X_24:bat[:lng] := batcalc.*(X_23,A0);
-    sql.resultSet(X_52,X_54,X_56,X_57,X_58,X_15,X_20,X_24);
-end user.s4_1;
+    X_22:bat[:lng] := batcalc./(X_20,2:bte);
+    X_26:bat[:lng] := batcalc.*(X_22,2:bte);
+    sql.resultSet(X_55,X_57,X_59,X_60,X_61,X_15,X_20,X_26);
+end user.s8_1;
+#inline               actions= 0 time=4 usec 
+#remap                actions= 2 time=57 usec 
+#costmodel            actions= 1 time=2 usec 
+#coercion             actions= 0 time=1 usec 
+#evaluate             actions= 2 time=16 usec 
+#emptybind            actions= 0 time=7 usec 
+#aliases              actions= 2 time=6 usec 
+#mergetable           actions= 0 time=39 usec 
+#deadcode             actions= 0 time=6 usec 
+#aliases              actions= 0 time=5 usec 
+#constants            actions= 4 time=10 usec 
+#commonTerms          actions= 0 time=6 usec 
+#projectionpath       actions= 0 time=3 usec 
+#reorder              actions= 1 time=24 usec 
+#deadcode             actions= 0 time=5 usec 
+#reduce               actions=26 time=8 usec 
+#matpack              actions= 0 time=3 usec 
+#multiplex            actions= 0 time=2 usec 
+#profiler             actions= 1 time=1 usec 
+#candidates           actions= 1 time=0 usec 
+#garbagecollector     actions= 1 time=15 usec 
+#total                actions= 1 time=311 usec 
 #set optimizer = 'default_pipe';
 #SELECT a as d, SUM(b), (2 * (SUM(b) / (SELECT 2))) as f FROM dbg GROUP BY d;
-% sys.dbg,	sys.L1,	sys.L3 # table_name
-% d,	L1,	f # name
+% sys.dbg,	sys.L4,	sys.L11 # table_name
+% d,	L3,	f # name
 % int,	bigint,	bigint # type
 % 2,	2,	2 # length
 [ 10,	10,	10	]
@@ -99,62 +117,80 @@ end user.s4_1;
 % .plan # table_name
 % rel # name
 % clob # type
-% 84 # length
+% 99 # length
 project (
 | group by (
-| | project (
-| | | table(sys.dbg) [ dbg.a, dbg.b ] COUNT 
-| | ) [ dbg.a, dbg.b, tinyint "2" as L3.L3 ]
-| ) [ dbg.a as d ] [ dbg.d, sys.sum no nil (dbg.b) as L1.L1, L1.L1 as L2.L2, L3.L3 ]
-) [ dbg.d, L1 as L1.e, sys.sql_mul(sys.sql_div(L2, L3.L3), tinyint "2") as L3.f ]
+| | table(sys.dbg) [ dbg.a, dbg.b ] COUNT 
+| ) [ dbg.a as d ] [ dbg.d, sys.sum no nil (dbg.b) as L3.L3, L3.L3 as L6.L6 ]
+) [ dbg.d, L3 as L4.e, sys.sql_mul(sys.sql_div(L6, tinyint "2" as L10.L10), tinyint "2") as L11.f ]
 #set optimizer = 'sequential_pipe';
 #explain SELECT a as d, SUM(b) as e, (2 * (SUM(b) / (SELECT 2))) as f FROM dbg GROUP BY d;
 % .explain # table_name
 % mal # name
 % clob # type
-% 147 # length
-function user.s10_1(A0:bte,A1:bte):void;
-    X_59:void := querylog.define("explain select a as d, sum(b) as e, (2 * (sum(b) / (select 2))) as f from dbg group by d;","sequential_pipe",38);
-    X_26 := bat.new(nil:oid,nil:str);
-    X_34 := bat.append(X_26,"sys.dbg");
-    X_43 := bat.append(X_34,"sys.L1");
-    X_52 := bat.append(X_43,"sys.L3");
-    X_29 := bat.new(nil:oid,nil:str);
-    X_36 := bat.append(X_29,"d");
-    X_45 := bat.append(X_36,"e");
-    X_54 := bat.append(X_45,"f");
-    X_30 := bat.new(nil:oid,nil:str);
-    X_38 := bat.append(X_30,"int");
-    X_47 := bat.append(X_38,"bigint");
-    X_56 := bat.append(X_47,"bigint");
-    X_31 := bat.new(nil:oid,nil:int);
-    X_40 := bat.append(X_31,32);
-    X_49 := bat.append(X_40,64);
-    X_57 := bat.append(X_49,64);
-    X_33 := bat.new(nil:oid,nil:int);
-    X_42 := bat.append(X_33,0);
-    X_51 := bat.append(X_42,0);
-    X_58 := bat.append(X_51,0);
+% 150 # length
+function user.s20_1():void;
+    X_0:void := querylog.define("explain select a as d, sum(b) as e, (2 * (sum(b) / (select 2))) as f from dbg group by d;","sequential_pipe",34:int);
+    X_29 := bat.new(nil:str);
+    X_36 := bat.append(X_29,"sys.dbg");
+    X_46 := bat.append(X_36,"sys.L4");
+    X_55 := bat.append(X_46,"sys.L11");
+    X_31 := bat.new(nil:str);
+    X_38 := bat.append(X_31,"d");
+    X_48 := bat.append(X_38,"e");
+    X_57 := bat.append(X_48,"f");
+    X_32 := bat.new(nil:str);
+    X_40 := bat.append(X_32,"int");
+    X_50 := bat.append(X_40,"bigint");
+    X_59 := bat.append(X_50,"bigint");
+    X_33 := bat.new(nil:int);
+    X_42 := bat.append(X_33,32:int);
+    X_52 := bat.append(X_42,64:int);
+    X_60 := bat.append(X_52,64:int);
+    X_35 := bat.new(nil:int);
+    X_44 := bat.append(X_35,0:int);
+    X_54 := bat.append(X_44,0:int);
+    X_61 := bat.append(X_54,0:int);
     X_3 := sql.mvc();
     C_4:bat[:oid] := sql.tid(X_3,"sys","dbg");
-    X_7:bat[:int] := sql.bind(X_3,"sys","dbg","a",0);
+    X_7:bat[:int] := sql.bind(X_3,"sys","dbg","a",0:int);
     X_10 := algebra.projection(C_4,X_7);
-    (X_11,r1_11,r2_11) := group.subgroupdone(X_10);
-    X_14 := algebra.projection(r1_11,X_10);
-    X_17:bat[:int] := sql.bind(X_3,"sys","dbg","b",0);
+    (X_11,C1_14,r2_14) := group.subgroupdone(X_10);
+    X_14 := algebra.projection(C1_14,X_10);
+    X_17:bat[:int] := sql.bind(X_3,"sys","dbg","b",0:int);
     X_19 := algebra.projection(C_4,X_17);
-    X_20:bat[:lng] := aggr.subsum(X_19,X_11,r1_11,true,true);
-    X_21 := algebra.project(X_10,A1);
-    X_22 := algebra.projection(r1_11,X_21);
+    X_20:bat[:lng] := aggr.subsum(X_19,X_11,C1_14,true,true);
     X_15 := bat.setKey(X_14,true);
-    X_23:bat[:lng] := batcalc./(X_20,X_22);
-    X_24:bat[:lng] := batcalc.*(X_23,A0);
-    sql.resultSet(X_52,X_54,X_56,X_57,X_58,X_15,X_20,X_24);
-end user.s10_1;
+    X_22:bat[:lng] := batcalc./(X_20,2:bte);
+    X_26:bat[:lng] := batcalc.*(X_22,2:bte);
+    sql.resultSet(X_55,X_57,X_59,X_60,X_61,X_15,X_20,X_26);
+end user.s20_1;
+#inline               actions= 0 time=1 usec 
+#remap                actions= 2 time=40 usec 
+#costmodel            actions= 1 time=1 usec 
+#coercion             actions= 0 time=2 usec 
+#evaluate             actions= 2 time=13 usec 
+#emptybind            actions= 0 time=7 usec 
+#aliases              actions= 2 time=6 usec 
+#mergetable           actions= 0 time=39 usec 
+#deadcode             actions= 0 time=6 usec 
+#aliases              actions= 0 time=5 usec 
+#constants            actions= 4 time=10 usec 
+#commonTerms          actions= 0 time=5 usec 
+#projectionpath       actions= 0 time=3 usec 
+#reorder              actions= 1 time=22 usec 
+#deadcode             actions= 0 time=6 usec 
+#reduce               actions=26 time=8 usec 
+#matpack              actions= 0 time=3 usec 
+#multiplex            actions= 0 time=2 usec 
+#profiler             actions= 1 time=2 usec 
+#candidates           actions= 1 time=1 usec 
+#garbagecollector     actions= 1 time=15 usec 
+#total                actions= 1 time=283 usec 
 #set optimizer = 'default_pipe';
 #SELECT a as d, SUM(b) as e, (2 * (SUM(b) / (SELECT 2))) as f FROM dbg GROUP
 #BY d;
-% sys.dbg,	sys.L1,	sys.L3 # table_name
+% sys.dbg,	sys.L4,	sys.L11 # table_name
 % d,	e,	f # name
 % int,	bigint,	bigint # type
 % 2,	2,	2 # length

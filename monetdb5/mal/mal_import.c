@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* Author(s) M.L. Kersten
@@ -112,7 +112,7 @@ malLoadScript(Client c, str name, bstream **fdin)
 	bstream *oldfdin = c->fdin; \
 	int oldyycur = c->yycur; \
 	int oldlisting = c->listing; \
-	int oldmode = c->mode; \
+	enum clientmode oldmode = c->mode; \
 	int oldblkmode = c->blkmode; \
 	str oldsrcFile = c->srcFile; \
 	ClientInput *oldbak = c->bak; \
@@ -121,7 +121,7 @@ malLoadScript(Client c, str name, bstream **fdin)
 	Symbol oldprg = c->curprg; \
 	MalStkPtr oldglb = c->glb	/* ; added by caller */
 #define restoreState3 \
-	int oldmode = c->mode; \
+	enum clientmode oldmode = c->mode; \
 	int oldblkmode = c->blkmode; \
 	str oldsrcFile = c->srcFile; \
 	Module oldnspace = c->nspace; \
@@ -174,7 +174,7 @@ malInclude(Client c, str name, int listing)
 	bstream *oldfdin = c->fdin;
 	int oldyycur = c->yycur;
 	int oldlisting = c->listing;
-	int oldmode = c->mode;
+	enum clientmode oldmode = c->mode;
 	int oldblkmode = c->blkmode;
 	ClientInput *oldbak = c->bak;
 	str oldprompt = c->prompt;
@@ -290,22 +290,31 @@ evalFile(Client c, str fname, int listing)
 			c->yycur = 0;
 			c->bak = NULL;
 			MSinitClientPrg(c, "user", "main");     /* re-initialize context */
-			MCpushClientInput(c, bstream_create(fd, 128 * BLOCK), c->listing, "");
-			msg = runScenario(c);
+			if( MCpushClientInput(c, bstream_create(fd, 128 * BLOCK), c->listing, "") < 0){
+				msg = createException(MAL,"mal.eval", "WARNING: could not switch client input stream\n");
+			} else
+				msg = runScenario(c);
+			if (msg != MAL_SUCCEED) {
+				dumpExceptionsToStream(c->fdout, msg);
+				GDKfree(msg);
+			}
 		}
 		filename = p + 1;
 	}
 	fd = malOpenSource(filename);
 	if (fd == 0 || mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
-		if( fd == 0) mnstr_destroy(fd);
+		if (fd)
+			mnstr_destroy(fd);
 		msg = createException(MAL,"mal.eval", "WARNING: could not open file: %s\n", filename);
 	} else {
 		c->srcFile = filename;
 		c->yycur = 0;
 		c->bak = NULL;
 		MSinitClientPrg(c, "user", "main");     /* re-initialize context */
-		MCpushClientInput(c, bstream_create(fd, 128 * BLOCK), c->listing, "");
-		msg = runScenario(c);
+		if( MCpushClientInput(c, bstream_create(fd, 128 * BLOCK), c->listing, "") < 0){
+				msg = createException(MAL,"mal.eval", "WARNING: could not switch client input stream\n");
+		} else
+			msg = runScenario(c);
 	}
 	GDKfree(fname);
 

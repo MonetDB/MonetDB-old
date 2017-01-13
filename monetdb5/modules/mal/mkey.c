@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -24,6 +24,12 @@
 #ifdef HAVE_HGE
 #define MKEYHASH_hge(valp)	(((lng*)(valp))[0] ^ ((lng*)(valp))[1])
 #endif
+
+static inline lng
+GDK_ROTATE(lng x, int y, int z, lng m)
+{
+	return ((lng) ((ulng) x << y) & ~m) | ((x >> z) & m);
+}
 
 /* TODO: nil handling. however; we do not want to lose time in bulk_rotate_xor_hash with that */
 str
@@ -83,18 +89,15 @@ MKEYbathash(bat *res, const bat *bid)
 	if ((b = BATdescriptor(*bid)) == NULL)
 		throw(SQL, "mkey.bathash", RUNTIME_OBJECT_MISSING);
 
-	assert(BAThvoid(b) || BAThrestricted(b));
-
 	n = BATcount(b);
-	dst = BATnew(TYPE_void, TYPE_lng, n, TRANSIENT);
+	dst = COLnew(b->hseqbase, TYPE_lng, n, TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "mkey.bathash", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(dst, b->hseqbase);
 	BATsetcount(dst, n);
 
-	r = (lng *) Tloc(dst, BUNfirst(dst));
+	r = (lng *) Tloc(dst, 0);
 
 	switch (ATOMstorage(b->ttype)) {
 	case TYPE_void: {
@@ -108,7 +111,7 @@ MKEYbathash(bat *res, const bat *bid)
 		break;
 	}
 	case TYPE_bte: {
-		bte *v = (bte *) Tloc(b, BUNfirst(b));
+		bte *v = (bte *) Tloc(b, 0);
 		while (n-- > 0) {
 			*r++ = MKEYHASH_bte(v);
 			v++;
@@ -116,7 +119,7 @@ MKEYbathash(bat *res, const bat *bid)
 		break;
 	}
 	case TYPE_sht: {
-		sht *v = (sht *) Tloc(b, BUNfirst(b));
+		sht *v = (sht *) Tloc(b, 0);
 		while (n-- > 0) {
 			*r++ = MKEYHASH_sht(v);
 			v++;
@@ -125,7 +128,7 @@ MKEYbathash(bat *res, const bat *bid)
 	}
 	case TYPE_int:
 	case TYPE_flt: {
-		int *v = (int *) Tloc(b, BUNfirst(b));
+		int *v = (int *) Tloc(b, 0);
 		while (n-- > 0) {
 			*r++ = MKEYHASH_int(v);
 			v++;
@@ -134,7 +137,7 @@ MKEYbathash(bat *res, const bat *bid)
 	}
 	case TYPE_lng:
 	case TYPE_dbl: {
-		lng *v = (lng *) Tloc(b, BUNfirst(b));
+		lng *v = (lng *) Tloc(b, 0);
 		while (n-- > 0) {
 			*r++ = MKEYHASH_lng(v);
 			v++;
@@ -143,7 +146,7 @@ MKEYbathash(bat *res, const bat *bid)
 	}
 #ifdef HAVE_HGE
 	case TYPE_hge: {
-		hge *v = (hge *) Tloc(b, BUNfirst(b));
+		hge *v = (hge *) Tloc(b, 0);
 		while (n-- > 0) {
 			*r++ = MKEYHASH_hge(v);
 			v++;
@@ -155,7 +158,7 @@ MKEYbathash(bat *res, const bat *bid)
 		BATiter bi = bat_iterator(b);
 		BUN (*hash)(const void *) = BATatoms[b->ttype].atomHash;
 		int (*cmp)(const void *, const void *) = ATOMcompare(b->ttype);
-		void *nil = ATOMnilptr(b->ttype);
+		const void *nil = ATOMnilptr(b->ttype);
 		BUN i;
 		const void *v;
 
@@ -171,14 +174,14 @@ MKEYbathash(bat *res, const bat *bid)
 	}
 
 	if (dst->batCount <= 1) {
-		BATkey(BATmirror(dst), 1);
+		BATkey(dst, 1);
 		dst->tsorted = dst->trevsorted = 1;
 	} else {
-		BATkey(BATmirror(dst), 0);
+		BATkey(dst, 0);
 		dst->tsorted = dst->trevsorted = 0;
 	}
-	dst->T->nonil = 0;
-	dst->T->nil = 0;
+	dst->tnonil = 0;
+	dst->tnil = 0;
 
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
@@ -257,21 +260,20 @@ MKEYbulk_rotate_xor_hash(bat *res, const bat *hid, const int *nbits, const bat *
 
 	n = BATcount(b);
 
-	bn = BATnew(TYPE_void, TYPE_lng, n, TRANSIENT);
+	bn = COLnew(b->hseqbase, TYPE_lng, n, TRANSIENT);
 	if (bn == NULL) {
 		BBPunfix(hb->batCacheid);
 		BBPunfix(b->batCacheid);
 		throw(MAL, "mkey.rotate_xor_hash", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(bn, b->hseqbase);
 	BATsetcount(bn, n);
 
-	r = (lng *) Tloc(bn, BUNfirst(bn));
-	h = (const lng *) Tloc(hb, BUNfirst(hb));
+	r = (lng *) Tloc(bn, 0);
+	h = (const lng *) Tloc(hb, 0);
 
 	switch (ATOMstorage(b->ttype)) {
 	case TYPE_bte: {
-		bte *v = (bte *) Tloc(b, BUNfirst(b));
+		bte *v = (bte *) Tloc(b, 0);
 		while (n-- > 0) {
 			*r++ = GDK_ROTATE(*h, lbit, rbit, mask) ^ MKEYHASH_bte(v);
 			v++;
@@ -280,7 +282,7 @@ MKEYbulk_rotate_xor_hash(bat *res, const bat *hid, const int *nbits, const bat *
 		break;
 	}
 	case TYPE_sht: {
-		sht *v = (sht *) Tloc(b, BUNfirst(b));
+		sht *v = (sht *) Tloc(b, 0);
 		while (n-- > 0) {
 			*r++ = GDK_ROTATE(*h, lbit, rbit, mask) ^ MKEYHASH_sht(v);
 			v++;
@@ -290,7 +292,7 @@ MKEYbulk_rotate_xor_hash(bat *res, const bat *hid, const int *nbits, const bat *
 	}
 	case TYPE_int:
 	case TYPE_flt: {
-		int *v = (int *) Tloc(b, BUNfirst(b));
+		int *v = (int *) Tloc(b, 0);
 		while (n-- > 0) {
 			*r++ = GDK_ROTATE(*h, lbit, rbit, mask) ^ MKEYHASH_int(v);
 			v++;
@@ -300,7 +302,7 @@ MKEYbulk_rotate_xor_hash(bat *res, const bat *hid, const int *nbits, const bat *
 	}
 	case TYPE_lng:
 	case TYPE_dbl: {
-		lng *v = (lng *) Tloc(b, BUNfirst(b));
+		lng *v = (lng *) Tloc(b, 0);
 		while (n-- > 0) {
 			*r++ = GDK_ROTATE(*h, lbit, rbit, mask) ^ MKEYHASH_lng(v);
 			v++;
@@ -310,7 +312,7 @@ MKEYbulk_rotate_xor_hash(bat *res, const bat *hid, const int *nbits, const bat *
 	}
 #ifdef HAVE_HGE
 	case TYPE_hge: {
-		hge *v = (hge *) Tloc(b, BUNfirst(b));
+		hge *v = (hge *) Tloc(b, 0);
 		while (n-- > 0) {
 			*r++ = GDK_ROTATE(*h, lbit, rbit, mask) ^ MKEYHASH_hge(v);
 			v++;
@@ -320,7 +322,7 @@ MKEYbulk_rotate_xor_hash(bat *res, const bat *hid, const int *nbits, const bat *
 	}
 #endif
 	case TYPE_str:
-		if (b->T->vheap->hashash) {
+		if (b->tvheap->hashash) {
 			BATiter bi = bat_iterator(b);
 			BUN i;
 			BATloop(b, i, n) {
@@ -344,14 +346,14 @@ MKEYbulk_rotate_xor_hash(bat *res, const bat *hid, const int *nbits, const bat *
 	}
 	}
 	if (bn->batCount <= 1) {
-		BATkey(BATmirror(bn), 1);
+		BATkey(bn, 1);
 		bn->tsorted = bn->trevsorted = 1;
 	} else {
-		BATkey(BATmirror(bn), 0);
+		BATkey(bn, 0);
 		bn->tsorted = bn->trevsorted = 0;
 	}
-	bn->T->nonil = 1;
-	bn->T->nil = 0;
+	bn->tnonil = 1;
+	bn->tnil = 0;
 
 	BBPkeepref(*res = bn->batCacheid);
 	BBPunfix(b->batCacheid);
@@ -382,12 +384,11 @@ MKEYbulkconst_rotate_xor_hash(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPt
 
 	n = BATcount(hb);
 
-	bn = BATnew(TYPE_void, TYPE_lng, n, TRANSIENT);
+	bn = COLnew(hb->hseqbase, TYPE_lng, n, TRANSIENT);
 	if (bn == NULL) {
 		BBPunfix(hb->batCacheid);
 		throw(MAL, "mkey.rotate_xor_hash", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(bn, hb->hseqbase);
 	BATsetcount(bn, n);
 
 	switch (ATOMstorage(tpe)) {
@@ -418,8 +419,8 @@ MKEYbulkconst_rotate_xor_hash(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPt
 		break;
 	}
 
-	r = (lng *) Tloc(bn, BUNfirst(bn));
-	h = (const lng *) Tloc(hb, BUNfirst(hb));
+	r = (lng *) Tloc(bn, 0);
+	h = (const lng *) Tloc(hb, 0);
 
 	while (n-- > 0) {
 			*r++ = GDK_ROTATE(*h, lbit, rbit, mask) ^ val;
@@ -427,14 +428,14 @@ MKEYbulkconst_rotate_xor_hash(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPt
 	}
 
 	if (bn->batCount <= 1) {
-		BATkey(BATmirror(bn), 1);
+		BATkey(bn, 1);
 		bn->tsorted = bn->trevsorted = 1;
 	} else {
-		BATkey(BATmirror(bn), 0);
+		BATkey(bn, 0);
 		bn->tsorted = bn->trevsorted = 0;
 	}
-	bn->T->nonil = 1;
-	bn->T->nil = 0;
+	bn->tnonil = 1;
+	bn->tnil = 0;
 
 	BBPkeepref(*res = bn->batCacheid);
 	BBPunfix(hb->batCacheid);
@@ -456,19 +457,18 @@ MKEYconstbulk_rotate_xor_hash(bat *res, const lng *h, const int *nbits, const ba
 
 	n = BATcount(b);
 
-	bn = BATnew(TYPE_void, TYPE_lng, n, TRANSIENT);
+	bn = COLnew(b->hseqbase, TYPE_lng, n, TRANSIENT);
 	if (bn == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(MAL, "mkey.rotate_xor_hash", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(bn, b->hseqbase);
 	BATsetcount(bn, n);
 
-	r = (lng *) Tloc(bn, BUNfirst(bn));
+	r = (lng *) Tloc(bn, 0);
 
 	switch (ATOMstorage(b->ttype)) {
 	case TYPE_bte: {
-		bte *v = (bte *) Tloc(b, BUNfirst(b));
+		bte *v = (bte *) Tloc(b, 0);
 		while (n-- > 0) {
 			*r++ = GDK_ROTATE(*h, lbit, rbit, mask) ^ MKEYHASH_bte(v);
 			v++;
@@ -476,7 +476,7 @@ MKEYconstbulk_rotate_xor_hash(bat *res, const lng *h, const int *nbits, const ba
 		break;
 	}
 	case TYPE_sht: {
-		sht *v = (sht *) Tloc(b, BUNfirst(b));
+		sht *v = (sht *) Tloc(b, 0);
 		while (n-- > 0) {
 			*r++ = GDK_ROTATE(*h, lbit, rbit, mask) ^ MKEYHASH_sht(v);
 			v++;
@@ -485,7 +485,7 @@ MKEYconstbulk_rotate_xor_hash(bat *res, const lng *h, const int *nbits, const ba
 	}
 	case TYPE_int:
 	case TYPE_flt: {
-		int *v = (int *) Tloc(b, BUNfirst(b));
+		int *v = (int *) Tloc(b, 0);
 		while (n-- > 0) {
 			*r++ = GDK_ROTATE(*h, lbit, rbit, mask) ^ MKEYHASH_int(v);
 			v++;
@@ -494,7 +494,7 @@ MKEYconstbulk_rotate_xor_hash(bat *res, const lng *h, const int *nbits, const ba
 	}
 	case TYPE_lng:
 	case TYPE_dbl: {
-		lng *v = (lng *) Tloc(b, BUNfirst(b));
+		lng *v = (lng *) Tloc(b, 0);
 		while (n-- > 0) {
 			*r++ = GDK_ROTATE(*h, lbit, rbit, mask) ^ MKEYHASH_lng(v);
 			v++;
@@ -503,7 +503,7 @@ MKEYconstbulk_rotate_xor_hash(bat *res, const lng *h, const int *nbits, const ba
 	}
 #ifdef HAVE_HGE
 	case TYPE_hge: {
-		hge *v = (hge *) Tloc(b, BUNfirst(b));
+		hge *v = (hge *) Tloc(b, 0);
 		while (n-- > 0) {
 			*r++ = GDK_ROTATE(*h, lbit, rbit, mask) ^ MKEYHASH_hge(v);
 			v++;
@@ -512,7 +512,7 @@ MKEYconstbulk_rotate_xor_hash(bat *res, const lng *h, const int *nbits, const ba
 	}
 #endif
 	case TYPE_str:
-		if (b->T->vheap->hashash) {
+		if (b->tvheap->hashash) {
 			BATiter bi = bat_iterator(b);
 			BUN i;
 			BATloop(b, i, n) {
@@ -534,14 +534,14 @@ MKEYconstbulk_rotate_xor_hash(bat *res, const lng *h, const int *nbits, const ba
 	}
 	}
 	if (bn->batCount <= 1) {
-		BATkey(BATmirror(bn), 1);
+		BATkey(bn, 1);
 		bn->tsorted = bn->trevsorted = 1;
 	} else {
-		BATkey(BATmirror(bn), 0);
+		BATkey(bn, 0);
 		bn->tsorted = bn->trevsorted = 0;
 	}
-	bn->T->nonil = 1;
-	bn->T->nil = 0;
+	bn->tnonil = 1;
+	bn->tnil = 0;
 
 	BBPkeepref(*res = bn->batCacheid);
 	BBPunfix(b->batCacheid);

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -202,10 +202,11 @@ supertype(sql_subtype *super, sql_subtype *r, sql_subtype *i)
 	unsigned int scale = sql_max(i->scale, r->scale);
 
 	*super = *r;
-	if (i->type->base.id >r->type->base.id || 
+	if (i->type->base.id > r->type->base.id || 
 	    (EC_VARCHAR(i->type->eclass) && !EC_VARCHAR(r->type->eclass))) {
-		tpe = i->type->sqlname;
+		*super = *i;
 		radix = i->type->radix;
+		tpe = i->type->sqlname;
 	}
 	/* 
 	 * Incase of different radix we should change one. 

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #ifndef _SQL_ATOM_H_
@@ -22,6 +22,7 @@ typedef struct atom {
 
 #define atom_null(a) (((atom*)a)->isnull)
 
+extern void atom_init( atom *a );
 extern atom *atom_bool( sql_allocator *sa, sql_subtype *tpe, bit t);
 #ifdef HAVE_HGE
 extern atom *atom_int( sql_allocator *sa, sql_subtype *tpe, hge val);
@@ -45,7 +46,7 @@ extern unsigned int atom_num_digits( atom *a );
 extern atom *atom_dup( sql_allocator *sa, atom *a);
 
 /* cast atom a to type tp (success == 1, fail == 0) */
-extern int atom_cast(atom *a, sql_subtype *tp);
+extern int atom_cast(sql_allocator *sa, atom *a, sql_subtype *tp);
 
 extern char *atom2string(sql_allocator *sa, atom *a);
 extern char *atom2sql(atom *a);
@@ -61,6 +62,9 @@ extern int atom_cmp(atom *a1, atom *a2);
 
 extern atom *atom_add(atom *a1, atom *a2);
 extern atom *atom_sub(atom *a1, atom *a2);
+extern atom *atom_mul(sql_allocator *sa, atom *a1, atom *a2);
+extern void atom_inc(atom *a);
+extern int atom_is_zero(atom *a);
 
 #ifdef HAVE_HGE
 extern hge scales[39];

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /**
@@ -479,7 +479,7 @@ globMatchDBS(int argc, char *argv[], sabdb **orig, char *cmd)
 		if (argv[i] != NULL) {
 			prev = NULL;
 			for (stats = *orig; stats != NULL; stats = stats->next) {
-				if (glob(argv[i], stats->dbname)) {
+				if (db_glob(argv[i], stats->dbname)) {
 					matched = 1;
 					/* move out of orig into w, such that we can't
 					 * get double matches in the same output list
@@ -918,7 +918,7 @@ command_discover(int argc, char *argv[])
 
 			snprintf(path, sizeof(path), "%s%s", q, p);
 
-			if (match == NULL || glob(match, path)) {
+			if (match == NULL || db_glob(match, path)) {
 				if (twidth > 0) {
 					/* cut too long location name */
 					abbreviateString(location, path, twidth);
@@ -1029,7 +1029,7 @@ command_startstop(int argc, char *argv[], startstop mode)
 		free(e);
 		exit(2);
 	}
-	if (doall != 1) {
+	if (!doall) {
 		stats = globMatchDBS(argc, argv, &orig, type);
 		msab_freeStatus(&orig);
 		orig = stats;
@@ -1046,7 +1046,7 @@ command_startstop(int argc, char *argv[], startstop mode)
 		 * databases.  In this mode we should omit starting already
 		 * started databases, so we need to check first. */
 
-		if (doall == 1 && (
+		if (doall && (
 				((mode == STOP || mode == KILL) && (stats->state != SABdbRunning && stats->state != SABdbStarting))
 				|| (mode == START && stats->state == SABdbRunning)))
 		{
@@ -1283,7 +1283,7 @@ command_get(int argc, char *argv[])
 
 	/* look at the arguments and evaluate them based on a glob (hence we
 	 * listed all databases before) */
-	if (doall != 1) {
+	if (!doall) {
 		stats = globMatchDBS(argc, argv, &orig, "get");
 		msab_freeStatus(&orig);
 		orig = stats;

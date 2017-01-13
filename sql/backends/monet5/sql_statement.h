@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #ifndef _SQL_STATEMENT_H_
@@ -128,8 +128,6 @@ typedef struct stmt {
 extern int stmt_key(stmt *s);
 
 extern stmt **stmt_array(sql_allocator *sa, stmt *s);
-extern void print_stmts(sql_allocator *sa, stmt **stmts);
-extern void print_tree(sql_allocator *sa, stmt *stmts);
 extern void clear_stmts(stmt **stmts);
 
 extern stmt *stmt_none(sql_allocator *sa);
@@ -224,7 +222,7 @@ extern stmt *stmt_convert(sql_allocator *sa, stmt *v, sql_subtype *from, sql_sub
 extern stmt *stmt_unop(sql_allocator *sa, stmt *op1, sql_subfunc *op);
 extern stmt *stmt_binop(sql_allocator *sa, stmt *op1, stmt *op2, sql_subfunc *op);
 extern stmt *stmt_Nop(sql_allocator *sa, stmt *ops, sql_subfunc *op);
-extern stmt *stmt_func(sql_allocator *sa, stmt *ops, const char *name, sql_rel *imp);
+extern stmt *stmt_func(sql_allocator *sa, stmt *ops, const char *name, sql_rel *imp, int f_union);
 extern stmt *stmt_aggr(sql_allocator *sa, stmt *op1, stmt *grp, stmt *ext, sql_subaggr *op, int reduce, int no_nil);
 
 extern stmt *stmt_alias(sql_allocator *sa, stmt *op1, const char *tname, const char *name);
@@ -246,9 +244,6 @@ extern int stmt_has_null(stmt *s);
 extern const char *column_name(sql_allocator *sa, stmt *st);
 extern const char *table_name(sql_allocator *sa, stmt *st);
 extern const char *schema_name(sql_allocator *sa, stmt *st);
-
-/*Dependency control*/
-extern list *stmt_list_dependencies(sql_allocator *sa, stmt *s, int depend_type);
 
 extern stmt *const_column(sql_allocator *sa, stmt *val);
 

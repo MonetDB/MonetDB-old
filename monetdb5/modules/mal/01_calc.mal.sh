@@ -2,7 +2,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 sed '/^$/q' $0			# copy copyright from this file
 
@@ -287,14 +287,23 @@ comment "B between V1 and V2 (or vice versa) inclusive";
 EOF
 
 for tp1 in void $alltypes; do
-    for tp2 in void $alltypes; do
+    if [[ $tp1 == str ]]; then
 	cat <<EOF
+pattern $tp1(v:any) :$tp1
+address CMDvarCONVERT
+comment "Cast VALUE to $tp1";
+
+EOF
+    else
+	for tp2 in void $alltypes; do
+	    cat <<EOF
 pattern $tp1(v:$tp2) :$tp1
 address CMDvarCONVERT
 comment "Cast VALUE to $tp1";
 
 EOF
-    done
+	done
+    fi
     echo
 done
 

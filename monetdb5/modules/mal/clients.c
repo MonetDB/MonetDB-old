@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -27,18 +27,13 @@
 #include "mal_private.h"
 #include "mtime.h"
 
-#ifdef HAVE_LIBREADLINE
-#include <readline/readline.h>
-#include <readline/history.h>
-#endif
-
 static void
 pseudo(bat *ret, BAT *b, str X1,str X2) {
 	char buf[BUFSIZ];
 	snprintf(buf,BUFSIZ,"%s_%s", X1,X2);
 	if (BBPindex(buf) <= 0)
 		BATname(b,buf);
-	BATroles(b,X1,X2);
+	BATroles(b,X2);
 	BATmode(b,TRANSIENT);
 	BATfakeCommit(b);
 	*ret = b->batCacheid;
@@ -130,8 +125,8 @@ CLTInfo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	bat *ret=  getArgReference_bat(stk,pci,0);
 	bat *ret2=  getArgReference_bat(stk,pci,0);
-	BAT *b = BATnew(TYPE_void, TYPE_str, 12, TRANSIENT);
-	BAT *bn = BATnew(TYPE_void, TYPE_str, 12, TRANSIENT);
+	BAT *b = COLnew(0, TYPE_str, 12, TRANSIENT);
+	BAT *bn = COLnew(0, TYPE_str, 12, TRANSIENT);
 	char s[26];
 
 	(void) mb;
@@ -162,7 +157,6 @@ CLTInfo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	CLTtimeConvert((time_t) cntxt->login,s);
 	BUNappend(b, "login", FALSE);
 	BUNappend(bn, s, FALSE);
-	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	pseudo(ret,b,"client","info");
 	BBPkeepref(*ret2= bn->batCacheid);
 	return MAL_SUCCEED;
@@ -171,8 +165,8 @@ CLTInfo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 CLTLogin(bat *nme, bat *ret)
 {
-	BAT *b = BATnew(TYPE_void, TYPE_str, 12, TRANSIENT);
-	BAT *u = BATnew(TYPE_void, TYPE_oid, 12, TRANSIENT);
+	BAT *b = COLnew(0, TYPE_str, 12, TRANSIENT);
+	BAT *u = COLnew(0, TYPE_oid, 12, TRANSIENT);
 	int i;
 	char s[26];
 
@@ -181,8 +175,6 @@ CLTLogin(bat *nme, bat *ret)
 		BBPreclaim(u);
 		throw(MAL, "clients.getLogins", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(b,0);
-	BATseqbase(u,0);
 
 	for (i = 0; i < MAL_MAXCLIENTS; i++) {
 		Client c = mal_clients+i;
@@ -192,8 +184,6 @@ CLTLogin(bat *nme, bat *ret)
 			BUNappend(u, &c->user, FALSE);
 		}
 	}
-	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
-	if (!(u->batDirty&2)) BATsetaccess(u, BAT_READ);
 	pseudo(ret,b,"client","login");
 	pseudo(nme,u,"client","name");
 	return MAL_SUCCEED;
@@ -202,13 +192,12 @@ CLTLogin(bat *nme, bat *ret)
 str
 CLTLastCommand(bat *ret)
 {
-	BAT *b = BATnew(TYPE_void, TYPE_str, 12, TRANSIENT);
+	BAT *b = COLnew(0, TYPE_str, 12, TRANSIENT);
 	int i;
 	char s[26];
 
 	if (b == 0)
 		throw(MAL, "clients.getLastCommand", MAL_MALLOC_FAIL);
-	BATseqbase(b,0);
 	for (i = 0; i < MAL_MAXCLIENTS; i++) {
 		Client c = mal_clients+i;
 		if (c->mode >= RUNCLIENT && c->user != oid_nil) {
@@ -216,7 +205,6 @@ CLTLastCommand(bat *ret)
 			BUNappend(b, s, FALSE);
 		}
 	}
-	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	pseudo(ret,b,"client","lastcommand");
 	return MAL_SUCCEED;
 }
@@ -224,38 +212,34 @@ CLTLastCommand(bat *ret)
 str
 CLTActions(bat *ret)
 {
-	BAT *b = BATnew(TYPE_void, TYPE_int, 12, TRANSIENT);
+	BAT *b = COLnew(0, TYPE_int, 12, TRANSIENT);
 	int i;
 
 	if (b == 0)
 		throw(MAL, "clients.getActions", MAL_MALLOC_FAIL);
-	BATseqbase(b,0);
 	for (i = 0; i < MAL_MAXCLIENTS; i++) {
 		Client c = mal_clients+i;
 		if (c->mode >= RUNCLIENT && c->user != oid_nil) {
 			BUNappend(b, &c->actions, FALSE);
 		}
 	}
-	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	pseudo(ret,b,"client","actions");
 	return MAL_SUCCEED;
 }
 str
 CLTTime(bat *ret)
 {
-	BAT *b = BATnew(TYPE_void, TYPE_lng, 12, TRANSIENT);
+	BAT *b = COLnew(0, TYPE_lng, 12, TRANSIENT);
 	int i;
 
 	if (b == 0)
 		throw(MAL, "clients.getTime", MAL_MALLOC_FAIL);
-	BATseqbase(b,0);
 	for (i = 0; i < MAL_MAXCLIENTS; i++) {
 		Client c = mal_clients+i;
 		if (c->mode >= RUNCLIENT && c->user != oid_nil) {
 			BUNappend(b, &c->totaltime, FALSE);
 		}
 	}
-	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	pseudo(ret,b,"client","usec");
 	return MAL_SUCCEED;
 }
@@ -266,42 +250,17 @@ CLTTime(bat *ret)
 str
 CLTusers(bat *ret)
 {
-	BAT *b = BATnew(TYPE_void, TYPE_str, 12, TRANSIENT);
+	BAT *b = COLnew(0, TYPE_str, 12, TRANSIENT);
 	int i;
 
 	if (b == 0)
 		throw(MAL, "clients.users", MAL_MALLOC_FAIL);
-	BATseqbase(b,0);
 	for (i = 0; i < MAL_MAXCLIENTS; i++) {
 		Client c = mal_clients+i;
 		if (c->mode >= RUNCLIENT && c->user != oid_nil)
 			BUNappend(b, &i, FALSE);
 	}
-	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	pseudo(ret,b,"client","users");
-	return MAL_SUCCEED;
-}
-
-str
-CLTsetHistory(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	str* fname = getArgReference_str(stk,pci,1);
-	(void) mb;
-
-	if( cntxt->history){
-#ifdef HAVE_LIBREADLINE
-		write_history(cntxt->history);
-#endif
-		GDKfree(cntxt->history);
-	}
-	if( *fname == str_nil)
-		cntxt->history = NULL;
-	else {
-		cntxt->history = GDKstrdup(*fname);
-#ifdef HAVE_LIBREADLINE
-		read_history(cntxt->history);
-#endif
-	}
 	return MAL_SUCCEED;
 }
 
@@ -356,22 +315,30 @@ CLTsetSessionTimeout(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	lng sto;
 	(void) mb;
 	sto=  *getArgReference_lng(stk,pci,1);
+	if( sto < 0)
+		throw(MAL,"timeout","Query time out should be > 0");
 	cntxt->stimeout = sto * 1000 * 1000;
     return MAL_SUCCEED;
 }
+
 str
 CLTsetTimeout(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	lng qto,sto;
 	(void) mb;
 	qto=  *getArgReference_lng(stk,pci,1);
+	if( qto < 0)
+		throw(MAL,"timeout","Query time out should be > 0");
 	cntxt->qtimeout = qto * 1000 * 1000;
 	if ( pci->argc == 3){
 		sto=  *getArgReference_lng(stk,pci,2);
+		if( sto < 0)
+			throw(MAL,"timeout","Session time out should be > 0");
 		cntxt->stimeout = sto * 1000 * 1000;
 	}
     return MAL_SUCCEED;
 }
+
 str
 CLTgetTimeout(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -391,41 +358,67 @@ CLTwakeup(void *ret, int *id)
 }
 
 str CLTmd5sum(str *ret, str *pw) {
+#ifdef HAVE_MD5_UPDATE
 	char *mret = mcrypt_MD5Sum(*pw, strlen(*pw));
 	*ret = GDKstrdup(mret);
 	free(mret);
 	return MAL_SUCCEED;
+#else
+	(void) ret;
+	(void) pw;
+	throw(MAL, "clients.md5sum", PROGRAM_NYI);
+#endif
 }
 
 str CLTsha1sum(str *ret, str *pw) {
+#ifdef HAVE_SHA1_UPDATE
 	char *mret = mcrypt_SHA1Sum(*pw, strlen(*pw));
 	*ret = GDKstrdup(mret);
 	free(mret);
 	return MAL_SUCCEED;
+#else
+	(void) ret;
+	(void) pw;
+	throw(MAL, "clients.sha1sum", PROGRAM_NYI);
+#endif
 }
 
 str CLTripemd160sum(str *ret, str *pw) {
+#ifdef HAVE_RIPEMD160_UPDATE
 	char *mret = mcrypt_RIPEMD160Sum(*pw, strlen(*pw));
 	*ret = GDKstrdup(mret);
 	free(mret);
 	return MAL_SUCCEED;
+#else
+	(void) ret;
+	(void) pw;
+	throw(MAL, "clients.ripemd160sum", PROGRAM_NYI);
+#endif
 }
 
 str CLTsha2sum(str *ret, str *pw, int *bits) {
 	char *mret;
 	switch (*bits) {
+#ifdef HAVE_SHA512_UPDATE
 		case 512:
 			mret = mcrypt_SHA512Sum(*pw, strlen(*pw));
 			break;
+#endif
+#ifdef HAVE_SHA384_UPDATE
 		case 384:
 			mret = mcrypt_SHA384Sum(*pw, strlen(*pw));
 			break;
+#endif
+#ifdef HAVE_SHA256_UPDATE
 		case 256:
 			mret = mcrypt_SHA256Sum(*pw, strlen(*pw));
 			break;
+#endif
+#ifdef HAVE_SHA224_UPDATE
 		case 224:
 			mret = mcrypt_SHA224Sum(*pw, strlen(*pw));
 			break;
+#endif
 		default:
 			throw(ILLARG, "clients.sha2sum", "wrong number of bits "
 					"for SHA2 sum: %d", *bits);
@@ -505,6 +498,7 @@ str CLTsetPassword(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 }
 
 str CLTcheckPermission(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
+#ifdef HAVE_SHA1_UPDATE
 	str *usr = getArgReference_str(stk, pci, 1);
 	str *pw = getArgReference_str(stk, pci, 2);
 	str ch = "";
@@ -518,6 +512,13 @@ str CLTcheckPermission(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) 
 	msg = AUTHcheckCredentials(&id, cntxt, usr, &pwd, &ch, &algo);
 	free(pwd);
 	return msg;
+#else
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	throw(MAL, "mal.checkPermission", "Required digest algorithm SHA-1 missing");
+#endif
 }
 
 str CLTgetUsers(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
@@ -539,7 +540,7 @@ str CLTgetUsers(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 str
 CLTshutdown(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	str *ret  = getArgReference_str(stk,pci,0);
-	int delay = *getArgReference_int(stk,pci,1);
+	int delay;
 	bit force = FALSE;
 	int leftover;
 	char buf[1024]={"safe to stop last connection"};
@@ -550,11 +551,14 @@ CLTshutdown(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	(void) mb;
 	switch( getArgType(mb,pci,1)){
 	case TYPE_bte:
+		delay = *getArgReference_bte(stk,pci,1);
+		break;
 	case TYPE_sht:
 		delay = *getArgReference_sht(stk,pci,1);
 		break;
 	default:
 		delay = *getArgReference_int(stk,pci,1);
+		break;
 	}
 
 	if ( cntxt->user != mal_clients[0].user)
@@ -591,12 +595,12 @@ CLTsessions(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) cntxt;
 	(void) mb;
 
-	user = BATnew(TYPE_void, TYPE_str, 0, TRANSIENT);
-	login = BATnew(TYPE_void, TYPE_timestamp, 0, TRANSIENT);
-	stimeout = BATnew(TYPE_void, TYPE_lng, 0, TRANSIENT);
-	last = BATnew(TYPE_void, TYPE_timestamp, 0, TRANSIENT);
-	qtimeout = BATnew(TYPE_void, TYPE_lng, 0, TRANSIENT);
-	active = BATnew(TYPE_void, TYPE_bit, 0, TRANSIENT);
+	user = COLnew(0, TYPE_str, 0, TRANSIENT);
+	login = COLnew(0, TYPE_timestamp, 0, TRANSIENT);
+	stimeout = COLnew(0, TYPE_lng, 0, TRANSIENT);
+	last = COLnew(0, TYPE_timestamp, 0, TRANSIENT);
+	qtimeout = COLnew(0, TYPE_lng, 0, TRANSIENT);
+	active = COLnew(0, TYPE_bit, 0, TRANSIENT);
 	if ( user == NULL || login == NULL || stimeout == NULL || qtimeout == NULL || active == NULL){
 		if ( user) BBPunfix(user->batCacheid);
 		if ( login) BBPunfix(login->batCacheid);
@@ -606,12 +610,6 @@ CLTsessions(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if ( active) BBPunfix(active->batCacheid);
 		throw(SQL,"sql.sessions",MAL_MALLOC_FAIL);
 	}
-	BATseqbase(user,0);
-	BATseqbase(login,0);
-	BATseqbase(stimeout,0);
-	BATseqbase(last,0);
-	BATseqbase(qtimeout,0);
-	BATseqbase(active,0);
 	
     MT_lock_set(&mal_contextLock);
 	

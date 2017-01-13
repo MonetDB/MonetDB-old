@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* (author) M. Kersten */
@@ -28,7 +28,6 @@ int have_hge;
 #include "mal_namespace.h"  /* for initNamespace() */
 #include "mal_client.h"
 #include "mal_sabaoth.h"
-#include "mal_recycle.h"
 #include "mal_dataflow.h"
 #include "mal_profiler.h"
 #include "mal_private.h"
@@ -99,7 +98,6 @@ int mal_init(void){
 	initHeartbeat();
 #endif
 	initResource();
-	RECYCLEinit();
 	if( malBootstrap() == 0)
 		return -1;
 	/* set up the profiler if needed, output sent to console */
@@ -126,7 +124,6 @@ void mserver_reset(void)
 	setHeartbeat(-1);
 	stopProfiler();
 	QOTstatisticsExit();
-	RECYCLEdrop(mal_clients); 
 	AUTHreset(); 
 	if ((err = msab_wildRetreat()) != NULL) {
 		fprintf(stderr, "!%s", err);
@@ -144,14 +141,18 @@ void mserver_reset(void)
 	mal_factory_reset();
 	mal_dataflow_reset();
 	THRdel(mal_clients->mythread);
-	GDKreset(0);	// terminate all other threads
+	GDKfree(mal_clients->errbuf);
+	mal_clients->fdin->s = NULL;
+	bstream_destroy(mal_clients->fdin);
+	GDKfree(mal_clients->prompt);
+	GDKfree(mal_clients->username);
+	freeStack(mal_clients->glb);
+	freeSymbol(mal_clients->curprg);
 	mal_client_reset();
-	mal_module_reset();
-	mal_module_reset();
   	mal_linker_reset();
 	mal_resource_reset();
 	mal_runtime_reset();
-	mal_scenario_reset();
+	mal_module_reset();
 
 	memset((char*)monet_cwd,0, sizeof(monet_cwd));
 	monet_memory = 0;
@@ -159,6 +160,7 @@ void mserver_reset(void)
 	mal_trace = 0;
 	/* No need to clean up the namespace, it will simply be extended
 	 * upon restart mal_namespace_reset(); */
+	GDKreset(0);	// terminate all other threads
 }
 
 

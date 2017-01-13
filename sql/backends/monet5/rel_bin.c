@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -419,6 +419,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			stmt *orderby = NULL;
 			stmt *col = NULL;
 		
+			assert(0);
 			if (exps) {
 				for (en = exps->h; en; en = en->next) {
 					stmt *es;
@@ -479,6 +480,9 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			s = stmt_mirror(sql->sa, l->h->data);
 		else
 		*/
+		if (f->func->rel) 
+			s = stmt_func(sql->sa, stmt_list(sql->sa, l), sa_strdup(sql->sa, f->func->base.name), f->func->rel, (f->func->type == F_UNION));
+		else
 			s = stmt_Nop(sql->sa, stmt_list(sql->sa, l), e->f); 
 	} 	break;
 	case e_aggr: {
@@ -888,11 +892,8 @@ sql_convert_arg(mvc *sql, int nr, sql_subtype *rt)
 
 	if (atom_null(a)) {
 		if (a->data.vtype != rt->type->localtype) {
-			ptr p;
-
 			a->data.vtype = rt->type->localtype;
-			p = ATOMnilptr(a->data.vtype);
-			VALset(&a->data, a->data.vtype, p);
+			VALset(&a->data, a->data.vtype, (ptr) ATOMnilptr(a->data.vtype));
 		}
 	}
 	a->tpe = *rt;
@@ -915,7 +916,7 @@ inplace_convert(mvc *sql, sql_subtype *ct, stmt *s)
 		return s;
 
 	a = sql_bind_arg(sql, s->flag);
-	if (atom_cast(a, ct)) {
+	if (atom_cast(sql->sa, a, ct)) {
 		stmt *r = stmt_varnr(sql->sa, s->flag, ct);
 		sql_convert_arg(sql, s->flag, ct);
 		return r;
@@ -1425,8 +1426,18 @@ rel2bin_table( mvc *sql, sql_rel *rel, list *refs)
 				s = stmt_alias(sql->sa, s, rnme, a->name);
 				list_append(l, s);
 			}
+			if (list_length(f->res) == list_length(f->func->res) + 1) {
+				/* add missing %TID% column */
+				sql_subtype *t = f->res->t->data;
+				stmt *s = stmt_rs_column(sql->sa, psub, i, t); 
+				const char *rnme = exp_find_rel_name(op);
+	
+				s = stmt_alias(sql->sa, s, rnme, TID);
+				list_append(l, s);
+			}
 		}
-		if (!rel->flag && sub && sub->nrcols) { /* add sub, table func with table input, we expect alignment */
+		if (!rel->flag && sub && sub->nrcols) { 
+			assert(0);
 			list_merge(l, sub->op4.lval, NULL);
 			osub = sub;
 		}
@@ -1439,7 +1450,7 @@ rel2bin_table( mvc *sql, sql_rel *rel, list *refs)
 
 		l = rel2bin_args(sql, rel->l, sa_list(sql->sa));
 		sub = stmt_list(sql->sa, l);
-		sub = stmt_func(sql->sa, sub, sa_strdup(sql->sa, nme), rel->l);
+		sub = stmt_func(sql->sa, sub, sa_strdup(sql->sa, nme), rel->l, 0);
 		l = sa_list(sql->sa);
 		for(i = 0, n = rel->exps->h; n; n = n->next, i++ ) {
 			sql_exp *c = n->data;
@@ -1790,6 +1801,10 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 				assert(0);
 				return NULL;
 			}
+			if (s->nrcols == 0) {
+				stmt *l = bin_first_column(sql->sa, sub);
+				s = stmt_uselect(sql->sa, stmt_const(sql->sa, l, stmt_bool(sql->sa, 1)), s, cmp_equal, sel);
+			}
 			sel = s;
 		}
 		/* recreate join output */
@@ -1883,8 +1898,10 @@ rel2bin_semijoin( mvc *sql, sql_rel *rel, list *refs)
 				break;
 
 			s = exp_bin(sql, en->data, left, right, NULL, NULL, NULL, NULL);
-			if (!s) 
+			if (!s) {
+				assert(0);
 				return NULL;
+			}
 			if (join_idx != sql->opt_stats[0])
 				idx = 1;
 			/* stop on first non equality join */
@@ -1911,11 +1928,11 @@ rel2bin_semijoin( mvc *sql, sql_rel *rel, list *refs)
 		join = stmt_join(sql->sa, l, r, cmp_all); 
 	}
 	jl = stmt_result(sql->sa, join, 0);
-	jr = stmt_result(sql->sa, join, 1);
 	if (en) {
 		stmt *sub, *sel = NULL;
 		list *nl;
 
+		jr = stmt_result(sql->sa, join, 1);
 		/* construct relation */
 		nl = sa_list(sql->sa);
 
@@ -4665,4 +4682,227 @@ output_rel_bin(mvc *sql, sql_rel *rel )
 	if (!is_ddl(rel->op) && s && s->type != st_none && sql->type == Q_TABLE)
 		s = stmt_output(sql->sa, s);
 	return s;
+}
+
+static int exp_deps(sql_allocator *sa, sql_exp *e, list *refs, list *l);
+
+static int
+exps_deps(sql_allocator *sa, list *exps, list *refs, list *l)
+{
+	node *n;
+
+	for(n = exps->h; n; n = n->next) {
+		if (exp_deps(sa, n->data, refs, l) != 0)
+			return -1;
+	}
+	return 0;
+}
+
+static int
+id_cmp(int *id1, int *id2)
+{
+	if (*id1 == *id2)
+		return 0;
+	return -1;
+}
+
+static list *
+cond_append(list *l, int *id)
+{
+	if (*id >= 2000 && !list_find(l, id, (fcmp) &id_cmp))
+		 list_append(l, id);
+	return l;
+}
+
+static int rel_deps(sql_allocator *sa, sql_rel *r, list *refs, list *l);
+
+static int
+exp_deps(sql_allocator *sa, sql_exp *e, list *refs, list *l)
+{
+	switch(e->type) {
+	case e_psm:
+		if (e->flag & PSM_SET || e->flag & PSM_RETURN) {
+			return exp_deps(sa, e->l, refs, l);
+		} else if (e->flag & PSM_VAR) {
+			return 0;
+		} else if (e->flag & PSM_WHILE || e->flag & PSM_IF) {
+			if (exp_deps(sa, e->l, refs, l) != 0 ||
+		            exps_deps(sa, e->r, refs, l) != 0)
+				return -1;
+			if (e->flag == PSM_IF && e->f)
+		            return exps_deps(sa, e->r, refs, l);
+		} else if (e->flag & PSM_REL) {
+			sql_rel *rel = e->l;
+			rel_deps(sa, rel, refs, l);
+		}
+	case e_atom: 
+	case e_column: 
+		break;
+	case e_convert: 
+		return exp_deps(sa, e->l, refs, l);
+	case e_func: {
+			sql_subfunc *f = e->f;
+
+			if (e->l && exps_deps(sa, e->l, refs, l) != 0)
+				return -1;
+			cond_append(l, &f->func->base.id);
+		} break;
+	case e_aggr: {
+			sql_subaggr *a = e->f;
+
+			if (e->l &&exps_deps(sa, e->l, refs, l) != 0)
+				return -1;
+			cond_append(l, &a->aggr->base.id);
+		} break;
+	case e_cmp: {
+			if (e->flag == cmp_or || get_cmp(e) == cmp_filter) {
+				if (get_cmp(e) == cmp_filter) {
+					sql_subfunc *f = e->f;
+					cond_append(l, &f->func->base.id);
+				}
+				if (exps_deps(sa, e->l, refs, l) != 0 ||
+			    	    exps_deps(sa, e->r, refs, l) != 0)
+					return -1;
+			} else if (e->flag == cmp_in || e->flag == cmp_notin) {
+				if (exp_deps(sa, e->l, refs, l) != 0 ||
+			            exps_deps(sa, e->r, refs, l) != 0)
+					return -1;
+			} else {
+				if (exp_deps(sa, e->l, refs, l) != 0 ||
+				    exp_deps(sa, e->r, refs, l) != 0)
+					return -1;
+				if (e->f)
+					return exp_deps(sa, e->f, refs, l);
+			}
+		}	break;
+	}
+	return 0;
+}
+
+static int
+rel_deps(sql_allocator *sa, sql_rel *r, list *refs, list *l)
+{
+	if (THRhighwater())
+		return -1;
+	if (!r)
+		return 0;
+
+	if (rel_is_ref(r) && refs_find_rel(refs, r)) /* allready handled */
+		return 0;
+	switch (r->op) {
+	case op_basetable: {
+		sql_table *t = r->l;
+		sql_column *c = r->r;
+
+		if (!t && c)
+			t = c->t;
+		cond_append(l, &t->base.id);
+		if (isTable(t)) {
+			/* find all used columns */
+			node *en;
+			for( en = r->exps->h; en; en = en->next ) {
+				sql_exp *exp = en->data;
+				const char *oname = exp->r;
+
+				if (is_func(exp->type)) {
+					list *exps = exp->l;
+					sql_exp *cexp = exps->h->data;
+					const char *cname = cexp->r;
+
+		       			c = find_sql_column(t, cname);
+					cond_append(l, &c->base.id);
+				} else if (oname[0] == '%' && strcmp(oname, TID) == 0) {
+					continue;
+				} else if (oname[0] == '%') { 
+					sql_idx *i = find_sql_idx(t, oname+1);
+
+					cond_append(l, &i->base.id);
+				} else {
+					sql_column *c = find_sql_column(t, oname);
+					cond_append(l, &c->base.id);
+				}
+			}
+		}
+	}	break;
+	case op_table:
+		/* */ 
+		break;
+	case op_join: 
+	case op_left: 
+	case op_right: 
+	case op_full: 
+	case op_semi:
+	case op_anti:
+	case op_union: 
+	case op_except: 
+	case op_inter: 
+		if (rel_deps(sa, r->l, refs, l) != 0 ||
+		    rel_deps(sa, r->r, refs, l) != 0)
+			return -1;
+		break;
+	case op_apply:
+		//assert(0);
+		break;
+	case op_project:
+	case op_select: 
+	case op_groupby: 
+	case op_topn: 
+	case op_sample:
+		if (rel_deps(sa, r->l, refs, l) != 0)
+			return -1;
+		break;
+	case op_insert: 
+	case op_update: 
+	case op_delete: 
+		if (rel_deps(sa, r->l, refs, l) != 0 ||
+		    rel_deps(sa, r->r, refs, l) != 0)
+			return -1;
+		break;
+	case op_ddl:
+		if (r->flag == DDL_OUTPUT) {
+			if (r->l)
+				return rel_deps(sa, r->l, refs, l);
+		} else if (r->flag <= DDL_LIST) {
+			if (r->l)
+				return rel_deps(sa, r->l, refs, l);
+			if (r->r)
+				return rel_deps(sa, r->r, refs, l);
+		} else if (r->flag <= DDL_PSM) {
+			exps_deps(sa, r->exps, refs, l);
+		} else if (r->flag <= DDL_ALTER_SEQ) {
+			if (r->l)
+				return rel_deps(sa, r->l, refs, l);
+		} else if (r->flag <= DDL_DROP_SEQ) {
+			exps_deps(sa, r->exps, refs, l);
+		} else if (r->flag <= DDL_TRANS) {
+			exps_deps(sa, r->exps, refs, l);
+		} else if (r->flag <= DDL_DROP_SCHEMA) {
+			exps_deps(sa, r->exps, refs, l);
+		} else if (r->flag <= DDL_ALTER_TABLE) {
+			exps_deps(sa, r->exps, refs, l);
+		} else if (r->flag <= DDL_ALTER_TABLE_SET_ACCESS) {
+			exps_deps(sa, r->exps, refs, l);
+		}
+		break;
+	}
+	if (r->exps)
+		exps_deps(sa, r->exps, refs, l);
+	if (is_groupby(r->op) && r->r)
+		exps_deps(sa, r->r, refs, l);
+	if (rel_is_ref(r)) {
+		list_append(refs, r);
+		list_append(refs, l);
+	}
+	return 0;
+}
+
+list *
+rel_dependencies(sql_allocator *sa, sql_rel *r)
+{
+	list *refs = sa_list(sa);
+	list *l = sa_list(sa);
+
+	if (rel_deps(sa, r, refs, l) != 0)
+		return NULL;
+	return l;
 }

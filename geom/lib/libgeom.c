@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -113,10 +113,10 @@ wkb2geos(wkb *geomWKB)
 	if (wkb_isnil(geomWKB))
 		return NULL;
 
-	geosGeometry = GEOSGeomFromWKB_buf((unsigned char *) ((geomWKB)->data), (geomWKB)->len);
+	geosGeometry = GEOSGeomFromWKB_buf((unsigned char *) geomWKB->data, geomWKB->len);
 
 	if (geosGeometry != NULL)
-		GEOSSetSRID(geosGeometry, (geomWKB)->srid);
+		GEOSSetSRID(geosGeometry, geomWKB->srid);
 
 	return geosGeometry;
 }

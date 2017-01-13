@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -28,19 +28,19 @@ OPTconstantsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	int i,k=1, n=0, fnd=0, actions=0;
 	int *alias, *index;
 	VarPtr x,y, *cst;
+	char buf[256];
+	lng usec = GDKusec();
 
-	OPTDEBUGconstants mnstr_printf(cntxt->fdout,"#OPT_CONSTANTS: MATCHING CONSTANTS ELEMENTS\n");
+#ifdef DEBUG_OPT_CONSTANTS
+	mnstr_printf(cntxt->fdout,"#OPT_CONSTANTS: MATCHING CONSTANTS ELEMENTS\n");
+#endif
 
 	alias= (int*) GDKzalloc(sizeof(int) * mb->vtop);
 	cst= (VarPtr*) GDKzalloc(sizeof(VarPtr) * mb->vtop);
 	index= (int*) GDKzalloc(sizeof(int) * mb->vtop);
 
-	if ( alias == NULL || cst == NULL || index == NULL){
-		if( alias) GDKfree(alias);
-		if( cst) GDKfree(cst);
-		if( index) GDKfree(index);
-		return 0;
-	}
+	if ( alias == NULL || cst == NULL || index == NULL)
+		goto wrapup;
 
 	(void) stk;
 	(void) cntxt;
@@ -58,11 +58,11 @@ OPTconstantsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 					 x->rowcnt == y->rowcnt &&
 					 x->value.vtype == y->value.vtype &&
 					ATOMcmp(x->value.vtype, VALptr(&x->value), VALptr(&y->value)) == 0){
-					OPTDEBUGconstants {
-						mnstr_printf(cntxt->fdout,"#opt_constants: matching elements %s %d %d ", getVarName(mb,i), i,k);
-						ATOMprint(x->value.vtype,VALptr(&x->value),cntxt->fdout);
-						mnstr_printf(cntxt->fdout,"\n");
-					}
+#ifdef DEBUG_OPT_CONSTANTS
+					mnstr_printf(cntxt->fdout,"#opt_constants: matching elements %s %d %d ", getVarName(mb,i), i,k);
+					ATOMprint(x->value.vtype,VALptr(&x->value),cntxt->fdout);
+					mnstr_printf(cntxt->fdout,"\n");
+#endif
 					/* re-use a constant */
 					alias[i]= index[k];
 					fnd=1;
@@ -71,7 +71,9 @@ OPTconstantsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 				}
 			}
 			if ( fnd == 0){
-				OPTDEBUGconstants mnstr_printf(cntxt->fdout,"swith elements %d %d\n", i,n);
+#ifdef DEBUG_OPT_CONSTANTS
+				mnstr_printf(cntxt->fdout,"swith elements %d %d\n", i,n);
+#endif
 				cst[n]= x;
 				index[n]= i;
 				n++;
@@ -84,8 +86,19 @@ OPTconstantsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 			for (k=0; k < p->argc; k++)
 				getArg(p,k) = alias[getArg(p,k)];
 		}
-	GDKfree(alias);
-	GDKfree(cst);
-	GDKfree(index);
+    /* Defense line against incorrect plans */
+	/* Plan remains unaffected */
+	//chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+	//chkFlow(cntxt->fdout, mb);
+	//chkDeclarations(cntxt->fdout, mb);
+    
+    /* keep all actions taken as a post block comment */
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","constants",actions,GDKusec() - usec);
+    newComment(mb,buf);
+
+wrapup:
+	if( alias) GDKfree(alias);
+	if( cst) GDKfree(cst);
+	if( index) GDKfree(index);
 	return actions;
 }

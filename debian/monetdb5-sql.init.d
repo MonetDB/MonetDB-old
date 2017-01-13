@@ -4,7 +4,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 ### BEGIN INIT INFO
 # Provides:          mserver5-sql
@@ -37,16 +37,16 @@ set -e
 init() {
     if [ ! -d ${DBFARM} ]; then
         mkdir ${DBFARM}
-		echo "${DBFARM} doesn't exist, creating..."
+	echo "${DBFARM} doesn't exist, creating..."
     fi
 
-	chown -R monetdb.monetdb ${DBFARM}
-	chmod 770 ${DBFARM}
+    chown -R monetdb.monetdb ${DBFARM}
+    chmod 770 ${DBFARM}
 
-	if [ ! -f ${DBFARM}/.merovingian_properties ]; then
-		echo "${DBFARM} not initialized, initializing..."
-		sudo -u monetdb ${DAEMON} create ${DBFARM} || exit 1
-	fi
+    if [ ! -f ${DBFARM}/.merovingian_properties ]; then
+	echo "${DBFARM} not initialized, initializing..."
+	sudo -u monetdb ${DAEMON} create ${DBFARM} || exit 1
+    fi
 }
 
 running_pid() {
@@ -70,42 +70,41 @@ running() {
 }
 
 case "$1" in
-  start)
-        if [ "$STARTUP" != "yes" ]; then
-            echo "can't start, should be enabled first by changing STARTUP to yes in /etc/default/monetdb5-sql"
-            exit 0
-        fi
+start)
+    if [ "$STARTUP" != "yes" ]; then
+        echo "can't start, should be enabled first by changing STARTUP to yes in /etc/default/monetdb5-sql"
+        exit 0
+    fi
 
-        if running; then
-            echo "$NAME is already running"
-            exit 0
-        fi
+    if running; then
+        echo "$NAME is already running"
+        exit 0
+    fi
 
-        init
+    init
 
-        echo -n "Starting $DESC: "
-        start-stop-daemon --start --exec $DAEMON -c monetdb:monetdb -- start $DAEMON_OPTS $DBFARM
-        if running ; then
-            echo "$NAME."
-        else
-            echo " ERROR, $NAME didn't start"
-        fi
-        ;;
-  stop)
-        if running ;  then
-            echo -n "Stopping $DESC: "
-            start-stop-daemon --stop --pidfile $PIDFILE --exec $DAEMON -c monetdb:monetdb -- stop ${DBFARM}
-            echo "$NAME."
-		else
-			echo "$NAME not running."
-        fi
-        ;;
-  restart)
-        $0 stop
-        sleep 5
-        $0 start
-        ;;
-  status)
+    echo -n "Starting $DESC: "
+    start-stop-daemon --start --exec $DAEMON -c monetdb:monetdb -- start $DAEMON_OPTS $DBFARM
+    if running ; then
+        echo "$NAME."
+    else
+        echo " ERROR, $NAME didn't start"
+    fi
+    ;;
+stop)
+    if running ;  then
+        echo -n "Stopping $DESC: "
+        start-stop-daemon --stop --pidfile $PIDFILE --exec $DAEMON --retry 60 --signal TERM
+        echo "$NAME."
+    else
+	echo "$NAME not running."
+    fi
+    ;;
+restart)
+    $0 stop
+    $0 start
+    ;;
+status)
     echo -n "$NAME is "
     if running ;  then
         echo "running"
@@ -114,7 +113,7 @@ case "$1" in
         exit 1
     fi
     ;;
-  *)
+*)
     echo "Usage: $0 {start|stop|restart|status}" >&2
     exit 1
     ;;

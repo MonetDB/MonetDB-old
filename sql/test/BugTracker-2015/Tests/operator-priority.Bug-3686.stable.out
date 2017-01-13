@@ -26,9 +26,9 @@ Ready.
 # 14:43:25 >  
 
 #select 12*5/3;
-% .L # table_name
-% sql_mul_single_value # name
-% smallint # type
+% .L1 # table_name
+% L1 # name
+% tinyint # type
 % 2 # length
 [ 20	]
 

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -17,7 +17,7 @@
 #endif
 
 void
-parse_dotmonetdb(char **user, char **passwd, char **language, int *save_history, char **output, int *pagewidth)
+parse_dotmonetdb(char **user, char **passwd, char **dbname, char **language, int *save_history, char **output, int *pagewidth)
 {
 	char *cfile;
 	FILE *config = NULL;
@@ -52,6 +52,8 @@ parse_dotmonetdb(char **user, char **passwd, char **language, int *save_history,
 		*user = NULL;
 	if (passwd)
 		*passwd = NULL;
+	if (dbname)
+		*dbname = NULL;
 	if (language)
 		*language = NULL;
 	if (output)
@@ -87,6 +89,10 @@ parse_dotmonetdb(char **user, char **passwd, char **language, int *save_history,
 			} else if (strcmp(buf, "password") == 0) {
 				if (passwd)
 					*passwd = strdup(q);
+				q = NULL;
+			} else if (strcmp(buf, "database") == 0) {
+				if (dbname)
+					*dbname = strdup(q);
 				q = NULL;
 			} else if (strcmp(buf, "language") == 0) {
 				/* make sure we don't set garbage */

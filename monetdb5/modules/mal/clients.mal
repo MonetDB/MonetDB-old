@@ -2,7 +2,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 module clients;
 
@@ -13,10 +13,6 @@ comment "Turn on/off echo of MAL instructions:
 	2 - show mal instruction,
 	4 - show details of type resolutoin, 
 	8 - show binding information.";
-
-pattern setHistory(s:str)
-address CLTsetHistory
-comment "Designate console history file for readline.";
 
 pattern getId():int
 address CLTgetClientId
@@ -84,7 +80,7 @@ pattern settimeout(n:lng):void
 address CLTsetTimeout
 comment "Abort a query after  n seconds.";
 
-pattern setTimeout(q:lng,s:lng):void
+pattern settimeout(q:lng,s:lng):void
 address CLTsetTimeout
 comment "Abort a query after q seconds (q=0 means run undisturbed).
 The session timeout aborts the connection after spending too

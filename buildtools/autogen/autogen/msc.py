@@ -2,11 +2,12 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 import string
 import os
 import re
+from filesplit import rsplit_filename, split_filename, automake_ext
 
 # the text that is put at the top of every generated Makefile.msc
 MAKEFILE_HEAD = '''
@@ -15,23 +16,6 @@ MAKEFILE_HEAD = '''
 # Nothing much configurable below
 
 '''
-
-automake_ext = ['c', 'h', 'tab.c', 'tab.h', 'yy.c', 'pm.i', '']
-
-def split_filename(f):
-    base = f
-    ext = ""
-    if f.find(".") >= 0:
-        return f.split(".", 1)
-    return base, ext
-
-def rsplit_filename(f):
-    base = f
-    ext = ""
-    s = f.rfind(".")
-    if s >= 0:
-        return f[:s], f[s+1:]
-    return base, ext
 
 def msc_basename(f):
     # return basename (i.e. just the file name part) of a path, no
@@ -350,7 +334,7 @@ def msc_dep(fd, tar, deplist, msc):
         if target == "LIB":
             d, dext = split_filename(deplist[0])
             if dext in ("c", "yy.c", "tab.c"):
-                fd.write('\t$(CC) $(CFLAGS) $(%s_CFLAGS) $(GENDLL) -D_CRT_SECURE_NO_WARNINGS -DLIB%s -Fo"%s" -c "%s"\n' %
+                fd.write('\t$(CC) $(CFLAGS) $(%s_CFLAGS) $(GENDLL) -D_CRT_SECURE_NO_WARNINGS -DLIB%s "-Fo%s" -c "%s"\n' %
                          (split_filename(msc_basename(src))[0], name, t, src))
     if ext == 'res':
         fd.write("\t$(RC) -fo%s %s\n" % (t, src))
@@ -872,84 +856,6 @@ def msc_includes(fd, var, values, msc):
                    + msc_add_srcdir(i, msc, " -I")
     fd.write("INCLUDES = " + incs + "\n")
 
-def msc_python_generic(fd, var, python, msc, PYTHON):
-    pyre = re.compile(r'packages *= *\[ *(.*[^ ]) *\]')
-    for f in python['FILES']:
-        msc['SCRIPTS'].append('target_python_%s' % f)
-        srcs = map(lambda x: x.strip('\'" ').replace('.', '\\'),
-                   pyre.search(open(os.path.join(msc['cwd'], f)).read()).group(1).split(', '))
-        fd.write('target_python_%s: %s README.rst %s\n' % (f, ' '.join(srcs), f))
-        fd.write('\t$(%s) %s build\n' % (PYTHON, f))
-        for src in srcs:
-            fd.write('%s: "$(srcdir)\\%s"\n' % (src, src))
-            fd.write('\tif not exist "%s" $(MKDIR) "%s"\n' % (src, src))
-            fd.write('\t$(INSTALL) "$(srcdir)\\%s"\\*.py "%s"\n' % (src, src))
-        fd.write('%s: "$(srcdir)\\%s"\n' % (f, f))
-        fd.write('\t$(INSTALL) "$(srcdir)\\%s" "%s"\n' % (f, f))
-        fd.write('README.rst: "$(srcdir)\\README.rst"\n')
-        fd.write('\t$(INSTALL) "$(srcdir)\\README.rst" "README.rst"\n')
-        msc['INSTALL'][f] = f, '', '', '', ''
-        fd.write('install_%s:\n' % f)
-        fd.write('\t$(%s) %s install --prefix "$(prefix)" --install-lib "$(prefix)\\lib\\%s\n' % (PYTHON, f, PYTHON.lower()))
-
-def msc_python2(fd, var, python, msc):
-    msc_python_generic(fd, var, python, msc, 'PYTHON2')
-
-def msc_python3(fd, var, python3, msc):
-    msc_python_generic(fd, var, python3, msc, 'PYTHON3')
-
-callantno = 0
-def msc_ant(fd, var, ant, msc):
-    global callantno
-
-    target = var[4:]                    # the ant target to call
-
-    jd = "JAVADIR"
-    if "DIR" in ant:
-        jd = ant["DIR"][0] # use first name given
-    jd = msc_translate_dir(jd, msc)
-
-    if "SOURCES" in ant:
-        for src in ant['SOURCES']:
-            msc['EXTRA_DIST'].append(src)
-
-    if 'COND' in ant:
-        condname = 'defined(' + ') && defined('.join(ant['COND']) + ')'
-        condname = 'defined(HAVE_JAVA) && ' + condname
-    else:
-        condname = 'defined(HAVE_JAVA)'
-    fd.write("\n!IF %s\n\n" % condname) # there is ant if configure set HAVE_JAVA
-
-    # we create a bat file that contains the call to ant so that we
-    # can get hold of the full path name of the current working
-    # directory
-    fd.write("callant%d.bat:\n" % callantno)
-    fd.write("\techo @set thisdir=%%~dp0>callant%d.bat\n" % callantno)
-    fd.write("\techo @set thisdir=%%thisdir:~0,-1%%>>callant%d.bat\n" % callantno)
-    fd.write("\techo @$(ANT) -f $(srcdir)\\build.xml \"-Dbuilddir=%%thisdir%%\\%s\" \"-Djardir=%%thisdir%%\" %s>>callant%d.bat\n" % (target, target, callantno))
-    fd.write("%s_ant_target: callant%d.bat\n" % (target, callantno))
-    fd.write("\tcallant%d.bat\n" % callantno)
-    callantno = callantno + 1
-
-
-    # install is done at the end, here we simply collect to be installed files
-    # INSTALL expects a list of dst,src,ext,install_directory,'lib?'.
-    for file in ant['FILES']:
-        sfile = file.replace(".", "_")
-        fd.write('%s: %s_ant_target\n' % (file, target))
-        msc['INSTALL'][file] = file, '', jd, '', condname
-
-    fd.write("\n!ELSE\n\n")
-
-    fd.write('%s:\n' % file)
-    fd.write('install_%s:\n' % file)
-    fd.write("%s_ant_target:\n" % target)
-
-    fd.write("\n!ENDIF #%s\n\n" % condname)
-
-    # make sure the jars and classes get made
-    msc['SCRIPTS'].append(target + '_ant_target')
-
 output_funcs = {'SUBDIRS': msc_subdirs,
                 'EXTRA_DIST': msc_extra_dist,
                 'EXTRA_HEADERS': msc_extra_headers,
@@ -965,9 +871,6 @@ output_funcs = {'SUBDIRS': msc_subdirs,
                 'smallTOC_SHARED_MODS': msc_mods_to_libs,
                 'largeTOC_SHARED_MODS': msc_mods_to_libs,
                 'HEADERS': msc_headers,
-                'ANT': msc_ant,
-                'PYTHON2': msc_python2,
-                'PYTHON3': msc_python3,
                 }
 
 def output(tree, cwd, topdir):

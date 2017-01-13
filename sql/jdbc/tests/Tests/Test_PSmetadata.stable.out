@@ -62,7 +62,7 @@ Ready.
 	precision     8
 	scale         0
 	schemaname    
-	tablename     L
+	tablename     L2
 	autoincrement false
 	casesensitive false
 	currency      false
@@ -144,7 +144,7 @@ Ready.
 	schemaname    
 	tablename     table_test_psmetadata
 	autoincrement false
-	casesensitive false
+	casesensitive true
 	currency      false
 	defwritable   false
 	nullable      2
@@ -164,7 +164,7 @@ Ready.
 	schemaname    
 	tablename     table_test_psmetadata
 	autoincrement false
-	casesensitive false
+	casesensitive true
 	currency      false
 	defwritable   false
 	nullable      2

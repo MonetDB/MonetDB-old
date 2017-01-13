@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -272,6 +272,7 @@ newSelectNode(sql_allocator *sa, int distinct, struct dlist *selection, struct d
 	if (s) {
 		symbol_init(s, SQL_SELECT, type_symbol);
 		sn->distinct = distinct;
+		sn->lateral = 0;
 		sn->limit = limit;
 		sn->offset = offset;
 		sn->sample = sample;
@@ -381,6 +382,7 @@ SelectNodeCmp(SelectNode *s1, SelectNode *s2)
 			symbol_cmp(s1->offset, s2->offset) == 0 &&
 			symbol_cmp(s1->sample, s2->sample) == 0 &&
 			s1->distinct == s2->distinct &&
+			s1->lateral == s2->lateral &&
 			symbol_cmp(s1->name, s2->name) == 0 &&
 			symbol_cmp(s1->orderby, s2->orderby) == 0 &&
 			symbol_cmp(s1->having, s2->having) == 0 &&

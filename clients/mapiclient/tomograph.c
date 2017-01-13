@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* (c) M Kersten, S Manegold
@@ -1643,7 +1643,7 @@ main(int argc, char **argv)
 	};
 
 	/* parse config file first, command line options override */
-	parse_dotmonetdb(&user, &password, NULL, NULL, NULL, NULL);
+	parse_dotmonetdb(&user, &password, &dbname, NULL, NULL, NULL, NULL);
 
 	if( argc == 1){
 		usageTomograph();
@@ -1669,7 +1669,9 @@ main(int argc, char **argv)
 			debug = 1;
 			break;
 		case 'd':
-			prefix = dbname = optarg;
+			if (dbname)
+				free(dbname);
+			prefix = dbname = strdup(optarg);
 			break;
 		case 'i':
 			inputfile = optarg;
@@ -1877,6 +1879,9 @@ main(int argc, char **argv)
 		resetTomograph();
 		conn = mapi_get_from(dbh);
 		while ((m = mnstr_read(conn, buffer + len, 1, buflen - len-1)) >= 0) {
+			if (m == 0 &&
+			    (m = mnstr_read(conn, buffer + len, 1, buflen - len-1)) <= 0)
+				break;
 			buffer[len + m] = 0;
 			response = buffer;
 			while ((e = strchr(response, '\n')) != NULL) {

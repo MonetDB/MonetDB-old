@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -227,7 +227,6 @@ parse_interval(mvc *sql, lng sign, char *str, int sk, int ek, int sp, int ep, ln
 		return -1;
 	if (sk == isec) {
 		int msec = 0;
-		val *= 1000;
 		if (n && n[0] == '.') {
 			char *nn;
 			msec = strtol(n+1, &nn, 10);
@@ -240,6 +239,13 @@ parse_interval(mvc *sql, lng sign, char *str, int sk, int ek, int sp, int ep, ln
 				n = nn;
 			}
 		}
+		if (val > GDK_lng_max / 1000 ||
+		    (val == GDK_lng_max / 1000 && msec > GDK_lng_max % 1000)) {
+			if (sql)
+				snprintf(sql->errstr, ERRSIZE, _("Overflow\n"));
+			return -1;
+		}
+		val *= 1000;
 		val += msec;
 	}
 	val *= mul;

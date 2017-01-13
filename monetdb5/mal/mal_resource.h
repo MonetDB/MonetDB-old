@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #ifndef _MAL_RESOURCE_H
@@ -25,7 +25,7 @@
 mal_export int MALadmission(lng argclaim, lng hotclaim);
 #endif
 
-#define FAIRNESS_THRESHOLD MAX_DELAYS * DELAYUNIT
+#define FAIRNESS_THRESHOLD (MAX_DELAYS * DELAYUNIT)
 
 mal_export lng getMemoryClaim(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int i, int flag);
 mal_export void MALresourceFairness(lng usec);

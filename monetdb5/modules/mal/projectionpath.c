@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -15,7 +15,7 @@ ALGprojectionpath(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int i, top = 0;
 	bat *bid;
 	bat *r = getArgReference_bat(stk, pci, 0);
-	BAT *b, **joins = (BAT**)GDKmalloc(pci->argc*sizeof(BAT*)); 
+	BAT *b, **joins = (BAT**)GDKzalloc(pci->argc * sizeof(BAT*)); 
 	int error = 0;
 
 	(void) mb;
@@ -30,11 +30,10 @@ ALGprojectionpath(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if (b == NULL) {
 			error = 1;
 		} else {
-			joins[top++] = b;
-			if (!BAThdense(b) ||
-				(i + 1 < pci->argc && ATOMtype(b->ttype) != TYPE_oid)) {
+			if (i + 1 < pci->argc && ATOMtype(b->ttype) != TYPE_oid) {
 				error = 1;
 			}
+			else joins[top++] = b;
 		}
 		if (error) {
 			while (top-- > 0)

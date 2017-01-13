@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -23,19 +23,13 @@
 #include "mal_interpreter.h"
 #include "bat5.h"
 
-#ifdef WIN32
-#define transaction_export extern __declspec(dllexport)
-#else
-#define transaction_export extern
-#endif
-
-transaction_export str TRNglobal_sync(bit *ret);
-transaction_export str TRNglobal_abort(bit *ret);
-transaction_export str TRNglobal_commit(bit *ret);
-transaction_export str TRNtrans_clean(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
-transaction_export str TRNtrans_abort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
-transaction_export str TRNtrans_commit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
-transaction_export str TRNsubcommit(bit *ret, bat *bid);
+mal_export str TRNglobal_sync(bit *ret);
+mal_export str TRNglobal_abort(bit *ret);
+mal_export str TRNglobal_commit(bit *ret);
+mal_export str TRNtrans_clean(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+mal_export str TRNtrans_abort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+mal_export str TRNtrans_commit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+mal_export str TRNsubcommit(bit *ret, bat *bid);
 
 #include "mal_exception.h"
 str

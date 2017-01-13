@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* Author(s) Martin Kersten
@@ -36,31 +36,11 @@ optimizer_prelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	(void) mb;
 	(void) p;
 	updateScenario("mal", "MALoptimizer", (MALfcn) MALoptimizer);
+	optPipeInit();
 	optimizerInit();
 	return MAL_SUCCEED;
 }
 
-
-int debugOpt = 0;
-str
-QOTdebugOptimizers(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	(void) cntxt;
-	debugOptimizers(cntxt, mb, stk, pci);
-	debugOpt = 1;
-	return MAL_SUCCEED;
-}
-
-str
-QOTclrdebugOptimizers(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	(void) cntxt;
-	(void) mb;
-	(void) stk;
-	(void) pci;
-	debugOpt = 0;
-	return MAL_SUCCEED;
-}
 
 /*
  * MAL functions can be optimized explicitly using the routines below.

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -356,6 +356,13 @@ MT_lockf(char *filename, int mode, off_t off, off_t len)
 		ret = LockFileEx(fh, LOCKFILE_FAIL_IMMEDIATELY | LOCKFILE_EXCLUSIVE_LOCK, 0, len, 0, &ov);
 	} else if (mode == F_LOCK) {
 		ret = LockFileEx(fh, LOCKFILE_EXCLUSIVE_LOCK, 0, len, 0, &ov);
+	} else if (mode == F_TEST) {
+		ret = LockFileEx(fh, LOCKFILE_FAIL_IMMEDIATELY | LOCKFILE_EXCLUSIVE_LOCK, 0, len, 0, &ov);
+		if (ret != 0) {
+			UnlockFileEx(fh, 0, len, 0, &ov);
+			close(fd);
+			return 0;
+		}
 	} else {
 		close(fd);
 		errno = EINVAL;
@@ -408,6 +415,7 @@ lockf(int fd, int cmd, off_t len)
 #endif
 /* returns -1 when locking failed,
  * returns -2 when the lock file could not be opened/created
+ * returns 0 when mode is F_TEST and the lock file was not locked
  * returns the (open) file descriptor to the file when locking
  * returns 0 when unlocking */
 int
@@ -420,7 +428,7 @@ MT_lockf(char *filename, int mode, off_t off, off_t len)
 
 	if (lseek(fd, off, SEEK_SET) >= 0 &&
 	    lockf(fd, mode, len) == 0) {
-		if (mode == F_ULOCK) {
+		if (mode == F_ULOCK || mode == F_TEST) {
 			close(fd);
 			return 0;
 		}

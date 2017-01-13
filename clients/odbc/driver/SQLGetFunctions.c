@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -399,7 +399,7 @@ SQLGetFunctions(SQLHDBC ConnectionHandle,
 		UWORD *p;
 
 		for (p = FuncImplemented; p < &FuncImplemented[NFUNCIMPLEMENTED]; p++)
-			FuncExistMap[*p >> 4] |= 1 << (*p & 0xF);
+			FuncExistMap[*p >> 4] |= (UWORD) 1 << (*p & 0xF);
 	}
 
 	if (FunctionId == SQL_API_ODBC3_ALL_FUNCTIONS) {

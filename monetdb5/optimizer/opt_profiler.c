@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -55,6 +55,7 @@ OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	InstrPtr p;
 	char buf[BUFSIZ];
 	str v;
+	lng usec = GDKusec();
 
 	(void) pci;
 	(void) stk;
@@ -66,39 +67,74 @@ OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			continue;
 		if ( getModuleId(p) == NULL || getFunctionId(p) == NULL)
 			continue;
-		if( getModuleId(p)== sqlRef && getFunctionId(p)== bindRef){
+		if( getModuleId(p)== sqlRef && (getFunctionId(p)== bindRef || getFunctionId(p) == bindidxRef)){
 			// we know the arguments are constant
-			snprintf(buf, BUFSIZ, "%s.%s.%s", 
+			snprintf(getSTC(mb,getArg(p,0)),  2 * IDLENGTH, "%s.%s.%s", 
 				getVarConstant(mb, getArg(p,p->retc +1)).val.sval,
 				getVarConstant(mb, getArg(p,p->retc +2)).val.sval,
 				getVarConstant(mb, getArg(p,p->retc +3)).val.sval);
-				setSTC(mb, getArg(p,0),GDKstrdup(buf));
 		} else
 		if( getModuleId(p)== sqlRef && getFunctionId(p)== tidRef){
 			// we know the arguments are constant
-			snprintf(buf, BUFSIZ, "%s.%s", 
+			snprintf(getSTC(mb,getArg(p,0)), 2 * IDLENGTH, "%s.%s", 
 				getVarConstant(mb, getArg(p,2)).val.sval,
 				getVarConstant(mb, getArg(p,3)).val.sval);
-				setSTC(mb, getArg(p,0),GDKstrdup(buf));
+		} else
+		if( getModuleId(p)== batRef && (getFunctionId(p)== deltaRef || getFunctionId(p) == subdeltaRef)){
+			// inherit property of first argument
+			v = getSTC(mb,getArg(p,1));
+			if(v != NULL)
+				strncpy(getSTC(mb,getArg(p,0)),v, 2 * IDLENGTH);
 		} else
 		if( getModuleId(p)== sqlRef && getFunctionId(p)== projectdeltaRef){
 			// inherit property of first argument
 			v = getSTC(mb,getArg(p,1));
 			if(v != NULL)
-				setSTC(mb, getArg(p,0),GDKstrdup(v));
+				strncpy(getSTC(mb,getArg(p,0)),v, 2 * IDLENGTH);
 		} else
 		if( getModuleId(p)== algebraRef && getFunctionId(p)== projectionRef){
 			// inherit property of last argument
 			v = getSTC(mb,getArg(p,p->argc-1));
 			if( v != NULL)
-				setSTC(mb, getArg(p,0), GDKstrdup(v));
+				strncpy(getSTC(mb,getArg(p,0)),v, 2 * IDLENGTH);
 		} else
-		if( getModuleId(p)== algebraRef && getFunctionId(p)== subjoinRef){
-			// inherit property of last argument
-			v = getSTC(mb,getArg(p,p->argc-1) );
+		if( getModuleId(p)== algebraRef && (getFunctionId(p)== subselectRef || getFunctionId(p) == thetasubselectRef)){
+			// inherit property of first argument
+			v = getSTC(mb,getArg(p,p->retc));
 			if( v != NULL)
-				setSTC(mb, getArg(p,0), GDKstrdup(v));
+				strncpy(getSTC(mb,getArg(p,0)),v, 2 * IDLENGTH);
+		} else
+		if( getModuleId(p)== algebraRef && (getFunctionId(p)== likesubselectRef || getFunctionId(p) == ilikesubselectRef)){
+			// inherit property of first argument
+			v = getSTC(mb,getArg(p,p->retc));
+			if( v != NULL)
+				strncpy(getSTC(mb,getArg(p,0)),v, 2 * IDLENGTH);
+		} else
+		if( getModuleId(p)== algebraRef && 
+			( getFunctionId(p)== subjoinRef ||
+			  getFunctionId(p) == subleftjoinRef ||
+			  getFunctionId(p) == subthetajoinRef ||
+			  getFunctionId(p) == subantijoinRef ||
+			  getFunctionId(p) == subbandjoinRef ||
+			  getFunctionId(p) == subrangejoinRef )){
+			// inherit property of last argument
+			v = getSTC(mb,getArg(p,p->retc) );
+			if( v != NULL)
+				strncpy(getSTC(mb,getArg(p,0)),v, 2 * IDLENGTH);
+			v = getSTC(mb,getArg(p,p->retc + 1 ) );
+			if( v != NULL)
+				strncpy(getSTC(mb,getArg(p,1)),v, 2 * IDLENGTH);
 		} 
 	}
+    /* Defense line against incorrect plans */
+	/* Plan remains unaffected */
+	//chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+	//chkFlow(cntxt->fdout, mb);
+	//chkDeclarations(cntxt->fdout, mb);
+	//
+    /* keep all actions taken as a post block comment */
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","profiler",1,GDKusec() - usec);
+    newComment(mb,buf);
+
 	return 1;
 }

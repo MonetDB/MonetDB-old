@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #ifndef _REL_EXP_H_
@@ -64,7 +64,7 @@ extern sql_exp * exp_atom_clob(sql_allocator *sa, const char *s);
 extern sql_exp * exp_atom_ptr(sql_allocator *sa, void *s);
 extern sql_exp * exp_atom_ref(sql_allocator *sa, int i, sql_subtype *tpe);
 extern sql_exp * exp_param(sql_allocator *sa, const char *name, sql_subtype *tpe, int frame);
-extern atom * exp_value(sql_exp *e, atom **args, int maxarg);
+extern atom * exp_value(mvc *sql, sql_exp *e, atom **args, int maxarg);
 extern sql_exp * exp_values(sql_allocator *sa, list *exps);
 extern list * exp_types(sql_allocator *sa, list *exps);
 extern int have_nil(list *exps);
@@ -84,7 +84,9 @@ extern void exp_setname(sql_allocator *sa, sql_exp *e, const char *rname, const 
 extern void exp_setrelname(sql_allocator *sa, sql_exp *e, int nr );
 
 extern void noninternexp_setname(sql_allocator *sa, sql_exp *e, const char *rname, const char *name );
+extern char* make_label(sql_allocator *sa, int nr);
 extern sql_exp* exp_label(sql_allocator *sa, sql_exp *e, int nr);
+extern sql_exp* exp_label_table(sql_allocator *sa, sql_exp *e, int nr);
 
 extern sql_exp * exp_copy( sql_allocator *sa, sql_exp *e);
 extern list * exps_copy( sql_allocator *sa, list *exps);
@@ -105,7 +107,7 @@ extern sql_exp *rel_find_exp( sql_rel *rel, sql_exp *e);
 
 extern int exp_cmp( sql_exp *e1, sql_exp *e2);
 extern int exp_equal( sql_exp *e1, sql_exp *e2);
-extern int exp_refers( sql_exp *c, sql_exp *p);
+extern int exp_refers( sql_exp *p, sql_exp *c);
 extern int exp_match( sql_exp *e1, sql_exp *e2);
 extern int exp_match_exp( sql_exp *e1, sql_exp *e2);
 /* match just the column (cmp equality) expressions */
@@ -116,6 +118,7 @@ extern int exp_is_eqjoin(sql_exp *e);
 extern int exp_is_correlation(sql_exp *e, sql_rel *r );
 extern int exp_is_join_exp(sql_exp *e);
 extern int exp_is_atom(sql_exp *e);
+extern int exp_is_zero(mvc *sql, sql_exp *e);
 extern int exps_are_atoms(list *exps);
 extern int exp_has_func(sql_exp *e);
 extern int exp_unsafe(sql_exp *e);
@@ -132,7 +135,7 @@ extern sql_exp *exps_bind_column( list *exps, const char *cname, int *ambiguous)
 extern sql_exp *exps_bind_column2( list *exps, const char *rname, const char *cname);
 extern sql_exp *exps_bind_alias( list *exps, const char *rname, const char *cname);
 
-extern int exps_card( list *l );
+extern unsigned int exps_card( list *l );
 extern void exps_fix_card( list *exps, int card);
 extern void exps_setcard( list *exps, int card);
 extern int exps_intern(list *exps);

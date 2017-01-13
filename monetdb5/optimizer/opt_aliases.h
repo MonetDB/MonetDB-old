@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #ifndef _OPT_ALIASES_
@@ -12,9 +12,8 @@
 #include "opt_support.h"
 #include "mal_exception.h"
 
-opt_export int OPTisAlias(InstrPtr p);
-opt_export void OPTaliasRemap(InstrPtr p, int *alias);
-opt_export int OPTaliasesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+mal_export int OPTisAlias(InstrPtr p);
+mal_export void OPTaliasRemap(InstrPtr p, int *alias);
+mal_export int OPTaliasesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 
-#define OPTDEBUGaliases  if ( optDebug & ((lng) 1 <<DEBUG_OPT_ALIASES) )
 #endif

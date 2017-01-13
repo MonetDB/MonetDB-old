@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* (c) M.L. Kersten
@@ -57,7 +57,7 @@ sql_createorderindex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (b == 0)
 		throw(SQL,"sql.createorderindex","Column can not be accessed");
 	/* create the ordered index on the column */
-	msg = OIDXcreateImplementation(cntxt, newBatType(TYPE_void,b->ttype), b, -1);
+	msg = OIDXcreateImplementation(cntxt, newBatType(b->ttype), b, -1);
 	BBPunfix(b->batCacheid);
 	return msg;
 }

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -106,7 +106,7 @@ runFactory(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr stk, InstrP
 	/* inherit debugging */
 	cmd = stk->cmd;
 	if ( pl->stk == NULL)
-			throw(MAL, "factory.new", "internal error, stack frame missing");
+		throw(MAL, "factory.new", "internal error, stack frame missing");
 
 	/* copy the calling arguments onto the stack
 	   of the factory */
@@ -118,7 +118,8 @@ runFactory(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr stk, InstrP
 			k--;
 
 		rhs = &pl->env->stk[getArg(pci, i)];
-		VALcopy(lhs, rhs);
+		if (VALcopy(lhs, rhs) == NULL)
+			throw(MAL, "factory.call", MAL_MALLOC_FAIL);
 		if( lhs->vtype == TYPE_bat )
 			BBPincref(lhs->val.bval, TRUE);
 	}
@@ -131,7 +132,8 @@ runFactory(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr stk, InstrP
 			if( isVarConstant(mb,i) > 0 ){
 				if( !isVarDisabled(mb,i)){
 					rhs = &getVarConstant(mb,i);
-					VALcopy(lhs,rhs);
+					if (VALcopy(lhs,rhs) == NULL)
+						throw(MAL, "factory.call", MAL_MALLOC_FAIL);
 				}
 			} else{
 				lhs->vtype = getVarGDKType(mb,i);
@@ -187,7 +189,8 @@ callFactory(Client cntxt, MalBlkPtr mb, ValPtr argv[], char flag){
 		if( isVarConstant(mb,i) > 0 ){
 			lhs = &stk->stk[i];
 			rhs = &getVarConstant(mb,i);
-			VALcopy(lhs,rhs);
+			if (VALcopy(lhs,rhs) == NULL)
+				throw(MAL, "factory.call", MAL_MALLOC_FAIL);
 		} else {
 			lhs = &stk->stk[i];
 			lhs->vtype = getVarGDKType(mb,i);
@@ -209,7 +212,8 @@ callFactory(Client cntxt, MalBlkPtr mb, ValPtr argv[], char flag){
 	i = psig->retc;
 	for (i = psig->retc; i < psig->argc; i++) {
 		lhs = &pl->stk->stk[psig->argv[i]];
-		VALcopy(lhs, argv[i]);
+		if (VALcopy(lhs, argv[i]) == NULL)
+			throw(MAL, "factory.call", MAL_MALLOC_FAIL);
 		if( lhs->vtype == TYPE_bat )
 			BBPincref(lhs->val.bval, TRUE);
 	}
@@ -277,7 +281,8 @@ yieldResult(MalBlkPtr mb, InstrPtr p, int pc)
 #endif
 				rhs = &pl->stk->stk[getArg(p, i)];
 				lhs = &pl->env->stk[getArg(pl->pci, i)];
-				VALcopy(lhs, rhs);
+				if (VALcopy(lhs, rhs) == NULL)
+					return -1;
 			}
 			return (int) (pl-plants);
 		}
@@ -382,13 +387,12 @@ void mal_factory_reset(void)
 			/* MSresetVariables(mb, pl->stk, 0);*/
 			/* freeStack(pl->stk); there may be a reference?*/
 			/* we are inside the body of the factory and about to return */
-			pl->factory = 0;
-			if (pl->stk)
+			if (pl->stk) {
 				pl->stk->keepAlive = FALSE;
-			if ( pl->stk) {
-				//garbageCollector(cntxt, mb, pl->stk,TRUE);
+				garbageCollector(NULL, pl->factory, pl->stk,TRUE);
 				GDKfree(pl->stk);
 			}
+			pl->factory = 0;
 			pl->stk=0;
 			pl->pc = 0;
 			pl->inuse = 0;

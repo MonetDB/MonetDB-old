@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -128,12 +128,10 @@ inlineMALblock(MalBlkPtr mb, int pc, MalBlkPtr mc)
 
 	/* add all variables of the new block to the target environment */
 	for (n = 0; n < mc->vtop; n++) {
-		if (isExceptionVariable(mc->var[n]->name)) {
-			nv[n] = newVariable(mb,GDKstrdup(mc->var[n]->name),TYPE_str);
+		if (isExceptionVariable(mc->var[n]->id)) {
+			nv[n] = newVariable(mb, mc->var[n]->id, strlen(mc->var[n]->id), TYPE_str);
 			if (isVarUDFtype(mc,n))
 				setVarUDFtype(mb,nv[n]);
-			if (isVarUsed(mc,n))
-				setVarUsed(mb,nv[n]);
 		} else if (isVarTypedef(mc,n)) {
 			nv[n] = newTypeVariable(mb,getVarType(mc,n));
 		} else if (isVarConstant(mc,n)) {
@@ -142,8 +140,6 @@ inlineMALblock(MalBlkPtr mb, int pc, MalBlkPtr mc)
 			nv[n] = newTmpVariable(mb, getVarType(mc, n));
 			if (isVarUDFtype(mc,n))
 				setVarUDFtype(mb,nv[n]);
-			if (isVarUsed(mc,n))
-				setVarUsed(mb,nv[n]);
 		}
 	}
 
@@ -181,6 +177,7 @@ inlineMALblock(MalBlkPtr mb, int pc, MalBlkPtr mc)
 				clrVarFixed(mb,getArg(ns[k],n)); /* for typing */
 			setModuleId(ns[k],getModuleId(q));
 			setFunctionId(ns[k],getFunctionId(q));
+			ns[k]->typechk = TYPE_UNKNOWN;
 			ns[k]->barrier = 0;
 			ns[k]->token = ASSIGNsymbol;
 		}
@@ -400,9 +397,9 @@ OPTmacroImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	s = findModule(cntxt->nspace, putName(mod));
 	if (s == 0)
 		return 0;
-	if (s->subscope) {
-		j = getSubScope(fcn);
-		for (t = s->subscope[j]; t != NULL; t = t->peer)
+	if (s->space) {
+		j = getSymbolIndex(fcn);
+		for (t = s->space[j]; t != NULL; t = t->peer)
 			if (t->def->errors == 0) {
 				if (getSignature(t)->token == FUNCTIONsymbol){
 					str msg = MACROprocessor(cntxt, target, t);
@@ -448,9 +445,9 @@ OPTorcamImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	s = findModule(cntxt->nspace, putName(mod));
 	if (s == 0)
 		return 0;
-	if (s->subscope) {
-		j = getSubScope(fcn);
-		for (t = s->subscope[j]; t != NULL; t = t->peer)
+	if (s->space) {
+		j = getSymbolIndex(fcn);
+		for (t = s->space[j]; t != NULL; t = t->peer)
 			if (t->def->errors == 0) {
 				if (getSignature(t)->token == FUNCTIONsymbol) {
 					msg =ORCAMprocessor(cntxt, target, t);

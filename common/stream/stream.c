@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* stream
@@ -598,8 +598,10 @@ void
 close_stream(stream *s)
 {
 	if (s) {
-		s->close(s);
-		s->destroy(s);
+		if (s->close)
+			s->close(s);
+		if (s->destroy)
+			s->destroy(s);
 	}
 }
 
@@ -776,6 +778,14 @@ file_close(stream *s)
 }
 
 static void
+file_destroy(stream *s)
+{
+	file_close(s);
+	destroy(s);
+}
+
+
+static void
 file_clrerr(stream *s)
 {
 	FILE *fp = (FILE *) s->stream_data.p;
@@ -918,6 +928,7 @@ open_stream(const char *filename, const char *flags)
 	s->read = file_read;
 	s->write = file_write;
 	s->close = file_close;
+	s->destroy = file_destroy;
 	s->clrerr = file_clrerr;
 	s->flush = file_flush;
 	s->fsync = file_fsync;
@@ -1530,8 +1541,8 @@ stream_xzclose(stream *s)
 				if (fwrite(xz->buf, 1, sz, xz->fp) != sz) 
 					s->errnr = MNSTR_WRITE_ERROR;
 			}
+			fflush(xz->fp);
 		}
-		fflush(xz->fp);
 		fclose(xz->fp);
 		lzma_end(&xz->strm);
 		free(xz);
@@ -2872,6 +2883,7 @@ file_stream(const char *name)
 	s->read = file_read;
 	s->write = file_write;
 	s->close = file_close;
+	s->destroy = file_destroy;
 	s->flush = file_flush;
 	s->fsync = file_fsync;
 	s->fgetpos = file_fgetpos;
@@ -3226,12 +3238,21 @@ ic_close(stream *s)
 	struct icstream *ic = (struct icstream *) s->stream_data.p;
 
 	if (ic) {
-		ic_flush(s);
+		if (s->access == ST_WRITE)
+			ic_flush(s);
 		iconv_close(ic->cd);
 		mnstr_close(ic->s);
+		mnstr_destroy(ic->s);
 		free(s->stream_data.p);
 		s->stream_data.p = NULL;
 	}
+}
+
+static void
+ic_destroy(stream *s)
+{
+	ic_close(s);
+	destroy(s);
 }
 
 static void
@@ -3280,6 +3301,7 @@ ic_open(iconv_t cd, stream *ss, const char *name)
 	s->read = ic_read;
 	s->write = ic_write;
 	s->close = ic_close;
+	s->destroy = ic_destroy;
 	s->clrerr = ic_clrerr;
 	s->flush = ic_flush;
 	s->update_timeout = ic_update_timeout;
@@ -4575,6 +4597,8 @@ cb_destroy(stream *s)
 
 	if (cb->destroy)
 		(*cb->destroy)(cb->private);
+	free(cb);
+	s->stream_data.p = NULL;
 	destroy(s);
 }
 
@@ -4671,3 +4695,155 @@ stream * stream_blackhole_create (void)
 	s->access = ST_WRITE;
 	return s;
 }
+
+
+/* fixed-width format streams */
+#define STREAM_FWF_NAME "fwf_ftw"
+
+typedef struct {
+	stream *s;
+	// config
+	size_t num_fields;
+	size_t *widths;
+	char filler;
+	// state
+	size_t line_len;
+	char* in_buf;
+	char* out_buf;
+	size_t out_buf_start;
+	size_t out_buf_remaining;
+	char* nl_buf;
+} stream_fwf_data;
+
+
+static ssize_t
+stream_fwf_read(stream *s, void *buf, size_t elmsize, size_t cnt)
+{
+	stream_fwf_data *fsd;
+	size_t to_write = cnt;
+	size_t buf_written = 0;
+	if (strcmp(s->name, STREAM_FWF_NAME) != 0 || elmsize != 1) {
+		return -1;
+	}
+	fsd = (stream_fwf_data*) s->stream_data.p;
+
+	while (to_write > 0) {
+		// input conversion
+		if (fsd->out_buf_remaining == 0) { // need to convert next line
+			size_t field_idx, in_buf_pos = 0, out_buf_pos = 0;
+			ssize_t actually_read = fsd->s->read(fsd->s, fsd->in_buf, 1, fsd->line_len);
+			if (actually_read < (ssize_t) fsd->line_len) { // incomplete last line
+				if (actually_read < 0) {
+					return actually_read; // this is an error
+				}
+				return buf_written; // skip last line
+			}
+			// consume to next newline
+			while (fsd->s->read(fsd->s, fsd->nl_buf, 1, 1) == 1 && *fsd->nl_buf != '\n');
+
+			for (field_idx = 0; field_idx < fsd->num_fields; field_idx++) {
+				char *val_start, *val_end;
+				val_start = fsd->in_buf + in_buf_pos;
+				in_buf_pos += fsd->widths[field_idx];
+				val_end = fsd->in_buf + in_buf_pos - 1;
+				while (*val_start == fsd->filler) val_start++;
+				while (*val_end == fsd->filler) val_end--;
+				while (val_start <= val_end) {
+					if (*val_start == STREAM_FWF_FIELD_SEP) {
+						fsd->out_buf[out_buf_pos++] = STREAM_FWF_ESCAPE;
+					}
+					fsd->out_buf[out_buf_pos++] = *val_start++;
+				}
+				fsd->out_buf[out_buf_pos++] = STREAM_FWF_FIELD_SEP;
+			}
+			fsd->out_buf[out_buf_pos++] = STREAM_FWF_RECORD_SEP;
+			fsd->out_buf_remaining = out_buf_pos;
+			fsd->out_buf_start = 0;
+		}
+
+		// now we know something is in output_buf so deliver it
+		if (fsd->out_buf_remaining <= to_write) {
+			memcpy((char*)buf + buf_written, fsd->out_buf + fsd->out_buf_start, fsd->out_buf_remaining);
+			to_write -= fsd->out_buf_remaining;
+			buf_written += fsd->out_buf_remaining;
+			fsd->out_buf_remaining = 0;
+		} else {
+			memcpy((char*) buf + buf_written, fsd->out_buf + fsd->out_buf_start, to_write);
+			fsd->out_buf_start += to_write;
+			fsd->out_buf_remaining -= to_write;
+			buf_written += to_write;
+			to_write = 0;
+		}
+	}
+	return buf_written;
+}
+
+
+static void
+stream_fwf_close(stream *s)
+{
+	if (strcmp(s->name, STREAM_FWF_NAME) == 0) {
+		stream_fwf_data *fsd = (stream_fwf_data*) s->stream_data.p;
+		mnstr_close(fsd->s);
+		free(fsd->widths);
+		free(fsd->in_buf);
+		free(fsd->out_buf);
+		free(fsd->nl_buf);
+		free(fsd);
+	}
+	// FIXME destroy(s);
+}
+
+stream*
+stream_fwf_create (stream *s, size_t num_fields, size_t *widths, char filler)
+{
+	stream *ns;
+	stream_fwf_data *fsd = malloc(sizeof(stream_fwf_data));
+	size_t i, out_buf_len;
+	if (!fsd) {
+		return NULL;
+	}
+	fsd->s = s;
+	fsd->num_fields = num_fields;
+	fsd->widths = widths;
+	fsd->filler = filler;
+	fsd->line_len = 0;
+	for (i = 0; i < num_fields; i++) {
+		fsd->line_len += widths[i];
+	}
+	fsd->in_buf = malloc(fsd->line_len);
+	if (!fsd->in_buf) {
+		free(fsd);
+		return NULL;
+	}
+	out_buf_len = fsd->line_len * 3;
+	fsd->out_buf = malloc(out_buf_len);
+	if (!fsd->out_buf) {
+		free(fsd->in_buf);
+		free(fsd);
+		return NULL;
+	}
+	fsd->out_buf_remaining = 0;
+	fsd->nl_buf = malloc(1);
+	if (!fsd->nl_buf) {
+		free(fsd->in_buf);
+		free(fsd->out_buf);
+		free(fsd);
+		return NULL;
+	}
+	if ((ns = create_stream(STREAM_FWF_NAME)) == NULL) {
+		free(fsd->in_buf);
+		free(fsd->out_buf);
+		free(fsd->nl_buf);
+		free(fsd);
+		return NULL;
+	}
+	ns->read = stream_fwf_read;
+	ns->close = stream_fwf_close;
+	ns->write = NULL;
+	ns->flush = NULL;
+	ns->access = ST_READ;
+	ns->stream_data.p = fsd;
+	return ns;
+}
+

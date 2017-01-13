@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -1557,7 +1557,7 @@ dump_database(Mapi mid, stream *toConsole, int describe, const char useInserts)
 			      "t.id = tr.table_id"
 		") "
 		"SELECT sname, query FROM vft ORDER BY id";
-	char *sname;
+	char *sname = NULL;
 	char *curschema = NULL;
 	MapiHdl hdl;
 	int create_hash_func = 0;
@@ -2028,7 +2028,8 @@ dump_database(Mapi mid, stream *toConsole, int describe, const char useInserts)
 	/* finally commit the whole transaction */
 	if (!describe)
 		mnstr_printf(toConsole, "COMMIT;\n");
-
+	if (sname)
+		free(sname);
 	return rc;
 
   bailout:
@@ -2042,6 +2043,8 @@ dump_database(Mapi mid, stream *toConsole, int describe, const char useInserts)
 		mapi_explain(mid, stderr);
 
   bailout2:
+	if (sname)
+		free(sname);
 	if (curschema)
 		free(curschema);
 	hdl = mapi_query(mid, end);

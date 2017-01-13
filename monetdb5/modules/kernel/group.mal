@@ -2,20 +2,20 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 module group;
 
-command subgroup(b:bat[:oid,:any_1]) (groups:bat[:oid,:oid],extents:bat[:oid,:oid],histo:bat[:oid,:lng])
+command subgroup(b:bat[:any_1]) (groups:bat[:oid],extents:bat[:oid],histo:bat[:lng])
 address GRPsubgroup1;
-command subgroup(b:bat[:oid,:any_1],g:bat[:oid,:oid]) (groups:bat[:oid,:oid],extents:bat[:oid,:oid],histo:bat[:oid,:lng])
+command subgroup(b:bat[:any_1],g:bat[:oid]) (groups:bat[:oid],extents:bat[:oid],histo:bat[:lng])
 address GRPsubgroup2;
-command subgroup(b:bat[:oid,:any_1],g:bat[:oid,:oid],e:bat[:oid,:oid],h:bat[:oid,:lng]) (groups:bat[:oid,:oid],extents:bat[:oid,:oid],histo:bat[:oid,:lng])
+command subgroup(b:bat[:any_1],g:bat[:oid],e:bat[:oid],h:bat[:lng]) (groups:bat[:oid],extents:bat[:oid],histo:bat[:lng])
 address GRPsubgroup4;
 
-command subgroupdone(b:bat[:oid,:any_1]) (groups:bat[:oid,:oid],extents:bat[:oid,:oid],histo:bat[:oid,:lng])
+command subgroupdone(b:bat[:any_1]) (groups:bat[:oid],extents:bat[:oid],histo:bat[:lng])
 address GRPsubgroup1;
-command subgroupdone(b:bat[:oid,:any_1],g:bat[:oid,:oid]) (groups:bat[:oid,:oid],extents:bat[:oid,:oid],histo:bat[:oid,:lng])
+command subgroupdone(b:bat[:any_1],g:bat[:oid]) (groups:bat[:oid],extents:bat[:oid],histo:bat[:lng])
 address GRPsubgroup2;
-command subgroupdone(b:bat[:oid,:any_1],g:bat[:oid,:oid],e:bat[:oid,:oid],h:bat[:oid,:lng]) (groups:bat[:oid,:oid],extents:bat[:oid,:oid],histo:bat[:oid,:lng])
+command subgroupdone(b:bat[:any_1],g:bat[:oid],e:bat[:oid],h:bat[:lng]) (groups:bat[:oid],extents:bat[:oid],histo:bat[:lng])
 address GRPsubgroup4;

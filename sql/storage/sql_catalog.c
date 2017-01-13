@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -294,6 +294,9 @@ find_all_sql_func(sql_schema * s, const char *name, int type)
 			if (f->type == type && name[0] == b->name[0] && strcmp(name, b->name) == 0) {
 				if (!res)
 					res = list_create((fdestroy)NULL);
+				if (!res) {
+					return NULL;
+				}
 				list_append(res, f);
 			}
 		}

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #ifndef _MAL_CLIENT_H_
@@ -18,10 +18,12 @@
 #define CONSOLE     0
 #define isAdministrator(X) (X==mal_clients)
 
-#define FREECLIENT  	0
-#define FINISHCLIENT	1   
-#define RUNCLIENT		2
-#define BLOCKCLIENT     3
+enum clientmode {
+	FREECLIENT,
+	FINISHCLIENT,
+	RUNCLIENT,
+	BLOCKCLIENT
+};
 
 #define PROCESSTIMEOUT  2   /* seconds */
 
@@ -71,7 +73,6 @@ typedef struct CLIENT {
 	sht	stage;	   /* keep track of the phase being ran */
 	char    itrace;    /* trace execution using interactive mdb */
 						/* if set to 'S' it will put the process to sleep */
-	short   debugOptimizer,debugScheduler;
 	/*
 	 * For program debugging we need information on the timer and memory
 	 * usage patterns.
@@ -125,7 +126,7 @@ typedef struct CLIENT {
 	int debug;
 	void  *mdb;            /* context upon suspend */
 	str    history;	       /* where to keep console history */
-	short  mode;           /* FREECLIENT..BLOCKED */
+	enum clientmode mode;  /* FREECLIENT..BLOCKED */
 	/*
 	 * Client records are organized into a two-level dependency tree,
 	 * where children may be created to deal with parallel processing

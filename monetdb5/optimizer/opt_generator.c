@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -64,12 +64,16 @@ OPTgeneratorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	str lngRef = getName("lng");
 	str fltRef = getName("flt");
 	str dblRef = getName("dbl");
+	char buf[256];
+	lng usec= GDKusec();
 
 	(void) cntxt;
 	(void) stk;
 	(void) pci;
 
 	series = (InstrPtr*) GDKzalloc(sizeof(InstrPtr) * mb->vtop);
+	if(series == NULL)
+		return 0;
 	old = mb->stmt;
 	limit = mb->stop;
 	slimit = mb->ssize;
@@ -155,5 +159,15 @@ OPTgeneratorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 #ifdef VLT_DEBUG
 	printFunction(cntxt->fdout,mb,0,LIST_MAL_ALL);
 #endif
+
+    /* Defense line against incorrect plans */
+	/* all new/modified statements are already checked */
+	//chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+	//chkFlow(cntxt->fdout, mb);
+	//chkDeclarations(cntxt->fdout, mb);
+    /* keep all actions taken as a post block comment */
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","generator",actions,GDKusec() - usec);
+    newComment(mb,buf);
+
 	return actions;
 }

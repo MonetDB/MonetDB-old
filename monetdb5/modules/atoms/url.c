@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -42,8 +42,8 @@
  */
 
 #include "monetdb_config.h"
-#include "url.h"
 #include "mal.h"
+#include "url.h"
 #include "mal_exception.h"
 
 static char x2c(char *what);
@@ -416,6 +416,7 @@ URLgetContent(str *retval, url *Str1)
 		(void)memcpy(retbuf + rlen, buf, len);
 		rlen += len;
 	}
+	mnstr_destroy(f);
 	if (len < 0) {
 		GDKfree(retbuf);
 		throw(MAL, "url.getContent", "read error");

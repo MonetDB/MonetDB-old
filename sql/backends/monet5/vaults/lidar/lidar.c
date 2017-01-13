@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -16,7 +16,6 @@
 #include <glob.h>
 
 /* clash with GDK? */
-// #undef htype
 // #undef ttype
 
 #include <liblas/capi/liblas.h>
@@ -58,7 +57,7 @@ void print_lidar_header(FILE *file, LASHeaderH header, const char* file_name, in
     unsigned int nVLR = 0;
     int i = 0;
 
-    char minor, major;
+    unsigned char minor, major;
 
     pszSignature = LASHeader_GetFileSignature(header);
     pszProjectId = LASHeader_GetProjectId(header);
@@ -83,12 +82,12 @@ void print_lidar_header(FILE *file, LASHeaderH header, const char* file_name, in
         LASError_Print("File signature is not 'LASF'... aborting");
         exit(1);
     }
-    fprintf(file, "  Version:                    %d.%d\n", major, minor);
+    fprintf(file, "  Version:                    %hhu.%hhu\n", major, minor);
 
-    fprintf(file, "  Source ID:                  %d\n", 
+    fprintf(file, "  Source ID:                  %hu\n", 
                     LASHeader_GetFileSourceId(header) ) ;
 
-    fprintf(file, "  Reserved:                   %d\n", 
+    fprintf(file, "  Reserved:                   %hu\n", 
                     LASHeader_GetReserved(header) );
 
     fprintf(file, "  Project ID/GUID:           '%s'\n", 
@@ -100,29 +99,29 @@ void print_lidar_header(FILE *file, LASHeaderH header, const char* file_name, in
     fprintf(file, "  Generating Software:       '%s'\n", 
                     pszSoftwareId);
 
-    fprintf(file, "  File Creation Day/Year:    %d/%d\n", 
+    fprintf(file, "  File Creation Day/Year:    %hu/%hu\n", 
                     LASHeader_GetCreationDOY(header), 
                     LASHeader_GetCreationYear(header));
 
-    fprintf(file, "  Header Size                %d\n", 
+    fprintf(file, "  Header Size                %hu\n", 
                     LASHeader_GetHeaderSize(header));
 
-    fprintf(file, "  Offset to Point Data       %d\n", 
+    fprintf(file, "  Offset to Point Data       %u\n", 
                     LASHeader_GetDataOffset(header));
 
-    fprintf(file, "  Number Var. Length Records %d\n", 
+    fprintf(file, "  Number Var. Length Records %u\n", 
                     LASHeader_GetRecordsCount(header));
 
-    fprintf(file, "  Point Data Format          %d\n", 
+    fprintf(file, "  Point Data Format          %hhu\n", 
                     LASHeader_GetDataFormatId(header));
 
-    fprintf(file, "  Point Data Record Length   %d\n", 
+    fprintf(file, "  Point Data Record Length   %hu\n", 
                     LASHeader_GetDataRecordLength(header));
 
-    fprintf(file, "  Number of Point Records    %d\n", 
+    fprintf(file, "  Number of Point Records    %u\n", 
                     LASHeader_GetPointRecordsCount(header));
 
-    fprintf(file, "  Number of Points by Return %d %d %d %d %d\n", 
+    fprintf(file, "  Number of Points by Return %u %u %u %u %u\n", 
                     LASHeader_GetPointRecordsByReturnCount(header, 0), 
                     LASHeader_GetPointRecordsByReturnCount(header, 1), 
                     LASHeader_GetPointRecordsByReturnCount(header, 2), 
@@ -177,7 +176,7 @@ void print_lidar_header(FILE *file, LASHeaderH header, const char* file_name, in
             
 
             fprintf(file, "   User: '%s' - Description: '%s'\n", pszVLRUser, pszVLRDescription);
-            fprintf(file, "   ID: %d Length: %d\n\n", nVLRRecordId, nVLRLength);
+            fprintf(file, "   ID: %hu Length: %hu\n\n", nVLRRecordId, nVLRLength);
            
             MT_lock_set(&mt_lidar_lock); 
             LASVLR_Destroy(pVLR);
@@ -396,9 +395,9 @@ str LIDARexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bats_dbl[1] = store_funcs.bind_col(tr, cols[1], 0);
 	bats_dbl[2] = store_funcs.bind_col(tr, cols[2], 0);
 
-	cols_dbl[0] = (dbl*)Tloc(bats_dbl[0], BUNfirst(bats_dbl[0]));
-	cols_dbl[1] = (dbl*)Tloc(bats_dbl[1], BUNfirst(bats_dbl[1]));
-	cols_dbl[2] = (dbl*)Tloc(bats_dbl[2], BUNfirst(bats_dbl[2]));
+	cols_dbl[0] = (dbl*)Tloc(bats_dbl[0], 0);
+	cols_dbl[1] = (dbl*)Tloc(bats_dbl[1], 0);
+	cols_dbl[2] = (dbl*)Tloc(bats_dbl[2], 0);
 
 	nrows = store_funcs.count_col(tr, cols[0], 1);
 
@@ -961,9 +960,9 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	colx = mvc_bind_column(m, tbl, "x");
 	coly = mvc_bind_column(m, tbl, "y");
 	colz = mvc_bind_column(m, tbl, "z");
-	x = BATnew(TYPE_void, TYPE_dbl, rows, PERSISTENT);
-	y = BATnew(TYPE_void, TYPE_dbl, rows, PERSISTENT);
-	z = BATnew(TYPE_void, TYPE_dbl, rows, PERSISTENT);
+	x = COLnew(0, TYPE_dbl, rows, PERSISTENT);
+	y = COLnew(0, TYPE_dbl, rows, PERSISTENT);
+	z = COLnew(0, TYPE_dbl, rows, PERSISTENT);
 
 	if ( x == NULL || y == NULL || z == NULL) {
 		GDKfree(tpcode);
@@ -978,13 +977,9 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	}
 
-	BATseqbase(x, 0);
-	BATseqbase(y, 0);
-	BATseqbase(z, 0);
-
-	px = (dbl *) Tloc(x, BUNfirst(x));
-	py = (dbl *) Tloc(y, BUNfirst(y));
-	pz = (dbl *) Tloc(z, BUNfirst(z));
+	px = (dbl *) Tloc(x, 0);
+	py = (dbl *) Tloc(y, 0);
+	pz = (dbl *) Tloc(z, 0);
 
 	p = LASReader_GetNextPoint(reader);
 	i = 0;
@@ -1013,20 +1008,20 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				"X (raw)           : %f (%ld)\n"
 				"Z (raw)           : %f (%ld)\n"
 				"Z (raw)           : %f (%ld)\n"
-				"intensity         : %d\n"
-				"return number     : %d\n"
-				"number of returns : %d\n"
-				"scan direction    : %d\n"
-				"flight line edge  : %d\n"
-				"scan flags        : %lc\n"
-				"classification    : %lc\n"
+				"intensity         : %hu\n"
+				"return number     : %hu\n"
+				"number of returns : %hu\n"
+				"scan direction    : %hu\n"
+				"flight line edge  : %hu\n"
+				"scan flags        : %hhu\n"
+				"classification    : %hhu\n"
 				"time              : %f\n"
-				"scan angle rank   : %lc\n"
-				"point source id   : %d\n",
+				"scan angle rank   : %hhd\n"
+				"point source id   : %hu\n",
 			i, x, rawx, y, rawy, z, rawz,
 			intensity, returnno, noofreturns, 
 			scandir, flightline, flags, class, 
-			t, anglerank, sourceid);
+			t, (signed char) anglerank, sourceid);
 		}
 #endif
 		//TODO: Add a flag that indicates whether LiDAR points should be validited up front

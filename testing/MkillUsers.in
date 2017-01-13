@@ -4,7 +4,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 for i in /sbin /usr/sbin /bin /usr/bin /usr/local/bin /usr/local/gnu/bin /cwi/bin ; do
 	if [ -d "$i" ] ; then
@@ -71,7 +71,7 @@ if [   "$TEMPLATE_BUILD" ] ; then BINPATH="$BINPATH   $TEMPLATE_BUILD/src/tools 
 if [        "$SQL_BUILD" ] ; then BINPATH="$BINPATH        $SQL_BUILD/src/tools        $SQL_BUILD/src/tools/.libs" ; fi
 if [       "$GEOM_BUILD" ] ; then BINPATH="$BINPATH       $GEOM_BUILD/src/tools       $GEOM_BUILD/src/tools/.libs" ; fi
 for b in $BINPATH ; do
-	files="$files `ls $b/* 2>/dev/null | egrep '/(lt-)?(mserver5|Mserver|mclient|mclient\.py|Mdiff|Mlog|Mtimeout|pf|actuator|sensor)$'`"
+	files="$files `ls $b/* 2>/dev/null | egrep '/(lt-)?(mserver5|mclient|mclient\.py|Mdiff|Mlog|Mtimeout)$'`"
 done
 
 if type -p fuser >/dev/null

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -114,7 +114,7 @@ IOprintBoth(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int indx, s
 		} else {
 			b[0] = BATdense(b[1]->hseqbase, b[1]->hseqbase, BATcount(b[1]));
 			if( b[0]){
-				BATroles(b[0], NULL, b[1]->hident);
+				BATroles(b[0], "h");
 				BATprintcolumns(cntxt->fdout, 2, b);
 				BBPunfix(b[0]->batCacheid);
 			}
@@ -523,45 +523,43 @@ IOprintfStream(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
  * The table printing routine implementations.
  * They merely differ in destination and order prerequisite
  */
-static str
-IOtableAll(stream *f, Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int i)
+str
+IOtable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	BAT *piv[MAXPARAMS], *b;
-	int tpe, k = i;
+	BAT *piv[MAXPARAMS];
+	int i;
+	int tpe;
 	ptr val;
 
 	(void) cntxt;
 	assert(pci->retc == 1);
 	assert(pci->argc >= 2);
 
-	for (; i < pci->argc; i++) {
+	for (i = 1; i < pci->argc; i++) {
 		tpe = getArgType(mb, pci, i);
 		val = getArgReference(stk, pci, i);
 		if (!isaBatType(tpe)) {
-			for (k = 0; k < i; k++)
-				BBPunfix(piv[k]->batCacheid);
+			while (--i >= 1)
+				BBPunfix(piv[i]->batCacheid);
 			throw(MAL, "io.table", ILLEGAL_ARGUMENT " BAT expected");
 		}
-		b = BATdescriptor(*(int *) val);
-		if (b == NULL) {
-			for (k = 0; k < i; k++)
-				BBPunfix(piv[k]->batCacheid);
+		if ((piv[i] = BATdescriptor(*(int *) val)) == NULL) {
+			while (--i >= 1)
+				BBPunfix(piv[i]->batCacheid);
 			throw(MAL, "io.table", ILLEGAL_ARGUMENT " null BAT encountered");
 		}
-		piv[i] = b;
 	}
 	/* add materialized void column */
 	piv[0] = BATdense(piv[1]->hseqbase, 0, BATcount(piv[1]));
-	BATprintcolumns(f, pci->argc, piv);
-	for (k = 0; k < pci->argc; k++)
-		BBPunfix(piv[k]->batCacheid);
+	if (piv[0] == NULL) {
+		for (i = 1; i < pci->argc; i++)
+			BBPunfix(piv[i]->batCacheid);
+		throw(MAL, "io.table", MAL_MALLOC_FAIL);
+	}
+	BATprintcolumns(cntxt->fdout, pci->argc, piv);
+	for (i = 0; i < pci->argc; i++)
+		BBPunfix(piv[i]->batCacheid);
 	return MAL_SUCCEED;
-}
-
-str
-IOtable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	return IOtableAll(cntxt->fdout, cntxt, mb, stk, pci, 1);
 }
 
 
@@ -778,3 +776,11 @@ IOimport(void *ret, bat *bid, str *fnme)
 	return MAL_SUCCEED;
 }
 
+
+
+str
+IOsetmemorylimit(void *res, lng *nbytes) {
+	(void) res;
+	GDKsetmemorylimit(*nbytes);
+	return MAL_SUCCEED;
+}
