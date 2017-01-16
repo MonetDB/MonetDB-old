@@ -110,4 +110,9 @@ syntax: regexp
 ^java/target$
 
 
+# Eclipse
+/.cproject
+/.project
+/.settings/
 /build
+/symbols.xml
