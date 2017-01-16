@@ -297,6 +297,11 @@ int yydebug=1;
 	XML_value_expression
 	XML_primary
 	opt_comma_string_value_expression
+    graph_reaches_exp
+    graph_reaches_column_def
+    graph_reaches_edges_table
+    graph_cheapest_sum
+    graph_cheapest_sum_arg
 
 %type <type>
 	data_type
@@ -333,6 +338,7 @@ int yydebug=1;
 	XML_namespace_prefix
 	XML_PI_target
 	function_body
+	aggr
 
 %type <l>
 	passwd_schema
@@ -512,7 +518,7 @@ int yydebug=1;
 
 /* sql prefixes to avoid name clashes on various architectures */
 %token <sval>
-	IDENT aTYPE ALIAS AGGR AGGR2 RANK sqlINT OIDNUM HEXADECIMAL INTNUM APPROXNUM 
+	IDENT aTYPE ALIAS AGGR SUM AGGR2 RANK sqlINT OIDNUM HEXADECIMAL INTNUM APPROXNUM
 	USING 
 	GLOBAL CAST CONVERT
 	CHARACTER VARYING LARGE OBJECT VARCHAR CLOB sqlTEXT BINARY sqlBLOB
@@ -558,6 +564,8 @@ int yydebug=1;
 %token XMLVALIDATE RETURNING LOCATION ID ACCORDING XMLSCHEMA URI XMLAGG
 %token FILTER
 
+/* GRAPH tokens */
+%token CHEAPEST REACHES EDGE
 
 /* operators */
 %left UNION EXCEPT INTERSECT CORRESPONDING UNIONJOIN
@@ -3346,6 +3354,8 @@ predicate:
  |  existence_test
  |  filter_exp
  |  scalar_exp
+ |  graph_reaches_exp
+ |  graph_cheapest_sum
  ;
 
 pred_exp:
@@ -3791,6 +3801,56 @@ param:
 	  $$ = _symbol_create_int( SQL_PARAMETER, nr ); 
 	}
 
+graph_reaches_exp:
+	graph_reaches_column_def REACHES graph_reaches_column_def OVER graph_reaches_edges_table EDGE '(' graph_reaches_column_def ',' graph_reaches_column_def ')'
+    {
+        dlist *l = L();
+        append_symbol(l, $1);
+        append_symbol(l, $3);
+        append_symbol(l, $5);
+        append_symbol(l, $8);
+        append_symbol(l, $10);
+        $$ = _symbol_create_list(SQL_GRAPH_REACHES, l);
+    }
+;
+
+graph_reaches_column_def:
+    ident { $$ = _symbol_create_list( SQL_COLUMN, append_string(L(), $1)); }
+    | ident '.' ident { $$ = _symbol_create_list( SQL_COLUMN, append_string(append_string(L(), $1), $3)); }
+;
+
+graph_reaches_edges_table:
+	qname opt_table_name
+	{
+		dlist *l = L();
+		append_list(l, $1);
+		append_symbol(l, $2);
+		$$ = _symbol_create_list(SQL_NAME, l);
+    }
+;
+
+graph_cheapest_sum_arg:
+    ident ':' scalar_exp
+    {
+       dlist *l = L();
+       append_string(l, $1); // opt_table_name_ref
+       append_symbol(l, $3); // weight expression
+       $$ = _symbol_create_list( SQL_GRAPH_CHEAPEST_SUM, l );
+    }
+    | scalar_exp
+    {
+       dlist *l = L();
+       append_string(l, NULL);
+       append_symbol(l, $1);
+       $$ = _symbol_create_list( SQL_GRAPH_CHEAPEST_SUM, l );
+    }
+;
+
+graph_cheapest_sum:
+	CHEAPEST SUM '(' graph_cheapest_sum_arg ')' { $$ = $4; }
+;
+
+
 /*
 <window function> ::= <window function type> OVER <window name or specification>
 
@@ -4141,9 +4201,14 @@ qrank:
 			  append_string(L(), $1), $3);}
  ;
 
+aggr: 
+   AGGR
+ | SUM { $$ = sa_strdup(SA, "sum"); }
+ ;
+
 qaggr:
-	AGGR		{ $$ = append_string(L(), $1); }
- |      ident '.' AGGR	{ $$ = append_string(
+	aggr		{ $$ = append_string(L(), $1); }
+ |      ident '.' aggr	{ $$ = append_string(
 			  append_string(L(), $1), $3);}
  ;
 
@@ -5162,7 +5227,7 @@ restricted_ident:
     IDENT	{ $$ = $1; }
  |  aTYPE	{ $$ = $1; }
  |  ALIAS	{ $$ = $1; }
- |  AGGR	{ $$ = $1; } 	/* without '(' */
+ |  aggr	{ $$ = $1; } 	/* without '(' */
  |  AGGR2	{ $$ = $1; } 	/* without '(' */
  |  RANK	{ $$ = $1; }	/* without '(' */
  ;
@@ -5172,7 +5237,7 @@ ident:
  |  aTYPE	{ $$ = $1; }
  |  FILTER_FUNC	{ $$ = $1; }
  |  ALIAS	{ $$ = $1; }
- |  AGGR	{ $$ = $1; } 	/* without '(' */
+ |  aggr	{ $$ = $1; } 	/* without '(' */
  |  AGGR2	{ $$ = $1; } 	/* without '(' */
  |  RANK	{ $$ = $1; }	/* without '(' */
  |  non_reserved_word
