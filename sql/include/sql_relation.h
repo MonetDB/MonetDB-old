@@ -163,7 +163,8 @@ typedef enum operator_type {
 	op_sample,
 	op_insert, 	/* insert(l=table, r insert expressions) */ 
 	op_update, 	/* update(l=table, r update expressions) */
-	op_delete 	/* delete(l=table, r delete expression) */
+	op_delete, 	/* delete(l=table, r delete expression) */
+	op_graph,
 } operator_type;
 
 #define is_atom(et) \
@@ -225,6 +226,8 @@ typedef enum operator_type {
 	(op == op_insert || op == op_update || op == op_delete)
 #define is_sample(op) \
 	(op == op_sample)
+#define is_graph(op) \
+	(op == op_graph)
 
 /* NO NIL semantics of aggr operations */
 #define need_no_nil(e) \
@@ -294,5 +297,14 @@ typedef struct relation {
 	 subquery:1;	/* is this part a subquery, this is needed for proper name binding */
 	void *p;	/* properties for the optimizer, distribution */
 } sql_rel;
+
+typedef struct {
+	sql_rel relation;
+	sql_rel *edges; // edge table
+	list *efrom;
+	list *eto;
+	list *qfrom;
+	list *qto;
+} sql_graph;
 
 #endif /* SQL_RELATION_H */

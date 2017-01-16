@@ -65,6 +65,8 @@ has_remote_or_replica( sql_rel *rel )
 		if (rel->r && has_remote_or_replica( rel->r )) 
 			return 1;
 		break;
+	case op_graph:
+		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 	return 0;
 }
@@ -175,6 +177,8 @@ replica(mvc *sql, sql_rel *rel, char *uri)
 	case op_delete:
 		rel->r = replica(sql, rel->r, uri);
 		break;
+	case op_graph:
+		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 	return rel;
 }
@@ -270,6 +274,8 @@ distribute(mvc *sql, sql_rel *rel)
 	case op_delete:
 		rel->r = distribute(sql, rel->r);
 		break;
+	case op_graph:
+		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 	return rel;
 }
@@ -316,6 +322,8 @@ rel_remote_func(mvc *sql, sql_rel *rel)
 	case op_delete:
 		rel->r = rel_remote_func(sql, rel->r);
 		break;
+	case op_graph:
+		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 	if (find_prop(rel->p, PROP_REMOTE) != NULL) {
 		list *exps = rel_projections(sql, rel, NULL, 1, 1);

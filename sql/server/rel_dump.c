@@ -288,6 +288,8 @@ op2string(operator_type op)
 	case op_update: 
 	case op_delete: 
 		return "modify op";
+	case op_graph:
+		return "graph";
 	default:
 		return "unknown";
 	}
@@ -504,6 +506,39 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 		if (rel->exps)
 			exps_print(sql, fout, rel->exps, depth, 1, 0);
 	} 	break;
+	case op_graph: {
+		sql_graph *graph_ptr = (sql_graph*) rel;
+		print_indent(sql, fout, depth, decorate);
+		mnstr_printf(fout, "graph");
+		if (rel_is_ref(rel->l)) {
+			int nr = find_ref(refs, rel->l);
+			print_indent(sql, fout, depth+1, decorate);
+			mnstr_printf(fout, "& REF %d ", nr);
+		} else
+			rel_print_(sql, fout, rel->l, depth+1, refs, decorate);
+		if (rel->r) {
+			if (rel_is_ref(rel->r)) {
+				int nr = find_ref(refs, rel->r);
+				print_indent(sql, fout, depth+1, decorate);
+				mnstr_printf(fout, "& REF %d ", nr);
+			} else
+				rel_print_(sql, fout, rel->r, depth+1, refs, decorate);
+		}
+		if(rel_is_ref(graph_ptr->edges)){
+			int nr = find_ref(refs, graph_ptr->edges);
+			print_indent(sql, fout, depth+1, decorate);
+			mnstr_printf(fout, "& REF %d ", nr);
+		} else {
+			rel_print_(sql, fout, rel->r, depth+1, refs, decorate);
+		}
+		exps_print(sql, fout, graph_ptr->qfrom, depth, 1, 0);
+		mnstr_printf(fout, " -> ");
+		exps_print(sql, fout, graph_ptr->qto, depth, 1, 0);
+		mnstr_printf(fout, ", src: ");
+		exps_print(sql, fout, graph_ptr->efrom, depth, 1, 0);
+		mnstr_printf(fout, ", dst: ");
+		exps_print(sql, fout, graph_ptr->eto, depth, 1, 0);
+	}   break;
 	default:
 		assert(0);
 	}
@@ -575,6 +610,25 @@ rel_print_refs(mvc *sql, stream* fout, sql_rel *rel, int depth, list *refs, int 
 			list_append(refs, rel->r);
 		}
 		break;
+	case op_graph:
+	{
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		rel_print_refs(sql, fout, rel->l, depth, refs, decorate);
+		if (rel->l && rel_is_ref(rel->l) && !find_ref(refs, rel->l)) {
+			rel_print_(sql, fout, rel->l, depth, refs, decorate);
+			list_append(refs, rel->l);
+		}
+		rel_print_refs(sql, fout, rel->r, depth, refs, decorate);
+		if (rel->r && rel_is_ref(rel->r) && !find_ref(refs, rel->r)) {
+			rel_print_(sql, fout, rel->r, depth, refs, decorate);
+			list_append(refs, rel->r);
+		}
+		rel_print_refs(sql, fout, graph_ptr->edges, depth, refs, decorate);
+		if (graph_ptr->edges && rel_is_ref(graph_ptr->edges) && !find_ref(refs, graph_ptr->edges)) {
+			rel_print_(sql, fout, graph_ptr->edges, depth, refs, decorate);
+			list_append(refs, graph_ptr->edges);
+		}
+	}
 	}
 }
 

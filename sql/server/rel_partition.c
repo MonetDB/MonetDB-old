@@ -88,6 +88,8 @@ find_basetables( sql_rel *rel, list *tables )
 		if (rel->r)
 			find_basetables(rel->r, tables); 
 		break;
+	case op_graph:
+		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 }
 

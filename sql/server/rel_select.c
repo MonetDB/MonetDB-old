@@ -21,6 +21,7 @@
 #include "rel_schema.h"
 #include "rel_remote.h"
 #include "rel_sequence.h"
+#include "rel_graph.h"
 #ifdef HAVE_HGE
 #include "mal.h"		/* for have_hge */
 #endif
@@ -2765,6 +2766,8 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 	case SQL_EXCEPT:
 	case SQL_INTERSECT:
 		return rel_setquery(sql, rel, sc);
+	case SQL_GRAPH_REACHES:
+		return rel_graph_reaches(sql, rel, sc, f);
 	default: {
 		sql_exp *re, *le = rel_value_exp(sql, &rel, sc, f, ek);
 
@@ -4422,6 +4425,8 @@ rel_value_exp2(mvc *sql, sql_rel **rel, symbol *se, int f, exp_kind ek, int *is_
 	case SQL_XMLPI:
 	case SQL_XMLTEXT:
 		return rel_xml(sql, rel, se, f, ek);
+	case SQL_GRAPH_CHEAPEST_SUM:
+		return rel_graph_cheapest_sum(sql, rel, se, f);
 	default:
 		return rel_logical_value_exp(sql, rel, se, f);
 	}

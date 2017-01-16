@@ -116,3 +116,4 @@ syntax: regexp
 /.settings/
 /build
 /symbols.xml
+/Default/

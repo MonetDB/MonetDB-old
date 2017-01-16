@@ -882,6 +882,12 @@ rel_bind_path_(sql_rel *rel, sql_exp *e, list *path )
 		break;
 	case op_ddl:
 		break;
+	case op_graph:
+		// this code path is only looking for column names, do not iterate on the cheapest paths
+		found = rel_bind_path_(rel->l, e, path);
+		if(!found && rel->r)
+			found = rel_bind_path_(rel->r, e, path);
+		return found;
 	}
 	if (found)
 		list_prepend(path, rel);
