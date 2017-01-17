@@ -5250,7 +5250,7 @@ exp_use_consts(mvc *sql, sql_exp *e, list *consts)
 	case e_psm:
 		return e;
 	case e_graph:
-		assert(0 && "Not implemented yet");
+		assert(0 && "Invalid code path from the QRW rel_remove_join. It should not affect graph expressions");
 	}
 	return NULL;
 }
@@ -6722,7 +6722,7 @@ split_exp(mvc *sql, sql_exp *e, sql_rel *rel)
 	case e_atom:
 		return e;
 	case e_graph:
-		assert(0 && "Not implemented yet");
+		assert(0 && "Invalid expression of type graph. It should not appear here.");
 	}
 	return e;
 }
@@ -8756,10 +8756,8 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		}
 	}
 	/* push (simple renaming) projections up */
-	printf("Optimizer rel_push_project_up [before]: %s", rel2str1(sql, rel));
 	if (gp.cnt[op_project]) 
 		rel = rewrite(sql, rel, &rel_push_project_up, &changes); 
-	printf("Optimizer rel_push_project_up [after]: %s", rel2str1(sql, rel));
 	if (level <= 0 && (gp.cnt[op_project] || gp.cnt[op_groupby])) 
 		rel = rel_split_project(&changes, sql, rel, 1);
 
@@ -8781,7 +8779,9 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 	    gp.cnt[op_select]) {
 		rel = rewrite(sql, rel, &rel_find_range, &changes);
 		rel = rel_project_reduce_casts(&changes, sql, rel);
+		printf("Optimizer rel_reduce_casts [before]: %s", rel2str1(sql, rel));
 		rel = rewrite(sql, rel, &rel_reduce_casts, &changes);
+		printf("Optimizer rel_reduce_casts [after]: %s", rel2str1(sql, rel));
 	}
 
 	if (gp.cnt[op_union])
