@@ -117,6 +117,8 @@ rel_copy( sql_allocator *sa, sql_rel *i )
 		if (i->r)
 			rel->r = (i->r)?list_dup(i->r, (fdup)NULL):NULL;
 		break;
+	case op_graph:
+		assert(0 && "Not implemented yet");
 	case op_join:
 	case op_left:
 	case op_right:
@@ -301,7 +303,18 @@ sql_rel *
 rel_inplace_project(sql_allocator *sa, sql_rel *rel, sql_rel *l, list *e)
 {
 	if (!l) {
-		l = rel_create(sa);
+		if (is_graph(rel->op)){
+			sql_graph *graph_old = (sql_graph*) rel;
+			sql_graph *graph_ptr = (sql_graph*) sa_alloc(sa, sizeof(sql_graph));
+			memset(graph_ptr, 0, sizeof(sql_graph));
+			graph_ptr->edges = graph_old->edges;
+			graph_ptr->efrom = graph_old->efrom;
+			graph_ptr->eto = graph_old->eto;
+			graph_ptr->spfw = graph_old->spfw;
+			l = &(graph_ptr->relation); // == graph_ptr
+		} else {
+			l = rel_create(sa);
+		}
 
 		l->op = rel->op;
 		l->l = rel->l;
@@ -823,6 +836,13 @@ rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int int
 	case op_topn:
 	case op_sample:
 		return rel_projections(sql, rel->l, tname, settname, intern );
+	case op_graph: {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		exps = rel_projections(sql, rel->l, tname, settname, intern );
+		exps = list_merge( exps, rel_projections(sql, rel->r, tname, settname, intern ), (fdup) NULL);
+		exps = list_merge( exps, graph_ptr->spfw, (fdup) NULL);
+		return exps;
+	}
 	default:
 		return NULL;
 	}

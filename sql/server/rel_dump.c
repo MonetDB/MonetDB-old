@@ -204,6 +204,12 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, int comma, int alias)
 			exp_print(sql, fout, e->r, depth+1, 0, 0);
 		}
 	 	break;
+	case e_graph:
+		exps_print(sql, fout, e->l, depth, alias, 1);
+		mnstr_printf(fout, " -> ");
+		exps_print(sql, fout, e->r, depth, alias, 1);
+		break;
+
 	default:
 		;
 	}
@@ -529,14 +535,13 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 			print_indent(sql, fout, depth+1, decorate);
 			mnstr_printf(fout, "& REF %d ", nr);
 		} else {
-			rel_print_(sql, fout, rel->r, depth+1, refs, decorate);
+			rel_print_(sql, fout, graph_ptr->edges, depth+1, refs, decorate);
 		}
-		exps_print(sql, fout, graph_ptr->qfrom, depth, 1, 0);
-		mnstr_printf(fout, " -> ");
-		exps_print(sql, fout, graph_ptr->qto, depth, 1, 0);
-		mnstr_printf(fout, ", src: ");
+		print_indent(sql, fout, depth, decorate);
+		exps_print(sql, fout, rel->exps, depth, 1, 0);
+		mnstr_printf(fout, ", src:");
 		exps_print(sql, fout, graph_ptr->efrom, depth, 1, 0);
-		mnstr_printf(fout, ", dst: ");
+		mnstr_printf(fout, ", dst:");
 		exps_print(sql, fout, graph_ptr->eto, depth, 1, 0);
 	}   break;
 	default:

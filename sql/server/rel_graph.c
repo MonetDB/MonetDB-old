@@ -17,7 +17,30 @@
 #include "rel_select.h"
 #include "sql_relation.h" // rel_graph
 
+// DEBUG ONLY -- copy & paste from sql_gencode.c + decorate = TRUE
+str
+rel2str1( mvc *sql, sql_rel *rel)
+{
+	buffer *b;
+	stream *s = buffer_wastream(b = buffer_create(1024), "rel_dump");
+	list *refs = sa_list(sql->sa);
+	char *res = NULL;
+
+	rel_print_refs(sql, s, rel, 0, refs, TRUE);
+	rel_print_(sql, s, rel, 0, refs, TRUE);
+	mnstr_printf(s, "\n");
+	res = buffer_get_buf(b);
+	buffer_destroy(b);
+	mnstr_destroy(s);
+	return res;
+}
+
+
 sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
+	// TODO handle edge components defined with multiple attributes
+	// this needs changes in the parser to accept list of columns & scalars
+
+
     dnode* lstoperands = NULL; // temp to navigate over the operands
     symbol* sym_qfrom = NULL; // the `from' column in the ast
     symbol* sym_qto = NULL; // the `to' column in the ast
@@ -30,9 +53,10 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     sql_exp* efrom = NULL; // ref to the edges column `from'
     sql_exp* eto= NULL; // ref to the edges column `to'
     sql_subtype* exptype = NULL; // the expression type for all columns
-    sql_exp* graph_join = NULL; // the produced predicate for the join
+//    sql_exp* graph_join = NULL; // the produced predicate for the join
     exp_kind exp_kind_value = {type_value, card_column, TRUE};
-    sql_graph* graph_ptr; // the created operator
+    sql_graph* graph_ptr = NULL; // the created operator
+    sql_exp* exp_ptr = NULL; // the created expression ( x reaches y )
     sql_rel* result = NULL; // final output operator
     int use_views_old = 0; // temporary to remember the old value of sql->use_views
 
@@ -42,7 +66,7 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     sql->caching = false;
 
     // let's see what we have got so far
-    printf("[Semantic analysis] Input relation: %s", rel_to_str(sql, rel));
+    printf("[Semantic analysis] Input relation: %s", rel2str1(sql, rel));
 
     lstoperands = sq->data.lval->h;
     sym_qfrom = lstoperands->data.sym; // first operand symbol( dlist( table, column ) )
@@ -84,13 +108,24 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     if(!qto) return NULL; // cannot convert qto into the same type of eto
 
     // build the new operator graph join operator
-    *graph_ptr = sa_alloc(sql->sa, sizeof(sql_graph));
+    graph_ptr = (sql_graph*) sa_alloc(sql->sa, sizeof(sql_graph));
     if(!graph_ptr) { return sql_error(sql, 03, "Cannot allocate rel_graph"); }
-    memset(graph_ptr, 0, sizeof(graph_ptr));
+    memset(graph_ptr, 0, sizeof(sql_graph));
     result = (sql_rel*) graph_ptr;
     sql_ref_init(&result->ref);
+    result->op = op_graph;
     result->l = rel;
-    result->exps = sa_list(sql->sa); // empty list
+    exp_ptr = (sql_exp*) sa_alloc(sql->sa, sizeof(sql_exp));
+    if(!exp_ptr) { return sql_error(sql, 03, "Cannot allocate sql_exp [e_graph] "); }
+    memset(exp_ptr, 0, sizeof(sql_exp));
+    exp_ptr->type = e_graph;
+    exp_ptr->card = CARD_ATOM; // it shouldn't matter
+    exp_ptr->l = sa_list(sql->sa);
+    list_append(exp_ptr->l, qfrom);
+    exp_ptr->r = sa_list(sql->sa);
+    list_append(exp_ptr->r, qto);
+    result->exps = sa_list(sql->sa); // by convention exps has to be a list, even it contains only one item
+    list_append(result->exps, exp_ptr);
     result->card = CARD_MULTI;
     result->nrcols = rel->nrcols;
     graph_ptr->edges = tbl_edges;
@@ -98,17 +133,13 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     list_append(graph_ptr->efrom, efrom);
     graph_ptr->eto = sa_list(sql->sa);
     list_append(graph_ptr->eto, eto);
-    graph_ptr->qfrom = sa_list(sql->sa);
-    list_append(graph_ptr->qfrom, qfrom);
-    graph_ptr->qto = sa_list(sql->sa);
-    list_append(graph_ptr->qto, qto);
+    graph_ptr->spfw = sa_list(sql->sa); // empty list
 
     // let us see if what we are creating makes sense
-//    printf("[Semantic analysis] Output relation: %s\n", rel_to_str(sql, result));
+    printf("[Semantic analysis] Output relation: %s\n", rel2str1(sql, result));
 
-    return rel;
+    return result;
 }
-
 
 /*****************************************************************************
  *                                                                           *
@@ -186,7 +217,8 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
 //                return NULL;
 //        }
 //}
-//
+//// DEBUG ONLY -- copy & paste from sql_gencode.c + decorate = TRUE
+
 //static sql_exp* bindg_exps(mvc *sql, list *exps, dlist *parse_tree){
 //        sql_exp *result = NULL;
 //
@@ -260,5 +292,10 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
 
 
 sql_exp* rel_graph_cheapest_sum(mvc *sql, sql_rel **rel, symbol *sym, int context){
+	(void) sql;
+	(void) rel;
+	(void) sym;
+	(void) context;
+
 	return NULL;
 }

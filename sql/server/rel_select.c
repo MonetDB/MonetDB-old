@@ -62,6 +62,7 @@ rel_table_projections( mvc *sql, sql_rel *rel, char *tname, int level )
 	case op_left:
 	case op_right:
 	case op_full:
+	case op_graph:
 		exps = rel_table_projections( sql, rel->l, tname, level+1);
 		if (exps)
 			return exps;
@@ -3920,6 +3921,8 @@ exp_rewrite(mvc *sql, sql_exp *e, sql_rel *r)
 	case e_atom:
 	case e_psm:
 		return e;
+	case e_graph:
+		assert(0 && "Not implemented yet");
 	}
 	return ne;
 }

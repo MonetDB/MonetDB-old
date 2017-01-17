@@ -578,6 +578,16 @@ exp_rel(mvc *sql, sql_rel *rel)
 	return e;
 }
 
+sql_exp *
+exp_graph(mvc *sql, list *l, list *r)
+{
+	sql_exp *e = exp_create(sql->sa, e_graph);
+	e->l = l;
+	e->r = r;
+	e->card = CARD_ATOM;
+	return e;
+}
+
 /* Set a name (alias) for the expression, such that we can refer 
    to this expression by this simple name.
  */
@@ -1216,6 +1226,8 @@ rel_find_exp_( sql_rel *rel, sql_exp *e)
 		return NULL;
 	case e_atom:
 		return e;
+	case e_graph:
+		assert(0 && "Not implemented yet");
 	}
 	return ne;
 }
@@ -1323,6 +1335,7 @@ exp_is_atom( sql_exp *e )
 	case e_column:
 	case e_cmp:
 	case e_psm:
+	case e_graph:
 		return 0;
 	}
 	return 0;
@@ -1376,6 +1389,8 @@ exp_has_func( sql_exp *e )
 	case e_column:
 	case e_psm:
 		return 0;
+	case e_graph:
+		return exps_has_func(e->l) || exps_has_func(e->r);
 	}
 	return 0;
 }
@@ -1413,6 +1428,8 @@ exp_has_sideeffect( sql_exp *e )
 	case e_column:
 	case e_psm:
 		return 0;
+	case e_graph:
+		assert(0 && "Not implemented yet");
 	}
 	return 0;
 }
@@ -1791,6 +1808,12 @@ exp_copy( sql_allocator *sa, sql_exp * e)
 	case e_psm:
 		if (e->flag == PSM_SET) 
 			ne = exp_set(sa, e->name, exp_copy(sa, e->l), GET_PSM_LEVEL(e->flag));
+		break;
+	case e_graph:
+		ne = exp_create(sa, e_graph);
+		ne->l = exps_copy(sa, e->l);
+		ne->r = exps_copy(sa, e->r);
+		ne->card = CARD_ATOM;
 		break;
 	}
 	if (!ne)

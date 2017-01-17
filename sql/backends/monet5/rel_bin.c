@@ -1268,6 +1268,8 @@ exp2bin_args(backend *be, sql_exp *e, list *args)
 				list_append(args, s);
 			}
 		}
+	case e_graph:
+		assert(0 && "Not implemented yet");
 	}
 	return args;
 }
@@ -4918,6 +4920,8 @@ exp_deps(sql_allocator *sa, sql_exp *e, list *refs, list *l)
 					return exp_deps(sa, e->f, refs, l);
 			}
 		}	break;
+	case e_graph:
+		assert(0 && "Not implemented yet");
 	}
 	return 0;
 }

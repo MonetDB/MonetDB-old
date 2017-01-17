@@ -80,6 +80,8 @@ extern sql_exp * exp_while(sql_allocator *sa, sql_exp *cond, list *stmts);
 extern sql_exp * exp_if(sql_allocator *sa, sql_exp *cond, list *if_stmts, list *else_stmts);
 extern sql_exp * exp_rel(mvc *sql, sql_rel * r);
 
+extern sql_exp * exp_graph(mvc *sql, list *l, list *r);
+
 extern void exp_setname(sql_allocator *sa, sql_exp *e, const char *rname, const char *name );
 extern void exp_setrelname(sql_allocator *sa, sql_exp *e, int nr );
 

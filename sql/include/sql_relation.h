@@ -21,7 +21,8 @@ typedef enum expression_type {
 	e_func,
 	e_aggr,
 	e_convert,
-	e_psm
+	e_psm,
+	e_graph,
 } expression_type;
 
 #define CARD_ATOM 1
@@ -140,8 +141,6 @@ typedef struct expression {
 
 #define DDL_EMPTY 100
 
-#define MAXOPS 21
-
 typedef enum operator_type {
 	op_basetable = 0,
 	op_table,
@@ -161,11 +160,14 @@ typedef enum operator_type {
 	op_groupby,	
 	op_topn,
 	op_sample,
+	op_graph,
 	op_insert, 	/* insert(l=table, r insert expressions) */ 
 	op_update, 	/* update(l=table, r update expressions) */
 	op_delete, 	/* delete(l=table, r delete expression) */
-	op_graph,
 } operator_type;
+
+// set to the last element of operator_type
+#define MAXOPS ((int) op_delete +1)
 
 #define is_atom(et) \
 	(et == e_atom)
@@ -228,6 +230,8 @@ typedef enum operator_type {
 	(op == op_sample)
 #define is_graph(op) \
 	(op == op_graph)
+#define is_join_like(op) \
+	(is_join(op) || is_graph(op))
 
 /* NO NIL semantics of aggr operations */
 #define need_no_nil(e) \
@@ -303,8 +307,7 @@ typedef struct {
 	sql_rel *edges; // edge table
 	list *efrom;
 	list *eto;
-	list *qfrom;
-	list *qto;
+	list *spfw;
 } sql_graph;
 
 #endif /* SQL_RELATION_H */

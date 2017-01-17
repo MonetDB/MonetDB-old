@@ -15,6 +15,7 @@
 #include "rel_prop.h"
 #include "rel_dump.h"
 #include "rel_planner.h"
+#include "rel_graph.h"
 #include "sql_mvc.h"
 #ifdef HAVE_HGE
 #include "mal.h"		/* for have_hge */
@@ -258,8 +259,13 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 		if (rel->r) 
 			rel_properties(sql, gp, rel->r);
 		break;
-	case op_graph:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+	case op_graph: {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		// propagate
+		rel_properties(sql, gp, rel->l);
+		if (rel->r) rel_properties(sql, gp, rel->r);
+		rel_properties(sql, gp, graph_ptr->edges);
+	}	break;
 	}
 
 	switch (rel->op) {
@@ -295,7 +301,7 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 	case op_ddl:
 		break;
 	case op_graph:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+		break;
 	}
 }
 
@@ -1209,6 +1215,12 @@ exp_rename(mvc *sql, sql_exp *e, sql_rel *f, sql_rel *t)
 	case e_atom:
 	case e_psm:
 		return e;
+	case e_graph:
+		e->l = exps_rename(sql, e->l, f, t);
+		e->r = exps_rename(sql, e->r, f, t);
+		// FIXME: why does it need to create a new memory object?
+		//ne = exp_graph(sql->sa, l, r);
+		return e;
 	}
 	if (ne && e->p)
 		ne->p = prop_copy(sql->sa, e->p);
@@ -1335,6 +1347,8 @@ _exp_push_down(mvc *sql, sql_exp *e, sql_rel *f, sql_rel *t)
 	case e_atom:
 	case e_psm:
 		return e;
+	case e_graph:
+		assert(0 && "Not implemented yet");
 	}
 	return NULL;
 }
@@ -2115,6 +2129,8 @@ exp_push_down_prj(mvc *sql, sql_exp *e, sql_rel *f, sql_rel *t)
 	case e_atom:
 	case e_psm:
 		return e;
+	case e_graph:
+		assert(0 && "Not implemented yet");
 	}
 	return NULL;
 }
@@ -2257,7 +2273,9 @@ exp_shares_exps( sql_exp *e, list *shared, lng *uses)
 				if (exp_shares_exps( e, shared, uses))
 					return 1;
 			}
-		}
+		} break;
+	case e_graph:
+		assert(0 && "Not implemented yet");
 	}
 	return 0;
 }
@@ -5134,6 +5152,8 @@ split_aggr_and_project(mvc *sql, list *aexps, sql_exp *e)
 	case e_atom:
 	case e_psm:
 		return e;
+	case e_graph:
+		assert(0 && "Not implemented yet");
 	}
 	return NULL;
 }
@@ -5229,6 +5249,8 @@ exp_use_consts(mvc *sql, sql_exp *e, list *consts)
 	case e_atom:
 	case e_psm:
 		return e;
+	case e_graph:
+		assert(0 && "Not implemented yet");
 	}
 	return NULL;
 }
@@ -5356,8 +5378,10 @@ rel_remove_join(int *changes, mvc *sql, sql_rel *rel)
 static sql_rel *
 rel_push_project_up(int *changes, mvc *sql, sql_rel *rel) 
 {
+	const int is_join_like = is_join_like(rel->op);
+
 	/* project/project cleanup is done later */
-	if (is_join(rel->op) || is_select(rel->op)) {
+	if (is_join_like || is_select(rel->op)) {
 		node *n;
 		list *exps = NULL, *l_exps, *r_exps;
 		sql_rel *l = rel->l;
@@ -5373,6 +5397,12 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 		  ((l->op == op_project && (!l->l || l->r || project_unsafe(l))) ||
 		   (is_join(rel->op) && (is_subquery(r) ||
 		    (r->op == op_project && (!r->l || r->r || project_unsafe(r))))))) 
+			return rel;
+
+		// Same for graphs, avoid the infinite recursion O.o'
+		if(rel->op == op_graph && ((l->op != op_project) ||
+				(r && r->op != op_project) ||
+				(r && rel_is_ref(r))))
 			return rel;
 
 		if (l->op == op_project && l->l) {
@@ -5400,7 +5430,7 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 			exps = rel_projections(sql, l, NULL, 1, 1);
 		}
 		/* also handle right hand of join */
-		if (is_join(rel->op) && r->op == op_project && r->l) {
+		if (is_join_like && r && r->op == op_project && r->l) {
 			/* Here we also check all expressions of r like above
 			   but also we need to check for ambigious names. */ 
 
@@ -5418,13 +5448,13 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 					return rel;
 				}
 			}
-		} else if (is_join(rel->op)) {
+		} else if (is_join_like) {
 			list *r_exps = rel_projections(sql, r, NULL, 1, 1);
 
 			list_merge(exps, r_exps, (fdup)NULL);
 		}
 		/* Here we should check for ambigious names ? */
-		if (is_join(rel->op) && r) {
+		if (is_join_like && r) {
 			t = (l->op == op_project && l->l)?l->l:l;
 			l_exps = rel_projections(sql, t, NULL, 1, 1);
 			/* conflict with old right expressions */
@@ -5472,7 +5502,7 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 
 				for (n = rel->exps->h; n; n = n->next) {
 					sql_exp *e = n->data;
-	
+
 					e = exp_rename(sql, e, l, l->l);
 					assert(e);
 					list_append(nexps, e);
@@ -5483,7 +5513,7 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 			l->l = NULL;
 			rel_destroy(l);
 		}
-		if (is_join(rel->op) && r->op == op_project) {
+		if (is_join_like && r && r->op == op_project) {
 			/* rewrite rel from rel->r into rel->r->l */
 			if (rel->exps) {
 				list *nexps = new_exp_list(sql->sa);
@@ -5500,11 +5530,13 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 			rel->r = r->l;
 			r->l = NULL;
 			rel_destroy(r);
-		} 
+		}
+
 		/* Done, ie introduce new project */
 		exps_fix_card(exps, rel->card);
 		(*changes)++;
-		return rel_inplace_project(sql->sa, rel, NULL, exps);
+		rel = rel_inplace_project(sql->sa, rel, NULL, exps);
+		return rel;
 	}
 	if (is_groupby(rel->op) && !rel_is_ref(rel) && rel->exps) {
 		node *n;
@@ -5609,6 +5641,8 @@ exp_mark_used(sql_rel *subrel, sql_exp *e)
 	case e_psm:
 		e->used = 1;
 		break;
+	case e_graph:
+		assert(0 && "Not implemented yet");
 	}
 	if (ne) {
 		ne->used = 1;
@@ -6687,6 +6721,8 @@ split_exp(mvc *sql, sql_exp *e, sql_rel *rel)
 	case e_psm:	
 	case e_atom:
 		return e;
+	case e_graph:
+		assert(0 && "Not implemented yet");
 	}
 	return e;
 }
@@ -7789,6 +7825,8 @@ exp_uses_exps(sql_exp *e, list *exps)
 		return 0;
 	case e_atom:
 		return 0;
+	case e_graph:
+		assert(0 && "Not implemented yet");
 	}
 	return 0;
 }
@@ -7951,6 +7989,8 @@ exp_apply_rename(mvc *sql, sql_exp *e, list *aliases, int setname)
 	case e_atom:
 	case e_psm:
 		return e;
+	case e_graph:
+		assert(0 && "Not implemented yet");
 	}
 	if (ne && e->p)
 		ne->p = prop_copy(sql->sa, e->p);
@@ -8132,6 +8172,8 @@ exp_find_conflicts(mvc *sql, sql_exp *e, list *aexps, list *conflicts)
 	case e_atom:
 	case e_psm:
 		break;
+	case e_graph:
+		assert(0 && "Not implemented yet");
 	}
 }
 
@@ -8611,8 +8653,12 @@ rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 		rel->l = rewrite(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite(sql, rel->r, rewriter, has_changes);
 		break;
-	case op_graph:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+	case op_graph: {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		rel->l = rewrite(sql, rel->l, rewriter, has_changes);
+		rel->r = rewrite(sql, rel->r, rewriter, has_changes);
+		graph_ptr->edges = rewrite(sql, graph_ptr->edges, rewriter, has_changes);
+	} break;
 	}
 	rel = rewriter(&changes, sql, rel);
 	if (changes) {
@@ -8670,8 +8716,13 @@ rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 		rel->l = rewrite_topdown(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite_topdown(sql, rel->r, rewriter, has_changes);
 		break;
-	case op_graph:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+	case op_graph: {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		rel->l = rewrite_topdown(sql, rel->l, rewriter, has_changes);
+		rel->r = rewrite_topdown(sql, rel->r, rewriter, has_changes);
+		graph_ptr->edges = rewrite_topdown(sql, graph_ptr->edges, rewriter, has_changes);
+		break;
+	}
 	}
 	return rel;
 }
@@ -8705,8 +8756,10 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		}
 	}
 	/* push (simple renaming) projections up */
+	printf("Optimizer rel_push_project_up [before]: %s", rel2str1(sql, rel));
 	if (gp.cnt[op_project]) 
 		rel = rewrite(sql, rel, &rel_push_project_up, &changes); 
+	printf("Optimizer rel_push_project_up [after]: %s", rel2str1(sql, rel));
 	if (level <= 0 && (gp.cnt[op_project] || gp.cnt[op_groupby])) 
 		rel = rel_split_project(&changes, sql, rel, 1);
 

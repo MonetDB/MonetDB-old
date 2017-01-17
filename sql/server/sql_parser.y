@@ -3802,7 +3802,7 @@ param:
 	}
 
 graph_reaches_exp:
-	graph_reaches_column_def REACHES graph_reaches_column_def OVER graph_reaches_edges_table EDGE '(' graph_reaches_column_def ',' graph_reaches_column_def ')'
+	scalar_exp REACHES scalar_exp OVER graph_reaches_edges_table EDGE '(' graph_reaches_column_def ',' graph_reaches_column_def ')'
     {
         dlist *l = L();
         append_symbol(l, $1);
