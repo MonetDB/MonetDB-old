@@ -8779,9 +8779,7 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 	    gp.cnt[op_select]) {
 		rel = rewrite(sql, rel, &rel_find_range, &changes);
 		rel = rel_project_reduce_casts(&changes, sql, rel);
-		printf("Optimizer rel_reduce_casts [before]: %s", rel2str1(sql, rel));
 		rel = rewrite(sql, rel, &rel_reduce_casts, &changes);
-		printf("Optimizer rel_reduce_casts [after]: %s", rel2str1(sql, rel));
 	}
 
 	if (gp.cnt[op_union])
@@ -8793,9 +8791,10 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 	if (gp.cnt[op_project]) 
 		rel = rewrite(sql, rel, &rel_project_cse, &changes);
 
-	rel = rewrite(sql, rel, &rel_rewrite_types, &changes); 
+	rel = rewrite(sql, rel, &rel_rewrite_types, &changes); // dummy
 
 	if (gp.cnt[op_anti] || gp.cnt[op_semi]) {
+		printf("Optimizer rel_reduce_casts [before]: %s", rel2str1(sql, rel));
 		/* rewrite semijoin (A, join(A,B)) into semijoin (A,B) */
 		rel = rewrite(sql, rel, &rel_rewrite_semijoin, &changes);
 		/* push semijoin through join */

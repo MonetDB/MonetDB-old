@@ -65,6 +65,11 @@ rel_destroy_(sql_rel *rel)
 	} else if (is_modify(rel->op)) {
 		if (rel->r)
 			rel_destroy(rel->r);
+	} else if (is_graph(rel->op)){
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		rel_destroy(rel->l);
+		rel_destroy(rel->r);
+		rel_destroy(graph_ptr->edges);
 	}
 }
 
