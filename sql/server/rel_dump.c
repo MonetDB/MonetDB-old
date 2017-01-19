@@ -294,8 +294,10 @@ op2string(operator_type op)
 	case op_update: 
 	case op_delete: 
 		return "modify op";
-	case op_graph:
-		return "graph";
+	case op_graph_join:
+		return "graph/2";
+	case op_graph_select:
+		return "graph/1";
 	default:
 		return "unknown";
 	}
@@ -512,10 +514,10 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 		if (rel->exps)
 			exps_print(sql, fout, rel->exps, depth, 1, 0);
 	} 	break;
-	case op_graph: {
+	case op_graph_join: {
 		sql_graph *graph_ptr = (sql_graph*) rel;
 		print_indent(sql, fout, depth, decorate);
-		mnstr_printf(fout, "graph");
+		mnstr_printf(fout, "%s", op2string(rel->op));
 		if (rel_is_ref(rel->l)) {
 			int nr = find_ref(refs, rel->l);
 			print_indent(sql, fout, depth+1, decorate);
@@ -615,7 +617,8 @@ rel_print_refs(mvc *sql, stream* fout, sql_rel *rel, int depth, list *refs, int 
 			list_append(refs, rel->r);
 		}
 		break;
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 	{
 		sql_graph* graph_ptr = (sql_graph*) rel;
 		rel_print_refs(sql, fout, rel->l, depth, refs, decorate);

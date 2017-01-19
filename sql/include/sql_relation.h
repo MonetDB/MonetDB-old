@@ -160,7 +160,8 @@ typedef enum operator_type {
 	op_groupby,	
 	op_topn,
 	op_sample,
-	op_graph,
+	op_graph_join,
+	op_graph_select,
 	op_insert, 	/* insert(l=table, r insert expressions) */ 
 	op_update, 	/* update(l=table, r update expressions) */
 	op_delete, 	/* delete(l=table, r delete expression) */
@@ -229,9 +230,7 @@ typedef enum operator_type {
 #define is_sample(op) \
 	(op == op_sample)
 #define is_graph(op) \
-	(op == op_graph)
-#define is_join_like(op) \
-	(is_join(op) || is_graph(op))
+	(op == op_graph_join || op_graph_select)
 
 /* NO NIL semantics of aggr operations */
 #define need_no_nil(e) \

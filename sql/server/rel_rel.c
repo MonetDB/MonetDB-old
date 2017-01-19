@@ -122,7 +122,8 @@ rel_copy( sql_allocator *sa, sql_rel *i )
 		if (i->r)
 			rel->r = (i->r)?list_dup(i->r, (fdup)NULL):NULL;
 		break;
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		assert(0 && "Not implemented yet");
 	case op_join:
 	case op_left:
@@ -841,7 +842,8 @@ rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int int
 	case op_topn:
 	case op_sample:
 		return rel_projections(sql, rel->l, tname, settname, intern );
-	case op_graph: {
+	case op_graph_join:
+	case op_graph_select: {
 		sql_graph* graph_ptr = (sql_graph*) rel;
 		exps = rel_projections(sql, rel->l, tname, settname, intern );
 		exps = list_merge( exps, rel_projections(sql, rel->r, tname, settname, intern ), (fdup) NULL);
@@ -907,12 +909,14 @@ rel_bind_path_(sql_rel *rel, sql_exp *e, list *path )
 		break;
 	case op_ddl:
 		break;
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		// this code path is only looking for column names, do not iterate on the cheapest paths
 		found = rel_bind_path_(rel->l, e, path);
-		if(!found && rel->r)
+		if(!found && rel->op == op_graph_join)
+			assert(rel->r != NULL);
 			found = rel_bind_path_(rel->r, e, path);
-		return found;
+		break;
 	}
 	if (found)
 		list_prepend(path, rel);

@@ -62,7 +62,7 @@ rel_table_projections( mvc *sql, sql_rel *rel, char *tname, int level )
 	case op_left:
 	case op_right:
 	case op_full:
-	case op_graph:
+	case op_graph_join:
 		exps = rel_table_projections( sql, rel->l, tname, level+1);
 		if (exps)
 			return exps;
@@ -71,6 +71,7 @@ rel_table_projections( mvc *sql, sql_rel *rel, char *tname, int level )
 	case op_semi:
 	case op_anti:
 	case op_select:
+	case op_graph_select:
 		return rel_table_projections( sql, rel->l, tname, level+1);
 
 	case op_topn:

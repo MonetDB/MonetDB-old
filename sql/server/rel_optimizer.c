@@ -156,7 +156,8 @@ name_find_column( sql_rel *rel, char *rname, char *name, int pnr, sql_rel **bt )
 	case op_update:
 	case op_delete:
 		break;
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 	if (alias) { /* we found an expression with the correct name, but
@@ -259,7 +260,8 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 		if (rel->r) 
 			rel_properties(sql, gp, rel->r);
 		break;
-	case op_graph: {
+	case op_graph_join:
+	case op_graph_select: {
 		sql_graph* graph_ptr = (sql_graph*) rel;
 		// propagate
 		rel_properties(sql, gp, rel->l);
@@ -300,7 +302,8 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 	case op_delete:
 	case op_ddl:
 		break;
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		break;
 	}
 }
@@ -1106,7 +1109,8 @@ rel_join_order(mvc *sql, sql_rel *rel)
 		rel->l = rel_join_order(sql, rel->l);
 		rel->r = rel_join_order(sql, rel->r);
 		break;
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 	if (is_join(rel->op) && rel->exps && !rel_is_ref(rel)) {
@@ -3886,6 +3890,7 @@ rel_push_select_down(int *changes, mvc *sql, sql_rel *rel)
 		if (rel_is_ref(rel->l) && rel->l == rel_find_ref(r->r)){
 			sql_rel *lx = rel->l;
 			sql_rel *rx = r->r;
+			// TODO: maybe it needs to be handled for graphs as well. It needs an use case where this rule fires
 			if (lx->ref.refcnt == 2 && !rel_is_ref(rx)) {
 				while (rx->l && !rel_is_ref(rx->l) &&
 	      			       (is_project(rx->op) || 
@@ -3911,6 +3916,7 @@ rel_push_select_down(int *changes, mvc *sql, sql_rel *rel)
 	if (is_select(rel->op) && r && (is_join(r->op) || is_apply(r->op)) && !(rel_is_ref(r))) {
 		sql_rel *jl = r->l;
 		sql_rel *jr = r->r;
+		// booleans, can we push down in the lhs and rhs?
 		int left = r->op == op_join || r->op == op_left;
 		int right = r->op == op_join || r->op == op_right;
 
@@ -5378,10 +5384,10 @@ rel_remove_join(int *changes, mvc *sql, sql_rel *rel)
 static sql_rel *
 rel_push_project_up(int *changes, mvc *sql, sql_rel *rel) 
 {
-	const int is_join_like = is_join_like(rel->op);
+	const int is_join_like = is_join(rel->op) || rel->op == op_graph_join;
 
 	/* project/project cleanup is done later */
-	if (is_join_like || is_select(rel->op)) {
+	if (is_join(rel->op) || is_select(rel->op) || is_graph(rel->op)) {
 		node *n;
 		list *exps = NULL, *l_exps, *r_exps;
 		sql_rel *l = rel->l;
@@ -5400,7 +5406,7 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 			return rel;
 
 		// Same for graphs, avoid the infinite recursion O.o'
-		if(rel->op == op_graph && ((l->op != op_project) ||
+		if(is_graph(rel->op) && ((l->op != op_project) ||
 				(r && r->op != op_project) ||
 				(r && rel_is_ref(r))))
 			return rel;
@@ -5430,7 +5436,7 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 			exps = rel_projections(sql, l, NULL, 1, 1);
 		}
 		/* also handle right hand of join */
-		if (is_join_like && r && r->op == op_project && r->l) {
+		if (is_join_like && r->op == op_project && r->l) {
 			/* Here we also check all expressions of r like above
 			   but also we need to check for ambigious names. */ 
 
@@ -5454,7 +5460,7 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 			list_merge(exps, r_exps, (fdup)NULL);
 		}
 		/* Here we should check for ambigious names ? */
-		if (is_join_like && r) {
+		if (is_join_like) {
 			t = (l->op == op_project && l->l)?l->l:l;
 			l_exps = rel_projections(sql, t, NULL, 1, 1);
 			/* conflict with old right expressions */
@@ -5513,7 +5519,7 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 			l->l = NULL;
 			rel_destroy(l);
 		}
-		if (is_join_like && r && r->op == op_project) {
+		if (is_join_like && r->op == op_project) {
 			/* rewrite rel from rel->r into rel->r->l */
 			if (rel->exps) {
 				list *nexps = new_exp_list(sql->sa);
@@ -5859,7 +5865,8 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 		break;
 	case op_apply: 
 		break;
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 }
@@ -5967,7 +5974,8 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 	case op_anti: 
 	case op_ddl:
 		return rel;
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 	return rel;
@@ -6053,7 +6061,8 @@ rel_dce_refs(mvc *sql, sql_rel *rel)
 
 	case op_apply: 
 		assert(0);
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 
@@ -6146,7 +6155,8 @@ rel_dce_down(mvc *sql, sql_rel *rel, list *refs, int skip_proj)
 		return rel;
 	case op_apply: 
 		assert(0);
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 	return rel;
@@ -6239,7 +6249,8 @@ rel_add_projects(mvc *sql, sql_rel *rel)
 		if (rel->r)
 			rel->r = rel_add_projects(sql, rel->r);
 		return rel;
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 	return rel;
@@ -7884,7 +7895,8 @@ rel_uses_exps(sql_rel *rel, list *exps )
 	case op_update:
 	case op_delete:
 		return rel_uses_exps(rel->r, exps);
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 	return 0;
@@ -8056,7 +8068,8 @@ rel_rename(mvc *sql, sql_rel *rel, list *conflicts)
 		rel->exps = exps_apply_rename(sql, rel->exps, conflicts, 0);
 		rel->r = rel_rename(sql, rel->r, conflicts);
 		return rel;
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 	assert(0);
@@ -8241,7 +8254,8 @@ rel_find_conflicts(mvc *sql, sql_rel *rel, list *exps, list *conflicts)
 		exps_find_conflicts(sql, rel->exps, exps, conflicts);
 		rel->r = rel_find_conflicts(sql, rel->r, exps, conflicts);
 		return rel;
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 	assert(0);
@@ -8303,7 +8317,8 @@ rel_apply_rename(mvc *sql, sql_rel *rel)
 	case op_delete:
 		rel->r = rel_apply_rename(sql, rel->r);
 		return rel;
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 
@@ -8653,7 +8668,8 @@ rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 		rel->l = rewrite(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite(sql, rel->r, rewriter, has_changes);
 		break;
-	case op_graph: {
+	case op_graph_join:
+	case op_graph_select: {
 		sql_graph* graph_ptr = (sql_graph*) rel;
 		rel->l = rewrite(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite(sql, rel->r, rewriter, has_changes);
@@ -8716,7 +8732,8 @@ rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 		rel->l = rewrite_topdown(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite_topdown(sql, rel->r, rewriter, has_changes);
 		break;
-	case op_graph: {
+	case op_graph_join:
+	case op_graph_select: {
 		sql_graph* graph_ptr = (sql_graph*) rel;
 		rel->l = rewrite_topdown(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite_topdown(sql, rel->r, rewriter, has_changes);
@@ -8794,7 +8811,7 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 	rel = rewrite(sql, rel, &rel_rewrite_types, &changes); // dummy
 
 	if (gp.cnt[op_anti] || gp.cnt[op_semi]) {
-		printf("Optimizer rel_reduce_casts [before]: %s", rel2str1(sql, rel));
+
 		/* rewrite semijoin (A, join(A,B)) into semijoin (A,B) */
 		rel = rewrite(sql, rel, &rel_rewrite_semijoin, &changes);
 		/* push semijoin through join */
@@ -8813,7 +8830,9 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		if (level <= 0)
 			rel = rewrite(sql, rel, &rel_merge_rse, &changes); 
 
+		printf("Optimizer rel_push_select_down [before]: %s", rel2str1(sql, rel));
 		rel = rewrite_topdown(sql, rel, &rel_push_select_down, &changes); 
+		printf("Optimizer rel_push_select_down [after]: %s", rel2str1(sql, rel));
 		rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes); 
 	}
 

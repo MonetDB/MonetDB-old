@@ -51,9 +51,8 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     symbol* sym_edges_from = NULL; // reference to the `edges from' column in the ast
     symbol* sym_edges_to = NULL; // ref to the `edges to' column in the ast
     sql_exp* efrom = NULL; // ref to the edges column `from'
-    sql_exp* eto= NULL; // ref to the edges column `to'
+    sql_exp* eto = NULL; // ref to the edges column `to'
     sql_subtype* exptype = NULL; // the expression type for all columns
-//    sql_exp* graph_join = NULL; // the produced predicate for the join
     exp_kind exp_kind_value = {type_value, card_column, TRUE};
     sql_graph* graph_ptr = NULL; // the created operator
     sql_exp* exp_ptr = NULL; // the created expression ( x reaches y )
@@ -77,6 +76,10 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     if(!qfrom) return NULL; // cannot refer to qfrom
     qto = rel_value_exp(sql, &rel, sym_qto, context, exp_kind_value);
     if(!qto) return NULL; // cannot refer to qto
+    // TODO: to be handled with graph_select
+    if(qfrom->card != CARD_MULTI || qto->card != CARD_MULTI){
+    	return sql_error(sql, 42, "["__FILE__ ":%d] select/filter syntax not implemented yet", __LINE__);
+    }
 
     // edges table
     lstoperands = lstoperands->next;
@@ -113,13 +116,13 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     memset(graph_ptr, 0, sizeof(sql_graph));
     result = (sql_rel*) graph_ptr;
     sql_ref_init(&result->ref);
-    result->op = op_graph;
+    result->op = op_graph_select;
     result->l = rel;
     exp_ptr = (sql_exp*) sa_alloc(sql->sa, sizeof(sql_exp));
     if(!exp_ptr) { return sql_error(sql, 03, "Cannot allocate sql_exp [e_graph] "); }
     memset(exp_ptr, 0, sizeof(sql_exp));
     exp_ptr->type = e_graph;
-    exp_ptr->card = CARD_ATOM; // it shouldn't matter
+    exp_ptr->card = CARD_MULTI;
     exp_ptr->l = sa_list(sql->sa);
     list_append(exp_ptr->l, qfrom);
     exp_ptr->r = sa_list(sql->sa);
@@ -138,7 +141,7 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     // let us see if what we are creating makes sense
     printf("[Semantic analysis] Output relation: %s\n", rel2str1(sql, result));
 
-    return result;
+    return rel;
 }
 
 /*****************************************************************************

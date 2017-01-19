@@ -584,7 +584,7 @@ exp_graph(mvc *sql, list *l, list *r)
 	sql_exp *e = exp_create(sql->sa, e_graph);
 	e->l = l;
 	e->r = r;
-	e->card = CARD_ATOM;
+	e->card = CARD_MULTI;
 	return e;
 }
 
@@ -1229,7 +1229,7 @@ rel_find_exp_( sql_rel *rel, sql_exp *e)
 	case e_atom:
 		return e;
 	case e_graph:
-		assert(0 && "Not implemented yet");
+		return NULL;
 	}
 	return ne;
 }
@@ -1246,6 +1246,7 @@ rel_find_exp( sql_rel *rel, sql_exp *e)
 		case op_full:
 		case op_join:
 		case op_apply:
+		case op_graph_join:
 			ne = rel_find_exp(rel->l, e);
 			if (!ne) 
 				ne = rel_find_exp(rel->r, e);

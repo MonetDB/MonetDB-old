@@ -1331,7 +1331,8 @@ rel2bin_args(backend *be, sql_rel *rel, list *args)
 	case op_delete:
 		args = rel2bin_args(be, rel->r, args);
 		break;
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 	return args;
@@ -4787,7 +4788,8 @@ subrel_bin(backend *be, sql_rel *rel, list *refs)
 	case op_ddl:
 		s = rel2bin_ddl(be, rel, refs);
 		break;
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 	if (s && rel_is_ref(rel)) {
@@ -5031,7 +5033,8 @@ rel_deps(sql_allocator *sa, sql_rel *r, list *refs, list *l)
 			exps_deps(sa, r->exps, refs, l);
 		}
 		break;
-	case op_graph:
+	case op_graph_join:
+	case op_graph_select:
 		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 	if (r->exps)
