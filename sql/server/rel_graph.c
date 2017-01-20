@@ -78,7 +78,7 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     if(!qto) return NULL; // cannot refer to qto
     // TODO: to be handled with graph_select
     if(qfrom->card != CARD_MULTI || qto->card != CARD_MULTI){
-    	return sql_error(sql, 42, "["__FILE__ ":%d] select/filter syntax not implemented yet", __LINE__);
+    	return sql_error(sql, 42, "["__FILE__ ":%d] select/filter semantic not allowed for the time being", __LINE__);
     }
 
     // edges table
@@ -141,7 +141,7 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     // let us see if what we are creating makes sense
     printf("[Semantic analysis] Output relation: %s\n", rel2str1(sql, result));
 
-    return rel;
+    return result;
 }
 
 /*****************************************************************************

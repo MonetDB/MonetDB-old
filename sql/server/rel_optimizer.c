@@ -3912,13 +3912,13 @@ rel_push_select_down(int *changes, mvc *sql, sql_rel *rel)
 	    r && r->op == op_project && !(rel_is_ref(r))) 
 		return rel_merge_projects(changes, sql, rel);
 
-	/* push select through join */
-	if (is_select(rel->op) && r && (is_join(r->op) || is_apply(r->op)) && !(rel_is_ref(r))) {
+	/* push select through graph/join */
+	if (is_select(rel->op) && r && (is_join(r->op) || is_graph(r->op) || is_apply(r->op)) && !(rel_is_ref(r))) {
 		sql_rel *jl = r->l;
 		sql_rel *jr = r->r;
 		// booleans, can we push down in the lhs and rhs?
-		int left = r->op == op_join || r->op == op_left;
-		int right = r->op == op_join || r->op == op_right;
+		int left = r->op == op_join || r->op == op_left || is_graph(r->op);
+		int right = r->op == op_join || r->op == op_right || r->op == op_graph_join;
 
 		if (is_apply(r->op)) {
 			left = right = 1;
@@ -3930,10 +3930,10 @@ rel_push_select_down(int *changes, mvc *sql, sql_rel *rel)
 
 		/* introduce selects under the join (if needed) */
 		set_processed(jl);
-		set_processed(jr);
+		if(jr) set_processed(jr);
 		if (!is_select(jl->op)) 
 			r->l = jl = rel_select(sql->sa, jl, NULL);
-		if (!is_select(jr->op))
+		if (jr && !is_select(jr->op))
 			r->r = jr = rel_select(sql->sa, jr, NULL);
 		
 		rel->exps = new_exp_list(sql->sa); 
@@ -4074,7 +4074,7 @@ rel_remove_empty_select(int *changes, mvc *sql, sql_rel *rel)
 {
 	(void)sql;
 
-	if ((is_join(rel->op) || is_semi(rel->op) || is_select(rel->op) || is_project(rel->op) || is_topn(rel->op) || is_sample(rel->op)) && rel->l) {
+	if ((is_join(rel->op) || is_semi(rel->op) || is_select(rel->op) || is_project(rel->op) || is_topn(rel->op) || is_sample(rel->op) || is_graph(rel->op)) && rel->l) {
 		sql_rel *l = rel->l;
 		if (is_select(l->op) && !(rel_is_ref(l)) &&
 		   (!l->exps || list_length(l->exps) == 0)) {
@@ -4084,7 +4084,7 @@ rel_remove_empty_select(int *changes, mvc *sql, sql_rel *rel)
 			(*changes)++;
 		} 
 	}
-	if ((is_join(rel->op) || is_semi(rel->op) || is_set(rel->op)) && rel->r) {
+	if ((is_join(rel->op) || is_semi(rel->op) || is_set(rel->op) || is_graph(rel->op)) && rel->r) {
 		sql_rel *r = rel->r;
 		if (is_select(r->op) && !(rel_is_ref(r)) &&
 	   	   (!r->exps || list_length(r->exps) == 0)) {
@@ -8825,16 +8825,16 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 	if (gp.cnt[op_left] || gp.cnt[op_right] || gp.cnt[op_full]) 
 		rel = rewrite_topdown(sql, rel, &rel_split_outerjoin, &changes);
 
+	printf("Optimizer rel_push_select_down [before]: %s", rel2str1(sql, rel));
 	if (gp.cnt[op_select] || gp.cnt[op_semi]) {
 		/* only once */
 		if (level <= 0)
 			rel = rewrite(sql, rel, &rel_merge_rse, &changes); 
 
-		printf("Optimizer rel_push_select_down [before]: %s", rel2str1(sql, rel));
 		rel = rewrite_topdown(sql, rel, &rel_push_select_down, &changes); 
-		printf("Optimizer rel_push_select_down [after]: %s", rel2str1(sql, rel));
 		rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes); 
 	}
+	printf("Optimizer rel_push_select_down [after]: %s", rel2str1(sql, rel));
 
 	if (gp.cnt[op_select] && gp.cnt[op_join]) {
 		rel = rewrite_topdown(sql, rel, &rel_push_select_down_join, &changes); 

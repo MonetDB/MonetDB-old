@@ -182,7 +182,8 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname )
 	case op_join:
 	case op_left:
 	case op_right:
-	case op_full: {
+	case op_full:
+	case op_graph_join: {
 		sql_rel *right = rel->r;
 
 		*p = rel;
@@ -228,6 +229,7 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname )
 	case op_select:
 	case op_topn:
 	case op_sample:
+	case op_graph_select:
 		*p = rel;
 		if (rel->l)
 			return rel_bind_column_(sql, p, rel->l, cname);
@@ -272,7 +274,7 @@ rel_bind_column2( mvc *sql, sql_rel *rel, const char *tname, const char *cname, 
 	if (is_project(rel->op) && rel->l) {
 		if (!is_processed(rel))
 			return rel_bind_column2(sql, rel->l, tname, cname, f);
-	} else if (is_join(rel->op)) {
+	} else if (is_join(rel->op) || rel->op == op_graph_join) {
 		sql_exp *e = rel_bind_column2(sql, rel->l, tname, cname, f);
 		if (!e)
 			e = rel_bind_column2(sql, rel->r, tname, cname, f);
@@ -281,7 +283,8 @@ rel_bind_column2( mvc *sql, sql_rel *rel, const char *tname, const char *cname, 
 		   is_sort(rel) ||
 		   is_semi(rel->op) ||
 		   is_apply(rel->op) ||
-		   is_select(rel->op)) {
+		   is_select(rel->op) ||
+		   rel->op == op_graph_select) {
 		if (rel->l)
 			return rel_bind_column2(sql, rel->l, tname, cname, f);
 	}
@@ -913,9 +916,10 @@ rel_bind_path_(sql_rel *rel, sql_exp *e, list *path )
 	case op_graph_select:
 		// this code path is only looking for column names, do not iterate on the cheapest paths
 		found = rel_bind_path_(rel->l, e, path);
-		if(!found && rel->op == op_graph_join)
+		if(!found && rel->op == op_graph_join) {
 			assert(rel->r != NULL);
 			found = rel_bind_path_(rel->r, e, path);
+		}
 		break;
 	}
 	if (found)
@@ -970,7 +974,8 @@ rel_push_select(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *e)
 		if (!is_select(lrel->op) &&
 		    !(is_semi(lrel->op) && !rel_is_ref(lrel->l)) &&
 		    lrel->op != op_join &&
-		    lrel->op != op_left)
+		    lrel->op != op_left &&
+		    !is_graph(lrel->op))
 			break;
 		/* pushing through left head of a left join is allowed */
 		if (lrel->op == op_left && (!n->next || lrel->l != n->next->data))
@@ -985,10 +990,11 @@ rel_push_select(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *e)
 		sql_rel *n = rel_select(sql->sa, lrel, e);
 
 		if (p && p != lrel) {
-			assert(p->op == op_join || p->op == op_left || is_semi(p->op));
+			assert(p->op == op_join || p->op == op_left || is_semi(p->op) || is_graph(p->op));
 			if (p->l == lrel) {
 				p->l = n;
 			} else {
+				assert(p->op != op_graph_select);
 				p->r = n;
 			}
 		} else {
@@ -1013,6 +1019,7 @@ rel_push_join(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_exp *rs2, sq
 	node *ln, *rn;
 	sql_rel *lrel = NULL, *rrel = NULL, *rrel2 = NULL, *p = NULL;
 
+	// TODO: Dean what is rs2 for?
 	if (rs2)
 		r2 = rel_bind_path(sql->sa, rel, rs2);
 	if (!l || !r || (rs2 && !r2)) 
@@ -1062,7 +1069,8 @@ rel_push_join(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_exp *rs2, sq
 				(!is_select(lrel->op) &&
 				 !(is_semi(lrel->op) && !rel_is_ref(lrel->l)) &&
 				 lrel->op != op_join &&
-				 lrel->op != op_left))
+				 lrel->op != op_left &&
+				 !is_graph(lrel->op)))
 				break;
 			/* pushing through left head of a left join is allowed */
 			if (lrel->op == op_left && (!ln->next || lrel->l != ln->next->data))

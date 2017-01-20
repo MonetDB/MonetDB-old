@@ -514,7 +514,8 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 		if (rel->exps)
 			exps_print(sql, fout, rel->exps, depth, 1, 0);
 	} 	break;
-	case op_graph_join: {
+	case op_graph_join:
+	case op_graph_select: {
 		sql_graph *graph_ptr = (sql_graph*) rel;
 		print_indent(sql, fout, depth, decorate);
 		mnstr_printf(fout, "%s", op2string(rel->op));
@@ -525,6 +526,7 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 		} else
 			rel_print_(sql, fout, rel->l, depth+1, refs, decorate);
 		if (rel->r) {
+			assert(rel->op == op_graph_join && "Expected join semantics when a rhs is present");
 			if (rel_is_ref(rel->r)) {
 				int nr = find_ref(refs, rel->r);
 				print_indent(sql, fout, depth+1, decorate);

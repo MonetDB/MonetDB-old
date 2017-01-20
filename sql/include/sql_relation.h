@@ -230,7 +230,7 @@ typedef enum operator_type {
 #define is_sample(op) \
 	(op == op_sample)
 #define is_graph(op) \
-	(op == op_graph_join || op_graph_select)
+	(op == op_graph_join || op == op_graph_select)
 
 /* NO NIL semantics of aggr operations */
 #define need_no_nil(e) \
