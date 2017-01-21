@@ -1017,6 +1017,7 @@ exp_is_join_exp(sql_exp *e)
 	return -1;
 }
 
+// ignore for graphs, current code path can invoke it only on exp_is_join() when e->type == e_cmp
 static int
 exp_is_complex_select( sql_exp *e )
 {
@@ -1097,6 +1098,7 @@ distinct_rel(sql_exp *e, const char **rname)
 	return 0;
 }
 
+// So -1 means no and 0 = yes
 int
 rel_has_exp(sql_rel *rel, sql_exp *e) 
 {
@@ -1162,6 +1164,7 @@ exp_is_rangejoin(sql_exp *e, list *rels)
 	return -1;
 }
 
+// here 0 = true, -1 = false
 int
 exp_is_join(sql_exp *e, list *rels)
 {
@@ -1229,6 +1232,7 @@ rel_find_exp_( sql_rel *rel, sql_exp *e)
 	case e_atom:
 		return e;
 	case e_graph:
+		// Check: this code path seems to be used to find the generator of an expression
 		return NULL;
 	}
 	return ne;

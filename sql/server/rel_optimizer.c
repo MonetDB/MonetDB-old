@@ -8815,7 +8815,9 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		/* rewrite semijoin (A, join(A,B)) into semijoin (A,B) */
 		rel = rewrite(sql, rel, &rel_rewrite_semijoin, &changes);
 		/* push semijoin through join */
+		if(level == 0) printf("Optimizer rel_reduce_casts [before]: %s", rel2str1(sql, rel));
 		rel = rewrite(sql, rel, &rel_push_semijoin_down, &changes);
+		if(level == 0) printf("Optimizer rel_push_semijoin_down [after]: %s", rel2str1(sql, rel));
 		/* antijoin(a, union(b,c)) -> antijoin(antijoin(a,b), c) */
 		rel = rewrite(sql, rel, &rel_rewrite_antijoin, &changes);
 		if (level <= 0)
