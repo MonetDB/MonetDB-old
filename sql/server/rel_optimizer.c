@@ -615,6 +615,7 @@ order_join_expressions(mvc *sql, list *dje, list *rels)
 	return res;
 }
 
+// returns 0 if |exps| > 1
 static int
 find_join_rels(list **L, list **R, list *exps, list *rels)
 {
@@ -656,7 +657,7 @@ distinct_join_exps(list *aje, list *lrels, list *rrels)
 	for(n = lrels->h, m = rrels->h, j = 0; n && m; 
 	    n = n->next, m = m->next, j++) {
 		if (n->data && m->data)
-		for(o = n->next, p = m->next, i = j+1; o && p; 
+		for(o = n->next, p = m->next, i = j+1; o && p;
 		    o = o->next, p = p->next, i++) {
 			if (o->data == n->data && p->data == m->data)
 				used[i] = 1;
@@ -1045,7 +1046,7 @@ reorder_join(mvc *sql, sql_rel *rel)
 	if (rel->op == op_join)
 		rel->exps = push_up_join_exps(sql, rel);
 
-       	exps = rel->exps;
+	exps = rel->exps;
 	if (!exps) /* crosstable, ie order not important */
 		return rel;
 	rel->exps = NULL; /* should be all crosstables by now */
@@ -1118,9 +1119,12 @@ rel_join_order(mvc *sql, sql_rel *rel)
 		rel->l = rel_join_order(sql, rel->l);
 		rel->r = rel_join_order(sql, rel->r);
 		break;
-	case op_graph_join:
 	case op_graph_select:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+		rel->l = rel_join_order(sql, rel->l);
+		break;
+	case op_graph_join:
+		// nop, jump to reorder_join
+		break;
 	}
 	if (is_join(rel->op) && rel->exps && !rel_is_ref(rel)) {
 		rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes); 
@@ -4606,9 +4610,9 @@ rel_remove_empty_join(mvc *sql, sql_rel *rel, int *changes)
 			return rel_inplace_project(sql->sa, rel, rel_dup(l), rel->exps);
 		}
 	} else if ((is_project(rel->op) || is_topn(rel->op) || is_select(rel->op)
-				|| is_sample(rel->op)) && rel->l) {
+				|| is_sample(rel->op) || rel->op == op_graph_select) && rel->l) {
 		rel->l = rel_remove_empty_join(sql, rel->l, changes);
-	} else if (is_join(rel->op)) {
+	} else if (is_join(rel->op) || rel->op == op_graph_join) {
 		rel->l = rel_remove_empty_join(sql, rel->l, changes);
 		rel->r = rel_remove_empty_join(sql, rel->r, changes);
 	}
