@@ -1818,9 +1818,9 @@ exp_copy( sql_allocator *sa, sql_exp * e)
 		break;
 	case e_graph:
 		ne = exp_create(sa, e_graph);
+		memcpy(ne, e, sizeof(sql_exp));
 		ne->l = exps_copy(sa, e->l);
 		ne->r = exps_copy(sa, e->r);
-		ne->card = CARD_ATOM;
 		break;
 	}
 	if (!ne)

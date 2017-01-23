@@ -158,7 +158,16 @@ name_find_column( sql_rel *rel, char *rname, char *name, int pnr, sql_rel **bt )
 		break;
 	case op_graph_join:
 	case op_graph_select:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+		// here we are looking for the physical columns, ignore the shortest paths
+		// first attempt, left relation
+		if(!c) { c = name_find_column(rel->l, rname, name, pnr, bt); }
+
+		// second attempt, right relation in case of join
+		if(!c && rel->r ) {
+			assert(rel->op == op_graph_join);
+			c = name_find_column(rel->r, rname, name, pnr, bt);
+		}
+		break;
 	}
 	if (alias) { /* we found an expression with the correct name, but
 			we need sql_columns */
@@ -4860,7 +4869,7 @@ rel_reduce_groupby_exps(int *changes, mvc *sql, sql_rel *rel)
 						}
 					}
 				}
-				if (cnr && nr && list_length(tbls[j]->pkey->k.columns) == nr) {
+				if (cnr && nr && list_length(tbls[j]->pkey->k.columns) == nr /*=all*/) {
 					list *ngbe = new_exp_list(sql->sa);
 					list *exps = rel->exps, *nexps = new_exp_list(sql->sa);
 
