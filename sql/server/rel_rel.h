@@ -33,6 +33,7 @@ extern sql_rel *rel_distinct(sql_rel *l);
 extern sql_rel *rel_dup(sql_rel *r);
 extern void rel_destroy(sql_rel *rel);
 extern sql_rel *rel_create(sql_allocator *sa);
+extern sql_graph* rel_graph_create(sql_allocator *sa);
 extern sql_rel *rel_copy(sql_allocator *sa, sql_rel *r);
 extern sql_rel *rel_select_copy(sql_allocator *sa, sql_rel *l, list *exps);
 

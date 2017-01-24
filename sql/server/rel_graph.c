@@ -91,21 +91,14 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     if(!qto) return NULL; // cannot convert qto into the same type of eto
 
     // build the new operator graph join operator
-    graph_ptr = (sql_graph*) sa_alloc(sql->sa, sizeof(sql_graph));
+    graph_ptr = rel_graph_create(sql->sa);
     if(!graph_ptr) { return sql_error(sql, 03, "Cannot allocate rel_graph"); }
-    memset(graph_ptr, 0, sizeof(sql_graph));
     result = (sql_rel*) graph_ptr;
-    sql_ref_init(&result->ref);
     result->op = op_graph_select;
     result->l = rel;
-    exp_ptr = (sql_exp*) sa_alloc(sql->sa, sizeof(sql_exp));
+    exp_ptr = exp_graph(sql, sa_list(sql->sa), sa_list(sql->sa));
     if(!exp_ptr) { return sql_error(sql, 03, "Cannot allocate sql_exp [e_graph] "); }
-    memset(exp_ptr, 0, sizeof(sql_exp));
-    exp_ptr->type = e_graph;
-    exp_ptr->card = CARD_MULTI;
-    exp_ptr->l = sa_list(sql->sa);
     list_append(exp_ptr->l, qfrom);
-    exp_ptr->r = sa_list(sql->sa);
     list_append(exp_ptr->r, qto);
     result->exps = sa_list(sql->sa); // by convention exps has to be a list, even it contains only one item
     list_append(result->exps, exp_ptr);

@@ -100,6 +100,16 @@ rel_create( sql_allocator *sa )
 	return r;
 }
 
+sql_graph*
+rel_graph_create( sql_allocator *sa )
+{
+	sql_graph *r = SA_NEW(sa, sql_graph);
+	if(!r) return NULL;
+	memset(r, 0, sizeof(sql_graph));
+	sql_ref_init(&(r->relation.ref));
+	return r;
+}
+
 sql_rel *
 rel_copy( sql_allocator *sa, sql_rel *i )
 {
@@ -178,12 +188,15 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname )
 {
 	int ambiguous = 0;
 	sql_rel *l = NULL, *r = NULL;
+
+	// stop the recursion
+	if(!rel) return NULL;
+
 	switch(rel->op) {
 	case op_join:
 	case op_left:
 	case op_right:
-	case op_full:
-	case op_graph_join: {
+	case op_full: {
 		sql_rel *right = rel->r;
 
 		*p = rel;
@@ -229,10 +242,33 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname )
 	case op_select:
 	case op_topn:
 	case op_sample:
-	case op_graph_select:
 		*p = rel;
 		if (rel->l)
 			return rel_bind_column_(sql, p, rel->l, cname);
+		break;
+	case op_graph_join:
+	case op_graph_select: {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		sql_rel* result = NULL;
+		sql_exp* spfw_expr = NULL;
+
+		l = rel_bind_column_(sql, p, rel->l, cname);
+		if(l) result = l;
+		r = rel_bind_column_(sql, p, rel->r, cname);
+		if(r) result = r;
+
+		if (l && r)
+			return sql_error(sql, ERR_AMBIGUOUS, "SELECT: identifier '%s' ambiguous", cname);
+
+		spfw_expr = exps_bind_column(graph_ptr->spfw, cname, &ambiguous);
+		if (ambiguous || (spfw_expr && result)){
+			return sql_error(sql, ERR_AMBIGUOUS, "SELECT: identifier '%s' ambiguous", cname);
+		} else if (spfw_expr) {
+			result = rel;
+		}
+
+		return result;
+	} break;
 	default:
 		return NULL;
 	}
@@ -274,7 +310,7 @@ rel_bind_column2( mvc *sql, sql_rel *rel, const char *tname, const char *cname, 
 	if (is_project(rel->op) && rel->l) {
 		if (!is_processed(rel))
 			return rel_bind_column2(sql, rel->l, tname, cname, f);
-	} else if (is_join(rel->op) || rel->op == op_graph_join) {
+	} else if (is_join(rel->op)) {
 		sql_exp *e = rel_bind_column2(sql, rel->l, tname, cname, f);
 		if (!e)
 			e = rel_bind_column2(sql, rel->r, tname, cname, f);
@@ -283,10 +319,21 @@ rel_bind_column2( mvc *sql, sql_rel *rel, const char *tname, const char *cname, 
 		   is_sort(rel) ||
 		   is_semi(rel->op) ||
 		   is_apply(rel->op) ||
-		   is_select(rel->op) ||
-		   rel->op == op_graph_select) {
+		   is_select(rel->op)) {
 		if (rel->l)
 			return rel_bind_column2(sql, rel->l, tname, cname, f);
+	} else if (is_graph(rel->op)) {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		sql_exp *e = NULL;
+		// check the shortest path expressions
+		e = exps_bind_column2(graph_ptr->spfw, tname, cname);
+		if(e) { e = exp_alias_or_copy(sql, tname, cname, rel, e); } // overkill
+
+		// not found, walk up in the tree then
+		if(!e) { e = rel_bind_column2(sql, rel->l, tname, cname, f); }
+		if(!e) { e = rel_bind_column2(sql, rel->r, tname, cname, f); }
+
+		return e;
 	}
 	return NULL;
 }
@@ -314,8 +361,7 @@ rel_inplace_project(sql_allocator *sa, sql_rel *rel, sql_rel *l, list *e)
 	if (!l) {
 		if (is_graph(rel->op)){
 			sql_graph *graph_old = (sql_graph*) rel;
-			sql_graph *graph_ptr = (sql_graph*) sa_alloc(sa, sizeof(sql_graph));
-			memset(graph_ptr, 0, sizeof(sql_graph));
+			sql_graph *graph_ptr = rel_graph_create(sa);
 			graph_ptr->edges = graph_old->edges;
 			graph_ptr->efrom = graph_old->efrom;
 			graph_ptr->eto = graph_old->eto;

@@ -1364,8 +1364,14 @@ _exp_push_down(mvc *sql, sql_exp *e, sql_rel *f, sql_rel *t)
 	case e_atom:
 	case e_psm:
 		return e;
-	case e_graph:
-		assert(0 && "Not implemented yet");
+	case e_graph: {
+		list *lst1 = NULL, *lst2 = NULL;
+		lst1 = exps_push_down(sql, e->l, f, t);
+		if(list_empty(lst1)) return NULL;
+		lst2 = exps_push_down(sql, e->r, f, t);
+		if(list_empty(lst2)) return NULL;
+		return exp_graph(sql, lst1, lst2);
+	} break;
 	}
 	return NULL;
 }
@@ -8435,7 +8441,6 @@ rel_apply_rewrite(int *changes, mvc *sql, sql_rel *rel)
 	}
 	if (rel->flag == APPLY_LOJ && r->op == op_select) {
 		sql_rel *nr, *ns;
-
 		nr = rel_project(sql->sa, rel_dup(r), 
 			rel_projections(sql, r, NULL, 1, 1));
 		ns = rel_apply(sql, rel_dup(rel->l), nr, rel->exps, rel->flag);
@@ -8629,6 +8634,168 @@ rel_apply_rewrite(int *changes, mvc *sql, sql_rel *rel)
 }
 
 static sql_rel *
+rel_graph_pda(int *changes, mvc *sql, sql_rel *rel)
+{
+	sql_rel* graph_rel = rel;
+	sql_rel* parent = NULL;
+	sql_rel* target = NULL;
+	sql_exp* graph_pda = NULL;
+
+	// only applies to op_graph_select
+	if(graph_rel->op != op_graph_select) {
+		return rel;
+	}
+	graph_pda = graph_rel->exps->h->data;
+	assert(graph_pda != NULL && "Interesting, here we have a graph select without a predicate...");
+	assert(graph_pda->type == e_graph);
+
+	target = parent = rel->l;
+
+	// pass through selects
+	if(target->op == op_select){
+		target = target->l;
+	}
+
+	// do not cross references
+	if(rel_is_ref(target) || rel_is_ref(parent))
+		return rel;
+
+	// ref cnt
+	printf("[rel_graph_pda] cnt: %d\n", graph_rel->ref.refcnt);
+
+	// case 1 - try to push down through a join or another graph operator
+	if(is_join(target->op) || is_graph(target->op)){
+		sql_rel* l = target->l;
+		sql_rel* r = target->r;
+		sql_exp* ne = NULL;
+		bool pda_lhs = true; // otherwise go to the right
+
+		// can we push down to the lhs or rhs of the join?
+		bool left = r->op == op_join || r->op == op_left || r->op == op_graph_join || r->op == op_graph_select;
+		bool right = r->op == op_join || r->op == op_right || r->op == op_graph_join;
+
+		// push down to the lhs
+		if (left){
+			ne = exp_push_down(sql, graph_pda, l, l);
+		}
+		// try to push to the rhs
+		if (!ne && right) {
+			pda_lhs = false;
+			ne = exp_push_down(sql, graph_pda, r, r);
+		}
+
+		// success?
+		if (ne) {
+			list_remove_node(graph_rel->exps, graph_rel->exps->h);
+			assert(list_empty(graph_rel->exps));
+			list_append(graph_rel->exps, ne);
+
+			// reshape the tree
+			if (pda_lhs){
+				graph_rel->l = target->l;
+				target->l = graph_rel;
+			} else {
+				graph_rel->l = target->r;
+				target->r = graph_rel;
+			}
+
+			(*changes)++;
+			return parent;
+		}
+	}
+
+	return rel;
+}
+
+static sql_rel *
+rel_graph_create_join(int *changes, mvc *sql, sql_rel *rel)
+{
+	sql_rel* graph_rel = rel;
+	sql_rel* parent = NULL;
+	sql_rel* target = NULL;
+	sql_exp* graph_pda = NULL;
+
+	// only applies to op_graph_select
+	if(graph_rel->op != op_graph_select || rel_is_ref(rel)) {
+		return rel;
+	}
+	graph_pda = graph_rel->exps->h->data;
+	assert(graph_pda != NULL && "Interesting, here we have a graph select without a predicate...");
+	assert(graph_pda->type == e_graph);
+
+	target = rel->l;
+
+	// pass through selects
+	if(target->op == op_select){
+		parent = target;
+		target = target->l;
+	}
+
+	// do not cross references
+	if(rel_is_ref(target) || (parent && rel_is_ref(parent)))
+		return rel;
+
+	// check the parent is a cross product
+	if(target->op == op_join && list_empty(target->exps)){
+		sql_rel *l = target->l;
+		sql_rel *r = target->r;
+		bool order_lhs = true; // otherwise go the left hand side
+		list *el = NULL;
+		list *er = NULL;
+
+		// bind to the lhs
+		el = exps_push_down(sql, graph_pda->l, l, l);
+		if(!el){ // ok that didn't work out, try with the rhs
+			order_lhs = false;
+			el = exps_push_down(sql, graph_pda->l, r, r);
+		}
+
+		// if we did bind the lhs above, then we are guaranteed that the
+		// rhs will bind as well. Otherwise we are in the case where
+		// the rule `rel_graph_pda' would have move this operator above
+		// this cross product.
+		if(el){
+			sql_exp* ne = NULL; // construct the new e_graph expression (jic)
+
+			if(order_lhs){
+				er = exps_push_down(sql, graph_pda->r, r, r);
+			} else {
+				er = exps_push_down(sql, graph_pda->r, l, l);
+			}
+			assert(er != NULL && "See comment in the code above");
+			ne = exp_graph(sql, el, er);
+
+			// replace the cross product with a graph_join
+			rel_destroy(target);
+			target = (sql_rel*) rel_graph_create(sql->sa);
+		    memcpy(target, graph_rel, sizeof(sql_graph));
+		    target->op = op_graph_join;
+		    target->exps = new_exp_list(sql->sa);
+		    list_append(target->exps, ne);
+		    target->l = l;
+		    target->r = r;
+
+		    // replace the graph_select with a dummy operator
+		    graph_rel->op = op_select;
+		    graph_rel->exps = new_exp_list(sql->sa);
+		    graph_rel->p = NULL;
+
+		    // update the parent
+		    if(parent){
+		    	parent->l = target;
+		    	parent->nrcols = target->nrcols;
+		    } else {
+		    	graph_rel->l = target;
+		    }
+
+		    (*changes)++;
+		}
+	}
+
+	return rel;
+}
+
+static sql_rel *
 rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes) 
 {
 	int changes = 0;
@@ -8753,6 +8920,7 @@ static sql_rel *
 _rel_optimizer(mvc *sql, sql_rel *rel, int level) 
 {
 	int changes = 0, e_changes = 0;
+	bool graph_operators = false;
 	global_props gp; 
 
 	memset(&gp, 0, sizeof(global_props));
@@ -8767,6 +8935,9 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 	}
 }
 #endif
+
+	// do we have any graph operators around?
+	graph_operators = gp.cnt[op_graph_select] || gp.cnt[op_graph_join];
 
 	/* simple merging of projects */
 	if (gp.cnt[op_project] || gp.cnt[op_ddl]) {
@@ -8839,6 +9010,16 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes); 
 	}
 
+	if (graph_operators){
+		rel = rewrite_topdown(sql, rel, rel_graph_pda, &changes);
+		printf("[Optimizer] rel_graph_pda: %s\n", dump_rel(sql, rel));
+		rel = rewrite_topdown(sql, rel, rel_graph_create_join, &changes);
+		printf("[Optimizer] rel_graph_create_join: %s\n", dump_rel(sql, rel));
+		// rel_graph_create_join creates empty (dummy) selects
+		rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes);
+		printf("[Optimizer] rel_remove_empty_select: %s\n", dump_rel(sql, rel));
+	}
+
 	if (gp.cnt[op_select] && gp.cnt[op_join]) {
 		rel = rewrite_topdown(sql, rel, &rel_push_select_down_join, &changes); 
 		rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes); 
@@ -8871,6 +9052,8 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		rel = rewrite(sql, rel, &rel_groupby_distinct, &changes); 
 	}
 
+
+	printf("[Optimizer] rel_join_order before: %s\n", dump_rel(sql, rel));
 	if (gp.cnt[op_join] || gp.cnt[op_left] || gp.cnt[op_semi] || gp.cnt[op_anti]) {
 		rel = rel_remove_empty_join(sql, rel, &changes);
 		if (!gp.cnt[op_update])
@@ -8879,6 +9062,7 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		/* rel_join_order may introduce empty selects */
 		rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes); 
 	}
+	printf("[Optimizer] rel_join_order after: %s\n", dump_rel(sql, rel));
 
 	if (gp.cnt[op_select] && sql->emode != m_prepare) 
 		rel = rewrite(sql, rel, &rel_simplify_like_select, &changes); 
