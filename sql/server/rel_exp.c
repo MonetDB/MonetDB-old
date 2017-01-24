@@ -993,6 +993,14 @@ exp_match_exp( sql_exp *e1, sql_exp *e2)
 	return 0;
 }
 
+int
+exp_match_exp_cmp( sql_exp *e1, sql_exp *e2)
+{
+	if (exp_match_exp(e1,e2))
+		return 0;
+	return -1;
+}
+
 static int
 exps_are_joins( list *l )
 {

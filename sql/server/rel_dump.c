@@ -1410,3 +1410,47 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 	return rel;
 }
 
+
+// DEBUG ONLY -- copy & paste from sql_gencode.c + decorate = TRUE
+str
+dump_rel( mvc *sql, sql_rel *rel)
+{
+	buffer *b;
+	stream *s = buffer_wastream(b = buffer_create(1024), "rel_dump");
+	list *refs = sa_list(sql->sa);
+	char *res = NULL;
+
+	rel_print_refs(sql, s, rel, 0, refs, TRUE);
+	rel_print_(sql, s, rel, 0, refs, TRUE);
+	mnstr_printf(s, "\n");
+	res = buffer_get_buf(b);
+	buffer_destroy(b);
+	mnstr_destroy(s);
+	return res;
+}
+
+str
+dump_exps(mvc *sql, list *exps ){
+	buffer *b;
+	stream *s = buffer_wastream(b = buffer_create(1024), "rel_dump");
+	char *res = NULL;
+
+	exps_print(sql, s, exps, 0, /*alias=*/ 1, /*brackets=*/0);
+	mnstr_printf(s, "\n");
+	res = buffer_get_buf(b);
+	buffer_destroy(b);
+	mnstr_destroy(s);
+	return res;
+}
+
+str
+dump(mvc *sql, void* data){
+	typedef struct { int32_t x; int32_t y; } T;
+	T* tmp = (T*) data;
+	if(tmp->x < 10 /*arbitrary value*/ && tmp->y <= op_delete){
+		return dump_rel(sql, data);
+	} else {
+		return dump_exps(sql, data);
+	}
+}
+

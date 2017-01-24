@@ -6662,14 +6662,6 @@ rel_simplify_predicates(int *changes, mvc *sql, sql_rel *rel)
 static void split_exps(mvc *sql, list *exps, sql_rel *rel);
 
 static int
-exp_match_exp_cmp( sql_exp *e1, sql_exp *e2)
-{
-	if (exp_match_exp(e1,e2))
-		return 0;
-	return -1;
-}
-
-static int
 exp_refers_cmp( sql_exp *e1, sql_exp *e2)
 {
 	if (exp_refers(e1,e2))
@@ -8828,9 +8820,7 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		/* rewrite semijoin (A, join(A,B)) into semijoin (A,B) */
 		rel = rewrite(sql, rel, &rel_rewrite_semijoin, &changes);
 		/* push semijoin through join */
-		if(level == 0) printf("Optimizer rel_reduce_casts [before]: %s", rel2str1(sql, rel));
 		rel = rewrite(sql, rel, &rel_push_semijoin_down, &changes);
-		if(level == 0) printf("Optimizer rel_push_semijoin_down [after]: %s", rel2str1(sql, rel));
 		/* antijoin(a, union(b,c)) -> antijoin(antijoin(a,b), c) */
 		rel = rewrite(sql, rel, &rel_rewrite_antijoin, &changes);
 		if (level <= 0)
@@ -8840,7 +8830,6 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 	if (gp.cnt[op_left] || gp.cnt[op_right] || gp.cnt[op_full]) 
 		rel = rewrite_topdown(sql, rel, &rel_split_outerjoin, &changes);
 
-	printf("Optimizer rel_push_select_down [before]: %s", rel2str1(sql, rel));
 	if (gp.cnt[op_select] || gp.cnt[op_semi]) {
 		/* only once */
 		if (level <= 0)
@@ -8849,7 +8838,6 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		rel = rewrite_topdown(sql, rel, &rel_push_select_down, &changes); 
 		rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes); 
 	}
-	printf("Optimizer rel_push_select_down [after]: %s", rel2str1(sql, rel));
 
 	if (gp.cnt[op_select] && gp.cnt[op_join]) {
 		rel = rewrite_topdown(sql, rel, &rel_push_select_down_join, &changes); 
@@ -8938,5 +8926,6 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 sql_rel *
 rel_optimizer(mvc *sql, sql_rel *rel) 
 {
+	printf("[Optimizer] Input: %s\n", dump_rel(sql, rel));
 	return _rel_optimizer(sql, rel, 0);
 }

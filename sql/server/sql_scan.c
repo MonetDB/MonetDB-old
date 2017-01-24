@@ -101,7 +101,7 @@ scanner_init_keywords(void)
 	keywords_insert("AVG", AGGR);
 	keywords_insert("MIN", AGGR);
 	keywords_insert("MAX", AGGR);
-	keywords_insert("SUM", AGGR); /* shared with aggr and cheapest_sum */
+	keywords_insert("SUM", SUM); /* shared with aggr and cheapest_sum */
 	keywords_insert("PROD", AGGR);
 	keywords_insert("COUNT", AGGR);
 

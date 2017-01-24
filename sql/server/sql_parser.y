@@ -512,6 +512,9 @@ int yydebug=1;
 
 	opt_asc_desc
 	tz
+	
+%type <i_val> disable_caching
+%destructor { m->caching = $$; } disable_caching
 
 %right <sval> STRING
 %right <sval> X_BODY
@@ -3846,8 +3849,18 @@ graph_cheapest_sum_arg:
     }
 ;
 
+disable_caching:
+    /* empty */  {
+       // A bit of hack: a we want the literals to be parsed as atoms so that multiple equivalent
+       // shortest paths referring to the same graphs can be seen as duplicate.
+       $$ = m->caching;
+       m->caching = 0;
+   }
+;
+
+
 graph_cheapest_sum:
-	CHEAPEST SUM '(' graph_cheapest_sum_arg ')' { $$ = $4; }
+	CHEAPEST SUM '(' disable_caching graph_cheapest_sum_arg ')' { m->caching = $4; $$ = $5; }
 ;
 
 

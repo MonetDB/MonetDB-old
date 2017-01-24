@@ -17,45 +17,9 @@
 #include "rel_select.h"
 #include "sql_relation.h" // rel_graph
 
-// DEBUG ONLY -- copy & paste from sql_gencode.c + decorate = TRUE
-str
-rel2str1( mvc *sql, sql_rel *rel)
-{
-	buffer *b;
-	stream *s = buffer_wastream(b = buffer_create(1024), "rel_dump");
-	list *refs = sa_list(sql->sa);
-	char *res = NULL;
-
-	rel_print_refs(sql, s, rel, 0, refs, TRUE);
-	rel_print_(sql, s, rel, 0, refs, TRUE);
-	mnstr_printf(s, "\n");
-	res = buffer_get_buf(b);
-	buffer_destroy(b);
-	mnstr_destroy(s);
-	return res;
-}
-
-
-str
-exps2str(mvc *sql, list *exps ){
-	buffer *b;
-	stream *s = buffer_wastream(b = buffer_create(1024), "rel_dump");
-
-	char *res = NULL;
-
-	exps_print(sql, s, exps, 0, /*alias=*/ 1, /*brackets=*/0);
-	mnstr_printf(s, "\n");
-	res = buffer_get_buf(b);
-	buffer_destroy(b);
-	mnstr_destroy(s);
-	return res;
-}
-
-
 sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
 	// TODO handle edge components defined with multiple attributes
 	// this needs changes in the parser to accept list of columns & scalars
-
 
     dnode* lstoperands = NULL; // temp to navigate over the operands
     symbol* sym_qfrom = NULL; // the `from' column in the ast
@@ -81,7 +45,7 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     sql->caching = false;
 
     // let's see what we have got so far
-    printf("[Semantic analysis] Input relation: %s", rel2str1(sql, rel));
+    printf("[Semantic analysis] [reaches] Input relation: %s", dump_rel(sql, rel));
 
     lstoperands = sq->data.lval->h;
     sym_qfrom = lstoperands->data.sym; // first operand symbol( dlist( table, column ) )
@@ -155,7 +119,7 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     graph_ptr->spfw = sa_list(sql->sa); // empty list
 
     // let us see if what we are creating makes sense
-    printf("[Semantic analysis] Output relation: %s\n", rel2str1(sql, result));
+    printf("[Semantic analysis] [reaches] Output relation: %s\n", dump_rel(sql, result));
 
     return result;
 }
@@ -179,79 +143,6 @@ static sql_exp* bind_cheapest_sum_return(mvc *sql, sql_exp* bind1, sql_exp* bind
 		return bind2; // either if it has a value or it is null */
 	}
 }
-//
-//static sql_exp* bindg_filter_graph(mvc *sql, sql_exp *exp, dlist *parse_tree){
-//	const char* table_ref = NULL; // the table referred (optional)
-//	symbol* expr_weight = NULL; // the expression inside CHEAPEST SUM ( ... );
-//	graph_join* g = NULL;
-//	sql_exp* e = NULL;
-//	exp_kind exp_kind_value = {type_value, card_column, TRUE};
-//
-//	assert(exp && "Expected an expression");
-//	assert(exp->type == e_cmp && get_cmp(exp) == cmp_filter_graph && "Expected a graph filter exp~");
-//	assert(parse_tree && "The input argument parse_tree is NULL");
-//	assert(parse_tree->cnt == 2 && "Expected two nodes in the root of the parse tree");
-//
-//	g = exp->f;
-//
-//	table_ref = parse_tree->h->data.sval;
-//	expr_weight = parse_tree->h->next->data.sym;
-//
-//	if (table_ref){ // use the table name to refer to the edge table
-//		const char* tname = rel_name(g->edges);
-//
-//		// TODO shall we consider the schema as well?
-//		assert(tname != NULL);
-//		if(strcmp(tname, table_ref) == 0){
-//			// force the binding against this relation
-//			e = rel_value_exp(sql, &(g->edges), expr_weight, sql_sel, exp_kind_value);
-//			if(!e){ return sql_error(sql, 02, "Cannot bind the cheapest sum expression in the subquery `%s'", tname); }
-//		}
-//	} else { // table name not given
-//		// try to bind the expression a la `best effort'
-//		e = rel_value_exp(sql, &(g->edges), expr_weight, sql_sel, exp_kind_value);
-//	}
-//
-//	// did we bind our parse tree?
-//	if(e){
-//		if(g->cost){ // existing limitation, an expression has already been bound
-//			return sql_error(sql, 02, "TODO: At the moment you cannot bind multiple CHEAPEST SUM expression against the same join");
-//		}
-//
-//		// found it!
-//		g->cost = exp_label(sql->sa, e, ++sql->label);
-//		return g->cost;
-//
-//	} else { // no, we didn't bind it
-//		return NULL;
-//	}
-//}
-//
-//static sql_exp* bindg_exp(mvc *sql, sql_exp *exp, dlist *parse_tree){
-//	if(exp->type == e_cmp && get_cmp(exp) == cmp_filter_graph){
-//		// ok this is a graph join
-//		return bindg_filter_graph(sql, exp, parse_tree);
-//	} else {
-//		// this is not a graph join, move along
-//		return NULL;
-//	}
-//}
-//// DEBUG ONLY -- copy & paste from sql_gencode.c + decorate = TRUE
-//
-//static sql_exp* bindg_exps(mvc *sql, list *exps, dlist *parse_tree){
-//	sql_exp *result = NULL;
-//
-//	// edge case
-//	if(!exps || error_reported(sql)) return NULL;
-//
-//	for(node* n = exps->h; n; n = n->next){
-//		sql_exp *bound = bindg_exp(sql, n->data, parse_tree);
-//		result = bind_cheapest_sum_return(sql, result, bound);
-//		if(error_reported(sql)) return NULL; // ERROR! => stop processing
-//	}
-//
-//	return result;
-//}
 
 static sql_exp* bind_cheapest_sum_graph(mvc *sql, sql_graph *graph, dlist *parse_tree){
 	const char* table_ref = NULL; // the table referred (optional)
@@ -281,13 +172,7 @@ static sql_exp* bind_cheapest_sum_graph(mvc *sql, sql_graph *graph, dlist *parse
 
 		// before creating a new spfw, search for duplicates in the list of expressions
 		// already registered
-//		for(node* n = graph->spfw->h; n && !found; n = n->next){
-//			if(exp_match_exp(n->data, e)){
-//				e = n->data;
-//				found = true; // stop
-//			}
-//		}
-		duplicate = list_find(graph->spfw, e, (fcmp) exp_match_exp);
+		duplicate = list_find(graph->spfw, e, (fcmp) exp_match_exp_cmp);
 
 		// we didn't find a duplicate, add to the list of expressions we need to compute
 		// the shortest path
@@ -345,6 +230,10 @@ static sql_exp* bind_cheapest_sum_recursion(mvc *sql, sql_rel* relation, dlist *
 }
 
 sql_exp* rel_graph_cheapest_sum(mvc *sql, sql_rel **rel, symbol *sym, int context){
+	sql_exp* result = NULL; // the expression bound
+
+	printf("[Semantic analysis] [Cheapest sum] Input relation: %s\n", dump_rel(sql, *rel));
+
 	assert(sym->data.lval != NULL && "CHEAPEST SUM: empty parse tree");
 
 	// Check the context is the SELECT clause
@@ -354,5 +243,12 @@ sql_exp* rel_graph_cheapest_sum(mvc *sql, sql_rel **rel, symbol *sym, int contex
 
 	// Find the relation where the sub the expression binds to
 	assert(is_project((*rel)->op) && "Unexpected relation type");
-	return bind_cheapest_sum_recursion(sql, (*rel)->l, sym->data.lval);
+	result = bind_cheapest_sum_recursion(sql, (*rel)->l, sym->data.lval);
+
+	// If it didn't bind the exp~, prepare an error message if it was not already constructed
+	if(!result && !error_reported(sql)){
+		return sql_error(sql, 02, "Cannot bind the expression in CHEAPEST SUM");
+	} else {
+		return result; // this can be an exp~ or NULL + an error set
+	}
 }

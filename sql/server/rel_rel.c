@@ -848,9 +848,26 @@ rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int int
 	case op_graph_join:
 	case op_graph_select: {
 		sql_graph* graph_ptr = (sql_graph*) rel;
-		exps = rel_projections(sql, rel->l, tname, settname, intern );
-		exps = list_merge( exps, rel_projections(sql, rel->r, tname, settname, intern ), (fdup) NULL);
-		exps = list_merge( exps, graph_ptr->spfw, (fdup) NULL);
+
+		// recursion
+		exps = list_merge( rel_projections(sql, rel->l, tname, settname, intern ),
+				rel_projections(sql, rel->r, tname, settname, intern ), (fdup) NULL);
+
+		// add the shortest paths
+		if(list_length(graph_ptr->spfw) > 0){
+			int label = ++sql->label;
+
+			assert(tname == NULL && "Otherwise how do you think to link to the input columns?");
+
+			for(node*n  = graph_ptr->spfw->h; n; n = n->next){
+				sql_exp *e = n->data;
+				e = exp_alias_or_copy(sql, tname, exp_name(e), rel, e);
+				if (!settname) // alias
+					exp_setrelname(sql->sa, e, label);
+				list_append(exps, e);
+			}
+		}
+
 		return exps;
 	}
 	default:
