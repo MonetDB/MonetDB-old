@@ -984,7 +984,8 @@ exp_match_exp( sql_exp *e1, sql_exp *e2)
 				return 1;
 			break;
 		case e_graph:
-			assert(0 && "Not implemented yet");
+			assert(0 && "This should not be necessary");
+			return exp_match_exp(e1->l, e2->l) && exp_match_exp(e1->r, e2->r);
 		default:
 			break;
 		}

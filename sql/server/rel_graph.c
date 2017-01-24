@@ -36,6 +36,22 @@ rel2str1( mvc *sql, sql_rel *rel)
 }
 
 
+str
+exps2str(mvc *sql, list *exps ){
+	buffer *b;
+	stream *s = buffer_wastream(b = buffer_create(1024), "rel_dump");
+
+	char *res = NULL;
+
+	exps_print(sql, s, exps, 0, /*alias=*/ 1, /*brackets=*/0);
+	mnstr_printf(s, "\n");
+	res = buffer_get_buf(b);
+	buffer_destroy(b);
+	mnstr_destroy(s);
+	return res;
+}
+
+
 sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
 	// TODO handle edge components defined with multiple attributes
 	// this needs changes in the parser to accept list of columns & scalars
@@ -150,155 +166,193 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
  *                                                                           *
  *****************************************************************************/
 
-//static bool error_reported(mvc* sql){ return (sql->session->status < 0); }
-//
-//static sql_exp* bindg_ret(mvc *sql, sql_exp* bind1, sql_exp* bind2){
-//        if (error_reported(sql)){ // an error already occurred
-//                return NULL;
-//        } else if(bind1 && bind2){
-//                return sql_error(sql, ERR_AMBIGUOUS, "Ambiguous expression for CHEAPEST SUM: %s, %s", exp_name(bind1), exp_name(bind2));
-//        } else if(bind1){
-//                return bind1;
-//        } else {
-//                return bind2; // either if it has a value or it is null */
-//        }
-//}
+static bool error_reported(mvc* sql){ return (sql->session->status < 0); }
+
+static sql_exp* bind_cheapest_sum_return(mvc *sql, sql_exp* bind1, sql_exp* bind2){
+	if (error_reported(sql)){ // an error already occurred
+		return NULL;
+	} else if(bind1 && bind2){
+		return sql_error(sql, ERR_AMBIGUOUS, "Ambiguous expression for CHEAPEST SUM: %s, %s", exp_name(bind1), exp_name(bind2));
+	} else if(bind1){
+		return bind1;
+	} else {
+		return bind2; // either if it has a value or it is null */
+	}
+}
 //
 //static sql_exp* bindg_filter_graph(mvc *sql, sql_exp *exp, dlist *parse_tree){
-//        const char* table_ref = NULL; // the table referred (optional)
-//        symbol* expr_weight = NULL; // the expression inside CHEAPEST SUM ( ... );
-//        graph_join* g = NULL;
-//        sql_exp* e = NULL;
-//        exp_kind exp_kind_value = {type_value, card_column, TRUE};
+//	const char* table_ref = NULL; // the table referred (optional)
+//	symbol* expr_weight = NULL; // the expression inside CHEAPEST SUM ( ... );
+//	graph_join* g = NULL;
+//	sql_exp* e = NULL;
+//	exp_kind exp_kind_value = {type_value, card_column, TRUE};
 //
-//        assert(exp && "Expected an expression");
-//        assert(exp->type == e_cmp && get_cmp(exp) == cmp_filter_graph && "Expected a graph filter exp~");
-//        assert(parse_tree && "The input argument parse_tree is NULL");
-//        assert(parse_tree->cnt == 2 && "Expected two nodes in the root of the parse tree");
+//	assert(exp && "Expected an expression");
+//	assert(exp->type == e_cmp && get_cmp(exp) == cmp_filter_graph && "Expected a graph filter exp~");
+//	assert(parse_tree && "The input argument parse_tree is NULL");
+//	assert(parse_tree->cnt == 2 && "Expected two nodes in the root of the parse tree");
 //
-//        g = exp->f;
+//	g = exp->f;
 //
-//        table_ref = parse_tree->h->data.sval;
-//        expr_weight = parse_tree->h->next->data.sym;
+//	table_ref = parse_tree->h->data.sval;
+//	expr_weight = parse_tree->h->next->data.sym;
 //
-//        if (table_ref){ // use the table name to refer to the edge table
-//                const char* tname = rel_name(g->edges);
+//	if (table_ref){ // use the table name to refer to the edge table
+//		const char* tname = rel_name(g->edges);
 //
-//                // TODO shall we consider the schema as well?
-//                assert(tname != NULL);
-//                if(strcmp(tname, table_ref) == 0){
-//                        // force the binding against this relation
-//                        e = rel_value_exp(sql, &(g->edges), expr_weight, sql_sel, exp_kind_value);
-//                        if(!e){ return sql_error(sql, 02, "Cannot bind the cheapest sum expression in the subquery `%s'", tname); }
-//                }
-//        } else { // table name not given
-//                // try to bind the expression a la `best effort'
-//                e = rel_value_exp(sql, &(g->edges), expr_weight, sql_sel, exp_kind_value);
-//        }
+//		// TODO shall we consider the schema as well?
+//		assert(tname != NULL);
+//		if(strcmp(tname, table_ref) == 0){
+//			// force the binding against this relation
+//			e = rel_value_exp(sql, &(g->edges), expr_weight, sql_sel, exp_kind_value);
+//			if(!e){ return sql_error(sql, 02, "Cannot bind the cheapest sum expression in the subquery `%s'", tname); }
+//		}
+//	} else { // table name not given
+//		// try to bind the expression a la `best effort'
+//		e = rel_value_exp(sql, &(g->edges), expr_weight, sql_sel, exp_kind_value);
+//	}
 //
-//        // did we bind our parse tree?
-//        if(e){
-//                if(g->cost){ // existing limitation, an expression has already been bound
-//                        return sql_error(sql, 02, "TODO: At the moment you cannot bind multiple CHEAPEST SUM expression against the same join");
-//                }
+//	// did we bind our parse tree?
+//	if(e){
+//		if(g->cost){ // existing limitation, an expression has already been bound
+//			return sql_error(sql, 02, "TODO: At the moment you cannot bind multiple CHEAPEST SUM expression against the same join");
+//		}
 //
-//                // found it!
-//                g->cost = exp_label(sql->sa, e, ++sql->label);
-//                return g->cost;
+//		// found it!
+//		g->cost = exp_label(sql->sa, e, ++sql->label);
+//		return g->cost;
 //
-//        } else { // no, we didn't bind it
-//                return NULL;
-//        }
+//	} else { // no, we didn't bind it
+//		return NULL;
+//	}
 //}
 //
 //static sql_exp* bindg_exp(mvc *sql, sql_exp *exp, dlist *parse_tree){
-//        if(exp->type == e_cmp && get_cmp(exp) == cmp_filter_graph){
-//                // ok this is a graph join
-//                return bindg_filter_graph(sql, exp, parse_tree);
-//        } else {
-//                // this is not a graph join, move along
-//                return NULL;
-//        }
+//	if(exp->type == e_cmp && get_cmp(exp) == cmp_filter_graph){
+//		// ok this is a graph join
+//		return bindg_filter_graph(sql, exp, parse_tree);
+//	} else {
+//		// this is not a graph join, move along
+//		return NULL;
+//	}
 //}
 //// DEBUG ONLY -- copy & paste from sql_gencode.c + decorate = TRUE
-
+//
 //static sql_exp* bindg_exps(mvc *sql, list *exps, dlist *parse_tree){
-//        sql_exp *result = NULL;
+//	sql_exp *result = NULL;
 //
-//        // edge case
-//        if(!exps || error_reported(sql)) return NULL;
+//	// edge case
+//	if(!exps || error_reported(sql)) return NULL;
 //
-//        for(node* n = exps->h; n; n = n->next){
-//                sql_exp *bound = bindg_exp(sql, n->data, parse_tree);
-//                result = bindg_ret(sql, result, bound);
-//                if(error_reported(sql)) return NULL; // ERROR! => stop processing
-//        }
+//	for(node* n = exps->h; n; n = n->next){
+//		sql_exp *bound = bindg_exp(sql, n->data, parse_tree);
+//		result = bind_cheapest_sum_return(sql, result, bound);
+//		if(error_reported(sql)) return NULL; // ERROR! => stop processing
+//	}
 //
-//        return result;
-//}
-//
-//static sql_exp* bindg_rel(mvc *sql, sql_rel* relation, dlist *parse_tree){
-//        // edge case
-//        if(!relation || error_reported(sql)) return NULL;
-//
-//        switch(relation->op){
-//        case op_full:
-//        case op_left:
-//        case op_right:
-//        case op_semi:
-//                assert("I haven't thought about these cases yet");
-//                break;
-//        case op_join: {
-//                sql_exp *exp1 = NULL, *exp2 = NULL, *exp3 = NULL, *ret = NULL;
-//
-//                exp1 = bindg_rel(sql, relation->l, parse_tree);
-//                exp2 = bindg_rel(sql, relation->r, parse_tree);
-//                ret = bindg_ret(sql, exp1, exp2);
-//                exp3 = bindg_exps(sql, relation->exps, parse_tree);
-//                return bindg_ret(sql, ret, exp3);
-//        } break;
-//        case op_select: {
-//                sql_exp* exp1 = bindg_exps(sql, relation->exps, parse_tree);
-//                sql_exp* exp2 = bindg_rel(sql, relation->l, parse_tree);
-//                return bindg_ret(sql, exp1, exp2);
-//        } break;
-//        case op_groupby:
-//                // move up in the tree
-//                return bindg_rel(sql, relation->l, parse_tree);
-//        default:
-//                return NULL;
-//        }
-//
-//        return NULL; // silent the warning
-//}
-//
-//sql_exp* rel_graph_cheapest_sum(mvc *sql, sql_rel **rel, symbol *sym, int context){
-//        sql_exp* exp_bound = NULL;
-//        sql_exp* result = NULL;
-//
-//        assert(sym->data.lval != NULL && "CHEAPEST SUM: empty parse tree");
-//
-//        // Check the context is the SELECT clause
-//        if(context != sql_sel){
-//                return sql_error(sql, 02, "CHEAPEST SUM is only allowed inside the SELECT clause");
-//        }
-//
-//        // Find the relation where the sub the expression binds to
-//        assert(is_project((*rel)->op) && "Unexpected relation type");
-//        exp_bound = bindg_rel(sql, (*rel)->l, sym->data.lval);
-//        if(!exp_bound){ return NULL; }
-//
-//        // Create the new column
-//        result = exp_column(sql->sa, NULL, exp_bound->name, exp_subtype(exp_bound), (*rel)->card, /* has_nil = */ FALSE, /* is_intern = */ FALSE);
-//        return result;
+//	return result;
 //}
 
+static sql_exp* bind_cheapest_sum_graph(mvc *sql, sql_graph *graph, dlist *parse_tree){
+	const char* table_ref = NULL; // the table referred (optional)
+	symbol* expr_weight = NULL; // the expression inside CHEAPEST SUM ( ... );
+	sql_rel* edges = NULL; // the table expression representing the edges
+	sql_exp* e = NULL; // the final result
+	exp_kind exp_kind_value = {type_value, card_column, TRUE}; // rel_value_exp parameters
+
+	// init
+	table_ref = parse_tree->h->data.sval;
+	expr_weight = parse_tree->h->next->data.sym;
+	edges = graph->edges;
+
+	if(table_ref != NULL){
+		const char* tname = rel_name(edges);
+		if(strcmp(tname, table_ref) == 0){
+			e = rel_value_exp(sql, &edges, expr_weight, sql_sel, exp_kind_value);
+			if(!e){ return sql_error(sql, 02, "Cannot bind the cheapest sum expression in the subquery `%s'", tname); }
+		}
+	} else { // table_ref == NULL
+		// try to bind the expression a la `best effort'
+		e = rel_value_exp(sql, &edges, expr_weight, sql_sel, exp_kind_value);
+	}
+
+	if(e){ // success
+		node* duplicate = NULL;
+
+		// before creating a new spfw, search for duplicates in the list of expressions
+		// already registered
+//		for(node* n = graph->spfw->h; n && !found; n = n->next){
+//			if(exp_match_exp(n->data, e)){
+//				e = n->data;
+//				found = true; // stop
+//			}
+//		}
+		duplicate = list_find(graph->spfw, e, (fcmp) exp_match_exp);
+
+		// we didn't find a duplicate, add to the list of expressions we need to compute
+		// the shortest path
+		if(!duplicate){
+			e = exp_label(sql->sa, e, ++sql->label);
+			list_append(graph->spfw, e);
+		} else { // this is a duplicate indeed
+			e = duplicate->data;
+		}
+
+		return exp_column(sql->sa, exp_relname(e), exp_name(e), exp_subtype(e), graph->relation.card, /* has_nil = */ FALSE, /* is_intern = */ FALSE);
+	} else { // nope
+		return NULL; // == e
+	}
+
+}
+
+// walk up in the relation tree and bind the given cheapest sum symbol `parse_tree' to a graph operator
+static sql_exp* bind_cheapest_sum_recursion(mvc *sql, sql_rel* relation, dlist *parse_tree){
+	// edge case
+	if(!relation || error_reported(sql)) return NULL;
+
+	assert(relation->op != op_graph_join && "op_graph_join is not allowed in the semantic phase");
+
+	switch(relation->op){
+	case op_graph_select: { // base case
+		sql_exp *exp1 = NULL, *exp2 = NULL;
+		// base case
+		exp1 = bind_cheapest_sum_graph(sql, (sql_graph*) relation, parse_tree);
+		// even if it bound the expression to this operator, we propagate up in the tree
+		// to check and report ambiguities
+		exp2 = bind_cheapest_sum_recursion(sql, relation->l, parse_tree);
+		return bind_cheapest_sum_return(sql, exp1, exp2);
+	} break;
+	case op_full:
+	case op_left:
+	case op_right:
+	case op_semi:
+	case op_join:
+	case op_select: {
+		sql_exp *exp1 = NULL, *exp2 = NULL;
+
+		exp1 = bind_cheapest_sum_recursion(sql, relation->l, parse_tree);
+		exp2 = bind_cheapest_sum_recursion(sql, relation->r, parse_tree);
+		return bind_cheapest_sum_return(sql, exp1, exp2);
+	} break;
+	case op_groupby:
+		// move up in the tree
+		return bind_cheapest_sum_recursion(sql, relation->l, parse_tree);
+	default:
+		return NULL;
+	}
+
+	return NULL; // silent the warning
+}
 
 sql_exp* rel_graph_cheapest_sum(mvc *sql, sql_rel **rel, symbol *sym, int context){
-	(void) sql;
-	(void) rel;
-	(void) sym;
-	(void) context;
+	assert(sym->data.lval != NULL && "CHEAPEST SUM: empty parse tree");
 
-	return NULL;
+	// Check the context is the SELECT clause
+	if(context != sql_sel){
+		return sql_error(sql, 02, "CHEAPEST SUM is only allowed inside the SELECT clause");
+	}
+
+	// Find the relation where the sub the expression binds to
+	assert(is_project((*rel)->op) && "Unexpected relation type");
+	return bind_cheapest_sum_recursion(sql, (*rel)->l, sym->data.lval);
 }

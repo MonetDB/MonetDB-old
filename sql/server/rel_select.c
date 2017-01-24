@@ -3792,6 +3792,10 @@ rel_projections_(mvc *sql, sql_rel *rel)
 {
 	list *rexps, *exps ;
 
+	// stop the recursion
+	if (!rel)
+		return new_exp_list(sql->sa);
+
 	if (is_subquery(rel) && is_project(rel->op))
 		return new_exp_list(sql->sa);
 
@@ -3855,6 +3859,10 @@ rel_projections_(mvc *sql, sql_rel *rel)
 	case op_topn:
 	case op_sample:
 		return rel_projections_(sql, rel->l);
+	case op_graph_join:
+	case op_graph_select:
+		// TODO: I don't get the usage of this function, code path from rel_order_by_column_exp
+		return list_merge(rel_projections_(sql, rel->l), rel_projections_(sql, rel->r), (fdup)NULL);
 	default:
 		return NULL;
 	}

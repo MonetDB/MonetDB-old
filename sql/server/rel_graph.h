@@ -16,6 +16,7 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context);
 sql_exp* rel_graph_cheapest_sum(mvc *sql, sql_rel **rel, symbol *sq, int context);
 
 // DEBUG ONLY
-str rel2str1( mvc *sql, sql_rel *rel);
+str rel2str1(mvc *sql, sql_rel *rel);
+str exps2str(mvc *sql, list *exps);
 
 #endif /* _REL_GRAPH_H_ */

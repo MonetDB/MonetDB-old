@@ -64,8 +64,6 @@ cmp_print(mvc *sql, stream *fout, int cmp)
 	mnstr_printf(fout, " %s ", r);
 }
 
-static void exps_print(mvc *sql, stream *fout, list *exps, int depth, int alias, int brackets);
-
 static void
 exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, int comma, int alias) 
 {
@@ -237,7 +235,7 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, int comma, int alias)
 		mnstr_printf(fout, ", ");
 }
 
-static void
+void
 exps_print(mvc *sql, stream *fout, list *exps, int depth, int alias, int brackets) 
 {
 	node *en;
@@ -547,6 +545,9 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 		exps_print(sql, fout, graph_ptr->efrom, depth, 1, 0);
 		mnstr_printf(fout, ", dst:");
 		exps_print(sql, fout, graph_ptr->eto, depth, 1, 0);
+		print_indent(sql, fout, depth, decorate);
+		mnstr_printf(fout, "shortest paths: ");
+		exps_print(sql, fout, graph_ptr->spfw, depth, 1, 1);
 	}   break;
 	default:
 		assert(0);
