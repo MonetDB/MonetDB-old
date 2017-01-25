@@ -1187,6 +1187,9 @@ exp_is_join(sql_exp *e, list *rels)
 	/* range expression */
 	if (e->type == e_cmp && !is_complex_exp(e->flag) && e->l && e->r && e->f && e->card >= CARD_AGGR && !complex_select(e)) 
 		return exp_is_rangejoin(e, rels);
+	/* graph join */
+	if (e->type == e_graph)
+		return 0;
 	return -1;
 }
 

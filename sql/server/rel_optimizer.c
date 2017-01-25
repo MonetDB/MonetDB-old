@@ -406,8 +406,23 @@ exp_count(int *cnt, sql_exp *e)
 			return 0;
 		*cnt -= 5*list_length(e->l);
 		return 5*list_length(e->l);
+	case e_graph:
+		if(exp_card(e->l) == CARD_ATOM && exp_card(e->r) == CARD_ATOM){
+			*cnt += 1000; // this is going to result to a constant predicate TRUE or FALSE
+		} else {
+			exp_count(cnt, e->l);
+			exp_count(cnt, e->r);
+			if(exp_card(e->l) == CARD_ATOM || exp_card(e->r) == CARD_ATOM){
+				// single shortest path
+				*cnt += 500;
+			} else {
+				// this is going to be expensive, many-to-many shortest paths
+				// do not change cnt
+			}
+		}
+		return 0; // the return value is ignored anyway
 	case e_convert:
-		/* functions are more expensive, depending on the number of columns involved. */ 
+		/* functions are more expensive, depending on the number of columns involved. */
 		if (e->card == CARD_ATOM)
 			return 0;
 		/* fall through */
@@ -595,9 +610,9 @@ order_join_expressions(mvc *sql, list *dje, list *rels)
 			sql_rel *l = find_rel(rels, e->l);
 			sql_rel *r = find_rel(rels, e->r);
 
-			if (l && is_select(l->op) && l->exps)
+			if (l && (is_select(l->op) || l->op == op_graph_select) && l->exps)
 				keys[i] += list_length(l->exps)*10 + exps_count(l->exps)*debug;
-			if (r && is_select(r->op) && r->exps)
+			if (r && (is_select(r->op) || r->op == op_graph_select) && r->exps)
 				keys[i] += list_length(r->exps)*10 + exps_count(r->exps)*debug;
 		}
 		pos[i] = i;
@@ -629,7 +644,7 @@ find_join_rels(list **L, list **R, list *exps, list *rels)
 		sql_exp *e = n->data;
 		sql_rel *l = NULL, *r = NULL;
 
-		if (!is_complex_exp(e->flag)){
+		if (e->type != e_cmp || !is_complex_exp(e->flag)){
 			l = find_rel(rels, e->l);
 			r = find_rel(rels, e->r);
 		}
@@ -689,7 +704,7 @@ find_fk( mvc *sql, list *rels, list *exps)
 		sql_idx *idx = NULL;
 		sql_exp *je = djn->data, *le = je->l, *re = je->r; 
 
-		if (is_complex_exp(je->flag))
+		if (je->type != e_cmp || is_complex_exp(je->flag))
 			break;
 		if (!find_prop(je->p, PROP_JOINIDX)) {
 			int swapped = 0;
@@ -8660,9 +8675,6 @@ rel_graph_pda(int *changes, mvc *sql, sql_rel *rel)
 	if(rel_is_ref(target) || rel_is_ref(parent))
 		return rel;
 
-	// ref cnt
-	printf("[rel_graph_pda] cnt: %d\n", graph_rel->ref.refcnt);
-
 	// case 1 - try to push down through a join or another graph operator
 	if(is_join(target->op) || is_graph(target->op)){
 		sql_rel* l = target->l;
@@ -8752,7 +8764,7 @@ rel_graph_create_join(int *changes, mvc *sql, sql_rel *rel)
 
 		// if we did bind the lhs above, then we are guaranteed that the
 		// rhs will bind as well. Otherwise we are in the case where
-		// the rule `rel_graph_pda' would have move this operator above
+		// the rule `rel_graph_pda' would have moved this operator above
 		// this cross product.
 		if(el){
 			sql_exp* ne = NULL; // construct the new e_graph expression (jic)
@@ -9012,12 +9024,9 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 
 	if (graph_operators){
 		rel = rewrite_topdown(sql, rel, rel_graph_pda, &changes);
-		printf("[Optimizer] rel_graph_pda: %s\n", dump_rel(sql, rel));
 		rel = rewrite_topdown(sql, rel, rel_graph_create_join, &changes);
-		printf("[Optimizer] rel_graph_create_join: %s\n", dump_rel(sql, rel));
 		// rel_graph_create_join creates empty (dummy) selects
 		rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes);
-		printf("[Optimizer] rel_remove_empty_select: %s\n", dump_rel(sql, rel));
 	}
 
 	if (gp.cnt[op_select] && gp.cnt[op_join]) {
