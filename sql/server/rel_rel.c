@@ -2,6 +2,7 @@
 #include "monetdb_config.h"
 #include "rel_rel.h"
 #include "rel_exp.h"
+#include "rel_graph.h"
 #include "rel_prop.h"
 #include "rel_remote.h"
 #include "sql_mvc.h"
@@ -97,16 +98,6 @@ rel_create( sql_allocator *sa )
 	r->processed = 0;
 	r->subquery = 0;
 	r->p = NULL;
-	return r;
-}
-
-sql_graph*
-rel_graph_create( sql_allocator *sa )
-{
-	sql_graph *r = SA_NEW(sa, sql_graph);
-	if(!r) return NULL;
-	memset(r, 0, sizeof(sql_graph));
-	sql_ref_init(&(r->relation.ref));
 	return r;
 }
 

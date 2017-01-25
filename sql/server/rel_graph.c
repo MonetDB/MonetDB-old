@@ -15,8 +15,51 @@
 #include "rel_exp.h"
 #include "rel_rel.h"
 #include "rel_select.h"
+#include "sql_mem.h" // sql_ref_init
 #include "sql_relation.h" // rel_graph
 
+/*****************************************************************************
+ *                                                                           *
+ * Create the graph operator                                                 *
+ *                                                                           *
+ *****************************************************************************/
+
+sql_graph* rel_graph_create(sql_allocator *sa) {
+	sql_graph *r = SA_NEW(sa, sql_graph);
+	if(!r) return NULL;
+	memset(r, 0, sizeof(sql_graph));
+	sql_ref_init(&(r->relation.ref));
+	return r;
+}
+
+sql_graph* rel_graph_move(mvc* sql, sql_rel* rel, sql_rel* l, sql_rel* r, sql_exp* e){
+	sql_graph* graph_old = NULL;
+	sql_graph* graph_new = NULL;
+	sql_rel* graph_rel = NULL;
+
+	assert(rel && is_graph(rel->op));
+	graph_old = (sql_graph*) rel;
+	graph_new = rel_graph_create(sql->sa);
+	if(!graph_new) return NULL;
+	memcpy(graph_new + sizeof(sql_ref), graph_old + sizeof(sql_ref), sizeof(sql_graph) - sizeof(sql_ref));
+	graph_rel = &(graph_new->relation);
+	graph_rel->l = l;
+	graph_rel->r = r;
+	graph_rel->exps = new_exp_list(sql->sa);
+	list_append(graph_rel->exps, e);
+
+	return graph_new;
+}
+
+sql_rel* rel_graph_move2rel(mvc* sql, sql_rel* rel, sql_rel* l, sql_rel* r, sql_exp* e){
+	return (sql_rel*) rel_graph_move(sql, rel, l, r, e);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * Parse the REACHES clause                                                  *
+ *                                                                           *
+ *****************************************************************************/
 sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
 	// TODO handle edge components defined with multiple attributes
 	// this needs changes in the parser to accept list of columns & scalars

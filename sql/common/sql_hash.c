@@ -5,6 +5,8 @@
  *
  * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
+#include <inttypes.h> // uint64_t
+#include <stdlib.h> // rand
 
 #include "monetdb_config.h"
 #include "sql_mem.h"
@@ -81,3 +83,18 @@ hash_key(const char *k)
 	h += (h << 15);
 	return h;
 }
+
+//unsigned int
+//hash_key_ptr(void* ptr)
+//{
+//	static uint64_t a = 0;
+//	static uint64_t b = 0;
+//	const uint64_t p = 2386660291; // prime number
+//	if(a == 0 && b == 0){
+//		srand(time(NULL));
+//		a = rand() +1;
+//		b = rand() +1;
+//	}
+//
+//	return (unsigned int) (( a * ((uint64_t) ptr) + b ) % p);
+//}

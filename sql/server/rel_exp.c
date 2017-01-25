@@ -1262,7 +1262,6 @@ rel_find_exp( sql_rel *rel, sql_exp *e)
 		case op_full:
 		case op_join:
 		case op_apply:
-		case op_graph_join:
 			ne = rel_find_exp(rel->l, e);
 			if (!ne) 
 				ne = rel_find_exp(rel->r, e);
@@ -1287,6 +1286,20 @@ rel_find_exp( sql_rel *rel, sql_exp *e)
 			if (rel->exps && e->type == e_column && e->l) 
 				ne = exps_bind_column2(rel->exps, e->l, e->r);
 			break;
+		case op_graph_join:
+		case op_graph_select: {
+			assert(ne == NULL && "Expression already assigned?");
+			// check whether this is some kind of shortest path
+			if(e->type == e_column){
+				sql_graph* graph_ptr = (sql_graph*) rel;
+				ne = exps_bind_column2(graph_ptr->spfw, e->l, e->r);
+			}
+
+			// try with the lhs
+			if(!ne) { ne = rel_find_exp(rel->l, e); }
+			// and then with the rhs (ok for selects as well)
+			if(!ne) { ne = rel_find_exp(rel->r, e); }
+		} break;
 		default:
 			if (!is_project(rel->op) && rel->l)
 				ne = rel_find_exp(rel->l, e);
