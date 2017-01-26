@@ -34,6 +34,8 @@ typedef int (*find_prop_fptr)(mvc *sql, sql_rel *rel);
 
 static sql_rel * rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes);
 static sql_rel * rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes) ;
+static sql_rel * rel_graph_pda(int *changes, mvc *sql, sql_rel *rel);
+static sql_rel * rel_push_select_down(int *changes, mvc *sql, sql_rel *rel);
 static sql_rel * rel_remove_empty_select(int *changes, mvc *sql, sql_rel *rel);
 
 static sql_subfunc *find_func( mvc *sql, char *name, list *exps );
@@ -321,19 +323,25 @@ static sql_rel * rel_join_order(mvc *sql, sql_rel *rel) ;
 
 // graph related stuff
 typedef struct {
-	sql_exp* join;
+	sql_exp* exp;
 	sql_rel* graph;
 } graph_association;
 
 static int
 graph_association_cmp(graph_association* a, sql_exp* e){
-	return (e == a->join) ? 0 : -1;
+	return (e == a->exp) ? 0 : -1;
 }
 
 static void
 get_relations(mvc *sql, sql_rel *rel, list *rels)
 {
-	if (!rel_is_ref(rel) && (rel->op == op_join || rel->op == op_graph_join) && rel->exps == NULL) {
+	bool domain_op;
+
+	if(!rel) return; // stop the recursion
+
+	domain_op = rel->op == op_join || rel->op == op_graph_join || rel->op == op_select || rel->op == op_graph_select;
+
+	if (domain_op && !rel_is_ref(rel) && rel->exps == NULL) {
 		sql_rel *l = rel->l;
 		sql_rel *r = rel->r;
 		
@@ -608,6 +616,7 @@ find_basetable( sql_rel *r)
 		return r;
 	case op_project:
 	case op_select:
+	case op_graph_select:
 		return find_basetable(r->l);
 	default:
 		return NULL;
@@ -646,10 +655,18 @@ order_join_expressions(mvc *sql, list *dje, list *rels)
 			sql_rel *l = find_rel(rels, e->l);
 			sql_rel *r = find_rel(rels, e->r);
 
-			if (l && (is_select(l->op) || l->op == op_graph_select) && l->exps)
-				keys[i] += list_length(l->exps)*10 + exps_count(l->exps)*debug;
-			if (r && (is_select(r->op) || r->op == op_graph_select) && r->exps)
-				keys[i] += list_length(r->exps)*10 + exps_count(r->exps)*debug;
+			if(l != NULL){
+				while (is_extended_select(l->op)){
+					keys[i] += list_length(l->exps)*10 + exps_count(l->exps)*debug;
+					l = l->l;
+				}
+			}
+			if(r != NULL){
+				while (is_extended_select(r->op)) {
+					keys[i] += list_length(r->exps)*10 + exps_count(r->exps)*debug;
+					r = r->l;
+				}
+			}
 		}
 		pos[i] = i;
 	}
@@ -721,7 +738,7 @@ distinct_join_exps(list *aje, list *lrels, list *rrels)
 	return res;
 }
 
-static list *
+static list*
 find_fk( mvc *sql, list *rels, list *exps) 
 {
 	node *djn;
@@ -739,6 +756,9 @@ find_fk( mvc *sql, list *rels, list *exps)
 		/* equal join expressions */
 		sql_idx *idx = NULL;
 		sql_exp *je = djn->data, *le = je->l, *re = je->r; 
+
+		if (je->type == e_graph)
+			continue;
 
 		if (je->type != e_cmp || is_complex_exp(je->flag))
 			break;
@@ -832,20 +852,7 @@ find_fk( mvc *sql, list *rels, list *exps)
 
 
 static sql_rel *
-reset_graph_join(mvc *sql, list* graphs, sql_rel *l, sql_rel *r, sql_exp *e){
-	node* n = NULL;
-	sql_rel* graph = NULL;
-
-	n = list_find(graphs, e, (fcmp) graph_association_cmp);
-	assert(n != NULL);
-	graph = rel_graph_move2rel(sql, ((graph_association*) n->data)->graph, l, r, e);
-	list_remove_node(graphs, n);
-
-	return graph;
-}
-
-static sql_rel *
-order_joins(mvc *sql, list *rels, list *exps, list *graphs)
+order_joins(mvc *sql, list *rels, list *exps)
 {
 	sql_rel *top = NULL, *l = NULL, *r = NULL;
 	sql_exp *cje;
@@ -873,79 +880,56 @@ order_joins(mvc *sql, list *rels, list *exps, list *graphs)
 
 		/* find the involved relations */
 
-		/* complex expressions may touch multiple base tables 
+		/* complex expressions may touch multiple base tables
 		 * Should be pushed up to extra selection.
 		 * */
 		if (cje->type != e_cmp || !is_complex_exp(cje->flag) || !find_prop(cje->p, PROP_HASHCOL) /*||
 		   (cje->type == e_cmp && cje->f == NULL)*/) {
-			sql_exp *le, *re;
-			if(cje->type == e_graph){
-				assert(list_length(cje->l) == 1 && list_length(cje->r) == 1);
-				le = ((list*) cje->l)->h->data;
-				re = ((list*) cje->r)->h->data;
-			} else {
-				le = cje->l;
-				re = cje->r;
-			}
-
-			l = find_one_rel(rels, le);
-			r = find_one_rel(rels, re);
+			l = find_one_rel(rels, cje->l);
+			r = find_one_rel(rels, cje->r);
 		}
 
 		if (l && r && l != r) {
 			list_remove_data(sdje, cje);
 			list_remove_data(exps, cje);
-			list_remove_data(rels, l);
-			list_remove_data(rels, r);
-			list_append(n_rels, l);
-			list_append(n_rels, r);
-
-			/* Create a relation between l and r. Since the calling
-		   	   functions rewrote the join tree, into a list of expressions
-		   	   and a list of (simple) relations, there are no outer joins
-		   	   involved, we can simply do a crossproduct here.
-		 	 */
-			if(cje->type != e_graph){
-				top = rel_crossproduct(sql->sa, l, r, op_join);
-				rel_join_add_exp(sql->sa, top, cje);
-			} else { // bring back to life the graph join
-				top = reset_graph_join(sql, graphs, l, r, cje);
-			}
-
-			/* all other join expressions on these 2 relations */
-			while((djn = list_find(exps, n_rels, (fcmp)&exp_joins_rels)) != NULL) {
-				sql_exp *e = djn->data;
-				assert(e->type != e_graph && "Mixing regular and graph joins");
-
-				rel_join_add_exp(sql->sa, top, e);
-				list_remove_data(exps, e);
-			}
-			/* Remove other joins on the current 'n_rels' set in the distinct list too */
-			while((djn = list_find(sdje, n_rels, (fcmp)&exp_joins_rels)) != NULL)
-				list_remove_data(sdje, djn->data);
-			fnd = 1;
 		}
 	}
+	if (l && r && l != r) {
+		list_remove_data(rels, l);
+		list_remove_data(rels, r);
+		list_append(n_rels, l);
+		list_append(n_rels, r);
 
+		/* Create a relation between l and r. Since the calling
+	   	   functions rewrote the join tree, into a list of expressions
+	   	   and a list of (simple) relations, there are no outer joins
+	   	   involved, we can simply do a crossproduct here.
+	 	 */
+		top = rel_crossproduct(sql->sa, l, r, op_join);
+		rel_join_add_exp(sql->sa, top, cje);
+
+		/* all other join expressions on these 2 relations */
+		while((djn = list_find(exps, n_rels, (fcmp)&exp_joins_rels)) != NULL) {
+			sql_exp *e = djn->data;
+
+			rel_join_add_exp(sql->sa, top, e);
+			list_remove_data(exps, e);
+		}
+		/* Remove other joins on the current 'n_rels' set in the distinct list too */
+		while((djn = list_find(sdje, n_rels, (fcmp)&exp_joins_rels)) != NULL)
+			list_remove_data(sdje, djn->data);
+		fnd = 1;
+	}
 	/* build join tree using the ordered list */
 	while(list_length(exps) && fnd) {
 		fnd = 0;
 		/* find the first expression which could be added */
 		for(djn = sdje->h; djn && !fnd && rels->h; djn = (!fnd)?djn->next:NULL) {
 			node *ln, *rn, *en;
-			sql_exp *le, *re;
-			
+
 			cje = djn->data;
-			if(cje->type == e_graph){
-				assert(list_length(cje->l) == 1 && list_length(cje->r) == 1);
-				le = ((list*) cje->l)->h->data;
-				re = ((list*) cje->r)->h->data;
-			} else {
-				le = cje->l;
-				re = cje->r;
-			}
-			ln = list_find(n_rels, le, (fcmp)&rel_has_exp);
-			rn = list_find(n_rels, re, (fcmp)&rel_has_exp);
+			ln = list_find(n_rels, cje->l, (fcmp)&rel_has_exp);
+			rn = list_find(n_rels, cje->r, (fcmp)&rel_has_exp);
 
 			if (ln || rn) {
 				/* remove the expression from the lists */
@@ -962,32 +946,27 @@ order_joins(mvc *sql, list *rels, list *exps, list *graphs)
 			} else if (ln || rn) {
 				if (ln) {
 					l = ln->data;
-					r = find_rel(rels, re);
+					r = find_rel(rels, cje->r);
 				} else {
 					l = rn->data;
-					r = find_rel(rels, le);
+					r = find_rel(rels, cje->l);
 				}
 				list_remove_data(rels, r);
 				append(n_rels, r);
 
 				/* create a join using the current expression */
-				if(cje->type != e_graph){
-					top = rel_crossproduct(sql->sa, top, r, op_join);
-					rel_join_add_exp(sql->sa, top, cje);
-				} else {
-					top = reset_graph_join(sql, graphs, l, r, cje);
-				}
+				top = rel_crossproduct(sql->sa, top, r, op_join);
+				rel_join_add_exp(sql->sa, top, cje);
 
 				/* all join expressions on these tables */
 				while((en = list_find(exps, n_rels, (fcmp)&exp_joins_rels)) != NULL) {
 					sql_exp *e = en->data;
-					assert(e->type != e_graph && "Mixing regular and graph joins");
 					rel_join_add_exp(sql->sa, top, e);
 					list_remove_data(exps, e);
 				}
-				/* Remove other joins on the current 'n_rels' 
+				/* Remove other joins on the current 'n_rels'
 				   set in the distinct list too */
-				while((en = list_find(sdje, n_rels, (fcmp)&exp_joins_rels)) != NULL) 
+				while((en = list_find(sdje, n_rels, (fcmp)&exp_joins_rels)) != NULL)
 					list_remove_data(sdje, en->data);
 				fnd = 1;
 			}
@@ -998,7 +977,7 @@ order_joins(mvc *sql, list *rels, list *exps, list *graphs)
 		for(n=rels->h; n; n = n->next) {
 			if (top)
 				top = rel_crossproduct(sql->sa, top, n->data, op_join);
-			else 
+			else
 				top = n->data;
 		}
 	}
@@ -1011,13 +990,13 @@ order_joins(mvc *sql, list *rels, list *exps, list *graphs)
 
 			/* find the involved relations */
 
-			/* complex expressions may touch multiple base tables 
+			/* complex expressions may touch multiple base tables
 		 	 * Should be push up to extra selection. */
 			/*
 			l = find_one_rel(rels, e->l);
 			r = find_one_rel(rels, e->r);
 
-			if (l && r) 
+			if (l && r)
 			*/
 			if (exp_is_join_exp(e) == 0)
 				rel_join_add_exp(sql->sa, top->l, e);
@@ -1025,6 +1004,161 @@ order_joins(mvc *sql, list *rels, list *exps, list *graphs)
 				rel_select_add_exp(sql->sa, top, e);
 		}
 	}
+	return top;
+}
+
+static sql_rel *
+reset_graph_join(mvc *sql, list* graphs, sql_rel *l, sql_rel *r, sql_exp *e){
+	node* n = NULL;
+	sql_rel* graph = NULL;
+
+	n = list_find(graphs, e, (fcmp) graph_association_cmp);
+	assert(n != NULL);
+	graph = rel_graph_move2rel(sql, ((graph_association*) n->data)->graph, l, r, e);
+	assert(l != NULL);
+	if(r){
+		graph->op = op_graph_join;
+	} else {
+		graph->op = op_graph_select;
+	}
+	list_remove_node(graphs, n);
+
+	return graph;
+}
+
+static sql_rel *
+order_joins_with_graphs(mvc *sql, list *rels, list *exps, list *graphs)
+{
+	sql_rel *top = NULL;
+	bool fnd = false;
+
+	/* find foreign keys and reorder the expressions on reducing quality */
+	(void) find_fk(sql, rels, exps);
+	exps = order_join_expressions(sql, exps, rels);
+
+	// first pass, take the first exp that joins any of the two rels
+	for(node* n = exps->h; n && !fnd; n = n->next){
+		sql_exp *cje = n->data;
+		sql_rel *l = NULL, *r = NULL;
+		sql_exp *le = NULL, *re = NULL;
+
+		if(exp_is_join_exp(cje) != 0 /* 0 = true */) continue;
+
+//		if (cje->type != e_cmp || !is_complex_exp(cje->flag) || !find_prop(cje->p, PROP_HASHCOL) /*||
+//		   (cje->type == e_cmp && cje->f == NULL)*/) {
+			if(cje->type == e_graph){
+				assert(list_length(cje->l) == 1 && list_length(cje->r) == 1);
+				le = ((list*) cje->l)->h->data;
+				re = ((list*) cje->r)->h->data;
+			} else {
+				le = cje->l;
+				re = cje->r;
+			}
+
+			l = find_one_rel(rels, le);
+			r = find_one_rel(rels, re);
+//		}
+
+		if(l && r) {
+			assert(l != r);
+			fnd = true; // dependency satisfied
+
+			list_remove_data(exps, cje);
+			list_remove_data(rels, l);
+			list_remove_data(rels, r);
+
+			if(cje->type != e_graph){
+				// add the join product
+				top = rel_crossproduct(sql->sa, l, r, op_join);
+				rel_join_add_exp(sql->sa, top, cje);
+			} else { // bring back to life the graph join
+				top = reset_graph_join(sql, graphs, l, r, cje);
+			}
+		}
+	}
+
+	// second pass, attach all other relations to top
+	if(list_length(rels) >= 1){
+
+		assert(top != NULL && fnd == true);
+
+		do {
+			fnd = false;
+
+			for(node* n = exps->h; n && !fnd; n = n->next){
+				sql_exp *e, *le, *re;
+				bool swapped = false;
+				node* m = NULL;
+
+				e = n->data;
+
+				if(exp_is_join_exp(e) != 0 /* 0 = true */) continue;
+
+				if(e->type == e_graph){
+					assert(list_length(e->l) == 1 && list_length(e->r) == 1);
+					le = ((list*) e->l)->h->data;
+					re = ((list*) e->r)->h->data;
+				} else {
+					le = e->l;
+					re = e->r;
+				}
+				if(rel_has_exp(top, le) == 0 /* 0 = true */){
+					// can we join with one of the rhs?
+					m = list_find(rels, re, (fcmp)&rel_has_exp);
+					if(!m) continue; // next exp
+				} else if (rel_has_exp(top, re) == 0 /* 0 = true */){
+					swapped = true;
+					m = list_find(rels, le, (fcmp)&rel_has_exp);
+					if(!m) continue; // next exp
+				} else { // we cannot still produce a join with this exp~
+					continue;
+				}
+
+				fnd = true; // dependency satisfied
+				list_remove_data(rels, m->data);
+				list_remove_data(exps, e);
+
+				// create the join
+				if(e->type != e_graph){
+					top = rel_crossproduct(sql->sa, top, m->data, op_join);
+					rel_join_add_exp(sql->sa, top, e);
+				} else { // e_graph
+					if(!swapped){
+						top = reset_graph_join(sql, graphs, top, m->data, e);
+					} else {
+						top = reset_graph_join(sql, graphs, m->data, top, e);
+					}
+				}
+			}
+
+		} while(fnd);
+	}
+
+	// add the remaining cross products
+	for (node *n = rels->h; n; n = n->next) {
+		if (top)
+			top = rel_crossproduct(sql->sa, top, n->data, op_join);
+		else
+			top = n->data;
+	}
+
+	// add the remaining filters
+	while (list_length(exps) > 1) { /* more expressions (add selects) */
+		node *n = NULL;
+		sql_exp *e = NULL;
+
+		for(n = exps->h; n; n = n->next){
+			e = n->data;
+			if(rel_has_exp(top, e) == 0 /* 0 == true */) break;
+		}
+		assert(n != NULL && e != NULL);
+
+		if(e->type != e_graph)
+			top = rel_select(sql->sa, top, e);
+		else // e_graph
+			top = reset_graph_join(sql, graphs, top, NULL, e);
+	}
+
 	return top;
 }
 
@@ -1094,22 +1228,44 @@ push_in_join_down(mvc *sql, list *rels, list *exps)
 	return rels;
 }
 
+static void
+record_graph(mvc* sql, sql_rel *rel, list* graphs) {
+	graph_association* association;
+
+	assert(is_graph(rel->op));
+	assert(list_length(rel->exps) == 1);
+	association = SA_NEW(sql->sa, graph_association);
+	association->exp = rel->exps->h->data;
+	association->graph = rel;
+	list_append(graphs, association);
+}
+
 static list *
-push_up_join_exps( mvc *sql, sql_rel *rel, list* graphs)
+push_up_join_exps(mvc *sql, sql_rel *rel, list* graphs)
 {
 	if (rel_is_ref(rel))
 		return NULL;
 
 	switch(rel->op) {
-	case op_graph_join: {
-		graph_association* association;
+	case op_graph_select:
+		record_graph(sql, rel, graphs);
+		/* fall through */
+	case op_select: {
+		list *lst = NULL;
+		assert(rel->exps != NULL);
 
-		assert(list_length(rel->exps) == 1);
-		association = SA_NEW(sql->sa, graph_association);
-		association->join = rel->exps->h->data;
-		association->graph = rel;
-		list_append(graphs, association);
-	} /* fall through */
+		if( rel_is_ref(rel->l) ){
+			lst = rel->exps;
+		} else {
+			lst = push_up_join_exps(sql, rel->l, graphs);
+			lst = list_merge(rel->exps, lst, NULL);
+		}
+		rel->exps = NULL;
+		return lst;
+	} break;
+	case op_graph_join:
+		record_graph(sql, rel, graphs);
+		/* fall through */
 	case op_join: {
 		sql_rel *rl = rel->l;
 		sql_rel *rr = rel->r;
@@ -1143,42 +1299,52 @@ static sql_rel *
 reorder_join(mvc *sql, sql_rel *rel)
 {
 	list *exps;
-	list *rels;
+	list *rels = new_rel_list(sql->sa);
 	list *graphs = sa_list(sql->sa);
 
-	if (rel->op == op_join || rel->op == op_graph_join)
-		rel->exps = push_up_join_exps(sql, rel, graphs);
-
-	exps = rel->exps;
-	if (!exps) /* crosstable, ie order not important */
-		return rel;
-	rel->exps = NULL; /* should be all crosstables by now */
- 	rels = new_rel_list(sql->sa);
-	if (is_outerjoin(rel->op)) {
-		int cnt = 0;
+	if(is_outerjoin(rel->op)){
+		exps = rel->exps;
 		/* try to use an join index also for outer joins */
 		list_append(rels, rel->l);
 		list_append(rels, rel->r);
-		cnt = list_length(exps);
-		rel->exps = find_fk(sql, rels, exps);
-		if (list_length(rel->exps) != cnt) 
-			rel->exps = order_join_expressions(sql, exps, rels);
-	} else { 
- 		get_relations(sql, rel, rels);
-		if (list_length(rels) > 1) {
+		find_fk(sql, rels, exps);
+		rel->exps = order_join_expressions(sql, exps, rels);
+	} else { // join reordering
+		exps = push_up_join_exps(sql, rel, graphs);
+		if(list_length(exps) == 0){ /* crosstable, ie order not important */
+			assert(rel->op == op_join && "Expected a cross product");
+			return rel;
+		} else if (list_length(graphs) > 0){ // graphs involved
+			int e_changes;
+
+	 		get_relations(sql, rel, rels);
+	 		assert(list_length(rels) >= 2);
 			rels = push_in_join_down(sql, rels, exps);
-			rel = order_joins(sql, rels, exps, graphs);
-		} else {
-			rel->exps = exps;
-			exps = NULL;
+			rel = order_joins_with_graphs(sql, rels, exps, graphs);
+
+			// pda
+			rel = rewrite_topdown(sql, rel, &rel_push_select_down, &e_changes);
+			rel = rewrite_topdown(sql, rel, rel_graph_pda, &e_changes);
+			rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes);
+		} else { // legacy logic
+	 		get_relations(sql, rel, rels);
+			if (list_length(rels) > 1) {
+				rels = push_in_join_down(sql, rels, exps);
+				rel = order_joins(sql, rels, exps);
+			} else {
+				rel->exps = exps;
+				exps = NULL;
+			}
 		}
 	}
+
 	return rel;
 }
 
 static sql_rel *
 rel_join_order(mvc *sql, sql_rel *rel) 
 {
+	bool do_join_reordering = false;
 	int e_changes = 0;
 
 	if (!rel)
@@ -1192,8 +1358,10 @@ rel_join_order(mvc *sql, sql_rel *rel)
 	case op_left: 
 	case op_right: 
 	case op_full: 
+		if(!rel_is_ref(rel)){
+			do_join_reordering = true;
+		}
 		break;
-
 	case op_apply: 
 	case op_semi: 
 	case op_anti: 
@@ -1205,7 +1373,6 @@ rel_join_order(mvc *sql, sql_rel *rel)
 		rel->r = rel_join_order(sql, rel->r);
 		break;
 	case op_project:
-	case op_select: 
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
@@ -1222,17 +1389,36 @@ rel_join_order(mvc *sql, sql_rel *rel)
 		rel->l = rel_join_order(sql, rel->l);
 		rel->r = rel_join_order(sql, rel->r);
 		break;
-	case op_graph_select:
-		rel->l = rel_join_order(sql, rel->l);
-		break;
+	case op_select:
+	case op_graph_select: {
+		sql_rel* parent = rel;
+
+		if(!rel_is_ref(rel)){
+			do {
+				parent = parent->l;
+			} while ((parent->op == op_select || parent->op == op_graph_select) && !rel_is_ref(parent));
+		}
+
+		// do not consider the outer joins here
+		if((parent->op == op_join || parent->op == op_graph_join) && !rel_is_ref(parent)) {
+			do_join_reordering = true;
+		} else {
+			rel->l = rel_join_order(sql, rel->l);
+		}
+
+	} break;
 	case op_graph_join:
-		// nop, jump to reorder_join
+		if(!rel_is_ref(rel)){
+			do_join_reordering = true;
+		}
 		break;
 	}
-	if (is_join(rel->op) && rel->exps && !rel_is_ref(rel)) {
+
+	if (do_join_reordering) {
 		rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes); 
 		rel = reorder_join(sql, rel);
 	}
+
 	(void)e_changes;
 	return rel;
 }
