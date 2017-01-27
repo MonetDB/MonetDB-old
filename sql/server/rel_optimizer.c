@@ -425,21 +425,29 @@ exp_count(int *cnt, sql_exp *e)
 			return 0;
 		*cnt -= 5*list_length(e->l);
 		return 5*list_length(e->l);
-	case e_graph:
-		if(exp_card(e->l) == CARD_ATOM && exp_card(e->r) == CARD_ATOM){
+	case e_graph: {
+		// I do still wonder, why the heck I am using lists for the lhs and rhs of the e_graph expression
+		sql_exp* el = ((list*) (e->l))->h->data;
+		sql_exp* er = ((list*) (e->r))->h->data;
+
+		if(exp_card(el) == CARD_ATOM && exp_card(er) == CARD_ATOM){
 			*cnt += 1000; // this is going to result to a constant predicate TRUE or FALSE
 		} else {
-			exp_count(cnt, e->l);
-			exp_count(cnt, e->r);
-			if(exp_card(e->l) == CARD_ATOM || exp_card(e->r) == CARD_ATOM){
+			exp_count(cnt, el);
+			exp_count(cnt, er);
+			if(exp_card(el) == CARD_ATOM || exp_card(er) == CARD_ATOM){
 				// single shortest path
 				*cnt += 500;
 			} else {
 				// this is going to be expensive, many-to-many shortest paths
 				// do not change cnt
+
+				// TODO: TEMPORARY ONLY
+				*cnt += 500;
 			}
 		}
 		return 0; // the return value is ignored anyway
+	} break; // silent the warning
 	case e_convert:
 		/* functions are more expensive, depending on the number of columns involved. */
 		if (e->card == CARD_ATOM)
@@ -1089,6 +1097,7 @@ order_joins_with_graphs(mvc *sql, list *rels, list *exps, list *graphs)
 				sql_exp *e, *le, *re;
 				bool swapped = false;
 				node* m = NULL;
+				sql_rel* candidate = NULL;
 
 				e = n->data;
 
@@ -1106,27 +1115,31 @@ order_joins_with_graphs(mvc *sql, list *rels, list *exps, list *graphs)
 					// can we join with one of the rhs?
 					m = list_find(rels, re, (fcmp)&rel_has_exp);
 					if(!m) continue; // next exp
+					candidate = m->data;
 				} else if (rel_has_exp(top, re) == 0 /* 0 = true */){
 					swapped = true;
 					m = list_find(rels, le, (fcmp)&rel_has_exp);
 					if(!m) continue; // next exp
+					candidate = m->data;
 				} else { // we cannot still produce a join with this exp~
 					continue;
 				}
 
 				fnd = true; // dependency satisfied
-				list_remove_data(rels, m->data);
+				list_remove_node(rels, m);
 				list_remove_data(exps, e);
+
+				assert(candidate != NULL);
 
 				// create the join
 				if(e->type != e_graph){
-					top = rel_crossproduct(sql->sa, top, m->data, op_join);
+					top = rel_crossproduct(sql->sa, top, candidate, op_join);
 					rel_join_add_exp(sql->sa, top, e);
 				} else { // e_graph
 					if(!swapped){
-						top = reset_graph_join(sql, graphs, top, m->data, e);
+						top = reset_graph_join(sql, graphs, top, candidate, e);
 					} else {
-						top = reset_graph_join(sql, graphs, m->data, top, e);
+						top = reset_graph_join(sql, graphs, candidate, top, e);
 					}
 				}
 			}
@@ -1143,15 +1156,16 @@ order_joins_with_graphs(mvc *sql, list *rels, list *exps, list *graphs)
 	}
 
 	// add the remaining filters
-	while (list_length(exps) > 1) { /* more expressions (add selects) */
+	while (list_length(exps) > 0) { /* more expressions (add selects) */
 		node *n = NULL;
 		sql_exp *e = NULL;
 
 		for(n = exps->h; n; n = n->next){
 			e = n->data;
-			if(rel_has_exp(top, e) == 0 /* 0 == true */) break;
+			if(rel_has_exp2(top, e)) break;
 		}
 		assert(n != NULL && e != NULL);
+		list_remove_node(exps, n);
 
 		if(e->type != e_graph)
 			top = rel_select(sql->sa, top, e);
@@ -1248,19 +1262,24 @@ push_up_join_exps(mvc *sql, sql_rel *rel, list* graphs)
 
 	switch(rel->op) {
 	case op_graph_select:
-		record_graph(sql, rel, graphs);
-		/* fall through */
 	case op_select: {
 		list *lst = NULL;
-		assert(rel->exps != NULL);
+		if (!rel_is_ref(rel->l)) {
 
-		if( rel_is_ref(rel->l) ){
-			lst = rel->exps;
-		} else {
+			// consider this selection only as valid iff its parent is:
+			// a) a join
+			// b) another valid select operator
 			lst = push_up_join_exps(sql, rel->l, graphs);
-			lst = list_merge(rel->exps, lst, NULL);
+
+			if(lst != NULL) {
+				if(rel->op == op_graph_select)
+					record_graph(sql, rel, graphs);
+
+				lst = list_merge(rel->exps, lst, NULL);
+				rel->exps = NULL;
+			}
 		}
-		rel->exps = NULL;
+
 		return lst;
 	} break;
 	case op_graph_join:
@@ -1325,7 +1344,7 @@ reorder_join(mvc *sql, sql_rel *rel)
 			// pda
 			rel = rewrite_topdown(sql, rel, &rel_push_select_down, &e_changes);
 			rel = rewrite_topdown(sql, rel, rel_graph_pda, &e_changes);
-			rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes);
+//			rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes);
 		} else { // legacy logic
 	 		get_relations(sql, rel, rels);
 			if (list_length(rels) > 1) {
@@ -9335,8 +9354,7 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		rel = rewrite(sql, rel, &rel_groupby_distinct, &changes); 
 	}
 
-	printf("[Optimizer] rel_join_order before: %s\n", dump_rel(sql, rel));
-	if (gp.cnt[op_join] || gp.cnt[op_left] || gp.cnt[op_semi] || gp.cnt[op_anti]) {
+	if (gp.cnt[op_join] || gp.cnt[op_left] || gp.cnt[op_semi] || gp.cnt[op_anti] || gp.cnt[op_graph_join]) {
 		rel = rel_remove_empty_join(sql, rel, &changes);
 		if (!gp.cnt[op_update])
 			rel = rel_join_order(sql, rel);
@@ -9344,7 +9362,6 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		/* rel_join_order may introduce empty selects */
 		rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes); 
 	}
-	printf("[Optimizer] rel_join_order after: %s\n", dump_rel(sql, rel));
 
 	if (gp.cnt[op_select] && sql->emode != m_prepare) 
 		rel = rewrite(sql, rel, &rel_simplify_like_select, &changes); 

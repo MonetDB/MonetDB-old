@@ -41,7 +41,7 @@ sql_graph* rel_graph_move(mvc* sql, sql_rel* rel, sql_rel* l, sql_rel* r, sql_ex
 	graph_old = (sql_graph*) rel;
 	graph_new = rel_graph_create(sql->sa);
 	if(!graph_new) return NULL;
-	memcpy(graph_new + sizeof(sql_ref), graph_old + sizeof(sql_ref), sizeof(sql_graph) - sizeof(sql_ref));
+	memcpy((char*) graph_new + sizeof(sql_ref), (char*) graph_old + sizeof(sql_ref), sizeof(sql_graph) - sizeof(sql_ref));
 	graph_rel = &(graph_new->relation);
 	graph_rel->l = l;
 	graph_rel->r = r;

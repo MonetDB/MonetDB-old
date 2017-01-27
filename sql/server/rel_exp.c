@@ -1129,6 +1129,40 @@ rel_has_exps(sql_rel *rel, list *exps)
 	return -1;
 }
 
+
+static bool
+rel_has_exps2(sql_rel *rel, list* l){
+	bool result = true;
+
+	if(list_length(l) == 0)
+		return false;
+
+	for(node* n = l->h; n && result; n = n->next){
+		result &= rel_has_exp2(rel, n->data);
+	}
+
+	return result;
+}
+
+bool
+rel_has_exp2(sql_rel *rel, sql_exp *e){
+	if(!rel) return false;
+	if(!e) return true;
+
+	switch(e->type){
+	case e_cmp:
+		if (get_cmp(e) == cmp_filter) {
+			return rel_has_exps2(rel, e->l) && rel_has_exps2(rel, e->r);
+		} else {
+			return rel_has_exp2(rel, e->l) && rel_has_exp2(rel, e->r);
+		}
+	case e_graph:
+		return rel_has_exps2(rel, e->l) && rel_has_exps2(rel, e->r);
+	default:
+		return rel_find_exp(rel, e) != NULL;
+	}
+}
+
 sql_rel *
 find_rel(list *rels, sql_exp *e)
 {
@@ -1211,8 +1245,9 @@ rel_find_exp_( sql_rel *rel, sql_exp *e)
 {
 	sql_exp *ne = NULL;
 
-	if (!rel)
+	if (!rel) // stop the recursion
 		return NULL;
+
 	switch(e->type) {
 	case e_column:
 		if (rel->exps && (is_project(rel->op) || is_base(rel->op))) {
@@ -1221,6 +1256,11 @@ rel_find_exp_( sql_rel *rel, sql_exp *e)
 			} else {
 				ne = exps_bind_column(rel->exps, e->r, NULL);
 			}
+		}
+		// check whether this is some kind of shortest path
+		else if (is_graph(rel->op) && e->l){
+			sql_graph* graph_ptr = (sql_graph*) rel;
+			ne = exps_bind_column2(graph_ptr->spfw, e->l, e->r);
 		}
 		return ne;
 	case e_convert:
@@ -1288,13 +1328,6 @@ rel_find_exp( sql_rel *rel, sql_exp *e)
 			break;
 		case op_graph_join:
 		case op_graph_select: {
-			assert(ne == NULL && "Expression already assigned?");
-			// check whether this is some kind of shortest path
-			if(e->type == e_column){
-				sql_graph* graph_ptr = (sql_graph*) rel;
-				ne = exps_bind_column2(graph_ptr->spfw, e->l, e->r);
-			}
-
 			// try with the lhs
 			if(!ne) { ne = rel_find_exp(rel->l, e); }
 			// and then with the rhs (ok for selects as well)
