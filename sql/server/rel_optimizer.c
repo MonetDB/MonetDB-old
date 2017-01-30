@@ -4354,6 +4354,8 @@ rel_push_join_down_union(int *changes, mvc *sql, sql_rel *rel)
 			je && !find_prop(je->p, PROP_JOINIDX) && /* FKEY JOIN */
 			!rel_is_join_on_pkey(rel))) /* aligned PKEY JOIN */
 			return rel;
+		if (is_semi(rel->op) && is_union(l->op) && je && !find_prop(je->p, PROP_JOINIDX))
+			return rel;
 
 		ol->subquery = or->subquery = 0;
 		if ((is_union(l->op) && !need_distinct(l)) && !is_union(r->op)){
@@ -7924,8 +7926,6 @@ exp_apply_rename(mvc *sql, sql_exp *e, list *aliases, int setname)
 			ne = exp_op(sql->sa, nl, e->f);
 		else 
 			ne = exp_aggr(sql->sa, nl, e->f, need_distinct(e), need_no_nil(e), e->card, has_nil(e));
-		if (e && e->rname)
-			exp_setname(sql->sa, ne, e->rname, e->name);
 		break;
 	}	
 	case e_atom:
@@ -7934,6 +7934,8 @@ exp_apply_rename(mvc *sql, sql_exp *e, list *aliases, int setname)
 	}
 	if (ne && e->p)
 		ne->p = prop_copy(sql->sa, e->p);
+	if (ne && !ne->used && e->rname)
+		exp_setname(sql->sa, ne, e->rname, e->name);
 	return ne;
 }
 

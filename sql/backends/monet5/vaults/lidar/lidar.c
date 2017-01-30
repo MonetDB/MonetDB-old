@@ -1734,7 +1734,7 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, sql_table *tbl, o
 		bats[idx]->trevsorted = 0;
 		BATmode(bats[idx], PERSISTENT);
 		store_funcs.append_col(m->session->tr, columns[idx], bats[idx], TYPE_bat);
-		BBPdecref(bats[idx]->batCacheid, TRUE);
+		BBPrelease(bats[idx]->batCacheid);
 		BBPunfix(bats[idx]->batCacheid);
 	}
 

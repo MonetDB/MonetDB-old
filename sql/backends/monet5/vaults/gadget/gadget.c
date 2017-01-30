@@ -1253,13 +1253,13 @@ str gadgetLoadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
   fprintf(stderr,"#Total time %d ms\n", GDKms() - time0);
 #endif
 
-  BBPdecref(id->batCacheid, TRUE);
-  BBPdecref(posX->batCacheid, TRUE);
-  BBPdecref(posY->batCacheid, TRUE);
-  BBPdecref(posZ->batCacheid, TRUE);
-  BBPdecref(velX->batCacheid, TRUE);
-  BBPdecref(velY->batCacheid, TRUE);
-  BBPdecref(velZ->batCacheid, TRUE);
+  BBPrelease(id->batCacheid);
+  BBPrelease(posX->batCacheid);
+  BBPrelease(posY->batCacheid);
+  BBPrelease(posZ->batCacheid);
+  BBPrelease(velX->batCacheid);
+  BBPrelease(velY->batCacheid);
+  BBPrelease(velZ->batCacheid);
 
   BBPunfix(id->batCacheid);
   BBPunfix(posX->batCacheid);
@@ -1508,13 +1508,13 @@ str gadgetLoadTableAll(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
   fprintf(stderr,"#Total time %d ms\n", GDKms() - time0);
 #endif
 
-  BBPdecref(id->batCacheid, TRUE);
-  BBPdecref(posX->batCacheid, TRUE);
-  BBPdecref(posY->batCacheid, TRUE);
-  BBPdecref(posZ->batCacheid, TRUE);
-  BBPdecref(velX->batCacheid, TRUE);
-  BBPdecref(velY->batCacheid, TRUE);
-  BBPdecref(velZ->batCacheid, TRUE);
+  BBPrelease(id->batCacheid);
+  BBPrelease(posX->batCacheid);
+  BBPrelease(posY->batCacheid);
+  BBPrelease(posZ->batCacheid);
+  BBPrelease(velX->batCacheid);
+  BBPrelease(velY->batCacheid);
+  BBPrelease(velZ->batCacheid);
 
   BBPunfix(id->batCacheid);
   BBPunfix(posX->batCacheid);
@@ -1848,15 +1848,15 @@ gadgetLoadTableAll_(mvc *m, sql_schema *sch, sql_table *gadget_tbl, char *tname)
   fprintf(stderr,"#Total time %d ms\n", GDKms() - time0);
 #endif
 
-  BBPdecref(id->batCacheid, TRUE);
-  BBPdecref(posX->batCacheid, TRUE);
-  BBPdecref(posY->batCacheid, TRUE);
-  BBPdecref(posZ->batCacheid, TRUE);
-  BBPdecref(velX->batCacheid, TRUE);
-  BBPdecref(velY->batCacheid, TRUE);
-  BBPdecref(velZ->batCacheid, TRUE);
-  BBPdecref(snapnum->batCacheid, TRUE);
-  BBPdecref(phkey->batCacheid, TRUE);
+  BBPrelease(id->batCacheid);
+  BBPrelease(posX->batCacheid);
+  BBPrelease(posY->batCacheid);
+  BBPrelease(posZ->batCacheid);
+  BBPrelease(velX->batCacheid);
+  BBPrelease(velY->batCacheid);
+  BBPrelease(velZ->batCacheid);
+  BBPrelease(snapnum->batCacheid);
+  BBPrelease(phkey->batCacheid);
 
   BBPunfix(id->batCacheid);
   BBPunfix(posX->batCacheid);

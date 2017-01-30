@@ -285,6 +285,9 @@ prepareMALstack(MalBlkPtr mb, int size)
 
 	assert(size >= mb->vsize);
 	stk = newGlobalStack(size);
+	if (!stk) {
+		return NULL;
+	}
 	//memset((char *)stk, 0, stackSize(size)); already set
 	//stk->stksize = size;
 	stk->stktop = mb->vtop;
@@ -434,7 +437,7 @@ callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *env, ValPtr argv[], char debug)
 			if (VALcopy(lhs, argv[i]) == NULL)
 				throw(MAL, "mal.interpreter", MAL_MALLOC_FAIL);
 			if (lhs->vtype == TYPE_bat)
-				BBPincref(lhs->val.bval, TRUE);
+				BBPretain(lhs->val.bval);
 		}
 		stk->cmd = debug;
 		ret = runMALsequence(cntxt, mb, 1, 0, stk, 0, 0);
@@ -476,6 +479,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 	int stkpc = 0;
 	RuntimeProfileRecord runtimeProfile, runtimeProfileFunction;
 	lng lastcheck = 0;
+	int	startedProfileQueue = 0;
 #define CHECKINTERVAL 1000 /* how often do we check for client disconnect */
 	runtimeProfile.ticks = runtimeProfileFunction.ticks = 0;
 
@@ -486,7 +490,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 	if (startpc+1 == stoppc) {
 		pci = getInstrPtr(mb, startpc);
 		if (pci->argc > 16) {
-			backup = GDKzalloc(pci->argc * sizeof(ValRecord));
+			backup = GDKmalloc(pci->argc * sizeof(ValRecord));
 			if( backup == NULL)
 				throw(MAL, "mal.interpreter", MAL_MALLOC_FAIL);
 			garbage = (int*)GDKzalloc(pci->argc * sizeof(int));
@@ -500,7 +504,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			memset(garbages, 0, sizeof(garbages));
 		}
 	} else if ( mb->maxarg > 16 ){
-		backup = GDKzalloc(mb->maxarg * sizeof(ValRecord));
+		backup = GDKmalloc(mb->maxarg * sizeof(ValRecord));
 		if( backup == NULL)
 			throw(MAL, "mal.interpreter", MAL_MALLOC_FAIL);
 		garbage = (int*)GDKzalloc(mb->maxarg * sizeof(int));
@@ -516,6 +520,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 
 	/* also produce event record for start of function */
 	if ( startpc == 1 &&  startpc < mb->stop ){
+		startedProfileQueue = 1;
 		runtimeProfileInit(cntxt, mb, stk);
 		runtimeProfileBegin(cntxt, mb, stk, getInstrPtr(mb,0), &runtimeProfileFunction);
 		mb->starttime = GDKusec();
@@ -588,25 +593,16 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 		 * garbage collected are identified. In the post-execution
 		 * phase they are removed.
 		 */
+		for (i = 0; i < pci->retc; i++)
+			backup[i] = stk->stk[getArg(pci, i)];
+
 		if (garbageControl(pci)) {
 			for (i = 0; i < pci->argc; i++) {
 				int a = getArg(pci, i);
 
-				backup[i].vtype = 0;
-				backup[i].len = 0;
-				backup[i].val.pval = 0;
 				garbage[i] = -1;
 				if (stk->stk[a].vtype == TYPE_bat && getEndScope(mb, a) == stkpc && isNotUsedIn(pci, i + 1, a))
 					garbage[i] = a;
-
-				if (i < pci->retc && stk->stk[a].vtype == TYPE_bat) {
-					backup[i] = stk->stk[a];
-				} else if (i < pci->retc &&
-						   0 < stk->stk[a].vtype &&
-						   stk->stk[a].vtype < TYPE_any &&
-						   ATOMextern(stk->stk[a].vtype)) {
-					backup[i] = stk->stk[a];
-				}
 			}
 		}
 
@@ -634,7 +630,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 				rhs = &stk->stk[pci->argv[i]];
 				VALcopy(lhs, rhs);
 				if (lhs->vtype == TYPE_bat && lhs->val.bval != bat_nil)
-					BBPincref(lhs->val.bval, TRUE);
+					BBPretain(lhs->val.bval);
 			}
 			freeException(ret);
 			ret = 0;
@@ -758,7 +754,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 					rhs = &stk->stk[pci->argv[ii]];
 					VALcopy(lhs, rhs);
 					if (lhs->vtype == TYPE_bat)
-						BBPincref(lhs->val.bval, TRUE);
+						BBPretain(lhs->val.bval);
 				}
 				ret = runMALsequence(cntxt, pci->blk, 1, pci->blk->stop, nstk, stk, pci);
 				for (ii = 0; ii < nstk->stktop; ii++)
@@ -775,7 +771,6 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 				ret = shutdownFactory(cntxt, mb);
 			runtimeProfileExit(cntxt, mb, stk, pci, &runtimeProfile);
 			runtimeProfileExit(cntxt, mb, stk, getInstrPtr(mb,0), &runtimeProfileFunction);
-			runtimeProfileFinish(cntxt, mb);
 			if (pcicaller && garbageControl(getInstrPtr(mb, 0)))
 				garbageCollector(cntxt, mb, stk, TRUE);
 			if (cntxt->qtimeout && GDKusec()- mb->starttime > cntxt->qtimeout){
@@ -808,10 +803,18 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 		if( mb->stop <= 1)
 			continue;
 		runtimeProfileExit(cntxt, mb, stk, pci, &runtimeProfile);
-		if (ret != MAL_SUCCEED)
-			runtimeProfileFinish(cntxt, mb);
 		/* check for strong debugging after each MAL statement */
 		if ( pci->token != FACcall && ret== MAL_SUCCEED) {
+			for (i = 0; i < pci->retc; i++) {
+				lhs = &backup[i];
+				if (BATatoms[lhs->vtype].atomUnfix)
+					(*BATatoms[lhs->vtype].atomUnfix)(VALget(lhs));
+				if (ATOMextern(lhs->vtype) &&
+					lhs->val.pval &&
+					lhs->val.pval != ATOMnilptr(lhs->vtype) &&
+					lhs->val.pval != stk->stk[getArg(pci, i)].val.pval)
+					GDKfree(lhs->val.pval);
+			}
 			if (GDKdebug & (CHECKMASK|PROPMASK) && exceptionVar < 0) {
 				BAT *b;
 
@@ -841,27 +844,11 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 					if (isaBatType(getArgType(mb, pci, i))) {
 						bat bid = stk->stk[a].val.bval;
 
-						if (i < pci->retc && backup[i].val.bval != bat_nil) {
-							bat bx = backup[i].val.bval;
-							backup[i].val.bval = bat_nil;
-							BBPdecref(bx, TRUE);
-						}
 						if (garbage[i] >= 0) {
 							PARDEBUG mnstr_printf(GDKstdout, "#GC pc=%d bid=%d %s done\n", stkpc, bid, getVarName(mb, garbage[i]));
 							bid = stk->stk[garbage[i]].val.bval;
 							stk->stk[garbage[i]].val.bval = bat_nil;
-							BBPdecref(bid, TRUE);
-						}
-					} else if (i < pci->retc &&
-							   0 < stk->stk[a].vtype &&
-							   stk->stk[a].vtype < TYPE_any &&
-							   ATOMextern(stk->stk[a].vtype)) {
-						if (backup[i].val.pval &&
-							backup[i].val.pval != stk->stk[a].val.pval) {
-							if (backup[i].val.pval)
-								GDKfree(backup[i].val.pval);
-							backup[i].len = 0;
-							backup[i].val.pval = 0;
+							BBPrelease(bid);
 						}
 					}
 				}
@@ -1153,7 +1140,6 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			if (stkpc == mb->stop) {
 				runtimeProfileExit(cntxt, mb, stk, pci, &runtimeProfile);
 				runtimeProfileExit(cntxt, mb, stk, getInstrPtr(mb,0), &runtimeProfileFunction);
-				runtimeProfileFinish(cntxt, mb);
 				break;
 			}
 			if (stkpc == mb->stop)
@@ -1161,6 +1147,8 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 					"Exception raised");
 			break;
 		case YIELDsymbol:     /* to be defined */
+			if( startedProfileQueue)
+				runtimeProfileFinish(cntxt, mb, stk);
 			if ( backup != backups) GDKfree(backup);
 			if ( garbage != garbages) GDKfree(garbage);
 			return yieldFactory(mb, pci, stkpc);
@@ -1180,14 +1168,13 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 						lhs = &env->stk[pci->argv[i]];
 						VALcopy(lhs, rhs);
 						if (lhs->vtype == TYPE_bat)
-							BBPincref(lhs->val.bval, TRUE);
+							BBPretain(lhs->val.bval);
 					}
 					if (garbageControl(getInstrPtr(mb, 0)))
 						garbageCollector(cntxt, mb, stk, TRUE);
 					/* reset the clock */
 					runtimeProfileExit(cntxt, mb, stk, pp, &runtimeProfile);
 					runtimeProfileExit(cntxt, mb, stk, getInstrPtr(mb,0), &runtimeProfileFunction);
-					runtimeProfileFinish(cntxt, mb);
 				} 
 			}
 			stkpc = mb->stop;
@@ -1221,6 +1208,8 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 		}
 		freeException(oldret);
 	}
+	if( startedProfileQueue)
+		runtimeProfileFinish(cntxt, mb, stk);
 	if ( backup != backups) GDKfree(backup);
 	if ( garbage != garbages) GDKfree(garbage);
 	return ret;
@@ -1398,7 +1387,7 @@ void garbageElement(Client cntxt, ValPtr v)
 			return;
 		if (!BBP_lrefs(bid))
 			return;
-		BBPdecref(bid, TRUE);
+		BBPrelease(bid);
 	} else if (0 < v->vtype && v->vtype < MAXATOMS && ATOMextern(v->vtype)) {
 		if (v->val.pval)
 			GDKfree(v->val.pval);

@@ -275,13 +275,14 @@ SQLshutdown_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
-create_table_or_view(mvc *sql, char *sname, sql_table *t, int temp)
+create_table_or_view(mvc *sql, char *sname, char *tname, sql_table *t, int temp)
 {
 	sql_allocator *osa;
 	sql_schema *s = mvc_bind_schema(sql, sname);
 	sql_table *nt = NULL;
 	node *n;
 
+	(void)tname;
 	if (STORE_READONLY)
 		return sql_error(sql, 06, "25006!schema statements cannot be executed on a readonly database.");
 
@@ -404,7 +405,7 @@ create_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *col
     			goto cleanup;
         	}
     	}
-    	msg = create_table_or_view(sql, sname, t, 0);
+    	msg = create_table_or_view(sql, sname, t->base.name, t, 0);
     	if (msg != MAL_SUCCEED) {
     		goto cleanup;
     	}
@@ -1235,7 +1236,7 @@ DELTAbat(bat *result, const bat *col, const bat *uid, const bat *uval, const bat
 
 	/* no updates, no inserts */
 	if (BATcount(u_id) == 0 && (!i || BATcount(i) == 0)) {
-		BBPincref(*result = *col, TRUE);
+		BBPretain(*result = *col);
 		return MAL_SUCCEED;
 	}
 
@@ -1244,7 +1245,7 @@ DELTAbat(bat *result, const bat *col, const bat *uid, const bat *uval, const bat
 
 	/* bat may change */
 	if (i && BATcount(c) == 0 && BATcount(u_id) == 0) {
-		BBPincref(*result = *ins, TRUE);
+		BBPretain(*result = *ins);
 		return MAL_SUCCEED;
 	}
 
@@ -1289,7 +1290,7 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 
 	/* no updates, no inserts */
 	if (BATcount(u_id) == 0 && (!i || BATcount(i) == 0)) {
-		BBPincref(*result = *col, TRUE);
+		BBPretain(*result = *col);
 		return MAL_SUCCEED;
 	}
 
@@ -1298,7 +1299,7 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 
 	/* bat may change */
 	if (i && BATcount(c) == 0 && BATcount(u_id) == 0) {
-		BBPincref(*result = *ins, TRUE);
+		BBPretain(*result = *ins);
 		return MAL_SUCCEED;
 	}
 
@@ -2587,13 +2588,13 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			// no filename for this column, skip for now because we potentially don't know the count yet
 			continue;
 		} else if (tpe < TYPE_str || tpe == TYPE_date || tpe == TYPE_daytime || tpe == TYPE_timestamp) {
-			c = BATattach(col->type.type->localtype, fname, PERSISTENT);
+			c = BATattach(col->type.type->localtype, fname, TRANSIENT);
 			if (c == NULL)
 				throw(SQL, "sql", "Failed to attach file %s", fname);
 			BATsetaccess(c, BAT_READ);
 		} else if (tpe == TYPE_str) {
 			/* get the BAT and fill it with the strings */
-			c = COLnew(0, TYPE_str, 0, PERSISTENT);
+			c = COLnew(0, TYPE_str, 0, TRANSIENT);
 			if (c == NULL)
 				throw(SQL, "sql", MAL_MALLOC_FAIL);
 			/* this code should be extended to deal with larger text strings. */
@@ -2636,7 +2637,7 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 				BUN loop = 0;
 				const void* nil = ATOMnilptr(tpe);
 				// fill the new BAT with NULL values
-				c = COLnew(0, tpe, cnt, PERSISTENT);
+				c = COLnew(0, tpe, cnt, TRANSIENT);
 				for(loop = 0; loop < cnt; loop++) {
 					BUNappend(c, nil, 0);
 				}
@@ -3644,7 +3645,7 @@ vacuum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str (*func) (bat
 		b = store_funcs.bind_col(tr, c, RDONLY);
 		if (b == NULL || (msg = (*func) (&bid, &b->batCacheid, &del->batCacheid)) != NULL) {
 			for (i--; i >= 0; i--)
-				BBPdecref(bids[i], TRUE);
+				BBPrelease(bids[i]);
 			if (b)
 				BBPunfix(b->batCacheid);
 			BBPunfix(del->batCacheid);
@@ -3660,7 +3661,7 @@ vacuum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str (*func) (bat
 	}
 	if (i >= 2048) {
 		for (i--; i >= 0; i--)
-			BBPdecref(bids[i], TRUE);
+			BBPrelease(bids[i]);
 		throw(SQL, name, "Too many columns to handle, use copy instead");
 	}
 	BBPunfix(del->batCacheid);
@@ -3674,7 +3675,7 @@ vacuum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str (*func) (bat
 			store_funcs.append_col(tr, c, ins, TYPE_bat);
 			BBPunfix(ins->batCacheid);
 		}
-		BBPdecref(bids[i], TRUE);
+		BBPrelease(bids[i]);
 	}
 	/* TODO indices */
 	return MAL_SUCCEED;
