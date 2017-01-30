@@ -349,7 +349,7 @@ get_relations(mvc *sql, sql_rel *rel, list *rels)
 		get_relations(sql, r, rels);
 		rel->l = NULL;
 		rel->r = NULL;
-		rel_destroy(rel);
+		if(!is_graph(rel->op)) rel_destroy(rel);
 	} else {
 		rel = rel_join_order(sql, rel);
 		append(rels, rel);
@@ -5974,8 +5974,16 @@ exp_mark_used(sql_rel *subrel, sql_exp *e)
 	case e_psm:
 		e->used = 1;
 		break;
-	case e_graph:
-		assert(0 && "Not implemented yet");
+	case e_graph: {
+		// lhs
+		for(node* n = ((list*) e->l)->h; n; n = n->next){
+			nr += exp_mark_used(subrel, n->data);
+		}
+		// rhs
+		for(node* n = ((list*) e->r)->h; n; n = n->next){
+			nr += exp_mark_used(subrel, n->data);
+		}
+	} break;
 	}
 	if (ne) {
 		ne->used = 1;
@@ -6003,16 +6011,16 @@ positional_exps_mark_used( sql_rel *rel, sql_rel *subrel )
 	}
 }
 
-static void
-exps_mark_used(sql_allocator *sa, sql_rel *rel, sql_rel *subrel)
-{
+static int
+exps_mark_used_(sql_allocator *sa, sql_rel *rel, sql_rel *subrel, list* exps_){
 	int nr = 0;
-	if (rel->exps) {
+
+	if(exps_){
 		node *n;
-		int len = list_length(rel->exps), i;
+		int len = list_length(exps_), i;
 		sql_exp **exps = SA_NEW_ARRAY(sa, sql_exp*, len);
 
-		for (n=rel->exps->h, i = 0; n; n = n->next, i++) 
+		for (n=exps_->h, i = 0; n; n = n->next, i++)
 			exps[i] = n->data;
 
 		for (i = len-1; i >= 0; i--) {
@@ -6025,6 +6033,15 @@ exps_mark_used(sql_allocator *sa, sql_rel *rel, sql_rel *subrel)
 			}
 		}
 	}
+
+	return nr;
+}
+
+static void
+exps_mark_used(sql_allocator *sa, sql_rel *rel, sql_rel *subrel)
+{
+	int nr = exps_mark_used_(sa, rel, subrel, rel->exps);
+
 	/* for count/rank we need atleast one column */
 	if (!nr && (is_project(subrel->op) || is_base(subrel->op)) && subrel->exps->h) {
 		sql_exp *e = subrel->exps->h->data;
@@ -6082,6 +6099,11 @@ rel_used(sql_rel *rel)
 		rel = rel->l;
 	} else if (rel->op == op_table && rel->r) {
 		exp_used(rel->r);
+	} else if(is_graph(rel->op)) {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		rel_used(rel->l);
+		rel_used(rel->r);
+		rel_used(graph_ptr->edges);
 	}
 	if (rel && rel->exps) {
 		exps_used(rel->exps);
@@ -6193,8 +6215,23 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 	case op_apply: 
 		break;
 	case op_graph_join:
-	case op_graph_select:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+	case op_graph_select: {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+
+		// lhs and rhs as usual
+		exps_mark_used(sql->sa, rel, rel->l);
+		rel_mark_used(sql, rel->l, 0);
+		if(rel->r) {
+			assert(rel->op == op_graph_join);
+			exps_mark_used(sql->sa, rel, rel->r);
+			rel_mark_used(sql, rel->r, 0);
+		}
+
+		// edges
+		exps_mark_used_(sql->sa, rel, graph_ptr->edges, graph_ptr->efrom);
+		exps_mark_used_(sql->sa, rel, graph_ptr->edges, graph_ptr->eto);
+		rel_mark_used(sql, graph_ptr->edges, 0);
+	} break;
 	}
 }
 
@@ -6302,21 +6339,52 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 	case op_ddl:
 		return rel;
 	case op_graph_join:
-	case op_graph_select:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+	case op_graph_select: {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		bool needed = false;
+
+		printf("remove unused\n");
+
+		// do we need to remove any of the attributes?
+		for(node* n = graph_ptr->spfw->h; n && !needed; n = n->next){
+			sql_exp* e = n->data;
+			needed = !(e->used);
+		}
+
+		if(needed) { // remove the unused attributes
+			list* exps = sa_list(sql->sa);
+			for(node* n = graph_ptr->spfw->h; n; n = n->next){
+				sql_exp* e = n->data;
+				if(e->used)
+					list_append(exps, e);
+			}
+			graph_ptr->spfw = exps;
+		}
+	} break;
 	}
 	return rel;
 }
 
+
+// merge two of sql_rel*, avoiding to duplicate the same element if it appears in both lists
 static list *
 merge_refs(list *l, list *r)
 {
-	node *n, *m, *np = l->h, *mp = r->h;
-	list *nl = sa_list(l->sa);
+	node *np, *mp;
+	list *nl;
 
-	for( n = np; n; n = n->next) {
+	// edge cases
+	if(!l) { return r; } /* possibly NULL */
+	else if(!r) { return l; }
+
+	// init
+	np = l->h;
+	mp = r->h;
+	nl = sa_list(l->sa);
+
+	for(node* n = np; n; n = n->next) {
 		sql_rel *lr = n->data;
-		for (m = mp; m; m = m->next) {
+		for (node* m = mp; m; m = m->next) {
 			sql_rel *rr = m->data;
 
 			if (lr == rr) {
@@ -6386,11 +6454,15 @@ rel_dce_refs(mvc *sql, sql_rel *rel)
 			r = rel_dce_refs(sql, rel->r);
 		break;
 
+	case op_graph_join:
+	case op_graph_select: {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		l = rel_dce_refs(sql, rel->l);
+		l = merge_refs(l, rel_dce_refs(sql, rel->r));
+		l = merge_refs(l, rel_dce_refs(sql, graph_ptr->edges));
+	} break;
 	case op_apply: 
 		assert(0);
-	case op_graph_join:
-	case op_graph_select:
-		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 
 	if (l && r)
@@ -6482,9 +6554,19 @@ rel_dce_down(mvc *sql, sql_rel *rel, list *refs, int skip_proj)
 		return rel;
 	case op_apply: 
 		assert(0);
+		break; // break in case assertions are disabled
 	case op_graph_join:
-	case op_graph_select:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+	case op_graph_select: {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+
+		// remove the unused shortest paths
+		rel_remove_unused(sql, rel);
+
+		// recurse on the referred relations
+		rel->l = rel_dce_down(sql, rel->l, refs, 0);
+		rel->r = rel_dce_down(sql, rel->r, refs, 0);
+		graph_ptr->edges = rel_dce_down(sql, graph_ptr->edges, refs, 0 /* = recurse on projection */);
+	} break;
 	}
 	return rel;
 }
@@ -6576,9 +6658,14 @@ rel_add_projects(mvc *sql, sql_rel *rel)
 		if (rel->r)
 			rel->r = rel_add_projects(sql, rel->r);
 		return rel;
+
 	case op_graph_join:
-	case op_graph_select:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+	case op_graph_select: {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		rel->l = rel_add_projects(sql, rel->l);
+		rel->r = rel_add_projects(sql, rel->r);
+		graph_ptr->edges = rel_add_projects(sql, graph_ptr->edges);
+	} break;
 	}
 	return rel;
 }
@@ -9071,6 +9158,7 @@ rel_graph_create_join(int *changes, mvc *sql, sql_rel *rel)
 			ne = exp_graph(sql, el, er);
 
 			// replace the cross product with a graph_join
+			target->l = target->r = NULL; // avoid to recursively delete the subrels
 			rel_destroy(target);
 			target = (sql_rel*) rel_graph_create(sql->sa);
 		    memcpy(target, graph_rel, sizeof(sql_graph));
