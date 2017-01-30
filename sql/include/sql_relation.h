@@ -235,6 +235,8 @@ typedef enum operator_type {
 	(is_select(op) || op == op_graph_select)
 #define is_extended_join(op) \
 	(is_join(op) || op == op_graph_join)
+#define is_extended_joinop(op) \
+	(is_joinop(op) || op == op_graph_join)
 
 /* NO NIL semantics of aggr operations */
 #define need_no_nil(e) \

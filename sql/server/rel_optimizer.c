@@ -1764,8 +1764,28 @@ can_push_func(sql_exp *e, sql_rel *rel, int *must)
 		(*must) |= lmust;
 		return res;
 	}
+	case e_graph: {
+		list* ll = e->l;
+		list* lr = e->r;
+		int mustg = 0;
+		int result = 0;
+
+		// lhs
+		for(node* n = ll->h; n; n = n->next){
+			result |= can_push_func(n->data, rel, &mustg);
+			*must |= mustg;
+		}
+
+		// rhs
+		for(node* n = lr->h; n; n = n->next){
+			result |= can_push_func(n->data, rel, &mustg);
+			*must |= mustg;
+		}
+
+		return result;
+	} break;
 	case e_column:
-		if (rel && !rel_find_exp(rel, e)) 
+		if (rel && !rel_find_exp(rel, e))
 			return 0;
 		(*must) = 1;
 	case e_atom:
@@ -1783,13 +1803,16 @@ exps_can_push_func(list *exps, sql_rel *rel)
 		sql_exp *e = n->data;
 		int must = 0, mustl = 0, mustr = 0;
 
-		if (is_joinop(rel->op) && ((can_push_func(e, rel->l, &mustl) && mustl) || (can_push_func(e, rel->r, &mustr) && mustr)))
+		if (is_extended_joinop(rel->op) && ((can_push_func(e, rel->l, &mustl) && mustl) || (can_push_func(e, rel->r, &mustr) && mustr)))
 			return 1;
-		else if (is_select(rel->op) && can_push_func(e, NULL, &must) && must)
+		else if (is_extended_select(rel->op) && can_push_func(e, NULL, &must) && must)
 			return 1;
 	}
 	return 0;
 }
+
+static int
+exps_need_push_down( list *exps );
 
 static int
 exp_needs_push_down(sql_exp *e)
@@ -1806,6 +1829,8 @@ exp_needs_push_down(sql_exp *e)
 	case e_aggr: 
 	case e_func: 
 		return 1;
+	case e_graph:
+		return exps_need_push_down(e->l) || exps_need_push_down(e->r);
 	case e_column:
 	case e_atom:
 	default:
@@ -1823,13 +1848,39 @@ exps_need_push_down( list *exps )
 	return 0;
 }
 
+static sql_exp*
+rel_push_func_down_graph_exp(int *changes, mvc *sql, sql_rel* subrel, sql_exp* e){
+	sql_exp* ne = e;
+	int must = 0;
+
+	assert(e->type != e_graph);
+	assert(subrel && is_project(subrel->op));
+
+	if (exp_needs_push_down(e) && can_push_func(e, subrel, &must) && must){
+		exp_label(sql->sa, e, ++sql->label);
+		list_append(subrel->exps, e);
+		ne = exp_column(sql->sa, exp_relname(e), exp_name(e), exp_subtype(e), e->card, has_nil(e), is_intern(e));
+		(*changes)++;
+	}
+
+	return ne;
+}
+
+static void
+rel_push_func_down_graph_list(int *changes, mvc *sql, sql_rel* subrel, list* l){
+	if(subrel == NULL || l == NULL) return;
+	for(node *n = l->h; n; n = n->next){
+		n->data = rel_push_func_down_graph_exp(changes, sql, subrel, n->data);
+	}
+}
+
 static sql_rel *
 rel_push_func_down(int *changes, mvc *sql, sql_rel *rel) 
 {
-	if ((is_select(rel->op) || is_joinop(rel->op)) && rel->l && rel->exps && !(rel_is_ref(rel))) {
+	if ((is_select(rel->op) || is_joinop(rel->op) || is_graph(rel->op)) && rel->l && rel->exps && !(rel_is_ref(rel))) {
 		list *exps = rel->exps;
 
-		if (is_select(rel->op) &&  list_length(rel->exps) <= 1)  /* only push down when thats useful */
+		if (is_select(rel->op) && list_length(rel->exps) <= 1)  /* only push down when thats useful */
 			return rel;
 		if (exps_can_push_func(exps, rel) && exps_need_push_down(exps)) {
 			sql_rel *nrel;
@@ -1845,7 +1896,7 @@ rel_push_func_down(int *changes, mvc *sql, sql_rel *rel)
 				rel->l = l = rel_project(sql->sa, l, 
 					rel_projections(sql, l, NULL, 1, 1));
 			}
-			if (is_joinop(rel->op) && r->op != op_project) {
+			if (is_extended_joinop(rel->op) && r->op != op_project) {
 				if (is_subquery(r))
 					return rel;
 				rel->r = r = rel_project(sql->sa, r, 
@@ -1858,10 +1909,24 @@ rel_push_func_down(int *changes, mvc *sql, sql_rel *rel)
 
 				if (e->type == e_column)
 					continue;
-				if ((is_joinop(rel->op) && ((can_push_func(e, l, &mustl) && mustl) || (can_push_func(e, r, &mustr) && mustr))) ||
-				    (is_select(rel->op) && can_push_func(e, NULL, &must) && must)) {
+				if ((is_extended_joinop(rel->op) && ((can_push_func(e, l, &mustl) && mustl) || (can_push_func(e, r, &mustr) && mustr))) ||
+				    (is_extended_select(rel->op) && can_push_func(e, NULL, &must) && must)) {
 					must = 0; mustl = 0; mustr = 0;
-					if (e->type != e_cmp) { /* predicate */
+					if(is_graph(rel->op)){
+						sql_exp *e = NULL;
+
+						// init
+						assert(list_length(rel->exps) == 1);
+						e = rel->exps->h->data;
+						assert(e->type == e_graph && "Unexpected expression type for the graph op.");
+
+						// lhs
+						rel_push_func_down_graph_list(changes, sql, l, e->l);
+						rel_push_func_down_graph_list(changes, sql, l, e->r);
+						// rhs
+						rel_push_func_down_graph_list(changes, sql, r, e->l);
+						rel_push_func_down_graph_list(changes, sql, r, e->r);
+					} else if (e->type != e_cmp) { /* predicate */
 						if ((is_joinop(rel->op) && ((can_push_func(e, l, &mustl) && mustl) || (can_push_func(e, r, &mustr) && mustr))) ||
 					    	    (is_select(rel->op) && can_push_func(e, NULL, &must) && must)) {
 							exp_label(sql->sa, e, ++sql->label);
@@ -1932,7 +1997,7 @@ rel_push_func_down(int *changes, mvc *sql, sql_rel *rel)
 	if (rel->op == op_project && rel->l && rel->exps) {
 		sql_rel *pl = rel->l;
 
-		if (is_joinop(pl->op) && exps_can_push_func(rel->exps, rel)) {
+		if (is_extended_joinop(pl->op) && exps_can_push_func(rel->exps, rel)) {
 			node *n;
 			sql_rel *l = pl->l, *r = pl->r;
 			list *nexps;
@@ -1943,7 +2008,7 @@ rel_push_func_down(int *changes, mvc *sql, sql_rel *rel)
 				pl->l = l = rel_project(sql->sa, l, 
 					rel_projections(sql, l, NULL, 1, 1));
 			}
-			if (is_joinop(rel->op) && r->op != op_project) {
+			if (is_extended_joinop(rel->op) && r->op != op_project) {
 				if (is_subquery(r))
 					return rel;
 				pl->r = r = rel_project(sql->sa, r, 
@@ -6343,8 +6408,6 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 		sql_graph* graph_ptr = (sql_graph*) rel;
 		bool needed = false;
 
-		printf("remove unused\n");
-
 		// do we need to remove any of the attributes?
 		for(node* n = graph_ptr->spfw->h; n && !needed; n = n->next){
 			sql_exp* e = n->data;
@@ -9063,8 +9126,8 @@ rel_graph_pda(int *changes, mvc *sql, sql_rel *rel)
 		bool pda_lhs = true; // otherwise go to the right
 
 		// can we push down to the lhs or rhs of the join?
-		bool left = r->op == op_join || r->op == op_left || r->op == op_graph_join || r->op == op_graph_select;
-		bool right = r->op == op_join || r->op == op_right || r->op == op_graph_join;
+		bool left = target->op == op_join || target->op == op_left || target->op == op_graph_join || target->op == op_graph_select;
+		bool right = target->op == op_join || target->op == op_right || target->op == op_graph_join;
 
 		// push down to the lhs
 		if (left){
@@ -9316,6 +9379,8 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 	bool graph_operators = false;
 	global_props gp; 
 
+	printf("[Optimizer] (%d) Input: %s\n", level, dump_rel(sql, rel));
+
 	memset(&gp, 0, sizeof(global_props));
 	rel_properties(sql, &gp, rel);
 
@@ -9468,7 +9533,7 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		rel = rel_dce(sql, rel);
 
 	if (gp.cnt[op_join] || gp.cnt[op_left] || gp.cnt[op_right] || gp.cnt[op_full] || 
-	    gp.cnt[op_semi] || gp.cnt[op_anti] || gp.cnt[op_select]) {
+	    gp.cnt[op_semi] || gp.cnt[op_anti] || gp.cnt[op_select] || graph_operators) {
 		rel = rewrite(sql, rel, &rel_push_func_down, &changes);
 		rel = rewrite_topdown(sql, rel, &rel_push_select_down, &changes); 
 		rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes); 
@@ -9497,6 +9562,5 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 sql_rel *
 rel_optimizer(mvc *sql, sql_rel *rel) 
 {
-	printf("[Optimizer] Input: %s\n", dump_rel(sql, rel));
 	return _rel_optimizer(sql, rel, 0);
 }
