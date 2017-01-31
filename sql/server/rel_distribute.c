@@ -66,8 +66,11 @@ has_remote_or_replica( sql_rel *rel )
 			return 1;
 		break;
 	case op_graph_join:
-	case op_graph_select:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+	case op_graph_select: {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		if (has_remote_or_replica(rel->l) || has_remote_or_replica(rel->r) || has_remote_or_replica(graph_ptr->edges))
+			return 1;
+	} break;
 	}
 	return 0;
 }
@@ -179,8 +182,12 @@ replica(mvc *sql, sql_rel *rel, char *uri)
 		rel->r = replica(sql, rel->r, uri);
 		break;
 	case op_graph_join:
-	case op_graph_select:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+	case op_graph_select: {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		rel->l = replica(sql, rel->l, uri);
+		rel->r = replica(sql, rel->r, uri);
+		graph_ptr->edges = replica(sql, graph_ptr->edges, uri);
+	} break;
 	}
 	return rel;
 }
@@ -277,8 +284,63 @@ distribute(mvc *sql, sql_rel *rel)
 		rel->r = distribute(sql, rel->r);
 		break;
 	case op_graph_join:
-	case op_graph_select:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+	case op_graph_select: {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		sql_rel* g = NULL;
+		prop* pg = NULL;
+
+		// recursion
+		l = rel->l = distribute(sql, rel->l);
+		r = rel->r = distribute(sql, rel->r);
+		g = graph_ptr->edges = distribute(sql, graph_ptr->edges);
+
+		pl = find_prop(l->p, PROP_REMOTE);
+		if(rel->op == op_graph_join)
+			pr = find_prop(r->p, PROP_REMOTE);
+		else
+			pr = NULL;
+		pg = find_prop(g->p, PROP_REMOTE);
+
+		// replicas
+		if(pl) {
+			if(rel->op == op_graph_join && !pr) {
+				r = rel->r = distribute(sql, replica(sql, rel->r, pl->value));
+				pr = find_prop(r->p, PROP_REMOTE);
+			}
+			if(!pg) {
+				g = graph_ptr->edges = distribute(sql, replica(sql, graph_ptr->edges, pl->value));
+				pg = find_prop(g->p, PROP_REMOTE);
+			}
+		} else if(pr) {
+//			if(!pl) {
+				l = rel->l = distribute(sql, replica(sql, rel->l, pr->value));
+				pl = find_prop(l->p, PROP_REMOTE);
+//			}
+			if(!pg) {
+				g = graph_ptr->edges = distribute(sql, replica(sql, graph_ptr->edges, pr->value));
+				pg = find_prop(g->p, PROP_REMOTE);
+			}
+		} else if (pg) {
+			l = rel->l = distribute(sql, replica(sql, rel->l, pg->value));
+			pl = find_prop(l->p, PROP_REMOTE);
+			if(rel->op == op_graph_join) {
+				r = rel->r = distribute(sql, replica(sql, rel->r, pg->value));
+				pr = find_prop(r->p, PROP_REMOTE);
+			}
+		}
+
+		// remove the property if all of them have the same uri
+		if (pl && pg && strcmp(pl->value, pg->value) == 0 &&
+				(rel->op != op_graph_join || (pr && strcmp(pl->value, pr->value) == 0))){
+			l->p = prop_remove(l->p, pl);
+			if(pr){ r->p = prop_remove(r->p, pr); }
+			g->p = prop_remove(g->p, pg);
+
+			pl->p = rel->p;
+			rel->p = pl;
+		}
+
+	} break;
 	}
 	return rel;
 }
@@ -326,8 +388,12 @@ rel_remote_func(mvc *sql, sql_rel *rel)
 		rel->r = rel_remote_func(sql, rel->r);
 		break;
 	case op_graph_join:
-	case op_graph_select:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+	case op_graph_select: {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		rel->l = rel_remote_func(sql, rel->l);
+		rel->r = rel_remote_func(sql, rel->r);
+		graph_ptr->edges = rel_remote_func(sql, graph_ptr->edges);
+	} break;
 	}
 	if (find_prop(rel->p, PROP_REMOTE) != NULL) {
 		list *exps = rel_projections(sql, rel, NULL, 1, 1);

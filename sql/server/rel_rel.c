@@ -104,7 +104,10 @@ rel_create( sql_allocator *sa )
 sql_rel *
 rel_copy( sql_allocator *sa, sql_rel *i )
 {
-	sql_rel *rel = rel_create(sa);
+	sql_rel *rel = NULL;
+	if(!i) return NULL;
+
+	rel = (is_graph(i->op)) ? ((sql_rel*) rel_graph_create(sa)) : rel_create(sa);
 
 	rel->l = NULL;
 	rel->r = NULL;
@@ -124,8 +127,17 @@ rel_copy( sql_allocator *sa, sql_rel *i )
 			rel->r = (i->r)?list_dup(i->r, (fdup)NULL):NULL;
 		break;
 	case op_graph_join:
-	case op_graph_select:
-		assert(0 && "Not implemented yet");
+	case op_graph_select: {
+		sql_graph* gold = (sql_graph*) i;
+		sql_graph* gnew = (sql_graph*) rel;
+
+		rel->l = rel_copy(sa, i->l);
+		rel->r = rel_copy(sa, i->r);
+		gnew->edges = rel_copy(sa, gold->edges);
+		gnew->efrom = list_dup(gold->efrom, (fdup) NULL);
+		gnew->eto = list_dup(gold->eto, (fdup) NULL);
+		gnew->spfw = list_dup(gold->spfw, (fdup) NULL);
+	} break;
 	case op_join:
 	case op_left:
 	case op_right:

@@ -67,6 +67,9 @@ find_basetables( sql_rel *rel, list *tables )
 	case op_union: 
 	case op_inter: 
 	case op_except: 
+
+	case op_graph_join:
+	case op_graph_select:
 		if (rel->l)
 			find_basetables(rel->l, tables); 
 		if (rel->r)
@@ -88,9 +91,6 @@ find_basetables( sql_rel *rel, list *tables )
 		if (rel->r)
 			find_basetables(rel->r, tables); 
 		break;
-	case op_graph_join:
-	case op_graph_select:
-		assert(0 && "Not implemented yet"); // TODO: not handled
 	}
 }
 
@@ -129,9 +129,9 @@ has_groupby(sql_rel *rel)
 {
 	if (rel->op == op_groupby) 
 		return 1;
-	if (is_join(rel->op)) 
+	if (is_extended_join(rel->op))
 		return has_groupby(rel->l) || has_groupby(rel->r);
-	if ((is_select(rel->op) || is_project(rel->op)) && rel->l) 
+	if ((is_extended_select(rel->op) || is_project(rel->op)) && rel->l)
 		return has_groupby(rel->l);
 	return 0;
 }
@@ -140,6 +140,8 @@ sql_rel *
 rel_partition(mvc *sql, sql_rel *rel) 
 {
 	(void)sql;
+	if(rel == NULL) return NULL;
+
 	if (rel->op == op_basetable) {
 		rel->flag = REL_PARTITION;
 	} else if ((rel->op == op_topn || rel->op == op_sample || rel->op == op_select) && rel->l) {
@@ -159,6 +161,11 @@ rel_partition(mvc *sql, sql_rel *rel)
 		}
 		else
 			_rel_partition(sql, rel);
+	} else if (is_graph(rel->op)) {
+		sql_graph* graph_ptr = (sql_graph*) rel;
+		rel_partition(sql, rel->l);
+		rel_partition(sql, rel->r);
+		rel_partition(sql, graph_ptr->edges);
 	}
 	return rel;
 }
