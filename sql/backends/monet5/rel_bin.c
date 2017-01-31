@@ -4699,6 +4699,27 @@ rel2bin_ddl(backend *be, sql_rel *rel, list *refs)
 }
 
 static stmt *
+rel2bin_graph(backend *be, sql_rel* rel, list *refs)
+{
+	sql_graph* graph_ptr = (sql_graph*) rel;
+	stmt *left = NULL, *right = NULL, *edges = NULL; // depending relations
+
+	// first construct the depending relations
+	left = subrel_bin(be, rel->l, refs);
+	if(!left) return NULL; // error
+	if(rel->op == op_graph_join) {
+		right = subrel_bin(be, rel->r, refs);
+		if(!right) return NULL; // error
+	}
+	edges = subrel_bin(be, graph_ptr->edges, refs);
+	if(!edges) return NULL; // error
+
+
+
+	return NULL;
+}
+
+static stmt *
 subrel_bin(backend *be, sql_rel *rel, list *refs) 
 {
 	mvc *sql = be->mvc;
@@ -4790,7 +4811,8 @@ subrel_bin(backend *be, sql_rel *rel, list *refs)
 		break;
 	case op_graph_join:
 	case op_graph_select:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+		s = rel2bin_graph(be, rel, refs);
+		break;
 	}
 	if (s && rel_is_ref(rel)) {
 		list_append(refs, rel);
@@ -4923,7 +4945,8 @@ exp_deps(sql_allocator *sa, sql_exp *e, list *refs, list *l)
 			}
 		}	break;
 	case e_graph:
-		assert(0 && "Not implemented yet");
+		return exps_deps(sa, e->l, refs, l) || exps_deps(sa, e->r, refs, l);
+		break;
 	}
 	return 0;
 }
@@ -5034,8 +5057,21 @@ rel_deps(sql_allocator *sa, sql_rel *r, list *refs, list *l)
 		}
 		break;
 	case op_graph_join:
-	case op_graph_select:
-		assert(0 && "Not implemented yet"); // TODO: not handled
+	case op_graph_select: {
+		sql_graph* graph_ptr = (sql_graph*) r;
+		int rc = 0;
+
+		// recurse on the sub tables
+		rc = rel_deps(sa, r->l, refs, l);
+		if(!rc) rc = rel_deps(sa, r->r, refs, l);
+		if(!rc) rc = rel_deps(sa, graph_ptr->edges, refs, l);
+		if(rc) return rc; // error
+
+		// visit the depending expressions
+		exps_deps(sa, graph_ptr->efrom, refs, l);
+		exps_deps(sa, graph_ptr->eto, refs, l);
+		// no need to visit graph_ptr->spfw
+	} break;
 	}
 	if (r->exps)
 		exps_deps(sa, r->exps, refs, l);
@@ -5043,7 +5079,6 @@ rel_deps(sql_allocator *sa, sql_rel *r, list *refs, list *l)
 		exps_deps(sa, r->r, refs, l);
 	if (rel_is_ref(r)) {
 		list_append(refs, r);
-		list_append(refs, l);
 	}
 	return 0;
 }
