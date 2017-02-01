@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -1065,7 +1065,9 @@ BATkeyed(BAT *b)
 int
 BATordered(BAT *b)
 {
-	lng t0 = GDKusec();
+	lng t0 = 0;
+
+	ALGODEBUG t0 = GDKusec();
 
 	if (b->ttype == TYPE_void)
 		return 1;
@@ -1151,7 +1153,9 @@ BATordered(BAT *b)
 int
 BATordered_rev(BAT *b)
 {
-	lng t0 = GDKusec();
+	lng t0 = 0;
+
+	ALGODEBUG t0 = GDKusec();
 
 	if (b == NULL)
 		return 0;
@@ -1189,17 +1193,13 @@ do_sort(void *h, void *t, const void *base, size_t n, int hs, int ts, int tpe,
 		return GDK_SUCCEED;
 	if (reverse) {
 		if (stable) {
-			if (GDKssort_rev(h, t, base, n, hs, ts, tpe) < 0) {
-				return GDK_FAIL;
-			}
+			return GDKssort_rev(h, t, base, n, hs, ts, tpe);
 		} else {
 			GDKqsort_rev(h, t, base, n, hs, ts, tpe);
 		}
 	} else {
 		if (stable) {
-			if (GDKssort(h, t, base, n, hs, ts, tpe) < 0) {
-				return GDK_FAIL;
-			}
+			return GDKssort(h, t, base, n, hs, ts, tpe);
 		} else {
 			GDKqsort(h, t, base, n, hs, ts, tpe);
 		}
@@ -1459,7 +1459,7 @@ BATsort(BAT **sorted, BAT **order, BAT **groups,
 	bn->tnosorted = 0;
 	bn->tnorevsorted = 0;
 	if (groups) {
-		if (BATgroup_internal(groups, NULL, NULL, bn, g, NULL, NULL, 1) != GDK_SUCCEED)
+		if (BATgroup_internal(groups, NULL, NULL, bn, NULL, g, NULL, NULL, 1) != GDK_SUCCEED)
 			goto error;
 		if ((*groups)->tkey &&
 		    (g == NULL || (g->tsorted && g->trevsorted))) {

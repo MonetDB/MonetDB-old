@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -80,6 +80,7 @@ mal_export MT_Lock  mal_profileLock ;
 mal_export MT_Lock  mal_copyLock ;
 mal_export MT_Lock  mal_delayLock ;
 mal_export MT_Lock  mal_beatLock ;
+mal_export MT_Lock  mal_oltpLock ;
 
 
 mal_export int mal_init(void);
@@ -152,7 +153,7 @@ typedef struct VARRECORD {
 	int eolife;					/* pc index when it should be garbage collected */
 	int depth;					/* scope block depth, set to -1 if not used */
 	int worker;					/* thread id of last worker producing it */
-	char stc[2* IDLENGTH];		/* rendering schema.table.column, with little more space */
+	int stc;					/* pc for rendering schema.table.column */
 	BUN rowcnt;					/* estimated row count*/
 } *VarPtr, VarRecord;
 
@@ -162,11 +163,11 @@ typedef struct VARRECORD {
  */
 
 typedef struct {
-	bit token;					/* instruction type */
+	bte token;					/* instruction type */
 	bit barrier;				/* flow of control modifier takes:
 								   BARRIER, LEAVE, REDO, EXIT, CATCH, RAISE */
 	bit typechk;				/* type check status */
-	bit gc;						/* garbage control flags */
+	bte gc;						/* garbage control flags */
 	bit polymorphic;			/* complex type analysis */
 	bit varargs;				/* variable number of arguments */
 	int jump;					/* controlflow program counter */
@@ -175,7 +176,7 @@ typedef struct {
 	struct MALBLK *blk;			/* resolved MAL function address */
 	int mitosis;				/* old mtProp value */
 	/* inline statistics */
-	struct timeval clock;		/* when the last call was started */
+	lng clock;					/* when the last call was started */
 	lng ticks;					/* total micro seconds spent in last call */
 	int calls;					/* number of calls made to this instruction */
 	lng totticks;				/* total time spent on this instruction. */
@@ -258,5 +259,10 @@ typedef struct MALSTK {
 	struct MALBLK *blk;	/* associated definition */
 	ValRecord stk[FLEXIBLE_ARRAY_MEMBER];
 } MalStack, *MalStkPtr;
+
+#define MAXOLTPLOCKS  1024
+typedef unsigned char OLTPlocks[MAXOLTPLOCKS];
+
+#define OLTPclear(X)  memset((char*)X, 0, sizeof(X))
 
 #endif /*  _MAL_H*/

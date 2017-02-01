@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -1761,21 +1761,16 @@ mvc_export_head(backend *b, stream *s, int res_id, int only_header)
 	for (i = 0; i < t->nr_cols; i++) {
 		res_col *c = t->cols + i;
 
-		if (strchr(c->name, ',') || strchr(c->name, ' ') || strchr(c->name , '\t') || strchr(c->name, '#')) {
+		if (strpbrk(c->name, ", \t#\"\\")) {
+			char *p;
 			if (mnstr_write(s, "\"", 1, 1) != 1)
 				return -1;
-			if (strchr(c->name, '"')) {
-				char *p;
-				for (p = c->name; *p; p++) {
-					if (*p == '"') {
-						if (mnstr_write(s, "\\", 1, 1) != 1)
-							return -1;
-					}
-					if (mnstr_write(s, p, 1, 1) != 1)
+			for (p = c->name; *p; p++) {
+				if (*p == '"' || *p == '\\') {
+					if (mnstr_write(s, "\\", 1, 1) != 1)
 						return -1;
 				}
-			} else {
-				if (mnstr_write(s, c->name, strlen(c->name), 1) != 1)
+				if (mnstr_write(s, p, 1, 1) != 1)
 					return -1;
 			}
 			if (mnstr_write(s, "\"", 1, 1) != 1)
