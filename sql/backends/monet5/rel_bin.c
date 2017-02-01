@@ -24,6 +24,7 @@ static stmt * exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *gr
 static stmt * rel_bin(backend *be, sql_rel *rel);
 static stmt * subrel_bin(backend *be, sql_rel *rel, list *refs);
 
+
 static stmt *
 refs_find_rel(list *refs, sql_rel *rel)
 {
@@ -1584,11 +1585,10 @@ join_hash_key( backend *be, list *l )
 	return h;
 }
 
+
+// do not project the result back
 static stmt *
-releqjoin( backend *be, list *l1, list *l2, int used_hash, comp_type cmp_op, int need_left )
-{
-	mvc *sql = be->mvc;
-	node *n1 = l1->h, *n2 = l2->h;
+releqjoin_( backend *be, list *l1, list *l2, int used_hash, comp_type cmp_op, int need_left ){
 	stmt *l, *r, *res;
 
 	if (list_length(l1) <= 1) {
@@ -1600,18 +1600,32 @@ releqjoin( backend *be, list *l1, list *l2, int used_hash, comp_type cmp_op, int
 		return r;
 	}
 	if (used_hash) {
-		l = n1->data;
-		r = n2->data;
-		n1 = n1->next;
-		n2 = n2->next;
+		l = l1->h->data;
+		r = l2->h->data;
 		res = stmt_join(be, l, r, 0, cmp_op);
 	} else { /* need hash */
 		l = join_hash_key(be, l1);
 		r = join_hash_key(be, l2);
 		res = stmt_join(be, l, r, 0, cmp_op);
 	}
-	if (need_left) 
+	if (need_left)
 		res->flag = cmp_left;
+
+	return res;
+}
+
+static stmt *
+releqjoin( backend *be, list *l1, list *l2, int used_hash, comp_type cmp_op, int need_left )
+{
+	mvc *sql = be->mvc;
+	node *n1 = l1->h, *n2 = l2->h;
+	stmt *l, *r, *res;
+
+	if (used_hash) {
+		n1 = n1->next;
+		n2 = n2->next;
+	}
+	res = releqjoin_(be, l1, l2, used_hash, cmp_op, need_left);
 	l = stmt_result(be, res, 0);
 	r = stmt_result(be, res, 1);
 	for (; n1 && n2; n1 = n1->next, n2 = n2->next) {
@@ -4701,8 +4715,24 @@ rel2bin_ddl(backend *be, sql_rel *rel, list *refs)
 static stmt *
 rel2bin_graph(backend *be, sql_rel* rel, list *refs)
 {
+	mvc* sql = be->mvc; // query control block
 	sql_graph* graph_ptr = (sql_graph*) rel;
 	stmt *left = NULL, *right = NULL, *edges = NULL; // depending relations
+	stmt *codomain = NULL; // oids for the graph (vertices ids)
+	stmt *candidate_ids = NULL;
+	list *domain_list = sa_list(sql->sa); // the list of attributes that define the domain (A, B, ...)
+	stmt *edge_src = NULL, *edge_dst = NULL; // column of oids representing the src/dst of the edges
+	stmt *tmp1 = NULL; // temporary value
+	list *lst1 = NULL; // temporary list
+	int spfw_flags = 0; // spfw flags
+	stmt *query = NULL; // query parameters
+	stmt *weights = NULL; // input columns to generate the weights
+	stmt *spfw = NULL; // shortest path operator
+
+	// avoid to deal with the virtual OIDs (VOID) type, they are just an
+	// optimisation, unlikely to be useful for the the edge tables but
+	// for more extreme cases
+#define void2oid(statement) stmt_gr8_void2oid(be, statement)
 
 	// first construct the depending relations
 	left = subrel_bin(be, rel->l, refs);
@@ -4714,9 +4744,143 @@ rel2bin_graph(backend *be, sql_rel* rel, list *refs)
 	edges = subrel_bin(be, graph_ptr->edges, refs);
 	if(!edges) return NULL; // error
 
+	// find the co-domain (set)
+	// use the union of both of efrom & eto as list values for the co-domain
+	// alternatively iff there was a FK both efrom/eto to a PK somewhere else, we could have used that PK
+	assert(list_length(graph_ptr->efrom) > 0 && list_length(graph_ptr->efrom) == list_length(graph_ptr->eto));
+	for(node *n = graph_ptr->efrom->h, *m = graph_ptr->eto->h; n && m; n = n->next, m = m->next){
+		stmt *s0 = NULL, *s1 = NULL; // efrom, eto
+		stmt *values = NULL; // efrom U eto
+		stmt *groupby = NULL;
 
+		s0 = exp_bin(be, n->data, edges, NULL, NULL, NULL, NULL, NULL);
+		if(!s0) return NULL;
+		s1 = exp_bin(be, m->data, edges, NULL, NULL, NULL, NULL, NULL);
+		if(!s1) return NULL;
+		values = stmt_gr8_concat(be, list_append(list_append(sa_list(sql->sa), s0), s1));
+		list_append(domain_list, values);
 
-	return NULL;
+		groupby = stmt_group(be, values, codomain, candidate_ids, NULL, !n->next);
+		codomain = stmt_result(be, groupby, 0);
+		candidate_ids = stmt_result(be, groupby, 1);
+	}
+	// the elements in the co-domain are the group ids (0, 1, 2, 3, etc...)
+
+	// find the domain
+	for(node *n = domain_list->h; n; n = n->next){
+		stmt* values = n->data;
+		n->data = stmt_project(be, candidate_ids, values);
+	}
+
+	// generate the source / destination edges
+	tmp1 = stmt_gr8_slices(be, codomain, 2);
+	edge_src = void2oid(stmt_result(be, tmp1, 0));
+	edge_dst = void2oid(stmt_result(be, tmp1, 1));
+
+	// translate the query attributes (qfrom/qto) into the OIDs of the domain
+	do { // limit the *** scope
+		// start with the left hand side
+		sql_exp* graph_exp = rel->exps->h->data;
+		list *lhs = sa_list(sql->sa), *rhs = sa_list(sql->sa);
+		stmt *join_left = NULL, *join_right = NULL;
+
+		assert(graph_exp->type == e_graph && list_length(graph_exp->l) == list_length(domain_list)
+				&& list_length(graph_exp->l) == list_length(graph_exp->r));
+		// start with the lhs
+		for(node *n = ((list*)graph_exp->l)->h; n; n = n->next){
+			// right might be null, that's ok
+			stmt* s = exp_bin(be, n->data, left, right, NULL, NULL, NULL, NULL);
+			if(!s) return NULL; // error
+			list_append(lhs, s);
+		}
+		// repeat for the rhs
+		for(node *n = ((list*)graph_exp->r)->h; n; n = n->next){
+			stmt* s = exp_bin(be, n->data, left, right, NULL, NULL, NULL, NULL);
+			if(!s) return NULL; // error
+			list_append(rhs, s);
+		}
+
+		// join the attributes
+		join_left = releqjoin_(be, lhs, domain_list, /*used_hash = */ false, cmp_equal, /* need_left = */ rel->op == op_graph_select);
+		join_right = releqjoin_(be, rhs, domain_list, /*used_hash = */ false, cmp_equal, /* need_left = */ rel->op == op_graph_select);
+
+		// generate the query parameters
+		lst1 = sa_list(sql->sa);
+		list_append(lst1, void2oid(stmt_result(be, join_left, 0)));
+		list_append(lst1, void2oid(stmt_result(be, join_right, 0)));
+		list_append(lst1, void2oid(stmt_result(be, join_left, 1)));
+		list_append(lst1, void2oid(stmt_result(be, join_right, 1)));
+		query = stmt_list(be, lst1); lst1 = NULL;
+
+		// remove the items that are not part of the domain
+		if(rel->op == op_graph_select){
+			query = stmt_gr8_remove_nils(be, query);
+		}
+
+		if(rel->op == op_graph_join)
+			spfw_flags |= SPFW_JOIN;
+	} while(0);
+
+	// weights
+	lst1 = sa_list(sql->sa);
+	for(node *n = graph_ptr->spfw->h; n; n = n->next){
+		sql_exp* e = n->data;
+		stmt* s = exp_bin(be, e, edges, NULL, NULL, NULL, NULL, NULL);
+		assert(s != NULL);
+		if(!s) return NULL;
+
+		list_append(lst1, s);
+	}
+	weights = stmt_list(be, lst1); lst1 = NULL;
+
+	// invoke the spfw operator
+	spfw = stmt_gr8_spfw(be, query, edge_src, edge_dst, weights, spfw_flags);
+
+	// finally project back the result
+	lst1 = sa_list(sql->sa);
+	do { // restrict the scope
+		stmt *jl = NULL, *jr = NULL;
+		int cost_index = 2;
+
+		// start with the lhs
+		jl = stmt_result(be, spfw, 0);
+		for(node* n = left->op4.lval->h; n; n = n->next ) {
+			stmt *c = n->data;
+			const char *rnme = table_name(sql->sa, c);
+			const char *nme = column_name(sql->sa, c);
+			stmt *s = stmt_project(be, jl, column(be, c));
+			s = stmt_alias(be, s, rnme, nme);
+			list_append(lst1, s);
+		}
+
+		// repeat with the rhs
+		if(right != NULL) {
+			assert(rel->op == op_graph_join);
+			jr = stmt_result(be, spfw, 1);
+			for(node* n = right->op4.lval->h; n; n = n->next ) {
+				stmt *c = n->data;
+				const char *rnme = table_name(sql->sa, c);
+				const char *nme = column_name(sql->sa, c);
+				stmt *s = stmt_project(be, jr, column(be, c));
+				s = stmt_alias(be, s, rnme, nme);
+				list_append(lst1, s);
+			}
+		}
+
+		// append the computed costs
+		for(node* n = graph_ptr->spfw->h; n; n = n->next){
+			sql_exp* e = n->data;
+			stmt* s = stmt_result(be, spfw, cost_index);
+			stmt* c = stmt_alias(be, s, exp_relname(e), exp_name(e));
+			list_append(lst1, c);
+			cost_index++;
+		}
+	} while (0);
+
+	// done
+	return stmt_list(be, lst1);
+
+#undef void2oid
 }
 
 static stmt *

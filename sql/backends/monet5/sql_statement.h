@@ -95,13 +95,23 @@ typedef enum stmt_type {
 	st_cond,
 	st_control_end,
 	st_return,
-	st_assign
+	st_assign,
+
+	/* graph related */
+	st_gr8_concat,
+	st_gr8_slices,
+	st_gr8_void2oid,
+	st_gr8_spfw,
 } st_type;
 
 /* flag to indicate anti join/select */
 #define SWAPPED 16
 #define ANTI ANTISEL
 #define GRP_DONE 32
+
+/* flags for st_spfw */
+#define SPFW_JOIN 0x1 /* Perform a join instead of a select op~ */
+//#define SPFW_COMPLEMENT 0x2;
 
 typedef struct stmt {
 	st_type type;
@@ -228,6 +238,13 @@ extern stmt *stmt_cond(backend *be, stmt *cond, stmt *outer, int loop, int anti)
 extern stmt *stmt_control_end(backend *be, stmt *cond);
 extern stmt *stmt_return(backend *be, stmt *val, int nr_of_declared_tables);
 extern stmt *stmt_assign(backend *be, const char *varname, stmt *val, int level);
+
+/* graph related */
+extern stmt *stmt_gr8_concat(backend *be, list *l); // create a new column by concatenating the given list of columns
+extern stmt *stmt_gr8_slices(backend *be, stmt *op, int num); // the opposite of concat, split a column in
+extern stmt *stmt_gr8_void2oid(backend *be, stmt *op); // transform a BAT of type voids into oids
+extern stmt *stmt_gr8_remove_nils(backend *be, stmt* query); // remove nils from the given query list (used after a left outer join)
+extern stmt *stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *weights, int flags); // shortest path op~
 
 extern sql_subtype *tail_type(stmt *st);
 extern int stmt_has_null(stmt *s);

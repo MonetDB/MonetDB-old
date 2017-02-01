@@ -2981,6 +2981,8 @@ tail_type(stmt *st)
 		return NULL;
 	case st_table:
 		return sql_bind_localtype("bat");
+	case st_gr8_void2oid:
+		return sql_bind_localtype("oid");
 	default:
 		assert(0);
 		return NULL;
@@ -3107,6 +3109,11 @@ _column_name(sql_allocator *sa, stmt *st)
 		/* fall through */
 	case st_rs_column:
 		return NULL;
+
+	/* graph related */
+	case st_gr8_void2oid:
+		return column_name(sa, st->op1);
+
 	default:
 		return NULL;
 	}
@@ -3169,6 +3176,10 @@ _table_name(sql_allocator *sa, stmt *st)
 			return table_name(sa, st->op4.lval->h->data);
 		return NULL;
 
+	/* graph related */
+	case st_gr8_void2oid:
+		return table_name(sa, st->op1);
+
 	case st_var:
 	case st_temp:
 	case st_single:
@@ -3214,6 +3225,10 @@ schema_name(sql_allocator *sa, stmt *st)
 	case st_temp:
 	case st_single:
 		return NULL;
+	/* graph related */
+	case st_gr8_void2oid:
+		return schema_name(sa, st->op1);
+
 	case st_list:
 		if (list_length(st->op4.lval))
 			return schema_name(sa, st->op4.lval->h->data);
@@ -3468,4 +3483,219 @@ const_column(backend *be, stmt *val)
 		return s;
 	}
 	return NULL;
+}
+
+stmt *
+stmt_gr8_concat(backend *be, list *l) {
+	// declarations
+	InstrPtr q = NULL;
+	stmt *s = NULL;
+	node *n = NULL;
+	int ref_cpy = -1;
+	int ref_op = -1;
+	stmt *tmp = NULL;
+
+	// generate the MAL instructions
+	assert(list_length(l) > 0);
+	n = l->h;
+	tmp = n->data;
+
+	// for the first value, copy the bat
+	ref_op = tmp->nr;
+	if(ref_op < 0) return NULL; // error
+	q = newStmt(be->mb, algebraRef, copyRef);
+	if(q == NULL) return NULL; // error
+	q = pushArgument(be->mb, q, ref_op);
+	ref_cpy = getDestVar(q);
+
+	// for the remaining operands, append them to the copied bat
+	for (n = n->next; n; n = n->next){
+		tmp = n->data;
+		ref_op = tmp->nr;
+		if(ref_op < 0) return NULL; // error
+
+		q = newStmt(be->mb, batRef, appendRef);
+		q = pushArgument(be->mb, q, ref_cpy);
+		q = pushArgument(be->mb, q, ref_op);
+//		q = pushBit(be->mb, q, TRUE); // FIXME: should it be forced?
+		ref_cpy = getDestVar(q);
+	}
+
+	// generate the MIL wrapper
+	s = stmt_create(be->mvc->sa, st_gr8_concat);
+	s->op4.lval = l;
+	s->nrcols = 1;
+	s->nr = ref_cpy;
+	s->q = q;
+	return s;
+}
+stmt *
+stmt_gr8_slices(backend *be, stmt *op, int num_slices) {
+	InstrPtr q = NULL;
+	int ref_stmt = op->nr;
+	stmt* s = NULL;
+
+	// validate the operands
+	if(num_slices < 1) return NULL;
+	if(ref_stmt < 0) return NULL;
+
+	// invoke the function
+	q = newStmt(be->mb, "graph", "slicer");
+	getArg(q, 0) = newTmpVariable(be->mb, TYPE_bat);
+	for(int i = 1; i < num_slices; i++){
+		q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_bat));
+	}
+	q = pushArgument(be->mb, q, ref_stmt);
+
+	// abi convention
+	for(int i = 1; i < num_slices; i++) {
+		snprintf(be->mb->var[getArg(q, i)]->id, IDLENGTH, "r%d_%d", i, getDestVar(q));
+	}
+
+	// finally create the MIL wrapper
+	s = stmt_create(be->mvc->sa, st_gr8_slices);
+	s->op1 = op;
+	s->flag = num_slices;
+	s->nrcols = num_slices;
+	s->q = q;
+	s->nr = getDestVar(q);
+
+	return s;
+}
+
+stmt *
+stmt_gr8_void2oid(backend *be, stmt *op){
+	InstrPtr q = NULL;
+	stmt *s = NULL;
+
+	if(op->nr < 0) return NULL;
+
+	q = newStmt(be->mb, "graph", "void2oid");
+
+	if(q) { // create the statement
+		pushArgument(be->mb, q, op->nr);
+
+		s = stmt_create(be->mvc->sa, st_gr8_void2oid);
+		s->op1 = op;
+		s->nrcols = 1;
+
+		// propagate the attributes
+		s->tname = op->tname;
+		s->cname = op->cname;
+		s->key = op->key;
+		s->aggr = op->aggr;
+
+		// references
+		s->nr = getDestVar(q);
+		s->q = q;
+	}
+
+	return s;
+}
+
+
+// this statement doesn't have a st_type counterpart, i.e. it's a fake statement
+stmt*
+stmt_gr8_remove_nils(backend *be, stmt* query){
+	InstrPtr q = NULL;
+	list* l = NULL;
+	int i = -1;
+	int num_operands = -1; // expected 4
+
+	// generate the MAL instruction
+	assert(query->type == st_list && "Invalid input type");
+	num_operands = list_length(query->op4.lval);
+	assert(num_operands == 4); // candidate list left and right + projection list left and right
+	q = newStmt(be->mb, "graph", "remove_nils");
+	if(!q) return NULL;
+	for(node *n = query->op4.lval->h; n; n = n->next){
+		stmt *s = n->data;
+		if(s->nr < 0) return NULL; // error
+		pushArgument(be->mb, q, s->nr);
+		pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_bat));
+	}
+
+	// ABI convention
+	for(int i = 1; i < num_operands; i++) {
+		snprintf(be->mb->var[getArg(q, i)]->id, IDLENGTH, "r%d_%d", i, getDestVar(q));
+	}
+
+	// generate the MIL statement
+	l = sa_list(be->mvc->sa);
+	i = 0;
+	for(node* n = query->op4.lval->h; n; n = n->next, i++){
+		stmt* r = stmt_create(be->mvc->sa, st_result);
+		r->op1 = n->data;
+		if(i > 0){
+			r->nr = getArg(q, i);
+		} else {
+			r->nr = getDestVar(q);
+		}
+		r->flag = r->op1->flag;
+		r->nrcols = r->op1->nrcols;
+		r->key = r->op1->key; // maybe
+		r->aggr = r->op1->aggr;
+
+		list_append(l, r);
+	}
+	return stmt_list(be, l);
+}
+
+
+stmt *
+stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *weights, int flags) {
+	InstrPtr q = NULL;
+	stmt *s = NULL;
+	int dest = -1;
+	int i = -1;
+
+	// Validate the input parameters
+	assert(query->type == st_list && "Invalid parameter type");
+	assert(list_length(query->op4.lval) == 4 && "Expected 4 input parameters: left & right candidate ids, left & right vertex ids");
+	assert(weights->type == st_list && "Invalid parameter type");
+
+	// I can use macros too..
+#define EVIL_PUSH(S) if(((stmt*)S)->nr < 0) { return NULL; } else { q = pushArgument(be->mb, q, ((stmt*) S)->nr); }
+
+	// generate the MAL instruction
+	q = newStmt(be->mb, "graph", "spfw");
+	if(q == NULL) return NULL; // error
+	// output values
+	q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_any)); // left candidate list
+	q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_any)); // right candidate list
+	// add the shortest paths
+	for(node *n = weights->op4.lval->h; n; n = n->next){
+		q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_any));
+	}
+	// input arguments
+	for(node *n = query->op4.lval->h; n; n = n->next){ // query parameters
+		EVIL_PUSH(n->data);
+	}
+	EVIL_PUSH(edge_from);
+	EVIL_PUSH(edge_to);
+	for(node *n = weights->op4.lval->h; n; n = n->next){ // weights
+		EVIL_PUSH(n->data);
+	}
+	q = pushInt(be->mb, q, flags);
+
+#undef EVIL_PUSH
+
+	// ABI convention
+	dest = getDestVar(q); // jl
+	renameVariable(be->mb, getArg(q, 1), "r1_%d", s->nr); // jr
+	i = 2;
+	for(node *n = weights->op4.lval->h; n; n = n->next){ // shortest paths
+		snprintf(be->mb->var[getArg(q, i)]->id, IDLENGTH, "r%d_%d", i, dest);
+	}
+
+	// MIL statement
+	s = stmt_create(be->mvc->sa, st_gr8_spfw);
+	s->nr = dest;
+	s->q = q;
+	s->flag = flags;
+	s->op1 = query;
+	s->op2 = stmt_list(be, append(append(sa_list(be->mvc->sa), edge_from), edge_to));
+	s->op3 = weights;
+
+	return s;
 }
