@@ -4061,9 +4061,9 @@ BATjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches,
 		reason = "left is smaller";
 	}
 	if (swap) {
-		return hashjoin(r2, r1, r, l, sr, sl, nil_matches, 0, 0, 0, maxsize, t0, 1, reason);
+		return impr__hashjoin(r2, r1, r, l, sr, sl, nil_matches, 0, 0, 0, maxsize, t0, 1, reason);
 	} else {
-		return hashjoin(r1, r2, l, r, sl, sr, nil_matches, 0, 0, 0, maxsize, t0, 0, reason);
+		return impr_hashjoin(r1, r2, l, r, sl, sr, nil_matches, 0, 0, 0, maxsize, t0, 0, reason);
 	}
 }
 
