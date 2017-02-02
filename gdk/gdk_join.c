@@ -2616,6 +2616,462 @@ binsearchcand(const oid *cand, BUN lo, BUN hi, oid v)
 	} while (0)
 
 static gdk_return
+imps_hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches,
+	 int nil_on_miss, int semi, int only_misses, BUN maxsize, lng t0,
+	 int swapped, const char *reason)
+{
+	BUN lstart, lend, lcnt;
+	const oid *lcand = NULL, *lcandend = NULL;
+	BUN rstart, rend, rcnt;
+	const oid *rcand = NULL, *rcandend = NULL;
+	oid lo, ro;
+	BATiter ri;
+	BUN rb;
+	BUN rl, rh;
+	oid rseq;
+	BUN nr, nrcand, newcap;
+	const char *lvals;
+	const char *lvars;
+	int lwidth;
+	const void *nil = ATOMnilptr(l->ttype);
+	int (*cmp)(const void *, const void *) = ATOMcompare(l->ttype);
+	oid lval = oid_nil;	/* hold value if l has dense tail */
+	const char *v = (const char *) &lval;
+	int lskipped = 0;	/* whether we skipped values in l */
+	const Hash *restrict hsh;
+	int t;
+
+	ALGODEBUG fprintf(stderr, "#imps_hashjoin(l=%s#" BUNFMT "[%s]%s%s%s%s,"
+			  "r=%s#" BUNFMT "[%s]%s%s%s%s,sl=%s#" BUNFMT "%s%s%s,"
+			  "sr=%s#" BUNFMT "%s%s%s,nil_matches=%d,"
+			  "nil_on_miss=%d,semi=%d)%s%s%s\n",
+			  BATgetId(l), BATcount(l), ATOMname(l->ttype),
+			  l->tsorted ? "-sorted" : "",
+			  l->trevsorted ? "-revsorted" : "",
+			  l->tkey ? "-key" : "",
+			  l->timprints ? "-limprints": "",
+			  BATgetId(r), BATcount(r), ATOMname(r->ttype),
+			  r->tsorted ? "-sorted" : "",
+			  r->trevsorted ? "-revsorted" : "",
+			  r->tkey ? "-key" : "",
+		      r->timprints ? "-rimprints": "",
+			  sl ? BATgetId(sl) : "NULL", sl ? BATcount(sl) : 0,
+			  sl && sl->tsorted ? "-sorted" : "",
+			  sl && sl->trevsorted ? "-revsorted" : "",
+			  sl && sl->tkey ? "-key" : "",
+			  sr ? BATgetId(sr) : "NULL", sr ? BATcount(sr) : 0,
+			  sr && sr->tsorted ? "-sorted" : "",
+			  sr && sr->trevsorted ? "-revsorted" : "",
+			  sr && sr->tkey ? "-key" : "",
+			  nil_matches, nil_on_miss, semi,
+			  swapped ? " swapped" : "",
+			  *reason ? " " : "", reason);
+
+	if (l->timprints == NULL || r->timprints == NULL) {
+		fprintf(stderr, "both columns require imprints\n");
+		return GDK_FAIL;
+	}
+
+	/* Ignore the candidate list at this moment */
+	if (sl != NULL || sr != NULL) {
+		fprintf(stderr, "do not deal with candidate list first");
+		return GDK_FAIL;
+	}
+
+	assert(r->ttype != TYPE_void);
+	assert(ATOMtype(l->ttype) == ATOMtype(r->ttype));
+	assert(sl == NULL || sl->tsorted);
+	assert(sr == NULL || sr->tsorted);
+
+	CANDINIT(l, sl, lstart, lend, lcnt, lcand, lcandend);
+	CANDINIT(r, sr, rstart, rend, rcnt, rcand, rcandend);
+	lwidth = l->twidth;
+	lvals = (const char *) Tloc(l, 0);
+	if (l->tvarsized && l->ttype) {
+		assert(r->tvarsized && r->ttype);
+		lvars = l->tvheap->base;
+	} else {
+		assert(!r->tvarsized || !r->ttype);
+		lvars = NULL;
+	}
+	/* offset to convert BUN for value in right tail column to OID
+	 * in right head column */
+	rseq = r->hseqbase;
+
+	/* basic properties will be adjusted if necessary later on,
+	 * they were initially set by joininitresults() */
+
+	/* if an input columns is key, the opposite output column will
+	 * be key, and if semi or only_misses is set, the left output
+	 * will also be key */
+	r1->tkey = (r->tkey != 0) | semi | only_misses;
+	if (r2) {
+		r2->tkey = l->tkey != 0;
+		/* r2 is not likely to be sorted (although it is
+		 * certainly possible) */
+		r2->tsorted = 0;
+		r2->trevsorted = 0;
+		r2->tdense = 0;
+	}
+
+	if (sl)
+		r1->tdense = sl->tdense;
+
+	if (lstart == lend || rstart == rend)
+		return nomatch(r1, r2, l, r, lstart, lend, lcand, lcandend,
+				   nil_on_miss, only_misses, "imps_hashjoin", t0);
+
+	rl = 0;
+#ifndef DISABLE_PARENT_HASH
+	if (VIEWtparent(r)) {
+		BAT *b = BBPdescriptor(VIEWtparent(r));
+		if (b->batPersistence == PERSISTENT || BATcheckhash(b)) {
+			/* only use parent's hash if it is persistent
+			 * or already has a hash */
+			ALGODEBUG
+				fprintf(stderr, "#hashjoin(%s#"BUNFMT"): "
+					"using parent(%s#"BUNFMT") for hash\n",
+					BATgetId(r), BATcount(r),
+					BATgetId(b), BATcount(b));
+			rl = (BUN) ((r->theap.base - b->theap.base) >> r->tshift);
+			r = b;
+		} else {
+			ALGODEBUG
+				fprintf(stderr, "#hashjoin(%s#"BUNFMT"): not "
+					"using parent(%s#"BUNFMT") for hash\n",
+					BATgetId(r), BATcount(r),
+					BATgetId(b), BATcount(b));
+		}
+	}
+#endif
+	rh = rl + rend;
+	rl += rstart;
+	rseq += rstart;
+
+	if (BAThash(r, 0) != GDK_SUCCEED)
+		goto bailout;
+	ri = bat_iterator(r);
+	nrcand = (BUN) (rcandend - rcand);
+	hsh = r->thash;
+	t = ATOMbasetype(r->ttype);
+
+	if (lcand == NULL && rcand == NULL && lvars == NULL &&
+	    !nil_matches && !nil_on_miss && !semi && !only_misses &&
+	    l->ttype != TYPE_void && (t == TYPE_int || t == TYPE_lng)) {
+		/* special case for a common way of calling this
+		 * function */
+		const void *restrict base = Tloc(r, 0);
+
+		if (t == TYPE_int) {
+			switch (hsh->width) {
+			case BUN2:
+				HASHJOIN(int, 2);
+				break;
+			case BUN4:
+				HASHJOIN(int, 4);
+				break;
+#ifdef BUN8
+			case BUN8:
+				HASHJOIN(int, 8);
+				break;
+#endif
+			}
+		} else {
+			/* t == TYPE_lng */
+			switch (hsh->width) {
+			case BUN2:
+				HASHJOIN(lng, 2);
+				break;
+			case BUN4:
+				HASHJOIN(lng, 4);
+				break;
+#ifdef BUN8
+			case BUN8:
+				HASHJOIN(lng, 8);
+				break;
+#endif
+			}
+		}
+	} else if (lcand) {
+		while (lcand < lcandend) {
+			lo = *lcand++;
+			if (l->ttype == TYPE_void) {
+				if (l->tseqbase != oid_nil)
+					lval = lo - l->hseqbase + l->tseqbase;
+			} else {
+				v = VALUE(l, lo - l->hseqbase);
+			}
+			nr = 0;
+			if (!nil_matches && cmp(v, nil) == 0) {
+				/* no match */
+			} else if (rcand) {
+				HASHloop_bound(ri, hsh, rb, v, rl, rh) {
+					ro = (oid) (rb - rl + rseq);
+					if (!binsearchcand(rcand, 0, nrcand, ro))
+						continue;
+					if (only_misses) {
+						nr++;
+						break;
+					}
+					HASHLOOPBODY();
+					if (semi)
+						break;
+				}
+			} else {
+				HASHloop_bound(ri, hsh, rb, v, rl, rh) {
+					ro = (oid) (rb - rl + rseq);
+					if (only_misses) {
+						nr++;
+						break;
+					}
+					HASHLOOPBODY();
+					if (semi)
+						break;
+				}
+			}
+			if (nr == 0) {
+				if (only_misses) {
+					nr = 1;
+					if (BUNlast(r1) == BATcapacity(r1)) {
+						newcap = BATgrows(r1);
+						if (newcap > maxsize)
+							newcap = maxsize;
+						BATsetcount(r1, BATcount(r1));
+						if (BATextend(r1, newcap) != GDK_SUCCEED)
+							goto bailout;
+					}
+					APPEND(r1, lo);
+					if (lskipped)
+						r1->tdense = 0;
+				} else if (nil_on_miss) {
+					nr = 1;
+					r2->tnil = 1;
+					r2->tnonil = 0;
+					r2->tkey = 0;
+					if (BUNlast(r1) == BATcapacity(r1)) {
+						newcap = BATgrows(r1);
+						if (newcap > maxsize)
+							newcap = maxsize;
+						BATsetcount(r1, BATcount(r1));
+						BATsetcount(r2, BATcount(r2));
+						if (BATextend(r1, newcap) != GDK_SUCCEED ||
+						    BATextend(r2, newcap) != GDK_SUCCEED)
+							goto bailout;
+						assert(BATcapacity(r1) == BATcapacity(r2));
+					}
+					APPEND(r1, lo);
+					APPEND(r2, oid_nil);
+				} else {
+					lskipped = BATcount(r1) > 0;
+				}
+			} else if (only_misses) {
+				lskipped = BATcount(r1) > 0;
+			} else {
+				if (lskipped) {
+					/* note, we only get here in
+					 * an iteration *after*
+					 * lskipped was first set to
+					 * 1, i.e. we did indeed skip
+					 * values in l */
+					r1->tdense = 0;
+				}
+				if (nr > 1) {
+					r1->tkey = 0;
+					r1->tdense = 0;
+				}
+			}
+			if (nr > 0 && BATcount(r1) > nr)
+				r1->trevsorted = 0;
+		}
+	} else {
+		for (lo = lstart + l->hseqbase; lstart < lend; lo++) {
+			if (l->ttype == TYPE_void) {
+				if (l->tseqbase != oid_nil)
+					lval = lo - l->hseqbase + l->tseqbase;
+			} else {
+				v = VALUE(l, lstart);
+			}
+			lstart++;
+			nr = 0;
+			if (rcand) {
+				if (nil_matches || cmp(v, nil) != 0) {
+					HASHloop_bound(ri, hsh, rb, v, rl, rh) {
+						ro = (oid) (rb - rl + rseq);
+						if (!binsearchcand(rcand, 0, nrcand, ro))
+							continue;
+						if (only_misses) {
+							nr++;
+							break;
+						}
+						HASHLOOPBODY();
+						if (semi)
+							break;
+					}
+				}
+			} else {
+				switch (t) {
+				case TYPE_int:
+					if (nil_matches || *(const int*)v != int_nil) {
+						HASHloop_bound_TYPE(ri, hsh, rb, v, rl, rh, int) {
+							ro = (oid) (rb - rl + rseq);
+							if (only_misses) {
+								nr++;
+								break;
+							}
+							HASHLOOPBODY();
+							if (semi)
+								break;
+						}
+					}
+					break;
+				case TYPE_lng:
+					if (nil_matches || *(const lng*)v != lng_nil) {
+						HASHloop_bound_TYPE(ri, hsh, rb, v, rl, rh, lng) {
+							ro = (oid) (rb - rl + rseq);
+							if (only_misses) {
+								nr++;
+								break;
+							}
+							HASHLOOPBODY();
+							if (semi)
+								break;
+						}
+					}
+					break;
+#ifdef HAVE_HGE
+				case TYPE_hge:
+					if (nil_matches || *(const hge*)v != hge_nil) {
+						HASHloop_bound_TYPE(ri, hsh, rb, v, rl, rh, hge) {
+							ro = (oid) (rb - rl + rseq);
+							if (only_misses) {
+								nr++;
+								break;
+							}
+							HASHLOOPBODY();
+							if (semi)
+								break;
+						}
+					}
+					break;
+#endif
+				default:
+					if (nil_matches || cmp(v, nil) != 0) {
+						HASHloop_bound(ri, hsh, rb, v, rl, rh) {
+							ro = (oid) (rb - rl + rseq);
+							if (only_misses) {
+								nr++;
+								break;
+							}
+							HASHLOOPBODY();
+							if (semi)
+								break;
+						}
+					}
+					break;
+				}
+			}
+			if (nr == 0) {
+				if (only_misses) {
+					nr = 1;
+					if (BUNlast(r1) == BATcapacity(r1)) {
+						newcap = BATgrows(r1);
+						if (newcap > maxsize)
+							newcap = maxsize;
+						BATsetcount(r1, BATcount(r1));
+						if (BATextend(r1, newcap) != GDK_SUCCEED)
+							goto bailout;
+					}
+					APPEND(r1, lo);
+					if (lskipped)
+						r1->tdense = 0;
+				} else if (nil_on_miss) {
+					nr = 1;
+					r2->tnil = 1;
+					r2->tnonil = 0;
+					r2->tkey = 0;
+					if (BUNlast(r1) == BATcapacity(r1)) {
+						newcap = BATgrows(r1);
+						if (newcap > maxsize)
+							newcap = maxsize;
+						BATsetcount(r1, BATcount(r1));
+						BATsetcount(r2, BATcount(r2));
+						if (BATextend(r1, newcap) != GDK_SUCCEED ||
+						    BATextend(r2, newcap) != GDK_SUCCEED)
+							goto bailout;
+						assert(BATcapacity(r1) == BATcapacity(r2));
+					}
+					APPEND(r1, lo);
+					APPEND(r2, oid_nil);
+				} else {
+					lskipped = BATcount(r1) > 0;
+				}
+			} else if (only_misses) {
+				lskipped = BATcount(r1) > 0;
+			} else {
+				if (lskipped) {
+					/* note, we only get here in
+					 * an iteration *after*
+					 * lskipped was first set to
+					 * 1, i.e. we did indeed skip
+					 * values in l */
+					r1->tdense = 0;
+				}
+				if (nr > 1) {
+					r1->tkey = 0;
+					r1->tdense = 0;
+				}
+			}
+			if (nr > 0 && BATcount(r1) > nr)
+				r1->trevsorted = 0;
+		}
+	}
+	/* also set other bits of heap to correct value to indicate size */
+	BATsetcount(r1, BATcount(r1));
+	if (BATcount(r1) <= 1) {
+		r1->tsorted = 1;
+		r1->trevsorted = 1;
+		r1->tkey = 1;
+		r1->tdense = 1;
+	}
+	if (r2) {
+		BATsetcount(r2, BATcount(r2));
+		assert(BATcount(r1) == BATcount(r2));
+		if (BATcount(r2) <= 1) {
+			r2->tsorted = 1;
+			r2->trevsorted = 1;
+			r2->tkey = 1;
+			r2->tdense = 1;
+		}
+	}
+	if (BATcount(r1) > 0) {
+		if (r1->tdense)
+			r1->tseqbase = ((oid *) r1->theap.base)[0];
+		if (r2 && r2->tdense)
+			r2->tseqbase = ((oid *) r2->theap.base)[0];
+	}
+	ALGODEBUG fprintf(stderr, "#imps_hashjoin(l=%s,r=%s)=(%s#"BUNFMT"%s%s%s%s,%s#"BUNFMT"%s%s%s%s) " LLFMT "us\n",
+			  BATgetId(l), BATgetId(r),
+			  BATgetId(r1), BATcount(r1),
+			  r1->tsorted ? "-sorted" : "",
+			  r1->trevsorted ? "-revsorted" : "",
+			  r1->tdense ? "-dense" : "",
+			  r1->tkey ? "-key" : "",
+			  r2 ? BATgetId(r2) : "--", r2 ? BATcount(r2) : 0,
+			  r2 && r2->tsorted ? "-sorted" : "",
+			  r2 && r2->trevsorted ? "-revsorted" : "",
+			  r2 && r2->tdense ? "-dense" : "",
+			  r2 && r2->tkey ? "-key" : "",
+			  GDKusec() - t0);
+	return GDK_SUCCEED;
+
+  bailout:
+	BBPreclaim(r1);
+	BBPreclaim(r2);
+	return GDK_FAIL;
+}
+
+
+static gdk_return
 hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches,
 	 int nil_on_miss, int semi, int only_misses, BUN maxsize, lng t0,
 	 int swapped, const char *reason)
@@ -4061,9 +4517,9 @@ BATjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches,
 		reason = "left is smaller";
 	}
 	if (swap) {
-		return impr__hashjoin(r2, r1, r, l, sr, sl, nil_matches, 0, 0, 0, maxsize, t0, 1, reason);
+		return imps_hashjoin(r2, r1, r, l, sr, sl, nil_matches, 0, 0, 0, maxsize, t0, 1, reason);
 	} else {
-		return impr_hashjoin(r1, r2, l, r, sl, sr, nil_matches, 0, 0, 0, maxsize, t0, 0, reason);
+		return imps_hashjoin(r1, r2, l, r, sl, sr, nil_matches, 0, 0, 0, maxsize, t0, 0, reason);
 	}
 }
 
