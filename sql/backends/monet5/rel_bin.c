@@ -1585,23 +1585,26 @@ join_hash_key( backend *be, list *l )
 	return h;
 }
 
-
-// do not project the result back
 static stmt *
-releqjoin_( backend *be, list *l1, list *l2, int used_hash, comp_type cmp_op, int need_left ){
+releqjoin( backend *be, list *l1, list *l2, int used_hash, comp_type cmp_op, int need_left )
+{
+	mvc *sql = be->mvc;
+	node *n1 = l1->h, *n2 = l2->h;
 	stmt *l, *r, *res;
 
 	if (list_length(l1) <= 1) {
 		l = l1->h->data;
 		r = l2->h->data;
-		r =  stmt_join(be, l, r, 0, cmp_op);
+		r =  stmt_join(be, l, r, 0, need_left? cmp_left : cmp_op);
 		if (need_left)
 			r->flag = cmp_left;
 		return r;
 	}
 	if (used_hash) {
-		l = l1->h->data;
-		r = l2->h->data;
+		l = n1->data;
+		r = n2->data;
+		n1 = n1->next;
+		n2 = n2->next;
 		res = stmt_join(be, l, r, 0, cmp_op);
 	} else { /* need hash */
 		l = join_hash_key(be, l1);
@@ -1610,22 +1613,6 @@ releqjoin_( backend *be, list *l1, list *l2, int used_hash, comp_type cmp_op, in
 	}
 	if (need_left)
 		res->flag = cmp_left;
-
-	return res;
-}
-
-static stmt *
-releqjoin( backend *be, list *l1, list *l2, int used_hash, comp_type cmp_op, int need_left )
-{
-	mvc *sql = be->mvc;
-	node *n1 = l1->h, *n2 = l2->h;
-	stmt *l, *r, *res;
-
-	if (used_hash) {
-		n1 = n1->next;
-		n2 = n2->next;
-	}
-	res = releqjoin_(be, l1, l2, used_hash, cmp_op, need_left);
 	l = stmt_result(be, res, 0);
 	r = stmt_result(be, res, 1);
 	for (; n1 && n2; n1 = n1->next, n2 = n2->next) {
@@ -4801,20 +4788,49 @@ rel2bin_graph(backend *be, sql_rel* rel, list *refs)
 		}
 
 		// join the attributes
-		join_left = releqjoin_(be, lhs, domain_list, /*used_hash = */ false, cmp_equal, /* need_left = */ rel->op == op_graph_select);
-		join_right = releqjoin_(be, rhs, domain_list, /*used_hash = */ false, cmp_equal, /* need_left = */ rel->op == op_graph_select);
+		join_left = releqjoin(be, lhs, domain_list, /*used_hash = */ false, cmp_equal, /* need_left = */ false);
+		join_right = releqjoin(be, rhs, domain_list, /*used_hash = */ false, cmp_equal, /* need_left = */ false);
 
-		// generate the query parameters
-		lst1 = sa_list(sql->sa);
-		list_append(lst1, void2oid(stmt_result(be, join_left, 0)));
-		list_append(lst1, void2oid(stmt_result(be, join_right, 0)));
-		list_append(lst1, void2oid(stmt_result(be, join_left, 1)));
-		list_append(lst1, void2oid(stmt_result(be, join_right, 1)));
-		query = stmt_list(be, lst1); lst1 = NULL;
 
-		// remove the items that are not part of the domain
+		// intersect the two lists, so that we have only the columns part of the domain
 		if(rel->op == op_graph_select){
-			query = stmt_gr8_remove_nils(be, query);
+			stmt *jll = stmt_result(be, join_left, 0);
+			stmt *jlr = stmt_result(be, join_left, 1);
+			stmt *jrl = stmt_result(be, join_right, 0);
+			stmt *jrr = stmt_result(be, join_right, 1);
+
+			// sort left & right
+			jll = stmt_order(be, jll, /* direction (0 = DESC, 1 = ASC) = */ 1);
+			jlr = stmt_project(be, stmt_result(be, jll, 1), jlr);
+			jrl = stmt_order(be, jrl, /* direction (0 = DESC, 1 = ASC) = */ 1);
+			jrr = stmt_project(be, stmt_result(be, jrl, 1), jrr);
+
+			// remove those damn VOIDs
+			jll = void2oid(jll);
+			jlr = void2oid(jlr);
+			jrl = void2oid(jrl);
+			jrr = void2oid(jrr);
+
+			// intersect the elements
+			lst1 = sa_list(sql->sa);
+			list_append(lst1, jll);
+			list_append(lst1, jrl);
+			list_append(lst1, jlr);
+			list_append(lst1, jrr);
+			query = stmt_gr8_intersect_join_lists(be, stmt_list(be, lst1));
+			lst1 = NULL;
+
+		} else { // this is join
+			assert(rel->op == op_graph_join);
+
+			// generate the query parameters
+			lst1 = sa_list(sql->sa);
+			list_append(lst1, void2oid(stmt_result(be, join_left, 0)));
+			list_append(lst1, void2oid(stmt_result(be, join_right, 0)));
+			list_append(lst1, void2oid(stmt_result(be, join_left, 1)));
+			list_append(lst1, void2oid(stmt_result(be, join_right, 1)));
+			query = stmt_list(be, lst1);
+			lst1 = NULL;
 		}
 
 		if(rel->op == op_graph_join)
@@ -4976,6 +4992,7 @@ subrel_bin(backend *be, sql_rel *rel, list *refs)
 	case op_graph_join:
 	case op_graph_select:
 		s = rel2bin_graph(be, rel, refs);
+		printf("MAL instruction: %s\n", mal2str(be->mb, 0, be->mb->stop));
 		break;
 	}
 	if (s && rel_is_ref(rel)) {

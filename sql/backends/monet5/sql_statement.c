@@ -3594,50 +3594,73 @@ stmt_gr8_void2oid(backend *be, stmt *op){
 }
 
 
+static void copy_params(stmt* from, stmt* to){
+	to->op1 = from;
+	to->flag = from->flag;
+	to->nrcols = from->nrcols;
+	to->key = from->key; // maybe
+	to->aggr = from->aggr;
+
+}
+
 // this statement doesn't have a st_type counterpart, i.e. it's a fake statement
 stmt*
-stmt_gr8_remove_nils(backend *be, stmt* query){
+stmt_gr8_intersect_join_lists(backend *be, stmt* query){
 	InstrPtr q = NULL;
 	list* l = NULL;
-	int i = -1;
 	int num_operands = -1; // expected 4
+
 
 	// generate the MAL instruction
 	assert(query->type == st_list && "Invalid input type");
 	num_operands = list_length(query->op4.lval);
 	assert(num_operands == 4); // candidate list left and right + projection list left and right
-	q = newStmt(be->mb, "graph", "remove_nils");
+	q = newStmt(be->mb, "graph", "intersect_join_lists");
 	if(!q) return NULL;
+
+	// add the return values
+	getArg(q, 0) = newTmpVariable(be->mb, TYPE_bat); // candidate list
+	q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_bat));
+	q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_bat));
 	for(node *n = query->op4.lval->h; n; n = n->next){
 		stmt *s = n->data;
 		if(s->nr < 0) return NULL; // error
-		pushArgument(be->mb, q, s->nr);
-		pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_bat));
+		q = pushArgument(be->mb, q, s->nr);
 	}
 
 	// ABI convention
-	for(int i = 1; i < num_operands; i++) {
+	for(int i = 1; i < num_operands -1; i++) {
 		snprintf(be->mb->var[getArg(q, i)]->id, IDLENGTH, "r%d_%d", i, getDestVar(q));
 	}
 
 	// generate the MIL statement
 	l = sa_list(be->mvc->sa);
-	i = 0;
-	for(node* n = query->op4.lval->h; n; n = n->next, i++){
-		stmt* r = stmt_create(be->mvc->sa, st_result);
-		r->op1 = n->data;
-		if(i > 0){
-			r->nr = getArg(q, i);
-		} else {
-			r->nr = getDestVar(q);
-		}
-		r->flag = r->op1->flag;
-		r->nrcols = r->op1->nrcols;
-		r->key = r->op1->key; // maybe
-		r->aggr = r->op1->aggr;
+	do { // again, restrict the scope
+		node *n = query->op4.lval->h;
+		stmt *s = NULL; // temporary stmt
 
-		list_append(l, r);
-	}
+		s = stmt_create(be->mvc->sa, st_result);
+		s->nr = getDestVar(q);
+		copy_params(n->data, s);
+		list_append(l, s);
+		n = n->next->next;
+
+		// second parameter is easy
+		list_append(l, stmt_none(be));
+
+
+		// third & four parameters
+		s = stmt_create(be->mvc->sa, st_result);
+		s->nr = getArg(q, 1);
+		copy_params(n->data, s);
+		list_append(l, s);
+		n = n->next;
+		s = stmt_create(be->mvc->sa, st_result);
+		s->nr = getArg(q, 2);
+		copy_params(n->data, s);
+		list_append(l, s);
+	} while (0);
+
 	return stmt_list(be, l);
 }
 
@@ -3655,14 +3678,15 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	assert(weights->type == st_list && "Invalid parameter type");
 
 	// I can use macros too..
-#define EVIL_PUSH(S) if(((stmt*)S)->nr < 0) { return NULL; } else { q = pushArgument(be->mb, q, ((stmt*) S)->nr); }
+#define EVIL_PUSH(S) if (((stmt*) (S))->type == st_none ) { q = pushNil(be->mb, q, TYPE_bat); } \
+		else if(((stmt*)S)->nr < 0) { return NULL; } else { q = pushArgument(be->mb, q, ((stmt*) S)->nr); }
 
 	// generate the MAL instruction
 	q = newStmt(be->mb, "graph", "spfw");
 	if(q == NULL) return NULL; // error
 	// output values
-	q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_any)); // left candidate list
-	q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_any)); // right candidate list
+	getArg(q, 0) = newTmpVariable(be->mb, TYPE_bat); // left candidate list
+	q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_bat)); // right candidate list
 	// add the shortest paths
 	for(node *n = weights->op4.lval->h; n; n = n->next){
 		q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_any));
@@ -3682,7 +3706,7 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 
 	// ABI convention
 	dest = getDestVar(q); // jl
-	renameVariable(be->mb, getArg(q, 1), "r1_%d", s->nr); // jr
+	renameVariable(be->mb, getArg(q, 1), "r1_%d", dest); // jr
 	i = 2;
 	for(node *n = weights->op4.lval->h; n; n = n->next){ // shortest paths
 		snprintf(be->mb->var[getArg(q, i)]->id, IDLENGTH, "r%d_%d", i, dest);
