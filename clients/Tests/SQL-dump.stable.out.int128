@@ -171,6 +171,17 @@ Ready.
 \dSf sys."fitsload"
 \dSf sys."flush_log"
 \dSf sys."fuse"
+\dSf sys."gadgetanalyzetab"
+\dSf sys."gadgetattach"
+\dSf sys."gadgetattachall"
+\dSf sys."gadgetchecktab"
+\dSf sys."gadgetlistdir"
+\dSf sys."gadgetlistdirall"
+\dSf sys."gadgetlistdirpat"
+\dSf sys."gadgetload"
+\dSf sys."gadgetloadall"
+\dSf sys."gadgetphkeyconvert"
+\dSf sys."gadgetphkeyinvert"
 \dSf sys."generate_series"
 \dSf sys."geometrytype"
 \dSf sys."get_type"
@@ -201,9 +212,12 @@ Ready.
 \dSf sys."isauuid"
 \dSf sys."left_shift"
 \dSf sys."left_shift_assign"
+\dSf sys."lidaranalyzetab"
 \dSf sys."lidarattach"
+\dSf sys."lidarchecktab"
 \dSf sys."lidarexport"
 \dSf sys."lidarload"
+\dSf sys."lidarunload"
 \dSf sys."like"
 \dSf sys."listdir"
 \dSf sys."listdirpat"
@@ -505,6 +519,17 @@ SYSTEM FUNCTION  sys.fitsload
 SYSTEM FUNCTION  sys.floor
 SYSTEM FUNCTION  sys.flush_log
 SYSTEM FUNCTION  sys.fuse
+SYSTEM FUNCTION  sys.gadgetanalyzetab
+SYSTEM FUNCTION  sys.gadgetattach
+SYSTEM FUNCTION  sys.gadgetattachall
+SYSTEM FUNCTION  sys.gadgetchecktab
+SYSTEM FUNCTION  sys.gadgetlistdir
+SYSTEM FUNCTION  sys.gadgetlistdirall
+SYSTEM FUNCTION  sys.gadgetlistdirpat
+SYSTEM FUNCTION  sys.gadgetload
+SYSTEM FUNCTION  sys.gadgetloadall
+SYSTEM FUNCTION  sys.gadgetphkeyconvert
+SYSTEM FUNCTION  sys.gadgetphkeyinvert
 SYSTEM FUNCTION  sys.generate_series
 SYSTEM FUNCTION  sys.geometrytype
 SYSTEM FUNCTION  sys.get_type
@@ -548,9 +573,12 @@ SYSTEM FUNCTION  sys.left_shift
 SYSTEM FUNCTION  sys.left_shift_assign
 SYSTEM FUNCTION  sys.length
 SYSTEM FUNCTION  sys.levenshtein
+SYSTEM FUNCTION  sys.lidaranalyzetab
 SYSTEM FUNCTION  sys.lidarattach
+SYSTEM FUNCTION  sys.lidarchecktab
 SYSTEM FUNCTION  sys.lidarexport
 SYSTEM FUNCTION  sys.lidarload
+SYSTEM FUNCTION  sys.lidarunload
 SYSTEM FUNCTION  sys.like
 SYSTEM FUNCTION  sys.listdir
 SYSTEM FUNCTION  sys.listdirpat
@@ -916,6 +944,17 @@ create function fuse(one tinyint, two tinyint) returns smallint external name ud
 create function fuse(one smallint, two smallint) returns integer external name udf.fuse;
 create function fuse(one integer, two integer) returns bigint external name udf.fuse;
 create function fuse(one bigint, two bigint) returns hugeint external name udf.fuse;
+create procedure gadgetanalyzetab(status int, tname string) external name gadget.analyzetab;
+create procedure gadgetattach(fname string) external name gadget.attach;
+create procedure gadgetattachall(*) external name gadget.attachall;
+create procedure gadgetchecktab(tname string) external name gadget.checktab;
+create procedure gadgetlistdir(dname string) external name gadget.listdir;
+create procedure gadgetlistdirall(dname string) external name gadget.listdirall;
+create procedure gadgetlistdirpat(dname string, pattern string) external name gadget.listdirpattern;
+create procedure gadgetload(tname string) external name gadget.load;
+create procedure gadgetloadall(tname string) external name gadget.loadall;
+create function gadgetphkeyconvert(x real, y real, z real, basesize real, nbits int) returns bigint external name gadget.phkeyconvert;
+create function gadgetphkeyinvert(phkey bigint, basesize real, nbits int) returns table (x real, y real, z real, csize real) external name gadget.phkeyinvert;
 create function sys.generate_series(first tinyint, last tinyint) returns table (value tinyint) external name generator.series;
 create function sys.generate_series(first tinyint, last tinyint, stepsize tinyint) returns table (value tinyint) external name generator.series;
 create function sys.generate_series(first smallint, last smallint) returns table (value smallint) external name generator.series;
@@ -960,9 +999,14 @@ create function isaurl(theurl url) returns bool external name url."isaURL";
 create function sys.isauuid(s string) returns boolean external name uuid."isaUUID";
 create function "left_shift"(i1 inet, i2 inet) returns boolean external name inet."<<";
 create function "left_shift_assign"(i1 inet, i2 inet) returns boolean external name inet."<<=";
+create procedure lidaranalyzetab(status int, tname string) external name lidar.analyzetab;
 create procedure lidarattach(fname string) external name lidar.attach;
+create procedure lidarattach(fname string, tname string) external name lidar.attach;
+create procedure lidarattach(fname string, tname string, params string) external name lidar.attach;
+create procedure lidarchecktab(tname string) external name lidar.checktab;
 create procedure lidarexport(tname string, fname string, format string) external name lidar.export;
 create procedure lidarload(tname string) external name lidar.load;
+create procedure lidarunload(tname string) external name lidar.unload;
 create filter function "like"(val string, pat string, esc string) external name algebra."like";
 create filter function "like"(val string, pat string) external name algebra."like";
 
@@ -2020,6 +2064,17 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"fuse",	"create function fuse(one integer, two integer) returns bigint external name udf.fuse;",	"udf",	1,	1,	false,	false,	false	]
 [ "sys",	"fuse",	"create function fuse(one smallint, two smallint) returns integer external name udf.fuse;",	"udf",	1,	1,	false,	false,	false	]
 [ "sys",	"fuse",	"create function fuse(one tinyint, two tinyint) returns smallint external name udf.fuse;",	"udf",	1,	1,	false,	false,	false	]
+[ "sys",	"gadgetanalyzetab",	"create procedure gadgetanalyzetab(status int, tname string) external name gadget.analyzetab;",	"gadget",	1,	2,	true,	false,	false	]
+[ "sys",	"gadgetattach",	"create procedure gadgetattach(fname string) external name gadget.attach;",	"gadget",	1,	2,	true,	false,	false	]
+[ "sys",	"gadgetattachall",	"create procedure gadgetattachall(*) external name gadget.attachall;",	"gadget",	1,	2,	true,	false,	true	]
+[ "sys",	"gadgetchecktab",	"create procedure gadgetchecktab(tname string) external name gadget.checktab;",	"gadget",	1,	2,	true,	false,	false	]
+[ "sys",	"gadgetlistdir",	"create procedure gadgetlistdir(dname string) external name gadget.listdir;",	"gadget",	1,	2,	true,	false,	false	]
+[ "sys",	"gadgetlistdirall",	"create procedure gadgetlistdirall(dname string) external name gadget.listdirall;",	"gadget",	1,	2,	true,	false,	false	]
+[ "sys",	"gadgetlistdirpat",	"create procedure gadgetlistdirpat(dname string, pattern string) external name gadget.listdirpattern;",	"gadget",	1,	2,	true,	false,	false	]
+[ "sys",	"gadgetload",	"create procedure gadgetload(tname string) external name gadget.load;",	"gadget",	1,	2,	true,	false,	false	]
+[ "sys",	"gadgetloadall",	"create procedure gadgetloadall(tname string) external name gadget.loadall;",	"gadget",	1,	2,	true,	false,	false	]
+[ "sys",	"gadgetphkeyconvert",	"create function gadgetphkeyconvert(x real, y real, z real, basesize real, nbits int) returns bigint external name gadget.phkeyconvert;",	"gadget",	1,	1,	false,	false,	false	]
+[ "sys",	"gadgetphkeyinvert",	"create function gadgetphkeyinvert(phkey bigint, basesize real, nbits int) returns table (x real, y real, z real, csize real) external name gadget.phkeyinvert;",	"gadget",	1,	5,	false,	false,	false	]
 [ "sys",	"generate_series",	"create function sys.generate_series(first bigint, last bigint) returns table (value bigint) external name generator.series;",	"generator",	1,	5,	false,	false,	false	]
 [ "sys",	"generate_series",	"create function sys.generate_series(first bigint, last bigint, stepsize bigint) returns table (value bigint) external name generator.series;",	"generator",	1,	5,	false,	false,	false	]
 [ "sys",	"generate_series",	"create function sys.generate_series(first decimal(10,2), last decimal(10,2), stepsize decimal(10,2)) returns table (value decimal(10,2)) external name generator.series;",	"generator",	1,	5,	false,	false,	false	]
@@ -2115,9 +2170,14 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"levenshtein",	"levenshtein",	"txtsim",	0,	1,	false,	false,	false	]
 [ "sys",	"levenshtein",	"levenshtein",	"txtsim",	0,	1,	false,	false,	false	]
 [ "sys",	"levenshtein",	"levenshtein",	"txtsim",	0,	1,	false,	false,	false	]
+[ "sys",	"lidaranalyzetab",	"create procedure lidaranalyzetab(status int, tname string) external name lidar.analyzetab;",	"lidar",	1,	2,	true,	false,	false	]
 [ "sys",	"lidarattach",	"create procedure lidarattach(fname string) external name lidar.attach;",	"lidar",	1,	2,	true,	false,	false	]
+[ "sys",	"lidarattach",	"create procedure lidarattach(fname string, tname string) external name lidar.attach;",	"lidar",	1,	2,	true,	false,	false	]
+[ "sys",	"lidarattach",	"create procedure lidarattach(fname string, tname string, params string) external name lidar.attach;",	"lidar",	1,	2,	true,	false,	false	]
+[ "sys",	"lidarchecktab",	"create procedure lidarchecktab(tname string) external name lidar.checktab;",	"lidar",	1,	2,	true,	false,	false	]
 [ "sys",	"lidarexport",	"create procedure lidarexport(tname string, fname string, format string) external name lidar.export;",	"lidar",	1,	2,	true,	false,	false	]
 [ "sys",	"lidarload",	"create procedure lidarload(tname string) external name lidar.load;",	"lidar",	1,	2,	true,	false,	false	]
+[ "sys",	"lidarunload",	"create procedure lidarunload(tname string) external name lidar.unload;",	"lidar",	1,	2,	true,	false,	false	]
 [ "sys",	"like",	"create filter function \"like\"(val string, pat string) external name algebra.\"like\";",	"algebra",	1,	4,	false,	false,	false	]
 [ "sys",	"like",	"create filter function \"like\"(val string, pat string, esc string) external name algebra.\"like\";",	"algebra",	1,	4,	false,	false,	false	]
 [ "sys",	"listdir",	"create procedure listdir(dirname string) external name fits.listdir;",	"fits",	1,	2,	true,	false,	false	]
@@ -3750,6 +3810,17 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"fuse",	"one",	"int",	32,	0,	1,	"two",	"int",	32,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"fuse",	"one",	"smallint",	16,	0,	1,	"two",	"smallint",	16,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"fuse",	"one",	"tinyint",	8,	0,	1,	"two",	"tinyint",	8,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"gadgetanalyzetab",	"tname",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"gadgetattach",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"gadgetattachall",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"gadgetchecktab",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"gadgetlistdir",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"gadgetlistdirall",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"gadgetlistdirpat",	"pattern",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"gadgetload",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"gadgetloadall",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"gadgetphkeyconvert",	"x",	"real",	24,	0,	1,	"y",	"real",	24,	0,	1,	"z",	"real",	24,	0,	1,	"basesize",	"real",	24,	0,	1,	"nbits",	"int",	32,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"gadgetphkeyinvert",	"y",	"real",	24,	0,	0,	"z",	"real",	24,	0,	0,	"csize",	"real",	24,	0,	0,	"phkey",	"bigint",	64,	0,	1,	"basesize",	"real",	24,	0,	1,	"nbits",	"int",	32,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"generate_series",	"first",	"bigint",	64,	0,	1,	"last",	"bigint",	64,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"generate_series",	"first",	"bigint",	64,	0,	1,	"last",	"bigint",	64,	0,	1,	"stepsize",	"bigint",	64,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"generate_series",	"first",	"decimal",	10,	2,	1,	"last",	"decimal",	10,	2,	1,	"stepsize",	"decimal",	10,	2,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
@@ -3845,9 +3916,14 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"levenshtein",	"arg_1",	"clob",	0,	0,	1,	"arg_2",	"clob",	0,	0,	1,	"arg_3",	"int",	32,	0,	1,	"arg_4",	"int",	32,	0,	1,	"arg_5",	"int",	32,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"levenshtein",	"arg_1",	"varchar",	0,	0,	1,	"arg_2",	"varchar",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"levenshtein",	"arg_1",	"varchar",	0,	0,	1,	"arg_2",	"varchar",	0,	0,	1,	"arg_3",	"int",	32,	0,	1,	"arg_4",	"int",	32,	0,	1,	"arg_5",	"int",	32,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"lidaranalyzetab",	"tname",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"lidarattach",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"lidarattach",	"tname",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"lidarattach",	"tname",	"clob",	0,	0,	1,	"params",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"lidarchecktab",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"lidarexport",	"fname",	"clob",	0,	0,	1,	"format",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"lidarload",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"lidarunload",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"like",	"pat",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"like",	"pat",	"clob",	0,	0,	1,	"esc",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"listdir",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
@@ -6340,6 +6416,17 @@ drop function pcre_replace(string, string, string, string);
 [ "fuse"	]
 [ "fuse"	]
 [ "fuse"	]
+[ "gadgetanalyzetab"	]
+[ "gadgetattach"	]
+[ "gadgetattachall"	]
+[ "gadgetchecktab"	]
+[ "gadgetlistdir"	]
+[ "gadgetlistdirall"	]
+[ "gadgetlistdirpat"	]
+[ "gadgetload"	]
+[ "gadgetloadall"	]
+[ "gadgetphkeyconvert"	]
+[ "gadgetphkeyinvert"	]
 [ "generate_series"	]
 [ "generate_series"	]
 [ "generate_series"	]
@@ -6445,9 +6532,14 @@ drop function pcre_replace(string, string, string, string);
 [ "levenshtein"	]
 [ "levenshtein"	]
 [ "levenshtein"	]
+[ "lidaranalyzetab"	]
 [ "lidarattach"	]
+[ "lidarattach"	]
+[ "lidarattach"	]
+[ "lidarchecktab"	]
 [ "lidarexport"	]
 [ "lidarload"	]
+[ "lidarunload"	]
 [ "like"	]
 [ "like"	]
 [ "listdir"	]
