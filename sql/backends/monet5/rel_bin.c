@@ -4791,50 +4791,22 @@ rel2bin_graph(backend *be, sql_rel* rel, list *refs)
 		join_left = releqjoin(be, lhs, domain_list, /*used_hash = */ false, cmp_equal, /* need_left = */ false);
 		join_right = releqjoin(be, rhs, domain_list, /*used_hash = */ false, cmp_equal, /* need_left = */ false);
 
+		// generate the query parameters
+		lst1 = sa_list(sql->sa);
+		list_append(lst1, void2oid(stmt_result(be, join_left, 0)));
+		list_append(lst1, void2oid(stmt_result(be, join_right, 0)));
+		list_append(lst1, void2oid(stmt_result(be, join_left, 1)));
+		list_append(lst1, void2oid(stmt_result(be, join_right, 1)));
+		query = stmt_list(be, lst1); lst1 = NULL;
 
-		// intersect the two lists, so that we have only the columns part of the domain
+		// in case of a SELECT intersect the two lists, so that we have only the columns part of the domain
+		// there is no more need to ensure the candidates are sorted, graph.intersect_join_lists can deal
+		// with it
 		if(rel->op == op_graph_select){
-			stmt *jll = stmt_result(be, join_left, 0);
-			stmt *jlr = stmt_result(be, join_left, 1);
-			stmt *jrl = stmt_result(be, join_right, 0);
-			stmt *jrr = stmt_result(be, join_right, 1);
-
-			// sort left & right
-			jll = stmt_order(be, jll, /* direction (0 = DESC, 1 = ASC) = */ 1);
-			jlr = stmt_project(be, stmt_result(be, jll, 1), jlr);
-			jrl = stmt_order(be, jrl, /* direction (0 = DESC, 1 = ASC) = */ 1);
-			jrr = stmt_project(be, stmt_result(be, jrl, 1), jrr);
-
-			// remove those damn VOIDs
-			jll = void2oid(jll);
-			jlr = void2oid(jlr);
-			jrl = void2oid(jrl);
-			jrr = void2oid(jrr);
-
-			// intersect the elements
-			lst1 = sa_list(sql->sa);
-			list_append(lst1, jll);
-			list_append(lst1, jrl);
-			list_append(lst1, jlr);
-			list_append(lst1, jrr);
-			query = stmt_gr8_intersect_join_lists(be, stmt_list(be, lst1));
-			lst1 = NULL;
-
-		} else { // this is join
-			assert(rel->op == op_graph_join);
-
-			// generate the query parameters
-			lst1 = sa_list(sql->sa);
-			list_append(lst1, void2oid(stmt_result(be, join_left, 0)));
-			list_append(lst1, void2oid(stmt_result(be, join_right, 0)));
-			list_append(lst1, void2oid(stmt_result(be, join_left, 1)));
-			list_append(lst1, void2oid(stmt_result(be, join_right, 1)));
-			query = stmt_list(be, lst1);
-			lst1 = NULL;
-		}
-
-		if(rel->op == op_graph_join)
+			query = stmt_gr8_intersect_join_lists(be, query);
+		} else { // op_graph_join
 			spfw_flags |= SPFW_JOIN;
+		}
 	} while(0);
 
 	// weights

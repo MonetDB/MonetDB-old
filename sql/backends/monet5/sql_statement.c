@@ -3666,7 +3666,7 @@ stmt_gr8_intersect_join_lists(backend *be, stmt* query){
 
 
 stmt *
-stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *weights, int flags) {
+stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *weights, int global_flags) {
 	InstrPtr q = NULL;
 	stmt *s = NULL;
 	int dest = -1;
@@ -3700,7 +3700,7 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	for(node *n = weights->op4.lval->h; n; n = n->next){ // weights
 		EVIL_PUSH(n->data);
 	}
-	q = pushInt(be->mb, q, flags);
+	q = pushInt(be->mb, q, global_flags);
 
 #undef EVIL_PUSH
 
@@ -3716,7 +3716,7 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	s = stmt_create(be->mvc->sa, st_gr8_spfw);
 	s->nr = dest;
 	s->q = q;
-	s->flag = flags;
+	s->flag = global_flags;
 	s->op1 = query;
 	s->op2 = stmt_list(be, append(append(sa_list(be->mvc->sa), edge_from), edge_to));
 	s->op3 = weights;
