@@ -192,6 +192,7 @@ typedef struct buffer {
 stream_export void buffer_init(buffer *b, char *buf, size_t size);
 stream_export buffer *buffer_create(size_t size);
 stream_export char *buffer_get_buf(buffer *b);
+stream_export char *buffer_get_buf_unsafe(buffer *b);
 stream_export void buffer_destroy(buffer *b);
 
 stream_export stream *buffer_rastream(buffer *b, const char *name);

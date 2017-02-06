@@ -4964,7 +4964,6 @@ subrel_bin(backend *be, sql_rel *rel, list *refs)
 	case op_graph_join:
 	case op_graph_select:
 		s = rel2bin_graph(be, rel, refs);
-		printf("MAL instruction: %s\n", mal2str(be->mb, 0, be->mb->stop));
 		break;
 	}
 	if (s && rel_is_ref(rel)) {
@@ -4995,6 +4994,8 @@ output_rel_bin(backend *be, sql_rel *rel )
 	list *refs = sa_list(sql->sa);
 	int sqltype = sql->type;
 	stmt *s = subrel_bin(be, rel, refs);
+
+	printf("[output_rel_bin] %s\n", mal2str(be->mb, 0, be->mb->stop));
 
 	if (sqltype == Q_SCHEMA)
 		sql->type = sqltype;  /* reset */

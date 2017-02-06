@@ -3429,8 +3429,8 @@ buffer_create(size_t size)
 	return b;
 }
 
-char *
-buffer_get_buf(buffer *b)
+static char *
+buffer_get_buf0(buffer *b, bool unsafe)
 {
 	char *r;
 
@@ -3440,10 +3440,28 @@ buffer_get_buf(buffer *b)
 		return NULL;
 	r = b->buf;
 	r[b->pos] = '\0';
-	b->buf = malloc(b->len);
-	b->len = b->buf ? b->len : 0;
+	if(unsafe) {
+		b->buf = NULL;
+		b->len = 0;
+	} else {
+		b->buf = malloc(b->len);
+		b->len = b->buf ? b->len : 0;
+	}
 	b->pos = 0;
 	return r;
+}
+
+char *
+buffer_get_buf(buffer *b)
+{
+	return buffer_get_buf0(b, false);
+}
+
+
+char *
+buffer_get_buf_unsafe(buffer *b)
+{
+	return buffer_get_buf0(b, true);
 }
 
 void

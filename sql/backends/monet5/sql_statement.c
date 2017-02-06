@@ -3671,11 +3671,22 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	stmt *s = NULL;
 	int dest = -1;
 	int i = -1;
+	stream *stream = buffer_wastream(buffer_create(1024), "spfw_codegen_query");
 
 	// Validate the input parameters
 	assert(query->type == st_list && "Invalid parameter type");
 	assert(list_length(query->op4.lval) == 4 && "Expected 4 input parameters: left & right candidate ids, left & right vertex ids");
 	assert(weights->type == st_list && "Invalid parameter type");
+
+	// prepare the query
+	mnstr_printf(stream, "<spfw from='codegen'>\n");
+
+	// is this a join?
+	if(global_flags & SPFW_JOIN){
+		mnstr_printf(stream, "\t<operation>join</operation>\n");
+	} else {
+		mnstr_printf(stream, "\t<operation>filter</operation>\n");
+	}
 
 	// I can use macros too..
 #define EVIL_PUSH(S) if (((stmt*) (S))->type == st_none ) { q = pushNil(be->mb, q, TYPE_bat); } \
@@ -3691,6 +3702,9 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	for(node *n = weights->op4.lval->h; n; n = n->next){
 		q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_any));
 	}
+
+	// the first argument should be the query description
+	q = pushStr(be->mb, q, ""); // placeholder
 	// input arguments
 	for(node *n = query->op4.lval->h; n; n = n->next){ // query parameters
 		EVIL_PUSH(n->data);
@@ -3700,11 +3714,67 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	for(node *n = weights->op4.lval->h; n; n = n->next){ // weights
 		EVIL_PUSH(n->data);
 	}
-	q = pushInt(be->mb, q, global_flags);
 
 #undef EVIL_PUSH
 
-	// ABI convention
+	// describe the input columns
+	mnstr_printf(stream, "\t<input>\n");
+	mnstr_printf(stream, "\t\t<column name='candidates_left' pos='%d' />\n", q->retc +1);
+	if(be->mb->var[q->argv[q->retc+2]]->value.val.bval != bat_nil) {
+		mnstr_printf(stream, "\t\t<column name='candidates_right' pos='%d' />\n", q->retc +2);
+	}
+	mnstr_printf(stream, "\t\t<column name='src' pos='%d' />\n", q->retc +3);
+	mnstr_printf(stream, "\t\t<column name='dst' pos='%d' />\n", q->retc +4);
+	mnstr_printf(stream, "\t</input>\n");
+
+	// graph columns
+	mnstr_printf(stream, "\t<graph type='columns'>\n");
+	mnstr_printf(stream, "\t\t<column name='src' pos='%d' />\n", q->retc +5);
+	mnstr_printf(stream, "\t\t<column name='dst' pos='%d' />\n", q->retc +6);
+	mnstr_printf(stream, "\t</graph>\n");
+
+
+	// spfw
+	do {
+		int ret_spfw = 2; // 0 = jl, 1 = jr
+		int arg_spfw = q->retc + 7;
+
+		mnstr_printf(stream, "\t<subexpr>\n");
+
+		for(node *n = weights->op4.lval->h; n; n = n->next){
+			mnstr_printf(stream, "\t\t<shortest_path>\n");
+			mnstr_printf(stream, "\t\t\t<column name='output' pos='%d' />\n", ret_spfw++);
+			mnstr_printf(stream, "\t\t\t<column name='weights' pos='%d' />\n", arg_spfw++);
+			mnstr_printf(stream, "\t\t</shortest_path>\n");
+		}
+
+		mnstr_printf(stream, "\t</subexpr>\n");
+	} while (0);
+
+
+	// save the query description
+	do {
+		char *spfw_argument_buffer = NULL;
+		size_t spfw_argument_length = 0;
+		ValRecord record;
+		int record_ptr = -1;
+
+		mnstr_printf(stream, "</spfw>");
+		spfw_argument_buffer = buffer_get_buf_unsafe(mnstr_get_buffer(stream));
+		spfw_argument_length = strlen(spfw_argument_buffer);
+
+		record.vtype = TYPE_str;
+		record.val.sval = GDKstrdup(spfw_argument_buffer); // TODO: it should check whether the alloc~ succeeded
+		record.len = (int) spfw_argument_length;
+		record_ptr = defConstant(be->mb, TYPE_str, &record);
+		q->argv[q->retc] = record_ptr;
+
+
+		free(spfw_argument_buffer);
+		mnstr_destroy(stream); stream = NULL;
+	} while(0);
+
+	// API convention
 	dest = getDestVar(q); // jl
 	renameVariable(be->mb, getArg(q, 1), "r1_%d", dest); // jr
 	i = 2;

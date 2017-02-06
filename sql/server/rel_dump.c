@@ -1412,8 +1412,9 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 
 
 // DEBUG ONLY -- copy & paste from sql_gencode.c + decorate = TRUE
+// use with case, the result needs to be freed once used
 str
-dump_rel( mvc *sql, sql_rel *rel)
+dump_rel(mvc *sql, sql_rel *rel)
 {
 	buffer *b;
 	stream *s = buffer_wastream(b = buffer_create(1024), "rel_dump");
@@ -1423,21 +1424,22 @@ dump_rel( mvc *sql, sql_rel *rel)
 	rel_print_refs(sql, s, rel, 0, refs, TRUE);
 	rel_print_(sql, s, rel, 0, refs, TRUE);
 	mnstr_printf(s, "\n");
-	res = buffer_get_buf(b);
+	res = buffer_get_buf(b); // leaks memory
 	buffer_destroy(b);
 	mnstr_destroy(s);
 	return res;
 }
 
+// use with case, the result needs to be freed once used
 str
-dump_exps(mvc *sql, list *exps ){
+dump_exps(mvc *sql, list *exps){
 	buffer *b;
 	stream *s = buffer_wastream(b = buffer_create(1024), "rel_dump");
 	char *res = NULL;
 
 	exps_print(sql, s, exps, 0, /*alias=*/ 1, /*brackets=*/0);
 	mnstr_printf(s, "\n");
-	res = buffer_get_buf(b);
+	res = buffer_get_buf(b); // leaks memory
 	buffer_destroy(b);
 	mnstr_destroy(s);
 	return res;
