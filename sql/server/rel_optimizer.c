@@ -6295,6 +6295,8 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 		// edges
 		exps_mark_used_(sql->sa, rel, graph_ptr->edges, graph_ptr->efrom);
 		exps_mark_used_(sql->sa, rel, graph_ptr->edges, graph_ptr->eto);
+		exps_mark_used_(sql->sa, rel, graph_ptr->edges, graph_ptr->spfw);
+
 		rel_mark_used(sql, graph_ptr->edges, 0);
 	} break;
 	}
@@ -9529,8 +9531,11 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		rel = rewrite_topdown(sql, rel, &rel_push_project_down_union, &changes);
 
 	/* Remove unused expressions */
-	if (level <= 0)
+	if (level <= 0) {
+		printf("[Optimizer] dce before: %s\n", dump_rel(sql, rel));
 		rel = rel_dce(sql, rel);
+		printf("[Optimizer] dce after: %s\n", dump_rel(sql, rel));
+	}
 
 	if (gp.cnt[op_join] || gp.cnt[op_left] || gp.cnt[op_right] || gp.cnt[op_full] || 
 	    gp.cnt[op_semi] || gp.cnt[op_anti] || gp.cnt[op_select] || graph_operators) {

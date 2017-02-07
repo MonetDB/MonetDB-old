@@ -16,6 +16,7 @@
 #include "rel_select.h"
 #include "rel_updates.h"
 #include "rel_optimizer.h"
+#include "rel_dump.h" // debug only
 #include "sql_env.h"
 
 #define OUTER_ZERO 64
@@ -4721,6 +4722,9 @@ rel2bin_graph(backend *be, sql_rel* rel, list *refs)
 	// for more extreme cases
 #define void2oid(statement) stmt_gr8_void2oid(be, statement)
 
+	// debugging
+	printf("[rel2bin_graph] input: %s\n", dump_rel(sql, rel));
+
 	// first construct the depending relations
 	left = subrel_bin(be, rel->l, refs);
 	if(!left) return NULL; // error
@@ -4814,7 +4818,7 @@ rel2bin_graph(backend *be, sql_rel* rel, list *refs)
 	for(node *n = graph_ptr->spfw->h; n; n = n->next){
 		sql_exp* e = n->data;
 		stmt* s = exp_bin(be, e, edges, NULL, NULL, NULL, NULL, NULL);
-		assert(s != NULL);
+		assert(s != NULL && "Weight expression is NULL");
 		if(!s) return NULL;
 
 		list_append(lst1, s);

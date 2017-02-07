@@ -3671,6 +3671,7 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	stmt *s = NULL;
 	int dest = -1;
 	int i = -1;
+	int num_output_cols = 2; // number of output columns from the operator
 	stream *stream = buffer_wastream(buffer_create(1024), "spfw_codegen_query");
 
 	// Validate the input parameters
@@ -3700,7 +3701,8 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_bat)); // right candidate list
 	// add the shortest paths
 	for(node *n = weights->op4.lval->h; n; n = n->next){
-		q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_any));
+		q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_bat));
+		num_output_cols++;
 	}
 
 	// the first argument should be the query description
@@ -3778,7 +3780,7 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	dest = getDestVar(q); // jl
 	renameVariable(be->mb, getArg(q, 1), "r1_%d", dest); // jr
 	i = 2;
-	for(node *n = weights->op4.lval->h; n; n = n->next){ // shortest paths
+	for(node *n = weights->op4.lval->h; n; n = n->next, i++){ // shortest paths
 		snprintf(be->mb->var[getArg(q, i)]->id, IDLENGTH, "r%d_%d", i, dest);
 	}
 
@@ -3790,6 +3792,9 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	s->op1 = query;
 	s->op2 = stmt_list(be, append(append(sa_list(be->mvc->sa), edge_from), edge_to));
 	s->op3 = weights;
+	// just required >= 1 to avoid projecting a column out of a constant when looking
+	// for the shortest paths
+	s->nrcols = num_output_cols; /* = i*/
 
 	return s;
 }
