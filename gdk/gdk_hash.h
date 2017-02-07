@@ -157,6 +157,9 @@ gdk_export BUN HASHlist(Hash *h, BUN i);
 #define hash_oid(H,V)	hash_lng(H,V)
 #endif
 
+#define hash_imps_int(H,V,B)	(((BUN) mix_int(*(const unsigned int *) (V)) & ((H)->mask >> 6)) | ((B) << 6))
+#define hash_imps_lng(H,V,B)	(((BUN) mix_lng(*(const ulng *) (V)) & ((H)->mask >> 6)) | ((B) << 6))
+
 #define hash_flt(H,V)	hash_int(H,V)
 #define hash_dbl(H,V)	hash_lng(H,V)
 

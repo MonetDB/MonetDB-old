@@ -1928,6 +1928,12 @@ gdk_export ptr ATOMdup(int id, const void *val);
 gdk_export gdk_return BAThash(BAT *b, BUN masksize);
 
 /*
+ * Compared to BAThash, this function just modifies the hash function by
+ * injecting the imprints information of the target column
+ */
+gdk_export gdk_return BAThash_imps(BAT *b, BUN masksize);
+
+/*
  * @- Column Imprints Functions
  *
  * @multitable @columnfractions 0.08 0.7

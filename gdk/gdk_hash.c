@@ -134,6 +134,14 @@ HASHnew(Heap *hp, int tpe, BUN size, BUN mask, BUN count)
 	return h;
 }
 
+#define GETBIN_IMPS(Z,X,B)			\
+do {					\
+	int _i;				\
+	Z = 0;				\
+	for (_i = 1; _i < B; _i++)	\
+		Z += ((X) >= bins[_i]);	\
+} while (0)
+
 #define starthash(TYPE)							\
 	do {								\
 		TYPE *v = (TYPE *) BUNtloc(bi, 0);			\
@@ -151,6 +159,24 @@ HASHnew(Heap *hp, int tpe, BUN size, BUN mask, BUN count)
 		TYPE *v = (TYPE *) BUNtloc(bi, 0);		\
 		for (; p < q; p++) {				\
 			BUN c = (BUN) hash_##TYPE(h, v + p);	\
+								\
+			HASHputlink(h, p, HASHget(h, c));	\
+			HASHput(h, c, p);			\
+		}						\
+	} while (0)
+
+
+#define finishhash_imps(TYPE)					\
+	do {							\
+		TYPE *v = (TYPE *) BUNtloc(bi, 0);		\
+		int bin;							\
+		Imprints *imprints = b->timprints;		\
+		const TYPE *restrict bins = (TYPE *) imprints->bins;			\
+		const int B = imprints->bits;			\
+		for (; p < q; p++) {					\
+			BUN c;								\
+			GETBIN_IMPS(bin, *(v + p), B);	\
+			c = (BUN) hash_imps_##TYPE(h, v + p, bin);	\
 								\
 			HASHputlink(h, p, HASHget(h, c));	\
 			HASHput(h, c, p);			\
@@ -472,6 +498,219 @@ BAThash(BAT *b, BUN masksize)
 			break;
 		case TYPE_int:
 			finishhash(int);
+			break;
+		case TYPE_flt:
+			finishhash(flt);
+			break;
+		case TYPE_dbl:
+			finishhash(dbl);
+			break;
+		case TYPE_lng:
+			finishhash(lng);
+			break;
+#ifdef HAVE_HGE
+		case TYPE_hge:
+			finishhash(hge);
+			break;
+#endif
+		default:
+			for (; p < q; p++) {
+				ptr v = BUNtail(bi, p);
+				BUN c = (BUN) heap_hash_any(b->tvheap, h, v);
+
+				HASHputlink(h, p, HASHget(h, c));
+				HASHput(h, c, p);
+			}
+			break;
+		}
+#ifndef NDEBUG
+		/* clear unused part of Link array */
+		memset((char *) h->Link + q * h->width, 0, (h->lim - q) * h->width);
+#endif
+		hp->parentid = b->batCacheid;
+#ifdef PERSISTENTHASH
+		if (BBP_status(b->batCacheid) & BBPEXISTING) {
+			MT_Id tid;
+			struct hashsync *hs = GDKmalloc(sizeof(*hs));
+			if (hs != NULL) {
+				BBPfix(b->batCacheid);
+				hs->id = b->batCacheid;
+				hs->hp = hp;
+				if (MT_create_thread(&tid, BAThashsync, hs,
+						     MT_THR_DETACHED) < 0) {
+					/* couldn't start thread: clean up */
+					BBPunfix(b->batCacheid);
+					GDKfree(hs);
+				}
+			}
+		} else
+			ALGODEBUG fprintf(stderr, "#BAThash: NOT persisting hash %d\n", b->batCacheid);
+#endif
+		b->thash = h;
+		ALGODEBUG {
+			t1 = GDKusec();
+			fprintf(stderr, "#BAThash: hash construction " LLFMT " usec\n", t1 - t0);
+			HASHcollisions(b, b->thash);
+		}
+	}
+	MT_lock_unset(&GDKhashLock(b->batCacheid));
+	return GDK_SUCCEED;
+}
+
+
+
+gdk_return
+BAThash_imps(BAT *b, BUN masksize)
+{
+	lng t0 = 0, t1 = 0;
+
+	assert(b->batCacheid > 0);
+	if (BATcheckhash(b)) {
+		return GDK_SUCCEED;
+	}
+	MT_lock_set(&GDKhashLock(b->batCacheid));
+	if (b->thash == NULL) {
+		unsigned int tpe = ATOMbasetype(b->ttype);
+		BUN cnt = BATcount(b);
+		BUN mask, maxmask = 0;
+		BUN p = 0, q = BUNlast(b), r;
+		Hash *h = NULL;
+		Heap *hp;
+		const char *nme = BBP_physical(b->batCacheid);
+		const char *ext = b->batCacheid > 0 ? "thash" : "hhash";
+		BATiter bi = bat_iterator(b);
+
+		ALGODEBUG fprintf(stderr, "#BAThash: create hash(%s#" BUNFMT ");\n", BATgetId(b), BATcount(b));
+		if ((hp = GDKzalloc(sizeof(*hp))) == NULL ||
+		    (hp->farmid = BBPselectfarm(b->batRole, b->ttype, hashheap)) < 0 ||
+		    (hp->filename = GDKmalloc(strlen(nme) + 12)) == NULL) {
+			MT_lock_unset(&GDKhashLock(b->batCacheid));
+			GDKfree(hp);
+			return GDK_FAIL;
+		}
+		hp->dirty = TRUE;
+		sprintf(hp->filename, "%s.%s", nme, ext);
+
+		/* cnt = 0, hopefully there is a proper capacity from
+		 * which we can derive enough information */
+		if (!cnt)
+			cnt = BATcapacity(b);
+
+		if (b->ttype == TYPE_void) {
+			if (b->tseqbase == oid_nil) {
+				MT_lock_unset(&GDKhashLock(b->batCacheid));
+				ALGODEBUG fprintf(stderr, "#BAThash: cannot create hash-table on void-NIL column.\n");
+				GDKfree(hp->filename);
+				GDKfree(hp);
+				GDKerror("BAThash: no hash on void/nil column\n");
+				return GDK_FAIL;
+			}
+			ALGODEBUG fprintf(stderr, "#BAThash: creating hash-table on void column..\n");
+
+			tpe = TYPE_void;
+		}
+		/* determine hash mask size p = first; then no dynamic
+		 * scheme */
+		if (masksize > 0) {
+			mask = HASHmask(masksize);
+		} else if (ATOMsize(tpe) == 1) {
+			mask = (1 << 8);
+		} else if (ATOMsize(tpe) == 2) {
+			mask = (1 << 16);
+		} else if (b->tkey) {
+			mask = HASHmask(cnt);
+		} else {
+			/* dynamic hash: we start with
+			 * HASHmask(cnt)/64; if there are too many
+			 * collisions we try HASHmask(cnt)/16, then
+			 * HASHmask(cnt)/4, and finally
+			 * HASHmask(cnt).  */
+			maxmask = HASHmask(cnt);
+			mask = maxmask >> 6;
+			p += (cnt >> 2);	/* try out on first 25% of b */
+			if (p > q)
+				p = q;
+		}
+
+		ALGODEBUG t0 = GDKusec();
+
+		do {
+			BUN nslots = mask >> 3;	/* 1/8 full is too full */
+
+			r = 0;
+			if (h) {
+				char *fnme;
+				bte farmid;
+
+				ALGODEBUG fprintf(stderr, "#BAThash: retry hash construction\n");
+				fnme = GDKstrdup(hp->filename);
+				farmid = hp->farmid;
+				HEAPfree(hp, 1);
+				memset(hp, 0, sizeof(*hp));
+				hp->filename = fnme;
+				hp->farmid = farmid;
+				GDKfree(h);
+				h = NULL;
+			}
+			/* create the hash structures */
+			if ((h = HASHnew(hp, ATOMtype(b->ttype), BATcapacity(b), mask, BATcount(b))) == NULL) {
+
+				MT_lock_unset(&GDKhashLock(b->batCacheid));
+				GDKfree(hp->filename);
+				GDKfree(hp);
+				return GDK_FAIL;
+			}
+
+			switch (tpe) {
+			case TYPE_bte:
+				starthash(bte);
+				break;
+			case TYPE_sht:
+				starthash(sht);
+				break;
+			case TYPE_flt:
+				starthash(flt);
+				break;
+			case TYPE_int:
+				starthash(int);
+				break;
+			case TYPE_dbl:
+				starthash(dbl);
+				break;
+			case TYPE_lng:
+				starthash(lng);
+				break;
+#ifdef HAVE_HGE
+			case TYPE_hge:
+				starthash(hge);
+				break;
+#endif
+			default:
+				for (; r < p; r++) {
+					ptr v = BUNtail(bi, r);
+					BUN c = (BUN) heap_hash_any(b->tvheap, h, v);
+
+					if (HASHget(h, c) == HASHnil(h) &&
+					    nslots-- == 0)
+						break;	/* mask too full */
+					HASHputlink(h, r, HASHget(h, c));
+					HASHput(h, c, r);
+				}
+				break;
+			}
+		} while (r < p && mask < maxmask && (mask <<= 2));
+
+		/* finish the hashtable with the current mask */
+		p = r;
+		switch (tpe) {
+		case TYPE_bte:
+			finishhash(bte);
+			break;
+		case TYPE_sht:
+			finishhash(sht);
+			break;
+		case TYPE_int:
+			finishhash_imps(int);
 			break;
 		case TYPE_flt:
 			finishhash(flt);

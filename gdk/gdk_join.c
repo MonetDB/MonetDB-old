@@ -2580,9 +2580,21 @@ binsearchcand(const oid *cand, BUN lo, BUN hi, oid v)
 		if (hb >= (lo) && hb < (hi) &&			\
 		    simple_EQ(v, BUNtloc(bi, hb), TYPE))
 
+#define GETBIN_(Z,X,B)			\
+do {					\
+	int _i;				\
+	Z = 0;				\
+	for (_i = 1; _i < B; _i++)	\
+		Z += ((X) >= bins[_i]);	\
+} while (0)
+
 #define HASHJOIN(TYPE, WIDTH)						\
 	do {								\
 		BUN hashnil = HASHnil(hsh);				\
+		int bin;								\
+		Imprints *imprints = l->timprints;		\
+		const TYPE *restrict bins = (TYPE *) imprints->bins;			\
+		const int B = imprints->bits;			\
 		for (lo = lstart + l->hseqbase;				\
 		     lstart < lend;					\
 		     lo++) {						\
@@ -2590,7 +2602,8 @@ binsearchcand(const oid *cand, BUN lo, BUN hi, oid v)
 			lstart++;					\
 			nr = 0;						\
 			if (*(const TYPE*)v != TYPE##_nil) {		\
-				for (rb = HASHget##WIDTH(hsh, hash_##TYPE(hsh, v)); \
+				GETBIN_(bin, *v, B);	\
+				for (rb = HASHget##WIDTH(hsh, hash_imps_##TYPE(hsh, v, bin)); \
 				     rb != hashnil;			\
 				     rb = HASHgetlink##WIDTH(hsh, rb))	\
 					if (rb >= rl && rb < rh &&	\
@@ -2748,7 +2761,7 @@ imps_hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matche
 	rl += rstart;
 	rseq += rstart;
 
-	if (BAThash(r, 0) != GDK_SUCCEED)
+	if (BAThash_imps(r, 0) != GDK_SUCCEED)
 		goto bailout;
 	ri = bat_iterator(r);
 	nrcand = (BUN) (rcandend - rcand);
