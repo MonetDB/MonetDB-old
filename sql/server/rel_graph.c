@@ -184,7 +184,7 @@ static sql_exp* bind_cheapest_sum_graph(mvc *sql, sql_graph *graph, dlist *parse
 	const char* table_ref = NULL; // the table referred (optional)
 	symbol* expr_weight = NULL; // the expression inside CHEAPEST SUM ( ... );
 	sql_rel* edges = NULL; // the table expression representing the edges
-	sql_exp* e = NULL; // the final result
+	sql_exp* e = NULL; // the expression being bound
 	exp_kind exp_kind_value = {type_value, card_column, TRUE}; // rel_value_exp parameters
 
 	// init
@@ -205,6 +205,14 @@ static sql_exp* bind_cheapest_sum_graph(mvc *sql, sql_graph *graph, dlist *parse
 
 	if(e){ // success
 		node* duplicate = NULL;
+		sql_exp* bound_exp = e; // the resulting expression
+		bool is_bfs = false; // is this a BFS?
+
+		// if this is an atom, then perform a simple BFS and multiply the final result by the original atom
+		if(exp_is_atom(e)){
+			e = exp_atom_lng(sql->sa, 1); // whatever value or type, the important part for the codegen is that this is an atom
+			is_bfs = true;
+		}
 
 		// before creating a new spfw, search for duplicates in the list of expressions
 		// already registered
@@ -219,7 +227,34 @@ static sql_exp* bind_cheapest_sum_graph(mvc *sql, sql_graph *graph, dlist *parse
 			e = duplicate->data;
 		}
 
-		return exp_column(sql->sa, exp_relname(e), exp_name(e), exp_subtype(e), graph->relation.card, /* has_nil = */ FALSE, /* is_intern = */ FALSE);
+		e = exp_column(sql->sa, exp_relname(e), exp_name(e), exp_subtype(e), graph->relation.card, /* has_nil = */ FALSE, /* is_intern = */ FALSE);
+
+		// if this is a bfs, we need to multiply the result by the actual value
+		if(is_bfs){
+			sql_subfunc* f_mult = NULL;
+
+			// cast the result to the expected type
+			if(type_cmp(exp_subtype(e)->type, exp_subtype(bound_exp)->type) != 0 /* 0 = same type */){
+				sql_type* e_t = exp_subtype(e)->type;
+				sql_type* bound_exp_t = exp_subtype(bound_exp)->type;
+				// currently a bfs returns a lng, so cast to lng unless it is even bigger
+				if(bound_exp_t->eclass == EC_NUM && bound_exp_t->digits < e_t->digits) {
+					bound_exp = exp_convert(sql->sa, bound_exp, exp_subtype(bound_exp), exp_subtype(e));
+				} else {
+					e = exp_convert(sql->sa, e, exp_subtype(e), exp_subtype(bound_exp));
+				}
+			}
+
+			f_mult = sql_bind_func(sql->sa, /*mvc_bind_schema(sql, "sys")*/ NULL, "sql_mul", exp_subtype(bound_exp), exp_subtype(e), F_FUNC);
+			assert(f_mult != NULL && "Cannot bind the multiply function");
+			bound_exp = exp_binop(sql->sa, bound_exp, e, f_mult);
+		} else {
+			// the result is the actual column computed by the spfw operator => weighted shortest path
+			bound_exp = e;
+		}
+
+		return bound_exp;
+
 	} else { // nope
 		return NULL; // == e
 	}

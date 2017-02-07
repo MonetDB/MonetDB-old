@@ -3690,7 +3690,7 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	}
 
 	// I can use macros too..
-#define EVIL_PUSH(S) if (((stmt*) (S))->type == st_none ) { q = pushNil(be->mb, q, TYPE_bat); } \
+#define EVIL_PUSH(S) if ( (S) == NULL || ((stmt*) (S))->type == st_none ) { q = pushNil(be->mb, q, TYPE_bat); } \
 		else if(((stmt*)S)->nr < 0) { return NULL; } else { q = pushArgument(be->mb, q, ((stmt*) S)->nr); }
 
 	// generate the MAL instruction
@@ -3735,7 +3735,6 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	mnstr_printf(stream, "\t\t<column name='dst' pos='%d' />\n", q->retc +6);
 	mnstr_printf(stream, "\t</graph>\n");
 
-
 	// spfw
 	do {
 		int ret_spfw = 2; // 0 = jl, 1 = jr
@@ -3746,7 +3745,9 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 		for(node *n = weights->op4.lval->h; n; n = n->next){
 			mnstr_printf(stream, "\t\t<shortest_path>\n");
 			mnstr_printf(stream, "\t\t\t<column name='output' pos='%d' />\n", ret_spfw++);
-			mnstr_printf(stream, "\t\t\t<column name='weights' pos='%d' />\n", arg_spfw++);
+			if(n->data) // weighted shortest path?
+				mnstr_printf(stream, "\t\t\t<column name='weights' pos='%d' />\n", arg_spfw);
+			arg_spfw++; // increment anyway as we are pushing a dummy argument as nil if this is BFS
 			mnstr_printf(stream, "\t\t</shortest_path>\n");
 		}
 

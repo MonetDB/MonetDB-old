@@ -905,8 +905,11 @@ sql_bind_func_(sql_allocator *sa, sql_schema *s, const char *sqlfname, list *ops
 		if (f->type != type && f->type != filt) 
 			continue;
 		if (strcmp(f->base.name, sqlfname) == 0) {
-			if (list_cmp(f->ops, ops, (fcmp) &arg_subtype_cmp) == 0) 
+			printf("match %s\n", f->base.name);
+			if (list_cmp(f->ops, ops, (fcmp) &arg_subtype_cmp) == 0) {
+				printf("found\n");
 				return sql_dup_subfunc(sa, f, ops, NULL);
+			}
 		}
 	}
 	if (s) {

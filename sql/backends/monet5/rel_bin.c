@@ -4817,9 +4817,13 @@ rel2bin_graph(backend *be, sql_rel* rel, list *refs)
 	lst1 = sa_list(sql->sa);
 	for(node *n = graph_ptr->spfw->h; n; n = n->next){
 		sql_exp* e = n->data;
-		stmt* s = exp_bin(be, e, edges, NULL, NULL, NULL, NULL, NULL);
-		assert(s != NULL && "Weight expression is NULL");
-		if(!s) return NULL;
+		stmt *s = NULL;
+
+		if(!exp_is_atom(e)){ // no need to generate a weight for a bfs
+			s = exp_bin(be, e, edges, NULL, NULL, NULL, NULL, NULL);
+			assert(s != NULL && "Weight expression is NULL");
+			if(!s) return NULL;
+		}
 
 		list_append(lst1, s);
 	}
