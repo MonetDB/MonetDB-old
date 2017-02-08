@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*#define DEBUG*/
@@ -3961,7 +3961,7 @@ rel_push_select_down(int *changes, mvc *sql, sql_rel *rel)
 		pl = r->l;
 		/* introduce selects under the project (if needed) */
 		set_processed(pl);
-		if (!is_select(pl->op))
+		if (!is_select(pl->op) || rel_is_ref(pl))
 			r->l = pl = rel_select(sql->sa, pl, NULL);
 
 		/* for each exp check if we can rename it */
@@ -4354,6 +4354,8 @@ rel_push_join_down_union(int *changes, mvc *sql, sql_rel *rel)
 			je && !find_prop(je->p, PROP_JOINIDX) && /* FKEY JOIN */
 			!rel_is_join_on_pkey(rel))) /* aligned PKEY JOIN */
 			return rel;
+		if (is_semi(rel->op) && is_union(l->op) && je && !find_prop(je->p, PROP_JOINIDX))
+			return rel;
 
 		ol->subquery = or->subquery = 0;
 		if ((is_union(l->op) && !need_distinct(l)) && !is_union(r->op)){
@@ -4584,7 +4586,7 @@ rel_push_select_down_union(int *changes, mvc *sql, sql_rel *rel)
 		if (u->op == op_project)
 			u = u->l;
 
-		if (!u || !is_union(u->op) || !u->exps || rel_is_ref(u))
+		if (!u || !is_union(u->op) || need_distinct(u) || !u->exps || rel_is_ref(u))
 			return rel;
 
 		ul = u->l;
@@ -5417,8 +5419,22 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 		if (is_join(rel->op) && r) {
 			t = (l->op == op_project && l->l)?l->l:l;
 			l_exps = rel_projections(sql, t, NULL, 1, 1);
+			/* conflict with old right expressions */
+			r_exps = rel_projections(sql, r, NULL, 1, 1);
+			for(n = l_exps->h; n; n = n->next) {
+				sql_exp *e = n->data;
+				const char *rname = exp_relname(e);
+				const char *name = exp_name(e);
+	
+				if (exp_is_atom(e))
+					continue;
+				if ((rname && exps_bind_column2(r_exps, rname, name) != NULL) || 
+				    (!rname && exps_bind_column(r_exps, name, NULL) != NULL)) 
+					return rel;
+			}
 			t = (r->op == op_project && r->l)?r->l:r;
 			r_exps = rel_projections(sql, t, NULL, 1, 1);
+			/* conflict with new right expressions */
 			for(n = l_exps->h; n; n = n->next) {
 				sql_exp *e = n->data;
 	
@@ -5428,6 +5444,7 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 				   (exps_bind_column(r_exps, e->r, NULL) != NULL && (!e->l || !e->r)))
 					return rel;
 			}
+			/* conflict with new left expressions */
 			for(n = r_exps->h; n; n = n->next) {
 				sql_exp *e = n->data;
 	
@@ -7909,8 +7926,6 @@ exp_apply_rename(mvc *sql, sql_exp *e, list *aliases, int setname)
 			ne = exp_op(sql->sa, nl, e->f);
 		else 
 			ne = exp_aggr(sql->sa, nl, e->f, need_distinct(e), need_no_nil(e), e->card, has_nil(e));
-		if (e && e->rname)
-			exp_setname(sql->sa, ne, e->rname, e->name);
 		break;
 	}	
 	case e_atom:
@@ -7919,6 +7934,8 @@ exp_apply_rename(mvc *sql, sql_exp *e, list *aliases, int setname)
 	}
 	if (ne && e->p)
 		ne->p = prop_copy(sql->sa, e->p);
+	if (ne && !ne->used && e->rname)
+		exp_setname(sql->sa, ne, e->rname, e->name);
 	return ne;
 }
 

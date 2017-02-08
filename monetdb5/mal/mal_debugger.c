@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -66,11 +66,12 @@ mdbInit(void)
 	/*
 	 * Each client has its own breakpoint administration, kept in a
 	 * global table.  Although a little space consumptive, it is the
-	 * easiest to maintain and much less expensive as reserving debugger
-	 * space in each instruction.
+	 * easiest to maintain and much less expensive than reserving
+	 * debugger space in each instruction.
 	 */
-	mdbTable = GDKzalloc(sizeof(mdbStateRecord) * MAL_MAXCLIENTS);
-	if (mdbTable == NULL) {
+	if (mdbTable)
+		memset(mdbTable, 0, sizeof(mdbStateRecord) * MAL_MAXCLIENTS);
+	else if ((mdbTable = GDKzalloc(sizeof(mdbStateRecord) * MAL_MAXCLIENTS)) == NULL) {
 		showException(GDKout,MAL, "mdbInit",MAL_MALLOC_FAIL);
 		return -1;
 	}

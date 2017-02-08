@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -25,7 +25,8 @@
 #include "mal.h"		/* for have_hge */
 #endif
 
-#define check_card(card,f) ((card == card_none && !f->res) || (card != card_none && (f->res || f->func->type == F_FILT)) || card == card_loader)
+#define VALUE_FUNC(f) (f->func->type == F_FUNC || f->func->type == F_FILT)
+#define check_card(card,f) ((card == card_none && !f->res) || (CARD_VALUE(card) && f->res && VALUE_FUNC(f)) || card == card_loader || (card == card_relation && f->func->type == F_UNION))
 
 static void
 rel_setsubquery(sql_rel*r)
@@ -995,10 +996,15 @@ rel_column_ref(mvc *sql, sql_rel **rel, symbol *column_r, int f)
 			return rel_var_ref(sql, name, 0);
 		}
 		if (!exp && !var) {
-			if (rel && *rel && (*rel)->card == CARD_AGGR && f == sql_sel)
-				return sql_error(sql, 02, "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", name);
-			else
-				return sql_error(sql, 02, "SELECT: identifier '%s' unknown", name);
+			if (rel && *rel && (*rel)->card == CARD_AGGR && f == sql_sel) {
+				sql_rel *gb = *rel;
+
+				while(gb->l && !is_groupby(gb->op))
+					gb = gb->l;
+				if (gb && gb->l && rel_bind_column(sql, gb->l, name, f)) 
+					return sql_error(sql, 02, "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", name);
+			}
+			return sql_error(sql, 02, "SELECT: identifier '%s' unknown", name);
 		}
 		
 	} else if (dlist_length(l) == 2) {
@@ -1026,10 +1032,15 @@ rel_column_ref(mvc *sql, sql_rel **rel, symbol *column_r, int f)
 			}
 		}
 		if (!exp) {
-			if (rel && *rel && (*rel)->card == CARD_AGGR && f == sql_sel)
-				return sql_error(sql, 02, "SELECT: cannot use non GROUP BY column '%s.%s' in query results without an aggregate function", tname, cname);
-			else
-				return sql_error(sql, 02, "42S22!SELECT: no such column '%s.%s'", tname, cname);
+			if (rel && *rel && (*rel)->card == CARD_AGGR && f == sql_sel) {
+				sql_rel *gb = *rel;
+
+				while(gb->l && !is_groupby(gb->op))
+					gb = gb->l;
+				if (gb && gb->l && rel_bind_column2(sql, gb->l, tname, cname, f))
+					return sql_error(sql, 02, "SELECT: cannot use non GROUP BY column '%s.%s' in query results without an aggregate function", tname, cname);
+			}
+			return sql_error(sql, 02, "42S22!SELECT: no such column '%s.%s'", tname, cname);
 		}
 	} else if (dlist_length(l) >= 3) {
 		return sql_error(sql, 02, "TODO: column names of level >= 3");
@@ -4324,19 +4335,10 @@ rel_value_exp2(mvc *sql, sql_rel **rel, symbol *se, int f, exp_kind ek, int *is_
 					exp_setname(sql->sa, ne, exp_relname(e), exp_name(e));
 					e = ne;
 				} else if (f == sql_sel && is_project(p->op) && !is_processed(p)) {
-					sql_rel *pp = p;
-					if (p->l) 
-						pp = p->l;
-					if (is_groupby(pp->op)) {
-						pp->l = rel_crossproduct(sql->sa, pp->l, r, op_join);
-						e = rel_groupby_add_aggr(sql, pp, e);
-					} else if (p->l) {
+					if (p->l) {
 						p->l = rel_crossproduct(sql->sa, p->l, r, op_join);
-					} else if (!p->l) {
-						p->l = r;
 					} else {
-						assert(0);
-						*rel = rel_crossproduct(sql->sa, p, r, op_join);
+						p->l = r;
 					}
 				} else {
 					*rel = rel_crossproduct(sql->sa, p, r, op_join);
@@ -4664,6 +4666,8 @@ rel_select_exp(mvc *sql, sql_rel *rel, SelectNode *sn, exp_kind ek)
 			rel = rel_groupby(sql, rel, gbe);
 			aggr = 1;
 		}
+		if (!sn->having)
+			set_processed(rel);
 	}
 
 	if (sn->having) {

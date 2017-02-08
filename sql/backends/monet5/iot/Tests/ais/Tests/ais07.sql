@@ -27,7 +27,7 @@ INSERT INTO static_locations VALUES ('Westhaven', 'POLYGON( (3871.6739966 324.80
 INSERT INTO static_locations VALUES ('Mercuriushaven', 'POLYGON( (3872.72450963 330.277569199 5048.02561402, 3873.1986563 329.657593618 5047.70235253, 3872.92006997 329.040734675 5047.95635149, 3873.11386675 328.884805095 5047.81782161, 3873.41352071 329.00959555 5047.57975505, 3873.61782996 329.465350531 5047.39323713, 3873.33890872 330.429316655 5047.54427072, 3872.9540041 330.381842104 5047.84271947, 3872.72450963 330.277569199 5048.02561402) )'); /* Mercuriushaven */
 
 -- Vessels positions reports table based on AIS messages types 1, 2 and 3
-CREATE TABLE vessels7 (implicit_timestamp timestamp, mmsi int, lat real, lon real, nav_status smallint, sog real, rotais smallint);
+CREATE STREAM vessels7 (implicit_timestamp timestamp, mmsi int, lat real, lon real, nav_status smallint, sog real, rotais smallint);
 
 -- Position reports are sent every 3-5 seconds so is resonable to consume the tuples arrived on the last 8 seconds
 -- Inserts for iot web server (providing time based flush of 8 seconds)

@@ -147,7 +147,7 @@ SQLgetSpace(mvc *m, MalBlkPtr mb, int prepare, str *alterpipe)
 			if (getFunctionId(p) == bindidxRef) {
 				sql_idx *i = mvc_bind_idx(m, s, idxname);
 
-				if (isStream(i->t)) {
+				if ( i && isStream(i->t)) {
 					setModuleId(p, basketRef);
 					p->argc =5;	// ignore partition
 					*alterpipe= "iot_pipe";

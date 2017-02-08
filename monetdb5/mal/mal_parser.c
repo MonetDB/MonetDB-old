@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* (c): M. L. Kersten
@@ -995,6 +995,10 @@ parseInclude(Client cntxt)
 	}
 	skipToEnd(cntxt);
 
+	if (!malLibraryEnabled(modnme)) {
+		return "";
+	}
+
 	s = loadLibrary(modnme, FALSE);
 	if (s) {
 		parseError(cntxt, s);
@@ -1095,6 +1099,7 @@ fcnHeader(Client cntxt, int kind)
 	}
 	advance(cntxt, 1);
 
+	assert(!cntxt->backup);
 	cntxt->backup = cntxt->curprg;
 	cntxt->curprg = newFunction( modnme, fnme, kind);
 	curPrg = cntxt->curprg;
@@ -1131,6 +1136,11 @@ fcnHeader(Client cntxt, int kind)
 	}
 	if (currChar(cntxt) != ')') {
 		freeInstruction(curInstr);
+		if (cntxt->backup) {
+			freeSymbol(cntxt->curprg);
+			cntxt->curprg = cntxt->backup;
+			cntxt->backup = 0;
+		}
 		parseError(cntxt, "')' expected\n");
 		skipToEnd(cntxt);
 		return curBlk;
@@ -1168,6 +1178,11 @@ fcnHeader(Client cntxt, int kind)
 			if ((ch = currChar(cntxt)) != ',') {
 				if (ch == ')')
 					break;
+				if (cntxt->backup) {
+					freeSymbol(cntxt->curprg);
+					cntxt->curprg = cntxt->backup;
+					cntxt->backup = 0;
+				}
 				parseError(cntxt, "',' expected\n");
 				skipToEnd(cntxt);
 				return curBlk;
@@ -1182,6 +1197,11 @@ fcnHeader(Client cntxt, int kind)
 		newarg = (short *) GDKmalloc(max * sizeof(curInstr->argv[0]));
 		if (newarg == NULL){
 			parseError(cntxt, MAL_MALLOC_FAIL);
+			if (cntxt->backup) {
+				freeSymbol(cntxt->curprg);
+				cntxt->curprg = cntxt->backup;
+				cntxt->backup = 0;
+			}
 			skipToEnd(cntxt);
 			return curBlk;
 		}
@@ -1291,8 +1311,12 @@ parseCommandPattern(Client cntxt, int kind)
 	modnme = putNameLen(modnme, l);
 	if (isModuleDefined(cntxt->nspace, modnme))
 		insertSymbol(findModule(cntxt->nspace, modnme), curPrg);
-	else
+	else {
+		freeSymbol(curPrg);
+		cntxt->curprg = cntxt->backup;
+		cntxt->backup = 0;
 		return (MalBlkPtr) parseError(cntxt, "<module> not found\n");
+	}
 	chkProgram(cntxt->fdout, cntxt->nspace, curBlk);
 	if (cntxt->backup) {
 		cntxt->curprg = cntxt->backup;

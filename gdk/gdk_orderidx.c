@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -25,7 +25,9 @@ BATidxsync(void *arg)
 	struct idxsync *hs = arg;
 	Heap *hp = hs->hp;
 	int fd;
-	lng t0 = GDKusec();
+	lng t0 = 0;
+
+	ALGODEBUG t0 = GDKusec();
 
 	if (HEAPsave(hp, hp->filename, NULL) != GDK_SUCCEED ||
 	    (fd = GDKfdlocate(hp->farmid, hp->filename, "rb+", NULL)) < 0) {
@@ -58,10 +60,10 @@ int
 BATcheckorderidx(BAT *b)
 {
 	int ret;
-	lng t;
+	lng t = 0;
 
 	assert(b->batCacheid > 0);
-	t = GDKusec();
+	ALGODEBUG t = GDKusec();
 	MT_lock_set(&GDKhashLock(b->batCacheid));
 	if (b->torderidx == (Heap *) 1) {
 		Heap *hp;
@@ -164,7 +166,7 @@ BATorderidx(BAT *b, int stable)
 			if (GDKssort(Tloc(bn, 0), mv,
 				     bn->tvheap ? bn->tvheap->base : NULL,
 				     BATcount(bn), Tsize(bn), SIZEOF_OID,
-				     bn->ttype) < 0) {
+				     bn->ttype) != GDK_SUCCEED) {
 				HEAPfree(m, 1);
 				GDKfree(m);
 				MT_lock_unset(&GDKhashLock(b->batCacheid));
