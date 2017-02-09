@@ -3581,7 +3581,7 @@ rel_case(mvc *sql, sql_rel **rel, int token, symbol *opt_cond, dlist *when_searc
 			return NULL;
 
 		/* remove any null's in the condition */
-		if (has_nil(cond)) {
+		if (has_nil(cond) && token != SQL_COALESCE) {
 			sql_exp *condnil = rel_unop_(sql, cond, NULL, "isnull", card_value);
 			cond = rel_nop_(sql, condnil, exp_atom_bool(sql->sa, 0), cond, NULL, NULL, "ifthenelse", card_value);
 		}
@@ -4335,19 +4335,10 @@ rel_value_exp2(mvc *sql, sql_rel **rel, symbol *se, int f, exp_kind ek, int *is_
 					exp_setname(sql->sa, ne, exp_relname(e), exp_name(e));
 					e = ne;
 				} else if (f == sql_sel && is_project(p->op) && !is_processed(p)) {
-					sql_rel *pp = p;
-					if (p->l) 
-						pp = p->l;
-					if (is_groupby(pp->op)) {
-						pp->l = rel_crossproduct(sql->sa, pp->l, r, op_join);
-						e = rel_groupby_add_aggr(sql, pp, e);
-					} else if (p->l) {
+					if (p->l) {
 						p->l = rel_crossproduct(sql->sa, p->l, r, op_join);
-					} else if (!p->l) {
-						p->l = r;
 					} else {
-						assert(0);
-						*rel = rel_crossproduct(sql->sa, p, r, op_join);
+						p->l = r;
 					}
 				} else {
 					*rel = rel_crossproduct(sql->sa, p, r, op_join);
