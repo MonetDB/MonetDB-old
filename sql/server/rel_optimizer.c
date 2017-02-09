@@ -3961,7 +3961,7 @@ rel_push_select_down(int *changes, mvc *sql, sql_rel *rel)
 		pl = r->l;
 		/* introduce selects under the project (if needed) */
 		set_processed(pl);
-		if (!is_select(pl->op))
+		if (!is_select(pl->op) || rel_is_ref(pl))
 			r->l = pl = rel_select(sql->sa, pl, NULL);
 
 		/* for each exp check if we can rename it */
@@ -4586,7 +4586,7 @@ rel_push_select_down_union(int *changes, mvc *sql, sql_rel *rel)
 		if (u->op == op_project)
 			u = u->l;
 
-		if (!u || !is_union(u->op) || !u->exps || rel_is_ref(u))
+		if (!u || !is_union(u->op) || need_distinct(u) || !u->exps || rel_is_ref(u))
 			return rel;
 
 		ul = u->l;
@@ -7926,8 +7926,6 @@ exp_apply_rename(mvc *sql, sql_exp *e, list *aliases, int setname)
 			ne = exp_op(sql->sa, nl, e->f);
 		else 
 			ne = exp_aggr(sql->sa, nl, e->f, need_distinct(e), need_no_nil(e), e->card, has_nil(e));
-		if (e && e->rname)
-			exp_setname(sql->sa, ne, e->rname, e->name);
 		break;
 	}	
 	case e_atom:
@@ -7936,6 +7934,8 @@ exp_apply_rename(mvc *sql, sql_exp *e, list *aliases, int setname)
 	}
 	if (ne && e->p)
 		ne->p = prop_copy(sql->sa, e->p);
+	if (ne && !ne->used && e->rname)
+		exp_setname(sql->sa, ne, e->rname, e->name);
 	return ne;
 }
 

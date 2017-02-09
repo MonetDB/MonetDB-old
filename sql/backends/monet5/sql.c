@@ -630,6 +630,15 @@ alter_table(Client cntxt, mvc *sql, char *sname, sql_table *t)
 		sql_column *nc = mvc_bind_column(sql, nt, c->base.name);
 
 		if (c->null != nc->null && isTable(nt)) {
+			if (c->null && nt->pkey) { /* check for primary keys based on this column */
+				node *m;
+				for(m = nt->pkey->k.columns->h; m; m = m->next) {
+					sql_kc *kc = m->data;
+
+					if (kc->c->base.id == c->base.id)
+						return sql_message("40000!NOT NULL CONSTRAINT: cannot change NOT NULL CONSTRAINT for column '%s' as its part of the PRIMARY KEY\n", c->base.name);
+				}
+			}
 			mvc_null(sql, nc, c->null);
 			/* for non empty check for nulls */
 			if (c->null == 0) {
@@ -672,8 +681,13 @@ alter_table(Client cntxt, mvc *sql, char *sname, sql_table *t)
 			if (i->type == ordered_idx) {
 				sql_kc *ic = i->columns->h->data;
 				BAT *b = mvc_bind(sql, nt->s->base.name, nt->base.name, ic->c->base.name, 0);
-				OIDXcreateImplementation(cntxt, newBatType(b->ttype), b, -1);
+				char *msg = OIDXcreateImplementation(cntxt, newBatType(b->ttype), b, -1);
 				BBPunfix(b->batCacheid);
+				if (msg != MAL_SUCCEED) {
+					char *smsg = sql_message("40002!CREATE ORDERED INDEX: %s", msg);
+					freeException(msg);
+					return smsg;
+				}
 			}
 			if (i->type == imprints_idx) {
 				sql_kc *ic = i->columns->h->data;
@@ -3684,13 +3698,13 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			// no filename for this column, skip for now because we potentially don't know the count yet
 			continue;
 		} else if (tpe < TYPE_str || tpe == TYPE_date || tpe == TYPE_daytime || tpe == TYPE_timestamp) {
-			c = BATattach(col->type.type->localtype, fname, PERSISTENT);
+			c = BATattach(col->type.type->localtype, fname, TRANSIENT);
 			if (c == NULL)
 				throw(SQL, "sql", "Failed to attach file %s", fname);
 			BATsetaccess(c, BAT_READ);
 		} else if (tpe == TYPE_str) {
 			/* get the BAT and fill it with the strings */
-			c = COLnew(0, TYPE_str, 0, PERSISTENT);
+			c = COLnew(0, TYPE_str, 0, TRANSIENT);
 			if (c == NULL)
 				throw(SQL, "sql", MAL_MALLOC_FAIL);
 			/* this code should be extended to deal with larger text strings. */
@@ -3733,7 +3747,7 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 				BUN loop = 0;
 				const void* nil = ATOMnilptr(tpe);
 				// fill the new BAT with NULL values
-				c = COLnew(0, tpe, cnt, PERSISTENT);
+				c = COLnew(0, tpe, cnt, TRANSIENT);
 				for(loop = 0; loop < cnt; loop++) {
 					BUNappend(c, nil, 0);
 				}
