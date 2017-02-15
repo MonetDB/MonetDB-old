@@ -183,6 +183,16 @@ do {									\
 	}								\
 } while (0)
 
+#define COPY_BINS(TYPE)								\
+do {												\
+	BUN k;											\
+	TYPE *restrict h = imprints->bins;				\
+	TYPE *restrict src = g->timprints->bins;		\
+	for (k = 0; k < 64; ++k) {						\
+		h[k] = src[k];								\
+	}												\
+} while (0)											\
+
 /* Check whether we have imprints on b (and return true if we do).  It
  * may be that the imprints were made persistent, but we hadn't seen
  * that yet, so check the file system.  This also returns true if b is
@@ -275,11 +285,23 @@ BATcheckimprints(BAT *b)
 }
 
 gdk_return
-BATimprints(BAT *b)
+BATsubimprints(BAT *b, BAT *g) {
+        return IMPSinternal(b, g);
+}
+
+gdk_return
+BATimprints(BAT *b) {
+        return IMPSinternal(b, NULL);
+}
+
+
+gdk_return
+IMPSinternal(BAT *b, BAT *g)
 {
 	BAT *o = NULL, *s1 = NULL, *s2 = NULL, *s3 = NULL, *s4 = NULL;
 	Imprints *imprints;
 	lng t0 = 0;
+	int copy_histo = 0;
 
 	/* we only create imprints for types that look like types we know */
 	switch (ATOMbasetype(b->ttype)) {
@@ -297,6 +319,21 @@ BATimprints(BAT *b)
 		/* doesn't look enough like base type: do nothing */
 		GDKerror("BATimprints: unsupported type\n");
 		return GDK_FAIL;
+	}
+
+	if (g) {
+		/* require that both BATs has the same type*/
+		if (ATOMbasetype(b->ttype) != ATOMbasetype(g->ttype)) {
+			fprintf(stderr, "IMPSinternal: b and g are not the same type\n");
+			return GDK_FAIL;
+		}
+
+		if (g->timprints == NULL) {
+			fprintf(stderr, "IMPSinternal: g contains no imprints");
+			return GDK_FAIL;
+		}
+
+		copy_histo = 1;
 	}
 
 	BATcheck(b, "BATimprints", GDK_FAIL);
@@ -348,46 +385,54 @@ BATimprints(BAT *b)
 							   imprintsheap);
 
 #define SMP_SIZE 2048
-		s1 = BATsample(b, SMP_SIZE);
-		if (s1 == NULL) {
-			MT_lock_unset(&GDKimprintsLock(b->batCacheid));
-			GDKfree(imprints);
-			return GDK_FAIL;
+
+		if (g) {
+
+			/* determine the # of bits for b's imprints, directly use g's # of bits at this moment */
+			imprints->bits = g->timprints->bits;
+
+		} else {
+			s1 = BATsample(b, SMP_SIZE);
+			if (s1 == NULL) {
+				MT_lock_unset(&GDKimprintsLock(b->batCacheid));
+				GDKfree(imprints);
+				return GDK_FAIL;
+			}
+			s2 = BATunique(b, s1);
+			if (s2 == NULL) {
+				MT_lock_unset(&GDKimprintsLock(b->batCacheid));
+				BBPunfix(s1->batCacheid);
+				GDKfree(imprints);
+				return GDK_FAIL;
+			}
+			s3 = BATproject(s2, b);
+			if (s3 == NULL) {
+				MT_lock_unset(&GDKimprintsLock(b->batCacheid));
+				BBPunfix(s1->batCacheid);
+				BBPunfix(s2->batCacheid);
+				GDKfree(imprints);
+				return GDK_FAIL;
+			}
+			s3->tkey = 1;	/* we know is unique on tail now */
+			if (BATsort(&s4, NULL, NULL, s3, NULL, NULL, 0, 0) != GDK_SUCCEED) {
+				MT_lock_unset(&GDKimprintsLock(b->batCacheid));
+				BBPunfix(s1->batCacheid);
+				BBPunfix(s2->batCacheid);
+				BBPunfix(s3->batCacheid);
+				GDKfree(imprints);
+				return GDK_FAIL;
+			}
+			/* s4 now is ordered and unique on tail */
+			assert(s4->tkey && s4->tsorted);
+			cnt = BATcount(s4);
+			imprints->bits = 64;
+			if (cnt <= 32)
+				imprints->bits = 32;
+			if (cnt <= 16)
+				imprints->bits = 16;
+			if (cnt <= 8)
+				imprints->bits = 8;
 		}
-		s2 = BATunique(b, s1);
-		if (s2 == NULL) {
-			MT_lock_unset(&GDKimprintsLock(b->batCacheid));
-			BBPunfix(s1->batCacheid);
-			GDKfree(imprints);
-			return GDK_FAIL;
-		}
-		s3 = BATproject(s2, b);
-		if (s3 == NULL) {
-			MT_lock_unset(&GDKimprintsLock(b->batCacheid));
-			BBPunfix(s1->batCacheid);
-			BBPunfix(s2->batCacheid);
-			GDKfree(imprints);
-			return GDK_FAIL;
-		}
-		s3->tkey = 1;	/* we know is unique on tail now */
-		if (BATsort(&s4, NULL, NULL, s3, NULL, NULL, 0, 0) != GDK_SUCCEED) {
-			MT_lock_unset(&GDKimprintsLock(b->batCacheid));
-			BBPunfix(s1->batCacheid);
-			BBPunfix(s2->batCacheid);
-			BBPunfix(s3->batCacheid);
-			GDKfree(imprints);
-			return GDK_FAIL;
-		}
-		/* s4 now is ordered and unique on tail */
-		assert(s4->tkey && s4->tsorted);
-		cnt = BATcount(s4);
-		imprints->bits = 64;
-		if (cnt <= 32)
-			imprints->bits = 32;
-		if (cnt <= 16)
-			imprints->bits = 16;
-		if (cnt <= 8)
-			imprints->bits = 8;
 
 		/* The heap we create here consists of four parts:
 		 * bins, max 64 entries with bin boundaries, domain of b;
@@ -422,29 +467,59 @@ BATimprints(BAT *b)
 		imprints->imps = (void *) (imprints->stats + 64 * 3);
 		imprints->dict = (void *) ((uintptr_t) ((char *) imprints->imps + pages * (imprints->bits / 8) + sizeof(uint64_t)) & ~(sizeof(uint64_t) - 1));
 
+
 		switch (ATOMbasetype(b->ttype)) {
 		case TYPE_bte:
-			FILL_HISTOGRAM(bte);
+			if (!copy_histo) {
+				FILL_HISTOGRAM(bte);
+			} else {
+				COPY_BINS(bte);
+			}
+			//!copy_histo ? FILL_HISTOGRAM(bte) : COPY_BINS(bte);
 			break;
 		case TYPE_sht:
-			FILL_HISTOGRAM(sht);
+			if (!copy_histo) {
+				FILL_HISTOGRAM(sht);
+			} else {
+				COPY_BINS(sht);
+			}
 			break;
 		case TYPE_int:
-			FILL_HISTOGRAM(int);
+			if (!copy_histo) {
+				FILL_HISTOGRAM(int);
+			} else {
+				COPY_BINS(int);
+			}
 			break;
 		case TYPE_lng:
-			FILL_HISTOGRAM(lng);
+			if (!copy_histo) {
+				FILL_HISTOGRAM(lng);
+			} else {
+				COPY_BINS(lng);
+			}
 			break;
 #ifdef HAVE_HGE
 		case TYPE_hge:
-			FILL_HISTOGRAM(hge);
+			if (!copy_histo) {
+				FILL_HISTOGRAM(hge);
+			} else {
+				COPY_BINS(hge);
+			}
 			break;
 #endif
 		case TYPE_flt:
-			FILL_HISTOGRAM(flt);
+			if (!copy_histo) {
+				FILL_HISTOGRAM(flt);
+			} else {
+				COPY_BINS(flt);
+			}
 			break;
 		case TYPE_dbl:
-			FILL_HISTOGRAM(dbl);
+			if (!copy_histo) {
+				FILL_HISTOGRAM(dbl);
+			} else {
+				COPY_BINS(dbl);
+			}
 			break;
 		default:
 			/* should never reach here */

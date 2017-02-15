@@ -1947,6 +1947,8 @@ gdk_export gdk_return BAThash_imps(BAT *b, BUN masksize);
  */
 
 gdk_export gdk_return BATimprints(BAT *b);
+gdk_export gdk_return BATsubimprints(BAT *b, BAT *g);
+gdk_export gdk_return IMPSinternal(BAT *b, BAT *g);
 gdk_export void IMPSdestroy(BAT *b);
 gdk_export lng IMPSimprintsize(BAT *b);
 

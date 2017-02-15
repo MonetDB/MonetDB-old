@@ -2653,6 +2653,7 @@ imps_hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matche
 	int lskipped = 0;	/* whether we skipped values in l */
 	const Hash *restrict hsh;
 	int t;
+	gdk_return ret;
 
 	ALGODEBUG fprintf(stderr, "#imps_hashjoin(l=%s#" BUNFMT "[%s]%s%s%s%s,"
 			  "r=%s#" BUNFMT "[%s]%s%s%s%s,sl=%s#" BUNFMT "%s%s%s,"
@@ -2680,14 +2681,29 @@ imps_hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matche
 			  swapped ? " swapped" : "",
 			  *reason ? " " : "", reason);
 
-	if (l->timprints == NULL || r->timprints == NULL) {
-		fprintf(stderr, "both columns require imprints\n");
+	/* check imprints for the smaller side (r); if not exist, build it;
+	 * for the larger side (l), if imprint exists, destroy it first, then re-build it according to r's bin borders
+	 */
+	if (!(BATcheckimprints(r) || (BATimprints(r) == GDK_SUCCEED))) {
+		fprintf(stderr, "smaller column fail in build imprints\n");
+		return GDK_FAIL;
+	}
+
+	if (BATcheckimprints(l)) {
+		IMPSdestroy(l);
+		ret = BATsubimprints(l, r);
+	} else {
+		ret = BATsubimprints(l, r);
+	}
+
+	if (ret != GDK_SUCCEED) {
+		fprintf(stderr, "both columns require imprints with identical bin borders\n");
 		return GDK_FAIL;
 	}
 
 	/* Ignore the candidate list at this moment */
 	if (sl != NULL || sr != NULL) {
-		fprintf(stderr, "do not deal with candidate list first");
+		fprintf(stderr, "do not deal with candidate list first\n");
 		return GDK_FAIL;
 	}
 
