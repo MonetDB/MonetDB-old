@@ -2588,7 +2588,43 @@ do {					\
 		Z += ((X) >= bins[_i]);	\
 } while (0)
 
-#define HASHJOIN(TYPE, WIDTH)						\
+#define HASHJOIN(TYPE, WIDTH)                                       \
+	do {                                                            \
+			BUN hashnil = HASHnil(hsh);                             \
+			for (lo = lstart + l->hseqbase;                         \
+				 lstart < lend;                                     \
+				 lo++) {                                            \
+					v = FVALUE(l, lstart);                          \
+					lstart++;                                       \
+					nr = 0;                                         \
+					if (*(const TYPE*)v != TYPE##_nil) {            \
+							for (rb = HASHget##WIDTH(hsh, hash_##TYPE(hsh, v)); \
+								 rb != hashnil;                     \
+								 rb = HASHgetlink##WIDTH(hsh, rb))  \
+									if (rb >= rl && rb < rh &&      \
+										* (const TYPE *) v == ((const TYPE *) base)[rb]) { \
+											ro = (oid) (rb - rl + rseq); \
+											HASHLOOPBODY();         \
+									}                               \
+					}                                               \
+					if (nr == 0) {                                  \
+							lskipped = BATcount(r1) > 0;            \
+					} else {                                        \
+							if (lskipped) {                         \
+									r1->tdense = 0;                 \
+							}                                       \
+							if (nr > 1) {                           \
+									r1->tkey = 0;                   \
+									r1->tdense = 0;                 \
+							}                                       \
+							if (BATcount(r1) > nr)                  \
+									r1->trevsorted = 0;             \
+					}                                               \
+			}                                                       \
+	} while (0)
+
+
+#define HASHJOIN_IMPS(TYPE, WIDTH)						\
 	do {								\
 		BUN hashnil = HASHnil(hsh);				\
 		int bin;								\
@@ -2680,6 +2716,8 @@ imps_hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matche
 			  nil_matches, nil_on_miss, semi,
 			  swapped ? " swapped" : "",
 			  *reason ? " " : "", reason);
+
+	fprintf(stderr, "Invoke imps_hashjoin\n");
 
 	/* check imprints for the smaller side (r); if not exist, build it;
 	 * for the larger side (l), if imprint exists, destroy it first, then re-build it according to r's bin borders
@@ -2791,17 +2829,19 @@ imps_hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matche
 		 * function */
 		const void *restrict base = Tloc(r, 0);
 
+		fprintf(stderr, "deal with the case wo candidate list and type int or lng \n");
+
 		if (t == TYPE_int) {
 			switch (hsh->width) {
 			case BUN2:
-				HASHJOIN(int, 2);
+				HASHJOIN_IMPS(int, 2);
 				break;
 			case BUN4:
-				HASHJOIN(int, 4);
+				HASHJOIN_IMPS(int, 4);
 				break;
 #ifdef BUN8
 			case BUN8:
-				HASHJOIN(int, 8);
+				HASHJOIN_IMPS(int, 8);
 				break;
 #endif
 			}
@@ -2809,14 +2849,14 @@ imps_hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matche
 			/* t == TYPE_lng */
 			switch (hsh->width) {
 			case BUN2:
-				HASHJOIN(lng, 2);
+				HASHJOIN_IMPS(lng, 2);
 				break;
 			case BUN4:
-				HASHJOIN(lng, 4);
+				HASHJOIN_IMPS(lng, 4);
 				break;
 #ifdef BUN8
 			case BUN8:
-				HASHJOIN(lng, 8);
+				HASHJOIN_IMPS(lng, 8);
 				break;
 #endif
 			}
@@ -3149,6 +3189,8 @@ hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches,
 			  nil_matches, nil_on_miss, semi,
 			  swapped ? " swapped" : "",
 			  *reason ? " " : "", reason);
+
+	fprintf(stderr, "invoke hashjoin\n");
 
 	assert(r->ttype != TYPE_void);
 	assert(ATOMtype(l->ttype) == ATOMtype(r->ttype));
@@ -4546,9 +4588,17 @@ BATjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches,
 		reason = "left is smaller";
 	}
 	if (swap) {
-		return imps_hashjoin(r2, r1, r, l, sr, sl, nil_matches, 0, 0, 0, maxsize, t0, 1, reason);
+		if ((sr == NULL) && (sl == NULL)) {
+			return imps_hashjoin(r2, r1, r, l, sr, sl, nil_matches, 0, 0, 0, maxsize, t0, 1, reason);
+		} else {
+			return hashjoin(r2, r1, r, l, sr, sl, nil_matches, 0, 0, 0, maxsize, t0, 1, reason);
+		}
 	} else {
-		return imps_hashjoin(r1, r2, l, r, sl, sr, nil_matches, 0, 0, 0, maxsize, t0, 0, reason);
+		if ((sr == NULL) && (sl == NULL)) {
+			return imps_hashjoin(r1, r2, l, r, sl, sr, nil_matches, 0, 0, 0, maxsize, t0, 0, reason);
+		} else {
+			return hashjoin(r1, r2, l, r, sl, sr, nil_matches, 0, 0, 0, maxsize, t0, 0, reason);
+		}
 	}
 }
 

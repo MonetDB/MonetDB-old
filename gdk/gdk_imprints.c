@@ -329,7 +329,7 @@ IMPSinternal(BAT *b, BAT *g)
 		}
 
 		if (g->timprints == NULL) {
-			fprintf(stderr, "IMPSinternal: g contains no imprints");
+			fprintf(stderr, "IMPSinternal: g contains no imprints\n");
 			return GDK_FAIL;
 		}
 
@@ -390,6 +390,7 @@ IMPSinternal(BAT *b, BAT *g)
 
 			/* determine the # of bits for b's imprints, directly use g's # of bits at this moment */
 			imprints->bits = g->timprints->bits;
+			cnt = 0;	//for compilation issue, temporarily use
 
 		} else {
 			s1 = BATsample(b, SMP_SIZE);
