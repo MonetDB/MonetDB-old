@@ -229,7 +229,7 @@ AUTHinitTables(const char *passwd) {
 		char *pw;
 		oid uid;
 		Client c = &mal_clients[0];
-
+		// TODO: does this still work without the server console?
 		if (passwd == NULL)
 			passwd = "monetdb";	/* default password */
 		pw = mcrypt_BackendSum(passwd, strlen(passwd));

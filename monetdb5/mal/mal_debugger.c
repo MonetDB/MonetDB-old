@@ -388,18 +388,13 @@ mdbCommand(Client cntxt, MalBlkPtr mb, MalStkPtr stkbase, InstrPtr p, int pc)
 	char oldcmd[1024] = { 0 };
 	do {
 		if (p != NULL) {
-			if (cntxt != mal_clients)
-				/* help mclients with fake prompt */
-				if (lastcmd != 'l' && lastcmd != 'L') {
-					mnstr_printf(out, "mdb>");
-					printTraceCall(out, mb, stk, pc, LIST_MAL_CALL);
-				}
+			/* help mclients with fake prompt */
+			if (lastcmd != 'l' && lastcmd != 'L') {
+				mnstr_printf(out, "mdb>");
+				printTraceCall(out, mb, stk, pc, LIST_MAL_CALL);
+			}
+		}
 
-		}
-		if (cntxt == mal_clients) {
-			cntxt->prompt = "mdb>";
-			cntxt->promptlength = 4;
-		}
 
 		if (cntxt->phase[MAL_SCENARIO_READER]) {
 retryRead:
@@ -414,13 +409,7 @@ retryRead:
 				goto retryRead;
 			}
 		}
-#ifndef HAVE_EMBEDDED
-		else if (cntxt == mal_clients) {
-			/* switch to mdb streams */
-			if (readConsole(cntxt) <= 0)
-				break;
-		}
-#endif
+
 		b = CURRENT(cntxt);
 
 		/* terminate the line with zero */
@@ -974,13 +963,13 @@ str mdbTrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	int cnt = 20;   /* total 10 sec delay */
 	int pc = getPC(mb,p);
 
-	mnstr_printf(mal_clients[0].fdout, "#trapped %s.%s[%d]\n",
+	mnstr_printf(cntxt->fdout, "#trapped %s.%s[%d]\n",
 			getModuleId(mb->stmt[0]), getFunctionId(mb->stmt[0]), pc);
-	printInstruction(mal_clients[0].fdout, mb, stk, p, LIST_MAL_DEBUG);
+	printInstruction(cntxt->fdout, mb, stk, p, LIST_MAL_DEBUG);
 	cntxt->itrace = 'W';
 	MT_lock_set(&mal_contextLock);
 	if (trapped_mb) {
-		mnstr_printf(mal_clients[0].fdout, "#registry not available\n");
+		mnstr_printf(cntxt->fdout, "#registry not available\n");
 		mnstr_flush(cntxt->fdout);
 	}
 	while (trapped_mb && cnt-- > 0) {
@@ -1015,12 +1004,12 @@ mdbStep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
 		state.p = getInstrPtr(mb, pc);
 		state.pc = pc;
 		cntxt->mdb = &state;
-		mnstr_printf(mal_clients[0].fdout, "#Process %d put to sleep\n", (int) (cntxt - mal_clients));
+		mnstr_printf(out, "#Process %d put to sleep\n", (int) (cntxt - mal_clients));
 		cntxt->itrace = 'W';
 		mdbTrap(cntxt, mb, stk, state.p);
 		while (cntxt->itrace == 'W')
 			MT_sleep_ms(300);
-		mnstr_printf(mal_clients[0].fdout, "#Process %d woke up\n", (int) (cntxt - mal_clients));
+		mnstr_printf(out, "#Process %d woke up\n", (int) (cntxt - mal_clients));
 		return;
 	}
 	if (stk->cmd == 0)
@@ -1036,9 +1025,7 @@ mdbStep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
 	case 'c':
 		ch = isBreakpoint(cntxt, mb, p, pc);
 		if (ch == 't') {
-			if (cntxt != mal_clients)
-				/* help mclients with fake prompt */
-				mnstr_printf(out, "mdb>");
+			mnstr_printf(out, "mdb>");
 			printTraceCall(out, mb, stk, pc, LIST_MAL_CALL);
 		} else if (ch)
 			mdbCommand(cntxt, mb, stk, p, pc);

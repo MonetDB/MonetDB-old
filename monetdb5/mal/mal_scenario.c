@@ -226,10 +226,6 @@ initScenario(Client c, Scenario s)
 str
 defaultScenario(Client c)
 {
-#ifdef NEED_MT_LOCK_INIT
-	if (c == mal_clients)
-		MT_lock_init(&scenarioLock, "scenarioLock");
-#endif
 	return initScenario(c, scenarioRec);
 }
 

@@ -121,9 +121,7 @@ struct challengedata {
 static void
 doChallenge(void *data)
 {
-#ifdef DEBUG_SERVER
-	Client cntxt= mal_clients;
-#endif
+
 	char *buf = (char *) GDKmalloc(BLOCK + 1);
 	char challenge[13];
 	char *algos;
@@ -177,13 +175,7 @@ doChallenge(void *data)
 		return;
 	}
 	buf[len] = 0;
-#ifdef DEBUG_SERVER
-	printf("mal_mapi:Client accepted %s\n", buf);
-	fflush(stdout);
 
-	mnstr_printf(cntxt->fdout, "#SERVERlisten:client accepted\n");
-	mnstr_printf(cntxt->fdout, "#SERVERlisten:client string %s\n", buf);
-#endif
 	bs = bstream_create(fdin, 128 * BLOCK);
 
 	if (bs == NULL){
@@ -366,10 +358,6 @@ SERVERlistenThread(SOCKET *Sock)
 		} else {
 			continue;
 		}
-#ifdef DEBUG_SERVER
-		printf("server:accepted\n");
-		fflush(stdout);
-#endif
 		data = GDKmalloc(sizeof(*data));
 		if( data == NULL){
 			closesocket(msgsock);
@@ -478,10 +466,6 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 	int port;
 	int maxusers;
 	char *usockfile;
-#ifdef DEBUG_SERVER
-	char msg[512], host[512];
-	Client cntxt= mal_clients;
-#endif
 
 	accept_any = GDKgetenv_istrue("mapi_open");
 	autosense = GDKgetenv_istrue("mapi_autosense");
@@ -670,10 +654,6 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 	}
 #endif
 
-#ifdef DEBUG_SERVER
-	mnstr_printf(cntxt->fdout, "#SERVERlisten:Network started at %d\n", port);
-#endif
-
 	psock[0] = sock;
 #ifdef HAVE_SYS_UN_H
 	psock[1] = usock;
@@ -688,11 +668,6 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 		throw(MAL, "mal_mapi.listen", OPERATION_FAILED ": starting thread failed");
 	}
 	GDKregister(pid);
-#ifdef DEBUG_SERVER
-	gethostname(host, (int) 512);
-	snprintf(msg, (int) 512, "#Ready to accept connections on %s:%d\n", host, port);
-	mnstr_printf(cntxt->fdout, "%s", msg);
-#endif
 
 	/* seed the randomiser such that our challenges aren't
 	 * predictable... */

@@ -291,8 +291,7 @@ CLTstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int id=  *getArgReference_int(stk,pci,1);
 	(void) mb;
-	if ( cntxt->user == mal_clients[id].user || 
-		mal_clients[0].user == cntxt->user){
+	if ( cntxt->user == mal_clients[id].user){
 		mal_clients[id].itrace = 'x';
 	}
 	/* this forces the designated client to stop at the next instruction */
@@ -561,6 +560,7 @@ CLTshutdown(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 		break;
 	}
 
+	// TODO: there must be a better way of checking this
 	if ( cntxt->user != mal_clients[0].user)
 		throw(MAL,"mal.shutdown", "Administrator rights required");
 	MCstopClients(cntxt);

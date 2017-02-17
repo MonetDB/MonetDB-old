@@ -252,6 +252,7 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout)
 		str err;
 		oid uid;
 		sabdb *stats = NULL;
+		// TODO: this still a valid entry?
 		Client root = &mal_clients[0];
 
 		/* access control: verify the credentials supplied by the user,
@@ -535,16 +536,6 @@ MALexitClient(Client c)
 str
 MALreader(Client c)
 {
-#ifndef HAVE_EMBEDDED
-	int r = 1;
-	if (c == mal_clients) {
-		r = readConsole(c);
-		if (r < 0 && c->fdin->eof == 0)
-			r = MCreadClient(c);
-		if (r > 0)
-			return MAL_SUCCEED;
-	} else
-#endif
 	if (MCreadClient(c) > 0)
 		return MAL_SUCCEED;
 	MT_lock_set(&mal_contextLock);

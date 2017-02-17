@@ -442,7 +442,7 @@ MCactiveClients(void)
 	int freeclient=0, finishing=0, running=0, blocked = 0;
 	Client cntxt = mal_clients;
 
-	for(cntxt= mal_clients;  cntxt<mal_clients+MAL_MAXCLIENTS; cntxt++){
+	for(cntxt = mal_clients;  cntxt < mal_clients + MAL_MAXCLIENTS; cntxt++){
 		freeclient += (cntxt->mode == FREECLIENT);
 		finishing += (cntxt->mode == FINISHCLIENT);
 		running += (cntxt->mode == RUNCLIENT);
