@@ -511,7 +511,7 @@ str RAPIprelude(void *ret) {
 
 		}
 		MT_lock_unset(&rapiLock);
-		printf("# MonetDB/R   module loaded\n");
+		printf("MonetDB/R   module loaded\n");
 	}
 	return MAL_SUCCEED;
 }

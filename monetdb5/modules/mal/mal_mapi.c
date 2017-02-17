@@ -433,7 +433,7 @@ static void SERVERannounce(struct in_addr addr, int port, str usockfile) {
 			free(buf);
 		else
 			/* announce that we're now reachable */
-			printf("# Listening for connection requests on "
+			printf("Listening for connection requests on "
 					"mapi:monetdb://%s:%i/\n", host, port);
 	}
 	if (usockfile != NULL) {
@@ -442,7 +442,7 @@ static void SERVERannounce(struct in_addr addr, int port, str usockfile) {
 			free(buf);
 		else
 			/* announce that we're now reachable */
-			printf("# Listening for UNIX domain connection requests on "
+			printf("Listening for UNIX domain connection requests on "
 					"mapi:monetdb://%s\n", usockfile);
 	}
 }

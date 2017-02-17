@@ -169,7 +169,7 @@ SQLprelude(void *ret)
 	if (tmp != MAL_SUCCEED)
 		return (tmp);
 #ifndef HAVE_EMBEDDED
-	fprintf(stdout, "# MonetDB/SQL module loaded\n");
+	fprintf(stdout, "MonetDB/SQL module loaded\n");
 	fflush(stdout);		/* make merovingian see this *now* */
 #endif
 	/* only register availability of scenarios AFTER we are inited! */

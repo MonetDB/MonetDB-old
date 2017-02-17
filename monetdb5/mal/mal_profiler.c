@@ -1023,7 +1023,7 @@ void setHeartbeat(int delay)
 void initProfiler(void)
 {
 	if( mal_trace)
-		openProfilerStream(mal_clients[0].fdout,0);
+		openProfilerStream(GDKout, 0);
 }
 
 void initHeartbeat(void)

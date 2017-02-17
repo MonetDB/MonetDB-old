@@ -1288,7 +1288,7 @@ PyAPIprelude(void *ret) {
         pyapiInitialized++;
     }
     MT_lock_unset(&pyapiLock);
-    fprintf(stdout, "# MonetDB/Python module loaded\n");
+    fprintf(stdout, "MonetDB/Python module loaded\n");
     option_disable_fork = GDKgetenv_istrue(fork_disableflag) || GDKgetenv_isyes(fork_disableflag);
     return MAL_SUCCEED;
 }

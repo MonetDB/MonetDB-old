@@ -139,16 +139,16 @@ monet_hello(void)
 		qi++;
 	}
 
-	printf("# MonetDB 5 server v" VERSION);
+	printf("MonetDB 5 server v" VERSION);
 	/* coverity[pointless_string_compare] */
 	if (strcmp(MONETDB_RELEASE, "unreleased") == 0)
-		printf("\n# This is an unreleased version");
+		printf("\nThis is an unreleased version");
 	else
 		printf(" \"%s\"", MONETDB_RELEASE);
-	printf("\n# Serving database '%s', using %d thread%s\n",
+	printf("\nServing database '%s', using %d thread%s\n",
 			GDKgetenv("gdk_dbname"),
 			GDKnr_threads, (GDKnr_threads != 1) ? "s" : "");
-	printf("# Compiled for %s/" SZFMT "bit%s\n",
+	printf("Compiled for %s/" SZFMT "bit%s\n",
 			HOST, sizeof(ptr) * 8,
 #ifdef HAVE_HGE
 			" with 128bit integers"
@@ -156,15 +156,15 @@ monet_hello(void)
 			""
 #endif
 			);
-	printf("# Found %.3f %ciB available main-memory.\n",
+	printf("Found %.3f %ciB available main-memory.\n",
 			sz_mem_h, qc[qi]);
 #ifdef MONET_GLOBAL_DEBUG
-	printf("# Database path:%s\n", GDKgetenv("gdk_dbpath"));
-	printf("# Module path:%s\n", GDKgetenv("monet_mod_path"));
+	printf("Database path:%s\n", GDKgetenv("gdk_dbpath"));
+	printf("Module path:%s\n", GDKgetenv("monet_mod_path"));
 #endif
-	printf("# Copyright (c) 1993-July 2008 CWI.\n");
-	printf("# Copyright (c) August 2008-2017 MonetDB B.V., all rights reserved\n");
-	printf("# Visit http://www.monetdb.org/ for further information\n");
+	printf("Copyright (c) 1993-July 2008 CWI.\n");
+	printf("Copyright (c) August 2008-2017 MonetDB B.V., all rights reserved\n");
+	printf("Visit http://www.monetdb.org/ for further information\n");
 
 	// The properties shipped through the performance profiler
 	len = snprintf(monet_characteristics, sizeof(monet_characteristics)-1, "{\n\"version\":\"%s\",\n", VERSION);
