@@ -587,8 +587,6 @@ typedef size_t BUN;
 #else
 #define BUN_NONE ((BUN) LLONG_MAX)
 #endif
-#define BUN_MSK (~BUN_NONE)
-#define BUN_UNMSK BUN_NONE
 #define BUN_MAX (BUN_NONE - 1)	/* maximum allowed size of a BAT */
 
 #define BUN2 2
@@ -635,7 +633,8 @@ typedef struct {
 
 	unsigned int copied:1,	/* a copy of an existing map. */
 		hashash:1,	/* the string heap contains hash values */
-		forcemap:1;	/* force STORE_MMAP even if heap exists */
+		forcemap:1,	/* force STORE_MMAP even if heap exists */
+		cleanhash:1;	/* string heaps must clean hash */
 	storage_t storage;	/* storage mode (mmap/malloc). */
 	storage_t newstorage;	/* new desired storage mode at re-allocation. */
 	bte dirty;		/* specific heap dirty marker */

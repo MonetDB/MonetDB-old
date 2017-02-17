@@ -47,6 +47,25 @@ OIDXcreateImplementation(Client cntxt, int tpe, BAT *b, int pieces)
 	if (b->torderidx)
 		return MAL_SUCCEED;
 
+	switch (ATOMbasetype(b->ttype)) {
+	case TYPE_bte:
+	case TYPE_sht:
+	case TYPE_int:
+	case TYPE_lng:
+#ifdef HAVE_HGE
+	case TYPE_hge:
+#endif
+	case TYPE_flt:
+	case TYPE_dbl:
+		break;
+	case TYPE_str:
+		/* TODO: support strings etc. */
+	case TYPE_void:
+	case TYPE_ptr:
+	default:
+		throw(MAL, "bat.orderidx", TYPE_NOT_SUPPORTED);
+	}
+
 	if( pieces < 0 ){
 		if (GDKnr_threads <= 1) {
 			pieces = 1;
@@ -204,8 +223,6 @@ OIDXgetorderidx(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BAT *bn;
 	bat *ret = getArgReference_bat(stk,pci,0);
 	bat bid = *getArgReference_bat(stk, pci, 1);
-	const oid *s, *se;
-	oid *d;
 
 	(void) cntxt;
 	(void) mb;
@@ -223,11 +240,8 @@ OIDXgetorderidx(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		BBPunfix(b->batCacheid);
 		throw(MAL, "bat.getorderidx", MAL_MALLOC_FAIL);
 	}
-	s = (const oid *) b->torderidx->base + ORDERIDXOFF;
-	se = s + BATcount(b);
-	d = (oid *) Tloc(bn, 0);
-	while (s < se)
-			 *d++ = *s++ & ~BUN_MSK;
+	memcpy(Tloc(bn, 0), (const oid *) b->torderidx->base + ORDERIDXOFF,
+		   BATcount(b) * SIZEOF_OID);
 	BATsetcount(bn, BATcount(b));
 	bn->tkey = 1;
 	bn->tsorted = bn->trevsorted = BATcount(b) <= 1;

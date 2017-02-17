@@ -439,11 +439,15 @@ fixsorted(void)
 				b->tnosorted = 0;
 				b->tsorted = 1;
 			} else {
-				if (b == NULL) {
+				if (!loaded) {
 					b = BATdescriptor(bid);
 					bi = bat_iterator(b);
+					if (b == NULL)
+						b = BBP_desc(bid);
+					else
+						loaded = 1;
 				}
-				if (b == NULL ||
+				if (!loaded ||
 				    ATOMcmp(b->ttype,
 					    BUNtail(bi, b->tnosorted - 1),
 					    BUNtail(bi, b->tnosorted)) <= 0) {
@@ -788,6 +792,7 @@ vheapinit(BAT *b, const char *buf, int hashash, bat bid)
 		b->tvheap->storage = (storage_t) storage;
 		b->tvheap->copied = 0;
 		b->tvheap->hashash = hashash != 0;
+		b->tvheap->cleanhash = 1;
 		b->tvheap->newstorage = (storage_t) storage;
 		b->tvheap->dirty = 0;
 		b->tvheap->parentid = bid;

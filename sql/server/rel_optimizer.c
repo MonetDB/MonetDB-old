@@ -2317,6 +2317,7 @@ rel_push_topn_down(int *changes, mvc *sql, sql_rel *rel)
 			ur = rel_topn(sql->sa, ur, sum_limit_offset(sql, rel->exps));
 			u = rel_setop(sql->sa, ul, ur, op_union);
 			u->exps = exps_alias(sql->sa, r->exps); 
+			set_processed(u);
 			/* possibly add order by column */
 			if (add_r)
 				u->exps = list_merge(u->exps, exps_copy(sql->sa, r->r), NULL);
@@ -4002,6 +4003,7 @@ rel_push_aggr_down(int *changes, mvc *sql, sql_rel *rel)
 
 		u = rel_setop(sql->sa, ul, ur, op_union);
 		u->exps = rel_projections(sql, rel, NULL, 1, 1);
+		set_processed(u);
 
 		if (rel->r) {
 			list *ogbe = rel->r;
@@ -4385,7 +4387,7 @@ rel_push_select_down(int *changes, mvc *sql, sql_rel *rel)
 		pl = r->l;
 		/* introduce selects under the project (if needed) */
 		set_processed(pl);
-		if (!is_select(pl->op))
+		if (!is_select(pl->op) || rel_is_ref(pl))
 			r->l = pl = rel_select(sql->sa, pl, NULL);
 
 		/* for each exp check if we can rename it */
@@ -5010,7 +5012,7 @@ rel_push_select_down_union(int *changes, mvc *sql, sql_rel *rel)
 		if (u->op == op_project)
 			u = u->l;
 
-		if (!u || !is_union(u->op) || !u->exps || rel_is_ref(u))
+		if (!u || !is_union(u->op) || need_distinct(u) || !u->exps || rel_is_ref(u))
 			return rel;
 
 		ul = u->l;
@@ -7855,6 +7857,7 @@ rel_split_outerjoin(int *changes, mvc *sql, sql_rel *rel)
 			/* add null's for right */
 			add_nulls( sql, nr, r);
 			nl = rel_setop(sql->sa, nl, nr, op_union);
+			set_processed(nl);
 		}
 		if (rel->op == op_right || rel->op == op_full) {
 			/* split in 2 anti joins */
@@ -7871,6 +7874,7 @@ rel_split_outerjoin(int *changes, mvc *sql, sql_rel *rel)
 				rel_projections(sql, r, NULL, 1, 1),
 				(fdup)NULL);
 			nl = rel_setop(sql->sa, nl, nr, op_union);
+			set_processed(nl);
 		}
 
 		rel->l = NULL;
@@ -8244,6 +8248,7 @@ rel_merge_table_rewrite(int *changes, mvc *sql, sql_rel *rel)
 						sql_rel *r = n->next->data;
 						nrel = rel_setop(sql->sa, l, r, op_union);
 						nrel->exps = rel_projections(sql, rel, NULL, 1, 1);
+						set_processed(nrel);
 						append(ntables, nrel);
 					}
 					if (n)
@@ -8959,6 +8964,7 @@ rel_apply_rewrite(int *changes, mvc *sql, sql_rel *rel)
 		nr = rel_apply(sql, rel_dup(rel->l), rel_dup(r->r), rel->exps, rel->flag);
 		l = rel_setop(sql->sa, nl, nr, op_union);
 		l->exps = list_merge(p, r->exps, (fdup)NULL);
+		set_processed(l);
 		rel_destroy(rel);
 		(*changes)++;
 		return l;

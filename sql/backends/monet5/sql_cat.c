@@ -591,6 +591,15 @@ alter_table(Client cntxt, mvc *sql, char *sname, sql_table *t)
 		sql_column *nc = mvc_bind_column(sql, nt, c->base.name);
 
 		if (c->null != nc->null && isTable(nt)) {
+			if (c->null && nt->pkey) { /* check for primary keys based on this column */
+				node *m;
+				for(m = nt->pkey->k.columns->h; m; m = m->next) {
+					sql_kc *kc = m->data;
+
+					if (kc->c->base.id == c->base.id)
+						return sql_message("40000!NOT NULL CONSTRAINT: cannot change NOT NULL CONSTRAINT for column '%s' as its part of the PRIMARY KEY\n", c->base.name);
+				}
+			}
 			mvc_null(sql, nc, c->null);
 			/* for non empty check for nulls */
 			if (c->null == 0) {
@@ -633,8 +642,13 @@ alter_table(Client cntxt, mvc *sql, char *sname, sql_table *t)
 			if (i->type == ordered_idx) {
 				sql_kc *ic = i->columns->h->data;
 				BAT *b = mvc_bind(sql, nt->s->base.name, nt->base.name, ic->c->base.name, 0);
-				OIDXcreateImplementation(cntxt, newBatType(b->ttype), b, -1);
+				char *msg = OIDXcreateImplementation(cntxt, newBatType(b->ttype), b, -1);
 				BBPunfix(b->batCacheid);
+				if (msg != MAL_SUCCEED) {
+					char *smsg = sql_message("40002!CREATE ORDERED INDEX: %s", msg);
+					freeException(msg);
+					return smsg;
+				}
 			}
 			if (i->type == imprints_idx) {
 				sql_kc *ic = i->columns->h->data;
