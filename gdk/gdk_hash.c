@@ -165,12 +165,29 @@ do {					\
 		}						\
 	} while (0)
 
-
+#define starthash_imps(TYPE)							\
+	do {								\
+		TYPE *v = (TYPE *) BUNtloc(bi, 0);			\
+		int bin;							\
+		Imprints *imprints = (VIEWtparent(b) ? BBPdescriptor(VIEWtparent(b)): b)->timprints;		\
+		const TYPE *restrict bins = (TYPE *) imprints->bins;			\
+		const int B = imprints->bits;			\
+		for (; r < p; r++) {					\
+			BUN c;								\
+			GETBIN_IMPS(bin, *(v + r), B);		\
+			c = (BUN) hash_imps_##TYPE(h, v+r, bin);		\
+									\
+			if (HASHget(h, c) == HASHnil(h) && nslots-- == 0) \
+				break; /* mask too full */		\
+			HASHputlink(h, r, HASHget(h, c));		\
+			HASHput(h, c, r);				\
+		}							\
+	} while (0)
 #define finishhash_imps(TYPE)					\
 	do {							\
 		TYPE *v = (TYPE *) BUNtloc(bi, 0);		\
 		int bin;							\
-		Imprints *imprints = b->timprints;		\
+		Imprints *imprints = (VIEWtparent(b) ? BBPdescriptor(VIEWtparent(b)): b)->timprints;		\
 		const TYPE *restrict bins = (TYPE *) imprints->bins;			\
 		const int B = imprints->bits;			\
 		for (; p < q; p++) {					\
@@ -672,7 +689,7 @@ BAThash_imps(BAT *b, BUN masksize)
 				starthash(flt);
 				break;
 			case TYPE_int:
-				starthash(int);
+				starthash_imps(int);
 				break;
 			case TYPE_dbl:
 				starthash(dbl);

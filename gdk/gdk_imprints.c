@@ -286,7 +286,8 @@ BATcheckimprints(BAT *b)
 
 gdk_return
 BATsubimprints(BAT *b, BAT *g) {
-        return IMPSinternal(b, g);
+        //return IMPSinternal(b, g);
+		return IMPSinternal(b, (VIEWtparent(g) ? BBPdescriptor(VIEWtparent(g)): g));
 }
 
 gdk_return

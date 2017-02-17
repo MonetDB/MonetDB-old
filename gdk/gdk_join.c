@@ -2628,7 +2628,7 @@ do {					\
 	do {								\
 		BUN hashnil = HASHnil(hsh);				\
 		int bin;								\
-		Imprints *imprints = l->timprints;		\
+		Imprints *imprints = (VIEWtparent(l) ? BBPdescriptor(VIEWtparent(l)): l)->timprints;		\
 		const TYPE *restrict bins = (TYPE *) imprints->bins;			\
 		const int B = imprints->bits;			\
 		for (lo = lstart + l->hseqbase;				\
