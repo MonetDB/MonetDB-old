@@ -418,7 +418,6 @@ int GadgetPHBins(PHBins *bins, char *filePath)
         char* binbytes = NULL;
         PHBin *prev = NULL;
         long index, retval;
-        (void) retval;
 
         binbytes = (char*) malloc(sizeof(char) * nbins * 4);
         if (!binbytes) {

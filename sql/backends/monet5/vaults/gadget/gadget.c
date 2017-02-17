@@ -14,6 +14,7 @@
 
 #include "monetdb_config.h"
 #include <glob.h>
+#include <libgen.h>
 
 /* clash with GDK? */
 #undef htype
