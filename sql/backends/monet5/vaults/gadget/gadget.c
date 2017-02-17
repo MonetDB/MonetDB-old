@@ -255,7 +255,7 @@ str gadgetListDirAll(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     while ((ep = readdir(dp)) != NULL && !msg) {
       if (ep->d_name[0] != '.') {
         char *snapnum, *ptr = NULL;
-        PHBins bins;
+		PHBins bins = { .numBins = 0, .id = NULL, .start = NULL, .count = NULL};
         snprintf(fname, BUFSIZ, "%s/%s", dir, ep->d_name);
 
         /*Open the file*/
