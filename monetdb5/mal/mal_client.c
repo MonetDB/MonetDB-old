@@ -127,11 +127,7 @@ MCnewClient(void)
 {
 	Client c;
 	MT_lock_set(&mal_contextLock);
-	if (mal_clients[CONSOLE].user && mal_clients[CONSOLE].mode == FINISHCLIENT) {
-		/*system shutdown in progress */
-		MT_lock_unset(&mal_contextLock);
-		return NULL;
-	}
+	// TODO: check some exiting flag here?
 	for (c = mal_clients; c < mal_clients + MAL_MAXCLIENTS; c++) {
 		if (c->mode == FREECLIENT) {
 			c->mode = RUNCLIENT;
@@ -429,7 +425,7 @@ MCstopClients(Client cntxt)
 	Client c = mal_clients;
 
 	MT_lock_set(&mal_contextLock);
-	for(c= mal_clients +1;  c < mal_clients+MAL_MAXCLIENTS; c++)
+	for(c= mal_clients ;  c < mal_clients+MAL_MAXCLIENTS; c++)
 	if( cntxt != c){
 		if ( c->mode == RUNCLIENT)
 			c->mode = FINISHCLIENT; 
@@ -446,7 +442,7 @@ MCactiveClients(void)
 	int freeclient=0, finishing=0, running=0, blocked = 0;
 	Client cntxt = mal_clients;
 
-	for(cntxt= mal_clients+1;  cntxt<mal_clients+MAL_MAXCLIENTS; cntxt++){
+	for(cntxt= mal_clients;  cntxt<mal_clients+MAL_MAXCLIENTS; cntxt++){
 		freeclient += (cntxt->mode == FREECLIENT);
 		finishing += (cntxt->mode == FINISHCLIENT);
 		running += (cntxt->mode == RUNCLIENT);
@@ -462,14 +458,8 @@ MCcloseClient(Client c)
 	printf("closeClient %d " OIDFMT "\n", (int) (c - mal_clients), c->user);
 #endif
 	/* free resources of a single thread */
-	if (!isAdministrator(c)) {
-		freeClient(c);
-		return;
-	}
+	freeClient(c);
 
-	/* adm is set to disallow new clients entering */
-	mal_clients[CONSOLE].mode = FINISHCLIENT;
-	mal_exit();
 }
 
 str

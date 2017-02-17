@@ -29,7 +29,6 @@ backend_create(mvc *m, Client c)
 {
 	backend *b = MNEW(backend);
 
-	b->console = isAdministrator(c);
 	b->mvc = m;
 	b->client = c;
 	b->mvc_var = 0;

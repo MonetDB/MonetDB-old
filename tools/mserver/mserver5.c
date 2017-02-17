@@ -52,9 +52,6 @@
 #endif
 
 static int malloc_init = 1;
-#ifdef HAVE_CONSOLE
-static int monet_daemon;
-#endif
 
 /* NEEDED? */
 #if defined(_MSC_VER) && defined(__cplusplus)
@@ -99,7 +96,6 @@ usage(char *prog, int xit)
 	fprintf(stderr, "    --dbextra=<directory>     Directory for transient BATs\n");
 	fprintf(stderr, "    --dbinit=<stmt>           Execute statement at startup\n");
 	fprintf(stderr, "    --config=<config_file>    Use config_file to read options from\n");
-	fprintf(stderr, "    --daemon=yes|no           Do not read commands from standard input [no]\n");
 	fprintf(stderr, "    --single-user             Allow only one user at a time\n");
 	fprintf(stderr, "    --readonly                Safeguard database\n");
 	fprintf(stderr, "    --set <option>=<value>    Set configuration option\n");
@@ -207,14 +203,8 @@ monet_init(opt *set, int setlen)
 	if (!GDKinit(set, setlen))
 		return 0;
 
-#ifdef HAVE_CONSOLE
-	monet_daemon = 0;
-	if (GDKgetenv_isyes("monet_daemon")) {
-		monet_daemon = 1;
 #ifdef HAVE_SETSID
 		setsid();
-#endif
-	}
 #endif
 	monet_hello();
 	return 1;
@@ -359,12 +349,6 @@ main(int argc, char **av)
 					dbinit = optarg;
 				break;
 			}
-#ifdef HAVE_CONSOLE
-			if (strcmp(long_options[option_index].name, "daemon") == 0) {
-				setlen = mo_add_option(&set, setlen, opt_cmdline, "monet_daemon", optarg);
-				break;
-			}
-#endif
 			if (strcmp(long_options[option_index].name, "single-user") == 0) {
 				setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_single_user", "yes");
 				break;
@@ -683,11 +667,6 @@ main(int argc, char **av)
 
 	if (monet_script)
 		free(monet_script);
-#ifdef HAVE_CONSOLE
-	if (!monet_daemon) {
-		MSserveClient(mal_clients);
-	} else
-#endif
 	while (1)
 		MT_sleep_ms(5000);
 

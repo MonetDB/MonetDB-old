@@ -425,7 +425,7 @@ MSserveClient(void *dummy)
 	Client c = (Client) dummy;
 	str msg = 0;
 
-	if (!isAdministrator(c) && MCinitClientThread(c) < 0) {
+	if (MCinitClientThread(c) < 0) {
 		MCcloseClient(c);
 		return;
 	}
@@ -482,15 +482,8 @@ MSserveClient(void *dummy)
 		assert(0);
 	}
 
-	if (c->mode > FINISHCLIENT) {
-		if (isAdministrator(c) /* && moreClients(0)==0 */) {
-			if (c->scenario) {
-				exitScenario(c);
-			}
-		}
-	}
-	if (!isAdministrator(c))
-		MCcloseClient(c);
+	MCcloseClient(c);
+
 	if (c->nspace && strcmp(c->nspace->name, "user") == 0) {
 		GDKfree(c->nspace->space);
 		GDKfree(c->nspace);

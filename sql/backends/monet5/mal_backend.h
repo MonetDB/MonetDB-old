@@ -32,7 +32,6 @@ typedef enum output_format {
 } ofmt;
 
 typedef struct backend {
-	int 	console;
 	char 	language;		/* 'S' or 's' or 'X' */
 	mvc 	*mvc;
 	stream 	*out;

@@ -450,7 +450,7 @@ SQLinitClient(Client c)
 	if (c->sqlcontext == 0) {
 		m = mvc_create(c->idx, 0, SQLdebug, c->fdin, c->fdout);
 		global_variables(m, "monetdb", "sys");
-		if (isAdministrator(c) || strcmp(c->scenario, "msql") == 0)	/* console should return everything */
+		if (strcmp(c->scenario, "msql") == 0)	/* console should return everything */
 			m->reply_size = -1;
 		be = (void *) backend_create(m, c);
 	} else {
@@ -799,7 +799,7 @@ SQLreader(Client c)
 				c->yycur = 0;
 			}
 			if (in->eof || !blocked) {
-				language = (be->console) ? 'S' : 0;
+				language = 0;
 
 				/* The rules of auto_commit require us to finish
 				   and start a transaction on the start of a new statement (s A;B; case) */
@@ -824,7 +824,7 @@ SQLreader(Client c)
 				if (be->language == 'D' && in->eof == 0)
 					return 0;
 
-				if (rd == 0 && language !=0 && in->eof && !be->console) {
+				if (rd == 0 && language !=0 && in->eof) {
 					/* we hadn't seen the EOF before, so just try again
 					   (this time with prompt) */
 					more = TRUE;
@@ -832,7 +832,7 @@ SQLreader(Client c)
 				}
 				go = FALSE;
 				break;
-			} else if (go && !be->console && language == 0) {
+			} else if (go && language == 0) {
 				if (in->buf[in->pos] == 's' && !in->eof) {
 					while ((rd = bstream_next(in)) > 0)
 						;
