@@ -18,4 +18,9 @@ extern const char *op2string(operator_type op);
 
 extern sql_rel *rel_read(mvc *sql, char *ra, int *pos, list *refs);
 
+// DEBUG ONLY
+extern str dump_rel(mvc *sql, sql_rel *rel);
+extern str dump_exps(mvc *sql, list *exps);
+extern str dump(mvc *sql, void* data);
+
 #endif /*_REL_DUMP_H_*/

@@ -528,7 +528,7 @@ sql_bind_aggr_(sql_allocator *sa, sql_schema *s, const char *sqlaname, list *ops
 		sql_func *a = n->data;
 
 		if (strcmp(a->base.name, sqlaname) == 0 &&  
-		    list_cmp(a->ops, ops, (fcmp) &arg_subtype_cmp) == 0)
+		    (list_cmp(a->ops, ops, (fcmp) &arg_subtype_cmp) == 0 || a->vararg))
 			return _dup_subaggr(sa, a, type);
 		n = n->next;
 	}
@@ -542,7 +542,7 @@ sql_bind_aggr_(sql_allocator *sa, sql_schema *s, const char *sqlaname, list *ops
 				continue;
 
 			if (strcmp(a->base.name, sqlaname) == 0 &&  
-		    	    list_cmp(a->ops, ops, (fcmp) &arg_subtype_cmp) == 0)
+		    	    (list_cmp(a->ops, ops, (fcmp) &arg_subtype_cmp) == 0 || a->vararg))
 				return _dup_subaggr(sa, a, type);
 		}
 	}
@@ -733,7 +733,7 @@ sql_find_func(sql_allocator *sa, sql_schema *s, const char *sqlfname, int nrargs
 
 	assert(nrargs);
 	MT_lock_set(&funcs->ht_lock);
-	he = funcs->ht->buckets[key&(funcs->ht->size-1)]; 
+	he = funcs->ht->buckets[key&(funcs->ht->size-1)];
 	if (prev) {
 		for (; he && !found; he = he->chain) 
 			if (he->value == prev->func)
@@ -1345,6 +1345,8 @@ sqltypeinit( sql_allocator *sa)
 	TMESTAMPTZ = *t++ = sql_create_type(sa, "TIMESTAMPTZ", 7, SCALE_FIX, 0, EC_TIMESTAMP, "timestamp");
 
 	*t++ = sql_create_type(sa, "BLOB", 0, 0, 0, EC_BLOB, "sqlblob");
+
+	*t++ = sql_create_type(sa, "NESTED_TABLE", 0, 0, 0, EC_NESTED_TABLE, "nested_table");
 
 	if (geomcatalogfix_get() != NULL) {
 		// the geom module is loaded 

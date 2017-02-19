@@ -8824,6 +8824,8 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		return rel;
 	}
 
+	printf("QRW EXIT [%d]: %s\n", level, dump_rel(sql, rel));
+
 	if (changes || level == 0)
 		return _rel_optimizer(sql, rel, ++level);
 
@@ -8833,5 +8835,6 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 sql_rel *
 rel_optimizer(mvc *sql, sql_rel *rel) 
 {
+	printf("QRW ENTRY: %s\n", dump_rel(sql, rel));
 	return _rel_optimizer(sql, rel, 0);
 }
