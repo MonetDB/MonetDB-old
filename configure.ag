@@ -1686,38 +1686,59 @@ AS_CASE([$host],
 			AC_DEFINE([HAVE_OPENSSL], 1, [Define if you have the OpenSSL library])])])])
 
 
-# PCRE library
-# required on Windows, optional on POSIX systems with GNU regex
-req_pcre_ver='4.5'
-PKG_CHECK_MODULES([pcre], [libpcre >= $req_pcre_ver],
-	[have_pcre=yes], [have_pcre=no; why_have_pcre="(libpcre >= $req_pcre_ver not found)"])
-AS_VAR_IF([have_pcre], [yes], [
-	AC_MSG_CHECKING([whether pcre comes with UTF-8 support])
-	save_LIBS="$LIBS"
-	LIBS="$LIBS $pcre_LIBS"
-	save_CFLAGS="$CFLAGS"
-	CFLAGS="$CFLAGS $pcre_CFLAGS"
-	AC_RUN_IFELSE([AC_LANG_PROGRAM(
-		[[@%:@include <pcre.h>]],
-		[[int rc; pcre_config(PCRE_CONFIG_UTF8, &rc); exit(!rc);]])],
-		[AC_MSG_RESULT([yes])],
-		[have_pcre=no; why_have_pcre="(libpcre found but no UTF-8 support)"; AC_MSG_RESULT([no])],
-		[AC_MSG_RESULT([assuming yes])])
-	LIBS="$save_LIBS"
-	CFLAGS="$save_CFLAGS"])
+org_have_regex=auto
+dft_regex=auto
+AC_ARG_WITH([regex],
+	[AS_HELP_STRING([--with-regex=TYPE],
+	[use either PRCE or POSIX regular expressions (default=PCRE if available)])],
+	[AS_CASE([$withval],
+		[pcre|PCRE], [have_regex=pcre],
+		[posix|POSIX], [have_regex=posix],
+		[auto|AUTO], [have_regex=auto],
+		[AC_MSG_ERROR([--with-regex argument must be either PCRE or POSIX])])],
+	[have_regex=$dft_regex])
+
+AS_VAR_IF([have_regex], [posix],
+	[have_pcre=no; why_have_pcre="(PCRE disabled)"],
+	[
+	# PCRE library
+	# required on Windows, optional on POSIX systems with GNU regex
+	req_pcre_ver='4.5'
+	PKG_CHECK_MODULES([pcre], [libpcre >= $req_pcre_ver],
+		[have_pcre=yes],
+		[AS_VAR_IF([have_regex], [pcre],
+			[AC_MSG_ERROR([PCRE library not found or not usable])],
+			[have_pcre=no; why_have_pcre="(libpcre >= $req_pcre_ver not found)"])])
+	AS_VAR_IF([have_pcre], [yes], [
+		AC_MSG_CHECKING([whether pcre comes with UTF-8 support])
+		save_LIBS="$LIBS"
+		LIBS="$LIBS $pcre_LIBS"
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS $pcre_CFLAGS"
+		AC_RUN_IFELSE([AC_LANG_PROGRAM(
+			[[@%:@include <pcre.h>]],
+			[[int rc; pcre_config(PCRE_CONFIG_UTF8, &rc); exit(!rc);]])],
+			[AC_MSG_RESULT([yes])],
+			[have_pcre=no; why_have_pcre="(libpcre found but no UTF-8 support)"; AC_MSG_RESULT([no])],
+			[AC_MSG_RESULT([assuming yes])])
+		LIBS="$save_LIBS"
+		CFLAGS="$save_CFLAGS"
+		have_regex=PCRE])
+	])
 
 AS_VAR_IF([have_pcre], [yes], [
 	AC_DEFINE([HAVE_LIBPCRE], 1, [Define if you have the pcre library])])
 AM_CONDITIONAL([HAVE_PCRE], [test x"$have_pcre" != xno])
 
 have_gnuregex=yes
-AS_VAR_IF([have_pcre], [yes], [], [
+AS_VAR_IF([have_pcre], [no], [
+	AC_MSG_CHECKING([whether for POSIX regex support])
 	AC_RUN_IFELSE([AC_LANG_PROGRAM(
 		[[@%:@include <regex.h>]],
 		[[regex_t re; regcomp(&re, "hello", REG_EXTENDED|REG_NOSUB);]])],
-		[AC_MSG_RESULT([yes])],
-		[have_gnuregex=no],
-		[have_gnuregex=no])
+		[AC_MSG_RESULT([yes]); have_regex=POSIX],
+		[AC_MSG_RESULT([no]); have_gnuregex=no],
+		[AC_MSG_RESULT([no]); have_gnuregex=no])
 ])
 
 AS_CASE([$enable_monetdb5-$have_pcre-$have_gnuregex],
@@ -1797,38 +1818,6 @@ AS_VAR_IF([have_valgrind], [no], [], [
 	PKG_CHECK_MODULES([valgrind], [valgrind],
 		[AC_DEFINE([HAVE_VALGRIND], 1, [Define if you have valgrind installed and want to use it])],
 		[AS_VAR_IF([have_valgrind], [yes], [AC_MSG_ERROR([no valgrind support found])])])])
-
-# check for sphinxclient
-org_have_sphinxclient="auto"
-have_sphinxclient=$org_have_sphinxclient
-AC_ARG_WITH([sphinxclient],
-    [AS_HELP_STRING([--with-sphinxclient=DIR], [sphinxclient library is installed in DIR])],
-    [have_sphinxclient="$withval"])
-AS_VAR_IF([have_sphinxclient], [no], [], [
-	AS_CASE([$have_sphinxclient],
-	[auto|yes], [],
-	[
-	    SPHINXCLIENT_CFLAGS="-I$have_sphinxclient/include"
-	    SPHINXCLIENT_LIBS="-L$have_sphinxclient/lib"])
-
-	save_CPPFLAGS="$CPPFLAGS"
-	save_LDFLAGS="$LDFLAGS"
-	CPPFLAGS="$CPPFLAGS $SPHINXCLIENT_CFLAGS"
-	LDFLAGS="$LDFLAGS $SPHINXCLIENT_LIBS"
-	AC_CHECK_HEADER([sphinxclient.h],
-		AC_CHECK_LIB([sphinxclient], [sphinx_create],
-			[AC_DEFINE([HAVE_SPHINXCLIENT], 1, [Define if you have the sphinxclient library])]
-			[have_sphinxclient=yes]
-			[SPHINXCLIENT_LIBS="$SPHINXCLIENT_LIBS -lsphinxclient"],
-			[AS_VAR_IF([have_sphinxclient], [auto], [], [AC_MSG_ERROR([-lsphinxclient library not found])])
-			  have_sphinxclient=no; why_have_sphinxclient="(sphinxclient library not found)" ]),
-		[AS_VAR_IF([have_sphinxclient], [auto], [], [AC_MSG_ERROR([sphinxclient.h header not found])])
-		  have_sphinxclient=no; why_have_sphinxclient="(sphinxclient.h header not found)" ])
-	LDFLAGS="$save_LDFLAGS"
-	CPPFLAGS="$save_CPPFLAGS"])
-AC_SUBST([SPHINXCLIENT_CFLAGS], [$SPHINXCLIENT_CFLAGS])
-AC_SUBST([SPHINXCLIENT_LIBS], [$SPHINXCLIENT_LIBS])
-AM_CONDITIONAL([HAVE_SPHINXCLIENT], [test x"$have_sphinxclient" != xno])
 
 # R API (R UDFs)
 have_libr=no
@@ -2282,7 +2271,7 @@ AS_VAR_IF([have_gdal], [no], [], [
 AS_VAR_IF([have_gdal], [no],
 	[],
 	[AS_VAR_IF([have_gdal], [pkgconf],
-		[],
+		[have_gdal=yes],
 		[save_CPPFLAGS="$CPPFLAGS"
 		 save_LDFLAGS="$LDFLAGS"
 		 save_LIBS="$LIBS"
@@ -3075,15 +3064,14 @@ for comp in \
 	'lidar        ' \
 	'netcdf       ' \
 	'openssl      ' \
-	'pcre         ' \
 	'proj         ' \
 	'pthread      ' \
 	'python2      ' \
 	'python3      ' \
 	'readline     ' \
+	'regex        ' \
 	'samtools     ' \
 	'shp          ' \
-	'sphinxclient ' \
 	'unixodbc     ' \
 	'valgrind     ' \
 	'zlib         ' \
@@ -3096,7 +3084,9 @@ for comp in \
 		[-no-no], [why="(by default)"],
 		[-no-*], [why="(by command line option)"])
 	echo $ECHO_N "    $comp = $ECHO_C"
-	AS_VAR_IF([have], [no], [echo "no  $why"], [echo "yes"])
+	AS_VAR_IF([have], [no],
+		[echo "no  $why"],
+		[AS_VAR_IF([have], [auto], [echo "yes"], [echo "$have"])])
 done
 AS_VAR_IF([have_hge], [yes], [
 	hge_bits='128'
