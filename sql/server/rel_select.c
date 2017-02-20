@@ -3237,33 +3237,41 @@ rel_nop(mvc *sql, sql_rel **rel, symbol *se, int fs, exp_kind ek)
 	dnode *ops = l->next->data.lval->h;
 	list *exps = new_exp_list(sql->sa);
 	list *tl = sa_list(sql->sa);
-	sql_subfunc *f = NULL;
 	sql_subtype *obj_type = NULL;
 	char *fname = qname_fname(l->data.lval);
 	char *sname = qname_schema(l->data.lval);
 	sql_schema *s = sql->session->schema;
 	exp_kind iek = {type_value, card_column, FALSE};
+	bool bind_error = false;
 
-	for (; ops; ops = ops->next, nr_args++) {
+	for (; ops && !bind_error; ops = ops->next, nr_args++) {
 		sql_exp *e = rel_value_exp(sql, rel, ops->data.sym, fs, iek);
 		sql_subtype *tpe;
 
-		if (!e) 
-			return NULL;
-		append(exps, e);
-		tpe = exp_subtype(e);
-		if (!nr_args)
-			obj_type = tpe;
-		append(tl, tpe);
+		if (!e) {
+			bind_error = true;
+		} else {
+			append(exps, e);
+			tpe = exp_subtype(e);
+			if (!nr_args)
+				obj_type = tpe;
+			append(tl, tpe);
+		}
 	}
 	if (sname)
 		s = mvc_bind_schema(sql, sname);
 	
-	/* first try aggregate */
-	f = find_func(sql, s, fname, nr_args, F_AGGR, NULL);
-	if (f)
+	/* try again with an aggregate */
+	if (bind_error) {
+		sql_subfunc *f = find_func(sql, s, fname, nr_args, F_AGGR, NULL);
+		if (!f) return NULL; // no match in the aggr~ world => error
+		// reset the error
+		sql->session->status = 0;
+		sql->errstr[0] = '\0';
 		return _rel_aggr(sql, rel, 0, s, fname, l->next->data.lval->h, fs);
-	return _rel_nop(sql, s, fname, tl, exps, obj_type, nr_args, ek);
+	} else {
+		return _rel_nop(sql, s, fname, tl, exps, obj_type, nr_args, ek);
+	}
 
 }
 

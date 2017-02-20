@@ -2878,6 +2878,36 @@ stmt_aggr(backend *be, stmt *op1, stmt *grp, stmt *ext, sql_subaggr *op, int red
 	return NULL;
 }
 
+stmt *stmt_nest(backend *be, stmt *ops, stmt *grp, stmt *ext, stmt *histo, sql_subaggr *aggr){
+	InstrPtr q = NULL;
+
+	(void) ext; // not used ftm
+	assert(ops->type == st_list);
+
+	q = newStmt(be->mb, aggr->aggr->mod, aggr->aggr->imp);
+	if(!q) return NULL;
+	setVarType(be->mb, getArg(q, 0), newBatType( ((sql_subtype*) aggr->res->h->data)->type->localtype ));
+	setVarUDFtype(be->mb, getArg(q, 0)); // TODO: what is this?
+	q = pushArgument(be->mb, q, grp->nr);
+	q = pushArgument(be->mb, q, histo->nr);
+
+	if(q) { // same as stmt_aggr
+		stmt *s = stmt_create(be->mvc->sa, st_aggr);
+		s->op1 = ops;
+		s->op2 = grp;
+		s->op3 = histo;
+		s->nrcols = 1;
+		s->key = s->aggr = true;
+		s->flag = 1;
+		s->op4.aggrval = aggr;
+		s->nr = getDestVar(q);
+		s->q = q;
+		return s;
+	}
+	return NULL;
+
+}
+
 static stmt *
 stmt_alias_(backend *be, stmt *op1, const char *tname, const char *alias)
 {

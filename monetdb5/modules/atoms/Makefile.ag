@@ -23,6 +23,7 @@ lib_atoms = {
 		json.c json.h \
 		mcurl.c \
 		mtime.c mtime.h \
+		nested.c \
 		str.c str.h \
 		streams.c streams.h \
 		url.c url.h \
@@ -42,6 +43,7 @@ headers_mal = {
 		json.mal \
 		mcurl.mal \
 		mtime.mal \
+		nested.mal \
 		streams.mal \
 		str.mal \
 		url.mal \

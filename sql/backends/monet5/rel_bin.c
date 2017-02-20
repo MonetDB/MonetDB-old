@@ -495,7 +495,11 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 				as = const_column(be, as);
 			}
 		}
-		s = stmt_aggr(be, as, grp, ext, a, 1, need_no_nil(e) /* ignore nil*/ );
+		if(strcmp(a->aggr->base.name, "nest") == 0 && strcmp(a->aggr->s->base.name, "sys") == 0){
+			s = stmt_nest(be, as, grp, ext, cnt, a);
+		} else {
+			s = stmt_aggr(be, as, grp, ext, a, 1, need_no_nil(e) /* ignore nil*/ );
+		}
 		if (find_prop(e->p, PROP_COUNT)) /* propagate count == 0 ipv NULL in outer joins */
 			s->flag |= OUTER_ZERO;
 	} 	break;
