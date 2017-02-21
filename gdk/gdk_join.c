@@ -2638,7 +2638,7 @@ do {					\
 			lstart++;					\
 			nr = 0;						\
 			if (*(const TYPE*)v != TYPE##_nil) {		\
-				GETBIN_(bin, *v, B);	\
+				GETBIN_(bin, *(const TYPE*)v, B);	\
 				for (rb = HASHget##WIDTH(hsh, hash_imps_##TYPE(hsh, v, bin)); \
 				     rb != hashnil;			\
 				     rb = HASHgetlink##WIDTH(hsh, rb))	\
