@@ -2884,6 +2884,10 @@ stmt *stmt_nest(backend *be, stmt *ops, stmt *grp, stmt *ext, stmt *histo, sql_s
 	(void) ext; // not used ftm
 	assert(ops->type == st_list);
 
+	// compile the aggregate function if it's not already available
+	if (aggr->aggr->sql == 1 && backend_create_subaggr(be, aggr) < 0)
+		return NULL;
+
 	q = newStmt(be->mb, aggr->aggr->mod, aggr->aggr->imp);
 	if(!q) return NULL;
 	setVarType(be->mb, getArg(q, 0), newBatType( ((sql_subtype*) aggr->res->h->data)->type->localtype ));
