@@ -72,4 +72,3 @@ gadget_export str gadgetPHkeyConvert(Client cntxt, MalBlkPtr mb, MalStkPtr stk, 
 gadget_export str gadgetPHkeyInvert(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 #endif
 
-typedef unsigned char uchar;

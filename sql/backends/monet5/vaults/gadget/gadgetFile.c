@@ -293,8 +293,7 @@ headerInit(Header *h, FILE *blob)
     char headerbytes[HEADERLENGTH];
     long retval = fread(headerbytes, HEADERLENGTH, 1, blob);
     int binbytes[2];
-    (void) retval;
-    assert(retval);
+	assert(retval);
 
     headerInit_(h, headerbytes);
     assert(h->headerOk);
@@ -327,7 +326,6 @@ int ReadGadgetFile(GadgetParticles* particles, char* filePath)
     char *pos = NULL, *vel=NULL, *id=NULL;
     long index = MRSNAP_POS_OFFSET;
     int retval;
-    (void) retval;
 
     stream = fopen(filePath, "rb");
     if (!stream) {

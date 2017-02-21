@@ -25,8 +25,6 @@
 #define MRS_PHBin_DEFAULT 5000
 #define MRS_PARTICLE_DEFAULT 5000
 
-typedef unsigned char uchar;
-
 /*Structures*/
 typedef struct Header_ {
     char* fileName;
