@@ -1346,7 +1346,7 @@ sqltypeinit( sql_allocator *sa)
 
 	*t++ = sql_create_type(sa, "BLOB", 0, 0, 0, EC_BLOB, "sqlblob");
 
-	*t++ = sql_create_type(sa, "NESTED_TABLE", 0, 0, 0, EC_NESTED_TABLE, "nested_table");
+	*t++ = sql_create_type(sa, "NESTED_TABLE", 0, 0, 0, EC_NESTED_TABLE, "nestedtable");
 
 	if (geomcatalogfix_get() != NULL) {
 		// the geom module is loaded 

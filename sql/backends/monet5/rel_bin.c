@@ -4819,6 +4819,8 @@ output_rel_bin(backend *be, sql_rel *rel )
 	int sqltype = sql->type;
 	stmt *s = subrel_bin(be, rel, refs);
 
+	printf("[output_rel_bin] %s\n", mal2str(be->mb, 0, be->mb->stop));
+
 	if (sqltype == Q_SCHEMA)
 		sql->type = sqltype;  /* reset */
 

@@ -294,13 +294,13 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 	case PATcall:
 	case CMDcall:
 	case ASSIGNsymbol :
-		// is any variable explicit or used
-		for (i = 0; i < p->retc; i++)
-			if ( !isTmpVar(mb,getArg(p,i)) || isVarUsed(mb, getArg(p, i)) || isVarUDFtype(mb,getArg(p,i)))
-				break;
-
-		if (i == p->retc)
-			break;
+//		// is any variable explicit or used
+//		for (i = 0; i < p->retc; i++)
+//			if ( !isTmpVar(mb,getArg(p,i)) || isVarUsed(mb, getArg(p, i)) || isVarUDFtype(mb,getArg(p,i)))
+//				break;
+//
+//		if (i == p->retc)
+//			break;
 
 		/* display multi-assignment list */
 		if (p->retc > 1)

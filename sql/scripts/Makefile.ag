@@ -26,7 +26,7 @@ headers_sql = {
 		25_debug.sql \
 		26_sysmon.sql \
 		27_rejects.sql \
-		35_nested.sql \
+		35_nested_table.sql \
 		39_analytics.sql \
 		40_json.sql \
 		41_md5sum.sql \
