@@ -8,6 +8,11 @@ module nestedtable;
 
 atom nestedtable : oid;
 
+command prelude() address NESTEDTABLEprelude;
+
 command nest1(group_mapping :bat[:oid], histogram :bat[:lng]) :bat[:nestedtable]
 address NESTEDTABLEnest1_oid
 comment "Create a nested table out of the grouped partitions";
+
+# Initialize
+nestedtable.prelude();
