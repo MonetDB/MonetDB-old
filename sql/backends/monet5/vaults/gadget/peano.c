@@ -183,7 +183,7 @@ int saveToFileKeys(char *fileOutPath, char *mode, peanokey *keys, long numPart) 
         fwrite((peanokey*)keys, sizeof(peanokey), numPart, fp);
     else
         for (i = 0; i < numPart; i++)
-            fprintf(fp, "%llu\n", keys[i]);
+            fprintf(fp, "%lld\n", keys[i]);
 
     fflush(fp);
     fclose(fp);

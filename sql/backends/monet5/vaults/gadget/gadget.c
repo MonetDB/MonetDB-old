@@ -1063,7 +1063,6 @@ str gadgetLoadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #ifndef NDEBUG
   int time0;
 #endif
-  (void) retval;
 
   if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
     return msg;
@@ -1309,7 +1308,6 @@ str gadgetLoadTableAll(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #ifndef NDEBUG
   int time0;
 #endif
-  (void) retval;
 
   if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
     return msg;
@@ -1573,7 +1571,6 @@ gadgetLoadTableAll_(mvc *m, sql_schema *sch, sql_table *gadget_tbl, char *tname)
 #ifndef NDEBUG
   int time0;
 #endif
-  (void) retval;
 
   GADGET_LOCK;
   tbl = mvc_bind_table(m, sch, tname);
@@ -1745,8 +1742,6 @@ gadgetLoadTableAll_(mvc *m, sql_schema *sch, sql_table *gadget_tbl, char *tname)
         retval = fread(binbytes, nbins * 4, 1, streams[i]);
 #ifndef NDEBUG
         assert(retval);
-#else
-        (void) retval;
 #endif
 
         for (j = 0; j < nbins; j++)
