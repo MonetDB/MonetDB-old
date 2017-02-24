@@ -529,7 +529,7 @@ int yydebug=1;
 %token	USER CURRENT_USER SESSION_USER LOCAL LOCKED BEST EFFORT
 %token  CURRENT_ROLE sqlSESSION
 %token <sval> sqlDELETE UPDATE SELECT INSERT 
-%token <sval> LATERAL LEFT RIGHT FULL OUTER NATURAL CROSS JOIN INNER
+%token <sval> LATERAL LEFT RIGHT FULL OUTER NATURAL CROSS JOIN INNER UNNEST
 %token <sval> COMMIT ROLLBACK SAVEPOINT RELEASE WORK CHAIN NO PRESERVE ROWS
 %token  START TRANSACTION READ WRITE ONLY ISOLATION LEVEL
 %token  UNCOMMITTED COMMITTED sqlREPEATABLE SERIALIZABLE DIAGNOSTICS sqlSIZE STORAGE
@@ -2938,6 +2938,11 @@ joined_table:
 	  append_symbol(l, $5);
 	  append_symbol(l, NULL);
 	  $$ = _symbol_create_list( SQL_JOIN, l); }
+   |  table_ref UNNEST column_ref
+	{ dlist *l = L();
+	  append_symbol(l, $1);
+	  append_list(l, $3);
+	  $$ = _symbol_create_list( SQL_UNNEST, l); }
   ;
 
 join_type:

@@ -140,8 +140,6 @@ typedef struct expression {
 
 #define DDL_EMPTY 100
 
-#define MAXOPS 21
-
 typedef enum operator_type {
 	op_basetable = 0,
 	op_table,
@@ -161,10 +159,13 @@ typedef enum operator_type {
 	op_groupby,	
 	op_topn,
 	op_sample,
+	op_unnest,
 	op_insert, 	/* insert(l=table, r insert expressions) */ 
 	op_update, 	/* update(l=table, r update expressions) */
 	op_delete 	/* delete(l=table, r delete expression) */
 } operator_type;
+
+#define MAXOPS (op_delete +1)
 
 #define is_atom(et) \
 	(et == e_atom)

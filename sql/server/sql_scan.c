@@ -226,6 +226,7 @@ scanner_init_keywords(void)
 	keywords_insert("PATH", PATH);
 	keywords_insert("PRECISION", PRECISION);
 	keywords_insert("PRIMARY", PRIMARY);
+	keywords_insert("UNNEST", UNNEST);
 
 	keywords_insert("USER", USER);
 	keywords_insert("RENAME", RENAME);

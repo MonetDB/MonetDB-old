@@ -374,6 +374,24 @@ rel_crossproduct(sql_allocator *sa, sql_rel *l, sql_rel *r, operator_type join)
 	return rel;
 }
 
+
+sql_rel *
+rel_unnest(sql_allocator* sa, sql_rel *l, sql_exp* e){
+	sql_rel *rel = rel_create(sa);
+
+	assert(exp_subtype(e)->type->eclass == EC_NESTED_TABLE);
+	assert(exp_subtype(e)->attributes != NULL);
+	assert(list_length(exp_subtype(e)->attributes) > 0);
+
+	rel->l = l;
+	rel->r = e;
+	rel->op = op_unnest;
+	rel->exps = list_append(sa_list(sa), exp_compare(sa, exp_subtype(e)->attributes->h->data, NULL, cmp_unnest));
+	rel->card = CARD_MULTI;
+	rel->nrcols = l->nrcols + list_length(exp_subtype(e)->attributes);
+	return rel;
+}
+
 sql_rel *
 rel_topn(sql_allocator *sa, sql_rel *l, list *exps )
 {

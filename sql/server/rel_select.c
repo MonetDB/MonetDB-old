@@ -341,6 +341,16 @@ query_exp_optname(mvc *sql, sql_rel *r, symbol *q)
 			return NULL;
 		return rel_table_optname(sql, tq, q->data.lval->t->data.sym);
 	}
+	case SQL_UNNEST:
+	{
+		sql_rel* tq = rel_unnestquery(sql, r, q);
+
+		if(!tq)
+			return NULL;
+
+		return rel_table_optname(sql, tq, q->data.lval->t->data.sym);
+		break;
+	}
 	default:
 		(void) sql_error(sql, 02, "case %d %s\n", q->token, token2string(q->token));
 	}
@@ -3418,6 +3428,16 @@ _rel_aggr(mvc *sql, sql_rel **rel, int distinct, sql_schema *s, char *aname, dno
 			}
 		}
 	}
+
+	// record the attributes for nested tables
+	if(a) {
+		sql_subtype* sqltype = a->res->h->data;
+		if(sqltype->type->eclass == EC_NESTED_TABLE){
+			// suspecting it should be exp_alias_or_copy
+			sqltype->attributes = exps_copy(sql->sa, a->aggr->ops);
+		}
+	}
+
 	if (a && execute_priv(sql,a->aggr)) {
 		sql_exp *e = exp_aggr(sql->sa, exps, a, distinct, no_nil, groupby->card, have_nil(exps));
 
@@ -5321,6 +5341,29 @@ rel_unionjoinquery(mvc *sql, sql_rel *rel, symbol *q)
 		rel = rel_distinct(rel);
 	return rel;
 }
+
+static sql_rel *
+rel_unnestquery(mvc* sql, sql_rel* rel, symbol* q){
+	dnode* head = q->data.lval->h;
+	sql_rel* lhs = NULL;
+	sql_exp* rhs = NULL;
+
+	// bind the table and the column
+	lhs = table_ref(sql, rel, head->data, 0);
+	if(!lhs){
+		return NULL;
+	}
+	rhs = rel_column_ref(sql, &rel, head->next->data, sql_from);
+	if(!rhs){
+		return NULL;
+	}
+
+	rel = rel_unnest(sql->sa, lhs, rhs);
+
+	// add the projection at the end
+
+}
+
 
 sql_rel *
 rel_subquery(mvc *sql, sql_rel *rel, symbol *sq, exp_kind ek, int apply)
