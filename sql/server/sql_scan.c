@@ -13,9 +13,9 @@
 #include "sql_types.h"
 #include "sql_symbol.h"
 #include "sql_mvc.h"
+#include "sql_parser.h"		/* for sql_error() */
 #include "sql_parser.tab.h"
 #include "sql_semantic.h"
-#include "sql_parser.h"		/* for sql_error() */
 
 #include <stream.h>
 #include <unistd.h>

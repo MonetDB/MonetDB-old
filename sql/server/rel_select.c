@@ -200,6 +200,7 @@ static sql_rel * rel_setquery(mvc *sql, sql_rel *rel, symbol *sq);
 static sql_rel * rel_joinquery(mvc *sql, sql_rel *rel, symbol *sq);
 static sql_rel * rel_crossquery(mvc *sql, sql_rel *rel, symbol *q);
 static sql_rel * rel_unionjoinquery(mvc *sql, sql_rel *rel, symbol *sq);
+static sql_rel * rel_unnest_query(mvc *sql, sql_rel *rel, symbol *sq);
 
 static sql_rel *
 rel_table_optname(mvc *sql, sql_rel *sq, symbol *optname)
@@ -343,7 +344,7 @@ query_exp_optname(mvc *sql, sql_rel *r, symbol *q)
 	}
 	case SQL_UNNEST:
 	{
-		sql_rel* tq = rel_unnestquery(sql, r, q);
+		sql_rel* tq = rel_unnest_query(sql, r, q);
 
 		if(!tq)
 			return NULL;
@@ -3433,8 +3434,12 @@ _rel_aggr(mvc *sql, sql_rel **rel, int distinct, sql_schema *s, char *aname, dno
 	if(a) {
 		sql_subtype* sqltype = a->res->h->data;
 		if(sqltype->type->eclass == EC_NESTED_TABLE){
-			// suspecting it should be exp_alias_or_copy
-			sqltype->attributes = exps_copy(sql->sa, a->aggr->ops);
+			sqltype->attributes = exps_copy(sql->sa, exps);
+//			sqltype->attributes = sa_list(sql->sa);
+//			for(node* n = exps->h; n; n = n->next){
+//				sql_exp* e = n->data;
+//				list_append(sqltype->attributes, exp_alias_or_copy(sql, NULL, exp_name(e), groupby->l, e));
+//			}
 		}
 	}
 
@@ -3899,7 +3904,9 @@ rel_projections_(mvc *sql, sql_rel *rel)
 	case op_topn:
 	case op_sample:
 		return rel_projections_(sql, rel->l);
-	default:
+	case op_unnest:
+		assert("Not supported yet");
+	default: // fall through
 		return NULL;
 	}
 }
@@ -5343,25 +5350,46 @@ rel_unionjoinquery(mvc *sql, sql_rel *rel, symbol *q)
 }
 
 static sql_rel *
-rel_unnestquery(mvc* sql, sql_rel* rel, symbol* q){
+rel_unnest_query(mvc* sql, sql_rel* rel, symbol* q){
 	dnode* head = q->data.lval->h;
 	sql_rel* lhs = NULL;
 	sql_exp* rhs = NULL;
+	list* attributes = NULL;
+	const char* attributes_tbl = NULL;
+	symbol* symbol_table_alias = NULL;
 
 	// bind the table and the column
-	lhs = table_ref(sql, rel, head->data, 0);
+	lhs = table_ref(sql, rel, head->data.sym, 0);
 	if(!lhs){
 		return NULL;
 	}
-	rhs = rel_column_ref(sql, &rel, head->next->data, sql_from);
+	rhs = rel_column_ref(sql, &lhs, head->next->data.sym, sql_from);
 	if(!rhs){
 		return NULL;
+	}
+	if(rhs->tpe.type->eclass != EC_NESTED_TABLE){
+		//(void) sql_error(sql, 02, "relational query without result");
+		return sql_error(sql, 02, "The attribute %s is not a nested table", exp_name(rhs));
 	}
 
 	rel = rel_unnest(sql->sa, lhs, rhs);
 
-	// add the projection at the end
+	// rename the attributes according to the table name of the nested column
+	attributes = rel_unnest_attributes(rel);
+	attributes_tbl = exp_relname(rhs);
+	for (node* n = attributes->h; n; n = n->next){
+		exp_setname(sql->sa, n->data, attributes_tbl, NULL);
+	}
 
+	// table expression alias, i.e. table_exp UNNEST attr AS newName ( newColumns )
+	symbol_table_alias = head->next->next->data.sym;
+	if(symbol_table_alias != NULL){
+		rel = rel_project(sql->sa, rel, rel_projections(sql, rel, NULL, true, true));
+		set_processed(rel); // we have all the needed attributes
+		rel = rel_table_optname(sql, rel, symbol_table_alias); // rename
+	}
+
+	return rel;
 }
 
 

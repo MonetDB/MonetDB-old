@@ -117,6 +117,7 @@ name_find_column( sql_rel *rel, char *rname, char *name, int pnr, sql_rel **bt )
 	case op_select:
 	case op_topn:
 	case op_sample:
+	case op_unnest:
 		return name_find_column( rel->l, rname, name, pnr, bt);
 	case op_union:
 	case op_inter:
@@ -243,6 +244,7 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 		break;
 	case op_project:
 	case op_select:
+	case op_unnest:
 	case op_groupby:
 	case op_topn:
 	case op_sample:
@@ -283,6 +285,7 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 	case op_topn:
 	case op_sample:
 	case op_select:
+	case op_unnest:
 		break;
 
 	case op_insert:
@@ -1080,7 +1083,8 @@ rel_join_order(mvc *sql, sql_rel *rel)
 	case op_select: 
 	case op_groupby: 
 	case op_topn: 
-	case op_sample: 
+	case op_sample:
+	case op_unnest:
 		rel->l = rel_join_order(sql, rel->l);
 		break;
 	case op_ddl: 
@@ -5581,6 +5585,9 @@ exp_mark_used(sql_rel *subrel, sql_exp *e)
 			l = e->r;
 			for (n = l->h; n != NULL; n = n->next) 
 				nr += exp_mark_used(subrel, n->data);
+		} else if (e->flag == cmp_unnest) {
+			nr += exp_mark_used(subrel, e->l);
+			// do not mark the attributes here
 		} else if (e->flag == cmp_in || e->flag == cmp_notin) {
 			list *r = e->r;
 			node *n;
@@ -5775,6 +5782,7 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 		break;
 
 	case op_select:
+	case op_unnest:
 		if (rel->l) {
 			exps_mark_used(sql->sa, rel, rel->l);
 			rel_mark_used(sql, rel->l, 0);
@@ -5912,7 +5920,27 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 			rel->exps = exps;
 		}
 		return rel;
+	case op_unnest: { // similar to above
+		list* attributes = rel_unnest_attributes(rel);
+		bool needed = false;
 
+		for(node* n = attributes->h; n && !needed; n = n->next){
+			needed = !((sql_exp*) n->data)->used;
+		}
+
+		if(needed){
+			list* new_attributes = new_exp_list(sql->sa);
+			for(node* n = attributes->h; n; n = n->next){
+				sql_exp *e = n->data;
+
+				if (e->used)
+					append(new_attributes, e);
+			}
+
+			((sql_exp*)rel->exps->h->data)->r = new_attributes;
+		}
+		return rel;
+	} break;
 	case op_union: 
 	case op_inter: 
 	case op_except: 
@@ -5980,7 +6008,7 @@ rel_dce_refs(mvc *sql, sql_rel *rel)
 	case op_project:
 	case op_groupby: 
 	case op_select: 
-
+	case op_unnest:
 		if (rel->l)
 			l = rel_dce_refs(sql, rel->l);
 
@@ -6088,7 +6116,12 @@ rel_dce_down(mvc *sql, sql_rel *rel, list *refs, int skip_proj)
 			rel_dce_sub(sql, rel, refs);
 		return rel;
 
-	case op_select: 
+	case op_unnest:
+		rel = rel_remove_unused(sql, rel);
+		rel->l = rel_dce_down(sql, rel->l, refs, 0);
+		return rel;
+
+	case op_select:
 		if (rel->l)
 			rel->l = rel_dce_down(sql, rel->l, refs, 0);
 		return rel;
@@ -6181,6 +6214,7 @@ rel_add_projects(mvc *sql, sql_rel *rel)
 	case op_project:
 	case op_groupby: 
 	case op_select: 
+	case op_unnest:
 		if (rel->l)
 			rel->l = rel_add_projects(sql, rel->l);
 		return rel;
@@ -7828,6 +7862,7 @@ rel_uses_exps(sql_rel *rel, list *exps )
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
+	case op_unnest:
 		return (rel_uses_exps(rel->l, exps)); 
 	case op_ddl: 
 		if (rel_uses_exps(rel->l, exps))
@@ -7898,6 +7933,10 @@ exp_apply_rename(mvc *sql, sql_exp *e, list *aliases, int setname)
 				l = e->l;
 			if (l && r)
 				ne = exp_in(sql->sa, l, r, e->flag);
+		} else if (e->flag == cmp_unnest){
+			sql_exp* l = exp_apply_rename(sql, e->l, aliases, setname);
+			list* r = exps_apply_rename(sql, e->r, aliases, setname);
+			ne = exp_unnest(sql->sa, l, r);
 		} else {
 			sql_exp *l = exp_apply_rename(sql, e->l, aliases, setname);
 			sql_exp *r = exp_apply_rename(sql, e->r, aliases, setname);
@@ -7995,6 +8034,11 @@ rel_rename(mvc *sql, sql_rel *rel, list *conflicts)
 		if (!is_semi(rel->op))
 			rel->l = rel_rename(sql, rel->l, conflicts);
 		rel->r = rel_rename(sql, rel->r, conflicts);
+		return rel;
+	case op_unnest:
+		rel->exps = exps_apply_rename(sql, rel->exps, conflicts, 0);
+		rel->l = rel_rename(sql, rel->r, conflicts);
+		rel->r = exps_apply_rename(sql, rel->r, conflicts, 0);
 		return rel;
 	case op_apply:
 		rel->exps = exps_apply_rename(sql, rel->exps, conflicts, 0);
@@ -8177,6 +8221,11 @@ rel_find_conflicts(mvc *sql, sql_rel *rel, list *exps, list *conflicts)
 			rel->r = rel_find_conflicts(sql, rel->r, exps, conflicts);
 		exps_mark_conflicts(sql, rel->exps, conflicts, 0); 
 		return rel;
+	case op_unnest:
+		exps_find_conflicts(sql, rel->r, exps, conflicts);
+		rel->l = rel_find_conflicts(sql, rel->l, exps, conflicts);
+		exps_mark_conflicts(sql, rel->r, conflicts, 0);
+		break;
 	case op_apply:
 		/* First rename the lower level apply */
 		rel = rel_apply_rename(sql, rel);
@@ -8214,6 +8263,7 @@ rel_apply_rename(mvc *sql, sql_rel *rel)
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
+	case op_unnest:
 		rel->l = rel_apply_rename(sql, rel->l);
 		return rel;
 	case op_ddl: 
@@ -8583,6 +8633,7 @@ rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
+	case op_unnest:
 		rel->l = rewrite(sql, rel->l, rewriter, has_changes);
 		break;
 	case op_ddl: 
@@ -8640,6 +8691,7 @@ rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
+	case op_unnest:
 		rel->l = rewrite_topdown(sql, rel->l, rewriter, has_changes);
 		break;
 	case op_ddl: 

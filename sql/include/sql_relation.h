@@ -60,7 +60,7 @@ typedef struct expression {
 #define APPLY_NOTEXISTS	64
 
 /* ASCENDING > 15 else we have problems with cmp types */
-#define ASCENDING	16
+#define ASCENDING	32
 #define CMPMASK		(ASCENDING-1)
 #define get_cmp(e) 	(e->flag&CMPMASK)
 #define ANTISEL	32
@@ -200,8 +200,10 @@ typedef enum operator_type {
 	(op == op_join || is_outerjoin(op))
 #define is_semi(op) \
 	(op == op_semi || op == op_anti)
+#define is_unnest(op) \
+	(op == op_unnest)
 #define is_joinop(op) \
-	(is_join(op) || is_semi(op))
+	(is_join(op) || is_semi(op) || is_unnest(op))
 #define is_apply(op) \
 	(op == op_apply)
 #define is_select(op) \
@@ -226,6 +228,7 @@ typedef enum operator_type {
 	(op == op_insert || op == op_update || op == op_delete)
 #define is_sample(op) \
 	(op == op_sample)
+
 
 /* NO NIL semantics of aggr operations */
 #define need_no_nil(e) \

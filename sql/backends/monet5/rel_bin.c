@@ -1226,7 +1226,7 @@ exp2bin_args(backend *be, sql_exp *e, list *args)
 		if (e->flag == cmp_or || get_cmp(e) == cmp_filter) {
 			args = exps2bin_args(be, e->l, args);
 			args = exps2bin_args(be, e->r, args);
-		} else if (e->flag == cmp_in || e->flag == cmp_notin) {
+		} else if (e->flag == cmp_in || e->flag == cmp_notin || e->flag == cmp_unnest) {
 			args = exp2bin_args(be, e->l, args);
 			args = exps2bin_args(be, e->r, args);
 		} else {
@@ -1319,6 +1319,7 @@ rel2bin_args(backend *be, sql_rel *rel, list *args)
 	case op_select: 
 	case op_topn: 
 	case op_sample: 
+	case op_unnest:
 		if (rel->exps)
 			args = exps2bin_args(be, rel->exps, args);
 		args = rel2bin_args(be, rel->l, args);
@@ -4771,6 +4772,9 @@ subrel_bin(backend *be, sql_rel *rel, list *refs)
 		s = rel2bin_sample(be, rel, refs);
 		sql->type = Q_TABLE;
 		break;
+	case op_unnest:
+		assert("Not handled yet");
+		break;
 	case op_insert: 
 		s = rel2bin_insert(be, rel, refs);
 		if (sql->type == Q_TABLE)
@@ -4995,6 +4999,7 @@ rel_deps(sql_allocator *sa, sql_rel *r, list *refs, list *l)
 	case op_groupby: 
 	case op_topn: 
 	case op_sample:
+	case op_unnest:
 		if (rel_deps(sa, r->l, refs, l) != 0)
 			return -1;
 		break;

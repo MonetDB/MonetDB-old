@@ -28,6 +28,7 @@ extern sql_exp *exp_compare2(sql_allocator *sa, sql_exp *l, sql_exp *r, sql_exp 
 extern sql_exp *exp_filter(sql_allocator *sa, list *l, list *r, sql_subfunc *f, int anti);
 extern sql_exp *exp_or(sql_allocator *sa, list *l, list *r);
 extern sql_exp *exp_in(sql_allocator *sa, sql_exp *l, list *r, int cmptype);
+extern sql_exp* exp_unnest(sql_allocator* sa, sql_exp* column, list* attributes);
 
 #define exp_fromtype(e)	((list*)e->r)->h->data
 #define exp_totype(e)	((list*)e->r)->h->next->data

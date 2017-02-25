@@ -77,6 +77,7 @@ find_basetables( sql_rel *rel, list *tables )
 	case op_select: 
 	case op_topn: 
 	case op_sample: 
+	case op_unnest:
 		if (rel->l)
 			find_basetables(rel->l, tables); 
 		break;

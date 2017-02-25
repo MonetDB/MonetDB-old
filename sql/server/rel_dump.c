@@ -183,6 +183,10 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, int comma, int alias)
 				mnstr_printf(fout, " !");
 			mnstr_printf(fout, " FILTER %s ", f->func->base.name);
 			exps_print(sql, fout, e->r, depth, alias, 1);
+		} else if (get_cmp(e) == cmp_unnest){
+			exp_print(sql, fout, e->l, depth, 0, alias);
+			mnstr_printf(fout, " => ");
+			exps_print(sql, fout, e->r, depth, alias, 1);
 		} else if (e->f) {
 			exp_print(sql, fout, e->r, depth+1, 0, 0);
 			if (is_anti(e))
@@ -472,6 +476,25 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 		if (rel->r && rel->op == op_project) /* order by columns */
 			exps_print(sql, fout, rel->r, depth, 1, 0);
 		break;
+	case op_unnest: {
+		print_indent(sql, fout, depth, decorate);
+		mnstr_printf(fout, "unnest (");
+
+		// lhs
+		if (rel_is_ref(rel->l)) {
+			int nr = find_ref(refs, rel->l);
+			print_indent(sql, fout, depth+1, decorate);
+			mnstr_printf(fout, "& REF %d ", nr);
+		} else
+			rel_print_(sql, fout, rel->l, depth+1, refs, decorate);
+		mnstr_printf(fout, ",");
+
+		// rhs
+		exps_print(sql, fout, rel->exps, depth, 1, 0);
+
+		mnstr_printf(fout, ")");
+		break;
+	}
 	case op_insert:
 	case op_update:
 	case op_delete: {
@@ -555,6 +578,7 @@ rel_print_refs(mvc *sql, stream* fout, sql_rel *rel, int depth, list *refs, int 
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
+	case op_unnest:
 		rel_print_refs(sql, fout, rel->l, depth, refs, decorate);
 		if (rel->l && rel_is_ref(rel->l) && !find_ref(refs, rel->l)) {
 			rel_print_(sql, fout, rel->l, depth, refs, decorate);

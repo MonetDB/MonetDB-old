@@ -119,9 +119,7 @@ UTF8_strlen(const char *val)
 }
 %{
 extern int sqllex( YYSTYPE *yylval, void *m );
-/* enable to activate debugging support
 int yydebug=1;
-*/
 %}
 
 	/* symbolic tokens */
@@ -560,7 +558,7 @@ int yydebug=1;
 
 
 /* operators */
-%left UNION EXCEPT INTERSECT CORRESPONDING UNIONJOIN
+%left UNION EXCEPT INTERSECT CORRESPONDING UNIONJOIN UNNEST
 %left JOIN CROSS LEFT FULL RIGHT INNER NATURAL
 %left WITH DATA
 %left <operation> '(' ')'
@@ -2921,7 +2919,7 @@ joined_table:
 	  append_int(l, 4);
 	  append_symbol(l, $3);
 	  append_symbol(l, $4);
-	  $$ = _symbol_create_list( SQL_UNIONJOIN, l); }
+	  $$ = _symbol_create_list( SQL_UNIONJOIN, l); } 
  |  table_ref join_type JOIN table_ref join_spec
 	{ dlist *l = L();
 	  append_symbol(l, $1);
@@ -2938,11 +2936,6 @@ joined_table:
 	  append_symbol(l, $5);
 	  append_symbol(l, NULL);
 	  $$ = _symbol_create_list( SQL_JOIN, l); }
-   |  table_ref UNNEST column_ref
-	{ dlist *l = L();
-	  append_symbol(l, $1);
-	  append_list(l, $3);
-	  $$ = _symbol_create_list( SQL_UNNEST, l); }
   ;
 
 join_type:
@@ -3186,6 +3179,14 @@ table_ref:
 				  	append_symbol($1->data.lval, $2);
 				  }
 				}
+ | subquery_with_orderby UNNEST ident opt_table_name 
+ {
+     { dlist *l = L();
+      append_symbol(l, $1);
+      append_symbol(l, _symbol_create_list(SQL_COLUMN, append_string(L(), $3)));
+      append_symbol(l, $4);
+      $$ = _symbol_create_list( SQL_UNNEST, l); } 
+ }
  |  LATERAL subquery table_name		
 				{
 				  $$ = $2;
@@ -6016,6 +6017,7 @@ char *token2string(int token)
 	SQL(UNION);
 	SQL(EXCEPT);
 	SQL(INTERSECT);
+	SQL(UNNEST);
 	SQL(VALUES);
 	SQL(ASSIGN);
 	SQL(ORDERBY);
