@@ -3905,7 +3905,7 @@ rel_projections_(mvc *sql, sql_rel *rel)
 	case op_sample:
 		return rel_projections_(sql, rel->l);
 	case op_unnest:
-		assert("Not supported yet");
+		assert(0 && "Not supported yet");
 	default: // fall through
 		return NULL;
 	}

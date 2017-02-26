@@ -23,6 +23,7 @@
 static stmt * exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stmt *cnt, stmt *sel);
 static stmt * rel_bin(backend *be, sql_rel *rel);
 static stmt * subrel_bin(backend *be, sql_rel *rel, list *refs);
+static stmt * stmt_rename(backend *be, sql_rel *rel, sql_exp *exp, stmt *s);
 
 static stmt *
 refs_find_rel(list *refs, sql_rel *rel)
@@ -528,8 +529,8 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 			node *n;
 			int first = 1;
 
-		       	ops = sa_list(sql->sa);
-		       	args = e->l;
+			ops = sa_list(sql->sa);
+			args = e->l;
 			for( n = args->h; n; n = n->next ) {
 				s = NULL;
 				if (!swapped)
@@ -563,6 +564,36 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 			assert(!swapped);
 			s = stmt_genselect(be, l, r, e->f, sel, is_anti(e));
 			return s;
+		} else if (get_cmp(e) == cmp_unnest){
+			sql_exp* lhs = e->l;
+			list* rhs = e->r;
+			list* na_list = NULL;
+			list* expanded_attributes = sa_list(sql->sa);
+
+			// find the column to unnest
+			assert(lhs->type == e_column && "The attribute to 'unnest' is not a column");
+			l = bin_find_column(be, left, lhs->l, lhs->r);
+			assert(l != NULL && "Unable to bind the column to unnest");
+			if(!l) return NULL; // error
+
+			// the nested attributes
+			assert(list_length(rhs) != 0 && "No attributes to expand");
+//			na_list = l->op4.lval;
+			na_list = list_nested_attributes(l);
+			assert(na_list != NULL && "Empty list of nested attributes. Have the list of attributes been propagated?");
+			for(node *n = rhs->h; n; n = n->next){
+				sql_exp* e = n->data;
+				assert(e->type == e_column && "The attribute being expanded is not a column");
+//				r = bin_find_column(be, l, e->l, e->r);
+				r = list_find_column(be, na_list, e->l, e->r);
+				assert(r != NULL && "Unable to bind the nested column");
+				if(!r) return NULL; // error
+				r = stmt_rename(be, NULL, e, r);
+				list_append(expanded_attributes, r);
+			}
+			r = stmt_list(be, expanded_attributes);
+
+			return stmt_unnest(be, l, r);
 		}
 		if (e->flag == cmp_in || e->flag == cmp_notin) {
 			return handle_in_exps(be, e->l, e->r, left, right, grp, ext, cnt, sel, (e->flag == cmp_in), 0);
@@ -2787,6 +2818,56 @@ rel2bin_sample(backend *be, sql_rel *rel, list *refs)
 	return sub;
 }
 
+static stmt *
+rel2bin_unnest(backend *be, sql_rel *rel, list *refs){
+	stmt *sub = NULL;
+	sql_exp *unnest_expr;
+	stmt *unnest = NULL;
+	stmt *nested_attribute = NULL;
+	stmt *unnest_lhs = NULL;
+	stmt *unnest_rhs = NULL;
+	list *output_columns = NULL;
+
+	// build the subrelation first
+	assert(rel->l != NULL && "Unnest operator with no input relation");
+	sub = subrel_bin(be, rel->l, refs);
+	if(!sub) return NULL;
+
+	// create the candidate list of the attributes to project
+	assert(list_length(rel->exps) == 1 && "Expected a single expression");
+	unnest_expr = rel->exps->h->data;
+	assert(unnest_expr->type == e_cmp && get_cmp(unnest_expr) == cmp_unnest);
+	unnest = exp_bin(be, unnest_expr, sub, NULL, NULL, NULL, NULL, NULL);
+	assert(unnest != NULL && "No output from the `unnest' predicate");
+	nested_attribute = unnest->op1;
+	unnest_lhs = stmt_result(be, unnest, 0);
+	unnest_rhs = stmt_result(be, unnest, 1);
+
+	// project back the attributes from the input relation except the column representing the nested table
+	assert(sub->type == st_list);
+	output_columns = sa_list(be->mvc->sa);
+	for(node* n = sub->op4.lval->h; n; n = n->next){
+		stmt* c = column(be, n->data);
+		const char *tname = NULL, *cname = NULL; // damn C90
+		if(c == nested_attribute) continue;
+		tname = table_name(be->mvc->sa, c);
+		cname = column_name(be->mvc->sa, c);
+		c = stmt_project(be, unnest_lhs, c);
+		list_append(output_columns, stmt_alias(be, c, tname, cname));
+	}
+
+	// project the nested attributes
+	for(node* n = unnest->op4.lval->h; n; n = n->next){
+		stmt* c = column(be, n->data);
+		const char *tname = table_name(be->mvc->sa, c);
+		const char *cname = column_name(be->mvc->sa, c);
+		c = stmt_project(be, unnest_rhs, c);
+		list_append(output_columns, stmt_alias(be, c, tname, cname));
+	}
+
+	return stmt_list(be, output_columns);
+}
+
 stmt *
 sql_parse(backend *be, sql_allocator *sa, char *query, char mode)
 {
@@ -4773,7 +4854,8 @@ subrel_bin(backend *be, sql_rel *rel, list *refs)
 		sql->type = Q_TABLE;
 		break;
 	case op_unnest:
-		assert("Not handled yet");
+		s = rel2bin_unnest(be, rel, refs);
+		sql->type = Q_TABLE;
 		break;
 	case op_insert: 
 		s = rel2bin_insert(be, rel, refs);

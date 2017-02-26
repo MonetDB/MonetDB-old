@@ -1817,6 +1817,7 @@ stmt_project(backend *be, stmt *op1, stmt *op2)
 
 		s->op1 = op1;
 		s->op2 = op2;
+		s->op4.lval = list_nested_attributes(s->op2);
 		s->flag = cmp_project;
 		s->key = 0;
 		s->nrcols = 2;
@@ -2912,6 +2913,28 @@ stmt *stmt_nest(backend *be, stmt *ops, stmt *grp, stmt *ext, stmt *histo, sql_s
 
 }
 
+stmt *stmt_unnest(backend *be, stmt *nested_attribute, stmt* list_operands){
+	InstrPtr q = NULL;
+	stmt* s = NULL;
+
+	q = newStmt(be->mb, "nestedtable", "unnest1");
+	getArg(q, 0) = newTmpVariable(be->mb, TYPE_bat);
+	q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_bat));
+	assert(nested_attribute != NULL && nested_attribute->nr > 0);
+	q = pushArgument(be->mb, q, nested_attribute->nr);
+
+	if(q){
+		s = stmt_create(be->mvc->sa, st_unnest);
+		s->op1 = nested_attribute;
+		s->op4.lval = list_operands->op4.lval;
+		s->nrcols = list_length(s->op4.lval) + 2;
+		s->nr = getDestVar(q);
+		s->q = q;
+	}
+
+	return s;
+}
+
 static stmt *
 stmt_alias_(backend *be, stmt *op1, const char *tname, const char *alias)
 {
@@ -3501,5 +3524,27 @@ const_column(backend *be, stmt *val)
 		s->q = q;
 		return s;
 	}
+	return NULL;
+}
+
+
+list *list_nested_attributes(stmt* st){
+	assert(st != NULL);
+	switch(st->type){
+	case st_aggr:
+		if(st->op1->type == st_list){
+			return st->op1->op4.lval;
+		}
+		break;
+	case st_alias:
+		return list_nested_attributes(st->op1);
+	case st_join:
+		return st->op4.lval;
+	case st_rs_column:
+		return NULL;
+	default:
+		assert(0 && "Statement type not handled");
+	}
+
 	return NULL;
 }

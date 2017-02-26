@@ -14,5 +14,9 @@ command nest1(group_mapping :bat[:oid], histogram :bat[:lng]) :bat[:nestedtable]
 address NESTEDTABLEnest1_oid
 comment "Create a nested table out of the grouped partitions";
 
+command unnest1(:bat[:nestedtable]) (:bat[:oid], :bat[:oid])
+address NESTEDTABLEunnest101_oid
+comment "Extract the candidate list from a nested table"
+
 # Initialize
 nestedtable.prelude();
