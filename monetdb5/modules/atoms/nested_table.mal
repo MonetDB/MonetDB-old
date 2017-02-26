@@ -8,6 +8,7 @@ module nestedtable;
 
 atom nestedtable : oid;
 
+command heap()    address NESTEDTABLEheap;
 command prelude() address NESTEDTABLEprelude;
 
 command nest1(group_mapping :bat[:oid], histogram :bat[:lng]) :bat[:nestedtable]
