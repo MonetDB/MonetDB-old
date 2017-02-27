@@ -12,6 +12,8 @@
 #include "mal_exception.h"
 #include "gdk_bbp.h"
 
+#include "nested_table.h"
+
 // errors
 #if !defined(NDEBUG) /* debug only */
 #define _CHECK_ERRLINE_EXPAND(LINE) #LINE
@@ -27,26 +29,31 @@
 mal_export str NESTEDTABLEnest1_oid(bat*, const bat*, const bat*);
 mal_export str NESTEDTABLEunnest101_oid(bat*, bat*, const bat*);
 mal_export void NESTEDTABLEheap(Heap*, size_t);
+mal_export var_t NESTEDTABLEput(Heap *h, var_t *bun, nested_table *val);
 mal_export str NESTEDTABLEprelude(void*);
 
 // index in the BATatoms table
 int TYPE_nested_table;
 
-// only needed for its side effect: it asks the gdk initialise the vheap storage
-void NESTEDTABLEheap(Heap *heap, size_t capacity){
-	(void) capacity;
-	heap->base = heap->base -1; // fool the gdk -> ATOMheap
+void NESTEDTABLEheap(Heap* heap, size_t capacity){
+	(void) capacity; // capacity refers to the #number of elements in the non virtual heap
+	HEAP_initialize(heap, 0, 0, sizeof(oid));
 }
 
 // initializer
 str NESTEDTABLEprelude(void* ret) {
-	atomDesc* descriptor = NULL;
-
 	(void) ret;
 	TYPE_nested_table = ATOMindex("nestedtable");
-	descriptor = BATatoms + TYPE_nested_table;
-	descriptor->linear = FALSE;
+
+	BATatoms[TYPE_nested_table].linear = FALSE;
 	return MAL_SUCCEED;
+}
+
+var_t NESTEDTABLEput(Heap *h, var_t *bun, nested_table *value) {
+	const size_t size = (value->count+1) * sizeof(oid);
+	const var_t offset = HEAP_malloc(h, size); // longjmp in case of error O.o
+	memcpy(h->base + offset, value, size);
+	return (*bun = offset);
 }
 
 // MAL interface
@@ -58,9 +65,11 @@ mal_export str NESTEDTABLEnest1_oid(bat* id_out, const bat* id_group_mapping, co
 	BAT* histogram = NULL;
 	lng* __restrict histogram_values = NULL;
 	BAT* output = NULL;
-	var_t* __restrict output_offsets = NULL;
-	oid* __restrict output_content = NULL;
+	var_t heap_alloc_offset = 0;
+	var_t* /*__restrict*/ output_offsets = NULL;
+	char* /*__restrict*/ output_content = NULL;
 	size_t output_sz = 0;
+	size_t output_content_sz = 0;
 	oid sum = 0;
 
 	// input arguments
@@ -76,20 +85,26 @@ mal_export str NESTEDTABLEnest1_oid(bat* id_out, const bat* id_group_mapping, co
 	output = COLnew(group_mapping->hseqbase, TYPE_nested_table, BATcount(histogram), TRANSIENT);
 	CHECK(output != NULL, MAL_MALLOC_FAIL);
 
-	// edge case, the input is empty
+	// allocate the virtual heap
 	output_sz = BATcount(histogram);
+	output_content_sz = output_sz + BATcount(group_mapping);
+	heap_alloc_offset = HEAP_malloc(output->tvheap, output_content_sz * sizeof(oid)) << GDK_VARSHIFT;
+	output_content = output->tvheap->base;
+    memset(output_content + heap_alloc_offset, 0, output_content_sz * sizeof(oid));
+
+	// edge case, the input is empty
 	if(output_sz == 0) goto success;
 
 	// compute the offsets
 	histogram_values = (lng*) histogram->T.heap.base;
 	output_offsets = (var_t*) output->T.heap.base;
-	output_offsets[0] = 0;
+	output_offsets[0] = sum = heap_alloc_offset;
 	for (size_t i = 1; i < output_sz; i++){
 		sum += histogram_values[i-1] + /* length */ 1;
 		output_offsets[i] = (var_t) sum;
 	}
 	sum += histogram_values[output_sz -1] +1;
-	assert(sum == BATcount(histogram) + BATcount(group_mapping) && "#groups + #values != computed sum");
+	assert((sum - heap_alloc_offset) == output_content_sz && "computed sum != #groups + #values");
 	output->tvarsized = 1;
 	output->tkey = 1;
 	output->tdense = output->tnodense = 0;
@@ -98,20 +113,14 @@ mal_export str NESTEDTABLEnest1_oid(bat* id_out, const bat* id_group_mapping, co
 	output->tnonil = 1; output->tnil = 0;
 	BATsetcount(output, output_sz);
 
-	// allocate the virtual heap
-	HEAP_initialize(output->tvheap, 0, sum, sizeof(oid));
-	CHECK(output->tvheap != NULL, MAL_MALLOC_FAIL);
-    memset(output->tvheap->base, 0, output->tvheap->size);
-
     // insert the actual values into the vheap
     group_mapping_values = (oid*) group_mapping->theap.base;
-    output_content = (oid*) output->T.vheap->base;
     for(size_t i = 0, sz = BATcount(group_mapping); i < sz; i++){
-    	oid count = output_offsets[ group_mapping_values[i] ];
-    	oid pos = ++output_content[count];
-    	output_content[pos] = i;
+    	var_t offset = output_offsets[ group_mapping_values[i] ];
+    	oid* __restrict values = (oid*) (output_content + (offset << GDK_VARSHIFT));
+    	oid pos = ++values[0];
+    	values[pos] = i;
     }
-    output->tvheap->free = sum * sizeof(oid);
 
 success:
 	BBPunfix(group_mapping->batCacheid);
@@ -150,19 +159,16 @@ mal_export str NESTEDTABLEunnest101_oid(bat* out_jl, bat* out_jr, const bat* in_
 	jr = COLnew(nested_attribute->hseqbase, TYPE_oid, BATcount(nested_attribute) * 5, TRANSIENT);
 	CHECK(jl != NULL && jr != NULL, MAL_MALLOC_FAIL);
 
-	// empty argument?
 	na_count = BATcount(nested_attribute);
-	if(na_count == 0) goto success; // skip here as the vheap may not be effectively allocated
-
 	na_offsets = (var_t*) nested_attribute->T.heap.base;
 	assert(nested_attribute->T.vheap != NULL);
 	na_values = (oid*) nested_attribute->T.vheap->base;
-	assert(na_values != NULL && ((lng) na_values) != -1);
+	assert(na_values != NULL);
 	for(oid i = 0; i < na_count; i++){
 		var_t offset = na_offsets[i];
 		oid* __restrict base = na_values + offset;
 		oid off_count = *(base++);
-		assert(((offset+off_count) * sizeof(oid) <= nested_attribute->T.vheap->size) && "Index out of bounds");
+		assert((offset + (off_count * sizeof(oid)) <= nested_attribute->T.vheap->size) && "Index out of bounds");
 		for(oid j = 0; j < off_count; j++){
 			BUNappend(jl, &i, false);
 		}
@@ -172,7 +178,7 @@ mal_export str NESTEDTABLEunnest101_oid(bat* out_jl, bat* out_jr, const bat* in_
 		}
 	}
 
-success:
+//success:
 	BBPunfix(nested_attribute->batCacheid);
 	*out_jl = jl->batCacheid;
 	BBPkeepref(jl->batCacheid);

@@ -3538,9 +3538,24 @@ list *list_nested_attributes(stmt* st){
 		break;
 	case st_alias:
 		return list_nested_attributes(st->op1);
-	case st_join:
+	case st_append:
+		// assuming both operands have the same attributes in the nested table
+		return list_nested_attributes(st->op1);
+	case st_const:
+		// atom => this should be always null
+		return list_nested_attributes(st->op2);
+	case st_convert:
+		return NULL;
+	case st_join: // projection
 		return st->op4.lval;
+	case st_temp:
+		return NULL;
+	case st_bat: // implies storage
+	case st_Nop: // to be reviewed
 	case st_rs_column:
+	case st_single:
+	case st_tid:
+	case st_var: // implies storage
 		return NULL;
 	default:
 		assert(0 && "Statement type not handled");
