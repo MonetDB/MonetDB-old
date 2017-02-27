@@ -19,6 +19,7 @@
 #include "mal_debugger.h"
 #include "opt_prelude.h"
 
+#include <stdio.h>
 #include <string.h>
 
 /*
@@ -3558,7 +3559,8 @@ list *list_nested_attributes(stmt* st){
 	case st_var: // implies storage
 		return NULL;
 	default:
-		assert(0 && "Statement type not handled");
+//		assert(0 && "Statement type not handled");
+		fprintf(stderr, "[list_nested_attributes] Statement type not handled: %d\n", st->type);
 	}
 
 	return NULL;
