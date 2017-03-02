@@ -86,7 +86,7 @@ SQLsetTrace(Client cntxt, MalBlkPtr mb)
 	q= pushStr(mb,q,"sql_traces");
 	/* cook a new resultSet instruction */
 	resultset = newInstruction(mb,sqlRef, resultSetRef);
-	getArg(resultset,0)= newTmpVariable(mb,TYPE_int);
+	setVarType(mb, getArg(resultset,0), TYPE_int);
 
 	/* build table defs */
 	tbls = newStmt(mb,batRef, newRef);
@@ -297,7 +297,7 @@ SQLrun(Client c, backend *be, mvc *m){
 					throw(SQL, "sql.prepare", "07001!EXEC: wrong type for argument %d of " "query template : %s, expected %s", i + 1, atom_type(arg)->type->sqlname, pt->type->sqlname);
 				}
 				val= (ValPtr) &arg->data;
-				if (VALcopy(&mb->var[j+retc]->value, val) == NULL)
+				if (VALcopy(&mb->var[j+retc].value, val) == NULL)
 					throw(MAL, "sql.prepare", MAL_MALLOC_FAIL);
 				setVarConstant(mb, j+retc);
 				setVarFixed(mb, j+retc);
@@ -505,7 +505,6 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 			sql->out = NULL;	/* no output stream */
 		if (execute)
 			msg = SQLrun(c,be,m);
-
 		MSresetInstructions(c->curprg->def, oldstop);
 		freeVariables(c, c->curprg->def, NULL, oldvtop);
 
@@ -521,7 +520,7 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 				int ncol = 0;
 				res_table *res;
 				for (n = r->exps->h; n; n = n->next) ncol++;
-				res = res_table_create(m->session->tr, m->result_id++, ncol, 1, NULL, NULL);
+				res = res_table_create(m->session->tr, m->result_id++, 0, ncol, 1, NULL, NULL);
 				for (n = r->exps->h; n; n = n->next) {
 					const char *name, *rname;
 					sql_exp *e = n->data;

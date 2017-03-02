@@ -64,12 +64,19 @@ list_find_column(backend *be, list *l, const char *rname, const char *name )
 	MT_lock_set(&l->ht_lock);
 	if (!l->ht && list_length(l) > HASH_MIN_SIZE) {
 		l->ht = hash_new(l->sa, MAX(list_length(l), l->expected_cnt), (fkeyvalue)&stmt_key);
+		if (l->ht == NULL) {
+			MT_lock_unset(&l->ht_lock);
+			return NULL;
+		}
 
 		for (n = l->h; n; n = n->next) {
 			const char *nme = column_name(be->mvc->sa, n->data);
 			int key = hash_key(nme);
 
-			hash_add(l->ht, key, n->data);
+			if (hash_add(l->ht, key, n->data) == NULL) {
+				MT_lock_unset(&l->ht_lock);
+				return NULL;
+			}
 		}
 	}
 	if (l->ht) {
@@ -2632,6 +2639,8 @@ rel2bin_groupby(backend *be, sql_rel *rel, list *refs)
 				assert(0);
 				return NULL;
 			}
+			if (!gbcol->nrcols)
+				gbcol = stmt_const(be, bin_first_column(be, sub), gbcol);
 			groupby = stmt_group(be, gbcol, grp, ext, cnt, !en->next);
 			grp = stmt_result(be, groupby, 0);
 			ext = stmt_result(be, groupby, 1);

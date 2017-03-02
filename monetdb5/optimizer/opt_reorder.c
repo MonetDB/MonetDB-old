@@ -135,7 +135,7 @@ OPTdependencies(Client cntxt, MalBlkPtr mb, int **Ulist)
 	}
 	uselist = GDKzalloc(sizeof(int)*sz);
 	if (!uselist) {
-		GDKfree(list);
+		OPTremoveDep(list, mb->stop);
 		GDKfree(var);
 		return NULL;
 	}
@@ -295,7 +295,7 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			continue;
 		if( p->token == ENDsymbol)
 			break;
-		if( hasSideEffects(p,FALSE) || isUnsafeFunction(p) || p->barrier ){
+		if( hasSideEffects(mb, p,FALSE) || isUnsafeFunction(p) || p->barrier ){
 			if (OPTbreadthfirst(cntxt, mb, i, i, old, dep, uselist) < 0)
 				break;
 			/* remove last instruction and keep for later */
