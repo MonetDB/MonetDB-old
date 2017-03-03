@@ -4885,6 +4885,21 @@ rel_unique_names(mvc *sql, sql_rel *rel)
 	return rel;
 }
 
+
+static sql_rel *
+validate_result_type (mvc *sql, sql_rel *rel){
+	list *exps = rel_projections(sql, rel, NULL, true, false);
+	for(node *n = exps->h; n; n = n->next){
+		sql_exp *e = n->data;
+		sql_subtype *type = exp_subtype(e);
+		if(list_length(type->attributes) != 0){
+			return sql_error(sql, 01, "SELECT: Nested table attribute in the topmost projection: %s", exp_name(e));
+		}
+	}
+
+	return rel;
+}
+
 static sql_rel *
 rel_query(mvc *sql, sql_rel *rel, symbol *sq, int toplevel, exp_kind ek, int apply)
 {
@@ -5445,6 +5460,8 @@ rel_selects(mvc *sql, symbol *s)
 	}
 	if (!ret && sql->errstr[0] == 0)
 		(void) sql_error(sql, 02, "relational query without result");
+	else
+		ret = validate_result_type(sql, ret);
 	return ret;
 }
 
