@@ -2919,7 +2919,7 @@ joined_table:
 	  append_int(l, 4);
 	  append_symbol(l, $3);
 	  append_symbol(l, $4);
-	  $$ = _symbol_create_list( SQL_UNIONJOIN, l); } 
+	  $$ = _symbol_create_list( SQL_UNIONJOIN, l); }
  |  table_ref join_type JOIN table_ref join_spec
 	{ dlist *l = L();
 	  append_symbol(l, $1);

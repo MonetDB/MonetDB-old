@@ -5407,7 +5407,6 @@ rel_unnest_query(mvc* sql, sql_rel* rel, symbol* q){
 	return rel;
 }
 
-
 sql_rel *
 rel_subquery(mvc *sql, sql_rel *rel, symbol *sq, exp_kind ek, int apply)
 {

@@ -177,11 +177,7 @@ bat_utils_init(void)
 		    && (have_hge || t != TYPE_hge)
 #endif
 		) {
-			if(t == TYPE_nested_table){
-				ebats[t] = bat_new(t, 0, TRANSIENT);
-			} else {
-				ebats[t] = bat_new(t, 0, TRANSIENT);
-			}
+			ebats[t] = bat_new(t, 0, TRANSIENT);
 			bat_set_access(ebats[t], BAT_READ);
 		}
 	}
