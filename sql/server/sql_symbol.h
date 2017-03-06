@@ -52,6 +52,8 @@ extern dlist *dlist_append_lng(sql_allocator *sa, dlist *l, lng data);
 extern dlist *dlist_append_symbol(sql_allocator *sa, dlist *l, struct symbol *data);
 extern dlist *dlist_append_type(sql_allocator *sa, dlist *l, struct sql_subtype *data);
 
+extern dlist *dlist_prepend_symbol(sql_allocator* sa, dlist* l, struct symbol *data);
+
 typedef struct symbol {
 	int token;
 	symtype type;

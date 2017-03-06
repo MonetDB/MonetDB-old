@@ -5367,33 +5367,37 @@ rel_unionjoinquery(mvc *sql, sql_rel *rel, symbol *q)
 static sql_rel *
 rel_unnest_query(mvc* sql, sql_rel* rel, symbol* q){
 	dnode* head = q->data.lval->h;
-	sql_rel* lhs = NULL;
-	sql_exp* rhs = NULL;
-	list* attributes = NULL;
-	const char* attributes_tbl = NULL;
 	symbol* symbol_table_alias = NULL;
 
-	// bind the table and the column
-	lhs = table_ref(sql, rel, head->data.sym, 0);
-	if(!lhs){
+	// bind the table
+	rel = table_ref(sql, rel, head->data.sym, 0);
+	if(!rel){
 		return NULL;
 	}
-	rhs = rel_column_ref(sql, &lhs, head->next->data.sym, sql_from);
-	if(!rhs){
-		return NULL;
-	}
-	if(rhs->tpe.type->eclass != EC_NESTED_TABLE){
-		//(void) sql_error(sql, 02, "relational query without result");
-		return sql_error(sql, 02, "The attribute %s is not a nested table", exp_name(rhs));
-	}
 
-	rel = rel_unnest(sql->sa, lhs, rhs);
+	// bind the nested table attributes
+	// we have a list for the general case T UNNEST T.x UNNEST T.y ...
+	// however typically there is only one entry in the list
+	for(dnode* nst = head->next->data.lval->h; nst; nst = nst->next){
+		sql_exp* rhs = rel_column_ref(sql, &rel, nst->data.sym, sql_from);
+		list* attributes = NULL;
+		const char* attributes_tbl = NULL;
 
-	// rename the attributes according to the table name of the nested column
-	attributes = rel_unnest_attributes(rel);
-	attributes_tbl = exp_relname(rhs);
-	for (node* n = attributes->h; n; n = n->next){
-		exp_setname(sql->sa, n->data, attributes_tbl, NULL);
+		if(!rhs){
+			return NULL;
+		}
+
+		if(rhs->tpe.type->eclass != EC_NESTED_TABLE)
+			return sql_error(sql, 02, "The attribute %s is not a nested table", exp_name(rhs));
+
+		rel = rel_unnest(sql->sa, rel, rhs);
+
+		// rename the attributes according to the table name of the nested column
+		attributes = rel_unnest_attributes(rel);
+		attributes_tbl = exp_relname(rhs);
+		for (node* n = attributes->h; n; n = n->next){
+			exp_setname(sql->sa, n->data, attributes_tbl, NULL);
+		}
 	}
 
 	// table expression alias, i.e. table_exp UNNEST attr AS newName ( newColumns )

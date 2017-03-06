@@ -263,6 +263,28 @@ dlist_append_type(sql_allocator *sa, dlist *l, sql_subtype *data)
 	return dlist_append_default(l, n);
 }
 
+static dlist *
+dlist_prepend_default(dlist *l, dnode *n)
+{
+	n->next = l->h;
+	l->h = n;
+	if(l->cnt == 0){ l->t = n; }
+	l->cnt++;
+
+	return l;
+}
+
+dlist *
+dlist_prepend_symbol(sql_allocator* sa, dlist* l, struct symbol *data)
+{
+	dnode *n = dnode_create_symbol(sa, data);
+
+	if (!n)
+		return NULL;
+	return dlist_prepend_default(l, n);
+}
+
+
 symbol *
 newSelectNode(sql_allocator *sa, int distinct, struct dlist *selection, struct dlist *into, symbol *from, symbol *where, symbol *groupby, symbol *having, symbol *orderby, symbol *name, symbol *limit, symbol *offset, symbol *sample)
 {
