@@ -61,7 +61,6 @@ mal_export str NESTEDTABLEnest1_oid(bat* id_out, const bat* id_group_mapping, co
 	const char* function_name = "nestedtable.nest1";
 	str rc = MAL_SUCCEED;
 	BAT* group_mapping = NULL;
-	oid* __restrict group_mapping_values = NULL;
 	BAT* histogram = NULL;
 	lng* __restrict histogram_values = NULL;
 	BAT* output = NULL;
@@ -115,12 +114,29 @@ mal_export str NESTEDTABLEnest1_oid(bat* id_out, const bat* id_group_mapping, co
 	BATsetcount(output, output_sz);
 
 	// insert the actual values into the vheap
-	group_mapping_values = (oid*) group_mapping->theap.base;
-	for(size_t i = 0, sz = BATcount(group_mapping); i < sz; i++){
-		var_t offset = output_offsets[ group_mapping_values[i] ] << GDK_VARSHIFT;
-		oid* __restrict values = (oid*) (output_content + offset);
-		oid pos = ++values[0];
-		values[pos] = i;
+	switch(group_mapping->ttype){
+	case TYPE_oid: { // regular case
+		oid* __restrict group_mapping_values = (oid*) group_mapping->theap.base;
+		for(size_t i = 0, sz = BATcount(group_mapping); i < sz; i++){
+			var_t offset = output_offsets[ group_mapping_values[i] ] << GDK_VARSHIFT;
+			oid* __restrict values = (oid*) (output_content + offset);
+			oid pos = ++values[0];
+			values[pos] = i;
+		}
+		break;
+	}
+	case TYPE_void: { // extreme case causing seg~ faults
+		for(size_t i = group_mapping->T.seq /* tseqbase */, sz = BATcount(group_mapping); i < sz; i++){
+			var_t offset = output_offsets[ i ] << GDK_VARSHIFT;
+			oid* __restrict values = (oid*) (output_content + offset);
+			oid pos = ++values[0];
+			values[pos] = i;
+		}
+		break;
+	}
+	default:
+		assert(false && "Invalid input type for the parameter group_mapping");
+		CHECK(false, ILLEGAL_ARGUMENT); // in case it skips the above assertion
 	}
 
 success:
