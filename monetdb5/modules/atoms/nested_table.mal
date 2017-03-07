@@ -9,6 +9,7 @@ module nestedtable;
 atom nestedtable;
 
 command heap()    address NESTEDTABLEheap;
+command null()    address NESTEDTABLEnull;
 command prelude() address NESTEDTABLEprelude;
 command put()     address NESTEDTABLEput;
 

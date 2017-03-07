@@ -3888,10 +3888,10 @@ rel_push_select_down(int *changes, mvc *sql, sql_rel *rel)
 		return rel_merge_projects(changes, sql, rel);
 
 	/* push select through join */
-	if (is_select(rel->op) && r && (is_join(r->op) || is_apply(r->op)) && !(rel_is_ref(r))) {
+	if (is_select(rel->op) && r && (is_join(r->op) || is_apply(r->op) || is_unnest(r->op)) && !(rel_is_ref(r))) {
 		sql_rel *jl = r->l;
 		sql_rel *jr = r->r;
-		int left = r->op == op_join || r->op == op_left;
+		int left = r->op == op_join || r->op == op_left || r->op == op_unnest;
 		int right = r->op == op_join || r->op == op_right;
 
 		if (is_apply(r->op)) {
@@ -3904,10 +3904,10 @@ rel_push_select_down(int *changes, mvc *sql, sql_rel *rel)
 
 		/* introduce selects under the join (if needed) */
 		set_processed(jl);
-		set_processed(jr);
+		if(jr) set_processed(jr);
 		if (!is_select(jl->op)) 
 			r->l = jl = rel_select(sql->sa, jl, NULL);
-		if (!is_select(jr->op))
+		if (jr && !is_select(jr->op))
 			r->r = jr = rel_select(sql->sa, jr, NULL);
 		
 		rel->exps = new_exp_list(sql->sa); 

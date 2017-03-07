@@ -487,12 +487,11 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 			mnstr_printf(fout, "& REF %d ", nr);
 		} else
 			rel_print_(sql, fout, rel->l, depth+1, refs, decorate);
-		mnstr_printf(fout, ",");
+		print_indent(sql, fout, depth, decorate);
+		mnstr_printf(fout, ")");
 
 		// rhs
 		exps_print(sql, fout, rel->exps, depth, 1, 0);
-
-		mnstr_printf(fout, ")");
 		break;
 	}
 	case op_insert:

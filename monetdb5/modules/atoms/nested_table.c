@@ -29,6 +29,7 @@
 mal_export str NESTEDTABLEnest1_oid(bat*, const bat*, const bat*);
 mal_export str NESTEDTABLEunnest101_oid(bat*, bat*, const bat*);
 mal_export void NESTEDTABLEheap(Heap*, size_t);
+mal_export void* NESTEDTABLEnull(void);
 mal_export var_t NESTEDTABLEput(Heap *h, var_t *bun, nested_table *val);
 mal_export str NESTEDTABLEprelude(void*);
 
@@ -38,6 +39,12 @@ int TYPE_nested_table;
 void NESTEDTABLEheap(Heap* heap, size_t capacity){
 	(void) capacity; // capacity refers to the #number of elements in the non virtual heap
 	HEAP_initialize(heap, 0, 0, sizeof(oid));
+}
+
+// make GDK happy
+static oid nil_instance = -1;
+void* NESTEDTABLEnull(void){
+	return &nil_instance;
 }
 
 // initializer
