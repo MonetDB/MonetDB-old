@@ -64,8 +64,6 @@ cmp_print(mvc *sql, stream *fout, int cmp)
 	mnstr_printf(fout, " %s ", r);
 }
 
-static void exps_print(mvc *sql, stream *fout, list *exps, int depth, int alias, int brackets);
-
 static void
 exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, int comma, int alias) 
 {

@@ -7165,14 +7165,6 @@ rel_simplify_predicates(int *changes, mvc *sql, sql_rel *rel)
 static void split_exps(mvc *sql, list *exps, sql_rel *rel);
 
 static int
-exp_match_exp_cmp( sql_exp *e1, sql_exp *e2)
-{
-	if (exp_match_exp(e1,e2))
-		return 0;
-	return -1;
-}
-
-static int
 exp_refers_cmp( sql_exp *e1, sql_exp *e2)
 {
 	if (exp_refers(e1,e2))
