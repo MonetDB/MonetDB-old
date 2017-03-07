@@ -1031,6 +1031,7 @@ sql_create_type(sql_allocator *sa, const char *sqlname, unsigned int digits, uns
 	t->radix = radix;
 	t->eclass = eclass;
 	t->s = NULL;
+	t->storage = true;
 	if (!keyword_exists(t->sqlname) && !EC_INTERVAL(eclass)) 
 		keywords_insert(t->sqlname, KW_TYPE);
 	list_append(types, t);
@@ -1269,6 +1270,7 @@ sqltypeinit( sql_allocator *sa)
 	sql_func *f;
 	sql_arg *sres;
 	sql_type *LargestINT, *LargestDEC;
+	sql_type *NESTED_TABLE;
 
 	ANY = sql_create_type(sa, "ANY", 0, 0, 0, EC_ANY, "void");
 
@@ -1347,7 +1349,8 @@ sqltypeinit( sql_allocator *sa)
 
 	*t++ = sql_create_type(sa, "BLOB", 0, 0, 0, EC_BLOB, "sqlblob");
 
-	*t++ = sql_create_type(sa, "NESTED_TABLE", 0, 0, 0, EC_NESTED_TABLE, "nestedtable");
+	NESTED_TABLE = *t++ = sql_create_type(sa, "NESTED_TABLE", 0, 0, 0, EC_NESTED_TABLE, "nestedtable");
+	NESTED_TABLE->storage = false;
 
 	if (geomcatalogfix_get() != NULL) {
 		// the geom module is loaded 

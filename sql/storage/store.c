@@ -719,6 +719,7 @@ load_type(sql_trans *tr, sql_schema *s, oid rid)
 	t->localtype = ATOMindex(t->base.name);
 	t->bits = 0;
 	t->s = s;
+	t->storage = (strcmp(s->base.name, "sys") == 0 && strcmp(t->sqlname, "nested_table") == 0) ? false : true; // a bit hacky
 	return t;
 }
 
@@ -2433,6 +2434,7 @@ type_dup(sql_trans *tr, int flag, sql_type *ot, sql_schema * s)
 	t->bits = ot->bits;
 	t->localtype = ot->localtype;
 	t->s = s;
+	t->storage = ot->storage;
 	return t;
 }
 
@@ -4058,6 +4060,7 @@ sql_trans_create_type(sql_trans *tr, sql_schema * s, const char *sqlname, int di
 	t->eclass = eclass;
 	t->localtype = localtype;
 	t->s = s;
+	t->storage = true;
 
 	cs_add(&s->types, t, TR_NEW);
 	table_funcs.table_insert(tr, systype, &t->base.id, t->base.name, t->sqlname, &t->digits, &t->scale, &radix, &eclass, &s->base.id);

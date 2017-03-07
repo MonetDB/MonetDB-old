@@ -4885,9 +4885,8 @@ rel_unique_names(mvc *sql, sql_rel *rel)
 	return rel;
 }
 
-
 static sql_rel *
-validate_result_type (mvc *sql, sql_rel *rel){
+validate_result_type(mvc *sql, sql_rel *rel){
 	list *exps = rel_projections(sql, rel, NULL, true, false);
 	for(node *n = exps->h; n; n = n->next){
 		sql_exp *e = n->data;

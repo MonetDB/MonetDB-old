@@ -249,6 +249,7 @@ typedef struct sql_type {
 	unsigned int bits;
 	unsigned char eclass; 	/* types are grouped into equivalence classes */
 	sql_schema *s;
+	bool storage;
 } sql_type;
 
 typedef struct sql_alias {

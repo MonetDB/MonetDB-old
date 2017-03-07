@@ -645,6 +645,11 @@ create_column(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 	if (cname && ctype) {
 		sql_column *cs = NULL;
 
+		if(!ctype->type->storage){
+			sql_error(sql, 02, "42S21!%s TABLE: cannot refer to the type '%s' in the attribute '%s'", (alter)?"ALTER":"CREATE", ctype->type->sqlname, cname);
+			return SQL_ERR;
+		}
+
 		cs = find_sql_column(t, cname);
 		if (cs) {
 			sql_error(sql, 02, "42S21!%s TABLE: a column named '%s' already exists\n", (alter)?"ALTER":"CREATE", cname);
