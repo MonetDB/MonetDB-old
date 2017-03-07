@@ -203,6 +203,7 @@ static sql_rel * rel_setquery(mvc *sql, sql_rel *rel, symbol *sq);
 static sql_rel * rel_joinquery(mvc *sql, sql_rel *rel, symbol *sq);
 static sql_rel * rel_crossquery(mvc *sql, sql_rel *rel, symbol *q);
 static sql_rel * rel_unionjoinquery(mvc *sql, sql_rel *rel, symbol *sq);
+static sql_rel * rel_unnest_query(mvc *sql, sql_rel *rel, symbol *sq);
 
 static sql_rel *
 rel_table_optname(mvc *sql, sql_rel *sq, symbol *optname)
@@ -343,6 +344,16 @@ query_exp_optname(mvc *sql, sql_rel *r, symbol *q)
 		if (!tq)
 			return NULL;
 		return rel_table_optname(sql, tq, q->data.lval->t->data.sym);
+	}
+	case SQL_UNNEST:
+	{
+		sql_rel* tq = rel_unnest_query(sql, r, q);
+
+		if(!tq)
+			return NULL;
+
+		return rel_table_optname(sql, tq, q->data.lval->t->data.sym);
+		break;
 	}
 	default:
 		(void) sql_error(sql, 02, "case %d %s\n", q->token, token2string(q->token));
@@ -3242,33 +3253,41 @@ rel_nop(mvc *sql, sql_rel **rel, symbol *se, int fs, exp_kind ek)
 	dnode *ops = l->next->data.lval->h;
 	list *exps = new_exp_list(sql->sa);
 	list *tl = sa_list(sql->sa);
-	sql_subfunc *f = NULL;
 	sql_subtype *obj_type = NULL;
 	char *fname = qname_fname(l->data.lval);
 	char *sname = qname_schema(l->data.lval);
 	sql_schema *s = sql->session->schema;
 	exp_kind iek = {type_value, card_column, FALSE};
+	bool bind_error = false;
 
-	for (; ops; ops = ops->next, nr_args++) {
+	for (; ops && !bind_error; ops = ops->next, nr_args++) {
 		sql_exp *e = rel_value_exp(sql, rel, ops->data.sym, fs, iek);
 		sql_subtype *tpe;
 
-		if (!e) 
-			return NULL;
-		append(exps, e);
-		tpe = exp_subtype(e);
-		if (!nr_args)
-			obj_type = tpe;
-		append(tl, tpe);
+		if (!e) {
+			bind_error = true;
+		} else {
+			append(exps, e);
+			tpe = exp_subtype(e);
+			if (!nr_args)
+				obj_type = tpe;
+			append(tl, tpe);
+		}
 	}
 	if (sname)
 		s = mvc_bind_schema(sql, sname);
 	
-	/* first try aggregate */
-	f = find_func(sql, s, fname, nr_args, F_AGGR, NULL);
-	if (f)
+	/* try again with an aggregate */
+	if (bind_error) {
+		sql_subfunc *f = find_func(sql, s, fname, nr_args, F_AGGR, NULL);
+		if (!f) return NULL; // no match in the aggr~ world => error
+		// reset the error
+		sql->session->status = 0;
+		sql->errstr[0] = '\0';
 		return _rel_aggr(sql, rel, 0, s, fname, l->next->data.lval->h, fs);
-	return _rel_nop(sql, s, fname, tl, exps, obj_type, nr_args, ek);
+	} else {
+		return _rel_nop(sql, s, fname, tl, exps, obj_type, nr_args, ek);
+	}
 
 }
 
@@ -3415,6 +3434,20 @@ _rel_aggr(mvc *sql, sql_rel **rel, int distinct, sql_schema *s, char *aname, dno
 			}
 		}
 	}
+
+	// record the attributes for nested tables
+	if(a) {
+		sql_subtype* sqltype = a->res->h->data;
+		if(sqltype->type->eclass == EC_NESTED_TABLE){
+			sqltype->attributes = exps_copy(sql->sa, exps);
+//			sqltype->attributes = sa_list(sql->sa);
+//			for(node* n = exps->h; n; n = n->next){
+//				sql_exp* e = n->data;
+//				list_append(sqltype->attributes, exp_alias_or_copy(sql, NULL, exp_name(e), groupby->l, e));
+//			}
+		}
+	}
+
 	if (a && execute_priv(sql,a->aggr)) {
 		sql_exp *e = exp_aggr(sql->sa, exps, a, distinct, no_nil, groupby->card, have_nil(exps));
 
@@ -3884,7 +3917,9 @@ rel_projections_(mvc *sql, sql_rel *rel)
 	case op_graph_select:
 		// TODO: I don't get the usage of this function, code path from rel_order_by_column_exp
 		return list_merge(rel_projections_(sql, rel->l), rel_projections_(sql, rel->r), (fdup)NULL);
-	default:
+	case op_unnest:
+		assert(0 && "Not supported yet");
+	default: // fall through
 		return NULL;
 	}
 }
@@ -4868,6 +4903,20 @@ rel_unique_names(mvc *sql, sql_rel *rel)
 }
 
 static sql_rel *
+validate_result_type(mvc *sql, sql_rel *rel){
+	list *exps = rel_projections(sql, rel, NULL, true, false);
+	for(node *n = exps->h; n; n = n->next){
+		sql_exp *e = n->data;
+		sql_subtype *type = exp_subtype(e);
+		if(list_length(type->attributes) != 0){
+			return sql_error(sql, 01, "SELECT: Nested table attribute in the topmost projection: %s", exp_name(e));
+		}
+	}
+
+	return rel;
+}
+
+static sql_rel *
 rel_query(mvc *sql, sql_rel *rel, symbol *sq, int toplevel, exp_kind ek, int apply)
 {
 	sql_rel *res = NULL, *outer = NULL;
@@ -5331,6 +5380,53 @@ rel_unionjoinquery(mvc *sql, sql_rel *rel, symbol *q)
 	return rel;
 }
 
+static sql_rel *
+rel_unnest_query(mvc* sql, sql_rel* rel, symbol* q){
+	dnode* head = q->data.lval->h;
+	symbol* symbol_table_alias = NULL;
+
+	// bind the table
+	rel = table_ref(sql, rel, head->data.sym, 0);
+	if(!rel){
+		return NULL;
+	}
+
+	// bind the nested table attributes
+	// we have a list for the general case T UNNEST T.x UNNEST T.y ...
+	// however typically there is only one entry in the list
+	for(dnode* nst = head->next->data.lval->h; nst; nst = nst->next){
+		sql_exp* rhs = rel_column_ref(sql, &rel, nst->data.sym, sql_from);
+		list* attributes = NULL;
+		const char* attributes_tbl = NULL;
+
+		if(!rhs){
+			return NULL;
+		}
+
+		if(rhs->tpe.type->eclass != EC_NESTED_TABLE)
+			return sql_error(sql, 02, "The attribute %s is not a nested table", exp_name(rhs));
+
+		rel = rel_unnest(sql->sa, rel, rhs);
+
+		// rename the attributes according to the table name of the nested column
+		attributes = rel_unnest_attributes(rel);
+		attributes_tbl = exp_relname(rhs);
+		for (node* n = attributes->h; n; n = n->next){
+			exp_setname(sql->sa, n->data, attributes_tbl, NULL);
+		}
+	}
+
+	// table expression alias, i.e. table_exp UNNEST attr AS newName ( newColumns )
+	symbol_table_alias = head->next->next->data.sym;
+	if(symbol_table_alias != NULL){
+		rel = rel_project(sql->sa, rel, rel_projections(sql, rel, NULL, true, true));
+		set_processed(rel); // we have all the needed attributes
+		rel = rel_table_optname(sql, rel, symbol_table_alias); // rename
+	}
+
+	return rel;
+}
+
 sql_rel *
 rel_subquery(mvc *sql, sql_rel *rel, symbol *sq, exp_kind ek, int apply)
 {
@@ -5383,6 +5479,8 @@ rel_selects(mvc *sql, symbol *s)
 	}
 	if (!ret && sql->errstr[0] == 0)
 		(void) sql_error(sql, 02, "relational query without result");
+	else
+		ret = validate_result_type(sql, ret);
 	return ret;
 }
 

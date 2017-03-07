@@ -85,6 +85,7 @@ typedef enum stmt_type {
 	st_Nop,
 	st_func,
 	st_aggr,
+	st_unnest,
 
 	st_alias,
 
@@ -228,6 +229,9 @@ extern stmt *stmt_Nop(backend *be, stmt *ops, sql_subfunc *op);
 extern stmt *stmt_func(backend *be, stmt *ops, const char *name, sql_rel *imp, int f_union);
 extern stmt *stmt_aggr(backend *be, stmt *op1, stmt *grp, stmt *ext, sql_subaggr *op, int reduce, int no_nil);
 
+extern stmt *stmt_nest(backend *be, stmt *ops, stmt *grp, stmt *ext, stmt *histo, sql_subaggr *aggr);
+extern stmt *stmt_unnest(backend *be, stmt *nested_attribute, stmt* list_operands);
+
 extern stmt *stmt_alias(backend *be, stmt *op1, const char *tname, const char *name);
 
 extern stmt *stmt_output(backend *be, stmt *l);
@@ -254,5 +258,7 @@ extern const char *table_name(sql_allocator *sa, stmt *st);
 extern const char *schema_name(sql_allocator *sa, stmt *st);
 
 extern stmt *const_column(backend *ba, stmt *val);
+
+extern list *list_nested_attributes(stmt* st);
 
 #endif /* _SQL_STATEMENT_H_ */

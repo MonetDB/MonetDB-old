@@ -61,12 +61,12 @@ typedef struct expression {
 #define APPLY_NOTEXISTS	64
 
 /* ASCENDING > 15 else we have problems with cmp types */
-#define ASCENDING	16
+#define ASCENDING	32
 #define CMPMASK		(ASCENDING-1)
 #define get_cmp(e) 	(e->flag&CMPMASK)
-#define ANTISEL	32
-#define HAS_NO_NIL	64
-#define EXP_INTERN	128
+#define ANTISEL	64
+#define HAS_NO_NIL	128
+#define EXP_INTERN	256
 
 #define UPD_COMP		1
 #define UPD_LOCKED		2
@@ -162,6 +162,7 @@ typedef enum operator_type {
 	op_sample,
 	op_graph_join,
 	op_graph_select,
+	op_unnest,
 	op_insert, 	/* insert(l=table, r insert expressions) */ 
 	op_update, 	/* update(l=table, r update expressions) */
 	op_delete, 	/* delete(l=table, r delete expression) */
@@ -203,8 +204,10 @@ typedef enum operator_type {
 	(op == op_join || is_outerjoin(op))
 #define is_semi(op) \
 	(op == op_semi || op == op_anti)
+#define is_unnest(op) \
+	(op == op_unnest)
 #define is_joinop(op) \
-	(is_join(op) || is_semi(op))
+	(is_join(op) || is_semi(op) || is_unnest(op))
 #define is_apply(op) \
 	(op == op_apply)
 #define is_select(op) \

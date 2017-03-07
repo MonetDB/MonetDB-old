@@ -52,6 +52,7 @@ has_remote_or_replica( sql_rel *rel )
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
+	case op_unnest:
 		if (has_remote_or_replica( rel->l )) 
 			return 1;
 		break;
@@ -169,6 +170,7 @@ replica(mvc *sql, sql_rel *rel, char *uri)
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
+	case op_unnest:
 		rel->l = replica(sql, rel->l, uri);
 		break;
 	case op_ddl: 
@@ -265,6 +267,7 @@ distribute(mvc *sql, sql_rel *rel)
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
+	case op_unnest:
 		rel->l = distribute(sql, rel->l);
 		l = rel->l;
 		if (l && (p = find_prop(l->p, PROP_REMOTE)) != NULL) {
@@ -375,6 +378,7 @@ rel_remote_func(mvc *sql, sql_rel *rel)
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
+	case op_unnest:
 		rel->l = rel_remote_func(sql, rel->l);
 		break;
 	case op_ddl: 

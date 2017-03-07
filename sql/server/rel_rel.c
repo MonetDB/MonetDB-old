@@ -248,7 +248,14 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname )
 		*p = rel;
 		if (rel->l)
 			return rel_bind_column_(sql, p, rel->l, cname);
-		break;
+	case op_unnest: {
+		if(exps_bind_column(rel_unnest_attributes(rel), cname, &ambiguous) != NULL){
+			return rel;
+		} else {
+			*p = rel;
+			return rel_bind_column_(sql, p, rel->l, cname);
+		}
+	} break;
 	case op_graph_join:
 	case op_graph_select: {
 		sql_graph* graph_ptr = (sql_graph*) rel;
@@ -289,8 +296,13 @@ rel_bind_column( mvc *sql, sql_rel *rel, const char *cname, int f )
 	if (!rel || (rel = rel_bind_column_(sql, &p, rel, cname)) == NULL)
 		return NULL;
 
-	if ((is_project(rel->op) || is_base(rel->op)) && rel->exps) {
-		sql_exp *e = exps_bind_column(rel->exps, cname, NULL);
+	if ((is_project(rel->op) || is_base(rel->op) || is_unnest(rel->op)) && rel->exps) {
+		list *exps = rel->exps;
+		sql_exp *e = NULL; // ISO C90!
+
+		if(is_unnest(rel->op))
+			exps = rel_unnest_attributes(rel);
+		e = exps_bind_column(exps, cname, NULL);
 		if (e)
 			return exp_alias_or_copy(sql, e->rname, cname, rel, e);
 	}
@@ -325,6 +337,13 @@ rel_bind_column2( mvc *sql, sql_rel *rel, const char *tname, const char *cname, 
 		   is_select(rel->op)) {
 		if (rel->l)
 			return rel_bind_column2(sql, rel->l, tname, cname, f);
+	} else if (is_unnest(rel->op)){
+		sql_exp *e = exps_bind_column2(rel_unnest_attributes(rel), tname, cname);
+		if(e){
+			return exp_alias_or_copy(sql, tname, cname, rel, e);
+		} else {
+			return rel_bind_column2(sql, rel->l, tname, cname, f);
+		}
 	} else if (is_graph(rel->op)) {
 		sql_graph* graph_ptr = (sql_graph*) rel;
 		sql_exp *e = NULL;
@@ -443,6 +462,34 @@ rel_crossproduct(sql_allocator *sa, sql_rel *l, sql_rel *r, operator_type join)
 	rel->card = CARD_MULTI;
 	rel->nrcols = l->nrcols + r->nrcols;
 	return rel;
+}
+
+sql_rel *
+rel_unnest(sql_allocator* sa, sql_rel *l, sql_exp* e){
+	sql_rel *rel = rel_create(sa);
+
+	assert(exp_subtype(e)->type->eclass == EC_NESTED_TABLE);
+	assert(exp_subtype(e)->attributes != NULL);
+	assert(list_length(exp_subtype(e)->attributes) > 0);
+
+	rel->l = l;
+	rel->r = NULL;
+	rel->op = op_unnest;
+	rel->exps = list_append(sa_list(sa), exp_unnest(sa, e, exp_subtype(e)->attributes));
+	rel->card = CARD_MULTI;
+	rel->nrcols = l->nrcols + list_length(exp_subtype(e)->attributes);
+	return rel;
+}
+
+list *
+rel_unnest_attributes(sql_rel *rel){
+	sql_exp* head = NULL;
+
+	assert(is_unnest(rel->op));
+	assert(list_length(rel->exps) == 1);
+	head = rel->exps->h->data;
+	assert(head->type == e_cmp && get_cmp(head) == cmp_unnest);
+	return head->r;
 }
 
 sql_rel *
@@ -925,6 +972,38 @@ rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int int
 
 		return exps;
 	}
+	case op_unnest: {
+		int label = ++sql->label;
+		sql_exp* unnest_expr = rel->exps->h->data;
+		sql_exp* unnest_column = unnest_expr->l;
+		list* unnest_attributes = unnest_expr->r;
+		bool stop = false;
+
+		exps = rel_projections(sql, rel->l, tname, settname, intern);
+
+		// remove from the list of the nested attribute
+		for(node* n = exps->h; n && !stop; n = n->next){
+			if(exp_match(unnest_column, n->data)){
+				list_remove_node(exps, n);
+				stop = true;
+			}
+		}
+		assert(stop == true && "Unable to match the nested column");
+
+		for(node* n = unnest_attributes->h; n; n = n->next){
+			sql_exp *e = n->data;
+			if (intern || !is_intern(e)) {
+				if (!is_intern(e) && intern_only && (exp_name(e)[0] != '%' && exp_name(e)[0] != 'L' && exp_relname(e)[0] != 'L'))
+					continue;
+				append(exps, e = exp_alias_or_copy(sql, tname, exp_name(e), rel, e));
+				if (!settname) /* noname use alias */
+					exp_setrelname(sql->sa, e, label);
+
+			}
+		}
+
+		return exps;
+	}
 	default:
 		return NULL;
 	}
@@ -978,6 +1057,20 @@ rel_bind_path_(sql_rel *rel, sql_exp *e, list *path )
 		if (!found && !e->l && exps_bind_column(rel->exps, e->r, NULL))
 			found = 1;
 		break;
+	case op_unnest: {
+		// lhs
+		found = rel_bind_path_(rel->l, e, path);
+
+		// rhs
+		if(!found){
+			if(e->l){
+				found = exps_bind_column2(rel->r, e->l, e->r) != NULL;
+			} else {
+				found = exps_bind_column(rel->r, e->r, NULL) != NULL;
+			}
+		}
+		break;
+	}
 	case op_insert:
 	case op_update:
 	case op_delete:
@@ -1046,8 +1139,7 @@ rel_push_select(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *e)
 		if (!is_select(lrel->op) &&
 		    !(is_semi(lrel->op) && !rel_is_ref(lrel->l)) &&
 		    lrel->op != op_join &&
-		    lrel->op != op_left &&
-		    !is_graph(lrel->op))
+		    lrel->op != op_left)
 			break;
 		/* pushing through left head of a left join is allowed */
 		if (lrel->op == op_left && (!n->next || lrel->l != n->next->data))
@@ -1062,11 +1154,10 @@ rel_push_select(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *e)
 		sql_rel *n = rel_select(sql->sa, lrel, e);
 
 		if (p && p != lrel) {
-			assert(p->op == op_join || p->op == op_left || is_semi(p->op) || is_graph(p->op));
+			assert(p->op == op_join || p->op == op_left || is_semi(p->op));
 			if (p->l == lrel) {
 				p->l = n;
 			} else {
-				assert(p->op != op_graph_select);
 				p->r = n;
 			}
 		} else {
@@ -1091,7 +1182,6 @@ rel_push_join(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_exp *rs2, sq
 	node *ln, *rn;
 	sql_rel *lrel = NULL, *rrel = NULL, *rrel2 = NULL, *p = NULL;
 
-	// TODO: Dean what is rs2 for?
 	if (rs2)
 		r2 = rel_bind_path(sql->sa, rel, rs2);
 	if (!l || !r || (rs2 && !r2)) 
@@ -1141,8 +1231,7 @@ rel_push_join(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_exp *rs2, sq
 				(!is_select(lrel->op) &&
 				 !(is_semi(lrel->op) && !rel_is_ref(lrel->l)) &&
 				 lrel->op != op_join &&
-				 lrel->op != op_left &&
-				 !is_graph(lrel->op)))
+				 lrel->op != op_left))
 				break;
 			/* pushing through left head of a left join is allowed */
 			if (lrel->op == op_left && (!ln->next || lrel->l != ln->next->data))

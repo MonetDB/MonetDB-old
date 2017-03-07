@@ -1,0 +1,25 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.  If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
+
+module nestedtable;
+
+atom nestedtable;
+
+command heap()    address NESTEDTABLEheap;
+command null()    address NESTEDTABLEnull;
+command prelude() address NESTEDTABLEprelude;
+command put()     address NESTEDTABLEput;
+
+command nest1(group_mapping :bat[:oid], histogram :bat[:lng]) :bat[:nestedtable]
+address NESTEDTABLEnest1_oid
+comment "Create a nested table out of the grouped partitions";
+
+command unnest1(:bat[:nestedtable]) (:bat[:oid], :bat[:oid])
+address NESTEDTABLEunnest101_oid
+comment "Extract the candidate list from a nested table"
+
+# Initialize
+nestedtable.prelude();

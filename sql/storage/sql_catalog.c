@@ -271,6 +271,9 @@ sql_trans_bind_type(sql_trans *tr, sql_schema *c, const char *name)
 
 	if (!t && c)
 		t = find_sql_type(c, name);
+
+	if(t && !t->storage){ return NULL; } // cannot explicitly refer to the nested table ftb
+
 	return t;
 }
 

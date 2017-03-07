@@ -166,6 +166,8 @@ ebat_copy(log_bid b, oid ibase, int temp)
 	return r;
 }
 
+extern int TYPE_nested_table;
+
 void
 bat_utils_init(void)
 {

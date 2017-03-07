@@ -53,6 +53,7 @@ include inet;
 include identifier;
 include xml;
 include batxml;
+include nested_table;
 
 # The hardwired multiplex extensions
 include batmmath;

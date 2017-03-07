@@ -134,14 +134,15 @@ typedef enum comp_type {
 	cmp_or = 7,
 	cmp_in = 8,
 	cmp_notin = 9,
+	cmp_unnest = 10,
 
 	/* The followin cmp_* are only used within stmt (not sql_exp) */
-	cmp_all = 10,			/* special case for crossproducts */
-	cmp_project = 11,		/* special case for projection joins */
-	cmp_joined = 12, 		/* special case already joined */
-	cmp_equal_nil = 13, 		/* special case equi join, with nil = nil */
-	cmp_left = 14,			/* special case equi join, keep left order */
-	cmp_left_project = 15		/* last step of outer join */
+	cmp_all = 11,			/* special case for crossproducts */
+	cmp_project = 12,		/* special case for projection joins */
+	cmp_joined = 13, 		/* special case already joined */
+	cmp_equal_nil = 14, 		/* special case equi join, with nil = nil */
+	cmp_left = 15,			/* special case equi join, keep left order */
+	cmp_left_project = 16		/* last step of outer join */
 } comp_type;
 
 /* for ranges we keep the requirment for symmetric */
@@ -248,6 +249,7 @@ typedef struct sql_type {
 	unsigned int bits;
 	unsigned char eclass; 	/* types are grouped into equivalence classes */
 	sql_schema *s;
+	bool storage;
 } sql_type;
 
 typedef struct sql_alias {
@@ -262,6 +264,7 @@ typedef struct sql_subtype {
 	sql_type *type;
 	unsigned int digits;
 	unsigned int scale;
+	list* attributes; // attributes for a nested table
 } sql_subtype;
 
 /* sql_func need type transform rules types are equal if underlying

@@ -19,6 +19,7 @@
 #include "mal_debugger.h"
 #include "opt_prelude.h"
 
+#include <stdio.h>
 #include <string.h>
 
 /*
@@ -1772,6 +1773,7 @@ stmt_project(backend *be, stmt *op1, stmt *op2)
 
 		s->op1 = op1;
 		s->op2 = op2;
+		s->op4.lval = list_nested_attributes(s->op2);
 		s->flag = cmp_project;
 		s->key = 0;
 		s->nrcols = 2;
@@ -2834,6 +2836,62 @@ stmt_aggr(backend *be, stmt *op1, stmt *grp, stmt *ext, sql_subaggr *op, int red
 	return NULL;
 }
 
+stmt *stmt_nest(backend *be, stmt *ops, stmt *grp, stmt *ext, stmt *histo, sql_subaggr *aggr){
+	InstrPtr q = NULL;
+
+	(void) ext; // not used ftm
+	assert(ops->type == st_list);
+
+	// compile the aggregate function if it's not already available
+	if (aggr->aggr->sql == 1 && backend_create_subaggr(be, aggr) < 0)
+		return NULL;
+
+	q = newStmt(be->mb, aggr->aggr->mod, aggr->aggr->imp);
+	if(!q) return NULL;
+	setVarType(be->mb, getArg(q, 0), newBatType( ((sql_subtype*) aggr->res->h->data)->type->localtype ));
+	setVarUDFtype(be->mb, getArg(q, 0)); // TODO: what is this?
+	q = pushArgument(be->mb, q, grp->nr);
+	q = pushArgument(be->mb, q, histo->nr);
+
+	if(q) { // same as stmt_aggr
+		stmt *s = stmt_create(be->mvc->sa, st_aggr);
+		s->op1 = ops;
+		s->op2 = grp;
+		s->op3 = histo;
+		s->nrcols = 1;
+		s->key = s->aggr = true;
+		s->flag = 1;
+		s->op4.aggrval = aggr;
+		s->nr = getDestVar(q);
+		s->q = q;
+		return s;
+	}
+	return NULL;
+
+}
+
+stmt *stmt_unnest(backend *be, stmt *nested_attribute, stmt* list_operands){
+	InstrPtr q = NULL;
+	stmt* s = NULL;
+
+	q = newStmt(be->mb, "nestedtable", "unnest1");
+	getArg(q, 0) = newTmpVariable(be->mb, TYPE_bat);
+	q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_bat));
+	assert(nested_attribute != NULL && nested_attribute->nr > 0);
+	q = pushArgument(be->mb, q, nested_attribute->nr);
+
+	if(q){
+		s = stmt_create(be->mvc->sa, st_unnest);
+		s->op1 = nested_attribute;
+		s->op4.lval = list_operands->op4.lval;
+		s->nrcols = list_length(s->op4.lval) + 2;
+		s->nr = getDestVar(q);
+		s->q = q;
+	}
+
+	return s;
+}
+
 static stmt *
 stmt_alias_(backend *be, stmt *op1, const char *tname, const char *alias)
 {
@@ -3444,6 +3502,43 @@ const_column(backend *be, stmt *val)
 		s->q = q;
 		return s;
 	}
+	return NULL;
+}
+
+list *list_nested_attributes(stmt* st){
+	assert(st != NULL);
+	switch(st->type){
+	case st_aggr:
+		if(st->op1->type == st_list){
+			return st->op1->op4.lval;
+		}
+		break;
+	case st_alias:
+		return list_nested_attributes(st->op1);
+	case st_append:
+		// assuming both operands have the same attributes in the nested table
+		return list_nested_attributes(st->op1);
+	case st_const:
+		// atom => this should be always null
+		return list_nested_attributes(st->op2);
+	case st_convert:
+		return NULL;
+	case st_join: // projection
+		return st->op4.lval;
+	case st_temp:
+		return NULL;
+	case st_bat: // implies storage
+	case st_Nop: // to be reviewed
+	case st_rs_column:
+	case st_single:
+	case st_tid:
+	case st_var: // implies storage
+		return NULL;
+	default:
+//		assert(0 && "Statement type not handled");
+		fprintf(stderr, "[list_nested_attributes] Statement type not handled: %d\n", st->type);
+	}
+
 	return NULL;
 }
 

@@ -41,6 +41,7 @@
 #define append_symbol(l,d)   dlist_append_symbol( SA, l, d)
 #define append_string(l,d)   dlist_append_string( SA, l, d)
 #define append_type(l,d)     dlist_append_type( SA, l, d)
+#define prepend_symbol(l, d) dlist_prepend_symbol( SA, l, d)
 
 #define _atom_string(t, v)   atom_string(SA, t, v)
 
@@ -434,6 +435,7 @@ int yydebug=1;
 	window_frame_extent
 	window_frame_between
 	routine_designator
+	nested_attributes
 
 %type <i_val>
 	any_all_some
@@ -538,7 +540,7 @@ int yydebug=1;
 %token	USER CURRENT_USER SESSION_USER LOCAL LOCKED BEST EFFORT
 %token  CURRENT_ROLE sqlSESSION
 %token <sval> sqlDELETE UPDATE SELECT INSERT 
-%token <sval> LATERAL LEFT RIGHT FULL OUTER NATURAL CROSS JOIN INNER
+%token <sval> LATERAL LEFT RIGHT FULL OUTER NATURAL CROSS JOIN INNER UNNEST
 %token <sval> COMMIT ROLLBACK SAVEPOINT RELEASE WORK CHAIN NO PRESERVE ROWS
 %token  START TRANSACTION READ WRITE ONLY ISOLATION LEVEL
 %token  UNCOMMITTED COMMITTED sqlREPEATABLE SERIALIZABLE DIAGNOSTICS sqlSIZE STORAGE
@@ -571,7 +573,7 @@ int yydebug=1;
 %token CHEAPEST REACHES EDGE
 
 /* operators */
-%left UNION EXCEPT INTERSECT CORRESPONDING UNIONJOIN
+%left UNION EXCEPT INTERSECT CORRESPONDING UNIONJOIN UNNEST
 %left JOIN CROSS LEFT FULL RIGHT INNER NATURAL
 %left WITH DATA
 %left <operation> '(' ')'
@@ -2973,6 +2975,13 @@ join_spec:
 		{ $$ = _symbol_create_list( SQL_USING, $2); }
   ;
 
+nested_attributes:
+    ident
+        { $$ = append_symbol(L(), _symbol_create_list(SQL_COLUMN, append_string(L(), $1))); }
+  | ident UNNEST nested_attributes
+        { $$ = prepend_symbol($3, _symbol_create_list(SQL_COLUMN, append_string(L(), $1))); }
+  ;
+
 /*
 <query expression> ::= [ <with clause> ] <query expression body>
 
@@ -3191,6 +3200,14 @@ table_ref:
 				  	append_symbol($1->data.lval, $2);
 				  }
 				}
+ | subquery_with_orderby UNNEST nested_attributes opt_table_name
+ {
+     { dlist *l = L();
+      append_symbol(l, $1);
+      append_list(l, $3);
+      append_symbol(l, $4);
+      $$ = _symbol_create_list(SQL_UNNEST, l); }
+ }
  |  LATERAL subquery table_name		
 				{
 				  $$ = $2;
@@ -6088,6 +6105,7 @@ char *token2string(int token)
 	SQL(UNION);
 	SQL(EXCEPT);
 	SQL(INTERSECT);
+	SQL(UNNEST);
 	SQL(VALUES);
 	SQL(ASSIGN);
 	SQL(ORDERBY);

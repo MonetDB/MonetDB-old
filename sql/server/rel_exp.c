@@ -12,6 +12,7 @@
 #include "rel_prop.h" /* for prop_copy() */
 #include "rel_optimizer.h"
 #include "rel_distribute.h"
+#include "rel_rel.h"
 #ifdef HAVE_HGE
 #include "mal.h"		/* for have_hge */
 #endif
@@ -103,6 +104,16 @@ exp_compare(sql_allocator *sa, sql_exp *l, sql_exp *r, int cmptype)
 	e->l = l;
 	e->r = r;
 	e->flag = cmptype;
+	return e;
+}
+
+sql_exp*
+exp_unnest(sql_allocator* sa, sql_exp* column, list* attributes){
+	sql_exp *e = exp_create(sa, e_cmp);
+	e->card = CARD_MULTI;
+	e->l = column;
+	e->r = attributes;
+	e->flag = cmp_unnest;
 	return e;
 }
 
@@ -1250,11 +1261,14 @@ rel_find_exp_( sql_rel *rel, sql_exp *e)
 
 	switch(e->type) {
 	case e_column:
-		if (rel->exps && (is_project(rel->op) || is_base(rel->op))) {
+		if (rel->exps && (is_project(rel->op) || is_base(rel->op) || is_unnest(rel->op))) {
+			list* exps = rel->exps;
+			if (is_unnest(rel->op))
+				exps = rel_unnest_attributes(rel);
 			if (e->l) {
-				ne = exps_bind_column2(rel->exps, e->l, e->r);
+				ne = exps_bind_column2(exps, e->l, e->r);
 			} else {
-				ne = exps_bind_column(rel->exps, e->r, NULL);
+				ne = exps_bind_column(exps, e->r, NULL);
 			}
 		}
 		// check whether this is some kind of shortest path
