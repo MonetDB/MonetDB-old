@@ -284,7 +284,6 @@ dlist_prepend_symbol(sql_allocator* sa, dlist* l, struct symbol *data)
 	return dlist_prepend_default(l, n);
 }
 
-
 symbol *
 newSelectNode(sql_allocator *sa, int distinct, struct dlist *selection, struct dlist *into, symbol *from, symbol *where, symbol *groupby, symbol *having, symbol *orderby, symbol *name, symbol *limit, symbol *offset, symbol *sample)
 {

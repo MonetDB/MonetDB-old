@@ -120,7 +120,9 @@ UTF8_strlen(const char *val)
 }
 %{
 extern int sqllex( YYSTYPE *yylval, void *m );
+/* enable to activate debugging support
 int yydebug=1;
+*/
 %}
 
 	/* symbolic tokens */
@@ -3194,7 +3196,7 @@ table_ref:
       append_symbol(l, $1);
       append_list(l, $3);
       append_symbol(l, $4);
-      $$ = _symbol_create_list( SQL_UNNEST, l); } 
+      $$ = _symbol_create_list(SQL_UNNEST, l); }
  }
  |  LATERAL subquery table_name		
 				{
