@@ -844,7 +844,7 @@ typedef struct {
 	PROPrec *props;		/* list of dynamic properties stored in the bat descriptor */
 } COLrec;
 
-#define ORDERIDXOFF		2
+#define ORDERIDXOFF		3
 
 /* assert that atom width is power of 2, i.e., width == 1<<shift */
 #define assert_shift_width(shift,width) assert(((shift) == 0 && (width) == 0) || ((unsigned)1<<(shift)) == (unsigned)(width))
@@ -854,8 +854,9 @@ typedef struct {
 #define GDKLIBRARY_INSERTED	061032	/* inserted and deleted in BBP.dir */
 #define GDKLIBRARY_HEADED	061033	/* head properties are stored */
 #define GDKLIBRARY_NOKEY	061034	/* nokey values can't be trusted */
-#define GDKLIBRARY_TALIGN	061035	/* talign field in BBP.dir */
-#define GDKLIBRARY		061036
+#define GDKLIBRARY_BADEMPTY	061035	/* possibility of duplicate empty str */
+#define GDKLIBRARY_TALIGN	061036	/* talign field in BBP.dir */
+#define GDKLIBRARY		061037
 
 typedef struct BAT {
 	/* static bat properties */

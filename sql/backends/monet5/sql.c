@@ -881,9 +881,14 @@ mvc_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					throw(SQL,"sql.bind","Cannot access the update column");
 				id = BATproject(b, ui);
 				vl = BATproject(b, uv);
-				assert(BATcount(id) == BATcount(vl));
 				bat_destroy(ui);
 				bat_destroy(uv);
+				if (id == NULL || vl == NULL) {
+					bat_destroy(id);
+					bat_destroy(vl);
+					throw(SQL, "sql.bind", MAL_MALLOC_FAIL);
+				}
+				assert(BATcount(id) == BATcount(vl));
 				BBPkeepref(*bid = id->batCacheid);
 				BBPkeepref(*uvl = vl->batCacheid);
 			} else {
@@ -976,9 +981,14 @@ mvc_bind_idxbat_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					throw(SQL,"sql.bindidx","can not access index column");
 				id = BATproject(b, ui);
 				vl = BATproject(b, uv);
-				assert(BATcount(id) == BATcount(vl));
 				bat_destroy(ui);
 				bat_destroy(uv);
+				if (id == NULL || vl == NULL) {
+					bat_destroy(id);
+					bat_destroy(vl);
+					throw(SQL, "sql.idxbind", MAL_MALLOC_FAIL);
+				}
+				assert(BATcount(id) == BATcount(vl));
 				BBPkeepref(*bid = id->batCacheid);
 				BBPkeepref(*uvl = vl->batCacheid);
 			} else {
@@ -1304,13 +1314,18 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 	}
 
 	c = BATdescriptor(*col);
+	if (c == NULL)
+		throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
 	res = c;
 	if (BATcount(u_id)) {
 		u_id = BATdescriptor(*uid);
-		if (!u_id)
+		if (!u_id) {
+			BBPunfix(c->batCacheid);
 			throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
+		}
 		cminu = BATdiff(c, u_id, NULL, NULL, 0, BUN_NONE);
 		if (!cminu) {
+			BBPunfix(c->batCacheid);
 			BBPunfix(u_id->batCacheid);
 			throw(MAL, "sql.delta", MAL_MALLOC_FAIL " intermediate");
 		}
@@ -1340,7 +1355,7 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 			BAT *c_ids = BATdescriptor(*cid);
 			gdk_return rc;
 
-			if (!c_ids){
+			if (!c_ids) {
 				BBPunfix(c->batCacheid);
 				BBPunfix(u->batCacheid);
 				throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
@@ -1348,20 +1363,24 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 			rc = BATsemijoin(&cminu, NULL, u, c_ids, NULL, NULL, 0, BUN_NONE);
 			BBPunfix(c_ids->batCacheid);
 			if (rc != GDK_SUCCEED) {
+				BBPunfix(c->batCacheid);
 				BBPunfix(u->batCacheid);
 				throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
 			}
 		}
-		BATappend(res, u, cminu, TRUE);
+		ret = BATappend(res, u, cminu, TRUE);
 		BBPunfix(u->batCacheid);
 		if (cminu)
 			BBPunfix(cminu->batCacheid);
 		cminu = NULL;
+		if (ret != GDK_SUCCEED) {
+			BBPunfix(res->batCacheid);
+			throw(MAL, "sql.delta", GDK_EXCEPTION);
+		}
 
 		ret = BATsort(&u, NULL, NULL, res, NULL, NULL, 0, 0);
 		BBPunfix(res->batCacheid);
 		if (ret != GDK_SUCCEED) {
-			BBPunfix(c->batCacheid);
 			throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
 		}
 		res = u;
@@ -1369,14 +1388,24 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 
 	if (i) {
 		i = BATdescriptor(*ins);
-		if (!i)
+		if (!i) {
+			BBPunfix(res->batCacheid);
 			throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
+		}
 		if (BATcount(u_id)) {
 			u_id = BATdescriptor(*uid);
+			if (!u_id) {
+				BBPunfix(res->batCacheid);
+				BBPunfix(i->batCacheid);
+				throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
+			}
 			cminu = BATdiff(i, u_id, NULL, NULL, 0, BUN_NONE);
 			BBPunfix(u_id->batCacheid);
-			if (!cminu)
+			if (!cminu) {
+				BBPunfix(res->batCacheid);
+				BBPunfix(i->batCacheid);
 				throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
+			}
 		}
 		if (isVIEW(res)) {
 			BAT *n = COLcopy(res, res->ttype, TRUE, TRANSIENT);
@@ -1389,10 +1418,14 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 				throw(MAL, "sql.delta", OPERATION_FAILED);
 			}
 		}
-		BATappend(res, i, cminu, TRUE);
+		ret = BATappend(res, i, cminu, TRUE);
 		BBPunfix(i->batCacheid);
 		if (cminu)
 			BBPunfix(cminu->batCacheid);
+		if (ret != GDK_SUCCEED) {
+			BBPunfix(res->batCacheid);
+			throw(MAL, "sql.delta", GDK_EXCEPTION);
+		}
 
 		ret = BATsort(&u, NULL, NULL, res, NULL, NULL, 0, 0);
 		BBPunfix(res->batCacheid);
@@ -1421,8 +1454,9 @@ DELTAproject(bat *result, const bat *sub, const bat *col, const bat *uid, const 
 	if (i && BATcount(s) == 0) {
 		res = BATproject(s, i);
 		BBPunfix(s->batCacheid);
-		if (i)
-			BBPunfix(i->batCacheid);
+		BBPunfix(i->batCacheid);
+		if (res == NULL)
+			throw(MAL, "sql.projectdelta", GDK_EXCEPTION);
 
 		BBPkeepref(*result = res->batCacheid);
 		return MAL_SUCCEED;
@@ -1442,18 +1476,29 @@ DELTAproject(bat *result, const bat *sub, const bat *col, const bat *uid, const 
 			res = i;
 			i = c;
 		} else {
-			if ((res = COLcopy(c, c->ttype, TRUE, TRANSIENT)) == NULL)
+			if ((res = COLcopy(c, c->ttype, TRUE, TRANSIENT)) == NULL) {
+				BBPunfix(s->batCacheid);
+				BBPunfix(i->batCacheid);
+				BBPunfix(c->batCacheid);
 				throw(MAL, "sql.projectdelta", OPERATION_FAILED);
-			BATappend(res, i, NULL, FALSE);
+			}
 			BBPunfix(c->batCacheid);
+			if (BATappend(res, i, NULL, FALSE) != GDK_SUCCEED) {
+				BBPunfix(s->batCacheid);
+				BBPunfix(i->batCacheid);
+				throw(MAL, "sql.projectdelta", OPERATION_FAILED);
+			}
 		}
 	}
 	if (i)
 		BBPunfix(i->batCacheid);
 
 	tres = BATproject(s, res);
-	assert(tres);
 	BBPunfix(res->batCacheid);
+	if (tres == NULL) {
+		BBPunfix(s->batCacheid);
+		throw(MAL, "sql.projectdelta", OPERATION_FAILED);
+	}
 	res = tres;
 
 	if ((u_id = BATdescriptor(*uid)) == NULL) {
@@ -1705,7 +1750,7 @@ mvc_result_set_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	b = BATdescriptor(bid);
 	if ( b == NULL)
 		throw(MAL,"sql.resultset","Failed to access order column");
-	res = *res_id = mvc_result_table(m, pci->argc - (pci->retc + 5), 1, b);
+	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 5), 1, b);
 	if (res < 0)
 		msg = createException(SQL, "sql.resultSet", "failed");
 	BBPunfix(b->batCacheid);
@@ -1796,7 +1841,7 @@ mvc_export_table_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	order = BATdescriptor(bid);
 	if ( order == NULL)
 		throw(MAL,"sql.resultset","Failed to access order column");
-	res = *res_id = mvc_result_table(m, pci->argc - (pci->retc + 11), 1, order);
+	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 11), 1, order);
 	t = m->results;
 	if (res < 0){
 		msg = createException(SQL, "sql.resultSet", "failed");
@@ -1895,7 +1940,7 @@ mvc_row_result_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
-	res = *res_id = mvc_result_table(m, pci->argc - (pci->retc + 5), 1, NULL);
+	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 5), 1, NULL);
 
 	tbl = BATdescriptor(tblId);
 	atr = BATdescriptor(atrId);
@@ -1970,7 +2015,7 @@ mvc_export_row_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
-	res = *res_id = mvc_result_table(m, pci->argc - (pci->retc + 11), 1, NULL);
+	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 11), 1, NULL);
 
 	t = m->results;
 	if (res < 0){
@@ -2071,7 +2116,7 @@ mvc_table_result_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((order = BATdescriptor(*order_bid)) == NULL) {
 		throw(SQL, "sql.resultSet", "Cannot access descriptor");
 	}
-	*res_id = mvc_result_table(m, *nr_cols, *qtype, order);
+	*res_id = mvc_result_table(m, mb->tag, *nr_cols, *qtype, order);
 	if (*res_id < 0)
 		res = createException(SQL, "sql.resultSet", "failed");
 	BBPunfix(order->batCacheid);
@@ -2203,7 +2248,7 @@ mvc_affected_rows_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	assert(mtype == TYPE_lng);
 	nr = *getArgReference_lng(stk, pci, 2);
 	b = cntxt->sqlcontext;
-	error = mvc_export_affrows(b, b->out, nr, "");
+	error = mvc_export_affrows(b, b->out, nr, "", mb->tag);
 	if (error)
 		throw(SQL, "sql.affectedRows", "failed");
 	return MAL_SUCCEED;
@@ -2301,12 +2346,11 @@ mvc_scalar_value_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str *type = getArgReference_str(stk, pci, 3);
 	int *digits = getArgReference_int(stk, pci, 4);
 	int *scale = getArgReference_int(stk, pci, 5);
-	int *eclass = getArgReference_int(stk, pci, 6);
 	ptr p = getArgReference(stk, pci, 7);
 	int mtype = getArgType(mb, pci, 7);
 	str msg;
 	backend *b = NULL;
-
+	int res_id;
 	(void) mb;		/* NOT USED */
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
@@ -2315,13 +2359,14 @@ mvc_scalar_value_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		p = *(ptr *) p;
 
 	// scalar values are single-column result sets
-	mvc_result_table(b->mvc, 1, 1, NULL);
+	res_id = mvc_result_table(b->mvc, mb->tag, 1, 1, NULL);
 	mvc_result_value(b->mvc, *tn, *cn, *type, *digits, *scale, p, mtype);
 	if (b->output_format == OFMT_NONE) {
 		return MAL_SUCCEED;
 	}
-	if (b->out == NULL || mvc_export_value(b, b->out, 1, *tn, *cn, *type, *digits, *scale, *eclass, p, mtype, "", "NULL") != SQL_OK)
+	if (mvc_export_result(b, b->out, res_id) < 0) {
 		throw(SQL, "sql.exportValue", "failed");
+	}
 	return MAL_SUCCEED;
 
 }

@@ -83,6 +83,7 @@ runtimeProfileInit(Client cntxt, MalBlkPtr mb, MalStkPtr stk)
 	if (i == qtop) {
 		QRYqueue[i].mb = mb;
 		QRYqueue[i].tag = qtag++;
+		mb->tag = QRYqueue[i].tag;
 		QRYqueue[i].stk = stk;				// for status pause 'p'/running '0'/ quiting 'q'
 		QRYqueue[i].start = (lng)time(0);
 		QRYqueue[i].runtime = mb->runtime; 	// the estimated execution time
@@ -209,8 +210,7 @@ runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Runt
 	pci->calls++;
 	
 	if(malProfileMode > 0 ){
-		pci->wbytes += getVolume(stk, pci, 1);
-		pci->rbytes += getVolume(stk, pci, 0);
+		pci->wbytes = getVolume(stk, pci, 1);
 		profilerEvent(mb, stk, pci, FALSE, cntxt->username);
 	}
 	if( malProfileMode < 0){
