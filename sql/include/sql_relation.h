@@ -63,9 +63,9 @@ typedef struct expression {
 #define ASCENDING	32
 #define CMPMASK		(ASCENDING-1)
 #define get_cmp(e) 	(e->flag&CMPMASK)
-#define ANTISEL	32
-#define HAS_NO_NIL	64
-#define EXP_INTERN	128
+#define ANTISEL	64
+#define HAS_NO_NIL	128
+#define EXP_INTERN	256
 
 #define UPD_COMP		1
 #define UPD_LOCKED		2

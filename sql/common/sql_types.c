@@ -543,7 +543,7 @@ sql_bind_aggr_(sql_allocator *sa, sql_schema *s, const char *sqlaname, list *ops
 				continue;
 
 			if (strcmp(a->base.name, sqlaname) == 0 &&  
-		    	    (list_cmp(a->ops, ops, (fcmp) &arg_subtype_cmp) == 0 || a->vararg))
+					(list_cmp(a->ops, ops, (fcmp) &arg_subtype_cmp) == 0 || a->vararg))
 				return _dup_subaggr(sa, a, type);
 		}
 	}

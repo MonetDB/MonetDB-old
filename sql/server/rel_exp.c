@@ -107,7 +107,6 @@ exp_compare(sql_allocator *sa, sql_exp *l, sql_exp *r, int cmptype)
 	return e;
 }
 
-
 sql_exp*
 exp_unnest(sql_allocator* sa, sql_exp* column, list* attributes){
 	sql_exp *e = exp_create(sa, e_cmp);
