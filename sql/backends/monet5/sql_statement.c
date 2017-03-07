@@ -3509,11 +3509,6 @@ stmt_gr8_slices(backend *be, stmt *op, int num_slices) {
 	}
 	q = pushArgument(be->mb, q, ref_stmt);
 
-	// abi convention
-	for(int i = 1; i < num_slices; i++) {
-		snprintf(be->mb->var[getArg(q, i)]->id, IDLENGTH, "r%d_%d", i, getDestVar(q));
-	}
-
 	// finally create the MIL wrapper
 	s = stmt_create(be->mvc->sa, st_gr8_slices);
 	s->op1 = op;
@@ -3590,11 +3585,6 @@ stmt_gr8_intersect_join_lists(backend *be, stmt* query){
 		q = pushArgument(be->mb, q, s->nr);
 	}
 
-	// ABI convention
-	for(int i = 1; i < num_operands -1; i++) {
-		snprintf(be->mb->var[getArg(q, i)]->id, IDLENGTH, "r%d_%d", i, getDestVar(q));
-	}
-
 	// generate the MIL statement
 	l = sa_list(be->mvc->sa);
 	do { // again, restrict the scope
@@ -3632,7 +3622,6 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	InstrPtr q = NULL;
 	stmt *s = NULL;
 	int dest = -1;
-	int i = -1;
 	int num_output_cols = 2; // number of output columns from the operator
 	stream *stream = buffer_wastream(buffer_create(1024), "spfw_codegen_query");
 
@@ -3684,7 +3673,7 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	// describe the input columns
 	mnstr_printf(stream, "\t<input>\n");
 	mnstr_printf(stream, "\t\t<column name='candidates_left' pos='%d' />\n", q->retc +1);
-	if(be->mb->var[q->argv[q->retc+2]]->value.val.bval != bat_nil) {
+	if(be->mb->var[q->argv[q->retc+2]].value.val.bval != bat_nil) {
 		mnstr_printf(stream, "\t\t<column name='candidates_right' pos='%d' />\n", q->retc +2);
 	}
 	mnstr_printf(stream, "\t\t<column name='src' pos='%d' />\n", q->retc +3);
@@ -3738,14 +3727,6 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 		free(spfw_argument_buffer);
 		mnstr_destroy(stream); stream = NULL;
 	} while(0);
-
-	// API convention
-	dest = getDestVar(q); // jl
-	renameVariable(be->mb, getArg(q, 1), "r1_%d", dest); // jr
-	i = 2;
-	for(node *n = weights->op4.lval->h; n; n = n->next, i++){ // shortest paths
-		snprintf(be->mb->var[getArg(q, i)]->id, IDLENGTH, "r%d_%d", i, dest);
-	}
 
 	// MIL statement
 	s = stmt_create(be->mvc->sa, st_gr8_spfw);
