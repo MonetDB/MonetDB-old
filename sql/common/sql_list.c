@@ -185,6 +185,34 @@ list_append_before(list *l, node *m, void *data)
 }
 
 list *
+list_insert_after(list* l, node* m, void* data){
+	node *n = NULL;
+
+	if(!m){ return list_append(l, data); } // corner case
+
+	n = node_create(l->sa, data);
+	n->next = m->next;
+	m->next = n;
+	if(l->t == m){
+		l->t = n;
+	}
+	l->cnt++;
+
+	MT_lock_set(&l->ht_lock);
+	if (l->ht) {
+		int key = l->ht->key(data);
+
+		if (hash_add(l->ht, key, data) == NULL) {
+			MT_lock_unset(&l->ht_lock);
+			return NULL;
+		}
+	}
+	MT_lock_unset(&l->ht_lock);
+
+	return l;
+}
+
+list *
 list_prepend(list *l, void *data)
 {
 	node *n = node_create(l->sa, data);

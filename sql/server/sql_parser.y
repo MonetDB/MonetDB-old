@@ -319,7 +319,6 @@ int yydebug=1;
 	column
 	authid
 	grantee
-	opt_alias_name
 	opt_to_savepoint
 	opt_using
 	opt_null_string
@@ -436,6 +435,7 @@ int yydebug=1;
 	window_frame_between
 	routine_designator
 	nested_attributes
+	opt_alias_name
 
 %type <i_val>
 	any_all_some
@@ -4192,14 +4192,23 @@ column_exp:
   		  $$ = _symbol_create_list( SQL_TABLE, l ); }
  |  search_condition opt_alias_name
 		{ dlist *l = L();
+          
   		  append_symbol(l, $1);
-  		  append_string(l, $2);
-  		  $$ = _symbol_create_list( SQL_COLUMN, l ); }
+  		  if( $2 == NULL || dlist_length($2) == 1 ) {
+  		    append_string(l, $2->h->data.sval);
+  		    $$ = _symbol_create_list( SQL_COLUMN, l );
+  		  } else { // |$2| > 1
+  		    append_list(l, $2);
+  		    $$ = _symbol_create_list( SQL_MULTI_COLUMN, l );
+  		  }
+	    }
  ;
+
 
 opt_alias_name:
     /* empty */	{ $$ = NULL; }
- |  AS ident	{ $$ = $2; }
+ |  AS ident	{ $$ = append_string(L(), $2); }
+ |  AS '(' name_commalist ')' { $$ = $3; }
  ;
 
 atom:

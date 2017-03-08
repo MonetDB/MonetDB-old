@@ -13,7 +13,7 @@
 #include "sql_semantic.h"
 
 sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context);
-sql_exp* rel_graph_cheapest_sum(mvc *sql, sql_rel **rel, symbol *sq, int context);
+list* rel_graph_shortest_path(mvc *sql, sql_rel *rel, symbol *sq, int context, bool compute_path);
 
 sql_graph* rel_graph_create(sql_allocator *sa);
 sql_graph* rel_graph_move(mvc* sql, sql_rel* graph_old, sql_rel* l, sql_rel* r, sql_exp* e);

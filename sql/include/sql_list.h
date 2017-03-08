@@ -43,6 +43,7 @@ extern int list_empty(list *l);
 
 extern list *list_append(list *l, void *data);
 extern list *list_append_before(list *l, node *n, void *data);
+extern list *list_insert_after(list* l, node *n, void* data);
 extern list *list_prepend(list *l, void *data);
 
 extern node *list_remove_node(list *l, node *n);

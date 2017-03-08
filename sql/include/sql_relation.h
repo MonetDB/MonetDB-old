@@ -82,6 +82,10 @@ typedef struct expression {
 #define PSM_IF 16
 #define PSM_REL 32
 
+// Flags related to graph expressions
+#define GRAPH_EXPR_COST              512
+#define GRAPH_EXPR_SHORTEST_PATH    1024
+
 #define SET_PSM_LEVEL(level)	(level<<8)
 #define GET_PSM_LEVEL(level)	(level>>8)
 

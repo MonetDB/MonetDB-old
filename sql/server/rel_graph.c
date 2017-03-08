@@ -168,24 +168,25 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
 
 static bool error_reported(mvc* sql){ return (sql->session->status < 0); }
 
-static sql_exp* bind_cheapest_sum_return(mvc *sql, sql_exp* bind1, sql_exp* bind2){
+static list* bind_shortest_path_return(mvc *sql, list* bind1, list* bind2){
 	if (error_reported(sql)){ // an error already occurred
 		return NULL;
-	} else if(bind1 && bind2){
-		return sql_error(sql, ERR_AMBIGUOUS, "Ambiguous expression for CHEAPEST SUM: %s, %s", exp_name(bind1), exp_name(bind2));
-	} else if(bind1){
+	} else if(list_length(bind1) && list_length(bind2)){
+		return sql_error(sql, ERR_AMBIGUOUS, "Ambiguous expression for CHEAPEST SUM: %s, %s", exp_name(bind1->h->data), exp_name(bind2->h->data));
+	} else if(list_length(bind1)){
 		return bind1;
 	} else {
 		return bind2; // either if it has a value or it is null */
 	}
 }
 
-static sql_exp* bind_cheapest_sum_graph(mvc *sql, sql_graph *graph, dlist *parse_tree){
+static list* bind_shortest_path_graph(mvc *sql, sql_graph *graph, dlist *parse_tree, bool compute_path){
 	const char* table_ref = NULL; // the table referred (optional)
 	symbol* expr_weight = NULL; // the expression inside CHEAPEST SUM ( ... );
 	sql_rel* edges = NULL; // the table expression representing the edges
 	sql_exp* e = NULL; // the expression being bound
 	exp_kind exp_kind_value = {type_value, card_column, TRUE}; // rel_value_exp parameters
+	list* result = NULL; // the final result as list: [cost, path]
 
 	// init
 	table_ref = parse_tree->h->data.sval;
@@ -205,12 +206,14 @@ static sql_exp* bind_cheapest_sum_graph(mvc *sql, sql_graph *graph, dlist *parse
 
 	if(e){ // success
 		node* duplicate = NULL;
-		sql_exp* bound_exp = e; // the resulting expression
+		sql_exp* expr_csum = e; // the expression associated to the edge table to compute the weights
+		sql_exp* column_cost = NULL; // the resulting expression for the cost
+		sql_exp* column_path = NULL; // the resulting expression for the spfw
 		bool is_bfs = false; // is this a BFS?
 
 		// if this is an atom, then perform a simple BFS and multiply the final result by the original atom
 		if(exp_is_atom(e)){
-			e = exp_atom_lng(sql->sa, 1); // whatever value or type, the important part for the codegen is that this is an atom
+			e = exp_atom_lng(sql->sa, 1); // regardless of its value or type, the important part for the codegen is that this is an atom
 			is_bfs = true;
 		}
 
@@ -227,42 +230,85 @@ static sql_exp* bind_cheapest_sum_graph(mvc *sql, sql_graph *graph, dlist *parse
 			e = duplicate->data;
 		}
 
-		e = exp_column(sql->sa, exp_relname(e), exp_name(e), exp_subtype(e), graph->relation.card, /* has_nil = */ FALSE, /* is_intern = */ FALSE);
+		e->flag |= GRAPH_EXPR_COST;
+		column_cost = exp_column(sql->sa, exp_relname(e), exp_name(e), exp_subtype(e), graph->relation.card, /* has_nil = */ FALSE, /* is_intern = */ FALSE);
 
 		// if this is a bfs, we need to multiply the result by the actual value
 		if(is_bfs){
 			sql_subfunc* f_mult = NULL;
 
 			// cast the result to the expected type
-			if(type_cmp(exp_subtype(e)->type, exp_subtype(bound_exp)->type) != 0 /* 0 = same type */){
-				sql_type* e_t = exp_subtype(e)->type;
-				sql_type* bound_exp_t = exp_subtype(bound_exp)->type;
+			if(type_cmp(exp_subtype(column_cost)->type, exp_subtype(expr_csum)->type) != 0 /* 0 = same type */){
+				sql_type* column_cost_t = exp_subtype(column_cost)->type;
+				sql_type* expr_csum_t = exp_subtype(expr_csum)->type;
 				// currently a bfs returns a lng, so cast to lng unless it is even bigger
-				if(bound_exp_t->eclass == EC_NUM && bound_exp_t->digits < e_t->digits) {
-					bound_exp = exp_convert(sql->sa, bound_exp, exp_subtype(bound_exp), exp_subtype(e));
+				if(expr_csum_t->eclass == EC_NUM && expr_csum_t->digits < column_cost_t->digits) {
+					expr_csum = exp_convert(sql->sa, expr_csum, exp_subtype(expr_csum), exp_subtype(column_cost));
 				} else {
-					e = exp_convert(sql->sa, e, exp_subtype(e), exp_subtype(bound_exp));
+					column_cost = exp_convert(sql->sa, column_cost, exp_subtype(column_cost), exp_subtype(expr_csum));
 				}
 			}
 
-			f_mult = sql_bind_func(sql->sa, /*mvc_bind_schema(sql, "sys")*/ NULL, "sql_mul", exp_subtype(bound_exp), exp_subtype(e), F_FUNC);
+			f_mult = sql_bind_func(sql->sa, /*mvc_bind_schema(sql, "sys")*/ NULL, "sql_mul", exp_subtype(expr_csum), exp_subtype(column_cost), F_FUNC);
 			assert(f_mult != NULL && "Cannot bind the multiply function");
-			bound_exp = exp_binop(sql->sa, bound_exp, e, f_mult);
-		} else {
-			// the result is the actual column computed by the spfw operator => weighted shortest path
-			bound_exp = e;
+			column_cost = exp_binop(sql->sa, expr_csum, column_cost, f_mult);
 		}
 
-		return bound_exp;
 
-	} else { // nope
-		return NULL; // == e
+		result = sa_list(sql->sa);
+		list_append(result, column_cost);
+
+		// shortest path
+		if(compute_path){
+
+			// first check whether we already requested to compute the path for the
+			// associated cost expr
+			if(duplicate && duplicate->next){
+				// the convention is to always record the column for the path immediately
+				// after the one for the cost
+				sql_exp* candidate = duplicate->next->data;
+				if (candidate->flag & GRAPH_EXPR_SHORTEST_PATH){
+					column_path = candidate;
+				}
+			}
+
+			// otherwise we need to create an hoc column & register in the list graph->spfw
+			// to represent the path to compute
+			if(!column_path) {
+				const char* label = make_label(sql->sa, ++sql->label);
+				sql_subtype* type = sql_bind_subtype(sql->sa, "nested_table", 0, 0);
+
+				assert(type != NULL && "Cannot find the 'nested_table' type");
+				// record the columns composing the nested_table type, from the edge table
+				type->attributes = exps_copy(sql->sa, rel_projections(sql, edges, NULL, /* settname = */ true, /* intern = */ false));
+
+				column_path = exp_column(sql->sa, label, label, type, CARD_MULTI, /* has_nil = */ FALSE, /* is_intern = */ FALSE);
+				column_path->flag |= GRAPH_EXPR_SHORTEST_PATH;
+
+				// record the column in the 'spfw' list
+				if(duplicate){
+					list_insert_after(graph->spfw, duplicate, column_path);
+				} else {
+					list_append(graph->spfw, column_path);
+				}
+			}
+
+			column_path = exp_column(sql->sa, exp_relname(column_path), exp_name(column_path), exp_subtype(column_path), graph->relation.card, /* has_nil = */ FALSE, /* is_intern = */ FALSE);
+			list_append(result, column_path);
+		}
+
+		return result;
+	} else { // it did not bind to the associated edge table
+		return NULL;
 	}
 
 }
 
 // walk up in the relation tree and bind the given cheapest sum symbol `parse_tree' to a graph operator
-static sql_exp* bind_cheapest_sum_recursion(mvc *sql, sql_rel* relation, dlist *parse_tree){
+// it returns a list having 1 or 2 members:
+// 1- the expression representing the 'cost' of the path
+// 2- when compute_path = true, the second member is a nested table object representing the computed path
+static list* bind_shortest_path_recursion(mvc *sql, sql_rel* relation, dlist *parse_tree, bool compute_path){
 	// edge case
 	if(!relation || error_reported(sql)) return NULL;
 
@@ -270,55 +316,55 @@ static sql_exp* bind_cheapest_sum_recursion(mvc *sql, sql_rel* relation, dlist *
 
 	switch(relation->op){
 	case op_graph_select: { // base case
-		sql_exp *exp1 = NULL, *exp2 = NULL;
+		list *lst1 = NULL, *lst2 = NULL;
 		// base case
-		exp1 = bind_cheapest_sum_graph(sql, (sql_graph*) relation, parse_tree);
+		lst1 = bind_shortest_path_graph(sql, (sql_graph*) relation, parse_tree, compute_path);
 		// even if it bound the expression to this operator, we propagate up in the tree
 		// to check and report ambiguities
-		exp2 = bind_cheapest_sum_recursion(sql, relation->l, parse_tree);
-		return bind_cheapest_sum_return(sql, exp1, exp2);
+		lst2 = bind_shortest_path_recursion(sql, relation->l, parse_tree, compute_path);
+		return bind_shortest_path_return(sql, lst1, lst2);
 	} break;
 	case op_full:
 	case op_left:
 	case op_right:
-	case op_semi:
 	case op_join:
 	case op_select: {
-		sql_exp *exp1 = NULL, *exp2 = NULL;
+		list *lst1 = NULL, *lst2 = NULL;
 
-		exp1 = bind_cheapest_sum_recursion(sql, relation->l, parse_tree);
-		exp2 = bind_cheapest_sum_recursion(sql, relation->r, parse_tree);
-		return bind_cheapest_sum_return(sql, exp1, exp2);
+		lst1 = bind_shortest_path_recursion(sql, relation->l, parse_tree, compute_path);
+		lst2 = bind_shortest_path_recursion(sql, relation->r, parse_tree, compute_path);
+		return bind_shortest_path_return(sql, lst1, lst2);
 	} break;
+	case op_semi:
+	case op_anti:
 	case op_groupby:
 		// move up in the tree
-		return bind_cheapest_sum_recursion(sql, relation->l, parse_tree);
+		return bind_shortest_path_recursion(sql, relation->l, parse_tree, compute_path);
 	default:
 		return NULL;
 	}
 
-	return NULL; // silent the warning
+	return NULL; // silent the compiler warning
 }
 
-sql_exp* rel_graph_cheapest_sum(mvc *sql, sql_rel **rel, symbol *sym, int context){
-	sql_exp* result = NULL; // the expression bound
 
-	printf("[Semantic analysis] [Cheapest sum] Input relation: %s\n", dump_rel(sql, *rel));
+list* rel_graph_shortest_path(mvc *sql, sql_rel *rel, symbol *sym, int context, bool compute_path){
+	list* result = NULL;
 
 	assert(sym->data.lval != NULL && "CHEAPEST SUM: empty parse tree");
 
 	// Check the context is the SELECT clause
 	if(context != sql_sel){
-		return sql_error(sql, 02, "CHEAPEST SUM is only allowed inside the SELECT clause");
+		return sql_error(sql, 106, "CHEAPEST SUM is only allowed inside the SELECT clause");
 	}
 
 	// Find the relation where the sub the expression binds to
-	assert(is_project((*rel)->op) && "Unexpected relation type");
-	result = bind_cheapest_sum_recursion(sql, (*rel)->l, sym->data.lval);
+	assert(is_project(rel->op) && "Unexpected relation type");
+	result = bind_shortest_path_recursion(sql, rel->l, sym->data.lval, compute_path);
 
 	// If it didn't bind the exp~, prepare an error message if it was not already constructed
 	if(!result && !error_reported(sql)){
-		return sql_error(sql, 02, "Cannot bind the expression in CHEAPEST SUM");
+		return sql_error(sql, 106, "Cannot bind the expression in CHEAPEST SUM");
 	} else {
 		return result; // this can be an exp~ or NULL + an error set
 	}

@@ -4484,8 +4484,10 @@ rel_value_exp2(mvc *sql, sql_rel **rel, symbol *se, int f, exp_kind ek, int *is_
 	case SQL_XMLPI:
 	case SQL_XMLTEXT:
 		return rel_xml(sql, rel, se, f, ek);
-	case SQL_GRAPH_CHEAPEST_SUM:
-		return rel_graph_cheapest_sum(sql, rel, se, f);
+	case SQL_GRAPH_CHEAPEST_SUM: {
+		list* result = rel_graph_shortest_path(sql, *rel, se, f, /*compute_path = */ false);
+		return list_length(result) ? result->h->data : NULL;
+	}
 	default:
 		return rel_logical_value_exp(sql, rel, se, f);
 	}
@@ -4525,6 +4527,51 @@ column_exp(mvc *sql, sql_rel **rel, symbol *column_e, int f)
 	return ve;
 }
 
+// exp AS (x, y, ...)
+static list *
+rel_multi_columns(mvc *sql, sql_rel *rel, symbol *column_e){
+	list* result = NULL;
+	dnode* tmp = NULL;
+	symbol *symexp = NULL;
+	dlist *output_vars = NULL;
+
+	assert(column_e->token == SQL_MULTI_COLUMN);
+	tmp = column_e->data.lval->h;
+	symexp = tmp->data.sym;
+	output_vars = tmp->next->data.lval;
+	assert(output_vars && dlist_length(output_vars) > 1 && "If |output_vars| < 1, then the parser should "
+			"report a SQL_COLUMN (instead of SQL_MULTI_COLUMN)");
+
+	switch(symexp->token){
+	case SQL_GRAPH_CHEAPEST_SUM: {
+		if(dlist_length(output_vars) != 2){
+			return sql_error(sql, 106, "Invalid number of output variables for CHEAPEST SUM: >2");
+		}
+		result = rel_graph_shortest_path(sql, rel, symexp, sql_sel, /* compute_path = */ true);
+	} break;
+	default:
+		return NULL;
+	}
+
+	// aliases, i.e. exp AS (x, y, ...);
+	if(result){
+		node* result_node = result->h;
+
+		if(list_length(result) != dlist_length(output_vars)){
+			return sql_error(sql, 02, "The number of expressions generated does not match the number of variables provided");
+		}
+
+		for(dnode* alias_node = output_vars->h; alias_node; alias_node = alias_node->next, result_node = result_node->next){
+			sql_exp* e = result_node->data;
+			const char* alias = alias_node->data.sval;
+			if(alias)
+				exp_setname(sql->sa, e, NULL, alias);
+		}
+	}
+
+	return result;
+}
+
 static list *
 rel_table_exp(mvc *sql, sql_rel **rel, symbol *column_e )
 {
@@ -4551,6 +4598,8 @@ rel_table_exp(mvc *sql, sql_rel **rel, symbol *column_e )
 				"Table expression without table name");
 		return sql_error(sql, 02,
 				"Column expression Table '%s' unknown", tname);
+	} else if (column_e->token == SQL_MULTI_COLUMN) {
+		return rel_multi_columns(sql, *rel, column_e);
 	}
 	return NULL;
 }
@@ -4753,7 +4802,7 @@ rel_select_exp(mvc *sql, sql_rel *rel, SelectNode *sn, exp_kind ek)
 			relation
 		 */
 		sql_rel *o_inner = inner;
-	       	list *te = NULL, *pre_prj = rel_projections(sql, o_inner, NULL, 1, 1);
+		list *te = NULL, *pre_prj = rel_projections(sql, o_inner, NULL, 1, 1);
 		sql_exp *ce = rel_column_exp(sql, &inner, n->data.sym, sql_sel);
 
 		if (inner != o_inner) {  /* relation got rewritten */
