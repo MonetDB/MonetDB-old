@@ -4195,7 +4195,7 @@ column_exp:
           
   		  append_symbol(l, $1);
   		  if( $2 == NULL || dlist_length($2) == 1 ) {
-  		    append_string(l, $2->h->data.sval);
+  		    append_string(l, $2 ? $2->h->data.sval : NULL);
   		    $$ = _symbol_create_list( SQL_COLUMN, l );
   		  } else { // |$2| > 1
   		    append_list(l, $2);
