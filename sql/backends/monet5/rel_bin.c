@@ -4899,7 +4899,7 @@ rel2bin_graph(backend *be, sql_rel* rel, list *refs)
 		query = stmt_list(be, lst1); lst1 = NULL;
 
 		// in case of a SELECT intersect the two lists, so that we have only the columns part of the domain
-		// there is no more need to ensure the candidates are sorted, graph.intersect_join_lists can deal
+		// it is no more needed to ensure the candidates are sorted, graph.intersect_join_lists can deal
 		// with it
 		if(rel->op == op_graph_select){
 			query = stmt_gr8_intersect_join_lists(be, query);

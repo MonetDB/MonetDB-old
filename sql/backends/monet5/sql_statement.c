@@ -3687,6 +3687,7 @@ stmt_gr8_intersect_join_lists(backend *be, stmt* query){
 		stmt *s = NULL; // temporary stmt
 
 		s = stmt_create(be->mvc->sa, st_result);
+		s->q = q;
 		s->nr = getDestVar(q);
 		copy_params(n->data, s);
 		list_append(l, s);
@@ -3695,14 +3696,15 @@ stmt_gr8_intersect_join_lists(backend *be, stmt* query){
 		// second parameter is easy
 		list_append(l, stmt_none(be));
 
-
 		// third & four parameters
 		s = stmt_create(be->mvc->sa, st_result);
+		s->q = q;
 		s->nr = getArg(q, 1);
 		copy_params(n->data, s);
 		list_append(l, s);
 		n = n->next;
 		s = stmt_create(be->mvc->sa, st_result);
+		s->q = q;
 		s->nr = getArg(q, 2);
 		copy_params(n->data, s);
 		list_append(l, s);
@@ -3716,7 +3718,6 @@ stmt *
 stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *weights, int global_flags) {
 	InstrPtr q = NULL;
 	stmt *s = NULL;
-	int dest = -1;
 	int num_output_cols = 2; // number of output columns from the operator
 	stream *stream = buffer_wastream(buffer_create(1024), "spfw_codegen_query");
 
@@ -3825,7 +3826,7 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 
 	// MIL statement
 	s = stmt_create(be->mvc->sa, st_gr8_spfw);
-	s->nr = dest;
+	s->nr = getDestVar(q);
 	s->q = q;
 	s->flag = global_flags;
 	s->op1 = query;
