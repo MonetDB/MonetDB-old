@@ -5987,6 +5987,74 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 	return rel;
 }
 
+
+static void
+exp_nested_table_mark_used(sql_exp* exp_up, sql_exp* exp_down){
+	sql_exp* exp_nest = NULL; // the summary sys.nest( ... )
+	sql_exp* exp_unnest = NULL;
+	list* used_attributes = NULL;
+	list* target_attributes = NULL;
+//	list* new_attributes = NULL;
+
+	assert(exp_up != NULL && exp_down != NULL);
+
+	if(exp_up->type == e_cmp && get_cmp(exp_up) == cmp_unnest){
+		exp_unnest = exp_up;
+		exp_up = exp_unnest->l;
+	} else {
+		assert(exp_up->type == e_column);
+	}
+
+	if(exp_down->type == e_aggr /*&& exp_nest->f ~ "sys.nest"*/){
+		sql_subaggr* subaggr = exp_down->f;
+		sql_subtype* type = subaggr->res->h->data;
+		assert(type->attributes != NULL);
+
+		exp_nest = exp_down;
+		target_attributes = type->attributes;
+	} else {
+		assert(exp_down->type == e_column);
+		target_attributes = exp_down->tpe.attributes;
+	}
+
+	assert(exp_up->tpe.attributes != NULL);
+	assert(exp_down->tpe.attributes != NULL);
+
+	if(exp_unnest){
+		used_attributes = exp_unnest->r;
+	} else {
+		used_attributes = exp_up->tpe.attributes;
+	}
+
+	// mark the sub type
+//	new_attributes = sa_list(used_attributes->sa);
+	for(node* m = used_attributes->h; m; m = m->next){
+		sql_exp* attribute = m->data;
+		sql_exp* target = NULL;
+
+		assert(attribute->type == e_column);
+		if(!attribute->used) continue;
+		if(exp_nest){
+			target = exps_bind_column2(target_attributes, attribute->l, attribute->r);
+		} else {
+			target = exps_bind_column2(target_attributes, attribute->rname, attribute->name);
+		}
+
+
+		assert(target != NULL && target->type == e_column);
+		target->used = 1;
+//		list_append(new_attributes, target);
+	}
+
+//	exp_down->tpe.attributes = new_attributes;
+//	if(exp_unnest){
+//		exp_up->tpe.attributes = new_attributes;
+//	}
+	if(exp_unnest){
+		exp_up->tpe.attributes = exp_unnest->tpe.attributes;
+	}
+}
+
 static int
 exp_mark_used(sql_rel *subrel, sql_exp *e)
 {
@@ -5996,6 +6064,9 @@ exp_mark_used(sql_rel *subrel, sql_exp *e)
 	switch(e->type) {
 	case e_column:
 		ne = rel_find_exp(subrel, e);
+		if(e && ne && e->tpe.type->eclass == EC_NESTED_TABLE){
+			exp_nested_table_mark_used(e, ne);
+		}
 		break;
 	case e_convert:
 		return exp_mark_used(subrel, e->l);
@@ -6021,8 +6092,10 @@ exp_mark_used(sql_rel *subrel, sql_exp *e)
 			for (n = l->h; n != NULL; n = n->next) 
 				nr += exp_mark_used(subrel, n->data);
 		} else if (e->flag == cmp_unnest) {
-			nr += exp_mark_used(subrel, e->l);
-			// do not mark the attributes here
+			sql_exp* column = e->l;
+			assert(column->type == e_column && "Expected a column in the LHS of an unnest expression");
+			ne = rel_find_exp(subrel, column);
+			exp_nested_table_mark_used(e, ne);
 		} else if (e->flag == cmp_in || e->flag == cmp_notin) {
 			list *r = e->r;
 			node *n;
@@ -6302,8 +6375,34 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 		// edges
 		exps_mark_used_(sql->sa, rel, graph_ptr->edges, graph_ptr->efrom);
 		exps_mark_used_(sql->sa, rel, graph_ptr->edges, graph_ptr->eto);
-		exps_mark_used_(sql->sa, rel, graph_ptr->edges, graph_ptr->spfw);
+//		exps_mark_used_(sql->sa, rel, graph_ptr->edges, graph_ptr->spfw);
+		// shortest paths
+		for(node* n = graph_ptr->spfw->h; n; n = n->next){
+			sql_exp* e = n->data;
+			if(e->flag & GRAPH_EXPR_COST){
+				exp_mark_used(graph_ptr->edges, e);
+			} else if(e->flag & GRAPH_EXPR_SHORTEST_PATH){
+				int nr = 0;
 
+				assert(e->tpe.attributes != NULL && "Expected a nested table as type");
+				for(node* m = e->tpe.attributes->h; m; m = m->next){
+					sql_exp* me = m->data;
+					// since unnest is not a barrier in the DCE analysis, we need to explicitly
+					// check whether the attribute has been marked earlier
+					if(me->used){
+						nr++;
+						exp_mark_used(graph_ptr->edges, e);
+					}
+				}
+				if(nr == list_length(e->tpe.attributes)){
+					e->used = 1;
+				}
+			} else {
+				assert(0 && "Invalid graph expression");
+			}
+		}
+
+		// this should be a nop because graph_ptr->edges should be a projection
 		rel_mark_used(sql, graph_ptr->edges, 0);
 	} break;
 	}
@@ -6373,9 +6472,31 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 
 			for(n=rel->exps->h; n && !needed; n = n->next) {
 				sql_exp *e = n->data;
+				list* nt_attributes = NULL; // nested table attributes
 
 				if (!e->used)
 					needed = 1;
+
+				// nested tables
+				else if(e->type == e_column){
+					nt_attributes = e->tpe.attributes;
+				} else if (e->type == e_aggr) { // sys.nest()
+					sql_subaggr* aggr = e->f;
+					sql_subtype* type = NULL;
+					if(list_length(aggr->res) == 1){
+						type = aggr->res->h->data;
+						nt_attributes = type->attributes;
+					}
+				}
+				if (nt_attributes){ // a bit of spaghetti :D
+					for (node *m = nt_attributes->h; m && !needed; m = m->next){
+						sql_exp* me = m->data;
+						if(!me->used){
+							needed = 1;
+						}
+					}
+				}
+
 			}
 			if (!needed)
 				return rel;
@@ -6384,8 +6505,30 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 			for(n=rel->exps->h; n; n = n->next) {
 				sql_exp *e = n->data;
 
-				if (e->used)
+				if (e->used) {
+					list* nt_attributes = NULL;
+
+					if(is_project(rel->op)){
+						nt_attributes = e->tpe.attributes;
+					} else if (is_groupby(rel->op) && e->f){
+						nt_attributes = e->l;
+					}
+
+					// nested tables
+					if(e->tpe.attributes != NULL){
+						list* new_attributes = sa_list(sql->sa);
+						for(node *m = e->tpe.attributes->h; m; m = m->next){
+							sql_exp* me = m->data;
+							assert(me->type == e_column);
+							if(me->used){
+								list_append(new_attributes, me);
+							}
+						}
+						e->tpe.attributes = new_attributes;
+					}
+
 					append(exps, e);
+				}
 			}
 			/* atleast one (needed for crossproducts, count(*), rank() and single value projections) */
 			if (list_length(exps) <= 0)
@@ -6397,6 +6540,7 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 	case op_unnest: { // similar to above
 		list* attributes = rel_unnest_attributes(rel);
 		bool needed = false;
+		sql_exp* exp_unnest;
 
 		for(node* n = attributes->h; n && !needed; n = n->next){
 			needed = !((sql_exp*) n->data)->used;
@@ -6411,7 +6555,9 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 					append(new_attributes, e);
 			}
 
-			((sql_exp*)rel->exps->h->data)->r = new_attributes;
+			exp_unnest = rel->exps->h->data;
+			exp_unnest->r = new_attributes;
+			((sql_exp*) exp_unnest->l)->tpe.attributes = new_attributes; // they are shared with e->r, OK
 		}
 		return rel;
 	} break;
@@ -6443,14 +6589,37 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 		for(node* n = graph_ptr->spfw->h; n && !needed; n = n->next){
 			sql_exp* e = n->data;
 			needed = !(e->used);
+			if (!needed && (e->flag & GRAPH_EXPR_SHORTEST_PATH)){
+				for (node *m = e->tpe.attributes->h; m && !needed; m = m->next){
+					sql_exp* me = m->data;
+					if(!me->used){
+						needed = 1;
+					}
+				}
+			}
 		}
 
 		if(needed) { // remove the unused attributes
 			list* exps = sa_list(sql->sa);
 			for(node* n = graph_ptr->spfw->h; n; n = n->next){
-				sql_exp* e = n->data;
-				if(e->used)
-					list_append(exps, e);
+				sql_exp* ne = n->data;
+				if(ne->used){ // ok for both untouched cost & path columns
+
+					// maybe we need to remove some columns from the nested table
+					if(ne->flag & GRAPH_EXPR_SHORTEST_PATH){
+						list* new_attributes = sa_list(sql->sa);
+						for(node* m = ne->tpe.attributes->h; m; m = m->next){
+							sql_exp *me = m->data;
+
+							if (me->used)
+								append(new_attributes, me);
+						}
+						assert(list_length(new_attributes) > 0 && "Otherwise ne->used == 0");
+						ne->tpe.attributes = new_attributes;
+					}
+
+					list_append(exps, ne);
+				} // end if (e->used)
 			}
 			graph_ptr->spfw = exps;
 		}

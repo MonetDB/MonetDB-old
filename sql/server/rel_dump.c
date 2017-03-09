@@ -538,7 +538,7 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 	case op_graph_select: {
 		sql_graph *graph_ptr = (sql_graph*) rel;
 		print_indent(sql, fout, depth, decorate);
-		mnstr_printf(fout, "%s", op2string(rel->op));
+		mnstr_printf(fout, "%s (", op2string(rel->op));
 		if (rel_is_ref(rel->l)) {
 			int nr = find_ref(refs, rel->l);
 			print_indent(sql, fout, depth+1, decorate);
@@ -562,14 +562,15 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 			rel_print_(sql, fout, graph_ptr->edges, depth+1, refs, decorate);
 		}
 		print_indent(sql, fout, depth, decorate);
+		mnstr_printf(fout, ")");
 		exps_print(sql, fout, rel->exps, depth, 1, 0);
 		mnstr_printf(fout, ", src:");
 		exps_print(sql, fout, graph_ptr->efrom, depth, 1, 0);
 		mnstr_printf(fout, ", dst:");
 		exps_print(sql, fout, graph_ptr->eto, depth, 1, 0);
 		print_indent(sql, fout, depth, decorate);
-		mnstr_printf(fout, "shortest paths: ");
-		exps_print(sql, fout, graph_ptr->spfw, depth, 1, 1);
+		mnstr_printf(fout, "π :");
+		exps_print(sql, fout, graph_ptr->spfw, depth, 1, 0);
 	}   break;
 	default:
 		assert(0);

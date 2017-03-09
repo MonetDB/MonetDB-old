@@ -9,6 +9,7 @@
 #include <monetdb_config.h>
 #include "sql_relation.h"
 #include "rel_exp.h"
+#include "rel_graph.h"
 #include "rel_prop.h" /* for prop_copy() */
 #include "rel_optimizer.h"
 #include "rel_distribute.h"
@@ -1274,6 +1275,7 @@ rel_find_exp_( sql_rel *rel, sql_exp *e)
 		// check whether this is some kind of shortest path
 		else if (is_graph(rel->op) && e->l){
 			sql_graph* graph_ptr = (sql_graph*) rel;
+//			ne = graph_bind_spfw(rel, e->l, e->r);
 			ne = exps_bind_column2(graph_ptr->spfw, e->l, e->r);
 		}
 		return ne;

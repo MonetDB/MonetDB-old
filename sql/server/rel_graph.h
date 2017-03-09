@@ -19,4 +19,6 @@ sql_graph* rel_graph_create(sql_allocator *sa);
 sql_graph* rel_graph_move(mvc* sql, sql_rel* graph_old, sql_rel* l, sql_rel* r, sql_exp* e);
 sql_rel* rel_graph_move2rel(mvc* sql, sql_rel* graph_old, sql_rel* l, sql_rel* r, sql_exp* e);
 
+sql_exp* graph_bind_spfw(sql_rel* rel, const char* relname, const char* colname);
+
 #endif /* _REL_GRAPH_H_ */
