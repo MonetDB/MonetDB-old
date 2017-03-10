@@ -3435,16 +3435,16 @@ _rel_aggr(mvc *sql, sql_rel **rel, int distinct, sql_schema *s, char *aname, dno
 		}
 	}
 
-	// record the attributes for nested tables
-	if(a) {
+	if(a) { // record the attributes for nested tables
 		sql_subtype* sqltype = a->res->h->data;
 		if(sqltype->type->eclass == EC_NESTED_TABLE){
-			sqltype->attributes = exps_copy(sql->sa, exps);
-//			sqltype->attributes = sa_list(sql->sa);
-//			for(node* n = exps->h; n; n = n->next){
-//				sql_exp* e = n->data;
-//				list_append(sqltype->attributes, exp_alias_or_copy(sql, NULL, exp_name(e), groupby->l, e));
-//			}
+			list* l = sa_list(sql->sa);
+			for(node* n = exps->h; n; n = n->next){
+				sql_exp *e = n->data;
+//				list_append(l, exp_alias_or_copy(sql, NULL, exp_name(e), groupby->l, e));
+				list_append(l, exp_column(sql->sa, exp_relname(e), exp_name(e), exp_subtype(e), exp_card(e), has_nil(e), is_intern(e)));
+			}
+			sqltype->attributes = l;
 		}
 	}
 

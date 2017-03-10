@@ -6006,11 +6006,15 @@ exp_nested_table_mark_used(sql_exp* exp_up, sql_exp* exp_down){
 	}
 
 	if(exp_down->type == e_aggr /*&& exp_nest->f ~ "sys.nest"*/){
-		sql_subaggr* subaggr = exp_down->f;
-		sql_subtype* type = subaggr->res->h->data;
-		assert(type->attributes != NULL);
+		sql_subaggr* subaggr = NULL;
+		sql_subtype* type = NULL;
 
 		exp_nest = exp_down;
+		subaggr = exp_nest->f;
+		assert(list_length(subaggr->res) == 1);
+		type = subaggr->res->h->data;
+		assert(type->attributes != NULL);
+
 		target_attributes = type->attributes;
 	} else {
 		assert(exp_down->type == e_column);
@@ -6034,16 +6038,26 @@ exp_nested_table_mark_used(sql_exp* exp_up, sql_exp* exp_down){
 
 		assert(attribute->type == e_column);
 		if(!attribute->used) continue;
-		if(exp_nest){
-			target = exps_bind_column2(target_attributes, attribute->l, attribute->r);
-		} else {
-			target = exps_bind_column2(target_attributes, attribute->rname, attribute->name);
-		}
-
+		target = exps_bind_column2(target_attributes, attribute->l, attribute->r);
 
 		assert(target != NULL && target->type == e_column);
 		target->used = 1;
 //		list_append(new_attributes, target);
+	}
+
+	// mark the attributes in the argument list of sys.nest(...)
+	if(exp_nest){
+		list* args = exp_nest->l;
+
+		for(node *n = target_attributes->h; n; n = n->next){
+			sql_exp* ne = n->data;
+			sql_exp* arg = NULL;
+
+			assert(ne->type == e_column);
+			if(!ne->used) continue;
+			arg = exps_bind_column2(args, ne->l, ne->r);
+			arg->used =1;
+		}
 	}
 
 //	exp_down->tpe.attributes = new_attributes;
@@ -6053,6 +6067,8 @@ exp_nested_table_mark_used(sql_exp* exp_up, sql_exp* exp_down){
 	if(exp_unnest){
 		exp_up->tpe.attributes = exp_unnest->tpe.attributes;
 	}
+
+
 }
 
 static int
@@ -6410,6 +6426,19 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 
 static sql_rel * rel_dce_sub(mvc *sql, sql_rel *rel, list *refs);
 
+static list*
+exps_remove_unused(mvc* sql, list* exps){
+	list* new_exps = sa_list(sql->sa);
+	for(node *n = exps->h; n; n = n->next){
+		sql_exp* ne = n->data;
+		if(ne->used){
+			list_append(new_exps, ne);
+		}
+	}
+	return new_exps;
+}
+
+
 static sql_rel *
 rel_remove_unused(mvc *sql, sql_rel *rel) 
 {
@@ -6505,30 +6534,40 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 			for(n=rel->exps->h; n; n = n->next) {
 				sql_exp *e = n->data;
 
+				// DCE for nested tables
 				if (e->used) {
-					list* nt_attributes = NULL;
+					list** nt_attributes_ptr = NULL;
+					list** nt_arguments_ptr = NULL; // in case of sys.nest
 
-					if(is_project(rel->op)){
-						nt_attributes = e->tpe.attributes;
-					} else if (is_groupby(rel->op) && e->f){
-						nt_attributes = e->l;
-					}
+					if(rel->op == op_project){ // do not use is_project(rel->op) as it also includes the group by (subtle bug)
+						nt_attributes_ptr = &(e->tpe.attributes);
+					} else if (rel->op == op_groupby && e->f){ // sys.nest ( ... )
+						sql_subaggr* aggr = e->f;
+						if(list_length(aggr->res) == 1){
+							sql_subtype* type = aggr->res->h->data;
+							nt_attributes_ptr = &(type->attributes);
+							nt_arguments_ptr = (list**) &(e->l);
 
-					// nested tables
-					if(e->tpe.attributes != NULL){
-						list* new_attributes = sa_list(sql->sa);
-						for(node *m = e->tpe.attributes->h; m; m = m->next){
-							sql_exp* me = m->data;
-							assert(me->type == e_column);
-							if(me->used){
-								list_append(new_attributes, me);
-							}
 						}
-						e->tpe.attributes = new_attributes;
+					}
+					if(nt_attributes_ptr && *nt_attributes_ptr) {
+						list* new_nt_attributes = exps_remove_unused(sql, *nt_attributes_ptr);
+						*nt_attributes_ptr = new_nt_attributes;
+						if(!list_length(new_nt_attributes)){
+							e->used = 0; // it removed all the sub-attributes in the column
+						}
 					}
 
+					if(e->used && nt_arguments_ptr){
+						list* new_nt_arguments = exps_remove_unused(sql, *nt_arguments_ptr);
+						*nt_arguments_ptr = new_nt_arguments;
+					}
+				}
+
+				if(e->used){ // nt analysis might have changed this flag
 					append(exps, e);
 				}
+
 			}
 			/* atleast one (needed for crossproducts, count(*), rank() and single value projections) */
 			if (list_length(exps) <= 0)

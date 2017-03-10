@@ -163,6 +163,10 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, int comma, int alias)
 			alias = 0;
 		if (!e->rname && e->name && strcmp(e->name, e->r)==0)
 			alias = 0;
+
+		if(e->tpe.attributes != NULL){
+			exps_print(sql, fout, e->tpe.attributes, depth, alias, 1);
+		}
 	 	break;
 	case e_cmp: 
 		if (e->flag == cmp_in || e->flag == cmp_notin) {

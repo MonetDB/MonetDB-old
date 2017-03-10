@@ -475,7 +475,7 @@ rel_unnest(sql_allocator* sa, sql_rel *l, sql_exp* e){
 	rel->l = l;
 	rel->r = NULL;
 	rel->op = op_unnest;
-	rel->exps = list_append(sa_list(sa), exp_unnest(sa, e, exp_subtype(e)->attributes));
+	rel->exps = list_append(sa_list(sa), exp_unnest(sa, e, exps_copy(sa, exp_subtype(e)->attributes)));
 	rel->card = CARD_MULTI;
 	rel->nrcols = l->nrcols + list_length(exp_subtype(e)->attributes);
 	return rel;
