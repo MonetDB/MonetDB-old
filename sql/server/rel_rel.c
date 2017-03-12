@@ -565,6 +565,10 @@ void
 rel_project_add_exp( mvc *sql, sql_rel *rel, sql_exp *e)
 {
 	assert(is_project(rel->op));
+	assert(!exp_subtype(e) || // sanity check for the type nested table
+			(exp_subtype(e)->type->eclass != EC_NESTED_TABLE && exp_subtype(e)->attributes == NULL) ||
+			(exp_subtype(e)->type->eclass == EC_NESTED_TABLE && exp_subtype(e)->attributes != NULL)
+	);
 
 	if (!e->rname) {
 		exp_setrelname(sql->sa, e, ++sql->label);

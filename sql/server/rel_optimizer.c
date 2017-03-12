@@ -6006,15 +6006,11 @@ exp_nested_table_mark_used(sql_exp* exp_up, sql_exp* exp_down){
 	}
 
 	if(exp_down->type == e_aggr /*&& exp_nest->f ~ "sys.nest"*/){
-		sql_subaggr* subaggr = NULL;
-		sql_subtype* type = NULL;
+		sql_subtype* type = exp_subtype(exp_down);
 
 		exp_nest = exp_down;
-		subaggr = exp_nest->f;
-		assert(list_length(subaggr->res) == 1);
-		type = subaggr->res->h->data;
-		assert(type->attributes != NULL);
 
+		assert(type != NULL && type->attributes != NULL);
 		target_attributes = type->attributes;
 	} else {
 		assert(exp_down->type == e_column);
@@ -6398,21 +6394,22 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 			if(e->flag & GRAPH_EXPR_COST){
 				exp_mark_used(graph_ptr->edges, e);
 			} else if(e->flag & GRAPH_EXPR_SHORTEST_PATH){
-				int nr = 0;
+				list* arguments = e->l;
+				bool shortest_path_used = false;
 
-				assert(e->tpe.attributes != NULL && "Expected a nested table as type");
-				for(node* m = e->tpe.attributes->h; m; m = m->next){
+				assert(e->type == e_aggr && "Expecting SYS.NEST(...) as the function to create the path");
+				assert(list_length(arguments) >= 1 && "SYS.NEST with no parameters. Is the edge table empty?");
+				for(node* m = arguments->h; m; m = m->next){
 					sql_exp* me = m->data;
-					// since unnest is not a barrier in the DCE analysis, we need to explicitly
+					// since the graph operators are not barriers in the DCE analysis, we need to explicitly
 					// check whether the attribute has been marked earlier
 					if(me->used){
-						nr++;
-						exp_mark_used(graph_ptr->edges, e);
+						int mark = exp_mark_used(graph_ptr->edges, me);
+						assert(mark > 0 && "All arguments should be marked in the subrel");
+						shortest_path_used = true;
 					}
 				}
-				if(nr == list_length(e->tpe.attributes)){
-					e->used = 1;
-				}
+				e->used = shortest_path_used;
 			} else {
 				assert(0 && "Invalid graph expression");
 			}
@@ -6436,6 +6433,42 @@ exps_remove_unused(mvc* sql, list* exps){
 		}
 	}
 	return new_exps;
+}
+
+// DCE for the nested tables
+// It alters the flags e->used, the actual subtype && the params in case of SYS.NEST
+static void
+exp_nested_table_remove_unused(mvc* sql, sql_exp* e){
+	sql_subtype* type;
+	list** nt_attributes_ptr = NULL;
+	list* new_nt_attributes = NULL;
+
+	// if the expression is not used, it is going to be removed all together by the rest of the DCE
+	if(!e->used) return;
+
+	type = exp_subtype(e);
+	if(!type) return; // uh? thsi expression doesn't have a type..
+
+	nt_attributes_ptr = &(type->attributes);
+	if(!(nt_attributes_ptr && *nt_attributes_ptr)) return; // this is not a nested table
+
+	// alter the attributes in the subtype
+	new_nt_attributes = exps_remove_unused(sql, *nt_attributes_ptr);
+	*nt_attributes_ptr = new_nt_attributes;
+	if(!list_length(new_nt_attributes)){
+		e->used = 0; // it removed all the sub-attributes in the column
+		return; // this expression needs to be completely removed by the DCE
+	}
+
+	// alter the parameters for SYS.NEST
+	if(e->type == e_aggr /* => rel->op == op_groupby*/){ // SYS.NEST(...)
+		list* new_nt_arguments = NULL;
+
+		assert(list_length(e->l) >= 1);
+
+		new_nt_arguments = exps_remove_unused(sql, e->l);
+		e->l = new_nt_arguments;
+	}
 }
 
 
@@ -6534,35 +6567,7 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 			for(n=rel->exps->h; n; n = n->next) {
 				sql_exp *e = n->data;
 
-				// DCE for nested tables
-				if (e->used) {
-					list** nt_attributes_ptr = NULL;
-					list** nt_arguments_ptr = NULL; // in case of sys.nest
-
-					if(rel->op == op_project){ // do not use is_project(rel->op) as it also includes the group by (subtle bug)
-						nt_attributes_ptr = &(e->tpe.attributes);
-					} else if (rel->op == op_groupby && e->f){ // sys.nest ( ... )
-						sql_subaggr* aggr = e->f;
-						if(list_length(aggr->res) == 1){
-							sql_subtype* type = aggr->res->h->data;
-							nt_attributes_ptr = &(type->attributes);
-							nt_arguments_ptr = (list**) &(e->l);
-
-						}
-					}
-					if(nt_attributes_ptr && *nt_attributes_ptr) {
-						list* new_nt_attributes = exps_remove_unused(sql, *nt_attributes_ptr);
-						*nt_attributes_ptr = new_nt_attributes;
-						if(!list_length(new_nt_attributes)){
-							e->used = 0; // it removed all the sub-attributes in the column
-						}
-					}
-
-					if(e->used && nt_arguments_ptr){
-						list* new_nt_arguments = exps_remove_unused(sql, *nt_arguments_ptr);
-						*nt_arguments_ptr = new_nt_arguments;
-					}
-				}
+				exp_nested_table_remove_unused(sql, e);
 
 				if(e->used){ // nt analysis might have changed this flag
 					append(exps, e);
@@ -6628,8 +6633,13 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 		for(node* n = graph_ptr->spfw->h; n && !needed; n = n->next){
 			sql_exp* e = n->data;
 			needed = !(e->used);
+
+			// nested tables
 			if (!needed && (e->flag & GRAPH_EXPR_SHORTEST_PATH)){
-				for (node *m = e->tpe.attributes->h; m && !needed; m = m->next){
+				sql_subtype* t = exp_subtype(e);
+				assert(t != NULL && t->attributes != NULL);
+
+				for (node *m = t->attributes->h; m && !needed; m = m->next){
 					sql_exp* me = m->data;
 					if(!me->used){
 						needed = 1;
@@ -6642,23 +6652,10 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 			list* exps = sa_list(sql->sa);
 			for(node* n = graph_ptr->spfw->h; n; n = n->next){
 				sql_exp* ne = n->data;
-				if(ne->used){ // ok for both untouched cost & path columns
-
-					// maybe we need to remove some columns from the nested table
-					if(ne->flag & GRAPH_EXPR_SHORTEST_PATH){
-						list* new_attributes = sa_list(sql->sa);
-						for(node* m = ne->tpe.attributes->h; m; m = m->next){
-							sql_exp *me = m->data;
-
-							if (me->used)
-								append(new_attributes, me);
-						}
-						assert(list_length(new_attributes) > 0 && "Otherwise ne->used == 0");
-						ne->tpe.attributes = new_attributes;
-					}
-
+				exp_nested_table_remove_unused(sql, ne); // ok for both cost & path expressions
+				if(ne->used){
 					list_append(exps, ne);
-				} // end if (e->used)
+				}
 			}
 			graph_ptr->spfw = exps;
 		}

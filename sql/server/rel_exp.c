@@ -214,6 +214,7 @@ exp_op( sql_allocator *sa, list *l, sql_subfunc *f )
 		e->card = CARD_MULTI;
 	e->l = l;
 	e->f = f; 
+	assert(exp_subtype(e) == NULL || exp_subtype(e)->attributes == NULL);
 	return e;
 }
 
