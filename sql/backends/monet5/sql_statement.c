@@ -19,6 +19,8 @@
 #include "mal_debugger.h"
 #include "opt_prelude.h"
 
+#include "nested_table.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -2875,8 +2877,8 @@ stmt *stmt_unnest(backend *be, stmt *nested_attribute, stmt* list_operands){
 	stmt* s = NULL;
 
 	q = newStmt(be->mb, "nestedtable", "unnest1");
-	getArg(q, 0) = newTmpVariable(be->mb, TYPE_bat);
-	q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_bat));
+	getArg(q, 0) = newTmpVariable(be->mb, newBatType(TYPE_oid));
+	q = pushReturn(be->mb, q, newTmpVariable(be->mb, newBatType(TYPE_oid)));
 	assert(nested_attribute != NULL && nested_attribute->nr > 0);
 	q = pushArgument(be->mb, q, nested_attribute->nr);
 
@@ -3523,7 +3525,16 @@ list *list_nested_attributes(stmt* st){
 		return list_nested_attributes(st->op2);
 	case st_convert:
 		return NULL;
+	case st_gr8_concat:
+		if(list_length(st->op4.lval)){
+			// assume all concatenated columns refer to the same table expressions
+			return list_nested_attributes(st->op4.lval->h->data);
+		} else {
+			return NULL;
+		}
 	case st_join: // projection
+		return st->op4.lval;
+	case st_result: // rel2bin_graph records the attributes in the output column
 		return st->op4.lval;
 	case st_temp:
 		return NULL;
@@ -3535,7 +3546,7 @@ list *list_nested_attributes(stmt* st){
 	case st_var: // implies storage
 		return NULL;
 	default:
-//		assert(0 && "Statement type not handled");
+		assert(0 && "Statement type not handled");
 		fprintf(stderr, "[list_nested_attributes] Statement type not handled: %d\n", st->type);
 	}
 
@@ -3715,7 +3726,7 @@ stmt_gr8_intersect_join_lists(backend *be, stmt* query){
 
 
 stmt *
-stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *weights, int global_flags) {
+stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *shortest_paths, int global_flags) {
 	InstrPtr q = NULL;
 	stmt *s = NULL;
 	int num_output_cols = 2; // number of output columns from the operator
@@ -3724,10 +3735,10 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	// Validate the input parameters
 	assert(query->type == st_list && "Invalid parameter type");
 	assert(list_length(query->op4.lval) == 4 && "Expected 4 input parameters: left & right candidate ids, left & right vertex ids");
-	assert(weights->type == st_list && "Invalid parameter type");
+	assert(shortest_paths->type == st_list && "Invalid parameter type");
 
 	// prepare the query
-	mnstr_printf(stream, "<spfw from='codegen'>\n");
+	mnstr_printf(stream, "<spfw author='codegen'>\n");
 
 	// is this a join?
 	if(global_flags & SPFW_JOIN){
@@ -3744,11 +3755,26 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	q = newStmt(be->mb, "graph", "spfw");
 	if(q == NULL) return NULL; // error
 	// output values
-	getArg(q, 0) = newTmpVariable(be->mb, TYPE_bat); // left candidate list
-	q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_bat)); // right candidate list
+	getArg(q, 0) = newTmpVariable(be->mb, newBatType(TYPE_oid)); // left candidate list
+	q = pushReturn(be->mb, q, newTmpVariable(be->mb, newBatType(TYPE_oid))); // right candidate list
 	// add the shortest paths
-	for(node *n = weights->op4.lval->h; n; n = n->next){
-		q = pushReturn(be->mb, q, newTmpVariable(be->mb, TYPE_bat));
+	for(node *n = shortest_paths->op4.lval->h; n; n = n->next){ // cost or path
+		// find the type of the returned bat
+		stmt* s0 = n->data;
+		int ret_type = -1;
+		if(s0->flag & GRAPH_EXPR_COST){
+			if(s0->type == st_none){ // bfs
+				ret_type = TYPE_lng;
+			} else {
+				ret_type = tail_type(s0)->type->localtype;
+			}
+		} else if (s0->flag & GRAPH_EXPR_SHORTEST_PATH){
+			ret_type = TYPE_nested_table;
+		} else {
+			assert(0 && "Invalid expression");
+		}
+
+		q = pushReturn(be->mb, q, newTmpVariable(be->mb, newBatType(ret_type)));
 		num_output_cols++;
 	}
 
@@ -3760,8 +3786,10 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	}
 	EVIL_PUSH(edge_from);
 	EVIL_PUSH(edge_to);
-	for(node *n = weights->op4.lval->h; n; n = n->next){ // weights
-		EVIL_PUSH(n->data);
+	for(node *n = shortest_paths->op4.lval->h; n; n = n->next){ // weights
+		stmt* s = n->data;
+		if (!(s->flag & GRAPH_EXPR_COST)) continue;
+		EVIL_PUSH(s); // nil if we need a bfs
 	}
 
 #undef EVIL_PUSH
@@ -3786,21 +3814,35 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	do {
 		int ret_spfw = 2; // 0 = jl, 1 = jr
 		int arg_spfw = q->retc + 7;
+		node* n = shortest_paths->op4.lval->h;
 
 		mnstr_printf(stream, "\t<subexpr>\n");
 
-		for(node *n = weights->op4.lval->h; n; n = n->next){
+		while(n){
+			stmt* stmt_weight = n->data;
+			bool compute_path = false;
+
+			assert(stmt_weight->flag & GRAPH_EXPR_COST);
+			n = n->next;
+			if(n && (((stmt*) n->data)->flag & GRAPH_EXPR_SHORTEST_PATH)){
+				compute_path = true;
+				n = n->next;
+			}
+
 			mnstr_printf(stream, "\t\t<shortest_path>\n");
-			mnstr_printf(stream, "\t\t\t<column name='output' pos='%d' />\n", ret_spfw++);
-			if(n->data) // weighted shortest path?
-				mnstr_printf(stream, "\t\t\t<column name='weights' pos='%d' />\n", arg_spfw);
+			mnstr_printf(stream, "\t\t\t<column name='out_cost' pos='%d' />\n", ret_spfw++);
+			if(compute_path){ // retrieve the paths?
+				mnstr_printf(stream, "\t\t\t<column name='out_path' pos='%d' />\n", ret_spfw++);
+			}
+			if(stmt_weight && stmt_weight->type != st_none) { // weighted shortest path?
+				mnstr_printf(stream, "\t\t\t<column name='in_weights' pos='%d' />\n", arg_spfw);
+			}
 			arg_spfw++; // increment anyway as we are pushing a dummy argument as nil if this is BFS
 			mnstr_printf(stream, "\t\t</shortest_path>\n");
 		}
 
 		mnstr_printf(stream, "\t</subexpr>\n");
 	} while (0);
-
 
 	// save the query description
 	do {
@@ -3819,7 +3861,6 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 		record_ptr = defConstant(be->mb, TYPE_str, &record);
 		q->argv[q->retc] = record_ptr;
 
-
 		free(spfw_argument_buffer);
 		mnstr_destroy(stream); stream = NULL;
 	} while(0);
@@ -3831,7 +3872,7 @@ stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *we
 	s->flag = global_flags;
 	s->op1 = query;
 	s->op2 = stmt_list(be, append(append(sa_list(be->mvc->sa), edge_from), edge_to));
-	s->op3 = weights;
+	s->op3 = shortest_paths;
 	// just required >= 1 to avoid projecting a column out of a constant when looking
 	// for the shortest paths
 	s->nrcols = num_output_cols; /* = i*/

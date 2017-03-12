@@ -6018,7 +6018,7 @@ exp_nested_table_mark_used(sql_exp* exp_up, sql_exp* exp_down){
 	}
 
 	assert(exp_up->tpe.attributes != NULL);
-	assert(exp_down->tpe.attributes != NULL);
+	assert(target_attributes != NULL);
 
 	if(exp_unnest){
 		used_attributes = exp_unnest->r;
@@ -6052,7 +6052,7 @@ exp_nested_table_mark_used(sql_exp* exp_up, sql_exp* exp_down){
 			assert(ne->type == e_column);
 			if(!ne->used) continue;
 			arg = exps_bind_column2(args, ne->l, ne->r);
-			arg->used =1;
+			arg->used = 1;
 		}
 	}
 
@@ -6650,13 +6650,37 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 
 		if(needed) { // remove the unused attributes
 			list* exps = sa_list(sql->sa);
-			for(node* n = graph_ptr->spfw->h; n; n = n->next){
-				sql_exp* ne = n->data;
-				exp_nested_table_remove_unused(sql, ne); // ok for both cost & path expressions
-				if(ne->used){
-					list_append(exps, ne);
+			node* n = graph_ptr->spfw->h;
+			while(n){
+				sql_exp* cost = n->data;
+				sql_exp* path = NULL;
+
+				assert(cost != NULL && (cost->flag & GRAPH_EXPR_COST) && "Expected the cost expression at the start");
+				n = n->next;
+				// do we need to compute the path as well?
+				if(n && (((sql_exp*) n->data)->flag & GRAPH_EXPR_SHORTEST_PATH)){
+					path = n->data;
+					n = n->next;
+				}
+
+				// check whether the path is actually required
+				if(path){
+					exp_nested_table_remove_unused(sql, path); // side effect: change path->used
+					// if the path is needed, the current runtime implementation also requires the associated the cost
+					cost->used |= path->used;
+				}
+
+				// add the cost
+				if(cost->used){
+					list_append(exps, cost);
+				}
+
+				// add the computed path
+				if(path && path->used){
+					list_append(exps, path);
 				}
 			}
+
 			graph_ptr->spfw = exps;
 		}
 	} break;
@@ -9816,7 +9840,7 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		return rel;
 	}
 
-	printf("QRW EXIT [%d]: %s\n", level, dump_rel(sql, rel));
+//	printf("QRW EXIT [%d]: %s\n", level, dump_rel(sql, rel));
 
 	if (changes || level == 0)
 		return _rel_optimizer(sql, rel, ++level);
@@ -9827,6 +9851,6 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 sql_rel *
 rel_optimizer(mvc *sql, sql_rel *rel) 
 {
-	printf("QRW ENTRY: %s\n", dump_rel(sql, rel));
+//	printf("QRW ENTRY: %s\n", dump_rel(sql, rel));
 	return _rel_optimizer(sql, rel, 0);
 }

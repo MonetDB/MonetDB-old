@@ -4809,7 +4809,7 @@ rel2bin_graph(backend *be, sql_rel* rel, list *refs)
 	list *lst1 = NULL; // temporary list
 	int spfw_flags = 0; // spfw flags
 	stmt *query = NULL; // query parameters
-	stmt *weights = NULL; // input columns to generate the weights
+	stmt *shortest_paths = NULL; // input columns to generate the weights & the list of attributes for the paths
 	stmt *spfw = NULL; // shortest path operator
 
 	// avoid to deal with the virtual OIDs (VOID) type, they are just an
@@ -4817,8 +4817,7 @@ rel2bin_graph(backend *be, sql_rel* rel, list *refs)
 	// for more extreme cases
 #define void2oid(statement) stmt_gr8_void2oid(be, statement)
 
-	// debugging
-	printf("[rel2bin_graph] input: %s\n", dump_rel(sql, rel));
+//	printf("[rel2bin_graph] input: %s\n", dump_rel(sql, rel)); // DEBUG ONLY
 
 	// first construct the depending relations
 	left = subrel_bin(be, rel->l, refs);
@@ -4908,30 +4907,51 @@ rel2bin_graph(backend *be, sql_rel* rel, list *refs)
 		}
 	} while(0);
 
-	// weights
+	// weights & paths
 	lst1 = sa_list(sql->sa);
-	for(node *n = graph_ptr->spfw->h; n; n = n->next){
+	for(node* n = graph_ptr->spfw->h; n; n = n->next){
 		sql_exp* e = n->data;
-		stmt *s = NULL;
+		stmt* s = NULL;
+		if(e->flag & GRAPH_EXPR_COST){
+			if(!exp_is_atom(e)){ // no need to generate a weight for a bfs
+				s = exp_bin(be, e, edges, NULL, NULL, NULL, NULL, NULL);
+				assert(s != NULL && "Weight expression is NULL");
+				if(!s) return NULL;
+			} else {
+				s = stmt_none(be);
+			}
+			s->flag |= GRAPH_EXPR_COST;
+		} else if (e->flag & GRAPH_EXPR_SHORTEST_PATH){
+			list* arguments = e->l;
+			list* attributes = sa_list(sql->sa);
 
-		if(!exp_is_atom(e)){ // no need to generate a weight for a bfs
-			s = exp_bin(be, e, edges, NULL, NULL, NULL, NULL, NULL);
-			assert(s != NULL && "Weight expression is NULL");
-			if(!s) return NULL;
+			assert(e->type == e_aggr && "Expecting SYS.NEST");
+			for(node* m = arguments->h; m; m = m->next){
+				sql_exp* me = m->data;
+				stmt* ms = exp_bin(be, me, edges, NULL, NULL, NULL, NULL, NULL);
+				if(!ms) return NULL; // error
+				list_append(attributes, ms);
+			}
+			assert(list_length(attributes) > 0);
+			s = stmt_list(be, attributes);
+			s->flag |= GRAPH_EXPR_SHORTEST_PATH;
+		} else {
+			assert(0 && "Invalid expression type");
+			return NULL;
 		}
-
+		assert(s != NULL);
 		list_append(lst1, s);
 	}
-	weights = stmt_list(be, lst1); lst1 = NULL;
+	shortest_paths = stmt_list(be, lst1); lst1 = NULL;
 
 	// invoke the spfw operator
-	spfw = stmt_gr8_spfw(be, query, edge_src, edge_dst, weights, spfw_flags);
+	spfw = stmt_gr8_spfw(be, query, edge_src, edge_dst, shortest_paths, spfw_flags);
 
 	// finally project back the result
 	lst1 = sa_list(sql->sa);
 	do { // restrict the scope
 		stmt *jl = NULL, *jr = NULL;
-		int cost_index = 2;
+		int op_out_index = 2;
 
 		// start with the lhs
 		jl = stmt_result(be, spfw, 0);
@@ -4958,13 +4978,21 @@ rel2bin_graph(backend *be, sql_rel* rel, list *refs)
 			}
 		}
 
-		// append the computed costs
-		for(node* n = graph_ptr->spfw->h; n; n = n->next){
+		// append the computed costs & paths
+		assert(list_length(graph_ptr->spfw) == list_length(shortest_paths->op4.lval));
+		for(node *n = graph_ptr->spfw->h, *m = shortest_paths->op4.lval->h; n; n = n->next, m = m->next){
 			sql_exp* e = n->data;
-			stmt* s = stmt_result(be, spfw, cost_index);
+			stmt* s = stmt_result(be, spfw, op_out_index);
 			stmt* c = stmt_alias(be, s, exp_relname(e), exp_name(e));
+
+			// in case of a path to compute, we need to record the associated attributes of the nested table
+			if(e->flag & GRAPH_EXPR_SHORTEST_PATH){
+				stmt* attributes = m->data;
+				s->op4.lval = attributes->op4.lval; // stmt_result
+			}
+
 			list_append(lst1, c);
-			cost_index++;
+			op_out_index++;
 		}
 	} while (0);
 
@@ -5102,7 +5130,7 @@ output_rel_bin(backend *be, sql_rel *rel )
 	int sqltype = sql->type;
 	stmt *s = subrel_bin(be, rel, refs);
 
-	printf("[output_rel_bin] %s\n", mal2str(be->mb, 0, be->mb->stop));
+//	printf("[output_rel_bin] %s\n", mal2str(be->mb, 0, be->mb->stop));
 
 	if (sqltype == Q_SCHEMA)
 		sql->type = sqltype;  /* reset */

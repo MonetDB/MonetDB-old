@@ -248,7 +248,7 @@ extern stmt *stmt_gr8_concat(backend *be, list *l); // create a new column by co
 extern stmt *stmt_gr8_slices(backend *be, stmt *op, int num); // the opposite of concat, split a column in
 extern stmt *stmt_gr8_void2oid(backend *be, stmt *op); // transform a BAT of type voids into oids
 extern stmt *stmt_gr8_intersect_join_lists(backend *be, stmt* query); // remove mismatching tuples from the given query list (needed for the select semantic)
-extern stmt *stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *weights, int global_flags); // shortest path op~
+extern stmt *stmt_gr8_spfw(backend *be, stmt *query, stmt *edge_from, stmt *edge_to, stmt *shortest_paths, int global_flags); // shortest path op~
 
 extern sql_subtype *tail_type(stmt *st);
 extern int stmt_has_null(stmt *s);

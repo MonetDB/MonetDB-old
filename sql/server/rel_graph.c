@@ -88,7 +88,7 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     sql->caching = false;
 
     // let's see what we have got so far
-    printf("[Semantic analysis] [reaches] Input relation: %s", dump_rel(sql, rel));
+//    printf("[Semantic analysis] [reaches] Input relation: %s", dump_rel(sql, rel)); // DEBUG ONLY
 
     lstoperands = sq->data.lval->h;
     sym_qfrom = lstoperands->data.sym; // first operand symbol( dlist( table, column ) )
@@ -155,7 +155,7 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     graph_ptr->spfw = sa_list(sql->sa); // empty list
 
     // let us see if what we are creating makes sense
-    printf("[Semantic analysis] [reaches] Output relation: %s\n", dump_rel(sql, result));
+//    printf("[Semantic analysis] [reaches] Output relation: %s\n", dump_rel(sql, result)); // DEBUG ONLY
 
     return result;
 }
