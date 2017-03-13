@@ -25,8 +25,8 @@
 
 // Keep a queue of running queries
 QueryQueue QRYqueue;
-static int qtop, qsize;
-static int qtag= 1;
+int qtop;
+static int qsize, qtag= 1;
 
 void
 mal_runtime_reset(void)
@@ -210,8 +210,7 @@ runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Runt
 	pci->calls++;
 	
 	if(malProfileMode > 0 ){
-		pci->wbytes += getVolume(stk, pci, 1);
-		pci->rbytes += getVolume(stk, pci, 0);
+		pci->wbytes = getVolume(stk, pci, 1);
 		profilerEvent(mb, stk, pci, FALSE, cntxt->username);
 	}
 	if( malProfileMode < 0){
