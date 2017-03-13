@@ -464,22 +464,46 @@ LIDARopenPath(str fname, int *len)
 	struct stat buf;
 	DIR *dir;
 	struct dirent *dir_entry;
-	str path;
+	str path = NULL;
 	int idx = 0;
 
-	stat(fname, &buf);
+	if(stat(fname, &buf) != 0){
+		goto openpath_cleanup;
+	}
+
 	if (S_ISDIR(buf.st_mode)) {
 		*len = 0;
 		dir = opendir(fname);
+		if (dir == NULL) {
+			goto openpath_cleanup;
+		}
+
+		errno = 0;
 		while((dir_entry = readdir(dir)) != NULL) {
 			if (dir_entry->d_type == DT_REG)
 				(*len)++;
 		}
+		if(errno != 0) {
+			goto openpath_cleanup;
+		}
+
 		closedir(dir);
 		ret = (str *)malloc((*len)*sizeof(str));
+		if (ret == NULL) {
+			goto openpath_cleanup;
+		}
+
 		/* Maximum file name is 256 + one for the trailing '/' */
-		path = (str)malloc(strlen(fname) + 256 + 1);
+		path = (str)malloc((strlen(fname) + 256 + 1)*sizeof(char));
+		if (path == NULL) {
+			goto openpath_cleanup;
+		}
+
 		dir = opendir(fname);
+		if (dir == NULL) {
+			goto openpath_cleanup;
+		}
+
 		while((dir_entry = readdir(dir)) != NULL) {
 			if (dir_entry->d_type == DT_REG) {
 				strncpy(path, fname, strlen(fname));
@@ -487,6 +511,9 @@ LIDARopenPath(str fname, int *len)
 				path[strlen(fname) + 1] = '\0';
 				strncat(path, dir_entry->d_name, strlen(dir_entry->d_name));
 				ret[idx++] = strdup(path);
+				if (ret[idx - 1] == NULL) {
+					goto openpath_cleanup1;
+				}
 #ifndef NDEBUG
 				fprintf(stderr, "file: %s %d\n", path, *len);
 #endif
@@ -502,6 +529,20 @@ LIDARopenPath(str fname, int *len)
 	}
 
 	return ret;
+
+openpath_cleanup1:
+	{
+		int i;
+		for(i = 0; i < idx; i++) {
+			free(ret[i]);
+		}
+	}
+openpath_cleanup:
+	free(ret);
+	free(path);
+
+	return NULL;
+
 }
 
 static lidar_header *
