@@ -578,6 +578,8 @@ BLOBblob_blob(blob **d, blob **s)
 
 	if( (*s)->nitems == ~(size_t) 0){
 		*d= BLOBnull();
+		if( *d == NULL)
+			throw(MAL,"blob", MAL_MALLOC_FAIL);
 	} else {
 		*d= b= (blob *) GDKmalloc(len);
 		if( b == NULL)

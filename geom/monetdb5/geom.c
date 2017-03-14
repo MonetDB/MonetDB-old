@@ -12,6 +12,7 @@
  */
 
 #include "geom.h"
+#include "mal_exception.h"
 
 int TYPE_mbr;
 
@@ -1745,8 +1746,9 @@ dumpPointsPoint(BAT *idBAT, BAT *geomBAT, const GEOSGeometry *geosGeometry, unsi
 	str err = MAL_SUCCEED;
 
 	(*lvl)++;
-
 	newPath = GDKmalloc(pathLength + lvlDigitsNum + 1);
+	if( newPath == NULL)
+		throw(MAL, "geom.PointsPoint", MAL_MALLOC_FAIL);
 	sprintf(newPath, "%s%u", path, *lvl);
 
 	if (BUNappend(idBAT, newPath, TRUE) != GDK_SUCCEED ||
@@ -1805,8 +1807,9 @@ dumpPointsPolygon(BAT *idBAT, BAT *geomBAT, const GEOSGeometry *geosGeometry, un
 		throw(MAL, "geom.DumpPoints", "GEOSGetExteriorRing failed");
 
 	(*lvl)++;
-
 	newPath = GDKmalloc(pathLength + lvlDigitsNum + extraLength + 1);
+	if( newPath == NULL)
+		throw(MAL,"geom.dumpPointsPolygon",MAL_MALLOC_FAIL);
 	sprintf(newPath, "%s%u%s", path, *lvl, extraStr);
 
 	//get the points in the exterior ring
@@ -1859,6 +1862,8 @@ dumpPointsMultiGeometry(BAT *idBAT, BAT *geomBAT, const GEOSGeometry *geosGeomet
 		lvl++;
 
 		newPath = GDKmalloc(pathLength + lvlDigitsNum + extraLength + 1);
+		if( newPath == NULL)
+			throw(MAL,"geom.dumpPointsGeometry",MAL_MALLOC_FAIL);
 		sprintf(newPath, "%s%u%s", path, lvl, extraStr);
 
 		//*secondLevel = 0;
@@ -2166,6 +2171,8 @@ wkbFROMSTR_withSRID(char *geomWKT, int *len, wkb **geomWKB, int srid, size_t *nr
 		size_t sizeOfInfo = strlen(geomWKT) - strlen(polyhedralSurface);
 		geomWKT_original = geomWKT;
 		geomWKT = GDKmalloc(sizeOfInfo + strlen(multiPolygon) + 1);
+		if( geomWKT == NULL)
+			throw(MAL,"geomWKT",MAL_MALLOC_FAIL);
 		strcpy(geomWKT, multiPolygon);
 		memcpy(geomWKT + strlen(multiPolygon), &geomWKT_original[strlen(polyhedralSurface)], sizeOfInfo);
 		geomWKT[sizeOfInfo + strlen(multiPolygon)] = '\0';
@@ -2219,8 +2226,11 @@ wkbaFROMSTR_withSRID(char *fromStr, int *len, wkba **toArray, int srid)
 	//read the number of items from the beginning of the string
 	memcpy(&items, fromStr, sizeof(int));
 	skipBytes += sizeof(int);
-
 	*toArray = GDKmalloc(wkba_size(items));
+	if( *toArray == NULL){
+		GDKerror("FROMSTR_withSRID" MAL_MALLOC_FAIL);
+		return 0;
+	}
 
 	for (i = 0; i < items; i++) {
 		size_t parsedBytes;
@@ -5057,6 +5067,10 @@ wkbTOSTR(char **geomWKT, int *len, wkb *geomWKB)
 			*len = (int) dstStrLen + 1;
 			GDKfree(*geomWKT);
 			*geomWKT = GDKmalloc(*len);
+			if( *geomWKT == NULL){
+				GDKerror("wkbTOSTR" MAL_MALLOC_FAIL);
+				return 0;
+			}
 		}
 		snprintf(*geomWKT, *len, "\"%s\"", wkt);
 		GEOSFree(wkt);
@@ -5064,6 +5078,10 @@ wkbTOSTR(char **geomWKT, int *len, wkb *geomWKB)
 		if (*len < 4) {
 			GDKfree(*geomWKT);
 			*geomWKT = GDKmalloc(*len = 4);
+			if( *geomWKT == NULL){
+				GDKerror("wkbTOSTR" MAL_MALLOC_FAIL);
+				return 0;
+			}
 		}
 		strcpy(*geomWKT, "nil");
 	}
@@ -5222,6 +5240,10 @@ mbrTOSTR(char **dst, int *len, mbr *atom)
 	if (*len < (int) dstStrLen + 1 || *dst == NULL) {
 		GDKfree(*dst);
 		*dst = GDKmalloc(*len = (int) dstStrLen + 1);
+		if( *dst == NULL){
+			GDKerror("mbrTOSTR" MAL_MALLOC_FAIL);
+			return 0;
+		}
 	}
 
 	if (dstStrLen > 3)
@@ -5263,6 +5285,10 @@ mbrFROMSTR(char *src, int *len, mbr **atom)
 		if (*atom)
 			GDKfree(*atom);
 		*atom = GDKmalloc(*len = sizeof(mbr));
+		if( *atom == NULL){
+			GDKerror("mbrFROMSTR" MAL_MALLOC_FAIL);
+			return 0;
+		}
 	}
 	if (nil) {
 		nchars = 3;
@@ -5390,6 +5416,10 @@ wkbaTOSTR(char **toStr, int *len, wkba *fromArray)
 	char *nilStr = "nil";
 	char *toStrPtr = NULL, *itemsNumStr = GDKmalloc((itemsNumDigits + 1) * sizeof(char));
 
+	if( itemsNumStr == NULL){
+		GDKerror("wkbaTOSTR" MAL_MALLOC_FAIL);
+		return 0;
+	}
 	sprintf(itemsNumStr, "%d", items);
 	dataSize = strlen(itemsNumStr);
 
@@ -5408,6 +5438,10 @@ wkbaTOSTR(char **toStr, int *len, wkba *fromArray)
 			if (*len < 4 || *toStr == NULL) {
 				GDKfree(*toStr);
 				*toStr = GDKmalloc(*len = 4);
+				if( *toStr == NULL){
+					GDKerror("wkbaTOSTR" MAL_MALLOC_FAIL);
+					return 0;
+				}
 			}
 			strcpy(*toStr, "nil");
 			return 3;
@@ -5772,7 +5806,16 @@ wkbContains_point_bat(bat *out, wkb **a, bat *point_x, bat *point_y)
 	/*Lets get the polygon */
 	token = strtok_r(token, ")", &saveptr1);
 	vert_x = GDKmalloc(POLY_NUM_VERT * sizeof(double));
+	if ( vert_x == NULL){
+		GDKfree(geom_str);
+		throw(MAL,"wkbContains_point_bat", MAL_MALLOC_FAIL);
+	}
 	vert_y = GDKmalloc(POLY_NUM_VERT * sizeof(double));
+	if ( vert_y == NULL){
+		GDKfree(geom_str);
+		GDKfree(vert_x);
+		throw(MAL,"wkbContains_point_bat", MAL_MALLOC_FAIL);
+	}
 
 	for (str2 = token;; str2 = NULL) {
 		subtoken = strtok_r(str2, ",", &saveptr2);

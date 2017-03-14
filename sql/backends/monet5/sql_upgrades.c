@@ -27,8 +27,12 @@ static str
 sql_update_hugeint(Client c, mvc *sql)
 {
 	size_t bufsize = 8192, pos = 0;
+	// FIXME unchecked_malloc GDKmalloc can return NULL
 	char *buf = GDKmalloc(bufsize), *err = NULL;
 	char *schema = stack_get_string(sql, "current_schema");
+
+	if( buf== NULL)
+		throw(SQL, "sql_update_hugeint", MAL_MALLOC_FAIL);
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 
@@ -124,12 +128,15 @@ static str
 sql_update_epoch(Client c, mvc *m)
 {
 	size_t bufsize = 1000, pos = 0;
+	// FIXME unchecked_malloc GDKmalloc can return NULL
 	char *buf = GDKmalloc(bufsize), *err = NULL;
 	char *schema = stack_get_string(m, "current_schema");
 	sql_subtype tp;
 	int n = 0;
 	sql_schema *s = mvc_bind_schema(m, "sys");
 
+	if( buf== NULL)
+		throw(SQL, "sql_update_epoch", MAL_MALLOC_FAIL);
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 
 	sql_find_subtype(&tp, "bigint", 0, 0);
@@ -175,11 +182,14 @@ static str
 sql_update_jun2016(Client c, mvc *sql)
 {
 	size_t bufsize = 1000000, pos = 0;
+	// FIXME unchecked_malloc GDKmalloc can return NULL
 	char *buf = GDKmalloc(bufsize), *err = NULL;
 	char *schema = stack_get_string(sql, "current_schema");
 	node *n;
 	sql_schema *s;
 
+	if( buf== NULL)
+		throw(SQL, "sql_update_jun2016", MAL_MALLOC_FAIL);
 	s = mvc_bind_schema(sql, "sys");
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 
@@ -456,7 +466,10 @@ sql_update_geom(Client c, mvc *sql, int olddb)
 
 	geomupgrade = (*fixfunc)(olddb);
 	bufsize = strlen(geomupgrade) + 512;
+	// FIXME unchecked_malloc GDKmalloc can return NULL
 	buf = GDKmalloc(bufsize);
+	if( buf== NULL)
+		throw(SQL, "sql_update_geom", MAL_MALLOC_FAIL);
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "%s", geomupgrade);
 	GDKfree(geomupgrade);
@@ -486,10 +499,13 @@ static str
 sql_update_dec2016(Client c, mvc *sql)
 {
 	size_t bufsize = 12240, pos = 0;
+	// FIXME unchecked_malloc GDKmalloc can return NULL
 	char *buf = GDKmalloc(bufsize), *err = NULL;
 	char *schema = stack_get_string(sql, "current_schema");
 	sql_schema *s;
 
+	if( buf== NULL)
+		throw(SQL, "sql_update_dec2016", MAL_MALLOC_FAIL);
 	s = mvc_bind_schema(sql, "sys");
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 
@@ -749,10 +765,14 @@ static str
 sql_update_nowrd(Client c, mvc *sql)
 {
 	size_t bufsize = 10240, pos = 0;
+	// FIXME unchecked_malloc GDKmalloc can return NULL
 	char *buf = GDKmalloc(bufsize), *err = NULL;
 	char *schema = stack_get_string(sql, "current_schema");
 	sql_schema *s;
 
+
+	if( buf== NULL)
+		throw(SQL, "sql_update_nowrd", MAL_MALLOC_FAIL);
 	s = mvc_bind_schema(sql, "sys");
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 
@@ -831,6 +851,8 @@ sql_update_median(Client c, mvc *sql)
 	BAT *b;
 	int needed = 0;
 
+	if( buf== NULL)
+		throw(SQL, "sql_update_median", MAL_MALLOC_FAIL);
 	pos += snprintf(buf + pos, bufsize - pos,
 			"set schema \"sys\";\n");
 	err = SQLstatementIntern(c, &q1, "update", 1, 0, &output);
@@ -902,9 +924,12 @@ static str
 sql_update_geom_jun2016_sp2(Client c, mvc *sql)
 {
 	size_t bufsize = 1000000, pos = 0;
+	// FIXME unchecked_malloc GDKmalloc can return NULL
 	char *buf = GDKmalloc(bufsize), *err = NULL;
 	char *schema = stack_get_string(sql, "current_schema");
 
+	if( buf== NULL)
+		throw(SQL, "sql_update_geom_jun2016", MAL_MALLOC_FAIL);
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -1047,9 +1072,12 @@ static str
 sql_update_jun2016_sp2(Client c, mvc *sql)
 {
 	size_t bufsize = 1000000, pos = 0;
+	// FIXME unchecked_malloc GDKmalloc can return NULL
 	char *buf = GDKmalloc(bufsize), *err = NULL;
 	char *schema = stack_get_string(sql, "current_schema");
 
+	if( buf== NULL)
+		throw(SQL, "sql_update_june2016_sp", MAL_MALLOC_FAIL);
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -1196,11 +1224,14 @@ static str
 sql_update_dec2016_sp2(Client c, mvc *sql)
 {
 	size_t bufsize = 2048, pos = 0;
+	// FIXME unchecked_malloc GDKmalloc can return NULL
 	char *buf = GDKmalloc(bufsize), *err = NULL;
 	char *schema = stack_get_string(sql, "current_schema");
 	res_table *output;
 	BAT *b;
 
+	if( buf== NULL)
+		throw(SQL, "sql_update_dec2016_sp2", MAL_MALLOC_FAIL);
 	pos += snprintf(buf + pos, bufsize - pos, "select id from sys.types where sqlname = 'decimal' and digits = %d;\n",
 #ifdef HAVE_HGE
 			have_hge ? 39 :
@@ -1252,11 +1283,19 @@ sql_update_default(Client c, mvc *sql)
 	res_table *output;
 	BAT *b;
 
+	if( buf== NULL)
+		throw(SQL, "sql_default", MAL_MALLOC_FAIL);
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 
 	pos += snprintf(buf + pos, bufsize - pos,
 			"delete from sys._columns where table_id = (select id from sys._tables where name = 'connections' and schema_id = (select id from sys.schemas where name = 'sys'));\n"
 			"delete from sys._tables where name = 'connections' and schema_id = (select id from sys.schemas where name = 'sys');\n");
+
+	/* 25_debug.sql */
+	pos += snprintf(buf + pos, bufsize - pos,
+			"drop function sys.malfunctions;\n"
+			"create function sys.malfunctions() returns table(\"module\" string, \"function\" string, \"signature\" string, \"address\" string, \"comment\" string) external name \"manual\".\"functions\";\n"
+			"insert into sys.systemfunctions (select id from sys.functions where name = 'malfunctions' and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));\n");
 
 	/* 46_profiler.sql */
 	pos += snprintf(buf + pos, bufsize - pos,

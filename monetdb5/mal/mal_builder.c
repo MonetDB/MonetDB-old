@@ -521,6 +521,10 @@ pushNil(MalBlkPtr mb, InstrPtr q, int tpe)
 			cst.val.oval= oid_nil;
 		} else if (ATOMextern(tpe)) {
 			ptr p = ATOMnil(tpe);
+			if( p == NULL){
+				freeInstruction(q);
+				return NULL;
+			}
 			VALset(&cst, tpe, p);
 		} else {
 			if (VALinit(&cst, tpe, ATOMnilptr(tpe)) == NULL) {

@@ -437,9 +437,13 @@ SQLinitClient(Client c)
 	 * based on the mandatory scripts to be executed.
 	 */
 	if (sqlinit) {		/* add sqlinit to the fdin stack */
+		// FIXME unchecked_malloc GDKmalloc can return NULL
 		buffer *b = (buffer *) GDKmalloc(sizeof(buffer));
 		size_t len = strlen(sqlinit);
 		bstream *fdin;
+	
+		if( b == NULL)
+			throw(SQL,"sql.initClient",MAL_MALLOC_FAIL);
 
 		buffer_init(b, _STRDUP(sqlinit), len);
 		fdin = bstream_create(buffer_rastream(b, "si"), b->len);
@@ -453,6 +457,8 @@ SQLinitClient(Client c)
 		if (isAdministrator(c) || strcmp(c->scenario, "msql") == 0)	/* console should return everything */
 			m->reply_size = -1;
 		be = (void *) backend_create(m, c);
+		if( be == NULL)
+			throw(SQL,"sql.init", MAL_MALLOC_FAIL);
 	} else {
 		be = c->sqlcontext;
 		m = be->mvc;

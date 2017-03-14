@@ -172,8 +172,11 @@ UUIDgenerateUuid(uuid **retval)
 	uuid *u;
 	int i = 0, r = 0;
 
-	if (*retval == NULL)
+	if (*retval == NULL){
 		*retval = GDKmalloc(UUID_SIZE);
+		if( *retval == NULL)
+			throw(MAL,"uuid.generate",MAL_MALLOC_FAIL);
+	}
 	u = *retval;
 #ifdef HAVE_UUID
 	uuid_generate(u->u);

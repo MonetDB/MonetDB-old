@@ -179,12 +179,22 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 						if (maxlen < 4) {
 							GDKfree(maxval);
+							// FIXME unchecked_malloc GDKmalloc can return NULL
 							maxval = GDKmalloc(4);
+							if( maxval== NULL)
+								GDKfree(dquery);
+								throw(SQL, "analyze", MAL_MALLOC_FAIL);
 							maxlen = 4;
 						}
 						if (minlen < 4) {
 							GDKfree(minval);
+							// FIXME unchecked_malloc GDKmalloc can return NULL
 							minval = GDKmalloc(4);
+							if( minval== NULL){
+								GDKfree(dquery);
+								GDKfree(maxval);
+								throw(SQL, "analyze", MAL_MALLOC_FAIL);
+							}
 							minlen = 4;
 						}
 						if (tostr) {

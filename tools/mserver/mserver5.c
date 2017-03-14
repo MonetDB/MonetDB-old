@@ -340,7 +340,10 @@ main(int argc, char **av)
 					optarg[optarglen - 1] == '\\'))
 					optarg[--optarglen] = '\0';
 				dbpath = absolute_path(optarg);
-				setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_dbpath", dbpath);
+				if( dbpath == NULL)
+					fprintf(stderr, "#error: can not allocate memory for dbpath\n");
+				else
+					setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_dbpath", dbpath);
 				break;
 			}
 			if (strcmp(long_options[option_index].name, "dbextra") == 0) {
@@ -488,13 +491,22 @@ main(int argc, char **av)
 		monet_script[idx] = NULL;
 		while (optind < argc) {
 			monet_script[idx] = absolute_path(av[optind]);
-			monet_script[idx + 1] = NULL;
+			if ( monet_script[idx] == NULL){
+				fprintf(stderr, "!ERROR: cannot allocate memory for script \n");
+				exit(1);
+			} else {
+				monet_script[idx + 1] = NULL;
+				idx++;
+			}
 			optind++;
-			idx++;
 		}
 	}
 	if (!dbpath) {
 		dbpath = absolute_path(mo_find_option(set, setlen, "gdk_dbpath"));
+		if (dbpath == NULL || GDKcreatedir(dbpath) != GDK_SUCCEED) {
+			fprintf(stderr, "!ERROR: cannot allocate memory for database directory \n");
+			exit(1);
+		}
 	}
 	if (GDKcreatedir(dbpath) != GDK_SUCCEED) {
 		fprintf(stderr, "!ERROR: cannot create directory for %s\n", dbpath);
