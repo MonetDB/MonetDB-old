@@ -304,12 +304,12 @@ str gadgetListDirAll(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
             index = 308 + h.npartTotal * 32; 
             fseek(stream, index, SEEK_SET);
 
-            retval = fread(binbytes, nbins * 4, 1, stream);
-#ifndef NDEBUG
-            assert(retval);
-#else
-            (void) retval;
-#endif
+			retval = fread(binbytes, nbins * 4, 1, stream);
+			if (retval == 0) {
+				fclose(stream);
+				msg = createException(SQL, "gadget.attach", "Error occurred while reading file\n");
+				return msg;
+			}
 
             for (j = 0; j < nbins; j++)
               {
@@ -1165,7 +1165,12 @@ str gadgetLoadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
   //NOTE: Convert C# blob.Read to fread
   //int retval = stream.Read(pos, 0, 12 * header.npartTotal);
   retval = fread(posB, 12 * h.npartTotal, 1, stream);
-  assert(retval);
+  if (retval == 0) {
+	  // TODO make sure there are no memory leaks
+	  fclose(stream);
+	  msg = createException(SQL, "gadget.attach", "Error occurred while reading file\n");
+	  return msg;
+  }
 
   index = MRSNAP_VEL_OFFSET + h.npartTotal * 12; // skip over positions
 
@@ -1176,7 +1181,12 @@ str gadgetLoadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
   //NOTE: Convert C# blob.Read to fread
   //retval = stream.Read(vel, 0, 12 * header.npartTotal);
   retval = fread(velB, 12 * h.npartTotal, 1, stream);
-  assert(retval);
+  if (retval == 0) {
+	  // TODO make sure there are no memory leaks
+	  fclose(stream);
+	  msg = createException(SQL, "gadget.attach", "Error occurred while reading file\n");
+	  return msg;
+  }
 
   index = MRSNAP_ID_OFFSET + h.npartTotal * 24; // skip over positions and velocities
   //NOTE: Convert C# blob.Seek to fseek
@@ -1186,7 +1196,12 @@ str gadgetLoadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
   //NOTE: Convert C# blob.Read to fread
   //retval = stream.Read(id, 0, 8 * header.npartTotal);
   retval = fread(idB, 8 * h.npartTotal, 1, stream);
-  assert(retval);
+  if (retval == 0) {
+	  // TODO make sure there are no memory leaks
+	  fclose(stream);
+	  msg = createException(SQL, "gadget.attach", "Error occurred while reading file\n");
+	  return msg;
+  }
 
   for (i = 0; i < h.npartTotal; i++)
     {
@@ -1423,7 +1438,12 @@ str gadgetLoadTableAll(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     //NOTE: Convert C# blob.Read to fread
     //int retval = stream.Read(pos, 0, 12 * header.npartTotal);
     retval = fread(posB, 12 * hs[i].npartTotal, 1, streams[i]);
-    assert(retval);
+	if (retval == 0) {
+		// TODO make sure there are no memory leaks
+		fclose(streams[i]);
+		msg = createException(SQL, "gadget.attach", "Error occurred while reading file\n");
+		return msg;
+	}
 
     index = MRSNAP_VEL_OFFSET + hs[i].npartTotal * 12; // skip over positions
 
@@ -1434,7 +1454,12 @@ str gadgetLoadTableAll(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     //NOTE: Convert C# blob.Read to fread
     //retval = stream.Read(vel, 0, 12 * header.npartTotal);
     retval = fread(velB, 12 * hs[i].npartTotal, 1, streams[i]);
-    assert(retval);
+	if (retval == 0) {
+		// TODO make sure there are no memory leaks
+		fclose(streams[i]);
+		msg = createException(SQL, "gadget.attach", "Error occurred while reading file\n");
+		return msg;
+	}
 
     index = MRSNAP_ID_OFFSET + hs[i].npartTotal * 24; // skip over positions and velocities
     //NOTE: Convert C# blob.Seek to fseek
@@ -1444,8 +1469,12 @@ str gadgetLoadTableAll(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     //NOTE: Convert C# blob.Read to fread
     //retval = stream.Read(id, 0, 8 * header.npartTotal);
     retval = fread(idB, 8 * hs[i].npartTotal, 1, streams[i]);
-    assert(retval);
-
+	if (retval == 0) {
+		// TODO make sure there are no memory leaks
+		fclose(streams[i]);
+		msg = createException(SQL, "gadget.attach", "Error occurred while reading file\n");
+		return msg;
+	}
     for (j = 0; j < hs[i].npartTotal; j++)
       {
         int k = j * 12;
@@ -1694,7 +1723,12 @@ gadgetLoadTableAll_(mvc *m, sql_schema *sch, sql_table *gadget_tbl, char *tname)
     //NOTE: Convert C# blob.Read to fread
     //int retval = stream.Read(pos, 0, 12 * header.npartTotal);
     retval = fread(posB, 12 * hs[i].npartTotal, 1, streams[i]);
-    assert(retval);
+	if (retval == 0) {
+		// TODO make sure there are no memory leaks
+		fclose(streams[i]);
+		msg = createException(SQL, "gadget.attach", "Error occurred while reading file\n");
+		return msg;
+	}
 
     index = MRSNAP_VEL_OFFSET + hs[i].npartTotal * 12; // skip over positions
 
@@ -1705,8 +1739,12 @@ gadgetLoadTableAll_(mvc *m, sql_schema *sch, sql_table *gadget_tbl, char *tname)
     //NOTE: Convert C# blob.Read to fread
     //retval = stream.Read(vel, 0, 12 * header.npartTotal);
     retval = fread(velB, 12 * hs[i].npartTotal, 1, streams[i]);
-    assert(retval);
-
+	if (retval == 0) {
+		// TODO make sure there are no memory leaks
+		fclose(streams[i]);
+		msg = createException(SQL, "gadget.attach", "Error occurred while reading file\n");
+		return msg;
+	}
     index = MRSNAP_ID_OFFSET + hs[i].npartTotal * 24; // skip over positions and velocities
     //NOTE: Convert C# blob.Seek to fseek
     //stream.Seek(index, SeekOrigin.Begin);
@@ -1715,8 +1753,12 @@ gadgetLoadTableAll_(mvc *m, sql_schema *sch, sql_table *gadget_tbl, char *tname)
     //NOTE: Convert C# blob.Read to fread
     //retval = stream.Read(id, 0, 8 * header.npartTotal);
     retval = fread(idB, 8 * hs[i].npartTotal, 1, streams[i]);
-    assert(retval);
-
+	if (retval == 0) {
+		// TODO make sure there are no memory leaks
+		fclose(streams[i]);
+		msg = createException(SQL, "gadget.attach", "Error occurred while reading file\n");
+		return msg;
+	}
     /*Check if there are PHBins, if yes collect them*/
     if (hs[i].hashtabsize > 0)
       {
@@ -1739,10 +1781,13 @@ gadgetLoadTableAll_(mvc *m, sql_schema *sch, sql_table *gadget_tbl, char *tname)
         index = 308 + hs[i].npartTotal * 32; 
         fseek(streams[i], index, SEEK_SET);
 
-        retval = fread(binbytes, nbins * 4, 1, streams[i]);
-#ifndef NDEBUG
-        assert(retval);
-#endif
+		retval = fread(binbytes, nbins * 4, 1, streams[i]);
+		if (retval == 0) {
+			// TODO make sure there are no memory leaks
+			fclose(streams[i]);
+			msg = createException(SQL, "gadget.attach", "Error occurred while reading file\n");
+			return msg;
+		}
 
         for (j = 0; j < nbins; j++)
           {
