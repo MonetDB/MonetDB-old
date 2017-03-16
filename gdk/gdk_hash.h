@@ -146,6 +146,7 @@ gdk_export BUN HASHlist(Hash *h, BUN i);
 #define hash_bte(H,V)	(assert(((H)->mask & 0xFF) == 0xFF), (BUN) mix_bte(*(const unsigned char*) (V)))
 #define hash_sht(H,V)	(assert(((H)->mask & 0xFFFF) == 0xFFFF), (BUN) mix_sht(*(const unsigned short*) (V)))
 #define hash_int(H,V)	((BUN) mix_int(*(const unsigned int *) (V)) & (H)->mask)
+//#define hash_int(H,V) ((BUN)(*(const unsigned int *) (V)) & (H)->mask)
 /* XXX return size_t-sized value for 8-byte oid? */
 #define hash_lng(H,V)	((BUN) mix_lng(*(const ulng *) (V)) & (H)->mask)
 #ifdef HAVE_HGE
@@ -157,8 +158,16 @@ gdk_export BUN HASHlist(Hash *h, BUN i);
 #define hash_oid(H,V)	hash_lng(H,V)
 #endif
 
-#define hash_imps_int(H,V,B)	(((BUN) mix_int(*(const unsigned int *) (V)) & ((H)->mask >> 6)) | ((B) << 6))
-#define hash_imps_lng(H,V,B)	(((BUN) mix_lng(*(const ulng *) (V)) & ((H)->mask >> 6)) | ((B) << 6))
+//#define hash_imps_int(H,V,B)	(((BUN) mix_int(*(const unsigned int *) (V)) & ((H)->mask >> 6)) | ((B) << (__builtin_popcount((H)->mask) - 6)))
+//#define hash_imps_lng(H,V,B)	(((BUN) mix_lng(*(const ulng *) (V)) & ((H)->mask >> 6)) | ((B) << (__builtin_popcount((H)->mask) - 6)))
+
+#define hash_imps_int(lmask,V,hmask) (((BUN) mix_int(*(const unsigned int *) (V)) & lmask) | hmask)
+#define hash_imps_lng(lmask,V,hmask) (((BUN) mix_lng(*(const ulng *) (V)) & lmask) | hmask)
+
+
+//#define hash_imps_int(H,V,B)	(((BUN) (*(const unsigned int *) (V)) & ((H)->mask >> 6)) | ((B) << (__builtin_popcount((H)->mask) - 6)))
+
+
 
 #define hash_flt(H,V)	hash_int(H,V)
 #define hash_dbl(H,V)	hash_lng(H,V)

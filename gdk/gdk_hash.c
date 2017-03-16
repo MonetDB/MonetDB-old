@@ -134,6 +134,15 @@ HASHnew(Heap *hp, int tpe, BUN size, BUN mask, BUN count)
 	return h;
 }
 
+#define GETBIN_IMPS_MERGE(Z,X,B)			\
+do {					\
+	int _i;				\
+	Z = 0;				\
+	for (_i = 1; _i < B; _i++)	\
+		Z += ((X) >= bins[_i]);	\
+	Z = Z >> bin_merge_bits;\
+} while (0)
+/*
 #define GETBIN_IMPS(Z,X,B)			\
 do {					\
 	int _i;				\
@@ -142,6 +151,11 @@ do {					\
 		Z += ((X) >= bins[_i]);	\
 } while (0)
 
+#define GETBIN_IMPS(Z,X)	\
+do {				\
+	Z = X >> 17;	\
+} while (0)
+*/
 #define starthash(TYPE)							\
 	do {								\
 		TYPE *v = (TYPE *) BUNtloc(bi, 0);			\
@@ -165,20 +179,18 @@ do {					\
 		}						\
 	} while (0)
 
+/*
 #define starthash_imps(TYPE)							\
 	do {								\
 		TYPE *v = (TYPE *) BUNtloc(bi, 0);			\
 		int bin;							\
-		Imprints *imprints = (VIEWtparent(b) ? BBPdescriptor(VIEWtparent(b)): b)->timprints;		\
-		const TYPE *restrict bins = (TYPE *) imprints->bins;			\
-		const int B = imprints->bits;			\
 		for (; r < p; r++) {					\
 			BUN c;								\
-			GETBIN_IMPS(bin, *(v + r), B);		\
+			GETBIN_IMPS(bin, *(v + r));		\
 			c = (BUN) hash_imps_##TYPE(h, v+r, bin);		\
 									\
 			if (HASHget(h, c) == HASHnil(h) && nslots-- == 0) \
-				break; /* mask too full */		\
+				break;  	\
 			HASHputlink(h, r, HASHget(h, c));		\
 			HASHput(h, c, r);				\
 		}							\
@@ -187,18 +199,61 @@ do {					\
 	do {							\
 		TYPE *v = (TYPE *) BUNtloc(bi, 0);		\
 		int bin;							\
-		Imprints *imprints = (VIEWtparent(b) ? BBPdescriptor(VIEWtparent(b)): b)->timprints;		\
-		const TYPE *restrict bins = (TYPE *) imprints->bins;			\
-		const int B = imprints->bits;			\
 		for (; p < q; p++) {					\
 			BUN c;								\
-			GETBIN_IMPS(bin, *(v + p), B);	\
+			GETBIN_IMPS(bin, *(v + p));	\
 			c = (BUN) hash_imps_##TYPE(h, v + p, bin);	\
 								\
 			HASHputlink(h, p, HASHget(h, c));	\
 			HASHput(h, c, p);			\
 		}						\
 	} while (0)
+*/
+
+
+#define starthash_imps(TYPE)							\
+	do {								\
+		TYPE *v = (TYPE *) BUNtloc(bi, 0);			\
+		unsigned int bin;							\
+		Imprints *imprints = (VIEWtparent(b) ? BBPdescriptor(VIEWtparent(b)): b)->timprints;		\
+		const TYPE *restrict bins = (TYPE *) imprints->bins;			\
+		const int B = imprints->bits;			\
+		BUN lowermask = (h->mask) >> imps_bits;			\
+		unsigned int left_shift = __builtin_popcount(h->mask) - imps_bits;\
+		BUN highermask = 0;\
+		for (; r < p; r++) {					\
+			BUN c;								\
+			GETBIN_IMPS_MERGE(bin, *(v + r), B);		\
+			highermask = bin << left_shift;		\
+			c = (BUN) hash_imps_##TYPE(lowermask, v+r, highermask);		\
+									\
+			if (HASHget(h, c) == HASHnil(h) && nslots-- == 0) \
+				break;  	\
+			HASHputlink(h, r, HASHget(h, c));		\
+			HASHput(h, c, r);				\
+		}							\
+	} while (0)
+#define finishhash_imps(TYPE)					\
+	do {							\
+		TYPE *v = (TYPE *) BUNtloc(bi, 0);		\
+		unsigned int bin;							\
+		Imprints *imprints = (VIEWtparent(b) ? BBPdescriptor(VIEWtparent(b)): b)->timprints;		\
+		const TYPE *restrict bins = (TYPE *) imprints->bins;			\
+		const int B = imprints->bits;			\
+		BUN lowermask = (h->mask) >> imps_bits;			\
+		unsigned int left_shift = __builtin_popcount(h->mask) - imps_bits;\
+		BUN highermask = 0;\
+		for (; p < q; p++) {					\
+			BUN c;								\
+			GETBIN_IMPS_MERGE(bin, *(v + p), B);	\
+			highermask = bin << left_shift;		\
+			c = (BUN) hash_imps_##TYPE(lowermask, v + p, highermask);	\
+								\
+			HASHputlink(h, p, HASHget(h, c));	\
+			HASHput(h, c, p);			\
+		}						\
+	} while (0)
+
 
 /* collect HASH statistics for analysis */
 static void
@@ -580,6 +635,8 @@ gdk_return
 BAThash_imps(BAT *b, BUN masksize)
 {
 	lng t0 = 0, t1 = 0;
+	unsigned int imps_bits = 0;
+	unsigned int bin_merge_bits = 6 - imps_bits;
 
 	assert(b->batCacheid > 0);
 	if (BATcheckhash(b)) {

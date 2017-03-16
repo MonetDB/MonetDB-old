@@ -27,4 +27,5 @@ typedef struct {
 #define IMPSunsetBit(B, X, Y)	((X) & ~((uint##B##_t) 1 << (Y)))
 #define IMPSisSet(B, X, Y)	(((X) & ((uint##B##_t) 1 << (Y))) != 0)
 
+
 #endif /* GDK_IMPS_H */
