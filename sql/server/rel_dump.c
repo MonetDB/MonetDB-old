@@ -543,12 +543,14 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 		sql_graph *graph_ptr = (sql_graph*) rel;
 		print_indent(sql, fout, depth, decorate);
 		mnstr_printf(fout, "%s (", op2string(rel->op));
-		if (rel_is_ref(rel->l)) {
-			int nr = find_ref(refs, rel->l);
-			print_indent(sql, fout, depth+1, decorate);
-			mnstr_printf(fout, "& REF %d ", nr);
-		} else
-			rel_print_(sql, fout, rel->l, depth+1, refs, decorate);
+		if(rel->l){ // address the case SELECT 1 WHERE x REACHES y ...
+			if (rel_is_ref(rel->l)) {
+				int nr = find_ref(refs, rel->l);
+				print_indent(sql, fout, depth+1, decorate);
+				mnstr_printf(fout, "& REF %d ", nr);
+			} else
+				rel_print_(sql, fout, rel->l, depth+1, refs, decorate);
+		}
 		if (rel->r) {
 			assert(rel->op == op_graph_join && "Expected join semantics when a rhs is present");
 			if (rel_is_ref(rel->r)) {
@@ -558,6 +560,7 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 			} else
 				rel_print_(sql, fout, rel->r, depth+1, refs, decorate);
 		}
+		assert(graph_ptr->edges != NULL && "The edge table must always be present");
 		if(rel_is_ref(graph_ptr->edges)){
 			int nr = find_ref(refs, graph_ptr->edges);
 			print_indent(sql, fout, depth+1, decorate);

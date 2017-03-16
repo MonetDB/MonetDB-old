@@ -297,7 +297,7 @@ distribute(mvc *sql, sql_rel *rel)
 		r = rel->r = distribute(sql, rel->r);
 		g = graph_ptr->edges = distribute(sql, graph_ptr->edges);
 
-		pl = find_prop(l->p, PROP_REMOTE);
+		pl = rel->l != NULL ? find_prop(l->p, PROP_REMOTE) : NULL;
 		if(rel->op == op_graph_join)
 			pr = find_prop(r->p, PROP_REMOTE);
 		else

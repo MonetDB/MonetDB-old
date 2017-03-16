@@ -4820,9 +4820,12 @@ rel2bin_graph(backend *be, sql_rel* rel, list *refs)
 //	printf("[rel2bin_graph] input: %s\n", dump_rel(sql, rel)); // DEBUG ONLY
 
 	// first construct the depending relations
-	left = subrel_bin(be, rel->l, refs);
-	if(!left) return NULL; // error
+	if(rel->l != NULL) {
+		left = subrel_bin(be, rel->l, refs);
+		if(!left) return NULL; // error
+	}
 	if(rel->op == op_graph_join) {
+		assert(rel->l != NULL && rel->r != NULL && "Missing the table expressions to join");
 		right = subrel_bin(be, rel->r, refs);
 		if(!right) return NULL; // error
 	}
@@ -4876,12 +4879,14 @@ rel2bin_graph(backend *be, sql_rel* rel, list *refs)
 			// right might be null, that's ok
 			stmt* s = exp_bin(be, n->data, left, right, NULL, NULL, NULL, NULL);
 			if(!s) return NULL; // error
+			s = column(be, s); // scalar -> column [ scalar ]
 			list_append(lhs, s);
 		}
 		// repeat for the rhs
 		for(node *n = ((list*)graph_exp->r)->h; n; n = n->next){
 			stmt* s = exp_bin(be, n->data, left, right, NULL, NULL, NULL, NULL);
 			if(!s) return NULL; // error
+			s = column(be, s); // scalar -> column [ scalar ]
 			list_append(rhs, s);
 		}
 
@@ -4954,14 +4959,16 @@ rel2bin_graph(backend *be, sql_rel* rel, list *refs)
 		int op_out_index = 2;
 
 		// start with the lhs
-		jl = stmt_result(be, spfw, 0);
-		for(node* n = left->op4.lval->h; n; n = n->next ) {
-			stmt *c = n->data;
-			const char *rnme = table_name(sql->sa, c);
-			const char *nme = column_name(sql->sa, c);
-			stmt *s = stmt_project(be, jl, column(be, c));
-			s = stmt_alias(be, s, rnme, nme);
-			list_append(lst1, s);
+		if(left != NULL) {
+			jl = stmt_result(be, spfw, 0);
+			for(node* n = left->op4.lval->h; n; n = n->next ) {
+				stmt *c = n->data;
+				const char *rnme = table_name(sql->sa, c);
+				const char *nme = column_name(sql->sa, c);
+				stmt *s = stmt_project(be, jl, column(be, c));
+				s = stmt_alias(be, s, rnme, nme);
+				list_append(lst1, s);
+			}
 		}
 
 		// repeat with the rhs

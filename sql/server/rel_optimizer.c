@@ -277,7 +277,8 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 	case op_graph_select: {
 		sql_graph* graph_ptr = (sql_graph*) rel;
 		// propagate
-		rel_properties(sql, gp, rel->l);
+		// if(rel->l) is to account for the case SELECT 1 WHERE x REACHES y ...
+		if (rel->l) rel_properties(sql, gp, rel->l);
 		if (rel->r) rel_properties(sql, gp, rel->r);
 		rel_properties(sql, gp, graph_ptr->edges);
 	}	break;
@@ -6376,12 +6377,15 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 		sql_graph* graph_ptr = (sql_graph*) rel;
 
 		// lhs and rhs as usual
-		exps_mark_used(sql->sa, rel, rel->l);
-		rel_mark_used(sql, rel->l, 0);
-		if(rel->r) {
-			assert(rel->op == op_graph_join);
-			exps_mark_used(sql->sa, rel, rel->r);
-			rel_mark_used(sql, rel->r, 0);
+		if(rel->l) { // yeah, a select can be the topmost operator, hard to believe
+			exps_mark_used(sql->sa, rel, rel->l);
+			rel_mark_used(sql, rel->l, 0);
+
+			if(rel->r) {
+				assert(rel->op == op_graph_join);
+				exps_mark_used(sql->sa, rel, rel->r);
+				rel_mark_used(sql, rel->r, 0);
+			}
 		}
 
 		// edges
@@ -9387,8 +9391,9 @@ rel_graph_pda(int *changes, mvc *sql, sql_rel *rel)
 	sql_rel* target = NULL;
 	sql_exp* graph_pda = NULL;
 
-	// only applies to op_graph_select
-	if(graph_rel->op != op_graph_select) {
+	// It only applies to op_graph_select. The relation might be the topmost in case of a
+	// query such as SELECT 1 WHERE x REACHES y ... => rel->l == NULL
+	if(graph_rel->op != op_graph_select || rel->l == NULL) {
 		return rel;
 	}
 	graph_pda = graph_rel->exps->h->data;
@@ -9459,7 +9464,7 @@ rel_graph_create_join(int *changes, mvc *sql, sql_rel *rel)
 	sql_exp* graph_pda = NULL;
 
 	// only applies to op_graph_select
-	if(graph_rel->op != op_graph_select || rel_is_ref(rel)) {
+	if(graph_rel->op != op_graph_select || rel->l == NULL || rel_is_ref(rel)) {
 		return rel;
 	}
 	graph_pda = graph_rel->exps->h->data;

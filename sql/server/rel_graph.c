@@ -100,9 +100,9 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     qto = rel_value_exp(sql, &rel, sym_qto, context, exp_kind_value);
     if(!qto) return NULL; // cannot refer to qto
     // TODO: to be handled with graph_select
-    if(qfrom->card != CARD_MULTI || qto->card != CARD_MULTI){
-    	return sql_error(sql, 42, "["__FILE__ ":%d] select/filter semantic not allowed for the time being", __LINE__);
-    }
+//    if(qfrom->card != CARD_MULTI || qto->card != CARD_MULTI){
+//    	return sql_error(sql, 42, "["__FILE__ ":%d] select/filter semantic not allowed for the time being", __LINE__);
+//    }
 
     // edges table
     lstoperands = lstoperands->next;
@@ -145,8 +145,8 @@ sql_rel* rel_graph_reaches(mvc *sql, sql_rel *rel, symbol *sq, int context){
     list_append(exp_ptr->r, qto);
     result->exps = sa_list(sql->sa); // by convention exps has to be a list, even it contains only one item
     list_append(result->exps, exp_ptr);
-    result->card = CARD_MULTI;
-    result->nrcols = rel->nrcols;
+    result->card = (qfrom->card != CARD_MULTI && qto->card != CARD_MULTI) ? CARD_ATOM : CARD_MULTI;
+    if(rel) { result->nrcols = rel->nrcols; }
     graph_ptr->edges = tbl_edges;
     graph_ptr->efrom = sa_list(sql->sa);
     list_append(graph_ptr->efrom, efrom);
