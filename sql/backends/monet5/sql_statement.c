@@ -3671,13 +3671,10 @@ stmt*
 stmt_gr8_intersect_join_lists(backend *be, stmt* query){
 	InstrPtr q = NULL;
 	list* l = NULL;
-	int num_operands = -1; // expected 4
-
 
 	// generate the MAL instruction
 	assert(query->type == st_list && "Invalid input type");
-	num_operands = list_length(query->op4.lval);
-	assert(num_operands == 4); // candidate list left and right + projection list left and right
+	assert(list_length(query->op4.lval) == 4); // candidate list left and right + projection list left and right
 	q = newStmt(be->mb, "graph", "intersect_join_lists");
 	if(!q) return NULL;
 

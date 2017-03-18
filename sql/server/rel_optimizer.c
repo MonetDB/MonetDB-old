@@ -6410,6 +6410,7 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 					if(me->used){
 						int mark = exp_mark_used(graph_ptr->edges, me);
 						assert(mark > 0 && "All arguments should be marked in the subrel");
+						(void) mark; // silent the warning when NDEBUG is defined
 						shortest_path_used = true;
 					}
 				}
