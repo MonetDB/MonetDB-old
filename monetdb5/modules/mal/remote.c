@@ -820,7 +820,7 @@ str RMTregisterInternal(Client cntxt, str conn, str mod, str fcn)
 		mapi_close_handle(mhdl);
 
 	/* make sure the program is error free */
-	chkProgram(cntxt->fdout, cntxt->nspace, sym->def);
+	chkProgram(cntxt->nspace, sym->def);
 	if (sym->def->errors) {
 		MT_lock_unset(&c->lock);
 		throw(MAL, "remote.register",

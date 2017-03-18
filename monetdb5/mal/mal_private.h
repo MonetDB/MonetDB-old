@@ -64,7 +64,7 @@ __hidden str createScriptException(MalBlkPtr, int, enum malexception,
 
 #ifdef MAXSCOPE
 /* MAXSCOPE is defined in the same file as Module */
-__hidden Symbol cloneFunction(stream *out, Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
+__hidden Symbol cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 	__attribute__((__visibility__("hidden")));
 #endif
 __hidden int getBarrierEnvelop(MalBlkPtr mb)

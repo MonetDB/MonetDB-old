@@ -90,9 +90,6 @@
  * defined for code modules in general.
  *
  */
-/*
- * @-
- */
 #include "monetdb_config.h"
 #include "mal_scenario.h"
 #include "mal_linker.h"		/* for getAddress() */
@@ -112,7 +109,8 @@ static struct SCENARIO scenarioRec[MAXSCEN] = {
 	 0, 0,			/* implicit */
 	 "MALinitClient", (MALfcn) &MALinitClient,
 	 "MALexitClient", (MALfcn) &MALexitClient,
-	 "MALreader", (MALfcn) &MALreader, 0,
+	 //"MALreader", (MALfcn) &MALreader, 0,
+	 "MALreader", 0,0,
 	 "MALparser", (MALfcn) &MALparser, 0,
 	 "MALoptimizer", 0, 0,
 	 0, 0, 0,
@@ -533,25 +531,20 @@ runScenarioBody(Client c)
 		c->mode = FINISHCLIENT;
 	while ((c->mode > FINISHCLIENT || msg != MAL_SUCCEED) && !GDKexiting()) {
 		if (msg != MAL_SUCCEED){
-/* we should actually show it [postponed]
 			mnstr_printf(c->fdout,"!%s\n",msg);
-*/
 			freeException(msg);
 			msg = MAL_SUCCEED;
 		}
-		if (!c->state[0] &&
-		    (msg = runPhase(c, MAL_SCENARIO_INITCLIENT)) != MAL_SUCCEED)
+		if (( !c->state[0] &&
+		    (msg = runPhase(c, MAL_SCENARIO_INITCLIENT)) != MAL_SUCCEED) || c->mode <= FINISHCLIENT)
 			continue;
-		if (c->mode <= FINISHCLIENT ||
-		    (msg = runPhase(c, MAL_SCENARIO_READER)) != MAL_SUCCEED)
+		if ( (msg = runPhase(c, MAL_SCENARIO_READER)) != MAL_SUCCEED || c->mode <= FINISHCLIENT)
 			continue;
 		c->lastcmd= time(0);
 		start= GDKusec();
-		if (c->mode <= FINISHCLIENT ||
-		    (msg = runPhase(c, MAL_SCENARIO_PARSER)) != MAL_SUCCEED)
+		if ( (msg = runPhase(c, MAL_SCENARIO_PARSER)) != MAL_SUCCEED || c->mode <= FINISHCLIENT || c->blkmode)
 			continue;
-		if (c->mode <= FINISHCLIENT ||
-		    (msg = runPhase(c, MAL_SCENARIO_OPTIMIZE)) != MAL_SUCCEED)
+		if ( (msg = runPhase(c, MAL_SCENARIO_OPTIMIZE)) != MAL_SUCCEED || c->mode <= FINISHCLIENT)
 			continue;
 		if (c->mode <= FINISHCLIENT ||
                     (msg = runPhase(c, MAL_SCENARIO_SCHEDULER)) != MAL_SUCCEED)

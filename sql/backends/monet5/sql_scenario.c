@@ -1153,10 +1153,10 @@ SQLparser(Client c)
 
 		pushEndInstruction(c->curprg->def);
 		/* check the query wrapper for errors */
-		chkTypes(c->fdout, c->nspace, c->curprg->def, TRUE);
+		msg = chkTypes(c->nspace, c->curprg->def, TRUE);
 
 		/* in case we had produced a non-cachable plan, the optimizer should be called */
-		if (opt ) {
+		if ( msg == MAL_SUCCEED && opt ) {
 			msg = SQLoptimizeQuery(c, c->curprg->def);
 
 			if (msg != MAL_SUCCEED) {
@@ -1165,7 +1165,7 @@ SQLparser(Client c)
 			}
 		}
 		//printFunction(c->fdout, c->curprg->def, 0, LIST_MAL_ALL);
-		/* we know more in this case than chkProgram(c->fdout, c->nspace, c->curprg->def); */
+		/* we know more in this case than chkProgram(c->nspace, c->curprg->def); */
 		if (c->curprg->def->errors) {
 			showErrors(c);
 			/* restore the state */

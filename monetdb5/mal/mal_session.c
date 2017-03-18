@@ -58,7 +58,7 @@ malBootstrap(void)
 		return 0;
 	}
 	pushEndInstruction(c->curprg->def);
-	chkProgram(c->fdout, c->nspace, c->curprg->def);
+	chkProgram(c->nspace, c->curprg->def);
 	if (c->curprg->def->errors) {
 		showErrors(c);
 #ifdef HAVE_EMBEDDED
@@ -545,6 +545,7 @@ MALreader(Client c)
 {
 #ifndef HAVE_EMBEDDED
 	int r = 1;
+	return MAL_SUCCEED;
 	if (c == mal_clients) {
 		r = readConsole(c);
 		if (r < 0 && c->fdin->eof == 0)
@@ -560,23 +561,107 @@ MALreader(Client c)
 	MT_lock_unset(&mal_contextLock);
 	if (c->fdin)
 		c->fdin->buf[c->fdin->pos] = 0;
+/*
 	else
 		throw(MAL, "mal.reader", RUNTIME_IO_EOF);
+*/
 	return MAL_SUCCEED;
 }
 
+static str
+MALreadline(Client c)
+{	str s,l;
+	size_t sz;
+	int string = 0;
+
+	if ( c->line == NULL){
+		c->line = GDKzalloc(8192);
+		if( c->line == NULL)
+			throw(MAL,"mal.readline", MAL_MALLOC_FAIL);
+		c->linesize = 8192;
+		c->linefill = 0;
+	}
+	do{
+		if( c->fdin->pos >= c->fdin->len){
+			if( c->prompt){
+				mnstr_write(c->fdout, c->prompt, strlen(c->prompt), 1);
+				mnstr_flush(c->fdout);
+			}
+			sz= bstream_next(c->fdin);
+			if( c->fdin->eof)
+				return MAL_SUCCEED;
+			if ( sz >= c->linesize){
+				l = GDKrealloc(c->line, c->linesize + sz + 512);
+				if( l == NULL)
+					throw(MAL,"mal.readline", MAL_MALLOC_FAIL);
+				c->line = l;
+				c->linesize += sz + 512;
+			}
+		}
+		// read until you find a complete MAL unit
+		s = c->line + c->linefill;
+		for( l = c->fdin->buf + c->fdin->pos ; c->fdin->pos < c->fdin->len ; l++){
+			if ( *l == '"' ){
+				if ( string == 0)
+					string = 1;
+				else
+				if ( string && *(l-1) != '\\')
+					string = !string;
+			}
+			*s++ = *l;
+			c->linefill++;
+			c->fdin->pos++;
+			if( *l == '#' && string ==0){
+				// eat away until end of line
+				for( l++ ; c->fdin->pos < c->fdin->len ; l++){
+					*s++ = *l;
+					c->linefill++;
+					c->fdin->pos++;
+					if ( *l == '\n')
+						break;
+				}
+				*s = 0;
+				return MAL_SUCCEED;
+			}
+			if (*l == ';' && string ==0){
+				// eat away until end of line
+				for( l++ ; c->fdin->pos < c->fdin->len ; l++){
+					*s++ = *l;
+					c->linefill++;
+					c->fdin->pos++;
+					if ( *l == '\n')
+						break;
+				}
+				*s = 0;
+				return MAL_SUCCEED;
+			}
+		}
+		*s = 0;
+	} while ( c->fdin->eof == 0);
+	
+	return MAL_SUCCEED;
+}
+/*
+ * The parser should parse a complete MAL unit
+ * This is either signature, MAL function block, guarded block, or single statement
+ * Syntax checking is performed on line by line basis and sent to the output channel.
+ * Type checking is the last step in this process.
+ */
 str
 MALparser(Client c)
 {
 	InstrPtr p;
 	MalBlkRecord oldstate;
+	str msg;
 
 	c->curprg->def->errors = 0;
 	oldstate = *c->curprg->def;
 
-	if( prepareMalBlk(c->curprg->def, CURRENT(c))){
-		throw(MAL, "mal.parser", MAL_MALLOC_FAIL);
+	while( (msg = MALreadline(c)) == MAL_SUCCEED && c->linefill){
+		fprintf(stderr, "%s",c->line);
+		c->linefill = 0;
 	}
+
 	if (parseMAL(c, c->curprg, 0) || c->curprg->def->errors) {
 		/* just complete it for visibility */
 		pushEndInstruction(c->curprg->def);
@@ -612,7 +697,7 @@ MALparser(Client c)
 		throw(SYNTAX, "mal.parser", SYNTAX_SIGNATURE);
 	}
 	pushEndInstruction(c->curprg->def);
-	chkProgram(c->fdout, c->nspace, c->curprg->def);
+	chkProgram(c->nspace, c->curprg->def);
 	if (c->curprg->def->errors) {
 		showErrors(c);
 		if (c->listing)

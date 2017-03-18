@@ -6,7 +6,7 @@
 
 -- show the optimizer statistics maintained by the SQL frontend
 create function sys.optimizer_stats ()
-	returns table (optname string, count int, timing bigint)
+	returns table ("optimizer" string, calls int, timing bigint)
 	external name inspect.optimizer_stats;
 
 

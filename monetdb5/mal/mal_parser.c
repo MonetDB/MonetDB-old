@@ -1321,7 +1321,7 @@ parseCommandPattern(Client cntxt, int kind)
 		cntxt->backup = 0;
 		return (MalBlkPtr) parseError(cntxt, "<module> not found\n");
 	}
-	chkProgram(cntxt->fdout, cntxt->nspace, curBlk);
+	chkProgram(cntxt->nspace, curBlk);
 	if (cntxt->backup) {
 		cntxt->curprg = cntxt->backup;
 		cntxt->backup = 0;
@@ -1450,7 +1450,7 @@ parseEnd(Client cntxt)
 		insertSymbol(cntxt->nspace, cntxt->curprg);
 		cntxt->blkmode = 0;
 		curBlk->typefixed = 0;
-		chkProgram(cntxt->fdout, cntxt->nspace, cntxt->curprg->def);
+		chkProgram(cntxt->nspace, cntxt->curprg->def);
 		if (cntxt->backup) {
 			cntxt->curprg = cntxt->backup;
 			cntxt->backup = 0;

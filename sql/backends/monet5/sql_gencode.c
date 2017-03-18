@@ -217,7 +217,7 @@ _create_relational_function(mvc *m, const char *mod, const char *name, sql_rel *
 	if( curBlk->inlineProp == 0)
 		SQLoptimizeQuery(c, c->curprg->def);
 	else{
-		chkProgram(c->fdout, c->nspace, c->curprg->def);
+		chkProgram(c->nspace, c->curprg->def);
 		SQLoptimizeFunction(c,c->curprg->def);
 	}
 	if (backup)
@@ -431,7 +431,7 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 	//curBlk->inlineProp = 1;
 
 	SQLaddQueryToCache(c);
-	//chkProgram(c->fdout, c->nspace, c->curprg->def);
+	//chkProgram(c->nspace, c->curprg->def);
 	SQLoptimizeFunction(c, c->curprg->def);
 	if (backup)
 		c->curprg = backup;
@@ -910,7 +910,7 @@ backend_create_sql_func(backend *be, sql_func *f, list *restypes, list *ops)
 	if( curBlk->inlineProp == 0)
 		SQLoptimizeFunction(c, c->curprg->def);
 	else{
-		chkProgram(c->fdout, c->nspace, c->curprg->def);
+		chkProgram(c->nspace, c->curprg->def);
 		SQLoptimizeFunction(c,c->curprg->def);
 	}
 	if (backup)
