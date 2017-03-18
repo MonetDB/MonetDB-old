@@ -30,6 +30,7 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	InstrPtr p, q, *old = mb->stmt;
 	char buf[256];
 	lng usec = GDKusec();
+	str msg = MAL_SUCCEED;
 
 	(void) stk;
 	(void) cntxt;
@@ -75,21 +76,25 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	OPTDEBUGjit{
-		chkTypes(cntxt->fdout, cntxt->nspace,mb,TRUE);
+		msg = chkTypes(cntxt->nspace,mb,TRUE);
+		GDKfree(msg);
+		msg = MAL_SUCCEED;
 		fprintf(stderr, "#Optimize JIT done\n");
 		fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG);
 	}
 
 	GDKfree(old);
     /* Defense line against incorrect plans */
-	chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-	chkFlow(cntxt->fdout, mb);
-	chkDeclarations(cntxt->fdout, mb);
+	msg = chkTypes(cntxt->nspace, mb, FALSE);
+	if( msg == MAL_SUCCEED)
+		msg = chkFlow(mb);
+	if( msg == MAL_SUCCEED)
+		msg = chkDeclarations(mb);
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;
     snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","jit",actions, usec);
     newComment(mb,buf);
 	if( actions >= 0)
 		addtoMalBlkHistory(mb);
-	return MAL_SUCCEED;
+	return msg;
 }

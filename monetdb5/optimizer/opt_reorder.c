@@ -270,6 +270,7 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	Node *dep;
 	char buf[256];
 	lng usec= GDKusec();
+	str msg = MAL_SUCCEED;
 
 	(void) cntxt;
 	(void) stk;
@@ -338,9 +339,11 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
     /* Defense line against incorrect plans */
     if( 1){
-        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-        chkFlow(cntxt->fdout, mb);
-        chkDeclarations(cntxt->fdout, mb);
+        msg = chkTypes(cntxt->nspace, mb, FALSE);
+		if( msg == MAL_SUCCEED)
+			msg = chkFlow(mb);
+		if( msg == MAL_SUCCEED)
+        	msg = chkDeclarations(mb);
     }
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;
@@ -348,5 +351,5 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
     newComment(mb,buf);
 	addtoMalBlkHistory(mb);
 
-	return MAL_SUCCEED;
+	return msg;
 }

@@ -30,6 +30,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 	int i, j, k, match, actions=0;
 	InstrPtr p,q,r,*old;
 	int limit, slimit;
+	str msg = MAL_SUCCEED;
 
 	old = mb->stmt;
 	limit = mb->stop;
@@ -137,9 +138,11 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 	}
 #ifdef DEBUG_OPT_PROJECTIONPATH
     if( actions > 0){
-        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-        chkFlow(cntxt->fdout, mb);
-        chkDeclarations(cntxt->fdout, mb);
+        msg = chkTypes(cntxt->nspace, mb, FALSE);
+		if( msg == MAL_SUCCEED)
+			msg = chkFlow(mb);
+		if( msg == MAL_SUCCEED)
+        	msg = chkDeclarations(mb);
     }
 	mnstr_printf(cntxt->fdout,"#projectionpath prefix actions %d\n",actions);
 	if(actions) printFunction(cntxt->fdout,mb, 0, LIST_MAL_ALL);
@@ -316,10 +319,12 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 #endif
 
     /* Defense line against incorrect plans */
-    if( actions > 0){
-        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-        chkFlow(cntxt->fdout, mb);
-        chkDeclarations(cntxt->fdout, mb);
+    if( actions > 0 && msg == MAL_SUCCEED){
+        msg = chkTypes(cntxt->nspace, mb, FALSE);
+		if( msg == MAL_SUCCEED)
+			msg = chkFlow(mb);
+		if( msg == MAL_SUCCEED)
+        	msg =chkDeclarations(mb);
     }
     /* keep all actions taken as a post block comment */
 wrapupall:

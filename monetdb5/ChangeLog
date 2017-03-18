@@ -1,6 +1,12 @@
 # ChangeLog file for MonetDB5
 # This file is updated with Maddlog
 
+* Thu Mar 16 2017 Martin Kersten <mk@cwi.nl>
+- The core routines to check for control flow errors and type declarations
+  returns a proper exception structure with the complete findings.
+- The interface of all optimizers have been changed to return a proper
+  exeption structure.
+
 * Mon Feb 20 2017 Sjoerd Mullender <sjoerd@acm.org>
 - The sphinx module has been moved to its own repository
   http://dev.monetdb.hg/hg/MonetDB-sphinx/.

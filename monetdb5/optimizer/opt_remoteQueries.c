@@ -146,6 +146,7 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 	char buf[BUFSIZ],*s, *db;
 	ValRecord cst;
 	lng usec = GDKusec();
+	str msg = MAL_SUCCEED;
 
 	cst.vtype= TYPE_int;
 	cst.val.ival= 0;
@@ -364,9 +365,11 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 
     /* Defense line against incorrect plans */
     if( doit){
-        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-        chkFlow(cntxt->fdout, mb);
-        chkDeclarations(cntxt->fdout, mb);
+        msg = chkTypes(cntxt->nspace, mb, FALSE);
+		if( msg == MAL_SUCCEED)
+			msg = chkFlow(mb);
+		if( msg == MAL_SUCCEED)
+        	msg = chkDeclarations(mb);
     }
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;
@@ -375,5 +378,5 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 	if( doit >= 0)
 		addtoMalBlkHistory(mb);
 
-	return MAL_SUCCEED;
+	return msg;
 }

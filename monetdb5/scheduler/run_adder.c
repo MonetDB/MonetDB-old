@@ -74,6 +74,7 @@ RUNadder(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	int i,pc;
 	InstrPtr q, *old;
 	int oldtop;
+	str msg = MAL_SUCCEED;
 
 	(void) cntxt;
 	pc = getPC(mb,p);
@@ -109,10 +110,12 @@ RUNadder(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	mb->stop += (oldtop-pc)-1;
 
 	/* check new statments for sanity */
-	chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-	chkFlow(cntxt->fdout, mb);
-	chkDeclarations(cntxt->fdout, mb);
+	msg = chkTypes(cntxt->nspace, mb, FALSE);
+	if( msg == MAL_SUCCEED)
+		msg = chkFlow(mb);
+	if( msg == MAL_SUCCEED)
+		msg = chkDeclarations(mb);
 
 	GDKfree(old);
-	return MAL_SUCCEED;
+	return msg;
 }

@@ -450,7 +450,7 @@ findFunctionType(stream *out, Module scope, MalBlkPtr mb, InstrPtr p, int silent
 					cnt++;
 			}
 			if (cnt == 0 && s->kind != COMMANDsymbol && s->kind != PATTERNsymbol) {
-				s = cloneFunction(out, scope, s, mb, p);
+				s = cloneFunction(scope, s, mb, p);
 				if (s->def->errors)
 					goto wrapup;
 			}
@@ -723,8 +723,8 @@ typeChecker(stream *out, Module scope, MalBlkPtr mb, InstrPtr p, int silent)
  * as well, because a dynamically typed instruction should later on not
  * lead to a re-check when it was already fully analyzed.
  */
-void
-chkTypes(stream *out, Module s, MalBlkPtr mb, int silent)
+str
+chkTypes(Module s, MalBlkPtr mb, int silent)
 {
 	InstrPtr p = 0;
 	int i, chk = 0;
@@ -732,10 +732,11 @@ chkTypes(stream *out, Module s, MalBlkPtr mb, int silent)
 	for (i = 0; i < mb->stop; i++) {
 		p = getInstrPtr(mb, i);
 		assert (p != NULL);
-		if (p->typechk != TYPE_RESOLVED)
-			typeChecker(out, s, mb, p, silent);
-		if (mb->errors)
-			return;
+		if (p->typechk != TYPE_RESOLVED){
+			typeChecker(GDKout, s, mb, p, silent);
+			if (mb->errors)
+				return MAL_SUCCEED;
+		}
 
 		if (getFunctionId(p)) {
 			if (p->fcn != NULL && p->typechk == TYPE_RESOLVED)
@@ -743,6 +744,7 @@ chkTypes(stream *out, Module s, MalBlkPtr mb, int silent)
 		} else if (p->typechk == TYPE_RESOLVED)
 			chk++;
 	}
+	return MAL_SUCCEED;
 }
 
 /*
@@ -762,21 +764,26 @@ chkInstruction(stream *out, Module s, MalBlkPtr mb, InstrPtr p)
 	return error;
 }
 
+/*
+ * Perform silent check on the program, merely setting the error flag.
+ */
 void
-chkProgram(stream *out, Module s, MalBlkPtr mb)
+chkProgram(Module s, MalBlkPtr mb)
 {
+	str msg;
 /* it is not ready yet, too fragile
 		mb->typefixed = mb->stop == chk; ignored END */
 /*	if( mb->flowfixed == 0)*/
 
-	chkTypes(out, s, mb, FALSE);
-	if (mb->errors)
-		return;
-	chkFlow(out, mb);
-	if (mb->errors)
-		return;
-	chkDeclarations(out, mb);
-	/* malGarbageCollector(mb); */
+	msg = chkTypes(s, mb, FALSE);
+	if( msg )
+		GDKfree(msg);
+	msg = chkFlow(mb);
+	if( msg )
+		GDKfree(msg);
+	msg = chkDeclarations(mb);
+	if( msg )
+		GDKfree(msg);
 }
 
 /*

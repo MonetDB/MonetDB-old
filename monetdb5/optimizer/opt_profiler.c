@@ -101,9 +101,9 @@ OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	}
     /* Defense line against incorrect plans */
 	/* Plan remains unaffected */
-	//chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-	//chkFlow(cntxt->fdout, mb);
-	//chkDeclarations(cntxt->fdout, mb);
+	//msg = chkTypes(cntxt->nspace, mb, FALSE);
+	//msg = chkFlow(mb);
+	//msg = chkDeclarations(mb);
 	//
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;

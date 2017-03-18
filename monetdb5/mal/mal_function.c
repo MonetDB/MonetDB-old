@@ -79,7 +79,8 @@ int getPC(MalBlkPtr mb, InstrPtr p)
  */
 #define DEPTH 128
 
-void chkFlow(stream *out, MalBlkPtr mb)
+str
+chkFlow(MalBlkPtr mb)
 {   int i,j,k, v,lastInstruction;
 	int  pc[DEPTH];
 	int  var[DEPTH];
@@ -88,9 +89,10 @@ void chkFlow(stream *out, MalBlkPtr mb)
 	int endseen=0, retseen=0, yieldseen=0;
 	int fixed=1;
 	InstrPtr p;
+	str msg = MAL_SUCCEED;
 
 	if ( mb->errors)
-		return;
+		return MAL_SUCCEED;
 	lastInstruction = mb->stop-1;
 	for(i= 0; i<mb->stop; i++){
 		p= getInstrPtr(mb,i);
@@ -102,10 +104,8 @@ void chkFlow(stream *out, MalBlkPtr mb)
 		case BARRIERsymbol:
 		case CATCHsymbol:
 			if(btop== DEPTH){
-			    showScriptException(out, mb,i,SYNTAX,
-					"Too many nested MAL blocks");
 			    mb->errors++;
-			    return;
+				throw(MAL,"chkFlow", "Too many nested MAL blocks");
 			}
 			pc[btop]= i;
 			v= var[btop]= getDestVar(p);
@@ -113,12 +113,12 @@ void chkFlow(stream *out, MalBlkPtr mb)
 
 			for(j=btop-1;j>=0;j--)
 			if( v==var[j]){
-			    showScriptException(out, mb,i,SYNTAX,
+			    msg = createScriptException(mb,i,SYNTAX,msg,
 					"recursive %s[%d] shields %s[%d]",
 						getVarName(mb,v), pc[j],
 						getFcnName(mb),pc[i]);
 			    mb->errors++;
-			    return;
+			    return msg;
 			}
 
 			btop++;
@@ -128,13 +128,13 @@ void chkFlow(stream *out, MalBlkPtr mb)
 			v= getDestVar(p);
 			if( btop>0 && var[btop-1] != v){
 			    mb->errors++;
-			    showScriptException(out, mb,i,SYNTAX,
+			    msg = createScriptException( mb,i,SYNTAX,msg,
 					"exit-label '%s' doesnot match '%s'",
 					getVarName(mb,v), getVarName(mb,var[btop-1]));
 			}
 			if(btop==0){
-			    showScriptException(out, mb,i,SYNTAX,
-					"exit-label '%s' without begin-label",
+			    msg = createScriptException(mb,i,SYNTAX,msg,
+					"exit-label '%s' without begin-label", 
 					getVarName(mb,v));
 			    mb->errors++;
 			    continue;
@@ -164,9 +164,9 @@ void chkFlow(stream *out, MalBlkPtr mb)
 			for(j=btop-1;j>=0;j--)
 			if( var[j]==v) break;
 			if(j<0){
-				str nme= getVarName(mb,v);
-			    showScriptException(out, mb,i,SYNTAX,
-					"label '%s' not in guarded block",nme);
+				str nme=getVarName(mb,v);
+			    msg = createScriptException(mb,i,SYNTAX, msg,
+					"label '%s' not in guarded block", nme);
 			    mb->errors++;
 			} else
 			if( p->typechk != TYPE_RESOLVED) fixed =0;
@@ -174,7 +174,7 @@ void chkFlow(stream *out, MalBlkPtr mb)
 		case YIELDsymbol:
 			{ InstrPtr ps= getInstrPtr(mb,0);
 			if( ps->token != FACTORYsymbol){
-			    showScriptException(out, mb,i,SYNTAX,"yield misplaced!");
+			    msg = createScriptException(mb,i,SYNTAX,msg, "yield misplaced!");
 			    mb->errors++;
 			}
 			yieldseen= TRUE;
@@ -186,7 +186,7 @@ void chkFlow(stream *out, MalBlkPtr mb)
 				if (p->barrier == RETURNsymbol)
 					yieldseen = FALSE;    /* always end with a return */
 				if (ps->retc != p->retc) {
-					showScriptException(out, mb, i, SYNTAX,
+					msg = createScriptException( mb, i, SYNTAX,msg,
 							"invalid return target!");
 					mb->errors++;
 				} else 
@@ -194,7 +194,7 @@ void chkFlow(stream *out, MalBlkPtr mb)
 					for (e = 0; e < p->retc; e++) {
 						if (resolveType(getArgType(mb, ps, e), getArgType(mb, p, e)) < 0) {
 							str tpname = getTypeName(getArgType(mb, p, e));
-							showScriptException(out, mb, i, TYPE,
+							msg = createScriptException(mb, i, TYPE,msg,
 									"%s type mismatch at type '%s'",
 									(p->barrier == RETURNsymbol ? "RETURN" : "YIELD"), tpname);
 							GDKfree(tpname);
@@ -217,47 +217,53 @@ void chkFlow(stream *out, MalBlkPtr mb)
 					/* do nothing */
 				} else if( i) {
 					str msg=instruction2str(mb,0,p,TRUE);
-					showScriptException(out, mb,i,SYNTAX,"signature misplaced\n!%s",msg);
+					msg = createScriptException( mb,i,SYNTAX,msg, "signature misplaced\n!%s",msg);
 					GDKfree(msg);
 					mb->errors++;
 				}
 			}
 		}
 	}
-	if( lastInstruction < mb->stop-1 ){
-		showScriptException(out, mb,lastInstruction,SYNTAX,
+	if(msg == MAL_SUCCEED && lastInstruction < mb->stop-1 ){
+		msg = createScriptException( mb,lastInstruction,SYNTAX,msg,
 			"instructions after END");
 #ifdef DEBUG_MAL_FCN
 		fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
 #endif
 		mb->errors++;
+		return msg;
 	}
 	if( endseen)
 	for(btop--; btop>=0;btop--){
-		showScriptException(out, mb,lastInstruction, SYNTAX,
+		msg = createScriptException( mb,lastInstruction, SYNTAX,msg,
 			"barrier '%s' without exit in %s[%d]",
 				getVarName(mb,var[btop]),getFcnName(mb),i);
 		mb->errors++;
+		return msg;
 	}
 	p= getInstrPtr(mb,0);
 	if( !isaSignature(p)){
-		showScriptException(out, mb,0,SYNTAX,"signature missing");
+		msg = createScriptException( mb,0,SYNTAX,msg,"signature missing");
 		mb->errors++;
+		return msg;
 	}
 	if( retseen == 0){
 		if( getArgType(mb,p,0)!= TYPE_void &&
 			(p->token==FUNCTIONsymbol || p->token==FACTORYsymbol)){
-			showScriptException(out, mb,0,SYNTAX,"RETURN missing");
+			msg = createScriptException( mb,0,SYNTAX,msg,"RETURN missing");
 			mb->errors++;
 		}
 	}
-	if ( yieldseen && getArgType(mb,p,0)!= TYPE_void){
-			showScriptException(out, mb,0,SYNTAX,"RETURN missing");
+	if ( msg== MAL_SUCCEED && yieldseen && getArgType(mb,p,0)!= TYPE_void){
+			msg = createScriptException( mb,0,SYNTAX,msg,"RETURN missing");
 		mb->errors++;
+		return msg;
 	}
 	if( mb->errors == 0 )
 		mb->flowfixed = fixed; /* we might not have to come back here */
+	return msg;
 }
+
 /*
  * A code may contain temporary names for marking barrier blocks.
  * Since they are introduced by the compiler, the parser should locate
@@ -386,7 +392,7 @@ insertSymbolBefore(Module scope, Symbol prg, Symbol before)
  * Otherwise we may end up with a recursive clone.
  */
 Symbol
-cloneFunction(stream *out, Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
+cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 {
 	Symbol new;
 	int i,v;
@@ -450,19 +456,15 @@ cloneFunction(stream *out, Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 	/* check for errors after fixation , TODO*/
 	/* beware, we should now ignore any cloning */
 	if (proc->def->errors == 0) {
-		chkProgram(out, scope,new->def);
-		if (new->def->errors) {
-			showScriptException(out, new->def, 0, MAL,
-								"Error in cloned function");
+		chkProgram(scope,new->def);
 #ifdef DEBUG_MAL_FCN
 			fprintFunction(stderr, new->def, 0, LIST_MAL_ALL);
 #endif
-		}
 	}
 #ifdef DEBUG_CLONE
 	fprintf(stderr, "newly cloned function added to %s %d \n",
 				 scope->name, i);
-	printFunction(out, new->def, 0, LIST_MAL_ALL);
+	fprintFunction(stderr, new->def, 0, LIST_MAL_ALL);
 #endif
 	return new;
 }
@@ -760,14 +762,16 @@ void clrDeclarations(MalBlkPtr mb){
 	}
 }
 
-void chkDeclarations(stream *out, MalBlkPtr mb){
+str
+chkDeclarations(MalBlkPtr mb){
 	int pc,i, k,l;
 	InstrPtr p;
 	short blks[MAXDEPTH], top= 0, blkId=1;
 	int dflow = -1;
+	str msg = MAL_SUCCEED;
 
 	if( mb->errors)
-		return;
+		return msg;
 	blks[top] = blkId;
 
 	/* initialize the scope */
@@ -802,7 +806,7 @@ void chkDeclarations(stream *out, MalBlkPtr mb){
 				} else
 				if( !( isVarConstant(mb, l) || isVarTypedef(mb,l)) &&
 					!isVarInit(mb,l) ) {
-					showScriptException(out, mb,pc,TYPE,
+					msg = createScriptException( mb,pc,TYPE,msg,
 						"'%s' may not be used before being initialized",
 						getVarName(mb,l));
 					mb->errors++;
@@ -814,7 +818,7 @@ void chkDeclarations(stream *out, MalBlkPtr mb){
 					if( blks[i] == getVarScope(mb,l) )
 						break;
 			    if( i> top || blks[i]!= getVarScope(mb,l) ){
-			            showScriptException(out, mb,pc,TYPE,
+			            msg = createScriptException( mb,pc,TYPE,msg,
 							"'%s' used outside scope",
 							getVarName(mb,l));
 			        mb->errors++;
@@ -846,18 +850,19 @@ void chkDeclarations(stream *out, MalBlkPtr mb){
 			if( blockCntrl(p) || blockStart(p) )
 				setVarUsed(mb, l);
 		}
-		if( p->barrier){
+		if( p->barrier && msg == MAL_SUCCEED){
 			if ( blockStart(p)){
 				if( top == MAXDEPTH-2){
-					showScriptException(out, mb,pc,SYNTAX, "too deeply nested  MAL program");
+					msg = createScriptException(mb,pc,SYNTAX, msg, "too deeply nested  MAL program");
 					mb->errors++;
-					return;
+					return msg;
 				}
 				blkId++;
 				if (getModuleId(p) && getFunctionId(p) && strcmp(getModuleId(p),"language")==0 && strcmp(getFunctionId(p),"dataflow")== 0){
 					if( dflow != -1){
-						GDKerror("setLifeSpan nested dataflow blocks not allowed" );
+						msg = createException(MAL,"chkFlow","setLifeSpan nested dataflow blocks not allowed" );
 						mb->errors++;
+						return msg;
 					}
 					dflow= blkId;
 				} 
@@ -887,4 +892,5 @@ void chkDeclarations(stream *out, MalBlkPtr mb){
 			}
 		}
 	}
+	return msg;
 }

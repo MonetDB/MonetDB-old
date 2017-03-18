@@ -1841,15 +1841,29 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		pushInstruction(mb, copyInstruction(p));
 	}
 	(void) stk; 
-	chkTypes(cntxt->fdout, cntxt->nspace,mb, TRUE);
+	msg = chkTypes(cntxt->nspace,mb, TRUE);
+	if( msg)
+		goto cleanup;
 
 #ifdef DEBUG_OPT_MERGETABLE
 	{
 		str err;
 		fprintf(stderr,"#Result of multi table optimizer\n");
-        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-        chkFlow(cntxt->fdout, mb);
-        chkDeclarations(cntxt->fdout, mb);
+		msg = chkTypes(cntxt->nspace, mb, FALSE);
+		if(msg){
+			fprintf(stderr,"%s\n",msg);
+			GDKfree(msg);
+		}
+		msg = chkFlow(mb);
+		if(msg){
+			fprintf(stderr,"%s\n",msg);
+			GDKfree(msg);
+		}
+        msg = chkDeclarations(mb);
+		if(msg){
+			fprintf(stderr,"%s\n",msg);
+			GDKfree(msg);
+		}
 		fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
 		if( err) GDKfree(err);
 	}
@@ -1870,10 +1884,12 @@ cleanup:
 	if (ml.horigin) GDKfree(ml.horigin);
 	if (ml.torigin) GDKfree(ml.torigin);
     /* Defense line against incorrect plans */
-    if( actions > 0){
-        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-        chkFlow(cntxt->fdout, mb);
-        chkDeclarations(cntxt->fdout, mb);
+    if( actions > 0 && msg == MAL_SUCCEED){
+        msg = chkTypes(cntxt->nspace, mb, FALSE);
+		if( msg == MAL_SUCCEED)
+			msg = chkFlow(mb);
+		if( msg == MAL_SUCCEED)
+        	msg = chkDeclarations(mb);
     }
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;

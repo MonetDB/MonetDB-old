@@ -357,6 +357,7 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	Module scope = cntxt->nspace;
 	lng usec = GDKusec();
 	char buf[256];
+	str msg = MAL_SUCCEED;
 
 	(void) pci;
 	old = mb->stmt;
@@ -458,12 +459,14 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 
 	if (doit) 
-		chkTypes(cntxt->fdout, cntxt->nspace,mb,TRUE);
+		msg = chkTypes(cntxt->nspace,mb,TRUE);
     /* Defense line against incorrect plans */
-    if( mb->errors == 0 && doit > 0){
-        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-        chkFlow(cntxt->fdout, mb);
-        chkDeclarations(cntxt->fdout, mb);
+    if( msg == MAL_SUCCEED && doit > 0){
+        msg = chkTypes(cntxt->nspace, mb, FALSE);
+		if ( msg == MAL_SUCCEED)
+			msg = chkFlow(mb);
+		if ( msg == MAL_SUCCEED)
+        	msg =chkDeclarations(mb);
     }
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;
@@ -472,5 +475,5 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( doit >= 0)
 		addtoMalBlkHistory(mb);
 
-	return MAL_SUCCEED;
+	return msg;
 }

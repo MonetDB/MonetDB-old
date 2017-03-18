@@ -259,7 +259,7 @@ str OPTsql_append(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	if( p )
 		removeInstruction(mb, p);
 #ifdef DEBUG_OPT_OPTIMIZERS
-	mnstr_printf(cntxt->fdout,"=APPLY OPTIMIZER sql_append\n");
+	fprintf(stderr,"=APPLY OPTIMIZER sql_append\n");
 #endif
 	if( p && p->argc > 1 ){
 		if( getArgType(mb,p,1) != TYPE_str ||
@@ -294,13 +294,15 @@ str OPTsql_append(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	actions= OPTsql_appendImplementation(cntxt, mb,stk,p);
 
     /* Defense line against incorrect plans */
-	chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-	chkFlow(cntxt->fdout, mb);
-	chkDeclarations(cntxt->fdout, mb);
+	msg = chkTypes(cntxt->nspace, mb, FALSE);
+	if( msg == MAL_SUCCEED)
+		msg = chkFlow(mb);
+	if( msg == MAL_SUCCEED)
+		msg = chkDeclarations(mb);
 #ifdef DEBUG_OPT_OPTIMIZERS
-		mnstr_printf(cntxt->fdout,"=FINISHED sql_append %d\n",actions);
-		printFunction(cntxt->fdout,mb,0,LIST_MAL_ALL );
-		mnstr_printf(cntxt->fdout,"#opt_reduce: " LLFMT " ms\n",t);
+	fprintf(stderr,"=FINISHED sql_append %d\n",actions);
+	fprintFunction(stderr,mb,0,LIST_MAL_ALL );
+	fprintf(stderr,"#opt_reduce: " LLFMT " ms\n",t);
 #endif
 	clk = GDKusec()- clk;
     snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","optimizer.sql_append",actions, clk);

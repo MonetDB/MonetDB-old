@@ -102,9 +102,15 @@ optimizeMALBlock(Client cntxt, MalBlkPtr mb)
 	// strong defense line, assure that MAL plan is initially correct
 	if( mb->errors == 0){
 		resetMalBlk(mb, mb->stop);
-        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-        chkFlow(cntxt->fdout, mb);
-        chkDeclarations(cntxt->fdout, mb);
+        msg = chkTypes(cntxt->nspace, mb, FALSE);
+		if( msg) 
+			return msg;
+        msg = chkFlow(mb);
+		if( msg) 
+			return msg;
+        msg = chkDeclarations(mb);
+		if( msg) 
+			return msg;
 	}
 	if (mb->errors)
 		throw(MAL, "optimizer.MALoptimizer", "Start with inconsistent MAL plan");
