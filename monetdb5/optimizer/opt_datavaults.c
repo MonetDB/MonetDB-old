@@ -110,13 +110,13 @@ checkTable(int *res, int *action, MalBlkPtr mb, InstrPtr p, TABLE **tabs, int nu
     return MAL_SUCCEED;
 }
 
-int
+str
 OPTdatavaultsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
     InstrPtr p, *old;
     int i, limit, slimit, action=0;
     TABLE **tabs = NULL;
-    int num_tabs = 0;
+	int num_tabs = 0;
 
 	mnstr_printf(cntxt->fdout, "Datavaults optimizer started\n");
 	(void) cntxt;
@@ -128,10 +128,11 @@ OPTdatavaultsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 	old = mb->stmt;
 
 	if ( newMalBlkStmt(mb, mb->ssize) < 0){
-		return 0;
+		throw(MAL, "optimizer.datavaults", "newMalBlkStmt failed");
 	}
 
-    /*Set auxiliar structures*/
+	/*Set auxiliar structures*/
+	/* TODO should we check for failure? */
     tabs = (TABLE**) GDKzalloc(sizeof(TABLE*) * DEFAULT_NUM_TABLES);
 
     for (i = 0; i < limit; i++) {
@@ -169,5 +170,8 @@ OPTdatavaultsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		printFunction(cntxt->fdout, mb, 0, LIST_MAL_ALL);
 	}
 #endif
-	return action;
+	/* TODO If actions == 0 then nothing got optimized.
+	 * Do we need to throw an exception in that case?
+	 */
+	return MAL_SUCCEED;
 }
