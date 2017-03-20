@@ -451,12 +451,6 @@ LIDARtest(int *res, str *fname)
 	return msg;
 }
 
-typedef struct either_lidar_header {
-	str msg;
-	lidar_info *hi;
-} lidar_header;
-
-
 static str *
 LIDARopenPath(str fname, int *len)
 {
@@ -545,18 +539,17 @@ openpath_cleanup:
 
 }
 
-static lidar_header *
-LIDARopenFile(str fname)
+static str
+LIDARopenFile(str fname, lidar_info *res)
 {
-	lidar_header *res = (lidar_header *)malloc(sizeof(lidar_header));
 	LASReaderH reader = NULL;
 	LASHeaderH header = NULL;
-	res->msg = NULL;
-	res->hi = NULL;
+	str msg = MAL_SUCCEED;
+
 	/* check if file exists */
 	if (access(fname, F_OK) == -1) {
-		res->msg = createException(MAL, "lidar.openfile", "File %s not found.", fname);
-		return res;
+		msg = createException(MAL, "lidar.openfile", "File %s not found.", fname);
+		return msg;
 	}
 
 	/* open the LAS/LAZ file */
@@ -565,64 +558,63 @@ LIDARopenFile(str fname)
 	reader = LASReader_Create(fname);
 	MT_lock_unset(&mt_lidar_lock);
 	if (LASError_GetErrorCount() != 0) {
-		res->msg = createException(MAL, "lidar.openfile", "Error accessing LIDAR file %s (%s)",
-								   fname, LASError_GetLastErrorMsg());
-		return res;
+		msg = createException(MAL, "lidar.openfile", "Error accessing LIDAR file %s (%s)",
+							  fname, LASError_GetLastErrorMsg());
+		return msg;
 	}
 
 	/* get the header */
 	header = LASReader_GetHeader(reader);
 	if (!header) {
-		res->msg = createException(MAL, "lidar.openfile", "Error accessing LIDAR file %s (%s)",
-								   fname, LASError_GetLastErrorMsg());
-		return res;
+		msg = createException(MAL, "lidar.openfile", "Error accessing LIDAR file %s (%s)",
+							  fname, LASError_GetLastErrorMsg());
+		return msg;
 	}
 #ifndef NDEBUG
 	print_lidar_header(stderr, header, fname, 0, 0);
 #endif
 
-	res->hi = (lidar_info *)malloc(sizeof(lidar_info));
 	/* read values from the header */
-	res->hi->fileSourceId = LASHeader_GetFileSourceId(header);
-	res->hi->versionMajor = LASHeader_GetVersionMajor(header);
-	res->hi->versionMinor = LASHeader_GetVersionMinor(header);
-	res->hi->dataFormatId = LASHeader_GetDataFormatId(header);
-	res->hi->creationDOY = LASHeader_GetCreationDOY(header);
-	res->hi->creationYear = LASHeader_GetCreationYear(header);
-	res->hi->recordsCount = LASHeader_GetRecordsCount(header);
-	res->hi->pointRecordsCount = LASHeader_GetPointRecordsCount(header);
-	res->hi->dataOffset = LASHeader_GetDataOffset(header);
-	res->hi->headerPadding = LASHeader_GetHeaderPadding(header);
-	res->hi->reserved = LASHeader_GetReserved(header);
-	res->hi->dataRecordLength = LASHeader_GetDataRecordLength(header);
-	res->hi->headerSize = LASHeader_GetHeaderSize(header);
-	res->hi->byteSize     = LASSchema_GetByteSize(LASHeader_GetSchema(header));
-	res->hi->baseByteSize = LASSchema_GetBaseByteSize(LASHeader_GetSchema(header));
-	res->hi->WKT = LASSRS_GetWKT(LASHeader_GetSRS(header));
-	res->hi->WKT_CompoundOK = LASSRS_GetWKT_CompoundOK(LASHeader_GetSRS(header));
-	res->hi->proj4 = LASSRS_GetProj4(LASHeader_GetSRS(header));
+	res->fileSourceId = LASHeader_GetFileSourceId(header);
+	res->versionMajor = LASHeader_GetVersionMajor(header);
+	res->versionMinor = LASHeader_GetVersionMinor(header);
+	res->dataFormatId = LASHeader_GetDataFormatId(header);
+	res->creationDOY = LASHeader_GetCreationDOY(header);
+	res->creationYear = LASHeader_GetCreationYear(header);
+	res->recordsCount = LASHeader_GetRecordsCount(header);
+	res->pointRecordsCount = LASHeader_GetPointRecordsCount(header);
+	res->dataOffset = LASHeader_GetDataOffset(header);
+	res->headerPadding = LASHeader_GetHeaderPadding(header);
+	res->reserved = LASHeader_GetReserved(header);
+	res->dataRecordLength = LASHeader_GetDataRecordLength(header);
+	res->headerSize = LASHeader_GetHeaderSize(header);
+	res->byteSize     = LASSchema_GetByteSize(LASHeader_GetSchema(header));
+	res->baseByteSize = LASSchema_GetBaseByteSize(LASHeader_GetSchema(header));
+	res->WKT = LASSRS_GetWKT(LASHeader_GetSRS(header));
+	res->WKT_CompoundOK = LASSRS_GetWKT_CompoundOK(LASHeader_GetSRS(header));
+	res->proj4 = LASSRS_GetProj4(LASHeader_GetSRS(header));
 
 
 	/* read data from the header */
-	res->hi->scaleX = LASHeader_GetScaleX(header);
-	res->hi->scaleY = LASHeader_GetScaleY(header);
-	res->hi->scaleZ = LASHeader_GetScaleZ(header);
-	res->hi->offsetX = LASHeader_GetOffsetX(header);
-	res->hi->offsetY = LASHeader_GetOffsetY(header);
-	res->hi->offsetZ = LASHeader_GetOffsetZ(header);
-	res->hi->minX = LASHeader_GetMinX(header);
-	res->hi->minY = LASHeader_GetMinY(header);
-	res->hi->minZ = LASHeader_GetMinZ(header);
-	res->hi->maxX = LASHeader_GetMaxX(header);
-	res->hi->maxY = LASHeader_GetMaxY(header);
-	res->hi->maxZ = LASHeader_GetMaxZ(header);
+	res->scaleX = LASHeader_GetScaleX(header);
+	res->scaleY = LASHeader_GetScaleY(header);
+	res->scaleZ = LASHeader_GetScaleZ(header);
+	res->offsetX = LASHeader_GetOffsetX(header);
+	res->offsetY = LASHeader_GetOffsetY(header);
+	res->offsetZ = LASHeader_GetOffsetZ(header);
+	res->minX = LASHeader_GetMinX(header);
+	res->minY = LASHeader_GetMinY(header);
+	res->minZ = LASHeader_GetMinZ(header);
+	res->maxX = LASHeader_GetMaxX(header);
+	res->maxY = LASHeader_GetMaxY(header);
+	res->maxZ = LASHeader_GetMaxZ(header);
 
 	MT_lock_set(&mt_lidar_lock);
 	if (header != NULL) LASHeader_Destroy(header);
 	if (reader != NULL) LASReader_Destroy(reader);
 	MT_lock_unset(&mt_lidar_lock);
 
-	return res;
+	return msg;
 }
 
 /*
@@ -819,7 +811,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	oid fid, tid, cid, rid = oid_nil;
 	char *tname_low = NULL, *s, bname[BUFSIZ];
 	char *p;
-	lidar_header *header = NULL;
+	lidar_info header;
 	int scaleX = 0, scaleY = 0, scaleZ = 0;
 	int precisionX, precisionY, precisionZ;
 	char *istmt=NULL, *cstmt=NULL;
@@ -879,10 +871,15 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	lidar_col = mvc_bind_table(m, sch, "lidar_columns");
 
 	files = LIDARopenPath(fname, &files_len);
-	if (files == NULL || files_len == 0) {
+	if (files == NULL) {
 		msg = createException(MAL, "lidar.attach", "Error accessing path %s (%s)",
 							  fname, LASError_GetLastErrorMsg());
 		return msg;
+	}
+
+	if (files_len == 0) {
+		msg = createException(MAL, "lidar.attach", "No LiDAR files found in %s", fname);
+		goto attach_cleanup0;
 	}
 
 #ifndef NDEBUG
@@ -929,17 +926,25 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	}
 
+	/* For each file:
+	 * 1. Try to open it as LIDAR and read the metadata
+	 * 2. Add the necessary tuples in the LIDAR catalog
+	 * 3. Compute scale and precision for X, Y and Z columns
+	 * 4. Store the metadata in the	catalog
+	 * 5. Set min and max values for X, Y and Z as they will be needed later
+	 */
 	for (idx = 0; idx < files_len; idx++) {
 		filename = files[idx];
-		if (header != NULL) {
-			free(header);
-		}
-		header = LIDARopenFile(filename);
-		/* See if anything went wrong */
-		if (header->msg != NULL) {
-			msg = header->msg;
-			free(header);
-			return msg;
+		msg = LIDARopenFile(filename, &header);
+
+		/* If we cannot open the file, just ignore it. */
+		if (msg != MAL_SUCCEED) {
+#ifndef NDEBUG
+			fprintf(stderr, "Ignoring file %s:\n", filename);
+			fprintf(stderr, "  Message: %s\n", msg);
+#endif
+			continue;
+			/* return msg; */
 		}
 
 		/* check if the file is already attached */
@@ -961,28 +966,28 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		col = mvc_bind_column(m, lidar_tbl, "id");
 		tid = store_funcs.count_col(tr, col, 1) + 1;
 
-		scaleX = (int)ceil(-log(header->hi->scaleX)/log(10));
-		scaleY = (int)ceil(-log(header->hi->scaleY)/log(10));
-		scaleZ = (int)ceil(-log(header->hi->scaleZ)/log(10));
+		scaleX = (int)ceil(-log(header.scaleX)/log(10));
+		scaleY = (int)ceil(-log(header.scaleY)/log(10));
+		scaleZ = (int)ceil(-log(header.scaleZ)/log(10));
 
-		precisionX = scaleX + (int)ceil(log(header->hi->maxX)/log(10));
-		precisionY = scaleY + (int)ceil(log(header->hi->maxY)/log(10));
-		precisionZ = scaleZ + (int)ceil(log(header->hi->maxZ)/log(10));
+		precisionX = scaleX + (int)ceil(log(header.maxX)/log(10));
+		precisionY = scaleY + (int)ceil(log(header.maxY)/log(10));
+		precisionZ = scaleZ + (int)ceil(log(header.maxZ)/log(10));
 
 #ifndef NDEBUG
 		fprintf(stderr, "Scale: %f %f %f\n",
-				header->hi->scaleX,
-				header->hi->scaleY,
-				header->hi->scaleZ);
+				header.scaleX,
+				header.scaleY,
+				header.scaleZ);
 		fprintf(stderr, "Decimal type scale: %d %d %d\n",
-				(int)ceil(-log(header->hi->scaleX)/log(10)),
-				(int)ceil(-log(header->hi->scaleY)/log(10)),
-				(int)ceil(-log(header->hi->scaleZ)/log(10)));
+				(int)ceil(-log(header.scaleX)/log(10)),
+				(int)ceil(-log(header.scaleY)/log(10)),
+				(int)ceil(-log(header.scaleZ)/log(10)));
 
 		fprintf(stderr, "Decimal type precision: %d %d %d\n",
-				(int)ceil(log(header->hi->maxX)/log(10)),
-				(int)ceil(log(header->hi->maxY)/log(10)),
-				(int)ceil(log(header->hi->maxZ)/log(10)));
+				(int)ceil(log(header.maxX)/log(10)),
+				(int)ceil(log(header.maxY)/log(10)),
+				(int)ceil(log(header.maxZ)/log(10)));
 
 		fprintf(stderr, "decimal digits: %d %d %d\n", scaleX, scaleY, scaleZ);
 		fprintf(stderr, "total digits: %d %d %d\n", precisionX, precisionY, precisionZ);
@@ -999,41 +1004,41 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		store_funcs.append_col(m->session->tr,
 							   mvc_bind_column(m, lidar_tbl, "name"), tname_low, TYPE_str);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "FileSourceId"), &header->hi->fileSourceId, TYPE_int);
+							   mvc_bind_column(m, lidar_tbl, "FileSourceId"), &header.fileSourceId, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "VersionMajor"), &header->hi->versionMajor, TYPE_int);
+							   mvc_bind_column(m, lidar_tbl, "VersionMajor"), &header.versionMajor, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "VersionMinor"), &header->hi->versionMinor, TYPE_int);
+							   mvc_bind_column(m, lidar_tbl, "VersionMinor"), &header.versionMinor, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "DataFormatId"), &header->hi->dataFormatId, TYPE_int);
+							   mvc_bind_column(m, lidar_tbl, "DataFormatId"), &header.dataFormatId, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "CreationDOY"), &header->hi->creationDOY, TYPE_int);
+							   mvc_bind_column(m, lidar_tbl, "CreationDOY"), &header.creationDOY, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "CreationYear"), &header->hi->creationYear, TYPE_int);
+							   mvc_bind_column(m, lidar_tbl, "CreationYear"), &header.creationYear, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "RecordsCount"), &header->hi->recordsCount, TYPE_int);
+							   mvc_bind_column(m, lidar_tbl, "RecordsCount"), &header.recordsCount, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "PointRecordsCount"), &header->hi->pointRecordsCount, TYPE_int);
+							   mvc_bind_column(m, lidar_tbl, "PointRecordsCount"), &header.pointRecordsCount, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "DataOffset"), &header->hi->dataOffset, TYPE_int);
+							   mvc_bind_column(m, lidar_tbl, "DataOffset"), &header.dataOffset, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "HeaderPadding"), &header->hi->headerPadding, TYPE_int);
+							   mvc_bind_column(m, lidar_tbl, "HeaderPadding"), &header.headerPadding, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "Reserved"), &header->hi->reserved, TYPE_int);
+							   mvc_bind_column(m, lidar_tbl, "Reserved"), &header.reserved, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "DataRecordLength"), &header->hi->dataRecordLength, TYPE_int);
+							   mvc_bind_column(m, lidar_tbl, "DataRecordLength"), &header.dataRecordLength, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "HeaderSize"), &header->hi->headerSize, TYPE_int);
+							   mvc_bind_column(m, lidar_tbl, "HeaderSize"), &header.headerSize, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "ByteSize"), &header->hi->byteSize, TYPE_int);
+							   mvc_bind_column(m, lidar_tbl, "ByteSize"), &header.byteSize, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "BaseByteSize"), &header->hi->baseByteSize, TYPE_int);
+							   mvc_bind_column(m, lidar_tbl, "BaseByteSize"), &header.baseByteSize, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "WKT"), header->hi->WKT, TYPE_str);
+							   mvc_bind_column(m, lidar_tbl, "WKT"), header.WKT, TYPE_str);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "WKT_CompoundOK"), header->hi->WKT_CompoundOK, TYPE_str);
+							   mvc_bind_column(m, lidar_tbl, "WKT_CompoundOK"), header.WKT_CompoundOK, TYPE_str);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_tbl, "Proj4"), header->hi->proj4, TYPE_str);
+							   mvc_bind_column(m, lidar_tbl, "Proj4"), header.proj4, TYPE_str);
 		store_funcs.append_col(m->session->tr,
 							   mvc_bind_column(m, lidar_tbl, "LoadParams"), &input_params.parameters, TYPE_int);
 
@@ -1045,29 +1050,29 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		store_funcs.append_col(m->session->tr,
 							   mvc_bind_column(m, lidar_col, "table_id"), &tid, TYPE_int);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_col, "ScaleX"), &header->hi->scaleX, TYPE_dbl);
+							   mvc_bind_column(m, lidar_col, "ScaleX"), &header.scaleX, TYPE_dbl);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_col, "ScaleY"), &header->hi->scaleY, TYPE_dbl);
+							   mvc_bind_column(m, lidar_col, "ScaleY"), &header.scaleY, TYPE_dbl);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_col, "ScaleZ"), &header->hi->scaleZ, TYPE_dbl);
+							   mvc_bind_column(m, lidar_col, "ScaleZ"), &header.scaleZ, TYPE_dbl);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_col, "OffsetX"), &header->hi->offsetX, TYPE_dbl);
+							   mvc_bind_column(m, lidar_col, "OffsetX"), &header.offsetX, TYPE_dbl);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_col, "OffsetY"), &header->hi->offsetY, TYPE_dbl);
+							   mvc_bind_column(m, lidar_col, "OffsetY"), &header.offsetY, TYPE_dbl);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_col, "OffsetZ"), &header->hi->offsetZ, TYPE_dbl);
+							   mvc_bind_column(m, lidar_col, "OffsetZ"), &header.offsetZ, TYPE_dbl);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_col, "MinX"), &header->hi->minX, TYPE_dbl);
+							   mvc_bind_column(m, lidar_col, "MinX"), &header.minX, TYPE_dbl);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_col, "MinY"), &header->hi->minY, TYPE_dbl);
+							   mvc_bind_column(m, lidar_col, "MinY"), &header.minY, TYPE_dbl);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_col, "MinZ"), &header->hi->minZ, TYPE_dbl);
+							   mvc_bind_column(m, lidar_col, "MinZ"), &header.minZ, TYPE_dbl);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_col, "MaxX"), &header->hi->maxX, TYPE_dbl);
+							   mvc_bind_column(m, lidar_col, "MaxX"), &header.maxX, TYPE_dbl);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_col, "MaxY"), &header->hi->maxY, TYPE_dbl);
+							   mvc_bind_column(m, lidar_col, "MaxY"), &header.maxY, TYPE_dbl);
 		store_funcs.append_col(m->session->tr,
-							   mvc_bind_column(m, lidar_col, "MaxZ"), &header->hi->maxZ, TYPE_dbl);
+							   mvc_bind_column(m, lidar_col, "MaxZ"), &header.maxZ, TYPE_dbl);
 		store_funcs.append_col(m->session->tr,
 							   mvc_bind_column(m, lidar_col, "PrecisionX"), &precisionX, TYPE_int);
 		store_funcs.append_col(m->session->tr,
@@ -1075,32 +1080,32 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		store_funcs.append_col(m->session->tr,
 							   mvc_bind_column(m, lidar_col, "PrecisionZ"), &precisionZ, TYPE_int);
 		if (idx == 0) {
-			minimumX = header->hi->minX;
-			minimumY = header->hi->minY;
-			minimumZ = header->hi->minZ;
-			maximumX = header->hi->maxX;
-			maximumY = header->hi->maxY;
-			maximumZ = header->hi->maxZ;
+			minimumX = header.minX;
+			minimumY = header.minY;
+			minimumZ = header.minZ;
+			maximumX = header.maxX;
+			maximumY = header.maxY;
+			maximumZ = header.maxZ;
 		}
 		else {
-			if (header->hi->minX < minimumX) {
-				minimumX = header->hi->minX;
+			if (header.minX < minimumX) {
+				minimumX = header.minX;
 			}
-			if (header->hi->minY < minimumY) {
-				minimumY = header->hi->minY;
+			if (header.minY < minimumY) {
+				minimumY = header.minY;
 			}
-			if (header->hi->minZ < minimumZ) {
-				minimumZ = header->hi->minZ;
+			if (header.minZ < minimumZ) {
+				minimumZ = header.minZ;
 			}
 
-			if (header->hi->maxX > maximumX) {
-				maximumX = header->hi->maxX;
+			if (header.maxX > maximumX) {
+				maximumX = header.maxX;
 			}
-			if (header->hi->maxY > maximumY) {
-				maximumY = header->hi->maxY;
+			if (header.maxY > maximumY) {
+				maximumY = header.maxY;
 			}
-			if (header->hi->maxZ > maximumZ) {
-				maximumZ = header->hi->maxZ;
+			if (header.maxZ > maximumZ) {
+				maximumZ = header.maxZ;
 			}
 		}
 		/* add a lidar_column tuple */
@@ -1108,13 +1113,9 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		cid = store_funcs.count_col(tr, col, 1) + 1;
 	}
 
-	for (idx = 0; idx < files_len; idx++) {
-		free(files[idx]);
-	}
-	free(files);
-
 	/* create an SQL table to hold the LIDAR table */
 	tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, input_params.cnum);
+	/* TODO Check for failure */
 
 	for (prm = 1; prm <= PARAM_INTENSITY; prm <<= 1) {
 		if (input_params.parameters & prm) {
@@ -1196,7 +1197,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	msg = SQLstatementIntern(cntxt, &istmt, "LIDARattach", TRUE, FALSE, NULL);
 	GDKfree(istmt);
 	if (msg) {
-		return msg;
+		goto attach_cleanup0;
 	}
 
 	cstmt = GDKzalloc(8192);
@@ -1208,8 +1209,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s,%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, "false", "false");
 		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
 		if (msg) {
-			GDKfree(cstmt);
-			return msg;
+			goto attach_cleanup1;
 		}
 	}
 
@@ -1221,8 +1221,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s,%s);", col->base.id, col_type, precisionY, sz, sz, uniq, nils, minval, maxval, "false", "false");
 		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
 		if (msg) {
-			GDKfree(cstmt);
-			return msg;
+			goto attach_cleanup1;
 		}
 	}
 	col = mvc_bind_column(m, tbl, "z");
@@ -1233,16 +1232,22 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s,%s);", col->base.id, col_type, precisionZ, sz, sz, uniq, nils, minval, maxval, "false", "false");
 		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
 		if (msg) {
-			GDKfree(cstmt);
-			return msg;
+			goto attach_cleanup1;
 		}
 	}
+
+
+attach_cleanup1:
 	GDKfree(cstmt);
 
-	free(header->hi);
-	free(header);
+attach_cleanup0:
+	for (idx = 0; idx < files_len; idx++) {
+		free(files[idx]);
+	}
+	free(files);
 
-	return MAL_SUCCEED;
+
+	return msg;
 }
 
 typedef union retval {
@@ -1806,38 +1811,40 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	char *filenames_query = GDKmalloc(BUFSIZ);
 	res_table *fres = NULL;
 
-	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
-		return msg;
-	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
-		return msg;
+	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED) {
+		goto loadtable_cleanup;
+	}
+
+	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED) {
+		goto loadtable_cleanup;
+	}
 
 	sch = mvc_bind_schema(m, "sys");
 
 	lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
 	if (lidar_tbl == NULL) {
 		msg = createException(MAL, "lidar.loadtable", "LIDAR catalog is missing.\n");
-		return msg;
+		goto loadtable_cleanup;
 	}
 
 	tbl = mvc_bind_table(m, sch, tname);
 	if (tbl == NULL) {
 		msg = createException(MAL, "lidar.loadtable", "Could not find table %s.\n", tname);
-		return msg;
+		goto loadtable_cleanup;
 	}
 
 	col = mvc_bind_column(m, tbl, "x");
 	sz = store_funcs.count_col(m->session->tr, col, 1);
 	if (sz != 0) {
 		msg = createException(MAL, "lidar.loadtable", "Table %s is not empty.\n", tname);
-		return msg;
+		goto loadtable_cleanup;
 	}
 
 	snprintf(filenames_query, BUFSIZ, "SELECT id FROM lidar_tables WHERE name='%s';", tname);
 	msg = SQLstatementIntern(cntxt, &filenames_query, "rows", 1, 0, &fres);
 	if (msg != MAL_SUCCEED) {
-		return msg;
+		goto loadtable_cleanup;
 	}
-	GDKfree(filenames_query);
 
 	if (fres) {
 		BATiter fs_rid = bat_iterator(BATdescriptor(fres->cols[0].b));
@@ -1852,10 +1859,14 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 			msg = LIDARloadTable_(m, sch, lidar_tbl, tbl, rid - 1);
 			if (msg != MAL_SUCCEED) {
-				return msg;
+				goto loadtable_cleanup;
 			}
 		}
 	}
+
+loadtable_cleanup:
+	GDKfree(tname);
+	GDKfree(filenames_query);
 
 	return msg;
 }
