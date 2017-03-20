@@ -1418,11 +1418,11 @@ rel_join_order(mvc *sql, sql_rel *rel)
 		if(!rel_is_ref(rel)){
 			do {
 				parent = parent->l;
-			} while ((parent->op == op_select || parent->op == op_graph_select) && !rel_is_ref(parent));
+			} while (parent && (parent->op == op_select || parent->op == op_graph_select) && !rel_is_ref(parent));
 		}
 
 		// do not consider the outer joins here
-		if((parent->op == op_join || parent->op == op_graph_join) && !rel_is_ref(parent)) {
+		if(parent && (parent->op == op_join || parent->op == op_graph_join) && !rel_is_ref(parent)) {
 			do_join_reordering = true;
 		} else {
 			rel->l = rel_join_order(sql, rel->l);
