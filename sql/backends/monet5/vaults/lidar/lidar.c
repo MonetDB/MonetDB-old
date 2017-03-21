@@ -514,6 +514,7 @@ LIDARopenFile(str fname, lidar_info *res)
 	LASReaderH reader = NULL;
 	LASHeaderH header = NULL;
 	LASSchemaH schema = NULL;
+	LASSRSH pSRS = NULL;
 	str msg = MAL_SUCCEED;
 
 	/* check if file exists */
@@ -528,16 +529,22 @@ LIDARopenFile(str fname, lidar_info *res)
 	reader = LASReader_Create(fname);
 	MT_lock_unset(&mt_lidar_lock);
 	if (LASError_GetErrorCount() != 0) {
-		msg = createException(MAL, "lidar.openfile", "Error accessing LIDAR file %s (%s)",
-							  fname, LASError_GetLastErrorMsg());
+		str error_msg = LASError_GetLastErrorMsg();
+		msg = createException(MAL, "lidar.openfile", "Error accessing LIDAR file %s (%s)???",
+							  fname, error_msg);
+		free(error_msg);
 		goto openfile_cleanup;
 	}
 
 	/* get the header */
+	MT_lock_set(&mt_lidar_lock);
 	header = LASReader_GetHeader(reader);
+	MT_lock_unset(&mt_lidar_lock);
 	if (!header) {
+		str error_msg = LASError_GetLastErrorMsg();
 		msg = createException(MAL, "lidar.openfile", "Error accessing LIDAR file %s (%s)",
-							  fname, LASError_GetLastErrorMsg());
+							  fname, error_msg);
+		free(error_msg);
 		goto openfile_cleanup;
 	}
 
@@ -545,7 +552,10 @@ LIDARopenFile(str fname, lidar_info *res)
 	print_lidar_header(stderr, header, fname, 0, 0);
 #endif
 
+	MT_lock_set(&mt_lidar_lock);
 	schema = LASHeader_GetSchema(header);
+	pSRS = LASHeader_GetSRS(header);
+	MT_lock_unset(&mt_lidar_lock);
 	/* read values from the header */
 	res->fileSourceId = LASHeader_GetFileSourceId(header);
 	res->versionMajor = LASHeader_GetVersionMajor(header);
@@ -562,9 +572,9 @@ LIDARopenFile(str fname, lidar_info *res)
 	res->headerSize = LASHeader_GetHeaderSize(header);
 	res->byteSize     = LASSchema_GetByteSize(schema);
 	res->baseByteSize = LASSchema_GetBaseByteSize(schema);
-	res->WKT = LASSRS_GetWKT(LASHeader_GetSRS(header));
-	res->WKT_CompoundOK = LASSRS_GetWKT_CompoundOK(LASHeader_GetSRS(header));
-	res->proj4 = LASSRS_GetProj4(LASHeader_GetSRS(header));
+	res->WKT = LASSRS_GetWKT(pSRS);
+	res->WKT_CompoundOK = LASSRS_GetWKT_CompoundOK(pSRS);
+	res->proj4 = LASSRS_GetProj4(pSRS);
 
 
 	/* read data from the header */
@@ -583,9 +593,10 @@ LIDARopenFile(str fname, lidar_info *res)
 
 openfile_cleanup:
 	MT_lock_set(&mt_lidar_lock);
+	LASSRS_Destroy(pSRS);
+	LASSchema_Destroy(schema);
 	LASHeader_Destroy(header);
 	LASReader_Destroy(reader);
-	LASSchema_Destroy(schema);
 	MT_lock_unset(&mt_lidar_lock);
 
 	return msg;
@@ -846,8 +857,10 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	files = LIDARopenPath(fname, &files_len);
 	if (files == NULL) {
+		str error_msg = LASError_GetLastErrorMsg();
 		msg = createException(MAL, "lidar.attach", "Error accessing path %s (%s)",
-							  fname, LASError_GetLastErrorMsg());
+							  fname, error_msg);
+		free(error_msg);
 		return msg;
 	}
 
@@ -1606,19 +1619,24 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, sql_table *tbl, o
 	col = mvc_bind_column(m, lidar_fl, "name");
 	fname = (char *)table_funcs.column_find_value(m->session->tr, col, frid);
 
+#ifndef NDEBUG
+	fprintf(stderr, "----------------LIDARloadTable_ called, creating reader\n");
+#endif
 	MT_lock_set(&mt_lidar_lock);
 	LASError_Reset();
 	reader = LASReader_Create(fname);
 	MT_lock_unset(&mt_lidar_lock);
 	if (LASError_GetErrorCount() != 0) {
+		str error_msg = LASError_GetLastErrorMsg();
 		msg = createException(MAL, "lidar.lidarload",
-							  "Error accessing LiDAR file %s (%s)", fname, LASError_GetLastErrorMsg());
+							  "Error accessing LiDAR file %s (%s)", fname, error_msg);
 		GDKfree(tpcode);
 		GDKfree(rep);
 		GDKfree(wid);
 		free(bats);
 		free(columns);
 		free(arr);
+		free(error_msg);
 		return msg;
 	}
 
