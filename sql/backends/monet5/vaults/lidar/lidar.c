@@ -922,17 +922,10 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* or as regular SQL table */
 	tbl = mvc_bind_table(m, sch, tname_low);
 	if (rid != oid_nil || tbl) {
-		msg = createException(SQL, "lidar.attach", "Table %s already exists\n", tname_low);
-		return msg;
+		msg = createException(SQL, "lidar.attach", "Table %s already exists. Not attaching.\n", tname_low);
+		goto attach_cleanup1;
 	}
 
-	/* For each file:
-	 * 1. Try to open it as LIDAR and read the metadata
-	 * 2. Add the necessary tuples in the LIDAR catalog
-	 * 3. Compute scale and precision for X, Y and Z columns
-	 * 4. Store the metadata in the	catalog
-	 * 5. Set min and max values for X, Y and Z as they will be needed later
-	 */
 	for (idx = 0; idx < files_len; idx++) {
 		filename = files[idx];
 		msg = LIDARopenFile(filename, &header);
@@ -952,7 +945,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		rid = table_funcs.column_find_row(m->session->tr, col, filename, NULL);
 		if (rid != oid_nil) {
 			msg = createException(SQL, "lidar.attach", "File %s already attached\n", filename);
-			return msg;
+			goto attach_cleanup1;
 		}
 
 		/* add row in the lidar_files catalog table */
@@ -1197,7 +1190,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	msg = SQLstatementIntern(cntxt, &istmt, "LIDARattach", TRUE, FALSE, NULL);
 	GDKfree(istmt);
 	if (msg) {
-		goto attach_cleanup0;
+		goto attach_cleanup1;
 	}
 
 	cstmt = GDKzalloc(8192);
@@ -1209,7 +1202,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s,%s);", col->base.id, col_type, precisionX, sz, sz, uniq, nils, minval, maxval, "false", "false");
 		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
 		if (msg) {
-			goto attach_cleanup1;
+			goto attach_cleanup2;
 		}
 	}
 
@@ -1221,7 +1214,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s,%s);", col->base.id, col_type, precisionY, sz, sz, uniq, nils, minval, maxval, "false", "false");
 		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
 		if (msg) {
-			goto attach_cleanup1;
+			goto attach_cleanup2;
 		}
 	}
 	col = mvc_bind_column(m, tbl, "z");
@@ -1232,14 +1225,15 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		snprintf(cstmt, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s,%s);", col->base.id, col_type, precisionZ, sz, sz, uniq, nils, minval, maxval, "false", "false");
 		msg = SQLstatementIntern(cntxt, &cstmt, "LIDARattach", TRUE, FALSE, NULL);
 		if (msg) {
-			goto attach_cleanup1;
+			goto attach_cleanup2;
 		}
 	}
 
 
-attach_cleanup1:
+attach_cleanup2:
 	GDKfree(cstmt);
-
+attach_cleanup1:
+	GDKfree(tname_low);
 attach_cleanup0:
 	for (idx = 0; idx < files_len; idx++) {
 		free(files[idx]);
@@ -1808,6 +1802,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_column *col;
 	str msg = MAL_SUCCEED;
 	size_t sz;
+	oid rid;
 	char *filenames_query = GDKmalloc(BUFSIZ);
 	res_table *fres = NULL;
 
@@ -1820,10 +1815,22 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	sch = mvc_bind_schema(m, "sys");
+	if (sch == NULL) {
+		msg = createException(MAL, "lidar.loadtable", "Cannot access schema \"sys\"\n");
+		goto loadtable_cleanup;
+	}
 
 	lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
 	if (lidar_tbl == NULL) {
 		msg = createException(MAL, "lidar.loadtable", "LIDAR catalog is missing.\n");
+		goto loadtable_cleanup;
+	}
+
+	/* Search for the requested table in the LiDAR catalog */
+	col = mvc_bind_column(m, lidar_tbl, "name");
+	rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
+	if (rid == oid_nil) {
+		msg = createException(MAL, "lidar.loadtable", "Table %s has not been attached.\n", tname);
 		goto loadtable_cleanup;
 	}
 
