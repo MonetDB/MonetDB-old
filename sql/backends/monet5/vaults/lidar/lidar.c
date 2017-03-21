@@ -420,37 +420,6 @@ LIDARexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
-str
-LIDARtest(int *res, str *fname)
-{
-	str msg = MAL_SUCCEED;
-	LASReaderH reader;
-	LASHeaderH header;
-
-	LASError_Reset();
-	MT_lock_set(&mt_lidar_lock);
-	reader=LASReader_Create(*fname);
-	MT_lock_unset(&mt_lidar_lock);
-
-	if (LASError_GetErrorCount() != 0) {
-		msg = createException(MAL, "lidar.test", "Error accessing LIDAR file %s (%s)",
-							  *fname, LASError_GetLastErrorMsg());
-	} else 	{
-		header=LASReader_GetHeader(reader);
-		*res=LASHeader_GetPointRecordsCount(header);
-		MT_lock_set(&mt_lidar_lock);
-		if (header != NULL) LASHeader_Destroy(header);
-		if (reader != NULL) LASReader_Destroy(reader);
-		MT_lock_unset(&mt_lidar_lock);
-		if (LASError_GetErrorCount() != 0) {
-			msg = createException(MAL, "lidar.test", "Error accessing LIDAR file %s (%s)",
-								  *fname, LASError_GetLastErrorMsg());
-		}
-	}
-
-	return msg;
-}
-
 static str *
 LIDARopenPath(str fname, int *len)
 {

@@ -22,7 +22,6 @@
 #define lidar_export extern
 #endif
 
-lidar_export str LIDARtest(int *res, str *fname);
 lidar_export str LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 lidar_export str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 lidar_export str LIDARexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
