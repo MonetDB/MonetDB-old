@@ -6,31 +6,31 @@
 
 module txtsim;
 
-command levenshtein(s:str, t:str, insdel_cost:int, replace_cost:int, transpose_cost:int) : int
+command levenshtein(s:str, t:str, insdel_cost:int, replace_cost:int, transpose_cost:int) :int
 address levenshtein_impl
 comment "Calculates Levenshtein distance (edit distance) between two strings, variable operation costs (ins/del, replacement, transposition)";
 
-command levenshtein(s:str, t:str) : int
+command levenshtein(s:str, t:str) :int
 address levenshteinbasic_impl
 comment "Calculates Levenshtein distance (edit distance) between two strings";
 
-command editdistance(s:str, t:str) : int
+command editdistance(s:str, t:str) :int
 address levenshteinbasic_impl
 comment "Alias for Levenshtein(str,str)";
 
-command editdistance2(s:str, t:str) : int
+command editdistance2(s:str, t:str) :int
 address levenshteinbasic2_impl
 comment "Calculates Levenshtein distance (edit distance) between two strings. Cost of transposition is 1 instead of 2";
 
-command similarity(string1:str, string2:str, minimum:dbl) : dbl
+command similarity(string1:str, string2:str, minimum:dbl) :dbl
 address fstrcmp_impl
 comment "Normalized edit distance between two strings";
 
-command similarity(string1:str, string2:str) : dbl
+command similarity(string1:str, string2:str) :dbl
 address fstrcmp0_impl
 comment "Normalized edit distance between two strings";
 
-command soundex(name:str) : str
+command soundex(name:str) :str
 address soundex_impl
 comment "Soundex function for phonetic matching";
 
@@ -38,7 +38,7 @@ command stringdiff(s1:str, s2:str) :int
 address stringdiff_impl
 comment "calculate the soundexed editdistance";
 
-command qgramnormalize(input:str): str
+command qgramnormalize(input:str):str
 address CMDqgramnormalize
 comment "'Normalizes' strings (eg. toUpper and replaces non-alphanumerics with one space";
 
