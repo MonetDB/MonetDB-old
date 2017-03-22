@@ -97,10 +97,11 @@ optimizeMALBlock(Client cntxt, MalBlkPtr mb)
 	if ( mb->inlineProp)
         	return 0;
 
-	/* force at least once a complete type check by resetting the type check flag */
+	if (mb->errors)
+		throw(MAL, "optimizer.MALoptimizer", "Start with inconsistent MAL plan");
 
 	// strong defense line, assure that MAL plan is initially correct
-	if( mb->errors == 0){
+	if( mb->errors == 0 && mb->stop > 1){
 		resetMalBlk(mb, mb->stop);
         msg = chkTypes(cntxt->nspace, mb, FALSE);
 		if( msg) 
@@ -112,8 +113,6 @@ optimizeMALBlock(Client cntxt, MalBlkPtr mb)
 		if( msg) 
 			return msg;
 	}
-	if (mb->errors)
-		throw(MAL, "optimizer.MALoptimizer", "Start with inconsistent MAL plan");
 
 	/* Optimizers may massage the plan in such a way that a new pass is needed.
      * When no optimzer call is found, then terminate. */
@@ -172,6 +171,9 @@ MALoptimizer(Client c)
 	str msg;
 
 	if ( c->curprg->def->inlineProp)
+		return MAL_SUCCEED;
+	// only a signature statement can be skipped
+	if (c ->curprg->def->stop == 1)
 		return MAL_SUCCEED;
 	msg= optimizeMALBlock(c, c->curprg->def);
 	if( msg == MAL_SUCCEED)
@@ -621,7 +623,7 @@ int isSubJoin(InstrPtr p)
 
 int isMultiplex(InstrPtr p)
 {
-	return ((getModuleId(p) == malRef || getModuleId(p) == batmalRef) &&
+	return (malRef && (getModuleId(p) == malRef || getModuleId(p) == batmalRef) &&
 		getFunctionId(p) == multiplexRef);
 }
 
