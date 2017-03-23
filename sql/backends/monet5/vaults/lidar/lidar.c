@@ -807,7 +807,12 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int prm = 0, files_len = 0, idx;
 	str *files = NULL;
 	str filename;
-	double minimumX, maximumX, minimumY, maximumY, minimumZ, maximumZ;
+	double minimumX = 0;
+	double maximumX = 0;
+	double minimumY = 0;
+	double maximumY = 0;
+	double minimumZ = 0;
+	double maximumZ = 0;
 
 	/* Remove the trailing slash if it exists */
 	if (fname[strlen(fname) - 1] == '/')
