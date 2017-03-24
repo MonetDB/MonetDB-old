@@ -237,7 +237,7 @@ CLTTime(bat *ret)
 	for (i = 0; i < MAL_MAXCLIENTS; i++) {
 		Client c = mal_clients+i;
 		if (c->mode >= RUNCLIENT && c->user != oid_nil) {
-			BUNappend(b, &c->totaltime, FALSE);
+			BUNappend(b, &c->lastcmd, FALSE);
 		}
 	}
 	pseudo(ret,b,"client","usec");
