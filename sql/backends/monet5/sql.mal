@@ -340,7 +340,7 @@ inline function sql.subzero_or_one( b:bat[:any_1], gp:bat[:oid], gpe:bat[:oid], 
 	c1 := calc.>(m,1:lng);
 	c11 := calc.and(c01,c1);
 	ms := calc.str(m); 
-	msg := str.+("21000!zero_or_one: cardinality violation (", ms);
+	msg := str.+("21000!zero_or_one: more than one row returned by a subquery used as an expression (", ms);
 	msg1 := str.+(msg, ">1)");
 	sql.assert(c11, msg1);
 	return zero_or_one := b;
@@ -359,7 +359,7 @@ inline function sql.all( b:bat[:any_1], gp:bat[:oid], gpe:bat[:oid], no_nil:bit)
 	c1 := calc.>(m,1:lng);
 	c11 := calc.and(c01,c1);
 	ms := calc.str(m); 
-	msg := str.+("21000!zero_or_one: cardinality violation (", ms);
+	msg := str.+("21000!zero_or_one: more than one row returned by a subquery used as an expression (", ms);
 	msg1 := str.+(msg, ">1)");
 	sql.assert(c11, msg1);
 	return all := b;
