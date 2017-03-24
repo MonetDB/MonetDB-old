@@ -1830,7 +1830,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	/* Search for the requested table in the LiDAR catalog */
 	col = mvc_bind_column(m, lidar_tbl, "name");
-	rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
+	rid = table_funcs.column_find_row(m->session->tr, col, &tname, NULL);
 	if (rid == oid_nil) {
 		msg = createException(MAL, "lidar.loadtable", "Table %s has not been attached.\n", tname);
 		goto loadtable_cleanup;
