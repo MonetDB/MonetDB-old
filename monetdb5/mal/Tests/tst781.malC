@@ -1,0 +1,14 @@
+module dummy;
+
+function help(s:str, i:int):void;
+	barrier b:= i >0;
+		io.print(s);
+		i:= i -1;
+		help(s,i);
+		redo b:= i>0;
+	exit b;
+end help;
+
+dummy.help("hello",2);
+
+	
