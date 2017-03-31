@@ -1372,7 +1372,7 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, sql_table *tbl, o
 	columns = (sql_column **)malloc(param_len*sizeof(sql_column *));
 	arr = malloc(param_len*sizeof(void *));
 	if (bats == NULL || columns == NULL || arr == NULL) {
-		msg = createException(MAL, "lidar.loadtable", "Memory allocation failed.\n");
+		msg = createException(MAL, "lidar.loadtable", MAL_MALLOC_FAIL);
 		return msg;
 	}
 
@@ -1588,7 +1588,7 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, sql_table *tbl, o
 				free(arr);
 				switch(error_code) {
 				case 1:
-					msg = createException(MAL, "lidar.lidarload", "Memory allocation failed");
+					msg = createException(MAL, "lidar.lidarload", MAL_MALLOC_FAIL);
 					break;
 				case 2:
 					msg = createException(MAL, "lidar.lidarload",
