@@ -76,8 +76,8 @@ OPTcandidatesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 
     /* Defense line against incorrect plans */
 	/* plan remains unaffected */
-	//msg =chkTypes(mb, FALSE);
-	//msg = chkFlow(mb);
+	//chkTypes(mb, FALSE);
+	//chkFlow(mb);
 	//msg = chkDeclarations(mb);
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;

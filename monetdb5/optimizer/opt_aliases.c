@@ -73,9 +73,9 @@ OPTaliasesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	/* Defense line against incorrect plans */
 	/* Plan is unaffected */
-	//msg =chkTypes(cntxt->nspace, mb, FALSE);
-	//msg = chkFlow(mb);
-	//msg = chkDeclarations(mb);
+	//chkTypes(cntxt->nspace, mb, FALSE);
+	//chkFlow(mb);
+	//chkDeclarations(mb);
 	//
     /* keep all actions taken as a post block comment
 	 * and update statics */

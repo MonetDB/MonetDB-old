@@ -138,11 +138,11 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 		fprintf(stderr,"%10s eolife %3d  begin %3d lastupd %3d end %3d\n",
 			getVarName(mb,k), mb->var[k]->eolife,
 			getBeginScope(mb,k), getLastUpdate(mb,k), getEndScope(mb,k));
-		msg = chkFlow(mb);
-		if ( msg ){
-			fprintf(stderr,"%s\n",msg);
-			GDKfree(msg);
-			msg = MAL_SUCCEED;
+		chkFlow(mb);
+		if ( mb->errors != MAL_SUCCEED ){
+			fprintf(stderr,"%s\n",mb->errors);
+			GDKfree(mb->errors);
+			mb->errors = MAL_SUCCEED;
 		}
 		fprintFunction(stderr,mb, 0, LIST_MAL_ALL);
 		fprintf(stderr, "End of GCoptimizer\n");
@@ -161,11 +161,9 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 	setVariableScope(mb);
     /* Defense line against incorrect plans */
     if( actions+1 > 0){
-        msg = chkTypes(cntxt->nspace, mb, FALSE);
-		if( msg == MAL_SUCCEED)
-			msg = chkFlow(mb);
-		if( msg == MAL_SUCCEED)
-        	msg = chkDeclarations(mb);
+        chkTypes(cntxt->nspace, mb, FALSE);
+		chkFlow(mb);
+		chkDeclarations(mb);
     }
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;

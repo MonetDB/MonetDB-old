@@ -138,11 +138,9 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 	}
 #ifdef DEBUG_OPT_PROJECTIONPATH
     if( actions > 0){
-        msg = chkTypes(cntxt->nspace, mb, FALSE);
-		if( msg == MAL_SUCCEED)
-			msg = chkFlow(mb);
-		if( msg == MAL_SUCCEED)
-        	msg = chkDeclarations(mb);
+        chkTypes(cntxt->nspace, mb, FALSE);
+		chkFlow(mb);
+		chkDeclarations(mb);
     }
 	mnstr_printf(cntxt->fdout,"#projectionpath prefix actions %d\n",actions);
 	if(actions) printFunction(cntxt->fdout,mb, 0, LIST_MAL_ALL);
@@ -320,11 +318,9 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 
     /* Defense line against incorrect plans */
     if( actions > 0 && msg == MAL_SUCCEED){
-        msg = chkTypes(cntxt->nspace, mb, FALSE);
-		if( msg == MAL_SUCCEED)
-			msg = chkFlow(mb);
-		if( msg == MAL_SUCCEED)
-        	msg =chkDeclarations(mb);
+        chkTypes(cntxt->nspace, mb, FALSE);
+		chkFlow(mb);
+		chkDeclarations(mb);
     }
     /* keep all actions taken as a post block comment */
 wrapupall:

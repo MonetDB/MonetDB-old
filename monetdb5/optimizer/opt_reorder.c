@@ -116,7 +116,6 @@ OPTdependencies(Client cntxt, MalBlkPtr mb, int **Ulist)
 			var[getArg(p,j)] = i;
 	}
 	/*
-	 * @-
 	 * 	mnstr_printf(cntxt->fdout,"DEPENDENCY TABLE\n");
 	 * 	for(i=0;i<mb->stop; i++)
 	 * 		if( list[i]->cnt){
@@ -132,6 +131,11 @@ OPTdependencies(Client cntxt, MalBlkPtr mb, int **Ulist)
 		list[i]->pos = sz;
 		list[i]->pos2 = sz;
 		sz += list[i]->used;
+	}
+	if( sz == 0){
+		OPTremoveDep(list, mb->stop);
+		GDKfree(var);
+		return NULL;
 	}
 	uselist = GDKzalloc(sizeof(int)*sz);
 	if (!uselist) {
@@ -150,7 +154,6 @@ OPTdependencies(Client cntxt, MalBlkPtr mb, int **Ulist)
 		}
 	}
 	/*
-	 * @-
 	 * 	for(i=0, sz = 0; i<mb->stop; i++) {
 	 * 		mnstr_printf(cntxt->fdout,"%d is used by", i);
 	 * 		for(j=0; j<list[i]->used; j++, sz++)
@@ -339,11 +342,9 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
     /* Defense line against incorrect plans */
     if( 1){
-        msg = chkTypes(cntxt->nspace, mb, FALSE);
-		if( msg == MAL_SUCCEED)
-			msg = chkFlow(mb);
-		if( msg == MAL_SUCCEED)
-        	msg = chkDeclarations(mb);
+        chkTypes(cntxt->nspace, mb, FALSE);
+		chkFlow(mb);
+		chkDeclarations(mb);
     }
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;

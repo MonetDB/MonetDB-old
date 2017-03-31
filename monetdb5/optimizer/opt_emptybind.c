@@ -326,8 +326,7 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	}
 
 #ifdef DEBUG_OPT_EMPTYBIND
-	msg = chkTypes(cntxt->fdout, cntxt->nspace,mb,TRUE);
-	GDKfree(msg);
+	chkTypes(cntxt->fdout, cntxt->nspace,mb,TRUE);
 	fprintf(stderr, "#Optimize Query Emptybind done\n");
 	fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG);
 #endif
@@ -339,11 +338,9 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	GDKfree(empty);
 	GDKfree(updated);
     /* Defense line against incorrect plans */
-	msg = chkTypes(cntxt->nspace, mb, FALSE);
-	if( msg == MAL_SUCCEED)
-		msg = chkFlow(mb);
-	if( msg == MAL_SUCCEED)
-		msg = chkDeclarations(mb);
+	chkTypes(cntxt->nspace, mb, FALSE);
+	chkFlow(mb);
+	chkDeclarations(mb);
     /* keep all actions taken as a post block comment */
 wrapup:
 	usec = GDKusec()- usec;

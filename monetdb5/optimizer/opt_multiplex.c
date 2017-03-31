@@ -203,11 +203,9 @@ OPTmultiplexSimple(Client cntxt, MalBlkPtr mb)
 		}
 	if( doit) {
 		OPTmultiplexImplementation(cntxt, mb, 0, 0);
-		msg = chkTypes(cntxt->nspace, mb,TRUE);
-		if (msg == MAL_SUCCEED &&  mb->errors == 0) {
-			msg = chkFlow(mb);
-			chkDeclarations(mb);
-		}
+		chkTypes(cntxt->nspace, mb,TRUE);
+		chkFlow(mb);
+		chkDeclarations(mb);
 	}
 	return msg;
 }
@@ -259,11 +257,9 @@ OPTmultiplexImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 
     /* Defense line against incorrect plans */
     if( msg == MAL_SUCCEED &&  actions > 0){
-        msg = chkTypes(cntxt->nspace, mb, FALSE);
-		if( msg == MAL_SUCCEED)
-			msg= chkFlow(mb);
-		if( msg == MAL_SUCCEED)
-        	msg = chkDeclarations(mb);
+        chkTypes(cntxt->nspace, mb, FALSE);
+		chkFlow(mb);
+		chkDeclarations(mb);
     }
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;

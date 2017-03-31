@@ -365,12 +365,9 @@ ORCAMprocessor(Client cntxt, MalBlkPtr mb, Symbol t)
 			else
 				break;
 		}
-	if( msg == MAL_SUCCEED)
-		msg = chkTypes(cntxt->nspace, mb, FALSE);
-	if( msg == MAL_SUCCEED)
-		msg = chkFlow(mb);
-	if( msg == MAL_SUCCEED)
-		msg = chkDeclarations(mb);
+	chkTypes(cntxt->nspace, mb, FALSE);
+	chkFlow(mb);
+	chkDeclarations(mb);
 	return msg;
 }
 
@@ -412,7 +409,7 @@ OPTmacroImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 					// failures from the macro expansion are ignored
 					// They leave the scene as is
 					if ( msg)
-						GDKfree(msg);
+						freeException(msg);
 				}
 			}
 	}
@@ -498,11 +495,9 @@ str OPTmacro(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	}
 
     /* Defense line against incorrect plans */
-	msg = chkTypes(cntxt->nspace, mb, FALSE);
-	if( msg == MAL_SUCCEED)
-		msg = chkFlow(mb);
-	if( msg == MAL_SUCCEED)
-		msg = chkDeclarations(mb);
+	chkTypes(cntxt->nspace, mb, FALSE);
+	chkFlow(mb);
+	chkDeclarations(mb);
 	usec += GDKusec() - clk;
 	/* keep all actions taken as a post block comment */
 	snprintf(buf,256,"%-20s actions=1 time=" LLFMT " usec","macro",usec);
@@ -542,11 +537,9 @@ str OPTorcam(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 		msg= OPTorcamImplementation(cntxt,mb,stk,p);
 	if( msg) 
 		return msg;
-	msg = chkTypes(cntxt->nspace, mb, FALSE);
-	if( msg == MAL_SUCCEED)
-		msg =chkFlow(mb);
-	if( msg == MAL_SUCCEED)
-		msg = chkDeclarations(mb);
+	chkTypes(cntxt->nspace, mb, FALSE);
+	chkFlow(mb);
+	chkDeclarations(mb);
 	usec += GDKusec() - clk;
 	/* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;

@@ -312,11 +312,9 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			freeInstruction(old[i]);
     /* Defense line against incorrect plans */
     if( actions > 0 ){
-        msg = chkTypes(cntxt->nspace, mb, FALSE);
-		if( msg == MAL_SUCCEED)
-			msg = chkFlow(mb);
-		if( msg == MAL_SUCCEED)
-        	msg = chkDeclarations(mb);
+        chkTypes(cntxt->nspace, mb, FALSE);
+		chkFlow(mb);
+		chkDeclarations(mb);
     }
 #ifdef DEBUG_OPT_DATAFLOW
 		fprintf(stderr,"#dataflow output %s\n", mb->errors?"ERROR":"");

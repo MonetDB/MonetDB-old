@@ -459,14 +459,12 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 
 	if (doit) 
-		msg = chkTypes(cntxt->nspace,mb,TRUE);
+		chkTypes(cntxt->nspace,mb,TRUE);
     /* Defense line against incorrect plans */
-    if( msg == MAL_SUCCEED && doit > 0){
-        msg = chkTypes(cntxt->nspace, mb, FALSE);
-		if ( msg == MAL_SUCCEED)
-			msg = chkFlow(mb);
-		if ( msg == MAL_SUCCEED)
-        	msg =chkDeclarations(mb);
+    if( mb->errors == MAL_SUCCEED && doit > 0){
+        chkTypes(cntxt->nspace, mb, FALSE);
+		chkFlow(mb);
+		chkDeclarations(mb);
     }
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;

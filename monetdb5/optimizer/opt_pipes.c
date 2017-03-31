@@ -26,6 +26,8 @@
 #include "mal_listing.h"
 #include "mal_linker.h"
 
+/*#define _DEBUG_OPT_PIPES_*/
+
 #define MAXOPTPIPES 64
 
 static struct PIPELINES {
@@ -419,58 +421,31 @@ str
 compileOptimizer(Client cntxt, str name)
 {
 	int i, j;
-	Symbol sym;
 	str msg = MAL_SUCCEED;
-	ClientRec c;
 
-	memset((char*)&c, 0, sizeof(c));
 	MT_lock_set(&pipeLock);
-	for (i = 0; i < MAXOPTPIPES && pipes[i].name; i++) {
+	for (i = 0; i < MAXOPTPIPES && pipes[i].name; i++) 
 		if (strcmp(pipes[i].name, name) == 0 && pipes[i].mb == 0) {
-			/* precompile the pipeline as MAL string */
-			MCinitClientRecord(&c, cntxt->user, 0, 0);
-			c.nspace = newModule(NULL, putName("user"));
-			c.father = cntxt;	/* to avoid conflicts on GDKin */
-			c.fdout = cntxt->fdout;
-			if (setScenario(&c, "mal")) {
-				MT_lock_unset(&pipeLock);
-				throw(MAL, "optimizer.addOptimizerPipe", "failed to set scenario");
-			}
-			if( MCinitClientThread(&c) < 0){
-				MT_lock_unset(&pipeLock);
-				throw(MAL, "optimizer.addOptimizerPipe", "failed to create client thread");
-			}
 			for (j = 0; j < MAXOPTPIPES && pipes[j].def; j++) {
 				if (pipes[j].mb == NULL) {
-					if (pipes[j].prerequisite && getAddress(c.fdout, NULL, pipes[j].prerequisite, TRUE) == NULL)
+					if (pipes[j].prerequisite && getAddress(cntxt->fdout, NULL, pipes[j].prerequisite, TRUE) == NULL)
 						continue;
-					MSinitClientPrg(&c, "user", pipes[j].name);
-					msg = compileString(&sym, &c, pipes[j].def);
+					msg = compileString(cntxt, pipes[j].def);
 					if (msg != MAL_SUCCEED) 
 						break;
-					pipes[j].mb = copyMalBlk(sym->def);
+					pipes[j].mb = copyMalBlk(cntxt->curprg->def);
+					// strip the function signature and end  one
+#ifdef _DEBUG_OPT_PIPES_
+					fprintf(stderr,"Optimizer plan\n");
+					fprintFunction(stderr, pipes[j].mb, 0, LIST_MAL_ALL);
+#endif
+					msg = validateOptimizerPipes();
+					if(msg)
+						goto wrapup;
 				}
 			}
-			/* don't cleanup thread info since the thread continues to
-			 * exist, just this client record is closed */
-			c.errbuf = NULL;
-			/* we must clear c.mythread because we're reusing a Thread
-			 * and must not delete that one */
-			c.mythread = 0;
-			/* destroy bstream using free */
-			free(c.fdin->buf);
-			free(c.fdin);
-			/* remove garbage from previous connection */
-			if (c.nspace) {
-				freeModule(c.nspace);
-				c.nspace = 0;
-			}
-			MCcloseClient(&c);
-			if (msg != MAL_SUCCEED ||
-				(msg = validateOptimizerPipes()) != MAL_SUCCEED)
-				break;
 		}
-	}
+wrapup:
 	MT_lock_unset(&pipeLock);
 	return msg;
 }

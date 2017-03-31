@@ -107,9 +107,9 @@ OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
     /* Defense line against incorrect plans */
 	/* we don't create or change existing structures */
     if( actions > 0 ){
-        //msg =chkTypes(cntxt->nspace, mb, FALSE);
-        msg = chkFlow(mb);
-        //msg = chkDeclarations(mb);
+        //chkTypes(cntxt->nspace, mb, FALSE);
+        chkFlow(mb);
+        //chkDeclarations(mb);
     }
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;

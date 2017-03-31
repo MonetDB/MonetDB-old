@@ -108,10 +108,8 @@ OPTremoveUnusedBlocks(Client cntxt, MalBlkPtr mb)
 		for (; j < i; j++)
 			mb->stmt[j] = NULL;
 	}
-	if (action) {
-		msg = chkTypes(cntxt->nspace, mb, TRUE);
-		return msg;
-	}
+	if (action) 
+		chkTypes(cntxt->nspace, mb, TRUE);
 	return msg;
 }
 
@@ -245,9 +243,9 @@ OPTevaluateImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 
     /* Defense line against incorrect plans */
 	/* Plan is unaffected */
-	// msg = chkTypes(cntxt->nspace, mb, FALSE);
-	// msg = chkFlow(mb);
-	// msg = chkDeclarations(mb);
+	// chkTypes(cntxt->nspace, mb, FALSE);
+	// chkFlow(mb);
+	// chkDeclarations(mb);
     
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;

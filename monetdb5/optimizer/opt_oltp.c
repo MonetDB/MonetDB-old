@@ -125,9 +125,9 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	GDKfree(old);
 
     /* Defense line against incorrect plans */
-	msg = chkTypes(cntxt->nspace, mb, FALSE);
-	//msg = chkFlow(mb);
-	//msg = chkDeclarations(mb);
+	chkTypes(cntxt->nspace, mb, FALSE);
+	//chkFlow(mb);
+	//chkDeclarations(mb);
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;
     snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","oltp",actions, usec);
