@@ -819,7 +819,6 @@ retryRead:
 		case 'L':
 		case 'l':   /* list the current MAL block or module */
 		{
-			Module fsym;
 			Symbol fs;
 			int i, lstng, varid;
 			InstrPtr q;
@@ -834,7 +833,7 @@ retryRead:
 				if (m && strchr(b, '*')) {
 					/* detect l user.fcn[*] */
 					for (m = mb; m != NULL; m = m->history)
-						printFunction(out, m, 0, lstng);
+						debugFunction(out, m, 0, lstng, 0,m->stop);
 				} else if (m == NULL && !strchr(b, '.') && !strchr(b, '[') && !isdigit((int) *b) && *b != '-' && *b != '+') {
 					/* is this a variable ? */
 					varid = findVariable(mb, b);
@@ -852,23 +851,27 @@ retryRead:
 						}
 						continue;
 					}
-					/* optionally dump the complete module */
-					fsym = findModule(cntxt->nspace, putName(b));
-					if (fsym == 0) {
-						mnstr_printf(out, "#'%s' not found\n", b);
-						continue;
-					}
-					for (i = 0; i < MAXSCOPE; i++) {
-						fs = fsym->space[i];
-						while (fs != NULL) {
-							printFunction(out, fs->def, 0, lstng);
-							fs = fs->peer;
-						}
-					}
-					continue;
 				} 
 				if (isdigit((int) *b) || *b == '-' || *b == '+')
 					goto partial;
+
+				if( strchr(b,'.') ){
+					str modnme = b;
+					str fcnnme;
+					fcnnme = strchr(b,'.');
+					*fcnnme++  = 0;
+
+					fs = findSymbol(cntxt->nspace, putName(modnme),putName(fcnnme));
+					if (fs == 0) {
+						mnstr_printf(out, "#'%s' not found\n", modnme);
+						continue;
+					}
+					for(; fs; fs = fs->peer)
+					if( strcmp(fcnnme, fs->name)==0) {
+						debugFunction(out, fs->def, 0, lstng, 0,fs->def->stop);
+					}
+					continue;
+				}
 				if (m)
 					debugFunction(out, m, 0, lstng, 0,m->stop);
 			} else {
