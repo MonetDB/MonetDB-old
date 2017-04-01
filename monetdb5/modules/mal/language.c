@@ -115,8 +115,7 @@ CMDcallString(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	s = getArgReference_str(stk, pci, 1);
 	if (strlen(*s) == 0)
 		return MAL_SUCCEED;
-	callString(cntxt, *s, FALSE);
-	return MAL_SUCCEED;
+	return callString(cntxt, *s);
 }
 
 str
@@ -131,8 +130,7 @@ CMDcallFunction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return MAL_SUCCEED;
 	// lazy implementation of the call
 	snprintf(buf,BUFSIZ,"%s.%s();",mod,fcn);
-	callString(cntxt, buf, FALSE);
-	return MAL_SUCCEED;
+	return callString(cntxt, buf);
 }
 
 str
@@ -174,63 +172,54 @@ MALpass( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str 
 CMDregisterFunction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	Symbol sym= NULL;
 	str *mod = getArgReference_str(stk,pci,1);
 	str *fcn = getArgReference_str(stk,pci,2);
 	str *code = getArgReference_str(stk,pci,3);
 	str *help = getArgReference_str(stk,pci,4);
 	InstrPtr sig;
 	str msg;
+	Symbol sym;
 
-	msg= compileString(&sym, cntxt,*code);
-	if( sym) {
-		mnstr_printf(cntxt->fdout,"#register FUNCTION %s.%s\n",
-			getModuleId(sym->def->stmt[0]), getFunctionId(sym->def->stmt[0]));
-		mb= sym->def;
-		if( help)
-			mb->help= GDKstrdup(*help);
-		sig= getSignature(sym);
-		sym->name= putName(*fcn);
-		setModuleId(sig, putName(*mod));
-		setFunctionId(sig, sym->name);
-		insertSymbol(findModule(cntxt->nspace, getModuleId(sig)), sym);
-	}
+	(void) mb;
+	msg= compileString(cntxt,*code);
+	mnstr_printf(cntxt->fdout,"#register FUNCTION %s.%s\n",
+		getModuleId(cntxt->curprg->def->stmt[0]), getFunctionId(cntxt->curprg->def->stmt[0]));
+	if( help)
+		cntxt->curprg->def->help= GDKstrdup(*help);
+	sym = newSymbol(putName(*fcn), 0);
+	sym->def = copyMalBlk(cntxt->curprg->def);
+	sig= getSignature(sym);
+	sym->name= putName(*fcn);
+	setModuleId(sig, putName(*mod));
+	setFunctionId(sig, sym->name);
+	insertSymbol(findModule(cntxt->nspace, getModuleId(sig)), sym);
 	return msg;
 }
+
 str
-CMDevalFile(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+CMDsourceFile(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str s = *getArgReference_str(stk,pci,1);
 	char *msg = NULL;
+	size_t l;
+
 	(void) mb;
 
 	if (s == 0) 
-		throw(MAL, "mal.evalFile", RUNTIME_FILE_NOT_FOUND "missing file name");
+		throw(MAL, "language.source", RUNTIME_FILE_NOT_FOUND "missing file name");
 
-	if (*s != '/') {
+	if (*s != DIR_SEP) {
 		char *buf = GDKmalloc(strlen(monet_cwd) + strlen(s) + 2);
 		if ( buf == NULL)
-			throw(MAL,"language.eval", MAL_MALLOC_FAIL);
+			throw(MAL,"language.source", MAL_MALLOC_FAIL);
 
 		strcpy(buf, monet_cwd);
-		strcat(buf, "/");
+		buf[ l =strlen(buf)] = DIR_SEP;
+		buf[ l+1] = 0;
 		strcat(buf, s);
-		msg = evalFile(cntxt, buf, 0);
+		msg = evalFile(cntxt, buf, 0, 0);
 		GDKfree(buf);
 	} else 
-		msg = evalFile(cntxt, s, 0);
+		msg = evalFile(cntxt, s, 0, 0);
 	return msg;
-}
-/*
- * Calling a BAT is simply translated into a concatenation of
- * all the unquoted strings and then passing it to the callEval.
- */
-str
-CMDcallBAT(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	(void) cntxt;
-	(void) mb;
-	(void) stk;
-	(void) pci;		/* fool compiler */
-	throw(MAL, "mal.call", PROGRAM_NYI);
 }

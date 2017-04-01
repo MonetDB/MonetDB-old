@@ -15,7 +15,7 @@ function aggr.covar(e1:bat[:hge], e2:bat[:hge]):hge;
 	v3:hge := calc./(v2,n);
 	v1:hge := calc.-(s0,v3);
 	v:hge := calc./(v1,n);
-	return v;
+	return covar:= v;
 end aggr.covar;
 
 function aggr.corr(e1:bat[:hge], e2:bat[:hge]):hge;
@@ -25,7 +25,7 @@ function aggr.corr(e1:bat[:hge], e2:bat[:hge]):hge;
 	sd := calc.*(sd1,sd2);
 	r := calc./(cv,sd);
 	res := calc.hge(r);
-	return res;
+	return corr:= res;
 end aggr.corr;
 
 function aggr.subcovar(e1:bat[:hge], e2:bat[:hge], g:bat[:oid], e:bat[:any_2], f:bit):bat[:hge];
@@ -39,7 +39,7 @@ function aggr.subcovar(e1:bat[:hge], e2:bat[:hge], g:bat[:oid], e:bat[:any_2], f
 	v3:bat[:hge] := batcalc./(v2,n);
 	v1:bat[:hge] := batcalc.-(s0,v3);
 	v:bat[:hge] := batcalc./(v1,n);
-	return v;
+	return covar:=v;
 end aggr.subcovar;
 
 function aggr.subcorr(e1:bat[:hge], e2:bat[:hge], g:bat[:oid],e:bat[:any_2], f:bit):bat[:hge];
@@ -51,5 +51,5 @@ function aggr.subcorr(e1:bat[:hge], e2:bat[:hge], g:bat[:oid],e:bat[:any_2], f:b
 	sds := batcalc.ifthenelse(sdn,1:dbl,sd);
 	r := batcalc./(cv,sds);
 	res := batcalc.hge(r);
-	return res;
+	return subcorr:= res;
 end aggr.subcorr;

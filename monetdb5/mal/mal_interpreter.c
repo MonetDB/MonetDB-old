@@ -636,8 +636,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			break;
 		case PATcall:
 			if (pci->fcn == NULL) {
-				ret = createScriptException(mb, stkpc, MAL, NULL,
-					"address of pattern %s.%s missing", pci->modname, pci->fcnname);
+				ret = createMalException(mb, stkpc, MAL, "address of pattern %s.%s missing", pci->modname, pci->fcnname);
 			} else {
 				ret = (*pci->fcn)(cntxt, mb, stk, pci);
 #ifndef NDEBUG
@@ -695,7 +694,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			 * counting.
 			 */
 			if (pci->blk == NULL)
-				ret = createScriptException(mb, stkpc, MAL, NULL,
+				ret = createMalException(mb, stkpc, MAL, 
 					"reference to MAL function missing");
 			else {
 				/* show call before entering the factory */
@@ -785,7 +784,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 				break;
 			}
 			w= instruction2str(mb, 0, pci, FALSE);
-			ret = createScriptException(mb, stkpc, MAL, NULL, "unkown operation:%s",w);
+			ret = createMalException(mb, stkpc, MAL, "unkown operation:%s",w);
 			GDKfree(w);
 			if (cntxt->qtimeout && GDKusec()- mb->starttime > cntxt->qtimeout){
 				ret= createException(MAL, "mal.interpreter", RUNTIME_QRY_TIMEOUT);
@@ -1012,7 +1011,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 					stkpc = pci->jump;
 				break;
 			default:
-				ret = createScriptException(mb, stkpc, MAL, NULL,
+				ret = createMalException(mb, stkpc, MAL, 
 					"%s: Unknown barrier type",
 					getVarName(mb, getDestVar(pci)));
 			}
@@ -1109,7 +1108,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			freeException(ret);
 			ret = NULL;
 			if (getVarType(mb, getDestVar(pci)) == TYPE_str) {
-				ret = createScriptException(mb, stkpc, MAL, NULL,
+				ret = createMalException(mb, stkpc, MAL, 
 					"%s", stk->stk[getDestVar(pci)].val.sval);
 			}
 			/* skipToCatch(exceptionVar, @2, stk) */
@@ -1141,9 +1140,6 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 				runtimeProfileExit(cntxt, mb, stk, getInstrPtr(mb,0), &runtimeProfileFunction);
 				break;
 			}
-			if (stkpc == mb->stop)
-				ret = createScriptException(mb, stkpc, MAL, ret,
-					"Exception raised");
 			break;
 		case YIELDsymbol:     /* to be defined */
 			if( startedProfileQueue)
@@ -1192,17 +1188,16 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 	if (exceptionVar >= 0) {
 		str oldret = ret;
 		if (ret) {
-			ret = createScriptException(mb, mb->stop - 1,
+			ret = createMalException(mb, mb->stop - 1,
 				getExceptionType(getVarName(mb, exceptionVar)),
 				ret, "Exception not caught");
 		} else {
 			if (stk->stk[exceptionVar].vtype == TYPE_str) {
-				ret = createScriptException(mb, mb->stop - 1, MAL,
+				ret = createMalException(mb, mb->stop - 1, MAL,
 					stk->stk[exceptionVar].val.sval,
 					"Exception not caught");
 			} else {
-				ret = createScriptException(mb, mb->stop - 1, MAL,
-					NULL, "Exception not caught");
+				ret = createMalException(mb, mb->stop - 1, MAL, "Exception not caught");
 			}
 		}
 		freeException(oldret);

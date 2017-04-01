@@ -123,8 +123,11 @@ runFactory(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr stk, InstrP
 		if( lhs->vtype == TYPE_bat )
 			BBPretain(lhs->val.bval);
 	}
-	if (mb->errors)
-		throw(MAL, "factory.call", PROGRAM_GENERAL);
+	if (mb->errors){
+		msg = mb->errors;
+		mb->errors = 0;
+		return msg;
+	}
 	if (firstcall ){
 		/* initialize the stack */
 		for(i= psig->argc; i< mb->vtop; i++) {

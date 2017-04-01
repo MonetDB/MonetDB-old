@@ -117,8 +117,8 @@ static str findName(const char *nme, size_t len, int allocate)
 	if (namespace == NULL || namespace->count == 4096) {
 		struct namespace *ns = GDKmalloc(sizeof(struct namespace));
 		if (ns == NULL) {
-			/* error we cannot recover from */
-			showException(GDKout, MAL, "findName", MAL_MALLOC_FAIL);
+			/* an error we cannot recover from */
+			fprintf(stderr,"#findName:"  MAL_MALLOC_FAIL);
 			mal_exit();
 		}
 		ns->next = namespace;

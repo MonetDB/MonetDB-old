@@ -43,7 +43,7 @@ enum clientmode {
 typedef struct CLIENT_INPUT {
 	bstream             *fdin;
 	int                 yycur;		
-	int                 listing;
+	int					listing;
 	char                *prompt;
 	struct CLIENT_INPUT *next;    
 } ClientInput;
@@ -93,6 +93,10 @@ typedef struct CLIENT {
 	str       srcFile;  /* NULL for stdin, or file name */
 	bstream  *fdin;
 	int       yycur;    /* the scanners current position */
+	str		  line;
+	size_t	  linefill;
+	size_t	  linesize;
+	str		  lineptr;
 	/*
 	 * Keeping track of instructions executed is a valuable tool for
 	 * script processing and debugging.  It can be changed at runtime
@@ -142,9 +146,8 @@ typedef struct CLIENT {
 	 * object space (the global variables).  Moreover, the parser needs
 	 * some administration variables to keep track of critical elements.
 	 */
-	Module      nspace;     /* private scope resolution list */
-	Symbol      curprg;     /* focus of parser */
-	Symbol      backup;     /* save parsing context */
+	Module      nspace;     /* private user scope */
+	Symbol      curprg;     /* container for the malparser */
 	MalStkPtr   glb;        /* global variable stack */
 	/*
 	 * Some statistics on client behavior becomes relevant for server
@@ -153,7 +156,6 @@ typedef struct CLIENT {
 	 * we have to wait for the next one.
 	 */
 	int		actions;
-	lng		totaltime;	/* sum of elapsed processing times */
 
 	jmp_buf	exception_buf;
 	int exception_buf_initialized;

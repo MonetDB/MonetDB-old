@@ -294,11 +294,10 @@ str OPTsql_append(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	actions= OPTsql_appendImplementation(cntxt, mb,stk,p);
 
     /* Defense line against incorrect plans */
-	msg = chkTypes(cntxt->nspace, mb, FALSE);
-	if( msg == MAL_SUCCEED)
-		msg = chkFlow(mb);
-	if( msg == MAL_SUCCEED)
-		msg = chkDeclarations(mb);
+	chkTypes(cntxt->nspace, mb, FALSE);
+	chkFlow(mb);
+	chkDeclarations(mb);
+	/* the mb->errors will be set to the first error encountered */
 #ifdef DEBUG_OPT_OPTIMIZERS
 	fprintf(stderr,"=FINISHED sql_append %d\n",actions);
 	fprintFunction(stderr,mb,0,LIST_MAL_ALL );

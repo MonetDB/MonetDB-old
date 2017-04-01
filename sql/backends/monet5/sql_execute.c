@@ -73,7 +73,6 @@ SQLsetTrace(Client cntxt, MalBlkPtr mb)
 	InstrPtr q, resultset;
 	InstrPtr tbls, cols, types, clen, scale;
 	int k;
-	str msg;
 
 	startTrace("sql_traces");
 	clearTrace();
@@ -177,10 +176,7 @@ SQLsetTrace(Client cntxt, MalBlkPtr mb)
 
 	pushInstruction(mb,resultset);
 	pushEndInstruction(mb);
-	msg = chkTypes(cntxt->nspace, mb, TRUE);
-	// FIXIT return as proper error
-	if(msg)
-		GDKfree(msg);
+	chkTypes(cntxt->nspace, mb, TRUE);
 }
 
 /*

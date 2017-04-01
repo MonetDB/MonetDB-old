@@ -1,0 +1,7 @@
+# ChangeLog file for monetdb5
+# This file is updated with Maddlog
+
+* Sat Mar 25 2017 Martin Kersten <mk@cwi.nl>
+- The MAL block is used as a temporary container for a single exception
+produced deeply in the stack. Mostly it collects syntax/semantic errors.
+

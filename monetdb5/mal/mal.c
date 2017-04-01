@@ -90,10 +90,12 @@ int mal_init(void){
 	MT_lock_init( &mal_oltpLock, "mal_beatLock");
 #endif
 
+/* Any error encountered here terminates the process
+ * with a message sent to stderr
+ */
 	tstAligned();
 	MCinit();
-	if (mdbInit()) 
-		return -1;
+	mdbInit();
 	monet_memory = MT_npages() * MT_pagesize();
 	initNamespace();
 	initParser();
@@ -101,9 +103,7 @@ int mal_init(void){
 	initHeartbeat();
 #endif
 	initResource();
-	if( malBootstrap() == 0)
-		return -1;
-	/* set up the profiler if needed, output sent to console */
+	malBootstrap();
 	initProfiler();
 	return 0;
 }

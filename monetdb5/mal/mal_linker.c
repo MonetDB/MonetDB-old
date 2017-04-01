@@ -66,9 +66,9 @@ getAddress(stream *out, str modname, str fcnname, int silent)
 	void *dl;
 	MALfcn adr;
 	static int idx=0;
-
 	static int prev= -1;
 
+	(void) out;
 	/* First try the last module loaded */
 	if( prev >= 0){
 		adr = (MALfcn) dlsym(filesLoaded[prev].handle, fcnname);
@@ -102,8 +102,7 @@ getAddress(stream *out, str modname, str fcnname, int silent)
 	if (dl == NULL) {
 		/* shouldn't happen, really */
 		if (!silent)
-			showException(out, MAL, "MAL.getAddress",
-						  "address of '%s.%s' not found",
+			fprintf(stderr, "#MAL.getAddress address of '%s.%s' not found",
 						  (modname?modname:"<unknown>"), fcnname);
 		return NULL;
 	}
@@ -117,7 +116,7 @@ getAddress(stream *out, str modname, str fcnname, int silent)
 		return adr; /* found it */
 
 	if (!silent)
-		showException(out, MAL,"MAL.getAddress", "address of '%s.%s' not found",
+		fprintf(stderr, "#MAL.getAddress address of '%s.%s' not found",
 			(modname?modname:"<unknown>"), fcnname);
 	return NULL;
 }
@@ -233,7 +232,7 @@ loadLibrary(str filename, int flag)
 	if (lastfile == maxfiles) {
 		if (handle)
 			dlclose(handle);
-		showException(GDKout, MAL,"loadModule", "internal error, too many modules loaded");
+		fprintf(stderr, "#loadModule internal error, too many modules loaded");
 	} else {
 		filesLoaded[lastfile].modname = GDKstrdup(filename);
 		filesLoaded[lastfile].fullname = GDKstrdup(handle ? nme : "");
@@ -284,8 +283,6 @@ cmpstr(const void *_p1, const void *_p2)
 	return strcmp(f1?f1:p1, f2?f2:p2);
 }
 
-
-#define MAXMULTISCRIPT 48
 char *
 locate_file(const char *basename, const char *ext, bit recurse)
 {

@@ -26,10 +26,29 @@
  *
  * All modules are persistent during a server session
  */
+/* #define _DEBUG_MODULE_*/
+
 #define MODULE_HASH_SIZE 1024
 Module moduleIndex[MODULE_HASH_SIZE] = { NULL };
 
+void
+dumpModules(stream *out)
+{
+	int i;
+	Module s;
+	for( i = 0; i< MODULE_HASH_SIZE; i++){
+		s = moduleIndex[i];
+		while(s){
+			mnstr_printf(out,"[%d] %s\n", i, s->name);
+			s= s->link;
+		}
+	}
+}
+
 static void newModuleSpace(Module scope){
+#ifdef _DEBUG_MODULE_
+	fprintf(stderr,"#Add jump table to scope %s\n", scope->name);
+#endif
 	scope->space = (Symbol *) GDKzalloc(MAXSCOPE * sizeof(Symbol));
 	if( scope->space == 0)
 		GDKerror("newModuleSpace:"MAL_MALLOC_FAIL);
@@ -39,14 +58,15 @@ void
 mal_module_reset(void)
 {
 	int i;
+#ifdef _DEBUG_MODULE_
+	fprintf(stderr,"#et the globale module structure \n");
+#endif
 	for(i = 0; i < MODULE_HASH_SIZE; i++) {
-		Module m = moduleIndex[i];
-		while(m) {
-			Module next = m->link;
-			freeModule(m);
-			m = next;
+		while(moduleIndex[i]) {
+			Module next = moduleIndex[i]->link;
+			freeModule(moduleIndex[i]);
+			moduleIndex[i] = next;
 		}
-		moduleIndex[i] = NULL;
 	}
 }
 
@@ -132,6 +152,9 @@ void freeModuleList(Module* list) {
 Module newModule(Module scope, str nme){
 	Module cur;
 
+#ifdef _DEBUG_MODULE_
+	fprintf(stderr,"#create new module %s\n",nme);
+#endif
 	nme = putName(nme);
 	assert(nme != NULL);
 	cur = (Module) GDKzalloc(sizeof(ModuleRecord));
@@ -159,6 +182,10 @@ Module newModule(Module scope, str nme){
 Module fixModule(Module scope, str nme) {
 	Module m;
 
+	assert(scope);
+#ifdef _DEBUG_MODULE_
+	fprintf(stderr,"#fixModule \n");
+#endif
 	if(strcmp(nme, "user") == 0)
 		return scope;
 
@@ -174,13 +201,18 @@ Module fixModule(Module scope, str nme) {
 static void freeSubScope(Module scope)
 {
 	int i;
+	Symbol s;
 
 	if (scope->space == NULL) 
 		return;
+#ifdef _DEBUG_MODULE_
+	fprintf(stderr,"#freeSubScope %s \n", scope->name);
+#endif
 	for(i = 0; i < MAXSCOPE; i++) {
 		if( scope->space[i]){
-			freeSymbolList(scope->space[i]);
+			s= scope->space[i];
 			scope->space[i] = NULL;
+			freeSymbolList(s);
 		}
 	}
 	GDKfree(scope->space);
@@ -203,6 +235,9 @@ void freeModule(Module m)
 			(void)ret;
 		}
 	}
+#ifdef _DEBUG_MODULE_
+	fprintf(stderr,"#freeModue %s \n", m->name);
+#endif
 	freeSubScope(m);	
 	if (strcmp(m->name, "user")) {
 		clrModuleIndex(m);
@@ -223,13 +258,20 @@ void insertSymbol(Module scope, Symbol prg){
 	int t;
 	Module c;
 
+	assert(scope);
 	sig = getSignature(prg);
+#ifdef _DEBUG_MODULE_
+	fprintf(stderr,"#insertSymbol: %s.%s in %s ", getModuleId(sig), getFunctionId(sig), scope->name);
+#endif
 	if(getModuleId(sig) && getModuleId(sig)!= scope->name){
 		/* move the definition to the proper place */
 		/* default scope is the last resort */
 		c= findModule(scope,getModuleId(sig));
 		if ( c )
 			scope = c;
+#ifdef _DEBUG_MODULE_
+	fprintf(stderr," found alternative module %s ", scope->name);
+#endif
 	}
 	t = getSymbolIndex(getFunctionId(sig));
 	if( scope->space == NULL) {
@@ -240,6 +282,9 @@ void insertSymbol(Module scope, Symbol prg){
 	assert(scope->space);
 	if (scope->space[t] == prg){
 		/* already known, last inserted */
+#ifdef _DEBUG_MODULE_
+	fprintf(stderr," unexpected double insert  ");
+#endif
 	} else {
 		prg->peer= scope->space[t];
 		scope->space[t] = prg;
@@ -250,6 +295,9 @@ void insertSymbol(Module scope, Symbol prg){
 			prg->skip = prg->peer;
 	}
 	assert(prg != prg->peer);
+#ifdef _DEBUG_MODULE_
+	fprintf(stderr,"\n");
+#endif
 }
 /*
  * Removal of elements from the symbol table should be
@@ -263,6 +311,9 @@ void deleteSymbol(Module scope, Symbol prg){
 	int t;
 
 	sig = getSignature(prg);
+#ifdef _DEBUG_MODULE_
+	fprintf(stderr,"#delete symbol %s.%s from %s\n", getModuleId(sig), getFunctionId(sig), prg->name);
+#endif
 	if (getModuleId(sig) && getModuleId(sig)!= scope->name ){
 		/* move the definition to the proper place */
 		/* default scope is the last resort */
@@ -301,6 +352,9 @@ Module findModule(Module scope, str name){
 	Module m;
 	if (name == NULL) return scope;
 
+#ifdef _DEBUG_MODULE_
+	fprintf(stderr,"Locate module %s in scope %s\n", name,scope->name);
+#endif
 	m = getModule(name);
 	if (m) return m;
 
@@ -329,6 +383,9 @@ int isModuleDefined(Module scope, str name){
 Symbol findSymbolInModule(Module v, str fcn) {
 	Symbol s;
 	if (v == NULL || fcn == NULL) return NULL;
+#ifdef _DEBUG_MODULE_
+	fprintf(stderr,"#find symbol %s in %s\n", fcn, v->name);
+#endif
 	s = v->space[(int)(*fcn)];
 	while (s != NULL) {
 		if (idcmp(s->name,fcn)==0) return s;

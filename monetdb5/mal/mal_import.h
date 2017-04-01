@@ -15,7 +15,7 @@
 #include "mal_utils.h"
 
 mal_export void slash_2_dir_sep(str fname);
-mal_export str evalFile(Client c, str fname, int listing);
-mal_export str compileString(Symbol *fcn, Client c, str s);
-mal_export int callString(Client c, str s, int listing);
+mal_export str evalFile(Client c, str fname, int listing, int included);
+mal_export str compileString(Client c, str s);
+mal_export str callString(Client c, str s);
 #endif /*  _MAL_IMPORT_H */

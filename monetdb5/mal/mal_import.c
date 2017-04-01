@@ -26,11 +26,14 @@
 
 #include "monetdb_config.h"
 #include "mal_import.h"
+#include "mal_builder.h"
 #include "mal_interpreter.h"	/* for showErrors() */
 #include "mal_linker.h"		/* for loadModuleLibrary() */
 #include "mal_parser.h"
 #include "mal_private.h"
+#include "mal_exception.h"
 
+/* #define _DEBUG_IMPORT_*/
 void
 slash_2_dir_sep(str fname)
 {
@@ -69,37 +72,6 @@ malOpenSource(str file)
 	return fd;
 }
 
-#ifndef HAVE_EMBEDDED
-/*
- * The malLoadScript routine merely reads the contents of a file into
- * the input buffer of the client. It is typically used in situations
- * where an intermediate file is used to pass commands around.
- * Since the parser needs access to the complete block, we first have
- * to find out how long the input is.
-*/
-static str
-malLoadScript(Client c, str name, bstream **fdin)
-{
-	stream *fd;
-	size_t sz;
-
-	fd = malOpenSource(name);
-	if (fd == 0 || mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
-		mnstr_destroy(fd);
-		throw(MAL, "malInclude", "could not open file: %s", name);
-	}
-	sz = getFileSize(fd);
-	if (sz > (size_t) 1 << 29) {
-		mnstr_destroy(fd);
-		throw(MAL, "malInclude", "file %s too large to process", name);
-	}
-	*fdin = bstream_create(fd, sz == 0 ? (size_t) (2 * 128 * BLOCK) : sz);
-	if (bstream_next(*fdin) < 0)
-		mnstr_printf(c->fdout, "!WARNING: could not read %s\n", name);
-	return MAL_SUCCEED;
-}
-#endif
-
 /*
  * Beware that we have to isolate the execution of the source file
  * in its own environment. E.g. we have to remove the execution
@@ -108,219 +80,79 @@ malLoadScript(Client c, str name, bstream **fdin)
  * brackets as indicated by blkmode.
  * It should be reset before continuing.
 */
-#define restoreState \
-	bstream *oldfdin = c->fdin; \
-	int oldyycur = c->yycur; \
-	int oldlisting = c->listing; \
-	enum clientmode oldmode = c->mode; \
-	int oldblkmode = c->blkmode; \
-	str oldsrcFile = c->srcFile; \
-	ClientInput *oldbak = c->bak; \
-	str oldprompt = c->prompt; \
-	Module oldnspace = c->nspace; \
-	Symbol oldprg = c->curprg; \
-	MalStkPtr oldglb = c->glb	/* ; added by caller */
-#define restoreState3 \
-	enum clientmode oldmode = c->mode; \
-	int oldblkmode = c->blkmode; \
-	str oldsrcFile = c->srcFile; \
-	Module oldnspace = c->nspace; \
-	Symbol oldprg = c->curprg; \
-	MalStkPtr oldglb = c->glb	/* ; added by caller */
-
-#define restoreClient1 \
-	if (c->fdin)  \
-		bstream_destroy(c->fdin); \
-	c->fdin = oldfdin;  \
-	c->yycur = oldyycur;  \
-	c->listing = oldlisting; \
-	c->mode = oldmode; \
-	c->blkmode = oldblkmode; \
-	c->bak = oldbak; \
-	c->srcFile = oldsrcFile; \
-	if(c->prompt) GDKfree(c->prompt); \
-	c->prompt = oldprompt; \
-	c->promptlength= (int)strlen(c->prompt);
-#define restoreClient2 \
-	assert(c->glb == 0 || c->glb == oldglb); /* detect leak */ \
-	c->glb = oldglb; \
-	c->nspace = oldnspace; \
-	c->curprg = oldprg;
-#define restoreClient \
-	restoreClient1 \
-	restoreClient2
-#define restoreClient3 \
-	if (c->fdin && c->bak)  \
-		MCpopClientInput(c); \
-	c->mode = oldmode; \
-	c->blkmode = oldblkmode; \
-	c->srcFile = oldsrcFile;
-
 
 #ifdef HAVE_EMBEDDED
 extern char* mal_init_inline;
 #endif
+
+/*File and input processing
+ * A recurring situation is to execute a stream of simple MAL instructions
+ * stored on a file or comes from standard input. 
+ * It is either executed in the context of the caller or a separate client record.
+ * An Include operation simply pushes the input stream on the LIFO queue.
+ */
+str
+evalFile(Client cntxt, str fname, int listing, int included)
+{
+	Client c;
+	stream *fd;
+	str p, filename;
+	str files[MAXMULTISCRIPT];
+	int cnt, i;
+	str msg = MAL_SUCCEED;
+
+	fname = malResolveFile(fname);
+	if (fname == NULL) 
+		throw(MAL,"mal.import", "#WARNING: could not open file: %s\n", fname);
+
+	// load each individual file in the list
+	// we should follow the sort order
+	files[0] = filename = fname;
+	cnt = 1;
+	while ((p=strchr(filename, PATH_SEP)) != NULL) {
+		*p = 0;
+		//fprintf(stderr,"#loading %s\n", filename);
+		filename = p+1;
+		files[cnt++]= filename;
+	}
+	for(i=0; i<cnt; i++){
+#ifdef _DEBUG_IMPORT_
+		fprintf(stderr,"load file %s\n",files[i]);
+#endif
+		fd = malOpenSource(files[i]);
+		if (fd == 0 || mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
+			if(fd) mnstr_destroy(fd);
+			throw(MAL,"mal.import", "#WARNING: could not open file: %s\n", fname);
+		} 
+
+		if( included){
+			if( MCpushClientInput(cntxt, bstream_create(fd, 32 * BLOCK), listing, ""))
+				throw(MAL,"mal.evalFile","Could not push the input stream");
+		} else {
+			c = MCinitClient((oid)0,bstream_create(fd, 32 * BLOCK),0);
+			c->nspace = newModule(NULL, putName("user"));
+			GDKfree(c->prompt);
+			c->prompt= NULL;
+			c->promptlength = 0;
+			msg = defaultScenario(c);
+			if( msg == MAL_SUCCEED){ 
+				MSinitClientPrg(c, "user", "main");  /* create new context */
+				c->listing = listing;
+				msg = runScenario(c);
+			}
+			c->fdout = NULL;	// to avoid accidental closinf a default output channel
+			MCcloseClient(c);
+		}
+	}
+	return msg;
+}
 /*
- * The include operation parses the file indentified and
- * leaves the MAL code behind in the 'main' function.
+ * The include operation simply pushes the file onto the preferred input queue.
  */
 str
 malInclude(Client c, str name, int listing)
 {
-	str s= MAL_SUCCEED;
-	str filename;
-	str p;
-
-	bstream *oldfdin = c->fdin;
-	int oldyycur = c->yycur;
-	int oldlisting = c->listing;
-	enum clientmode oldmode = c->mode;
-	int oldblkmode = c->blkmode;
-	ClientInput *oldbak = c->bak;
-	str oldprompt = c->prompt;
-	str oldsrcFile = c->srcFile;
-
-	MalStkPtr oldglb = c->glb;
-	Module oldnspace = c->nspace;
-	Symbol oldprg = c->curprg;
-
-	c->prompt = GDKstrdup("");	/* do not produce visible prompts */
-	c->promptlength = 0;
-	c->listing = listing;
-	c->fdin = NULL;
-
-#ifdef HAVE_EMBEDDED
-	(void) filename;
-	(void) p;
-	{
-		size_t mal_init_len = strlen(mal_init_inline);
-		buffer* mal_init_buf = buffer_create(mal_init_len);
-		stream* mal_init_stream = buffer_rastream(mal_init_buf, name);
-		buffer_init(mal_init_buf, mal_init_inline, mal_init_len);
-		c->srcFile = name;
-		c->yycur = 0;
-		c->bak = NULL;
-		c->fdin = bstream_create(mal_init_stream, mal_init_len);
-		bstream_next(c->fdin);
-		parseMAL(c, c->curprg, 1);
-		free(mal_init_buf);
-		free(mal_init_stream);
-		free(c->fdin);
-		c->fdin = NULL;
-	}
-#else
-	if ((filename = malResolveFile(name)) != NULL) {
-		name = filename;
-		do {
-			p = strchr(filename, PATH_SEP);
-			if (p)
-				*p = '\0';
-			c->srcFile = filename;
-			c->yycur = 0;
-			c->bak = NULL;
-			if ((s = malLoadScript(c, filename, &c->fdin)) == MAL_SUCCEED) {
-				parseMAL(c, c->curprg, 1);
-				bstream_destroy(c->fdin);
-			} else {
-				freeException(s); // not interested in error here
-				s = MAL_SUCCEED;
-			}
-			if (p)
-				filename = p + 1;
-		} while (p);
-		GDKfree(name);
-		c->fdin = NULL;
-	}
-#endif
-	restoreClient;
-	return s;
-}
-
-/*File and input processing
- * A recurring situation is to execute a stream of simple MAL instructions
- * stored on a file or comes from standard input. We parse one MAL
- * instruction line at a time and attempt to execute it immediately.
- * Note, this precludes entering complex MAL structures on the primary
- * input channel, because 1) this requires complex code to keep track
- * that we are in 'definition mode' 2) this requires (too) careful
- * typing by the user, because he cannot make a typing error
- *
- * Therefore, all compound code fragments should be loaded and executed
- * using the evalFile and callString command. It will parse the complete
- * file into a MAL program block and execute it.
- *
- * Running looks much like an Import operation, except for the execution
- * phase. This is performed in the context of an a priori defined
- * stack frame. Life becomes a little complicated when the script contains
- * a definition.
- */
-str
-evalFile(Client c, str fname, int listing)
-{
-	restoreState;
-	stream *fd;
-	str p;
-	str filename;
-	str msg = MAL_SUCCEED;
-
-	c->prompt = GDKstrdup("");  /* do not produce visible prompts */
-	c->promptlength = 0;
-	c->listing = listing;
-
-	c->fdin = NULL;
-
-	filename = malResolveFile(fname);
-	if (filename == NULL) {
-		mnstr_printf(c->fdout, "#WARNING: could not open file: %s\n", fname);
-		restoreClient3;
-		restoreClient;
-		return msg;
-	}
-
-	fname = filename;
-	while ((p = strchr(filename, PATH_SEP)) != NULL) {
-		*p = '\0';
-		fd = malOpenSource(filename);
-		if (fd == 0 || mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
-			if(fd) mnstr_destroy(fd);
-			mnstr_printf(c->fdout, "#WARNING: could not open file: %s\n",
-					filename);
-		} else {
-			c->srcFile = filename;
-			c->yycur = 0;
-			c->bak = NULL;
-			MSinitClientPrg(c, "user", "main");     /* re-initialize context */
-			if( MCpushClientInput(c, bstream_create(fd, 128 * BLOCK), c->listing, "") < 0){
-				msg = createException(MAL,"mal.eval", "WARNING: could not switch client input stream\n");
-			} else
-				msg = runScenario(c);
-			if (msg != MAL_SUCCEED) {
-				dumpExceptionsToStream(c->fdout, msg);
-				GDKfree(msg);
-			}
-		}
-		filename = p + 1;
-	}
-	fd = malOpenSource(filename);
-	if (fd == 0 || mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
-		if (fd)
-			mnstr_destroy(fd);
-		msg = createException(MAL,"mal.eval", "WARNING: could not open file: %s\n", filename);
-	} else {
-		c->srcFile = filename;
-		c->yycur = 0;
-		c->bak = NULL;
-		MSinitClientPrg(c, "user", "main");     /* re-initialize context */
-		if( MCpushClientInput(c, bstream_create(fd, 128 * BLOCK), c->listing, "") < 0){
-				msg = createException(MAL,"mal.eval", "WARNING: could not switch client input stream\n");
-		} else
-			msg = runScenario(c);
-	}
-	GDKfree(fname);
-
-	restoreClient3;
-	restoreClient;
-	return msg;
+	return evalFile(c, name,listing, 1);
 }
 
 /* patch a newline character if needed */
@@ -339,59 +171,56 @@ static str mal_cmdline(char *s, int *len)
 	return s;
 }
 
+/*
+ * Compile the string, but don't execute it
+ */
 str
-compileString(Symbol *fcn, Client c, str s)
-{
-	restoreState3;
-	int len = (int) strlen(s);
+compileString(Client cntxt, str s)
+{	int len = (int) strlen(s);
 	buffer *b;
 	str msg = MAL_SUCCEED;
-	str qry;
-	str old = s;
+	str qry, old=s ;
+	Client c;
 
-	c->srcFile = NULL;
-
-	s = mal_cmdline(s, &len);
+	if(0) s= mal_cmdline(s,&len);
 	mal_unquote(qry = GDKstrdup(s));
-	if (old != s)
+	if( old != s)
 		GDKfree(s);
-	b = (buffer *) GDKmalloc(sizeof(buffer));
-	if (b == NULL) {
-		GDKfree(qry);
-		return MAL_MALLOC_FAIL;
-	}
 
-	buffer_init(b, qry, len);
-	if (MCpushClientInput(c, bstream_create(buffer_rastream(b, "compileString"), b->len), 0, "") < 0) {
-		GDKfree(qry);
-		GDKfree(b);
-		return MAL_MALLOC_FAIL;
+    b = (buffer *) GDKzalloc(sizeof(buffer));
+    if (b == NULL) {
+        GDKfree(qry);
+        return MAL_MALLOC_FAIL;
+    }
+    buffer_init(b, qry, len+2);
+
+	c = MCinitClient((oid)0,0,0);
+	c->fdin = bstream_create(buffer_rastream(b, "compileString"), b->len);
+	strncpy(c->fdin->buf,s,len);
+	c->nspace = newModule(NULL, putName("user"));
+	GDKfree(c->prompt);
+	c->prompt= NULL;
+	c->promptlength = 0;
+
+	msg = defaultScenario(c);
+	if( msg == MAL_SUCCEED){ 
+		MSinitClientPrg(c, "user", "main");  /* create new context */
+		c->blkmode = 1; // collect all statements
+		while(msg == MAL_SUCCEED && c->fdin->eof == 0){
+			msg = MALreader(c);
+			if( msg == MAL_SUCCEED)
+				msg = MALparser(c);
+		}
+		pushEndInstruction(c->curprg->def);
+		chkProgram(c->nspace, c->curprg->def);
 	}
-	c->curprg = 0;
-	MSinitClientPrg(c, "user", "main");  /* create new context */
-	if (msg == MAL_SUCCEED && c->phase[MAL_SCENARIO_READER] &&
-		(msg = (str) (*c->phase[MAL_SCENARIO_READER])(c))) {
-		GDKfree(qry);
-		GDKfree(b);
-		restoreClient3;
-		return msg;
-	}
-	if (msg == MAL_SUCCEED && c->phase[MAL_SCENARIO_PARSER] &&
-		(msg = (str) (*c->phase[MAL_SCENARIO_PARSER])(c))) {
-		GDKfree(qry);
-		GDKfree(b);
-		/* error occurred  and ignored */
-		restoreClient3;
-		return msg;
-	}
-	*fcn = c->curprg;
-	/* restore IO channel */
-	restoreClient3;
-	restoreClient2;
-	GDKfree(qry);
-	GDKfree(b);
+	c->fdout = 0;
+	freeMalBlk(cntxt->curprg->def);
+	cntxt->curprg->def = copyMalBlk(c->curprg->def);
+	MCcloseClient(c);
 	return MAL_SUCCEED;
 }
+
 #define runPhase(X, Y) \
 	if (msg == MAL_SUCCEED && c->phase[X] && (msg = (str) (*c->phase[X])(c))) {	\
 		/* error occurred  and ignored */ \
@@ -404,43 +233,18 @@ compileString(Symbol *fcn, Client c, str s)
 		return 0; \
 	}
 
-int
-callString(Client c, str s, int listing)
+str
+callString(Client cntxt, str s)
 {
-	restoreState3;
-	int len = (int) strlen(s);
-	buffer *b;
-	str msg = MAL_SUCCEED, qry;
-	str old = s;
+	Client c;
+	str msg = MAL_SUCCEED;
 
-	c->srcFile = NULL;
-
-	s = mal_cmdline(s, &len);
-	mal_unquote(qry = GDKstrdup(s));
-	if (old != s)
-		GDKfree(s);
-	b = (buffer *) GDKmalloc(sizeof(buffer));
-	if (b == NULL){
-		GDKfree(qry);
-		return -1;
-	}
-	buffer_init(b, qry, len);
-	if (MCpushClientInput(c, bstream_create(buffer_rastream(b, "callString"), b->len), listing, "") < 0) {
-		GDKfree(b);
-		GDKfree(qry);
-		return -1;
-	}
-	c->curprg = 0;
-	MSinitClientPrg(c, "user", "main");  /* create new context */
-	runPhase(MAL_SCENARIO_READER, restoreClient3);
-	runPhase(MAL_SCENARIO_PARSER, restoreClient3);
-	/* restore IO channel */
-	restoreClient3;
-	runPhase(MAL_SCENARIO_OPTIMIZE, restoreClient2);
-	runPhase(MAL_SCENARIO_SCHEDULER, restoreClient2);
-	runPhase(MAL_SCENARIO_ENGINE, restoreClient2);
-	restoreClient2;
-	GDKfree(qry);
-	GDKfree(b);
-	return 0;
+	c = MCinitClient((oid)0,0,cntxt->fdout);
+	msg = compileString(c,s);
+	if( msg == MAL_SUCCEED)
+		runMAL(c, c->curprg->def,0,0);
+	c->fdin= 0;
+	c->fdout = 0;
+	MCcloseClient(c);
+	return msg;
 }

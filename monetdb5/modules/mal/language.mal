@@ -15,7 +15,7 @@ pattern call(s:bat[:str]):void
 address CMDcallBAT
 comment "Evaluate a program stored in a BAT.";
 pattern source(f:str):void
-address CMDevalFile
+address CMDsourceFile
 comment "Merge the instructions stored in the file with the current program.";
 
 unsafe command raise(msg:str) :str 

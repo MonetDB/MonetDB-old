@@ -74,7 +74,7 @@ monet5_freecode(int clientid, backend_code code, backend_stack stk, int nr, char
 	(void) clientid;
 	msg = SQLCacheRemove(MCgetClient(clientid), name);
 	if (msg)
-		GDKfree(msg);	/* do something with error? */
+		freeException(msg);	/* do something with error? */
 
 #ifdef _SQL_SCENARIO_DEBUG
 	fprintf(stderr, "#monet5_free:%d\n", nr);
@@ -95,12 +95,18 @@ SQLsession(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	msg = setScenario(cntxt, "sql");
 	// Wait for any recovery process to be finished
-	do {
-		MT_sleep_ms(1000);
-		logmsg = GDKgetenv("recovery");
-		if( logmsg== NULL && ++cnt  == 5)
-			throw(SQL,"SQLinit","#WARNING server not ready, recovery in progress\n");
-    }while (logmsg == NULL);
+	if( msg == MAL_SUCCEED)
+		do {
+			logmsg = GDKgetenv("recovery");
+			if( logmsg== NULL){
+				if( ++cnt  == 20)
+					throw(SQL,"SQLinit","#WARNING server not ready, recovery in progress\n");
+				MT_sleep_ms(250);
+			}
+		} while (logmsg == NULL);
+	// Initialize the client
+	if( cntxt->sqlcontext == 0)
+		SQLinitClient(cntxt);
 	return msg;
 }
 
@@ -118,12 +124,18 @@ SQLsession2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	msg = setScenario(cntxt, "msql");
 	// Wait for any recovery process to be finished
-	do {
-		MT_sleep_ms(1000);
-		logmsg = GDKgetenv("recovery");
-		if( logmsg== NULL && ++cnt  == 5)
-			throw(SQL,"SQLinit","#WARNING server not ready, recovery in progress\n");
-    }while (logmsg == NULL);
+	if( msg == MAL_SUCCEED)
+		do {
+			logmsg = GDKgetenv("recovery");
+			if( logmsg== NULL){
+				if( ++cnt  == 20)
+					throw(SQL,"SQLinit","#WARNING server not ready, recovery in progress\n");
+				MT_sleep_ms(250);
+			}
+		} while (logmsg == NULL);
+	// Initialize the client
+	if( cntxt->sqlcontext == 0)
+		SQLinitClient(cntxt);
 	return msg;
 }
 
@@ -943,7 +955,8 @@ SQLparser(Client c)
 #endif
 	m = be->mvc;
 	m->type = Q_PARSE;
-	SQLtrans(m);
+	if (be->language != 'X')
+		SQLtrans(m);
 	pstatus = m->session->status;
 
 	/* sqlparse needs sql allocator to be available.  It can be NULL at
@@ -954,7 +967,7 @@ SQLparser(Client c)
 		mnstr_printf(out, "!Could not create SQL allocator\n");
 		mnstr_flush(out);
 		c->mode = FINISHCLIENT;
-		throw(SQL, "SQLparser", "Could not create SQL allocator");
+		throw(SQL, "SQLparser", MAL_MALLOC_FAIL " for SQL allocator");
 	}
 
 	m->emode = m_normal;
@@ -1153,10 +1166,10 @@ SQLparser(Client c)
 
 		pushEndInstruction(c->curprg->def);
 		/* check the query wrapper for errors */
-		msg = chkTypes(c->nspace, c->curprg->def, TRUE);
+		chkTypes(c->nspace, c->curprg->def, TRUE);
 
 		/* in case we had produced a non-cachable plan, the optimizer should be called */
-		if ( msg == MAL_SUCCEED && opt ) {
+		if (opt ) {
 			msg = SQLoptimizeQuery(c, c->curprg->def);
 
 			if (msg != MAL_SUCCEED) {
@@ -1165,7 +1178,7 @@ SQLparser(Client c)
 			}
 		}
 		//printFunction(c->fdout, c->curprg->def, 0, LIST_MAL_ALL);
-		/* we know more in this case than chkProgram(c->nspace, c->curprg->def); */
+		/* we know more in this case than chkProgram(c, c->curprg->def); */
 		if (c->curprg->def->errors) {
 			showErrors(c);
 			/* restore the state */

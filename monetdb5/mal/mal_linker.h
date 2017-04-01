@@ -12,6 +12,8 @@
 #define MAL_EXT ".mal"
 #define SQL_EXT ".sql"
 
+#define MAXMULTISCRIPT 128
+
 #ifdef HAVE_DLFCN_H
 #include <dlfcn.h>
 #else

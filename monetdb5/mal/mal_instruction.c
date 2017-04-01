@@ -107,7 +107,7 @@ newMalBlk(int elements)
 	mb->help = NULL;
 	mb->binding[0] = 0;
 	mb->tag = 0;
-	mb->errors = 0;
+	mb->errors = NULL;
 	mb->alternative = NULL;
 	mb->history = NULL;
 	mb->keephistory = 0;
@@ -161,8 +161,7 @@ resizeMalBlk(MalBlkPtr mb, int elements)
 			mb->ssize = elements;
 		} else {
 			mb->stmt = ostmt;	/* reinstate old pointer */
-			mb->errors++;
-			showException(GDKout, MAL, "resizeMalBlk", "out of memory (requested: "LLFMT" bytes)", (lng) elements * sizeof(InstrPtr));
+			mb->errors= createException(MAL, "resizeMalBlk", "out of memory (requested: "LLFMT" bytes)", (lng) elements * sizeof(InstrPtr));
 			return -1;
 		}
 	}
@@ -176,8 +175,7 @@ resizeMalBlk(MalBlkPtr mb, int elements)
 			mb->vsize = elements;
 		} else{
 			mb->var = ovar;
-			mb->errors++;
-			showException(GDKout, MAL, "resizeMalBlk", "out of memory (requested: "LLFMT" bytes)", (lng) elements * sizeof(InstrPtr));
+			mb->errors= createException(MAL, "resizeMalBlk", "out of memory (requested: "LLFMT" bytes)", (lng) elements * sizeof(InstrPtr));
 			return -1;
 		}
 	}
@@ -227,6 +225,7 @@ freeMalBlk(MalBlkPtr mb)
 	mb->inlineProp = 0;
 	mb->unsafeProp = 0;
 	mb->sealedProp = 0;
+	GDKfree(mb->errors);
 	GDKfree(mb);
 }
 
@@ -263,6 +262,9 @@ copyMalBlk(MalBlkPtr old)
 	for (i = 0; i < old->vtop; i++) {
 		mb->var[i]=  old->var[i];
 		if (!VALcopy(&(mb->var[i].value), &(old->var[i].value))) {
+			while (--i >= 0)
+				VALclear(&mb->var[i].value);
+			GDKfree(mb->var);
 			GDKfree(mb);
 			GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
 			return NULL;
@@ -272,7 +274,9 @@ copyMalBlk(MalBlkPtr old)
 	mb->stmt = (InstrPtr *) GDKzalloc(sizeof(InstrPtr) * old->ssize);
 
 	if (mb->stmt == NULL) {
-		GDKfree(mb->var); // this leaks strings in var
+		for (i = 0; i < old->vtop; i++)
+			VALclear(&mb->var[i].value);
+		GDKfree(mb->var);
 		GDKfree(mb);
 		GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
@@ -284,6 +288,12 @@ copyMalBlk(MalBlkPtr old)
 	for (i = 0; i < old->stop; i++) {
 		mb->stmt[i] = copyInstruction(old->stmt[i]);
 		if(!mb->stmt[i]) {
+			while (--i >= 0)
+				freeInstruction(mb->stmt[i]);
+			for (i = 0; i < old->vtop; i++)
+				VALclear(&mb->var[i].value);
+			GDKfree(mb->var);
+			GDKfree(mb->stmt);
 			GDKfree(mb);
 			GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
 			return NULL;
@@ -291,12 +301,18 @@ copyMalBlk(MalBlkPtr old)
 	}
 	mb->help = old->help ? GDKstrdup(old->help) : NULL;
 	if (old->help && !mb->help) {
+		for (i = 0; i < old->stop; i++)
+			freeInstruction(mb->stmt[i]);
+		for (i = 0; i < old->vtop; i++)
+			VALclear(&mb->var[i].value);
+		GDKfree(mb->var);
+		GDKfree(mb->stmt);
 		GDKfree(mb);
 		GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
 	}
 	strncpy(mb->binding,  old->binding, IDLENGTH);
-	mb->errors = old->errors;
+	mb->errors = old->errors? GDKstrdup(old->errors):0;
 	mb->tag = old->tag;
 	mb->typefixed = old->typefixed;
 	mb->flowfixed = old->flowfixed;
@@ -382,9 +398,8 @@ newInstruction(MalBlkPtr mb, str modnme, str fcnnme)
 		 * The hack is to re-use an already allocated instruction.
 		 * The marking of the block as containing errors should protect further actions.
 		 */
-		showException(GDKout, MAL, "newInstruction", MAL_MALLOC_FAIL);
 		if( mb)
-			mb->errors ++;
+			mb->errors = createException(MAL, "newInstruction", MAL_MALLOC_FAIL);
 		return NULL;
 	}
 	p->maxarg = MAXARG;
@@ -676,8 +691,7 @@ makeVarSpace(MalBlkPtr mb)
 		if (new == NULL) {
 			// the only place to return an error signal at this stage.
 			// The Client context should be passed around more deeply
-			mb->errors++;
-			showException(GDKout, MAL, "newMalBlk",MAL_MALLOC_FAIL);
+			mb->errors = createException(MAL, "newMalBlk",MAL_MALLOC_FAIL);
 			return -1;
 		}
 		memset( ((char*) new) + mb->vsize * sizeof(VarRecord), 0, (s- mb->vsize) * sizeof(VarRecord));
@@ -814,6 +828,8 @@ trimMalVariables_(MalBlkPtr mb, MalStkPtr glb)
 	int *alias, cnt = 0, i, j;
 	InstrPtr q;
 
+	if( mb->vtop == 0)
+		return;
 	alias = (int *) GDKzalloc(mb->vtop * sizeof(int));
 	if (alias == NULL)
 		return;					/* forget it if we run out of memory */
@@ -1155,11 +1171,10 @@ defConstant(MalBlkPtr mb, int type, ValPtr cst)
 			/* free old value */
 			ft = getTypeName(otype);
 			tt = getTypeName(type);
-			showException(GDKout, SYNTAX, "defConstant", "constant coercion error from %s to %s", ft, tt);
+			mb->errors = createException(SYNTAX, "defConstant", "constant coercion error from %s to %s", ft, tt);
 			GDKfree(ft);
 			GDKfree(tt);
-			mb->errors++;
-			GDKfree(msg);
+			freeException(msg);
 		} else {
 			assert(cst->vtype == type);
 		}
@@ -1197,8 +1212,7 @@ pushArgument(MalBlkPtr mb, InstrPtr p, int varid)
 		return NULL;
 	if (varid < 0) {
 		/* leave everything as is in this exceptional programming error */
-		showException(GDKout,MAL,"pushArgument","improper variable id");
-		mb->errors ++;
+		mb->errors = createException(MAL,"pushArgument","improper variable id");
 		return p;
 	}
 
@@ -1212,8 +1226,7 @@ pushArgument(MalBlkPtr mb, InstrPtr p, int varid)
 			 * then we show an exception, mark the block as erroneous
 			 * and leave the instruction as is.
 			*/
-			mb->errors ++;
-			showException(GDKout,MAL,"pushArgument",MAL_MALLOC_FAIL);
+			mb->errors = createException(MAL,"pushArgument",MAL_MALLOC_FAIL);
 			return p;
 		}
 		memset( ((char*)pn) + space, 0, MAXARG * sizeof(pn->argv[0]));

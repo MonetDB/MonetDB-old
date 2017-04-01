@@ -674,12 +674,12 @@ main(int argc, char **av)
 	if (dbinit == NULL)
 		dbinit = GDKgetenv("dbinit");
 	if (dbinit)
-		callString(mal_clients, dbinit, listing);
+		callString(mal_clients, dbinit);
 
 	emergencyBreakpoint();
 	if (monet_script)
 		for (i = 0; monet_script[i]; i++) {
-			str msg = evalFile(mal_clients, monet_script[i], listing);
+			str msg = evalFile(mal_clients, monet_script[i], listing ,0);
 			/* check for internal exception message to terminate */
 			if (msg) {
 				if (strcmp(msg, "MALException:client.quit:Server stopped.") == 0)
@@ -701,7 +701,9 @@ main(int argc, char **av)
 		free(monet_script);
 #ifdef HAVE_CONSOLE
 	if (!monet_daemon) {
-		MSserveClient(mal_clients);
+		str msg = MSserveClient(mal_clients);
+		if( msg != MAL_SUCCEED)
+			fprintf(stderr,"%s",msg);
 	} else
 #endif
 	while (1)

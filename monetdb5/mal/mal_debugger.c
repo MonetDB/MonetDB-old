@@ -12,11 +12,11 @@
  */
 #include "monetdb_config.h"
 #include "mal.h"
-#include "mal_readline.h"
 #include "mal_debugger.h"
 #include "mal_interpreter.h"	/* for getArgReference() */
 #include "mal_linker.h"		/* for getAddress() */
 #include "mal_listing.h"
+#include "mal_module.h"
 #include "mal_function.h"
 #include "mal_parser.h"
 #include "mal_namespace.h"
@@ -60,7 +60,7 @@ static mdbStateRecord *mdbTable;
  * The debugger flags overview
  */
 
-int
+void
 mdbInit(void)
 {
 	/*
@@ -71,10 +71,9 @@ mdbInit(void)
 	 */
 	mdbTable = GDKzalloc(sizeof(mdbStateRecord) * MAL_MAXCLIENTS);
 	if (mdbTable == NULL) {
-		showException(GDKout,MAL, "mdbInit",MAL_MALLOC_FAIL);
-		return -1;
+		fprintf(stderr,"#mdbInit:" MAL_MALLOC_FAIL);
+		mal_exit();
 	}
-	return 0;
 }
 
 static char
@@ -287,7 +286,7 @@ printTraceCall(stream *out, MalBlkPtr mb, MalStkPtr stk, int pc, int flags)
 
 	p = getInstrPtr(mb, pc);
 	msg = instruction2str(mb, stk, p, flags);
-	mnstr_printf(out, "#%s%s\n", (mb->errors ? "!" : ""), msg?msg:"failed instruction2str()");
+	mnstr_printf(out, "#%s%s\n", (mb->errors != MAL_SUCCEED ? "!" : ""), msg?msg:"failed instruction2str()");
 	GDKfree(msg);
 }
 
@@ -385,6 +384,8 @@ mdbCommand(Client cntxt, MalBlkPtr mb, MalStkPtr stkbase, InstrPtr p, int pc)
 	int first = pc;
 	int stepsize = 1000;
 	char oldcmd[1024] = { 0 };
+	str msg = MAL_SUCCEED;
+
 	do {
 		if (p != NULL) {
 			if (cntxt != mal_clients)
@@ -398,44 +399,55 @@ mdbCommand(Client cntxt, MalBlkPtr mb, MalStkPtr stkbase, InstrPtr p, int pc)
 		if (cntxt == mal_clients) {
 			cntxt->prompt = "mdb>";
 			cntxt->promptlength = 4;
+			// force read a single line
+			cntxt->fdin->pos = cntxt->fdin->len;
 		}
 
+#ifndef HAVE_EMBEDDED
+		if (cntxt == mal_clients && cntxt->phase[MAL_SCENARIO_READER] == MALreader) {
+			cntxt->fdin->pos = cntxt->fdin->len;
+			cntxt->linefill = 0;
+			cntxt->lineptr = cntxt->line;
+			*cntxt->line = 0;
+			msg = MALreader(cntxt);
+			if (msg != MAL_SUCCEED || cntxt->mode == FINISHCLIENT){
+				GDKfree(msg);
+				break;
+			}
+			b = cntxt->line;
+			skipBlanc(cntxt, b);
+			if ( *b) // safe for the future
+				strncpy(oldcmd, b, 1023);
+		} else
+#endif
 		if (cntxt->phase[MAL_SCENARIO_READER]) {
 retryRead:
-			b = (char *) (*cntxt->phase[MAL_SCENARIO_READER])(cntxt);
-			if (b != 0)
+			msg = (char *) (*cntxt->phase[MAL_SCENARIO_READER])(cntxt);
+			if (msg != MAL_SUCCEED || cntxt->mode == FINISHCLIENT){
+				GDKfree(msg);
 				break;
-			if (cntxt->mode == FINISHCLIENT)
-				break;
+			}
 			/* SQL patch, it should only react to Smessages, Xclose requests to be ignored */
 			if (strncmp(cntxt->fdin->buf, "Xclose", 6) == 0) {
 				cntxt->fdin->pos = cntxt->fdin->len;
 				goto retryRead;
 			}
+			b = cntxt->line;
+			skipBlanc(cntxt, b);
+			/* terminate the line with zero */
+			c = strchr(b, '\n');
+			if (c) {
+				*c = 0;
+				strncpy(oldcmd, b, 1023);
+				cntxt->fdin->pos += (c - b) + 1;
+			} else{
+				cntxt->fdin->pos = cntxt->fdin->len;
+			}
+			fprintf(stderr,"SQL debug TBD:%s\n",b);
 		}
-#ifndef HAVE_EMBEDDED
-		else if (cntxt == mal_clients) {
-			/* switch to mdb streams */
-			if (readConsole(cntxt) <= 0)
-				break;
-		}
-#endif
-		b = CURRENT(cntxt);
 
-		/* terminate the line with zero */
-		c = strchr(b, '\n');
-		if (c) {
-			*c = 0;
-			strncpy(oldcmd, b, 1023);
-			cntxt->fdin->pos += (c - b) + 1;
-		} else
-			cntxt->fdin->pos = cntxt->fdin->len;
-
-		skipBlanc(cntxt, b);
 		if (*b)
 			lastcmd = *b;
-		else
-			strcpy(b = cntxt->fdin->buf, oldcmd);
 		b = oldcmd;
 		switch (*b) {
 		case 0:
@@ -477,6 +489,9 @@ retryRead:
 			/* MDBstatus(0); */
 			cntxt->prompt = oldprompt;
 			cntxt->promptlength = oldpromptlength;
+			cntxt->linefill = 0;
+			cntxt->lineptr = cntxt->line;
+			*cntxt->line = 0;
 			return;
 		}
 		case 'f':   /* finish */
@@ -491,6 +506,9 @@ retryRead:
 			} 
 			stk->cmd = *b;
 			m = 0;
+			break;
+		case 'M':	/* dump all module names */
+			dumpModules(out);
 			break;
 		case 'm':   /* display a module */
 		{
@@ -910,8 +928,13 @@ partial:
 			mdbHelp(out);
 		}
 	} while (m);
+	// drop all remaining data from the stream
 	cntxt->prompt = oldprompt;
 	cntxt->promptlength = oldpromptlength;
+	cntxt->fdin->pos = cntxt->fdin->len;
+	cntxt->linefill = 0;
+	cntxt->lineptr = cntxt->line;
+	*cntxt->line = 0;
 }
 
 void
@@ -1019,7 +1042,7 @@ mdbStep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
 	case 'C':
 		mdbSessionActive = 0; /* for name completion */
 	}
-	if (mb->errors) {
+	if (mb->errors != MAL_SUCCEED) {
 		MalStkPtr su;
 
 		/* return from this debugger */
@@ -1204,8 +1227,6 @@ printStackElm(stream *f, MalBlkPtr mb, ValPtr v, int index, BUN cnt, BUN first)
 	str nme, nmeOnStk;
 	VarPtr n = getVar(mb, index);
 
-	if (!isVarUsed(mb, index))
-		return;
 	printStackHdr(f, mb, v, index);
 
 	if (v && v->vtype == TYPE_bat) {

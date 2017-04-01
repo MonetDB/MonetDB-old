@@ -34,6 +34,7 @@ mal_export int 		isModuleDefined(Module scope, str name);
 mal_export Symbol   findSymbolInModule(Module v, str fcn);
 mal_export void     getModuleList(Module** out, int* length);
 mal_export void     freeModuleList(Module* list);
+mal_export void     dumpModules(stream *out);
 
 #define getSymbolIndex(N)  (int)(*(N))
 

@@ -17,10 +17,9 @@
 #define currChar(X) (*CURRENT(X))
 #define peekChar(X) (*((X)->fdin->buf + (X)->fdin->pos + (X)->yycur+1))
 #define nextChar(X) X->yycur++
-#define prevChar(X) if(X->yycur) X->yycur--
 
 mal_export void initParser(void);   /* needed in src/mal/mal.c */
-mal_export int parseMAL(Client cntxt, Symbol curPrg, int skipcomments);
+mal_export int parseMAL(Client cntxt);
 
 #endif /* _MAL_PARSER_H */
 

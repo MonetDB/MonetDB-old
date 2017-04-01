@@ -47,7 +47,6 @@
 #include "run_adder.h"
 
 /*
- * @-
  * THe choice operator first searches the next one to identify
  * the fragment to be optimized and to gain access to the variables
  * without the need to declare them upfront.
@@ -110,11 +109,9 @@ RUNadder(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	mb->stop += (oldtop-pc)-1;
 
 	/* check new statments for sanity */
-	msg = chkTypes(cntxt->nspace, mb, FALSE);
-	if( msg == MAL_SUCCEED)
-		msg = chkFlow(mb);
-	if( msg == MAL_SUCCEED)
-		msg = chkDeclarations(mb);
+	chkTypes(cntxt->nspace, mb, FALSE);
+	chkFlow(mb);
+	chkDeclarations(mb);
 
 	GDKfree(old);
 	return msg;

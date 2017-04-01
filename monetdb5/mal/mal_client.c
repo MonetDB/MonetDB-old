@@ -42,7 +42,6 @@
 /* (author) M.L. Kersten */
 #include "monetdb_config.h"
 #include "mal_client.h"
-#include "mal_readline.h"
 #include "mal_import.h"
 #include "mal_parser.h"
 #include "mal_namespace.h"
@@ -72,7 +71,7 @@ MCinit(void)
 	if (maxclients <= 0) {
 		maxclients = 64;
 		if (GDKsetenv("max_clients", "64") != GDK_SUCCEED) {
-			showException(GDKout, MAL, "MCinit", "GDKsetenv failed");
+			fprintf(stderr,"#MCinit: GDKsetenv failed");
 			mal_exit();
 		}
 	}
@@ -82,11 +81,12 @@ MCinit(void)
 		/* client connections */ maxclients;
 	mal_clients = GDKzalloc(sizeof(ClientRec) * MAL_MAXCLIENTS);
 	if( mal_clients == NULL){
-		showException(GDKout, MAL, "MCinit",MAL_MALLOC_FAIL);
+		fprintf(stderr,"#MCinit:" MAL_MALLOC_FAIL);
 		mal_exit();
 	}
 }
 
+/* stack the files from which you read */
 int
 MCpushClientInput(Client c, bstream *new_input, int listing, char *prompt)
 {
@@ -94,16 +94,14 @@ MCpushClientInput(Client c, bstream *new_input, int listing, char *prompt)
 	if (x == 0)
 		return -1;
 	x->fdin = c->fdin;
-	x->yycur = c->yycur;
-	x->listing = c->listing;
 	x->prompt = c->prompt;
 	x->next = c->bak;
+	x->listing = c->listing;
 	c->bak = x;
 	c->fdin = new_input;
 	c->listing = listing;
 	c->prompt = prompt ? GDKstrdup(prompt) : GDKstrdup("");
 	c->promptlength = strlen(c->prompt);
-	c->yycur = 0;
 	return 0;
 }
 
@@ -117,10 +115,9 @@ MCpopClientInput(Client c)
 	}
 	GDKfree(c->prompt);
 	c->fdin = x->fdin;
-	c->yycur = x->yycur;
 	c->listing = x->listing;
 	c->prompt = x->prompt;
-	c->promptlength = strlen(c->prompt);
+	c->promptlength = c->prompt? strlen(c->prompt):0 ;
 	c->bak = x->next;
 	GDKfree(x);
 }
@@ -207,14 +204,18 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->blkmode = 0;
 
 	c->fdin = fin ? fin : bstream_create(GDKin, 0);
-	c->yycur = 0;
+	c->lineptr = 0;	// used by SQL
 	c->bak = NULL;
+	c->line = NULL;	// used for MAL
+	c->linefill = 0;
+	c->linesize = 0;
+	c->lineptr = 0;
 
 	c->listing = 0;
 	c->fdout = fout ? fout : GDKstdout;
 	c->mdb = 0;
 	c->history = 0;
-	c->curprg = c->backup = 0;
+	c->curprg = 0;
 	c->glb = 0;
 
 	/* remove garbage from previous connection 
@@ -241,7 +242,6 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->promptlength = strlen(prompt);
 
 	c->actions = 0;
-	c->totaltime = 0;
 	c->exception_buf_initialized = 0;
 	c->error_row = c->error_fld = c->error_msg = c->error_input = NULL;
 #ifndef HAVE_EMBEDDED /* no authentication in embedded mode */
@@ -279,7 +279,6 @@ MCinitClientThread(Client c)
 	cname[11] = '\0';
 	t = THRnew(cname);
 	if (t == 0) {
-		showException(c->fdout, MAL, "initClientThread", "Failed to initialize client");
 		MPresetProfiler(c->fdout);
 		return -1;
 	}
@@ -294,7 +293,7 @@ MCinitClientThread(Client c)
 	if (c->errbuf == NULL) {
 		char *n = GDKzalloc(GDKMAXERRLEN);
 		if ( n == NULL){
-			showException(GDKout, MAL, "initClientThread", "Failed to initialize client");
+			MPresetProfiler(c->fdout);
 			return -1;
 		}
 		GDKsetbuf(n);
@@ -324,7 +323,7 @@ MCforkClient(Client father)
 		son->fdin = NULL;
 		son->fdout = father->fdout;
 		son->bak = NULL;
-		son->yycur = 0;
+		son->lineptr = 0;
 		son->father = father;
 		son->scenario = father->scenario;
 		if (son->prompt)

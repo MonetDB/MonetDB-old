@@ -35,7 +35,6 @@ mal_export str MALgarbagesink( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 mal_export str CMDregisterFunction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str CMDcallString(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str CMDcallFunction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-mal_export str CMDcallBAT(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-mal_export str CMDevalFile(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+mal_export str CMDsourceFile(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str MALassertTriple(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 #endif /* _LANGUAGE_H */

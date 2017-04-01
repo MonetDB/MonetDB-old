@@ -1485,9 +1485,9 @@ SQLupgrades(Client c, mvc *m)
 	}
 
 	if (mvc_bind_table(m, s, "function_languages") == NULL) {
-		if ((sql_update_default(c, m)) != NULL) {
+		if ((err = sql_update_default(c, m)) != NULL) {
 			fprintf(stderr, "!%s\n", err);
-			GDKfree(err);
+			freeException(err);
 		}
 	}
 }

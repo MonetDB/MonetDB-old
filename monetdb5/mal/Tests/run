@@ -3,7 +3,7 @@
 #DBFARM=$PWD/dbfarm
 DBFARM=/ufs/mk/monet5/Linux/var/MonetDB/dbfarm
 DBNAME=test
-#MSERVER="Mtimeout -timeout 123 mserver --dbpath=$DBFARM/$DBNAME -c All.conf --set monet_prompt="
+#MSERVER="mserver --dbpath=$DBFARM/$DBNAME --set monet_prompt="
 MSERVER="valgrind  -v --leak-check=full --show-reachable=yes --num-callers=20 mserver5 --dbpath=$DBFARM/$DBNAME "
 
 echo "Initialize database"
