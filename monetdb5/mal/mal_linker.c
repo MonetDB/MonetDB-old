@@ -232,7 +232,7 @@ loadLibrary(str filename, int flag)
 	if (lastfile == maxfiles) {
 		if (handle)
 			dlclose(handle);
-		fprintf(stderr, "#loadModule internal error, too many modules loaded");
+		throw(MAL,"mal.linker", "loadModule internal error, too many modules loaded");
 	} else {
 		filesLoaded[lastfile].modname = GDKstrdup(filename);
 		filesLoaded[lastfile].fullname = GDKstrdup(handle ? nme : "");

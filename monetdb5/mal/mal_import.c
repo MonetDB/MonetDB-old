@@ -74,11 +74,7 @@ malOpenSource(str file)
 
 /*
  * Beware that we have to isolate the execution of the source file
- * in its own environment. E.g. we have to remove the execution
- * state until we are finished.
- * The script being read may contain errors, such as non-balanced
- * brackets as indicated by blkmode.
- * It should be reset before continuing.
+ * in its own environment. 
 */
 
 #ifdef HAVE_EMBEDDED
@@ -88,7 +84,6 @@ extern char* mal_init_inline;
 /*File and input processing
  * A recurring situation is to execute a stream of simple MAL instructions
  * stored on a file or comes from standard input. 
- * It is either executed in the context of the caller or a separate client record.
  * An Include operation simply pushes the input stream on the LIFO queue.
  */
 str
@@ -220,18 +215,6 @@ compileString(Client cntxt, str s)
 	MCcloseClient(c);
 	return MAL_SUCCEED;
 }
-
-#define runPhase(X, Y) \
-	if (msg == MAL_SUCCEED && c->phase[X] && (msg = (str) (*c->phase[X])(c))) {	\
-		/* error occurred  and ignored */ \
-		GDKfree(msg); msg = MAL_SUCCEED; \
-		Y; \
-		if (b) \
-			GDKfree(b);	\
-		if (qry) \
-			GDKfree(qry); \
-		return 0; \
-	}
 
 str
 callString(Client cntxt, str s)
