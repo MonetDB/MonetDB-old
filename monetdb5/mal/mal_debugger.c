@@ -833,7 +833,10 @@ retryRead:
 				if (m && strchr(b, '*')) {
 					/* detect l user.fcn[*] */
 					for (m = mb; m != NULL; m = m->history)
-						debugFunction(out, m, 0, lstng, 0,m->stop);
+						if( lstng == LIST_MAL_NAME)
+							printFunction(out, m, 0, lstng);
+						else
+							debugFunction(out, m, 0, lstng, 0,m->stop);
 				} else if (m == NULL && !strchr(b, '.') && !strchr(b, '[') && !isdigit((int) *b) && *b != '-' && *b != '+') {
 					/* is this a variable ? */
 					varid = findVariable(mb, b);
@@ -868,12 +871,19 @@ retryRead:
 					}
 					for(; fs; fs = fs->peer)
 					if( strcmp(fcnnme, fs->name)==0) {
-						debugFunction(out, fs->def, 0, lstng, 0,fs->def->stop);
+						if( lstng == LIST_MAL_NAME)
+							printFunction(out, fs->def, 0, lstng);
+						else
+							debugFunction(out, fs->def, 0, lstng, 0,m->stop);
 					}
 					continue;
 				}
-				if (m)
-					debugFunction(out, m, 0, lstng, 0,m->stop);
+				if (m){
+					if( lstng == LIST_MAL_NAME)
+						printFunction(out, m, 0, lstng);
+					else
+						debugFunction(out, m, 0, lstng, 0,m->stop);
+				}
 			} else {
 /*
  * Listing the program starts at the pc last given.
