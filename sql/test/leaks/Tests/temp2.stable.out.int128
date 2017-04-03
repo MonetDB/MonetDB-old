@@ -33,13 +33,13 @@ Ready.
 % L2,	L5 # name
 % char,	bigint # type
 % 9,	3 # length
-[ "transient",	160	]
+[ "transient",	159	]
 #select 'persistent', count(*) from bbp() as bbp where kind like 'pers%';
 % .L2,	.L6 # table_name
 % L2,	L5 # name
 % char,	bigint # type
 % 10,	3 # length
-[ "persistent",	292	]
+[ "persistent",	278	]
 
 # 16:21:17 >  
 # 16:21:17 >  "Done."
