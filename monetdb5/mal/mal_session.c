@@ -101,8 +101,6 @@ MSresetClientPrg(Client cntxt)
 
 	cntxt->itrace = 0;  /* turn off any debugging */
 	mb = cntxt->curprg->def;
-	mb->typefixed = 0;
-	mb->flowfixed = 0;
 	mb->stop = 1;
 	mb->errors = MAL_SUCCEED;
 	p = mb->stmt[0];

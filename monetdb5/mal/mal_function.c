@@ -87,7 +87,6 @@ chkFlow(MalBlkPtr mb)
 	InstrPtr stmt[DEPTH];
 	int btop=0;
 	int endseen=0, retseen=0, yieldseen=0;
-	int fixed=1;
 	InstrPtr p;
 	str msg = MAL_SUCCEED;
 
@@ -119,7 +118,6 @@ chkFlow(MalBlkPtr mb)
 			}
 
 			btop++;
-			if( p->typechk != TYPE_RESOLVED) fixed =0;
 			break;
 		case EXITsymbol:
 			v= getDestVar(p);
@@ -152,7 +150,6 @@ chkFlow(MalBlkPtr mb)
 			            p1->jump= pc[btop]+1;
 			    }
 			}
-			if( p->typechk != TYPE_RESOLVED) fixed =0;
 			break;
 		case LEAVEsymbol:
 		case REDOsymbol:
@@ -164,7 +161,6 @@ chkFlow(MalBlkPtr mb)
 			    mb->errors = createMalException(mb,i,SYNTAX,
 					"label '%s' not in guarded block", nme);
 			} else
-			if( p->typechk != TYPE_RESOLVED) fixed =0;
 			break;
 		case YIELDsymbol:
 			{ InstrPtr ps= getInstrPtr(mb,0);
@@ -196,7 +192,6 @@ chkFlow(MalBlkPtr mb)
 							GDKfree(tpname);
 						}
 					}
-				if (ps->typechk != TYPE_RESOLVED) fixed = 0;
 			}
 			break;
 	    case RAISEsymbol:
@@ -242,8 +237,6 @@ chkFlow(MalBlkPtr mb)
 	if ( msg== MAL_SUCCEED && yieldseen && getArgType(mb,p,0)!= TYPE_void){
 		mb->errors = createMalException( mb,0,SYNTAX,"RETURN missing");
 	}
-	if( mb->errors == MAL_SUCCEED )
-		mb->flowfixed = fixed; /* we might not have to come back here */
 }
 
 /*

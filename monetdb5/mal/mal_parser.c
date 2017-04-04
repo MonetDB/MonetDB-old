@@ -947,8 +947,6 @@ fcnHeader(Client cntxt, int kind)
 	setModuleId(curInstr,modnme);
 	setFunctionId(curInstr,fnme);
 	cntxt->curprg->kind = kind;
-	curBlk->flowfixed = 0;
-	curBlk->typefixed = 0;
 
 	/* get calling parameters */
 	ch = *cntxt->lineptr;
@@ -1193,11 +1191,11 @@ parseEnd(Client cntxt)
 		if ((l == (int) strlen(getFunctionId(sig)) &&
 			strncmp(cntxt->lineptr, getFunctionId(sig), l) == 0) || l == 0) {} else {
 			parseError(cntxt, "non matching end label\n");
+			return 0;
 		}
 		advance(cntxt, l);
 		pushEndInstruction(cntxt->curprg->def);
 		cntxt->blkmode = 0;
-		cntxt->curprg->def->typefixed = 0;
 		return 1;
 	}
 	return 0;

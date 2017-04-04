@@ -112,8 +112,6 @@ newMalBlk(int elements)
 	mb->history = NULL;
 	mb->keephistory = 0;
 	mb->maxarg = MAXARG;		/* the minimum for each instruction */
-	mb->typefixed = 0;
-	mb->flowfixed = 0;
 	mb->inlineProp = 0;
 	mb->unsafeProp = 0;
 	mb->sealedProp = 0;
@@ -314,8 +312,6 @@ copyMalBlk(MalBlkPtr old)
 	strncpy(mb->binding,  old->binding, IDLENGTH);
 	mb->errors = old->errors? GDKstrdup(old->errors):0;
 	mb->tag = old->tag;
-	mb->typefixed = old->typefixed;
-	mb->flowfixed = old->flowfixed;
 	mb->trap = old->trap;
 	mb->runtime = old->runtime;
 	mb->calls = old->calls;

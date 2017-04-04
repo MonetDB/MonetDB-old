@@ -787,10 +787,6 @@ chkInstruction(Module s, MalBlkPtr mb, InstrPtr p)
 void
 chkProgram(Module s, MalBlkPtr mb)
 {
-/* it is not ready yet, too fragile
-		mb->typefixed = mb->stop == chk; ignored END */
-/*	if( mb->flowfixed == 0)*/
-
 	chkTypes(s, mb, FALSE);
 	chkFlow(mb);
 	chkDeclarations(mb);

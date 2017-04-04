@@ -213,8 +213,6 @@ typedef struct MALBLK {
 		     sealedProp:1;		/* sealed property (opertions for sealed object should be on the full object once) */
 
 	str errors;				/* left over errors */
-	int typefixed;			/* no undetermined instruction */
-	int flowfixed;			/* all flow instructions are fixed */
 	struct MALBLK *history;	/* of optimizer actions */
 	short keephistory;		/* do we need the history at all */
 	int maxarg;				/* keep track on the maximal arguments used */
