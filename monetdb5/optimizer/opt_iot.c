@@ -30,7 +30,6 @@
 #include "opt_deadcode.h"
 #include "mal_interpreter.h"    /* for showErrors() */
 #include "mal_builder.h"
-#include "opt_statistics.h"
 #include "opt_dataflow.h"
 
 #define MAXBSKT 64
@@ -40,7 +39,7 @@
 		fnd= 1; break;\
 	}
 
-int
+str
 OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int i, j, k, fnd, limit, slimit;
@@ -66,7 +65,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			break;
 	}
 	if( i == mb->stop)
-		return 0;
+		return MAL_SUCCEED;
 
 #ifdef DEBUG_OPT_IOT
 	mnstr_printf(cntxt->fdout, "#iot optimizer start\n");
@@ -141,7 +140,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 	}
 	if( btop == MAXBSKT || btop == 0)
-		return 0;
+		return MAL_SUCCEED;
 
 #ifdef DEBUG_OPT_IOT
 	mnstr_printf(cntxt->fdout, "#iot optimizer started with %d streams, mvc %d\n", btop,lastmvc);
@@ -151,10 +150,10 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	alias = (int *) GDKzalloc(mb->vtop * 2 * sizeof(int));
 	if (alias == 0)
-		return 0;
+		return MAL_SUCCEED;
 
 	if (newMalBlkStmt(mb, slimit) < 0)
-		return 0;
+		return MAL_SUCCEED;
 
 	pushInstruction(mb, old[0]);
 	for (i = 1; i < limit; i++)
@@ -318,6 +317,10 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 	GDKfree(alias);
 	GDKfree(old);
-	return btop > 0;
-}
 
+    if( btop > 0)
+        return MAL_SUCCEED;
+    else {
+        return createException(MAL,"optimizer.iot", "The iot optimizer failed to start! (btop = %d)", btop);
+    }
+}

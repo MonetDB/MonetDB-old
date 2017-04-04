@@ -23,6 +23,6 @@
 #include "opt_support.h"
 #include "opt_pipes.h"
 
-mal_export int OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+mal_export str OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 #endif
