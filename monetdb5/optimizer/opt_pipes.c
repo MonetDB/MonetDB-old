@@ -328,8 +328,12 @@ getPipeCatalog(bat *nme, bat *def, bat *stat)
 	}
 
 	for (i = 0; i < MAXOPTPIPES && pipes[i].name; i++) {
-		if (pipes[i].prerequisite && getAddress(GDKout, NULL, pipes[i].prerequisite, TRUE) == NULL)
-			continue;
+		if (pipes[i].prerequisite && getAddress(pipes[i].prerequisite) == NULL){
+			BBPreclaim(b);
+			BBPreclaim(bn);
+			BBPreclaim(bs);
+			throw(MAL,"getPipeCatalog","#MAL.getAddress address of '%s' not found",pipes[i].name);
+		}
 		if (BUNappend(b, pipes[i].name, FALSE) != GDK_SUCCEED ||
 			BUNappend(bn, pipes[i].def, FALSE) != GDK_SUCCEED ||
 			BUNappend(bs, pipes[i].status, FALSE) != GDK_SUCCEED) {
@@ -426,8 +430,10 @@ compileOptimizer(Client cntxt, str name)
 		if (strcmp(pipes[i].name, name) == 0 && pipes[i].mb == 0) {
 			for (j = 0; j < MAXOPTPIPES && pipes[j].def; j++) {
 				if (pipes[j].mb == NULL) {
-					if (pipes[j].prerequisite && getAddress(cntxt->fdout, NULL, pipes[j].prerequisite, TRUE) == NULL)
-						continue;
+					if (pipes[j].prerequisite && getAddress(pipes[j].prerequisite) == NULL){
+						msg = createException(MAL,"compileOptimizer","#MAL.getAddress address of '%s' not found",pipes[i].name);
+						goto wrapup;
+					}
 					msg = compileString(cntxt, pipes[j].def);
 					if (msg != MAL_SUCCEED) 
 						break;

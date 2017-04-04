@@ -90,7 +90,7 @@
 
 #define LOAD_SQL_FUNCTION_PTR(fcnname)                                         \
 	fcnname##_ptr =                                                            \
-		(fcnname##_ptr_tpe)getAddress(NULL, "lib_sql.dll", #fcnname, 0);       \
+		(fcnname##_ptr_tpe)getAddress( #fcnname );						       \
 	if (fcnname##_ptr == NULL) {                                               \
 		msg = createException(MAL, "pyapi.eval", "Failed to load function %s", \
 							  #fcnname);                                       \

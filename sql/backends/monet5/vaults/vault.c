@@ -160,7 +160,6 @@ VLTimport(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/*curl_global_init(CURL_GLOBAL_DEFAULT);*/
 
 	snprintf(path,BUFSIZ,"%s%c%s", vaultpath, DIR_SEP, *target);
-	/*mnstr_printf(GDKout,"#vault.import: %s\n",path);*/
 	if (strcmp(path, *source) == 0) 
 		return MTIMEcurrent_timestamp(ret);
 	/* create the subdir */

@@ -61,14 +61,13 @@ fileexists(const char *path)
 
 /* Search for occurrence of the function in the library identified by the filename.  */
 MALfcn
-getAddress(stream *out, str modname, str fcnname, int silent)
+getAddress(str fcnname)
 {
 	void *dl;
 	MALfcn adr;
 	static int idx=0;
 	static int prev= -1;
 
-	(void) out;
 	/* First try the last module loaded */
 	if( prev >= 0){
 		adr = (MALfcn) dlsym(filesLoaded[prev].handle, fcnname);
@@ -99,26 +98,15 @@ getAddress(stream *out, str modname, str fcnname, int silent)
 	 * the first argument must be the same as the base name of the
 	 * library that is created in src/tools */
 	dl = mdlopen("libmonetdb5", RTLD_NOW | RTLD_GLOBAL);
-	if (dl == NULL) {
-		/* shouldn't happen, really */
-		if (!silent)
-			fprintf(stderr, "#MAL.getAddress address of '%s.%s' not found",
-						  (modname?modname:"<unknown>"), fcnname);
+	if (dl == NULL) 
 		return NULL;
-	}
 
 	adr = (MALfcn) dlsym(dl, fcnname);
 	filesLoaded[lastfile].modname = GDKstrdup("libmonetdb5");
 	filesLoaded[lastfile].fullname = GDKstrdup("libmonetdb5");
 	filesLoaded[lastfile].handle = dl;
 	lastfile ++;
-	if(adr != NULL)
-		return adr; /* found it */
-
-	if (!silent)
-		fprintf(stderr, "#MAL.getAddress address of '%s.%s' not found",
-			(modname?modname:"<unknown>"), fcnname);
-	return NULL;
+	return adr;
 }
 /*
  * Module file loading

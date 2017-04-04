@@ -1101,7 +1101,7 @@ parseCommandPattern(Client cntxt, int kind)
 		curBlk->binding[(i< IDLENGTH? i:IDLENGTH-1)] = 0;
 		/* avoid a clash with old temporaries */
 		advance(cntxt, i);
-		curInstr->fcn = getAddress(cntxt->fdout, cntxt->srcFile, curBlk->binding, 0);
+		curInstr->fcn = getAddress(curBlk->binding);
 
 		if (cntxt->nspace->isAtomModule) {
 			if (curInstr->fcn == NULL) {
@@ -1146,7 +1146,7 @@ parseFunction(Client cntxt, int kind)
 			return 0;
 		}
 		nme = idCopy(cntxt, i);
-		curInstr->fcn = getAddress(cntxt->fdout, cntxt->srcFile, nme, 0);
+		curInstr->fcn = getAddress( nme);
 		GDKfree(nme);
 		if (curInstr->fcn == NULL) {
 			parseError(cntxt, "<address> not found\n");

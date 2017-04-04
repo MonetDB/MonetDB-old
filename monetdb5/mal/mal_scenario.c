@@ -172,7 +172,7 @@ initScenario(Client c, Scenario s)
 	/* prepare for conclicts */
 	MT_lock_set(&mal_contextLock);
 	if (s->initSystem && s->initSystemCmd == 0) {
-		s->initSystemCmd = (MALfcn) getAddress(c->fdout, l, s->initSystem,0);
+		s->initSystemCmd = (MALfcn) getAddress(s->initSystem);
 		if (s->initSystemCmd) {
 			msg = (*s->initSystemCmd) (c);
 		} else {
@@ -186,24 +186,68 @@ initScenario(Client c, Scenario s)
 		return msg;
 	}
 
-	if (s->exitSystem && s->exitSystemCmd == 0)
-		s->exitSystemCmd = (MALfcn) getAddress(c->fdout, l, s->exitSystem,0);
-	if (s->initClient && s->initClientCmd == 0)
-		s->initClientCmd = (MALfcn) getAddress(c->fdout, l, s->initClient,0);
-	if (s->exitClient && s->exitClientCmd == 0)
-		s->exitClientCmd = (MALfcn) getAddress(c->fdout, l, s->exitClient,0);
-	if (s->reader && s->readerCmd == 0)
-		s->readerCmd = (MALfcn) getAddress(c->fdout, l, s->reader,0);
-	if (s->parser && s->parserCmd == 0)
-		s->parserCmd = (MALfcn) getAddress(c->fdout, l, s->parser,0);
-	if (s->optimizer && s->optimizerCmd == 0)
-		s->optimizerCmd = (MALfcn) getAddress(c->fdout, l, s->optimizer,0);
-	if (s->tactics && s->tacticsCmd == 0)
-		s->tacticsCmd = (MALfcn) getAddress(c->fdout, l, s->tactics,0);
-	if (s->engine && s->engineCmd == 0)
-		s->engineCmd = (MALfcn) getAddress(c->fdout, l, s->engine,0);
+	if (s->exitSystem && s->exitSystemCmd == 0){
+		s->exitSystemCmd = (MALfcn) getAddress(s->exitSystem);
+		if( s->exitSystemCmd == NULL){
+			msg = createException(MAL,"initScenario","Address of exit system command not resolved");
+			goto wrapup;
+		}
+	}
+	if (s->initClient && s->initClientCmd == 0){
+		s->initClientCmd = (MALfcn) getAddress( s->initClient);
+		if( s->initSystemCmd == NULL){
+			msg = createException(MAL,"initScenario","Address of initClient command not resolved");
+			goto wrapup;
+		}
+	}
+	if (s->exitClient && s->exitClientCmd == 0){
+		s->exitClientCmd = (MALfcn) getAddress( s->exitClient);
+		if( s->exitClientCmd == NULL){
+			MT_lock_unset(&mal_contextLock);
+			msg = createException(MAL,"initScenario","Address of exitClient command not resolved");
+			goto wrapup;
+		}
+	}
+	if (s->reader && s->readerCmd == 0){
+		s->readerCmd = (MALfcn) getAddress( s->reader);
+		if( s->readerCmd == NULL){
+			msg = createException(MAL,"initScenario","Address of reader command not resolved");
+			goto wrapup;
+		}
+	}
+	if (s->parser && s->parserCmd == 0){
+		s->parserCmd = (MALfcn) getAddress( s->parser);
+		if( s->parserCmd == NULL){
+			msg = createException(MAL,"initScenario","Address of parse command not resolved");
+			goto wrapup;
+		}
+	}
+	if (s->optimizer && s->optimizerCmd == 0){
+		s->optimizerCmd = (MALfcn) getAddress( s->optimizer);
+		if( s->optimizerCmd == NULL){
+			msg = createException(MAL,"initScenario","Address of optimizer command not resolved");
+			goto wrapup;
+		}
+	}
+	if (s->tactics && s->tacticsCmd == 0){
+		s->tacticsCmd = (MALfcn) getAddress( s->tactics);
+		if( s->tacticsCmd == NULL){
+			msg = createException(MAL,"initScenario","Address of tactics command not resolved");
+			goto wrapup;
+		}
+	}
+	if (s->engine && s->engineCmd == 0){
+		s->engineCmd = (MALfcn) getAddress( s->engine);
+		if( s->engineCmd == NULL){
+			msg = createException(MAL,"initScenario","Address of engineClient command not resolved");
+			goto wrapup;
+		}
+	}
 	MT_lock_unset(&mal_contextLock);
 	return(fillScenario(c, s));
+wrapup:
+	MT_lock_unset(&mal_contextLock);
+	return msg;
 }
 
 str
