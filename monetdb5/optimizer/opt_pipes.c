@@ -432,6 +432,10 @@ compileOptimizer(Client cntxt, str name)
 					if (msg != MAL_SUCCEED) 
 						break;
 					pipes[j].mb = copyMalBlk(cntxt->curprg->def);
+					if( pipes[j].mb == NULL){
+						msg = createException(MAL,"compileOptimizer",MAL_MALLOC_FAIL);
+						goto wrapup;
+					}
 					// strip the function signature and end  one
 #ifdef _DEBUG_OPT_PIPES_
 					fprintf(stderr,"Optimizer plan\n");

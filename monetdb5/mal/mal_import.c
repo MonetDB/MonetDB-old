@@ -212,6 +212,10 @@ compileString(Client cntxt, str s)
 	c->fdout = 0;
 	freeMalBlk(cntxt->curprg->def);
 	cntxt->curprg->def = copyMalBlk(c->curprg->def);
+	if( cntxt->curprg->def == NULL){
+		MCcloseClient(c);
+		throw(MAL,"compileString", MAL_MALLOC_FAIL);
+	}
 	MCcloseClient(c);
 	return MAL_SUCCEED;
 }

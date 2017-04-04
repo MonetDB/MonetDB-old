@@ -16,15 +16,34 @@
 #include "mal_utils.h"
 #include "mal_exception.h"
 
+void
+addMalException(MalBlkPtr mb, str msg)
+{
+    str new;
+    
+    if( mb->errors){ 
+        new = GDKzalloc(strlen(mb->errors) + strlen(msg) + 4);
+        if (new == NULL)
+            return ; // just stick to one error message, ignore rest
+        strcpy(new, mb->errors);
+        strcat(new, msg);
+        GDKfree(mb->errors);
+        mb->errors = new;
+    } else {
+		new = GDKstrdup(msg);
+		if( new == NULL)
+            return ; // just stick to one error message, ignore rest
+		mb->errors = new;
+	}
+}
+
 Symbol
 newSymbol(str nme, int kind)
 {
 	Symbol cur;
 
-	if (nme == NULL) {
-		GDKerror("newSymbol:unexpected name (=null)\n");
+	if (nme == NULL)
 		return NULL;
-	}
 	cur = (Symbol) GDKzalloc(sizeof(SymRecord));
 	if (cur == NULL)
 		return NULL;
@@ -70,10 +89,8 @@ newMalBlkStmt(MalBlkPtr mb, int maxstmts)
 	InstrPtr *p;
 
 	p = (InstrPtr *) GDKzalloc(sizeof(InstrPtr) * maxstmts);
-	if (p == NULL) {
-		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
+	if (p == NULL) 
 		return -1;
-	}
 	mb->stmt = p;
 	mb->stop = 0;
 	mb->ssize = maxstmts;
@@ -87,17 +104,14 @@ newMalBlk(int elements)
 	VarRecord *v;
 
 	mb = (MalBlkPtr) GDKmalloc(sizeof(MalBlkRecord));
-	if (mb == NULL) {
-		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
+	if (mb == NULL) 
 		return NULL;
-	}
 
 	/* each MAL instruction implies at least on variable 
  	 * we reserve some extra for constants */
 	v = (VarRecord *) GDKzalloc(sizeof(VarRecord) * (elements + 8) );
-	if (v == NULL) {
+	if (v == NULL){
 		GDKfree(mb);
-		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
 	}
 	mb->var = v;
@@ -236,10 +250,8 @@ copyMalBlk(MalBlkPtr old)
 	int i;
 
 	mb = (MalBlkPtr) GDKzalloc(sizeof(MalBlkRecord));
-	if (mb == NULL) {
-		GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
+	if (mb == NULL)
 		return NULL;
-	}
 	mb->alternative = old->alternative;
 	mb->history = NULL;
 	mb->keephistory = old->keephistory;
@@ -247,7 +259,6 @@ copyMalBlk(MalBlkPtr old)
 	mb->var = (VarRecord *) GDKzalloc(sizeof(VarRecord) * old->vsize);
 	if (mb->var == NULL) {
 		GDKfree(mb);
-		GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
 	}
 
@@ -264,7 +275,6 @@ copyMalBlk(MalBlkPtr old)
 				VALclear(&mb->var[i].value);
 			GDKfree(mb->var);
 			GDKfree(mb);
-			GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
 			return NULL;
 		}
 	}
@@ -276,7 +286,6 @@ copyMalBlk(MalBlkPtr old)
 			VALclear(&mb->var[i].value);
 		GDKfree(mb->var);
 		GDKfree(mb);
-		GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
 	}
 
@@ -293,7 +302,6 @@ copyMalBlk(MalBlkPtr old)
 			GDKfree(mb->var);
 			GDKfree(mb->stmt);
 			GDKfree(mb);
-			GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
 			return NULL;
 		}
 	}
@@ -306,7 +314,6 @@ copyMalBlk(MalBlkPtr old)
 		GDKfree(mb->var);
 		GDKfree(mb->stmt);
 		GDKfree(mb);
-		GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
 	}
 	strncpy(mb->binding,  old->binding, IDLENGTH);
@@ -417,10 +424,8 @@ InstrPtr
 copyInstruction(InstrPtr p)
 {
 	InstrPtr new = (InstrPtr) GDKmalloc(offsetof(InstrRecord, argv) + p->maxarg * sizeof(p->maxarg));
-	if(new == NULL) {
-		GDKerror("copyInstruction: failed to allocated space");
+	if(new == NULL)
 		return new;
-	}
 	oldmoveInstruction(new, p);
 	return new;
 }
@@ -446,8 +451,8 @@ clrInstruction(InstrPtr p)
 void
 freeInstruction(InstrPtr p)
 {
-	assert(p != 0);
-	GDKfree(p);
+	if( p)
+		GDKfree(p);
 }
 
 /* Moving instructions around calls for care, because all dependent

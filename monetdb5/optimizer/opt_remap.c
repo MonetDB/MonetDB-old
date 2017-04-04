@@ -129,6 +129,8 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 	 * Determine the variables to be upgraded and adjust their type
 	 */
 	mq= copyMalBlk(s->def);
+	if( mq == 0)
+		return 0;
 	sig= getInstrPtr(mq,0);
 #ifdef DEBUG_OPT_REMAP
 	fprintf(stderr,"#Modify the code\n");
@@ -402,8 +404,16 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			getModuleId(p) == aggrRef && 
 			getFunctionId(p) == avgRef) {
 			/* group aggr.avg -> aggr.sum/aggr.count */	
-			InstrPtr sum = copyInstruction(p), avg, t, iszero;
-			InstrPtr cnt = copyInstruction(p);
+			InstrPtr sum, avg,t, iszero;
+			InstrPtr cnt;
+			sum = copyInstruction(p);
+			if( sum == NULL)
+				throw(MAL, "remap", MAL_MALLOC_FAIL);
+			cnt = copyInstruction(p);
+			if( cnt == NULL){
+				freeInstruction(sum);
+				throw(MAL, "remap", MAL_MALLOC_FAIL);
+			}
 			setFunctionId(sum, sumRef);
 			setFunctionId(cnt, countRef);
 			getArg(sum,0) = newTmpVariable(mb, getArgType(mb, p, 1));

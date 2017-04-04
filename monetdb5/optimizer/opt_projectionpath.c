@@ -76,6 +76,9 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 #endif
 			/* create the factored out prefix projection */
 			r = copyInstruction(p);
+			if( r == NULL){
+				return -1;
+			}
 			r->argc = prefixlength;
 			getArg(r,0) = newTmpVariable(mb, newBatType(getBatType(getArgType(mb,r,r->argc-1))));
 			setVarUDFtype(mb, getArg(r,0));

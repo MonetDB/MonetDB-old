@@ -169,6 +169,9 @@ inlineMALblock(MalBlkPtr mb, int pc, MalBlkPtr mc)
 
 		/* copy the instruction and fix variable references */
 		ns[k] = copyInstruction(q);
+		if( ns[k] == NULL)
+			return -1;
+
 		for (n = 0; n < q->argc; n++)
 			getArg(ns[k], n) = nv[getArg(q, n)];
 
@@ -254,6 +257,9 @@ MACROprocessor(Client cntxt, MalBlkPtr mb, Symbol t)
 
 			last = i;
 			i = inlineMALblock(mb, i, t->def);
+			if( i < 0)
+				throw(MAL, "optimizer.MACROoptimizer", MAL_MALLOC_FAIL);
+				
 			cnt++;
 			if (cnt > MAXEXPANSION)
 				throw(MAL, "optimizer.MACROoptimizer", MACRO_TOO_DEEP);
@@ -305,6 +311,8 @@ replaceMALblock(MalBlkPtr mb, int pc, MalBlkPtr mc)
 
 	p = getInstrPtr(mb, pc);
 	q = copyInstruction(getInstrPtr(mc, 0));	/* the signature */
+	if( q == NULL)
+		return -1;
 	q->token = ASSIGNsymbol;
 	mb->stmt[pc] = q;
 
@@ -360,9 +368,10 @@ ORCAMprocessor(Client cntxt, MalBlkPtr mb, Symbol t)
 	for (i = 1; i < mb->stop - mc->stop + 3; i++)
 		if (malFcnMatch(mc, mb, i)) {
 			msg = MACROvalidate(mc);
-			if (msg == MAL_SUCCEED)
-				replaceMALblock(mb, i, mc);
-			else
+			if (msg == MAL_SUCCEED){
+				if( replaceMALblock(mb, i, mc) < 0)
+					throw(MAL,"orcam", MAL_MALLOC_FAIL);
+			} else
 				break;
 		}
 	chkTypes(cntxt->nspace, mb, FALSE);

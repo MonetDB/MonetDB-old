@@ -47,13 +47,12 @@ parseError(Client cntxt, str msg)
 			return ; // just stick to one error message
 		strcpy(new, old);
 		strcat(new, msg);
-		msg = new;
+		mb->errors = createMalException( mb, mb->stop, SYNTAX,
+            "^%d %s", (int)(cntxt->lineptr - cntxt->line), new);
 		GDKfree(old);
-		mb->errors = NULL;
-	} else {
-	}
-
-	mb->errors = createMalException( mb, mb->stop, SYNTAX, 
+		GDKfree(new);
+	}  else
+		mb->errors = createMalException( mb, mb->stop, SYNTAX, 
 			"^%d %s", (int)(cntxt->lineptr - cntxt->line), msg);
 }
 

@@ -50,6 +50,9 @@ OPTquerylogImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	pushInstruction(mb, old[0]);
 	/* run the querylog.define operation */
 	defineQuery = copyInstruction(defineQuery);
+	if( defineQuery == NULL)
+		throw(MAL,"optimizer.querylog",MAL_MALLOC_FAIL);
+
 	defineQuery->argc--;  // remoge MAL instruction count
 	setFunctionId(defineQuery, appendRef);
 	getArg(defineQuery,0) = newTmpVariable(mb,TYPE_any);

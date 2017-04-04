@@ -236,6 +236,13 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 		for (j = 0; j < pieces; j++) {
 			q = copyInstruction(p);
+			if( q == NULL){
+				for (; i<limit; i++) 
+					if (old[i])
+						pushInstruction(mb,old[i]);
+				GDKfree(old);
+				throw(MAL,"optimizer.mitosis", MAL_MALLOC_FAIL);
+			}
 			q = pushInt(mb, q, j);
 			q = pushInt(mb, q, pieces);
 

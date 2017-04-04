@@ -385,6 +385,8 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 	}
 	freeMalBlk(new->def);
 	new->def = copyMalBlk(proc->def);
+	if( new->def == NULL)
+		return NULL;
 	/* now change the definition of the original proc */
 #ifdef DEBUG_CLONE
 	fprintf(stderr, "CLONED VERSION\n");

@@ -114,6 +114,13 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			q= newCatchStmt(mb,"SQLexception");
 			q= newExitStmt(mb,"SQLexception");
 			q= copyInstruction(lcks);
+			if( q == NULL){
+				for(; i<slimit; i++)
+					if( old[i])
+						freeInstruction(old[i]);
+				GDKfree(old);
+				throw(MAL,"optimizer.oltp",MAL_MALLOC_FAIL);
+			}
 			setFunctionId(q, releaseRef);
 			pushInstruction(mb,q);
 		}

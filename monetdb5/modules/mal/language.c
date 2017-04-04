@@ -187,7 +187,11 @@ CMDregisterFunction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( help)
 		cntxt->curprg->def->help= GDKstrdup(*help);
 	sym = newSymbol(putName(*fcn), 0);
+	if( sym == NULL)
+		throw(MAL,"language.register", MAL_MALLOC_FAIL);
 	sym->def = copyMalBlk(cntxt->curprg->def);
+	if( sym->def == NULL)
+		throw(MAL,"language.register", MAL_MALLOC_FAIL);
 	sig= getSignature(sym);
 	sym->name= putName(*fcn);
 	setModuleId(sig, putName(*mod));

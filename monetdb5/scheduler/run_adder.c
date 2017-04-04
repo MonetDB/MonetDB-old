@@ -103,6 +103,8 @@ RUNadder(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	getVar(mb,getArg(p,1))->value.val.ival = total; /* also set in symbol table */
 	if (total > 0) {
 		q = copyInstruction(p);
+		if( q == NULL)
+			throw(MAL,"scheduler.adder",MAL_MALLOC_FAIL);
 		pushInstruction(mb, q);
 	}
 	memcpy(mb->stmt+mb->stop, old+pc+1, sizeof(InstrPtr) * (oldtop-pc)-1);
