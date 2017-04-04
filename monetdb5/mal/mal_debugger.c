@@ -454,6 +454,32 @@ retryRead:
 			m = 0;
 			break;
 		case 'c':
+			if (strncmp("check",b,5) == 0){
+				Symbol fs;
+				int i;
+
+				skipWord(cntxt,b);
+				skipBlanc(cntxt, b);
+				if( strchr(b,'.') ){
+					str modnme = b;
+					str fcnnme;
+					fcnnme = strchr(b,'.');
+					*fcnnme++  = 0;
+
+					fs = findSymbol(cntxt->nspace, putName(modnme),putName(fcnnme));
+					if (fs == 0) {
+						mnstr_printf(out, "#'%s.%s' not found\n", modnme,fcnnme);
+						continue;
+					}
+					for(; fs; fs = fs->peer){ 
+						for(i=0; i< fs->def->stop; i++)
+							fs->def->stmt[i]->typechk = TYPE_UNKNOWN;
+						chkProgram(cntxt->nspace, fs->def);
+					}
+				} else
+					mnstr_printf(out, "#<modnme>.<fcnnme> expected\n");
+				break;
+			}
 			if (strncmp("catch", b, 3) == 0) {
 				/* catch the next exception */
 				stk->cmd = 'C';
