@@ -4,22 +4,22 @@
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
-function aggr.covar(e1:bat[:bte], e2:bat[:bte]):bte;
-	e0:bat[:bte] := batcalc.*(e1,e2);
-	s0:bte := aggr.sum(e0);
-	s1:bte := aggr.sum(e1);
-	s2:bte := aggr.sum(e2);
-	v2:bte := calc.*(s1,s2);
+function aggr.covar(e1:bat[:bte], e2:bat[:bte]):sht;
+	e0:bat[:sht] := batcalc.*(e1,e2);
+	s0:sht := aggr.sum(e0);
+	s1:sht := aggr.sum(e1);
+	s2:sht := aggr.sum(e2);
+	v2:sht := calc.*(s1,s2);
 	c := aggr.count(e1);
-	n:bte := calc.bte(c);
-	v3:bte := calc./(v2,n);
-	v1:bte := calc.-(s0,v3);
-	v:bte := calc./(v1,n);
+	n:sht := calc.sht(c);
+	v3:sht := calc./(v2,n);
+	v1:sht := calc.-(s0,v3);
+	v:sht := calc./(v1,n);
 	return v;
 end aggr.covar;
 
 function aggr.corr(e1:bat[:bte], e2:bat[:bte]):bte;
-	cv:bte := aggr.covar(e1,e2);
+	cv:sht := aggr.covar(e1,e2);
 	sd1 := aggr.stdev(e1);
 	sd2 := aggr.stdev(e2);
 	sd := calc.*(sd1,sd2);

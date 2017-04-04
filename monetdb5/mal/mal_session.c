@@ -589,10 +589,14 @@ MALreader(Client c)
 		
 		// special case when we are in debugging mode.
 		if( c->prompt && strncmp(c->prompt,"mdb>",4)== 0){
-			for( ; c->fdin->pos < c->fdin->len  && *l != '\n'; l++){
+			for( ; c->fdin->pos < c->fdin->len; l++){
+				c->fdin->pos++;
+				if( *l == '\n') {
+					l--;
+					break;
+				}
 				*s++ = *l;
 				c->linefill++;
-				c->fdin->pos++;
 			}
 			*s = 0;
 			return MAL_SUCCEED;

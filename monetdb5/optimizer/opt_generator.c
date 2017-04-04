@@ -17,13 +17,13 @@
 
 #define errorCheck(P,MOD,I) \
 setModuleId(P, generatorRef);\
-typeChecker(cntxt->fdout, cntxt->nspace, mb, P, TRUE);\
+typeChecker(cntxt->nspace, mb, P, TRUE);\
 if(P->typechk == TYPE_UNKNOWN){\
 	setModuleId(P,MOD);\
-	typeChecker(cntxt->fdout, cntxt->nspace, mb, P, TRUE);\
+	typeChecker(cntxt->nspace, mb, P, TRUE);\
 	setModuleId(series[I], generatorRef);\
 	setFunctionId(series[I], seriesRef);\
-	typeChecker(cntxt->fdout, cntxt->nspace, mb, series[I], TRUE);\
+	typeChecker(cntxt->nspace, mb, series[I], TRUE);\
 }\
 pushInstruction(mb,P); 
 
@@ -33,20 +33,20 @@ pushInstruction(mb,P);
 			q= newInstruction(0,calcRef, TPE##Ref);\
 			setDestVar(q, newTmpVariable(mb, TYPE_##TPE));\
 			pushArgument(mb,q,getArg(series[k],1));\
-			typeChecker(cntxt->fdout, cntxt->nspace, mb, q, TRUE);\
+			typeChecker(cntxt->nspace, mb, q, TRUE);\
 			p = pushArgument(mb,p, getArg(q,0));\
 			pushInstruction(mb,q);\
 			q= newInstruction(0,calcRef,TPE##Ref);\
 			setDestVar(q, newTmpVariable(mb, TYPE_##TPE));\
 			pushArgument(mb,q,getArg(series[k],2));\
 			pushInstruction(mb,q);\
-			typeChecker(cntxt->fdout, cntxt->nspace, mb, q, TRUE);\
+			typeChecker(cntxt->nspace, mb, q, TRUE);\
 			p = pushArgument(mb,p, getArg(q,0));\
 			if( p->argc == 4){\
 				q= newInstruction(0,calcRef,TPE##Ref);\
 				setDestVar(q, newTmpVariable(mb, TYPE_##TPE));\
 				pushArgument(mb,q,getArg(series[k],3));\
-				typeChecker(cntxt->fdout, cntxt->nspace, mb, q, TRUE);\
+				typeChecker(cntxt->nspace, mb, q, TRUE);\
 				p = pushArgument(mb,p, getArg(q,0));\
 				pushInstruction(mb,q);\
 			}\
@@ -108,7 +108,7 @@ OPTgeneratorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 			series[getArg(p,0)] = p;
 			setModuleId(p, generatorRef);
 			setFunctionId(p, parametersRef);
-			typeChecker(cntxt->fdout, cntxt->nspace, mb, p, TRUE);
+			typeChecker(cntxt->nspace, mb, p, TRUE);
 			pushInstruction(mb,p); 
 		} else if ( getModuleId(p) == algebraRef && getFunctionId(p) == selectRef && series[getArg(p,1)]){
 			errorCheck(p,algebraRef,getArg(p,1));
@@ -140,13 +140,13 @@ OPTgeneratorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 			if( series[getArg(p,k)]){
 				m = getModuleId(p);
 				setModuleId(p, generatorRef);
-				typeChecker(cntxt->fdout, cntxt->nspace, mb, p, TRUE);
+				typeChecker(cntxt->nspace, mb, p, TRUE);
 				if(p->typechk == TYPE_UNKNOWN){
 					setModuleId(p,m);
-					typeChecker(cntxt->fdout, cntxt->nspace, mb, p, TRUE);
+					typeChecker(cntxt->nspace, mb, p, TRUE);
 					setModuleId(series[getArg(p,k)], generatorRef);
 					setFunctionId(series[getArg(p,k)], seriesRef);
-					typeChecker(cntxt->fdout, cntxt->nspace, mb, series[getArg(p,k)], TRUE);
+					typeChecker(cntxt->nspace, mb, series[getArg(p,k)], TRUE);
 				}
 			}
 			pushInstruction(mb,p);

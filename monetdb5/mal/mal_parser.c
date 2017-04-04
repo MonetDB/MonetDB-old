@@ -727,7 +727,7 @@ term(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr, int ret)
 					setVarUDFtype(curBlk, cstidx);
 				} else {
 					cstidx = defConstant(curBlk, tpe, &cst);
-					setPolymorphic(*curInstr, tpe, FALSE);
+					//setPolymorphic(*curInstr, tpe, FALSE);
 					setVarUDFtype(curBlk, cstidx);
 					free = 0;
 				}

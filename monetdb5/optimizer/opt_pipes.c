@@ -473,7 +473,7 @@ addOptimizerPipe(Client cntxt, MalBlkPtr mb, str name)
 			}
 			for (k = 0; k < p->argc; k++)
 				getArg(p, k) = cloneVariable(mb, pipes[i].mb, getArg(p, k));
-			typeChecker(cntxt->fdout, cntxt->nspace, mb, p, FALSE);
+			typeChecker(cntxt->nspace, mb, p, FALSE);
 			pushInstruction(mb, p);
 		}
 	}

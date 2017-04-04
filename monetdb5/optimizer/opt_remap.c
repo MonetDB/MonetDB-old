@@ -24,6 +24,7 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 	int i, retc = pci->retc;
 	InstrPtr p;
 
+	(void) cntxt;
 	(void) stk;
 	mod = VALget(&getVar(mb, getArg(pci, retc+0))->value);
 	fcn = VALget(&getVar(mb, getArg(pci, retc+1))->value);
@@ -50,7 +51,7 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 #endif
 
 	/* now see if we can resolve the instruction */
-	typeChecker(cntxt->fdout, scope,mb,p,TRUE);
+	typeChecker(scope,mb,p,TRUE);
 	if( p->typechk== TYPE_UNKNOWN) {
 #ifdef DEBUG_OPT_REMAP
 		fprintf(stderr,"#type error\n");
@@ -237,7 +238,7 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 
 					actions++;
 					/* now see if we can resolve the instruction */
-					typeChecker(cntxt->fdout, cntxt->nspace,mq,q,TRUE);
+					typeChecker(cntxt->nspace,mq,q,TRUE);
 					if( q->typechk== TYPE_UNKNOWN)
 						goto terminateMX;
 					break;
@@ -253,7 +254,7 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 				
 					actions++;
 					q->typechk = TYPE_UNKNOWN;
-					typeChecker(cntxt->fdout, cntxt->nspace,mq,q,TRUE);
+					typeChecker(cntxt->nspace,mq,q,TRUE);
 					if( q->typechk== TYPE_UNKNOWN)
 						goto terminateMX;
 					break;

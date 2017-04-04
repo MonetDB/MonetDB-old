@@ -1248,6 +1248,9 @@ pushArgument(MalBlkPtr mb, InstrPtr p, int varid)
 		if (mb->maxarg < pn->maxarg)
 			mb->maxarg = pn->maxarg;
 	}
+	if( mb->maxarg < p->maxarg)
+		mb->maxarg= p->maxarg;
+
 	p->argv[p->argc++] = varid;
 	return p;
 }
@@ -1380,27 +1383,23 @@ destinationType(MalBlkPtr mb, InstrPtr p)
 }
 
 /* For polymorphic instructions we should keep around the maximal
- * index to later allocate sufficient space for type resolutions
- * maps. Beware, that we only consider the instruction polymorphic if
- * it has an index or belongs to the signature. In other cases it
- * merely has to be filled. */
+ * index to later allocate sufficient space for type resolutions maps.
+ * Beware, that we should only consider the instruction polymorphic if
+ * it has a positive index or belongs to the signature. 
+ * BATs can only have a polymorphic type at the tail.
+ */
 inline void
 setPolymorphic(InstrPtr p, int tpe, int force)
 {
-	int c1 = 0, c2 = 0;
+	int c2;
 
 	if (force == FALSE && tpe == TYPE_any)
 		return;
-	if (isaBatType(tpe)) 
-		c1= TYPE_oid;
-	if (getTypeIndex(tpe) > 0)
+	if (getBatType(tpe) == TYPE_any){
 		c2 = getTypeIndex(tpe);
-	else if (getBatType(tpe) == TYPE_any)
-		c2 = 1;
-	c1 = c1 > c2 ? c1 : c2;
-	if (c1 > 0 && c1 >= p->polymorphic)
-		p->polymorphic = c1 + 1;
-
+		if( c2 > 0 && c2 > p->polymorphic)
+			p->polymorphic = c2 + 1;
+	}
 }
 
 /* Instructions are simply appended to a MAL block. It should always succeed.
