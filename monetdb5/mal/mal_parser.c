@@ -1449,6 +1449,7 @@ int
 parseMAL(Client cntxt)
 {	int cntrl = 0;
 	int inlineProp =0, unsafeProp = 0, sealedProp = 0;
+	str msg;
 
 	cntxt->lineptr = cntxt->line;
 	skipSpace(cntxt);
@@ -1479,7 +1480,9 @@ parseMAL(Client cntxt)
 					cntxt->curprg->def->sealedProp = sealedProp;
 					if (inlineProp)
 						parseError(cntxt, "parseError:INLINE ignored");
-					MSinitClientPrg(cntxt, "user", "main");
+					msg = MSinitClientPrg(cntxt, "user", "main");
+					if( msg != MAL_SUCCEED)
+						parseError(cntxt,msg);
 				}
 				return 0;
 			}
@@ -1560,7 +1563,9 @@ parseMAL(Client cntxt)
 					chkProgram(cntxt->nspace, cntxt->curprg->def);
 					if( cntxt->curprg->def->errors)
 						parseError(cntxt,"Program contains errors\n");
-					MSinitClientPrg(cntxt, "user","main");
+					msg = MSinitClientPrg(cntxt, "user","main");
+					if( msg != MAL_SUCCEED)
+						parseError(cntxt,msg);
 					return 0;
 				}
 				continue;

@@ -97,22 +97,21 @@ CMDgen_group(BAT **result, BAT *gids, BAT *cnts )
 }
 
 
-static gdk_return
+static str
 slice(BAT **retval, BAT *b, lng start, lng end)
 {
 	/* the internal BATslice requires exclusive end */
-	if (start < 0) {
-		GDKerror("CMDslice: start position of slice should >= 0\n");
-		return GDK_FAIL;
-	}
+	if (start < 0) 
+		throw(MAL,"algebra.slice","start position of slice should >= 0\n");
 	if (end == lng_nil)
 		end = BATcount(b);
-	if (start > (lng) BUN_MAX || end >= (lng) BUN_MAX) {
-		GDKerror("CMDslice: argument out of range\n");
-		return GDK_FAIL;
-	}
+	if (start > (lng) BUN_MAX || end >= (lng) BUN_MAX)
+		throw(MAL,"algebra.slice","argument out of range\n");
 
-	return (*retval = BATslice(b, (BUN) start, (BUN) end + 1)) ? GDK_SUCCEED : GDK_FAIL;
+	*retval = BATslice(b, (BUN) start, (BUN) end + 1);
+	if( *retval )
+		return MAL_SUCCEED;
+	throw(MAL,"algebra.slice","failed to grab slice");
 }
 /*
  * 
@@ -815,11 +814,13 @@ str
 ALGslice(bat *ret, const bat *bid, const lng *start, const lng *end)
 {
 	BAT *b, *bn = NULL;
+	str msg;
 
 	if ((b = BATdescriptor(*bid)) == NULL) {
 		throw(MAL, "algebra.slice", RUNTIME_OBJECT_MISSING);
 	}
-	if (slice(&bn, b, *start, *end) == GDK_SUCCEED) {
+	msg = slice(&bn, b, *start, *end);
+	if( msg == MAL_SUCCEED){
 		*ret = bn->batCacheid;
 		BBPkeepref(*ret);
 		BBPunfix(b->batCacheid);

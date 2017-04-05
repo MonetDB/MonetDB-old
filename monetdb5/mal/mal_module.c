@@ -50,8 +50,7 @@ static void newModuleSpace(Module scope){
 	fprintf(stderr,"#Add jump table to scope %s\n", scope->name);
 #endif
 	scope->space = (Symbol *) GDKzalloc(MAXSCOPE * sizeof(Symbol));
-	if( scope->space == 0)
-		GDKerror("newModuleSpace:"MAL_MALLOC_FAIL);
+	// error is reported elsewhere
 }
 
 void

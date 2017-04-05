@@ -93,7 +93,7 @@ malBootstrap(void)
  * was added.  At the end of the session we have to garbage collect the
  * BATs introduced.
  */
-static void
+static str
 MSresetClientPrg(Client cntxt)
 {
 	MalBlkPtr mb;
@@ -116,26 +116,24 @@ MSresetClientPrg(Client cntxt)
 		freeMalBlk(mb->history);
 		mb->history = 0;
 	}
+	return MAL_SUCCEED;
 }
 
 /*
  * Create a new container block
  */
 
-void
+str
 MSinitClientPrg(Client cntxt, str mod, str nme)
 {
 	InstrPtr p;
 	MalBlkPtr mb;
 
-	if (cntxt->curprg && idcmp(nme, cntxt->curprg->name) == 0) {
-		MSresetClientPrg(cntxt);
-		return;
-	}
+	if (cntxt->curprg && idcmp(nme, cntxt->curprg->name) == 0) 
+		return MSresetClientPrg(cntxt);
 	cntxt->curprg = newFunction(putName("user"), putName(nme), FUNCTIONsymbol);
 	if( cntxt->curprg == 0){
-		GDKerror("MSinitClientPrg" "Failed to create function");
-		return;
+		throw(MAL, "initClientPrg", MAL_MALLOC_FAIL);
 	}
 	mb = cntxt->curprg->def;
 	p = getSignature(cntxt->curprg);
@@ -146,7 +144,10 @@ MSinitClientPrg(Client cntxt, str mod, str nme)
 	setVarType(mb, findVariable(mb, nme), TYPE_void);
 	if (cntxt->glb == NULL )
 		cntxt->glb = newGlobalStack(MAXGLOBALS + mb->vsize);
+	if( cntxt->glb == NULL)
+		throw(MAL,"initClientPrg", MAL_MALLOC_FAIL);
 	assert(cntxt->curprg->def != NULL);
+	return MAL_SUCCEED;
 }
 
 /*
@@ -334,7 +335,7 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout)
 		}
 	}
 
-	MSinitClientPrg(c, "user", "main");
+	(void) MSinitClientPrg(c, "user", "main");
 
 	GDKfree(command);
 
@@ -719,7 +720,7 @@ MALparser(Client cntxt)
 		} 
 		msg = cntxt->curprg->def->errors;
 		cntxt->curprg->def->errors = 0;
-		MSinitClientPrg(cntxt,"user","main");
+		(void) MSinitClientPrg(cntxt,"user","main");
 	}
 
 	return msg;

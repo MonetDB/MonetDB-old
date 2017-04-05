@@ -578,7 +578,10 @@ runScenarioBody(Client c)
 			freeException(msg);
 			msg = MAL_SUCCEED;
 		}
-		showErrors(c); // GDK level errors
+		if( GDKerrbuf && GDKerrbuf[0]){
+			mnstr_printf(c->fdout,"!GDKerror: %s\n",GDKerrbuf);
+			mnstr_flush(c->fdout);
+		}
 		assert(c->curprg->def->errors == NULL);
 		c->actions++;
 	}

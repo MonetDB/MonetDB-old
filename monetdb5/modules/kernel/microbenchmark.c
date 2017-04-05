@@ -25,7 +25,7 @@
 #define rand()		0
 #endif
 
-static gdk_return
+static str
 BATrandom(BAT **bn, oid *base, lng *size, int *domain, int seed)
 {
 	const BUN n = (BUN) * size;
@@ -33,26 +33,22 @@ BATrandom(BAT **bn, oid *base, lng *size, int *domain, int seed)
 	BAT *b = NULL;
 	int *restrict val;
 
-	if (*size > (lng)BUN_MAX) {
-		GDKerror("BATrandom: size must not exceed BUN_MAX");
-		return GDK_FAIL;
-	}
+	if (*size > (lng)BUN_MAX) 
+		throw(MAL,"microbenchmark.random","size must not exceed BUN_MAX");
 
-	if (*size < 0) {
-		GDKerror("BATrandom: size must not be negative");
-		return GDK_FAIL;
-	}
+	if (*size < 0) 
+		throw(MAL,"microbenchmark.random","BATrandom: size must not be negative");
 
 	b = COLnew(*base, TYPE_int, n, TRANSIENT);
 	if (b == NULL)
-		return GDK_FAIL;
+		throw(MAL,"microbenchmark.random",MAL_MALLOC_FAIL);
 	if (n == 0) {
 		b->tsorted = 1;
 		b->trevsorted = 0;
 		b->tdense = FALSE;
 		BATkey(b, TRUE);
 		*bn = b;
-		return GDK_SUCCEED;
+		return MAL_SUCCEED;
 	}
 	val = (int *) Tloc(b, 0);
 
@@ -81,10 +77,10 @@ BATrandom(BAT **bn, oid *base, lng *size, int *domain, int seed)
 	b->tdense = FALSE;
 	BATkey(b, FALSE);
 	*bn = b;
-	return GDK_SUCCEED;
+	return MAL_SUCCEED;
 }
 
-static gdk_return
+static str
 BATuniform(BAT **bn, oid *base, lng *size, int *domain)
 {
 	const BUN n = (BUN) * size;
@@ -93,26 +89,22 @@ BATuniform(BAT **bn, oid *base, lng *size, int *domain)
 	int *restrict val;
 	int v;
 
-	if (*size > (lng)BUN_MAX) {
-		GDKerror("BATuniform: size must not exceed BUN_MAX");
-		return GDK_FAIL;
-	}
+	if (*size > (lng)BUN_MAX) 
+		throw(MAL,"microbenchmark.uniform","BATuniform: size must not exceed BUN_MAX");
 
-	if (*size < 0) {
-		GDKerror("BATuniform: size must not be negative");
-		return GDK_FAIL;
-	}
+	if (*size < 0)
+		throw(MAL,"microbenchmark.uniform","BATuniform: size must not be negative");
 
 	b = COLnew(*base, TYPE_int, n, TRANSIENT);
 	if (b == NULL)
-		return GDK_FAIL;
+		throw(MAL,"microbenchmark.uniform", MAL_MALLOC_FAIL);
 	if (n == 0) {
 		b->tsorted = 1;
 		b->trevsorted = 0;
 		b->tdense = FALSE;
 		BATkey(b, TRUE);
 		*bn = b;
-		return GDK_SUCCEED;
+		return MAL_SUCCEED;
 	}
 	val = (int *) Tloc(b, 0);
 
@@ -138,10 +130,10 @@ BATuniform(BAT **bn, oid *base, lng *size, int *domain)
 	b->tdense = FALSE;
 	BATkey(b, *size <= *domain);
 	*bn = b;
-	return GDK_SUCCEED;
+	return MAL_SUCCEED;
 }
 
-static gdk_return
+static str
 BATskewed(BAT **bn, oid *base, lng *size, int *domain, int *skew)
 {
 	const BUN n = (BUN) * size;
@@ -151,31 +143,25 @@ BATskewed(BAT **bn, oid *base, lng *size, int *domain, int *skew)
 	const BUN skewedSize = ((*skew) * n) / 100;
 	const int skewedDomain = ((100 - (*skew)) * (*domain)) / 100;
 
-	if (*size > (lng)BUN_MAX) {
-		GDKerror("BATskewed: size must not exceed BUN_MAX = " BUNFMT, BUN_MAX);
-		return GDK_FAIL;
-	}
+	if (*size > (lng)BUN_MAX) 
+		throw(MAL,"microbenchmark.skewed","size must not exceed BUN_MAX = " BUNFMT, BUN_MAX);
 
-	if (*size < 0) {
-		GDKerror("BATskewed: size must not be negative");
-		return GDK_FAIL;
-	}
+	if (*size < 0) 
+		throw(MAL,"microbenchmark.skewed","size must not be negative");
 
-	if (*skew > 100 || *skew < 0) {
-		GDKerror("BATskewed: skew must be between 0 and 100");
-		return GDK_FAIL;
-	}
+	if (*skew > 100 || *skew < 0) 
+		throw(MAL,"microbenchmark.skewed","skew must be between 0 and 100");
 
 	b = COLnew(*base, TYPE_int, n, TRANSIENT);
 	if (b == NULL)
-		return GDK_FAIL;
+		throw(MAL,"microbenchmark.skewed", MAL_MALLOC_FAIL);
 	if (n == 0) {
 		b->tsorted = 1;
 		b->trevsorted = 0;
 		b->tdense = FALSE;
 		BATkey(b, TRUE);
 		*bn = b;
-		return GDK_SUCCEED;
+		return MAL_SUCCEED;
 	}
 	val = (int *) Tloc(b, 0);
 
@@ -200,7 +186,7 @@ BATskewed(BAT **bn, oid *base, lng *size, int *domain, int *skew)
 	b->tdense = FALSE;
 	BATkey(b, *size <= *domain);
 	*bn = b;
-	return GDK_SUCCEED;
+	return MAL_SUCCEED;
 }
 
 
@@ -212,7 +198,7 @@ BATskewed(BAT **bn, oid *base, lng *size, int *domain, int *skew)
 # define M_E		((dbl) 2.7182818284590452354)	/* e */
 #endif
 
-static gdk_return
+static str
 BATnormal(BAT **bn, oid *base, lng *size, int *domain, int *stddev, int *mean)
 {
 	const BUN n = (BUN) * size;
@@ -231,32 +217,25 @@ BATnormal(BAT **bn, oid *base, lng *size, int *domain, int *stddev, int *mean)
 	assert(sizeof(unsigned int) == sizeof(flt));
 
 #if SIZEOF_BUN > 4
-	if (n >= ((ulng) 1 << 32)) {
-		GDKerror("BATnormal: size must be less than 2^32 = "LLFMT, (lng) 1 << 32);
-		return GDK_FAIL;
-	}
+	if (n >= ((ulng) 1 << 32))
+		throw(MAL,"microbenchmark.normal","size must be less than 2^32 = "LLFMT, (lng) 1 << 32);
 #endif
-	if (*size > (lng)BUN_MAX) {
-		GDKerror("BATnormal: size must not exceed BUN_MAX");
-		return GDK_FAIL;
-	}
+	if (*size > (lng)BUN_MAX) 
+		throw(MAL,"microbenchmark.normal","size must not exceed BUN_MAX");
 
-	if (*size < 0) {
-		GDKerror("BATnormal: size must not be negative");
-		return GDK_FAIL;
-	}
+	if (*size < 0) 
+		throw(MAL,"microbenchmark.normal","size must not be negative");
 
 	b = COLnew(*base, TYPE_int, n, TRANSIENT);
-	if (b == NULL) {
-		return GDK_FAIL;
-        }
+	if (b == NULL) 
+		throw(MAL,"microbenchmark.normal", MAL_MALLOC_FAIL);
 	if (n == 0) {
 		b->tsorted = 1;
 		b->trevsorted = 0;
 		b->tdense = FALSE;
 		BATkey(b, TRUE);
 		*bn = b;
-		return GDK_SUCCEED;
+		return MAL_SUCCEED;
 	}
 	val = (int *) Tloc(b, 0);
 
@@ -312,10 +291,9 @@ BATnormal(BAT **bn, oid *base, lng *size, int *domain, int *stddev, int *mean)
 	b->tdense = FALSE;
 	BATkey(b, n<2);
 	*bn = b;
-	return GDK_SUCCEED;
+	return MAL_SUCCEED;
 }
 /*
- * @-
  * The M5 wrapper code
  */
 
@@ -327,34 +305,36 @@ MBMrandom(bat *ret, oid *base, lng *size, int *domain){
 str
 MBMrandom_seed(bat *ret, oid *base, lng *size, int *domain, const int *seed){
 	BAT *bn = NULL;
+	str msg;
 
-	BATrandom(&bn, base, size, domain, *seed);
-	if( bn ){
+	msg = BATrandom(&bn, base, size, domain, *seed);
+	if( bn )
 		BBPkeepref(*ret= bn->batCacheid);
-	} else throw(MAL, "microbenchmark.random", OPERATION_FAILED);
-	return MAL_SUCCEED;
+	return msg;
 }
 
 
 str
 MBMuniform(bat *ret, oid *base, lng *size, int *domain){
 	BAT *bn = NULL;
+	str msg;
 
-	BATuniform(&bn, base, size, domain);
-	if( bn ){
+	msg  = BATuniform(&bn, base, size, domain);
+	if( bn )
 		BBPkeepref(*ret= bn->batCacheid);
-	} else throw(MAL, "microbenchmark.uniform", OPERATION_FAILED);
-	return MAL_SUCCEED;
+	return msg;
 }
 
 str
 MBMnormal(bat *ret, oid *base, lng *size, int *domain, int *stddev, int *mean){
 	BAT *bn = NULL;
-	BATnormal(&bn, base, size, domain, stddev, mean);
+	str msg;
+
+	msg = BATnormal(&bn, base, size, domain, stddev, mean);
 	if( bn ){
 		BBPkeepref(*ret= bn->batCacheid);
-	} else throw(MAL, "microbenchmark.uniform", OPERATION_FAILED);
-	return MAL_SUCCEED;
+	}
+	return msg;
 }
 
 
@@ -387,10 +367,10 @@ MBMmix(bat *bn, bat *batid)
 str
 MBMskewed(bat *ret, oid *base, lng *size, int *domain, int *skew){
 	BAT *bn = NULL;
+	str msg;
 
-	BATskewed(&bn, base, size, domain, skew);
-	if( bn ){
+	msg = BATskewed(&bn, base, size, domain, skew);
+	if( bn )
 		BBPkeepref(*ret= bn->batCacheid);
-	} else throw(MAL, "microbenchmark,uniform", OPERATION_FAILED);
-	return MAL_SUCCEED;
+	return msg;
 }

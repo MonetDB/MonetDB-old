@@ -590,10 +590,8 @@ setVariableScope(MalBlkPtr mb)
 
 		if( blockStart(p)){
 			if (getModuleId(p) && getFunctionId(p) && strcmp(getModuleId(p),"language")==0 && strcmp(getFunctionId(p),"dataflow")==0){
-				if( dflow != -1){
-					GDKerror("setLifeSpan nested dataflow blocks not allowed" );
-					mb->errors++;
-				}
+				if( dflow != -1)
+					addMalException(mb,"setLifeSpan nested dataflow blocks not allowed" );
 				dflow= depth;
 			} else
 				depth++;

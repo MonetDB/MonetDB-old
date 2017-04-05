@@ -47,7 +47,7 @@ renderTerm(MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int idx, int flg)
 
 	buf = GDKzalloc(maxlen);
 	if( buf == NULL) {
-		GDKerror("renderTerm:Failed to allocate");
+		addMalException(mb, "renderTerm:Failed to allocate");
 		return NULL;
 	}
 	// show the name when required or is used
@@ -75,7 +75,7 @@ renderTerm(MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int idx, int flg)
 			buf= GDKrealloc(buf, maxlen =len + strlen(cv) + BUFSIZ);
 
 		if( buf == 0){
-			GDKerror("renderTerm:Failed to allocate");
+			addMalException(mb,"renderTerm:Failed to allocate");
 			return NULL;
 		}
 
@@ -121,7 +121,7 @@ renderTerm(MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int idx, int flg)
 	}
 
 	if( len >= maxlen)
-		GDKerror("renderTerm:Value representation too large");
+		addMalException(mb,"renderTerm:Value representation too large");
 	return buf;
 }
 
@@ -530,7 +530,7 @@ mal2str(MalBlkPtr mb, int first, int last)
 	len = GDKmalloc(sizeof(int) * mb->stop);
 
 	if( txt == NULL || len == NULL){
-		GDKerror("mal2str: " MAL_MALLOC_FAIL);
+		addMalException(mb,"mal2str: " MAL_MALLOC_FAIL);
 		if( txt ) GDKfree(txt);
 		if( len ) GDKfree(len);
 		return NULL;
@@ -549,7 +549,7 @@ mal2str(MalBlkPtr mb, int first, int last)
 	}
 	ps = GDKmalloc(totlen + mb->stop + 1);
 	if( ps == NULL){
-		GDKerror("mal2str: " MAL_MALLOC_FAIL);
+		addMalException(mb,"mal2str: " MAL_MALLOC_FAIL);
 		GDKfree(len);
 		GDKfree(txt);
 		return NULL;
@@ -618,7 +618,7 @@ printSignature(stream *fd, Symbol s, int flg)
 		(void) fcnDefinition(s->def, p, txt, flg, txt, MAXLISTING);
 		mnstr_printf(fd, "%s\n", txt);
 		GDKfree(txt);
-	} else GDKerror("printSignature"MAL_MALLOC_FAIL);
+	} else mnstr_printf(fd,"printSignature"MAL_MALLOC_FAIL);
 }
 
 void showMalBlkHistory(stream *out, MalBlkPtr mb)

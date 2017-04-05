@@ -131,7 +131,7 @@ evalFile(Client cntxt, str fname, int listing, int included)
 			c->promptlength = 0;
 			msg = defaultScenario(c);
 			if( msg == MAL_SUCCEED){ 
-				MSinitClientPrg(c, "user", "main");  /* create new context */
+				(void) MSinitClientPrg(c, "user", "main");  /* create new context */
 				c->listing = listing;
 				msg = runScenario(c);
 			}
@@ -199,7 +199,7 @@ compileString(Client cntxt, str s)
 
 	msg = defaultScenario(c);
 	if( msg == MAL_SUCCEED){ 
-		MSinitClientPrg(c, "user", "main");  /* create new context */
+		(void) MSinitClientPrg(c, "user", "main");  /* create new context */
 		c->blkmode = 1; // collect all statements
 		while(msg == MAL_SUCCEED && c->fdin->eof == 0){
 			msg = MALreader(c);
