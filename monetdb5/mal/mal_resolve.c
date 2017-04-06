@@ -456,6 +456,9 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 					goto wrapup;
 			}
 		}
+		/* Any previousely found error in the block
+		 * turns the complete block into erroneous.
+		 */
 		if (s->def->errors) {
 			p->typechk = TYPE_UNKNOWN;
 			goto wrapup;

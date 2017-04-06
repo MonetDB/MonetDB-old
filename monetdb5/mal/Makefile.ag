@@ -10,7 +10,7 @@ INCLUDES = ../../common/options \
 		   ../../clients/mapilib \
 		   ../../gdk \
 		   ../optimizer \
-		   $(openssl_CFLAGS)
+		   $(libxml2_CFLAGS) $(curl_CFLAGS) $(openssl_CFLAGS)
 MTSAFE
 
 lib_mal = {

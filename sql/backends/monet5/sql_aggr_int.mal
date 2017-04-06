@@ -11,7 +11,7 @@ function aggr.covar(e1:bat[:int], e2:bat[:int]):lng;
 	s2:lng := aggr.sum(e2);
 	v2:lng := calc.*(s1,s2);
 	c := aggr.count(e1);
-	n:lng := calc.int(c);
+	n:int := calc.int(c);
 	v3:lng := calc./(v2,n);
 	v1:lng := calc.-(s0,v3);
 	v:lng := calc./(v1,n);

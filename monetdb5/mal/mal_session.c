@@ -568,9 +568,12 @@ MALreader(Client c)
 				mnstr_flush(c->fdout);
 			}
 			if(bstream_next(c->fdin) < 0 || c->fdin->eof ){
-				if (c->bak)
+				if (c->bak){
+#ifdef _DEBUG_SESSION_
+					fprintf(stderr,"Pop the input stream\n");
+#endif
 					MCpopClientInput(c);
-				else{
+				} else{
 					MT_lock_set(&mal_contextLock);
 					c->mode = FINISHCLIENT;
 					MT_lock_unset(&mal_contextLock);

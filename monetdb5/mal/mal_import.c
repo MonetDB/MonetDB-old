@@ -110,7 +110,7 @@ evalFile(Client cntxt, str fname, int listing, int included)
 		filename = p+1;
 		files[cnt++]= filename;
 	}
-	for(i=0; i<cnt; i++){
+	for(i=cnt-1; i>=0; i--){
 		fd = malOpenSource(files[i]);
 		if (fd == 0 || mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
 			if(fd) mnstr_destroy(fd);

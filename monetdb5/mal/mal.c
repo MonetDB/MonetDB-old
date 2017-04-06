@@ -36,6 +36,11 @@ int have_hge;
 #include "mal_runtime.h"
 #include "mal_resource.h"
 
+#ifdef HAVE_LIBXML
+#include <libxml/parser.h>
+#include <libxml/xmlmemory.h>
+#endif
+
 MT_Lock     mal_contextLock MT_LOCK_INITIALIZER("mal_contextLock");
 MT_Lock     mal_namespaceLock MT_LOCK_INITIALIZER("mal_namespaceLock");
 MT_Lock     mal_remoteLock MT_LOCK_INITIALIZER("mal_remoteLock");
@@ -164,6 +169,7 @@ void mserver_reset(int exit)
 	mal_runtime_reset();
 	mal_module_reset();
 	mdbExit();
+	xmlCleanupParser();
 
 	memset((char*)monet_cwd,0, sizeof(monet_cwd));
 	monet_memory = 0;
