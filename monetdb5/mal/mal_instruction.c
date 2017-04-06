@@ -1322,46 +1322,6 @@ delArgument(InstrPtr p, int idx)
 		p->retc--;
 }
 
-/* Cleaning a variable type by setting it to TYPE_any possibly
- * invalidates all other type derivations in the program. Beware of
- * the exception variables. They are globally known. */
-void
-clrAllTypes(MalBlkPtr mb)
-{
-	int i;
-	InstrPtr p;
-
-	p = getInstrPtr(mb, 0);
-
-	for (i = p->argc; i < mb->vtop; i++)
-		if (!isVarUDFtype(mb, i) && isVarUsed(mb, i) && !isVarTypedef(mb, i) && !isVarConstant(mb, i) && !isExceptionVariable( getVarName(mb,i)) ) {
-			setVarType(mb, i, TYPE_any);
-			clrVarCleanup(mb, i);
-			clrVarFixed(mb, i);
-		}
-	for (i = 1; i < mb->stop - 1; i++) {
-		p = getInstrPtr(mb, i);
-		p->typechk = TYPE_UNKNOWN;
-		p->fcn = 0;
-		p->blk = NULL;
-
-		switch (p->token) {
-		default:
-			p->token = ASSIGNsymbol;
-		case RAISEsymbol:
-		case CATCHsymbol:
-		case RETURNsymbol:
-		case LEAVEsymbol:
-		case YIELDsymbol:
-		case EXITsymbol:
-		case NOOPsymbol:
-			break;
-		case ENDsymbol:
-			return;
-		}
-	}
-}
-
 void
 setArgType(MalBlkPtr mb, InstrPtr p, int i, int tpe)
 {

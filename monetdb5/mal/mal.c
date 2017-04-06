@@ -144,6 +144,7 @@ void mserver_reset(int exit)
 	mal_dataflow_reset();
 	THRdel(mal_clients->mythread);
 	GDKfree(mal_clients->errbuf);
+	mal_clients->fdin->s = NULL;
 	bstream_destroy(mal_clients->fdin);
 	mal_clients->fdin = 0;
 	GDKfree(mal_clients->prompt);

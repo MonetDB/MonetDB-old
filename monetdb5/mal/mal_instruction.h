@@ -178,7 +178,6 @@ mal_export InstrPtr setArgument(MalBlkPtr mb, InstrPtr p, int idx, int varid);
 mal_export InstrPtr pushReturn(MalBlkPtr mb, InstrPtr p, int varid);
 mal_export InstrPtr pushArgumentId(MalBlkPtr mb, InstrPtr p, const char *name);
 mal_export void delArgument(InstrPtr p, int varid);
-mal_export void clrAllTypes(MalBlkPtr mb);
 mal_export void setArgType(MalBlkPtr mb, InstrPtr p, int i, int tpe);
 mal_export void setReturnArgument(InstrPtr p, int varid);
 mal_export malType destinationType(MalBlkPtr mb, InstrPtr p);
