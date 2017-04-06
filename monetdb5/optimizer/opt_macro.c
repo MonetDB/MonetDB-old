@@ -374,7 +374,7 @@ ORCAMprocessor(Client cntxt, MalBlkPtr mb, Symbol t)
 			} else
 				break;
 		}
-	chkTypes(cntxt->nspace, mb, FALSE);
+	chkTypes(cntxt->usermodule, mb, FALSE);
 	chkFlow(mb);
 	chkDeclarations(mb);
 	return msg;
@@ -399,14 +399,14 @@ OPTmacroImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	} else {
 		mod= getArgDefault(mb,p,1);
 		fcn= getArgDefault(mb,p,2);
-		t= findSymbol(cntxt->nspace, putName(mod), fcn);
+		t= findSymbol(cntxt->usermodule, putName(mod), fcn);
 		if( t == 0)
 			return 0;
 		target= t->def;
 		mod= getArgDefault(mb,p,3);
 		fcn= getArgDefault(mb,p,4);
 	}
-	s = findModule(cntxt->nspace, putName(mod));
+	s = findModule(cntxt->usermodule, putName(mod));
 	if (s == 0)
 		return 0;
 	if (s->space) {
@@ -449,14 +449,14 @@ OPTorcamImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	} else {
 		mod= getArgDefault(mb,p,1);
 		fcn= getArgDefault(mb,p,2);
-		t= findSymbol(cntxt->nspace, putName(mod), fcn);
+		t= findSymbol(cntxt->usermodule, putName(mod), fcn);
 		if( t == 0)
 			return 0;
 		target= t->def;
 		mod= getArgDefault(mb,p,3);
 		fcn= getArgDefault(mb,p,4);
 	}
-	s = findModule(cntxt->nspace, putName(mod));
+	s = findModule(cntxt->usermodule, putName(mod));
 	if (s == 0)
 		return 0;
 	if (s->space) {
@@ -488,7 +488,7 @@ str OPTmacro(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 		mod= getArgDefault(mb,p,3);
 		fcn= getArgDefault(mb,p,4);
 	}
-	t= findSymbol(cntxt->nspace, putName(mod), fcn);
+	t= findSymbol(cntxt->usermodule, putName(mod), fcn);
 	if( t == 0)
 		return 0;
 
@@ -504,7 +504,7 @@ str OPTmacro(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	}
 
     /* Defense line against incorrect plans */
-	chkTypes(cntxt->nspace, mb, FALSE);
+	chkTypes(cntxt->usermodule, mb, FALSE);
 	chkFlow(mb);
 	chkDeclarations(mb);
 	usec += GDKusec() - clk;
@@ -535,7 +535,7 @@ str OPTorcam(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 		mod= getArgDefault(mb,p,3);
 		fcn= getArgDefault(mb,p,4);
 	}
-	t= findSymbol(cntxt->nspace, putName(mod), fcn);
+	t= findSymbol(cntxt->usermodule, putName(mod), fcn);
 	if( t == 0)
 		return 0;
 
@@ -546,7 +546,7 @@ str OPTorcam(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 		msg= OPTorcamImplementation(cntxt,mb,stk,p);
 	if( msg) 
 		return msg;
-	chkTypes(cntxt->nspace, mb, FALSE);
+	chkTypes(cntxt->usermodule, mb, FALSE);
 	chkFlow(mb);
 	chkDeclarations(mb);
 	usec += GDKusec() - clk;

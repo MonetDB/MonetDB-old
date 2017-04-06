@@ -91,12 +91,12 @@ evalFile(Client cntxt, str fname, int listing, int included)
 {
 	Client c;
 	stream *fd;
-	str p, filename;
+	str p, filename, base;
 	str files[MAXMULTISCRIPT];
 	int cnt, i;
 	str msg = MAL_SUCCEED;
 
-	fname = malResolveFile(fname);
+	base = fname = malResolveFile(fname);
 	if (fname == NULL) 
 		throw(MAL,"mal.import", "#WARNING: could not open file: %s\n", fname);
 
@@ -111,21 +111,27 @@ evalFile(Client cntxt, str fname, int listing, int included)
 		files[cnt++]= filename;
 	}
 	for(i=0; i<cnt; i++){
-#ifdef _DEBUG_IMPORT_
-		fprintf(stderr,"load file %s\n",files[i]);
-#endif
 		fd = malOpenSource(files[i]);
 		if (fd == 0 || mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
 			if(fd) mnstr_destroy(fd);
+			GDKfree(base);
 			throw(MAL,"mal.import", "#WARNING: could not open file: %s\n", fname);
 		} 
 
 		if( included){
-			if( MCpushClientInput(cntxt, bstream_create(fd, 32 * BLOCK), listing, ""))
+#ifdef _DEBUG_IMPORT_
+			fprintf(stderr,"include file %s\n",files[i]);
+#endif
+			if( MCpushClientInput(cntxt, bstream_create(fd, 32 * BLOCK), listing, "")){
+				GDKfree(base);
 				throw(MAL,"mal.evalFile","Could not push the input stream");
+			}
 		} else {
+#ifdef _DEBUG_IMPORT_
+			fprintf(stderr,"load file %s using new client\n",files[i]);
+#endif
 			c = MCinitClient((oid)0,bstream_create(fd, 32 * BLOCK),0);
-			c->nspace = newModule(NULL, putName("user"));
+			c->usermodule = userModule();
 			GDKfree(c->prompt);
 			c->prompt= NULL;
 			c->promptlength = 0;
@@ -139,6 +145,7 @@ evalFile(Client cntxt, str fname, int listing, int included)
 			MCcloseClient(c);
 		}
 	}
+	GDKfree(base);
 	return msg;
 }
 /*
@@ -192,7 +199,7 @@ compileString(Client cntxt, str s)
 	c = MCinitClient((oid)0,0,0);
 	c->fdin = bstream_create(buffer_rastream(b, "compileString"), b->len);
 	strncpy(c->fdin->buf,s,len);
-	c->nspace = newModule(NULL, putName("user"));
+	c->usermodule = userModule();
 	GDKfree(c->prompt);
 	c->prompt= NULL;
 	c->promptlength = 0;
@@ -207,7 +214,7 @@ compileString(Client cntxt, str s)
 				msg = MALparser(c);
 		}
 		pushEndInstruction(c->curprg->def);
-		chkProgram(c->nspace, c->curprg->def);
+		chkProgram(c->usermodule, c->curprg->def);
 	}
 	c->fdout = 0;
 	freeMalBlk(cntxt->curprg->def);

@@ -42,7 +42,7 @@ malBootstrap(void)
 
 	c = MCinitClient((oid) 0, 0, 0);
 	assert(c != NULL);
-	c->nspace = newModule(NULL, putName("user"));
+	c->curmodule = c->usermodule = userModule();
 	if ( (msg = defaultScenario(c)) ) {
 		GDKfree(msg);
 		fprintf(stderr,"#malBootstrap:Failed to initialise default scenario");
@@ -62,7 +62,7 @@ malBootstrap(void)
 		mal_exit();
 	}
 	pushEndInstruction(c->curprg->def);
-	chkProgram(c->nspace, c->curprg->def);
+	chkProgram(c->usermodule, c->curprg->def);
 	if (c->curprg->def->errors != MAL_SUCCEED ) {
 		showErrors(c);
 #ifdef HAVE_EMBEDDED
@@ -94,7 +94,7 @@ malBootstrap(void)
  * BATs introduced.
  */
 static str
-MSresetClientPrg(Client cntxt)
+MSresetClientPrg(Client cntxt, str mod, str nme)
 {
 	MalBlkPtr mb;
 	InstrPtr p;
@@ -109,8 +109,21 @@ MSresetClientPrg(Client cntxt)
 	p->gc = 0;
 	p->retc = 1;
 	p->argc = 1;
-	setModuleId(p, putName("user"));
-	setFunctionId(p, putName("main"));
+	p->argv[0] = 0;
+
+	strcpy(getVarName(mb,0), nme);
+    setRowCnt(mb,0,0);
+	if( strcmp(mod,"user") == 0 && strcmp(nme,"main")==0)
+		setVarType(mb, 0, TYPE_void);
+    clrVarFixed(mb, 0);
+    clrVarUsed(mb, 0);
+    clrVarInit(mb, 0);
+    clrVarDisabled(mb, 0);
+    clrVarUDFtype(mb, 0);
+    clrVarConstant(mb, 0);
+    clrVarCleanup(mb, 0);
+	setModuleId(p, mod);
+	setFunctionId(p, nme);
 	/* remove any MAL history */
 	if (mb->history) {
 		freeMalBlk(mb->history);
@@ -126,24 +139,16 @@ MSresetClientPrg(Client cntxt)
 str
 MSinitClientPrg(Client cntxt, str mod, str nme)
 {
-	InstrPtr p;
-	MalBlkPtr mb;
-
-	if (cntxt->curprg && idcmp(nme, cntxt->curprg->name) == 0) 
-		return MSresetClientPrg(cntxt);
-	cntxt->curprg = newFunction(putName("user"), putName(nme), FUNCTIONsymbol);
-	if( cntxt->curprg == 0){
+	if (cntxt->curprg  && idcmp(nme, cntxt->curprg->name) == 0)
+		return MSresetClientPrg(cntxt, mod,nme);
+	cntxt->curprg = newFunction(putName(mod), putName(nme), FUNCTIONsymbol);
+	if( cntxt->curprg == 0)
 		throw(MAL, "initClientPrg", MAL_MALLOC_FAIL);
-	}
-	mb = cntxt->curprg->def;
-	p = getSignature(cntxt->curprg);
-	if (mod)
-		setModuleId(p, mod);
-	else
-		setModuleScope(p, cntxt->nspace);
-	setVarType(mb, findVariable(mb, nme), TYPE_void);
+	
+	if( strcmp(mod,"user") == 0 && strcmp(nme,"main")==0)
+		setVarType(cntxt->curprg->def, 0, TYPE_void);
 	if (cntxt->glb == NULL )
-		cntxt->glb = newGlobalStack(MAXGLOBALS + mb->vsize);
+		cntxt->glb = newGlobalStack(MAXGLOBALS + cntxt->curprg->def->vsize);
 	if( cntxt->glb == NULL)
 		throw(MAL,"initClientPrg", MAL_MALLOC_FAIL);
 	assert(cntxt->curprg->def != NULL);
@@ -314,8 +319,8 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout)
 			return;
 		}
 		/* move this back !! */
-		if (c->nspace == 0) {
-			c->nspace = newModule(NULL, putName("user"));
+		if (c->usermodule == 0) {
+			c->curmodule = c->usermodule = userModule();
 		}
 
 		if ((s = setScenario(c, lang)) != NULL) {
@@ -483,7 +488,7 @@ MSserveClient(void *dummy)
 		c->curprg = 0;
 		freeSymbol(s);
 	}
-	if (c->nspace) {
+	if (c->usermodule) {
 		assert(0);
 	}
 
@@ -496,10 +501,10 @@ MSserveClient(void *dummy)
 	}
 	if (!isAdministrator(c))
 		MCcloseClient(c);
-	if (c->nspace && strcmp(c->nspace->name, "user") == 0) {
-		GDKfree(c->nspace->space);
-		GDKfree(c->nspace);
-		c->nspace = NULL;
+	if (c->usermodule && strcmp(c->usermodule->name, "user") == 0) {
+		GDKfree(c->usermodule->space);
+		GDKfree(c->usermodule);
+		c->usermodule = NULL;
 	}
 	return MAL_SUCCEED;
 }
@@ -526,12 +531,12 @@ MALinitClient(Client c)
 str
 MALexitClient(Client c)
 {
-	Module m = c->nspace;
+	Module m = c->usermodule;
 	if (c->glb && c->curprg->def->errors == MAL_SUCCEED)
 		garbageCollector(c, c->curprg->def, c->glb, TRUE);
 	c->mode = FINISHCLIENT;
 	c->curprg = NULL;
-	c->nspace = NULL;
+	c->usermodule = NULL;
 	// only clear out the private module
 	// Beware the parser may choosen another target
 	if (m && strcmp(m->name,"user")== 0){
@@ -694,7 +699,7 @@ MALparser(Client cntxt)
 	if( finalize == 0){
 		pushEndInstruction(cntxt->curprg->def);
 		// A compound block is ready for execution once it has been type checked.
-		chkProgram(cntxt->nspace, cntxt->curprg->def);
+		chkProgram(cntxt->usermodule, cntxt->curprg->def);
 		if (cntxt->curprg->def->errors) {
 			showErrors(cntxt);
 			msg = cntxt->curprg->def->errors;
@@ -711,15 +716,15 @@ MALparser(Client cntxt)
 		fprintf(stderr,"insert symbol %s.%s in %s\n", 	
 			getModuleId(getSignature(cntxt->curprg)),
 			getFunctionId(getSignature(cntxt->curprg)),
-			cntxt->nspace->name);
+			cntxt->usermodule->name);
 #endif
-		insertSymbol(cntxt->nspace, cntxt->curprg);
-		chkProgram(cntxt->nspace, cntxt->curprg->def);
-		if (cntxt->curprg->def->errors) {
-			showErrors(cntxt);
-		} 
+		insertSymbol(cntxt->usermodule, cntxt->curprg);
+		chkProgram(cntxt->usermodule, cntxt->curprg->def);
 		msg = cntxt->curprg->def->errors;
 		cntxt->curprg->def->errors = 0;
+		if (msg) {
+			showErrors(cntxt);
+		} 
 		(void) MSinitClientPrg(cntxt,"user","main");
 	}
 

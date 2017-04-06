@@ -107,7 +107,7 @@ OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
     /* Defense line against incorrect plans */
 	/* we don't create or change existing structures */
     if( actions > 0 ){
-        //chkTypes(cntxt->nspace, mb, FALSE);
+        //chkTypes(cntxt->usermodule, mb, FALSE);
         chkFlow(mb);
         //chkDeclarations(mb);
     }

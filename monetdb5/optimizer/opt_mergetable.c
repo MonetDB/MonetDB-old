@@ -647,7 +647,7 @@ join_split(Client cntxt, InstrPtr p, int args)
 	strncpy(name, getFunctionId(p), len-7);
 	strcpy(name+len-7, "join");
 
-	sym = findSymbol(cntxt->nspace, getModuleId(p), name);
+	sym = findSymbol(cntxt->usermodule, getModuleId(p), name);
 	assert(sym);
 	mb = sym->def;
 
@@ -1841,14 +1841,14 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		pushInstruction(mb, copyInstruction(p));
 	}
 	(void) stk; 
-	chkTypes(cntxt->nspace,mb, TRUE);
+	chkTypes(cntxt->usermodule,mb, TRUE);
 	if( mb->errors != MAL_SUCCEED)
 		goto cleanup;
 
 #ifdef DEBUG_OPT_MERGETABLE
 	{
 		fprintf(stderr,"#Result of multi table optimizer\n");
-		chkTypes(cntxt->nspace, mb, FALSE);
+		chkTypes(cntxt->usermodule, mb, FALSE);
 		if(mb->errors){
 			fprintf(stderr,"%s\n",mb->errors);
 			GDKfree(mb->errors);
@@ -1886,7 +1886,7 @@ cleanup:
 	if (ml.torigin) GDKfree(ml.torigin);
     /* Defense line against incorrect plans */
     if( actions > 0 && msg == MAL_SUCCEED){
-        chkTypes(cntxt->nspace, mb, FALSE);
+        chkTypes(cntxt->usermodule, mb, FALSE);
 		chkFlow(mb);
 		chkDeclarations(mb);
     }

@@ -76,6 +76,12 @@ mdbInit(void)
 	}
 }
 
+void
+mdbExit(void)
+{
+	GDKfree(mdbTable);
+	mdbTable = 0;
+}
 static char
 isBreakpoint(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc)
 {
@@ -139,7 +145,7 @@ mdbSetBreakRequest(Client cntxt, MalBlkPtr mb, str request, char cmd)
 		modnme = request;
 		*fcnnme = 0;
 		fcnnme++;
-		sym = findSymbol(cntxt->nspace, modnme, fcnnme);
+		sym = findSymbol(cntxt->usermodule, modnme, fcnnme);
 		mdb->brkBlock[mdb->brkTop] = sym ? sym->def : mb;
 		mdb->brkPc[mdb->brkTop] = -1;
 		mdb->brkVar[mdb->brkTop] = -1;
@@ -254,7 +260,7 @@ int
 mdbSetTrap(Client cntxt, str modnme, str fcnnme, int flag)
 {
 	Symbol s;
-	s = findSymbol(cntxt->nspace, putName(modnme),
+	s = findSymbol(cntxt->usermodule, putName(modnme),
 			putName(fcnnme));
 	if (s == NULL)
 		return -1;
@@ -357,7 +363,7 @@ mdbLocateMalBlk(Client cntxt, MalBlkPtr mb, str b, stream *out)
 			if( idx < 0)
 				return NULL;
 		}
-		fsym = findSymbolInModule(findModule(cntxt->nspace, putName(b)), fcnname + 1);
+		fsym = findSymbolInModule(findModule(cntxt->usermodule, putName(b)), fcnname + 1);
 		*fcnname = '.';
 		if (h)
 			*h = '[';
@@ -376,7 +382,7 @@ static void
 mdbCommand(Client cntxt, MalBlkPtr mb, MalStkPtr stkbase, InstrPtr p, int pc)
 {
 	int m = 1;
-	char *b, *c, lastcmd = 0;
+	char *b= 0, *c, lastcmd = 0;
 	stream *out = cntxt->fdout;
 	char *oldprompt = cntxt->prompt;
 	size_t oldpromptlength = cntxt->promptlength;
@@ -466,7 +472,7 @@ retryRead:
 					fcnnme = strchr(b,'.');
 					*fcnnme++  = 0;
 
-					fs = findSymbol(cntxt->nspace, putName(modnme),putName(fcnnme));
+					fs = findSymbol(cntxt->usermodule, putName(modnme),putName(fcnnme));
 					if (fs == 0) {
 						mnstr_printf(out, "#'%s.%s' not found\n", modnme,fcnnme);
 						continue;
@@ -474,7 +480,7 @@ retryRead:
 					for(; fs; fs = fs->peer){ 
 						for(i=0; i< fs->def->stop; i++)
 							fs->def->stmt[i]->typechk = TYPE_UNKNOWN;
-						chkProgram(cntxt->nspace, fs->def);
+						chkProgram(cntxt->usermodule, fs->def);
 					}
 				} else
 					mnstr_printf(out, "#<modnme>.<fcnnme> expected\n");
@@ -552,9 +558,9 @@ retryRead:
 					*fcnname = 0;
 					fcnname++;
 				}
-				fsym = findModule(cntxt->nspace, putName(modname));
+				fsym = findModule(cntxt->usermodule, putName(modname));
 
-				if (fsym == cntxt->nspace && strcmp(modname, "user")) {
+				if (fsym == cntxt->usermodule && strcmp(modname, "user")) {
 					mnstr_printf(out, "#module '%s' not found\n", modname);
 					continue;
 				}
@@ -570,7 +576,7 @@ retryRead:
 				Module* list;
 				int length;
 				int i;
-				mnstr_printf(out,"#%s ",cntxt->nspace->name);
+				mnstr_printf(out,"#%s ",cntxt->usermodule->name);
 				getModuleList(&list, &length);
 				for(i = 0; i < length; i++) {
 					mnstr_printf(out, "%s ", list[i]->name);	
@@ -624,7 +630,7 @@ retryRead:
 				modname = b;
 				fcnname = strchr(b, '.');
 				if (fcnname == NULL) {
-					fsym = findModule(cntxt->nspace, putName(modname));
+					fsym = findModule(cntxt->usermodule, putName(modname));
 					if (fsym == 0) {
 						mnstr_printf(out, "#%s module not found\n", modname);
 						continue;
@@ -640,7 +646,7 @@ retryRead:
 				}
 				*fcnname = 0;
 				fcnname++;
-				fsym = findModule(cntxt->nspace, putName(modname));
+				fsym = findModule(cntxt->usermodule, putName(modname));
 				if (fsym == 0) {
 					mnstr_printf(out, "#%s module not found\n", modname);
 					continue;
@@ -890,7 +896,7 @@ retryRead:
 					fcnnme = strchr(b,'.');
 					*fcnnme++  = 0;
 
-					fs = findSymbol(cntxt->nspace, putName(modnme),putName(fcnnme));
+					fs = findSymbol(cntxt->usermodule, putName(modnme),putName(fcnnme));
 					if (fs == 0) {
 						mnstr_printf(out, "#'%s' not found\n", modnme);
 						continue;

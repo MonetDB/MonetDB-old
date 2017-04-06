@@ -175,7 +175,7 @@ RUNinline(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	(void) stk;
 	(void) p;
-	qc = findSymbol(cntxt ->nspace, getName(modnme),
+	qc = findSymbol(cntxt ->usermodule, getName(modnme),
 			putName(fcnnme));
 
 	if (qc)
@@ -196,7 +196,7 @@ RUNsqlbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
 	int i;
 	str msg = MAL_SUCCEED;
-	Symbol sqlbind = findSymbol(cntxt ->nspace, getName("sql"), getName("bind"));
+	Symbol sqlbind = findSymbol(cntxt ->usermodule, getName("sql"), getName("bind"));
 	MALfcn f = NULL;
 
 	if (sqlbind )

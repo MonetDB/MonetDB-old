@@ -191,7 +191,7 @@ OPTquerylogImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	GDKfree(old);
 	    /* Defense line against incorrect plans */
     if( 1){
-        chkTypes(cntxt->nspace, mb, FALSE);
+        chkTypes(cntxt->usermodule, mb, FALSE);
 		chkFlow(mb);
 		chkDeclarations(mb);
     }

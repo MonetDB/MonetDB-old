@@ -798,10 +798,12 @@ parseAtom(Client cntxt)
 		parseError(cntxt, "Atom redefinition");
 	else
 		cntxt->curprg->def->errors = malAtomDefinition(modnme, tpe) ;
-	cntxt->nspace = fixModule(cntxt->nspace, modnme);
-	cntxt->nspace->isAtomModule = TRUE;
+	if( strcmp(modnme,"user"))
+		cntxt->curmodule = fixModule(modnme);
+	else cntxt->curmodule = cntxt->usermodule;
+	cntxt->usermodule->isAtomModule = TRUE;
 	skipSpace(cntxt);
-	helpInfo(cntxt, &cntxt->nspace->help);
+	helpInfo(cntxt, &cntxt->usermodule->help);
 }
 
 /*
@@ -820,15 +822,21 @@ parseModule(Client cntxt)
 	}
 	modnme = putNameLen(cntxt->lineptr, l);
 	advance(cntxt, l);
-	if( ! isModuleDefined(cntxt->nspace,modnme)){
+	if( strcmp(modnme, cntxt->usermodule->name) ==0){
+		// ignore this module definition
+	} else 
+	if( getModule(modnme) == NULL){
 #ifdef _DEBUG_PARSER_
 		fprintf(stderr,"Module create %s\n",modnme);
 #endif
-		newModule(NULL,modnme);
+		if( globalModule(modnme) == NULL)
+			parseError(cntxt,"<module> could not be created");
 	}
-	cntxt->nspace = fixModule(cntxt->nspace, modnme);
+	if( strcmp(modnme,"user"))
+		cntxt->curmodule = fixModule(modnme);
+	else cntxt->curmodule = cntxt->usermodule;
 	skipSpace(cntxt);
-	helpInfo(cntxt, &cntxt->nspace->help);
+	helpInfo(cntxt, &cntxt->usermodule->help);
 }
 
 /*
@@ -919,7 +927,7 @@ fcnHeader(Client cntxt, int kind)
 	if (*cntxt->lineptr == '.') {
 		advance(cntxt,1); /* skip , */
 		modnme = fnme;
-		if (isModuleDefined(cntxt->nspace, modnme) == FALSE) {
+		if( strcmp(modnme,"user") && getModule(modnme) == NULL){
 			parseError(cntxt, "<module> name not defined\n");
 			return 1;
 		}
@@ -933,7 +941,7 @@ fcnHeader(Client cntxt, int kind)
 		fnme = putNameLen(((char *) cntxt->lineptr), l);
 		advance(cntxt, l);
 	} else 
-		modnme= cntxt->nspace->name;
+		modnme= cntxt->curmodule->name;
 	cntxt->curprg->name = fnme;
 
 	if (*cntxt->lineptr != '('){
@@ -1062,13 +1070,16 @@ parseCommandPattern(Client cntxt, int kind)
 	curInstr = getInstrPtr(curBlk, 0);
 
 	modnme = getModuleId(curInstr);
-	modnme = modnme ? modnme : cntxt->nspace->name;
+	//modnme = modnme ? modnme : cntxt->usermodule->name;
 
 	l = strlen(modnme);
 	modnme = putNameLen(modnme, l);
-	if( isModuleDefined(cntxt->nspace, modnme))
-		insertSymbol(findModule(cntxt->nspace, modnme), curPrg);
-	else {
+	if( strcmp(modnme,"user") ==0 ){
+		insertSymbol(cntxt->usermodule, curPrg);
+	} else
+	if( getModule(modnme) ){
+		insertSymbol( getModule(modnme), curPrg);
+	} else {
 		parseError(cntxt, "<module> not found\n");
 	}
 /*
@@ -1095,7 +1106,7 @@ parseCommandPattern(Client cntxt, int kind)
 		if (getModuleId(curInstr))
 			setModuleId(curInstr, NULL);
 		setModuleScope(curInstr,
-				findModule(cntxt->nspace, modnme));
+				findModule(cntxt->usermodule, modnme));
 
 		memcpy(curBlk->binding, cntxt->lineptr, (size_t)(i < IDLENGTH? i:IDLENGTH-1));
 		curBlk->binding[(i< IDLENGTH? i:IDLENGTH-1)] = 0;
@@ -1103,18 +1114,18 @@ parseCommandPattern(Client cntxt, int kind)
 		advance(cntxt, i);
 		curInstr->fcn = getAddress(curBlk->binding);
 
-		if (cntxt->nspace->isAtomModule) {
+		if (cntxt->usermodule->isAtomModule) {
 			if (curInstr->fcn == NULL) {
 				parseError(cntxt, "<address> not found\n");
-				return 0;
+				goto helpwrap;
 			}
 			curBlk->errors = malAtomProperty(curBlk, curInstr);
 		}
 		skipSpace(cntxt);
 	} else {
 		parseError(cntxt, "'address' expected\n");
-		return 0;
 	}
+helpwrap:
 	helpInfo(cntxt, &curBlk->help);
 	if (curBlk && cntxt->listing > 1)
 		printFunction(cntxt->fdout, curBlk, 0, LIST_MAL_ALL);
@@ -1150,7 +1161,6 @@ parseFunction(Client cntxt, int kind)
 		GDKfree(nme);
 		if (curInstr->fcn == NULL) {
 			parseError(cntxt, "<address> not found\n");
-			return 0;
 		}
 	}
 	skipSpace(cntxt);
@@ -1480,6 +1490,9 @@ parseMAL(Client cntxt)
 					cntxt->curprg->def->sealedProp = sealedProp;
 					if (inlineProp)
 						parseError(cntxt, "parseError:INLINE ignored");
+					chkProgram(cntxt->usermodule, cntxt->curprg->def);
+					if( cntxt->curprg->def->errors)
+						parseError(cntxt,"Program contains errors\n");
 					msg = MSinitClientPrg(cntxt, "user", "main");
 					if( msg != MAL_SUCCEED)
 						parseError(cntxt,msg);
@@ -1560,15 +1573,14 @@ parseMAL(Client cntxt)
 					inlineProp = 0;
 					unsafeProp = 0;
 					sealedProp = 0;
-					chkProgram(cntxt->nspace, cntxt->curprg->def);
+					chkProgram(cntxt->usermodule, cntxt->curprg->def);
 					if( cntxt->curprg->def->errors)
 						parseError(cntxt,"Program contains errors\n");
 					msg = MSinitClientPrg(cntxt, "user","main");
 					if( msg != MAL_SUCCEED)
 						parseError(cntxt,msg);
-					return 0;
 				}
-				continue;
+				return 0;
 			}
 			goto allLeft;
 		case 'R': case 'r':

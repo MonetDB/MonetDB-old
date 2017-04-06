@@ -90,7 +90,6 @@ typedef struct CLIENT {
 	 * It is perfectly legal to have a client without input stream.
 	 * It will simply terminate after consuming the input buffer.
 	 */
-	str       srcFile;  /* NULL for stdin, or file name */
 	bstream  *fdin;
 	int       yycur;    /* the scanners current position */
 	str		  line;
@@ -146,7 +145,8 @@ typedef struct CLIENT {
 	 * object space (the global variables).  Moreover, the parser needs
 	 * some administration variables to keep track of critical elements.
 	 */
-	Module      nspace;     /* private user scope */
+	Module      usermodule;     /* private user scope */
+	Module		curmodule;		/* where to deliver the symbol, used by parser , only freed globally */
 	Symbol      curprg;     /* container for the malparser */
 	MalStkPtr   glb;        /* global variable stack */
 	/*

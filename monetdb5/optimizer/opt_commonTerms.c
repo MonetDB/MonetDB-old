@@ -178,7 +178,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 			freeInstruction(old[i]);
     /* Defense line against incorrect plans */
     if( actions > 0 ){
-        chkTypes(cntxt->nspace, mb, FALSE);
+        chkTypes(cntxt->usermodule, mb, FALSE);
 		chkFlow(mb);
 		chkDeclarations(mb);
     }

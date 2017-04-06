@@ -196,7 +196,7 @@ CMDregisterFunction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sym->name= putName(*fcn);
 	setModuleId(sig, putName(*mod));
 	setFunctionId(sig, sym->name);
-	insertSymbol(findModule(cntxt->nspace, getModuleId(sig)), sym);
+	insertSymbol(findModule(cntxt->usermodule, getModuleId(sig)), sym);
 	return msg;
 }
 

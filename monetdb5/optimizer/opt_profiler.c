@@ -101,7 +101,7 @@ OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	}
     /* Defense line against incorrect plans */
 	/* Plan remains unaffected */
-	//chkTypes(cntxt->nspace, mb, FALSE);
+	//chkTypes(cntxt->usermodule, mb, FALSE);
 	//chkFlow(mb);
 	//chkDeclarations(mb);
 	//

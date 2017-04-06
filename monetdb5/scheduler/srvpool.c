@@ -348,7 +348,7 @@ SRVPOOLfind(Client cntxt, int srv, str qry){
 	for ( r= servers[srv].nxt; r; r= r->nxt)
 	if ( strcmp(qry, r->fcn)==0) {
 		/* double check on local user module as well */
-		sym = findSymbol(cntxt->nspace, userRef, putName(qry));
+		sym = findSymbol(cntxt->usermodule, userRef, putName(qry));
 		if (sym == NULL) {
 			/* remove garbage */
 			if ( r->nxt) {
@@ -391,7 +391,7 @@ SRVPOOLregisterInternal(Client cntxt, str uri, str fname)
 				msg = RMTregisterInternal(cntxt, servers[srv].conn, userRef, fname);
 #ifdef DEBUG_RUN_SRVPOOL
 				if ( msg) {
-					Symbol sf = findSymbol(cntxt->nspace, userRef,putName(fname));
+					Symbol sf = findSymbol(cntxt->usermodule, userRef,putName(fname));
 					if (sf){
 						fprintf(stderr,"#Failed to register\n");
 						fprintFunction(stderr, sf->def, 0, LIST_MAL_DEBUG);

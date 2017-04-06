@@ -276,7 +276,7 @@ str OPTsql_append(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 			modnme= getArgDefault(mb,p,1);
 			fcnnme= getArgDefault(mb,p,2);
 		}
-		s= findSymbol(cntxt->nspace, putName(modnme),putName(fcnnme));
+		s= findSymbol(cntxt->usermodule, putName(modnme),putName(fcnnme));
 
 		if( s == NULL) {
 			char buf[1024];
@@ -294,7 +294,7 @@ str OPTsql_append(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	actions= OPTsql_appendImplementation(cntxt, mb,stk,p);
 
     /* Defense line against incorrect plans */
-	chkTypes(cntxt->nspace, mb, FALSE);
+	chkTypes(cntxt->usermodule, mb, FALSE);
 	chkFlow(mb);
 	chkDeclarations(mb);
 	/* the mb->errors will be set to the first error encountered */

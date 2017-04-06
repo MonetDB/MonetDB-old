@@ -76,7 +76,7 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	OPTDEBUGjit{
-		chkTypes(cntxt->nspace,mb,TRUE);
+		chkTypes(cntxt->usermodule,mb,TRUE);
 		GDKfree(msg);
 		msg = MAL_SUCCEED;
 		fprintf(stderr, "#Optimize JIT done\n");
@@ -85,7 +85,7 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	GDKfree(old);
     /* Defense line against incorrect plans */
-	chkTypes(cntxt->nspace, mb, FALSE);
+	chkTypes(cntxt->usermodule, mb, FALSE);
 	chkFlow(mb);
 	chkDeclarations(mb);
     /* keep all actions taken as a post block comment */

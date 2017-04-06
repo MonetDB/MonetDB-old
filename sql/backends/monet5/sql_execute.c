@@ -176,7 +176,7 @@ SQLsetTrace(Client cntxt, MalBlkPtr mb)
 
 	pushInstruction(mb,resultset);
 	pushEndInstruction(mb);
-	chkTypes(cntxt->nspace, mb, TRUE);
+	chkTypes(cntxt->usermodule, mb, TRUE);
 }
 
 /*

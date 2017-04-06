@@ -57,6 +57,9 @@ __hidden extern MT_Lock mal_namespaceLock;
 __hidden void mdbInit(void)
 	__attribute__((__visibility__("hidden")));
 
+__hidden void mdbExit(void)
+	__attribute__((__visibility__("hidden")));
+
 __hidden str createScriptException(MalBlkPtr, int, enum malexception,
 	const char *, _In_z_ _Printf_format_string_ const char *, ...)
 	__attribute__((__format__(__printf__, 5, 6)))

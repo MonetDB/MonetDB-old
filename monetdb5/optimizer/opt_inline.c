@@ -31,7 +31,7 @@ static int OPTinlineMultiplex(Client cntxt, MalBlkPtr mb, InstrPtr p){
 
 	mod = VALget(&getVar(mb, getArg(p, 1))->value);
 	fcn = VALget(&getVar(mb, getArg(p, 2))->value);
-	if( (s= findSymbol(cntxt->nspace, mod,fcn)) ==0 )
+	if( (s= findSymbol(cntxt->usermodule, mod,fcn)) ==0 )
 		return FALSE;
 	/*
 	 * Before we decide to propagate the inline request
@@ -94,7 +94,7 @@ OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
     /* Defense line against incorrect plans */
     if( actions > 0){
-        chkTypes(cntxt->nspace, mb, FALSE);
+        chkTypes(cntxt->usermodule, mb, FALSE);
 		chkFlow(mb);
 		chkDeclarations(mb);
     }

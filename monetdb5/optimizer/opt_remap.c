@@ -111,7 +111,7 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 	Symbol s;
 
 
-	s= findSymbol(cntxt->nspace, 
+	s= findSymbol(cntxt->usermodule, 
 			VALget(&getVar(mb, getArg(p, retc+0))->value),
 			VALget(&getVar(mb, getArg(p, retc+1))->value));
 
@@ -240,7 +240,7 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 
 					actions++;
 					/* now see if we can resolve the instruction */
-					typeChecker(cntxt->nspace,mq,q,TRUE);
+					typeChecker(cntxt->usermodule,mq,q,TRUE);
 					if( q->typechk== TYPE_UNKNOWN)
 						goto terminateMX;
 					break;
@@ -256,7 +256,7 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 				
 					actions++;
 					q->typechk = TYPE_UNKNOWN;
-					typeChecker(cntxt->nspace,mq,q,TRUE);
+					typeChecker(cntxt->usermodule,mq,q,TRUE);
 					if( q->typechk== TYPE_UNKNOWN)
 						goto terminateMX;
 					break;
@@ -357,7 +357,7 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	InstrPtr *old, p;
 	int i, limit, slimit, doit= 0;
-	Module scope = cntxt->nspace;
+	Module scope = cntxt->usermodule;
 	lng usec = GDKusec();
 	char buf[256];
 	str msg = MAL_SUCCEED;
@@ -380,7 +380,7 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			 */
 			str mod = VALget(&getVar(mb, getArg(p, 1))->value);
 			str fcn = VALget(&getVar(mb, getArg(p, 2))->value);
-			Symbol s = findSymbol(cntxt->nspace, mod,fcn);
+			Symbol s = findSymbol(cntxt->usermodule, mod,fcn);
 
 			if (s && s->def->inlineProp ){
 #ifdef DEBUG_OPT_REMAP
@@ -470,10 +470,10 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 
 	if (doit) 
-		chkTypes(cntxt->nspace,mb,TRUE);
+		chkTypes(cntxt->usermodule,mb,TRUE);
     /* Defense line against incorrect plans */
     if( mb->errors == MAL_SUCCEED && doit > 0){
-        chkTypes(cntxt->nspace, mb, FALSE);
+        chkTypes(cntxt->usermodule, mb, FALSE);
 		chkFlow(mb);
 		chkDeclarations(mb);
     }

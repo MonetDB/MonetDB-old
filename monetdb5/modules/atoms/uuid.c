@@ -46,6 +46,7 @@ typedef struct {
 } uuid;
 
 mal_export str UUIDprelude(void *ret);
+mal_export void UUIDpostlude(void );
 mal_export int UUIDcompare(const uuid *l, const uuid *r);
 mal_export int UUIDfromString(const char *svalue, int *len, uuid **retval);
 mal_export BUN UUIDhash(const void *u);
@@ -75,6 +76,11 @@ UUIDprelude(void *ret)
 	UUIDtoString(&mal_session_uuid, &len, uuid_session);
 	//mnstr_printf(GDKerr,"Session uid:%s", uuid_session_name);
 	return MAL_SUCCEED;
+}
+void
+UUIDpostlude(void)
+{
+	GDKfree(mal_session_uuid);
 }
 
 #define UUIDisnil(x)	(memcmp((x)->u, uuid_nil.u, UUID_SIZE) == 0)

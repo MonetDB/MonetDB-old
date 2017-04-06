@@ -200,7 +200,6 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->username = 0;
 	c->scenario = NULL;
 	c->oldscenario = NULL;
-	c->srcFile = NULL;
 	c->blkmode = 0;
 
 	c->fdin = fin ? fin : bstream_create(GDKin, 0);
@@ -221,10 +220,7 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	/* remove garbage from previous connection 
 	 * be aware, a user can introduce several modules 
 	 * that should be freed to avoid memory leaks */
-	if (c->nspace) {
-		freeModule(c->nspace);
-		c->nspace = 0;
-	}
+	c->usermodule = c->curmodule = 0;
 
 	c->father = NULL;
 	c->login = c->lastcmd = time(0);
@@ -331,8 +327,8 @@ MCforkClient(Client father)
 		son->prompt = GDKstrdup(father->prompt);
 		son->promptlength = strlen(father->prompt);
 		/* reuse the scopes wherever possible */
-		if (son->nspace == 0)
-			son->nspace = newModule(NULL, putName("child"));
+		if (son->usermodule == 0)
+			son->usermodule = userModule();
 	}
 	return son;
 }
@@ -376,6 +372,9 @@ freeClient(Client c)
 			GDKfree(c->errbuf);
 		c->errbuf = 0;
 	}
+	if (c->usermodule)
+		freeModule(c->usermodule);
+	c->usermodule = c->curmodule = 0;
 	c->father = 0;
 	c->login = c->lastcmd = 0;
 	//c->active = 0;

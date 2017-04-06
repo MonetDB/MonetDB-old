@@ -74,7 +74,7 @@ coercionOptimizerCalcStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 		fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
 #endif
 		getArg(p,1) = coerce[varid].src;
-		if ( chkInstruction(cntxt->nspace, mb, p) || p->typechk == TYPE_UNKNOWN)
+		if ( chkInstruction(cntxt->usermodule, mb, p) || p->typechk == TYPE_UNKNOWN)
 			getArg(p,1) = varid;
 	}
 	varid = getArg(p,2);
@@ -85,7 +85,7 @@ coercionOptimizerCalcStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 		fprintInstruction(mb, 0, p, LIST_MAL_ALL);
 #endif
 		getArg(p,2) = coerce[varid].src;
-		if ( chkInstruction(cntxt->nspace, mb, p) || p->typechk == TYPE_UNKNOWN)
+		if ( chkInstruction(cntxt->usermodule, mb, p) || p->typechk == TYPE_UNKNOWN)
 			getArg(p,2) = varid;
 	}
 #ifdef _DEBUG_COERCION_
@@ -111,7 +111,7 @@ coercionOptimizerAggrStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 	k = getArg(p,1);
 	if( r == TYPE_dbl &&  coerce[k].src ){
 		getArg(p,1) = coerce[k].src;
-		if ( chkInstruction(cntxt->nspace, mb, p) || p->typechk == TYPE_UNKNOWN)
+		if ( chkInstruction(cntxt->usermodule, mb, p) || p->typechk == TYPE_UNKNOWN)
 			getArg(p,1)= k;
 	}
 	return;
@@ -192,7 +192,7 @@ OPTcoercionImplementation(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 
     /* Defense line against incorrect plans */
     if( actions > 0){
-        chkTypes(cntxt->nspace, mb, FALSE);
+        chkTypes(cntxt->usermodule, mb, FALSE);
 		chkFlow(mb);
 		chkDeclarations(mb);
     }
