@@ -386,6 +386,8 @@ freeClient(Client c)
 		c->username = 0;
 	}
 	c->mythread = 0;
+	GDKfree(c->line);
+	c->line = 0;
 	GDKfree(c->glb);
 	c->glb = NULL;
 	if( c->error_row){
