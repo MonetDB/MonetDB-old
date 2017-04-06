@@ -209,3 +209,13 @@ int malAtomSize(int size, int align, char *name)
 	BATatoms[i].align = align;
 	return i;
 }
+
+void
+mal_atom_reset(void)
+{
+	int i;
+	for( i = 0; i < GDKatomcnt; i++)
+	if( BATatoms[i].atomNull){
+		// TBD
+	}
+}

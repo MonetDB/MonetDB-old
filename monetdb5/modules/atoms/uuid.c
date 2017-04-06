@@ -81,6 +81,7 @@ void
 UUIDpostlude(void)
 {
 	GDKfree(mal_session_uuid);
+	GDKfree(uuid_session);
 }
 
 #define UUIDisnil(x)	(memcmp((x)->u, uuid_nil.u, UUID_SIZE) == 0)

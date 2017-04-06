@@ -35,6 +35,7 @@ int have_hge;
 #include "mal_private.h"
 #include "mal_runtime.h"
 #include "mal_resource.h"
+#include "mal_atom.h"
 
 #ifdef HAVE_LIBXML
 #include <libxml/parser.h>
@@ -168,13 +169,16 @@ void mserver_reset(int exit)
 	mal_resource_reset();
 	mal_runtime_reset();
 	mal_module_reset();
+	mal_atom_reset();
 	mdbExit();
 	xmlCleanupParser();
+	GDKfree(mal_session_uuid);
 
 	memset((char*)monet_cwd,0, sizeof(monet_cwd));
 	monet_memory = 0;
 	memset((char*)monet_characteristics,0, sizeof(monet_characteristics));
 	mal_trace = 0;
+	mal_namespace_reset();
 	/* No need to clean up the namespace, it will simply be extended
 	 * upon restart mal_namespace_reset(); */
 	GDKreset(0, exit);	// terminate all other threads
