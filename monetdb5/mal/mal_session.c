@@ -555,6 +555,7 @@ str
 MALreader(Client c)
 {	str s,l;
 	int string = 0;
+	int blocked;
 
 	// First eat away any left over input
 	if( c->linefill)
@@ -562,12 +563,17 @@ MALreader(Client c)
 	if( c->fdin == 0)
 		throw(MAL,"mal.reader","missing input");
 	do{
+       		blocked = isa_block_stream(c->fdin->s);
 		if(c->fdin->pos >= c->fdin->len ){
-			if( c->prompt ){
-				mnstr_write(c->fdout, c->prompt, strlen(c->prompt), 1);
+			ssize_t nr = 0;
+			if(c->fdin->eof && c->prompt ){
+				if (!blocked)
+					mnstr_write(c->fdout, c->prompt, strlen(c->prompt), 1);
 				mnstr_flush(c->fdout);
+
+				c->fdin->eof = 0;
 			}
-			if(bstream_next(c->fdin) < 0 || c->fdin->eof ){
+			if((nr = bstream_next(c->fdin)) < 0 || (!blocked && c->fdin->eof)){
 				if (c->bak){
 #ifdef _DEBUG_SESSION_
 					fprintf(stderr,"Pop the input stream\n");
@@ -580,6 +586,8 @@ MALreader(Client c)
 				}
 				return MAL_SUCCEED;
 			}
+			if (!nr)
+				continue;
 
 			// Handle very long lines
 			if ( c->fdin->len >= c->linesize){
