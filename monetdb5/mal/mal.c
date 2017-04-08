@@ -146,6 +146,13 @@ void mserver_reset(int exit)
 	MTIMEreset();
 #endif
 */
+#ifdef HAVE_GEOM
+#include "geom.h"
+	{
+		int ret;
+		geom_epilogue(&ret);
+	}
+#endif
 	mal_factory_reset();
 	mal_dataflow_reset();
 	THRdel(mal_clients->mythread);
@@ -161,7 +168,7 @@ void mserver_reset(int exit)
 	mal_clients->glb = 0;
 	freeSymbol(mal_clients->curprg);
 	mal_clients->curprg = 0;
-	if( mal_clients->usermodule && strcmp(mal_clients->usermodule->name,"user")==0)
+	//if( mal_clients->usermodule && strcmp(mal_clients->usermodule->name,"user")==0)
 		freeModule(mal_clients->usermodule);
 	mal_clients->usermodule = 0;
 	mal_client_reset();
