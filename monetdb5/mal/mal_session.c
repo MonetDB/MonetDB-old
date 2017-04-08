@@ -563,15 +563,18 @@ MALreader(Client c)
 	if( c->fdin == 0)
 		throw(MAL,"mal.reader","missing input");
 	do{
-       		blocked = isa_block_stream(c->fdin->s);
+		blocked = isa_block_stream(c->fdin->s);
 		if(c->fdin->pos >= c->fdin->len ){
 			ssize_t nr = 0;
 			if(c->fdin->eof && c->prompt ){
 				if (!blocked)
 					mnstr_write(c->fdout, c->prompt, strlen(c->prompt), 1);
 				mnstr_flush(c->fdout);
-
 				c->fdin->eof = 0;
+			} else
+			if( ! blocked && c->prompt){
+					mnstr_write(c->fdout, c->prompt, strlen(c->prompt), 1);
+				mnstr_flush(c->fdout);
 			}
 			if((nr = bstream_next(c->fdin)) < 0 || (!blocked && c->fdin->eof)){
 				if (c->bak){
@@ -633,15 +636,13 @@ MALreader(Client c)
 				mnstr_printf(c->fdout,"%c", *l);
 			if( string)
 				continue;
-			if ( *l == ';'){
+			if ( *l == ';' || *l == '#'){
+				if ( *l == '#' ){
+					c->linefill--;
+					s--;
+				}
 				*s = 0;
-				return MAL_SUCCEED;
-			} 
-			if ( *l == '#' ){
 				// eat everything away until end of line
-				c->linefill--;
-				s--;
-				*s = 0;
 				for( l++ ; c->fdin->pos < c->fdin->len ; l++){
 					if ( c->listing)
 						mnstr_printf(c->fdout,"%c", *l);
@@ -653,7 +654,7 @@ MALreader(Client c)
 			}
 		}
 		*s = 0;
-	} while (c->fdin->eof == 0);
+	} while (c->fdin->eof == 0 || blocked);
 	
 	return MAL_SUCCEED;
 }

@@ -1468,9 +1468,11 @@ parseMAL(Client cntxt)
 	while(*cntxt->lineptr && cntxt->curprg->def->errors == NULL){
 		switch (*cntxt->lineptr) {
 		case '\n': case '\r': case '\f':
-		case ';':
 			// end of the instruction
-			return 0;
+			break;
+		case ';':
+			advance(cntxt,1);
+			break;
 		case 'A': case 'a':
 			if ( MALkeyword(cntxt, "atom", 4) ){
 				parseAtom(cntxt);
@@ -1497,6 +1499,7 @@ parseMAL(Client cntxt)
 					if( msg != MAL_SUCCEED)
 						parseError(cntxt,msg);
 				}
+				skipSpace(cntxt);
 				return 0;
 			}
 			if (MALkeyword(cntxt, "catch", 5)) {
@@ -1511,6 +1514,7 @@ parseMAL(Client cntxt)
 					cntxt->blkmode--;
 				cntrl = EXITsymbol;
 			} else if (parseEnd(cntxt)) {
+				skipSpace(cntxt);
 				return 1;
 			}
 			goto allLeft;
@@ -1560,6 +1564,7 @@ parseMAL(Client cntxt)
 		case 'M': case 'm':
 			if (MALkeyword(cntxt, "module", 6) ){
 				parseModule(cntxt);
+				skipSpace(cntxt);
 				return 0;
 			}
 			goto allLeft;
@@ -1580,6 +1585,7 @@ parseMAL(Client cntxt)
 					if( msg != MAL_SUCCEED)
 						parseError(cntxt,msg);
 				}
+				skipSpace(cntxt);
 				return 0;
 			}
 			goto allLeft;
@@ -1618,6 +1624,7 @@ parseMAL(Client cntxt)
 			parseStatement(cntxt, cntrl);
 		}
 	}
+	skipSpace(cntxt);
 	return 0;
 }
 
