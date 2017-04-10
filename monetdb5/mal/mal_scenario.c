@@ -92,7 +92,7 @@
  */
 #include "monetdb_config.h"
 #include "mal_scenario.h"
-#include "mal_interpreter.h" /* for showErrors */
+#include "mal_interpreter.h" 
 #include "mal_linker.h"		/* for getAddress() */
 #include "mal_client.h"
 #include "mal_authorize.h"

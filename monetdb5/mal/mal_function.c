@@ -13,7 +13,7 @@
 #include "monetdb_config.h"
 #include "mal_function.h"
 #include "mal_resolve.h"	/* for isPolymorphic() & chkProgram() */
-#include "mal_interpreter.h"	/* for showErrors() */
+#include "mal_interpreter.h"
 #include "mal_listing.h"
 #include "mal_namespace.h"
 #include "mal_private.h"

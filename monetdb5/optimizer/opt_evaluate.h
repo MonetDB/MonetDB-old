@@ -9,7 +9,7 @@
 #ifndef _OPT_CX_
 #define _OPT_CX_
 #include "mal_stack.h"
-#include "mal_interpreter.h"	/* for showErrors() */
+#include "mal_interpreter.h"
 #include "opt_prelude.h"
 #include "opt_support.h"
 

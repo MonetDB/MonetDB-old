@@ -241,8 +241,6 @@ SQLoptimizeQuery(Client c, MalBlkPtr mb)
 	 * to allow inspection.
 	 */
 	if (mb->errors) {
-		showErrors(c);
-
 		if (c->listing)
 			printFunction(c->fdout, mb, 0, c->listing);
 		if (be->mvc->debug) {

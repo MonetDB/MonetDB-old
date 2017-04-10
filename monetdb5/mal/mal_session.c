@@ -11,7 +11,7 @@
 #include "monetdb_config.h"
 #include "mal_session.h"
 #include "mal_instruction.h" /* for pushEndInstruction() */
-#include "mal_interpreter.h" /* for showErrors(), runMAL(), garbageElement() */
+#include "mal_interpreter.h" /* for runMAL(), garbageElement() */
 #include "mal_parser.h"	     /* for parseMAL() */
 #include "mal_namespace.h"
 #include "mal_builder.h"
@@ -64,7 +64,12 @@ malBootstrap(void)
 	pushEndInstruction(c->curprg->def);
 	chkProgram(c->usermodule, c->curprg->def);
 	if (c->curprg->def->errors != MAL_SUCCEED ) {
-		showErrors(c);
+		mnstr_printf(c->fdout,"!%s%s",msg, (msg[strlen(msg)-1] == '\n'? "":"\n"));
+		mnstr_flush(c->fdout);
+		if( GDKerrbuf && GDKerrbuf[0]){
+			mnstr_printf(c->fdout,"!GDKerror: %s\n",GDKerrbuf);
+			mnstr_flush(c->fdout);
+		}
 #ifdef HAVE_EMBEDDED
 		return ;
 #endif
@@ -694,7 +699,6 @@ MALparser(Client cntxt)
 	// Any error encountered should reset the function under construction
 	msg = cntxt->curprg->def->errors;
 	if( msg != MAL_SUCCEED){
-		showErrors(cntxt);
 		cntxt->curprg->def->errors = MAL_SUCCEED;
 		MSresetVariables(cntxt, cntxt->curprg->def, cntxt->glb, oldstate.vtop);
 		resetMalBlk(cntxt->curprg->def, 1);
@@ -717,7 +721,6 @@ MALparser(Client cntxt)
 		// A compound block is ready for execution once it has been type checked.
 		chkProgram(cntxt->usermodule, cntxt->curprg->def);
 		if (cntxt->curprg->def->errors) {
-			showErrors(cntxt);
 			msg = cntxt->curprg->def->errors;
 			cntxt->curprg->def->errors = MAL_SUCCEED;
 			MSresetVariables(cntxt, cntxt->curprg->def, cntxt->glb, oldstate.vtop);
@@ -739,7 +742,6 @@ MALparser(Client cntxt)
 		msg = cntxt->curprg->def->errors;
 		cntxt->curprg->def->errors = 0;
 		if (msg) {
-			showErrors(cntxt);
 		} 
 		(void) MSinitClientPrg(cntxt,"user","main");
 	}
@@ -775,7 +777,6 @@ MALengine(Client c)
 		throw(SYNTAX, "mal.engine", SYNTAX_SIGNATURE);
 
 	if (prg->def->errors ) {
-		showErrors(c);
 		MSresetVariables(c, c->curprg->def, c->glb, oldstate.vtop);
 		resetMalBlk(c->curprg->def, 1);
 		throw(MAL, "mal.engine", "%s", prg->def->errors);
@@ -808,7 +809,6 @@ MALengine(Client c)
 		/* ignore "internal" exceptions */
 		if (strstr(msg, "client.quit") )
 			msg = MAL_SUCCEED;
-		showErrors(c);
 	}
 	MSresetVariables(c, prg->def, c->glb, 0);
 	resetMalBlk(prg->def, 1);

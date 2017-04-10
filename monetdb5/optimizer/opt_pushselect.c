@@ -8,7 +8,7 @@
 
 #include "monetdb_config.h"
 #include "opt_pushselect.h"
-#include "mal_interpreter.h"	/* for showErrors() */
+#include "mal_interpreter.h"
 
 static InstrPtr
 PushArgument(MalBlkPtr mb, InstrPtr p, int arg, int pos)

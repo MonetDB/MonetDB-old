@@ -675,7 +675,6 @@ cleanup_engine:
 		}
 		if (*o != 0)
 			mnstr_printf(c->fdout, "!%s\n", getExceptionMessage(o));
-		showErrors(c);
 		m->session->status = -10;
 	}
 

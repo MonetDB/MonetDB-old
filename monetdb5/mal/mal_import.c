@@ -27,7 +27,7 @@
 #include "monetdb_config.h"
 #include "mal_import.h"
 #include "mal_builder.h"
-#include "mal_interpreter.h"	/* for showErrors() */
+#include "mal_interpreter.h"
 #include "mal_linker.h"		/* for loadModuleLibrary() */
 #include "mal_parser.h"
 #include "mal_private.h"

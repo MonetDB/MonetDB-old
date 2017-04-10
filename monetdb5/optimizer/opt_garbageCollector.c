@@ -8,7 +8,7 @@
 
 #include "monetdb_config.h"
 #include "opt_garbageCollector.h"
-#include "mal_interpreter.h"	/* for showErrors() */
+#include "mal_interpreter.h"
 #include "mal_builder.h"
 #include "mal_function.h"
 #include "opt_prelude.h"

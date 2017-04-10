@@ -1180,7 +1180,6 @@ SQLparser(Client c)
 		//printFunction(c->fdout, c->curprg->def, 0, LIST_MAL_ALL);
 		/* we know more in this case than chkProgram(c, c->curprg->def); */
 		if (c->curprg->def->errors) {
-			showErrors(c);
 			/* restore the state */
 			MSresetInstructions(c->curprg->def, oldstop);
 			freeVariables(c, c->curprg->def, NULL, oldvtop);

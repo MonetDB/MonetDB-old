@@ -125,7 +125,7 @@
 
 #include "monetdb_config.h"
 #include "run_pipeline.h"
-#include "mal_interpreter.h"	/* for showErrors() */
+#include "mal_interpreter.h"
 #include "opt_prelude.h"
 #include "opt_macro.h"
 

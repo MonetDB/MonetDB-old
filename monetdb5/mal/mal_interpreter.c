@@ -51,20 +51,6 @@ ptr getArgReference(MalStkPtr stk, InstrPtr pci, int k)
 #endif
 }
 
-/* code is obsolete, because all should be handled as exceptions */
-void showErrors(Client cntxt)
-{
-	int i;
-	char *errbuf = GDKerrbuf;
-	if (errbuf && *errbuf) {
-		i = (int)strlen(errbuf);
-		mnstr_printf(cntxt->fdout, "%s", errbuf);
-		if (errbuf[i - 1] != '\n')
-			mnstr_printf(cntxt->fdout, "\n");
-		errbuf[0] = '\0';
-	}
-}
-
 str malCommandCall(MalStkPtr stk, InstrPtr pci)
 {
 	str ret= MAL_SUCCEED;
