@@ -636,14 +636,17 @@ MALreader(Client c)
 				mnstr_printf(c->fdout,"%c", *l);
 			if( string)
 				continue;
-			if ( *l == ';' || *l == '#'){
-				if ( *l == '#' ){
-					c->linefill--;
-					s--;
-				}
+			if ( *l == ';' ){
+				*s = 0;
+				return MAL_SUCCEED;
+			}
+			
+			if ( *l == '#' ){
+				c->linefill--;
+				s--;
 				*s = 0;
 				// eat everything away until end of line
-				for( l++ ; c->fdin->pos < c->fdin->len ; l++){
+				for( l++ ; *l && c->fdin->pos < c->fdin->len ; l++){
 					if ( c->listing)
 						mnstr_printf(c->fdout,"%c", *l);
 					c->fdin->pos++;
@@ -701,9 +704,10 @@ MALparser(Client cntxt)
 	// Handle compound MAL blocks before execution
 	// There are three cases: a MAL function block, a barrier block or single statement
 	// nested blocks are recognized by the blkmode depth
+	/* empty blocks should be skipped as well */
 	if (cntxt->blkmode)
 		return MAL_SUCCEED;
-	/* empty blocks should be skipped as well */
+
 	if (cntxt->curprg->def->stop == 1)
 		return MAL_SUCCEED;
 

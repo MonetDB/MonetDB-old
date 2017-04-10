@@ -38,22 +38,35 @@ static void
 parseError(Client cntxt, str msg)
 {	
 	MalBlkPtr mb = cntxt->curprg->def;
-	char *old, *new;
+	char *old, *new, *exception;
+	char *s, *t;
 
+	exception = createMalException( mb, mb->stop, SYNTAX, 
+		"^%d %s", (int)(cntxt->lineptr - cntxt->line), msg);
 	old = mb->errors;
+	new = GDKzalloc((old? strlen(old):0) + strlen(exception) + strlen(cntxt->line) + strlen(msg) + 64);
+	if (new == NULL){
+		freeException(exception);
+		return ; // just stick to one error message
+	}
 	if( old){
-		new = GDKzalloc(strlen(old) + cntxt->linefill + strlen(msg) + 64);
-		if (new == NULL)
-			return ; // just stick to one error message
 		strcpy(new, old);
-		strcat(new, msg);
-		mb->errors = createMalException( mb, mb->stop, SYNTAX,
-            "^%d %s", (int)(cntxt->lineptr - cntxt->line), new);
+		strcat(new,"!");
 		GDKfree(old);
-		GDKfree(new);
-	}  else
-		mb->errors = createMalException( mb, mb->stop, SYNTAX, 
-			"^%d %s", (int)(cntxt->lineptr - cntxt->line), msg);
+	} 
+	strcat(new,"SyntaxException:");
+	for( s = new + strlen(new), t = cntxt->line; *t; s++, t++)
+		if ( *t == '\n') 
+			*s = ' ';
+		else
+			*s = *t;
+	if( cntxt->line[strlen(cntxt->line)-1] =='\n')
+		strcat(new, "!");
+	else
+		strcat(new, "\n!");
+	strcat(new, exception);
+	mb->errors = new;
+	freeException(exception);
 }
 
 static inline void
@@ -953,6 +966,7 @@ fcnHeader(Client cntxt, int kind)
 	curInstr = getInstrPtr(cntxt->curprg->def,0);
 	setModuleId(curInstr,modnme);
 	setFunctionId(curInstr,fnme);
+	curInstr->token = kind;
 	cntxt->curprg->kind = kind;
 
 	/* get calling parameters */
@@ -1459,7 +1473,7 @@ int
 parseMAL(Client cntxt)
 {	int cntrl = 0;
 	int inlineProp =0, unsafeProp = 0, sealedProp = 0;
-	str msg;
+	str msg, oldmsg;
 
 	cntxt->lineptr = cntxt->line;
 	skipSpace(cntxt);
@@ -1493,9 +1507,10 @@ parseMAL(Client cntxt)
 					if (inlineProp)
 						parseError(cntxt, "parseError:INLINE ignored");
 					chkProgram(cntxt->usermodule, cntxt->curprg->def);
-					if( cntxt->curprg->def->errors)
-						parseError(cntxt,"Program contains errors\n");
+					oldmsg = cntxt->curprg->def->errors;
+					cntxt->curprg->def->errors = 0;
 					msg = MSinitClientPrg(cntxt, "user", "main");
+					cntxt->curprg->def->errors = oldmsg;
 					if( msg != MAL_SUCCEED)
 						parseError(cntxt,msg);
 				}
@@ -1579,9 +1594,10 @@ parseMAL(Client cntxt)
 					unsafeProp = 0;
 					sealedProp = 0;
 					chkProgram(cntxt->usermodule, cntxt->curprg->def);
-					if( cntxt->curprg->def->errors)
-						parseError(cntxt,"Program contains errors\n");
+					oldmsg = cntxt->curprg->def->errors;
+					cntxt->curprg->def->errors = 0;
 					msg = MSinitClientPrg(cntxt, "user","main");
+					cntxt->curprg->def->errors = oldmsg;
 					if( msg != MAL_SUCCEED)
 						parseError(cntxt,msg);
 				}

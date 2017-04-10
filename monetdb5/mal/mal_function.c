@@ -102,6 +102,7 @@ chkFlow(MalBlkPtr mb)
 		case CATCHsymbol:
 			if(btop== DEPTH){
 			    mb->errors = createException(MAL,"chkFlow", "Too many nested MAL blocks");
+				return;
 			}
 			pc[btop]= i;
 			v= var[btop]= getDestVar(p);
@@ -113,7 +114,6 @@ chkFlow(MalBlkPtr mb)
 					"recursive %s[%d] shields %s[%d]",
 						getVarName(mb,v), pc[j],
 						getFcnName(mb),pc[i]);
-
 				return;
 			}
 
@@ -130,7 +130,6 @@ chkFlow(MalBlkPtr mb)
 			    mb->errors = createMalException(mb,i,SYNTAX,
 					"exit-label '%s' without begin-label", 
 					getVarName(mb,v));
-
 				continue;
 			}
 			/* search the matching block */
@@ -160,7 +159,7 @@ chkFlow(MalBlkPtr mb)
 				str nme=getVarName(mb,v);
 			    mb->errors = createMalException(mb,i,SYNTAX,
 					"label '%s' not in guarded block", nme);
-			} else
+			} 
 			break;
 		case YIELDsymbol:
 			{ InstrPtr ps= getInstrPtr(mb,0);
@@ -193,8 +192,11 @@ chkFlow(MalBlkPtr mb)
 						}
 					}
 			}
+			if( btop == 0)
+				retseen =1;
 			break;
 	    case RAISEsymbol:
+			endseen = 1;
 	        break;
 	    case ENDsymbol:
 			endseen =1;
@@ -211,6 +213,7 @@ chkFlow(MalBlkPtr mb)
 			}
 		}
 	}
+
 	if(msg == MAL_SUCCEED && lastInstruction < mb->stop-1 ){
 		mb->errors = createMalException( mb,lastInstruction,SYNTAX,
 			"instructions after END");

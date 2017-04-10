@@ -1352,15 +1352,19 @@ destinationType(MalBlkPtr mb, InstrPtr p)
 inline void
 setPolymorphic(InstrPtr p, int tpe, int force)
 {
-	int c2;
+	int c1= 0, c2=0;
 
 	if (force == FALSE && tpe == TYPE_any)
 		return;
-	if (getBatType(tpe) == TYPE_any){
+	if (isaBatType(tpe))
+		c1 =TYPE_oid;
+	if (getTypeIndex(tpe) > 0)
 		c2 = getTypeIndex(tpe);
-		if( c2 > 0 && c2 > p->polymorphic)
-			p->polymorphic = c2 + 1;
-	}
+	else if (getBatType(tpe) == TYPE_any)
+		c2 = 1;
+	c1 = c1 > c2 ? c1: c2;
+	if( c1 > 0 && c1 >= p->polymorphic)
+		p->polymorphic = c1 + 1;
 }
 
 /* Instructions are simply appended to a MAL block. It should always succeed.

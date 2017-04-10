@@ -115,7 +115,7 @@ evalFile(Client cntxt, str fname, int listing, int included)
 		if (fd == 0 || mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
 			if(fd) mnstr_destroy(fd);
 			GDKfree(base);
-			throw(MAL,"mal.import", "#WARNING: could not open file: %s\n", fname);
+			throw(MAL,"mal.import", "#WARNING: could not open file: %s\n", files[i]);
 		} 
 
 		if( included){
@@ -131,10 +131,11 @@ evalFile(Client cntxt, str fname, int listing, int included)
 			fprintf(stderr,"load file %s using new client\n",files[i]);
 #endif
 			c = MCinitClient((oid)0,bstream_create(fd, 32 * BLOCK),0);
-			c->usermodule = userModule();
+			c->curmodule = c->usermodule = userModule();
 			GDKfree(c->prompt);
 			c->prompt= NULL;
 			c->promptlength = 0;
+			c->blkmode = 1; // collect all statements
 			msg = defaultScenario(c);
 			if( msg == MAL_SUCCEED){ 
 				(void) MSinitClientPrg(c, "user", "main");  /* create new context */
@@ -199,7 +200,7 @@ compileString(Client cntxt, str s)
 	c = MCinitClient((oid)0,0,0);
 	c->fdin = bstream_create(buffer_rastream(b, "compileString"), b->len);
 	strncpy(c->fdin->buf,s,len);
-	c->usermodule = userModule();
+	c->curmodule = c->usermodule = userModule();
 	GDKfree(c->prompt);
 	c->prompt= NULL;
 	c->promptlength = 0;
@@ -217,12 +218,8 @@ compileString(Client cntxt, str s)
 		chkProgram(c->usermodule, c->curprg->def);
 	}
 	c->fdout = 0;
-	freeMalBlk(cntxt->curprg->def);
-	cntxt->curprg->def = copyMalBlk(c->curprg->def);
-	if( cntxt->curprg->def == NULL){
-		MCcloseClient(c);
-		throw(MAL,"compileString", MAL_MALLOC_FAIL);
-	}
+	cntxt->curprg = c->curprg;
+	c->curprg = 0;
 	MCcloseClient(c);
 	return MAL_SUCCEED;
 }

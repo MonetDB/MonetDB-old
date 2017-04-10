@@ -203,6 +203,10 @@ createMalExceptionInternal(MalBlkPtr mb, int pc, enum malexception type, const c
 		i += snprintf(buf + i, GDKMAXERRLEN - 1 - i, "!%s:%s.%s[%d]:",
 				exceptionNames[type], s, fcn, pc);
 	} else
+	if( type == SYNTAX)
+		i += snprintf(buf + i, GDKMAXERRLEN - 1 - i, "%s:",
+				exceptionNames[type]);
+	else
 		i += snprintf(buf + i, GDKMAXERRLEN - 1 - i, "%s:%s.%s[%d]:",
 				exceptionNames[type], s, fcn, pc);
 	i += vsnprintf(buf + i, GDKMAXERRLEN - 1 - i, format, ap);
