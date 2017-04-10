@@ -114,8 +114,9 @@ evalFile(Client cntxt, str fname, int listing, int included)
 		fd = malOpenSource(files[i]);
 		if (fd == 0 || mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
 			if(fd) mnstr_destroy(fd);
+			msg = createException(MAL,"mal.import", "#WARNING: could not open file: %s\n", files[i]);
 			GDKfree(base);
-			throw(MAL,"mal.import", "#WARNING: could not open file: %s\n", files[i]);
+			return msg;
 		} 
 
 		if( included){
