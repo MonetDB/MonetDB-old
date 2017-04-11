@@ -110,7 +110,7 @@ chkFlow(MalBlkPtr mb)
 
 			for(j=btop-1;j>=0;j--)
 			if( v==var[j]){
-			    mb->errors = createMalException(mb,i,SYNTAX,
+			    mb->errors = createMalException(mb,i,MAL,
 					"recursive %s[%d] shields %s[%d]",
 						getVarName(mb,v), pc[j],
 						getFcnName(mb),pc[i]);
@@ -122,12 +122,12 @@ chkFlow(MalBlkPtr mb)
 		case EXITsymbol:
 			v= getDestVar(p);
 			if( btop>0 && var[btop-1] != v){
-			    mb->errors = createMalException( mb,i,SYNTAX,
+			    mb->errors = createMalException( mb,i,MAL,
 					"exit-label '%s' doesnot match '%s'",
 					getVarName(mb,v), getVarName(mb,var[btop-1]));
 			}
 			if(btop==0){
-			    mb->errors = createMalException(mb,i,SYNTAX,
+			    mb->errors = createMalException(mb,i,MAL,
 					"exit-label '%s' without begin-label", 
 					getVarName(mb,v));
 				continue;
@@ -157,14 +157,14 @@ chkFlow(MalBlkPtr mb)
 			if( var[j]==v) break;
 			if(j<0){
 				str nme=getVarName(mb,v);
-			    mb->errors = createMalException(mb,i,SYNTAX,
+			    mb->errors = createMalException(mb,i,MAL,
 					"label '%s' not in guarded block", nme);
 			} 
 			break;
 		case YIELDsymbol:
 			{ InstrPtr ps= getInstrPtr(mb,0);
 			if( ps->token != FACTORYsymbol){
-			    mb->errors = createMalException(mb,i,SYNTAX, "yield misplaced!");
+			    mb->errors = createMalException(mb,i,MAL, "yield misplaced!");
 			}
 			yieldseen= TRUE;
 			 }
@@ -178,7 +178,7 @@ chkFlow(MalBlkPtr mb)
 					yieldseen = FALSE;    /* always end with a return */
 				}
 				if (ps->retc != p->retc) {
-					mb->errors = createMalException( mb, i, SYNTAX,
+					mb->errors = createMalException( mb, i, MAL,
 							"invalid return target!");
 				} else 
 				if (ps->typechk == TYPE_RESOLVED)
@@ -207,7 +207,7 @@ chkFlow(MalBlkPtr mb)
 					/* do nothing */
 				} else if( i) {
 					str msg=instruction2str(mb,0,p,TRUE);
-					mb->errors = createMalException( mb,i,SYNTAX, "signature misplaced\n!%s",msg);
+					mb->errors = createMalException( mb,i,MAL, "signature misplaced\n!%s",msg);
 					GDKfree(msg);
 				}
 			}
@@ -437,6 +437,10 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 	/* beware, we should now ignore any cloning */
 	if (proc->def->errors == 0) {
 		chkProgram(scope,new->def);
+		if( new->def->errors){
+			mb->errors = new->def->errors;
+			new->def->errors = 0;
+		}
 #ifdef DEBUG_MAL_FCN
 			fprintFunction(stderr, new->def, 0, LIST_MAL_ALL);
 #endif
