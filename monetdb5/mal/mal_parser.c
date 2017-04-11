@@ -60,6 +60,7 @@ parseError(Client cntxt, str msg)
 			*s = ' ';
 		else
 			*s = *t;
+	cntxt->lineptr = t;
 	if( cntxt->line[strlen(cntxt->line)-1] =='\n')
 		strcat(new, "!");
 	else
@@ -778,7 +779,7 @@ term(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr, int ret)
 		*curInstr = pushArgument(curBlk, *curInstr, idx);
 	} else if (*cntxt->lineptr == ':') {
 		tpe = typeElm(cntxt, TYPE_any);
-		if (tpe < 0)
+		if (tpe < 0 || cntxt->curprg->def->errors)
 			return 3;
 		setPolymorphic(*curInstr, tpe, FALSE);
 		idx = newTypeVariable(curBlk, tpe);
@@ -1294,6 +1295,7 @@ parseStatement(Client cntxt, int cntrl)
 			if (l == 0 ) {
 				parseError(cntxt, "<identifier> expected\n");
 				freeInstruction(curInstr);
+				return;
 			}
 			GETvariable;
 			if (*cntxt->lineptr == ':') {
