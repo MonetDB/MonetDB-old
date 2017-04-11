@@ -574,14 +574,11 @@ runScenarioBody(Client c)
 	wrapup:
 		if (msg != MAL_SUCCEED){
 			mnstr_printf(c->fdout,"!%s%s",msg, (msg[strlen(msg)-1] == '\n'? "":"\n"));
-			mnstr_flush(c->fdout);
 			freeException(msg);
 			msg = MAL_SUCCEED;
 		}
-		if( GDKerrbuf && GDKerrbuf[0]){
+		if( GDKerrbuf && GDKerrbuf[0])
 			mnstr_printf(c->fdout,"!GDKerror: %s\n",GDKerrbuf);
-			mnstr_flush(c->fdout);
-		}
 		assert(c->curprg->def->errors == NULL);
 		c->actions++;
 	}
