@@ -151,9 +151,6 @@ wrapup:
 		snprintf(buf, 256, "%-20s actions=%2d time=" LLFMT " usec", "total", actions, mb->optimize);
 		newComment(mb, buf);
 	}
-	if (msg != MAL_SUCCEED) {
-		mb->errors++;
-	}
 	if (cnt >= mb->stop)
 		throw(MAL, "optimizer.MALoptimizer", OPTIMIZER_CYCLE);
 	return msg;

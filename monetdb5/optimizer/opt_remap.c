@@ -290,7 +290,6 @@ terminateMX:
 	delArgument(p,1);
 	inlineMALblock(mb,pc,mq);
 #ifdef DEBUG_OPT_REMAP
-	fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
 	fprintf(stderr,"#NEW BLOCK\n");
 	fprintFunction(stderr,mq, 0, LIST_MAL_ALL);
 	fprintf(stderr,"#INLINED RESULT\n");

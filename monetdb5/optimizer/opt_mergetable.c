@@ -699,7 +699,7 @@ mat_joinNxM(Client cntxt, MalBlkPtr mb, InstrPtr p, matlist_t *ml, int args)
 
 		if (split < 0) {
 			GDKfree(mats);
-			mb->errors++;
+			mb->errors= createException(MAL,"mergetable.join"," incorrect split level");
 			return ;
 		}
 		/* now detect split point */
@@ -1870,7 +1870,7 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 	}
 #endif
 
-	if ( mb->errors == 0) {
+	if ( mb->errors == MAL_SUCCEED) {
 		for(i=0; i<slimit; i++)
 			if (old[i]) 
 				freeInstruction(old[i]);
