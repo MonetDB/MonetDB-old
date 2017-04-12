@@ -1345,8 +1345,7 @@ parseStatement(Client cntxt, int cntrl)
 			l = idLength(cntxt);
 			if (l == 0 ) {
 				parseError(cntxt, "<identifier> expected\n");
-				freeInstruction(curInstr);
-				return;
+				goto part3;
 			}
 			GETvariable;
 			if (*cntxt->lineptr == ':') {

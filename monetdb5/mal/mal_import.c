@@ -231,7 +231,7 @@ callString(Client cntxt, str s)
 	Client c;
 	str msg = MAL_SUCCEED;
 
-	c = MCinitClient((oid)0,0,cntxt->fdout);
+	c = MCinitClient((oid)0,cntxt->fdin,cntxt->fdout);
 	msg = compileString(c,s);
 	if( msg == MAL_SUCCEED)
 		runMAL(c, c->curprg->def,0,0);
