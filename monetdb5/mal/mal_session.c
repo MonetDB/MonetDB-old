@@ -487,6 +487,10 @@ MSserveClient(void *dummy)
 	/*
 	 * At this stage we should clean out the MAL block
 	 */
+    if (c->backup) {
+        freeSymbol(c->backup);
+        c->backup = 0;
+    }
 	if (c->curprg) {
 		Symbol s = c->curprg;
 		assert(0);
@@ -540,6 +544,10 @@ MALexitClient(Client c)
 	if (c->glb && c->curprg->def->errors == MAL_SUCCEED)
 		garbageCollector(c, c->curprg->def, c->glb, TRUE);
 	c->mode = FINISHCLIENT;
+    if (c->backup) {
+        freeSymbol(c->backup);
+        c->backup = 0;
+    }
 	c->curprg = NULL;
 	c->usermodule = NULL;
 	// only clear out the private module
@@ -700,8 +708,8 @@ MALparser(Client cntxt)
 	msg = cntxt->curprg->def->errors;
 	if( msg != MAL_SUCCEED){
 		cntxt->curprg->def->errors = MAL_SUCCEED;
-		MSresetVariables(cntxt, cntxt->curprg->def, cntxt->glb, oldstate.vtop);
-		resetMalBlk(cntxt->curprg->def, 1);
+		//MSresetVariables(cntxt, cntxt->curprg->def, cntxt->glb, oldstate.vtop);
+		//resetMalBlk(cntxt->curprg->def, 1);
 		return msg;
 	}
 
@@ -737,6 +745,7 @@ MALparser(Client cntxt)
 			getFunctionId(getSignature(cntxt->curprg)),
 			cntxt->usermodule->name);
 #endif
+/*
 		insertSymbol(cntxt->usermodule, cntxt->curprg);
 		chkProgram(cntxt->usermodule, cntxt->curprg->def);
 		msg = cntxt->curprg->def->errors;
@@ -744,6 +753,7 @@ MALparser(Client cntxt)
 		if (msg) {
 		} 
 		(void) MSinitClientPrg(cntxt,"user","main");
+*/
 	}
 
 	return msg;

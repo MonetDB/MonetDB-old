@@ -148,6 +148,7 @@ typedef struct CLIENT {
 	Module      usermodule;     /* private user scope */
 	Module		curmodule;		/* where to deliver the symbol, used by parser , only freed globally */
 	Symbol      curprg;     /* container for the malparser */
+	Symbol      backup;     /* saving the parser context for functions,commands/patterns */
 	MalStkPtr   glb;        /* global variable stack */
 	/*
 	 * Some statistics on client behavior becomes relevant for server

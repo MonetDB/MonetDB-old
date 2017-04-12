@@ -956,7 +956,12 @@ fcnHeader(Client cntxt, int kind)
 		advance(cntxt, l);
 	} else 
 		modnme= cntxt->curmodule->name;
-	cntxt->curprg->name = fnme;
+
+    if (cntxt->backup){
+        parseError(cntxt, "mal_parser: unexpected recursion\n");
+        return 0;
+    }
+
 
 	if (*cntxt->lineptr != '('){
 		parseError(cntxt, "function header '(' expected\n");
@@ -964,13 +969,12 @@ fcnHeader(Client cntxt, int kind)
 	}
 	advance(cntxt, 1);
 
-	curInstr = getInstrPtr(cntxt->curprg->def,0);
-	setModuleId(curInstr,modnme);
-	setFunctionId(curInstr,fnme);
-	curInstr->token = kind;
-	cntxt->curprg->kind = kind;
+    cntxt->backup = cntxt->curprg;
+    cntxt->curprg = newFunction( modnme, fnme, kind);
+    curBlk = cntxt->curprg->def;
+    curInstr = getInstrPtr(curBlk, 0);
 
-	/* get calling parameters */
+	/*get calling parameters */
 	ch = *cntxt->lineptr;
 	while (ch != ')' && ch && !NL(ch)) {
 		curInstr = binding(cntxt, curBlk, curInstr, 1);
@@ -984,6 +988,11 @@ fcnHeader(Client cntxt, int kind)
 		if ((ch = *cntxt->lineptr) != ',') {
 			if (ch == ')')
 				break;
+            if (cntxt->backup) {
+                freeSymbol(cntxt->curprg);
+                cntxt->curprg = cntxt->backup;
+                cntxt->backup = 0;
+            }
 			parseError(cntxt, "',' expected\n");
 			return 1;
 		} else
@@ -991,6 +1000,12 @@ fcnHeader(Client cntxt, int kind)
 		ch = *cntxt->lineptr;
 	}
 	if (*cntxt->lineptr != ')') {
+		if (cntxt->backup) {
+			freeSymbol(cntxt->curprg);
+			cntxt->curprg = cntxt->backup;
+			cntxt->backup = 0;
+		}
+
 		parseError(cntxt, "')' expected\n");
 		return 1;
 	}
@@ -1028,6 +1043,12 @@ fcnHeader(Client cntxt, int kind)
 			if ((ch = *cntxt->lineptr) != ',') {
 				if (ch == ')')
 					break;
+				if (cntxt->backup) {
+					freeSymbol(cntxt->curprg);
+					cntxt->curprg = cntxt->backup;
+					cntxt->backup = 0;
+				}
+
 				parseError(cntxt, "',' expected\n");
 				return 1;
 			} else {
@@ -1039,6 +1060,11 @@ fcnHeader(Client cntxt, int kind)
 		max = curInstr->maxarg;
 		newarg = (short *) GDKmalloc(max * sizeof(curInstr->argv[0]));
 		if (newarg == NULL){
+            if (cntxt->backup) {
+                freeSymbol(cntxt->curprg);
+                cntxt->curprg = cntxt->backup;
+                cntxt->backup = 0;
+            }
 			parseError(cntxt, MAL_MALLOC_FAIL);
 			return 1;
 		}
@@ -1054,6 +1080,11 @@ fcnHeader(Client cntxt, int kind)
 			curInstr->argv[i1] = newarg[i1];
 		GDKfree(newarg);
 		if (*cntxt->lineptr != ')') {
+            if (cntxt->backup) {
+                freeSymbol(cntxt->curprg);
+                cntxt->curprg = cntxt->backup;
+                cntxt->backup = 0;
+            }
 			parseError(cntxt, "')' expected\n");
 			return 1;
 		}
@@ -1071,7 +1102,7 @@ fcnHeader(Client cntxt, int kind)
 static MalBlkPtr
 parseCommandPattern(Client cntxt, int kind)
 {
-	MalBlkPtr curBlk = cntxt->curprg->def;
+	MalBlkPtr curBlk;
 	Symbol curPrg = 0;
 	InstrPtr curInstr = 0;
 	str modnme = NULL;
@@ -1079,7 +1110,7 @@ parseCommandPattern(Client cntxt, int kind)
 
 	if( fcnHeader(cntxt, kind))
 		return 0;
-	getInstrPtr(curBlk, 0)->token = kind;
+	curBlk = cntxt->curprg->def;
 	curPrg = cntxt->curprg;
 	curPrg->kind = kind;
 	curInstr = getInstrPtr(curBlk, 0);
@@ -1089,13 +1120,22 @@ parseCommandPattern(Client cntxt, int kind)
 
 	l = strlen(modnme);
 	modnme = putNameLen(modnme, l);
-	if( strcmp(modnme,"user") ==0 ){
-		insertSymbol(cntxt->usermodule, curPrg);
-	} else
-	if( getModule(modnme) ){
-		insertSymbol( getModule(modnme), curPrg);
+	if ( strcmp(modnme,"user")== 0 || getModule(modnme)){
+		if ( strcmp(modnme,"user") == 0)
+			insertSymbol(cntxt->usermodule, curPrg);
+		else
+			insertSymbol(getModule(modnme), curPrg);
+		chkProgram(cntxt->usermodule, curBlk);
+		cntxt->curprg->def->errors = cntxt->backup->def->errors;
+		cntxt->backup->def->errors = 0;
+		cntxt->curprg = cntxt->backup;
+		cntxt->backup = 0;
 	} else {
+		freeSymbol(curPrg);
+		cntxt->curprg = cntxt->backup;
+		cntxt->backup = 0;
 		parseError(cntxt, "<module> not found\n");
+		return 0;
 	}
 /*
  * Short-cut function calls
@@ -1214,12 +1254,23 @@ parseEnd(Client cntxt)
 		}
 		if ((l == (int) strlen(getFunctionId(sig)) &&
 			strncmp(cntxt->lineptr, getFunctionId(sig), l) == 0) || l == 0) {} else {
+			advance(cntxt, l);
 			parseError(cntxt, "non matching end label\n");
 			return 0;
 		}
 		advance(cntxt, l);
 		pushEndInstruction(cntxt->curprg->def);
 		cntxt->blkmode = 0;
+		if ( strcmp(getModuleId(sig),"user")== 0 )
+			insertSymbol(cntxt->usermodule, cntxt->curprg);
+		else
+			insertSymbol(getModule(getModuleId(sig)), cntxt->curprg);
+        chkProgram(cntxt->usermodule, cntxt->curprg->def);
+        if (cntxt->backup) {
+			cntxt->backup->def->errors = GDKstrdup(cntxt->curprg->def->errors);
+            cntxt->curprg = cntxt->backup;
+            cntxt->backup = 0;
+        }
 		return 1;
 	}
 	return 0;

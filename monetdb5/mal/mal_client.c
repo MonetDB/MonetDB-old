@@ -215,6 +215,7 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->mdb = 0;
 	c->history = 0;
 	c->curprg = 0;
+	c->backup = 0;
 	c->glb = 0;
 
 	/* remove garbage from previous connection 
