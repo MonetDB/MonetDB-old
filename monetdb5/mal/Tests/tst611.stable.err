@@ -41,7 +41,7 @@ QUERY = # initialization of BATs on the stack
         #the next one should fail
         bat.setWriteMode(RKB);
         end foo;
-ERROR = !TypeException:user.foo[5]:'bat.setWriteMode' undefined in:     bat.setWriteMode(RKB:any);
+ERROR = !TypeException:user.foo[4]:'bat.setWriteMode' undefined in:     bat.setWriteMode(RKB:any);
 
 # 09:29:46 >  
 # 09:29:46 >  "Done."

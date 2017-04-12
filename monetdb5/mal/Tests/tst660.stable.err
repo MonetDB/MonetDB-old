@@ -51,8 +51,13 @@ QUERY = #Testing variable argument lists
         fs(1,"a","b");
         fs(1,"a","b","c");
 ERROR = !MALException:mdb.dummy:operation failed
+        !MALException:mdb.dummy:operation failed
+        !MALException:mdb.dummy:operation failed
+        !MALException:mdb.dummy:operation failed
+        !MALException:mdb.dummy:operation failed
+        !MALException:mdb.dummy:operation failed
 
-# 10:30:20 >  
-# 10:30:20 >  "Done."
-# 10:30:20 >  
+# 16:33:06 >  
+# 16:33:06 >  "Done."
+# 16:33:06 >  
 

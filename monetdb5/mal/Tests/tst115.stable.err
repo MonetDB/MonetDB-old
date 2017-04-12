@@ -52,7 +52,7 @@ QUERY = # the next step is to trace the call of a mal function call
         d:= user.doitTwice(3);
         c:= 3;
         d:= user.doitTwice("wrong");
-ERROR = !TypeException:user.main[7]:'user.doitTwice' undefined in:     d:int := user.doitTwice("wrong":str);
+ERROR = !TypeException:user.main[1]:'user.doitTwice' undefined in:     d:int := user.doitTwice("wrong":str);
 
 # 13:20:26 >  
 # 13:20:26 >  "Done."

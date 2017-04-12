@@ -51,17 +51,16 @@ function user.foo():void;               	#[0] (0)  0
     bat.append(g:bat[:oid], 3@0:oid);   	#[19] (0) BKCappend_val_wrap 25 <- 17 10 
     bat.append(g:bat[:oid], 3@0:oid);   	#[20] (0) BKCappend_val_wrap 26 <- 17 10 
     io.print(g:bat[:oid], b:bat[:oid]); 	#[21] (0) IOtable 27 <- 17 1 
-# only head is used                     
-    e:bat[:oid] := bat.new(:oid);       	#[23] (0) CMDBATnew 29 <- 2 
-    bat.append(e:bat[:oid], 0@0:oid);   	#[24] (0) BKCappend_val_wrap 30 <- 29 4 
-    bat.append(e:bat[:oid], 1@0:oid);   	#[25] (0) BKCappend_val_wrap 31 <- 29 6 
-    bat.append(e:bat[:oid], 2@0:oid);   	#[26] (0) BKCappend_val_wrap 32 <- 29 8 
-    bat.append(e:bat[:oid], 3@0:oid);   	#[27] (0) BKCappend_val_wrap 33 <- 29 10 
-    i:bat[:oid] := aggr.min(b:bat[:oid], g:bat[:oid], e:bat[:oid]);	#[28] (0) AGGRmin3 34 <- 1 17 29 
-    io.print(i:bat[:oid]);              	#[29] (0) IOprint_val 35 <- 34 
-    h:bat[:oid] := aggr.max(b:bat[:oid], g:bat[:oid], e:bat[:oid]);	#[30] (0) AGGRmax3 36 <- 1 17 29 
-    io.print(h:bat[:oid]);              	#[31] (0) IOprint_val 37 <- 36 
-end user.foo;                           	#[32] (0)  
+    e:bat[:oid] := bat.new(:oid);       	#[22] (0) CMDBATnew 28 <- 2 
+    bat.append(e:bat[:oid], 0@0:oid);   	#[23] (0) BKCappend_val_wrap 29 <- 28 4 
+    bat.append(e:bat[:oid], 1@0:oid);   	#[24] (0) BKCappend_val_wrap 30 <- 28 6 
+    bat.append(e:bat[:oid], 2@0:oid);   	#[25] (0) BKCappend_val_wrap 31 <- 28 8 
+    bat.append(e:bat[:oid], 3@0:oid);   	#[26] (0) BKCappend_val_wrap 32 <- 28 10 
+    i:bat[:oid] := aggr.min(b:bat[:oid], g:bat[:oid], e:bat[:oid]);	#[27] (0) AGGRmin3 33 <- 1 17 28 
+    io.print(i:bat[:oid]);              	#[28] (0) IOprint_val 34 <- 33 
+    h:bat[:oid] := aggr.max(b:bat[:oid], g:bat[:oid], e:bat[:oid]);	#[29] (0) AGGRmax3 35 <- 1 17 28 
+    io.print(h:bat[:oid]);              	#[30] (0) IOprint_val 36 <- 35 
+end user.foo;                           	#[31] (0)  
 #--------------------------#
 # h	t		t			  # name
 # void	oid	oid	  # type

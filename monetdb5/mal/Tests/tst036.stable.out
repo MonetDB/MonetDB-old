@@ -28,6 +28,8 @@ Ready.
 # 11:38:05 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-13830" "--port=32718"
 # 11:38:05 >  
 
+[ 1	]
+[ "help"	]
 
 # 11:38:05 >  
 # 11:38:05 >  "Done."

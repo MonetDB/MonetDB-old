@@ -46,8 +46,7 @@ QUERY =
         end foo;
         mdb.List("user","foo");
         user.foo();
-ERROR = !MALException:user.myException[1]:new exception
-        !MALException:user.myException[3]:Exception not caught
+ERROR = !MALException:user.myException[3]:MALException:user.myException[1]:new exception
 
 # 09:16:50 >  
 # 09:16:50 >  "Done."

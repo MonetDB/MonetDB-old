@@ -75,13 +75,13 @@ MAPI  = (monetdb) /var/tmp/mtest-7831/.s.monetdb.38226
 QUERY = -- some typos
         i:= 1 + 1 + 1;
         j:= 1 + + 1;
-ERROR = !SyntaxException:convertConstant:integer parse error
-        !SyntaxException:parseError:-- some typos
-        !SyntaxException:parseError:^<identifier> expected
-        !SyntaxException:parseError:i:= 1 + 1 + 1;
-        !SyntaxException:parseError:         ^';' expected
-        !SyntaxException:parseError:j:= 1 + + 1;
-        !SyntaxException:parseError:       ^<term> expected
+ERROR = !SyntaxException:-- some typos i:= 1 + 1 + 1;
+        !SyntaxException:^0 convertConstant: integer parse error!SyntaxException:-- some typos i:= 1 + 1 + 1;
+        !SyntaxException:-- some typos i:= 1 + 1 + 1;
+        !SyntaxException:^0 convertConstant: integer parse error
+        !SyntaxException:user.main[2]:^29 <identifier> expected
+        !SyntaxException: j:= 1 + + 1;
+        !SyntaxException:^9 <term> expected
 
 # 20:18:21 >  
 # 20:18:21 >  Done.

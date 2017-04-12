@@ -20,8 +20,12 @@ QUERY = #multiple atomary types
         j:= i+3;
         io.print(i);
         io.print(j);
-ERROR = !TypeException:atomDefinition:Redefinition of atom 'myint'
-        !TypeException:user.main[3]:'calc.+' undefined in:     j:any := calc.+(i:myint, 3:int);
+ERROR = !SyntaxException: atom myint:int;
+        !SyntaxException:^15 Atom redefinition!SyntaxException: atom myint:int;
+        !SyntaxException: atom myint:int;
+        !SyntaxException:^15 Atom redefinition
+        !SyntaxException:user.main[1]:^16 ';' expected
+        !TypeException:user.main[1]:'calc.+' undefined in:     j:any := calc.+(i:myint, 3:int);
 
 # 15:19:56 >  
 # 15:19:56 >  "Done."

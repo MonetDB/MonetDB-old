@@ -91,10 +91,12 @@ QUERY = # examples of non-bindable instructions
         comment "Should not be callable";
         
         wrong();
-ERROR = !TypeException:user.main[3]:object code for command user.wrong missing
-        !TypeException:user.main[3]:'user.wrong' undefined in:     user.wrong();
+ERROR = !SyntaxException:include UNKNOWlib;
+        !SyntaxException:^18 MALException:mal.import:#WARNING: could not open file: UNKNOWlib
+        !TypeException:user.main[1]:object code for command user.wrong missing
+        !TypeException:user.main[1]:'user.wrong' undefined in:     user.wrong();
 
-# 13:26:24 >  
-# 13:26:24 >  "Done."
-# 13:26:24 >  
+# 16:33:26 >  
+# 16:33:26 >  "Done."
+# 16:33:26 >  
 

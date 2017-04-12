@@ -31,13 +31,17 @@ Ready.
 function user.foo():void;
     A := 23:int;
     D := 22:int;
+    F := 1:int;
     B := true;
 barrier c := B;
     A := 1:int;
     D := 3:int;
+    E := 5:int;
+    F := 6:int;
 exit c;
 barrier c := calc.not(B);
     A := 2:int;
+    F := 7:int;
 exit c;
     io.print(A);
     io.print(D);
