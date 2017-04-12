@@ -38,19 +38,9 @@ function user.qry(i:dbl):dbl;
     l := calc.+(z, 1:dbl);
     return qry := z;
 end user.qry;
-function user.main():void;
-#tesing the optimizers 
-#setDebug(); 
-    t0 := alarm.usec();
-    t1 := alarm.usec();
-    t2 := calc.-(t1, t0);
-    io.print("execute");
-    z := user.qry(0:dbl);
-    io.print(z);
-    io.print("done");
-    mdb.list("user", "qry");
-    mdb.list();
-end user.main;
+#aliases              actions= 2 time=4 usec 
+#commonTerms          actions= 1 time=9 usec 
+#aliases              actions= 1 time=1 usec 
 
 # 23:52:51 >  
 # 23:52:51 >  Done.

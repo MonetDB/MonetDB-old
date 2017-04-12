@@ -1,9 +1,7 @@
 # a simple dataflow test
 
-include microbenchmark;
-
-function tst();
-s:= microbenchmark.uniform(0:oid, 100000:lng, 100000);
+function user.tst();
+s:= bat.new(:lng);
 l:= aggr.min(s);
 h:= l;
 #mdb.setTimer(true);

@@ -15,7 +15,7 @@ barrier d:= calc.not(true);
 exit d;
 end tst;
 
-mdb.list("user","tst");
+mdb.List("user","tst");
 optimizer.evaluate("user","tst");
-mdb.list("user","tst");
+mdb.List("user","tst");
 tst();

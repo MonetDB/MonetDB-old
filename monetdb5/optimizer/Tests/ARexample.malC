@@ -11,6 +11,6 @@ redo go:= i<2;
 exit go;
 	io.print(b);
 end;
-mdb.list("user","foo");
+mdb.List("user","foo");
 optimizer.aliases("user","foo");
-mdb.list("user","foo");
+mdb.List("user","foo");

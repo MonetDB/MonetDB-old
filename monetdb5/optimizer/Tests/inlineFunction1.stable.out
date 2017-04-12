@@ -30,14 +30,25 @@ Ready.
 #result of inline
 #mdb.list("user","tst");
 function user.tst():void;
-    true:bit;
+    X_3 := calc.==(1:int, 1:int);
+barrier X_4 := X_3;
+    calc.int(100:int);
+exit X_4;
+barrier X_7 := calc.not(X_3);
+    calc.==(1:int, 2:int);
+exit X_7;
     z := 0:int;
 end user.tst;
-#mdb.list("user","tst");
-function user.tst():void;
-    true:bit;
-    z := 0:int;
-end user.tst;
+#inline               actions= 1 time=21 usec 
+function user.tst():void;               	#[0] (0)  0 
+    X_3:bit := true:bit;                	#[1] (0)  5 <- 17 
+    z:int := 0:int;                     	#[2] (0)  1 <- 12 
+end user.tst;                           	#[3] (0)  
+#inline               actions= 1 time=21 usec 
+#remap                actions= 0 time=1 usec 
+#costmodel            actions=1 time=1 usec 
+#coercion             actions= 1 time=3 usec 
+#evaluate             actions= 5 time=30 usec 
 
 # 05:26:58 >  
 # 05:26:58 >  "Done."

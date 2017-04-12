@@ -25,56 +25,60 @@ Ready.
 # 10:55:30 >  
 
 function user.tst():void;               	#[0] (0)  0 
-barrier X_27:bit := language.dataflow();	#[1] (0) MALstartDataflow 27 
-    s:bat[:int] := microbenchmark.uniform(0@0:oid, 100000:lng, 100000:int);	#[2] (0) MBMuniform 1 <- 2 3 4 
-    l:int := aggr.min(s:bat[:int]);     	#[3] (0) ALGminany 5 <- 1 
-    h:int := l:int;                     	#[4] (0)  6 <- 5 
-#mdb.setTimer(true);                    
-#mdb.setThread(true);                   
-    z:bat[:oid] := nil:bat[:oid];       	#[7] (0)  9 <- 10 
-    t1:bat[:oid] := algebra.select(s:bat[:int], l:int, h:int, true:bit, true:bit, false:bit);	#[8] (0) ALGselect1 11 <- 1 5 6 12 13 14 
-    t2:bat[:oid] := algebra.select(s:bat[:int], l:int, h:int, true:bit, true:bit, false:bit);	#[9] (0) ALGselect1 15 <- 1 5 6 12 12 14 
-    t3:bat[:oid] := algebra.select(s:bat[:int], l:int, h:int, true:bit, true:bit, false:bit);	#[10] (0) ALGselect1 16 <- 1 5 6 12 12 14 
-    t4:bat[:oid] := algebra.select(s:bat[:int], l:int, h:int, true:bit, true:bit, false:bit);	#[11] (0) ALGselect1 17 <- 1 5 6 12 12 14 
-    t5:bat[:oid] := algebra.select(s:bat[:int], l:int, h:int, true:bit, true:bit, false:bit);	#[12] (0) ALGselect1 18 <- 1 5 6 12 12 14 
-    t6:bat[:oid] := algebra.select(s:bat[:int], l:int, h:int, true:bit, true:bit, false:bit);	#[13] (0) ALGselect1 19 <- 1 5 6 12 12 14 
-    t7:bat[:oid] := algebra.select(s:bat[:int], l:int, h:int, true:bit, true:bit, false:bit);	#[14] (0) ALGselect1 20 <- 1 5 6 12 12 14 
-    t8:bat[:oid] := algebra.select(s:bat[:int], l:int, h:int, true:bit, true:bit, false:bit);	#[15] (0) ALGselect1 21 <- 1 5 6 12 12 14 
-    language.pass(s:bat[:int]);         	#[16] (0) MALpass 29 <- 1 
-exit X_27:bit;                          	#[17] (0)  27 
-    z:bat[:oid] := mat.pack(t1:bat[:oid], t2:bat[:oid], t3:bat[:oid], t4:bat[:oid], t5:bat[:oid], t6:bat[:oid], t7:bat[:oid], t8:bat[:oid]);	#[18] (0) MATpack 9 <- 11 15 16 17 18 19 20 21 
-    mdb.var();                          	#[19] (0) MDBvar 22 
-    c:lng := aggr.count(z:bat[:oid]);   	#[20] (0) ALGcount_bat 23 <- 9 
-    io.print(c:lng);                    	#[21] (0) IOprint_val 24 <- 23 
-    io.print("done":str);               	#[22] (0) IOprint_val 25 <- 26 
-end user.tst;                           	#[23] (0)  
-#dataflow             actions= 1 time=22 usec 
-#garbagecollector     actions= 1 time=18 usec 
-#Stack 'tst' size=40 top=33
-#[ 1]     s (2,2,16) = <tmp_106> :bat[:int] rows=100000   
-#[ 2]   X_2 (2,2,2) = 0@0 :oid  constant  
-#[ 3]   X_3 (2,2,2) = 100000 :lng  constant  
-#[ 4]   X_4 (2,2,2) = 100000 :int  constant  
-#[ 5]     l (3,3,15) = 0 :int   
-#[ 6]     h (4,4,15) = 0 :int   
-#[ 9]     z (7,17,19) = <tmp_67> :bat[:oid] rows=8   
-#[10]  X_10 (7,7,7) = nil :bat[:oid]  constant  
-#[11]    t1 (8,8,17) = <tmp_165> :bat[:void] rows=1   
-#[12]  X_12 (8,8,15) = true :bit  constant  
-#[13]  X_13 (8,8,8) = true :bit  constant  
-#[14]  X_14 (8,8,15) = false :bit  constant  
-#[15]    t2 (9,9,17) = <tmp_54> :bat[:void] rows=1   
-#[16]    t3 (10,10,17) = <tmp_15> :bat[:void] rows=1   
-#[17]    t4 (11,11,17) = <tmp_57> :bat[:void] rows=1   
-#[18]    t5 (12,12,17) = <tmp_10> :bat[:void] rows=1   
-#[19]    t6 (13,13,17) = <tmp_16> :bat[:void] rows=1   
-#[20]    t7 (14,14,17) = <tmp_55> :bat[:void] rows=1   
-#[21]    t8 (15,15,17) = <tmp_13> :bat[:void] rows=1   
-#[23]     c (19,19,20) = 0 :lng   
-#[26]  X_26 (21,21,21) = "done" :str  constant  
-#[27]  X_27 (1,16,16) = false :bit   
-[ 8 ]
-
+barrier X_23:bit := language.dataflow();	#[1] (0) MALstartDataflow 23 
+    s:bat[:lng] := bat.new(:lng);       	#[2] (0) CMDBATnew 1 <- 2 
+    l:lng := aggr.min(s:bat[:lng]);     	#[3] (0) ALGminany 3 <- 1 
+    h:lng := l:lng;                     	#[4] (0)  4 <- 3 
+    z:bat[:oid] := nil:bat[:oid];       	#[5] (0)  5 <- 6  polymorphic
+    t1:bat[:oid] := algebra.select(s:bat[:lng], l:lng, h:lng, true:bit, true:bit, false:bit);	#[6] (0) ALGselect1 7 <- 1 3 4 8 9 10 
+    t2:bat[:oid] := algebra.select(s:bat[:lng], l:lng, h:lng, true:bit, true:bit, false:bit);	#[7] (0) ALGselect1 11 <- 1 3 4 8 8 10 
+    t3:bat[:oid] := algebra.select(s:bat[:lng], l:lng, h:lng, true:bit, true:bit, false:bit);	#[8] (0) ALGselect1 12 <- 1 3 4 8 8 10 
+    t4:bat[:oid] := algebra.select(s:bat[:lng], l:lng, h:lng, true:bit, true:bit, false:bit);	#[9] (0) ALGselect1 13 <- 1 3 4 8 8 10 
+    t5:bat[:oid] := algebra.select(s:bat[:lng], l:lng, h:lng, true:bit, true:bit, false:bit);	#[10] (0) ALGselect1 14 <- 1 3 4 8 8 10 
+    t6:bat[:oid] := algebra.select(s:bat[:lng], l:lng, h:lng, true:bit, true:bit, false:bit);	#[11] (0) ALGselect1 15 <- 1 3 4 8 8 10 
+    t7:bat[:oid] := algebra.select(s:bat[:lng], l:lng, h:lng, true:bit, true:bit, false:bit);	#[12] (0) ALGselect1 16 <- 1 3 4 8 8 10 
+    t8:bat[:oid] := algebra.select(s:bat[:lng], l:lng, h:lng, true:bit, true:bit, false:bit);	#[13] (0) ALGselect1 17 <- 1 3 4 8 8 10 
+    language.pass(s:bat[:lng]);         	#[14] (0) MALpass 25 <- 1 
+exit X_23:bit;                          	#[15] (0)  23 
+    z:bat[:oid] := mat.pack(t1:bat[:oid], t2:bat[:oid], t3:bat[:oid], t4:bat[:oid], t5:bat[:oid], t6:bat[:oid], t7:bat[:oid], t8:bat[:oid]);	#[16] (0) MATpack 5 <- 7 11 12 13 14 15 16 17 
+    mdb.var();                          	#[17] (0) MDBvar 18 
+    c:lng := aggr.count(z:bat[:oid]);   	#[18] (0) ALGcount_bat 19 <- 5 
+    io.print(c:lng);                    	#[19] (0) IOprint_val 20 <- 19 
+    io.print("done":str);               	#[20] (0) IOprint_val 21 <- 22 
+end user.tst;                           	#[21] (0)  
+#dataflow             actions= 1 time=25 usec 
+#garbagecollector     actions= 0 time=15 usec 
+#Stack 'tst' size=40 top=29
+#[ 0]   tst (0,0,15) = 0@0 :void   not used 
+#[ 1]     s (2,2,14) = <tmp_73> :bat[:lng] rows=0   
+#[ 2]   X_2 (2,0,2) = 0 :lng    type variable
+#[ 3]     l (3,3,13) = nil :lng   
+#[ 4]     h (4,4,13) = nil :lng   
+#[ 5]     z (5,16,18) = <tmp_70> :bat[:void] rows=0   
+#[ 6]   X_6 (5,5,5) = nil :bat[:oid]  constant  
+#[ 7]    t1 (6,6,16) = <tmp_521> :bat[:void] rows=0   
+#[ 8]   X_8 (6,6,13) = true :bit  constant  
+#[ 9]   X_9 (6,6,6) = true :bit  constant  
+#[10]  X_10 (6,6,13) = false :bit  constant  
+#[11]    t2 (7,7,16) = <tmp_527> :bat[:void] rows=0   
+#[12]    t3 (8,8,16) = <tmp_526> :bat[:void] rows=0   
+#[13]    t4 (9,9,16) = <tmp_525> :bat[:void] rows=0   
+#[14]    t5 (10,10,16) = <tmp_524> :bat[:void] rows=0   
+#[15]    t6 (11,11,16) = <tmp_523> :bat[:void] rows=0   
+#[16]    t7 (12,12,16) = <tmp_522> :bat[:void] rows=0   
+#[17]    t8 (13,13,16) = <tmp_530> :bat[:void] rows=0   
+#[18]  X_18 (17,17,17) = 0@0 :void   not used 
+#[19]     c (18,18,19) = 0 :lng   
+#[20]  X_20 (19,19,19) = 0@0 :void   not used 
+#[21]  X_21 (20,20,20) = 0@0 :void   not used 
+#[22]  X_22 (20,20,20) = "done" :str  constant  
+#[23]  X_23 (1,15,15) = false :bit   
+#[24]  X_24 (0,0,15) = 0@0 :any!void    not used 
+#[25]  X_25 (14,14,14) = 0@0 :void   not used 
+#[26]  X_26 (0,0,15) = 0@0 :any!void    not used 
+#[27]  X_27 (22,22,22) = nil :str   not used 
+#[28]  X_14 (0,0,0) = nil :str   not used 
+[ 0	]
 [ "done" ]
 
 

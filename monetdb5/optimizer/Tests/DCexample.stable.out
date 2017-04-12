@@ -28,8 +28,15 @@ Ready.
 # 15:36:17 >  
 
 function user.foo():void;               	#[0] (0)  0 
-    io.print("done":str);               	#[1] (0) IOprint_val 15 <- 16 
-end user.foo;                           	#[2] (0)  
+    V7:bat[:oid] := bat.new(:oid);      	#[1] (0) CMDBATnew 1 <- 2 
+    V10:bat[:oid] := bat.new(:oid);     	#[2] (0) CMDBATnew 3 <- 2 
+    V16:bat[:oid] := V7:bat[:oid];      	#[3] (0)  4 <- 1 
+    (V17:bat[:oid], V17b:bat[:oid]) := algebra.join(V16:bat[:oid], V7:bat[:oid], nil:bat[:oid], nil:bat[:oid], true:bit, 0:lng);	#[4] (0) ALGjoin 5 6 <- 4 1 7 8 9 10  polymorphic
+    V19:bat[:oid] := bat.new(:oid);     	#[5] (0) CMDBATnew 11 <- 2 
+    V22:bat[:oid] := bat.new(:oid);     	#[6] (0) CMDBATnew 12 <- 2 
+    (V17:bat[:oid], V17b:bat[:oid]) := algebra.join(V16:bat[:oid], V22:bat[:oid], nil:bat[:oid], nil:bat[:oid], true:bit, 0:lng);	#[7] (0) ALGjoin 5 6 <- 4 12 13 14 9 10  polymorphic
+    io.print("done":str);               	#[8] (0) IOprint_val 15 <- 16 
+end user.foo;                           	#[9] (0)  
 function user.foo():void;               	#[0] (0)  0 
     io.print("done":str);               	#[1] (0) IOprint_val 15 <- 16 
 end user.foo;                           	#[2] (0)  

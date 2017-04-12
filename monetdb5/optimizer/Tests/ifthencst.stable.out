@@ -27,16 +27,25 @@ Ready.
 # 15:36:16 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-27236" "--port=37175"
 # 15:36:16 >  
 
-#mdb.list("user","tst");
-function user.tst():void;
-    io.print("always executed");
-    io.print("always executed");
-end user.tst;
-#mdb.list("user","tst");
-function user.tst():void;
-    io.print("always executed");
-    io.print("always executed");
-end user.tst;
+function user.tst():void;               	#[0] (0)  0 
+barrier a:bit := false:bit;             	#[1] (0)  1 <- 2 
+    io.print("never executed":str);     	#[2] (0) IOprint_val 3 <- 4 
+exit a:bit;                             	#[3] (0)  1 
+barrier b:bit := calc.not(false:bit);   	#[4] (0) CMDvarNOT 5 <- 2 
+    io.print("always executed":str);    	#[5] (0) IOprint_val 6 <- 7 
+exit b:bit;                             	#[6] (0)  5 
+barrier c:bit := true:bit;              	#[7] (0)  8 <- 9 
+    io.print("always executed":str);    	#[8] (0) IOprint_val 10 <- 7 
+exit c:bit;                             	#[9] (0)  8 
+barrier d:bit := calc.not(true:bit);    	#[10] (0) CMDvarNOT 11 <- 9 
+    io.print("never executed":str);     	#[11] (0) IOprint_val 12 <- 4 
+exit d:bit;                             	#[12] (0)  11 
+end user.tst;                           	#[13] (0)  
+function user.tst():void;               	#[0] (0)  0 
+    io.print("always executed":str);    	#[1] (0) IOprint_val 6 <- 7 
+    io.print("always executed":str);    	#[2] (0) IOprint_val 10 <- 7 
+end user.tst;                           	#[3] (0)  
+#evaluate             actions= 4 time=22 usec 
 [ "always executed" ]
 [ "always executed" ]
 
