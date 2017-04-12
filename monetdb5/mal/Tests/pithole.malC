@@ -1,2 +1,5 @@
 #challenge the runtime stack protection
+function user.main();
+	user.main();
+end main;
 user.main();
