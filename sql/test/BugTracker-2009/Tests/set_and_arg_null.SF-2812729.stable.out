@@ -31,10 +31,10 @@ Ready.
 #declare a int;
 #set a = null;
 #select a;
-% .L # table_name
-% single_value # name
+% .L2 # table_name
+% L2 # name
 % int # type
-% 11 # length
+% 1 # length
 [ NULL	]
 #create function call_function( aa int ) RETURNS int
 #begin
@@ -43,10 +43,10 @@ Ready.
 #	return b;
 #end;
 #select call_function(NULL);
-% .L # table_name
-% call_function_single_value # name
+% .L2 # table_name
+% L2 # name
 % int # type
-% 11 # length
+% 1 # length
 [ NULL	]
 
 # 22:37:37 >  

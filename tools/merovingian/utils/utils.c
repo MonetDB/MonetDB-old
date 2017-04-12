@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /**
@@ -34,7 +34,14 @@
 #  include <time.h>
 # endif
 #endif
+#ifdef HAVE_OPENSSL
 #include <openssl/rand.h>		/* RAND_bytes */
+#else
+#ifdef HAVE_COMMONCRYPTO
+#include <CommonCrypto/CommonCrypto.h>
+#include <CommonCrypto/CommonRandom.h>
+#endif
+#endif
 
 /**
  * Parses the given file stream matching the keys from list.  If a match
@@ -117,24 +124,19 @@ freeConfFile(confkeyval *list) {
  * Returns true if the key is a default property.
  */
 int
-defaultProperty(char *property) {
-	// TODO: find a better way to do this
-	if (property != NULL && strcmp(property, "type") == 0) {
-		return 1;
-	} else if (property != NULL && strcmp(property, "shared") == 0) {
-		return 1;
-	} else if (property != NULL && strcmp(property, "nthreads") == 0) {
-		return 1;
-	} else if (property != NULL && strcmp(property, "readonly") == 0) {
-		return 1;
-	} else if (property != NULL && strcmp(property, "nclients") == 0) {
-		return 1;
-	} else if (property != NULL && strcmp(property, "mfunnel") == 0) {
-		return 1;
-	} else if (property != NULL && strcmp(property, "embedr") == 0) {
-		return 1;
-	}
-	return 0;
+defaultProperty(const char *property) {
+	if (property == NULL)
+		return 0;
+	return strcmp(property, "type") == 0 ||
+		strcmp(property, "shared") == 0 ||
+		strcmp(property, "nthreads") == 0 ||
+		strcmp(property, "readonly") == 0 ||
+		strcmp(property, "nclients") == 0 ||
+		strcmp(property, "mfunnel") == 0 ||
+		strcmp(property, "embedr") == 0 ||
+		strcmp(property, "embedpy") == 0 ||
+		strcmp(property, "embedpy3") == 0 ||
+		strcmp(property, "optpipe") == 0;
 }
 
 /**
@@ -142,7 +144,7 @@ defaultProperty(char *property) {
  * given key, or NULL if no key was found.
  */
 inline confkeyval *
-findConfKey(confkeyval *list, char *key) {
+findConfKey(confkeyval *list, const char *key) {
 	while (list->key != NULL) {
 		if (strcmp(list->key, key) == 0)
 			return(list);
@@ -156,7 +158,7 @@ findConfKey(confkeyval *list, char *key) {
  * found (or set to NULL)
  */
 inline char *
-getConfVal(confkeyval *list, char *key) {
+getConfVal(confkeyval *list, const char *key) {
 	while (list->key != NULL) {
 		if (strcmp(list->key, key) == 0)
 			return(list->val);
@@ -170,7 +172,7 @@ getConfVal(confkeyval *list, char *key) {
  * 0 if not found.
  */
 inline int
-getConfNum(confkeyval *list, char *key) {
+getConfNum(confkeyval *list, const char *key) {
 	while (list->key != NULL) {
 		if (strcmp(list->key, key) == 0)
 			return(list->ival);
@@ -189,7 +191,7 @@ getConfNum(confkeyval *list, char *key) {
  * the original value for the key is left untouched.
  */
 char *
-setConfVal(confkeyval *ckv, char *val) {
+setConfVal(confkeyval *ckv, const char *val) {
 	int ival = 0;
 
 	/* handle the unset directly */
@@ -212,7 +214,7 @@ setConfVal(confkeyval *ckv, char *val) {
 			return(strdup(buf));
 		}
 		case INT: {
-			char *p = val;
+			const char *p = val;
 			while (*p >= '0' && *p <= '9')
 				p++;
 			if (*p != '\0') {
@@ -271,7 +273,7 @@ setConfVal(confkeyval *ckv, char *val) {
 }
 
 char *
-setConfValForKey(confkeyval *list, char *key, char *val) {
+setConfValForKey(confkeyval *list, const char *key, const char *val) {
 	char buf[256];
 
 	while (list->key != NULL) {
@@ -385,20 +387,34 @@ generateSalt(char *buf, unsigned int len)
 	unsigned int fill;
 	unsigned int min;
 
-	if (RAND_bytes((unsigned char *) &size, (int) sizeof(size)) < 0) {
+#ifdef HAVE_OPENSSL
+	if (RAND_bytes((unsigned char *) &size, (int) sizeof(size)) < 0)
+#else
+#ifdef HAVE_COMMONCRYPTO
+	if (CCRandomGenerateBytes(&size, sizeof(size)) != kCCSuccess)
+#endif
+#endif
 #ifndef STATIC_CODE_ANALYSIS
 		size = (unsigned int)rand();
 #else
 		size = 0;
 #endif
-	}
 	fill = len * 0.75;
 	min = len * 0.42;
 	size = (size % (fill - min)) + min;
+#ifdef HAVE_OPENSSL
 	if (RAND_bytes((unsigned char *) buf, (int) size) >= 0) {
 		for (c = 0; c < size; c++)
 			buf[c] = seedChars[((unsigned char *) buf)[c] % 62];
-	} else {
+	} else
+#else
+#ifdef HAVE_COMMONCRYPTO
+	if (CCRandomGenerateBytes(buf, size) >= 0) {
+		for (c = 0; c < size; c++)
+			buf[c] = seedChars[((unsigned char *) buf)[c] % 62];
+	} else
+#endif
+#endif
 		for (c = 0; c < size; c++) {
 #ifndef STATIC_CODE_ANALYSIS
 			buf[c] = seedChars[rand() % 62];
@@ -406,7 +422,6 @@ generateSalt(char *buf, unsigned int len)
 			buf[c] = seedChars[0];
 #endif
 		}
-	}
 	for ( ; c < len; c++)
 		buf[c] = '\0';
 }
@@ -416,7 +431,7 @@ generateSalt(char *buf, unsigned int len)
  * random passphrase.
  */
 char *
-generatePassphraseFile(char *path)
+generatePassphraseFile(const char *path)
 {
 	int fd;
 	FILE *f;
@@ -446,11 +461,9 @@ generatePassphraseFile(char *path)
 		snprintf(err, sizeof(err), "cannot write secret: %s",
 				strerror(errno));
 		fclose(f);
-		close(fd);
 		return(strdup(err));
 	}
 	fclose(f);
-	close(fd);
 	return(NULL);
 }
 

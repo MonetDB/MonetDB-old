@@ -2,7 +2,7 @@
 -- License, v. 2.0.  If a copy of the MPL was not distributed with this
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 --
--- Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+-- Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 create function sys.password_hash (username string)
 	returns string
@@ -21,8 +21,8 @@ external name sql.shutdown;
 
 -- control the query and session time out
 create procedure sys.settimeout("query" bigint)
-	external name sql.settimeout;
+	external name clients.settimeout;
 create procedure sys.settimeout("query" bigint, "session" bigint)
-	external name sql.settimeout;
+	external name clients.settimeout;
 create procedure sys.setsession("timeout" bigint)
-	external name sql.setsession;
+	external name clients.setsession;

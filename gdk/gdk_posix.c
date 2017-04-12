@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -20,7 +20,7 @@
 #include "gdk_private.h"
 #include "mutils.h"
 #include <stdio.h>
-#include <unistd.h>		/* sbrk on Solaris */
+#include <unistd.h>
 #include <string.h>     /* strncpy */
 
 #ifdef HAVE_FCNTL_H
@@ -557,7 +557,7 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 #else
 				p = MAP_FAILED;
 				if (path == NULL ||
-				    *new_size <= GDK_mmap_minsize) {
+				    *new_size <= GDK_mmap_minsize_persistent) {
 					/* size not too big yet or
 					 * anonymous, try to make new
 					 * anonymous mmap and copy
@@ -582,6 +582,12 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 					if (fd >= 0)
 						close(fd);
 					p = malloc(strlen(path) + 5);
+					if (p == NULL){
+						GDKsyserror("MT_mremap: malloc() failed\n");
+						fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): fd < 0\n", __FILE__, __LINE__, path, PTRFMTCAST old_address, old_size, *new_size);
+						return NULL;
+					}
+
 					strcat(strcpy(p, path), ".tmp");
 					fd = open(p, O_RDWR | O_CREAT,
 						  MONETDB_MODE);
@@ -623,6 +629,13 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 #endif
 #endif
 						) {
+						int err = errno;
+						/* extending failed:
+						 * free any disk space
+						 * allocated in the
+						 * process */
+						(void) ftruncate(fd, (off_t) old_size);
+						errno = err; /* restore for error message */
 						GDKsyserror("MT_mremap: growing file failed\n");
 						close(fd);
 						fprintf(stderr,
@@ -1041,6 +1054,8 @@ reduce_dir_name(const char *src, char *dst, size_t cap)
 
 	if (len >= cap)
 		buf = malloc(len + 1);
+	if (buf == NULL)
+		return NULL;
 	while (--len > 0 && src[len - 1] != ':' && src[len] == DIR_SEP)
 		;
 	for (buf[++len] = 0; len > 0; buf[len] = src[len])

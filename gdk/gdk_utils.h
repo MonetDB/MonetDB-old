@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #ifndef _GDK_UTILS_H_
@@ -23,7 +23,7 @@ gdk_export int GDKgetenv_istrue(const char *name);
 
 gdk_export int GDKgetenv_int(const char *name, int def);
 
-gdk_export void GDKsetenv(str name, str value);
+gdk_export gdk_return GDKsetenv(const char *name, const char *value);
 
 /*
  * @+ Memory management
@@ -53,10 +53,6 @@ gdk_export void GDKsetenv(str name, str value);
  *   comes from the heap and directly consumes physical memory
  *   resources.
  *
- * We check the resource consumption with preset target values, and if
- * these are exceeded, the routine BBPtrim is called that will unload
- * the least recently used BATs in order to decrease memory usage.
- *
  * The malloc routine checks the memory consumption every 1000 calls,
  * or for calls larger that 50000 bytes. Consequently, at least every
  * 50MB increase, alloc memory is checked. The VM calls always check
@@ -80,6 +76,9 @@ gdk_export size_t _MT_pagesize;
 gdk_export void MT_init(void);	/*  init the package. */
 gdk_export int GDKinit(opt *set, int setlen);
 
+/* used for testing only */
+gdk_export void GDKsetmallocsuccesscount(lng count);
+
 /*
  * Upon closing the session, all persistent BATs should be saved and
  * the transient BATs should be removed.  The buffer pool manager
@@ -96,7 +95,7 @@ gdk_export int GDKexiting(void);
 
 gdk_export void GDKregister(MT_Id pid);
 gdk_export void GDKprepareExit(void);
-gdk_export void GDKreset(int status);
+gdk_export void GDKreset(int status, int exit);
 gdk_export const char *GDKversion(void);
 
 gdk_export gdk_return GDKextractParentAndLastDirFromPath(const char *path, char *last_dir_parent, char *last_dir);

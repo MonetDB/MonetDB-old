@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #ifndef BATSTORAGE_H
@@ -36,7 +36,7 @@ typedef struct sql_dbat {
 } sql_dbat;
 
 /* initialize bat storage call back functions interface */
-extern int bat_storage_init( store_functions *sf );
+extern void bat_storage_init( store_functions *sf );
 
 extern int dup_bat(sql_trans *tr, sql_table *t, sql_delta *obat, sql_delta *bat, int type, int oc_isnew, int c_isnew);
 extern sql_delta * timestamp_delta( sql_delta *d, int ts);

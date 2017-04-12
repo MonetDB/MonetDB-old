@@ -2,7 +2,7 @@
 -- License, v. 2.0.  If a copy of the MPL was not distributed with this
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 --
--- Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+-- Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 -- QUERY HISTORY
 -- The query history mechanism of MonetDB/SQL relies on a few hooks.
@@ -42,7 +42,7 @@ returns table(
 	"start" timestamp,	-- time the statement was started
 	"stop" timestamp,	-- time the statement was completely finished
 	arguments string,	-- actual call structure
-	tuples wrd,		-- number of tuples in the result set
+	tuples bigint,		-- number of tuples in the result set
 	run bigint,		-- time spent (in usec)  until the result export
 	ship bigint,		-- time spent (in usec)  to ship the result set
 	cpu int,		-- average cpu load percentage during execution

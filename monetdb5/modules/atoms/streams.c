@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -213,6 +213,8 @@ mnstr_read_stringwrap(str *res, Stream *S)
 	size_t size = CHUNK + 1;
 	char *buf = GDKmalloc(size), *start = buf;
 
+	if( buf == NULL)
+		throw(MAL,"mnstr_read_stringwrap",MAL_MALLOC_FAIL);
 	while ((len = mnstr_read(s, start, 1, CHUNK)) > 0) {
 		size += len;
 		buf = GDKrealloc(buf, size);

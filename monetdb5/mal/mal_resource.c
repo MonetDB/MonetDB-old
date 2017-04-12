@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* (author) M.L. Kersten 
@@ -76,10 +76,10 @@ getMemoryClaim(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int i, int flag)
 			return 0;
 		}
 
-		total += BATcount(b) * b->T->width;
+		total += BATcount(b) * b->twidth;
 		// string heaps can be shared, consider them as space-less views
-		total += heapinfo(b->T->vheap, abs(b->batCacheid)); 
-		total += hashinfo(b->T->hash, abs(d->batCacheid)); 
+		total += heapinfo(b->tvheap, b->batCacheid); 
+		total += hashinfo(b->thash, d->batCacheid); 
 		total += IMPSimprintsize(b);
 		//total = total > (lng)(MEMORY_THRESHOLD ) ? (lng)(MEMORY_THRESHOLD ) : total;
 		BBPunfix(b->batCacheid);
@@ -137,13 +137,13 @@ MALadmission(lng argclaim, lng hotclaim)
 			memorypool -= (argclaim + hotclaim);
 			memoryclaims++;
 			PARDEBUG
-			mnstr_printf(GDKstdout, "#DFLOWadmit %3d thread %d pool " LLFMT "claims " LLFMT "," LLFMT "\n",
+			fprintf(stderr, "#DFLOWadmit %3d thread %d pool " LLFMT "claims " LLFMT "," LLFMT "\n",
 						 memoryclaims, THRgettid(), memorypool, argclaim, hotclaim);
 			MT_lock_unset(&admissionLock);
 			return 0;
 		}
 		PARDEBUG
-		mnstr_printf(GDKstdout, "#Delayed due to lack of memory " LLFMT " requested " LLFMT " memoryclaims %d\n", memorypool, argclaim + hotclaim, memoryclaims);
+		fprintf(stderr, "#Delayed due to lack of memory " LLFMT " requested " LLFMT " memoryclaims %d\n", memorypool, argclaim + hotclaim, memoryclaims);
 		MT_lock_unset(&admissionLock);
 		return -1;
 	}
@@ -151,7 +151,7 @@ MALadmission(lng argclaim, lng hotclaim)
 	memorypool += -argclaim - hotclaim;
 	memoryclaims--;
 	PARDEBUG
-	mnstr_printf(GDKstdout, "#DFLOWadmit %3d thread %d pool " LLFMT " claims " LLFMT "," LLFMT "\n",
+	fprintf(stderr, "#DFLOWadmit %3d thread %d pool " LLFMT " claims " LLFMT "," LLFMT "\n",
 				 memoryclaims, THRgettid(), memorypool, argclaim, hotclaim);
 	MT_lock_unset(&admissionLock);
 	return 0;
@@ -190,18 +190,19 @@ MALresourceFairness(lng usec)
 	/* worker reporting time spent  in usec! */
 	clk =  usec / 1000;
 
+#if FAIRNESS_THRESHOLD < 1000	/* it's actually 2000 */
 	/* cap the maximum penalty */
 	clk = clk > FAIRNESS_THRESHOLD? FAIRNESS_THRESHOLD:clk;
+#endif
 
 	/* always keep one running to avoid all waiting  */
 	while (clk > DELAYUNIT && users > 1 && ATOMIC_GET(mal_running, mal_runningLock) > (ATOMIC_TYPE) GDKnr_threads && rss > MEMORY_THRESHOLD) {
 		if ( delayed++ == 0){
-				PARDEBUG mnstr_printf(GDKstdout, "#delay initial ["LLFMT"] memory  "SZFMT"[%f]\n", clk, rss, MEMORY_THRESHOLD );
-				PARDEBUG mnstr_flush(GDKstdout);
+				PARDEBUG fprintf(stderr, "#delay initial ["LLFMT"] memory  "SZFMT"[%f]\n", clk, rss, MEMORY_THRESHOLD );
 		}
 		if ( delayed == MAX_DELAYS){
-				PARDEBUG mnstr_printf(GDKstdout, "#delay abort ["LLFMT"] memory  "SZFMT"[%f]\n", clk, rss, MEMORY_THRESHOLD );
-				PARDEBUG mnstr_flush(GDKstdout);
+				PARDEBUG fprintf(stderr, "#delay abort ["LLFMT"] memory  "SZFMT"[%f]\n", clk, rss, MEMORY_THRESHOLD );
+				PARDEBUG fflush(stderr);
 				break;
 		}
 		MT_sleep_ms(DELAYUNIT);

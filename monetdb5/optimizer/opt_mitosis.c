@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -29,7 +29,7 @@ eligible(MalBlkPtr mb)
 	return 1;
 }
 
-int
+str
 OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
 	int i, j, limit, slimit, estimate = 0, pieces = 1, mito_parts = 0, mito_size = 0, row_size = 0, mt = -1;
@@ -40,11 +40,15 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	/*     per op:   6 = (2+1)*2   <=  2 args + 1 res, each with head & tail */
 	int threads = GDKnr_threads ? GDKnr_threads : 1;
 	int activeClients;
+	char buf[256];
+	lng usec = GDKusec();
 
+	//if ( optimizerIsApplied(mb,"mitosis") )
+		//return 0;
 	(void) cntxt;
 	(void) stk;
 	if (!eligible(mb))
-		return 0;
+		return MAL_SUCCEED;
 
 	activeClients = mb->activeClients = MCactiveClients();
 	old = mb->stmt;
@@ -59,10 +63,17 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		    	getFunctionId(p) != submaxRef &&
 		    	getFunctionId(p) != subavgRef &&
 		    	getFunctionId(p) != subsumRef &&
-		    	getFunctionId(p) != subprodRef)
+		    	getFunctionId(p) != subprodRef &&
+
+		        getFunctionId(p) != countRef &&
+		    	getFunctionId(p) != minRef &&
+		    	getFunctionId(p) != maxRef &&
+		    	getFunctionId(p) != avgRef &&
+		    	getFunctionId(p) != sumRef &&
+		    	getFunctionId(p) != prodRef)
 			return 0;
 
-		if (p->argc > 2 && getModuleId(p) == rapiRef && 
+		if (p->argc > 2 && (getModuleId(p) == rapiRef || getModuleId(p) == pyapiRef || getModuleId(p) == pyapi3Ref) && 
 		        getFunctionId(p) == subeval_aggrRef)
 			return 0;
 
@@ -86,7 +97,7 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		r = getRowCnt(mb, getArg(p, 0));
 		if (r >= rowcnt) {
 			/* the rowsize depends on the column types, assume void-headed */
-			row_size = ATOMsize(getColumnType(getArgType(mb,p,0)));
+			row_size = ATOMsize(getBatType(getArgType(mb,p,0)));
 			rowcnt = r;
 			target = p;
 			estimate++;
@@ -146,21 +157,22 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	if (mito_size > 0) 
 		pieces = (int) ((rowcnt * row_size) / (mito_size * 1024));
 
-	OPTDEBUGmitosis
-	mnstr_printf(cntxt->fdout, "#opt_mitosis: target is %s.%s "
+#ifdef DEBUG_OPT_MITOSIS
+	fprintf(stderr, "#opt_mitosis: target is %s.%s "
 							   " with " BUNFMT " rows of size %d into " SZFMT
 								" rows/piece %d threads %d pieces"
 								" fixed parts %d fixed size %d\n",
 				 getVarConstant(mb, getArg(target, 2)).val.sval,
 				 getVarConstant(mb, getArg(target, 3)).val.sval,
 				 rowcnt, row_size, m, threads, pieces, mito_parts, mito_size);
+#endif
 	if (pieces <= 1)
 		return 0;
 
 	limit = mb->stop;
 	slimit = mb->ssize;
 	if (newMalBlkStmt(mb, mb->stop + 2 * estimate) < 0)
-		return 0;
+		throw(MAL,"optimizer.mitosis", MAL_MALLOC_FAIL);
 	estimate = 0;
 
 	schema = getVarConstant(mb, getArg(target, 2)).val.sval;
@@ -212,15 +224,11 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 		qtpe = getVarType(mb, getArg(p, 0));
 
-		matq = newInstruction(NULL, ASSIGNsymbol);
-		setModuleId(matq, matRef);
-		setFunctionId(matq, newRef);
+		matq = newInstruction(NULL, matRef, newRef);
 		getArg(matq, 0) = getArg(p, 0);
 
 		if (upd) {
-			matr = newInstruction(NULL, ASSIGNsymbol);
-			setModuleId(matr, matRef);
-			setFunctionId(matr, newRef);
+			matr = newInstruction(NULL, matRef, newRef);
 			getArg(matr, 0) = getArg(p, 1);
 			rtpe = getVarType(mb, getArg(p, 1));
 		}
@@ -232,11 +240,9 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 			qv = getArg(q, 0) = newTmpVariable(mb, qtpe);
 			setVarUDFtype(mb, qv);
-			setVarUsed(mb, qv);
 			if (upd) {
 				rv = getArg(q, 1) = newTmpVariable(mb, rtpe);
 				setVarUDFtype(mb, rv);
-				setVarUsed(mb, rv);
 			}
 			pushInstruction(mb, q);
 			matq = pushArgument(mb, matq, qv);
@@ -254,5 +260,18 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		if (old[i])
 			freeInstruction(old[i]);
 	GDKfree(old);
-	return 1;
+
+    /* Defense line against incorrect plans */
+    if( 1){
+        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+        chkFlow(cntxt->fdout, mb);
+        chkDeclarations(cntxt->fdout, mb);
+    }
+    /* keep all actions taken as a post block comment */
+	usec = GDKusec()- usec;
+    snprintf(buf,256,"%-20s actions=1 time=" LLFMT " usec","mitosis", usec);
+    newComment(mb,buf);
+	addtoMalBlkHistory(mb);
+
+	return MAL_SUCCEED;
 }

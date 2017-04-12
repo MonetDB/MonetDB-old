@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -41,10 +41,12 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int tt;
 	int bat = (getModuleId(pci) == batmalRef) ;
 
+	//if ( optimizerIsApplied(mb,"multiplex"))
+		//return 0;
 	(void) cntxt;
 	(void) stk;
 	for (i = 0; i < pci->retc; i++) {
-		tt = getColumnType(getArgType(mb, pci, i));
+		tt = getBatType(getArgType(mb, pci, i));
 		if (tt== TYPE_any)
 			throw(MAL, "optimizer.multiplex", "Target tail type is missing");
 		if (isAnyExpression(getArgType(mb, pci, i)))
@@ -56,8 +58,8 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	fcn = VALget(&getVar(mb, getArg(pci, pci->retc+1))->value);
 	fcn = putName(fcn);
 #ifndef NDEBUG
-	mnstr_printf(GDKstdout,"#WARNING To speedup %s.%s a bulk operator implementation is needed\n#", mod,fcn);
-	printInstruction(GDKstdout, mb, stk, pci, LIST_MAL_DEBUG);
+	fprintf(stderr,"#WARNING To speedup %s.%s a bulk operator implementation is needed\n#", mod,fcn);
+	fprintInstruction(stderr, mb, stk, pci, LIST_MAL_DEBUG);
 #endif
 
 	/* search the iterator bat */
@@ -69,15 +71,16 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( i == pci->argc)
 		throw(MAL, "optimizer.multiplex", "Iterator BAT type is missing");
 
-	OPTDEBUGmultiplex {
-		char *tpenme;
-		mnstr_printf(cntxt->fdout,"#calling the optimize multiplex script routine\n");
-		printFunction(cntxt->fdout,mb, 0, LIST_MAL_ALL );
+#ifdef DEBUG_OPT_MULTIPLEX
+	{	char *tpenme;
+		fprintf(stderr,"#calling the optimize multiplex script routine\n");
+		fprintFunction(stderr,mb, 0, LIST_MAL_ALL );
 		tpenme = getTypeName(getVarType(mb,iter));
-		mnstr_printf(cntxt->fdout,"#multiplex against operator %d %s\n",iter, tpenme);
+		fprintf(stderr,"#multiplex against operator %d %s\n",iter, tpenme);
 		GDKfree(tpenme);
-		printInstruction(cntxt->fdout,mb, 0, pci,LIST_MAL_ALL);
+		fprintInstruction(stderr,mb, 0, pci,LIST_MAL_ALL);
 	}
+#endif
 	/*
 	 * Beware, the operator constant (arg=1) is passed along as well,
 	 * because in the end we issue a recursive function call that should
@@ -97,10 +100,9 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		q = newFcnCall(mb, batRef, newRef);
 		resB[i] = getArg(q, 0);
 
-		tt = getColumnType(getArgType(mb, pci, i));
+		tt = getBatType(getArgType(mb, pci, i));
 
-		setVarType(mb, getArg(q, 0), newBatType(TYPE_oid, tt));
-		q = pushType(mb, q, TYPE_oid);
+		setVarType(mb, getArg(q, 0), newBatType(tt));
 		q = pushType(mb, q, tt);
 	}
 
@@ -117,7 +119,7 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for (i = pci->retc+2; i < pci->argc; i++) {
 		if (getArg(pci, i) != iter && isaBatType(getArgType(mb, pci, i))) {
 			q = newFcnCall(mb, algebraRef, "fetch");
-			alias[i] = newTmpVariable(mb, getColumnType(getArgType(mb, pci, i)));
+			alias[i] = newTmpVariable(mb, getBatType(getArgType(mb, pci, i)));
 			getArg(q, 0) = alias[i];
 			q= pushArgument(mb, q, getArg(pci, i));
 			(void) pushArgument(mb, q, hvar);
@@ -129,8 +131,8 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for (i = 0; i < pci->retc; i++) {
 		int nvar = 0;
 		if (bat) {
-			tt = getColumnType(getArgType(mb, pci, i));
-			nvar = newTmpVariable(mb, newBatType(TYPE_oid, tt));
+			tt = getBatType(getArgType(mb, pci, i));
+			nvar = newTmpVariable(mb, newBatType(tt));
 		} else {
 			nvar = newTmpVariable(mb, TYPE_any);
 		}
@@ -192,8 +194,10 @@ OPTmultiplexSimple(Client cntxt, MalBlkPtr mb)
 	if(mb)
 	for( i=0; i<mb->stop; i++){
 		p= getInstrPtr(mb,i);
-		if(isMultiplex(p))
+		if(isMultiplex(p)) {
+			p->typechk = TYPE_UNKNOWN;
 			doit++;
+		}
 	}
 	if( doit) {
 		OPTmultiplexImplementation(cntxt, mb, 0, 0);
@@ -205,12 +209,14 @@ OPTmultiplexSimple(Client cntxt, MalBlkPtr mb)
 	}
 	return 0;
 }
-int
+str
 OPTmultiplexImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	InstrPtr *old, p;
+	InstrPtr *old = 0, p;
 	int i, limit, slimit, actions= 0;
 	str msg= MAL_SUCCEED;
+	char buf[256];
+	lng usec = GDKusec();
 
 	(void) stk;
 	(void) pci;
@@ -219,13 +225,14 @@ OPTmultiplexImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	limit = mb->stop;
 	slimit = mb->ssize;
 	if ( newMalBlkStmt(mb, mb->ssize) < 0 )
-		return 0;
+		throw(MAL,"optimizer.mergetable", MAL_MALLOC_FAIL);
 
 	for (i = 0; i < limit; i++) {
 		p = old[i];
 		if (msg == MAL_SUCCEED && isMultiplex(p)) { 
 			if ( MANIFOLDtypecheck(cntxt,mb,p) != NULL){
 				setFunctionId(p, manifoldRef);
+				p->typechk = TYPE_UNKNOWN;
 				pushInstruction(mb, p);
 				actions++;
 				continue;
@@ -247,9 +254,19 @@ OPTmultiplexImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 		if( old[i])
 			freeInstruction(old[i]);
 	GDKfree(old);
-	if (mb->errors){
-		/* rollback */
-	}
-	GDKfree(msg);
-	return mb->errors? 0: actions;
+
+    /* Defense line against incorrect plans */
+    if( mb->errors == 0 && actions > 0){
+        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+        chkFlow(cntxt->fdout, mb);
+        chkDeclarations(cntxt->fdout, mb);
+    }
+    /* keep all actions taken as a post block comment */
+	usec = GDKusec()- usec;
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","multiplex",actions, usec);
+    newComment(mb,buf);
+	if( actions >= 0)
+		addtoMalBlkHistory(mb);
+
+	return msg;
 }

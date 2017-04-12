@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -20,7 +20,6 @@
 #include <rel_select.h>
 #include <rel_exp.h>
 #include <rel_dump.h>
-#include <rel_bin.h>
 #include "clients.h"
 #include "mal_instruction.h"
 
@@ -36,12 +35,11 @@ batstr_2time_timestamptz(bat *res, const bat *bid, const int *digits, int *tz)
 		throw(SQL, "batcalc.str_2time_timestamp", "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	dst = BATnew(TYPE_void, TYPE_timestamp, BATcount(b), TRANSIENT);
+	dst = COLnew(b->hseqbase, TYPE_timestamp, BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.timestamp", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(dst, b->hseqbase);
 	BATloop(b, p, q) {
 		char *v = (char *) BUNtail(bi, p);
 		union {
@@ -56,7 +54,6 @@ batstr_2time_timestamptz(bat *res, const bat *bid, const int *digits, int *tz)
 		}
 		BUNappend(dst, &u.r, FALSE);
 	}
-	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;
@@ -81,12 +78,11 @@ battimestamp_2time_timestamp(bat *res, const bat *bid, const int *digits)
 		throw(SQL, "batcalc.timestamp_2time_timestamp", "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	dst = BATnew(TYPE_void, TYPE_timestamp, BATcount(b), TRANSIENT);
+	dst = COLnew(b->hseqbase, TYPE_timestamp, BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.timestamp", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(dst, b->hseqbase);
 	BATloop(b, p, q) {
 		timestamp *v = (timestamp *) BUNtail(bi, p);
 		union {
@@ -101,7 +97,6 @@ battimestamp_2time_timestamp(bat *res, const bat *bid, const int *digits)
 		}
 		BUNappend(dst, &u.r, FALSE);
 	}
-	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;
@@ -119,12 +114,11 @@ batnil_2time_timestamp(bat *res, const bat *bid, const int *digits)
 		throw(SQL, "batcalc.nil_2time_timestamp", "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	dst = BATnew(TYPE_void, TYPE_timestamp, BATcount(b), TRANSIENT);
+	dst = COLnew(b->hseqbase, TYPE_timestamp, BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.timestamp", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(dst, b->hseqbase);
 	BATloop(b, p, q) {
 		void *v = (void *) BUNtail(bi, p);
 		union {
@@ -139,7 +133,6 @@ batnil_2time_timestamp(bat *res, const bat *bid, const int *digits)
 		}
 		BUNappend(dst, &u.r, FALSE);
 	}
-	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;
@@ -157,12 +150,11 @@ batstr_2time_daytimetz(bat *res, const bat *bid, const int *digits, int *tz)
 		throw(SQL, "batcalc.str_2time_daytime", "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	dst = BATnew(TYPE_void, TYPE_daytime, BATcount(b), TRANSIENT);
+	dst = COLnew(b->hseqbase, TYPE_daytime, BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.daytime", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(dst, b->hseqbase);
 	BATloop(b, p, q) {
 		char *v = (char *) BUNtail(bi, p);
 		union {
@@ -177,7 +169,6 @@ batstr_2time_daytimetz(bat *res, const bat *bid, const int *digits, int *tz)
 		}
 		BUNappend(dst, &u.r, FALSE);
 	}
-	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;
@@ -202,12 +193,11 @@ batdaytime_2time_daytime(bat *res, const bat *bid, const int *digits)
 		throw(SQL, "batcalc.daytime_2time_daytime", "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	dst = BATnew(TYPE_void, TYPE_daytime, BATcount(b), TRANSIENT);
+	dst = COLnew(b->hseqbase, TYPE_daytime, BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.daytime", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(dst, b->hseqbase);
 	BATloop(b, p, q) {
 		daytime *v = (daytime *) BUNtail(bi, p);
 		union {
@@ -222,7 +212,6 @@ batdaytime_2time_daytime(bat *res, const bat *bid, const int *digits)
 		}
 		BUNappend(dst, &u.r, FALSE);
 	}
-	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;
@@ -240,12 +229,11 @@ batnil_2time_daytime(bat *res, const bat *bid, const int *digits)
 		throw(SQL, "batcalc.nil_2time_daytime", "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	dst = BATnew(TYPE_void, TYPE_daytime, BATcount(b), TRANSIENT);
+	dst = COLnew(b->hseqbase, TYPE_daytime, BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.daytime", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(dst, b->hseqbase);
 	BATloop(b, p, q) {
 		void *v = (void *) BUNtail(bi, p);
 		union {
@@ -260,7 +248,6 @@ batnil_2time_daytime(bat *res, const bat *bid, const int *digits)
 		}
 		BUNappend(dst, &u.r, FALSE);
 	}
-	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;

@@ -2,7 +2,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 sed '/^$/q' $0			# copy copyright from this file
 
@@ -13,7 +13,7 @@ module calc;
 
 EOF
 
-integer="bte sht int wrd lng"	# all integer types
+integer="bte sht int lng"	# all integer types
 numeric="$integer flt dbl"	# all numeric types
 fixtypes="bit $numeric oid"
 alltypes="$fixtypes str"
@@ -82,12 +82,11 @@ done
 for func in +:ADD -:SUB \*:MUL; do
     name=${func#*:}
     op=${func%:*}
-    for tp1 in bte sht int wrd lng flt; do
-	for tp2 in bte sht int wrd lng flt; do
+    for tp1 in bte sht int lng flt; do
+	for tp2 in bte sht int lng flt; do
 	    case $tp1$tp2 in
 	    *flt*) tp3=dbl;;
 	    *lng*) continue;;	# lng only allowed in combination with flt
-	    *wrd*) continue;;	# wrd only allowed in combination with flt
 	    *int*) tp3=lng;;
 	    *sht*) tp3=int;;
 	    *bte*) tp3=sht;;
@@ -112,7 +111,6 @@ for func in +:ADD -:SUB \*:MUL; do
 	    *dbl*) tp3=dbl;;
 	    *flt*) tp3=flt;;
 	    *lng*) tp3=lng;;
-	    *wrd*) tp3=wrd;;
 	    *int*) tp3=int;;
 	    *sht*) tp3=sht;;
 	    *bte*) tp3=bte;;
@@ -146,7 +144,6 @@ for tp1 in $numeric; do
 	*dbl*) tp3=dbl;;
 	*flt*) tp3=flt;;
 	lng*) tp3=lng;;
-	wrd*) tp3=wrd;;
 	int*) tp3=int;;
 	sht*) tp3=sht;;
 	bte*) tp3=bte;;
@@ -186,7 +183,6 @@ for tp1 in $numeric; do
 	*bte*) tp3=bte;;
 	*sht*) tp3=sht;;
 	*int*) tp3=int;;
-	*wrd*) tp3=wrd;;
 	*lng*) tp3=lng;;
 	esac
 	cat <<EOF
@@ -291,14 +287,23 @@ comment "B between V1 and V2 (or vice versa) inclusive";
 EOF
 
 for tp1 in void $alltypes; do
-    for tp2 in void $alltypes; do
+    if [[ $tp1 == str ]]; then
 	cat <<EOF
+pattern $tp1(v:any) :$tp1
+address CMDvarCONVERT
+comment "Cast VALUE to $tp1";
+
+EOF
+    else
+	for tp2 in void $alltypes; do
+	    cat <<EOF
 pattern $tp1(v:$tp2) :$tp1
 address CMDvarCONVERT
 comment "Cast VALUE to $tp1";
 
 EOF
-    done
+	done
+    fi
     echo
 done
 
@@ -321,13 +326,6 @@ command ptr(v:ptr) :ptr
 address CMDvarCONVERTptr
 comment "Cast VALUE to ptr";
 
-pattern setoid(v:int) :void
-address CMDsetoid;
-pattern setoid(v:oid) :void
-address CMDsetoid;
-pattern setoid(v:lng) :void
-address CMDsetoid;
-
 pattern ifthenelse(b:bit,t:any_1,f:any_1):any_1
 address CALCswitchbit
 comment "If VALUE is true return MIDDLE else RIGHT";
@@ -344,8 +342,8 @@ module aggr;
 EOF
 
 for func in sum:sum prod:product; do
-    for tp1 in 1:bte 2:sht 4:int 8:wrd 8:lng; do
-	for tp2 in 1:bte 2:sht 4:int 4:wrd 8:lng 8:dbl; do
+    for tp1 in 1:bte 2:sht 4:int 8:lng; do
+	for tp2 in 1:bte 2:sht 4:int 8:lng 8:dbl; do
 	    if [ ${tp1%:*} -le ${tp2%:*} -o ${tp1#*:} = ${tp2#*:} ]; then
 		cat <<EOF
 pattern ${func%:*}(b:bat[:${tp1#*:}]) :${tp2#*:}

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -28,16 +28,7 @@
  * = (byte,byte,byte) colorspace y,c,c=[0..255]
  * @end enumerate
  *
- * @* Implementation
- *
  */
-/*
- * @+ C implementation
- */
-
-/*
-#define DEBUG_COLOR
-*/
 
 #include "monetdb_config.h"
 #include "mal.h"
@@ -74,17 +65,15 @@ color_fromstr(char *colorStr, int *len, color **c)
 {
 	char *p = colorStr;
 
-#ifdef DEBUG_COLOR
-	printf("* color_fromstr:\n");
-	printf("  - colorStr: %s\n", (colorStr != NULL ? colorStr : "null"));
-	printf("  - *len: %d\n", *len);
-#endif
-
 	if (!*c) {
 		*c = (color *) GDKmalloc(sizeof(color));
+		if( *c == NULL)
+			return 0;
 	} else if (*len < (int) sizeof(color)) {
 		GDKfree(*c);
 		*c = GDKmalloc(sizeof(color));
+		if( *c == NULL)
+			return 0;
 		*len = sizeof(color);
 	}
 
@@ -105,12 +94,6 @@ color_fromstr(char *colorStr, int *len, color **c)
 		} else
 			**c = color_nil;
 	}
-
-#ifdef DEBUG_COLOR
-	printf("  = *c: 0x%08X\n", (int) **c);
-	printf("  = *len: %d\n", *len);
-#endif
-
 	return (int) (p - colorStr);
 }
 
@@ -119,12 +102,6 @@ color_tostr(char **colorStr, int *len, color *c)
 {
 	color sc = *c;
 
-#ifdef DEBUG_COLOR
-	printf("* color_tostr:\n");
-	printf("  - *len: %d\n", *len);
-	printf("  - c: %X\n", *c);
-#endif
-
 	/* allocate and fill a new string */
 
 	if (*len < 11) {
@@ -132,6 +109,8 @@ color_tostr(char **colorStr, int *len, color *c)
 		*colorStr = GDKmalloc(11);
 		*len = 11;
 	}
+	if( *colorStr == NULL)
+		return 0;
 
 	if (sc == color_nil) {
 		strcpy(*colorStr, "nil");
@@ -139,10 +118,6 @@ color_tostr(char **colorStr, int *len, color *c)
 	}
 	snprintf(*colorStr, *len, "0x%08X", (unsigned int) sc);
 
-#ifdef DEBUG_COLOR
-	printf("  = *colorStr: %s\n", *colorStr);
-	printf("  = *len: %d\n", *len);
-#endif
 	return (int) strlen(*colorStr);
 }
 

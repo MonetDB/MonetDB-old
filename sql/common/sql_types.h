@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #ifndef SQL_TYPES_H
@@ -34,6 +34,7 @@
 #define EC_FLT 		11
 #define EC_INTERVAL(e)	(e==EC_MONTH||e==EC_SEC)
 #define EC_NUMBER(e)	(e==EC_POS||e==EC_NUM||EC_INTERVAL(e)||e==EC_DEC||e==EC_FLT)
+#define EC_COMPUTE(e)	(e==EC_NUM||e==EC_FLT)
 
 #define EC_TIME		12
 #define EC_DATE		13

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -70,7 +70,7 @@ OIDTreeToBAT(struct oidtreenode *node, BAT *bat)
 {
 	if (node->left != NULL)
 		OIDTreeToBAT(node->left, bat);
-	((oid *) bat->T->heap.base)[bat->batFirst + bat->batCount++] = node->o;
+	((oid *) bat->theap.base)[bat->batCount++] = node->o;
 	if (node->right != NULL )
 		OIDTreeToBAT(node->right, bat);
 }
@@ -85,13 +85,13 @@ OIDTreeToBATAntiset(struct oidtreenode *node, BAT *bat, oid start, oid stop)
 		OIDTreeToBATAntiset(node->left, bat, start, node->o);
 	else
 		for (noid = start; noid < node->o; noid++)
-			((oid *) bat->T->heap.base)[bat->batFirst + bat->batCount++] = noid;
+			((oid *) bat->theap.base)[bat->batCount++] = noid;
 
-		if (node->right != NULL)
-			OIDTreeToBATAntiset(node->right, bat, node->o + 1, stop);
+	if (node->right != NULL)
+		OIDTreeToBATAntiset(node->right, bat, node->o + 1, stop);
 	else
-		for (noid = node->o + 1; noid < stop; noid++)
-			((oid *) bat->T->heap.base)[bat->batFirst + bat->batCount++] = noid;
+		for (noid = node->o+1; noid < stop; noid++)
+			((oid *) bat->theap.base)[bat->batCount++] = noid;
 }
 
 /* inorder traversal, gives us a bit BAT */
@@ -119,7 +119,6 @@ _BATsample(BAT *b, BUN n, BAT *cdf)
 	dbl* cdf_ptr;
 
 	BATcheck(b, "BATsample", NULL);
-	assert(BAThdense(b));
 	ERRORcheck(n > BUN_MAX, "BATsample: sample size larger than BUN_MAX\n", NULL);
 	ALGODEBUG
 		fprintf(stderr, "#BATsample: sample " BUNFMT " elements.\n", n);
@@ -127,22 +126,20 @@ _BATsample(BAT *b, BUN n, BAT *cdf)
 	cnt = BATcount(b);
 	/* empty sample size */
 	if (n == 0) {
-		bn = BATnew(TYPE_void, TYPE_void, 0, TRANSIENT);
+		bn = COLnew(0, TYPE_void, 0, TRANSIENT);
 		if (bn == NULL) {
 			return NULL;
 		}
 		BATsetcount(bn, 0);
-		BATseqbase(bn, 0);
-		BATseqbase(BATmirror(bn), 0);
+		BATtseqbase(bn, 0);
 	/* sample size is larger than the input BAT, return all oids */
 	} else if (cnt <= n) {
-		bn = BATnew(TYPE_void, TYPE_void, cnt, TRANSIENT);
+		bn = COLnew(0, TYPE_void, cnt, TRANSIENT);
 		if (bn == NULL) {
 			return NULL;
 		}
 		BATsetcount(bn, cnt);
-		BATseqbase(bn, 0);
-		BATseqbase(BATmirror(bn), b->H->seq);
+		BATtseqbase(bn, b->hseqbase);
 	} else {
 		oid minoid = b->hseqbase;
 		oid maxoid = b->hseqbase + cnt;
@@ -157,7 +154,7 @@ _BATsample(BAT *b, BUN n, BAT *cdf)
 		if (tree == NULL) {
 			return NULL;
 		}
-		bn = BATnew(TYPE_void, TYPE_oid, slen, TRANSIENT);
+		bn = COLnew(0, TYPE_oid, slen, TRANSIENT);
 		if (bn == NULL) {
 			GDKfree(tree);
 			return NULL;
@@ -226,12 +223,7 @@ _BATsample(BAT *b, BUN n, BAT *cdf)
 		bn->tkey = 1;
 		bn->tdense = bn->batCount <= 1;
 		if (bn->batCount == 1)
-			bn->tseqbase = *(oid *) Tloc(bn, BUNfirst(bn));
-		bn->hdense = 1;
-		bn->hseqbase = 0;
-		bn->hkey = 1;
-		bn->hrevsorted = bn->batCount <= 1;
-		bn->hsorted = 1;
+			bn->tseqbase = *(oid *) Tloc(bn, 0);
 	}
 	return bn;
 }

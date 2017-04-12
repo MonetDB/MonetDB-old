@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -176,7 +176,7 @@ RUNchoice(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		}
 	}
 #ifdef DEBUG_RUN_MEMORUN
-	mnstr_printf(cntxt->fdout, "#function target %s cost %d\n", getVarName(mb, target), mincost);
+	fprintf(stderr, "#function target %s cost %d\n", getVarName(mb, target), mincost);
 #else
 	(void) cntxt;
 #endif
@@ -189,9 +189,9 @@ RUNchoice(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	propagateNonTarget(mb, pc + 1);
 #ifdef DEBUG_RUN_MEMORUN
-	mnstr_printf(cntxt->fdout, "#cost choice selected %s %d\n",
+	fprintf(stderr, "#cost choice selected %s %d\n",
 			getVarName(mb, target), mincost);
-	printFunction(cntxt->fdout, mb, 1);
+	fprintFunction(stderr, mb, 1);
 #endif
 	return MAL_SUCCEED;
 }
@@ -212,10 +212,10 @@ RUNpickResult(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			rhs = &stk->stk[getArg(p, i)];
 			if ((rhs)->vtype < TYPE_str)
 				*lhs = *rhs;
-			else
-				VALcopy(lhs, rhs);
+			else if (VALcopy(lhs, rhs) == NULL)
+				throw(MAL, "scheduler.pick", MAL_MALLOC_FAIL);
 			if (lhs->vtype == TYPE_bat)
-				BBPincref(lhs->val.bval, TRUE);
+				BBPretain(lhs->val.bval);
 			return MAL_SUCCEED;
 		}
 

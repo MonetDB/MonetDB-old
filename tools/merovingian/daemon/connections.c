@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -27,7 +27,7 @@
 
 
 err
-openConnectionTCP(int *ret, char* bindaddr, unsigned short port, FILE *log)
+openConnectionTCP(int *ret, const char *bindaddr, unsigned short port, FILE *log)
 {
 	struct sockaddr_in server;
 	int sock = -1;
@@ -95,7 +95,7 @@ openConnectionTCP(int *ret, char* bindaddr, unsigned short port, FILE *log)
 }
 
 err
-openConnectionUDP(int *ret, char* bindaddr, unsigned short port)
+openConnectionUDP(int *ret, const char *bindaddr, unsigned short port)
 {
 	struct addrinfo hints;
 	struct addrinfo *result, *rp;
@@ -150,11 +150,14 @@ openConnectionUDP(int *ret, char* bindaddr, unsigned short port)
 }
 
 err
-openConnectionUNIX(int *ret, char *path, int mode, FILE *log)
+openConnectionUNIX(int *ret, const char *path, int mode, FILE *log)
 {
 	struct sockaddr_un server;
 	int sock;
 	int omask;
+
+	if (strlen(path) >= sizeof(server.sun_path))
+		return newErr("pathname for UNIX stream socket too long");
 
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock == -1)

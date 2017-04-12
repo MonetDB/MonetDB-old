@@ -2,9 +2,9 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
-# R environment adaptions for MonetDB-embedded operations
+# R environment adaptations for MonetDB-embedded operations
 
 # auto-install packages by intercepting library()
 .library.original <- library
@@ -51,3 +51,20 @@ rewireFunc("q", quit, "base")
 #rewireFunc("system2", system, "base")
 
 rm(rewireFunc)
+
+loopback_query <- function(query) {
+	dyn.load(file.path(MONETDB_LIBDIR, "monetdb5", "lib_rapi.so"))
+	res <- .Call("RAPIloopback", paste0(query, "\n;"), package="lib_rapi")
+	if (is.character(res)) {
+		stop(res)
+	}
+	if (is.logical(res)) { # no result set, but successful
+		return(data.frame())
+	}
+	if (is.list(res)) {
+		attr(res, "row.names") <- c(NA_integer_, length(res[[1]]))
+  		class(res) <- "data.frame"
+		names(res) <- gsub("\\", "", names(res), fixed=T)
+		return(res)
+	}
+}

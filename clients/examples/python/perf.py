@@ -2,7 +2,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 import time
 
@@ -12,18 +12,10 @@ import time
 #logger = logging.getLogger('monetdb')
 
 
-try:
-    import monetdb.sql
-except ImportError:
-    # running examples from development tree
-    import sys
-    import os
-    parent = os.path.join(sys.path[0], os.pardir)
-    sys.path.append(parent)
-    import monetdb.sql
+import pymonetdb
 
 t = time.time()
-x = monetdb.sql.connect(database="demo")
+x = pymonetdb.connect(database="demo")
 c = x.cursor()
 c.arraysize=10000
 c.execute('select * from tables, tables')

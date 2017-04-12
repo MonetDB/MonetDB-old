@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #ifndef _GDK_SEARCH_H_
@@ -156,11 +156,6 @@ gdk_export BUN HASHlist(Hash *h, BUN i);
 #else
 #define hash_oid(H,V)	hash_lng(H,V)
 #endif
-#if SIZEOF_WRD == SIZEOF_INT
-#define hash_wrd(H,V)	hash_int(H,V)
-#else
-#define hash_wrd(H,V)	hash_lng(H,V)
-#endif
 
 #define hash_flt(H,V)	hash_int(H,V)
 #define hash_dbl(H,V)	hash_lng(H,V)
@@ -170,31 +165,31 @@ gdk_export BUN HASHlist(Hash *h, BUN i);
 		BUN _i;							\
 		(x) = BUN_NONE;						\
 		if (BAThash((y).b, 0) == GDK_SUCCEED) {			\
-			HASHloop_str((y), (y).b->T->hash, _i, (z)) {	\
+			HASHloop_str((y), (y).b->thash, _i, (z)) {	\
 				(x) = _i;				\
 				break;					\
 			}						\
 		} else							\
 			goto hashfnd_failed;				\
 	} while (0)
-#define HASHfnd(x,y,z)							\
-	do {								\
-		BUN _i;							\
-		(x) = BUN_NONE;						\
-		if (BAThash((y).b, 0) == GDK_SUCCEED) {			\
-			HASHloop((y), (y).b->T->hash, _i, (z)) {	\
-				(x) = _i;				\
-				break;					\
-			}						\
-		} else							\
-			goto hashfnd_failed;				\
+#define HASHfnd(x,y,z)						\
+	do {							\
+		BUN _i;						\
+		(x) = BUN_NONE;					\
+		if (BAThash((y).b, 0) == GDK_SUCCEED) {		\
+			HASHloop((y), (y).b->thash, _i, (z)) {	\
+				(x) = _i;			\
+				break;				\
+			}					\
+		} else						\
+			goto hashfnd_failed;			\
 	} while (0)
 #define HASHfnd_TYPE(x,y,z,TYPE)					\
 	do {								\
 		BUN _i;							\
 		(x) = BUN_NONE;						\
 		if (BAThash((y).b, 0) == GDK_SUCCEED) {			\
-			HASHloop_##TYPE((y), (y).b->T->hash, _i, (z)) {	\
+			HASHloop_##TYPE((y), (y).b->thash, _i, (z)) {	\
 				(x) = _i;				\
 				break;					\
 			}						\
@@ -221,13 +216,14 @@ gdk_export BUN HASHlist(Hash *h, BUN i);
  * doing or want to keep the hash. */
 #define HASHins(b,i,v)							\
 	do {								\
-		if ((b)->T->hash == (Hash *) 1 ||			\
-		    (((i) & 1023) == 1023 && HASHgonebad((b), (v)))) {	\
-			HASHremove(b);					\
-		} else {						\
-			BUN _c = HASHprobe((b)->T->hash, (v));		\
-			HASHputall((b)->T->hash, (i), _c);		\
-			(b)->T->hash->heap->dirty = TRUE;		\
+		if ((b)->thash) {					\
+			if (((i) & 1023) == 1023 && HASHgonebad((b), (v))) { \
+				HASHdestroy(b);				\
+			} else {					\
+				BUN _c = HASHprobe((b)->thash, (v));	\
+				HASHputall((b)->thash, (i), _c);	\
+				(b)->thash->heap->dirty = TRUE;		\
+			}						\
 		}							\
 	} while (0)
 

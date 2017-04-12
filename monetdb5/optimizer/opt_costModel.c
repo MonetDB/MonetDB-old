@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -32,35 +32,37 @@
  * Also make sure you don't re-use variables, because then the
  * row count becomes non-deterministic.
  */
-int
+str
 OPTcostModelImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int i;
 	BUN c1, c2;
 	InstrPtr p;
+	char buf[256];
+	lng usec = GDKusec();
 
 	(void) cntxt;
 	(void) stk;
 	(void) pci;
 
 	if ( mb->inlineProp )
-		return 0;
+		return MAL_SUCCEED;
 
 	for (i = 0; i < mb->stop; i++) {
 		p = getInstrPtr(mb, i);
 		if (getModuleId(p)==algebraRef) {
-			 if (getFunctionId(p) == subselectRef ||
-				getFunctionId(p) == thetasubselectRef) {
+			 if (getFunctionId(p) == selectRef ||
+				getFunctionId(p) == thetaselectRef) {
 				newRows(1,2, (c1 > 2 ? c2 / 2 +1: c1/2+1),0);
 			} else if (
 				getFunctionId(p) == selectNotNilRef  ||
 				getFunctionId(p) == sortRef  ||
-				getFunctionId(p) == subsortRef  ||
+				getFunctionId(p) == sortRef  ||
 				getFunctionId(p) == projectRef  ){
 				newRows(1,1,c1,0);
-			} else if (getFunctionId(p) == subjoinRef ||
+			} else if (getFunctionId(p) == joinRef ||
 				getFunctionId(p) == projectionRef ||
-				getFunctionId(p) == subbandjoinRef ||
+				getFunctionId(p) == bandjoinRef ||
 				getFunctionId(p) == projectionpathRef ) {
 				/* assume 1-1 joins */
 				newRows(1,2,(c1 < c2 ? c1 : c2),0);
@@ -118,7 +120,7 @@ OPTcostModelImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 				}
 			} 
 		} else if (getModuleId(p)==groupRef) {
-			if (getFunctionId(p) ==subgroupRef ) {
+			if (getFunctionId(p) ==subgroupRef || getFunctionId(p) ==groupRef ) {
 				newRows(1,1,( c1 / 10+1),0);
 			} else {
 				newRows(1,1, c1,0);
@@ -141,5 +143,16 @@ OPTcostModelImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 				setRowCnt(mb, getArg(p,0), c1);
 		}
 	}
-	return 1;
+    /* Defense line against incorrect plans */
+	/* plan remains unaffected */
+	//chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+	//chkFlow(cntxt->fdout, mb);
+	//chkDeclarations(cntxt->fdout, mb);
+    /* keep all actions taken as a post block comment */
+	usec = GDKusec()- usec;
+    snprintf(buf,256,"%-20s actions=1 time=" LLFMT " usec","costmodel",usec);
+    newComment(mb,buf);
+	addtoMalBlkHistory(mb);
+
+	return MAL_SUCCEED;
 }

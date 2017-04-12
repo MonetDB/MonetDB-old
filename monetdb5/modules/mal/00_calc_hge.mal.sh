@@ -2,7 +2,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 sed '/^$/q' $0			# copy copyright from this file
 
@@ -13,7 +13,7 @@ module calc;
 
 EOF
 
-integer="bte sht int wrd lng hge"	# all integer types
+integer="bte sht int lng hge"	# all integer types
 numeric="$integer flt dbl"	# all numeric types
 fixtypes="bit $numeric oid"
 alltypes="$fixtypes str"
@@ -71,14 +71,14 @@ done
 for func in +:ADD -:SUB \*:MUL; do
     name=${func#*:}
     op=${func%:*}
-    for tp1 in bte sht int wrd lng hge flt; do
-	for tp2 in bte sht int wrd lng hge flt; do
+    for tp1 in bte sht int lng hge flt; do
+	for tp2 in bte sht int lng hge flt; do
 	    case $tp1$tp2 in
 	    hgeflt|flthge)
 		tp3=dbl;;
 	    *flt*|*hge*)
 		continue;;	# hge only allowed in combination with flt
-	    *lng*|*wrd*)
+	    *lng*)
 		tp3=hge;;
 	    *)
 		continue;;
@@ -172,7 +172,6 @@ for tp1 in $numeric; do
 	    *bte*) tp3=bte;;
 	    *sht*) tp3=sht;;
 	    *int*) tp3=int;;
-	    *wrd*) tp3=wrd;;
 	    *lng*) tp3=lng;;
 	    *hge*) tp3=hge;;
 	    esac
@@ -277,6 +276,9 @@ echo
 # done
 
 for tp1 in void $alltypes; do
+    if [[ $tp1 == str ]]; then
+	continue
+    fi
     for tp2 in void $alltypes; do
 	case $tp1$tp2 in
 	*hge*) ;;
@@ -298,8 +300,8 @@ module aggr;
 EOF
 
 for func in sum:sum prod:product; do
-    for tp1 in 1:bte 2:sht 4:int 8:wrd 8:lng 9:hge; do
-	for tp2 in 1:bte 2:sht 4:int 4:wrd 8:lng 9:hge 9:dbl; do
+    for tp1 in 1:bte 2:sht 4:int 8:lng 9:hge; do
+	for tp2 in 1:bte 2:sht 4:int 8:lng 9:hge 9:dbl; do
 	    case $tp1$tp2 in
 	    *hge*) ;;
 	    *) continue;;

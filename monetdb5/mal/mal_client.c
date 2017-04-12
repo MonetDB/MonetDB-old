@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -50,15 +50,6 @@
 #include "mal_runtime.h"
 #include "mal_authorize.h"
 
-/*
- * This should be in src/mal/mal.h, as the function is implemented in
- * src/mal/mal.c; however, it cannot, as "Client" isn't known there ...
- * |-( For now, we move the prototype here, as it it only used here.
- * Maybe, we should consider also moving the implementation here...
- */
-
-static void freeClient(Client c);
-
 int MAL_MAXCLIENTS = 0;
 ClientRec *mal_clients;
 
@@ -80,7 +71,10 @@ MCinit(void)
 		maxclients = atoi(max_clients);
 	if (maxclients <= 0) {
 		maxclients = 64;
-		GDKsetenv("max_clients", "64");
+		if (GDKsetenv("max_clients", "64") != GDK_SUCCEED) {
+			showException(GDKout, MAL, "MCinit", "GDKsetenv failed");
+			mal_exit();
+		}
 	}
 
 	MAL_MAXCLIENTS =
@@ -119,7 +113,7 @@ MCpopClientInput(Client c)
 	ClientInput *x = c->bak;
 	if (c->fdin) {
 		/* missing protection against closing stdin stream */
-		(void) bstream_destroy(c->fdin);
+		bstream_destroy(c->fdin);
 	}
 	GDKfree(c->prompt);
 	c->fdin = x->fdin;
@@ -153,7 +147,7 @@ MCnewClient(void)
 		return NULL;
 	c->idx = (int) (c - mal_clients);
 #ifdef MAL_CLIENT_DEBUG
-	printf("New client created %d\n", (int) (c - mal_clients));
+	fprintf(stderr,"New client created %d\n", (int) (c - mal_clients));
 #endif
 	return c;
 }
@@ -181,7 +175,7 @@ void
 MCexitClient(Client c)
 {
 #ifdef MAL_CLIENT_DEBUG
-	printf("# Exit client %d\n", c->idx);
+	fprintf(stderr,"# Exit client %d\n", c->idx);
 #endif
 	finishSessionProfiler(c);
 	MPresetProfiler(c->fdout);
@@ -193,7 +187,7 @@ MCexitClient(Client c)
 		assert(c->bak == NULL);
 		if (c->fdin) {
 			/* missing protection against closing stdin stream */
-			(void) bstream_destroy(c->fdin);
+			bstream_destroy(c->fdin);
 		}
 		c->fdout = NULL;
 		c->fdin = NULL;
@@ -223,7 +217,9 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->curprg = c->backup = 0;
 	c->glb = 0;
 
-	/* remove garbage from previous connection */
+	/* remove garbage from previous connection 
+	 * be aware, a user can introduce several modules 
+	 * that should be freed to avoid memory leaks */
 	if (c->nspace) {
 		freeModule(c->nspace);
 		c->nspace = 0;
@@ -237,7 +233,6 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->stimeout = 0;
 	c->stage = 0;
 	c->itrace = 0;
-	c->debugOptimizer = c->debugScheduler = 0;
 	c->flags = 0;
 	c->errbuf = 0;
 
@@ -247,11 +242,14 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 
 	c->actions = 0;
 	c->totaltime = 0;
-	/* create a recycler cache */
 	c->exception_buf_initialized = 0;
 	c->error_row = c->error_fld = c->error_msg = c->error_input = NULL;
 #ifndef HAVE_EMBEDDED /* no authentication in embedded mode */
-	(void) AUTHgetUsername(&c->username, c);
+	{
+		str msg = AUTHgetUsername(&c->username, c);
+		if (msg)				/* shouldn't happen */
+			freeException(msg);
+	}
 #endif
 	MT_sema_init(&c->s, 0, "Client->s");
 	return c;
@@ -336,7 +334,6 @@ MCforkClient(Client father)
 		/* reuse the scopes wherever possible */
 		if (son->nspace == 0)
 			son->nspace = newModule(NULL, putName("child"));
-		son->nspace->outer = father->nspace->outer;
 	}
 	return son;
 }
@@ -352,14 +349,14 @@ MCforkClient(Client father)
  * effects of sharing IO descriptors, also its children. Conversely, a
  * child can not close a parent.
  */
-void
+static void
 freeClient(Client c)
 {
 	Thread t = c->mythread;
 	c->mode = FINISHCLIENT;
 
 #ifdef MAL_CLIENT_DEBUG
-	printf("# Free client %d\n", c->idx);
+	fprintf(stderr,"# Free client %d\n", c->idx);
 #endif
 	MCexitClient(c);
 
@@ -394,10 +391,10 @@ freeClient(Client c)
 	GDKfree(c->glb);
 	c->glb = NULL;
 	if( c->error_row){
-		BBPdecref(c->error_row->batCacheid,TRUE);
-		BBPdecref(c->error_fld->batCacheid,TRUE);
-		BBPdecref(c->error_msg->batCacheid,TRUE);
-		BBPdecref(c->error_input->batCacheid,TRUE);
+		BBPrelease(c->error_row->batCacheid);
+		BBPrelease(c->error_fld->batCacheid);
+		BBPrelease(c->error_msg->batCacheid);
+		BBPrelease(c->error_input->batCacheid);
 		c->error_row = c->error_fld = c->error_msg = c->error_input = NULL;
 	}
 	if (t)
@@ -464,7 +461,7 @@ void
 MCcloseClient(Client c)
 {
 #ifdef MAL_DEBUG_CLIENT
-	printf("closeClient %d " OIDFMT "\n", (int) (c - mal_clients), c->user);
+	fprintf(stderr,"closeClient %d " OIDFMT "\n", (int) (c - mal_clients), c->user);
 #endif
 	/* free resources of a single thread */
 	if (!isAdministrator(c)) {
@@ -523,7 +520,7 @@ MCreadClient(Client c)
 	bstream *in = c->fdin;
 
 #ifdef MAL_CLIENT_DEBUG
-	printf("# streamClient %d %d\n", c->idx, isa_block_stream(in->s));
+	fprintf(stderr,"# streamClient %d %d\n", c->idx, isa_block_stream(in->s));
 #endif
 
 	while (in->pos < in->len &&
@@ -558,13 +555,13 @@ MCreadClient(Client c)
 				in->len++;
 		}
 #ifdef MAL_CLIENT_DEBUG
-		printf("# simple stream received %d sum " SZFMT "\n", c->idx, sum);
+		fprintf(stderr, "# simple stream received %d sum " SZFMT "\n", c->idx, sum);
 #endif
 	}
 	if (in->pos >= in->len) {
 		/* end of stream reached */
 #ifdef MAL_CLIENT_DEBUG
-		printf("# end of stream received %d %d\n", c->idx, c->bak == 0);
+		fprintf(stderr,"# end of stream received %d %d\n", c->idx, c->bak == 0);
 #endif
 		if (c->bak) {
 			MCpopClientInput(c);
@@ -574,13 +571,8 @@ MCreadClient(Client c)
 		}
 		return 0;
 	}
-	if (*CURRENT(c) == '?') {
-		showHelp(c->nspace, CURRENT(c) + 1, c->fdout);
-		in->pos = in->len;
-		return MCreadClient(c);
-	}
 #ifdef MAL_CLIENT_DEBUG
-	printf("# finished stream read %d %d\n", (int) in->pos, (int) in->len);
+	fprintf(stderr,"# finished stream read %d %d\n", (int) in->pos, (int) in->len);
 	printf("#%s\n", in->buf);
 #endif
 	return 1;
@@ -608,15 +600,13 @@ MCvalid(Client tc)
 str
 PROFinitClient(Client c){
 	(void) c;
-	startProfiler();
-	return MAL_SUCCEED;
+	return startProfiler();
 }
 
 str
 PROFexitClient(Client c){
 	(void) c;
-	stopProfiler();
-	return MAL_SUCCEED;
+	return stopProfiler();
 }
 
 

@@ -2,7 +2,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 MTSAFE
 
@@ -25,7 +25,7 @@ lib_monetdb5 = {
 		../../common/utils/libmsabaoth \
 		$(UUID_LIBS) $(curl_LIBS) \
 		$(MATH_LIBS) $(SOCKET_LIBS) $(MALLOC_LIBS) $(PTHREAD_LIBS) \
-		$(DL_LIBS) $(READLINE_LIBS) $(openssl_LIBS) $(pcre_LIBS) \
+		$(DL_LIBS) $(openssl_LIBS) $(pcre_LIBS) \
 		$(LTLIBICONV) $(zlib_LIBS) $(libxml2_LIBS) \
 		$(libmicrohttpd_LIBS) $(liburiparser_LIBS)
 }

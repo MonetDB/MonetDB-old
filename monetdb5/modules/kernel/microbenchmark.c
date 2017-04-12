@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -23,7 +23,7 @@
 #include "mtwist.h"
 
 static gdk_return
-BATrandom(BAT **bn, oid *base, wrd *size, int *domain, int seed)
+BATrandom(BAT **bn, oid *base, lng *size, int *domain, int seed)
 {
 	const BUN n = (BUN) * size;
 	BUN i;
@@ -31,7 +31,7 @@ BATrandom(BAT **bn, oid *base, wrd *size, int *domain, int seed)
 	int *restrict val;
 	mtwist *mt_rng;
 
-	if (*size > (wrd)BUN_MAX) {
+	if (*size > (lng)BUN_MAX) {
 		GDKerror("BATrandom: size must not exceed BUN_MAX");
 		return GDK_FAIL;
 	}
@@ -41,23 +41,18 @@ BATrandom(BAT **bn, oid *base, wrd *size, int *domain, int seed)
 		return GDK_FAIL;
 	}
 
-	b = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
+	b = COLnew(*base, TYPE_int, n, TRANSIENT);
 	if (b == NULL)
 		return GDK_FAIL;
 	if (n == 0) {
 		b->tsorted = 1;
 		b->trevsorted = 0;
-		b->hsorted = 1;
-		b->hrevsorted = 0;
 		b->tdense = FALSE;
-		b->hdense = TRUE;
-		BATseqbase(b, *base);
 		BATkey(b, TRUE);
-		BATkey(BATmirror(b), TRUE);
 		*bn = b;
 		return GDK_SUCCEED;
 	}
-	val = (int *) Tloc(b, BUNfirst(b));
+	val = (int *) Tloc(b, 0);
 
 	/* create BUNs with random distribution */
 	mt_rng = mtwist_new();
@@ -77,21 +72,16 @@ BATrandom(BAT **bn, oid *base, wrd *size, int *domain, int seed)
 	}
 
 	BATsetcount(b, n);
-	b->hsorted = 1;
-	b->hrevsorted = 0;
-	b->hdense = TRUE;
-	BATseqbase(b, *base);
-	BATkey(b, TRUE);
 	b->tsorted = FALSE;
 	b->trevsorted = FALSE;
 	b->tdense = FALSE;
-	BATkey(BATmirror(b), FALSE);
+	BATkey(b, FALSE);
 	*bn = b;
 	return GDK_SUCCEED;
 }
 
 static gdk_return
-BATuniform(BAT **bn, oid *base, wrd *size, int *domain)
+BATuniform(BAT **bn, oid *base, lng *size, int *domain)
 {
 	const BUN n = (BUN) * size;
 	BUN i, r;
@@ -101,7 +91,7 @@ BATuniform(BAT **bn, oid *base, wrd *size, int *domain)
 	mtwist *mt_rng;
 
 
-	if (*size > (wrd)BUN_MAX) {
+	if (*size > (lng)BUN_MAX) {
 		GDKerror("BATuniform: size must not exceed BUN_MAX");
 		return GDK_FAIL;
 	}
@@ -111,23 +101,18 @@ BATuniform(BAT **bn, oid *base, wrd *size, int *domain)
 		return GDK_FAIL;
 	}
 
-	b = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
+	b = COLnew(*base, TYPE_int, n, TRANSIENT);
 	if (b == NULL)
 		return GDK_FAIL;
 	if (n == 0) {
 		b->tsorted = 1;
 		b->trevsorted = 0;
-		b->hsorted = 1;
-		b->hrevsorted = 0;
 		b->tdense = FALSE;
-		b->hdense = TRUE;
-		BATseqbase(b, *base);
 		BATkey(b, TRUE);
-		BATkey(BATmirror(b), TRUE);
 		*bn = b;
 		return GDK_SUCCEED;
 	}
-	val = (int *) Tloc(b, BUNfirst(b));
+	val = (int *) Tloc(b, 0);
 
 	/* create BUNs with uniform distribution */
 	for (v = 0, i = 0; i < n; i++) {
@@ -149,21 +134,16 @@ BATuniform(BAT **bn, oid *base, wrd *size, int *domain)
 	}
 
 	BATsetcount(b, n);
-	b->hsorted = 1;
-	b->hrevsorted = 0;
-	b->hdense = TRUE;
-	BATseqbase(b, *base);
-	BATkey(b, TRUE);
 	b->tsorted = FALSE;
 	b->trevsorted = FALSE;
 	b->tdense = FALSE;
-	BATkey(BATmirror(b), *size <= *domain);
+	BATkey(b, *size <= *domain);
 	*bn = b;
 	return GDK_SUCCEED;
 }
 
 static gdk_return
-BATskewed(BAT **bn, oid *base, wrd *size, int *domain, int *skew)
+BATskewed(BAT **bn, oid *base, lng *size, int *domain, int *skew)
 {
 	const BUN n = (BUN) * size;
 	BUN i, r;
@@ -174,7 +154,7 @@ BATskewed(BAT **bn, oid *base, wrd *size, int *domain, int *skew)
 	mtwist *mt_rng;
 
 
-	if (*size > (wrd)BUN_MAX) {
+	if (*size > (lng)BUN_MAX) {
 		GDKerror("BATskewed: size must not exceed BUN_MAX = " BUNFMT, BUN_MAX);
 		return GDK_FAIL;
 	}
@@ -189,23 +169,18 @@ BATskewed(BAT **bn, oid *base, wrd *size, int *domain, int *skew)
 		return GDK_FAIL;
 	}
 
-	b = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
+	b = COLnew(*base, TYPE_int, n, TRANSIENT);
 	if (b == NULL)
 		return GDK_FAIL;
 	if (n == 0) {
 		b->tsorted = 1;
 		b->trevsorted = 0;
-		b->hsorted = 1;
-		b->hrevsorted = 0;
 		b->tdense = FALSE;
-		b->hdense = TRUE;
-		BATseqbase(b, *base);
 		BATkey(b, TRUE);
-		BATkey(BATmirror(b), TRUE);
 		*bn = b;
 		return GDK_SUCCEED;
 	}
-	val = (int *) Tloc(b, BUNfirst(b));
+	val = (int *) Tloc(b, 0);
 
 	mt_rng = mtwist_new();
 
@@ -225,15 +200,10 @@ BATskewed(BAT **bn, oid *base, wrd *size, int *domain, int *skew)
 	}
 
 	BATsetcount(b, n);
-	b->hsorted = 1;
-	b->hrevsorted = 0;
-	b->hdense = TRUE;
-	BATseqbase(b, *base);
-	BATkey(b, TRUE);
 	b->tsorted = FALSE;
 	b->trevsorted = FALSE;
 	b->tdense = FALSE;
-	BATkey(BATmirror(b), *size <= *domain);
+	BATkey(b, *size <= *domain);
 	*bn = b;
 	return GDK_SUCCEED;
 }
@@ -248,7 +218,7 @@ BATskewed(BAT **bn, oid *base, wrd *size, int *domain, int *skew)
 #endif
 
 static gdk_return
-BATnormal(BAT **bn, oid *base, wrd *size, int *domain, int *stddev, int *mean)
+BATnormal(BAT **bn, oid *base, lng *size, int *domain, int *stddev, int *mean)
 {
 	const BUN n = (BUN) * size;
 	BUN i, r;
@@ -271,7 +241,7 @@ BATnormal(BAT **bn, oid *base, wrd *size, int *domain, int *stddev, int *mean)
 		return GDK_FAIL;
 	}
 #endif
-	if (*size > (wrd)BUN_MAX) {
+	if (*size > (lng)BUN_MAX) {
 		GDKerror("BATnormal: size must not exceed BUN_MAX");
 		return GDK_FAIL;
 	}
@@ -281,24 +251,19 @@ BATnormal(BAT **bn, oid *base, wrd *size, int *domain, int *stddev, int *mean)
 		return GDK_FAIL;
 	}
 
-	b = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
+	b = COLnew(*base, TYPE_int, n, TRANSIENT);
 	if (b == NULL) {
 		return GDK_FAIL;
 	}
 	if (n == 0) {
 		b->tsorted = 1;
 		b->trevsorted = 0;
-		b->hsorted = 1;
-		b->hrevsorted = 0;
 		b->tdense = FALSE;
-		b->hdense = TRUE;
-		BATseqbase(b, *base);
 		BATkey(b, TRUE);
-		BATkey(BATmirror(b), TRUE);
 		*bn = b;
 		return GDK_SUCCEED;
 	}
-	val = (int *) Tloc(b, BUNfirst(b));
+	val = (int *) Tloc(b, 0);
 
 	abs = (unsigned int *) GDKmalloc(d * sizeof(unsigned int));
 	if (abs == NULL) {
@@ -347,15 +312,10 @@ BATnormal(BAT **bn, oid *base, wrd *size, int *domain, int *stddev, int *mean)
 
 
 	BATsetcount(b, n);
-	b->hsorted = 1;
-	b->hrevsorted = 0;
-	b->hdense = TRUE;
-	BATseqbase(b, *base);
-	BATkey(b, TRUE);
 	b->tsorted = FALSE;
 	b->trevsorted = FALSE;
 	b->tdense = FALSE;
-	BATkey(BATmirror(b), n<2);
+	BATkey(b, n<2);
 	*bn = b;
 	return GDK_SUCCEED;
 }
@@ -365,17 +325,16 @@ BATnormal(BAT **bn, oid *base, wrd *size, int *domain, int *stddev, int *mean)
  */
 
 str
-MBMrandom(bat *ret, oid *base, wrd *size, int *domain){
+MBMrandom(bat *ret, oid *base, lng *size, int *domain){
 	return MBMrandom_seed ( ret, base, size, domain, &int_nil );
 }
 
 str
-MBMrandom_seed(bat *ret, oid *base, wrd *size, int *domain, const int *seed){
+MBMrandom_seed(bat *ret, oid *base, lng *size, int *domain, const int *seed){
 	BAT *bn = NULL;
 
 	BATrandom(&bn, base, size, domain, *seed);
 	if( bn ){
-		if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 		BBPkeepref(*ret= bn->batCacheid);
 	} else throw(MAL, "microbenchmark.random", OPERATION_FAILED);
 	return MAL_SUCCEED;
@@ -383,23 +342,21 @@ MBMrandom_seed(bat *ret, oid *base, wrd *size, int *domain, const int *seed){
 
 
 str
-MBMuniform(bat *ret, oid *base, wrd *size, int *domain){
+MBMuniform(bat *ret, oid *base, lng *size, int *domain){
 	BAT *bn = NULL;
 
 	BATuniform(&bn, base, size, domain);
 	if( bn ){
-		if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 		BBPkeepref(*ret= bn->batCacheid);
 	} else throw(MAL, "microbenchmark.uniform", OPERATION_FAILED);
 	return MAL_SUCCEED;
 }
 
 str
-MBMnormal(bat *ret, oid *base, wrd *size, int *domain, int *stddev, int *mean){
+MBMnormal(bat *ret, oid *base, lng *size, int *domain, int *stddev, int *mean){
 	BAT *bn = NULL;
 	BATnormal(&bn, base, size, domain, stddev, mean);
 	if( bn ){
-		if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 		BBPkeepref(*ret= bn->batCacheid);
 	} else throw(MAL, "microbenchmark.uniform", OPERATION_FAILED);
 	return MAL_SUCCEED;
@@ -410,7 +367,6 @@ str
 MBMmix(bat *bn, bat *batid)
 {
 	BUN n, r, i;
-	BUN firstbun, p, q;
 	BAT *b;
 	mtwist *mt_rng;
 
@@ -427,11 +383,9 @@ MBMmix(bat *bn, bat *batid)
 		BUN idx = i + ((r += (BUN) mtwist_u32rand(mt_rng)) % (n - i));
 		int val;
 
-		p = firstbun + i;
-		q = firstbun + idx;
-		val = *(int *) Tloc(b, p);
-		*(int *) Tloc(b, p) = *(int *) Tloc(b, q);
-		*(int *) Tloc(b, q) = val;
+		val = *(int *) Tloc(b, i);
+		*(int *) Tloc(b, i) = *(int *) Tloc(b, idx);
+		*(int *) Tloc(b, idx) = val;
 	}
 
 	BBPunfix(b->batCacheid);
@@ -441,12 +395,11 @@ MBMmix(bat *bn, bat *batid)
 }
 
 str
-MBMskewed(bat *ret, oid *base, wrd *size, int *domain, int *skew){
+MBMskewed(bat *ret, oid *base, lng *size, int *domain, int *skew){
 	BAT *bn = NULL;
 
 	BATskewed(&bn, base, size, domain, skew);
 	if( bn ){
-		if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 		BBPkeepref(*ret= bn->batCacheid);
 	} else throw(MAL, "microbenchmark,uniform", OPERATION_FAILED);
 	return MAL_SUCCEED;

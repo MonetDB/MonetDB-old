@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -52,11 +52,11 @@ MATpackInternal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	for (i = 1; i < p->argc; i++) {
 		bat bid = stk->stk[getArg(p,i)].val.bval;
-		b = BBPquickdesc(abs(bid),FALSE);
+		b = BBPquickdesc(bid,FALSE);
 		if( b ){
 			if (tt == TYPE_any)
 				tt = b->ttype;
-			if (tt != b->ttype)
+			if ((tt != TYPE_void && b->ttype != TYPE_void) && tt != b->ttype)
 				throw(MAL, "mat.pack", "incompatible arguments");
 			cap += BATcount(b);
 		}
@@ -66,24 +66,22 @@ MATpackInternal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		return MAL_SUCCEED;
 	}
 
-	bn = BATnew(TYPE_void, tt, cap, TRANSIENT);
+	bn = COLnew(0, tt, cap, TRANSIENT);
 	if (bn == NULL)
 		throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
 
 	for (i = 1; i < p->argc; i++) {
 		b = BATdescriptor(stk->stk[getArg(p,i)].val.ival);
 		if( b ){
-			if (BATcount(bn) == 0)
-				BATseqbase(bn, b->H->seq);
-			if (BATcount(bn) == 0)
-				BATseqbase(BATmirror(bn), b->T->seq);
-			BATappend(bn,b,FALSE);
+			if (BATcount(bn) == 0) {
+				BAThseqbase(bn, b->hseqbase);
+				BATtseqbase(bn, b->tseqbase);
+			}
+			BATappend(bn, b, NULL, FALSE);
 			BBPunfix(b->batCacheid);
 		}
 	}
-	assert(!bn->T->nil || !bn->T->nonil);
-	BATsettrivprop(bn);
-	BATderiveProps(bn,FALSE);
+	assert(!bn->tnil || !bn->tnonil);
 	BBPkeepref(*ret = bn->batCacheid);
 	return MAL_SUCCEED;
 }
@@ -108,39 +106,36 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	if ( getArgType(mb,p,2) == TYPE_int){
 		/* first step, estimate with some slack */
 		pieces = stk->stk[getArg(p,2)].val.ival;
-		bn = BATnew(TYPE_void, b->ttype?b->ttype:TYPE_oid, (BUN)(1.2 * BATcount(b) * pieces), TRANSIENT);
+		bn = COLnew(b->hseqbase, b->ttype?b->ttype:TYPE_oid, (BUN)(1.2 * BATcount(b) * pieces), TRANSIENT);
 		if (bn == NULL)
 			throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
 		/* allocate enough space for the vheap, but not for strings,
 		 * since BATappend does clever things for strings */
-		if ( b->T->vheap && bn->T->vheap && ATOMstorage(b->ttype) != TYPE_str){
-			newsize =  b->T->vheap->size * pieces;
-			if (HEAPextend(bn->T->vheap, newsize, TRUE) != GDK_SUCCEED)
+		if ( b->tvheap && bn->tvheap && ATOMstorage(b->ttype) != TYPE_str){
+			newsize =  b->tvheap->size * pieces;
+			if (HEAPextend(bn->tvheap, newsize, TRUE) != GDK_SUCCEED)
 				throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
 		}
-		BATseqbase(bn, b->H->seq);
-		BATseqbase(BATmirror(bn), b->T->seq);
-		BATappend(bn,b,FALSE);
-		assert(!bn->H->nil || !bn->H->nonil);
-		assert(!bn->T->nil || !bn->T->nonil);
-		bn->H->align = (pieces-1);
+		BATtseqbase(bn, b->tseqbase);
+		BATappend(bn, b, NULL, FALSE);
+		assert(!bn->tnil || !bn->tnonil);
+		bn->S.unused = (pieces-1); /* misuse "unused" field */
 		BBPkeepref(*ret = bn->batCacheid);
 		BBPunfix(b->batCacheid);
 	} else {
 		/* remaining steps */
 		bb = BATdescriptor(stk->stk[getArg(p,2)].val.ival);
 		if ( bb ){
-			if (BATcount(b) == 0)
-				BATseqbase(b, bb->H->seq);
-			if (BATcount(b) == 0)
-				BATseqbase(BATmirror(b), bb->T->seq);
-			BATappend(b,bb,FALSE);
+			if (BATcount(b) == 0) {
+				BAThseqbase(b, bb->hseqbase);
+				BATtseqbase(b, bb->tseqbase);
+			}
+			BATappend(b, bb, NULL, FALSE);
 		}
-		b->H->align--;
-		if(b->H->align == 0)
+		b->S.unused--;
+		if(b->S.unused == 0)
 			BATsetaccess(b, BAT_READ);
-		assert(!b->H->nil || !b->H->nonil);
-		assert(!b->T->nil || !b->T->nonil);
+		assert(!b->tnil || !b->tnonil);
 		BBPkeepref(*ret = b->batCacheid);
 		if( bb) 
 			BBPunfix(bb->batCacheid);
@@ -163,19 +158,23 @@ MATpackValues(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	(void) cntxt;
 	type = getArgType(mb,p,first);
-	bn = BATnew(TYPE_void, type, p->argc, TRANSIENT);
+	bn = COLnew(0, type, p->argc, TRANSIENT);
 	if( bn == NULL)
 		throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
 
 	if (ATOMextern(type)) {
 		for(i = first; i < p->argc; i++)
-			BUNappend(bn, stk->stk[getArg(p,i)].val.pval, TRUE);
+			if (BUNappend(bn, stk->stk[getArg(p,i)].val.pval, TRUE) != GDK_SUCCEED)
+				goto bailout;
 	} else {
 		for(i = first; i < p->argc; i++)
-			BUNappend(bn, getArgReference(stk, p, i), TRUE);
+			if (BUNappend(bn, getArgReference(stk, p, i), TRUE) != GDK_SUCCEED)
+				goto bailout;
 	}
-	BATseqbase(bn, 0);
 	ret= getArgReference_bat(stk,p,0);
 	BBPkeepref(*ret = bn->batCacheid);
 	return MAL_SUCCEED;
+  bailout:
+	BBPreclaim(bn);
+	throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
 }

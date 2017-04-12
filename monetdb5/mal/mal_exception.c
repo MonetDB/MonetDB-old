@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -43,7 +43,7 @@ isExceptionVariable(str nme){
 	return 0;
 }
 
-char *M5OutOfMemory = "Memory allocation failed.";
+static char *M5OutOfMemory = MAL_MALLOC_FAIL;
 
 /**
  * Internal helper function for createException and
@@ -57,10 +57,13 @@ createExceptionInternal(enum malexception type, const char *fcn, const char *for
 {
 	char *message;
 	int len;
-
+	// if there is an error we allow memory allocation once again
+#ifndef NDEBUG
+	GDKsetmallocsuccesscount(-1);
+#endif
 	message = GDKmalloc(GDKMAXERRLEN);
 	if (message == NULL)
-		return M5OutOfMemory;
+		return M5OutOfMemory;	/* last resort */
 	len = snprintf(message, GDKMAXERRLEN, "%s:%s:", exceptionNames[type], fcn);
 	if (len >= GDKMAXERRLEN)	/* shouldn't happen */
 		return message;
@@ -90,11 +93,43 @@ createException(enum malexception type, const char *fcn, const char *format, ...
 	va_list ap;
 	str ret;
 
+	if (GDKerrbuf &&
+		/* prevent recursion
+		 * note, sizeof("string") includes terminating NULL byte */
+		strncmp(format, MAL_MALLOC_FAIL ":", sizeof(MAL_MALLOC_FAIL)) != 0 &&
+		(strncmp(GDKerrbuf, "GDKmalloc", 9) == 0 ||
+		 strncmp(GDKerrbuf, "GDKrealloc", 10) == 0 ||
+		 strncmp(GDKerrbuf, "GDKzalloc", 9) == 0 ||
+		 strncmp(GDKerrbuf, "GDKstrdup", 9) == 0 ||
+		 strncmp(GDKerrbuf, "allocating too much virtual address space", 41) == 0)) {
+		/* override errors when the underlying error is memory
+		 * exhaustion, but include whatever it is that the GDK level
+		 * reported */
+		ret = createException(type, fcn, MAL_MALLOC_FAIL ": %s", GDKerrbuf);
+		GDKclrerr();
+		return ret;
+	}
+	if (strcmp(format, GDK_EXCEPTION) == 0 && GDKerrbuf[0]) {
+		/* for GDK errors, report the underlying error */
+		char *p = GDKerrbuf;
+		if (strncmp(p, GDKERROR, strlen(GDKERROR)) == 0)
+			p += strlen(GDKERROR);
+		ret = createException(type, fcn, "GDK reported error: %s", p);
+		GDKclrerr();
+		return ret;
+	}
 	va_start(ap, format);
 	ret = createExceptionInternal(type, fcn, format, ap);
 	va_end(ap);
 
 	return(ret);
+}
+
+void
+freeException(str msg)
+{
+	if (msg != MAL_SUCCEED && msg != M5OutOfMemory)
+		GDKfree(msg);
 }
 
 /**
@@ -141,7 +176,7 @@ showException(stream *out, enum malexception type, const char *fcn, const char *
 	va_end(ap);
 
 	dumpExceptionsToStream(out, msg);
-	GDKfree(msg);
+	freeException(msg);
 }
 
 /**
@@ -210,7 +245,7 @@ showScriptException(stream *out, MalBlkPtr mb, int pc, enum malexception type, c
 	va_end(ap);
 
 	dumpExceptionsToStream(out,msg);
-	GDKfree(msg);
+	freeException(msg);
 }
 
 /**

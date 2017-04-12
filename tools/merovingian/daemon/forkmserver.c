@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -16,7 +16,6 @@
 #include <string.h> /* char ** */
 #include <time.h> /* localtime */
 #include <errno.h>
-#include <pthread.h>
 
 #include <msabaoth.h>
 #include <utils/utils.h>
@@ -30,6 +29,152 @@
 
 
 static pthread_mutex_t fork_lock = PTHREAD_MUTEX_INITIALIZER;
+
+/**
+ * The terminateProcess function tries to let the given mserver process
+ * shut down gracefully within a given time-out.  If that fails, it
+ * sends the deadly SIGKILL signal to the mserver process and returns.
+ */
+void
+terminateProcess(pid_t pid, char *dbname, mtype type, int lock)
+{
+	sabdb *stats;
+	char *er;
+	int i;
+	confkeyval *kv;
+
+	if (lock)
+		pthread_mutex_lock(&fork_lock);
+
+	er = msab_getStatus(&stats, dbname);
+	if (er != NULL) {
+		if (lock)
+			pthread_mutex_unlock(&fork_lock);
+		Mfprintf(stderr, "cannot terminate process " LLFMT ": %s\n",
+				(long long int)pid, er);
+		free(er);
+		free(dbname);
+		return;
+	}
+
+	if (stats == NULL) {
+		if (lock)
+			pthread_mutex_unlock(&fork_lock);
+		Mfprintf(stderr, "strange, process " LLFMT " serves database '%s' "
+				"which does not exist\n", (long long int)pid, dbname);
+		free(dbname);
+		return;
+	}
+
+	switch (stats->state) {
+		case SABdbRunning:
+			/* ok, what we expect */
+		break;
+		case SABdbCrashed:
+			if (lock)
+				pthread_mutex_unlock(&fork_lock);
+			Mfprintf(stderr, "cannot shut down database '%s', mserver "
+					"(pid " LLFMT ") has crashed\n",
+					dbname, (long long int)pid);
+			msab_freeStatus(&stats);
+			free(dbname);
+			return;
+		case SABdbInactive:
+			if (lock)
+				pthread_mutex_unlock(&fork_lock);
+			Mfprintf(stdout, "database '%s' appears to have shut down already\n",
+					dbname);
+			fflush(stdout);
+			msab_freeStatus(&stats);
+			free(dbname);
+			return;
+		case SABdbStarting:
+			if (lock)
+				pthread_mutex_unlock(&fork_lock);
+			Mfprintf(stderr, "database '%s' appears to be starting up\n",
+					 dbname);
+			/* starting up, so we'll go to the shut down phase */
+			break;
+		default:
+			if (lock)
+				pthread_mutex_unlock(&fork_lock);
+			Mfprintf(stderr, "unknown state: %d\n", (int)stats->state);
+			msab_freeStatus(&stats);
+			free(dbname);
+			return;
+	}
+
+	if (type == MEROFUN) {
+		if (lock)
+			pthread_mutex_unlock(&fork_lock);
+		multiplexDestroy(dbname);
+		msab_freeStatus(&stats);
+		free(dbname);
+		return;
+	} else if (type != MERODB) {
+		/* barf */
+		if (lock)
+			pthread_mutex_unlock(&fork_lock);
+		Mfprintf(stderr, "cannot stop merovingian process role: %s\n", dbname);
+		msab_freeStatus(&stats);
+		free(dbname);
+		return;
+	}
+
+	/* ok, once we get here, we'll be shutting down the server */
+	Mfprintf(stdout, "sending process " LLFMT " (database '%s') the "
+			"TERM signal\n", (long long int)pid, dbname);
+	kill(pid, SIGTERM);
+	kv = findConfKey(_mero_props, "exittimeout");
+	for (i = 0; i < atoi(kv->val) * 2; i++) {
+		if (stats != NULL)
+			msab_freeStatus(&stats);
+		sleep_ms(500);
+		er = msab_getStatus(&stats, dbname);
+		if (er != NULL) {
+			Mfprintf(stderr, "unexpected problem: %s\n", er);
+			free(er);
+			/* don't die, just continue, so we KILL in the end */
+		} else if (stats == NULL) {
+			Mfprintf(stderr, "hmmmm, database '%s' suddenly doesn't exist "
+					"any more\n", dbname);
+		} else {
+			switch (stats->state) {
+				case SABdbRunning:
+				case SABdbStarting:
+					/* ok, try again */
+				break;
+				case SABdbCrashed:
+					if (lock)
+						pthread_mutex_unlock(&fork_lock);
+					Mfprintf (stderr, "database '%s' crashed after SIGTERM\n",
+							dbname);
+					msab_freeStatus(&stats);
+					free(dbname);
+					return;
+				case SABdbInactive:
+					if (lock)
+						pthread_mutex_unlock(&fork_lock);
+					Mfprintf(stdout, "database '%s' has shut down\n", dbname);
+					fflush(stdout);
+					msab_freeStatus(&stats);
+					free(dbname);
+					return;
+				default:
+					Mfprintf(stderr, "unknown state: %d\n", (int)stats->state);
+				break;
+			}
+		}
+	}
+	Mfprintf(stderr, "timeout of %s seconds expired, sending process " LLFMT
+			" (database '%s') the KILL signal\n",
+			kv->val, (long long int)pid, dbname);
+	kill(pid, SIGKILL);
+	msab_freeStatus(&stats);
+	free(dbname);
+	if (lock)
+		pthread_mutex_unlock(&fork_lock);
+}
 
 /**
  * Fork an mserver and detach.  Before forking off, Sabaoth is consulted
@@ -212,6 +357,7 @@ forkMserver(char *database, sabdb** stats, int force)
 		dp->type = MEROFUN;
 		dp->pid = getpid();
 		dp->dbname = strdup(database);
+		dp->flag = 0;
 
 		pthread_mutex_unlock(&_mero_topdp_lock);
 
@@ -270,6 +416,7 @@ forkMserver(char *database, sabdb** stats, int force)
 		char pipeline[512];
 		char *readonly = NULL;
 		char *embeddedr = NULL;
+		char *embeddedpy = NULL;
 		char *argv[512];	/* for the exec arguments */
 		char property_other[1024];
 		int c = 0;
@@ -317,6 +464,22 @@ forkMserver(char *database, sabdb** stats, int force)
 		kv = findConfKey(ckv, "embedr");
 		if (kv->val != NULL && strcmp(kv->val, "no") != 0)
 			embeddedr = "embedded_r=true";
+
+		kv = findConfKey(ckv, "embedpy");
+		if (kv->val != NULL && strcmp(kv->val, "no") != 0)
+			embeddedpy = "embedded_py=true";
+
+		kv = findConfKey(ckv, "embedpy3");
+		if (kv->val != NULL && strcmp(kv->val, "no") != 0) {
+			if (embeddedpy) {
+				// only one python version can be active at a time
+				Mfprintf(stderr, "attempting to start mserver with both embedded python2 and embedded python3; only one python version can be active at a time\n");
+				exit(1);
+			}
+			embeddedpy = "embedded_py=3";
+		}
+
+
 
 		/* redirect stdout and stderr to a new pair of fds for
 		 * logging help */
@@ -382,6 +545,9 @@ forkMserver(char *database, sabdb** stats, int force)
 		if (embeddedr != NULL) {
 			argv[c++] = "--set"; argv[c++] = embeddedr;
 		}
+		if (embeddedpy != NULL) {
+			argv[c++] = "--set"; argv[c++] = embeddedpy;
+		}
 		if (readonly != NULL) {
 			argv[c++] = readonly;
 		}
@@ -443,6 +609,7 @@ forkMserver(char *database, sabdb** stats, int force)
 			dp->type = MERODB;
 			dp->pid = pid;
 			dp->dbname = strdup(database);
+			dp->flag = 0;
 
 			pthread_mutex_unlock(&_mero_topdp_lock);
 
@@ -498,14 +665,14 @@ forkMserver(char *database, sabdb** stats, int force)
 				if (scen == NULL) {
 					/* we don't know what it's doing, but we don't like it
 					 * any case, so kill it */
-					terminateProcess(dp);
+					terminateProcess(pid, strdup(database), MERODB, 0);
 					msab_freeStatus(stats);
 					pthread_mutex_unlock(&fork_lock);
 					return(newErr("database '%s' did not initialise the sql "
 								  "scenario", database));
 				}
 			} else if (dp != NULL) {
-				terminateProcess(dp);
+				terminateProcess(pid, strdup(database), MERODB, 0);
 				msab_freeStatus(stats);
 				pthread_mutex_unlock(&fork_lock);
 				return(newErr(
@@ -530,26 +697,29 @@ forkMserver(char *database, sabdb** stats, int force)
 							   "(sabaoth administration reports running, "
 							   "but process seems gone), "
 							   "review monetdbd's "
-							   "logfile for any peculiarities", database));
+							   "logfile (%s) for any peculiarities", database,
+							   getConfVal(_mero_props, "logfile")));
 				case SABdbCrashed:
 					return(newErr(
 							   "database '%s' has crashed after starting, "
 							   "manual intervention needed, "
-							   "check monetdbd's logfile for details",
-							   database));
+							   "check monetdbd's logfile (%s) for details",
+							   database, getConfVal(_mero_props, "logfile")));
 				case SABdbInactive:
 					return(newErr(
 							   "database '%s' appears to shut "
 							   "itself down after starting, "
-							   "check monetdbd's logfile for possible "
-							   "hints", database));
+							   "check monetdbd's logfile (%s) for possible "
+							   "hints", database,
+							   getConfVal(_mero_props, "logfile")));
 				case SABdbStarting:
 					return(newErr(
 							   "database '%s' has inconsistent state "
 							   "(sabaoth administration reports starting up, "
 							   "but process seems gone), "
 							   "review monetdbd's "
-							   "logfile for any peculiarities", database));
+							   "logfile (%s) for any peculiarities", database,
+							   getConfVal(_mero_props, "logfile")));
 				default:
 					return(newErr("unknown state: %d", (int)state));
 				}

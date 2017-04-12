@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -22,12 +22,12 @@ static struct{
     char *alias;
 }mapping[]={
     {"algebra", "projectionpath", "projection"},
-    {"algebra", "thetasubselect", "select"},
+    {"algebra", "thetaselect", "select"},
     {"algebra", "projection", "projection"},
     {"dataflow", "language", "parallel"},
-    {"algebra", "subselect", "select"},
+    {"algebra", "select", "select"},
     {"sql", "projectdelta", "project"},
-    {"algebra", "subjoin", "join"},
+    {"algebra", "join", "join"},
     {"language", "pass(nil)", "release"},
     {"mat", "packIncrement", "pack"},
     {"language", "pass", "release"},
@@ -48,13 +48,13 @@ static struct{
     {0,0,0}};
 */
 
-int
+str
 OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int i;
 	InstrPtr p;
 	char buf[BUFSIZ];
-	str v;
+	lng usec = GDKusec();
 
 	(void) pci;
 	(void) stk;
@@ -66,39 +66,49 @@ OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			continue;
 		if ( getModuleId(p) == NULL || getFunctionId(p) == NULL)
 			continue;
-		if( getModuleId(p)== sqlRef && getFunctionId(p)== bindRef){
-			// we know the arguments are constant
-			snprintf(buf, BUFSIZ, "%s.%s.%s", 
-				getVarConstant(mb, getArg(p,p->retc +1)).val.sval,
-				getVarConstant(mb, getArg(p,p->retc +2)).val.sval,
-				getVarConstant(mb, getArg(p,p->retc +3)).val.sval);
-				setSTC(mb, getArg(p,0),GDKstrdup(buf));
+		if( getModuleId(p)== sqlRef && (getFunctionId(p)== bindRef || getFunctionId(p) == bindidxRef)){
+			getVarSTC(mb,getArg(p,0)) = i;
 		} else
 		if( getModuleId(p)== sqlRef && getFunctionId(p)== tidRef){
-			// we know the arguments are constant
-			snprintf(buf, BUFSIZ, "%s.%s", 
-				getVarConstant(mb, getArg(p,2)).val.sval,
-				getVarConstant(mb, getArg(p,3)).val.sval);
-				setSTC(mb, getArg(p,0),GDKstrdup(buf));
+			getVarSTC(mb,getArg(p,0)) = i;
+		} else
+		if( getModuleId(p)== batRef && (getFunctionId(p)== deltaRef || getFunctionId(p) == subdeltaRef)){
+			// inherit property of first argument
+			getVarSTC(mb,getArg(p,0)) = getVarSTC(mb,getArg(p,1));
 		} else
 		if( getModuleId(p)== sqlRef && getFunctionId(p)== projectdeltaRef){
-			// inherit property of first argument
-			v = getSTC(mb,getArg(p,1));
-			if(v != NULL)
-				setSTC(mb, getArg(p,0),GDKstrdup(v));
+			getVarSTC(mb,getArg(p,0)) = getVarSTC(mb,getArg(p,1));
 		} else
 		if( getModuleId(p)== algebraRef && getFunctionId(p)== projectionRef){
-			// inherit property of last argument
-			v = getSTC(mb,getArg(p,p->argc-1));
-			if( v != NULL)
-				setSTC(mb, getArg(p,0), GDKstrdup(v));
+			getVarSTC(mb,getArg(p,0)) = getVarSTC(mb,getArg(p,p->argc-1));
 		} else
-		if( getModuleId(p)== algebraRef && getFunctionId(p)== subjoinRef){
-			// inherit property of last argument
-			v = getSTC(mb,getArg(p,p->argc-1) );
-			if( v != NULL)
-				setSTC(mb, getArg(p,0), GDKstrdup(v));
+		if( getModuleId(p)== algebraRef && (getFunctionId(p)== selectRef || getFunctionId(p) == thetaselectRef)){
+			getVarSTC(mb,getArg(p,0)) = getVarSTC(mb,getArg(p,p->retc));
+		} else
+		if( getModuleId(p)== algebraRef && (getFunctionId(p)== likeselectRef || getFunctionId(p) == ilikeselectRef)){
+			getVarSTC(mb,getArg(p,0)) = getVarSTC(mb,getArg(p,p->retc));
+		} else
+		if( getModuleId(p)== algebraRef && 
+			( getFunctionId(p)== joinRef ||
+			  getFunctionId(p) == leftjoinRef ||
+			  getFunctionId(p) == thetajoinRef ||
+			  getFunctionId(p) == antijoinRef ||
+			  getFunctionId(p) == bandjoinRef ||
+			  getFunctionId(p) == rangejoinRef )){
+				getVarSTC(mb,getArg(p,0)) = getVarSTC(mb,getArg(p,p->retc));
+				getVarSTC(mb,getArg(p,1)) = getVarSTC(mb,getArg(p,p->retc +1));
 		} 
 	}
-	return 1;
+    /* Defense line against incorrect plans */
+	/* Plan remains unaffected */
+	//chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+	//chkFlow(cntxt->fdout, mb);
+	//chkDeclarations(cntxt->fdout, mb);
+	//
+    /* keep all actions taken as a post block comment */
+	usec = GDKusec()- usec;
+    snprintf(buf,256,"%-20s actions=1 time=" LLFMT " usec","profiler", usec);
+    newComment(mb,buf);
+	addtoMalBlkHistory(mb);
+	return MAL_SUCCEED;
 }

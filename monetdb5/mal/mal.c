@@ -3,17 +3,19 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* (author) M. Kersten */
 #include <monetdb_config.h>
 #include <mal.h>
 
-char monet_cwd[PATHLENGTH] = { 0 };
-size_t monet_memory = 0;
+char 	monet_cwd[PATHLENGTH] = { 0 };
+size_t 	monet_memory = 0;
 char 	monet_characteristics[PATHLENGTH];
-int mal_trace;		/* enable profile events on console */
+int		mal_trace;		/* enable profile events on console */
+str     mal_session_uuid;   /* unique marker for the session */
+
 #ifdef HAVE_HGE
 int have_hge;
 #endif
@@ -28,13 +30,11 @@ int have_hge;
 #include "mal_namespace.h"  /* for initNamespace() */
 #include "mal_client.h"
 #include "mal_sabaoth.h"
-#include "mal_recycle.h"
 #include "mal_dataflow.h"
 #include "mal_profiler.h"
 #include "mal_private.h"
 #include "mal_runtime.h"
 #include "mal_resource.h"
-#include "opt_statistics.h"
 
 MT_Lock     mal_contextLock MT_LOCK_INITIALIZER("mal_contextLock");
 MT_Lock     mal_namespaceLock MT_LOCK_INITIALIZER("mal_namespaceLock");
@@ -43,6 +43,7 @@ MT_Lock  	mal_profileLock MT_LOCK_INITIALIZER("mal_profileLock");
 MT_Lock     mal_copyLock MT_LOCK_INITIALIZER("mal_copyLock");
 MT_Lock     mal_delayLock MT_LOCK_INITIALIZER("mal_delayLock");
 MT_Lock     mal_beatLock MT_LOCK_INITIALIZER("mal_beatLock");
+MT_Lock     mal_oltpLock MT_LOCK_INITIALIZER("mal_oltpLock");
 
 /*
  * Initialization of the MAL context
@@ -86,6 +87,7 @@ int mal_init(void){
 	MT_lock_init( &mal_copyLock, "mal_copyLock");
 	MT_lock_init( &mal_delayLock, "mal_delayLock");
 	MT_lock_init( &mal_beatLock, "mal_beatLock");
+	MT_lock_init( &mal_oltpLock, "mal_beatLock");
 #endif
 
 	tstAligned();
@@ -99,7 +101,6 @@ int mal_init(void){
 	initHeartbeat();
 #endif
 	initResource();
-	RECYCLEinit();
 	if( malBootstrap() == 0)
 		return -1;
 	/* set up the profiler if needed, output sent to console */
@@ -117,7 +118,7 @@ int mal_init(void){
  * activity first.
  * This function should be called after you have issued sql_reset();
  */
-void mserver_reset(void)
+void mserver_reset(int exit)
 {
 	str err = 0;
 
@@ -125,8 +126,6 @@ void mserver_reset(void)
 	MCstopClients(0);
 	setHeartbeat(-1);
 	stopProfiler();
-	QOTstatisticsExit();
-	RECYCLEdrop(mal_clients); 
 	AUTHreset(); 
 	if ((err = msab_wildRetreat()) != NULL) {
 		fprintf(stderr, "!%s", err);
@@ -144,14 +143,18 @@ void mserver_reset(void)
 	mal_factory_reset();
 	mal_dataflow_reset();
 	THRdel(mal_clients->mythread);
-	GDKreset(0);	// terminate all other threads
+	GDKfree(mal_clients->errbuf);
+	mal_clients->fdin->s = NULL;
+	bstream_destroy(mal_clients->fdin);
+	GDKfree(mal_clients->prompt);
+	GDKfree(mal_clients->username);
+	freeStack(mal_clients->glb);
+	freeSymbol(mal_clients->curprg);
 	mal_client_reset();
-	mal_module_reset();
-	mal_module_reset();
   	mal_linker_reset();
 	mal_resource_reset();
 	mal_runtime_reset();
-	mal_scenario_reset();
+	mal_module_reset();
 
 	memset((char*)monet_cwd,0, sizeof(monet_cwd));
 	monet_memory = 0;
@@ -159,6 +162,7 @@ void mserver_reset(void)
 	mal_trace = 0;
 	/* No need to clean up the namespace, it will simply be extended
 	 * upon restart mal_namespace_reset(); */
+	GDKreset(0, exit);	// terminate all other threads
 }
 
 
@@ -173,6 +177,6 @@ void mserver_reset(void)
  */
 
 void mal_exit(void){
-	mserver_reset();
+	mserver_reset(1);
 	GDKexit(0); 	/* properly end GDK */
 }

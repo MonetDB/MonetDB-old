@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* (c) M Kersten, S Manegold
@@ -205,7 +205,7 @@ main(int argc, char **argv)
 	}
 
 	/* parse config file first, command line options override */
-	parse_dotmonetdb(&user, &password, NULL, NULL, NULL, NULL);
+	parse_dotmonetdb(&user, &password, &dbname, NULL, NULL, NULL, NULL);
 
 	while (1) {
 		int option_index = 0;
@@ -221,7 +221,9 @@ main(int argc, char **argv)
 			beat = atoi(optarg ? optarg : "5000");
 			break;
 		case 'd':
-			dbname = optarg;
+			if (dbname)
+				free(dbname);
+			dbname = strdup(optarg);
 			break;
 		case 'u':
 			if (user)
@@ -339,6 +341,9 @@ main(int argc, char **argv)
 	}
 	conn = mapi_get_from(dbh);
 	while ((n = mnstr_read(conn, buffer + len, 1, buflen - len-1)) >= 0) {
+		if (n == 0 &&
+		    (n = mnstr_read(conn, buffer + len, 1, buflen - len-1)) <= 0)
+			break;
 		buffer[len + n] = 0;
 		response = buffer;
 		if( debug)

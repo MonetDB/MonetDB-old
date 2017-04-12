@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -37,16 +37,19 @@
 # include <sys/resource.h>
 #endif
 
-static void
+static int
 pseudo(bat *ret, bat *ret2, BAT *bn, BAT *b) {
-	BATmode(bn,TRANSIENT);
-	BATmode(b,TRANSIENT);
+	if (BATmode(bn,TRANSIENT) != GDK_SUCCEED ||
+		BATmode(b,TRANSIENT) != GDK_SUCCEED) {
+		return -1;
+	}
 	BATfakeCommit(b);
 	BATfakeCommit(bn);
 	*ret = bn->batCacheid;
 	BBPkeepref(*ret);
 	*ret2 = b->batCacheid;
 	BBPkeepref(*ret2);
+	return 0;
 }
 
 str
@@ -142,15 +145,13 @@ SYScpuStatistics(bat *ret, bat *ret2)
 # endif
 #endif
 
-	bn = BATnew(TYPE_void, TYPE_str, 32, TRANSIENT);
-	b = BATnew(TYPE_void, TYPE_int, 32, TRANSIENT);
+	bn = COLnew(0, TYPE_str, 32, TRANSIENT);
+	b = COLnew(0, TYPE_int, 32, TRANSIENT);
 	if (b == 0 || bn == 0){
 		if ( b) BBPunfix(b->batCacheid);
 		if ( bn) BBPunfix(bn->batCacheid);
 		throw(MAL, "status.cpuStatistics", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(b,0);
-	BATseqbase(bn,0);
 #ifdef HAVE_TIMES
 	if (clk == 0) {
 		clk = time(0);
@@ -159,39 +160,48 @@ SYScpuStatistics(bat *ret, bat *ret2)
 	times(&newst);
 	/* store counters, ignore errors */
 	i = (int) (time(0) - clk);
-	BUNappend(bn, "elapsed", FALSE);
-	BUNappend(b, &i, FALSE);
+	if (BUNappend(bn, "elapsed", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
 	i = newst.tms_utime * 1000 / HZ;
-	BUNappend(bn, "user", FALSE);
-	BUNappend(b, &i, FALSE);
+	if (BUNappend(bn, "user", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
 	i = (newst.tms_utime - state.tms_utime) * 1000 / HZ;
-	BUNappend(bn, "elapuser", FALSE);
-	BUNappend(b, &i, FALSE);
+	if (BUNappend(bn, "elapuser", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
 	i = newst.tms_stime * 1000 / HZ;
-	BUNappend(bn, "system", FALSE);
-	BUNappend(b, &i, FALSE);
+	if (BUNappend(bn, "system", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
 	i = (newst.tms_stime - state.tms_stime) * 1000 / HZ;
-	BUNappend(bn, "elapsystem", FALSE);
-	BUNappend(b, &i, FALSE);
+	if (BUNappend(bn, "elapsystem", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
 
 	state = newst;
 #else
 	i = int_nil;
-	BUNappend(bn, "elapsed", FALSE);
-	BUNappend(b, &i, FALSE);
-	BUNappend(bn, "user", FALSE);
-	BUNappend(b, &i, FALSE);
-	BUNappend(bn, "elapuser", FALSE);
-	BUNappend(b, &i, FALSE);
-	BUNappend(bn, "system", FALSE);
-	BUNappend(b, &i, FALSE);
-	BUNappend(bn, "elapsystem", FALSE);
-	BUNappend(b, &i, FALSE);
+	if (BUNappend(bn, "elapsed", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "user", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "elapuser", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "system", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "elapsystem", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
 #endif
-	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
-	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
-	pseudo(ret,ret2,bn,b);
+	if (pseudo(ret,ret2,bn,b))
+		goto bailout;
 	return MAL_SUCCEED;
+  bailout:
+	BBPunfix(b->batCacheid);
+	BBPunfix(bn->batCacheid);
+	throw(MAL, "status.cpuStatistics", MAL_MALLOC_FAIL);
 }
 
 static size_t memincr;
@@ -200,85 +210,98 @@ SYSmemStatistics(bat *ret, bat *ret2)
 {
 	struct Mallinfo m;
 	BAT *b, *bn;
-	wrd i;
+	lng i;
 
 	m = MT_mallinfo();
 
-	bn = BATnew(TYPE_void,TYPE_str, 32, TRANSIENT);
-	b = BATnew(TYPE_void, TYPE_wrd, 32, TRANSIENT);
+	bn = COLnew(0,TYPE_str, 32, TRANSIENT);
+	b = COLnew(0, TYPE_lng, 32, TRANSIENT);
 	if (b == 0 || bn == 0) {
 		if ( b) BBPunfix(b->batCacheid);
 		if ( bn) BBPunfix(bn->batCacheid);
 		throw(MAL, "status.memStatistics", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(b,0);
-	BATseqbase(bn,0);
 
 	/* store counters, ignore errors */
-	i = (wrd) (GDKmem_cursize() - memincr);
+	i = (lng) (GDKmem_cursize() - memincr);
 	memincr = GDKmem_cursize();
-	BUNappend(bn, "memincr", FALSE);
-	BUNappend(b, &i, FALSE);
-	i = (wrd) m.arena;
-	BUNappend(bn, "arena", FALSE);
-	BUNappend(b, &i, FALSE);
-	i = (wrd) m.ordblks;
-	BUNappend(bn, "ordblks", FALSE);
-	BUNappend(b, &i, FALSE);
-	i = (wrd) m.smblks;
-	BUNappend(bn, "smblks", FALSE);
-	BUNappend(b, &i, FALSE);
-	i = (wrd) m.hblkhd;
-	BUNappend(bn, "hblkhd", FALSE);
-	BUNappend(b, &i, FALSE);
-	i = (wrd) m.hblks;
-	BUNappend(bn, "hblks", FALSE);
-	BUNappend(b, &i, FALSE);
-	i = (wrd) m.usmblks;
-	BUNappend(bn, "usmblks", FALSE);
-	BUNappend(b, &i, FALSE);
-	i = (wrd) m.fsmblks;
-	BUNappend(bn, "fsmblks", FALSE);
-	BUNappend(b, &i, FALSE);
-	i = (wrd) m.uordblks;
-	BUNappend(bn, "uordblks", FALSE);
-	BUNappend(b, &i, FALSE);
-	i = (wrd) m.fordblks;
-	BUNappend(bn, "fordblks", FALSE);
-	BUNappend(b, &i, FALSE);
-	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
-	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
-	pseudo(ret,ret2,bn,b);
+	if (BUNappend(bn, "memincr", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
+	i = (lng) m.arena;
+	if (BUNappend(bn, "arena", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
+	i = (lng) m.ordblks;
+	if (BUNappend(bn, "ordblks", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
+	i = (lng) m.smblks;
+	if (BUNappend(bn, "smblks", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
+	i = (lng) m.hblkhd;
+	if (BUNappend(bn, "hblkhd", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
+	i = (lng) m.hblks;
+	if (BUNappend(bn, "hblks", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
+	i = (lng) m.usmblks;
+	if (BUNappend(bn, "usmblks", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
+	i = (lng) m.fsmblks;
+	if (BUNappend(bn, "fsmblks", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
+	i = (lng) m.uordblks;
+	if (BUNappend(bn, "uordblks", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
+	i = (lng) m.fordblks;
+	if (BUNappend(bn, "fordblks", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
+	if (pseudo(ret,ret2,bn,b))
+		goto bailout;
 	return MAL_SUCCEED;
+  bailout:
+	BBPunfix(b->batCacheid);
+	BBPunfix(bn->batCacheid);
+	throw(MAL, "status.memStatistics", MAL_MALLOC_FAIL);
 }
 
-#define heap(X1,X2,X3,X4)\
-	if (X1) {\
-		sz = HEAPmemsize(X2);\
-		if (sz > *minsize) {\
-			sprintf(buf, X4"/%s", s);\
-			BUNappend(bn, buf, FALSE);\
-			BUNappend(b, &sz, FALSE);\
-		}\
-		X3 += sz; tot += sz;\
+#define heap(X1,X2,X3,X4)									\
+	if (X1) {												\
+		sz = HEAPmemsize(X2);								\
+		if (sz > *minsize) {								\
+			sprintf(buf, X4"/%s", s);						\
+			if (BUNappend(bn, buf, FALSE) != GDK_SUCCEED ||	\
+				BUNappend(b, &sz, FALSE) != GDK_SUCCEED)	\
+				goto bailout;								\
+		}													\
+		X3 += sz; tot += sz;								\
 	}
-#define heapvm(X1,X2,X3,X4)\
-	if (X1) {\
-		sz = HEAPvmsize(X2);\
-		if (sz > *minsize) {\
-			sprintf(buf, X4"/%s", s);\
-			BUNappend(bn, buf, FALSE);\
-			BUNappend(b, &sz, FALSE);\
-		}\
-		X3 += sz; tot += sz;\
+#define heapvm(X1,X2,X3,X4)									\
+	if (X1) {												\
+		sz = HEAPvmsize(X2);								\
+		if (sz > *minsize) {								\
+			sprintf(buf, X4"/%s", s);						\
+			if (BUNappend(bn, buf, FALSE) != GDK_SUCCEED ||	\
+				BUNappend(b, &sz, FALSE) != GDK_SUCCEED)	\
+				goto bailout;								\
+		}													\
+		X3 += sz; tot += sz;								\
 	}
 
 str
 SYSmem_usage(bat *ret, bat *ret2, const lng *minsize)
 {
 	lng hbuns = 0, tbuns = 0, hhsh = 0, thsh = 0, hind = 0, tind = 0, head = 0, tail = 0, tot = 0, n = 0, sz;
-	BAT *bn = BATnew(TYPE_void, TYPE_str, 2 * getBBPsize(), TRANSIENT);
-	BAT *b = BATnew(TYPE_void, TYPE_lng, 2 * getBBPsize(), TRANSIENT);
+	BAT *bn = COLnew(0, TYPE_str, 2 * getBBPsize(), TRANSIENT);
+	BAT *b = COLnew(0, TYPE_lng, 2 * getBBPsize(), TRANSIENT);
 	struct Mallinfo m;
 	char buf[1024];
 	bat i;
@@ -288,8 +311,6 @@ SYSmem_usage(bat *ret, bat *ret2, const lng *minsize)
 		if ( bn) BBPunfix(bn->batCacheid);
 		throw(MAL, "status.memUsage", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(b,0);
-	BATseqbase(bn,0);
 	BBPlock();
 	for (i = 1; i < getBBPsize(); i++) {
 		BAT *c = BBPquickdesc(i,0);
@@ -301,103 +322,108 @@ SYSmem_usage(bat *ret, bat *ret2, const lng *minsize)
 		s = BBPname(i);
 		sz = 0;
 		if (BBP_desc(i))
-			sz += BATSTORESIZE;
+			sz += sizeof(BAT);
 		if (BBP_logical(i))
 			n += strLen(BBP_logical(i));
-		if (BBP_logical(-i))
-			n += strLen(BBP_logical(-i));
 		if (BBP_physical(i))
 			n += strLen(BBP_physical(i));
-		if (b)
-			sz += sizeof(BAT);	/* mirror */
 
 		if (sz > *minsize) {
 			sprintf(buf, "desc/%s", s);
-			BUNappend(bn, buf, FALSE);
-			BUNappend(b, &sz, FALSE);
+			if (BUNappend(bn, buf, FALSE) != GDK_SUCCEED ||
+				BUNappend(b, &sz, FALSE) != GDK_SUCCEED)
+				goto bailout;
 		}
 		tot += (lng) sz;
 
 		if (c == NULL || isVIEW(c)) {
 			continue;
 		}
-		heap(1,&c->H->heap,hbuns,"hbuns");
-		heap(1,&c->T->heap,tbuns,"tbuns");
-		heap(c->H->hash && c->H->hash != (Hash *) 1,c->H->hash->heap,hhsh,"hhsh");
-		heap(c->T->hash && c->T->hash != (Hash *) 1,c->T->hash->heap,thsh,"thsh");
-		heap(c->H->vheap,c->H->vheap,head,"head");
-		heap(c->T->vheap,c->T->vheap,tail,"tail");
+		heap(1,&c->theap,tbuns,"tbuns");
+		heap(c->thash && c->thash != (Hash *) 1,c->thash->heap,thsh,"thsh");
+		heap(c->tvheap,c->tvheap,tail,"tail");
 	}
 	/* totals per category */
-	BUNappend(bn, "_tot/hbuns", FALSE);
-	BUNappend(b, &hbuns, FALSE);
-	BUNappend(bn, "_tot/tbuns", FALSE);
-	BUNappend(b, &tbuns, FALSE);
-	BUNappend(bn, "_tot/head", FALSE);
-	BUNappend(b, &head, FALSE);
-	BUNappend(bn, "_tot/tail", FALSE);
-	BUNappend(b, &tail, FALSE);
-	BUNappend(bn, "_tot/hhsh", FALSE);
-	BUNappend(b, &hhsh, FALSE);
-	BUNappend(bn, "_tot/thsh", FALSE);
-	BUNappend(b, &thsh, FALSE);
-	BUNappend(bn, "_tot/hind", FALSE);
-	BUNappend(b, &hind, FALSE);
-	BUNappend(bn, "_tot/tind", FALSE);
-	BUNappend(b, &tind, FALSE);
+	if (BUNappend(bn, "_tot/hbuns", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &hbuns, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "_tot/tbuns", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &tbuns, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "_tot/head", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &head, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "_tot/tail", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &tail, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "_tot/hhsh", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &hhsh, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "_tot/thsh", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &thsh, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "_tot/hind", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &hind, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "_tot/tind", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &tind, FALSE) != GDK_SUCCEED)
+		goto bailout;
 
 	/* special area 1: BBP rec */
 	sz = BBPlimit * sizeof(BBPrec) + n;
-	BUNappend(bn, "_tot/bbp", FALSE);
-	BUNappend(b, &sz, FALSE);
+	if (BUNappend(bn, "_tot/bbp", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &sz, FALSE) != GDK_SUCCEED)
+		goto bailout;
 	tot += sz;
 
 	/* this concludes all major traceable Monet memory usages */
 	tot += sz;
-	BUNappend(bn, "_tot/found", FALSE);
-	BUNappend(b, &tot, FALSE);
+	if (BUNappend(bn, "_tot/found", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &tot, FALSE) != GDK_SUCCEED)
+		goto bailout;
 
 	/* now look at what the global statistics report (to see if it coincides) */
 
 	/* how much *used* bytes in heap? */
 	m = MT_mallinfo();
 	sz = (size_t) m.usmblks + (size_t) m.uordblks + (size_t) m.hblkhd;
-	BUNappend(bn, "_tot/malloc", FALSE);
-	BUNappend(b, &sz, FALSE);
+	if (BUNappend(bn, "_tot/malloc", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &sz, FALSE) != GDK_SUCCEED)
+		goto bailout;
 
 	/* measure actual heap size, includes wasted fragmented space and anon mmap space used by malloc() */
 	sz = GDKmem_cursize();
-	BUNappend(bn, "_tot/heap", FALSE);
-	BUNappend(b, &sz, FALSE);
+	if (BUNappend(bn, "_tot/heap", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &sz, FALSE) != GDK_SUCCEED)
+		goto bailout;
 
 	tot = GDKmem_cursize();
 
 	/* allocated swap area memory that is not plain malloc() */
 	sz = MAX(0, sz - tot);
-	BUNappend(bn, "_tot/valloc", FALSE);
-	BUNappend(b, &sz, FALSE);
+	if (BUNappend(bn, "_tot/valloc", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &sz, FALSE) != GDK_SUCCEED)
+		goto bailout;
 
 	/* swap-area memory is in either GDKvmalloc or heap */
-	BUNappend(bn, "_tot/swapmem", FALSE);
-	BUNappend(b, &tot, FALSE);
+	if (BUNappend(bn, "_tot/swapmem", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &tot, FALSE) != GDK_SUCCEED)
+		goto bailout;
 
 	BBPunlock();
-	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 	*ret = bn->batCacheid;
 	BBPkeepref(bn->batCacheid);
-	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	*ret2 = b->batCacheid;
 	BBPkeepref(b->batCacheid);
 
 	return MAL_SUCCEED;
+
+  bailout:
+	BBPunlock();
+	BBPunfix(b->batCacheid);
+	BBPunfix(bn->batCacheid);
+	throw(MAL, "status.memUsage", MAL_MALLOC_FAIL);
 }
 
 str
 SYSvm_usage(bat *ret, bat *ret2, const lng *minsize)
 {
 	lng hbuns = 0, tbuns = 0, hhsh = 0, thsh = 0, hind = 0, tind = 0, head = 0, tail = 0, tot = 0, sz;
-	BAT *bn = BATnew(TYPE_void, TYPE_str, 2 * getBBPsize(), TRANSIENT);
-	BAT *b = BATnew(TYPE_void, TYPE_lng, 2 * getBBPsize(), TRANSIENT);
+	BAT *bn = COLnew(0, TYPE_str, 2 * getBBPsize(), TRANSIENT);
+	BAT *b = COLnew(0, TYPE_lng, 2 * getBBPsize(), TRANSIENT);
 	char buf[1024];
 	bat i;
 
@@ -406,8 +432,6 @@ SYSvm_usage(bat *ret, bat *ret2, const lng *minsize)
 		if ( bn) BBPunfix(bn->batCacheid);
 		throw(MAL, "status.vmStatistics", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(b,0);
-	BATseqbase(bn,0);
 	BBPlock();
 	for (i = 1; i < getBBPsize(); i++) {
 		BAT *c;
@@ -421,56 +445,61 @@ SYSvm_usage(bat *ret, bat *ret2, const lng *minsize)
 		if (c == NULL || isVIEW(c)) {
 			continue;
 		}
-		heapvm(1,&c->H->heap,hbuns,"hcuns");
-		heapvm(1,&c->T->heap,tbuns,"tcuns");
-		heapvm(c->H->hash && c->H->hash != (Hash *) 1,c->H->hash->heap,hhsh,"hshh");
-		heapvm(c->T->hash && c->T->hash != (Hash *) 1,c->T->hash->heap,thsh,"thsh");
-		heapvm(c->H->vheap,c->H->vheap,head,"head");
-		heapvm(c->T->vheap,c->T->vheap,tail,"tail");
+		heapvm(1,&c->theap,tbuns,"tcuns");
+		heapvm(c->thash && c->thash != (Hash *) 1,c->thash->heap,thsh,"thsh");
+		heapvm(c->tvheap,c->tvheap,tail,"tail");
 	}
 	/* totals per category */
-	BUNappend(bn, "_tot/hbuns", FALSE);
-	BUNappend(b, &hbuns, FALSE);
-	BUNappend(bn, "_tot/tbuns", FALSE);
-	BUNappend(b, &tbuns, FALSE);
-	BUNappend(bn, "_tot/head", FALSE);
-	BUNappend(b, &head, FALSE);
-	BUNappend(bn, "_tot/tail", FALSE);
-	BUNappend(b, &tail, FALSE);
-	BUNappend(bn, "_tot/hhsh", FALSE);
-	BUNappend(b, &hhsh, FALSE);
-	BUNappend(bn, "_tot/thsh", FALSE);
-	BUNappend(b, &thsh, FALSE);
-	BUNappend(bn, "_tot/hind", FALSE);
-	BUNappend(b, &hind, FALSE);
-	BUNappend(bn, "_tot/tind", FALSE);
-	BUNappend(b, &tind, FALSE);
+	if (BUNappend(bn, "_tot/hbuns", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &hbuns, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "_tot/tbuns", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &tbuns, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "_tot/head", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &head, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "_tot/tail", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &tail, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "_tot/hhsh", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &hhsh, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "_tot/thsh", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &thsh, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "_tot/hind", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &hind, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "_tot/tind", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &tind, FALSE) != GDK_SUCCEED)
+		goto bailout;
 
 	/* special area 1: BBP rec */
 	sz = BBPlimit * sizeof(BBPrec);
-	BUNappend(bn, "_tot/bbp", FALSE);
-	BUNappend(b, &sz, FALSE);
+	if (BUNappend(bn, "_tot/bbp", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &sz, FALSE) != GDK_SUCCEED)
+		goto bailout;
 	tot += sz;
 
 
 	/* this concludes all major traceable Monet virtual memory usages */
 	tot += sz;
-	BUNappend(bn, "_tot/found", FALSE);
-	BUNappend(b, &tot, FALSE);
+	if (BUNappend(bn, "_tot/found", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &tot, FALSE) != GDK_SUCCEED)
+		goto bailout;
 
 	/* all VM is either GDKmmap or GDKvmalloc (possibly redirected GDKmalloc), *plus* the heap */
 	sz = GDKvm_cursize();
-	BUNappend(bn, "_tot/vm", FALSE);
-	BUNappend(b, &sz, FALSE);
+	if (BUNappend(bn, "_tot/vm", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &sz, FALSE) != GDK_SUCCEED)
+		goto bailout;
 
 	BBPunlock();
-	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 	*ret = bn->batCacheid;
 	BBPkeepref(bn->batCacheid);
-	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	*ret2 = b->batCacheid;
 	BBPkeepref(b->batCacheid);
 	return MAL_SUCCEED;
+
+  bailout:
+	BBPunlock();
+	BBPunfix(b->batCacheid);
+	BBPunfix(bn->batCacheid);
+	throw(MAL, "status.vmStatistics", MAL_MALLOC_FAIL);
 }
 
 /*
@@ -518,66 +547,77 @@ SYSioStatistics(bat *ret, bat *ret2)
 #ifndef NATIVE_WIN32
 	getrusage(RUSAGE_SELF, &ru);
 #endif
-	bn = BATnew(TYPE_void, TYPE_str, 32, TRANSIENT);
-	b = BATnew(TYPE_void, TYPE_int, 32, TRANSIENT);
+	bn = COLnew(0, TYPE_str, 32, TRANSIENT);
+	b = COLnew(0, TYPE_int, 32, TRANSIENT);
 	if (b == 0 || bn == 0) {
 		if ( b) BBPunfix(b->batCacheid);
 		if ( bn) BBPunfix(bn->batCacheid);
 		throw(MAL, "status.ioStatistics", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(b,0);
-	BATseqbase(bn,0);
 
 #ifndef NATIVE_WIN32
 	/* store counters, ignore errors */
 	i = ru.ru_maxrss;
-	BUNappend(bn, "maxrss", FALSE);
-	BUNappend(b, &i, FALSE);
+	if (BUNappend(bn, "maxrss", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
 	i = ru.ru_minflt;
-	BUNappend(bn, "minflt", FALSE);
-	BUNappend(b, &i, FALSE);
+	if (BUNappend(bn, "minflt", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
 	i = ru.ru_majflt;
-	BUNappend(bn, "majflt", FALSE);
-	BUNappend(b, &i, FALSE);
+	if (BUNappend(bn, "majflt", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
 	i = ru.ru_nswap;
-	BUNappend(bn, "nswap", FALSE);
-	BUNappend(b, &i, FALSE);
+	if (BUNappend(bn, "nswap", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
 	i = ru.ru_inblock;
-	BUNappend(bn, "inblock", FALSE);
-	BUNappend(b, &i, FALSE);
+	if (BUNappend(bn, "inblock", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
 	i = ru.ru_oublock;
-	BUNappend(bn, "oublock", FALSE);
-	BUNappend(b, &i, FALSE);
+	if (BUNappend(bn, "oublock", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
 	i = ru.ru_nvcsw;
-	BUNappend(bn, "nvcsw", FALSE);
-	BUNappend(b, &i, FALSE);
+	if (BUNappend(bn, "nvcsw", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
 	i = ru.ru_nivcsw;
-	BUNappend(bn, "ninvcsw", FALSE);
-	BUNappend(b, &i, FALSE);
+	if (BUNappend(bn, "ninvcsw", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
 #else
 	i = int_nil;
-	BUNappend(bn, "maxrss", FALSE);
-	BUNappend(b, &i, FALSE);
-	BUNappend(bn, "minflt", FALSE);
-	BUNappend(b, &i, FALSE);
-	BUNappend(bn, "majflt", FALSE);
-	BUNappend(b, &i, FALSE);
-	BUNappend(bn, "nswap", FALSE);
-	BUNappend(b, &i, FALSE);
-	BUNappend(bn, "inblock", FALSE);
-	BUNappend(b, &i, FALSE);
-	BUNappend(bn, "oublock", FALSE);
-	BUNappend(b, &i, FALSE);
-	BUNappend(bn, "nvcsw", FALSE);
-	BUNappend(b, &i, FALSE);
-	BUNappend(bn, "ninvcsw", FALSE);
-	BUNappend(b, &i, FALSE);
+	if (BUNappend(bn, "maxrss", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "minflt", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "majflt", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "nswap", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "inblock", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "oublock", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "nvcsw", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "ninvcsw", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+		goto bailout;
 #endif
 
-	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
-	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
-	pseudo(ret,ret2,bn,b);
+	if (pseudo(ret,ret2,bn,b))
+		goto bailout;
 	return MAL_SUCCEED;
+
+  bailout:
+	BBPunfix(b->batCacheid);
+	BBPunfix(bn->batCacheid);
+	throw(MAL, "status.ioStatistics", MAL_MALLOC_FAIL);
 }
 
 str
@@ -585,26 +625,22 @@ SYSgdkEnv(bat *ret, bat *ret2)
 {
 	int pbat = 0;
 	int pdisk = 0;
-	int pheat = 0;
 	bat i;
 	int tmp = 0, per = 0;
 	BAT *b,*bn;
 
-	bn = BATnew(TYPE_void, TYPE_str, 32, TRANSIENT);
-	b = BATnew(TYPE_void, TYPE_int, 32, TRANSIENT);
+	bn = COLnew(0, TYPE_str, 32, TRANSIENT);
+	b = COLnew(0, TYPE_int, 32, TRANSIENT);
 	if (b == 0 || bn == 0) {
 		if ( b) BBPunfix(b->batCacheid);
 		if ( bn) BBPunfix(bn->batCacheid);
 		throw(MAL, "status.batStatistics", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(b,0);
-	BATseqbase(bn,0);
 
 	for (i = 1; i < getBBPsize(); i++) {
 		if (BBPvalid(i)) {
 			pbat++;
 			if (BBP_cache(i)) {
-				pheat += BBP_lastused(i);
 				if (BBP_cache(i)->batPersistence == PERSISTENT)
 					per++;
 				else
@@ -614,21 +650,23 @@ SYSgdkEnv(bat *ret, bat *ret2)
 			}
 		}
 	}
-	BUNappend(bn, "bats", FALSE);
-	BUNappend(b, &pbat, FALSE);
-	BUNappend(bn, "tmpbats", FALSE);
-	BUNappend(b, &tmp, FALSE);
-	BUNappend(bn, "perbats", FALSE);
-	BUNappend(b, &per, FALSE);
-	BUNappend(bn, "ondisk", FALSE);
-	BUNappend(b, &pdisk, FALSE);
-	BUNappend(bn, "todisk", FALSE);
-	BUNappend(b, &BBPout, FALSE);
-	BUNappend(bn, "fromdisk", FALSE);
-	BUNappend(b, &BBPin, FALSE);
-	if (!(b->batDirty & 2)) BATsetaccess(b, BAT_READ);
-	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
-	pseudo(ret,ret2, bn,b);
+	if (BUNappend(bn, "bats", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &pbat, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "tmpbats", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &tmp, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "perbats", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &per, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "ondisk", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &pdisk, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "todisk", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &BBPout, FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, "fromdisk", FALSE) != GDK_SUCCEED ||
+		BUNappend(b, &BBPin, FALSE) != GDK_SUCCEED ||
+		pseudo(ret,ret2, bn,b)) {
+		BBPunfix(b->batCacheid);
+		BBPunfix(bn->batCacheid);
+		throw(MAL, "status.batStatistics", MAL_MALLOC_FAIL);
+	}
 	return MAL_SUCCEED;
 }
 
@@ -638,24 +676,27 @@ SYSgdkThread(bat *ret, bat *ret2)
 	BAT *b, *bn;
 	int i;
 
-	bn = BATnew(TYPE_void,TYPE_int, THREADS, TRANSIENT);
-	b = BATnew(TYPE_void, TYPE_str, THREADS, TRANSIENT);
+	bn = COLnew(0,TYPE_int, THREADS, TRANSIENT);
+	b = COLnew(0, TYPE_str, THREADS, TRANSIENT);
 	if (b == 0 || bn == 0) {
 		if ( b) BBPunfix(b->batCacheid);
 		if ( bn) BBPunfix(bn->batCacheid);
 		throw(MAL, "status.getThreads", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(b,0);
-	BATseqbase(bn,0);
 
 	for (i = 0; i < THREADS; i++) {
 		if (GDKthreads[i].pid){
-			BUNappend(bn, &GDKthreads[i].tid, FALSE);
-			BUNappend(b, GDKthreads[i].name? GDKthreads[i].name:"", FALSE);
+			if (BUNappend(bn, &GDKthreads[i].tid, FALSE) != GDK_SUCCEED ||
+				BUNappend(b, GDKthreads[i].name? GDKthreads[i].name:"", FALSE) != GDK_SUCCEED)
+				goto bailout;
 		}
 	}
-	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
-	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
-	pseudo(ret,ret2,bn,b);
+	if (pseudo(ret,ret2,bn,b))
+		goto bailout;
 	return MAL_SUCCEED;
+
+  bailout:
+	BBPunfix(b->batCacheid);
+	BBPunfix(bn->batCacheid);
+	throw(MAL, "status.getThreads", MAL_MALLOC_FAIL);
 }

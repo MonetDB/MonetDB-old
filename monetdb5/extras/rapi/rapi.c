@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -18,6 +18,7 @@
 #include "gdk.h"
 #include "mmath.h"
 #include "sql_catalog.h"
+#include "sql_execute.h"
 #include "rapi.h"
 
 // R headers
@@ -62,6 +63,8 @@ static char* rtypenames[] = { "NIL", "SYM", "LIST", "CLO", "ENV", "PROM",
 		"LANG", "SPECIAL", "BUILTIN", "CHAR", "LGL", "unknown", "unknown",
 		"INT", "REAL", "CPLX", "STR", "DOT", "ANY", "VEC", "EXPR", "BCODE",
 		"EXTPTR", "WEAKREF", "RAW", "S4" };
+
+static Client rapiClient = NULL;
 
 
 // helper function to translate R TYPEOF() return values to something readable
@@ -226,7 +229,7 @@ rapi_export str RAPIevalAggr(Client cntxt, MalBlkPtr mb, MalStkPtr stk,
 }
 
 str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
-	sql_func * sqlfun = *(sql_func**) getArgReference_ptr(stk, pci, pci->retc);
+	sql_func * sqlfun = NULL;
 	str exprStr = *getArgReference_str(stk, pci, pci->retc + 1);
 
 	SEXP x, env, retval;
@@ -235,9 +238,10 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 	ParseStatus status;
 	int i = 0;
 	char argbuf[64];
-	char argnames[10000] = "";
+	char *argnames = NULL;
+	size_t argnameslen;
 	size_t pos;
-	char* rcall;
+	char* rcall = NULL;
 	size_t rcalllen;
 	int ret_cols = 0; /* int because pci->retc is int, too*/
 	str *args;
@@ -247,8 +251,7 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 	node * argnode;
 	int seengrp = FALSE;
 
-	// we don't need no context, but the compiler needs us to touch it (...)
-	(void) cntxt;
+	rapiClient = cntxt;
 
 	if (!RAPIEnabled()) {
 		throw(MAL, "rapi.eval",
@@ -256,22 +259,22 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 			  rapi_enableflag);
 	}
 
-	rcalllen = strlen(exprStr) + sizeof(argnames) + 100;
-	rcall = malloc(rcalllen);
-	if (rcall == NULL) {
-		throw(MAL, "rapi.eval", MAL_MALLOC_FAIL);
+	if (!grouped) {
+		sql_subfunc *sqlmorefun = (*(sql_subfunc**) getArgReference(stk, pci, pci->retc));
+		if (sqlmorefun) sqlfun = (*(sql_subfunc**) getArgReference(stk, pci, pci->retc))->func;
+	} else {
+		sqlfun = *(sql_func**) getArgReference(stk, pci, pci->retc);
 	}
 
 	args = (str*) GDKzalloc(sizeof(str) * pci->argc);
 	if (args == NULL) {
-		free(rcall);
 		throw(MAL, "rapi.eval", MAL_MALLOC_FAIL);
 	}
 
 	// get the lock even before initialization of the R interpreter, as this can take a second and must be done only once.
 	MT_lock_set(&rapiLock);
 
-	env = PROTECT(eval(lang1(install("new.env")),R_GlobalEnv));
+	env = PROTECT(eval(lang1(install("new.env")), R_GlobalEnv));
 	assert(env != NULL);
 
 	// first argument after the return contains the pointer to the sql_func structure
@@ -288,6 +291,7 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 		}
 	}
 	// the first unknown argument is the group, we don't really care for the rest.
+	argnameslen = 2;
 	for (i = pci->retc + 2; i < pci->argc; i++) {
 		if (args[i] == NULL) {
 			if (!seengrp && grouped) {
@@ -298,6 +302,7 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 				args[i] = GDKstrdup(argbuf);
 			}
 		}
+		argnameslen += strlen(args[i]) + 2; /* extra for ", " */
 	}
 
 	// install the MAL variables into the R environment
@@ -305,17 +310,27 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 	for (i = pci->retc + 2; i < pci->argc; i++) {
 		// check for BAT or scalar first, keep code left
 		if (!isaBatType(getArgType(mb,pci,i))) {
-			b = BATnew(TYPE_void, getArgType(mb, pci, i), 0, TRANSIENT);
+			b = COLnew(0, getArgType(mb, pci, i), 0, TRANSIENT);
 			if (b == NULL) {
 				msg = createException(MAL, "rapi.eval", MAL_MALLOC_FAIL);
 				goto wrapup;
 			}
-			if ( getArgType(mb,pci,i) == TYPE_str)
-				BUNappend(b, *getArgReference_str(stk, pci, i), FALSE);
-			else
-				BUNappend(b, getArgReference(stk, pci, i), FALSE);
+			if ( getArgType(mb,pci,i) == TYPE_str) {
+				if (BUNappend(b, *getArgReference_str(stk, pci, i), FALSE) != GDK_SUCCEED) {
+					BBPreclaim(b);
+					b = NULL;
+					msg = createException(MAL, "rapi.eval", MAL_MALLOC_FAIL);
+					goto wrapup;
+				}
+			} else {
+				if (BUNappend(b, getArgReference(stk, pci, i), FALSE) != GDK_SUCCEED) {
+					BBPreclaim(b);
+					b = NULL;
+					msg = createException(MAL, "rapi.eval", MAL_MALLOC_FAIL);
+					goto wrapup;
+				}
+			}
 			BATsetcount(b, 1);
-			BATseqbase(b, 0);
 			BATsettrivprop(b);
 		} else {
 			b = BATdescriptor(*getArgReference_bat(stk, pci, i));
@@ -352,20 +367,27 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 	 * this is also compatible with PL/R
 	 */
 	pos = 0;
-	for (i = pci->retc + 2; i < pci->argc && pos < sizeof(argnames); i++) {
-		pos += snprintf(argnames + pos, sizeof(argnames) - pos, "%s%s",
+	argnames = malloc(argnameslen);
+	if (argnames == NULL) {
+		msg = createException(MAL, "rapi.eval", MAL_MALLOC_FAIL);
+		goto wrapup;
+	}
+	argnames[0] = '\0';
+	for (i = pci->retc + 2; i < pci->argc; i++) {
+		pos += snprintf(argnames + pos, argnameslen - pos, "%s%s",
 						args[i], i < pci->argc - 1 ? ", " : "");
 	}
-	if (pos >= sizeof(argnames)) {
-		msg = createException(MAL, "rapi.eval", "Command too large");
+	rcalllen = 2 * pos + strlen(exprStr) + 100;
+	rcall = malloc(rcalllen);
+	if (rcall == NULL) {
+		msg = createException(MAL, "rapi.eval", MAL_MALLOC_FAIL);
 		goto wrapup;
 	}
-	if (snprintf(rcall, rcalllen,
-				 "ret <- as.data.frame((function(%s){%s})(%s), nm=NA, stringsAsFactors=F)\n",
-				 argnames, exprStr, argnames) >= (int) rcalllen) {
-		msg = createException(MAL, "rapi.eval", "Command too large");
-		goto wrapup;
-	}
+	snprintf(rcall, rcalllen,
+			 "ret <- as.data.frame((function(%s){%s})(%s), nm=NA, stringsAsFactors=F)\n",
+			 argnames, exprStr, argnames);
+	free(argnames);
+	argnames = NULL;
 #ifdef _RAPI_DEBUG_
 	printf("# R call %s\n",rcall);
 #endif
@@ -394,6 +416,7 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 		}
 		msg = createException(MAL, "rapi.eval",
 							  "Error running R expression: %s", errormsg);
+		free(errormsg);
 		goto wrapup;
 	}
 
@@ -408,11 +431,11 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 	// collect the return values
 	for (i = 0; i < pci->retc; i++) {
 		SEXP ret_col = VECTOR_ELT(retval, i);
-		int bat_type = getColumnType(getArgType(mb,pci,i));
+		int bat_type = getBatType(getArgType(mb,pci,i));
 		if (bat_type == TYPE_any || bat_type == TYPE_void) {
 			getArgType(mb,pci,i) = bat_type;
 			msg = createException(MAL, "rapi.eval",
-									  "Unknown return value, possibly projecting with no parameters.");
+								  "Unknown return value, possibly projecting with no parameters.");
 			goto wrapup;
 		}
 
@@ -420,7 +443,7 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 		b = sexp_to_bat(ret_col, bat_type);
 		if (b == NULL) {
 			msg = createException(MAL, "rapi.eval",
-												  "Failed to convert column %i", i);
+								  "Failed to convert column %i", i);
 			goto wrapup;
 		}
 		// bat return
@@ -428,8 +451,11 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 			*getArgReference_bat(stk, pci, i) = b->batCacheid;
 		} else { // single value return, only for non-grouped aggregations
 			BATiter li = bat_iterator(b);
-			VALinit(&stk->stk[pci->argv[i]], bat_type,
-					BUNtail(li, 0)); // TODO BUNtail here
+			if (VALinit(&stk->stk[pci->argv[i]], bat_type,
+						BUNtail(li, 0)) == NULL) { // TODO BUNtail here
+				msg = createException(MAL, "rapi.eval", MAL_MALLOC_FAIL);
+				goto wrapup;
+			}
 		}
 		msg = MAL_SUCCEED;
 	}
@@ -437,11 +463,46 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 	UNPROTECT(1);
   wrapup:
 	MT_lock_unset(&rapiLock);
-	free(rcall);
+	if (argnames)
+		free(argnames);
+	if (rcall)
+		free(rcall);
+	for (i = 0; i < pci->argc; i++)
+		GDKfree(args[i]);
 	GDKfree(args);
 
 	return msg;
 }
+
+void* RAPIloopback(void *query) {
+	res_table* output = NULL;
+	char* querystr = (char*)CHAR(STRING_ELT(query, 0));
+	char* err = SQLstatementIntern(rapiClient, &querystr, "name", 1, 0, &output);
+
+	if (err) { // there was an error
+		return ScalarString(RSTR(err));
+	}
+	if (output && output->nr_cols > 0) {
+		int i, ncols = output->nr_cols;
+		SEXP retlist, names, varvalue = R_NilValue;
+		retlist = PROTECT(allocVector(VECSXP, ncols));
+		names = PROTECT(NEW_STRING(ncols));
+		for (i = 0; i < ncols; i++) {
+			if (!(varvalue = bat_to_sexp(BATdescriptor(output->cols[i].b)))) {
+				UNPROTECT(i + 3);
+				return ScalarString(RSTR("Conversion error"));
+			}
+			SET_STRING_ELT(names, i, RSTR(output->cols[i].name));
+			SET_VECTOR_ELT(retlist, i, varvalue);
+		}
+		res_table_destroy(output);
+		SET_NAMES(retlist, names);
+		UNPROTECT(ncols + 2);
+		return retlist;
+	}
+	return ScalarLogical(1);
+}
+
 
 str RAPIprelude(void *ret) {
 	(void) ret;
@@ -457,6 +518,8 @@ str RAPIprelude(void *ret) {
 				throw(MAL, "rapi.eval",
 					  "failed to initialise R environment (%s)", initstatus);
 			}
+			Rf_defineVar(Rf_install("MONETDB_LIBDIR"), ScalarString(RSTR(LIBDIR)), R_GlobalEnv);
+
 		}
 		MT_lock_unset(&rapiLock);
 		printf("# MonetDB/R   module loaded\n");

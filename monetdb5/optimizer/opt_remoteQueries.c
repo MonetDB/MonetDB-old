@@ -3,15 +3,13 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
 #include "opt_remoteQueries.h"
 #include "mal_interpreter.h"	/* for showErrors() */
 #include "mal_builder.h"
-
-#define OPTDEBUGremote  if ( optDebug & ((lng) 1 <<DEBUG_OPT_REMOTE) )
 
 /*
  * The instruction sent is produced with a variation of call2str
@@ -35,16 +33,12 @@ RQcall2str(MalBlkPtr mb, InstrPtr p)
 	if( p->retc > 1) strcat(msg,"(");
 	len= (int) strlen(msg);
 	for (k = 0; k < p->retc; k++) {
-		VarPtr v = getVar(mb, getArg(p, k));
 		if( isVarUDFtype(mb, getArg(p,k)) ){
 			str tpe = getTypeName(getVarType(mb, getArg(p, k)));
-			sprintf(msg+len, "%s:%s ", v->name, tpe);
+			sprintf(msg+len, "%s:%s ", getVarName(mb, getArg(p,k)), tpe);
 			GDKfree(tpe);
 		} else
-		if (isTmpVar(mb, getArg(p,k)))
-			sprintf(msg+len, "%c%d", refMarker(mb, getArg(p,k)), v->tmpindex);
-		else
-			sprintf(msg+len, "%s", v->name);
+			sprintf(msg+len, "%s", getVarName(mb,getArg(p,k)));
 		if (k < p->retc - 1)
 			strcat(msg,",");
 		len= (int) strlen(msg);
@@ -67,10 +61,8 @@ RQcall2str(MalBlkPtr mb, InstrPtr p)
 					GDKfree(cv);
 				}
 
-			} else if (isTmpVar(mb, getArg(p,k)))
-				sprintf(msg+len, "%c%d", refMarker(mb,getArg(p,k)), v->tmpindex);
-			else
-				sprintf(msg+len, "%s", v->name);
+			} else
+				sprintf(msg+len, "%s", v->id);
 			if (k < p->argc - 1)
 				strcat(msg,",");
 			len= (int) strlen(msg);
@@ -102,9 +94,7 @@ RQcall2str(MalBlkPtr mb, InstrPtr p)
 				break;\
 		\
 		if( k== dbtop){\
-			r= newInstruction(mb,ASSIGNsymbol);\
-			getModuleId(r)= mapiRef;\
-			getFunctionId(r)= lookupRef;\
+			r= newInstruction(mb,mapiRef,lookupRef);\
 			j= getArg(r,0)= newTmpVariable(mb, TYPE_int);\
 			r= pushArgument(mb,r, getArg(p,X));\
 			pushInstruction(mb,r);\
@@ -116,20 +106,19 @@ RQcall2str(MalBlkPtr mb, InstrPtr p)
 	} else j= location[getArg(p,0)];
 
 #define prepareRemote(X)\
-	r= newInstruction(mb,ASSIGNsymbol);\
-	getModuleId(r)= mapiRef;\
-	getFunctionId(r)= rpcRef;\
+	r= newInstruction(mb,mapiRef,rpcRef);\
 	getArg(r,0)= newTmpVariable(mb, X);\
 	r= pushArgument(mb,r,j);
 
 #define putRemoteVariables()\
 	for(j=p->retc; j<p->argc; j++)\
 	if( location[getArg(p,j)] == 0 && !isVarConstant(mb,getArg(p,j)) ){\
-		q= newStmt(mb,mapiRef,putRef);\
+		q= newInstruction(0, mapiRef, putRef);\
 		getArg(q,0)= newTmpVariable(mb, TYPE_void);\
 		q= pushArgument(mb,q,location[getArg(p,j)]);\
 		q= pushStr(mb,q, getVarName(mb,getArg(p,j)));\
 		(void) pushArgument(mb,q,getArg(p,j));\
+		pushInstruction(mb,q);\
 	}
 
 #define remoteAction()\
@@ -145,7 +134,7 @@ typedef struct{
 	int dbhdl;
 } DBalias;
 
-int
+str
 OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	InstrPtr p, q, r, *old;
@@ -156,13 +145,16 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 	int dbtop,k;
 	char buf[BUFSIZ],*s, *db;
 	ValRecord cst;
+	lng usec = GDKusec();
+
 	cst.vtype= TYPE_int;
 	cst.val.ival= 0;
 	cst.len = 0;
 
 
-	OPTDEBUGremoteQueries
-	mnstr_printf(cntxt->fdout, "RemoteQueries optimizer started\n");
+#ifdef DEBUG_OPT_REMOTEQUERIES
+	fprintf(stderr, "RemoteQueries optimizer started\n");
+#endif
 	(void) cntxt;
 	(void) stk;
 	(void) pci;
@@ -173,18 +165,18 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 
 	location= (int*) GDKzalloc(mb->vsize * sizeof(int));
 	if ( location == NULL)
-		return 0;
+		throw(MAL, "optimizer.remote",MAL_MALLOC_FAIL);
 	dbalias= (DBalias*) GDKzalloc(128 * sizeof(DBalias));
 	if (dbalias == NULL){
 		GDKfree(location);
-		return 0;
+		throw(MAL, "optimizer.remote",MAL_MALLOC_FAIL);
 	}
 	dbtop= 0;
 
 	if ( newMalBlkStmt(mb, mb->ssize) < 0){
 		GDKfree(dbalias);
 		GDKfree(location);
-		return 0;
+		throw(MAL, "optimizer.remote",MAL_MALLOC_FAIL);
 	}
 
 	for (i = 0; i < limit; i++) {
@@ -271,10 +263,10 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 				putRemoteVariables()
 				remoteAction()
 			} else {
-				OPTDEBUGremote {
-					fprintf(stderr, "found remote variable %s ad %d\n",
-						getVarName(mb,getArg(p,0)), location[getArg(p,0)]);
-				}
+#ifdef DEBUG_OPT_REMOTEQUERIES
+				fprintf(stderr, "found remote variable %s ad %d\n",
+					getVarName(mb,getArg(p,0)), location[getArg(p,0)]);
+#endif
 				pushInstruction(mb,p);
 			}
 		} else
@@ -317,12 +309,13 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 				/* perform locally */
 				for(j=p->retc; j<p->argc; j++)
 				if( location[getArg(p,j)]){
-					q= newStmt(mb,mapiRef,rpcRef);
+					q= newInstruction(0,mapiRef,rpcRef);
 					getArg(q,0)= getArg(p,j);
 					q= pushArgument(mb,q,location[getArg(p,j)]);
 					snprintf(buf,BUFSIZ,"io.print(%s);",
 						getVarName(mb,getArg(p,j)) );
 					(void) pushStr(mb,q,buf);
+					pushInstruction(mb,q);
 				}
 				pushInstruction(mb,p);
 				/* as of now all the targets are also local */
@@ -331,19 +324,18 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 				doit++;
 			} else if (remoteSite){
 				/* single remote site involved */
-				r= newInstruction(mb,ASSIGNsymbol);
-				getModuleId(r)= mapiRef;
-				getFunctionId(r)= rpcRef;
+				r= newInstruction(mb,mapiRef,rpcRef);
 				getArg(r,0)= newTmpVariable(mb, TYPE_void);
 				r= pushArgument(mb, r, remoteSite);
 
 				for(j=p->retc; j<p->argc; j++)
 				if( location[getArg(p,j)] == 0 && !isVarConstant(mb,getArg(p,j)) ){
-					q= newStmt(mb,mapiRef,putRef);
+					q= newInstruction(0,mapiRef,putRef);
 					getArg(q,0)= newTmpVariable(mb, TYPE_void);
 					q= pushArgument(mb, q, remoteSite);
 					q= pushStr(mb,q, getVarName(mb,getArg(p,j)));
 					(void) pushArgument(mb, q, getArg(p,j));
+					pushInstruction(mb,q);
 				}
 				s= RQcall2str(mb, p);
 				pushInstruction(mb,r);
@@ -363,11 +355,25 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 	GDKfree(old);
 #ifdef DEBUG_OPT_REMOTE
 	if (doit) {
-		mnstr_printf(cntxt->fdout, "remoteQueries %d\n", doit);
-		printFunction(cntxt->fdout, mb, 0, LIST_MAL_ALL);
+		fprintf(stderr, "remoteQueries %d\n", doit);
+		fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
 	}
 #endif
 	GDKfree(location);
 	GDKfree(dbalias);
-	return doit;
+
+    /* Defense line against incorrect plans */
+    if( doit){
+        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+        chkFlow(cntxt->fdout, mb);
+        chkDeclarations(cntxt->fdout, mb);
+    }
+    /* keep all actions taken as a post block comment */
+	usec = GDKusec()- usec;
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","remoteQueries",doit,  usec);
+    newComment(mb,buf);
+	if( doit >= 0)
+		addtoMalBlkHistory(mb);
+
+	return MAL_SUCCEED;
 }

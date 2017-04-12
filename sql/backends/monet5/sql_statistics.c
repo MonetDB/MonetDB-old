@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* (c) M.L. Kersten
@@ -21,6 +21,37 @@ analysis by optimizers.
 #include "sql_statistics.h"
 #include "sql_scenario.h"
 
+#define atommem(TYPE, size)					\
+	do {							\
+		if (*dst == NULL || *len < (int) (size)) {	\
+			GDKfree(*dst);				\
+			*len = (size);				\
+			*dst = (TYPE *) GDKmalloc(*len);	\
+			if (*dst == NULL)			\
+				return -1;			\
+		}						\
+	} while (0)
+
+static int
+strToStrSQuote(char **dst, int *len, const void *src)
+{
+	int l = 0;
+
+	if (GDK_STRNIL((str) src)) {
+		atommem(char, 4);
+
+		return snprintf(*dst, *len, "nil");
+	} else {
+		int sz = escapedStrlen(src, NULL, NULL, '\'');
+		atommem(char, sz + 3);
+		l = escapedStr((*dst) + 1, src, *len - 1, NULL, NULL, '\'');
+		l++;
+		(*dst)[0] = (*dst)[l++] = '"';
+		(*dst)[l] = 0;
+	}
+	return l;
+}
+
 str
 sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -29,9 +60,11 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_trans *tr = m->session->tr;
 	node *nsch, *ntab, *ncol;
 	char *query, *dquery;
+	size_t querylen;
 	char *maxval = NULL, *minval = NULL;
+	int minlen = 0, maxlen = 0;
 	str sch = 0, tbl = 0, col = 0;
-	int sorted;
+	int sorted, revsorted;
 	lng nils = 0;
 	lng uniq = 0;
 	lng samplesize = *getArgReference_lng(stk, pci, 2);
@@ -43,11 +76,10 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (msg != MAL_SUCCEED || (msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 
+	querylen = 0;
+	query = NULL;
 	dquery = (char *) GDKzalloc(8192);
-	query = (char *) GDKzalloc(8192);
-	if (!(dquery && query)) {
-		GDKfree(dquery);
-		GDKfree(query);
+	if (dquery == NULL) {
 		throw(SQL, "analyze", MAL_MALLOC_FAIL);
 	}
 
@@ -60,7 +92,7 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		sch = *getArgReference_str(stk, pci, 3);
 	}
 #ifdef DEBUG_SQL_STATISTICS
-	mnstr_printf(cntxt->fdout, "analyze %s.%s.%s sample " LLFMT "%s\n", (sch ? sch : ""), (tbl ? tbl : " "), (col ? col : " "), samplesize, (minmax)?"MinMax":"");
+	fprintf(stderr, "analyze %s.%s.%s sample " LLFMT "%s\n", (sch ? sch : ""), (tbl ? tbl : " "), (col ? col : " "), samplesize, (minmax)?"MinMax":"");
 #endif
 	for (nsch = tr->schemas.set->h; nsch; nsch = nsch->next) {
 		sql_base *b = nsch->data;
@@ -83,15 +115,25 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					for (ncol = (t)->columns.set->h; ncol; ncol = ncol->next) {
 						sql_base *bc = ncol->data;
 						sql_column *c = (sql_column *) ncol->data;
-						BAT *bn = store_funcs.bind_col(tr, c, RDONLY), *br;
+						BAT *bn, *br;
 						BAT *bsample;
-						lng sz = BATcount(bn);
-						int (*tostr)(str*,int*,const void*) = BATatoms[bn->ttype].atomToStr; \
-						int len = 0;
+						lng sz;
+						int (*tostr)(str*,int*,const void*);
 						void *val=0;
 
 						if (col && strcmp(bc->name, col))
 							continue;
+
+						if ((bn = store_funcs.bind_col(tr, c, RDONLY)) == NULL) {
+							/* XXX throw error instead? */
+							continue;
+						}
+						sz = BATcount(bn);
+						tostr = BATatoms[bn->ttype].atomToStr;
+
+						if (tostr == BATatoms[TYPE_str].atomToStr)
+							tostr = strToStrSQuote;
+
 						snprintf(dquery, 8192, "delete from sys.statistics where \"column_id\" = %d;", c->base.id);
 						cfnd = 1;
 						if (samplesize > 0) {
@@ -99,6 +141,11 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 						} else
 							bsample = NULL;
 						br = BATselect(bn, bsample, ATOMnilptr(bn->ttype), NULL, 0, 0, 0);
+						if (br == NULL) {
+							BBPunfix(bn->batCacheid);
+							/* XXX throw error instead? */
+							continue;
+						}
 						nils = BATcount(br);
 						BBPunfix(br->batCacheid);
 						if (bn->tkey)
@@ -119,28 +166,68 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 						}
 						if( bsample)
 							BBPunfix(bsample->batCacheid);
-						sorted = BATtordered(bn);
+						/* use BATordered(_rev)
+						 * and not
+						 * BATt(rev)ordered
+						 * because we want to
+						 * know for sure */
+						sorted = BATordered(bn);
+						revsorted = BATordered_rev(bn);
 
 						// Gather the min/max value for builtin types
-						width = bn->T->width;
+						width = bn->twidth;
 
-						if (tostr) { 
-							val = BATmax(bn,0); len = 0;
-							tostr(&maxval, &len,val); 
-							GDKfree(val);
-							val = BATmin(bn,0); len = 0;
-							tostr(&minval, &len,val); 
-							GDKfree(val);
-						} else {
-							maxval = (char *) GDKzalloc(4);
-							minval = (char *) GDKzalloc(4);
-							snprintf(maxval, 4, "nil");
-							snprintf(minval, 4, "nil");
+						if (maxlen < 4) {
+							GDKfree(maxval);
+							maxval = GDKmalloc(4);
+							if( maxval== NULL) {
+								GDKfree(dquery);
+								throw(SQL, "analyze", MAL_MALLOC_FAIL);
+							}
+							maxlen = 4;
 						}
-						snprintf(query, 8192, "insert into sys.statistics values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s);", c->base.id, c->type.type->sqlname, width, (samplesize ? samplesize : sz), sz, uniq, nils, minval, maxval, sorted ? "true" : "false");
+						if (minlen < 4) {
+							GDKfree(minval);
+							minval = GDKmalloc(4);
+							if( minval== NULL){
+								GDKfree(dquery);
+								GDKfree(maxval);
+								throw(SQL, "analyze", MAL_MALLOC_FAIL);
+							}
+							minlen = 4;
+						}
+						if (tostr) {
+							if ((val = BATmax(bn,0)) == NULL)
+								strcpy(maxval, "nil");
+							else {
+								tostr(&maxval, &maxlen, val);
+								GDKfree(val);
+							}
+							if ((val = BATmin(bn,0)) == NULL)
+								strcpy(minval, "nil");
+							else {
+								tostr(&minval, &minlen, val);
+								GDKfree(val);
+							}
+						} else {
+							strcpy(maxval, "nil");
+							strcpy(minval, "nil");
+						}
+						if (strlen(minval) + strlen(maxval) + 1024 > querylen) {
+							querylen = strlen(minval) + strlen(maxval) + 1024;
+							GDKfree(query);
+							query = GDKmalloc(querylen);
+							if (query == NULL) {
+								GDKfree(dquery);
+								GDKfree(maxval);
+								GDKfree(minval);
+								throw(SQL, "analyze", MAL_MALLOC_FAIL);
+							}
+						}
+						snprintf(query, querylen, "insert into sys.statistics (column_id,type,width,stamp,\"sample\",count,\"unique\",nils,minval,maxval,sorted,revsorted) values(%d,'%s',%d,now()," LLFMT "," LLFMT "," LLFMT "," LLFMT ",'%s','%s',%s,%s);", c->base.id, c->type.type->sqlname, width, (samplesize ? samplesize : sz), sz, uniq, nils, minval, maxval, sorted ? "true" : "false", revsorted ? "true" : "false");
 #ifdef DEBUG_SQL_STATISTICS
-						mnstr_printf(cntxt->fdout, "%s\n", dquery);
-						mnstr_printf(cntxt->fdout, "%s\n", query);
+						fprintf(stderr, "%s\n", dquery);
+						fprintf(stderr, "%s\n", query);
 #endif
 						BBPunfix(bn->batCacheid);
 						msg = SQLstatementIntern(cntxt, &dquery, "SQLanalyze", TRUE, FALSE, NULL);

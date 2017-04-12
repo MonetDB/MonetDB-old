@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -46,12 +46,14 @@ static int OPTinlineMultiplex(Client cntxt, MalBlkPtr mb, InstrPtr p){
 }
 
 
-int
+str
 OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
 	int i;
 	InstrPtr q,sig;
 	int actions = 0;
+	char buf[256];
+	lng usec = GDKusec();
 
 	(void) p;
 	(void)stk;
@@ -66,10 +68,10 @@ OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			 */
 			if (isMultiplex(q)) {
 				if (OPTinlineMultiplex(cntxt,mb,q)) {
-					OPTDEBUGinline {
-						mnstr_printf(cntxt->fdout,"#multiplex inline function\n");
-						printInstruction(cntxt->fdout,mb,0,q,LIST_MAL_ALL);
-					}
+#ifdef DEBUG_OPT_INLINE
+					fprintf(stderr,"#multiplex inline function\n");
+					fprintInstruction(stderr,mb,0,q,LIST_MAL_ALL);
+#endif
 				}
 			} else
 			/*
@@ -80,13 +82,27 @@ OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 				(void) inlineMALblock(mb,i,q->blk);
 				i--;
 				actions++;
-				OPTDEBUGinline {
-					mnstr_printf(cntxt->fdout,"#inline function at %d\n",i);
-					printFunction(cntxt->fdout, mb, 0, LIST_MAL_ALL);
-					printInstruction(cntxt->fdout,q->blk,0,sig,LIST_MAL_ALL);
-				}
+#ifdef DEBUG_OPT_INLINE
+				fprintf(stderr,"#inline function at %d\n",i);
+				fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
+				fprintInstruction(stderr,q->blk,0,sig,LIST_MAL_ALL);
+#endif
 			}
 		}
 	}
-	return actions;
+
+    /* Defense line against incorrect plans */
+    if( actions > 0){
+        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+        chkFlow(cntxt->fdout, mb);
+        chkDeclarations(cntxt->fdout, mb);
+    }
+    /* keep all actions taken as a post block comment */
+	usec = GDKusec()- usec;
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","inline",actions, usec);
+    newComment(mb,buf);
+	if( actions >= 0)
+		addtoMalBlkHistory(mb);
+
+	return MAL_SUCCEED;
 }

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -63,14 +63,8 @@
 #include "mal.h"
 #include "mal_exception.h"
 
-#ifdef WIN32
-#define logger_export extern __declspec(dllexport)
-#else
-#define logger_export extern
-#endif
-
 /* the wrappers */
-logger_export str logger_create_wrap( logger *L, int *debug, str *fn, str *dirname, int *version);
+mal_export str logger_create_wrap( logger *L, int *debug, str *fn, str *dirname, int *version);
 
 str
 logger_create_wrap( logger *L, int *debug, str *fn, str *dirname, int *version)
@@ -85,7 +79,7 @@ logger_create_wrap( logger *L, int *debug, str *fn, str *dirname, int *version)
 		*dirname, *version);
 }
 
-logger_export str logger_destroy_wrap(void *ret, logger *L ) ;
+mal_export str logger_destroy_wrap(void *ret, logger *L ) ;
 
 str
 logger_destroy_wrap(void *ret, logger *L )

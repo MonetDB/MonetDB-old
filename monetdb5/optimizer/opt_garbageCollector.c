@@ -3,105 +3,120 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
 #include "opt_garbageCollector.h"
 #include "mal_interpreter.h"	/* for showErrors() */
 #include "mal_builder.h"
+#include "mal_function.h"
 #include "opt_prelude.h"
 
-/*
- * Keeping variables around beyond their end-of-life-span
- * can be marked with the proper 'keep'.
- * Set the program counter to ease profiling
+/* The garbage collector is focused on removing temporary BATs only.
+ * Leaving some garbage on the stack is an issue.
+ *
+ * The end-of-life of a BAT may lay within block bracket. This calls
+ * for care, as the block may trigger a loop and then the BATs should
+ * still be there.
+ *
+ * The life time of such BATs is forcefully terminated after the block exit.
  */
-int
+str
 OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int i, j, k, n = 0, limit, vlimit, depth=0, slimit;
-	InstrPtr p, q, *old;
+	int i, j, limit, slimit;
+	InstrPtr p, *old;
 	int actions = 0;
-	Lifespan span;
+	char buf[256];
+	lng usec = GDKusec();
+	//int *varlnk, *stmtlnk;
 
 	(void) pci;
 	(void) cntxt;
 	(void) stk;
 	if ( mb->inlineProp)
 		return 0;
-
-
+/*
+	varlnk = (int*) GDKzalloc(mb->vtop * sizeof(int));
+	if( varlnk == NULL)
+		return 0;
+	stmtlnk = (int*) GDKzalloc((mb->stop + 1) * sizeof(int));
+	if( stmtlnk == NULL){
+		GDKfree(varlnk);
+		return 0;
+	}
+*/
+	
 	old= mb->stmt;
 	limit = mb->stop;
 	slimit = mb->ssize;
-	vlimit = mb->vtop;
+	//vlimit = mb->vtop;
 
-	// move SQL query to front
+	// move SQL query definition to the front for event profiling tools
 	p = NULL;
-	for(i = limit; i> 2; i--){
+	for(i = 0; i < limit; i++)
 		if(mb->stmt[i] && getModuleId(mb->stmt[i]) == querylogRef && getFunctionId(mb->stmt[i]) == defineRef ){
-			p = mb->stmt[i];
-			p = pushInt(mb,p,i+1);
+			p = getInstrPtr(mb,i);
 			break;
 		}
-	}
+	
 	if( p != NULL){
 		for(  ; i > 1; i--)
 			mb->stmt[i] = mb->stmt[i-1];
 		mb->stmt[1] = p;
-		mb->stmt[1]->token = ASSIGNsymbol;
+		actions =1;
 	}
-	span = setLifespan(mb);
-	if ( span == NULL)
-		return 0;
 
-	if ( newMalBlkStmt(mb,mb->ssize) < 0) {
-		GDKfree(span);
-		return 0;
+	// Actual garbage collection stuff
+	// Construct the linked list of variables based on end-of-scope
+/*
+	setVariableScope(mb);
+	for( i = 0; i < mb->vtop; i++){
+		assert(getEndScope(mb,i) >= 0);
+		assert(getEndScope(mb,i) <= mb->stop);
+	  varlnk[i] = stmtlnk[getEndScope(mb,i)];
+	  stmtlnk[getEndScope(mb,i)] = i;
 	}
+*/
+
+	if ( newMalBlkStmt(mb,mb->ssize) < 0) 
+		throw(MAL, "optimizer.garbagecollector", MAL_MALLOC_FAIL);
 
 	p = NULL;
 	for (i = 0; i < limit; i++) {
 		p = old[i];
 		p->gc &=  ~GARBAGECONTROL;
+		/* Set the program counter to ease profiling */
 		p->pc = i;
 
 		if ( p->barrier == RETURNsymbol){
 			pushInstruction(mb, p);
 			continue;
 		}
-		if (blockStart(p) )
-			depth++;
 		if ( p->token == ENDsymbol)
 			break;
 		
 		pushInstruction(mb, p);
-		n = mb->stop-1;
-		for (j = 0; j < p->argc; j++) {
-			if (getEndLifespan(span,getArg(p,j)) == i && isaBatType(getArgType(mb, p, j)) ){
-				mb->var[getArg(p,j)]->eolife = n;
-				p->gc |= GARBAGECONTROL;
-			} 
-		}
+
+		/* A block exit is never within a parallel block,
+		 * otherwise we could not inject the assignment */
+			/* force garbage collection of all declared within output block and ending here  */
+/* ignore for the time being, it requires a more thorough analysis of dependencies.
 		if (blockExit(p) ){
-			/* force garbage collection of all within upper block */
-			depth--;
-			for (k = 0; k < vlimit; k++) {
-				if (getBeginLifespan(span,k) > 0  &&
-					getEndLifespan(span,k) == i &&
-					isaBatType(getVarType(mb,k)) ){
-						q= newAssignment(mb);
-						getArg(q,0) = k;
-						setVarUDFtype(mb,k);
-						setVarFixed(mb,k);
-						q= pushNil(mb,q, getVarType(mb,k));
-						q->gc |= GARBAGECONTROL;
-						mb->var[k]->eolife = mb->stop-1;
-						actions++;
-				}
+			for( k = stmtlnk[i]; k; k = varlnk[k])
+			if( isaBatType(getVarType(mb,k)) ){
+				q = newAssignment(mb);
+				getArg(q,0)= k;
+				q= pushNil(mb,q, getVarType(mb,k));
+				setVarUDFtype(mb,k);
+				setVarFixed(mb,k);
+				q->gc |= GARBAGECONTROL;
+				setVarEolife(mb,k,mb->stop-1);
+				actions++;
 			}
 		}
+*/
 	}
 	assert(p);
 	assert( p->token == ENDsymbol);
@@ -112,20 +127,45 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 		if (old[i])
 			freeInstruction(old[i]);
 	getInstrPtr(mb,0)->gc |= GARBAGECONTROL;
+	//GDKfree(varlnk);
+	//GDKfree(stmtlnk);
 	GDKfree(old);
-	OPTDEBUGgarbageCollector{ 
-		int k;
-		mnstr_printf(cntxt->fdout, "#Garbage collected BAT variables \n");
+#ifdef DEBUG_OPT_GARBAGE
+	{ 	int k;
+		fprintf(stderr, "#Garbage collected BAT variables \n");
 		for ( k =0; k < vlimit; k++)
-		mnstr_printf(cntxt->fdout,"%10s eolife %3d  begin %3d lastupd %3d end %3d\n",
+		fprintf(stderr,"%10s eolife %3d  begin %3d lastupd %3d end %3d\n",
 			getVarName(mb,k), mb->var[k]->eolife,
-			getBeginLifespan(span,k), getLastUpdate(span,k), getEndLifespan(span,k));
+			getBeginScope(mb,k), getLastUpdate(mb,k), getEndScope(mb,k));
 		chkFlow(cntxt->fdout,mb);
-		printFunction(cntxt->fdout,mb, 0, LIST_MAL_ALL);
-		mnstr_printf(cntxt->fdout, "End of GCoptimizer\n");
+		fprintFunction(stderr,mb, 0, LIST_MAL_ALL);
+		fprintf(stderr, "End of GCoptimizer\n");
 	}
-	GDKfree(span);
+#endif
 
-	return actions+1;
+	/* rename all temporaries for ease of debugging */
+	for( i = 0; i < mb->vtop; i++)
+	if( sscanf(getVarName(mb,i),"X_%d", &j) == 1)
+		snprintf(getVarName(mb,i),IDLENGTH,"X_%d",i);
+	else
+	if( sscanf(getVarName(mb,i),"C_%d", &j) == 1)
+		snprintf(getVarName(mb,i),IDLENGTH,"C_%d",i);
+
+	/* leave a consistent scope admin behind */
+	setVariableScope(mb);
+    /* Defense line against incorrect plans */
+    if( actions+1 > 0){
+        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+        chkFlow(cntxt->fdout, mb);
+        chkDeclarations(cntxt->fdout, mb);
+    }
+    /* keep all actions taken as a post block comment */
+	usec = GDKusec()- usec;
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","garbagecollector",actions, usec);
+    newComment(mb,buf);
+	if( actions >= 0)
+		addtoMalBlkHistory(mb);
+
+	return MAL_SUCCEED;
 }
 

@@ -3,20 +3,18 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #ifndef _DISCOVERYRUNNER_H
 #define _DISCOVERYRUNNER_H 1
-
-#include <pthread.h>
 
 #include <msabaoth.h>
 
 void broadcast(char *msg);
 void registerMessageTap(int fd);
 void unregisterMessageTap(int fd);
-void discoveryRunner(void *d);
+void *discoveryRunner(void *d);
 
 typedef struct _remotedb {
 	char *dbname;       /* remote database name */

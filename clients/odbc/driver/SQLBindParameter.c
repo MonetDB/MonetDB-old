@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -20,10 +20,7 @@
  * SQLBindParameter()
  * CLI Compliance: ODBC (Microsoft)
  *
- * Note: this function is not supported (yet), it returns an error.
- * So parametrized SQL commands are not possible!
- * TODO: implement this function and corresponding behavior in
- * SQLPrepare() and SQLExecute().
+ * Note: this function does not yet support Output parameters, only SQL_PARAM_INPUT.
  *
  * Author: Martin van Dinther, Sjoerd Mullender
  * Date  : 30 Aug 2002

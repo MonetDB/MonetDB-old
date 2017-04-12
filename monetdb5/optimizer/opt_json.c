@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -15,7 +15,7 @@
 #include "mal_builder.h"
 #include "opt_json.h"
 
-int 
+str 
 OPTjsonImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int i, j, limit, slimit;
@@ -24,6 +24,8 @@ OPTjsonImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	InstrPtr p,q;
 	int actions = 0;
 	InstrPtr *old;
+	char buf[256];
+	lng usec = GDKusec();
 
 	(void) pci;
 	(void) cntxt;
@@ -32,20 +34,23 @@ OPTjsonImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	limit= mb->stop;
 	slimit = mb->ssize;
 	if ( newMalBlkStmt(mb,mb->stop) < 0)
-		return 0;
+		throw(MAL,"optimizer.json",MAL_MALLOC_FAIL);
 	for (i = 0; i < limit; i++) {
 		p = old[i];
 		if( getModuleId(p) == sqlRef  && getFunctionId(p) == affectedRowsRef) {
-			q = newStmt(mb, jsonRef, resultSetRef);
+			q = newInstruction(0, jsonRef, resultSetRef);
 			q = pushArgument(mb, q, bu);
 			q = pushArgument(mb, q, br);
 			q = pushArgument(mb, q, bj);
 			j = getArg(q,0);
 			p= getInstrPtr(mb,0);
-			setVarType(mb,getArg(p,0),TYPE_str);
-			q = newReturnStmt(mb);
+			setDestVar(q, newTmpVariable(mb, TYPE_str));
+			pushInstruction(mb,p);
+			q = newInstruction(0, NULL, NULL);
+			q->barrier = RETURNsymbol;
 			getArg(q,0)= getArg(p,0);
 			pushArgument(mb,q,j);
+			pushInstruction(mb,q);
 			continue;
 		}
 		if( getModuleId(p) == sqlRef  && getFunctionId(p) == rsColumnRef) {
@@ -65,5 +70,18 @@ OPTjsonImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if (old[i]) 
 			freeInstruction(old[i]);
 	GDKfree(old);
-	return actions;
+    /* Defense line against incorrect plans */
+    if( actions > 0){
+        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+        chkFlow(cntxt->fdout, mb);
+        chkDeclarations(cntxt->fdout, mb);
+    }
+    /* keep all actions taken as a post block comment */
+	usec = GDKusec()- usec;
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","json",actions, usec);
+    newComment(mb,buf);
+	if( actions >= 0)
+		addtoMalBlkHistory(mb);
+
+	return MAL_SUCCEED;
 }

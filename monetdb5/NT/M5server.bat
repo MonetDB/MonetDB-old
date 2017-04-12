@@ -2,7 +2,7 @@
 @REM License, v. 2.0.  If a copy of the MPL was not distributed with this
 @REM file, You can obtain one at http://mozilla.org/MPL/2.0/.
 @REM
-@REM Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+@REM Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 @echo off
 
@@ -39,8 +39,14 @@ for /d %%i in ("%MONETDBDIR%"\sql_logs\*) do move "%%i" "%MONETDBDIR%\dbfarm"\%%
 rmdir "%MONETDBDIR%\sql_logs"
 :skipmove
 
+set MONETDBPYTHONUDF="embedded_py=false"
+
+if not exist "%MONETDB%\pyapi_locatepython.bat" goto skippython
+call "%MONETDB%\pyapi_locatepython.bat"
+:skippython
+
 rem start the real server
-"%MONETDB%\bin\mserver5.exe" --set "prefix=%MONETDB%" --set "exec_prefix=%MONETDB%" %MONETDBFARM% %*
+"%MONETDB%\bin\mserver5.exe" --set "prefix=%MONETDB%" --set %MONETDBPYTHONUDF% --set "exec_prefix=%MONETDB%" %MONETDBFARM% %*
 
 if ERRORLEVEL 1 pause
 

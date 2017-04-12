@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* multi version catalog */
@@ -30,6 +30,7 @@
 #define type_value	0
 #define type_predicate	1
 
+/* todo cleanup card_row and card_set, both seem to be not used */
 /* cardinality expected by enclosing operator */
 #define card_none	-1	/* psm call doesn't return anything */
 #define card_value	0
@@ -37,11 +38,14 @@
 #define card_column 	2
 #define card_set	3 /* some operators require only a set (IN/EXISTS) */
 #define card_relation 	4
+#define card_loader 	5
+
+#define CARD_VALUE(card) (card == card_value || card == card_row || card == card_column || card == card_set)
+
 /* allowed to reduce (in the where and having parts we can reduce) */
 
 /* different query execution modes (emode) */
 #define m_normal 	0
-#define m_inplace 	1 
 #define m_execute 	2
 #define m_prepare 	3
 #define m_plan 		4
@@ -51,7 +55,7 @@
 #define m_instantiate 	5
 #define m_deps 		6
 
-#define QUERY_MODE(m) (m==m_normal || m==m_inplace || m==m_instantiate || m==m_deps)
+#define QUERY_MODE(m) (m==m_normal || m==m_instantiate || m==m_deps)
 
 
 /* different query execution modifiers (emod) */
@@ -64,8 +68,7 @@
 
 typedef struct sql_var {
 	const char *name;
-	ValRecord value;
-	sql_subtype type;
+	atom a;
 	sql_table *t;
 	sql_rel *rel;	
 	char view;
@@ -130,7 +133,7 @@ typedef struct mvc {
 extern int mvc_init(int debug, store_type store, int ro, int su, backend_stack stk);
 extern void mvc_exit(void);
 extern void mvc_logmanager(void);
-extern void mvc_minmaxmanager(void);
+extern void mvc_idlemanager(void);
 
 extern mvc *mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws);
 extern void mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars);
@@ -211,15 +214,13 @@ extern void mvc_drop_trigger(mvc *m, sql_schema *s, sql_trigger * tri);
 extern void mvc_create_dependency(mvc *m, int id, int depend_id, int depend_type);
 extern void mvc_create_dependencies(mvc *m, list *id_l, sqlid depend_id, int dep_type);
 extern int mvc_check_dependency(mvc * m, int id, int type, list *ignore_ids);
-extern int mvc_connect_catalog(mvc *m, const char *server, int port, const char *db, const char *db_alias, const char *user, const char *passwd, const char *lng);
-extern int mvc_disconnect_catalog(mvc *m, const char *db_alias);
-extern int mvc_disconnect_catalog_ALL(mvc *m);
 
 /* variable management */
 extern void stack_push_var(mvc *sql, const char *name, sql_subtype *type);
 extern void stack_push_rel_var(mvc *sql, const char *name, sql_rel *var, sql_subtype *type);
 extern void stack_push_table(mvc *sql, const char *name, sql_rel *var, sql_table *t);
 extern void stack_push_rel_view(mvc *sql, const char *name, sql_rel *view);
+extern void stack_update_rel_view(mvc *sql, const char *name, sql_rel *view);
 
 extern void stack_push_frame(mvc *sql, const char *name);
 extern void stack_pop_frame(mvc *sql);
@@ -237,7 +238,7 @@ extern int stack_find_frame(mvc *sql, const char *name);
 extern int stack_has_frame(mvc *sql, const char *name);
 extern int stack_nr_of_declared_tables(mvc *sql);
 
-extern ValRecord * stack_get_var(mvc *sql, const char *name);
+extern atom * stack_get_var(mvc *sql, const char *name);
 extern void stack_set_var(mvc *sql, const char *name, ValRecord *v);
 
 extern str stack_get_string(mvc *sql, const char *name);

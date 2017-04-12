@@ -2,7 +2,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 sed '/^$/q' $0			# copy copyright from this file
 
@@ -13,7 +13,7 @@ module batcalc;
 
 EOF
 
-integer="bte sht int wrd lng hge"	# all integer types
+integer="bte sht int lng hge"	# all integer types
 numeric="$integer flt dbl"	# all numeric types
 alltypes="bit $numeric oid str"
 
@@ -244,7 +244,6 @@ for tp1 in $numeric; do
 	    *bte*) tp3=bte;;
 	    *sht*) tp3=sht;;
 	    *int*) tp3=int;;
-	    *wrd*) tp3=wrd;;
 	    *lng*) tp3=lng;;
 	    *hge*) tp3=hge;;
 	    esac
@@ -494,6 +493,9 @@ EOF
 done
 
 for tp1 in $alltypes; do
+    if [[ $tp1 == str ]]; then
+	continue
+    fi
     for tp2 in $alltypes; do
 	case $tp1$tp2 in
 	*hge*) ;;

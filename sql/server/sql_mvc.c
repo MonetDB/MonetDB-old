@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* multi version catalog */
@@ -64,6 +64,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 	if (first || catalog_version) {
 		sql_schema *s;
 		sql_table *t;
+		sqlid tid = 0, ntid, cid = 0, ncid;
 		mvc *m = mvc_create(0, stk, 0, NULL, NULL);
 
 		m->sa = sa_create();
@@ -80,12 +81,15 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 
 		if (!first) {
 			t = mvc_bind_table(m, s, "tables");
+			tid = t->base.id;
 			mvc_drop_table(m, s, t, 0);
 			t = mvc_bind_table(m, s, "columns");
+			cid = t->base.id;
 			mvc_drop_table(m, s, t, 0);
 		}
 
 		t = mvc_create_view(m, s, "tables", SQL_PERSIST, "SELECT \"id\", \"name\", \"schema_id\", \"query\", CAST(CASE WHEN \"system\" THEN \"type\" + 10 /* system table/view */ ELSE (CASE WHEN \"commit_action\" = 0 THEN \"type\" /* table/view */ ELSE \"type\" + 20 /* global temp table */ END) END AS SMALLINT) AS \"type\", \"system\", \"commit_action\", \"access\", CASE WHEN (NOT \"system\" AND \"commit_action\" > 0) THEN 1 ELSE 0 END AS \"temporary\" FROM \"sys\".\"_tables\" WHERE \"type\" <> 2 UNION ALL SELECT \"id\", \"name\", \"schema_id\", \"query\", CAST(\"type\" + 30 /* local temp table */ AS SMALLINT) AS \"type\", \"system\", \"commit_action\", \"access\", 1 AS \"temporary\" FROM \"tmp\".\"_tables\";", 1);
+		ntid = t->base.id;
 		mvc_create_column_(m, t, "id", "int", 32);
 		mvc_create_column_(m, t, "name", "varchar", 1024);
 		mvc_create_column_(m, t, "schema_id", "int", 32);
@@ -101,10 +105,18 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 			int p = PRIV_SELECT;
 			int zero = 0;
 			sql_table *privs = find_sql_table(s, "privileges");
+			sql_table *deps = find_sql_table(s, "dependencies");
+			sql_column *depids = find_sql_column(deps, "id");
+			oid rid;
+
 			table_funcs.table_insert(m->session->tr, privs, &t->base.id, &pub, &p, &zero, &zero);
+			while ((rid = table_funcs.column_find_row(m->session->tr, depids, &tid, NULL)) != oid_nil) {
+				table_funcs.column_update_value(m->session->tr, depids, rid, &ntid);
+			}
 		}
 
 		t = mvc_create_view(m, s, "columns", SQL_PERSIST, "SELECT * FROM (SELECT p.* FROM \"sys\".\"_columns\" AS p UNION ALL SELECT t.* FROM \"tmp\".\"_columns\" AS t) AS columns;", 1);
+		ncid = t->base.id;
 		mvc_create_column_(m, t, "id", "int", 32);
 		mvc_create_column_(m, t, "name", "varchar", 1024);
 		mvc_create_column_(m, t, "type", "varchar", 1024);
@@ -121,7 +133,14 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 			int p = PRIV_SELECT;
 			int zero = 0;
 			sql_table *privs = find_sql_table(s, "privileges");
+			sql_table *deps = find_sql_table(s, "dependencies");
+			sql_column *depids = find_sql_column(deps, "id");
+			oid rid;
+
 			table_funcs.table_insert(m->session->tr, privs, &t->base.id, &pub, &p, &zero, &zero);
+			while ((rid = table_funcs.column_find_row(m->session->tr, depids, &cid, NULL)) != oid_nil) {
+				table_funcs.column_update_value(m->session->tr, depids, rid, &ncid);
+			}
 		} else { 
 			sql_create_env(m, s);
 			sql_create_privileges(m, s);
@@ -160,11 +179,11 @@ mvc_logmanager(void)
 }
 
 void
-mvc_minmaxmanager(void)
+mvc_idlemanager(void)
 {
-	Thread thr = THRnew("minmaxmanager");
+	Thread thr = THRnew("idlemanager");
 
-	minmax_manager();
+	idle_manager();
 	THRdel(thr);
 }
 
@@ -228,22 +247,34 @@ sql_trans_deref( sql_trans *tr )
 		for ( m = s->tables.set->h; m; m = m->next) {
 			sql_table *t = m->data;
 
-			if (t->po) 
+			if (t->po) { 
+				sql_table *p = t->po;
+
 				t->po = t->po->po;
+				table_destroy(p);
+			}
 
 			if (t->columns.set)
 			for ( o = t->columns.set->h; o; o = o->next) {
 				sql_column *c = o->data;
 
-				if (c->po) 
+				if (c->po) {
+					sql_column *p = c->po;
+
 					c->po = c->po->po;
+					column_destroy(p);
+				}
 			}
 			if (t->idxs.set)
 			for ( o = t->idxs.set->h; o; o = o->next) {
 				sql_idx *i = o->data;
 
-				if (i->po) 
+				if (i->po) {
+					sql_idx *p = i->po;
+
 					i->po = i->po->po;
+					idx_destroy(p);
+				}
 			}
 		}
 	}
@@ -291,13 +322,14 @@ build up the hash (not copied in the trans dup)) */
 	tr = tr->parent;
 	if (tr->parent) {
 		store_lock();
-		while (tr->parent != NULL && ok == SQL_OK) {
+		while (ctr->parent->parent != NULL && ok == SQL_OK) {
 			/* first free references to tr objects, ie
 			 * c->po = c->po->po etc
 			 */
 			ctr = sql_trans_deref(ctr);
-			tr = sql_trans_destroy(tr);
 		}
+		while (tr->parent != NULL && ok == SQL_OK) 
+			tr = sql_trans_destroy(tr);
 		store_unlock();
 	}
 	cur -> parent = tr;
@@ -469,6 +501,7 @@ mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 
 	m->params = NULL;
 	m->sizevars = MAXPARAMS;
+	// FIXME unchecked_malloc NEW_ARRAY can return NULL
 	m->vars = NEW_ARRAY(sql_var, m->sizevars);
 	m->topvars = 0;
 	m->frame = 1;
@@ -1206,36 +1239,6 @@ mvc_check_dependency(mvc * m, int id, int type, list *ignore_ids)
 	return NO_DEPENDENCY;
 }
 
-int
-mvc_connect_catalog(mvc *m, const char *server, int port, const char *db, const char *db_alias, const char *user, const char *passwd, const char *lng)
-{
-	if (mvc_debug)
-		fprintf(stderr, "#mvc_connect_catalog of database %s on server %s\n",db, server);
-
-	return sql_trans_connect_catalog(m->session->tr, server, port, db, db_alias, user, passwd, lng);
-		
-}
-
-int
-mvc_disconnect_catalog(mvc *m, const char *db_alias)
-{
-	if (mvc_debug)
-		fprintf(stderr, "#mvc_disconnect_catalog for db_alias %s\n",db_alias);
-
-	return sql_trans_disconnect_catalog(m->session->tr, db_alias);
-		
-}
-
-int
-mvc_disconnect_catalog_ALL(mvc *m)
-{
-	if (mvc_debug)
-		fprintf(stderr, "#mvc_disconnect_catalog_ALL \n");
-
-	return sql_trans_disconnect_catalog_ALL(m->session->tr);
-		
-}
-
 sql_column *
 mvc_null(mvc *m, sql_column *col, int isnull)
 {
@@ -1323,17 +1326,17 @@ stack_set(mvc *sql, int var, const char *name, sql_subtype *type, sql_rel *rel, 
 		sql->vars = RENEW_ARRAY(sql_var,sql->vars,sql->sizevars);
 	}
 	v = sql->vars+var;
+
 	v->name = NULL;
-	v->value.vtype = 0;
+	atom_init( &v->a );
 	v->rel = rel;
 	v->t = t;
 	v->view = view;
 	v->frame = frame;
-	v->type.type = NULL;
 	if (type) {
 		int tpe = type->type->localtype;
-		VALinit(&sql->vars[var].value, tpe, ATOMnilptr(tpe));
-		v->type = *type;
+		VALset(&sql->vars[var].a.data, tpe, (ptr) ATOMnilptr(tpe));
+		v->a.tpe = *type;
 	}
 	if (name)
 		v->name = _STRDUP(name);
@@ -1372,20 +1375,25 @@ stack_set_var(mvc *sql, const char *name, ValRecord *v)
 
 	for (i = sql->topvars-1; i >= 0; i--) {
 		if (!sql->vars[i].frame && strcmp(sql->vars[i].name, name)==0) {
-			VALclear(&sql->vars[i].value);
-			VALcopy(&sql->vars[i].value, v);
+			VALclear(&sql->vars[i].a.data);
+			VALcopy(&sql->vars[i].a.data, v);
+			sql->vars[i].a.isnull = VALisnil(v);
+			if (v->vtype == TYPE_flt)
+				sql->vars[i].a.d = v->val.fval;
+			else if (v->vtype == TYPE_dbl)
+				sql->vars[i].a.d = v->val.dval;
 		}
 	}
 }
 
-ValRecord *
+atom *
 stack_get_var(mvc *sql, const char *name)
 {
 	int i;
 
 	for (i = sql->topvars-1; i >= 0; i--) {
 		if (!sql->vars[i].frame && strcmp(sql->vars[i].name, name)==0) {
-			return &sql->vars[i].value;
+			return &sql->vars[i].a;
 		}
 	}
 	return NULL;
@@ -1405,8 +1413,8 @@ stack_pop_until(mvc *sql, int top)
 		sql_var *v = &sql->vars[--sql->topvars];
 
 		c_delete(v->name);
-		VALclear(&v->value);
-		v->value.vtype = 0;
+		VALclear(&v->a.data);
+		v->a.data.vtype = 0;
 	}
 }
 
@@ -1417,8 +1425,8 @@ stack_pop_frame(mvc *sql)
 		sql_var *v = &sql->vars[sql->topvars];
 
 		c_delete(v->name);
-		VALclear(&v->value);
-		v->value.vtype = 0;
+		VALclear(&v->a.data);
+		v->a.data.vtype = 0;
 		if (v->t && v->view) 
 			table_destroy(v->t);
 		else if (v->rel)
@@ -1437,7 +1445,7 @@ stack_find_type(mvc *sql, const char *name)
 	for (i = sql->topvars-1; i >= 0; i--) {
 		if (!sql->vars[i].frame && !sql->vars[i].view &&
 			strcmp(sql->vars[i].name, name)==0)
-			return &sql->vars[i].type;
+			return &sql->vars[i].a.tpe;
 	}
 	return NULL;
 }
@@ -1466,6 +1474,20 @@ stack_find_rel_view(mvc *sql, const char *name)
 			return rel_dup(sql->vars[i].rel);
 	}
 	return NULL;
+}
+
+void 
+stack_update_rel_view(mvc *sql, const char *name, sql_rel *view)
+{
+	int i;
+
+	for (i = sql->topvars-1; i >= 0; i--) {
+		if (!sql->vars[i].frame && sql->vars[i].view &&
+		    sql->vars[i].rel && strcmp(sql->vars[i].name, name)==0) {
+			rel_destroy(sql->vars[i].rel);
+			sql->vars[i].rel = view;
+		}
+	}
 }
 
 int 
@@ -1551,9 +1573,11 @@ stack_nr_of_declared_tables(mvc *sql)
 void
 stack_set_string(mvc *sql, const char *name, const char *val)
 {
-	ValRecord *v = stack_get_var(sql, name);
+	atom *a = stack_get_var(sql, name);
 
-	if (v != NULL) {
+	if (a != NULL) {
+		ValRecord *v = &a->data;
+
 		if (v->val.sval)
 			_DELETE(v->val.sval);
 		v->val.sval = _STRDUP(val);
@@ -1563,11 +1587,11 @@ stack_set_string(mvc *sql, const char *name, const char *val)
 str
 stack_get_string(mvc *sql, const char *name)
 {
-	ValRecord *v = stack_get_var(sql, name);
+	atom *a = stack_get_var(sql, name);
 
-	if (!v || v->vtype != TYPE_str)
+	if (!a || a->data.vtype != TYPE_str)
 		return NULL;
-	return v->val.sval;
+	return a->data.val.sval;
 }
 
 void
@@ -1577,9 +1601,10 @@ stack_set_number(mvc *sql, const char *name, hge val)
 stack_set_number(mvc *sql, const char *name, lng val)
 #endif
 {
-	ValRecord *v = stack_get_var(sql, name);
+	atom *a = stack_get_var(sql, name);
 
-	if (v != NULL) {
+	if (a != NULL) {
+		ValRecord *v = &a->data;
 #ifdef HAVE_HGE
 		if (v->vtype == TYPE_hge) 
 			v->val.hval = val;
@@ -1624,7 +1649,7 @@ val_get_number(ValRecord *v)
 		if (v->vtype == TYPE_bit) 
 			if (v->val.btval)
 				return 1;
-			return 0;
+		return 0;
 	}
 	return 0;
 }
@@ -1636,8 +1661,8 @@ lng
 #endif
 stack_get_number(mvc *sql, const char *name)
 {
-	ValRecord *v = stack_get_var(sql, name);
-	return val_get_number(v);
+	atom *a = stack_get_var(sql, name);
+	return val_get_number(a?&a->data:NULL);
 }
 
 sql_column *

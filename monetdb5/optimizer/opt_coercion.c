@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* (c) M. Kersten
@@ -55,7 +55,7 @@ coercionOptimizerCalcStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 	InstrPtr p = getInstrPtr(mb,i);
 	int r, a, b, varid;
 
-	r = getColumnType(getVarType(mb, getArg(p,0)));
+	r = getBatType(getVarType(mb, getArg(p,0)));
 #ifdef HAVE_HGE
 	if ( r != TYPE_hge)
 		return;
@@ -64,14 +64,14 @@ coercionOptimizerCalcStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 	if( ! (getFunctionId(p) == plusRef || getFunctionId(p) == minusRef || getFunctionId(p) == mulRef || getFunctionId(p) == divRef || *getFunctionId(p) =='%') || p->argc !=3)
 		return;
 
-	a = getColumnType(getVarType(mb, getArg(p,1)));
-	b = getColumnType(getVarType(mb, getArg(p,2)));
+	a = getBatType(getVarType(mb, getArg(p,1)));
+	b = getBatType(getVarType(mb, getArg(p,2)));
 	varid = getArg(p,1);
 	if ( a == r && coerce[varid].src && coerce[varid].fromtype < r ) 
 	{
 #ifdef _DEBUG_COERCION_
-		mnstr_printf(cntxt->fdout,"#remove upcast on first argument %d\n", varid);
-		printInstruction(cntxt->fdout, mb, 0, p, LIST_MAL_ALL);
+		fprintf(stderr,"#remove upcast on first argument %d\n", varid);
+		fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
 #endif
 		getArg(p,1) = coerce[varid].src;
 		if ( chkInstruction(NULL, cntxt->nspace, mb, p) || p->typechk == TYPE_UNKNOWN)
@@ -81,16 +81,16 @@ coercionOptimizerCalcStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 	if ( b == r && coerce[varid].src &&  coerce[varid].fromtype < r ) 
 	{
 #ifdef _DEBUG_COERCION_
-		mnstr_printf(cntxt->fdout,"#remove upcast on second argument %d\n", varid);
-		printInstruction(cntxt->fdout, mb, 0, p, LIST_MAL_ALL);
+		fprintf(stderr,"#remove upcast on second argument %d\n", varid);
+		fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
 #endif
 		getArg(p,2) = coerce[varid].src;
 		if ( chkInstruction(NULL, cntxt->nspace, mb, p) || p->typechk == TYPE_UNKNOWN)
 			getArg(p,2) = varid;
 	}
 #ifdef _DEBUG_COERCION_
-		mnstr_printf(cntxt->fdout,"#final instruction\n");
-		printInstruction(cntxt->fdout, mb, 0, p, LIST_MAL_ALL);
+		fprintf(stderr,"#final instruction\n");
+		fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
 #endif
 	return;
 }
@@ -107,7 +107,7 @@ coercionOptimizerAggrStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 	if( ! (getFunctionId(p) == subavgRef ) || p->argc !=6)
 		return;
 
-	r = getColumnType(getVarType(mb, getArg(p,0)));
+	r = getBatType(getVarType(mb, getArg(p,0)));
 	k = getArg(p,1);
 	if( r == TYPE_dbl &&  coerce[k].src ){
 		getArg(p,1) = coerce[k].src;
@@ -117,7 +117,7 @@ coercionOptimizerAggrStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 	return;
 }
 
-int
+str
 OPTcoercionImplementation(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int i, k;
@@ -125,9 +125,11 @@ OPTcoercionImplementation(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 	int actions = 0;
 	str calcRef= putName("calc");
 	Coercion *coerce = GDKzalloc(sizeof(Coercion) * mb->vtop);
+	char buf[256];
+	lng usec = GDKusec();
 
 	if( coerce == NULL)
-		return 0;
+		throw(MAL,"optimizer.coercion",MAL_MALLOC_FAIL);
 	(void) cntxt;
 	(void) pci;
 	(void) stk;		/* to fool compilers */
@@ -155,7 +157,7 @@ OPTcoercionImplementation(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 			coerce[k].pc= i;
 			coerce[k].totype= TYPE_hge;
 			coerce[k].src= getArg(p,2);
-			coerce[k].fromtype= getColumnType(getArgType(mb,p,2));
+			coerce[k].fromtype= getBatType(getArgType(mb,p,2));
 		}
 #endif
 		if ( getModuleId(p) == batcalcRef
@@ -171,7 +173,7 @@ OPTcoercionImplementation(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 			coerce[k].pc= i;
 			coerce[k].totype= TYPE_dbl;
 			coerce[k].src= getArg(p,1 + (p->argc ==3));
-			coerce[k].fromtype= getColumnType(getArgType(mb,p,1 + (p->argc ==3)));
+			coerce[k].fromtype= getBatType(getArgType(mb,p,1 + (p->argc ==3)));
 		}
 		coercionOptimizerAggrStep(cntxt,mb, i, coerce);
 		coercionOptimizerCalcStep(cntxt,mb, i, coerce);
@@ -186,5 +188,19 @@ OPTcoercionImplementation(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 	 * structure. A cheaper optimizer is sufficient.
 	 */
 	GDKfree(coerce);
-	return actions;
+
+    /* Defense line against incorrect plans */
+    if( actions > 0){
+        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+        chkFlow(cntxt->fdout, mb);
+        chkDeclarations(cntxt->fdout, mb);
+    }
+    /* keep all actions taken as a post block comment */
+	usec = GDKusec()- usec;
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","coercion",actions, usec);
+    newComment(mb,buf);
+	if( actions >= 0)
+		addtoMalBlkHistory(mb);
+
+	return MAL_SUCCEED;
 }

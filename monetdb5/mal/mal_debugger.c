@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -272,7 +272,7 @@ printCall(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
 {
 	str msg;
 	msg = instruction2str(mb, stk, getInstrPtr(mb, pc), LIST_MAL_CALL);
-	mnstr_printf(cntxt->fdout, "#%s at %s.%s[%d]\n", msg,
+	mnstr_printf(cntxt->fdout, "#%s at %s.%s[%d]\n", (msg?msg:"failed instruction2str()") ,
 			getModuleId(getInstrPtr(mb, 0)),
 			getFunctionId(getInstrPtr(mb, 0)), pc);
 	GDKfree(msg);
@@ -287,7 +287,7 @@ printTraceCall(stream *out, MalBlkPtr mb, MalStkPtr stk, int pc, int flags)
 
 	p = getInstrPtr(mb, pc);
 	msg = instruction2str(mb, stk, p, flags);
-	mnstr_printf(out, "#%s%s\n", (mb->errors ? "!" : ""), msg);
+	mnstr_printf(out, "#%s%s\n", (mb->errors ? "!" : ""), msg?msg:"failed instruction2str()");
 	GDKfree(msg);
 }
 
@@ -305,13 +305,13 @@ static void
 printBATproperties(stream *f, BAT *b)
 {
 	mnstr_printf(f, " count=" BUNFMT " lrefs=%d ",
-			BATcount(b), BBP_lrefs(abs(b->batCacheid)));
-	if (BBP_refs(abs(b->batCacheid)) - 1)
-		mnstr_printf(f, " refs=%d ", BBP_refs(abs(b->batCacheid)));
+			BATcount(b), BBP_lrefs(b->batCacheid));
+	if (BBP_refs(b->batCacheid) - 1)
+		mnstr_printf(f, " refs=%d ", BBP_refs(b->batCacheid));
 	if (b->batSharecnt)
 		mnstr_printf(f, " views=%d", b->batSharecnt);
-	if (b->T->heap.parentid)
-		mnstr_printf(f, "view on %s ", BBPname(b->T->heap.parentid));
+	if (b->theap.parentid)
+		mnstr_printf(f, "view on %s ", BBPname(b->theap.parentid));
 }
 /* MAL debugger parser
  * The debugger structure is inherited from GDB.
@@ -386,7 +386,6 @@ mdbCommand(Client cntxt, MalBlkPtr mb, MalStkPtr stkbase, InstrPtr p, int pc)
 	int stepsize = 1000;
 	char oldcmd[1024] = { 0 };
 	do {
-		int r;
 		if (p != NULL) {
 			if (cntxt != mal_clients)
 				/* help mclients with fake prompt */
@@ -417,8 +416,7 @@ retryRead:
 #ifndef HAVE_EMBEDDED
 		else if (cntxt == mal_clients) {
 			/* switch to mdb streams */
-			r = readConsole(cntxt);
-			if (r <= 0)
+			if (readConsole(cntxt) <= 0)
 				break;
 		}
 #endif
@@ -484,14 +482,7 @@ retryRead:
 		case 'f':   /* finish */
 		case 'n':   /* next */
 		case 's':   /* step */
-			if (strncmp("span", b, 4) == 0) {
-				Lifespan span = setLifespan(mb);
-				if ( span){
-					debugLifespan(cntxt, mb, span);
-					GDKfree(span);
-				}
-				continue;
-			} else if (strncmp("scenarios", b, 9) == 0) {
+			if (strncmp("scenarios", b, 9) == 0) {
 				showAllScenarios(out);
 				continue;
 			} else if (strncmp("scenario", b, 3) == 0) {
@@ -524,21 +515,23 @@ retryRead:
 					continue;
 				}
 				for (i = 0; i < MAXSCOPE; i++) {
-					fs = fsym->subscope[i];
+					fs = fsym->space[i];
 					while (fs != NULL) {
 						printSignature(out, fs, 0);
 						fs = fs->peer;
 					}
 				}
 				continue;
-			} else{
-				Module s;
-				mnstr_printf(out,"#");
-				for( s= cntxt->nspace; s; s= s->outer) {
-					mnstr_printf(out,"%s",s->name);
-					if( s->subscope==0) mnstr_printf(out,"?");
-					if(s->outer) mnstr_printf(out,",");
+			} else {
+				Module* list;
+				int length;
+				int i;
+				mnstr_printf(out,"#%s ",cntxt->nspace->name);
+				getModuleList(&list, &length);
+				for(i = 0; i < length; i++) {
+					mnstr_printf(out, "%s ", list[i]->name);	
 				}
+				freeModuleList(list);
 				mnstr_printf(out,"\n");
 			}
 		}
@@ -593,7 +586,7 @@ retryRead:
 						continue;
 					}
 					for (i = 0; i < MAXSCOPE; i++) {
-						fs = fsym->subscope[i];
+						fs = fsym->space[i];
 						while (fs != NULL) {
 							printStack(out, fs->def, 0);
 							fs = fs->peer;
@@ -610,7 +603,7 @@ retryRead:
 				}
 				/* display the overloaded symbol definition */
 				for (i = 0; i < MAXSCOPE; i++) {
-					fs = fsym->subscope[i];
+					fs = fsym->space[i];
 					while (fs != NULL) {
 						if (strcmp(fs->name, fcnname) == 0)
 							printStack(out, fs->def, 0);
@@ -705,39 +698,6 @@ retryRead:
 					stk = stk->up;
 				mnstr_printf(out, "#%sgo down the stack\n", "#mdb ");
 				mb = stk->blk;
-				break;
-			}
-			if (strncmp(b, "dot", 3) == 0) {
-				/* produce the dot file for graphical display */
-				/* its argument is the optimizer level followed by filename*/
-				MalBlkPtr mdot;
-				char fname[2 * PATHLENGTH] = "";
-				char name[PATHLENGTH], *nme;
-
-				skipWord(cntxt, b);
-				nme = b;
-				skipNonBlanc(cntxt, b);
-				strncpy(name, nme, PATHLENGTH - 1);
-				if (b - nme < PATHLENGTH)
-					name[ b - nme] = 0;
-				mdot = mdbLocateMalBlk(cntxt, mb, name, out);
-				skipBlanc(cntxt, b);
-				if (mdot == NULL)
-					mdot = mb;
-				snprintf(name, PATHLENGTH, "/%s.%s.dot", getModuleId(getInstrPtr(mdot, 0)), getFunctionId(getInstrPtr(mdot, 0)));
-				/* optional file */
-				skipBlanc(cntxt, b);
-				if (*b == 0) {
-					snprintf(fname, sizeof(fname), "%s%s", monet_cwd, name);
-				} else if (*b != '/') {
-					snprintf(fname, sizeof(fname), "%s%s", monet_cwd, name);
-				} else if (b[strlen(b) - 1] == '/') {
-					snprintf(fname, sizeof(fname), "%s%s", b, name + 1);
-				} else
-					snprintf(fname, sizeof(fname), "%s", b);
-
-				showFlowGraph(mdot, 0, fname);
-				mnstr_printf(out, "#dot file '%s' created\n", fname);
 				break;
 			}
 			skipWord(cntxt, b);
@@ -881,7 +841,7 @@ retryRead:
 						continue;
 					}
 					for (i = 0; i < MAXSCOPE; i++) {
-						fs = fsym->subscope[i];
+						fs = fsym->space[i];
 						while (fs != NULL) {
 							printFunction(out, fs->def, 0, lstng);
 							fs = fs->peer;
@@ -924,13 +884,8 @@ partial:
 			}
 			continue;
 		}
-		case '?':
-			if (!isspace((int) b[1]))
-				showHelp(cntxt->nspace, b + 1, out);
-			continue;
 		case 'h':
-			if (strncmp("help", b, 2) == 0)
-				mdbHelp(out);
+			mdbHelp(out);
 			continue;
 		case 'o':
 		case 'O':   /* optimizer and scheduler steps */
@@ -1130,7 +1085,7 @@ mdbTrapClient(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	(void) cntxt;
 	(void) mb;
 	if (id < 0 || id >= MAL_MAXCLIENTS || mal_clients[id].mode == 0)
-		throw(INVCRED, "mdb.grab", INVCRED_WRONG_ID);
+		throw(INVCRED, "mdb.trap", INVCRED_WRONG_ID);
 	c = mal_clients + id;
 
 	c->itrace = 'S';
@@ -1148,12 +1103,10 @@ runMALDebugger(Client cntxt, MalBlkPtr mb)
 {
 	str oldprompt= cntxt->prompt;
 	int oldtrace = cntxt->itrace;
-	int oldopt = cntxt->debugOptimizer;
 	int oldhist = cntxt->curprg->def->keephistory;
 	str msg;
 
 	cntxt->itrace = 'n';
-	cntxt->debugOptimizer = TRUE;
 	cntxt->curprg->def->keephistory = TRUE;
 
 	msg = runMAL(cntxt, mb, 0, 0);
@@ -1161,7 +1114,6 @@ runMALDebugger(Client cntxt, MalBlkPtr mb)
 	cntxt->curprg->def->keephistory = oldhist;
 	cntxt->prompt =oldprompt;
 	cntxt->itrace = oldtrace;
-	cntxt->debugOptimizer = oldopt;
 	mnstr_printf(cntxt->fdout, "mdb>#EOD\n");
 	return msg;
 }
@@ -1199,7 +1151,7 @@ printBATelm(stream *f, bat i, BUN cnt, BUN first)
 
 	b = BATdescriptor(i);
 	if (b) {
-		tpe = getTypeName(newColumnType(b->ttype));
+		tpe = getTypeName(newBatType(b->ttype));
 		mnstr_printf(f, ":%s ", tpe);
 		GDKfree(tpe);
 		printBATproperties(f, b);
@@ -1236,18 +1188,12 @@ printBATelm(stream *f, bat i, BUN cnt, BUN first)
 void
 printStackHdr(stream *f, MalBlkPtr mb, ValPtr v, int index)
 {
-	str nme;
-	char nmebuf[PATHLENGTH];
 	VarPtr n = getVar(mb, index);
 
 	if (v == 0 && isVarConstant(mb, index))
 		v = &getVarConstant(mb, index);
-	if (n->tmpindex) {
-		snprintf(nmebuf, PATHLENGTH, "%c%d", TMPMARKER, n->tmpindex);
-		nme = nmebuf;
-	} else
-		nme = n->name;
-	mnstr_printf(f, "#[%d] %5s = ", index, nme);
+	mnstr_printf(f, "#[%2d] %5s", index, n->id);
+	mnstr_printf(f, " (%d,%d,%d) = ", getBeginScope(mb,index), getLastUpdate(mb,index),getEndScope(mb, index));
 	if (v)
 		ATOMprint(v->vtype, VALptr(v), f);
 }
@@ -1263,13 +1209,11 @@ printStackElm(stream *f, MalBlkPtr mb, ValPtr v, int index, BUN cnt, BUN first)
 	printStackHdr(f, mb, v, index);
 
 	if (v && v->vtype == TYPE_bat) {
-		int i = v->val.ival;
-		BAT *b = BBPquickdesc(abs(i), TRUE);
+		bat i = v->val.bval;
+		BAT *b = BBPquickdesc(i, TRUE);
 
-		if (i < 0)
-			b = BATmirror(b);
 		if (b) {
-			nme = getTypeName(newColumnType(b->ttype));
+			nme = getTypeName(newBatType(b->ttype));
 			mnstr_printf(f, " :%s rows="BUNFMT, nme, BATcount(b));
 		} else {
 			nme = getTypeName(n->type);
@@ -1284,10 +1228,8 @@ printStackElm(stream *f, MalBlkPtr mb, ValPtr v, int index, BUN cnt, BUN first)
 	if (strcmp(nmeOnStk, nme) && strncmp(nmeOnStk, "BAT", 3))
 		mnstr_printf(f, "!%s ", nmeOnStk);
 	mnstr_printf(f, " %s", (isVarConstant(mb, index) ? " constant" : ""));
-	/* mnstr_printf(f, " %s", (isVarUsed(mb,index) ? "": " not used" ));*/
+	mnstr_printf(f, " %s", (isVarUsed(mb,index) ? "": " not used" ));
 	mnstr_printf(f, " %s", (isVarTypedef(mb, index) ? " type variable" : ""));
-	if (getEndOfLife(mb, index))
-		mnstr_printf(f, " eolife=%d ", getEndOfLife(mb, index));
 	GDKfree(nme);
 	mnstr_printf(f, "\n");
 	GDKfree(nmeOnStk);
@@ -1306,7 +1248,7 @@ printBatDetails(stream *f, bat bid)
 
 	/* at this level we don't know bat kernel primitives */
 	mnstr_printf(f, "#Show info for %d\n", bid);
-	fcn = getAddress(f, "bat", "bat", "BKCinfo", 0);
+	fcn = getAddress(f, "bat", "BKCinfo", 0);
 	if (fcn) {
 		(*fcn)(&ret,&ret2, &bid);
 		b[0] = BATdescriptor(ret);
@@ -1340,7 +1282,7 @@ printBatProperties(stream *f, VarPtr n, ValPtr v, str props)
 		BUN p;
 
 		/* at this level we don't know bat kernel primitives */
-		fcn = getAddress(f, "bat", "bat", "BKCinfo", 0);
+		fcn = getAddress(f, "bat", "BKCinfo", 0);
 		if (fcn) {
 			BAT *b[2];
 			str res;
@@ -1363,7 +1305,7 @@ printBatProperties(stream *f, VarPtr n, ValPtr v, str props)
 					BBPunfix(b[1]->batCacheid);
 				return;
 			}
-			p = BUNfnd(BATmirror(b[0]), props);
+			p = BUNfnd(b[0], props);
 			if (p != BUN_NONE) {
 				BATiter bi = bat_iterator(b[1]);
 				mnstr_printf(f, " %s\n", (str) BUNtail(bi, p));
@@ -1424,37 +1366,3 @@ mdbHelp(stream *f)
  * make it thread safe by assigning it to a client record.
  */
 int isInvariant(MalBlkPtr mb, int pcf, int pcl, int varid);
-
-str
-debugOptimizers(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	(void) stk;
-
-	cntxt->debugOptimizer = cntxt->debugOptimizer ? FALSE : TRUE;
-	if (pci)
-		removeInstruction(mb, pci);
-	return MAL_SUCCEED;
-}
-
-void
-debugLifespan(Client cntxt, MalBlkPtr mb, Lifespan span)
-{
-	int i;
-	char name[BUFSIZ];
-
-	for (i = 0; i < mb->vtop; i++) {
-		if (isTmpVar(mb, i))
-			snprintf(name, BUFSIZ, "%c%d ", TMPMARKER, getVar(mb, i)->tmpindex);
-		else
-			snprintf(name, BUFSIZ, "%s ", getVar(mb, i)->name);
-		mnstr_printf(cntxt->fdout, "#%8s eolife=%4d range %4d - %4d  ",
-				name,
-				getEndOfLife(mb,i),
-				getBeginLifespan(span, i),
-				getEndLifespan(span, i));
-		if (getLastUpdate(span, i))
-			mnstr_printf(cntxt->fdout, "last update %d \n", getLastUpdate(span, i));
-		else
-			mnstr_printf(cntxt->fdout, "constant \n");
-	}
-}

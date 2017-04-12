@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -26,12 +26,19 @@ _list_find_name(list *l, const char *name)
 		MT_lock_set(&l->ht_lock);
 		if ((!l->ht || l->ht->size*16 < list_length(l)) && list_length(l) > HASH_MIN_SIZE && l->sa) {
 			l->ht = hash_new(l->sa, list_length(l), (fkeyvalue)&base_key);
+			if (l->ht == NULL) {
+				MT_lock_unset(&l->ht_lock);
+				return NULL;
+			}
 
 			for (n = l->h; n; n = n->next ) {
 				sql_base *b = n->data;
 				int key = base_key(b);
 
-				hash_add(l->ht, key, b);
+				if (hash_add(l->ht, key, b) == NULL) {
+					MT_lock_unset(&l->ht_lock);
+					return NULL;
+				}
 			}
 		}
 		if (l->ht) {
@@ -294,6 +301,9 @@ find_all_sql_func(sql_schema * s, const char *name, int type)
 			if (f->type == type && name[0] == b->name[0] && strcmp(name, b->name) == 0) {
 				if (!res)
 					res = list_create((fdestroy)NULL);
+				if (!res) {
+					return NULL;
+				}
 				list_append(res, f);
 			}
 		}

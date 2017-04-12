@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -19,14 +19,14 @@
  * snippet in MAL would become something like:
  *
  * @verbatim
- * _1:bat[:oid,:int]  := sql.bind("sys","r","a",0);
- * _2:bat[:oid,:str]  := sql.bind("sys","r","b",0);
- * _3:bat[:oid,:date]  := sql.bind("sys","r","c",0);
+ * _1:bat[:int]  := sql.bind("sys","r","a",0);
+ * _2:bat[:str]  := sql.bind("sys","r","b",0);
+ * _3:bat[:date]  := sql.bind("sys","r","c",0);
  * ...
  * _9 := algebra.select(_1,0,100);
  * ..
- * (grp_4:bat[:oid,:wrd], gid:bat[:oid,:oid]) := groupby.count(_9,_2);
- * (grp_5:bat[:oid,:lng], gid:bat[:oid,:oid]) := groupby.max(_9,_2,_3);
+ * (grp_4:bat[:lng], gid:bat[:oid]) := groupby.count(_9,_2);
+ * (grp_5:bat[:lng], gid:bat[:oid]) := groupby.max(_9,_2,_3);
  * @end verbatim
  *
  * The id() function merely becomes the old-fashioned oid-based group identification list.
@@ -78,7 +78,7 @@ GROUPcollect( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		if(a->cols) GDKfree(a->cols);
 		if(a->bid) GDKfree(a->bid);
 		if(a->unique) GDKfree(a->unique);
-		if(a) GDKfree(a);
+		GDKfree(a);
 		return NULL;
 	}
 	for ( i= pci->retc; i< pci->argc; i++, a->last++) {
@@ -87,6 +87,9 @@ GROUPcollect( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		if ( a->cols[a->last] == NULL){
 			for(a->last--; a->last>=0; a->last--)
 				BBPunfix(a->cols[a->last]->batCacheid);
+			GDKfree(a->cols);
+			GDKfree(a->bid);
+			GDKfree(a->unique);
 			GDKfree(a);
 			return NULL;
 		}
@@ -107,7 +110,7 @@ GROUPcollect( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 #ifdef _DEBUG_GROUPBY_
 	for(i=0; i<a->last; i++)
-		mnstr_printf(cntxt->fdout,"#group %d unique "BUNFMT "\n", i, a->unique[i]);
+		fprintf(stderr,"#group %d unique "BUNFMT "\n", i, a->unique[i]);
 #endif
 	return a;
 }
@@ -142,6 +145,7 @@ GROUPdelete(AGGRtask *a){
 	for(a->last--; a->last>=0; a->last--){
 		BBPunfix(a->cols[a->last]->batCacheid);
 	}
+	GDKfree(a->bid);
 	GDKfree(a->cols);
 	GDKfree(a->unique);
 	GDKfree(a);
@@ -168,15 +172,15 @@ GROUPmulticolumngroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	aggr = GROUPcollect(cntxt, mb, stk, pci);
 	if( aggr == NULL)
-		throw(MAL,"group.subgroup",MAL_MALLOC_FAIL);
+		throw(MAL,"group.multicolumn",MAL_MALLOC_FAIL);
 	GROUPcollectSort(aggr, 0, aggr->last);
 
-	/* (grp,ext,hist) := group.subgroup(..) */
+	/* (grp,ext,hist) := group.group(..) */
 	/* use the old pattern to perform the incremental grouping */
 	*grp = 0;
 	*ext = 0;
 	*hist = 0;
-	msg = GRPsubgroup1(grp, ext, hist, &aggr->bid[0]);
+	msg = GRPgroup1(grp, ext, hist, &aggr->bid[0]);
 	i = 1;
 	if (msg == MAL_SUCCEED && aggr->last > 1)
 		do {
@@ -196,10 +200,10 @@ GROUPmulticolumngroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			*grp = 0;
 			*ext = 0;
 			*hist = 0;
-			msg = GRPsubgroup4(grp, ext, hist, &aggr->bid[i], &oldgrp, &oldext, &oldhist);
-			BBPdecref(oldgrp, TRUE);
-			BBPdecref(oldext, TRUE);
-			BBPdecref(oldhist, TRUE);
+			msg = GRPsubgroup5(grp, ext, hist, &aggr->bid[i], NULL, &oldgrp, &oldext, &oldhist);
+			BBPrelease(oldgrp);
+			BBPrelease(oldext);
+			BBPrelease(oldhist);
 		} while (msg == MAL_SUCCEED && ++i < aggr->last);
 	GROUPdelete(aggr);
 	return msg;

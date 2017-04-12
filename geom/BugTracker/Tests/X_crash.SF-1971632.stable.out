@@ -29,9 +29,9 @@ Ready.
 [ 1	]
 [ 1	]
 #select count(*) from geoms;
-% sys.L1 # table_name
-% L1 # name
-% wrd # type
+% sys.L4 # table_name
+% L3 # name
+% bigint # type
 % 1 # length
 [ 4	]
 

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* (c) Martin Kersten
@@ -11,30 +11,33 @@
 #include "monetdb_config.h"
 #include "opt_deadcode.h"
 
-int 
+str 
 OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int i, k, se,limit, slimit;
 	InstrPtr p=0, *old= mb->stmt;
 	int actions = 0;
 	int *varused=0;
+	char buf[256];
+	lng usec = GDKusec();
+	str msg= MAL_SUCCEED;
 
 	(void) cntxt;
 	(void) pci;
 	(void) stk;		/* to fool compilers */
 
 	if ( mb->inlineProp )
-		return 0;
+		return MAL_SUCCEED;
 
 	varused = GDKzalloc(mb->vtop * sizeof(int));
 	if (varused == NULL)
-		return 0;
+		return MAL_SUCCEED;
 
 	limit = mb->stop;
 	slimit = mb->ssize;
-	if (newMalBlkStmt(mb, mb->ssize) < 0){
-		GDKfree(varused);
-		return 0;
+	if (newMalBlkStmt(mb, mb->ssize) < 0) {
+		msg= createException(MAL,"optimizer.deadcode",MAL_MALLOC_FAIL);
+		goto wrapup;
 	}
 
 	// Calculate the instructions in which a variable is used.
@@ -55,7 +58,7 @@ OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			varused[getArg(p,0)]++; // force keeping 
 			continue;
 		}
-		if (hasSideEffects(p, FALSE) || isUpdateInstruction(p) || !isLinearFlow(p) || isProcedure(mb,p)  || 
+		if (hasSideEffects(mb, p, FALSE) || !isLinearFlow(p) || 
 				(p->retc == 1 && mb->unsafeProp) || p->barrier /* ==side-effect */){
 			varused[getArg(p,0)]++; // force keeping it
 			continue;
@@ -74,7 +77,7 @@ OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	
 	// Now we can simply copy the intructions and discard useless ones.
 	pushInstruction(mb, old[0]);
-	for (i = 1; i < limit; i++) 
+	for (i = 1; i < limit; i++) {
 		if ((p = old[i]) != NULL) {
 			if( p->token == ENDsymbol){
 				pushInstruction(mb,p);
@@ -97,10 +100,26 @@ OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 				actions ++;
 			}
 		}
+	}
 	for(; i<slimit; i++)
 		if( old[i])
 			freeInstruction(old[i]);
-	GDKfree(old);
-	GDKfree(varused);
-	return actions;
+    /* Defense line against incorrect plans */
+	/* we don't create or change existing structures */
+    //if( actions > 0){
+        //chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+        chkFlow(cntxt->fdout, mb);
+        //chkDeclarations(cntxt->fdout, mb);
+    //}
+    /* keep all actions taken as a post block comment */
+	usec = GDKusec()- usec;
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","deadcode",actions, usec);
+    newComment(mb,buf);
+	if( actions >= 0)
+		addtoMalBlkHistory(mb);
+
+wrapup:
+	if(old) GDKfree(old);
+	if(varused) GDKfree(varused);
+	return msg;
 }

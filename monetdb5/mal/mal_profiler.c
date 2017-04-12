@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /* (c) M.L. Kersten
@@ -22,6 +22,10 @@
 #include "mal_debugger.h"
 #include "mal_resource.h"
 
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+
 static void cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 stream *eventstream = 0;
@@ -31,8 +35,12 @@ static str myname = 0;	// avoid tracing the profiler module
 static int eventcounter = 0;
 static str prettify = "\n"; /* or ' ' for single line json output */
 
+static int highwatermark = 5;	// conservative initialization
+
 static int TRACE_init = 0;
 int malProfileMode = 0;     /* global flag to indicate profiling mode */
+
+static struct timeval startup_time;
 
 static volatile ATOMIC_TYPE hbdelay = 0;
 
@@ -54,10 +62,10 @@ static struct{
 #define LOGLEN 8192
 #define lognew()  loglen = 0; logbase = logbuffer; *logbase = 0;
 
-#define logadd(...) {														\
+#define logadd(...) {													\
 	do {																\
-		loglen += snprintf(logbase+loglen, LOGLEN -1 - loglen, __VA_ARGS__); \
-		assert(loglen < LOGLEN); \
+		if (loglen < LOGLEN)											\
+			loglen += snprintf(logbase+loglen, LOGLEN - loglen, __VA_ARGS__); \
 	} while (0);}
 
 
@@ -102,46 +110,35 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
 {
 	char logbuffer[LOGLEN], *logbase;
 	int loglen;
-	char ctm[26];
-	time_t clk;
-	struct timeval clock;
 	str stmt, c;
-	char *tbuf;
 	str stmtq;
 	lng usec= GDKusec();
+	lng sec = (lng)startup_time.tv_sec + usec/1000000;
+	long microseconds = (long)startup_time.tv_usec + (usec % 1000000);
 
+	assert (microseconds / 1000000 >= 0 && microseconds / 1000000 < 2);
+	sec += (microseconds / 1000000);
+	microseconds %= 1000000;
 
-	if( start) // show when instruction was started
-		clock = pci->clock;
-	else 
-		gettimeofday(&clock, NULL);
-	clk = clock.tv_sec;
+	// ignore generation of events for instructions that are called too often
+	if(highwatermark && highwatermark + (start == 0) < pci->calls)
+		return;
 
 	/* make profile event tuple  */
 	lognew();
 	logadd("{%s",prettify); // fill in later with the event counter
 
-#ifdef HAVE_CTIME_R3
-	tbuf = ctime_r(&clk, ctm, sizeof(ctm));
-#else
-#ifdef HAVE_CTIME_R
-	tbuf = ctime_r(&clk, ctm);
-#else
-	tbuf = ctime(&clk);
-#endif
-#endif
-	tbuf[19]=0;
-	/* there should be less than 10^6 == 1M usecs in 1 sec */
-	assert(clock.tv_usec >= 0 && clock.tv_usec < 1000000);
 	if( usrname)
 		logadd("\"user\":\"%s\",%s",usrname, prettify);
 	logadd("\"clk\":"LLFMT",%s",usec,prettify);
-	logadd("\"ctime\":\"%s.%06ld\",%s", tbuf+11, (long)clock.tv_usec, prettify);
+	logadd("\"ctime\":"LLFMT".%06ld,%s", sec, microseconds, prettify);
 	logadd("\"thread\":%d,%s", THRgettid(),prettify);
 
 	logadd("\"function\":\"%s.%s\",%s", getModuleId(getInstrPtr(mb, 0)), getFunctionId(getInstrPtr(mb, 0)), prettify);
 	logadd("\"pc\":%d,%s", mb?getPC(mb,pci):0, prettify);
 	logadd("\"tag\":%d,%s", stk?stk->tag:0, prettify);
+	if( mal_session_uuid)
+		logadd("\"session\":\"%s\",%s",mal_session_uuid,prettify);
 
 	if( start){
 		logadd("\"state\":\"start\",%s", prettify);
@@ -190,18 +187,20 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
 
 		/* generate actual call statement */
 		stmt = instruction2str(mb, stk, pci, LIST_MAL_ALL);
-		c = stmt;
+		if (stmt) {
+			c = stmt;
 
-		while (c && *c && isspace((int)*c))
-			c++;
-		if( *c){
-			stmtq = mal_quote(c, strlen(c));
-			if (stmtq != NULL) {
-				logadd("\"stmt\":\"%s\",%s", stmtq,prettify);
-				//GDKfree(stmtq);
+			while (*c && isspace((int)*c))
+				c++;
+			if( *c){
+				stmtq = mal_quote(c, strlen(c));
+				if (stmtq != NULL) {
+					logadd("\"stmt\":\"%s\",%s", stmtq,prettify);
+					GDKfree(stmtq);
+				}
 			}
-		} 
-		//GDKfree(stmt);
+			GDKfree(stmt);
+		}
 
 		// ship the beautified version as well
 
@@ -269,17 +268,33 @@ This information can be used to determine memory footprint and variable life tim
 				logadd("{");
 				logadd("\"index\":\"%d\",%s", j,pret);
 				logadd("\"name\":\"%s\",%s", getVarName(mb, getArg(pci,j)), pret);
+				if( getVarSTC(mb,getArg(pci,j))){
+					InstrPtr stc = getInstrPtr(mb, getVarSTC(mb,getArg(pci,j)));
+					if(stc && strcmp(getModuleId(stc),"sql") ==0  && strncmp(getFunctionId(stc),"bind",4)==0)
+						logadd("\"alias\":\"%s.%s.%s\",%s", 
+							getVarConstant(mb, getArg(stc,stc->retc +1)).val.sval,
+							getVarConstant(mb, getArg(stc,stc->retc +2)).val.sval,
+							getVarConstant(mb, getArg(stc,stc->retc +3)).val.sval, pret);
+				}
 				if( isaBatType(tpe) ){
-					BAT *d= BATdescriptor( bid = abs(stk->stk[getArg(pci,j)].val.ival));
-					tname = getTypeName(getColumnType(tpe));
+					BAT *d= BATdescriptor( bid = stk->stk[getArg(pci,j)].val.bval);
+					tname = getTypeName(getBatType(tpe));
 					logadd("\"type\":\"bat[:%s]\",%s", tname,pret);
 					if( d) {
-						//if( isVIEW(d))
-							//bid = abs(VIEWtparent(d));
+						BAT *v;
 						cnt = BATcount(d);
-						total += cnt * d->T->width;
-						total += heapinfo(d->T->vheap, abs(d->batCacheid)); 
-						total += hashinfo(d->T->hash, abs(d->batCacheid)); 
+						if( isVIEW(d)){
+							logadd("\"view\":\"true\",%s", pret);
+							logadd("\"parent\":\"%d\",%s", VIEWtparent(d), pret);
+							logadd("\"seqbase\":\""BUNFMT"\",%s", d->hseqbase, pret);
+							logadd("\"hghbase\":\""BUNFMT"\",%s", d->hseqbase + cnt, pret);
+							v= BBPquickdesc(VIEWtparent(d),0);
+							logadd("\"kind\":\"%s\",%s", (v &&  v->batPersistence == PERSISTENT ? "persistent":"transient"), pret);
+						} else
+							logadd("\"kind\":\"%s\",%s", ( d->batPersistence == PERSISTENT ? "persistent":"transient"), pret);
+						total += cnt * d->twidth;
+						total += heapinfo(d->tvheap, d->batCacheid); 
+						total += hashinfo(d->thash, d->batCacheid); 
 						total += IMPSimprintsize(d);
 						BBPunfix(d->batCacheid);
 					} 
@@ -296,7 +311,7 @@ This information can be used to determine memory footprint and variable life tim
 					GDKfree(cv);
 					GDKfree(stmtq);
 				}
-				logadd("\"eol\":%d%s", p == getEndOfLife(mb,getArg(pci,j)) , pret);
+				logadd("\"eol\":%d%s", p == getEndScope(mb,getArg(pci,j)) , pret);
 				GDKfree(tname);
 				logadd("}%s%s", (j< pci->argc-1 && j != pci->retc -1?",":""), pret);
 			}
@@ -378,10 +393,6 @@ profilerHeartbeatEvent(char *alter)
 	char cpuload[BUFSIZ];
 	char logbuffer[LOGLEN], *logbase;
 	int loglen;
-	char ctm[26];
-	time_t clk;
-	struct timeval clock;
-	char *tbuf;
 
 	if (ATOMIC_GET(hbdelay, mal_beatLock) == 0 || eventstream  == NULL)
 		return;
@@ -389,23 +400,10 @@ profilerHeartbeatEvent(char *alter)
 	/* get CPU load on beat boundaries only */
 	if ( getCPULoad(cpuload) )
 		return;
-	gettimeofday(&clock, NULL);
-	clk = clock.tv_sec;
-	
+
 	lognew();
 	logadd("{%s",prettify); // fill in later with the event counter
-#ifdef HAVE_CTIME_R3
-	tbuf = ctime_r(&clk, ctm, sizeof(ctm));
-#else
-#ifdef HAVE_CTIME_R
-	tbuf = ctime_r(&clk, ctm);
-#else
-	tbuf = ctime(&clk);
-#endif
-#endif
-	tbuf[19]=0;
 	logadd("\"user\":\"heartbeat\",%s", prettify);
-	logadd("\"ctime\":\"%s.%06ld\",%s",tbuf+11, (long)clock.tv_usec, prettify);
 	logadd("\"rss\":"SZFMT ",%s", MT_getrss()/1024/1024, prettify);
 #ifdef HAVE_SYS_RESOURCE_H
 	getrusage(RUSAGE_SELF, &infoUsage);
@@ -626,9 +624,12 @@ static BAT *TRACE_id_stmt = 0;
 int
 TRACEtable(BAT **r)
 {
-	if (TRACE_init == 0)
-		return -1;       /* not initialized */
+	initTrace();
 	MT_lock_set(&mal_profileLock);
+	if (TRACE_init == 0) {
+		MT_lock_unset(&mal_profileLock);
+		return -1;       /* not initialized */
+	}
 	r[0] = COLcopy(TRACE_id_event, TRACE_id_event->ttype, 0, TRANSIENT);
 	r[1] = COLcopy(TRACE_id_time, TRACE_id_time->ttype, 0, TRANSIENT);
 	r[2] = COLcopy(TRACE_id_pc, TRACE_id_pc->ttype, 0, TRANSIENT);
@@ -649,35 +650,39 @@ TRACEtable(BAT **r)
 BAT *
 getTrace(const char *nme)
 {
-	if (TRACE_init == 0)
-		return NULL;
-	if (strcmp(nme, "event") == 0)
-		return COLcopy(TRACE_id_event, TRACE_id_event->ttype, 0, TRANSIENT);
-	if (strcmp(nme, "time") == 0)
-		return COLcopy(TRACE_id_time, TRACE_id_time->ttype, 0, TRANSIENT);
-	if (strcmp(nme, "pc") == 0)
-		return COLcopy(TRACE_id_pc, TRACE_id_pc->ttype, 0, TRANSIENT);
-	if (strcmp(nme, "thread") == 0)
-		return COLcopy(TRACE_id_thread, TRACE_id_thread->ttype, 0, TRANSIENT);
-	if (strcmp(nme, "usec") == 0)
-		return COLcopy(TRACE_id_ticks, TRACE_id_ticks->ttype, 0, TRANSIENT);
-	if (strcmp(nme, "rssMB") == 0)
-		return COLcopy(TRACE_id_rssMB, TRACE_id_rssMB->ttype, 0, TRANSIENT);
-	if (strcmp(nme, "tmpspace") == 0)
-		return COLcopy(TRACE_id_tmpspace, TRACE_id_tmpspace->ttype, 0, TRANSIENT);
-	if (strcmp(nme, "reads") == 0)
-		return COLcopy(TRACE_id_inblock, TRACE_id_inblock->ttype, 0, TRANSIENT);
-	if (strcmp(nme, "writes") == 0)
-		return COLcopy(TRACE_id_oublock, TRACE_id_oublock->ttype, 0, TRANSIENT);
-	if (strcmp(nme, "minflt") == 0)
-		return COLcopy(TRACE_id_minflt, TRACE_id_minflt->ttype, 0, TRANSIENT);
-	if (strcmp(nme, "majflt") == 0)
-		return COLcopy(TRACE_id_majflt, TRACE_id_majflt->ttype, 0, TRANSIENT);
-	if (strcmp(nme, "nvcsw") == 0)
-		return COLcopy(TRACE_id_nvcsw, TRACE_id_nvcsw->ttype, 0, TRANSIENT);
-	if (strcmp(nme, "stmt") == 0)
-		return COLcopy(TRACE_id_stmt, TRACE_id_stmt->ttype, 0, TRANSIENT);
-	return NULL;
+	BAT *bn = NULL;
+
+	MT_lock_set(&mal_profileLock);
+	if (TRACE_init) {
+		if (strcmp(nme, "event") == 0)
+			bn = COLcopy(TRACE_id_event, TRACE_id_event->ttype, 0, TRANSIENT);
+		else if (strcmp(nme, "time") == 0)
+			bn = COLcopy(TRACE_id_time, TRACE_id_time->ttype, 0, TRANSIENT);
+		else if (strcmp(nme, "pc") == 0)
+			bn = COLcopy(TRACE_id_pc, TRACE_id_pc->ttype, 0, TRANSIENT);
+		else if (strcmp(nme, "thread") == 0)
+			bn = COLcopy(TRACE_id_thread, TRACE_id_thread->ttype, 0, TRANSIENT);
+		else if (strcmp(nme, "usec") == 0)
+			bn = COLcopy(TRACE_id_ticks, TRACE_id_ticks->ttype, 0, TRANSIENT);
+		else if (strcmp(nme, "rssMB") == 0)
+			bn = COLcopy(TRACE_id_rssMB, TRACE_id_rssMB->ttype, 0, TRANSIENT);
+		else if (strcmp(nme, "tmpspace") == 0)
+			bn = COLcopy(TRACE_id_tmpspace, TRACE_id_tmpspace->ttype, 0, TRANSIENT);
+		else if (strcmp(nme, "reads") == 0)
+			bn = COLcopy(TRACE_id_inblock, TRACE_id_inblock->ttype, 0, TRANSIENT);
+		else if (strcmp(nme, "writes") == 0)
+			bn = COLcopy(TRACE_id_oublock, TRACE_id_oublock->ttype, 0, TRANSIENT);
+		else if (strcmp(nme, "minflt") == 0)
+			bn = COLcopy(TRACE_id_minflt, TRACE_id_minflt->ttype, 0, TRANSIENT);
+		else if (strcmp(nme, "majflt") == 0)
+			bn = COLcopy(TRACE_id_majflt, TRACE_id_majflt->ttype, 0, TRANSIENT);
+		else if (strcmp(nme, "nvcsw") == 0)
+			bn = COLcopy(TRACE_id_nvcsw, TRACE_id_nvcsw->ttype, 0, TRANSIENT);
+		else if (strcmp(nme, "stmt") == 0)
+			bn = COLcopy(TRACE_id_stmt, TRACE_id_stmt->ttype, 0, TRANSIENT);
+	}
+	MT_lock_unset(&mal_profileLock);
+	return bn;
 }
 
 static BAT *
@@ -687,26 +692,19 @@ TRACEcreate(const char *hnme, const char *tnme, int tt)
 	char buf[BUFSIZ];
 
 	snprintf(buf, BUFSIZ, "trace_%s_%s", hnme, tnme);
-	b = BATdescriptor(BBPindex(buf));
-	if (b) {
-		BBPincref(b->batCacheid, TRUE);
-		return b;
-	}
 
-	b = BATnew(TYPE_void, tt, 1 << 16, PERSISTENT);
+	b = COLnew(0, tt, 1 << 16, TRANSIENT);
 	if (b == NULL)
 		return NULL;
-
-	BATmode(b, PERSISTENT);
-	BATseqbase(b, 0);
-	BATkey(b, TRUE);
-	BBPrename(b->batCacheid, buf);
-	BATcommit(b);
+	if (BBPrename(b->batCacheid, buf) != 0) {
+		BBPreclaim(b);
+		return NULL;
+	}
 	return b;
 }
 
 
-#define CLEANUPprofile(X)  if (X) { BBPdecref((X)->batCacheid, TRUE); (X)->batPersistence = TRANSIENT; } (X) = NULL;
+#define CLEANUPprofile(X)  if (X) { BBPunfix((X)->batCacheid); } (X) = NULL;
 
 static void
 _cleanupProfiler(void)
@@ -731,9 +729,11 @@ initTrace(void)
 {
 	int ret = -1;
 
-	if (TRACE_init)
+	MT_lock_set(&mal_profileLock);
+	if (TRACE_init) {
+		MT_lock_unset(&mal_profileLock);
 		return 0;       /* already initialized */
-	MT_lock_set(&mal_contextLock);
+	}
 	TRACE_id_event = TRACEcreate("id", "event", TYPE_int);
 	TRACE_id_time = TRACEcreate("id", "time", TYPE_str);
 	// TODO split pc into its components fcn,pc,tag
@@ -767,32 +767,23 @@ initTrace(void)
 	else
 		TRACE_init = 1;
 	ret = TRACE_init;
-	MT_lock_unset(&mal_contextLock);
+	MT_lock_unset(&mal_profileLock);
 	return ret;
 }
 
 void
 clearTrace(void)
 {
-	if (TRACE_init == 0)
+	MT_lock_set(&mal_profileLock);
+	if (TRACE_init == 0) {
+		MT_lock_unset(&mal_profileLock);
+		initTrace();
 		return;     /* not initialized */
-	MT_lock_set(&mal_contextLock);
+	}
 	/* drop all trace tables */
-	BBPclear(TRACE_id_event->batCacheid);
-	BBPclear(TRACE_id_time->batCacheid);
-	BBPclear(TRACE_id_pc->batCacheid);
-	BBPclear(TRACE_id_thread->batCacheid);
-	BBPclear(TRACE_id_ticks->batCacheid);
-	BBPclear(TRACE_id_rssMB->batCacheid);
-	BBPclear(TRACE_id_tmpspace->batCacheid);
-	BBPclear(TRACE_id_inblock->batCacheid);
-	BBPclear(TRACE_id_oublock->batCacheid);
-	BBPclear(TRACE_id_minflt->batCacheid);
-	BBPclear(TRACE_id_majflt->batCacheid);
-	BBPclear(TRACE_id_nvcsw->batCacheid);
-	BBPclear(TRACE_id_stmt->batCacheid);
+	_cleanupProfiler();
 	TRACE_init = 0;
-	MT_lock_unset(&mal_contextLock);
+	MT_lock_unset(&mal_profileLock);
 	initTrace();
 }
 
@@ -808,26 +799,16 @@ cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	/* static struct Mallinfo prevMalloc; */
 	char buf[BUFSIZ]= {0};
-	char ctm[27]={0}, *ct= ctm+10;
 	int tid = (int)THRgettid();
 	lng v1 = 0, v2= 0, v3=0, v4=0, v5=0;
 	str stmt, c;
-	time_t clk;
-	struct timeval clock;
+	lng clock;
 	lng rssMB = MT_getrss()/1024/1024;
 	lng tmpspace = pci->wbytes/1024/1024;
 	int errors = 0;
-
-#ifdef HAVE_TIMES
-	struct tms newTms;
-#endif
-
 	/* struct Mallinfo infoMalloc; */
-	gettimeofday(&clock, NULL);
-	clk= clock.tv_sec;
-#ifdef HAVE_TIMES
-	times(&newTms);
-#endif
+
+	clock = GDKusec();
 	/* infoMalloc = MT_mallinfo(); */
 #ifdef HAVE_SYS_RESOURCE_H
 	getrusage(RUSAGE_SELF, &infoUsage);
@@ -839,23 +820,6 @@ cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	snprintf(buf, BUFSIZ, "%s.%s[%d]%d",
 	getModuleId(getInstrPtr(mb, 0)),
 	getFunctionId(getInstrPtr(mb, 0)), getPC(mb, pci), stk->tag);
-
-#ifdef HAVE_CTIME_R3
-	if (ctime_r(&clk, ctm, sizeof(ctm)) == NULL)
-		strncpy(ctm, "", sizeof(ctm));
-#else
-#ifdef HAVE_CTIME_R
-	if (ctime_r(&clk, ctm) == NULL)
-		strncpy(ctm, "", sizeof(ctm));
-#else
-	{
-		char *tbuf = ctime(&clk);
-		strncpy(ctm, tbuf ? tbuf : "", sizeof(ctm));
-	}
-#endif
-#endif
-	/* sneakily overwrite year with second fraction */
-	snprintf(ctm + 19, 6, ".%03d", (int)(clock.tv_usec / 1000));
 
 	/* generate actual call statement */
 	stmt = instruction2str(mb, stk, pci, LIST_MAL_ALL);
@@ -876,9 +840,14 @@ cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	// keep it a short transaction
 	MT_lock_set(&mal_profileLock);
+ 	if (TRACE_init == 0) {
+		MT_lock_unset(&mal_profileLock);
+		return;
+	}
 	errors += BUNappend(TRACE_id_event, &TRACE_event, FALSE) != GDK_SUCCEED;
-	errors += BUNappend(TRACE_id_time, ct, FALSE) != GDK_SUCCEED;
 	errors += BUNappend(TRACE_id_pc, buf, FALSE) != GDK_SUCCEED;
+	snprintf(buf, sizeof(buf), LLFMT ".%06ld", clock / 1000000, (long) (clock % 1000000));
+	errors += BUNappend(TRACE_id_time, buf, FALSE) != GDK_SUCCEED;
 	errors += BUNappend(TRACE_id_thread, &tid, FALSE) != GDK_SUCCEED;
 	errors += BUNappend(TRACE_id_ticks, &pci->ticks, FALSE) != GDK_SUCCEED;
 	errors += BUNappend(TRACE_id_rssMB, &rssMB, FALSE) != GDK_SUCCEED;
@@ -889,10 +858,26 @@ cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	errors += BUNappend(TRACE_id_majflt, &v4, FALSE) != GDK_SUCCEED;
 	errors += BUNappend(TRACE_id_nvcsw, &v5, FALSE) != GDK_SUCCEED;
 	errors += BUNappend(TRACE_id_stmt, c, FALSE) != GDK_SUCCEED;
-	TRACE_event++;
-	eventcounter++;
+	if (errors > 0) {
+		/* stop profiling if an error occurred */
+		sqlProfiling = FALSE;
+	} else {
+		TRACE_event++;
+		eventcounter++;
+	}
 	MT_lock_unset(&mal_profileLock);
 	GDKfree(stmt);
+}
+
+int getprofilerlimit(void)
+{
+	return highwatermark;
+}
+
+void setprofilerlimit(int limit)
+{
+	// dont lock, it is advisary anyway
+	highwatermark = limit;
 }
 
 lng
@@ -960,9 +945,9 @@ getDiskSpace(void)
 
 					size += tailsize(b, cnt);
 					/* the upperbound is used for the heaps */
-					if (b->T->vheap)
-						size += b->T->vheap->size;
-					if (b->T->hash)
+					if (b->tvheap)
+						size += b->tvheap->size;
+					if (b->thash)
 						size += sizeof(BUN) * cnt;
 				}
 				BBPunfix(i);
@@ -1045,9 +1030,10 @@ static void profilerHeartbeat(void *dummy)
 
 void setHeartbeat(int delay)
 {
-	if (hbthread &&  delay < 0 ){
+	if (delay < 0 ){
 		ATOMIC_SET(hbrunning, 0, mal_beatLock);
-		MT_join_thread(hbthread);
+		if (hbthread)
+			MT_join_thread(hbthread);
 		return;
 	}
 	if ( delay > 0 &&  delay <= 10)
@@ -1057,6 +1043,7 @@ void setHeartbeat(int delay)
 
 void initProfiler(void)
 {
+	gettimeofday(&startup_time, NULL);
 	if( mal_trace)
 		openProfilerStream(mal_clients[0].fdout,0);
 }

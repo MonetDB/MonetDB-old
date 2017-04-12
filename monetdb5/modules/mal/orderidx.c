@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -47,6 +47,25 @@ OIDXcreateImplementation(Client cntxt, int tpe, BAT *b, int pieces)
 	if (b->torderidx)
 		return MAL_SUCCEED;
 
+	switch (ATOMbasetype(b->ttype)) {
+	case TYPE_bte:
+	case TYPE_sht:
+	case TYPE_int:
+	case TYPE_lng:
+#ifdef HAVE_HGE
+	case TYPE_hge:
+#endif
+	case TYPE_flt:
+	case TYPE_dbl:
+		break;
+	case TYPE_str:
+		/* TODO: support strings etc. */
+	case TYPE_void:
+	case TYPE_ptr:
+	default:
+		throw(MAL, "bat.orderidx", TYPE_NOT_SUPPORTED);
+	}
+
 	if( pieces < 0 ){
 		if (GDKnr_threads <= 1) {
 			pieces = 1;
@@ -72,8 +91,8 @@ OIDXcreateImplementation(Client cntxt, int tpe, BAT *b, int pieces)
 		pieces = 1;
 	}
 #ifdef _DEBUG_OIDX_
-	mnstr_printf(cntxt->fdout,"#bat.orderidx pieces %d\n",pieces);
-	mnstr_printf(cntxt->fdout,"#oidx ttype %s bat %s\n", ATOMname(b->ttype),ATOMname(tpe));
+	fprintf(stderr,"#bat.orderidx pieces %d\n",pieces);
+	fprintf(stderr,"#oidx ttype %s bat %s\n", ATOMname(b->ttype),ATOMname(tpe));
 #endif
 
 	/* create a temporary MAL function to sort the BAT in parallel */
@@ -86,12 +105,10 @@ OIDXcreateImplementation(Client cntxt, int tpe, BAT *b, int pieces)
 	pushArgument(smb, q, arg);
 	getArg(q,0) = newTmpVariable(smb, TYPE_void);
 
-	resizeMalBlk(smb, 2*pieces+10, 2*pieces+10); // large enough
+	resizeMalBlk(smb, 2*pieces+10); // large enough
 	/* create the pack instruction first, as it will hold
 	 * intermediate variables */
-	pack = newInstruction(0, ASSIGNsymbol);
-	setModuleId(pack, putName("bat"));
-	setFunctionId(pack, putName("orderidx"));
+	pack = newInstruction(0, putName("bat"), putName("orderidx"));
 	pack->argv[0] = newTmpVariable(smb, TYPE_void);
 	pack = pushArgument(smb, pack, arg);
 	setVarFixed(smb, getArg(pack, 0));
@@ -146,12 +163,12 @@ OIDXcreateImplementation(Client cntxt, int tpe, BAT *b, int pieces)
 		newstk->up = 0;
 		newstk->stk[arg].vtype= TYPE_bat;
 		newstk->stk[arg].val.bval= b->batCacheid;
-		BBPincref(newstk->stk[arg].val.bval, TRUE);
+		BBPretain(newstk->stk[arg].val.bval);
 		msg = runMALsequence(cntxt, smb, 1, 0, newstk, 0, 0);
 		freeStack(newstk);
 	}
 #ifdef _DEBUG_OIDX_
-	printFunction(cntxt->fdout, smb, 0, LIST_MAL_ALL);
+	fprintFunction(stderr, smb, 0, LIST_MAL_ALL);
 #endif
 	/* get rid of temporary MAL block */
 	freeSymbol(snew);
@@ -206,8 +223,6 @@ OIDXgetorderidx(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BAT *bn;
 	bat *ret = getArgReference_bat(stk,pci,0);
 	bat bid = *getArgReference_bat(stk, pci, 1);
-	const oid *s, *se;
-	oid *d;
 
 	(void) cntxt;
 	(void) mb;
@@ -221,21 +236,17 @@ OIDXgetorderidx(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL, "bat.getorderidx", RUNTIME_OBJECT_MISSING);
 	}
 
-	if ((bn = BATnew(TYPE_void, TYPE_oid, BATcount(b), TRANSIENT)) == NULL) {
+	if ((bn = COLnew(0, TYPE_oid, BATcount(b), TRANSIENT)) == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(MAL, "bat.getorderidx", MAL_MALLOC_FAIL);
 	}
-	s = (const oid *) b->torderidx->base + ORDERIDXOFF;
-	se = s + BATcount(b);
-	d = (oid *) Tloc(bn, BUNfirst(bn));
-	while (s < se)
-			 *d++ = *s++ & ~BUN_MSK;
+	memcpy(Tloc(bn, 0), (const oid *) b->torderidx->base + ORDERIDXOFF,
+		   BATcount(b) * SIZEOF_OID);
 	BATsetcount(bn, BATcount(b));
-	BATseqbase(bn, 0);
 	bn->tkey = 1;
 	bn->tsorted = bn->trevsorted = BATcount(b) <= 1;
-	bn->T->nil = 0;
-	bn->T->nonil = 1;
+	bn->tnil = 0;
+	bn->tnonil = 1;
 	*ret = bn->batCacheid;
 	BBPkeepref(*ret);
 	BBPunfix(b->batCacheid);
@@ -253,7 +264,6 @@ OIDXorderidx(bat *ret, const bat *bid, const bit *stable)
 	if (b == NULL)
 		throw(MAL, "algebra.orderidx", RUNTIME_OBJECT_MISSING);
 
-	assert(BAThdense(b));
 	r = BATorderidx(b, *stable);
 	if (r != GDK_SUCCEED) {
 		BBPunfix(*bid);
@@ -291,7 +301,6 @@ OIDXmerge(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (b == NULL)
 		throw(MAL, "bat.orderidx", RUNTIME_OBJECT_MISSING);
 
-	assert(BAThdense(b));	/* assert void headed */
 	assert(b->torderidx == NULL);
 
 	switch (ATOMbasetype(b->ttype)) {

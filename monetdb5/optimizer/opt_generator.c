@@ -3,11 +3,12 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
 #include "opt_generator.h"
+#include "mal_builder.h"
 
 /*
  * (c) Martin Kersten, Sjoerd Mullender
@@ -29,22 +30,25 @@ pushInstruction(mb,P);
 #define casting(TPE)\
 			k= getArg(p,1);\
 			p->argc = p->retc;\
-			q= newStmt(mb,calcRef,TPE##Ref);\
-			setArgType(mb,q,0,TYPE_##TPE);\
+			q= newInstruction(0,calcRef, TPE##Ref);\
+			setDestVar(q, newTmpVariable(mb, TYPE_##TPE));\
 			pushArgument(mb,q,getArg(series[k],1));\
 			typeChecker(cntxt->fdout, cntxt->nspace, mb, q, TRUE);\
 			p = pushArgument(mb,p, getArg(q,0));\
-			q= newStmt(mb,calcRef,TPE##Ref);\
-			setArgType(mb,q,0,TYPE_##TPE);\
+			pushInstruction(mb,q);\
+			q= newInstruction(0,calcRef,TPE##Ref);\
+			setDestVar(q, newTmpVariable(mb, TYPE_##TPE));\
 			pushArgument(mb,q,getArg(series[k],2));\
+			pushInstruction(mb,q);\
 			typeChecker(cntxt->fdout, cntxt->nspace, mb, q, TRUE);\
 			p = pushArgument(mb,p, getArg(q,0));\
 			if( p->argc == 4){\
-				q= newStmt(mb,calcRef,TPE##Ref);\
-				setArgType(mb,q,0,TYPE_##TPE);\
+				q= newInstruction(0,calcRef,TPE##Ref);\
+				setDestVar(q, newTmpVariable(mb, TYPE_##TPE));\
 				pushArgument(mb,q,getArg(series[k],3));\
 				typeChecker(cntxt->fdout, cntxt->nspace, mb, q, TRUE);\
 				p = pushArgument(mb,p, getArg(q,0));\
+				pushInstruction(mb,q);\
 			}\
 			setModuleId(p,generatorRef);\
 			setFunctionId(p,parametersRef);\
@@ -52,7 +56,7 @@ pushInstruction(mb,P);
 			series[getArg(p,0)] = p;\
 			pushInstruction(mb,p);
 
-int 
+str 
 OPTgeneratorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	InstrPtr p,q, *old, *series;
@@ -64,12 +68,16 @@ OPTgeneratorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	str lngRef = getName("lng");
 	str fltRef = getName("flt");
 	str dblRef = getName("dbl");
+	char buf[256];
+	lng usec= GDKusec();
 
 	(void) cntxt;
 	(void) stk;
 	(void) pci;
 
 	series = (InstrPtr*) GDKzalloc(sizeof(InstrPtr) * mb->vtop);
+	if(series == NULL)
+		throw(MAL,"optimizer.generator", MAL_MALLOC_FAIL);
 	old = mb->stmt;
 	limit = mb->stop;
 	slimit = mb->ssize;
@@ -87,7 +95,7 @@ OPTgeneratorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	
 	if (newMalBlkStmt(mb, mb->ssize) < 0) {
 		GDKfree(series);
-		return 0;
+		throw(MAL,"optimizer.generator", MAL_MALLOC_FAIL);
 	}
 
 	for( i=0; i < limit; i++){
@@ -102,9 +110,9 @@ OPTgeneratorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 			setFunctionId(p, parametersRef);
 			typeChecker(cntxt->fdout, cntxt->nspace, mb, p, TRUE);
 			pushInstruction(mb,p); 
-		} else if ( getModuleId(p) == algebraRef && getFunctionId(p) == subselectRef && series[getArg(p,1)]){
+		} else if ( getModuleId(p) == algebraRef && getFunctionId(p) == selectRef && series[getArg(p,1)]){
 			errorCheck(p,algebraRef,getArg(p,1));
-		} else if ( getModuleId(p) == algebraRef && getFunctionId(p) == thetasubselectRef && series[getArg(p,1)]){
+		} else if ( getModuleId(p) == algebraRef && getFunctionId(p) == thetaselectRef && series[getArg(p,1)]){
 			errorCheck(p,algebraRef,getArg(p,1));
 		} else if ( getModuleId(p) == algebraRef && getFunctionId(p) == projectionRef && series[getArg(p,2)]){
 			errorCheck(p,algebraRef,getArg(p,2));
@@ -153,7 +161,20 @@ OPTgeneratorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
     	GDKfree(series);
 
 #ifdef VLT_DEBUG
-	printFunction(cntxt->fdout,mb,0,LIST_MAL_ALL);
+	fprintFunction(stderr,mb,0,LIST_MAL_ALL);
 #endif
-	return actions;
+
+    /* Defense line against incorrect plans */
+	/* all new/modified statements are already checked */
+	//chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+	//chkFlow(cntxt->fdout, mb);
+	//chkDeclarations(cntxt->fdout, mb);
+    /* keep all actions taken as a post block comment */
+	usec = GDKusec()- usec;
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","generator",actions, usec);
+    newComment(mb,buf);
+	if( actions >= 0)
+		addtoMalBlkHistory(mb);
+
+	return MAL_SUCCEED;
 }

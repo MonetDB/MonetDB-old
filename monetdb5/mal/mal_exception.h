@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #ifndef _MAL_EXCEPTION_H
@@ -53,7 +53,7 @@ mal_export enum malexception	getExceptionType(str);
 mal_export str	getExceptionPlace(str);
 mal_export str	getExceptionMessage(str);
 mal_export void dumpExceptionsToStream(stream *out, str msg);
-mal_export char *M5OutOfMemory;	/* pointer to constant string */
+mal_export void freeException(str);
 
 #include "mal_errors.h"
 #endif /*  _MAL_EXCEPTION_H*/

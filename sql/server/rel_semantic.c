@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -28,7 +28,7 @@ sql_rel *
 rel_parse(mvc *m, sql_schema *s, char *query, char emode)
 {
 	mvc o = *m;
-	sql_rel *rel;
+	sql_rel *rel = NULL;
 	buffer *b;
 	char *n;
 	int len = _strlen(query);
@@ -43,6 +43,9 @@ rel_parse(mvc *m, sql_schema *s, char *query, char emode)
 
 	b = (buffer*)GDKmalloc(sizeof(buffer));
 	n = GDKmalloc(len + 1 + 1);
+	if (!b || !n) {
+		return NULL;
+	}
 	strncpy(n, query, len);
 	query = n;
 	query[len] = '\n';
@@ -61,9 +64,10 @@ rel_parse(mvc *m, sql_schema *s, char *query, char emode)
 	m->sym = NULL;
 	m->errstr[0] = '\0';
 	/* via views we give access to protected objects */
-	m->user_id = USER_MONETDB;
+	if (emode != m_instantiate)
+		m->user_id = USER_MONETDB;
 
-	(void) sqlparse(m);	/* blindly ignore errors */
+	(void) sqlparse(m);     /* blindly ignore errors */
 	rel = rel_semantic(m, m->sym);
 
 	GDKfree(query);
@@ -81,6 +85,10 @@ rel_parse(mvc *m, sql_schema *s, char *query, char emode)
 		strcpy(m->errstr, errstr);
 	} else {
 		int label = m->label;
+		while (m->topvars > o.topvars) {
+			if (m->vars[--m->topvars].name)
+				c_delete(m->vars[m->topvars].name);
+		}
 		*m = o;
 		m->label = label;
 	}
@@ -143,6 +151,8 @@ rel_semantic(mvc *sql, symbol *s)
 	case SQL_DECLARE:
 	case SQL_CALL:
 	case SQL_SET:
+	
+	case SQL_CREATE_TABLE_LOADER:
 
 	case SQL_CREATE_TRIGGER:
 	case SQL_DROP_TRIGGER:
@@ -155,6 +165,7 @@ rel_semantic(mvc *sql, symbol *s)
 	case SQL_DELETE:
 	case SQL_COPYFROM:
 	case SQL_BINCOPYFROM:
+	case SQL_COPYLOADER:
 	case SQL_COPYTO:
 		return rel_updates(sql, s);
 

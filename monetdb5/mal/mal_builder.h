@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #ifndef _MAL_BUILDER_
@@ -21,12 +21,12 @@ mal_export InstrPtr newExitStmt(MalBlkPtr mb, str nme);
 mal_export InstrPtr newReturnStmt(MalBlkPtr mb);
 mal_export InstrPtr newFcnCall(MalBlkPtr mb, char *mod, char *fcn);
 mal_export InstrPtr pushSht(MalBlkPtr mb, InstrPtr q, sht val);
+mal_export InstrPtr pushEndInstruction(MalBlkPtr mb);   
 mal_export InstrPtr pushInt(MalBlkPtr mb, InstrPtr q, int val);
 mal_export InstrPtr pushLng(MalBlkPtr mb, InstrPtr q, lng val);
 #ifdef HAVE_HGE
 mal_export InstrPtr pushHge(MalBlkPtr mb, InstrPtr q, hge val);
 #endif
-mal_export InstrPtr pushWrd(MalBlkPtr mb, InstrPtr q, wrd val);
 mal_export InstrPtr pushBte(MalBlkPtr mb, InstrPtr q, bte val);
 mal_export InstrPtr pushOid(MalBlkPtr mb, InstrPtr q, oid val);
 mal_export InstrPtr pushVoid(MalBlkPtr mb, InstrPtr q);
@@ -44,7 +44,6 @@ mal_export InstrPtr pushValue(MalBlkPtr mb, InstrPtr q, ValPtr cst);
 mal_export int getIntConstant(MalBlkPtr mb, int val);
 mal_export int getLngConstant(MalBlkPtr mb, lng val);
 mal_export int getShtConstant(MalBlkPtr mb, sht val);
-mal_export int getWrdConstant(MalBlkPtr mb, wrd val);
 mal_export int getBteConstant(MalBlkPtr mb, bte val);
 mal_export int getOidConstant(MalBlkPtr mb, oid val);
 mal_export int getDblConstant(MalBlkPtr mb, dbl val);

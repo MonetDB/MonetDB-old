@@ -2,12 +2,12 @@
 -- License, v. 2.0.  If a copy of the MPL was not distributed with this
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 --
--- Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+-- Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 -- show the optimizer statistics maintained by the SQL frontend
 create function sys.optimizer_stats ()
-	returns table (rewrite string, count int)
-	external name sql.dump_opt_stats;
+	returns table (optname string, count int, timing bigint)
+	external name inspect.optimizer_stats;
 
 
 -- SQL QUERY CACHE
@@ -43,7 +43,7 @@ create function sys.bbp ()
 	external name bbp.get;
 
 create function sys.malfunctions()
-	returns table("signature" string, "address" string, "comment" string)
+	returns table("module" string, "function" string, "signature" string, "address" string, "comment" string)
 	external name "manual"."functions";
 
 create procedure sys.evalAlgebra( ra_stmt string, opt bool)

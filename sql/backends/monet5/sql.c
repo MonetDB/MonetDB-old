@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -66,7 +66,7 @@ rel_no_mitosis(sql_rel *rel)
 {
 	int is_point = 0;
 
-	if (!rel || is_basetable(rel->op))
+	if (!rel)
 		return 1;
 	if (is_project(rel->op))
 		return rel_no_mitosis(rel->l);
@@ -125,23 +125,6 @@ sql_symbol2relation(mvc *c, symbol *sym)
 			c->no_mitosis = 1;
 	}
 	return r;
-}
-
-stmt *
-sql_relation2stmt(mvc *c, sql_rel *r)
-{
-	stmt *s = NULL;
-
-	if (!r) {
-		return NULL;
-	} else {
-		if (c->emode == m_plan) {
-			rel_print(c, r, 0);
-		} else {
-			s = output_rel_bin(c, r);
-		}
-	}
-	return s;
 }
 
 /*
@@ -237,74 +220,6 @@ SQLmvc(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
-str
-SQLtransaction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	mvc *sql = NULL;
-	str msg;
-	int type = *getArgReference_int(stk, pci, 1);
-	int chain = *getArgReference_int(stk, pci, 2);
-	str name = *getArgReference_str(stk, pci, 3);
-	char buf[BUFSIZ];
-	int ret = 0;
-
-	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
-		return msg;
-	if ((msg = checkSQLContext(cntxt)) != NULL)
-		return msg;
-	if (name && strcmp(name, str_nil) == 0)
-		name = NULL;
-
-	switch (type) {
-	case DDL_RELEASE:
-		if (sql->session->auto_commit == 1)
-			throw(SQL, "sql.trans", "3BM30!RELEASE SAVEPOINT: not allowed in auto commit mode");
-		ret = mvc_release(sql, name);
-		if (ret < 0) {
-			snprintf(buf, BUFSIZ, "3B000!RELEASE SAVEPOINT: (%s) failed", name);
-			throw(SQL, "sql.trans", "%s", buf);
-		}
-		break;
-	case DDL_COMMIT:
-		if (sql->session->auto_commit == 1) {
-			if (name)
-				throw(SQL, "sql.trans", "3BM30!SAVEPOINT: not allowed in auto commit mode");
-			else
-				throw(SQL, "sql.trans", "2DM30!COMMIT: not allowed in auto commit mode");
-		}
-		ret = mvc_commit(sql, chain, name);
-		if (ret < 0 && !name)
-			throw(SQL, "sql.trans", "2D000!COMMIT: failed");
-		if (ret < 0 && name)
-			throw(SQL, "sql.trans", "3B000!SAVEPOINT: (%s) failed", name);
-		break;
-	case DDL_ROLLBACK:
-		if (sql->session->auto_commit == 1)
-			throw(SQL, "sql.trans", "2DM30!ROLLBACK: not allowed in auto commit mode");
-		RECYCLEdrop(cntxt);
-		ret = mvc_rollback(sql, chain, name);
-		if (ret < 0 && name) {
-			snprintf(buf, BUFSIZ, "3B000!ROLLBACK TO SAVEPOINT: (%s) failed", name);
-			throw(SQL, "sql.trans", "%s", buf);
-		}
-		break;
-	case DDL_TRANS:
-		if (sql->session->auto_commit == 0)
-			throw(SQL, "sql.trans", "25001!START TRANSACTION: cannot start a transaction within a transaction");
-		if (sql->session->active) {
-			RECYCLEdrop(cntxt);
-			mvc_rollback(sql, 0, NULL);
-		}
-		sql->session->auto_commit = 0;
-		sql->session->ac_on_commit = 1;
-		sql->session->level = chain;
-		(void) mvc_trans(sql);
-		break;
-	default:
-		throw(SQL, "sql.trans", "transaction unknown type");
-	}
-	return MAL_SUCCEED;
-}
 
 str
 SQLcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
@@ -342,7 +257,6 @@ SQLabort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 
 	if (sql->session->active) {
-		RECYCLEdrop(cntxt);
 		mvc_rollback(sql, 0, NULL);
 	}
 	return msg;
@@ -361,39 +275,14 @@ SQLshutdown_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
-SQLtransaction2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	mvc *sql = NULL;
-	str msg;
-
-	(void) stk;
-	(void) pci;
-
-	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
-		return msg;
-	if ((msg = checkSQLContext(cntxt)) != NULL)
-		return msg;
-	if (sql->session->auto_commit == 0)
-		throw(SQL, "sql.trans", "25001!START TRANSACTION: cannot start a transaction within a transaction");
-	if (sql->session->active) {
-		RECYCLEdrop(cntxt);
-		mvc_rollback(sql, 0, NULL);
-	}
-	sql->session->auto_commit = 0;
-	sql->session->ac_on_commit = 1;
-	sql->session->level = 0;
-	(void) mvc_trans(sql);
-	return msg;
-}
-
-static str
-create_table_or_view(mvc *sql, char *sname, sql_table *t, int temp)
+create_table_or_view(mvc *sql, char *sname, char *tname, sql_table *t, int temp)
 {
 	sql_allocator *osa;
 	sql_schema *s = mvc_bind_schema(sql, sname);
 	sql_table *nt = NULL;
 	node *n;
 
+	(void)tname;
 	if (STORE_READONLY)
 		return sql_error(sql, 06, "25006!schema statements cannot be executed on a readonly database.");
 
@@ -462,14 +351,9 @@ create_table_or_view(mvc *sql, char *sname, sql_table *t, int temp)
 		if (r)
 			r = rel_optimizer(sql, r);
 		if (r) {
-			stmt *sqs = rel_bin(sql, r);
-			list *view_id_l = stmt_list_dependencies(sql->sa, sqs, VIEW_DEPENDENCY);
-			list *id_l = stmt_list_dependencies(sql->sa, sqs, COLUMN_DEPENDENCY);
-			list *func_id_l = stmt_list_dependencies(sql->sa, sqs, FUNC_DEPENDENCY);
+			list *id_l = rel_dependencies(sql->sa, r);
 
 			mvc_create_dependencies(sql, id_l, nt->base.id, VIEW_DEPENDENCY);
-			mvc_create_dependencies(sql, view_id_l, nt->base.id, VIEW_DEPENDENCY);
-			mvc_create_dependencies(sql, func_id_l, nt->base.id, VIEW_DEPENDENCY);
 		}
 		sa_destroy(sql->sa);
 	}
@@ -477,28 +361,82 @@ create_table_or_view(mvc *sql, char *sname, sql_table *t, int temp)
 	return MAL_SUCCEED;
 }
 
-static int
-table_has_updates(sql_trans *tr, sql_table *t)
+str 
+create_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *columns, size_t ncols) 
 {
-	node *n;
-	int cnt = 0;
+    	size_t i;
+    	sql_table *t;
+    	sql_schema *s;
+    	mvc *sql = NULL;
+    	str msg = MAL_SUCCEED;
 
-	for ( n = t->columns.set->h; !cnt && n; n = n->next) {
-		sql_column *c = n->data;
-		BAT *b = store_funcs.bind_col(tr, c, RD_UPD_ID);
-		if ( b == 0)
-			return -1;
-		cnt |= BATcount(b) > 0;
-		if (isTable(t) && t->access != TABLE_READONLY && (t->base.flag != TR_NEW /* alter */ ) &&
-		    t->persistence == SQL_PERSIST && !t->commit_action)
-			cnt |= store_funcs.count_col(tr, c, 0) > 0;
-		BBPunfix(b->batCacheid);
+	if ((msg = getSQLContext(cntxt, NULL, &sql, NULL)) != NULL)
+		return msg;
+	if ((msg = checkSQLContext(cntxt)) != NULL)
+		return msg;
+
+	/* for some reason we don't have an allocator here so make one */
+	sql->sa = sa_create();
+
+    	if (!sname) 
+		sname = "sys";
+	if (!(s = mvc_bind_schema(sql, sname))) {
+		msg = sql_error(sql, 02, "3F000!CREATE TABLE: no such schema '%s'", sname);
+		goto cleanup;
 	}
-	return cnt;
+	if (!(t = mvc_create_table(sql, s, tname, tt_table, 0, SQL_DECLARED_TABLE, CA_COMMIT, -1))) {
+		msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not create table '%s'", tname);
+		goto cleanup;
+	}
+
+    	for(i = 0; i < ncols; i++) {
+        	BAT *b = columns[i].b;
+        	sql_subtype *tpe = sql_bind_localtype(ATOMname(b->ttype));
+        	sql_column *col = NULL;
+
+        	if (!tpe) {
+    			msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not find type for column");
+    			goto cleanup;
+        	}
+
+        	col = mvc_create_column(sql, t, columns[i].name, tpe);
+        	if (!col) {
+    			msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not create column %s", columns[i].name);
+    			goto cleanup;
+        	}
+    	}
+    	msg = create_table_or_view(sql, sname, t->base.name, t, 0);
+    	if (msg != MAL_SUCCEED) {
+    		goto cleanup;
+    	}
+    	t = mvc_bind_table(sql, s, tname);
+    	if (!t) {
+		msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not bind table %s", tname);
+		goto cleanup;
+    	}
+    	for(i = 0; i < ncols; i++) {
+        	BAT *b = columns[i].b;
+        	sql_column *col = NULL;
+
+        	col = mvc_bind_column(sql,t, columns[i].name);
+        	if (!col) {
+    			msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not bind column %s", columns[i].name);
+    			goto cleanup;
+        	}
+        	msg = mvc_append_column(sql->session->tr, col, b);
+        	if (msg != MAL_SUCCEED) {
+        		goto cleanup;
+        	}
+    	}
+
+cleanup:
+    sa_destroy(sql->sa);
+    sql->sa = NULL;
+    return msg;
 }
 
-static BAT *
-mvc_bind(mvc *m, char *sname, char *tname, char *cname, int access)
+BAT *
+mvc_bind(mvc *m, const char *sname, const char *tname, const char *cname, int access)
 {
 	sql_trans *tr = m->session->tr;
 	BAT *b = NULL;
@@ -520,991 +458,14 @@ mvc_bind(mvc *m, char *sname, char *tname, char *cname, int access)
 	return b;
 }
 
-static str
-alter_table(Client cntxt, mvc *sql, char *sname, sql_table *t)
-{
-	sql_schema *s = mvc_bind_schema(sql, sname);
-	sql_table *nt = NULL;
-	node *n;
-
-	if (!s)
-		return sql_message("3F000!ALTER TABLE: no such schema '%s'", sname);
-
-	if ((nt = mvc_bind_table(sql, s, t->base.name)) == NULL) {
-		return sql_message("42S02!ALTER TABLE: no such table '%s'", t->base.name);
-
-	} else if (!mvc_schema_privs(sql, s) && !(isTempSchema(s) && t->persistence == SQL_LOCAL_TEMP)) {
-		return sql_message("42000!ALTER TABLE: insufficient privileges for user '%s' in schema '%s'", stack_get_string(sql, "current_user"), s->base.name);
-	}
-
-	/* First check if all the changes are allowed */
-	if (t->idxs.set) {
-		/* only one pkey */
-		if (nt->pkey) {
-			for (n = t->idxs.nelm; n; n = n->next) {
-				sql_idx *i = n->data;
-				if (i->key && i->key->type == pkey)
-					return sql_message("40000!CONSTRAINT PRIMARY KEY: a table can have only one PRIMARY KEY\n");
-			}
-		}
-	}
-
-	/* check for changes */
-	if (t->columns.dset)
-		for (n = t->columns.dset->h; n; n = n->next) {
-			/* propagate alter table .. drop column */
-			sql_column *c = n->data;
-			sql_column *nc = mvc_bind_column(sql, nt, c->base.name);
-			mvc_drop_column(sql, nt, nc, c->drop_action);
-		}
-	/* check for changes on current cols */
-	for (n = t->columns.set->h; n != t->columns.nelm; n = n->next) {
-
-		/* null or default value changes */
-		sql_column *c = n->data;
-		sql_column *nc = mvc_bind_column(sql, nt, c->base.name);
-
-		if (c->null != nc->null && isTable(nt)) {
-			mvc_null(sql, nc, c->null);
-			/* for non empty check for nulls */
-			if (c->null == 0) {
-				void *nilptr = ATOMnilptr(c->type.type->localtype);
-				rids *nils = table_funcs.rids_select(sql->session->tr, nc, nilptr, NULL, NULL);
-				int has_nils = (table_funcs.rids_next(nils) != oid_nil);
-
-				table_funcs.rids_destroy(nils);
-				if (has_nils)
-					return sql_message("40002!ALTER TABLE: NOT NULL constraint violated for column %s.%s", c->t->base.name, c->base.name);
-			}
-		}
-		if (c->def != nc->def)
-			mvc_default(sql, nc, c->def);
-
-		if (c->storage_type != nc->storage_type) {
-			if (c->t->access == TABLE_WRITABLE)
-				return sql_message("40002!ALTER TABLE: SET STORAGE for column %s.%s only allowed on READ or INSERT ONLY tables", c->t->base.name, c->base.name);
-			nc->base.rtime = nc->base.wtime = sql->session->tr->wtime;
-			mvc_storage(sql, nc, c->storage_type);
-		}
-	}
-	for (; n; n = n->next) {
-		/* propagate alter table .. add column */
-		sql_column *c = n->data;
-		mvc_copy_column(sql, nt, c);
-	}
-	if (t->idxs.set) {
-		/* alter drop index */
-		if (t->idxs.dset)
-			for (n = t->idxs.dset->h; n; n = n->next) {
-				sql_idx *i = n->data;
-				sql_idx *ni = mvc_bind_idx(sql, s, i->base.name);
-				mvc_drop_idx(sql, s, ni);
-			}
-		/* alter add index */
-		for (n = t->idxs.nelm; n; n = n->next) {
-			sql_idx *i = n->data;
-
-			if (i->type == ordered_idx) {
-				sql_kc *ic = i->columns->h->data;
-				BAT *b = mvc_bind(sql, nt->s->base.name, nt->base.name, ic->c->base.name, 0);
-				OIDXcreateImplementation(cntxt, newBatType(TYPE_void,b->ttype), b, -1);
-				BBPunfix(b->batCacheid);
-			}
-			if (i->type == imprints_idx) {
-				sql_kc *ic = i->columns->h->data;
-				BAT *b = mvc_bind(sql, nt->s->base.name, nt->base.name, ic->c->base.name, 0);
-				BATimprints(b);
-				BBPunfix(b->batCacheid);
-			}
-			mvc_copy_idx(sql, nt, i);
-		}
-	}
-	if (t->keys.set) {
-		/* alter drop key */
-		if (t->keys.dset)
-			for (n = t->keys.dset->h; n; n = n->next) {
-				sql_key *k = n->data;
-				sql_key *nk = mvc_bind_key(sql, s, k->base.name);
-				if (nk)
-					mvc_drop_key(sql, s, nk, k->drop_action);
-			}
-		/* alter add key */
-		for (n = t->keys.nelm; n; n = n->next) {
-			sql_key *k = n->data;
-			mvc_copy_key(sql, nt, k);
-		}
-	}
-	return MAL_SUCCEED;
-}
-
-static char *
-drop_table(mvc *sql, char *sname, char *tname, int drop_action)
-{
-	sql_schema *s = NULL;
-	sql_table *t = NULL;
-	node *n;
-
-	if (sname && !(s = mvc_bind_schema(sql, sname)))
-		return sql_message("3F000!DROP TABLE: no such schema '%s'", sname);
-	if (!s)
-		s = cur_schema(sql);
-	t = mvc_bind_table(sql, s, tname);
-	if (!t && !sname) {
-		s = tmp_schema(sql);
-		t = mvc_bind_table(sql, s, tname);
-	}
-	if (!t) {
-		return sql_message("42S02!DROP TABLE: no such table '%s'", tname);
-	} else if (isView(t)) {
-		return sql_message("42000!DROP TABLE: cannot drop VIEW '%s'", tname);
-	} else if (t->system) {
-		return sql_message("42000!DROP TABLE: cannot drop system table '%s'", tname);
-	} else if (!mvc_schema_privs(sql, s) && !(isTempSchema(s) && t->persistence == SQL_LOCAL_TEMP)) {
-		return sql_message("42000!DROP TABLE: access denied for %s to schema ;'%s'", stack_get_string(sql, "current_user"), s->base.name);
-	}
-	if (!drop_action && t->keys.set) {
-		for (n = t->keys.set->h; n; n = n->next) {
-			sql_key *k = n->data;
-
-			if (k->type == ukey || k->type == pkey) {
-				sql_ukey *uk = (sql_ukey *) k;
-
-				if (uk->keys && list_length(uk->keys)) {
-					node *l = uk->keys->h;
-
-					for (; l; l = l->next) {
-						k = l->data;
-						/* make sure it is not a self referencing key */
-						if (k->t != t)
-							return sql_message("40000!DROP TABLE: FOREIGN KEY %s.%s depends on %s", k->t->base.name, k->base.name, tname);
-					}
-				}
-			}
-		}
-	}
-
-	if (!drop_action && mvc_check_dependency(sql, t->base.id, TABLE_DEPENDENCY, NULL))
-		return sql_message("42000!DROP TABLE: unable to drop table %s (there are database objects which depend on it)\n", t->base.name);
-
-	mvc_drop_table(sql, s, t, drop_action);
-	return MAL_SUCCEED;
-}
-
-static char *
-drop_view(mvc *sql, char *sname, char *tname, int drop_action)
-{
-	sql_table *t = NULL;
-	sql_schema *ss = NULL;
-
-	if (sname != NULL && (ss = mvc_bind_schema(sql, sname)) == NULL)
-		return sql_message("3F000!DROP VIEW: no such schema '%s'", sname);
-
-	if (ss == NULL)
-		ss = cur_schema(sql);
-
-	t = mvc_bind_table(sql, ss, tname);
-
-	if (!mvc_schema_privs(sql, ss) && !(isTempSchema(ss) && t && t->persistence == SQL_LOCAL_TEMP)) {
-		return sql_message("42000!DROP VIEW: access denied for %s to schema '%s'", stack_get_string(sql, "current_user"), ss->base.name);
-	} else if (!t) {
-		return sql_message("42S02!DROP VIEW: unknown view '%s'", tname);
-	} else if (!isView(t)) {
-		return sql_message("42000!DROP VIEW: unable to drop view '%s': is a table", tname);
-	} else if (t->system) {
-		return sql_message("42000!DROP VIEW: cannot drop system view '%s'", tname);
-	} else if (!drop_action && mvc_check_dependency(sql, t->base.id, VIEW_DEPENDENCY, NULL)) {
-		return sql_message("42000!DROP VIEW: cannot drop view '%s', there are database objects which depend on it", t->base.name);
-	} else {
-		mvc_drop_table(sql, ss, t, drop_action);
-		return MAL_SUCCEED;
-	}
-}
-
-static str
-drop_key(mvc *sql, char *sname, char *kname, int drop_action)
-{
-	sql_key *key;
-	sql_schema *ss = NULL;
-
-	if (sname != NULL && (ss = mvc_bind_schema(sql, sname)) == NULL)
-		return sql_message("3F000!ALTER TABLE: no such schema '%s'", sname);
-
-	if (ss == NULL)
-		ss = cur_schema(sql);
-
-	if ((key = mvc_bind_key(sql, ss, kname)) == NULL)
-		return sql_message("42000!ALTER TABLE: no such constraint '%s'", kname);
-	if (!drop_action && mvc_check_dependency(sql, key->base.id, KEY_DEPENDENCY, NULL))
-		return sql_message("42000!ALTER TABLE: cannot drop constraint '%s': there are database objects which depend on it", key->base.name);
-	mvc_drop_key(sql, ss, key, drop_action);
-	return MAL_SUCCEED;
-}
-
-static str
-drop_index(Client cntxt, mvc *sql, char *sname, char *iname)
-{
-	sql_schema *s = NULL;
-	sql_idx *i = NULL;
-
-	if (!(s = mvc_bind_schema(sql, sname)))
-		return sql_message("3F000!DROP INDEX: no such schema '%s'", sname);
-	i = mvc_bind_idx(sql, s, iname);
-	if (!i) {
-		return sql_message("42S12!DROP INDEX: no such index '%s'", iname);
-	} else if (!mvc_schema_privs(sql, s)) {
-		return sql_message("42000!DROP INDEX: access denied for %s to schema ;'%s'", stack_get_string(sql, "current_user"), s->base.name);
-	} else {
-		if (i->type == ordered_idx) {
-			sql_kc *ic = i->columns->h->data;
-			BAT *b = mvc_bind(sql, s->base.name, ic->c->t->base.name, ic->c->base.name, 0);
-			OIDXdropImplementation(cntxt, b);
-			BBPunfix(b->batCacheid);
-		}
-		if (i->type == imprints_idx) {
-			sql_kc *ic = i->columns->h->data;
-			BAT *b = mvc_bind(sql, s->base.name, ic->c->t->base.name, ic->c->base.name, 0);
-			IMPSdestroy(b);
-			BBPunfix(b->batCacheid);
-		}
-		mvc_drop_idx(sql, s, i);
-	}
-	return NULL;
-}
-
-static str
-create_seq(mvc *sql, char *sname, sql_sequence *seq)
-{
-	sql_schema *s = NULL;
-
-	if (sname && !(s = mvc_bind_schema(sql, sname)))
-		return sql_message("3F000!CREATE SEQUENCE: no such schema '%s'", sname);
-	if (s == NULL)
-		s = cur_schema(sql);
-	if (find_sql_sequence(s, seq->base.name)) {
-		return sql_message("42000!CREATE SEQUENCE: name '%s' already in use", seq->base.name);
-	} else if (!mvc_schema_privs(sql, s)) {
-		return sql_message("42000!CREATE SEQUENCE: insufficient privileges for '%s' in schema '%s'", stack_get_string(sql, "current_user"), s->base.name);
-	}
-	sql_trans_create_sequence(sql->session->tr, s, seq->base.name, seq->start, seq->minvalue, seq->maxvalue, seq->increment, seq->cacheinc, seq->cycle, seq->bedropped);
-	return NULL;
-}
-
-static str
-alter_seq(mvc *sql, char *sname, sql_sequence *seq, lng *val)
-{
-	sql_schema *s = NULL;
-	sql_sequence *nseq = NULL;
-
-	if (sname && !(s = mvc_bind_schema(sql, sname)))
-		return sql_message("3F000!ALTER SEQUENCE: no such schema '%s'", sname);
-	if (s == NULL)
-		s = cur_schema(sql);
-	if (!(nseq = find_sql_sequence(s, seq->base.name))) {
-		return sql_message("42000!ALTER SEQUENCE: no such sequence '%s'", seq->base.name);
-	} else if (!mvc_schema_privs(sql, s)) {
-		return sql_message("42000!ALTER SEQUENCE: insufficient privileges for '%s' in schema '%s'", stack_get_string(sql, "current_user"), s->base.name);
-	}
-
-	/* first alter the known values */
-	sql_trans_alter_sequence(sql->session->tr, nseq, seq->minvalue, seq->maxvalue, seq->increment, seq->cacheinc, seq->cycle);
-	if (val)
-		sql_trans_sequence_restart(sql->session->tr, nseq, *val);
-	return MAL_SUCCEED;
-}
-
-static str
-drop_seq(mvc *sql, char *sname, char *name)
-{
-	sql_schema *s = NULL;
-	sql_sequence *seq = NULL;
-
-	if (sname && !(s = mvc_bind_schema(sql, sname)))
-		return sql_message("3F000!DROP SEQUENCE: no such schema '%s'", sname);
-	if (!s)
-		s = cur_schema(sql);
-	if (!(seq = find_sql_sequence(s, name))) {
-		return sql_message("42M35!DROP SEQUENCE: no such sequence '%s'", name);
-	} else if (!mvc_schema_privs(sql, s)) {
-		return sql_message("42000!DROP SEQUENCE: insufficient privileges for '%s' in schema '%s'", stack_get_string(sql, "current_user"), s->base.name);
-	}
-	if (mvc_check_dependency(sql, seq->base.id, BEDROPPED_DEPENDENCY, NULL))
-		return sql_message("2B000!DROP SEQUENCE: unable to drop sequence %s (there are database objects which depend on it)\n", seq->base.name);
-
-	sql_trans_drop_sequence(sql->session->tr, s, seq, 0);
-	return NULL;
-}
-
-static str
-drop_func(mvc *sql, char *sname, char *name, int fid, int type, int action)
-{
-	sql_schema *s = NULL;
-	char is_aggr = (type == F_AGGR);
-	char is_func = (type != F_PROC);
-	char *F = is_aggr ? "AGGREGATE" : (is_func ? "FUNCTION" : "PROCEDURE");
-	char *f = is_aggr ? "aggregate" : (is_func ? "function" : "procedure");
-	char *KF = type == F_FILT ? "FILTER " : type == F_UNION ? "UNION " : "";
-	char *kf = type == F_FILT ? "filter " : type == F_UNION ? "union " : "";
-
-	if (sname && !(s = mvc_bind_schema(sql, sname)))
-		return sql_message("3F000!DROP %s%s: no such schema '%s'", KF, F, sname);
-	if (!s)
-		s = cur_schema(sql);
-	if (fid >= 0) {
-		node *n = find_sql_func_node(s, fid);
-		if (n) {
-			sql_func *func = n->data;
-
-			if (!mvc_schema_privs(sql, s)) {
-				return sql_message("DROP %s%s: access denied for %s to schema ;'%s'", KF, F, stack_get_string(sql, "current_user"), s->base.name);
-			}
-			if (!action && mvc_check_dependency(sql, func->base.id, !IS_PROC(func) ? FUNC_DEPENDENCY : PROC_DEPENDENCY, NULL))
-				return sql_message("DROP %s%s: there are database objects dependent on %s%s %s;", KF, F, kf, f, func->base.name);
-
-			mvc_drop_func(sql, s, func, action);
-		}
-	} else {
-		node *n = NULL;
-		list *list_func = schema_bind_func(sql, s, name, type);
-
-		if (!mvc_schema_privs(sql, s)) {
-			list_destroy(list_func);
-			return sql_message("DROP %s%s: access denied for %s to schema ;'%s'", KF, F, stack_get_string(sql, "current_user"), s->base.name);
-		}
-		for (n = list_func->h; n; n = n->next) {
-			sql_func *func = n->data;
-
-			if (!action && mvc_check_dependency(sql, func->base.id, !IS_PROC(func) ? FUNC_DEPENDENCY : PROC_DEPENDENCY, list_func)) {
-				list_destroy(list_func);
-				return sql_message("DROP %s%s: there are database objects dependent on %s%s %s;", KF, F, kf, f, func->base.name);
-			}
-		}
-		mvc_drop_all_func(sql, s, list_func, action);
-		list_destroy(list_func);
-	}
-	return MAL_SUCCEED;
-}
-
-static char *
-create_func(mvc *sql, char *sname, sql_func *f)
-{
-	sql_func *nf;
-	sql_schema *s = NULL;
-	char is_aggr = (f->type == F_AGGR);
-	char is_func = (f->type != F_PROC);
-	char *F = is_aggr ? "AGGREGATE" : (is_func ? "FUNCTION" : "PROCEDURE");
-	char *KF = f->type == F_FILT ? "FILTER " : f->type == F_UNION ? "UNION " : "";
-
-	if (sname && !(s = mvc_bind_schema(sql, sname)))
-		return sql_message("3F000!CREATE %s%s: no such schema '%s'", KF, F, sname);
-	if (!s)
-		s = cur_schema(sql);
-	nf = mvc_create_func(sql, NULL, s, f->base.name, f->ops, f->res, f->type, f->lang, f->mod, f->imp, f->query, f->varres, f->vararg);
-	if (nf && nf->query && nf->lang <= FUNC_LANG_SQL) {
-		char *buf;
-		sql_rel *r = NULL;
-		sql_allocator *sa = sql->sa;
-
-		sql->sa = sa_create();
-		buf = sa_strdup(sql->sa, nf->query);
-		r = rel_parse(sql, s, buf, m_deps);
-		if (r)
-			r = rel_optimizer(sql, r);
-		if (r) {
-			node *n;
-			stmt *sb = rel_bin(sql, r);
-			list *id_col_l = stmt_list_dependencies(sql->sa, sb, COLUMN_DEPENDENCY);
-			list *id_func_l = stmt_list_dependencies(sql->sa, sb, FUNC_DEPENDENCY);
-			list *view_id_l = stmt_list_dependencies(sql->sa, sb, VIEW_DEPENDENCY);
-
-			if (!f->vararg && f->ops) {
-				for (n = f->ops->h; n; n = n->next) {
-					sql_arg *a = n->data;
-
-					if (a->type.type->s) 
-						mvc_create_dependency(sql, a->type.type->base.id, nf->base.id, TYPE_DEPENDENCY);
-				}
-			}
-			if (!f->varres && f->res) {
-				for (n = f->res->h; n; n = n->next) {
-					sql_arg *a = n->data;
-
-					if (a->type.type->s) 
-						mvc_create_dependency(sql, a->type.type->base.id, nf->base.id, TYPE_DEPENDENCY);
-				}
-			}
-			mvc_create_dependencies(sql, id_col_l, nf->base.id, !IS_PROC(f) ? FUNC_DEPENDENCY : PROC_DEPENDENCY);
-			mvc_create_dependencies(sql, id_func_l, nf->base.id, !IS_PROC(f) ? FUNC_DEPENDENCY : PROC_DEPENDENCY);
-			mvc_create_dependencies(sql, view_id_l, nf->base.id, !IS_PROC(f) ? FUNC_DEPENDENCY : PROC_DEPENDENCY);
-		}
-		sa_destroy(sql->sa);
-		sql->sa = sa;
-	} else if (nf->lang == FUNC_LANG_MAL) {
-		if (!backend_resolve_function(sql, nf))
-			return sql_message("3F000!CREATE %s%s: external name %s.%s not bound", KF, F, nf->mod, nf->base.name);
-	}
-	return MAL_SUCCEED;
-}
-
-str
-UPGdrop_func(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	mvc *sql = NULL;
-	str msg = MAL_SUCCEED;
-	int id = *getArgReference_int(stk, pci, 1);
-	sql_func *func;
-
-	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
-		return msg;
-	if ((msg = checkSQLContext(cntxt)) != NULL)
-		return msg;
-
-	func = sql_trans_find_func(sql->session->tr, id);
-	if (func)
-		mvc_drop_func(sql, func->s, func, 0);
-	return msg;
-}
-
-str
-UPGcreate_func(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	mvc *sql = NULL;
-	str msg = MAL_SUCCEED;
-	str sname = *getArgReference_str(stk, pci, 1), osname;
-	str func = *getArgReference_str(stk, pci, 2);
-	stmt *s;
-
-	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
-		return msg;
-	if ((msg = checkSQLContext(cntxt)) != NULL)
-		return msg;
-	osname = cur_schema(sql)->base.name;
-	mvc_set_schema(sql, sname);
-	s = sql_parse(sql, sa_create(), func, 0);
-	if (s && s->type == st_catalog) {
-		char *schema = ((stmt*)s->op1->op4.lval->h->data)->op4.aval->data.val.sval;
-		sql_func *func = (sql_func*)((stmt*)s->op1->op4.lval->t->data)->op4.aval->data.val.pval;
-
-		msg = create_func(sql, schema, func);
-		mvc_set_schema(sql, osname);
-	} else {
-		mvc_set_schema(sql, osname);
-		throw(SQL, "sql.catalog", "function creation failed '%s'", func);
-	}
-	return msg;
-}
-
-str
-UPGcreate_view(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	mvc *sql = NULL;
-	str msg = MAL_SUCCEED;
-	str sname = *getArgReference_str(stk, pci, 1), osname;
-	str view = *getArgReference_str(stk, pci, 2);
-	stmt *s;
-
-	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
-		return msg;
-	if ((msg = checkSQLContext(cntxt)) != NULL)
-		return msg;
-	osname = cur_schema(sql)->base.name;
-	mvc_set_schema(sql, sname);
-	s = sql_parse(sql, sa_create(), view, 0);
-	if (s && s->type == st_catalog) {
-		char *schema = ((stmt*)s->op1->op4.lval->h->data)->op4.aval->data.val.sval;
-		sql_table *v = (sql_table*)((stmt*)s->op1->op4.lval->h->next->data)->op4.aval->data.val.pval;
-		int temp = ((stmt*)s->op1->op4.lval->t->data)->op4.aval->data.val.ival;
-
-		msg = create_table_or_view(sql, schema, v, temp);
-		mvc_set_schema(sql, osname);
-	} else {
-		mvc_set_schema(sql, osname);
-		throw(SQL, "sql.catalog", "view creation failed '%s'", view);
-	}
-	return msg;
-}
-
-static char *
-create_trigger(mvc *sql, char *sname, char *tname, char *triggername, int time, int orientation, int event, char *old_name, char *new_name, char *condition, char *query)
-{
-	sql_trigger *tri = NULL;
-	sql_schema *s = NULL;
-	sql_table *t;
-
-	if (sname && !(s = mvc_bind_schema(sql, sname)))
-		return sql_message("3F000!CREATE TRIGGER: no such schema '%s'", sname);
-	if (!s)
-		s = cur_schema(sql);
-	if (!mvc_schema_privs(sql, s))
-		return sql_message("3F000!CREATE TRIGGER: access denied for %s to schema ;'%s'", stack_get_string(sql, "current_user"), s->base.name);
-	if (mvc_bind_trigger(sql, s, triggername) != NULL)
-		return sql_message("3F000!CREATE TRIGGER: name '%s' already in use", triggername);
-
-	if (!(t = mvc_bind_table(sql, s, tname)))
-		return sql_message("3F000!CREATE TRIGGER: unknown table '%s'", tname);
-
-	if (isView(t))
-		return sql_message("3F000!CREATE TRIGGER: cannot create trigger on view '%s'", tname);
-
-	tri = mvc_create_trigger(sql, t, triggername, time, orientation, event, old_name, new_name, condition, query);
-	if (tri) {
-		char *buf;
-		sql_rel *r = NULL;
-		sql_allocator *sa = sql->sa;
-
-		sql->sa = sa_create();
-		buf = sa_strdup(sql->sa, query);
-		r = rel_parse(sql, s, buf, m_deps);
-		if (r)
-			r = rel_optimizer(sql, r);
-		/* TODO use relational part to find dependencies */
-		if (r) {
-			stmt *sqs = rel_bin(sql, r);
-			list *col_l = stmt_list_dependencies(sql->sa, sqs, COLUMN_DEPENDENCY);
-			list *func_l = stmt_list_dependencies(sql->sa, sqs, FUNC_DEPENDENCY);
-			list *view_id_l = stmt_list_dependencies(sql->sa, sqs, VIEW_DEPENDENCY);
-
-			mvc_create_dependencies(sql, col_l, tri->base.id, TRIGGER_DEPENDENCY);
-			mvc_create_dependencies(sql, func_l, tri->base.id, TRIGGER_DEPENDENCY);
-			mvc_create_dependencies(sql, view_id_l, tri->base.id, TRIGGER_DEPENDENCY);
-		}
-		sa_destroy(sql->sa);
-		sql->sa = sa;
-	}
-	return MAL_SUCCEED;
-}
-
-static char *
-drop_trigger(mvc *sql, char *sname, char *tname)
-{
-	sql_trigger *tri = NULL;
-	sql_schema *s = NULL;
-
-	if (sname && !(s = mvc_bind_schema(sql, sname)))
-		return sql_message("3F000!DROP TRIGGER: no such schema '%s'", sname);
-	if (!s)
-		s = cur_schema(sql);
-	assert(s);
-	if (!mvc_schema_privs(sql, s))
-		return sql_message("3F000!DROP TRIGGER: access denied for %s to schema ;'%s'", stack_get_string(sql, "current_user"), s->base.name);
-
-	if ((tri = mvc_bind_trigger(sql, s, tname)) == NULL)
-		return sql_message("3F000!DROP TRIGGER: unknown trigger %s\n", tname);
-	mvc_drop_trigger(sql, s, tri);
-	return MAL_SUCCEED;
-}
-
-static char *
-rel_check_tables(sql_table *nt, sql_table *nnt)
-{
-	node *n, *m;
-
-	if (cs_size(&nt->columns) != cs_size(&nnt->columns))
-		return sql_message("3F000!ALTER MERGE TABLE: to be added table doesn't match MERGE TABLE definition");
-	for (n = nt->columns.set->h, m = nnt->columns.set->h; n && m; n = n->next, m = m->next) {
-		sql_column *nc = n->data;
-		sql_column *mc = m->data;
-
-		if (subtype_cmp(&nc->type, &mc->type) != 0)
-			return sql_message("3F000!ALTER MERGE TABLE: to be added table column type doesn't match MERGE TABLE definition");
-	}
-	if (cs_size(&nt->idxs) != cs_size(&nnt->idxs))
-		return sql_message("3F000!ALTER MERGE TABLE: to be added table index doesn't match MERGE TABLE definition");
-	if (cs_size(&nt->idxs))
-		for (n = nt->idxs.set->h, m = nnt->idxs.set->h; n && m; n = n->next, m = m->next) {
-			sql_idx *ni = n->data;
-			sql_idx *mi = m->data;
-
-			if (ni->type != mi->type)
-				return sql_message("3F000!ALTER MERGE TABLE: to be added table index type doesn't match MERGE TABLE definition");
-		}
-	return MAL_SUCCEED;
-}
-
-static char *
-alter_table_add_table(mvc *sql, char *msname, char *mtname, char *psname, char *ptname)
-{
-	sql_schema *ms = mvc_bind_schema(sql, msname), *ps = mvc_bind_schema(sql, psname);
-	sql_table *mt = NULL, *pt = NULL;
-
-	if (ms)
-		mt = mvc_bind_table(sql, ms, mtname);
-	if (ps)
-		pt = mvc_bind_table(sql, ps, ptname);
-	if (mt && pt) {
-		char *msg;
-		node *n = cs_find_id(&mt->tables, pt->base.id);
-
-		if (n)
-			return sql_message("42S02!ALTER TABLE: table '%s.%s' is already part of the MERGE TABLE '%s.%s'", psname, ptname, msname, mtname);
-		if ((msg = rel_check_tables(mt, pt)) != NULL)
-			return msg;
-		sql_trans_add_table(sql->session->tr, mt, pt);
-	} else if (mt) {
-		return sql_message("42S02!ALTER TABLE: no such table '%s' in schema '%s'", ptname, psname);
-	} else {
-		return sql_message("42S02!ALTER TABLE: no such table '%s' in schema '%s'", mtname, msname);
-	}
-	return MAL_SUCCEED;
-}
-
-static char *
-alter_table_del_table(mvc *sql, char *msname, char *mtname, char *psname, char *ptname, int drop_action)
-{
-	sql_schema *ms = mvc_bind_schema(sql, msname), *ps = mvc_bind_schema(sql, psname);
-	sql_table *mt = NULL, *pt = NULL;
-
-	if (ms)
-		mt = mvc_bind_table(sql, ms, mtname);
-	if (ps)
-		pt = mvc_bind_table(sql, ps, ptname);
-	if (mt && pt) {
-		node *n = NULL;
-
-		if (!pt || (n = cs_find_id(&mt->tables, pt->base.id)) == NULL)
-			return sql_message("42S02!ALTER TABLE: table '%s.%s' isn't part of the MERGE TABLE '%s.%s'", psname, ptname, msname, mtname);
-
-		sql_trans_del_table(sql->session->tr, mt, pt, drop_action);
-	} else if (mt) {
-		return sql_message("42S02!ALTER TABLE: no such table '%s' in schema '%s'", ptname, psname);
-	} else {
-		return sql_message("42S02!ALTER TABLE: no such table '%s' in schema '%s'", mtname, msname);
-	}
-	return MAL_SUCCEED;
-}
-
-static char *
-alter_table_set_access(mvc *sql, char *sname, char *tname, int access)
-{
-	sql_schema *s = mvc_bind_schema(sql, sname);
-	sql_table *t = NULL;
-
-	if (s)
-		t = mvc_bind_table(sql, s, tname);
-	if (t) {
-		if (t->type == tt_merge_table)
-			return sql_message("42S02!ALTER TABLE: read only MERGE TABLES are not supported");
-		if (t->access != access) {
-			if (access && table_has_updates(sql->session->tr, t))
-				return sql_message("40000!ALTER TABLE: set READ or INSERT ONLY not possible with outstanding updates (wait until updates are flushed)\n");
-
-			mvc_access(sql, t, access);
-		}
-	} else {
-		return sql_message("42S02!ALTER TABLE: no such table '%s' in schema '%s'", tname, sname);
-	}
-	return MAL_SUCCEED;
-}
-
-static char *
-SaveArgReference(MalStkPtr stk, InstrPtr pci, int arg)
-{
-	char *val = *getArgReference_str(stk, pci, arg);
-
-	if (val && strcmp(val, str_nil) == 0)
-		val = NULL;
-	return val;
-}
-
 str
 SQLcatalog(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	mvc *sql = NULL;
-	str msg;
-	int type = *getArgReference_int(stk, pci, 1);
-	str sname = *getArgReference_str(stk, pci, 2);
-
-	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
-		return msg;
-	if ((msg = checkSQLContext(cntxt)) != NULL)
-		return msg;
-
-	if (STORE_READONLY)
-		return sql_message("25006!schema statements cannot be executed on a readonly database.");
-
-	switch (type) {
-	case DDL_CREATE_SEQ:
-	{
-		sql_sequence *s = *(sql_sequence **) getArgReference(stk, pci, 3);
-		msg = create_seq(sql, sname, s);
-		break;
-	}
-	case DDL_ALTER_SEQ:
-	{
-		lng *val = NULL;
-		sql_sequence *s = *(sql_sequence **) getArgReference(stk, pci, 3);
-		if (getArgType(mb, pci, 4) == TYPE_lng)
-			val = getArgReference_lng(stk, pci, 4);
-		if (val == NULL || *val == lng_nil)
-			msg = sql_message("42M36!ALTER SEQUENCE: cannot (re)start with NULL");
-		else
-			msg = alter_seq(sql, sname, s, val);
-		break;
-	}
-	case DDL_DROP_SEQ: {
-		str name = *getArgReference_str(stk, pci, 3);
-
-		msg = drop_seq(sql, sname, name);
-		break;
-	}
-	case DDL_CREATE_SCHEMA:{
-		str name = SaveArgReference(stk, pci, 3);
-		int auth_id = sql->role_id;
-
-		if (name && (auth_id = sql_find_auth(sql, name)) < 0) {
-			msg = sql_message("42M32!CREATE SCHEMA: no such authorization '%s'", name);
-		}
-		if (sql->user_id != USER_MONETDB && sql->role_id != ROLE_SYSADMIN) {
-			msg = sql_message("42000!CREATE SCHEMA: insufficient privileges for user '%s'", stack_get_string(sql, "current_user"));
-		}
-		if (mvc_bind_schema(sql, sname)) {
-			msg = sql_message("3F000!CREATE SCHEMA: name '%s' already in use", sname);
-		} else {
-			(void) mvc_create_schema(sql, sname, auth_id, sql->user_id);
-		}
-		break;
-	}
-	case DDL_DROP_SCHEMA:{
-		int action = *getArgReference_int(stk, pci, 4);
-		sql_schema *s = mvc_bind_schema(sql, sname);
-
-		if (!s) {
-			msg = sql_message("3F000!DROP SCHEMA: name %s does not exist", sname);
-		} else if (!mvc_schema_privs(sql, s)) {
-			msg = sql_message("42000!DROP SCHEMA: access denied for %s to schema ;'%s'", stack_get_string(sql, "current_user"), s->base.name);
-		} else if (s == cur_schema(sql)) {
-			msg = sql_message("42000!DROP SCHEMA: cannot drop current schema");
-		} else if (strcmp(sname, "sys") == 0 || strcmp(sname, "tmp") == 0) {
-			msg = sql_message("42000!DROP SCHEMA: access denied for '%s'", sname);
-		} else if (sql_schema_has_user(sql, s)) {
-			msg = sql_message("2BM37!DROP SCHEMA: unable to drop schema '%s' (there are database objects which depend on it", sname);
-		} else {
-			mvc_drop_schema(sql, s, action);
-		}
-		break;
-	}
-	case DDL_CREATE_TABLE:
-	case DDL_CREATE_VIEW:
-	{
-		sql_table *t = *(sql_table **) getArgReference(stk, pci, 3);
-		int temp = *getArgReference_int(stk, pci, 4);
-
-		msg = create_table_or_view(sql, sname, t, temp);
-		break;
-	}
-	case DDL_DROP_TABLE:{
-		int action = *getArgReference_int(stk, pci, 4);
-		str name = *getArgReference_str(stk, pci, 3);
-
-		msg = drop_table(sql, sname, name, action);
-		break;
-	}
-	case DDL_DROP_VIEW:{
-		int action = *getArgReference_int(stk, pci, 4);
-		str name = *getArgReference_str(stk, pci, 3);
-
-		msg = drop_view(sql, sname, name, action);
-		break;
-	}
-	case DDL_DROP_CONSTRAINT:{
-		int action = *getArgReference_int(stk, pci, 4);
-		str name = *getArgReference_str(stk, pci, 3);
-
-		msg = drop_key(sql, sname, name, action);
-		break;
-	}
-	case DDL_ALTER_TABLE:{
-		sql_table *t = *(sql_table **) getArgReference(stk, pci, 3);
-		msg = alter_table(cntxt, sql, sname, t);
-		break;
-	}
-	case DDL_CREATE_TYPE:{
-		char *name = *getArgReference_str(stk, pci, 3);
-		char *impl = *getArgReference_str(stk, pci, 4);
-		sql_schema *s = mvc_bind_schema(sql, sname);
-
-		if (!mvc_schema_privs(sql, sql->session->schema)) 
-			msg = sql_message("0D000!CREATE TYPE: not enough privileges to create type '%s'", sname);
-		if (!mvc_create_type(sql, s, name, 0, 0, 0, impl))
-			msg = sql_message("0D000!CREATE TYPE: unknown external type '%s'", impl);
-		break;
-	}
-	case DDL_DROP_TYPE:{
-		char *name = *getArgReference_str(stk, pci, 3);
-		int drop_action = *getArgReference_int(stk, pci, 4);
-		sql_schema *s = mvc_bind_schema(sql, sname);
-		sql_type *t = schema_bind_type( sql, s, name);
-
-		if (!t)
-			msg = sql_message("0D000!DROP TYPE: type '%s' does not exist", sname);
-		else if (!mvc_schema_privs(sql, sql->session->schema)) 
-			msg = sql_message("0D000!DROP TYPE: not enough privileges to drop type '%s'", sname);
-		else if (!drop_action && mvc_check_dependency(sql, t->base.id, TYPE_DEPENDENCY, NULL))
-			return sql_message("42000!DROP TYPE: unable to drop type %s (there are database objects which depend on it)\n", sname);
-		else if (!mvc_drop_type(sql, sql->session->schema, t, drop_action))
-			msg = sql_message("0D000!DROP TYPE: failed to drop type '%s'", sname);
-		break;
-	}
-	case DDL_GRANT_ROLES:{
-		char *auth = SaveArgReference(stk, pci, 3);
-		int grantor = *getArgReference_int(stk, pci, 4);
-		int admin = *getArgReference_int(stk, pci, 5);
-
-		msg = sql_grant_role(sql, sname /*grantee */ , auth, grantor, admin);
-		break;
-	}
-	case DDL_REVOKE_ROLES:{
-		char *auth = SaveArgReference(stk, pci, 3);
-		int grantor = *getArgReference_int(stk, pci, 4);
-		int admin = *getArgReference_int(stk, pci, 5);
-
-		msg = sql_revoke_role(sql, sname /*grantee */ , auth, grantor, admin);
-		break;
-	}
-	case DDL_GRANT:{
-		char *tname = *getArgReference_str(stk, pci, 3);
-		char *grantee = *getArgReference_str(stk, pci, 4);
-		int privs = *getArgReference_int(stk, pci, 5);
-		char *cname = SaveArgReference(stk, pci, 6);
-		int grant = *getArgReference_int(stk, pci, 7);
-		int grantor = *getArgReference_int(stk, pci, 8);
-		if (!tname || strcmp(tname, str_nil) == 0) 
-			msg = sql_grant_global_privs(sql, grantee, privs, grant, grantor);
-		else
-			msg = sql_grant_table_privs(sql, grantee, privs, sname, tname, cname, grant, grantor);
-		break;
-	}
-	case DDL_REVOKE:{
-		char *tname = *getArgReference_str(stk, pci, 3);
-		char *grantee = *getArgReference_str(stk, pci, 4);
-		int privs = *getArgReference_int(stk, pci, 5);
-		char *cname = SaveArgReference(stk, pci, 6);
-		int grant = *getArgReference_int(stk, pci, 7);
-		int grantor = *getArgReference_int(stk, pci, 8);
-		if (!tname || strcmp(tname, str_nil) == 0) 
-			msg = sql_revoke_global_privs(sql, grantee, privs, grant, grantor);
-		else
-			msg = sql_revoke_table_privs(sql, grantee, privs, sname, tname, cname, grant, grantor);
-		break;
-	}
-	case DDL_GRANT_FUNC:{
-		int func_id = *getArgReference_int(stk, pci, 3);
-		char *grantee = *getArgReference_str(stk, pci, 4);
-		int privs = *getArgReference_int(stk, pci, 5);
-		int grant = *getArgReference_int(stk, pci, 6);
-		int grantor = *getArgReference_int(stk, pci, 7);
-		msg = sql_grant_func_privs(sql, grantee, privs, sname, func_id, grant, grantor);
-		break;
-	}
-	case DDL_REVOKE_FUNC:{
-		int func_id = *getArgReference_int(stk, pci, 3);
-		char *grantee = *getArgReference_str(stk, pci, 4);
-		int privs = *getArgReference_int(stk, pci, 5);
-		int grant = *getArgReference_int(stk, pci, 6);
-		int grantor = *getArgReference_int(stk, pci, 7);
-		msg = sql_revoke_func_privs(sql, grantee, privs, sname, func_id, grant, grantor);
-		break;
-	}
-	case DDL_CREATE_USER:{
-		char *passwd = *getArgReference_str(stk, pci, 3);
-		int enc = *getArgReference_int(stk, pci, 4);
-		char *schema = SaveArgReference(stk, pci, 5);
-		char *fullname = SaveArgReference(stk, pci, 6);
-		msg = sql_create_user(sql, sname, passwd, enc, fullname, schema);
-		break;
-	}
-	case DDL_DROP_USER:{
-		msg = sql_drop_user(sql, sname);
-		break;
-	}
-	case DDL_ALTER_USER:{
-		char *passwd = SaveArgReference(stk, pci, 3);
-		int enc = *getArgReference_int(stk, pci, 4);
-		char *schema = SaveArgReference(stk, pci, 5);
-		char *oldpasswd = SaveArgReference(stk, pci, 6);
-		msg = sql_alter_user(sql, sname, passwd, enc, schema, oldpasswd);
-		break;
-	}
-	case DDL_RENAME_USER:{
-		char *newuser = *getArgReference_str(stk, pci, 3);
-		msg = sql_rename_user(sql, sname, newuser);
-		break;
-	}
-	case DDL_CREATE_ROLE:{
-		char *role = sname;
-		int grantor = *getArgReference_int(stk, pci, 4);
-		msg = sql_create_role(sql, role, grantor);
-		break;
-	}
-	case DDL_DROP_ROLE:{
-		char *role = sname;
-		msg = sql_drop_role(sql, role);
-		break;
-	}
-	case DDL_DROP_INDEX:{
-		char *iname = *getArgReference_str(stk, pci, 3);
-		msg = drop_index(cntxt, sql, sname, iname);
-		break;
-	}
-	case DDL_DROP_FUNCTION:{
-		char *fname = *getArgReference_str(stk, pci, 3);
-		int fid = *getArgReference_int(stk, pci, 4);
-		int type = *getArgReference_int(stk, pci, 5);
-		int action = *getArgReference_int(stk, pci, 6);
-		msg = drop_func(sql, sname, fname, fid, type, action);
-		break;
-	}
-	case DDL_CREATE_FUNCTION:{
-		sql_func *f = *(sql_func **) getArgReference(stk, pci, 3);
-		msg = create_func(sql, sname, f);
-		break;
-	}
-	case DDL_CREATE_TRIGGER:{
-		char *tname = *getArgReference_str(stk, pci, 3);
-		char *triggername = *getArgReference_str(stk, pci, 4);
-		int time = *getArgReference_int(stk, pci, 5);
-		int orientation = *getArgReference_int(stk, pci, 6);
-		int event = *getArgReference_int(stk, pci, 7);
-		char *old_name = *getArgReference_str(stk, pci, 8);
-		char *new_name = *getArgReference_str(stk, pci, 9);
-		char *condition = *getArgReference_str(stk, pci, 10);
-		char *query = *getArgReference_str(stk, pci, 11);
-
-		msg = create_trigger(sql, sname, tname, triggername, time, orientation, event, old_name, new_name, condition, query);
-		break;
-	}
-	case DDL_DROP_TRIGGER:{
-		char *triggername = *getArgReference_str(stk, pci, 3);
-
-		msg = drop_trigger(sql, sname, triggername);
-		break;
-	}
-	case DDL_ALTER_TABLE_ADD_TABLE:{
-		char *mtname = SaveArgReference(stk, pci, 3);
-		char *psname = SaveArgReference(stk, pci, 4);
-		char *ptname = SaveArgReference(stk, pci, 5);
-
-		return alter_table_add_table(sql, sname, mtname, psname, ptname);
-	}
-	case DDL_ALTER_TABLE_DEL_TABLE:{
-		char *mtname = SaveArgReference(stk, pci, 3);
-		char *psname = SaveArgReference(stk, pci, 4);
-		char *ptname = SaveArgReference(stk, pci, 5);
-		int drop_action = *getArgReference_int(stk, pci, 6);
-
-		return alter_table_del_table(sql, sname, mtname, psname, ptname, drop_action);
-	}
-	case DDL_ALTER_TABLE_SET_ACCESS:{
-		char *tname = SaveArgReference(stk, pci, 3);
-		int access = *getArgReference_int(stk, pci, 4);
-
-		return alter_table_set_access(sql, sname, tname, access);
-	}
-	default:
-		throw(SQL, "sql.catalog", "catalog unknown type");
-	}
-	if (msg)
-		return msg;
-	return MAL_SUCCEED;
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	return sql_message("25006!deprecated statement");
 }
 
 /* setVariable(int *ret, str *name, any value) */
@@ -1570,6 +531,7 @@ getVariable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	mvc *m = NULL;
 	str msg;
 	str varname = *getArgReference_str(stk, pci, 2);
+	atom *a;
 	ValRecord *dst, *src;
 
 	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
@@ -1578,14 +540,16 @@ getVariable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if (mtype < 0 || mtype >= 255)
 		throw(SQL, "sql.getVariable", "failed");
-	src = stack_get_var(m, varname);
-	if (!src) {
+	a = stack_get_var(m, varname);
+	if (!a) {
 		char buf[BUFSIZ];
 		snprintf(buf, BUFSIZ, "variable '%s' unknown", varname);
 		throw(SQL, "sql.getVariable", "%s", buf);
 	}
+	src = &a->data;
 	dst = &stk->stk[getArg(pci, 0)];
-	VALcopy(dst, src);
+	if (VALcopy(dst, src) == NULL)
+		throw(MAL, "sql.getVariable", MAL_MALLOC_FAIL);
 	return MAL_SUCCEED;
 }
 
@@ -1603,12 +567,15 @@ sql_variables(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 
-	vars = BATnew(TYPE_void, TYPE_str, m->topvars, TRANSIENT);
+	vars = COLnew(0, TYPE_str, m->topvars, TRANSIENT);
 	if (vars == NULL)
 		throw(SQL, "sql.variables", MAL_MALLOC_FAIL);
-	BATseqbase(vars, 0);
-	for (i = 0; i < m->topvars && !m->vars[i].frame; i++)
-		BUNappend(vars, m->vars[i].name, FALSE);
+	for (i = 0; i < m->topvars && !m->vars[i].frame; i++) {
+		if (BUNappend(vars, m->vars[i].name, FALSE) != GDK_SUCCEED) {
+			BBPreclaim(vars);
+			throw(SQL, "sql.variables", MAL_MALLOC_FAIL);
+		}
+	}
 	*res = vars->batCacheid;
 	BBPkeepref(vars->batCacheid);
 	return MAL_SUCCEED;
@@ -1688,12 +655,11 @@ mvc_bat_next_value(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((b = BATdescriptor(*sid)) == NULL)
 		throw(SQL, "sql.next_value", "Cannot access descriptor");
 
-	r = BATnew(TYPE_void, TYPE_lng, BATcount(b), TRANSIENT);
+	r = COLnew(b->hseqbase, TYPE_lng, BATcount(b), TRANSIENT);
 	if (!r) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.next_value", "Cannot create bat");
 	}
-	BATseqbase(r, b->hseqbase);
 
 	if (!BATcount(b)) {
 		BBPunfix(b->batCacheid);
@@ -1704,7 +670,7 @@ mvc_bat_next_value(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	bi = bat_iterator(b);
 	BATloop(b, p, q) {
-		str sname = BUNtail(bi, BUNfirst(b));
+		str sname = BUNtail(bi, 0);
 		lng l;
 
 		if (!s || strcmp(s->base.name, sname) != 0) {
@@ -1724,9 +690,13 @@ mvc_bat_next_value(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			seqbulk_destroy(sb);
 			throw(SQL, "sql.next_value", "error");
 		}
-		BUNappend(r, &l, FALSE);
+		if (BUNappend(r, &l, FALSE) != GDK_SUCCEED) {
+			BBPunfix(b->batCacheid);
+			BBPunfix(r->batCacheid);
+			seqbulk_destroy(sb);
+			throw(SQL, "sql.next_value", MAL_MALLOC_FAIL);
+		}
 	}
-	BATseqbase(r, b->hseqbase);
 	if (sb)
 		seqbulk_destroy(sb);
 	BBPunfix(b->batCacheid);
@@ -1853,7 +823,7 @@ mvc_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int upd = (pci->argc == 7 || pci->argc == 9);
 	BAT *b = NULL, *bn;
 	bat *bid = getArgReference_bat(stk, pci, 0);
-	int coltype = getColumnType(getArgType(mb, pci, 0));
+	int coltype = getBatType(getArgType(mb, pci, 0));
 	mvc *m = NULL;
 	str msg;
 	str *sname = getArgReference_str(stk, pci, 2 + upd);
@@ -1878,7 +848,7 @@ mvc_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if (*access == 0) {
 				psz = cnt ? (cnt / nr_parts) : 0;
 				bn = BATslice(b, part_nr * psz, (part_nr + 1 == nr_parts) ? cnt : ((part_nr + 1) * psz));
-				BATseqbase(bn, part_nr * psz);
+				BAThseqbase(bn, part_nr * psz);
 			} else {
 				/* BAT b holds the UPD_ID bat */
 				oid l, h;
@@ -1920,9 +890,14 @@ mvc_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					throw(SQL,"sql.bind","Cannot access the update column");
 				id = BATproject(b, ui);
 				vl = BATproject(b, uv);
-				assert(BATcount(id) == BATcount(vl));
 				bat_destroy(ui);
 				bat_destroy(uv);
+				if (id == NULL || vl == NULL) {
+					bat_destroy(id);
+					bat_destroy(vl);
+					throw(SQL, "sql.bind", MAL_MALLOC_FAIL);
+				}
+				assert(BATcount(id) == BATcount(vl));
 				BBPkeepref(*bid = id->batCacheid);
 				BBPkeepref(*uvl = vl->batCacheid);
 			} else {
@@ -1951,7 +926,7 @@ mvc_bind_idxbat_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int upd = (pci->argc == 7 || pci->argc == 9);
 	BAT *b = NULL, *bn;
 	bat *bid = getArgReference_bat(stk, pci, 0);
-	int coltype = getColumnType(getArgType(mb, pci, 0));
+	int coltype = getBatType(getArgType(mb, pci, 0));
 	mvc *m = NULL;
 	str msg;
 	str *sname = getArgReference_str(stk, pci, 2 + upd);
@@ -1976,7 +951,7 @@ mvc_bind_idxbat_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if (*access == 0) {
 				psz = cnt ? (cnt / nr_parts) : 0;
 				bn = BATslice(b, part_nr * psz, (part_nr + 1 == nr_parts) ? cnt : ((part_nr + 1) * psz));
-				BATseqbase(bn, part_nr * psz);
+				BAThseqbase(bn, part_nr * psz);
 			} else {
 				/* BAT b holds the UPD_ID bat */
 				oid l, h;
@@ -2015,9 +990,14 @@ mvc_bind_idxbat_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					throw(SQL,"sql.bindidx","can not access index column");
 				id = BATproject(b, ui);
 				vl = BATproject(b, uv);
-				assert(BATcount(id) == BATcount(vl));
 				bat_destroy(ui);
 				bat_destroy(uv);
+				if (id == NULL || vl == NULL) {
+					bat_destroy(id);
+					bat_destroy(vl);
+					throw(SQL, "sql.idxbind", MAL_MALLOC_FAIL);
+				}
+				assert(BATcount(id) == BATcount(vl));
 				BBPkeepref(*bid = id->batCacheid);
 				BBPkeepref(*uvl = vl->batCacheid);
 			} else {
@@ -2025,7 +1005,7 @@ mvc_bind_idxbat_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				sql_idx *i = mvc_bind_idx(m, s, *iname);
 
 				*bid = e_bat(TYPE_oid);
-				*uvl = e_bat((i->type==join_idx)?TYPE_oid:TYPE_wrd);
+				*uvl = e_bat((i->type==join_idx)?TYPE_oid:TYPE_lng);
 			}
 			BBPunfix(b->batCacheid);
 		} else {
@@ -2036,6 +1016,14 @@ mvc_bind_idxbat_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (*sname)
 		throw(SQL, "sql.idxbind", "unable to find index %s for %s.%s", *iname, *sname, *tname);
 	throw(SQL, "sql.idxbind", "unable to find index %s for %s", *iname, *tname);
+}
+
+str mvc_append_column(sql_trans *t, sql_column *c, BAT *ins) {
+	int res = store_funcs.append_col(t, c, ins, TYPE_bat);
+	if (res != 0) {
+		throw(SQL, "sql.append", "Cannot append values");
+	}
+	return MAL_SUCCEED;
 }
 
 /*mvc_append_wrap(int *bid, str *sname, str *tname, str *cname, ptr d) */
@@ -2152,7 +1140,7 @@ mvc_update_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
-/* str mvc_clear_table_wrap(wrd *res, str *sname, str *tname); */
+/* str mvc_clear_table_wrap(lng *res, str *sname, str *tname); */
 str
 mvc_clear_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -2160,7 +1148,7 @@ mvc_clear_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_table *t;
 	mvc *m = NULL;
 	str msg;
-	wrd *res = getArgReference_wrd(stk, pci, 0);
+	lng *res = getArgReference_lng(stk, pci, 0);
 	str *sname = getArgReference_str(stk, pci, 1);
 	str *tname = getArgReference_str(stk, pci, 2);
 
@@ -2260,23 +1248,23 @@ DELTAbat(bat *result, const bat *col, const bat *uid, const bat *uval, const bat
 {
 	BAT *c, *u_id, *u_val, *i = NULL, *res;
 
-	if ((u_id = BBPquickdesc(abs(*uid), 0)) == NULL)
+	if ((u_id = BBPquickdesc(*uid, 0)) == NULL)
 		throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
-	if (ins && (i = BBPquickdesc(abs(*ins), 0)) == NULL)
+	if (ins && (i = BBPquickdesc(*ins, 0)) == NULL)
 		throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
 
 	/* no updates, no inserts */
 	if (BATcount(u_id) == 0 && (!i || BATcount(i) == 0)) {
-		BBPincref(*result = *col, TRUE);
+		BBPretain(*result = *col);
 		return MAL_SUCCEED;
 	}
 
-	if ((c = BBPquickdesc(abs(*col), 0)) == NULL)
+	if ((c = BBPquickdesc(*col, 0)) == NULL)
 		throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
 
 	/* bat may change */
 	if (i && BATcount(c) == 0 && BATcount(u_id) == 0) {
-		BBPincref(*result = *ins, TRUE);
+		BBPretain(*result = *ins);
 		return MAL_SUCCEED;
 	}
 
@@ -2300,11 +1288,10 @@ DELTAbat(bat *result, const bat *col, const bat *uid, const bat *uval, const bat
 
 	if (i && BATcount(i)) {
 		i = BATdescriptor(*ins);
-		BATappend(res, i, TRUE);
+		BATappend(res, i, NULL, TRUE);
 		BBPunfix(i->batCacheid);
 	}
 
-	if (!(res->batDirty&2)) BATsetaccess(res, BAT_READ);
 	BBPkeepref(*result = res->batCacheid);
 	return MAL_SUCCEED;
 }
@@ -2312,43 +1299,49 @@ DELTAbat(bat *result, const bat *col, const bat *uid, const bat *uval, const bat
 str
 DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat *uval, const bat *ins)
 {
-	BAT *c, *cminu, *u_id, *u_val, *u, *i = NULL, *res;
+	BAT *c, *cminu = NULL, *u_id, *u_val, *u, *i = NULL, *res;
 	gdk_return ret;
 
-	if ((u_id = BBPquickdesc(abs(*uid), 0)) == NULL)
+	if ((u_id = BBPquickdesc(*uid, 0)) == NULL)
 		throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
-	if (ins && (i = BBPquickdesc(abs(*ins), 0)) == NULL)
+	if (ins && (i = BBPquickdesc(*ins, 0)) == NULL)
 		throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
 
 	/* no updates, no inserts */
 	if (BATcount(u_id) == 0 && (!i || BATcount(i) == 0)) {
-		BBPincref(*result = *col, TRUE);
+		BBPretain(*result = *col);
 		return MAL_SUCCEED;
 	}
 
-	if ((c = BBPquickdesc(abs(*col), 0)) == NULL)
+	if ((c = BBPquickdesc(*col, 0)) == NULL)
 		throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
 
 	/* bat may change */
 	if (i && BATcount(c) == 0 && BATcount(u_id) == 0) {
-		BBPincref(*result = *ins, TRUE);
+		BBPretain(*result = *ins);
 		return MAL_SUCCEED;
 	}
 
 	c = BATdescriptor(*col);
+	if (c == NULL)
+		throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
 	res = c;
 	if (BATcount(u_id)) {
 		u_id = BATdescriptor(*uid);
-		if (!u_id)
+		if (!u_id) {
+			BBPunfix(c->batCacheid);
 			throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
+		}
 		cminu = BATdiff(c, u_id, NULL, NULL, 0, BUN_NONE);
 		if (!cminu) {
+			BBPunfix(c->batCacheid);
 			BBPunfix(u_id->batCacheid);
 			throw(MAL, "sql.delta", MAL_MALLOC_FAIL " intermediate");
 		}
 		res = BATproject(cminu, c);
 		BBPunfix(c->batCacheid);
 		BBPunfix(cminu->batCacheid);
+		cminu = NULL;
 		if (!res) {
 			BBPunfix(u_id->batCacheid);
 			throw(MAL, "sql.delta", MAL_MALLOC_FAIL " intermediate" );
@@ -2371,7 +1364,7 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 			BAT *c_ids = BATdescriptor(*cid);
 			gdk_return rc;
 
-			if (!c_ids){
+			if (!c_ids) {
 				BBPunfix(c->batCacheid);
 				BBPunfix(u->batCacheid);
 				throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
@@ -2379,21 +1372,24 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 			rc = BATsemijoin(&cminu, NULL, u, c_ids, NULL, NULL, 0, BUN_NONE);
 			BBPunfix(c_ids->batCacheid);
 			if (rc != GDK_SUCCEED) {
+				BBPunfix(c->batCacheid);
 				BBPunfix(u->batCacheid);
 				throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
 			}
-			c_ids = BATproject(cminu, u);
-			BBPunfix(cminu->batCacheid);
-			BBPunfix(u->batCacheid);
-			u = c_ids;
 		}
-		BATappend(res, u, TRUE);
+		ret = BATappend(res, u, cminu, TRUE);
 		BBPunfix(u->batCacheid);
+		if (cminu)
+			BBPunfix(cminu->batCacheid);
+		cminu = NULL;
+		if (ret != GDK_SUCCEED) {
+			BBPunfix(res->batCacheid);
+			throw(MAL, "sql.delta", GDK_EXCEPTION);
+		}
 
 		ret = BATsort(&u, NULL, NULL, res, NULL, NULL, 0, 0);
 		BBPunfix(res->batCacheid);
 		if (ret != GDK_SUCCEED) {
-			BBPunfix(c->batCacheid);
 			throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
 		}
 		res = u;
@@ -2401,20 +1397,24 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 
 	if (i) {
 		i = BATdescriptor(*ins);
-		if (!i)
+		if (!i) {
+			BBPunfix(res->batCacheid);
 			throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
+		}
 		if (BATcount(u_id)) {
 			u_id = BATdescriptor(*uid);
+			if (!u_id) {
+				BBPunfix(res->batCacheid);
+				BBPunfix(i->batCacheid);
+				throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
+			}
 			cminu = BATdiff(i, u_id, NULL, NULL, 0, BUN_NONE);
 			BBPunfix(u_id->batCacheid);
-			if (!cminu)
+			if (!cminu) {
+				BBPunfix(res->batCacheid);
+				BBPunfix(i->batCacheid);
 				throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
-			u_id = BATproject(cminu, i);
-			BBPunfix(cminu->batCacheid);
-			BBPunfix(i->batCacheid);
-			if (!u_id)
-				throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
-			i = u_id;
+			}
 		}
 		if (isVIEW(res)) {
 			BAT *n = COLcopy(res, res->ttype, TRUE, TRANSIENT);
@@ -2422,11 +1422,19 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 			res = n;
 			if (res == NULL) {
 				BBPunfix(i->batCacheid);
+				if (cminu)
+					BBPunfix(cminu->batCacheid);
 				throw(MAL, "sql.delta", OPERATION_FAILED);
 			}
 		}
-		BATappend(res, i, TRUE);
+		ret = BATappend(res, i, cminu, TRUE);
 		BBPunfix(i->batCacheid);
+		if (cminu)
+			BBPunfix(cminu->batCacheid);
+		if (ret != GDK_SUCCEED) {
+			BBPunfix(res->batCacheid);
+			throw(MAL, "sql.delta", GDK_EXCEPTION);
+		}
 
 		ret = BATsort(&u, NULL, NULL, res, NULL, NULL, 0, 0);
 		BBPunfix(res->batCacheid);
@@ -2434,8 +1442,7 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 			throw(MAL, "sql.delta", RUNTIME_OBJECT_MISSING);
 		res = u;
 	}
-	BATkey(BATmirror(res), TRUE);
-	if (!(res->batDirty&2)) BATsetaccess(res, BAT_READ);
+	BATkey(res, TRUE);
 	BBPkeepref(*result = res->batCacheid);
 	return MAL_SUCCEED;
 }
@@ -2456,8 +1463,9 @@ DELTAproject(bat *result, const bat *sub, const bat *col, const bat *uid, const 
 	if (i && BATcount(s) == 0) {
 		res = BATproject(s, i);
 		BBPunfix(s->batCacheid);
-		if (i)
-			BBPunfix(i->batCacheid);
+		BBPunfix(i->batCacheid);
+		if (res == NULL)
+			throw(MAL, "sql.projectdelta", GDK_EXCEPTION);
 
 		BBPkeepref(*result = res->batCacheid);
 		return MAL_SUCCEED;
@@ -2477,18 +1485,29 @@ DELTAproject(bat *result, const bat *sub, const bat *col, const bat *uid, const 
 			res = i;
 			i = c;
 		} else {
-			if ((res = COLcopy(c, c->ttype, TRUE, TRANSIENT)) == NULL)
+			if ((res = COLcopy(c, c->ttype, TRUE, TRANSIENT)) == NULL) {
+				BBPunfix(s->batCacheid);
+				BBPunfix(i->batCacheid);
+				BBPunfix(c->batCacheid);
 				throw(MAL, "sql.projectdelta", OPERATION_FAILED);
-			BATappend(res, i, FALSE);
+			}
 			BBPunfix(c->batCacheid);
+			if (BATappend(res, i, NULL, FALSE) != GDK_SUCCEED) {
+				BBPunfix(s->batCacheid);
+				BBPunfix(i->batCacheid);
+				throw(MAL, "sql.projectdelta", OPERATION_FAILED);
+			}
 		}
 	}
 	if (i)
 		BBPunfix(i->batCacheid);
 
 	tres = BATproject(s, res);
-	assert(tres);
 	BBPunfix(res->batCacheid);
+	if (tres == NULL) {
+		BBPunfix(s->batCacheid);
+		throw(MAL, "sql.projectdelta", OPERATION_FAILED);
+	}
 	res = tres;
 
 	if ((u_id = BATdescriptor(*uid)) == NULL) {
@@ -2567,7 +1586,6 @@ DELTAproject(bat *result, const bat *sub, const bat *col, const bat *uid, const 
 	BBPunfix(u_id->batCacheid);
 	BBPunfix(u_val->batCacheid);
 
-	if (!(res->batDirty&2)) BATsetaccess(res, BAT_READ);
 	BBPkeepref(*result = res->batCacheid);
 	return MAL_SUCCEED;
 }
@@ -2584,7 +1602,7 @@ BATleftproject(bat *Res, const bat *Col, const bat *L, const bat *R)
 		cnt = BATcount(c);
 	l = BATdescriptor(*L);
 	r = BATdescriptor(*R);
-	res = BATnew(TYPE_void, TYPE_oid, cnt, TRANSIENT);
+	res = COLnew(0, TYPE_oid, cnt, TRANSIENT);
 	if (!c || !l || !r || !res) {
 		if (c)
 			BBPunfix(c->batCacheid);
@@ -2624,16 +1642,14 @@ BATleftproject(bat *Res, const bat *Col, const bat *L, const bat *R)
 		for(i=0;i<cnt; i++) 
 			p[lp[i]] = rp[i];
 	}
-	BATseqbase(res, 0);
-	res->T->sorted = 0;
-	res->T->revsorted = 0;
-	res->T->nil = 0;
-	res->T->nonil = 0;
-	res->T->key = 0;
+	res->tsorted = 0;
+	res->trevsorted = 0;
+	res->tnil = 0;
+	res->tnonil = 0;
+	res->tkey = 0;
 	BBPunfix(c->batCacheid);
 	BBPunfix(l->batCacheid);
 	BBPunfix(r->batCacheid);
-	if (!(res->batDirty&2)) BATsetaccess(res, BAT_READ);
 	BBPkeepref(*Res = res->batCacheid);
 	return MAL_SUCCEED;
 }
@@ -2692,12 +1708,11 @@ SQLtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	/* create void,void bat with length and oid's set */
-	tids = BATnew(TYPE_void, TYPE_void, 0, TRANSIENT);
+	tids = COLnew(sb, TYPE_void, 0, TRANSIENT);
 	if (tids == NULL)
 		throw(SQL, "sql.tid", MAL_MALLOC_FAIL);
 	BATsetcount(tids, (BUN) nr);
-	BATseqbase(tids, sb);
-	BATseqbase(BATmirror(tids), sb);
+	BATtseqbase(tids, sb);
 
 	if (store_funcs.count_del(tr, t)) {
 		BAT *d = store_funcs.bind_del(tr, t, RD_INS);
@@ -2708,15 +1723,14 @@ SQLtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		diff = BATdiff(tids, d, NULL, NULL, 0, BUN_NONE);
 		BBPunfix(d->batCacheid);
 		BBPunfix(tids->batCacheid);
-		BATseqbase(diff, sb);
+		BAThseqbase(diff, sb);
 		tids = diff;
 	}
-	if (!(tids->batDirty&2)) BATsetaccess(tids, BAT_READ);
 	BBPkeepref(*res = tids->batCacheid);
 	return MAL_SUCCEED;
 }
 
-/* unsafe pattern resultSet(tbl:bat[:oid,:str], attr:bat[:oid,:str], tpe:bat[:oid,:str], len:bat[:oid,:int],scale:bat[:oid,:int], cols:bat[:oid,:any]...) :int */
+/* unsafe pattern resultSet(tbl:bat[:str], attr:bat[:str], tpe:bat[:str], len:bat[:int],scale:bat[:int], cols:bat[:any]...) :int */
 /* New result set rendering infrastructure */
 
 static str
@@ -2745,7 +1759,7 @@ mvc_result_set_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	b = BATdescriptor(bid);
 	if ( b == NULL)
 		throw(MAL,"sql.resultset","Failed to access order column");
-	res = *res_id = mvc_result_table(m, pci->argc - (pci->retc + 5), 1, b);
+	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 5), 1, b);
 	if (res < 0)
 		msg = createException(SQL, "sql.resultSet", "failed");
 	BBPunfix(b->batCacheid);
@@ -2761,8 +1775,8 @@ mvc_result_set_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	itertbl = bat_iterator(tbl);
 	iteratr = bat_iterator(atr);
 	itertpe = bat_iterator(tpe);
-	digits = (int*) Tloc(len,BUNfirst(len));
-	scaledigits = (int*) Tloc(scale,BUNfirst(scale));
+	digits = (int*) Tloc(len,0);
+	scaledigits = (int*) Tloc(scale,0);
 
 	for( i = 6; msg == MAL_SUCCEED && i< pci->argc; i++, o++){
 		bid = *getArgReference_bat(stk,pci,i);
@@ -2836,7 +1850,7 @@ mvc_export_table_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	order = BATdescriptor(bid);
 	if ( order == NULL)
 		throw(MAL,"sql.resultset","Failed to access order column");
-	res = *res_id = mvc_result_table(m, pci->argc - (pci->retc + 11), 1, order);
+	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 11), 1, order);
 	t = m->results;
 	if (res < 0){
 		msg = createException(SQL, "sql.resultSet", "failed");
@@ -2844,16 +1858,36 @@ mvc_export_table_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	l = strlen((char *) (*T));
-	GDKstrFromStr(tsep = GDKmalloc(l + 1), *T, l);
+	tsep = GDKmalloc(l + 1);
+	if(tsep == 0){
+		msg = createException(SQL, "sql.resultSet", MAL_MALLOC_FAIL);
+		goto wrapup_result_set1;
+	}
+	GDKstrFromStr(tsep, *T, l);
 	l = 0;
 	l = strlen((char *) (*R));
-	GDKstrFromStr(rsep = GDKmalloc(l + 1), *R, l);
+	rsep = GDKmalloc(l + 1);
+	if(rsep == 0){
+		msg = createException(SQL, "sql.resultSet", MAL_MALLOC_FAIL);
+		goto wrapup_result_set1;
+	}
+	GDKstrFromStr(rsep, *R, l);
 	l = 0;
 	l = strlen((char *) (*S));
-	GDKstrFromStr(ssep = GDKmalloc(l + 1), *S, l);
+	ssep = GDKmalloc(l + 1);
+	if(ssep == 0){
+		msg = createException(SQL, "sql.resultSet", MAL_MALLOC_FAIL);
+		goto wrapup_result_set1;
+	}
+	GDKstrFromStr(ssep, *S, l);
 	l = 0;
 	l = strlen((char *) (*N));
-	GDKstrFromStr(ns = GDKmalloc(l + 1), *N, l);
+	ns = GDKmalloc(l + 1);
+	if(ns == 0){
+		msg = createException(SQL, "sql.resultSet", MAL_MALLOC_FAIL);
+		goto wrapup_result_set1;
+	}
+	GDKstrFromStr(ns, *N, l);
 	t->tsep = (char *) tsep;
 	t->rsep = (char *) rsep;
 	t->ssep = (char *) ssep;
@@ -2870,8 +1904,8 @@ mvc_export_table_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	itertbl = bat_iterator(tbl);
 	iteratr = bat_iterator(atr);
 	itertpe = bat_iterator(tpe);
-	digits = (int*) Tloc(len,BUNfirst(len));
-	scaledigits = (int*) Tloc(scale,BUNfirst(scale));
+	digits = (int*) Tloc(len,0);
+	scaledigits = (int*) Tloc(scale,0);
 
 	for( i = 12; msg == MAL_SUCCEED && i< pci->argc; i++, o++){
 		bid = *getArgReference_bat(stk,pci,i);
@@ -2900,7 +1934,7 @@ mvc_export_table_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (mvc_export_result(cntxt->sqlcontext, s, res))
 		msg = createException(SQL, "sql.resultset", "failed");
 	if( s != cntxt->fdout)
-		mnstr_close(s);
+		close_stream(s);
   wrapup_result_set1:
 	BBPunfix(order->batCacheid);
 	if( tbl) BBPunfix(tblId);
@@ -2911,7 +1945,7 @@ mvc_export_table_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return msg;
 }
 
-/* unsafe pattern resultSet(tbl:bat[:oid,:str], attr:bat[:oid,:str], tpe:bat[:oid,:str], len:bat[:oid,:int],scale:bat[:oid,:int], cols:any...) :int */
+/* unsafe pattern resultSet(tbl:bat[:str], attr:bat[:str], tpe:bat[:str], len:bat[:int],scale:bat[:int], cols:any...) :int */
 str
 mvc_row_result_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -2935,7 +1969,7 @@ mvc_row_result_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
-	res = *res_id = mvc_result_table(m, pci->argc - (pci->retc + 5), 1, NULL);
+	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 5), 1, NULL);
 
 	tbl = BATdescriptor(tblId);
 	atr = BATdescriptor(atrId);
@@ -2948,8 +1982,8 @@ mvc_row_result_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	itertbl = bat_iterator(tbl);
 	iteratr = bat_iterator(atr);
 	itertpe = bat_iterator(tpe);
-	digits = (int*) Tloc(len,BUNfirst(len));
-	scaledigits = (int*) Tloc(scale,BUNfirst(scale));
+	digits = (int*) Tloc(len,0);
+	scaledigits = (int*) Tloc(scale,0);
 
 	for( i = 6; msg == MAL_SUCCEED && i< pci->argc; i++, o++){
 		tblname = BUNtail(itertbl,o);
@@ -3010,7 +2044,7 @@ mvc_export_row_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
-	res = *res_id = mvc_result_table(m, pci->argc - (pci->retc + 11), 1, NULL);
+	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 11), 1, NULL);
 
 	t = m->results;
 	if (res < 0){
@@ -3019,16 +2053,36 @@ mvc_export_row_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	l = strlen((char *) (*T));
-	GDKstrFromStr(tsep = GDKmalloc(l + 1), *T, l);
+	tsep = GDKmalloc(l + 1);
+	if(tsep == 0){
+		msg = createException(SQL, "sql.resultSet", MAL_MALLOC_FAIL);
+		goto wrapup_result_set;
+	}
+	GDKstrFromStr(tsep, *T, l);
 	l = 0;
 	l = strlen((char *) (*R));
-	GDKstrFromStr(rsep = GDKmalloc(l + 1), *R, l);
+	rsep = GDKmalloc(l + 1);
+	if(rsep == 0){
+		msg = createException(SQL, "sql.resultSet", MAL_MALLOC_FAIL);
+		goto wrapup_result_set;
+	}
+	GDKstrFromStr(rsep, *R, l);
 	l = 0;
 	l = strlen((char *) (*S));
-	GDKstrFromStr(ssep = GDKmalloc(l + 1), *S, l);
+	ssep = GDKmalloc(l + 1);
+	if(ssep == 0){
+		msg = createException(SQL, "sql.resultSet", MAL_MALLOC_FAIL);
+		goto wrapup_result_set;
+	}
+	GDKstrFromStr(ssep, *S, l);
 	l = 0;
 	l = strlen((char *) (*N));
-	GDKstrFromStr(ns = GDKmalloc(l + 1), *N, l);
+	ns = GDKmalloc(l + 1);
+	if(ns == 0){
+		msg = createException(SQL, "sql.resultSet", MAL_MALLOC_FAIL);
+		goto wrapup_result_set;
+	}
+	GDKstrFromStr(ns, *N, l);
 	t->tsep = (char *) tsep;
 	t->rsep = (char *) rsep;
 	t->ssep = (char *) ssep;
@@ -3045,8 +2099,8 @@ mvc_export_row_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	itertbl = bat_iterator(tbl);
 	iteratr = bat_iterator(atr);
 	itertpe = bat_iterator(tpe);
-	digits = (int*) Tloc(len,BUNfirst(len));
-	scaledigits = (int*) Tloc(scale,BUNfirst(scale));
+	digits = (int*) Tloc(len,0);
+	scaledigits = (int*) Tloc(scale,0);
 
 	for( i = 12; msg == MAL_SUCCEED && i< pci->argc; i++, o++){
 		tblname = BUNtail(itertbl,o);
@@ -3111,7 +2165,7 @@ mvc_table_result_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((order = BATdescriptor(*order_bid)) == NULL) {
 		throw(SQL, "sql.resultSet", "Cannot access descriptor");
 	}
-	*res_id = mvc_result_table(m, *nr_cols, *qtype, order);
+	*res_id = mvc_result_table(m, mb->tag, *nr_cols, *qtype, order);
 	if (*res_id < 0)
 		res = createException(SQL, "sql.resultSet", "failed");
 	BBPunfix(order->batCacheid);
@@ -3224,7 +2278,7 @@ mvc_drop_declared_tables_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPt
 	return MAL_SUCCEED;
 }
 
-/* str mvc_affected_rows_wrap(int *m, int m, wrd *nr, str *w); */
+/* str mvc_affected_rows_wrap(int *m, int m, lng *nr, str *w); */
 str
 mvc_affected_rows_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -3233,17 +2287,17 @@ mvc_affected_rows_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #ifndef NDEBUG
 	int mtype = getArgType(mb, pci, 2);
 #endif
-	wrd nr;
+	lng nr;
 	str msg;
 
 	(void) mb;		/* NOT USED */
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 	*res = 0;
-	assert(mtype == TYPE_wrd);
-	nr = *getArgReference_wrd(stk, pci, 2);
+	assert(mtype == TYPE_lng);
+	nr = *getArgReference_lng(stk, pci, 2);
 	b = cntxt->sqlcontext;
-	error = mvc_export_affrows(b, b->out, nr, "");
+	error = mvc_export_affrows(b, b->out, nr, "", mb->tag);
 	if (error)
 		throw(SQL, "sql.affectedRows", "failed");
 	return MAL_SUCCEED;
@@ -3341,12 +2395,11 @@ mvc_scalar_value_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str *type = getArgReference_str(stk, pci, 3);
 	int *digits = getArgReference_int(stk, pci, 4);
 	int *scale = getArgReference_int(stk, pci, 5);
-	int *eclass = getArgReference_int(stk, pci, 6);
 	ptr p = getArgReference(stk, pci, 7);
 	int mtype = getArgType(mb, pci, 7);
 	str msg;
 	backend *b = NULL;
-
+	int res_id;
 	(void) mb;		/* NOT USED */
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
@@ -3355,13 +2408,14 @@ mvc_scalar_value_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		p = *(ptr *) p;
 
 	// scalar values are single-column result sets
-	mvc_result_table(b->mvc, 1, 1, NULL);
+	res_id = mvc_result_table(b->mvc, mb->tag, 1, 1, NULL);
 	mvc_result_value(b->mvc, *tn, *cn, *type, *digits, *scale, p, mtype);
 	if (b->output_format == OFMT_NONE) {
 		return MAL_SUCCEED;
 	}
-	if (b->out == NULL || mvc_export_value(b, b->out, 1, *tn, *cn, *type, *digits, *scale, *eclass, p, mtype, "", "NULL") != SQL_OK)
+	if (mvc_export_result(b, b->out, res_id) < 0) {
 		throw(SQL, "sql.exportValue", "failed");
+	}
 	return MAL_SUCCEED;
 
 }
@@ -3410,9 +2464,15 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	lng *offset = getArgReference_lng(stk, pci, pci->retc + 7);
 	int *locked = getArgReference_int(stk, pci, pci->retc + 8);
 	int *besteffort = getArgReference_int(stk, pci, pci->retc + 9);
+	char *fixed_widths = NULL;
 	str msg = MAL_SUCCEED;
 	bstream *s = NULL;
 	stream *ss;
+
+	if (pci->argc - pci->retc > 10) {
+		fixed_widths = *getArgReference_str(stk, pci, pci->retc + 10);
+
+	}
 
 	(void) mb;		/* NOT USED */
 	if ((msg = checkSQLContext(cntxt)) != NULL)
@@ -3483,6 +2543,44 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			return msg;
 		}
 		GDKfree(fn);
+		if (fixed_widths && strcmp(fixed_widths, str_nil) != 0) {
+			size_t ncol = 0, current_width_entry = 0, i;
+			size_t *widths;
+			char* val_start = fixed_widths;
+			size_t width_len = strlen(fixed_widths);
+			for (i = 0; i < width_len; i++) {
+				if (fixed_widths[i] == '|') {
+					ncol++;
+				}
+			}
+			widths = malloc(sizeof(size_t) * ncol);
+			if (!widths) {
+				mnstr_destroy(ss);
+				GDKfree(tsep);
+				GDKfree(rsep);
+				GDKfree(ssep);
+				GDKfree(ns);
+				throw(MAL, "sql.copy_from", MAL_MALLOC_FAIL);
+			}
+			for (i = 0; i < width_len; i++) {
+				if (fixed_widths[i] == STREAM_FWF_FIELD_SEP) {
+					fixed_widths[i] = '\0';
+					widths[current_width_entry++] = (size_t) strtoll(val_start, NULL, 10);
+					val_start = fixed_widths + i + 1;
+				}
+			}
+			/* overwrite other delimiters to the ones the FWF stream uses */
+			sprintf((char*) tsep, "%c", STREAM_FWF_FIELD_SEP);
+			sprintf((char*) rsep, "%c", STREAM_FWF_RECORD_SEP);
+			if (!ssep) {
+				ssep = GDKmalloc(2);
+				if(ssep == NULL)
+					throw(SQL, "sql.copy_from", MAL_MALLOC_FAIL);
+			}
+			ssep[0] = 0;
+
+			ss = stream_fwf_create(ss, ncol, widths, STREAM_FWF_FILLER);
+		}
 #if SIZEOF_VOID_P == 4
 		s = bstream_create(ss, 0x20000);
 #else
@@ -3506,7 +2604,7 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (fname && s == NULL)
 		throw(IO, "bstreams.create", "Failed to create block stream");
 	if (b == NULL)
-		throw(SQL, "importTable", "Failed to import table %s", be->mvc->errstr);
+		throw(SQL, "importTable", "Failed to import table '%s', %s", t->base.name, be->mvc->errstr);
 	bat2return(stk, pci, b);
 	GDKfree(b);
 	return msg;
@@ -3524,6 +2622,7 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	mvc *m = NULL;
 	str msg;
 	BUN cnt = 0;
+	int init = 0;
 	int i;
 	str sname = *getArgReference_str(stk, pci, 0 + pci->retc);
 	str tname = *getArgReference_str(stk, pci, 1 + pci->retc);
@@ -3540,7 +2639,7 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 		return msg;
 
 	if ((s = mvc_bind_schema(m, sname)) == NULL)
-		throw(SQL, "sql.drop", "3F000!Schema missing");
+		throw(SQL, "sql.import_table", "3F000!Schema missing");
 	t = mvc_bind_table(m, s, tname);
 	if (!t)
 		throw(SQL, "sql", "42S02!table %s not found", tname);
@@ -3550,12 +2649,20 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	for (i = pci->retc + 2, n = t->columns.set->h; i < pci->argc && n; i++, n = n->next) {
 		sql_column *col = n->data;
 		const char *fname = *getArgReference_str(stk, pci, i);
-		size_t flen = strlen(fname);
+		size_t flen;
 		char *fn;
+
+		if (strcmp(fname, str_nil) == 0)  {
+			// no file name passed for this column
+			continue;
+		}
+		flen =  strlen(fname);
 
 		if (ATOMvarsized(col->type.type->localtype) && col->type.type->localtype != TYPE_str)
 			throw(SQL, "sql", "Failed to attach file %s", *getArgReference_str(stk, pci, i));
 		fn = GDKmalloc(flen + 1);
+		if(fn == NULL)
+			throw(SQL, "sql.attach", MAL_MALLOC_FAIL);
 		GDKstrFromStr((unsigned char *) fn, (const unsigned char *) fname, flen);
 		if (fn == NULL)
 			throw(SQL, "sql", MAL_MALLOC_FAIL);
@@ -3573,47 +2680,85 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 		sql_column *col = n->data;
 		BAT *c = NULL;
 		int tpe = col->type.type->localtype;
+		str fname = *getArgReference_str(stk, pci, i);
 
 		/* handle the various cases */
-		if (tpe < TYPE_str || tpe == TYPE_date || tpe == TYPE_daytime || tpe == TYPE_timestamp) {
-			c = BATattach(col->type.type->localtype, *getArgReference_str(stk, pci, i), PERSISTENT);
+		if (strcmp(fname, str_nil) == 0) {
+			// no filename for this column, skip for now because we potentially don't know the count yet
+			continue;
+		} else if (tpe < TYPE_str || tpe == TYPE_date || tpe == TYPE_daytime || tpe == TYPE_timestamp) {
+			c = BATattach(col->type.type->localtype, fname, TRANSIENT);
 			if (c == NULL)
-				throw(SQL, "sql", "Failed to attach file %s", *getArgReference_str(stk, pci, i));
+				throw(SQL, "sql", "Failed to attach file %s", fname);
 			BATsetaccess(c, BAT_READ);
-			BATderiveProps(c, 0);
 		} else if (tpe == TYPE_str) {
 			/* get the BAT and fill it with the strings */
-			c = BATnew(TYPE_void, TYPE_str, 0, PERSISTENT);
+			c = COLnew(0, TYPE_str, 0, TRANSIENT);
 			if (c == NULL)
 				throw(SQL, "sql", MAL_MALLOC_FAIL);
-			BATseqbase(c, 0);
 			/* this code should be extended to deal with larger text strings. */
 			f = fopen(*getArgReference_str(stk, pci, i), "r");
-			if (f == NULL)
-				throw(SQL, "sql", "Failed to re-open file %s", *getArgReference_str(stk, pci, i));
+			if (f == NULL) {
+				BBPreclaim(c);
+				throw(SQL, "sql", "Failed to re-open file %s", fname);
+			}
 
 			buf = GDKmalloc(bufsiz);
 			if (!buf) {
 				fclose(f);
+				BBPreclaim(c);
 				throw(SQL, "sql", "Failed to create buffer");
 			}
 			while (fgets(buf, bufsiz, f) != NULL) {
 				char *t = strrchr(buf, '\n');
 				if (t)
 					*t = 0;
-				BUNappend(c, buf, FALSE);
+				if (BUNappend(c, buf, FALSE) != GDK_SUCCEED) {
+					BBPreclaim(c);
+					fclose(f);
+					throw(SQL, "sql", MAL_MALLOC_FAIL);
+				}
 			}
 			fclose(f);
 			GDKfree(buf);
 		} else {
-			throw(SQL, "sql", "Failed to attach file %s", *getArgReference_str(stk, pci, i));
+			throw(SQL, "sql", "Failed to attach file %s", fname);
 		}
-		if (i != (pci->retc + 2) && cnt != BATcount(c))
+		if (init && cnt != BATcount(c)) {
+			BBPunfix(c->batCacheid);
 			throw(SQL, "sql", "binary files for table '%s' have inconsistent counts", tname);
+		}
 		cnt = BATcount(c);
+		init = 1;
 		*getArgReference_bat(stk, pci, i - (2 + pci->retc)) = c->batCacheid;
 		BBPkeepref(c->batCacheid);
 	}
+	if (init) {
+		for (i = pci->retc + 2, n = t->columns.set->h; i < pci->argc && n; i++, n = n->next) {
+			// now that we know the BAT count, we can fill in the columns for which no parameters were passed
+			sql_column *col = n->data;
+			BAT *c = NULL;
+			int tpe = col->type.type->localtype;
+
+			str fname = *getArgReference_str(stk, pci, i);
+			if (strcmp(fname, str_nil) == 0) {
+				BUN loop = 0;
+				const void* nil = ATOMnilptr(tpe);
+				// fill the new BAT with NULL values
+				c = COLnew(0, tpe, cnt, TRANSIENT);
+				if (c == NULL)
+					throw(SQL, "sql", MAL_MALLOC_FAIL);
+				for(loop = 0; loop < cnt; loop++) {
+					if (BUNappend(c, nil, 0) != GDK_SUCCEED) {
+						BBPreclaim(c);
+						throw(SQL, "sql", MAL_MALLOC_FAIL);
+					}
+				}
+				*getArgReference_bat(stk, pci, i - (2 + pci->retc)) = c->batCacheid;
+				BBPkeepref(c->batCacheid);
+			}
+		}
+	} 
 	return MAL_SUCCEED;
 }
 
@@ -3622,7 +2767,7 @@ zero_or_one(ptr ret, const bat *bid)
 {
 	BAT *b;
 	BUN c, _s;
-	ptr p;
+	const void *p;
 
 	if ((b = BATdescriptor(*bid)) == NULL) {
 		throw(SQL, "zero_or_one", "Cannot access descriptor");
@@ -3632,7 +2777,7 @@ zero_or_one(ptr ret, const bat *bid)
 		p = ATOMnilptr(b->ttype);
 	} else if (c == 1) {
 		BATiter bi = bat_iterator(b);
-		p = BUNtail(bi, BUNfirst(b));
+		p = BUNtail(bi, 0);
 	} else {
 		char buf[BUFSIZ];
 
@@ -3644,6 +2789,10 @@ zero_or_one(ptr ret, const bat *bid)
 	if (ATOMextern(b->ttype)) {
 		_s = ATOMlen(ATOMtype(b->ttype), p);
 		memcpy(*(ptr *) ret = GDKmalloc(_s), p, _s);
+		if(ret == NULL){
+			BBPunfix(b->batCacheid);
+			throw(SQL, "zero_or_one", MAL_MALLOC_FAIL);
+		}
 	} else if (b->ttype == TYPE_bat) {
 		bat bid = *(bat *) p;
 		*(BAT **) ret = BATdescriptor(bid);
@@ -3671,7 +2820,7 @@ SQLall(ptr ret, const bat *bid)
 {
 	BAT *b;
 	BUN c, _s;
-	ptr p;
+	const void *p;
 
 	if ((b = BATdescriptor(*bid)) == NULL) {
 		throw(SQL, "all", "Cannot access descriptor");
@@ -3683,7 +2832,7 @@ SQLall(ptr ret, const bat *bid)
 		BUN q, r;
 		int (*ocmp) (const void *, const void *);
 		BATiter bi = bat_iterator(b);
-		q = BUNfirst(b);
+		q = 0;
 		r = BUNlast(b);
 		p = BUNtail(bi, q);
 		ocmp = ATOMcompare(b->ttype);
@@ -3699,6 +2848,10 @@ SQLall(ptr ret, const bat *bid)
 	if (ATOMextern(b->ttype)) {
 		_s = ATOMlen(ATOMtype(b->ttype), p);
 		memcpy(*(ptr *) ret = GDKmalloc(_s), p, _s);
+		if(ret == NULL){
+			BBPunfix(b->batCacheid);
+			throw(SQL, "SQLall", MAL_MALLOC_FAIL);
+		}
 	} else if (b->ttype == TYPE_bat) {
 		bat bid = *(bat *) p;
 		*(BAT **) ret = BATdescriptor(bid);
@@ -3736,9 +2889,9 @@ not_unique(bit *ret, const bat *bid)
 		return MAL_SUCCEED;
 	} else if (b->tsorted) {
 		BUN p, q;
-		oid c = *(oid *) Tloc(b, BUNfirst(b));
+		oid c = *(oid *) Tloc(b, 0);
 
-		for (p = BUNfirst(b) + 1, q = BUNlast(b); p < q; p++) {
+		for (p = 1, q = BUNlast(b); p < q; p++) {
 			oid v = *(oid *) Tloc(b, p);
 			if (v <= c) {
 				*ret = TRUE;
@@ -3846,6 +2999,7 @@ str_2time_daytimetz(daytime *res, const str *v, const int *digits, int *tz)
 	else
 		pos = daytime_fromstr(*v, &len, &res);
 	if (!pos || pos < (int)strlen(*v))
+	if (!pos || pos < (int)strlen(*v) || ATOMcmp(TYPE_daytime, res, ATOMnilptr(TYPE_daytime)) == 0)
 		throw(SQL, "daytime", "22007!daytime (%s) has incorrect format", *v);
 	return daytime_2time_daytime(res, res, digits);
 }
@@ -3921,7 +3075,7 @@ str_2time_timestamptz(timestamp *res, const str *v, const int *digits, int *tz)
 		pos = timestamp_tz_fromstr(*v, &len, &res);
 	else
 		pos = timestamp_fromstr(*v, &len, &res);
-	if (!pos || pos < (int)strlen(*v))
+	if (!pos || pos < (int)strlen(*v) || ATOMcmp(TYPE_timestamp, res, ATOMnilptr(TYPE_timestamp)) == 0)
 		throw(SQL, "timestamp", "22007!timestamp (%s) has incorrect format", *v);
 	return timestamp_2time_timestamp(res, res, digits);
 }
@@ -3972,12 +3126,11 @@ SQLbat_alpha_cst(bat *res, const bat *decl, const dbl *theta)
 		throw(SQL, "alpha", "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	bn = BATnew(TYPE_void, TYPE_dbl, BATcount(b), TRANSIENT);
+	bn = COLnew(b->hseqbase, TYPE_dbl, BATcount(b), TRANSIENT);
 	if (bn == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.alpha", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(bn, b->hseqbase);
 	s = sin(radians(*theta));
 	BATloop(b, p, q) {
 		dbl d = *(dbl *) BUNtail(bi, p);
@@ -3990,9 +3143,11 @@ SQLbat_alpha_cst(bat *res, const bat *decl, const dbl *theta)
 			c2 = cos(radians(d + *theta));
 			r = degrees(fabs(atan(s / sqrt(fabs(c1 * c2)))));
 		}
-		BUNappend(bn, &r, FALSE);
+		if (BUNappend(bn, &r, FALSE) != GDK_SUCCEED) {
+			BBPreclaim(bn);
+			throw(SQL, "sql.alpha", MAL_MALLOC_FAIL);
+		}
 	}
-	BATseqbase(bn, b->hseqbase);
 	*res = bn->batCacheid;
 	BBPkeepref(bn->batCacheid);
 	BBPunfix(b->batCacheid);
@@ -4012,12 +3167,11 @@ SQLcst_alpha_bat(bat *res, const dbl *decl, const bat *theta)
 		throw(SQL, "alpha", "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	bn = BATnew(TYPE_void, TYPE_dbl, BATcount(b), TRANSIENT);
+	bn = COLnew(b->hseqbase, TYPE_dbl, BATcount(b), TRANSIENT);
 	if (bn == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.alpha", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(bn, b->hseqbase);
 	BATloop(b, p, q) {
 		dbl d = *decl;
 		dbl *theta = (dbl *) BUNtail(bi, p);
@@ -4032,9 +3186,11 @@ SQLcst_alpha_bat(bat *res, const dbl *decl, const bat *theta)
 			c2 = cos(radians(d + *theta));
 			r = degrees(fabs(atan(s / sqrt(fabs(c1 * c2)))));
 		}
-		BUNappend(bn, &r, FALSE);
+		if (BUNappend(bn, &r, FALSE) != GDK_SUCCEED) {
+			BBPreclaim(bn);
+			throw(SQL, "sql.alpha", MAL_MALLOC_FAIL);
+		}
 	}
-	BATseqbase(bn, b->hseqbase);
 	BBPkeepref(*res = bn->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;
@@ -4079,9 +3235,6 @@ month_interval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	case TYPE_int:
 		r = stk->stk[getArg(pci, 1)].val.ival;
 		break;
-	case TYPE_wrd:
-		r = (int) stk->stk[getArg(pci, 1)].val.wval;
-		break;
 	case TYPE_lng:
 		r = (int) stk->stk[getArg(pci, 1)].val.lval;
 		break;
@@ -4124,9 +3277,6 @@ second_interval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		break;
 	case TYPE_int:
 		r = stk->stk[getArg(pci, 1)].val.ival;
-		break;
-	case TYPE_wrd:
-		r = stk->stk[getArg(pci, 1)].val.wval;
 		break;
 	case TYPE_lng:
 		r = stk->stk[getArg(pci, 1)].val.lval;
@@ -4249,21 +3399,23 @@ dump_cache(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 	cnt = m->qc->id;
-	query = BATnew(TYPE_void, TYPE_str, cnt, TRANSIENT);
+	query = COLnew(0, TYPE_str, cnt, TRANSIENT);
 	if (query == NULL)
 		throw(SQL, "sql.dumpcache", MAL_MALLOC_FAIL);
-	BATseqbase(query, 0);
-	count = BATnew(TYPE_void, TYPE_int, cnt, TRANSIENT);
+	count = COLnew(0, TYPE_int, cnt, TRANSIENT);
 	if (count == NULL) {
 		BBPunfix(query->batCacheid);
 		throw(SQL, "sql.dumpcache", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(count, 0);
 
 	for (q = m->qc->q; q; q = q->next) {
 		if (q->type != Q_PREPARE) {
-			BUNappend(query, q->codestring, FALSE);
-			BUNappend(count, &q->count, FALSE);
+			if (BUNappend(query, q->codestring, FALSE) != GDK_SUCCEED ||
+			    BUNappend(count, &q->count, FALSE) != GDK_SUCCEED) {
+				BBPunfix(query->batCacheid);
+				BBPunfix(count->batCacheid);
+				throw(SQL, "sql.dumpcache", MAL_MALLOC_FAIL);
+			}
 		}
 	}
 	*rquery = query->batCacheid;
@@ -4284,22 +3436,24 @@ dump_opt_stats(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bat *rrewrite = getArgReference_bat(stk, pci, 0);
 	bat *rcount = getArgReference_bat(stk, pci, 1);
 
-	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
-		return msg;
-	if ((msg = checkSQLContext(cntxt)) != NULL)
+	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL ||
+	    (msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 	cnt = m->qc->id;
-	rewrite = BATnew(TYPE_void, TYPE_str, cnt, TRANSIENT);
-	if (rewrite == NULL)
+	rewrite = COLnew(0, TYPE_str, cnt, TRANSIENT);
+	count = COLnew(0, TYPE_int, cnt, TRANSIENT);
+	if (rewrite == NULL || count == NULL) {
+		BBPreclaim(rewrite);
+		BBPreclaim(count);
 		throw(SQL, "sql.optstats", MAL_MALLOC_FAIL);
-	BATseqbase(rewrite, 0);
-	count = BATnew(TYPE_void, TYPE_int, cnt, TRANSIENT);
-	if (count == NULL)
-		throw(SQL, "sql.optstats", MAL_MALLOC_FAIL);
-	BATseqbase(count, 0);
+	}
 
-	BUNappend(rewrite, "joinidx", FALSE);
-	BUNappend(count, &m->opt_stats[0], FALSE);
+	if (BUNappend(rewrite, "joinidx", FALSE) != GDK_SUCCEED ||
+	    BUNappend(count, &m->opt_stats[0], FALSE) != GDK_SUCCEED) {
+		BBPreclaim(rewrite);
+		BBPreclaim(count);
+		throw(SQL, "sql.optstats", MAL_MALLOC_FAIL);
+	}
 	/* TODO add other rewrites */
 
 	*rrewrite = rewrite->batCacheid;
@@ -4443,8 +3597,8 @@ do_sql_rank_grp(bat *rid, const bat *bid, const bat *gid, int nrank, int dense, 
 	gi = bat_iterator(g);
 	ocmp = ATOMcompare(b->ttype);
 	gcmp = ATOMcompare(g->ttype);
-	oc = BUNtail(bi, BUNfirst(b));
-	gc = BUNtail(gi, BUNfirst(g));
+	oc = BUNtail(bi, 0);
+	gc = BUNtail(gi, 0);
 	if (!ALIGNsynced(b, g)) {
 		BBPunfix(b->batCacheid);
 		BBPunfix(g->batCacheid);
@@ -4457,11 +3611,11 @@ do_sql_rank_grp(bat *rid, const bat *bid, const bat *gid, int nrank, int dense, 
   throw(SQL, name, "bat not sorted");
   }
 */
-	r = BATnew(TYPE_void, TYPE_int, BATcount(b), TRANSIENT);
+	r = COLnew(b->hseqbase, TYPE_int, BATcount(b), TRANSIENT);
 	if (r == NULL) {
 		BBPunfix(b->batCacheid);
 		BBPunfix(g->batCacheid);
-		throw(SQL, name, "cannot allocate result bat");
+		throw(SQL, name, MAL_MALLOC_FAIL);
 	}
 	BATloop(b, p, q) {
 		on = BUNtail(bi, p);
@@ -4473,10 +3627,14 @@ do_sql_rank_grp(bat *rid, const bat *bid, const bat *gid, int nrank, int dense, 
 			c = rank = nrank = 1;
 		oc = on;
 		gc = gn;
-		BUNappend(r, &rank, FALSE);
+		if (BUNappend(r, &rank, FALSE) != GDK_SUCCEED) {
+			BBPunfix(b->batCacheid);
+			BBPunfix(g->batCacheid);
+			BBPunfix(r->batCacheid);
+			throw(SQL, name, MAL_MALLOC_FAIL);
+		}
 		nrank += !dense || c;
 	}
-	BATseqbase(r, BAThdense(b) ? b->hseqbase : 0);
 	BBPunfix(b->batCacheid);
 	BBPunfix(g->batCacheid);
 	BBPkeepref(*rid = r->batCacheid);
@@ -4501,15 +3659,16 @@ do_sql_rank(bat *rid, const bat *bid, int nrank, int dense, const char *name)
 
 	bi = bat_iterator(b);
 	cmp = ATOMcompare(b->ttype);
-	cur = BUNtail(bi, BUNfirst(b));
-	r = BATnew(TYPE_void, TYPE_int, BATcount(b), TRANSIENT);
+	cur = BUNtail(bi, 0);
+	r = COLnew(b->hseqbase, TYPE_int, BATcount(b), TRANSIENT);
 	if (r == NULL) {
 		BBPunfix(b->batCacheid);
-		throw(SQL, name, "cannot allocate result bat");
+		throw(SQL, name, MAL_MALLOC_FAIL);
 	}
 	if (BATtdense(b)) {
 		BATloop(b, p, q) {
-			BUNappend(r, &rank, FALSE);
+			if (BUNappend(r, &rank, FALSE) != GDK_SUCCEED)
+				goto bailout;
 			rank++;
 		}
 	} else {
@@ -4518,14 +3677,18 @@ do_sql_rank(bat *rid, const bat *bid, int nrank, int dense, const char *name)
 			if ((c = cmp(n, cur)) != 0)
 				rank = nrank;
 			cur = n;
-			BUNappend(r, &rank, FALSE);
+			if (BUNappend(r, &rank, FALSE) != GDK_SUCCEED)
+				goto bailout;
 			nrank += !dense || c;
 		}
 	}
-	BATseqbase(r, BAThdense(b) ? b->hseqbase : 0);
 	BBPunfix(b->batCacheid);
 	BBPkeepref(*rid = r->batCacheid);
 	return MAL_SUCCEED;
+  bailout:
+	BBPunfix(b->batCacheid);
+	BBPunfix(r->batCacheid);
+	throw(SQL, name, MAL_MALLOC_FAIL);
 }
 
 str
@@ -4603,6 +3766,9 @@ vacuum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str (*func) (bat
 		throw(SQL, name, "42000!insufficient privileges");
 	if ((!list_empty(t->idxs.set) || !list_empty(t->keys.set)))
 		throw(SQL, name, "%s not allowed on tables with indices", name + 4);
+	if (t->system)
+		throw(SQL, name, "%s not allowed on system tables", name + 4);
+
 	if (has_snapshots(m->session->tr))
 		throw(SQL, name, "%s not allowed on snapshots", name + 4);
 	if (!m->session->auto_commit)
@@ -4625,7 +3791,7 @@ vacuum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str (*func) (bat
 		b = store_funcs.bind_col(tr, c, RDONLY);
 		if (b == NULL || (msg = (*func) (&bid, &b->batCacheid, &del->batCacheid)) != NULL) {
 			for (i--; i >= 0; i--)
-				BBPdecref(bids[i], TRUE);
+				BBPrelease(bids[i]);
 			if (b)
 				BBPunfix(b->batCacheid);
 			BBPunfix(del->batCacheid);
@@ -4641,7 +3807,7 @@ vacuum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str (*func) (bat
 	}
 	if (i >= 2048) {
 		for (i--; i >= 0; i--)
-			BBPdecref(bids[i], TRUE);
+			BBPrelease(bids[i]);
 		throw(SQL, name, "Too many columns to handle, use copy instead");
 	}
 	BBPunfix(del->batCacheid);
@@ -4655,7 +3821,7 @@ vacuum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str (*func) (bat
 			store_funcs.append_col(tr, c, ins, TYPE_bat);
 			BBPunfix(ins->batCacheid);
 		}
-		BBPdecref(bids[i], TRUE);
+		BBPrelease(bids[i]);
 	}
 	/* TODO indices */
 	return MAL_SUCCEED;
@@ -4693,6 +3859,7 @@ SQLvacuum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	node *o;
 	int ordered = 0;
 	BUN cnt = 0;
+	BUN dcnt;
 
 	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
 		return msg;
@@ -4709,9 +3876,14 @@ SQLvacuum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(SQL, "sql.vacuum", "42000!insufficient privileges");
 	if ((!list_empty(t->idxs.set) || !list_empty(t->keys.set)))
 		throw(SQL, "sql.vacuum", "vacuum not allowed on tables with indices");
+	if (t->system)
+		throw(SQL, "sql.vacuum", "vacuum not allowed on system tables");
+
 	if (has_snapshots(m->session->tr))
 		throw(SQL, "sql.vacuum", "vacuum not allowed on snapshots");
 
+	if (!m->session->auto_commit)
+		throw(SQL, "sql.vacuum", "vacuum only allowed in auto commit mode");
 	tr = m->session->tr;
 
 	for (o = t->columns.set->h; o && ordered == 0; o = o->next) {
@@ -4729,16 +3901,17 @@ SQLvacuum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( del == NULL)
 		throw(SQL, "sql.vacuum", "Can not access deletion column");
 
-	if (BATcount(del) > 0) {
+	dcnt = BATcount(del);
+	BBPunfix(del->batCacheid);
+	if (dcnt > 0) {
 		/* now decide on the algorithm */
 		if (ordered) {
-			if (BATcount(del) > cnt / 20)
-				SQLshrink(cntxt, mb, stk, pci);
+			if (dcnt > cnt / 20)
+				return SQLshrink(cntxt, mb, stk, pci);
 		} else {
-			SQLreuse(cntxt, mb, stk, pci);
+			return SQLreuse(cntxt, mb, stk, pci);
 		}
 	}
-	BBPunfix(del->batCacheid);
 	return MAL_SUCCEED;
 }
 
@@ -4811,7 +3984,7 @@ SQLoptimizersUpdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	BAT *sch, *tab, *col, *type, *loc, *cnt, *atom, *size, *heap, *indices, *phash, *sort, *imprints, *mode, *oidx;
+	BAT *sch, *tab, *col, *type, *loc, *cnt, *atom, *size, *heap, *indices, *phash, *sort, *imprints, *mode, *revsort, *key, *oidx;
 	mvc *m = NULL;
 	str msg;
 	sql_trans *tr;
@@ -4832,7 +4005,9 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bat *rphash = getArgReference_bat(stk, pci, 11);
 	bat *rimprints = getArgReference_bat(stk, pci, 12);
 	bat *rsort = getArgReference_bat(stk, pci, 13);
-	bat *roidx = getArgReference_bat(stk, pci, 14);
+	bat *rrevsort = getArgReference_bat(stk, pci, 14);
+	bat *rkey = getArgReference_bat(stk, pci, 15);
+	bat *roidx = getArgReference_bat(stk, pci, 16);
 	str sname = 0;
 	str tname = 0;
 	str cname = 0;
@@ -4843,39 +4018,27 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 
 	tr = m->session->tr;
-	sch = BATnew(TYPE_void, TYPE_str, 0, TRANSIENT);
-	BATseqbase(sch, 0);
-	tab = BATnew(TYPE_void, TYPE_str, 0, TRANSIENT);
-	BATseqbase(tab, 0);
-	col = BATnew(TYPE_void, TYPE_str, 0, TRANSIENT);
-	BATseqbase(col, 0);
-	type = BATnew(TYPE_void, TYPE_str, 0, TRANSIENT);
-	BATseqbase(type, 0);
-	mode = BATnew(TYPE_void, TYPE_str, 0, TRANSIENT);
-	BATseqbase(mode, 0);
-	loc = BATnew(TYPE_void, TYPE_str, 0, TRANSIENT);
-	BATseqbase(loc, 0);
-	cnt = BATnew(TYPE_void, TYPE_lng, 0, TRANSIENT);
-	BATseqbase(cnt, 0);
-	atom = BATnew(TYPE_void, TYPE_int, 0, TRANSIENT);
-	BATseqbase(atom, 0);
-	size = BATnew(TYPE_void, TYPE_lng, 0, TRANSIENT);
-	BATseqbase(size, 0);
-	heap = BATnew(TYPE_void, TYPE_lng, 0, TRANSIENT);
-	BATseqbase(heap, 0);
-	indices = BATnew(TYPE_void, TYPE_lng, 0, TRANSIENT);
-	BATseqbase(indices, 0);
-	phash = BATnew(TYPE_void, TYPE_bit, 0, TRANSIENT);
-	BATseqbase(phash, 0);
-	imprints = BATnew(TYPE_void, TYPE_lng, 0, TRANSIENT);
-	BATseqbase(imprints, 0);
-	sort = BATnew(TYPE_void, TYPE_bit, 0, TRANSIENT);
-	BATseqbase(sort, 0);
-	oidx = BATnew(TYPE_void, TYPE_lng, 0, TRANSIENT);
-	BATseqbase(oidx, 0);
+	sch = COLnew(0, TYPE_str, 0, TRANSIENT);
+	tab = COLnew(0, TYPE_str, 0, TRANSIENT);
+	col = COLnew(0, TYPE_str, 0, TRANSIENT);
+	type = COLnew(0, TYPE_str, 0, TRANSIENT);
+	mode = COLnew(0, TYPE_str, 0, TRANSIENT);
+	loc = COLnew(0, TYPE_str, 0, TRANSIENT);
+	cnt = COLnew(0, TYPE_lng, 0, TRANSIENT);
+	atom = COLnew(0, TYPE_int, 0, TRANSIENT);
+	size = COLnew(0, TYPE_lng, 0, TRANSIENT);
+	heap = COLnew(0, TYPE_lng, 0, TRANSIENT);
+	indices = COLnew(0, TYPE_lng, 0, TRANSIENT);
+	phash = COLnew(0, TYPE_bit, 0, TRANSIENT);
+	imprints = COLnew(0, TYPE_lng, 0, TRANSIENT);
+	sort = COLnew(0, TYPE_bit, 0, TRANSIENT);
+	revsort = COLnew(0, TYPE_bit, 0, TRANSIENT);
+	key = COLnew(0, TYPE_bit, 0, TRANSIENT);
+	oidx = COLnew(0, TYPE_lng, 0, TRANSIENT);
 
 	if (sch == NULL || tab == NULL || col == NULL || type == NULL || mode == NULL || loc == NULL || imprints == NULL || 
-	    sort == NULL || cnt == NULL || atom == NULL || size == NULL || heap == NULL || indices == NULL || phash == NULL || oidx == NULL) {
+	    sort == NULL || cnt == NULL || atom == NULL || size == NULL || heap == NULL || indices == NULL || phash == NULL ||
+	    revsort == NULL || key == NULL || oidx == NULL) {
 		if (sch)
 			BBPunfix(sch->batCacheid);
 		if (tab)
@@ -4904,6 +4067,10 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BBPunfix(imprints->batCacheid);
 		if (sort)
 			BBPunfix(sort->batCacheid);
+		if (revsort)
+			BBPunfix(revsort->batCacheid);
+		if (key)
+			BBPunfix(key->batCacheid);
 		if (oidx)
 			BBPunfix(oidx->batCacheid);
 		throw(SQL, "sql.storage", MAL_MALLOC_FAIL);
@@ -4962,8 +4129,8 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 								/*printf(" loc %s", BBP_physical(bn->batCacheid)); */
 								BUNappend(loc, BBP_physical(bn->batCacheid), FALSE);
-								/*printf(" width %d", bn->T->width); */
-								w = bn->T->width;
+								/*printf(" width %d", bn->twidth); */
+								w = bn->twidth;
 								if (bn->ttype == TYPE_str) {
 									BUN p, q;
 									double sum = 0;
@@ -4985,13 +4152,13 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 								}
 								BUNappend(atom, &w, FALSE);
 
-								sz = BATcount(bn) * bn->T->width; 
+								sz = BATcount(bn) * bn->twidth; 
 								BUNappend(size, &sz, FALSE);
 
-								sz = heapinfo(bn->T->vheap, abs(bn->batCacheid));
+								sz = heapinfo(bn->tvheap, bn->batCacheid);
 								BUNappend(heap, &sz, FALSE);
 
-								sz = hashinfo(bn->T->hash, abs(bn->batCacheid));
+								sz = hashinfo(bn->thash, bn->batCacheid);
 								BUNappend(indices, &sz, FALSE);
 
 								bitval = 0; /* HASHispersistent(bn); */
@@ -4999,13 +4166,25 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 								sz = IMPSimprintsize(bn);
 								BUNappend(imprints, &sz, FALSE);
-								/*printf(" indices "BUNFMT, bn->T->hash?bn->T->hash->heap->size:0); */
+								/*printf(" indices "BUNFMT, bn->thash?bn->thash->heap->size:0); */
 								/*printf("\n"); */
 
-								w = BATtordered(bn);
-								BUNappend(sort, &w, FALSE);
+								bitval = BATtordered(bn);
+								if (!bitval && bn->tnosorted == 0)
+									bitval = bit_nil;
+								BUNappend(sort, &bitval, FALSE);
 
-								sz = bn->torderidx ? bn->torderidx->free : 0;
+								bitval = BATtrevordered(bn);
+								if (!bitval && bn->tnorevsorted == 0)
+									bitval = bit_nil;
+								BUNappend(revsort, &bitval, FALSE);
+
+								bitval = BATtkey(bn);
+								if (!bitval && bn->tnokey[0] == 0 && bn->tnokey[1] == 0)
+									bitval = bit_nil;
+								BUNappend(key, &bitval, FALSE);
+
+								sz = bn->torderidx && bn->torderidx != (Heap *) 1 ? bn->torderidx->free : 0;
 								BUNappend(oidx, &sz, FALSE);
 								BBPunfix(bn->batCacheid);
 							}
@@ -5043,8 +4222,8 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 									/*printf(" loc %s", BBP_physical(bn->batCacheid)); */
 									BUNappend(loc, BBP_physical(bn->batCacheid), FALSE);
-									/*printf(" width %d", bn->T->width); */
-									w = bn->T->width;
+									/*printf(" width %d", bn->twidth); */
+									w = bn->twidth;
 									if (bn->ttype == TYPE_str) {
 										BUN p, q;
 										double sum = 0;
@@ -5065,28 +4244,35 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 											w = (int) (sum / cnt2);
 									}
 									BUNappend(atom, &w, FALSE);
-									/*printf(" size "BUNFMT, tailsize(bn,BATcount(bn)) + (bn->T->vheap? bn->T->vheap->size:0)); */
+									/*printf(" size "BUNFMT, tailsize(bn,BATcount(bn)) + (bn->tvheap? bn->tvheap->size:0)); */
 									sz = tailsize(bn, BATcount(bn));
-									sz += headsize(bn, BATcount(bn));
 									BUNappend(size, &sz, FALSE);
 
-									sz = bn->T->vheap ? bn->T->vheap->size : 0;
-									sz += bn->H->vheap ? bn->H->vheap->size : 0;
+									sz = bn->tvheap ? bn->tvheap->size : 0;
 									BUNappend(heap, &sz, FALSE);
 
-									sz = bn->T->hash && bn->T->hash != (Hash *) 1 ? bn->T->hash->heap->size : 0; /* HASHsize() */
-									sz += bn->H->hash && bn->H->hash != (Hash *) 1 ? bn->H->hash->heap->size : 0; /* HASHsize() */
+									sz = bn->thash && bn->thash != (Hash *) 1 ? bn->thash->heap->size : 0; /* HASHsize() */
 									BUNappend(indices, &sz, FALSE);
 									bitval = 0; /* HASHispersistent(bn); */
 									BUNappend(phash, &bitval, FALSE);
 
 									sz = IMPSimprintsize(bn);
 									BUNappend(imprints, &sz, FALSE);
-									/*printf(" indices "BUNFMT, bn->T->hash?bn->T->hash->heap->size:0); */
+									/*printf(" indices "BUNFMT, bn->thash?bn->thash->heap->size:0); */
 									/*printf("\n"); */
-									w = BATtordered(bn);
-									BUNappend(sort, &w, FALSE);
-									sz = bn->torderidx ? bn->torderidx->free : 0;
+									bitval = BATtordered(bn);
+									if (!bitval && bn->tnosorted == 0)
+										bitval = bit_nil;
+									BUNappend(sort, &bitval, FALSE);
+									bitval = BATtrevordered(bn);
+									if (!bitval && bn->tnorevsorted == 0)
+										bitval = bit_nil;
+									BUNappend(revsort, &bitval, FALSE);
+									bitval = BATtkey(bn);
+									if (!bitval && bn->tnokey[0] == 0 && bn->tnokey[1] == 0)
+										bitval = bit_nil;
+									BUNappend(key, &bitval, FALSE);
+									sz = bn->torderidx && bn->torderidx != (Heap *) 1 ? bn->torderidx->free : 0;
 									BUNappend(oidx, &sz, FALSE);
 									BBPunfix(bn->batCacheid);
 								}
@@ -5109,6 +4295,8 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BBPkeepref(*rphash = phash->batCacheid);
 	BBPkeepref(*rimprints = imprints->batCacheid);
 	BBPkeepref(*rsort = sort->batCacheid);
+	BBPkeepref(*rrevsort = revsort->batCacheid);
+	BBPkeepref(*rkey = key->batCacheid);
 	BBPkeepref(*roidx = oidx->batCacheid);
 	return MAL_SUCCEED;
 }
@@ -5154,17 +4342,16 @@ BATSTRindex_int(bat *res, const bat *src, const bit *u)
 		throw(SQL, "calc.index", "Cannot access descriptor");
 
 	if (*u) {
-		Heap *h = s->T->vheap;
+		Heap *h = s->tvheap;
 		size_t pad, pos;
 		const size_t extralen = h->hashash ? EXTRALEN : 0;
 		int v;
 
-		r = BATnew(TYPE_void, TYPE_int, 1024, TRANSIENT);
+		r = COLnew(0, TYPE_int, 1024, TRANSIENT);
 		if (r == NULL) {
 			BBPunfix(s->batCacheid);
 			throw(SQL, "calc.index", MAL_MALLOC_FAIL);
 		}
-		BATseqbase(r, 0);
 		pos = GDK_STRHASHSIZE;
 		while (pos < h->free) {
 			const char *s;
@@ -5186,7 +4373,7 @@ BATSTRindex_int(bat *res, const bat *src, const bit *u)
 		}
 		r->ttype = TYPE_int;
 		r->tvarsized = 0;
-		r->T->vheap = NULL;
+		r->tvheap = NULL;
 	}
 	BBPunfix(s->batCacheid);
 	BBPkeepref((*res = r->batCacheid));
@@ -5210,17 +4397,16 @@ BATSTRindex_sht(bat *res, const bat *src, const bit *u)
 		throw(SQL, "calc.index", "Cannot access descriptor");
 
 	if (*u) {
-		Heap *h = s->T->vheap;
+		Heap *h = s->tvheap;
 		size_t pad, pos;
 		const size_t extralen = h->hashash ? EXTRALEN : 0;
 		sht v;
 
-		r = BATnew(TYPE_void, TYPE_sht, 1024, TRANSIENT);
+		r = COLnew(0, TYPE_sht, 1024, TRANSIENT);
 		if (r == NULL) {
 			BBPunfix(s->batCacheid);
 			throw(SQL, "calc.index", MAL_MALLOC_FAIL);
 		}
-		BATseqbase(r, 0);
 		pos = GDK_STRHASHSIZE;
 		while (pos < h->free) {
 			const char *s;
@@ -5242,7 +4428,7 @@ BATSTRindex_sht(bat *res, const bat *src, const bit *u)
 		}
 		r->ttype = TYPE_sht;
 		r->tvarsized = 0;
-		r->T->vheap = NULL;
+		r->tvheap = NULL;
 	}
 	BBPunfix(s->batCacheid);
 	BBPkeepref((*res = r->batCacheid));
@@ -5266,17 +4452,16 @@ BATSTRindex_bte(bat *res, const bat *src, const bit *u)
 		throw(SQL, "calc.index", "Cannot access descriptor");
 
 	if (*u) {
-		Heap *h = s->T->vheap;
+		Heap *h = s->tvheap;
 		size_t pad, pos;
 		const size_t extralen = h->hashash ? EXTRALEN : 0;
 		bte v;
 
-		r = BATnew(TYPE_void, TYPE_bte, 64, TRANSIENT);
+		r = COLnew(0, TYPE_bte, 64, TRANSIENT);
 		if (r == NULL) {
 			BBPunfix(s->batCacheid);
 			throw(SQL, "calc.index", MAL_MALLOC_FAIL);
 		}
-		BATseqbase(r, 0);
 		pos = GDK_STRHASHSIZE;
 		while (pos < h->free) {
 			const char *s;
@@ -5298,7 +4483,7 @@ BATSTRindex_bte(bat *res, const bat *src, const bit *u)
 		}
 		r->ttype = TYPE_bte;
 		r->tvarsized = 0;
-		r->T->vheap = NULL;
+		r->tvheap = NULL;
 	}
 	BBPunfix(s->batCacheid);
 	BBPkeepref((*res = r->batCacheid));
@@ -5324,14 +4509,13 @@ BATSTRstrings(bat *res, const bat *src)
 	if ((s = BATdescriptor(*src)) == NULL)
 		throw(SQL, "calc.strings", "Cannot access descriptor");
 
-	h = s->T->vheap;
+	h = s->tvheap;
 	extralen = h->hashash ? EXTRALEN : 0;
-	r = BATnew(TYPE_void, TYPE_str, 1024, TRANSIENT);
+	r = COLnew(0, TYPE_str, 1024, TRANSIENT);
 	if (r == NULL) {
 		BBPunfix(s->batCacheid);
 		throw(SQL, "calc.strings", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(r, 0);
 	pos = GDK_STRHASHSIZE;
 	while (pos < h->free) {
 		const char *s;

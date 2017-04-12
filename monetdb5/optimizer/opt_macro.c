@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -128,12 +128,10 @@ inlineMALblock(MalBlkPtr mb, int pc, MalBlkPtr mc)
 
 	/* add all variables of the new block to the target environment */
 	for (n = 0; n < mc->vtop; n++) {
-		if (isExceptionVariable(mc->var[n]->name)) {
-			nv[n] = newVariable(mb,GDKstrdup(mc->var[n]->name),TYPE_str);
+		if (isExceptionVariable(getVarName(mc,n))) {
+			nv[n] = newVariable(mb, getVarName(mc,n), strlen(getVarName(mc,n)), TYPE_str);
 			if (isVarUDFtype(mc,n))
 				setVarUDFtype(mb,nv[n]);
-			if (isVarUsed(mc,n))
-				setVarUsed(mb,nv[n]);
 		} else if (isVarTypedef(mc,n)) {
 			nv[n] = newTypeVariable(mb,getVarType(mc,n));
 		} else if (isVarConstant(mc,n)) {
@@ -142,8 +140,6 @@ inlineMALblock(MalBlkPtr mb, int pc, MalBlkPtr mc)
 			nv[n] = newTmpVariable(mb, getVarType(mc, n));
 			if (isVarUDFtype(mc,n))
 				setVarUDFtype(mb,nv[n]);
-			if (isVarUsed(mc,n))
-				setVarUsed(mb,nv[n]);
 		}
 	}
 
@@ -181,6 +177,7 @@ inlineMALblock(MalBlkPtr mb, int pc, MalBlkPtr mc)
 				clrVarFixed(mb,getArg(ns[k],n)); /* for typing */
 			setModuleId(ns[k],getModuleId(q));
 			setFunctionId(ns[k],getFunctionId(q));
+			ns[k]->typechk = TYPE_UNKNOWN;
 			ns[k]->barrier = 0;
 			ns[k]->token = ASSIGNsymbol;
 		}
@@ -368,11 +365,13 @@ ORCAMprocessor(Client cntxt, MalBlkPtr mb, Symbol t)
 			else
 				break;
 		}
-	chkProgram(cntxt->fdout, cntxt->nspace, mb);
+	chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+	chkFlow(cntxt->fdout, mb);
+	chkDeclarations(cntxt->fdout, mb);
 	return msg;
 }
 
-int
+str
 OPTmacroImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
 	MalBlkPtr target= mb;
@@ -380,6 +379,7 @@ OPTmacroImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	Symbol t;
 	str mod,fcn;
 	int j;
+	str msg = MAL_SUCCEED;
 
 	(void) cntxt;
 	(void) stk;
@@ -400,18 +400,20 @@ OPTmacroImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	s = findModule(cntxt->nspace, putName(mod));
 	if (s == 0)
 		return 0;
-	if (s->subscope) {
-		j = getSubScope(fcn);
-		for (t = s->subscope[j]; t != NULL; t = t->peer)
+	if (s->space) {
+		j = getSymbolIndex(fcn);
+		for (t = s->space[j]; t != NULL; t = t->peer)
 			if (t->def->errors == 0) {
 				if (getSignature(t)->token == FUNCTIONsymbol){
-					str msg = MACROprocessor(cntxt, target, t);
-					if( msg != MAL_SUCCEED)
-						GDKfree(msg);
+					msg = MACROprocessor(cntxt, target, t);
+					// failures from the macro expansion are ignored
+					// They leave the scene as is
+					if ( msg)
+						freeException(msg);
 				}
 			}
 	}
-	return 1;
+	return MAL_SUCCEED;
 }
 /*
  * The optimizer call infrastructure is identical to the liners
@@ -419,7 +421,7 @@ OPTmacroImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
  * functions, regardless their
  */
 
-int
+str
 OPTorcamImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
 	MalBlkPtr target= mb;
@@ -427,7 +429,7 @@ OPTorcamImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	Symbol t;
 	str mod,fcn;
 	int j;
-	str msg;
+	str msg = MAL_SUCCEED;
 
 	(void) cntxt;
 	(void) stk;
@@ -448,40 +450,24 @@ OPTorcamImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	s = findModule(cntxt->nspace, putName(mod));
 	if (s == 0)
 		return 0;
-	if (s->subscope) {
-		j = getSubScope(fcn);
-		for (t = s->subscope[j]; t != NULL; t = t->peer)
+	if (s->space) {
+		j = getSymbolIndex(fcn);
+		for (t = s->space[j]; t != NULL; t = t->peer)
 			if (t->def->errors == 0) {
 				if (getSignature(t)->token == FUNCTIONsymbol) {
 					msg =ORCAMprocessor(cntxt, target, t);
-					if( msg) GDKfree(msg);
 				}
 			}
 	}
-	return 1;
+	return msg;
 }
-/*
- * Optimizer code wrapper
- * The optimizer wrapper code is the interface to the MAL optimizer calls.
- * It prepares the environment for the optimizers to do their work and removes
- * the call itself to avoid endless recursions.
- *
- * Before an optimizer is finished, it should leave a clean state behind.
- * Moreover, the information of the optimization step is saved for
- * debugging and analysis.
- *
- * The wrapper expects the optimizers to return the number of
- * actions taken, i.e. number of succesful changes to the code.
- *
- * This code is slightly different from other optimizer
- * wrappers, because the mod.fcn argument is optional.
- */
 
 str OPTmacro(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	Symbol t;
 	str msg,mod,fcn;
 	lng clk= GDKusec();
-	int actions = 0;
+	char buf[256];
+	lng usec = GDKusec();
 
 	if( p ==NULL )
 		return 0;
@@ -501,15 +487,31 @@ str OPTmacro(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	if( msg) 
 		return msg;
 	if( mb->errors == 0)
-		actions= OPTmacroImplementation(cntxt,mb,stk,p);
-    return optimizerCheck(cntxt,mb, "optimizer.macro", actions, GDKusec() - clk);
+		msg= OPTmacroImplementation(cntxt,mb,stk,p);
+	// similar to OPTmacro
+	if( msg) 
+		freeException(msg);
+
+    /* Defense line against incorrect plans */
+	chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+	chkFlow(cntxt->fdout, mb);
+	chkDeclarations(cntxt->fdout, mb);
+	usec += GDKusec() - clk;
+	/* keep all actions taken as a post block comment */
+	snprintf(buf,256,"%-20s actions=1 time=" LLFMT " usec","macro",usec);
+	newComment(mb,buf);
+	addtoMalBlkHistory(mb);
+	if (mb->errors)
+		throw(MAL, "optimizer.macro", PROGRAM_GENERAL);
+	return MAL_SUCCEED;
 }
 
 str OPTorcam(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	Symbol t;
 	str msg,mod,fcn;
 	lng clk= GDKusec();
-	int actions = 0;
+	char buf[256];
+	lng usec = GDKusec();
 
 	if( p ==NULL )
 		return 0;
@@ -529,6 +531,19 @@ str OPTorcam(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	if( msg) 
 		return msg;
 	if( mb->errors == 0)
-		actions= OPTorcamImplementation(cntxt,mb,stk,p);
-    return optimizerCheck(cntxt,mb, "optimizer.orcam", actions, GDKusec() - clk);
+		msg= OPTorcamImplementation(cntxt,mb,stk,p);
+	if( msg) 
+		return msg;
+	chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+	chkFlow(cntxt->fdout, mb);
+	chkDeclarations(cntxt->fdout, mb);
+	usec += GDKusec() - clk;
+	/* keep all actions taken as a post block comment */
+	usec = GDKusec()- usec;
+	snprintf(buf,256,"%-20s actions=1 time=" LLFMT " usec","orcam",usec);
+	newComment(mb,buf);
+	addtoMalBlkHistory(mb);
+	if (mb->errors)
+		throw(MAL, "optimizer.orcam", PROGRAM_GENERAL);
+	return MAL_SUCCEED;
 }

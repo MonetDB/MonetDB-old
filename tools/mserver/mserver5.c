@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -119,7 +119,6 @@ usage(char *prog, int xit)
 	fprintf(stderr, "     --optimizers\n");
 	fprintf(stderr, "     --trace\n");
 	fprintf(stderr, "     --forcemito\n");
-	fprintf(stderr, "     --recycler\n");
 	fprintf(stderr, "     --debug=<bitmask>\n");
 
 	exit(xit);
@@ -131,11 +130,6 @@ usage(char *prog, int xit)
 static void
 monet_hello(void)
 {
-#ifdef MONETDB_STATIC
-	char *linkinfo = "statically";
-#else
-	char *linkinfo = "dynamically";
-#endif
 	dbl sz_mem_h;
 	char  *qc = " kMGTPE";
 	int qi = 0;
@@ -157,14 +151,14 @@ monet_hello(void)
 	printf("\n# Serving database '%s', using %d thread%s\n",
 			GDKgetenv("gdk_dbname"),
 			GDKnr_threads, (GDKnr_threads != 1) ? "s" : "");
-	printf("# Compiled for %s/" SZFMT "bit with " SZFMT "bit OIDs %s%s linked\n",
-			HOST, sizeof(ptr) * 8, sizeof(oid) * 8,
+	printf("# Compiled for %s/" SZFMT "bit%s\n",
+			HOST, sizeof(ptr) * 8,
 #ifdef HAVE_HGE
-			"and 128bit integers ",
+			" with 128bit integers"
 #else
-			"",
+			""
 #endif
-			linkinfo);
+			);
 	printf("# Found %.3f %ciB available main-memory.\n",
 			sz_mem_h, qc[qi]);
 #ifdef MONET_GLOBAL_DEBUG
@@ -172,7 +166,7 @@ monet_hello(void)
 	printf("# Module path:%s\n", GDKgetenv("monet_mod_path"));
 #endif
 	printf("# Copyright (c) 1993-July 2008 CWI.\n");
-	printf("# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved\n");
+	printf("# Copyright (c) August 2008-2017 MonetDB B.V., all rights reserved\n");
 	printf("# Visit http://www.monetdb.org/ for further information\n");
 
 	// The properties shipped through the performance profiler
@@ -274,7 +268,6 @@ main(int argc, char **av)
 		{ "optimizers", 0, 0, 0 },
 		{ "performance", 0, 0, 0 },
 		{ "forcemito", 0, 0, 0 },
-		{ "recycler", 0, 0, 0 },
 		{ "heaps", 0, 0, 0 },
 		{ 0, 0, 0, 0 }
 	};
@@ -286,6 +279,9 @@ main(int argc, char **av)
 	_CrtSetReportMode(_CRT_ERROR, 0);
 	_CrtSetReportMode(_CRT_ASSERT, 0);
 	_set_invalid_parameter_handler(mserver_invalid_parameter_handler);
+#ifdef _TWO_DIGIT_EXPONENT
+	_set_output_format(_TWO_DIGIT_EXPONENT);
+#endif
 #endif
 	if (setlocale(LC_CTYPE, "") == NULL) {
 		GDKfatal("cannot set locale\n");
@@ -297,10 +293,12 @@ main(int argc, char **av)
 /* for (Red Hat) Linux (8) used at least as of glibc-2.2.93-5 */
 		if (mallopt(M_MXFAST, 192)) {
 			fprintf(stderr, "!monet: mallopt(M_MXFAST,192) fails.\n");
+			exit(-1);
 		}
 #ifdef M_BLKSZ
 		if (mallopt(M_BLKSZ, 8 * 1024)) {
 			fprintf(stderr, "!monet: mallopt(M_BLKSZ,8*1024) fails.\n");
+			exit(-1);
 		}
 #endif
 	}
@@ -311,7 +309,8 @@ main(int argc, char **av)
 
 	if (getcwd(monet_cwd, PATHLENGTH - 1) == NULL) {
 		perror("pwd");
-		GDKfatal("monet_init: could not determine current directory\n");
+		fprintf(stderr,"monet_init: could not determine current directory\n");
+		exit(-1);
 	}
 
 	/* retrieve binpath early (before monet_init) because some
@@ -341,7 +340,10 @@ main(int argc, char **av)
 					optarg[optarglen - 1] == '\\'))
 					optarg[--optarglen] = '\0';
 				dbpath = absolute_path(optarg);
-				setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_dbpath", dbpath);
+				if( dbpath == NULL)
+					fprintf(stderr, "#error: can not allocate memory for dbpath\n");
+				else
+					setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_dbpath", dbpath);
 				break;
 			}
 			if (strcmp(long_options[option_index].name, "dbextra") == 0) {
@@ -387,10 +389,6 @@ main(int argc, char **av)
 			}
 			if (strcmp(long_options[option_index].name, "forcemito") == 0) {
 				grpdebug |= GRPforcemito;
-				break;
-			}
-			if (strcmp(long_options[option_index].name, "recycler") == 0) {
-				grpdebug |= GRPrecycler;
 				break;
 			}
 			if (strcmp(long_options[option_index].name, "performance") == 0) {
@@ -493,24 +491,29 @@ main(int argc, char **av)
 		monet_script[idx] = NULL;
 		while (optind < argc) {
 			monet_script[idx] = absolute_path(av[optind]);
-			monet_script[idx + 1] = NULL;
+			if ( monet_script[idx] == NULL){
+				fprintf(stderr, "!ERROR: cannot allocate memory for script \n");
+				exit(1);
+			} else {
+				monet_script[idx + 1] = NULL;
+				idx++;
+			}
 			optind++;
-			idx++;
 		}
 	}
 	if (!dbpath) {
 		dbpath = absolute_path(mo_find_option(set, setlen, "gdk_dbpath"));
+		if (dbpath == NULL || GDKcreatedir(dbpath) != GDK_SUCCEED) {
+			fprintf(stderr, "!ERROR: cannot allocate memory for database directory \n");
+			exit(1);
+		}
 	}
 	if (GDKcreatedir(dbpath) != GDK_SUCCEED) {
 		fprintf(stderr, "!ERROR: cannot create directory for %s\n", dbpath);
 		exit(1);
 	}
-	if (dbextra) {
-		BBPaddfarm(dbpath, 1 << PERSISTENT);
-		BBPaddfarm(dbextra, 1 << TRANSIENT);
-	} else {
-		BBPaddfarm(dbpath, (1 << PERSISTENT) | (1 << TRANSIENT));
-	}
+	BBPaddfarm(dbpath, 1 << PERSISTENT);
+	BBPaddfarm(dbextra ? dbextra : dbpath, 1 << TRANSIENT);
 	GDKfree(dbpath);
 	if (monet_init(set, setlen) == 0) {
 		mo_free_options(set, setlen);
@@ -518,8 +521,11 @@ main(int argc, char **av)
 	}
 	mo_free_options(set, setlen);
 
-	GDKsetenv("monet_version", VERSION);
-	GDKsetenv("monet_release", MONETDB_RELEASE);
+	if (GDKsetenv("monet_version", VERSION) != GDK_SUCCEED ||
+	    GDKsetenv("monet_release", MONETDB_RELEASE) != GDK_SUCCEED) {
+		fprintf(stderr, "!ERROR: GDKsetenv failed\n");
+		exit(1);
+	}
 
 	if ((modpath = GDKgetenv("monet_mod_path")) == NULL) {
 		/* start probing based on some heuristics given the binary
@@ -557,8 +563,11 @@ main(int argc, char **av)
 				   "allow finding modules\n");
 			fflush(NULL);
 		}
-		if (modpath != NULL)
-			GDKsetenv("monet_mod_path", modpath);
+		if (modpath != NULL &&
+		    GDKsetenv("monet_mod_path", modpath) != GDK_SUCCEED) {
+			fprintf(stderr, "!ERROR: GDKsetenv failed\n");
+			exit(1);
+		}
 	}
 
 	/* configure sabaoth to use the right dbpath and active database */
@@ -643,7 +652,7 @@ main(int argc, char **av)
 			}
 			fclose(secretf);
 		}
-		if ((err = AUTHunlockVault(&secretp)) != MAL_SUCCEED) {
+		if ((err = AUTHunlockVault(secretp)) != MAL_SUCCEED) {
 			/* don't show this as a crash */
 			msab_registerStop();
 			GDKfatal("%s", err);
@@ -676,7 +685,7 @@ main(int argc, char **av)
 				if (strcmp(msg, "MALException:client.quit:Server stopped.") == 0)
 					mal_exit();
 				fprintf(stderr, "#%s: %s\n", monet_script[i], msg);
-				GDKfree(msg);
+				freeException(msg);
 			}
 			GDKfree(monet_script[i]);
 			monet_script[i] = 0;

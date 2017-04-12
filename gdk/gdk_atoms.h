@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #ifndef _GDK_ATOMS_H_
@@ -46,11 +46,6 @@
 #define oidStrlen	24
 #else
 #define oidStrlen	48
-#endif
-#if SIZEOF_WRD == SIZEOF_INT
-#define wrdStrlen	24
-#else
-#define wrdStrlen	48
 #endif
 #if SIZEOF_PTR == SIZEOF_INT
 #define ptrStrlen	24
@@ -97,7 +92,6 @@ gdk_export int dblFromStr(const char *src, int *len, dbl **dst);
 gdk_export int dblToStr(str *dst, int *len, const dbl *src);
 gdk_export ssize_t GDKstrFromStr(unsigned char *dst, const unsigned char *src, ssize_t len);
 gdk_export int strFromStr(const char *src, int *len, str *dst);
-gdk_export int strToStr(str *dst, int *len, const char *src);
 gdk_export BUN strHash(const char *s);
 gdk_export int strLen(const char *s);
 gdk_export int strNil(const char *s);
@@ -126,7 +120,7 @@ gdk_export int escapedStr(char *dst, const char *src, int dstlen, const char *se
 #ifdef HAVE_HGE
 #define GDK_hge_max ((((hge) 1) << 126) - 1 + \
                      (((hge) 1) << 126))
-#define GDK_hge_min (((hge) 1) << 127)
+#define GDK_hge_min (-GDK_hge_max-1)
 #endif
 #define GDK_dbl_max ((dbl) DBL_MAX)
 #define GDK_dbl_min (-GDK_dbl_max)
@@ -143,20 +137,12 @@ gdk_export const lng lng_nil;
 gdk_export const hge hge_nil;
 #endif
 gdk_export const oid oid_nil;
-gdk_export const wrd wrd_nil;
 gdk_export const char str_nil[2];
 gdk_export const ptr ptr_nil;
 
 /* derived NIL values - OIDDEPEND */
 #define bit_nil	((bit) bte_nil)
 #define bat_nil	((bat) int_nil)
-#if SIZEOF_WRD == SIZEOF_INT
-#define GDK_wrd_max ((wrd) GDK_int_max)
-#define GDK_wrd_min ((wrd) GDK_int_min)
-#else
-#define GDK_wrd_max ((wrd) GDK_lng_max)
-#define GDK_wrd_min ((wrd) GDK_lng_min)
-#endif
 #if SIZEOF_OID == SIZEOF_INT
 #define GDK_oid_max ((oid) GDK_int_max)
 #else
@@ -166,8 +152,8 @@ gdk_export const ptr ptr_nil;
 #define void_nil	oid_nil
 /*
  * @- Derived types
- * In all algorithms across GDK, you will find switches on the types (
- * bte, sht, int, wrd, flt, dbl, lng, hge, str). They respectively
+ * In all algorithms across GDK, you will find switches on the types
+ * (bte, sht, int, flt, dbl, lng, hge, str). They respectively
  * represent an octet, a 16-bit int, a 32-bit int, a 32-bit float, a
  * 64-bit double, a 64-bit int, and a pointer-sized location of a
  * char-buffer (ended by a zero char).
@@ -322,25 +308,25 @@ gdk_export const ptr ptr_nil;
 /* string heaps:
  * - strings are 8 byte aligned
  * - start with a 1024 bucket hash table
- * - heaps < 64KB are fully duplicate eliminated with this hash tables
- * - heaps >= 64KB are opportunistically (imperfect) duplicate
- *   eliminated as only the last 128KB chunk is considered and there
+ * - heaps < 64KiB are fully duplicate eliminated with this hash tables
+ * - heaps >= 64KiB are opportunistically (imperfect) duplicate
+ *   eliminated as only the last 128KiB chunk is considered and there
  *   is no linked list
  * - buckets and next pointers are unsigned short "indices"
  * - indices should be multiplied by 8 and takes from ELIMBASE to get
  *   an offset
- * Note that a 64KB chunk of the heap contains at most 8K 8-byte
+ * Note that a 64KiB chunk of the heap contains at most 8K 8-byte
  * aligned strings. The 1K bucket list means that in worst load, the
  * list length is 8 (OK).
  */
 #define GDK_STRHASHTABLE	(1<<10)	/* 1024 */
 #define GDK_STRHASHMASK		(GDK_STRHASHTABLE-1)
 #define GDK_STRHASHSIZE		(GDK_STRHASHTABLE * sizeof(stridx_t))
-#define GDK_ELIMPOWER		16	/* 64KB is the threshold */
+#define GDK_ELIMPOWER		16	/* 64KiB is the threshold */
 #define GDK_ELIMDOUBLES(h)	((h)->free < GDK_ELIMLIMIT)
 #define GDK_ELIMLIMIT		(1<<GDK_ELIMPOWER)	/* equivalently: ELIMBASE == 0 */
 #define GDK_ELIMBASE(x)		(((x) >> GDK_ELIMPOWER) << GDK_ELIMPOWER)
-#define GDK_VAROFFSET		((var_t) (GDK_STRHASHSIZE >> GDK_VARSHIFT))
+#define GDK_VAROFFSET		((var_t) GDK_STRHASHSIZE)
 
 /*
  * @- String Comparison, NILs and UTF-8

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 /*
@@ -27,6 +27,8 @@
 	if (b) {\
 	   if (ATOMextern(t)) {\
 	      *(ptr*) res = (ptr) ATOMnil(t);\
+		  if ( *(ptr *) res == NULL)\
+			throw(MAL,"txtsim", MAL_MALLOC_FAIL);\
 	   } else {\
 	      memcpy(res, ATOMnilptr(t), ATOMsize(t));\
  	   }\
@@ -308,8 +310,9 @@ CMDqgramnormalize(str *res, str *Input)
 	char c, last = ' ';
 
 	RETURN_NIL_IF(strNil(input), TYPE_str);
-
 	*res = (str) GDKmalloc(sizeof(char) * (strlen(input) + 1));	/* normalized strings are never longer than original */
+	if (*res == NULL)
+		throw(MAL,"qgram",MAL_MALLOC_FAIL);
 
 	for (i = 0; input[i]; i++) {
 		c = toupper(input[i]);
@@ -915,10 +918,10 @@ CMDqgramselfjoin(bat *res1, bat *res2, bat *qid, bat *bid, bat *pid, bat *lid, f
 			  SEMANTIC_TYPE_MISMATCH ": tail of BAT len must be int");
 
 	n = BATcount(qgram);
-	qbuf = (oid *) Tloc(qgram, BUNfirst(qgram));
-	ibuf = (int *) Tloc(id, BUNfirst(id));
-	pbuf = (int *) Tloc(pos, BUNfirst(pos));
-	lbuf = (int *) Tloc(len, BUNfirst(len));
+	qbuf = (oid *) Tloc(qgram, 0);
+	ibuf = (int *) Tloc(id, 0);
+	pbuf = (int *) Tloc(pos, 0);
+	lbuf = (int *) Tloc(len, 0);
 
 	/* if (BATcount(qgram)>1 && !BATtordered(qgram)) throw(MAL, "tstsim.qgramselfjoin", SEMANTIC_TYPE_MISMATCH); */
 
@@ -947,8 +950,8 @@ CMDqgramselfjoin(bat *res1, bat *res2, bat *qid, bat *bid, bat *pid, bat *lid, f
 		throw(MAL, "tstsim.qgramselfjoin",
 			  SEMANTIC_TYPE_MISMATCH ": len is not a true void bat");
 
-	bn = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
-	bn2 = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
+	bn = COLnew(0, TYPE_int, n, TRANSIENT);
+	bn2 = COLnew(0, TYPE_int, n, TRANSIENT);
 	if (bn == NULL || bn2 == NULL){
 		BBPreclaim(bn);
 		BBPreclaim(bn2);
@@ -962,19 +965,19 @@ CMDqgramselfjoin(bat *res1, bat *res2, bat *qid, bat *bid, bat *pid, bat *lid, f
 	for (i = 0; i < n - 1; i++) {
 		for (j = i + 1; (j < n && qbuf[j] == qbuf[i] && pbuf[j] <= (pbuf[i] + (*k + *c * MYMIN(lbuf[i], lbuf[j])))); j++) {
 			if (ibuf[i] != ibuf[j] && abs(lbuf[i] - lbuf[j]) <= (*k + *c * MYMIN(lbuf[i], lbuf[j]))) {
-				BUNappend(bn, ibuf + i, FALSE);
-				BUNappend(bn2, ibuf + j, FALSE);
+				if (BUNappend(bn, ibuf + i, FALSE) != GDK_SUCCEED ||
+					BUNappend(bn2, ibuf + j, FALSE) != GDK_SUCCEED) {
+					BBPunfix(qgram->batCacheid);
+					BBPunfix(id->batCacheid);
+					BBPunfix(pos->batCacheid);
+					BBPunfix(len->batCacheid);
+					BBPreclaim(bn);
+					BBPreclaim(bn2);
+					throw(MAL, "txtsim.qgramselfjoin", MAL_MALLOC_FAIL);
+				}
 			}
 		}
 	}
-
-	bn->hsorted = bn->tsorted = 0;
-	bn->hrevsorted = bn->trevsorted = 0;
-	bn->H->nonil = bn->T->nonil = 0;
-
-	bn2->hsorted = bn2->tsorted = 0;
-	bn2->hrevsorted = bn2->trevsorted = 0;
-	bn2->H->nonil = bn2->T->nonil = 0;
 
 	BBPunfix(qgram->batCacheid);
 	BBPunfix(id->batCacheid);
@@ -1025,18 +1028,21 @@ CMDstr2qgrams(bat *ret, str *val)
 	strcpy(s, "##");
 	strcpy(s + 2, *val);
 	strcpy(s + len - 3, "$$");
-	bn = BATnew(TYPE_void, TYPE_str, (BUN) strlen(*val), TRANSIENT);
+	bn = COLnew(0, TYPE_str, (BUN) strlen(*val), TRANSIENT);
 	if (bn == NULL) {
 		GDKfree(s);
 		throw(MAL, "txtsim.str2qgram", MAL_MALLOC_FAIL);
 	}
-	BATseqbase(bn, 0);
 
 	i = 0;
 	while (s[i]) {
 		if (utf8strncpy(qgram, sizeof(qgram), s + i, 4) < 4)
 			break;
-		BUNappend(bn, qgram, FALSE);
+		if (BUNappend(bn, qgram, FALSE) != GDK_SUCCEED) {
+			BBPreclaim(bn);
+			GDKfree(s);
+			throw(MAL, "txtsim.str2qgram", MAL_MALLOC_FAIL);
+		}
 		if ((s[i++] & 0xC0) == 0xC0) {
 			while ((s[i] & 0xC0) == 0x80)
 				i++;

@@ -3,20 +3,15 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
+#include "mal_instruction.h"
 #include "opt_aliases.h"
 
-int
-OPTisAlias(InstrPtr p){
-	if( p->token == ASSIGNsymbol &&
-		p->barrier == 0 && 
-		p->argc == 2)
-		return TRUE;
-	return FALSE;
-}
+/* an alias is recognized by a simple assignment */
+#define OPTisAlias(X) (X->token == ASSIGNsymbol && X->barrier == 0 && X->argc == 2)
 
 void
 OPTaliasRemap(InstrPtr p, int *alias){
@@ -25,50 +20,70 @@ OPTaliasRemap(InstrPtr p, int *alias){
 		getArg(p,i) = alias[getArg(p,i)];
 }
 
-int
+str
 OPTaliasesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
-	int i,k=1, limit, actions=0;
-	int *alias;
-	Lifespan span;
+	int i,j,k=1, limit, actions=0;
+	int *alias = 0;
+	char buf[256];
+	lng usec = GDKusec();
 
 	(void) stk;
 	(void) cntxt;
-	span= setLifespan(mb);
-	if( span == NULL)
-		return 0;
 
-	alias= (int*) GDKmalloc(sizeof(int)* mb->vtop);
-	if (alias == NULL){
-		GDKfree(span);
-		return 0;
-	}
-	for(i=0; i<mb->vtop; i++) alias[i]=i;
 
 	limit = mb->stop;
 	for (i = 1; i < limit; i++){
 		p= getInstrPtr(mb,i);
+		if (OPTisAlias(p))
+			break;
+		mb->stmt[k++] = p;
+	}
+	if( i < limit){
+		alias= (int*) GDKzalloc(sizeof(int)* mb->vtop);
+		if (alias == NULL)
+			throw(MAL,"optimizer.aliases",MAL_MALLOC_FAIL);
+		setVariableScope(mb);
+		for(j=1; j<mb->vtop; j++) alias[j]=j;
+	}
+	for (; i < limit; i++){
+		p= getInstrPtr(mb,i);
 		mb->stmt[k++] = p;
 		if (OPTisAlias(p)){
-			if( getLastUpdate(span,getArg(p,0)) == i  &&
-				getBeginLifespan(span,getArg(p,0)) == i  &&
-				getLastUpdate(span,getArg(p,1)) <= i ){
+			if( getLastUpdate(mb,getArg(p,0)) == i  &&
+				getBeginScope(mb,getArg(p,0)) == i  &&
+				getLastUpdate(mb,getArg(p,1)) <= i ){
 				alias[getArg(p,0)]= alias[getArg(p,1)];
 				freeInstruction(p);
 				actions++;
 				k--;
+				mb->stmt[k]= 0;
 			} else 
 				OPTaliasRemap(p,alias);
 		} else 
 			OPTaliasRemap(p,alias);
 	}
+
 	for(i=k; i<limit; i++)
 		mb->stmt[i]= NULL;
+
 	mb->stop= k;
-	/*
-	 * The second phase is constant alias replacement should be implemented.
-	 */
-	GDKfree(span);
-	GDKfree(alias);
-	return actions;
+	if( alias)
+		GDKfree(alias);
+
+	/* Defense line against incorrect plans */
+	/* Plan is unaffected */
+	//chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+	//chkFlow(cntxt->fdout, mb);
+	//chkDeclarations(cntxt->fdout, mb);
+	//
+    /* keep all actions taken as a post block comment
+	 * and update statics */
+	usec= GDKusec() - usec;
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","aliases",actions,usec);
+    newComment(mb,buf);
+	if( actions >= 0)
+		addtoMalBlkHistory(mb);
+
+	return MAL_SUCCEED;
 }

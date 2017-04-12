@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -14,31 +14,22 @@
 logger *bat_logger = NULL;
 logger *bat_logger_shared = NULL;
 
-static int
-bl_preversion( int oldversion, int newversion)
+/* return GDK_SUCCEED if we can handle the upgrade from oldversion to
+ * newversion */
+static gdk_return
+bl_preversion(int oldversion, int newversion)
 {
-#define CATALOG_OCT2014 52100
-#define CATALOG_OCT2014SP3 52101
 #define CATALOG_JUL2015 52200
 
 	(void)newversion;
-	if (oldversion == CATALOG_OCT2014SP3) {
-		catalog_version = oldversion;
-		geomversion_set();
-		return 0;
-	}
-	if (oldversion == CATALOG_OCT2014) {
-		catalog_version = oldversion;
-		geomversion_set();
-		return 0;
-	}
 	if (oldversion == CATALOG_JUL2015) {
+		/* upgrade to Jun2016 releases */
 		catalog_version = oldversion;
 		geomversion_set();
-		return 0;
+		return GDK_SUCCEED;
 	}
 
-	return -1;
+	return GDK_FAIL;
 }
 
 static char *
@@ -51,219 +42,154 @@ N( char *buf, char *pre, char *schema, char *post)
 	return buf;
 }
 
-static void 
+static gdk_return
 bl_postversion( void *lg) 
 {
 	(void)lg;
-	if (catalog_version <= CATALOG_OCT2014) {
-		BAT *te, *tn, *tne;
-		BATiter tei, tni;
-		char *s = "sys", n[64];
-		BUN p,q;
-
-		te = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "types_eclass")));
-		tn = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "types_sqlname")));
-		if (!te || !tn)
-			return;
-		tei = bat_iterator(te);
-		tni = bat_iterator(tn);
-		tne = BATnew(TYPE_void, TYPE_int, BATcount(te), PERSISTENT);
-		if (!tne)
-			return;
-		BATseqbase(tne, te->hseqbase);
-		for(p=BUNfirst(te), q=BUNlast(te); p<q; p++) {
-			int eclass = *(int*)BUNtail(tei, p);
-			char *name = BUNtail(tni, p);
-
-			if (eclass == EC_POS)		/* old EC_NUM */
-				eclass = strcmp(name, "oid") == 0 ? EC_POS : EC_NUM;
-			else if (eclass == EC_NUM)	/* old EC_INTERVAL */
-				eclass = strcmp(name, "sec_interval") == 0 ? EC_SEC : EC_MONTH;
-			else if (eclass >= EC_MONTH)	/* old EC_DEC */
-				eclass += 2;
-			BUNappend(tne, &eclass, TRUE);
-		}
-		BATsetaccess(tne, BAT_READ);
-		logger_add_bat(lg, tne, N(n, NULL, s, "types_eclass"));
-		bat_destroy(te);
-		bat_destroy(tn);
-	} else if (catalog_version == CATALOG_OCT2014SP3) {
-		BAT *te, *tn, *tne;
-		BATiter tei, tni;
-		char *s = "sys", n[64];
-		BUN p,q;
-
-		te = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "types_eclass")));
-		tn = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "types_sqlname")));
-		if (!te || !tn)
-			return;
-		tei = bat_iterator(te);
-		tni = bat_iterator(tn);
-		tne = BATnew(TYPE_void, TYPE_int, BATcount(te), PERSISTENT);
-		if (!tne)
-			return;
-		BATseqbase(tne, te->hseqbase);
-		for(p=BUNfirst(te), q=BUNlast(te); p<q; p++) {
-			int eclass = *(int*)BUNtail(tei, p);
-			char *name = BUNtail(tni, p);
-
-			if (eclass == EC_MONTH)		/* old EC_INTERVAL */
-				eclass = strcmp(name, "sec_interval") == 0 ? EC_SEC : EC_MONTH;
-			else if (eclass >= EC_SEC)	/* old EC_DEC */
-				eclass += 1;
-			BUNappend(tne, &eclass, TRUE);
-		}
-		BATsetaccess(tne, BAT_READ);
-		logger_add_bat(lg, tne, N(n, NULL, s, "types_eclass"));
-		bat_destroy(te);
-		bat_destroy(tn);
-	}
-	if (catalog_version == CATALOG_OCT2014 ||
-	    catalog_version == CATALOG_OCT2014SP3) {
-		/* we need to replace tables.readonly by tables.access column */
-		BAT *b, *b1;
-		BATiter bi;
-		char *s = "sys", n[64];
-		BUN p,q;
-
-		while(s) {
-			b = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "_tables_readonly")));
-			if (!b)
-				return;
-			bi = bat_iterator(b);
-			b1 = BATnew(TYPE_void, TYPE_sht, BATcount(b), PERSISTENT);
-			if (!b1)
-				return;
-			BATseqbase(b1, b->hseqbase);
-
-			bi = bat_iterator(b);
-			for(p=BUNfirst(b), q=BUNlast(b); p<q; p++) {
-				bit ro = *(bit*)BUNtail(bi, p);
-				sht access = 0;
-				if (ro)
-					access = TABLE_READONLY;
-				BUNappend(b1, &access, TRUE);
-			}
-			BATsetaccess(b1, BAT_READ);
-			logger_add_bat(lg, b1, N(n, NULL, s, "_tables_access"));
-			/* delete functions.sql */
-			logger_del_bat(lg, b->batCacheid);
-			bat_destroy(b);
-			bat_destroy(b1);
-			if (strcmp(s,"sys")==0)
-				s = "tmp";
-			else
-				s = NULL;
-		}
-	}
 
 	if (catalog_version <= CATALOG_JUL2015) {
 		BAT *b;
 		BATiter bi;
 		BAT *te, *tne;
-		BUN p,q;
-		char geomUpgrade = 0;
+		BUN p, q;
+		int geomUpgrade = 0;
 		char *s = "sys", n[64];
+		geomcatalogfix_fptr func;
 
 		te = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "types_eclass")));
 		if (te == NULL)
-			return;
+			return GDK_FAIL;
 		bi = bat_iterator(te);
-		tne = BATnew(TYPE_void, TYPE_int, BATcount(te), PERSISTENT);
-		if (!tne)
-			return;
-		BATseqbase(tne, te->hseqbase);
-		for(p=BUNfirst(te), q=BUNlast(te); p<q; p++) {
+		tne = COLnew(te->hseqbase, TYPE_int, BATcount(te), PERSISTENT);
+		if (tne == NULL) {
+			bat_destroy(te);
+			return GDK_FAIL;
+		}
+		for (p = 0, q = BUNlast(te); p < q; p++) {
 			int eclass = *(int*)BUNtail(bi, p);
 
 			if (eclass == EC_GEOM)		/* old EC_EXTERNAL */
 				eclass++;		/* shift up */
-			BUNappend(tne, &eclass, TRUE);
+			if (BUNappend(tne, &eclass, TRUE) != GDK_SUCCEED) {
+				bat_destroy(tne);
+				bat_destroy(te);
+				return GDK_FAIL;
+			}
 		}
-		BATsetaccess(tne, BAT_READ);
-		logger_add_bat(lg, tne, N(n, NULL, s, "types_eclass"));
 		bat_destroy(te);
+		if (BATsetaccess(tne, BAT_READ) != GDK_SUCCEED ||
+		    logger_add_bat(lg, tne, N(n, NULL, s, "types_eclass")) != GDK_SUCCEED) {
+			bat_destroy(tne);
+			return GDK_FAIL;
+		}
+		bat_destroy(tne);
 
 		/* in the past, the args.inout column may have been
 		 * incorrectly upgraded to a bit instead of a bte
 		 * column */
 		te = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "args_inout")));
 		if (te == NULL)
-			return;
+			return GDK_FAIL;
 		if (te->ttype == TYPE_bit) {
 			bi = bat_iterator(te);
-			tne = BATnew(TYPE_void, TYPE_bte, BATcount(te), PERSISTENT);
-			if (!tne)
-				return;
-			BATseqbase(tne, te->hseqbase);
-			for(p=BUNfirst(te), q=BUNlast(te); p<q; p++) {
+			tne = COLnew(te->hseqbase, TYPE_bte, BATcount(te), PERSISTENT);
+			if (tne == NULL) {
+				bat_destroy(te);
+				return GDK_FAIL;
+			}
+			for (p = 0, q = BUNlast(te); p < q; p++) {
 				bte inout = (bte) *(bit*)BUNtail(bi, p);
 
-				BUNappend(tne, &inout, TRUE);
+				if (BUNappend(tne, &inout, TRUE) != GDK_SUCCEED) {
+					bat_destroy(tne);
+					bat_destroy(te);
+					return GDK_FAIL;
+				}
 			}
-			BATsetaccess(tne, BAT_READ);
-			logger_add_bat(lg, tne, N(n, NULL, s, "args_inout"));
+			if (BATsetaccess(tne, BAT_READ) != GDK_SUCCEED ||
+			    logger_add_bat(lg, tne, N(n, NULL, s, "args_inout")) != GDK_SUCCEED) {
+				bat_destroy(tne);
+				bat_destroy(te);
+				return GDK_FAIL;
+			}
+			bat_destroy(tne);
 		}
 		bat_destroy(te);
 
 		/* test whether the catalog contains information
 		 * regarding geometry types */
 		b = BATdescriptor((bat) logger_find_bat(lg, N(n, NULL, s, "types_systemname")));
+		if (b == NULL)
+			return GDK_FAIL;
 		bi = bat_iterator(b);
-		for (p=BUNfirst(b), q=BUNlast(b); p<q; p++) {
-			char *t = (char*)BUNtail(bi, p);
-			if (strcmp(toLower(t), "wkb") == 0){
-				geomUpgrade++;
-				break;
+		for (p = 0, q = BUNlast(b); p < q; p++) {
+			char *t = toLower(BUNtail(bi, p));
+			if (t == NULL) {
+				bat_destroy(b);
+				return GDK_FAIL;
 			}
+			geomUpgrade = strcmp(t, "wkb") == 0;
+			GDKfree(t);
+			if (geomUpgrade)
+				break;
 		}
 		bat_destroy(b);
 
-		/* test whether the catalog contains information about
-		 * geometry columns */
-		b = BATdescriptor((bat) logger_find_bat(lg, N(n, NULL, s, "_columns_type")));
-		bi = bat_iterator(b);
-		for (p=BUNfirst(b), q=BUNlast(b); p<q; p++) {
-			char *t = (char*)BUNtail(bi, p);
-			if (strcmp(toLower(t), "point") == 0 ||
-				strcmp(toLower(t), "curve") == 0 ||
-				strcmp(toLower(t), "linestring") == 0 ||
-				strcmp(toLower(t), "surface") == 0 ||
-				strcmp(toLower(t), "polygon") == 0 ||
-				strcmp(toLower(t), "multipoint") == 0 ||
-				strcmp(toLower(t), "multicurve") == 0 ||
-				strcmp(toLower(t), "multilinestring") == 0 ||
-				strcmp(toLower(t), "multisurface") == 0 ||
-				strcmp(toLower(t), "multipolygon") == 0 ||
-				strcmp(toLower(t), "geometry") == 0 ||
-				strcmp(toLower(t), "geometrycollection") == 0){
-				geomUpgrade++;
-				break;
+		if (!geomUpgrade) {
+			/* test whether the catalog contains
+			 * information about geometry columns */
+			b = BATdescriptor((bat) logger_find_bat(lg, N(n, NULL, s, "_columns_type")));
+			if (b == NULL)
+				return GDK_FAIL;
+			bi = bat_iterator(b);
+			for (p = 0, q = BUNlast(b); p < q; p++) {
+				char *t = toLower(BUNtail(bi, p));
+				if (t == NULL) {
+					bat_destroy(b);
+					return GDK_FAIL;
+				}
+				geomUpgrade = strcmp(t, "point") == 0 ||
+					strcmp(t, "curve") == 0 ||
+					strcmp(t, "linestring") == 0 ||
+					strcmp(t, "surface") == 0 ||
+					strcmp(t, "polygon") == 0 ||
+					strcmp(t, "multipoint") == 0 ||
+					strcmp(t, "multicurve") == 0 ||
+					strcmp(t, "multilinestring") == 0 ||
+					strcmp(t, "multisurface") == 0 ||
+					strcmp(t, "multipolygon") == 0 ||
+					strcmp(t, "geometry") == 0 ||
+					strcmp(t, "geometrycollection") == 0;
+				GDKfree(t);
+				if (geomUpgrade)
+					break;
 			}
+			bat_destroy(b);
 		}
-		bat_destroy(b);
 
-		if (!geomUpgrade && geomcatalogfix_get() == NULL) {
+		func = geomcatalogfix_get();
+		if (func) {
+			/* Either the catalog needs to be updated and
+			 * the geom module has been loaded
+			 * (geomUpgrade == 1), or the catalog new
+			 * nothing about geometries but the geom
+			 * module is loaded (geomUpgrade == 0) */
+			(*func)(lg, geomUpgrade);
+		} else {
+			if (geomUpgrade) {
+				/* The catalog needs to be updated but
+				 * the geom module has not been
+				 * loaded.  The case is prohibited by
+				 * the sanity check performed during
+				 * initialization */
+				GDKfatal("the catalogue needs to be updated but the geom module is not loaded.\n");
+			}
 			/* The catalog knew nothing about geometries
-			 * and the geom module is not loaded:
-			 * Do nothing */
-		} else if (!geomUpgrade && geomcatalogfix_get() != NULL) {
-			/* The catalog knew nothing about geometries
-			 * but the geom module is loaded:
-			 * Add geom functionality */
-			(*(geomcatalogfix_get()))(lg, 0);
-		} else if (geomUpgrade && geomcatalogfix_get() == NULL) {
-			/* The catalog needs to be updated but the
-			 * geom module has not been loaded.
-			 * The case is prohibited by the sanity check
-			 * performed during initialization */
-			GDKfatal("the catalogue needs to be updated but the geom module is not loaded.\n");
-		} else if (geomUpgrade && geomcatalogfix_get() != NULL) {
-			/* The catalog needs to be updated and the
-			 * geom module has been loaded */
-			(*(geomcatalogfix_get()))(lg, 1);
+			 * and the geom module is not loaded: Do
+			 * nothing */
 		}
 	}
+	return GDK_SUCCEED;
 }
 
 static int 
@@ -295,9 +221,12 @@ bl_destroy(void)
 
 	bat_logger = NULL;
 	if (l) {
-		// FIXME: either of those corrupts stuff
-		//logger_exit(l);
-		//logger_destroy(l);
+		close_stream(l->log);
+		GDKfree(l->fn);
+		GDKfree(l->dir);
+		GDKfree(l->local_dir);
+		GDKfree(l->buf);
+		GDKfree(l);
 	}
 }
 
@@ -317,7 +246,7 @@ static int
 bl_restart(void)
 {
 	if (bat_logger)
-		return logger_restart(bat_logger);
+		return logger_restart(bat_logger) == GDK_SUCCEED ? LOG_OK : LOG_ERR;
 	return LOG_OK;
 }
 
@@ -325,7 +254,7 @@ static int
 bl_cleanup(int keep_persisted_log_files)
 {
 	if (bat_logger)
-		return logger_cleanup(bat_logger, keep_persisted_log_files);
+		return logger_cleanup(bat_logger, keep_persisted_log_files) == GDK_SUCCEED ? LOG_OK : LOG_ERR;
 	return LOG_OK;
 }
 
@@ -333,7 +262,7 @@ static int
 bl_cleanup_shared(int keep_persisted_log_files)
 {
 	if (bat_logger_shared)
-		return logger_cleanup(bat_logger_shared, keep_persisted_log_files);
+		return logger_cleanup(bat_logger_shared, keep_persisted_log_files) == GDK_SUCCEED ? LOG_OK : LOG_ERR;
 	return LOG_OK;
 }
 
@@ -353,7 +282,7 @@ static lng
 bl_get_transaction_drift_shared(void)
 {
 	lng res = bl_read_last_transaction_id_shared();
-	if (res != LOG_ERR) {
+	if (res != -1) {
 		return MIN(res, GDK_int_max) - MIN(bat_logger_shared->id, GDK_int_max);
 	}
 	return res;
@@ -392,28 +321,28 @@ bl_log_isnew_shared(void)
 static int 
 bl_tstart(void)
 {
-	return log_tstart(bat_logger);
+	return log_tstart(bat_logger) == GDK_SUCCEED ? LOG_OK : LOG_ERR;
 }
 
 static int 
 bl_tend(void)
 {
-	return log_tend(bat_logger);
+	return log_tend(bat_logger) == GDK_SUCCEED ? LOG_OK : LOG_ERR;
 }
 
 static int 
 bl_sequence(int seq, lng id)
 {
-	return log_sequence(bat_logger, seq, id);
+	return log_sequence(bat_logger, seq, id) == GDK_SUCCEED ? LOG_OK : LOG_ERR;
 }
 
 static int
 bl_reload_shared(void)
 {
-	return logger_reload(bat_logger_shared);
+	return logger_reload(bat_logger_shared) == GDK_SUCCEED ? LOG_OK : LOG_ERR;
 }
 
-int 
+void
 bat_logger_init( logger_functions *lf )
 {
 	lf->create = bl_create;
@@ -426,10 +355,9 @@ bat_logger_init( logger_functions *lf )
 	lf->log_tstart = bl_tstart;
 	lf->log_tend = bl_tend;
 	lf->log_sequence = bl_sequence;
-	return LOG_OK;
 }
 
-int
+void
 bat_logger_init_shared( logger_functions *lf )
 {
 	lf->create_shared = bl_create_shared;
@@ -440,5 +368,4 @@ bat_logger_init_shared( logger_functions *lf )
 	lf->get_transaction_drift = bl_get_transaction_drift_shared;
 	lf->log_isnew = bl_log_isnew_shared;
 	lf->reload = bl_reload_shared;
-	return LOG_OK;
 }
