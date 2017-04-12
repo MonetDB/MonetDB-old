@@ -33,4 +33,10 @@ SAMPLEuniform(bat *r, bat *b, wrd *s);
 sample_export str
 SAMPLEuniform_dbl(bat *r, bat *b, dbl *p);
 
+sample_export str
+SAMPLEweighted(bat *r, bat *b, wrd *s, bat *w);
+
+sample_export str
+SAMPLEweighted_dbl(bat *r, bat *b, dbl *p, bat *w);
+
 #endif

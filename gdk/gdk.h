@@ -3026,10 +3026,15 @@ gdk_export gdk_return BATfirstn(BAT **topn, BAT **gids, BAT *b, BAT *cands, BAT 
  * @tab BATsample (BAT *b, n)
  * @end multitable
  *
- * The routine BATsample returns a random sample on n BUNs of a BAT.
+ * The routine BATsample returns a random sample containing n BUNs of a BAT.
  *
  */
 gdk_export BAT *BATsample(BAT *b, BUN n);
+
+/*
+ * The routine BATweightedsample returns a weighted random sample containing n BUNs of a BAT.
+ */
+gdk_export BAT *BATweightedsample(BAT *b, BUN n, BAT *w);
 
 /*
  *

@@ -54,10 +54,10 @@
  * CREATE FUNCTION mysample ()
  * RETURNS TABLE(col a,...)
  * BEGIN
- *    RETURN
- *      SELECT a,...
- *      FROM name_table
- *      SAMPLE 100;
+ *	RETURN
+ *	  SELECT a,...
+ *	  FROM name_table
+ *	  SAMPLE 100;
  * end;
  *
  * and then use function mysample() for example to populate a new table with
@@ -103,4 +103,44 @@ SAMPLEuniform_dbl(bat *r, bat *b, dbl *p) {
 	s = (wrd) (pr*(double)BATcount(bb));
 	BBPunfix(bb->batCacheid);
 	return SAMPLEuniform(r, b, &s);
+}
+
+str
+SAMPLEweighted(bat *r, bat *b, wrd *s, bat *w) {
+	BAT *br, *bb, *bw;
+
+	if ((bw = BATdescriptor(*w)) == NULL ) {
+		throw(MAL, "sample.subweighted", INTERNAL_BAT_ACCESS);
+	}
+	if ((bb = BATdescriptor(*b)) == NULL ) {
+		throw(MAL, "sample.subweighted", INTERNAL_BAT_ACCESS);
+	}
+	br = BATweightedsample(bb, (BUN) *s, bw);
+	if (br == NULL)
+		throw(MAL, "sample.subweighted", OPERATION_FAILED);
+
+	BBPunfix(bb->batCacheid);
+	BBPkeepref(*r = br->batCacheid);
+	return MAL_SUCCEED;
+}
+
+str
+SAMPLEweighted_dbl(bat *r, bat *b, dbl *p, bat *w) {
+	BAT *bb;
+	double pr = *p;
+	wrd s;
+
+	if ( pr < 0.0 || pr > 1.0 ) {
+		throw(MAL, "sample.subweighted", ILLEGAL_ARGUMENT
+				" p should be between 0 and 1.0" );
+	} else if (pr == 0) {/* special case */
+		s = 0;
+		return SAMPLEweighted(r, b, &s, w);
+	}
+	if ((bb = BATdescriptor(*b)) == NULL) {
+		throw(MAL, "sample.subweighted", INTERNAL_BAT_ACCESS);
+	}
+	s = (wrd) (pr*(double)BATcount(bb));
+	BBPunfix(bb->batCacheid);
+	return SAMPLEweighted(r, b, &s, w);
 }
