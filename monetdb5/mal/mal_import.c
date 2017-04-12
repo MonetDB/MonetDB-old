@@ -131,7 +131,7 @@ evalFile(Client cntxt, str fname, int listing, int included)
 #ifdef _DEBUG_IMPORT_
 			fprintf(stderr,"load file %s using new client\n",files[i]);
 #endif
-			c = MCinitClient((oid)0,bstream_create(fd, 32 * BLOCK),0);
+			c = MCinitClient((oid)0,bstream_create(fd, 32 * BLOCK), cntxt->fdout);
 			c->curmodule = c->usermodule = userModule();
 			GDKfree(c->prompt);
 			c->prompt= NULL;
@@ -143,7 +143,7 @@ evalFile(Client cntxt, str fname, int listing, int included)
 				c->listing = listing;
 				msg = runScenario(c);
 			}
-			c->fdout = NULL;	// to avoid accidental closinf a default output channel
+			c->fdout = NULL;	// to avoid accidental closing a default output channel
 			MCcloseClient(c);
 		}
 	}
