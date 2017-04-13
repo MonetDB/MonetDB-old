@@ -186,7 +186,7 @@ _BATsample(BAT *b, BUN n, BAT *cdf)
 		} else {
 			/* do weighted sampling */
 			
-			cdf_ptr = (dbl*) Tloc(cdf, BUNfirst(cdf));
+			cdf_ptr = (dbl*) Tloc(cdf, 0);
 			if (!antiset)
 				cdf_max = cdf_ptr[cnt-1];
 			else
@@ -199,8 +199,7 @@ _BATsample(BAT *b, BUN n, BAT *cdf)
 
 				do {
 					random = mtwist_drand(mt_rng)*cdf_max;
-					/* generate a new random OID in [minoid, maxoid[
-					 * that is including minoid, excluding maxoid*/
+					/* generate a new random OID with minoid <= OID < maxoid */
 					/* note that cdf has already been adjusted for antiset case */
 					candoid = (oid) ( minoid + (oid) SORTfndfirst(cdf, &random) );
 					/* if that candidate OID was already
@@ -260,14 +259,16 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 
 	antiset = n > cnt / 2;
 
-	cdf = BATnew(TYPE_void, TYPE_dbl, cnt, TRANSIENT);
+	cdf = COLnew(0, TYPE_dbl, cnt, TRANSIENT);
 	BATsetcount(cdf, cnt);
 	
 	/* calculate cumilative distribution function */
-	w_ptr = (dbl*) Tloc(w, BUNfirst(w));//TODO support different types w
-	cdf_ptr = (dbl*) Tloc(cdf, BUNfirst(cdf));
+	w_ptr = (dbl*) Tloc(w, 0);//TODO support different types w
+	cdf_ptr = (dbl*) Tloc(cdf, 0);
 
 	cdf_ptr[0] = (dbl)w_ptr[0];
+
+	/* remove NULL values */
 	for (i = 1; i < cnt; i++) {
 		if((dbl)w_ptr[i] == dbl_nil) {//TODO fix NULL-test if w can have different types
 			cdf_ptr[i] = cdf_ptr[i-1];
@@ -302,7 +303,7 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 BATweightedbitbat(BUN cnt, BUN n, BAT *w)
 {
 	BAT* res;
-	res = BATnew(TYPE_void, TYPE_dbl, cnt, TRANSIENT);
+	res = COLnew(0, TYPE_dbl, cnt, TRANSIENT);
 	BATsetcount(res, cnt);
 	
 	//Need to adjust _BATsample so it will return a bit BAT with bools denoting if element is selected

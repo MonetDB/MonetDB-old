@@ -23,10 +23,10 @@ SAMPLEuniform(bat *r, bat *b, lng *s);
 mal_export str
 SAMPLEuniform_dbl(bat *r, bat *b, dbl *p);
 
-sample_export str
-SAMPLEweighted(bat *r, bat *b, wrd *s, bat *w);
+mal_export str
+SAMPLEweighted(bat *r, bat *b, lng *s, bat *w);
 
-sample_export str
+mal_export str
 SAMPLEweighted_dbl(bat *r, bat *b, dbl *p, bat *w);
 
 #endif

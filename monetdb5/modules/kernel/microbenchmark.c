@@ -374,7 +374,6 @@ MBMmix(bat *bn, bat *batid)
 		throw(MAL, "microbenchmark.mix", RUNTIME_OBJECT_MISSING);
 
 	n = BATcount(b);
-	firstbun = BUNfirst(b);
 
 	mt_rng = mtwist_new();
 

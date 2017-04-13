@@ -106,7 +106,7 @@ SAMPLEuniform_dbl(bat *r, bat *b, dbl *p) {
 }
 
 str
-SAMPLEweighted(bat *r, bat *b, wrd *s, bat *w) {
+SAMPLEweighted(bat *r, bat *b, lng *s, bat *w) {
 	BAT *br, *bb, *bw;
 
 	if ((bw = BATdescriptor(*w)) == NULL ) {
@@ -128,7 +128,7 @@ str
 SAMPLEweighted_dbl(bat *r, bat *b, dbl *p, bat *w) {
 	BAT *bb;
 	double pr = *p;
-	wrd s;
+	lng s;
 
 	if ( pr < 0.0 || pr > 1.0 ) {
 		throw(MAL, "sample.subweighted", ILLEGAL_ARGUMENT
@@ -140,7 +140,7 @@ SAMPLEweighted_dbl(bat *r, bat *b, dbl *p, bat *w) {
 	if ((bb = BATdescriptor(*b)) == NULL) {
 		throw(MAL, "sample.subweighted", INTERNAL_BAT_ACCESS);
 	}
-	s = (wrd) (pr*(double)BATcount(bb));
+	s = (lng) (pr*(double)BATcount(bb));
 	BBPunfix(bb->batCacheid);
 	return SAMPLEweighted(r, b, &s, w);
 }
