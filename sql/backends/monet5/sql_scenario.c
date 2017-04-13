@@ -251,10 +251,12 @@ SQLinit(void)
 		throw(SQL, "SQLinit", "Starting log manager failed");
 	}
 	GDKregister(sqllogthread);
-	if (MT_create_thread(&idlethread, (void (*)(void *)) mvc_idlemanager, NULL, MT_THR_JOINABLE) != 0) {
-		throw(SQL, "SQLinit", "Starting idle manager failed");
+	if (!(SQLdebug&1024)) {
+		if (MT_create_thread(&idlethread, (void (*)(void *)) mvc_idlemanager, NULL, MT_THR_JOINABLE) != 0) {
+			throw(SQL, "SQLinit", "Starting idle manager failed");
+		}
+		GDKregister(idlethread);
 	}
-	GDKregister(idlethread);
 	return MAL_SUCCEED;
 }
 
@@ -1146,7 +1148,7 @@ SQLparser(Client c)
 
 		/* in case we had produced a non-cachable plan, the optimizer should be called */
 		if (opt ) {
-			str msg = SQLoptimizeQuery(c, c->curprg->def);
+			msg = SQLoptimizeQuery(c, c->curprg->def);
 
 			if (msg != MAL_SUCCEED) {
 				sqlcleanup(m, err);

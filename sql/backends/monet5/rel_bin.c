@@ -62,12 +62,19 @@ list_find_column(sql_allocator *sa, list *l, const char *rname, const char *name
 	MT_lock_set(&l->ht_lock);
 	if (!l->ht && list_length(l) > HASH_MIN_SIZE) {
 		l->ht = hash_new(l->sa, MAX(list_length(l), l->expected_cnt), (fkeyvalue)&stmt_key);
+		if (l->ht == NULL) {
+			MT_lock_unset(&l->ht_lock);
+			return NULL;
+		}
 
 		for (n = l->h; n; n = n->next) {
 			const char *nme = column_name(sa, n->data);
 			int key = hash_key(nme);
 
-			hash_add(l->ht, key, n->data);
+			if (hash_add(l->ht, key, n->data) == NULL) {
+				MT_lock_unset(&l->ht_lock);
+				return NULL;
+			}
 		}
 	}
 	if (l->ht) {
@@ -207,7 +214,7 @@ handle_in_exps( mvc *sql, sql_exp *ce, list *nl, stmt *left, stmt *right, stmt *
 		sql_subtype *bt = sql_bind_localtype("bit");
 		sql_subfunc *cmp = (in)
 			?sql_bind_func(sql->sa, sql->session->schema, "=", tail_type(c), tail_type(c), F_FUNC)
-			:sql_bind_func(sql->sa, sql->session->schema, "!=", tail_type(c), tail_type(c), F_FUNC);
+			:sql_bind_func(sql->sa, sql->session->schema, "<>", tail_type(c), tail_type(c), F_FUNC);
 		sql_subfunc *a = (in)?sql_bind_func(sql->sa, sql->session->schema, "or", bt, bt, F_FUNC)
 				     :sql_bind_func(sql->sa, sql->session->schema, "and", bt, bt, F_FUNC);
 
@@ -615,39 +622,47 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			sel1 = sel;
 			sel2 = sel;
 			for( n = l->h; n; n = n->next ) {
-				s = exp_bin(sql, n->data, left, right, grp, ext, cnt, sel1); 
+				stmt *sin = (sel1 && sel1->nrcols)?sel1:NULL;
+
+				s = exp_bin(sql, n->data, left, right, grp, ext, cnt, sin); 
 				if (!s) 
 					return s;
-				if (sel1 && sel1->nrcols == 0 && s->nrcols == 0) {
+				if (!sin && sel1 && sel1->nrcols == 0 && s->nrcols == 0) {
 					sql_subtype *bt = sql_bind_localtype("bit");
 					sql_subfunc *f = sql_bind_func(sql->sa, sql->session->schema, "and", bt, bt, F_FUNC);
 					assert(f);
 					s = stmt_binop(sql->sa, sel1, s, f);
-				}
-				if (sel1 && sel1->nrcols && s->nrcols == 0) {
+				} else if (sel1 && (sel1->nrcols == 0 || s->nrcols == 0)) {
 					stmt *predicate = bin_first_column(sql->sa, left);
 				
 					predicate = stmt_const(sql->sa, predicate, stmt_bool(sql->sa, 1));
-					s = stmt_uselect(sql->sa, predicate, s, cmp_equal, sel1);
+					if (s->nrcols == 0)
+						s = stmt_uselect(sql->sa, predicate, s, cmp_equal, sel1);
+					else
+						s = stmt_uselect(sql->sa, predicate, sel1, cmp_equal, s);
 				}
 				sel1 = s;
 			}
 			l = e->r;
 			for( n = l->h; n; n = n->next ) {
-				s = exp_bin(sql, n->data, left, right, grp, ext, cnt, sel2); 
+				stmt *sin = (sel2 && sel2->nrcols)?sel2:NULL;
+
+				s = exp_bin(sql, n->data, left, right, grp, ext, cnt, sin); 
 				if (!s) 
 					return s;
-				if (sel2 && sel2->nrcols == 0 && s->nrcols == 0) {
+				if (!sin && sel2 && sel2->nrcols == 0 && s->nrcols == 0) {
 					sql_subtype *bt = sql_bind_localtype("bit");
 					sql_subfunc *f = sql_bind_func(sql->sa, sql->session->schema, "and", bt, bt, F_FUNC);
 					assert(f);
 					s = stmt_binop(sql->sa, sel2, s, f);
-				}
-				if (sel2 && sel2->nrcols && s->nrcols == 0) {
+				} else if (sel2 && (sel2->nrcols == 0 || s->nrcols == 0)) {
 					stmt *predicate = bin_first_column(sql->sa, left);
 				
 					predicate = stmt_const(sql->sa, predicate, stmt_bool(sql->sa, 1));
-					s = stmt_uselect(sql->sa, predicate, s, cmp_equal, sel2);
+					if (s->nrcols == 0)
+						s = stmt_uselect(sql->sa, predicate, s, cmp_equal, sel2);
+					else
+						s = stmt_uselect(sql->sa, predicate, sel2, cmp_equal, s);
 				}
 				sel2 = s;
 			}
@@ -1692,7 +1707,11 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 			prop *p;
 
 			/* only handle simple joins here */		
-			if (exp_has_func(e) && e->flag != cmp_filter) {
+			if ((exp_has_func(e) && e->flag != cmp_filter) ||
+			    (e->flag == cmp_or && 
+			     exps_card(e->l) == CARD_MULTI &&
+			     exps_card(e->r) == CARD_MULTI) 
+					) {
 				if (!join && !list_length(lje)) {
 					stmt *l = bin_first_column(sql->sa, left);
 					stmt *r = bin_first_column(sql->sa, right);
@@ -1896,6 +1915,12 @@ rel2bin_semijoin( mvc *sql, sql_rel *rel, list *refs)
 			/* only handle simple joins here */		
 			if (list_length(lje) && (idx || e->type != e_cmp || e->flag != cmp_equal))
 				break;
+			if ((exp_has_func(e) && e->flag != cmp_filter) ||
+			    (e->flag == cmp_or && 
+			     exps_card(e->l) == CARD_MULTI &&
+			     exps_card(e->r) == CARD_MULTI) ) { 
+				break;
+			}
 
 			s = exp_bin(sql, en->data, left, right, NULL, NULL, NULL, NULL);
 			if (!s) {
@@ -1919,8 +1944,12 @@ rel2bin_semijoin( mvc *sql, sql_rel *rel, list *refs)
 		}
 		if (list_length(lje) > 1) {
 			join = releqjoin(sql, lje, rje, 0 /* no hash used */, cmp_equal, 0);
-		} else if (!join) {
+		} else if (!join && list_length(lje) == list_length(rje) && list_length(lje)) {
 			join = stmt_join(sql->sa, lje->h->data, rje->h->data, cmp_equal);
+		} else if (!join) {
+			stmt *l = bin_first_column(sql->sa, left);
+			stmt *r = bin_first_column(sql->sa, right);
+			join = stmt_join(sql->sa, l, r, cmp_all); 
 		}
 	} else {
 		stmt *l = bin_first_column(sql->sa, left);

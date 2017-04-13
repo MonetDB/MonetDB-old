@@ -394,7 +394,7 @@ GDKupgradevarheap(BAT *b, var_t v, int copyall, int mayshare)
 	size_t i, n;
 	size_t savefree;
 	const char *filename;
-	bat bid;
+	bat bid = b->batCacheid;
 
 	assert(b->theap.parentid == 0);
 	assert(width != 0);
@@ -429,7 +429,6 @@ GDKupgradevarheap(BAT *b, var_t v, int copyall, int mayshare)
 		filename = b->theap.filename;
 	else
 		filename++;
-	bid = strtol(filename, NULL, 8);
 	if ((BBP_status(bid) & (BBPEXISTING|BBPDELETED)) &&
 	    !file_exists(b->theap.farmid, BAKDIR, filename, NULL) &&
 	    (b->theap.storage != STORE_MEM ||
@@ -504,7 +503,7 @@ GDKupgradevarheap(BAT *b, var_t v, int copyall, int mayshare)
 		break;
 	case 4:
 #ifndef NDEBUG
-		memset(ps, 0, b->theap.base + b->theap.size - (char *) pi);
+		memset(pi, 0, b->theap.base + b->theap.size - (char *) pi);
 #endif
 		switch (b->twidth) {
 		case 1:
@@ -520,7 +519,7 @@ GDKupgradevarheap(BAT *b, var_t v, int copyall, int mayshare)
 #if SIZEOF_VAR_T == 8
 	case 8:
 #ifndef NDEBUG
-		memset(ps, 0, b->theap.base + b->theap.size - (char *) pv);
+		memset(pv, 0, b->theap.base + b->theap.size - (char *) pv);
 #endif
 		switch (b->twidth) {
 		case 1:

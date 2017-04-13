@@ -18,9 +18,44 @@
 
 // This #define creates a new BAT with the internal data and mask from a Numpy array, without copying the data
 // 'bat' is a BAT* pointer, which will contain the new BAT. TYPE_'mtpe' is the BAT type, and 'batstore' is the heap storage type of the BAT (this should be STORE_CMEM or STORE_SHARED)
+#if defined(_MSC_VER) && _MSC_VER <= 1600
+#define isnan(x) _isnan(x)
+#endif
+
+#define nancheck_flt(bat)							\
+	do {								\
+		for (iu = 0; iu < ret->count; iu++) {			\
+			if (isnan(((flt*)data)[index_offset * ret->count + iu])) { \
+				((flt*)data)[index_offset * ret->count + iu] = flt_nil; \
+				bat->tnil = 1;				\
+			}						\
+		}							\
+		bat->tnonil = !bat->tnil;				\
+	} while (0)
+#define nancheck_dbl(bat)							\
+	do {								\
+		for (iu = 0; iu < ret->count; iu++) {			\
+			if (isnan(((dbl*)data)[index_offset * ret->count + iu])) { \
+				((dbl*)data)[index_offset * ret->count + iu] = dbl_nil; \
+				bat->tnil = 1;				\
+			}						\
+		}							\
+		bat->tnonil = !bat->tnil;				\
+	} while (0)
+#define nancheck_bit(bat) ((void) 0)
+#define nancheck_bte(bat) ((void) 0)
+#define nancheck_sht(bat) ((void) 0)
+#define nancheck_int(bat) ((void) 0)
+#define nancheck_lng(bat) ((void) 0)
+#define nancheck_hge(bat) ((void) 0) /* not used if no HAVE_HGE */
+#define nancheck_oid(bat) ((void) 0)
 #ifdef HAVE_FORK
 #define CREATE_BAT_ZEROCOPY(bat, mtpe, batstore) {                                                                      \
         bat = COLnew(seqbase, TYPE_##mtpe, 0, TRANSIENT);                                                             \
+        if (bat == NULL) {						\
+                msg = createException(MAL, "pyapi.eval", "Cannor create BAT"); \
+                goto wrapup;						\
+        }								\
         bat->tnil = 0; bat->tnonil = 1;                                                   \
         bat->tkey = 0; bat->tsorted = 0; bat->trevsorted = 0;                                                           \
         /*Change nil values to the proper values, if they exist*/                                                       \
@@ -37,6 +72,7 @@
             bat->tnonil = 1 - bat->tnil;                                                                            \
         } else {                                                                                                        \
             bat->tnil = 0; bat->tnonil = 0;                                                                         \
+	    nancheck_##mtpe(bat);\
         }                                                                                                               \
                                                                                                                         \
         /*When we create a BAT a small part of memory is allocated, free it*/                                           \
@@ -68,6 +104,10 @@
 #else
 #define CREATE_BAT_ZEROCOPY(bat, mtpe, batstore) {                                                                      \
         bat = COLnew(seqbase, TYPE_##mtpe, 0, TRANSIENT);                                                             \
+        if (bat == NULL) {						\
+                msg = createException(MAL, "pyapi.eval", "Cannor create BAT"); \
+                goto wrapup;						\
+        }								\
         bat->tnil = 0; bat->tnonil = 1;                                                   \
         bat->tkey = 0; bat->tsorted = 0; bat->trevsorted = 0;                                                           \
         /*Change nil values to the proper values, if they exist*/                                                       \
@@ -84,6 +124,7 @@
             bat->tnonil = 1 - bat->tnil;                                                                            \
         } else {                                                                                                        \
             bat->tnil = 0; bat->tnonil = 0;                                                                         \
+	    nancheck_##mtpe(bat);\
         }                                                                                                               \
         /*When we create a BAT a small part of memory is allocated, free it*/                                           \
         GDKfree(bat->theap.base);                                                                                     \
@@ -122,6 +163,34 @@
         for (iu = 0; iu < ret->count; iu++)                                                                                                      \
         {                                                                                                                                        \
             if (mask[index_offset * ret->count + iu] == TRUE)                                                                                    \
+            {                                                                                                                                    \
+                bat->tnil = 1;                                                                                                                 \
+                ((mtpe_to*) Tloc(bat, 0))[index + iu] = mtpe_to##_nil;                                                               \
+            }                                                                                                                                    \
+            else                                                                                                                                 \
+            {                                                                                                                                    \
+                ((mtpe_to*) Tloc(bat, 0))[index + iu] = (mtpe_to)(*(mtpe_from*)(&data[(index_offset * ret->count + iu) * ret->memory_size]));\
+            }                                                                                                                                    \
+        }                                                                                                                                        \
+    } }
+#define NP_COL_BAT_LOOPF(bat, mtpe_to, mtpe_from,index) {                                                                                        \
+    if (mask == NULL)                                                                                                                            \
+    {                                                                                                                                            \
+        for (iu = 0; iu < ret->count; iu++)                                                                                                      \
+        {                                                                                                                                        \
+            if (isnan(((mtpe_from*)data)[index_offset * ret->count + iu])) {                                                                     \
+		bat->tnil = 1;                                                                                                                   \
+                ((mtpe_to*) Tloc(bat, 0))[index + iu] = mtpe_to##_nil;                                                                           \
+            } else {                                                                                                                             \
+                ((mtpe_to*) Tloc(bat, 0))[index + iu] = (mtpe_to)((mtpe_from*)data)[index_offset * ret->count + iu];                             \
+            }                                                                                                                                    \
+        }                                                                                                                                        \
+    }                                                                                                                                            \
+    else                                                                                                                                         \
+    {                                                                                                                                            \
+        for (iu = 0; iu < ret->count; iu++)                                                                                                      \
+        {                                                                                                                                        \
+            if (mask[index_offset * ret->count + iu] == TRUE || isnan(((mtpe_from*)data)[index_offset * ret->count + iu]))                       \
             {                                                                                                                                    \
                 bat->tnil = 1;                                                                                                                 \
                 ((mtpe_to*) Tloc(bat, 0))[index + iu] = mtpe_to##_nil;                                                               \
@@ -178,7 +247,10 @@
         for (iu = 0; iu < ret->count; iu++)                                                                                                           \
         {                                                                                                                                             \
             snprintf(utf8_string, utf8string_minlength, fmt, *((mtpe*)&data[(index_offset * ret->count + iu) * ret->memory_size]));                   \
-            BUNappend(bat, utf8_string, FALSE);                                                                                                       \
+            if (BUNappend(bat, utf8_string, FALSE) != GDK_SUCCEED) { \
+                msg = createException(MAL, "pyapi.eval", "BUNappend failed.\n");     \
+                goto wrapup;                                                                                                                                      \
+            }                                                                                                                         \
         }                                                                                                                                             \
     }                                                                                                                                                 \
     else                                                                                                                                              \
@@ -188,12 +260,18 @@
             if (mask[index_offset * ret->count + iu] == TRUE)                                                                                         \
             {                                                                                                                                         \
                 bat->tnil = 1;                                                                                                                      \
-                BUNappend(bat, str_nil, FALSE);                                                                                                         \
+                if (BUNappend(bat, str_nil, FALSE) != GDK_SUCCEED) { \
+                    msg = createException(MAL, "pyapi.eval", "BUNappend failed.\n");     \
+                    goto wrapup;                                                                                                                                      \
+                }                                                                                                                         \
             }                                                                                                                                         \
             else                                                                                                                                      \
             {                                                                                                                                         \
                 snprintf(utf8_string, utf8string_minlength, fmt, *((mtpe*)&data[(index_offset * ret->count + iu) * ret->memory_size]));               \
-                BUNappend(bat, utf8_string, FALSE);                                                                                                   \
+                if (BUNappend(bat, utf8_string, FALSE) != GDK_SUCCEED) { \
+                    msg = createException(MAL, "pyapi.eval", "BUNappend failed.\n");     \
+                    goto wrapup;                                                                                                                                      \
+                }                                                                                                                         \
             }                                                                                                                                         \
         }                                                                                                                                             \
     }
@@ -215,9 +293,9 @@
         case NPY_ULONG:      NP_COL_BAT_LOOP(bat, mtpe, unsigned long, index); break;                                                                   \
         case NPY_ULONGLONG:  NP_COL_BAT_LOOP(bat, mtpe, unsigned long long, index); break;                                                              \
         case NPY_FLOAT16:                                                                                                                               \
-        case NPY_FLOAT:      NP_COL_BAT_LOOP(bat, mtpe, float, index); break;                                                                           \
-        case NPY_DOUBLE:     NP_COL_BAT_LOOP(bat, mtpe, double, index); break;                                                                          \
-        case NPY_LONGDOUBLE: NP_COL_BAT_LOOP(bat, mtpe, long double, index); break;                                                                     \
+        case NPY_FLOAT:      NP_COL_BAT_LOOPF(bat, mtpe, float, index); break;                                                                          \
+        case NPY_DOUBLE:     NP_COL_BAT_LOOPF(bat, mtpe, double, index); break;                                                                         \
+        case NPY_LONGDOUBLE: NP_COL_BAT_LOOPF(bat, mtpe, long double, index); break;                                                                    \
         case NPY_STRING:     NP_COL_BAT_LOOP_FUNC(bat, mtpe, str_to_##mtpe, char, index); break;                                                        \
         case NPY_UNICODE:    NP_COL_BAT_LOOP_FUNC(bat, mtpe, unicode_to_##mtpe, PythonUnicodeType, index); break;                                       \
         case NPY_OBJECT:     NP_COL_BAT_LOOP_FUNC(bat, mtpe, pyobject_to_##mtpe, PyObject*, index); break;                                              \
@@ -249,13 +327,19 @@
 	        for (iu = 0; iu < ret->count; iu++) {                                                                                                                         \
 	            if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE) {                                                                                     \
 	                b->tnil = 1;                                                                                                                                        \
-	                BUNappend(b, str_nil, FALSE);                                                                                                                         \
+	                if (BUNappend(b, str_nil, FALSE) != GDK_SUCCEED) { \
+                        msg = createException(MAL, "pyapi.eval", "BUNappend failed.\n");     \
+                        goto wrapup;                                                                                                                                      \
+                    }                                                                                                                         \
 	            }  else {                                                                                                                                                 \
 	                if (!string_copy(&data[(index_offset * ret->count + iu) * ret->memory_size], utf8_string, ret->memory_size, true)) {                                  \
 	                    msg = createException(MAL, "pyapi.eval", "Invalid string encoding used. Please return a regular ASCII string, or a Numpy_Unicode object.\n");     \
 	                    goto wrapup;                                                                                                                                      \
 	                }                                                                                                                                                     \
-	                BUNappend(b, utf8_string, FALSE);                                                                                                                     \
+                    if (BUNappend(b, utf8_string, FALSE) != GDK_SUCCEED) { \
+                        msg = createException(MAL, "pyapi.eval", "BUNappend failed.\n");     \
+                        goto wrapup;                                                                                                                                      \
+                    }                                                                                                                         \
 	            }                                                                                                                                                         \
 	        }                                                                                                                                                             \
 	        break;                                                                                                                                                        \
@@ -263,10 +347,16 @@
 	        for (iu = 0; iu < ret->count; iu++) {                                                                                                                         \
 	            if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE) {                                                                                     \
 	                b->tnil = 1;                                                                                                                                        \
-	                BUNappend(b, str_nil, FALSE);                                                                                                                         \
+                    if (BUNappend(b, str_nil, FALSE) != GDK_SUCCEED) { \
+                        msg = createException(MAL, "pyapi.eval", "BUNappend failed.\n");     \
+                        goto wrapup;                                                                                                                                      \
+                    }                                                                                                                         \
 	            }  else {                                                                                                                                                 \
 	                utf32_to_utf8(0, ret->memory_size / 4, utf8_string, (const Py_UNICODE*)(&data[(index_offset * ret->count + iu) * ret->memory_size]));                 \
-	                BUNappend(b, utf8_string, FALSE);                                                                                                                     \
+                    if (BUNappend(b, utf8_string, FALSE) != GDK_SUCCEED) { \
+                        msg = createException(MAL, "pyapi.eval", "BUNappend failed.\n");     \
+                        goto wrapup;                                                                                                                                      \
+                    }                                                                                                                         \
 	            }                                                                                                                                                         \
 	        }                                                                                                                                                             \
 	        break;                                                                                                                                                        \
@@ -288,11 +378,17 @@
 	        for (iu = 0; iu < ret->count; iu++) {                                                                                                                         \
 	            if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE) {                                                                                     \
 	                b->tnil = 1;                                                                                                                                        \
-	                BUNappend(b, str_nil, FALSE);                                                                                                                         \
+                    if (BUNappend(b, str_nil, FALSE) != GDK_SUCCEED) { \
+                        msg = createException(MAL, "pyapi.eval", "BUNappend failed.\n");     \
+                        goto wrapup;                                                                                                                                      \
+                    }                                                                                                                         \
 	            } else {                                                                                                                                                  \
 	                /* we try to handle as many types as possible */                                                                                                      \
 	                pyobject_to_str(((PyObject**) &data[(index_offset * ret->count + iu) * ret->memory_size]), utf8_size, &utf8_string);                                  \
-	                BUNappend(b, utf8_string, FALSE);                                                                                                                     \
+                    if (BUNappend(b, utf8_string, FALSE) != GDK_SUCCEED) { \
+                        msg = createException(MAL, "pyapi.eval", "BUNappend failed.\n");     \
+                        goto wrapup;                                                                                                                                      \
+                    }                                                                                                                         \
 	            }                                                                                                                                                         \
 	        }                                                                                                                                                             \
 	        break;                                                                                                                                                        \
@@ -338,6 +434,10 @@
             }                                                                                                                                                  \
         } else {                                                                                                                                               \
             bat = COLnew(seqbase, TYPE_##mtpe, (BUN) ret->count, TRANSIENT);                                                                                   \
+            if (bat == NULL) {						\
+                msg = createException(MAL, "pyapi.eval", "Cannor create BAT"); \
+                goto wrapup;						\
+            }								\
             if (NOT_HGE(mtpe) && TYPE_##mtpe != PyType_ToBat(ret->result_type)) WARNING_MESSAGE("!PERFORMANCE WARNING: You are returning a Numpy Array of type %s, which has to be converted to a BAT of type %s. If you return a Numpy\
 Array of type %s no copying will be needed.\n", PyType_Format(ret->result_type), BatType_Format(TYPE_##mtpe), PyType_Format(BatType_ToPyType(TYPE_##mtpe)));   \
             bat->tkey = 0; bat->tsorted = 0; bat->trevsorted = 0;                                                                                              \

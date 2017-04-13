@@ -1164,6 +1164,9 @@ bm_tids(BAT *b, BAT *d)
 	BUN sz = BATcount(b);
 	BAT *tids = COLnew(0, TYPE_void, 0, TRANSIENT);
 
+	if (tids == NULL)
+		return NULL;
+
 	BATtseqbase(tids, 0);
 	BATsetcount(tids, sz);
 	tids->trevsorted = 0;
@@ -1253,16 +1256,45 @@ bm_subcommit(logger *lg, BAT *list_bid, BAT *list_nme, BAT *catalog_bid, BAT *ca
 	n[i++] = catalog_bid->batCacheid;
 	n[i++] = catalog_nme->batCacheid;
 	n[i++] = dcatalog->batCacheid;
-	if (BATcount(dcatalog) > (BATcount(catalog_nme)/2) && catalog_bid == list_bid && catalog_nme == list_nme && lg->catalog_bid == catalog_bid) {
-		BAT *bids, *nmes, *tids = bm_tids(catalog_bid, dcatalog), *b;
+	if (BATcount(dcatalog) > (BATcount(catalog_nme)/2) &&
+	    catalog_bid == list_bid &&
+	    catalog_nme == list_nme &&
+	    lg->catalog_bid == catalog_bid) {
+		BAT *bids, *nmes, *tids, *b;
 
-		bids = logbat_new(TYPE_int, BATSIZE, PERSISTENT);
-		nmes = logbat_new(TYPE_str, BATSIZE, PERSISTENT);
-		b = BATproject(tids, catalog_bid);
-		BATappend(bids, b, TRUE);
+		tids = bm_tids(catalog_bid, dcatalog);
+		if (tids == NULL) {
+			GDKfree(n);
+			return GDK_FAIL;
+		}
+		bids = logbat_new(TYPE_int, BATcount(tids), PERSISTENT);
+		nmes = logbat_new(TYPE_str, BATcount(tids), PERSISTENT);
+		if (bids == NULL || nmes == NULL) {
+			logbat_destroy(tids);
+			logbat_destroy(bids);
+			logbat_destroy(nmes);
+			GDKfree(n);
+			return GDK_FAIL;
+		}
+		if ((b = BATproject(tids, catalog_bid)) == NULL ||
+		    BATappend(bids, b, TRUE) != GDK_SUCCEED) {
+			logbat_destroy(b);
+			logbat_destroy(tids);
+			logbat_destroy(bids);
+			logbat_destroy(nmes);
+			GDKfree(n);
+			return GDK_FAIL;
+		}
 		logbat_destroy(b);
-		b = BATproject(tids, catalog_nme);
-		BATappend(nmes, b, TRUE);
+		if ((b = BATproject(tids, catalog_nme)) == NULL ||
+		    BATappend(nmes, b, TRUE) != GDK_SUCCEED) {
+			logbat_destroy(b);
+			logbat_destroy(tids);
+			logbat_destroy(bids);
+			logbat_destroy(nmes);
+			GDKfree(n);
+			return GDK_FAIL;
+		}
 		logbat_destroy(b);
 		logbat_destroy(tids);
 		BATclear(dcatalog, TRUE);
@@ -1337,7 +1369,7 @@ logger_set_logdir_path(char *filename, const char *fn,
  * Load data and persist it in the BATs
  * Convert 32bit data to 64bit, unless running in read-only mode */
 static int
-logger_load(int debug, const char* fn, char filename[PATHLENGTH], logger* lg)
+logger_load(int debug, const char *fn, char filename[PATHLENGTH], logger *lg)
 {
 	int id = LOG_SID;
 	FILE *fp;
@@ -1614,6 +1646,8 @@ logger_load(int debug, const char* fn, char filename[PATHLENGTH], logger* lg)
 				logger_fatal("Logger_new: inconsistent database, snapshots_tid does not exist", 0, 0, 0);
 		} else {
 			lg->dsnapshots = logbat_new(TYPE_oid, 1, PERSISTENT);
+			if (lg->dsnapshots == NULL)
+				logger_fatal("Logger_new: cannot create dsnapshot bat", 0, 0, 0);
 			snprintf(bak, sizeof(bak), "%s_dsnapshots", fn);
 			if (BBPrename(lg->dsnapshots->batCacheid, bak) < 0)
 				logger_fatal("Logger_new: BBPrename to %s failed", bak, 0, 0);
@@ -1678,7 +1712,8 @@ logger_load(int debug, const char* fn, char filename[PATHLENGTH], logger* lg)
 					goto error;
 				if (fscanf(fp, "%d", &curid) != 1)
 					curid = -1; /* shouldn't happen? */
-				fseek(fp, off, SEEK_SET);
+				if (fseek(fp, off, SEEK_SET) < 0)
+					goto error; /* shouldn't happen */
 
 
 				if ((fp1 = GDKfileopen(farmid, NULL, bak, NULL, "r")) != NULL) {
@@ -1754,13 +1789,11 @@ logger_load(int debug, const char* fn, char filename[PATHLENGTH], logger* lg)
   error:
 	if (fp)
 		fclose(fp);
-	if (lg) {
-		GDKfree(lg->fn);
-		GDKfree(lg->dir);
-		GDKfree(lg->local_dir);
-		GDKfree(lg->buf);
-		GDKfree(lg);
-	}
+	GDKfree(lg->fn);
+	GDKfree(lg->dir);
+	GDKfree(lg->local_dir);
+	GDKfree(lg->buf);
+	GDKfree(lg);
 	return LOG_ERR;
 }
 
@@ -2400,7 +2433,7 @@ log_bat(logger *lg, BAT *b, const char *name)
 			for (p = b->batInserted; p < BUNlast(b) && ok == GDK_SUCCEED; p++) {
 				const void *t = BUNtail(bi, p);
 
-				ok = (ok != GDK_SUCCEED) ? ok : wt(t, lg->log, 1);
+				ok = wt(t, lg->log, 1);
 			}
 		}
 
@@ -2508,9 +2541,13 @@ log_tend(logger *lg)
 		BAT *cands, *tids, *bids;
 
 		tids = bm_tids(lg->snapshots_tid, lg->dsnapshots);
+		if (tids == NULL) {
+			fprintf(stderr, "!ERROR: log_tend: bm_tids failed\n");
+			return LOG_ERR;
+		}
 		cands = BATselect(lg->snapshots_tid, tids, &lg->tid, &lg->tid,
 				     TRUE, TRUE, FALSE);
-		if (tids == NULL || cands == NULL) {
+		if (cands == NULL) {
 			fprintf(stderr, "!ERROR: log_tend: subselect failed\n");
 			return LOG_ERR;
 		}
@@ -2636,6 +2673,9 @@ bm_commit(logger *lg)
 	BAT *b = lg->catalog_bid;
 	BAT *n = logbat_new(TYPE_str, BATcount(lg->freed), TRANSIENT);
 	gdk_return res;
+
+	if (n == NULL)
+		return LOG_ERR;
 
 	/* subcommit the freed bats */
 	if (BATcount(lg->freed)) {

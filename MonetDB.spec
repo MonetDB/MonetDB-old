@@ -1,5 +1,5 @@
 %define name MonetDB
-%define version 11.25.6
+%define version 11.25.16
 %{!?buildno: %global buildno %(date +%Y%m%d)}
 
 # groups of related archs
@@ -124,7 +124,7 @@ Vendor: MonetDB BV <info@monetdb.org>
 Group: Applications/Databases
 License: MPLv2.0
 URL: http://www.monetdb.org/
-Source: http://dev.monetdb.org/downloads/sources/Dec2016-SP1/%{name}-%{version}.tar.bz2
+Source: http://dev.monetdb.org/downloads/sources/Dec2016-SP3/%{name}-%{version}.tar.bz2
 
 # we need systemd for the _unitdir macro to exist
 %if %{?rhel:0}%{!?rhel:1} || 0%{?rhel} >= 7
@@ -201,6 +201,7 @@ package, and most likely also %{name}-SQL-server5, as well as one or
 more client packages.
 
 %files
+%license COPYING
 %defattr(-,root,root)
 %{_libdir}/libbat.so.*
 
@@ -242,6 +243,7 @@ This package contains a shared library (libstream) which is needed by
 various other components.
 
 %files stream
+%license COPYING
 %defattr(-,root,root)
 %{_libdir}/libstream.so.*
 
@@ -289,6 +291,7 @@ SQL database so that it can be loaded back later.  If you want to use
 MonetDB, you will very likely need this package.
 
 %files client
+%license COPYING
 %defattr(-,root,root)
 %{_bindir}/mclient
 %{_bindir}/msqldump
@@ -375,6 +378,7 @@ odbcinst -u -d -n MonetDB
 fi
 
 %files client-odbc
+%license COPYING
 %defattr(-,root,root)
 %{_libdir}/libMonetODBC.so
 %{_libdir}/libMonetODBCs.so
@@ -854,6 +858,7 @@ MonetDB packages.  You probably don't need this, unless you are a
 developer.  If you do want to test, install %{name}-testing-python.
 
 %files testing
+%license COPYING
 %defattr(-,root,root)
 %{_bindir}/Mdiff
 %{_bindir}/MkillUsers
@@ -890,6 +895,15 @@ developer, but if you do want to test, this is the package you need.
 
 %build
 
+# There is a bug in GCC version 4.8 on AArch64 architectures
+# that causes it to report an internal error when compiling
+# testing/difflib.c.  The work around is to not use -fstack-protector-strong.
+# The bug exhibits itself on CentOS 7 on AArch64.
+if [ `gcc -v 2>&1 | grep -c 'Target: aarch64\|gcc version 4\.'` -eq 2 ]; then
+	# set CFLAGS before configure, so that this value gets used
+	CFLAGS='-O2 -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fexceptions --param=ssp-buffer-size=4 -grecord-gcc-switches  '
+	export CFLAGS
+fi
 %{configure} \
 	--enable-assert=no \
 	--enable-console=yes \
@@ -958,6 +972,99 @@ rm -f %{buildroot}%{_bindir}/Maddlog
 %postun -p /sbin/ldconfig
 
 %changelog
+* Thu Mar 30 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.25.15-20170330
+- Rebuilt.
+- BZ#6250: Assertion failure when querying a Blob column with order
+  by DESC
+- BZ#6253: FITS Data Vaults does not work when using user/pw and other
+  than sys schema name
+
+* Wed Mar 29 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.25.13-20170329
+- Rebuilt.
+- BZ#6216: Assertion raised (sqlsmith)
+- BZ#6227: Monetdb fails on remote tables
+- BZ#6242: Crash on rel_reduce_groupby_exps (sqlsmith)
+- BZ#6243: Static optimization gives wrong result (1 + NULL = -127)
+- BZ#6245: Nested query crashes all versions of MonetDB or gives wrong
+  result starting from Dec2016-SP2
+- BZ#6246: update statements: references to a table do not bind to
+  its alias
+- BZ#6247: Type analysis issue (sqlsmith)
+- BZ#6248: update statements: the semantic stage does not resolve the
+  relation in the from clause
+- BZ#6251: Crash after adding an ordered index on sys.statistics column
+  and querying sys.statistics
+
+* Mon Mar 13 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.25.11-20170313
+- Rebuilt.
+- BZ#6138: Weak duplicate elimination in string heaps > 64KB
+- BZ#6183: ResultSet returns double quoted column name if name contains
+  space characters
+- BZ#6219: Crash in rel_optimizer (sqlsmith)
+- BZ#6228: mclient crashes if real column is multiplied by it itself
+- BZ#6229: ANALYZE, unexpected end of input
+- BZ#6230: ANALYZE, syntax error
+- BZ#6237: semijoin with empty right bat does not return immediately
+
+* Tue Feb 28 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.25.11-20170313
+- gdk: Fixed a bug when appending string bats that are fully duplicate
+  eliminated.  It could happend that the to-be-appended bat had an empty
+  string at an offset and at that same offset in the to-be-appended-to bat
+  there happened to be a (sequence of) NULL(s).  Then this offset would be
+  used, even though it might nog be the right offset for the empty string
+  in the to-be-appended-to bat.  This would result in multiple offsets for
+  the empty string, breaking the promise of being duplicate eliminated.
+
+* Mon Feb 27 2017 Panagiotis Koutsourakis <kutsurak@monetdbsolutions.com> - 11.25.9-20170227
+- Rebuilt.
+- BZ#6217: Segfault in rel_optimizer (sqlsmith)
+- BZ#6218: grouped quantiles with all null group causes following groups
+  to return null
+- BZ#6224: mal_parser: cannot refer to types containing an underscore
+
+* Thu Feb 16 2017 Panagiotis Koutsourakis <kutsurak@monetdbsolutions.com> - 11.25.7-20170216
+- Rebuilt.
+- BZ#4034: argnames array in rapi.c has fixed length (that was too short)
+- BZ#6080: mserver5: rel_bin.c:2391: rel2bin_project: Assertion `0'
+  failed.
+- BZ#6081: Segmentation fault (core dumped)
+- BZ#6082: group.subgroup is undefined if group by is used on an
+  expression involving only constants
+- BZ#6111: Maximum number of digits for hge decimal is listed as 39 in
+  sys.types. Should be 38 as DECIMAL(39) is not supported.
+- BZ#6112: Crash upgrading Jul2015->Jun2016
+- BZ#6130: Query rewriter crashes on a NULL pointer when having a
+  correlated subquery
+- BZ#6133: A crash occurs when preparing an INSERT on joined tables
+  during the query semantic phase
+- BZ#6141: Getting an error message regarding a non-GROUP-BY column
+  rather than an unknown identifier
+- BZ#6177: Server crashes
+- BZ#6186: Null casting causes no results (silent server crash?)
+- BZ#6189: Removing a NOT NULL constraint from a PKey column should NOT
+  be allowed
+- BZ#6190: CASE query crashes database
+- BZ#6191: MT_msync failed with "Cannot allocate memory"
+- BZ#6192: Numeric column stores wrong values after adding large numbers
+- BZ#6193: converting to a smaller precision (fewer or no decimals after
+  decimal point) should round/truncate consistently
+- BZ#6194: splitpart returns truncated last part if it contains non
+  ascii caracters
+- BZ#6195: Cast from huge decimal type to smaller returns wrong results
+- BZ#6196: Database crashes after generate_series query
+- BZ#6198: COALESCE could be more optimized
+- BZ#6201: MonetDB completely giving up on certain queries - no error
+  and no result
+- BZ#6202: querying a table with an ordered index on string/varchar
+  column crashes server and makes server unrestartable!
+- BZ#6203: copy into: Failed to import table Leftover data 'False'
+- BZ#6205: Integer addition overflow
+- BZ#6206: casting strings with more than one trailing zero ('0') to
+  decimal goes wrong
+- BZ#6209: Aggregation over complex OR expressions produce wrong results
+- BZ#6210: Upgrading a database from Jun2015 or older crashes the server
+- BZ#6213: SQLsmith causes server to crash
+
 * Fri Jan 13 2017 Panagiotis Koutsourakis <kutsurak@monetdbsolutions.com> - 11.25.5-20170113
 - Rebuilt.
 - BZ#4039: Slow mserver5 start after drop of tables (> 1 hour)

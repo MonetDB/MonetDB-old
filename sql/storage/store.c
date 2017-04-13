@@ -1698,6 +1698,7 @@ store_flush_log(void)
 static int
 store_needs_vacuum( sql_trans *tr )
 {
+	size_t max_dels = GDKdebug & FORCEMITOMASK ? 1 : 128;
 	sql_schema *s = find_sql_schema(tr, "sys");
 	node *n;
 
@@ -1705,10 +1706,14 @@ store_needs_vacuum( sql_trans *tr )
 		sql_table *t = n->data;
 		sql_column *c = t->columns.set->h->data;
 
+		if (!t->system)
+			continue;
 		/* no inserts, updates and enough deletes ? */
-		if (!store_funcs.count_col(tr, c, 0) && 
+		if (store_funcs.count_col(tr, c, 0) && 
+		    (store_funcs.count_col(tr, c, 1) -
+		    store_funcs.count_col(tr, c, 0)) == 0 && 
 		    !store_funcs.count_upd(tr, t) && 
-		    store_funcs.count_del(tr, t) > 128) 
+		    store_funcs.count_del(tr, t) >= max_dels) 
 			return 1;
 	}
 	return 0;
@@ -1718,6 +1723,7 @@ static void
 store_vacuum( sql_trans *tr )
 {
 	/* tables */
+	size_t max_dels = GDKdebug & FORCEMITOMASK ? 1 : 128;
 	sql_schema *s = find_sql_schema(tr, "sys");
 	node *n;
 
@@ -1725,26 +1731,30 @@ store_vacuum( sql_trans *tr )
 		sql_table *t = n->data;
 		sql_column *c = t->columns.set->h->data;
 
-		if (!store_funcs.count_col(tr, c, 0) && 
+		if (!t->system)
+			continue;
+		if (store_funcs.count_col(tr, c, 0) && 
+		    (store_funcs.count_col(tr, c, 1) -
+		    store_funcs.count_col(tr, c, 0)) == 0 && 
 		    !store_funcs.count_upd(tr, t) && 
-		    store_funcs.count_del(tr, t) > 128) {
+		    store_funcs.count_del(tr, t) >= max_dels)
 			table_funcs.table_vacuum(tr, t);
-		}
 	}
 }
 
 void
 store_manager(void)
 {
-	const int timeout = GDKdebug & FORCEMITOMASK ? 10 : 50;
+	const int sleeptime = GDKdebug & FORCEMITOMASK ? 10 : 50;
+	const int timeout = GDKdebug & FORCEMITOMASK ? 500 : 50000;
 
 	while (!GDKexiting()) {
 		int res = LOG_OK;
 		int t;
 		lng shared_transactions_drift = -1;
 
-		for (t = 30000; t > 0 && !need_flush; t -= timeout) {
-			MT_sleep_ms(timeout);
+		for (t = timeout; t > 0 && !need_flush; t -= sleeptime) {
+			MT_sleep_ms(sleeptime);
 			if (GDKexiting())
 				return;
 		}
@@ -1774,7 +1784,7 @@ store_manager(void)
             		MT_lock_unset(&bs_lock);
 			if (GDKexiting())
 				return;
-            		MT_sleep_ms(timeout);
+            		MT_sleep_ms(sleeptime);
             		MT_lock_set(&bs_lock);
         	}
 
@@ -1826,14 +1836,15 @@ store_manager(void)
 void
 idle_manager(void)
 {
-	const int timeout = GDKdebug & FORCEMITOMASK ? 10 : 50;
+	const int sleeptime = GDKdebug & FORCEMITOMASK ? 10 : 50;
+	const int timeout = GDKdebug & FORCEMITOMASK ? 50 : 5000;
 
 	while (!GDKexiting()) {
 		sql_session *s;
 		int t;
 
-		for (t = 5000; t > 0; t -= timeout) {
-			MT_sleep_ms(timeout);
+		for (t = timeout; t > 0; t -= sleeptime) {
+			MT_sleep_ms(sleeptime);
 			if (GDKexiting())
 				return;
 		}
@@ -4545,7 +4556,8 @@ sql_trans_clear_table(sql_trans *tr, sql_table *t)
 			sql_idx *ci = n->data;
 
 			ci->base.wtime = tr->wstime;
-			(void)store_funcs.clear_idx(tr, ci);
+			if (isTable(ci->t) && idx_has_column(ci->type))
+				(void)store_funcs.clear_idx(tr, ci);
 		}
 	}
 	return sz;

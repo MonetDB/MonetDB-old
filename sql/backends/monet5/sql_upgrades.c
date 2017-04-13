@@ -2170,11 +2170,13 @@ sql_update_dec2016_sp2(Client c, mvc *sql)
 #ifdef HAVE_HGE
 			if (have_hge) {
 				pos += snprintf(buf + pos, bufsize - pos,
-				"update sys.types set digits = 38 where sqlname = 'decimal' and digits = 39;\n");
+						"update sys.types set digits = 38 where sqlname = 'decimal' and digits = 39;\n"
+						"update sys.args set type_digits = 38 where type = 'decimal' and type_digits = 39;\n");
 			} else
 #endif
 				pos += snprintf(buf + pos, bufsize - pos,
-						"update sys.types set digits = 18 where sqlname = 'decimal' and digits = 19;\n");
+						"update sys.types set digits = 18 where sqlname = 'decimal' and digits = 19;\n"
+						"update sys.args set type_digits = 18 where type = 'decimal' and type_digits = 19;\n");
 
 			if (schema)
 				pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
@@ -2189,6 +2191,34 @@ sql_update_dec2016_sp2(Client c, mvc *sql)
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
 }
+
+static str
+sql_update_dec2016_sp3(Client c, mvc *sql)
+{
+	size_t bufsize = 2048, pos = 0;
+	char *buf = GDKmalloc(bufsize), *err = NULL;
+	char *schema = stack_get_string(sql, "current_schema");
+
+	pos += snprintf(buf + pos, bufsize - pos, 
+			"set schema \"sys\";\n"
+			"drop procedure sys.settimeout(bigint);\n"
+			"drop procedure sys.settimeout(bigint,bigint);\n"
+			"drop procedure sys.setsession(bigint);\n"
+			"create procedure sys.settimeout(\"query\" bigint) external name clients.settimeout;\n"
+			"create procedure sys.settimeout(\"query\" bigint, \"session\" bigint) external name clients.settimeout;\n"
+			"create procedure sys.setsession(\"timeout\" bigint) external name clients.setsession;\n"
+			"insert into sys.systemfunctions (select id from sys.functions where name in ('settimeout', 'setsession') and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));\n"
+			"delete from systemfunctions where function_id not in (select id from functions);\n");
+	if (schema) 
+		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
+	assert(pos < bufsize);
+
+	printf("Running database upgrade commands:\n%s\n", buf);
+	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
+	GDKfree(buf);
+	return err;		/* usually MAL_SUCCEED */
+}
+
 
 void
 SQLupgrades(Client c, mvc *m)
@@ -2339,8 +2369,18 @@ SQLupgrades(Client c, mvc *m)
 		}
 	}
 
-	if ((sql_update_dec2016_sp2(c, m)) != NULL) {
+	if ((err = sql_update_dec2016_sp2(c, m)) != NULL) {
 		fprintf(stderr, "!%s\n", err);
 		GDKfree(err);
+	}
+
+	sql_find_subtype(&tp, "bigint", 0, 0);
+	if ((f = sql_bind_func(m->sa, s, "settimeout", &tp, NULL, F_PROC)) != NULL &&
+	     /* The settimeout function used to be in the sql module */
+	     f->func->sql && f->func->query && strstr(f->func->query, "sql") != NULL) {
+		if ((err = sql_update_dec2016_sp3(c, m)) != NULL) {
+			fprintf(stderr, "!%s\n", err);
+			GDKfree(err);
+		}
 	}
 }
