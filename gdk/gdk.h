@@ -656,6 +656,15 @@ typedef struct {
 
 typedef struct Imprints Imprints;
 
+
+/* added by Xu: to implement a linked list for imps-hashjoin's visit list optimization*/
+/*
+typedef struct node {
+	uint32_t key;
+	struct node *next;
+} node;
+*/
+
 /*
  * @+ Binary Association Tables
  * Having gone to the previous preliminary definitions, we will now

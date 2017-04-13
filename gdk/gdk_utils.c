@@ -286,6 +286,8 @@ size_t GDK_mmap_pagesize = MMAP_PAGESIZE; /* mmap granularity */
 size_t GDK_mem_maxsize = GDK_VM_MAXSIZE;
 size_t GDK_vm_maxsize = GDK_VM_MAXSIZE;
 
+unsigned int GDK_imps_hashjoin_bits;
+
 int GDK_vm_trim = 1;
 
 #define SEG_SIZE(x,y)	((x)+(((x)&((1<<(y))-1))?(1<<(y))-((x)&((1<<(y))-1)):0))
@@ -587,6 +589,8 @@ GDKinit(opt *set, int setlen)
 	for (i = 0; i < nlen; i++)
 		GDKsetenv(n[i].name, n[i].value);
 	free(n);
+
+	GDK_imps_hashjoin_bits = GDKgetenv_int("gdk_imps_hashjoin_bits", 2);
 
 	GDKnr_threads = GDKgetenv_int("gdk_nr_threads", 0);
 	if (GDKnr_threads == 0)

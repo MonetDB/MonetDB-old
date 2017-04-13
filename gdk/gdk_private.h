@@ -13,7 +13,7 @@
 #endif
 
 #define DISABLE_PARENT_HASH 1
-/* #define PERSISTENTHASH 1 */
+/*#define PERSISTENTHASH 1*/
 #define PERSISTENTIDX 1
 
 #include "gdk_system_private.h"
@@ -245,6 +245,9 @@ extern MT_Lock GDKnameLock;
 extern MT_Lock GDKthreadLock;
 extern MT_Lock GDKtmLock;
 extern MT_Lock MT_system_lock;
+
+/* by xu*/
+extern unsigned int GDK_imps_hashjoin_bits;
 
 #define ATOMappendpriv(t, h) (ATOMstorage(t) != TYPE_str || GDK_ELIMDOUBLES(h))
 

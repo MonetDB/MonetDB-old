@@ -134,6 +134,14 @@ HASHnew(Heap *hp, int tpe, BUN size, BUN mask, BUN count)
 	return h;
 }
 
+#define GETBIN_IMPS_STEP(Z,X,B,S)			\
+do {					\
+	int _i;				\
+	Z = 0;				\
+	for (_i = S; _i < B; _i += S)	\
+		Z += ((X) >= bins[_i]);	\
+} while (0)
+
 #define GETBIN_IMPS_MERGE(Z,X,B)			\
 do {					\
 	int _i;				\
@@ -211,7 +219,7 @@ do {				\
 */
 
 
-#define starthash_imps(TYPE)							\
+#define starthash_imps(TYPE, STEP)							\
 	do {								\
 		TYPE *v = (TYPE *) BUNtloc(bi, 0);			\
 		unsigned int bin;							\
@@ -223,7 +231,8 @@ do {				\
 		BUN highermask = 0;\
 		for (; r < p; r++) {					\
 			BUN c;								\
-			GETBIN_IMPS_MERGE(bin, *(v + r), B);		\
+			/*GETBIN_IMPS_MERGE(bin, *(v + r), B);*/		\
+			GETBIN_IMPS_STEP(bin, *(v + p), B, STEP);	\
 			highermask = bin << left_shift;		\
 			c = (BUN) hash_imps_##TYPE(lowermask, v+r, highermask);		\
 									\
@@ -233,7 +242,7 @@ do {				\
 			HASHput(h, c, r);				\
 		}							\
 	} while (0)
-#define finishhash_imps(TYPE)					\
+#define finishhash_imps(TYPE, STEP)					\
 	do {							\
 		TYPE *v = (TYPE *) BUNtloc(bi, 0);		\
 		unsigned int bin;							\
@@ -245,7 +254,8 @@ do {				\
 		BUN highermask = 0;\
 		for (; p < q; p++) {					\
 			BUN c;								\
-			GETBIN_IMPS_MERGE(bin, *(v + p), B);	\
+			/*GETBIN_IMPS_MERGE(bin, *(v + p), B);*/	\
+			GETBIN_IMPS_STEP(bin, *(v + p), B, STEP);	\
 			highermask = bin << left_shift;		\
 			c = (BUN) hash_imps_##TYPE(lowermask, v + p, highermask);	\
 								\
@@ -425,6 +435,7 @@ BAThash(BAT *b, BUN masksize)
 
 	assert(b->batCacheid > 0);
 	if (BATcheckhash(b)) {
+		//fprintf(stderr, "---------------hash already exists\n");
 		return GDK_SUCCEED;
 	}
 	MT_lock_set(&GDKhashLock(b->batCacheid));
@@ -625,6 +636,7 @@ BAThash(BAT *b, BUN masksize)
 			HASHcollisions(b, b->thash);
 		}
 	}
+
 	MT_lock_unset(&GDKhashLock(b->batCacheid));
 	return GDK_SUCCEED;
 }
@@ -635,7 +647,7 @@ gdk_return
 BAThash_imps(BAT *b, BUN masksize)
 {
 	lng t0 = 0, t1 = 0;
-	unsigned int imps_bits = 0;
+	unsigned int imps_bits = GDK_imps_hashjoin_bits;
 	unsigned int bin_merge_bits = 6 - imps_bits;
 
 	assert(b->batCacheid > 0);
@@ -746,13 +758,14 @@ BAThash_imps(BAT *b, BUN masksize)
 				starthash(flt);
 				break;
 			case TYPE_int:
-				starthash_imps(int);
+				starthash_imps(int, (unsigned int)1 << bin_merge_bits);
 				break;
 			case TYPE_dbl:
 				starthash(dbl);
 				break;
 			case TYPE_lng:
-				starthash(lng);
+				fprintf(stderr, "enter starthash_imps(lng)\n");
+				starthash_imps(lng, (unsigned int)1 << bin_merge_bits);
 				break;
 #ifdef HAVE_HGE
 			case TYPE_hge:
@@ -784,7 +797,7 @@ BAThash_imps(BAT *b, BUN masksize)
 			finishhash(sht);
 			break;
 		case TYPE_int:
-			finishhash_imps(int);
+			finishhash_imps(int, (unsigned int)1 << bin_merge_bits);
 			break;
 		case TYPE_flt:
 			finishhash(flt);
@@ -793,7 +806,8 @@ BAThash_imps(BAT *b, BUN masksize)
 			finishhash(dbl);
 			break;
 		case TYPE_lng:
-			finishhash(lng);
+			fprintf(stderr, "enter finishhash_imps(lng)\n");
+			finishhash_imps(lng, (unsigned int)1 << bin_merge_bits);
 			break;
 #ifdef HAVE_HGE
 		case TYPE_hge:

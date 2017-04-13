@@ -2596,6 +2596,14 @@ do {					\
 	for (_i = 1; _i < B; _i++)	\
 		Z += ((X) >= bins[_i]);	\
 } while (0)
+
+#define GETBIN_STEP(Z,X,S)			\
+do {					\
+	int _i;				\
+	Z = 0;				\
+	for (_i = S; _i < 64; _i += S)	\
+		Z += ((X) >= bins[_i]);	\
+} while (0)
 /*
 #define GETBIN_(Z,X)			\
 do {					\
@@ -2603,6 +2611,7 @@ do {					\
 } while (0)
 */
 
+/* original HASHJOIN */
 #define HASHJOIN(TYPE, WIDTH)                                       \
 	do {                                                            \
 			BUN hashnil = HASHnil(hsh);                             \
@@ -2637,6 +2646,50 @@ do {					\
 					}                                               \
 			}                                                       \
 	} while (0)
+
+/*fprintf(stderr, "matched; cur result #:%ld; cur probing element #:%ld\n", counter, element);*/
+/*fprintf(stderr, "probing element #:%ld\n", element++);	element++;			*/
+/*
+#define HASHJOIN(TYPE, WIDTH)                                       \
+	do {                                                            \
+			BUN hashnil = HASHnil(hsh);                             \
+			BUN counter = 0;										\
+			BUN element = 0;										\
+			for (lo = lstart + l->hseqbase;                         \
+				 lstart < lend;                                     \
+				 lo++) {                                            \
+					v = FVALUE(l, lstart);                          \
+					lstart++;                                       \
+
+					nr = 0;                                         \
+					if (*(const TYPE*)v != TYPE##_nil) {            \
+							for (rb = HASHget##WIDTH(hsh, hash_##TYPE(hsh, v)); \
+								 rb != hashnil;                     \
+								 rb = HASHgetlink##WIDTH(hsh, rb))  \
+									if (rb >= rl && rb < rh &&      \
+										* (const TYPE *) v == ((const TYPE *) base)[rb]) { \
+											ro = (oid) (rb - rl + rseq); \
+											HASHLOOPBODY();         \
+											counter++;			\
+									}                               \
+					}                                               \
+					if (nr == 0) {                                  \
+							lskipped = BATcount(r1) > 0;            \
+					} else {                                        \
+							if (lskipped) {                         \
+									r1->tdense = 0;                 \
+							}                                       \
+							if (nr > 1) {                           \
+									r1->tkey = 0;                   \
+									r1->tdense = 0;                 \
+							}                                       \
+							if (BATcount(r1) > nr)                  \
+									r1->trevsorted = 0;             \
+					}                                               \
+					if (element == 100000) {fprintf(stderr, "cur probing element #:%ld\n", element); break;}						\
+			}                                                       \
+	} while (0)
+*/
 
 /** just change the hash function compared to the default probing **/
 /*
@@ -2813,7 +2866,7 @@ do {					\
 
 /** use the boundary of target bin to void false probing **/
 /** the 32/16/8/4/2-scan **/
-#define PROBING(TYPE, WIDTH)\
+#define PROBING_(TYPE, WIDTH)\
 	do {								\
 		lcur = lstart + valueid;\
 		lo = lcur + l->hseqbase;\
@@ -2825,7 +2878,7 @@ do {					\
 			/*GETBIN_RANGE(bin, *(const TYPE*)v, partid_lb, partid_ub);*/	\
 			bin = super_partid;					\
 			highermask = bin << left_shift;		\
-			unprobed_num++;	\
+			/*unprobed_num++;*/	\
 			for (rb = HASHget##WIDTH(hsh, hash_imps_##TYPE(lowermask, v, highermask)); \
 				 rb != hashnil;			\
 				 rb = HASHgetlink##WIDTH(hsh, rb))	\
@@ -2833,7 +2886,7 @@ do {					\
 					* (const TYPE *) v == ((const TYPE *) base)[rb]) { \
 					ro = (oid) (rb - rl + rseq); \
 					HASHLOOPBODY();		\
-					result_num++;		\
+					/*result_num++;	*/	\
 				}				\
 		}						\
 		if (nr == 0) {					\
@@ -2850,6 +2903,79 @@ do {					\
 				r1->trevsorted = 0;		\
 		}						\
 	} while (0)
+
+
+/* the version matching with visit list optimization */
+#define PROBING_PART(TYPE, WIDTH, PART)		\
+	do {								\
+		lcur = lstart + valueid;\
+		lo = lcur + l->hseqbase;\
+		v = FVALUE(l, lcur);				\
+		nr = 0;						\
+		if ((*(const TYPE*)v != TYPE##_nil)) {		\
+			bin = PART;					\
+			highermask = bin << left_shift;		\
+			for (rb = HASHget##WIDTH(hsh, hash_imps_##TYPE(lowermask, v, highermask)); \
+				 rb != hashnil;			\
+				 rb = HASHgetlink##WIDTH(hsh, rb))	\
+				if (rb >= rl && rb < rh &&	\
+					* (const TYPE *) v == ((const TYPE *) base)[rb]) { \
+					ro = (oid) (rb - rl + rseq); \
+					HASHLOOPBODY();		\
+					/*result_num++;	*/	\
+				}				\
+		}						\
+		if (nr == 0) {					\
+			lskipped = BATcount(r1) > 0;		\
+		} else {					\
+			if (lskipped) {				\
+				r1->tdense = 0;			\
+			}					\
+			if (nr > 1) {				\
+				r1->tkey = 0;			\
+				r1->tdense = 0;			\
+			}					\
+			if (BATcount(r1) > nr)			\
+				r1->trevsorted = 0;		\
+		}						\
+	} while (0)
+
+#define PROBING_UNORDERED(TYPE, WIDTH, STEP)\
+	do {								\
+		lcur = lstart + valueid;\
+		lo = lcur + l->hseqbase;\
+		v = FVALUE(l, lcur);				\
+		nr = 0;						\
+		if ((*(const TYPE*)v != TYPE##_nil)) {		\
+			GETBIN_STEP(bin, *(const TYPE*)v, STEP);	\
+			/*bin = super_partid;*/					\
+			highermask = bin << left_shift;		\
+			/*unprobed_num++;*/	\
+			for (rb = HASHget##WIDTH(hsh, hash_imps_##TYPE(lowermask, v, highermask)); \
+				 rb != hashnil;			\
+				 rb = HASHgetlink##WIDTH(hsh, rb))	\
+				if (rb >= rl && rb < rh &&	\
+					* (const TYPE *) v == ((const TYPE *) base)[rb]) { \
+					ro = (oid) (rb - rl + rseq); \
+					HASHLOOPBODY();		\
+					/*result_num++;	*/	\
+				}				\
+		}						\
+		if (nr == 0) {					\
+			lskipped = BATcount(r1) > 0;		\
+		} else {					\
+			if (lskipped) {				\
+				r1->tdense = 0;			\
+			}					\
+			if (nr > 1) {				\
+				r1->tkey = 0;			\
+				r1->tdense = 0;			\
+			}					\
+			if (BATcount(r1) > nr)			\
+				r1->trevsorted = 0;		\
+		}						\
+	} while (0)
+
 
 //const TYPE *restrict bins = (TYPE *) imprints->bins;
 //const int B = imprints->bits;
@@ -2926,7 +3052,7 @@ do {					\
 	} while (0)
 */
 
-/* scan iterations become 2, 4, 8, 16, 32 */
+/* scan iterations become 1, 2, 4, 8, 16, 32, 64 */
 #define HASHJOIN_IMPS(TYPE, WIDTH)						\
 	do {								\
 		BUN hashnil = HASHnil(hsh);				\
@@ -2948,16 +3074,17 @@ do {					\
 		uint64_t *restrict im = (uint64_t *) imprints->imps;	\
 		const TYPE *restrict bins = (TYPE *) imprints->bins;	\
 		\
-		uint64_t result_num = 0;\
-		uint64_t unprobed_num = 0;\
+		/*uint64_t result_num = 0;*/\
+		/*uint64_t unprobed_num = 0;*/\
 		BUN total_cnt = lend - lstart;\
-		unsigned int imps_bits = 0;  	/**configurable**/ 	\
+		unsigned int imps_bits = GDK_imps_hashjoin_bits;  	 	\
 		unsigned int pattern_bit =  (unsigned int)1 << (6 - imps_bits) ;		\
 		BUN lowermask = (hsh->mask) >> imps_bits;			\
 		unsigned int left_shift = __builtin_popcount(hsh->mask) - imps_bits;\
 		BUN highermask = 0;\
 		TYPE lbound, hbound;\
 		uint64_t pattern = (imps_bits != 0) ? (((uint64_t) 1 << pattern_bit) - 1) : 0xFFFFFFFFFFFFFFFF;\
+		fprintf(stderr, "imps_bits: %d\n", imps_bits);\
 		\
 		for (; super_partid < maxpart/pattern_bit; ++super_partid)	{\
 			partid_lb = super_partid * pattern_bit;\
@@ -2975,7 +3102,7 @@ do {					\
 							valueid_lim = valueid + vpc;\
 							valueid_lim = valueid_lim > total_cnt ? total_cnt : valueid_lim;\
 							for (; valueid < valueid_lim; valueid++) {\
-								PROBING(TYPE, WIDTH);\
+								PROBING_(TYPE, WIDTH);\
 							}\
 						}\
 					}\
@@ -2986,7 +3113,7 @@ do {					\
 						valueid_lim = valueid + vpc * dct[dentry].cnt;\
 						valueid_lim = valueid_lim > total_cnt ? total_cnt : valueid_lim;\
 						for (; valueid < valueid_lim; valueid++) {\
-							PROBING(TYPE, WIDTH);\
+							PROBING_(TYPE, WIDTH);\
 						}\
 					}\
 					icnt++;\
@@ -3185,72 +3312,143 @@ imps_hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matche
 				HASHJOIN_IMPS(int, 2);
 				break;
 			case BUN4:
+			{
 				HASHJOIN_IMPS(int, 4);
+				/* CHANGING FROM: scan iterations become 1, 2, 4, 8, 16, 32, 64
+				   TO: the visit list optimization*/
 				/*
-				do {
-					BUN hashnil = HASHnil(hsh);
-					BUN dentry = 0;
-					unsigned int maxpart = 64;
-					unsigned int partid = 0;
-					uint64_t pattern = 0;
-					BUN lcur;
-					uint64_t i_cnt = 0;
-					uint64_t impsid = 0;
-					uint64_t cache_cnt = 0;
-					uint64_t valueid;
-					int vpc = IMPS_PAGE / 4;
-					unsigned int bin;
-					Imprints *imprints = (VIEWtparent(l) ? BBPdescriptor(VIEWtparent(l)): l)->timprints;
-					cchdc_t *restrict dct = (cchdc_t *) imprints->dict;
-					uint64_t *restrict im = (uint64_t *) imprints->imps;
-					const int *restrict bins = (int *) imprints->bins;
-					const int B = imprints->bits;
+				BUN hashnil = HASHnil(hsh);
+				BUN dentry = 0;
+				//unsigned int maxpart = 64;
+				//unsigned int partid_lb = 0;
+				//unsigned int partid_ub = 0;
+				//unsigned int super_partid = 0;
+				lng timer_gen_list = 0;
+				lng timer_clustered = 0;
+				lng timer_unclustered = 0;
+				BUN lcur;
+				uint64_t icnt = 0;
+				uint64_t top_icnt = 0;
+				uint64_t cache_cnt = 0;
+				uint64_t valueid;
+				uint64_t valueid_lim;
+				int vpc = IMPS_PAGE / 4;
+				unsigned int bin = 0;
+				Imprints *imprints = (VIEWtparent(l) ? BBPdescriptor(VIEWtparent(l)): l)->timprints;
+				cchdc_t *restrict dct = (cchdc_t *) imprints->dict;
+				uint64_t *restrict im = (uint64_t *) imprints->imps;
+				const int *restrict bins = (int *) imprints->bins;
 
-					for (; partid < maxpart; ++partid)	{
-						pattern = (uint64_t) 1 << partid;
-						lcur = lstart;
-						i_cnt = 0;
-						cache_cnt = 0;
-						fprintf(stderr, "target part id:%d\n", partid);
-						for (dentry = 0; dentry < imprints->dictcnt; dentry++) {
-							//fprintf(stderr, "imprints->dictcnt:%ld\n", imprints->dictcnt);
-							if (!dct[dentry].repeat) {
+				BUN total_cnt = lend - lstart;
+				unsigned int imps_bits = GDK_imps_hashjoin_bits;
+				unsigned int pattern_bit =  (unsigned int)1 << (6 - imps_bits) ;
+				BUN lowermask = (hsh->mask) >> imps_bits;
+				unsigned int left_shift = __builtin_popcount(hsh->mask) - imps_bits;
+				BUN highermask = 0;
+				//int lbound, hbound;
+				uint64_t pattern = (imps_bits != 0) ? (((uint64_t) 1 << pattern_bit) - 1) : 0xFFFFFFFFFFFFFFFF;
+				uint64_t ori_pattern = pattern;
+				uint32_t partn = (unsigned int)1 << imps_bits;
+				uint32_t i;
+				size_t cacheline_num = (BATcount(l) % vpc == 0) ? BATcount(l) / vpc : BATcount(l) / vpc + 1;
+				uint32_t ltarget = 0;
+				uint32_t pos[65] = {0};
+				uint32_t lpos;
+				uint32_t** lvisit;
+				timer_gen_list = GDKusec();
 
-								for (impsid = i_cnt; impsid < (i_cnt + dct[dentry].cnt); ++impsid) {
-									assert(impsid < imprints->impcnt);
-									if (im[impsid] & pattern) {
-										//if (partid == 7) {
-										//fprintf(stderr, "checking cache id:%ld\n", cache_cnt);
-										//}
-										for (valueid = cache_cnt * vpc;
-											(valueid < cache_cnt * (vpc+1)) && (lstart + valueid < lend);
-											++valueid) {
-											PROBING(int, 4);
-										}
-									}
-									cache_cnt++;
+				lvisit = (uint32_t **)malloc((partn + 1) * sizeof(uint32_t *));
+				//uint32_t prcnt = 0;
+				fprintf(stderr, "imps_bits: %d\n", imps_bits);
+				for (i = 0; i < partn + 1; ++i) {
+					lvisit[i] = (uint32_t *)malloc(cacheline_num * sizeof(uint32_t));
+				}
+
+				// scan the imprints once to get visit list
+				for (dentry = 0; dentry < imprints->dictcnt; dentry++) {
+					if (!dct[dentry].repeat) {
+						top_icnt = icnt + dct[dentry].cnt;
+						for (; icnt < top_icnt; cache_cnt++, icnt++) {
+							// print im[icnt] for debug
+							//if (prcnt++ < 200) { fprintf(stderr, "%016lx\n", im[icnt]); }
+							ltarget = partn;
+
+							// loop over patterns,
+							pattern = ori_pattern;
+							for (i = 0; i < partn; ++i) {
+								if (!((~pattern) & im[icnt])) {
+								//if (((~pattern) & im[icnt]) == 0) {
+									//fprintf(stderr, "pattern appear\n");
+									ltarget = i;
+									break;
 								}
-								i_cnt += dct[dentry].cnt;
+								pattern = pattern << pattern_bit;
 							}
-							else {
-								assert(i_cnt < imprints->impcnt);
-								if (im[i_cnt] & pattern) {
-									//if (partid == 7) {
-									//fprintf(stderr, "checking cache range: [%ld, %ld]\n", cache_cnt, cache_cnt+dct[dentry].cnt);
-									//}
-									for (valueid = cache_cnt * vpc;
-										(valueid < cache_cnt * vpc + vpc * dct[dentry].cnt) && (lstart + valueid < lend);
-										valueid++) {
-										PROBING(int, 4);
-									}
-								}
-								i_cnt++;
-								cache_cnt += dct[dentry].cnt;
-							}
+
+							lvisit[ltarget][pos[ltarget]++] = cache_cnt;
 						}
 					}
-				} while (0);
+					else {
+						// im[icnt]
+						//if (prcnt++ < 200) { fprintf(stderr, "%016lx\n", im[icnt]); }
+						ltarget = partn;
+
+						// loop over patterns,
+						pattern = ori_pattern;
+						for (i = 0; i < partn; ++i) {
+							if (!((~pattern) & im[icnt])) {
+							//if (((~pattern) & im[icnt]) == 0) {
+								//fprintf(stderr, "pattern appear\n");
+								ltarget = i;
+								break;
+							}
+							pattern = pattern << pattern_bit;
+						}
+						for (i = cache_cnt; i < cache_cnt + dct[dentry].cnt; ++i) {
+							lvisit[ltarget][pos[ltarget]++] = i;
+						}
+						icnt++;
+						cache_cnt += dct[dentry].cnt;
+					}
+				}
+				assert(icnt == imprints->impcnt);
+				fprintf(stderr, "gen list requires " LLFMT " msec\n", (GDKusec() - timer_gen_list)/1000);
+				fprintf(stderr, "%d, %ld, percentage of non-pattern:%f\n", pos[partn], cacheline_num, pos[partn]*1.0/cacheline_num);
+
+				timer_clustered = GDKusec();
+				// probing according to the visit list
+				for (i = 0; i < partn; ++i) {
+					for (lpos = 0; lpos < pos[i]; ++lpos) {
+						valueid = lvisit[i][lpos] * vpc;
+						valueid_lim = valueid + vpc;
+						valueid_lim = valueid_lim > total_cnt ? total_cnt : valueid_lim;
+						for (; valueid < valueid_lim; valueid++) {
+							PROBING_PART(int, 4, i);
+						}
+					}
+				}
+
+				fprintf(stderr, "clustered requires " LLFMT " msec\n", (GDKusec() - timer_clustered)/1000);
+
+				timer_unclustered = GDKusec();
+				for (lpos = 0; lpos < pos[partn]; ++lpos) {
+					valueid = lvisit[i][lpos] * vpc;
+					valueid_lim = valueid + vpc;
+					valueid_lim = valueid_lim > total_cnt ? total_cnt : valueid_lim;
+					for (; valueid < valueid_lim; valueid++) {
+						PROBING_UNORDERED(int, 4, 64/partn);
+					}
+				}
+				fprintf(stderr, "unclustered requires " LLFMT " msec\n", (GDKusec() - timer_unclustered)/1000);
+
+				//destroy
+				for (i = 0; i < partn; ++i) {
+					free(lvisit[i]);
+				}
+				free(lvisit);
+
 				*/
+			}
 				break;
 #ifdef BUN8
 			case BUN8:
@@ -3698,6 +3896,8 @@ hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches,
 		/* special case for a common way of calling this
 		 * function */
 		const void *restrict base = Tloc(r, 0);
+
+		fprintf(stderr, "entering probe phase\n");
 
 		timer_probe = GDKusec();
 
@@ -4800,6 +5000,7 @@ BATouterjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_mat
 gdk_return
 BATsemijoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate)
 {
+	//imps_hashjoin(*r1p, *r2p, l, r, sl, sr, nil_matches, 0, 0, 0, estimate, 0, 0, "");//for debug issue
 	return subleftjoin(r1p, r2p, l, r, sl, sr, nil_matches,
 			   0, 1, 0, estimate, "BATsemijoin",
 			   GDKdebug & ALGOMASK ? GDKusec() : 0);
@@ -5014,20 +5215,22 @@ BATjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches,
 		/* no hashes, not sorted, create hash on smallest BAT */
 		swap = 1;
 		reason = "left is smaller";
-	} else {
-		imps_hashjoin(r1, r2, l, r, sl, sr, nil_matches, 0, 0, 0, maxsize, t0, 0, reason);//for debug issue
 	}
 	if (swap) {
 		if ((sr == NULL) && (sl == NULL)) {
 			//return imps_hashjoin(r2, r1, r, l, sr, sl, nil_matches, 0, 0, 0, maxsize, t0, 1, reason);
-			return hashjoin(r2, r1, r, l, sr, sl, nil_matches, 0, 0, 0, maxsize, t0, 1, reason);
+			//return hashjoin(r2, r1, r, l, sr, sl, nil_matches, 0, 0, 0, maxsize, t0, 1, reason);	//default setting
+
+			return imps_hashjoin(r2, r1, r, l, sr, sl, nil_matches, 0, 0, 0, maxsize, t0, 1, reason);	//always use left column as the build target
 		} else {
 			return hashjoin(r2, r1, r, l, sr, sl, nil_matches, 0, 0, 0, maxsize, t0, 1, reason);
 		}
 	} else {
 		if ((sr == NULL) && (sl == NULL)) {
 			//return imps_hashjoin(r1, r2, l, r, sl, sr, nil_matches, 0, 0, 0, maxsize, t0, 0, reason);
-			return hashjoin(r1, r2, l, r, sl, sr, nil_matches, 0, 0, 0, maxsize, t0, 0, reason);
+			return imps_hashjoin(r1, r2, l, r, sl, sr, nil_matches, 0, 0, 0, maxsize, t0, 0, reason); 	//default setting
+
+			//return imps_hashjoin(r2, r1, r, l, sr, sl, nil_matches, 0, 0, 0, maxsize, t0, 1, reason);	//always use left column as the build target
 		} else {
 			return hashjoin(r1, r2, l, r, sl, sr, nil_matches, 0, 0, 0, maxsize, t0, 0, reason);
 		}
