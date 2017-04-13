@@ -1804,8 +1804,8 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_column *col;
 	str msg = MAL_SUCCEED;
 	size_t sz;
-	oid rid;
 	char *filenames_query = GDKmalloc(BUFSIZ);
+	str etname = NULL;
 	res_table *fres = NULL;
 
 	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED) {
@@ -1816,40 +1816,16 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		goto loadtable_cleanup;
 	}
 
-	sch = mvc_bind_schema(m, "sys");
-	if (sch == NULL) {
-		msg = createException(MAL, "lidar.loadtable", "Cannot access schema \"sys\"\n");
+	/* Check that the table exists in the LIDAR catalog. If not, it has not been
+	 * attached yet
+	 */
+	etname = SQLescapeString(tname);
+	if (!etname) {
+		msg = createException(MAL, "lidar.loadtable", MAL_MALLOC_FAIL);
 		goto loadtable_cleanup;
 	}
 
-	lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
-	if (lidar_tbl == NULL) {
-		msg = createException(MAL, "lidar.loadtable", "LIDAR catalog is missing.\n");
-		goto loadtable_cleanup;
-	}
-
-	/* Search for the requested table in the LiDAR catalog */
-	col = mvc_bind_column(m, lidar_tbl, "name");
-	rid = table_funcs.column_find_row(m->session->tr, col, &tname, NULL);
-	if (rid == oid_nil) {
-		msg = createException(MAL, "lidar.loadtable", "Table %s has not been attached.\n", tname);
-		goto loadtable_cleanup;
-	}
-
-	tbl = mvc_bind_table(m, sch, tname);
-	if (tbl == NULL) {
-		msg = createException(MAL, "lidar.loadtable", "Could not find table %s.\n", tname);
-		goto loadtable_cleanup;
-	}
-
-	col = mvc_bind_column(m, tbl, "x");
-	sz = store_funcs.count_col(m->session->tr, col, 1);
-	if (sz != 0) {
-		msg = createException(MAL, "lidar.loadtable", "Table %s is not empty.\n", tname);
-		goto loadtable_cleanup;
-	}
-
-	snprintf(filenames_query, BUFSIZ, "SELECT id FROM lidar_tables WHERE name='%s';", tname);
+	snprintf(filenames_query, BUFSIZ, "SELECT id FROM lidar_tables WHERE name='%s';", etname);
 	msg = SQLstatementIntern(cntxt, &filenames_query, "rows", 1, 0, &fres);
 	if (msg != MAL_SUCCEED) {
 		goto loadtable_cleanup;
@@ -1858,6 +1834,31 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (fres) {
 		BATiter fs_rid = bat_iterator(BATdescriptor(fres->cols[0].b));
 		oid id = 0, cnt = BATcount(fs_rid.b);
+
+		sch = mvc_bind_schema(m, "sys");
+		if (sch == NULL) {
+			msg = createException(MAL, "lidar.loadtable", "Cannot access schema \"sys\"\n");
+			goto loadtable_cleanup;
+		}
+
+		lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
+		if (lidar_tbl == NULL) {
+			msg = createException(MAL, "lidar.loadtable", "LIDAR catalog is missing.\n");
+			goto loadtable_cleanup;
+		}
+
+		tbl = mvc_bind_table(m, sch, tname);
+		if (tbl == NULL) {
+			msg = createException(MAL, "lidar.loadtable", "Could not find table %s.\n", tname);
+			goto loadtable_cleanup;
+		}
+
+		col = mvc_bind_column(m, tbl, "x");
+		sz = store_funcs.count_col(m->session->tr, col, 1);
+		if (sz != 0) {
+			msg = createException(MAL, "lidar.loadtable", "Table %s is not empty.\n", tname);
+			goto loadtable_cleanup;
+		}
 #ifndef NDEBUG
 		fprintf(stderr, "count: " OIDFMT "\n", cnt);
 #endif
@@ -1874,6 +1875,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 loadtable_cleanup:
+	GDKfree(etname);
 	GDKfree(tname);
 	GDKfree(filenames_query);
 
