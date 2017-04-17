@@ -1,0 +1,4 @@
+#simple test dealing with a blanc ending
+#caused evalFile issues
+io.print(1);
+
