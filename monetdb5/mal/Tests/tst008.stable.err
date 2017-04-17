@@ -38,7 +38,7 @@ QUERY = function foo();
         end foo;
 ERROR = !SyntaxException: io.printi;
         !SyntaxException:^10 '(' expected
-        !TypeException:user.foo[2]:'io.printi' undefined in:     io.printi();
+        !TypeException:user.foo[1]:'i' may not be used before being initialized
 
 
 # 10:46:01 >  

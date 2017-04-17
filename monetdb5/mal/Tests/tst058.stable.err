@@ -79,7 +79,7 @@ ERROR = !SyntaxException:-- some typos i:= 1 + 1 + 1;
         !SyntaxException:^0 convertConstant: integer parse error!SyntaxException:-- some typos i:= 1 + 1 + 1;
         !SyntaxException:-- some typos i:= 1 + 1 + 1;
         !SyntaxException:^0 convertConstant: integer parse error
-        !SyntaxException:user.main[2]:^29 <identifier> expected
+        !SyntaxException:user.main[2]:^29 simple left-hand-side <identifier> expected
         !SyntaxException: j:= 1 + + 1;
         !SyntaxException:^9 <term> expected
 

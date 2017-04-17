@@ -45,7 +45,6 @@ ERROR = !SyntaxException: d:= [+](b,c) ;
         !SyntaxException:^5 <ident> or <operator> expected
         !SyntaxException:a:= b [+] b;
         !SyntaxException:^6 <ident> or <operator> expected
-        !TypeException:user.foo[2]:'multiplex.+' undefined in:     x:any := multiplex.+(b:bat[:lng], b:bat[:lng]);
 
 # 12:36:20 >  
 # 12:36:20 >  "Done."
