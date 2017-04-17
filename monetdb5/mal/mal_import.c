@@ -136,7 +136,6 @@ evalFile(Client cntxt, str fname, int listing, int included)
 			GDKfree(c->prompt);
 			c->prompt= NULL;
 			c->promptlength = 0;
-			c->blkmode = 1; // collect all statements
 			msg = defaultScenario(c);
 			if( msg == MAL_SUCCEED){ 
 				(void) MSinitClientPrg(c, "user", "main");  /* create new context */
@@ -201,7 +200,8 @@ compileString(Client cntxt, str s)
 	c = MCinitClient((oid)0,0,0);
 	c->fdin = bstream_create(buffer_rastream(b, "compileString"), b->len);
 	strncpy(c->fdin->buf,s,len);
-	c->curmodule = c->usermodule = userModule();
+	// use namespace of caller to keep the block around
+	c->curmodule = c->usermodule = cntxt->usermodule;
 	GDKfree(c->prompt);
 	c->prompt= NULL;
 	c->promptlength = 0;
@@ -218,6 +218,7 @@ compileString(Client cntxt, str s)
 		pushEndInstruction(c->curprg->def);
 		chkProgram(c->usermodule, c->curprg->def);
 	}
+	c->curmodule = c->usermodule = 0;
 	c->fdout = 0;
 	cntxt->curprg = c->curprg;
 	c->curprg = 0;
@@ -232,9 +233,12 @@ callString(Client cntxt, str s)
 	str msg = MAL_SUCCEED;
 
 	c = MCinitClient((oid)0,cntxt->fdin,cntxt->fdout);
+	// use namespace of caller to leave the block around
+	c->curmodule = c->usermodule = cntxt->usermodule;
 	msg = compileString(c,s);
 	if( msg == MAL_SUCCEED)
 		runMAL(c, c->curprg->def,0,0);
+	c->curmodule = c->usermodule = 0;
 	c->fdin= 0;
 	c->fdout = 0;
 	MCcloseClient(c);

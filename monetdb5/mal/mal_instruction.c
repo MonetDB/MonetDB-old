@@ -837,6 +837,9 @@ trimMalVariables_(MalBlkPtr mb, MalStkPtr glb)
 
 	/* build the alias table */
 	for (i = 0; i < mb->vtop; i++) {
+#ifdef DEBUG_REDUCE
+		fprintf(stderr,"used %s %d\n", getVarName(mb,i), isVarUsed(mb,i));
+#endif
 		if ( isVarUsed(mb,i) == 0) {
 			if (glb && isVarConstant(mb, i))
 				VALclear(&glb->stk[i]);
@@ -869,8 +872,12 @@ trimMalVariables_(MalBlkPtr mb, MalStkPtr glb)
 	if (cnt < mb->vtop) {
 		for (i = 0; i < mb->stop; i++) {
 			q = getInstrPtr(mb, i);
-			for (j = 0; j < q->argc; j++)
+			for (j = 0; j < q->argc; j++){
+#ifdef DEBUG_REDUCE
+				fprintf(stderr, "map %d->%d\n", getArg(q,j), alias[getArg(q,j)]);
+#endif
 				getArg(q, j) = alias[getArg(q, j)];
+				}
 		}
 	}
 	/* rename the temporary variable */
@@ -893,13 +900,16 @@ trimMalVariables(MalBlkPtr mb, MalStkPtr stk)
 	int i, j;
 	InstrPtr q;
 
-	/* reset the use bit */
+	/* reset the use bit for all non-signature arguments */
 	for (i = 0; i < mb->vtop; i++) 
 		clrVarUsed(mb,i);
+	/* the return variable is also 'used' */
+	i = findVariable(mb, getFunctionId(mb->stmt[0]));
+	assert(i >=0);
+	setVarUsed(mb,i);
 	/* build the use table */
 	for (i = 0; i < mb->stop; i++) {
 		q = getInstrPtr(mb, i);
-
 		for (j = 0; j < q->argc; j++)
 			setVarUsed(mb,getArg(q,j));
 	}

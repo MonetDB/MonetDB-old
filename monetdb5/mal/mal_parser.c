@@ -1154,7 +1154,7 @@ parseCommandPattern(Client cntxt, int kind)
 		int i;
 		i = idLength(cntxt);
 		if (i == 0) {
-			parseError(cntxt, "<identifier> expected\n");
+			parseError(cntxt, "address <identifier> expected\n");
 			return 0;
 		}
 		cntxt->blkmode = 0;
@@ -1208,7 +1208,7 @@ parseFunction(Client cntxt, int kind)
 		InstrPtr curInstr = getInstrPtr(cntxt->curprg->def, 0);
 		i = idLength(cntxt);
 		if (i == 0) {
-			parseError(cntxt, "<identifier> expected\n");
+			parseError(cntxt, "address <identifier> expected\n");
 			return 0;
 		}
 		nme = idCopy(cntxt, i);
@@ -1256,7 +1256,7 @@ parseEnd(Client cntxt)
 			strncmp(cntxt->lineptr, getFunctionId(sig), l) == 0) || l == 0) {} else {
 			advance(cntxt, l);
 			parseError(cntxt, "non matching end label\n");
-			return 0;
+			return 1;
 		}
 		advance(cntxt, l);
 		pushEndInstruction(cntxt->curprg->def);
@@ -1265,7 +1265,8 @@ parseEnd(Client cntxt)
 			insertSymbol(cntxt->usermodule, cntxt->curprg);
 		else
 			insertSymbol(getModule(getModuleId(sig)), cntxt->curprg);
-        chkProgram(cntxt->usermodule, cntxt->curprg->def);
+		if( cntxt->curprg->def->errors == MAL_SUCCEED)
+			chkProgram(cntxt->usermodule, cntxt->curprg->def);
         if (cntxt->backup) {
 			cntxt->backup->def->errors = GDKstrdup(cntxt->curprg->def->errors);
             cntxt->curprg = cntxt->backup;
@@ -1344,7 +1345,7 @@ parseStatement(Client cntxt, int cntrl)
 		while (*cntxt->lineptr != ')' && *cntxt->lineptr) {
 			l = idLength(cntxt);
 			if (l == 0 ) {
-				parseError(cntxt, "<identifier> expected\n");
+				parseError(cntxt, "left-hand-side <identifier> expected\n");
 				goto part3;
 			}
 			GETvariable;
@@ -1384,12 +1385,12 @@ parseStatement(Client cntxt, int cntrl)
 				curInstr->argv[0] = getBarrierEnvelop(curBlk);
 				pushInstruction(curBlk, curInstr);
 				if (*cntxt->lineptr != ';')
-					parseError(cntxt, "<identifier> expected\n");
+					parseError(cntxt, "<identifier> expected in control statement\n");
 				return;
 			}
 			getArg(curInstr, 0) = newTmpVariable(curBlk, TYPE_any);
 			pushInstruction(curBlk, curInstr);
-			parseError(cntxt, "<identifier> expected\n");
+			parseError(cntxt, "simple left-hand-side <identifier> expected\n");
 			return;
 		}
 		/* Check if we are dealing with module.fcn call*/

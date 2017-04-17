@@ -196,15 +196,15 @@ command rpc(key:int,qry:str):int
 address SERVERquery
 comment "Send a simple query for execution.";
 
-pattern bind(key:int,rschema:str,rtable:str,rcolumn:str,i:int):bat[:any_2]
+pattern bind(key:int,rschema:str,rtable:str,rcolumn:str,i:int):bat[:any]
 address SERVERbindBAT
 comment "Bind a remote variable to a local one.";
 
-pattern bind(key:int,rschema:str,rtable:str,i:int):bat[:any_2]
+pattern bind(key:int,rschema:str,rtable:str,i:int):bat[:any]
 address SERVERbindBAT
 comment "Bind a remote variable to a local one.";
 
-pattern bind(key:int,remoteName:str):bat[:any_2]
+pattern bind(key:int,remoteName:str):bat[:any]
 address SERVERbindBAT
 comment "Bind a remote variable to a local one.";
 

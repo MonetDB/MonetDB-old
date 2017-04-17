@@ -109,7 +109,8 @@ void
 MCpopClientInput(Client c)
 {
 	ClientInput *x = c->bak;
-	if (c->fdin) {
+
+	if (c->fdin && c->fdin != x->fdin) {
 		/* missing protection against closing stdin stream */
 		bstream_destroy(c->fdin);
 	}

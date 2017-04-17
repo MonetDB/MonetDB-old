@@ -6,7 +6,7 @@
 
 module bbp;
 
-pattern bind(name:str):bat[:any_2]
+pattern bind(name:str):bat[:any]
 address CMDbbpbind
 comment "Locate the BAT using its logical name";
 

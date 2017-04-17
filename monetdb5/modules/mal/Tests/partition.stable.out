@@ -43,10 +43,9 @@ function user.tst():void;               	#[0] (0)  0
     io.print(b2:bat[:int]);             	#[13] (0) IOprint_val 21 <- 19 
     b3:bat[:int] := bat.partition(b:bat[:int]);	#[14] (0) CMDBATpartition 22 <- 1 
     io.print(b3:bat[:int]);             	#[15] (0) IOprint_val 23 <- 22 
-# an error should be produced           
-    e:bat[:int] := bat.partition(b:bat[:int], 2:int, -1:int);	#[17] (0) CMDBATpartition2 25 <- 1 6 26 
-    io.print(e:bat[:int]);              	#[18] (0) IOprint_val 27 <- 25 
-end user.tst;                           	#[19] (0)  
+    e:bat[:int] := bat.partition(b:bat[:int], 2:int, -1:int);	#[16] (0) CMDBATpartition2 24 <- 1 6 25 
+    io.print(e:bat[:int]);              	#[17] (0) IOprint_val 26 <- 24 
+end user.tst;                           	#[18] (0)  
 #--------------------------#
 # h	t	  # name
 # void	int	  # type

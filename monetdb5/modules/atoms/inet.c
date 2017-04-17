@@ -23,7 +23,7 @@
 #include "mal_exception.h"
 
 /*
- * @* Implementation Code
+ * Implementation Code
  * The first 4 bytes of the used lng are in use by the four quads of the
  * IPv4 address, stored in network order.  In the four bytes left,
  * additional information is stored.
@@ -140,7 +140,7 @@ INETfromString(const char *src, int *len, inet **retval)
 		if (src[i] == '.' || src[i] == '/') {
 			sep = src[i];
 			parse = strtol(src + last, &endptr, 10);
-			if (*endptr != sep || last >= i) {
+			if (i>0 && (*endptr != sep || last >= i) ){
 				GDKerror("Error while parsing, unexpected string '%s'", endptr);
 				goto error;
 			}
