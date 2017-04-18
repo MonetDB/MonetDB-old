@@ -657,6 +657,18 @@ MALreader(Client c)
 		}
 
 		for( ; c->fdin->pos < c->fdin->len ; l++){
+			if (!string && *l == '#' ){
+				*s = 0;
+				// eat everything away until end of line
+				for( ; *l && c->fdin->pos < c->fdin->len ; l++){
+					if ( c->listing)
+						mnstr_printf(c->fdout,"%c", *l);
+					c->fdin->pos++;
+					if (*l && ( *l == '\n' ||  *l == '\r' ))
+						break;
+				}
+				return MAL_SUCCEED;
+			}
 			// skip string literals
 			if ( *l == '"' ){
 				if ( string == 0)
@@ -677,20 +689,6 @@ MALreader(Client c)
 				return MAL_SUCCEED;
 			}
 			
-			if ( *l == '#' ){
-				c->linefill--;
-				s--;
-				*s = 0;
-				// eat everything away until end of line
-				for( l++ ; *l && c->fdin->pos < c->fdin->len ; l++){
-					if ( c->listing)
-						mnstr_printf(c->fdout,"%c", *l);
-					c->fdin->pos++;
-					if (*l && ( *l == '\n' ||  *l == '\r' ))
-						break;
-				}
-				return MAL_SUCCEED;
-			}
 		}
 		*s = 0;
 	} while (c->fdin->eof == 0 || blocked);
