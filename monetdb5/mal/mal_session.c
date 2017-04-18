@@ -658,37 +658,37 @@ MALreader(Client c)
 
 		for( ; c->fdin->pos < c->fdin->len ; l++){
 			if (!string && *l == '#' ){
-				*s = 0;
+				c->fdin->pos++;
 				// eat everything away until end of line
-				for( ; *l && c->fdin->pos < c->fdin->len ; l++){
+				for(l++ ; *l && c->fdin->pos < c->fdin->len ; l++){
 					if ( c->listing)
 						mnstr_printf(c->fdout,"%c", *l);
 					c->fdin->pos++;
-					if (*l && ( *l == '\n' ||  *l == '\r' ))
+					if (*l == '\n' ||  *l == '\r' )
 						break;
 				}
-				return MAL_SUCCEED;
+			} else {
+				// skip string literals
+				if ( *l == '"' ){
+					if ( string == 0)
+						string = 1;
+					else
+					if ( string && *(l-1) != '\\')
+						string = !string;
+				}
+				// collect the characters to be parsed
+				*s++ = *l;
+				c->linefill++;
+				c->fdin->pos++;
+				if ( c->listing)
+					mnstr_printf(c->fdout,"%c", *l);
+				if( string)
+					continue;
+				if ( *l == ';' ){
+					*s = 0;
+					return MAL_SUCCEED;
+				}
 			}
-			// skip string literals
-			if ( *l == '"' ){
-				if ( string == 0)
-					string = 1;
-				else
-				if ( string && *(l-1) != '\\')
-					string = !string;
-			}
-			*s++ = *l;
-			c->linefill++;
-			c->fdin->pos++;
-			if ( c->listing)
-				mnstr_printf(c->fdout,"%c", *l);
-			if( string)
-				continue;
-			if ( *l == ';' ){
-				*s = 0;
-				return MAL_SUCCEED;
-			}
-			
 		}
 		*s = 0;
 	} while (c->fdin->eof == 0 || blocked);
@@ -716,11 +716,12 @@ MALparser(Client cntxt)
 	vtop = cntxt->curprg->def->vtop;
 
 	if( cntxt->linefill == 0)
-		return msg;
+		return MAL_SUCCEED;
 	// parse a single MAL instruction, add it to the container cntxt->curprg->def
 	finalize= parseMAL(cntxt);
 
 	assert(cntxt->line);
+	// reset the input buffer
 	cntxt->linefill = 0;
 	cntxt->lineptr = cntxt->line;
 	*cntxt->line = 0;
