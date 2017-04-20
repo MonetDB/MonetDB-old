@@ -145,14 +145,17 @@ MSresetClientPrg(Client cntxt, str mod, str nme)
 str
 MSinitClientPrg(Client cntxt, str mod, str nme)
 {
+	int idx;
+
 	if (cntxt->curprg  && idcmp(nme, cntxt->curprg->name) == 0)
 		return MSresetClientPrg(cntxt, putName(mod), putName(nme));
 	cntxt->curprg = newFunction(putName(mod), putName(nme), FUNCTIONsymbol);
-	if( strcmp(mod,"user")==0 && strcmp(nme,"main")==0)
-		setVarType(cntxt->curprg->def, findVariable(cntxt->curprg->def,"main"), TYPE_void);
+	if( (idx= findVariable(cntxt->curprg->def,"main")) >=0)
+		setVarType(cntxt->curprg->def, idx, TYPE_void);
+	insertSymbol(cntxt->usermodule,cntxt->curprg);
+	
 	if( cntxt->curprg == 0)
 		throw(MAL, "initClientPrg", MAL_MALLOC_FAIL);
-	
 	if (cntxt->glb == NULL )
 		cntxt->glb = newGlobalStack(MAXGLOBALS + cntxt->curprg->def->vsize);
 	if( cntxt->glb == NULL)
@@ -415,9 +418,8 @@ MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start)
 #ifdef _DEBUG_SESSION_
 	fprintf(stderr,"resetVarables %d  vtop %d errors %s\n", start, mb->vtop,mb->errors);
 #endif
-	if( start <= mb->vtop)
-		for (i = 0; i < start ; i++)
-			setVarUsed(mb,i);
+	for (i = 0; i < start && i < mb->vtop ; i++)
+		setVarUsed(mb,i);
 	if (mb->errors == MAL_SUCCEED)
 		for (i = start; i < mb->vtop; i++) {
 			if (isVarUsed(mb,i) || !isTmpVar(mb,i)){
@@ -581,6 +583,7 @@ MALreader(Client c)
 {	str s,l;
 	int string = 0;
 	int blocked;
+	ssize_t nr =0;
 
 	// First eat away any left over input
 	if( c->linefill)
@@ -590,7 +593,6 @@ MALreader(Client c)
 	do{
 		blocked = isa_block_stream(c->fdin->s);
 		if(c->fdin->pos >= c->fdin->len ){
-			ssize_t nr = 0;
 			if(c->fdin->eof && c->prompt ){
 				if (!blocked)
 					mnstr_write(c->fdout, c->prompt, strlen(c->prompt), 1);
@@ -660,13 +662,23 @@ MALreader(Client c)
 			if (!string && *l == '#' ){
 				c->fdin->pos++;
 				// eat everything away until end of line
-				for(l++ ; *l && c->fdin->pos < c->fdin->len ; l++){
+				l++;
+			continuecomment:
+				for(; *l && c->fdin->pos < c->fdin->len ; l++){
 					if ( c->listing)
 						mnstr_printf(c->fdout,"%c", *l);
 					c->fdin->pos++;
 					if (*l == '\n' ||  *l == '\r' )
 						break;
 				}
+				// check for non-terminated comment before continuing
+				if ( *l != '\n' && *l != '\r' && blocked ){
+					nr = bstream_next(c->fdin); // check for eof 
+					if (c->fdin->eof)
+						goto alternative;
+					if( nr) 
+						goto continuecomment;
+				} 
 			} else {
 				// skip string literals
 				if ( *l == '"' ){
@@ -713,7 +725,7 @@ MALparser(Client cntxt)
 	int finalize;
 
 	cntxt->curprg->def->errors = MAL_SUCCEED;
-	vtop = cntxt->curprg->def->vtop;
+	vtop = cntxt->curprg->def->stmt[0]->argc;
 
 	if( cntxt->linefill == 0)
 		return MAL_SUCCEED;
@@ -760,12 +772,6 @@ MALparser(Client cntxt)
 		// insert the symbol first, otherwise we can not check recursive calls.
 		// Erroneous functions are not destroyed, because the user may want to inspect them
 		// They will never be executed though
-#ifdef _DEBUG_SESSION_
-		fprintf(stderr,"insert symbol %s.%s in %s\n", 	
-			getModuleId(getSignature(cntxt->curprg)),
-			getFunctionId(getSignature(cntxt->curprg)),
-			cntxt->usermodule->name);
-#endif
 /*
 		insertSymbol(cntxt->usermodule, cntxt->curprg);
 		chkProgram(cntxt->usermodule, cntxt->curprg->def);

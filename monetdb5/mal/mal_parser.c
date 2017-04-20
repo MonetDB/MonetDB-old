@@ -1271,7 +1271,8 @@ parseEnd(Client cntxt)
 			cntxt->backup->def->errors = GDKstrdup(cntxt->curprg->def->errors);
             cntxt->curprg = cntxt->backup;
             cntxt->backup = 0;
-        }
+        }  else
+			(void) MSinitClientPrg(cntxt,"user","main");
 		return 1;
 	}
 	return 0;
