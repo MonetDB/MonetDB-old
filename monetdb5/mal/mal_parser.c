@@ -992,6 +992,7 @@ fcnHeader(Client cntxt, int kind)
                 freeSymbol(cntxt->curprg);
                 cntxt->curprg = cntxt->backup;
                 cntxt->backup = 0;
+				curBlk = NULL;
             }
 			parseError(cntxt, "',' expected\n");
 			return 1;
@@ -1004,6 +1005,7 @@ fcnHeader(Client cntxt, int kind)
 			freeSymbol(cntxt->curprg);
 			cntxt->curprg = cntxt->backup;
 			cntxt->backup = 0;
+			curBlk = NULL;
 		}
 
 		parseError(cntxt, "')' expected\n");
@@ -1047,6 +1049,7 @@ fcnHeader(Client cntxt, int kind)
 					freeSymbol(cntxt->curprg);
 					cntxt->curprg = cntxt->backup;
 					cntxt->backup = 0;
+					curBlk = NULL;
 				}
 
 				parseError(cntxt, "',' expected\n");
@@ -1064,6 +1067,7 @@ fcnHeader(Client cntxt, int kind)
                 freeSymbol(cntxt->curprg);
                 cntxt->curprg = cntxt->backup;
                 cntxt->backup = 0;
+				curBlk = NULL;
             }
 			parseError(cntxt, MAL_MALLOC_FAIL);
 			return 1;
@@ -1084,6 +1088,7 @@ fcnHeader(Client cntxt, int kind)
                 freeSymbol(cntxt->curprg);
                 cntxt->curprg = cntxt->backup;
                 cntxt->backup = 0;
+				curBlk = NULL;
             }
 			parseError(cntxt, "')' expected\n");
 			return 1;

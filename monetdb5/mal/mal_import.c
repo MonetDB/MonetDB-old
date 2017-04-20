@@ -76,7 +76,6 @@ malOpenSource(str file)
  * Beware that we have to isolate the execution of the source file
  * in its own environment. 
 */
-
 #ifdef HAVE_EMBEDDED
 extern char* mal_init_inline;
 #endif
