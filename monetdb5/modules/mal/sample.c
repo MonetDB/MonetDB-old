@@ -17,7 +17,7 @@
  * query, b) the base tables, and c) the entire database schema. Sampling
  * can be performed during query execution, as well as during data loading in
  * the case of predefined sampling indexes. In addition to the sampling
- * methods, a number of query plan optimisations for sampling are introduced on
+ * methods, a number of query plan optimizations for sampling are introduced on
  * the SQL and MAL level.
  *
  * Besides the sampling methods, SciBORQ also aims at multi-layered bounded
