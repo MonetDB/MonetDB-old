@@ -1521,10 +1521,11 @@ part2:  /* consume <operator><term> part of expression */
 	}
 part3:
 	skipSpace(cntxt);
-	if (*cntxt->lineptr != ';')
+	if (*cntxt->lineptr != ';' && cntxt->curprg->def->errors == MAL_SUCCEED)
 		parseError(cntxt, "';' expected\n");
 	pushInstruction(curBlk, curInstr);
-	if (cntrl == RETURNsymbol && !(curInstr->token == ASSIGNsymbol || getModuleId(curInstr) != 0))
+	if (cntrl == RETURNsymbol && !(curInstr->token == ASSIGNsymbol || getModuleId(curInstr) != 0) 
+		&& cntxt->curprg->def->errors == MAL_SUCCEED)
 		parseError(cntxt, "return assignment expected\n");
 }
 

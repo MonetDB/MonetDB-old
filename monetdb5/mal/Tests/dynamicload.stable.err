@@ -91,7 +91,7 @@ QUERY = # examples of non-bindable instructions
         comment "Should not be callable";
         
         wrong();
-
+ERROR = !SyntaxException: include UNKNOWlib;
         !SyntaxException:^19 MALException:mal.import:#WARNING: could not open file: UNKNOWlib
         !TypeException:user.main[1]:object code for command user.wrong missing
         !TypeException:user.main[1]:'user.wrong' undefined in:     user.wrong();

@@ -616,6 +616,7 @@ MALreader(Client c)
 					fprintf(stderr,"Pop the input stream for client %d\n", c->idx);
 #endif
 					MCpopClientInput(c);
+					nr = -1; // force reading next part 
 				} else{
 					// if we have unprocessed data we should return and await its consumption
 					if(c->line && *c->line){
@@ -624,8 +625,8 @@ MALreader(Client c)
 					MT_lock_set(&mal_contextLock);
 					c->mode = FINISHCLIENT;
 					MT_lock_unset(&mal_contextLock);
+					return MAL_SUCCEED;
 				}
-				return MAL_SUCCEED;
 			}
 			if (!nr && blocked ){
 				nr = bstream_next(c->fdin); // check for eof 
