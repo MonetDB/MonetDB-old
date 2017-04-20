@@ -84,7 +84,7 @@ create procedure iot.heartbeat("schema" string, "table" string, msec integer)
 create procedure iot.heartbeat("schema" string, "table" string, msec bigint)
 	external name iot.heartbeat;
 
--- cleaup activities 
+-- cleanup activities
 create procedure iot.tumble("schema" string, "table" string, elem integer)
 	external name iot.tumble;
 
@@ -129,6 +129,3 @@ external name iot.errors;
 
 -- tables for iotwebserver
 CREATE TABLE iot.webserverstreams (table_id INTEGER, base TINYINT, "interval" INTEGER NULL, unit CHAR(1) NULL);
-
-CREATE TABLE iot.webservercolumns (column_id INTEGER, special TINYINT NULL, validation1 STRING NULL, validation2 STRING NULL);
-

@@ -201,8 +201,9 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe, int prepare)
 	assert(be && be->mvc);	/* SQL clients should always have their state set */
 
 	space = SQLgetSpace(be->mvc, mb, prepare, &alterpipe);
-	if( pipe )
+	if( pipe ) {
 		pipe = strcmp(pipe,"default_pipe") ? pipe: alterpipe;
+	}
     if (msg)
         GDKfree(msg);   /* what to do with an error? */
 
