@@ -26,7 +26,7 @@ INCLUDES = ../../../include \
 lib__vault = {
 	MODULE
 	DIR = libdir/monetdb5
-	SOURCES = vault.c
+	SOURCES = vault.c vault.h
 	LIBS = ../../../../monetdb5/tools/libmonetdb5 \
 	       HAVE_LIDAR?./lidar/lib_lidar \
 	       HAVE_GADGET?./gadget/lib_gadget \
@@ -52,4 +52,3 @@ headers_autoload = {
 }
 
 EXTRA_DIST_DIR = Tests
-EXTRA_DIST = 70_vault.mal vault.mal vault.sql vault.h
