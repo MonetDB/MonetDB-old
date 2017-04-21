@@ -2120,22 +2120,32 @@ gadgetPHkeyInvert(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 
   if (x == NULL || y == NULL || z == NULL || cSize == NULL) {
     if (x)
-      BBPunfix(x->batCacheid);
+	  BBPunfix(x->batCacheid);
     if (y)
-      BBPunfix(y->batCacheid);
-    if (z)
-      BBPunfix(z->batCacheid);
-              
+	  BBPunfix(y->batCacheid);
+	if (z)
+	  BBPunfix(z->batCacheid);
+	if (cSize) /* TODO: Check with Romulo */
+	  BBPunfix(cSize->batCacheid);
+
     throw(SQL, "sql.storage", MAL_MALLOC_FAIL);
   }
 
   peano_hilbert_inverse_key(&posX, &posY, &posZ, phkey, boxSize, bits);
   cellSize = boxSize / (1 << bits);
 
-  BUNappend(x, &posX, FALSE);
-  BUNappend(y, &posY, FALSE);
-  BUNappend(z, &posZ, FALSE);
-  BUNappend(cSize, &cellSize, FALSE);
+  if (BUNappend(x, &posX, FALSE) != GDK_SUCCEED) {
+	  goto fail_cleanup;
+  }
+  if (BUNappend(y, &posY, FALSE) != GDK_SUCCEED) {
+	  goto fail_cleanup;
+  }
+  if (BUNappend(z, &posZ, FALSE) != GDK_SUCCEED) {
+	  goto fail_cleanup;
+  }
+  if (BUNappend(cSize, &cellSize, FALSE) != GDK_SUCCEED) {
+	  goto fail_cleanup;
+  }
 
   BBPkeepref(*rx = x->batCacheid);
   BBPkeepref(*ry = y->batCacheid);
@@ -2143,4 +2153,11 @@ gadgetPHkeyInvert(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
   BBPkeepref(*rcSize = cSize->batCacheid);
 
   return MAL_SUCCEED;
+
+fail_cleanup:
+  BBPunfix(x->batCacheid);
+  BBPunfix(y->batCacheid);
+  BBPunfix(z->batCacheid);
+  BBPunfix(cSize->batCacheid);
+  throw(MAL, "gadget.phkeyinvert", MAL_MALLOC_FAIL);
 }
