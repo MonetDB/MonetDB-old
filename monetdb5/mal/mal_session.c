@@ -603,9 +603,9 @@ MALreader(Client c)
 					mnstr_write(c->fdout, c->prompt, strlen(c->prompt), 1);
 				mnstr_flush(c->fdout);
 				c->fdin->eof = 0;
-			} else
-			if( ! blocked && c->prompt){
-					mnstr_write(c->fdout, c->prompt, strlen(c->prompt), 1);
+			/* console prompt */
+			} else if(!blocked && c->prompt && c->prompt[0]){
+				mnstr_write(c->fdout, c->prompt, strlen(c->prompt), 1);
 				mnstr_flush(c->fdout);
 			}
 			nr = bstream_next(c->fdin);
