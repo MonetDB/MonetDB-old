@@ -20,4 +20,4 @@ comment "Load a LIDAR table from an attached file";
 
 pattern export(tablename:str, fname:str, type:str):void
 address LIDARexportTable
-comment "Exporta LIDAR table to a LAS/LAZ file"
+comment "Exporta LIDAR table to a LAS/LAZ file";

@@ -26,7 +26,7 @@ pattern load(tablename:str):void
 address FITSloadTable
 comment "Load a FITS table from an attached file";
 
-pattern export(tablename :str): void
+pattern export(tablename :str):void
 address FITSexportTable
 comment "Export a table to a FITS file";
 

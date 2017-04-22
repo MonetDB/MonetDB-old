@@ -14,7 +14,7 @@ pattern attach(filename:str) :void
 address NCDFattach
 comment "Register a NetCDF file in the vault";
 
-command importvar(filename:str, varid:int) : str
+command importvar(filename:str, varid:int) :str
 address NCDFimportVarStmt
 comment "Import variable: compose create array string";
 
