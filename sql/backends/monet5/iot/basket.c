@@ -1014,7 +1014,8 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if (binsert)
 			BATappend(bn, binsert, NULL, TRUE);
 		else
-			BUNappend(bn, value, TRUE);
+			if( BUNappend(bn, value, TRUE) != GDK_SUCCEED)
+				throw(MAL,"iot.append","insertion failed\n");
 		BATsettrivprop(bn);
 	} else throw(SQL, "basket.append", "Cannot access target column %s.%s.%s",sname,tname,cname);
 	
@@ -1144,7 +1145,9 @@ BSKTerrorInternal(bat *ret, str sname, str tname, str err)
 	if( baskets[idx].errors == NULL)
 		throw(SQL,"basket.error",MAL_MALLOC_FAIL);
 
-	BUNappend(baskets[idx].errors, err, FALSE);
+	if( BUNappend(baskets[idx].errors, err, FALSE) != GDK_SUCCEED)
+		throw(SQL,"basket.error",MAL_MALLOC_FAIL);
+
 	
 	BBPkeepref(*ret = baskets[idx].errors->batCacheid);
 	return MAL_SUCCEED;
@@ -1232,19 +1235,20 @@ BSKTtable (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	for (i = 1; i < bsktTop; i++)
 		if (baskets[i].table_name) {
-			BUNappend(schema, baskets[i].schema_name, FALSE);
-			BUNappend(name, baskets[i].table_name, FALSE);
-			BUNappend(status, statusname[baskets[i].status], FALSE);
-			BUNappend(winsize, &baskets[i].winsize, FALSE);
-			BUNappend(winstride, &baskets[i].winstride, FALSE);
-			BUNappend(timeslice, &baskets[i].timeslice, FALSE);
-			BUNappend(timestride, &baskets[i].timestride, FALSE);
-			BUNappend(beat, &baskets[i].heartbeat, FALSE);
-			BUNappend(seen, &baskets[i].seen, FALSE);
 			bn = BSKTbindColumn(baskets[i].schema_name, baskets[i].table_name, baskets[i].cols[0]);
-			BUNappend(counts, &baskets[i].count, FALSE);
 			baskets[i].events = bn ? (lng) BATcount( bn): 0;
-			BUNappend(events, &baskets[i].events, FALSE);
+			if( BUNappend(schema, baskets[i].schema_name, FALSE) != GDK_SUCCEED ||
+				BUNappend(name, baskets[i].table_name, FALSE) != GDK_SUCCEED ||
+				BUNappend(status, statusname[baskets[i].status], FALSE) != GDK_SUCCEED ||
+				BUNappend(winsize, &baskets[i].winsize, FALSE) != GDK_SUCCEED ||
+				BUNappend(winstride, &baskets[i].winstride, FALSE) != GDK_SUCCEED ||
+				BUNappend(timeslice, &baskets[i].timeslice, FALSE) != GDK_SUCCEED ||
+				BUNappend(timestride, &baskets[i].timestride, FALSE) != GDK_SUCCEED ||
+				BUNappend(beat, &baskets[i].heartbeat, FALSE) != GDK_SUCCEED ||
+				BUNappend(seen, &baskets[i].seen, FALSE) != GDK_SUCCEED ||
+				BUNappend(counts, &baskets[i].count, FALSE) != GDK_SUCCEED ||
+				BUNappend(events, &baskets[i].events, FALSE) != GDK_SUCCEED )
+				goto wrapup;
 		}
 
 	BBPkeepref(*schemaId = schema->batCacheid);
@@ -1292,6 +1296,8 @@ BSKTtableerrors(bat *nameId, bat *errorId)
 	BATiter bi;
 	BUN p, q;
 	int i;
+	str msg = MAL_SUCCEED;
+
 	name = COLnew(0, TYPE_str, BATTINY, PERSISTENT);
 	if (name == 0)
 		throw(SQL, "baskets.errors", MAL_MALLOC_FAIL);
@@ -1307,13 +1313,16 @@ BSKTtableerrors(bat *nameId, bat *errorId)
 			BATloop(baskets[i].errors, p, q)
 			{
 				str err = BUNtail(bi, p);
-				BUNappend(name, &baskets[i].table_name, FALSE);
-				BUNappend(error, err, FALSE);
+				if( BUNappend(name, &baskets[i].table_name, FALSE) != GDK_SUCCEED ||
+					BUNappend(error, err, FALSE) != GDK_SUCCEED){
+					msg = createException(MAL,"io.tableerrors",MAL_MALLOC_FAIL);
+					break;
+				}
 			}
 		}
 
 
 	BBPkeepref(*nameId = name->batCacheid);
 	BBPkeepref(*errorId = error->batCacheid);
-	return MAL_SUCCEED;
+	return msg;
 }
