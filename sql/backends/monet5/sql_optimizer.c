@@ -204,8 +204,6 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe, int prepare)
 	if( pipe ) {
 		pipe = strcmp(pipe,"default_pipe") ? pipe: alterpipe;
 	}
-    if (msg)
-        GDKfree(msg);   /* what to do with an error? */
 
 	if(pipe == NULL || strcmp(pipe,"default_pipe")== 0){
 		/* for queries with a potential large footprint and running the default pipe line,
