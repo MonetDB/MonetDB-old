@@ -598,17 +598,29 @@ MALreader(Client c)
 	do{
 		blocked = isa_block_stream(c->fdin->s);
 		if(c->fdin->pos >= c->fdin->len ){
-			if(c->fdin->eof && c->prompt ){
-				if (!blocked)
+			/* we need more input from console */
+			if(!blocked ){
+				if( c->prompt && c->prompt[0]){
 					mnstr_write(c->fdout, c->prompt, strlen(c->prompt), 1);
-				mnstr_flush(c->fdout);
+					mnstr_flush(c->fdout);
+					c->fdin->eof = 0;
+				} 
+			} else {
+				/* we need more input from blocked stream */
+				if(c->fdin->eof && c->prompt && c->prompt[0]){
+					mnstr_write(c->fdout, c->prompt, strlen(c->prompt), 1);
+					mnstr_flush(c->fdout);
+				}
+				c->fdin->pos =c->fdin->len = 0;
 				c->fdin->eof = 0;
-			/* console prompt */
-			} else if(!blocked && c->prompt && c->prompt[0]){
-				mnstr_write(c->fdout, c->prompt, strlen(c->prompt), 1);
-				mnstr_flush(c->fdout);
 			}
 			nr = bstream_next(c->fdin);
+/*
+			if (!nr && blocked ){
+				c->fdin->eof = 0;
+				nr = bstream_next(c->fdin); // check for eof 
+			} 
+*/
 			if(nr < 0 || (!blocked && c->fdin->eof)){
 		alternative:
 				if (c->bak){
@@ -628,11 +640,6 @@ MALreader(Client c)
 					return MAL_SUCCEED;
 				}
 			}
-			if (!nr && blocked ){
-				nr = bstream_next(c->fdin); // check for eof 
-				if (c->fdin->eof)
-					goto alternative;
-			} 
 			if( !nr)
 				continue;
 
@@ -703,7 +710,19 @@ MALreader(Client c)
 				if( string)
 					continue;
 				if ( *l == ';' ){
+					/* found end of MAL instruction */
+					/* eat away any visible remaining blank space as well */
 					*s = 0;
+					for(l++; *l && c->fdin->pos < c->fdin->len ; l++)
+					{ 
+						switch(*l){
+						case ' ': case '\t': case '\n':
+							c->fdin->pos++;
+							continue;
+						default:
+							return MAL_SUCCEED;
+						}
+					}
 					return MAL_SUCCEED;
 				}
 			}
