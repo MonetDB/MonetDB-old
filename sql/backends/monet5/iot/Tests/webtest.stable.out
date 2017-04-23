@@ -58,30 +58,33 @@ end user.petri_0;
 % .explain # table_name
 % mal # name
 % clob # type
-% 69 # length
+% 72 # length
 unsafe function user.iot_web00():void;
-    X_0 := sql.mvc();
-    X_26 := basket.register(X_0,"iot","ntemps",0);
-    X_30 := basket.lock(X_26,"iot","ntemps");
-    X_1:bat[:oid] := basket.tid(X_0,"iot","ntemps");
-    X_4:bat[:timestamp] := basket.bind(X_26,"iot","ntemps","iotclk");
-    X_8 := aggr.min(X_4);
-    X_10 := sql.append(X_30,"iot","atemps","iotclk",X_8);
-    X_12 := aggr.count(X_4);
-    X_13 := calc.int(X_12);
-    X_15 := sql.append(X_10,"iot","atemps","cnt",X_13);
-    X_17:bat[:flt] := basket.bind(X_15,"iot","ntemps","temperature");
-    X_20:dbl := aggr.avg(X_17);
-    X_21 := calc.flt(X_20);
-    X_23 := sql.append(X_15,"iot","atemps","temperature",X_21);
-    X_31 := basket.tumble(X_23,"iot","ntemps");
+    X_1 := sql.mvc();
+    X_58 := basket.register(X_1, "iot", "ntemps", 0:int);
+    X_62 := basket.lock(X_58, "iot", "ntemps");
+    X_2:bat[:oid] := basket.tid(X_1, "iot", "ntemps");
+    X_5:bat[:timestamp] := basket.bind(X_58, "iot", "ntemps", "iotclk");
+    X_9:bat[:str] := basket.bind(X_58, "iot", "ntemps", "room");
+    X_12:bat[:flt] := basket.bind(X_58, "iot", "ntemps", "temperature");
+barrier X_90 := language.dataflow();
+    X_15 := aggr.min(X_5);
+    X_16 := aggr.count(X_5);
+    X_17:dbl := aggr.avg(X_12);
+    X_18 := calc.int(X_16);
+    X_19 := calc.flt(X_17);
+    X_21 := sql.append(X_62, "iot", "atemps", "iotclk", X_15);
+    X_24 := sql.append(X_21, "iot", "atemps", "cnt", X_18);
+    X_27 := sql.append(X_24, "iot", "atemps", "temperature", X_19);
+exit X_90;
+    X_63 := basket.tumble(X_27, "iot", "ntemps");
 catch SQLexception:str;
-    iot.error("user","web00",SQLexception);
+    iot.error("user", "web00", SQLexception);
 exit SQLexception:str;
 catch MALexception:str;
-    iot.error("user","web00",MALexception);
+    iot.error("user", "web00", MALexception);
 exit MALexception:str;
-    basket.unlock(X_31,"iot","ntemps");
+    basket.unlock(X_63, "iot", "ntemps");
 end user.iot_web00;
 #inline               actions= 0 time=0 usec 
 #candidates           actions= 1 time=1 usec 

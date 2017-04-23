@@ -46,24 +46,33 @@ end user.petri_0;
 % .explain # table_name
 % mal # name
 % clob # type
-% 61 # length
+% 65 # length
 unsafe function user.iot_sdel00():void;
-    X_0 := sql.mvc();
-    X_19 := basket.register(X_0,"iot","sdel",0);
-    X_23 := basket.lock(X_19,"iot","sdel");
-    X_1:bat[:oid] := basket.tid(X_0,"iot","sdel");
-    X_4:bat[:int] := basket.bind(X_19,"iot","sdel","sensor");
-    C_10 := algebra.subselect(X_4,3,3,true,false,false);
-    X_14 := algebra.projection(C_10,X_1);
-    basket.delete(X_19,"iot","sdel",X_14);
-    X_24 := basket.tumble(X_23,"iot","sdel");
+    X_1 := sql.mvc();
+    X_54 := basket.register(X_1, "iot", "sdel", 0:int);
+    X_58 := basket.lock(X_54, "iot", "sdel");
+    X_2:bat[:oid] := basket.tid(X_1, "iot", "sdel");
+    X_5:bat[:timestamp] := basket.bind(X_54, "iot", "sdel", "t");
+    X_9:bat[:int] := basket.bind(X_54, "iot", "sdel", "sensor");
+    X_12:bat[:int] := basket.bind(X_54, "iot", "sdel", "val");
+barrier X_86 := language.dataflow();
+    C_17 := algebra.thetaselect(X_9, 3:int, "==");
+    algebra.projection(C_17, X_5);
+    algebra.projection(C_17, X_9);
+    algebra.projection(C_17, X_12);
+    X_22 := algebra.projection(C_17, X_2);
+    language.pass(C_17);
+exit X_86;
+    basket.delete(X_54, "iot", "sdel", X_22);
+    aggr.count(X_22);
+    X_59 := basket.tumble(X_58, "iot", "sdel");
 catch SQLexception:str;
-    iot.error("user","sdel00",SQLexception);
+    iot.error("user", "sdel00", SQLexception);
 exit SQLexception:str;
 catch MALexception:str;
-    iot.error("user","sdel00",MALexception);
+    iot.error("user", "sdel00", MALexception);
 exit MALexception:str;
-    basket.unlock(X_24,"iot","sdel");
+    basket.unlock(X_59, "iot", "sdel");
 end user.iot_sdel00;
 #inline               actions= 0 time=1 usec 
 #candidates           actions= 1 time=0 usec 

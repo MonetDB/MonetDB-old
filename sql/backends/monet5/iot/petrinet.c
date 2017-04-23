@@ -910,13 +910,14 @@ PNtable(bat *modnameId, bat *fcnnameId, bat *statusId, bat *seenId, bat *runsId,
 
 	for (i = 0; i < pnettop; i++) {
 		lng avg= pnet[i].runs? pnet[i].time / pnet[i].runs:0;
-		BUNappend(modname, pnet[i].modname, FALSE);
-		BUNappend(fcnname, pnet[i].fcnname, FALSE);
-		BUNappend(status, statusname[pnet[i].status], FALSE);
-		BUNappend(seen, &pnet[i].seen, FALSE);
-		BUNappend(runs, &pnet[i].runs, FALSE);
-		BUNappend(time, &avg, FALSE);
-		BUNappend(error, (pnet[i].error ? pnet[i].error : ""), FALSE);
+		if( BUNappend(modname, pnet[i].modname, FALSE) != GDK_SUCCEED ||
+			BUNappend(fcnname, pnet[i].fcnname, FALSE) != GDK_SUCCEED ||
+			BUNappend(status, statusname[pnet[i].status], FALSE) != GDK_SUCCEED ||
+			BUNappend(seen, &pnet[i].seen, FALSE) != GDK_SUCCEED ||
+			BUNappend(runs, &pnet[i].runs, FALSE) != GDK_SUCCEED ||
+			BUNappend(time, &avg, FALSE) != GDK_SUCCEED ||
+			BUNappend(error, (pnet[i].error ? pnet[i].error : ""), FALSE) != GDK_SUCCEED)
+				goto wrapup;
 	}
 	BBPkeepref(*modnameId = modname->batCacheid);
 	BBPkeepref(*fcnnameId = fcnname->batCacheid);
@@ -970,10 +971,11 @@ str PNinputplaces(bat *schemaId, bat *tableId, bat *modnameId, bat *fcnnameId)
 		mnstr_printf(GDKout, "#collect input places %s.%s\n", pnet[i].modname, pnet[i].fcnname);
 #endif
 		for( j =0; j < MAXBSKT && pnet[i].inputs[j]; j++){
-			BUNappend(schema, baskets[pnet[i].inputs[j]].schema_name, FALSE);
-			BUNappend(table, baskets[pnet[i].inputs[j]].table_name, FALSE);
-			BUNappend(modname, pnet[i].modname, FALSE);
-			BUNappend(fcnname, pnet[i].fcnname, FALSE);
+			if( BUNappend(schema, baskets[pnet[i].inputs[j]].schema_name, FALSE) != GDK_SUCCEED||
+				BUNappend(table, baskets[pnet[i].inputs[j]].table_name, FALSE) != GDK_SUCCEED||
+				BUNappend(modname, pnet[i].modname, FALSE) != GDK_SUCCEED ||
+				BUNappend(fcnname, pnet[i].fcnname, FALSE) != GDK_SUCCEED )
+					goto wrapup;
 		}
 	}
 	BBPkeepref(*schemaId = schema->batCacheid);
@@ -1016,10 +1018,11 @@ str PNoutputplaces(bat *schemaId, bat *tableId, bat *modnameId, bat *fcnnameId)
 
 	for (i = 0; i < pnettop; i++) 
 	for( j =0; j < MAXBSKT && pnet[i].outputs[j]; j++){
-		BUNappend(schema, baskets[pnet[i].outputs[j]].schema_name, FALSE);
-		BUNappend(table, baskets[pnet[i].outputs[j]].table_name, FALSE);
-		BUNappend(modname, pnet[i].modname, FALSE);
-		BUNappend(fcnname, pnet[i].fcnname, FALSE);
+		if( BUNappend(schema, baskets[pnet[i].outputs[j]].schema_name, FALSE) != GDK_SUCCEED ||
+			BUNappend(table, baskets[pnet[i].outputs[j]].table_name, FALSE) != GDK_SUCCEED ||
+			BUNappend(modname, pnet[i].modname, FALSE) != GDK_SUCCEED ||
+			BUNappend(fcnname, pnet[i].fcnname, FALSE) != GDK_SUCCEED)
+				goto wrapup;
 	}
 	BBPkeepref(*schemaId = schema->batCacheid);
 	BBPkeepref(*tableId = table->batCacheid);

@@ -47,31 +47,34 @@ end user.petri_0;
 % .explain # table_name
 % mal # name
 % clob # type
-% 63 # length
+% 66 # length
 unsafe function user.iot_cq06():void;
-    X_0 := sql.mvc();
-    X_31 := basket.register(X_0,"iot","tmp06",0);
-    X_35 := basket.lock(X_31,"iot","tmp06");
-    X_1:bat[:oid] := basket.tid(X_0,"iot","tmp06");
-    X_4:bat[:timestamp] := basket.bind(X_31,"iot","tmp06","t");
-    X_8 := aggr.min(X_4);
-    X_10 := sql.append(X_35,"iot","result","t",X_8);
-    X_12 := aggr.count(X_4);
-    X_13 := calc.int(X_12);
-    X_15 := sql.append(X_10,"iot","result","sensor",X_13);
-    X_17:bat[:int] := basket.bind(X_15,"iot","tmp06","val");
-    X_20:bat[:dbl] := batcalc.dbl(2,X_17);
-    X_24:dbl := aggr.avg(X_20);
-    X_25 := calc.int(X_24,8,2);
-    X_28 := sql.append(X_15,"iot","result","val",X_25);
-    X_36 := basket.tumble(X_28,"iot","tmp06");
+    X_1 := sql.mvc();
+    X_62 := basket.register(X_1, "iot", "tmp06", 0:int);
+    X_66 := basket.lock(X_62, "iot", "tmp06");
+    X_2:bat[:oid] := basket.tid(X_1, "iot", "tmp06");
+    X_5:bat[:timestamp] := basket.bind(X_62, "iot", "tmp06", "t");
+    X_9:bat[:int] := basket.bind(X_62, "iot", "tmp06", "sensor");
+    X_12:bat[:int] := basket.bind(X_62, "iot", "tmp06", "val");
+barrier X_94 := language.dataflow();
+    X_15 := aggr.min(X_5);
+    X_16 := aggr.count(X_5);
+    X_17:bat[:dbl] := batcalc.dbl(2:int, X_12);
+    X_21:dbl := aggr.avg(X_17);
+    X_22 := calc.int(X_16);
+    X_23 := calc.int(X_21, 8:int, 2:int);
+    X_26 := sql.append(X_66, "iot", "result", "t", X_15);
+    X_29 := sql.append(X_26, "iot", "result", "sensor", X_22);
+    X_31 := sql.append(X_29, "iot", "result", "val", X_23);
+exit X_94;
+    X_67 := basket.tumble(X_31, "iot", "tmp06");
 catch SQLexception:str;
-    iot.error("user","cq06",SQLexception);
+    iot.error("user", "cq06", SQLexception);
 exit SQLexception:str;
 catch MALexception:str;
-    iot.error("user","cq06",MALexception);
+    iot.error("user", "cq06", MALexception);
 exit MALexception:str;
-    basket.unlock(X_36,"iot","tmp06");
+    basket.unlock(X_67, "iot", "tmp06");
 end user.iot_cq06;
 #inline               actions= 0 time=2 usec 
 #candidates           actions= 1 time=1 usec 

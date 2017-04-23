@@ -34,13 +34,13 @@ Ready.
 % .explain # table_name
 % mal # name
 % clob # type
-% 127 # length
+% 134 # length
 function user.s10_1():void;
-    X_9:void := querylog.define("explain call iot.import(\\'iot\\',\\'temps\\', concat(basketdir,\\'1\\'));","default_pipe",7);
-    X_0 := sql.mvc();
-    X_5:str := sql.getVariable(X_0,"basketdir");
-    X_7:str := calc.+(X_5,"1");
-    iot.import("iot","temps",X_7);
+    X_4:void := querylog.define("explain call iot.import(\\'iot\\',\\'temps\\', concat(basketdir,\\'1\\'));", "default_pipe", 10:int);
+    X_7 := sql.mvc();
+    X_10:str := sql.getVariable(X_7, "basketdir");
+    X_13:str := calc.+(X_10, "1");
+    iot.import("iot", "temps", X_13);
 end user.s10_1;
 #inline               actions= 0 time=1 usec 
 #remap                actions= 0 time=2 usec 
@@ -65,7 +65,7 @@ end user.s10_1;
 #garbagecollector     actions= 1 time=6 usec 
 #total                actions= 1 time=134 usec 
 #select * from iot.errors();
-% .,	. # table_name
+% .L1,	.L1 # table_name
 % table,	error # name
 % clob,	clob # type
 % 0,	0 # length

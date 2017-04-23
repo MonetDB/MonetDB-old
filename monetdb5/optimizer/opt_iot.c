@@ -19,8 +19,7 @@
 
 /*
  * (author) M. Kersten
- * Assume simple queries . Clear out all non-iot schema related sql statements, except
- * for the bare minimum.
+ * Assume simple queries . Clear out all non-iot schema related sql statements, except for the bare minimum.
  */
 /*
  * We keep a flow dependency table to detect.
@@ -320,7 +319,5 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
     if( btop > 0)
         return MAL_SUCCEED;
-    else {
-        return createException(MAL,"optimizer.iot", "The iot optimizer failed to start! (btop = %d)", btop);
-    }
+	throw (MAL,"optimizer.iot", "The iot optimizer failed to start! (btop = %d)", btop);
 }
