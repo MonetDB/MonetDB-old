@@ -563,7 +563,10 @@ BSKTimportInternal(Client cntxt, int bskt)
 					goto recover;
 				} else{
 					line[j] = 0;
-					BUNappend(b, line, TRUE);
+					if( BUNappend(b, line, TRUE) != GDK_SUCCEED){
+						msg= createException(MAL,"iot.basket","BUNappend on string value failed\n");
+						goto recover;
+					}
 					bcnt++;
 				}
 			}
