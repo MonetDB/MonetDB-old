@@ -1,23 +1,3 @@
 demoschema
 loaddata
 
-iot00
-iot01
-iot02
-iot03
-iot04
-iot06
-iot10
-iot11
-iot12
-iot13
-iot14
-#iot15
-iot16
-receptor00
-receptor01
-#petrinet00
-webtest
-inputoutput
-export00
-logger
