@@ -36,9 +36,10 @@ INCLUDES = .. \
 lib_timetrails = {
 	NOINST
 	DIR = libdir/monetdb5
-	SOURCES = timetrails.c timetrails.h \
-		basket.c basket.h \
-		petrinet.c petrinet.h
+	SOURCES = 
+	#SOURCES = timetrails.c timetrails.h \
+		#basket.c basket.h \
+		#petrinet.c petrinet.h
 	LIBS = ../../../../monetdb5/tools/libmonetdb5 \
 		../../../../gdk/libbat 
 }

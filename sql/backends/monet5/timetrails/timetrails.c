@@ -71,7 +71,6 @@ TTRquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str nme= NULL;
 	str def= NULL;
-	int calls = -1;
 
 	Symbol s = NULL;
 	MalBlkPtr qry;
@@ -80,9 +79,6 @@ TTRquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	char buf[BUFSIZ], name[IDLENGTH];
 	static int ttrquerycnt=0;
 	int i;
-
-	if( pci->argc > 2)
-		calls = *getArgReference_int(stk,pci,2);
 
 	_DEBUG_TTR_ fprintf(stderr,"#ttr: register the continues query %s.%s()\n",userRef,nme);
 
@@ -119,7 +115,7 @@ TTRquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		addtoMalBlkHistory(mb);
 	if (msg == MAL_SUCCEED) {
 		_DEBUG_TTR_ fprintf(stderr,"#ttr: continuous query plan\n");
-		msg = PNregisterInternal(cntxt, s->def,calls);
+		msg = PNregisterInternal(cntxt, s->def);
 	}
 
 	// register all the baskets mentioned in the plan

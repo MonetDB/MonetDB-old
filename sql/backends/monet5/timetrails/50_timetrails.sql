@@ -17,103 +17,78 @@
 
 create schema timetrails;
 
--- register and start a continuous query
-create procedure timetrails.query(qry string, maxcalls integer)
-	external name timetrails.query;
+-- The timetrails catalog contains the meta information about metric relations.
+CREATE TABLE timetrails.metrics (
+     name  string PRIMARY KEY,
+     auth  string,        --(for later) The owner ticket for this metric
+     credit integer,     --(for later)The volume of data allowed for this metric
+     precision string , --time stamp precision {millisecond,second,minute,hour,day,month,year, null}
+     retention string,  --time stamp interval {millisecond,second,minute,hour,day,month,year, null}
+     threshold integer, --max rows delayed in the Guardian cache
+     heartbeat integer, -- maximum delay (in ms) before forwarding
+     frozen boolean,    --once defined its structure can not be changed
+     title string,            --informative title
+     description string --short explanation);
 
-create procedure timetrails.query(qry string)
-	external name timetrails.query;
+--Return the names of all known metric relations
+CREATE FUNCTION timetrails.metrics()
+RETURNS TABLE (metric string)
+BEGIN
+    RETURN SELECT m.name FROM timetrails.metrics m ORDER BY m.name;
+END;
 
-create procedure timetrails.query("schema" string, name string, maxcalls integer)
-	external name timetrails.query;
+--Return the tags associated with a metric relation
+CREATE FUNCTION timetrails.tags(metric string)
+RETURNS TABLE (colname string)
+BEGIN
+   RETURN SELECT o.name AS colname
+       FROM sys.objects o, sys.tables t, sys.keys k
+       WHERE o.id = k.id AND k.table_id = t.id AND t.name = metric ORDER BY o.nr;
+END;
 
-create procedure timetrails.query("schema" string, name string)
-	external name timetrails.query;
+--Return the measure names for a metric relation
+CREATE FUNCTION timetrails.fields(metric string)
+RETURNS TABLE (colname string)
+BEGIN
+   RETURN SELECT c.name
+        FROM sys.columns c, sys.tables t
+        WHERE t.name= metric AND t.id = c.table_id AND
+              c.name NOT IN (SELECT o.name AS colname
+                        FROM sys.objects o, sys.tables tt, sys.keys k WHERE o.id = k.id AND k.table_id = tt.id AND tt.name = metric );
+END;
 
-create procedure timetrails.resume("schema" string, name string)
-	external name timetrails.resume;
+--Return the preferred message layout and their type
+CREATE FUNCTION timetrails.getLayout(metric string)
+RETURNS TABLE( name string, type string)
+BEGIN
+   RETURN SELECT c.name, c.type FROM timetrails.metrics m, sys.tables t, sys.columns c WHERE m.name = metric AND t.name = m.name and c.table_id= t.id;
+END;
 
-create procedure timetrails.resume()
-	external name timetrails.resume;
+--Return the time precision for a metric relation
+CREATE FUNCTION timetrails.getPrecision(metric string)
+RETURNS string
+BEGIN
+   RETURN SELECT m.precision FROM timetrails.metrics m WHERE m.name = metric;
+END;
 
-create procedure timetrails.pause("schema" string, name string)
-	external name timetrails.pause;
+--Return the retention period of a metric relation
+CREATE FUNCTION timetrails.getRetention(metric string)
+RETURNS string
+BEGIN
+   RETURN SELECT m.retention FROM timetrails.metrics m WHERE m.name = metric;
+END;
 
-create procedure timetrails.keep("schema" string, name string)
-	external name timetrails.keep;
+--Return the title annotation
+CREATE FUNCTION timetrails.getTitle(metric string)
+RETURNS string
+BEGIN
+   RETURN SELECT m.title FROM timetrails.metrics m WHERE m.name = metric;
+END;
 
-create procedure timetrails.release("schema" string, name string)
-	external name timetrails.release;
+--Return the short help on a metric relation
+CREATE FUNCTION timetrails.getDescription(metric string)
+RETURNS string
+BEGIN
+   RETURN SELECT m.description FROM timetrails.metrics m WHERE m.name = metric;
+END;
 
-create procedure timetrails.pause()
-	external name timetrails.pause;
-
-create procedure timetrails.wait(ms integer)
-	external name timetrails.wait;
-
-create procedure timetrails.stop()
-	external name timetrails.stop;
-
-create procedure timetrails.deregister("schema" string, name string)
-	external name timetrails.deregister;
-
-create procedure timetrails.deregister()
-	external name timetrails.deregister;
-
--- set the scheduler periodic delay
-create procedure timetrails.period(n integer)
-	external name timetrails.period;
-
--- deliver a new basket with tuples
-
-create procedure timetrails.heartbeat("schema" string, "table" string, msec integer)
-	external name timetrails.heartbeat;
-
-create procedure timetrails.heartbeat("schema" string, "table" string, msec bigint)
-	external name timetrails.heartbeat;
-
--- cleanup activities
-create procedure timetrails.tumble("schema" string, "table" string, elem integer)
-	external name timetrails.tumble;
-
-create procedure timetrails.window("schema" string, "table" string, elem integer)
-	external name timetrails.window;
-
-create procedure timetrails.cycles("schema" string, "query" string, elem integer)
-	external name timetrails.cycles;
-
--- Inspection tables
-create function timetrails.gettumble("schema" string, "table" string) returns integer
-external name timetrails.gettumble;
-
-create function timetrails.getwindow("schema" string, "table" string) returns integer
-external name timetrails.getwindow;
-
-create function timetrails.getheartbeat("schema" string, "table" string) returns bigint
-external name timetrails.getheartbeat;
-
-create function timetrails.baskets()
-returns table( "schema" string, "table" string, "status" string, winsize int, winstride int, timeslice int, timestride int, heartbeat int, seen timestamp, "count" bigint, events bigint)
-external name timetrails.baskets;
-
-create procedure timetrails.show("schema" string, "query" string)
-external name timetrails.show;
-
-create function timetrails.queries()
- returns table( "schema" string, "function" string, "status" string, lastrun timestamp, runs int, avgtime bigint, error string)
- external name timetrails.queries;
-
-create function timetrails.inputs()
- returns table( "s" string, "t" string, "sch" string, "qry" string)
- external name timetrails.inputplaces;
-
-create function timetrails.outputs()
- returns table( "s" string, "t" string, "sch" string, "qry" string)
- external name timetrails.outputplaces;
-
-create function timetrails.errors()
-returns table( "table" string, error string)
-external name timetrails.errors;
-
--- tables for timetrailswebserver
-CREATE TABLE timetrails.webserverstreams (table_id INTEGER, base TINYINT, "interval" INTEGER NULL, unit CHAR(1) NULL);
