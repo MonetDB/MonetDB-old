@@ -202,10 +202,10 @@ static struct PIPELINES {
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
-	{"iot_pipe",
+	{"timetrails",
 	 "optimizer.inline();"
 	 "optimizer.remap();"
-	 "optimizer.iot();"
+	 "optimizer.timetrails();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
