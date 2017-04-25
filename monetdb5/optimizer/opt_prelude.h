@@ -268,7 +268,7 @@ mal_export  str sumRef;
 mal_export  str subsumRef;
 mal_export  str subavgRef;
 mal_export  str sortRef;
-mal_export  str timetrailsRef;
+mal_export  str cqueryRef;
 mal_export  str timestampRef;
 mal_export	str tumbleRef;
 mal_export  str takeRef;

@@ -277,7 +277,7 @@ str subavgRef;
 str selectRef;
 str sortRef;
 str takeRef;
-str timetrailsRef;
+str cqueryRef;
 str transactionRef;
 str transaction_beginRef;
 str transaction_releaseRef;
@@ -561,7 +561,7 @@ void optimizerInit(void)
 	subavgRef = putName("subavg");
 	sortRef = putName("sort");
 	takeRef= putName("take");
-	timetrailsRef = putName("timetrails");
+	cqueryRef = putName("cquery");
 	transactionRef= putName("transaction");
 	transaction_beginRef= putName("transaction_begin");
 	transaction_releaseRef= putName("transaction_release");

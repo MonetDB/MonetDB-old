@@ -24,6 +24,7 @@ lib_optimizer = {
 		opt_candidates.c opt_candidates.h \
 		opt_constants.c opt_constants.h \
 		opt_costModel.c opt_costModel.h \
+		opt_cquery.c opt_cquery.h \
 		opt_dataflow.c opt_dataflow.h \
 		opt_deadcode.c opt_deadcode.h \
 		opt_emptybind.c opt_emptybind.h \
@@ -33,7 +34,6 @@ lib_optimizer = {
 		opt_querylog.c opt_querylog.h \
 		opt_inline.c opt_inline.h \
 		opt_jit.c opt_jit.h \
-		opt_timetrails.c opt_timetrails.h \
 		opt_projectionpath.c opt_projectionpath.h \
 		opt_macro.c opt_macro.h \
 		opt_matpack.c opt_matpack.h \

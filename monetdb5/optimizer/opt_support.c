@@ -421,7 +421,7 @@ hasSideEffects(MalBlkPtr mb, InstrPtr p, int strict)
 		if (getFunctionId(p) == singleRef) return FALSE;
 		return TRUE;
 	}
-	if (getModuleId(p) == basketRef || getModuleId(p) == timetrailsRef){
+	if (getModuleId(p) == basketRef || getModuleId(p) == cqueryRef){
 		return TRUE;
 	}
 	if( getModuleId(p) == mapiRef){

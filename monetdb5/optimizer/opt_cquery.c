@@ -19,13 +19,13 @@
 
 /*
  * (author) M. Kersten
- * Assume simple queries . Clear out all non-timetrails schema related sql statements, except for the bare minimum.
+ * Assume simple queries . 
  */
 /*
  * We keep a flow dependency table to detect.
  */
 #include "monetdb_config.h"
-#include "opt_timetrails.h"
+#include "opt_cquery.h"
 #include "opt_deadcode.h"
 #include "mal_interpreter.h"    /* for showErrors() */
 #include "mal_builder.h"
@@ -39,7 +39,7 @@
 	}
 
 str
-OPTtimetrailsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int i, j, k, fnd, limit, slimit;
 	InstrPtr r, p, *old;
@@ -60,14 +60,14 @@ OPTtimetrailsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 	for(i =0; i< mb->stop; i++){
 		p= getInstrPtr(mb,i);
 		if( getModuleId(p) == basketRef||
-			getModuleId(p) == timetrailsRef)
+			getModuleId(p) == cqueryRef)
 			break;
 	}
 	if( i == mb->stop)
 		return MAL_SUCCEED;
 
 #ifdef DEBUG_OPT_IOT
-	mnstr_printf(cntxt->fdout, "#timetrails optimizer start\n");
+	mnstr_printf(cntxt->fdout, "#cquery optimizer start\n");
 	printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
 #endif
 	old = mb->stmt;
@@ -79,7 +79,7 @@ OPTtimetrailsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		p = old[i];
 		if( getModuleId(p)== basketRef && (getFunctionId(p)== registerRef || getFunctionId(p)== bindRef )  ){
 #ifdef DEBUG_OPT_IOT
-			mnstr_printf(cntxt->fdout, "#timetrails stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+			mnstr_printf(cntxt->fdout, "#cquery stream table %s.%s\n", getModuleId(p), getFunctionId(p));
 #endif
 			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,3)).val.sval;
@@ -92,7 +92,7 @@ OPTtimetrailsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		}
 		if( getModuleId(p)== basketRef && getFunctionId(p) == appendRef ){
 #ifdef DEBUG_OPT_IOT
-			mnstr_printf(cntxt->fdout, "#timetrails stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+			mnstr_printf(cntxt->fdout, "#cquery stream table %s.%s\n", getModuleId(p), getFunctionId(p));
 #endif
 			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,3)).val.sval;
@@ -106,7 +106,7 @@ OPTtimetrailsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		}
 		if( getModuleId(p)== basketRef && getFunctionId(p) == updateRef ){
 #ifdef DEBUG_OPT_IOT
-			mnstr_printf(cntxt->fdout, "#timetrails stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+			mnstr_printf(cntxt->fdout, "#cquery stream table %s.%s\n", getModuleId(p), getFunctionId(p));
 #endif
 			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,3)).val.sval;
@@ -118,9 +118,9 @@ OPTtimetrailsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 			if( j == btop)
 				btop++;
 		}
-		if( getModuleId(p)== timetrailsRef && getFunctionId(p) == basketRef){
+		if( getModuleId(p)== cqueryRef && getFunctionId(p) == basketRef){
 #ifdef DEBUG_OPT_IOT
-			mnstr_printf(cntxt->fdout, "#timetrails stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+			mnstr_printf(cntxt->fdout, "#cquery stream table %s.%s\n", getModuleId(p), getFunctionId(p));
 #endif
 			schemas[btop]= getVarConstant(mb, getArg(p,1)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
@@ -134,7 +134,7 @@ OPTtimetrailsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 			lastmvc = getArg(p,0);
 		if (!cq && getModuleId(p) == sqlRef && getFunctionId(p) == affectedRowsRef )
 			lastmvc = getArg(p,0);
-		if( getModuleId(p)== timetrailsRef && getFunctionId(p) == tumbleRef){
+		if( getModuleId(p)== cqueryRef && getFunctionId(p) == tumbleRef){
 			lastmvc = getArg(p,1);
 		}
 	}
@@ -142,7 +142,7 @@ OPTtimetrailsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		return MAL_SUCCEED;
 
 #ifdef DEBUG_OPT_IOT
-	mnstr_printf(cntxt->fdout, "#timetrails optimizer started with %d streams, mvc %d\n", btop,lastmvc);
+	mnstr_printf(cntxt->fdout, "#cquery optimizer started with %d streams, mvc %d\n", btop,lastmvc);
 	printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
 #endif
 	(void) stk;
@@ -200,7 +200,7 @@ OPTtimetrailsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 			if (getModuleId(p) == sqlRef && getFunctionId(p) == tidRef ){
 				getStreamTableInfo(getVarConstant(mb,getArg(p,2)).val.sval, getVarConstant(mb,getArg(p,3)).val.sval );
 #ifdef DEBUG_OPT_IOT
-				mnstr_printf(cntxt->fdout, "#timetrails optimizer found stream %d\n",fnd);
+				mnstr_printf(cntxt->fdout, "#cquery optimizer found stream %d\n",fnd);
 #endif
 				if( fnd){
 					getModuleId(p) = basketRef;
@@ -225,7 +225,7 @@ OPTtimetrailsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 				continue;
 			}
 
-			if( getModuleId(p)== timetrailsRef && getFunctionId(p)==errorRef)
+			if( getModuleId(p)== cqueryRef && getFunctionId(p)==errorRef)
 				noerror++;
 			if (p->token == ENDsymbol && btop > 0 && noerror==0) {
 				// empty all baskets used only when we are optimizing a cq
@@ -244,7 +244,7 @@ OPTtimetrailsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 				setVarUDFtype(mb, j);
 				r->barrier = CATCHsymbol;
 
-				r = newStmt(mb,timetrailsRef, errorRef);
+				r = newStmt(mb,cqueryRef, errorRef);
 				r = pushStr(mb, r, getModuleId(old[0]));
 				r = pushStr(mb, r, getFunctionId(old[0]));
 				r = pushArgument(mb, r, j);
@@ -257,7 +257,7 @@ OPTtimetrailsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 				setVarUDFtype(mb, j);
 				r->barrier = CATCHsymbol;
 
-				r = newStmt(mb,timetrailsRef, errorRef);
+				r = newStmt(mb,cqueryRef, errorRef);
 				r = pushStr(mb, r, getModuleId(old[0]));
 				r = pushStr(mb, r, getFunctionId(old[0]));
 				r = pushArgument(mb, r, j);
@@ -307,11 +307,11 @@ OPTtimetrailsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 	chkFlow(cntxt->fdout, mb);
 	chkDeclarations(cntxt->fdout, mb);
     /* keep all actions taken as a post block comment */
-    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","timetrails", btop, GDKusec() - usec);
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","cquery", btop, GDKusec() - usec);
     newComment(mb,buf);
 
 #ifdef DEBUG_OPT_IOT
-	mnstr_printf(cntxt->fdout, "#timetrails optimizer final\n");
+	mnstr_printf(cntxt->fdout, "#cquery optimizer final\n");
 	printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
 #endif
 	GDKfree(alias);
@@ -319,5 +319,5 @@ OPTtimetrailsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 
     if( btop > 0)
         return MAL_SUCCEED;
-	throw (MAL,"optimizer.timetrails", "The timetrails optimizer failed to start! (btop = %d)", btop);
+	throw (MAL,"optimizer.cquery", "The cquery optimizer failed to start! (btop = %d)", btop);
 }

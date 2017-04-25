@@ -17,12 +17,12 @@
  * All Rights Reserved.
  */
 
-#ifndef _OPT_DATACELL_
-#define _OPT_DATACELL_
+#ifndef _OPT_TIMETRAILS_
+#define _OPT_TIMETRAILS_
 #include "opt_prelude.h"
 #include "opt_support.h"
 #include "opt_pipes.h"
 
-mal_export str OPTtimetrailsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+mal_export str OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 #endif

@@ -77,4 +77,11 @@ shutdown
 
 HAVE_HGE?int_notation_1e5
 
+cquery00
 cquery01
+
+cqstream00
+cqstream01
+cqstream02
+cqstream03
+cqstream08
