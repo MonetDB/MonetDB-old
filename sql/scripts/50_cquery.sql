@@ -56,9 +56,21 @@ create procedure cquery.release(sch string, cqname string)
 create procedure cquery.wait(ms integer)
 	external name cquery.wait;
 
--- set the scheduler periodic delay
-create procedure cquery.period(n integer)
-	external name cquery.period;
+-- Limit the number of iterations of a CQ
+create procedure cquery.cycles(cqname string, cycles integer)
+	external name cquery.cycles;
+create procedure cquery.cycles(sch string, cqname string, cycles integer)
+	external name cquery.cycles;
+
+-- set the scheduler heartbeat 
+create procedure cquery.heartbeat("schema" string, qryname string, msec integer)
+	external name cquery.heartbeat;
+create procedure cquery.heartbeat("schema" string, qryname string, msec bigint)
+	external name cquery.heartbeat;
+create procedure cquery.heartbeat(n integer)
+	external name cquery.heartbeat;
+create procedure cquery.heartbeat(n bigint)
+	external name cquery.heartbeat;
 
 -- continuous query status analysis
 create function cquery.queries() 
@@ -84,11 +96,6 @@ create function cquery.outputs()
  returns table( "s" string, "t" string, "sch" string, "qry" string)
  external name streams.outputplaces;
 
--- Stream table control primitives
-create procedure cquery.heartbeat("schema" string, "table" string, msec integer)
-	external name cquery.heartbeat;
-create procedure cquery.heartbeat("schema" string, "table" string, msec bigint)
-	external name cquery.heartbeat;
 
 -- Tumble the stream buffer
 create procedure cquery.tumble("schema" string, "table" string, elem integer)
