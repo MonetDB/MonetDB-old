@@ -11,7 +11,7 @@ begin
         set tmp_total = tmp_total + (select sum(val) from iot.stmp10),
             tmp_count = tmp_count + (select count(*) from iot.stmp10);
 end;
-call cquery.new('sys','cq_collector');
+call cquery.register('sys','cq_collector');
 
 insert into stmp10 values('2005-09-23 12:34:26.000',1,9.0);
 insert into stmp10 values('2005-09-23 12:34:27.000',1,11.0);
@@ -25,7 +25,7 @@ call cquery.resume('sys','cq_collector');
 call cquery.wait(1000);
 
 call cquery.stop('sys','cq_collector');
-call cquery.release('sys','cq_collector');
+call cquery.deregister('sys','cq_collector');
 
 select * from tmp_aggregate;
 

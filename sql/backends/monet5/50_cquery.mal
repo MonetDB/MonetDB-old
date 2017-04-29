@@ -1,0 +1,86 @@
+# The contents of this file are subject to the MonetDB Public License
+# Version 1.1 (the "License"); you may not use this file except in
+# compliance with the License. You may obtain a copy of the License at
+# http://www.monetdb.org/Legal/MonetDBLicense
+#
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+# License for the specific language governing rights and limitations
+# under the License.
+#
+# The Original Code is the MonetDB Database System.
+#
+# The Initial Developer of the Original Code is CWI.
+# Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+# Copyright August 2008-2016 MonetDB B.V.
+# All Rights Reserved.
+
+module cquery;
+
+pattern register(mod:str, fcn:str)
+address CQregister
+comment "Add a continuous MAL plan to the Petri-net scheduler. It will analyse
+the MAL block to determine the input/output dependencies and firing conditions.";
+
+pattern resume(mod:str, fcn:str)
+address CQresume
+comment "Activate a specific continuous query";
+pattern resume()
+address CQresume
+comment "Activate all continuous queries";
+
+pattern pause(mod:str, fcn:str)
+address CQpause
+comment "Deactivate a continuous query";
+pattern pause()
+address CQpause
+comment "Deactivate all continuous queries";
+
+pattern deregister(mod:str, fcn:str)
+address CQrelease
+comment "Remove a continuous query";
+pattern deregister()
+address CQrelease
+comment "Remove all continuous queries";
+
+pattern wait(cnt:int)
+address CQwait
+comment "Sleep for some time";
+
+pattern cycles(mod:str, fcn:str,cnt:int)
+address CQcycles
+comment "Limit number of petrinet steps";
+pattern cycles(cnt:int)
+address CQcycles
+comment "Limit number of petrinet steps";
+
+# scheduler heart beat for each CQ
+pattern heartbeat(mod:str, fcn:str,cnt:int)
+address CQheartbeat
+comment "Awake the query after cnt milliseconds";
+pattern heartbeat(cnt:int)
+address CQheartbeat
+comment "Awake all queries after cnt milliseconds";
+
+# continuous query window size for stream
+pattern tumble(sch:str, tbl:str, elm:int)
+address CQtumble
+comment "Number of tuples to shift forward";
+
+# stream window constraints
+pattern window(sch:str,tbl:str,maximal:int)
+address CQwindow
+comment "Set the input window size constraints";
+
+# continuous query status analysis
+pattern log() (tick:bat[:timestamp],mod:bat[:str],fcn:bat[:str], status:bat[:str], time:bat[:lng],error:bat[:str])
+address CQlog
+comment "The log of all CQ executions";
+
+pattern show(sch:str,fcn:str)
+address CQshow
+comment "Debug a single continuous query";
+
+command dump()
+address CQdump
+comment "Show the status of the query scheduler";

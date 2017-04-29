@@ -17,8 +17,8 @@
  * All Rights Reserved.
  */
 
-#ifndef _OPT_TIMETRAILS_
-#define _OPT_TIMETRAILS_
+#ifndef _OPT_CQUERY_
+#define _OPT_CQUERY_
 #include "opt_prelude.h"
 #include "opt_support.h"
 #include "opt_pipes.h"

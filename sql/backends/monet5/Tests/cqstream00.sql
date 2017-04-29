@@ -11,7 +11,7 @@ begin
     insert into result1 select * from stmp2 where val <12;
     insert into result2 select * from stmp2 where val >12;
 end;
-call cquery.new('sys','cq_splitter');
+call cquery.register('sys','cq_splitter');
 
 -- The stream use in the CQ determines the activation and sets the scheduler heartbeat to -1
 -- If set explictly it overrules the window based bounds
@@ -39,7 +39,7 @@ select * from result2;
 select * from cquery.log('sys','cq_splitter');
 
 -- ideally auto remove upon dropping the procedure
-call cquery.release('sys','cq_splitter');
+call cquery.deregister('sys','cq_splitter');
 
 drop procedure cq_splitter;
 drop table stmp2;

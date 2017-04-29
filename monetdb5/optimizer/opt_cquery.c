@@ -66,7 +66,7 @@ OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( i == mb->stop)
 		return MAL_SUCCEED;
 
-#ifdef DEBUG_OPT_IOT
+#ifdef DEBUG_OPT_CQUERY
 	mnstr_printf(cntxt->fdout, "#cquery optimizer start\n");
 	printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
 #endif
@@ -78,7 +78,7 @@ OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for (i = 1; i < limit && btop <MAXBSKT; i++){
 		p = old[i];
 		if( getModuleId(p)== basketRef && (getFunctionId(p)== registerRef || getFunctionId(p)== bindRef )  ){
-#ifdef DEBUG_OPT_IOT
+#ifdef DEBUG_OPT_CQUERY
 			mnstr_printf(cntxt->fdout, "#cquery stream table %s.%s\n", getModuleId(p), getFunctionId(p));
 #endif
 			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
@@ -91,7 +91,7 @@ OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				btop++;
 		}
 		if( getModuleId(p)== basketRef && getFunctionId(p) == appendRef ){
-#ifdef DEBUG_OPT_IOT
+#ifdef DEBUG_OPT_CQUERY
 			mnstr_printf(cntxt->fdout, "#cquery stream table %s.%s\n", getModuleId(p), getFunctionId(p));
 #endif
 			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
@@ -105,7 +105,7 @@ OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				btop++;
 		}
 		if( getModuleId(p)== basketRef && getFunctionId(p) == updateRef ){
-#ifdef DEBUG_OPT_IOT
+#ifdef DEBUG_OPT_CQUERY
 			mnstr_printf(cntxt->fdout, "#cquery stream table %s.%s\n", getModuleId(p), getFunctionId(p));
 #endif
 			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
@@ -119,7 +119,7 @@ OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				btop++;
 		}
 		if( getModuleId(p)== cqueryRef && getFunctionId(p) == basketRef){
-#ifdef DEBUG_OPT_IOT
+#ifdef DEBUG_OPT_CQUERY
 			mnstr_printf(cntxt->fdout, "#cquery stream table %s.%s\n", getModuleId(p), getFunctionId(p));
 #endif
 			schemas[btop]= getVarConstant(mb, getArg(p,1)).val.sval;
@@ -141,7 +141,7 @@ OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( btop == MAXBSKT || btop == 0)
 		return MAL_SUCCEED;
 
-#ifdef DEBUG_OPT_IOT
+#ifdef DEBUG_OPT_CQUERY
 	mnstr_printf(cntxt->fdout, "#cquery optimizer started with %d streams, mvc %d\n", btop,lastmvc);
 	printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
 #endif
@@ -199,7 +199,7 @@ OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			// register all baskets used after the mvc had been determined
 			if (getModuleId(p) == sqlRef && getFunctionId(p) == tidRef ){
 				getStreamTableInfo(getVarConstant(mb,getArg(p,2)).val.sval, getVarConstant(mb,getArg(p,3)).val.sval );
-#ifdef DEBUG_OPT_IOT
+#ifdef DEBUG_OPT_CQUERY
 				mnstr_printf(cntxt->fdout, "#cquery optimizer found stream %d\n",fnd);
 #endif
 				if( fnd){
@@ -310,7 +310,7 @@ OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","cquery", btop, GDKusec() - usec);
     newComment(mb,buf);
 
-#ifdef DEBUG_OPT_IOT
+#ifdef DEBUG_OPT_CQUERY
 	mnstr_printf(cntxt->fdout, "#cquery optimizer final\n");
 	printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
 #endif

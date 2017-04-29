@@ -10,7 +10,7 @@ begin
     call cquery.window('sys','stmp2',2);
     insert into result2 select * from stmp2 where val >12;
 end;
-call cquery.new('sys','cq_window');
+call cquery.register('sys','cq_window');
 
 insert into stmp2 values('2005-09-23 12:34:26.000',1,9.0);
 insert into stmp2 values('2005-09-23 12:34:27.000',1,11.0);
@@ -33,7 +33,7 @@ select * from result2;
 select * from cquery.log('sys','cq_window');
 
 -- ideally auto remove upon dropping the procedure
-call cquery.release('sys','cq_window');
+call cquery.deregister('sys','cq_window');
 
 drop procedure cq_splitter;
 drop table stmp2;

@@ -81,7 +81,7 @@ SQLgetSpace(mvc *m, MalBlkPtr mb, int prepare, str *alterpipe)
             t = mvc_bind_table(m, s, tname);
             if (t && isStream(t)) {
                 setModuleId(p, basketRef);
-				*alterpipe= "iot_pipe";
+				*alterpipe= "cquery_pipe";
                 continue;
             }
         }
@@ -96,7 +96,7 @@ SQLgetSpace(mvc *m, MalBlkPtr mb, int prepare, str *alterpipe)
             t = mvc_bind_table(m, s, tname);
             if (t && isStream(t)) {
                 setModuleId(p, basketRef);
-                *alterpipe= "iot_pipe";
+                *alterpipe= "cquery_pipe";
                 continue;
             }
         }
@@ -119,7 +119,7 @@ SQLgetSpace(mvc *m, MalBlkPtr mb, int prepare, str *alterpipe)
 				continue;
 			if (isStream(t)) {
 				setModuleId(p, basketRef);
-				*alterpipe= "iot_pipe";
+				*alterpipe= "cquery_pipe";
 				p->argc =5;	// ignore partition
 			}
 			c = mvc_bind_column(m, t, cname);
@@ -150,7 +150,7 @@ SQLgetSpace(mvc *m, MalBlkPtr mb, int prepare, str *alterpipe)
 				if ( i && isStream(i->t)) {
 					setModuleId(p, basketRef);
 					p->argc =5;	// ignore partition
-					*alterpipe= "iot_pipe";
+					*alterpipe= "cquery_pipe";
 				}
 
 				if (i && (!isRemote(i->t) && !isMergeTable(i->t) )) {

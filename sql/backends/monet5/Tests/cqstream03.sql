@@ -17,7 +17,7 @@ begin
     end if;
 end;
 
-call cquery.new('sys','cq_agenda');
+call cquery.register('sys','cq_agenda');
 
 insert into tmp13 values('2005-09-23 12:34:26.736',1,12.34);
 insert into tmp13 values('2005-09-23 12:34:26.736',1,12.35);
@@ -35,7 +35,7 @@ call cquery.stop();
 
 select * from cquery.summary();
 
-call cquery.release('sys','cq_agenda');
+call cquery.deregister('sys','cq_agenda');
 drop procedure cq_agenda;
 drop table tmp13;
 drop table agenda13;

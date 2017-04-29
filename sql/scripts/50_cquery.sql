@@ -19,45 +19,37 @@
 
 create schema cquery;
 
-create procedure cquery.new(cqname string, qrytxt string)
-	external name cquery;
-create procedure cquery.new(sch string, cqname string, qrytxt string)
-	external name cquery;
+create procedure cquery.register(sch string, cqname string)
+	external name cquery.register;
 
 create procedure cquery.resume()
-	external name cquery.resume;
-create procedure cquery.resume(cqname string)
 	external name cquery.resume;
 create procedure cquery.resume(sch string, cqname string)
 	external name cquery.resume;
 
 create procedure cquery.pause()
 	external name cquery.pause;
-create procedure cquery.pause(cqname string)
-	external name cquery.pause;
 create procedure cquery.pause(sch string, cqname string)
 	external name cquery.pause;
 
 create procedure cquery.stop()
 	external name cquery.stop;
-create procedure cquery.stop(cqname string)
-	external name cquery.stop;
 create procedure cquery.stop(sch string, cqname string)
 	external name cquery.stop;
 
-create procedure cquery.release()
-	external name cquery.release;
-create procedure cquery.release(cqname string)
-	external name cquery.release;
-create procedure cquery.release(sch string, cqname string)
-	external name cquery.release;
+create procedure cquery.deregister()
+	external name cquery.deregister;
+create procedure cquery.deregister(sch string, cqname string)
+	external name cquery.deregister;
 
 -- The following commands can be part of the cquery itself
 create procedure cquery.wait(ms integer)
 	external name cquery.wait;
+create procedure cquery.wait(ms bigint)
+	external name cquery.wait;
 
 -- Limit the number of iterations of a CQ
-create procedure cquery.cycles(cqname string, cycles integer)
+create procedure cquery.cycles(cycles integer)
 	external name cquery.cycles;
 create procedure cquery.cycles(sch string, cqname string, cycles integer)
 	external name cquery.cycles;
@@ -65,37 +57,8 @@ create procedure cquery.cycles(sch string, cqname string, cycles integer)
 -- set the scheduler heartbeat 
 create procedure cquery.heartbeat("schema" string, qryname string, msec integer)
 	external name cquery.heartbeat;
-create procedure cquery.heartbeat("schema" string, qryname string, msec bigint)
+create procedure cquery.heartbeat(msec integer)
 	external name cquery.heartbeat;
-create procedure cquery.heartbeat(n integer)
-	external name cquery.heartbeat;
-create procedure cquery.heartbeat(n bigint)
-	external name cquery.heartbeat;
-
--- continuous query status analysis
-create function cquery.queries() 
-returns table("schema" string, name string, definition string)
-external name cquery.queries;
-
-create function cquery.summary()
- returns table( "schema" string, "function" string, "status" string, lastrun timestamp, runs int, avgtime bigint, error string)
- external name cquery.summary;
-create function cquery.log()
- returns table(tick timestamp,  "schema" string, "function" string, "status" string, time bigint, errors string)
- external name cquery.summary;
-
-create function cquery.show(qryname string)
-returns string
-external name cquery.show;
-
-create function cquery.inputs()
- returns table( "s" string, "t" string, "sch" string, "qry" string)
- external name streams.inputplaces;
-
-create function cquery.outputs()
- returns table( "s" string, "t" string, "sch" string, "qry" string)
- external name streams.outputplaces;
-
 
 -- Tumble the stream buffer
 create procedure cquery.tumble("schema" string, "table" string, elem integer)
@@ -104,13 +67,23 @@ create procedure cquery.tumble("schema" string, "table" string, elem integer)
 -- Window based consumption for stream queries
 create procedure cquery.window("schema" string, "table" string, elem integer)
 	external name cquery.window;
-create procedure cquery.window("schema" string, "table" string, minimal integer, maximal integer)
-	external name cquery.window;
 
-create procedure cquery.cycles("schema" string, "query" string, elem integer)
-	external name cquery.cycles;
+-- continuous query status analysis
 
--- Inspection tables
-create function cquery.streams()
-returns table( "schema" string, "table" string, "status" string, winsize int, winstride int, timeslice int, timestride int, heartbeat int, seen timestamp, "count" bigint, events bigint)
-external name streams.baskets;
+create function cquery.log()
+ returns table(tick timestamp,  "schema" string, "function" string, "status" string, time bigint, errors string)
+ external name cquery.log;
+
+create function cquery.summary()
+ returns table( "schema" string, "function" string, runs int, totaltime bigint)
+begin
+ return select "schema","function", count(*), sum(time) from cquery.log() group by "schema","function";
+end;
+
+create function cquery.show("schema" string, qryname string)
+returns string
+external name cquery.show;
+
+-- Debugging status
+create procedure cquery.dump()
+external name cquery.dump;
