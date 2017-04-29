@@ -37,10 +37,10 @@ address CQpause
 comment "Deactivate all continuous queries";
 
 pattern deregister(mod:str, fcn:str)
-address CQrelease
+address CQderegister
 comment "Remove a continuous query";
 pattern deregister()
-address CQrelease
+address CQderegister
 comment "Remove all continuous queries";
 
 pattern wait(cnt:int)

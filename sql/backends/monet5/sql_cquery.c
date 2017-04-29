@@ -51,7 +51,6 @@
 
 #define MAXCQ 200           /* it is the minimum, if we need more space GDKrealloc */
 #define MAXSTREAMS 128		/* limit the number of stream columns to be looked after per query*/
-#define PNDELAY 20			/* forced delay between PN scheduler cycles */
 
 static str statusname[7] = { "init", "register", "readytorun", "running", "waiting", "paused","stopping"};
 
@@ -71,6 +70,7 @@ static BAT *CQ_id_error = 0;
 #define STREAM_OUT	4
 
 typedef struct {
+	str mod,fcn;	/* The SQL command to be used */
 	MalBlkPtr mb;   /* The wrapped query block call in a transaction */
 	MalStkPtr stk;  /* Needed for execution */
 
@@ -89,7 +89,8 @@ typedef struct {
 	lng beats;		/* heart beat stride for procedures activations */
 
 	MT_Id	tid;	/* Thread responsible */
-	timestamp seen; /* last executed */
+	lng		run;	/* last executed relative to start of server */
+	timestamp seen;
 	str error;
 	lng time;
 } CQnode;
@@ -98,7 +99,7 @@ CQnode pnet[MAXCQ];
 int pnettop = 0;
 
 static int pnstatus = CQINIT;
-static int cycleDelay = 50; /* be careful, it affects response/throughput timings */
+static int cycleDelay = 200; /* be careful, it affects response/throughput timings */
 static MT_Lock ttrLock MT_LOCK_INITIALIZER("cqueryLock");
 
 static void
@@ -113,7 +114,11 @@ CQfree(int idx)
 		GDKfree(pnet[idx].schema[j]);
 		GDKfree(pnet[idx].tables[j]);
 		GDKfree(pnet[idx].column[j]);
+		if( pnet[idx].bats[j])
+			BBPunfix(pnet[idx].bats[j]->batCacheid);
 	}
+	GDKfree(pnet[idx].mod);
+	GDKfree(pnet[idx].fcn);
 	memset((void*) (pnet+idx), 0, sizeof(CQnode));
 }
 
@@ -216,11 +221,9 @@ static int
 CQlocate(str modname, str fcnname)
 {
 	int i;
-	InstrPtr sig;
 
 	for (i = 0; i < pnettop; i++){
-		sig = getInstrPtr(pnet[i].mb,0);
-		if (strcmp(getModuleId(sig), modname) == 0 && strcmp(getFunctionId(sig), fcnname) == 0)
+		if (strcmp(pnet[i].mod, modname) == 0 && strcmp(pnet[i].fcn, fcnname) == 0)
 			return i;
 	}
 	return i;
@@ -363,6 +366,7 @@ CQregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 #ifdef DEBUG_CQUERY
 	fprintf(stderr, "#cquery register %s.%s\n", getModuleId(sig),getFunctionId(sig));
+	fprintFunction(stderr,mb,0,LIST_MAL_ALL);
 #endif
 	memset((void*) (pnet+pnettop), 0, sizeof(CQnode));
 
@@ -382,11 +386,14 @@ CQregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	msg = CQanalysis(cntxt, mb, pnettop);
 	if(msg == MAL_SUCCEED) {
+		pnet[pnettop].mod = GDKstrdup(modnme);
+		pnet[pnettop].fcn = GDKstrdup(fcnnme);
 		pnet[pnettop].mb = nmb;
 		pnet[pnettop].stk = prepareMALstack(nmb, nmb->vsize);
 
 		pnet[pnettop].cycles = int_nil; 
 		pnet[pnettop].beats = lng_nil;
+		pnet[pnettop].run  = lng_nil;
 		pnet[pnettop].seen = *timestamp_nil;
 		pnet[pnettop].status = CQPAUSE;
 		pnettop++;
@@ -421,15 +428,12 @@ CQresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 	MT_lock_set(&ttrLock);
 	for( ; idx < last; idx++)
-	{
 		pnet[idx].status = CQWAIT;
-	}
 	MT_lock_unset(&ttrLock);
 
 	/* start the scheduler if needed */
-	if(CQinit) {
+	if(CQinit == 0) {
 		msg = CQstartScheduler();
-		CQinit =1;
 	}
 	return msg;
 }
@@ -455,9 +459,7 @@ CQpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 	MT_lock_set(&ttrLock);
 	for( ; idx < last; idx++)
-	{
 		pnet[idx].status = CQPAUSE;
-	}
 	MT_lock_unset(&ttrLock);
 	return MAL_SUCCEED;
 }
@@ -485,9 +487,7 @@ CQcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 	MT_lock_set(&ttrLock);
 	for( ; idx < last; idx++)
-	{
 		pnet[idx].cycles = cycles;
-	}
 	MT_lock_unset(&ttrLock);
 	return MAL_SUCCEED;
 }
@@ -497,6 +497,7 @@ CQheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str sch, fcn;
 	int beats, idx=0, last= pnettop;
+	str msg = MAL_SUCCEED;
 	(void) cntxt;
 	(void) mb;
 
@@ -514,16 +515,18 @@ CQheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	} else{
 		beats = *getArgReference_int(stk,pci,1);
 #ifdef DEBUG_CQUERY
-		fprintf(stderr, "#set the heartbeat %d\n",beats);
+		fprintf(stderr, "#set the heartbeat %d ms\n",beats);
 #endif
 	}
 	MT_lock_set(&ttrLock);
 	for( ; idx < last; idx++)
-	{
-		pnet[idx].beats = beats;
-	}
+		pnet[idx].beats = beats * 1000; /* minimal 1 ms */
 	MT_lock_unset(&ttrLock);
-	return MAL_SUCCEED;
+	/* start the scheduler if needed */
+	if(CQinit == 0) {
+		msg = CQstartScheduler();
+	}
+	return msg;
 }
 
 str
@@ -622,24 +625,27 @@ str
 CQdump(void *ret)
 {
 	int i, k;
-	InstrPtr sig;
 
 	fprintf(stderr, "#scheduler status %s\n", statusname[pnstatus]);
 	for (i = 0; i < pnettop; i++) {
-		sig = getInstrPtr(pnet[i].mb,0);
-		fprintf(stderr, "#[%d]\t%s.%s %s\n",
-				i, getModuleId(sig), getFunctionId(sig), statusname[pnet[i].status]);
-		if (pnet[i].error)
-			fprintf(stderr, "#%s\n", pnet[i].error);
-		fprintf(stderr, "#streams ");
+		fprintf(stderr, "#[%d]\t%s.%s %s ",
+				i, pnet[i].mod, pnet[i].fcn, statusname[pnet[i].status]);
+		if ( pnet[i].beats != lng_nil)
+			fprintf(stderr, "beats="LLFMT" ", pnet[i].beats);
+			
+		if( pnet[i].inout[0])
+			fprintf(stderr, " streams ");
 		for (k = 0; k < MAXSTREAMS && pnet[i].schema[k]; k++)
 		if( pnet[i].inout[k] == STREAM_IN)
 			fprintf(stderr, "%s.%s ", pnet[i].schema[k], pnet[i].tables[k]);
-		fprintf(stderr, " --> ");
+		if( pnet[i].inout[0])
+			fprintf(stderr, " --> ");
 		for (k = 0; k < MAXSTREAMS && pnet[i].schema[k]; k++)
 		if( pnet[i].inout[k] == STREAM_OUT)
 			fprintf(stderr, "%s.%s ", pnet[i].schema[k], pnet[i].tables[k]);
-		fprintf(stderr, "#\n ");
+		if (pnet[i].error)
+			fprintf(stderr, " errors:%s", pnet[i].error);
+		fprintf(stderr, "\n");
 	}
 	(void) ret;
 	return MAL_SUCCEED;
@@ -660,34 +666,24 @@ static void
 CQexecute( Client cntxt, int idx)
 {
 	CQnode *node= pnet+ idx;
-	InstrPtr sig;
+	str msg;
 
 	if( pnstatus != CQRUNNING)
 		return;
-	sig = getInstrPtr(node->mb,0);
-#ifdef DEBUG_CQUERY
-	fprintf(stderr, "#cquery.execute %s.%s\n", getModuleId(sig), getFunctionId(sig));
-#endif
 	// first grab exclusive access to all streams.
 
 #ifdef DEBUG_CQUERY
-	fprintf(stderr, "#cquery.execute %s.%s all locked\n",getModuleId(sig), getFunctionId(sig));
+	fprintf(stderr, "#cquery.execute %s.%s locked\n",node->mod, node->fcn);
 	fprintFunction(stderr, node->mb, 0, LIST_MAL_NAME | LIST_MAL_VALUE  | LIST_MAL_MAPI);
 #endif
 
-	(void)runMALsequence(cntxt, node->mb, 1, 0, node->stk, 0, 0);
+	msg = runMALsequence(cntxt, node->mb, 1, 0, node->stk, 0, 0);
+	if( msg != MAL_SUCCEED)
+		pnet[idx].error = msg;
 
-#ifdef DEBUG_CQUERY
-	fprintf(stderr, "#cquery.execute %s.%s transition done:\n", getModuleId(sig), getFunctionId(sig));
-#endif
-
-	// remember the time last accessed
-	(void) MTIMEcurrent_timestamp(&node->seen);
-	
 	// release all locks held
-
 #ifdef DEBUG_CQUERY
-	fprintf(stderr, "#cquery.execute %s.%s finished\n", getModuleId(sig), getFunctionId(sig));
+	fprintf(stderr, "#cquery.execute %s.%s finished\n", node->mod, node->fcn);
 #endif
 	MT_lock_set(&ttrLock);
 	if( node->status != CQPAUSE)
@@ -701,19 +697,18 @@ CQscheduler(void *dummy)
 	int i, j;
 	int k = -1;
 	int pntasks;
+	int delay = cycleDelay;
 	Client cntxt = (Client) dummy;
 	str msg = MAL_SUCCEED;
-	lng t, analysis, now;
+	lng t, now;
 	BAT *claimed[MAXSTREAMS];
-	timestamp ts, tn;
-	int force=0;
 	BAT *b;
-	InstrPtr sig;
 
 #ifdef DEBUG_CQUERY
 	fprintf(stderr, "#cquery.scheduler started\n");
 #endif
 		
+	CQinit = 1;
 	MT_lock_set(&ttrLock);
 	pnstatus = CQRUNNING; // global state 
 	MT_lock_unset(&ttrLock);
@@ -730,9 +725,7 @@ CQscheduler(void *dummy)
 		MT_lock_set(&ttrLock); // analysis should be done with exclusive access
 		for (k = i = 0; i < pnettop; i++) 
 		if ( pnet[i].status == CQWAIT ){
-			force = 0;
-			pnet[i].enabled = 1;
-			sig = getInstrPtr(pnet[i].mb,0);
+			pnet[i].enabled = pnet[i].error == 0;
 			if( pnet[i].cycles == 0)
 				pnet[i].enabled = 0;
 
@@ -743,23 +736,19 @@ CQscheduler(void *dummy)
 				pnet[i].enabled = 0;
 
 			if( pnet[i].enabled && pnet[i].beats > 0){
-				(void) MTIMEcurrent_timestamp(&ts);
-				(void) MTIMEtimestamp_add(&tn, &pnet[i].seen, &pnet[i].beats);
-				if ( tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs)) {
-#ifdef DEBUG_CQUERY_SCHEDULER
-					fprintf(stderr,"# now %d.%d fire %d.%d,disable\n", ts.days,ts.msecs, tn.days,tn.msecs);
-#endif
-					force =1;
-					break;
+				if( pnet[i].run == lng_nil){
+					// execute the first round
 				} else {
+					if( now > pnet[i].run + pnet[i].beats)
+						pnet[i].enabled = 0;
 #ifdef DEBUG_CQUERY_SCHEDULER
-				fprintf(stderr,"# now %d.%d fire %d.%d enable[%d]\n", ts.days,ts.msecs, tn.days,tn.msecs,i);
+					fprintf(stderr,"#now %s.%s  "LLFMT"%s\n", pnet[i].mod, pnet[i].fcn, now, (pnet[i].enabled? "enabled":"disabled"));
 #endif
 				}
 			}
 
 			/* check if all input baskets are available */
-			for (j = 0; force == 0 && pnet[i].enabled && (b = pnet[i].bats[j]); j++)
+			for (j = 0; pnet[i].enabled && (b = pnet[i].bats[j]); j++)
 				/* consider execution only if baskets are properly filled */
 				if ( pnet[i].window[j] >= 0 && (BUN) pnet[i].window[j] > BATcount(b)){
 					pnet[i].enabled = 0;
@@ -767,29 +756,29 @@ CQscheduler(void *dummy)
 				} 
 
 			/* check availability of all stream baskets */
-			for (j = 0; force == 0 && pnet[i].enabled && (b = pnet[i].bats[j]); j++)
+			for (j = 0; pnet[i].enabled && (b = pnet[i].bats[j]); j++)
 				for(k=0; claimed[k]; k++)
 					if(claimed[k] == b){
 						pnet[i].enabled = 0;
 #ifdef DEBUG_CQUERY_SCHEDULER
-						fprintf(stderr, "#cquery: %s.%s,disgarded \n", getModuleId(sig),getFunctionId(sig));
+						fprintf(stderr, "#cquery: %s.%s,disgarded \n", pnet[i].mod, pnet[i].fcn);
 #endif
 					}
 
 			for(k=0; claimed[k]; k++) {
 				// find end of list
 			}
-			for (j = 0; force == 0 && pnet[i].enabled && (b = pnet[i].bats[j]); j++) {
+			for (j = 0; pnet[i].enabled && (b = pnet[i].bats[j]); j++) {
 				claimed[k++] = b;
 			}
 
 #ifdef DEBUG_CQUERY_SCHEDULER
-				fprintf(stderr, "#cquery: %s.%s enabled \n", getModuleId(sig),getFunctionId(sig));
+			if( pnet[i].enabled)
+				fprintf(stderr, "#cquery: %s.%s enabled \n", pnet[i].mod, pnet[i].fcn);
 #endif
 			pntasks += pnet[i].enabled;
 		}
 		MT_lock_unset(&ttrLock); 
-		analysis = GDKusec() - now;
 #ifdef DEBUG_CQUERY_SCHEDULER
 		if( pntasks)
 			fprintf(stderr, "#Transitions %d enabled:\n",pntasks);
@@ -804,9 +793,7 @@ CQscheduler(void *dummy)
 		for (i = 0; i < pnettop; i++) 
 		if( pnet[i].enabled){
 #ifdef DEBUG_CQUERY
-			{ InstrPtr sig = getInstrPtr(pnet[i].mb,0);
-			fprintf(stderr, "#Run transition %s.%s \n", getModuleId(sig), getFunctionId(sig));
-			}
+			fprintf(stderr, "#Run transition %s.%s cycle=%d \n", pnet[i].mod, pnet[i].fcn, pnet[i].cycles);
 #endif
 
 			t = GDKusec();
@@ -817,17 +804,20 @@ CQscheduler(void *dummy)
 					msg= createException(MAL,"petrinet.scheduler","Can not fork the thread");
 				} else
 */
-			pnet[i].time += GDKusec() - t + analysis;   /* keep around in microseconds */
+			if( pnet[i].cycles != int_nil && pnet[i].cycles > 0)
+				pnet[i].cycles--;
+			pnet[i].run = now;				/* last executed */
+			pnet[i].time += GDKusec() - t;   /* keep around in microseconds */
+			pnet[i].enabled = 0;
 			if (msg != MAL_SUCCEED ){
 				char buf[BUFSIZ];
 				if (pnet[i].error == NULL) {
-					snprintf(buf, BUFSIZ - 1, "Query %s.%s failed:%s", getModuleId(sig), getFunctionId(sig), msg);
+					snprintf(buf, BUFSIZ - 1, "Query %s.%s failed:%s", pnet[i].mod, pnet[i].fcn,msg);
 					pnet[i].error = GDKstrdup(buf);
 				} else
 					GDKfree(msg);
-			} else 
-				/* mark the time the query is started */
-				(void) MTIMEcurrent_timestamp(&pnet[i].seen);
+			}
+			delay = cycleDelay;
 		}
 		/* after one sweep all threads should be released */
 /*
@@ -850,20 +840,25 @@ CQscheduler(void *dummy)
 		MT_sleep_ms(CQDELAY);  
 */
 		/* we should actually delay until the next heartbeat or insertion into the streams */
-		do{
+		if (pntasks == 0  || pnstatus == CQPAUSE) {
 #ifdef DEBUG_CQUERY
 			fprintf(stderr, "#cquery.scheduler paused\n");
 #endif
-			MT_sleep_ms(cycleDelay);  
-		} while (pnstatus == CQPAUSE);
+			if( pnettop == 0)
+				break;
+			MT_sleep_ms(delay);  
+			if( delay < 20 * cycleDelay)
+				delay *= 1.2;
+		} 
 	}
 #ifdef DEBUG_CQUERY
 	fprintf(stderr, "#cquery.scheduler stopped\n");
 #endif
-	MCcloseClient(cntxt);
+	cntxt->fdin = 0;
+	cntxt->fdout = 0;
+	//MCcloseClient(cntxt); to be checked, removes too much
 	pnstatus = CQINIT;
 	CQinit = 0;
-	(void) dummy;
 }
 
 str
@@ -871,22 +866,28 @@ CQstartScheduler(void)
 {
 	Client cntxt;
 	MT_Id pid;
-	int s;
-	stream *fin, *fout;
+	//stream *fin, *fout;
 
 #ifdef DEBUG_CQUERY
 	fprintf(stderr, "#Start CQscheduler\n");
 #endif
 	MT_lock_init( &ttrLock, "cqueryLock");
+/*
 	fin =  open_rastream("cquery_in");
+	if( fin == NULL)
+		throw(MAL, "cquery.startScheduler","Could not create input file");
 	fout =  open_wastream("cquery_out");
+	if( fout == NULL)
+		throw(MAL, "cquery.startScheduler","Could not create output file");
 	cntxt = MCinitClient(0,bstream_create(fin,0),fout);
+*/
+	cntxt = MCinitClient(0,0,0);
 	if( cntxt == NULL)
 		throw(MAL, "cquery.startScheduler","Could not initialize CQscheduler");
 	if( SQLinitClient(cntxt) != MAL_SUCCEED)
 		throw(MAL, "cquery.startScheduler","Could not initialize CQscheduler");
 
-	if (pnstatus== CQINIT && MT_create_thread(&pid, CQscheduler, &s, MT_THR_JOINABLE) != 0){
+	if (pnstatus== CQINIT && MT_create_thread(&pid, CQscheduler, (void*) cntxt, MT_THR_JOINABLE) != 0){
 #ifdef DEBUG_CQUERY
 		fprintf(stderr, "#Start CQscheduler failed\n");
 #endif
