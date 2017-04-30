@@ -14,11 +14,11 @@ call cquery.register('sys','cq_cycles');
 call cquery.heartbeat('sys','cq_cycles',1000);
 
 -- The scheduler executes all CQ at most 5 rounds
-call cquery.cycles('sys','cq_cycles',5);
+call cquery.cycles('sys','cq_cycles',3);
 
 -- reactivate all continuous queries
 call cquery.resume();
-call cquery.wait(2000);
+call cquery.wait(4000);
 call cquery.pause();
 
 select 'RESULT';

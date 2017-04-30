@@ -45,6 +45,7 @@ lib__sql = {
 		sql_round.c sql_round_impl.h sql_bat2time.c \
 		sql_fround.c sql_fround_impl.h \
 		sql_orderidx.c sql_orderidx.h \
+		sql_basket.c sql_basket.h \
 		sql_cquery.c sql_cquery.h \
 		sql_rank.c sql_rank.h
 	LIBS = ../../server/libsqlserver \
@@ -79,7 +80,7 @@ headers_mal_hge = {
 headers_autoload = {
 	HEADERS = mal
 	DIR = libdir/monetdb5/autoload
-	SOURCES = 40_sql.mal 50_cquery.mal
+	SOURCES = 40_sql.mal 51_basket.mal 50_cquery.mal
 }
 
 headers_autoload_hge = {

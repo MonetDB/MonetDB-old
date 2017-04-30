@@ -77,6 +77,8 @@ shutdown
 
 HAVE_HGE?int_notation_1e5
 
+basket00
+
 cquery00
 cquery05
 cquery10

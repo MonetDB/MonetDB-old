@@ -49,13 +49,9 @@
 #include "mal_builder.h"
 #include "opt_prelude.h"
 
-#define MAXCQ 200           /* it is the minimum, if we need more space GDKrealloc */
-#define MAXSTREAMS 128		/* limit the number of stream columns to be looked after per query*/
-
 static str statusname[7] = { "init", "register", "readytorun", "running", "waiting", "paused","stopping"};
 
-static str
-CQstartScheduler(void);
+static str CQstartScheduler(void);
 static int CQinit;
 static int pnstatus;
 
@@ -68,38 +64,12 @@ static BAT *CQ_id_error = 0;
 #define STREAM_IN	1
 #define STREAM_OUT	4
 
-typedef struct {
-	str mod,fcn;	/* The SQL command to be used */
-	MalBlkPtr mb;   /* The wrapped query block call in a transaction */
-	MalStkPtr stk;  /* Needed for execution */
-
-	int status;     /* query status .../wait/running/paused */
-	int enabled;
-
-	str schema[MAXSTREAMS];
-	str tables[MAXSTREAMS];
-	str column[MAXSTREAMS];
-	BAT *bats[MAXSTREAMS]; /* keep them around for ease of access */
-	int inout[MAXSTREAMS]; /* how the stream tables are used, needed for locking */
-	lng window[MAXSTREAMS];/* tuple consumption window for query processing */
-	lng tumble[MAXSTREAMS];/* eating away tuples after each round */
-
-	int cycles;		/* limit the number of invocations before dying */
-	lng beats;		/* heart beat stride for procedures activations */
-
-	MT_Id	tid;	/* Thread responsible */
-	lng		run;	/* last executed relative to start of server */
-	timestamp seen;
-	str error;
-	lng time;
-} CQnode;
-
 CQnode pnet[MAXCQ];
 int pnettop = 0;
 
 static int pnstatus = CQINIT;
 static int cycleDelay = 200; /* be careful, it affects response/throughput timings */
-static MT_Lock ttrLock MT_LOCK_INITIALIZER("cqueryLock");
+MT_Lock ttrLock MT_LOCK_INITIALIZER("cqueryLock");
 
 static void
 CQfree(int idx)
