@@ -71,7 +71,7 @@ create procedure cquery.window("schema" string, "table" string, elem integer)
 -- continuous query status analysis
 
 create function cquery.log()
- returns table(tick timestamp,  "schema" string, "function" string, "status" string, time bigint, errors string)
+ returns table(tick timestamp,  "schema" string, "function" string, time bigint, errors string)
  external name cquery.log;
 
 create function cquery.summary()

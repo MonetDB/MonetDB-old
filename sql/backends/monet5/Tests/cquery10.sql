@@ -4,14 +4,17 @@ create table result(i integer);
 
 create procedure cq_cycles()
 begin
-	insert into result values(select count(*) from result);
+	insert into sys.result (select count(*) from sys.result);
 end;
 
--- The scheduler executes all CQ at most 5 rounds
-call cquery.cycles(5);
-
 -- register the CQ
-call cquery.register('iot','cq_cycles');
+call cquery.register('sys','cq_cycles');
+
+-- The scheduler interval is 1 sec 
+call cquery.heartbeat('sys','cq_cycles',1000);
+
+-- The scheduler executes all CQ at most 5 rounds
+call cquery.cycles('sys','cq_cycles',5);
 
 -- reactivate all continuous queries
 call cquery.resume();

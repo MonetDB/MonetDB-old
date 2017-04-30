@@ -10,12 +10,12 @@ end;
 -- register the CQ
 call cquery.register('sys','cq_basic');
 
--- The scheduler executes this CQ every 50 milliseconds
-call cquery.heartbeat('sys','cq_basic',50);
+-- The scheduler executes this CQ every 1000 milliseconds
+call cquery.heartbeat('sys','cq_basic',1000);
 
 -- reactivate this continuous query
 call cquery.resume('sys','cq_basic');
-call cquery.wait(2000);
+call cquery.wait(2100);
 call cquery.pause('sys','cq_basic');
 
 select 'RESULT';

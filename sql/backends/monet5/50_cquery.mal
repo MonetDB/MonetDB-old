@@ -73,7 +73,7 @@ address CQwindow
 comment "Set the input window size constraints";
 
 # continuous query status analysis
-pattern log() (tick:bat[:timestamp],mod:bat[:str],fcn:bat[:str], status:bat[:str], time:bat[:lng],error:bat[:str])
+pattern log() (tick:bat[:timestamp],mod:bat[:str],fcn:bat[:str], time:bat[:lng],error:bat[:str])
 address CQlog
 comment "The log of all CQ executions";
 
