@@ -80,6 +80,10 @@ begin
  return select "schema","function", count(*), sum(time) from cquery.log() group by "schema","function";
 end;
 
+create function cquery.status()
+ returns table(tick timestamp,  "schema" string, "function" string, state string, errors string)
+ external name cquery.status;
+
 create function cquery.show("schema" string, qryname string)
 returns string
 external name cquery.show;

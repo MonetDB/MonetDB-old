@@ -218,7 +218,67 @@ CQlog( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	BBPkeepref(*errorret = errbat->batCacheid);
 	return MAL_SUCCEED;
 wrapup:
+	if( tickbat) BBPunfix(tickbat->batCacheid);
+	if( modbat) BBPunfix(modbat->batCacheid);
+	if( fcnbat) BBPunfix(fcnbat->batCacheid);
+	if( timebat) BBPunfix(timebat->batCacheid);
+	if( errbat) BBPunfix(errbat->batCacheid);
 	return MAL_SUCCEED;
+}
+
+str
+CQstatus( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	BAT *tickbat, *modbat, *fcnbat, *statusbat, *errbat;
+	bat *tickret, *modret, *fcnret, *statusret, *errorret;
+	int idx;
+	str msg= MAL_SUCCEED;
+	
+	(void) cntxt;
+	(void) mb;
+
+	tickret = getArgReference_bat(stk, pci, 0);
+	modret = getArgReference_bat(stk, pci, 1);
+	fcnret = getArgReference_bat(stk, pci, 2);
+	statusret = getArgReference_bat(stk, pci, 3);
+	errorret = getArgReference_bat(stk, pci, 4);
+
+	tickbat = COLnew(0, TYPE_timestamp, 0, TRANSIENT);
+	if(tickbat == NULL)
+		goto wrapup;
+	modbat = COLnew(0, TYPE_str, 0, TRANSIENT);
+	if(modbat == NULL)
+		goto wrapup;
+	fcnbat = COLnew(0, TYPE_str, 0, TRANSIENT);
+	if(fcnbat == NULL)
+		goto wrapup;
+	statusbat = COLnew(0, TYPE_str, 0, TRANSIENT);
+	if(statusbat == NULL)
+		goto wrapup;
+	errbat = COLnew(0, TYPE_str, 0, TRANSIENT);
+	if(errbat == NULL)
+		goto wrapup;
+
+	for( idx = 0; msg == MAL_SUCCEED && idx < pnettop; idx++)
+		if( BUNappend(tickbat, &pnet[idx].seen,FALSE) != GDK_SUCCEED ||
+			BUNappend(modbat, pnet[idx].mod,FALSE) != GDK_SUCCEED ||
+			BUNappend(fcnbat, pnet[idx].fcn,FALSE) != GDK_SUCCEED ||
+			BUNappend(statusbat, statusname[pnet[idx].status],FALSE) != GDK_SUCCEED ||
+			BUNappend(errbat, (pnet[idx].error ? pnet[idx].error:""),FALSE) != GDK_SUCCEED )
+				msg = createException(SQL,"cquery.status",MAL_MALLOC_FAIL);
+
+	BBPkeepref(*tickret = tickbat->batCacheid);
+	BBPkeepref(*modret = modbat->batCacheid);
+	BBPkeepref(*fcnret = fcnbat->batCacheid);
+	BBPkeepref(*statusret = statusbat->batCacheid);
+	BBPkeepref(*errorret = errbat->batCacheid);
+	return msg;
+wrapup:
+	if( tickbat) BBPunfix(tickbat->batCacheid);
+	if( modbat) BBPunfix(modbat->batCacheid);
+	if( fcnbat) BBPunfix(fcnbat->batCacheid);
+	if( statusbat) BBPunfix(statusbat->batCacheid);
+	if( errbat) BBPunfix(errbat->batCacheid);
+	throw(SQL,"cquery.status",MAL_MALLOC_FAIL);
 }
 
 static int
