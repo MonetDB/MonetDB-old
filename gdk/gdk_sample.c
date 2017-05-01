@@ -42,23 +42,23 @@ struct oidtreenode {
 static int
 OIDTreeMaybeInsert(struct oidtreenode *tree, oid o, BUN allocated)
 {
-	struct oidtreenode **nodep;
+	struct oidtreenode *nodep;
 
 	if (allocated == 0) {
 		tree->left = tree->right = NULL;
 		tree->o = o;
 		return 1;
 	}
-	nodep = &tree;
-	while (*nodep) {
-		if (o == (*nodep)->o)
+	nodep = tree;
+	while (nodep) {
+		if (o == nodep->o)
 			return 0;
-		if (o < (*nodep)->o)
-			nodep = &(*nodep)->left;
+		if (o < nodep->o)
+			nodep = nodep->left;
 		else
-			nodep = &(*nodep)->right;
+			nodep = nodep->right;
 	}
-	*nodep = &tree[allocated];
+	nodep = &tree[allocated];
 	tree[allocated].left = tree[allocated].right = NULL;
 	tree[allocated].o = o;
 	return 1;
