@@ -1,1 +1,4 @@
 #simple test for basket management
+
+(seen:bat[:timestamp],sch:bat[:str],tbl:bat[:str],events:bat[:int],cycles:bat[:int], error:bat[:str]):= baskets.status();
+io.print(seen],sch,tbl,events,cycles,error);

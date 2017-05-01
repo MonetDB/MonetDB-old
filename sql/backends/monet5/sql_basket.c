@@ -163,7 +163,7 @@ BSKTnewbasket(mvc *m, sql_schema *s, sql_table *t)
 
 // MAL/SQL interface for registration of a single table
 static str
-BSKTregister(Client cntxt, MalBlkPtr mb, str sch, str tbl)
+BSKTregisterInternal(Client cntxt, MalBlkPtr mb, str sch, str tbl)
 {
 	sql_schema  *s;
 	sql_table   *t;
@@ -192,6 +192,20 @@ BSKTregister(Client cntxt, MalBlkPtr mb, str sch, str tbl)
 }
 
 str
+BSKTregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    str sch, tbl;
+    str msg= MAL_SUCCEED;
+
+    (void) stk;
+    (void) pci;
+    sch = getVarConstant(mb, getArg(pci,2)).val.sval;
+    tbl = getVarConstant(mb, getArg(pci,3)).val.sval;
+    msg = BSKTregisterInternal(cntxt,mb,sch,tbl);
+    return msg;
+}
+
+str
 BSKTsetwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str sch = *getArgReference_str(stk,pci,1);
@@ -205,7 +219,7 @@ BSKTsetwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 	idx = BSKTlocate(sch, tbl);
 	if( idx == 0){
-		msg= BSKTregister(cntxt, mb, sch, tbl);
+		msg= BSKTregisterInternal(cntxt, mb, sch, tbl);
 		if( msg != MAL_SUCCEED)
 			return msg;
 		idx = BSKTlocate(sch, tbl);
@@ -232,7 +246,7 @@ BSKTkeep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 	idx = BSKTlocate(sch, tbl);
 	if( idx == 0){
-		msg= BSKTregister(cntxt, mb, sch, tbl);
+		msg= BSKTregisterInternal(cntxt, mb, sch, tbl);
 		if( msg != MAL_SUCCEED)
 			return msg;
 		idx = BSKTlocate(sch, tbl);
@@ -256,7 +270,7 @@ BSKTrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 	idx = BSKTlocate(sch, tbl);
 	if( idx == 0){
-		msg= BSKTregister(cntxt, mb, sch, tbl);
+		msg= BSKTregisterInternal(cntxt, mb, sch, tbl);
 		if( msg != MAL_SUCCEED)
 			return msg;
 		idx = BSKTlocate(sch, tbl);
@@ -326,7 +340,7 @@ BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg= MAL_SUCCEED;
 
 	// first add the basket to the catalog
-	msg = BSKTregister(cntxt,mb,sch,tbl);
+	msg = BSKTregisterInternal(cntxt,mb,sch,tbl);
 	if( msg)
 		return msg;
 	
@@ -460,7 +474,7 @@ BSKTtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	idx = BSKTlocate(sch, tbl);
 	if( idx == 0){
-		msg = BSKTregister(cntxt, mb, sch, tbl);
+		msg = BSKTregisterInternal(cntxt, mb, sch, tbl);
 		if( msg != MAL_SUCCEED)
 			return msg;
 		idx = BSKTlocate(sch, tbl);
