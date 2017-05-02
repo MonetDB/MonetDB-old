@@ -23,6 +23,8 @@
  * values that should be omitted from the sample.
  */
 
+#include <math.h>
+
 #include "monetdb_config.h"
 #include "gdk.h"
 #include "gdk_private.h"
@@ -61,6 +63,8 @@
 			siftup(OPER, i - 1, SWAP);	\
 	} while (0)
 
+
+//CUSTOM SWAP AND COMPARE FUNCTION
 #define SWAP3(p1, p2)				\
 	do {					\
 		item = oids[p1];		\
@@ -72,8 +76,8 @@
 	} while (0)
 
 #define compKeysGT(p1, p2)													\
-	(keys[p1] > keys[p2] || 						\
-	keys[p1] == keys[p2] && oids[p1] > oids[p2])
+	((keys[p1] > keys[p2]) || 						\
+	(keys[p1] == keys[p2] && oids[p1] > oids[p2]))
 
 /* this is a straightforward implementation of a binary tree */
 struct oidtreenode {
@@ -85,23 +89,23 @@ struct oidtreenode {
 static int
 OIDTreeMaybeInsert(struct oidtreenode *tree, oid o, BUN allocated)
 {
-	struct oidtreenode *nodep;
+	struct oidtreenode **nodep;
 
 	if (allocated == 0) {
 		tree->left = tree->right = NULL;
 		tree->o = o;
 		return 1;
 	}
-	nodep = tree;
-	while (nodep) {
-		if (o == nodep->o)
+	nodep = &tree;
+	while (*nodep) {
+		if (o == (*nodep)->o)
 			return 0;
-		if (o < nodep->o)
-			nodep = nodep->left;
+		if (o < (*nodep)->o)
+			nodep = &(*nodep)->left;
 		else
-			nodep = nodep->right;
+			nodep = &(*nodep)->right;
 	}
-	nodep = &tree[allocated];
+	*nodep = &tree[allocated];
 	tree[allocated].left = tree[allocated].right = NULL;
 	tree[allocated].o = o;
 	return 1;
@@ -154,7 +158,6 @@ BATsample(BAT *b, BUN n)
 	struct oidtreenode *tree = NULL;
 	mtwist *mt_rng;
 	unsigned int range;
-	dbl random;
 
 	BATcheck(b, "BATsample", NULL);
 	ERRORcheck(n > BUN_MAX, "BATsample: sample size larger than BUN_MAX\n", NULL);
@@ -245,15 +248,13 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 	oid* oids;//points to the oids in sample
 	dbl* w_ptr;//TODO types of w
 	dbl* keys;//keys as defined in Alg-A-exp
-	BUN cnt, i, j;
-	bit antiset;
+	BUN cnt, i;
 	mtwist *mt_rng;
 	BUN pos, childpos;
 	oid item;
 	dbl r, xw, r2, key, tw;
 
 	oid minoid = b->hseqbase;
-	oid maxoid = b->hseqbase + cnt;
 
 	BATcheck(b, "BATsample", NULL);
 	BATcheck(w, "BATsample", NULL);
@@ -264,7 +265,6 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 					"BATsample: type of weights must be doubles\n", NULL);//TODO types of w (want to remove this)
 
 	cnt = BATcount(b);
-
 
 	keys = (double*) malloc(sizeof(double)*n);
 	if(keys == NULL)
@@ -277,6 +277,7 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 	}
 
 	oids = (oid *)sample->theap.base;
+	w_ptr = (dbl*) w->theap.base;
 
 	mt_rng = mtwist_new();
 	mtwist_seed(mt_rng, rand());
@@ -284,26 +285,27 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 	BATsetcount(sample, n);
 		/* obtain sample */
 	//TODO: reservoir sampling with exponential jumps
-	for(j=0; j<n; j++) {
-		oids[j] = j+minoid;
-		keys[j] = pow(mtwist_drand(mt_rng),1.0/w[j]);
+	for(i=0; i<n; i++) {
+		oids[i] = i+minoid;
+		keys[i] = pow(mtwist_drand(mt_rng),1.0/w_ptr[i]);//TODO cast 1.0 to dbl?
 	}
 	heapify(compKeysGT, SWAP3);//NOTE: writes to 'i'
 
-	j=n;
+	i=n;
 	while(true) {
 		r = mtwist_drand(mt_rng);
 		xw = log(r)/log(keys[oids[0]-minoid]);
-		while(xw > 0 && j < cnt) {
-			xw -= w[j];
-			j++;
+		while(xw > 0 && i < cnt) {
+			xw -= w_ptr[i];
+			i++;
 		}
-		if(j >= cnt) break;
-		tw = pow(keys[oids[0]-minoid], w[j]);
+		if(i >= cnt) break;
+		//At this point, xw - (w_ptr[c]+w_ptr[c+1]+...+w_ptr[i]) <= 0
+		tw = pow(keys[oids[0]-minoid], w_ptr[i]);
 		r2 = mtwist_drand(mt_rng)*(1-tw)+tw;
-		key = pow(r2, 1/w[j]);
+		key = pow(r2, 1/w_ptr[i]);
 
-		oids[0] = j+minoid;
+		oids[0] = i+minoid;
 		keys[0] = key;
 		siftup(compKeysGT, 0, SWAP3);//NOTE: writes to 'key'
 	}
