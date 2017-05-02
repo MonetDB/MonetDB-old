@@ -32,6 +32,49 @@
 #undef BATsample
 
 
+//TODO share these with gkd_firstn.c
+#define siftup(OPER, START, SWAP)					\
+	do {								\
+		pos = (START);						\
+		childpos = (pos << 1) + 1;				\
+		while (childpos < n) {					\
+			/* find most extreme child */			\
+			if (childpos + 1 < n &&				\
+			    !(OPER(childpos + 1, childpos)))		\
+				childpos++;				\
+			/* compare parent with most extreme child */	\
+			if (!OPER(pos, childpos)) {			\
+				/* already correctly ordered */		\
+				break;					\
+			}						\
+			/* exchange parent with child and sift child */	\
+			/* further */					\
+			SWAP(pos, childpos);				\
+			pos = childpos;					\
+			childpos = (pos << 1) + 1;			\
+		}							\
+	} while (0)
+
+#define heapify(OPER, SWAP)				\
+	do {						\
+		for (i = n / 2; i > 0; i--)		\
+			siftup(OPER, i - 1, SWAP);	\
+	} while (0)
+
+#define SWAP3(p1, p2)				\
+	do {					\
+		item = oids[p1];		\
+		oids[p1] = oids[p2];		\
+		oids[p2] = item;		\
+		key = keys[p1];		\
+		keys[p1] = keys[p2];		\
+		keys[p2] = key;		\
+	} while (0)
+
+#define compKeysGT(p1, p2)													\
+	(keys[p1] > keys[p2] || 						\
+	keys[p1] == keys[p2] && oids[p1] > oids[p2])
+
 /* this is a straightforward implementation of a binary tree */
 struct oidtreenode {
 	oid o;
@@ -194,14 +237,23 @@ BATsample(BAT *b, BUN n)
 
 /* BATweightedsample takes weighted samples of void headed BATs */
 /* Note that the type of w should be castable to doubles */
+/* based on Alg-A-exp from 'Weighted random sampling with a reservoir' by Efraimidis and Spirakis (2006) */
 BAT *
 BATweightedsample(BAT *b, BUN n, BAT *w)
 {
 	BAT* sample;
+	oid* oids;//points to the oids in sample
 	dbl* w_ptr;//TODO types of w
-	dbl* cdf_ptr;
-	BUN cnt, i;
+	dbl* keys;//keys as defined in Alg-A-exp
+	BUN cnt, i, j;
 	bit antiset;
+	mtwist *mt_rng;
+	BUN pos, childpos;
+	oid item;
+	dbl r, xw, r2, key, tw;
+
+	oid minoid = b->hseqbase;
+	oid maxoid = b->hseqbase + cnt;
 
 	BATcheck(b, "BATsample", NULL);
 	BATcheck(w, "BATsample", NULL);
@@ -213,10 +265,57 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 
 	cnt = BATcount(b);
 
-	antiset = n > cnt / 2;
 
-	/* obtain sample */
-	sample = NULL;//TODO: reservoir sampling with exponential jumps
+	keys = (double*) malloc(sizeof(double)*n);
+	if(keys == NULL)
+		return NULL;
+
+	sample = COLnew(0, TYPE_oid, n, TRANSIENT);
+	if(sample == NULL) {
+		free(keys);
+		return NULL;
+	}
+
+	oids = (oid *)sample->theap.base;
+
+	mt_rng = mtwist_new();
+	mtwist_seed(mt_rng, rand());
+
+	BATsetcount(sample, n);
+		/* obtain sample */
+	//TODO: reservoir sampling with exponential jumps
+	for(j=0; j<n; j++) {
+		oids[j] = j+minoid;
+		keys[j] = pow(mtwist_drand(mt_rng),1.0/w[j]);
+	}
+	heapify(compKeysGT, SWAP3);//NOTE: writes to 'i'
+
+	j=n;
+	while(true) {
+		r = mtwist_drand(mt_rng);
+		xw = log(r)/log(keys[oids[0]-minoid]);
+		while(xw > 0 && j < cnt) {
+			xw -= w[j];
+			j++;
+		}
+		if(j >= cnt) break;
+		tw = pow(keys[oids[0]-minoid], w[j]);
+		r2 = mtwist_drand(mt_rng)*(1-tw)+tw;
+		key = pow(r2, 1/w[j]);
+
+		oids[0] = j+minoid;
+		keys[0] = key;
+		siftup(compKeysGT, 0, SWAP3);//NOTE: writes to 'key'
+	}
+
+	free(keys);
+
+	sample->trevsorted = sample->batCount <= 1;
+	sample->tsorted = sample->batCount <= 1;
+	sample->tkey = 1;
+	sample->tdense = sample->batCount <= 1;
+	if (sample->batCount == 1)
+		sample->tseqbase = *(oid *) Tloc(sample, 0);
 
 	return sample;
 }
