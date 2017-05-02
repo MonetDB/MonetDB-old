@@ -72,6 +72,10 @@ pattern window(sch:str,tbl:str,maximal:int)
 address CQwindow
 comment "Set the input window size constraints";
 
+pattern error(sch:str, tbl:str, msg:str)
+address CQerror
+comment "Remember the error seen";
+
 # continuous query status analysis
 pattern status() (tick:bat[:timestamp],mod:bat[:str],fcn:bat[:str],state:bat[:str],error:bat[:str])
 address CQstatus

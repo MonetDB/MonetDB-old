@@ -263,6 +263,26 @@ CQlocate(str modname, str fcnname)
 	return i;
 }
 
+/* capture and remember errors */
+str
+CQerror(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	str sch = *getArgReference_str(stk,pci,1);
+	str fcn = *getArgReference_str(stk,pci,2);
+	str error = *getArgReference_str(stk,pci,3);
+	int idx;
+
+	(void) cntxt;
+	(void) mb;
+
+	idx = CQlocate(sch, fcn);
+	if( idx == pnettop)
+		throw(SQL,"cquery.error","Continous query %s.%s not accessible\n",sch,fcn);
+
+	pnet[idx].error = GDKstrdup(error);
+	return MAL_SUCCEED;
+}
+
 /* A debugging routine */
 str
 CQshow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)

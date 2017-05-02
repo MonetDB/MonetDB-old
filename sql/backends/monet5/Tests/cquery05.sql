@@ -21,8 +21,8 @@ call cquery.pause('sys','cq_basic');
 select 'RESULT';
 select * from cqresult05;
 
-select * from cquery.summary();
-select * from cquery.log();
+--select * from cquery.summary();
+--select * from cquery.log();
 
 -- ideally auto remove upon dropping the procedure
 call cquery.deregister('sys','cq_basic');

@@ -29,14 +29,14 @@ call cquery.resume('sys','cq_splitter');
 call cquery.wait(1000);
 
 -- STOP cq_splitter;
-call cquery.pause('sys','cq_splitter'));
+call cquery.pause('sys','cq_splitter');
 
 select 'RESULT';
 select * from stmp2;
 select * from result1;
 select * from result2;
 
-select * from cquery.log('sys','cq_splitter');
+select * from cquery.log();
 
 -- ideally auto remove upon dropping the procedure
 call cquery.deregister('sys','cq_splitter');

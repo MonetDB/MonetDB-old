@@ -81,7 +81,7 @@ pattern drop(mvc:int,sch:str,tbl:str):int
 address BSKTdrop
 comment "Remove the basket";
 
-pattern status() (seen:bat[:timestamp],sch:bat[:str],tbl:bat[:str],events:bat[:int],cycles:bat[:int], error:bat[:str])
+pattern status() (seen:bat[:timestamp],sch:bat[:str],tbl:bat[:str],state:bat[:str], window:bat[:int], stride:bat[:int],events:bat[:int],cycles:bat[:int], error:bat[:str])
 address BSKTstatus
 comment "Show the status of the baskets";
 

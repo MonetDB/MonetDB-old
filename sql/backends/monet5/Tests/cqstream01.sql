@@ -24,13 +24,13 @@ call cquery.resume('sys','cq_window');
 call cquery.wait(1000);
 
 -- STOP cq_window;
-call cquery.pause('sys','cq_window'));
+call cquery.pause('sys','cq_window');
 
 select 'RESULT';
 select * from stmp2;
 select * from result2;
 
-select * from cquery.log('sys','cq_window');
+select * from cquery.log();
 
 -- ideally auto remove upon dropping the procedure
 call cquery.deregister('sys','cq_window');
