@@ -100,13 +100,10 @@ OIDTreeToBATAntiset(struct oidtreenode *node, BAT *bat, oid start, oid stop)
 	//TODO create this function
 }*/
 
-/* 
- * _BATsample is the internal (weighted) sampling function without replacement
- * If cdf=NULL, an uniform sample is taken
- * Otherwise it is assumed the cdf increases monotonically
- */
-static BAT *
-_BATsample(BAT *b, BUN n, BAT *cdf)
+
+/* BATsample takes uniform samples of void headed BATs */
+BAT *
+BATsample(BAT *b, BUN n)
 {
 	BAT *bn;
 	BUN cnt, slen;
@@ -115,8 +112,6 @@ _BATsample(BAT *b, BUN n, BAT *cdf)
 	mtwist *mt_rng;
 	unsigned int range;
 	dbl random;
-	dbl cdf_max;
-	dbl* cdf_ptr;
 
 	BATcheck(b, "BATsample", NULL);
 	ERRORcheck(n > BUN_MAX, "BATsample: sample size larger than BUN_MAX\n", NULL);
@@ -167,47 +162,17 @@ _BATsample(BAT *b, BUN n, BAT *cdf)
 		
 		range = maxoid - minoid;
 		
-		/* sample OIDs (method depends on w) */
-		if(cdf == NULL) {
-			/* no weights, hence do uniform sampling */
-
-			/* while we do not have enough sample OIDs yet */
-			for (rescnt = 0; rescnt < n; rescnt++) {
-				oid candoid;
-				do {
-					/* generate a new random OID in [minoid, maxoid[
-					 * that is including minoid, excluding maxoid*/
-					candoid = (oid) ( minoid + (mtwist_u32rand(mt_rng)%range) );
-					/* if that candidate OID was already
-					 * generated, try again */
-				} while (!OIDTreeMaybeInsert(tree, candoid, rescnt));
-			}
-
-		} else {
-			/* do weighted sampling */
-			
-			cdf_ptr = (dbl*) Tloc(cdf, 0);
-			if (!antiset)
-				cdf_max = cdf_ptr[cnt-1];
-			else
-				cdf_max = cdf_ptr[0];
-			   //TODO how to type/cast cdf_max?
-
-			/* generate candoids, using CDF */
-			for (rescnt = 0; rescnt < n; rescnt++) {
-				oid candoid;
-
-				do {
-					random = mtwist_drand(mt_rng)*cdf_max;
-					/* generate a new random OID with minoid <= OID < maxoid */
-					/* note that cdf has already been adjusted for antiset case */
-					candoid = (oid) ( minoid + (oid) SORTfndfirst(cdf, &random) );
-					/* if that candidate OID was already
-					 * generated, try again */
-				} while (!OIDTreeMaybeInsert(tree, candoid, rescnt));
-			}
+		/* while we do not have enough sample OIDs yet */
+		for (rescnt = 0; rescnt < n; rescnt++) {
+			oid candoid;
+			do {
+				/* generate a new random OID in [minoid, maxoid[
+				 * that is including minoid, excluding maxoid*/
+				candoid = (oid) ( minoid + (mtwist_u32rand(mt_rng)%range) );
+				/* if that candidate OID was already
+				 * generated, try again */
+			} while (!OIDTreeMaybeInsert(tree, candoid, rescnt));
 		}
-
 
 		if (!antiset) {
 			OIDTreeToBAT(tree, bn);
@@ -227,20 +192,11 @@ _BATsample(BAT *b, BUN n, BAT *cdf)
 	return bn;
 }
 
-
-/* BATsample takes uniform samples of void headed BATs */
-BAT *
-BATsample(BAT *b, BUN n)
-{
-	return _BATsample(b, n, NULL);
-}
-
 /* BATweightedsample takes weighted samples of void headed BATs */
 /* Note that the type of w should be castable to doubles */
 BAT *
 BATweightedsample(BAT *b, BUN n, BAT *w)
 {
-	BAT* cdf;
 	BAT* sample;
 	dbl* w_ptr;//TODO types of w
 	dbl* cdf_ptr;
@@ -259,42 +215,12 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 
 	antiset = n > cnt / 2;
 
-	cdf = COLnew(0, TYPE_dbl, cnt, TRANSIENT);
-	BATsetcount(cdf, cnt);
-	
-	/* calculate cumilative distribution function */
-	w_ptr = (dbl*) Tloc(w, 0);//TODO support different types w
-	cdf_ptr = (dbl*) Tloc(cdf, 0);
-
-	cdf_ptr[0] = (dbl)w_ptr[0];
-
-	/* remove NULL values */
-	for (i = 1; i < cnt; i++) {
-		if((dbl)w_ptr[i] == dbl_nil) {//TODO fix NULL-test if w can have different types
-			cdf_ptr[i] = cdf_ptr[i-1];
-		} else {
-			cdf_ptr[i] = ((dbl)w_ptr[i]) + cdf_ptr[i-1];
-		}
-	}
-	if (!antiset) {
-		cdf->tsorted = 1;
-		cdf->trevsorted = cnt <= 1;
-	} else {
-		/* in antiset notation, we have to flip probabilities */
-		for (i = 0; i < cnt; i++) {
-			 cdf_ptr[i] = cdf_ptr[cnt-1] - cdf_ptr[i];
-		}
-		cdf->tsorted = cnt <= 1;
-		cdf->trevsorted = 1;
-	}
-	
 	/* obtain sample */
-	sample = _BATsample(b, n, cdf);
-	
-	BATdelete(cdf);
+	sample = NULL;//TODO: reservoir sampling with exponential jumps
 
 	return sample;
 }
+
 
 
 /* BATweightedbitbat creates a bit BAT of length cnt containing n 1s and cnt-n 0s */
