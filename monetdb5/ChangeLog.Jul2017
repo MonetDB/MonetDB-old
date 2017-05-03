@@ -1,0 +1,27 @@
+# ChangeLog file for MonetDB5
+# This file is updated with Maddlog
+
+* Thu Mar 16 2017 Martin Kersten <mk@cwi.nl>
+- The core routines to check for control flow errors and type declarations
+  returns a proper exception structure with the complete findings.
+- The interface of all optimizers have been changed to return a proper
+  exeption structure.
+
+* Mon Feb 20 2017 Sjoerd Mullender <sjoerd@acm.org>
+- The sphinx module has been moved to its own repository
+  http://dev.monetdb.hg/hg/MonetDB-sphinx/.
+
+* Thu Jan  5 2017 Sjoerd Mullender <sjoerd@acm.org>
+- Changed the interfaces of the AUTH* functions: pass values, not pointers
+  to values.
+
+* Tue Dec 13 2016 Sjoerd Mullender <sjoerd@acm.org>
+- Removed calc.setoid().
+- group.subgroup is now called group.group if it is not refining a group.
+  Both group.group and group.subgroup now also have variants with a
+  candidate list.
+
+* Tue Nov  8 2016 Martin Kersten <mk@cwi.nl>
+- The allocation schemes for MAL blocks and Variables has been turned
+  into block-based.  This reduces the number of malloc()/free() calls.
+

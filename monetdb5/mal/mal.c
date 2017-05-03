@@ -35,6 +35,7 @@ int have_hge;
 #include "mal_private.h"
 #include "mal_runtime.h"
 #include "mal_resource.h"
+#include "wlc.h"
 #include "mal_atom.h"
 
 #ifdef HAVE_LIBXML
@@ -129,6 +130,7 @@ void mserver_reset(int exit)
 	str err = 0;
 
 	GDKprepareExit();
+	WLCreset();
 	MCstopClients(0);
 	setHeartbeat(-1);
 	stopProfiler();

@@ -14,6 +14,7 @@
 #include "mal_session.h"
 #include "mal_utils.h"
 
+mal_export str malInclude(Client c, str name, int listing);
 mal_export void slash_2_dir_sep(str fname);
 mal_export str evalFile(Client c, str fname, int listing, int included);
 mal_export str compileString(Client c, str s);
