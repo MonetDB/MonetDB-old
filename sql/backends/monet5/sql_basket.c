@@ -235,6 +235,28 @@ BSKTsetwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
+BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	str sch = *getArgReference_str(stk,pci,2);
+	str tbl = *getArgReference_str(stk,pci,3);
+	int idx;
+	str msg;
+
+	(void) cntxt;
+	(void) mb;
+	idx = BSKTlocate(sch, tbl);
+	if( idx == 0){
+		msg= BSKTregisterInternal(cntxt, mb, sch, tbl);
+		if( msg != MAL_SUCCEED)
+			return msg;
+		idx = BSKTlocate(sch, tbl);
+		if( idx ==0)
+			throw(SQL,"basket.window","Stream table %s.%s not accessible\n",sch,tbl);
+	}
+	throw(MAL,"basket.window","NYI");
+}
+
+str
 BSKTkeep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str sch = *getArgReference_str(stk,pci,1);
@@ -622,9 +644,10 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bn = BSKTbindColumn(sname,tname,cname);
 
 	if( bn){
-		if (binsert)
-			BATappend(bn, binsert, NULL, TRUE);
-		else
+		if (binsert){
+			if( BATappend(bn, binsert, NULL, TRUE) != GDK_SUCCEED)
+				throw(MAL,"basket.append","insertion failed\n");
+		} else
 			if( BUNappend(bn, value, TRUE) != GDK_SUCCEED)
 				throw(MAL,"basket.append","insertion failed\n");
 		BATsettrivprop(bn);
@@ -653,20 +676,22 @@ BSKTupdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
     rid = BATdescriptor(rows);
 	if( rid == NULL)
-        throw(SQL, "basket.append", "Cannot access source oid descriptor");
+        throw(SQL, "basket.update", "Cannot access source oid descriptor");
     bval = BATdescriptor(val);
 	if( bval == NULL){
 		BBPunfix(rid->batCacheid);
-        throw(SQL, "basket.append", "Cannot access source descriptor");
+        throw(SQL, "basket.update", "Cannot access source descriptor");
 	}
 
 	bskt = BSKTlocate(sname,tname);
 	if( bskt == 0)
-		throw(SQL, "basket.append", "Cannot access basket descriptor %s.%s",sname,tname);
+		throw(SQL, "basket.update", "Cannot access basket descriptor %s.%s",sname,tname);
 	bn = BSKTbindColumn(sname,tname,cname);
 
 	if( bn){
-		void_replace_bat(bn, rid, bval, TRUE);
+		if( void_replace_bat(bn, rid, bval, TRUE) != GDK_SUCCEED)
+			throw(SQL, "basket.update", "Cannot access basket descriptor %s.%s",sname,tname);
+		
 		BATsettrivprop(bn);
 	} else throw(SQL, "basket.append", "Cannot access target column %s.%s.%s",sname,tname,cname);
 	
@@ -699,7 +724,10 @@ BSKTdelete(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for( i=0; baskets[idx].cols[i]; i++){
 		b = baskets[idx].bats[i];
 		if(b){
-			(void) BATdel(b, rid);
+			 if( BATdel(b, rid) != GDK_SUCCEED){
+				BBPunfix(rid->batCacheid);
+				throw(SQL, "basket.delete", MAL_MALLOC_FAIL);
+			}
 			baskets[idx].count = BATcount(b);
 			b->tnil = 0;
 			b->tnosorted = 0;

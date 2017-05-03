@@ -37,9 +37,6 @@ lib_timetrails = {
 	NOINST
 	DIR = libdir/monetdb5
 	SOURCES = 
-	#SOURCES = timetrails.c timetrails.h \
-		#basket.c basket.h \
-		#petrinet.c petrinet.h
 	LIBS = ../../../../monetdb5/tools/libmonetdb5 \
 		../../../../gdk/libbat 
 }
@@ -47,21 +44,19 @@ lib_timetrails = {
 headers_mal = {
 	HEADERS = mal
 	DIR = libdir/monetdb5
-	SOURCES = timetrails.mal basket.mal petrinet.mal
+	SOURCES = 
 }
 
 headers_sql = {
 	HEADERS = sql
 	DIR = libdir/monetdb5/createdb
-	SOURCES = 50_timetrails.sql 
+	SOURCES =
 }
 
 headers_autoload = {
 	HEADERS = mal
 	DIR = libdir/monetdb5/autoload
-	SOURCES = 50_timetrails.mal
+	SOURCES = 
 }
-
-EXTRA_DIST = 50_timetrails.mal basket.mal timetrails.mal petrinet.mal 
 
 EXTRA_DIST_DIR = Tests

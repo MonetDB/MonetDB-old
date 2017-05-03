@@ -47,6 +47,7 @@ lib__sql = {
 		sql_orderidx.c sql_orderidx.h \
 		sql_basket.c sql_basket.h \
 		sql_cquery.c sql_cquery.h \
+		wlr.c wlr.h \
 		sql_rank.c sql_rank.h
 	LIBS = ../../server/libsqlserver \
 		   ../../storage/libstore \
@@ -60,13 +61,11 @@ lib__sql = {
 		   $(openssl_LIBS) $(MATH_LIBS)
 }
 
-# ../../backends/monet5/timetrails/libtimetrails 
-
 headers_mal = {
 	HEADERS = mal
 	DIR = libdir/monetdb5
 	SOURCES = sql_aggr_bte.mal  sql_aggr_flt.mal sql_aggr_dbl.mal  sql_aggr_int.mal  sql_aggr_lng.mal \
-		sql_aggr_sht.mal  sql_decimal.mal  sql_inspect.mal \
+		sql_aggr_sht.mal  sql_decimal.mal  sql_inspect.mal wlr.mal \
 		sql_rank.mal sqlcatalog.mal sql_transaction.mal  sql.mal
 }
 

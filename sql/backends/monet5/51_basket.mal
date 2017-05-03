@@ -54,7 +54,7 @@ address BSKTwindow
 comment "Apply window selection";
 
 pattern settumble(sch:str, tbl:str, elm:int):int
-address BSKsettumble
+address BSKTsettumble
 comment "Set stride";
 
 pattern tumble(mvc:any, sch:str, tbl:str):int
