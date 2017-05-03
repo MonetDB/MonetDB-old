@@ -64,7 +64,7 @@
 	} while (0)
 
 
-//CUSTOM SWAP AND COMPARE FUNCTION
+/* CUSTOM SWAP AND COMPARE FUNCTION */
 #define SWAP3(p1, p2)				\
 	do {					\
 		item = oids[p1];		\
@@ -243,11 +243,11 @@ BATsample(BAT *b, BUN n)
 /* based on Alg-A-exp from 'Weighted random sampling with a reservoir' by Efraimidis and Spirakis (2006) */
 BAT *
 BATweightedsample(BAT *b, BUN n, BAT *w)
-{//TODO: does not create correct samples yet (so it seems! or is the output broken?)
+{//TODO test correctness extensively
 	BAT* sample;
-	oid* oids;//points to the oids in sample
+	oid* oids;/* points to the oids in sample */
 	dbl* w_ptr;//TODO types of w
-	dbl* keys;//keys as defined in Alg-A-exp
+	dbl* keys;/* keys as defined in Alg-A-exp */
 	BUN cnt, i, j;
 	mtwist *mt_rng;
 	BUN pos, childpos;
@@ -263,7 +263,7 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 					"BATsample: type of weights not castable to doubles\n", NULL);
 	ERRORcheck(w->ttype != TYPE_dbl,
 					"BATsample: type of weights must be doubles\n", NULL);//TODO types of w (want to remove this)
-
+	//TODO: handle NULL values in w_ptr
 	cnt = BATcount(b);
 
 	keys = (dbl*) malloc(sizeof(dbl)*n);
@@ -276,67 +276,49 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 		return NULL;
 	}
 
-
-	//oids = (oid *)sample->theap.base;
 	oids = (oid *) Tloc(sample, 0);
-	w_ptr = (dbl*) Tloc(w, 0);//TODO is this the right way to get w_ptr?
+	w_ptr = (dbl*) Tloc(w, 0);
 
 	mt_rng = mtwist_new();
 	mtwist_seed(mt_rng, rand());
 
 	BATsetcount(sample, n);
 		/* obtain sample */
-	//TODO: reservoir sampling with exponential jumps
-	//Initialize prioqueue
-	i=0;//i indices the initial sample (filled with elements with non-zero weight)
-		//j indices the oids and weights
+
+	/* Initialize prioqueue */
+	i=0;/* i indices the initial sample (filled with elements with non-zero weight) */
+		/* j indices the oids and weights */
 	for(j=0; i < n && j < cnt; j++) {
 		if(w_ptr[j] == 0.0)
 			continue;
 		oids[i] = (oid)(j+minoid);
-		keys[i] = pow(mtwist_drand(mt_rng),1.0/w_ptr[j]);//TODO cast 1.0 to dbl? NULL values in w_ptr
+		keys[i] = pow(mtwist_drand(mt_rng),1.0/w_ptr[j]);//TODO cast 1.0 to dbl?
 		i++;
 	}
-	if(i < n)//not enough non-zero weights
+	if(i < n)/* not enough non-zero weights: cannot take sample */
 		return NULL;
-	heapify(compKeysGT, SWAP3);//NOTE: writes to 'i'
 
-	fprintf(stderr,"\n\n ID | KEY   (INITIAL HEAP)\n");
-	fprintf(stderr,"----+----\n");
-	for(i=0; i<n; i++)
-		fprintf(stderr," %2d | %.2f \n", (int)(oids[i]-minoid), keys[i]);
+	heapify(compKeysGT, SWAP3);
 
 	while(true) {
 		r = mtwist_drand(mt_rng);
 		xw = log(r)/log(keys[0]);
-		fprintf(stderr,"THIS SHOULD BE POSITIVE: xw = log(r = %f)/log(keys[0] = %f) = %f\n",r,keys[0],xw);
-		for(;j<cnt && xw > w_ptr[j]; j++) {
+		for(;j<cnt && xw > w_ptr[j]; j++)
 			xw -= w_ptr[j];
-			fprintf(stderr,"j = %d, xw = %f (just subtracted %f)\n", (int)j, xw, w_ptr[j]);
-		}
 		if(j >= cnt) break;
-		//At this point, w_ptr[c]+w_ptr[c+1]+...+w_ptr[i-1] < xw < w_ptr[c]+w_ptr[c+1]+...+w_ptr[i]
+
+		/* At this point, w_ptr[c]+w_ptr[c+1]+...+w_ptr[i-1] < xw < w_ptr[c]+w_ptr[c+1]+...+w_ptr[i] */
 		tw = pow(keys[0], w_ptr[j]);
 		r2 = mtwist_drand(mt_rng)*(1-tw)+tw;
 		key = pow(r2, 1/w_ptr[j]);
 
-		//Replace element with lowest key in prioqueue
+		/* Replace element with lowest key in prioqueue */
 		oids[0] = (oid)(j+minoid);
 		keys[0] = key;
-		siftup(compKeysGT, 0, SWAP3);//NOTE: writes to 'key'
+		siftup(compKeysGT, 0, SWAP3);
 
-		fprintf(stderr,"\n\n ID | KEY   (<%d,%.2f> INSERTED)\n", (int)j, key);
-		fprintf(stderr,"----+----\n");
-		for(i=0; i<n; i++)
-			fprintf(stderr," %2d | %.2f \n", (int)(oids[i]-minoid), keys[i]);
-
-		//We have added the jth element, can continue
-		j++;
+		j++;/* Increment j so j=c (c is defined in Alg-A-exp) */
 	}
-	fprintf(stderr,"\n\n ID | KEY   (FINAL RESULT)\n");
-	fprintf(stderr,"----+----\n");
-	for(i=0; i<n; i++)
-		fprintf(stderr," %2d | %.2f \n", (int)(oids[i]-minoid), keys[i]);
 
 	free(keys);
 
