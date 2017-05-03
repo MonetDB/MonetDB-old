@@ -219,7 +219,7 @@ WLRprocess(void *arg)
 		// now parse the file line by line to reconstruct the WLR blocks
 		do{
 			pc = mb->stop;
-			if( parseMAL(c, c->curprg, 1, 1)  || mb->errors){
+			if( parseMAL(c)  || mb->errors){
 				char line[PATHLENGTH];
 				snprintf(line, PATHLENGTH,"#wlr.process:failed further parsing '%s':\n",path);
 				strncpy(wlr_error,line, PATHLENGTH);
@@ -254,9 +254,9 @@ WLRprocess(void *arg)
 			if ( getModuleId(q) == wlrRef && getFunctionId(q) ==commitRef ){
 				pushEndInstruction(mb);
 				// execute this block if no errors are found
-				chkTypes(c->fdout,c->nspace, mb, FALSE);
-				chkFlow(c->fdout,mb);
-				chkDeclarations(c->fdout,mb);
+				chkTypes(c->usermodule,mb, FALSE);
+				chkFlow(mb);
+				chkDeclarations(mb);
 
 				if( mb->errors == 0){
 					sql->session->auto_commit = 0;
