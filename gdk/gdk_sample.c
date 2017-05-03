@@ -75,9 +75,9 @@
 		keys[p2] = key;		\
 	} while (0)
 
-#define compKeysGT(p1, p2)													\
+#define compKeysGT(p1, p2)							\
 	((keys[p1] > keys[p2]) || 						\
-	(keys[p1] == keys[p2] && oids[p1] > oids[p2]))
+	((keys[p1] == keys[p2]) && (oids[p1] > oids[p2])))
 
 /* this is a straightforward implementation of a binary tree */
 struct oidtreenode {
@@ -243,12 +243,12 @@ BATsample(BAT *b, BUN n)
 /* based on Alg-A-exp from 'Weighted random sampling with a reservoir' by Efraimidis and Spirakis (2006) */
 BAT *
 BATweightedsample(BAT *b, BUN n, BAT *w)
-{
+{//TODO: does not create correct samples yet (so it seems! or is the output broken?)
 	BAT* sample;
 	oid* oids;//points to the oids in sample
 	dbl* w_ptr;//TODO types of w
 	dbl* keys;//keys as defined in Alg-A-exp
-	BUN cnt, i;
+	BUN cnt, i, j;
 	mtwist *mt_rng;
 	BUN pos, childpos;
 	oid item;
@@ -266,7 +266,7 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 
 	cnt = BATcount(b);
 
-	keys = (double*) malloc(sizeof(double)*n);
+	keys = (dbl*) malloc(sizeof(dbl)*n);
 	if(keys == NULL)
 		return NULL;
 
@@ -276,8 +276,10 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 		return NULL;
 	}
 
-	oids = (oid *)sample->theap.base;
-	w_ptr = (dbl*) w->theap.base;
+
+	//oids = (oid *)sample->theap.base;
+	oids = (oid *) Tloc(sample, 0);
+	w_ptr = (dbl*) Tloc(w, 0);//TODO is this the right way to get w_ptr?
 
 	mt_rng = mtwist_new();
 	mtwist_seed(mt_rng, rand());
@@ -285,30 +287,56 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 	BATsetcount(sample, n);
 		/* obtain sample */
 	//TODO: reservoir sampling with exponential jumps
-	for(i=0; i<n; i++) {
-		oids[i] = i+minoid;
-		keys[i] = pow(mtwist_drand(mt_rng),1.0/w_ptr[i]);//TODO cast 1.0 to dbl?
+	//Initialize prioqueue
+	i=0;//i indices the initial sample (filled with elements with non-zero weight)
+		//j indices the oids and weights
+	for(j=0; i < n && j < cnt; j++) {
+		if(w_ptr[j] == 0.0)
+			continue;
+		oids[i] = (oid)(j+minoid);
+		keys[i] = pow(mtwist_drand(mt_rng),1.0/w_ptr[j]);//TODO cast 1.0 to dbl? NULL values in w_ptr
+		i++;
 	}
+	if(i < n)//not enough non-zero weights
+		return NULL;
 	heapify(compKeysGT, SWAP3);//NOTE: writes to 'i'
 
-	i=n;
+	fprintf(stderr,"\n\n ID | KEY   (INITIAL HEAP)\n");
+	fprintf(stderr,"----+----\n");
+	for(i=0; i<n; i++)
+		fprintf(stderr," %2d | %.2f \n", (int)(oids[i]-minoid), keys[i]);
+
 	while(true) {
 		r = mtwist_drand(mt_rng);
-		xw = log(r)/log(keys[oids[0]-minoid]);
-		while(xw > 0 && i < cnt) {
-			xw -= w_ptr[i];
-			i++;
+		xw = log(r)/log(keys[0]);
+		fprintf(stderr,"THIS SHOULD BE POSITIVE: xw = log(r = %f)/log(keys[0] = %f) = %f\n",r,keys[0],xw);
+		for(;j<cnt && xw > w_ptr[j]; j++) {
+			xw -= w_ptr[j];
+			fprintf(stderr,"j = %d, xw = %f (just subtracted %f)\n", (int)j, xw, w_ptr[j]);
 		}
-		if(i >= cnt) break;
-		//At this point, xw - (w_ptr[c]+w_ptr[c+1]+...+w_ptr[i]) <= 0
-		tw = pow(keys[oids[0]-minoid], w_ptr[i]);
+		if(j >= cnt) break;
+		//At this point, w_ptr[c]+w_ptr[c+1]+...+w_ptr[i-1] < xw < w_ptr[c]+w_ptr[c+1]+...+w_ptr[i]
+		tw = pow(keys[0], w_ptr[j]);
 		r2 = mtwist_drand(mt_rng)*(1-tw)+tw;
-		key = pow(r2, 1/w_ptr[i]);
+		key = pow(r2, 1/w_ptr[j]);
 
-		oids[0] = i+minoid;
+		//Replace element with lowest key in prioqueue
+		oids[0] = (oid)(j+minoid);
 		keys[0] = key;
 		siftup(compKeysGT, 0, SWAP3);//NOTE: writes to 'key'
+
+		fprintf(stderr,"\n\n ID | KEY   (<%d,%.2f> INSERTED)\n", (int)j, key);
+		fprintf(stderr,"----+----\n");
+		for(i=0; i<n; i++)
+			fprintf(stderr," %2d | %.2f \n", (int)(oids[i]-minoid), keys[i]);
+
+		//We have added the jth element, can continue
+		j++;
 	}
+	fprintf(stderr,"\n\n ID | KEY   (FINAL RESULT)\n");
+	fprintf(stderr,"----+----\n");
+	for(i=0; i<n; i++)
+		fprintf(stderr," %2d | %.2f \n", (int)(oids[i]-minoid), keys[i]);
 
 	free(keys);
 
