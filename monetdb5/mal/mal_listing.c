@@ -531,8 +531,8 @@ mal2str(MalBlkPtr mb, int first, int last)
 
 	if( txt == NULL || len == NULL){
 		addMalException(mb,"mal2str: " MAL_MALLOC_FAIL);
-		if( txt ) GDKfree(txt);
-		if( len ) GDKfree(len);
+		GDKfree(txt);
+		GDKfree(len);
 		return NULL;
 	}
 	for (i = first; i < last; i++) {

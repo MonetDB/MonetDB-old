@@ -94,9 +94,8 @@ UUIDpostlude(void)
 int
 UUIDtoString(str *retval, int *len, const uuid *value)
 {
-	if (*len <= UUID_STRLEN) {
-		if (*retval != NULL)
-			GDKfree(*retval);
+	if (*len <= UUID_STRLEN || *retval == NULL) {
+		GDKfree(*retval);
 		if ((*retval = GDKmalloc(UUID_STRLEN + 1)) == NULL)
 			return 0;
 		*len = UUID_STRLEN + 1;
@@ -122,8 +121,7 @@ UUIDfromString(const char *svalue, int *len, uuid **retval)
 	int i, j;
 
 	if (*len < UUID_SIZE || *retval == NULL) {
-		if (*retval != NULL)
-			GDKfree(*retval);
+		GDKfree(*retval);
 		if ((*retval = GDKmalloc(UUID_SIZE)) == NULL)
 			return 0;
 		*len = UUID_SIZE;
@@ -179,11 +177,8 @@ UUIDgenerateUuid(uuid **retval)
 	uuid *u;
 	int i = 0, r = 0;
 
-	if (*retval == NULL){
-		*retval = GDKmalloc(UUID_SIZE);
-		if( *retval == NULL)
-			throw(MAL,"uuid.generate",MAL_MALLOC_FAIL);
-	}
+	if (*retval == NULL && (*retval = GDKmalloc(UUID_SIZE)) == NULL)
+		throw(MAL, "uuid.new", MAL_MALLOC_FAIL);
 	u = *retval;
 #ifdef HAVE_UUID
 	uuid_generate(u->u);

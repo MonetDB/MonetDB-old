@@ -128,12 +128,14 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 		return -1;
 
 	if ( p->retc < 256){
-		for(i=0; i< p->retc; i++) returns[i] = 0;
+		for (i=0; i< p->retc; i++)
+			returns[i] = 0;
 		returntype = returns;
-	} else 
+	} else {
 		returntype = (int *) GDKzalloc(p->retc * sizeof(int));
-	if (returntype == 0)
-		return -1;
+		if (returntype == 0)
+			return -1;
+	}
 
 	while (s != NULL) {			/* single scope element check */
 		if (getFunctionId(p) != s->name) {
@@ -475,7 +477,7 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 		}															\
 		bindFunction(s, p, mb);
 
-		if (returntype && returntype != returns)
+		if (returntype != returns)
 			GDKfree(returntype);
 		return s1;
 	} /* while */
@@ -491,7 +493,7 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
 		}
 #endif
-	if (returntype && returntype != returns)
+	if (returntype != returns)
 		GDKfree(returntype);
 	return -3;
 }
