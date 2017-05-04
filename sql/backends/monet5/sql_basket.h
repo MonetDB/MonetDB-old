@@ -39,7 +39,6 @@ typedef struct{
 	int stride;			/* stride forward after consumption */
 
 	/* statistics */
-	int status;		/* (DE)ACTIVATE */
 	timestamp seen;
 	int events; /* total number of events grabbed */
 	int cycles; 
@@ -49,6 +48,11 @@ typedef struct{
 	MT_Id pid;
 } *Basket, BasketRec;
 
+sql5_export BasketRec *baskets;   /* the global timetrails catalog */
+sql5_export int bsktTop, bsktLimit;
+
+sql5_export int BSKTlocate(str sch, str tbl);
+sql5_export str BSKTregisterInternal(Client cntxt, MalBlkPtr mb, str sch, str tbl);
 sql5_export str BSKTregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str BSKTtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
@@ -56,8 +60,6 @@ sql5_export str BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 sql5_export str BSKTkeep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str BSKTrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-sql5_export str BSKTsetwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-sql5_export str BSKTsettumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str BSKTtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str BSKTreset(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str BSKTcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

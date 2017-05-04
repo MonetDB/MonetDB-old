@@ -34,15 +34,13 @@
 #include "mal_builder.h"
 #include "opt_prelude.h"
 
-#define _DEBUG_BASKET_ if(0)
+#define _DEBUG_BASKET_ if(1)
 
-str statusname[3] = { "<unknown>", "waiting", "filled" };
-
-static BasketRec *baskets;   /* the global timetrails catalog */
-static int bsktTop = 0, bsktLimit = 0;
+BasketRec *baskets;   /* the global timetrails catalog */
+int bsktTop = 0, bsktLimit = 0;
 
 // locate the basket in the basket catalog
-static int
+int
 BSKTlocate(str sch, str tbl)
 {
 	int i;
@@ -125,7 +123,6 @@ BSKTnewbasket(mvc *m, sql_schema *s, sql_table *t)
 	if( !isStream(t))
 		throw(MAL,"basket.register","Only allowed for stream tables");
 
-	MT_lock_set(&ttrLock);
 	idx = BSKTnewEntry();
 
 	baskets[idx].schema = GDKstrdup(s->base.name);
@@ -137,10 +134,8 @@ BSKTnewbasket(mvc *m, sql_schema *s, sql_table *t)
         sql_column *col = o->data;
         int tpe = col->type.type->localtype;
 
-        if ( !(tpe <= TYPE_str || tpe == TYPE_date || tpe == TYPE_daytime || tpe == TYPE_timestamp) ){
-			MT_lock_unset(&ttrLock);
+        if ( !(tpe <= TYPE_str || tpe == TYPE_date || tpe == TYPE_daytime || tpe == TYPE_timestamp) )
 			throw(MAL,"basket.register","Unsupported type %d\n",tpe);
-		}
 		colcnt++;
 	}
 	if( colcnt == MAXCOLS-1){
@@ -157,12 +152,11 @@ BSKTnewbasket(mvc *m, sql_schema *s, sql_table *t)
 		baskets[idx].bats[i]= b;
 		baskets[idx].cols[i++]=  GDKstrdup(col->base.name);
 	}
-	MT_lock_unset(&ttrLock);
 	return MAL_SUCCEED;
 }
 
 // MAL/SQL interface for registration of a single table
-static str
+str
 BSKTregisterInternal(Client cntxt, MalBlkPtr mb, str sch, str tbl)
 {
 	sql_schema  *s;
@@ -206,7 +200,7 @@ BSKTregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
-BSKTsetwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str sch = *getArgReference_str(stk,pci,1);
 	str tbl = *getArgReference_str(stk,pci,2);
@@ -232,28 +226,6 @@ BSKTsetwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	baskets[idx].window = window;
 	baskets[idx].stride = stride;
 	return MAL_SUCCEED;
-}
-
-str
-BSKTwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	str sch = *getArgReference_str(stk,pci,2);
-	str tbl = *getArgReference_str(stk,pci,3);
-	int idx;
-	str msg;
-
-	(void) cntxt;
-	(void) mb;
-	idx = BSKTlocate(sch, tbl);
-	if( idx == 0){
-		msg= BSKTregisterInternal(cntxt, mb, sch, tbl);
-		if( msg != MAL_SUCCEED)
-			return msg;
-		idx = BSKTlocate(sch, tbl);
-		if( idx ==0)
-			throw(SQL,"basket.window","Stream table %s.%s not accessible\n",sch,tbl);
-	}
-	throw(MAL,"basket.window","NYI");
 }
 
 str
@@ -400,9 +372,7 @@ BSKTdrop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bskt = BSKTlocate(sch,tbl);
 	if (bskt == 0)
 		throw(SQL, "basket.drop", "Could not find the basket %s.%s\n",sch,tbl);
-	MT_lock_set(&ttrLock);
 	BSKTclean(bskt);
-	MT_lock_unset(&ttrLock);
 	return MAL_SUCCEED;
 }
 
@@ -417,16 +387,12 @@ BSKTdrop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 static str
-BSKTtumbleInternal(Client cntxt, str sch, str tbl, int stride)
+BSKTtumbleInternal(Client cntxt, str sch, str tbl, int bskt, int stride)
 {
 	BAT *b;
 	BUN cnt= 0, shift=0;
-	int i, bskt;
+	int i;
 	(void) cntxt;
-
-    bskt = BSKTlocate(sch,tbl);
-	if (bskt == 0)
-		throw(SQL, "basket.tumble", "Could not find the basket %s.%s",sch,tbl);
 
 	_DEBUG_BASKET_ fprintf(stderr,"Tumble %s.%s %d elements\n",sch,tbl,stride);
 	for(i=0; i< MAXCOLS && baskets[bskt].cols[i]; i++){
@@ -508,23 +474,7 @@ BSKTtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return MAL_SUCCEED;
 	/* also take care of time-based tumbling */
 	elm =(int) baskets[idx].stride;
-	return BSKTtumbleInternal(cntxt, sch, tbl, elm);
-}
-
-str
-BSKTsettumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	str sch = *getArgReference_str(stk,pci,1);
-	str tbl = *getArgReference_str(stk,pci,2);
-	int idx;
-
-	(void) cntxt;
-	(void) mb;
-	idx = BSKTlocate(sch, tbl);
-	if( idx ==0)
-		throw(SQL,"basket.tumble","Stream table %s.%s not accessible\n",sch,tbl);
-	baskets[idx].stride = *(int*)getArgReference_int(stk,pci,3);
-	return MAL_SUCCEED;
+	return BSKTtumbleInternal(cntxt, sch, tbl, idx, elm);
 }
 
 str
@@ -602,14 +552,13 @@ BSKTdump(void *ret)
 				cnt = BATcount(b);
 
 			fprintf(stderr, "#baskets[%2d] %s.%s columns "BUNFMT
-					" window=%d stride=%d status=%s error=%s fill="SZFMT"\n",
+					" window=%d stride=%d error=%s fill="SZFMT"\n",
 					bskt,
 					baskets[bskt].schema,
 					baskets[bskt].table,
 					baskets[bskt].count,
 					baskets[bskt].window,
 					baskets[bskt].stride,
-					statusname[baskets[bskt].status],
 					baskets[bskt].error,
 					cnt);
 		}
@@ -776,14 +725,13 @@ BSKTstatus (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bat *seenId = getArgReference_bat(stk,pci,0);
 	bat *schemaId = getArgReference_bat(stk,pci,1);
 	bat *tableId = getArgReference_bat(stk,pci,2);
-	bat *statusId = getArgReference_bat(stk,pci,3);
-	bat *windowId = getArgReference_bat(stk,pci,4);
-	bat *strideId = getArgReference_bat(stk,pci,5);
-	bat *eventsId = getArgReference_bat(stk,pci,6);
-	bat *cyclesId = getArgReference_bat(stk,pci,7);
-	bat *errorId = getArgReference_bat(stk,pci,8);
+	bat *windowId = getArgReference_bat(stk,pci,3);
+	bat *strideId = getArgReference_bat(stk,pci,4);
+	bat *eventsId = getArgReference_bat(stk,pci,5);
+	bat *cyclesId = getArgReference_bat(stk,pci,6);
+	bat *errorId = getArgReference_bat(stk,pci,7);
 
-	BAT *seen = NULL, *schema = NULL, *table = NULL, *status = NULL,  *window = NULL;
+	BAT *seen = NULL, *schema = NULL, *table = NULL, *window = NULL;
 	BAT *stride = NULL, *events = NULL, *cycles = NULL, *errors = NULL;
 	int i;
 	BAT *bn = NULL;
@@ -799,9 +747,6 @@ BSKTstatus (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		goto wrapup;
 	table = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
 	if (table == 0)
-		goto wrapup;
-	status = COLnew(0, TYPE_str, BATTINY, TRANSIENT);
-	if (status == 0)
 		goto wrapup;
 	window = COLnew(0, TYPE_int, BATTINY, TRANSIENT);
 	if (window == 0)
@@ -826,19 +771,17 @@ BSKTstatus (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if( BUNappend(seen, &baskets[i].seen, FALSE) != GDK_SUCCEED ||
 				BUNappend(schema, baskets[i].schema, FALSE) != GDK_SUCCEED ||
 				BUNappend(table, baskets[i].table, FALSE) != GDK_SUCCEED ||
-				BUNappend(status, statusname[baskets[i].status], FALSE) != GDK_SUCCEED ||
 				BUNappend(window, &baskets[i].window, FALSE) != GDK_SUCCEED ||
 				BUNappend(stride, &baskets[i].stride, FALSE) != GDK_SUCCEED ||
 				BUNappend(events, &baskets[i].events, FALSE) != GDK_SUCCEED ||
 				BUNappend(cycles, &baskets[i].cycles, FALSE) != GDK_SUCCEED  ||
-				BUNappend(errors, baskets[i].error, FALSE) != GDK_SUCCEED )
+				BUNappend(errors, (baskets[i].error? baskets[i].error:""), FALSE) != GDK_SUCCEED )
 				goto wrapup;
 		}
 
 	BBPkeepref(*seenId = seen->batCacheid);
 	BBPkeepref(*schemaId = schema->batCacheid);
 	BBPkeepref(*tableId = table->batCacheid);
-	BBPkeepref(*statusId = status->batCacheid);
 	BBPkeepref(*windowId = window->batCacheid);
 	BBPkeepref(*strideId = stride->batCacheid);
 	BBPkeepref(*cyclesId = cycles->batCacheid);
@@ -852,8 +795,6 @@ wrapup:
 		BBPunfix(schema->batCacheid);
 	if (table)
 		BBPunfix(table->batCacheid);
-	if (status)
-		BBPunfix(status->batCacheid);
 	if (window)
 		BBPunfix(window->batCacheid);
 	if (stride)

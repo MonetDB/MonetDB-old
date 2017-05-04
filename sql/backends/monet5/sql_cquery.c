@@ -46,6 +46,7 @@
 #include "sql_optimizer.h"
 #include "sql_gencode.h"
 #include "sql_cquery.h"
+#include "sql_basket.h"
 #include "mal_builder.h"
 #include "opt_prelude.h"
 
@@ -61,9 +62,6 @@ static BAT *CQ_id_fcn = 0;
 static BAT *CQ_id_time = 0;
 static BAT *CQ_id_error = 0;
 
-#define STREAM_IN	1
-#define STREAM_OUT	4
-
 CQnode pnet[MAXCQ];
 int pnettop = 0;
 
@@ -75,6 +73,7 @@ static void
 CQfree(int idx)
 {
 	int j;
+	MT_lock_set(&ttrLock);
 	if( pnet[idx].mb)
 		freeMalBlk(pnet[idx].mb);
 	if( pnet[idx].stk)
@@ -88,7 +87,11 @@ CQfree(int idx)
 	}
 	GDKfree(pnet[idx].mod);
 	GDKfree(pnet[idx].fcn);
+	for( ; idx<pnettop-1; idx++)
+		pnet[idx] = pnet[idx+1];
+	pnettop--;
 	memset((void*) (pnet+idx), 0, sizeof(CQnode));
+	MT_lock_unset(&ttrLock);
 }
 
 /* We need a lock table for all stream tables considered
@@ -308,39 +311,56 @@ CQshow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 static str
 CQanalysis(Client cntxt, MalBlkPtr mb, int pn)
 {
-	int i, j;
+	int i, j, idx, bskt;
 	InstrPtr p;
-	str msg= MAL_SUCCEED, sch,tbl;
+	str msg= MAL_SUCCEED, sch, tbl;
 	(void) cntxt;
 
+	p = getInstrPtr(mb, 0);
+	idx = CQlocate(getModuleId(p), getFunctionId(p));
+	if( idx != pnettop)
+		throw(MAL,"cquery.analysis","Duplicate or unknown registration of %s.%s \n", getModuleId(p), getFunctionId(p));
+	MT_lock_unset(&ttrLock);
 	for (i = 0; msg== MAL_SUCCEED && i < mb->stop; i++) {
 		p = getInstrPtr(mb, i);
-		if (getModuleId(p) == basketRef && ( getFunctionId(p) == inputRef || getFunctionId(p) == outputRef)){
+		if (getModuleId(p) == basketRef && getFunctionId(p) == registerRef){
 			sch = getVarConstant(mb, getArg(p,2)).val.sval;
 			tbl = getVarConstant(mb, getArg(p,3)).val.sval;
-			// make sure we have only one reference
+
+			// find the stream basket definition 
+			bskt = BSKTlocate(sch,tbl);
+			if( bskt == 0){
+				msg = BSKTregisterInternal(cntxt,mb,sch,tbl);
+				if( msg == MAL_SUCCEED){
+					bskt = BSKTlocate(sch,tbl);
+					if( bskt == 0){
+						msg = createException(MAL,"cquery.analysis","basket registration missing\n");
+						continue;
+					}
+				}
+			}
+			
+			// we only need a single column for window size testing
 			for( j=0; j< MAXSTREAMS && pnet[pn].schema[j]; j++)
 			if( strcmp(sch, pnet[pn].schema[j]) == 0 &&
 				strcmp(tbl, pnet[pn].tables[j]) == 0 )
 				break;
 			if ( j == MAXSTREAMS){
-				msg = createException(MAL,"cquery.analysis","too many stream columns\n");
+				msg = createException(MAL,"cquery.analysis","too many stream table columns\n");
 				continue;
 			}
 
-			if ( pnet[pn].schema[j] ){
-				msg = createException(MAL,"cquery.analysis","duplicate stream column\n");
+			if ( pnet[pn].schema[j] )
 				continue;
-			}
 
 			pnet[pn].schema[j] = GDKstrdup(sch);
 			pnet[pn].tables[j] = GDKstrdup(tbl);
-			if( getFunctionId(p) == inputRef)
-				pnet[pn].inout[j] = STREAM_IN;
-			else
-				pnet[pn].inout[j] = STREAM_OUT;
+			pnet[pn].column[j] = GDKstrdup(baskets[bskt].cols[0]);
+			pnet[pn].window[j] = baskets[bskt].window;
+			pnet[pn].stride[j] = baskets[bskt].stride;
 		}
 	}
+	MT_lock_set(&ttrLock);
 	if( msg != MAL_SUCCEED){
 		// restore the state for later re-use
 		CQfree(pn);
@@ -411,12 +431,9 @@ CQregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	mb = s->def;
 	sig = getInstrPtr(mb,0);
-	MT_lock_set(&ttrLock);
 	i = CQlocate(getModuleId(sig), getFunctionId(sig));
-	if (i != pnettop){
-		MT_lock_unset(&ttrLock);
+	if (i != pnettop)
 		throw(MAL,"cquery.register","Duplicate registration of cquery");
-	}
 
 #ifdef DEBUG_CQUERY
 	fprintf(stderr, "#cquery register %s.%s\n", getModuleId(sig),getFunctionId(sig));
@@ -438,25 +455,30 @@ CQregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	fprintFunction(stderr, nmb, 0, LIST_MAL_ALL);
 #endif
 
-	msg = CQanalysis(cntxt, mb, pnettop);
-	if(msg == MAL_SUCCEED) {
-		pnet[pnettop].mod = GDKstrdup(modnme);
-		pnet[pnettop].fcn = GDKstrdup(fcnnme);
-		pnet[pnettop].mb = nmb;
-		pnet[pnettop].stk = prepareMALstack(nmb, nmb->vsize);
+	MT_lock_set(&ttrLock);
+	if( CQlocate(getModuleId(sig), getFunctionId(sig)) != pnettop){
+		freeSymbol(s);
+		throw(MAL,"cquery.register","Duplicate registration of cquery");
+	}
+	pnet[pnettop].mod = GDKstrdup(modnme);
+	pnet[pnettop].fcn = GDKstrdup(fcnnme);
+	pnet[pnettop].mb = nmb;
+	pnet[pnettop].stk = prepareMALstack(nmb, nmb->vsize);
 
-		pnet[pnettop].cycles = int_nil; 
-		pnet[pnettop].beats = lng_nil;
-		pnet[pnettop].run  = lng_nil;
-		pnet[pnettop].seen = *timestamp_nil;
-		pnet[pnettop].status = CQPAUSE;
-		pnettop++;
-	} else 
+	pnet[pnettop].cycles = int_nil; 
+	pnet[pnettop].beats = lng_nil;
+	pnet[pnettop].run  = lng_nil;
+	pnet[pnettop].seen = *timestamp_nil;
+	pnet[pnettop].status = CQPAUSE;
+	pnettop++;
+
+	msg = CQanalysis(cntxt, mb, pnettop-1);
+	MT_lock_unset(&ttrLock);
+	if( msg != MAL_SUCCEED)
 		// restore the entry
 		CQfree(pnettop);
 	if( pnettop == 0)
 		pnstatus = CQSTOP;
-	MT_lock_unset(&ttrLock);
 	return msg;
 }
 
@@ -546,6 +568,19 @@ CQcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
+static void
+CQsetbeat(int idx, int beats)
+{
+	int i;
+	for( i=0; i < MAXSTREAMS; i++)
+	if( pnet[idx].inout[i] == STREAM_IN && pnet[idx].window[i]){
+		// can not set the beat due to stream window constraint
+		pnet[idx].beats = lng_nil;
+		return;
+	}
+	pnet[idx].beats = beats;
+}
+
 str
 CQheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -574,7 +609,7 @@ CQheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	MT_lock_set(&ttrLock);
 	for( ; idx < last; idx++)
-		pnet[idx].beats = beats * 1000; /* minimal 1 ms */
+		CQsetbeat(idx, beats *1000); /* minimal 1 ms */
 	MT_lock_unset(&ttrLock);
 	/* start the scheduler if needed */
 	if(CQinit == 0) {
@@ -601,7 +636,7 @@ CQwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 str
 CQderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	str sch, fcn;
-	int i,idx=0, last= pnettop;
+	int idx=0, last= pnettop;
 
 	(void) cntxt;
 	(void) mb;
@@ -617,17 +652,8 @@ CQderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 #ifdef DEBUG_CQUERY
 	fprintf(stderr, "#deregister queries %d - %d\n",idx,last);
 #endif
-	MT_lock_set(&ttrLock);
-	for( ; idx < last; idx++){
-		i = idx;
-		CQfree(i);
-		for( ; i<pnettop-1; i++)
-			pnet[i] = pnet[i+1];
-		memset((void*) (pnet+pnettop), 0, sizeof(CQnode));
-		pnettop--;
-		last--;
-	}
-	MT_lock_unset(&ttrLock);
+	for( ; idx < last; idx++)
+		CQfree(idx);
 	return MAL_SUCCEED;
 }
 
@@ -647,7 +673,7 @@ CQtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( pnet[j].schema[i] && strcmp(sch, pnet[j].schema[i]) == 0 && 
 		strcmp(tbl,pnet[j].tables[i])== 0 &&
 		pnet[j].inout[i] == STREAM_IN)
-			pnet[j].tumble[i] = elm;
+		pnet[j].stride[i] = elm;
 	(void) cntxt;
 	(void) mb;
 	return MAL_SUCCEED;
@@ -767,19 +793,19 @@ CQscheduler(void *dummy)
 	pnstatus = CQRUNNING; // global state 
 	MT_lock_unset(&ttrLock);
 
-	while( pnstatus != CQSTOP ){
+	while( pnstatus != CQSTOP  && ! GDKexiting()){
 		/* Determine which continuous queries are eligble to run.
   		   Collect latest statistics, note that we don't need a lock here,
 		   because the count need not be accurate to the usec. It will simply
 		   come back. We also only have to check the places that are marked
 		   non empty. You can only trigger on empty baskets using a heartbeat */
-		memset((void*) claimed, 0, MAXSTREAMS);
+		memset((void*) claimed, 0, sizeof(claimed));
 		now = GDKusec();
 		pntasks=0;
 		MT_lock_set(&ttrLock); // analysis should be done with exclusive access
 		for (k = i = 0; i < pnettop; i++) 
 		if ( pnet[i].status == CQWAIT ){
-			pnet[i].enabled = pnet[i].error == 0 && pnet[i].cycles != 0;
+			pnet[i].enabled = pnet[i].error == 0 && (pnet[i].cycles > 0 || pnet[i].cycles == int_nil);
 
 			/* Queries are triggered by the heartbeat or  all window constraints */
 			/* A heartbeat in combination with a window constraint is ambiguous */
@@ -825,6 +851,7 @@ CQscheduler(void *dummy)
 #endif
 			pntasks += pnet[i].enabled;
 		}
+		(void) fflush(stderr);
 		MT_lock_unset(&ttrLock); 
 #ifdef DEBUG_CQUERY_SCHEDULER
 		if( pntasks)

@@ -45,21 +45,17 @@ comment "Remove tuples from a basket";
 pattern clear_table(sname:str,tname:str):lng
 address mvc_clear_table_wrap;
 
-pattern setwindow(sch:str, tbl:str, elm:int):int
-address BSKTsetwindow
+pattern window(sch:str, tbl:str, elm:int):int
+address BSKTwindow
 comment "Set window size";
 
-pattern window(mvc:any, sch:str, tbl:str):int
+pattern window(sch:str, tbl:str, elm:int, stride:int):int
 address BSKTwindow
-comment "Apply window selection";
+comment "Set window size and stride";
 
-pattern settumble(sch:str, tbl:str, elm:int):int
-address BSKTsettumble
-comment "Set stride";
-
-pattern tumble(mvc:any, sch:str, tbl:str):int
+unsafe pattern tumble(mvc:any, sch:str, tbl:str):int
 address BSKTtumble
-comment "Apply tumbling to the basket";
+comment "Eat away and slide forward";
 
 unsafe pattern lock(mvc:any, sch:str, tbl:str):int
 address BSKTlock
@@ -81,7 +77,7 @@ pattern drop(mvc:int,sch:str,tbl:str):int
 address BSKTdrop
 comment "Remove the basket";
 
-pattern status() (seen:bat[:timestamp],sch:bat[:str],tbl:bat[:str],state:bat[:str], window:bat[:int], stride:bat[:int],events:bat[:int],cycles:bat[:int], error:bat[:str])
+pattern status() (seen:bat[:timestamp],sch:bat[:str],tbl:bat[:str], window:bat[:int], stride:bat[:int],events:bat[:int],cycles:bat[:int], error:bat[:str])
 address BSKTstatus
 comment "Show the status of the baskets";
 

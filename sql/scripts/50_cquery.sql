@@ -66,7 +66,9 @@ create procedure cquery.tumble("schema" string, "table" string, elem integer)
 
 -- Window based consumption for stream queries
 create procedure cquery.window("schema" string, "table" string, elem integer)
-	external name cquery.window;
+	external name basket.window;
+create procedure cquery.window("schema" string, "table" string, elem integer, stride integer)
+	external name basket.window;
 
 -- continuous query status analysis
 
@@ -84,6 +86,10 @@ create function cquery.status()
  returns table(tick timestamp,  "schema" string, "function" string, state string, errors string)
  external name cquery.status;
 
+create function cquery.streams()
+ returns table(tick timestamp,  "schema" string, "function" string, winsize integer, stride integer, events integer, cycles integer,  errors string)
+ external name basket.status;
+
 create function cquery.show("schema" string, qryname string)
 returns string
 external name cquery.show;
@@ -91,3 +97,6 @@ external name cquery.show;
 -- Debugging status
 create procedure cquery.dump()
 external name cquery.dump;
+
+create procedure cquery.streams()
+external name basket.dump;

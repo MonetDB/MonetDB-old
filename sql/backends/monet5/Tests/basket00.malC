@@ -4,4 +4,6 @@
 
 io.print(seen,sch,tbl,state,window,stride,events,cycles,error);
 
+basket.window("sys","tables",2,1);
+
 basket.dump();

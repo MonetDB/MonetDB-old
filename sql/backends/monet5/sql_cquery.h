@@ -17,8 +17,8 @@
  * All Rights Reserved.
  */
 
-#ifndef _PETRINET_
-#define _PETRINET_
+#ifndef _CQUERY_
+#define _CQUERY_
 #include "mal_interpreter.h"
 #include "sql_scenario.h"
 
@@ -36,6 +36,9 @@
 #define MAXCQ 200           /* it is the minimum, if we need more space GDKrealloc */
 #define MAXSTREAMS 128		/* limit the number of stream columns to be looked after per query*/
 
+#define STREAM_IN	1
+#define STREAM_OUT	4
+
 typedef struct {
 	str mod,fcn;	/* The SQL command to be used */
 	MalBlkPtr mb;   /* The wrapped query block call in a transaction */
@@ -44,13 +47,14 @@ typedef struct {
 	int status;     /* query status .../wait/running/paused */
 	int enabled;
 
+	int baskets[MAXSTEAMS];	/* reference into the registered basket tables catalog */
 	str schema[MAXSTREAMS];
 	str tables[MAXSTREAMS];
 	str column[MAXSTREAMS];
 	BAT *bats[MAXSTREAMS]; /* keep them around for ease of access */
 	int inout[MAXSTREAMS]; /* how the stream tables are used, needed for locking */
 	lng window[MAXSTREAMS];/* tuple consumption window for query processing */
-	lng tumble[MAXSTREAMS];/* eating away tuples after each round */
+	lng stride[MAXSTREAMS];/* eating away tuples after each round */
 
 	int cycles;		/* limit the number of invocations before dying */
 	lng beats;		/* heart beat stride for procedures activations */

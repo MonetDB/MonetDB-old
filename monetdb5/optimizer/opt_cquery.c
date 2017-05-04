@@ -38,6 +38,8 @@
 		fnd= 1; break;\
 	}
 
+#define DEBUG_OPT_CQUERY
+
 str
 OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -78,11 +80,11 @@ OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for (i = 1; i < limit && btop <MAXBSKT; i++){
 		p = old[i];
 		if( getModuleId(p)== basketRef && (getFunctionId(p)== registerRef || getFunctionId(p)== bindRef )  ){
-#ifdef DEBUG_OPT_CQUERY
-			mnstr_printf(cntxt->fdout, "#cquery stream table %s.%s\n", getModuleId(p), getFunctionId(p));
-#endif
 			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,3)).val.sval;
+#ifdef DEBUG_OPT_CQUERY
+			mnstr_printf(cntxt->fdout, "#cquery bind stream table %s.%s\n", schemas[btop], tables[btop]);
+#endif
 			for( j =0; j< btop ; j++)
 			if( strcmp(schemas[j], schemas[btop])==0  && strcmp(tables[j],tables[btop]) ==0)
 				break;
@@ -91,11 +93,11 @@ OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				btop++;
 		}
 		if( getModuleId(p)== basketRef && getFunctionId(p) == appendRef ){
-#ifdef DEBUG_OPT_CQUERY
-			mnstr_printf(cntxt->fdout, "#cquery stream table %s.%s\n", getModuleId(p), getFunctionId(p));
-#endif
 			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,3)).val.sval;
+#ifdef DEBUG_OPT_CQUERY
+			mnstr_printf(cntxt->fdout, "#cquery append stream table %s.%s\n", schemas[btop], tables[btop]);
+#endif
 			for( j =0; j< btop ; j++)
 			if( strcmp(schemas[j], schemas[btop])==0  && strcmp(tables[j],tables[btop]) ==0)
 				break;
@@ -105,11 +107,11 @@ OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				btop++;
 		}
 		if( getModuleId(p)== basketRef && getFunctionId(p) == updateRef ){
-#ifdef DEBUG_OPT_CQUERY
-			mnstr_printf(cntxt->fdout, "#cquery stream table %s.%s\n", getModuleId(p), getFunctionId(p));
-#endif
 			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,3)).val.sval;
+#ifdef DEBUG_OPT_CQUERY
+			mnstr_printf(cntxt->fdout, "#cquery update stream table %s.%s\n", schemas[btop], tables[btop]);
+#endif
 			for( j =0; j< btop ; j++)
 			if( strcmp(schemas[j], schemas[btop])==0  && strcmp(tables[j],tables[btop]) ==0)
 				break;
@@ -119,11 +121,11 @@ OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				btop++;
 		}
 		if( getModuleId(p)== cqueryRef && getFunctionId(p) == basketRef){
-#ifdef DEBUG_OPT_CQUERY
-			mnstr_printf(cntxt->fdout, "#cquery stream table %s.%s\n", getModuleId(p), getFunctionId(p));
-#endif
 			schemas[btop]= getVarConstant(mb, getArg(p,1)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
+#ifdef DEBUG_OPT_CQUERY
+			mnstr_printf(cntxt->fdout, "#cquery basket ref %s.%s\n", schemas[btop],tables[btop]);
+#endif
 			for( j =0; j< btop ; j++)
 			if( strcmp(schemas[j], schemas[btop])==0  && strcmp(tables[j],tables[btop]) ==0)
 				break;
@@ -138,13 +140,12 @@ OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			lastmvc = getArg(p,1);
 		}
 	}
+#ifdef DEBUG_OPT_CQUERY
+	mnstr_printf(cntxt->fdout, "#cquery optimizer started with %d streams, mvc %d\n", btop,lastmvc);
+#endif
 	if( btop == MAXBSKT || btop == 0)
 		return MAL_SUCCEED;
 
-#ifdef DEBUG_OPT_CQUERY
-	mnstr_printf(cntxt->fdout, "#cquery optimizer started with %d streams, mvc %d\n", btop,lastmvc);
-	printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
-#endif
 	(void) stk;
 
 	alias = (int *) GDKzalloc(mb->vtop * 2 * sizeof(int));

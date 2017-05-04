@@ -446,6 +446,8 @@ hasSideEffects(MalBlkPtr mb, InstrPtr p, int strict)
 		return TRUE;
 	if ( getModuleId(p) == remoteRef)
 		return TRUE;
+	if ( getModuleId(p) == cqueryRef)
+		return TRUE;
 	return FALSE;
 }
 
