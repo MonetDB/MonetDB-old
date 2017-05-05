@@ -79,7 +79,7 @@ headers_mal_hge = {
 headers_autoload = {
 	HEADERS = mal
 	DIR = libdir/monetdb5/autoload
-	SOURCES = 40_sql.mal 51_basket.mal 50_cquery.mal
+	SOURCES = 40_sql.mal 50_basket.mal 50_cquery.mal
 }
 
 headers_autoload_hge = {

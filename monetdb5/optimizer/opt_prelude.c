@@ -300,6 +300,7 @@ str unpinRef;
 str updateRef;
 str wlcRef;
 str wlrRef;
+str windowRef;
 str timestampRef;
 str thetaselectRef;
 str likeselectRef;
@@ -593,6 +594,7 @@ void optimizerInit(void)
 	userRef = putName("user");
 	wlcRef = putName("wlc");
 	wlrRef = putName("wlr");
+	windowRef = putName("window");
 	selectRef = putName("select");
 	thetaselectRef = putName("thetaselect");
 	vectorRef = putName("vector");

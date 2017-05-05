@@ -38,7 +38,7 @@
 		fnd= 1; break;\
 	}
 
-#define DEBUG_OPT_CQUERY
+//#define DEBUG_OPT_CQUERY
 
 str
 OPTcqueryImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)

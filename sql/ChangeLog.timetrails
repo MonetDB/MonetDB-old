@@ -1,0 +1,7 @@
+# ChangeLog file for sql
+# This file is updated with Maddlog
+
+* Fri May  5 2017 Martin Kersten <mk@cwi.nl>
+- The timetrails branch is a cleanup of the iot branch.  To be further
+  enhanced to support timetrails for iot.
+

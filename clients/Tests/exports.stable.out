@@ -2587,6 +2587,7 @@ str updateRef;
 void updateScenario(str scen, str nme, MALfcn fcn);
 str userRef;
 str vectorRef;
+str windowRef;
 str wlcRef;
 int wlc_batches;
 int wlc_beat;

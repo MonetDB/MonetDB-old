@@ -8,8 +8,8 @@ insert into tmp_aggregate values(0.0,0.0);
 create procedure cq_collector()
 begin
     update tmp_aggregate
-        set tmp_total = tmp_total + (select sum(val) from iot.stmp10),
-            tmp_count = tmp_count + (select count(*) from iot.stmp10);
+        set tmp_total = tmp_total + (select sum(val) from sys.stmp10),
+            tmp_count = tmp_count + (select count(*) from sys.stmp10);
 end;
 call cquery.register('sys','cq_collector');
 
@@ -24,7 +24,7 @@ call cquery.resume('sys','cq_collector');
 
 call cquery.wait(1000);
 
-call cquery.stop('sys','cq_collector');
+call cquery.pause('sys','cq_collector');
 call cquery.deregister('sys','cq_collector');
 
 select * from tmp_aggregate;

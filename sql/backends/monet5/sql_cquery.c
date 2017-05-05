@@ -72,19 +72,11 @@ MT_Lock ttrLock MT_LOCK_INITIALIZER("cqueryLock");
 static void
 CQfree(int idx)
 {
-	int j;
 	MT_lock_set(&ttrLock);
 	if( pnet[idx].mb)
 		freeMalBlk(pnet[idx].mb);
 	if( pnet[idx].stk)
 		GDKfree(pnet[idx].stk);
-	for( j=0; j< MAXSTREAMS && pnet[idx].schema[j]; j++){
-		GDKfree(pnet[idx].schema[j]);
-		GDKfree(pnet[idx].tables[j]);
-		GDKfree(pnet[idx].column[j]);
-		if( pnet[idx].bats[j])
-			BBPunfix(pnet[idx].bats[j]->batCacheid);
-	}
 	GDKfree(pnet[idx].mod);
 	GDKfree(pnet[idx].fcn);
 	for( ; idx<pnettop-1; idx++)
@@ -323,7 +315,7 @@ CQanalysis(Client cntxt, MalBlkPtr mb, int pn)
 	MT_lock_unset(&ttrLock);
 	for (i = 0; msg== MAL_SUCCEED && i < mb->stop; i++) {
 		p = getInstrPtr(mb, i);
-		if (getModuleId(p) == basketRef && getFunctionId(p) == registerRef){
+		if (getModuleId(p) == basketRef && (getFunctionId(p) == registerRef || getFunctionId(p) == bindRef)){
 			sch = getVarConstant(mb, getArg(p,2)).val.sval;
 			tbl = getVarConstant(mb, getArg(p,3)).val.sval;
 
@@ -341,23 +333,46 @@ CQanalysis(Client cntxt, MalBlkPtr mb, int pn)
 			}
 			
 			// we only need a single column for window size testing
-			for( j=0; j< MAXSTREAMS && pnet[pn].schema[j]; j++)
-			if( strcmp(sch, pnet[pn].schema[j]) == 0 &&
-				strcmp(tbl, pnet[pn].tables[j]) == 0 )
+			for( j=0; j< MAXSTREAMS && pnet[pn].baskets[j]; j++)
+			if( strcmp(sch, baskets[pnet[pn].baskets[j]].schema) == 0 &&
+				strcmp(tbl, baskets[pnet[pn].baskets[j]].table) == 0 )
 				break;
 			if ( j == MAXSTREAMS){
 				msg = createException(MAL,"cquery.analysis","too many stream table columns\n");
 				continue;
 			}
 
-			if ( pnet[pn].schema[j] )
+			if ( pnet[pn].baskets[j] )
 				continue;
 
-			pnet[pn].schema[j] = GDKstrdup(sch);
-			pnet[pn].tables[j] = GDKstrdup(tbl);
-			pnet[pn].column[j] = GDKstrdup(baskets[bskt].cols[0]);
-			pnet[pn].window[j] = baskets[bskt].window;
-			pnet[pn].stride[j] = baskets[bskt].stride;
+			pnet[pn].baskets[j] = bskt;
+			pnet[pn].inout[j] = STREAM_IN;
+		}
+
+		// Pick up the window constraint from the query definition
+		if (getModuleId(p) == cqueryRef && getFunctionId(p) == windowRef){
+			int window = getVarConstant(mb, getArg(p,3)).val.ival;
+			int stride;
+			sch = getVarConstant(mb, getArg(p,1)).val.sval;
+			tbl = getVarConstant(mb, getArg(p,2)).val.sval;
+
+			// find the stream basket definition 
+			bskt = BSKTlocate(sch,tbl);
+			if( bskt == 0){
+				msg = BSKTregisterInternal(cntxt,mb,sch,tbl);
+				if( msg == MAL_SUCCEED){
+					bskt = BSKTlocate(sch,tbl);
+					if( bskt == 0){
+						msg = createException(MAL,"cquery.analysis","basket registration missing\n");
+						continue;
+					}
+				}
+			}
+			if( p->argc == 5)
+				stride = getVarConstant(mb, getArg(p,4)).val.ival;
+			else stride = window;
+			baskets[bskt].window = window;
+			baskets[bskt].stride = stride;
 		}
 	}
 	MT_lock_set(&ttrLock);
@@ -573,7 +588,7 @@ CQsetbeat(int idx, int beats)
 {
 	int i;
 	for( i=0; i < MAXSTREAMS; i++)
-	if( pnet[idx].inout[i] == STREAM_IN && pnet[idx].window[i]){
+	if( pnet[idx].inout[i] == STREAM_IN && baskets[pnet[idx].baskets[i]].window){
 		// can not set the beat due to stream window constraint
 		pnet[idx].beats = lng_nil;
 		return;
@@ -608,13 +623,14 @@ CQheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 	}
 	MT_lock_set(&ttrLock);
-	for( ; idx < last; idx++)
+	for( ; idx < last; idx++){
+		if( pnet[idx].baskets[0]){
+			msg = createException(MAL,"cquery.heartbeat","Beat ignored, a window constraint exist\n");
+			break;
+		}
 		CQsetbeat(idx, beats *1000); /* minimal 1 ms */
-	MT_lock_unset(&ttrLock);
-	/* start the scheduler if needed */
-	if(CQinit == 0) {
-		msg = CQstartScheduler();
 	}
+	MT_lock_unset(&ttrLock);
 	return msg;
 }
 
@@ -658,50 +674,6 @@ CQderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 }
 
 str
-CQtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	str sch= *getArgReference_str(stk,pci,1);
-	str tbl= *getArgReference_str(stk,pci,2);
-	int elm= *getArgReference_int(stk,pci,3);
-	int i,j;
-
-#ifdef DEBUG_CQUERY
-	fprintf(stderr, "#cquery.tumble %s.%s %d\n",sch,tbl,elm);
-#endif
-	for(j=0;j<pnettop; j++)
-	for(i = 0; i< MAXSTREAMS; i++)
-	if( pnet[j].schema[i] && strcmp(sch, pnet[j].schema[i]) == 0 && 
-		strcmp(tbl,pnet[j].tables[i])== 0 &&
-		pnet[j].inout[i] == STREAM_IN)
-		pnet[j].stride[i] = elm;
-	(void) cntxt;
-	(void) mb;
-	return MAL_SUCCEED;
-}
-
-str
-CQwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	str sch= *getArgReference_str(stk,pci,1);
-	str tbl= *getArgReference_str(stk,pci,2);
-	int elm= *getArgReference_int(stk,pci,3);
-	int i,j;
-
-#ifdef DEBUG_CQUERY
-	fprintf(stderr, "#cquery.window %s.%s %d\n",sch,tbl,elm);
-#endif
-	for(j=0;j<pnettop; j++)
-	for(i = 0; i< MAXSTREAMS; i++)
-	if( pnet[j].schema[i] && strcmp(sch, pnet[j].schema[i]) == 0 && 
-		strcmp(tbl,pnet[j].tables[i])== 0 &&
-		pnet[j].inout[i] == STREAM_IN)
-			pnet[j].window[i] = elm;
-	(void) cntxt;
-	(void) mb;
-	return MAL_SUCCEED;
-}
-
-str
 CQdump(void *ret)
 {
 	int i, k;
@@ -715,14 +687,14 @@ CQdump(void *ret)
 			
 		if( pnet[i].inout[0])
 			fprintf(stderr, " streams ");
-		for (k = 0; k < MAXSTREAMS && pnet[i].schema[k]; k++)
+		for (k = 0; k < MAXSTREAMS && pnet[i].baskets[k]; k++)
 		if( pnet[i].inout[k] == STREAM_IN)
-			fprintf(stderr, "%s.%s ", pnet[i].schema[k], pnet[i].tables[k]);
+			fprintf(stderr, "%s.%s ", baskets[pnet[i].baskets[k]].schema, baskets[pnet[i].baskets[k]].table);
 		if( pnet[i].inout[0])
 			fprintf(stderr, " --> ");
-		for (k = 0; k < MAXSTREAMS && pnet[i].schema[k]; k++)
+		for (k = 0; k < MAXSTREAMS && pnet[i].baskets[k]; k++)
 		if( pnet[i].inout[k] == STREAM_OUT)
-			fprintf(stderr, "%s.%s ", pnet[i].schema[k], pnet[i].tables[k]);
+			fprintf(stderr, "%s.%s ", baskets[pnet[i].baskets[k]].schema, baskets[pnet[i].baskets[k]].table);
 		if (pnet[i].error)
 			fprintf(stderr, " errors:%s", pnet[i].error);
 		fprintf(stderr, "\n");
@@ -781,7 +753,7 @@ CQscheduler(void *dummy)
 	Client cntxt = (Client) dummy;
 	str msg = MAL_SUCCEED;
 	lng t, now;
-	BAT *claimed[MAXSTREAMS];
+	int claimed[MAXSTREAMS];
 	BAT *b;
 
 #ifdef DEBUG_CQUERY
@@ -810,7 +782,7 @@ CQscheduler(void *dummy)
 			/* Queries are triggered by the heartbeat or  all window constraints */
 			/* A heartbeat in combination with a window constraint is ambiguous */
 			/* At least one constraint should be set */
-			if( pnet[i].beats == lng_nil && pnet[i].bats[0] == 0)
+			if( pnet[i].beats == lng_nil && pnet[i].baskets[0] == 0)
 				pnet[i].enabled = 0;
 
 			if( pnet[i].enabled && pnet[i].beats > 0){
@@ -824,25 +796,25 @@ CQscheduler(void *dummy)
 				}
 
 			/* check if all input baskets are available */
-			for (j = 0; pnet[i].enabled && (b = pnet[i].bats[j]); j++)
+			for (j = 0; pnet[i].enabled && pnet[i].baskets[j] && (b = baskets[pnet[i].baskets[j]].bats[0]); j++)
 				/* consider execution only if baskets are properly filled */
-				if ( pnet[i].inout[j] == STREAM_IN && (BUN) pnet[i].window[j] > BATcount(b)){
+				if ( pnet[i].inout[j] == STREAM_IN && (BUN) baskets[pnet[i].baskets[j]].window > BATcount(b)){
 					pnet[i].enabled = 0;
 					break;
 				} 
 
 			/* check availability of all stream baskets */
-			for (j = 0; pnet[i].enabled && (b = pnet[i].bats[j]); j++){
+			for (j = 0; pnet[i].enabled && pnet[i].baskets[j]; j++){
 				for(k=0; claimed[k]; k++)
-					if(claimed[k] == b)
+					if(claimed[k]  ==  pnet[i].baskets[j]){
 						pnet[i].enabled = 0;
 #ifdef DEBUG_CQUERY_SCHEDULER
 						fprintf(stderr, "#cquery: %s.%s,disgarded \n", pnet[i].mod, pnet[i].fcn);
 #endif
 						break;
 					}
-				if (pnet[i].enabled && claimed[k] == 0){
-					claimed[k] = b;
+				if (pnet[i].enabled && claimed[k] == 0)
+					claimed[k] =  pnet[i].baskets[j];
 			}
 
 #ifdef DEBUG_CQUERY_SCHEDULER

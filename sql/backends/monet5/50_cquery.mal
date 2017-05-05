@@ -62,16 +62,6 @@ pattern heartbeat(cnt:int)
 address CQheartbeat
 comment "Awake all queries after cnt milliseconds";
 
-# continuous query window size for stream
-pattern tumble(sch:str, tbl:str, elm:int)
-address CQtumble
-comment "Number of tuples to shift forward";
-
-# stream window constraints
-pattern window(sch:str,tbl:str,maximal:int)
-address CQwindow
-comment "Set the input window size constraints";
-
 pattern error(sch:str, tbl:str, msg:str)
 address CQerror
 comment "Remember the error seen";

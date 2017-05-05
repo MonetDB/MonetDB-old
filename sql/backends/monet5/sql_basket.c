@@ -28,13 +28,12 @@
 #include "monetdb_config.h"
 #include <unistd.h>
 #include "gdk.h"
-#include "sql_cquery.h"
 #include "sql_basket.h"
 #include "mal_exception.h"
 #include "mal_builder.h"
 #include "opt_prelude.h"
 
-#define _DEBUG_BASKET_ if(1)
+#define _DEBUG_BASKET_ if(0)
 
 BasketRec *baskets;   /* the global timetrails catalog */
 int bsktTop = 0, bsktLimit = 0;
@@ -380,8 +379,7 @@ BSKTdrop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #define ColumnShift(B,TPE) { \
 	TPE *first= (TPE*) Tloc(B, 0);\
 	TPE *n, *last=  (TPE*) Tloc(B, BUNlast(B));\
-	shift = stride == -1 ? BATcount(b): (BUN) stride;\
-	n = first + shift;\
+	n = first + stride;\
 	for(cnt=0 ; n < last; cnt++, n++, first++)\
 		*first=*n;\
 }
@@ -390,11 +388,15 @@ static str
 BSKTtumbleInternal(Client cntxt, str sch, str tbl, int bskt, int stride)
 {
 	BAT *b;
-	BUN cnt= 0, shift=0;
+	BUN cnt= 0 ;
 	int i;
 	(void) cntxt;
 
+	if( stride < 0)
+		throw(MAL,"basket.tumble","negative stride not allowed");
 	_DEBUG_BASKET_ fprintf(stderr,"Tumble %s.%s %d elements\n",sch,tbl,stride);
+	if( stride == 0)
+		return MAL_SUCCEED;
 	for(i=0; i< MAXCOLS && baskets[bskt].cols[i]; i++){
 		b = baskets[bskt].bats[i];
 		assert( b );
@@ -423,13 +425,12 @@ BSKTtumbleInternal(Client cntxt, str sch, str tbl, int bskt, int stride)
 			throw(SQL, "basket.tumble", "Could not find the basket column storage %s.%s[%d]",sch,tbl,i);
 		}
 
-		_DEBUG_BASKET_ fprintf(stderr,"#Tumbled %s.%s[%d] "BUNFMT" elements\n",sch,tbl,i,cnt);
+		_DEBUG_BASKET_ fprintf(stderr,"#Tumbled %s.%s[%d] "BUNFMT" elements left\n",sch,tbl,i,cnt);
 		BATsetcount(b, cnt);
 		baskets[bskt].count = BATcount(b);
 		b->tnil = 0;
-		if( shift < BATcount(b)){
-			b->tnokey[0] -= shift;
-			b->tnokey[1] -= shift;
+		if( (BUN) stride < BATcount(b)){ b->tnokey[0] -= stride;
+			b->tnokey[1] -= stride;
 			b->tnosorted = 0;
 			b->tnorevsorted = 0;
 		} else {

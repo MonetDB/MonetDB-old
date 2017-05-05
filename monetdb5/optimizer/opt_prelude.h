@@ -304,6 +304,7 @@ mal_export  str not_ilikeRef;
 mal_export  str userRef;
 mal_export  str wlcRef;
 mal_export  str wlrRef;
+mal_export  str windowRef;
 mal_export  str vectorRef;
 mal_export  str zero_or_oneRef;
 #endif

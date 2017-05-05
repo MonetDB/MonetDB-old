@@ -22,8 +22,8 @@
 #include "mal_interpreter.h"
 #include "sql_scenario.h"
 
-#define DEBUG_CQUERY
-#define DEBUG_CQUERY_SCHEDULER
+//#define DEBUG_CQUERY
+//#define DEBUG_CQUERY_SCHEDULER
 
 #define CQINIT     0
 #define CQREGISTER 1    /* being registered */
@@ -47,14 +47,8 @@ typedef struct {
 	int status;     /* query status .../wait/running/paused */
 	int enabled;
 
-	int baskets[MAXSTEAMS];	/* reference into the registered basket tables catalog */
-	str schema[MAXSTREAMS];
-	str tables[MAXSTREAMS];
-	str column[MAXSTREAMS];
-	BAT *bats[MAXSTREAMS]; /* keep them around for ease of access */
+	int baskets[MAXSTREAMS];	/* reference into the registered basket tables catalog */
 	int inout[MAXSTREAMS]; /* how the stream tables are used, needed for locking */
-	lng window[MAXSTREAMS];/* tuple consumption window for query processing */
-	lng stride[MAXSTREAMS];/* eating away tuples after each round */
 
 	int cycles;		/* limit the number of invocations before dying */
 	lng beats;		/* heart beat stride for procedures activations */
@@ -77,8 +71,6 @@ sql5_export str CQderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 sql5_export str CQwait(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str CQcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str CQheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-sql5_export str CQtumble(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-sql5_export str CQwindow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str CQerror(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 sql5_export str CQshow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
