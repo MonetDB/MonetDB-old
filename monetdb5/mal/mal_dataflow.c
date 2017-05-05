@@ -94,16 +94,14 @@ static MT_Lock dataflowLock MT_LOCK_INITIALIZER("dataflowLock");
 
 void
 mal_dataflow_reset(void)
-{
+{	Queue *q = todo;
 	stopMALdataflow();
 	memset((char*) workers, 0,  sizeof(workers));
 	if( todo) {
-		GDKfree(todo->data);
-		MT_lock_destroy(&todo->l);
-		MT_sema_destroy(&todo->s);
-		GDKfree(todo);
+		todo = 0;
+		GDKfree(q->data);
+		GDKfree(q);
 	}
-	todo = 0;	/* pending instructions */
 	exiting = 0;
 }
 
