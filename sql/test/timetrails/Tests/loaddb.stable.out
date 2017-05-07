@@ -1,0 +1,105 @@
+stdout of test 'loaddb` in directory 'sql/test/timetrails` itself:
+
+
+# 22:33:43 >  
+# 22:33:43 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=35907" "--set" "mapi_usock=/var/tmp/mtest-18218/.s.monetdb.35907" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mk/timetrails//Linux/var/MonetDB/mTests_sql_test_timetrails"
+# 22:33:43 >  
+
+# MonetDB 5 server v11.28.0
+# This is an unreleased version
+# Serving database 'mTests_sql_test_timetrails', using 8 threads
+# Compiled for x86_64-unknown-linux-gnu/64bit with 128bit integers
+# Found 15.589 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2017 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://vienna.da.cwi.nl:35907/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-18218/.s.monetdb.35907
+# MonetDB/GIS module loaded
+# MonetDB/SQL module loaded
+
+Ready.
+# SQL catalog created, loading sql scripts once
+# loading sql script: 09_like.sql
+# loading sql script: 10_math.sql
+# loading sql script: 11_times.sql
+# loading sql script: 12_url.sql
+# loading sql script: 13_date.sql
+# loading sql script: 14_inet.sql
+# loading sql script: 15_querylog.sql
+# loading sql script: 16_tracelog.sql
+# loading sql script: 17_temporal.sql
+# loading sql script: 18_index.sql
+# loading sql script: 20_vacuum.sql
+# loading sql script: 21_dependency_functions.sql
+# loading sql script: 22_clients.sql
+# loading sql script: 23_skyserver.sql
+# loading sql script: 25_debug.sql
+# loading sql script: 26_sysmon.sql
+# loading sql script: 27_rejects.sql
+# loading sql script: 39_analytics.sql
+# loading sql script: 39_analytics_hge.sql
+# loading sql script: 40_geom.sql
+# loading sql script: 40_json.sql
+# loading sql script: 40_json_hge.sql
+# loading sql script: 41_md5sum.sql
+# loading sql script: 45_uuid.sql
+# loading sql script: 46_profiler.sql
+# loading sql script: 50_cquery.sql
+# loading sql script: 51_sys_schema_extension.sql
+# loading sql script: 60_wlcr.sql
+# loading sql script: 70_timetrails.sql
+# loading sql script: 72_fits.sql
+# loading sql script: 74_netcdf.sql
+# loading sql script: 75_lidar.sql
+# loading sql script: 75_shp.sql
+# loading sql script: 75_storagemodel.sql
+# loading sql script: 80_statistics.sql
+# loading sql script: 80_udf.sql
+# loading sql script: 80_udf_hge.sql
+# loading sql script: 85_bam.sql
+# loading sql script: 90_generator.sql
+# loading sql script: 90_generator_hge.sql
+# loading sql script: 99_system.sql
+
+# 22:33:43 >  
+# 22:33:43 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-18218" "--port=35907"
+# 22:33:43 >  
+
+#CREATE TABLE rooms(
+#     tick timestamp,
+#     room string,
+#     level integer,
+#     temp double,
+#    PRIMARY KEY(tick, room,level) );
+#CREATE TABLE weather(
+#     tick timestamp,
+#     geoname string,
+#     degrees double,
+#     windspeed double,
+#    PRIMARY KEY(tick, geoname) );
+#CREATE TABLE birds(
+#     tick timestamp,
+#     birdname string,
+#     location string,
+#     speed integer,
+#    PRIMARY KEY(tick, birdname, location) );
+#INSERT INTO timetrails.metrics
+#VALUES('rooms','monetdb',0,'unknown','unknown',0,0,true,'unknown title','description');
+[ 1	]
+#INSERT INTO rooms VALUES
+#(timestamp '2017/01/01 09:00:00.000', 'L302', 3, 12.3),
+#(timestamp '2017/01/01 09:00:15.000', 'L302', 3, 13.3),
+#(timestamp '2017/01/01 09:00:30.000', 'L302', 3, 14.4),
+#(timestamp '2017/01/01 09:00:45.000', 'L302', 3, 15.5),
+#(timestamp '2017/01/01 10:00:00.000', 'L302', 3, 15.8),
+#(timestamp '2017/01/01 10:00:15.000', 'L302', 3, 18.4),
+#(timestamp '2017/01/01 10:00:30.000', 'L302', 3, 19.4),
+#(timestamp '2017/01/01 10:00:45.000', 'L302', 3, 21.5),
+#(timestamp '2017/01/01 11:00:00.000', 'L302', 3, 21.4),
+[ 20	]
+
+# 22:33:44 >  
+# 22:33:44 >  "Done."
+# 22:33:44 >  
+

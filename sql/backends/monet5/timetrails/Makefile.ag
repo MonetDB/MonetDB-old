@@ -1,0 +1,47 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.  If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
+
+INCLUDES = .. \
+	../../../include \
+	../../../common \
+	../../../storage \
+	../../../server \
+	../../../../monetdb5/modules/atoms \
+	../../../../monetdb5/modules/kernel \
+	../../../../monetdb5/mal \
+	../../../../monetdb5/modules/mal \
+	../../../../monetdb5/optimizer \
+	../../../../common/options \
+	../../../../common/stream \
+	../../../../gdk
+
+lib__timetrails = {
+	MODULE
+	DIR = libdir/monetdb5
+	SOURCES = timetrails.c timetrails.h 
+	LIBS = ../../../../monetdb5/tools/libmonetdb5 \
+		   ../../../../gdk/libbat
+}
+
+headers_mal = {
+	HEADERS = mal
+	DIR = libdir/monetdb5
+	SOURCES = timetrails.mal
+}
+
+headers_sql = {
+	HEADERS = sql
+	DIR = libdir/monetdb5/createdb
+	SOURCES = 70_timetrails.sql
+}
+
+headers_autoload = {
+	HEADERS = mal
+	DIR = libdir/monetdb5/autoload
+	SOURCES = 70_timetrails.mal
+}
+
+EXTRA_DIST_DIR = Tests

@@ -1,0 +1,10 @@
+# The grafana functional back-end tests
+loaddb
+dictionary
+simple_queries
+labels
+time_rollup
+derivative
+windowfunction
+rieman
+microbatch

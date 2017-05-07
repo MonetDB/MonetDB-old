@@ -1,0 +1,162 @@
+stdout of test 'simple_queries` in directory 'sql/test/timetrails` itself:
+
+
+# 22:51:13 >  
+# 22:51:13 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=30810" "--set" "mapi_usock=/var/tmp/mtest-19761/.s.monetdb.30810" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mk/timetrails//Linux/var/MonetDB/mTests_sql_test_timetrails"
+# 22:51:13 >  
+
+# MonetDB 5 server v11.28.0
+# This is an unreleased version
+# Serving database 'mTests_sql_test_timetrails', using 8 threads
+# Compiled for x86_64-unknown-linux-gnu/64bit with 128bit integers
+# Found 15.589 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2017 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://vienna.da.cwi.nl:30810/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-19761/.s.monetdb.30810
+# MonetDB/GIS module loaded
+# MonetDB/SQL module loaded
+
+Ready.
+
+# 22:51:13 >  
+# 22:51:13 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-19761" "--port=30810"
+# 22:51:13 >  
+
+#SELECT min(tick), room, level, count(*) 
+#FROM rooms 
+#WHERE tick BETWEEN timestamp '2017/01/01 09:00:00' AND timestamp '2017/01/31 23:59:59' 
+#GROUP BY room, level;
+% sys.L3,	sys.rooms,	sys.rooms,	sys.L10 # table_name
+% L2,	room,	level,	L7 # name
+% timestamp,	clob,	int,	bigint # type
+% 26,	4,	1,	2 # length
+[ 2017-01-01 09:00:00.000000,	"L302",	3,	16	]
+[ 2017-01-01 13:00:00.000000,	"L301",	3,	4	]
+#SELECT min(tick),  count(DISTINCT temp )
+#FROM rooms WHERE tick BETWEEN timestamp '2017/01/01 09:00:00' AND timestamp '2017/01/31 23:59:59'
+#GROUP BY room, level;
+% sys.L3,	sys.L6 # table_name
+% L2,	L5 # name
+% timestamp,	bigint # type
+% 26,	1 # length
+[ 2017-01-01 09:00:00.000000,	9	]
+[ 2017-01-01 13:00:00.000000,	4	]
+#SELECT min(tick), avg(temp) 
+#FROM rooms 
+#WHERE tick BETWEEN timestamp '2017/01/01 09:00:00' AND timestamp '2017/01/31 23:59:59' 
+#GROUP BY room, level;
+% sys.L3,	sys.L6 # table_name
+% L2,	L5 # name
+% timestamp,	double # type
+% 26,	24 # length
+[ 2017-01-01 09:00:00.000000,	18.89375	]
+[ 2017-01-01 13:00:00.000000,	17.125	]
+#SELECT min(tick), sum(temp) 
+#FROM rooms 
+#WHERE tick BETWEEN timestamp '2017/01/01 09:00:00' AND timestamp '2017/01/31 23:59:59' 
+#GROUP BY room, level;
+% sys.L3,	sys.L6 # table_name
+% L2,	L5 # name
+% timestamp,	double # type
+% 26,	24 # length
+[ 2017-01-01 09:00:00.000000,	302.3	]
+[ 2017-01-01 13:00:00.000000,	68.5	]
+#SELECT min(tick), max(temp)-min(temp) AS spread
+#FROM rooms 
+#WHERE tick BETWEEN timestamp '2017/01/01 09:00:00' AND timestamp '2017/01/31 23:59:59' 
+#GROUP BY room, level;
+% sys.L3,	sys.L7 # table_name
+% L2,	spread # name
+% timestamp,	double # type
+% 26,	24 # length
+[ 2017-01-01 09:00:00.000000,	9.2	]
+[ 2017-01-01 13:00:00.000000,	5.8	]
+#SELECT R.tick, R.tick-S.tick FROM rooms R, rooms S WHERE R.tick = S.tick and R.room=S.room and R.level = S.level;
+% sys.r,	sys.L3 # table_name
+% tick,	L3 # name
+% timestamp,	sec_interval # type
+% 26,	5 # length
+[ 2017-01-01 09:00:00.000000,	0.000	]
+[ 2017-01-01 09:00:15.000000,	0.000	]
+[ 2017-01-01 09:00:30.000000,	0.000	]
+[ 2017-01-01 09:00:45.000000,	0.000	]
+[ 2017-01-01 10:00:00.000000,	0.000	]
+[ 2017-01-01 10:00:15.000000,	0.000	]
+[ 2017-01-01 10:00:30.000000,	0.000	]
+[ 2017-01-01 10:00:45.000000,	0.000	]
+[ 2017-01-01 11:00:00.000000,	0.000	]
+[ 2017-01-01 11:00:15.000000,	0.000	]
+[ 2017-01-01 11:00:30.000000,	0.000	]
+[ 2017-01-01 11:00:45.000000,	0.000	]
+[ 2017-01-01 12:00:00.000000,	0.000	]
+[ 2017-01-01 12:00:15.000000,	0.000	]
+[ 2017-01-01 12:00:30.000000,	0.000	]
+[ 2017-01-01 12:00:45.000000,	0.000	]
+[ 2017-01-01 13:00:00.000000,	0.000	]
+[ 2017-01-01 13:00:15.000000,	0.000	]
+[ 2017-01-01 13:00:30.000000,	0.000	]
+[ 2017-01-01 13:00:45.000000,	0.000	]
+#SELECT min(tick), min(temp) AS spread FROM rooms WHERE tick BETWEEN timestamp '2017/01/01 09:00:00' AND timestamp '2017/01/31 23:59:59' GROUP BY room, level;
+% sys.L3,	sys.L6 # table_name
+% L2,	spread # name
+% timestamp,	double # type
+% 26,	24 # length
+[ 2017-01-01 09:00:00.000000,	12.3	]
+[ 2017-01-01 13:00:00.000000,	13.5	]
+#SELECT tick, room, temp 
+#FROM rooms 
+#WHERE tick BETWEEN timestamp '2017/01/01 09:00:00' AND timestamp '2017/01/31 23:59:59'  AND room = 'L302';
+% sys.rooms,	sys.rooms,	sys.rooms # table_name
+% tick,	room,	temp # name
+% timestamp,	clob,	double # type
+% 26,	4,	24 # length
+[ 2017-01-01 09:00:00.000000,	"L302",	12.3	]
+[ 2017-01-01 09:00:15.000000,	"L302",	13.3	]
+[ 2017-01-01 09:00:30.000000,	"L302",	14.4	]
+[ 2017-01-01 09:00:45.000000,	"L302",	15.5	]
+[ 2017-01-01 10:00:00.000000,	"L302",	15.8	]
+[ 2017-01-01 10:00:15.000000,	"L302",	18.4	]
+[ 2017-01-01 10:00:30.000000,	"L302",	19.4	]
+[ 2017-01-01 10:00:45.000000,	"L302",	21.5	]
+[ 2017-01-01 11:00:00.000000,	"L302",	21.4	]
+[ 2017-01-01 11:00:15.000000,	"L302",	21.4	]
+[ 2017-01-01 11:00:30.000000,	"L302",	21.4	]
+[ 2017-01-01 11:00:45.000000,	"L302",	21.5	]
+[ 2017-01-01 12:00:00.000000,	"L302",	21.5	]
+[ 2017-01-01 12:00:15.000000,	"L302",	21.5	]
+[ 2017-01-01 12:00:30.000000,	"L302",	21.5	]
+[ 2017-01-01 12:00:45.000000,	"L302",	21.5	]
+#SELECT tick, room, log(temp) AS mylabel 
+#FROM rooms 
+#WHERE tick BETWEEN timestamp '2017/01/01 09:00:00' AND timestamp '2017/01/31 23:59:59';
+% sys.rooms,	sys.rooms,	sys.L4 # table_name
+% tick,	room,	mylabel # name
+% timestamp,	clob,	double # type
+% 26,	4,	24 # length
+[ 2017-01-01 09:00:00.000000,	"L302",	2.509599262	]
+[ 2017-01-01 09:00:15.000000,	"L302",	2.587764035	]
+[ 2017-01-01 09:00:30.000000,	"L302",	2.667228207	]
+[ 2017-01-01 09:00:45.000000,	"L302",	2.740840024	]
+[ 2017-01-01 10:00:00.000000,	"L302",	2.76000994	]
+[ 2017-01-01 10:00:15.000000,	"L302",	2.912350665	]
+[ 2017-01-01 10:00:30.000000,	"L302",	2.965273066	]
+[ 2017-01-01 10:00:45.000000,	"L302",	3.068052935	]
+[ 2017-01-01 11:00:00.000000,	"L302",	3.063390922	]
+[ 2017-01-01 11:00:15.000000,	"L302",	3.063390922	]
+[ 2017-01-01 11:00:30.000000,	"L302",	3.063390922	]
+[ 2017-01-01 11:00:45.000000,	"L302",	3.068052935	]
+[ 2017-01-01 12:00:00.000000,	"L302",	3.068052935	]
+[ 2017-01-01 12:00:15.000000,	"L302",	3.068052935	]
+[ 2017-01-01 12:00:30.000000,	"L302",	3.068052935	]
+[ 2017-01-01 12:00:45.000000,	"L302",	3.068052935	]
+[ 2017-01-01 13:00:00.000000,	"L301",	2.960105096	]
+[ 2017-01-01 13:00:15.000000,	"L301",	2.90690106	]
+[ 2017-01-01 13:00:30.000000,	"L301",	2.856470206	]
+[ 2017-01-01 13:00:45.000000,	"L301",	2.602689685	]
+
+# 22:51:13 >  
+# 22:51:13 >  "Done."
+# 22:51:13 >  
+

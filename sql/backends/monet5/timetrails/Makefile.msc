@@ -1,0 +1,56 @@
+
+## Use: nmake -f makefile.msc install
+
+# Nothing much configurable below
+
+TOPDIR = .\..\..\..\..
+srcdir = $(TOPDIR)\..\sql\backends\monet5\timetrails
+!INCLUDE $(TOPDIR)\..\NT\rules.msc
+all: all-msc
+check: check-msc
+install: install-msc
+INCLUDES = -I$(srcdir) "-I.." -I$(srcdir)\.. "-I..\..\..\include" -I$(srcdir)\..\..\..\include "-I..\..\..\common" -I$(srcdir)\..\..\..\common "-I..\..\..\storage" -I$(srcdir)\..\..\..\storage "-I..\..\..\server" -I$(srcdir)\..\..\..\server "-I..\..\..\..\monetdb5\modules\atoms" -I$(srcdir)\..\..\..\..\monetdb5\modules\atoms "-I..\..\..\..\monetdb5\modules\kernel" -I$(srcdir)\..\..\..\..\monetdb5\modules\kernel "-I..\..\..\..\monetdb5\mal" -I$(srcdir)\..\..\..\..\monetdb5\mal "-I..\..\..\..\monetdb5\modules\mal" -I$(srcdir)\..\..\..\..\monetdb5\modules\mal "-I..\..\..\..\monetdb5\optimizer" -I$(srcdir)\..\..\..\..\monetdb5\optimizer "-I..\..\..\..\common\options" -I$(srcdir)\..\..\..\..\common\options "-I..\..\..\..\common\stream" -I$(srcdir)\..\..\..\..\common\stream "-I..\..\..\..\gdk" -I$(srcdir)\..\..\..\..\gdk
+EXTRA_DIST_DIR =  Tests
+70_timetrails.mal: "$(srcdir)\70_timetrails.mal"
+	$(INSTALL) "$(srcdir)\70_timetrails.mal" "70_timetrails.mal"
+timetrails.mal: "$(srcdir)\timetrails.mal"
+	$(INSTALL) "$(srcdir)\timetrails.mal" "timetrails.mal"
+70_timetrails.sql: "$(srcdir)\70_timetrails.sql"
+	$(INSTALL) "$(srcdir)\70_timetrails.sql" "70_timetrails.sql"
+lib_timetrails.dll:  ..\..\..\..\monetdb5\tools\libmonetdb5.lib ..\..\..\..\gdk\libbat.lib
+lib_timetrails_LIBS = ..\..\..\..\monetdb5\tools\libmonetdb5.lib ..\..\..\..\gdk\libbat.lib
+lib_timetrails_OBJS = timetrails.obj
+lib_timetrails_DEPS = $(lib_timetrails_OBJS)
+lib_timetrails.lib: lib_timetrails.dll
+lib_timetrails.dll: $(lib_timetrails_DEPS) 
+	python "$(TOPDIR)\..\NT\wincompile.py" $(CC) $(CFLAGS) -LD -Felib_timetrails.dll @<< /link @<<
+$(lib_timetrails_OBJS)
+<<
+$(lib_timetrails_LIBS)
+<<
+	if exist $@.manifest $(MT) -manifest $@.manifest -outputresource:$@;2
+	if not exist .libs $(MKDIR) .libs
+	$(INSTALL) "lib_timetrails.dll" ".libs\lib_timetrails.dll"
+
+timetrails.obj: "$(srcdir)\timetrails.c" "$(srcdir)\timetrails.h" "$(srcdir)\..\..\..\include\sql_mem.h" "$(srcdir)\..\mal_backend.h" "$(srcdir)\..\..\..\server\sql_mvc.h" "$(srcdir)\..\..\..\server\..\include\sql_mem.h" "$(srcdir)\..\..\..\..\gdk\gdk.h" "$(srcdir)\..\..\..\server\..\..\gdk\gdk.h" "$(srcdir)\..\..\..\..\gdk\gdk_system.h" "$(srcdir)\..\..\..\..\gdk\gdk_atomic.h" "$(srcdir)\..\..\..\..\gdk\gdk_posix.h" "$(srcdir)\..\..\..\..\common\stream\stream.h" "$(srcdir)\..\..\..\..\gdk\gdk_delta.h" "$(srcdir)\..\..\..\..\gdk\gdk_hash.h" "$(srcdir)\..\..\..\..\gdk\gdk_atoms.h" "$(srcdir)\..\..\..\..\gdk\gdk_bbp.h" "$(srcdir)\..\..\..\..\gdk\gdk_utils.h" "$(srcdir)\..\..\..\..\gdk\..\common\options\monet_options.h" "$(srcdir)\..\..\..\..\gdk\gdk_calc.h" "$(srcdir)\..\..\..\server\sql_scan.h" "$(srcdir)\..\..\..\server\..\include\sql_list.h" "$(srcdir)\..\..\..\include\sql_hash.h" "$(srcdir)\..\..\..\server\..\..\common\stream\stream.h" "$(srcdir)\..\..\..\server\..\common\sql_types.h" "$(srcdir)\..\..\..\include\sql_list.h" "$(srcdir)\..\..\..\common\sql_string.h" "$(srcdir)\..\..\..\include\sql_catalog.h" "$(srcdir)\..\..\..\storage\sql_storage.h" "$(srcdir)\..\..\..\storage\..\include\sql_catalog.h" "$(srcdir)\..\..\..\storage\..\..\gdk\gdk_logger.h" "$(srcdir)\..\..\..\server\..\common\sql_backend.h" "$(srcdir)\..\..\..\include\sql_relation.h" "$(srcdir)\..\..\..\common\sql_types.h" "$(srcdir)\..\..\..\common\..\include\sql_mem.h" "$(srcdir)\..\..\..\common\..\include\sql_list.h" "$(srcdir)\..\..\..\common\..\include\sql_catalog.h" "$(srcdir)\..\..\..\common\..\storage\sql_storage.h" "$(srcdir)\..\..\..\..\gdk\gdk_logger.h" "$(srcdir)\..\..\..\common\..\..\common\stream\stream.h" "$(srcdir)\..\..\..\server\..\include\sql_catalog.h" "$(srcdir)\..\..\..\server\..\include\sql_relation.h" "$(srcdir)\..\..\..\server\..\storage\sql_storage.h" "$(srcdir)\..\..\..\server\..\include\sql_keyword.h" "$(srcdir)\..\..\..\server\sql_atom.h" "$(srcdir)\..\..\..\server\..\include\sql_query.h" "$(srcdir)\..\..\..\common\sql_backend.h" "$(srcdir)\..\..\..\common\..\include\sql_relation.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_session.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_scenario.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_import.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_function.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_instruction.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_type.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal.h" "$(srcdir)\..\..\..\..\monetdb5\mal\..\..\gdk\gdk.h" "$(srcdir)\..\..\..\..\monetdb5\mal\..\..\gdk\gdk_system.h" "$(srcdir)\..\..\..\..\monetdb5\mal\..\..\gdk\gdk_posix.h" "$(srcdir)\..\..\..\..\monetdb5\mal\..\..\common\stream\stream.h" "$(srcdir)\..\..\..\..\monetdb5\mal\..\..\gdk\gdk_delta.h" "$(srcdir)\..\..\..\..\monetdb5\mal\..\..\gdk\gdk_hash.h" "$(srcdir)\..\..\..\..\monetdb5\mal\..\..\gdk\gdk_atoms.h" "$(srcdir)\..\..\..\..\monetdb5\mal\..\..\gdk\gdk_bbp.h" "$(srcdir)\..\..\..\..\monetdb5\mal\..\..\gdk\gdk_utils.h" "$(srcdir)\..\..\..\..\common\options\monet_options.h" "$(srcdir)\..\..\..\..\monetdb5\mal\..\..\gdk\gdk_calc.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_stack.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_namespace.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_module.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_resolve.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_exception.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_errors.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_listing.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_interpreter.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_client.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_profiler.h" "$(srcdir)\..\..\..\..\monetdb5\mal\mal_factory.h" "$(srcdir)\..\..\..\..\monetdb5\modules\mal\tablet.h" "$(srcdir)\..\..\..\..\monetdb5\modules\atoms\streams.h" "$(srcdir)\..\..\..\..\monetdb5\modules\atoms\..\..\mal\mal.h" "$(srcdir)\..\..\..\..\monetdb5\modules\atoms\..\..\..\common\stream\stream_socket.h" "$(srcdir)\..\..\..\..\monetdb5\modules\atoms\mtime.h" "$(srcdir)\..\..\..\..\monetdb5\modules\atoms\..\..\..\gdk\gdk.h" "$(srcdir)\..\..\..\..\monetdb5\modules\atoms\..\..\mal\mal_exception.h" "$(srcdir)\..\..\..\..\monetdb5\modules\atoms\blob.h" "$(srcdir)\..\..\..\..\monetdb5\modules\mal\mkey.h" "$(srcdir)\..\..\..\..\monetdb5\modules\atoms\str.h" "$(srcdir)\..\..\..\server\sql_privileges.h" "$(srcdir)\..\..\..\server\sql_decimal.h" "$(srcdir)\..\..\..\server\sql_qc.h" "$(srcdir)\..\..\..\server\sql_symbol.h" "$(srcdir)\..\..\..\server\sql_env.h" "$(srcdir)\..\..\..\server\sql_parser.h" "$(srcdir)\..\sql_statement.h" "$(srcdir)\..\..\..\..\monetdb5\modules\mal\querylog.h" "$(srcdir)\..\..\..\storage\bat\bat_storage.h" "$(srcdir)\..\..\..\storage\bat\bat_utils.h" "$(srcdir)\..\sql_cast.h" "$(srcdir)\..\sql.h"
+	$(CC) $(CFLAGS) $(timetrails_CFLAGS) $(GENDLL) -D_CRT_SECURE_NO_WARNINGS -DLIBTIMETRAILS "-Fotimetrails.obj" -c "$(srcdir)\timetrails.c"
+all-msc: "lib_timetrails.dll" "70_timetrails.mal" "timetrails.mal" "70_timetrails.sql"
+check-msc: all-msc "timetrails.mal" "lib_timetrails.dll" "70_timetrails.mal" "70_timetrails.sql"
+install-msc: install-exec install-data
+install-exec:  "install_timetrails.mal" "install_lib_timetrails" "install_70_timetrails.mal" "install_70_timetrails.sql" 
+install_timetrails.mal: "timetrails.mal" "$(libdir)\monetdb5"
+	$(INSTALL) "timetrails.mal" "$(libdir)\monetdb5\timetrails.mal"
+install_lib_timetrails: "lib_timetrails.dll" "$(libdir)\monetdb5"
+	$(INSTALL) "lib_timetrails.dll" "$(libdir)\monetdb5\lib_timetrails.dll"
+	$(INSTALL) "lib_timetrails.lib" "$(libdir)\monetdb5\lib_timetrails.lib"
+install_70_timetrails.mal: "70_timetrails.mal" "$(libdir)\monetdb5\autoload"
+	$(INSTALL) "70_timetrails.mal" "$(libdir)\monetdb5\autoload\70_timetrails.mal"
+install_70_timetrails.sql: "70_timetrails.sql" "$(libdir)\monetdb5\createdb"
+	$(INSTALL) "70_timetrails.sql" "$(libdir)\monetdb5\createdb\70_timetrails.sql"
+"$(libdir)\monetdb5":
+	if not exist "$(libdir)\monetdb5" $(MKDIR) "$(libdir)\monetdb5"
+"$(libdir)\monetdb5\autoload":
+	if not exist "$(libdir)\monetdb5\autoload" $(MKDIR) "$(libdir)\monetdb5\autoload"
+"$(libdir)\monetdb5\createdb":
+	if not exist "$(libdir)\monetdb5\createdb" $(MKDIR) "$(libdir)\monetdb5\createdb"
+install-data:
