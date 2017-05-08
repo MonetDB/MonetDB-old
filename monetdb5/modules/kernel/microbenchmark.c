@@ -22,6 +22,8 @@
 #include "microbenchmark.h"
 #include "mtwist.h"
 
+mtwist *mt_rng = NULL;
+
 static gdk_return
 BATrandom(BAT **bn, oid *base, lng *size, int *domain, int seed)
 {
@@ -29,7 +31,7 @@ BATrandom(BAT **bn, oid *base, lng *size, int *domain, int seed)
 	BUN i;
 	BAT *b = NULL;
 	int *restrict val;
-	mtwist *mt_rng;
+
 
 	if (*size > (lng)BUN_MAX) {
 		GDKerror("BATrandom: size must not exceed BUN_MAX");
@@ -55,8 +57,10 @@ BATrandom(BAT **bn, oid *base, lng *size, int *domain, int seed)
 	val = (int *) Tloc(b, 0);
 
 	/* create BUNs with random distribution */
-	mt_rng = mtwist_new();
-	mtwist_seed(mt_rng, seed);
+	if(!mt_rng) {
+		mt_rng = mtwist_new();
+		mtwist_seed(mt_rng, rand());
+	}
 
 	if (seed != int_nil)
 		mtwist_seed(mt_rng, seed);
@@ -88,7 +92,6 @@ BATuniform(BAT **bn, oid *base, lng *size, int *domain)
 	BAT *b = NULL;
 	int *restrict val;
 	int v;
-	mtwist *mt_rng;
 
 
 	if (*size > (lng)BUN_MAX) {
@@ -121,7 +124,10 @@ BATuniform(BAT **bn, oid *base, lng *size, int *domain)
 			v = 0;
 	}
 
-	mt_rng = mtwist_new();
+	if(!mt_rng) {
+		mt_rng = mtwist_new();
+		mtwist_seed(mt_rng, rand());
+	}
 
 	/* mix BUNs randomly */
 	for (r = 0, i = 0; i < n; i++) {
@@ -151,7 +157,6 @@ BATskewed(BAT **bn, oid *base, lng *size, int *domain, int *skew)
 	int *restrict val;
 	const BUN skewedSize = ((*skew) * n) / 100;
 	const int skewedDomain = ((100 - (*skew)) * (*domain)) / 100;
-	mtwist *mt_rng;
 
 
 	if (*size > (lng)BUN_MAX) {
@@ -182,7 +187,10 @@ BATskewed(BAT **bn, oid *base, lng *size, int *domain, int *skew)
 	}
 	val = (int *) Tloc(b, 0);
 
-	mt_rng = mtwist_new();
+	if(!mt_rng) {
+		mt_rng = mtwist_new();
+		mtwist_seed(mt_rng, rand());
+	}
 
 	/* create BUNs with skewed distribution */
 	for (i = 0; i < skewedSize; i++)
@@ -368,15 +376,16 @@ MBMmix(bat *bn, bat *batid)
 {
 	BUN n, r, i;
 	BAT *b;
-	mtwist *mt_rng;
 
 	if ((b = BATdescriptor(*batid)) == NULL)
 		throw(MAL, "microbenchmark.mix", RUNTIME_OBJECT_MISSING);
 
 	n = BATcount(b);
 
-	mt_rng = mtwist_new();
-
+	if(!mt_rng) {
+		mt_rng = mtwist_new();
+		mtwist_seed(mt_rng, rand());
+	}
 	/* mix BUNs randomly */
 	for (r = i = 0; i < n; i++) {
 		BUN idx = i + ((r += (BUN) mtwist_u32rand(mt_rng)) % (n - i));

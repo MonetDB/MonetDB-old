@@ -113,12 +113,14 @@ SAMPLEweighted(bat *r, bat *b, lng *s, bat *w) {
 		throw(MAL, "sample.subweighted", INTERNAL_BAT_ACCESS);
 	}
 	if ((bb = BATdescriptor(*b)) == NULL ) {
+		BBPunfix(bw->batCacheid);
 		throw(MAL, "sample.subweighted", INTERNAL_BAT_ACCESS);
 	}
 	br = BATweightedsample(bb, (BUN) *s, bw);
 	if (br == NULL)
 		throw(MAL, "sample.subweighted", OPERATION_FAILED);
 
+	BBPunfix(bw->batCacheid);
 	BBPunfix(bb->batCacheid);
 	BBPkeepref(*r = br->batCacheid);
 	return MAL_SUCCEED;

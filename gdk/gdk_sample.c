@@ -86,6 +86,8 @@ struct oidtreenode {
 	struct oidtreenode *right;
 };
 
+mtwist *mt_rng = NULL;
+
 static int
 OIDTreeMaybeInsert(struct oidtreenode *tree, oid o, BUN allocated)
 {
@@ -156,7 +158,7 @@ BATsample(BAT *b, BUN n)
 	BUN cnt, slen;
 	BUN rescnt;
 	struct oidtreenode *tree = NULL;
-	mtwist *mt_rng;
+
 	unsigned int range;
 
 	BATcheck(b, "BATsample", NULL);
@@ -201,10 +203,12 @@ BATsample(BAT *b, BUN n)
 			return NULL;
 		}
 		
-		/* create and seed Mersenne Twister */
-		mt_rng = mtwist_new();
+		if(!mt_rng) {
+			/* create and seed Mersenne Twister */
+			mt_rng = mtwist_new();
 
-		mtwist_seed(mt_rng, rand());
+			mtwist_seed(mt_rng, rand());
+		}
 		
 		range = maxoid - minoid;
 		
@@ -249,7 +253,6 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 	dbl* w_ptr;//TODO types of w
 	dbl* keys;/* keys as defined in Alg-A-exp */
 	BUN cnt, i, j;
-	mtwist *mt_rng;
 	BUN pos, childpos;
 	oid item;
 	dbl r, xw, r2, key, tw;
@@ -266,7 +269,7 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 	//TODO: handle NULL values in w_ptr
 	cnt = BATcount(b);
 
-	keys = (dbl*) malloc(sizeof(dbl)*n);
+	keys = (dbl*) GDKmalloc(sizeof(dbl)*n);
 	if(keys == NULL)
 		return NULL;
 
@@ -279,8 +282,10 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 	oids = (oid *) Tloc(sample, 0);
 	w_ptr = (dbl*) Tloc(w, 0);
 
-	mt_rng = mtwist_new();
-	mtwist_seed(mt_rng, rand());
+	if(!mt_rng) {
+		mt_rng = mtwist_new();
+		mtwist_seed(mt_rng, rand());
+	}
 
 	BATsetcount(sample, n);
 		/* obtain sample */
@@ -295,19 +300,25 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 		keys[i] = pow(mtwist_drand(mt_rng),1.0/w_ptr[j]);//TODO cast 1.0 to dbl?
 		i++;
 	}
-	if(i < n)/* not enough non-zero weights: cannot take sample */
+	if(i < n) {/* not enough non-zero weights: cannot take sample */
+		BBPunfix(sample->batCacheid);//TODO why not unfix?
+		GDKfree(keys);
 		return NULL;
+	}
 
 	heapify(compKeysGT, SWAP3);
 
 	while(true) {
 		r = mtwist_drand(mt_rng);
 		xw = log(r)/log(keys[0]);
-		for(;j<cnt && xw > w_ptr[j]; j++)
+		for(;j<cnt && xw >= w_ptr[j]; j++)
 			xw -= w_ptr[j];
 		if(j >= cnt) break;
 
-		/* At this point, w_ptr[c]+w_ptr[c+1]+...+w_ptr[i-1] < xw < w_ptr[c]+w_ptr[c+1]+...+w_ptr[i] */
+		/* At this point:
+		 * 		w_ptr[c]+w_ptr[c+1]+...+w_ptr[i-1]
+		 *   <  xw (the initial value, log(r)/log(keys[0]))
+		 * 	 <= w_ptr[c]+w_ptr[c+1]+...+w_ptr[i] */
 		tw = pow(keys[0], w_ptr[j]);
 		r2 = mtwist_drand(mt_rng)*(1-tw)+tw;
 		key = pow(r2, 1/w_ptr[j]);
@@ -320,7 +331,7 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 		j++;/* Increment j so j=c (c is defined in Alg-A-exp) */
 	}
 
-	free(keys);
+	GDKfree(keys);
 
 	sample->trevsorted = sample->batCount <= 1;
 	sample->tsorted = sample->batCount <= 1;
