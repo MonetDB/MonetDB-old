@@ -10,18 +10,23 @@ FROM rooms WHERE tick BETWEEN timestamp '2017/01/01 09:00:00' AND timestamp '201
 GROUP BY room, level;
 
 --mean
-SELECT min(tick), CAST(mean(cast(tick AS int)) AS timestamp)
+SELECT min(tick), avg(temp)
 FROM rooms 
 WHERE tick 
 BETWEEN timestamp '2017/01/01 09:00:00' AND timestamp '2017/01/31 23:59:59'
 GROUP BY room, level;
 
 --median
-SELECT min(tick), CAST(median(cast(tick AS int)) AS timestamp)
+SELECT min(tick), median(temp)
 FROM rooms 
 WHERE tick BETWEEN timestamp '2017/01/01 09:00:00' AND timestamp '2017/01/31 23:59:59'
 GROUP BY room, level;
 
+--std_dev
+SELECT min(tick), std_dev(temp)
+FROM rooms 
+WHERE tick BETWEEN timestamp '2017/01/01 09:00:00' AND timestamp '2017/01/31 23:59:59'
+GROUP BY room, level;
 --avg
 SELECT min(tick), avg(temp) 
 FROM rooms 

@@ -1,0 +1,41 @@
+stdout of test 'labels` in directory 'sql/test/timetrails` itself:
+
+
+# 22:10:24 >  
+# 22:10:24 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=35402" "--set" "mapi_usock=/var/tmp/mtest-31926/.s.monetdb.35402" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mk/timetrails//Linux/var/MonetDB/mTests_sql_test_timetrails"
+# 22:10:24 >  
+
+# MonetDB 5 server v11.28.0
+# This is an unreleased version
+# Serving database 'mTests_sql_test_timetrails', using 8 threads
+# Compiled for x86_64-unknown-linux-gnu/64bit with 128bit integers
+# Found 15.589 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2017 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://vienna.da.cwi.nl:35402/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-31926/.s.monetdb.35402
+# MonetDB/GIS module loaded
+# MonetDB/SQL module loaded
+
+Ready.
+
+# 22:10:24 >  
+# 22:10:24 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-31926" "--port=35402"
+# 22:10:24 >  
+
+#SELECT min(tick), concat(room, concat('_', cast(level as string))), count(*) 
+#FROM rooms 
+#WHERE tick BETWEEN timestamp '2017/01/01 09:00:00' AND timestamp '2017/01/31 23:59:59' 
+#GROUP BY room, level;
+% sys.L3,	sys.L6,	sys.L11 # table_name
+% L2,	L6,	L10 # name
+% timestamp,	varchar,	bigint # type
+% 26,	6,	2 # length
+[ 2017-01-01 09:00:00.000000,	"L302_3",	16	]
+[ 2017-01-01 13:00:00.000000,	"L301_3",	4	]
+
+# 22:10:24 >  
+# 22:10:24 >  "Done."
+# 22:10:24 >  
+

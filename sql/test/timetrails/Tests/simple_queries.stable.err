@@ -27,21 +27,8 @@ stderr of test 'simple_queries` in directory 'sql/test/timetrails` itself:
 # 22:51:13 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-19761" "--port=30810"
 # 22:51:13 >  
 
-MAPI  = (monetdb) /var/tmp/mtest-19761/.s.monetdb.30810
-QUERY = SELECT min(tick), CAST(mean(cast(tick AS int)) AS timestamp)
-        FROM rooms 
-        WHERE tick 
-        BETWEEN timestamp '2017/01/01 09:00:00' AND timestamp '2017/01/31 23:59:59'
-        GROUP BY room, level;
 
-MAPI  = (monetdb) /var/tmp/mtest-19761/.s.monetdb.30810
-QUERY = SELECT min(tick), CAST(median(cast(tick AS int)) AS timestamp)
-        FROM rooms 
-        WHERE tick BETWEEN timestamp '2017/01/01 09:00:00' AND timestamp '2017/01/31 23:59:59'
-        GROUP BY room, level;
-
-
-# 22:51:13 >  
-# 22:51:13 >  "Done."
-# 22:51:13 >  
+# 21:33:06 >  
+# 21:33:06 >  "Done."
+# 21:33:06 >  
 
