@@ -2,20 +2,20 @@
 
 CREATE TABLE rooms_min(tick timestamp, room string, level integer, temp integer);
 
-CREATE PROCEDURE retention(stride integer)
+CREATE PROCEDURE retention()
 BEGIN
    DELETE FROM rooms 
-	WHERE now() - stride >tick;
+	WHERE now() - 60 > tick;
 END;
 
-CALL timetrails.register('sys','retention');
-CALL timetrails.heartbeat('sys','retention',60);
-CALL timetrails.resume();
-CALL timetrails.wait(500);
-CALL timetrails.pause();
+CALL cquery.register('sys','retention');
+CALL cquery.heartbeat('sys','retention',60);
+CALL cquery.resume();
+CALL cquery.wait(500);
+CALL cquery.pause();
 
-SELECT * FROM timetrails.status();
-CALL timetrails.deregister('sys','retention');
+--SELECT * FROM cquery.status();
+CALL cquery.deregister('sys','retention');
 
 SELECT * FROM rooms_min;
 

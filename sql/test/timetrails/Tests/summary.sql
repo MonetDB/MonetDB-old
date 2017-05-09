@@ -2,24 +2,24 @@
 
 CREATE TABLE rooms_min(tick timestamp, room string, level integer, temp integer);
 
-CREATE PROCEDURE summarize(stride integer)
+CREATE PROCEDURE summarize()
 BEGIN
    INSERT INTO rooms_min 
       WITH T(tick, period, room, level, temp)
-	   AS ( SELECT min(tick), epoch(tick)/stride AS period, room, level, avg(temp) 
+	   AS ( SELECT min(tick), epoch(tick)/60 AS period, room, level, avg(temp) 
 	   FROM rooms
 	   GROUP BY period, room, level)
 	  SELECT tick,room,level,temp FROM T;
 END;
 
-CALL timetrails.register('sys','summarize');
-CALL timetrails.heartbeat('sys','summarize',60);
-CALL timetrails.resume();
-CALL timetrails.wait(500);
-CALL timetrails.pause();
+CALL cquery.register('sys','summarize');
+CALL cquery.heartbeat('sys','summarize',60);
+CALL cquery.resume();
+CALL cquery.wait(100);
+CALL cquery.pause();
 
-SELECT * FROM timetrails.status();
-CALL timetrails.deregister('sys','summarize');
+--SELECT * FROM cquery.status();
+CALL cquery.deregister('sys','summarize');
 
 SELECT * FROM rooms_min;
 
