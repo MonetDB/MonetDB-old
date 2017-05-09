@@ -1,0 +1,47 @@
+stdout of test 'extend` in directory 'sql/test/timetrails` itself:
+
+
+# 16:26:31 >  
+# 16:26:31 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=34445" "--set" "mapi_usock=/var/tmp/mtest-3509/.s.monetdb.34445" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mk/timetrails//Linux/var/MonetDB/mTests_sql_test_timetrails"
+# 16:26:31 >  
+
+# MonetDB 5 server v11.28.0
+# This is an unreleased version
+# Serving database 'mTests_sql_test_timetrails', using 8 threads
+# Compiled for x86_64-unknown-linux-gnu/64bit with 128bit integers
+# Found 15.589 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2017 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://vienna.da.cwi.nl:34445/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-3509/.s.monetdb.34445
+# MonetDB/GIS module loaded
+# MonetDB/SQL module loaded
+
+Ready.
+
+# 16:26:32 >  
+# 16:26:32 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-3509" "--port=34445"
+# 16:26:32 >  
+
+#CREATE FUNCTION room_period(stride integer)
+#RETURNS TABLE(period int,tick timestamp,room string,level int,temp float)
+#BEGIN
+#	RETURN SELECT epoch(tick)/60 AS period, min(tick), 
+#	room, level, avg( temp) FROM rooms GROUP BY period, room, level;
+#END;
+#SELECT * FROM room_period(60);
+% .L2,	.L2,	.L2,	.L2,	.L2 # table_name
+% period,	tick,	room,	level,	temp # name
+% int,	timestamp,	clob,	int,	double # type
+% 8,	26,	4,	1,	24 # length
+[ 24721020,	2017-01-01 09:00:00.000000,	"L302",	3,	13.875	]
+[ 24721080,	2017-01-01 10:00:00.000000,	"L302",	3,	18.775	]
+[ 24721140,	2017-01-01 11:00:00.000000,	"L302",	3,	21.425	]
+[ 24721200,	2017-01-01 12:00:00.000000,	"L302",	3,	21.5	]
+[ 24721260,	2017-01-01 13:00:00.000000,	"L301",	3,	17.125	]
+
+# 16:26:32 >  
+# 16:26:32 >  "Done."
+# 16:26:32 >  
+
