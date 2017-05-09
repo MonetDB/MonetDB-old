@@ -554,7 +554,7 @@ DFLOWinitBlk(DataFlow flow, MalBlkPtr mb, int size)
 	PARDEBUG fprintf(stderr, "#Initialize dflow block\n");
 	assign = (int *) GDKzalloc(mb->vtop * sizeof(int));
 	if (assign == NULL)
-		throw(MAL, "dataflow", MAL_MALLOC_FAIL " for assign");
+		throw(MAL, "dataflow", MAL_MALLOC_FAIL);
 	etop = flow->stop - flow->start;
 	for (n = 0, pc = flow->start; pc < flow->stop; pc++, n++) {
 		p = getInstrPtr(mb, pc);
@@ -587,8 +587,21 @@ DFLOWinitBlk(DataFlow flow, MalBlkPtr mb, int size)
 					etop++;
 					(void) size;
 					if( etop == size){
-						flow->nodes = (int*) GDKrealloc(flow->nodes, sizeof(int) * 2 * size);
-						flow->edges = (int*) GDKrealloc(flow->edges, sizeof(int) * 2 * size);
+						int *tmp;
+						/* in case of realloc failure, the original
+						 * pointers will be freed by the caller */
+						tmp = (int*) GDKrealloc(flow->nodes, sizeof(int) * 2 * size);
+						if (tmp == NULL) {
+							GDKfree(assign);
+							throw(MAL, "dataflow", MAL_MALLOC_FAIL);
+						}
+						flow->nodes = tmp;
+						tmp = (int*) GDKrealloc(flow->edges, sizeof(int) * 2 * size);
+						if (tmp == NULL) {
+							GDKfree(assign);
+							throw(MAL, "dataflow", MAL_MALLOC_FAIL);
+						}
+						flow->edges = tmp;
 						size *=2;
 					}
 				} else {
@@ -618,8 +631,21 @@ DFLOWinitBlk(DataFlow flow, MalBlkPtr mb, int size)
 						flow->edges[i] = etop;
 						etop++;
 						if( etop == size){
-							flow->nodes = (int*) GDKrealloc(flow->nodes, sizeof(int) * 2 * size);
-							flow->edges = (int*) GDKrealloc(flow->edges, sizeof(int) * 2 * size);
+							int *tmp;
+							/* in case of realloc failure, the original
+							 * pointers will be freed by the caller */
+							tmp = (int*) GDKrealloc(flow->nodes, sizeof(int) * 2 * size);
+							if (tmp == NULL) {
+								GDKfree(assign);
+								throw(MAL, "dataflow", MAL_MALLOC_FAIL);
+							}
+							flow->nodes = tmp;
+							tmp = (int*) GDKrealloc(flow->edges, sizeof(int) * 2 * size);
+							if (tmp == NULL) {
+								GDKfree(assign);
+								throw(MAL, "dataflow", MAL_MALLOC_FAIL);
+							}
+							flow->edges = tmp;
 							size *=2;
 						}
 					} else {
@@ -876,7 +902,7 @@ runMALdataflow(Client cntxt, MalBlkPtr mb, int startpc, int stoppc, MalStkPtr st
 
 	flow = (DataFlow)GDKzalloc(sizeof(DataFlowRec));
 	if (flow == NULL)
-		throw(MAL, "dataflow", MAL_MALLOC_FAIL " for flow");
+		throw(MAL, "dataflow", MAL_MALLOC_FAIL);
 
 	flow->cntxt = cntxt;
 	flow->mb = mb;
@@ -900,7 +926,7 @@ runMALdataflow(Client cntxt, MalBlkPtr mb, int startpc, int stoppc, MalStkPtr st
 		q_destroy(flow->done);
 		MT_lock_destroy(&flow->flowlock);
 		GDKfree(flow);
-		throw(MAL, "dataflow", MAL_MALLOC_FAIL " for flow->status");
+		throw(MAL, "dataflow", MAL_MALLOC_FAIL);
 	}
 	size = DFLOWgraphSize(mb, startpc, stoppc);
 	size += stoppc - startpc;
@@ -910,7 +936,7 @@ runMALdataflow(Client cntxt, MalBlkPtr mb, int startpc, int stoppc, MalStkPtr st
 		q_destroy(flow->done);
 		MT_lock_destroy(&flow->flowlock);
 		GDKfree(flow);
-		throw(MAL, "dataflow", MAL_MALLOC_FAIL " for flow->nodes");
+		throw(MAL, "dataflow", MAL_MALLOC_FAIL);
 	}
 	flow->edges = (int*)GDKzalloc(sizeof(int) * size);
 	if (flow->edges == NULL) {
@@ -919,7 +945,7 @@ runMALdataflow(Client cntxt, MalBlkPtr mb, int startpc, int stoppc, MalStkPtr st
 		q_destroy(flow->done);
 		MT_lock_destroy(&flow->flowlock);
 		GDKfree(flow);
-		throw(MAL, "dataflow", MAL_MALLOC_FAIL " for flow->edges");
+		throw(MAL, "dataflow", MAL_MALLOC_FAIL);
 	}
 	msg = DFLOWinitBlk(flow, mb, size);
 

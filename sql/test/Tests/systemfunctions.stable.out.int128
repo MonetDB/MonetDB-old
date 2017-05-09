@@ -58,7 +58,7 @@ Ready.
 % sys.L14,	sys.L16,	sys.L20,	sys.L22,	sys.L24 # table_name
 % schema,	function,	argno,	argtype,	definition # name
 % varchar,	varchar,	int,	varchar,	varchar # type
-% 8,	35,	2,	14,	611 # length
+% 10,	35,	2,	14,	611 # length
 [ "bam",	"bam_drop_file",	0,	"bigint",	"create procedure bam.bam_drop_file(file_id bigint, dbschema smallint)\nexternal name bam.bam_drop_file;"	]
 [ "bam",	"bam_drop_file",	1,	"smallint",	""	]
 [ "bam",	"bam_export",	0,	"clob",	"create procedure bam.bam_export(output_path string)\nexternal name bam.bam_export;"	]
@@ -511,7 +511,8 @@ Ready.
 [ "sys",	"copyfrom",	7,	"bigint",	""	]
 [ "sys",	"copyfrom",	8,	"bigint",	""	]
 [ "sys",	"copyfrom",	9,	"int",	""	]
-[ "sys",	"copyfrom",	10,	"varchar",	""	]
+[ "sys",	"copyfrom",	10,	"int",	""	]
+[ "sys",	"copyfrom",	11,	"varchar",	""	]
 [ "sys",	"copyfrom",	0,	"table",	"importTable"	]
 [ "sys",	"copyfrom",	1,	"varchar",	""	]
 [ "sys",	"copyfrom",	2,	"varchar",	""	]
@@ -4988,6 +4989,22 @@ Ready.
 [ "sys",	"year",	1,	"month_interval",	""	]
 [ "sys",	"zero_or_one",	0,	"any",	"zero_or_one"	]
 [ "sys",	"zero_or_one",	1,	"any",	""	]
+[ "timetrails",	"fields",	0,	"clob",	"create function timetrails.fields(metric string)\nreturns table (colname string)\nbegin\n return select c.name\n from sys.columns c, sys.tables t\n where t.name= metric and t.id = c.table_id and\n c.name not in (select o.name as colname\n from sys.objects o, sys.tables tt, sys.keys k where o.id = k.id and k.table_id = tt.id and tt.name = metric );\nend;"	]
+[ "timetrails",	"fields",	1,	"clob",	""	]
+[ "timetrails",	"getdescription",	0,	"clob",	"create function timetrails.getdescription(metric string)\nreturns string\nbegin\n return select m.description from timetrails.metrics m where m.name = metric;\nend;"	]
+[ "timetrails",	"getdescription",	1,	"clob",	""	]
+[ "timetrails",	"getlayout",	0,	"clob",	"create function timetrails.getlayout(metric string)\nreturns table( name string, type string)\nbegin\n return select c.name, c.type from timetrails.metrics m, sys.tables t, sys.columns c where m.name = metric and t.name = m.name and c.table_id= t.id;\nend;"	]
+[ "timetrails",	"getlayout",	1,	"clob",	""	]
+[ "timetrails",	"getlayout",	2,	"clob",	""	]
+[ "timetrails",	"getprecision",	0,	"clob",	"create function timetrails.getprecision(metric string)\nreturns string\nbegin\n return select m.precision from timetrails.metrics m where m.name = metric;\nend;"	]
+[ "timetrails",	"getprecision",	1,	"clob",	""	]
+[ "timetrails",	"getretention",	0,	"clob",	"create function timetrails.getretention(metric string)\nreturns string\nbegin\n return select m.retention from timetrails.metrics m where m.name = metric;\nend;"	]
+[ "timetrails",	"getretention",	1,	"clob",	""	]
+[ "timetrails",	"gettitle",	0,	"clob",	"create function timetrails.gettitle(metric string)\nreturns string\nbegin\n return select m.title from timetrails.metrics m where m.name = metric;\nend;"	]
+[ "timetrails",	"gettitle",	1,	"clob",	""	]
+[ "timetrails",	"metrics",	0,	"clob",	"create function timetrails.metrics()\nreturns table (metric string)\nbegin\n return select m.name from timetrails.metrics m order by m.name;\nend;"	]
+[ "timetrails",	"tags",	0,	"clob",	"create function timetrails.tags(metric string)\nreturns table (colname string)\nbegin\n return select o.name as colname\n from sys.objects o, sys.tables t, sys.keys k\n where o.id = k.id and k.table_id = t.id and t.name = metric order by o.nr;\nend;"	]
+[ "timetrails",	"tags",	1,	"clob",	""	]
 
 # 16:20:25 >  
 # 16:20:25 >  "Done."

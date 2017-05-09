@@ -44,6 +44,7 @@ Ready.
 \dn json
 \dn profiler
 \dn sys
+\dn timetrails
 \dn tmp
 \dSt bam.export
 \dSt bam.files
@@ -83,6 +84,7 @@ Ready.
 \dSt sys.triggers
 \dSt sys.types
 \dSt sys.user_role
+\dSt timetrails.metrics
 \dSt tmp._columns
 \dSt tmp._tables
 \dSt tmp.idxs
@@ -349,6 +351,7 @@ SYSTEM SCHEMA  cquery
 SYSTEM SCHEMA  json
 SYSTEM SCHEMA profiler
 SYSTEM SCHEMA  sys
+SYSTEM SCHEMA  timetrails
 SYSTEM SCHEMA  tmp
 SYSTEM TABLE  sys._columns
 SYSTEM TABLE  sys._tables
@@ -790,6 +793,7 @@ CREATE SCHEMA "cquery" AUTHORIZATION "monetdb";
 CREATE SCHEMA "json" AUTHORIZATION "monetdb";
 CREATE SCHEMA "profiler" AUTHORIZATION "monetdb";
 CREATE SCHEMA "sys";
+CREATE SCHEMA "timetrails" AUTHORIZATION "monetdb";
 CREATE SCHEMA "tmp";
 CREATE TABLE "bam"."export" ("qname" CHARACTER LARGE OBJECT NOT NULL, "flag" SMALLINT NOT NULL, "rname" CHARACTER LARGE OBJECT NOT NULL, "pos" INTEGER NOT NULL, "mapq" SMALLINT NOT NULL, "cigar" CHARACTER LARGE OBJECT NOT NULL, "rnext" CHARACTER LARGE OBJECT NOT NULL, "pnext" INTEGER NOT NULL, "tlen" INTEGER NOT NULL, "seq" CHARACTER LARGE OBJECT NOT NULL, "qual" CHARACTER LARGE OBJECT NOT NULL);
 CREATE TABLE "bam"."files" ("file_id" BIGINT NOT NULL, "file_location" CHARACTER LARGE OBJECT NOT NULL, "dbschema" SMALLINT NOT NULL, "format_version" VARCHAR(7), "sorting_order" VARCHAR(10), "comments" CHARACTER LARGE OBJECT, CONSTRAINT "files_pkey_file_id" PRIMARY KEY ("file_id"));
@@ -829,6 +833,7 @@ CREATE TABLE "sys"."table_types" ("table_type_id" SMALLINT NOT NULL, "table_type
 CREATE TABLE "sys"."triggers" ("id" INTEGER, "name" VARCHAR(1024), "table_id" INTEGER, "time" SMALLINT, "orientation" SMALLINT, "event" SMALLINT, "old_name" VARCHAR(1024), "new_name" VARCHAR(1024), "condition" VARCHAR(2048), "statement" VARCHAR(2048));
 CREATE TABLE "sys"."types" ("id" INTEGER, "systemname" VARCHAR(256), "sqlname" VARCHAR(1024), "digits" INTEGER, "scale" INTEGER, "radix" INTEGER, "eclass" INTEGER, "schema_id" INTEGER);
 CREATE TABLE "sys"."user_role" ("login_id" INTEGER, "role_id" INTEGER);
+CREATE TABLE "timetrails"."metrics" ("name" CHARACTER LARGE OBJECT NOT NULL, "auth" CHARACTER LARGE OBJECT, "credit" INTEGER, "precision" CHARACTER LARGE OBJECT, "retention" CHARACTER LARGE OBJECT, "threshold" INTEGER, "heartbeat" INTEGER, "frozen" BOOLEAN, "title" CHARACTER LARGE OBJECT, "description" CHARACTER LARGE OBJECT, CONSTRAINT "metrics_name_pkey" PRIMARY KEY ("name"));
 CREATE TABLE "tmp"."_columns" ("id" INTEGER, "name" VARCHAR(1024), "type" VARCHAR(1024), "type_digits" INTEGER, "type_scale" INTEGER, "table_id" INTEGER, "default" VARCHAR(2048), "null" BOOLEAN, "number" INTEGER, "storage" VARCHAR(2048));
 CREATE TABLE "tmp"."_tables" ("id" INTEGER, "name" VARCHAR(1024), "schema_id" INTEGER, "query" VARCHAR(2048), "type" SMALLINT, "system" BOOLEAN, "commit_action" SMALLINT, "access" SMALLINT);
 CREATE TABLE "tmp"."idxs" ("id" INTEGER, "table_id" INTEGER, "type" INTEGER, "name" VARCHAR(1024));
@@ -1307,18 +1312,19 @@ drop function pcre_replace(string, string, string, string);
 % sys.schemas,	sys.schemas,	sys.schemas,	sys.schemas # table_name
 % name,	authorization,	owner,	system # name
 % varchar,	int,	int,	boolean # type
-% 8,	1,	1,	5 # length
+% 10,	1,	1,	5 # length
 [ "bam",	3,	3,	true	]
 [ "cquery",	3,	3,	true	]
 [ "json",	3,	3,	true	]
 [ "profiler",	3,	3,	true	]
 [ "sys",	2,	3,	true	]
+[ "timetrails",	3,	3,	true	]
 [ "tmp",	2,	3,	true	]
 #select s.name, t.name, replace(replace(pcre_replace(pcre_replace(pcre_replace(t.query, '--.*\n', '', ''), '[ \t\n]+', ' ', 'm'), '^ ', '', ''), '( ', '('), ' )', ')') as query, t.type, t.system, t.commit_action, t.access from sys._tables t left outer join sys.schemas s on t.schema_id = s.id order by s.name, t.name;
 % .s,	.t,	.L4,	.t,	.t,	.t,	.t # table_name
 % name,	name,	query,	type,	system,	commit_action,	access # name
 % varchar,	varchar,	varchar,	smallint,	boolean,	smallint,	smallint # type
-% 3,	18,	597,	1,	5,	1,	1 # length
+% 10,	18,	597,	1,	5,	1,	1 # length
 [ "bam",	"export",	NULL,	0,	true,	0,	0	]
 [ "bam",	"files",	NULL,	0,	true,	0,	0	]
 [ "bam",	"pg",	NULL,	0,	true,	0,	0	]
@@ -1373,6 +1379,7 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"types",	NULL,	0,	true,	0,	0	]
 [ "sys",	"user_role",	NULL,	0,	true,	0,	0	]
 [ "sys",	"users",	"SELECT u.\"name\" AS \"name\", ui.\"fullname\", ui.\"default_schema\" FROM db_users() AS u LEFT JOIN \"sys\".\"db_user_info\" AS ui ON u.\"name\" = ui.\"name\" ;",	1,	true,	0,	0	]
+[ "timetrails",	"metrics",	NULL,	0,	true,	0,	0	]
 [ "tmp",	"_columns",	NULL,	0,	true,	2,	0	]
 [ "tmp",	"_tables",	NULL,	0,	true,	2,	0	]
 [ "tmp",	"idxs",	NULL,	0,	true,	2,	0	]
@@ -1514,6 +1521,16 @@ drop function pcre_replace(string, string, string, string);
 [ "keys",	"action",	"int",	32,	0,	NULL,	true,	5,	NULL	]
 [ "keys",	"action",	"int",	32,	0,	NULL,	true,	5,	NULL	]
 [ "keywords",	"keyword",	"varchar",	40,	0,	NULL,	false,	0,	NULL	]
+[ "metrics",	"name",	"clob",	0,	0,	NULL,	false,	0,	NULL	]
+[ "metrics",	"auth",	"clob",	0,	0,	NULL,	true,	1,	NULL	]
+[ "metrics",	"credit",	"int",	32,	0,	NULL,	true,	2,	NULL	]
+[ "metrics",	"precision",	"clob",	0,	0,	NULL,	true,	3,	NULL	]
+[ "metrics",	"retention",	"clob",	0,	0,	NULL,	true,	4,	NULL	]
+[ "metrics",	"threshold",	"int",	32,	0,	NULL,	true,	5,	NULL	]
+[ "metrics",	"heartbeat",	"int",	32,	0,	NULL,	true,	6,	NULL	]
+[ "metrics",	"frozen",	"boolean",	1,	0,	NULL,	true,	7,	NULL	]
+[ "metrics",	"title",	"clob",	0,	0,	NULL,	true,	8,	NULL	]
+[ "metrics",	"description",	"clob",	0,	0,	NULL,	true,	9,	NULL	]
 [ "netcdf_attrs",	"obj_name",	"varchar",	256,	0,	NULL,	true,	0,	NULL	]
 [ "netcdf_attrs",	"att_name",	"varchar",	256,	0,	NULL,	true,	1,	NULL	]
 [ "netcdf_attrs",	"att_type",	"varchar",	64,	0,	NULL,	true,	2,	NULL	]
@@ -1773,7 +1790,7 @@ drop function pcre_replace(string, string, string, string);
 % .s,	.f,	.L4,	.f,	.f,	.f,	.f,	.f,	.f # table_name
 % name,	name,	query,	mod,	language,	type,	side_effect,	varres,	vararg # name
 % varchar,	varchar,	varchar,	varchar,	int,	int,	boolean,	boolean,	boolean # type
-% 8,	35,	831,	9,	1,	1,	5,	5,	5 # length
+% 10,	35,	831,	9,	1,	1,	5,	5,	5 # length
 [ "bam",	"bam_drop_file",	"create procedure bam.bam_drop_file(file_id bigint, dbschema smallint) external name bam.bam_drop_file;",	"bam",	1,	2,	true,	false,	false	]
 [ "bam",	"bam_export",	"create procedure bam.bam_export(output_path string) external name bam.bam_export;",	"bam",	1,	2,	true,	false,	false	]
 [ "bam",	"bam_flag",	"create function bam.bam_flag(flag smallint, name string) returns boolean external name bam.bam_flag;",	"bam",	1,	1,	false,	false,	false	]
@@ -3536,6 +3553,14 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"year",	"year",	"mtime",	0,	1,	false,	false,	false	]
 [ "sys",	"year",	"year",	"mtime",	0,	1,	false,	false,	false	]
 [ "sys",	"zero_or_one",	"zero_or_one",	"sql",	0,	3,	false,	false,	false	]
+[ "timetrails",	"fields",	"create function timetrails.fields(metric string) returns table (colname string) begin return select c.name from sys.columns c, sys.tables t where t.name= metric and t.id = c.table_id and c.name not in (select o.name as colname from sys.objects o, sys.tables tt, sys.keys k where o.id = k.id and k.table_id = tt.id and tt.name = metric); end;",	"user",	2,	5,	false,	false,	false	]
+[ "timetrails",	"getdescription",	"create function timetrails.getdescription(metric string) returns string begin return select m.description from timetrails.metrics m where m.name = metric; end;",	"user",	2,	1,	false,	false,	false	]
+[ "timetrails",	"getlayout",	"create function timetrails.getlayout(metric string) returns table(name string, type string) begin return select c.name, c.type from timetrails.metrics m, sys.tables t, sys.columns c where m.name = metric and t.name = m.name and c.table_id= t.id; end;",	"user",	2,	5,	false,	false,	false	]
+[ "timetrails",	"getprecision",	"create function timetrails.getprecision(metric string) returns string begin return select m.precision from timetrails.metrics m where m.name = metric; end;",	"user",	2,	1,	false,	false,	false	]
+[ "timetrails",	"getretention",	"create function timetrails.getretention(metric string) returns string begin return select m.retention from timetrails.metrics m where m.name = metric; end;",	"user",	2,	1,	false,	false,	false	]
+[ "timetrails",	"gettitle",	"create function timetrails.gettitle(metric string) returns string begin return select m.title from timetrails.metrics m where m.name = metric; end;",	"user",	2,	1,	false,	false,	false	]
+[ "timetrails",	"metrics",	"create function timetrails.metrics() returns table (metric string) begin return select m.name from timetrails.metrics m order by m.name; end;",	"user",	2,	5,	false,	false,	false	]
+[ "timetrails",	"tags",	"create function timetrails.tags(metric string) returns table (colname string) begin return select o.name as colname from sys.objects o, sys.tables t, sys.keys k where o.id = k.id and k.table_id = t.id and t.name = metric order by o.nr; end;",	"user",	2,	5,	false,	false,	false	]
 #with x(name,func) as (select name, splitpart(func, ' external name ', 2) from sys.functions where func like '% external name %' union select name, splitpart(func, ' EXTERNAL NAME ', 2) from sys.functions where func like '% EXTERNAL NAME %'), y(name,func) as (select name, trim(splitpart(func, ';', 1)) from x), z(name, mod, func) as (select name, trim(splitpart(func, '.', 1), '"'), trim(splitpart(func, '.', 2), '"') from y) select z.name, z.mod, z.func from z where z.mod || '.' || z.func not in (select m.module || '.' || m."function" from sys.malfunctions() m);
 % .z,	.z,	.z # table_name
 % name,	mod,	func # name
@@ -3549,7 +3574,7 @@ drop function pcre_replace(string, string, string, string);
 % sys.s,	sys.f,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16,	.arg16 # table_name
 % name,	name,	name1,	type1,	type_digits1,	type_scale1,	inout1,	name2,	type2,	type_digits2,	type_scale2,	inout2,	name3,	type3,	type_digits3,	type_scale3,	inout3,	name4,	type4,	type_digits4,	type_scale4,	inout4,	name5,	type5,	type_digits5,	type_scale5,	inout5,	name6,	type6,	type_digits6,	type_scale6,	inout6,	name7,	type7,	type_digits7,	type_scale7,	inout7,	name8,	type8,	type_digits8,	type_scale8,	inout8,	name9,	type9,	type_digits9,	type_scale9,	inout9,	name10,	type10,	type_digits10,	type_scale10,	inout10,	name11,	type11,	type_digits11,	type_scale11,	inout11,	name12,	type12,	type_digits12,	type_scale12,	inout12,	name13,	type13,	type_digits13,	type_scale13,	inout13,	name14,	type14,	type_digits14,	type_scale14,	inout14,	name15,	type15,	type_digits15,	type_scale15,	inout15 # name
 % varchar,	varchar,	varchar,	varchar,	int,	int,	tinyint,	varchar,	varchar,	int,	int,	tinyint,	varchar,	varchar,	int,	int,	tinyint,	varchar,	varchar,	int,	int,	tinyint,	varchar,	varchar,	int,	int,	tinyint,	varchar,	varchar,	int,	int,	tinyint,	varchar,	varchar,	int,	int,	tinyint,	varchar,	varchar,	int,	int,	tinyint,	varchar,	varchar,	int,	int,	tinyint,	varchar,	varchar,	int,	int,	tinyint,	varchar,	varchar,	int,	int,	tinyint,	varchar,	varchar,	int,	int,	tinyint,	varchar,	varchar,	int,	int,	tinyint,	varchar,	varchar,	int,	int,	tinyint,	varchar,	varchar,	int,	int,	tinyint # type
-% 8,	35,	16,	14,	4,	1,	1,	16,	14,	3,	1,	1,	27,	12,	3,	1,	1,	12,	7,	2,	1,	1,	10,	7,	2,	1,	1,	8,	7,	2,	1,	1,	9,	6,	2,	1,	1,	10,	6,	2,	1,	1,	8,	7,	2,	1,	1,	9,	7,	2,	1,	1,	6,	7,	2,	1,	1,	8,	6,	2,	1,	1,	6,	7,	1,	1,	1,	9,	7,	1,	1,	1,	6,	7,	1,	1,	1 # length
+% 10,	35,	16,	14,	4,	1,	1,	16,	14,	3,	1,	1,	27,	12,	3,	1,	1,	12,	7,	2,	1,	1,	10,	7,	2,	1,	1,	8,	7,	2,	1,	1,	9,	6,	2,	1,	1,	10,	6,	2,	1,	1,	8,	7,	2,	1,	1,	9,	7,	2,	1,	1,	6,	7,	2,	1,	1,	8,	6,	2,	1,	1,	6,	7,	1,	1,	1,	9,	7,	1,	1,	1,	6,	7,	1,	1,	1 # length
 [ "bam",	"bam_drop_file",	"dbschema",	"smallint",	16,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "bam",	"bam_export",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "bam",	"bam_flag",	"flag",	"smallint",	16,	0,	1,	"name",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
@@ -3733,7 +3758,7 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"concat",	"arg_1",	"varchar",	0,	0,	1,	"arg_2",	"varchar",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"contains",	"a",	"geometry",	0,	0,	1,	"x",	"double",	53,	0,	1,	"y",	"double",	53,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"copyfrom",	"arg_1",	"varchar",	0,	0,	1,	"arg_2",	"varchar",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
-[ "sys",	"copyfrom",	"arg_1",	"varchar",	0,	0,	1,	"arg_2",	"varchar",	0,	0,	1,	"arg_3",	"varchar",	0,	0,	1,	"arg_4",	"varchar",	0,	0,	1,	"arg_5",	"varchar",	0,	0,	1,	"arg_6",	"varchar",	0,	0,	1,	"arg_7",	"bigint",	64,	0,	1,	"arg_8",	"bigint",	64,	0,	1,	"arg_9",	"int",	32,	0,	1,	"arg_:",	"varchar",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "sys",	"copyfrom",	"arg_1",	"varchar",	0,	0,	1,	"arg_2",	"varchar",	0,	0,	1,	"arg_3",	"varchar",	0,	0,	1,	"arg_4",	"varchar",	0,	0,	1,	"arg_5",	"varchar",	0,	0,	1,	"arg_6",	"varchar",	0,	0,	1,	"arg_7",	"bigint",	64,	0,	1,	"arg_8",	"bigint",	64,	0,	1,	"arg_9",	"int",	32,	0,	1,	"arg_10",	"int",	32,	0,	1,	"arg_11",	"varchar",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"corr",	"e1",	"bigint",	64,	0,	1,	"e2",	"bigint",	64,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"corr",	"e1",	"double",	53,	0,	1,	"e2",	"double",	53,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"corr",	"e1",	"hugeint",	128,	0,	1,	"e2",	"hugeint",	128,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
@@ -5312,6 +5337,14 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"year",	"arg_1",	"timestamp",	7,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"year",	"arg_1",	"timestamptz",	7,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 [ "sys",	"zero_or_one",	"arg",	"any",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "timetrails",	"fields",	"metric",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "timetrails",	"getdescription",	"metric",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "timetrails",	"getlayout",	"type",	"clob",	0,	0,	0,	"metric",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "timetrails",	"getprecision",	"metric",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "timetrails",	"getretention",	"metric",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "timetrails",	"gettitle",	"metric",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "timetrails",	"metrics",	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
+[ "timetrails",	"tags",	"metric",	"clob",	0,	0,	1,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 #select name, grantor from sys.auths;
 % sys.auths,	sys.auths # table_name
 % name,	grantor # name
@@ -5344,7 +5377,7 @@ drop function pcre_replace(string, string, string, string);
 % sys.s1,	sys.t,	sys.s2,	sys.f,	.dt # table_name
 % name,	name,	name,	name,	name # name
 % varchar,	varchar,	varchar,	varchar,	char # type
-% 3,	17,	3,	35,	20 # length
+% 10,	17,	10,	35,	20 # length
 [ "sys",	"columns",	"sys",	"dependencies_columns_on_functions",	"FUNC_DEPENDENCY"	]
 [ "sys",	"dependencies",	"sys",	"dependencies_columns_on_functions",	"FUNC_DEPENDENCY"	]
 [ "sys",	"functions",	"sys",	"dependencies_columns_on_functions",	"FUNC_DEPENDENCY"	]
@@ -5397,11 +5430,26 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"schemas",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
 [ "sys",	"storagemodelinput",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
 [ "sys",	"tables",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
+[ "sys",	"columns",	"timetrails",	"fields",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"timetrails",	"fields",	"FUNC_DEPENDENCY"	]
+[ "sys",	"objects",	"timetrails",	"fields",	"FUNC_DEPENDENCY"	]
+[ "sys",	"tables",	"timetrails",	"fields",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"timetrails",	"getdescription",	"FUNC_DEPENDENCY"	]
+[ "sys",	"columns",	"timetrails",	"getlayout",	"FUNC_DEPENDENCY"	]
+[ "sys",	"tables",	"timetrails",	"getlayout",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"timetrails",	"getlayout",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"timetrails",	"getprecision",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"timetrails",	"getretention",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"timetrails",	"gettitle",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"timetrails",	"metrics",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"timetrails",	"tags",	"FUNC_DEPENDENCY"	]
+[ "sys",	"objects",	"timetrails",	"tags",	"FUNC_DEPENDENCY"	]
+[ "sys",	"tables",	"timetrails",	"tags",	"FUNC_DEPENDENCY"	]
 #select s1.name, t.name, c.name, s2.name, f.name, dt.name from (values (1, 'SCHEMA_DEPENDENCY'), (2, 'TABLE_DEPENDENCY'), (3, 'COLUMN_DEPENDENCY'), (4, 'KEY_DEPENDENCY'), (5, 'VIEW_DEPENDENCY'), (6, 'USER_DEPENDENCY'), (7, 'FUNC_DEPENDENCY'), (8, 'TRIGGER_DEPENDENCY'), (9, 'OWNER_DEPENDENCY'), (10, 'INDEX_DEPENDENCY'), (11, 'FKEY_DEPENDENCY'), (12, 'SEQ_DEPENDENCY'), (13, 'PROC_DEPENDENCY'), (14, 'BEDROPPED_DEPENDENCY'), (15, 'TYPE_DEPENDENCY')) as dt (id, name), sys.dependencies d, sys._columns c, sys._tables t, sys.schemas s1, sys.functions f, sys.schemas s2 where d.depend_type = dt.id and d.id = c.id and d.depend_id = f.id and c.table_id = t.id and t.schema_id = s1.id and f.schema_id = s2.id order by s2.name, f.name, s1.name, t.name, c.name;
 % sys.s1,	sys.t,	sys.c,	sys.s2,	sys.f,	.dt # table_name
 % name,	name,	name,	name,	name,	name # name
 % varchar,	varchar,	varchar,	varchar,	varchar,	char # type
-% 3,	17,	13,	3,	35,	20 # length
+% 10,	17,	13,	10,	35,	20 # length
 [ "sys",	"dependencies",	"depend_id",	"sys",	"dependencies_columns_on_functions",	"FUNC_DEPENDENCY"	]
 [ "sys",	"dependencies",	"depend_type",	"sys",	"dependencies_columns_on_functions",	"FUNC_DEPENDENCY"	]
 [ "sys",	"dependencies",	"id",	"sys",	"dependencies_columns_on_functions",	"FUNC_DEPENDENCY"	]
@@ -5624,6 +5672,84 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"storagemodelinput",	"type",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
 [ "sys",	"storagemodelinput",	"typewidth",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
 [ "sys",	"storagemodelinput",	"unique",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
+[ "sys",	"keys",	"action",	"timetrails",	"fields",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"id",	"timetrails",	"fields",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"name",	"timetrails",	"fields",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"rkey",	"timetrails",	"fields",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"table_id",	"timetrails",	"fields",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"type",	"timetrails",	"fields",	"FUNC_DEPENDENCY"	]
+[ "sys",	"objects",	"id",	"timetrails",	"fields",	"FUNC_DEPENDENCY"	]
+[ "sys",	"objects",	"name",	"timetrails",	"fields",	"FUNC_DEPENDENCY"	]
+[ "sys",	"objects",	"nr",	"timetrails",	"fields",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"auth",	"timetrails",	"getdescription",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"credit",	"timetrails",	"getdescription",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"description",	"timetrails",	"getdescription",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"frozen",	"timetrails",	"getdescription",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"heartbeat",	"timetrails",	"getdescription",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"name",	"timetrails",	"getdescription",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"precision",	"timetrails",	"getdescription",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"retention",	"timetrails",	"getdescription",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"threshold",	"timetrails",	"getdescription",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"title",	"timetrails",	"getdescription",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"auth",	"timetrails",	"getlayout",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"credit",	"timetrails",	"getlayout",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"description",	"timetrails",	"getlayout",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"frozen",	"timetrails",	"getlayout",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"heartbeat",	"timetrails",	"getlayout",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"name",	"timetrails",	"getlayout",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"precision",	"timetrails",	"getlayout",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"retention",	"timetrails",	"getlayout",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"threshold",	"timetrails",	"getlayout",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"title",	"timetrails",	"getlayout",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"auth",	"timetrails",	"getprecision",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"credit",	"timetrails",	"getprecision",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"description",	"timetrails",	"getprecision",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"frozen",	"timetrails",	"getprecision",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"heartbeat",	"timetrails",	"getprecision",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"name",	"timetrails",	"getprecision",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"precision",	"timetrails",	"getprecision",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"retention",	"timetrails",	"getprecision",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"threshold",	"timetrails",	"getprecision",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"title",	"timetrails",	"getprecision",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"auth",	"timetrails",	"getretention",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"credit",	"timetrails",	"getretention",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"description",	"timetrails",	"getretention",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"frozen",	"timetrails",	"getretention",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"heartbeat",	"timetrails",	"getretention",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"name",	"timetrails",	"getretention",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"precision",	"timetrails",	"getretention",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"retention",	"timetrails",	"getretention",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"threshold",	"timetrails",	"getretention",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"title",	"timetrails",	"getretention",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"auth",	"timetrails",	"gettitle",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"credit",	"timetrails",	"gettitle",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"description",	"timetrails",	"gettitle",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"frozen",	"timetrails",	"gettitle",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"heartbeat",	"timetrails",	"gettitle",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"name",	"timetrails",	"gettitle",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"precision",	"timetrails",	"gettitle",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"retention",	"timetrails",	"gettitle",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"threshold",	"timetrails",	"gettitle",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"title",	"timetrails",	"gettitle",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"auth",	"timetrails",	"metrics",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"credit",	"timetrails",	"metrics",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"description",	"timetrails",	"metrics",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"frozen",	"timetrails",	"metrics",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"heartbeat",	"timetrails",	"metrics",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"name",	"timetrails",	"metrics",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"precision",	"timetrails",	"metrics",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"retention",	"timetrails",	"metrics",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"threshold",	"timetrails",	"metrics",	"FUNC_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"title",	"timetrails",	"metrics",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"action",	"timetrails",	"tags",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"id",	"timetrails",	"tags",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"name",	"timetrails",	"tags",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"rkey",	"timetrails",	"tags",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"table_id",	"timetrails",	"tags",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"type",	"timetrails",	"tags",	"FUNC_DEPENDENCY"	]
+[ "sys",	"objects",	"id",	"timetrails",	"tags",	"FUNC_DEPENDENCY"	]
+[ "sys",	"objects",	"name",	"timetrails",	"tags",	"FUNC_DEPENDENCY"	]
+[ "sys",	"objects",	"nr",	"timetrails",	"tags",	"FUNC_DEPENDENCY"	]
 #select s1.name, f1.name, s2.name, t2.name, dt.name from (values (1, 'SCHEMA_DEPENDENCY'), (2, 'TABLE_DEPENDENCY'), (3, 'COLUMN_DEPENDENCY'), (4, 'KEY_DEPENDENCY'), (5, 'VIEW_DEPENDENCY'), (6, 'USER_DEPENDENCY'), (7, 'FUNC_DEPENDENCY'), (8, 'TRIGGER_DEPENDENCY'), (9, 'OWNER_DEPENDENCY'), (10, 'INDEX_DEPENDENCY'), (11, 'FKEY_DEPENDENCY'), (12, 'SEQ_DEPENDENCY'), (13, 'PROC_DEPENDENCY'), (14, 'BEDROPPED_DEPENDENCY'), (15, 'TYPE_DEPENDENCY')) as dt (id, name), schemas s1, functions f1, schemas s2, _tables t2, dependencies d where d.depend_type = dt.id and d.id = f1.id and f1.schema_id = s1.id and d.depend_id = t2.id and t2.schema_id = s2.id order by s2.name, t2.name, s1.name, f1.name;
 % sys.s1,	sys.f1,	sys.s2,	sys.t2,	.dt # table_name
 % name,	name,	name,	name,	name # name
@@ -5655,7 +5781,7 @@ drop function pcre_replace(string, string, string, string);
 % sys.s1,	sys.t1,	sys.c1,	sys.s2,	sys.t2,	sys.k2,	.dt # table_name
 % name,	name,	name,	name,	name,	name,	name # name
 % varchar,	varchar,	varchar,	varchar,	varchar,	varchar,	char # type
-% 3,	18,	18,	3,	18,	40,	20 # length
+% 10,	18,	18,	10,	18,	40,	20 # length
 [ "bam",	"files",	"file_id",	"bam",	"files",	"files_pkey_file_id",	"KEY_DEPENDENCY"	]
 [ "bam",	"pg",	"file_id",	"bam",	"pg",	"pg_fkey_file_id",	"FKEY_DEPENDENCY"	]
 [ "bam",	"pg",	"file_id",	"bam",	"pg",	"pg_pkey_id_file_id",	"KEY_DEPENDENCY"	]
@@ -5675,11 +5801,12 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"privilege_codes",	"privilege_code_id",	"sys",	"privilege_codes",	"privilege_codes_privilege_code_id_pkey",	"KEY_DEPENDENCY"	]
 [ "sys",	"spatial_ref_sys",	"srid",	"sys",	"spatial_ref_sys",	"spatial_ref_sys_srid_pkey",	"KEY_DEPENDENCY"	]
 [ "sys",	"table_types",	"table_type_id",	"sys",	"table_types",	"table_types_table_type_id_pkey",	"KEY_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"name",	"timetrails",	"metrics",	"metrics_name_pkey",	"KEY_DEPENDENCY"	]
 #select s1.name, t1.name, c1.name, s2.name, t2.name, i2.name, dt.name from (values (1, 'SCHEMA_DEPENDENCY'), (2, 'TABLE_DEPENDENCY'), (3, 'COLUMN_DEPENDENCY'), (4, 'KEY_DEPENDENCY'), (5, 'VIEW_DEPENDENCY'), (6, 'USER_DEPENDENCY'), (7, 'FUNC_DEPENDENCY'), (8, 'TRIGGER_DEPENDENCY'), (9, 'OWNER_DEPENDENCY'), (10, 'INDEX_DEPENDENCY'), (11, 'FKEY_DEPENDENCY'), (12, 'SEQ_DEPENDENCY'), (13, 'PROC_DEPENDENCY'), (14, 'BEDROPPED_DEPENDENCY'), (15, 'TYPE_DEPENDENCY')) as dt (id, name), dependencies d, _tables t1, _tables t2, schemas s1, schemas s2, _columns c1, idxs i2 where d.depend_type = dt.id and d.id = c1.id and d.depend_id = i2.id and c1.table_id = t1.id and t1.schema_id = s1.id and i2.table_id = t2.id and t2.schema_id = s2.id order by s2.name, t2.name, i2.name, s1.name, t1.name, c1.name;
 % sys.s1,	sys.t1,	sys.c1,	sys.s2,	sys.t2,	sys.i2,	.dt # table_name
 % name,	name,	name,	name,	name,	name,	name # name
 % varchar,	varchar,	varchar,	varchar,	varchar,	varchar,	char # type
-% 3,	18,	20,	3,	18,	44,	20 # length
+% 10,	18,	20,	10,	18,	44,	20 # length
 [ "bam",	"files",	"file_id",	"bam",	"files",	"files_pkey_file_id",	"INDEX_DEPENDENCY"	]
 [ "bam",	"pg",	"file_id",	"bam",	"pg",	"pg_fkey_file_id",	"INDEX_DEPENDENCY"	]
 [ "bam",	"pg",	"file_id",	"bam",	"pg",	"pg_pkey_id_file_id",	"INDEX_DEPENDENCY"	]
@@ -5706,6 +5833,7 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"spatial_ref_sys",	"srid",	"sys",	"spatial_ref_sys",	"spatial_ref_sys_srid_pkey",	"INDEX_DEPENDENCY"	]
 [ "sys",	"table_types",	"table_type_id",	"sys",	"table_types",	"table_types_table_type_id_pkey",	"INDEX_DEPENDENCY"	]
 [ "sys",	"table_types",	"table_type_name",	"sys",	"table_types",	"table_types_table_type_name_unique",	"INDEX_DEPENDENCY"	]
+[ "timetrails",	"metrics",	"name",	"timetrails",	"metrics",	"metrics_name_pkey",	"INDEX_DEPENDENCY"	]
 #select t.systemname, t.sqlname, s.name, f.name, dt.name from (values (1, 'SCHEMA_DEPENDENCY'), (2, 'TABLE_DEPENDENCY'), (3, 'COLUMN_DEPENDENCY'), (4, 'KEY_DEPENDENCY'), (5, 'VIEW_DEPENDENCY'), (6, 'USER_DEPENDENCY'), (7, 'FUNC_DEPENDENCY'), (8, 'TRIGGER_DEPENDENCY'), (9, 'OWNER_DEPENDENCY'), (10, 'INDEX_DEPENDENCY'), (11, 'FKEY_DEPENDENCY'), (12, 'SEQ_DEPENDENCY'), (13, 'PROC_DEPENDENCY'), (14, 'BEDROPPED_DEPENDENCY'), (15, 'TYPE_DEPENDENCY')) as dt (id, name), types t, functions f, schemas s, dependencies d where d.depend_type = dt.id and d.id = t.id and d.depend_id = f.id and f.schema_id = s.id order by s.name, f.name, t.systemname, t.sqlname;
 % sys.t,	sys.t,	sys.s,	sys.f,	.dt # table_name
 % systemname,	sqlname,	name,	name,	name # name
@@ -5774,6 +5902,7 @@ drop function pcre_replace(string, string, string, string);
 [ "key_types",	"key_types_key_type_id_pkey",	0	]
 [ "key_types",	"key_types_key_type_name_unique",	0	]
 [ "keywords",	"keywords_keyword_pkey",	0	]
+[ "metrics",	"metrics_name_pkey",	0	]
 [ "pg",	"pg_fkey_file_id",	1	]
 [ "pg",	"pg_pkey_id_file_id",	0	]
 [ "privilege_codes",	"privilege_codes_privilege_code_id_pkey",	0	]
@@ -5802,6 +5931,7 @@ drop function pcre_replace(string, string, string, string);
 [ "key_types",	"key_types_key_type_id_pkey",	0,	NULL,	-1	]
 [ "key_types",	"key_types_key_type_name_unique",	1,	NULL,	-1	]
 [ "keywords",	"keywords_keyword_pkey",	0,	NULL,	-1	]
+[ "metrics",	"metrics_name_pkey",	0,	NULL,	-1	]
 [ "pg",	"pg_fkey_file_id",	2,	"files_pkey_file_id",	514	]
 [ "pg",	"pg_pkey_id_file_id",	0,	NULL,	-1	]
 [ "privilege_codes",	"privilege_codes_privilege_code_id_pkey",	0,	NULL,	-1	]
@@ -5858,6 +5988,8 @@ drop function pcre_replace(string, string, string, string);
 [ "language_id",	0	]
 [ "language_name",	0	]
 [ "language_name",	0	]
+[ "name",	0	]
+[ "name",	0	]
 [ "privilege_code_id",	0	]
 [ "privilege_code_id",	0	]
 [ "privilege_code_name",	0	]
@@ -6406,6 +6538,7 @@ drop function pcre_replace(string, string, string, string);
 [ "exist"	]
 [ "exp"	]
 [ "exp"	]
+[ "fields"	]
 [ "filter"	]
 [ "filter"	]
 [ "filter"	]
@@ -6441,16 +6574,21 @@ drop function pcre_replace(string, string, string, string);
 [ "getbasename"	]
 [ "getcontent"	]
 [ "getcontext"	]
+[ "getdescription"	]
 [ "getdomain"	]
 [ "getextension"	]
 [ "getfile"	]
 [ "gethost"	]
+[ "getlayout"	]
 [ "getlimit"	]
 [ "getport"	]
+[ "getprecision"	]
 [ "getproj4"	]
 [ "getprotocol"	]
 [ "getquery"	]
+[ "getretention"	]
 [ "getroboturl"	]
+[ "gettitle"	]
 [ "getuser"	]
 [ "has_m"	]
 [ "has_z"	]
@@ -6610,6 +6748,7 @@ drop function pcre_replace(string, string, string, string);
 [ "median"	]
 [ "median"	]
 [ "median"	]
+[ "metrics"	]
 [ "min"	]
 [ "minute"	]
 [ "minute"	]
@@ -7897,6 +8036,7 @@ drop function pcre_replace(string, string, string, string);
 [ "sum"	]
 [ "sum"	]
 [ "summary"	]
+[ "tags"	]
 [ "tan"	]
 [ "tan"	]
 [ "tanh"	]

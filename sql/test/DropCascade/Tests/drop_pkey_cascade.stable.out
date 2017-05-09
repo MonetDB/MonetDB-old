@@ -48,6 +48,7 @@ Ready.
 [ "index_types_index_type_name_unique"	]
 [ "privilege_codes_privilege_code_id_pkey"	]
 [ "privilege_codes_privilege_code_name_unique"	]
+[ "metrics_name_pkey"	]
 [ "t2_id_pkey"	]
 
 # 18:05:38 >  
