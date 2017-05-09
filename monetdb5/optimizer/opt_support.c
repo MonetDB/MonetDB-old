@@ -54,7 +54,7 @@ struct OPTcatalog {
 {"remap",		0,	0,	0},
 {"remote",		0,	0,	0},
 {"reorder",		0,	0,	0},
-{"replication",	0,	0,	0},
+{"wlcr",		0,	0,	0},
 {"pushselect",	0,	0,	0},
 { 0,	0,	0,	0}
 };
@@ -437,6 +437,10 @@ hasSideEffects(MalBlkPtr mb, InstrPtr p, int strict)
 	if ( getModuleId(p) == sqlcatalogRef)
 		return TRUE;
 	if ( getModuleId(p) == oltpRef)
+		return TRUE;
+	if ( getModuleId(p) == wlrRef)
+		return TRUE;
+	if ( getModuleId(p) == wlcRef)
 		return TRUE;
 	if ( getModuleId(p) == remoteRef)
 		return TRUE;
