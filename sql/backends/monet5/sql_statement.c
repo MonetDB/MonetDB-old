@@ -1013,6 +1013,34 @@ stmt_sample(backend *be, stmt *s, stmt *sample)
 	return NULL;
 }
 
+stmt *
+stmt_weighted_sample(backend *be, stmt *s, stmt *sample, stmt *weights)
+{
+	MalBlkPtr mb = be->mb;
+	InstrPtr q = NULL;
+	
+	if (s->nr < 0 || sample->nr < 0 || weights->nr < 0)
+		return NULL;
+
+	q = newStmt(mb, sampleRef, subweightedRef);
+	q = pushArgument(mb, q, s->nr);
+	q = pushArgument(mb, q, sample->nr);
+	q = pushArgument(mb, q, weights->nr);
+	if (q) {
+		stmt *ns = stmt_create(be->mvc->sa, st_sample);
+
+		ns->op1 = s;
+		ns->op2 = sample;
+		ns->nrcols = s->nrcols;
+		ns->key = s->key;
+		ns->aggr = s->aggr;
+		ns->flag = 0;
+		ns->q = q;
+		ns->nr = getDestVar(q);
+		return ns;
+	}
+	return NULL;
+}
 
 stmt *
 stmt_order(backend *be, stmt *s, int direction)

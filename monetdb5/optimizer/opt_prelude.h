@@ -280,6 +280,7 @@ mal_export  str not_uniqueRef;
 mal_export  str sampleRef;
 mal_export  str uniqueRef;
 mal_export  str subuniformRef;
+mal_export  str subweightedRef;
 mal_export  str unpackRef;
 mal_export  str unpinRef;
 mal_export  str unlockRef;

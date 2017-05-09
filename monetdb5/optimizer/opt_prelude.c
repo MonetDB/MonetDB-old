@@ -286,6 +286,7 @@ str not_uniqueRef;
 str sampleRef;
 str uniqueRef;
 str subuniformRef;
+str subweightedRef;
 str unlockRef;
 str unpackRef;
 str unpinRef;
@@ -567,6 +568,7 @@ void optimizerInit(void)
 	not_uniqueRef= putName("not_unique");
 	sampleRef= putName("sample");
 	uniqueRef= putName("unique");
+	subweightedRef = putName("subweighted");
 	subuniformRef= putName("subuniform");
 	unlockRef= putName("unlock");
 	unpackRef = putName("unpack");

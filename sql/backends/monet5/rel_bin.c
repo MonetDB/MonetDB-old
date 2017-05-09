@@ -530,9 +530,8 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 			list *ops;
 			node *n;
 			int first = 1;
-
-		       	ops = sa_list(sql->sa);
-		       	args = e->l;
+			ops = sa_list(sql->sa);
+			args = e->l;
 			for( n = args->h; n; n = n->next ) {
 				s = NULL;
 				if (!swapped)
@@ -2794,12 +2793,23 @@ rel2bin_sample(backend *be, sql_rel *rel, list *refs)
 		const char *tname = table_name(sql->sa, sc);
 
 		s = exp_bin(be, rel->exps->h->data, NULL, NULL, NULL, NULL, NULL, NULL);
-
 		if (!s)
 			s = stmt_atom_lng_nil(be);
 
 		sc = column(be, sc);
-		sample = stmt_sample(be, stmt_alias(be, sc, tname, cname),s);
+
+		if (rel->exps->h->next) {
+			stmt* left = rel_bin(be, rel->l);
+			stmt* right = rel_bin(be, rel->r);
+			// weighted sampling
+			stmt* weights = exp_bin(be, rel->exps->h->next->data, left, right, NULL, NULL, NULL, NULL);
+			if (!weights)
+				return NULL;
+
+			sample = stmt_weighted_sample(be, stmt_alias(be, sc, tname, cname), s, weights);
+		} else {
+			sample = stmt_sample(be, stmt_alias(be, sc, tname, cname), s);
+		}
 
 		for ( ; n; n = n->next) {
 			stmt *sc = n->data;

@@ -602,7 +602,7 @@ SQLCODE SQLERROR UNDER WHENEVER
 %token ALTER ADD TABLE COLUMN TO UNIQUE VALUES VIEW WHERE WITH
 %token<sval> sqlDATE TIME TIMESTAMP INTERVAL
 %token YEAR MONTH DAY HOUR MINUTE SECOND ZONE
-%token LIMIT OFFSET SAMPLE
+%token LIMIT OFFSET SAMPLE WEIGHTS
 
 %token CASE WHEN THEN ELSE NULLIF COALESCE IF ELSEIF WHILE DO
 %token ATOMIC BEGIN END
@@ -3333,6 +3333,12 @@ opt_sample:
 			  $$ = _newAtomNode( atom_float(SA, t, strtod($2,NULL)));
 			}
  |  SAMPLE param	{ $$ = $2; }
+ | SAMPLE poslng WITH WEIGHTS search_condition { 
+ 	dlist *l = L();
+ 	append_lng(l, $2);
+ 	append_symbol(l, $5);
+ 	$$ = _symbol_create_list(SQL_WEIGHTED_SAMPLE, l);
+ }
  ;
 
 sort_specification_list:

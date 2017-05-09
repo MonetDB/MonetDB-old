@@ -64,7 +64,7 @@ OPTcandidatesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 				setVarCList(mb,getArg(p,0));
 		}
 		else if (getModuleId(p) == sampleRef) {
-			if (getFunctionId(p) == subuniformRef)
+			if (getFunctionId(p) == subuniformRef || getFunctionId(p) == subweightedRef)
 				setVarCList(mb, getArg(p, 0));
 		}
 		else if (getModuleId(p) == groupRef && p->retc > 1) {

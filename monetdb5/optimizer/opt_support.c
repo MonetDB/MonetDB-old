@@ -549,7 +549,9 @@ isSlice(InstrPtr p)
 int 
 isSample(InstrPtr p)
 {
-	return (getModuleId(p) == sampleRef && getFunctionId(p) == subuniformRef);
+	return (getModuleId(p) == sampleRef && 
+			(getFunctionId(p) == subuniformRef || 
+			 getFunctionId(p) == subweightedRef));
 }
 
 int isOrderby(InstrPtr p){

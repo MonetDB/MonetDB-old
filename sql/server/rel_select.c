@@ -4855,10 +4855,29 @@ rel_select_exp(mvc *sql, sql_rel *rel, SelectNode *sn, exp_kind ek)
 
 	if (sn->sample) {
 		list *exps = new_exp_list(sql->sa);
-		sql_exp *o = rel_value_exp( sql, NULL, sn->sample, 0, ek);
-		if (!o)
-			return NULL;
-		append(exps, o);
+		if (sn->sample->token == SQL_WEIGHTED_SAMPLE) {
+			// weighted sampling
+			// parse the sample size and weight vector and pass it on to rel_sample
+			dlist *l = sn->sample->data.lval;
+
+			lng sample_size = l->h->data.l_val;
+			sql_exp* sample_size_exp = exp_atom_lng(sql->sa, sample_size);
+
+			symbol* weights = l->h->next->data.sym;
+			sql_exp* weights_exp = rel_value_exp(sql, &rel, weights, 0, ek);
+
+			if (!sample_size_exp || !weights_exp)
+				return NULL;
+			append(exps, sample_size_exp);
+			append(exps, weights_exp);
+		} else {
+			// uniform sampling
+			// parse the sample size and pass it on to rel_sample
+			sql_exp *o = rel_value_exp( sql, &rel, sn->sample, 0, ek);
+			if (!o)
+				return NULL;
+			append(exps, o);
+		}
 		rel = rel_sample(sql->sa, rel, exps);
 	}
 
