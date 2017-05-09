@@ -182,6 +182,8 @@ malAtomDefinition(str name, int tpe)
 		throw(TYPE, "atomDefinition", "Atom name too long '%s'", name);
 
 	i = ATOMallocate(name);
+	if (i == int_nil) 
+		throw(TYPE,"atomDefinition", MAL_MALLOC_FAIL);
 	/* overload atom ? */
 	if (tpe) {
 		BATatoms[i] = BATatoms[tpe];
