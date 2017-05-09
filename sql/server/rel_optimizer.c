@@ -29,6 +29,7 @@ typedef struct global_props {
 } global_props;
 
 typedef sql_rel *(*rewrite_fptr)(int *changes, mvc *sql, sql_rel *rel);
+typedef sql_rel *(*rewrite_rel_fptr)(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes);
 typedef int (*find_prop_fptr)(mvc *sql, sql_rel *rel);
 
 static sql_rel * rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes);
@@ -1647,8 +1648,9 @@ rel_push_count_down(int *changes, mvc *sql, sql_rel *rel)
 	sql_rel *r = rel->l;
 
 	if (is_groupby(rel->op) && !rel_is_ref(rel) &&
-            r && !r->exps && r->op == op_join && !(rel_is_ref(r)) &&
-            ((sql_exp *) rel->exps->h->data)->type == e_aggr &&
+            r && !r->exps && r->op == op_join && !(rel_is_ref(r)) && 
+	    /* currently only single count aggregation is handled, no other projects or aggregation */
+	    list_length(rel->exps) == 1 && ((sql_exp *) rel->exps->h->data)->type == e_aggr &&
             strcmp(((sql_subaggr *) ((sql_exp *) rel->exps->h->data)->f)->aggr->base.name, "count") == 0) {
 	    	sql_exp *nce, *oce;
 		sql_rel *gbl, *gbr;		/* Group By */
@@ -2830,6 +2832,9 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 				if (!f->func->s && !strcmp(f->func->base.name, "sql_add") && list_length(ll) == 2) {
 					sql_exp *lle = ll->h->data;
 					sql_exp *lre = ll->h->next->data;
+
+					if (exp_is_atom(lle) && exp_is_atom(lre))
+						return e;
 					if (!exp_is_atom(re) && exp_is_atom(lre)) {
 						/* (x+c1)+y -> (x+y) + c1 */
 						ll->h->next->data = re; 
@@ -2911,6 +2916,8 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 						(*changes)++;
 						return lle;
 					}
+					if (exp_is_atom(lle) && exp_is_atom(lre))
+						return e;
 					if (!exp_is_atom(re) && exp_is_atom(lre)) {
 						/* (x+c1)-y -> (x-y) + c1 */
 						ll->h->next->data = re; 
@@ -8447,17 +8454,7 @@ rel_apply_rewrite(int *changes, mvc *sql, sql_rel *rel)
 		(*changes)++;
 		return ns;
 	}
-	if (is_semi(r->op)) { /* apply (R, (semi/anti(l,r)) -> semi/anti( apply(R,l), apply(R,r)) */
-		sql_rel *nl = rel_apply(sql, rel_dup(rel->l), rel_dup(r->l), rel->exps, rel->flag);
-		sql_rel *nr = rel_apply(sql, rel_dup(rel->l), rel_dup(r->r), rel->exps, rel->flag);
-
-		l = rel_crossproduct(sql->sa, nl, nr, r->op);
-		l->exps = exps_copy(sql->sa, r->exps);
-		rel_destroy(rel);
-		(*changes)++;
-		return l;
-	}
-	if (is_join(r->op)) {
+	if (is_join(r->op) || is_semi(r->op)) {
 		/* if exps do not use the apply variables, push up the join */
 		int lused = rel_uses_exps(r->l, rel->exps);
 		int rused = rel_uses_exps(r->r, rel->exps);
@@ -8479,10 +8476,21 @@ rel_apply_rewrite(int *changes, mvc *sql, sql_rel *rel)
 			rel_destroy(rel);
 			rel = nr; 
 		} else if (rused && lused) { /* both used */
-			assert(0);
+			/* apply (R, (semi/anti(l,r)) -> semi/anti( apply(R,l), apply(R,r)) */
+			sql_rel *nl = rel_apply(sql, rel_dup(rel->l), rel_dup(r->l), rel->exps, rel->flag);
+			sql_rel *nr = rel_apply(sql, rel_dup(rel->l), rel_dup(r->r), rel->exps, rel->flag);
+
+			assert(is_semi(r->op));
+			l = rel_crossproduct(sql->sa, nl, nr, r->op);
+			l->exps = exps_copy(sql->sa, r->exps);
+			rel_destroy(rel);
+			(*changes)++;
+			return l;
 		} else { /* both unused */
 			int flag = rel->flag;
 			list *exps = r->exps;
+
+			assert(is_join(r->op));
 			r = rel_crossproduct(sql->sa, rel_dup(r->l), rel_dup(r->r), flag == APPLY_LOJ?op_left:op_join);
 			r->exps = exps_copy(sql->sa, exps);
 			rel_destroy(rel);
@@ -8531,6 +8539,12 @@ rel_apply_rewrite(int *changes, mvc *sql, sql_rel *rel)
 				} else if (is_semi(rl->op)) {
 					sql_rel *l = rl->l;
 					col = l->exps->t->data;
+				} else if (is_project(rl->op) && rl->exps) {
+					col = rl->exps->t->data;
+					col = exp_column(sql->sa, exp_relname(col), exp_name(col), exp_subtype(col), col->card, has_nil(col), is_intern(col));
+					col = exp_unop(sql->sa, col, sql_bind_func(sql->sa, NULL, "identity", exp_subtype(col), NULL, F_FUNC));
+					exp_label(sql->sa, col, ++sql->label);
+					append(rl->exps, col);
 				}
 				assert(col);
 
@@ -8554,6 +8568,36 @@ rel_apply_rewrite(int *changes, mvc *sql, sql_rel *rel)
 	}
 	return rel;
 }
+
+static sql_exp *
+rewrite_exp(mvc *sql, sql_exp *e, rewrite_rel_fptr rewrite_rel, rewrite_fptr rewriter, int *has_changes)
+{
+	if (e->type != e_psm)
+		return e;
+	if (e->flag & PSM_SET || e->flag & PSM_VAR) 
+		return e;
+	if (e->flag & PSM_RETURN) {
+		e->l = rewrite_exp(sql, e->l, rewrite_rel, rewriter, has_changes);
+	}
+	if (e->flag & PSM_WHILE || e->flag & PSM_IF) 
+		return e;
+	if (e->flag & PSM_REL) 
+		e->l = rewrite_rel(sql, e->l, rewriter, has_changes);
+	return e;
+}
+
+static list *
+rewrite_exps(mvc *sql, list *l, rewrite_rel_fptr rewrite_rel, rewrite_fptr rewriter, int *has_changes)
+{
+	node *n;
+
+	if (!l)
+		return l;
+	for(n = l->h; n; n = n->next) 
+		n->data = rewrite_exp(sql, n->data, rewrite_rel, rewriter, has_changes);
+	return l;
+}
+
 
 static sql_rel *
 rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes) 
@@ -8590,6 +8634,8 @@ rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 		rel->l = rewrite(sql, rel->l, rewriter, has_changes);
 		break;
 	case op_ddl: 
+		if (rel->flag == DDL_PSM && rel->exps) 
+			rel->exps = rewrite_exps(sql, rel->exps, &rewrite, rewriter, has_changes);
 		rel->l = rewrite(sql, rel->l, rewriter, has_changes);
 		if (rel->r)
 			rel->r = rewrite(sql, rel->r, rewriter, has_changes);
@@ -8647,6 +8693,8 @@ rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 		rel->l = rewrite_topdown(sql, rel->l, rewriter, has_changes);
 		break;
 	case op_ddl: 
+		if (rel->flag == DDL_PSM && rel->exps) 
+			rewrite_exps(sql, rel->exps, &rewrite_topdown, rewriter, has_changes);
 		rel->l = rewrite_topdown(sql, rel->l, rewriter, has_changes);
 		if (rel->r)
 			rel->r = rewrite_topdown(sql, rel->r, rewriter, has_changes);
