@@ -159,7 +159,7 @@ BATsample(BAT *b, BUN n)
 	BUN rescnt;
 	struct oidtreenode *tree = NULL;
 
-	unsigned int range;
+	BUN range;
 
 	BATcheck(b, "BATsample", NULL);
 	ERRORcheck(n > BUN_MAX, "BATsample: sample size larger than BUN_MAX\n", NULL);
@@ -210,7 +210,7 @@ BATsample(BAT *b, BUN n)
 			mtwist_seed(mt_rng, rand());
 		}
 		
-		range = (int) (maxoid - minoid);
+		range = (BUN) (maxoid - minoid);
 		
 		/* while we do not have enough sample OIDs yet */
 		for (rescnt = 0; rescnt < n; rescnt++) {
