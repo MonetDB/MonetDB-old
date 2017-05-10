@@ -210,7 +210,7 @@ BATsample(BAT *b, BUN n)
 			mtwist_seed(mt_rng, rand());
 		}
 		
-		range = maxoid - minoid;
+		range = (int) (maxoid - minoid);
 		
 		/* while we do not have enough sample OIDs yet */
 		for (rescnt = 0; rescnt < n; rescnt++) {
