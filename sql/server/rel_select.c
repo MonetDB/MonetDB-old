@@ -4701,7 +4701,35 @@ rel_select_exp(mvc *sql, sql_rel *rel, SelectNode *sn, exp_kind ek)
 		}
 		rel = r;
 	}
+	if (sn->sample) {
+		list *exps = new_exp_list(sql->sa);
+		if (sn->sample->token == SQL_WEIGHTED_SAMPLE) {
+			// weighted sampling
+			// parse the sample size and weight vector and pass it on to rel_sample
+			dlist *l = sn->sample->data.lval;
 
+			lng sample_size = l->h->data.l_val;
+			sql_exp* sample_size_exp = exp_atom_lng(sql->sa, sample_size);
+
+			exp_kind iek = {type_value, card_column, FALSE};
+			symbol* weights = l->h->next->data.sym;
+			sql_exp* weights_exp = rel_value_exp(sql, &rel, weights, 0, iek);
+			if (!sample_size_exp || !weights_exp)
+				return NULL;
+			append(exps, sample_size_exp);
+			append(exps, weights_exp);
+
+			weighted_sample = 1;
+		} else {
+			// uniform sampling
+			// parse the sample size and pass it on to rel_sample
+			sql_exp *o = rel_value_exp( sql, &rel, sn->sample, 0, ek);
+			if (!o)
+				return NULL;
+			append(exps, o);
+		}
+		rel = rel_sample(sql->sa, rel, exps);
+	}
 	if (rel) {
 		if (rel && sn->groupby) {
 			list *gbe = rel_group_by(sql, &rel, sn->groupby, sn->selection, sql_sel );
@@ -4714,14 +4742,12 @@ rel_select_exp(mvc *sql, sql_rel *rel, SelectNode *sn, exp_kind ek)
 		if (!sn->having)
 			set_processed(rel);
 	}
-
 	if (sn->having) {
 		/* having implies group by, ie if not supplied do a group by */
 		if (rel->op != op_groupby)
 			rel = rel_groupby(sql,  rel, NULL);
 		aggr = 1;
 	}
-
 	n = sn->selection->h;
 	rel = rel_project(sql->sa, rel, new_exp_list(sql->sa));
 	inner = rel;
@@ -4851,34 +4877,6 @@ rel_select_exp(mvc *sql, sql_rel *rel, SelectNode *sn, exp_kind ek)
 			append(exps, o);
 		}
 		rel = rel_topn(sql->sa, rel, exps);
-	}
-
-	if (sn->sample) {
-		list *exps = new_exp_list(sql->sa);
-		if (sn->sample->token == SQL_WEIGHTED_SAMPLE) {
-			// weighted sampling
-			// parse the sample size and weight vector and pass it on to rel_sample
-			dlist *l = sn->sample->data.lval;
-
-			lng sample_size = l->h->data.l_val;
-			sql_exp* sample_size_exp = exp_atom_lng(sql->sa, sample_size);
-
-			symbol* weights = l->h->next->data.sym;
-			sql_exp* weights_exp = rel_value_exp(sql, &rel, weights, 0, ek);
-
-			if (!sample_size_exp || !weights_exp)
-				return NULL;
-			append(exps, sample_size_exp);
-			append(exps, weights_exp);
-		} else {
-			// uniform sampling
-			// parse the sample size and pass it on to rel_sample
-			sql_exp *o = rel_value_exp( sql, &rel, sn->sample, 0, ek);
-			if (!o)
-				return NULL;
-			append(exps, o);
-		}
-		rel = rel_sample(sql->sa, rel, exps);
 	}
 
 	return rel;
