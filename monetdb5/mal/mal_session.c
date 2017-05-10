@@ -602,7 +602,8 @@ MALreader(Client c)
 			if (!blocked){
 				if (c->prompt && c->prompt[0])
 					mnstr_write(c->fdout, c->prompt, strlen(c->prompt), 1);
-				mnstr_flush(c->fdout);
+				if (!c->bak)
+					mnstr_flush(c->fdout);
 				c->fdin->eof = 0;
 			} else {
 				/* we need more input from blocked stream */
