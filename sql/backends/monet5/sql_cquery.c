@@ -193,8 +193,8 @@ wrapup:
 
 str
 CQstatus( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	BAT *tickbat, *modbat, *fcnbat, *statusbat, *errbat;
-	bat *tickret, *modret, *fcnret, *statusret, *errorret;
+	BAT *tickbat = 0, *modbat = 0, *fcnbat = 0, *statusbat = 0, *errbat = 0;
+	bat *tickret = 0, *modret = 0, *fcnret = 0, *statusret = 0, *errorret = 0;
 	int idx;
 	str msg= MAL_SUCCEED;
 	
@@ -423,7 +423,7 @@ CQregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	InstrPtr sig,q;
 	str msg = MAL_SUCCEED;
 	MalBlkPtr nmb;
-	Symbol s;
+	Symbol s = NULL;
 	Module scope;
 	char buf[IDLENGTH];
 
