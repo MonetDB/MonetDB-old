@@ -475,7 +475,7 @@ IOprintf(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 	switch( pci->argc){
 	case 2: msg= IOprintf_(&fmt2,*fmt);
-			break;
+		break;
 	case 3: msg= IOprintf_(&fmt2,*fmt,G(2));
 		break;
 	case 4: msg= IOprintf_(&fmt2,*fmt,G(2),G(3));
@@ -492,12 +492,13 @@ IOprintf(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		break;
 	case 10: msg= IOprintf_(&fmt2,*fmt,G(2),G(3),G(4),G(5),G(6),G(7),G(8),G(9));
 	}
-	if (msg== MAL_SUCCEED) {
-		mnstr_printf(cntxt->fdout,"%s",fmt2);
+	if (msg == MAL_SUCCEED) {
+		mnstr_printf(cntxt->fdout, "%s", fmt2);
 		GDKfree(fmt2);
 	}
 	return msg;
 }
+
 str
 IOprintfStream(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	str *fmt = getArgReference_str(stk,pci,2);

@@ -195,7 +195,7 @@ initScenario(Client c, Scenario s)
 	}
 	if (s->initClient && s->initClientCmd == 0){
 		s->initClientCmd = (MALfcn) getAddress( s->initClient);
-		if( s->initSystemCmd == NULL){
+		if( s->initClientCmd == NULL){
 			msg = createException(MAL,"initScenario","Address of initClient command not resolved");
 			goto wrapup;
 		}
