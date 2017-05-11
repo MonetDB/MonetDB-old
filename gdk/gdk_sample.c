@@ -267,17 +267,24 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 	ERRORcheck(w->ttype != TYPE_dbl,
 					"BATsample: type of weights must be doubles\n", NULL);//TODO types of w (want to remove this)
 	//TODO: handle NULL values in w_ptr
+
 	cnt = BATcount(b);
 
-	keys = (dbl*) GDKmalloc(sizeof(dbl)*n);
-	if(keys == NULL)
-		return NULL;
-
 	sample = COLnew(0, TYPE_oid, n, TRANSIENT);
-	if(sample == NULL) {
-		free(keys);
+
+	if(sample == NULL)
+		return NULL;
+	if(n == 0)
+		return sample;
+
+
+	keys = (dbl*) GDKmalloc(sizeof(dbl)*n);
+	if(keys == NULL) {
+		BBPunfix(sample->batCacheid);
 		return NULL;
 	}
+
+
 
 	oids = (oid *) Tloc(sample, 0);
 	w_ptr = (dbl*) Tloc(w, 0);
@@ -301,7 +308,7 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 		i++;
 	}
 	if(i < n) {/* not enough non-zero weights: cannot take sample */
-		BBPunfix(sample->batCacheid);//TODO why not unfix?
+		BBPunfix(sample->batCacheid);
 		GDKfree(keys);
 		return NULL;
 	}

@@ -41,6 +41,7 @@
 #define append_symbol(l,d)   dlist_append_symbol( SA, l, d)
 #define append_string(l,d)   dlist_append_string( SA, l, d)
 #define append_type(l,d)     dlist_append_type( SA, l, d)
+#define append_dbl(l,d)      dlist_append_dbl( SA, l, d)
 
 #define _atom_string(t, v)   atom_string(SA, t, v)
 
@@ -483,6 +484,10 @@ int yydebug=1;
 	poslng
 	nonzerolng
 
+%type <fval>
+	dblval
+	probdbl
+
 %type <bval>
 	opt_brackets
 
@@ -512,7 +517,7 @@ int yydebug=1;
 
 /* sql prefixes to avoid name clashes on various architectures */
 %token <sval>
-	IDENT aTYPE ALIAS AGGR AGGR2 RANK sqlINT OIDNUM HEXADECIMAL INTNUM APPROXNUM 
+	IDENT aTYPE ALIAS AGGR AGGR2 RANK sqlINT OIDNUM HEXADECIMAL APPROXNUM sqlDBL
 	USING 
 	GLOBAL CAST CONVERT
 	CHARACTER VARYING LARGE OBJECT VARCHAR CLOB sqlTEXT BINARY sqlBLOB
@@ -3328,17 +3333,24 @@ opt_sample:
 		  	  sql_subtype *t = sql_bind_localtype("lng");
 			  $$ = _newAtomNode( atom_int(SA, t, $2));
 			}
- |  SAMPLE INTNUM	{
+ |  SAMPLE probdbl	{
 		  	  sql_subtype *t = sql_bind_localtype("dbl");
-			  $$ = _newAtomNode( atom_float(SA, t, strtod($2,NULL)));
+			  //$$ = _newAtomNode( atom_float(SA, t, strtod($2,NULL)));
+			  $$ = _newAtomNode( atom_float(SA, t, $2));
 			}
  |  SAMPLE param	{ $$ = $2; }
- | SAMPLE poslng WITH WEIGHTS search_condition { 
- 	dlist *l = L();
- 	append_lng(l, $2);
- 	append_symbol(l, $5);
- 	$$ = _symbol_create_list(SQL_WEIGHTED_SAMPLE, l);
- }
+ |  SAMPLE poslng WITH WEIGHTS search_condition { 
+		 	dlist *l = L();
+		 	append_lng(l, $2);
+		 	append_symbol(l, $5);
+		 	$$ = _symbol_create_list(SQL_WEIGHTED_SAMPLE, l);
+ 		}
+ |  SAMPLE probdbl WITH WEIGHTS search_condition { 
+		 	dlist *l = L();
+		 	append_dbl(l, $2);
+		 	append_symbol(l, $5);
+		 	$$ = _symbol_create_list(SQL_WEIGHTED_SAMPLE, l);
+		 }
  ;
 
 sort_specification_list:
@@ -4503,45 +4515,6 @@ literal:
 		  	$$ = _newAtomNode( atom_int(SA, &t, value));
 		  }
 		}
- |  INTNUM
-		{ char *s = strip_extra_zeros(sa_strdup(SA, $1));
-		  char *dot = strchr(s, '.');
-		  int digits = _strlen(s) - 1;
-		  int scale = digits - (int) (dot-s);
-		  sql_subtype t;
-
-		  if (digits <= 0)
-			digits = 1;
-		  if (digits <= MAX_DEC_DIGITS) {
-		  	double val = strtod($1,NULL);
-#ifdef HAVE_HGE
-		  	hge value = decimal_from_str(s, NULL);
-#else
-		  	lng value = decimal_from_str(s, NULL);
-#endif
-
-		  	if (*s == '+' || *s == '-')
-				digits --;
-		  	sql_find_subtype(&t, "decimal", digits, scale );
-		  	$$ = _newAtomNode( atom_dec(SA, &t, value, val));
-		   } else {
-			char *p = $1;
-			double val;
-
-			errno = 0;
-			val = strtod($1,&p);
-			if (p == $1 || val == dbl_nil || (errno == ERANGE && (val < -1 || val > 1))) {
-				char *msg = sql_message("\b22003!double value too large or not a number (%s)", $1);
-
-				yyerror(m, msg);
-				_DELETE(msg);
-				$$ = NULL;
-				YYABORT;
-			}
-		  	sql_find_subtype(&t, "double", 51, 0 );
-		  	$$ = _newAtomNode(atom_float(SA, &t, val));
-		   }
-		}
  |  APPROXNUM
 		{ sql_subtype t;
   		  char *p = $1;
@@ -4688,6 +4661,19 @@ literal:
 		{ sql_subtype t;
 		  sql_find_subtype(&t, "boolean", 0, 0 );
 		  $$ = _newAtomNode( atom_bool(SA, &t, TRUE)); }
+ | sqlDBL
+		{
+			sql_subtype *t= sql_bind_localtype("dbl");
+			errno = 0;
+			$$ = _newAtomNode( atom_float(SA, t, strtod($1,NULL)));
+			if(errno) {
+				char *msg = sql_message("\b22003!double value could not be parsed (%s)", $1);
+				errno = 0;
+				yyerror(m, msg);
+				_DELETE(msg);
+				YYABORT;
+			}
+		}
  ;
 
 interval_expression:
@@ -4893,6 +4879,16 @@ poslng:
 		  }
 		}
 	;
+
+probdbl:
+	dblval {
+		$$ = $1;
+		if($$ < 0 || $$ > 1) {
+			$$ = -1;
+			yyerror(m, "Value between 0 and 1 expected");
+			YYABORT;
+		}
+	};
 
 posint:
 	intval 	{ $$ = $1;
@@ -5312,7 +5308,24 @@ lngval:
 			$$ = 0;
 			YYABORT;
 		  }
-		}
+		};
+
+dblval:
+	sqlDBL	
+ 		{
+			errno = 0;
+			
+			$$ = strtod($1,NULL);
+			
+			if(errno) {
+				char *msg = sql_message("\b22003!double value could not be parsed (%s)", $1);
+				errno = 0;
+				yyerror(m, msg);
+				_DELETE(msg);
+				$$ = -1;
+				YYABORT;
+			}
+		};
 
 intval:
 	sqlINT	

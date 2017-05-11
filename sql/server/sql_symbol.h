@@ -18,7 +18,8 @@ typedef enum symtype {
 	type_string,
 	type_list,
 	type_symbol,
-	type_type
+	type_type,
+	type_dbl
 } symtype;
 
 typedef union symbdata {
@@ -28,6 +29,7 @@ typedef union symbdata {
 	struct dlist *lval;
 	struct symbol *sym;
 	struct sql_subtype typeval;
+	dbl fval;
 } symbdata;
 
 typedef struct dnode {
@@ -51,6 +53,7 @@ extern dlist *dlist_append_int(sql_allocator *sa, dlist *l, int data);
 extern dlist *dlist_append_lng(sql_allocator *sa, dlist *l, lng data);
 extern dlist *dlist_append_symbol(sql_allocator *sa, dlist *l, struct symbol *data);
 extern dlist *dlist_append_type(sql_allocator *sa, dlist *l, struct sql_subtype *data);
+extern dlist *dlist_append_dbl(sql_allocator *sa, dlist *l, dbl data);
 
 typedef struct symbol {
 	int token;

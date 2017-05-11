@@ -172,6 +172,18 @@ dnode_create_type(sql_allocator *sa, sql_subtype *data)
 	return n;
 }
 
+static dnode *
+dnode_create_dbl(sql_allocator *sa, dbl data)
+{
+	dnode *n = dnode_create(sa);
+
+	if (n) {
+		n->data.fval = data;
+		n->type = type_dbl;
+	}
+	return n;
+}
+
 dlist *
 dlist_create(sql_allocator *sa)
 {
@@ -257,6 +269,16 @@ dlist *
 dlist_append_type(sql_allocator *sa, dlist *l, sql_subtype *data)
 {
 	dnode *n = dnode_create_type(sa, data);
+
+	if (!n)
+		return NULL;
+	return dlist_append_default(l, n);
+}
+
+dlist *
+dlist_append_dbl(sql_allocator *sa, dlist *l, dbl data)
+{
+	dnode *n = dnode_create_dbl(sa, data);
 
 	if (!n)
 		return NULL;
