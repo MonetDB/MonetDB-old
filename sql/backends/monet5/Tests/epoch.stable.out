@@ -1,0 +1,154 @@
+stdout of test 'epoch` in directory 'sql/backends/monet5` itself:
+
+
+# 15:52:01 >  
+# 15:52:01 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=37409" "--set" "mapi_usock=/var/tmp/mtest-23780/.s.monetdb.37409" "--set" "monet_prompt=" "--forcemito" "--dbpath=/home/ferreira/MonetDB-timetrails/BUILD/var/MonetDB/mTests_sql_backends_monet5" "--set" "embedded_py=true"
+# 15:52:01 >  
+
+# MonetDB 5 server v11.28.0
+# This is an unreleased version
+# Serving database 'mTests_sql_backends_monet5', using 8 threads
+# Compiled for x86_64-unknown-linux-gnu/64bit with 128bit integers
+# Found 15.499 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2017 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://dhcp-120.eduroam.cwi.nl:37409/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-23780/.s.monetdb.37409
+# MonetDB/GIS module loaded
+# MonetDB/SQL module loaded
+# MonetDB/Python2 module loaded
+
+Ready.
+# SQL catalog created, loading sql scripts once
+# loading sql script: 09_like.sql
+# loading sql script: 10_math.sql
+# loading sql script: 11_times.sql
+# loading sql script: 12_url.sql
+# loading sql script: 13_date.sql
+# loading sql script: 14_inet.sql
+# loading sql script: 15_querylog.sql
+# loading sql script: 16_tracelog.sql
+# loading sql script: 17_temporal.sql
+# loading sql script: 18_index.sql
+# loading sql script: 20_vacuum.sql
+# loading sql script: 21_dependency_functions.sql
+# loading sql script: 22_clients.sql
+# loading sql script: 23_skyserver.sql
+# loading sql script: 25_debug.sql
+# loading sql script: 26_sysmon.sql
+# loading sql script: 27_rejects.sql
+# loading sql script: 39_analytics.sql
+# loading sql script: 39_analytics_hge.sql
+# loading sql script: 40_geom.sql
+# loading sql script: 40_json.sql
+# loading sql script: 40_json_hge.sql
+# loading sql script: 41_md5sum.sql
+# loading sql script: 45_uuid.sql
+# loading sql script: 46_profiler.sql
+# loading sql script: 50_cquery.sql
+# loading sql script: 51_sys_schema_extension.sql
+# loading sql script: 60_wlcr.sql
+# loading sql script: 70_timetrails.sql
+# loading sql script: 72_fits.sql
+# loading sql script: 74_netcdf.sql
+# loading sql script: 75_shp.sql
+# loading sql script: 75_storagemodel.sql
+# loading sql script: 80_statistics.sql
+# loading sql script: 80_udf.sql
+# loading sql script: 80_udf_hge.sql
+# loading sql script: 85_bam.sql
+# loading sql script: 90_generator.sql
+# loading sql script: 90_generator_hge.sql
+# loading sql script: 99_system.sql
+
+# 15:52:01 >  
+# 15:52:01 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-23780" "--port=37409"
+# 15:52:01 >  
+
+#CREATE TABLE justatest (justacolumn timestamp);
+#INSERT INTO justatest VALUES (timestamp '2017/01/01 09:00:00.000'),(timestamp '2016/04/09 08:21:22.000'),
+#(timestamp '1950/12/11 00:21:22.000'),(timestamp '1977/12/11 23:59:59.999');
+[ 4	]
+#EXPLAIN SELECT epoch(justacolumn) FROM justatest;
+% .explain # table_name
+% mal # name
+% clob # type
+% 109 # length
+function user.s6_1():void;
+    X_1:void := querylog.define("explain select epoch(justacolumn) from justatest;", "default_pipe", 22:int);
+barrier X_111 := language.dataflow();
+    X_22 := bat.new(nil:str);
+    X_28 := bat.new(nil:int);
+    X_26 := bat.new(nil:int);
+    X_25 := bat.new(nil:str);
+    X_24 := bat.new(nil:str);
+    X_4 := sql.mvc();
+    C_84:bat[:oid] := sql.tid(X_4, "sys", "justatest", 3:int, 4:int);
+    X_88:bat[:timestamp] := sql.bind(X_4, "sys", "justatest", "justacolumn", 0:int, 3:int, 4:int);
+    X_93 := algebra.projection(C_84, X_88);
+    X_97 := battimestamp.epoch(X_93);
+    C_82:bat[:oid] := sql.tid(X_4, "sys", "justatest", 2:int, 4:int);
+    X_87:bat[:timestamp] := sql.bind(X_4, "sys", "justatest", "justacolumn", 0:int, 2:int, 4:int);
+    X_92 := algebra.projection(C_82, X_87);
+    X_96 := battimestamp.epoch(X_92);
+    C_80:bat[:oid] := sql.tid(X_4, "sys", "justatest", 1:int, 4:int);
+    X_86:bat[:timestamp] := sql.bind(X_4, "sys", "justatest", "justacolumn", 0:int, 1:int, 4:int);
+    X_91 := algebra.projection(C_80, X_86);
+    X_95 := battimestamp.epoch(X_91);
+    C_78:bat[:oid] := sql.tid(X_4, "sys", "justatest", 0:int, 4:int);
+    X_85:bat[:timestamp] := sql.bind(X_4, "sys", "justatest", "justacolumn", 0:int, 0:int, 4:int);
+    X_90 := algebra.projection(C_78, X_85);
+    X_94 := battimestamp.epoch(X_90);
+    X_29 := bat.append(X_22, "sys.L2");
+    X_31 := bat.append(X_24, "L2");
+    X_33 := bat.append(X_25, "int");
+    X_35 := bat.append(X_26, 32:int);
+    X_37 := bat.append(X_28, 0:int);
+    X_106 := mat.packIncrement(X_94, 4:int);
+    X_107 := mat.packIncrement(X_106, X_95);
+    X_108 := mat.packIncrement(X_107, X_96);
+    X_18:bat[:int] := mat.packIncrement(X_108, X_97);
+exit X_111;
+    sql.resultSet(X_29, X_31, X_33, X_35, X_37, X_18);
+end user.s6_1;
+#inline               actions= 0 time=2 usec 
+#remap                actions= 1 time=7 usec 
+#costmodel            actions=1 time=1 usec 
+#coercion             actions= 0 time=2 usec 
+#evaluate             actions= 0 time=2 usec 
+#emptybind            actions= 3 time=11 usec 
+#pushselect           actions= 0 time=4 usec 
+#aliases              actions= 1 time=5 usec 
+#mitosis              actions=1 time=27 usec 
+#mergetable           actions= 2 time=63 usec 
+#deadcode             actions= 5 time=8 usec 
+#aliases              actions= 0 time=0 usec 
+#constants            actions= 4 time=8 usec 
+#commonTerms          actions= 0 time=6 usec 
+#projectionpath       actions= 0 time=3 usec 
+#deadcode             actions= 0 time=5 usec 
+#reorder              actions= 1 time=26 usec 
+#matpack              actions= 1 time=5 usec 
+#dataflow             actions= 1 time=18 usec 
+#multiplex            actions= 0 time=2 usec 
+#profiler             actions=1 time=1 usec 
+#candidates           actions=1 time=1 usec 
+#wlc                  actions= 0 time=0 usec 
+#garbagecollector     actions= 1 time=37 usec 
+#total                actions=26 time=323 usec 
+#SELECT epoch(justacolumn) FROM justatest;
+% sys.L2 # table_name
+% L2 # name
+% int # type
+% 10 # length
+[ 1483261200	]
+[ 1460190082	]
+[ -601429118	]
+[ 250732799	]
+#DROP TABLE justatest;
+
+# 15:52:01 >  
+# 15:52:01 >  "Done."
+# 15:52:01 >  
+
