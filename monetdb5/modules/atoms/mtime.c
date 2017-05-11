@@ -2042,40 +2042,53 @@ MTIMEdate_diff(int *ret, const date *v1, const date *v2)
 	return MAL_SUCCEED;
 }
 
+#define BATMTIME_BULK_PROCESS_START_COMMON(NAME, MTIME, ATOM)        \
+	BAT *b1, *b2, *bn;                                               \
+	const MTIME *t1, *t2;                                            \
+	ATOM *tn;                                                        \
+	BUN i, n;                                                        \
+	b1 = BATdescriptor(*bid1);                                       \
+	b2 = BATdescriptor(*bid2);                                       \
+	if (b1 == NULL || b2 == NULL) {                                  \
+		if (b1)                                                      \
+			BBPunfix(b1->batCacheid);                                \
+		if (b2)                                                      \
+			BBPunfix(b2->batCacheid);                                \
+		throw(MAL, "batmtime.##NAME##", RUNTIME_OBJECT_MISSING);     \
+	}                                                                \
+	n = BATcount(b1);                                                \
+	if (n != BATcount(b2)) {                                         \
+		BBPunfix(b1->batCacheid);                                    \
+		BBPunfix(b2->batCacheid);                                    \
+		throw(MAL, "batmtime.##NAME##", "inputs not the same size"); \
+	}                                                                \
+	bn = COLnew(b1->hseqbase, TYPE_##ATOM, BATcount(b1), TRANSIENT); \
+	if (bn == NULL) {                                                \
+		BBPunfix(b1->batCacheid);                                    \
+		BBPunfix(b2->batCacheid);                                    \
+		throw(MAL, "batmtime.##NAME##", MAL_MALLOC_FAIL);            \
+	}                                                                \
+	t1 = (const MTIME *) Tloc(b1, 0);                                \
+	t2 = (const MTIME *) Tloc(b2, 0);                                \
+	tn = (ATOM *) Tloc(bn, 0);                                       \
+	bn->tnonil = 1;                                                  \
+	bn->tnil = 0;
+
+#define BATMTIME_BULK_PROCESS_END_COMMON(ATOM)          \
+	BBPunfix(b2->batCacheid);                           \
+	BATsetcount(bn, (BUN) (tn - (ATOM *) Tloc(bn, 0))); \
+	bn->tsorted = BATcount(bn) <= 1;                    \
+	bn->trevsorted = BATcount(bn) <= 1;                 \
+	BBPunfix(b1->batCacheid);                           \
+	BBPkeepref(bn->batCacheid);                         \
+	*ret = bn->batCacheid;                              \
+	return MAL_SUCCEED;
+
 str
 MTIMEdate_diff_bulk(bat *ret, const bat *bid1, const bat *bid2)
 {
-	BAT *b1, *b2, *bn;
-	const date *t1, *t2;
-	int *tn;
-	BUN i, n;
+    BATMTIME_BULK_PROCESS_START_COMMON(diff, date, int)
 
-	b1 = BATdescriptor(*bid1);
-	b2 = BATdescriptor(*bid2);
-	if (b1 == NULL || b2 == NULL) {
-		if (b1)
-			BBPunfix(b1->batCacheid);
-		if (b2)
-			BBPunfix(b2->batCacheid);
-		throw(MAL, "batmtime.diff", RUNTIME_OBJECT_MISSING);
-	}
-	n = BATcount(b1);
-	if (n != BATcount(b2)) {
-		BBPunfix(b1->batCacheid);
-		BBPunfix(b2->batCacheid);
-		throw(MAL, "batmtime.diff", "inputs not the same size");
-	}
-	bn = COLnew(b1->hseqbase, TYPE_int, BATcount(b1), TRANSIENT);
-	if (bn == NULL) {
-		BBPunfix(b1->batCacheid);
-		BBPunfix(b2->batCacheid);
-		throw(MAL, "batmtime.diff", MAL_MALLOC_FAIL);
-	}
-	t1 = (const date *) Tloc(b1, 0);
-	t2 = (const date *) Tloc(b2, 0);
-	tn = (int *) Tloc(bn, 0);
-	bn->tnonil = 1;
-	bn->tnil = 0;
 	for (i = 0; i < n; i++) {
 		if (*t1 == date_nil || *t2 == date_nil) {
 			*tn = int_nil;
@@ -2088,14 +2101,8 @@ MTIMEdate_diff_bulk(bat *ret, const bat *bid1, const bat *bid2)
 		t2++;
 		tn++;
 	}
-	BBPunfix(b2->batCacheid);
-	BATsetcount(bn, (BUN) (tn - (int *) Tloc(bn, 0)));
-	bn->tsorted = BATcount(bn) <= 1;
-	bn->trevsorted = BATcount(bn) <= 1;
-	BBPunfix(b1->batCacheid);
-	BBPkeepref(bn->batCacheid);
-	*ret = bn->batCacheid;
-	return MAL_SUCCEED;
+    
+    BATMTIME_BULK_PROCESS_END_COMMON(int)
 }
 
 str
@@ -2124,37 +2131,8 @@ MTIMEtimestamp_diff(lng *ret, const timestamp *v1, const timestamp *v2)
 str
 MTIMEtimestamp_diff_bulk(bat *ret, const bat *bid1, const bat *bid2)
 {
-	BAT *b1, *b2, *bn;
-	const timestamp *t1, *t2;
-	lng *tn;
-	BUN i, n;
+    BATMTIME_BULK_PROCESS_START_COMMON(diff, timestamp, lng)
 
-	b1 = BATdescriptor(*bid1);
-	b2 = BATdescriptor(*bid2);
-	if (b1 == NULL || b2 == NULL) {
-		if (b1)
-			BBPunfix(b1->batCacheid);
-		if (b2)
-			BBPunfix(b2->batCacheid);
-		throw(MAL, "batmtime.diff", RUNTIME_OBJECT_MISSING);
-	}
-	n = BATcount(b1);
-	if (n != BATcount(b2)) {
-		BBPunfix(b1->batCacheid);
-		BBPunfix(b2->batCacheid);
-		throw(MAL, "batmtime.diff", "inputs not the same size");
-	}
-	bn = COLnew(b1->hseqbase, TYPE_lng, BATcount(b1), TRANSIENT);
-	if (bn == NULL) {
-		BBPunfix(b1->batCacheid);
-		BBPunfix(b2->batCacheid);
-		throw(MAL, "batmtime.diff", MAL_MALLOC_FAIL);
-	}
-	t1 = (const timestamp *) Tloc(b1, 0);
-	t2 = (const timestamp *) Tloc(b2, 0);
-	tn = (lng *) Tloc(bn, 0);
-	bn->tnonil = 1;
-	bn->tnil = 0;
 	for (i = 0; i < n; i++) {
 		if (ts_isnil(*t1) || ts_isnil(*t2)) {
 			*tn = lng_nil;
@@ -2167,14 +2145,8 @@ MTIMEtimestamp_diff_bulk(bat *ret, const bat *bid1, const bat *bid2)
 		t2++;
 		tn++;
 	}
-	BBPunfix(b2->batCacheid);
-	BATsetcount(bn, (BUN) (tn - (lng *) Tloc(bn, 0)));
-	bn->tsorted = BATcount(bn) <= 1;
-	bn->trevsorted = BATcount(bn) <= 1;
-	BBPunfix(b1->batCacheid);
-	BBPkeepref(bn->batCacheid);
-	*ret = bn->batCacheid;
-	return MAL_SUCCEED;
+
+    BATMTIME_BULK_PROCESS_END_COMMON(lng)
 }
 
 /* return whether DST holds in the tzone at a certain point of time. */
@@ -2654,6 +2626,54 @@ MTIMEepoch2int(int *ret, const timestamp *t)
 		*ret = int_nil;
 	else
 		*ret = (int) (v / 1000);
+	return MAL_SUCCEED;
+}
+
+str
+MTIMEepoch2int_bulk(bat *ret, bat *bid)
+{
+	BAT *b, *bn;
+	int *t;
+	const timestamp *s;
+	timestamp e;
+	lng v;
+	BUN n;
+	str msg;
+
+	if ((msg = MTIMEunix_epoch(&e)) != MAL_SUCCEED)
+		return msg;
+	if ((b = BATdescriptor(*bid)) == NULL)
+		throw(MAL, "batcalc.epoch", RUNTIME_OBJECT_MISSING);
+	if ((bn = COLnew(b->hseqbase, TYPE_int, BATcount(b), TRANSIENT)) == NULL) {
+		BBPunfix(b->batCacheid);
+		throw(MAL, "batcalc.epoch", MAL_MALLOC_FAIL);
+	}
+	s = (const timestamp *) Tloc(b, 0);
+	t = (int *) Tloc(bn, 0);
+	bn->tnil = 0;
+	for (n = BATcount(b); n > 0; n--, t++, s++) {
+		if (s == timestamp_nil) {
+			*t = int_nil;
+			bn->tnil = 1;
+		} else {
+			if ((msg = MTIMEtimestamp_diff(&v, s, &e)) != MAL_SUCCEED) {
+				BBPreclaim(bn);
+				BBPunfix(b->batCacheid);
+				return msg;
+			}
+			if (v == lng_nil)
+				*t = int_nil;
+			else
+				*t = (int) (v / 1000);
+		}
+	}
+	BATsetcount(bn, BATcount(b));
+	bn->tsorted = b->tsorted || BATcount(bn) <= 1;
+	bn->trevsorted = b->trevsorted || BATcount(bn) <= 1;
+	bn->tnonil = !bn->tnil;
+	BBPunfix(b->batCacheid);
+	*ret = bn->batCacheid;
+	BBPkeepref(*ret);
 	return MAL_SUCCEED;
 }
 

@@ -770,3 +770,12 @@ command daytime(s:bat[:lng]) :bat[:daytime]
 address MTIMEsecs2daytime_bulk;
 command daytime(t:bat[:timestamp]) :bat[:daytime]
 address MTIMEtimestamp_extract_daytime_default_bulk;
+
+module battimestamp;
+
+command epoch(t:bat[:timestamp]) :bat[:int]
+address MTIMEepoch2int_bulk;
+command epoch(t:bat[:int]) :bat[:timestamp]
+address MTIMEtimestamp_bulk;
+command epoch(t:bat[:lng]) :bat[:timestamp]
+address MTIMEtimestamp_lng_bulk;

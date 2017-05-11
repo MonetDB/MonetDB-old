@@ -220,6 +220,7 @@ mal_export str MTIMEtimestamp(timestamp *ret, const int *sec);
 mal_export str MTIMEtimestamplng(timestamp *ret, const lng *sec);
 mal_export str MTIMEtimestamp_bulk(bat *ret, bat *bid);
 mal_export str MTIMEtimestamp_lng(timestamp *ret, const lng *msec);
+mal_export str MTIMEepoch2int_bulk(bat *ret, bat *bid);
 mal_export str MTIMEtimestamp_lng_bulk(bat *ret, bat *bid);
 mal_export str MTIMEruleDef0(rule *ret, const int *m, const int *d, const int *w, const int *h, const int *mint);
 mal_export str MTIMEruleDef1(rule *ret, const int *m, const char * const *dnme, const int *w, const int *h, const int *mint);
