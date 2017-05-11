@@ -44,4 +44,3 @@ headers_autoload = {
 	SOURCES = 70_timetrails.mal
 }
 
-EXTRA_DIST_DIR = Tests
