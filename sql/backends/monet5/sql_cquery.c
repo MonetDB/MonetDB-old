@@ -146,7 +146,7 @@ CQentry(int idx)
 
 str
 CQlog( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	BAT *tickbat, *modbat, *fcnbat, *timebat, *errbat;
+	BAT *tickbat = 0, *modbat = 0, *fcnbat = 0, *timebat = 0, *errbat = 0;
 	bat *tickret, *modret, *fcnret, *timeret, *errorret;
 	
 	(void) cntxt;
@@ -891,7 +891,7 @@ CQscheduler(void *dummy)
 				break;
 			MT_sleep_ms(delay);  
 			if( delay < 20 * cycleDelay)
-				delay *= 1.2;
+				delay = (int) (delay *1.2);
 		} 
 	}
 #ifdef DEBUG_CQUERY

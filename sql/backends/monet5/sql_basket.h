@@ -40,7 +40,7 @@ typedef struct{
 
 	/* statistics */
 	timestamp seen;
-	int events; /* total number of events grabbed */
+	BUN events; /* total number of events grabbed */
 	int cycles; 
 	str error;
 	/* concurrency control between petrinet/{receptor,emitter} */

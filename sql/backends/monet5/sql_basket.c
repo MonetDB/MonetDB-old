@@ -768,7 +768,7 @@ BSKTstatus (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for (i = 1; i < bsktTop; i++)
 		if (baskets[i].table) {
 			bn = BSKTbindColumn(baskets[i].schema, baskets[i].table, baskets[i].cols[0]);
-			baskets[i].events = bn ? (lng) BATcount( bn): 0;
+			baskets[i].events = bn ? BATcount( bn): 0;
 			if( BUNappend(seen, &baskets[i].seen, FALSE) != GDK_SUCCEED ||
 				BUNappend(schema, baskets[i].schema, FALSE) != GDK_SUCCEED ||
 				BUNappend(table, baskets[i].table, FALSE) != GDK_SUCCEED ||
