@@ -276,26 +276,18 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 	cnt = BATcount(b);
 
 	sample = COLnew(0, TYPE_oid, n, TRANSIENT);
+	if(!sample)
+		goto bailout;
 
-	if(sample == NULL) {
-		if(weights_are_cast)//if weights where converted, delete converted BAT
-			BBPunfix(weights->batCacheid);
-		return NULL;
-	}
 	if(n == 0) {
 		if(weights_are_cast)
 			BBPunfix(weights->batCacheid);
 		return sample;
 	}
 
-
 	keys = (dbl*) GDKmalloc(sizeof(dbl)*n);
-	if(keys == NULL) {
-		if(weights_are_cast)
-			BBPunfix(weights->batCacheid);
-		BBPunfix(sample->batCacheid);
-		return NULL;
-	}
+	if(!keys)
+		goto bailout;
 
 	oids = (oid *) Tloc(sample, 0);
 	w_ptr = (dbl*) Tloc(weights, 0);
@@ -315,12 +307,8 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 		if(w_ptr[j] == 0.0)
 			continue;
 		if(w_ptr[j] < 0.0) {
-			BBPunfix(sample->batCacheid);
-			GDKfree(keys);
-			if(weights_are_cast)
-				BBPunfix(weights->batCacheid);
 			GDKerror("BATsample: w contains negative weights\n");
-			return NULL;
+			goto bailout;
 		}
 		oids[i] = (oid)(j+minoid);
 		keys[i] = pow(mtwist_drand(mt_rng),1.0/w_ptr[j]);//TODO cast 1.0 to dbl?
@@ -328,12 +316,8 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 	}
 
 	if(i < n) {
-		BBPunfix(sample->batCacheid);
-		GDKfree(keys);
-		if(weights_are_cast)
-			BBPunfix(weights->batCacheid);
 		GDKerror("BATsample: sample size bigger than number of non-zero weights\n");
-		return NULL;
+		goto bailout;
 	}
 
 	heapify(compKeysGT, SWAP3);
@@ -373,6 +357,15 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 		sample->tseqbase = *(oid *) Tloc(sample, 0);
 
 	return sample;
+
+  bailout:
+    if(weights_are_cast && weights)//if weights where converted, delete converted BAT
+    	BBPunfix(weights->batCacheid);
+    if(keys)
+    	GDKfree(keys);
+    if(sample)
+    	BBPunfix(sample->batCacheid);
+    return NULL;
 }
 
 

@@ -132,7 +132,7 @@ SAMPLEweighted_dbl(bat *r, bat *b, dbl *p, bat *w) {
 	double pr = *p;
 	lng s;
 
-	if ( pr < 0.0 || pr > 1.0 ) {
+	if ( pr < 0.0 || pr > 1.0 ) { /* the sql parser guarantees this */
 		throw(MAL, "sample.subweighted", ILLEGAL_ARGUMENT
 				" p should be between 0 and 1.0" );
 	} else if (pr == 0) {/* special case */
