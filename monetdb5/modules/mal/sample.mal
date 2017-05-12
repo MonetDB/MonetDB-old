@@ -20,29 +20,12 @@ command subuniform(b:bat[:any],p:dbl):bat[:oid]
 address SAMPLEuniform_dbl
 comment "Returns the oids of a uniform sample (without replacement) of size = (p x count(b)), where 0 <= p <= 1.0";
 
-command subweighted(b:bat[:any],s:lng,w:bat[:dbl]):bat[:oid]
+command subweighted(b:bat[:any],s:lng,w:bat[:any]):bat[:oid]
 address SAMPLEweighted
 comment "Returns the oids of a weighted sample (without replacement) of size s";
 
-command subweighted(b:bat[:any],p:dbl,w:bat[:dbl]):bat[:oid]
+command subweighted(b:bat[:any],p:dbl,w:bat[:any]):bat[:oid]
 address SAMPLEweighted_dbl
-comment "Returns the oids of a weighted sample (without replacement) of size = (p x count(b)), where 0 <= p <= 1.0";
-
-
-command subuniform_bitbat(b:bat[:any],s:lng):bat[:bit]
-address SAMPLEuniform_bitbat
-comment "Returns the oids of a uniform sample (without replacement) of size s";
-
-command subuniform_bitbat(b:bat[:any],p:dbl):bat[:bit]
-address SAMPLEuniform_bitbat_dbl
-comment "Returns the oids of a uniform sample (without replacement) of size = (p x count(b)), where 0 <= p <= 1.0";
-
-command subweighted_bitbat(b:bat[:any],s:lng,w:bat[:dbl]):bat[:bit]
-address SAMPLEweighted_bitbat
-comment "Returns the oids of a weighted sample (without replacement) of size s";
-
-command subweighted_bitbat(b:bat[:any],p:dbl,w:bat[:dbl]):bat[:bit]
-address SAMPLEweighted_bitbat_dbl
 comment "Returns the oids of a weighted sample (without replacement) of size = (p x count(b)), where 0 <= p <= 1.0";
 
 

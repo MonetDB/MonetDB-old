@@ -143,12 +143,6 @@ OIDTreeToBATAntiset(struct oidtreenode *node, BAT *bat, oid start, oid stop)
 			((oid *) bat->theap.base)[bat->batCount++] = noid;
 }
 
-/* inorder traversal, gives us a bit BAT */
-/*BAT *bat OIDTreeToBITBAT(struct oidtreenode)
-{
-	//TODO create this function
-}*/
-
 
 /* BATsample takes uniform samples of void headed BATs */
 BAT *
@@ -248,6 +242,8 @@ BATsample(BAT *b, BUN n)
 BAT *
 BATweightedsample(BAT *b, BUN n, BAT *w)
 {//TODO test correctness extensively
+	BAT* weights;
+	bit weights_are_cast;
 	BAT* sample;
 	oid* oids;/* points to the oids in sample */
 	dbl* w_ptr;//TODO types of w
@@ -264,30 +260,45 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 
 	ERRORcheck(w->ttype == TYPE_str || w->ttype == TYPE_void,
 					"BATsample: type of weights not castable to doubles\n", NULL);
-	ERRORcheck(w->ttype != TYPE_dbl,
-					"BATsample: type of weights must be doubles\n", NULL);//TODO types of w (want to remove this)
+
+	if(w->ttype != TYPE_dbl) {
+		weights = BATconvert(w, NULL, TYPE_dbl, 0);
+		ERRORcheck(weights == NULL, "BATsample: could not cast weights to doubles\n", NULL);
+		weights_are_cast = 1;
+	} else {
+		weights = w;
+		weights_are_cast = 0;
+	}
+	//ERRORcheck(w->ttype != TYPE_dbl,
+	//				"BATsample: type of weights must be doubles\n", NULL);//TODO types of w (want to remove this)
 	//TODO: handle NULL values in w_ptr
 
 	cnt = BATcount(b);
 
 	sample = COLnew(0, TYPE_oid, n, TRANSIENT);
 
-	if(sample == NULL)
+	if(sample == NULL) {
+		if(weights_are_cast)//if weights where converted, delete converted BAT
+			BBPunfix(weights->batCacheid);
 		return NULL;
-	if(n == 0)
+	}
+	if(n == 0) {
+		if(weights_are_cast)
+			BBPunfix(weights->batCacheid);
 		return sample;
+	}
 
 
 	keys = (dbl*) GDKmalloc(sizeof(dbl)*n);
 	if(keys == NULL) {
+		if(weights_are_cast)
+			BBPunfix(weights->batCacheid);
 		BBPunfix(sample->batCacheid);
 		return NULL;
 	}
 
-
-
 	oids = (oid *) Tloc(sample, 0);
-	w_ptr = (dbl*) Tloc(w, 0);
+	w_ptr = (dbl*) Tloc(weights, 0);
 
 	if(!mt_rng) {
 		mt_rng = mtwist_new();
@@ -303,13 +314,25 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 	for(j=0; i < n && j < cnt; j++) {
 		if(w_ptr[j] == 0.0)
 			continue;
+		if(w_ptr[j] < 0.0) {
+			BBPunfix(sample->batCacheid);
+			GDKfree(keys);
+			if(weights_are_cast)
+				BBPunfix(weights->batCacheid);
+			GDKerror("BATsample: w contains negative weights\n");
+			return NULL;
+		}
 		oids[i] = (oid)(j+minoid);
 		keys[i] = pow(mtwist_drand(mt_rng),1.0/w_ptr[j]);//TODO cast 1.0 to dbl?
 		i++;
 	}
-	if(i < n) {/* not enough non-zero weights: cannot take sample */
+
+	if(i < n) {
 		BBPunfix(sample->batCacheid);
 		GDKfree(keys);
+		if(weights_are_cast)
+			BBPunfix(weights->batCacheid);
+		GDKerror("BATsample: sample size bigger than number of non-zero weights\n");
 		return NULL;
 	}
 
@@ -339,6 +362,8 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 	}
 
 	GDKfree(keys);
+	if(weights_are_cast)
+		BBPunfix(weights->batCacheid);
 
 	sample->trevsorted = sample->batCount <= 1;
 	sample->tsorted = sample->batCount <= 1;
@@ -350,29 +375,5 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 	return sample;
 }
 
-
-
-/* BATweightedbitbat creates a bit BAT of length cnt containing n 1s and cnt-n 0s */
-/* Note that the type of w should be castable to doubles */
-/*BAT *
-BATweightedbitbat(BUN cnt, BUN n, BAT *w)
-{
-	BAT* res;
-	res = COLnew(0, TYPE_dbl, cnt, TRANSIENT);
-	BATsetcount(res, cnt);
-	
-	//Need to adjust _BATsample so it will return a bit BAT with bools denoting if element is selected
-	//Now it will rather return a subset
-	//TODO rewrite _BATsample to support this, add call to _BATsample
-	//Why did we choose for this UDF notation?
-	//+ easier to implement (no parsing addition)
-	//- slow
-	//- actually yields uglier code
-	//Why implement something like that? Hence we should choose for the other notation?
-	
-	
-	return res;
-}
-*/
 
 
