@@ -3339,13 +3339,13 @@ opt_sample:
 			  $$ = _newAtomNode( atom_float(SA, t, $2));
 			}
  |  SAMPLE param	{ $$ = $2; }
- |  SAMPLE poslng WITH WEIGHTS search_condition { 
+ |  SAMPLE poslng USING WEIGHTS search_condition { 
 		 	dlist *l = L();
 		 	append_lng(l, $2);
 		 	append_symbol(l, $5);
 		 	$$ = _symbol_create_list(SQL_WEIGHTED_SAMPLE, l);
  		}
- |  SAMPLE probdbl WITH WEIGHTS search_condition { 
+ |  SAMPLE probdbl USING WEIGHTS search_condition { 
 		 	dlist *l = L();
 		 	append_dbl(l, $2);
 		 	append_symbol(l, $5);
