@@ -1016,7 +1016,7 @@ rel_create_view(mvc *sql, sql_schema *ss, dlist *qname, dlist *column_spec, symb
 		return sql_error(sql, 02, "42000!CREATE VIEW: access denied for %s to schema ;'%s'", stack_get_string(sql, "current_user"), s->base.name);
 	} else if (query) {
 		sql_rel *sq = NULL;
-		char *q = QUERY(sql->scanner);
+		char *q = MQUERY(sql->scanner);
 
 		if (query->token == SQL_SELECT) {
 			SelectNode *sn = (SelectNode *) query;

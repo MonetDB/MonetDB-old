@@ -282,14 +282,16 @@ typedef struct sql_arg {
 #define F_UNION 5
 #define F_ANALYTIC 6
 #define F_LOADER 7
+#define F_CONTINUOUS_QUERY 8
 
 #define IS_FUNC(f) (f->type == F_FUNC)
-#define IS_PROC(f) (f->type == F_PROC)
+#define IS_PROC(f) (f->type == F_PROC || f->type == F_CONTINUOUS_QUERY) /* To be safe */
 #define IS_AGGR(f) (f->type == F_AGGR)
 #define IS_FILT(f) (f->type == F_FILT)
 #define IS_UNION(f) (f->type == F_UNION)
 #define IS_ANALYTIC(f) (f->type == F_ANALYTIC)
 #define IS_LOADER(f) (f->type == F_LOADER)
+#define IS_CONTINUOUS_QUERY(f) (f->type == F_CONTINUOUS_QUERY)
 
 #define FUNC_LANG_INT 0	/* internal */
 #define FUNC_LANG_MAL 1 /* create sql external mod.func */

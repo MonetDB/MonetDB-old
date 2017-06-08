@@ -16,7 +16,7 @@ returns table(
 	progress int,
 	status string,
 	tag oid,
-	query string
+	"query" string
 )
 external name sql.sysmon_queue;
 

@@ -14,7 +14,7 @@ create function sys.optimizer_stats ()
 -- The SQL query cache returns a table with the query plans kept
 
 create function sys.queryCache()
-	returns table (query string, count int)
+	returns table ("query" string, count int)
 	external name sql.dump_cache;
 
 -- Trace the SQL input

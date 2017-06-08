@@ -37,7 +37,7 @@ struct scanner {
 				 * the scanner */
 };
 
-#define QUERY(scanner) (scanner.rs->buf+scanner.rs->pos)
+#define MQUERY(scanner) (scanner.rs->buf+scanner.rs->pos)
 
 extern char *query_cleaned(const char *query);
 extern void scanner_init(struct scanner *s, bstream *rs, stream *ws);

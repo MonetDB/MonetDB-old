@@ -64,6 +64,7 @@ sql5_export CQnode pnet[MAXCQ];
 sql5_export int pnettop;
 sql5_export MT_Lock ttrLock;
 
+sql5_export str CQregisterInternal(Client cntxt, str modnme, str fcnnme);
 sql5_export str CQregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str CQresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str CQpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

@@ -416,7 +416,7 @@ IOTprocedureStmt(Client cntxt, MalBlkPtr mb, str schema, str nme)
     throw(SQL, "cquery.register", "SQL procedure missing");
 }
 
-str
+/*str
 CQregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int i;
@@ -495,6 +495,94 @@ CQregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( pnettop == 0)
 		pnstatus = CQSTOP;
 	return msg;
+}*/
+
+str
+CQregisterInternal(Client cntxt, str modnme, str fcnnme)
+{
+    int i;
+    InstrPtr sig,q;
+    str msg = MAL_SUCCEED;
+    MalBlkPtr mb, nmb;
+	Module scope;
+	Symbol s = NULL;
+    char buf[IDLENGTH];
+
+	scope = findModule(cntxt->nspace, putName(modnme));
+	if (scope)
+		s = findSymbolInModule(scope, putName(fcnnme));
+
+	if (s == NULL)
+		throw(MAL, "cquery.register", "Could not find SQL procedure");
+
+    if (pnettop == MAXCQ)
+        GDKerror("cquery.register:Too many transitions");
+
+    mb = s->def;
+    sig = getInstrPtr(mb,0);
+    i = CQlocate(getModuleId(sig), getFunctionId(sig));
+    if (i != pnettop)
+        throw(MAL,"cquery.register","Duplicate registration of cquery");
+
+#ifdef DEBUG_CQUERY
+    fprintf(stderr, "#cquery register %s.%s\n", getModuleId(sig),getFunctionId(sig));
+	fprintFunction(stderr,mb,0,LIST_MAL_ALL);
+#endif
+    memset((void*) (pnet+pnettop), 0, sizeof(CQnode));
+
+    snprintf(buf,IDLENGTH,"%s_%s",modnme,fcnnme);
+    s = newFunction(userRef, putName(buf), FUNCTIONsymbol);
+    nmb = s->def;
+    setArgType(nmb, nmb->stmt[0],0, TYPE_void);
+    (void) newStmt(nmb, sqlRef, transactionRef);
+    (void) newStmt(nmb, getModuleId(sig),getFunctionId(sig));
+    q = newStmt(nmb, sqlRef, commitRef);
+    setArgType(nmb,q, 0, TYPE_void);
+    pushEndInstruction(nmb);
+    chkProgram(cntxt->fdout, cntxt->nspace, nmb);
+#ifdef DEBUG_CQUERY
+    fprintFunction(stderr, nmb, 0, LIST_MAL_ALL);
+#endif
+
+    MT_lock_set(&ttrLock);
+    if( CQlocate(getModuleId(sig), getFunctionId(sig)) != pnettop){
+        freeSymbol(s);
+        throw(MAL,"cquery.register","Duplicate registration of cquery");
+    }
+    pnet[pnettop].mod = GDKstrdup(modnme);
+    pnet[pnettop].fcn = GDKstrdup(fcnnme);
+    pnet[pnettop].mb = nmb;
+    pnet[pnettop].stk = prepareMALstack(nmb, nmb->vsize);
+
+    pnet[pnettop].cycles = int_nil;
+    pnet[pnettop].beats = lng_nil;
+    pnet[pnettop].run  = lng_nil;
+    pnet[pnettop].seen = *timestamp_nil;
+    pnet[pnettop].status = CQPAUSE;
+    pnettop++;
+
+    msg = CQanalysis(cntxt, mb, pnettop-1);
+    MT_lock_unset(&ttrLock);
+    if( msg != MAL_SUCCEED)
+        // restore the entry
+        CQfree(pnettop);
+    if( pnettop == 0)
+        pnstatus = CQSTOP;
+    return msg;
+}
+
+str
+CQregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    str msg = MAL_SUCCEED;
+    str modnme = *getArgReference_str(stk, pci, 1);
+    str fcnnme = *getArgReference_str(stk, pci, 2);
+
+    msg = IOTprocedureStmt(cntxt, mb, modnme, fcnnme);
+    if( msg)
+        return msg;
+
+    return CQregisterInternal(cntxt, modnme, fcnnme);
 }
 
 str

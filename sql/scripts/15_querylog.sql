@@ -14,7 +14,7 @@ returns table(
 	id oid,
 	owner string,
 	defined timestamp,
-	query string,
+	"query" string,
 	pipe string,
 	"plan" string,		-- Name of MAL plan
 	mal int,		-- size of MAL plan

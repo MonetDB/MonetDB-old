@@ -588,7 +588,7 @@ SQLCODE SQLERROR UNDER WHENEVER
 %token TEMP TEMPORARY STREAM MERGE REMOTE REPLICA
 %token<sval> ASC DESC AUTHORIZATION
 %token CHECK CONSTRAINT CREATE
-%token TYPE PROCEDURE FUNCTION sqlLOADER AGGREGATE RETURNS EXTERNAL sqlNAME DECLARE
+%token TYPE PROCEDURE FUNCTION CONTINUOUS QUERY sqlLOADER AGGREGATE RETURNS EXTERNAL sqlNAME DECLARE
 %token CALL LANGUAGE 
 %token ANALYZE MINMAX SQL_EXPLAIN SQL_PLAN SQL_DEBUG SQL_TRACE PREPARE EXECUTE
 %token DEFAULT DISTINCT DROP
@@ -1969,6 +1969,19 @@ func_def:
 				append_int(f, FUNC_LANG_SQL);
 				append_int(f, $1);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
+  |	 create_or_replace CONTINUOUS QUERY qname
+	'(' opt_paramlist ')'
+    routine_body
+			{ dlist *f = L();
+				append_list(f, $4);                /* continuous query name */
+				append_list(f, $6);                /* no parameters for now :( */
+				append_symbol(f, NULL);            /* no result */
+				append_list(f, NULL);              /* no external name */
+				append_list(f, $8);                /* continuous query body */
+				append_int(f, F_CONTINUOUS_QUERY); /* continuous query identifier */
+				append_int(f, FUNC_LANG_SQL);      /* for now only SQL */
+				append_int(f, $1);                 /* create or replace feature */
+			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
   |	create_or_replace sqlLOADER qname
 	'(' opt_paramlist ')'
     LANGUAGE IDENT function_body { 
@@ -1980,8 +1993,11 @@ func_def:
             {
                 lang = FUNC_LANG_PY;
             }
-			else
-				yyerror(m, sql_message("Language name P(ython) expected, received '%c'", l));
+			else {
+				char *msg = sql_message("Language name P(ython) expected, received '%c'", l);
+				yyerror(m, msg);
+				_DELETE(msg);
+			}
 
 			append_list(f, $3);
 			append_list(f, $5);
@@ -6123,11 +6139,11 @@ int sqlerror(mvc * c, const char *err)
 			(void)sql_error(c, 4,
 					"!%s%s: %s in \"%.80s\"\n",
 					sqlstate, err, c->scanner.errstr,
-					QUERY(c->scanner));
+					MQUERY(c->scanner));
 	} else
 		(void)sql_error(c, 4,
 				"!%s%s in: \"%.80s\"\n",
-				sqlstate, err, QUERY(c->scanner));
+				sqlstate, err, MQUERY(c->scanner));
 	return 1;
 }
 

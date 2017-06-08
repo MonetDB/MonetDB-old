@@ -763,16 +763,35 @@ rel_create_func(mvc *sql, dlist *qname, dlist *params, symbol *res, dlist *ext_n
 	bit vararg = FALSE;
 
 	char is_table = (res && res->token == SQL_TABLE);
-	char is_aggr = (type == F_AGGR);
-	char is_func = (type != F_PROC);
-	char is_loader = (type == F_LOADER);
+	char is_func = (type != F_PROC && type != F_CONTINUOUS_QUERY);
 
-	char *F = is_loader?"LOADER":(is_aggr?"AGGREGATE":(is_func?"FUNCTION":"PROCEDURE"));
-	char *fn = is_loader?"loader":(is_aggr ? "aggregate" : (is_func ? "function" : "procedure"));
-	char *KF = type==F_FILT?"FILTER ": type==F_UNION?"UNION ": "";
-	char *kf = type == F_FILT ? "filter " : type == F_UNION ? "union " : "";
+	char *F, *fn;
+	char *KF = (type == F_FILT) ? "FILTER " : (type == F_UNION) ? "UNION " : "";
+	char *kf = (type == F_FILT) ? "filter " : (type == F_UNION) ? "union " : "";
 
-	assert(res || type == F_PROC || type == F_FILT || type == F_LOADER);
+	assert(res || type == F_PROC || type == F_FILT || type == F_LOADER || type == F_CONTINUOUS_QUERY);
+
+	switch (type) {
+		case F_PROC:
+			F = "PROCEDURE";
+			fn = "procedure";
+			break;
+		case F_AGGR:
+			F = "AGGREGATE";
+			fn = "aggregate";
+			break;
+		case F_LOADER:
+			F = "LOADER";
+			fn = "loader";
+			break;
+		case F_CONTINUOUS_QUERY:
+			F = "CONTINUOUS QUERY";
+			fn = "continuous query";
+			break;
+		default:
+			F = "FUNCTION";
+			fn = "function";
+	}
 
 	if (is_table)
 		type = F_UNION;
@@ -831,7 +850,7 @@ rel_create_func(mvc *sql, dlist *qname, dlist *params, symbol *res, dlist *ext_n
 				"for user '%s' in schema '%s'", KF, F,
 				stack_get_string(sql, "current_user"), s->base.name);
 	} else {
-		char *q = QUERY(sql->scanner);
+		char *q = MQUERY(sql->scanner);
 		list *l = NULL;
 
 	 	if (params) {
@@ -935,6 +954,13 @@ rel_create_func(mvc *sql, dlist *qname, dlist *params, symbol *res, dlist *ext_n
 			}
 		}
 	}
+	/*if(create && f->type == F_CONTINUOUS_QUERY) {
+		Client cntxt = MCgetClient(sql->clientid);
+		char *err = CQregisterInternal(cntxt, (str) sname, (str) fname);
+		if (err != NULL) {
+			return sql_error(sql, 01, "CREATE %s%s: continuous query register error: %s", KF, F, err);
+		}
+	}*/
 	return rel_create_function(sql->sa, s->base.name, f);
 }
 
@@ -965,7 +991,7 @@ resolve_func( mvc *sql, sql_schema *s, const char *name, dlist *typelist, int ty
 	sql_func *func = NULL;
 	list *list_func = NULL, *type_list = NULL;
 	char is_aggr = (type == F_AGGR);
-	char is_func = (type != F_PROC && type != F_LOADER);
+	char is_func = (type != F_PROC && type != F_LOADER && type != F_CONTINUOUS_QUERY);
 	char *F = is_aggr?"AGGREGATE":(is_func?"FUNCTION":"PROCEDURE");
 	char *f = is_aggr?"aggregate":(is_func?"function":"procedure");
 	char *KF = type==F_FILT?"FILTER ": type==F_UNION?"UNION ": "";
@@ -1047,7 +1073,7 @@ rel_drop_func(mvc *sql, dlist *qname, dlist *typelist, int drop_action, int type
 	sql_func *func = NULL;
 
 	char is_aggr = (type == F_AGGR);
-	char is_func = (type != F_PROC);
+	char is_func = (type != F_PROC && type != F_CONTINUOUS_QUERY);
 	char *F = is_aggr?"AGGREGATE":(is_func?"FUNCTION":"PROCEDURE");
 	char *KF = type==F_FILT?"FILTER ": type==F_UNION?"UNION ": "";
 
@@ -1076,7 +1102,7 @@ rel_drop_all_func(mvc *sql, dlist *qname, int drop_action, int type)
 	list * list_func = NULL; 
 
 	char is_aggr = (type == F_AGGR);
-	char is_func = (type != F_PROC);
+	char is_func = (type != F_PROC && type != F_CONTINUOUS_QUERY);
 	char *F = is_aggr?"AGGREGATE":(is_func?"FUNCTION":"PROCEDURE");
 	char *f = is_aggr?"aggregate":(is_func?"function":"procedure");
 	char *KF = type==F_FILT?"FILTER ": type==F_UNION?"UNION ": "";
@@ -1181,7 +1207,7 @@ create_trigger(mvc *sql, dlist *qname, int time, symbol *trigger_event, dlist *t
 		int event = (trigger_event->token == SQL_INSERT)?0:
 			    (trigger_event->token == SQL_DELETE)?1:2;
 		int orientation = triggered_action->h->data.i_val;
-		char *q = query_cleaned(QUERY(sql->scanner));
+		char *q = query_cleaned(MQUERY(sql->scanner));
 
 		assert(triggered_action->h->type == type_int);
 		r = rel_create_trigger(sql, t->s->base.name, t->base.name, triggername, time, orientation, event, old_name, new_name, condition, q);

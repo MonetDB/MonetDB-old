@@ -18,6 +18,7 @@
 #include "sql_scenario.h"
 #include "sql_mvc.h"
 #include "sql_qc.h"
+#include "sql_cquery.h"
 #include "sql_optimizer.h"
 #include "mal_namespace.h"
 #include "opt_prelude.h"
@@ -446,12 +447,27 @@ static str
 drop_func(mvc *sql, char *sname, char *name, int fid, int type, int action)
 {
 	sql_schema *s = NULL;
-	char is_aggr = (type == F_AGGR);
-	char is_func = (type != F_PROC);
-	char *F = is_aggr ? "AGGREGATE" : (is_func ? "FUNCTION" : "PROCEDURE");
-	char *f = is_aggr ? "aggregate" : (is_func ? "function" : "procedure");
+	char *F, *f;
 	char *KF = type == F_FILT ? "FILTER " : type == F_UNION ? "UNION " : "";
 	char *kf = type == F_FILT ? "filter " : type == F_UNION ? "union " : "";
+
+	switch (type) {
+		case F_AGGR:
+			F = "AGGREGATE";
+			f = "aggregate";
+			break;
+		case F_PROC:
+			F = "PROCEDURE";
+			f = "procedure";
+			break;
+		case F_CONTINUOUS_QUERY:
+			F = "CONTINUOUS QUERY";
+			f = "continuous query";
+			break;
+		default:
+			F = "FUNCTION";
+			f = "function";
+	}
 
 	if (sname && !(s = mvc_bind_schema(sql, sname)))
 		return sql_message("3F000!DROP %s%s: no such schema '%s'", KF, F, sname);
@@ -497,12 +513,24 @@ create_func(mvc *sql, char *sname, char *fname, sql_func *f)
 {
 	sql_func *nf;
 	sql_schema *s = NULL;
-	char is_aggr = (f->type == F_AGGR);
-	char is_func = (f->type != F_PROC);
-	char *F = is_aggr ? "AGGREGATE" : (is_func ? "FUNCTION" : "PROCEDURE");
-	char *KF = f->type == F_FILT ? "FILTER " : f->type == F_UNION ? "UNION " : "";
+	char *F, *KF = f->type == F_FILT ? "FILTER " : f->type == F_UNION ? "UNION " : "";
 
-	(void)fname;
+	(void) fname;
+
+	switch (f->type) {
+		case F_AGGR:
+			F = "AGGREGATE";
+			break;
+		case F_PROC:
+			F = "PROCEDURE";
+			break;
+		case F_CONTINUOUS_QUERY:
+			F = "CONTINUOUS QUERY";
+			break;
+		default:
+			F = "FUNCTION";
+	}
+
 	if (sname && !(s = mvc_bind_schema(sql, sname)))
 		return sql_message("3F000!CREATE %s%s: no such schema '%s'", KF, F, sname);
 	if (!s)
@@ -545,6 +573,13 @@ create_func(mvc *sql, char *sname, char *fname, sql_func *f)
 	} else if (nf->lang == FUNC_LANG_MAL) {
 		if (!backend_resolve_function(sql, nf))
 			return sql_message("3F000!CREATE %s%s: external name %s.%s not bound", KF, F, nf->mod, nf->base.name);
+	}
+	if(f->type == F_CONTINUOUS_QUERY) {
+		Client cntxt = MCgetClient(sql->clientid);
+		char *err = CQregisterInternal(cntxt, (str) sname, f->base.name);
+		if (err != NULL) {
+			return sql_message("3F000!CREATE %s%s: continuous query register error: %s", KF, F, err);
+		}
 	}
 	return MAL_SUCCEED;
 }

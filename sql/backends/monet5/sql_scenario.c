@@ -1113,7 +1113,7 @@ SQLparser(Client c)
 		}
 
 		if ((!caching(m) || !cachable(m, r)) && m->emode != m_prepare) {
-			char *q = query_cleaned(QUERY(m->scanner));
+			char *q = query_cleaned(MQUERY(m->scanner));
 
 			/* Query template should not be cached */
 			scanner_query_processed(&(m->scanner));
@@ -1128,7 +1128,7 @@ SQLparser(Client c)
 			/* Add the query tree to the SQL query cache
 			 * and bake a MAL program for it.
 			 */
-			char *q = query_cleaned(QUERY(m->scanner));
+			char *q = query_cleaned(MQUERY(m->scanner));
 			char qname[IDLENGTH];
 			(void) snprintf(qname, IDLENGTH, "%c%d_%d", (m->emode == m_prepare?'p':'s'), m->qc->id++, m->qc->clientid);
 
