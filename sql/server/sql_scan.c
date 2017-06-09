@@ -339,7 +339,6 @@ scanner_init_keywords(void)
 	keywords_insert("TYPE", TYPE);
 	keywords_insert("PROCEDURE", PROCEDURE);
     keywords_insert("CONTINUOUS", CONTINUOUS);
-	keywords_insert("QUERY", QUERY);
 	keywords_insert("FUNCTION", FUNCTION);
 	keywords_insert("LOADER", sqlLOADER);
 	keywords_insert("REPLACE", REPLACE);
