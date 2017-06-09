@@ -282,16 +282,16 @@ typedef struct sql_arg {
 #define F_UNION 5
 #define F_ANALYTIC 6
 #define F_LOADER 7
-#define F_CONTINUOUS_QUERY 8
+#define F_CONTINUOUS_PROCEDURE 8
 
 #define IS_FUNC(f) (f->type == F_FUNC)
-#define IS_PROC(f) (f->type == F_PROC || f->type == F_CONTINUOUS_QUERY) /* To be safe */
+#define IS_PROC(f) (f->type == F_PROC || f->type == F_CONTINUOUS_PROCEDURE) /* To be safe */
 #define IS_AGGR(f) (f->type == F_AGGR)
 #define IS_FILT(f) (f->type == F_FILT)
 #define IS_UNION(f) (f->type == F_UNION)
 #define IS_ANALYTIC(f) (f->type == F_ANALYTIC)
 #define IS_LOADER(f) (f->type == F_LOADER)
-#define IS_CONTINUOUS_QUERY(f) (f->type == F_CONTINUOUS_QUERY)
+#define IS_CONTINUOUS_QUERY(f) (f->type == F_CONTINUOUS_PROCEDURE)
 
 #define FUNC_LANG_INT 0	/* internal */
 #define FUNC_LANG_MAL 1 /* create sql external mod.func */
@@ -308,6 +308,10 @@ typedef struct sql_arg {
 #define FUNC_LANG_MAP_PY3  11 /* create .. language PYTHON3_MAP */
 
 #define LANG_EXT(l)  (l>FUNC_LANG_SQL)
+
+#define START_CONTINUOUS_PROCEDURE 1 /* this might stay here I think... */
+#define PAUSE_CONTINUOUS_PROCEDURE 2
+#define STOP_CONTINUOUS_PROCEDURE 3
 
 typedef struct sql_func {
 	sql_base base;

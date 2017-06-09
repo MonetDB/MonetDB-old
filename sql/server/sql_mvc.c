@@ -1312,6 +1312,15 @@ mvc_access(mvc *m, sql_table *t, sht access)
 	return sql_trans_alter_access(m->session->tr, t, access);
 }
 
+void
+mvc_continuous_procedure(mvc *m, sql_schema *s, sql_func *f, int action)
+{
+	if (mvc_debug)
+		fprintf(stderr, "#mvc_continuous_procedure %s %s\n", s->base.name, f->base.name);
+
+	sql_trans_continuous_procedure(m->session->tr, s, f->base.id, action);
+}
+
 int 
 mvc_is_sorted(mvc *m, sql_column *col)
 {

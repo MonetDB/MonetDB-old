@@ -147,6 +147,10 @@ pattern drop_trigger(sname:str,nme:str )
 address SQLdrop_trigger 
 comment "Catalog operation drop_trigger";
 
+pattern continuous_procedure(sname:str, nme:str, action:int)
+address SQLcontinuous_procedure
+comment "Catalog operation continuous_procedure";
+
 pattern alter_add_table( sname:str, mtnme:str, psnme:str, ptnme:str, action:int) 
 address SQLalter_add_table 
 comment "Catalog operation alter_add_table";

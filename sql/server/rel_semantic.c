@@ -158,6 +158,9 @@ rel_semantic(mvc *sql, symbol *s)
 	case SQL_DROP_TRIGGER:
 
 	case SQL_ANALYZE:
+	case SQL_START_CONTINUOUS_PROCEDURE:
+	case SQL_PAUSE_CONTINUOUS_PROCEDURE:
+	case SQL_STOP_CONTINUOUS_PROCEDURE:
 		return rel_psm(sql, s);
 
 	case SQL_INSERT:

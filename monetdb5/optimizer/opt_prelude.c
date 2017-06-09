@@ -114,6 +114,7 @@ str drop_userRef;
 str drop_indexRef;
 str drop_functionRef;
 str drop_triggerRef;
+str continuous_procedureRef;
 str subdiffRef;
 str diffRef;
 str subinterRef;
@@ -411,6 +412,7 @@ void optimizerInit(void)
 	drop_indexRef = putName("drop_index");
 	drop_functionRef = putName("drop_function");
 	drop_triggerRef = putName("drop_trigger");
+	continuous_procedureRef = putName("continuous_procedure");
 	mergecandRef= putName("mergecand");
 	mergepackRef= putName("mergepack");
 	intersectcandRef= putName("intersectcand");

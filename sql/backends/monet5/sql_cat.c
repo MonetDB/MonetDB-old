@@ -460,9 +460,9 @@ drop_func(mvc *sql, char *sname, char *name, int fid, int type, int action)
 			F = "PROCEDURE";
 			f = "procedure";
 			break;
-		case F_CONTINUOUS_QUERY:
-			F = "CONTINUOUS QUERY";
-			f = "continuous query";
+		case F_CONTINUOUS_PROCEDURE:
+			F = "CONTINUOUS PROCEDURE";
+			f = "continuous procedure";
 			break;
 		default:
 			F = "FUNCTION";
@@ -524,8 +524,8 @@ create_func(mvc *sql, char *sname, char *fname, sql_func *f)
 		case F_PROC:
 			F = "PROCEDURE";
 			break;
-		case F_CONTINUOUS_QUERY:
-			F = "CONTINUOUS QUERY";
+		case F_CONTINUOUS_PROCEDURE:
+			F = "CONTINUOUS PROCEDURE";
 			break;
 		default:
 			F = "FUNCTION";
@@ -573,13 +573,6 @@ create_func(mvc *sql, char *sname, char *fname, sql_func *f)
 	} else if (nf->lang == FUNC_LANG_MAL) {
 		if (!backend_resolve_function(sql, nf))
 			return sql_message("3F000!CREATE %s%s: external name %s.%s not bound", KF, F, nf->mod, nf->base.name);
-	}
-	if(f->type == F_CONTINUOUS_QUERY) {
-		Client cntxt = MCgetClient(sql->clientid);
-		char *err = CQregisterInternal(cntxt, (str) sname, f->base.name);
-		if (err != NULL) {
-			return sql_message("3F000!CREATE %s%s: continuous query register error: %s", KF, F, err);
-		}
 	}
 	return MAL_SUCCEED;
 }
@@ -710,6 +703,45 @@ alter_table(Client cntxt, mvc *sql, char *sname, sql_table *t)
 			sql_key *k = n->data;
 			mvc_copy_key(sql, nt, k);
 		}
+	}
+	return MAL_SUCCEED;
+}
+
+static str
+continuous_procedure(mvc *sql, char *sname, char *cpname, int fid, int action)
+{
+	sql_schema *s = NULL;
+	char *F;
+
+	switch (action) {
+		case START_CONTINUOUS_PROCEDURE:
+			F = "START CONTINUOUS PROCEDURE";
+			break;
+		case PAUSE_CONTINUOUS_PROCEDURE:
+			F = "PAUSE CONTINUOUS PROCEDURE";
+			break;
+		case STOP_CONTINUOUS_PROCEDURE:
+			F = "STOP CONTINUOUS PROCEDURE";
+			break;
+	}
+
+	if (sname && !(s = mvc_bind_schema(sql, sname)))
+		return sql_message("3F000!%s CONTINUOUS PROCEDURE: no such schema '%s'", F, sname);
+	if (!s)
+		s = cur_schema(sql);
+	if (fid >= 0) {
+		node *n = find_sql_func_node(s, fid);
+		if (n) {
+			sql_func *func = n->data;
+
+			if (!mvc_schema_privs(sql, s)) {
+				return sql_message("%s: access denied for %s to schema ;'%s'", F, stack_get_string(sql, "current_user"), s->base.name);
+			}
+
+			mvc_continuous_procedure(sql, s, func, action);
+		}
+	} else {
+		return sql_message("3F000!%s CONTINUOUS PROCEDURE: could not find continuous procedure %s in the catalog", F, cpname);
 	}
 	return MAL_SUCCEED;
 }
@@ -1276,6 +1308,20 @@ SQLdrop_trigger(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	initcontext();
 	msg = drop_trigger(sql, sname, triggername);
+	return msg;
+}
+
+str
+SQLcontinuous_procedure(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{	mvc *sql = NULL;
+	str msg;
+	str sname = *getArgReference_str(stk, pci, 1);
+	char *cpname = *getArgReference_str(stk, pci, 2);
+	int fid = *getArgReference_int(stk, pci, 3);
+	int action = *getArgReference_int(stk, pci, 4);
+
+	initcontext();
+	msg = continuous_procedure(sql, sname, cpname, fid, action);
 	return msg;
 }
 

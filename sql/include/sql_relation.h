@@ -121,6 +121,8 @@ typedef struct expression {
 #define DDL_CREATE_TRIGGER         43 
 #define DDL_DROP_TRIGGER           44 
 
+#define DDL_CONTINUOUS_PROCEDURE   45
+
 #define DDL_GRANT_ROLES            51
 #define DDL_REVOKE_ROLES           52
 #define DDL_GRANT 	               53

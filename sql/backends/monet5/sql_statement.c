@@ -2159,6 +2159,7 @@ stmt_catalog(backend *be, int type, stmt *args)
 	case DDL_CREATE_FUNCTION:	q = newStmt(mb, sqlcatalogRef, create_functionRef); break;
 	case DDL_CREATE_TRIGGER:	q = newStmt(mb, sqlcatalogRef, create_triggerRef); break;
 	case DDL_DROP_TRIGGER:	q = newStmt(mb, sqlcatalogRef, drop_triggerRef); break;
+	case DDL_CONTINUOUS_PROCEDURE:	q = newStmt(mb, sqlcatalogRef, continuous_procedureRef); break;
 	case DDL_ALTER_TABLE_ADD_TABLE:	q = newStmt(mb, sqlcatalogRef, alter_add_tableRef); break;
 	case DDL_ALTER_TABLE_DEL_TABLE:	q = newStmt(mb, sqlcatalogRef, alter_del_tableRef); break;
 	case DDL_ALTER_TABLE_SET_ACCESS:q = newStmt(mb, sqlcatalogRef, alter_set_tableRef); break;

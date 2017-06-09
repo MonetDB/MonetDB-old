@@ -181,6 +181,7 @@ int yydebug=1;
 	select_statement_single_row
 	call_statement
 	call_procedure_statement
+	continuous_procedure_statement
 	routine_invocation
 	return_statement
 	return_value
@@ -533,6 +534,7 @@ int yydebug=1;
 %token <sval> COMMIT ROLLBACK SAVEPOINT RELEASE WORK CHAIN NO PRESERVE ROWS
 %token  START TRANSACTION READ WRITE ONLY ISOLATION LEVEL
 %token  UNCOMMITTED COMMITTED sqlREPEATABLE SERIALIZABLE DIAGNOSTICS sqlSIZE STORAGE
+%token  PAUSE STOP
 
 %token <sval> ASYMMETRIC SYMMETRIC ORDER ORDERED BY IMPRINTS
 %token <operation> EXISTS ESCAPE HAVING sqlGROUP sqlNULL
@@ -739,6 +741,7 @@ sql:
 		append_int(l, $5);
 		$$ = _symbol_create_list( SQL_ANALYZE, l); }
  |  call_procedure_statement
+ |  continuous_procedure_statement
  ;
 
 opt_minmax:
@@ -1973,14 +1976,14 @@ func_def:
 	'(' opt_paramlist ')'
     routine_body
 			{ dlist *f = L();
-				append_list(f, $4);                /* continuous query name */
-				append_list(f, $6);                /* no parameters for now :( */
-				append_symbol(f, NULL);            /* no result */
-				append_list(f, NULL);              /* no external name */
-				append_list(f, $8);                /* continuous query body */
-				append_int(f, F_CONTINUOUS_QUERY); /* continuous query identifier */
-				append_int(f, FUNC_LANG_SQL);      /* for now only SQL */
-				append_int(f, $1);                 /* create or replace feature */
+				append_list(f, $4);                    /* continuous query name */
+				append_list(f, $6);                    /* no parameters for now :( */
+				append_symbol(f, NULL);                /* no result */
+				append_list(f, NULL);                  /* no external name */
+				append_list(f, $8);                    /* continuous query body */
+				append_int(f, F_CONTINUOUS_PROCEDURE); /* continuous query identifier */
+				append_int(f, FUNC_LANG_SQL);          /* for now only SQL */
+				append_int(f, $1);                     /* create or replace feature */
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
   |	create_or_replace sqlLOADER qname
 	'(' opt_paramlist ')'
@@ -2097,6 +2100,21 @@ call_statement:
 call_procedure_statement:
 	CALL func_ref		 	{$$ = _symbol_create_symbol(SQL_CALL, $2);}
     ;
+
+continuous_procedure_statement:
+    START CONTINUOUS PROCEDURE qname
+		{ dlist *l = L();
+		  append_list(l, $4);
+		  $$ = _symbol_create_list( SQL_START_CONTINUOUS_PROCEDURE, l ); }
+   | PAUSE CONTINUOUS PROCEDURE qname
+		{ dlist *l = L();
+		  append_list(l, $4);
+		  $$ = _symbol_create_list( SQL_PAUSE_CONTINUOUS_PROCEDURE, l ); }
+   | STOP CONTINUOUS PROCEDURE qname
+		{ dlist *l = L();
+		  append_list(l, $4);
+		  $$ = _symbol_create_list( SQL_STOP_CONTINUOUS_PROCEDURE, l ); }
+   ;
 
 routine_invocation: 
 	routine_name '(' argument_list ')'
