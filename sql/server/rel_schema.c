@@ -293,6 +293,10 @@ column_constraint_type(mvc *sql, char *name, symbol *s, sql_schema *ss, sql_tabl
 		key_type kt = (s->token == SQL_UNIQUE) ? ukey : pkey;
 		sql_key *k;
 
+		if ( isStream(t)){
+			(void) sql_error(sql, 02, "42000!A stream table does not support a key constraint\n");
+			return res;
+		}
 		if (kt == pkey && t->pkey) {
 			(void) sql_error(sql, 02, "42000!CONSTRAINT PRIMARY KEY: a table can have only one PRIMARY KEY\n");
 			return res;
@@ -333,6 +337,10 @@ column_constraint_type(mvc *sql, char *name, symbol *s, sql_schema *ss, sql_tabl
 		rt = _bind_table(t, ss, rs, rtname);
 		if (!rt) {
 			(void) sql_error(sql, 02, "42S02!CONSTRAINT FOREIGN KEY: no such table '%s'\n", rtname);
+			return res;
+		}
+		if ( isStream(rt)){
+			(void) sql_error(sql, 02, "42000!A stream table does not support a foreign key constraint\n");
 			return res;
 		}
 		if (name && mvc_bind_key(sql, ss, name)) {
@@ -565,6 +573,10 @@ table_constraint_type(mvc *sql, char *name, symbol *s, sql_schema *ss, sql_table
 		dnode *nms = s->data.lval->h;
 		sql_key *k;
 
+		if ( isStream(t)){
+			(void) sql_error(sql, 02, "42000!A stream table does not support a key constraint\n");
+			return SQL_ERR;
+		}
 		if (kt == pkey && t->pkey) {
 			sql_error(sql, 02, "42000!CONSTRAINT PRIMARY KEY: a table can have only one PRIMARY KEY\n");
 			return SQL_ERR;
@@ -616,6 +628,10 @@ table_constraint(mvc *sql, symbol *s, sql_schema *ss, sql_table *t)
 		res = table_constraint_type(sql, opt_name, sym, ss, t);
 		if (opt_name != l->h->data.sval)
 			free(opt_name);
+	}
+	if ( isStream(t)){
+		(void) sql_error(sql, 02, "42000!A stream table does not support a table constraint\n");
+		return SQL_ERR;
 	}
 
 	if (res != SQL_OK) {

@@ -136,6 +136,7 @@ SQLgetSpace(mvc *m, MalBlkPtr mb, int prepare, str *alterpipe)
 				}
 			}
 		}
+
 		if (getModuleId(p) == sqlRef && (getFunctionId(p) == bindidxRef)) {
 			char *sname = getVarConstant(mb, getArg(p, 1 + p->retc)).val.sval;
 			//char *tname = getVarConstant(mb, getArg(p, 2 + p->retc)).val.sval;
@@ -148,8 +149,13 @@ SQLgetSpace(mvc *m, MalBlkPtr mb, int prepare, str *alterpipe)
 				sql_idx *i = mvc_bind_idx(m, s, idxname);
 
 				if ( i && isStream(i->t)) {
-					setModuleId(p, basketRef);
-					p->argc =5;	// ignore partition
+/* STREAM TABLES are temporary containers and not subject to primary or foreign key constraints.
+ * All related guards are removed from the plan.
+ */
+					p->argc =1;	
+					setModuleId(p,batRef);
+					setFunctionId(p,newRef);
+					p = pushType(mb, p, getArgType(mb,p,0));
 					*alterpipe= "cquery_pipe";
 				}
 
