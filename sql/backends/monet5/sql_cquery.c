@@ -703,7 +703,7 @@ CQderegisterInternal(str modnme, str fcnnme)
 
 	idx = CQlocate(modnme, fcnnme);
 	if( idx == pnettop)
-		throw(SQL,"cquery.deregister","Continuous query %s.%s not accessible\n",modnme,fcnnme);
+		throw(SQL,"cquery.deregister","Continuous procedure %s.%s not accessible\n",modnme,fcnnme);
 	return CQderegisterInternalRanges(idx, idx+1);
 }
 

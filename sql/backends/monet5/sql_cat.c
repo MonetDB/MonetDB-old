@@ -448,7 +448,7 @@ static str
 drop_func(mvc *sql, char *sname, char *name, int fid, int type, int action)
 {
 	sql_schema *s = NULL;
-	char *F, *f;
+	char *F, *f, *err;
 	char *KF = type == F_FILT ? "FILTER " : type == F_UNION ? "UNION " : "";
 	char *kf = type == F_FILT ? "filter " : type == F_UNION ? "union " : "";
 
@@ -484,6 +484,13 @@ drop_func(mvc *sql, char *sname, char *name, int fid, int type, int action)
 			}
 			if (!action && mvc_check_dependency(sql, func->base.id, !IS_PROC(func) ? FUNC_DEPENDENCY : PROC_DEPENDENCY, NULL))
 				return sql_message("DROP %s%s: there are database objects dependent on %s%s %s;", KF, F, kf, f, func->base.name);
+			//if it is a continuous procedure we must remove it first from the Petrinet
+			if(type == F_CONTINUOUS_PROCEDURE && CQlocate(sname, func->base.name)) {
+				err = CQderegisterInternal(sname, func->base.name);
+				if(err) {
+					return sql_message("DROP %s%s: internal error on %s%s %s: %s", KF, F, kf, f, func->base.name, err);
+				}
+			}
 
 			mvc_drop_func(sql, s, func, action);
 		}
@@ -501,6 +508,13 @@ drop_func(mvc *sql, char *sname, char *name, int fid, int type, int action)
 			if (!action && mvc_check_dependency(sql, func->base.id, !IS_PROC(func) ? FUNC_DEPENDENCY : PROC_DEPENDENCY, list_func)) {
 				list_destroy(list_func);
 				return sql_message("DROP %s%s: there are database objects dependent on %s%s %s;", KF, F, kf, f, func->base.name);
+			}
+			//if it is a continuous procedure we must remove it first from the Petrinet
+			if(type == F_CONTINUOUS_PROCEDURE && CQlocate(sname, func->base.name)) {
+				err = CQderegisterInternal(sname, func->base.name);
+				if(err) {
+					return sql_message("DROP %s%s: internal error on %s%s %s: %s", KF, F, kf, f, func->base.name, err);
+				}
 			}
 		}
 		mvc_drop_all_func(sql, s, list_func, action);

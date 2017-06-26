@@ -1973,14 +1973,13 @@ func_def:
 				append_int(f, $1);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
   |	 create_or_replace CONTINUOUS PROCEDURE qname
-	'(' opt_paramlist ')'
     routine_body
 			{ dlist *f = L();
 				append_list(f, $4);                    /* continuous query name */
-				append_list(f, $6);                    /* no parameters for now :( */
+				append_list(f, NULL);                  /* no parameters */
 				append_symbol(f, NULL);                /* no result */
 				append_list(f, NULL);                  /* no external name */
-				append_list(f, $8);                    /* continuous query body */
+				append_list(f, $5);                    /* continuous query body */
 				append_int(f, F_CONTINUOUS_PROCEDURE); /* continuous query identifier */
 				append_int(f, FUNC_LANG_SQL);          /* for now only SQL */
 				append_int(f, $1);                     /* create or replace feature */
@@ -2453,6 +2452,12 @@ routine_designator:
 	  append_list(l, $3 );
 	  append_int(l, F_PROC );
 	  $$ = l; }
+ |	CONTINUOUS PROCEDURE qname
+	{ dlist *l = L();
+	  append_list(l, $3 );
+	  append_list(l, NULL );
+	  append_int(l, F_CONTINUOUS_PROCEDURE );
+	  $$ = l; }
  |	sqlLOADER qname opt_typelist
 	{ dlist *l = L();
 	  append_list(l, $2 );	
@@ -2504,6 +2509,14 @@ drop_statement:
 	  append_int(l, F_PROC );
 	  append_int(l, 1 );
 	  append_int(l, $5 );
+	  $$ = _symbol_create_list( SQL_DROP_FUNC, l ); }
+ | drop ALL CONTINUOUS PROCEDURE qname drop_action
+	{ dlist *l = L();
+	  append_list(l, $5 );
+	  append_list(l, NULL );
+	  append_int(l, F_CONTINUOUS_PROCEDURE );
+	  append_int(l, 1 );
+	  append_int(l, $6 );
 	  $$ = _symbol_create_list( SQL_DROP_FUNC, l ); }
  | drop ALL sqlLOADER qname drop_action
 	{ dlist *l = L();
