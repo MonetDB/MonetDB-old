@@ -367,7 +367,7 @@ extern void sql_trans_drop_column(sql_trans *tr, sql_table *t, int id, int drop_
 extern sql_column *sql_trans_alter_null(sql_trans *tr, sql_column *col, int isnull);
 extern sql_column *sql_trans_alter_default(sql_trans *tr, sql_column *col, char *val);
 extern sql_column *sql_trans_alter_storage(sql_trans *tr, sql_column *col, char *storage);
-extern void sql_trans_continuous_procedure(sql_trans *tr, sql_schema *s, int id, int action);
+extern void sql_trans_continuous_procedure(sql_trans *tr, sql_schema *s, int id);
 extern int sql_trans_is_sorted(sql_trans *tr, sql_column *col);
 extern size_t sql_trans_dist_count(sql_trans *tr, sql_column *col);
 extern int sql_trans_ranges(sql_trans *tr, sql_column *col, void **min, void **max);

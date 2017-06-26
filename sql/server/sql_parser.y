@@ -534,7 +534,7 @@ int yydebug=1;
 %token <sval> COMMIT ROLLBACK SAVEPOINT RELEASE WORK CHAIN NO PRESERVE ROWS
 %token  START TRANSACTION READ WRITE ONLY ISOLATION LEVEL
 %token  UNCOMMITTED COMMITTED sqlREPEATABLE SERIALIZABLE DIAGNOSTICS sqlSIZE STORAGE
-%token  PAUSE STOP
+%token  INTERRUPT HALT
 
 %token <sval> ASYMMETRIC SYMMETRIC ORDER ORDERED BY IMPRINTS
 %token <operation> EXISTS ESCAPE HAVING sqlGROUP sqlNULL
@@ -2106,14 +2106,14 @@ continuous_procedure_statement:
 		{ dlist *l = L();
 		  append_list(l, $4);
 		  $$ = _symbol_create_list( SQL_START_CONTINUOUS_PROCEDURE, l ); }
-   | PAUSE CONTINUOUS PROCEDURE qname
+   | INTERRUPT CONTINUOUS PROCEDURE qname
 		{ dlist *l = L();
 		  append_list(l, $4);
-		  $$ = _symbol_create_list( SQL_PAUSE_CONTINUOUS_PROCEDURE, l ); }
-   | STOP CONTINUOUS PROCEDURE qname
+		  $$ = _symbol_create_list( SQL_INTERRUPT_CONTINUOUS_PROCEDURE, l ); }
+   | HALT CONTINUOUS PROCEDURE qname
 		{ dlist *l = L();
 		  append_list(l, $4);
-		  $$ = _symbol_create_list( SQL_STOP_CONTINUOUS_PROCEDURE, l ); }
+		  $$ = _symbol_create_list( SQL_HALT_CONTINUOUS_PROCEDURE, l ); }
    ;
 
 routine_invocation: 

@@ -983,12 +983,32 @@ resolve_func( mvc *sql, sql_schema *s, const char *name, dlist *typelist, int ty
 {
 	sql_func *func = NULL;
 	list *list_func = NULL, *type_list = NULL;
-	char is_aggr = (type == F_AGGR);
 	char is_func = (type != F_PROC && type != F_LOADER && type != F_CONTINUOUS_PROCEDURE);
-	char *F = is_aggr?"AGGREGATE":(is_func?"FUNCTION":"PROCEDURE");
-	char *f = is_aggr?"aggregate":(is_func?"function":"procedure");
 	char *KF = type==F_FILT?"FILTER ": type==F_UNION?"UNION ": "";
 	char *kf = type==F_FILT?"filter ": type==F_UNION?"union ": "";
+	char *F, *f;
+
+	switch (type) {
+		case F_PROC:
+			F = "PROCEDURE";
+			f = "procedure";
+			break;
+		case F_AGGR:
+			F = "AGGREGATE";
+			f = "aggregate";
+			break;
+		case F_LOADER:
+			F = "LOADER";
+			f = "loader";
+			break;
+		case F_CONTINUOUS_PROCEDURE:
+			F = "CONTINUOUS PROCEDURE";
+			f = "continuous procedure";
+			break;
+		default:
+			F = "FUNCTION";
+			f = "function";
+	}
 
 	if (typelist) {	
 		sql_subfunc *sub_func;
@@ -1049,7 +1069,7 @@ resolve_func( mvc *sql, sql_schema *s, const char *name, dlist *typelist, int ty
 		   (!is_func && func->res)) {
 		list_destroy(list_func);
 		list_destroy(type_list);
-		return sql_error(sql, 02, "%s %s%s: cannot drop %s '%s'", KF, F, is_func?"procedure":"function", op, name);
+		return sql_error(sql, 02, "%s %s%s: cannot drop %s '%s'", KF, F, f, op, name);
 	}
 
 	list_destroy(list_func);
@@ -1064,11 +1084,25 @@ rel_drop_func(mvc *sql, dlist *qname, dlist *typelist, int drop_action, int type
 	const char *sname = qname_schema(qname);
 	sql_schema *s = NULL;
 	sql_func *func = NULL;
-
-	char is_aggr = (type == F_AGGR);
-	char is_func = (type != F_PROC && type != F_CONTINUOUS_PROCEDURE);
-	char *F = is_aggr?"AGGREGATE":(is_func?"FUNCTION":"PROCEDURE");
 	char *KF = type==F_FILT?"FILTER ": type==F_UNION?"UNION ": "";
+	char *F;
+
+	switch (type) {
+		case F_PROC:
+			F = "PROCEDURE";
+			break;
+		case F_AGGR:
+			F = "AGGREGATE";
+			break;
+		case F_LOADER:
+			F = "LOADER";
+			break;
+		case F_CONTINUOUS_PROCEDURE:
+			F = "CONTINUOUS PROCEDURE";
+			break;
+		default:
+			F = "FUNCTION";
+    }
 
 	if (sname && !(s = mvc_bind_schema(sql, sname)))
 		return sql_error(sql, 02, "3F000!DROP %s%s: no such schema '%s'", KF, F, sname);
@@ -1094,12 +1128,31 @@ rel_drop_all_func(mvc *sql, dlist *qname, int drop_action, int type)
 	sql_schema *s = NULL;
 	list * list_func = NULL; 
 
-	char is_aggr = (type == F_AGGR);
-	char is_func = (type != F_PROC && type != F_CONTINUOUS_PROCEDURE);
-	char *F = is_aggr?"AGGREGATE":(is_func?"FUNCTION":"PROCEDURE");
-	char *f = is_aggr?"aggregate":(is_func?"function":"procedure");
 	char *KF = type==F_FILT?"FILTER ": type==F_UNION?"UNION ": "";
 	char *kf = type==F_FILT?"filter ": type==F_UNION?"union ": "";
+	char *F, *f;
+
+	switch (type) {
+		case F_PROC:
+			F = "PROCEDURE";
+			f = "procedure";
+			break;
+		case F_AGGR:
+			F = "AGGREGATE";
+			f = "aggregate";
+			break;
+		case F_LOADER:
+			F = "LOADER";
+			f = "loader";
+			break;
+		case F_CONTINUOUS_PROCEDURE:
+			F = "CONTINUOUS PROCEDURE";
+			f = "continuous procedure";
+			break;
+		default:
+			F = "FUNCTION";
+			f = "function";
+	}
 
 	if (sname && !(s = mvc_bind_schema(sql, sname)))
 		return sql_error(sql, 02, "3F000!DROP %s%s: no such schema '%s'", KF, F, sname);
@@ -1390,10 +1443,11 @@ create_table_from_loader(mvc *sql, dlist *qname, symbol *fcall)
 }
 
 static sql_rel *
-rel_change_continuous_procedure(mvc *sql, int token, dlist *qname, dlist *typelist) {
+rel_change_continuous_procedure(mvc *sql, int token, dlist *qname)
+{
+	sql_schema *s = NULL;
 	const char *sname = qname_schema(qname);
 	const char *name = qname_table(qname);
-	sql_schema *s = NULL;
 	sql_func *func = NULL;
 	sql_rel *rel = NULL;
 	list *exps = NULL;
@@ -1405,13 +1459,13 @@ rel_change_continuous_procedure(mvc *sql, int token, dlist *qname, dlist *typeli
 			F = "START CONTINUOUS PROCEDURE";
 			action = START_CONTINUOUS_PROCEDURE;
 			break;
-		case SQL_PAUSE_CONTINUOUS_PROCEDURE:
-			F = "PAUSE CONTINUOUS PROCEDURE";
-			action = PAUSE_CONTINUOUS_PROCEDURE;
+		case SQL_INTERRUPT_CONTINUOUS_PROCEDURE:
+			F = "INTERRUPT CONTINUOUS PROCEDURE";
+			action = INTERRUPT_CONTINUOUS_PROCEDURE;
 			break;
-		case SQL_STOP_CONTINUOUS_PROCEDURE:
-			F = "STOP CONTINUOUS PROCEDURE";
-			action = STOP_CONTINUOUS_PROCEDURE;
+		case SQL_HALT_CONTINUOUS_PROCEDURE:
+			F = "HALT CONTINUOUS PROCEDURE";
+			action = HALT_CONTINUOUS_PROCEDURE;
 			break;
 	}
 
@@ -1422,10 +1476,10 @@ rel_change_continuous_procedure(mvc *sql, int token, dlist *qname, dlist *typeli
 	if (!s)
 		s = cur_schema(sql);
 
-	func = resolve_func(sql, s, sname, typelist, F_CONTINUOUS_PROCEDURE, F);
+	func = resolve_func(sql, s, name, NULL, F_CONTINUOUS_PROCEDURE, F);
 	if (!func && !sname) {
 		s = tmp_schema(sql);
-		func = resolve_func(sql, s, sname, typelist, F_CONTINUOUS_PROCEDURE, F);
+		func = resolve_func(sql, s, name, NULL, F_CONTINUOUS_PROCEDURE, F);
 	}
 	if (func) {
 		rel = rel_create(sql->sa);
@@ -1529,13 +1583,12 @@ rel_psm(mvc *sql, symbol *s)
 		sql->type = Q_UPDATE;
 	} 	break;
 	case SQL_START_CONTINUOUS_PROCEDURE:
-	case SQL_PAUSE_CONTINUOUS_PROCEDURE:
-	case SQL_STOP_CONTINUOUS_PROCEDURE: {
+	case SQL_INTERRUPT_CONTINUOUS_PROCEDURE:
+	case SQL_HALT_CONTINUOUS_PROCEDURE: {
 		dlist *l = s->data.lval;
 		dlist *qname = l->h->data.lval;
-		dlist *typelist = l->h->next->data.lval;
-		ret = rel_change_continuous_procedure(sql, s->token, qname, typelist);
-		sql->type = Q_UPDATE;
+		ret = rel_change_continuous_procedure(sql, s->token, qname);
+		sql->type = Q_SCHEMA;
 	} break;
 	default:
 		return sql_error(sql, 01, "schema statement unknown symbol(" PTRFMT ")->token = %s", PTRFMTCAST s, token2string(s->token));

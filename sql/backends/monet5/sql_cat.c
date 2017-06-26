@@ -24,6 +24,7 @@
 #include "opt_prelude.h"
 #include "querylog.h"
 #include "mal_builder.h"
+#include "mal_client.h"
 #include "mal_debugger.h"
 
 #include <rel_select.h>
@@ -48,7 +49,7 @@ static char *
 SaveArgReference(MalStkPtr stk, InstrPtr pci, int arg)
 {   
     char *val = *getArgReference_str(stk, pci, arg);
-    
+
     if (val && strcmp(val, str_nil) == 0)
         val = NULL;
     return val;
@@ -712,36 +713,58 @@ continuous_procedure(mvc *sql, char *sname, char *cpname, int fid, int action)
 {
 	sql_schema *s = NULL;
 	char *F;
+	Client cntxt;
+	str petrinetResponse = MAL_SUCCEED;
 
 	switch (action) {
 		case START_CONTINUOUS_PROCEDURE:
 			F = "START CONTINUOUS PROCEDURE";
 			break;
-		case PAUSE_CONTINUOUS_PROCEDURE:
-			F = "PAUSE CONTINUOUS PROCEDURE";
+		case INTERRUPT_CONTINUOUS_PROCEDURE:
+			F = "INTERRUPT CONTINUOUS PROCEDURE";
 			break;
-		case STOP_CONTINUOUS_PROCEDURE:
-			F = "STOP CONTINUOUS PROCEDURE";
+		case HALT_CONTINUOUS_PROCEDURE:
+			F = "HALT CONTINUOUS PROCEDURE";
 			break;
 	}
 
 	if (sname && !(s = mvc_bind_schema(sql, sname)))
-		return sql_message("3F000!%s CONTINUOUS PROCEDURE: no such schema '%s'", F, sname);
+		return sql_message("3F000!%s: no such schema '%s'", F, sname);
 	if (!s)
 		s = cur_schema(sql);
 	if (fid >= 0) {
 		node *n = find_sql_func_node(s, fid);
 		if (n) {
 			sql_func *func = n->data;
-
 			if (!mvc_schema_privs(sql, s)) {
-				return sql_message("%s: access denied for %s to schema ;'%s'", F, stack_get_string(sql, "current_user"), s->base.name);
+				return sql_message("3F000!%s: access denied for %s to schema ;'%s'", F, stack_get_string(sql, "current_user"), s->base.name);
 			}
-
-			mvc_continuous_procedure(sql, s, func, action);
+			switch (action) {
+				case START_CONTINUOUS_PROCEDURE: {
+						if(!CQlocate(sname, cpname)) { //if the continuous procedure is not registered in the catalog then we register it
+							cntxt = MCgetClient(sql->clientid);
+							petrinetResponse = CQregisterInternal(cntxt, sname, cpname);
+						}
+						if(!petrinetResponse) {
+							petrinetResponse = CQresumeInternal(sname, cpname);
+						}
+					}
+					break;
+				case INTERRUPT_CONTINUOUS_PROCEDURE:
+					petrinetResponse = CQpauseInternal(sname, cpname);
+					break;
+				case HALT_CONTINUOUS_PROCEDURE:
+					petrinetResponse = CQderegisterInternal(sname, cpname);
+					break;
+			}
+			if(petrinetResponse) {
+				return sql_message("3F000!%s: internal error: %s", F, petrinetResponse);
+			} else {
+				mvc_continuous_procedure(sql, s, func);
+			}
 		}
 	} else {
-		return sql_message("3F000!%s CONTINUOUS PROCEDURE: could not find continuous procedure %s in the catalog", F, cpname);
+		return sql_message("3F000!%s: could not find continuous procedure %s in the catalog", F, cpname);
 	}
 	return MAL_SUCCEED;
 }
@@ -810,7 +833,7 @@ UPGcreate_view(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
-                                                              
+
 	osname = cur_schema(sql)->base.name;
 	mvc_set_schema(sql, sname);
 	s = sql_parse(be, sa_create(), view, 0);

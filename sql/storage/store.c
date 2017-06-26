@@ -4747,16 +4747,12 @@ sql_trans_alter_storage(sql_trans *tr, sql_column *col, char *storage)
 }
 
 void
-sql_trans_continuous_procedure(sql_trans *tr, sql_schema *s, int id, int action)
+sql_trans_continuous_procedure(sql_trans *tr, sql_schema *s, int id)
 {
 	node *n = find_sql_func_node(s, id);
 	sql_func *func = n->data;
-
-	(void) action; //I have to continue from here..
-
 	func->base.wtime = s->base.wtime = tr->wtime = tr->wstime;
 	tr->schema_updates ++;
-	cs_del(&s->funcs, n, func->base.flag);
 }
 
 int
