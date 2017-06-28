@@ -1329,6 +1329,7 @@ rel2bin_args(backend *be, sql_rel *rel, list *args)
 	case op_groupby: 
 		if (rel->r) 
 			args = exps2bin_args(be, rel->r, args);
+		/* fall through */
 	case op_project:
 	case op_select: 
 	case op_topn: 
@@ -4718,7 +4719,7 @@ rel2bin_ddl(backend *be, sql_rel *rel, list *refs)
 		sql->type = Q_TABLE;
 	} else if (rel->flag <= DDL_LIST) {
 		s = rel2bin_list(be, rel, refs);
-	} else if (rel->flag <= DDL_PSM) {
+	} else if (rel->flag == DDL_PSM) {
 		s = rel2bin_psm(be, rel);
 	} else if (rel->flag <= DDL_ALTER_SEQ) {
 		s = rel2bin_seq(be, rel, refs);
@@ -5055,7 +5056,7 @@ rel_deps(sql_allocator *sa, sql_rel *r, list *refs, list *l)
 				return rel_deps(sa, r->l, refs, l);
 			if (r->r)
 				return rel_deps(sa, r->r, refs, l);
-		} else if (r->flag <= DDL_PSM) {
+		} else if (r->flag == DDL_PSM) {
 			exps_deps(sa, r->exps, refs, l);
 		} else if (r->flag <= DDL_ALTER_SEQ) {
 			if (r->l)

@@ -1,5 +1,5 @@
 %define name MonetDB
-%define version 11.26.0
+%define version 11.28.0
 %{!?buildno: %global buildno %(date +%Y%m%d)}
 
 # groups of related archs
@@ -131,8 +131,8 @@ Vendor: MonetDB BV <info@monetdb.org>
 
 Group: Applications/Databases
 License: MPLv2.0
-URL: http://www.monetdb.org/
-Source: http://dev.monetdb.org/downloads/sources/Dec2016-SP4/%{name}-%{version}.tar.bz2
+URL: https://www.monetdb.org/
+Source: https://www.monetdb.org/downloads/sources/Dec2016-SP5/%{name}-%{version}.tar.bz2
 
 # we need systemd for the _unitdir macro to exist
 %if %{?rhel:0}%{!?rhel:1} || 0%{?rhel} >= 7
@@ -311,6 +311,11 @@ MonetDB, you will very likely need this package.
 Summary: MonetDB - Monet Database Management System Client Programs
 Group: Applications/Databases
 Requires: %{name}-client%{?_isa} = %{version}-%{release}
+%if (0%{?fedora} >= 22)
+# tomograph executes these two:
+Recommends: /usr/bin/gs
+Recommends: /usr/bin/gnuplot
+%endif
 
 %description client-tools
 MonetDB is a database management system that is developed from a
@@ -953,6 +958,49 @@ rm -f %{buildroot}%{_bindir}/Maddlog
 %postun -p /sbin/ldconfig
 
 %changelog
+* Mon May 29 2017 Panagiotis Koutsourakis <kutsurak@monetdbsolutions.com> - 11.25.23-20170529
+- Rebuilt.
+- BZ#6290: Crash (and assertion failure) with a correlated subquery with
+  NOT IN in the select-list
+- BZ#6291: crash if executes a function with sample operator
+- BZ#6294: Sqlitelogictest crash
+- BZ#6296: Another sqllitelogictest crash :(
+- BZ#6297: 7th sqllitelogictest crash :(
+- BZ#6300: Protect against missing BATs (sqlsmith)
+- BZ#6314: Lateral crash report (sqlsmith)
+- BZ#6315: Exist operator on type bigint missing (sqlsmith)
+- BZ#6316: Coalesc and limit error (sqlsmith)
+- BZ#6317: Two-column integer aggregation extremely slow
+- BZ#6318: Daemon crashes if .merovignian_properties for a database
+  contains more than 42 entries
+- BZ#6320: The daemon ignores all but the last entry in the
+  .merovignian_properties file when spawning mserver5
+
+* Tue Apr 25 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.25.21-20170425
+- Rebuilt.
+- BZ#6260: Sqlitelogictest crash
+- BZ#6288: Function cannot find column in merge table
+- BZ#6295: msqldump writes unescaped timestamp values when using inserts
+
+* Wed Apr 19 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.25.21-20170425
+- monetdb5: Fixed a bug causing a crash during cleanup when mserver5 is stopped
+  with monetdb stop database.
+
+* Tue Apr 18 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.25.19-20170418
+- Rebuilt.
+- BZ#6259: crash on select query from sqlitelogictests
+
+* Tue Apr 18 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.25.19-20170418
+- gdk: A potential deadlock was fixed in order index creation.
+- gdk: A bug that could happen during recovery of the write-ahead log (WAL)
+  was fixed.  See changeset 98ad79c555cc for details.
+
+* Tue Apr 18 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.25.19-20170418
+- monetdb5: Some memory leaks were plugged.
+
+* Tue Apr 18 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.25.19-20170418
+- sql: Some memory leaks were plugged.
+
 * Tue Apr 11 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.25.17-20170411
 - Rebuilt.
 - BZ#6110: cast of a SQL boolean value to a string or clob or (var)char

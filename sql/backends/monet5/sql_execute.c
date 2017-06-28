@@ -84,6 +84,7 @@ SQLsetTrace(Client cntxt, MalBlkPtr mb)
 
 	q= newStmt(mb, profilerRef, stoptraceRef);
 	q= pushStr(mb,q,"sql_traces");
+
 	/* cook a new resultSet instruction */
 	resultset = newInstruction(mb,sqlRef, resultSetRef);
 	getArg(resultset,0) = newTmpVariable(mb, TYPE_int);
@@ -92,7 +93,6 @@ SQLsetTrace(Client cntxt, MalBlkPtr mb)
 	tbls = newStmt(mb,batRef, newRef);
 	setVarType(mb, getArg(tbls,0), newBatType(TYPE_str));
 	tbls = pushType(mb, tbls, TYPE_str);
-	resultset= pushArgument(mb,resultset, getArg(tbls,0));
 
 	q= newStmt(mb,batRef,appendRef);
 	q= pushArgument(mb,q,getArg(tbls,0));
@@ -103,11 +103,12 @@ SQLsetTrace(Client cntxt, MalBlkPtr mb)
 	q= pushArgument(mb,q,k);
 	q= pushStr(mb,q,".trace");
 
+	resultset= pushArgument(mb,resultset, getArg(q,0));
+
 	/* build colum defs */
 	cols = newStmt(mb,batRef, newRef);
 	setVarType(mb, getArg(cols,0), newBatType(TYPE_str));
 	cols = pushType(mb, cols, TYPE_str);
-	resultset= pushArgument(mb,resultset, getArg(cols,0));
 
 	q= newStmt(mb,batRef,appendRef);
 	q= pushArgument(mb,q,getArg(cols,0));
@@ -115,14 +116,15 @@ SQLsetTrace(Client cntxt, MalBlkPtr mb)
 	k= getArg(q,0);
 
 	q= newStmt(mb,batRef,appendRef);
-	q= pushArgument(mb,q, getArg(cols,0));
+	q= pushArgument(mb,q, k);
 	q= pushStr(mb,q,"statement");
+
+	resultset= pushArgument(mb,resultset, getArg(q,0));
 
 	/* build type defs */
 	types = newStmt(mb,batRef, newRef);
 	setVarType(mb, getArg(types,0), newBatType(TYPE_str));
 	types = pushType(mb, types, TYPE_str);
-	resultset= pushArgument(mb,resultset, getArg(types,0));
 
 	q= newStmt(mb,batRef,appendRef);
 	q= pushArgument(mb,q, getArg(types,0));
@@ -133,11 +135,12 @@ SQLsetTrace(Client cntxt, MalBlkPtr mb)
 	q= pushArgument(mb,q, k);
 	q= pushStr(mb,q,"clob");
 
+	resultset= pushArgument(mb,resultset, getArg(q,0));
+
 	/* build scale defs */
 	clen = newStmt(mb,batRef, newRef);
 	setVarType(mb, getArg(clen,0), newBatType(TYPE_int));
 	clen = pushType(mb, clen, TYPE_int);
-	resultset= pushArgument(mb,resultset, getArg(clen,0));
 
 	q= newStmt(mb,batRef,appendRef);
 	q= pushArgument(mb,q, getArg(clen,0));
@@ -148,11 +151,12 @@ SQLsetTrace(Client cntxt, MalBlkPtr mb)
 	q= pushArgument(mb,q, k);
 	q= pushInt(mb,q,0);
 
+	resultset= pushArgument(mb,resultset, getArg(q,0));
+
 	/* build scale defs */
 	scale = newStmt(mb,batRef, newRef);
 	setVarType(mb, getArg(scale,0), newBatType(TYPE_int));
 	scale = pushType(mb, scale, TYPE_int);
-	resultset= pushArgument(mb,resultset, getArg(scale,0));
 
 	q= newStmt(mb,batRef,appendRef);
 	q= pushArgument(mb,q, getArg(scale,0));
@@ -162,6 +166,8 @@ SQLsetTrace(Client cntxt, MalBlkPtr mb)
 	q= newStmt(mb,batRef,appendRef);
 	q= pushArgument(mb, q, k);
 	q= pushInt(mb,q,0);
+
+	resultset= pushArgument(mb,resultset, getArg(q,0));
 
 	/* add the ticks column */
 
@@ -410,12 +416,14 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 	str msg = MAL_SUCCEED;
 	backend *be, *sql = (backend *) c->sqlcontext;
 	size_t len = strlen(*expr);
+	int inited = 0;
 
 #ifdef _SQL_COMPILE
 	mnstr_printf(c->fdout, "#SQLstatement:%s\n", *expr);
 #endif
 	if (!sql) {
-		msg = SQLinitEnvironment(c, NULL, NULL, NULL);
+		inited = 1;
+		msg = SQLinitClient(c);
 		sql = (backend *) c->sqlcontext;
 	}
 	if (msg){
@@ -427,8 +435,11 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 	m = sql->mvc;
 	ac = m->session->auto_commit;
 	o = MNEW(mvc);
-	if (!o)
+	if (!o) {
+		if (inited)
+			SQLresetClient(c);
 		throw(SQL, "SQLstatement", MAL_MALLOC_FAIL);
+	}
 	*o = *m;
 	/* hide query cache, this causes crashes in SQLtrans() due to uninitialized memory otherwise */
 	m->qc = NULL;
@@ -600,8 +611,11 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 					rname = e->rname;
 					if (!rname && e->type == e_column && e->l)
 						rname = e->l;
-					res_col_create(m->session->tr, res, rname, name, t->type->sqlname, t->digits,
-							t->scale, t->type->localtype, ptr);
+					if (res_col_create(m->session->tr, res, rname, name, t->type->sqlname, t->digits,
+							   t->scale, t->type->localtype, ptr) == NULL) {
+						msg = createException(SQL,"SQLstatement",MAL_MALLOC_FAIL);
+						goto endofcompile;
+					}
 				}
 				*result = res;
 			}
@@ -657,6 +671,8 @@ endofcompile:
 	m->vars = vars;
 	m->session->status = status;
 	m->session->auto_commit = ac;
+	if (inited)
+		SQLresetClient(c);
 	return msg;
 }
 

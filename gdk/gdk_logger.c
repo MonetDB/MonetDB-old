@@ -568,24 +568,10 @@ log_read_create(logger *lg, trans *tr, char *name)
 		return LOG_ERR;
 	}
 	*ta++ = 0;		/* skip over , */
-	if (strcmp(ha, "wrd") == 0) {
-#if SIZEOF_SSIZE_T == SIZEOF_INT
-		ha = "int";
-#else
-		ha = "lng";
-#endif
-	}
 	if (strcmp(ha, "vid") == 0) {
 		ht = -1;
 	} else {
 		ht = ATOMindex(ha);
-	}
-	if (strcmp(ta, "wrd") == 0) {
-#if SIZEOF_SSIZE_T == SIZEOF_INT
-		ta = "int";
-#else
-		ta = "lng";
-#endif
 	}
 	if (strcmp(ta, "vid") == 0) {
 		tt = -1;
@@ -933,6 +919,9 @@ logger_readlog(logger *lg, char *filename)
 	log_return err = LOG_OK;
 	time_t t0, t1;
 	struct stat sb;
+	int dbg = GDKdebug;
+
+	GDKdebug &= ~(CHECKMASK|PROPMASK);
 
 	if (lg->debug & 1) {
 		fprintf(stderr, "#logger_readlog opening %s\n", filename);
@@ -944,12 +933,14 @@ logger_readlog(logger *lg, char *filename)
 	if (lg->log == NULL || mnstr_errnr(lg->log)) {
 		mnstr_destroy(lg->log);
 		lg->log = NULL;
+		GDKdebug = dbg;
 		return GDK_SUCCEED;
 	}
-	if (fstat(fileno(getFile(lg->log)), &sb) < 0) {
+	if (fstat(getFileNo(lg->log), &sb) < 0) {
 		fprintf(stderr, "!ERROR: logger_readlog: fstat on opened file %s failed\n", filename);
 		mnstr_destroy(lg->log);
 		lg->log = NULL;
+		GDKdebug = dbg;
 		/* If the file could be opened, but fstat fails,
 		 * something weird is going on */
 		return GDK_FAIL;
@@ -1082,6 +1073,7 @@ logger_readlog(logger *lg, char *filename)
 		printf("# Finished reading the write-ahead log '%s'\n", filename);
 		fflush(stdout);
 	}
+	GDKdebug = dbg;
 	/* we cannot distinguish errors from incomplete transactions
 	 * (even if we would log aborts in the logs). So we simply
 	 * abort and move to the next log file */
@@ -1297,7 +1289,7 @@ bm_subcommit(logger *lg, BAT *list_bid, BAT *list_nme, BAT *catalog_bid, BAT *ca
 					name,
 					(list_bid == catalog_bid) ? BUNtvar(iter, p) : "snapshot");
 			assert(BBPindex(name));
-			n[i++] = abs(BBPindex(name));
+			n[i++] = BBPindex(name);
 		}
 	}
 	/* now commit catalog, so it's also up to date on disk */
@@ -2551,7 +2543,7 @@ pre_allocate(logger *lg)
 	if (p + DBLKSZ > lg->end) {
 		p &= ~(DBLKSZ - 1);
 		p += SEGSZ;
-		if (GDKextendf(fileno(getFile(lg->log)), (size_t) p, "WAL file") != GDK_SUCCEED)
+		if (GDKextendf(getFileNo(lg->log), (size_t) p, "WAL file") != GDK_SUCCEED)
 			return GDK_FAIL;
 		lg->end = p;
 	}

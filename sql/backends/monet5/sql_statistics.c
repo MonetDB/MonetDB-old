@@ -86,8 +86,10 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	switch (argc) {
 	case 6:
 		col = *getArgReference_str(stk, pci, 5);
+		/* fall through */
 	case 5:
 		tbl = *getArgReference_str(stk, pci, 4);
+		/* fall through */
 	case 4:
 		sch = *getArgReference_str(stk, pci, 3);
 	}
@@ -140,7 +142,7 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 							bsample = BATsample(bn, (BUN) samplesize);
 						} else
 							bsample = NULL;
-						br = BATselect(bn, bsample, ATOMnilptr(bn->ttype), NULL, 0, 0, 0);
+						br = BATselect(bn, bsample, ATOMnilptr(bn->ttype), NULL, 1, 0, 0);
 						if (br == NULL) {
 							BBPunfix(bn->batCacheid);
 							/* XXX throw error instead? */

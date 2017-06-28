@@ -53,7 +53,7 @@ struct OPTcatalog {
 {"remap",		0,	0,	0},
 {"remote",		0,	0,	0},
 {"reorder",		0,	0,	0},
-{"replication",	0,	0,	0},
+{"wlcr",		0,	0,	0},
 {"pushselect",	0,	0,	0},
 { 0,	0,	0,	0}
 };
@@ -437,6 +437,10 @@ hasSideEffects(MalBlkPtr mb, InstrPtr p, int strict)
 		return TRUE;
 	if ( getModuleId(p) == oltpRef)
 		return TRUE;
+	if ( getModuleId(p) == wlrRef)
+		return TRUE;
+	if ( getModuleId(p) == wlcRef)
+		return TRUE;
 	if ( getModuleId(p) == remoteRef)
 		return TRUE;
 	return FALSE;
@@ -453,7 +457,7 @@ mayhaveSideEffects(Client cntxt, MalBlkPtr mb, InstrPtr p, int strict)
 		return TRUE;
 	if (getModuleId(p) != malRef || getFunctionId(p) != multiplexRef) 
 		return hasSideEffects(mb, p, strict);
-	if (MANIFOLDtypecheck(cntxt,mb,p) == NULL)
+	if (MANIFOLDtypecheck(cntxt,mb,p,1) == NULL)
 		return TRUE;
 	return FALSE;
 }

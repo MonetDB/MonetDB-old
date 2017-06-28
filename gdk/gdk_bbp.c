@@ -284,7 +284,7 @@ BBPunlock(void)
 }
 
 
-static void
+static gdk_return
 BBPinithash(int j)
 {
 	bat i = (bat) ATOMIC_GET(BBPsize, BBPsizeLock);
@@ -293,8 +293,10 @@ BBPinithash(int j)
 	for (BBP_mask = 1; (BBP_mask << 1) <= BBPlimit; BBP_mask <<= 1)
 		;
 	BBP_hash = (bat *) GDKzalloc(BBP_mask * sizeof(bat));
-	if (BBP_hash == NULL)
-		GDKfatal("BBPinithash: cannot allocate memory\n");
+	if (BBP_hash == NULL) {
+		GDKerror("BBPinithash: cannot allocate memory\n");
+		return GDK_FAIL;
+	}
 	BBP_mask--;
 
 	while (--i > 0) {
@@ -311,6 +313,7 @@ BBPinithash(int j)
 				j = 0;
 		}
 	}
+	return GDK_SUCCEED;
 }
 
 int
@@ -360,7 +363,8 @@ BBPextend(int idx, int buildhash)
 		BBP_hash = NULL;
 		for (i = 0; i <= BBP_THREADMASK; i++)
 			BBP_free(i) = 0;
-		BBPinithash(idx);
+		if (BBPinithash(idx) != GDK_SUCCEED)
+			return GDK_FAIL;
 	}
 	return GDK_SUCCEED;
 }
@@ -996,14 +1000,8 @@ heapinit(BAT *b, const char *buf, int *hashash, const char *HT, int bbpversion, 
 		GDKfatal("BBPinit: unknown properties are set: incompatible database\n");
 	*hashash = var & 2;
 	var &= ~2;
-	/* silently convert chr columns to bte */
-	if (strcmp(type, "chr") == 0)
-		strcpy(type, "bte");
-	/* silently convert wrd columns to int or lng */
-	else if (strcmp(type, "wrd") == 0)
-		strcpy(type, width == SIZEOF_INT ? "int" : "lng");
 #ifdef HAVE_HGE
-	else if (strcmp(type, "hge") == 0)
+	if (strcmp(type, "hge") == 0)
 		havehge = 1;
 #endif
 	if ((t = ATOMindex(type)) < 0) {
@@ -1402,7 +1400,8 @@ BBPinit(void)
 	BBPreadEntries(fp, bbpversion);
 	fclose(fp);
 
-	BBPinithash(0);
+	if (BBPinithash(0) != GDK_SUCCEED)
+		GDKfatal("BBPinit: BBPinithash failed");
 
 	/* will call BBPrecover if needed */
 	if (BBPprepare(FALSE) != GDK_SUCCEED)
@@ -1461,7 +1460,7 @@ BBPexit(void)
 		skipped = 0;
 		for (i = 0; i < (bat) ATOMIC_GET(BBPsize, BBPsizeLock); i++) {
 			if (BBPvalid(i)) {
-				BAT *b = BBP_cache(i);
+				BAT *b = BBP_desc(i);
 
 				if (b) {
 					if (b->batSharecnt > 0) {
@@ -1478,11 +1477,11 @@ BBPexit(void)
 						bat tp = VIEWtparent(b);
 						bat vtp = VIEWvtparent(b);
 						if (tp) {
-							BBP_cache(tp)->batSharecnt--;
+							BBP_desc(tp)->batSharecnt--;
 							--BBP_lrefs(tp);
 						}
 						if (vtp) {
-							BBP_cache(vtp)->batSharecnt--;
+							BBP_desc(vtp)->batSharecnt--;
 							--BBP_lrefs(vtp);
 						}
 						VIEWdestroy(b);
@@ -1806,42 +1805,63 @@ BBPdump(void)
 			continue;
 		fprintf(stderr,
 			"# %d[%s]: nme='%s' refs=%d lrefs=%d "
-			"status=%d count=" BUNFMT " "
-			"Theap=[" SZFMT "," SZFMT "] "
-			"Tvheap=[" SZFMT "," SZFMT "] "
-			"Thash=[" SZFMT "," SZFMT "]\n",
+			"status=%d count=" BUNFMT,
 			i,
 			ATOMname(b->ttype),
 			BBP_logical(i) ? BBP_logical(i) : "<NULL>",
 			BBP_refs(i),
 			BBP_lrefs(i),
 			BBP_status(i),
-			b->batCount,
-			HEAPmemsize(&b->theap),
-			HEAPvmsize(&b->theap),
-			HEAPmemsize(b->tvheap),
-			HEAPvmsize(b->tvheap),
-			b->thash && b->thash != (Hash *) -1 && b->thash != (Hash *) 1 ? HEAPmemsize(b->thash->heap) : 0,
-			b->thash && b->thash != (Hash *) -1 && b->thash != (Hash *) 1 ? HEAPvmsize(b->thash->heap) : 0);
-		if (BBP_logical(i) && BBP_logical(i)[0] == '.') {
-			cmem += HEAPmemsize(&b->theap);
-			cvm += HEAPvmsize(&b->theap);
-			nc++;
+			b->batCount);
+		if (b->batSharecnt > 0)
+			fprintf(stderr, " shares=%d", b->batSharecnt);
+		if (b->batDirty)
+			fprintf(stderr, " Dirty");
+		if (b->batDirtydesc)
+			fprintf(stderr, " DirtyDesc");
+		if (b->theap.parentid) {
+			fprintf(stderr, " Theap -> %d", b->theap.parentid);
 		} else {
-			mem += HEAPmemsize(&b->theap);
-			vm += HEAPvmsize(&b->theap);
-			n++;
-		}
-		if (b->tvheap) {
+			fprintf(stderr,
+				" Theap=[" SZFMT "," SZFMT "]%s",
+				HEAPmemsize(&b->theap),
+				HEAPvmsize(&b->theap),
+				b->theap.dirty ? "(Dirty)" : "");
 			if (BBP_logical(i) && BBP_logical(i)[0] == '.') {
-				cmem += HEAPmemsize(b->tvheap);
-				cvm += HEAPvmsize(b->tvheap);
+				cmem += HEAPmemsize(&b->theap);
+				cvm += HEAPvmsize(&b->theap);
+				nc++;
 			} else {
-				mem += HEAPmemsize(b->tvheap);
-				vm += HEAPvmsize(b->tvheap);
+				mem += HEAPmemsize(&b->theap);
+				vm += HEAPvmsize(&b->theap);
+				n++;
 			}
 		}
-		if (b->thash && b->thash != (Hash *) -1 && b->thash != (Hash *) 1) {
+		if (b->tvheap) {
+			if (b->tvheap->parentid != b->batCacheid) {
+				fprintf(stderr,
+					" Tvheap -> %d",
+					b->tvheap->parentid);
+			} else {
+				fprintf(stderr,
+					" Tvheap=[" SZFMT "," SZFMT "]%s",
+					HEAPmemsize(b->tvheap),
+					HEAPvmsize(b->tvheap),
+				b->tvheap->dirty ? "(Dirty)" : "");
+				if (BBP_logical(i) && BBP_logical(i)[0] == '.') {
+					cmem += HEAPmemsize(b->tvheap);
+					cvm += HEAPvmsize(b->tvheap);
+				} else {
+					mem += HEAPmemsize(b->tvheap);
+					vm += HEAPvmsize(b->tvheap);
+				}
+			}
+		}
+		if (b->thash && b->thash != (Hash *) -1) {
+			fprintf(stderr,
+				" Thash=[" SZFMT "," SZFMT "]",
+				HEAPmemsize(b->thash->heap),
+				HEAPvmsize(b->thash->heap));
 			if (BBP_logical(i) && BBP_logical(i)[0] == '.') {
 				cmem += HEAPmemsize(b->thash->heap);
 				cvm += HEAPvmsize(b->thash->heap);
@@ -1850,6 +1870,7 @@ BBPdump(void)
 				vm += HEAPvmsize(b->thash->heap);
 			}
 		}
+		fprintf(stderr, "\n");
 	}
 	fprintf(stderr,
 		"# %d bats: mem=" SZFMT ", vm=" SZFMT " %d cached bats: mem=" SZFMT ", vm=" SZFMT "\n",

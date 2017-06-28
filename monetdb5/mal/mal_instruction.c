@@ -71,7 +71,6 @@ newMalBlkStmt(MalBlkPtr mb, int maxstmts)
 
 	p = (InstrPtr *) GDKzalloc(sizeof(InstrPtr) * maxstmts);
 	if (p == NULL) {
-		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
 		return -1;
 	}
 	mb->stmt = p;
@@ -88,7 +87,6 @@ newMalBlk(int elements)
 
 	mb = (MalBlkPtr) GDKmalloc(sizeof(MalBlkRecord));
 	if (mb == NULL) {
-		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
 	}
 
@@ -97,7 +95,6 @@ newMalBlk(int elements)
 	v = (VarRecord *) GDKzalloc(sizeof(VarRecord) * (elements + 8) );
 	if (v == NULL) {
 		GDKfree(mb);
-		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
 	}
 	mb->var = v;
@@ -151,7 +148,6 @@ resizeMalBlk(MalBlkPtr mb, int elements)
 {
 	int i;
 
-	assert(mb->vsize >= mb->ssize);
 	if( elements > mb->ssize){
 		InstrPtr *ostmt = mb->stmt;
 		mb->stmt = (InstrPtr *) GDKrealloc(mb->stmt, elements * sizeof(InstrPtr));
@@ -193,6 +189,7 @@ resetMalBlk(MalBlkPtr mb, int stop)
 	for(i=0; i<stop; i++) 
 		mb->stmt[i] ->typechk = TYPE_UNKNOWN;
 	mb->stop = stop;
+	mb->errors = 0;
 }
 
 /* The freeMalBlk code is quite defensive. It is used to localize an
@@ -240,7 +237,6 @@ copyMalBlk(MalBlkPtr old)
 
 	mb = (MalBlkPtr) GDKzalloc(sizeof(MalBlkRecord));
 	if (mb == NULL) {
-		GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
 	}
 	mb->alternative = old->alternative;
@@ -250,7 +246,6 @@ copyMalBlk(MalBlkPtr old)
 	mb->var = (VarRecord *) GDKzalloc(sizeof(VarRecord) * old->vsize);
 	if (mb->var == NULL) {
 		GDKfree(mb);
-		GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
 	}
 
@@ -279,7 +274,6 @@ copyMalBlk(MalBlkPtr old)
 			VALclear(&mb->var[i].value);
 		GDKfree(mb->var);
 		GDKfree(mb);
-		GDKerror("copyMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
 	}
 
@@ -352,9 +346,36 @@ MalBlkPtr
 getMalBlkHistory(MalBlkPtr mb, int idx)
 {
 	MalBlkPtr h = mb;
+
 	while (h && idx-- >= 0)
 		h = h->history;
 	return h ? h : mb;
+}
+
+// Localize the plan using the optimizer name
+MalBlkPtr
+getMalBlkOptimized(MalBlkPtr mb, str name)
+{
+	MalBlkPtr h = mb->history;
+	InstrPtr p;
+	int i= 0;
+	char buf[IDLENGTH]= {0}, *n;
+
+	if( name == 0)
+		return mb;
+	strncpy(buf,name, IDLENGTH);
+	n = strchr(buf,']');
+	if( n) *n = 0;
+	
+	while (h ){
+		for( i = 1; i< h->stop; i++){
+			p = getInstrPtr(h,i);
+			if( p->token == REMsymbol && strstr(getVarConstant(h, getArg(p,0)).val.sval, buf)  )
+				return h;
+		}
+		h = h->history;
+	}
+	return 0;
 }
 
 
@@ -424,7 +445,6 @@ copyInstruction(InstrPtr p)
 {
 	InstrPtr new = (InstrPtr) GDKmalloc(offsetof(InstrRecord, argv) + p->maxarg * sizeof(p->maxarg));
 	if(new == NULL) {
-		GDKerror("copyInstruction: failed to allocated space");
 		return new;
 	}
 	oldmoveInstruction(new, p);
@@ -1415,13 +1435,15 @@ void
 pushInstruction(MalBlkPtr mb, InstrPtr p)
 {
 	int i;
+	int extra;
 	InstrPtr q;
 
 	if (p == NULL)
 		return;
 
+	extra = mb->vsize - mb->vtop; // the extra variables already known
 	if (mb->stop + 1 >= mb->ssize) {
-		if( resizeMalBlk(mb, growBlk(mb->ssize)) ){
+		if( resizeMalBlk(mb, growBlk(mb->ssize) + extra) ){
 			/* perhaps we can continue with a smaller increment.
 			 * But the block remains marked as faulty.
 			 */
