@@ -1,5 +1,12 @@
 optimizers
 
+sample00
+sample01
+sample02
+sample03
+sample04
+HAVE_LIBPY?sample05
+
 HAVE_LIBR&NOT_WIN32?rapi00
 HAVE_LIBR&NOT_WIN32?rapi01
 HAVE_LIBR&NOT_WIN32?rapi02

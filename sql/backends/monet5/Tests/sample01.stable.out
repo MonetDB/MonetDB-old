@@ -1,0 +1,53 @@
+stdout of test 'sample01` in directory 'sql/backends/monet5` itself:
+
+
+# 17:16:50 >  
+# 17:16:50 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=30118" "--set" "mapi_usock=/var/tmp/mtest-15360/.s.monetdb.30118" "--set" "monet_prompt=" "--forcemito" "--dbpath=/Users/myth/opt/var/MonetDB/mTests_sql_backends_monet5"
+# 17:16:50 >  
+
+# MonetDB 5 server v11.28.0
+# This is an unreleased version
+# Serving database 'mTests_sql_backends_monet5', using 4 threads
+# Compiled for x86_64-apple-darwin15.6.0/64bit with 128bit integers
+# Found 8.000 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2017 MonetDB B.V., all rights reserved
+# Visit https://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://dhcp-21.eduroam.cwi.nl:30118/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-15360/.s.monetdb.30118
+# MonetDB/SQL module loaded
+
+Ready.
+
+# 17:16:50 >  
+# 17:16:50 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-15360" "--port=30118"
+# 17:16:50 >  
+
+#START TRANSACTION;
+#CREATE TABLE vals(id DOUBLE, type INTEGER);
+#INSERT INTO vals VALUES (1, 100), (0, 50);
+[ 2	]
+#plan SELECT type FROM vals GROUP BY type SAMPLE 1 USING WEIGHTS id;
+% .plan # table_name
+% rel # name
+% clob # type
+% 51 # length
+project (
+| group by (
+| | sample (
+| | | table(sys.vals) [ vals.id, vals.type ] COUNT 
+| | ) [ bigint "1", vals.id ]
+| ) [ vals.type ] [ vals.type ]
+) [ vals.type ]
+#SELECT type FROM vals GROUP BY type SAMPLE 1 USING WEIGHTS id;
+% sys.vals # table_name
+% type # name
+% int # type
+% 3 # length
+[ 100	]
+#ROLLBACK;
+
+# 17:16:50 >  
+# 17:16:50 >  "Done."
+# 17:16:50 >  
+

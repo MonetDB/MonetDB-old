@@ -1,0 +1,63 @@
+stderr of test 'sample03` in directory 'sql/backends/monet5` itself:
+
+
+# 13:12:12 >  
+# 13:12:12 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=32084" "--set" "mapi_usock=/var/tmp/mtest-99643/.s.monetdb.32084" "--set" "monet_prompt=" "--forcemito" "--dbpath=/Users/myth/opt/var/MonetDB/mTests_sql_backends_monet5" "--set" "embedded_py=true"
+# 13:12:12 >  
+
+# builtin opt 	gdk_dbpath = /Users/myth/opt/var/monetdb5/dbfarm/demo
+# builtin opt 	gdk_debug = 0
+# builtin opt 	gdk_vmtrim = no
+# builtin opt 	monet_prompt = >
+# builtin opt 	monet_daemon = no
+# builtin opt 	mapi_port = 50000
+# builtin opt 	mapi_open = false
+# builtin opt 	mapi_autosense = false
+# builtin opt 	sql_optimizer = default_pipe
+# builtin opt 	sql_debug = 0
+# cmdline opt 	gdk_nr_threads = 0
+# cmdline opt 	mapi_open = true
+# cmdline opt 	mapi_port = 32084
+# cmdline opt 	mapi_usock = /var/tmp/mtest-99643/.s.monetdb.32084
+# cmdline opt 	monet_prompt = 
+# cmdline opt 	gdk_dbpath = /Users/myth/opt/var/MonetDB/mTests_sql_backends_monet5
+# cmdline opt 	embedded_py = true
+# cmdline opt 	gdk_debug = 536870922
+
+# 13:12:12 >  
+# 13:12:12 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-99643" "--port=32084"
+# 13:12:12 >  
+
+MAPI  = (monetdb) /var/tmp/mtest-99643/.s.monetdb.32084
+QUERY = SELECT * FROM vals SAMPLE 1 USING WEIGHTS w;
+ERROR = !operation failed
+        !BATsample: w contains negative weights
+MAPI  = (monetdb) /var/tmp/mtest-99643/.s.monetdb.32084
+QUERY = SELECT * FROM vals SAMPLE 2 USING WEIGHTS w;
+ERROR = !operation failed
+        !BATsample: sample size bigger than number of non-zero weights
+MAPI  = (monetdb) /var/tmp/mtest-99643/.s.monetdb.32084
+QUERY = SELECT * FROM vals SAMPLE 1 USING WEIGHTS w;
+ERROR = !operation failed
+        !BATsample: type of weights not castable to doubles
+MAPI  = (monetdb) /var/tmp/mtest-99643/.s.monetdb.32084
+QUERY = SELECT * FROM vals SAMPLE 10 USING WEIGHTS w;
+ERROR = !operation failed
+        !BATsample: Sample size bigger than table!
+MAPI  = (monetdb) /var/tmp/mtest-99643/.s.monetdb.32084
+QUERY = SELECT * FROM vals SAMPLE 1 USING WEIGHTS w;
+ERROR = !operation failed
+        !BATsample: weight overflow
+MAPI  = (monetdb) /var/tmp/mtest-99643/.s.monetdb.32084
+QUERY = SELECT * FROM vals SAMPLE 18446744073709551617 USING WEIGHTS w;
+ERROR = !integer value too large or not a number (18446744073709551617) in: "select * from vals sample 18446744073709551617"
+        !current transaction is aborted (please ROLLBACK)
+MAPI  = (monetdb) /var/tmp/mtest-99643/.s.monetdb.32084
+QUERY = SELECT * FROM vals SAMPLE 2147483648 USING WEIGHTS w;
+ERROR = !operation failed
+        !BATsample: Sample size bigger than table!
+
+# 13:12:12 >  
+# 13:12:12 >  "Done."
+# 13:12:12 >  
+
