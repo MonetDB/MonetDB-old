@@ -4665,15 +4665,21 @@ literal:
  | sqlDBL
 		{
 			sql_subtype *t= sql_bind_localtype("dbl");
+			double val;
+			char *p = $1;
+			
 			errno = 0;
-			$$ = _newAtomNode( atom_float(SA, t, strtod($1,NULL)));
+			val = strtod($1,&p);
 			if(errno) {
 				char *msg = sql_message("\b22003!double value could not be parsed (%s)", $1);
-				errno = 0;
+				
 				yyerror(m, msg);
 				_DELETE(msg);
+				$$ = NULL;
 				YYABORT;
 			}
+			
+			$$ = _newAtomNode( atom_float(SA, t, val));
 		}
  ;
 
