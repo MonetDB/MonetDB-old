@@ -401,7 +401,7 @@ rel_crossproduct(sql_allocator *sa, sql_rel *l, sql_rel *r, operator_type join)
 }
 
 sql_rel *
-rel_topn(sql_allocator *sa, sql_rel *l, list *exps )
+rel_topn(sql_allocator *sa, sql_rel *l, list *exps)
 {
 	sql_rel *rel = rel_create(sa);
 
@@ -415,7 +415,7 @@ rel_topn(sql_allocator *sa, sql_rel *l, list *exps )
 }
 
 sql_rel *
-rel_sample(sql_allocator *sa, sql_rel *l, list *exps )
+rel_sample(sql_allocator *sa, sql_rel *l, list *exps)
 {
 	sql_rel *rel = rel_create(sa);
 

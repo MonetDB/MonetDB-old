@@ -255,6 +255,8 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 
 	oid minoid = b->hseqbase;
 
+	ERRORcheck(n > BATcount(b), "BATsample: Sample size bigger than table!", NULL);
+
 	BATcheck(b, "BATsample", NULL);
 	BATcheck(w, "BATsample", NULL);
 
@@ -312,6 +314,10 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 		}
 		oids[i] = (oid)(j + minoid);
 		keys[i] = pow(mtwist_drand(mt_rng), 1.0 / w_ptr[j]);//TODO cast 1.0 to dbl?
+		if (keys[i] == 1) {
+			GDKerror("BATsample: weight overflow\n");
+			goto bailout;
+		}
 		i++;
 	}
 

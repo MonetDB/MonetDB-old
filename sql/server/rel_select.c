@@ -4716,6 +4716,11 @@ rel_select_exp(mvc *sql, sql_rel *rel, SelectNode *sn, exp_kind ek)
 			exp_kind iek = {type_value, card_column, FALSE};
 			symbol* weights = l->h->next->data.sym;
 			sql_exp* weights_exp = rel_value_exp(sql, &rel, weights, 0, iek);
+			if (!weights_exp) {
+				if (sql->errstr[0] == 0)
+					return sql_error(sql, 02, "Samplu failu");
+				return NULL;
+			}
 
 			if(l->h->type == type_lng) {
 				lng sample_size = l->h->data.l_val;
@@ -4737,6 +4742,11 @@ rel_select_exp(mvc *sql, sql_rel *rel, SelectNode *sn, exp_kind ek)
 			append(exps, o);
 		}
 		rel = rel_sample(sql->sa, rel, exps);
+		if (!rel) {
+			if (sql->errstr[0] == 0)
+				return sql_error(sql, 02, "Samplu failu");
+			return NULL;
+		}
 	}
 	if (rel) {
 		if (rel && sn->groupby) {

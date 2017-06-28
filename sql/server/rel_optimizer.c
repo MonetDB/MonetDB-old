@@ -5783,8 +5783,13 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 		}
 		break;
 
-	case op_topn:
 	case op_sample:
+		if (rel->exps->cnt == 2) {
+			// weighted sample
+			exps_mark_used(sql->sa, rel, rel->l);
+		}
+		/* fall through */
+	case op_topn:
 		if (proj) {
 			rel = rel ->l;
 			rel_mark_used(sql, rel, proj);
