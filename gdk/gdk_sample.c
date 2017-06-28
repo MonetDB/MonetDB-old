@@ -242,12 +242,12 @@ BATsample(BAT *b, BUN n)
 BAT *
 BATweightedsample(BAT *b, BUN n, BAT *w)
 {//TODO test correctness extensively
-	BAT* weights;
-	bit weights_are_cast;
-	BAT* sample;
-	oid* oids;/* points to the oids in sample */
-	dbl* w_ptr;//TODO types of w
-	dbl* keys;/* keys as defined in Alg-A-exp */
+	BAT* weights = NULL;
+	bit weights_are_cast = 0;
+	BAT* sample = NULL;
+	oid* oids = NULL;  /* points to the oids in sample */
+	dbl* w_ptr = NULL; //TODO types of w
+	dbl* keys = NULL;  /* keys as defined in Alg-A-exp */
 	BUN cnt, i, j;
 	BUN pos, childpos;
 	oid item;
@@ -298,20 +298,20 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 	}
 
 	BATsetcount(sample, n);
-		/* obtain sample */
+	/* obtain sample */
 
 	/* Initialize prioqueue */
-	i=0;/* i indices the initial sample (filled with elements with non-zero weight) */
-		/* j indices the oids and weights */
-	for(j=0; i < n && j < cnt; j++) {
+	i = 0; /* i indices the initial sample (filled with elements with non-zero weight) */
+		  /* j indices the oids and weights */
+	for(j = 0; i < n && j < cnt; j++) {
 		if(w_ptr[j] == 0.0)
 			continue;
 		if(w_ptr[j] < 0.0) {
 			GDKerror("BATsample: w contains negative weights\n");
 			goto bailout;
 		}
-		oids[i] = (oid)(j+minoid);
-		keys[i] = pow(mtwist_drand(mt_rng),1.0/w_ptr[j]);//TODO cast 1.0 to dbl?
+		oids[i] = (oid)(j + minoid);
+		keys[i] = pow(mtwist_drand(mt_rng), 1.0 / w_ptr[j]);//TODO cast 1.0 to dbl?
 		i++;
 	}
 
@@ -325,8 +325,13 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 	while(true) {
 		r = mtwist_drand(mt_rng);
 		xw = log(r)/log(keys[0]);
-		for(;j<cnt && xw >= w_ptr[j]; j++)
+		for(; j < cnt && xw >= w_ptr[j]; j++) {
+			if(w_ptr[j] < 0.0) {
+				GDKerror("BATsample: w contains negative weights\n");
+				goto bailout;
+			}
 			xw -= w_ptr[j];
+		}
 		if(j >= cnt) break;
 
 		/* At this point:
@@ -358,7 +363,7 @@ BATweightedsample(BAT *b, BUN n, BAT *w)
 
 	return sample;
 
-  bailout:
+bailout:
     if(weights_are_cast && weights)//if weights where converted, delete converted BAT
     	BBPunfix(weights->batCacheid);
     if(keys)
