@@ -4669,25 +4669,45 @@ literal:
 		  sql_find_subtype(&t, "boolean", 0, 0 );
 		  $$ = _newAtomNode( atom_bool(SA, &t, TRUE)); }
  | sqlDBL
-		{
-			sql_subtype *t= sql_bind_localtype("dbl");
-			double val;
+		{ char *s = strip_extra_zeros(sa_strdup(SA, $1));
+		  char *dot = strchr(s, '.');
+		  int digits = _strlen(s) - 1;
+		  int scale = digits - (int) (dot-s);
+		  sql_subtype t;
+
+		  if (digits <= 0)
+			digits = 1;
+		  if (digits <= MAX_DEC_DIGITS) {
+		  	double val = strtod($1,NULL);
+#ifdef HAVE_HGE
+		  	hge value = decimal_from_str(s, NULL);
+#else
+		  	lng value = decimal_from_str(s, NULL);
+#endif
+
+		  	if (*s == '+' || *s == '-')
+				digits --;
+		  	sql_find_subtype(&t, "decimal", digits, scale );
+		  	$$ = _newAtomNode( atom_dec(SA, &t, value, val));
+		   } else {
 			char *p = $1;
-			
+			double val;
+
 			errno = 0;
 			val = strtod($1,&p);
-			if(errno) {
-				char *msg = sql_message("\b22003!double value could not be parsed (%s)", $1);
-				
+			if (p == $1 || val == dbl_nil || (errno == ERANGE && (val < -1 || val > 1))) {
+				char *msg = sql_message("\b22003!double value too large or not a number (%s)", $1);
+
 				yyerror(m, msg);
 				_DELETE(msg);
 				$$ = NULL;
 				YYABORT;
 			}
-			
-			$$ = _newAtomNode( atom_float(SA, t, val));
+		  	sql_find_subtype(&t, "double", 51, 0 );
+		  	$$ = _newAtomNode(atom_float(SA, &t, val));
+		   }
 		}
- ;
+;
 
 interval_expression:
    INTERVAL opt_sign string interval_qualifier { 
