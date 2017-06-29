@@ -4718,7 +4718,7 @@ rel_select_exp(mvc *sql, sql_rel *rel, SelectNode *sn, exp_kind ek)
 			sql_exp* weights_exp = rel_value_exp(sql, &rel, weights, 0, iek);
 			if (!weights_exp) {
 				if (sql->errstr[0] == 0)
-					return sql_error(sql, 02, "Samplu failu");
+					return sql_error(sql, 02, "Weights could not be resolved correctly.");
 				return NULL;
 			}
 
@@ -4744,7 +4744,7 @@ rel_select_exp(mvc *sql, sql_rel *rel, SelectNode *sn, exp_kind ek)
 		rel = rel_sample(sql->sa, rel, exps);
 		if (!rel) {
 			if (sql->errstr[0] == 0)
-				return sql_error(sql, 02, "Samplu failu");
+				return sql_error(sql, 02, "Failed to create sample relation.");
 			return NULL;
 		}
 	}
