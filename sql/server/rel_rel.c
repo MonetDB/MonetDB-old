@@ -276,7 +276,8 @@ rel_bind_column2( mvc *sql, sql_rel *rel, const char *tname, const char *cname, 
 		   is_semi(rel->op) ||
 		   is_apply(rel->op) ||
 		   is_select(rel->op) || 
-		   is_topn(rel->op)) {
+		   is_topn(rel->op) || 
+		   is_sample(rel->op)) {
 		if (rel->l)
 			return rel_bind_column2(sql, rel->l, tname, cname, f);
 	}
