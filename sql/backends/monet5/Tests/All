@@ -6,6 +6,7 @@ sample02
 sample03
 sample04
 HAVE_LIBPY?sample05
+sample06
 
 HAVE_LIBR&NOT_WIN32?rapi00
 HAVE_LIBR&NOT_WIN32?rapi01

@@ -1,0 +1,10 @@
+# aggregate as weights
+
+START TRANSACTION;
+
+CREATE TABLE vals(w DOUBLE, value INTEGER);
+INSERT INTO vals VALUES (1, 100), (0, 50);
+
+SELECT * FROM vals SAMPLE 0.5 USING WEIGHTS SUM(w);
+
+ROLLBACK;
