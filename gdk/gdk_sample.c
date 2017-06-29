@@ -23,16 +23,13 @@
  * values that should be omitted from the sample.
  */
 
-#include <math.h>
-
 #include "monetdb_config.h"
 #include "gdk.h"
 #include "gdk_private.h"
 
+#include <math.h>
+
 #include "mtwist.h"
-
-#undef BATsample
-
 
 //TODO share these with gkd_firstn.c
 #define siftup(OPER, START, SWAP)					\

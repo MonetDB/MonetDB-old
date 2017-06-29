@@ -31,6 +31,17 @@
 #ifndef _SEEN_MTWIST_H
 #define _SEEN_MTWIST_H 1
 
+#ifdef NATIVE_WIN32
+#if !defined(LIBMUTILS) && !defined(LIBGDK) && !defined(LIBMEROUTIL)
+#define mtwist_export extern __declspec(dllimport)
+#else
+#define mtwist_export extern __declspec(dllexport)
+#endif
+#else
+#define mtwist_export extern
+#endif
+
+
 #define MTWIST_N 624
 #define MTWIST_M 397
 
@@ -53,15 +64,15 @@ struct mtwist_s {
 typedef struct mtwist_s mtwist;
 
 /* constructor */
-mtwist* mtwist_new(void);
+mtwist_export mtwist* mtwist_new(void);
 
 /* destructor */
-void mtwist_free(mtwist* mt);
+mtwist_export void mtwist_free(mtwist* mt);
 
 /* methods */
-void mtwist_seed(mtwist* mt, unsigned int seed);
-unsigned int mtwist_u32rand(mtwist* mt);
-double mtwist_drand(mtwist* mt);
-int mtwist_uniform_int(mtwist* mt, int a, int b);
+mtwist_export void mtwist_seed(mtwist* mt, unsigned int seed);
+mtwist_export unsigned int mtwist_u32rand(mtwist* mt);
+mtwist_export double mtwist_drand(mtwist* mt);
+mtwist_export int mtwist_uniform_int(mtwist* mt, int a, int b);
 
 #endif
