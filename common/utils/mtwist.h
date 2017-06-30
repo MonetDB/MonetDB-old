@@ -32,7 +32,7 @@
 #define _SEEN_MTWIST_H 1
 
 #ifdef NATIVE_WIN32
-#if !defined(LIBMUTILS) && !defined(LIBGDK) && !defined(LIBMEROUTIL)
+#if !defined(LIBMTWIST) && !defined(LIBMUTILS) && !defined(LIBGDK) && !defined(LIBMEROUTIL)
 #define mtwist_export extern __declspec(dllimport)
 #else
 #define mtwist_export extern __declspec(dllexport)
