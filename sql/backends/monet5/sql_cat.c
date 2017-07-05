@@ -726,16 +726,15 @@ static str
 continuous_procedure(mvc *sql, char *sname, char *cpname, int fid, int action)
 {
 	sql_schema *s = NULL;
-	char *F;
-	Client cntxt;
+	char *F = NULL;
 	str petrinetResponse = MAL_SUCCEED;
 
 	switch (action) {
-		case START_CONTINUOUS_PROCEDURE:
-			F = "START CONTINUOUS PROCEDURE";
-			break;
 		case INTERRUPT_CONTINUOUS_PROCEDURE:
 			F = "INTERRUPT CONTINUOUS PROCEDURE";
+			break;
+		case CONTINUE_CONTINUOUS_PROCEDURE:
+			F = "CONTINUE CONTINUOUS PROCEDURE";
 			break;
 		case HALT_CONTINUOUS_PROCEDURE:
 			F = "HALT CONTINUOUS PROCEDURE";
@@ -754,18 +753,11 @@ continuous_procedure(mvc *sql, char *sname, char *cpname, int fid, int action)
 				return sql_message("3F000!%s: access denied for %s to schema ;'%s'", F, stack_get_string(sql, "current_user"), s->base.name);
 			}
 			switch (action) {
-				case START_CONTINUOUS_PROCEDURE: {
-						if(!CQlocate(sname, cpname)) { //if the continuous procedure is not registered in the catalog then we register it
-							cntxt = MCgetClient(sql->clientid);
-							petrinetResponse = CQregisterInternal(cntxt, sname, cpname);
-						}
-						if(!petrinetResponse) {
-							petrinetResponse = CQresumeInternal(sname, cpname);
-						}
-					}
-					break;
 				case INTERRUPT_CONTINUOUS_PROCEDURE:
 					petrinetResponse = CQpauseInternal(sname, cpname);
+					break;
+				case CONTINUE_CONTINUOUS_PROCEDURE:
+					petrinetResponse = CQresumeInternal(sname, cpname);
 					break;
 				case HALT_CONTINUOUS_PROCEDURE:
 					petrinetResponse = CQderegisterInternal(sname, cpname);

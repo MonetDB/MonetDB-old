@@ -26,7 +26,7 @@
 #endif
 
 #define VALUE_FUNC(f) (f->func->type == F_FUNC || f->func->type == F_FILT)
-#define check_card(card,f) ((card == card_none && !f->res) || (CARD_VALUE(card) && f->res && VALUE_FUNC(f)) || card == card_loader || (card == card_relation && f->func->type == F_UNION))
+#define check_card(card,f) ((card == card_none && !f->res) || (CARD_VALUE(card) && f->res && VALUE_FUNC(f)) || card == card_loader || card == card_continuous_procedure || (card == card_relation && f->func->type == F_UNION))
 
 static void
 rel_setsubquery(sql_rel*r)
@@ -693,8 +693,24 @@ static sql_exp *
 rel_op_(mvc *sql, sql_schema *s, char *fname, exp_kind ek)
 {
 	sql_subfunc *f = NULL;
-	int type = (ek.card == card_loader)?F_LOADER:((ek.card == card_none)?F_PROC:
-		   ((ek.card == card_relation)?F_UNION:F_FUNC));
+	int type;
+
+	switch (ek.card) {
+		case card_loader:
+			type = F_LOADER;
+			break;
+		case card_none:
+			type = F_PROC;
+			break;
+		case card_relation:
+			type = F_UNION;
+			break;
+		case card_continuous_procedure:
+			type = F_CONTINUOUS_PROCEDURE;
+			break;
+		default:
+			type = F_FUNC;
+	}
 
 	f = sql_bind_func(sql->sa, s, fname, NULL, NULL, type);
 	if (f && check_card(ek.card, f)) {
@@ -1786,10 +1802,25 @@ static sql_exp*
 _rel_nop( mvc *sql, sql_schema *s, char *fname, list *tl, list *exps, sql_subtype *obj_type, int nr_args, exp_kind ek)
 {
 	sql_subfunc *f = NULL;
-	int table_func = (ek.card == card_relation);
-	int type = (ek.card == card_loader)?F_LOADER:((ek.card == card_none)?F_PROC:
-		   ((ek.card == card_relation)?F_UNION:F_FUNC));
-	int filt = (type == F_FUNC)?F_FILT:type;
+	int table_func = (ek.card == card_relation), type, filt;
+
+	switch (ek.card) {
+		case card_loader:
+			type = F_LOADER;
+			break;
+		case card_none:
+			type = F_PROC;
+			break;
+		case card_relation:
+			type = F_UNION;
+			break;
+		case card_continuous_procedure:
+			type = F_CONTINUOUS_PROCEDURE;
+			break;
+		default:
+			type = F_FUNC;
+	}
+	filt = (type == F_FUNC)?F_FILT:type;
 
 	f = bind_func_(sql, s, fname, tl, type);
 	if (f) {
@@ -2855,8 +2886,24 @@ rel_unop_(mvc *sql, sql_exp *e, sql_schema *s, char *fname, int card)
 {
 	sql_subfunc *f = NULL;
 	sql_subtype *t = NULL;
-	int type = (card == card_loader)?F_LOADER:((card == card_none)?F_PROC:
-		   ((card == card_relation)?F_UNION:F_FUNC));
+	int type;
+
+	switch (card) {
+		case card_loader:
+			type = F_LOADER;
+			break;
+		case card_none:
+			type = F_PROC;
+			break;
+		case card_relation:
+			type = F_UNION;
+			break;
+		case card_continuous_procedure:
+			type = F_CONTINUOUS_PROCEDURE;
+			break;
+		default:
+			type = F_FUNC;
+	}
 
 	if (!s)
 		s = sql->session->schema;
@@ -2911,7 +2958,21 @@ rel_unop(mvc *sql, sql_rel **rel, symbol *se, int fs, exp_kind ek)
 	sql_exp *e = NULL;
 	sql_subfunc *f = NULL;
 	sql_subtype *t = NULL;
-	int type = (ek.card == card_loader)?F_LOADER:((ek.card == card_none)?F_PROC:F_FUNC);
+	int type;
+
+	switch (ek.card) {
+		case card_loader:
+			type = F_LOADER;
+			break;
+		case card_none:
+			type = F_PROC;
+			break;
+		case card_continuous_procedure:
+			type = F_CONTINUOUS_PROCEDURE;
+			break;
+		default:
+			type = F_FUNC;
+	}
 
 	if (sname)
 		s = mvc_bind_schema(sql, sname);
@@ -2975,8 +3036,25 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 	sql_exp *res = NULL;
 	sql_subtype *t1, *t2;
 	sql_subfunc *f = NULL;
-	int type = (card == card_loader)?F_LOADER:((card == card_none)?F_PROC:
-		   ((card == card_relation)?F_UNION:F_FUNC));
+	int type;
+
+	switch (card) {
+		case card_loader:
+			type = F_LOADER;
+			break;
+		case card_none:
+			type = F_PROC;
+			break;
+		case card_relation:
+			type = F_UNION;
+			break;
+		case card_continuous_procedure:
+			type = F_CONTINUOUS_PROCEDURE;
+			break;
+		default:
+			type = F_FUNC;
+	}
+
 	if (card == card_loader) {
 		card = card_none;
 	}
@@ -3202,9 +3280,22 @@ rel_binop(mvc *sql, sql_rel **rel, symbol *se, int f, exp_kind ek)
 	char *sname = qname_schema(dl->data.lval);
 	sql_schema *s = sql->session->schema;
 	exp_kind iek = {type_value, card_column, FALSE};
-	int type = (ek.card == card_loader)?F_LOADER:((ek.card == card_none)?F_PROC:F_FUNC);
-
+	int type;
 	sql_subfunc *sf = NULL;
+
+	switch (ek.card) {
+		case card_loader:
+			type = F_LOADER;
+			break;
+		case card_none:
+			type = F_PROC;
+			break;
+		case card_continuous_procedure:
+			type = F_CONTINUOUS_PROCEDURE;
+			break;
+		default:
+			type = F_FUNC;
+	}
 
 	if (sname)
 		s = mvc_bind_schema(sql, sname);
@@ -3244,8 +3335,18 @@ rel_nop_(mvc *sql, sql_exp *a1, sql_exp *a2, sql_exp *a3, sql_exp *a4, sql_schem
 {
 	list *tl = sa_list(sql->sa);
 	sql_subfunc *f = NULL;
-	int type = (card == card_none)?F_PROC:
-		   ((card == card_relation)?F_UNION:F_FUNC);
+	int type;
+
+	switch (card) {
+		case card_none:
+			type = F_PROC;
+			break;
+		case card_continuous_procedure:
+			type = F_CONTINUOUS_PROCEDURE;
+			break;
+		default:
+			type = F_FUNC;
+	}
 
 	append(tl, exp_subtype(a1));
 	append(tl, exp_subtype(a2));

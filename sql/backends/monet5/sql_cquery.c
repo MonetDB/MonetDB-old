@@ -441,7 +441,7 @@ CQregisterInternal(Client cntxt, str modnme, str fcnnme)
 	sig = getInstrPtr(mb,0);
 	i = CQlocate(getModuleId(sig), getFunctionId(sig));
 	if (i != pnettop)
-		throw(MAL,"cquery.register","Duplicate registration of continuous procedure");
+		throw(MAL,"cquery.register","Duplicate registration of continuous procedure %s.%s", modnme, fcnnme);
 
 #ifdef DEBUG_CQUERY
 	fprintf(stderr, "#cquery register %s.%s\n", getModuleId(sig),getFunctionId(sig));
@@ -466,7 +466,7 @@ CQregisterInternal(Client cntxt, str modnme, str fcnnme)
 	MT_lock_set(&ttrLock);
 	if( CQlocate(getModuleId(sig), getFunctionId(sig)) != pnettop){
 		freeSymbol(s);
-		throw(MAL,"cquery.register","Duplicate registration of continuous procedure");
+		throw(MAL,"cquery.register","Duplicate registration of continuous procedure %s.%s", modnme, fcnnme);
 	}
 	pnet[pnettop].mod = GDKstrdup(modnme);
 	pnet[pnettop].fcn = GDKstrdup(fcnnme);

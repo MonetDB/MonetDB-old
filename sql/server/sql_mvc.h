@@ -39,6 +39,7 @@
 #define card_set	3 /* some operators require only a set (IN/EXISTS) */
 #define card_relation 	4
 #define card_loader 	5
+#define card_continuous_procedure 	6
 
 #define CARD_VALUE(card) (card == card_value || card == card_row || card == card_column || card == card_set)
 

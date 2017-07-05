@@ -534,7 +534,7 @@ int yydebug=1;
 %token <sval> COMMIT ROLLBACK SAVEPOINT RELEASE WORK CHAIN NO PRESERVE ROWS
 %token  START TRANSACTION READ WRITE ONLY ISOLATION LEVEL
 %token  UNCOMMITTED COMMITTED sqlREPEATABLE SERIALIZABLE DIAGNOSTICS sqlSIZE STORAGE
-%token  INTERRUPT HALT
+%token  INTERRUPT CONTINUE HALT
 
 %token <sval> ASYMMETRIC SYMMETRIC ORDER ORDERED BY IMPRINTS
 %token <operation> EXISTS ESCAPE HAVING sqlGROUP sqlNULL
@@ -1973,13 +1973,14 @@ func_def:
 				append_int(f, $1);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
   |	 create_or_replace CONTINUOUS PROCEDURE qname
+	'(' opt_paramlist ')'
     routine_body
 			{ dlist *f = L();
 				append_list(f, $4);                    /* continuous query name */
-				append_list(f, NULL);                  /* no parameters */
+				append_list(f, $6);                    /* parameters */
 				append_symbol(f, NULL);                /* no result */
 				append_list(f, NULL);                  /* no external name */
-				append_list(f, $5);                    /* continuous query body */
+				append_list(f, $8);                    /* continuous query body */
 				append_int(f, F_CONTINUOUS_PROCEDURE); /* continuous query identifier */
 				append_int(f, FUNC_LANG_SQL);          /* for now only SQL */
 				append_int(f, $1);                     /* create or replace feature */
@@ -2101,15 +2102,17 @@ call_procedure_statement:
     ;
 
 continuous_procedure_statement:
-    START CONTINUOUS PROCEDURE qname
-		{ dlist *l = L();
-		  append_list(l, $4);
-		  $$ = _symbol_create_list( SQL_START_CONTINUOUS_PROCEDURE, l ); }
-   | INTERRUPT CONTINUOUS PROCEDURE qname
+	START CONTINUOUS PROCEDURE func_ref
+		{ $$ = _symbol_create_symbol( SQL_START_CONTINUOUS_PROCEDURE, $4 ); }
+	| INTERRUPT CONTINUOUS PROCEDURE qname
 		{ dlist *l = L();
 		  append_list(l, $4);
 		  $$ = _symbol_create_list( SQL_INTERRUPT_CONTINUOUS_PROCEDURE, l ); }
-   | HALT CONTINUOUS PROCEDURE qname
+	| CONTINUE CONTINUOUS PROCEDURE qname
+		{ dlist *l = L();
+		  append_list(l, $4);
+		  $$ = _symbol_create_list( SQL_CONTINUE_CONTINUOUS_PROCEDURE, l ); }
+	| HALT CONTINUOUS PROCEDURE qname
 		{ dlist *l = L();
 		  append_list(l, $4);
 		  $$ = _symbol_create_list( SQL_HALT_CONTINUOUS_PROCEDURE, l ); }

@@ -149,11 +149,12 @@ psm_set_exp(mvc *sql, dnode *n)
 }
 
 static sql_exp*
-rel_psm_call(mvc * sql, symbol *se)
+rel_psm_call(mvc * sql, int token, symbol *se)
 {
 	sql_subtype *t;
 	sql_exp *res = NULL;
-	exp_kind ek = {type_value, card_none, FALSE};
+	int card = (token == SQL_START_CONTINUOUS_PROCEDURE) ? card_continuous_procedure : card_none;
+	exp_kind ek = {type_value, card, FALSE};
 	sql_rel *rel = NULL;
 
 	res = rel_value_exp(sql, &rel, se, sql_sel, ek);
@@ -616,7 +617,7 @@ sequential_block (mvc *sql, sql_subtype *restype, list *restypelist, dlist *blk,
 			reslist = rel_psm_case(sql, restype, restypelist, s->data.lval->h, is_func);
 			break;
 		case SQL_CALL:
-			res = rel_psm_call(sql, s->data.sym);
+			res = rel_psm_call(sql, s->token, s->data.sym);
 			break;
 		case SQL_RETURN:
 			/*If it is not a function it cannot have a return statement*/
@@ -1455,13 +1456,13 @@ rel_change_continuous_procedure(mvc *sql, int token, dlist *qname)
 	int action;
 
 	switch (token) {
-		case SQL_START_CONTINUOUS_PROCEDURE:
-			F = "START CONTINUOUS PROCEDURE";
-			action = START_CONTINUOUS_PROCEDURE;
-			break;
 		case SQL_INTERRUPT_CONTINUOUS_PROCEDURE:
 			F = "INTERRUPT CONTINUOUS PROCEDURE";
 			action = INTERRUPT_CONTINUOUS_PROCEDURE;
+			break;
+		case SQL_CONTINUE_CONTINUOUS_PROCEDURE:
+			F = "CONTINUE CONTINUOUS PROCEDURE";
+			action = CONTINUE_CONTINUOUS_PROCEDURE;
 			break;
 		case SQL_HALT_CONTINUOUS_PROCEDURE:
 			F = "HALT CONTINUOUS PROCEDURE";
@@ -1545,7 +1546,8 @@ rel_psm(mvc *sql, symbol *s)
 		sql->type = Q_SCHEMA;
 		break;
 	case SQL_CALL:
-		ret = rel_psm_stmt(sql->sa, rel_psm_call(sql, s->data.sym));
+	case SQL_START_CONTINUOUS_PROCEDURE:
+		ret = rel_psm_stmt(sql->sa, rel_psm_call(sql, s->token, s->data.sym));
 		sql->type = Q_UPDATE;
 		break;
 	case SQL_CREATE_TABLE_LOADER:
@@ -1582,8 +1584,9 @@ rel_psm(mvc *sql, symbol *s)
 		ret = psm_analyze(sql, "analyze", l->h->data.lval /* qualified table name */, l->h->next->data.lval /* opt list of column */, l->h->next->next->data.sym /* opt_sample_size */, l->h->next->next->next->data.i_val);
 		sql->type = Q_UPDATE;
 	} 	break;
-	case SQL_START_CONTINUOUS_PROCEDURE:
+
 	case SQL_INTERRUPT_CONTINUOUS_PROCEDURE:
+	case SQL_CONTINUE_CONTINUOUS_PROCEDURE:
 	case SQL_HALT_CONTINUOUS_PROCEDURE: {
 		dlist *l = s->data.lval;
 		dlist *qname = l->h->data.lval;
