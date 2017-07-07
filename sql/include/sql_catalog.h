@@ -309,8 +309,8 @@ typedef struct sql_arg {
 
 #define LANG_EXT(l)  (l>FUNC_LANG_SQL)
 
-#define START_CONTINUOUS_PROCEDURE 1 /* this might stay here I think... */
-#define RESTART_CONTINUOUS_PROCEDURE 2 /* currently not using it */
+#define START_CONTINUOUS_PROCEDURE 1
+#define RESTART_CONTINUOUS_PROCEDURE 2
 #define INTERRUPT_CONTINUOUS_PROCEDURE 3
 #define CONTINUE_CONTINUOUS_PROCEDURE 4
 #define HALT_CONTINUOUS_PROCEDURE 5

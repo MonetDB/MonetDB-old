@@ -82,3 +82,8 @@ comment "Debug a single continuous query";
 command dump()
 address CQdump
 comment "Show the status of the query scheduler";
+
+# initializer code
+command prelude() :void
+address CQprelude;
+cquery.prelude();

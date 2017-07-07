@@ -50,7 +50,7 @@
 #include "mal_builder.h"
 #include "opt_prelude.h"
 
-static str statusname[7] = { "init", "register", "readytorun", "running", "waiting", "paused","stopping"};
+static str statusname[7] = { "init", "register", "readytorun", "running", "waiting", "paused", "stopping"};
 
 static str CQstartScheduler(void);
 static int CQinit;
@@ -72,7 +72,6 @@ MT_Lock ttrLock MT_LOCK_INITIALIZER("cqueryLock");
 static void
 CQfree(int idx)
 {
-	MT_lock_set(&ttrLock);
 	if( pnet[idx].mb)
 		freeMalBlk(pnet[idx].mb);
 	if( pnet[idx].stk)
@@ -83,7 +82,6 @@ CQfree(int idx)
 		pnet[idx] = pnet[idx+1];
 	pnettop--;
 	memset((void*) (pnet+idx), 0, sizeof(CQnode));
-	MT_lock_unset(&ttrLock);
 }
 
 /* We need a lock table for all stream tables considered
@@ -246,7 +244,7 @@ wrapup:
 	throw(SQL,"cquery.status",MAL_MALLOC_FAIL);
 }
 
-int
+static int
 CQlocate(str modname, str fcnname)
 {
 	int i;
@@ -258,7 +256,7 @@ CQlocate(str modname, str fcnname)
 	return i;
 }
 
-/* capture and remember errors */
+/* capture and remember errors: WARNING no locks in this call yet! */
 str
 CQerror(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -278,7 +276,7 @@ CQerror(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
-/* A debugging routine */
+/* A debugging routine: WARNING no locks in this call yet! */
 str
 CQshow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -301,18 +299,14 @@ CQshow(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 /* Make sure we do not re-use the same source more than once */
 /* Avoid any concurreny conflict */
 static str
-CQanalysis(Client cntxt, MalBlkPtr mb, int pn)
+CQanalysis(Client cntxt, MalBlkPtr mb, int idx)
 {
-	int i, j, idx, bskt;
+	int i, j, bskt;
 	InstrPtr p;
 	str msg= MAL_SUCCEED, sch, tbl;
 	(void) cntxt;
 
 	p = getInstrPtr(mb, 0);
-	idx = CQlocate(getModuleId(p), getFunctionId(p));
-	if( idx != pnettop)
-		throw(MAL,"cquery.analysis","Duplicate or unknown registration of %s.%s \n", getModuleId(p), getFunctionId(p));
-	MT_lock_unset(&ttrLock);
 	for (i = 0; msg== MAL_SUCCEED && i < mb->stop; i++) {
 		p = getInstrPtr(mb, i);
 		if (getModuleId(p) == basketRef && (getFunctionId(p) == registerRef || getFunctionId(p) == bindRef)){
@@ -331,22 +325,22 @@ CQanalysis(Client cntxt, MalBlkPtr mb, int pn)
 					}
 				}
 			}
-			
+
 			// we only need a single column for window size testing
-			for( j=0; j< MAXSTREAMS && pnet[pn].baskets[j]; j++)
-			if( strcmp(sch, baskets[pnet[pn].baskets[j]].schema) == 0 &&
-				strcmp(tbl, baskets[pnet[pn].baskets[j]].table) == 0 )
+			for( j=0; j< MAXSTREAMS && pnet[idx].baskets[j]; j++)
+			if( strcmp(sch, baskets[pnet[idx].baskets[j]].schema) == 0 &&
+				strcmp(tbl, baskets[pnet[idx].baskets[j]].table) == 0 )
 				break;
 			if ( j == MAXSTREAMS){
 				msg = createException(MAL,"cquery.analysis","too many stream table columns\n");
 				continue;
 			}
 
-			if ( pnet[pn].baskets[j] )
+			if ( pnet[idx].baskets[j] )
 				continue;
 
-			pnet[pn].baskets[j] = bskt;
-			pnet[pn].inout[j] = STREAM_IN;
+			pnet[idx].baskets[j] = bskt;
+			pnet[idx].inout[j] = STREAM_IN;
 		}
 
 		// Pick up the window constraint from the query definition
@@ -375,11 +369,6 @@ CQanalysis(Client cntxt, MalBlkPtr mb, int pn)
 			baskets[bskt].stride = stride;
 		}
 	}
-	MT_lock_set(&ttrLock);
-	if( msg != MAL_SUCCEED){
-		// restore the state for later re-use
-		CQfree(pn);
-	}
 	return msg;
 }
 
@@ -400,7 +389,7 @@ IOTprocedureStmt(Client cntxt, MalBlkPtr mb, str schema, str nme)
 		return msg;
 	s = mvc_bind_schema(m, schema);
 	if (s == NULL)
-		throw(SQL, "cquery.register", "Schema missing");
+		return createException(SQL,"cquery.register","Schema missing");
 	/*tr = m->session->tr;*/
 	for (o = s->funcs.set->h; o; o = o->next) {
 		f = o->data;
@@ -413,11 +402,11 @@ IOTprocedureStmt(Client cntxt, MalBlkPtr mb, str schema, str nme)
 			return MAL_SUCCEED;
 		}
 	}
-	throw(SQL, "cquery.register", "SQL procedure missing");
+	return createException(SQL,"cquery.register","SQL procedure missing");
 }
 
 str
-CQregisterInternal(Client cntxt, str modnme, str fcnnme)
+CQregisterInternal(Client cntxt, str modnme, str fcnnme, int action)
 {
 	int i;
 	InstrPtr sig,q;
@@ -432,16 +421,19 @@ CQregisterInternal(Client cntxt, str modnme, str fcnnme)
 		s = findSymbolInModule(scope, putName(fcnnme));
 
 	if (s == NULL)
-		throw(MAL, "cquery.register", "Could not find SQL procedure");
-
-	if (pnettop == MAXCQ)
-		GDKerror("cquery.register:Too many transitions");
+		return createException(SQL,"cquery.register","Could not find SQL procedure");
 
 	mb = s->def;
+	msg = IOTprocedureStmt(cntxt, mb, modnme, fcnnme);
+	if( msg)
+		return msg;
 	sig = getInstrPtr(mb,0);
-	i = CQlocate(getModuleId(sig), getFunctionId(sig));
-	if (i != pnettop)
-		throw(MAL,"cquery.register","Duplicate registration of continuous procedure %s.%s", modnme, fcnnme);
+
+	MT_lock_set(&ttrLock);
+	if (pnettop == MAXCQ) {
+		msg = createException(MAL,"cquery.register","Too many transitions");
+		goto finish;
+	}
 
 #ifdef DEBUG_CQUERY
 	fprintf(stderr, "#cquery register %s.%s\n", getModuleId(sig),getFunctionId(sig));
@@ -463,45 +455,49 @@ CQregisterInternal(Client cntxt, str modnme, str fcnnme)
 	fprintFunction(stderr, nmb, 0, LIST_MAL_ALL);
 #endif
 
-	MT_lock_set(&ttrLock);
-	if( CQlocate(getModuleId(sig), getFunctionId(sig)) != pnettop){
+	i = CQlocate(getModuleId(sig), getFunctionId(sig));
+	if(i != pnettop && action != RESTART_CQUERY) {
 		freeSymbol(s);
-		throw(MAL,"cquery.register","Duplicate registration of continuous procedure %s.%s", modnme, fcnnme);
+		msg = createException(SQL,"cquery.register","Duplicate registration of continuous procedure %s.%s.\n", modnme, fcnnme);
+		goto finish;
 	}
+	if(action == RESTART_CQUERY) {
+		CQfree(i);
+	}
+
 	pnet[pnettop].mod = GDKstrdup(modnme);
 	pnet[pnettop].fcn = GDKstrdup(fcnnme);
 	pnet[pnettop].mb = nmb;
 	pnet[pnettop].stk = prepareMALstack(nmb, nmb->vsize);
-
 	pnet[pnettop].cycles = int_nil;
 	pnet[pnettop].beats = lng_nil;
 	pnet[pnettop].run  = lng_nil;
 	pnet[pnettop].seen = *timestamp_nil;
-	pnet[pnettop].status = CQPAUSE;
+	pnet[pnettop].status = (action != REGISTER_CQUERY) ? CQWAIT : CQPAUSE;
+
+	msg = CQanalysis(cntxt, mb, pnettop);
+	if( msg != MAL_SUCCEED) {
+		CQfree(pnettop); // restore the entry
+		goto finish;
+	}
 	pnettop++;
 
-	msg = CQanalysis(cntxt, mb, pnettop-1);
+	finish:
 	MT_lock_unset(&ttrLock);
-	if( msg != MAL_SUCCEED)
-		// restore the entry
-		CQfree(pnettop);
-	if( pnettop == 0)
-		pnstatus = CQSTOP;
+	if(!msg && action != RESTART_CQUERY && CQinit == 0) { /* start the scheduler if needed */
+		msg = CQstartScheduler();
+	}
 	return msg;
 }
 
 str
 CQregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str msg = MAL_SUCCEED;
 	str modnme = *getArgReference_str(stk, pci, 1);
 	str fcnnme = *getArgReference_str(stk, pci, 2);
+	(void) mb;
 
-	msg = IOTprocedureStmt(cntxt, mb, modnme, fcnnme);
-	if( msg)
-		return msg;
-
-	return CQregisterInternal(cntxt, modnme, fcnnme);
+	return CQregisterInternal(cntxt, modnme, fcnnme, REGISTER_CQUERY);
 }
 
 static str
@@ -512,10 +508,8 @@ CQresumeInternalRanges(int first, int last)
 #ifdef DEBUG_CQUERY
 	fprintf(stderr, "#resume scheduler\n");
 #endif
-	MT_lock_set(&ttrLock);
 	for( ; first < last; first++)
 		pnet[first].status = CQWAIT;
-	MT_lock_unset(&ttrLock);
 
 	/* start the scheduler if needed */
 	if(CQinit == 0) {
@@ -528,17 +522,24 @@ str
 CQresumeInternal(str modnme, str fcnnme)
 {
 	int idx;
+	str msg = MAL_SUCCEED;
 
+	MT_lock_set(&ttrLock);
 	idx = CQlocate(modnme, fcnnme);
-	if( idx == pnettop)
-		throw(SQL,"cquery.resume","Continuous procedure %s.%s not accessible\n",modnme,fcnnme);
-	return CQresumeInternalRanges(idx, idx+1);
+	if( idx == pnettop) {
+		msg = createException(SQL, "cquery.resume", "Continuous procedure %s.%s not accessible\n", modnme, fcnnme);
+		goto finish;
+	}
+	msg = CQresumeInternalRanges(idx, idx+1);
+	finish:
+	MT_lock_unset(&ttrLock);
+	return msg;
 }
 
 str
 CQresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str sch, fcn;
+	str sch, fcn, msg = MAL_SUCCEED;
 	(void) cntxt;
 	(void) mb;
 
@@ -547,7 +548,10 @@ CQresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		fcn = *getArgReference_str(stk,pci,2);
 		return CQresumeInternal(sch, fcn);
 	} else { //resume all
-		return CQresumeInternalRanges(0, pnettop);
+		MT_lock_set(&ttrLock);
+		msg = CQresumeInternalRanges(0, pnettop);
+		MT_lock_unset(&ttrLock);
+		return msg;
 	}
 }
 
@@ -557,10 +561,8 @@ CQpauseInternalRanges(int first, int last)
 #ifdef DEBUG_CQUERY
 	fprintf(stderr, "#pause cqueries\n");
 #endif
-	MT_lock_set(&ttrLock);
 	for( ; first < last; first++)
 		pnet[first].status = CQPAUSE;
-	MT_lock_unset(&ttrLock);
 	return MAL_SUCCEED;
 }
 
@@ -568,17 +570,24 @@ str
 CQpauseInternal(str modnme, str fcnnme)
 {
 	int idx;
+	str msg = MAL_SUCCEED;
 
+	MT_lock_set(&ttrLock);
 	idx = CQlocate(modnme, fcnnme);
-	if( idx == pnettop)
-		throw(SQL,"cquery.pause","Continuous procedure %s.%s not accessible\n",modnme,fcnnme);
-	return CQpauseInternalRanges(idx, idx+1);
+	if( idx == pnettop) {
+		msg = createException(SQL, "cquery.pause", "Continuous procedure %s.%s not accessible\n", modnme, fcnnme);
+		goto finish;
+	}
+	msg = CQpauseInternalRanges(idx, idx+1);
+	finish:
+	MT_lock_unset(&ttrLock);
+	return msg;
 }
 
 str
 CQpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str sch, fcn;
+	str sch, fcn, msg = MAL_SUCCEED;
 	(void) cntxt;
 	(void) mb;
 
@@ -587,24 +596,31 @@ CQpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		fcn = *getArgReference_str(stk,pci,2);
 		return CQpauseInternal(sch, fcn);
 	} else { //pause all
-		return CQpauseInternalRanges(0, pnettop);
+		MT_lock_set(&ttrLock);
+		msg = CQpauseInternalRanges(0, pnettop);
+		MT_lock_unset(&ttrLock);
+		return msg;
 	}
 }
 
 str
 CQcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str sch, fcn;
-	int cycles, idx=0, last= pnettop;
+	str sch, fcn, msg = MAL_SUCCEED;
+	int cycles, idx=0, last;
 	(void) cntxt;
 	(void) mb;
 
+	MT_lock_set(&ttrLock);
+	last = pnettop;
 	if( pci->argc >2){
 		sch = *getArgReference_str(stk,pci,1);
 		fcn = *getArgReference_str(stk,pci,2);
 		idx = CQlocate(sch, fcn);
-		if( idx == pnettop)
-			throw(SQL,"cquery.cycles","Continuous procedure %s.%s not accessible\n",sch,fcn);
+		if( idx == pnettop) {
+			msg = createException(SQL,"cquery.cycles","Continuous procedure %s.%s not accessible\n",sch,fcn);
+			goto finish;
+		}
 		last = idx+1;
 		cycles = *getArgReference_int(stk,pci,3);
 	} else
@@ -612,11 +628,12 @@ CQcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #ifdef DEBUG_CQUERY
 	fprintf(stderr, "#set cycles \n");
 #endif
-	MT_lock_set(&ttrLock);
 	for( ; idx < last; idx++)
 		pnet[idx].cycles = cycles;
+
+	finish:
 	MT_lock_unset(&ttrLock);
-	return MAL_SUCCEED;
+	return msg;
 }
 
 static void
@@ -635,18 +652,20 @@ CQsetbeat(int idx, int beats)
 str
 CQheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str sch, fcn;
+	str sch, fcn, msg = MAL_SUCCEED;
 	int beats, idx=0, last= pnettop;
-	str msg = MAL_SUCCEED;
 	(void) cntxt;
 	(void) mb;
 
+	MT_lock_set(&ttrLock);
 	if( pci->argc >2){
 		sch = *getArgReference_str(stk,pci,1);
 		fcn = *getArgReference_str(stk,pci,2);
 		idx = CQlocate(sch, fcn);
-		if( idx == pnettop)
-			throw(SQL,"cquery.heartbeat","Continuous procedure %s.%s not accessible\n",sch,fcn);
+		if( idx == pnettop) {
+			msg = createException(SQL,"cquery.heartbeat","Continuous procedure %s.%s not accessible\n",sch,fcn);
+			goto finish;
+		}
 		last = idx+1;
 		beats = *getArgReference_int(stk,pci,3);
 #ifdef DEBUG_CQUERY
@@ -658,14 +677,14 @@ CQheartbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		fprintf(stderr, "#set the heartbeat %d ms\n",beats);
 #endif
 	}
-	MT_lock_set(&ttrLock);
 	for( ; idx < last; idx++){
 		if( pnet[idx].baskets[0]){
-			msg = createException(MAL,"cquery.heartbeat","Beat ignored, a window constraint exist\n");
+			msg = createException(SQL,"cquery.heartbeat","Beat ignored, a window constraint exists\n");
 			break;
 		}
 		CQsetbeat(idx, beats *1000); /* minimal 1 ms */
 	}
+	finish:
 	MT_lock_unset(&ttrLock);
 	return msg;
 }
@@ -693,35 +712,54 @@ CQderegisterInternalRanges(int first, int last)
 #endif
 	for( ; first < last; first++)
 		CQfree(first);
+
+	if( pnettop == 0)
+		pnstatus = CQSTOP;
 	return MAL_SUCCEED;
 }
 
+//The force flag is set when deleting the CQ from the SQL catalog. In that case the CQ may be registered in the Petrinet or not
+
 str
-CQderegisterInternal(str modnme, str fcnnme)
+CQderegisterInternal(str modnme, str fcnnme, int force)
 {
 	int idx;
+	str msg = MAL_SUCCEED;
 
+	MT_lock_set(&ttrLock);
 	idx = CQlocate(modnme, fcnnme);
-	if( idx == pnettop)
-		throw(SQL,"cquery.deregister","Continuous procedure %s.%s not accessible\n",modnme,fcnnme);
-	return CQderegisterInternalRanges(idx, idx+1);
+	if(!force && idx == pnettop) {
+		msg = createException(SQL, "cquery.deregister", "Continuous procedure %s.%s not accessible\n", modnme, fcnnme);
+		goto finish;
+	}
+	if(idx < pnettop) //remove from the petrinet only when found
+		msg = CQderegisterInternalRanges(idx, idx+1);
+
+	finish:
+	MT_lock_unset(&ttrLock);
+	return msg;
 }
 
 str
 CQderegister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str sch, fcn;
+	str sch, fcn, msg = MAL_SUCCEED;
 	(void) cntxt;
 	(void) mb;
 
 	if( pci->argc >2) { //deregister one
 		sch = *getArgReference_str(stk,pci,1);
 		fcn = *getArgReference_str(stk,pci,2);
-		return CQderegisterInternal(sch, fcn);
+		return CQderegisterInternal(sch, fcn, 0);
 	} else { //deregister all
-		return CQderegisterInternalRanges(0, pnettop);
+		MT_lock_set(&ttrLock);
+		msg = CQderegisterInternalRanges(0, pnettop);
+		MT_lock_unset(&ttrLock);
+		return msg;
 	}
 }
+
+/* WARNING no locks in this call yet! */
 
 str
 CQdump(void *ret)
@@ -964,7 +1002,6 @@ CQstartScheduler(void)
 #ifdef DEBUG_CQUERY
 	fprintf(stderr, "#Start CQscheduler\n");
 #endif
-	MT_lock_init( &ttrLock, "cqueryLock");
 /*
 	fin =  open_rastream("cquery_in");
 	if( fin == NULL)
@@ -990,3 +1027,10 @@ CQstartScheduler(void)
 	return MAL_SUCCEED;
 }
 
+str
+CQprelude(void *ret) {
+	(void) ret;
+	MT_lock_init(&ttrLock, "cqueryLock");
+	printf("# MonetDB/Timetrails module loaded\n");
+	return MAL_SUCCEED;
+}

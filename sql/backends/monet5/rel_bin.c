@@ -17,7 +17,6 @@
 #include "rel_updates.h"
 #include "rel_optimizer.h"
 #include "sql_env.h"
-#include "sql_cquery.h"
 
 #define OUTER_ZERO 64
 
@@ -169,7 +168,7 @@ static stmt *column(backend *be, stmt *val )
 	return val;
 }
 
-static stmt *RelColumn(backend *be, stmt *val )
+static stmt *Column(backend *be, stmt *val )
 {
 	if (val->nrcols == 0)
 		val = const_column(be, val);
@@ -455,21 +454,6 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 			s = stmt_func(be, stmt_list(be, l), sa_strdup(sql->sa, f->func->base.name), f->func->rel, (f->func->type == F_UNION));
 		else
 			s = stmt_Nop(be, stmt_list(be, l), e->f);
-
-		if (f->func->type == F_CONTINUOUS_PROCEDURE) {
-			char *petrinetResponse;
-			char *sname = f->func->s->base.name;
-			char *fname = f->func->base.name;
-			if (!CQlocate(sname, fname)) { //if the continuous procedure is not registered in the catalog then we register it
-				petrinetResponse = CQregisterInternal(MCgetClient(sql->clientid), sname, fname);
-			}
-			if (!petrinetResponse) {
-				petrinetResponse = CQresumeInternal(sname, fname);
-			}
-			if (petrinetResponse) {
-				return sql_error(sql, 02, "M0M27!START CONTINUOUS PROCEDURE internal error: %s", petrinetResponse);
-			}
-		}
 	} 	break;
 	case e_aggr: {
 		list *attr = e->l; 
@@ -1867,7 +1851,7 @@ rel2bin_join(backend *be, sql_rel *rel, list *refs)
 
 		/* as append isn't save, we append to a new copy */
 		if (rel->op == op_left || rel->op == op_full || rel->op == op_right)
-			s = RelColumn(be, s);
+			s = Column(be, s);
 		if (rel->op == op_left || rel->op == op_full)
 			s = stmt_append(be, s, stmt_project(be, ld, c));
 		if (rel->op == op_right || rel->op == op_full) 
@@ -1884,7 +1868,7 @@ rel2bin_join(backend *be, sql_rel *rel, list *refs)
 
 		/* as append isn't save, we append to a new copy */
 		if (rel->op == op_left || rel->op == op_full || rel->op == op_right)
-			s = RelColumn(be, s);
+			s = Column(be, s);
 		if (rel->op == op_left || rel->op == op_full) 
 			s = stmt_append(be, s, stmt_const(be, ld, (c->flag&OUTER_ZERO)?stmt_atom_lng(be, 0):stmt_atom(be, atom_general(sql->sa, tail_type(c), NULL))));
 		if (rel->op == op_right || rel->op == op_full) 
@@ -2135,7 +2119,7 @@ rel2bin_union(backend *be, sql_rel *rel, list *refs)
 		const char *nme = column_name(sql->sa, c1);
 		stmt *s;
 
-		s = stmt_append(be, RelColumn(be, c1), c2);
+		s = stmt_append(be, Column(be, c1), c2);
 		s = stmt_alias(be, s, rnme, nme);
 		list_append(l, s);
 	}

@@ -485,8 +485,8 @@ drop_func(mvc *sql, char *sname, char *name, int fid, int type, int action)
 			if (!action && mvc_check_dependency(sql, func->base.id, !IS_PROC(func) ? FUNC_DEPENDENCY : PROC_DEPENDENCY, NULL))
 				return sql_message("DROP %s%s: there are database objects dependent on %s%s %s;", KF, F, kf, f, func->base.name);
 			//if it is a continuous procedure we must remove it first from the Petrinet
-			if(type == F_CONTINUOUS_PROCEDURE && CQlocate(sname, func->base.name)) {
-				err = CQderegisterInternal(sname, func->base.name);
+			if(type == F_CONTINUOUS_PROCEDURE) {
+				err = CQderegisterInternal(sname, func->base.name, 1);
 				if(err) {
 					return sql_message("DROP %s%s: internal error on %s%s %s: %s", KF, F, kf, f, func->base.name, err);
 				}
@@ -510,8 +510,8 @@ drop_func(mvc *sql, char *sname, char *name, int fid, int type, int action)
 				return sql_message("DROP %s%s: there are database objects dependent on %s%s %s;", KF, F, kf, f, func->base.name);
 			}
 			//if it is a continuous procedure we must remove it first from the Petrinet
-			if(type == F_CONTINUOUS_PROCEDURE && CQlocate(sname, func->base.name)) {
-				err = CQderegisterInternal(sname, func->base.name);
+			if(type == F_CONTINUOUS_PROCEDURE) {
+				err = CQderegisterInternal(sname, func->base.name, 1);
 				if(err) {
 					return sql_message("DROP %s%s: internal error on %s%s %s: %s", KF, F, kf, f, func->base.name, err);
 				}
@@ -727,9 +727,15 @@ continuous_procedure(mvc *sql, char *sname, char *cpname, int fid, int action)
 {
 	sql_schema *s = NULL;
 	char *F = NULL;
-	str petrinetResponse = MAL_SUCCEED;
+	str petrinetResponse = NULL;
 
 	switch (action) {
+		case START_CONTINUOUS_PROCEDURE:
+			F = "START CONTINUOUS PROCEDURE";
+			break;
+		case RESTART_CONTINUOUS_PROCEDURE:
+			F = "RESTART CONTINUOUS PROCEDURE";
+			break;
 		case INTERRUPT_CONTINUOUS_PROCEDURE:
 			F = "INTERRUPT CONTINUOUS PROCEDURE";
 			break;
@@ -749,10 +755,18 @@ continuous_procedure(mvc *sql, char *sname, char *cpname, int fid, int action)
 		node *n = find_sql_func_node(s, fid);
 		if (n) {
 			sql_func *func = n->data;
-			if (!mvc_schema_privs(sql, s)) {
+			if(func->type != F_CONTINUOUS_PROCEDURE) {
+				return sql_message("3F000!%s: %s is not a continuous procedure", F, s->base.name);
+			} else if (!mvc_schema_privs(sql, s)) {
 				return sql_message("3F000!%s: access denied for %s to schema ;'%s'", F, stack_get_string(sql, "current_user"), s->base.name);
 			}
 			switch (action) {
+				case START_CONTINUOUS_PROCEDURE:
+					petrinetResponse = CQregisterInternal(MCgetClient(sql->clientid), sname, cpname, REGISTER_AND_START_CQUERY);
+					break;
+				case RESTART_CONTINUOUS_PROCEDURE:
+					petrinetResponse = CQregisterInternal(MCgetClient(sql->clientid), sname, cpname, RESTART_CQUERY);
+					break;
 				case INTERRUPT_CONTINUOUS_PROCEDURE:
 					petrinetResponse = CQpauseInternal(sname, cpname);
 					break;
@@ -760,7 +774,7 @@ continuous_procedure(mvc *sql, char *sname, char *cpname, int fid, int action)
 					petrinetResponse = CQresumeInternal(sname, cpname);
 					break;
 				case HALT_CONTINUOUS_PROCEDURE:
-					petrinetResponse = CQderegisterInternal(sname, cpname);
+					petrinetResponse = CQderegisterInternal(sname, cpname, 0);
 					break;
 			}
 			if(petrinetResponse) {

@@ -149,12 +149,11 @@ psm_set_exp(mvc *sql, dnode *n)
 }
 
 static sql_exp*
-rel_psm_call(mvc * sql, int token, symbol *se)
+rel_psm_call(mvc * sql, symbol *se)
 {
 	sql_subtype *t;
 	sql_exp *res = NULL;
-	int card = (token == SQL_START_CONTINUOUS_PROCEDURE) ? card_continuous_procedure : card_none;
-	exp_kind ek = {type_value, card, FALSE};
+	exp_kind ek = {type_value, card_none, FALSE};
 	sql_rel *rel = NULL;
 
 	res = rel_value_exp(sql, &rel, se, sql_sel, ek);
@@ -578,11 +577,89 @@ has_return( list *l )
 	return 0;
 }
 
+static sql_rel *
+rel_change_continuous_procedure(mvc *sql, int token, dlist *qname, symbol* sym)
+{
+	sql_schema *s = NULL;
+	const char *sname = qname_schema(qname);
+	const char *name = qname_table(qname);
+	sql_func *func = NULL;
+	sql_rel *rel = NULL;
+	list *exps = NULL;
+	char *F = NULL, *f = NULL;
+	int action;
+
+	(void) sym; //TODO with te sym, retrieve the cq from the catalog (next Monday)
+
+	switch (token) {
+		case SQL_START_CONTINUOUS_PROCEDURE:
+			F = "START CONTINUOUS PROCEDURE";
+			f = "START";
+			action = START_CONTINUOUS_PROCEDURE;
+			break;
+		case SQL_RESTART_CONTINUOUS_PROCEDURE:
+			F = "RESTART CONTINUOUS PROCEDURE";
+			f = "RESTART";
+			action = RESTART_CONTINUOUS_PROCEDURE;
+			break;
+		case SQL_INTERRUPT_CONTINUOUS_PROCEDURE:
+			F = "INTERRUPT CONTINUOUS PROCEDURE";
+			f = "INTERRUPT";
+			action = INTERRUPT_CONTINUOUS_PROCEDURE;
+			break;
+		case SQL_CONTINUE_CONTINUOUS_PROCEDURE:
+			F = "CONTINUE CONTINUOUS PROCEDURE";
+			f = "CONTINUE";
+			action = CONTINUE_CONTINUOUS_PROCEDURE;
+			break;
+		case SQL_HALT_CONTINUOUS_PROCEDURE:
+			F = "HALT CONTINUOUS PROCEDURE";
+			f = "HALT";
+			action = HALT_CONTINUOUS_PROCEDURE;
+			break;
+	}
+
+	if (sname && !(s=mvc_bind_schema(sql, sname))) {
+		(void) sql_error(sql, 02, "3F000!%s: no such schema '%s'", F, sname);
+		return NULL;
+	}
+	if (!s)
+		s = cur_schema(sql);
+
+	func = resolve_func(sql, s, name, NULL, F_CONTINUOUS_PROCEDURE, f);
+	if (!func && !sname) {
+		s = tmp_schema(sql);
+		func = resolve_func(sql, s, name, NULL, F_CONTINUOUS_PROCEDURE, f);
+	}
+	if (func) {
+		rel = rel_create(sql->sa);
+		exps = new_exp_list(sql->sa);
+
+		append(exps, exp_atom_clob(sql->sa, sname));
+		append(exps, exp_atom_clob(sql->sa, name));
+		append(exps, exp_atom_int(sql->sa, func->base.id));
+		append(exps, exp_atom_int(sql->sa, action));
+		rel->l = NULL;
+		rel->r = NULL;
+		rel->op = op_ddl;
+		rel->flag = DDL_CONTINUOUS_PROCEDURE;
+		rel->exps = exps;
+		rel->card = 0;
+		rel->nrcols = 0;
+		return rel;
+	}
+	return NULL;
+}
+
 static list *
 sequential_block (mvc *sql, sql_subtype *restype, list *restypelist, dlist *blk, char *opt_label, int is_func) 
 {
 	list *l=0;
 	dnode *n;
+	dlist *dl;
+	dlist *qname;
+	sql_rel *r;
+	symbol *sym;
 
 	assert(!restype || !restypelist);
 
@@ -617,7 +694,23 @@ sequential_block (mvc *sql, sql_subtype *restype, list *restypelist, dlist *blk,
 			reslist = rel_psm_case(sql, restype, restypelist, s->data.lval->h, is_func);
 			break;
 		case SQL_CALL:
-			res = rel_psm_call(sql, s->token, s->data.sym);
+			res = rel_psm_call(sql, s->data.sym);
+			break;
+		case SQL_START_CONTINUOUS_PROCEDURE:
+		case SQL_RESTART_CONTINUOUS_PROCEDURE:
+			dl = s->data.lval;
+			sym = dl->h->data.sym;
+			qname = sym->data.lval;
+			r = rel_change_continuous_procedure(sql, s->token, qname, sym);
+			res = exp_rel(sql, r);
+			break;
+		case SQL_INTERRUPT_CONTINUOUS_PROCEDURE:
+		case SQL_CONTINUE_CONTINUOUS_PROCEDURE:
+		case SQL_HALT_CONTINUOUS_PROCEDURE:
+			dl = s->data.lval;
+			qname = dl->h->data.lval;
+			r = rel_change_continuous_procedure(sql, s->token, qname, NULL);
+			res = exp_rel(sql, r);
 			break;
 		case SQL_RETURN:
 			/*If it is not a function it cannot have a return statement*/
@@ -644,7 +737,7 @@ sequential_block (mvc *sql, sql_subtype *restype, list *restypelist, dlist *blk,
 		case SQL_INSERT:
 		case SQL_UPDATE:
 		case SQL_DELETE: {
-			sql_rel *r = rel_updates(sql, s);
+			r = rel_updates(sql, s);
 			if (!r)
 				return NULL;
 			res = exp_rel(sql, r);
@@ -1443,65 +1536,6 @@ create_table_from_loader(mvc *sql, dlist *qname, symbol *fcall)
 	return rel_psm_stmt(sql->sa, import);
 }
 
-static sql_rel *
-rel_change_continuous_procedure(mvc *sql, int token, dlist *qname)
-{
-	sql_schema *s = NULL;
-	const char *sname = qname_schema(qname);
-	const char *name = qname_table(qname);
-	sql_func *func = NULL;
-	sql_rel *rel = NULL;
-	list *exps = NULL;
-	char *F = NULL;
-	int action;
-
-	switch (token) {
-		case SQL_INTERRUPT_CONTINUOUS_PROCEDURE:
-			F = "INTERRUPT CONTINUOUS PROCEDURE";
-			action = INTERRUPT_CONTINUOUS_PROCEDURE;
-			break;
-		case SQL_CONTINUE_CONTINUOUS_PROCEDURE:
-			F = "CONTINUE CONTINUOUS PROCEDURE";
-			action = CONTINUE_CONTINUOUS_PROCEDURE;
-			break;
-		case SQL_HALT_CONTINUOUS_PROCEDURE:
-			F = "HALT CONTINUOUS PROCEDURE";
-			action = HALT_CONTINUOUS_PROCEDURE;
-			break;
-	}
-
-	if (sname && !(s=mvc_bind_schema(sql, sname))) {
-		(void) sql_error(sql, 02, "3F000!%s: no such schema '%s'", F, sname);
-		return NULL;
-	}
-	if (!s)
-		s = cur_schema(sql);
-
-	func = resolve_func(sql, s, name, NULL, F_CONTINUOUS_PROCEDURE, F);
-	if (!func && !sname) {
-		s = tmp_schema(sql);
-		func = resolve_func(sql, s, name, NULL, F_CONTINUOUS_PROCEDURE, F);
-	}
-	if (func) {
-		rel = rel_create(sql->sa);
-		exps = new_exp_list(sql->sa);
-
-		append(exps, exp_atom_clob(sql->sa, sname));
-		append(exps, exp_atom_clob(sql->sa, name));
-		append(exps, exp_atom_int(sql->sa, func->base.id));
-		append(exps, exp_atom_int(sql->sa, action));
-		rel->l = NULL;
-		rel->r = NULL;
-		rel->op = op_ddl;
-		rel->flag = DDL_CONTINUOUS_PROCEDURE;
-		rel->exps = exps;
-		rel->card = 0;
-		rel->nrcols = 0;
-		return rel;
-	}
-	return NULL;
-}
-
 sql_rel *
 rel_psm(mvc *sql, symbol *s)
 {
@@ -1546,8 +1580,7 @@ rel_psm(mvc *sql, symbol *s)
 		sql->type = Q_SCHEMA;
 		break;
 	case SQL_CALL:
-	case SQL_START_CONTINUOUS_PROCEDURE:
-		ret = rel_psm_stmt(sql->sa, rel_psm_call(sql, s->token, s->data.sym));
+		ret = rel_psm_stmt(sql->sa, rel_psm_call(sql, s->data.sym));
 		sql->type = Q_UPDATE;
 		break;
 	case SQL_CREATE_TABLE_LOADER:
@@ -1585,12 +1618,20 @@ rel_psm(mvc *sql, symbol *s)
 		sql->type = Q_UPDATE;
 	} 	break;
 
+	case SQL_START_CONTINUOUS_PROCEDURE:
+	case SQL_RESTART_CONTINUOUS_PROCEDURE: {
+		dlist *l = s->data.lval;
+		symbol *sym = l->h->data.sym;
+		dlist *qname = sym->data.lval;
+		ret = rel_change_continuous_procedure(sql, s->token, qname, sym);
+		sql->type = Q_SCHEMA;
+	} break;
 	case SQL_INTERRUPT_CONTINUOUS_PROCEDURE:
 	case SQL_CONTINUE_CONTINUOUS_PROCEDURE:
 	case SQL_HALT_CONTINUOUS_PROCEDURE: {
 		dlist *l = s->data.lval;
 		dlist *qname = l->h->data.lval;
-		ret = rel_change_continuous_procedure(sql, s->token, qname);
+		ret = rel_change_continuous_procedure(sql, s->token, qname, NULL);
 		sql->type = Q_SCHEMA;
 	} break;
 	default:

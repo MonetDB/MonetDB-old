@@ -2077,6 +2077,7 @@ trigger_procedure_statement:
 
 control_statement:
 	call_procedure_statement
+    |   continuous_procedure_statement
     |	call_statement
     |   while_statement
     |   if_statement
@@ -2103,7 +2104,13 @@ call_procedure_statement:
 
 continuous_procedure_statement:
 	START CONTINUOUS PROCEDURE func_ref
-		{ $$ = _symbol_create_symbol( SQL_START_CONTINUOUS_PROCEDURE, $4 ); }
+		{ dlist *l = L();
+		  append_symbol(l, $4);
+		  $$ = _symbol_create_list( SQL_START_CONTINUOUS_PROCEDURE, l ); }
+	| RESTART CONTINUOUS PROCEDURE func_ref
+		{ dlist *l = L();
+		  append_symbol(l, $4);
+		  $$ = _symbol_create_list( SQL_RESTART_CONTINUOUS_PROCEDURE, l ); }
 	| INTERRUPT CONTINUOUS PROCEDURE qname
 		{ dlist *l = L();
 		  append_list(l, $4);
