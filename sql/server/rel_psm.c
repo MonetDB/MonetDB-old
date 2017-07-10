@@ -149,14 +149,31 @@ psm_set_exp(mvc *sql, dnode *n)
 }
 
 static sql_exp*
-rel_psm_call(mvc * sql, symbol *se)
+rel_psm_call(mvc * sql, int token, symbol *se)
 {
 	sql_subtype *t;
 	sql_exp *res = NULL;
 	exp_kind ek = {type_value, card_none, FALSE};
 	sql_rel *rel = NULL;
+	int which_sql;
 
-	res = rel_value_exp(sql, &rel, se, sql_sel, ek);
+	switch (token) {
+		case SQL_CALL:
+			which_sql = sql_sel;
+			break;
+		case SQL_START_CONTINUOUS_PROCEDURE:
+			ek.card = card_continuous_procedure;
+			which_sql = sql_start_continuous_procedure;
+			break;
+		case SQL_RESTART_CONTINUOUS_PROCEDURE:
+			ek.card = card_continuous_procedure;
+			which_sql = sql_restart_continuous_procedure;
+			break;
+		default:
+			assert(0);
+	}
+
+	res = rel_value_exp(sql, &rel, se, which_sql, ek);
 	if (!res || rel || ((t=exp_subtype(res)) && t->type))  /* only procedures */
 		return sql_error(sql, 01, "function calls are ignored");
 	return res;
@@ -373,7 +390,7 @@ rel_psm_case( mvc *sql, sql_subtype *res, list *restypelist, dnode *case_when, i
 			sql_exp *case_stmt = NULL;
 
 			if (!when_value || rel ||
-			   (cond = rel_binop_(sql, v, when_value, NULL, "=", card_value)) == NULL || 
+			   (cond = rel_binop_(sql, v, when_value, NULL, "=", 0, card_value)) == NULL ||
 			   (if_stmts = sequential_block( sql, res, restypelist, m->next->data.lval, NULL, is_func)) == NULL ) {
 				if (rel)
 					return sql_error(sql, 02, "CASE: No SELECT statements allowed within the CASE condition");
@@ -578,7 +595,7 @@ has_return( list *l )
 }
 
 static sql_rel *
-rel_change_continuous_procedure(mvc *sql, int token, dlist *qname, symbol* sym)
+rel_change_continuous_procedure(mvc *sql, int token, dlist *qname)
 {
 	sql_schema *s = NULL;
 	const char *sname = qname_schema(qname);
@@ -589,10 +606,8 @@ rel_change_continuous_procedure(mvc *sql, int token, dlist *qname, symbol* sym)
 	char *F = NULL, *f = NULL;
 	int action;
 
-	(void) sym; //TODO with te sym, retrieve the cq from the catalog (next Monday)
-
 	switch (token) {
-		case SQL_START_CONTINUOUS_PROCEDURE:
+		/*case SQL_START_CONTINUOUS_PROCEDURE:
 			F = "START CONTINUOUS PROCEDURE";
 			f = "START";
 			action = START_CONTINUOUS_PROCEDURE;
@@ -601,7 +616,7 @@ rel_change_continuous_procedure(mvc *sql, int token, dlist *qname, symbol* sym)
 			F = "RESTART CONTINUOUS PROCEDURE";
 			f = "RESTART";
 			action = RESTART_CONTINUOUS_PROCEDURE;
-			break;
+			break;*/
 		case SQL_INTERRUPT_CONTINUOUS_PROCEDURE:
 			F = "INTERRUPT CONTINUOUS PROCEDURE";
 			f = "INTERRUPT";
@@ -659,7 +674,6 @@ sequential_block (mvc *sql, sql_subtype *restype, list *restypelist, dlist *blk,
 	dlist *dl;
 	dlist *qname;
 	sql_rel *r;
-	symbol *sym;
 
 	assert(!restype || !restypelist);
 
@@ -694,22 +708,18 @@ sequential_block (mvc *sql, sql_subtype *restype, list *restypelist, dlist *blk,
 			reslist = rel_psm_case(sql, restype, restypelist, s->data.lval->h, is_func);
 			break;
 		case SQL_CALL:
-			res = rel_psm_call(sql, s->data.sym);
+			res = rel_psm_call(sql, s->token, s->data.sym);
 			break;
 		case SQL_START_CONTINUOUS_PROCEDURE:
 		case SQL_RESTART_CONTINUOUS_PROCEDURE:
-			dl = s->data.lval;
-			sym = dl->h->data.sym;
-			qname = sym->data.lval;
-			r = rel_change_continuous_procedure(sql, s->token, qname, sym);
-			res = exp_rel(sql, r);
+			res = rel_psm_call(sql, s->token, s->data.sym);
 			break;
 		case SQL_INTERRUPT_CONTINUOUS_PROCEDURE:
 		case SQL_CONTINUE_CONTINUOUS_PROCEDURE:
 		case SQL_HALT_CONTINUOUS_PROCEDURE:
 			dl = s->data.lval;
 			qname = dl->h->data.lval;
-			r = rel_change_continuous_procedure(sql, s->token, qname, NULL);
+			r = rel_change_continuous_procedure(sql, s->token, qname);
 			res = exp_rel(sql, r);
 			break;
 		case SQL_RETURN:
@@ -1580,8 +1590,13 @@ rel_psm(mvc *sql, symbol *s)
 		sql->type = Q_SCHEMA;
 		break;
 	case SQL_CALL:
-		ret = rel_psm_stmt(sql->sa, rel_psm_call(sql, s->data.sym));
+		ret = rel_psm_stmt(sql->sa, rel_psm_call(sql, s->token, s->data.sym));
 		sql->type = Q_UPDATE;
+		break;
+	case SQL_START_CONTINUOUS_PROCEDURE:
+	case SQL_RESTART_CONTINUOUS_PROCEDURE:
+		ret = rel_psm_stmt(sql->sa, rel_psm_call(sql, s->token, s->data.sym));
+		sql->type = Q_SCHEMA;
 		break;
 	case SQL_CREATE_TABLE_LOADER:
 	{
@@ -1617,21 +1632,12 @@ rel_psm(mvc *sql, symbol *s)
 		ret = psm_analyze(sql, "analyze", l->h->data.lval /* qualified table name */, l->h->next->data.lval /* opt list of column */, l->h->next->next->data.sym /* opt_sample_size */, l->h->next->next->next->data.i_val);
 		sql->type = Q_UPDATE;
 	} 	break;
-
-	case SQL_START_CONTINUOUS_PROCEDURE:
-	case SQL_RESTART_CONTINUOUS_PROCEDURE: {
-		dlist *l = s->data.lval;
-		symbol *sym = l->h->data.sym;
-		dlist *qname = sym->data.lval;
-		ret = rel_change_continuous_procedure(sql, s->token, qname, sym);
-		sql->type = Q_SCHEMA;
-	} break;
 	case SQL_INTERRUPT_CONTINUOUS_PROCEDURE:
 	case SQL_CONTINUE_CONTINUOUS_PROCEDURE:
 	case SQL_HALT_CONTINUOUS_PROCEDURE: {
 		dlist *l = s->data.lval;
 		dlist *qname = l->h->data.lval;
-		ret = rel_change_continuous_procedure(sql, s->token, qname, NULL);
+		ret = rel_change_continuous_procedure(sql, s->token, qname);
 		sql->type = Q_SCHEMA;
 	} break;
 	default:

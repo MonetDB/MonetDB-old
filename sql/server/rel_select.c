@@ -690,10 +690,11 @@ rel_named_table_function(mvc *sql, sql_rel *rel, symbol *query, int lateral)
 }
 
 static sql_exp *
-rel_op_(mvc *sql, sql_schema *s, char *fname, exp_kind ek)
+rel_op_(mvc *sql, sql_schema *s, char *fname, int fs, exp_kind ek)
 {
 	sql_subfunc *f = NULL;
 	int type;
+	sql_exp * res;
 
 	switch (ek.card) {
 		case card_loader:
@@ -714,7 +715,9 @@ rel_op_(mvc *sql, sql_schema *s, char *fname, exp_kind ek)
 
 	f = sql_bind_func(sql->sa, s, fname, NULL, NULL, type);
 	if (f && check_card(ek.card, f)) {
-		return exp_op(sql->sa, NULL, f);
+		res = exp_op(sql->sa, NULL, f);
+		res->flag = fs;
+		return res;
 	} else {
 		return sql_error(sql, 02,
 			"SELECT: no such operator '%s'", fname);
@@ -1678,7 +1681,7 @@ rel_compare_exp(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *rs,
 
 		if (rel_convert_types(sql, &ls, &rs, 1, type_equal) < 0) 
 			return NULL;
-		e = rel_binop_(sql, ls, rs, NULL, compare_op, card_value);
+		e = rel_binop_(sql, ls, rs, NULL, compare_op, 0, card_value);
 
 		if (!e)
 			return NULL;
@@ -1925,9 +1928,9 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 		if (!ls || !rs)
 			return NULL;
 		if (sc->token == SQL_OR)
-			return rel_binop_(sql, ls, rs, NULL, "or", card_value);
+			return rel_binop_(sql, ls, rs, NULL, "or", 0, card_value);
 		else
-			return rel_binop_(sql, ls, rs, NULL, "and", card_value);
+			return rel_binop_(sql, ls, rs, NULL, "and", 0, card_value);
 	}
 	case SQL_FILTER:
 		/* [ x,..] filter [ y,..] */
@@ -1991,7 +1994,7 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 				return NULL;
 			if (rel_convert_types(sql, &ls, &rs, 1, type_equal) < 0)
 				return NULL;
-			return rel_binop_(sql, ls, rs, NULL, compare_op, card_value);
+			return rel_binop_(sql, ls, rs, NULL, compare_op, 0, card_value);
 		} else {
 			/* first try without current relation, too see if there
 			are correlations with the outer relation */
@@ -2019,9 +2022,9 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 						return e;
 			
 					/* For selection we need to convert back into Boolean */
-					ls = rel_unop_(sql, ls, NULL, "isnull", card_value);
+					ls = rel_unop_(sql, ls, NULL, "isnull", 0, card_value);
 					rs = exp_atom_bool(sql->sa, 0);
-					return rel_binop_(sql, ls, rs, NULL, "=", card_value);
+					return rel_binop_(sql, ls, rs, NULL, "=", 0, card_value);
 				}
 			} else if (r) {
 				sql_rel *l = *rel;
@@ -2051,7 +2054,7 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 				return NULL;
 			if (rel_convert_types(sql, &ls, &rs, 1, type_equal) < 0) 
 				return NULL;
-			return rel_binop_(sql, ls, rs, NULL, compare_op, card_value);
+			return rel_binop_(sql, ls, rs, NULL, compare_op, 0, card_value);
 		}
 	}
 	/* Set Member ship */
@@ -2137,15 +2140,15 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 					sql_exp *r = n->data, *ne;
 
 					if (sc->token == SQL_NOT_IN)
-						ne = rel_binop_(sql, l, r, NULL, "<>", card_value);
+						ne = rel_binop_(sql, l, r, NULL, "<>", 0, card_value);
 					else
-						ne = rel_binop_(sql, l, r, NULL, "=", card_value);
+						ne = rel_binop_(sql, l, r, NULL, "=", 0, card_value);
 					if (!e) {
 						e = ne;
 					} else if (sc->token == SQL_NOT_IN) {
-						e = rel_binop_(sql, e, ne, NULL, "and", card_value);
+						e = rel_binop_(sql, e, ne, NULL, "and", 0, card_value);
 					} else {
-						e = rel_binop_(sql, e, ne, NULL, "or", card_value);
+						e = rel_binop_(sql, e, ne, NULL, "or", 0, card_value);
 					}
 				}
 				*rel = outer;
@@ -2164,9 +2167,9 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 			else
 				*rel = left;
 			if (sc->token == SQL_NOT_IN)
-				e = rel_binop_(sql, l, r, NULL, "<>", card_value);
+				e = rel_binop_(sql, l, r, NULL, "<>", 0, card_value);
 			else
-				e = rel_binop_(sql, l, r, NULL, "=", card_value);
+				e = rel_binop_(sql, l, r, NULL, "=", 0, card_value);
 			return e;
 		}
 		return NULL;
@@ -2228,8 +2231,8 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 			ee = exp_atom(sql->sa, atom_string(sql->sa, st, sa_strdup(sql->sa, escape)));
 		}
 		if (ee)
-			return rel_nop_(sql, le, re, ee, NULL, sys, like, card_value);
-		return rel_binop_(sql, le, re, sys, like, card_value);
+			return rel_nop_(sql, le, re, ee, NULL, sys, like, 0, card_value);
+		return rel_binop_(sql, le, re, sys, like, 0, card_value);
 	}
 	case SQL_BETWEEN:
 	case SQL_NOT_BETWEEN:
@@ -2268,18 +2271,18 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 		}
 
 		if (sc->token == SQL_NOT_BETWEEN) {
-			e1 = rel_binop_(sql, le, re1, NULL, "<", card_value);
-			e2 = rel_binop_(sql, le, re2, NULL, ">", card_value);
+			e1 = rel_binop_(sql, le, re1, NULL, "<", 0, card_value);
+			e2 = rel_binop_(sql, le, re2, NULL, ">", 0, card_value);
 		} else {
-			e1 = rel_binop_(sql, le, re1, NULL, ">=", card_value);
-			e2 = rel_binop_(sql, le, re2, NULL, "<=", card_value);
+			e1 = rel_binop_(sql, le, re1, NULL, ">=", 0, card_value);
+			e2 = rel_binop_(sql, le, re2, NULL, "<=", 0, card_value);
 		}
 		if (!e1 || !e2)
 			return NULL;
 		if (sc->token == SQL_NOT_BETWEEN) {
-			return rel_binop_(sql, e1, e2, NULL, "or", card_value);
+			return rel_binop_(sql, e1, e2, NULL, "or", 0, card_value);
 		} else {
-			return rel_binop_(sql, e1, e2, NULL, "and", card_value);
+			return rel_binop_(sql, e1, e2, NULL, "and", 0, card_value);
 		}
 	}
 	case SQL_IS_NULL:
@@ -2290,9 +2293,9 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 
 		if (!le)
 			return NULL;
-		le = rel_unop_(sql, le, NULL, "isnull", card_value);
+		le = rel_unop_(sql, le, NULL, "isnull", 0, card_value);
 		if (sc->token != SQL_IS_NULL)
-			le = rel_unop_(sql, le, NULL, "not", card_value);
+			le = rel_unop_(sql, le, NULL, "not", 0, card_value);
 		return le;
 	}
 	case SQL_NOT: {
@@ -2300,7 +2303,7 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 
 		if (!le)
 			return le;
-		return rel_unop_(sql, le, NULL, "not", card_value);
+		return rel_unop_(sql, le, NULL, "not", 0, card_value);
 	}
 	case SQL_ATOM: {
 		/* TRUE or FALSE */
@@ -2333,7 +2336,7 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 		sql_find_subtype(&bt, "boolean", 0, 0);
 		if ((le = rel_check_type(sql, &bt, le, type_equal)) == NULL) 
 			return NULL;
-		return rel_binop_(sql, le, re, NULL, "=", 0);
+		return rel_binop_(sql, le, re, NULL, "=", 0, 0);
 	}
 	}
 }
@@ -2499,7 +2502,7 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 				append(rel->exps, l);
 				ol = l;
 				l = exp_column(sql->sa, exp_relname(ol), exp_name(ol), exp_subtype(ol), ol->card, has_nil(ol), is_intern(ol));
-				e = rel_unop_(sql, l, NULL, "isnull", card_value);
+				e = rel_unop_(sql, l, NULL, "isnull", 0, card_value);
 				e = exp_compare(sql->sa, e, exp_atom_bool(sql->sa, 0), cmp_equal);
 				left = rel = rel_select(sql->sa, rel, e);
 				l = exp_column(sql->sa, exp_relname(ol), exp_name(ol), exp_subtype(ol), ol->card, has_nil(ol), is_intern(ol));
@@ -2657,7 +2660,7 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 			} else if (sc->token == SQL_NOT_IN) {
 				rel->op = op_left;
 				set_processed(rel);
-				e = rel_unop_(sql, r, NULL, "isnull", card_value);
+				e = rel_unop_(sql, r, NULL, "isnull", 0, card_value);
 				r = exp_atom_bool(sql->sa, 1);
 				e = exp_compare(sql->sa,  e, r, cmp_equal);
 				rel = rel_select(sql->sa, rel, e);
@@ -2780,18 +2783,18 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 		if (le->card == CARD_ATOM) {
 			sql_exp *e1, *e2;
 			if (sc->token == SQL_NOT_BETWEEN) {
-				e1 = rel_binop_(sql, le, re1, NULL, "<", card_value);
-				e2 = rel_binop_(sql, le, re2, NULL, ">", card_value);
+				e1 = rel_binop_(sql, le, re1, NULL, "<", 0, card_value);
+				e2 = rel_binop_(sql, le, re2, NULL, ">", 0, card_value);
 			} else {
-				e1 = rel_binop_(sql, le, re1, NULL, ">=", card_value);
-				e2 = rel_binop_(sql, le, re2, NULL, "<=", card_value);
+				e1 = rel_binop_(sql, le, re1, NULL, ">=", 0, card_value);
+				e2 = rel_binop_(sql, le, re2, NULL, "<=", 0, card_value);
 			}
 			if (!e1 || !e2)
 				return NULL;
 			if (sc->token == SQL_NOT_BETWEEN) {
-				e1 = rel_binop_(sql, e1, e2, NULL, "or", card_value);
+				e1 = rel_binop_(sql, e1, e2, NULL, "or", 0, card_value);
 			} else {
-				e1 = rel_binop_(sql, e1, e2, NULL, "and", card_value);
+				e1 = rel_binop_(sql, e1, e2, NULL, "and", 0, card_value);
 			}
 			e2 = exp_atom_bool(sql->sa, 1);
 			rel = rel_select(sql->sa, rel, exp_compare(sql->sa,  e1, e2, cmp_equal));
@@ -2810,7 +2813,7 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 
 		if (!le)
 			return NULL;
-		le = rel_unop_(sql, le, NULL, "isnull", card_value);
+		le = rel_unop_(sql, le, NULL, "isnull", 0, card_value);
 		if (sc->token == SQL_IS_NULL)
 			re = exp_atom_bool(sql->sa, 1);
 		else
@@ -2823,7 +2826,7 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 
 		if (!le)
 			return NULL;
-		le = rel_unop_(sql, le, NULL, "not", card_value);
+		le = rel_unop_(sql, le, NULL, "not", 0, card_value);
 		re = exp_atom_bool(sql->sa, 1);
 		le = exp_compare(sql->sa, le, re, cmp_equal);
 		return rel_select(sql->sa, rel, le);
@@ -2868,7 +2871,7 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 }
 
 static sql_exp *
-rel_op(mvc *sql, symbol *se, exp_kind ek )
+rel_op(mvc *sql, symbol *se, int fs, exp_kind ek )
 {
 	dnode *l = se->data.lval->h;
 	char *fname = qname_fname(l->data.lval);
@@ -2877,15 +2880,16 @@ rel_op(mvc *sql, symbol *se, exp_kind ek )
 
 	if (sname)
 		s = mvc_bind_schema(sql, sname);
-	return rel_op_(sql, s, fname, ek);
+	return rel_op_(sql, s, fname, fs, ek);
 }
 
 
 sql_exp *
-rel_unop_(mvc *sql, sql_exp *e, sql_schema *s, char *fname, int card)
+rel_unop_(mvc *sql, sql_exp *e, sql_schema *s, char *fname, int fs, int card)
 {
 	sql_subfunc *f = NULL;
 	sql_subtype *t = NULL;
+	sql_exp *result;
 	int type;
 
 	switch (card) {
@@ -2935,7 +2939,9 @@ rel_unop_(mvc *sql, sql_exp *e, sql_schema *s, char *fname, int card)
 
 			e = exp_aggr1(sql->sa, e, zero_or_one, 0, 0, CARD_ATOM, 0);
 		}
-		return exp_unop(sql->sa, e, f);
+		result = exp_unop(sql->sa, e, f);
+		result->flag = fs;
+		return result;
 	} else if (e) {
 		char *type = exp_subtype(e)->type->sqlname;
 
@@ -3018,11 +3024,11 @@ rel_unop(mvc *sql, sql_rel **rel, symbol *se, int fs, exp_kind ek)
 		atom *a = atom_int(sql->sa, intsec, sql->timezone);
 		sql_exp *tz = exp_atom(sql->sa, a);
 
-		e = rel_binop_(sql, e, tz, NULL, "sql_add", ek.card);
+		e = rel_binop_(sql, e, tz, NULL, "sql_add", fs, ek.card);
 		if (!e)
 			return NULL;
 	}
-	return rel_unop_(sql, e, s, fname, ek.card);
+	return rel_unop_(sql, e, s, fname, fs, ek.card);
 }
 
 
@@ -3031,9 +3037,9 @@ rel_unop(mvc *sql, sql_rel **rel, symbol *se, int fs, exp_kind ek)
 
 sql_exp *
 rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
-		char *fname, int card)
+		char *fname, int fs, int card)
 {
-	sql_exp *res = NULL;
+	sql_exp *res = NULL, *real;
 	sql_subtype *t1, *t2;
 	sql_subfunc *f = NULL;
 	int type;
@@ -3055,7 +3061,7 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 			type = F_FUNC;
 	}
 
-	if (card == card_loader) {
+	if (card == card_loader || card == card_continuous_procedure) {
 		card = card_none;
 	}
 	t1 = exp_subtype(l);
@@ -3147,8 +3153,11 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 			} else {
 				r = rel_check_type(sql, t1, r, type_equal);
 			}
-			if (l && r) 
-				return exp_binop(sql->sa, l, r, f);
+			if (l && r) {
+				real = exp_binop(sql->sa, l, r, f);
+				real->flag = fs;
+				return real;
+			}
 			
 			/* reset error */
 			sql->session->status = 0;
@@ -3158,8 +3167,11 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 			l = ol;
 			r = or;
 		}
-		if (f)
-			return exp_binop(sql->sa, l, r, f);
+		if (f) {
+			real = exp_binop(sql->sa, l, r, f);
+			real->flag = fs;
+			return real;
+		}
 	} else {
 		sql_exp *ol = l;
 		sql_exp *or = r;
@@ -3179,8 +3191,11 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 			l = rel_check_type(sql, &a->type, l, type_equal);
 			a = m->next->data;
 			r = rel_check_type(sql, &a->type, r, type_equal);
-			if (l && r) 
-				return exp_binop(sql->sa, l, r, f);
+			if (l && r) {
+				real = exp_binop(sql->sa, l, r, f);
+				real->flag = fs;
+				return real;
+			}
 			
 			/* reset error */
 			sql->session->status = 0;
@@ -3215,7 +3230,9 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 					sql_subtype *res = f->res->h->data;
 					res->digits = (t1->digits && t2->digits)?t1->digits + t2->digits:0;
 				}
-				return exp_binop(sql->sa, l, r, f);
+				real = exp_binop(sql->sa, l, r, f);
+				real->flag = fs;
+				return real;
 			}
 		}
 		/* reset error */
@@ -3235,8 +3252,11 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 			l = rel_check_type(sql, &a->type, l, type_equal);
 			a = m->next->data;
 			r = rel_check_type(sql, &a->type, r, type_equal);
-			if (l && r) 
-				return exp_binop(sql->sa, l, r, f);
+			if (l && r) {
+				real = exp_binop(sql->sa, l, r, f);
+				real->flag = fs;
+				return real;
+			}
 		}
 		/* reset error */
 		sql->session->status = 0;
@@ -3255,8 +3275,11 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 				a = m->next->data;
 				r = rel_check_type(sql, &a->type, r, type_equal);
 			}
-			if (l && r)
-				return exp_binop(sql->sa, l, r, f);
+			if (l && r) {
+				real = exp_binop(sql->sa, l, r, f);
+				real->flag = fs;
+				return real;
+			}
 		}
 		/* reset error */
 		sql->session->status = 0;
@@ -3327,14 +3350,15 @@ rel_binop(mvc *sql, sql_rel **rel, symbol *se, int f, exp_kind ek)
 	if (!l || !r) 
 		return NULL;
 
-	return rel_binop_(sql, l, r, s, fname, ek.card);
+	return rel_binop_(sql, l, r, s, fname, f, ek.card);
 }
 
 sql_exp *
-rel_nop_(mvc *sql, sql_exp *a1, sql_exp *a2, sql_exp *a3, sql_exp *a4, sql_schema *s, char *fname, int card)
+rel_nop_(mvc *sql, sql_exp *a1, sql_exp *a2, sql_exp *a3, sql_exp *a4, sql_schema *s, char *fname, int fs, int card)
 {
 	list *tl = sa_list(sql->sa);
 	sql_subfunc *f = NULL;
+	sql_exp *res;
 	int type;
 
 	switch (card) {
@@ -3359,9 +3383,13 @@ rel_nop_(mvc *sql, sql_exp *a1, sql_exp *a2, sql_exp *a3, sql_exp *a4, sql_schem
 	f = bind_func_(sql, s, fname, tl, type);
 	if (!f)
 		return sql_error(sql, 02, "SELECT: no such operator '%s'", fname);
-	if (!a4)
-		return exp_op3(sql->sa, a1,a2,a3,f);
-	return exp_op4(sql->sa, a1,a2,a3,a4,f);
+	if (!a4) {
+		res = exp_op3(sql->sa, a1,a2,a3,f);
+	} else {
+		res = exp_op4(sql->sa, a1,a2,a3,a4,f);
+	}
+	res->flag = fs;
+	return res;
 }
 
 
@@ -3612,7 +3640,7 @@ rel_case(mvc *sql, sql_rel **rel, int token, symbol *opt_cond, dlist *when_searc
 			e1 = rel_value_exp(sql, rel, dn->data.sym, f, ek);
 			e2 = rel_value_exp(sql, rel, dn->next->data.sym, f, ek);
 			if (e1 && e2) {
-				cond = rel_binop_(sql, e1, e2, NULL, "=", card_value);
+				cond = rel_binop_(sql, e1, e2, NULL, "=", 0, card_value);
 				result = exp_atom(sql->sa, atom_general(sql->sa, exp_subtype(e1), NULL));
 				else_exp = e1;	/* ELSE case */
 			}
@@ -3623,7 +3651,7 @@ rel_case(mvc *sql, sql_rel **rel, int token, symbol *opt_cond, dlist *when_searc
 
 			if (cond) {
 				result = cond;
-				cond = rel_unop_(sql, rel_unop_(sql, cond, NULL, "isnull", card_value), NULL, "not", card_value);
+				cond = rel_unop_(sql, rel_unop_(sql, cond, NULL, "isnull", 0, card_value), NULL, "not", 0, card_value);
 			}
 		} else {
 			dlist *when = dn->data.sym->data.lval;
@@ -3633,7 +3661,7 @@ rel_case(mvc *sql, sql_rel **rel, int token, symbol *opt_cond, dlist *when_searc
 				sql_exp *r = rel_value_exp(sql, rel, when->h->data.sym, f, ek);
 				if (!l || !r || rel_convert_types(sql, &l, &r, 1, type_equal) < 0) 
 					return NULL;
-				cond = rel_binop_(sql, l, r, NULL, "=", card_value);
+				cond = rel_binop_(sql, l, r, NULL, "=", 0, card_value);
 			} else {
 				cond = rel_logical_value_exp(sql, rel, when->h->data.sym, sql_sel);
 			}
@@ -3662,7 +3690,7 @@ rel_case(mvc *sql, sql_rel **rel, int token, symbol *opt_cond, dlist *when_searc
 
 			if (cond) {
 				result = cond;
-				cond = rel_unop_(sql, rel_unop_(sql, cond, NULL, "isnull", card_value), NULL, "not", card_value);
+				cond = rel_unop_(sql, rel_unop_(sql, cond, NULL, "isnull", 0, card_value), NULL, "not", 0, card_value);
 			}
 		} else {
 			dlist *when = dn->data.sym->data.lval;
@@ -3672,7 +3700,7 @@ rel_case(mvc *sql, sql_rel **rel, int token, symbol *opt_cond, dlist *when_searc
 				sql_exp *r = rel_value_exp(sql, rel, when->h->data.sym, f, ek);
 				if (!l || !r || rel_convert_types(sql, &l, &r, 1, type_equal) < 0) 
 					return NULL;
-				cond = rel_binop_(sql, l, r, NULL, "=", card_value);
+				cond = rel_binop_(sql, l, r, NULL, "=", 0, card_value);
 			} else {
 				cond = rel_logical_value_exp(sql, rel, when->h->data.sym, sql_sel);
 			}
@@ -3728,10 +3756,10 @@ rel_case(mvc *sql, sql_rel **rel, int token, symbol *opt_cond, dlist *when_searc
 
 		/* remove any null's in the condition */
 		if (has_nil(cond) && token != SQL_COALESCE) {
-			sql_exp *condnil = rel_unop_(sql, cond, NULL, "isnull", card_value);
-			cond = rel_nop_(sql, condnil, exp_atom_bool(sql->sa, 0), cond, NULL, NULL, "ifthenelse", card_value);
+			sql_exp *condnil = rel_unop_(sql, cond, NULL, "isnull", 0, card_value);
+			cond = rel_nop_(sql, condnil, exp_atom_bool(sql->sa, 0), cond, NULL, NULL, "ifthenelse", 0, card_value);
 		}
-		res = rel_nop_(sql, cond, result, res, NULL, NULL, "ifthenelse", card_value);
+		res = rel_nop_(sql, cond, result, res, NULL, NULL, "ifthenelse", 0, card_value);
 		if (!res) 
 			return NULL;
 		/* ugh overwrite res type */
@@ -4430,7 +4458,7 @@ rel_value_exp2(mvc *sql, sql_rel **rel, symbol *se, int f, exp_kind ek, int *is_
 
 	switch (se->token) {
 	case SQL_OP:
-		return rel_op(sql, se, ek);
+		return rel_op(sql, se, f, ek);
 	case SQL_UNOP:
 		return rel_unop(sql, rel, se, f, ek);
 	case SQL_BINOP:
@@ -4734,8 +4762,8 @@ join_on_column_name(mvc *sql, sql_rel *rel, sql_rel *t1, sql_rel *t2, int op, in
 			rel = rel_compare_exp(sql, rel, le, re, "=", NULL, TRUE);
 			if (full) {
 				sql_exp *cond;
-				cond = rel_unop_(sql, le, NULL, "isnull", card_value);
-				le = rel_nop_(sql, cond, re, le, NULL, NULL, "ifthenelse", card_value);
+				cond = rel_unop_(sql, le, NULL, "isnull", 0, card_value);
+				le = rel_nop_(sql, cond, re, le, NULL, NULL, "ifthenelse", 0, card_value);
 			}
 			exp_setname(sql->sa, le, nme, sa_strdup(sql->sa, nm));
 			append(outexps, le);
@@ -5289,10 +5317,10 @@ rel_joinquery_(mvc *sql, sql_rel *rel, symbol *tab1, int natural, jt jointype, s
 			}
 			rel = rel_compare_exp(sql, rel, ls, rs, "=", NULL, TRUE);
 			if (op != op_join) {
-				cond = rel_unop_(sql, ls, NULL, "isnull", card_value);
+				cond = rel_unop_(sql, ls, NULL, "isnull", 0, card_value);
 				if (rel_convert_types(sql, &ls, &rs, 1, type_equal) < 0)
 					return NULL;
-				ls = rel_nop_(sql, cond, rs, ls, NULL, NULL, "ifthenelse", card_value);
+				ls = rel_nop_(sql, cond, rs, ls, NULL, NULL, "ifthenelse", 0, card_value);
 			}
 			exp_setname(sql->sa, ls, rnme, nm);
 			append(outexps, ls);

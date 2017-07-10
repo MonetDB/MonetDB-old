@@ -2104,13 +2104,9 @@ call_procedure_statement:
 
 continuous_procedure_statement:
 	START CONTINUOUS PROCEDURE func_ref
-		{ dlist *l = L();
-		  append_symbol(l, $4);
-		  $$ = _symbol_create_list( SQL_START_CONTINUOUS_PROCEDURE, l ); }
+		{ $$ = _symbol_create_symbol( SQL_START_CONTINUOUS_PROCEDURE, $4 ); }
 	| RESTART CONTINUOUS PROCEDURE func_ref
-		{ dlist *l = L();
-		  append_symbol(l, $4);
-		  $$ = _symbol_create_list( SQL_RESTART_CONTINUOUS_PROCEDURE, l ); }
+		{ $$ = _symbol_create_symbol( SQL_RESTART_CONTINUOUS_PROCEDURE, $4 ); }
 	| INTERRUPT CONTINUOUS PROCEDURE qname
 		{ dlist *l = L();
 		  append_list(l, $4);

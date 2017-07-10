@@ -12,11 +12,13 @@
 #include "sql_relation.h"
 #include "sql_mvc.h"
 
-#define sql_from 	0
-#define sql_where 	1
-#define sql_sel   	2	
-#define sql_having 	3
-#define sql_orderby   	4	
+#define sql_from                         0
+#define sql_where                        1
+#define sql_sel                          2
+#define sql_having                       3
+#define sql_orderby                      4
+#define sql_start_continuous_procedure   5
+#define sql_restart_continuous_procedure 6
 
 #define ERR_AMBIGUOUS		050000
 
