@@ -2461,7 +2461,8 @@ static sql_exp *
 math_unsafe_fixup( mvc *sql, sql_exp *e, sql_exp *cond, int lr )
 {
 	list *args = e->l;
-	if (args->h->next)
+
+	if (args && args->h && args->h->next)
 		return math_unsafe_fixup_binop(sql, e, args->h->data, args->h->next->data, cond, lr);
 	else
 		return math_unsafe_fixup_unop(sql, e, args->h->data, cond, lr);
@@ -2695,13 +2696,13 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 			sql_exp *le = l->h->data;
 			sql_exp *re = l->h->next->data;
 			/* 0*a = 0 */
-			if (exp_is_atom(le) && exp_is_zero(sql, le)) {
+			if (exp_is_atom(le) && exp_is_zero(sql, le) && exp_is_not_null(sql, re)) {
 				(*changes)++;
 				exp_setname(sql->sa, le, exp_relname(e), exp_name(e));
 				return le;
 			}
 			/* a*0 = 0 */
-			if (exp_is_atom(re) && exp_is_zero(sql, re)) {
+			if (exp_is_atom(re) && exp_is_zero(sql, re) && exp_is_not_null(sql, le)) {
 				(*changes)++;
 				exp_setname(sql->sa, re, exp_relname(e), exp_name(e));
 				return re;
@@ -2801,10 +2802,12 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 			sql_exp *re = l->h->next->data;
 			if (exp_is_atom(le) && exp_is_zero(sql, le)) {
 				(*changes)++;
+				exp_setname(sql->sa, re, exp_relname(e), exp_name(e));
 				return re;
 			}
 			if (exp_is_atom(re) && exp_is_zero(sql, re)) {
 				(*changes)++;
+				exp_setname(sql->sa, le, exp_relname(e), exp_name(e));
 				return le;
 			}
 			if (exp_is_atom(le) && exp_is_atom(re)) {
@@ -5654,6 +5657,21 @@ positional_exps_mark_used( sql_rel *rel, sql_rel *subrel )
 }
 
 static void
+exps_mark_dependent(sql_rel *rel)
+{
+	if (rel->exps) {
+		node *n;
+
+		for (n=rel->exps->h; n; n = n->next) {
+			sql_exp *e = n->data;
+
+			if (e->used) 
+				exp_mark_used(rel, e);
+		}
+	}
+}
+
+static void
 exps_mark_used(sql_allocator *sa, sql_rel *rel, sql_rel *subrel)
 {
 	int nr = 0;
@@ -5779,6 +5797,8 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 		if (proj && rel->l) {
 			exps_mark_used(sql->sa, rel, rel->l);
 			rel_mark_used(sql, rel->l, 0);
+		} else if (proj) {
+			exps_mark_dependent(rel);
 		}
 		break;
 	case op_update:
