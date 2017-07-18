@@ -5984,8 +5984,8 @@ Ready.
 #SELECT v, convert(v, CHARACTER LARGE OBJECT) from T_char;
 % sys.t_char,	sys.L3 # table_name
 % v,	L3 # name
-% char,	clob # type
-% 33,	26 # length
+% char,	char # type
+% 33,	33 # length
 [ "0",	"0"	]
 [ "1",	"1"	]
 [ "0123456789",	"0123456789"	]
@@ -5996,8 +5996,8 @@ Ready.
 #SELECT v, convert(v, Clob) from T_char;
 % sys.t_char,	sys.L3 # table_name
 % v,	L3 # name
-% char,	clob # type
-% 33,	26 # length
+% char,	char # type
+% 33,	33 # length
 [ "0",	"0"	]
 [ "1",	"1"	]
 [ "0123456789",	"0123456789"	]
@@ -6152,8 +6152,8 @@ Ready.
 #SELECT v, cast(v as CHARACTER LARGE OBJECT) from T_char;
 % sys.t_char,	sys.L3 # table_name
 % v,	L3 # name
-% char,	clob # type
-% 33,	26 # length
+% char,	char # type
+% 33,	33 # length
 [ "0",	"0"	]
 [ "1",	"1"	]
 [ "0123456789",	"0123456789"	]
@@ -6164,8 +6164,8 @@ Ready.
 #SELECT v, cast(v as Clob) from T_char;
 % sys.t_char,	sys.L3 # table_name
 % v,	L3 # name
-% char,	clob # type
-% 33,	26 # length
+% char,	char # type
+% 33,	33 # length
 [ "0",	"0"	]
 [ "1",	"1"	]
 [ "0123456789",	"0123456789"	]
@@ -6338,7 +6338,7 @@ Ready.
 #SELECT v, convert(v, CHARACTER LARGE OBJECT) from T_varchar;
 % sys.t_varchar,	sys.L3 # table_name
 % v,	L3 # name
-% varchar,	clob # type
+% varchar,	varchar # type
 % 26,	26 # length
 [ "0",	"0"	]
 [ "1",	"1"	]
@@ -6350,7 +6350,7 @@ Ready.
 #SELECT v, convert(v, Clob) from T_varchar;
 % sys.t_varchar,	sys.L3 # table_name
 % v,	L3 # name
-% varchar,	clob # type
+% varchar,	varchar # type
 % 26,	26 # length
 [ "0",	"0"	]
 [ "1",	"1"	]
@@ -6506,7 +6506,7 @@ Ready.
 #SELECT v, cast(v as CHARACTER LARGE OBJECT) from T_varchar;
 % sys.t_varchar,	sys.L3 # table_name
 % v,	L3 # name
-% varchar,	clob # type
+% varchar,	varchar # type
 % 26,	26 # length
 [ "0",	"0"	]
 [ "1",	"1"	]
@@ -6518,7 +6518,7 @@ Ready.
 #SELECT v, cast(v as Clob) from T_varchar;
 % sys.t_varchar,	sys.L3 # table_name
 % v,	L3 # name
-% varchar,	clob # type
+% varchar,	varchar # type
 % 26,	26 # length
 [ "0",	"0"	]
 [ "1",	"1"	]
@@ -7206,12 +7206,12 @@ Ready.
 #SELECT v, convert(v, timestamptz) from T_timestamp;
 % sys.t_timestamp,	sys.L3 # table_name
 % v,	L3 # name
-% timestamp,	timestamptz # type
-% 26,	32 # length
-[ 1999-12-31 23:59:59.000000,	2000-01-01 01:59:59.000000+02:00	]
-[ 2016-01-01 00:00:00.000000,	2016-01-01 02:00:00.000000+02:00	]
-[ 2016-02-29 00:00:00.000000,	2016-02-29 02:00:00.000000+02:00	]
-[ 2016-12-31 23:59:58.000000,	2017-01-01 01:59:58.000000+02:00	]
+% timestamp,	timestamp # type
+% 26,	26 # length
+[ 1999-12-31 23:59:59.000000,	1999-12-31 23:59:59.000000	]
+[ 2016-01-01 00:00:00.000000,	2016-01-01 00:00:00.000000	]
+[ 2016-02-29 00:00:00.000000,	2016-02-29 00:00:00.000000	]
+[ 2016-12-31 23:59:58.000000,	2016-12-31 23:59:58.000000	]
 [ NULL,	NULL	]
 #SELECT v, cast(v as varchar(36)) from T_timestamp;
 % sys.t_timestamp,	sys.L3 # table_name
@@ -7286,12 +7286,12 @@ Ready.
 #SELECT v, cast(v as timestamptz) from T_timestamp;
 % sys.t_timestamp,	sys.L3 # table_name
 % v,	L3 # name
-% timestamp,	timestamptz # type
-% 26,	32 # length
-[ 1999-12-31 23:59:59.000000,	2000-01-01 01:59:59.000000+02:00	]
-[ 2016-01-01 00:00:00.000000,	2016-01-01 02:00:00.000000+02:00	]
-[ 2016-02-29 00:00:00.000000,	2016-02-29 02:00:00.000000+02:00	]
-[ 2016-12-31 23:59:58.000000,	2017-01-01 01:59:58.000000+02:00	]
+% timestamp,	timestamp # type
+% 26,	26 # length
+[ 1999-12-31 23:59:59.000000,	1999-12-31 23:59:59.000000	]
+[ 2016-01-01 00:00:00.000000,	2016-01-01 00:00:00.000000	]
+[ 2016-02-29 00:00:00.000000,	2016-02-29 00:00:00.000000	]
+[ 2016-12-31 23:59:58.000000,	2016-12-31 23:59:58.000000	]
 [ NULL,	NULL	]
 #DROP TABLE T_timestamp;
 #CREATE TABLE T_timetz (v TIMETZ);
@@ -7456,12 +7456,12 @@ Ready.
 #SELECT v, convert(v, timestamp) from T_timestamptz;
 % sys.t_timestamptz,	sys.L3 # table_name
 % v,	L3 # name
-% timestamptz,	timestamp # type
-% 32,	26 # length
-[ 2000-01-01 01:59:59.000000+02:00,	1999-12-31 23:59:59.000000	]
-[ 2016-01-01 02:00:00.000000+02:00,	2016-01-01 00:00:00.000000	]
-[ 2016-02-29 02:00:00.000000+02:00,	2016-02-29 00:00:00.000000	]
-[ 2017-01-01 01:59:58.000000+02:00,	2016-12-31 23:59:58.000000	]
+% timestamptz,	timestamptz # type
+% 32,	32 # length
+[ 2000-01-01 01:59:59.000000+02:00,	2000-01-01 01:59:59.000000+02:00	]
+[ 2016-01-01 02:00:00.000000+02:00,	2016-01-01 02:00:00.000000+02:00	]
+[ 2016-02-29 02:00:00.000000+02:00,	2016-02-29 02:00:00.000000+02:00	]
+[ 2017-01-01 01:59:58.000000+02:00,	2017-01-01 01:59:58.000000+02:00	]
 [ NULL,	NULL	]
 #SELECT v, convert(v, timetz) from T_timestamptz;
 % sys.t_timestamptz,	sys.L3 # table_name
@@ -7536,12 +7536,12 @@ Ready.
 #SELECT v, cast(v as timestamp) from T_timestamptz;
 % sys.t_timestamptz,	sys.L3 # table_name
 % v,	L3 # name
-% timestamptz,	timestamp # type
-% 32,	26 # length
-[ 2000-01-01 01:59:59.000000+02:00,	1999-12-31 23:59:59.000000	]
-[ 2016-01-01 02:00:00.000000+02:00,	2016-01-01 00:00:00.000000	]
-[ 2016-02-29 02:00:00.000000+02:00,	2016-02-29 00:00:00.000000	]
-[ 2017-01-01 01:59:58.000000+02:00,	2016-12-31 23:59:58.000000	]
+% timestamptz,	timestamptz # type
+% 32,	32 # length
+[ 2000-01-01 01:59:59.000000+02:00,	2000-01-01 01:59:59.000000+02:00	]
+[ 2016-01-01 02:00:00.000000+02:00,	2016-01-01 02:00:00.000000+02:00	]
+[ 2016-02-29 02:00:00.000000+02:00,	2016-02-29 02:00:00.000000+02:00	]
+[ 2017-01-01 01:59:58.000000+02:00,	2017-01-01 01:59:58.000000+02:00	]
 [ NULL,	NULL	]
 #SELECT v, cast(v as timetz) from T_timestamptz;
 % sys.t_timestamptz,	sys.L3 # table_name

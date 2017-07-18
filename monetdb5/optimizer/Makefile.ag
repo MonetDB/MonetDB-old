@@ -28,7 +28,6 @@ lib_optimizer = {
 		opt_deadcode.c opt_deadcode.h \
 		opt_emptybind.c opt_emptybind.h \
 		opt_evaluate.c opt_evaluate.h \
-		opt_factorize.c opt_factorize.h \
 		opt_garbageCollector.c opt_garbageCollector.h \
 		opt_generator.c opt_generator.h \
 		opt_querylog.c opt_querylog.h \
@@ -41,13 +40,13 @@ lib_optimizer = {
 		opt_mergetable.c opt_mergetable.h \
 		opt_mitosis.c opt_mitosis.h \
 		opt_multiplex.c opt_multiplex.h \
+		opt_oltp.c opt_oltp.h \
 		opt_pipes.c opt_pipes.h \
 		opt_prelude.c opt_prelude.h \
 		opt_reduce.c opt_reduce.h \
 		opt_remap.c opt_remap.h \
 		opt_remoteQueries.c opt_remoteQueries.h \
 		opt_reorder.c opt_reorder.h \
-		opt_statistics.c opt_statistics.h \
 		opt_support.c opt_support.h \
 		opt_pushselect.c opt_pushselect.h \
 		opt_profiler.c opt_profiler.h \

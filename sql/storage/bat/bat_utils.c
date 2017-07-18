@@ -42,14 +42,14 @@ void
 temp_destroy(log_bid b)
 {
 	if (b)
-		BBPdecref(b, TRUE);
+		BBPrelease(b);
 }
 
 void
 temp_dup(log_bid b)
 {
 	if (b)
-		BBPincref(b, TRUE);
+		BBPretain(b);
 }
 
 log_bid
@@ -93,7 +93,8 @@ append_inserted(BAT *b, BAT *i )
        	BATiter ii = bat_iterator(i);
 
        	for (r = i->batInserted; r < BUNlast(i); r++) {
-		BUNappend(b, BUNtail(ii,r), TRUE);
+		if (BUNappend(b, BUNtail(ii,r), TRUE) != GDK_SUCCEED)
+			return BUN_NONE;
 		nr++;
 	}
 	return nr;

@@ -32,13 +32,10 @@ struct OPTcatalog {
 {"commonTerms",	0,	0,	0},
 {"constants",	0,	0,	0},
 {"costModel",	0,	0,	0},
-{"crack",		0,	0,	0},
-{"datacyclotron",0,	0,	0},
 {"dataflow",	0,	0,	0},
 {"deadcode",	0,	0,	0},
 {"emptybind",	0,	0,	0},
 {"evaluate",	0,	0,	0},
-{"factorize",	0,	0,	0},
 {"garbage",		0,	0,	0},
 {"generator",	0,	0,	0},
 {"history",		0,	0,	0},
@@ -51,16 +48,12 @@ struct OPTcatalog {
 {"mergetable",	0,	0,	0},
 {"mitosis",		0,	0,	0},
 {"multiplex",	0,	0,	0},
-{"origin",		0,	0,	0},
-{"peephole",	0,	0,	0},
+{"oltp",		0,	0,	0},
 {"reduce",		0,	0,	0},
 {"remap",		0,	0,	0},
 {"remote",		0,	0,	0},
 {"reorder",		0,	0,	0},
 {"replication",	0,	0,	0},
-{"selcrack",	0,	0,	0},
-{"sidcrack",	0,	0,	0},
-{"strengthreduction",	0,	0,	0},
 {"pushselect",	0,	0,	0},
 { 0,	0,	0,	0}
 };
@@ -81,31 +74,6 @@ optimizerIsApplied(MalBlkPtr mb, str optname)
 	}
 	return 0;
 }
-/*
- * All optimizers should pass the optimizerCheck for defense against
- * incomplete and malicious MAL code.
- */
-str
-optimizerCheck(Client cntxt, MalBlkPtr mb, str name, int actions, lng usec)
-{
-	char buf[256];
-	lng clk = GDKusec();
-
-	if (cntxt->mode == FINISHCLIENT)
-		throw(MAL, name, "prematurely stopped client");
-	if( actions > 0){
-		chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-		chkFlow(cntxt->fdout, mb);
-		chkDeclarations(cntxt->fdout, mb);
-		usec += GDKusec() - clk;
-	}
-	/* keep all actions taken as a post block comment */
-	snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec",name,actions,usec);
-	newComment(mb,buf);
-	if (mb->errors)
-		throw(MAL, name, PROGRAM_GENERAL);
-	return MAL_SUCCEED;
-}
 
 /*
  * Limit the loop count in the optimizer to guard against indefinite
@@ -120,6 +88,7 @@ optimizeMALBlock(Client cntxt, MalBlkPtr mb)
 	int qot = 0;
 	str msg = MAL_SUCCEED;
 	int cnt = 0;
+	int actions = 0;
 	lng clk = GDKusec();
 	char buf[256];
 
@@ -130,37 +99,58 @@ optimizeMALBlock(Client cntxt, MalBlkPtr mb)
 
 	/* force at least once a complete type check by resetting the type check flag */
 
-	resetMalBlk(mb,mb->stop);
-	chkProgram(cntxt->fdout,cntxt->nspace,mb);
+	// strong defense line, assure that MAL plan is initially correct
+	if( mb->errors == 0){
+		resetMalBlk(mb, mb->stop);
+        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+        chkFlow(cntxt->fdout, mb);
+        chkDeclarations(cntxt->fdout, mb);
+	}
 	if (mb->errors)
 		throw(MAL, "optimizer.MALoptimizer", "Start with inconsistent MAL plan");
 
+	/* Optimizers may massage the plan in such a way that a new pass is needed.
+     * When no optimzer call is found, then terminate. */
 	do {
 		qot = 0;
-		for (pc = 0; pc < mb->stop ; pc++) {
+		for (pc = 0; pc < mb->stop; pc++) {
 			p = getInstrPtr(mb, pc);
 			if (getModuleId(p) == optimizerRef && p->fcn && p->token != REMsymbol) {
 				/* all optimizers should behave like patterns */
 				/* However, we don't have a stack now */
 				qot++;
+				actions++;
 				msg = (str) (*p->fcn) (cntxt, mb, 0, p);
 				if (msg) {
 					str place = getExceptionPlace(msg);
-					str nmsg= createException(getExceptionType(msg), place, "%s", getExceptionMessage(msg));
-					GDKfree(place);
-					freeException(msg);
-					return nmsg;
+					str nmsg = createException(getExceptionType(msg), place, "%s", getExceptionMessage(msg));
+					if (nmsg && place) {
+						freeException(msg);
+						msg = nmsg;
+						GDKfree(place);
+					}
+					goto wrapup;
 				}
+				if (cntxt->mode == FINISHCLIENT)
+					throw(MAL, "optimizeMALBlock", "prematurely stopped client");
 				pc= -1;
 			}
 		}
 	} while (qot && cnt++ < mb->stop);
-	mb->optimize= GDKusec() - clk;
-	snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","total",1,mb->optimize);
-	newComment(mb,buf);
+
+wrapup:
+	/* Keep the total time spent on optimizing the plan for inspection */
+	if(actions > 0 && msg == MAL_SUCCEED){
+		mb->optimize = GDKusec() - clk;
+		snprintf(buf, 256, "%-20s actions=%2d time=" LLFMT " usec", "total", actions, mb->optimize);
+		newComment(mb, buf);
+	}
+	if (msg != MAL_SUCCEED) {
+		mb->errors++;
+	}
 	if (cnt >= mb->stop)
 		throw(MAL, "optimizer.MALoptimizer", OPTIMIZER_CYCLE);
-	return 0;
+	return msg;
 }
 
 /*
@@ -247,7 +237,7 @@ hasCommonResults(InstrPtr p, InstrPtr q)
  * Dependency between target variables and arguments can be
  * checked with isDependent().
  */
-int
+static int
 isDependent(InstrPtr p, InstrPtr q){
 	int i,j;
 	for(i= 0; i<q->retc; i++)
@@ -273,6 +263,19 @@ isUnsafeFunction(InstrPtr q)
 	return q->blk->unsafeProp;
 }
 
+int
+isSealedFunction(InstrPtr q)
+{
+	InstrPtr p;
+
+	if (q->fcn == 0 || getFunctionId(q) == 0 || q->blk == NULL)
+		return FALSE;
+	p= getInstrPtr(q->blk,0);
+	if( p->retc== 0)
+		return TRUE;
+	return q->blk->sealedProp;
+}
+
 /*
  * Instructions are unsafe if one of the arguments is also mentioned
  * in the result list. Alternatively, the 'unsafe' property is set
@@ -288,20 +291,6 @@ isUnsafeInstruction(InstrPtr q)
 			if (q->argv[k] == q->argv[j])
 				return TRUE;
 	return FALSE;
-}
-
-/*
- * The routine isInvariant determines if the variable V is not
- * changed in the instruction sequence identified by the range [pcf,pcl].
- */
-int
-isInvariant(MalBlkPtr mb, int pcf, int pcl, int varid)
-{
-	(void) mb;
-	(void) pcf;
-	(void) pcl;
-	(void) varid;		/*fool compiler */
-	return TRUE;
 }
 
 /*
@@ -343,36 +332,6 @@ safetyBarrier(InstrPtr p, InstrPtr q)
 	return FALSE;
 }
 
-/*
- * In many cases we should be assured that a variable is not used in
- * the instruction range identified. For, we may exchange some instructions that
- * might change its content.
- */
-#if 0
-int
-isTouched(MalBlkPtr mb, int varid, int p1, int p2)
-{
-	int i, k;
-
-	for (i = p1; i < p2; i++) {
-		InstrPtr p = getInstrPtr(mb, i);
-
-		for (k = 0; k < p->argc; k++)
-			if (p->argv[k] == varid)
-				return TRUE;
-	}
-	return FALSE;
-}
-#endif
-
-int
-isProcedure(MalBlkPtr mb, InstrPtr p)
-{
-	if (p->retc == 0 || (p->retc == 1 && getArgType(mb,p,0) == TYPE_void))
-		return TRUE;
-	//if( mb->unsafeProp) return TRUE;
-	return FALSE;
-}
 
 int
 isUpdateInstruction(InstrPtr p){
@@ -380,32 +339,45 @@ isUpdateInstruction(InstrPtr p){
 	   ( getFunctionId(p) == inplaceRef ||
 		getFunctionId(p) == appendRef ||
 		getFunctionId(p) == updateRef ||
-		getFunctionId(p) == replaceRef ))
+		getFunctionId(p) == replaceRef ||
+		getFunctionId(p) == clear_tableRef))
 			return TRUE;
 	if ( getModuleId(p) == batRef &&
 	   ( getFunctionId(p) == inplaceRef ||
 		getFunctionId(p) == appendRef ||
 		getFunctionId(p) == updateRef ||
-		getFunctionId(p) == replaceRef ))
+		getFunctionId(p) == replaceRef ||
+		getFunctionId(p) == clear_tableRef))
 			return TRUE;
 	return FALSE;
 }
 int
-hasSideEffects(InstrPtr p, int strict)
+hasSideEffects(MalBlkPtr mb, InstrPtr p, int strict)
 {
 	if( getFunctionId(p) == NULL) return FALSE;
 
-	/* update instructions have side effects */
+/* 
+ * Void-returning operations have side-effects and
+ * should be considered as such
+ */
+	if (p->retc == 0 || (p->retc == 1 && getArgType(mb,p,0) == TYPE_void))
+		return TRUE;
+
+/*
+ * Any function marked as unsafe can not be moved around without
+ * affecting its behavior on the program. For example, because they
+ * check for volatile resource levels.
+ */
+	if ( isUnsafeFunction(p))
+		return TRUE;
+
+	/* update instructions have side effects, they can be marked as unsafe */
 	if (isUpdateInstruction(p))
 		return TRUE;
 
 	if ( (getModuleId(p) == batRef || getModuleId(p)==sqlRef) &&
 	     (getFunctionId(p) == setAccessRef ||
-	 	  getFunctionId(p) == setWriteModeRef ||
-		  getFunctionId(p) == clear_tableRef))
-		return TRUE;
-
-	if (getFunctionId(p) == depositRef)
+	 	  getFunctionId(p) == setWriteModeRef ))
 		return TRUE;
 
 	if (getModuleId(p) == malRef && getFunctionId(p) == multiplexRef)
@@ -417,7 +389,6 @@ hasSideEffects(InstrPtr p, int strict)
 		getModuleId(p) == mdbRef ||
 		getModuleId(p) == malRef ||
 		getModuleId(p) == remapRef ||
-		getModuleId(p) == constraintsRef ||
 		getModuleId(p) == optimizerRef ||
 		getModuleId(p) == lockRef ||
 		getModuleId(p) == semaRef ||
@@ -426,9 +397,13 @@ hasSideEffects(InstrPtr p, int strict)
 		
 	if( getModuleId(p) == pyapiRef ||
 		getModuleId(p) == pyapimapRef ||
+		getModuleId(p) == pyapi3Ref ||
+		getModuleId(p) == pyapi3mapRef ||
 		getModuleId(p) == rapiRef)
 		return TRUE;
 
+	if (getModuleId(p) == sqlcatalogRef)
+		return TRUE;
 	if (getModuleId(p) == sqlRef){
 		if (getFunctionId(p) == tidRef) return FALSE;
 		if (getFunctionId(p) == deltaRef) return FALSE;
@@ -446,12 +421,6 @@ hasSideEffects(InstrPtr p, int strict)
 		if (getFunctionId(p) == singleRef) return FALSE;
 		return TRUE;
 	}
-	if( getModuleId(p) == languageRef){
-		if( getFunctionId(p) == assertRef) return TRUE;
-		return FALSE;
-	}
-	if (getModuleId(p) == constraintsRef)
-		return FALSE;
 	if( getModuleId(p) == mapiRef){
 		if( getFunctionId(p) == rpcRef)
 			return TRUE;
@@ -464,6 +433,10 @@ hasSideEffects(InstrPtr p, int strict)
 		getModuleId(p) != groupRef )
 		return TRUE;
 
+	if ( getModuleId(p) == sqlcatalogRef)
+		return TRUE;
+	if ( getModuleId(p) == oltpRef)
+		return TRUE;
 	if ( getModuleId(p) == remoteRef)
 		return TRUE;
 	return FALSE;
@@ -479,8 +452,8 @@ mayhaveSideEffects(Client cntxt, MalBlkPtr mb, InstrPtr p, int strict)
 	if( tpe == TYPE_void)
 		return TRUE;
 	if (getModuleId(p) != malRef || getFunctionId(p) != multiplexRef) 
-		return hasSideEffects( p, strict);
-	if (MANIFOLDtypecheck(cntxt,mb,p) == NULL)
+		return hasSideEffects(mb, p, strict);
+	if (MANIFOLDtypecheck(cntxt,mb,p,1) == NULL)
 		return TRUE;
 	return FALSE;
 }
@@ -492,13 +465,14 @@ int
 isSideEffectFree(MalBlkPtr mb){
 	int i;
 	for(i=1; i< mb->stop && getInstrPtr(mb,i)->token != ENDsymbol; i++){
-		if( hasSideEffects(getInstrPtr(mb,i), TRUE))
+		if( hasSideEffects(mb,getInstrPtr(mb,i), TRUE))
 			return FALSE;
 	}
 	return TRUE;
 }
+
 /*
- * Breaking up a MAL program into pieces for distributed requires
+ * Breaking up a MAL program into pieces for distributed processing requires
  * identification of (partial) blocking instructions. A conservative
  * definition can be used.
  */
@@ -513,18 +487,9 @@ isBlocking(InstrPtr p)
 
 	if( getModuleId(p) == aggrRef ||
 		getModuleId(p) == groupRef ||
-		getModuleId(p) == sqlRef )
+		getModuleId(p) == sqlcatalogRef )
 			return TRUE;
 	return FALSE;
-}
-
-int isAllScalar(MalBlkPtr mb, InstrPtr p)
-{
-	int i;
-	for (i=p->retc; i<p->argc; i++)
-	if (isaBatType(getArgType(mb,p,i)) || getArgType(mb,p,i)==TYPE_bat)
-		return FALSE;
-	return TRUE;
 }
 
 /*
@@ -537,7 +502,7 @@ isOrderDepenent(InstrPtr p)
 {
     if( getModuleId(p) != batsqlRef)
         return 0;
-    if ( getFunctionId(p) == diffRef ||
+    if ( getFunctionId(p) == differenceRef ||
         getFunctionId(p) == row_numberRef ||
         getFunctionId(p) == rankRef ||
         getFunctionId(p) == dense_rankRef)
@@ -546,6 +511,8 @@ isOrderDepenent(InstrPtr p)
 }
 
 int isMapOp(InstrPtr p){
+	if (isUnsafeFunction(p) || isSealedFunction(p))
+		return 0;
 	return	getModuleId(p) &&
 		((getModuleId(p) == malRef && getFunctionId(p) == multiplexRef) ||
 		 (getModuleId(p) == malRef && getFunctionId(p) == manifoldRef) ||
@@ -553,7 +520,8 @@ int isMapOp(InstrPtr p){
 		 (getModuleId(p) != batcalcRef && getModuleId(p) != batRef && strncmp(getModuleId(p), "bat", 3) == 0) ||
 		 (getModuleId(p) == mkeyRef)) && !isOrderDepenent(p) &&
 		 getModuleId(p) != batrapiRef &&
-		 getModuleId(p) != batpyapiRef;
+		 getModuleId(p) != batpyapiRef &&
+		 getModuleId(p) != batpyapi3Ref;
 }
 
 int isLikeOp(InstrPtr p){
@@ -595,11 +563,11 @@ isMatJoinOp(InstrPtr p)
 {
 	return (isSubJoin(p) || (getModuleId(p) == algebraRef &&
                 (getFunctionId(p) == crossRef ||
-                 getFunctionId(p) == subjoinRef ||
-                 getFunctionId(p) == subantijoinRef || /* is not mat save */
-                 getFunctionId(p) == subthetajoinRef ||
-                 getFunctionId(p) == subbandjoinRef ||
-                 getFunctionId(p) == subrangejoinRef)
+                 getFunctionId(p) == joinRef ||
+                 getFunctionId(p) == antijoinRef || /* is not mat save */
+                 getFunctionId(p) == thetajoinRef ||
+                 getFunctionId(p) == bandjoinRef ||
+                 getFunctionId(p) == rangejoinRef)
 		));
 }
 
@@ -607,7 +575,7 @@ int
 isMatLeftJoinOp(InstrPtr p)
 {
 	return (getModuleId(p) == algebraRef && 
-		getFunctionId(p) == subleftjoinRef);
+		getFunctionId(p) == leftjoinRef);
 }
 
 int isDelta(InstrPtr p){
@@ -632,12 +600,12 @@ int isFragmentGroup2(InstrPtr p){
 		);
 }
 
-int isSubSelect(InstrPtr p)
+int isSelect(InstrPtr p)
 {
 	char *func = getFunctionId(p);
 	size_t l = func?strlen(func):0;
 	
-	return (l >= 9 && strcmp(func+l-9,"subselect") == 0);
+	return (l >= 6 && strcmp(func+l-6,"select") == 0);
 }
 
 int isSubJoin(InstrPtr p)
@@ -645,7 +613,7 @@ int isSubJoin(InstrPtr p)
 	char *func = getFunctionId(p);
 	size_t l = func?strlen(func):0;
 	
-	return (l >= 7 && strcmp(func+l-7,"subjoin") == 0);
+	return (l >= 7 && strcmp(func+l-7,"join") == 0);
 }
 
 int isMultiplex(InstrPtr p)
@@ -660,7 +628,7 @@ int isFragmentGroup(InstrPtr p){
 				getFunctionId(p)== projectRef ||
 				getFunctionId(p)== selectNotNilRef
 			))  ||
-			isSubSelect(p) ||
+			isSelect(p) ||
 			(getModuleId(p)== batRef && (
 				getFunctionId(p)== mirrorRef 
 			));

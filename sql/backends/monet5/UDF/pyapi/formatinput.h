@@ -8,7 +8,7 @@
 
 /*
  * M. Raasveldt
- * This file contains a number of functions for formatting the 
+ * This file contains a number of functions for formatting the
  */
 
 #ifndef _PY_FORMAT_INPUT_LIB_
@@ -16,11 +16,13 @@
 
 #include <stddef.h>
 
-#include "pyapi.h"
- 
+#include "pyheader.h"
+
 extern PyObject *marshal_loads;
 
-char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth, PyObject **code_object, char **msg, char** additional_args, size_t additional_argcount);
+char *FormatCode(char *code, char **args, size_t argcount, size_t tabwidth,
+				 PyObject **code_object, char **msg, char **additional_args,
+				 size_t additional_argcount);
 
 void _formatinput_init(void);
 

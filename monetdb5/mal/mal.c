@@ -10,10 +10,12 @@
 #include <monetdb_config.h>
 #include <mal.h>
 
-char monet_cwd[PATHLENGTH] = { 0 };
-size_t monet_memory = 0;
+char 	monet_cwd[PATHLENGTH] = { 0 };
+size_t 	monet_memory = 0;
 char 	monet_characteristics[PATHLENGTH];
-int mal_trace;		/* enable profile events on console */
+int		mal_trace;		/* enable profile events on console */
+str     mal_session_uuid;   /* unique marker for the session */
+
 #ifdef HAVE_HGE
 int have_hge;
 #endif
@@ -33,7 +35,6 @@ int have_hge;
 #include "mal_private.h"
 #include "mal_runtime.h"
 #include "mal_resource.h"
-#include "opt_statistics.h"
 
 MT_Lock     mal_contextLock MT_LOCK_INITIALIZER("mal_contextLock");
 MT_Lock     mal_namespaceLock MT_LOCK_INITIALIZER("mal_namespaceLock");
@@ -42,6 +43,7 @@ MT_Lock  	mal_profileLock MT_LOCK_INITIALIZER("mal_profileLock");
 MT_Lock     mal_copyLock MT_LOCK_INITIALIZER("mal_copyLock");
 MT_Lock     mal_delayLock MT_LOCK_INITIALIZER("mal_delayLock");
 MT_Lock     mal_beatLock MT_LOCK_INITIALIZER("mal_beatLock");
+MT_Lock     mal_oltpLock MT_LOCK_INITIALIZER("mal_oltpLock");
 
 /*
  * Initialization of the MAL context
@@ -85,6 +87,7 @@ int mal_init(void){
 	MT_lock_init( &mal_copyLock, "mal_copyLock");
 	MT_lock_init( &mal_delayLock, "mal_delayLock");
 	MT_lock_init( &mal_beatLock, "mal_beatLock");
+	MT_lock_init( &mal_oltpLock, "mal_beatLock");
 #endif
 
 	tstAligned();
@@ -115,7 +118,7 @@ int mal_init(void){
  * activity first.
  * This function should be called after you have issued sql_reset();
  */
-void mserver_reset(void)
+void mserver_reset(int exit)
 {
 	str err = 0;
 
@@ -123,7 +126,6 @@ void mserver_reset(void)
 	MCstopClients(0);
 	setHeartbeat(-1);
 	stopProfiler();
-	QOTstatisticsExit();
 	AUTHreset(); 
 	if ((err = msab_wildRetreat()) != NULL) {
 		fprintf(stderr, "!%s", err);
@@ -160,7 +162,7 @@ void mserver_reset(void)
 	mal_trace = 0;
 	/* No need to clean up the namespace, it will simply be extended
 	 * upon restart mal_namespace_reset(); */
-	GDKreset(0);	// terminate all other threads
+	GDKreset(0, exit);	// terminate all other threads
 }
 
 
@@ -175,6 +177,6 @@ void mserver_reset(void)
  */
 
 void mal_exit(void){
-	mserver_reset();
+	mserver_reset(1);
 	GDKexit(0); 	/* properly end GDK */
 }

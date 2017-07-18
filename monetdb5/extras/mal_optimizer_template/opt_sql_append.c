@@ -71,7 +71,6 @@
 #include "monetdb_config.h"
 #include "opt_sql_append.h"
 #include "mal_interpreter.h"
-#include "opt_statistics.h"
 
 /* focus initially on persistent tables. */
 
@@ -180,10 +179,8 @@ OPTsql_appendImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 					 * setArgType(mb,q1,TYPE_lng) */
 					/* it will be added to the block and even my
 					 * re-use MAL instructions */
-					q1 = newInstruction(mb,ASSIGNsymbol);
+					q1 = newInstruction(mb,aggrRef,countRef);
 					getArg(q1,0) = newTmpVariable(mb, TYPE_lng);
-					setModuleId(q1, aggrRef);
-					setFunctionId(q1, countRef);
 					q1 = pushArgument(mb, q1, getArg(p, 5));
 					pushInstruction(mb, q1);
 				}
@@ -191,10 +188,8 @@ OPTsql_appendImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 				/* push new v2 := algebra.slice( v0, 0, v1 ); */
 				/* use mal_builder.h primitives
 				 * q1 = newStmt(mb, algebraRef,sliceRef); */
-				q2 = newInstruction(mb,ASSIGNsymbol);
+				q2 = newInstruction(mb,algebraRef, sliceRef);
 				getArg(q2,0) = newTmpVariable(mb, TYPE_any);
-				setModuleId(q2, algebraRef);
-				setFunctionId(q2, sliceRef);
 				q2 = pushArgument(mb, q2, getArg(p, 5));
 				q2 = pushLng(mb, q2, 0);
 				q2 = pushArgument(mb, q2, getArg(q1, 0));
@@ -256,7 +251,8 @@ str OPTsql_append(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	str fcnnme;
 	str msg= MAL_SUCCEED;
 	Symbol s= NULL;
-	lng t,clk= GDKusec();
+	char buf[256];
+	lng clk= GDKusec();
 	int actions = 0;
 
 	(void) cntxt;
@@ -296,13 +292,19 @@ str OPTsql_append(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 		return MAL_SUCCEED;
 	}
 	actions= OPTsql_appendImplementation(cntxt, mb,stk,p);
-	msg= optimizerCheck(cntxt, mb, "optimizer.sql_append", actions, t=(GDKusec() - clk));
+
+    /* Defense line against incorrect plans */
+	chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
+	chkFlow(cntxt->fdout, mb);
+	chkDeclarations(cntxt->fdout, mb);
 #ifdef DEBUG_OPT_OPTIMIZERS
 		mnstr_printf(cntxt->fdout,"=FINISHED sql_append %d\n",actions);
 		printFunction(cntxt->fdout,mb,0,LIST_MAL_ALL );
 		mnstr_printf(cntxt->fdout,"#opt_reduce: " LLFMT " ms\n",t);
 #endif
-	QOTupdateStatistics("sql_append",actions,t);
+	clk = GDKusec()- clk;
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","optimizer.sql_append",actions, clk);
+    newComment(mb,buf);
 	addtoMalBlkHistory(mb);
 	return msg;
 }

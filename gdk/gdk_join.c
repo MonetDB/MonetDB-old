@@ -208,252 +208,6 @@ joininitresults(BAT **r1p, BAT **r2p, BUN lcnt, BUN rcnt, int lkey, int rkey,
 			 (const char *) s##vals + ((x) * s##width))
 #define FVALUE(s, x)	((const char *) s##vals + ((x) * s##width))
 
-#define BINSEARCHFUNC(TYPE)						\
-static inline BUN							\
-binsearch_##TYPE(const oid *rcand, oid offset, const TYPE *rvals,	\
-		 BUN lo, BUN hi, TYPE v, int ordering, int last)	\
-{									\
-	BUN mid;							\
-	TYPE x;								\
-									\
-	assert(ordering == 1 || ordering == -1);			\
-	assert(lo <= hi);						\
-									\
-	if (ordering > 0) {						\
-		if (rcand) {						\
-			if (last) {					\
-				if ((x = rvals[rcand[lo] - offset]) > v) \
-					return lo;			\
-				if ((x = rvals[rcand[hi] - offset]) < v || \
-				    x == v)				\
-					return hi + 1;			\
-									\
-				/* loop invariant: */			\
-				/* value@lo <= v < value@hi */		\
-				while (hi - lo > 1) {			\
-					mid = (hi + lo) / 2;		\
-					if (rvals[rcand[mid] - offset] > v) \
-						hi = mid;		\
-					else				\
-						lo = mid;		\
-				}					\
-			} else {					\
-				if ((x = rvals[rcand[lo] - offset]) > v || \
-				    x == v)				\
-					return lo;			\
-				if ((x = rvals[rcand[hi] - offset]) < v) \
-					return hi + 1;			\
-									\
-				/* loop invariant: */			\
-				/* value@lo < v <= value@hi */		\
-				while (hi - lo > 1) {			\
-					mid = (hi + lo) / 2;		\
-					if (rvals[rcand[mid] - offset] >= v) \
-						hi = mid;		\
-					else				\
-						lo = mid;		\
-				}					\
-			}						\
-		} else {						\
-			if (last) {					\
-				if ((x = rvals[lo]) > v)		\
-					return lo;			\
-				if ((x = rvals[hi]) < v || x == v)	\
-					return hi + 1;			\
-									\
-				/* loop invariant: */			\
-				/* value@lo <= v < value@hi */		\
-				while (hi - lo > 1) {			\
-					mid = (hi + lo) / 2;		\
-					if (rvals[mid] > v)		\
-						hi = mid;		\
-					else				\
-						lo = mid;		\
-				}					\
-			} else {					\
-				if ((x = rvals[lo]) > v || x == v)	\
-					return lo;			\
-				if ((x = rvals[hi]) < v)		\
-					return hi + 1;			\
-									\
-				/* loop invariant: */			\
-				/* value@lo < v <= value@hi */		\
-				while (hi - lo > 1) {			\
-					mid = (hi + lo) / 2;		\
-					if (rvals[mid] >= v)		\
-						hi = mid;		\
-					else				\
-						lo = mid;		\
-				}					\
-			}						\
-		}							\
-	} else {							\
-		if (rcand) {						\
-			if (last) {					\
-				if ((x = rvals[rcand[lo] - offset]) < v) \
-					return lo;			\
-				if ((x = rvals[rcand[hi] - offset]) > v || \
-				    x == v)				\
-					return hi + 1;			\
-									\
-				/* loop invariant: */			\
-				/* value@lo >= v > value@hi */		\
-				while (hi - lo > 1) {			\
-					mid = (hi + lo) / 2;		\
-					if (rvals[rcand[mid] - offset] < v) \
-						hi = mid;		\
-					else				\
-						lo = mid;		\
-				}					\
-			} else {					\
-				if ((x = rvals[rcand[lo] - offset]) < v || \
-				    x == v)				\
-					return lo;			\
-				if ((x = rvals[rcand[hi] - offset]) > v) \
-					return hi + 1;			\
-									\
-				/* loop invariant: */			\
-				/* value@lo > v >= value@hi */		\
-				while (hi - lo > 1) {			\
-					mid = (hi + lo) / 2;		\
-					if (rvals[rcand[mid] - offset] <= v) \
-						hi = mid;		\
-					else				\
-						lo = mid;		\
-				}					\
-			}						\
-		} else {						\
-			if (last) {					\
-				if ((x = rvals[lo]) < v)		\
-					return lo;			\
-				if ((x = rvals[hi]) > v || x == v)	\
-					return hi + 1;			\
-									\
-				/* loop invariant: */			\
-				/* value@lo >= v > value@hi */		\
-				while (hi - lo > 1) {			\
-					mid = (hi + lo) / 2;		\
-					if (rvals[mid] < v)		\
-						hi = mid;		\
-					else				\
-						lo = mid;		\
-				}					\
-			} else {					\
-				if ((x = rvals[lo]) < v || x == v)	\
-					return lo;			\
-				if ((x = rvals[hi]) > v)		\
-					return hi + 1;			\
-									\
-				/* loop invariant: */			\
-				/* value@lo > v >= value@hi */		\
-				while (hi - lo > 1) {			\
-					mid = (hi + lo) / 2;		\
-					if (rvals[mid] <= v)		\
-						hi = mid;		\
-					else				\
-						lo = mid;		\
-				}					\
-			}						\
-		}							\
-	}								\
-	return hi;							\
-}
-
-BINSEARCHFUNC(bte)
-BINSEARCHFUNC(sht)
-BINSEARCHFUNC(int)
-BINSEARCHFUNC(lng)
-#ifdef HAVE_HGE
-BINSEARCHFUNC(hge)
-#endif
-BINSEARCHFUNC(flt)
-BINSEARCHFUNC(dbl)
-#if SIZEOF_OID == SIZEOF_INT
-#define binsearch_oid(rcand, offset, rvals, lo, hi, v, ordering, last) binsearch_int(rcand, offset, (const int *) rvals, lo, hi, (int) (v), ordering, last)
-#endif
-#if SIZEOF_OID == SIZEOF_LNG
-#define binsearch_oid(rcand, offset, rvals, lo, hi, v, ordering, last) binsearch_lng(rcand, offset, (const lng *) rvals, lo, hi, (lng) (v), ordering, last)
-#endif
-
-/* Do a binary search for the first/last occurrence of v between lo
- * and hi (lo inclusive, hi not inclusive) in rvals/rvars, using rcand
- * as a candidate list.
- * If last is set, return the index of the first value > v; if last is
- * not set, return the index of the first value >= v.
- * If ordering is -1, the values are sorted in reverse order and hence
- * all comparisons are reversed.
- */
-static BUN
-binsearch(const oid *rcand, oid offset,
-	  int type, const void *rvals, const char *rvars,
-	  int rwidth, BUN lo, BUN hi, const void *v,
-	  int (*cmp)(const void *, const void *), int ordering, int last)
-{
-	BUN mid;
-	int c;
-
-	assert(ordering == 1 || ordering == -1);
-	assert(lo < hi);
-
-	--hi;			/* now hi is inclusive */
-
-	switch (type) {
-	case TYPE_bte:
-		return binsearch_bte(rcand, offset, (const bte *) rvals,
-				     lo, hi, *(const bte *) v, ordering, last);
-	case TYPE_sht:
-		return binsearch_sht(rcand, offset, (const sht *) rvals,
-				     lo, hi, *(const sht *) v, ordering, last);
-	case TYPE_int:
-#if SIZEOF_OID == SIZEOF_INT
-	case TYPE_oid:
-#endif
-		return binsearch_int(rcand, offset, (const int *) rvals,
-				     lo, hi, *(const int *) v, ordering, last);
-	case TYPE_lng:
-#if SIZEOF_OID == SIZEOF_LNG
-	case TYPE_oid:
-#endif
-		return binsearch_lng(rcand, offset, (const lng *) rvals,
-				     lo, hi, *(const lng *) v, ordering, last);
-#ifdef HAVE_HGE
-	case TYPE_hge:
-		return binsearch_hge(rcand, offset, (const hge *) rvals,
-				     lo, hi, *(const hge *) v, ordering, last);
-#endif
-	case TYPE_flt:
-		return binsearch_flt(rcand, offset, (const flt *) rvals,
-				     lo, hi, *(const flt *) v, ordering, last);
-	case TYPE_dbl:
-		return binsearch_dbl(rcand, offset, (const dbl *) rvals,
-				     lo, hi, *(const dbl *) v, ordering, last);
-	}
-
-	if ((c = ordering * cmp(VALUE(r, rcand ? rcand[lo] - offset : lo), v)) > 0 ||
-	    (!last && c == 0))
-		return lo;
-	if ((c = ordering * cmp(VALUE(r, rcand ? rcand[hi] - offset : hi), v)) < 0 ||
-	    (last && c == 0))
-		return hi + 1;
-
-	/* loop invariant:
-	 * last ? value@lo <= v < value@hi : value@lo < v <= value@hi
-	 *
-	 * This version does some more work in the inner loop than the
-	 * type-expanded versions (ordering and rcand checks) but is
-	 * slow due to the function call and the needed check for
-	 * rvars (in VALUE()) already, so we're beyond caring. */
-	while (hi - lo > 1) {
-		mid = (hi + lo) / 2;
-		if ((c = ordering * cmp(VALUE(r, rcand ? rcand[mid] - offset : mid), v)) > 0 ||
-		    (!last && c == 0))
-			hi = mid;
-		else
-			lo = mid;
-	}
-	return hi;
-}
-
 #define APPEND(b, o)		(((oid *) b->theap.base)[b->batCount++] = (o))
 
 static gdk_return
@@ -546,6 +300,13 @@ nomatch(BAT *r1, BAT *r2, BAT *l, BAT *r, BUN lstart, BUN lend,
 	BBPreclaim(r2);
 	return GDK_FAIL;
 }
+
+#if SIZEOF_OID == SIZEOF_INT
+#define binsearch_oid(indir, offset, vals, lo, hi, v, ordering, last) binsearch_int(indir, offset, (const int *) vals, lo, hi, (int) (v), ordering, last)
+#endif
+#if SIZEOF_OID == SIZEOF_LNG
+#define binsearch_oid(indir, offset, vals, lo, hi, v, ordering, last) binsearch_lng(indir, offset, (const lng *) vals, lo, hi, (lng) (v), ordering, last)
+#endif
 
 static gdk_return
 mergejoin_void(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
@@ -1895,12 +1656,12 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 				if (lscan < (BUN) (lcandend - lcand)) {
 					if (lvals) {
 						if (lordering * cmp(VALUE(l, lcand[lscan] - l->hseqbase), v) < 0) {
-							nlx = binsearch(lcand, l->hseqbase, l->ttype, lvals, lvars, lwidth, lscan, (BUN) (lcandend - lcand), v, cmp, lordering, 0);
+							nlx = binsearch(lcand, l->hseqbase, l->ttype, lvals, lvars, lwidth, lscan, (BUN) (lcandend - lcand), v, lordering, 0);
 						}
 					} else {
 						lval = (oid) ((lng) *(const oid*)v - loff);
 						if (lordering > 0 ? lcand[lscan] < lval : lcand[lscan] > lval) {
-							nlx = binsearch(NULL, 0, TYPE_oid, (const char *) lcand, NULL, SIZEOF_OID, 0, lcandend - lcand, &lval, cmp, 1, 0);
+							nlx = binsearch(NULL, 0, TYPE_oid, (const char *) lcand, NULL, SIZEOF_OID, 0, lcandend - lcand, &lval, 1, 0);
 						}
 					}
 					lcand += nlx;
@@ -1912,7 +1673,7 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 					if (lordering * cmp(VALUE(l, lstart + lscan),
 							    v) < 0) {
 						nlx = lstart;
-						lstart = binsearch(NULL, 0, l->ttype, lvals, lvars, lwidth, lstart + lscan, lend, v, cmp, lordering, 0);
+						lstart = binsearch(NULL, 0, l->ttype, lvals, lvars, lwidth, lstart + lscan, lend, v, lordering, 0);
 						nlx = lstart - nlx;
 						if (lstart == lend)
 							v = NULL;
@@ -2017,7 +1778,7 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 						       l->ttype, lvals, lvars,
 						       lwidth, lscan,
 						       (BUN) (lcandend - lcand),
-						       v, cmp, lordering, 1);
+						       v, lordering, 1);
 					lcand += nl;
 				} else {
 					while (++lcand < lcandend &&
@@ -2037,7 +1798,7 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 				 * search to find end */
 				nl = binsearch(NULL, 0, l->ttype, lvals, lvars,
 					       lwidth, lstart + lscan,
-					       lend, v, cmp, lordering, 1);
+					       lend, v, lordering, 1);
 				nl -= lstart;
 				lstart += nl;
 			} else {
@@ -2105,7 +1866,7 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 						/* value too far away
 						 * in r: use binary
 						 * search */
-						rcand += binsearch(rcand, r->hseqbase, r->ttype, rvals, rvars, rwidth, rscan, (BUN) (rcandend - rcand), v, cmp, rordering, 0);
+						rcand += binsearch(rcand, r->hseqbase, r->ttype, rvals, rvars, rwidth, rscan, (BUN) (rcandend - rcand), v, rordering, 0);
 					} else {
 						/* scan r for v */
 						while (rcand < rcandend &&
@@ -2128,7 +1889,7 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 							/* many equal values:
 							 * use binary search to
 							 * find the end */
-							nr = binsearch(rcand, r->hseqbase, r->ttype, rvals, rvars, rwidth, rscan, (BUN) (rcandend - rcand), v, cmp, rordering, 1);
+							nr = binsearch(rcand, r->hseqbase, r->ttype, rvals, rvars, rwidth, rscan, (BUN) (rcandend - rcand), v, rordering, 1);
 							rcand += nr;
 						} else {
 							/* scan r for end of
@@ -2144,7 +1905,7 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 					rval = (oid) ((lng) *(const oid*)v - roff);
 					if (rscan < (BUN) (rcandend - rcand) &&
 					    (rordering > 0 ? rcand[rscan] < rval : rcand[rscan] > rval)) {
-						rcand += binsearch(NULL, 0, TYPE_oid, (const char *) rcand, NULL, SIZEOF_OID, rscan, rcandend - rcand, &rval, cmp, 1, 0);
+						rcand += binsearch(NULL, 0, TYPE_oid, (const char *) rcand, NULL, SIZEOF_OID, rscan, rcandend - rcand, &rval, 1, 0);
 					} else {
 						while (rcand < rcandend &&
 						       (rordering > 0 ? *rcand < rval : *rcand > rval))
@@ -2161,7 +1922,7 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 					/* value too far away
 					 * in r: use binary
 					 * search */
-					rstart = binsearch(NULL, 0, r->ttype, rvals, rvars, rwidth, rstart + rscan, rend, v, cmp, rordering, 0);
+					rstart = binsearch(NULL, 0, r->ttype, rvals, rvars, rwidth, rstart + rscan, rend, v, rordering, 0);
 				} else {
 					/* scan r for v */
 					while (rstart < rend &&
@@ -2180,7 +1941,7 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 					} else if (rstart + rscan < rend &&
 						   cmp(v, VALUE(r, rstart + rscan)) == 0) {
 						/* use binary search to find the end */
-						nr = binsearch(NULL, 0, r->ttype, rvals, rvars, rwidth, rstart + rscan, rend, v, cmp, rordering, 1);
+						nr = binsearch(NULL, 0, r->ttype, rvals, rvars, rwidth, rstart + rscan, rend, v, rordering, 1);
 						nr -= rstart;
 						rstart += nr;
 					} else {
@@ -2229,7 +1990,7 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 						/* value too far away
 						 * in r: use binary
 						 * search */
-						rcandend = rcand + binsearch(rcand, r->hseqbase, r->ttype, rvals, rvars, rwidth, 0, (BUN) (rcandend - rcand) - rscan, v, cmp, rordering, 1);
+						rcandend = rcand + binsearch(rcand, r->hseqbase, r->ttype, rvals, rvars, rwidth, 0, (BUN) (rcandend - rcand) - rscan, v, rordering, 1);
 					} else {
 						/* scan r for v */
 						while (rcand < rcandend &&
@@ -2248,7 +2009,7 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 						} else if (rscan < (BUN) (rcandend - rcand) &&
 							   cmp(v, VALUE(r, rcandend[-(ssize_t)rscan - 1] - r->hseqbase)) == 0) {
 							/* use binary search to find the start */
-							nr = binsearch(rcand, r->hseqbase, r->ttype, rvals, rvars, rwidth, 0, (BUN) (rcandend - rcand) - rscan, v, cmp, rordering, 0);
+							nr = binsearch(rcand, r->hseqbase, r->ttype, rvals, rvars, rwidth, 0, (BUN) (rcandend - rcand) - rscan, v, rordering, 0);
 							nr = (BUN) (rcandend - rcand) - nr;
 							rcandend -= nr;
 						} else {
@@ -2264,7 +2025,7 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 					rval = (oid) ((lng) *(const oid*)v - roff);
 					if (rscan < (BUN) (rcandend - rcand) &&
 					    (rordering > 0 ? rcandend[-(ssize_t)rscan - 1] > rval : rcandend[-(ssize_t)rscan - 1] < rval)) {
-						rcandend = rcand + binsearch(NULL, 0, TYPE_oid, (const char *) rcand, NULL, SIZEOF_OID, 0, rcandend - rcand - rscan, &rval, cmp, 1, 1);
+						rcandend = rcand + binsearch(NULL, 0, TYPE_oid, (const char *) rcand, NULL, SIZEOF_OID, 0, rcandend - rcand - rscan, &rval, 1, 1);
 					} else {
 						while (rcand < rcandend &&
 						       (rordering > 0 ? rcandend[-1] > rval : rcandend[-1] < rval))
@@ -2281,7 +2042,7 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 					/* value too far away
 					 * in r: use binary
 					 * search */
-					rend = binsearch(NULL, 0, r->ttype, rvals, rvars, rwidth, rstart, rend - rscan, v, cmp, rordering, 1);
+					rend = binsearch(NULL, 0, r->ttype, rvals, rvars, rwidth, rstart, rend - rscan, v, rordering, 1);
 				} else {
 					/* scan r for v */
 					while (rstart < rend &&
@@ -2300,7 +2061,7 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 					} else if (rstart + rscan < rend &&
 						   cmp(v, VALUE(r, rend - rscan - 1)) == 0) {
 						/* use binary search to find the end */
-						nr = binsearch(NULL, 0, r->ttype, rvals, rvars, rwidth, rstart, rend - rscan, v, cmp, rordering, 0);
+						nr = binsearch(NULL, 0, r->ttype, rvals, rvars, rwidth, rstart, rend - rscan, v, rordering, 0);
 						nr = rend - nr;
 						rend -= nr;
 					} else {

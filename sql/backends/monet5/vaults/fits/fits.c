@@ -205,8 +205,7 @@ str FITSexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
  
 	tbl = mvc_bind_table(m, sch, tname);
 	if (tbl == NULL) {
-		msg = createException (MAL, "fits.exporttable", "Table %s is missing.\n", tname);
-		return msg;
+		throw(MAL, "fits.exporttable", "Table %s is missing.\n", tname);
 	}
 
 	set = (*tbl).columns.set;
@@ -214,6 +213,11 @@ str FITSexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	columns = list_length(set);
 	colname = (str *) GDKmalloc(columns * sizeof(str));
 	tform = (str *) GDKmalloc(columns * sizeof(str));
+	if (colname == NULL || tform == NULL) {
+		GDKfree(colname);
+		GDKfree(tform);
+		throw(MAL, "fits.exporttable", MAL_MALLOC_FAIL);
+	}
 
 	/*	fprintf(stderr,"Number of columns: %d\n", columns);*/
 
@@ -996,7 +1000,11 @@ str FITSloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				tloadtm += GDKms() - tm0;
 				tm0 = GDKms();
 				for(k = 0; k < batch ; k++)
-					BUNappend(tmp, v[k], TRUE);
+					if (BUNappend(tmp, v[k], TRUE) != GDK_SUCCEED) {
+						BBPreclaim(tmp);
+						msg = createException(MAL, "fits.loadtable", MAL_MALLOC_FAIL);
+						goto bailout;
+					}
 				tattachtm += GDKms() - tm0;
 			}
 			for(i = 0; i < bsize ; i++)
@@ -1012,10 +1020,16 @@ str FITSloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			break;
 		}
 		fprintf(stderr,"#Column %s loaded for %d ms\t", cname[j-1], GDKms() - time0);
-		store_funcs.append_col(m->session->tr, col, tmp, TYPE_bat);
+		if (store_funcs.append_col(m->session->tr, col, tmp, TYPE_bat) != LOG_OK) {
+			BBPunfix(tmp->batCacheid);
+			msg = createException(MAL, "fits.loadtable", MAL_MALLOC_FAIL);
+			break;
+		}
 		fprintf(stderr,"#Total %d ms\n", GDKms() - time0);
 		BBPunfix(tmp->batCacheid);
 	}
+
+  bailout:
 
 	GDKfree(tpcode);
 	GDKfree(rep);

@@ -283,7 +283,6 @@ prepareMALstack(MalBlkPtr mb, int size)
 	int i;
 	ValPtr lhs, rhs;
 
-	assert(size >= mb->vsize);
 	stk = newGlobalStack(size);
 	if (!stk) {
 		return NULL;
@@ -323,9 +322,9 @@ str runMAL(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr env)
 	if (env != NULL) {
 		stk = env;
 		if (mb != stk->blk)
-			showScriptException(cntxt->fdout, mb, 0, MAL, "runMAL:misalignment of symbols\n");
+			throw(MAL, "mal.interpreter","misalignment of symbols");
 		if (mb->vtop > stk->stksize)
-			showScriptException(cntxt->fdout, mb, 0, MAL, "stack too small\n");
+			throw(MAL, "mal.interpreter","stack too small");
 		initStack(env->stkbot);
 	} else {
 		stk = prepareMALstack(mb, mb->vsize);
@@ -410,8 +409,8 @@ callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *env, ValPtr argv[], char debug)
 
 	cntxt->lastcmd= time(0);
 #ifdef DEBUG_CALLMAL
-	mnstr_printf(cntxt->fdout, "callMAL\n");
-	printInstruction(cntxt->fdout, mb, 0, pci, LIST_MAL_ALL);
+	fprintf(stderr, "callMAL\n");
+	fprintInstruction(stderr, mb, 0, pci, LIST_MAL_ALL);
 #endif
 	switch (pci->token) {
 	case FUNCTIONsymbol:
@@ -437,7 +436,7 @@ callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *env, ValPtr argv[], char debug)
 			if (VALcopy(lhs, argv[i]) == NULL)
 				throw(MAL, "mal.interpreter", MAL_MALLOC_FAIL);
 			if (lhs->vtype == TYPE_bat)
-				BBPincref(lhs->val.bval, TRUE);
+				BBPretain(lhs->val.bval);
 		}
 		stk->cmd = debug;
 		ret = runMALsequence(cntxt, mb, 1, 0, stk, 0, 0);
@@ -630,7 +629,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 				rhs = &stk->stk[pci->argv[i]];
 				VALcopy(lhs, rhs);
 				if (lhs->vtype == TYPE_bat && lhs->val.bval != bat_nil)
-					BBPincref(lhs->val.bval, TRUE);
+					BBPretain(lhs->val.bval);
 			}
 			freeException(ret);
 			ret = 0;
@@ -754,7 +753,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 					rhs = &stk->stk[pci->argv[ii]];
 					VALcopy(lhs, rhs);
 					if (lhs->vtype == TYPE_bat)
-						BBPincref(lhs->val.bval, TRUE);
+						BBPretain(lhs->val.bval);
 				}
 				ret = runMALsequence(cntxt, pci->blk, 1, pci->blk->stop, nstk, stk, pci);
 				for (ii = 0; ii < nstk->stktop; ii++)
@@ -845,10 +844,10 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 						bat bid = stk->stk[a].val.bval;
 
 						if (garbage[i] >= 0) {
-							PARDEBUG mnstr_printf(GDKstdout, "#GC pc=%d bid=%d %s done\n", stkpc, bid, getVarName(mb, garbage[i]));
+							PARDEBUG fprintf(stderr, "#GC pc=%d bid=%d %s done\n", stkpc, bid, getVarName(mb, garbage[i]));
 							bid = stk->stk[garbage[i]].val.bval;
 							stk->stk[garbage[i]].val.bval = bat_nil;
-							BBPdecref(bid, TRUE);
+							BBPrelease(bid);
 						}
 					}
 				}
@@ -1148,7 +1147,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			break;
 		case YIELDsymbol:     /* to be defined */
 			if( startedProfileQueue)
-				runtimeProfileFinish(cntxt, mb);
+				runtimeProfileFinish(cntxt, mb, stk);
 			if ( backup != backups) GDKfree(backup);
 			if ( garbage != garbages) GDKfree(garbage);
 			return yieldFactory(mb, pci, stkpc);
@@ -1168,7 +1167,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 						lhs = &env->stk[pci->argv[i]];
 						VALcopy(lhs, rhs);
 						if (lhs->vtype == TYPE_bat)
-							BBPincref(lhs->val.bval, TRUE);
+							BBPretain(lhs->val.bval);
 					}
 					if (garbageControl(getInstrPtr(mb, 0)))
 						garbageCollector(cntxt, mb, stk, TRUE);
@@ -1209,7 +1208,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 		freeException(oldret);
 	}
 	if( startedProfileQueue)
-		runtimeProfileFinish(cntxt, mb);
+		runtimeProfileFinish(cntxt, mb, stk);
 	if ( backup != backups) GDKfree(backup);
 	if ( garbage != garbages) GDKfree(garbage);
 	return ret;
@@ -1387,7 +1386,7 @@ void garbageElement(Client cntxt, ValPtr v)
 			return;
 		if (!BBP_lrefs(bid))
 			return;
-		BBPdecref(bid, TRUE);
+		BBPrelease(bid);
 	} else if (0 < v->vtype && v->vtype < MAXATOMS && ATOMextern(v->vtype)) {
 		if (v->val.pval)
 			GDKfree(v->val.pval);

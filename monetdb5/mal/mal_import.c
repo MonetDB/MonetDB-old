@@ -150,12 +150,11 @@ malLoadScript(Client c, str name, bstream **fdin)
 	restoreClient1 \
 	restoreClient2
 #define restoreClient3 \
-	if (c->fdin)  \
+	if (c->fdin && c->bak)  \
 		MCpopClientInput(c); \
 	c->mode = oldmode; \
 	c->blkmode = oldblkmode; \
 	c->srcFile = oldsrcFile;
-
 
 #ifdef HAVE_EMBEDDED
 extern char* mal_init_inline;
@@ -167,7 +166,7 @@ extern char* mal_init_inline;
 str
 malInclude(Client c, str name, int listing)
 {
-	str s= MAL_SUCCEED;
+	str s = MAL_SUCCEED;
 	str filename;
 	str p;
 

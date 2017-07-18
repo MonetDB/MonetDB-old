@@ -133,8 +133,11 @@ OPTdependencies(Client cntxt, MalBlkPtr mb, int **Ulist)
 		list[i]->pos2 = sz;
 		sz += list[i]->used;
 	}
-	uselist = GDKzalloc(sizeof(int)*sz);
-	if (!uselist) {
+	if (sz == 0 ||
+		(uselist = GDKzalloc(sizeof(int)*sz)) == NULL) {
+		/* there is no distinction between successfully finding
+		 * nothing and failure; in either case the caller doesn't do
+		 * anything */
 		OPTremoveDep(list, mb->stop);
 		GDKfree(var);
 		return NULL;
@@ -261,7 +264,7 @@ OPTpostponeAppends(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	return actions;
 }
 
-int
+str
 OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
 	int i,j, start;
@@ -275,23 +278,18 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	(void) stk;
 	dep = OPTdependencies(cntxt,mb,&uselist);
 	if ( dep == NULL)
-		return 0;
+		return MAL_SUCCEED;
 	limit= mb->stop;
 	slimit= mb->ssize;
 	old = mb->stmt;
 	if ( newMalBlkStmt(mb, mb->ssize) < 0) {
 		GDKfree(uselist);
 		OPTremoveDep(dep, limit);
-		return 0;
+		throw(MAL,"optimizer.reorder", MAL_MALLOC_FAIL);
 	}
 	
 	pushInstruction(mb,old[0]);
 	old[0]=0;
-	for( i=1; i<limit; i++)
-		if ( getModuleId(old[i]) == datacyclotronRef && getFunctionId(old[i]) == bindRef){
-			pushInstruction(mb,old[i]);
-			old[i] = 0;
-		}
 
 	start=1;
 	for (i=1; i<limit; i++){
@@ -300,7 +298,7 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			continue;
 		if( p->token == ENDsymbol)
 			break;
-		if( hasSideEffects(p,FALSE) || isUnsafeFunction(p) || p->barrier ){
+		if( hasSideEffects(mb, p,FALSE) || isUnsafeFunction(p) || p->barrier ){
 			if (OPTbreadthfirst(cntxt, mb, i, i, old, dep, uselist) < 0)
 				break;
 			/* remove last instruction and keep for later */
@@ -316,8 +314,8 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			for(j=i-1; j>=start;j--) {
 #ifdef DEBUG_OPT_REORDER
 				if( old[j]){
-					mnstr_printf(cntxt->fdout,"leftover: %d",start+1);
-					printInstruction(cntxt->fdout,mb,0,old[j],LIST_MAL_DEBUG);
+					fprintf(stderr,"leftover: %d",start+1);
+					fprintInstruction(stderr,mb,0,old[j],LIST_MAL_DEBUG);
 				}
 #endif
 				if (OPTbreadthfirst(cntxt, mb, j, i, old, dep, uselist) < 0) {
@@ -348,8 +346,10 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
         chkDeclarations(cntxt->fdout, mb);
     }
     /* keep all actions taken as a post block comment */
-    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","reorder",1,GDKusec() - usec);
+	usec = GDKusec()- usec;
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","reorder",1,usec);
     newComment(mb,buf);
+	addtoMalBlkHistory(mb);
 
-	return 1;
+	return MAL_SUCCEED;
 }

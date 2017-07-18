@@ -64,7 +64,7 @@ typedef __int128_t hge;
 #if !defined(__GNUC__) || __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 5)
 /* This feature is available in gcc versions 2.5 and later.  */
 # ifndef __attribute__
-#  define __attribute__(Spec) /* empty */
+#  define __attribute__(Spec)	/* empty */
 # endif
 #else
 /* The __-protected variants of `format' and `printf' attributes are
@@ -103,6 +103,9 @@ stream_export int mnstr_init(void);
  * !0 on success
  */
 stream_export int mnstr_readBte(stream *s, signed char *val);
+stream_export int mnstr_readChr(stream *s, char *val);
+stream_export int mnstr_writeChr(stream *s, char val);
+
 stream_export int mnstr_writeBte(stream *s, signed char val);
 stream_export int mnstr_readSht(stream *s, short *val);
 stream_export int mnstr_writeSht(stream *s, short val);
@@ -110,6 +113,11 @@ stream_export int mnstr_readInt(stream *s, int *val);
 stream_export int mnstr_writeInt(stream *s, int val);
 stream_export int mnstr_readLng(stream *s, lng *val);
 stream_export int mnstr_writeLng(stream *s, lng val);
+
+
+stream_export int mnstr_writeFlt(stream *s, float val);
+stream_export int mnstr_writeDbl(stream *s, double val);
+
 #ifdef HAVE_HGE
 stream_export int mnstr_readHge(stream *s, hge *val);
 stream_export int mnstr_writeHge(stream *s, hge val);
@@ -117,6 +125,9 @@ stream_export int mnstr_writeHge(stream *s, hge val);
 
 stream_export int mnstr_readBteArray(stream *s, signed char *val, size_t cnt);
 stream_export int mnstr_writeBteArray(stream *s, const signed char *val, size_t cnt);
+stream_export int mnstr_writeStr(stream *s, const char *val);
+stream_export int mnstr_readStr(stream *s, char *val);
+
 stream_export int mnstr_readShtArray(stream *s, short *val, size_t cnt);
 stream_export int mnstr_writeShtArray(stream *s, const short *val, size_t cnt);
 stream_export int mnstr_readIntArray(stream *s, int *val, size_t cnt);
@@ -178,6 +189,7 @@ stream_export stream *file_rastream(FILE *fp, const char *name);
 stream_export stream *file_wastream(FILE *fp, const char *name);
 
 stream_export FILE *getFile(stream *s);
+stream_export int getFileNo(stream *s);	/* fileno(getFile(s)) */
 stream_export size_t getFileSize(stream *s);
 
 stream_export stream *iconv_rstream(stream *ss, const char *charset, const char *name);
@@ -221,6 +233,38 @@ stream_export buffer *mnstr_get_buffer(stream *s);
 stream_export stream *wbstream(stream *s, size_t buflen);
 stream_export stream *block_stream(stream *s);
 stream_export int isa_block_stream(stream *s);
+stream_export int isa_fixed_block_stream(stream *s);
+stream_export stream *bs_stream(stream *s);
+stream_export stream *bs_stealstream(stream *s);
+
+
+typedef enum {
+	PROTOCOL_AUTO = 0,
+	PROTOCOL_9 = 1,
+	PROTOCOL_10 = 2
+} protocol_version;
+
+typedef enum {
+	COMPRESSION_NONE = 0,
+	COMPRESSION_SNAPPY = 1,
+	COMPRESSION_LZ4 = 2,
+	COMPRESSION_AUTO = 255
+} compression_method;
+
+typedef enum {
+	COLUMN_COMPRESSION_NONE = 0,
+	COLUMN_COMPRESSION_AUTO = 255
+} column_compression;
+
+stream_export stream *block_stream2(stream *s, size_t bufsiz, compression_method comp, column_compression colcomp);
+stream_export void *bs2_stealbuf(stream *ss);
+stream_export int bs2_resizebuf(stream *ss, size_t bufsiz);
+stream_export void bs2_resetbuf(stream *ss);
+stream_export buffer bs2_buffer(stream *s);
+stream_export column_compression bs2_colcomp(stream *ss);
+stream_export void bs2_setpos(stream *ss, size_t pos);
+
+
 /* read block of data including the end of block marker */
 stream_export ssize_t mnstr_read_block(stream *s, void *buf, size_t elmsize, size_t cnt);
 
@@ -253,13 +297,13 @@ typedef enum mnstr_errors {
  * are invoked. */
 stream_export stream *callback_stream(
 	void *priv,
-	ssize_t (*read) (void *priv, void *buf, size_t elmsize, size_t cnt),
-	void (*close) (void *priv),
-	void (*destroy) (void *priv),
+	ssize_t (*read)(void *priv, void *buf, size_t elmsize, size_t cnt),
+	void (*close)(void *priv),
+	void (*destroy)(void *priv),
 	const char *name);
 
-stream_export stream* stream_blackhole_create(void);
+stream_export stream *stream_blackhole_create(void);
 
-stream_export stream* stream_fwf_create(stream *s, size_t num_fields, size_t *widths, char filler);
+stream_export stream *stream_fwf_create(stream *s, size_t num_fields, size_t *widths, char filler);
 
 #endif /*_STREAM_H_*/

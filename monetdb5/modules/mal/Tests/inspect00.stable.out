@@ -32,7 +32,7 @@ stack depth 2
 # view	stk	stk							  # name
 # void	int	str							  # type
 #--------------------------#
-[ 0@0,	0,	"    (h=nil:bat[:int],t=nil:bat[:str]) := mdb.getStackTrace(); at user.tst[3]"	]
+[ 0@0,	0,	"    (h=nil:bat[:int], t=nil:bat[:str]) := mdb.getStackTrace(); at user.tst[3]"	]
 [ 1@0,	  1,	  "    user.tst(); at user.main[2]"			  ]
 #-------------------------------------------------#
 # view	stk	stk				  # name
@@ -45,8 +45,8 @@ stack depth 2
 [ 4@0,	  "h",	  "<view_stk_trace>"		  ]
 [ 5@0,	  "t",	  "<view_stk_traceB>"		  ]
 [ 6@0,	"X_2",	"0@0"	]
-[ 7@0,	  "b0",	  "<view_stk_frame>"		  ]
-[ 8@0,	  "b1",	  "<view_stk_frameB>"		  ]
+[ 7@0,	"b0",	"nil"	]
+[ 8@0,	"b1",	"nil"	]
 [ 9@0,	"X_3",	"0"	]
 [ 10@0,	"X_4",	"0@0"	]
 [ 11@0,	  "c0",	  "nil"				  ]
@@ -64,7 +64,6 @@ stack depth 2
 [ 0@0,	  "tst",  "0@0"	  ]
 [ 1@0,	  "i",	  "nil"	  ]
 [ 2@0,	"X_0",	"0@0"	]
-[ 3@0,	"X_1",	"nil"	]
 
 # 09:13:25 >  
 # 09:13:25 >  Done.

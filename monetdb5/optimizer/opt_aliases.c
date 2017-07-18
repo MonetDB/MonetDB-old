@@ -11,14 +11,7 @@
 #include "opt_aliases.h"
 
 /* an alias is recognized by a simple assignment */
-int
-OPTisAlias(InstrPtr p){
-	if( p->token == ASSIGNsymbol &&
-		p->barrier == 0 && 
-		p->argc == 2)
-		return TRUE;
-	return FALSE;
-}
+#define OPTisAlias(X) (X->token == ASSIGNsymbol && X->barrier == 0 && X->argc == 2)
 
 void
 OPTaliasRemap(InstrPtr p, int *alias){
@@ -27,7 +20,7 @@ OPTaliasRemap(InstrPtr p, int *alias){
 		getArg(p,i) = alias[getArg(p,i)];
 }
 
-int
+str
 OPTaliasesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
 	int i,j,k=1, limit, actions=0;
@@ -39,7 +32,6 @@ OPTaliasesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	(void) cntxt;
 
 
-	setVariableScope(mb);
 	limit = mb->stop;
 	for (i = 1; i < limit; i++){
 		p= getInstrPtr(mb,i);
@@ -49,9 +41,9 @@ OPTaliasesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	}
 	if( i < limit){
 		alias= (int*) GDKzalloc(sizeof(int)* mb->vtop);
-		if (alias == NULL){
-			return 0;
-		}
+		if (alias == NULL)
+			throw(MAL,"optimizer.aliases",MAL_MALLOC_FAIL);
+		setVariableScope(mb);
 		for(j=1; j<mb->vtop; j++) alias[j]=j;
 	}
 	for (; i < limit; i++){
@@ -85,9 +77,13 @@ OPTaliasesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	//chkFlow(cntxt->fdout, mb);
 	//chkDeclarations(cntxt->fdout, mb);
 	//
-    /* keep all actions taken as a post block comment */
-    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","aliases",actions,GDKusec()-usec);
+    /* keep all actions taken as a post block comment
+	 * and update statics */
+	usec= GDKusec() - usec;
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","aliases",actions,usec);
     newComment(mb,buf);
+	if( actions >= 0)
+		addtoMalBlkHistory(mb);
 
-	return actions;
+	return MAL_SUCCEED;
 }

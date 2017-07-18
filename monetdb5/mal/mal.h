@@ -52,6 +52,7 @@ mal_export char 	monet_characteristics[PATHLENGTH];
 mal_export lng 		memorypool;      /* memory claimed by concurrent threads */
 mal_export int 		memoryclaims;    /* number of threads active with expensive operations */
 mal_export int		mal_trace;		/* enable profile events on console */
+mal_export str		mal_session_uuid;	/* unique marker for the session */
 #ifdef HAVE_HGE
 mal_export int have_hge;
 #endif
@@ -69,7 +70,7 @@ mal_export int have_hge;
 #define GRPtransactions (TMMASK | DELTAMASK | TEMMASK)
 #define GRPmodules (LOADMASK)
 #define GRPalgorithms (ALGOMASK | ESTIMASK)
-#define GRPperformance (JOINPROPMASK | DEADBEEFMASK)
+#define GRPperformance (DEADBEEFMASK)
 #define GRPoptimizers  (OPTMASK)
 #define GRPforcemito (FORCEMITOMASK)
 
@@ -79,11 +80,12 @@ mal_export MT_Lock  mal_profileLock ;
 mal_export MT_Lock  mal_copyLock ;
 mal_export MT_Lock  mal_delayLock ;
 mal_export MT_Lock  mal_beatLock ;
+mal_export MT_Lock  mal_oltpLock ;
 
 
 mal_export int mal_init(void);
 mal_export void mal_exit(void);
-mal_export void mserver_reset(void);
+mal_export void mserver_reset(int exit);
 
 /* This should be here, but cannot, as "Client" isn't known, yet ... |-(
  * For now, we move the prototype declaration to src/mal/mal_client.c,
@@ -144,14 +146,21 @@ typedef struct SYMDEF {
 typedef struct VARRECORD {
 	char id[IDLENGTH];			/* use the space for the full name */
 	malType type;				/* internal type signature */
-	int flags;					/* see below, reserve some space */
+    unsigned short constant:1,
+            typevar:1,
+            fixedtype:1,
+            udftype:1,
+            cleanup:1,
+            initialized:1,
+            used:1,
+            disabled:1;
+	short depth;				/* scope block depth, set to -1 if not used */
+	short worker;				/* thread id of last worker producing it */
 	ValRecord value;
 	int declared;				/* pc index when it was first assigned */
 	int updated;				/* pc index when it was first updated */
 	int eolife;					/* pc index when it should be garbage collected */
-	int depth;					/* scope block depth, set to -1 if not used */
-	int worker;					/* thread id of last worker producing it */
-	char stc[2* IDLENGTH];		/* rendering schema.table.column, with little more space */
+	int stc;				    /* pc index for rendering schema.table.column  */
 	BUN rowcnt;					/* estimated row count*/
 } *VarPtr, VarRecord;
 
@@ -174,12 +183,11 @@ typedef struct {
 	struct MALBLK *blk;			/* resolved MAL function address */
 	int mitosis;				/* old mtProp value */
 	/* inline statistics */
-	struct timeval clock;		/* when the last call was started */
+	lng clock;					/* when the last call was started */
 	lng ticks;					/* total micro seconds spent in last call */
 	int calls;					/* number of calls made to this instruction */
 	lng totticks;				/* total time spent on this instruction. */
-	lng rbytes;					/* accumulated number of bytes read, currently ignored */
-	lng wbytes;					/* accumulated number of bytes produced */
+	lng wbytes;					/* number of bytes produced in last instruction */
 	/* the core admin */
 	str modname;				/* module context, reference into namespace */
 	str fcnname;				/* function name, reference into namespace */
@@ -188,36 +196,35 @@ typedef struct {
 } *InstrPtr, InstrRecord;
 
 typedef struct MALBLK {
-	char binding[IDLENGTH];		/* related C-function */
-	str help;					/* supportive commentary */
-	oid tag;					/* unique block tag */
+	char binding[IDLENGTH];	/* related C-function */
+	str help;				/* supportive commentary */
+	oid tag;				/* unique block tag */
 	struct MALBLK *alternative;
-	int vtop;					/* next free slot */
-	int vsize;					/* size of variable arena */
-	int vid;	 				/* generate local variable counter */
-	VarRecord **var;			/* Variable table */
-	int stop;					/* next free slot */
-	int ssize;					/* byte size of arena */
+	int vtop;				/* next free slot */
+	int vsize;				/* size of variable arena */
+	int vid;	 			/* generate local variable counter */
+	VarRecord *var;			/* Variable table */
+	int stop;				/* next free slot */
+	int ssize;				/* byte size of arena */
 	InstrPtr *stmt;				/* Instruction location */
-	int ptop;					/* next free slot */
-	int psize;					/* byte size of arena */
-	int inlineProp;				/* inline property */
-	int unsafeProp;				/* unsafe property */
 
-	int errors;					/* left over errors */
-	int typefixed;				/* no undetermined instruction */
-	int flowfixed;				/* all flow instructions are fixed */
-	struct MALBLK *history;		/* of optimizer actions */
-	short keephistory;			/* do we need the history at all */
-	short dotfile;				/* send dot file to stethoscope? */
-	int maxarg;					/* keep track on the maximal arguments used */
-	ptr replica;				/* for the replicator tests */
-	sht trap;					/* call debugger when called */
-	lng starttime;				/* track when the query started, for resource management */
-	lng runtime;				/* average execution time of block in ticks */
-	int calls;					/* number of calls */
-	lng optimize;				/* total optimizer time */
-	int activeClients;			/* load during mitosis optimization */
+	unsigned int inlineProp:1,		/* inline property */
+		     unsafeProp:1,		/* unsafe property */
+		     sealedProp:1;		/* sealed property (opertions for sealed object should be on the full object once) */
+
+	int errors;				/* left over errors */
+	int typefixed;			/* no undetermined instruction */
+	int flowfixed;			/* all flow instructions are fixed */
+	struct MALBLK *history;	/* of optimizer actions */
+	short keephistory;		/* do we need the history at all */
+	int maxarg;				/* keep track on the maximal arguments used */
+	ptr replica;			/* for the replicator tests */
+	sht trap;				/* call debugger when called */
+	lng starttime;			/* track when the query started, for resource management */
+	lng runtime;			/* average execution time of block in ticks */
+	int calls;				/* number of calls */
+	lng optimize;			/* total optimizer time */
+	int activeClients;		/* load during mitosis optimization */
 } *MalBlkPtr, MalBlkRecord;
 
 #define STACKINCR   128
@@ -257,5 +264,10 @@ typedef struct MALSTK {
 	struct MALBLK *blk;	/* associated definition */
 	ValRecord stk[FLEXIBLE_ARRAY_MEMBER];
 } MalStack, *MalStkPtr;
+
+#define MAXOLTPLOCKS  1024
+typedef unsigned char OLTPlocks[MAXOLTPLOCKS];
+
+#define OLTPclear(X)  memset((char*)X, 0, sizeof(X))
 
 #endif /*  _MAL_H*/

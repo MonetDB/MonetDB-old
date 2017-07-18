@@ -61,13 +61,19 @@ mal_export str UUIDisaUUID(bit *retval, str *u);
 mal_export str UUIDequal(bit *retval, uuid **l, uuid **r);
 
 static uuid uuid_nil;			/* automatically initialized as zeros */
+static uuid *uuid_session;		/* automatically set during system restart */
 
 str
 UUIDprelude(void *ret)
 {
+	int len = 0;
+
 	(void) ret;
 	assert(UUID_SIZE == 16);
 	(void) malAtomSize(sizeof(uuid), sizeof(oid), "uuid");
+	UUIDgenerateUuid(&uuid_session);
+	UUIDtoString(&mal_session_uuid, &len, uuid_session);
+	//mnstr_printf(GDKerr,"Session uid:%s", uuid_session_name);
 	return MAL_SUCCEED;
 }
 
@@ -216,7 +222,7 @@ UUIDuuid2str(str *retval, uuid **u)
 	int l = 0;
 	*retval = NULL;
 	if (UUIDtoString(retval, &l, *u) == 0)
-		throw(MAL, "uuid.str", "Allocation failure");
+		throw(MAL, "uuid.str", MAL_MALLOC_FAIL);
 	return MAL_SUCCEED;
 }
 
@@ -254,10 +260,16 @@ UUIDnull(void)
 }
 
 uuid *
-UUIDread(uuid *u, stream *s, size_t cnt)
+UUIDread(uuid *U, stream *s, size_t cnt)
 {
-	if (mnstr_read(s, u, UUID_SIZE, cnt) < (ssize_t) cnt)
+	uuid *u = U;
+	if (u == NULL && (u = GDKmalloc(cnt * sizeof(uuid))) == NULL)
 		return NULL;
+	if (mnstr_read(s, u, UUID_SIZE, cnt) < (ssize_t) cnt) {
+		if (u != U)
+			GDKfree(u);
+		return NULL;
+	}
 	return u;
 }
 

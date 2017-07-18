@@ -79,7 +79,7 @@ static struct PIPELINES {
 	 "optimizer.projectionpath();"
 	 "optimizer.deadcode();"
 	 "optimizer.reorder();"
-	 "optimizer.reduce();"
+//	 "optimizer.reduce();" deprecated
 	 "optimizer.matpack();"
 	 "optimizer.dataflow();"
 	 "optimizer.querylog();"
@@ -87,7 +87,8 @@ static struct PIPELINES {
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
-	 "optimizer.jit();"
+//	 "optimizer.jit();" awaiting the new batcalc api
+//	 "optimizer.oltp();"awaiting the autocommit front-end changes
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /*
@@ -111,7 +112,7 @@ static struct PIPELINES {
 	 "optimizer.projectionpath();"
 	 "optimizer.deadcode();"
 	 "optimizer.reorder();"
-	 "optimizer.reduce();"
+//	 "optimizer.reduce();" deprecated
 	 "optimizer.matpack();"
 	 "optimizer.dataflow();"
 	 "optimizer.querylog();"
@@ -120,7 +121,8 @@ static struct PIPELINES {
 	 "optimizer.volcano();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
-	 "optimizer.jit();"
+//	 "optimizer.jit();" awaiting the new batcalc api
+//	 "optimizer.oltp();"awaiting the autocommit front-end changes
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The no_mitosis pipe line is (and should be kept!) identical to the
@@ -150,7 +152,7 @@ static struct PIPELINES {
 	 "optimizer.projectionpath();"
 	 "optimizer.reorder();"
 	 "optimizer.deadcode();"
-	 "optimizer.reduce();"
+//	 "optimizer.reduce();" deprecated
 	 "optimizer.matpack();"
 	 "optimizer.dataflow();"
 	 "optimizer.querylog();"
@@ -158,7 +160,8 @@ static struct PIPELINES {
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
-	 "optimizer.jit();"
+//	 "optimizer.jit();" awaiting the new batcalc api
+//	 "optimizer.oltp();"awaiting the autocommit front-end changes
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The sequential pipe line is (and should be kept!) identical to the
@@ -188,14 +191,15 @@ static struct PIPELINES {
 	 "optimizer.projectionpath();"
 	 "optimizer.reorder();"
 	 "optimizer.deadcode();"
-	 "optimizer.reduce();"
+//	 "optimizer.reduce();" deprecated
 	 "optimizer.matpack();"
 	 "optimizer.querylog();"
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
-	 "optimizer.jit();"
+//	 "optimizer.jit();" awaiting the new batcalc api
+//	 "optimizer.oltp();"awaiting the autocommit front-end changes
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* Experimental pipelines stressing various components under
@@ -312,28 +316,26 @@ getPipeCatalog(bat *nme, bat *def, bat *stat)
 	int i;
 
 	b = COLnew(0, TYPE_str, 20, TRANSIENT);
-	if (b == NULL)
-		throw(MAL, "optimizer.getpipeDefinition", MAL_MALLOC_FAIL);
-
 	bn = COLnew(0, TYPE_str, 20, TRANSIENT);
-	if (bn == NULL) {
-		BBPunfix(b->batCacheid);
-		throw(MAL, "optimizer.getpipeDefinition", MAL_MALLOC_FAIL);
-	}
-
 	bs = COLnew(0, TYPE_str, 20, TRANSIENT);
-	if (bs == NULL) {
-		BBPunfix(b->batCacheid);
-		BBPunfix(bn->batCacheid);
+	if (b == NULL || bn == NULL || bs == NULL) {
+		BBPreclaim(b);
+		BBPreclaim(bn);
+		BBPreclaim(bs);
 		throw(MAL, "optimizer.getpipeDefinition", MAL_MALLOC_FAIL);
 	}
 
 	for (i = 0; i < MAXOPTPIPES && pipes[i].name; i++) {
 		if (pipes[i].prerequisite && getAddress(GDKout, NULL, pipes[i].prerequisite, TRUE) == NULL)
 			continue;
-		BUNappend(b, pipes[i].name, FALSE);
-		BUNappend(bn, pipes[i].def, FALSE);
-		BUNappend(bs, pipes[i].status, FALSE);
+		if (BUNappend(b, pipes[i].name, FALSE) != GDK_SUCCEED ||
+			BUNappend(bn, pipes[i].def, FALSE) != GDK_SUCCEED ||
+			BUNappend(bs, pipes[i].status, FALSE) != GDK_SUCCEED) {
+			BBPreclaim(b);
+			BBPreclaim(bn);
+			BBPreclaim(bs);
+			throw(MAL, "optimizer.getpipeDefinition", MAL_MALLOC_FAIL);
+		}
 	}
 
 	BBPkeepref(*nme = b->batCacheid);
@@ -491,6 +493,9 @@ addOptimizerPipe(Client cntxt, MalBlkPtr mb, str name)
 	if (pipes[i].mb) {
 		for (j = 1; j < pipes[i].mb->stop - 1; j++) {
 			p = copyInstruction(pipes[i].mb->stmt[j]);
+			if (!p) { // oh malloc you cruel mistress
+				throw(MAL, "optimizer.addOptimizerPipe", "Out of memory");
+			}
 			for (k = 0; k < p->argc; k++)
 				getArg(p, k) = cloneVariable(mb, pipes[i].mb, getArg(p, k));
 			typeChecker(cntxt->fdout, cntxt->nspace, mb, p, FALSE);

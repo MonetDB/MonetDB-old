@@ -28,7 +28,7 @@ mythrow(enum malexception type, const char *fcn, const char *msg)
 		} else {
 			s = createException(type, fcn, "%s", errbuf);
 		}
-		*GDKerrbuf = 0;
+		GDKclrerr();
 		return s;
 	}
 	return createException(type, fcn, "%s", msg);
@@ -606,30 +606,6 @@ CMDvarDECRsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
-mal_export str CMDsetoid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-
-str
-CMDsetoid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	(void) cntxt;
-	(void) mb;
-
-	switch (getArgType(mb, pci, 1)) {
-	case TYPE_int:
-		OIDbase((oid) * getArgReference_int(stk, pci, 1));
-		break;
-	case TYPE_oid:
-		OIDbase(*getArgReference_oid(stk, pci, 1));
-		break;
-	case TYPE_lng:
-		OIDbase((oid) * getArgReference_lng(stk, pci, 1));
-		break;
-	default:
-		return mythrow(MAL, "calc.setoid", ILLEGAL_ARGUMENT);
-	}
-	return MAL_SUCCEED;
-}
-
 mal_export str CALCswitchbit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 
 str
@@ -657,6 +633,8 @@ CALCswitchbit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	if (ATOMextern(t1)) {
 		*(ptr **) retval = ATOMdup(t1, *(ptr**)p);
+		if (*(ptr **) retval == NULL)
+			throw(MAL, "ifthenelse", MAL_MALLOC_FAIL);
 	} else if (t1 == TYPE_void) {
 		memcpy(retval, p, sizeof(oid));
 	} else {

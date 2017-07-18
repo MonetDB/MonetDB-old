@@ -35,7 +35,7 @@ query_cleaned(const char *query)
 	int bs = 0;		/* seen a backslash in a quoted string */
 	int incomment1 = 0;	/* inside traditional C style comment */
 	int incomment2 = 0;	/* inside comment starting with --  */
-
+	// FIXME unchecked_malloc GDKmalloc can return NULL
 	r = GDKmalloc(strlen(query) + 1);
 
 	for (q = r; *query; query++) {
@@ -340,6 +340,8 @@ scanner_init_keywords(void)
 	keywords_insert("PROCEDURE", PROCEDURE);
 	keywords_insert("FUNCTION", FUNCTION);
 	keywords_insert("LOADER", sqlLOADER);
+	keywords_insert("REPLACE", REPLACE);
+
 	keywords_insert("FILTER", FILTER);
 	keywords_insert("AGGREGATE", AGGREGATE);
 	keywords_insert("RETURNS", RETURNS);

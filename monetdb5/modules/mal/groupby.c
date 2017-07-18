@@ -110,7 +110,7 @@ GROUPcollect( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 #ifdef _DEBUG_GROUPBY_
 	for(i=0; i<a->last; i++)
-		mnstr_printf(cntxt->fdout,"#group %d unique "BUNFMT "\n", i, a->unique[i]);
+		fprintf(stderr,"#group %d unique "BUNFMT "\n", i, a->unique[i]);
 #endif
 	return a;
 }
@@ -172,15 +172,15 @@ GROUPmulticolumngroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	aggr = GROUPcollect(cntxt, mb, stk, pci);
 	if( aggr == NULL)
-		throw(MAL,"group.subgroup",MAL_MALLOC_FAIL);
+		throw(MAL,"group.multicolumn",MAL_MALLOC_FAIL);
 	GROUPcollectSort(aggr, 0, aggr->last);
 
-	/* (grp,ext,hist) := group.subgroup(..) */
+	/* (grp,ext,hist) := group.group(..) */
 	/* use the old pattern to perform the incremental grouping */
 	*grp = 0;
 	*ext = 0;
 	*hist = 0;
-	msg = GRPsubgroup1(grp, ext, hist, &aggr->bid[0]);
+	msg = GRPgroup1(grp, ext, hist, &aggr->bid[0]);
 	i = 1;
 	if (msg == MAL_SUCCEED && aggr->last > 1)
 		do {
@@ -200,10 +200,10 @@ GROUPmulticolumngroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			*grp = 0;
 			*ext = 0;
 			*hist = 0;
-			msg = GRPsubgroup4(grp, ext, hist, &aggr->bid[i], &oldgrp, &oldext, &oldhist);
-			BBPdecref(oldgrp, TRUE);
-			BBPdecref(oldext, TRUE);
-			BBPdecref(oldhist, TRUE);
+			msg = GRPsubgroup5(grp, ext, hist, &aggr->bid[i], NULL, &oldgrp, &oldext, &oldhist);
+			BBPrelease(oldgrp);
+			BBPrelease(oldext);
+			BBPrelease(oldhist);
 		} while (msg == MAL_SUCCEED && ++i < aggr->last);
 	GROUPdelete(aggr);
 	return msg;

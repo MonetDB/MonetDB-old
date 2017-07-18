@@ -522,11 +522,16 @@ retryRead:
 					}
 				}
 				continue;
-			} else{
-				Module m;
+			} else {
+				Module* list;
+				int length;
+				int i;
 				mnstr_printf(out,"#%s ",cntxt->nspace->name);
-				for( m = getModuleChain(); m; m = m->next)
-					mnstr_printf(out,"%s ",m->name);
+				getModuleList(&list, &length);
+				for(i = 0; i < length; i++) {
+					mnstr_printf(out, "%s ", list[i]->name);	
+				}
+				freeModuleList(list);
 				mnstr_printf(out,"\n");
 			}
 		}
@@ -693,39 +698,6 @@ retryRead:
 					stk = stk->up;
 				mnstr_printf(out, "#%sgo down the stack\n", "#mdb ");
 				mb = stk->blk;
-				break;
-			}
-			if (strncmp(b, "dot", 3) == 0) {
-				/* produce the dot file for graphical display */
-				/* its argument is the optimizer level followed by filename*/
-				MalBlkPtr mdot;
-				char fname[2 * PATHLENGTH] = "";
-				char name[PATHLENGTH], *nme;
-
-				skipWord(cntxt, b);
-				nme = b;
-				skipNonBlanc(cntxt, b);
-				strncpy(name, nme, PATHLENGTH - 1);
-				if (b - nme < PATHLENGTH)
-					name[ b - nme] = 0;
-				mdot = mdbLocateMalBlk(cntxt, mb, name, out);
-				skipBlanc(cntxt, b);
-				if (mdot == NULL)
-					mdot = mb;
-				snprintf(name, PATHLENGTH, "/%s.%s.dot", getModuleId(getInstrPtr(mdot, 0)), getFunctionId(getInstrPtr(mdot, 0)));
-				/* optional file */
-				skipBlanc(cntxt, b);
-				if (*b == 0) {
-					snprintf(fname, sizeof(fname), "%s%s", monet_cwd, name);
-				} else if (*b != '/') {
-					snprintf(fname, sizeof(fname), "%s%s", monet_cwd, name);
-				} else if (b[strlen(b) - 1] == '/') {
-					snprintf(fname, sizeof(fname), "%s%s", b, name + 1);
-				} else
-					snprintf(fname, sizeof(fname), "%s", b);
-
-				showFlowGraph(mdot, 0, fname);
-				mnstr_printf(out, "#dot file '%s' created\n", fname);
 				break;
 			}
 			skipWord(cntxt, b);
@@ -913,8 +885,7 @@ partial:
 			continue;
 		}
 		case 'h':
-			if (strncmp("help", b, 2) == 0)
-				mdbHelp(out);
+			mdbHelp(out);
 			continue;
 		case 'o':
 		case 'O':   /* optimizer and scheduler steps */
@@ -1114,7 +1085,7 @@ mdbTrapClient(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	(void) cntxt;
 	(void) mb;
 	if (id < 0 || id >= MAL_MAXCLIENTS || mal_clients[id].mode == 0)
-		throw(INVCRED, "mdb.grab", INVCRED_WRONG_ID);
+		throw(INVCRED, "mdb.trap", INVCRED_WRONG_ID);
 	c = mal_clients + id;
 
 	c->itrace = 'S';
@@ -1257,7 +1228,7 @@ printStackElm(stream *f, MalBlkPtr mb, ValPtr v, int index, BUN cnt, BUN first)
 	if (strcmp(nmeOnStk, nme) && strncmp(nmeOnStk, "BAT", 3))
 		mnstr_printf(f, "!%s ", nmeOnStk);
 	mnstr_printf(f, " %s", (isVarConstant(mb, index) ? " constant" : ""));
-	/* mnstr_printf(f, " %s", (isVarUsed(mb,index) ? "": " not used" ));*/
+	mnstr_printf(f, " %s", (isVarUsed(mb,index) ? "": " not used" ));
 	mnstr_printf(f, " %s", (isVarTypedef(mb, index) ? " type variable" : ""));
 	GDKfree(nme);
 	mnstr_printf(f, "\n");

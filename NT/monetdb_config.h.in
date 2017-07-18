@@ -100,6 +100,11 @@
    MSVC and with C++ compilers. */
 #define FLEXIBLE_ARRAY_MEMBER
 
+#if !defined(_MSC_VER) || _MSC_VER >= 1800
+/* Define to 1 if you have the `cbrt' function. */
+#define HAVE_CBRT 1
+#endif
+
 /* If the console should be used */
 #define HAVE_CONSOLE 1
 
@@ -488,9 +493,6 @@
 /* Define to 1 if the system has the type `socklen_t'. */
 #define HAVE_SOCKLEN_T 1
 
-/* Define if you have the sphinxclient library */
-/* #undef HAVE_SPHINXCLIENT */
-
 /* Define if you have the SQLGetPrivateProfileString function */
 #define HAVE_SQLGETPRIVATEPROFILESTRING 1
 
@@ -765,23 +767,23 @@
 /* Name of package */
 #define PACKAGE "MonetDB"
 
+/* Define to the version of this package. */
+#define PACKAGE_VERSION "11.27.2"
+
 /* Define to the address where bug reports for this package should be sent. */
-#define PACKAGE_BUGREPORT "info@monetdb.org"
+#define PACKAGE_BUGREPORT "https://bugs.monetdb.org/"
 
 /* Define to the full name of this package. */
 #define PACKAGE_NAME "MonetDB"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "MonetDB 11.25.24"
+#define PACKAGE_STRING PACKAGE " " PACKAGE_VERSION
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "MonetDB"
 
-/* Define to the version of this package. */
-#define PACKAGE_VERSION "11.25.24"
-
 /* Define to the home page for this package. */
-#define PACKAGE_URL ""
+#define PACKAGE_URL "https://www.monetdb.org/"
 
 /* Path separator */
 #define PATH_SEP ';'
@@ -1025,6 +1027,9 @@ typedef unsigned __int64 uint64_t;
 #define true 1
 #define false 0
 #define __bool_true_false_are_defined 1
+
+/* normally defined in fcntl.h, but not on Windows */
+#define O_CLOEXEC 0
 
 
 #ifdef HAVE_LONG_LONG

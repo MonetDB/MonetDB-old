@@ -362,7 +362,7 @@ locate_file(const char *basename, const char *ext, bit recurse)
 			(void)closedir(rdir);
 		} else {
 			strcat(fullname + i + 1, ext);
-			if ((fd = open(fullname, O_RDONLY)) >= 0) {
+			if ((fd = open(fullname, O_RDONLY | O_CLOEXEC)) >= 0) {
 				char *tmp;
 				close(fd);
 				tmp = GDKrealloc(fullname, strlen(fullname) + 1);
@@ -417,4 +417,34 @@ MSP_locate_sqlscript(const char *filename, bit recurse)
 {
 	/* no directory semantics (yet) */
 	return locate_file(filename, SQL_EXT, recurse);
+}
+
+
+int
+malLibraryEnabled(str name) {
+	if (strcmp(name, "pyapi") == 0) {
+		char *val = GDKgetenv("embedded_py");
+		if (val && (strcasecmp(val, "2") == 0 || GDKgetenv_istrue("embedded_py") || GDKgetenv_istrue("embedded_py"))) {
+			return true;
+		}
+		return false;
+	} else if (strcmp(name, "pyapi3") == 0) {
+		char *val = GDKgetenv("embedded_py");
+		if (val && strcasecmp(val, "3") == 0) {
+			return true;
+		}
+		return false;
+	}
+	return true;
+}
+
+char*
+malLibraryHowToEnable(str name) {
+	if (strcmp(name, "pyapi") == 0) {
+		return "Embedded Python 2 has not been enabled. Start server with --set embedded_py=2";
+	}
+	if (strcmp(name, "pyapi3") == 0) {
+		return "Embedded Python 3 has not been enabled. Start server with --set embedded_py=3";
+	}
+	return "";
 }

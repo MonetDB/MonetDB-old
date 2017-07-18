@@ -228,8 +228,16 @@ rel_table_optname(mvc *sql, sql_rel *sq, symbol *optname)
 			}
 		}
 		if (!columnrefs && sq->exps) {
-			node *ne = sq->exps->h;
-
+			node *ne;
+			if (is_topn(sq->op)) {
+				// if the current node is a LIMIT statement
+				// we perform the alias on the underlying projection
+				assert(sq->l);
+				assert(is_project(((sql_rel*)sq->l)->op));
+				ne = ((sql_rel*)sq->l)->exps->h;
+			} else {
+				ne = sq->exps->h;
+			}
 			for (; ne; ne = ne->next) {
 				sql_exp *e = ne->data;
 
@@ -915,7 +923,7 @@ table_ref(mvc *sql, sql_rel *rel, symbol *tableref, int lateral)
 			}
 			return rel;
 		}
-		if ((isMergeTable(t) || isReplicaTable(t)) && list_empty(t->tables.set))
+		if ((isMergeTable(t) || isReplicaTable(t)) && list_empty(t->members.set))
 			return sql_error(sql, 02, "MERGE or REPLICA TABLE should have at least one table associated");
 
 		return rel_basetable(sql, t, tname);
@@ -1043,16 +1051,20 @@ rel_column_ref(mvc *sql, sql_rel **rel, symbol *column_r, int f)
 					*rel = rel_crossproduct(sql->sa, *rel, v, op_join);
 				else
 					*rel = v;
+				/*
 				exp = rel_bind_column(sql, *rel, cname, f);
+				if (!exp)
+				*/
+					exp = rel_bind_column2(sql, *rel, tname, cname, f);
 			}
 		}
 		if (!exp) {
 			if (rel && *rel && (*rel)->card == CARD_AGGR && f == sql_sel) {
 				sql_rel *gb = *rel;
 
-				while(gb->l && !is_groupby(gb->op))
+				while(gb->l && !is_groupby(gb->op) && is_project(gb->op))
 					gb = gb->l;
-				if (gb && gb->l && rel_bind_column2(sql, gb->l, tname, cname, f))
+				if (gb && is_groupby(gb->op) && gb->l && rel_bind_column2(sql, gb->l, tname, cname, f))
 					return sql_error(sql, 02, "SELECT: cannot use non GROUP BY column '%s.%s' in query results without an aggregate function", tname, cname);
 			}
 			return sql_error(sql, 02, "42S22!SELECT: no such column '%s.%s'", tname, cname);
@@ -2341,6 +2353,7 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 				rexps = rr->exps;
 				rr = rr->l;
 			}
+			rel = NULL;
 			sql->pushdown = pushdown;
 		} else {
 			lr = rel_logical_exp(sql, lr, lo, f);
@@ -2349,7 +2362,7 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 
 		if (!lr || !rr)
 			return NULL;
-		return rel_or(sql, lr, rr, exps, lexps, rexps);
+		return rel_or(sql, rel, lr, rr, exps, lexps, rexps);
 	}
 	case SQL_AND:
 	{
@@ -4333,10 +4346,14 @@ rel_value_exp2(mvc *sql, sql_rel **rel, symbol *se, int f, exp_kind ek, int *is_
 		return rel_column_ref(sql, rel, se, f );
 	case SQL_NAME:
 		return rel_var_ref(sql, se->data.sval, 1);
+	case SQL_WITH: 
 	case SQL_SELECT: {
 		sql_rel *r;
 
-		r = rel_subquery(sql, NULL, se, ek, APPLY_JOIN);
+		if (se->token == SQL_WITH)
+			r = rel_with_query(sql, se);
+		else
+			r = rel_subquery(sql, NULL, se, ek, APPLY_JOIN);
 		if (r) {
 			sql_exp *e;
 
@@ -4941,6 +4958,8 @@ rel_query(mvc *sql, sql_rel *rel, symbol *sq, int toplevel, exp_kind ek, int app
 					fnd = table_ref(sql, rel, n->data.sym, 0);
 				}
 				used = 1;
+				if (!fnd && lateral)
+					res = NULL;
 			}
 
 			if (!fnd)
@@ -5005,40 +5024,22 @@ rel_setquery_(mvc *sql, sql_rel *l, sql_rel *r, dlist *cols, int op )
 	sql_rel *rel;
 
 	if (!cols) {
-		list *ls, *rs, *nls, *nrs;
-		node *n, *m;
-		int changes = 0;
+		list *ls, *rs;
 
 		l = rel_unique_names(sql, l);
 		r = rel_unique_names(sql, r);
 		ls = rel_projections(sql, l, NULL, 0, 1);
 		rs = rel_projections(sql, r, NULL, 0, 1);
-		nls = new_exp_list(sql->sa);
-		nrs = new_exp_list(sql->sa);
-		for (n = ls->h, m = rs->h; n && m; n = n->next, m = m->next) {
-			sql_exp *le = n->data, *lb = le;
-			sql_exp *re = m->data, *rb = re;
-
-			if ((rel_convert_types(sql, &le, &re, 1, type_set) < 0))
-				return NULL;
-			if (le != lb || re != rb)
-				changes = 1;
-			append(nls, le);
-			append(nrs, re);
-		}
-		if (changes) {
-			l = rel_project(sql->sa, l, nls);
-			r = rel_project(sql->sa, r, nrs);
-			set_processed(l);
-			set_processed(r);
-		}
+		rel = rel_setop_check_types(sql, l, r, ls, rs, (operator_type)op);
+	} else {
+		rel = rel_setop(sql->sa, l, r, (operator_type)op);
 	}
-	rel = rel_setop(sql->sa, l, r, (operator_type)op);
-	rel->exps = rel_projections(sql, rel, NULL, 0, 1);
-	set_processed(rel);
+	if (rel) {
+		rel->exps = rel_projections(sql, rel, NULL, 0, 1);
+		set_processed(rel);
+	}
 	return rel;
 }
-
 
 static sql_rel *
 rel_setquery(mvc *sql, sql_rel *rel, symbol *q)

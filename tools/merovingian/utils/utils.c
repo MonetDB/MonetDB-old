@@ -148,6 +148,7 @@ defaultProperty(const char *property) {
 		strcmp(property, "mfunnel") == 0 ||
 		strcmp(property, "embedr") == 0 ||
 		strcmp(property, "embedpy") == 0 ||
+		strcmp(property, "embedpy3") == 0 ||
 		strcmp(property, "optpipe") == 0;
 }
 
@@ -453,7 +454,7 @@ generatePassphraseFile(const char *path)
 	/* delete such that we are sure we recreate the file with restricted
 	 * permissions */
 	unlink(path);
-	if ((fd = open(path, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR)) == -1) {
+	if ((fd = open(path, O_CREAT | O_WRONLY | O_CLOEXEC, S_IRUSR | S_IWUSR)) == -1) {
 		char err[512];
 		snprintf(err, sizeof(err), "unable to open '%s': %s",
 				path, strerror(errno));

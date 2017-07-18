@@ -64,7 +64,7 @@ runFactory(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr stk, InstrP
 	str msg;
 
 #ifdef DEBUG_MAL_FACTORY
-	mnstr_printf(cntxt->fdout, "#factoryMgr called\n");
+	fprintf(stderr, "#factoryMgr called\n");
 #endif
 	/* the lookup can be largely avoided by handing out the index
 	   upon factory definition. todo
@@ -121,7 +121,7 @@ runFactory(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr stk, InstrP
 		if (VALcopy(lhs, rhs) == NULL)
 			throw(MAL, "factory.call", MAL_MALLOC_FAIL);
 		if( lhs->vtype == TYPE_bat )
-			BBPincref(lhs->val.bval, TRUE);
+			BBPretain(lhs->val.bval);
 	}
 	if (mb->errors)
 		throw(MAL, "factory.call", PROGRAM_GENERAL);
@@ -205,7 +205,7 @@ callFactory(Client cntxt, MalBlkPtr mb, ValPtr argv[], char flag){
 		for (i = psig->retc; i < psig->argc; i++) {
 			lhs = &pl->stk->stk[psig->argv[i]];
 			if( lhs->vtype == TYPE_bat )
-				BBPdecref(lhs->val.bval, TRUE);
+				BBPrelease(lhs->val.bval);
 		}
 	}
 	/* copy the calling arguments onto the stack of the factory */
@@ -215,7 +215,7 @@ callFactory(Client cntxt, MalBlkPtr mb, ValPtr argv[], char flag){
 		if (VALcopy(lhs, argv[i]) == NULL)
 			throw(MAL, "factory.call", MAL_MALLOC_FAIL);
 		if( lhs->vtype == TYPE_bat )
-			BBPincref(lhs->val.bval, TRUE);
+			BBPretain(lhs->val.bval);
 	}
 	ret=  reenterMAL(cntxt, mb, pl->pc, -1, pl->stk);
 	/* garbage collect the string arguments, these positions
@@ -277,7 +277,7 @@ yieldResult(MalBlkPtr mb, InstrPtr p, int pc)
 				return(int) (pl-plants);
 			for (i = 0; i < p->retc; i++) {
 #ifdef DEBUG_MAL_FACTORY
-				printf("lhs %d rhs %d\n", getArg(pl->pci, i), getArg(p, i));
+				fprintf(stderr,"#lhs %d rhs %d\n", getArg(pl->pci, i), getArg(p, i));
 #endif
 				rhs = &pl->stk->stk[getArg(p, i)];
 				lhs = &pl->env->stk[getArg(pl->pci, i)];

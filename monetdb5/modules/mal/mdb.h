@@ -40,7 +40,6 @@ mal_export str MDBgetExceptionReason(str *ret, str *msg);
 mal_export str MDBgetExceptionContext(str *ret, str *msg);
 mal_export str MDBlist(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 mal_export str MDBlistMapi(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
-mal_export str MDBshowFlowGraph(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 mal_export str MDBlist3(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 mal_export str MDBlistDetail(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 mal_export str MDBlist3Detail(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
@@ -51,8 +50,6 @@ mal_export str MDBgetStackFrameN(Client cntxt, MalBlkPtr m, MalStkPtr s, InstrPt
 mal_export str MDBgetStackFrame(Client cntxt, MalBlkPtr m, MalStkPtr s, InstrPtr p);
 mal_export str MDBStkTrace(Client cntxt, MalBlkPtr m, MalStkPtr s, InstrPtr p);
 mal_export str MDBgetDefinition(Client cntxt, MalBlkPtr m, MalStkPtr stk, InstrPtr p);
-mal_export str MDBgrapTrappedProcess(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-mal_export str MDBtrapFunction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str MDBdump(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 mal_export str MDBdummy(int *ret);

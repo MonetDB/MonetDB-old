@@ -23,7 +23,7 @@ gdk_export int GDKgetenv_istrue(const char *name);
 
 gdk_export int GDKgetenv_int(const char *name, int def);
 
-gdk_export void GDKsetenv(str name, str value);
+gdk_export gdk_return GDKsetenv(const char *name, const char *value);
 
 /*
  * @+ Memory management
@@ -77,7 +77,7 @@ gdk_export void MT_init(void);	/*  init the package. */
 gdk_export int GDKinit(opt *set, int setlen);
 
 /* used for testing only */
-gdk_export void GDKsetmemorylimit(lng nbytes);
+gdk_export void GDKsetmallocsuccesscount(lng count);
 
 /*
  * Upon closing the session, all persistent BATs should be saved and
@@ -95,7 +95,7 @@ gdk_export int GDKexiting(void);
 
 gdk_export void GDKregister(MT_Id pid);
 gdk_export void GDKprepareExit(void);
-gdk_export void GDKreset(int status);
+gdk_export void GDKreset(int status, int exit);
 gdk_export const char *GDKversion(void);
 
 gdk_export gdk_return GDKextractParentAndLastDirFromPath(const char *path, char *last_dir_parent, char *last_dir);

@@ -295,10 +295,15 @@ typedef struct sql_arg {
 #define FUNC_LANG_MAL 1 /* create sql external mod.func */
 #define FUNC_LANG_SQL 2 /* create ... sql function/procedure */
 #define FUNC_LANG_R   3 /* create .. language R */
-#define FUNC_LANG_C   4
-#define FUNC_LANG_J   5
-#define FUNC_LANG_PY  6 /* create .. language Python */
+#define FUNC_LANG_C   4 /* create .. language C, Not used/implemented */
+#define FUNC_LANG_J   5 /* create .. language JavaScript, Not used/implemented */
+// this should probably be done in a better way
+#define FUNC_LANG_PY  6 /* create .. language PYTHON */
 #define FUNC_LANG_MAP_PY  7 /* create .. language PYTHON_MAP */
+#define FUNC_LANG_PY2  8 /* create .. language PYTHON2 */
+#define FUNC_LANG_MAP_PY2  9 /* create .. language PYTHON2_MAP */
+#define FUNC_LANG_PY3  10 /* create .. language PYTHON3 */
+#define FUNC_LANG_MAP_PY3  11 /* create .. language PYTHON3_MAP */
 
 #define LANG_EXT(l)  (l>FUNC_LANG_SQL)
 
@@ -484,6 +489,11 @@ typedef enum table_types {
 #define TABLE_READONLY	1
 #define TABLE_APPENDONLY	2
 
+typedef struct sql_part {
+	sql_base base;
+	struct sql_table *t; /* cached value */
+} sql_part;
+
 typedef struct sql_table {
 	sql_base base;
 	sht type;		/* table, view, etc */
@@ -499,7 +509,7 @@ typedef struct sql_table {
 	changeset idxs;
 	changeset keys;
 	changeset triggers;
-	changeset tables;
+	changeset members;
 	int drop_action;	/* only needed for alter drop table */
 
 	int cleared;		/* cleared in the current transaction */
@@ -520,6 +530,7 @@ typedef struct res_col {
 
 typedef struct res_table {
 	int id;
+	oid query_id;
 	int query_type;
 	int nr_cols;
 	int cur_col;

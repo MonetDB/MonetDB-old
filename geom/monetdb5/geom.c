@@ -12,6 +12,7 @@
  */
 
 #include "geom.h"
+#include "mal_exception.h"
 
 int TYPE_mbr;
 
@@ -1748,7 +1749,6 @@ dumpPointsPoint(BAT *idBAT, BAT *geomBAT, const GEOSGeometry *geosGeometry, unsi
 		throw(MAL, "geom.Dump", MAL_MALLOC_FAIL);
 
 	(*lvl)++;
-
 	newPath = GDKmalloc(pathLength + lvlDigitsNum + 1);
 	if (newPath == NULL) {
 		GDKfree(pointWKB);
@@ -1812,7 +1812,6 @@ dumpPointsPolygon(BAT *idBAT, BAT *geomBAT, const GEOSGeometry *geosGeometry, un
 		throw(MAL, "geom.DumpPoints", "GEOSGetExteriorRing failed");
 
 	(*lvl)++;
-
 	newPath = GDKmalloc(pathLength + lvlDigitsNum + extraLength + 1);
 	if (newPath == NULL)
 		throw(MAL, "geom.DumpPoints", MAL_MALLOC_FAIL);
@@ -2247,7 +2246,6 @@ wkbaFROMSTR_withSRID(char *fromStr, int *len, wkba **toArray, int srid)
 	//read the number of items from the beginning of the string
 	memcpy(&items, fromStr, sizeof(int));
 	skipBytes += sizeof(int);
-
 	*toArray = GDKmalloc(wkba_size(items));
 	if (*toArray == NULL)
 		return 0;
@@ -2755,8 +2753,7 @@ wkbMLineStringToPolygon(wkb **geomWKB, str *geomWKT, int *srid, int *flag)
 		//check of the created polygon is valid
 		if (GEOSisValid(finalGeometry) != 1) {
 			//suppress the GEOS message
-			if (GDKerrbuf)
-				GDKerrbuf[0] = '\0';
+			GDKclrerr();
 
 			GEOSGeom_destroy(finalGeometry);
 
@@ -2864,7 +2861,7 @@ wkbBasicInt(int *out, wkb *geom, int (*func) (const GEOSGeometry *), const char 
 		ret = createException(MAL, name, "%s", GDKerrbuf);
 
 		//clear the error buffer
-		GDKerrbuf[0] = '\0';
+		GDKclrerr();
 	}
 
 	return ret;
@@ -3939,8 +3936,8 @@ wkbIsValid(bit *out, wkb **geomWKB)
 {
 	str err = wkbBasicBoolean(out, geomWKB, GEOSisValid, "geom.IsValid");
 	/* GOESisValid may cause GDKerror to be called: ignore it */
-	if (err == MAL_SUCCEED && GDKerrbuf)
-		*GDKerrbuf = 0;
+	if (err == MAL_SUCCEED)
+		GDKclrerr();
 	return err;
 }
 
@@ -5023,8 +5020,7 @@ mbrFromString(mbr **w, str *src)
 
 	ex = createException(MAL, "mbr.FromString", "%s", errbuf);
 
-	if (GDKerrbuf)
-		GDKerrbuf[0] = '\0';
+	GDKclrerr();
 
 	return ex;
 }
@@ -5211,7 +5207,7 @@ wkbPUT(Heap *h, var_t *bun, wkb *val)
 	*bun = HEAP_malloc(h, wkb_size(val->len));
 	base = h->base;
 	if (*bun) {
-		memcpy(&base[*bun << GDK_VARSHIFT], (char *) val, wkb_size(val->len));
+		memcpy(&base[*bun], (char *) val, wkb_size(val->len));
 		h->dirty = 1;
 	}
 	return *bun;
@@ -5368,16 +5364,22 @@ mbrCOMP(mbr *l, mbr *r)
 
 /* read mbr from log */
 mbr *
-mbrREAD(mbr *a, stream *s, size_t cnt)
+mbrREAD(mbr *A, stream *s, size_t cnt)
 {
+	mbr *a = A;
 	mbr *c;
 	size_t i;
 	int v[4];
 	flt vals[4];
 
+	if (a == NULL && (a = GDKmalloc(cnt * sizeof(mbr))) == NULL)
+		return NULL;
 	for (i = 0, c = a; i < cnt; i++, c++) {
-		if (!mnstr_readIntArray(s, v, 4))
+		if (!mnstr_readIntArray(s, v, 4)) {
+			if (a != A)
+				GDKfree(a);
 			return NULL;
+		}
 		memcpy(vals, v, 4 * sizeof(int));
 		c->xmin = vals[0];
 		c->ymin = vals[1];
@@ -5620,7 +5622,7 @@ wkbaPUT(Heap *h, var_t *bun, wkba *val)
 	*bun = HEAP_malloc(h, wkba_size(val->itemsNum));
 	base = h->base;
 	if (*bun) {
-		memcpy(&base[*bun << GDK_VARSHIFT], (char *) val, wkba_size(val->itemsNum));
+		memcpy(&base[*bun], (char *) val, wkba_size(val->itemsNum));
 		h->dirty = 1;
 	}
 	return *bun;

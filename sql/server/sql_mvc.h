@@ -214,15 +214,13 @@ extern void mvc_drop_trigger(mvc *m, sql_schema *s, sql_trigger * tri);
 extern void mvc_create_dependency(mvc *m, int id, int depend_id, int depend_type);
 extern void mvc_create_dependencies(mvc *m, list *id_l, sqlid depend_id, int dep_type);
 extern int mvc_check_dependency(mvc * m, int id, int type, list *ignore_ids);
-extern int mvc_connect_catalog(mvc *m, const char *server, int port, const char *db, const char *db_alias, const char *user, const char *passwd, const char *lng);
-extern int mvc_disconnect_catalog(mvc *m, const char *db_alias);
-extern int mvc_disconnect_catalog_ALL(mvc *m);
 
 /* variable management */
 extern void stack_push_var(mvc *sql, const char *name, sql_subtype *type);
 extern void stack_push_rel_var(mvc *sql, const char *name, sql_rel *var, sql_subtype *type);
 extern void stack_push_table(mvc *sql, const char *name, sql_rel *var, sql_table *t);
 extern void stack_push_rel_view(mvc *sql, const char *name, sql_rel *view);
+extern void stack_update_rel_view(mvc *sql, const char *name, sql_rel *view);
 
 extern void stack_push_frame(mvc *sql, const char *name);
 extern void stack_pop_frame(mvc *sql);

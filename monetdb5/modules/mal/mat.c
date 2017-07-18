@@ -77,7 +77,11 @@ MATpackInternal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 				BAThseqbase(bn, b->hseqbase);
 				BATtseqbase(bn, b->tseqbase);
 			}
-			BATappend(bn,b,FALSE);
+			if (BATappend(bn, b, NULL, FALSE) != GDK_SUCCEED) {
+				BBPunfix(bn->batCacheid);
+				BBPunfix(b->batCacheid);
+				throw(MAL, "mat.pack", GDK_EXCEPTION);
+			}
 			BBPunfix(b->batCacheid);
 		}
 	}
@@ -106,7 +110,7 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	if ( getArgType(mb,p,2) == TYPE_int){
 		/* first step, estimate with some slack */
 		pieces = stk->stk[getArg(p,2)].val.ival;
-		bn = COLnew(b->hseqbase, b->ttype?b->ttype:TYPE_oid, (BUN)(1.2 * BATcount(b) * pieces), TRANSIENT);
+		bn = COLnew(b->hseqbase, ATOMtype(b->ttype), (BUN)(1.2 * BATcount(b) * pieces), TRANSIENT);
 		if (bn == NULL)
 			throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
 		/* allocate enough space for the vheap, but not for strings,
@@ -117,9 +121,13 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 				throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
 		}
 		BATtseqbase(bn, b->tseqbase);
-		BATappend(bn,b,FALSE);
+		if (BATappend(bn, b, NULL, FALSE) != GDK_SUCCEED) {
+			BBPunfix(bn->batCacheid);
+			BBPunfix(b->batCacheid);
+			throw(MAL, "mat.pack", GDK_EXCEPTION);
+		}
 		assert(!bn->tnil || !bn->tnonil);
-		bn->talign = (pieces-1); /* misuse talign field */
+		bn->S.unused = (pieces-1); /* misuse "unused" field */
 		BBPkeepref(*ret = bn->batCacheid);
 		BBPunfix(b->batCacheid);
 	} else {
@@ -130,10 +138,14 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 				BAThseqbase(b, bb->hseqbase);
 				BATtseqbase(b, bb->tseqbase);
 			}
-			BATappend(b,bb,FALSE);
+			if (BATappend(b, bb, NULL, FALSE) != GDK_SUCCEED) {
+				BBPunfix(bb->batCacheid);
+				BBPunfix(b->batCacheid);
+				throw(MAL, "mat.pack", GDK_EXCEPTION);
+			}
 		}
-		b->talign--;
-		if(b->talign == 0)
+		b->S.unused--;
+		if(b->S.unused == 0)
 			BATsetaccess(b, BAT_READ);
 		assert(!b->tnil || !b->tnonil);
 		BBPkeepref(*ret = b->batCacheid);
@@ -164,12 +176,17 @@ MATpackValues(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	if (ATOMextern(type)) {
 		for(i = first; i < p->argc; i++)
-			BUNappend(bn, stk->stk[getArg(p,i)].val.pval, TRUE);
+			if (BUNappend(bn, stk->stk[getArg(p,i)].val.pval, TRUE) != GDK_SUCCEED)
+				goto bailout;
 	} else {
 		for(i = first; i < p->argc; i++)
-			BUNappend(bn, getArgReference(stk, p, i), TRUE);
+			if (BUNappend(bn, getArgReference(stk, p, i), TRUE) != GDK_SUCCEED)
+				goto bailout;
 	}
 	ret= getArgReference_bat(stk,p,0);
 	BBPkeepref(*ret = bn->batCacheid);
 	return MAL_SUCCEED;
+  bailout:
+	BBPreclaim(bn);
+	throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
 }

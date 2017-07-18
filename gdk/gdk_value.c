@@ -142,8 +142,10 @@ VALcopy(ValPtr d, const ValRecord *s)
 {
 	if (!ATOMextern(s->vtype)) {
 		*d = *s;
-	} else if (s->val.pval == 0) {
+	} else if (s->val.pval == NULL) {
 		d->val.pval = ATOMnil(s->vtype);
+		if (d->val.pval == NULL)
+			return NULL;
 		d->vtype = s->vtype;
 	} else if (s->vtype == TYPE_str) {
 		d->vtype = TYPE_str;

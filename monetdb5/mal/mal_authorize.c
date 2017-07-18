@@ -39,9 +39,9 @@
 #endif
 #endif
 
-static str AUTHdecypherValue(str *ret, str *value);
-static str AUTHcypherValue(str *ret, str *value);
-static str AUTHverifyPassword(str *passwd);
+static str AUTHdecypherValue(str *ret, const char *value);
+static str AUTHcypherValue(str *ret, const char *value);
+static str AUTHverifyPassword(const char *passwd);
 
 static BAT *user = NULL;
 static BAT *pass = NULL;
@@ -74,7 +74,7 @@ AUTHfindUser(const char *username)
 			if (BUNfnd(duser, &pos) == BUN_NONE)
 				return p;
 		}
-	} 
+	}
 	return BUN_NONE;
 }
 
@@ -91,12 +91,13 @@ AUTHrequireAdmin(Client cntxt) {
 	id = cntxt->user;
 
 	if (id != 0) {
-		char u[BUFSIZ] = "";
-		str user = u;
+		str user = NULL;
 		str tmp;
 
-		rethrow("requireAdmin", tmp, AUTHresolveUser(&user, &id));
-		throw(INVCRED, "requireAdmin", INVCRED_ACCESS_DENIED " '%s'", user);
+		rethrow("requireAdmin", tmp, AUTHresolveUser(&user, id));
+		tmp = createException(INVCRED, "requireAdmin", INVCRED_ACCESS_DENIED " '%s'", user);
+		GDKfree(user);
+		return tmp;
 	}
 
 	return(MAL_SUCCEED);
@@ -108,20 +109,21 @@ AUTHrequireAdmin(Client cntxt) {
  * InvalidCredentialsException.
  */
 static str
-AUTHrequireAdminOrUser(Client cntxt, str *username) {
+AUTHrequireAdminOrUser(Client cntxt, const char *username) {
 	oid id = cntxt->user;
-	char u[BUFSIZ] = "";
-	str user = u;
+	str user = NULL;
 	str tmp = MAL_SUCCEED;
 
 	/* root?  then all is well */
 	if (id == 0)
 		return(MAL_SUCCEED);
 
-	rethrow("requireAdminOrUser", tmp, AUTHresolveUser(&user, &id));
-	if (username == NULL || *username == NULL || strcmp(*username, user) != 0) {
+	rethrow("requireAdminOrUser", tmp, AUTHresolveUser(&user, id));
+	if (username == NULL || strcmp(username, user) != 0) {
+		GDKfree(user);
 		throw(INVCRED, "requireAdminOrUser", INVCRED_ACCESS_DENIED " '%s'", user);
 	}
+	GDKfree(user);
 
 	return(MAL_SUCCEED);
 }
@@ -152,7 +154,7 @@ AUTHcommit(void)
  * after the GDK kernel has been initialized.
  */
 str
-AUTHinitTables(str *passwd) {
+AUTHinitTables(const char *passwd) {
 	bat bid;
 	int isNew = 1;
 	str msg = MAL_SUCCEED;
@@ -172,9 +174,11 @@ AUTHinitTables(str *passwd) {
 		if (user == NULL)
 			throw(MAL, "initTables.user", MAL_MALLOC_FAIL " user table");
 
-		BATkey(user, TRUE);
-		BBPrename(BBPcacheid(user), "M5system_auth_user");
-		BATmode(user, PERSISTENT);
+		if (BATkey(user, TRUE) != GDK_SUCCEED ||
+			BBPrename(BBPcacheid(user), "M5system_auth_user") != 0 ||
+			BATmode(user, PERSISTENT) != GDK_SUCCEED) {
+			throw(MAL, "initTables.user", GDK_EXCEPTION);
+		}
 	} else {
 		int dbg = GDKdebug;
 		/* don't check this bat since we'll fix it below */
@@ -192,8 +196,10 @@ AUTHinitTables(str *passwd) {
 		if (pass == NULL)
 			throw(MAL, "initTables.passwd", MAL_MALLOC_FAIL " password table");
 
-		BBPrename(BBPcacheid(pass), "M5system_auth_passwd_v2");
-		BATmode(pass, PERSISTENT);
+		if (BBPrename(BBPcacheid(pass), "M5system_auth_passwd_v2") != 0 ||
+			BATmode(pass, PERSISTENT) != GDK_SUCCEED) {
+			throw(MAL, "initTables.user", GDK_EXCEPTION);
+		}
 	} else {
 		int dbg = GDKdebug;
 		/* don't check this bat since we'll fix it below */
@@ -211,8 +217,10 @@ AUTHinitTables(str *passwd) {
 		if (duser == NULL)
 			throw(MAL, "initTables.duser", MAL_MALLOC_FAIL " deleted user table");
 
-		BBPrename(BBPcacheid(duser), "M5system_auth_deleted");
-		BATmode(duser, PERSISTENT);
+		if (BBPrename(BBPcacheid(duser), "M5system_auth_deleted") != 0 ||
+			BATmode(duser, PERSISTENT) != GDK_SUCCEED) {
+			throw(MAL, "initTables.user", GDK_EXCEPTION);
+		}
 		if (!isNew)
 			AUTHcommit();
 	} else {
@@ -224,15 +232,14 @@ AUTHinitTables(str *passwd) {
 	if (isNew == 1) {
 		/* insert the monetdb/monetdb administrator account on a
 		 * complete fresh and new auth tables system */
-		str user = "monetdb";
-		str pw = "monetdb";
+		char *pw;
 		oid uid;
 		Client c = &mal_clients[0];
 
-		if (passwd != NULL && *passwd != NULL)
-			pw = *passwd;
-		pw = mcrypt_BackendSum(pw, strlen(pw));
-		msg = AUTHaddUser(&uid, c, &user, &pw);
+		if (passwd == NULL)
+			passwd = "monetdb";	/* default password */
+		pw = mcrypt_BackendSum(passwd, strlen(passwd));
+		msg = AUTHaddUser(&uid, c, "monetdb", pw);
 		free(pw);
 		if (msg)
 			return msg;
@@ -252,10 +259,10 @@ str
 AUTHcheckCredentials(
 		oid *uid,
 		Client cntxt,
-		str *username,
-		str *passwd,
-		str *challenge,
-		str *algo)
+		const char *username,
+		const char *passwd,
+		const char *challenge,
+		const char *algo)
 {
 	str tmp;
 	str pwd = NULL;
@@ -267,21 +274,21 @@ AUTHcheckCredentials(
 	assert(user);
 	assert(pass);
 
-	if (*username == NULL || strNil(*username))
+	if (username == NULL || strNil(username))
 		throw(INVCRED, "checkCredentials", "invalid credentials for unknown user");
 
-	p = AUTHfindUser(*username);
+	p = AUTHfindUser(username);
 	if (p == BUN_NONE) {
 		/* DO NOT reveal that the user doesn't exist here! */
-		throw(INVCRED, "checkCredentials", INVCRED_INVALID_USER " '%s'", *username);
+		throw(INVCRED, "checkCredentials", INVCRED_INVALID_USER " '%s'", username);
 	}
 
 	/* a NULL password is impossible (since we should be dealing with
 	 * hashes here) so we can bail out immediately
 	 */
-	if (*passwd == NULL || strNil(*passwd)) {
+	if (passwd == NULL || strNil(passwd)) {
 		/* DO NOT reveal that the password is NULL here! */
-		throw(INVCRED, "checkCredentials", INVCRED_INVALID_USER " '%s'", *username);
+		throw(INVCRED, "checkCredentials", INVCRED_INVALID_USER " '%s'", username);
 	}
 
 	/* find the corresponding password to the user */
@@ -289,15 +296,15 @@ AUTHcheckCredentials(
 	tmp = (str)BUNtail(passi, p);
 	assert (tmp != NULL);
 	/* decypher the password (we lose the original tmp here) */
-	rethrow("checkCredentials", tmp, AUTHdecypherValue(&pwd, &tmp));
+	rethrow("checkCredentials", tmp, AUTHdecypherValue(&pwd, tmp));
 	/* generate the hash as the client should have done */
-	hash = mcrypt_hashPassword(*algo, pwd, *challenge);
+	hash = mcrypt_hashPassword(algo, pwd, challenge);
 	GDKfree(pwd);
 	/* and now we have it, compare it to what was given to us */
-	if (strcmp(*passwd, hash) != 0) {
+	if (strcmp(passwd, hash) != 0) {
 		/* of course we DO NOT print the password here */
 		free(hash);
-		throw(INVCRED, "checkCredentials", INVCRED_INVALID_USER " '%s'", *username);
+		throw(INVCRED, "checkCredentials", INVCRED_INVALID_USER " '%s'", username);
 	}
 	free(hash);
 
@@ -310,7 +317,7 @@ AUTHcheckCredentials(
  * return value of this function is the user id of the added user.
  */
 str
-AUTHaddUser(oid *uid, Client cntxt, str *username, str *passwd) 
+AUTHaddUser(oid *uid, Client cntxt, const char *username, const char *passwd)
 {
 	BUN p;
 	str tmp;
@@ -321,25 +328,28 @@ AUTHaddUser(oid *uid, Client cntxt, str *username, str *passwd)
 	assert(pass);
 
 	/* some pre-condition checks */
-	if (*username == NULL || strNil(*username))
+	if (username == NULL || strNil(username))
 		throw(ILLARG, "addUser", "username should not be nil");
-	if (*passwd == NULL || strNil(*passwd))
+	if (passwd == NULL || strNil(passwd))
 		throw(ILLARG, "addUser", "password should not be nil");
 	rethrow("addUser", tmp, AUTHverifyPassword(passwd));
 
 	/* ensure that the username is not already there */
-	p = AUTHfindUser(*username);
+	p = AUTHfindUser(username);
 	if (p != BUN_NONE)
-		throw(MAL, "addUser", "user '%s' already exists", *username);
+		throw(MAL, "addUser", "user '%s' already exists", username);
 
 	/* we assume the BATs are still aligned */
 	rethrow("addUser", tmp, AUTHcypherValue(&hash, passwd));
 	/* needs force, as SQL makes a view over user */
-	BUNappend(user, *username, TRUE);
-	BUNappend(pass, hash, TRUE);
+	if (BUNappend(user, username, TRUE) != GDK_SUCCEED ||
+		BUNappend(pass, hash, TRUE) != GDK_SUCCEED) {
+		GDKfree(hash);
+		throw(MAL, "addUser", MAL_MALLOC_FAIL);
+	}
 	GDKfree(hash);
 	/* retrieve the oid of the just inserted user */
-	p = AUTHfindUser(*username);
+	p = AUTHfindUser(username);
 
 	/* make the stuff persistent */
 	AUTHcommit();
@@ -352,7 +362,7 @@ AUTHaddUser(oid *uid, Client cntxt, str *username, str *passwd)
  * Removes the given user from the administration.
  */
 str
-AUTHremoveUser(Client cntxt, str *username) 
+AUTHremoveUser(Client cntxt, const char *username)
 {
 	BUN p;
 	oid id;
@@ -363,13 +373,13 @@ AUTHremoveUser(Client cntxt, str *username)
 	assert(pass);
 
 	/* pre-condition check */
-	if (*username == NULL || strNil(*username))
+	if (username == NULL || strNil(username))
 		throw(ILLARG, "removeUser", "username should not be nil");
 
 	/* ensure that the username exists */
-	p = AUTHfindUser(*username);
+	p = AUTHfindUser(username);
 	if (p == BUN_NONE)
-		throw(MAL, "removeUser", "no such user: '%s'", *username);
+		throw(MAL, "removeUser", "no such user: '%s'", username);
 	id = p;
 
 	/* find the name of the administrator and see if it equals username */
@@ -377,7 +387,8 @@ AUTHremoveUser(Client cntxt, str *username)
 		throw(MAL, "removeUser", "cannot remove yourself");
 
 	/* now, we got the oid, start removing the related tuples */
-	BUNappend(duser, &id, TRUE);
+	if (BUNappend(duser, &id, TRUE) != GDK_SUCCEED)
+		throw(MAL, "removeUser", MAL_MALLOC_FAIL);
 
 	/* make the stuff persistent */
 	AUTHcommit();
@@ -386,11 +397,11 @@ AUTHremoveUser(Client cntxt, str *username)
 
 /**
  * Changes the username of the user indicated by olduser into newuser.
- * If the username is already in use, an exception is thrown and nothing
+ * If the newuser is already in use, an exception is thrown and nothing
  * is modified.
  */
 str
-AUTHchangeUsername(Client cntxt, str *olduser, str *newuser)
+AUTHchangeUsername(Client cntxt, const char *olduser, const char *newuser)
 {
 	BUN p, q;
 	str tmp;
@@ -398,22 +409,23 @@ AUTHchangeUsername(Client cntxt, str *olduser, str *newuser)
 	rethrow("addUser", tmp, AUTHrequireAdminOrUser(cntxt, olduser));
 
 	/* precondition checks */
-	if (*olduser == NULL || strNil(*olduser))
+	if (olduser == NULL || strNil(olduser))
 		throw(ILLARG, "changeUsername", "old username should not be nil");
-	if (*newuser == NULL || strNil(*newuser))
+	if (newuser == NULL || strNil(newuser))
 		throw(ILLARG, "changeUsername", "new username should not be nil");
 
 	/* see if the olduser is valid */
-	p = AUTHfindUser(*olduser);
+	p = AUTHfindUser(olduser);
 	if (p == BUN_NONE)
-		throw(MAL, "changeUsername", "user '%s' does not exist", *olduser);
+		throw(MAL, "changeUsername", "user '%s' does not exist", olduser);
 	/* ... and if the newuser is not there yet */
-	q = AUTHfindUser(*newuser);
+	q = AUTHfindUser(newuser);
 	if (q != BUN_NONE)
-		throw(MAL, "changeUsername", "user '%s' already exists", *newuser);
+		throw(MAL, "changeUsername", "user '%s' already exists", newuser);
 
 	/* ok, just do it! (with force, because sql makes view over it) */
-	BUNinplace(user, p, *newuser, TRUE);
+	if (BUNinplace(user, p, newuser, TRUE) != GDK_SUCCEED)
+		throw(MAL, "changeUsername", GDK_EXCEPTION);
 	AUTHcommit();
 	return(MAL_SUCCEED);
 }
@@ -424,7 +436,7 @@ AUTHchangeUsername(Client cntxt, str *olduser, str *newuser)
  * set.
  */
 str
-AUTHchangePassword(Client cntxt, str *oldpass, str *passwd) 
+AUTHchangePassword(Client cntxt, const char *oldpass, const char *passwd)
 {
 	BUN p;
 	str tmp= NULL;
@@ -434,9 +446,9 @@ AUTHchangePassword(Client cntxt, str *oldpass, str *passwd)
 	str msg= MAL_SUCCEED;
 
 	/* precondition checks */
-	if (*oldpass == NULL || strNil(*oldpass))
+	if (oldpass == NULL || strNil(oldpass))
 		throw(ILLARG, "changePassword", "old password should not be nil");
-	if (*passwd == NULL || strNil(*passwd))
+	if (passwd == NULL || strNil(passwd))
 		throw(ILLARG, "changePassword", "password should not be nil");
 	rethrow("changePassword", tmp, AUTHverifyPassword(passwd));
 
@@ -448,10 +460,10 @@ AUTHchangePassword(Client cntxt, str *oldpass, str *passwd)
 	tmp = BUNtail(passi, p);
 	assert (tmp != NULL);
 	/* decypher the password */
-	msg = AUTHdecypherValue(&hash, &tmp);
+	msg = AUTHdecypherValue(&hash, tmp);
 	if (msg)
 		return msg;
-	if (strcmp(hash, *oldpass) != 0){
+	if (strcmp(hash, oldpass) != 0){
 		GDKfree(hash);
 		throw(INVCRED, "changePassword", "Access denied");
 	}
@@ -464,7 +476,10 @@ AUTHchangePassword(Client cntxt, str *oldpass, str *passwd)
 
 	/* ok, just overwrite the password field for this user */
 	assert(id == p);
-	BUNinplace(pass, p, hash, TRUE);
+	if (BUNinplace(pass, p, hash, TRUE) != GDK_SUCCEED) {
+		GDKfree(hash);
+		throw(INVCRED, "changePassword", GDK_EXCEPTION);
+	}
 	GDKfree(hash);
 	AUTHcommit();
 	return(MAL_SUCCEED);
@@ -477,7 +492,7 @@ AUTHchangePassword(Client cntxt, str *oldpass, str *passwd)
  * cannot use this function for obvious reasons.
  */
 str
-AUTHsetPassword(Client cntxt, str *username, str *passwd) 
+AUTHsetPassword(Client cntxt, const char *username, const char *passwd)
 {
 	BUN p;
 	str tmp;
@@ -488,9 +503,9 @@ AUTHsetPassword(Client cntxt, str *username, str *passwd)
 	rethrow("setPassword", tmp, AUTHrequireAdmin(cntxt));
 
 	/* precondition checks */
-	if (*username == NULL || strNil(*username))
+	if (username == NULL || strNil(username))
 		throw(ILLARG, "setPassword", "username should not be nil");
-	if (*passwd == NULL || strNil(*passwd))
+	if (passwd == NULL || strNil(passwd))
 		throw(ILLARG, "setPassword", "password should not be nil");
 	rethrow("setPassword", tmp, AUTHverifyPassword(passwd));
 
@@ -501,13 +516,13 @@ AUTHsetPassword(Client cntxt, str *username, str *passwd)
 	useri = bat_iterator(user);
 	tmp = BUNtail(useri, p);
 	assert (tmp != NULL);
-	if (strcmp(tmp, *username) == 0)
+	if (strcmp(tmp, username) == 0)
 		throw(INVCRED, "setPassword", "The administrator cannot set its own password, use changePassword instead");
 
 	/* see if the user is valid */
-	p = AUTHfindUser(*username);
+	p = AUTHfindUser(username);
 	if (p == BUN_NONE)
-		throw(MAL, "setPassword", "no such user '%s'", *username);
+		throw(MAL, "setPassword", "no such user '%s'", username);
 	id = p;
 
 	/* cypher the password */
@@ -515,7 +530,10 @@ AUTHsetPassword(Client cntxt, str *username, str *passwd)
 	/* ok, just overwrite the password field for this user */
 	assert (p != BUN_NONE);
 	assert(id == p);
-	BUNinplace(pass, p, hash, TRUE);
+	if (BUNinplace(pass, p, hash, TRUE) != GDK_SUCCEED) {
+		GDKfree(hash);
+		throw(MAL, "setPassword", GDK_EXCEPTION);
+	}
 	GDKfree(hash);
 	AUTHcommit();
 	return(MAL_SUCCEED);
@@ -529,22 +547,18 @@ AUTHsetPassword(Client cntxt, str *username, str *passwd)
  * allocated buffer, it is supposed to be of size BUFSIZ.
  */
 str
-AUTHresolveUser(str *username, oid *uid)
+AUTHresolveUser(str *username, oid uid)
 {
 	BUN p;
 	BATiter useri;
 
-	if (uid == NULL || *uid == oid_nil || (p = (BUN) *uid) >= BATcount(user))
+	if (uid == oid_nil || (p = (BUN) uid) >= BATcount(user))
 		throw(ILLARG, "resolveUser", "userid should not be nil");
 
-	assert (username != NULL);
+	assert(username != NULL);
 	useri = bat_iterator(user);
-	if (*username == NULL) {
-		if ((*username = GDKstrdup((str)(BUNtail(useri, p)))) == NULL)
-			throw(MAL, "resolveUser", MAL_MALLOC_FAIL);
-	} else {
-		snprintf(*username, BUFSIZ, "%s", (str)(BUNtail(useri, p)));
-	}
+	if ((*username = GDKstrdup((str)(BUNtail(useri, p)))) == NULL)
+		throw(MAL, "resolveUser", MAL_MALLOC_FAIL);
 	return(MAL_SUCCEED);
 }
 
@@ -552,7 +566,7 @@ AUTHresolveUser(str *username, oid *uid)
  * Returns the username of the given client.
  */
 str
-AUTHgetUsername(str *username, Client cntxt) 
+AUTHgetUsername(str *username, Client cntxt)
 {
 	BUN p;
 	BATiter useri;
@@ -610,7 +624,7 @@ AUTHgetUsers(BAT **ret1, BAT **ret2, Client cntxt)
  * username.  Throws an exception if called by a non-superuser.
  */
 str
-AUTHgetPasswordHash(str *ret, Client cntxt, str *username) 
+AUTHgetPasswordHash(str *ret, Client cntxt, const char *username)
 {
 	BUN p;
 	BATiter i;
@@ -619,19 +633,19 @@ AUTHgetPasswordHash(str *ret, Client cntxt, str *username)
 
 	rethrow("getPasswordHash", tmp, AUTHrequireAdmin(cntxt));
 
-	if (*username == NULL || strNil(*username))
+	if (username == NULL || strNil(username))
 		throw(ILLARG, "getPasswordHash", "username should not be nil");
 
-	p = AUTHfindUser(*username);
+	p = AUTHfindUser(username);
 	if (p == BUN_NONE)
-		throw(MAL, "getPasswordHash", "user '%s' does not exist", *username);
+		throw(MAL, "getPasswordHash", "user '%s' does not exist", username);
 	i = bat_iterator(user);
 	assert(p != BUN_NONE);
 	i = bat_iterator(pass);
 	tmp = BUNtail(i, p);
 	assert (tmp != NULL);
 	/* decypher the password */
-	rethrow("changePassword", tmp, AUTHdecypherValue(&passwd, &tmp));
+	rethrow("changePassword", tmp, AUTHdecypherValue(&passwd, tmp));
 
 	*ret = passwd;
 	return(NULL);
@@ -649,9 +663,9 @@ AUTHgetPasswordHash(str *ret, Client cntxt, str *username)
  * value.
  */
 str
-AUTHunlockVault(str *password) 
+AUTHunlockVault(const char *password)
 {
-	if (password == NULL || strNil(*password))
+	if (password == NULL || strNil(password))
 		throw(ILLARG, "unlockVault", "password should not be nil");
 
 	/* even though I think this function should be called only once, it
@@ -660,7 +674,7 @@ AUTHunlockVault(str *password)
 	if (vaultKey != NULL)
 		GDKfree(vaultKey);
 
-	if ((vaultKey = GDKstrdup(*password)) == NULL)
+	if ((vaultKey = GDKstrdup(password)) == NULL)
 		throw(MAL, "unlockVault", MAL_MALLOC_FAIL " vault key");
 	return(MAL_SUCCEED);
 }
@@ -673,7 +687,7 @@ AUTHunlockVault(str *password)
  * by the caller.
  */
 static str
-AUTHdecypherValue(str *ret, str *value) 
+AUTHdecypherValue(str *ret, const char *value)
 {
 	/* Cyphering and decyphering can be done using many algorithms.
 	 * Future requirements might want a stronger cypher than the XOR
@@ -687,7 +701,7 @@ AUTHdecypherValue(str *ret, str *value)
 
 	/* this is the XOR decypher implementation */
 	str r, w;
-	str s = *value;
+	const char *s = value;
 	char t = '\0';
 	int escaped = 0;
 	/* we default to some garbage key, just to make password unreadable
@@ -696,7 +710,7 @@ AUTHdecypherValue(str *ret, str *value)
 
 	if (vaultKey == NULL)
 		throw(MAL, "decypherValue", "The vault is still locked!");
-	w = r = GDKmalloc(sizeof(char) * (strlen(*value) + 1));
+	w = r = GDKmalloc(sizeof(char) * (strlen(value) + 1));
 	if( r == NULL)
 		throw(MAL, "decypherValue", MAL_MALLOC_FAIL);
 
@@ -727,18 +741,18 @@ AUTHdecypherValue(str *ret, str *value)
  * The ret string is GDKmalloced, and should be GDKfreed by the caller.
  */
 static str
-AUTHcypherValue(str *ret, str *value) 
+AUTHcypherValue(str *ret, const char *value)
 {
 	/* this is the XOR cypher implementation */
 	str r, w;
-	str s = *value;
+	const char *s = value;
 	/* we default to some garbage key, just to make password unreadable
 	 * (a space would only uppercase the password) */
 	int keylen = 0;
 
 	if (vaultKey == NULL)
 		throw(MAL, "cypherValue", "The vault is still locked!");
-	w = r = GDKmalloc(sizeof(char) * (strlen(*value) * 2 + 1));
+	w = r = GDKmalloc(sizeof(char) * (strlen(value) * 2 + 1));
 	if( r == NULL)
 		throw(MAL, "cypherValue", MAL_MALLOC_FAIL);
 
@@ -747,7 +761,7 @@ AUTHcypherValue(str *ret, str *value)
 	/* XOR all characters.  If we encounter a 'zero' char after the XOR
 	 * operation, escape it with an 'one' char. */
 	for (; *s != '\0'; s++) {
-		*w = *s ^ vaultKey[(s - *value) % keylen];
+		*w = *s ^ vaultKey[(s - value) % keylen];
 		if (*w == '\0') {
 			*w++ = '\1';
 			*w = '\1';
@@ -771,10 +785,10 @@ AUTHcypherValue(str *ret, str *value)
 #define concat(x,y)	x##y
 #define digestlength(h)	concat(h, _DIGEST_LENGTH)
 static str
-AUTHverifyPassword(str *passwd) 
+AUTHverifyPassword(const char *passwd)
 {
 #if !defined(HAVE_EMBEDDED) && (defined(HAVE_OPENSSL) || defined(HAVE_COMMONCRYPTO))
-	char *p = *passwd;
+	const char *p = passwd;
 	size_t len = strlen(p);
 
 	if (len != digestlength(MONETDB5_PASSWDHASH_TOKEN) * 2) {

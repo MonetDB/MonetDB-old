@@ -492,8 +492,14 @@ LSSTxmatch_intern(bat *lres, bat *rres, bat *lid, bat *rid, int *delta)
 					rhtm = *r >> shift;
 					if (lhtm == rhtm){
 						/* match */
-						BUNappend(xl, &lo, FALSE);
-						BUNappend(xr, &ro, FALSE);
+						if (BUNappend(xl, &lo, FALSE) != GDK_SUCCEED ||
+						    BUNappend(xr, &ro, FALSE) != GDK_SUCCEED) {
+							BBPunfix(*lid);
+							BBPunfix(*rid);
+							BBPunfix(xl->batCacheid);
+							BBPunfix(xr->batCacheid);
+							throw(MAL, "algebra.xmatch", MAL_MALLOC_FAIL);
+						}
 					} else if (lhtm < rhtm) {
 						lhtm = lhtm << shift;
 						while (*l < lhtm && l < lend) {
@@ -521,7 +527,7 @@ LSSTxmatch_intern(bat *lres, bat *rres, bat *lid, bat *rid, int *delta)
 }
 
 str
-LSSTxmatchsubjoin(bat *lres, bat *rres, bat *lid, bat *rid, int *delta, bat *sl, bat *sr, bit *nil_matches, lng *estimate)
+LSSTxmatchjoin(bat *lres, bat *rres, bat *lid, bat *rid, int *delta, bat *sl, bat *sr, bit *nil_matches, lng *estimate)
 {
 	(void)sl;
 	(void)sr;
@@ -544,7 +550,7 @@ LSSTxmatch(bit *res, lng *l, lng *r, int *delta)
 }
 
 str
-LSSTxmatchsubselect(bat *res, bat *bid, bat *sid, lng *r, int *delta, bit *anti)
+LSSTxmatchselect(bat *res, bat *bid, bat *sid, lng *r, int *delta, bit *anti)
 {
 	int shift;
 	BAT *b, *s = NULL, *bn;
@@ -589,9 +595,15 @@ LSSTxmatchsubselect(bat *res, bat *bid, bat *sid, lng *r, int *delta, bit *anti)
 			if (o >= b->hseqbase + BATcount(b))
 				break;
 			lhtm = l[o - b->hseqbase];
-			if (lhtm != lng_nil)
-				if (((lhtm >> shift) == rhtm) != *anti)
-					BUNappend(bn, &o, FALSE);
+			if (lhtm != lng_nil &&
+			    ((lhtm >> shift) == rhtm) != *anti &&
+			    BUNappend(bn, &o, FALSE) != GDK_SUCCEED) {
+				BBPunfix(b->batCacheid);
+				if (s)
+					BBPunfix(s->batCacheid);
+				BBPunfix(bn->batCacheid);
+				throw(MAL, "algebra.xmatch", MAL_MALLOC_FAIL);
+			}
 		}
 	} else {
 		oid o = b->hseqbase;
@@ -605,9 +617,15 @@ LSSTxmatchsubselect(bat *res, bat *bid, bat *sid, lng *r, int *delta, bit *anti)
 		}
 		while (o < e) {
 			lhtm = l[o - b->hseqbase];
-			if (lhtm != lng_nil)
-				if (((lhtm >> shift) == rhtm) != *anti)
-					BUNappend(bn, &o, FALSE);
+			if (lhtm != lng_nil &&
+			    ((lhtm >> shift) == rhtm) != *anti &&
+			    BUNappend(bn, &o, FALSE) != GDK_SUCCEED) {
+				BBPunfix(b->batCacheid);
+				if (s)
+					BBPunfix(s->batCacheid);
+				BBPunfix(bn->batCacheid);
+				throw(MAL, "algebra.xmatch", MAL_MALLOC_FAIL);
+			}
 			o++;
 		}
 	}

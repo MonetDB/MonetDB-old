@@ -492,8 +492,16 @@ insert_into(mvc *sql, dlist *qname, dlist *columns, symbol *val_or_q)
 						sql_column *c = m->data;
 						sql_rel *r = NULL;
 						sql_exp *ins = insert_value(sql, c, &r, n->data.sym);
-						if (!ins || r)
+						if (!ins) 
 							return NULL;
+						if (r && inner)
+							inner = rel_crossproduct(sql->sa, inner, r, op_join);
+						else if (r) 
+							inner = r;
+						if (inner && !ins->name) {
+							exp_label(sql->sa, ins, ++sql->label);
+							ins = exp_column(sql->sa, exp_relname(ins), exp_name(ins), exp_subtype(ins), ins->card, has_nil(ins), is_intern(ins));
+						}
 						list_append(vals_list, ins);
 					}
 				} else {
@@ -505,7 +513,7 @@ insert_into(mvc *sql, dlist *qname, dlist *columns, symbol *val_or_q)
 						if (!ins)
 							return NULL;
 						if (r && inner)
-							inner = rel_crossproduct(sql->sa, inner,r, op_join);
+							inner = rel_crossproduct(sql->sa, inner, r, op_join);
 						else if (r) 
 							inner = r;
 						if (!ins->name)
@@ -1172,7 +1180,7 @@ rel_import(mvc *sql, sql_table *t, char *tsep, char *rsep, char *ssep, char *ns,
 	sql_subtype tpe;
 	sql_exp *import;
 	sql_schema *sys = mvc_bind_schema(sql, "sys");
-	sql_subfunc *f = sql_find_func(sql->sa, sys, "copyfrom", 10, F_UNION, NULL);
+	sql_subfunc *f = sql_find_func(sql->sa, sys, "copyfrom", 11, F_UNION, NULL);
 	char *fwf_string = NULL;
 	
 	if (!f) /* we do expect copyfrom to be there */
@@ -1641,7 +1649,7 @@ rel_parse_val(mvc *m, char *query, char emode)
 
 	m->caching = 0;
 	m->emode = emode;
-
+	// FIXME unchecked_malloc GDKmalloc can return NULL
 	b = (buffer*)GDKmalloc(sizeof(buffer));
 	n = GDKmalloc(len + 1 + 1);
 	strncpy(n, query, len);

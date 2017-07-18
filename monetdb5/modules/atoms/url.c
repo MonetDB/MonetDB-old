@@ -341,7 +341,7 @@ URLgetAnchor(str *retval, url *val)
 	else
 		s = str_nil;
 	if ((*retval = GDKstrdup(s)) == NULL)
-		throw(MAL, "url.getAnchor", "Allocation failed");
+		throw(MAL, "url.getAnchor", MAL_MALLOC_FAIL);
 	return MAL_SUCCEED;
 }
 

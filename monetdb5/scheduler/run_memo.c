@@ -176,7 +176,7 @@ RUNchoice(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		}
 	}
 #ifdef DEBUG_RUN_MEMORUN
-	mnstr_printf(cntxt->fdout, "#function target %s cost %d\n", getVarName(mb, target), mincost);
+	fprintf(stderr, "#function target %s cost %d\n", getVarName(mb, target), mincost);
 #else
 	(void) cntxt;
 #endif
@@ -189,9 +189,9 @@ RUNchoice(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	propagateNonTarget(mb, pc + 1);
 #ifdef DEBUG_RUN_MEMORUN
-	mnstr_printf(cntxt->fdout, "#cost choice selected %s %d\n",
+	fprintf(stderr, "#cost choice selected %s %d\n",
 			getVarName(mb, target), mincost);
-	printFunction(cntxt->fdout, mb, 1);
+	fprintFunction(stderr, mb, 1);
 #endif
 	return MAL_SUCCEED;
 }
@@ -215,7 +215,7 @@ RUNpickResult(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			else if (VALcopy(lhs, rhs) == NULL)
 				throw(MAL, "scheduler.pick", MAL_MALLOC_FAIL);
 			if (lhs->vtype == TYPE_bat)
-				BBPincref(lhs->val.bval, TRUE);
+				BBPretain(lhs->val.bval);
 			return MAL_SUCCEED;
 		}
 

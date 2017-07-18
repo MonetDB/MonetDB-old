@@ -128,11 +128,11 @@ no_updates(InstrPtr *old, int *vars, int oldv, int newv)
 	return 1;
 }
 
-int
+str
 OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int i, j, limit, slimit, actions=0, *vars, *slices = NULL, push_down_delta = 0, nr_topn = 0, nr_likes = 0;
-	char *rslices = NULL;
+	int i, j, limit, slimit, actions=0, *vars, *nvars = NULL, *slices = NULL, push_down_delta = 0, nr_topn = 0, nr_likes = 0;
+	char *rslices = NULL, *oclean = NULL;
 	InstrPtr p, *old;
 	subselect_t subselects;
 	char buf[256];
@@ -140,16 +140,16 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 
 	memset(&subselects, 0, sizeof(subselects));
 	if( mb->errors) 
-		return 0;
+		return MAL_SUCCEED;
 
 #ifdef DEBUG_OPT_PUSHSELECT
-		mnstr_printf(cntxt->fdout,"#Push select optimizer started\n");
+		fprintf(stderr,"#Push select optimizer started\n");
 #endif
 	(void) stk;
 	(void) pci;
 	vars= (int*) GDKzalloc(sizeof(int)* mb->vtop);
 	if( vars == NULL)
-		return 0;
+		throw(MAL,"optimizer.pushselect", MAL_MALLOC_FAIL);
 
 	limit = mb->stop;
 	slimit= mb->ssize;
@@ -166,10 +166,10 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		}
 
 		if (getModuleId(p) == algebraRef && 
-			(getFunctionId(p) == subinterRef || 
-			 getFunctionId(p) == subdiffRef)) {
+			(getFunctionId(p) == intersectRef || 
+			 getFunctionId(p) == differenceRef)) {
 			GDKfree(vars);
-			return 0;
+			goto wrapup;
 		}
 
 		if (isSlice(p))
@@ -201,7 +201,7 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 			}
 		}
 		lastbat = lastbat_arg(mb, p);
-		if (isSubSelect(p) && p->retc == 1 &&
+		if (isSelect(p) && p->retc == 1 &&
 		   /* no cand list */ getArgType(mb, p, lastbat) != newBatType(TYPE_oid)) {
 			int i1 = getArg(p, 1), tid = 0;
 			InstrPtr q = old[vars[i1]];
@@ -233,7 +233,7 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 			}
 			if (tid && subselect_add(&subselects, tid, getArg(p, 0)) < 0) {
 				GDKfree(vars);
-				return 0;
+				goto wrapup;
 			}
 		}
 		/* left hand side */
@@ -263,7 +263,7 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 			}
 			if (tid && subselect_add(&subselects, tid, getArg(p, 0)) < 0) {
 				GDKfree(vars);
-				return 0;
+				goto wrapup;
 			}
 		}
 		/* right hand side */
@@ -293,32 +293,30 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 			}
 			if (tid && subselect_add(&subselects, tid, getArg(p, 1)) < 0) {
 				GDKfree(vars);
-				return 0;
+				goto wrapup;
 			}
 		}
 	}
 
 	if ((!subselects.nr && !nr_topn && !nr_likes) || newMalBlkStmt(mb, mb->ssize) <0 ) {
 		GDKfree(vars);
-		return 0;
+		goto wrapup;
 	}
 	pushInstruction(mb,old[0]);
 
 	for (i = 1; i < limit; i++) {
 		p = old[i];
 
-		/* rewrite batalgebra.like + subselect -> likesubselect */
-		if (getModuleId(p) == algebraRef && p->retc == 1 && getFunctionId(p) == subselectRef) { 
+		/* rewrite batalgebra.like + select -> likeselect */
+		if (getModuleId(p) == algebraRef && p->retc == 1 && getFunctionId(p) == selectRef) { 
 			int var = getArg(p, 1);
 			InstrPtr q = mb->stmt[vars[var]]; /* BEWARE: the optimizer may not add or remove statements ! */
 
 			if (isLikeOp(q)) { /* TODO check if getArg(p, 3) value == TRUE */
-				InstrPtr r = newInstruction(mb, ASSIGNsymbol);
+				InstrPtr r = newInstruction(mb, algebraRef, likeselectRef);
 				int has_cand = (getArgType(mb, p, 2) == newBatType(TYPE_oid)); 
 				int a, anti = (getFunctionId(q)[0] == 'n'), ignore_case = (getFunctionId(q)[anti?4:0] == 'i');
 
-				setModuleId(r, algebraRef);
-				setFunctionId(r, likesubselectRef);
 				getArg(r,0) = getArg(p,0);
 				r = pushArgument(mb, r, getArg(q, 1));
 				if (has_cand)
@@ -340,7 +338,7 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		/* inject table ids into subselect 
 		 * s = subselect(c, C1..) => subselect(c, t, C1..)
 		 */
-		if (isSubSelect(p) && p->retc == 1) { 
+		if (isSelect(p) && p->retc == 1) { 
 			int tid = 0;
 
 			if ((tid = subselect_find_tids(&subselects, getArg(p, 0))) >= 0) {
@@ -458,15 +456,18 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 	slimit= mb->ssize;
 	old = mb->stmt;
 
+	nvars = (int*) GDKzalloc(sizeof(int)* mb->vtop); 
 	slices = (int*) GDKzalloc(sizeof(int)* mb->vtop);
 	rslices = (char*) GDKzalloc(sizeof(char)* mb->vtop);
-	if (!slices || !rslices || newMalBlkStmt(mb, mb->stop+(5*push_down_delta)) <0 ) {
+	oclean = (char*) GDKzalloc(sizeof(char)* mb->vtop);
+	if (!nvars || !slices || !rslices || !oclean || newMalBlkStmt(mb, mb->stop+(5*push_down_delta)) <0 ) {
 		mb->stmt = old;
 		GDKfree(vars);
+		GDKfree(nvars);
 		GDKfree(slices);
 		GDKfree(rslices);
+		GDKfree(oclean);
 		goto wrapup;
-
 	}
 	pushInstruction(mb,old[0]);
 
@@ -483,28 +484,29 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		if (isSlice(p) && p->retc == 1) {
 			int var = getArg(p, 1);
 			InstrPtr q = old[vars[var]];
-			if (getModuleId(q) == sqlRef && getFunctionId(q) == projectdeltaRef) {
+			if (q && getModuleId(q) == sqlRef && getFunctionId(q) == projectdeltaRef) {
 				InstrPtr r = copyInstruction(p);
 				InstrPtr s = copyInstruction(q);
 
-				/* keep new output of slice */
-				slices[getArg(s, 1)] = getArg(p, 0); 
-				rslices[getArg(p,0)] = 1;
+				rslices[getArg(q,0)] = 1; /* mark projectdelta as rewriten */
+				rslices[getArg(p,0)] = 1; /* mark slice as rewriten */
+
 				/* slice the candidates */
 				setFunctionId(r, sliceRef);
-				getArg(r, 0) = getArg(p, 0); 
+				nvars[getArg(p,0)] =  getArg(r, 0) = 
+				    newTmpVariable(mb, getArgType(mb, r, 0));
+				slices[getArg(q, 1)] = getArg(p, 0); 
+
 				setVarCList(mb,getArg(r,0));
 				getArg(r, 1) = getArg(s, 1); 
 				pushInstruction(mb,r);
 
-				/* dummy result for the old q, will be removed by deadcode optimizer */
-				getArg(q, 0) = newTmpVariable(mb, getArgType(mb, q, 0));
-
-				getArg(s, 1) = getArg(r, 0); /* use result of subslice */
+				nvars[getArg(q,0)] =  getArg(s, 0) = 
+				    newTmpVariable(mb, getArgType(mb, s, 0));
+				getArg(s, 1) = getArg(r, 0); /* use result of slice */
 				pushInstruction(mb, s);
-
-				freeInstruction(p);
-				old[i] = r; 
+				oclean[i] = 1;
+				actions++;
 				continue;
 			}
 		}
@@ -515,43 +517,76 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		 */
 		else if (getModuleId(p) == algebraRef && getFunctionId(p) == projectionRef) {
 			int var = getArg(p, 1);
-			InstrPtr r = old[vars[var]];
+			InstrPtr r = old[vars[var]], q;
 			
-			if (r && isSlice(r) && rslices[getArg(p,1)] != 0 && getArg(r, 0) == getArg(p, 1)) {
-				InstrPtr q = newAssignment(mb);
+			if (r && isSlice(r) && rslices[var] && getArg(r, 0) == getArg(p, 1)) {
+				int col = getArg(p, 2);
 
+				if (!rslices[col]) { /* was the deltaproject rewriten (sliced) */
+					InstrPtr s = old[vars[col]], u = NULL;
+
+					if (s && getModuleId(s) == algebraRef && getFunctionId(s) == projectRef) {
+						col = getArg(s, 1);	
+						u = s;
+					 	s = old[vars[col]];
+					}
+					if (s && getModuleId(s) == sqlRef && getFunctionId(s) == projectdeltaRef) {
+						InstrPtr t = copyInstruction(s);
+
+						getArg(t, 1) = nvars[getArg(r, 0)]; /* use result of slice */
+						rslices[col] = 1;
+						nvars[getArg(s,0)] =  getArg(t, 0) = 
+				    			newTmpVariable(mb, getArgType(mb, t, 0));
+						pushInstruction(mb, t);
+						if (u) { /* add again */
+							t = copyInstruction(u);
+							getArg(t, 1) = nvars[getArg(t,1)];
+							pushInstruction(mb, t);
+						}
+					}
+				}
+				q = newAssignment(mb);
 				getArg(q, 0) = getArg(p, 0); 
 				(void) pushArgument(mb, q, getArg(p, 2));
+				if (nvars[getArg(p, 2)] > 0)
+					getArg(q, 1) = nvars[getArg(p, 2)];
+				oclean[i] = 1;
 				actions++;
-				freeInstruction(p);
-				old[i] = NULL;
 				continue;
 			}
 		} else if (p->argc >= 2 && slices[getArg(p, 1)] != 0) {
 			/* use new slice candidate list */
+			assert(slices[getArg(p,1)] == nvars[getArg(p,1)]);
 			getArg(p, 1) = slices[getArg(p, 1)];
+		}
+		/* remap */
+		for (j = p->retc; j<p->argc; j++) {
+ 			int var = getArg(p, j);
+			if (nvars[var] > 0) {
+				getArg(p, j) = nvars[var];
+			}
 		}
 
 		/* c = delta(b, uid, uvl, ins)
-		 * s = subselect(c, C1..)
+		 * s = select(c, C1..)
 		 *
-		 * nc = subselect(b, C1..)
-		 * ni = subselect(ins, C1..)
-		 * nu = subselect(uvl, C1..)
+		 * nc = select(b, C1..)
+		 * ni = select(ins, C1..)
+		 * nu = select(uvl, C1..)
 		 * s = subdelta(nc, uid, nu, ni);
 		 *
-		 * doesn't handle Xsubselect(x, .. z, C1.. cases) ie multicolumn selects
+		 * doesn't handle Xselect(x, .. z, C1.. cases) ie multicolumn selects
 		 */
 		lastbat = lastbat_arg(mb, p);
-		if (isSubSelect(p) && p->retc == 1 && lastbat == 2) {
+		if (isSelect(p) && p->retc == 1 && lastbat == 2) {
 			int var = getArg(p, 1);
 			InstrPtr q = old[vars[var]];
 
-			if (q->token == ASSIGNsymbol) {
+			if (q && q->token == ASSIGNsymbol) {
 				var = getArg(q, 1);
 				q = old[vars[var]]; 
 			}
-			if (getModuleId(q) == sqlRef && getFunctionId(q) == deltaRef) {
+			if (q && getModuleId(q) == sqlRef && getFunctionId(q) == deltaRef) {
 				InstrPtr r = copyInstruction(p);
 				InstrPtr s = copyInstruction(p);
 				InstrPtr t = copyInstruction(p);
@@ -587,19 +622,24 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 				u = pushArgument(mb, u, getArg(t,0));
 				u->typechk = TYPE_UNKNOWN;
 				pushInstruction(mb,u);	
-				freeInstruction(p);
-				old[i] = NULL;
+				oclean[i] = 1;
 				continue;
 			}
 		}
 		pushInstruction(mb,p);
 	}
-	for (; i<limit; i++) 
+	for (j=1; j<i; j++)
+		if (old[j] && oclean[j])
+			freeInstruction(old[j]);
+	for (; i<limit; i++)
 		if (old[i])
-			pushInstruction(mb,old[i]);
+			freeInstruction(old[i]);
+			//pushInstruction(mb,old[i]);
 	GDKfree(vars);
+	GDKfree(nvars);
 	GDKfree(slices);
 	GDKfree(rslices);
+	GDKfree(oclean);
 	GDKfree(old);
 
     /* Defense line against incorrect plans */
@@ -610,8 +650,11 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
     }
 wrapup:
     /* keep all actions taken as a post block comment */
-    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","pushselect",actions,GDKusec() - usec);
+	usec = GDKusec()- usec;
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","pushselect",actions, usec);
     newComment(mb,buf);
+	if( actions >= 0)
+		addtoMalBlkHistory(mb);
 
-	return actions;
+	return MAL_SUCCEED;
 }

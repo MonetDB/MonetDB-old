@@ -34,9 +34,10 @@ typedef struct QRYQUEUE{
 	lng start;
 	lng runtime;
 } *QueryQueue;
+mal_export int qtop;
 
 mal_export void runtimeProfileInit(Client cntxt, MalBlkPtr mb, MalStkPtr stk);
-mal_export void runtimeProfileFinish(Client cntxt, MalBlkPtr mb);
+mal_export void runtimeProfileFinish(Client cntxt, MalBlkPtr mb, MalStkPtr stk);
 mal_export void runtimeProfileBegin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, RuntimeProfile prof);
 mal_export void runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, RuntimeProfile prof);
 mal_export void finishSessionProfiler(Client cntxt);

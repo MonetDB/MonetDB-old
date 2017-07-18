@@ -167,7 +167,6 @@ mvc_exit(void)
 
 	store_exit();
 	keyword_exit();
-	sa_exit();
 }
 
 void
@@ -502,6 +501,7 @@ mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 
 	m->params = NULL;
 	m->sizevars = MAXPARAMS;
+	// FIXME unchecked_malloc NEW_ARRAY can return NULL
 	m->vars = NEW_ARRAY(sql_var, m->sizevars);
 	m->topvars = 0;
 	m->frame = 1;
@@ -1239,36 +1239,6 @@ mvc_check_dependency(mvc * m, int id, int type, list *ignore_ids)
 	return NO_DEPENDENCY;
 }
 
-int
-mvc_connect_catalog(mvc *m, const char *server, int port, const char *db, const char *db_alias, const char *user, const char *passwd, const char *lng)
-{
-	if (mvc_debug)
-		fprintf(stderr, "#mvc_connect_catalog of database %s on server %s\n",db, server);
-
-	return sql_trans_connect_catalog(m->session->tr, server, port, db, db_alias, user, passwd, lng);
-		
-}
-
-int
-mvc_disconnect_catalog(mvc *m, const char *db_alias)
-{
-	if (mvc_debug)
-		fprintf(stderr, "#mvc_disconnect_catalog for db_alias %s\n",db_alias);
-
-	return sql_trans_disconnect_catalog(m->session->tr, db_alias);
-		
-}
-
-int
-mvc_disconnect_catalog_ALL(mvc *m)
-{
-	if (mvc_debug)
-		fprintf(stderr, "#mvc_disconnect_catalog_ALL \n");
-
-	return sql_trans_disconnect_catalog_ALL(m->session->tr);
-		
-}
-
 sql_column *
 mvc_null(mvc *m, sql_column *col, int isnull)
 {
@@ -1504,6 +1474,20 @@ stack_find_rel_view(mvc *sql, const char *name)
 			return rel_dup(sql->vars[i].rel);
 	}
 	return NULL;
+}
+
+void 
+stack_update_rel_view(mvc *sql, const char *name, sql_rel *view)
+{
+	int i;
+
+	for (i = sql->topvars-1; i >= 0; i--) {
+		if (!sql->vars[i].frame && sql->vars[i].view &&
+		    sql->vars[i].rel && strcmp(sql->vars[i].name, name)==0) {
+			rel_destroy(sql->vars[i].rel);
+			sql->vars[i].rel = view;
+		}
+	}
 }
 
 int 

@@ -322,11 +322,11 @@ CONDITIONALS = {
     'HAVE_FITS'            : "@HAVE_FITS_FALSE@",
     'HAVE_GDK'             : "@HAVE_GDK_FALSE@",
     'HAVE_GEOM'            : "@HAVE_GEOM_FALSE@",
-    'HAVE_GSL'             : "@HAVE_GSL_FALSE@",
     'HAVE_HGE'             : "@HAVE_HGE_FALSE@",
     'HAVE_LIBBZ2'          : "@HAVE_LIBBZ2_FALSE@",
     'HAVE_LIBR'            : "@HAVE_LIBR_FALSE@",
     'HAVE_LIBPY'           : "@HAVE_LIBPY_FALSE@",
+    'HAVE_LIBPY3'          : "@HAVE_LIBPY3_FALSE@",
     'HAVE_LIBXML'          : "@HAVE_LIBXML_FALSE@",
     'HAVE_LIBZ'            : "@HAVE_LIBZ_FALSE@",
     'HAVE_LIDAR'           : "@HAVE_LIDAR_FALSE@",
@@ -340,7 +340,6 @@ CONDITIONALS = {
     'HAVE_PYTHON2'         : "@HAVE_PYTHON2_FALSE@",
     'HAVE_PYTHON3'         : "@HAVE_PYTHON3_FALSE@",
     'HAVE_SAMTOOLS'        : "@HAVE_SAMTOOLS_FALSE@",
-    'HAVE_SPHINXCLIENT'    : "@HAVE_SPHINXCLIENT_FALSE@",
     'HAVE_SQL'             : "@HAVE_SQL_FALSE@",
     'HAVE_TESTING'         : "@HAVE_TESTING_FALSE@",
     'NATIVE_WIN32'         : "@NATIVE_WIN32_FALSE@",
@@ -1281,6 +1280,7 @@ def PerformDir(env, testdir, testlist, BusyPorts, all_tests = False) :
                 if FtOut in (F_OK, F_WARN) and FtErr in (F_OK, F_WARN):
                     oktests.append(TST)
                 if global_timeout and start_time + global_timeout < time.time():
+                    print('\nGlobal testing timeout reached\n')
                     break
         except KeyboardInterrupt:
             print('\nInterrupted')
@@ -1615,7 +1615,7 @@ def GetBitsAndModsAndThreads(env) :
         t.start()
         input = '''\
                 c := mdb.modules();
-                modsid := algebra.subunique(c);
+                modsid := algebra.unique(c);
                 mods := algebra.projection(modsid,c);
                 s := "\\nModules: ";
                 sep := "";
@@ -2846,9 +2846,13 @@ def DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOU
             if (not all_tests or (COND != None and "HAVE_LIBR" in COND)) and CONDITIONALS['HAVE_LIBR'] and CONDITIONALS['NOT_WIN32']:
                 Srvr.extend(['--set', 'embedded_r=yes'])
 
-            # enable Python integration in server
-            if (not all_tests or (COND != None and "HAVE_LIBPY" in COND)) and CONDITIONALS['HAVE_LIBPY']:
+            if (COND != None and "HAVE_LIBPY3" in COND) and CONDITIONALS['HAVE_LIBPY3']:
+                # enable Python 3 integration in server
+                Srvr.extend(['--set', 'embedded_py=3'])
+            elif (not all_tests or (COND != None and "HAVE_LIBPY" in COND)) and CONDITIONALS['HAVE_LIBPY']:
+                # enable Python integration in server
                 Srvr.extend(['--set', 'embedded_py=true'])
+
 
             pSrvr, pSrvrTimer = LaunchIt(Srvr, '\nio.printf("\\nReady.\\n");\n', SrvrOut, SrvrErr, TIMEOUT)
             ln="dummy"
@@ -4264,6 +4268,7 @@ def main(argv) :
                     if interrupted:
                         break
                     if global_timeout and start_time + global_timeout < time.time():
+                        print('\nGlobal testing timeout reached\n')
                         break
                     if not testweb:
                         # after a directory has been tested, create

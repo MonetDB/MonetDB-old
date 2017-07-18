@@ -497,7 +497,7 @@ VLTgenerator_subselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 #ifndef HAVE_NEXTAFTERF
 #define nextafter   _nextafter
-float nextafterf(float x, float y);
+#include "mutils.h"		/* nextafterf */
 #endif
 
 #define PREVVALUEbte(x) ((x) - 1)
@@ -857,14 +857,14 @@ str VLTgenerator_join(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	if (p == NULL && q == NULL) {
 		bit zero = 0;
-		return ALGsubjoin(getArgReference_bat(stk, pci, 0),
-				  getArgReference_bat(stk, pci, 1),
-				  getArgReference_bat(stk, pci, 2),
-				  getArgReference_bat(stk, pci, 3),
-				  NULL, /* left candidate */
-				  NULL, /* right candidate */
-				  &zero, /* nil_matches */
-				  NULL); /* estimate */
+		return ALGjoin(getArgReference_bat(stk, pci, 0),
+			       getArgReference_bat(stk, pci, 1),
+			       getArgReference_bat(stk, pci, 2),
+			       getArgReference_bat(stk, pci, 3),
+			       NULL,  /* left candidate */
+			       NULL,  /* right candidate */
+			       &zero, /* nil_matches */
+			       NULL); /* estimate */
 	}
 
 	if( p == NULL){

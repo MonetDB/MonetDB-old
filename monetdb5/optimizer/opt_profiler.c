@@ -22,12 +22,12 @@ static struct{
     char *alias;
 }mapping[]={
     {"algebra", "projectionpath", "projection"},
-    {"algebra", "thetasubselect", "select"},
+    {"algebra", "thetaselect", "select"},
     {"algebra", "projection", "projection"},
     {"dataflow", "language", "parallel"},
-    {"algebra", "subselect", "select"},
+    {"algebra", "select", "select"},
     {"sql", "projectdelta", "project"},
-    {"algebra", "subjoin", "join"},
+    {"algebra", "join", "join"},
     {"language", "pass(nil)", "release"},
     {"mat", "packIncrement", "pack"},
     {"language", "pass", "release"},
@@ -48,13 +48,12 @@ static struct{
     {0,0,0}};
 */
 
-int
+str
 OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int i;
 	InstrPtr p;
 	char buf[BUFSIZ];
-	str v;
 	lng usec = GDKusec();
 
 	(void) pci;
@@ -68,62 +67,36 @@ OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 		if ( getModuleId(p) == NULL || getFunctionId(p) == NULL)
 			continue;
 		if( getModuleId(p)== sqlRef && (getFunctionId(p)== bindRef || getFunctionId(p) == bindidxRef)){
-			// we know the arguments are constant
-			snprintf(getSTC(mb,getArg(p,0)),  2 * IDLENGTH, "%s.%s.%s", 
-				getVarConstant(mb, getArg(p,p->retc +1)).val.sval,
-				getVarConstant(mb, getArg(p,p->retc +2)).val.sval,
-				getVarConstant(mb, getArg(p,p->retc +3)).val.sval);
+			getVarSTC(mb,getArg(p,0)) = i;
 		} else
 		if( getModuleId(p)== sqlRef && getFunctionId(p)== tidRef){
-			// we know the arguments are constant
-			snprintf(getSTC(mb,getArg(p,0)), 2 * IDLENGTH, "%s.%s", 
-				getVarConstant(mb, getArg(p,2)).val.sval,
-				getVarConstant(mb, getArg(p,3)).val.sval);
+			getVarSTC(mb,getArg(p,0)) = i;
 		} else
 		if( getModuleId(p)== batRef && (getFunctionId(p)== deltaRef || getFunctionId(p) == subdeltaRef)){
 			// inherit property of first argument
-			v = getSTC(mb,getArg(p,1));
-			if(v != NULL)
-				strncpy(getSTC(mb,getArg(p,0)),v, 2 * IDLENGTH);
+			getVarSTC(mb,getArg(p,0)) = getVarSTC(mb,getArg(p,1));
 		} else
 		if( getModuleId(p)== sqlRef && getFunctionId(p)== projectdeltaRef){
-			// inherit property of first argument
-			v = getSTC(mb,getArg(p,1));
-			if(v != NULL)
-				strncpy(getSTC(mb,getArg(p,0)),v, 2 * IDLENGTH);
+			getVarSTC(mb,getArg(p,0)) = getVarSTC(mb,getArg(p,1));
 		} else
 		if( getModuleId(p)== algebraRef && getFunctionId(p)== projectionRef){
-			// inherit property of last argument
-			v = getSTC(mb,getArg(p,p->argc-1));
-			if( v != NULL)
-				strncpy(getSTC(mb,getArg(p,0)),v, 2 * IDLENGTH);
+			getVarSTC(mb,getArg(p,0)) = getVarSTC(mb,getArg(p,p->argc-1));
 		} else
-		if( getModuleId(p)== algebraRef && (getFunctionId(p)== subselectRef || getFunctionId(p) == thetasubselectRef)){
-			// inherit property of first argument
-			v = getSTC(mb,getArg(p,p->retc));
-			if( v != NULL)
-				strncpy(getSTC(mb,getArg(p,0)),v, 2 * IDLENGTH);
+		if( getModuleId(p)== algebraRef && (getFunctionId(p)== selectRef || getFunctionId(p) == thetaselectRef)){
+			getVarSTC(mb,getArg(p,0)) = getVarSTC(mb,getArg(p,p->retc));
 		} else
-		if( getModuleId(p)== algebraRef && (getFunctionId(p)== likesubselectRef || getFunctionId(p) == ilikesubselectRef)){
-			// inherit property of first argument
-			v = getSTC(mb,getArg(p,p->retc));
-			if( v != NULL)
-				strncpy(getSTC(mb,getArg(p,0)),v, 2 * IDLENGTH);
+		if( getModuleId(p)== algebraRef && (getFunctionId(p)== likeselectRef || getFunctionId(p) == ilikeselectRef)){
+			getVarSTC(mb,getArg(p,0)) = getVarSTC(mb,getArg(p,p->retc));
 		} else
 		if( getModuleId(p)== algebraRef && 
-			( getFunctionId(p)== subjoinRef ||
-			  getFunctionId(p) == subleftjoinRef ||
-			  getFunctionId(p) == subthetajoinRef ||
-			  getFunctionId(p) == subantijoinRef ||
-			  getFunctionId(p) == subbandjoinRef ||
-			  getFunctionId(p) == subrangejoinRef )){
-			// inherit property of last argument
-			v = getSTC(mb,getArg(p,p->retc) );
-			if( v != NULL)
-				strncpy(getSTC(mb,getArg(p,0)),v, 2 * IDLENGTH);
-			v = getSTC(mb,getArg(p,p->retc + 1 ) );
-			if( v != NULL)
-				strncpy(getSTC(mb,getArg(p,1)),v, 2 * IDLENGTH);
+			( getFunctionId(p)== joinRef ||
+			  getFunctionId(p) == leftjoinRef ||
+			  getFunctionId(p) == thetajoinRef ||
+			  getFunctionId(p) == antijoinRef ||
+			  getFunctionId(p) == bandjoinRef ||
+			  getFunctionId(p) == rangejoinRef )){
+				getVarSTC(mb,getArg(p,0)) = getVarSTC(mb,getArg(p,p->retc));
+				getVarSTC(mb,getArg(p,1)) = getVarSTC(mb,getArg(p,p->retc +1));
 		} 
 	}
     /* Defense line against incorrect plans */
@@ -133,8 +106,9 @@ OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	//chkDeclarations(cntxt->fdout, mb);
 	//
     /* keep all actions taken as a post block comment */
-    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","profiler",1,GDKusec() - usec);
+	usec = GDKusec()- usec;
+    snprintf(buf,256,"%-20s actions=1 time=" LLFMT " usec","profiler", usec);
     newComment(mb,buf);
-
-	return 1;
+	addtoMalBlkHistory(mb);
+	return MAL_SUCCEED;
 }

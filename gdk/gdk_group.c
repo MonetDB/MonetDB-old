@@ -9,25 +9,32 @@
 #include "monetdb_config.h"
 #include "gdk.h"
 #include "gdk_private.h"
+#include "gdk_cand.h"
 
 /* how much to extend the extent and histo bats when we run out of space */
 #define GROUPBATINCR	8192
 
 /* BATgroup returns three bats that indicate the grouping of the input
- * bat.  All input and output bats (must) have dense head columns.
+ * bat.
+ *
  * Grouping means that all equal values are in the same group, and
  * differing values are in different groups.  If specified, the input
- * bat g gives a pre-existing grouping.  This bat must be aligned with
- * b.
+ * bat g gives a pre-existing grouping which is then subdivided.  If a
+ * candidate list s is specified, groups (both the pre-existing
+ * grouping in g and the output grouping) are aligned with the
+ * candidate list, else they are aligned with b.
  *
  * The outputs are as follows.
- * The groups bat has a dense head which is aligned with the input bat
- * b, and the tail has group id's (type oid).
- * The extents and histo bats have the group id in the head (a dense
- * sequence starting at 0).  The tail of extents is the head oid from
- * b of a representative of the group.  The tail of histo is of type
- * lng and contains the number of elements from b that are member of
- * the group.
+ *
+ * The groups bat is aligned with the candidate list s, or the input
+ * bat b if there is no candidate list, and the tail has group id's
+ * (type oid).
+ *
+ * The extents and histo bats are indexed by group id.  The tail of
+ * extents is the head oid from b of a representative of the group.
+ * The tail of histo is of type lng and contains the number of
+ * elements from b that are member of the group.  The extents BAT can
+ * be used as a candidate list (sorted and unique).
  *
  * The extents and histo bats are optionally created.  The groups bat
  * is always created.  In other words, the groups argument may not be
@@ -41,9 +48,9 @@
  * If all values in b are known to be equal (both sorted and reverse
  * sorted), we produce a single group or copy the input group.
  *
- * If the input bats b and g are sorted, or if the subsorted flag is
- * set (only used by BATsort), we only need to compare consecutive
- * values.
+ * If the input bats b and g are sorted (either direction) or g is not
+ * specified and b is sorted, or if the subsorted flag is set (only
+ * used by BATsort), we only need to compare consecutive values.
  *
  * If the input bat b is sorted, but g is not, we can compare
  * consecutive values in b and need to scan sections of g for equal
@@ -81,38 +88,41 @@
 			}						\
 		}							\
 		if (extents)						\
-			exts[ngrp] = hseqb + (oid) (p - r);		\
+			exts[ngrp] = hseqb + p;				\
 		if (histo)						\
 			cnts[ngrp] = 1;					\
-		ngrps[p - r] = ngrp;					\
-		ngrp++;							\
+		ngrps[r] = ngrp++;					\
 	} while (0)
 
 
 #define GRP_compare_consecutive_values(INIT_0,INIT_1,COMP,KEEP)		\
 	do {								\
 		INIT_0;							\
-		for (r = 0, p = r + 1, q = r + BATcount(b);		\
-		     p < q;						\
-		     p++) {						\
+		for (r = 0; r < cnt; r++) {				\
+			if (cand) {					\
+				p = *cand++ - b->hseqbase;		\
+			} else {					\
+				p = start++;				\
+			}						\
+			assert(p < end);				\
 			INIT_1;						\
-			if ((grps && *grps != prev) || COMP) {		\
+			if (ngrp == 0 || (grps && grps[r] != prev) || COMP) { \
 				GRPnotfound();				\
 			} else {					\
-				ngrps[p - r] = ngrp - 1;		\
+				ngrps[r] = ngrp - 1;			\
 				if (histo)				\
 					cnts[ngrp - 1]++;		\
 			}						\
 			KEEP;						\
 			if (grps)					\
-				prev = *grps++;				\
+				prev = grps[r];				\
 		}							\
 	} while(0)
 
 #define GRP_compare_consecutive_values_tpe(TYPE)		\
 	GRP_compare_consecutive_values(				\
 	/* INIT_0 */	const TYPE *w = (TYPE *) Tloc(b, 0);	\
-			TYPE pw = w[0]			,	\
+			TYPE pw = 0			,	\
 	/* INIT_1 */					,	\
 	/* COMP   */	w[p] != pw			,	\
 	/* KEEP   */	pw = w[p]				\
@@ -120,7 +130,7 @@
 
 #define GRP_compare_consecutive_values_any()			\
 	GRP_compare_consecutive_values(				\
-	/* INIT_0 */	pv = BUNtail(bi, 0)		,	\
+	/* INIT_0 */	pv = NULL			,	\
 	/* INIT_1 */	v = BUNtail(bi, p)		,	\
 	/* COMP   */	cmp(v, pv) != 0			,	\
 	/* KEEP   */	pv = v					\
@@ -131,40 +141,46 @@
 	do {								\
 		INIT_0;							\
 		pgrp[grps[0]] = 0;					\
-		for (j = r = 0, p = r + 1, q = r + BATcount(b);		\
-		     p < q;						\
-		     p++) {						\
+		j = 0;							\
+		for (r = 0; r < cnt; r++) {				\
+			if (cand) {					\
+				p = *cand++ - b->hseqbase;		\
+			} else {					\
+				p = start++;				\
+			}						\
+			assert(p < end);				\
 			INIT_1;						\
-			if (COMP) {					\
-				/* range [j, p) is all same value */	\
-				/* i is position where we saw p's old	\
-				 * group last */			\
-				i = pgrp[grps[p - r]];			\
+			if (ngrp != 0 && COMP) {			\
+				/* range [j, r) is all same value */	\
+				/* i is position where we saw r's */	\
+				/* old group last */			\
+				i = pgrp[grps[r]];			\
 				/* p is new position where we saw this	\
 				 * group */				\
-				pgrp[grps[p - r]] = p;			\
-				if (j <= i && i < p)	{		\
-					/* i is position of equal	\
-					 * value in same old group as	\
-					 * p, so p gets same new group	\
-					 * as i */			\
-					oid grp = ngrps[i - r];		\
-					ngrps[p - r] = grp;		\
+				pgrp[grps[r]] = r;			\
+				if (j <= i && i < r)	{		\
+					/* i is position of equal */	\
+					/* value in same old group */	\
+					/* as r, so r gets same new */	\
+					/* group as i */		\
+					oid grp = ngrps[i];		\
+					ngrps[r] = grp;			\
 					if (histo)			\
 						cnts[grp]++;		\
 					if (gn->tsorted &&		\
 					    grp != ngrp - 1)		\
 						gn->tsorted = 0;	\
-					/* we found the value/group	\
-					 * combination, go to next	\
-					 * value */			\
+					/* we found the value/group */	\
+					/* combination, go to next */	\
+					/* value */			\
 					continue;			\
 				}					\
 			} else {					\
 				/* value differs from previous value */	\
-				j = p;					\
+				/* (or is the first) */			\
+				j = r;					\
 				KEEP;					\
-				pgrp[grps[p - r]] = p;			\
+				pgrp[grps[r]] = r;			\
 			}						\
 			/* start a new group */				\
 			GRPnotfound();					\
@@ -174,7 +190,7 @@
 #define GRP_subscan_old_groups_tpe(TYPE)			\
 	GRP_subscan_old_groups(					\
 	/* INIT_0 */	const TYPE *w = (TYPE *) Tloc(b, 0);	\
-		    	TYPE pw = w[0]			,	\
+		    	TYPE pw = 0			,	\
 	/* INIT_1 */					,	\
 	/* COMP   */	w[p] == pw			,	\
 	/* KEEP   */	pw = w[p]				\
@@ -182,7 +198,7 @@
 
 #define GRP_subscan_old_groups_any()				\
 	GRP_subscan_old_groups(					\
-	/* INIT_0 */	pv = BUNtail(bi, 0)		,	\
+	/* INIT_0 */	pv = NULL			,	\
 	/* INIT_1 */	v = BUNtail(bi, p)		,	\
 	/* COMP   */	cmp(v, pv) == 0			,	\
 	/* KEEP   */	pv = v					\
@@ -208,9 +224,13 @@
 	do {								\
 		INIT_0;							\
 		if (grps) {						\
-			for (r = lo, p = r, q = hi;			\
-			     p < q;					\
-			     p++) {					\
+			for (r = 0; r < cnt; r++) {			\
+				if (cand) {				\
+					p = cand[r] - hseqb + lo;	\
+				} else {				\
+					p = start + r;			\
+				}					\
+				assert(p < end);			\
 				INIT_1;					\
 				/* this loop is similar, but not */	\
 				/* equal, to HASHloop: the difference */ \
@@ -219,13 +239,26 @@
 				/* up (p), and that we also consider */	\
 				/* the input groups */			\
 				for (hb = HASHgetlink(hs, p);		\
-				     hb != HASHnil(hs) && hb >= lo;	\
+				     hb != HASHnil(hs) && hb >= start;	\
 				     hb = HASHgetlink(hs, hb)) {	\
+					oid grp;			\
 					assert(hb < p);			\
-					if (grps[hb - r] == grps[p - r] && \
-					    COMP) {			\
-						oid grp = ngrps[hb - r]; \
-						ngrps[p - r] = grp;	\
+					if (cand) {			\
+						q = r;			\
+						while (q != 0 && cand[--q] - hseqb > hb - lo) \
+							;		\
+						if (cand[q] - hseqb != hb - lo)	\
+							continue;	\
+						if (grps[q] != grps[r])	\
+							continue;	\
+						grp = ngrps[q];		\
+					} else {			\
+						if (grps[hb - lo] != grps[r]) \
+							continue;	\
+						grp = ngrps[hb - lo];	\
+					}				\
+					if (COMP) {			\
+						ngrps[r] = grp;		\
 						if (histo)		\
 							cnts[grp]++;	\
 						if (gn->tsorted &&	\
@@ -239,9 +272,13 @@
 				}					\
 			}						\
 		} else {						\
-			for (r = lo, p = r, q = hi;			\
-			     p < q;					\
-			     p++) {					\
+			for (r = 0; r < cnt; r++) {			\
+				if (cand) {				\
+					p = cand[r] - hseqb + lo;	\
+				} else {				\
+					p = start + r;			\
+				}					\
+				assert(p < end);			\
 				INIT_1;					\
 				/* this loop is similar, but not */	\
 				/* equal, to HASHloop: the difference */ \
@@ -249,12 +286,22 @@
 				/* smaller than the one we're looking */ \
 				/* up (p) */				\
 				for (hb = HASHgetlink(hs, p);		\
-				     hb != HASHnil(hs) && hb >= lo;	\
+				     hb != HASHnil(hs) && hb >= start;	\
 				     hb = HASHgetlink(hs, hb)) {	\
+					oid grp;			\
 					assert(hb < p);			\
+					if (cand) {			\
+						q = r;			\
+						while (q != 0 && cand[--q] > hb) \
+							;		\
+						if (cand[q] - hseqb != hb - lo)	\
+							continue;	\
+						grp = ngrps[q];		\
+					} else {			\
+						grp = ngrps[hb - lo];	\
+					}				\
 					if (COMP) {			\
-						oid grp = ngrps[hb - r]; \
-						ngrps[p - r] = grp;	\
+						ngrps[r] = grp;		\
 						if (histo)		\
 							cnts[grp]++;	\
 						if (gn->tsorted &&	\
@@ -287,22 +334,43 @@
 
 #define GRP_create_partial_hash_table(INIT_0,INIT_1,HASH,COMP)		\
 	do {								\
+		oid grp;						\
 		INIT_0;							\
 		if (gc) {						\
-			for (r = 0, p = r, q = r + BATcount(b);		\
-			     p < q;					\
-			     p++) {					\
+			for (r = 0; r < cnt; r++) {			\
+				if (cand) {				\
+					p = cand[r] - b->hseqbase;	\
+				} else {				\
+					p = start + r;			\
+				}					\
+				assert(p < end);			\
 				INIT_1;					\
 				prb = HASH;				\
-				for (hb = HASHget(hs,prb);		\
-				     hb != HASHnil(hs) &&		\
-					     grps[hb - r] == grps[p - r]; \
-				     hb = HASHgetlink(hs,hb)) {		\
-					assert(HASHgetlink(hs,hb) == HASHnil(hs) \
-					       || HASHgetlink(hs,hb) < hb); \
+				for (hb = HASHget(hs, prb);		\
+				     hb != HASHnil(hs) && hb >= start;	\
+				     hb = HASHgetlink(hs, hb)) {	\
+					assert(HASHgetlink(hs, hb) == HASHnil(hs) \
+					       || HASHgetlink(hs, hb) < hb); \
+					if (cand) {			\
+						q = r;			\
+						while (q != 0 && cand[--q] - b->hseqbase > hb) \
+							;		\
+						if (cand[q] - b->hseqbase != hb) \
+							continue;	\
+						if (grps[q] != grps[r])	{ \
+							hb = HASHnil(hs); \
+							break;		\
+						}			\
+						grp = ngrps[q];		\
+					} else {			\
+						if (grps[hb] != grps[r]) { \
+							hb = HASHnil(hs); \
+							break;		\
+						}			\
+						grp = ngrps[hb];	\
+					}				\
 					if (COMP) {			\
-						oid grp = ngrps[hb - r]; \
-						ngrps[p - r] = grp;	\
+						ngrps[r] = grp;		\
 						if (histo)		\
 							cnts[grp]++;	\
 						if (gn->tsorted &&	\
@@ -311,28 +379,43 @@
 						break;			\
 					}				\
 				}					\
-				if (hb == HASHnil(hs) ||		\
-				    grps[hb - r] != grps[p - r]) {	\
+				if (hb == HASHnil(hs) || hb < start) {	\
 					GRPnotfound();			\
 					/* enter new group into hash table */ \
-					HASHputlink(hs,p, HASHget(hs,prb)); \
-					HASHput(hs,prb,p);		\
+					HASHputlink(hs, p, HASHget(hs, prb)); \
+					HASHput(hs, prb, p);		\
 				}					\
 			}						\
 		} else if (grps) {					\
-			for (r = 0, p = r, q = r + BATcount(b);		\
-			     p < q;					\
-			     p++) {					\
+			for (r = 0; r < cnt; r++) {			\
+				if (cand) {				\
+					p = cand[r] - b->hseqbase;	\
+				} else {				\
+					p = start + r;			\
+				}					\
+				assert(p < end);			\
 				INIT_1;					\
 				prb = HASH;				\
-				prb = (prb ^ (BUN) grps[p-r] << bits) & hs->mask; \
-				for (hb = HASHget(hs,prb);		\
-				     hb != HASHnil(hs);			\
-				     hb = HASHgetlink(hs,hb)) {		\
-					if (grps[hb - r] == grps[p - r] && \
-					    COMP) {			\
-						oid grp = ngrps[hb - r]; \
-						ngrps[p - r] = grp;	\
+				prb = (prb ^ (BUN) grps[r] << bits) & hs->mask;	\
+				for (hb = HASHget(hs, prb);		\
+				     hb != HASHnil(hs) && hb >= start;	\
+				     hb = HASHgetlink(hs, hb)) {	\
+					if (cand) {			\
+						q = r;			\
+						while (q != 0 && cand[--q] - b->hseqbase > hb) \
+							;		\
+						if (cand[q] - b->hseqbase != hb) \
+							continue;	\
+						if (grps[q] != grps[r])	\
+							continue;	\
+						grp = ngrps[q];		\
+					} else {			\
+						if (grps[hb] != grps[r]) \
+							continue;	\
+						grp = ngrps[hb];	\
+					}				\
+					if (COMP) {			\
+						ngrps[r] = grp;		\
 						if (histo)		\
 							cnts[grp]++;	\
 						if (gn->tsorted &&	\
@@ -341,25 +424,38 @@
 						break;			\
 					}				\
 				}					\
-				if (hb == HASHnil(hs)) {		\
+				if (hb == HASHnil(hs) || hb < start) {	\
 					GRPnotfound();			\
 					/* enter new group into hash table */ \
-					HASHputlink(hs,p, HASHget(hs,prb)); \
-					HASHput(hs,prb,p);		\
+					HASHputlink(hs, p, HASHget(hs, prb)); \
+					HASHput(hs, prb, p);		\
 				}					\
 			}						\
 		} else {						\
-			for (r = 0, p = r, q = r + BATcount(b);		\
-			     p < q;					\
-			     p++) {					\
+			for (r = 0; r < cnt; r++) {			\
+				if (cand) {				\
+					p = cand[r] - b->hseqbase;	\
+				} else {				\
+					p = start + r;			\
+				}					\
+				assert(p < end);			\
 				INIT_1;					\
 				prb = HASH;				\
-				for (hb = HASHget(hs,prb);		\
-				     hb != HASHnil(hs);			\
-				     hb = HASHgetlink(hs,hb)) {		\
+				for (hb = HASHget(hs, prb);		\
+				     hb != HASHnil(hs) && hb >= start;	\
+				     hb = HASHgetlink(hs, hb)) {	\
+					if (cand) {			\
+						q = r;			\
+						while (q != 0 && cand[--q] - b->hseqbase > hb) \
+							;		\
+						if (cand[q] - b->hseqbase != hb) \
+							continue;	\
+						grp = ngrps[q];		\
+					} else {			\
+						grp = ngrps[hb];	\
+					}				\
 					if (COMP) {			\
-						oid grp = ngrps[hb - r]; \
-						ngrps[p - r] = grp;	\
+						ngrps[r] = grp;		\
 						if (histo)		\
 							cnts[grp]++;	\
 						if (gn->tsorted &&	\
@@ -368,11 +464,11 @@
 						break;			\
 					}				\
 				}					\
-				if (hb == HASHnil(hs)) {		\
+				if (hb == HASHnil(hs) || hb < start) {	\
 					GRPnotfound();			\
 					/* enter new group into hash table */ \
-					HASHputlink(hs,p, HASHget(hs,prb)); \
-					HASHput(hs,prb,p);		\
+					HASHputlink(hs, p, HASHget(hs, prb)); \
+					HASHput(hs, prb, p);		\
 				}					\
 			}						\
 		}							\
@@ -397,7 +493,7 @@
 
 gdk_return
 BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
-		  BAT *b, BAT *g, BAT *e, BAT *h, int subsorted)
+		  BAT *b, BAT *s, BAT *g, BAT *e, BAT *h, int subsorted)
 {
 	BAT *gn = NULL, *en = NULL, *hn = NULL;
 	int t;
@@ -416,15 +512,23 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 #ifndef DISABLE_PARENT_HASH
 	bat parent;
 #endif
+	BUN start, end, cnt;
+	const oid *restrict cand, *candend;
 
 	if (b == NULL) {
 		GDKerror("BATgroup: b must exist\n");
 		return GDK_FAIL;
 	}
-	/* g is NULL or [oid(dense),oid] and same size as b */
+	assert(s == NULL || BATttype(s) == TYPE_oid);
+	CANDINIT(b, s, start, end, cnt, cand, candend);
+	/* set cnt to number of output rows (and number of input rows
+	 * to be considered) */
+	cnt = cand ? (BUN) (candend - cand) : end - start;
+
+	/* g is NULL or [oid(dense),oid] and same size as b or s */
 	assert(g == NULL || BATttype(g) == TYPE_oid || BATcount(g) == 0);
-	assert(g == NULL || BATcount(b) == BATcount(g));
-	assert(g == NULL || BATcount(b) == 0 || b->hseqbase == g->hseqbase);
+	assert(g == NULL || BATcount(g) == cnt);
+	assert(g == NULL || BATcount(b) == 0 || (s ? g->hseqbase == s->hseqbase : g->hseqbase == b->hseqbase));
 	/* e is NULL or [oid(dense),oid] */
 	assert(e == NULL || BATttype(e) == TYPE_oid);
 	/* h is NULL or [oid(dense),lng] */
@@ -435,21 +539,33 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 	/* we want our output to go somewhere */
 	assert(groups != NULL);
 
-	hseqb = b->hseqbase;
-	if (b->tkey || BATcount(b) <= 1 || (g && (g->tkey || BATtdense(g)))) {
+	if (cnt == 0) {
+		hseqb = 0;
+	} else if (cand) {
+		assert(s != NULL);
+		hseqb = s->hseqbase + cand - (const oid *) Tloc(s, 0);
+	} else if (s) {
+		assert(BATtdense(s));
+		hseqb = s->hseqbase + start - s->tseqbase;
+	} else {
+		hseqb = b->hseqbase;
+	}
+	if (b->tkey || cnt <= 1 || (g && (g->tkey || BATtdense(g)))) {
 		/* grouping is trivial: 1 element per group */
 		ALGODEBUG fprintf(stderr, "#BATgroup(b=%s#" BUNFMT ","
+				  "s=%s#" BUNFMT ","
 				  "g=%s#" BUNFMT ","
 				  "e=%s#" BUNFMT ","
 				  "h=%s#" BUNFMT ",subsorted=%d): "
 				  "trivial case: 1 element per group\n",
 				  BATgetId(b), BATcount(b),
+				  s ? BATgetId(s) : "NULL", s ? BATcount(s) : 0,
 				  g ? BATgetId(g) : "NULL", g ? BATcount(g) : 0,
 				  e ? BATgetId(e) : "NULL", e ? BATcount(e) : 0,
 				  h ? BATgetId(h) : "NULL", h ? BATcount(h) : 0,
 				  subsorted);
-		ngrp = BATcount(b) == 0 ? 0 : b->hseqbase;
-		gn = COLnew(ngrp, TYPE_void, BATcount(b), TRANSIENT);
+		ngrp = cnt == 0  ? 0 : cand ? s->hseqbase + (cand - (const oid *) Tloc(s, 0)) : s ? s->hseqbase + start - s->tseqbase : b->hseqbase;
+		gn = COLnew(hseqb, TYPE_void, BATcount(b), TRANSIENT);
 		if (gn == NULL)
 			goto error;
 		BATsetcount(gn, BATcount(b));
@@ -459,14 +575,14 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 			en = COLnew(0, TYPE_void, BATcount(b), TRANSIENT);
 			if (en == NULL)
 				goto error;
-			BATsetcount(en, BATcount(b));
+			BATsetcount(en, cnt);
 			BATtseqbase(en, ngrp);
 			*extents = en;
 		}
 		if (histo) {
 			lng one = 1;
 
-			hn = BATconstant(0, TYPE_lng, &one, BATcount(b), TRANSIENT);
+			hn = BATconstant(0, TYPE_lng, &one, cnt, TRANSIENT);
 			if (hn == NULL)
 				goto error;
 			*histo = hn;
@@ -478,17 +594,19 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		if (g == NULL || (BATordered(g) && BATordered_rev(g))) {
 			/* there's only a single group: 0 */
 			ALGODEBUG fprintf(stderr, "#BATgroup(b=%s#" BUNFMT ","
+				  "s=%s#" BUNFMT ","
 				  "g=%s#" BUNFMT ","
 				  "e=%s#" BUNFMT ","
 				  "h=%s#" BUNFMT ",subsorted=%d): "
 					  "trivial case: single output group\n",
 				  BATgetId(b), BATcount(b),
+				  s ? BATgetId(s) : "NULL", s ? BATcount(s) : 0,
 				  g ? BATgetId(g) : "NULL", g ? BATcount(g) : 0,
 				  e ? BATgetId(e) : "NULL", e ? BATcount(e) : 0,
 				  h ? BATgetId(h) : "NULL", h ? BATcount(h) : 0,
 				  subsorted);
 			ngrp = 0;
-			gn = BATconstant(b->hseqbase, TYPE_oid, &ngrp, BATcount(b), TRANSIENT);
+			gn = BATconstant(hseqb, TYPE_oid, &ngrp, cnt, TRANSIENT);
 			if (gn == NULL)
 				goto error;
 			*groups = gn;
@@ -501,9 +619,9 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 				*extents = en;
 			}
 			if (histo) {
-				lng cnt = (lng) BATcount(b);
+				lng lcnt = (lng) cnt;
 
-				hn = BATconstant(0, TYPE_lng, &cnt, 1, TRANSIENT);
+				hn = BATconstant(0, TYPE_lng, &lcnt, 1, TRANSIENT);
 				if (hn == NULL)
 					goto error;
 				*histo = hn;
@@ -518,11 +636,13 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 			 * otherwise we will need to calculate them
 			 * which we will do using the "normal" case */
 			ALGODEBUG fprintf(stderr, "#BATgroup(b=%s#" BUNFMT ","
+				  "s=%s#" BUNFMT ","
 				  "g=%s#" BUNFMT ","
 				  "e=%s#" BUNFMT ","
 				  "h=%s#" BUNFMT ",subsorted=%d): "
 					  "trivial case: copy input groups\n",
 				  BATgetId(b), BATcount(b),
+				  s ? BATgetId(s) : "NULL", s ? BATcount(s) : 0,
 				  g ? BATgetId(g) : "NULL", g ? BATcount(g) : 0,
 				  e ? BATgetId(e) : "NULL", e ? BATcount(e) : 0,
 				  h ? BATgetId(h) : "NULL", h ? BATcount(h) : 0,
@@ -549,11 +669,11 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 	assert(g == NULL || !BATtdense(g)); /* i.e. g->ttype == TYPE_oid */
 	bi = bat_iterator(b);
 	cmp = ATOMcompare(b->ttype);
-	gn = COLnew(b->hseqbase, TYPE_oid, BATcount(b), TRANSIENT);
+	gn = COLnew(hseqb, TYPE_oid, cnt, TRANSIENT);
 	if (gn == NULL)
 		goto error;
 	ngrps = (oid *) Tloc(gn, 0);
-	maxgrps = BATcount(b) / 10;
+	maxgrps = cnt / 10;
 	if (e && maxgrps < BATcount(e))
 		maxgrps += BATcount(e);
 	if (h && maxgrps < BATcount(h))
@@ -576,7 +696,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		cnts = (lng *) Tloc(hn, 0);
 	}
 	ngrp = 0;
-	BATsetcount(gn, BATcount(b));
+	BATsetcount(gn, cnt);
 	if (g)
 		grps = (const oid *) Tloc(g, 0);
 
@@ -612,23 +732,17 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 	     (g == NULL || BATordered(g) || BATordered_rev(g)))) {
 		/* we only need to compare each entry with the previous */
 		ALGODEBUG fprintf(stderr, "#BATgroup(b=%s#" BUNFMT ","
+				  "s=%s#" BUNFMT ","
 				  "g=%s#" BUNFMT ","
 				  "e=%s#" BUNFMT ","
 				  "h=%s#" BUNFMT ",subsorted=%d): "
 				  "compare consecutive values\n",
 				  BATgetId(b), BATcount(b),
+				  s ? BATgetId(s) : "NULL", s ? BATcount(s) : 0,
 				  g ? BATgetId(g) : "NULL", g ? BATcount(g) : 0,
 				  e ? BATgetId(e) : "NULL", e ? BATcount(e) : 0,
 				  h ? BATgetId(h) : "NULL", h ? BATcount(h) : 0,
 				  subsorted);
-		if (grps)
-			prev = *grps++;
-		ngrps[0] = ngrp;
-		ngrp++;
-		if (extents)
-			exts[0] = b->hseqbase;
-		if (histo)
-			cnts[0] = 1;
 
 		switch (t) {
 		case TYPE_bte:
@@ -656,6 +770,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 			break;
 		default:
 			GRP_compare_consecutive_values_any();
+			break;
 		}
 
 		gn->tsorted = 1;
@@ -664,6 +779,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		BUN i, j;
 		BUN *pgrp;
 
+		assert(g);	/* if g == NULL, we used the code above */
 		/* for each value, we need to scan all previous equal
 		 * values (a consecutive, possibly empty, range) to
 		 * see if we can find one in the same old group
@@ -673,11 +789,13 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		 * saw the old group of the current value is within
 		 * this range, we can reuse the new group */
 		ALGODEBUG fprintf(stderr, "#BATgroup(b=%s#" BUNFMT ","
+				  "s=%s#" BUNFMT ","
 				  "g=%s#" BUNFMT ","
 				  "e=%s#" BUNFMT ","
 				  "h=%s#" BUNFMT ",subsorted=%d): "
 				  "subscan old groups\n",
 				  BATgetId(b), BATcount(b),
+				  s ? BATgetId(s) : "NULL", s ? BATcount(s) : 0,
 				  g ? BATgetId(g) : "NULL", g ? BATcount(g) : 0,
 				  e ? BATgetId(e) : "NULL", e ? BATcount(e) : 0,
 				  h ? BATgetId(h) : "NULL", h ? BATcount(h) : 0,
@@ -690,7 +808,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		} else {
 			oid m = 0;
 			for (i = 0, j= BATcount(g); i < j; i++)
-				m = MAX( m , grps[i] );
+				m = MAX(m , grps[i]);
 			j = (BUN) m + 1;
 		}
 		/* array to maintain last time we saw each old group */
@@ -700,12 +818,6 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		/* initialize to impossible position */
 		memset(pgrp, ~0, sizeof(BUN) * j);
 
-		ngrps[0] = ngrp;
-		if (extents)
-			exts[0] = b->hseqbase;
-		if (histo)
-			cnts[0] = 1;
-		ngrp++;		/* the next group to be assigned */
 		gn->tsorted = 1; /* be optimistic */
 
 		switch (t) {
@@ -734,6 +846,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 			break;
 		default:
 			GRP_subscan_old_groups_any();
+			break;
 		}
 
 		GDKfree(pgrp);
@@ -753,17 +866,28 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 			memset(cnts, 0, maxgrps * sizeof(lng));
 		ngrp = 0;
 		gn->tsorted = 1;
-		for (p = 0, q = BATcount(b); p < q; p++) {
+		r = 0;
+		for (;;) {
+			if (cand) {
+				if (cand == candend)
+					break;
+				p = *cand++ - b->hseqbase;
+			} else {
+				p = start++;
+			}
+			if (p >= end)
+				break;
 			if ((v = bgrps[w[p]]) == 0xFF && ngrp < 256) {
 				bgrps[w[p]] = v = (unsigned char) ngrp++;
 				if (extents)
 					exts[v] = b->hseqbase + (oid) p;
 			}
-			ngrps[p] = v;
-			if (p > 0 &&v < ngrps[p - 1])
+			ngrps[r] = v;
+			if (r > 0 && v < ngrps[r - 1])
 				gn->tsorted = 0;
 			if (histo)
 				cnts[v]++;
+			r++;
 		}
 		GDKfree(bgrps);
 	} else if (g == NULL && t == TYPE_sht) {
@@ -782,17 +906,28 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 			memset(cnts, 0, maxgrps * sizeof(lng));
 		ngrp = 0;
 		gn->tsorted = 1;
-		for (p = 0, q = BATcount(b); p < q; p++) {
+		r = 0;
+		for (;;) {
+			if (cand) {
+				if (cand == candend)
+					break;
+				p = *cand++ - b->hseqbase;
+			} else {
+				p = start++;
+			}
+			if (p >= end)
+				break;
 			if ((v = sgrps[w[p]]) == 0xFFFF && ngrp < 65536) {
 				sgrps[w[p]] = v = (unsigned short) ngrp++;
 				if (extents)
 					exts[v] = b->hseqbase + (oid) p;
 			}
-			ngrps[p] = v;
-			if (p > 0 && v < ngrps[p - 1])
+			ngrps[r] = v;
+			if (r > 0 && v < ngrps[r - 1])
 				gn->tsorted = 0;
 			if (histo)
 				cnts[v]++;
+			r++;
 		}
 		GDKfree(sgrps);
 	} else if (BATcheckhash(b) ||
@@ -803,37 +938,39 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		       BATcheckhash(BBPdescriptor(parent)))
 #endif
 		) {
-		BUN lo, hi;
+		BUN lo;
 
 		/* we already have a hash table on b, or b is
 		 * persistent and we could create a hash table, or b
 		 * is a view on a bat that already has a hash table */
 		ALGODEBUG fprintf(stderr, "#BATgroup(b=%s#" BUNFMT ","
+				  "s=%s#" BUNFMT ","
 				  "g=%s#" BUNFMT ","
 				  "e=%s#" BUNFMT ","
 				  "h=%s#" BUNFMT ",subsorted=%d): "
 				  "use existing hash table\n",
 				  BATgetId(b), BATcount(b),
+				  s ? BATgetId(s) : "NULL", s ? BATcount(s) : 0,
 				  g ? BATgetId(g) : "NULL", g ? BATcount(g) : 0,
 				  e ? BATgetId(e) : "NULL", e ? BATcount(e) : 0,
 				  h ? BATgetId(h) : "NULL", h ? BATcount(h) : 0,
 				  subsorted);
+		hseqb = b->hseqbase;
 #ifndef DISABLE_PARENT_HASH
 		if (b->thash == NULL && (parent = VIEWtparent(b)) != 0) {
 			/* b is a view on another bat (b2 for now).
-			 * calculate the bounds [lo, hi) in the parent
-			 * that b uses */
+			 * calculate the bounds [lo, lo+BATcount(b))
+			 * in the parent that b uses */
 			BAT *b2 = BBPdescriptor(parent);
 			lo = (BUN) ((b->theap.base - b2->theap.base) >> b->tshift);
-			hi = lo + BATcount(b);
-			hseqb = b->hseqbase;
 			b = b2;
 			bi = bat_iterator(b);
+			start += lo;
+			end += lo;
 		} else
 #endif
 		{
 			lo = 0;
-			hi = BUNlast(b);
 		}
 		hs = b->thash;
 		gn->tsorted = 1; /* be optimistic */
@@ -882,11 +1019,13 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		 * BATassertProps for similar code; we also exploit if
 		 * g is clustered */
 		ALGODEBUG fprintf(stderr, "#BATgroup(b=%s#" BUNFMT ","
+				  "s=%s#" BUNFMT ","
 				  "g=%s#" BUNFMT ","
 				  "e=%s#" BUNFMT ","
 				  "h=%s#" BUNFMT ",subsorted=%d): "
 				  "create partial hash table%s\n",
 				  BATgetId(b), BATcount(b),
+				  s ? BATgetId(s) : "NULL", s ? BATcount(s) : 0,
 				  g ? BATgetId(g) : "NULL", g ? BATcount(g) : 0,
 				  e ? BATgetId(e) : "NULL", e ? BATcount(e) : 0,
 				  h ? BATgetId(h) : "NULL", h ? BATcount(h) : 0,
@@ -905,12 +1044,12 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 			 * hash-mask width to better spread bits and
 			 * use the entire hash-mask, and thus reduce
 			 * collisions */
-			mask = HASHmask(b->batCount) >> 3;
+			mask = HASHmask(cnt) >> 3;
 			bits = 3;
 			while (mask >>= 1)
 				bits++;
 			bits /= 2;
-			mask = HASHmask(b->batCount);
+			mask = HASHmask(cnt);
 		}
 		if ((hp = GDKzalloc(sizeof(Heap))) == NULL ||
 		    (hp->farmid = BBPselectfarm(TRANSIENT, b->ttype, hashheap)) < 0 ||
@@ -919,7 +1058,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 			     "%s.hash" SZFMT, nme, MT_getpid()) < 0 ||
 		    (ext = GDKstrdup(hp->filename + nmelen + 1)) == NULL ||
 		    (hs = HASHnew(hp, b->ttype, BUNlast(b),
-				  MAX(HASHmask(b->batCount), 1 << 16), BUN_NONE)) == NULL) {
+				  MAX(HASHmask(cnt), 1 << 16), BUN_NONE)) == NULL) {
 			if (hp) {
 				if (hp->filename)
 					GDKfree(hp->filename);
@@ -978,7 +1117,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 	}
 	if (histo) {
 		BATsetcount(hn, (BUN) ngrp);
-		if (ngrp == 1 || ngrp == BATcount(b)) {
+		if (ngrp == cnt || ngrp == 1) {
 			hn->tkey = ngrp == 1;
 			hn->tsorted = 1;
 			hn->trevsorted = 1;
@@ -1009,7 +1148,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 
 gdk_return
 BATgroup(BAT **groups, BAT **extents, BAT **histo,
-	 BAT *b, BAT *g, BAT *e, BAT *h)
+	 BAT *b, BAT *s, BAT *g, BAT *e, BAT *h)
 {
-	return BATgroup_internal(groups, extents, histo, b, g, e, h, 0);
+	return BATgroup_internal(groups, extents, histo, b, s, g, e, h, 0);
 }

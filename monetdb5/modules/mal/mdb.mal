@@ -28,14 +28,6 @@ command modules():bat[:str]
 address CMDmodules
 comment "List available modules";
 
-pattern setTrap(mod:str, fcn:str, b:bit):void
-address MDBtrapFunction
-comment "Suspend upon a call to the MAL function.";
-
-pattern setTrap(idx:int):void
-address mdbTrapClient
-comment "Call debugger for a specific process.";
-
 pattern setTrace(b:bit):void
 address MDBsetTrace
 comment "Turn on/off tracing of current routine";
@@ -93,23 +85,6 @@ comment "Dump the symboltable of current routine on standard out.";
 pattern var(M:str,F:str):void 
 address MDBvar3
 comment "Dump the symboltable of routine M.F on standard out.";
-
-pattern grab():void
-address mdbGrab
-comment "Call debugger for a suspended process.";
-pattern trap():void
-address mdbTrap
-comment "A suspended process for debugging.";
-
-pattern dot(s:str):void 
-address MDBshowFlowGraph
-comment "Dump the data flow of the current routine in a format recognizable by the command 'dot' to the file s";
-
-pattern dot(M:str,F:str,s:str):void 
-address MDBshowFlowGraph
-comment "Dump the data flow of the function 
-	M.F in a format recognizable by the 
-	command 'dot' on the file s";
 
 pattern getStackDepth():int 
 address MDBStkDepth

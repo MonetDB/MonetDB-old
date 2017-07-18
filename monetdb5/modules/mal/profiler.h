@@ -38,10 +38,10 @@ mal_export str CMDnoopProfiler(void *res);
 mal_export str CMDsetHeartbeat(void *res, int *ev);
 mal_export str CMDopenProfilerStream(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str CMDcloseProfilerStream(void *res);
-mal_export str CMDcleanup(void *ret);
-mal_export str CMDclearTrace(void *res);
 mal_export str CMDcleanupTraces(void *res);
 mal_export str CMDgetTrace(bat *res, str *ev);
+mal_export str CMDgetprofilerlimit(int *res);
+mal_export str CMDsetprofilerlimit(void *res, int *lim);
 
 mal_export str CMDgetDiskReads(lng *ret);
 mal_export str CMDgetDiskWrites(lng *ret);

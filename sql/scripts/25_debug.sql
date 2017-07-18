@@ -5,9 +5,9 @@
 -- Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
 -- show the optimizer statistics maintained by the SQL frontend
-create function sys.optimizer_stats ()
-	returns table (rewrite string, count int)
-	external name sql.dump_opt_stats;
+create function sys.optimizer_stats()
+	returns table (optname string, count int, timing bigint)
+	external name inspect.optimizer_stats;
 
 
 -- SQL QUERY CACHE

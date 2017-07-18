@@ -27,15 +27,16 @@
 #include "mal_private.h"
 #include "mtime.h"
 
-static void
+static int
 pseudo(bat *ret, BAT *b, str X1,str X2) {
 	char buf[BUFSIZ];
 	snprintf(buf,BUFSIZ,"%s_%s", X1,X2);
-	if (BBPindex(buf) <= 0)
-		BATname(b,buf);
+	if (BBPindex(buf) <= 0 && BBPrename(b->batCacheid, buf) != 0)
+		return -1;
 	BATroles(b,X2);
 	*ret = b->batCacheid;
 	BBPkeepref(*ret);
+	return 0;
 }
 
 str
@@ -134,30 +135,38 @@ CLTInfo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL, "clients.info", MAL_MALLOC_FAIL);
 	}
 
-	BUNappend(b, "user", FALSE);
-	BUNappend(bn, local_itoa((int)cntxt->user), FALSE);
+	if (BUNappend(b, "user", FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, local_itoa((int)cntxt->user), FALSE) != GDK_SUCCEED ||
 
-	BUNappend(b, "password", FALSE); /* FIXME: get rid of this */
-	BUNappend(bn, "", FALSE); /* FIXME: get rid of this */
+		BUNappend(b, "password", FALSE) != GDK_SUCCEED || /* FIXME: get rid of this */
+		BUNappend(bn, "", FALSE) != GDK_SUCCEED || /* FIXME: get rid of this */
 
-	BUNappend(b, "scenario", FALSE);
-	BUNappend(bn, cntxt->scenario, FALSE);
+		BUNappend(b, "scenario", FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, cntxt->scenario, FALSE) != GDK_SUCCEED ||
 
-	BUNappend(b, "trace", FALSE);
-	BUNappend(bn, local_itoa(cntxt->itrace), FALSE);
+		BUNappend(b, "trace", FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, local_itoa(cntxt->itrace), FALSE) != GDK_SUCCEED ||
 
-	BUNappend(b, "listing", FALSE);
-	BUNappend(bn, local_itoa(cntxt->listing), FALSE);
+		BUNappend(b, "listing", FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, local_itoa(cntxt->listing), FALSE) != GDK_SUCCEED ||
 
-	BUNappend(b, "debug", FALSE);
-	BUNappend(bn, local_itoa(cntxt->debug), FALSE);
+		BUNappend(b, "debug", FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, local_itoa(cntxt->debug), FALSE) != GDK_SUCCEED)
+		goto bailout;
 
 	CLTtimeConvert((time_t) cntxt->login,s);
-	BUNappend(b, "login", FALSE);
-	BUNappend(bn, s, FALSE);
-	pseudo(ret,b,"client","info");
+	if (BUNappend(b, "login", FALSE) != GDK_SUCCEED ||
+		BUNappend(bn, s, FALSE) != GDK_SUCCEED)
+		goto bailout;
+	if (pseudo(ret,b,"client","info"))
+		goto bailout;
 	BBPkeepref(*ret2= bn->batCacheid);
 	return MAL_SUCCEED;
+
+  bailout:
+	BBPunfix(b->batCacheid);
+	BBPunfix(bn->batCacheid);
+	throw(MAL, "clients.info", MAL_MALLOC_FAIL);
 }
 
 str
@@ -168,23 +177,27 @@ CLTLogin(bat *nme, bat *ret)
 	int i;
 	char s[26];
 
-	if (b == 0 || u == 0) {
-		BBPreclaim(b);
-		BBPreclaim(u);
-		throw(MAL, "clients.getLogins", MAL_MALLOC_FAIL);
-	}
+	if (b == 0 || u == 0)
+		goto bailout;
 
 	for (i = 0; i < MAL_MAXCLIENTS; i++) {
 		Client c = mal_clients+i;
 		if (c->mode >= RUNCLIENT && c->user != oid_nil) {
 			CLTtimeConvert((time_t) c->login,s);
-			BUNappend(b, s, FALSE);
-			BUNappend(u, &c->user, FALSE);
+			if (BUNappend(b, s, FALSE) != GDK_SUCCEED ||
+				BUNappend(u, &c->user, FALSE) != GDK_SUCCEED)
+				goto bailout;
 		}
 	}
-	pseudo(ret,b,"client","login");
-	pseudo(nme,u,"client","name");
+	if (pseudo(ret,b,"client","login") ||
+		pseudo(nme,u,"client","name"))
+		goto bailout;
 	return MAL_SUCCEED;
+
+  bailout:
+	BBPreclaim(b);
+	BBPreclaim(u);
+	throw(MAL, "clients.getLogins", MAL_MALLOC_FAIL);
 }
 
 str
@@ -200,11 +213,17 @@ CLTLastCommand(bat *ret)
 		Client c = mal_clients+i;
 		if (c->mode >= RUNCLIENT && c->user != oid_nil) {
 			CLTtimeConvert((time_t) c->lastcmd,s);
-			BUNappend(b, s, FALSE);
+			if (BUNappend(b, s, FALSE) != GDK_SUCCEED)
+				goto bailout;
 		}
 	}
-	pseudo(ret,b,"client","lastcommand");
+	if (pseudo(ret,b,"client","lastcommand"))
+		goto bailout;
 	return MAL_SUCCEED;
+
+  bailout:
+	BBPreclaim(b);
+	throw(MAL, "clients.getLastCommand", MAL_MALLOC_FAIL);
 }
 
 str
@@ -218,11 +237,16 @@ CLTActions(bat *ret)
 	for (i = 0; i < MAL_MAXCLIENTS; i++) {
 		Client c = mal_clients+i;
 		if (c->mode >= RUNCLIENT && c->user != oid_nil) {
-			BUNappend(b, &c->actions, FALSE);
+			if (BUNappend(b, &c->actions, FALSE) != GDK_SUCCEED)
+				goto bailout;
 		}
 	}
-	pseudo(ret,b,"client","actions");
+	if (pseudo(ret,b,"client","actions"))
+		goto bailout;
 	return MAL_SUCCEED;
+  bailout:
+	BBPreclaim(b);
+	throw(MAL, "clients.getActions", MAL_MALLOC_FAIL);
 }
 str
 CLTTime(bat *ret)
@@ -235,11 +259,16 @@ CLTTime(bat *ret)
 	for (i = 0; i < MAL_MAXCLIENTS; i++) {
 		Client c = mal_clients+i;
 		if (c->mode >= RUNCLIENT && c->user != oid_nil) {
-			BUNappend(b, &c->totaltime, FALSE);
+			if (BUNappend(b, &c->totaltime, FALSE) != GDK_SUCCEED)
+				goto bailout;
 		}
 	}
-	pseudo(ret,b,"client","usec");
+	if (pseudo(ret,b,"client","usec"))
+		goto bailout;
 	return MAL_SUCCEED;
+  bailout:
+	BBPreclaim(b);
+	throw(MAL, "clients.getTime", MAL_MALLOC_FAIL);
 }
 
 /*
@@ -255,11 +284,16 @@ CLTusers(bat *ret)
 		throw(MAL, "clients.users", MAL_MALLOC_FAIL);
 	for (i = 0; i < MAL_MAXCLIENTS; i++) {
 		Client c = mal_clients+i;
-		if (c->mode >= RUNCLIENT && c->user != oid_nil)
-			BUNappend(b, &i, FALSE);
+		if (c->mode >= RUNCLIENT && c->user != oid_nil &&
+			BUNappend(b, &i, FALSE) != GDK_SUCCEED)
+			goto bailout;
 	}
-	pseudo(ret,b,"client","users");
+	if (pseudo(ret,b,"client","users"))
+		goto bailout;
 	return MAL_SUCCEED;
+  bailout:
+	BBPreclaim(b);
+	throw(MAL, "clients.users", MAL_MALLOC_FAIL);
 }
 
 str
@@ -440,7 +474,7 @@ str CLTaddUser(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 
 	(void)mb;
 	
-	return AUTHaddUser(ret, cntxt, usr, pw);
+	return AUTHaddUser(ret, cntxt, *usr, *pw);
 }
 
 str CLTremoveUser(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
@@ -449,7 +483,7 @@ str CLTremoveUser(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 
 	usr = getArgReference_str(stk, pci, 1);
 
-	return AUTHremoveUser(cntxt, usr);
+	return AUTHremoveUser(cntxt, *usr);
 }
 
 str CLTgetUsername(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
@@ -465,7 +499,7 @@ str CLTgetPasswordHash(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) 
 
 	(void)mb;
 
-	return AUTHgetPasswordHash(ret, cntxt, user);
+	return AUTHgetPasswordHash(ret, cntxt, *user);
 }
 
 str CLTchangeUsername(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
@@ -474,7 +508,7 @@ str CLTchangeUsername(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 
 	(void)mb;
 
-	return AUTHchangeUsername(cntxt, old, new);
+	return AUTHchangeUsername(cntxt, *old, *new);
 }
 
 str CLTchangePassword(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
@@ -483,7 +517,7 @@ str CLTchangePassword(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 
 	(void)mb;
 
-	return AUTHchangePassword(cntxt, old, new);
+	return AUTHchangePassword(cntxt, *old, *new);
 }
 
 str CLTsetPassword(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
@@ -492,7 +526,7 @@ str CLTsetPassword(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 
 	(void)mb;
 
-	return AUTHsetPassword(cntxt, usr, new);
+	return AUTHsetPassword(cntxt, *usr, *new);
 }
 
 str CLTcheckPermission(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
@@ -507,7 +541,7 @@ str CLTcheckPermission(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) 
 	(void)mb;
 
 	pwd = mcrypt_SHA1Sum(*pw, strlen(*pw));
-	msg = AUTHcheckCredentials(&id, cntxt, usr, &pwd, &ch, &algo);
+	msg = AUTHcheckCredentials(&id, cntxt, *usr, pwd, ch, algo);
 	free(pwd);
 	return msg;
 #else
@@ -613,7 +647,8 @@ CLTsessions(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	
     for (c = mal_clients + (GDKgetenv_isyes("monet_daemon") != 0); c < mal_clients + MAL_MAXCLIENTS; c++) 
 	if (c->mode == RUNCLIENT) {
-		BUNappend(user, c->username, FALSE);
+		if (BUNappend(user, c->username, FALSE) != GDK_SUCCEED)
+			goto bailout;
 		msg = MTIMEunix_epoch(&ts);
 		if (msg)
 			goto bailout;
@@ -621,9 +656,11 @@ CLTsessions(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		msg = MTIMEtimestamp_add(&ret,&ts, &clk);
 		if (msg)
 			goto bailout;
-		BUNappend(login, &ret, FALSE);
+		if (BUNappend(login, &ret, FALSE) != GDK_SUCCEED)
+			goto bailout;
 		timeout = c->stimeout / 1000000;
-		BUNappend(stimeout, &timeout, FALSE);
+		if (BUNappend(stimeout, &timeout, FALSE) != GDK_SUCCEED)
+			goto bailout;
 		msg = MTIMEunix_epoch(&ts);
 		if (msg)
 			goto bailout;
@@ -631,10 +668,12 @@ CLTsessions(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		msg = MTIMEtimestamp_add(&ret,&ts, &clk);
 		if (msg)
 			goto bailout;
-		BUNappend(last, &ret, FALSE);
+		if (BUNappend(last, &ret, FALSE) != GDK_SUCCEED)
+			goto bailout;
 		timeout = c->qtimeout / 1000000;
-		BUNappend(qtimeout, &timeout, FALSE);
-		BUNappend(active, &c->active, FALSE);
+		if (BUNappend(qtimeout, &timeout, FALSE) != GDK_SUCCEED ||
+			BUNappend(active, &c->active, FALSE) != GDK_SUCCEED)
+			goto bailout;
     }
     MT_lock_unset(&mal_contextLock);
 	BBPkeepref(*userId = user->batCacheid);

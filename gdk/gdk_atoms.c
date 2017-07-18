@@ -114,16 +114,16 @@ hgeHash(const hge *v)
 /*
  * @+ Standard Atoms
  */
-static inline int
+static int
 batFix(const bat *b)
 {
-	return BBPincref(*b, TRUE);
+	return BBPretain(*b);
 }
 
-static inline int
+static int
 batUnfix(const bat *b)
 {
-	return BBPdecref(*b, TRUE);
+	return BBPrelease(*b);
 }
 
 /*
@@ -165,20 +165,25 @@ ATOMallocate(const char *id)
 {
 	int t;
 
+	if (strlen(id) >= IDLENGTH) {
+		GDKerror("ATOMallocate: name too long");
+		return int_nil;
+	}
+
 	MT_lock_set(&GDKthreadLock);
 	t = ATOMindex(id);
-
 	if (t < 0) {
 		t = -t;
 		if (t == GDKatomcnt) {
+			if (GDKatomcnt == MAXATOMS) {
+				MT_lock_unset(&GDKthreadLock);
+				GDKerror("ATOMallocate: too many types");
+				return int_nil;
+			}
 			GDKatomcnt++;
 		}
-		if (GDKatomcnt == MAXATOMS)
-			GDKfatal("ATOMallocate: too many types");
-		if (strlen(id) >= IDLENGTH)
-			GDKfatal("ATOMallocate: name too long");
 		memset(BATatoms + t, 0, sizeof(atomDesc));
-		snprintf(BATatoms[t].name, IDLENGTH, "%s", id);
+		strcpy(BATatoms[t].name, id);
 		BATatoms[t].size = sizeof(int);		/* default */
 		BATatoms[t].align = sizeof(int);	/* default */
 		BATatoms[t].linear = 1;			/* default */
@@ -496,25 +501,6 @@ bitToStr(char **dst, int *len, const bit *src)
 	return snprintf(*dst, *len, "false");
 }
 
-static bit *
-bitRead(bit *a, stream *s, size_t cnt)
-{
-	if (mnstr_read(s, (char *) a, 1, cnt) < 0)
-		return NULL;
-	return mnstr_errnr(s) ? NULL : a;
-}
-
-static gdk_return
-bitWrite(const bit *a, stream *s, size_t cnt)
-{
-	if (mnstr_write(s, (const char *) a, 1, cnt) == (ssize_t) cnt)
-		return GDK_SUCCEED;
-	else {
-		GDKsyserror("bitWrite: write failure\n");
-		return GDK_FAIL;
-	}
-}
-
 int
 batFromStr(const char *src, int *len, bat **dst)
 {
@@ -565,20 +551,6 @@ batToStr(char **dst, int *len, const bat *src)
 	return snprintf(*dst, *len, "<%s>", s);
 }
 
-static bat *
-batRead(bat *a, stream *s, size_t cnt)
-{
-	/* bat==int */
-	return mnstr_readIntArray(s, (int *) a, cnt) ? a : NULL;
-}
-
-static gdk_return
-batWrite(const bat *a, stream *s, size_t cnt)
-{
-	/* bat==int */
-	return mnstr_writeIntArray(s, (const int *) a, cnt) ? GDK_SUCCEED : GDK_FAIL;
-}
-
 
 /*
  * numFromStr parses the head of the string for a number, accepting an
@@ -587,6 +559,84 @@ batWrite(const bat *a, stream *s, size_t cnt)
  * incorrect syntax (not a number) result in the function returning 0
  * and setting the destination to nil.
  */
+struct maxdiv {
+	/* if we want to multiply a value with scale, the value must
+	 * be no larger than maxval for there to not be overflow */
+#ifdef HAVE_HGE
+	hge scale, maxval;
+#else
+	lng scale, maxval;
+#endif
+};
+static const struct maxdiv maxdiv[] = {
+#ifdef HAVE_HGE
+	/* maximum hge value: 170141183460469231731687303715884105727 (2**127-1)
+	 * GCC doesn't currently support integer constants that don't
+	 * fit in 8 bytes, so we split large values up*/
+	{(hge) LL_CONSTANT(1), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(10000000000000000000U)+ (hge) LL_CONSTANT(1687303715884105727)},
+	{(hge) LL_CONSTANT(10), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(1000000000000000000) + (hge) LL_CONSTANT(168730371588410572)},
+	{(hge) LL_CONSTANT(100), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(100000000000000000) + (hge) LL_CONSTANT(16873037158841057)},
+	{(hge) LL_CONSTANT(1000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(10000000000000000) + (hge) LL_CONSTANT(1687303715884105)},
+	{(hge) LL_CONSTANT(10000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(1000000000000000) + (hge) LL_CONSTANT(168730371588410)},
+	{(hge) LL_CONSTANT(100000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(100000000000000) + (hge) LL_CONSTANT(16873037158841)},
+	{(hge) LL_CONSTANT(1000000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(10000000000000) + (hge) LL_CONSTANT(1687303715884)},
+	{(hge) LL_CONSTANT(10000000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(1000000000000) + (hge) LL_CONSTANT(168730371588)},
+	{(hge) LL_CONSTANT(100000000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(100000000000) + (hge) LL_CONSTANT(16873037158)},
+	{(hge) LL_CONSTANT(1000000000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(10000000000) + (hge) LL_CONSTANT(1687303715)},
+	{(hge) LL_CONSTANT(10000000000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(1000000000) + (hge) LL_CONSTANT(168730371)},
+	{(hge) LL_CONSTANT(100000000000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(100000000) + (hge) LL_CONSTANT(16873037)},
+	{(hge) LL_CONSTANT(1000000000000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(10000000) + (hge) LL_CONSTANT(1687303)},
+	{(hge) LL_CONSTANT(10000000000000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(1000000) + (hge) LL_CONSTANT(168730)},
+	{(hge) LL_CONSTANT(100000000000000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(100000) + (hge) LL_CONSTANT(16873)},
+	{(hge) LL_CONSTANT(1000000000000000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(10000) + (hge) LL_CONSTANT(1687)},
+	{(hge) LL_CONSTANT(10000000000000000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(1000) + (hge) LL_CONSTANT(168)},
+	{(hge) LL_CONSTANT(100000000000000000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(100) + (hge) LL_CONSTANT(16)},
+	{(hge) LL_CONSTANT(1000000000000000000), (hge) LL_CONSTANT(17014118346046923173U) * LL_CONSTANT(10) + (hge) LL_CONSTANT(1)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(1), (hge) LL_CONSTANT(17014118346046923173U)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(10), (hge) LL_CONSTANT(1701411834604692317)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(100), (hge) LL_CONSTANT(170141183460469231)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(1000), (hge) LL_CONSTANT(17014118346046923)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(10000), (hge) LL_CONSTANT(1701411834604692)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(100000), (hge) LL_CONSTANT(170141183460469)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(1000000), (hge) LL_CONSTANT(17014118346046)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(10000000), (hge) LL_CONSTANT(1701411834604)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(100000000), (hge) LL_CONSTANT(170141183460)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(1000000000), (hge) LL_CONSTANT(17014118346)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(10000000000), (hge) LL_CONSTANT(1701411834)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(100000000000), (hge) LL_CONSTANT(170141183)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(1000000000000), (hge) LL_CONSTANT(17014118)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(10000000000000), (hge) LL_CONSTANT(1701411)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(100000000000000), (hge) LL_CONSTANT(170141)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(1000000000000000), (hge) LL_CONSTANT(17014)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(10000000000000000), (hge) LL_CONSTANT(1701)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(100000000000000000), (hge) LL_CONSTANT(170)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(1000000000000000000), (hge) LL_CONSTANT(17)},
+	{(hge) LL_CONSTANT(10000000000000000000U) * LL_CONSTANT(10000000000000000000U),(hge) LL_CONSTANT(1)},
+#else
+	/* maximum lng value: 9223372036854775807 (2**63-1) */
+	{LL_CONSTANT(1), LL_CONSTANT(9223372036854775807)},
+	{LL_CONSTANT(10), LL_CONSTANT(922337203685477580)},
+	{LL_CONSTANT(100), LL_CONSTANT(92233720368547758)},
+	{LL_CONSTANT(1000), LL_CONSTANT(9223372036854775)},
+	{LL_CONSTANT(10000), LL_CONSTANT(922337203685477)},
+	{LL_CONSTANT(100000), LL_CONSTANT(92233720368547)},
+	{LL_CONSTANT(1000000), LL_CONSTANT(9223372036854)},
+	{LL_CONSTANT(10000000), LL_CONSTANT(922337203685)},
+	{LL_CONSTANT(100000000), LL_CONSTANT(92233720368)},
+	{LL_CONSTANT(1000000000), LL_CONSTANT(9223372036)},
+	{LL_CONSTANT(10000000000), LL_CONSTANT(922337203)},
+	{LL_CONSTANT(100000000000), LL_CONSTANT(92233720)},
+	{LL_CONSTANT(1000000000000), LL_CONSTANT(9223372)},
+	{LL_CONSTANT(10000000000000), LL_CONSTANT(922337)},
+	{LL_CONSTANT(100000000000000), LL_CONSTANT(92233)},
+	{LL_CONSTANT(1000000000000000), LL_CONSTANT(9223)},
+	{LL_CONSTANT(10000000000000000), LL_CONSTANT(922)},
+	{LL_CONSTANT(100000000000000000), LL_CONSTANT(92)},
+	{LL_CONSTANT(1000000000000000000), LL_CONSTANT(9)},
+#endif
+};
+static const int maxmod10 = 7;	/* (int) (maxdiv[0].maxval % 10) */
+
 static int
 numFromStr(const char *src, int *len, void **dst, int tp)
 {
@@ -594,16 +644,19 @@ numFromStr(const char *src, int *len, void **dst, int tp)
 	int sz = ATOMsize(tp);
 #ifdef HAVE_HGE
 	hge base = 0;
-	hge expbase = -1;
-	const hge maxdiv10 = GDK_hge_max / 10;
 #else
 	lng base = 0;
-	lng expbase = -1;
-	const lng maxdiv10 = LL_CONSTANT(922337203685477580); /*7*/
 #endif
-	const int maxmod10 = 7;	/* max value % 10 */
 	int sign = 1;
 
+	/* a valid number has the following syntax:
+	 * [-+]?[0-9]+([eE][0-9]+)?(LL)? -- PCRE syntax, or in other words
+	 * optional sign, one or more digits, optional exponent, optional LL
+	 * the exponent has the following syntax:
+	 * lower or upper case letter E, one or more digits
+	 * embedded spaces are not allowed
+	 * the optional LL at the end are only allowed for lng and hge
+	 * values */
 	atommem(void, sz);
 	while (GDKisspace(*p))
 		p++;
@@ -627,50 +680,45 @@ numFromStr(const char *src, int *len, void **dst, int tp)
 		}
 		if (!num10(*p)) {
 			/* still not a number */
-			memcpy(*dst, ATOMnilptr(tp), sz);
-			return 0;
+			goto bailout;
 		}
 	}
 	do {
-		if (base > maxdiv10 ||
-		    (base == maxdiv10 && base10(*p) > maxmod10)) {
+		int dig = base10(*p);
+		if (base > maxdiv[1].maxval ||
+		    (base == maxdiv[1].maxval && dig > maxmod10)) {
 			/* overflow */
-			memcpy(*dst, ATOMnilptr(tp), sz);
-			return 0;
+			goto bailout;
 		}
-		base = 10 * base + base10(*p);
+		base = 10 * base + dig;
 		p++;
-		/* Special case: xEy = x*10^y handling part 1 */
-		if (*p == 'E' || *p == 'e') {
-			// if there is a second E in the string we give up
-			if (expbase > -1) {
-				memcpy(*dst, ATOMnilptr(tp), sz);
-				return 0;
-			}
-			expbase = base;
-			base = 0;
-			p++;
-		}
 	} while (num10(*p));
-	/* Special case: xEy = x*10^y handling part 2 */
-	if (expbase > -1) {
-#ifdef HAVE_HGE
-		hge res = expbase;
-#else
-		lng res = expbase;
-#endif
-		while (base > 0) {
-			if (res > maxdiv10) {
-				memcpy(*dst, ATOMnilptr(tp), sz);
-				return 0;
+	if ((*p == 'e' || *p == 'E') && num10(p[1])) {
+		p++;
+		if (base == 0) {
+			/* if base is 0, any exponent will do, the
+			 * result is still 0 */
+			while (num10(*p))
+				p++;
+		} else {
+			int exp = 0;
+			do {
+				/* this calculation cannot overflow */
+				exp = exp * 10 + base10(*p);
+				if (exp >= (int) (sizeof(maxdiv) / sizeof(maxdiv[0]))) {
+					/* overflow */
+					goto bailout;
+				}
+				p++;
+			} while (num10(*p));
+			if (base > maxdiv[exp].maxval) {
+				/* overflow */
+				goto bailout;
 			}
-			res *= 10L;
-			base--;
+			base *= maxdiv[exp].scale;
 		}
-		base = res;
 	}
 	base *= sign;
-
 	switch (sz) {
 	case 1: {
 		bte **dstbte = (bte **) dst;
@@ -725,6 +773,10 @@ numFromStr(const char *src, int *len, void **dst, int tp)
 	while (GDKisspace(*p))
 		p++;
 	return (int) (p - src);
+
+  bailout:
+	memcpy(*dst, ATOMnilptr(tp), sz);
+	return 0;
 }
 
 int
@@ -761,10 +813,18 @@ hgeFromStr(const char *src, int *len, hge **dst)
 
 #define atom_io(TYPE, NAME, CAST)					\
 static TYPE *								\
-TYPE##Read(TYPE *a, stream *s, size_t cnt)				\
+TYPE##Read(TYPE *A, stream *s, size_t cnt)				\
 {									\
-	mnstr_read##NAME##Array(s, (CAST *) a, cnt);			\
-	return mnstr_errnr(s) ? NULL : a;				\
+	TYPE *a = A;							\
+	if (a == NULL && (a = GDKmalloc(cnt * sizeof(TYPE))) == NULL)	\
+		return NULL;						\
+	if (mnstr_read##NAME##Array(s, (CAST *) a, cnt) == 0 ||		\
+	    mnstr_errnr(s)) {						\
+		if (a != A)						\
+			GDKfree(a);					\
+		return NULL;						\
+	}								\
+	return a;							\
 }									\
 static gdk_return							\
 TYPE##Write(const TYPE *a, stream *s, size_t cnt)			\
@@ -772,6 +832,9 @@ TYPE##Write(const TYPE *a, stream *s, size_t cnt)			\
 	return mnstr_write##NAME##Array(s, (const CAST *) a, cnt) ?	\
 		GDK_SUCCEED : GDK_FAIL;					\
 }
+
+atom_io(bat, Int, int)
+atom_io(bit, Bte, bte)
 
 atomtostr(bte, "%hhd", )
 atom_io(bte, Bte, bte)
@@ -1002,70 +1065,34 @@ fltToStr(char **dst, int *len, const flt *src)
 atom_io(flt, Int, int)
 
 
-/*
- * @+ String Atom Implementation
- * The Built-in type string is partly handled in an atom extension
- * library. The main reason is to limit the number of built-in types
- * in the BAT library kernel. Moreover, an extra indirection for a
- * string is less harmful than for manipulation of, e.g. an int.
+/* String Atom Implementation
  *
- * The internal representation of strings is without escape sequences.
- * When the string is printed we should add the escapes back into it.
+ * Strings are stored in two parts.  The first part is the normal tail
+ * heap which contains a list of offsets.  The second part is the
+ * theap which contains the actual strings.  The offsets in the tail
+ * heap (a.k.a. offset heap) point into the theap (a.k.a. string
+ * heap).  Strings are NULL-terminated and are stored without any
+ * escape sequec=nces.  Strings are encoded using the UTF-8 encoding
+ * of Unicode.  This means that individual "characters" (really,
+ * Unicode code points) can be between one and four bytes long.
  *
- * The current escape policy is that single- and double-quote can be
- * prepended by a backslash. Furthermore, the backslash may be
- * followed by three octal digits to denote a character.
+ * Because in many typical situations there are lots of duplicated
+ * string values that are being stored in a table, but also in many
+ * (other) typical situations there are very few duplicated string
+ * values stored, a scheme has been introduced to cater to both
+ * situations.
  *
- * @- Automatic Double Elimination
+ * When the string heap is "small" (defined as less than 64KiB), the
+ * string heap is fully duplicate eliminated.  When the string heap
+ * grows beyond this size, the heap is not kept free of duplicate
+ * strings, but there is then a heuristic that tries to limit the
+ * number of duplicates.
  *
- * Because in many typical situations lots of double string values
- * occur in tables, the string insertion provides automatic double
- * elimination.  To do this, a GDK_STRHASHTABLE(=1024) bucket
- * hashtable is hidden in the first 4096 bytes of the string heap,
- * consisting of an offset to the first string hashing to that bucket
- * in the heap.  These offsets are made small (stridx_t is an unsigned
- * short) by exploiting the fact that the double elimination chunks
- * are (now) 64KB, hence a short suffices.
- *
- * In many other situations the cardinality of string columns is
- * large, or the string values might even be unique. In those cases,
- * our fixed-size hash table will start to overflow
- * quickly. Therefore, after the hash table is full (this is measured
- * very simplistically by looking whether the string heap exceeds a
- * heap size = GDK_ELIMLIMIT = 64KB) we flush the hash table. Even
- * more, from that moment on, we do not use a linked list, but a lossy
- * hash table that just contains the last position for each
- * bucket. Basically, after exceeding GDK_ELIMLIMIT, we get a
- * probabilistic/opportunistic duplicate elimination mechanism, that
- * only looks at the last GDK_ELIMLIMIT chunk in the heap, in a lossy
- * way.
- *
- * When comparing with the previous string implementation, the biggest
- * difference is that on 64-bits but with 32-bit oids, strings are
- * always 8-byte aligned and var_t numbers are multiplied by 8 to get
- * the true offset. The goal to do this is to allow 32-bits var_t on
- * 64-bits systems to address 32GB (using string alignment=8).  For
- * large database, the cost of padding (4 bytes avg) is offset by the
- * savings in var_t (allowing to go from 64- to 32-bits). Nothing lost
- * there, and 32-bits var_t also pay in smaller OIDs and smaller hash
- * tables, reducing memory pressure. For small duplicate eliminated
- * heaps, the short indices used in the hash table have now allowed
- * more buckets (2K instead of 1K) and average 2 bytes overhead for
- * the next pointers instead of 6-12. Therefore small heaps are now
- * more compact than before.
- *
- * The routine strElimDoubles() can be used to check whether all
- * strings are still being double-eliminated in the original
- * hash-table.  Only then we know that unequal offset-integers in the
- * BUN array means guaranteed different strings in the heap. This
- * optimization is made at some points in the GDK. Make sure you check
- * GDK_ELIMDOUBLES before assuming this!
+ * This is done by having a fixed sized hash table at the start of the
+ * string heap, and allocating space for collision lists in the first
+ * 64KiB of the string heap.  After the first 64KiB no extra space is
+ * allocated for lists, so hash collisions cannot be resolved.
  */
-int
-strElimDoubles(Heap *h)
-{
-	return GDK_ELIMDOUBLES(h);
-}
 
 int
 strNil(const char *s)
@@ -1108,7 +1135,7 @@ strHeap(Heap *d, size_t cap)
 		d->free = GDK_STRHASHTABLE * sizeof(stridx_t);
 		d->dirty = 1;
 		memset(d->base, 0, d->free);
-		d->hashash = 1;	/* new string heaps get the hash value (and length) stored */
+		d->hashash = 0;
 #ifndef NDEBUG
 		/* fill should solve initialization problems within valgrind */
 		memset(d->base + d->free, 0, d->size - d->free);
@@ -1130,48 +1157,47 @@ void
 strCleanHash(Heap *h, int rebuild)
 {
 	char oldhash[GDK_STRHASHSIZE];
+	size_t pad, pos;
+	const size_t extralen = h->hashash ? EXTRALEN : 0;
+	stridx_t *bucket;
+	BUN off, strhash;
+	const char *s;
+
 	(void) rebuild;
 	if (!h->cleanhash)
 		return;
 	/* copy old hash table so we can check whether we changed it */
 	memcpy(oldhash, h->base, sizeof(oldhash));
 	h->cleanhash = 0;
-	if (!GDK_ELIMDOUBLES(h)) {
-		/* flush hash table for security */
-		memset(h->base, 0, GDK_STRHASHSIZE);
-	} else {
-		/* rebuild hash table for double elimination
-		 *
-		 * If appending strings to the BAT was aborted, if the
-		 * heap was memory mapped, the hash in the string heap
-		 * may well be incorrect.  Therefore we don't trust it
-		 * when we read in a string heap and we rebuild the
-		 * complete table (it is small, so this won't take any
-		 * time at all). */
-		size_t pad, pos;
-		const size_t extralen = h->hashash ? EXTRALEN : 0;
-		stridx_t *bucket;
-		BUN off, strhash;
-		const char *s;
-
-		memset(h->base, 0, GDK_STRHASHSIZE);
-		pos = GDK_STRHASHSIZE;
-		while (pos < h->free) {
-			pad = GDK_VARALIGN - (pos & (GDK_VARALIGN - 1));
-			if (pad < sizeof(stridx_t))
-				pad += GDK_VARALIGN;
-			pos += pad + extralen;
-			s = h->base + pos;
-			if (h->hashash)
-				strhash = ((const BUN *) s)[-1];
-			else
-				GDK_STRHASH(s, strhash);
-			off = strhash & GDK_STRHASHMASK;
-			bucket = ((stridx_t *) h->base) + off;
-			*bucket = (stridx_t) (pos - extralen - sizeof(stridx_t));
-			pos += GDK_STRLEN(s);
-		}
+	/* rebuild hash table for double elimination
+	 *
+	 * If appending strings to the BAT was aborted, if the heap
+	 * was memory mapped, the hash in the string heap may well be
+	 * incorrect.  Therefore we don't trust it when we read in a
+	 * string heap and we rebuild the complete table (it is small,
+	 * so this won't take any time at all).
+	 * Note that we will only do this the first time the heap is
+	 * loaded, and only for heaps that existed when the server was
+	 * started. */
+	memset(h->base, 0, GDK_STRHASHSIZE);
+	pos = GDK_STRHASHSIZE;
+	while (pos < h->free && pos < GDK_ELIMLIMIT) {
+		pad = GDK_VARALIGN - (pos & (GDK_VARALIGN - 1));
+		if (pad < sizeof(stridx_t))
+			pad += GDK_VARALIGN;
+		pos += pad + extralen;
+		s = h->base + pos;
+		if (h->hashash)
+			strhash = ((const BUN *) s)[-1];
+		else
+			GDK_STRHASH(s, strhash);
+		off = strhash & GDK_STRHASHMASK;
+		bucket = ((stridx_t *) h->base) + off;
+		*bucket = (stridx_t) (pos - extralen - sizeof(stridx_t));
+		pos += GDK_STRLEN(s);
+	}
 #ifndef NDEBUG
+	if (GDK_ELIMDOUBLES(h)) {
 		pos = GDK_STRHASHSIZE;
 		while (pos < h->free) {
 			pad = GDK_VARALIGN - (pos & (GDK_VARALIGN - 1));
@@ -1182,11 +1208,16 @@ strCleanHash(Heap *h, int rebuild)
 			assert(strLocate(h, s) != 0);
 			pos += GDK_STRLEN(s);
 		}
-#endif
 	}
+#endif
 	/* only set dirty flag if the hash table actually changed */
-	h->dirty |= memcmp(oldhash, h->base, sizeof(oldhash)) != 0;
-
+	if (!h->dirty &&
+	    memcmp(oldhash, h->base, sizeof(oldhash)) != 0) {
+		if (h->storage == STORE_MMAP)
+			(void) MT_msync(h->base, GDK_STRHASHSIZE);
+		else
+			h->dirty = 1;
+	}
 }
 
 /*
@@ -1212,7 +1243,7 @@ strLocate(Heap *h, const char *v)
 	for (ref = ((stridx_t *) h->base) + off; *ref; ref = next) {
 		next = (stridx_t *) (h->base + *ref);
 		if (GDK_STRCMP(v, (str) (next + 1) + extralen) == 0)
-			return (var_t) ((sizeof(stridx_t) + *ref + extralen) >> GDK_VARSHIFT);	/* found */
+			return (var_t) ((sizeof(stridx_t) + *ref + extralen));	/* found */
 	}
 	return 0;
 }
@@ -1221,10 +1252,10 @@ static var_t
 strPut(Heap *h, var_t *dst, const char *v)
 {
 	size_t elimbase = GDK_ELIMBASE(h->free);
-	size_t pad = GDK_VARALIGN - (h->free & (GDK_VARALIGN - 1));
+	size_t pad;
 	size_t pos, len = GDK_STRLEN(v);
 	const size_t extralen = h->hashash ? EXTRALEN : 0;
-	stridx_t *bucket, *ref, *next;
+	stridx_t *bucket;
 	BUN off, strhash;
 
 	GDK_STRHASH(v, off);
@@ -1232,42 +1263,48 @@ strPut(Heap *h, var_t *dst, const char *v)
 	off &= GDK_STRHASHMASK;
 	bucket = ((stridx_t *) h->base) + off;
 
-	/* if double-elimination is still in place, search hash-table */
-	if (elimbase == 0) {
-		/* small string heap (<64KB) -- fully double eliminated */
-		for (ref = bucket; *ref; ref = next) {
-			/* search the linked list */
-			next = (stridx_t *) (h->base + *ref);
-			if (GDK_STRCMP(v, (str) (next + 1) + extralen) == 0) {
-				/* found */
-				pos = sizeof(stridx_t) + *ref + extralen;
-				return *dst = (var_t) (pos >> GDK_VARSHIFT);
+	if (*bucket) {
+		/* the hash list is not empty */
+		if (*bucket < GDK_ELIMLIMIT) {
+			/* small string heap (<64KiB) -- fully double
+			 * eliminated: search the linked list */
+			const stridx_t *ref = bucket;
+
+			do {
+				pos = *ref + sizeof(stridx_t) + extralen;
+				if (GDK_STRCMP(v, h->base + pos) == 0) {
+					/* found */
+					return *dst = (var_t) pos;
+				}
+				ref = (stridx_t *) (h->base + *ref);
+			} while (*ref);
+		} else {
+			/* large string heap (>=64KiB) -- there is no
+			 * linked list, so only look at single
+			 * entry */
+			pos = *bucket + extralen;
+			if (GDK_STRCMP(v, h->base + pos) == 0) {
+				/* already in heap: reuse */
+				return *dst = (var_t) pos;
 			}
 		}
-		/* is there room for the next pointer in the padding space? */
+	}
+	/* the string was not found in the heap, we need to enter it */
+
+	pad = GDK_VARALIGN - (h->free & (GDK_VARALIGN - 1));
+	if (elimbase == 0) {	/* i.e. h->free < GDK_ELIMLIMIT */
 		if (pad < sizeof(stridx_t)) {
-			/* if not, pad more */
+			/* make room for hash link */
 			pad += GDK_VARALIGN;
 		}
-	} else if (*bucket) {
-		/* large string heap (>=64KB) --
-		 * opportunistic/probabilistic double elimination */
-		pos = elimbase + *bucket + extralen;
-		if (GDK_STRCMP(v, h->base + pos) == 0) {
-			/* already in heap; do not insert! */
-			return *dst = (var_t) (pos >> GDK_VARSHIFT);
-		}
-#if SIZEOF_VAR_T >= SIZEOF_VOID_P /* in fact SIZEOF_VAR_T == SIZEOF_VOID_P */
-		if (extralen == 0)
-			/* i.e., h->hashash == FALSE */
-			/* no VARSHIFT and no string hash value stored
-			 * => no padding/alignment needed */
-			pad = 0;
-		else
-#endif
-			/* pad to align on VARALIGN for VARSHIFT
-			 * and/or string hash value */
-			pad &= (GDK_VARALIGN - 1);
+	} else if (extralen == 0) { /* i.e., h->hashash == FALSE */
+		/* no VARSHIFT and no string hash value stored => no
+		 * padding/alignment needed */
+		pad = 0;
+	} else {
+		/* pad to align on VARALIGN for VARSHIFT and/or string
+		 * hash value */
+		pad &= (GDK_VARALIGN - 1);
 	}
 
 	/* check heap for space (limited to a certain maximum after
@@ -1285,8 +1322,8 @@ strPut(Heap *h, var_t *dst, const char *v)
 
 		assert(newsize);
 
-		if (h->free + pad + len + extralen >= (((size_t) VAR_MAX) << GDK_VARSHIFT)) {
-			GDKerror("strPut: string heaps gets larger than " SZFMT "GB.\n", (((size_t) VAR_MAX) << GDK_VARSHIFT) >> 30);
+		if (h->free + pad + len + extralen >= (size_t) VAR_MAX) {
+			GDKerror("strPut: string heaps gets larger than " SZFMT "GiB.\n", (size_t) VAR_MAX >> 30);
 			return 0;
 		}
 		HEAPDEBUG fprintf(stderr, "#HEAPextend in strPut %s " SZFMT " " SZFMT "\n", h->filename, h->size, newsize);
@@ -1305,7 +1342,7 @@ strPut(Heap *h, var_t *dst, const char *v)
 
 	/* insert string */
 	pos = h->free + pad + extralen;
-	*dst = (var_t) (pos >> GDK_VARSHIFT);
+	*dst = (var_t) pos;
 #ifndef NDEBUG
 	/* just before inserting into the heap, make sure that the
 	 * string is actually UTF-8 (if we encountered a return
@@ -1375,11 +1412,8 @@ strPut(Heap *h, var_t *dst, const char *v)
 		pos -= sizeof(stridx_t);
 		*(stridx_t *) (h->base + pos) = *bucket;
 	}
-	*bucket = (stridx_t) (pos - elimbase);	/* set bucket to the new string */
+	*bucket = (stridx_t) pos;	/* set bucket to the new string */
 
-	if (h->free >= elimbase + GDK_ELIMLIMIT) {
-		memset(h->base, 0, GDK_STRHASHSIZE);	/* flush hash table */
-	}
 	return *dst;
 }
 
@@ -1768,130 +1802,6 @@ strWrite(const char *a, stream *s, size_t cnt)
 }
 
 /*
- * @+ Unique OIDs
- * The basic type OID represents unique values. Refinements should be
- * considered to link oids in time order.
- *
- * Values start from the "seqbase" (usually 0@0). A nil seqbase makes
- * the entire column nil.  Monet's BUN access methods
- * BUNhead(b,p)/BUNtail(b,p) instantiate a value on-the-fly by looking
- * at the position p in BAT b.
- */
-static volatile ATOMIC_TYPE GDKoid;
-#ifdef ATOMIC_LOCK
-static MT_Lock GDKoidLock MT_LOCK_INITIALIZER("GDKoidLock");
-#endif
-static oid GDKflushed;		/* protected by MT_system_lock */
-
-/*
- * Make up some new OID for a specified database, based on the current
- * time.
- */
-static oid
-OIDrand(void)
-{
-	return 1000000;
-}
-
-/*
- * Init the shared array of oid bases.
- */
-int
-OIDinit(void)
-{
-#ifdef NEED_MT_LOCK_INIT
-	ATOMIC_INIT(GDKoidLock);
-#endif
-	GDKflushed = 0;
-	GDKoid = OIDrand();
-	assert(oid_nil == * (const oid *) ATOMnilptr(TYPE_oid));
-	return 0;
-}
-
-/*
- * Initialize the current OID number to be starting at 'o'.
- */
-oid
-OIDbase(oid o)
-{
-	ATOMIC_SET(GDKoid, (ATOMIC_TYPE) o, GDKoidLock);
-	return o;
-}
-
-static oid
-OIDseed(oid o)
-{
-	oid t, p = (oid) ATOMIC_GET(GDKoid, GDKoidLock);
-
-	t = OIDrand();
-	if (o > t)
-		t = o;
-	if (p >= t)
-		t = p;
-	return t;
-}
-
-/*
- * Initialize a sequence of OID seeds (for a sequence of database) as
- * stored in a string.
- */
-oid
-OIDread(str s)
-{
-	oid new = 0, *p = &new;
-	int l = sizeof(oid);
-
-	while (GDKisspace(*s))
-		s++;
-	while (GDKisdigit(*s)) {
-		s += OIDfromStr(s, &l, &p);
-		while (GDKisspace(*s))
-			s++;
-		new = OIDseed(new);
-	}
-	return new;
-}
-
-/*
- * Write the current sequence of OID seeds to a file in string format.
- */
-int
-OIDwrite(FILE *f)
-{
-	int ret = 0;
-	ATOMIC_TYPE o;
-
-	MT_lock_set(&MT_system_lock);
-	o = ATOMIC_GET(GDKoid, GDKoidLock);
-	if (o) {
-		GDKflushed = (oid) o;
-		if (fprintf(f, OIDFMT "@0", GDKflushed) < 0 || ferror(f))
-			ret = -1;
-	}
-	MT_lock_unset(&MT_system_lock);
-	return ret;
-}
-
-int
-OIDdirty(void)
-{
-	int ret;
-	MT_lock_set(&MT_system_lock);
-	ret = (oid) ATOMIC_GET(GDKoid, GDKoidLock) > GDKflushed;
-	MT_lock_unset(&MT_system_lock);
-	return ret;
-}
-
-/*
- * Reserve a range of unique OIDs
- */
-oid
-OIDnew(oid inc)
-{
-	return (oid) ATOMIC_ADD(GDKoid, (ATOMIC_TYPE) inc, GDKoidLock);
-}
-
-/*
  * String conversion routines.
  */
 int
@@ -2230,51 +2140,40 @@ int GDKatomcnt = TYPE_str + 1;
  * Sometimes a bat descriptor is loaded before the dynamic module
  * defining the atom is loaded. To support this an extra set of
  * unknown atoms is kept.  These can be accessed via the ATOMunknown
- * interface. Adding atoms to this set is done via the ATOMunknown_add
- * function. Finding an (negative) atom index can be done via
+ * interface. Finding an (negative) atom index can be done via
  * ATOMunknown_find, which simply adds the atom if it's not in the
  * unknown set. The index van be used to find the name of an unknown
- * ATOM via ATOMunknown_name. Once an atom becomes known, ie the
- * module defining it is loaded, it should be removed from the unknown
- * set using ATOMunknown_del.
+ * ATOM via ATOMunknown_name.
  */
 static str unknown[MAXATOMS] = { NULL };
 
 int
-ATOMunknown_add(const char *nme)
-{
-	int i = 1;
-
-	for (; i < MAXATOMS; i++) {
-		if (!unknown[i]) {
-			unknown[i] = GDKstrdup(nme);
-			return -i;
-		}
-	}
-	assert(0);
-	return 0;
-}
-
-int
-ATOMunknown_del(int i)
-{
-	assert(unknown[-i]);
-	GDKfree(unknown[-i]);
-	unknown[-i] = NULL;
-	return 0;
-}
-
-int
 ATOMunknown_find(const char *nme)
 {
-	int i = 1;
+	int i, j = 0;
 
-	for (; i < MAXATOMS; i++) {
-		if (unknown[i] && strcmp(unknown[i], nme) == 0) {
-			return -i;
-		}
+	/* first try to find the atom */
+	MT_lock_set(&GDKthreadLock);
+	for (i = 1; i < MAXATOMS; i++) {
+		if (unknown[i]) {
+			if (strcmp(unknown[i], nme) == 0) {
+				MT_lock_unset(&GDKthreadLock);
+				return -i;
+			}
+		} else if (j == 0)
+			j = i;
 	}
-	return ATOMunknown_add(nme);
+	if (j == 0) {
+		/* no space for new atom (shouldn't happen) */
+		MT_lock_unset(&GDKthreadLock);
+		return 0;
+	}
+	if ((unknown[j] = GDKstrdup(nme)) == NULL) {
+		MT_lock_unset(&GDKthreadLock);
+		return 0;
+	}
+	MT_lock_unset(&GDKthreadLock);
+	return -j;
 }
 
 str

@@ -32,7 +32,7 @@
  * Also make sure you don't re-use variables, because then the
  * row count becomes non-deterministic.
  */
-int
+str
 OPTcostModelImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int i;
@@ -46,23 +46,23 @@ OPTcostModelImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	(void) pci;
 
 	if ( mb->inlineProp )
-		return 0;
+		return MAL_SUCCEED;
 
 	for (i = 0; i < mb->stop; i++) {
 		p = getInstrPtr(mb, i);
 		if (getModuleId(p)==algebraRef) {
-			 if (getFunctionId(p) == subselectRef ||
-				getFunctionId(p) == thetasubselectRef) {
+			 if (getFunctionId(p) == selectRef ||
+				getFunctionId(p) == thetaselectRef) {
 				newRows(1,2, (c1 > 2 ? c2 / 2 +1: c1/2+1),0);
 			} else if (
 				getFunctionId(p) == selectNotNilRef  ||
 				getFunctionId(p) == sortRef  ||
-				getFunctionId(p) == subsortRef  ||
+				getFunctionId(p) == sortRef  ||
 				getFunctionId(p) == projectRef  ){
 				newRows(1,1,c1,0);
-			} else if (getFunctionId(p) == subjoinRef ||
+			} else if (getFunctionId(p) == joinRef ||
 				getFunctionId(p) == projectionRef ||
-				getFunctionId(p) == subbandjoinRef ||
+				getFunctionId(p) == bandjoinRef ||
 				getFunctionId(p) == projectionpathRef ) {
 				/* assume 1-1 joins */
 				newRows(1,2,(c1 < c2 ? c1 : c2),0);
@@ -120,7 +120,7 @@ OPTcostModelImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 				}
 			} 
 		} else if (getModuleId(p)==groupRef) {
-			if (getFunctionId(p) ==subgroupRef ) {
+			if (getFunctionId(p) ==subgroupRef || getFunctionId(p) ==groupRef ) {
 				newRows(1,1,( c1 / 10+1),0);
 			} else {
 				newRows(1,1, c1,0);
@@ -149,8 +149,10 @@ OPTcostModelImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	//chkFlow(cntxt->fdout, mb);
 	//chkDeclarations(cntxt->fdout, mb);
     /* keep all actions taken as a post block comment */
-    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","costmodel",1,GDKusec() - usec);
+	usec = GDKusec()- usec;
+    snprintf(buf,256,"%-20s actions= 1 time=" LLFMT " usec","costmodel",usec);
     newComment(mb,buf);
+	addtoMalBlkHistory(mb);
 
-	return 1;
+	return MAL_SUCCEED;
 }
