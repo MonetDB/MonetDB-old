@@ -25,8 +25,8 @@
 str
 OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int i, j, limit, slimit;
-	InstrPtr p, *old;
+	int i, j, k, limit, slimit;
+	InstrPtr p, q,  *old;
 	int actions = 0;
 	char buf[256];
 	lng usec = GDKusec();
@@ -99,7 +99,6 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 		 * otherwise we could not inject the assignment */
 		if (blockExit(p) ){
 			/* force garbage collection of all declared within output block and ending here  */
-/* ignore for the time being, it requires a more thorough analysis of dependencies.
 			for( k = stmtlnk[i]; k; k = varlnk[k])
 			if( isaBatType(getVarType(mb,k)) ){
 				q = newAssignment(mb);
@@ -111,7 +110,6 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 				setVarEolife(mb,k,mb->stop-1);
 				actions++;
 			}
-*/
 		}
 	}
 	assert(p);
