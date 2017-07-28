@@ -44,6 +44,10 @@ static FileRecord filesLoaded[MAXMODULES];
 static int maxfiles = MAXMODULES;
 static int lastfile = 0;
 
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
+
 /*
  * returns 1 if the file exists
  */
@@ -362,7 +366,7 @@ locate_file(const char *basename, const char *ext, bit recurse)
 			(void)closedir(rdir);
 		} else {
 			strcat(fullname + i + 1, ext);
-			if ((fd = open(fullname, O_RDONLY)) >= 0) {
+			if ((fd = open(fullname, O_RDONLY | O_CLOEXEC)) >= 0) {
 				char *tmp;
 				close(fd);
 				tmp = GDKrealloc(fullname, strlen(fullname) + 1);

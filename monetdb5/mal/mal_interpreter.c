@@ -592,7 +592,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 		 * garbage collected are identified. In the post-execution
 		 * phase they are removed.
 		 */
-		for (i = 0; i < pci->retc; i++)
+		for (i = 0; i < pci->retc; i++) 
 			backup[i] = stk->stk[getArg(pci, i)];
 
 		if (garbageControl(pci)) {
@@ -665,7 +665,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			}
 			break;
 		case CMDcall:
-			ret =malCommandCall(stk, pci);
+			ret = malCommandCall(stk, pci);
 #ifndef NDEBUG
 			/* check that the types of actual results match
 			 * expected results */

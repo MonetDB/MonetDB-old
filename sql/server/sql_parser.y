@@ -217,6 +217,7 @@ int yydebug=1;
 	opt_order_by_clause
 	default
 	default_value
+	assign_default
 	cast_value
 	aggr_ref
 	var_ref
@@ -435,6 +436,7 @@ int yydebug=1;
 	document_or_content
 	document_or_content_or_sequence
 	drop_action
+	extract_datetime_field
 	grantor
 	intval
 	join_type
@@ -576,8 +578,8 @@ int yydebug=1;
 %left <operation> '*' '/' '%'
 %left <operation> '~'
 
-%left <operatio> GEOM_OVERLAP GEOM_OVERLAP_OR_ABOVE GEOM_OVERLAP_OR_BELOW GEOM_OVERLAP_OR_LEFT 
-%left <operatio> GEOM_OVERLAP_OR_RIGHT GEOM_BELOW GEOM_ABOVE GEOM_DIST GEOM_MBR_EQUAL
+%left <operation> GEOM_OVERLAP GEOM_OVERLAP_OR_ABOVE GEOM_OVERLAP_OR_BELOW GEOM_OVERLAP_OR_LEFT
+%left <operation> GEOM_OVERLAP_OR_RIGHT GEOM_BELOW GEOM_ABOVE GEOM_DIST GEOM_MBR_EQUAL
 
 /* literal keyword tokens */
 /*
@@ -601,7 +603,7 @@ SQLCODE SQLERROR UNDER WHENEVER
 
 %token ALTER ADD TABLE COLUMN TO UNIQUE VALUES VIEW WHERE WITH
 %token<sval> sqlDATE TIME TIMESTAMP INTERVAL
-%token YEAR MONTH DAY HOUR MINUTE SECOND ZONE
+%token YEAR QUARTER MONTH WEEK DAY HOUR MINUTE SECOND ZONE
 %token LIMIT OFFSET SAMPLE
 
 %token CASE WHEN THEN ELSE NULLIF COALESCE IF ELSEIF WHILE DO
@@ -2908,10 +2910,14 @@ assignment_commalist:
 			{ $$ = append_symbol($1, $3 ); }
  ;
 
+assign_default:
+    DEFAULT		{ $$ = _symbol_create(SQL_DEFAULT, NULL ); }
+ ;
+
 assignment:
-   column '=' DEFAULT
+   column '=' assign_default
 	{ dlist *l = L();
-	  append_symbol(l, _symbol_create(SQL_DEFAULT, NULL ) );
+	  append_symbol(l, $3);
 	  append_string(l, $1);
 	  $$ = _symbol_create_list( SQL_ASSIGN, l); }
  |  column '=' search_condition
@@ -3288,7 +3294,7 @@ opt_having_clause:
 
 
 search_condition:
-    and_exp OR search_condition
+    search_condition OR and_exp
 		{ dlist *l = L();
 		  append_symbol(l, $1);
 		  append_symbol(l, $3);
@@ -3297,7 +3303,7 @@ search_condition:
  ;
    
 and_exp:
-    pred_exp AND and_exp
+    and_exp AND pred_exp
 		{ dlist *l = L();
 		  append_symbol(l, $1);
 		  append_symbol(l, $3);
@@ -4006,7 +4012,7 @@ func_ident:
  ;
 
 datetime_funcs:
-    EXTRACT '(' datetime_field FROM scalar_exp ')'
+    EXTRACT '(' extract_datetime_field FROM scalar_exp ')'
 			{ dlist *l = L();
 			  const char *ident = datetime_field((itype)$3);
 			  append_list(l,
@@ -4279,6 +4285,12 @@ non_second_datetime_field:
 datetime_field:
     non_second_datetime_field
  |  SECOND		{ $$ = isec; }
+ ;
+
+extract_datetime_field:
+    datetime_field
+ |  QUARTER		{ $$ = iquarter; }
+ |  WEEK		{ $$ = iweek; }
  ;
 
 start_field:
@@ -5114,6 +5126,12 @@ data_type:
 		yyerror(m, msg);
 		_DELETE(msg);
 		YYABORT;
+	} else if (geoSubType == -1) {
+		char *msg = sql_message("allocation failure");
+		$$.type = NULL;
+		yyerror(m, msg);
+		_DELETE(msg);
+		YYABORT;
 	}  else if (!sql_find_subtype(&$$, "geometry", geoSubType, 0 )) {
 		char *msg = sql_message("\b22000!type (%s) unknown", $1);
 		yyerror(m, msg);
@@ -5134,6 +5152,11 @@ subgeometry_type:
 		yyerror(m, msg);
 		_DELETE(msg);
 		YYABORT;
+	} else if(subtype == -1) {
+		char *msg = sql_message("allocation failure");
+		yyerror(m, msg);
+		_DELETE(msg);
+		YYABORT;
 	} 
 	$$ = subtype;	
 }
@@ -5143,6 +5166,11 @@ subgeometry_type:
 
 	if(subtype == 0) {
 		char *msg = sql_message("\b22000!type (%s) unknown", geoSubType);
+		yyerror(m, msg);
+		_DELETE(msg);
+		YYABORT;
+	} else if (subtype == -1) {
+		char *msg = sql_message("allocation failure");
 		yyerror(m, msg);
 		_DELETE(msg);
 		YYABORT;
@@ -5941,13 +5969,18 @@ int find_subgeometry_type(char* geoSubType) {
 		if(strLength > 0 ) {
 			char *typeSubStr = malloc(strLength);
 			char flag = geoSubType[strLength-1]; 
-			
+
+			if (typeSubStr == NULL) {
+				return -1;
+			}
 			memcpy(typeSubStr, geoSubType, strLength-1);
 			typeSubStr[strLength-1]='\0';
 			if(flag == 'z' || flag == 'm' ) {
 				subType = find_subgeometry_type(typeSubStr);
-			
-			
+				if (subType == -1) {
+					free(typeSubStr);
+					return -1;
+				}
 				if(flag == 'z')
 					SET_Z(subType);
 				if(flag == 'm')

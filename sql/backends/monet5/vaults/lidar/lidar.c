@@ -35,7 +35,7 @@
 #include <clients.h>
 #include <mal_exception.h>
 
-static MT_Lock mt_lidar_lock;
+static MT_Lock mt_lidar_lock MT_LOCK_INITIALIZER("mt_lidar_lock");
 
 #define LIDAR_LOCK MT_lock_set(&mt_lidar_lock)
 #define LIDAR_UNLOCK MT_lock_unset(&mt_lidar_lock)
@@ -1888,8 +1888,14 @@ loadtable_cleanup:
 
 str
 LIDARprelude(void *ret) {
+#ifdef NEED_MT_LOCK_INIT
+	static int initialized = 0;
+	/* since we don't destroy the lock, only initialize it once */
+	if (!initialized)
+		MT_lock_init(&mt_lidar_lock, "lidar.lock");
+	initialized = 1;
+#endif
 	(void) ret;
-	MT_lock_init(&mt_lidar_lock, "lidar.lock");
 
 	return MAL_SUCCEED;
 }
