@@ -321,7 +321,7 @@ LIDARexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	tbl = mvc_bind_table(m, sch, tname);
 	if (tbl == NULL) {
-		msg = createException (MAL, "lidar.exporttable", "Table %s is missing.\n", tname);
+		msg = createException (MAL, "lidar.exporttable", "SQLSTATE LI000!""Table %s is missing.\n", tname);
 		return msg;
 	}
 
@@ -330,7 +330,7 @@ LIDARexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	cols[1] = mvc_bind_column(m, tbl, "y");
 	cols[2] = mvc_bind_column(m, tbl, "z");
 	if (cols[0] == NULL || cols[1] == NULL || cols[2] == NULL) {
-		msg = createException(MAL, "lidar.exporttable", "Could not locate a column with name 'x', 'y', or 'z'.");
+		msg = createException(MAL, "lidar.exporttable", "SQLSTATE LI000!""Could not locate a column with name 'x', 'y', or 'z'.");
 		return msg;
 	}
 	//bats_dbl[0] = mvc_bind(m, *sname, *tname, *cname, *access);
@@ -519,7 +519,7 @@ LIDARopenFile(str fname, lidar_info *res)
 
 	/* check if file exists */
 	if (access(fname, F_OK) == -1) {
-		msg = createException(MAL, "lidar.openfile", "File %s not found.", fname);
+		msg = createException(MAL, "lidar.openfile", "SQLSTATE LI000!""File %s not found.", fname);
 
 	}
 
@@ -530,8 +530,9 @@ LIDARopenFile(str fname, lidar_info *res)
 	MT_lock_unset(&mt_lidar_lock);
 	if (LASError_GetErrorCount() != 0) {
 		str error_msg = LASError_GetLastErrorMsg();
-		msg = createException(MAL, "lidar.openfile", "Error accessing LIDAR file %s (%s)???",
-							  fname, error_msg);
+		msg = createException(MAL, "lidar.openfile",
+				      "SQLSTATE LI000!""Error accessing LIDAR file %s (%s)???",
+				      fname, error_msg);
 		free(error_msg);
 		goto openfile_cleanup;
 	}
@@ -542,8 +543,9 @@ LIDARopenFile(str fname, lidar_info *res)
 	MT_lock_unset(&mt_lidar_lock);
 	if (!header) {
 		str error_msg = LASError_GetLastErrorMsg();
-		msg = createException(MAL, "lidar.openfile", "Error accessing LIDAR file %s (%s)",
-							  fname, error_msg);
+		msg = createException(MAL, "lidar.openfile",
+				      "SQLSTATE LI000!""Error accessing LIDAR file %s (%s)",
+				      fname, error_msg);
 		free(error_msg);
 		goto openfile_cleanup;
 	}
@@ -832,7 +834,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 		break;
 	default:
-		msg = createException(MAL, "lidar.attach", "Wrong number of arguments");
+		msg = createException(MAL, "lidar.attach", "SQLSTATE LI000!""Wrong number of arguments");
 		return msg;
 	}
 
@@ -863,14 +865,15 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	files = LIDARopenPath(fname, &files_len);
 	if (files == NULL) {
 		str error_msg = LASError_GetLastErrorMsg();
-		msg = createException(MAL, "lidar.attach", "Error accessing path %s (%s)",
-							  fname, error_msg);
+		msg = createException(MAL, "lidar.attach",
+				      "SQLSTATE LI000!""Error accessing path %s (%s)",
+				      fname, error_msg);
 		free(error_msg);
 		return msg;
 	}
 
 	if (files_len == 0) {
-		msg = createException(MAL, "lidar.attach", "No LiDAR files found in %s", fname);
+		msg = createException(MAL, "lidar.attach", "SQLSTATE LI000!""No LiDAR files found in %s", fname);
 		goto attach_cleanup0;
 	}
 
@@ -914,7 +917,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* or as regular SQL table */
 	tbl = mvc_bind_table(m, sch, tname_low);
 	if (rid != oid_nil || tbl) {
-		msg = createException(SQL, "lidar.attach", "Table %s already exists. Not attaching.\n", tname_low);
+		msg = createException(SQL, "lidar.attach", "SQLSTATE LI000!""Table %s already exists. Not attaching.\n", tname_low);
 		goto attach_cleanup1;
 	}
 
@@ -938,7 +941,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		col = mvc_bind_column(m, lidar_fl, "name");
 		rid = table_funcs.column_find_row(m->session->tr, col, filename, NULL);
 		if (rid != oid_nil) {
-			msg = createException(SQL, "lidar.attach", "File %s already attached\n", filename);
+			msg = createException(SQL, "lidar.attach", "SQLSTATE LI000!""File %s already attached\n", filename);
 			goto attach_cleanup1;
 		}
 
@@ -1372,13 +1375,13 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, sql_table *tbl, o
 	columns = (sql_column **)malloc(param_len*sizeof(sql_column *));
 	arr = malloc(param_len*sizeof(void *));
 	if (bats == NULL || columns == NULL || arr == NULL) {
-		msg = createException(MAL, "lidar.loadtable", MAL_MALLOC_FAIL);
+		msg = createException(MAL, "lidar.loadtable", "SQLSTATE "MAL_MALLOC_FAIL);
 		return msg;
 	}
 
 	lidar_cl = mvc_bind_table(m, sch, "lidar_columns");
 	if (lidar_cl == NULL) {
-		msg = createException(MAL, "lidar.loadtable", "Could not find table lidar_columns.\n");
+		msg = createException(MAL, "lidar.loadtable", "SQLSTATE LI000!""Could not find table lidar_columns.\n");
 		return msg;
 	}
 
@@ -1588,26 +1591,26 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, sql_table *tbl, o
 				free(arr);
 				switch(error_code) {
 				case 1:
-					msg = createException(MAL, "lidar.lidarload", MAL_MALLOC_FAIL);
+					msg = createException(MAL, "lidar.lidarload", "SQLSTATE "MAL_MALLOC_FAIL);
 					break;
 				case 2:
 					msg = createException(MAL, "lidar.lidarload",
-										  "unimplemented parameter: 0x%x", prm);
+							      "SQLSTATE LI000!""unimplemented parameter: 0x%x", prm);
 					break;
 				case 3:
 					msg = createException(MAL, "lidar.lidarload",
-										  "Unknown precision for X column (%d)",
-										  precisionx);
+							      "SQLSTATE LI000!""Unknown precision for X column (%d)",
+							      precisionx);
 					break;
 				case 4:
 					msg = createException(MAL, "lidar.lidarload",
-										  "Unknown precision for Y column (%d)",
-										  precisiony);
+							      "SQLSTATE LI000!""Unknown precision for Y column (%d)",
+							      precisiony);
 					break;
 				case 5:
 					msg = createException(MAL, "lidar.lidarload",
-										  "Unknown precision for Z column (%d)",
-										  precisionz);
+							      "SQLSTATE LI000!""Unknown precision for Z column (%d)",
+							      precisionz);
 					break;
 				}
 				return msg;
@@ -1634,7 +1637,7 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, sql_table *tbl, o
 	if (LASError_GetErrorCount() != 0) {
 		str error_msg = LASError_GetLastErrorMsg();
 		msg = createException(MAL, "lidar.lidarload",
-							  "Error accessing LiDAR file %s (%s)", fname, error_msg);
+				      "SQLSTATE LI000!""Error accessing LiDAR file %s (%s)", fname, error_msg);
 		GDKfree(tpcode);
 		GDKfree(rep);
 		GDKfree(wid);
@@ -1822,7 +1825,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	 */
 	etname = SQLescapeString(tname);
 	if (!etname) {
-		msg = createException(MAL, "lidar.loadtable", MAL_MALLOC_FAIL);
+		msg = createException(MAL, "lidar.loadtable", "SQLSTATE "MAL_MALLOC_FAIL);
 		goto loadtable_cleanup;
 	}
 
@@ -1840,26 +1843,26 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 			sch = mvc_bind_schema(m, "sys");
 			if (sch == NULL) {
-				msg = createException(MAL, "lidar.loadtable", "Cannot access schema \"sys\"\n");
+				msg = createException(MAL, "lidar.loadtable", "SQLSTATE LI000!""Cannot access schema \"sys\"\n");
 				goto loadtable_cleanup;
 			}
 
 			lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
 			if (lidar_tbl == NULL) {
-				msg = createException(MAL, "lidar.loadtable", "LIDAR catalog is missing.\n");
+				msg = createException(MAL, "lidar.loadtable", "SQLSTATE LI000!""LIDAR catalog is missing.\n");
 				goto loadtable_cleanup;
 			}
 
 			tbl = mvc_bind_table(m, sch, tname);
 			if (tbl == NULL) {
-				msg = createException(MAL, "lidar.loadtable", "Could not find table %s.\n", tname);
+				msg = createException(MAL, "lidar.loadtable", "SQLSTATE LI000!""Could not find table %s.\n", tname);
 				goto loadtable_cleanup;
 			}
 
 			col = mvc_bind_column(m, tbl, "x");
 			sz = store_funcs.count_col(m->session->tr, col, 1);
 			if (sz != 0) {
-				msg = createException(MAL, "lidar.loadtable", "Table %s is not empty.\n", tname);
+				msg = createException(MAL, "lidar.loadtable", "SQLSTATE LI000!""Table %s is not empty.\n", tname);
 				goto loadtable_cleanup;
 			}
 #ifndef NDEBUG
@@ -1921,7 +1924,7 @@ LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sch = mvc_bind_schema(m, "sys");
 	lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
 	if (lidar_tbl == NULL) {
-		msg = createException(MAL, "lidar.check", "LIDAR catalog is missing.\n");
+		msg = createException(MAL, "lidar.check", "SQLSTATE LI000!""LIDAR catalog is missing.\n");
 		return msg;
 	}
 
@@ -1934,7 +1937,7 @@ LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	tbl = mvc_bind_table(m, sch, tname);
 	if (tbl == NULL) {
-		msg = createException(MAL, "lidar.check", "Could not find table %s.\n", tname);
+		msg = createException(MAL, "lidar.check", "SQLSTATE LI000!""Could not find table %s.\n", tname);
 		return msg;
 	}
 
@@ -2003,7 +2006,7 @@ LIDARAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		tname = *getArgReference_str(stk, pci, 3);
 		res = getArgReference_int(stk, pci, 0);
 	} else {
-		msg = createException(MAL, "lidar.analyze", "incorrect number of arguments.\n");
+		msg = createException(MAL, "lidar.analyze", "SQLSTATE LI000!""incorrect number of arguments.\n");
 		return msg;
 	}
 
@@ -2020,7 +2023,7 @@ LIDARAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sch = mvc_bind_schema(m, "sys");
 	lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
 	if (lidar_tbl == NULL) {
-		msg = createException(MAL, "lidar.analyze", "LIDAR catalog is missing.\n");
+		msg = createException(MAL, "lidar.analyze", "SQLSTATE LI000!""LIDAR catalog is missing.\n");
 		return msg;
 	}
 
@@ -2028,7 +2031,9 @@ LIDARAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	col = mvc_bind_column(m, lidar_tbl, "name");
 	rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
 	if (rid == oid_nil) {
-		msg = createException(MAL, "lidar.analyze", "Table %s is unknown to the LIDAR catalog. Attach first the containing file\n", tname);
+		msg = createException(MAL, "lidar.analyze",
+				      "SQLSTATE LI000!""Table %s is unknown to the LIDAR catalog. Attach first the containing file\n",
+				      tname);
 		return msg;
 	}
 
@@ -2083,7 +2088,7 @@ LIDARunload(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	sch = mvc_bind_schema(m, "sys");
 	lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
 	if (lidar_tbl == NULL) {
-		msg = createException(MAL, "lidar.check", "LIDAR catalog is missing.\n");
+		msg = createException(MAL, "lidar.check", "SQLSTATE LI000!""LIDAR catalog is missing.\n");
 		return msg;
 	}
 
@@ -2091,13 +2096,13 @@ LIDARunload(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	col = mvc_bind_column(m, lidar_tbl, "name");
 	rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
 	if (rid == oid_nil) {
-		msg = createException(MAL, "lidar.check", "Could not find table %s.\n", tname);
+		msg = createException(MAL, "lidar.check", "SQLSTATE LI000!""Could not find table %s.\n", tname);
 		return msg;
 	}
 
 	tbl = mvc_bind_table(m, sch, tname);
 	if (tbl == NULL) {
-		msg = createException(MAL, "lidar.check", "Could not find table %s.\n", tname);
+		msg = createException(MAL, "lidar.check", "SQLSTATE LI000!""Could not find table %s.\n", tname);
 		return msg;
 	}
 
