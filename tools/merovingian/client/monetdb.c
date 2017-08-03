@@ -1342,6 +1342,7 @@ command_get(int argc, char *argv[])
 			free(buf);
 			exit(1);
 		}
+		/* TODO: This call ignores non-default properties. Re-implement? */
 		readPropsBuf(props, buf + 3);
 		free(buf);
 
