@@ -788,7 +788,7 @@ static void ctl_handle_client(
 
 				/* from here we'll always succeed, even if we don't
 				 * send anything */
-				readProps(props, stats->path);
+				readAllProps(props, stats->path);
 				writePropsBuf(props, &pbuf);
 				send_list();
 				freeConfFile(props);
