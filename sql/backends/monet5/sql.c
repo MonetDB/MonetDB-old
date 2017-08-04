@@ -542,7 +542,7 @@ setVariable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		str newopt = *getArgReference_str(stk, pci, 3);
 		if (newopt) {
 			if (!isOptimizerPipe(newopt) && strchr(newopt, (int) ';') == 0) {
-				throw(SQL, "sql.setVariable", SQLSTATE(42100) "optimizer %s unknown", newopt);
+				throw(SQL, "sql.setVariable", SQLSTATE(42100) "optimizer '%s' unknown", newopt);
 			}
 			snprintf(buf, BUFSIZ, "user_%d", cntxt->idx);
 			if (!isOptimizerPipe(newopt) || strcmp(buf, newopt) == 0) {
@@ -561,7 +561,7 @@ setVariable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		lng sgn = val_get_number(src);
 		if ((msg = sql_update_var(m, varname, src->val.sval, sgn)) != NULL) {
 			snprintf(buf, BUFSIZ, "%s", msg);
-			if( strstr(msg, "SQLSTATE"))
+			if (strlen(msg) > 6 && msg[5] == '!')
 				return msg;
 			_DELETE(msg);
 			throw(SQL, "sql.setVariable", SQLSTATE(42100) "%s", buf);
