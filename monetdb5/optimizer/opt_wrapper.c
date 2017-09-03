@@ -21,6 +21,7 @@
  * The optimizer used so far
 */
 #include "opt_aliases.h"
+#include "opt_bitcandidates.h"
 #include "opt_coercion.h"
 #include "opt_commonTerms.h"
 #include "opt_candidates.h"
@@ -58,6 +59,7 @@ struct{
 	lng timing;
 } codes[] = {
 	{"aliases", &OPTaliasesImplementation,0,0},
+	{"bitcandidates", &OPTbitcandidatesImplementation,0,0},
 	{"candidates", &OPTcandidatesImplementation,0,0},
 	{"coercions", &OPTcoercionImplementation,0,0},
 	{"commonTerms", &OPTcommonTermsImplementation,0,0},
@@ -157,7 +159,7 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 		fprintFunction(stderr,mb,0,LIST_MAL_DEBUG );
 	}
 	if ( mb->errors)
-		throw(MAL, optimizer, PROGRAM_GENERAL ":%s.%s", modnme, fcnnme);
+		throw(MAL, optimizer, PROGRAM_GENERAL ":%s.%s %s", modnme, fcnnme, mb->errors);
 	return MAL_SUCCEED;
 }
 
