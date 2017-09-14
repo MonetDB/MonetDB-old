@@ -19,20 +19,20 @@
 void
 addMalException(MalBlkPtr mb, str msg)
 {
-    str new;
-    
-    if( mb->errors){ 
-        new = GDKzalloc(strlen(mb->errors) + strlen(msg) + 4);
-        if (new == NULL)
-            return ; // just stick to one error message, ignore rest
-        strcpy(new, mb->errors);
-        strcat(new, msg);
-        GDKfree(mb->errors);
-        mb->errors = new;
-    } else {
+	str new;
+
+	if( mb->errors){
+		new = GDKzalloc(strlen(mb->errors) + strlen(msg) + 4);
+		if (new == NULL)
+			return ; // just stick to one error message, ignore rest
+		strcpy(new, mb->errors);
+		strcat(new, msg);
+		GDKfree(mb->errors);
+		mb->errors = new;
+	} else {
 		new = GDKstrdup(msg);
 		if( new == NULL)
-            return ; // just stick to one error message, ignore rest
+			return ; // just stick to one error message, ignore rest
 		mb->errors = new;
 	}
 }
@@ -203,6 +203,18 @@ resetMalBlk(MalBlkPtr mb, int stop)
 		mb->stmt[i] ->typechk = TYPE_UNKNOWN;
 	mb->stop = stop;
 	mb->errors = NULL;
+}
+
+void
+resetMalBlkAndFreeInstructions(MalBlkPtr mb, int stop)
+{
+	int i;
+
+	for(i=stop; i<mb->stop; i++) {
+		freeInstruction(mb->stmt[i]);
+		mb->stmt[i] = NULL;
+	}
+	resetMalBlk(mb, stop);
 }
 
 /* The freeMalBlk code is quite defensive. It is used to localize an
@@ -823,8 +835,6 @@ clearVariable(MalBlkPtr mb, int varid)
 	VarPtr v;
 
 	v = getVar(mb, varid);
-	if (v == 0)
-		return;
 	if (isVarConstant(mb, varid) || isVarDisabled(mb, varid))
 		VALclear(&v->value);
 	v->type = 0;
@@ -980,7 +990,7 @@ convertConstant(int type, ValPtr vr)
 	if (vr->vtype == type)
 		return MAL_SUCCEED;
 	if (vr->vtype == TYPE_str) {
-		int ll = 0;
+		size_t ll = 0;
 		ptr d = NULL;
 		char *s = vr->val.sval;
 
@@ -1073,7 +1083,7 @@ convertConstant(int type, ValPtr vr)
 		   }
 		   if (vr->vtype == TYPE_int) {
 		   char buf[BUFSIZ];
-		   int ll = 0;
+		   size_t ll = 0;
 		   ptr d = NULL;
 
 		   snprintf(buf, BUFSIZ, "%d", vr->val.ival);
@@ -1096,7 +1106,7 @@ convertConstant(int type, ValPtr vr)
 		 * the new value. This should be garbage collected at the
 		 * end. */
 	default:{
-		int ll = 0;
+		size_t ll = 0;
 		ptr d = NULL;
 
 		if (isaBatType(type)) {

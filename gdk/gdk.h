@@ -727,12 +727,13 @@ typedef struct {
 		hge hval;
 #endif
 	} val;
-	int len, vtype;
+	size_t len;
+	int vtype;
 } *ValPtr, ValRecord;
 
 /* interface definitions */
 gdk_export ptr VALconvert(int typ, ValPtr t);
-gdk_export int VALformat(char **buf, const ValRecord *res);
+gdk_export ssize_t VALformat(char **buf, const ValRecord *res);
 gdk_export ValPtr VALcopy(ValPtr dst, const ValRecord *src);
 gdk_export ValPtr VALinit(ValPtr d, int tpe, const void *s);
 gdk_export void VALempty(ValPtr v);
@@ -1720,16 +1721,14 @@ gdk_export BAT *BBPquickdesc(bat b, int delaccess);
  * @tab ATOMname        (int id);
  * @item int
  * @tab ATOMsize        (int id);
- * @item int
- * @tab ATOMalign       (int id);
- * @item int
+  * @item int
  * @tab ATOMvarsized    (int id);
  * @item ptr
  * @tab ATOMnilptr      (int id);
- * @item int
- * @tab ATOMfromstr     (int id, str s, int* len, ptr* v_dst);
- * @item int
- * @tab ATOMtostr       (int id, str s, int* len, ptr* v_dst);
+ * @item ssize_t
+ * @tab ATOMfromstr     (int id, str s, size_t* len, ptr* v_dst);
+ * @item ssize_t
+ * @tab ATOMtostr       (int id, str s, size_t* len, ptr* v_dst);
  * @item hash_t
  * @tab ATOMhash        (int id, ptr val, in mask);
  * @item int
@@ -1744,11 +1743,11 @@ gdk_export BAT *BBPquickdesc(bat b, int delaccess);
  * @tab ATOMput         (int id, Heap *hp, BUN pos_dst, ptr val_src);
  * @item int
  * @tab ATOMdel         (int id, Heap *hp, BUN v_src);
- * @item int
+ * @item size_t
  * @tab ATOMlen         (int id, ptr val);
  * @item ptr
  * @tab ATOMnil         (int id);
- * @item int
+ * @item ssize_t
  * @tab ATOMformat      (int id, ptr val, char** buf);
  * @item int
  * @tab ATOMprint       (int id, ptr val, stream *fd);
@@ -1776,11 +1775,6 @@ gdk_export BAT *BBPquickdesc(bat b, int delaccess);
  * using its id.
  *
  * @item The @emph{ATOMsize()} operation returns the atoms fixed size.
- *
- * @item The @emph{ATOMalign()} operation returns the atoms minimum
- * alignment. If the alignment info was not specified explicitly
- * during atom install, it assumes the maximum value of @verb{ {
- * }1,2,4,8@verb{ } } smaller than the atom size.
  *
  * @item The @emph{ATOMnilptr()} operation returns a pointer to the
  * nil-value of an atom. We usually take one dedicated value halfway
@@ -1825,7 +1819,8 @@ gdk_export BAT *BBPquickdesc(bat b, int delaccess);
  * @item The @emph{ATOMfromstr()} parses an atom value from string
  * `s'. The memory allocation policy is the same as in
  * @emph{ATOMget()}. The return value is the number of parsed
- * characters.
+ * characters or -1 on failure.  Also in case of failure, the output
+ * parameter buf is a valid pointer or NULL.
  *
  * @item The @emph{ATOMprint()} prints an ASCII description of the
  * atom value pointed to by `val' on file descriptor `fd'. The return
@@ -1852,15 +1847,14 @@ typedef struct {
 	char name[IDLENGTH];
 	short storage;		/* stored as another type? */
 	short linear;		/* atom can be ordered linearly */
-	short size;		/* fixed size of atom */
-	short align;		/* alignment condition for values */
+	unsigned short size;	/* fixed size of atom */
 
 	/* automatically generated fields */
 	const void *atomNull;	/* global nil value */
 
 	/* generic (fixed + varsized atom) ADT functions */
-	int (*atomFromStr) (const char *src, int *len, ptr *dst);
-	int (*atomToStr) (str *dst, int *len, const void *src);
+	ssize_t (*atomFromStr) (const char *src, size_t *len, ptr *dst);
+	ssize_t (*atomToStr) (str *dst, size_t *len, const void *src);
 	void *(*atomRead) (void *dst, stream *s, size_t cnt);
 	gdk_return (*atomWrite) (const void *src, stream *s, size_t cnt);
 	int (*atomCmp) (const void *v1, const void *v2);
@@ -1872,7 +1866,7 @@ typedef struct {
 	/* varsized atom-only ADT functions */
 	var_t (*atomPut) (Heap *, var_t *off, const void *src);
 	void (*atomDel) (Heap *, var_t *atom);
-	int (*atomLen) (const void *atom);
+	size_t (*atomLen) (const void *atom);
 	void (*atomHeap) (Heap *, size_t);
 } atomDesc;
 
@@ -1883,11 +1877,11 @@ gdk_export int ATOMallocate(const char *nme);
 gdk_export int ATOMindex(const char *nme);
 
 gdk_export str ATOMname(int id);
-gdk_export int ATOMlen(int id, const void *v);
+gdk_export size_t ATOMlen(int id, const void *v);
 gdk_export ptr ATOMnil(int id);
 gdk_export int ATOMcmp(int id, const void *v_1, const void *v_2);
 gdk_export int ATOMprint(int id, const void *val, stream *fd);
-gdk_export int ATOMformat(int id, const void *val, char **buf);
+gdk_export ssize_t ATOMformat(int id, const void *val, char **buf);
 
 gdk_export ptr ATOMdup(int id, const void *val);
 

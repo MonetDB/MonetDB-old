@@ -57,7 +57,7 @@ int TYPE_json;
 
 /* Internal constructors. */
 static int jsonhint = 8;
-static JSON *JSONparse(char *j, int silent);
+static JSON *JSONparse(const char *j, int silent);
 
 static JSON *
 JSONnewtree(int size)
@@ -108,40 +108,40 @@ JSONfree(JSON *c)
 	GDKfree(c);
 }
 
-int
-JSONfromString(str src, int *len, json *j)
+ssize_t
+JSONfromString(const char *src, size_t *len, json *j)
 {
-	ssize_t slen = (ssize_t) strlen(src);
-	JSON *jt = JSONparse(src, FALSE);
+	size_t slen = strlen(src);
+	JSON *jt;
 
-	if (*j)
-		GDKfree(*j);
-
-	if (!jt || jt->error) {
-		*j = GDKstrdup(str_nil);
-		if (jt)
-			JSONfree(jt);
-		return 0;
+	if ((jt = JSONparse(src, FALSE)) == NULL)
+		return -1;
+	if (jt->error) {
+		GDKerror("%s", getExceptionMessageAndState(jt->error));
+		JSONfree(jt);
+		return -1;
 	}
 	JSONfree(jt);
 
-	*len = (int) slen;
-	*j = GDKstrdup(src);
-	if (*j == NULL ||
-		GDKstrFromStr((unsigned char *) *j, (const unsigned char *) src, slen) < 0) {
+	if (*len <= slen || *j == NULL) {
 		GDKfree(*j);
-		*j = GDKstrdup(str_nil);
-		*len = 2;
-		return 0;
+		if ((*j = GDKmalloc(slen + 1)) == NULL)
+			return -1;
+		*len = slen + 1;
 	}
-	return *len;
+	if (GDKstrFromStr((unsigned char *) *j,
+					  (const unsigned char *) src, (ssize_t) slen) < 0)
+		return -1;
+
+	return (ssize_t) strlen(*j);
 }
 
-int
-JSONtoString(str *s, int *len, json src)
+ssize_t
+JSONtoString(str *s, size_t *len, const char *src)
 {
 	size_t cnt;
-	char *c, *dst;
+	const char *c;
+	char *dst;
 
 	if (GDK_STRNIL(src)) {
 		if (*s == NULL || *len < 4) {
@@ -173,7 +173,7 @@ JSONtoString(str *s, int *len, json src)
 		*s = GDKmalloc(cnt);
 		if (*s == NULL)
 			return -1;
-		*len = (int) cnt;
+		*len = cnt;
 	}
 	dst = *s;
 	*dst++ = '"';
@@ -195,7 +195,7 @@ JSONtoString(str *s, int *len, json src)
 	*dst++ = '"';
 	*dst++ = 0;
 	assert((size_t) (dst - *s) == cnt);
-	return (int) (cnt - 1);	/* length without \0 */
+	return cnt - 1;				/* length without \0 */
 }
 
 #define tab(D)									\
@@ -533,7 +533,12 @@ JSONmatch(JSON *jt, int ji, pattern * terms, int ti)
 	int i;
 	int cnt;
 
+	if (ti >= MAXTERMS)
+		return res;
+
 	if (terms[ti].token == ROOT_STEP) {
+		if (ti + 1 == MAXTERMS)
+			return NULL;
 		if (terms[ti + 1].token == END_STEP) {
 			res = JSONgetValue(jt, 0);
 			if (res == NULL)
@@ -561,6 +566,8 @@ JSONmatch(JSON *jt, int ji, pattern * terms, int ti)
 						r = JSONmatch(jt, jt->elm[i].child, terms, ti);
 					else
 						r = 0;
+				} else if (ti + 1 == MAXTERMS) {
+					return NULL;
 				} else if (terms[ti + 1].token == END_STEP) {
 					if (jt->elm[i].kind == JSON_VALUE)
 						r = JSONgetValue(jt, jt->elm[i].child);
@@ -589,6 +596,8 @@ JSONmatch(JSON *jt, int ji, pattern * terms, int ti)
 				terms[ti].name[0] == '*') {
 				if (terms[ti].index == INT_MAX ||
 					(cnt >= terms[ti].first && cnt <= terms[ti].last)) {
+					if (ti + 1 == MAXTERMS)
+						return NULL;
 					if (terms[ti + 1].token == END_STEP) {
 						r = JSONgetValue(jt, jt->elm[i].child);
 						if (r == NULL)
@@ -680,7 +689,7 @@ JSONfilterInternal(json *ret, json *js, str *expr, str other)
 
 
 static str
-JSONstringParser(char *j, char **next, int silent)
+JSONstringParser(const char *j, const char **next, int silent)
 {
 	if (*j == '"')
 		j++;
@@ -727,9 +736,9 @@ JSONstringParser(char *j, char **next, int silent)
 }
 
 static str
-JSONnumberParser(char *j, char **next, int silent)
+JSONnumberParser(const char *j, const char **next, int silent)
 {
-	char *backup = j;
+	const char *backup = j;
 
 	if (*j == '-')
 		j++;
@@ -771,7 +780,7 @@ JSONnumberParser(char *j, char **next, int silent)
 }
 
 static int
-JSONtoken(JSON *jt, char *j, char **next, int silent)
+JSONtoken(JSON *jt, const char *j, const char **next, int silent)
 {
 	str msg;
 	int nxt, idx = JSONnew(jt);
@@ -962,7 +971,7 @@ JSONtoken(JSON *jt, char *j, char **next, int silent)
 
 
 static JSON *
-JSONparse(char *j, int silent)
+JSONparse(const char *j, int silent)
 {
 	JSON *jt = JSONnewtree(0);
 
@@ -2206,19 +2215,18 @@ JSONjsonaggr(BAT **bnp, BAT *b, BAT *g, BAT *e, BAT *s, int skip_nils)
 						 * BATproject will fail.
 						 */
 						if ((p == 0) && (q == 1)) {
-							strncpy(buf, "[ null ]", maxlen - buflen);
-							buflen += strlen("[ null ]");
+							strcpy(buf, "[ null ]");
 							isnil = 1;
 						} else {
 							continue;
 						}
 					} else {
-						strncpy(buf, str_nil, buflen);
+						strcpy(buf, str_nil);
 						isnil = 1;
 					}
 				} else {
 					len = strlen(v);
-					if (len >= maxlen - buflen) {
+					if (len >= maxlen) {
 						maxlen += len + BUFSIZ;
 						buf2 = GDKrealloc(buf, maxlen);
 						if (buf2 == NULL) {
@@ -2229,17 +2237,14 @@ JSONjsonaggr(BAT **bnp, BAT *b, BAT *g, BAT *e, BAT *s, int skip_nils)
 					}
 					switch (b->ttype) {
 					case TYPE_str:
-						len = snprintf(buf + buflen, maxlen - buflen, "[ \"%s\" ]", v);
-						buflen += len;
+						len = snprintf(buf, maxlen, "[ \"%s\" ]", v);
 						break;
 					case TYPE_dbl:
-						len = snprintf(buf + buflen, maxlen - buflen, "[ %s ]", v);
-						buflen += len;
+						len = snprintf(buf, maxlen, "[ %s ]", v);
 						break;
 					}
 				}
 				bunfastapp_nocheck(bn, BUNlast(bn), buf, Tsize(bn));
-				buflen = 0;
 			}
 			bn->tnil = nils != 0;
 			bn->tnonil = nils == 0;

@@ -662,7 +662,6 @@ wrongtype(int t1, int t2)
 			if (ATOMvarsized(t1) ||
 			    ATOMvarsized(t2) ||
 			    ATOMsize(t1) != ATOMsize(t2) ||
-			    ATOMalign(t1) != ATOMalign(t2) ||
 			    BATatoms[t1].atomFix ||
 			    BATatoms[t2].atomFix)
 				return TRUE;
@@ -1656,8 +1655,8 @@ BATroles(BAT *b, const char *tnme)
  * commit, because the commit may fail and then the more unsafe
  * transient mmap modes would be present on a persistent bat.
  *
- * See dirty_bat() in BBPsync() -- gdk_bbp.mx and epilogue() in
- * gdk_tm.mx
+ * See dirty_bat() in BBPsync() -- gdk_bbp.c and epilogue() in
+ * gdk_tm.c.
  *
  * Including the exception states, we have 11 of the 16
  * combinations. As for the 5 avoided states, all four
