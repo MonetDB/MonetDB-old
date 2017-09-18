@@ -327,8 +327,11 @@ rel_inserts(mvc *sql, sql_table *t, sql_rel *r, list *collist, size_t rowcount, 
 		} else {
 			for (m = collist->h; m; m = m->next) {
 				sql_column *c = m->data;
+				sql_exp *e;
 
-				inserts[c->colnr] = exps_bind_column2( r->exps, c->t->base.name, c->base.name);
+				e = exps_bind_column2( r->exps, c->t->base.name, c->base.name);
+				if (e)
+					inserts[c->colnr] = exp_column(sql->sa, exp_relname(e), exp_name(e), exp_subtype(e), e->card, has_nil(e), is_intern(e));
 			}
 		}
 	}
@@ -1661,14 +1664,19 @@ rel_parse_val(mvc *m, char *query, char emode)
 	int len = _strlen(query);
 	exp_kind ek = {type_value, card_value, FALSE};
 	stream *s;
+	bstream *bs;
 
 	m->qc = NULL;
 
 	m->caching = 0;
 	m->emode = emode;
-	// FIXME unchecked_malloc GDKmalloc can return NULL
 	b = (buffer*)GDKmalloc(sizeof(buffer));
 	n = GDKmalloc(len + 1 + 1);
+	if(!b || !n) {
+		GDKfree(b);
+		GDKfree(n);
+		return NULL;
+	}
 	strncpy(n, query, len);
 	query = n;
 	query[len] = '\n';
@@ -1676,7 +1684,16 @@ rel_parse_val(mvc *m, char *query, char emode)
 	len++;
 	buffer_init(b, query, len);
 	s = buffer_rastream(b, "sqlstatement");
-	scanner_init(&m->scanner, bstream_create(s, b->len), NULL);
+	if(!s) {
+		buffer_destroy(b);
+		return NULL;
+	}
+	bs = bstream_create(s, b->len);
+	if(bs == NULL) {
+		buffer_destroy(b);
+		return NULL;
+	}
+	scanner_init(&m->scanner, bs, NULL);
 	m->scanner.mode = LINE_1; 
 	bstream_next(m->scanner.rs);
 
