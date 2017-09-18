@@ -114,9 +114,9 @@ skip_authority(const char *uri, const char **userp, const char **passp, const ch
 			if (passp)
 				*passp = NULL;
 		} else {
-			if (*userp)
+			if (userp)
 				*userp = user;
-			if (*passp)
+			if (passp)
 				*passp = pass;
 		}
 		if (portp)
@@ -176,7 +176,7 @@ skip_search(const char *uri)
 }
 
 static int needEscape(char c){
-	if( isalnum((int)c) )
+	if( isalnum((unsigned char)c) )
 		return 0;
 	if( c == '#' || c == '-' || c == '_' || c == '.' || c == '!' ||
 		c == '~' || c == '*' || c == '\'' || c == '(' || c == ')' )
@@ -301,7 +301,10 @@ URLfromString(const char *src, size_t *len, str *u)
 
 	/* actually parse the message for valid url */
 
-	memcpy(*u, src, l);
+	if (strcmp(src, "nil") == 0)
+		strcpy(*u, str_nil);
+	else
+		memcpy(*u, src, l);
 	return (ssize_t) l - 1;
 }
 

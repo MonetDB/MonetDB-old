@@ -387,9 +387,9 @@
 #define MIN(A,B)	((A)>(B)?(B):(A))
 
 /* defines from ctype with casts that allow passing char values */
-#define GDKisspace(c)	isspace((int) (unsigned char) (c))
-#define GDKisalnum(c)	isalnum((int) (unsigned char) (c))
-#define GDKisdigit(c)	(((unsigned char) (c)) >= '0' && ((unsigned char) (c)) <= '9')
+#define GDKisspace(c)	isspace((unsigned char) (c))
+#define GDKisalnum(c)	isalnum((unsigned char) (c))
+#define GDKisdigit(c)	isdigit((unsigned char) (c))
 
 #ifndef NATIVE_WIN32
 #define BATDIR		"bat"
@@ -733,7 +733,7 @@ typedef struct {
 
 /* interface definitions */
 gdk_export ptr VALconvert(int typ, ValPtr t);
-gdk_export ssize_t VALformat(char **buf, const ValRecord *res);
+gdk_export char *VALformat(const ValRecord *res);
 gdk_export ValPtr VALcopy(ValPtr dst, const ValRecord *src);
 gdk_export ValPtr VALinit(ValPtr d, int tpe, const void *s);
 gdk_export void VALempty(ValPtr v);
@@ -1719,9 +1719,9 @@ gdk_export BAT *BBPquickdesc(bat b, int delaccess);
  * @tab ATOMdelete      (int id);
  * @item str
  * @tab ATOMname        (int id);
- * @item int
+ * @item unsigned int
  * @tab ATOMsize        (int id);
-  * @item int
+ * @item int
  * @tab ATOMvarsized    (int id);
  * @item ptr
  * @tab ATOMnilptr      (int id);
@@ -1842,6 +1842,19 @@ gdk_export BAT *BBPquickdesc(bat b, int delaccess);
  * and @emph{ATOMformat()}) just have the atom id parameter prepended
  * to them.
  */
+
+/* atomFromStr returns the number of bytes of the input string that
+ * were processed.  atomToStr returns the length of the string
+ * produced.  Both functions return -1 on (any kind of) failure.  If
+ * *dst is not NULL, *len specifies the available space.  If there is
+ * not enough space, of if *dst is NULL, *dst will be freed (if not
+ * NULL) and a new buffer will be allocated and returned in *dst.
+ * *len will be set to reflect the actual size allocated.  If
+ * allocation fails, *dst will be NULL on return and *len is
+ * undefined.  In any case, if the function returns, *buf is either
+ * NULL or a valid pointer and then *len is the size of the area *buf
+ * points to. */
+
 typedef struct {
 	/* simple attributes */
 	char name[IDLENGTH];
@@ -1881,7 +1894,7 @@ gdk_export size_t ATOMlen(int id, const void *v);
 gdk_export ptr ATOMnil(int id);
 gdk_export int ATOMcmp(int id, const void *v_1, const void *v_2);
 gdk_export int ATOMprint(int id, const void *val, stream *fd);
-gdk_export ssize_t ATOMformat(int id, const void *val, char **buf);
+gdk_export char *ATOMformat(int id, const void *val);
 
 gdk_export ptr ATOMdup(int id, const void *val);
 
