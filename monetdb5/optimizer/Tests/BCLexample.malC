@@ -1,0 +1,8 @@
+function f();
+ a := bat.new(:int);
+ C_2:= algebra.select(a,nil:bat[:oid], 0,10,true,true,false);
+ C_3:= algebra.select(a, C_2, 0,10,true,true,false);
+ io.print(C_2);
+end f;
+optimizer.bitcandidates("user","f");
+mdb.list("user","f");
