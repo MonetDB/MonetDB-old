@@ -6,7 +6,7 @@
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
 
-VERSION=11.27.2
+VERSION=11.27.6
 #       ^^^^^^
 # Maintained via vertoo. Please don't modify by hand!
 # Contact MonetDB-developers@lists.sourceforge.net for details and/or assistance.
@@ -325,6 +325,11 @@ create_winconfig_conds_new_py:
 	$(ECHO) HAVE_LIBPY_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ELSE
 	$(ECHO) HAVE_LIBPY_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
+!ENDIF
+!IFDEF HAVE_LIBPY3
+	$(ECHO) HAVE_LIBPY3_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
+!ELSE
+	$(ECHO) HAVE_LIBPY3_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ENDIF
 !IFDEF HAVE_LIBR
 	$(ECHO) HAVE_LIBR_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"

@@ -30,6 +30,8 @@ rel_parse(mvc *m, sql_schema *s, char *query, char emode)
 	mvc o = *m;
 	sql_rel *rel = NULL;
 	buffer *b;
+	bstream *bs;
+	stream *buf;
 	char *n;
 	int len = _strlen(query);
 	sql_schema *c = cur_schema(m);
@@ -42,8 +44,12 @@ rel_parse(mvc *m, sql_schema *s, char *query, char emode)
 		m->session->schema = s;
 
 	b = (buffer*)GDKmalloc(sizeof(buffer));
+	if (!b) {
+		return NULL;
+	}
 	n = GDKmalloc(len + 1 + 1);
-	if (!b || !n) {
+	if (!n) {
+		GDKfree(b);
 		return NULL;
 	}
 	strncpy(n, query, len);
@@ -52,9 +58,17 @@ rel_parse(mvc *m, sql_schema *s, char *query, char emode)
 	query[len+1] = 0;
 	len++;
 	buffer_init(b, query, len);
-	scanner_init( &m->scanner, 
-		bstream_create(buffer_rastream(b, "sqlstatement"), b->len),
-		NULL);
+	buf = buffer_rastream(b, "sqlstatement");
+	if(buf == NULL) {
+		buffer_destroy(b);
+		return NULL;
+	}
+	bs = bstream_create(buf, b->len);
+	if(bs == NULL) {
+		buffer_destroy(b);
+		return NULL;
+	}
+	scanner_init( &m->scanner, bs, NULL);
 	m->scanner.mode = LINE_1; 
 	bstream_next(m->scanner.rs);
 

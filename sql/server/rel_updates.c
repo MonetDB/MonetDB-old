@@ -242,6 +242,8 @@ rel_insert_idxs(mvc *sql, sql_table *t, sql_rel *inserts)
 	}
 	if (inserts->r != p) {
 		sql_rel *r = rel_create(sql->sa);
+		if(!r)
+			return NULL;
 
 		r->op = op_insert;
 		r->l = rel_dup(p);
@@ -257,6 +259,8 @@ rel_insert(mvc *sql, sql_rel *t, sql_rel *inserts)
 {
 	sql_rel * r = rel_create(sql->sa);
 	sql_table *tab = get_table(t);
+	if(!r)
+		return NULL;
 
 	r->op = op_insert;
 	r->l = t;
@@ -317,8 +321,11 @@ rel_inserts(mvc *sql, sql_table *t, sql_rel *r, list *collist, size_t rowcount, 
 		} else {
 			for (m = collist->h; m; m = m->next) {
 				sql_column *c = m->data;
+				sql_exp *e;
 
-				inserts[c->colnr] = exps_bind_column2( r->exps, c->t->base.name, c->base.name);
+				e = exps_bind_column2( r->exps, c->t->base.name, c->base.name);
+				if (e)
+					inserts[c->colnr] = exp_column(sql->sa, exp_relname(e), exp_name(e), exp_subtype(e), e->card, has_nil(e), is_intern(e));
 			}
 		}
 	}
@@ -498,7 +505,7 @@ insert_into(mvc *sql, dlist *qname, dlist *columns, symbol *val_or_q)
 							inner = rel_crossproduct(sql->sa, inner, r, op_join);
 						else if (r) 
 							inner = r;
-						if (inner && !ins->name) {
+						if (inner && !ins->name && !is_atom(ins->type)) {
 							exp_label(sql->sa, ins, ++sql->label);
 							ins = exp_column(sql->sa, exp_relname(ins), exp_name(ins), exp_subtype(ins), ins->card, has_nil(ins), is_intern(ins));
 						}
@@ -774,7 +781,8 @@ rel_update_idxs(mvc *sql, sql_table *t, sql_rel *relup)
 	}
 	if (relup->r != p) {
 		sql_rel *r = rel_create(sql->sa);
-
+		if(!r)
+			return NULL;
 		r->op = op_update;
 		r->l = rel_dup(p);
 		r->r = relup;
@@ -808,6 +816,8 @@ rel_update(mvc *sql, sql_rel *t, sql_rel *uprel, sql_exp **updates, list *exps)
 	sql_rel *r = rel_create(sql->sa);
 	sql_table *tab = get_table(t);
 	node *m;
+	if(!r)
+		return NULL;
 
 	if (tab)
 	for (m = tab->columns.set->h; m; m = m->next) {
@@ -1077,6 +1087,8 @@ sql_rel *
 rel_delete(sql_allocator *sa, sql_rel *t, sql_rel *deletes)
 {
 	sql_rel *r = rel_create(sa);
+	if(!r)
+		return NULL;
 
 	r->op = op_delete;
 	r->l = t;
@@ -1580,6 +1592,8 @@ rel_output(mvc *sql, sql_rel *l, sql_exp *sep, sql_exp *rsep, sql_exp *ssep, sql
 {
 	sql_rel *rel = rel_create(sql->sa);
 	list *exps = new_exp_list(sql->sa);
+	if(!rel || !exps)
+		return NULL;
 
 	append(exps, sep);
 	append(exps, rsep);
@@ -1644,14 +1658,19 @@ rel_parse_val(mvc *m, char *query, char emode)
 	int len = _strlen(query);
 	exp_kind ek = {type_value, card_value, FALSE};
 	stream *s;
+	bstream *bs;
 
 	m->qc = NULL;
 
 	m->caching = 0;
 	m->emode = emode;
-	// FIXME unchecked_malloc GDKmalloc can return NULL
 	b = (buffer*)GDKmalloc(sizeof(buffer));
 	n = GDKmalloc(len + 1 + 1);
+	if(!b || !n) {
+		GDKfree(b);
+		GDKfree(n);
+		return NULL;
+	}
 	strncpy(n, query, len);
 	query = n;
 	query[len] = '\n';
@@ -1659,7 +1678,16 @@ rel_parse_val(mvc *m, char *query, char emode)
 	len++;
 	buffer_init(b, query, len);
 	s = buffer_rastream(b, "sqlstatement");
-	scanner_init(&m->scanner, bstream_create(s, b->len), NULL);
+	if(!s) {
+		buffer_destroy(b);
+		return NULL;
+	}
+	bs = bstream_create(s, b->len);
+	if(bs == NULL) {
+		buffer_destroy(b);
+		return NULL;
+	}
+	scanner_init(&m->scanner, bs, NULL);
 	m->scanner.mode = LINE_1; 
 	bstream_next(m->scanner.rs);
 

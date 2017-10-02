@@ -61,6 +61,9 @@
 #ifdef HAVE_SYS_UIO_H
 # include <sys/uio.h>
 #endif
+#ifdef HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
 
 #define SOCKPTR struct sockaddr *
 #ifdef HAVE_SOCKLEN_T
@@ -144,7 +147,6 @@ doChallenge(void *data)
 	if (buf == NULL){
 		close_stream(fdin);
 		close_stream(fdout);
-		GDKfree(data);
 		return;
 	}
 
@@ -180,14 +182,14 @@ doChallenge(void *data)
 		char *buflenstrend, *buflenstr = strstr(buf, "PROT10");
 		compression_method comp;
 		protocol = PROTOCOL_10;
-		buflenstr = strchr(buflenstr, ':') + 1;
-		buflenstr = strchr(buflenstr, ':') + 1;
-		if (!buflenstr) {
+		if ((buflenstr = strchr(buflenstr, ':')) == NULL ||
+			(buflenstr = strchr(buflenstr + 1, ':')) == NULL) {
 			mnstr_printf(fdout, "!buffer size needs to be set and bigger than %d\n", BLOCK);
 			close_stream(fdin);
 			close_stream(fdout);
 			return;
 		}
+		buflenstr++;			/* position after ':' */
 		buflenstrend = strchr(buflenstr, ':');
 
 		if (buflenstrend) buflenstrend[0] = '\0';
@@ -245,6 +247,8 @@ doChallenge(void *data)
 
 		if (fdin == NULL || fdout == NULL) {
 			GDKsyserror("SERVERlisten:"MAL_MALLOC_FAIL);
+			close_stream(fdin);
+			close_stream(fdout);
 			return;
 		}
 	}
@@ -352,7 +356,7 @@ SERVERlistenThread(SOCKET *Sock)
 				continue;
 			}
 #ifdef HAVE_FCNTL
-			fcntl(msgsock, F_SETFD, FD_CLOEXEC);
+			(void) fcntl(msgsock, F_SETFD, FD_CLOEXEC);
 #endif
 #ifdef HAVE_SYS_UN_H
 		} else if (usock != INVALID_SOCKET && FD_ISSET(usock, &fds)) {
@@ -377,7 +381,7 @@ SERVERlistenThread(SOCKET *Sock)
 				continue;
 			}
 #ifdef HAVE_FCNTL
-			fcntl(msgsock, F_SETFD, FD_CLOEXEC);
+			(void) fcntl(msgsock, F_SETFD, FD_CLOEXEC);
 #endif
 
 			/* BEWARE: unix domain sockets have a slightly different
@@ -617,7 +621,7 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 				);
 		}
 #ifdef HAVE_FCNTL
-		fcntl(sock, F_SETFD, FD_CLOEXEC);
+		(void) fcntl(sock, F_SETFD, FD_CLOEXEC);
 #endif
 
 		if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *) &on, sizeof on) == SOCKET_ERROR) {
@@ -709,7 +713,7 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 				);
 		}
 #ifdef HAVE_FCNTL
-		fcntl(usock, F_SETFD, FD_CLOEXEC);
+		(void) fcntl(usock, F_SETFD, FD_CLOEXEC);
 #endif
 
 		/* prevent silent truncation, sun_path is typically around 108

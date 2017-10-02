@@ -57,7 +57,7 @@ int RAPIEnabled(void) {
 }
 
 // The R-environment should be single threaded, calling for some protective measures.
-static MT_Lock rapiLock;
+static MT_Lock rapiLock MT_LOCK_INITIALIZER("rapiLock");
 static int rapiInitialized = FALSE;
 static char* rtypenames[] = { "NIL", "SYM", "LIST", "CLO", "ENV", "PROM",
 		"LANG", "SPECIAL", "BUILTIN", "CHAR", "LGL", "unknown", "unknown",
@@ -345,6 +345,7 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 			msg = createException(MAL, "rapi.eval",
 								  "Got "BUNFMT" rows, but can only handle "LLFMT". Sorry.",
 								  BATcount(b), (lng) RAPI_MAX_TUPLES);
+			BBPunfix(b->batCacheid);
 			goto wrapup;
 		}
 		varname = PROTECT(Rf_install(args[i]));
@@ -493,6 +494,8 @@ void* RAPIloopback(void *query) {
 				BAT *b = BATdescriptor(output->cols[i].b);
 				if (b == NULL || !(varvalue = bat_to_sexp(b))) {
 					UNPROTECT(i + 3);
+					if (b)
+						BBPunfix(b->batCacheid);
 					return ScalarString(RSTR("Conversion error"));
 				}
 				BBPunfix(b->batCacheid);
@@ -511,8 +514,14 @@ void* RAPIloopback(void *query) {
 
 
 str RAPIprelude(void *ret) {
+#ifdef NEED_MT_LOCK_INIT
+	static int initialized = 0;
+	/* since we don't destroy the lock, only initialize it once */
+	if (!initialized)
+		MT_lock_init(&rapiLock, "rapi_lock");
+	initialized = 1;
+#endif
 	(void) ret;
-	MT_lock_init(&rapiLock, "rapi_lock");
 
 	if (RAPIEnabled()) {
 		MT_lock_set(&rapiLock);

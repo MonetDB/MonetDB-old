@@ -57,7 +57,7 @@ void
 mal_client_reset(void)
 {
 	MAL_MAXCLIENTS = 0;
-	if ( mal_clients)
+	if (mal_clients) 
 		GDKfree(mal_clients);
 }
 
@@ -334,9 +334,6 @@ MCforkClient(Client father)
 			GDKfree(son->prompt);
 		son->prompt = GDKstrdup(father->prompt);
 		son->promptlength = strlen(father->prompt);
-		/* reuse the scopes wherever possible */
-		if (son->nspace == 0)
-			son->nspace = newModule(NULL, putName("child"));
 	}
 	return son;
 }

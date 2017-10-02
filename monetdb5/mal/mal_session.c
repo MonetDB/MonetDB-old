@@ -125,6 +125,11 @@ MSinitClientPrg(Client cntxt, str mod, str nme)
 		MSresetClientPrg(cntxt);
 		return;
 	}
+	if (cntxt->nspace == 0) {
+		cntxt->nspace = newModule(NULL, putName("user"));
+		if (cntxt->nspace == NULL) /* alloc failed, GDKerror already called */
+			return;
+	}
 	cntxt->curprg = newFunction(putName("user"), putName(nme), FUNCTIONsymbol);
 	if( cntxt->curprg == 0){
 		GDKerror("MSinitClientPrg" "Failed to create function");
@@ -480,26 +485,15 @@ MSserveClient(void *dummy)
 		c->backup = 0;
 	}
 	if (c->curprg) {
-		assert(0);
 		freeSymbol(c->curprg);
 		c->curprg = 0;
 	}
-	if (c->nspace) {
-		assert(0);
-	}
 
-	if (c->mode > FINISHCLIENT) {
-		if (isAdministrator(c) /* && moreClients(0)==0 */) {
-			if (c->scenario) {
-				exitScenario(c);
-			}
-		}
-	}
 	if (!isAdministrator(c))
 		MCcloseClient(c);
-	if (c->nspace && strcmp(c->nspace->name, "user") == 0) {
-		GDKfree(c->nspace->space);
-		GDKfree(c->nspace);
+
+	if (c->nspace /*&& strcmp(c->nspace->name, "user") == 0*/) {
+		freeModule(c->nspace);
 		c->nspace = NULL;
 	}
 }

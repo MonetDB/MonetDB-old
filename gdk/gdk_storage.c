@@ -33,6 +33,10 @@
 #include <fcntl.h>
 #endif
 
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
+
 /* GDKfilepath returns a newly allocated string containing the path
  * name of a database farm.
  * The arguments are the farmID or -1, the name of a subdirectory
@@ -319,6 +323,10 @@ GDKextendf(int fd, size_t size, const char *fn)
 	int rt = 0;
 	int t0 = 0;
 
+#ifdef STATIC_CODE_ANALYSIS
+	if (fd < 0)		/* in real life, if fd < 0, fstat will fail */
+		return GDK_FAIL;
+#endif
 	if (fstat(fd, &stb) < 0) {
 		/* shouldn't happen */
 		GDKsyserror("GDKextendf: fstat unexpectedly failed\n");
@@ -778,7 +786,7 @@ BATsave(BAT *bd)
 
 
 /*
- * TODO: move to gdk_bbp.mx
+ * TODO: move to gdk_bbp.c
  */
 BAT *
 BATload_intern(bat bid, int lock)
