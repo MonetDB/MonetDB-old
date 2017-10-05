@@ -68,8 +68,7 @@ OPTbitcandidatesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 			if ( isVarCList(mb, getArg(p,j)) ){
 				k = newTmpVariable(mb,getArgType(mb,p,j));
 				q= newFcnCall(mb,candidatesRef,compressRef);
-				//setVarType(mb,getArg(q,0), getArgType(mb,p,j));
-				setVarType(mb,getArg(q,0), newBatType(TYPE_bte));
+				setVarType(mb,getArg(q,0), getArgType(mb,p,j));
 				q= pushArgument(mb,q, k);
 				alias[getArg(p,j)] = getArg(q,0);
 				getArg(p,j) = k;

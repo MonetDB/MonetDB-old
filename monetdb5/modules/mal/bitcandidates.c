@@ -13,7 +13,7 @@
 #include "mal_interpreter.h"
 #include "sys/param.h"
 
-#define bits 8		/* using BYTEs to represent the bitvector */
+#define bits 64		/* using BYTEs to represent the bitvector */
 
 str
 BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
@@ -22,7 +22,7 @@ BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     bat *val = getArgReference_bat(stk,pci,1);
 	BAT *b, *bn;
 	oid *p,*q, base, first, last, comp;
-	bte *o;
+	char *o;
 
     (void) cntxt;
     (void) mb;
@@ -39,20 +39,20 @@ BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	base = b->tseqbase;
 	first = *(p);
 	last = *(q-1);
-	comp = (last-first)/bits +1;
+	comp = (last-first)/bits + 2; // at least 2 oids to avoid trivial properties set by BBPkeepref
 	fprintf(stderr,"# BLCcompress base "BUNFMT" first "BUNFMT" range " BUNFMT" count "BUNFMT" vector " BUNFMT"\n", base, first, last, BATcount(b), comp);
 
-	bn = COLnew(0, TYPE_bte, comp, TRANSIENT);
+	bn = COLnew(0, TYPE_oid, comp, TRANSIENT);
 	if( bn == NULL)
 		throw(MAL,"compress",MAL_MALLOC_FAIL);
 	/* zap the bitvector */
-	o = (bte *) Tloc(bn,0);
-	memset(o, 0, sizeof(bte) * comp);
+	o = (char *) Tloc(bn,0);
+	memset(o, 0, sizeof(oid) * comp);
 	for( ; p < q; p++){
-		setbit(o, (*p -first));
+		setbit(o, (*p - first));
 		fprintf(stderr,"# set value " BUNFMT" bit "BUNFMT"\n", *p,  (*p -first));
 	}
-	BATsetcount(bn,(last-first)/ bits + 1);
+	BATsetcount(bn, comp);
 	bn->hseqbase = b->hseqbase;
 	bn->tseqbase = first;
 	bn->tsorted = b->tsorted;
@@ -74,7 +74,7 @@ BCLdecompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BAT *b, *bn;
 	oid o = 0, *p;
 	BUN i, limit;
-	bte *vect;
+	char *vect;
 
     (void) cntxt;
     (void) mb;
@@ -85,7 +85,7 @@ BCLdecompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		BBPkeepref(*ret = *val);
 		return MAL_SUCCEED;
 	}
-	vect = (bte*) Tloc(b,0);
+	vect = (char*) Tloc(b,0);
 	fprintf(stderr,"#decompress %d base "OIDFMT","OIDFMT"\n", b->batCacheid, b->hseqbase,b->tseqbase);
 
 	bn = COLnew(0, TYPE_oid, BATcount(b), TRANSIENT);

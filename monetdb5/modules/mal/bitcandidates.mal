@@ -6,10 +6,10 @@
 
 module candidates;
 
-pattern compress(b:bat[:oid]):bat[:bte]
+pattern compress(b:bat[:oid]):bat[:oid]
 address BCLcompress
 comment "Compress the bat into a bitvector";
 
-pattern decompress(b:bat[:bte]):bat[:oid]
+pattern decompress(b:bat[:oid]):bat[:oid]
 address BCLdecompress
 comment "Compress the bat into a bitvector";
