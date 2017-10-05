@@ -27,6 +27,8 @@ OPTbitcandidatesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 	(void) stk;
 	(void) pci;
 
+	return MAL_SUCCEED;
+
 	limit = mb->stop;
 	slimit = mb->ssize;
 	old = mb->stmt;

@@ -21,7 +21,7 @@ BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     bat *ret = getArgReference_bat(stk,pci,0);
     bat *val = getArgReference_bat(stk,pci,1);
 	BAT *b, *bn;
-	oid *p,*q, base, first, last, comp;
+	oid *p,*q, first, last, comp;
 	char *o;
 
     (void) cntxt;
@@ -36,11 +36,12 @@ BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	p = (oid *) Tloc(b,0);
 	q = (oid *) Tloc(b,BUNlast(b));
 
-	base = b->tseqbase;
 	first = *(p);
 	last = *(q-1);
 	comp = (last-first)/bits + 2; // at least 2 oids to avoid trivial properties set by BBPkeepref
-	fprintf(stderr,"# BLCcompress base "BUNFMT" first "BUNFMT" range " BUNFMT" count "BUNFMT" vector " BUNFMT"\n", base, first, last, BATcount(b), comp);
+#ifdef _DEBUG_BITCANDIDATES_
+	fprintf(stderr,"# BLCcompress base "BUNFMT" first "BUNFMT" range " BUNFMT" count "BUNFMT" vector " BUNFMT"\n", b->tseqbase, first, last, BATcount(b), comp);
+#endif
 
 	bn = COLnew(0, TYPE_oid, comp, TRANSIENT);
 	if( bn == NULL)
@@ -50,7 +51,9 @@ BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	memset(o, 0, sizeof(oid) * comp);
 	for( ; p < q; p++){
 		setbit(o, (*p - first));
+#ifdef _DEBUG_BITCANDIDATES_
 		fprintf(stderr,"# set value " BUNFMT" bit "BUNFMT"\n", *p,  (*p -first));
+#endif
 	}
 	BATsetcount(bn, comp);
 	bn->hseqbase = b->hseqbase;
@@ -60,7 +63,9 @@ BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bn->tkey = b->tkey;
 	bn->tnil = b->tnil;
 	bn->tnonil = b->tnonil;
+#ifdef _DEBUG_BITCANDIDATES_
 	fprintf(stderr,"#compress %d base "OIDFMT","OIDFMT"\n", bn->batCacheid, bn->hseqbase,bn->tseqbase);
+#endif
 	BBPkeepref(*ret = bn->batCacheid);
 	BBPunfix(*val);
 	return MAL_SUCCEED;
@@ -86,7 +91,9 @@ BCLdecompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return MAL_SUCCEED;
 	}
 	vect = (char*) Tloc(b,0);
+#ifdef _DEBUG_BITCANDIDATES_
 	fprintf(stderr,"#decompress %d base "OIDFMT","OIDFMT"\n", b->batCacheid, b->hseqbase,b->tseqbase);
+#endif
 
 	bn = COLnew(0, TYPE_oid, BATcount(b), TRANSIENT);
 	if ( bn == 0)
@@ -96,11 +103,15 @@ BCLdecompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	o = b->tseqbase;
 	for ( i = 0; i < limit; i++, o++)
 	if( isset( vect, i) ){
+#ifdef _DEBUG_BITCANDIDATES_
 		fprintf(stderr,"#test "BUNFMT" oid "BUNFMT"\n", i,o);
+#endif
 		*p++ = o;
 	}
 	BATsetcount(bn,p - (oid*) Tloc(bn,0));
+#ifdef _DEBUG_BITCANDIDATES_
 	fprintf(stderr,"#decompress %d base "OIDFMT","OIDFMT" cnt "BUNFMT"\n", bn->batCacheid, b->hseqbase,b->tseqbase, BATcount(bn));
+#endif
 	bn->hseqbase = b->hseqbase;
 	bn->tseqbase = 0;
 	bn->tsorted = b->tsorted;
