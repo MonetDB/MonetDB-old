@@ -90,6 +90,8 @@ gdk_export ssize_t fltFromStr(const char *src, size_t *len, flt **dst);
 gdk_export ssize_t fltToStr(str *dst, size_t *len, const flt *src);
 gdk_export ssize_t dblFromStr(const char *src, size_t *len, dbl **dst);
 gdk_export ssize_t dblToStr(str *dst, size_t *len, const dbl *src);
+gdk_export ssize_t mskFromStr(const char *src, size_t *len, oid **dst);
+gdk_export ssize_t mskToStr(str *dst, size_t *len, const oid *src);
 gdk_export ssize_t GDKstrFromStr(unsigned char *dst, const unsigned char *src, ssize_t len);
 gdk_export ssize_t strFromStr(const char *src, size_t *len, str *dst);
 gdk_export BUN strHash(const char *s);

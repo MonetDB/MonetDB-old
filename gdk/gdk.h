@@ -534,14 +534,17 @@
 #define TYPE_lng	10
 #ifdef HAVE_HGE
 #define TYPE_hge	11
-#define TYPE_str	12
+#define TYPE_msk	12
+#define TYPE_str	13
 #else
-#define TYPE_str	11
+#define TYPE_msk	11
+#define TYPE_str	12
 #endif
 #define TYPE_any	255	/* limit types to <255! */
 
 typedef signed char bit;
 typedef signed char bte;
+typedef unsigned char msk;
 typedef short sht;
 
 #define SIZEOF_OID	SIZEOF_SIZE_T

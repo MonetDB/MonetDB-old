@@ -234,6 +234,7 @@ ATOMisdescendant(int tpe, int parent)
 
 
 const bte bte_nil = GDK_bte_min;
+const msk msk_nil = 0;
 const sht sht_nil = GDK_sht_min;
 const int int_nil = GDK_int_min;
 const flt flt_nil = GDK_flt_min;
@@ -1889,6 +1890,27 @@ OIDtoStr(char **dst, size_t *len, const oid *src)
 	return snprintf(*dst, *len, OIDFMT "@0", *src);
 }
 
+/* MSK operations */
+ssize_t
+mskFromStr(const char *src, size_t *len, oid **dst)
+{
+	(void) dst;
+	(void) len;
+	(void) src;
+	GDKerror("mskFromStr: not yet implemented");
+	return 0;
+}
+
+ssize_t
+mskToStr(str *dst, size_t *len, const oid *src)
+{
+	(void) dst;
+	(void) len;
+	(void) src;
+	GDKerror("mskToStr: not yet implemented");
+	return 0;
+}
+
 atomDesc BATatoms[MAXATOMS] = {
 	{"void",		/* name */
 	 TYPE_void,		/* storage */
@@ -2137,6 +2159,24 @@ atomDesc BATatoms[MAXATOMS] = {
 	 0,			/* atomHeap */
 	},
 #endif
+	{"msk",			/* name */
+	 TYPE_msk,		/* storage */
+	 1,			/* linear */
+	 sizeof(msk),		/* size */
+	 (ptr) &msk_nil,	/* atomNull */
+	 (ssize_t (*)(const char *, size_t *, ptr *)) mskFromStr,   /* atomFromStr */
+	 (ssize_t (*)(str *, size_t *, const void *)) mskToStr,     /* atomToStr */
+	 (void *(*)(void *, stream *, size_t)) intRead,	     /* atomRead */
+	 (gdk_return (*)(const void *, stream *, size_t)) intWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) intCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) intHash,		     /* atomHash */
+	 0,			/* atomFix */
+	 0,			/* atomUnfix */
+	 0,			/* atomPut */
+	 0,			/* atomDel */
+	 0,			/* atomLen */
+	 0,			/* atomHeap */
+	},
 	{"str",			/* name */
 	 TYPE_str,		/* storage */
 	 1,			/* linear */
