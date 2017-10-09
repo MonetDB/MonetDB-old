@@ -107,6 +107,8 @@
  *  Longs: the C @strong{long long} type (64-bit integers).
  * @item hge:
  *  "huge" integers: the GCC @strong{__int128} type (128-bit integers).
+ * @item msk:
+ *  mask: an 8-bit unsigned char bit-vector type
  * @item str:
  *  UTF-8 strings (Unicode). A zero-terminated byte sequence.
  * @item bat:
@@ -610,6 +612,7 @@ typedef uint64_t BUN8type;
 #define BUN8_NONE ((BUN8type) LL_CONSTANT(0xFFFFFFFFFFFFFFFF))
 #endif
 
+#define SIZEOF_MSK 1
 
 /*
  * @- Checking and Error definitions:
@@ -723,6 +726,7 @@ typedef struct {
 		flt fval;
 		ptr pval;
 		bat bval;
+		msk mval;
 		str sval;
 		dbl dval;
 		lng lval;
@@ -2373,6 +2377,7 @@ VALptr(const ValRecord *v)
 #ifdef HAVE_HGE
 	case TYPE_hge: return (const void *) &v->val.hval;
 #endif
+	case TYPE_msk: return (const void *) &v->val.mval;
 	case TYPE_str: return (const void *) v->val.sval;
 	default:       return (const void *) v->val.pval;
 	}
@@ -2781,6 +2786,7 @@ gdk_export void ALIGNsetT(BAT *b1, BAT *b2);
 #ifdef HAVE_HGE
 #define HASHloop_hge(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, hge)
 #endif
+#define HASHloop_msk(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, flt)
 #define HASHloop_flt(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, flt)
 #define HASHloop_dbl(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, dbl)
 

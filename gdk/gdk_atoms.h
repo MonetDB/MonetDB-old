@@ -58,6 +58,7 @@
 #endif
 #define fltStrlen	48
 #define dblStrlen	96
+#define mskStrlen	8
 
 /*
  * The system comes with the traditional atomic types: int (4 bytes),
@@ -90,8 +91,8 @@ gdk_export ssize_t fltFromStr(const char *src, size_t *len, flt **dst);
 gdk_export ssize_t fltToStr(str *dst, size_t *len, const flt *src);
 gdk_export ssize_t dblFromStr(const char *src, size_t *len, dbl **dst);
 gdk_export ssize_t dblToStr(str *dst, size_t *len, const dbl *src);
-gdk_export ssize_t mskFromStr(const char *src, size_t *len, oid **dst);
-gdk_export ssize_t mskToStr(str *dst, size_t *len, const oid *src);
+gdk_export ssize_t mskFromStr(const char *src, size_t *len, msk **dst);
+gdk_export ssize_t mskToStr(str *dst, size_t *len, const msk *src);
 gdk_export ssize_t GDKstrFromStr(unsigned char *dst, const unsigned char *src, ssize_t len);
 gdk_export ssize_t strFromStr(const char *src, size_t *len, str *dst);
 gdk_export BUN strHash(const char *s);
@@ -124,6 +125,8 @@ gdk_export size_t escapedStr(char *dst, const char *src, size_t dstlen, const ch
                      (((hge) 1) << 126))
 #define GDK_hge_min (-GDK_hge_max-1)
 #endif
+#define GDK_msk_max ((msk) UCHAR_MAX)
+#define GDK_msk_min ((msk) 0)
 #define GDK_dbl_max ((dbl) DBL_MAX)
 #define GDK_dbl_min (-GDK_dbl_max)
 /* GDK_oid_max see below */
@@ -138,6 +141,7 @@ gdk_export const lng lng_nil;
 #ifdef HAVE_HGE
 gdk_export const hge hge_nil;
 #endif
+gdk_export const msk msk_nil;
 gdk_export const oid oid_nil;
 gdk_export const char str_nil[2];
 gdk_export const ptr ptr_nil;

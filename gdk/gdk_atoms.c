@@ -61,6 +61,12 @@ lngCmp(const lng *l, const lng *r)
 	return simple_CMP(l, r, lng);
 }
 
+static int
+mskCmp(const msk *l, const msk *r)
+{
+	return simple_CMP(l, r, lng);
+}
+
 #ifdef HAVE_HGE
 static int
 hgeCmp(const hge *l, const hge *r)
@@ -101,6 +107,14 @@ static BUN
 lngHash(const lng *v)
 {
 	return (BUN) mix_lng(*(const ulng *) v);
+}
+
+static BUN
+mskHash(const msk *v)
+{
+	/* not sure what is the hash of a mask bit-vector */
+	(void) v;
+	return (BUN) 0;
 }
 
 #ifdef HAVE_HGE
@@ -303,6 +317,8 @@ ATOMcmp(int t, const void *l, const void *r)
 #endif
 	case TYPE_dbl:
 		return simple_CMP(l, r, dbl);
+	case TYPE_msk:
+		return simple_CMP(l, r, msk);
 	default:
 		return (l == r) ? 0 : atom_CMP(l, r, t);
 	}
@@ -1892,7 +1908,7 @@ OIDtoStr(char **dst, size_t *len, const oid *src)
 
 /* MSK operations */
 ssize_t
-mskFromStr(const char *src, size_t *len, oid **dst)
+mskFromStr(const char *src, size_t *len, msk **dst)
 {
 	(void) dst;
 	(void) len;
@@ -1902,7 +1918,7 @@ mskFromStr(const char *src, size_t *len, oid **dst)
 }
 
 ssize_t
-mskToStr(str *dst, size_t *len, const oid *src)
+mskToStr(str *dst, size_t *len, const msk *src)
 {
 	(void) dst;
 	(void) len;
@@ -2166,10 +2182,10 @@ atomDesc BATatoms[MAXATOMS] = {
 	 (ptr) &msk_nil,	/* atomNull */
 	 (ssize_t (*)(const char *, size_t *, ptr *)) mskFromStr,   /* atomFromStr */
 	 (ssize_t (*)(str *, size_t *, const void *)) mskToStr,     /* atomToStr */
-	 (void *(*)(void *, stream *, size_t)) intRead,	     /* atomRead */
-	 (gdk_return (*)(const void *, stream *, size_t)) intWrite, /* atomWrite */
-	 (int (*)(const void *, const void *)) intCmp,	     /* atomCmp */
-	 (BUN (*)(const void *)) intHash,		     /* atomHash */
+	 0,	     /* atomRead */
+	 0, /* atomWrite */
+	 (int (*)(const void *, const void *)) mskCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) mskHash,		     /* atomHash */
 	 0,			/* atomFix */
 	 0,			/* atomUnfix */
 	 0,			/* atomPut */
