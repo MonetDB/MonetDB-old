@@ -800,14 +800,6 @@ cloneVariable(MalBlkPtr tm, MalBlkPtr mb, int x)
 	return res;
 }
 
-/* generate a new variable name based on a pattern with 1 %d argument*/
-void
-renameVariable(MalBlkPtr mb, int id, str pattern, int newid)
-{
-	assert(id >=0 && id <mb->vtop);
-	snprintf(getVarName(mb,id),IDLENGTH,pattern,newid);
-}
-
 int
 newTmpVariable(MalBlkPtr mb, malType type)
 {
@@ -1298,6 +1290,8 @@ pushArgument(MalBlkPtr mb, InstrPtr p, int varid)
 		if (mb->maxarg < pn->maxarg)
 			mb->maxarg = pn->maxarg;
 	}
+	/* protect against the case that the instruction is malloced
+	 * in isolation */
 	if( mb->maxarg < p->maxarg)
 		mb->maxarg= p->maxarg;
 

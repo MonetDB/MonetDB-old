@@ -43,6 +43,7 @@
 		char *msg;														\
 		if (jt) {														\
 			msg = jt->error;											\
+			jt->error = NULL;											\
 			JSONfree(jt);												\
 		} else {														\
 			msg = createException(MAL, "json.new",						\
@@ -958,7 +959,6 @@ JSONtoken(JSON *jt, const char *j, const char **next)
 		jt->error = createException(MAL, "json.parser", "Syntax error: value expected");
 		return idx;
 	}
-	return idx;
 }
 
 

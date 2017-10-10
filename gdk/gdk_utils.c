@@ -809,6 +809,7 @@ GDKreset(int status, int exit)
 		MT_lock_unset(&GDKthreadLock);
 		//gdk_system_reset(); CHECK OUT
 	}
+	ATOMunknown_clean();
 #ifdef NEED_MT_LOCK_INIT
 	MT_lock_destroy(&MT_system_lock);
 #if defined(USE_PTHREAD_LOCKS) && defined(ATOMIC_LOCK)
@@ -979,12 +980,8 @@ doGDKaddbuf(const char *prefix, const char *message, size_t messagelen, const ch
 		}
 		*dst = '\0';
 	} else {
-		/* construct format string because the format string
-		 * must start with ! */
-		char format[32];
-
-		snprintf(format, sizeof(format), "%s%%.*s%s", prefix ? prefix : "", suffix ? suffix : "");
-		THRprintf(GDKout, format, (int) messagelen, message);
+		THRprintf(GDKout, "%s%.*s%s", prefix ? prefix : "",
+			  (int) messagelen, message, suffix ? suffix : "");
 	}
 }
 
