@@ -28,8 +28,6 @@ lib__vault = {
 	DIR = libdir/monetdb5
 	SOURCES = vault.c vault.h
 	LIBS = ../../../../monetdb5/tools/libmonetdb5 \
-	       HAVE_LIDAR?./lidar/lib_lidar \
-	       HAVE_GADGET?./gadget/lib_gadget \
 	       ../../../../gdk/libbat $(curl_LIBS)
 }
 
