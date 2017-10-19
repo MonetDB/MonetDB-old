@@ -56,7 +56,10 @@ RQcall2str(MalBlkPtr mb, InstrPtr p)
 				if( v->type == TYPE_void) {
 					sprintf(msg+len, "nil");
 				} else {
-					VALformat(&cv, &v->value);
+					if(VALformat(&cv, &v->value) < 0) {
+						GDKfree(cv);
+						return NULL;
+					}
 					sprintf(msg+len,"%s:%s",cv, ATOMname(v->type));
 					GDKfree(cv);
 				}
@@ -314,7 +317,7 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 					q= pushArgument(mb,q,location[getArg(p,j)]);
 					snprintf(buf,BUFSIZ,"io.print(%s);",
 						getVarName(mb,getArg(p,j)) );
-					(void) pushStr(mb,q,buf);
+					q=  pushStr(mb,q,buf);
 					pushInstruction(mb,q);
 				}
 				pushInstruction(mb,p);

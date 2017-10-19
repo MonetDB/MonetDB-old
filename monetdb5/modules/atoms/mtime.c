@@ -2340,11 +2340,7 @@ MTIMEdate_sub_sec_interval_wrap(date *ret, const date *t, const int *sec)
 		*ret = date_nil;
 		return MAL_SUCCEED;
 	}
-	if (*sec >= 0)
-		delta = -(int) (*sec / 86400);
-	else
-		delta = (int) (-*sec / 86400);
-
+	delta = -(int) (*sec / 86400);		/* / truncates toward zero */
 	return MTIMEdate_adddays(ret, t, &delta);
 }
 
@@ -2357,11 +2353,7 @@ MTIMEdate_sub_msec_interval_lng_wrap(date *ret, const date *t, const lng *msec)
 		*ret = date_nil;
 		return MAL_SUCCEED;
 	}
-	if (*msec > 0)
-		delta = -(int) (*msec / 86400000);
-	else
-		delta = (int) (-*msec / 86400000);
-
+	delta = -(int) (*msec / 86400000);	/* / truncates toward zero */
 	return MTIMEdate_adddays(ret, t, &delta);
 }
 
@@ -2374,11 +2366,7 @@ MTIMEdate_add_sec_interval_wrap(date *ret, const date *t, const int *sec)
 		*ret = date_nil;
 		return MAL_SUCCEED;
 	}
-	if (*sec >= 0)
-		delta = (int) (*sec / 86400);
-	else
-		delta = -(int) (-*sec / 86400);
-
+	delta = (int) (*sec / 86400);		/* / truncates toward zero */
 	return MTIMEdate_adddays(ret, t, &delta);
 }
 
@@ -2391,11 +2379,7 @@ MTIMEdate_add_msec_interval_lng_wrap(date *ret, const date *t, const lng *msec)
 		*ret = date_nil;
 		return MAL_SUCCEED;
 	}
-	if (*msec > 0)
-		delta = (int) (*msec / 86400000);
-	else
-		delta = -(int) (-*msec / 86400000);
-
+	delta = (int) (*msec / 86400000);	/* / truncates toward zero */
 	return MTIMEdate_adddays(ret, t, &delta);
 }
 
@@ -2652,6 +2636,8 @@ MTIMEepoch2int(int *ret, const timestamp *t)
 		return err;
 	if (v == lng_nil)
 		*ret = int_nil;
+	else if ((v/1000) > GDK_int_max || (v/1000) <= GDK_int_min)
+		throw(MAL, "mtime.epoch", "22003!epoch value too large");
 	else
 		*ret = (int) (v / 1000);
 	return MAL_SUCCEED;

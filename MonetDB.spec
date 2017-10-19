@@ -1,5 +1,5 @@
 %define name MonetDB
-%define version 11.27.2
+%define version 11.27.8
 %{!?buildno: %global buildno %(date +%Y%m%d)}
 
 # groups of related archs
@@ -132,14 +132,16 @@ Vendor: MonetDB BV <info@monetdb.org>
 Group: Applications/Databases
 License: MPLv2.0
 URL: https://www.monetdb.org/
-Source: https://www.monetdb.org/downloads/sources/Jul2017/%{name}-%{version}.tar.bz2
+Source: https://www.monetdb.org/downloads/sources/Jul2017-SP2/%{name}-%{version}.tar.bz2
 
 # we need systemd for the _unitdir macro to exist
 # we need checkpolicy and selinux-policy-devel for the SELinux policy
 %if %{?rhel:0}%{!?rhel:1} || 0%{?rhel} >= 7
 # RHEL >= 7, and all current Fedora
 BuildRequires: systemd
-BuildRequires: checkpolicy, selinux-policy-devel, hardlink
+BuildRequires: checkpolicy
+BuildRequires: selinux-policy-devel
+BuildRequires: hardlink
 %endif
 BuildRequires: bison
 BuildRequires: bzip2-devel
@@ -1039,6 +1041,88 @@ done
 %postun -p /sbin/ldconfig
 
 %changelog
+* Wed Oct 11 2017 Panagiotis Koutsourakis <kutsurak@monetdbsolutions.com> - 11.27.7-20171011
+- Rebuilt.
+- BZ#4017: server crashes when executing particular loopback query in
+  embedded python
+- BZ#6239: Incorrect profiling
+- BZ#6261: New handling of delta tables hurts badly reusage of bats
+- BZ#6287: should the CORR function return some numeric type that allows
+  fractions?
+- BZ#6321: Two-column aggregation on join result extremely slow.
+- BZ#6343: MERGE TABLE issue: unable to find
+- BZ#6348: Interference of procedure/table name
+- BZ#6350: Carriage return and form feed in TEXT fields are returned as
+  'r' and 'f' in jdbcclient and ResultSets
+- BZ#6352: Scope resolution problem (sqlsmith)
+- BZ#6353: implicit NULL value not propagated in distributed/remote query
+- BZ#6374: Wrong answer from merge table after content changes
+- BZ#6379: Table UDF: SEGV raised when invoking a non existing function
+- BZ#6380: unable to create new databases from clean installation
+- BZ#6381: Parser misses error messages in conditional
+- BZ#6382: Can't set JSON fields via PreparedStatement
+- BZ#6384: crash when setting a wrong listenaddr
+- BZ#6385: AGGREGATE UDFs with more than 2 parameters incorrectly
+  processed
+- BZ#6386: Unexpected error from server for query with long floats
+- BZ#6387: Performance degradation on multi column sort
+- BZ#6388: JDBC Connection via user voc produces errors when fetching
+  certain meta data information
+- BZ#6392: SELECT EXISTS (empty table) returns 'true'
+- BZ#6395: BAT leak of scalar result sets
+- BZ#6397: Isolation of generating functions not correct
+- BZ#6398: Null Matches in outer join are not supported
+- BZ#6399: UDF crashes when subquery and scalar values are passed
+  as pameters
+- BZ#6400: getCharacterStream() currently not supported
+- BZ#6404: COPY INTO crashes if table has primary key or foreign key
+  constraint
+- BZ#6409: sqllogictest crash on aggregation query with NOT IN clause
+  in HAVING clause
+- BZ#6410: Sqlitelogictest crash on aggregation query with IN clause
+- BZ#6411: Sqlitelogictest crash in aggregation query
+
+* Thu Jul 27 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.27.5-20170727
+- Rebuilt.
+- BZ#6375: MAL profiler truncates JSON objects larger than 8192 characters
+
+* Tue Jul 25 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.27.3-20170725
+- Rebuilt.
+- BZ#6325: Merge table unusable in other connections
+- BZ#6328: Transactional/multi-connection issues with merge tables
+- BZ#6336: VALUES multiple inserts error
+- BZ#6339: Mserver5 crashes on nested SELECT
+- BZ#6340: sample operator takes effect after the execution of the query,
+  expected before
+- BZ#6341: MERGE TABLE issue: Cannot register
+- BZ#6342: MERGE TABLE issue: hang
+- BZ#6344: Spurious errors and assertions (SQLsmith)
+
+* Mon Jul 24 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.27.3-20170725
+- buildtools: The Debian and Ubuntu installers have been fixed: there was a file
+  missing in the Jul2017 release.
+
+* Fri Jul 14 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.27.3-20170725
+- buildtools: Added a new RPM called MonetDB-selinux which provides the SELinux
+  policy required to run MonetDB under systemd, especially on Fedora 26.
+
+* Fri Jul 14 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.27.3-20170725
+- merovingian: monetdbd was leaking open file descriptors to the mserver5 process
+  it started.  This has been fixed.
+
+* Fri Jul  7 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.27.3-20170725
+- buildtools: The Windows installers (*.msi files) are now created using the WiX
+  Toolset.
+- buildtools: The Windows binaries are now built using Visual Studio 2015.  Because of
+  this, you may need to install the Visual C++ Redistributable for Visual
+  Studio 2015 before being able to run MonetDB.
+
+* Fri Jul  7 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.27.3-20170725
+- gdk: Many functions in GDK are now annotated with the GCC attribute
+  __warn_unused_result__ meaning that the compiler will issue a warning
+  if the result of the function (usually an indication of an error)
+  is not used.
+
 * Wed Jul 05 2017 Sjoerd Mullender <sjoerd@acm.org> - 11.27.1-20170705
 - Rebuilt.
 - BZ#3465: Request: add support for CREATE VIEW with ORDER BY clause

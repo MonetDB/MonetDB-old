@@ -125,6 +125,11 @@ MSinitClientPrg(Client cntxt, str mod, str nme)
 		MSresetClientPrg(cntxt);
 		return;
 	}
+	if (cntxt->nspace == 0) {
+		cntxt->nspace = newModule(NULL, putName("user"));
+		if (cntxt->nspace == NULL) /* alloc failed, GDKerror already called */
+			return;
+	}
 	cntxt->curprg = newFunction(putName("user"), putName(nme), FUNCTIONsymbol);
 	if( cntxt->curprg == 0){
 		GDKerror("MSinitClientPrg" "Failed to create function");
@@ -308,6 +313,12 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 		/* move this back !! */
 		if (c->nspace == 0) {
 			c->nspace = newModule(NULL, putName("user"));
+			if(c->nspace == NULL) {
+				mnstr_printf(fout, "!could not allocate space\n");
+				exit_streams(fin, fout);
+				GDKfree(command);
+				return;
+			}
 		}
 
 		if ((s = setScenario(c, lang)) != NULL) {
@@ -480,26 +491,15 @@ MSserveClient(void *dummy)
 		c->backup = 0;
 	}
 	if (c->curprg) {
-		assert(0);
 		freeSymbol(c->curprg);
 		c->curprg = 0;
 	}
-	if (c->nspace) {
-		assert(0);
-	}
 
-	if (c->mode > FINISHCLIENT) {
-		if (isAdministrator(c) /* && moreClients(0)==0 */) {
-			if (c->scenario) {
-				exitScenario(c);
-			}
-		}
-	}
 	if (!isAdministrator(c))
 		MCcloseClient(c);
-	if (c->nspace && strcmp(c->nspace->name, "user") == 0) {
-		GDKfree(c->nspace->space);
-		GDKfree(c->nspace);
+
+	if (c->nspace /*&& strcmp(c->nspace->name, "user") == 0*/) {
+		freeModule(c->nspace);
 		c->nspace = NULL;
 	}
 }

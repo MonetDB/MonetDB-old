@@ -57,7 +57,7 @@ void
 mal_client_reset(void)
 {
 	MAL_MAXCLIENTS = 0;
-	if ( mal_clients)
+	if (mal_clients) 
 		GDKfree(mal_clients);
 }
 
@@ -207,6 +207,10 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->blkmode = 0;
 
 	c->fdin = fin ? fin : bstream_create(GDKin, 0);
+	if ( c->fdin == NULL){
+		showException(GDKout, MAL, "initClientRecord", MAL_MALLOC_FAIL);
+		return NULL;
+	}
 	c->yycur = 0;
 	c->bak = NULL;
 
@@ -217,8 +221,8 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->curprg = c->backup = 0;
 	c->glb = 0;
 
-	/* remove garbage from previous connection 
-	 * be aware, a user can introduce several modules 
+	/* remove garbage from previous connection
+	 * be aware, a user can introduce several modules
 	 * that should be freed to avoid memory leaks */
 	if (c->nspace) {
 		freeModule(c->nspace);
@@ -238,6 +242,10 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 
 	prompt = !fin ? GDKgetenv("monet_prompt") : PROMPT1;
 	c->prompt = GDKstrdup(prompt);
+	if ( c->prompt == NULL){
+		showException(GDKout, MAL, "initClientRecord", MAL_MALLOC_FAIL);
+		return NULL;
+	}
 	c->promptlength = strlen(prompt);
 
 	c->actions = 0;
@@ -270,7 +278,7 @@ MCinitClient(oid user, bstream *fin, stream *fout)
 
 /*
  * The administrator should be initialized to enable interpretation of
- * the command line arguments, before it starts serviceing statements
+ * the command line arguments, before it starts servicing statements
  */
 int
 MCinitClientThread(Client c)
@@ -334,9 +342,6 @@ MCforkClient(Client father)
 			GDKfree(son->prompt);
 		son->prompt = GDKstrdup(father->prompt);
 		son->promptlength = strlen(father->prompt);
-		/* reuse the scopes wherever possible */
-		if (son->nspace == 0)
-			son->nspace = newModule(NULL, putName("child"));
 	}
 	return son;
 }

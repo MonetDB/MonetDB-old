@@ -35,6 +35,7 @@ int have_hge;
 #include "mal_private.h"
 #include "mal_runtime.h"
 #include "mal_resource.h"
+#include "opt_pipes.h"
 
 MT_Lock     mal_contextLock MT_LOCK_INITIALIZER("mal_contextLock");
 MT_Lock     mal_namespaceLock MT_LOCK_INITIALIZER("mal_namespaceLock");
@@ -118,6 +119,8 @@ int mal_init(void){
  * activity first.
  * This function should be called after you have issued sql_reset();
  */
+void cleanOptimizerPipe(void);
+
 void mserver_reset(int exit)
 {
 	str err = 0;
@@ -149,19 +152,21 @@ void mserver_reset(int exit)
 	GDKfree(mal_clients->prompt);
 	GDKfree(mal_clients->username);
 	freeStack(mal_clients->glb);
-	freeSymbol(mal_clients->curprg);
+	if (mal_clients->nspace)
+		freeModule(mal_clients->nspace);
 	mal_client_reset();
   	mal_linker_reset();
 	mal_resource_reset();
 	mal_runtime_reset();
 	mal_module_reset();
+	mal_namespace_reset();
+	mdbExit();
+	cleanOptimizerPipe();
 
 	memset((char*)monet_cwd,0, sizeof(monet_cwd));
 	monet_memory = 0;
 	memset((char*)monet_characteristics,0, sizeof(monet_characteristics));
 	mal_trace = 0;
-	/* No need to clean up the namespace, it will simply be extended
-	 * upon restart mal_namespace_reset(); */
 	GDKreset(0, exit);	// terminate all other threads
 }
 

@@ -116,6 +116,7 @@ newMalBlk(int elements)
 	mb->sealedProp = 0;
 	mb->replica = NULL;
 	mb->trap = 0;
+	mb->starttime = 0;
 	mb->runtime = 0;
 	mb->calls = 0;
 	mb->optimize = 0;
@@ -759,8 +760,13 @@ cloneVariable(MalBlkPtr tm, MalBlkPtr mb, int x)
 void
 renameVariable(MalBlkPtr mb, int id, str pattern, int newid)
 {
+	(void) mb;
+	(void) id;
+	(void) pattern;
+	(void) newid;
+	assert(0);					/* unused, and unusable */
 	assert(id >=0 && id <mb->vtop);
-	snprintf(getVarName(mb,id),IDLENGTH,pattern,newid);
+	/* snprintf(getVarName(mb,id),IDLENGTH,pattern,newid); */
 }
 
 int
@@ -790,8 +796,6 @@ clearVariable(MalBlkPtr mb, int varid)
 	VarPtr v;
 
 	v = getVar(mb, varid);
-	if (v == 0)
-		return;
 	if (isVarConstant(mb, varid) || isVarDisabled(mb, varid))
 		VALclear(&v->value);
 	v->type = 0;
@@ -835,12 +839,12 @@ trimMalVariables_(MalBlkPtr mb, MalStkPtr glb)
 			freeVariable(mb, i);
 			continue;
 		}
-        if (i > cnt) {
-            /* remap temporary variables */
-            VarRecord t = mb->var[cnt];
-            mb->var[cnt] = mb->var[i];
-            mb->var[i] = t;
-        }
+		if (i > cnt) {
+			/* remap temporary variables */
+			VarRecord t = mb->var[cnt];
+			mb->var[cnt] = mb->var[i];
+			mb->var[i] = t;
+		}
 
 		/* valgrind finds a leak when we move these variable record
 		 * pointers around. */
@@ -996,11 +1000,13 @@ convertConstant(int type, ValPtr vr)
 		str w = 0;
 		if (vr->vtype == TYPE_void || ATOMcmp(vr->vtype, ATOMnilptr(vr->vtype), VALptr(vr)) == 0) {
 			vr->vtype = type;
-			vr->val.sval = GDKstrdup(str_nil);
+			if ((vr->val.sval = GDKstrdup(str_nil)) == NULL)
+				throw(MAL, "convertConstant", MAL_MALLOC_FAIL);
 			vr->len = (int) strlen(vr->val.sval);
 			return MAL_SUCCEED;
 		}
-		ATOMformat(vr->vtype, VALptr(vr), &w);
+		if (ATOMformat(vr->vtype, VALptr(vr), &w) < 0)
+			throw(MAL, "convertConstant", MAL_MALLOC_FAIL);
 		assert(w != NULL);
 		vr->vtype = TYPE_str;
 		vr->len = (int) strlen(w);
@@ -1080,7 +1086,8 @@ convertConstant(int type, ValPtr vr)
 			str w = 0;
 
 			/* dump the non-string atom as string in w */
-			ATOMformat(vr->vtype, VALptr(vr), &w);
+			if(ATOMformat(vr->vtype, VALptr(vr), &w) < 0)
+				throw(MAL, "convertConstant", MAL_MALLOC_FAIL);
 			/* and try to parse it from string as the desired type */
 			if (ATOMfromstr(type, &d, &ll, w) < 0 || d == 0) {
 				VALinit(vr, type, ATOMnilptr(type));

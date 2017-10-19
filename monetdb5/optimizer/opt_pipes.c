@@ -260,6 +260,16 @@ addPipeDefinition(Client cntxt, str name, str pipe)
 	pipes[i].name = GDKstrdup(name);
 	pipes[i].def = GDKstrdup(pipe);
 	pipes[i].status = GDKstrdup("experimental");
+	if(pipes[i].name == NULL || pipes[i].def == NULL || pipes[i].status == NULL) {
+		GDKfree(pipes[i].name);
+		GDKfree(pipes[i].def);
+		GDKfree(pipes[i].status);
+		pipes[i].name = oldpipe.name;
+		pipes[i].def = oldpipe.def;
+		pipes[i].status = oldpipe.status;
+		MT_lock_unset(&pipeLock);
+		throw(MAL, "optimizer.addPipeDefinition", MAL_MALLOC_FAIL);
+	}
 	pipes[i].mb = NULL;
 	MT_lock_unset(&pipeLock);
 	msg = compileOptimizer(cntxt, name);
@@ -426,8 +436,15 @@ compileOptimizer(Client cntxt, str name)
 	for (i = 0; i < MAXOPTPIPES && pipes[i].name; i++) {
 		if (strcmp(pipes[i].name, name) == 0 && pipes[i].mb == 0) {
 			/* precompile the pipeline as MAL string */
-			MCinitClientRecord(&c, cntxt->user, 0, 0);
+			if(MCinitClientRecord(&c, cntxt->user, 0, 0) == NULL) {
+				MT_lock_unset(&pipeLock);
+				throw(MAL, "optimizer.addOptimizerPipe", MAL_MALLOC_FAIL);
+			}
 			c.nspace = newModule(NULL, putName("user"));
+			if(c.nspace == NULL) {
+				MT_lock_unset(&pipeLock);
+				throw(MAL, "optimizer.addOptimizerPipe", MAL_MALLOC_FAIL);
+			}
 			c.father = cntxt;	/* to avoid conflicts on GDKin */
 			c.fdout = cntxt->fdout;
 			if (setScenario(&c, "mal")) {
@@ -444,9 +461,12 @@ compileOptimizer(Client cntxt, str name)
 						continue;
 					MSinitClientPrg(&c, "user", pipes[j].name);
 					msg = compileString(&sym, &c, pipes[j].def);
-					if (msg != MAL_SUCCEED) 
+					if (msg != MAL_SUCCEED)
 						break;
-					pipes[j].mb = copyMalBlk(sym->def);
+					if((pipes[j].mb = copyMalBlk(sym->def)) == NULL) {
+						msg = GDKstrdup(MAL_MALLOC_FAIL);
+						break;
+					}
 				}
 			}
 			/* don't cleanup thread info since the thread continues to
@@ -503,4 +523,17 @@ addOptimizerPipe(Client cntxt, MalBlkPtr mb, str name)
 		}
 	}
 	return msg;
+}
+
+void cleanOptimizerPipe(void);
+
+void
+cleanOptimizerPipe(void) {
+	int j;
+	for (j = 0; j < MAXOPTPIPES && pipes[j].def; j++) {
+		if (pipes[j].mb) {
+			freeMalBlk(pipes[j].mb);
+			pipes[j].mb = NULL;
+		}
+	}
 }

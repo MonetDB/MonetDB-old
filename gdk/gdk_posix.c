@@ -66,6 +66,10 @@
 #define MMAP_ADVISE		7
 #define MMAP_WRITABLE		(MMAP_WRITE|MMAP_COPY)
 
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
+
 /* DDALERT: AIX4.X 64bits needs HAVE_SETENV==0 due to a AIX bug, but
  * it probably isn't detected so by configure */
 
@@ -302,25 +306,22 @@ MT_getrss(void)
 	size_t rss = 0;
 
 	kd = kvm_open(NULL, "/dev/null", NULL, O_RDONLY, "kvm_open");
-	if (kd == NULL)
-		return 0;
-
-	ki = kvm_getprocs(kd, KERN_PROC_PID, getpid(), &ski);
-	if (ki == NULL) {
-		kvm_close(kd);
-		return 0;
-	}
-
+	if (kd != NULL) {
+		ki = kvm_getprocs(kd, KERN_PROC_PID, getpid(), &ski);
+		if (ki != NULL) {
 #ifdef __NetBSD__		/* should we use configure for this? */
-	/* see bug 3217 */
-	rss = ki->kp_eproc.e_vm.vm_rssize;
+			/* see bug 3217 */
+			rss = ki->kp_eproc.e_vm.vm_rssize;
 #else
-	rss = ki->ki_rssize;
+			rss = ki->ki_rssize;
 #endif
+			kvm_close(kd);
 
-	kvm_close(kd);
-
-	return rss * MT_pagesize();
+			return rss * MT_pagesize();
+		} else {
+			kvm_close(kd);
+		}
+	}
 #elif defined(__linux__)
 	/* get RSS on Linux */
 	int fd;
@@ -998,8 +999,11 @@ int
 win_stat(const char *pathname, struct _stat64 *st)
 {
 	char buf[128], *p = reduce_dir_name(pathname, buf, sizeof(buf));
-	int ret = _stat64(p, st);
+	int ret;
 
+	if (p == NULL)
+		return -1;
+	ret = _stat64(p, st);
 	if (p != buf)
 		free(p);
 	return ret;
@@ -1009,8 +1013,11 @@ int
 win_rmdir(const char *pathname)
 {
 	char buf[128], *p = reduce_dir_name(pathname, buf, sizeof(buf));
-	int ret = _rmdir(p);
+	int ret;
 
+	if (p == NULL)
+		return -1;
+	ret = _rmdir(p);
 	if (ret < 0 && errno != ENOENT) {
 		/* it could be the <expletive deleted> indexing
 		 * service which prevents us from doing what we have a
@@ -1076,9 +1083,12 @@ int
 win_mkdir(const char *pathname, const int mode)
 {
 	char buf[128], *p = reduce_dir_name(pathname, buf, sizeof(buf));
-	int ret = _mkdir(p);
+	int ret;
 
 	(void) mode;
+	if (p == NULL)
+		return -1;
+	ret = _mkdir(p);
 	if (p != buf)
 		free(p);
 	return ret;

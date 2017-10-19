@@ -412,6 +412,7 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 	int oldvtop, oldstop = 1;
 	buffer *b;
 	char *n;
+	bstream *bs;
 	stream *buf;
 	str msg = MAL_SUCCEED;
 	backend *be, *sql = (backend *) c->sqlcontext;
@@ -470,15 +471,26 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 	if( b == NULL)
 		throw(SQL,"sql.statement",MAL_MALLOC_FAIL);
 	n = GDKmalloc(len + 1 + 1);
-	if( n == NULL)
+	if( n == NULL) {
+		GDKfree(b);
 		throw(SQL,"sql.statement",MAL_MALLOC_FAIL);
+	}
 	strncpy(n, *expr, len);
 	n[len] = '\n';
 	n[len + 1] = 0;
 	len++;
 	buffer_init(b, n, len);
 	buf = buffer_rastream(b, "sqlstatement");
-	scanner_init(&m->scanner, bstream_create(buf, b->len), NULL);
+	if(buf == NULL) {
+		buffer_destroy(b);//n and b will be freed by the buffer
+		throw(SQL,"sql.statement",MAL_MALLOC_FAIL);
+	}
+	bs = bstream_create(buf, b->len);
+	if(bs == NULL) {
+		buffer_destroy(b);//n and b will be freed by the buffer
+		throw(SQL,"sql.statement",MAL_MALLOC_FAIL);
+	}
+	scanner_init(&m->scanner, bs, NULL);
 	m->scanner.mode = LINE_N;
 	bstream_next(m->scanner.rs);
 
@@ -487,6 +499,10 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 	m->session->auto_commit = 0;
 	if (!m->sa)
 		m->sa = sa_create();
+	if (!m->sa) {
+		bstream_destroy(m->scanner.rs);
+		throw(SQL,"sql.statement",MAL_MALLOC_FAIL);
+	}
 
 	/*
 	 * System has been prepared to parse it and generate code.
@@ -499,6 +515,10 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 
 		if (!m->sa)
 			m->sa = sa_create();
+		if (!m->sa) {
+			msg = createException(PARSE, "SQLparser",MAL_MALLOC_FAIL);
+			goto endofcompile;
+		}
 		m->sym = NULL;
 		if ((err = sqlparse(m)) ||
 		    /* Only forget old errors on transaction boundaries */
@@ -595,6 +615,10 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 				res_table *res;
 				for (n = r->exps->h; n; n = n->next) ncol++;
 				res = res_table_create(m->session->tr, m->result_id++, 0, ncol, 1, NULL, NULL);
+				if( res == NULL){
+					msg = createException(SQL,"SQLstatement",MAL_MALLOC_FAIL);
+					goto endofcompile;
+				}
 				for (n = r->exps->h; n; n = n->next) {
 					const char *name, *rname;
 					sql_exp *e = n->data;
@@ -778,6 +802,8 @@ RAstatement(Client c, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if (!m->sa)
 		m->sa = sa_create();
+	if (!m->sa)
+		return createException(SQL,"RAstatement",MAL_MALLOC_FAIL);
 	refs = sa_list(m->sa);
 	rel = rel_read(m, *expr, &pos, refs);
 	if (rel) {
@@ -811,6 +837,17 @@ RAstatement(Client c, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return msg;
 }
 
+static int 
+is_a_number(char *v)
+{
+	while(*v) {
+		if (!isdigit(*v))
+			return 0;
+		v++;
+	}
+	return 1;
+}
+
 str
 RAstatement2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -832,25 +869,31 @@ RAstatement2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if (!m->sa)
 		m->sa = sa_create();
+	if (!m->sa)
+		return createException(SQL,"RAstatement2",MAL_MALLOC_FAIL);
 
-	//fprintf(stderr, "#(%s){{%s}}\n", *sig, *expr);
-	//fflush(stderr);
-       	ops = sa_list(m->sa);
+	/* keep copy of signature and relational expression */
 	snprintf(buf, BUFSIZ, "%s %s", *sig, *expr);
+
+	stack_push_frame(m, NULL);
+	ops = sa_list(m->sa);
 	while (c && *c && !isspace(*c)) {
-		char *vnme = c, *tnme; 
+		char *vnme = c, *tnme;
 		char *p = strchr(++c, (int)' ');
-		int d,s,nr;
+		int d,s,nr = -1;
 		sql_subtype t;
 		atom *a;
 
 		*p++ = 0;
-		nr = strtol(vnme+1, NULL, 10);
+		/* vnme can be name or number */
+		if (is_a_number(vnme+1))
+			nr = strtol(vnme+1, NULL, 10);
 		tnme = p;
 		p = strchr(p, (int)'(');
 		*p++ = 0;
 		tnme = sa_strdup(m->sa, tnme);
-
+		if (!tnme)
+			return createException(SQL,"RAstatement2",MAL_MALLOC_FAIL);
 		d = strtol(p, &p, 10);
 		p++; /* skip , */
 		s = strtol(p, &p, 10);
@@ -861,14 +904,22 @@ RAstatement2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		 * don't use sql_add_arg, but special numbered version
 		 * sql_set_arg(m, a, nr);
 		 * */
-		append(ops, exp_atom_ref(m->sa, nr, &t));
-		sql_set_arg(m, nr, a);
+		if (nr >= 0) { 
+			append(ops, exp_atom_ref(m->sa, nr, &t));
+			sql_set_arg(m, nr, a);
+		} else {
+			stack_push_var(m, vnme+1, &t);
+			append(ops, exp_var(m->sa, sa_strdup(m->sa, vnme+1), &t, m->frame));
+		}
 		c = strchr(p, (int)',');
 		if (c)
 			c++;
 	}
 	refs = sa_list(m->sa);
 	rel = rel_read(m, *expr, &pos, refs);
+	stack_pop_frame(m);
+	if (rel)
+		rel = rel_optimizer(m, rel);
 	if (!rel || monet5_create_relational_function(m, *mod, *nme, rel, NULL, ops, 0) < 0)
 		throw(SQL, "sql.register", "Cannot register %s", buf);
 	rel_destroy(rel);
