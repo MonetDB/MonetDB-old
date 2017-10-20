@@ -1212,6 +1212,11 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 	assert(li == 0 || li == 1);
 	assert(anti == 0 || anti == 1);
 
+	if (ATOMtype(b->ttype) == TYPE_msk) {
+		GDKerror("Select operator not supported for TYPE_msk");
+		return NULL;
+	}
+
 	if ((li != 0 && li != 1) ||
 	    (hi != 0 && hi != 1) ||
 	    (anti != 0 && anti != 1)) {

@@ -72,6 +72,9 @@ VALset(ValPtr v, int t, ptr p)
 		v->val.hval = *(hge *) p;
 		break;
 #endif
+	case TYPE_msk:
+		v->val.mval = *(msk *) p;
+		break;
 	case TYPE_str:
 		v->val.sval = (str) p;
 		v->len = ATOMlen(t, p);
@@ -104,6 +107,7 @@ VALget(ValPtr v)
 #ifdef HAVE_HGE
 	case TYPE_hge: return (void *) &v->val.hval;
 #endif
+	case TYPE_msk: return (void *) &v->val.mval;
 	case TYPE_str: return (void *) v->val.sval;
 	default:       return (void *) v->val.pval;
 	}
@@ -202,6 +206,9 @@ VALinit(ValPtr d, int tpe, const void *s)
 		d->val.hval = *(const hge *) s;
 		break;
 #endif
+	case TYPE_msk:
+		d->val.mval = *(const msk *) s;
+		break;
 	case TYPE_str:
 		d->val.sval = GDKstrdup(s);
 		if (d->val.sval == NULL)
@@ -321,6 +328,8 @@ VALisnil(const ValRecord *v)
 		return v->val.fval == flt_nil;
 	case TYPE_dbl:
 		return v->val.dval == dbl_nil;
+	case TYPE_msk:
+		return v->val.mval == msk_nil;
 	case TYPE_oid:
 		return v->val.oval == oid_nil;
 	case TYPE_bat:
