@@ -2049,6 +2049,9 @@ BATassertProps(BAT *b)
 		assert(b->theap.size >> b->tshift >= b->batCapacity);
 	}
 
+	/* ignore the properties for  bit-vector candidates */
+	if (b->ttype == TYPE_msk)
+		return;
 	/* void and str imply varsized */
 	if (b->ttype == TYPE_void ||
 	    ATOMstorage(b->ttype) == TYPE_str)
