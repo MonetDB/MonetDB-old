@@ -27,8 +27,6 @@ OPTbitcandidatesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 	(void) stk;
 	(void) pci;
 
-	return MAL_SUCCEED;
-
 	limit = mb->stop;
 	slimit = mb->ssize;
 	old = mb->stmt;
@@ -69,8 +67,10 @@ OPTbitcandidatesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 		// compress after creation, avoid this step when you immediately  can use it
 			if ( isVarCList(mb, getArg(p,j)) ){
 				k = newTmpVariable(mb,getArgType(mb,p,j));
+				setVarFixed(mb, k);
 				q= newFcnCall(mb,candidatesRef,compressRef);
 				setVarType(mb,getArg(q,0), getArgType(mb,p,j));
+				setVarFixed(mb, getArg(q,0));
 				q= pushArgument(mb,q, k);
 				alias[getArg(p,j)] = getArg(q,0);
 				getArg(p,j) = k;
