@@ -1,8 +1,14 @@
 function f();
  a := bat.new(:int);
- C_2:= algebra.select(a,nil:bat[:oid], 0,10,true,true,false);
- C_3:= algebra.select(a, C_2, 0,10,true,true,false);
+ a1 := bat.append(a,1);
+ a2 := bat.append(a1,2);
+ a3 := bat.append(a2,3);
+ C_2:= algebra.select(a3,nil:bat[:oid], 2,2,true,true,false);
+ C_3:= algebra.select(a3, C_2, 0,10,true,true,false);
  io.print(C_2);
+ io.print(C_3);
 end f;
 optimizer.bitcandidates("user","f");
+optimizer.deadcode("user","f");
 mdb.list("user","f");
+user.f();

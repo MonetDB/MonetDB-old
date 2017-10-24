@@ -90,6 +90,7 @@ static struct PIPELINES {
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
 	 "optimizer.bitcandidates();"
+	 "optimizer.deadcode();"
 //	 "optimizer.jit();" awaiting the new batcalc api
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
 	 "optimizer.wlc();"
