@@ -1131,51 +1131,51 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				mvc_create_column(m, tbl, "gpstime", &t);
 				break;
 			case PARAM_SCAN_ANGLE:
-				sql_find_subtype(&t, "tinyint", 0, 0);
+				sql_find_subtype(&t, "smallint", 0, 0);
 				mvc_create_column(m, tbl, "scan_angle", &t);
 				break;
 			case PARAM_INTENSITY:
-				sql_find_subtype(&t, "smallint", 0, 0);
+				sql_find_subtype(&t, "int", 0, 0);
 				mvc_create_column(m, tbl, "intensity", &t);
 				break;
 			case PARAM_N_RETURNS:
-				sql_find_subtype(&t, "smallint", 0, 0);
+				sql_find_subtype(&t, "int", 0, 0);
 				mvc_create_column(m, tbl, "n_returns", &t);
 				break;
 			case PARAM_N_THIS_RETURN:
-				sql_find_subtype(&t, "smallint", 0, 0);
+				sql_find_subtype(&t, "int", 0, 0);
 				mvc_create_column(m, tbl, "n_this_return", &t);
 				break;
 			case PARAM_CLASSIFICATION_NUMBER:
-				sql_find_subtype(&t, "tinyint", 0, 0);
+				sql_find_subtype(&t, "smallint", 0, 0);
 				mvc_create_column(m, tbl, "classification_number", &t);
 				break;
 			case PARAM_USER_DATA:
-				sql_find_subtype(&t, "tinyint", 0, 0);
+				sql_find_subtype(&t, "smallint", 0, 0);
 				mvc_create_column(m, tbl, "user_data", &t);
 				break;
 			case PARAM_POINT_SOURCE_ID:
-				sql_find_subtype(&t, "smallint", 0, 0);
+				sql_find_subtype(&t, "int", 0, 0);
 				mvc_create_column(m, tbl, "point_source_id", &t);
 				break;
 			case PARAM_EDGE_OF_FLIGHT_LINE:
-				sql_find_subtype(&t, "smallint", 0, 0);
+				sql_find_subtype(&t, "int", 0, 0);
 				mvc_create_column(m, tbl, "edge_of_flight_line", &t);
 				break;
 			case PARAM_DIRECTION_OF_SCAN_FLAG:
-				sql_find_subtype(&t, "smallint", 0, 0);
+				sql_find_subtype(&t, "int", 0, 0);
 				mvc_create_column(m, tbl, "direction_of_scan_flag", &t);
 				break;
 			case PARAM_RED_CHANNEL:
-				sql_find_subtype(&t, "smallint", 0, 0);
+				sql_find_subtype(&t, "int", 0, 0);
 				mvc_create_column(m, tbl, "red_channel", &t);
 				break;
 			case PARAM_GREEN_CHANNEL:
-				sql_find_subtype(&t, "smallint", 0, 0);
+				sql_find_subtype(&t, "int", 0, 0);
 				mvc_create_column(m, tbl, "green_channel", &t);
 				break;
 			case PARAM_BLUE_CHANNEL:
-				sql_find_subtype(&t, "smallint", 0, 0);
+				sql_find_subtype(&t, "int", 0, 0);
 				mvc_create_column(m, tbl, "blue_channel", &t);
 				break;
 			case PARAM_VERTEX_INDEX:
@@ -1277,43 +1277,43 @@ readValue(LASPointH p, ParameterValues param)
 		ret.val_dbl = LASPoint_GetTime(p);
 		break;
 	case PARAM_SCAN_ANGLE:
-		ret.val_bte = LASPoint_GetScanAngleRank(p);
+		ret.val_sht = LASPoint_GetScanAngleRank(p);
 		break;
 	case PARAM_INTENSITY:
-		ret.val_sht = LASPoint_GetIntensity(p);
+		ret.val_int = LASPoint_GetIntensity(p);
 		break;
 	case PARAM_N_RETURNS:
-		ret.val_sht = LASPoint_GetNumberOfReturns(p);
+		ret.val_int = LASPoint_GetNumberOfReturns(p);
 		break;
 	case PARAM_N_THIS_RETURN:
-		ret.val_sht = LASPoint_GetReturnNumber(p);
+		ret.val_int = LASPoint_GetReturnNumber(p);
 		break;
 	case PARAM_CLASSIFICATION_NUMBER:
-		ret.val_bte = LASPoint_GetClassification(p);
+		ret.val_sht = LASPoint_GetClassification(p);
 		break;
 	case PARAM_USER_DATA:
-		ret.val_bte = LASPoint_GetUserData(p);
+		ret.val_sht = LASPoint_GetUserData(p);
 		break;
 	case PARAM_POINT_SOURCE_ID:
-		ret.val_sht = LASPoint_GetPointSourceId(p);
+		ret.val_int = LASPoint_GetPointSourceId(p);
 		break;
 	case PARAM_EDGE_OF_FLIGHT_LINE:
-		ret.val_sht = LASPoint_GetFlightLineEdge(p);
+		ret.val_int = LASPoint_GetFlightLineEdge(p);
 		break;
 	case PARAM_DIRECTION_OF_SCAN_FLAG:
-		ret.val_sht = LASPoint_GetScanDirection(p);
+		ret.val_int = LASPoint_GetScanDirection(p);
 		break;
 	case PARAM_RED_CHANNEL:
 		color = LASPoint_GetColor(p);
-		ret.val_sht = LASColor_GetRed(color);
+		ret.val_int = LASColor_GetRed(color);
 		break;
 	case PARAM_GREEN_CHANNEL:
 		color = LASPoint_GetColor(p);
-		ret.val_sht = LASColor_GetRed(color);
+		ret.val_int = LASColor_GetRed(color);
 		break;
 	case PARAM_BLUE_CHANNEL:
 		color = LASPoint_GetColor(p);
-		ret.val_sht = LASColor_GetRed(color);
+		ret.val_int = LASColor_GetRed(color);
 		break;
 	case PARAM_VERTEX_INDEX:
 		/* This data is implicit. Set the return value just for the
@@ -1491,84 +1491,84 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, sql_table *tbl, o
 				break;
 			case PARAM_SCAN_ANGLE:
 				columns[idx] = mvc_bind_column(m, tbl, "scan_angle");
-				bats[idx] = COLnew(0, TYPE_bte, rows, PERSISTENT);
+				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
 				if (bats[idx] == NULL) {
 					error_code = 1;
 				}
 				break;
 			case PARAM_CLASSIFICATION_NUMBER:
 				columns[idx] = mvc_bind_column(m, tbl, "classification_number");
-				bats[idx] = COLnew(0, TYPE_bte, rows, PERSISTENT);
+				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
 				if (bats[idx] == NULL) {
 					error_code = 1;
 				}
 				break;
 			case PARAM_USER_DATA:
 				columns[idx] = mvc_bind_column(m, tbl, "user_data");
-				bats[idx] = COLnew(0, TYPE_bte, rows, PERSISTENT);
+				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
 				if (bats[idx] == NULL) {
 					error_code = 1;
 				}
 				break;
 			case PARAM_INTENSITY:
 				columns[idx] = mvc_bind_column(m, tbl, "intensity");
-				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
 				if (bats[idx] == NULL) {
 					error_code = 1;
 				}
 				break;
 			case PARAM_N_RETURNS:
 				columns[idx] = mvc_bind_column(m, tbl, "n_returns");
-				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
 				if (bats[idx] == NULL) {
 					error_code = 1;
 				}
 				break;
 			case PARAM_N_THIS_RETURN:
 				columns[idx] = mvc_bind_column(m, tbl, "n_this_return");
-				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
 				if (bats[idx] == NULL) {
 					error_code = 1;
 				}
 				break;
 			case PARAM_POINT_SOURCE_ID:
 				columns[idx] = mvc_bind_column(m, tbl, "point_source_id");
-				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
 				if (bats[idx] == NULL) {
 					error_code = 1;
 				}
 				break;
 			case PARAM_EDGE_OF_FLIGHT_LINE:
 				columns[idx] = mvc_bind_column(m, tbl, "edge_of_flight_line");
-				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
 				if (bats[idx] == NULL) {
 					error_code = 1;
 				}
 				break;
 			case PARAM_DIRECTION_OF_SCAN_FLAG:
 				columns[idx] = mvc_bind_column(m, tbl, "direction_of_scan_flag");
-				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
 				if (bats[idx] == NULL) {
 					error_code = 1;
 				}
 				break;
 			case PARAM_RED_CHANNEL:
 				columns[idx] = mvc_bind_column(m, tbl, "red_channel");
-				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
 				if (bats[idx] == NULL) {
 					error_code = 1;
 				}
 				break;
 			case PARAM_GREEN_CHANNEL:
 				columns[idx] = mvc_bind_column(m, tbl, "green_channel");
-				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
 				if (bats[idx] == NULL) {
 					error_code = 1;
 				}
 				break;
 			case PARAM_BLUE_CHANNEL:
 				columns[idx] = mvc_bind_column(m, tbl, "blue_channel");
-				bats[idx] = COLnew(0, TYPE_sht, rows, PERSISTENT);
+				bats[idx] = COLnew(0, TYPE_int, rows, PERSISTENT);
 				if (bats[idx] == NULL) {
 					error_code = 1;
 				}
@@ -1737,8 +1737,8 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, sql_table *tbl, o
 				case PARAM_SCAN_ANGLE:
 				case PARAM_CLASSIFICATION_NUMBER:
 				case PARAM_USER_DATA:
-					curr_bte = (bte *)arr[idx];
-					curr_bte[i] = value.val_bte;
+					curr_sht = (sht *)arr[idx];
+					curr_sht[i] = value.val_sht;
 					break;
 				case PARAM_INTENSITY:
 				case PARAM_N_RETURNS:
@@ -1749,9 +1749,6 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, sql_table *tbl, o
 				case PARAM_RED_CHANNEL:
 				case PARAM_GREEN_CHANNEL:
 				case PARAM_BLUE_CHANNEL:
-					curr_sht = (sht *)arr[idx];
-					curr_sht[i] = value.val_sht;
-					break;
 				case PARAM_VERTEX_INDEX:
 					curr_int = (int *)arr[idx];
 					curr_int[i] = i;
