@@ -1,8 +1,6 @@
 call lidarattach('$TSTDATAPATH/lidar/lidar1.las', 'tbl0', 'XYZauinrcpedM');
-call lidarattach('$TSTDATAPATH/lidar/lidar2.las', 'tbl1', 'XYZauinrcpedM');
 select * from sys.statistics;
 select * from vault_journal;
 call lidarload('tbl0');
-call lidarload('tbl1');
 select * from tbl0;
-select * from tbl1;
+select count(*) from tbl0;
