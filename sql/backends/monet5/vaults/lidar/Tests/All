@@ -1,1 +1,2 @@
 HAVE_DATA_PATH?lidar-single-file
+HAVE_DATA_PATH?lidar-directory

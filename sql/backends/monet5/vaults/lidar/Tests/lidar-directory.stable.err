@@ -1,0 +1,137 @@
+stderr of test 'lidar-directory` in directory 'sql/backends/monet5/vaults/lidar` itself:
+
+
+# 16:54:24 >  
+# 16:54:24 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=34483" "--set" "mapi_usock=/var/tmp/mtest-10899/.s.monetdb.34483" "--set" "monet_prompt=" "--forcemito" "--dbpath=/home/kutsurak/work/monet/sources/MonetDB/build/install/var/MonetDB/mTests_sql_backends_monet5_vaults_lidar"
+# 16:54:24 >  
+
+# builtin opt 	gdk_dbpath = /home/kutsurak/work/monet/sources/MonetDB/build/install/var/monetdb5/dbfarm/demo
+# builtin opt 	gdk_debug = 0
+# builtin opt 	gdk_vmtrim = no
+# builtin opt 	monet_prompt = >
+# builtin opt 	monet_daemon = no
+# builtin opt 	mapi_port = 50000
+# builtin opt 	mapi_open = false
+# builtin opt 	mapi_autosense = false
+# builtin opt 	sql_optimizer = default_pipe
+# builtin opt 	sql_debug = 0
+# cmdline opt 	gdk_nr_threads = 0
+# cmdline opt 	mapi_open = true
+# cmdline opt 	mapi_port = 34483
+# cmdline opt 	mapi_usock = /var/tmp/mtest-10899/.s.monetdb.34483
+# cmdline opt 	monet_prompt = 
+# cmdline opt 	gdk_dbpath = /home/kutsurak/work/monet/sources/MonetDB/build/install/var/MonetDB/mTests_sql_backends_monet5_vaults_lidar
+# cmdline opt 	gdk_debug = 536870922
+Params: XYZainrcpedM
+Initial table name: tbl1
+file: /home/kutsurak/work/monet/sources/monetdb-test-data/lidar/directory_loading/lidar1.las 2
+file: /home/kutsurak/work/monet/sources/monetdb-test-data/lidar/directory_loading/lidar2.las 2
+tname: tbl1
+tablename: tbl1
+
+---------------------------------------------------------
+  Header Summary
+---------------------------------------------------------
+  File Name: /home/kutsurak/work/monet/sources/monetdb-test-data/lidar/directory_loading/lidar1.las
+  Version:                    1.2
+  Source ID:                  0
+  Reserved:                   0
+  Project ID/GUID:           '00000000-0000-0000-0000-000000000000'
+  System Identifier:         ''
+  Generating Software:       'TerraScan'
+  File Creation Day/Year:    0/0
+  Header Size                227
+  Offset to Point Data       1994
+  Number Var. Length Records 4
+  Point Data Format          1
+  Point Data Record Length   28
+  Number of Point Records    106
+  Number of Points by Return 90 12 2 2 0
+  Scale Factor X Y Z         0.01 0.01 0.01
+  Offset X Y Z               -0.000000 -0.000000 -0.000000
+  Min X Y Z                  635616.310000 848977.790000 407.350000
+  Max X Y Z                  638864.600000 853362.370000 536.840000
+ Spatial Reference           +proj=lcc +lat_1=43 +lat_2=45.5 +lat_0=41.75 +lon_0=-120.5 +x_0=399999.9999984 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=ft +no_defs 
+
+---------------------------------------------------------
+  VLR Summary
+---------------------------------------------------------
+   User: 'liblas' - Description: 'OGR variant of OpenGIS WKT SRS'
+   ID: 2112 Length: 720
+
+   User: 'LASF_Projection' - Description: 'GeoTIFF GeoKeyDirectoryTag'
+   ID: 34735 Length: 64
+
+   User: 'LASF_Projection' - Description: 'GeoTIFF GeoAsciiParamsTag'
+   ID: 34737 Length: 47
+
+   User: 'liblas' - Description: 'OGR variant of OpenGIS WKT SRS'
+   ID: 2112 Length: 720
+
+Scale: 0.010000 0.010000 0.010000
+Decimal type scale: 2 2 2
+Decimal type precision: 6 6 3
+decimal digits: 2 2 2
+total digits: 8 8 5
+
+---------------------------------------------------------
+  Header Summary
+---------------------------------------------------------
+  File Name: /home/kutsurak/work/monet/sources/monetdb-test-data/lidar/directory_loading/lidar2.las
+  Version:                    1.2
+  Source ID:                  0
+  Reserved:                   0
+  Project ID/GUID:           '00000000-0000-0000-0000-000000000000'
+  System Identifier:         ''
+  Generating Software:       'TerraScan'
+  File Creation Day/Year:    0/0
+  Header Size                227
+  Offset to Point Data       1994
+  Number Var. Length Records 4
+  Point Data Format          1
+  Point Data Record Length   28
+  Number of Point Records    106
+  Number of Points by Return 90 12 2 2 0
+  Scale Factor X Y Z         0.01 0.01 0.01
+  Offset X Y Z               -0.000000 -0.000000 -0.000000
+  Min X Y Z                  635616.310000 848977.790000 407.350000
+  Max X Y Z                  638864.600000 853362.370000 536.840000
+ Spatial Reference           +proj=lcc +lat_1=43 +lat_2=45.5 +lat_0=41.75 +lon_0=-120.5 +x_0=399999.9999984 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=ft +no_defs 
+
+---------------------------------------------------------
+  VLR Summary
+---------------------------------------------------------
+   User: 'liblas' - Description: 'OGR variant of OpenGIS WKT SRS'
+   ID: 2112 Length: 720
+
+   User: 'LASF_Projection' - Description: 'GeoTIFF GeoKeyDirectoryTag'
+   ID: 34735 Length: 64
+
+   User: 'LASF_Projection' - Description: 'GeoTIFF GeoAsciiParamsTag'
+   ID: 34737 Length: 47
+
+   User: 'liblas' - Description: 'OGR variant of OpenGIS WKT SRS'
+   ID: 2112 Length: 720
+
+Scale: 0.010000 0.010000 0.010000
+Decimal type scale: 2 2 2
+Decimal type precision: 6 6 3
+decimal digits: 2 2 2
+total digits: 8 8 5
+count: 2
+id, rid: 0 2
+#Loading 106 rows
+----------------LIDARloadTable_ called, creating reader
+#File loaded in 1 ms	id, rid: 1 3
+#Loading 106 rows
+----------------LIDARloadTable_ called, creating reader
+#File loaded in 1 ms	
+# 16:54:25 >  
+# 16:54:25 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-10899" "--port=34483"
+# 16:54:25 >  
+
+
+# 16:54:25 >  
+# 16:54:25 >  "Done."
+# 16:54:25 >  
+

@@ -1,5 +1,5 @@
 call lidarattach('$TSTDATAPATH/lidar/lidar1.las', 'tbl0', 'XYZauinrcpedM');
-select * from sys.statistics;
+select column_id, type, width, "sample", count, "unique", nils, minval, maxval, sorted, revsorted from sys.statistics;
 select * from vault_journal;
 call lidarload('tbl0');
 select * from tbl0;
