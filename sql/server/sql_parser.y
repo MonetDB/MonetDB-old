@@ -835,7 +835,7 @@ schema:
   |	drop SCHEMA if_exists qname drop_action
 		{ dlist *l = L();
 		append_list(l, $4);
-		append_int(l, $5);
+		append_int(l, 1 /*$5 use CASCADE in the release */);
 		append_int(l, $3);
 		$$ = _symbol_create_list( SQL_DROP_SCHEMA, l); }
  ;
@@ -3939,7 +3939,7 @@ window_frame_end:
   ;
 
 window_frame_following:
-	value_exp PRECEDING	{ $$ = $1; }
+	value_exp FOLLOWING	{ $$ = $1; }
   ;
 
 window_frame_exclusion:
