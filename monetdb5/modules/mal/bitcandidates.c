@@ -95,11 +95,11 @@ BCLdecompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	fprintf(stderr,"#decompress %d base "OIDFMT","OIDFMT"\n", b->batCacheid, b->hseqbase,b->tseqbase);
 #endif
 
-	bn = COLnew(0, TYPE_oid, BATcount(b), TRANSIENT);
+	limit= BATcount(b) * bits;
+	bn = COLnew(0, TYPE_oid, limit, TRANSIENT);
 	if ( bn == 0)
 		throw(MAL,"decompress",MAL_MALLOC_FAIL);
 	p = (oid*) Tloc(bn,0);
-	limit= BATcount(b) * bits;
 	o = b->tseqbase;
 	for ( i = 0; i < limit; i++, o++)
 	if( isset( vect, i) ){
