@@ -629,7 +629,9 @@ str gadgetListDirPat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     fclose(stream);
     snprintf(stmt, BUFSIZ, ATTACHDIR, fname);
     msg = SQLstatementIntern(cntxt, &s, "gadget.listofdirpat", TRUE, FALSE, NULL);
-    break;
+    if (msg != MAL_SUCCEED) {
+	    break;
+    }
   }
 
   return msg;
