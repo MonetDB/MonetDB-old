@@ -33,6 +33,12 @@
 #define _CRT_SECURE_NO_DEPRECATE 1
 #endif
 
+/* include Intel's mathimf.h early, before any other include files
+ * might try to include math.h */
+#ifdef __INTEL_COMPILER
+#include <mathimf.h>
+#endif
+
 #include <malloc.h>
 
 #if defined(_DEBUG) && defined(_CRTDBG_MAP_ALLOC)
@@ -159,14 +165,6 @@
 
 /* Define if the fits module is to be enabled */
 /* #undef HAVE_FITS */
-
-/* Define to 1 if you have the `fpclass' function. */
-#define HAVE_FPCLASS 1		/* uses _fpclass, see mmath.c */
-
-/* Define to 1 if you have the `fpclassify' function. */
-#if defined(_MSC_VER) && _MSC_VER > 1600
-#define HAVE_FPCLASSIFY 1
-#endif
 
 /* Define to 1 if fseeko (and presumably ftello) exists and is declared. */
 /* #undef HAVE_FSEEKO */

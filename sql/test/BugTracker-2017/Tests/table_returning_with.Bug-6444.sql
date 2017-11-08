@@ -1,3 +1,5 @@
+START TRANSACTION;
+
 CREATE TABLE test_table(x STRING, y STRING, z STRING);
 INSERT INTO test_table VALUES ('test value 1', 'test value 2', 'test value 3');
 
@@ -18,3 +20,5 @@ CREATE TABLE results_table AS (
 );
 
 SELECT * FROM results_table;
+
+ROLLBACK;

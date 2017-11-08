@@ -917,7 +917,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	rid = table_funcs.column_find_row(m->session->tr, col, tname_low, NULL);
 	/* or as regular SQL table */
 	tbl = mvc_bind_table(m, sch, tname_low);
-	if (rid != oid_nil || tbl) {
+	if (!is_oid_nil(rid) || tbl) {
 		msg = createException(SQL, "lidar.attach", SQLSTATE(LI000) "Table %s already exists. Not attaching.\n", tname_low);
 		goto attach_cleanup1;
 	}
@@ -941,7 +941,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		/* check if the file is already attached */
 		col = mvc_bind_column(m, lidar_fl, "name");
 		rid = table_funcs.column_find_row(m->session->tr, col, filename, NULL);
-		if (rid != oid_nil) {
+		if (!is_oid_nil(rid)) {
 			msg = createException(SQL, "lidar.attach", SQLSTATE(LI000) "File %s already attached\n", filename);
 			goto attach_cleanup1;
 		}
@@ -1929,7 +1929,7 @@ LIDARCheckTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/*Check if is a table which belongs to lidar_tables*/
 	col = mvc_bind_column(m, lidar_tbl, "name");
 	rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
-	if (rid == oid_nil) {
+	if (is_oid_nil(rid)) {
 		return MAL_SUCCEED;
 	}
 
@@ -2028,7 +2028,7 @@ LIDARAnalyzeTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/*Check if it is a table which belongs to lidar_tables*/
 	col = mvc_bind_column(m, lidar_tbl, "name");
 	rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
-	if (rid == oid_nil) {
+	if (is_oid_nil(rid)) {
 		msg = createException(MAL, "lidar.analyze",
 				      SQLSTATE(LI000) "Table %s is unknown to the LIDAR catalog. Attach first the containing file\n",
 				      tname);
@@ -2093,7 +2093,7 @@ LIDARunload(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	/*Check if is a table which belongs to lidar_tables*/
 	col = mvc_bind_column(m, lidar_tbl, "name");
 	rid = table_funcs.column_find_row(m->session->tr, col, tname, NULL);
-	if (rid == oid_nil) {
+	if (is_oid_nil(rid)) {
 		msg = createException(MAL, "lidar.check", SQLSTATE(LI000) "Could not find table %s.\n", tname);
 		return msg;
 	}

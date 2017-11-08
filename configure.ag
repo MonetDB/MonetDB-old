@@ -2731,8 +2731,6 @@ AC_CHECK_FUNCS([\
 	fabsf \
 	fallocate \
 	fcntl \
-	fpclass \
-	fpclassify \
 	fsync \
 	ftime \
 	getexecname \
