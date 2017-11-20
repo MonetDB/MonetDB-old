@@ -1,6 +1,6 @@
 call lidarattach('$TSTDATAPATH/lidar/lidar1.las', 'tbl0', 'XYZauinrcpedM');
-select column_id, type, width, "sample", count, "unique", nils, minval, maxval, sorted, revsorted from sys.statistics;
-select * from vault_journal;
+select type, width, "sample", count, "unique", nils, minval, maxval, sorted, revsorted from sys.statistics;
+select table_name, vault_reader_id, vault_type, version from vault_journal;
 call lidarload('tbl0');
 select * from tbl0;
 select count(*) from tbl0;

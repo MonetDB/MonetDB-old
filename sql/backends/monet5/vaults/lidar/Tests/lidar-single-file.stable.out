@@ -65,20 +65,20 @@ Ready.
 # 16:54:24 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-10899" "--port=34483"
 # 16:54:24 >  
 
-#select column_id, type, width, "sample", count, "unique", nils, minval, maxval, sorted, revsorted from sys.statistics;
-% sys.statistics,	sys.statistics,	sys.statistics,	sys.statistics,	sys.statistics,	sys.statistics,	sys.statistics,	sys.statistics,	sys.statistics,	sys.statistics,	sys.statistics # table_name
-% column_id,	type,	width,	sample,	count,	unique,	nils,	minval,	maxval,	sorted,	revsorted # name
-% int,	clob,	int,	bigint,	bigint,	bigint,	bigint,	clob,	clob,	boolean,	boolean # type
-% 4,	12,	1,	1,	1,	1,	1,	13,	13,	5,	5 # length
-[ 8414,	"decimal(8,2)",	8,	0,	0,	0,	0,	"635616.310000",	"638864.600000",	false,	false	]
-[ 8415,	"decimal(8,2)",	8,	0,	0,	0,	0,	"848977.790000",	"853362.370000",	false,	false	]
-[ 8416,	"decimal(5,2)",	5,	0,	0,	0,	0,	"407.350000",	"536.840000",	false,	false	]
-#select * from vault_journal;
-% sys.vault_journal,	sys.vault_journal,	sys.vault_journal,	sys.vault_journal,	sys.vault_journal # table_name
-% table_id,	table_name,	vault_reader_id,	vault_type,	version # name
-% int,	varchar,	int,	varchar,	varchar # type
-% 4,	4,	1,	5,	5 # length
-[ 8413,	"tbl0",	1,	"lidar",	"1.8.0"	]
+#select type, width, "sample", count, "unique", nils, minval, maxval, sorted, revsorted from sys.statistics;
+% sys.statistics,	sys.statistics,	sys.statistics,	sys.statistics,	sys.statistics,	sys.statistics,	sys.statistics,	sys.statistics,	sys.statistics,	sys.statistics # table_name
+% type,	width,	sample,	count,	unique,	nils,	minval,	maxval,	sorted,	revsorted # name
+% clob,	int,	bigint,	bigint,	bigint,	bigint,	clob,	clob,	boolean,	boolean # type
+% 12,	1,	1,	1,	1,	1,	13,	13,	5,	5 # length
+[ "decimal(8,2)",	8,	0,	0,	0,	0,	"635616.310000",	"638864.600000",	false,	false	]
+[ "decimal(8,2)",	8,	0,	0,	0,	0,	"848977.790000",	"853362.370000",	false,	false	]
+[ "decimal(5,2)",	5,	0,	0,	0,	0,	"407.350000",	"536.840000",	false,	false	]
+#select table_name, vault_reader_id, vault_type, version from vault_journal;
+% sys.vault_journal,	sys.vault_journal,	sys.vault_journal,	sys.vault_journal # table_name
+% table_name,	vault_reader_id,	vault_type,	version # name
+% varchar,	int,	varchar,	varchar # type
+% 4,	1,	5,	5 # length
+[ "tbl0",	1,	"lidar",	"1.8.0"	]
 #select * from tbl0;
 % sys.tbl0,	sys.tbl0,	sys.tbl0,	sys.tbl0,	sys.tbl0,	sys.tbl0,	sys.tbl0,	sys.tbl0,	sys.tbl0,	sys.tbl0,	sys.tbl0,	sys.tbl0,	sys.tbl0 # table_name
 % x,	y,	z,	n_returns,	n_this_return,	classification_number,	user_data,	point_source_id,	edge_of_flight_line,	direction_of_scan_flag,	vertex_index,	scan_angle,	intensity # name
