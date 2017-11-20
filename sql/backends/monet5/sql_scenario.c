@@ -281,9 +281,11 @@ SQLinit(void)
 	return MAL_SUCCEED;
 }
 
-#define SQLglobal(name, val) \
-	stack_push_var(sql, name, &ctype);	   \
-	stack_set_var(sql, name, VALset(&src, ctype.type->localtype, val));
+#define SQLglobal(name, val, failure)                                       \
+	if(stack_push_var(sql, name, &ctype))                                   \
+		stack_set_var(sql, name, VALset(&src, ctype.type->localtype, val)); \
+	else                                                                    \
+		failure++;                                                          \
 
 #define NR_GLOBAL_VARS 10
 /* NR_GLOBAL_VAR should match exactly the number of variables created
@@ -298,37 +300,38 @@ global_variables(mvc *sql, char *user, char *schema)
 	bit F = FALSE;
 	ValRecord src;
 	str opt;
+	int failure = 0;
 
 	typename = "int";
 	sql_find_subtype(&ctype, typename, 0, 0);
-	SQLglobal("debug", &sql->debug);
-	SQLglobal("cache", &sql->cache);
+	SQLglobal("debug", &sql->debug, failure);
+	SQLglobal("cache", &sql->cache, failure);
 
 	typename = "varchar";
 	sql_find_subtype(&ctype, typename, 1024, 0);
-	SQLglobal("current_schema", schema);
-	SQLglobal("current_user", user);
-	SQLglobal("current_role", user);
+	SQLglobal("current_schema", schema, failure);
+	SQLglobal("current_user", user, failure);
+	SQLglobal("current_role", user, failure);
 
 	/* inherit the optimizer from the server */
 	opt = GDKgetenv("sql_optimizer");
 	if (!opt)
 		opt = "default_pipe";
-	SQLglobal("optimizer", opt);
+	SQLglobal("optimizer", opt, failure);
 
 	typename = "sec_interval";
 	sql_find_subtype(&ctype, typename, inttype2digits(ihour, isec), 0);
-	SQLglobal("current_timezone", &sec);
+	SQLglobal("current_timezone", &sec, failure);
 
 	typename = "boolean";
 	sql_find_subtype(&ctype, typename, 0, 0);
-	SQLglobal("history", &F);
+	SQLglobal("history", &F, failure);
 
 	typename = "bigint";
 	sql_find_subtype(&ctype, typename, 0, 0);
-	SQLglobal("last_id", &sql->last_id);
-	SQLglobal("rowcnt", &sql->rowcnt);
-	return 0;
+	SQLglobal("last_id", &sql->last_id, failure);
+	SQLglobal("rowcnt", &sql->rowcnt, failure);
+	return failure;
 }
 
 #define TRANS_ABORTED SQLSTATE(25005) "Current transaction is aborted (please ROLLBACK)\n"
@@ -387,7 +390,10 @@ SQLtrans(mvc *m)
 	if (!m->session->active) {
 		sql_session *s;
 
-		mvc_trans(m);
+		if(mvc_trans(m) < 0) {
+			(void) sql_error(m, 02, SQLSTATE(HY001) "Allocation failure while starting the transaction");
+			return;
+		}
 		s = m->session;
 		if (!s->schema) {
 			if (s->schema_name)
@@ -460,17 +466,19 @@ SQLinitClient(Client c)
 	if (c->sqlcontext == 0) {
 		m = mvc_create(c->idx, 0, SQLdebug, c->fdin, c->fdout);
 		if( m == NULL)
-			throw(SQL,"sql.initClient",MAL_MALLOC_FAIL);
-		global_variables(m, "monetdb", "sys");
+			throw(SQL,"sql.initClient",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		if(global_variables(m, "monetdb", "sys"))
+			throw(SQL,"sql.initClient",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		if (isAdministrator(c) || strcmp(c->scenario, "msql") == 0)	/* console should return everything */
 			m->reply_size = -1;
 		be = (void *) backend_create(m, c);
 		if( be == NULL)
-			throw(SQL,"sql.init", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			throw(SQL,"sql.initClient", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	} else {
 		be = c->sqlcontext;
 		m = be->mvc;
-		mvc_reset(m, c->fdin, c->fdout, SQLdebug, NR_GLOBAL_VARS);
+		if(mvc_reset(m, c->fdin, c->fdout, SQLdebug, NR_GLOBAL_VARS) < 0)
+			throw(SQL,"sql.initClient", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		backend_reset(be);
 	}
 	if (m->session->tr)
@@ -518,16 +526,16 @@ SQLinitClient(Client c)
 			stream* createdb_stream;
 			bstream* createdb_bstream;
 			if ((createdb_buf = GDKmalloc(sizeof(buffer))) == NULL)
-				throw(MAL, "createdb", MAL_MALLOC_FAIL);
+				throw(MAL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			buffer_init(createdb_buf, createdb_inline, createdb_len);
 			if ((createdb_stream = buffer_rastream(createdb_buf, "createdb.sql")) == NULL) {
 				GDKfree(createdb_buf);
-				throw(MAL, "createdb", MAL_MALLOC_FAIL);
+				throw(MAL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			}
 			if ((createdb_bstream = bstream_create(createdb_stream, createdb_len)) == NULL) {
 				mnstr_destroy(createdb_stream);
 				GDKfree(createdb_buf);
-				throw(MAL, "createdb", MAL_MALLOC_FAIL);
+				throw(MAL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			}
 			if (bstream_next(createdb_bstream) >= 0)
 				msg = SQLstatementIntern(c, &createdb_bstream->buf, "sql.init", TRUE, FALSE, NULL);
@@ -542,12 +550,12 @@ SQLinitClient(Client c)
 		}
 
 #else
-		char path[PATHLENGTH];
+		char path[FILENAME_MAX];
 		str fullname;
 
 		SQLnewcatalog = 0;
 		maybeupgrade = 0;
-		snprintf(path, PATHLENGTH, "createdb");
+		snprintf(path, FILENAME_MAX, "createdb");
 		slash_2_dir_sep(path);
 		fullname = MSP_locate_sqlscript(path, 1);
 		if (fullname) {
@@ -597,7 +605,7 @@ SQLinitClient(Client c)
 		if (!m->sa)
 			m->sa = sa_create();
 		if (!m->sa) {
-			msg = createException(MAL, "createdb", MAL_MALLOC_FAIL);
+			msg = createException(MAL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		} else if (maybeupgrade) {
 			SQLupgrades(c,m);
 		}
@@ -976,6 +984,15 @@ SQLparser(Client c)
 	m->type = Q_PARSE;
 	if (be->language != 'X')
 		SQLtrans(m);
+	if(*m->errstr) {
+		if (strlen(m->errstr) > 6 && m->errstr[5] == '!')
+			msg = createException(PARSE, "SQLparser", "%s", m->errstr);
+		else
+			msg = createException(PARSE, "SQLparser", SQLSTATE(42000) "%s", m->errstr);
+		*m->errstr=0;
+		c->mode = FINISHCLIENT;
+		return msg;
+	}
 	pstatus = m->session->status;
 
 	/* sqlparse needs sql allocator to be available.  It can be NULL at
@@ -1132,16 +1149,20 @@ SQLparser(Client c)
 
 		if ((!caching(m) || !cachable(m, r)) && m->emode != m_prepare) {
 			char *q = query_cleaned(QUERY(m->scanner));
-
-			/* Query template should not be cached */
-			scanner_query_processed(&(m->scanner));
-
-			err = 0;
-			if (backend_callinline(be, c) < 0 ||
-			    backend_dumpstmt(be, c->curprg->def, r, 1, 0, q) < 0)
+			if(!q) {
 				err = 1;
-			else opt = 1;
-			GDKfree(q);
+				msg = createException(PARSE, "SQLparser", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			} else {
+				/* Query template should not be cached */
+				scanner_query_processed(&(m->scanner));
+
+				err = 0;
+				if (backend_callinline(be, c) < 0 ||
+					backend_dumpstmt(be, c->curprg->def, r, 1, 0, q) < 0)
+					err = 1;
+				else opt = 1;
+				GDKfree(q);
+			}
 		} else {
 			/* Add the query tree to the SQL query cache
 			 * and bake a MAL program for it.
@@ -1151,13 +1172,13 @@ SQLparser(Client c)
 			be->q = NULL;
 			if(!q) {
 				err = 1;
-				msg = createException(PARSE, "SQLparser", MAL_MALLOC_FAIL);
+				msg = createException(PARSE, "SQLparser", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			}
 			(void) snprintf(qname, IDLENGTH, "%c%d_%d", (m->emode == m_prepare?'p':'s'), m->qc->id++, m->qc->clientid);
 			escaped_q = sql_escape_str(q);
 			if(!escaped_q) {
 				err = 1;
-				msg = createException(PARSE, "SQLparser", MAL_MALLOC_FAIL);
+				msg = createException(PARSE, "SQLparser", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			} else {
 				be->q = qc_insert(m->qc, m->sa,	/* the allocator */
 						  r,	/* keep relational query */
@@ -1170,7 +1191,7 @@ SQLparser(Client c)
 			}
 			if(!be->q) {
 				err = 1;
-				msg = createException(PARSE, "SQLparser", MAL_MALLOC_FAIL);
+				msg = createException(PARSE, "SQLparser", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			}
 			GDKfree(q);
 			scanner_query_processed(&(m->scanner));
@@ -1186,7 +1207,7 @@ SQLparser(Client c)
 			be->q->name = putName(be->q->name);
 			if(!be->q->name) {
 				err = 1;
-				msg = createException(PARSE, "SQLparser", MAL_MALLOC_FAIL);
+				msg = createException(PARSE, "SQLparser", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			}
 		}
 	}
@@ -1311,4 +1332,30 @@ SQLcallback(Client c, str msg){
 		*p = 0;
 	}
 	return MALcallback(c,msg);
+}
+
+str
+SYSupdate_tables(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	mvc *m = ((backend *) cntxt->sqlcontext)->mvc;
+
+	(void) mb;
+	(void) stk;
+	(void) pci;
+
+	sql_trans_update_tables(m->session->tr, mvc_bind_schema(m, "sys"));
+	return MAL_SUCCEED;
+}
+
+str
+SYSupdate_schemas(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	mvc *m = ((backend *) cntxt->sqlcontext)->mvc;
+
+	(void) mb;
+	(void) stk;
+	(void) pci;
+
+	sql_trans_update_schemas(m->session->tr);
+	return MAL_SUCCEED;
 }
