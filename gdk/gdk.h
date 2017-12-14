@@ -379,7 +379,7 @@
 
 #include "gdk_system.h"
 #include "gdk_posix.h"
-#include <stream.h>
+#include "stream.h"
 
 #undef MIN
 #undef MAX
@@ -469,10 +469,8 @@
 #define XPROPDEBUG	if (GDKdebug & XPROPMASK)
 */
 
-/* JOINPROPMASK not used anymore
-#define JOINPROPMASK	(1<<24)
-#define JOINPROPCHK	if (!(GDKdebug & JOINPROPMASK))
-*/
+#define NOSYNCMASK	(1<<24)
+
 #define DEADBEEFMASK	(1<<25)
 #define DEADBEEFCHK	if (!(GDKdebug & DEADBEEFMASK))
 

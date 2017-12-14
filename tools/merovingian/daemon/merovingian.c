@@ -45,14 +45,14 @@
  */
 
 #include "monetdb_config.h"
-#include <msabaoth.h>
-#include <mutils.h> /* MT_lockf */
-#include <mcrypt.h> /* mcrypt_BackendSum */
-#include <utils/utils.h>
-#include <utils/properties.h>
-#include <utils/glob.h>
-#include <utils/database.h>
-#include <utils/control.h>
+#include "msabaoth.h"
+#include "mutils.h" /* MT_lockf */
+#include "mcrypt.h" /* mcrypt_BackendSum */
+#include "utils/utils.h"
+#include "utils/properties.h"
+#include "utils/glob.h"
+#include "utils/database.h"
+#include "utils/control.h"
 
 #include <stdlib.h> /* exit, getenv, rand, srand */
 #include <stdarg.h>	/* variadic stuff */
@@ -82,9 +82,6 @@
 
 #ifndef O_CLOEXEC
 #define O_CLOEXEC 0
-#endif
-#ifndef F_DUPFD_CLOEXEC
-#define F_DUPFD_CLOEXEC F_DUPFD
 #endif
 
 
@@ -696,10 +693,12 @@ main(int argc, char *argv[])
 		MERO_EXIT(1);
 	}
 	/* before it is too late, save original stderr */
-	oerr = fdopen(fcntl(2, F_DUPFD_CLOEXEC), "w");
-#if F_DUPFD_CLOEXEC == F_DUPFD
+	oerr = fdopen(dup(2), "w");
+	if (oerr == NULL) {
+		Mfprintf(stderr, "unable to dup stderr\n");
+		MERO_EXIT(1);
+	}
 	fcntl(fileno(oerr), F_SETFD, FD_CLOEXEC);
-#endif
 	d->err = pfd[0];
 	fcntl(pfd[0], F_SETFD, FD_CLOEXEC);
 	dup2(pfd[1], 2);

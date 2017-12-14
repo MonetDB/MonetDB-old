@@ -18,22 +18,22 @@
 #include "streams.h"
 #include "sql_result.h"
 #include "sql_gencode.h"
-#include <sql_storage.h>
-#include <sql_scenario.h>
-#include <store_sequence.h>
-#include <sql_optimizer.h>
-#include <sql_datetime.h>
-#include <rel_optimizer.h>
-#include <rel_partition.h>
-#include <rel_distribute.h>
-#include <rel_select.h>
-#include <rel_rel.h>
-#include <rel_exp.h>
-#include <rel_dump.h>
-#include <rel_bin.h>
-#include <bbp.h>
-#include <opt_pipes.h>
-#include <orderidx.h>
+#include "sql_storage.h"
+#include "sql_scenario.h"
+#include "store_sequence.h"
+#include "sql_optimizer.h"
+#include "sql_datetime.h"
+#include "rel_optimizer.h"
+#include "rel_partition.h"
+#include "rel_distribute.h"
+#include "rel_select.h"
+#include "rel_rel.h"
+#include "rel_exp.h"
+#include "rel_dump.h"
+#include "rel_bin.h"
+#include "bbp.h"
+#include "opt_pipes.h"
+#include "orderidx.h"
 #include "clients.h"
 #include "mal_instruction.h"
 #include "mal_resource.h"
@@ -66,9 +66,9 @@ rel_no_mitosis(sql_rel *rel)
 {
 	int is_point = 0;
 
-	if (!rel)
+	if (!rel || is_basetable(rel->op))
 		return 1;
-	if (is_project(rel->op))
+	if (is_topn(rel->op) || is_project(rel->op))
 		return rel_no_mitosis(rel->l);
 	if (is_modify(rel->op) && rel->card <= CARD_AGGR)
 		return rel_no_mitosis(rel->r);
@@ -137,6 +137,7 @@ sqlcleanup(mvc *c, int err)
 {
 	sql_destroy_params(c);
 	sql_destroy_args(c);
+	c->sqs = NULL;
 
 	if ((c->emod & mod_locked) == mod_locked) {
 		/* here we should commit the transaction */
