@@ -9,9 +9,9 @@
 #ifndef SQL_CATALOG_H
 #define SQL_CATALOG_H
 
-#include <sql_mem.h>
-#include <sql_list.h>
-#include <stream.h>
+#include "sql_mem.h"
+#include "sql_list.h"
+#include "stream.h"
 
 #define tr_none		0
 #define tr_readonly	1
@@ -599,6 +599,7 @@ extern node *find_sql_func_node(sql_schema *s, int id);
 typedef struct {
 	BAT *b;
 	char* name;
+	void* def;
 } sql_emit_col;
 
 #endif /* SQL_CATALOG_H */

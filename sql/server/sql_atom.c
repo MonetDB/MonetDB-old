@@ -8,8 +8,8 @@
 
 #include "monetdb_config.h"
 #include "sql_atom.h"
-#include <sql_string.h>
-#include <sql_decimal.h>
+#include "sql_string.h"
+#include "sql_decimal.h"
 
 static int atom_debug = 0;
 
@@ -1290,6 +1290,34 @@ atom_is_zero( atom *a )
 		return a->data.val.fval == 0;
 	case TYPE_dbl:
 		return a->data.val.dval == 0;
+	default:
+		break;
+	}
+	return 0;
+}
+
+int
+atom_is_true( atom *a )
+{
+	switch(a->tpe.type->localtype) {
+	case TYPE_bit:
+		return a->data.val.btval != 0;
+	case TYPE_bte:
+		return a->data.val.btval != 0;
+	case TYPE_sht:
+		return a->data.val.shval != 0;
+	case TYPE_int:
+		return a->data.val.ival != 0;
+	case TYPE_lng:
+		return a->data.val.lval != 0;
+#ifdef HAVE_HGE
+	case TYPE_hge:
+		return a->data.val.hval != 0;
+#endif
+	case TYPE_flt:
+		return a->data.val.fval != 0;
+	case TYPE_dbl:
+		return a->data.val.dval != 0;
 	default:
 		break;
 	}

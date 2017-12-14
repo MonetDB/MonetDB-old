@@ -8,7 +8,7 @@
 
 %{
 #include "monetdb_config.h"
-#include <sql_mem.h>
+#include "sql_mem.h"
 #include "sql_parser.h"
 #include "sql_symbol.h"
 #include "sql_datetime.h"
@@ -590,7 +590,7 @@ SQLCODE SQLERROR UNDER WHENEVER
 %token CHECK CONSTRAINT CREATE
 %token TYPE PROCEDURE FUNCTION sqlLOADER AGGREGATE RETURNS EXTERNAL sqlNAME DECLARE
 %token CALL LANGUAGE 
-%token ANALYZE MINMAX SQL_EXPLAIN SQL_PLAN SQL_DEBUG SQL_TRACE PREPARE EXECUTE
+%token ANALYZE MINMAX SQL_EXPLAIN SQL_PLAN SQL_DEBUG SQL_TRACE PREP PREPARE EXEC EXECUTE
 %token DEFAULT DISTINCT DROP
 %token FOREIGN
 %token RENAME ENCRYPTED UNENCRYPTED PASSWORD GRANT REVOKE ROLE ADMIN INTO
@@ -627,7 +627,7 @@ sqlstmt:
 		YYACCEPT;
 	}
 
- | PREPARE 		{
+ | prepare 		{
 		  	  m->emode = m_prepare; 
 			  m->scanner.as = m->scanner.yycur; 
 			  m->scanner.key = 0;
@@ -693,6 +693,17 @@ sqlstmt:
  | error SCOLON		{ m->sym = $$ = NULL; YYACCEPT; }
  | LEX_ERROR		{ m->sym = $$ = NULL; YYABORT; }
  ;
+
+
+prepare:
+       PREPARE
+ |     PREP
+ ; 
+
+execute:
+       EXECUTE
+ |     EXEC
+ ; 
 
 
 create:
@@ -1009,7 +1020,7 @@ operation:
  |  UPDATE opt_column_list          { $$ = _symbol_create_list(SQL_UPDATE,$2); }
  |  SELECT opt_column_list	    { $$ = _symbol_create_list(SQL_SELECT,$2); }
  |  REFERENCES opt_column_list 	    { $$ = _symbol_create_list(SQL_SELECT,$2); }
- |  EXECUTE			    { $$ = _symbol_create(SQL_EXECUTE,NULL); }
+ |  execute			    { $$ = _symbol_create(SQL_EXECUTE,NULL); }
  ;
 
 grantee_commalist:
@@ -1826,31 +1837,30 @@ func_def:
   | create_or_replace FUNCTION qname
 	'(' opt_paramlist ')'
     RETURNS func_data_type
-    LANGUAGE IDENT function_body { 
+    LANGUAGE IDENT function_body
+		{
 			int lang = 0;
 			dlist *f = L();
 			char l = *$10;
 
 			if (l == 'R' || l == 'r')
 				lang = FUNC_LANG_R;
-			else if (l == 'P' || l == 'p')
-            {
-            	// code does not get cleaner than this people
-                if (strcasecmp($10, "PYTHON_MAP") == 0) {
+			else if (l == 'P' || l == 'p') {
+				// code does not get cleaner than this people
+				if (strcasecmp($10, "PYTHON_MAP") == 0) {
 					lang = FUNC_LANG_MAP_PY;
-                } else if (strcasecmp($10, "PYTHON3_MAP") == 0) {
-                	lang = FUNC_LANG_MAP_PY3;
-                } else if (strcasecmp($10, "PYTHON3") == 0) {
-                	lang = FUNC_LANG_PY3;
-                } else if (strcasecmp($10, "PYTHON2_MAP") == 0) {
-                	lang = FUNC_LANG_MAP_PY2;
-                } else if (strcasecmp($10, "PYTHON2") == 0) {
-                	lang = FUNC_LANG_PY2;
-                } else {
-                	lang = FUNC_LANG_PY;
-                }
-            }
-			else if (l == 'C' || l == 'c')
+				} else if (strcasecmp($10, "PYTHON3_MAP") == 0) {
+					lang = FUNC_LANG_MAP_PY3;
+				} else if (strcasecmp($10, "PYTHON3") == 0) {
+					lang = FUNC_LANG_PY3;
+				} else if (strcasecmp($10, "PYTHON2_MAP") == 0) {
+					lang = FUNC_LANG_MAP_PY2;
+				} else if (strcasecmp($10, "PYTHON2") == 0) {
+					lang = FUNC_LANG_PY2;
+				} else {
+					lang = FUNC_LANG_PY;
+				}
+			} else if (l == 'C' || l == 'c')
 				lang = FUNC_LANG_C;
 			else if (l == 'J' || l == 'j')
 				lang = FUNC_LANG_J;
@@ -1863,12 +1873,13 @@ func_def:
 			append_list(f, $3);
 			append_list(f, $5);
 			append_symbol(f, $8);
-			append_list(f, NULL); 
+			append_list(f, NULL);
 			append_list(f, append_string(L(), $11));
 			append_int(f, F_FUNC);
 			append_int(f, lang);
 			append_int(f, $1);
-			$$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
+			$$ = _symbol_create_list( SQL_CREATE_FUNC, f );
+		}
   | create_or_replace FILTER FUNCTION qname
 	'(' opt_paramlist ')'
     EXTERNAL sqlNAME external_function_name 	
@@ -1900,30 +1911,29 @@ func_def:
   | create_or_replace AGGREGATE qname
 	'(' opt_paramlist ')'
     RETURNS func_data_type
-    LANGUAGE IDENT function_body { 
+    LANGUAGE IDENT function_body
+		{
 			int lang = 0;
 			dlist *f = L();
 			char l = *$10;
 
 			if (l == 'R' || l == 'r')
 				lang = FUNC_LANG_R;
-			else if (l == 'P' || l == 'p')
-            {
-                if (strcasecmp($10, "PYTHON_MAP") == 0) {
+			else if (l == 'P' || l == 'p') {
+				if (strcasecmp($10, "PYTHON_MAP") == 0) {
 					lang = FUNC_LANG_MAP_PY;
-                } else if (strcasecmp($10, "PYTHON3_MAP") == 0) {
-                	lang = FUNC_LANG_MAP_PY3;
-                } else if (strcasecmp($10, "PYTHON3") == 0) {
-                	lang = FUNC_LANG_PY3;
-                } else if (strcasecmp($10, "PYTHON2_MAP") == 0) {
-                	lang = FUNC_LANG_MAP_PY2;
-                } else if (strcasecmp($10, "PYTHON2") == 0) {
-                	lang = FUNC_LANG_PY2;
-                } else {
-                	lang = FUNC_LANG_PY;
-                }
-            }
-			else if (l == 'C' || l == 'c')
+				} else if (strcasecmp($10, "PYTHON3_MAP") == 0) {
+					lang = FUNC_LANG_MAP_PY3;
+				} else if (strcasecmp($10, "PYTHON3") == 0) {
+					lang = FUNC_LANG_PY3;
+				} else if (strcasecmp($10, "PYTHON2_MAP") == 0) {
+					lang = FUNC_LANG_MAP_PY2;
+				} else if (strcasecmp($10, "PYTHON2") == 0) {
+					lang = FUNC_LANG_PY2;
+				} else {
+					lang = FUNC_LANG_PY;
+				}
+			} else if (l == 'C' || l == 'c')
 				lang = FUNC_LANG_C;
 			else if (l == 'J' || l == 'j')
 				lang = FUNC_LANG_J;
@@ -1976,11 +1986,9 @@ func_def:
 			dlist *f = L();
 			char l = *$8;
 			/* other languages here if we ever get to it */
-			if (l == 'P' || l == 'p')
-            {
-                lang = FUNC_LANG_PY;
-            }
-			else
+			if (l == 'P' || l == 'p') {
+				lang = FUNC_LANG_PY;
+			} else
 				yyerror(m, sql_message("Language name P(ython) expected, received '%c'", l));
 
 			append_list(f, $3);
@@ -5261,7 +5269,9 @@ non_reserved_word:
 |  INTERVAL	{ $$ = sa_strdup(SA, "interval"); }
 |  IMPRINTS	{ $$ = sa_strdup(SA, "imprints"); }
 
+|  PREP		{ $$ = sa_strdup(SA, "prep"); }
 |  PREPARE	{ $$ = sa_strdup(SA, "prepare"); }
+|  EXEC		{ $$ = sa_strdup(SA, "exec"); }
 |  EXECUTE	{ $$ = sa_strdup(SA, "execute"); }
 |  SQL_EXPLAIN	{ $$ = sa_strdup(SA, "explain"); }
 |  SQL_DEBUG	{ $$ = sa_strdup(SA, "debug"); }
@@ -5389,7 +5399,7 @@ string:
  ;
 
 exec:
-     EXECUTE exec_ref
+     execute exec_ref
 		{
 		  m->emode = m_execute;
 		  $$ = $2; }
@@ -6008,6 +6018,7 @@ char *token2string(int token)
 	SQL(DECLARE);
 	SQL(SET);
 	SQL(PREP);
+	SQL(PREPARE);
 	SQL(NAME);
 	SQL(USER);
 	SQL(PATH);
@@ -6076,6 +6087,7 @@ char *token2string(int token)
 	SQL(GRANT_ROLES);
 	SQL(REVOKE);
 	SQL(REVOKE_ROLES);
+	SQL(EXEC);
 	SQL(EXECUTE);
 	SQL(PRIVILEGES);
 	SQL(ROLE);

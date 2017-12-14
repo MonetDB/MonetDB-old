@@ -23,12 +23,14 @@
 #include "monetdb_config.h"
 #include "gdk.h"
 #include "gdk_private.h"
-#include <math.h>		/* for isfinite macro */
-#ifdef HAVE_IEEEFP_H
-#include <ieeefp.h>		/* for Solaris */
-#ifndef isfinite
-#define isfinite(f)	finite(f)
-#endif
+#include <math.h>
+
+/* these are only for older Visual Studio compilers (VS 2010) */
+#if defined(_MSC_VER) && !defined(__INTEL_COMPILER) && _MSC_VER < 1800
+#include <float.h>
+#define isnan(x)	_isnan(x)
+#define isinf(x)	(_fpclass(x) & (_FPCLASS_NINF | _FPCLASS_PINF))
+#define isfinite(x)	_finite(x)
 #endif
 
 static int
@@ -920,10 +922,6 @@ atom_io(ptr, Int, int)
 #else /* SIZEOF_VOID_P == SIZEOF_LNG */
 atom_io(ptr, Lng, lng)
 #endif
-#if defined(_MSC_VER) && !defined(isfinite)
-/* with more recent Visual Studio, isfinite is defined */
-#define isfinite(x)	_finite(x)
-#endif
 
 int
 dblFromStr(const char *src, int *len, dbl **dst)
@@ -956,9 +954,7 @@ dblFromStr(const char *src, int *len, dbl **dst)
 			p = pe;
 		n = (int) (p - src);
 		if (n == 0 || (errno == ERANGE && (d < -1 || d > 1))
-#ifdef isfinite
 		    || !isfinite(d) /* no NaN or Infinte */
-#endif
 		    ) {
 			**dst = dbl_nil; /* default return value is nil */
 			n = 0;
@@ -1025,9 +1021,7 @@ fltFromStr(const char *src, int *len, flt **dst)
 #else /* no strtof, try sscanf */
 		if (sscanf(src, "%f%n", &f, &n) <= 0 || n <= 0
 #endif
-#ifdef isfinite
 		    || !isfinite(f) /* no NaN or infinite */
-#endif
 		    ) {
 			**dst = flt_nil; /* default return value is nil */
 			n = 0;
@@ -1156,19 +1150,15 @@ strHash(const char *s)
 void
 strCleanHash(Heap *h, int rebuild)
 {
-	char oldhash[GDK_STRHASHSIZE];
+	stridx_t newhash[GDK_STRHASHTABLE];
 	size_t pad, pos;
 	const size_t extralen = h->hashash ? EXTRALEN : 0;
-	stridx_t *bucket;
 	BUN off, strhash;
 	const char *s;
 
 	(void) rebuild;
 	if (!h->cleanhash)
 		return;
-	/* copy old hash table so we can check whether we changed it */
-	memcpy(oldhash, h->base, sizeof(oldhash));
-	h->cleanhash = 0;
 	/* rebuild hash table for double elimination
 	 *
 	 * If appending strings to the BAT was aborted, if the heap
@@ -1179,7 +1169,7 @@ strCleanHash(Heap *h, int rebuild)
 	 * Note that we will only do this the first time the heap is
 	 * loaded, and only for heaps that existed when the server was
 	 * started. */
-	memset(h->base, 0, GDK_STRHASHSIZE);
+	memset(newhash, 0, sizeof(newhash));
 	pos = GDK_STRHASHSIZE;
 	while (pos < h->free && pos < GDK_ELIMLIMIT) {
 		pad = GDK_VARALIGN - (pos & (GDK_VARALIGN - 1));
@@ -1192,9 +1182,17 @@ strCleanHash(Heap *h, int rebuild)
 		else
 			GDK_STRHASH(s, strhash);
 		off = strhash & GDK_STRHASHMASK;
-		bucket = ((stridx_t *) h->base) + off;
-		*bucket = (stridx_t) (pos - extralen - sizeof(stridx_t));
+		newhash[off] = (stridx_t) (pos - extralen - sizeof(stridx_t));
 		pos += GDK_STRLEN(s);
+	}
+	/* only set dirty flag if the hash table actually changed */
+	if (memcmp(newhash, h->base, sizeof(newhash)) != 0) {
+		memcpy(h->base, newhash, sizeof(newhash));
+		if (h->storage == STORE_MMAP) {
+			if (!(GDKdebug & NOSYNCMASK))
+				(void) MT_msync(h->base, GDK_STRHASHSIZE);
+		} else
+			h->dirty = 1;
 	}
 #ifndef NDEBUG
 	if (GDK_ELIMDOUBLES(h)) {
@@ -1210,14 +1208,7 @@ strCleanHash(Heap *h, int rebuild)
 		}
 	}
 #endif
-	/* only set dirty flag if the hash table actually changed */
-	if (!h->dirty &&
-	    memcmp(oldhash, h->base, sizeof(oldhash)) != 0) {
-		if (h->storage == STORE_MMAP)
-			(void) MT_msync(h->base, GDK_STRHASHSIZE);
-		else
-			h->dirty = 1;
-	}
+	h->cleanhash = 0;
 }
 
 /*

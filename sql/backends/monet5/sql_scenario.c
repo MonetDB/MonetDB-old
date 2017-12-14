@@ -36,7 +36,7 @@
 #include "mal_linker.h"
 #include "bat5.h"
 #include "msabaoth.h"
-#include <mtime.h>
+#include "mtime.h"
 #include "optimizer.h"
 #include "opt_prelude.h"
 #include "opt_pipes.h"
@@ -552,6 +552,7 @@ SQLinitClient(Client c)
 			if (m->sa)
 				sa_destroy(m->sa);
 			m->sa = NULL;
+			m->sqs = NULL;
 		}
 
 #else
@@ -596,6 +597,7 @@ SQLinitClient(Client c)
 					if (m->sa)
 						sa_destroy(m->sa);
 					m->sa = NULL;
+					m->sqs = NULL;
 					if (msg)
 						p = NULL;
 				}
@@ -605,6 +607,7 @@ SQLinitClient(Client c)
 			fprintf(stderr, "!could not read createdb.sql\n");
 #endif
 	} else {		/* handle upgrades */
+		m->sqs = NULL;
 		if (!m->sa)
 			m->sa = sa_create();
 		if (!m->sa) {
@@ -762,6 +765,7 @@ SQLinclude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (m->sa)
 		sa_destroy(m->sa);
 	m->sa = NULL;
+	m->sqs = NULL;
 	(void) mb;
 	return msg;
 }
@@ -989,7 +993,8 @@ SQLparser(Client c)
 
 	/* sqlparse needs sql allocator to be available.  It can be NULL at
 	 * this point if this is a recursive call. */
-	if (!m->sa)
+	m->sqs = NULL;
+	if (!m->sa) 
 		m->sa = sa_create();
 	if (!m->sa) {
 		mnstr_printf(out, "!Could not create SQL allocator\n");
@@ -1189,6 +1194,10 @@ SQLparser(Client c)
 			m->sym = NULL;
 			/* register name in the namespace */
 			be->q->name = putName(be->q->name);
+			if(!be->q->name) {
+				err = 1;
+				msg = createException(PARSE, "SQLparser", MAL_MALLOC_FAIL);
+			}
 		}
 	}
 	if (err)
@@ -1256,5 +1265,31 @@ SQLCacheRemove(Client c, str nme)
 	if (s == NULL)
 		throw(MAL, "cache.remove", "internal error, symbol missing\n");
 	deleteSymbol(c->nspace, s);
+	return MAL_SUCCEED;
+}
+
+str
+SYSupdate_tables(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	mvc *m = ((backend *) cntxt->sqlcontext)->mvc;
+
+	(void) mb;
+	(void) stk;
+	(void) pci;
+
+	sql_trans_update_tables(m->session->tr, mvc_bind_schema(m, "sys"));
+	return MAL_SUCCEED;
+}
+
+str
+SYSupdate_schemas(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	mvc *m = ((backend *) cntxt->sqlcontext)->mvc;
+
+	(void) mb;
+	(void) stk;
+	(void) pci;
+
+	sql_trans_update_schemas(m->session->tr);
 	return MAL_SUCCEED;
 }
