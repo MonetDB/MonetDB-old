@@ -14,7 +14,7 @@
 #ifndef _MAL_H
 #define _MAL_H
 
-#include <gdk.h>
+#include "gdk.h"
 
 #ifdef WIN32
 #if !defined(LIBMAL) && !defined(LIBATOMS) && !defined(LIBKERNEL) && !defined(LIBMAL) && !defined(LIBOPTIMIZER) && !defined(LIBSCHEDULER) && !defined(LIBMONETDB5)
@@ -46,9 +46,9 @@
 #define GB (((lng)1024)*1024*1024)
 #define MEMORY_THRESHOLD  (0.2 * monet_memory > 8 * GB?  monet_memory - 8 * GB: 0.8 * monet_memory)
 
-mal_export char     monet_cwd[PATHLENGTH];
+mal_export char     monet_cwd[FILENAME_MAX];
 mal_export size_t	monet_memory;
-mal_export char 	monet_characteristics[PATHLENGTH];
+mal_export char 	monet_characteristics[4096];
 mal_export lng 		memorypool;      /* memory claimed by concurrent threads */
 mal_export int 		memoryclaims;    /* number of threads active with expensive operations */
 mal_export int		mal_trace;		/* enable profile events on console */
@@ -72,7 +72,7 @@ mal_export int have_hge;
 #define GRPalgorithms (ALGOMASK | ESTIMASK)
 #define GRPperformance (DEADBEEFMASK)
 #define GRPoptimizers  (OPTMASK)
-#define GRPforcemito (FORCEMITOMASK)
+#define GRPforcemito (FORCEMITOMASK | NOSYNCMASK)
 
 mal_export MT_Lock  mal_contextLock;
 mal_export MT_Lock  mal_remoteLock;

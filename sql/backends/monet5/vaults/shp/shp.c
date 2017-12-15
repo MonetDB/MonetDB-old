@@ -12,16 +12,15 @@
  * stored in ESRI Shapefile documents.
  */
 
-#include <monetdb_config.h>
+#include "monetdb_config.h"
 #include <string.h>
 #include "sql_mvc.h"
 #include "sql.h"
-#include <stdlib.h>
 #include "shp.h"
 #include "sql_execute.h"
 #include "mal_exception.h"
 
-#include <geom.h>
+#include "geom.h"
 
 /* FIXME: the use of the 'rs' schema should be reconsidered so that the geotiff
  * catalog can be integrated into the SQL catalog.
@@ -223,7 +222,7 @@ SHPattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* check if the file is already attached */
 	col = mvc_bind_column(m, fls, "path");
 	rid = table_funcs.column_find_row(m->session->tr, col, fname, NULL);
-	if (rid != oid_nil) {
+	if (!is_oid_nil(rid)) {
 		GDALWClose(shp_conn_ptr);
 		return createException(MAL, "shp.attach", SQLSTATE(38000) "File %s already attached\n", fname);
 	}
@@ -354,7 +353,7 @@ SHPimportFile(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bool part
 	if(!(col = mvc_bind_column(m, fls_table, "id")))
 		return createException(MAL, "shp.import", SQLSTATE(38000) "Column '%s.%s(id)' missing", sch_name, fls_table_name);
 	irid = table_funcs.column_find_row(m->session->tr, col, (void *)&vid, NULL);
-	if (irid == oid_nil)
+	if (is_oid_nil(irid))
 		return createException(MAL, "shp.import", SQLSTATE(38000) "Shapefile with id %d not in the %s.%s table\n", vid, sch_name, fls_table_name);
 	if(!(col = mvc_bind_column(m, fls_table, "path")))
 		return createException(MAL, "shp.import", SQLSTATE(38000) "Column '%s.%s(path)' missing", sch_name, fls_table_name);
@@ -366,7 +365,7 @@ SHPimportFile(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bool part
 	if(!(col = mvc_bind_column(m, shps_table, "fileid")))
 		return createException(MAL, "shp.import", SQLSTATE(38000) "Column '%s.%s(fileid)' missing", sch_name, shps_table_name);
 	irid = table_funcs.column_find_row(m->session->tr, col, (void *)&vid, NULL);
-	if (irid == oid_nil)
+	if (is_oid_nil(irid))
 		return createException(MAL, "shp.import", SQLSTATE(38000) "Shapefile with id %d not in the Shapefile catalog\n", vid);
 	if(!(col = mvc_bind_column(m, shps_table, "datatable")))
 		return createException(MAL, "shp.import", SQLSTATE(38000) "Column '%s.%s(datatable)' missing", sch_name, shps_table_name);
@@ -620,7 +619,7 @@ SHPpartialimport(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	if(!(col = mvc_bind_column(m, fls_table, "id")))
 		return createException(MAL, "shp.import", SQLSTATE(38000) "Column '%s.%s(id)' missing", sch_name, fls_table_name);
 	irid = table_funcs.column_find_row(m->session->tr, col, (void *)&vid, NULL);
-	if (irid == oid_nil)
+	if (is_oid_nil(irid))
 		return createException(MAL, "shp.import", SQLSTATE(38000) "Shapefile with id %d not in the %s.%s table\n", vid, sch_name, fls_table_name);
 	if(!(col = mvc_bind_column(m, fls_table, "path")))
 		return createException(MAL, "shp.import", SQLSTATE(38000) "Column '%s.%s(path)' missing", sch_name, fls_table_name);
@@ -632,7 +631,7 @@ SHPpartialimport(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	if(!(col = mvc_bind_column(m, shps_table, "fileid")))
 		return createException(MAL, "shp.import", SQLSTATE(38000) "Column '%s.%s(fileid)' missing", sch_name, shps_table_name);
 	irid = table_funcs.column_find_row(m->session->tr, col, (void *)&vid, NULL);
-	if (irid == oid_nil)
+	if (is_oid_nil(irid))
 		return createException(MAL, "shp.import", SQLSTATE(38000) "Shapefile with id %d not in the Shapefile catalog\n", vid);
 	if(!(col = mvc_bind_column(m, shps_table, "datatable")))
 		return createException(MAL, "shp.import", SQLSTATE(38000) "Column '%s.%s(datatable)' missing", sch_name, shps_table_name);

@@ -21,7 +21,6 @@
 #ifdef HAVE_IO_H
 # include <io.h>
 #endif
-#include <stdlib.h>
 #include <time.h>
 
 #ifdef NATIVE_WIN32
@@ -36,7 +35,6 @@
 #endif
 
 #define getpid _getpid
-#define unlink _unlink
 #else
 #ifndef DIFF
 #define DIFF	"diff"
@@ -51,7 +49,7 @@
 #define UNLINK(x)
 #define ERRHNDL(r,s,t,u) ErrXit(s,t,u)
 #else
-#define UNLINK(x) unlink(x)
+#define UNLINK(x) remove(x)
 #define ERRHNDL(r,s,t,u) return r
 #endif
 

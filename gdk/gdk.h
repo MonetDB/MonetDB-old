@@ -308,37 +308,14 @@
 #define _GDK_H_
 
 /* standard includes upon which all configure tests depend */
-#include <stdio.h>
 #ifdef HAVE_SYS_TYPES_H
 # include <sys/types.h>
 #endif
 #ifdef HAVE_SYS_STAT_H
 # include <sys/stat.h>
 #endif
-#ifdef STDC_HEADERS
-# include <stdlib.h>
-# include <stddef.h>
-#else
-# ifdef HAVE_STDLIB_H
-#  include <stdlib.h>
-# endif
-#endif
-#ifdef HAVE_STRING_H
-# if !defined(STDC_HEADERS) && defined(HAVE_MEMORY_H)
-#  include <memory.h>
-# endif
-# include <string.h>
-#endif
-#ifdef HAVE_STRINGS_H
-# include <strings.h>
-#endif
-#ifdef HAVE_INTTYPES_H
-# include <inttypes.h>
-#else
-# ifdef HAVE_STDINT_H
-#  include <stdint.h>
-# endif
-#endif
+#include <stddef.h>
+#include <string.h>
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
@@ -348,23 +325,9 @@
 #ifdef HAVE_SYS_FILE_H
 # include <sys/file.h>
 #endif
-#ifdef HAVE_SYS_PARAM_H
-# include <sys/param.h>		/* MAXPATHLEN */
-#endif
 
 #ifdef HAVE_DIRENT_H
 # include <dirent.h>
-#else
-# define dirent direct
-# ifdef HAVE_SYS_NDIR_H
-#  include <sys/ndir.h>
-# endif
-# ifdef HAVE_SYS_DIR_H
-#  include <sys/dir.h>
-# endif
-# ifdef HAVE_NDIR_H
-#  include <ndir.h>
-# endif
 #endif
 
 #include <limits.h>		/* for *_MIN and *_MAX */
@@ -381,7 +344,7 @@
 
 #include "gdk_system.h"
 #include "gdk_posix.h"
-#include <stream.h>
+#include "stream.h"
 
 #undef MIN
 #undef MAX
@@ -393,24 +356,22 @@
 #define GDKisalnum(c)	isalnum((unsigned char) (c))
 #define GDKisdigit(c)	isdigit((unsigned char) (c))
 
+#define TEMPDIR_NAME "TEMP_DATA"
+
 #ifndef NATIVE_WIN32
 #define BATDIR		"bat"
 #define DELDIR		"bat/DELETE_ME"
 #define BAKDIR		"bat/BACKUP"
 #define SUBDIR		"bat/BACKUP/SUBCOMMIT"
 #define LEFTDIR		"bat/LEFTOVERS"
+#define TEMPDIR     "bat/"TEMPDIR_NAME
 #else
 #define BATDIR		"bat"
 #define DELDIR		"bat\\DELETE_ME"
 #define BAKDIR		"bat\\BACKUP"
 #define SUBDIR		"bat\\BACKUP\\SUBCOMMIT"
 #define LEFTDIR		"bat\\LEFTOVERS"
-#endif
-
-#ifdef MAXPATHLEN
-#define PATHLENGTH	MAXPATHLEN
-#else
-#define PATHLENGTH	1024	/* maximum file pathname length */
+#define TEMPDIR     "bat\\"TEMPDIR_NAME
 #endif
 
 /*
@@ -471,10 +432,8 @@
 #define XPROPDEBUG	if (GDKdebug & XPROPMASK)
 */
 
-/* JOINPROPMASK not used anymore
-#define JOINPROPMASK	(1<<24)
-#define JOINPROPCHK	if (!(GDKdebug & JOINPROPMASK))
-*/
+#define NOSYNCMASK	(1<<24)
+
 #define DEADBEEFMASK	(1<<25)
 #define DEADBEEFCHK	if (!(GDKdebug & DEADBEEFMASK))
 
@@ -544,10 +503,10 @@
 #endif
 #define TYPE_any	255	/* limit types to <255! */
 
-typedef signed char bit;
-typedef signed char bte;
+typedef int8_t bit;
+typedef int8_t bte;
+typedef int16_t sht;
 typedef unsigned char msk;
-typedef short sht;
 
 #define SIZEOF_OID	SIZEOF_SIZE_T
 typedef size_t oid;
@@ -561,15 +520,7 @@ typedef float flt;
 typedef double dbl;
 typedef char *str;
 
-#if SIZEOF_INT==8
-#	define LL_CONSTANT(val)	(val)
-#elif SIZEOF_LONG==8
-#	define LL_CONSTANT(val)	(val##L)
-#elif defined(HAVE_LONG_LONG)
-#	define LL_CONSTANT(val)	(val##LL)
-#elif defined(HAVE___INT64)
-#	define LL_CONSTANT(val)	(val##i64)
-#endif
+#define LL_CONSTANT(val)	INT64_C(val)
 
 typedef oid var_t;		/* type used for heap index of var-sized BAT */
 #define SIZEOF_VAR_T	SIZEOF_OID
@@ -606,10 +557,10 @@ typedef uint32_t BUN4type;
 #if SIZEOF_BUN > 4
 typedef uint64_t BUN8type;
 #endif
-#define BUN2_NONE ((BUN2type) 0xFFFF)
-#define BUN4_NONE ((BUN4type) 0xFFFFFFFF)
+#define BUN2_NONE ((BUN2type) UINT16_C(0xFFFF))
+#define BUN4_NONE ((BUN4type) UINT32_C(0xFFFFFFFF))
 #if SIZEOF_BUN > 4
-#define BUN8_NONE ((BUN8type) LL_CONSTANT(0xFFFFFFFFFFFFFFFF))
+#define BUN8_NONE ((BUN8type) UINT64_C(0xFFFFFFFFFFFFFFFF))
 #endif
 
 #define SIZEOF_MSK 1
@@ -637,7 +588,7 @@ typedef struct {
 	size_t free;		/* index where free area starts. */
 	size_t size;		/* size of the heap (bytes) */
 	char *base;		/* base pointer in memory. */
-	str filename;		/* file containing image of the heap */
+	char filename[32];	/* file containing image of the heap */
 
 	unsigned int copied:1,	/* a copy of an existing map. */
 		hashash:1,	/* the string heap contains hash values */
@@ -658,7 +609,7 @@ typedef struct {
 	BUN mask;		/* number of hash buckets-1 (power of 2) */
 	void *Hash;		/* hash table */
 	void *Link;		/* collision list */
-	Heap *heap;		/* heap where the hash is stored */
+	Heap heap;		/* heap where the hash is stored */
 } Hash;
 
 typedef struct Imprints Imprints;
@@ -866,7 +817,8 @@ typedef struct {
 #define GDKLIBRARY_NOKEY	061034	/* nokey values can't be trusted */
 #define GDKLIBRARY_BADEMPTY	061035	/* possibility of duplicate empty str */
 #define GDKLIBRARY_TALIGN	061036	/* talign field in BBP.dir */
-#define GDKLIBRARY		061037
+#define GDKLIBRARY_NIL_NAN	061037	/* flt/dbl NIL not represented by NaN */
+#define GDKLIBRARY		061040
 
 typedef struct BAT {
 	/* static bat properties */
@@ -1300,13 +1252,13 @@ gdk_export BUN ORDERfndlast(BAT *b, const void *v);
 gdk_export BUN BUNfnd(BAT *b, const void *right);
 
 #define BUNfndVOID(b, v)						\
-	(((*(const oid*)(v) == oid_nil) ^ ((b)->tseqbase == oid_nil)) | \
+	((is_oid_nil(*(const oid*)(v)) ^ is_oid_nil((b)->tseqbase)) |	\
 		(*(const oid*)(v) < (b)->tseqbase) |			\
 		(*(const oid*)(v) >= (b)->tseqbase + (b)->batCount) ?	\
 	 BUN_NONE :							\
 	 (BUN) (*(const oid*)(v) - (b)->tseqbase))
 
-#define BATttype(b)	((b)->ttype == TYPE_void && (b)->tseqbase != oid_nil ? \
+#define BATttype(b)	((b)->ttype == TYPE_void && !is_oid_nil((b)->tseqbase) ? \
 			 TYPE_oid : (b)->ttype)
 #define Tbase(b)	((b)->tvheap->base)
 
@@ -1535,19 +1487,19 @@ gdk_export void GDKqsort(void *h, void *t, const void *base, size_t n, int hs, i
 gdk_export void GDKqsort_rev(void *h, void *t, const void *base, size_t n, int hs, int ts, int tpe);
 
 #define BATtordered(b)	((b)->ttype == TYPE_void || (b)->tsorted)
-#define BATtrevordered(b) (((b)->ttype == TYPE_void && (b)->tseqbase == oid_nil) || (b)->trevsorted)
-#define BATtdense(b)	(BATtvoid(b) && (b)->tseqbase != oid_nil)
+#define BATtrevordered(b) (((b)->ttype == TYPE_void && is_oid_nil((b)->tseqbase)) || (b)->trevsorted)
+#define BATtdense(b)	(BATtvoid(b) && !is_oid_nil((b)->tseqbase))
 #define BATtvoid(b)	(((b)->tdense && (b)->tsorted) || (b)->ttype==TYPE_void)
 #define BATtkey(b)	(b->tkey != FALSE || BATtdense(b))
 
 /* set some properties that are trivial to deduce */
 #define BATsettrivprop(b)						\
 	do {								\
-		assert((b)->hseqbase != oid_nil);			\
+		assert(!is_oid_nil((b)->hseqbase));			\
 		(b)->batDirtydesc = 1;	/* likely already set */	\
 		/* the other head properties should already be correct */ \
 		if ((b)->ttype == TYPE_void) {				\
-			if ((b)->tseqbase == oid_nil) {			\
+			if (is_oid_nil((b)->tseqbase)) {		\
 				(b)->tnonil = (b)->batCount == 0;	\
 				(b)->tnil = !(b)->tnonil;		\
 				(b)->trevsorted = 1;			\
@@ -1577,7 +1529,7 @@ gdk_export void GDKqsort_rev(void *h, void *t, const void *base, size_t n, int h
 			} else if ((b)->ttype == TYPE_oid) {		\
 				/* b->batCount == 1 */			\
 				oid sqbs;				\
-				if ((sqbs = ((oid *) (b)->theap.base)[0]) == oid_nil) { \
+				if (is_oid_nil((sqbs = ((oid *) (b)->theap.base)[0]))) { \
 					(b)->tdense = 0;		\
 					(b)->tnonil = 0;		\
 					(b)->tnil = 1;			\
@@ -1617,11 +1569,7 @@ gdk_export void GDKqsort_rev(void *h, void *t, const void *base, size_t n, int h
  * @end multitable
  *
  * The BAT Buffer Pool module contains the code to manage the storage
- * location of BATs. It uses two tables BBPlogical and BBphysical to
- * relate the BAT name with its corresponding file system name.  This
- * information is retained in an ASCII file within the database home
- * directory for ease of inspection. It is loaded upon restart of the
- * server and saved upon transaction commit (if necessary).
+ * location of BATs.
  *
  * The remaining BBP tables contain status information to load, swap
  * and migrate the BATs. The core table is BBPcache which contains a
@@ -1647,11 +1595,11 @@ gdk_export void GDKqsort_rev(void *h, void *t, const void *base, size_t n, int h
  */
 typedef struct {
 	BAT *cache;		/* if loaded: BAT* handle */
-	str logical;		/* logical name */
-	str bak;		/* logical name backup */
+	char *logical;		/* logical name (may point at bak) */
+	char bak[16];		/* logical name backup (tmp_%o) */
 	bat next;		/* next BBP slot in linked list */
 	BAT *desc;		/* the BAT descriptor */
-	str physical;		/* dir + basename for storage */
+	char physical[20];	/* dir + basename for storage */
 	str options;		/* A string list of options */
 	int refs;		/* in-memory references on which the loaded status of a BAT relies */
 	int lrefs;		/* logical references on which the existence of a BAT relies */
@@ -1667,7 +1615,12 @@ gdk_export bat BBPlimit;
 #define BBPINITLOG	14
 #endif
 #define BBPINIT		(1 << BBPINITLOG)
-/* absolute maximum number of BATs is N_BBPINIT * BBPINIT */
+/* absolute maximum number of BATs is N_BBPINIT * BBPINIT
+ * this also gives the longest possible "physical" name and "bak" name
+ * of a BAT: the "bak" name is "tmp_%o", so at most 12 + \0 bytes on
+ * 64 bit architecture and 11 + \0 on 32 bit architecture; the
+ * physical name is a bit more complicated, but the longest possible
+ * name is 17 + \0 bytes (16 + \0 on 32 bits) */
 gdk_export BBPrec *BBP[N_BBPINIT];
 
 /* fast defines without checks; internal use only  */
@@ -1703,8 +1656,6 @@ gdk_export void BBPlock(void);
 
 gdk_export void BBPunlock(void);
 
-gdk_export str BBPlogical(bat b, str buf);
-gdk_export str BBPphysical(bat b, str buf);
 gdk_export BAT *BBPquickdesc(bat b, int delaccess);
 
 /*
@@ -1798,7 +1749,7 @@ gdk_export BAT *BBPquickdesc(bat b, int delaccess);
  * value. `val' is a direct pointer to the atom value. Its return
  * value should be an hash_t between 0 and 'mask'.
  *
- * @item The @emph{ATOMcmp()} operation computes two atomic
+ * @item The @emph{ATOMcmp()} operation compares two atomic
  * values. Its parameters are pointers to atomic values.
  *
  * @item The @emph{ATOMlen()} operation computes the byte length for a
@@ -1865,8 +1816,8 @@ gdk_export BAT *BBPquickdesc(bat b, int delaccess);
 typedef struct {
 	/* simple attributes */
 	char name[IDLENGTH];
-	short storage;		/* stored as another type? */
-	short linear;		/* atom can be ordered linearly */
+	uint8_t storage;	/* stored as another type? */
+	bool linear;		/* atom can be ordered linearly */
 	unsigned short size;	/* fixed size of atom */
 
 	/* automatically generated fields */
@@ -1899,7 +1850,6 @@ gdk_export int ATOMindex(const char *nme);
 gdk_export str ATOMname(int id);
 gdk_export size_t ATOMlen(int id, const void *v);
 gdk_export ptr ATOMnil(int id);
-gdk_export int ATOMcmp(int id, const void *v_1, const void *v_2);
 gdk_export int ATOMprint(int id, const void *val, stream *fd);
 gdk_export char *ATOMformat(int id, const void *val);
 
@@ -2401,7 +2351,7 @@ typedef struct threadStruct {
 	MT_Id pid;		/* physical thread id (pointer-sized) from the OS thread library */
 	str name;
 	ptr data[THREADDATA];
-	size_t sp;
+	uintptr_t sp;
 } ThreadRec, *Thread;
 
 
@@ -2436,7 +2386,7 @@ gdk_export void *THRdata[THREADDATA];
 static inline bat
 BBPcheck(bat x, const char *y)
 {
-	if (x && x != bat_nil) {
+	if (!is_bat_nil(x)) {
 		assert(x > 0);
 
 		if (x < 0 || x >= getBBPsize() || BBP_logical(x) == NULL) {
@@ -2466,7 +2416,7 @@ static inline char *
 Tpos(BATiter *bi, BUN p)
 {
 	bi->tvid = bi->b->tseqbase;
-	if (bi->tvid != oid_nil)
+	if (!is_oid_nil(bi->tvid))
 		bi->tvid += p;
 	return (char*)&bi->tvid;
 }
@@ -2777,7 +2727,7 @@ gdk_export void ALIGNsetT(BAT *b1, BAT *b2);
 	for (hb = HASHget(h, hash_##TYPE(h, v));		\
 	     hb != HASHnil(h);					\
 	     hb = HASHgetlink(h,hb))				\
-		if (simple_EQ(v, BUNtloc(bi, hb), TYPE))
+		if (* (const TYPE *) v == * (const TYPE *) BUNtloc(bi, hb))
 
 #define HASHloop_bte(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, bte)
 #define HASHloop_sht(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, sht)

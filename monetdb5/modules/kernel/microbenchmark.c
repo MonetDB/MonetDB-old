@@ -16,9 +16,9 @@
  * @f microbenchmark
  */
 #include "monetdb_config.h"
-#include <mal.h>
+#include "mal.h"
 #include <math.h>
-#include <mal_exception.h>
+#include "mal_exception.h"
 #include "microbenchmark.h"
 
 #ifdef STATIC_CODE_ANALYSIS
@@ -57,9 +57,9 @@ BATrandom(BAT **bn, oid *base, lng *size, int *domain, int seed)
 	val = (int *) Tloc(b, 0);
 
 	/* create BUNs with random distribution */
-	if (seed != int_nil)
+	if (!is_int_nil(seed))
 		srand(seed);
-	if (*domain == int_nil) {
+	if (is_int_nil(*domain)) {
 	        for (i = 0; i < n; i++) {
 			val[i] = rand();
 		}
@@ -365,7 +365,7 @@ MBMmix(bat *bn, bat *batid)
 	BAT *b;
 
 	if ((b = BATdescriptor(*batid)) == NULL)
-		throw(MAL, "microbenchmark.mix", RUNTIME_OBJECT_MISSING);
+		throw(MAL, "microbenchmark.mix", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 
 	n = BATcount(b);
 	/* mix BUNs randomly */

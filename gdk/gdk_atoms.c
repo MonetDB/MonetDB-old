@@ -23,62 +23,65 @@
 #include "monetdb_config.h"
 #include "gdk.h"
 #include "gdk_private.h"
-#include <math.h>		/* for isfinite macro */
-#ifdef HAVE_IEEEFP_H
-#include <ieeefp.h>		/* for Solaris */
-#ifndef isfinite
-#define isfinite(f)	finite(f)
-#endif
-#endif
+#include <math.h>
+
+/* the *Cmp functions return a value less than zero if the first
+ * argument is less than the second; they return zero if the two
+ * values are equal; and they return a value greater than zero if the
+ * first argument is greater than the second.  Remember that in all
+ * cases, nil is considered smaller than any other value and nil is
+ * equal to itself (this has repercussions for the floating point
+ * implementation if and when its NIL value is the floating point
+ * NaN). */
 
 static int
 bteCmp(const bte *l, const bte *r)
 {
-	return simple_CMP(l, r, bte);
+	return (*l > *r) - (*l < *r);
 }
 
 static int
 shtCmp(const sht *l, const sht *r)
 {
-	return simple_CMP(l, r, sht);
+	return (*l > *r) - (*l < *r);
 }
 
 static int
 intCmp(const int *l, const int *r)
 {
-	return simple_CMP(l, r, int);
+	return (*l > *r) - (*l < *r);
 }
 
 static int
 fltCmp(const flt *l, const flt *r)
 {
-	return simple_CMP(l, r, flt);
+	return is_flt_nil(*l) ? -!is_flt_nil(*r) : is_flt_nil(*r) ? 1 : (*l > *r) - (*l < *r);
 }
 
 static int
 lngCmp(const lng *l, const lng *r)
 {
-	return simple_CMP(l, r, lng);
+	return (*l > *r) - (*l < *r);
 }
 
 static int
 mskCmp(const msk *l, const msk *r)
 {
-	return simple_CMP(l, r, lng);
+	return (*l > *r) - (*l < *r);
 }
 
 #ifdef HAVE_HGE
 static int
 hgeCmp(const hge *l, const hge *r)
 {
-	return simple_CMP(l, r, hge);
+	return (*l > *r) - (*l < *r);
 }
 #endif
 
 static int
 dblCmp(const dbl *l, const dbl *r)
 {
-	return simple_CMP(l, r, dbl);
+	return is_dbl_nil(*l) ? -!is_dbl_nil(*r) : is_dbl_nil(*r) ? 1 : (*l > *r) - (*l < *r);
 }
 
 /*
@@ -199,7 +202,7 @@ ATOMallocate(const char *id)
 		memset(BATatoms + t, 0, sizeof(atomDesc));
 		strcpy(BATatoms[t].name, id);
 		BATatoms[t].size = sizeof(int);		/* default */
-		BATatoms[t].linear = 1;			/* default */
+		BATatoms[t].linear = true;		/* default */
 		BATatoms[t].storage = t;		/* default */
 	}
 	MT_lock_unset(&GDKthreadLock);
@@ -247,15 +250,22 @@ ATOMisdescendant(int tpe, int parent)
 }
 
 
-const bte bte_nil = GDK_bte_min;
+const bte bte_nil = GDK_bte_min-1;
+const sht sht_nil = GDK_sht_min-1;
 const msk msk_nil = 0;
-const sht sht_nil = GDK_sht_min;
-const int int_nil = GDK_int_min;
-const flt flt_nil = GDK_flt_min;
-const dbl dbl_nil = GDK_dbl_min;
-const lng lng_nil = GDK_lng_min;
+const int int_nil = GDK_int_min-1;
+#ifdef __INTEL_COMPILER
+/* stupid Intel compiler uses a value that cannot be used in an
+ * initializer for NAN, so we have to initialize at run time */
+flt flt_nil;
+dbl dbl_nil;
+#else
+const flt flt_nil = NAN;
+const dbl dbl_nil = NAN;
+#endif
+const lng lng_nil = GDK_lng_min-1;
 #ifdef HAVE_HGE
-const hge hge_nil = GDK_hge_min;
+const hge hge_nil = GDK_hge_min-1;
 #endif
 const oid oid_nil = (oid) 1 << (sizeof(oid) * 8 - 1);
 const char str_nil[2] = { '\200', 0 };
@@ -295,33 +305,6 @@ ATOMheap(int t, Heap *hp, size_t cap)
 			return GDK_FAIL;
 	}
 	return GDK_SUCCEED;
-}
-
-int
-ATOMcmp(int t, const void *l, const void *r)
-{
-	switch (ATOMbasetype(t)) {
-	case TYPE_bte:
-		return simple_CMP(l, r, bte);
-	case TYPE_sht:
-		return simple_CMP(l, r, sht);
-	case TYPE_int:
-		return simple_CMP(l, r, int);
-	case TYPE_flt:
-		return simple_CMP(l, r, flt);
-	case TYPE_lng:
-		return simple_CMP(l, r, lng);
-#ifdef HAVE_HGE
-	case TYPE_hge:
-		return simple_CMP(l, r, hge);
-#endif
-	case TYPE_dbl:
-		return simple_CMP(l, r, dbl);
-	case TYPE_msk:
-		return simple_CMP(l, r, msk);
-	default:
-		return (l == r) ? 0 : atom_CMP(l, r, t);
-	}
 }
 
 /*
@@ -421,12 +404,14 @@ ATOMdup(int t, const void *p)
 		}					\
 	} while (0)
 
+#define is_ptr_nil(val)		((val) == ptr_nil)
+
 #define atomtostr(TYPE, FMT, FMTCAST)			\
 ssize_t							\
 TYPE##ToStr(char **dst, size_t *len, const TYPE *src)	\
 {							\
 	atommem(TYPE##Strlen);				\
-	if (*src == TYPE##_nil) {			\
+	if (is_##TYPE##_nil(*src)) {			\
 		return snprintf(*dst, *len, "nil");	\
 	}						\
 	return snprintf(*dst, *len, FMT, FMTCAST *src);	\
@@ -505,7 +490,7 @@ bitToStr(char **dst, size_t *len, const bit *src)
 {
 	atommem(6);
 
-	if (*src == bit_nil)
+	if (is_bit_nil(*src))
 		return snprintf(*dst, *len, "nil");
 	if (*src)
 		return snprintf(*dst, *len, "true");
@@ -557,7 +542,7 @@ batToStr(char **dst, size_t *len, const bat *src)
 	size_t i;
 	str s;
 
-	if (b == bat_nil || (s = BBPname(b)) == NULL || *s == 0) {
+	if (is_bat_nil(b) || (s = BBPname(b)) == NULL || *s == 0) {
 		atommem(4);
 		return snprintf(*dst, *len, "nil");
 	}
@@ -743,7 +728,7 @@ numFromStr(const char *src, size_t *len, void **dst, int tp)
 	switch (sz) {
 	case 1: {
 		bte **dstbte = (bte **) dst;
-		if (base <= GDK_bte_min || base > GDK_bte_max) {
+		if (base < GDK_bte_min || base > GDK_bte_max) {
 			goto overflow;
 		}
 		**dstbte = (bte) base;
@@ -751,7 +736,7 @@ numFromStr(const char *src, size_t *len, void **dst, int tp)
 	}
 	case 2: {
 		sht **dstsht = (sht **) dst;
-		if (base <= GDK_sht_min || base > GDK_sht_max) {
+		if (base < GDK_sht_min || base > GDK_sht_max) {
 			goto overflow;
 		}
 		**dstsht = (sht) base;
@@ -759,7 +744,7 @@ numFromStr(const char *src, size_t *len, void **dst, int tp)
 	}
 	case 4: {
 		int **dstint = (int **) dst;
-		if (base <= GDK_int_min || base > GDK_int_max) {
+		if (base < GDK_int_min || base > GDK_int_max) {
 			goto overflow;
 		}
 		**dstint = (int) base;
@@ -768,7 +753,7 @@ numFromStr(const char *src, size_t *len, void **dst, int tp)
 	case 8: {
 		lng **dstlng = (lng **) dst;
 #ifdef HAVE_HGE
-		if (base <= GDK_lng_min || base > GDK_lng_max) {
+		if (base < GDK_lng_min || base > GDK_lng_max) {
 			goto overflow;
 		}
 #endif
@@ -871,22 +856,18 @@ atomtostr(lng, LLFMT, )
 atom_io(lng, Lng, lng)
 
 #ifdef HAVE_HGE
-#ifdef WIN32
-#define HGE_LL018FMT "%018I64d"
-#else
-#define HGE_LL018FMT "%018lld"
-#endif
+#define HGE_LL018FMT "%018" PRId64
 #define HGE_LL18DIGITS LL_CONSTANT(1000000000000000000)
 #define HGE_ABS(a) (((a) < 0) ? -(a) : (a))
 ssize_t
 hgeToStr(char **dst, size_t *len, const hge *src)
 {
 	atommem(hgeStrlen);
-	if (*src == hge_nil) {
+	if (is_hge_nil(*src)) {
 		strncpy(*dst, "nil", *len);
 		return 3;
 	}
-	if ((hge) GDK_lng_min < *src && *src <= (hge) GDK_lng_max) {
+	if ((hge) GDK_lng_min <= *src && *src <= (hge) GDK_lng_max) {
 		lng s = (lng) *src;
 		return lngToStr(dst, len, &s);
 	} else {
@@ -948,10 +929,6 @@ atom_io(ptr, Int, int)
 #else /* SIZEOF_VOID_P == SIZEOF_LNG */
 atom_io(ptr, Lng, lng)
 #endif
-#if defined(_MSC_VER) && !defined(isfinite)
-/* with more recent Visual Studio, isfinite is defined */
-#define isfinite(x)	_finite(x)
-#endif
 
 ssize_t
 dblFromStr(const char *src, size_t *len, dbl **dst)
@@ -989,9 +966,7 @@ dblFromStr(const char *src, size_t *len, dbl **dst)
 			p = pe;
 		n = (ssize_t) (p - src);
 		if (n == 0 || (errno == ERANGE && (d < -1 || d > 1))
-#ifdef isfinite
 		    || !isfinite(d) /* no NaN or Infinte */
-#endif
 		    ) {
 			GDKerror("overflow or not a number\n");
 			return -1;
@@ -1010,7 +985,7 @@ dblToStr(char **dst, size_t *len, const dbl *src)
 	int i;
 
 	atommem(dblStrlen);
-	if (*src == dbl_nil) {
+	if (is_dbl_nil(*src)) {
 		return snprintf(*dst, *len, "nil");
 	}
 	for (i = 4; i < 18; i++) {
@@ -1045,7 +1020,6 @@ fltFromStr(const char *src, size_t *len, flt **dst)
 		p += 3;
 		n = (ssize_t) (p - src);
 	} else {
-#ifdef HAVE_STRTOF
 		/* on overflow, strtof returns HUGE_VALF and sets
 		 * errno to ERANGE; on underflow, it returns a value
 		 * whose magnitude is no greater than the smallest
@@ -1060,13 +1034,7 @@ fltFromStr(const char *src, size_t *len, flt **dst)
 			p = pe;
 		n = (ssize_t) (p - src);
 		if (n == 0 || (errno == ERANGE && (f < -1 || f > 1))
-#else /* no strtof, try sscanf */
-		if (sscanf(src, "%f%n", &f, &n) <= 0 || n <= 0
-#endif
-#ifdef isfinite
-		    || !isfinite(f) /* no NaN or infinite */
-#endif
-		    ) {
+		    || !isfinite(f) /* no NaN or infinite */) {
 			GDKerror("overflow or not a number\n");
 			return -1;
 		} else {
@@ -1084,18 +1052,13 @@ fltToStr(char **dst, size_t *len, const flt *src)
 	int i;
 
 	atommem(fltStrlen);
-	if (*src == flt_nil) {
+	if (is_flt_nil(*src)) {
 		return snprintf(*dst, *len, "nil");
 	}
 	for (i = 4; i < 10; i++) {
 		snprintf(*dst, *len, "%.*g", i, *src);
-#ifdef HAVE_STRTOF
 		if (strtof(*dst, NULL) == *src)
 			break;
-#else
-		if ((float) strtod(*dst, NULL) == *src)
-			break;
-#endif
 	}
 	return (ssize_t) strlen(*dst);
 }
@@ -1194,19 +1157,15 @@ strHash(const char *s)
 void
 strCleanHash(Heap *h, int rebuild)
 {
-	char oldhash[GDK_STRHASHSIZE];
+	stridx_t newhash[GDK_STRHASHTABLE];
 	size_t pad, pos;
 	const size_t extralen = h->hashash ? EXTRALEN : 0;
-	stridx_t *bucket;
 	BUN off, strhash;
 	const char *s;
 
 	(void) rebuild;
 	if (!h->cleanhash)
 		return;
-	/* copy old hash table so we can check whether we changed it */
-	memcpy(oldhash, h->base, sizeof(oldhash));
-	h->cleanhash = 0;
 	/* rebuild hash table for double elimination
 	 *
 	 * If appending strings to the BAT was aborted, if the heap
@@ -1217,7 +1176,7 @@ strCleanHash(Heap *h, int rebuild)
 	 * Note that we will only do this the first time the heap is
 	 * loaded, and only for heaps that existed when the server was
 	 * started. */
-	memset(h->base, 0, GDK_STRHASHSIZE);
+	memset(newhash, 0, sizeof(newhash));
 	pos = GDK_STRHASHSIZE;
 	while (pos < h->free && pos < GDK_ELIMLIMIT) {
 		pad = GDK_VARALIGN - (pos & (GDK_VARALIGN - 1));
@@ -1230,9 +1189,17 @@ strCleanHash(Heap *h, int rebuild)
 		else
 			GDK_STRHASH(s, strhash);
 		off = strhash & GDK_STRHASHMASK;
-		bucket = ((stridx_t *) h->base) + off;
-		*bucket = (stridx_t) (pos - extralen - sizeof(stridx_t));
+		newhash[off] = (stridx_t) (pos - extralen - sizeof(stridx_t));
 		pos += GDK_STRLEN(s);
+	}
+	/* only set dirty flag if the hash table actually changed */
+	if (memcmp(newhash, h->base, sizeof(newhash)) != 0) {
+		memcpy(h->base, newhash, sizeof(newhash));
+		if (h->storage == STORE_MMAP) {
+			if (!(GDKdebug & NOSYNCMASK))
+				(void) MT_msync(h->base, GDK_STRHASHSIZE);
+		} else
+			h->dirty = 1;
 	}
 #ifndef NDEBUG
 	if (GDK_ELIMDOUBLES(h)) {
@@ -1248,14 +1215,7 @@ strCleanHash(Heap *h, int rebuild)
 		}
 	}
 #endif
-	/* only set dirty flag if the hash table actually changed */
-	if (!h->dirty &&
-	    memcmp(oldhash, h->base, sizeof(oldhash)) != 0) {
-		if (h->storage == STORE_MMAP)
-			(void) MT_msync(h->base, GDK_STRHASHSIZE);
-		else
-			h->dirty = 1;
-	}
+	h->cleanhash = 0;
 }
 
 /*
@@ -1484,7 +1444,7 @@ static int utf8chkmsk[] = {
 };
 
 ssize_t
-GDKstrFromStr(unsigned char *dst, const unsigned char *src, ssize_t len)
+GDKstrFromStr(unsigned char *restrict dst, const unsigned char *restrict src, ssize_t len)
 {
 	unsigned char *p = dst;
 	const unsigned char *cur = src, *end = src + len;
@@ -1641,7 +1601,7 @@ GDKstrFromStr(unsigned char *dst, const unsigned char *src, ssize_t len)
 }
 
 ssize_t
-strFromStr(const char *src, size_t *len, char **dst)
+strFromStr(const char *restrict src, size_t *restrict len, char **restrict dst)
 {
 	const char *cur = src, *start = NULL;
 	size_t l = 1;
@@ -1707,7 +1667,7 @@ strFromStr(const char *src, size_t *len, char **dst)
 #endif
 
 size_t
-escapedStrlen(const char *src, const char *sep1, const char *sep2, int quote)
+escapedStrlen(const char *restrict src, const char *sep1, const char *sep2, int quote)
 {
 	size_t end, sz = 0;
 	size_t sep1len, sep2len;
@@ -1742,7 +1702,7 @@ escapedStrlen(const char *src, const char *sep1, const char *sep2, int quote)
 }
 
 size_t
-escapedStr(char *dst, const char *src, size_t dstlen, const char *sep1, const char *sep2, int quote)
+escapedStr(char *restrict dst, const char *restrict src, size_t dstlen, const char *sep1, const char *sep2, int quote)
 {
 	size_t cur = 0, l = 0;
 	size_t sep1len, sep2len;
@@ -1795,7 +1755,7 @@ escapedStr(char *dst, const char *src, size_t dstlen, const char *sep1, const ch
 }
 
 static ssize_t
-strToStr(char **dst, size_t *len, const char *src)
+strToStr(char **restrict dst, size_t *restrict len, const char *restrict src)
 {
 	if (GDK_STRNIL(src)) {
 		atommem(4);
@@ -1900,7 +1860,7 @@ OIDtoStr(char **dst, size_t *len, const oid *src)
 {
 	atommem(oidStrlen);
 
-	if (*src == oid_nil) {
+	if (is_oid_nil(*src)) {
 		return snprintf(*dst, *len, "nil");
 	}
 	return snprintf(*dst, *len, OIDFMT "@0", *src);
@@ -1930,7 +1890,7 @@ mskToStr(str *dst, size_t *len, const msk *src)
 atomDesc BATatoms[MAXATOMS] = {
 	{"void",		/* name */
 	 TYPE_void,		/* storage */
-	 1,			/* linear */
+	 true,			/* linear */
 	 0,			/* size */
 #if SIZEOF_OID == SIZEOF_INT
 	 (ptr) &int_nil,	/* atomNull */
@@ -1957,7 +1917,7 @@ atomDesc BATatoms[MAXATOMS] = {
 	},
 	{"bit",			/* name */
 	 TYPE_bte,		/* storage */
-	 1,			/* linear */
+	 true,			/* linear */
 	 sizeof(bit),		/* size */
 	 (ptr) &bte_nil,	/* atomNull */
 	 (ssize_t (*)(const char *, size_t *, ptr *)) bitFromStr,   /* atomFromStr */
@@ -1975,7 +1935,7 @@ atomDesc BATatoms[MAXATOMS] = {
 	},
 	{"bte",			/* name */
 	 TYPE_bte,		/* storage */
-	 1,			/* linear */
+	 true,			/* linear */
 	 sizeof(bte),		/* size */
 	 (ptr) &bte_nil,	/* atomNull */
 	 (ssize_t (*)(const char *, size_t *, ptr *)) bteFromStr,   /* atomFromStr */
@@ -1993,7 +1953,7 @@ atomDesc BATatoms[MAXATOMS] = {
 	},
 	{"sht",			/* name */
 	 TYPE_sht,		/* storage */
-	 1,			/* linear */
+	 true,			/* linear */
 	 sizeof(sht),		/* size */
 	 (ptr) &sht_nil,	/* atomNull */
 	 (ssize_t (*)(const char *, size_t *, ptr *)) shtFromStr,   /* atomFromStr */
@@ -2011,7 +1971,7 @@ atomDesc BATatoms[MAXATOMS] = {
 	},
 	{"BAT",			/* name */
 	 TYPE_int,		/* storage */
-	 1,			/* linear */
+	 true,			/* linear */
 	 sizeof(bat),		/* size */
 	 (ptr) &int_nil,	/* atomNull */
 	 (ssize_t (*)(const char *, size_t *, ptr *)) batFromStr,   /* atomFromStr */
@@ -2029,7 +1989,7 @@ atomDesc BATatoms[MAXATOMS] = {
 	},
 	{"int",			/* name */
 	 TYPE_int,		/* storage */
-	 1,			/* linear */
+	 true,			/* linear */
 	 sizeof(int),		/* size */
 	 (ptr) &int_nil,	/* atomNull */
 	 (ssize_t (*)(const char *, size_t *, ptr *)) intFromStr,   /* atomFromStr */
@@ -2051,7 +2011,7 @@ atomDesc BATatoms[MAXATOMS] = {
 #else
 	 TYPE_lng,		/* storage */
 #endif
-	 1,			/* linear */
+	 true,			/* linear */
 	 sizeof(oid),		/* size */
 #if SIZEOF_OID == SIZEOF_INT
 	 (ptr) &int_nil,	/* atomNull */
@@ -2080,7 +2040,7 @@ atomDesc BATatoms[MAXATOMS] = {
 	},
 	{"ptr",			/* name */
 	 TYPE_ptr,		/* storage */
-	 1,			/* linear */
+	 true,			/* linear */
 	 sizeof(ptr),		/* size */
 	 (ptr) &ptr_nil,	/* atomNull */
 	 (ssize_t (*)(const char *, size_t *, ptr *)) ptrFromStr,   /* atomFromStr */
@@ -2103,7 +2063,7 @@ atomDesc BATatoms[MAXATOMS] = {
 	},
 	{"flt",			/* name */
 	 TYPE_flt,		/* storage */
-	 1,			/* linear */
+	 true,			/* linear */
 	 sizeof(flt),		/* size */
 	 (ptr) &flt_nil,	/* atomNull */
 	 (ssize_t (*)(const char *, size_t *, ptr *)) fltFromStr,   /* atomFromStr */
@@ -2121,7 +2081,7 @@ atomDesc BATatoms[MAXATOMS] = {
 	},
 	{"dbl",			/* name */
 	 TYPE_dbl,		/* storage */
-	 1,			/* linear */
+	 true,			/* linear */
 	 sizeof(dbl),		/* size */
 	 (ptr) &dbl_nil,	/* atomNull */
 	 (ssize_t (*)(const char *, size_t *, ptr *)) dblFromStr,   /* atomFromStr */
@@ -2139,7 +2099,7 @@ atomDesc BATatoms[MAXATOMS] = {
 	},
 	{"lng",			/* name */
 	 TYPE_lng,		/* storage */
-	 1,			/* linear */
+	 true,			/* linear */
 	 sizeof(lng),		/* size */
 	 (ptr) &lng_nil,	/* atomNull */
 	 (ssize_t (*)(const char *, size_t *, ptr *)) lngFromStr,   /* atomFromStr */
@@ -2158,7 +2118,7 @@ atomDesc BATatoms[MAXATOMS] = {
 #ifdef HAVE_HGE
 	{"hge",			/* name */
 	 TYPE_hge,		/* storage */
-	 1,			/* linear */
+	 true,			/* linear */
 	 sizeof(hge),		/* size */
 	 (ptr) &hge_nil,	/* atomNull */
 	 (ssize_t (*)(const char *, size_t *, ptr *)) hgeFromStr,   /* atomFromStr */
@@ -2195,7 +2155,7 @@ atomDesc BATatoms[MAXATOMS] = {
 	},
 	{"str",			/* name */
 	 TYPE_str,		/* storage */
-	 1,			/* linear */
+	 true,			/* linear */
 	 sizeof(var_t),		/* size */
 	 (ptr) str_nil,		/* atomNull */
 	 (ssize_t (*)(const char *, size_t *, ptr *)) strFromStr,   /* atomFromStr */
