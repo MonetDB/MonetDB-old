@@ -36,7 +36,7 @@ BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	first = *(p);
 	last = *(q-1);
-	comp = (last-first)/sizeof(msk) + 2; // at least 2 oids to avoid trivial properties set by BBPkeepref
+	comp = (last-first)/sizeof(msk) + 2 * sizeof(oid); // at least 2 oids to avoid trivial properties set by BBPkeepref
 #ifdef _DEBUG_BITCANDIDATES_
 	fprintf(stderr,"# BLCcompress base "BUNFMT" first "BUNFMT" range " BUNFMT" count "BUNFMT" vector " BUNFMT"\n", b->tseqbase, first, last, BATcount(b), comp);
 #endif
@@ -46,7 +46,7 @@ BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL,"compress",MAL_MALLOC_FAIL);
 	/* zap the bitvector */
 	o = (char *) Tloc(bn,0);
-	memset(o, 0, sizeof(oid) * comp);
+	memset(o, 0, comp);
 	for( ; p < q; p++){
 		setbit(o, (*p - first));
 #ifdef _DEBUG_BITCANDIDATES_
