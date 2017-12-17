@@ -13,8 +13,6 @@
 #include "mal_interpreter.h"
 #include "sys/param.h"
 
-#define bits 64		/* using BYTEs to represent the bitvector */
-
 str
 BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -38,12 +36,12 @@ BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	first = *(p);
 	last = *(q-1);
-	comp = (last-first)/bits + 2; // at least 2 oids to avoid trivial properties set by BBPkeepref
+	comp = (last-first)/sizeof(msk) + 2; // at least 2 oids to avoid trivial properties set by BBPkeepref
 #ifdef _DEBUG_BITCANDIDATES_
 	fprintf(stderr,"# BLCcompress base "BUNFMT" first "BUNFMT" range " BUNFMT" count "BUNFMT" vector " BUNFMT"\n", b->tseqbase, first, last, BATcount(b), comp);
 #endif
 
-	bn = COLnew(0, TYPE_oid, comp, TRANSIENT);
+	bn = COLnew(0, TYPE_msk, comp, TRANSIENT);
 	if( bn == NULL)
 		throw(MAL,"compress",MAL_MALLOC_FAIL);
 	/* zap the bitvector */
@@ -95,7 +93,7 @@ BCLdecompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	fprintf(stderr,"#decompress %d base "OIDFMT","OIDFMT"\n", b->batCacheid, b->hseqbase,b->tseqbase);
 #endif
 
-	limit= BATcount(b) * bits;
+	limit= BATcount(b) * sizeof(msk);
 	bn = COLnew(0, TYPE_oid, limit, TRANSIENT);
 	if ( bn == 0)
 		throw(MAL,"decompress",MAL_MALLOC_FAIL);
