@@ -27,7 +27,7 @@ BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	b = BATdescriptor(*val);
 	if( b == NULL)
 		throw(MAL,"compress",INTERNAL_BAT_ACCESS);
-	if ( b->ttype == TYPE_void || isVIEW(b) || BATcount(b) == 0){
+	if ( b->ttype == TYPE_void || isVIEW(b) || b->ttype == TYPE_msk || BATcount(b) == 0){
 		BBPkeepref(*ret = *val);
 		return MAL_SUCCEED;
 	}
