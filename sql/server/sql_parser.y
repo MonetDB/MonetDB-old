@@ -8,7 +8,7 @@
 
 %{
 #include "monetdb_config.h"
-#include <sql_mem.h>
+#include "sql_mem.h"
 #include "sql_parser.h"
 #include "sql_symbol.h"
 #include "sql_datetime.h"
@@ -22,7 +22,6 @@
 
 #include <unistd.h>
 #include <string.h>
-#include <stdlib.h>
 
 #define SA 	m->sa
 #define _symbol_create(t,d)         symbol_create( SA, t, d)
@@ -714,16 +713,17 @@ create:
 create_or_replace:
 	create
 |	CREATE OR REPLACE { $$ = TRUE; }
-
+;
 
 if_exists:
 	/* empty */   { $$ = FALSE; }
 |	IF EXISTS     { $$ = TRUE; }
+;
 
 if_not_exists:
 	/* empty */   { $$ = FALSE; }
 |	IF NOT EXISTS { $$ = TRUE; }
-
+;
 
 drop:
     DROP 		
@@ -4169,6 +4169,7 @@ column_exp:
 opt_alias_name:
     /* empty */	{ $$ = NULL; }
  |  AS ident	{ $$ = $2; }
+ |  ident	{ $$ = $1; }
  ;
 
 atom:

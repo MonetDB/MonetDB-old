@@ -1450,7 +1450,7 @@ rel_convert_types(mvc *sql, sql_exp **L, sql_exp **R, int scale_fixing, int tpe)
 		sql_subtype *i = lt;
 		sql_subtype *r = rt;
 
-		if (subtype_cmp(lt, rt) != 0 || lt->type->localtype==0 || rt->type->localtype==0) {
+		if (subtype_cmp(lt, rt) != 0 || (tpe == type_equal_no_any && (lt->type->localtype==0 || rt->type->localtype==0))) {
 			sql_subtype super;
 
 			supertype(&super, r, i);
@@ -2139,6 +2139,26 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 					if (l)
 						st = exp_subtype(l);
 				}
+				if (l && !r) { /* possibly a (not) in function call */
+					/* reset error */
+					sql->session->status = 0;
+					sql->errstr[0] = 0;
+
+					z = left;
+					r = rel_value_exp(sql, &z, sval, f, ek); 
+					if (z == left && r) {
+						if (l && r && IS_ANY(st->type->eclass)){
+							l = rel_check_type(sql, exp_subtype(r), l, type_equal);
+							if (l)
+								st = exp_subtype(l);
+							else
+								return NULL;
+						}
+						z = NULL;
+					} else {
+						r = NULL;
+					}
+				}
 				if (!l || !r || !(r=rel_check_type(sql, st, r, type_equal))) {
 					rel_destroy(right);
 					return NULL;
@@ -2201,7 +2221,11 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 				reset_processed(left);
 			} else
 				*rel = left;
-			if (sc->token == SQL_NOT_IN)
+			if (f == sql_sel) {
+				e = rel_unop_(sql, r, NULL, "isnull", card_value);
+				if (sc->token == SQL_IN)
+					e = rel_unop_(sql, e, NULL, "not", card_value);
+			} else if (sc->token == SQL_NOT_IN)
 				e = rel_binop_(sql, l, r, NULL, "<>", card_value);
 			else
 				e = rel_binop_(sql, l, r, NULL, "=", card_value);
@@ -2575,7 +2599,7 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 					sql_exp *e;
 
 					l = ll->h->data;
-					if (rel_convert_types(sql, &l, &r, 1, type_equal) < 0) 
+					if (rel_convert_types(sql, &l, &r, 1, type_equal_no_any) < 0) 
 						return NULL;
 					e = exp_compare(sql->sa, l, r, cmp_equal );
 					if (!e)

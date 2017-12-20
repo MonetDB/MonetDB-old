@@ -14,8 +14,8 @@
  * This module contains primitives for accessing data in LiDAR file format.
  */
 
-#include <monetdb_config.h>
-#include <glob.h>
+#include "monetdb_config.h"
+#include "glob.h"
 
 /* clash with GDK? */
 // #undef ttype
@@ -28,13 +28,13 @@
 #include <dirent.h>
 
 #include "lidar.h"
-#include <mutils.h>
-#include <sql_mvc.h>
-#include <sql_scenario.h>
-#include <sql.h>
-#include <sql_execute.h>
-#include <clients.h>
-#include <mal_exception.h>
+#include "mutils.h"
+#include "sql_mvc.h"
+#include "sql_scenario.h"
+#include "sql.h"
+#include "clients.h"
+#include "mal_exception.h"
+#include "sql_execute.h"
 
 static MT_Lock mt_lidar_lock MT_LOCK_INITIALIZER("mt_lidar_lock");
 

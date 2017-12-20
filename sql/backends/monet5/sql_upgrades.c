@@ -14,7 +14,7 @@
 #include "mal_backend.h"
 #include "sql_execute.h"
 #include "sql_mvc.h"
-#include <mtime.h>
+#include "mtime.h"
 #include <unistd.h>
 #include "sql_upgrades.h"
 
@@ -249,7 +249,7 @@ sql_update_hugeint(Client c, mvc *sql)
 			"  sum(columnsize) as columnsize,\n"
 			"  sum(heapsize) as heapsize,\n"
 			"  sum(hashes) as hashes,\n"
-			"  sum(imprints) as imprints,\n"
+			"  sum(\"imprints\") as \"imprints\",\n"
 			"  sum(case when sorted = false then 8 * count else 0 end) as auxiliary\n"
 			"from sys.storagemodel() group by \"schema\",\"table\";\n");
 

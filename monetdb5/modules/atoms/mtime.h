@@ -22,19 +22,17 @@
 #ifndef _MONETTIME_H_
 #define _MONETTIME_H_
 
-#include <gdk.h>
+#include "gdk.h"
 #include "mal.h"
 #include "mal_exception.h"
 
-#ifdef TIME_WITH_SYS_TIME
-# include <sys/time.h>
-# include <time.h>
-#else
-# ifdef HAVE_SYS_TIME_H
-#  include <sys/time.h>
-# else
-#  include <time.h>
-# endif
+#include <time.h>
+
+#ifdef HAVE_FTIME
+#include <sys/timeb.h>		/* ftime */
+#endif
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>		/* gettimeofday */
 #endif
 
 typedef int date;
