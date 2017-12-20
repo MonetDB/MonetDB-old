@@ -13,24 +13,15 @@
 #include "mal_interpreter.h"
 #include "sys/param.h"
 
-str
-BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+static BAT*
+CANDcompress(BAT *b)
 {
-    bat *ret = getArgReference_bat(stk,pci,0);
-    bat *val = getArgReference_bat(stk,pci,1);
-	BAT *b, *bn;
+	BAT *bn;
 	oid *p,*q, first, last, comp;
 	char *o;
 
-    (void) cntxt;
-    (void) mb;
-	b = BATdescriptor(*val);
-	if( b == NULL)
-		throw(MAL,"compress",INTERNAL_BAT_ACCESS);
-	if ( b->ttype == TYPE_void || isVIEW(b) || b->ttype == TYPE_msk || BATcount(b) == 0){
-		BBPkeepref(*ret = *val);
-		return MAL_SUCCEED;
-	}
+	if ( b->ttype == TYPE_void || isVIEW(b) || b->ttype == TYPE_msk || BATcount(b) == 0)
+		return b;
 	p = (oid *) Tloc(b,0);
 	q = (oid *) Tloc(b,BUNlast(b));
 
@@ -43,7 +34,7 @@ BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	bn = COLnew(0, TYPE_msk, comp, TRANSIENT);
 	if( bn == NULL)
-		throw(MAL,"compress",MAL_MALLOC_FAIL);
+		return NULL;
 	/* zap the bitvector */
 	o = (char *) Tloc(bn,0);
 	memset(o, 0, comp);
@@ -64,8 +55,34 @@ BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #ifdef _DEBUG_BITCANDIDATES_
 	fprintf(stderr,"#compress %d base "OIDFMT","OIDFMT"\n", bn->batCacheid, bn->hseqbase,bn->tseqbase);
 #endif
-	BBPkeepref(*ret = bn->batCacheid);
-	BBPunfix(*val);
+	return bn;
+}
+
+str
+BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    bat *ret = getArgReference_bat(stk,pci,0);
+    bat *val = getArgReference_bat(stk,pci,1);
+	BAT *b, *bn;
+
+	(void) cntxt;
+	(void) mb;
+	*ret = 0;
+	b = BATdescriptor(*val);
+	if( b == NULL)
+		throw(MAL,"compress",INTERNAL_BAT_ACCESS);
+
+	bn = CANDcompress(b);
+	if ( bn == NULL){
+		BBPunfix(*val);
+		throw(MAL,"compress","failed to compress oid candidate list");
+	}
+	if ( bn == b){
+		BBPkeepref(*ret = *val);
+	} else{
+		BBPkeepref(*ret = bn->batCacheid);
+		BBPunfix(*val);
+	}
 	return MAL_SUCCEED;
 }
 
