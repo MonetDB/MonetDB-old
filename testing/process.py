@@ -162,16 +162,22 @@ class _BufferedPipe:
             self._thread.join()
         self._thread = None
 
-    def read(self, size = -1):
+    def read(self, size = -1, blocking=True):
         if self._eof:
             return self._empty
         if size < 0:
             self.close()
         ret = []
         while size != 0:
-            c = self._queue.get()
+            try:
+                c = self._queue.get(blocking)
+            except:
+                return self._empty.join(ret)
             if c == '\r':
-                c = self._queue.get()   # just ignore \r
+                try:
+                    c = self._queue.get(blocking)   # just ignore \r
+                except:
+                    return self._empty.join(ret)
             ret.append(c)
             if size > 0:
                 size -= 1

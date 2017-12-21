@@ -36,6 +36,7 @@ import glob
 procdebug = False
 verbose = False
 quiet = False
+fast_mode = False
 
 releaserun = False
 
@@ -1313,10 +1314,11 @@ def PerformDir(env, testdir, testlist, BusyPorts, all_tests = False) :
         if not verbose and not quiet:
             print('\nRunning in %s' % TSTDIR)
         alllinks = []
+        RUNNING_SERVER = {}
         try:
             for TST,COND in testlist:
                 os.environ['TST'] = TST
-                tt, FtOut, FtErr, bodyline, reason, links = RunTest(env, TST, BusyPorts, COND, oktests, length, all_tests)
+                tt, FtOut, FtErr, bodyline, reason, links = RunTest(env, TST, BusyPorts, COND, oktests, length, all_tests, RUNNING_SERVER)
                 alllinks.extend(links)
                 if tt:
                     t = "%7.3f" % tt
@@ -1639,7 +1641,7 @@ def returnCode(proc, f = None):
                 f.write('\nInterrupt\n')
                 f.flush()
             return 'interrupt'  # Interrupt
-        if proc.returncode < 0:
+        if proc.returncode < 0 and proc.returncode:
             if f is not None:
                 f.write('\nSignal %d\n' % -proc.returncode)
                 f.flush()
@@ -1859,7 +1861,7 @@ def CategorizeResult(TST, SockTime):
         e = SockTime
     return o, e
 
-def RunTest(env, TST, BusyPorts, COND, oktests, length, all_tests) :
+def RunTest(env, TST, BusyPorts, COND, oktests, length, all_tests, RUNNING_SERVER) :
     global setpgrp
     Failed = F_SKIP
     FailedOut = F_SKIP
@@ -2187,7 +2189,7 @@ def RunTest(env, TST, BusyPorts, COND, oktests, length, all_tests) :
         TestErr.close()
 
         t0 = time.time()
-        tres = DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOUT, CTIMEOUT, TIMEOUT, ME, MAPIsockets, length, nomito, threads, COND, all_tests)
+        tres = DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOUT, CTIMEOUT, TIMEOUT, ME, MAPIsockets, length, nomito, threads, COND, all_tests, RUNNING_SERVER)
         if tres == 'segfault':
             # rename core file, if any -- might have to check
             # /proc/sys/kernel/core_pattern in the future but hopefully
@@ -2710,7 +2712,7 @@ def killProc(proc, outfile = None, cmd = None):
     except OSError:
         pass
 
-def LaunchIt(cmd, TestInput, TestOut, TestErr, TimeOut, SrvrOut = None) :
+def LaunchIt(cmd, TestInput, TestOut, TestErr, TimeOut, RunningServer, SrvrOut = None) :
     global setpgrp
     if not SrvrOut:
         SrvrOut = process.PIPE
@@ -2723,8 +2725,21 @@ def LaunchIt(cmd, TestInput, TestOut, TestErr, TimeOut, SrvrOut = None) :
     if procdebug:
         print('LaunchIt: starting process "%s" (inpipe)\n' % '" "'.join(cmd))
     setpgrp = True
-    proc = process.Popen(cmd, stdin = process.PIPE, stdout = SrvrOut,
+    if 'SERVER_PROCESS' not in RunningServer or RunningServer['CONFIG'] != cmd or RunningServer['SERVER_PROCESS'].killed or RunningServer['SERVER_PROCESS'].stdin.closed:
+        # launch a new server, configuration changed
+        if 'SERVER_PROCESS' in RunningServer and not RunningServer['SERVER_PROCESS'].killed:
+            # if there is a running server, kill it
+            killProc(RunningServer['SERVER_PROCESS'])
+        proc = process.Popen(cmd, stdin = process.PIPE, stdout = SrvrOut,
                          stderr = TestErr, universal_newlines = True)
+        if fast_mode:
+            # for fast mode, keep the server cached and don't kill it
+            RunningServer['CONFIG'] = cmd
+            RunningServer['SERVER_PROCESS'] = proc
+    else:
+        proc = RunningServer['SERVER_PROCESS']
+        proc.stderr = TestErr
+    
     # maybe buffer output as it comes to avoid deadlock
     if SrvrOut == process.PIPE:
         proc.stdout = process._BufferedPipe(proc.stdout)
@@ -2744,10 +2759,10 @@ def LaunchIt(cmd, TestInput, TestOut, TestErr, TimeOut, SrvrOut = None) :
     return proc, t
 ### LaunchIt(cmd, TestIn, TestOut, TestErr, TimeOut, SrvrOut) #
 
-def CollectIt(pOut, TestOut) :
+def CollectIt(pOut, TestOut, blocking=True) :
     if pOut:
         while True:
-            buf = pOut.read(8192)
+            buf = pOut.read(8192, blocking)
             if not buf:
                 break
             TestOut.write(buf)
@@ -2816,7 +2831,7 @@ def mapi_ping(port,lang) :
     return False
 ### mapi_ping() #
 
-def DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOUT, CTIMEOUT, TIMEOUT, ME, MAPIsockets, length, nomito, threads, COND, all_tests) :
+def DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOUT, CTIMEOUT, TIMEOUT, ME, MAPIsockets, length, nomito, threads, COND, all_tests, RUNNING_SERVER) :
     ATJOB2 = ""
     STDERR.flush()
     if quiet:
@@ -2921,8 +2936,9 @@ def DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOU
                 # enable Python integration in server
                 Srvr.extend(['--set', 'embedded_py=true'])
 
+            pSrvr, pSrvrTimer = LaunchIt(Srvr, '\nio.printf("\\nReady.\\n");\n', SrvrOut, SrvrErr, TIMEOUT, RUNNING_SERVER)
 
-            pSrvr, pSrvrTimer = LaunchIt(Srvr, '\nio.printf("\\nReady.\\n");\n', SrvrOut, SrvrErr, TIMEOUT)
+
             ln="dummy"
             while 0 < len(ln) and not ln.startswith('Ready.'):
                 ln=pSrvr.stdout.readline()
@@ -3089,7 +3105,7 @@ def DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOU
                 SrvrOut.flush()
                 EPILOGUE.close()
 
-            if ServerReady:
+            if ServerReady and not fast_mode:
                 try:
                     pSrvr.stdin.write('clients.quit();\n')
                     pSrvr.stdin.flush()
@@ -3099,15 +3115,19 @@ def DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOU
                     pSrvr.stdin.close()
                 except IOError as err:
                     Warn("Closing input pipe in DoIt failed with #%d: '%s'." % (err.errno, err.strerror))
+                CollectIt(pSrvr.stdout, SrvrOut)
+                pSrvr.wait()
+            else:
+                CollectIt(pSrvr.stdout, SrvrOut, False)
 
-            CollectIt(pSrvr.stdout, SrvrOut)
-            pSrvr.wait()
+
+
+
             pSrvrTimer.cancel()
             if procdebug:
                 print('DoIt: process exited "%s" (%s)\n' % ('" "'.join(Srvr), pSrvr.returncode))
             pSrvrTimer = None
             pSrvrCode = returnCode(pSrvr, SrvrErr)
-
             AllOut = [SrvrOut, ClntOutFile]
             AllErr = [SrvrErr, ClntErrFile]
             TestOut = open(TestOutFile, 'a')
@@ -4557,6 +4577,9 @@ VALUES (%s, '%s', '%s', '%s',
 ### main(argv) #
 
 if __name__ == "__main__":
+    if '--fast' in sys.argv:
+        sys.argv.remove('--fast')
+        fast_mode = True
     if '--trace' in sys.argv:
         sys.argv.remove('--trace')
         try:
