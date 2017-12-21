@@ -37,6 +37,7 @@ procdebug = False
 verbose = False
 quiet = False
 fast_mode = False
+parallel_mode = False
 
 releaserun = False
 
@@ -1206,6 +1207,34 @@ def find_test_dirs(thisdir) :
             testdirs = testdirs + find_test_dirs(d)
     return testdirs
 ### find_test_dirs(thisdir) #
+
+def perform_dir(tpl):
+    d = tpl[0]
+    fid = tpl[1]
+    env = tpl[2]
+    BusyPorts = tpl[3]
+    body_good = []
+    body_bad = []
+    t, elem, diff, interrupted = PerformDir(env, d, [], BusyPorts, True)
+    #t_ = t_ + t
+    if elem is not None:
+        if diff <= F_OK:
+            body_good.append(elem)
+        else:
+            body_bad.append(elem)
+    if interrupted:
+        return
+    if global_timeout and start_time + global_timeout < time.time():
+        print('\nGlobal testing timeout reached\n')
+        return
+    if not testweb:
+        # after a directory has been tested, create
+        # the index file so that we can look at test
+        # results while the tests are running
+        env['TSTDIR'] = ""
+        env['TSTTRGDIR'] = os.path.join(TSTTRGBASE, TSTPREF)
+        body = body_bad + body_good
+        CreateHtmlIndex(env, *body)
 
 def PerformDir(env, testdir, testlist, BusyPorts, all_tests = False) :
     interrupted = False
@@ -2407,7 +2436,7 @@ def RunTest(env, TST, BusyPorts, COND, oktests, length, all_tests, RUNNING_SERVE
             cmd = ['diff']
             if ACCURACYout >= 0:
                 cmd.append('-d')
-            cmd.extend(['-Bb', '-F^#', '-I%s' % par['IGNORE'],
+            cmd.extend(['-B', '-b', '-F^#', '-I%s' % par['IGNORE'],
                         '-U%s' % par['CONTEXT'],
                         '%s%s.FILTERED' % (TST, STABLEout),
                         '%s.test.out.FILTERED' % TST])
@@ -2712,7 +2741,7 @@ def killProc(proc, outfile = None, cmd = None):
     except OSError:
         pass
 
-def LaunchIt(cmd, TestInput, TestOut, TestErr, TimeOut, RunningServer, SrvrOut = None) :
+def LaunchIt(cmd, TestInput, TestOut, TestErr, TimeOut, RunningServer, ServerType, SrvrOut = None) :
     global setpgrp
     if not SrvrOut:
         SrvrOut = process.PIPE
@@ -2725,7 +2754,7 @@ def LaunchIt(cmd, TestInput, TestOut, TestErr, TimeOut, RunningServer, SrvrOut =
     if procdebug:
         print('LaunchIt: starting process "%s" (inpipe)\n' % '" "'.join(cmd))
     setpgrp = True
-    if 'SERVER_PROCESS' not in RunningServer or RunningServer['CONFIG'] != cmd or RunningServer['SERVER_PROCESS'].killed or RunningServer['SERVER_PROCESS'].stdin.closed:
+    if ServerType == "MAL" or 'SERVER_PROCESS' not in RunningServer or RunningServer['CONFIG'] != cmd or RunningServer['SERVER_PROCESS'].killed or RunningServer['SERVER_PROCESS'].stdin.closed:
         # launch a new server, configuration changed
         if 'SERVER_PROCESS' in RunningServer and not RunningServer['SERVER_PROCESS'].killed:
             # if there is a running server, kill it
@@ -2741,9 +2770,9 @@ def LaunchIt(cmd, TestInput, TestOut, TestErr, TimeOut, RunningServer, SrvrOut =
         proc.stderr = TestErr
     
     # maybe buffer output as it comes to avoid deadlock
-    if SrvrOut == process.PIPE:
+    if SrvrOut == process.PIPE and not isinstance(proc.stdout, process._BufferedPipe):
         proc.stdout = process._BufferedPipe(proc.stdout)
-    if TestErr == process.PIPE:
+    if TestErr == process.PIPE and not isinstance(proc.stderr, process._BufferedPipe):
         proc.stderr = process._BufferedPipe(proc.stderr)
     proc.killed = False
     t = Timer(TimeOut, killProc, args = [proc, TestErr, cmd])
@@ -2936,7 +2965,7 @@ def DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOU
                 # enable Python integration in server
                 Srvr.extend(['--set', 'embedded_py=true'])
 
-            pSrvr, pSrvrTimer = LaunchIt(Srvr, '\nio.printf("\\nReady.\\n");\n', SrvrOut, SrvrErr, TIMEOUT, RUNNING_SERVER)
+            pSrvr, pSrvrTimer = LaunchIt(Srvr, '\nio.printf("\\nReady.\\n");\n', SrvrOut, SrvrErr, TIMEOUT, RUNNING_SERVER, SERVER)
 
 
             ln="dummy"
@@ -3119,9 +3148,6 @@ def DoIt(env, SERVER, CALL, TST, EXT, PRELUDE, TestOutFile, TestErrFile, STIMEOU
                 pSrvr.wait()
             else:
                 CollectIt(pSrvr.stdout, SrvrOut, False)
-
-
-
 
             pSrvrTimer.cancel()
             if procdebug:
@@ -4359,27 +4385,23 @@ def main(argv) :
             else:
                 if verbose:
                     print("\nRunning all tests in directories %s.\n" % str(testdirs))
-                for d in testdirs:
-                    t, elem, diff, interrupted = PerformDir(env, d, [], BusyPorts, True)
-                    t_ = t_ + t
-                    if elem is not None:
-                        if diff <= F_OK:
-                            body_good.append(elem)
-                        else:
-                            body_bad.append(elem)
-                    if interrupted:
-                        break
-                    if global_timeout and start_time + global_timeout < time.time():
-                        print('\nGlobal testing timeout reached\n')
-                        break
-                    if not testweb:
-                        # after a directory has been tested, create
-                        # the index file so that we can look at test
-                        # results while the tests are running
-                        env['TSTDIR'] = ""
-                        env['TSTTRGDIR'] = os.path.join(TSTTRGBASE, TSTPREF)
-                        body = body_bad + body_good
-                        CreateHtmlIndex(env, *body)
+
+                parallel_mode = True
+                if not parallel_mode:
+                    for d in testdirs:
+                        perform_dir((d, 0, env, BusyPorts))
+                else:
+                    # TODO: order directories based on which take longer
+                    # -> start with directories that take the longest
+                    from multiprocessing import Pool
+                    params = []
+                    thread_id = 0
+                    for d in testdirs:
+                        params.append((d, thread_id, env, BusyPorts))
+                        thread_id += 1
+                    pool = Pool(8)
+                    pool.map(perform_dir, params)
+
         except KeyboardInterrupt:
             # if we get interrupted between directories, we still want output
             pass
@@ -4580,6 +4602,9 @@ if __name__ == "__main__":
     if '--fast' in sys.argv:
         sys.argv.remove('--fast')
         fast_mode = True
+    if '--parallel' in sys.argv:
+        sys.argv.remove('--parallel')
+        parallel_mode = True
     if '--trace' in sys.argv:
         sys.argv.remove('--trace')
         try:

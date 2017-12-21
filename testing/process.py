@@ -56,7 +56,6 @@ _server = splitcommand(os.getenv('MSERVER', ''))
 _dbfarm = os.getenv('GDK_DBFARM', None)
 
 _dotmonetdbfile = []
-
 def _delfiles():
     for f in _dotmonetdbfile:
         try:
