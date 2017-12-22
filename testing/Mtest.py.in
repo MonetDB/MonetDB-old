@@ -4386,7 +4386,6 @@ def main(argv) :
                 if verbose:
                     print("\nRunning all tests in directories %s.\n" % str(testdirs))
 
-                parallel_mode = True
                 if not parallel_mode:
                     for d in testdirs:
                         perform_dir((d, 0, env, BusyPorts))
