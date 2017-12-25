@@ -1,0 +1,57 @@
+stdout of test 'BCLexample` in directory 'monetdb5/optimizer` itself:
+
+
+# 09:15:13 >  
+# 09:15:13 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=35777" "--set" "mapi_usock=/var/tmp/mtest-1886/.s.monetdb.35777" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mk/branches/cand//Linux/var/MonetDB/mTests_monetdb5_optimizer"
+# 09:15:13 >  
+
+# MonetDB 5 server v11.28.0
+# This is an unreleased version
+# Serving database 'mTests_monetdb5_optimizer', using 4 threads
+# Compiled for x86_64-unknown-linux-gnu/64bit with 128bit integers
+# Found 31.314 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2017 MonetDB B.V., all rights reserved
+# Visit https://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://toke.da.cwi.nl:35777/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-1886/.s.monetdb.35777
+# MonetDB/GIS module loaded
+# MonetDB/SQL module loaded
+
+Ready.
+
+# 09:15:14 >  
+# 09:15:14 >  "mclient" "-lmal" "-ftest" "-tnone" "-Eutf-8" "--host=/var/tmp/mtest-1886" "--port=35777"
+# 09:15:14 >  
+
+function user.f():void;
+    a := bat.new(:int);
+    a1 := bat.append(a, 1:int);
+    a2 := bat.append(a1, 2:int);
+    a3 := bat.append(a2, 3:int);
+    X_12 := algebra.select(a3, nil:bat[:oid], 2:int, 2:int, true, true, false);
+    X_13 := candidates.compress(X_12);
+    C_2 := candidates.decompress(X_13);
+    X_15 := algebra.select(a3, C_2, 0:int, 10:int, true, true, false);
+    X_16 := candidates.compress(X_15);
+    io.print(C_2);
+    C_3 := candidates.decompress(X_16);
+    io.print(C_3);
+end user.f;
+#bitcandidates        actions=2 time=8 usec 
+#deadcode             actions= 0 time=4 usec 
+#--------------------------#
+# h	t  # name
+# void	void  # type
+#--------------------------#
+[ 0@0,	1@0	]
+#--------------------------#
+# h	t  # name
+# void	void  # type
+#--------------------------#
+[ 0@0,	1@0	]
+
+# 09:15:14 >  
+# 09:15:14 >  "Done."
+# 09:15:14 >  
+
