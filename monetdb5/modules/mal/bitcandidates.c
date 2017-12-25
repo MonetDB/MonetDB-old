@@ -20,7 +20,11 @@ CANDcompress(BAT *b)
 	oid *p,*q, first, last, comp;
 	char *o;
 
-	if ( b->ttype == TYPE_void || isVIEW(b) || b->ttype == TYPE_msk || BATcount(b) == 0)
+	if ( b->ttype == TYPE_void || isVIEW(b) || BATcount(b) == 0)
+		return b;
+	/* TODO  a MSK object could be decompressed if the number of bits set is << 1.5% 
+       or futher compressed using RLE*/
+	if ( b->ttype == TYPE_msk)
 		return b;
 	p = (oid *) Tloc(b,0);
 	q = (oid *) Tloc(b,BUNlast(b));
@@ -86,25 +90,14 @@ BCLcompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
-str
-BCLdecompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+static BAT*
+CANDdecompress(BAT *b)
 {
-    bat *ret = getArgReference_bat(stk,pci,0);
-    bat *val = getArgReference_bat(stk,pci,1);
-	BAT *b, *bn;
+	BAT *bn;
 	oid o = 0, *p;
 	BUN i, limit;
 	char *vect;
 
-    (void) cntxt;
-    (void) mb;
-	b = BATdescriptor(*val);
-	if( b == NULL)
-		throw(MAL,"decompress",INTERNAL_BAT_ACCESS);
-	if ( b->ttype == TYPE_void || isVIEW(b) || BATcount(b) == 0){
-		BBPkeepref(*ret = *val);
-		return MAL_SUCCEED;
-	}
 	vect = (char*) Tloc(b,0);
 #ifdef _DEBUG_BITCANDIDATES_
 	fprintf(stderr,"#decompress %d base "OIDFMT","OIDFMT"\n", b->batCacheid, b->hseqbase,b->tseqbase);
@@ -113,7 +106,7 @@ BCLdecompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	limit= BATcount(b) * sizeof(msk);
 	bn = COLnew(0, TYPE_oid, limit, TRANSIENT);
 	if ( bn == 0)
-		throw(MAL,"decompress",MAL_MALLOC_FAIL);
+		return NULL;
 	p = (oid*) Tloc(bn,0);
 	o = b->tseqbase;
 	for ( i = 0; i < limit; i++, o++)
@@ -134,8 +127,31 @@ BCLdecompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bn->tkey = b->tkey;
 	bn->tnil = b->tnil;
 	bn->tnonil = b->tnonil;
+	return bn;
+}
 
+str
+BCLdecompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    bat *ret = getArgReference_bat(stk,pci,0);
+    bat *val = getArgReference_bat(stk,pci,1);
+	BAT *b, *bn;
+
+    (void) cntxt;
+    (void) mb;
+	b = BATdescriptor(*val);
+	if( b == NULL)
+		throw(MAL,"decompress",INTERNAL_BAT_ACCESS);
+	if ( b->ttype == TYPE_void || isVIEW(b) || BATcount(b) == 0){
+		BBPkeepref(*ret = *val);
+		return MAL_SUCCEED;
+	}
+	bn = CANDdecompress(b);
+	if ( bn == NULL){
+		BBPunfix(*val);
+		throw(MAL,"compress","failed to compress oid candidate list");
+	}
 	BBPkeepref(*ret = bn->batCacheid);
-	BBPunfix(b->batCacheid);
+	BBPunfix(*val);
 	return MAL_SUCCEED;
 }
