@@ -7,7 +7,7 @@
  */
 
 /*
- * Use bit compressed candidate lists.
+ * Use bit compressed candidate lists on selected operations.
  */
 
 #include "monetdb_config.h"
@@ -17,9 +17,8 @@
 str
 OPTbitcandidatesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int i, j, k, actions =0, limit=0, slimit=0;
+	int i, j, actions =0, limit=0, slimit=0;
 	InstrPtr *old, p,q;
-	int *alias = 0;
 	lng usec = GDKusec();
 	char buf[256];
 
@@ -31,51 +30,27 @@ OPTbitcandidatesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 	slimit = mb->ssize;
 	old = mb->stmt;
 
-	// first check number of Candidate use cases
-	for (k= i = 0; i < mb->stop; i++) {
-		p = old[i];
-		for(j=0; j< p->argc; j++)
-			k += isVarCList(mb, getArg(p,j)) > 0;
-	}
-	if ( k == 0)
-		goto wrapup;
-
-	alias = (int*) GDKzalloc( ( k + mb->vsize) * sizeof(int));
-	if( alias == NULL)
-		throw(MAL, "optimizer.bitcandidates", MAL_MALLOC_FAIL);
-	for( i = 0; i < mb->vtop ; i++)
-		alias[i] = i;
-
-	if ( newMalBlkStmt(mb,mb->ssize + k) < 0){
-		GDKfree(alias);
+	if ( newMalBlkStmt(mb,mb->ssize ) < 0){
 		throw(MAL, "optimizer.bitcandidates", MAL_MALLOC_FAIL);
 	}
 
+	/* decompress all MSK columns before they are used */
 	for (i = 0; i < limit; i++) {
 		p = old[i];
-		for(j = p->retc; j< p->argc; j++){
-		// decompress before use
-			if ( isVarCList(mb, getArg(p,j)) && getArg(p,j) != alias[getArg(p,j)] ){
-				q= newFcnCall(mb,candidatesRef,decompressRef);
-				getArg(q,0) = getArg(p,j);
-				q= pushArgument(mb,q, alias[getArg(p,j)]);
-				alias[getArg(p,j)] = getArg(p,j);
-			}
-		}
-		pushInstruction(mb,p);
-		for(j=0; j< p->retc; j++){
-		// compress after creation, avoid this step when you immediately  can use it
-			if ( isVarCList(mb, getArg(p,j)) ){
-				k = newTmpVariable(mb,getArgType(mb,p,j));
-				setVarFixed(mb, k);
-				q= newFcnCall(mb,candidatesRef,compressRef);
-				setVarType(mb,getArg(q,0), newBatType(TYPE_msk));
-				setVarFixed(mb, getArg(q,0));
-				q= pushArgument(mb,q, k);
-				alias[getArg(p,j)] = getArg(q,0);
-				getArg(p,j) = k;
+		for(j = p->retc; j< p->argc; j++)
+			// decompress mask candidates before use
+			if(  getBatType(getArgType(mb,p,j)) == TYPE_msk){
+				q= newFcnCall(mb, candidatesRef, decompressRef);
+				setVarType( mb, getArg(q,0), newBatType(TYPE_oid));
+				q= pushArgument(mb,q, getArg(p,j));
+				getArg(p,j) = getArg(q,0);
 				actions++;
 			}
+		// thetaselect is the first operation to produce a msk
+		pushInstruction(mb,p);
+		if( getFunctionId(p) == thetaselectRef && getModuleId(p) == algebraRef){
+			setVarType( mb, getArg(p,0), newBatType(TYPE_msk));
+			actions++;
 		}
 	}
 	for( ; i<slimit; i++)
@@ -86,8 +61,6 @@ OPTbitcandidatesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 	fprintFunction(stderr,mb, 0, LIST_MAL_ALL);
 #endif
 
-wrapup:
-	GDKfree(alias);
     /* Defense line against incorrect plans */
 	if( actions){
 		chkTypes(cntxt->usermodule, mb, FALSE);
