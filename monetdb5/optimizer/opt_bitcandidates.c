@@ -52,6 +52,10 @@ OPTbitcandidatesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 			setVarType( mb, getArg(p,0), newBatType(TYPE_msk));
 			actions++;
 		}
+		if( getFunctionId(p) == selectRef && getModuleId(p) == algebraRef){
+			setVarType( mb, getArg(p,0), newBatType(TYPE_msk));
+			actions++;
+		}
 	}
 	for( ; i<slimit; i++)
 		if( old[i])

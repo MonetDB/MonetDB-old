@@ -265,7 +265,19 @@ ALGselect2(bat *result, const bat *bid, const bat *sid, const void *low, const v
 }
 
 str
+ALGselectMsk2(bat *result, const bat *bid, const bat *sid, const void *low, const void *high, const bit *li, const bit *hi, const bit *anti)
+{
+	return ALGselect2(result, bid, sid, low, high, li, hi, anti);
+}
+
+str
 ALGselect1(bat *result, const bat *bid, const void *low, const void *high, const bit *li, const bit *hi, const bit *anti)
+{
+	return ALGselect2(result, bid, NULL, low, high, li, hi, anti);
+}
+
+str
+ALGselectMsk1(bat *result, const bat *bid, const void *low, const void *high, const bit *li, const bit *hi, const bit *anti)
 {
 	return ALGselect2(result, bid, NULL, low, high, li, hi, anti);
 }

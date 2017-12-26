@@ -146,6 +146,11 @@ BCLdecompress(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		BBPkeepref(*ret = *val);
 		return MAL_SUCCEED;
 	}
+	/* TODO until we really produce a mask, simply return */
+	if( b->ttype == TYPE_msk){
+		BBPkeepref(*ret = *val);
+		return MAL_SUCCEED;
+	}
 	bn = CANDdecompress(b);
 	if ( bn == NULL){
 		BBPunfix(*val);

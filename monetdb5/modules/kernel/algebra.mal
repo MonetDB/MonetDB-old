@@ -37,6 +37,8 @@ address ALGexist
 comment "Returns whether 'val' occurs in b.";
 
 # The range selections are targeted at the tail of the BAT.
+command select(b:bat[:any_1], low:any_1, high:any_1, li:bit, hi:bit, anti:bit) :bat[:msk]
+address ALGselectMsk1;
 command select(b:bat[:any_1], low:any_1, high:any_1, li:bit, hi:bit, anti:bit) :bat[:oid]
 address ALGselect1
 comment "Select all head values for which the tail value is in range.
@@ -52,6 +54,8 @@ comment "Select all head values for which the tail value is in range.
 	Note that the output is suitable as second input for the other
 	version of this function.";
 
+command select(b:bat[:any_1], s:bat[:oid], low:any_1, high:any_1, li:bit, hi:bit, anti:bit) :bat[:msk]
+address ALGselectMsk2;
 command select(b:bat[:any_1], s:bat[:oid], low:any_1, high:any_1, li:bit, hi:bit, anti:bit) :bat[:oid]
 address ALGselect2
 comment "Select all head values of the first input BAT for which the tail value
