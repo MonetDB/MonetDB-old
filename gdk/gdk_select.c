@@ -1781,11 +1781,10 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 	/* limit estimation by upper limit */
 	estimate = MIN(estimate, maximum);
 
-	bn = COLnew(0, TYPE_oid, estimate, TRANSIENT);
-	if (bn == NULL)
-		return NULL;
-
 	if (equi && hash) {
+		bn = COLnew(0, TYPE_oid, estimate, TRANSIENT);
+		if (bn == NULL)
+			return NULL;
 		ALGODEBUG fprintf(stderr, "#BATselect(b=%s#" BUNFMT
 				  ",s=%s%s,anti=%d): hash select\n",
 				  BATgetId(b), BATcount(b),
@@ -1794,6 +1793,9 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 		bn = BAT_hashselect(b, s, bn, tl, maximum);
 	} else {
 		int use_imprints = 0;
+		bn = COLnew(0, TYPE_oid, estimate, TRANSIENT);
+		if (bn == NULL)
+			return NULL;
 		if (!equi &&
 		    !b->tvarsized &&
 		    (b->batPersistence == PERSISTENT ||
@@ -1812,6 +1814,14 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 	}
 
 	return virtualize(bn);
+}
+
+BAT *
+BATselectMsk(BAT *b, BAT *s, const void *tl, const void *th,
+	     int li, int hi, int anti)
+{
+	/* TODO massage the select to produce a bitvector */
+	return BATselect(b, s, tl, th, li, hi, anti);
 }
 
 /* theta select

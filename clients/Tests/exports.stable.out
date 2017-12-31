@@ -165,6 +165,7 @@ gdk_return BATreplace(BAT *b, BAT *p, BAT *n, bit force) __attribute__((__warn_u
 void BATroles(BAT *b, const char *tnme);
 BAT *BATsample(BAT *b, BUN n);
 BAT *BATselect(BAT *b, BAT *s, const void *tl, const void *th, int li, int hi, int anti);
+BAT *BATselectMsk(BAT *b, BAT *s, const void *tl, const void *th, int li, int hi, int anti);
 gdk_return BATsemijoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate) __attribute__((__warn_unused_result__));
 gdk_return BATsetaccess(BAT *b, int mode);
 void BATsetcapacity(BAT *b, BUN cnt);
@@ -732,8 +733,6 @@ str ALGsubslice_lng(bat *ret, const bat *bid, const lng *start, const lng *end);
 str ALGthetajoin(bat *r1, bat *r2, const bat *l, const bat *r, const bat *sl, const bat *sr, const int *op, const bit *nil_matches, const lng *estimate);
 str ALGthetaselect1(bat *result, const bat *bid, const void *val, const char **op);
 str ALGthetaselect2(bat *result, const bat *bid, const bat *sid, const void *val, const char **op);
-str ALGthetaselectMsk1(bat *result, const bat *bid, const void *val, const char **op);
-str ALGthetaselectMsk2(bat *result, const bat *bid, const bat *sid, const void *val, const char **op);
 str ALGunique1(bat *result, const bat *bid);
 str ALGunique2(bat *result, const bat *bid, const bat *sid);
 str ALGvariance(dbl *res, const bat *bid);

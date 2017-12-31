@@ -2779,6 +2779,7 @@ gdk_export void BATsetprop(BAT *b, int idx, int type, void *v);
 #define JOIN_NE		(-3)
 
 gdk_export BAT *BATselect(BAT *b, BAT *s, const void *tl, const void *th, int li, int hi, int anti);
+gdk_export BAT *BATselectMsk(BAT *b, BAT *s, const void *tl, const void *th, int li, int hi, int anti);
 gdk_export BAT *BATthetaselect(BAT *b, BAT *s, const void *val, const char *op);
 
 gdk_export BAT *BATconstant(oid hseq, int tt, const void *val, BUN cnt, int role);
