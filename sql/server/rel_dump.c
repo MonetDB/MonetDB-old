@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -151,6 +151,8 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 			mnstr_printf(fout, " unique ");
 		if (need_no_nil(e))
 			mnstr_printf(fout, " no nil ");
+		if (zero_if_empty(e))
+			mnstr_printf(fout, " zero if empty ");
 		if (e->l)
 			exps_print(sql, fout, e->l, depth, refs, alias, 1);
 		else

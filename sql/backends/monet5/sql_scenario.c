@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
  */
 
 /*
@@ -1128,6 +1128,7 @@ SQLparser(Client c)
 	} else if (caching(m) && cachable(m, NULL) && m->emode != m_prepare && (be->q = qc_match(m->qc, m->sym, m->args, m->argc, m->scanner.key ^ m->session->schema->base.id)) != NULL) {
 		/* query template was found in the query cache */
 		scanner_query_processed(&(m->scanner));
+		m->no_mitosis = be->q->no_mitosis;
 	} else {
 		sql_rel *r;
 
@@ -1176,7 +1177,8 @@ SQLparser(Client c)
 						  m->args,	/* the argument list */
 						  m->argc, m->scanner.key ^ m->session->schema->base.id,	/* the statement hash key */
 						  m->emode == m_prepare ? Q_PREPARE : m->type,	/* the type of the statement */
-						  escaped_q);
+						  escaped_q,
+						  m->no_mitosis);
 			}
 			if(!be->q) {
 				err = 1;

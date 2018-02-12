@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
  */
 
 /*#define DEBUG*/
@@ -5063,6 +5063,9 @@ rel_reduce_groupby_exps(int *changes, mvc *sql, sql_rel *rel)
 
 				if (!exp_is_atom(e))
 					append(ngbe, e);
+				/* we need at least one gbe */
+				else if (!n->next && list_empty(ngbe))
+					append(ngbe, e);
 				else
 					append(dgbe, e);
 			}
@@ -5088,8 +5091,8 @@ rel_reduce_groupby_exps(int *changes, mvc *sql, sql_rel *rel)
 					append(nexps, e);
 				}
 				rel->exps = nexps;
+				(*changes)++;
 			}
-			(*changes)++;
 		}
 	}
 	return rel;
@@ -5171,9 +5174,11 @@ rel_groupby_distinct2(int *changes, mvc *sql, sql_rel *rel)
 			append(aggrs, e);
 			if (!exp_name(e))
 				exp_label(sql->sa, e, ++sql->label);
+			set_has_nil(e);
 			v = exp_column(sql->sa, exp_find_rel_name(e), exp_name(e), exp_subtype(e), e->card, has_nil(e), is_intern(e));
-			set_has_nil(v);
 			v = exp_aggr1(sql->sa, v, a, 0, 1, e->card, 1);
+			if (cnt)
+				set_zero_if_empty(v);
 			exp_setname(sql->sa, v, exp_find_rel_name(e), exp_name(e));
 			append(naggrs, v);
 		} else { /* group by col */
@@ -8859,9 +8864,10 @@ rel_apply_rewrite(int *changes, mvc *sql, sql_rel *rel)
 						exp_label(sql->sa, col, ++sql->label);
 						append(r->exps, col);
 					}
-				} else if (is_semi(rl->op)) {
-					sql_rel *l = rl->l;
-					col = l->exps->t->data;
+				} else if (!is_project(rl->op)) {	
+					rl = rel_project(sql->sa, rl, rel_projections(sql, rl, NULL, 1, 1));
+					r->l = rl;
+					col = rl->exps->t->data;
 				} else if (is_project(rl->op) && rl->exps) {
 					col = rl->exps->t->data;
 					col = exp_column(sql->sa, exp_relname(col), exp_name(col), exp_subtype(col), col->card, has_nil(col), is_intern(col));

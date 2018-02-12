@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -964,6 +964,10 @@ update_table(mvc *sql, dlist *qname, dlist *assignmentlist, symbol *opt_from, sy
 				r = rel_logical_exp(sql, res, opt_where, sql_where);
 				if (!opt_from && r && is_join(r->op))
 					r->op = op_semi;
+				else if (r && res && r->nrcols != res->nrcols) {
+					list *exps = rel_projections(sql, res, NULL, 1, 1);
+					r = rel_project(sql->sa, r, exps);
+				}
 			}
 			if (!r) 
 				return NULL;

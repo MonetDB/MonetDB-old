@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
  */
 
 #ifndef SQL_RELATION_H
@@ -51,6 +51,7 @@ typedef struct expression {
 #define EXP_DISTINCT	1
 #define NO_NIL		2
 #define TOPN_INCLUDING	4
+#define ZERO_IF_EMPTY	8
 
 #define LEFT_JOIN	4
 
@@ -233,6 +234,12 @@ typedef enum operator_type {
 	((e->flag&NO_NIL)==NO_NIL)
 #define set_no_nil(e) \
 	e->flag |= NO_NIL
+
+/* ZERO on empty sets, needed for sum (of counts)). */
+#define zero_if_empty(e) \
+	((e->flag&ZERO_IF_EMPTY)==ZERO_IF_EMPTY)
+#define set_zero_if_empty(e) \
+	e->flag |= ZERO_IF_EMPTY
 
 /* does the expression (possibly) have nils */
 #define has_nil(e) \
