@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -98,6 +98,10 @@ has_hugeint(Mapi mid)
 {
 	MapiHdl hdl;
 	int ret;
+	static int hashge = -1;
+
+	if (hashge >= 0)
+		return hashge;
 
 	if ((hdl = mapi_query(mid,
 			      "SELECT id "
@@ -113,6 +117,7 @@ has_hugeint(Mapi mid)
 	if (mapi_error(mid))
 		goto bailout;
 	mapi_close_handle(hdl);
+	hashge = ret;
 	return ret;
 
   bailout:
@@ -834,7 +839,8 @@ describe_table(Mapi mid, const char *schema, const char *tname, stream *toConsol
 			 "SELECT i.name, "		/* 0 */
 				"k.name, "		/* 1 */
 				"kc.nr, "		/* 2 */
-				"c.name "		/* 3 */
+				"c.name, "		/* 3 */
+				"i.type "		/* 4 */
 			 "FROM sys.idxs AS i LEFT JOIN sys.keys AS k "
 					"ON i.name = k.name, "
 			      "sys.objects AS kc, "
@@ -848,7 +854,8 @@ describe_table(Mapi mid, const char *schema, const char *tname, stream *toConsol
 			       "(k.type IS NULL OR k.type = 1) AND "
 			       "t.schema_id = s.id AND "
 			       "s.name = '%s' AND "
-			       "t.name = '%s' "
+			       "t.name = '%s' AND "
+			       "i.type in (0, 4, 5) "
 			 "ORDER BY i.name, kc.nr", schema, tname);
 		if ((hdl = mapi_query(mid, query)) == NULL || mapi_error(mid))
 			goto bailout;
@@ -858,6 +865,7 @@ describe_table(Mapi mid, const char *schema, const char *tname, stream *toConsol
 			const char *k_name = mapi_fetch_field(hdl, 1);
 			const char *kc_nr = mapi_fetch_field(hdl, 2);
 			const char *c_name = mapi_fetch_field(hdl, 3);
+			const char *i_type = mapi_fetch_field(hdl, 4);
 
 			if (mapi_error(mid))
 				goto bailout;
@@ -869,9 +877,26 @@ describe_table(Mapi mid, const char *schema, const char *tname, stream *toConsol
 			if (strcmp(kc_nr, "0") == 0) {
 				if (cnt)
 					mnstr_printf(toConsole, ");\n");
-				mnstr_printf(toConsole,
-					     "CREATE INDEX \"%s\" ON \"%s\".\"%s\" (",
-					     i_name, schema, tname);
+				switch (atoi(i_type)) {
+				case 0: /* hash_idx */
+					mnstr_printf(toConsole,
+						     "CREATE INDEX \"%s\" ON \"%s\".\"%s\" (",
+						     i_name, schema, tname);
+					break;
+				case 5: /* ordered_idx */
+					mnstr_printf(toConsole,
+						     "CREATE ORDERED INDEX \"%s\" ON \"%s\".\"%s\" (",
+						     i_name, schema, tname);
+					break;
+				case 4: /* imprints_idx */
+					mnstr_printf(toConsole,
+						     "CREATE IMPRINTS INDEX \"%s\" ON \"%s\".\"%s\" (",
+						     i_name, schema, tname);
+					break;
+				default:
+					/* cannot happen due to WHERE clause */
+					goto bailout;
+				}
 				cnt = 1;
 			} else
 				mnstr_printf(toConsole, ", ");
@@ -1368,7 +1393,7 @@ dump_functions(Mapi mid, stream *toConsole, const char *sname, const char *fname
 	MapiHdl hdl;
 	char *q;
 	size_t l;
-	int hashge = has_hugeint(mid);
+	int hashge;
 	const char *fid;
 
 	if (fname != NULL) {
@@ -1422,6 +1447,7 @@ dump_functions(Mapi mid, stream *toConsole, const char *sname, const char *fname
 	free(q);
 	if (hdl == NULL || mapi_error(mid))
 		goto bailout;
+	hashge = has_hugeint(mid);
 	while (!mnstr_errnr(toConsole) && mapi_fetch_row(hdl) != 0) {
 		fid = mapi_fetch_field(hdl, 0);
 		dump_function(mid, toConsole, fid, hashge);

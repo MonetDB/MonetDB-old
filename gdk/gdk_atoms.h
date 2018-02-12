@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
  */
 
 #ifndef _GDK_ATOMS_H_
@@ -197,9 +197,9 @@ gdk_export const ptr ptr_nil;
 #define ATOMfix(t,v)		do if (BATatoms[t].atomFix) BATatoms[t].atomFix(v); while (0)
 #define ATOMunfix(t,v)		do if (BATatoms[t].atomUnfix) BATatoms[t].atomUnfix(v); while (0)
 
-/* The base type is the storage type if the comparison function and
- * nil values are the same as those of the storage type; otherwise it
- * is the type itself. */
+/* The base type is the storage type if the comparison function, the
+ * hash function, and the nil value are the same as those of the
+ * storage type; otherwise it is the type itself. */
 #define ATOMbasetype(t)	((t) != ATOMstorage(t) &&			\
 			 ATOMnilptr(t) == ATOMnilptr(ATOMstorage(t)) && \
 			 ATOMcompare(t) == ATOMcompare(ATOMstorage(t)) && \

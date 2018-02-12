@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
  */
 
 #ifndef _SQL_SEMANTIC_H_
@@ -34,6 +34,7 @@ extern sql_subtype *supertype(sql_subtype *super, sql_subtype *r, sql_subtype *i
 typedef enum {
 	type_set,	/* set operations have very limiting coersion rules */
 	type_equal,
+	type_equal_no_any,
 	type_cast	/* also truncate */
 } check_type;
 

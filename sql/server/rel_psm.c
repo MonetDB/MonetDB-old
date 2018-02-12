@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -809,6 +809,9 @@ rel_create_func(mvc *sql, dlist *qname, dlist *params, symbol *res, dlist *ext_n
 			}
 			if (mvc_check_dependency(sql, func->base.id, !IS_PROC(func) ? FUNC_DEPENDENCY : PROC_DEPENDENCY, NULL))
 				return sql_error(sql, 02, "CREATE OR REPLACE %s%s: there are database objects dependent on %s%s %s;", KF, F, kf, fn, func->base.name);
+			if (!func->s) {
+				return sql_error(sql, 02, "CREATE OR REPLACE %s%s: not allowed to replace system %s%s %s;", KF, F, kf, fn, func->base.name);
+			}
 
 			mvc_drop_func(sql, s, func, action);
 			sf = NULL;

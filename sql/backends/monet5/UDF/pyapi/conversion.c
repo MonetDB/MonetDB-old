@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2017 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -92,7 +92,7 @@ wrapup:
 PyObject *PyMaskedArray_FromBAT(PyInput *inp, size_t t_start, size_t t_end,
 								char **return_message, bool copy)
 {
-	BAT *b = inp->bat;
+	BAT *b;
 	char *msg;
 	PyObject *vararray;
 
@@ -100,6 +100,7 @@ PyObject *PyMaskedArray_FromBAT(PyInput *inp, size_t t_start, size_t t_end,
 	if (vararray == NULL) {
 		return NULL;
 	}
+	b = inp->bat;
 	// To deal with null values, we use the numpy masked array structure
 	// The masked array structure is an object with two arrays of equal size, a
 	// data array and a mask array
@@ -179,12 +180,9 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end,
 									  "Failed to convert BAT.");
 				goto wrapup;
 			}
-			BBPunfix(inp->bat->batCacheid);
-			inp->bat = ret_bat;
+			b = ret_bat;
 		}
 	}
-
-	b = inp->bat;
 
 	if (IsBlobType(inp->bat_type)) {
 		PyObject **data;
@@ -392,9 +390,13 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end,
 							  "Failed to convert BAT to Numpy array.");
 		goto wrapup;
 	}
+	if (b != inp->bat)
+		BBPunfix(b->batCacheid);
 	return vararray;
 wrapup:
 	*return_message = msg;
+	if (b != inp->bat)
+		BBPunfix(b->batCacheid);
 	return NULL;
 }
 
@@ -403,7 +405,7 @@ wrapup:
 		tpe *bat_ptr = (tpe *)b->theap.base;                                   \
 		for (j = 0; j < count; j++) {                                          \
 			mask_data[j] = bat_ptr[j] == tpe##_nil;                            \
-			found_nil = found_nil || mask_data[j];                             \
+			found_nil |= mask_data[j];                                         \
 		}                                                                      \
 	}
 
@@ -421,7 +423,7 @@ PyObject *PyNullMask_FromBAT(BAT *b, size_t t_start, size_t t_end)
 	BATiter bi = bat_iterator(b);
 	bool *mask_data = (bool *)PyArray_DATA(nullmask);
 
-	switch (ATOMstorage(getBatType(b->ttype))) {
+	switch (ATOMbasetype(getBatType(b->ttype))) {
 		case TYPE_bit:
 			CreateNullMask(bit);
 			break;
@@ -448,17 +450,14 @@ PyObject *PyNullMask_FromBAT(BAT *b, size_t t_start, size_t t_end)
 			CreateNullMask(hge);
 			break;
 #endif
-		case TYPE_str: {
+		default: {
 			int (*atomcmp)(const void *, const void *) = ATOMcompare(b->ttype);
 			for (j = 0; j < count; j++) {
 				mask_data[j] = (*atomcmp)(BUNtail(bi, (BUN)(j)), nil) == 0;
-				found_nil = found_nil || mask_data[j];
+				found_nil |= mask_data[j];
 			}
 			break;
 		}
-		default:
-			// todo: do something with the error?
-			return NULL;
 	}
 
 	if (!found_nil) {

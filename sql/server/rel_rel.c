@@ -1,3 +1,10 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ */
 
 #include "monetdb_config.h"
 #include "rel_rel.h"
@@ -390,6 +397,7 @@ rel_setop_check_types(mvc *sql, sql_rel *l, sql_rel *r, list *ls, list *rs, oper
 	list *nls = new_exp_list(sql->sa);
 	list *nrs = new_exp_list(sql->sa);
 	node *n, *m;
+
 	if(!nls || !nrs)
 		return NULL;
 
@@ -688,6 +696,10 @@ rel_basetable(mvc *sql, sql_table *t, const char *atname)
 		sql_column *c = cn->data;
 		sql_exp *e = exp_alias(sa, atname, c->base.name, tname, c->base.name, &c->type, CARD_MULTI, c->null, 0);
 
+		if (e == NULL) {
+			rel_destroy(rel);
+			return NULL;
+		}
 		if (c->t->pkey && ((sql_kc*)c->t->pkey->k.columns->h->data)->c == c) {
 			p = e->p = prop_create(sa, PROP_HASHCOL, e->p);
 			p->value = c->t->pkey;
@@ -1243,14 +1255,14 @@ rel_ddl_table_get(sql_rel *r)
 }
 
 static sql_exp *
-exps_find_identity(list *exps) 
+exps_find_identity(list *exps, sql_rel *p) 
 {
 	node *n;
 
 	for (n=exps->h; n; n = n->next) {
 		sql_exp *e = n->data;
 
-		if (is_identity(e, NULL))
+		if (is_identity(e, p))
 			return e;
 	}
 	return NULL;
@@ -1259,17 +1271,18 @@ exps_find_identity(list *exps)
 static sql_rel *
 _rel_add_identity(mvc *sql, sql_rel *rel, sql_exp **exp)
 {
-	list *exps = rel_projections(sql, rel, NULL, 1, 1);
+	list *exps = rel_projections(sql, rel, NULL, 1, 2);
 	sql_exp *e;
 
 	if (list_length(exps) == 0) {
 		*exp = NULL;
 		return rel;
 	}
-	rel = rel_project(sql->sa, rel, rel_projections(sql, rel, NULL, 1, 1));
+	rel = rel_project(sql->sa, rel, exps);
 	e = rel->exps->h->data;
 	e = exp_column(sql->sa, exp_relname(e), exp_name(e), exp_subtype(e), rel->card, has_nil(e), is_intern(e));
 	e = exp_unop(sql->sa, e, sql_bind_func(sql->sa, NULL, "identity", exp_subtype(e), NULL, F_FUNC));
+	set_intern(e);
 	e->p = prop_create(sql->sa, PROP_HASHCOL, e->p);
 	*exp = exp_label(sql->sa, e, ++sql->label);
 	rel_project_add_exp(sql, rel, e);
@@ -1279,7 +1292,7 @@ _rel_add_identity(mvc *sql, sql_rel *rel, sql_exp **exp)
 sql_rel *
 rel_add_identity(mvc *sql, sql_rel *rel, sql_exp **exp)
 {
-	if (rel && is_project(rel->op) && (*exp = exps_find_identity(rel->exps)) != NULL) 
+	if (rel && is_project(rel->op) && (*exp = exps_find_identity(rel->exps, rel->l)) != NULL) 
 		return rel;
 	return _rel_add_identity(sql, rel, exp);
 }
