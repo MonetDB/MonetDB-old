@@ -21,6 +21,7 @@ headers_sql = {
 		18_index.sql \
 		20_vacuum.sql \
 		21_dependency_functions.sql \
+		21_dependency_views.sql \
 		22_clients.sql \
 		23_skyserver.sql \
 		25_debug.sql \
@@ -35,6 +36,7 @@ headers_sql = {
 		60_wlcr.sql \
 		75_storagemodel.sql \
 		80_statistics.sql \
+		97_comments.sql \
 		99_system.sql
 }
 

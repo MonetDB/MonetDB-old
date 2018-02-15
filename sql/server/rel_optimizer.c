@@ -157,6 +157,7 @@ name_find_column( sql_rel *rel, char *rname, char *name, int pnr, sql_rel **bt )
 	case op_insert:
 	case op_update:
 	case op_delete:
+	case op_truncate:
 		break;
 	}
 	if (alias) { /* we found an expression with the correct name, but
@@ -295,6 +296,7 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 	case op_insert:
 	case op_update:
 	case op_delete:
+	case op_truncate:
 		if (rel->r) 
 			rel_properties(sql, gp, rel->r);
 		break;
@@ -330,6 +332,7 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 	case op_insert:
 	case op_update:
 	case op_delete:
+	case op_truncate:
 	case op_ddl:
 		break;
 	}
@@ -1146,6 +1149,7 @@ rel_join_order(mvc *sql, sql_rel *rel)
 	case op_insert:
 	case op_update:
 	case op_delete:
+	case op_truncate:
 		rel->l = rel_join_order(sql, rel->l);
 		rel->r = rel_join_order(sql, rel->r);
 		break;
@@ -5174,9 +5178,11 @@ rel_groupby_distinct2(int *changes, mvc *sql, sql_rel *rel)
 			append(aggrs, e);
 			if (!exp_name(e))
 				exp_label(sql->sa, e, ++sql->label);
+			set_has_nil(e);
 			v = exp_column(sql->sa, exp_find_rel_name(e), exp_name(e), exp_subtype(e), e->card, has_nil(e), is_intern(e));
-			set_has_nil(v);
 			v = exp_aggr1(sql->sa, v, a, 0, 1, e->card, 1);
+			if (cnt)
+				set_zero_if_empty(v);
 			exp_setname(sql->sa, v, exp_find_rel_name(e), exp_name(e));
 			append(naggrs, v);
 		} else { /* group by col */
@@ -5945,6 +5951,7 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 		break;
 
 	case op_insert:
+	case op_truncate:
 	case op_ddl:
 		break;
 
@@ -6094,6 +6101,7 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 	case op_insert:
 	case op_update:
 	case op_delete:
+	case op_truncate:
 
 	case op_select: 
 
@@ -6142,6 +6150,7 @@ rel_dep_graph( char *deps, list *refs, sql_rel *parent, sql_rel *rel)
 
 	case op_update:
 	case op_delete:
+	case op_truncate:
 
 		if (rel->r)
 			rel_dep_graph(deps, refs, parent, rel->r);
@@ -6277,6 +6286,7 @@ rel_dce_refs(mvc *sql, sql_rel *rel, list *refs)
 
 	case op_update:
 	case op_delete:
+	case op_truncate:
 
 		if (rel->r)
 			rel_dce_refs(sql, rel->r, refs);
@@ -6330,6 +6340,7 @@ rel_dce_down(mvc *sql, sql_rel *rel, list *refs, int skip_proj)
 		/* fall through */
 
 	case op_insert:
+	case op_truncate:
 	case op_ddl:
 
 		return rel;
@@ -6426,6 +6437,7 @@ rel_add_projects(mvc *sql, sql_rel *rel)
 	case op_insert:
 	case op_update:
 	case op_delete:
+	case op_truncate:
 	case op_ddl:
 
 		return rel;
@@ -8174,6 +8186,7 @@ rel_uses_exps(sql_rel *rel, list *exps )
 	case op_insert:
 	case op_update:
 	case op_delete:
+	case op_truncate:
 		return rel_uses_exps(rel->r, exps);
 	}
 	return 0;
@@ -8340,6 +8353,7 @@ rel_rename(mvc *sql, sql_rel *rel, list *conflicts)
 	case op_insert:
 	case op_update:
 	case op_delete:
+	case op_truncate:
 		rel->exps = exps_apply_rename(sql, rel->exps, conflicts, 0);
 		rel->r = rel_rename(sql, rel->r, conflicts);
 		return rel;
@@ -8518,6 +8532,7 @@ rel_find_conflicts(mvc *sql, sql_rel *rel, list *exps, list *conflicts)
 	case op_insert:
 	case op_update:
 	case op_delete:
+	case op_truncate:
 		exps_find_conflicts(sql, rel->exps, exps, conflicts);
 		rel->r = rel_find_conflicts(sql, rel->r, exps, conflicts);
 		return rel;
@@ -8579,6 +8594,7 @@ rel_apply_rename(mvc *sql, sql_rel *rel)
 	case op_insert:
 	case op_update:
 	case op_delete:
+	case op_truncate:
 		rel->r = rel_apply_rename(sql, rel->r);
 		return rel;
 	}
@@ -8862,13 +8878,6 @@ rel_apply_rewrite(int *changes, mvc *sql, sql_rel *rel)
 						exp_label(sql->sa, col, ++sql->label);
 						append(r->exps, col);
 					}
-					/*
-				} else if (is_semi(rl->op)) {
-					sql_rel *l = rl->l;
-					if (!is_project(l->op)) 
-						rl->l = l = rel_project(sql->sa, l, rel_projections(sql, l, NULL, 1, 1));
-					col = l->exps->t->data;
-					*/
 				} else if (!is_project(rl->op)) {	
 					rl = rel_project(sql->sa, rl, rel_projections(sql, rl, NULL, 1, 1));
 					r->l = rl;
@@ -8984,6 +8993,7 @@ rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 	case op_insert:
 	case op_update:
 	case op_delete:
+	case op_truncate:
 		rel->l = rewrite(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite(sql, rel->r, rewriter, has_changes);
 		break;
@@ -9043,6 +9053,7 @@ rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 	case op_insert:
 	case op_update:
 	case op_delete:
+	case op_truncate:
 		rel->l = rewrite_topdown(sql, rel->l, rewriter, has_changes);
 		rel->r = rewrite_topdown(sql, rel->r, rewriter, has_changes);
 		break;
@@ -9230,6 +9241,7 @@ rel_reset_subquery(sql_rel *rel)
 	case op_insert:
 	case op_update:
 	case op_delete:
+	case op_truncate:
 		break;
 	case op_select:
 	case op_topn:

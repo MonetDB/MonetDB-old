@@ -664,7 +664,7 @@ MNDBGetInfo(ODBCDbc *dbc,
 			"CALL,CHAIN,CLOB,COMMITTED,COPY,CORR,CUME_DIST,"
 			"CURRENT_ROLE,CYCLE,DATABASE,DELIMITERS,DENSE_RANK,"
 			"DO,EACH,ELSEIF,ENCRYPTED,EVERY,EXCLUDE,FOLLOWING,"
-			"FUNCTION,GENERATED,IF,ILIKE,INCREMENT,LAG,LEAD,"
+			"FUNCTION,GENERATED,HUGEINT,IF,ILIKE,INCREMENT,LAG,LEAD,"
 			"LIMIT,LOCALTIME,LOCALTIMESTAMP,LOCKED,MAXVALUE,"
 			"MEDIAN,MEDIUMINT,MERGE,MINVALUE,NEW,NOCYCLE,"
 			"NOMAXVALUE,NOMINVALUE,NOW,OFFSET,OLD,OTHERS,OVER,"
@@ -1567,10 +1567,10 @@ SQLGetInfo(SQLHDBC ConnectionHandle,
 	ODBCDbc *dbc = (ODBCDbc *) ConnectionHandle;
 
 #ifdef ODBCDEBUG
-	ODBCLOG("SQLGetInfo " PTRFMT " %s " PTRFMT " %d " PTRFMT "\n",
-		PTRFMTCAST ConnectionHandle, translateInfoType(InfoType),
-		PTRFMTCAST InfoValuePtr, (int) BufferLength,
-		PTRFMTCAST StringLengthPtr);
+	ODBCLOG("SQLGetInfo %p %s %p %d %p\n",
+		ConnectionHandle, translateInfoType(InfoType),
+		InfoValuePtr, (int) BufferLength,
+		StringLengthPtr);
 #endif
 
 	if (!isValidDbc(dbc))
@@ -1612,10 +1612,10 @@ SQLGetInfoW(SQLHDBC ConnectionHandle,
 	SQLSMALLINT n;
 
 #ifdef ODBCDEBUG
-	ODBCLOG("SQLGetInfoW " PTRFMT " %s " PTRFMT " %d " PTRFMT "\n",
-		PTRFMTCAST ConnectionHandle, translateInfoType(InfoType),
-		PTRFMTCAST InfoValuePtr, (int) BufferLength,
-		PTRFMTCAST StringLengthPtr);
+	ODBCLOG("SQLGetInfoW %p %s %p %d %p\n",
+		ConnectionHandle, translateInfoType(InfoType),
+		InfoValuePtr, (int) BufferLength,
+		StringLengthPtr);
 #endif
 
 	if (!isValidDbc(dbc))

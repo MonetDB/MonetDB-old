@@ -72,6 +72,10 @@
 #define SOCKLEN int
 #endif
 
+#if !defined(HAVE_ACCEPT4) || !defined(SOCK_CLOEXEC)
+#define accept4(sockfd, addr, addrlen, flags)	accept(sockfd, addr, addrlen)
+#endif
+
 static char seedChars[] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
 	'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
 	'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
@@ -153,6 +157,13 @@ doChallenge(void *data)
 	/* generate the challenge string */
 	generateChallenge(challenge, 8, 12);
 	algos = mcrypt_getHashAlgorithms();
+	if(!algos) {
+		GDKsyserror("SERVERlisten:"MAL_MALLOC_FAIL);
+		close_stream(fdin);
+		close_stream(fdout);
+		GDKfree(buf);
+		return;
+	}
 
 	// send the challenge over the block stream
 	mnstr_printf(fdout, "%s:mserver:9:%s:%s:%s:",
@@ -187,6 +198,7 @@ doChallenge(void *data)
 			mnstr_printf(fdout, "!buffer size needs to be set and bigger than %d\n", BLOCK);
 			close_stream(fdin);
 			close_stream(fdout);
+			GDKfree(buf);
 			return;
 		}
 		buflenstr++;			/* position after ':' */
@@ -204,6 +216,7 @@ doChallenge(void *data)
 			mnstr_printf(fdout, "!buffer size needs to be set and bigger than %d\n", BLOCK);
 			close_stream(fdin);
 			close_stream(fdout);
+			GDKfree(buf);
 			return;
 		}
 
@@ -231,6 +244,7 @@ doChallenge(void *data)
 			mnstr_printf(fdout, "%s", errmsg);
 			close_stream(fdin);
 			close_stream(fdout);
+			GDKfree(buf);
 			return;
 		}
 
@@ -249,6 +263,7 @@ doChallenge(void *data)
 			GDKsyserror("SERVERlisten:"MAL_MALLOC_FAIL);
 			close_stream(fdin);
 			close_stream(fdout);
+			GDKfree(buf);
 			return;
 		}
 	}
@@ -342,7 +357,7 @@ SERVERlistenThread(SOCKET *Sock)
 			continue;
 		}
 		if (sock != INVALID_SOCKET && FD_ISSET(sock, &fds)) {
-			if ((msgsock = accept(sock, (SOCKPTR)0, (socklen_t *)0)) == INVALID_SOCKET) {
+			if ((msgsock = accept4(sock, (SOCKPTR)0, (socklen_t *)0, SOCK_CLOEXEC)) == INVALID_SOCKET) {
 				if (
 #ifdef _MSC_VER
 					WSAGetLastError() != WSAEINTR
@@ -355,7 +370,7 @@ SERVERlistenThread(SOCKET *Sock)
 				}
 				continue;
 			}
-#ifdef HAVE_FCNTL
+#if defined(HAVE_FCNTL) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
 			(void) fcntl(msgsock, F_SETFD, FD_CLOEXEC);
 #endif
 #ifdef HAVE_SYS_UN_H
@@ -367,7 +382,7 @@ SERVERlistenThread(SOCKET *Sock)
 			char ccmsg[CMSG_SPACE(sizeof(int))];
 			struct cmsghdr *cmsg;
 
-			if ((msgsock = accept(usock, (SOCKPTR)0, (socklen_t *)0)) == INVALID_SOCKET) {
+			if ((msgsock = accept4(usock, (SOCKPTR)0, (socklen_t *)0, SOCK_CLOEXEC)) == INVALID_SOCKET) {
 				if (
 #ifdef _MSC_VER
 					WSAGetLastError() != WSAEINTR
@@ -380,7 +395,7 @@ SERVERlistenThread(SOCKET *Sock)
 				}
 				continue;
 			}
-#ifdef HAVE_FCNTL
+#if defined(HAVE_FCNTL) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
 			(void) fcntl(msgsock, F_SETFD, FD_CLOEXEC);
 #endif
 
@@ -606,7 +621,11 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 	}
 
 	if (port > 0) {
-		sock = socket(AF_INET, SOCK_STREAM, 0);
+		sock = socket(AF_INET, SOCK_STREAM
+#ifdef SOCK_CLOEXEC
+					  | SOCK_CLOEXEC
+#endif
+					  , 0);
 		if (sock == INVALID_SOCKET) {
 			GDKfree(psock);
 			if (usockfile)
@@ -620,7 +639,7 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 #endif
 				);
 		}
-#ifdef HAVE_FCNTL
+#if !defined(SOCK_CLOEXEC) && defined(HAVE_FCNTL)
 		(void) fcntl(sock, F_SETFD, FD_CLOEXEC);
 #endif
 
@@ -699,7 +718,11 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 	}
 #ifdef HAVE_SYS_UN_H
 	if (usockfile) {
-		usock = socket(AF_UNIX, SOCK_STREAM, 0);
+		usock = socket(AF_UNIX, SOCK_STREAM
+#ifdef SOCK_CLOEXEC
+					   | SOCK_CLOEXEC
+#endif
+					   , 0);
 		if (usock == INVALID_SOCKET ) {
 			GDKfree(psock);
 			GDKfree(usockfile);
@@ -712,7 +735,7 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 #endif
 				);
 		}
-#ifdef HAVE_FCNTL
+#if !defined(SOCK_CLOEXEC) && defined(HAVE_FCNTL)
 		(void) fcntl(usock, F_SETFD, FD_CLOEXEC);
 #endif
 

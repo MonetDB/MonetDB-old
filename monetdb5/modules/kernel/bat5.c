@@ -67,7 +67,7 @@ local_itoa(ssize_t i)
 {
 	static char buf[32];
 
-	snprintf(buf, 32, SSZFMT, i);
+	snprintf(buf, 32, "%zd", i);
 	return buf;
 }
 static char *
@@ -75,7 +75,7 @@ local_utoa(size_t i)
 {
 	static char buf[32];
 
-	snprintf(buf, 32, SZFMT, i);
+	snprintf(buf, 32, "%zu", i);
 	return buf;
 }
 
@@ -762,8 +762,6 @@ BKCinfo(bat *ret1, bat *ret2, const bat *bid)
 	    BUNappend(bv, local_utoa(b->tnosorted), FALSE) != GDK_SUCCEED ||
 	    BUNappend(bk, "tnorevsorted", FALSE) != GDK_SUCCEED ||
 	    BUNappend(bv, local_utoa(b->tnorevsorted), FALSE) != GDK_SUCCEED ||
-	    BUNappend(bk, "tnodense", FALSE) != GDK_SUCCEED ||
-	    BUNappend(bv, local_utoa(b->tnodense), FALSE) != GDK_SUCCEED ||
 	    BUNappend(bk, "tnokey[0]", FALSE) != GDK_SUCCEED ||
 	    BUNappend(bv, local_utoa(b->tnokey[0]), FALSE) != GDK_SUCCEED ||
 	    BUNappend(bk, "tnokey[1]", FALSE) != GDK_SUCCEED ||
