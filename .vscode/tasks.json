@@ -1,0 +1,65 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "run bootstrap and configure",
+            "type": "shell",
+            "command": "cd ${workspaceFolder} && ./bootstrap && (test -d build || mkdir build) && cd build && ../configure --prefix=/home/aris/Installations/default-env --enable-debug --enable-strict --disable-optimize",
+            "group": "build",
+            "problemMatcher": [],
+            "windows": {
+                "command": ".\\run_bootstrap_and_configure.bat"
+            }
+        },
+        {
+            "label": "run make",
+            "type": "shell",
+            "command": "cd ${workspaceFolder}/build && make -j2",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": [
+                    "relative",
+                    "${workspaceFolder}"
+                ],
+                "pattern": {
+                    "regexp": "^(../)*(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+                    "file": 2,
+                    "line": 3,
+                    "column": 4,
+                    "severity": 5,
+                    "message": 6
+                }
+            },
+            "windows": {
+                "command": ".\\run_make.bat"
+            },
+        },
+        {
+            "label": "run install",
+            "type": "shell",
+            "command": "cd ${workspaceFolder}/build && make -j2 install",
+            "group": "test",
+            "windows": {
+                "command": ".\\run_install.bat"
+            }
+        },
+        {
+            "label": "run tests",
+            "type": "shell",
+            "command": "export PATH=/home/aris/Installations/default-env/bin:$PATH && Mtest.py -r",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "windows": {
+                "command": ".\\run_test.bat"
+            }
+        }
+    ]
+}
