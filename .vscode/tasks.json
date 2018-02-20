@@ -8,18 +8,19 @@
             "type": "shell",
             "command": "cd ${workspaceFolder} && ./bootstrap && (test -d build || mkdir build) && cd build && ../configure --prefix=/home/aris/Installations/default-env --enable-debug --enable-strict --disable-optimize",
             "group": "build",
-            "problemMatcher": [],
-            "windows": {
-                "command": ".\\run_bootstrap_and_configure.bat"
-            }
+            "problemMatcher": []
         },
         {
-            "label": "run make",
+            "label": "run build",
             "type": "shell",
             "command": "cd ${workspaceFolder}/build && make -j2",
             "group": {
                 "kind": "build",
                 "isDefault": true
+            },
+            "presentation": {
+                "panel": "new"
+
             },
             "problemMatcher": {
                 "base": "$gcc",
@@ -37,8 +38,8 @@
                 }
             },
             "windows": {
-                "command": ".\\run_make.bat"
-            },
+                "command": "${workspaceFolder}\\.vscode\\run_build.bat"
+            }
         },
         {
             "label": "run install",
@@ -46,7 +47,7 @@
             "command": "cd ${workspaceFolder}/build && make -j2 install",
             "group": "test",
             "windows": {
-                "command": ".\\run_install.bat"
+                "command": "${workspaceFolder}\\.vscode\\run_install.bat"
             }
         },
         {
@@ -58,7 +59,7 @@
                 "isDefault": true
             },
             "windows": {
-                "command": ".\\run_test.bat"
+                "command": "${workspaceFolder}\\.vscode\\run_tests.bat"
             }
         }
     ]
