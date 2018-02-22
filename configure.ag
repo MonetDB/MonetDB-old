@@ -1811,6 +1811,41 @@ AS_VAR_IF([have_valgrind], [no], [], [
 		[AC_DEFINE([HAVE_VALGRIND], 1, [Define if you have valgrind installed and want to use it])],
 		[AS_VAR_IF([have_valgrind], [yes], [AC_MSG_ERROR([no valgrind support found])])])])
 
+# libweld
+org_have_weld=auto
+have_weld=$org_have_weld
+WELD_LIBS=""
+WELD_INCS=""
+AC_ARG_WITH([weld],
+	[AS_HELP_STRING([--with-weld=DIR],
+		[weld library is installed in DIR])],
+	[have_weld="$withval"])
+AS_VAR_IF([have_weld], [no], [], [
+	AS_CASE([$have_weld],
+	[auto|yes], [],
+	[
+		WELD_LIBS="-L$have_weld/lib -lweld"
+		WELD_INCS="-I$have_weld/include"])
+	save_CPPFLAGS="$CPPFLAGS"
+	save_LDFLAGS="$LDFLAGS"
+	CPPFLAGS="$CPPFLAGS $WELD_INCS"
+	LDFLAGS="$LDFLAGS $WELD_LIBS"
+	AC_CHECK_HEADER([weld.h],
+		AC_CHECK_LIB([weld], [weld_conf_new],
+			[AC_DEFINE([HAVE_WELD], 1, [Define if the weld library exists])],
+			[AS_VAR_IF([have_weld], [auto], [], [AC_MSG_ERROR([-lweld library not found])])
+			have_weld=no; why_have_weld="(weld library not found)" ], ),
+		[AS_VAR_IF([have_weld], [auto], [], [AC_MSG_ERROR([weld.h header not found])])
+		have_weld=no; why_have_weld="(weld.h header not found)" ])
+	LDFLAGS="$save_LDFLAGS"
+	CPPFLAGS="$save_CPPFLAGS"
+	AS_IF([test "x$have_weld" = "xyes" -o "x$have_weld" = "xauto"], [
+	    WELD_INCS=
+	    WELD_LIBS="-lweld"])])
+AC_SUBST([WELD_INCS])
+AC_SUBST([WELD_LIBS])
+AM_CONDITIONAL([HAVE_WELD], [test x"$have_weld" != xno])
+
 # R API (R UDFs)
 have_libr=no
 AS_VAR_IF([enable_rintegration], [no], [], [
@@ -3041,6 +3076,7 @@ for comp in \
 	'snappy     ' \
 	'unixodbc   ' \
 	'valgrind   ' \
+	'weld       ' \
 	'zlib       ' \
 ; do
 	eval "org=\$org_have_$comp"
