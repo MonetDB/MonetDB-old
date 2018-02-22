@@ -50,6 +50,7 @@
 #include "opt_remoteQueries.h"
 #include "opt_reorder.h"
 #include "opt_volcano.h"
+#include "opt_weld.h"
 #include "opt_wlc.h"
 
 struct{
@@ -88,6 +89,7 @@ struct{
 	{"remoteQueries", &OPTremoteQueriesImplementation,0,0},
 	{"reorder", &OPTreorderImplementation,0,0},
 	{"volcano", &OPTvolcanoImplementation,0,0},
+	{"weld", &OPTweldImplementation,0,0},
 	{"wlc", &OPTwlcImplementation,0,0},
 	{0,0,0,0}
 };

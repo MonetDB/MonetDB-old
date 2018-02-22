@@ -1,0 +1,54 @@
+stdout of test 'weld01` in directory 'monetdb5/optimizer` itself:
+
+
+# 11:18:59 >  
+# 11:18:59 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=32702" "--set" "mapi_usock=/var/tmp/mtest-29559/.s.monetdb.32702" "--set" "monet_prompt=" "--forcemito" "--dbpath=/export/scratch1/mihai/install-monetdb/var/MonetDB/mTests_monetdb5_optimizer" "--set" "embedded_r=yes" "--set" "embedded_py=true"
+# 11:18:59 >  
+
+# MonetDB 5 server v11.28.0
+# This is an unreleased version
+# Serving database 'mTests_monetdb5_optimizer', using 4 threads
+# Compiled for x86_64-pc-linux-gnu/64bit
+# Found 31.309 GiB available main-memory.
+# Copyright (c) 1993 - July 2008 CWI.
+# Copyright (c) August 2008 - 2018 MonetDB B.V., all rights reserved
+# Visit https://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://barbel.da.cwi.nl:32702/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-29559/.s.monetdb.32702
+# MonetDB/GIS module loaded
+# MonetDB/SQL module loaded
+# MonetDB/Python2 module loaded
+# MonetDB/R   module loaded
+
+Ready.
+
+# 11:19:00 >  
+# 11:19:00 >  "mclient" "-lmal" "-ftest" "-tnone" "-Eutf-8" "--host=/var/tmp/mtest-29559" "--port=32702"
+# 11:19:00 >  
+
+function user.tpchQ6():void;            	#[0] (0)  0 
+    X12:int := sql.mvc();               	#[1] (0) SQLmvc 1 
+    X33:bat[:lng] := sql.bind(X12:int, "sys":str, "lineitem":str, "l_discount":str, 0:int);	#[2] (0) mvc_bind_wrap 7 <- 1 3 4 8 6 
+    X26:bat[:lng] := sql.bind(X12:int, "sys":str, "lineitem":str, "l_extendedprice":str, 0:int);	#[3] (0) mvc_bind_wrap 24 <- 1 3 4 25 6 
+    X16:bat[:lng] := sql.bind(X12:int, "sys":str, "lineitem":str, "l_quantity":str, 0:int);	#[4] (0) mvc_bind_wrap 2 <- 1 3 4 5 6 
+    X40:bat[:date] := sql.bind(X12:int, "sys":str, "lineitem":str, "l_shipdate":str, 0:int);	#[5] (0) mvc_bind_wrap 9 <- 1 3 4 10 6 
+    C13:bat[:oid] := sql.tid(X12:int, "sys":str, "lineitem":str);	#[6] (0) SQLtid 11 <- 1 3 4 
+    wstate:ptr := weld.initstate();     	#[7] (0)  39  type check needed 
+    C51:bat[:oid] := weld.algebraselect(X40:bat[:date], C13:bat[:oid], "1994-01-01":date, "1995-01-01":date, true:bit, false:bit, false:bit, wstate:ptr);	#[8] (0)  12 <- 9 11 13 14 15 16 17 39  type check needed 
+    C68:bat[:oid] := weld.algebraselect(X33:bat[:lng], C51:bat[:oid], 5:lng, 7:lng, true:bit, true:bit, false:bit, wstate:ptr);	#[9] (0)  18 <- 7 12 19 20 15 15 16 39  type check needed 
+    C71:bat[:oid] := weld.algebrathetaselect(X16:bat[:lng], C68:bat[:oid], 2400:lng, "<":str, wstate:ptr);	#[10] (0)  21 <- 2 18 22 23 39  type check needed 
+    X74:bat[:lng] := weld.algebraprojection(C71:bat[:oid], X26:bat[:lng], wstate:ptr);	#[11] (0)  26 <- 21 24 39  type check needed 
+    X75:bat[:lng] := weld.algebraprojection(C71:bat[:oid], X33:bat[:lng], wstate:ptr);	#[12] (0)  27 <- 21 7 39  type check needed 
+    X81:bat[:lng] := weld.batcalcmul(X74:bat[:lng], X75:bat[:lng], wstate:ptr);	#[13] (0)  28 <- 26 27 39  type check needed 
+    X83:lng := weld.aggrsum(X81:bat[:lng], wstate:ptr);	#[14] (0)  29 <- 28 39  type check needed 
+    weld.languagepass(C71:bat[:oid], wstate:ptr);	#[15] (0)  30 <- 21 39  type check needed 
+    X83:lng := weld.run(wstate:ptr, X40:bat[:date], C13:bat[:oid], "1994-01-01":date, "1995-01-01":date, true:bit, false:bit, false:bit, X33:bat[:lng], 5:lng, 7:lng, X16:bat[:lng], 2400:lng, "<":str, X26:bat[:lng]);	#[16] (0)  29 <- 39 9 11 13 14 15 16 17 7 19 20 2 22 23 24  type check needed 
+    sql.resultSet("sys.L4":str, "revenue":str, "decimal":str, 38:int, 4:int, 10:int, X83:lng);	#[17] (0) mvc_scalar_value_wrap 32 <- 33 34 35 36 37 38 29 
+    language.pass(X33:bat[:lng]);       	#[18] (0) MALpass 31 <- 7 
+end user.tpchQ6;                        	#[19] (0)  
+#weld                 actions= 8 time=19 usec 
+
+# 11:19:00 >  
+# 11:19:00 >  "Done."
+# 11:19:00 >  
+

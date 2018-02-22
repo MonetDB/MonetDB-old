@@ -53,6 +53,7 @@ lib_optimizer = {
 		opt_profiler.c opt_profiler.h \
 		opt_postfix.c opt_postfix.h \
 		opt_volcano.c opt_volcano.h \
+		opt_weld.c opt_weld.h \
 		opt_wrapper.c
 }
 

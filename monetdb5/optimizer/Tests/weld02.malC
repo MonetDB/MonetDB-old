@@ -1,0 +1,21 @@
+function foo();
+	X1:bat[:lng] := bat.new(:lng);
+	X2:bat[:lng] := bat.new(:lng);
+	X3:bat[:lng] := batcalc.*(X1, X2); # a subgraph with a single weld instr, will not be transformed
+
+	X4:bat[:lng] := bat.new(:lng);
+	X5:bat[:lng] := batcalc.*(X1, X2);
+	X6:bat[:lng] := batcalc.*(X4, X5); # a subgraph that can be ported to Weld
+
+	X7:bat[:lng] := batcalc.*(X1, X2); # implementable in Weld
+	X8:bat[:lng] := algebra.sort(X7, false:bit, false:bit); # not implementable in Weld
+	X9:bat[:lng] := batcalc.*(X7, X8); # X9 and X7 form a subgraph but X8 should brake it
+
+	X10:bat[:lng] := batcalc.*(X1, X2);
+	X11:bat[:lng] := batcalc.*(X10, X4); # another Weld portable subgraph
+
+	sql.resultSet(nil:bat[:str], nil:bat[:str], nil:bat[:str], nil:bat[:int], nil:bat[:int], X3, X6, X9, X10, X11);
+end;
+
+optimizer.weld("user","foo");
+mdb.List("user","foo");

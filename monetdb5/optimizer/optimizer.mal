@@ -265,6 +265,14 @@ pattern optimizer.oltp(mod:str, fcn:str):str
 address OPTwrapper
 comment "Inject the OLTP locking primitives.";
 
+#opt_weld.mal
+
+pattern optimizer.weld():str
+address OPTwrapper;
+pattern optimizer.weld(mod:str, fcn:str):str
+address OPTwrapper
+comment "Replace MAL instructions with their weld implementations.";
+
 #opt_wlc.mal
 
 pattern optimizer.wlc():str

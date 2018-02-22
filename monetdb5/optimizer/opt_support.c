@@ -54,6 +54,7 @@ struct OPTcatalog {
 {"remap",		0,	0,	0},
 {"remote",		0,	0,	0},
 {"reorder",		0,	0,	0},
+{"weld",		0,	0,	0},
 {"wlcr",		0,	0,	0},
 {"pushselect",	0,	0,	0},
 { 0,	0,	0,	0}

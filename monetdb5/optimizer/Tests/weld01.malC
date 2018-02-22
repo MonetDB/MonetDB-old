@@ -1,0 +1,21 @@
+function tpchQ6();
+    X12:int := sql.mvc();
+    X16:bat[:lng] := sql.bind(X12, "sys":str, "lineitem":str, "l_quantity":str, 0:int);
+    X33:bat[:lng] := sql.bind(X12, "sys":str, "lineitem":str, "l_discount":str, 0:int);
+    X40:bat[:date] := sql.bind(X12, "sys":str, "lineitem":str, "l_shipdate":str, 0:int);
+    C13:bat[:oid] := sql.tid(X12, "sys":str, "lineitem":str);
+    C51:bat[:oid] := algebra.select(X40, C13, "1994-01-01":date, "1995-01-01":date, true:bit, false:bit, false:bit);
+    C68:bat[:oid] := algebra.select(X33, C51, 5:lng, 7:lng, true:bit, true:bit, false:bit);
+    C71:bat[:oid] := algebra.thetaselect(X16, C68, 2400:lng, "<":str);
+    X26:bat[:lng] := sql.bind(X12, "sys":str, "lineitem":str, "l_extendedprice":str, 0:int);
+    X74:bat[:lng] := algebra.projection(C71, X26);
+    X75:bat[:lng] := algebra.projection(C71, X33);
+    X81:bat[:lng] := batcalc.*(X74, X75);
+    X83:lng := aggr.sum(X81);
+    language.pass(C71);
+    language.pass(X33);
+    sql.resultSet("sys.L4":str, "revenue":str, "decimal":str, 38:int, 4:int, 10:int, X83);
+end;
+
+optimizer.weld("user","tpchQ6");
+mdb.List("user","tpchQ6");

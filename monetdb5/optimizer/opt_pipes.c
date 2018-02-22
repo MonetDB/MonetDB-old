@@ -220,6 +220,36 @@ static struct PIPELINES {
  * development.  Do not use any of these pipelines in production
  * settings!
  */
+/* Weld pipe line - it's similar to the default one except that some
+ * MAL instructions are implemented in Weld
+ */
+	{"weld_pipe",
+	 "optimizer.inline();"
+	 "optimizer.remap();"
+	 "optimizer.costModel();"
+	 "optimizer.coercions();"
+	 "optimizer.evaluate();"
+	 "optimizer.emptybind();"
+	 "optimizer.pushselect();"
+	 "optimizer.aliases();"
+	 "optimizer.deadcode();"
+	 "optimizer.weld();"
+	 "optimizer.aliases();"
+	 "optimizer.constants();"
+	 "optimizer.commonTerms();"
+	 "optimizer.projectionpath();"
+	 "optimizer.deadcode();"
+	 "optimizer.matpack();"
+	 "optimizer.querylog();"
+	 "optimizer.multiplex();"
+	 "optimizer.generator();"
+	 "optimizer.profiler();"
+	 "optimizer.candidates();"
+	 "optimizer.postfix();"
+	 "optimizer.deadcode();"
+	 "optimizer.wlc();"
+	 "optimizer.garbageCollector();",
+	 "stable", NULL, NULL, 1},
 /* sentinel */
 	{NULL, NULL, NULL, NULL, NULL, 0}
 };
