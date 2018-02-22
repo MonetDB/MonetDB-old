@@ -22,7 +22,7 @@ set Path=%OPENSSLDIR%\bin;%Path%
 set Path=%OPENSSLDIR%\lib;%Path%
 
 rem libXML
-set LIBXML2=C:\libxml2-2.9.3-win32-x86_64
+set LIBXML2=C:\libxml2
 set Path=%LIBXML2%\bin;%Path%
 set Path=%LIBXML2%\lib;%Path%
 
@@ -37,7 +37,7 @@ set Path=%LIBBZ2%\bin;%Path%
 set Path=%LIBBZ2%\lib;%Path%
 
 rem iconv
-set LIBICONV=C:\iconv-1.14-win32-x86_64
+set LIBICONV=C:\iconv
 set Path=%LIBICONV%\bin;%Path%
 set Path=%LIBICONV%\lib;%Path%
 

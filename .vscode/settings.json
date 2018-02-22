@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "extraMakefile": "makefile",
+        "rules.msc": "makefile",
         "configure.ag": "m4",
         "Makefile.ag": "automake"
     },
