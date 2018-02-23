@@ -4,7 +4,26 @@ set BUILD=%SOURCE%\build
 set PREFIX=%USERPROFILE%\monetdb-installation
 set Path=%PREFIX%\bin;%PREFIX%\lib\monetdb;%PREFIX%\lib;%Path%
 
+rem Set Windows type.
+set BITS=64
+
 rem additional libraries and additional tools
+
+set HAVE_STRICT=1
+set HAVE_DEBUG=1
+set HAVE_MONETDB5=1
+set HAVE_LIBXML=1
+set HAVE_LIBZ=1
+set HAVE_LIBBZ2=1
+set HAVE_SQL=1
+set HAVE_PCRE=1
+set HAVE_GDK=1
+set HAVE_OPENSSL=1
+set HAVE_MAPI=1
+set HAVE_GEOM=1
+set HAVE_PYTHON=1
+set HAVE_TESTING=1
+set HAVE_ICONV=1
 
 rem Look in Cygwin's bin as a default location for programs, e.g. Bison.
 rem When appropriate, Windows specific packages like the Python distributions are given priority over the possible Cygwin alternatives.
