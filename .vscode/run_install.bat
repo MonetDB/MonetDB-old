@@ -6,4 +6,4 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary
 
 cd %BUILD%
 
-nmake -nologo -f ..\NT\Makefile "MAKE_INCLUDEFILE=%SOURCE%\.vscode\extraMakefile" install
+nmake -nologo -f ..\NT\Makefile bits=%BITS% prefix=%PREFIX% install

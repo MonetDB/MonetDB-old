@@ -36,9 +36,9 @@ set Path=%LIBPCRE%\bin;%Path%
 set Path=%LIBPCRE%\lib;%Path%
 
 rem OpenSSL
-set OPENSSLDIR=C:\openssl
-set Path=%OPENSSLDIR%\bin;%Path%
-set Path=%OPENSSLDIR%\lib;%Path%
+set LIBOPENSSL=C:\openssl
+set Path=%LIBOPENSSL%\bin;%Path%
+set Path=%LIBOPENSSL%\lib;%Path%
 
 rem libXML
 set LIBXML2=C:\libxml2
@@ -49,11 +49,12 @@ rem zlib
 set LIBZLIB=C:\zlib-1.2.11-win64-x86_64
 set Path=%LIBZLIB%\bin;%Path%
 set Path=%LIBZLIB%\lib;%Path%
+set LIBZLIBFILE=zlib
 
 rem bzip2
-set LIBBZ2=C:\bzip2-1.0.6
-set Path=%LIBBZ2%\bin;%Path%
-set Path=%LIBBZ2%\lib;%Path%
+set LIBBZIP2=C:\bzip2-1.0.6
+set Path=%LIBBZIP2%\bin;%Path%
+set Path=%LIBBZIP2%\lib;%Path%
 
 rem iconv
 set LIBICONV=C:\iconv
@@ -66,9 +67,9 @@ set Path=%PERLDIR%\bin;%Path%
 set Path=%PERLDIR%\lib;%Path%
 
 rem geos
-set GEOSDIR=C:\geos-3.4.2
-set Path=%GEOSDIR%\bin;%Path%
-set Path=%GEOSDIR%\lib;%Path%
+set LIBGEOS=C:\geos-3.4.2
+set Path=%LIBGEOS%\bin;%Path%
+set Path=%LIBGEOS%\lib;%Path%
 
 rem python3
 set PYTHON3=C:\Python36
@@ -78,7 +79,7 @@ set PYTHON3_LIBDIR=%PYTHON3%\lib
 rem python2
 set PYTHON2=C:\Python27
 set Path=%PYTHON2%;%Path%
-set PYTHON2_LIBDIR=%PYTHON2%\lib
+set PYTHON2_LIBDIR=%PYTHON2%\libs
 
 rem Python module search path
 set PYTHONPATH=%PREFIX%\lib\site-packages;%PYTHONPATH%
