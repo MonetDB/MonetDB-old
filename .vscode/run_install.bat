@@ -6,4 +6,4 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary
 
 cd %BUILD%
 
-nmake -nologo -f ..\NT\Makefile HAVE_LIBXML=1 HAVE_LIBZ=1 HAVE_LIBBZ2=1 HAVE_MONETDB5=1 HAVE_SQL=1 HAVE_PCRE=1 HAVE_GDK=1 HAVE_OPENSSL=1 HAVE_MAPI=1 HAVE_GEOM=1 HAVE_PYTHON=1  HAVE_TESTING=1 "MAKE_INCLUDEFILE=%SOURCE%\.vscode\extraMakefile" install
+nmake -nologo -f ..\NT\Makefile "MAKE_INCLUDEFILE=%SOURCE%\.vscode\extraMakefile" install
