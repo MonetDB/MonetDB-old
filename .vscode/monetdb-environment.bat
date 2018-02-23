@@ -2,7 +2,7 @@ rem Set build variables for monetdb
 set SOURCE=%USERPROFILE%\Sources\monetdb
 set BUILD=%SOURCE%\build
 set PREFIX=%USERPROFILE%\monetdb-installation
-set Path=%PREFIX%\bin;%PREFIX%\lib;%Path%
+set Path=%PREFIX%\bin;%PREFIX%\lib\monetdb;%PREFIX%\lib;%Path%
 
 rem additional libraries and additional tools
 
