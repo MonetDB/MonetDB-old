@@ -2,7 +2,7 @@ rem Set build variables for monetdb
 set SOURCE=%USERPROFILE%\Sources\monetdb
 set BUILD=%SOURCE%\build
 set PREFIX=%USERPROFILE%\monetdb-installation
-set Path=%PREFIX%\bin;%PREFIX%\lib\monetdb;%PREFIX%\lib;%Path%
+set Path=%PREFIX%\bin;%PREFIX%\lib;%PREFIX%\lib\monetdb5;%Path%
 
 rem Set Windows type.
 set BITS=64
@@ -74,12 +74,10 @@ set Path=%LIBGEOS%\lib;%Path%
 rem python3
 set PYTHON3=C:\Python36
 set Path=%PYTHON3%;%Path%
-set PYTHON3_LIBDIR=%PYTHON3%\lib
 
 rem python2
 set PYTHON2=C:\Python27
 set Path=%PYTHON2%;%Path%
-set PYTHON2_LIBDIR=%PYTHON2%\libs
 
 rem Python module search path
 set PYTHONPATH=%PREFIX%\lib\site-packages;%PYTHONPATH%
