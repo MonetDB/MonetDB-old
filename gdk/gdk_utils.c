@@ -47,6 +47,12 @@ static char THRprintbuf[BUFSIZ];
 #define chdir _chdir
 #endif
 
+#ifdef WIN32
+# include <Windows.h>
+#endif
+
+#define MIN_WORKING_SET 1 << 26  // Minimum memory working/resident set size
+
 static volatile ATOMIC_FLAG GDKstopped = ATOMIC_FLAG_INIT;
 static void GDKunlockHome(int farmid);
 
@@ -548,7 +554,18 @@ GDKinit(opt *set, int setlen)
 	for (i = 0; i < nlen; i++) {
 		if (strcmp("gdk_mem_maxsize", n[i].name) == 0) {
 			GDK_mem_maxsize = (size_t) strtoll(n[i].value, NULL, 10);
-			GDK_mem_maxsize = MAX(1 << 26, GDK_mem_maxsize);
+			GDK_mem_maxsize = MAX(MIN_WORKING_SET, GDK_mem_maxsize);
+#ifdef WIN32 // On windows we can use a system call to limit the maximum working set size.
+			const HANDLE process = GetCurrentProcess();
+
+			printf("MonetDb says Hello, world!\"\n\n");
+
+			if (!SetProcessWorkingSetSizeEx(process, MIN_WORKING_SET, GDK_mem_maxsize, QUOTA_LIMITS_HARDWS_MAX_ENABLE))
+			{
+				printf("Something went wrong while setting the limits on the working set: %d\n", GetLastError());
+				return 1;
+			}
+#endif
 		} else if (strcmp("gdk_vm_maxsize", n[i].name) == 0) {
 			GDK_vm_maxsize = (size_t) strtoll(n[i].value, NULL, 10);
 			GDK_vm_maxsize = MAX(1 << 30, GDK_vm_maxsize);
