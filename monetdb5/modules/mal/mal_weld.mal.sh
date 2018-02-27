@@ -54,6 +54,9 @@ for tp in ${numeric[@]}; do
 pattern aggrsum(b:bat[:$tp], wstate:ptr):$tp
 address WeldAggrSum
 comment "aggr.sum";
+pattern aggrsum(b:bat[:$tp], s:bat[:oid], wstate:ptr):$tp
+address WeldAggrSum
+comment "aggr.sum";
 
 EOF
 done
@@ -75,12 +78,21 @@ for func in batcalcmul:MUL; do
 pattern $op(b1:bat[:$tp1], b2:bat[:$tp2], wstate:ptr):bat[:$tp3]
 address WeldBatcalc${name}signal
 comment "$op";
+pattern $op(b1:bat[:$tp1], b2:bat[:$tp2], s:bat[:oid], wstate:ptr):bat[:$tp3]
+address WeldBatcalc${name}signal
+comment "$op with candidates list";
 pattern $op(b:bat[:$tp1], v:$tp2, wstate:ptr):bat[:$tp3]
 address WeldBatcalc${name}signal
 comment "$op";
+pattern $op(b:bat[:$tp1], v:$tp2, s:bat[:oid], wstate:ptr):bat[:$tp3]
+address WeldBatcalc${name}signal
+comment "$op with candidates list";
 pattern $op(v:$tp1, b:bat[:$tp2], wstate:ptr):bat[:$tp3]
 address WeldBatcalc${name}signal
 comment "$op";
+pattern $op(v:$tp1, b:bat[:$tp2], s:bat[:oid], wstate:ptr):bat[:$tp3]
+address WeldBatcalc${name}signal
+comment "$op with candidates list";
 
 EOF
 				fi

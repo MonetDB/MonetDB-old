@@ -6,8 +6,7 @@
 
 MTSAFE
 
-INCLUDES = ../common/options ../common/stream ../common/utils \
-		   $(valgrind_CFLAGS) $(WELD_INCS)
+INCLUDES = ../common/options ../common/stream ../common/utils $(valgrind_CFLAGS)
 
 lib_gdk = {
 	VERSION = $(GDK_VERSION)
@@ -40,8 +39,7 @@ lib_gdk = {
 		../common/stream/libstream \
 		../common/utils/libmutils \
 		$(MATH_LIBS) $(SOCKET_LIBS) $(zlib_LIBS) $(BZ_LIBS) \
-		$(MALLOC_LIBS) $(PTHREAD_LIBS) $(DL_LIBS) $(PSAPILIB) $(KVM_LIBS) \
-		$(WELD_LIBS)
+		$(MALLOC_LIBS) $(PTHREAD_LIBS) $(DL_LIBS) $(PSAPILIB) $(KVM_LIBS)
 }
 
 headers_h = {
