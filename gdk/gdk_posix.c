@@ -742,9 +742,9 @@ MT_init_posix(void)
 }
 
 size_t
-MT_getrss(void)
+MT_getrss(void) // Obtain allocated physical memory
 {
-#ifdef _WIN64
+#ifdef WIN32
 	PROCESS_MEMORY_COUNTERS ctr;
 	if (GetProcessMemoryInfo(GetCurrentProcess(), &ctr, sizeof(ctr)))
 		return ctr.WorkingSetSize;
