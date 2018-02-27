@@ -742,7 +742,7 @@ MT_init_posix(void)
 }
 
 size_t
-MT_getrss(void) // Obtain allocated physical memory
+MT_getrss(void)
 {
 #ifdef WIN32
 	PROCESS_MEMORY_COUNTERS ctr;
@@ -753,7 +753,7 @@ MT_getrss(void) // Obtain allocated physical memory
 }
 
 size_t
-MT_getvm(void) // Obtain allocated virtual memory
+MT_getvm(void)
 {
 #ifdef WIN32
 	MEMORYSTATUSEX psvmemCounters;
