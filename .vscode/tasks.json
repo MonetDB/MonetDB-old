@@ -61,6 +61,14 @@
             "windows": {
                 "command": "${workspaceFolder}\\.vscode\\run_tests.bat"
             }
+        },
+        {
+            "label": "run server",
+            "type": "shell",
+            "command": "echo TODO",
+            "windows": {
+                "command": "${workspaceFolder}\\.vscode\\run_server.bat"
+            }
         }
     ]
 }
