@@ -3,7 +3,9 @@
         "extraMakefile": "makefile",
         "rules.msc": "makefile",
         "configure.ag": "m4",
-        "Makefile.ag": "automake"
+        "Makefile.ag": "automake",
+        "monetdb_config.h": "c",
+        "gdk.h": "c"
     },
     "files.exclude": {
         "**/.git": true,
