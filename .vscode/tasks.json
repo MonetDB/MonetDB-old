@@ -20,7 +20,6 @@
             },
             "presentation": {
                 "panel": "new"
-
             },
             "problemMatcher": {
                 "base": "$gcc",
@@ -68,7 +67,17 @@
             "command": "echo TODO",
             "windows": {
                 "command": "${workspaceFolder}\\.vscode\\run_server.bat"
-            }
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "run clean",
+            "type": "shell",
+            "command": "echo TODO",
+            "windows": {
+                "command": "bash.exe --login ${workspaceFolder}\\.vscode\\run_clean.sh"
+            },
+            "problemMatcher": []
         }
     ]
 }
