@@ -1,0 +1,7 @@
+module prologue;
+
+pattern prologue.getrss():lng
+address METRICSrsssize;
+
+pattern prologue.getvm():lng
+address METRICSgetvmsize;
