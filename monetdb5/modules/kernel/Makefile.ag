@@ -26,7 +26,8 @@ lib_kernel = {
 		logger.c \
 		microbenchmark.c microbenchmark.h \
 		mmath.c mmath.h \
-		status.c status.h 
+		status.c status.h \
+		metrics.c metrics.h
 }
 
 headers_mal = {
