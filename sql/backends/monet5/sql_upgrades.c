@@ -867,7 +867,7 @@ sql_update_jul2017_sp3(Client c, mvc *sql)
 	tab = find_sql_table(sys, "functions");
 	col = find_sql_column(tab, "name");
 	rid = table_funcs.column_find_row(sql->session->tr, col, "sys_update_schemas", NULL);
-	if (rid == oid_nil) {
+	if (is_oid_nil(rid)) {
 		err = sql_fix_system_tables(c, sql);
 		if (err != NULL)
 			return err;
@@ -877,7 +877,7 @@ sql_update_jul2017_sp3(Client c, mvc *sql)
 	tab = find_sql_table(sys, "triggers");
 	col = find_sql_column(tab, "name");
 	rid = table_funcs.column_find_row(sql->session->tr, col, "system_update_schemas", NULL);
-	if (rid == oid_nil) {
+	if (is_oid_nil(rid)) {
 		char *schema = stack_get_string(sql, "current_schema");
 		size_t bufsize = 1024, pos = 0;
 		char *buf = GDKmalloc(bufsize);
@@ -973,6 +973,8 @@ sql_update_mar2018(Client c, mvc *sql)
 	buf = GDKmalloc(bufsize);
 	if (buf== NULL)
 		throw(SQL, "sql_update_mar2018", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	s = mvc_bind_schema(sql, "sys");
+
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 
 	/* 21_dependency_views.sql */
@@ -1176,41 +1178,42 @@ sql_update_mar2018(Client c, mvc *sql)
 "\n"
 "GRANT SELECT ON sys.dependency_keys_on_foreignkeys TO PUBLIC;\n"
 "\n"
-"CREATE VIEW sys.dependency_tables_on_procdures AS\n"
-"SELECT t.schema_id AS table_schema_id, t.id AS table_id, t.name AS table_name, p.name, p.type AS proc_type, dep.depend_type AS depend_type\n"
+"CREATE VIEW sys.dependency_tables_on_procedures AS\n"
+"SELECT t.schema_id AS table_schema_id, t.id AS table_id, t.name AS table_name, p.id AS procedure_id, p.name AS procedure_name, p.type AS procedure_type, dep.depend_type AS depend_type\n"
 "  FROM sys.functions AS p, sys.tables AS t, sys.dependencies AS dep\n"
 " WHERE t.id = dep.id AND p.id = dep.depend_id\n"
 "   AND dep.depend_type = 13 AND p.type = 2 AND t.type NOT IN (1, 11)\n"
 " ORDER BY t.name, t.schema_id, p.name, p.id;\n"
 "\n"
-"GRANT SELECT ON sys.dependency_tables_on_procdures TO PUBLIC;\n"
+"GRANT SELECT ON sys.dependency_tables_on_procedures TO PUBLIC;\n"
 "\n"
-"CREATE VIEW sys.dependency_views_on_procdures AS\n"
-"SELECT v.name AS view_name, p.name AS proc_name, p.type AS proc_type, dep.depend_type AS depend_type\n"
+"CREATE VIEW sys.dependency_views_on_procedures AS\n"
+"SELECT v.schema_id AS view_schema_id, v.id AS view_id, v.name AS view_name, p.id AS procedure_id, p.name AS procedure_name, p.type AS procedure_type, dep.depend_type AS depend_type\n"
 "  FROM sys.functions AS p, sys.tables AS v, sys.dependencies AS dep\n"
 " WHERE v.id = dep.id AND p.id = dep.depend_id\n"
 "   AND dep.depend_type = 13 AND p.type = 2 AND v.type IN (1, 11)\n"
 " ORDER BY v.name, v.schema_id, p.name, p.id;\n"
 "\n"
-"GRANT SELECT ON sys.dependency_views_on_procdures TO PUBLIC;\n"
+"GRANT SELECT ON sys.dependency_views_on_procedures TO PUBLIC;\n"
 "\n"
-"CREATE VIEW sys.dependency_columns_on_procdures AS\n"
-"SELECT c.name AS column_name, p.name AS proc_name, p.type AS proc_type, dep.depend_type AS depend_type\n"
+"CREATE VIEW sys.dependency_columns_on_procedures AS\n"
+"SELECT c.table_id, c.id AS column_id, c.name AS column_name, p.id AS procedure_id, p.name AS procedure_name, p.type AS procedure_type, dep.depend_type AS depend_type\n"
 "  FROM sys.functions AS p, sys.columns AS c, sys.dependencies AS dep\n"
 " WHERE c.id = dep.id AND p.id = dep.depend_id\n"
 "   AND dep.depend_type = 13 AND p.type = 2\n"
 " ORDER BY c.name, c.table_id, p.name, p.id;\n"
 "\n"
-"GRANT SELECT ON sys.dependency_columns_on_procdures TO PUBLIC;\n"
+"GRANT SELECT ON sys.dependency_columns_on_procedures TO PUBLIC;\n"
 "\n"
-"CREATE VIEW sys.dependency_functions_on_procdures AS\n"
-"SELECT p.name AS proc_name, p.type AS proc_type, f2.name AS func_name, f2.type AS func_type, dep.depend_type AS depend_type\n"
-"  FROM sys.functions AS p, sys.functions AS f2, sys.dependencies AS dep\n"
-" WHERE f2.id = dep.id AND p.id = dep.depend_id\n"
+"CREATE VIEW sys.dependency_functions_on_procedures AS\n"
+"SELECT f.schema_id AS function_schema_id, f.id AS function_id, f.name AS function_name, f.type AS function_type,\n"
+"       p.schema_id AS procedure_schema_id, p.id AS procedure_id, p.name AS procedure_name, p.type AS procedure_type, dep.depend_type AS depend_type\n"
+"  FROM sys.functions AS p, sys.functions AS f, sys.dependencies AS dep\n"
+" WHERE f.id = dep.id AND p.id = dep.depend_id\n"
 "   AND dep.depend_type = 13 AND p.type = 2\n"
-" ORDER BY p.name, p.id, f2.name, f2.id;\n"
+" ORDER BY p.name, p.id, f.name, f.id;\n"
 "\n"
-"GRANT SELECT ON sys.dependency_functions_on_procdures TO PUBLIC;\n"
+"GRANT SELECT ON sys.dependency_functions_on_procedures TO PUBLIC;\n"
 "\n"
 "CREATE VIEW sys.dependency_columns_on_types AS\n"
 "SELECT t.schema_id AS table_schema_id, t.id AS table_id, t.name AS table_name, dt.id AS type_id, dt.sqlname AS type_name, c.id AS column_id, c.name AS column_name, dep.depend_type AS depend_type\n"
@@ -1247,13 +1250,12 @@ sql_update_mar2018(Client c, mvc *sql)
 " 'dependency_tables_on_triggers', 'dependency_columns_on_triggers', 'dependency_functions_on_triggers',\n"
 " 'dependency_tables_on_indexes', 'dependency_columns_on_indexes',\n"
 " 'dependency_tables_on_foreignkeys', 'dependency_keys_on_foreignkeys',\n"
-" 'dependency_tables_on_procdures', 'dependency_views_on_procdures', 'dependency_columns_on_procdures', 'dependency_functions_on_procdures',\n"
+" 'dependency_tables_on_procedures', 'dependency_views_on_procedures', 'dependency_columns_on_procedures', 'dependency_functions_on_procedures',\n"
 " 'dependency_columns_on_types', 'dependency_functions_on_types', 'dependency_args_on_types')\n"
 " AND schema_id IN (SELECT id FROM sys.schemas WHERE name = 'sys');\n"
 	);
 
 	/* 25_debug.sql */
-	s = mvc_bind_schema(sql, "sys");
 	t = mvc_bind_table(sql, s, "environment");
 	t->system = 0;
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -1296,7 +1298,6 @@ sql_update_mar2018(Client c, mvc *sql)
 			"insert into sys.systemfunctions (select id from sys.functions where name = 'corr' and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));\n");
 
 	/* 51_sys_schema_extensions.sql */
-	s = mvc_bind_schema(sql, "sys");
 	t = mvc_bind_table(sql, s, "privilege_codes");
 	t->system = 0;
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -1410,10 +1411,6 @@ sql_update_mar2018(Client c, mvc *sql)
 			"        remark VARCHAR(65000) NOT NULL\n"
 			");\n"
 			"GRANT SELECT ON sys.comments TO PUBLIC;\n"
-			"CREATE PROCEDURE sys.no_op()\n"
-			"BEGIN\n"
-			"    DECLARE dummy INTEGER;\n"
-			"END;\n"
 			"CREATE FUNCTION sys.function_type_keyword(ftype INT)\n"
 			"RETURNS VARCHAR(20)\n"
 			"BEGIN\n"
@@ -1505,7 +1502,7 @@ sql_update_mar2018(Client c, mvc *sql)
 			"INSERT INTO sys.systemfunctions\n"
 			"SELECT id FROM sys.functions\n"
 			"WHERE schema_id = (SELECT id FROM sys.schemas WHERE name = 'sys')\n"
-			"AND name IN ('comment_on', 'function_type_keyword', 'no_op');\n"
+			"AND name = 'function_type_keyword';\n"
 			"ALTER TABLE sys.keywords SET READ WRITE;\n"
 			"INSERT INTO sys.keywords VALUES ('COMMENT'), ('CONTINUE'), ('START'), ('TRUNCATE');\n"
 			"-- ALTER TABLE sys.keywords SET READ ONLY;\n"
@@ -1523,6 +1520,121 @@ sql_update_mar2018(Client c, mvc *sql)
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
 }
+
+#ifdef HAVE_NETCDF
+static str
+sql_update_mar2018_netcdf(Client c, mvc *sql)
+{
+	size_t bufsize = 1000, pos = 0;
+	char *buf, *err;
+	char *schema;
+
+	schema = stack_get_string(sql, "current_schema");
+	buf = GDKmalloc(bufsize);
+	if (buf== NULL)
+		throw(SQL, "sql_update_mar2018_netcdf", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+
+	pos += snprintf(buf + pos, bufsize - pos, "set schema sys;\n");
+
+	/* 74_netcdf.sql */
+	pos += snprintf(buf + pos, bufsize - pos,
+			"grant select on sys.netcdf_files to public;\n"
+			"grant select on sys.netcdf_dims to public;\n"
+			"grant select on sys.netcdf_vars to public;\n"
+			"grant select on sys.netcdf_vardim to public;\n"
+			"grant select on sys.netcdf_attrs to public;\n"
+			"grant execute on procedure sys.netcdf_attach(varchar(256)) to public;\n"
+			"grant execute on procedure sys.netcdf_importvar(integer, varchar(256)) to public;\n");
+
+	if (schema)
+		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
+
+	assert(pos < bufsize);
+	printf("Running database upgrade commands:\n%s\n", buf);
+	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
+	GDKfree(buf);
+	return err;		/* usually MAL_SUCCEED */
+}
+#endif	/* HAVE_NETCDF */
+
+#ifdef HAVE_SAMTOOLS
+static str
+sql_update_mar2018_samtools(Client c, mvc *sql)
+{
+	size_t bufsize = 2000, pos = 0;
+	char *buf, *err;
+	char *schema;
+	sql_schema *s = mvc_bind_schema(sql, "bam");
+
+	if (s == NULL)
+		return MAL_SUCCEED;
+
+	schema = stack_get_string(sql, "current_schema");
+	buf = GDKmalloc(bufsize);
+	if (buf== NULL)
+		throw(SQL, "sql_update_mar2018_samtools", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+
+	pos += snprintf(buf + pos, bufsize - pos, "set schema sys;\n");
+
+	/* 85_bam.sql */
+	list *l = sa_list(sql->sa);
+	sql_subtype tpi, tps;
+	sql_find_subtype(&tpi, "int", 0, 0);
+	sql_find_subtype(&tps, "clob", 0, 0);
+	list_append(l, &tpi);
+	list_append(l, &tps);
+	list_append(l, &tpi);
+	list_append(l, &tps);
+	if (sql_bind_func_(sql->sa, s, "seq_char", l, F_FUNC) == NULL) {
+		pos += snprintf(buf + pos, bufsize - pos,
+				"CREATE FUNCTION bam.seq_char(ref_pos INT, alg_seq STRING, alg_pos INT, alg_cigar STRING)\n"
+				"RETURNS CHAR(1) EXTERNAL NAME bam.seq_char;\n"
+			"insert into sys.systemfunctions (select id from sys.functions where name in ('seq_char') and schema_id = (select id from sys.schemas where name = 'bam') and id not in (select function_id from sys.systemfunctions));\n");
+	}
+	sql_find_subtype(&tpi, "smallint", 0, 0);
+	if (sql_bind_func3(sql->sa, s, "bam_loader_repos", &tps, &tpi, &tpi, F_PROC) != NULL) {
+		pos += snprintf(buf + pos, bufsize - pos,
+				"drop procedure bam.bam_loader_repos(string, smallint, smallint);\n"
+				"drop procedure bam.bam_loader_files(string, smallint, smallint);\n"
+				"delete from systemfunctions where function_id not in (select id from functions);\n");
+	}
+	if (sql_bind_func(sql->sa, s, "bam_loader_repos", &tps, &tpi, F_PROC) == NULL) {
+		pos += snprintf(buf + pos, bufsize - pos,
+				"CREATE PROCEDURE bam.bam_loader_repos(bam_repos STRING, dbschema SMALLINT)\n"
+				"EXTERNAL NAME bam.bam_loader_repos;\n"
+				"CREATE PROCEDURE bam.bam_loader_files(bam_files STRING, dbschema SMALLINT)\n"
+				"EXTERNAL NAME bam.bam_loader_files;\n"
+			"insert into sys.systemfunctions (select id from sys.functions where name in ('bam_loader_repos', 'bam_loader_files') and schema_id = (select id from sys.schemas where name = 'bam') and id not in (select function_id from sys.systemfunctions));\n");
+	}
+
+	pos += snprintf(buf + pos, bufsize - pos,
+			"GRANT SELECT ON bam.files TO PUBLIC;\n"
+			"GRANT SELECT ON bam.sq TO PUBLIC;\n"
+			"GRANT SELECT ON bam.rg TO PUBLIC;\n"
+			"GRANT SELECT ON bam.pg TO PUBLIC;\n"
+			"GRANT SELECT ON bam.export TO PUBLIC;\n"
+			"GRANT EXECUTE ON FUNCTION bam.bam_flag(SMALLINT, STRING) TO PUBLIC;\n"
+			"GRANT EXECUTE ON FUNCTION bam.reverse_seq(STRING) TO PUBLIC;\n"
+			"GRANT EXECUTE ON FUNCTION bam.reverse_qual(STRING) TO PUBLIC;\n"
+			"GRANT EXECUTE ON FUNCTION bam.seq_length(STRING) TO PUBLIC;\n"
+			"GRANT EXECUTE ON FUNCTION bam.seq_char(INT, STRING, INT, STRING) TO PUBLIC;\n"
+			"GRANT EXECUTE ON PROCEDURE bam.bam_loader_repos(STRING, SMALLINT) TO PUBLIC;\n"
+			"GRANT EXECUTE ON PROCEDURE bam.bam_loader_files(STRING, SMALLINT) TO PUBLIC;\n"
+			"GRANT EXECUTE ON PROCEDURE bam.bam_loader_file(STRING, SMALLINT) TO PUBLIC;\n"
+			"GRANT EXECUTE ON PROCEDURE bam.bam_drop_file(BIGINT, SMALLINT) TO PUBLIC;\n"
+			"GRANT EXECUTE ON PROCEDURE bam.sam_export(STRING) TO PUBLIC;\n"
+			"GRANT EXECUTE ON PROCEDURE bam.bam_export(STRING) TO PUBLIC;\n");
+
+	if (schema)
+		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
+
+	assert(pos < bufsize);
+	printf("Running database upgrade commands:\n%s\n", buf);
+	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
+	GDKfree(buf);
+	return err;		/* usually MAL_SUCCEED */
+}
+#endif	/* HAVE_SAMTOOLS */
 
 void
 SQLupgrades(Client c, mvc *m)
@@ -1638,5 +1750,18 @@ SQLupgrades(Client c, mvc *m)
 			fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}
+#ifdef HAVE_NETCDF
+		if (mvc_bind_table(m, s, "netcdf_files") != NULL &&
+		    (err = sql_update_mar2018_netcdf(c, m)) != NULL) {
+			fprintf(stderr, "!%s\n", err);
+			freeException(err);
+		}
+#endif
+#ifdef HAVE_SAMTOOLS
+		if ((err = sql_update_mar2018_samtools(c, m)) != NULL) {
+			fprintf(stderr, "!%s\n", err);
+			freeException(err);
+		}
+#endif
 	}
 }
