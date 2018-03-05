@@ -21,12 +21,6 @@ def client(lang, file):
 def main():
     srv = server_start(["--set", "gdk_mem_maxsize=70000000"])
 
-    out, err = client('MAL',
-                      os.path.join(os.getenv('RELSRCDIR'),
-                                   'prologue.mal'))
-    sys.stdout.write(out)
-    sys.stderr.write(err)
-
     out, err = client('SQL',
                       os.path.join(os.getenv('RELSRCDIR'),
                                    'push_and_check_rss.sql'))

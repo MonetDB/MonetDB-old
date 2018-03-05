@@ -1,8 +1,8 @@
 create function getrss() 
-returns BIGINT external name prologue.getrss;
+returns BIGINT external name status.rss_cursize;
 
 create function getvm() 
-returns BIGINT external name prologue.getvm;
+returns BIGINT external name status.mem_cursize;
 
 create table test(a int, b int, c double);
 
