@@ -22,7 +22,7 @@ call loop_insert(10000000);
 -- it seems that it requires an analytical query to keep memory in ram.
 select count(*) as record_count from test;
 
-select getrss() < 70000 as resident_set_size_is_less_then_70kbytes;
+select getrss() > 70000 as resident_set_size_is_bigger_then_70kbytes;
 
 drop table test cascade;
 drop function getrss;
