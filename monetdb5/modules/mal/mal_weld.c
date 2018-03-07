@@ -511,6 +511,20 @@ WeldBatcalcBinary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc
 }
 
 str
+WeldBatcalcADDsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	return WeldBatcalcBinary(mb, stk, pci, "+", "weld.batcalcadd");
+}
+
+str
+WeldBatcalcSUBsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	return WeldBatcalcBinary(mb, stk, pci, "-", "weld.batcalcsub");
+}
+
+str
 WeldBatcalcMULsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;

@@ -72,6 +72,956 @@ pattern aggrsum(b:bat[:dbl], s:bat[:oid], wstate:ptr):dbl
 address WeldAggrSum
 comment "aggr.sum";
 
+pattern batcalcadd(b1:bat[:bte], b2:bat[:bte], wstate:ptr):bat[:bte]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:bte], b2:bat[:bte], s:bat[:oid], wstate:ptr):bat[:bte]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:bte], v:bte, wstate:ptr):bat[:bte]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:bte], v:bte, s:bat[:oid], wstate:ptr):bat[:bte]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:bte, b:bat[:bte], wstate:ptr):bat[:bte]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:bte, b:bat[:bte], s:bat[:oid], wstate:ptr):bat[:bte]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:bte], b2:bat[:int], wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:bte], b2:bat[:int], s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:bte], v:int, wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:bte], v:int, s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:bte, b:bat[:int], wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:bte, b:bat[:int], s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:bte], b2:bat[:lng], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:bte], b2:bat[:lng], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:bte], v:lng, wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:bte], v:lng, s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:bte, b:bat[:lng], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:bte, b:bat[:lng], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:bte], b2:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:bte], b2:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:bte], v:flt, wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:bte], v:flt, s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:bte, b:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:bte, b:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:bte], b2:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:bte], b2:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:bte], v:dbl, wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:bte], v:dbl, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:bte, b:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:bte, b:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:int], b2:bat[:bte], wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:int], b2:bat[:bte], s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:int], v:bte, wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:int], v:bte, s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:int, b:bat[:bte], wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:int, b:bat[:bte], s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:int], b2:bat[:int], wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:int], b2:bat[:int], s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:int], v:int, wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:int], v:int, s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:int, b:bat[:int], wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:int, b:bat[:int], s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:int], b2:bat[:lng], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:int], b2:bat[:lng], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:int], v:lng, wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:int], v:lng, s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:int, b:bat[:lng], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:int, b:bat[:lng], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:int], b2:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:int], b2:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:int], v:flt, wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:int], v:flt, s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:int, b:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:int, b:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:int], b2:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:int], b2:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:int], v:dbl, wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:int], v:dbl, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:int, b:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:int, b:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:lng], b2:bat[:bte], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:lng], b2:bat[:bte], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:lng], v:bte, wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:lng], v:bte, s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:lng, b:bat[:bte], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:lng, b:bat[:bte], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:lng], b2:bat[:int], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:lng], b2:bat[:int], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:lng], v:int, wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:lng], v:int, s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:lng, b:bat[:int], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:lng, b:bat[:int], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:lng], b2:bat[:lng], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:lng], b2:bat[:lng], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:lng], v:lng, wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:lng], v:lng, s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:lng, b:bat[:lng], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:lng, b:bat[:lng], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:lng], b2:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:lng], b2:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:lng], v:flt, wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:lng], v:flt, s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:lng, b:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:lng, b:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:lng], b2:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:lng], b2:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:lng], v:dbl, wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:lng], v:dbl, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:lng, b:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:lng, b:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:flt], b2:bat[:bte], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:flt], b2:bat[:bte], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:flt], v:bte, wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:flt], v:bte, s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:flt, b:bat[:bte], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:flt, b:bat[:bte], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:flt], b2:bat[:int], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:flt], b2:bat[:int], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:flt], v:int, wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:flt], v:int, s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:flt, b:bat[:int], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:flt, b:bat[:int], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:flt], b2:bat[:lng], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:flt], b2:bat[:lng], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:flt], v:lng, wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:flt], v:lng, s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:flt, b:bat[:lng], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:flt, b:bat[:lng], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:flt], b2:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:flt], b2:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:flt], v:flt, wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:flt], v:flt, s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:flt, b:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:flt, b:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:flt], b2:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:flt], b2:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:flt], v:dbl, wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:flt], v:dbl, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:flt, b:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:flt, b:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:dbl], b2:bat[:bte], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:dbl], b2:bat[:bte], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:dbl], v:bte, wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:dbl], v:bte, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:dbl, b:bat[:bte], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:dbl, b:bat[:bte], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:dbl], b2:bat[:int], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:dbl], b2:bat[:int], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:dbl], v:int, wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:dbl], v:int, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:dbl, b:bat[:int], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:dbl, b:bat[:int], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:dbl], b2:bat[:lng], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:dbl], b2:bat[:lng], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:dbl], v:lng, wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:dbl], v:lng, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:dbl, b:bat[:lng], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:dbl, b:bat[:lng], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:dbl], b2:bat[:flt], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:dbl], b2:bat[:flt], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:dbl], v:flt, wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:dbl], v:flt, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:dbl, b:bat[:flt], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:dbl, b:bat[:flt], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcadd(b1:bat[:dbl], b2:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b1:bat[:dbl], b2:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(b:bat[:dbl], v:dbl, wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(b:bat[:dbl], v:dbl, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+pattern batcalcadd(v:dbl, b:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd";
+pattern batcalcadd(v:dbl, b:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcADDsignal
+comment "batcalcadd with candidates list";
+
+pattern batcalcsub(b1:bat[:bte], b2:bat[:bte], wstate:ptr):bat[:bte]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:bte], b2:bat[:bte], s:bat[:oid], wstate:ptr):bat[:bte]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:bte], v:bte, wstate:ptr):bat[:bte]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:bte], v:bte, s:bat[:oid], wstate:ptr):bat[:bte]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:bte, b:bat[:bte], wstate:ptr):bat[:bte]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:bte, b:bat[:bte], s:bat[:oid], wstate:ptr):bat[:bte]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:bte], b2:bat[:int], wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:bte], b2:bat[:int], s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:bte], v:int, wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:bte], v:int, s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:bte, b:bat[:int], wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:bte, b:bat[:int], s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:bte], b2:bat[:lng], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:bte], b2:bat[:lng], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:bte], v:lng, wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:bte], v:lng, s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:bte, b:bat[:lng], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:bte, b:bat[:lng], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:bte], b2:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:bte], b2:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:bte], v:flt, wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:bte], v:flt, s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:bte, b:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:bte, b:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:bte], b2:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:bte], b2:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:bte], v:dbl, wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:bte], v:dbl, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:bte, b:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:bte, b:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:int], b2:bat[:bte], wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:int], b2:bat[:bte], s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:int], v:bte, wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:int], v:bte, s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:int, b:bat[:bte], wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:int, b:bat[:bte], s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:int], b2:bat[:int], wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:int], b2:bat[:int], s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:int], v:int, wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:int], v:int, s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:int, b:bat[:int], wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:int, b:bat[:int], s:bat[:oid], wstate:ptr):bat[:int]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:int], b2:bat[:lng], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:int], b2:bat[:lng], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:int], v:lng, wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:int], v:lng, s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:int, b:bat[:lng], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:int, b:bat[:lng], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:int], b2:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:int], b2:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:int], v:flt, wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:int], v:flt, s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:int, b:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:int, b:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:int], b2:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:int], b2:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:int], v:dbl, wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:int], v:dbl, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:int, b:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:int, b:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:lng], b2:bat[:bte], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:lng], b2:bat[:bte], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:lng], v:bte, wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:lng], v:bte, s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:lng, b:bat[:bte], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:lng, b:bat[:bte], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:lng], b2:bat[:int], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:lng], b2:bat[:int], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:lng], v:int, wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:lng], v:int, s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:lng, b:bat[:int], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:lng, b:bat[:int], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:lng], b2:bat[:lng], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:lng], b2:bat[:lng], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:lng], v:lng, wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:lng], v:lng, s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:lng, b:bat[:lng], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:lng, b:bat[:lng], s:bat[:oid], wstate:ptr):bat[:lng]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:lng], b2:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:lng], b2:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:lng], v:flt, wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:lng], v:flt, s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:lng, b:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:lng, b:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:lng], b2:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:lng], b2:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:lng], v:dbl, wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:lng], v:dbl, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:lng, b:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:lng, b:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:flt], b2:bat[:bte], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:flt], b2:bat[:bte], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:flt], v:bte, wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:flt], v:bte, s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:flt, b:bat[:bte], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:flt, b:bat[:bte], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:flt], b2:bat[:int], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:flt], b2:bat[:int], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:flt], v:int, wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:flt], v:int, s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:flt, b:bat[:int], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:flt, b:bat[:int], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:flt], b2:bat[:lng], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:flt], b2:bat[:lng], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:flt], v:lng, wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:flt], v:lng, s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:flt, b:bat[:lng], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:flt, b:bat[:lng], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:flt], b2:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:flt], b2:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:flt], v:flt, wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:flt], v:flt, s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:flt, b:bat[:flt], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:flt, b:bat[:flt], s:bat[:oid], wstate:ptr):bat[:flt]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:flt], b2:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:flt], b2:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:flt], v:dbl, wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:flt], v:dbl, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:flt, b:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:flt, b:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:dbl], b2:bat[:bte], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:dbl], b2:bat[:bte], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:dbl], v:bte, wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:dbl], v:bte, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:dbl, b:bat[:bte], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:dbl, b:bat[:bte], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:dbl], b2:bat[:int], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:dbl], b2:bat[:int], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:dbl], v:int, wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:dbl], v:int, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:dbl, b:bat[:int], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:dbl, b:bat[:int], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:dbl], b2:bat[:lng], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:dbl], b2:bat[:lng], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:dbl], v:lng, wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:dbl], v:lng, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:dbl, b:bat[:lng], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:dbl, b:bat[:lng], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:dbl], b2:bat[:flt], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:dbl], b2:bat[:flt], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:dbl], v:flt, wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:dbl], v:flt, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:dbl, b:bat[:flt], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:dbl, b:bat[:flt], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
+pattern batcalcsub(b1:bat[:dbl], b2:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b1:bat[:dbl], b2:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(b:bat[:dbl], v:dbl, wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(b:bat[:dbl], v:dbl, s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+pattern batcalcsub(v:dbl, b:bat[:dbl], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub";
+pattern batcalcsub(v:dbl, b:bat[:dbl], s:bat[:oid], wstate:ptr):bat[:dbl]
+address WeldBatcalcSUBsignal
+comment "batcalcsub with candidates list";
+
 pattern batcalcmul(b1:bat[:bte], b2:bat[:bte], wstate:ptr):bat[:bte]
 address WeldBatcalcMULsignal
 comment "batcalcmul";

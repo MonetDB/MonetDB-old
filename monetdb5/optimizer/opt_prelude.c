@@ -303,6 +303,8 @@ str weldAggrSumRef;
 str weldAlgebraProjectionRef;
 str weldAlgebraSelectRef;
 str weldAlgebraThetaselectRef;
+str weldBatcalcAddRef;
+str weldBatcalcSubRef;
 str weldBatcalcMulRef;
 str weldGetResultRef;
 str weldInitStateRef;
@@ -598,6 +600,8 @@ void optimizerInit(void)
 	weldAlgebraProjectionRef = putName("algebraprojection");
 	weldAlgebraSelectRef = putName("algebraselect");
 	weldAlgebraThetaselectRef = putName("algebrathetaselect");
+	weldBatcalcAddRef = putName("batcalcadd");
+	weldBatcalcSubRef = putName("batcalcsub");
 	weldBatcalcMulRef = putName("batcalcmul");
 	weldGetResultRef = putName("getresult");
 	weldInitStateRef = putName("initstate");

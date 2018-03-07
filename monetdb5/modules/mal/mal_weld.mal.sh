@@ -61,7 +61,7 @@ comment "aggr.sum";
 EOF
 done
 
-for func in batcalcmul:MUL; do
+for func in batcalcadd:ADD batcalcsub:SUB batcalcmul:MUL; do
     name=${func#*:}
     op=${func%:*}
     for ((i = 0; i < ${#numeric[@]}; i++)); do
