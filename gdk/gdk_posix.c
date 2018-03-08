@@ -750,20 +750,6 @@ MT_getrss(void)
 	return 0;
 }
 
-size_t
-MT_getvm(void)
-{
-#ifdef WIN32
-	MEMORYSTATUSEX psvmemCounters;
-	psvmemCounters.dwLength = sizeof(MEMORYSTATUSEX); 
-	
-	GlobalMemoryStatusEx(&psvmemCounters);
-
-	return psvmemCounters.ullTotalVirtual - psvmemCounters.ullAvailVirtual;
-#endif
-	return 0;
-}
-
 /* Windows mmap keeps a global list of base addresses for complex
  * (remapped) memory maps the reason is that each remapped segment
  * needs to be unmapped separately in the end. */
