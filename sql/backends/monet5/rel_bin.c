@@ -4993,7 +4993,7 @@ rel2bin_ddl(backend *be, sql_rel *rel, list *refs)
 	} else if (rel->flag <= DDL_ALTER_TABLE) {
 		s = rel2bin_catalog_table(be, rel, refs);
 		sql->type = Q_SCHEMA;
-	} else if (rel->flag <= DDL_ALTER_TABLE_SET_ACCESS) {
+	} else if (rel->flag <= DDL_COMMENT_ON) {
 		s = rel2bin_catalog2(be, rel, refs);
 		sql->type = Q_SCHEMA;
 	}
@@ -5335,20 +5335,10 @@ rel_deps(sql_allocator *sa, sql_rel *r, list *refs, list *l)
 			if (r->r)
 				return rel_deps(sa, r->r, refs, l);
 		} else if (r->flag == DDL_PSM) {
-			exps_deps(sa, r->exps, refs, l);
+			break;
 		} else if (r->flag <= DDL_ALTER_SEQ) {
 			if (r->l)
 				return rel_deps(sa, r->l, refs, l);
-		} else if (r->flag <= DDL_DROP_SEQ) {
-			exps_deps(sa, r->exps, refs, l);
-		} else if (r->flag <= DDL_TRANS) {
-			exps_deps(sa, r->exps, refs, l);
-		} else if (r->flag <= DDL_DROP_SCHEMA) {
-			exps_deps(sa, r->exps, refs, l);
-		} else if (r->flag <= DDL_ALTER_TABLE) {
-			exps_deps(sa, r->exps, refs, l);
-		} else if (r->flag <= DDL_ALTER_TABLE_SET_ACCESS) {
-			exps_deps(sa, r->exps, refs, l);
 		}
 		break;
 	}
