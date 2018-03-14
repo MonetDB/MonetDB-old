@@ -19,7 +19,7 @@ alltypes=(bit ${numeric[@]} oid str)
 
 cat <<EOF
 
-command initstate():ptr
+pattern initstate():ptr
 address WeldInitState
 comment "Initialize the state structure that is used to build a weld program";
 
@@ -46,6 +46,14 @@ comment "algebra.thetaselect";
 pattern algebrathetaselect(b:bat[:any_1], s:bat[:oid], val:any_1, op:str, wstate:ptr):bat[:oid]
 address WeldAlgebraThetaselect2
 comment "algebra.thetaselect";
+
+pattern groupgroup(b:bat[:any_1], wstate:ptr) (groups:bat[:oid], extents:bat[:oid], histo:bat[:lng])
+address WeldGroup;
+comment "group.group"
+
+pattern groupgroup(b:bat[:any_1], g:bat[:oid], wstate:ptr) (groups:bat[:oid], extents:bat[:oid], histo:bat[:lng])
+address WeldGroup;
+comment "group.groupdone"
 
 EOF
 

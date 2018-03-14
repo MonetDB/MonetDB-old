@@ -307,6 +307,7 @@ str weldBatcalcAddRef;
 str weldBatcalcSubRef;
 str weldBatcalcMulRef;
 str weldGetResultRef;
+str weldGroupRef;
 str weldInitStateRef;
 str weldLanguagePassRef;
 str weldRef;
@@ -604,6 +605,7 @@ void optimizerInit(void)
 	weldBatcalcSubRef = putName("batcalcsub");
 	weldBatcalcMulRef = putName("batcalcmul");
 	weldGetResultRef = putName("getresult");
+	weldGroupRef = putName("groupgroup");
 	weldInitStateRef = putName("initstate");
 	weldLanguagePassRef = putName("languagepass");
 	weldRef = putName("weld");

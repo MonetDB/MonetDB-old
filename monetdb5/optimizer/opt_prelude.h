@@ -315,6 +315,7 @@ mal_export  str weldBatcalcAddRef;
 mal_export  str weldBatcalcSubRef;
 mal_export  str weldBatcalcMulRef;
 mal_export  str weldGetResultRef;
+mal_export  str weldGroupRef;
 mal_export  str weldInitStateRef;
 mal_export  str weldLanguagePassRef;
 mal_export  str weldRef;

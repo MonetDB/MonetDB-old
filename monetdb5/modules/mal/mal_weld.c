@@ -117,12 +117,14 @@ static void dumpWeldProgram(weldState *wstate) {
 }
 
 str
-WeldInitState(ptr *retval)
+WeldInitState(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	(void)cntxt;
 	weldState *wstate = malloc(sizeof(weldState));
 	wstate->programMaxLen = 1;
 	wstate->program = calloc(wstate->programMaxLen, sizeof(char));
-	*retval = wstate;
+	wstate->groupDeps = calloc(mb->vtop, sizeof(InstrPtr));
+	*getArgReference_ptr(stk, pci, 0) = wstate;;
 	return MAL_SUCCEED;
 }
 
@@ -178,6 +180,7 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	weld_module_t m = weld_module_compile(wstate->program, conf, e);
 	weld_conf_free(conf);
 	free(wstate->program);
+	free(wstate->groupDeps);
 	free(wstate);
 	if (weld_error_code(e)) {
 		throw(MAL, "weld.run", PROGRAM_GENERAL ": %s", weld_error_message(e));
@@ -529,6 +532,90 @@ WeldBatcalcMULsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
 	return WeldBatcalcBinary(mb, stk, pci, "*", "weld.batcalcmul");
+}
+
+/* Ignore the existing groups and instead use all the columns up to this point to
+ * generate the new group ids. Weld will remove the unnecessary computations. e.g.:
+ * g1, e1, h1 = group.group(col1)  -> for(zip(col1), dictmerger[ty1, i64, min]...
+ * g2, e2, h2 = group.grou(col2, g1) -> for(zip(col2, col1), dictmerger[{ty1, ty2}, i64, min]...
+ */
+str
+WeldGroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void)cntxt;
+	int groups = getArg(pci, 0);  /* bat[:oid] */
+	int extents = getArg(pci, 1); /* bat[:oid] */
+	int histo = getArg(pci, 2);   /* bat[:lng] */
+	weldState *wstate;
+	if (pci->argc == 6) {
+		wstate = *getArgReference_ptr(stk, pci, 5); /* has value */
+	} else {
+		wstate = *getArgReference_ptr(stk, pci, 4); /* has value */
+	}
+
+	/* Build zip(col1, col2, ...) */
+	wstate->groupDeps[groups] = pci;
+	InstrPtr dep = pci;
+	char zipStmt[STR_SIZE_INC] = {'\0'};
+	char dictTypeStmt[STR_SIZE_INC] = {'\0'};
+	int count = 0;
+	while (dep != NULL) {
+		++count;
+		int col = getArg(dep, 3);
+		int colType = getBatType(getArgType(mb, dep, 3));
+		sprintf(zipStmt + strlen(zipStmt), "v%d,", col);
+		sprintf(dictTypeStmt + strlen(dictTypeStmt), " %s,", getWeldType(colType));
+		if (dep->argc == 6) {
+			int oldGrps = getArg(dep, 4);
+			dep = wstate->groupDeps[oldGrps];
+		} else {
+			dep = NULL;
+		}
+	}
+	/* Replace the last comma */
+	zipStmt[strlen(zipStmt) - 1] = '\0';
+	if (count == 1) {
+		dictTypeStmt[strlen(dictTypeStmt) - 1] = '\0';
+	} else {
+		dictTypeStmt[0] = '{';
+		dictTypeStmt[strlen(dictTypeStmt) - 1] = '}';
+	}
+
+	char weldStmt[STR_SIZE_INC * 2];
+	sprintf(weldStmt, "\
+	let groupHash = result( \
+		for(zip(%s), dictmerger[%s, i64, min], |b, i, n| \
+			merge(b, {n, i}) \
+		) \
+	); \
+	let groupHashVec = tovec(groupHash); \
+	let groupIdsDict = result( \
+		for(groupHashVec, dictmerger[%s, i64, min], |b, i, n| \
+			merge(b, {n.$0, i}) \
+		) \
+	); \
+	let empty = result( \
+		for(rangeiter(0L, len(groupHashVec), 1L), appender[i64], |b, i, n| \
+			merge(b, 0L) \
+		) \
+	); \
+	let idsAndCounts = for(zip(%s), {appender[i64], vecmerger[i64, +](empty)}, |b, i, n| \
+		let groupId = lookup(groupIdsDict, n); \
+		{merge(b.$0, groupId), merge(b.$1, {groupId, 1L})} \
+	); \
+	let v%d = result(idsAndCounts.$0); \
+	let v%dhseqbase = 0; \
+	let v%d = result(idsAndCounts.$1); \
+	let v%dhseqbase = 0; \
+	let v%d = result( \
+		for(groupHashVec, vecmerger[i64, +](empty), |b, i, n| \
+			merge(b, {i, lookup(groupHash, n.$0)}) \
+		) \
+	); \
+	let v%dhseqbase = 0;",
+	zipStmt, dictTypeStmt, dictTypeStmt, zipStmt, groups, groups, histo, histo, extents, extents);
+	appendWeldStmt(wstate, weldStmt);
+	return MAL_SUCCEED;
 }
 
 str

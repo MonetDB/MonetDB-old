@@ -18,7 +18,7 @@
 #include "mal_instruction.h"
 #include "opt_weld.h"
 
-#define NUM_WELD_INSTR 8
+#define NUM_WELD_INSTR 12
 #define UNMARKED 0
 #define TEMP_MARK 1
 #define PERM_MARK 2
@@ -52,6 +52,10 @@ static void initWeldInstrs(void) {
 	addWeldInstr(batcalcRef, minusRef, weldBatcalcSubRef);				 /* batcalc.- */
 	addWeldInstr(batcalcRef, mulRef, weldBatcalcMulRef);				 /* batcalc.* */
 	addWeldInstr(languageRef, passRef, weldLanguagePassRef);			 /* language.pass */
+	addWeldInstr(groupRef, groupRef, weldGroupRef);						 /* group.group*/
+	addWeldInstr(groupRef, subgroupRef, weldGroupRef);					 /* group.subgroup */
+	addWeldInstr(groupRef, groupdoneRef, weldGroupRef);					 /* group.groupdone */
+	addWeldInstr(groupRef, subgroupdoneRef, weldGroupRef);				 /* group.subgroupdone */
 }
 
 static str getWeldRef(InstrPtr instr) {
