@@ -80,96 +80,96 @@ void print_lidar_header(FILE *file, LASHeaderH header, const char* file_name, in
 	major = LASHeader_GetVersionMajor(header);
 	minor = LASHeader_GetVersionMinor(header);
 
-	fprintf(file, "\n---------------------------------------------------------\n");
-	fprintf(file, "  Header Summary\n");
-	fprintf(file, "---------------------------------------------------------\n");
+	fprintf(file, "\n#---------------------------------------------------------\n");
+	fprintf(file, "#  Header Summary\n");
+	fprintf(file, "#---------------------------------------------------------\n");
 
-	fprintf(file, "  File Name: %s\n", file_name);
+	fprintf(file, "#  File Name: %s\n", file_name);
 
 	if (strcmp(pszSignature,"LASF") !=0) {
 		LASError_Print("File signature is not 'LASF'... aborting");
 		exit(1);
 	}
-	fprintf(file, "  Version:                    %hhu.%hhu\n", major, minor);
+	fprintf(file, "#  Version:                    %hhu.%hhu\n", major, minor);
 
-	fprintf(file, "  Source ID:                  %hu\n",
+	fprintf(file, "#  Source ID:                  %hu\n",
 			LASHeader_GetFileSourceId(header) ) ;
 
 
-	fprintf(file, "  Reserved:                   %hu\n",
+	fprintf(file, "#  Reserved:                   %hu\n",
 			LASHeader_GetReserved(header) );
 
-	fprintf(file, "  Project ID/GUID:           '%s'\n",
+	fprintf(file, "#  Project ID/GUID:           '%s'\n",
 			pszProjectId);
 
-	fprintf(file, "  System Identifier:         '%s'\n",
+	fprintf(file, "#  System Identifier:         '%s'\n",
 			pszSystemId);
 
-	fprintf(file, "  Generating Software:       '%s'\n",
+	fprintf(file, "#  Generating Software:       '%s'\n",
 			pszSoftwareId);
 
-	fprintf(file, "  File Creation Day/Year:    %hu/%hu\n",
+	fprintf(file, "#  File Creation Day/Year:    %hu/%hu\n",
 			LASHeader_GetCreationDOY(header),
 			LASHeader_GetCreationYear(header));
 
-	fprintf(file, "  Header Size                %hu\n",
+	fprintf(file, "#  Header Size                %hu\n",
 			LASHeader_GetHeaderSize(header));
 
-	fprintf(file, "  Offset to Point Data       %u\n",
+	fprintf(file, "#  Offset to Point Data       %u\n",
 			LASHeader_GetDataOffset(header));
 
-	fprintf(file, "  Number Var. Length Records %u\n",
+	fprintf(file, "#  Number Var. Length Records %u\n",
 			LASHeader_GetRecordsCount(header));
 
-	fprintf(file, "  Point Data Format          %hhu\n",
+	fprintf(file, "#  Point Data Format          %hhu\n",
 			LASHeader_GetDataFormatId(header));
 
-	fprintf(file, "  Point Data Record Length   %hu\n",
+	fprintf(file, "#  Point Data Record Length   %hu\n",
 			LASHeader_GetDataRecordLength(header));
 
-	fprintf(file, "  Number of Point Records    %u\n",
+	fprintf(file, "#  Number of Point Records    %u\n",
 			LASHeader_GetPointRecordsCount(header));
 
-	fprintf(file, "  Number of Points by Return %u %u %u %u %u\n",
+	fprintf(file, "#  Number of Points by Return %u %u %u %u %u\n",
 			LASHeader_GetPointRecordsByReturnCount(header, 0),
 			LASHeader_GetPointRecordsByReturnCount(header, 1),
 			LASHeader_GetPointRecordsByReturnCount(header, 2),
 			LASHeader_GetPointRecordsByReturnCount(header, 3),
 			LASHeader_GetPointRecordsByReturnCount(header, 4));
 
-	fprintf(file, "  Scale Factor X Y Z         %.6g %.6g %.6g\n",
+	fprintf(file, "#  Scale Factor X Y Z         %.6g %.6g %.6g\n",
 			LASHeader_GetScaleX(header),
 			LASHeader_GetScaleY(header),
 			LASHeader_GetScaleZ(header));
 
-	fprintf(file, "  Offset X Y Z               %.6f %.6f %.6f\n",
+	fprintf(file, "#  Offset X Y Z               %.6f %.6f %.6f\n",
 			LASHeader_GetOffsetX(header),
 			LASHeader_GetOffsetY(header),
 			LASHeader_GetOffsetZ(header));
 
-	fprintf(file, "  Min X Y Z                  %.6f %.6f %.6f\n",
+	fprintf(file, "#  Min X Y Z                  %.6f %.6f %.6f\n",
 			LASHeader_GetMinX(header),
 			LASHeader_GetMinY(header),
 			LASHeader_GetMinZ(header));
 
 
-	fprintf(file, "  Max X Y Z                  %.6f %.6f %.6f\n",
+	fprintf(file, "#  Max X Y Z                  %.6f %.6f %.6f\n",
 			LASHeader_GetMaxX(header),
 			LASHeader_GetMaxY(header),
 			LASHeader_GetMaxZ(header));
 
-	fprintf(file, " Spatial Reference           %s\n",
+	fprintf(file, "# Spatial Reference           %s\n",
 			pszProj4);
 	if (bWKT)
 	{
-		fprintf(file, "%s", pszWKT);
-		fprintf(file, "%s", "\n");
+		fprintf(file, "#%s", pszWKT);
+		fprintf(file, "\n");
 	}
 	if (nVLR && !bSkipVLR) {
 
-		fprintf(file, "\n---------------------------------------------------------\n");
-		fprintf(file, "  VLR Summary\n");
-		fprintf(file, "---------------------------------------------------------\n");
+		fprintf(file, "\n#---------------------------------------------------------\n");
+		fprintf(file, "#  VLR Summary\n");
+		fprintf(file, "#---------------------------------------------------------\n");
 
 		for (i = 0; i < (int)nVLR; i++) {
 			pVLR = LASHeader_GetVLR(header, i);
@@ -185,8 +185,8 @@ void print_lidar_header(FILE *file, LASHeaderH header, const char* file_name, in
 			nVLRRecordId = LASVLR_GetRecordId(pVLR);
 
 
-			fprintf(file, "   User: '%s' - Description: '%s'\n", pszVLRUser, pszVLRDescription);
-			fprintf(file, "   ID: %hu Length: %hu\n\n", nVLRRecordId, nVLRLength);
+			fprintf(file, "#   User: '%s' - Description: '%s'\n", pszVLRUser, pszVLRDescription);
+			fprintf(file, "#   ID: %hu Length: %hu\n\n", nVLRRecordId, nVLRLength);
 
 			MT_lock_set(&mt_lidar_lock);
 			LASVLR_Destroy(pVLR);
@@ -479,7 +479,7 @@ LIDARopenPath(str fname, int *len)
 					goto openpath_cleanup1;
 				}
 #ifndef NDEBUG
-				fprintf(stderr, "file: %s %d\n", path, *len);
+				fprintf(stderr, "#file: %s %d\n", path, *len);
 #endif
 			}
 		}
