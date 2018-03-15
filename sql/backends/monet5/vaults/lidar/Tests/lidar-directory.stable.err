@@ -24,49 +24,49 @@ stderr of test 'lidar-directory` in directory 'sql/backends/monet5/vaults/lidar`
 # cmdline opt 	gdk_debug = 536870922
 Params: XYZainrcpedM
 Initial table name: tbl1
-file: /home/kutsurak/work/monet/sources/monetdb-test-data/lidar/directory_loading/lidar1.las 2
-file: /home/kutsurak/work/monet/sources/monetdb-test-data/lidar/directory_loading/lidar2.las 2
+#file: /home/kutsurak/work/monet/sources/monetdb-test-data/lidar/directory_loading/lidar1.las 2
+#file: /home/kutsurak/work/monet/sources/monetdb-test-data/lidar/directory_loading/lidar2.las 2
 tname: tbl1
 tablename: tbl1
 
----------------------------------------------------------
-  Header Summary
----------------------------------------------------------
-  File Name: /home/kutsurak/work/monet/sources/monetdb-test-data/lidar/directory_loading/lidar1.las
-  Version:                    1.2
-  Source ID:                  0
-  Reserved:                   0
-  Project ID/GUID:           '00000000-0000-0000-0000-000000000000'
-  System Identifier:         ''
-  Generating Software:       'TerraScan'
-  File Creation Day/Year:    0/0
-  Header Size                227
-  Offset to Point Data       1994
-  Number Var. Length Records 4
-  Point Data Format          1
-  Point Data Record Length   28
-  Number of Point Records    106
-  Number of Points by Return 90 12 2 2 0
-  Scale Factor X Y Z         0.01 0.01 0.01
-  Offset X Y Z               -0.000000 -0.000000 -0.000000
-  Min X Y Z                  635616.310000 848977.790000 407.350000
-  Max X Y Z                  638864.600000 853362.370000 536.840000
- Spatial Reference           +proj=lcc +lat_1=43 +lat_2=45.5 +lat_0=41.75 +lon_0=-120.5 +x_0=399999.9999984 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=ft +no_defs 
+#---------------------------------------------------------
+#  Header Summary
+#---------------------------------------------------------
+#  File Name: /home/kutsurak/work/monet/sources/monetdb-test-data/lidar/directory_loading/lidar1.las
+#  Version:                    1.2
+#  Source ID:                  0
+#  Reserved:                   0
+#  Project ID/GUID:           '00000000-0000-0000-0000-000000000000'
+#  System Identifier:         ''
+#  Generating Software:       'TerraScan'
+#  File Creation Day/Year:    0/0
+#  Header Size                227
+#  Offset to Point Data       1994
+#  Number Var. Length Records 4
+#  Point Data Format          1
+#  Point Data Record Length   28
+#  Number of Point Records    106
+#  Number of Points by Return 90 12 2 2 0
+#  Scale Factor X Y Z         0.01 0.01 0.01
+#  Offset X Y Z               -0.000000 -0.000000 -0.000000
+#  Min X Y Z                  635616.310000 848977.790000 407.350000
+#  Max X Y Z                  638864.600000 853362.370000 536.840000
+# Spatial Reference           +proj=lcc +lat_1=43 +lat_2=45.5 +lat_0=41.75 +lon_0=-120.5 +x_0=399999.9999984 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=ft +no_defs 
 
----------------------------------------------------------
-  VLR Summary
----------------------------------------------------------
-   User: 'liblas' - Description: 'OGR variant of OpenGIS WKT SRS'
-   ID: 2112 Length: 720
+#---------------------------------------------------------
+#  VLR Summary
+#---------------------------------------------------------
+#   User: 'liblas' - Description: 'OGR variant of OpenGIS WKT SRS'
+#   ID: 2112 Length: 720
 
-   User: 'LASF_Projection' - Description: 'GeoTIFF GeoKeyDirectoryTag'
-   ID: 34735 Length: 64
+#   User: 'LASF_Projection' - Description: 'GeoTIFF GeoKeyDirectoryTag'
+#   ID: 34735 Length: 64
 
-   User: 'LASF_Projection' - Description: 'GeoTIFF GeoAsciiParamsTag'
-   ID: 34737 Length: 47
+#   User: 'LASF_Projection' - Description: 'GeoTIFF GeoAsciiParamsTag'
+#   ID: 34737 Length: 47
 
-   User: 'liblas' - Description: 'OGR variant of OpenGIS WKT SRS'
-   ID: 2112 Length: 720
+#   User: 'liblas' - Description: 'OGR variant of OpenGIS WKT SRS'
+#   ID: 2112 Length: 720
 
 Scale: 0.010000 0.010000 0.010000
 Decimal type scale: 2 2 2
@@ -74,44 +74,44 @@ Decimal type precision: 6 6 3
 decimal digits: 2 2 2
 total digits: 8 8 5
 
----------------------------------------------------------
-  Header Summary
----------------------------------------------------------
-  File Name: /home/kutsurak/work/monet/sources/monetdb-test-data/lidar/directory_loading/lidar2.las
-  Version:                    1.2
-  Source ID:                  0
-  Reserved:                   0
-  Project ID/GUID:           '00000000-0000-0000-0000-000000000000'
-  System Identifier:         ''
-  Generating Software:       'TerraScan'
-  File Creation Day/Year:    0/0
-  Header Size                227
-  Offset to Point Data       1994
-  Number Var. Length Records 4
-  Point Data Format          1
-  Point Data Record Length   28
-  Number of Point Records    106
-  Number of Points by Return 90 12 2 2 0
-  Scale Factor X Y Z         0.01 0.01 0.01
-  Offset X Y Z               -0.000000 -0.000000 -0.000000
-  Min X Y Z                  635616.310000 848977.790000 407.350000
-  Max X Y Z                  638864.600000 853362.370000 536.840000
- Spatial Reference           +proj=lcc +lat_1=43 +lat_2=45.5 +lat_0=41.75 +lon_0=-120.5 +x_0=399999.9999984 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=ft +no_defs 
+#---------------------------------------------------------
+#  Header Summary
+#---------------------------------------------------------
+#  File Name: /home/kutsurak/work/monet/sources/monetdb-test-data/lidar/directory_loading/lidar2.las
+#  Version:                    1.2
+#  Source ID:                  0
+#  Reserved:                   0
+#  Project ID/GUID:           '00000000-0000-0000-0000-000000000000'
+#  System Identifier:         ''
+#  Generating Software:       'TerraScan'
+#  File Creation Day/Year:    0/0
+#  Header Size                227
+#  Offset to Point Data       1994
+#  Number Var. Length Records 4
+#  Point Data Format          1
+#  Point Data Record Length   28
+#  Number of Point Records    106
+#  Number of Points by Return 90 12 2 2 0
+#  Scale Factor X Y Z         0.01 0.01 0.01
+#  Offset X Y Z               -0.000000 -0.000000 -0.000000
+#  Min X Y Z                  635616.310000 848977.790000 407.350000
+#  Max X Y Z                  638864.600000 853362.370000 536.840000
+# Spatial Reference           +proj=lcc +lat_1=43 +lat_2=45.5 +lat_0=41.75 +lon_0=-120.5 +x_0=399999.9999984 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=ft +no_defs 
 
----------------------------------------------------------
-  VLR Summary
----------------------------------------------------------
-   User: 'liblas' - Description: 'OGR variant of OpenGIS WKT SRS'
-   ID: 2112 Length: 720
+#---------------------------------------------------------
+#  VLR Summary
+#---------------------------------------------------------
+#   User: 'liblas' - Description: 'OGR variant of OpenGIS WKT SRS'
+#   ID: 2112 Length: 720
 
-   User: 'LASF_Projection' - Description: 'GeoTIFF GeoKeyDirectoryTag'
-   ID: 34735 Length: 64
+#   User: 'LASF_Projection' - Description: 'GeoTIFF GeoKeyDirectoryTag'
+#   ID: 34735 Length: 64
 
-   User: 'LASF_Projection' - Description: 'GeoTIFF GeoAsciiParamsTag'
-   ID: 34737 Length: 47
+#   User: 'LASF_Projection' - Description: 'GeoTIFF GeoAsciiParamsTag'
+#   ID: 34737 Length: 47
 
-   User: 'liblas' - Description: 'OGR variant of OpenGIS WKT SRS'
-   ID: 2112 Length: 720
+#   User: 'liblas' - Description: 'OGR variant of OpenGIS WKT SRS'
+#   ID: 2112 Length: 720
 
 Scale: 0.010000 0.010000 0.010000
 Decimal type scale: 2 2 2
