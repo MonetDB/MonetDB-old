@@ -10,3 +10,5 @@ rm -rf build/*
 
 # Remove all generated files outside of the build directory
 find . -path "NT/rules.msc" -prune -regex ".*\.am$\|.*\.msc$\|.*\.lst$\|.*\.orig$\|.*cheader\.text\.h" -exec rm \{\} +
+
+find . -regex ".*\.am$\|.*\.msc$\|.*\.lst$\|.*\.orig$\|.*cheader\.text\.h" | grep -v rules.msc | xargs rm
