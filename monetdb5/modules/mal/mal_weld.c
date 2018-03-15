@@ -100,9 +100,13 @@ static str getWeldCandList(int sid, bat s) {
 	return candList;
 }
 
-static void dumpWeldProgram(weldState *wstate) {
+static void dumpProgram(weldState *wstate, MalBlkPtr mb) {
 	FILE *f = fopen(tmpnam(NULL), "w");
 	int i;
+	for (i = 0; i < mb->stop; i++) {
+		fprintInstruction(f, mb, NULL, mb->stmt[i], LIST_MAL_ALL);
+	}
+	fprintf(f, "\n\n\n");
 	for (i = 0; i < (int)strlen(wstate->program); i++) {
 		if (wstate->program[i] == ' ' && wstate->program[i + 1] == '\t') {
 			fputc('\n', f);
@@ -171,9 +175,9 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	weld_error_t e = weld_error_new();
 	weld_conf_t conf = weld_conf_new();
-	(void)dumpWeldProgram; /* supress the unused warning */
+	(void)dumpProgram; /* supress the unused warning */
 #ifdef WELD_DEBUG
-	dumpWeldProgram(wstate);
+	dumpProgram(wstate, mb);
 	weld_conf_set(conf, "weld.compile.dumpCode", "true");
 	weld_conf_set(conf, "weld.compile.dumpCodeDir", "/tmp");
 #endif
