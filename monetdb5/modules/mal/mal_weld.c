@@ -30,6 +30,15 @@
 		*(TYPE *)(*ADDR) = *(TYPE *)VALUE; /* set */                    \
 	*ADDR += sizeof(TYPE);				   /* increase */
 
+struct weldMinMax {
+	char i8min, i8max;
+	int i32min, i32max;
+	long i64min, i64max;
+	float f32min, f32max;
+	double f64min, f64max;
+} weldMinMaxInst = {SCHAR_MIN, SCHAR_MAX, INT_MIN, INT_MAX, LLONG_MIN,
+					LLONG_MAX, FLT_MIN,   FLT_MAX, DBL_MIN, DBL_MAX};
+
 static void prependWeldStmt(weldState *wstate, str weldStmt) {
 	if (strlen(wstate->program) + strlen(weldStmt) >= wstate->programMaxLen) {
 		wstate->programMaxLen = strlen(wstate->program) + strlen(weldStmt) + 1;
@@ -156,6 +165,15 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				sprintf(inputStmt + inputLen, " v%d:%s,", getArg(pci, i), getWeldType(type));
 		}
 	}
+	/* Min/Max constants for the Weld types */
+	if (inputLen + 128 > inputMaxLen) {
+		inputMaxLen += STR_SIZE_INC;
+		inputStmt = realloc(inputStmt, inputMaxLen * sizeof(char));
+	}
+	inputLen += sprintf(inputStmt + inputLen,
+						"i8MIN:i8, i8MAX:i8, i32MIN:i32, i32MAX:i32, i64MIN:i64, i64MAX:i64, "
+						"f32MIN:f32, f32MAX:f32, f64MIN:f64, f64MAX:f64 ");
+
 	inputStmt[0] = '|';
 	inputStmt[inputLen - 1] = '|';
 	prependWeldStmt(wstate, inputStmt);
@@ -168,6 +186,7 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 		outputLen += sprintf(outputStmt + outputLen, " v%d,", getArg(pci, i));
 	}
+
 	outputStmt[0] = '{';
 	outputStmt[outputLen - 1] = '}';
 	appendWeldStmt(wstate, outputStmt);
@@ -192,8 +211,10 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	/* Prepare the input for Weld. We're building an array that has the layout of a struct */
 	/* Max possible size is when we only have bats, so we have 1 ptr for the array,
-	 * 1 lng for the size and 1 lng for hseqbase */
-	char *inputStruct = malloc((pci->argc - pci->retc) * (sizeof(void *) + 2 * sizeof(lng)));
+	 * 1 lng for the size and 1 lng for hseqbase. The extra 10 * sizeof(double) are for the
+	 * constants */
+	char *inputStruct =
+		malloc((pci->argc - pci->retc) * (sizeof(void *) + 2 * sizeof(lng)) + 10 * sizeof(double));
 	char *inputPtr = inputStruct;
 	for (i = pci->retc + 1; i < pci->argc; i++) { /* skip wstate on pci->retc */
 		int type = getArgType(mb, pci, i);
@@ -213,6 +234,16 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			}
 		}
 	}
+	getOrSetStructMember(&inputPtr, TYPE_bte, &weldMinMaxInst.i8min, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_bte, &weldMinMaxInst.i8max, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_int, &weldMinMaxInst.i32min, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_int, &weldMinMaxInst.i32max, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_lng, &weldMinMaxInst.i64min, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_lng, &weldMinMaxInst.i64max, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_flt, &weldMinMaxInst.f32min, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_flt, &weldMinMaxInst.f32max, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_dbl, &weldMinMaxInst.f64min, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_dbl, &weldMinMaxInst.f64max, OP_SET);
 
 	weld_value_t arg = weld_value_new(inputStruct);
 	conf = weld_conf_new();
@@ -253,7 +284,8 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 static str
-WeldAggrUnary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc) {
+WeldAggrUnary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc)
+{
 	int ret = getArg(pci, 0); /* any_1 */
 	int bid = getArg(pci, 1); /* bat[:any_1] */
 	int sid;
@@ -620,6 +652,96 @@ WeldGroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	zipStmt, dictTypeStmt, dictTypeStmt, zipStmt, groups, groups, histo, histo, extents, extents);
 	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
+}
+
+static str
+WeldAggrSub(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc)
+{
+	int ret = getArg(pci, 0); /* any_1 */
+	int bid = getArg(pci, 1); /* bat[:any_1] */
+	int gid = getArg(pci, 2); /* bat[:oid] */
+	int eid = getArg(pci, 3); /* bat[:oid] */
+	int sid = getArg(pci, 4); /* bat[:oid] ? */
+	int retType = getBatType(getArgType(mb, pci, 0));
+	int bidType = getBatType(getArgType(mb, pci, 1));
+	int sidType = getArgType(mb, pci, 4);
+	weldState *wstate = *getArgReference_ptr(stk, pci, pci->argc - 1); /* has value */
+	/* TODO Weld doesn't yet accept mismatching types for binary ops */
+	if (retType != bidType) {
+		throw(MAL, malfunc, PROGRAM_NYI);
+	}
+
+	char identValue[128];
+	if (strcmp(op, "+") == 0)
+		sprintf(identValue, "%s(0c)", getWeldType(retType));
+	else if (strcmp(op, "*") == 0)
+		sprintf(identValue, "%s(1c)", getWeldType(retType));
+	else if (strcmp(op, "min") == 0)
+		sprintf(identValue, "%sMAX", getWeldType(retType));
+	else if (strcmp(op, "max") == 0)
+		sprintf(identValue, "%sMIN", getWeldType(retType));
+
+	char weldStmt[STR_SIZE_INC];
+	sprintf(weldStmt, " \
+	let empty = result( \
+		for(rangeiter(0L, len(v%d), 1L), appender[%s], |b, i, x| \
+			merge(b, %s) \
+		) \
+	);",
+	eid, getWeldType(retType), identValue);
+
+	if (isaBatType(sidType)) {
+		bat s = *getArgReference_bat(stk, pci, 4);		/* might have value */
+		sprintf(weldStmt + strlen(weldStmt), " \
+		let v%d = result( \
+			for(%s, vecmerger[%s, %s](empty), |b, i, oid| \
+				let groupId = lookup(v%d, oid - v%dhseqbase); \
+				let val = lookup(v%d, oid - v%dhseqbase); \
+				merge(b, {groupId, val}) \
+			) \
+		); \
+		let v%dhseqbase = 0;",
+		ret, getWeldCandList(sid, s), getWeldType(retType), op, gid, gid, bid, bid, ret);
+	} else {
+		sprintf(weldStmt + strlen(weldStmt), " \
+		let v%d = result( \
+			for(zip(v%d, v%d), vecmerger[%s, %s](empty), |b, i, x| \
+				merge(b, {x.$0, x.$1}) \
+			) \
+		); \
+		let v%dhseqbase = 0;",
+		ret, gid, bid, getWeldType(retType), op, ret);
+	}
+	appendWeldStmt(wstate, weldStmt);
+	return MAL_SUCCEED;
+}
+
+str
+WeldAggrSubSum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void)cntxt;
+	return WeldAggrSub(mb, stk, pci, "+", "weld.aggrsubsum");
+}
+
+str
+WeldAggrSubProd(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void)cntxt;
+	return WeldAggrSub(mb, stk, pci, "*", "weld.aggrsubprod");
+}
+
+str
+WeldAggrSubMin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void)cntxt;
+	return WeldAggrSub(mb, stk, pci, "min", "weld.aggrsubmin");
+}
+
+str
+WeldAggrSubMax(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void)cntxt;
+	return WeldAggrSub(mb, stk, pci, "max", "weld.aggrsubmax");
 }
 
 str

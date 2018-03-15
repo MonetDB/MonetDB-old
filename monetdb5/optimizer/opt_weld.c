@@ -18,7 +18,7 @@
 #include "mal_instruction.h"
 #include "opt_weld.h"
 
-#define NUM_WELD_INSTR 12
+#define NUM_WELD_INSTR 16
 #define UNMARKED 0
 #define TEMP_MARK 1
 #define PERM_MARK 2
@@ -45,6 +45,10 @@ static void initWeldInstrs(void) {
 	/* When adding or removing instructions NUM_WELD_INSTR should be updated */
 	int i = 0;
 	addWeldInstr(aggrRef, sumRef, weldAggrSumRef);						 /* aggr.sum */
+	addWeldInstr(aggrRef, submaxRef, weldAggrSubMaxRef);				 /* aggr.submax */
+	addWeldInstr(aggrRef, subminRef, weldAggrSubMinRef);				 /* aggr.submin */
+	addWeldInstr(aggrRef, subprodRef, weldAggrSubProdRef);				 /* aggr.subprod */
+	addWeldInstr(aggrRef, subsumRef, weldAggrSubSumRef);				 /* aggr.subsum */
 	addWeldInstr(algebraRef, projectionRef, weldAlgebraProjectionRef);   /* algebra.projection*/
 	addWeldInstr(algebraRef, selectRef, weldAlgebraSelectRef);			 /* algebra.select */
 	addWeldInstr(algebraRef, thetaselectRef, weldAlgebraThetaselectRef); /* algebra.thetaselect */

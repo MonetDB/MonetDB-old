@@ -48,12 +48,44 @@ address WeldAlgebraThetaselect2
 comment "algebra.thetaselect";
 
 pattern groupgroup(b:bat[:any_1], wstate:ptr) (groups:bat[:oid], extents:bat[:oid], histo:bat[:lng])
-address WeldGroup;
-comment "group.group"
+address WeldGroup
+comment "group.group";
 
 pattern groupgroup(b:bat[:any_1], g:bat[:oid], wstate:ptr) (groups:bat[:oid], extents:bat[:oid], histo:bat[:lng])
-address WeldGroup;
-comment "group.groupdone"
+address WeldGroup
+comment "group.groupdone";
+
+pattern aggrsubsum(b:bat[:any_1], g:bat[:oid], e:bat[:any_2], skip_nils:bit, abort_on_error:bit, wstate:ptr):bat[:any_1]
+address WeldAggrSubSum
+comment "aggr.subsum";
+
+pattern aggrsubsum(b:bat[:any_1], g:bat[:oid], e:bat[:any_2], s:bat[:oid], skip_nils:bit, abort_on_error:bit, wstate:ptr):bat[:any_1]
+address WeldAggrSubSum
+comment "aggr.subsum";
+
+pattern aggrsubprod(b:bat[:any_1], g:bat[:oid], e:bat[:any_2], skip_nils:bit, abort_on_error:bit, wstate:ptr):bat[:any_1]
+address WeldAggrSubProd
+comment "aggr.subprod";
+
+pattern aggrsubprod(b:bat[:any_1], g:bat[:oid], e:bat[:any_2], s:bat[:oid], skip_nils:bit, abort_on_error:bit, wstate:ptr):bat[:any_1]
+address WeldAggrSubProd
+comment "aggr.subprod";
+
+pattern aggrsubmin(b:bat[:any_1], g:bat[:oid], e:bat[:any_2], skip_nils:bit, wstate:ptr):bat[:any_1]
+address WeldAggrSubMin
+comment "aggr.submin";
+
+pattern aggrsubmin(b:bat[:any_1], g:bat[:oid], e:bat[:any_2], s:bat[:oid], skip_nils:bit, wstate:ptr):bat[:any_1]
+address WeldAggrSubMin
+comment "aggr.submin";
+
+pattern aggrsubmax(b:bat[:any_1], g:bat[:oid], e:bat[:any_2], skip_nils:bit, wstate:ptr):bat[:any_1]
+address WeldAggrSubMax
+comment "aggr.submax";
+
+pattern aggrsubmax(b:bat[:any_1], g:bat[:oid], e:bat[:any_2], s:bat[:oid], skip_nils:bit, wstate:ptr):bat[:any_1]
+address WeldAggrSubMax
+comment "aggr.submax";
 
 EOF
 
