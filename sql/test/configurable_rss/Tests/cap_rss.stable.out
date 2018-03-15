@@ -23,18 +23,14 @@ stdout of test 'cap_rss` in directory 'sql/test/configurable_rss` itself:
 #        set size = (select count(*) from test);
 #    end while;
 #end;
-#select count(*) as record_count from test;
-% sys.L4 # table_name
-% record_count # name
-% bigint # type
-% 8 # length
-[ 16777216	]
-#select getrss() < 70000 as resident_set_size_is_less_then_70kbytes;
-% .L2 # table_name
-% resident_set_size_is_less_then_70kbytes # name
-% boolean # type
-% 5 # length
-[ true	]
+#select getrss() < 20000 as resident_set_size_is_less_then_20kbytes, quantile(c/a, 0.8)  from test;
+% .L2,	sys.L6 # table_name
+% resident_set_size_is_less_then_20kbytes,	L6 # name
+% boolean,	double # type
+% 5,	24 # length
+[ true,	0	]
+#drop table test cascade;
+#drop function getrss;
 # MonetDB 5 server v11.30.0
 # This is an unreleased version
 # Serving database 'mTests_sql_test_configurable_rss', using 2 threads

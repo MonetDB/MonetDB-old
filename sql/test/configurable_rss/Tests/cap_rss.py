@@ -19,7 +19,7 @@ def client(lang, file):
     return clt.communicate()
 
 def main():
-    srv = server_start(["--set", "gdk_mem_maxsize=70000000"])
+    srv = server_start(["--set", "gdk_mem_maxsize=20000000"])
 
     out, err = client('SQL',
                       os.path.join(os.getenv('RELSRCDIR'),
