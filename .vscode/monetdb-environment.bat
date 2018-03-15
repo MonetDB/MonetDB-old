@@ -71,13 +71,13 @@ set LIBGEOS=C:\geos-3.4.2
 set Path=%LIBGEOS%\bin;%Path%
 set Path=%LIBGEOS%\lib;%Path%
 
-rem python3
-set PYTHON3=C:\Python36
-set Path=%PYTHON3%;%Path%
-
 rem python2
 set PYTHON2=C:\Python27
 set Path=%PYTHON2%;%Path%
+
+rem python3
+set PYTHON3=C:\Python36
+set Path=%PYTHON3%;%Path%
 
 rem Python module search path
 set PYTHONPATH=%PREFIX%\lib\site-packages;%PYTHONPATH%
