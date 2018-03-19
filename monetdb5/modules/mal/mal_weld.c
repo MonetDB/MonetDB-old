@@ -75,6 +75,17 @@ static str getWeldType(int type) {
 		return NULL;
 }
 
+static str getWeldUTypeFromWidth(int width) {
+	if (width == 1)
+		return "u8";
+	else if (width == 2)
+		return "u16";
+	else if (width == 4)
+		return "u32";
+	else
+		return "u64";
+}
+
 static void getOrSetStructMember(char **addr, int type, void *value, int op) {
 	if (type == TYPE_bte) {
 		getOrSetStructMemberImpl(addr, char, value, op);
@@ -147,7 +158,7 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void)cntxt;
 	(void)mb;
 	weldState *wstate = *getArgReference_ptr(stk, pci, pci->retc);
-	int i, inputLen = 0, inputMaxLen = 0, outputLen = 0, outputMaxLen = 0;
+	int i, j, inputLen = 0, inputMaxLen = 0, outputLen = 0, outputMaxLen = 0;
 	str inputStmt = NULL, outputStmt = NULL;
 
 	/* Build the input stmt, e.g.: |v13:i32, v50:vec[i8], v50hseqbase:i64| */
@@ -157,9 +168,17 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			inputStmt = realloc(inputStmt, inputMaxLen * sizeof(char));
 		}
 		int type = getArgType(mb, pci, i);
-		if (isaBatType(type)) {
+		if (isaBatType(type) && getBatType(type) != TYPE_str) {
 			inputLen += sprintf(inputStmt + inputLen, " v%d:vec[%s], v%dhseqbase:i64,",
 								getArg(pci, i), getWeldType(getBatType(type)), getArg(pci, i));
+		} else if (isaBatType(type) && getBatType(type) == TYPE_str) {
+			bat bid = *getArgReference_bat(stk, pci, i);
+			BAT *b = BATdescriptor(bid);
+			if (b == NULL) throw(MAL, "weld.run", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
+			inputLen += sprintf(inputStmt + inputLen,
+								" v%d:vec[%s], v%dhseqbase:i64, v%dstr:vec[i8], v%dstroffset:i64,",
+								getArg(pci, i), getWeldUTypeFromWidth(b->twidth), getArg(pci, i),
+								getArg(pci, i), getArg(pci, i));
 		} else {
 			inputLen +=
 				sprintf(inputStmt + inputLen, " v%d:%s,", getArg(pci, i), getWeldType(type));
@@ -184,7 +203,12 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			outputMaxLen += STR_SIZE_INC;
 			outputStmt = realloc(outputStmt, outputMaxLen * sizeof(char));
 		}
+		int type = getArgType(mb, pci, i);
 		outputLen += sprintf(outputStmt + outputLen, " v%d,", getArg(pci, i));
+		if (isaBatType(type) && getBatType(type) == TYPE_str) {
+			/* Also return the string column base ptr */
+			outputLen += sprintf(outputStmt + outputLen, " v%dstr,", getArg(pci, i));
+		}
 	}
 
 	outputStmt[0] = '{';
@@ -210,11 +234,11 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	/* Prepare the input for Weld. We're building an array that has the layout of a struct */
-	/* Max possible size is when we only have bats, so we have 1 ptr for the array,
-	 * 1 lng for the size and 1 lng for hseqbase. The extra 10 * sizeof(double) are for the
-	 * constants */
-	char *inputStruct =
-		malloc((pci->argc - pci->retc) * (sizeof(void *) + 2 * sizeof(lng)) + 10 * sizeof(double));
+	/* Max possible size is when we only have string bats: 2 ptrs for theap and tvheap and 4 lngs
+	 * for batCount, hseqbase, stroffset and tvheap->size.
+	 * The extra 10 * sizeof(double) are for the constants */
+	char *inputStruct = malloc((pci->argc - pci->retc) * (2 * sizeof(void *) + 3 * sizeof(lng)) +
+							   10 * sizeof(double));
 	char *inputPtr = inputStruct;
 	for (i = pci->retc + 1; i < pci->argc; i++) { /* skip wstate on pci->retc */
 		int type = getArgType(mb, pci, i);
@@ -222,10 +246,15 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			bat bid = *getArgReference_bat(stk, pci, i);
 			BAT *b = BATdescriptor(bid);
 			if (b == NULL) throw(MAL, "weld.run", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
-			/* TODO handle string colums */
 			getOrSetStructMember(&inputPtr, TYPE_ptr, &b->theap.base, OP_SET);
 			getOrSetStructMember(&inputPtr, TYPE_lng, &b->batCount, OP_SET);
 			getOrSetStructMember(&inputPtr, TYPE_lng, &b->hseqbase, OP_SET);
+			if (getBatType(type) == TYPE_str) {
+				getOrSetStructMember(&inputPtr, TYPE_str, &b->tvheap->base, OP_SET);
+				getOrSetStructMember(&inputPtr, TYPE_lng, &b->tvheap->size, OP_SET);
+				lng offset = b->twidth <= 2 ? GDK_VAROFFSET : 0;
+				getOrSetStructMember(&inputPtr, TYPE_lng, &offset, OP_SET);
+			}
 		} else {
 			getOrSetStructMember(&inputPtr, type, getArgReference(stk, pci, i), OP_SET);
 			if (type == TYPE_str) {
@@ -255,7 +284,6 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		int type = getArgType(mb, pci, i);
 		if (isaBatType(type)) {
 			BAT *b = COLnew(0, getBatType(type), 0, TRANSIENT);
-			/* TODO handle string columns */
 			getOrSetStructMember(&outputStruct, TYPE_ptr, &b->theap.base, OP_GET);
 			getOrSetStructMember(&outputStruct, TYPE_lng, &b->batCount, OP_GET);
 			b->theap.free = b->batCount << b->tshift;
@@ -264,6 +292,30 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			b->theap.storage = STORE_CMEM;
 			/* TODO check if the sorted props are important for the rest of the execution */
 			b->tsorted = b->trevsorted = 0;
+			if (getBatType(type) == TYPE_str) {
+				char *base;
+				long size;
+				getOrSetStructMember(&outputStruct, TYPE_str, &base, OP_GET);
+				getOrSetStructMember(&outputStruct, TYPE_lng, &size, OP_GET);
+				/* Find the matching vheap from the input bats */
+				for (j = pci->retc; j < pci->argc; j++) {
+					int inputType = getArgType(mb, pci, j);
+					if (isaBatType(inputType) && getBatType(inputType) == TYPE_str) {
+						bat inid = *getArgReference_bat(stk, pci, j);
+						BAT *in = BATdescriptor(inid);
+						if (in == NULL) throw(MAL, "weld.run", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
+						if (in->tvheap->base == base) {
+							BBPshare(in->tvheap->parentid);
+							b->tvheap = in->tvheap;
+							b->ttype = in->ttype;
+							b->twidth = in->twidth;
+							b->tshift = in->tshift;
+							b->tvarsized = 1;
+							break;
+						}
+					}
+				}
+			}
 			BBPkeepref(b->batCacheid);
 			*getArgReference_bat(stk, pci, i) = b->batCacheid;
 		} else {
@@ -344,16 +396,22 @@ WeldAlgebraProjection(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bat leftBat = *getArgReference_bat(stk, pci, 1);	   /* might have value */
 	int right = getArg(pci, 2);							   /* bat[:any_1] */
 	weldState *wstate = *getArgReference_ptr(stk, pci, 3); /* has value */
-	str any_1 = getWeldType(getBatType(getArgType(mb, pci, 0)));
 	char weldStmt[STR_SIZE_INC];
 	sprintf(weldStmt, "\
 	let v%d = result( \
-		for (%s, appender[%s], |b: appender[%s], i: i64, oid: i64| \
+		for (%s, appender[?], |b, i, oid| \
 			merge(b, lookup(v%d, oid - v%dhseqbase)) \
 		) \
 	); \
 	let v%dhseqbase = 0L;",
-	ret, getWeldCandList(left, leftBat), any_1, any_1, right, right, ret);
+	ret, getWeldCandList(left, leftBat), right, right, ret);
+	if (getBatType(getArgType(mb, pci, 0)) == TYPE_str) {
+		/* any_1 = str */
+		sprintf(weldStmt + strlen(weldStmt), "\
+		let v%dstr = v%dstr;\
+		let v%dstroffset = v%dstroffset;",
+	   	ret, right, ret, right);
+	}
 	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
 }
@@ -487,8 +545,7 @@ WeldBatcalcBinary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc
 	int rightType = getArgType(mb, pci, 2);
 	str any_1 = getWeldType(getBatType(getArgType(mb, pci, 0)));
 
-	/* TODO Weld doesn't yet accept mismatching types for binary ops */
-	if (leftType != rightType) {
+	if (getBatType(leftType) != getBatType(rightType)) {
 		throw(MAL, malfunc, PROGRAM_NYI);
 	}
 
@@ -509,40 +566,40 @@ WeldBatcalcBinary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc
 
 		sprintf(weldStmt, "\
 		let v%d = result( \
-			for (%s, appender[%s], |b: appender[%s], i: i64, oid: i64| \
+			for (%s, appender[%s], |b, i, oid| \
 				merge(b, %s %s %s) \
 			) \
 		); \
 		let v%dhseqbase = 0L;",
-		ret, getWeldCandList(sid, s), any_1, any_1, leftStmt, op, rightStmt, ret);
+		ret, getWeldCandList(sid, s), any_1, leftStmt, op, rightStmt, ret);
 	} else {
 		if (isaBatType(leftType) && isaBatType(rightType)) {
 			sprintf(weldStmt, "\
 			let v%d = result( \
-				for (zip(v%d, v%d), appender[%s], |b: appender[%s], i: i64, x: {%s, %s}| \
+				for (zip(v%d, v%d), appender[%s], |b , i, x| \
 					merge(b, x.$0 %s x.$1) \
 				) \
 			); \
 			let v%dhseqbase = 0L;",
-			ret, left, right, any_1, any_1, any_1, any_1, op, ret);
+			ret, left, right, any_1, op, ret);
 		} else if (isaBatType(leftType)) {
 			sprintf(weldStmt, "\
 			let v%d = result( \
-				for (v%d, |b: appender[%s], i: i64, x: %s| \
+				for (v%d, appender[%s], |b, i, x| \
 					merge(b, x %s v%d) \
 				) \
 			); \
 			let v%dhseqbase = 0L;",
-			ret, left, any_1, any_1, op, right, ret);
+			ret, left, any_1, op, right, ret);
 		} else if (isaBatType(rightType)) {
 			sprintf(weldStmt, "\
 			let v%d = result( \
-				for (v%d, |b: appender[%s], i: i64, x: %s| \
+				for (v%d, appender[%s], |b, i, x| \
 					merge(b, v%d %s x) \
 				) \
 			); \
 			let v%dhseqbase = 0L;",
-			ret, right, any_1, any_1, right, op, ret);
+			ret, right, any_1, left, op, ret);
 		}
 	}
 	appendWeldStmt(wstate, weldStmt);
@@ -594,34 +651,50 @@ WeldGroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	InstrPtr dep = pci;
 	char zipStmt[STR_SIZE_INC] = {'\0'};
 	char dictTypeStmt[STR_SIZE_INC] = {'\0'};
+	char dictKeyStmt[STR_SIZE_INC] = {'\0'};
+	char structMember[64];
 	int count = 0;
 	while (dep != NULL) {
-		++count;
 		int col = getArg(dep, 3);
 		int colType = getBatType(getArgType(mb, dep, 3));
-		sprintf(zipStmt + strlen(zipStmt), "v%d,", col);
-		sprintf(dictTypeStmt + strlen(dictTypeStmt), " %s,", getWeldType(colType));
 		if (dep->argc == 6) {
 			int oldGrps = getArg(dep, 4);
 			dep = wstate->groupDeps[oldGrps];
 		} else {
 			dep = NULL;
 		}
+		sprintf(zipStmt + strlen(zipStmt), "v%d,", col);
+		sprintf(dictTypeStmt + strlen(dictTypeStmt), " %s,", getWeldType(colType));
+		if (count > 0 || dep != NULL) {
+			sprintf(structMember, ".$%d", count);
+		} else {
+			structMember[0] = '\0';
+		}
+		if (getBatType(colType) == TYPE_str) {
+			sprintf(dictKeyStmt + strlen(dictKeyStmt),
+					" strslice(v%dstr, i64(n%s) + v%dstroffset),", col, structMember, col);
+		} else {
+			sprintf(dictKeyStmt + strlen(dictKeyStmt), " n%s,", structMember);
+		}
+		++count;
 	}
 	/* Replace the last comma */
 	zipStmt[strlen(zipStmt) - 1] = '\0';
 	if (count == 1) {
 		dictTypeStmt[strlen(dictTypeStmt) - 1] = '\0';
+		dictKeyStmt[strlen(dictKeyStmt) -1] = '\0';
 	} else {
 		dictTypeStmt[0] = '{';
 		dictTypeStmt[strlen(dictTypeStmt) - 1] = '}';
+		dictKeyStmt[0] = '{';
+		dictKeyStmt[strlen(dictKeyStmt) -1] = '}';
 	}
 
 	char weldStmt[STR_SIZE_INC * 2];
 	sprintf(weldStmt, "\
 	let groupHash = result( \
 		for(zip(%s), dictmerger[%s, i64, min], |b, i, n| \
-			merge(b, {n, i}) \
+			merge(b, {%s, i}) \
 		) \
 	); \
 	let groupHashVec = tovec(groupHash); \
@@ -636,7 +709,7 @@ WeldGroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		) \
 	); \
 	let idsAndCounts = for(zip(%s), {appender[i64], vecmerger[i64, +](empty)}, |b, i, n| \
-		let groupId = lookup(groupIdsDict, n); \
+		let groupId = lookup(groupIdsDict, %s); \
 		{merge(b.$0, groupId), merge(b.$1, {groupId, 1L})} \
 	); \
 	let v%d = result(idsAndCounts.$0); \
@@ -649,7 +722,8 @@ WeldGroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		) \
 	); \
 	let v%dhseqbase = 0;",
-	zipStmt, dictTypeStmt, dictTypeStmt, zipStmt, groups, groups, histo, histo, extents, extents);
+	zipStmt, dictTypeStmt, dictKeyStmt, dictTypeStmt, zipStmt, dictKeyStmt, groups, groups, histo, histo,
+	extents, extents);
 	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
 }

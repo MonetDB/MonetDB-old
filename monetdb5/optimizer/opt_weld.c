@@ -62,8 +62,16 @@ static void initWeldInstrs(void) {
 	addWeldInstr(groupRef, subgroupdoneRef, weldGroupRef);				 /* group.subgroupdone */
 }
 
-static str getWeldRef(InstrPtr instr) {
+static str getWeldRef(MalBlkPtr mb, InstrPtr instr) {
 	int i;
+	for (i = instr->retc; i < instr->argc; i++) {
+		int argType = getArgType(mb, instr, i);
+		if (isaBatType(argType) && getBatType(argType) == TYPE_str &&
+			getModuleId(instr) != groupRef && getFunctionId(instr) != projectionRef) {
+			/* TODO For now only allow string columns for group.* and algebra.projection*/
+			return NULL;
+		}
+	}
 	for (i = 0; i < NUM_WELD_INSTR; i++) {
 		if (getModuleId(instr) == weldInstrs[i][0] && getFunctionId(instr) == weldInstrs[i][1]) {
 			return weldInstrs[i][2];
@@ -256,7 +264,7 @@ str OPTweldImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			break;
 		InstrDep *instrDep = calloc(1, sizeof(InstrDep));
 		instrDep->instr = instr;
-		instrDep->weldRef = getWeldRef(instr);
+		instrDep->weldRef = getWeldRef(mb, instr);
 		instrList[i] = instrDep;
 		/* Mark that the output vars depend on the current instr */
 		for (j = 0; j < instr->retc; j++) {
@@ -283,8 +291,8 @@ str OPTweldImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	for (i = stop - 1; i >= 0; i--) {
 		if (instrList[i] != NULL && instrList[i]->subGraphID != 0) {
 			if (findWeldCycle(instrList[i], instrList[i]->subGraphID)) {
-				/* TODO - we remove the whole graph at this time */
-				removeSubGraph(instrList, stop, instrList[i]->subGraphID);
+				instrList[i]->subGraphID = 0;
+				instrList[i]->weldRef = NULL;
 			}
 		}
 	}
