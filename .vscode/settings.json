@@ -79,5 +79,6 @@
         "NT/rules.msc.orig": true,
         "MacOSX/build": true,
         "MacOSX/usr": true,
-    }
+    },
+    "python.linting.pylintEnabled": false
 }

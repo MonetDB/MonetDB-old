@@ -52,7 +52,7 @@
         {
             "label": "run tests",
             "type": "shell",
-            "command": "export PATH=/home/aris/Installations/default-env/bin:$PATH && Mtest.py -r",
+            "command": "export PATH=/home/aris/Installations/default-env/bin:$PATH && cd ${workspaceFolder}/sql/test/delete-from-value-list/Tests && Mtest.py -r",
             "group": {
                 "kind": "test",
                 "isDefault": true
