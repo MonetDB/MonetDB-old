@@ -128,14 +128,11 @@ static void dumpProgram(weldState *wstate, MalBlkPtr mb) {
 	}
 	fprintf(f, "\n\n\n");
 	for (i = 0; i < (int)strlen(wstate->program); i++) {
-		if (wstate->program[i] == ' ' && wstate->program[i + 1] == '\t') {
+		fputc(wstate->program[i], f);
+		if (wstate->program[i] != '\t' && wstate->program[i + 1] == '\t')
 			fputc('\n', f);
-		} else {
-			fputc(wstate->program[i], f);
-		}
-		if (wstate->program[i] == ';') {
+		if (wstate->program[i] == ';')
 			fputc('\n', f);
-		}
 	}
 	fclose(f);
 }
@@ -358,20 +355,20 @@ WeldAggrUnary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc)
 	str any_1 = getWeldType(getArgType(mb, pci, 0));
 	char weldStmt[STR_SIZE_INC];
 	if (sid != -1) {
-		sprintf(weldStmt, "\
-		let v%d = result( \
-			for (%s, merger[%s, %s], |b: merger[%s, %s], i: i64, oid: i64| \
-				merge(b, lookup(v%d, oid - v%dhseqbase)) \
-			) \
-		);",
+		sprintf(weldStmt,
+		"let v%d = result("
+		"	for (%s, merger[%s, %s], |b: merger[%s, %s], i: i64, oid: i64|"
+		"		merge(b, lookup(v%d, oid - v%dhseqbase))"
+		"	)"
+		");",
 		ret, getWeldCandList(sid, s), any_1, op, any_1, op, bid, bid);
 	} else {
-		sprintf(weldStmt, "\
-		let v%d = result( \
-			for (v%d, merger[%s, %s], |b: merger[%s, %s], i: i64, x: %s| \
-				merge(b, x) \
-			) \
-		);",
+		sprintf(weldStmt,
+		"let v%d = result("
+		"	for (v%d, merger[%s, %s], |b: merger[%s, %s], i: i64, x: %s|"
+		"		merge(b, x)"
+		"	)"
+		");",
 		ret, bid, any_1, op, any_1, op, any_1);
 	}
 	appendWeldStmt(wstate, weldStmt);
@@ -397,19 +394,19 @@ WeldAlgebraProjection(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int right = getArg(pci, 2);							   /* bat[:any_1] */
 	weldState *wstate = *getArgReference_ptr(stk, pci, 3); /* has value */
 	char weldStmt[STR_SIZE_INC];
-	sprintf(weldStmt, "\
-	let v%d = result( \
-		for (%s, appender[?], |b, i, oid| \
-			merge(b, lookup(v%d, oid - v%dhseqbase)) \
-		) \
-	); \
-	let v%dhseqbase = 0L;",
+	sprintf(weldStmt,
+	"let v%d = result("
+	"	for (%s, appender[?], |b, i, oid|"
+	"		merge(b, lookup(v%d, oid - v%dhseqbase))"
+	"	)"
+	");"
+	"let v%dhseqbase = 0L;",
 	ret, getWeldCandList(left, leftBat), right, right, ret);
 	if (getBatType(getArgType(mb, pci, 0)) == TYPE_str) {
 		/* any_1 = str */
-		sprintf(weldStmt + strlen(weldStmt), "\
-		let v%dstr = v%dstr;\
-		let v%dstroffset = v%dstroffset;",
+		sprintf(weldStmt + strlen(weldStmt),
+		"let v%dstr = v%dstr;"
+		"let v%dstroffset = v%dstroffset;",
 	   	ret, right, ret, right);
 	}
 	appendWeldStmt(wstate, weldStmt);
@@ -469,16 +466,16 @@ WeldAlgebraSelect2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	sprintf(x, "lookup(v%d, oid - v%dhseqbase)", bid, bid);
-	sprintf(weldStmt, "\
-	let v%d = result( \
-		for (%s, appender[i64], |b: appender[i64], i: i64, oid: i64| \
-			if (v%d %s %s    %s    v%d %s %s, \
-				merge(b, oid), \
-				b \
-			) \
-		) \
-	); \
-	let v%dhseqbase = 0L;",
+	sprintf(weldStmt,
+	"let v%d = result("
+	"	for (%s, appender[i64], |b: appender[i64], i: i64, oid: i64|"
+	"		if (v%d %s %s    %s    v%d %s %s,"
+	"			merge(b, oid),"
+	"			b"
+	"		)"
+	"	)"
+	");"
+	"let v%dhseqbase = 0L;",
 	ret, getWeldCandList(sid, s), low, lCmp, x, op, high, rCmp, x, ret);
 	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
@@ -508,16 +505,16 @@ WeldAlgebraThetaselect2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str op = *getArgReference_str(stk, pci, 4);			   /* has value */
 	weldState *wstate = *getArgReference_ptr(stk, pci, 5); /* has value */
 	char weldStmt[STR_SIZE_INC];
-	sprintf(weldStmt, "\
-	let v%d = result( \
-		for (%s, appender[i64], |b: appender[i64], i: i64, oid: i64| \
-			if (lookup(v%d, oid - v%dhseqbase) %s v%d, \
-				merge(b, oid), \
-				b \
-			) \
-		) \
-	); \
-	let v%dhseqbase = 0L;",
+	sprintf(weldStmt,
+	"let v%d = result("
+	"	for (%s, appender[i64], |b: appender[i64], i: i64, oid: i64|"
+	"		if (lookup(v%d, oid - v%dhseqbase) %s v%d,"
+	"			merge(b, oid),"
+	"			b"
+	"		)"
+	"	)"
+	");"
+	"let v%dhseqbase = 0L;",
 	ret, getWeldCandList(sid, s), bid, bid, op, val, ret);
 	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
@@ -564,41 +561,41 @@ WeldBatcalcBinary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc
 			sprintf(rightStmt, "v%d", right);
 		}
 
-		sprintf(weldStmt, "\
-		let v%d = result( \
-			for (%s, appender[%s], |b, i, oid| \
-				merge(b, %s %s %s) \
-			) \
-		); \
-		let v%dhseqbase = 0L;",
+		sprintf(weldStmt,
+		"let v%d = result("
+		"	for (%s, appender[%s], |b, i, oid|"
+		"		merge(b, %s %s %s)"
+		"	)"
+		");"
+		"let v%dhseqbase = 0L;",
 		ret, getWeldCandList(sid, s), any_1, leftStmt, op, rightStmt, ret);
 	} else {
 		if (isaBatType(leftType) && isaBatType(rightType)) {
-			sprintf(weldStmt, "\
-			let v%d = result( \
-				for (zip(v%d, v%d), appender[%s], |b , i, x| \
-					merge(b, x.$0 %s x.$1) \
-				) \
-			); \
-			let v%dhseqbase = 0L;",
+			sprintf(weldStmt,
+			"let v%d = result("
+			"	for (zip(v%d, v%d), appender[%s], |b , i, x|"
+			"		merge(b, x.$0 %s x.$1)"
+			"	)"
+			");"
+			"let v%dhseqbase = 0L;",
 			ret, left, right, any_1, op, ret);
 		} else if (isaBatType(leftType)) {
-			sprintf(weldStmt, "\
-			let v%d = result( \
-				for (v%d, appender[%s], |b, i, x| \
-					merge(b, x %s v%d) \
-				) \
-			); \
-			let v%dhseqbase = 0L;",
+			sprintf(weldStmt,
+			"let v%d = result("
+			"	for (v%d, appender[%s], |b, i, x|"
+			"		merge(b, x %s v%d)"
+			"	)"
+			");"
+			"let v%dhseqbase = 0L;",
 			ret, left, any_1, op, right, ret);
 		} else if (isaBatType(rightType)) {
-			sprintf(weldStmt, "\
-			let v%d = result( \
-				for (v%d, appender[%s], |b, i, x| \
-					merge(b, v%d %s x) \
-				) \
-			); \
-			let v%dhseqbase = 0L;",
+			sprintf(weldStmt,
+			"let v%d = result("
+			"	for (v%d, appender[%s], |b, i, x|"
+			"		merge(b, v%d %s x)"
+			"	)"
+			");"
+			"let v%dhseqbase = 0L;",
 			ret, right, any_1, left, op, ret);
 		}
 	}
@@ -691,37 +688,37 @@ WeldGroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	char weldStmt[STR_SIZE_INC * 2];
-	sprintf(weldStmt, "\
-	let groupHash = result( \
-		for(zip(%s), dictmerger[%s, i64, min], |b, i, n| \
-			merge(b, {%s, i}) \
-		) \
-	); \
-	let groupHashVec = tovec(groupHash); \
-	let groupIdsDict = result( \
-		for(groupHashVec, dictmerger[%s, i64, min], |b, i, n| \
-			merge(b, {n.$0, i}) \
-		) \
-	); \
-	let empty = result( \
-		for(rangeiter(0L, len(groupHashVec), 1L), appender[i64], |b, i, n| \
-			merge(b, 0L) \
-		) \
-	); \
-	let idsAndCounts = for(zip(%s), {appender[i64], vecmerger[i64, +](empty)}, |b, i, n| \
-		let groupId = lookup(groupIdsDict, %s); \
-		{merge(b.$0, groupId), merge(b.$1, {groupId, 1L})} \
-	); \
-	let v%d = result(idsAndCounts.$0); \
-	let v%dhseqbase = 0; \
-	let v%d = result(idsAndCounts.$1); \
-	let v%dhseqbase = 0; \
-	let v%d = result( \
-		for(groupHashVec, vecmerger[i64, +](empty), |b, i, n| \
-			merge(b, {i, lookup(groupHash, n.$0)}) \
-		) \
-	); \
-	let v%dhseqbase = 0;",
+	sprintf(weldStmt,
+	"let groupHash = result("
+	"	for(zip(%s), dictmerger[%s, i64, min], |b, i, n|"
+	"		merge(b, {%s, i})"
+	"	)"
+	");"
+	"let groupHashVec = tovec(groupHash);"
+	"let groupIdsDict = result("
+	"	for(groupHashVec, dictmerger[%s, i64, min], |b, i, n|"
+	"		merge(b, {n.$0, i})"
+	"	)"
+	");"
+	"let empty = result("
+	"	for(rangeiter(0L, len(groupHashVec), 1L), appender[i64], |b, i, n|"
+	"		merge(b, 0L)"
+	"	)"
+	");"
+	"let idsAndCounts = for(zip(%s), {appender[i64], vecmerger[i64, +](empty)}, |b, i, n|"
+	"	let groupId = lookup(groupIdsDict, %s);"
+	"	{merge(b.$0, groupId), merge(b.$1, {groupId, 1L})}"
+	");"
+	"let v%d = result(idsAndCounts.$0);"
+	"let v%dhseqbase = 0;"
+	"let v%d = result(idsAndCounts.$1);"
+	"let v%dhseqbase = 0;"
+	"let v%d = result("
+	"	for(groupHashVec, vecmerger[i64, +](empty), |b, i, n|"
+	"		merge(b, {i, lookup(groupHash, n.$0)})"
+	"	)"
+	");"
+	"let v%dhseqbase = 0;",
 	zipStmt, dictTypeStmt, dictKeyStmt, dictTypeStmt, zipStmt, dictKeyStmt, groups, groups, histo, histo,
 	extents, extents);
 	appendWeldStmt(wstate, weldStmt);
@@ -756,34 +753,34 @@ WeldAggrSub(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc)
 		sprintf(identValue, "%sMIN", getWeldType(retType));
 
 	char weldStmt[STR_SIZE_INC];
-	sprintf(weldStmt, " \
-	let empty = result( \
-		for(rangeiter(0L, len(v%d), 1L), appender[%s], |b, i, x| \
-			merge(b, %s) \
-		) \
-	);",
+	sprintf(weldStmt,
+	"let empty = result("
+	"	for(rangeiter(0L, len(v%d), 1L), appender[%s], |b, i, x|"
+	"		merge(b, %s)"
+	"	)"
+	");",
 	eid, getWeldType(retType), identValue);
 
 	if (isaBatType(sidType)) {
 		bat s = *getArgReference_bat(stk, pci, 4);		/* might have value */
-		sprintf(weldStmt + strlen(weldStmt), " \
-		let v%d = result( \
-			for(%s, vecmerger[%s, %s](empty), |b, i, oid| \
-				let groupId = lookup(v%d, oid - v%dhseqbase); \
-				let val = lookup(v%d, oid - v%dhseqbase); \
-				merge(b, {groupId, val}) \
-			) \
-		); \
-		let v%dhseqbase = 0;",
+		sprintf(weldStmt + strlen(weldStmt),
+		"let v%d = result("
+		"	for(%s, vecmerger[%s, %s](empty), |b, i, oid|"
+		"		let groupId = lookup(v%d, oid - v%dhseqbase);"
+		"		let val = lookup(v%d, oid - v%dhseqbase);"
+		"		merge(b, {groupId, val})"
+		"	)"
+		");"
+		"let v%dhseqbase = 0;",
 		ret, getWeldCandList(sid, s), getWeldType(retType), op, gid, gid, bid, bid, ret);
 	} else {
-		sprintf(weldStmt + strlen(weldStmt), " \
-		let v%d = result( \
-			for(zip(v%d, v%d), vecmerger[%s, %s](empty), |b, i, x| \
-				merge(b, {x.$0, x.$1}) \
-			) \
-		); \
-		let v%dhseqbase = 0;",
+		sprintf(weldStmt + strlen(weldStmt),
+		"let v%d = result("
+		"	for(zip(v%d, v%d), vecmerger[%s, %s](empty), |b, i, x|"
+		"		merge(b, {x.$0, x.$1})"
+		"	)"
+		");"
+		"let v%dhseqbase = 0;",
 		ret, gid, bid, getWeldType(retType), op, ret);
 	}
 	appendWeldStmt(wstate, weldStmt);
