@@ -797,9 +797,6 @@ typedef struct {
 /* assert that atom width is power of 2, i.e., width == 1<<shift */
 #define assert_shift_width(shift,width) assert(((shift) == 0 && (width) == 0) || ((unsigned)1<<(shift)) == (unsigned)(width))
 
-#define GDKLIBRARY_SORTEDPOS	061030U	/* version where we can't trust no(rev)sorted */
-#define GDKLIBRARY_OLDWKB	061031U	/* old geom WKB format */
-#define GDKLIBRARY_INSERTED	061032U	/* inserted and deleted in BBP.dir */
 #define GDKLIBRARY_HEADED	061033U	/* head properties are stored */
 #define GDKLIBRARY_NOKEY	061034U	/* nokey values can't be trusted */
 #define GDKLIBRARY_BADEMPTY	061035U	/* possibility of duplicate empty str */
@@ -1302,7 +1299,7 @@ bat_iterator(BAT *b)
  * @item void
  * @tab BATsetcount (BAT *b, BUN cnt)
  * @item BAT *
- * @tab BATkey (BAT *b, int onoff)
+ * @tab BATkey (BAT *b, bool onoff)
  * @item BAT *
  * @tab BATmode (BAT *b, int mode)
  * @item BAT *
@@ -1344,7 +1341,7 @@ gdk_export BUN BATcount_no_nil(BAT *b);
 gdk_export void BATsetcapacity(BAT *b, BUN cnt);
 gdk_export void BATsetcount(BAT *b, BUN cnt);
 gdk_export BUN BATgrows(BAT *b);
-gdk_export gdk_return BATkey(BAT *b, int onoff);
+gdk_export gdk_return BATkey(BAT *b, bool onoff);
 gdk_export gdk_return BATmode(BAT *b, int onoff);
 gdk_export gdk_return BATroles(BAT *b, const char *tnme);
 gdk_export void BAThseqbase(BAT *b, oid o);
