@@ -18,7 +18,7 @@
 #include "mal_instruction.h"
 #include "opt_weld.h"
 
-#define NUM_WELD_INSTR 16
+#define NUM_WELD_INSTR 17
 #define UNMARKED 0
 #define TEMP_MARK 1
 #define PERM_MARK 2
@@ -60,6 +60,7 @@ static void initWeldInstrs(void) {
 	addWeldInstr(groupRef, subgroupRef, weldGroupRef);					 /* group.subgroup */
 	addWeldInstr(groupRef, groupdoneRef, weldGroupRef);					 /* group.groupdone */
 	addWeldInstr(groupRef, subgroupdoneRef, weldGroupRef);				 /* group.subgroupdone */
+	addWeldInstr(sqlRef, projectdeltaRef, weldSqlProjectDeltaRef);		 /* sql.projectdelta */
 }
 
 static str getWeldRef(MalBlkPtr mb, InstrPtr instr) {

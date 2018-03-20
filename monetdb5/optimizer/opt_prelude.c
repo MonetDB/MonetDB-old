@@ -316,6 +316,7 @@ str weldInitStateRef;
 str weldLanguagePassRef;
 str weldRef;
 str weldRunRef;
+str weldSqlProjectDeltaRef;
 str wlcRef;
 str wlrRef;
 str zero_or_oneRef;
@@ -618,6 +619,7 @@ void optimizerInit(void)
 	weldLanguagePassRef = putName("languagepass");
 	weldRef = putName("weld");
 	weldRunRef = putName("run");
+	weldSqlProjectDeltaRef = putName("sqlprojectdelta");
 	wlcRef = putName("wlc");
 	wlrRef = putName("wlr");
 	selectRef = putName("select");

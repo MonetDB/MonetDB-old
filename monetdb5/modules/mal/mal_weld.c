@@ -388,11 +388,11 @@ WeldAlgebraProjection(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) cntxt;
 	(void) mb;
 
-	int ret = getArg(pci, 0);							   /* bat[:any_1] */
-	int left = getArg(pci, 1);							   /* bat[:oid] */
-	bat leftBat = *getArgReference_bat(stk, pci, 1);	   /* might have value */
-	int right = getArg(pci, 2);							   /* bat[:any_1] */
-	weldState *wstate = *getArgReference_ptr(stk, pci, 3); /* has value */
+	int ret = getArg(pci, 0);										   /* bat[:any_1] */
+	int left = getArg(pci, 1);										   /* bat[:oid] */
+	bat leftBat = *getArgReference_bat(stk, pci, 1);				   /* might have value */
+	int right = getArg(pci, 2);										   /* bat[:any_1] */
+	weldState *wstate = *getArgReference_ptr(stk, pci, pci->argc - 1); /* has value */
 	char weldStmt[STR_SIZE_INC];
 	sprintf(weldStmt,
 	"let v%d = result("
@@ -411,6 +411,13 @@ WeldAlgebraProjection(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
+}
+
+str
+WeldSqlProjectDelta(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	/* For tpch queries we only do project(s, c) */
+	return WeldAlgebraProjection(cntxt, mb, stk, pci);
 }
 
 str

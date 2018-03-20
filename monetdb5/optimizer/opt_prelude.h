@@ -324,6 +324,7 @@ mal_export  str weldInitStateRef;
 mal_export  str weldLanguagePassRef;
 mal_export  str weldRef;
 mal_export  str weldRunRef;
+mal_export  str weldSqlProjectDeltaRef;
 mal_export  str wlcRef;
 mal_export  str wlrRef;
 mal_export  str zero_or_oneRef;
