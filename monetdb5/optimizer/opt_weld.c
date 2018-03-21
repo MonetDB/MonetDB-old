@@ -37,8 +37,9 @@ typedef struct InstrDependecy {
 	int subGraphID;
 	int isSubGraph;
 	int topoMark;
-	struct InstrDependecy **inputs;
+	struct InstrDependecy **inputs, **outputs;
 	int numInputs, sizeInputs;
+	int numOutputs, sizeOutputs;
 } InstrDep;
 
 static void initWeldInstrs(void) {
@@ -96,6 +97,21 @@ static void addInputInstrDep(InstrDep *instrDep, InstrDep *input) {
 	instrDep->inputs[instrDep->numInputs++] = input;
 }
 
+static void addOutputInstrDep(InstrDep *instrDep, InstrDep *output) {
+	int i;
+	if (instrDep == NULL || output == NULL) return;
+	for (i = 0; i < instrDep->numOutputs; i++) {
+		if (instrDep->outputs[i] == output) {
+			return;
+		}
+	}
+	if (instrDep->numOutputs >= instrDep->sizeOutputs) {
+		instrDep->sizeOutputs += 8;
+		instrDep->outputs = realloc(instrDep->outputs, instrDep->sizeOutputs * sizeof(InstrDep *));
+	}
+	instrDep->outputs[instrDep->numOutputs++] = output;
+}
+
 static void removeSubGraph(InstrDep **instrList, int size, int subGraphID) {
 	int i;
 	for (i = 0; i < size; i++) {
@@ -106,46 +122,66 @@ static void removeSubGraph(InstrDep **instrList, int size, int subGraphID) {
 	}
 }
 
-/* Find weld subGraphIDs by marking nodes with a subGraph id.
- * If two nodes are connected but have different subGraphIDs, the smallest
- * id is kept. Returns 1 if a change was made */
-static int marksubGraphID(InstrDep *instrDep, int *nextsubGraphID) {
-	if (instrDep == NULL || instrDep->weldRef == NULL) return 0;
-	InstrDep *input;
-	int i, change = 0;
+/* Find weld subGraphIDs by marking nodes with a subGraph id. */
+static void marksubGraph(InstrDep *instrDep, int *nextsubGraphID) {
+	int i;
+	if (instrDep == NULL || instrDep->weldRef == NULL)
+		return;
 	if (instrDep->subGraphID == 0) {
 		++*nextsubGraphID;
 		instrDep->subGraphID = *nextsubGraphID;
-		change = 1;
 	}
-
 	for (i = 0; i < instrDep->numInputs; i++) {
-		input = instrDep->inputs[i];
-		if (input->weldRef == NULL) {
-			continue;
-		} else if (input->subGraphID == 0 || input->subGraphID > instrDep->subGraphID) {
+		InstrDep *input = instrDep->inputs[i];
+		if (input->weldRef != NULL && input->subGraphID == 0) {
 			input->subGraphID = instrDep->subGraphID;
-			marksubGraphID(input, nextsubGraphID);
-			change = 1;
-		} else if (input->subGraphID < instrDep->subGraphID) {
-			instrDep->subGraphID = input->subGraphID;
-			change = 1;
+			marksubGraph(input, nextsubGraphID);
 		}
 	}
-	return change;
+	for (i = 0; i < instrDep->numOutputs; i++) {
+		InstrDep *output = instrDep->outputs[i];
+		if (output->weldRef != NULL && output->subGraphID == 0) {
+			output->subGraphID = instrDep->subGraphID;
+			marksubGraph(output, nextsubGraphID);
+		}
+
+	}
 }
 
-/* Find cycles that would result in the DAG obtained from collapsing subgraphs
- */
+/* All nodes that belong to subgraph=sourceID and have an input path leading
+ * to instrDep will now become part of subgraph=newID */
+static void partitionSubGraph(InstrDep *instrDep, int sourceID, int newID) {
+	if (instrDep == NULL)
+		return;
+	int i;
+	for (i = 0; i < instrDep->numOutputs; i++) {
+		InstrDep *output = instrDep->outputs[i];
+		if (output->subGraphID == sourceID) {
+			output->subGraphID = newID;
+			partitionSubGraph(output, sourceID, newID);
+		}
+	}
+}
+
+static void changeSubGraphID(InstrDep **instrList, int size, int sourceID, int newID) {
+	int i;
+	for (i = 0; i < size; i++) {
+		if (instrList[i] != NULL && instrList[i]->subGraphID == sourceID) {
+			instrList[i]->subGraphID = newID;
+		}
+	}
+}
+
+/* Find cycles that would result in the DAG obtained from collapsing subgraphs.
+ * It checkes whether when starting from a node not part of the subgraph there's an input dependency
+ * path that leads back to a Weld subgraph with subGraphID = sourceID */
 static int findWeldCycle(InstrDep *instrDep, int sourceID) {
-	if (instrDep == NULL) return 0;
+	if (instrDep == NULL)
+		return 0;
 	int i, result = 0;
 	for (i = 0; i < instrDep->numInputs; i++) {
 		InstrDep *input = instrDep->inputs[i];
-		/* We started from a node in the subgraph, we're now visiting a node
-		 * that is not part of the subgraph but depends on a node from the
-		 * subgraph */
-		if (instrDep->subGraphID != sourceID && input->subGraphID == sourceID) {
+		if (input->subGraphID == sourceID) {
 			return 1;
 		} else {
 			result |= findWeldCycle(input, sourceID);
@@ -193,12 +229,12 @@ static void convertToWeld(MalBlkPtr mb, InstrDep *instrDep, int wstateVar) {
 	pushInstruction(mb, weldInstr);
 }
 
-/* Add the vars produced by non-weld instrs to the weldRun instr */
-static void addWeldArgs(MalBlkPtr mb, InstrPtr *weldRun, InstrPtr instr, InstrDep **varInstrMap) {
+/* Add the vars produced by non-weld instrs or Weld instrs belonging to a different subgraph */
+static void addWeldArgs(MalBlkPtr mb, InstrPtr *weldRun, InstrDep *instrDep, InstrDep **varInstrMap) {
 	int i, j;
-	for (i = instr->retc; i < instr->argc; i++) {
-		int arg = getArg(instr, i);
-		if (varInstrMap[arg] == NULL || varInstrMap[arg]->weldRef == NULL) {
+	for (i = instrDep->instr->retc; i < instrDep->instr->argc; i++) {
+		int arg = getArg(instrDep->instr, i);
+		if (varInstrMap[arg] == NULL || varInstrMap[arg]->subGraphID != instrDep->subGraphID) {
 			int alreadyAdded = 0;
 			for (j = (*weldRun)->retc; j < (*weldRun)->argc; j++) {
 				if (arg == getArg(*weldRun, j)) {
@@ -214,17 +250,19 @@ static void addWeldArgs(MalBlkPtr mb, InstrPtr *weldRun, InstrPtr instr, InstrDe
 }
 
 /* Retrieve results produced by Weld instructions that are later needed by non-weld instrs */
-static void getWeldResults(MalBlkPtr mb, InstrPtr *weldRun, InstrPtr instr, InstrDep **instrList,
-						   int stop) {
+static void getWeldResults(MalBlkPtr mb, InstrPtr *weldRun, InstrDep *instrDep,
+						   InstrDep **instrList, int stop) {
 	int i, j, k, l;
-	for (i = 0; i < instr->retc; i++) {
-		int ret = getArg(instr, i);
+	for (i = 0; i < instrDep->instr->retc; i++) {
+		int ret = getArg(instrDep->instr, i);
 		for (j = 0; j < stop; j++) {
-			InstrDep *instrDep = instrList[j];
-			if (instrDep != NULL && instrDep->weldRef == NULL && !instrDep->isSubGraph) {
-				for (k = instrDep->instr->retc; k < instrDep->instr->argc; k++) {
-					/* If "ret" is an argument for a non-weld instr */
-					if (ret == getArg(instrDep->instr, k)) {
+			InstrDep *outputDep = instrList[j];
+			if (outputDep != NULL && outputDep->subGraphID != instrDep->subGraphID &&
+				!outputDep->isSubGraph) {
+				for (k = outputDep->instr->retc; k < outputDep->instr->argc; k++) {
+					if (ret == getArg(outputDep->instr, k)) {
+						/* If "ret" is an argument for an instr form a different subgraph or a mal
+						 * instr */
 						int alreadyAdded = 0;
 						for (l = 0; l < (*weldRun)->retc; l++) {
 							if (ret == getArg(*weldRun, l)) {
@@ -275,30 +313,62 @@ str OPTweldImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		for (j = instr->retc; j < instr->argc; j++) {
 			InstrDep *input = varInstrMap[getArg(instr, j)];
 			addInputInstrDep(instrDep, input);
+			addOutputInstrDep(input, instrDep);
 		}
 	}
 	fcnEnd = i;
 
 	/* Find the weld subgraphs */
 	subGraphIDs = 0;
+	for (i = stop - 1; i >= 0; i--) {
+		marksubGraph(instrList[i], &subGraphIDs);
+	}
+	/* Merge adjacent subgraphs that depend on the same input MAL node */
 	change = 1;
 	while (change) {
 		change = 0;
 		for (i = stop - 1; i >= 0; i--) {
-			change |= marksubGraphID(instrList[i], &subGraphIDs);
-		}
-	}
-	/* Remove weld dependency cycles */
-	for (i = stop - 1; i >= 0; i--) {
-		if (instrList[i] != NULL && instrList[i]->subGraphID != 0) {
-			if (findWeldCycle(instrList[i], instrList[i]->subGraphID)) {
-				instrList[i]->subGraphID = 0;
-				instrList[i]->weldRef = NULL;
+			if (instrList[i] != NULL && instrList[i]->subGraphID == 0) {
+				int minOutputSubGraphID = INT_MAX;
+				for (j = 0; j < instrList[i]->numOutputs; j++) {
+					InstrDep *output = instrList[i]->outputs[j];
+					if (output->subGraphID != 0 && output->subGraphID < minOutputSubGraphID) {
+						minOutputSubGraphID = output->subGraphID;
+					}
+				}
+				if (minOutputSubGraphID != INT_MAX) {
+					for (j = 0; j < instrList[i]->numOutputs; j++) {
+						InstrDep *output = instrList[i]->outputs[j];
+						if (output->subGraphID != 0 && output->subGraphID != minOutputSubGraphID) {
+							changeSubGraphID(instrList, stop, output->subGraphID, minOutputSubGraphID);
+							change = 1;
+						}
+					}
+				}
 			}
 		}
 	}
-
-	/* Get the number of subGraphIDs */
+	/* Remove weld dependency cycles */
+	change = 1;
+	while (change) {
+		change = 0;
+		for (i = stop - 1; i >= 0; i--) {
+			if (instrList[i] != NULL && instrList[i]->subGraphID != 0) {
+				for (j = 0; j < instrList[i]->numInputs; j++) {
+					InstrDep *input = instrList[i]->inputs[j];
+					if (input->subGraphID != instrList[i]->subGraphID) {
+						if (findWeldCycle(input, instrList[i]->subGraphID)) {
+							change = 1;
+							++subGraphIDs;
+							partitionSubGraph(input, instrList[i]->subGraphID, subGraphIDs);
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+	/* Count the number of nodes in each subgraph */
 	subgraphCountsSize = subGraphIDs + 1;
 	subgraphCounts = calloc(subgraphCountsSize, sizeof(int));
 	for (i = 0; i < stop; i++) {
@@ -332,25 +402,24 @@ str OPTweldImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	/* Collapse a subgraph into its representative node */
 	for (i = 0; i < subGraphIDs; i++) {
-		/* For each node connected to the subgraph but not part of it */
 		for (j = stop - 1; j >= 0; j--) {
 			InstrDep *instrDep = instrList[j];
 			if (instrDep != NULL && instrDep->subGraphID == 0) {
-				/* For each input node from the subgraph */
+				/* A MAL node, not part of any subgraph */
 				for (k = 0; k < instrDep->numInputs; k++) {
+					/* For each input dependecy of the node */
 					InstrDep *input = instrDep->inputs[k];
 					if (input->subGraphID == subGraphRep[i].subGraphID) {
-						/* Replace the node with the subgraph representative */
+						/* Replace the dependecy with the subgraph representative */
 						instrDep->inputs[k] = &subGraphRep[i];
 					}
 				}
 			} else if (instrDep != NULL && instrDep->subGraphID == subGraphRep[i].subGraphID) {
-				/* Add the dependency of non-weld inputs */
+				/* A Weld node part of the current subgraph */
 				for (k = 0; k < instrDep->numInputs; k++) {
 					InstrDep *input = instrDep->inputs[k];
-					if (input->subGraphID == 0) {
-						/* Replace the node with the subgraph representative */
-						instrDep->inputs[k] = &subGraphRep[i];
+					if (input->subGraphID != instrDep->subGraphID) {
+						/* instDep dependes on a MAL node or a Weld node from another subgraph */
 						addInputInstrDep(&subGraphRep[i], input);
 					}
 				}
@@ -380,16 +449,16 @@ str OPTweldImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			InstrPtr weldRun = newInstruction(0, weldRef, weldRunRef);
 			initWeldState(mb, &wstateVar);
 			ordSubgraphSize = 0;
-			for (j = 0; j < stop; j++) {
+			for (j = stop - 1; j >= 0; j--) {
 				topoSort(instrList[j], ordInstr[i]->subGraphID, ordSubgraph, &ordSubgraphSize);
 			}
 			for (j = 0; j < ordSubgraphSize; j++) {
-				getWeldResults(mb, &weldRun, ordSubgraph[j]->instr, instrList, stop);
+				getWeldResults(mb, &weldRun, ordSubgraph[j], instrList, stop);
 			}
 			weldRun = pushArgument(mb, weldRun, wstateVar);
 			for (j = 0; j < ordSubgraphSize; j++) {
 				++actions;
-				addWeldArgs(mb, &weldRun, ordSubgraph[j]->instr, varInstrMap);
+				addWeldArgs(mb, &weldRun, ordSubgraph[j], varInstrMap);
 				convertToWeld(mb, ordSubgraph[j], wstateVar);
 			}
 			pushInstruction(mb, weldRun);
@@ -406,6 +475,7 @@ str OPTweldImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	for (i = 0; i < stop; i++) {
 		if (instrList[i] != NULL) {
 			free(instrList[i]->inputs);
+			free(instrList[i]->outputs);
 			free(instrList[i]);
 		}
 	}

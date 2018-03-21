@@ -1,7 +1,7 @@
 function foo();
 	X1:bat[:lng] := bat.new(:lng);
 	X2:bat[:lng] := bat.new(:lng);
-	X3:bat[:lng] := batcalc.*(X1, X2); # a subgraph with a single weld instr, will not be transformed
+	X3:bat[:lng] := batcalc.*(X1, X2); # a subgraph with a single weld instr, will be merged
 
 	X4:bat[:lng] := bat.new(:lng);
 	X5:bat[:lng] := batcalc.*(X1, X2);
@@ -12,9 +12,12 @@ function foo();
 	X9:bat[:lng] := batcalc.*(X7, X8); # X9 and X7 form a subgraph but X8 should brake it
 
 	X10:bat[:lng] := batcalc.*(X1, X2);
-	X11:bat[:lng] := batcalc.*(X10, X4); # another Weld portable subgraph
+	X11:bat[:lng] := algebra.sort(X10, false:bit, false:bit); # not implementable in Weld
+	X12:bat[:lng] := batcalc.*(X11, X4);
+	X13:bat[:lng] := batcalc.*(X12, X4); # will from a subgraph with X11
+	X14:bat[:lng] := batcalc.*(X10, X11);
 
-	sql.resultSet(nil:bat[:str], nil:bat[:str], nil:bat[:str], nil:bat[:int], nil:bat[:int], X3, X6, X9, X10, X11);
+	sql.resultSet(nil:bat[:str], nil:bat[:str], nil:bat[:str], nil:bat[:int], nil:bat[:int], X3, X6, X9, X13, X14);
 end;
 
 optimizer.weld("user","foo");
