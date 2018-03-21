@@ -283,6 +283,8 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BAT *b = COLnew(0, getBatType(type), 0, TRANSIENT);
 			getOrSetStructMember(&outputStruct, TYPE_ptr, &b->theap.base, OP_GET);
 			getOrSetStructMember(&outputStruct, TYPE_lng, &b->batCount, OP_GET);
+			if (b->batCount == 0)
+				b->theap.base = NULL;
 			b->theap.free = b->batCount << b->tshift;
 			b->theap.size = b->batCount << b->tshift;
 			b->batCapacity = b->batCount;
