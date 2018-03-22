@@ -285,8 +285,6 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			getOrSetStructMember(&outputStruct, TYPE_lng, &b->batCount, OP_GET);
 			if (b->batCount == 0)
 				b->theap.base = NULL;
-			b->theap.free = b->batCount << b->tshift;
-			b->theap.size = b->batCount << b->tshift;
 			b->batCapacity = b->batCount;
 			b->theap.storage = STORE_CMEM;
 			/* TODO check if the sorted props are important for the rest of the execution */
@@ -315,6 +313,8 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					}
 				}
 			}
+			b->theap.free = b->batCount << b->tshift;
+			b->theap.size = b->batCount << b->tshift;
 			BBPkeepref(b->batCacheid);
 			*getArgReference_bat(stk, pci, i) = b->batCacheid;
 		} else {
