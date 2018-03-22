@@ -541,8 +541,25 @@ WeldAlgebraThetaselect1(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
 	(void) mb;
-	(void) stk;
-	(void) pci;
+
+	int ret = getArg(pci, 0);							   /* bat[:oid] */
+	int bid = getArg(pci, 1);							   /* bat[:any_1] */
+	int val = getArg(pci, 2);							   /* any_1 */
+	str op = *getArgReference_str(stk, pci, 3);			   /* has value */
+	weldState *wstate = *getArgReference_ptr(stk, pci, 4); /* has value */
+	char weldStmt[STR_SIZE_INC];
+	sprintf(weldStmt,
+	"let v%d = result("
+	"	for (v%d, appender[i64], |b, i, x|"
+	"		if (x %s v%d,"
+	"			merge(b, i + v%dhseqbase),"
+	"			b"
+	"		)"
+	"	)"
+	");"
+	"let v%dhseqbase = 0L;",
+	ret, bid, op, val, bid, ret);
+	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
 }
 
