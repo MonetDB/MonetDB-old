@@ -394,16 +394,29 @@ WeldAlgebraProjection(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int left = getArg(pci, 1);										   /* bat[:oid] */
 	bat leftBat = *getArgReference_bat(stk, pci, 1);				   /* might have value */
 	int right = getArg(pci, 2);										   /* bat[:any_1] */
+	bat rightBat = *getArgReference_bat(stk, pci, 2);				   /* might have value */
 	weldState *wstate = *getArgReference_ptr(stk, pci, pci->argc - 1); /* has value */
 	char weldStmt[STR_SIZE_INC];
-	sprintf(weldStmt,
-	"let v%d = result("
-	"	for (%s, appender[?], |b, i, oid|"
-	"		merge(b, lookup(v%d, oid - v%dhseqbase))"
-	"	)"
-	");"
-	"let v%dhseqbase = 0L;",
-	ret, getWeldCandList(left, leftBat), right, right, ret);
+	BAT *rb = is_bat_nil(rightBat) ? NULL : BATdescriptor(rightBat);
+	if (rb != NULL && BATtdense(rb)) {
+		sprintf(weldStmt,
+		"let v%d = result("
+		"	for (%s, appender[?], |b, i, oid|"
+		"		merge(b, oid - v%dhseqbase + %ldL)"
+		"	)"
+		");"
+		"let v%dhseqbase = 0L;",
+		ret, getWeldCandList(left, leftBat), right, rb->tseqbase, ret);
+	} else {
+		sprintf(weldStmt,
+		"let v%d = result("
+		"	for (%s, appender[?], |b, i, oid|"
+		"		merge(b, lookup(v%d, oid - v%dhseqbase))"
+		"	)"
+		");"
+		"let v%dhseqbase = 0L;",
+		ret, getWeldCandList(left, leftBat), right, right, ret);
+	}
 	if (getBatType(getArgType(mb, pci, 0)) == TYPE_str) {
 		/* any_1 = str */
 		sprintf(weldStmt + strlen(weldStmt),
