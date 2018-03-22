@@ -29,6 +29,14 @@ mal_export str WeldAlgebraThetaselect2(Client cntxt, MalBlkPtr mb, MalStkPtr stk
 mal_export str WeldBatcalcADDsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str WeldBatcalcSUBsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str WeldBatcalcMULsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+mal_export str WeldBatcalcDIVsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+mal_export str WeldBatcalcMODsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+mal_export str WeldBatcalcLTsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+mal_export str WeldBatcalcLEsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+mal_export str WeldBatcalcEQsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+mal_export str WeldBatcalcGTsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+mal_export str WeldBatcalcGEsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+mal_export str WeldBatcalcNEsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str WeldGroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str WeldAggrSubSum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str WeldAggrSubProd(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

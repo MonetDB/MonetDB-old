@@ -438,7 +438,7 @@ WeldAlgebraSelect1(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	weldState *wstate = *getArgReference_ptr(stk, pci, 7); /* has value */
 
 	char *lCmp, *op, *rCmp;
-	char x[STR_SIZE_INC], weldStmt[STR_SIZE_INC];
+	char weldStmt[STR_SIZE_INC];
 
 	/* Inspired from gdk_select.c */
 	if (!anti) {
@@ -601,7 +601,13 @@ WeldBatcalcBinary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc
 		throw(MAL, malfunc, PROGRAM_NYI);
 	}
 
-	char weldStmt[STR_SIZE_INC];
+	char weldStmt[STR_SIZE_INC], *cast;
+	if (getBatType(getArgType(mb, pci, 0)) == TYPE_bit) {
+		cast = any_1;
+	} else {
+		cast = "";
+	}
+
 	if (sid != -1) {
 		char leftStmt[STR_SIZE_INC];
 		char rightStmt[STR_SIZE_INC];
@@ -618,40 +624,40 @@ WeldBatcalcBinary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc
 
 		sprintf(weldStmt,
 		"let v%d = result("
-		"	for (%s, appender[%s], |b, i, oid|"
-		"		merge(b, %s %s %s)"
+		"	for (%s, appender[?], |b, i, oid|"
+		"		merge(b, %s(%s %s %s))"
 		"	)"
 		");"
 		"let v%dhseqbase = 0L;",
-		ret, getWeldCandList(sid, s), any_1, leftStmt, op, rightStmt, ret);
+		ret, getWeldCandList(sid, s), cast, leftStmt, op, rightStmt, ret);
 	} else {
 		if (isaBatType(leftType) && isaBatType(rightType)) {
 			sprintf(weldStmt,
 			"let v%d = result("
-			"	for (zip(v%d, v%d), appender[%s], |b , i, x|"
-			"		merge(b, x.$0 %s x.$1)"
+			"	for (zip(v%d, v%d), appender[?], |b , i, x|"
+			"		merge(b, %s(x.$0 %s x.$1))"
 			"	)"
 			");"
 			"let v%dhseqbase = 0L;",
-			ret, left, right, any_1, op, ret);
+			ret, left, right, cast, op, ret);
 		} else if (isaBatType(leftType)) {
 			sprintf(weldStmt,
 			"let v%d = result("
-			"	for (v%d, appender[%s], |b, i, x|"
-			"		merge(b, x %s v%d)"
+			"	for (v%d, appender[?], |b, i, x|"
+			"		merge(b, %s(x %s v%d))"
 			"	)"
 			");"
 			"let v%dhseqbase = 0L;",
-			ret, left, any_1, op, right, ret);
+			ret, left, cast, op, right, ret);
 		} else if (isaBatType(rightType)) {
 			sprintf(weldStmt,
 			"let v%d = result("
-			"	for (v%d, appender[%s], |b, i, x|"
-			"		merge(b, v%d %s x)"
+			"	for (v%d, appender[?], |b, i, x|"
+			"		merge(b, %s(v%d %s x))"
 			"	)"
 			");"
 			"let v%dhseqbase = 0L;",
-			ret, right, any_1, left, op, ret);
+			ret, right, cast, left, op, ret);
 		}
 	}
 	appendWeldStmt(wstate, weldStmt);
@@ -677,6 +683,61 @@ WeldBatcalcMULsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
 	return WeldBatcalcBinary(mb, stk, pci, "*", "weld.batcalcmul");
+}
+
+str
+WeldBatcalcDIVsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	return WeldBatcalcBinary(mb, stk, pci, "/", "weld.batcalcdiv");
+}
+
+str
+WeldBatcalcLTsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	return WeldBatcalcBinary(mb, stk, pci, "<", "weld.batcalclt");
+}
+
+str
+WeldBatcalcLEsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	return WeldBatcalcBinary(mb, stk, pci, "<=", "weld.batcalcle");
+}
+str
+WeldBatcalcEQsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	return WeldBatcalcBinary(mb, stk, pci, "==", "weld.batcalceq");
+}
+
+str
+WeldBatcalcGTsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	return WeldBatcalcBinary(mb, stk, pci, ">", "weld.batcalcgt");
+}
+
+str
+WeldBatcalcGEsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	return WeldBatcalcBinary(mb, stk, pci, ">=", "weld.batcalcge");
+}
+
+str
+WeldBatcalcNEsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	return WeldBatcalcBinary(mb, stk, pci, "!=", "weld.batcalcne");
+}
+
+str
+WeldBatcalcMODsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	return WeldBatcalcBinary(mb, stk, pci, "%", "weld.batcalcmod");
 }
 
 /* Ignore the existing groups and instead use all the columns up to this point to

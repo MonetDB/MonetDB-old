@@ -109,7 +109,7 @@ comment "aggr.sum";
 EOF
 done
 
-for func in batcalcadd:ADD batcalcsub:SUB batcalcmul:MUL; do
+for func in batcalcadd:ADD batcalcsub:SUB batcalcmul:MUL batcalcdiv:DIV batcalcmod:MOD; do
     name=${func#*:}
     op=${func%:*}
     for ((i = 0; i < ${#numeric[@]}; i++)); do
@@ -147,6 +147,32 @@ EOF
 			done
 		done
     done
+done
+
+for func in batcalclt:LT batcalcle:LE batcalceq:EQ batcalcgt:GT batcalcge:GE batcalcne:NE; do
+    name=${func#*:}
+    op=${func%:*}
+	cat <<EOF
+pattern $op(b1:bat[:any_1], b2:bat[:any_1], wstate:ptr):bat[:bit]
+address WeldBatcalc${name}signal
+comment "$op";
+pattern $op(b1:bat[:any_1], b2:bat[:any_1], s:bat[:oid], wstate:ptr):bat[:bit]
+address WeldBatcalc${name}signal
+comment "$op with candidates list";
+pattern $op(b:bat[:any_1], v:any_1, wstate:ptr):bat[:bit]
+address WeldBatcalc${name}signal
+comment "$op";
+pattern $op(b:bat[:any_1], v:any_1, s:bat[:oid], wstate:ptr):bat[:bit]
+address WeldBatcalc${name}signal
+comment "$op with candidates list";
+pattern $op(v:any_1, b:bat[:any_1], wstate:ptr):bat[:bit]
+address WeldBatcalc${name}signal
+comment "$op";
+pattern $op(v:any_1, b:bat[:any_1], s:bat[:oid], wstate:ptr):bat[:bit]
+address WeldBatcalc${name}signal
+comment "$op with candidates list";
+
+EOF
 done
 
 cat <<EOF
