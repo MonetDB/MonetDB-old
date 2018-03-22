@@ -427,8 +427,54 @@ WeldAlgebraSelect1(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
 	(void) mb;
-	(void) stk;
-	(void) pci;
+
+	int ret = getArg(pci, 0);							   /* bat[:oid] */
+	int bid = getArg(pci, 1);							   /* bat[:any_1] */
+	int low = getArg(pci, 2);							   /* any_1 */
+	int high = getArg(pci, 3);							   /* any_1 */
+	int li = *getArgReference_bit(stk, pci, 4);			   /* has value */
+	int hi = *getArgReference_bit(stk, pci, 5);			   /* has value */
+	int anti = *getArgReference_bit(stk, pci, 6);		   /* has value */
+	weldState *wstate = *getArgReference_ptr(stk, pci, 7); /* has value */
+
+	char *lCmp, *op, *rCmp;
+	char x[STR_SIZE_INC], weldStmt[STR_SIZE_INC];
+
+	/* Inspired from gdk_select.c */
+	if (!anti) {
+		op = "&&";
+		if (!li)
+			lCmp = "<";
+		else
+			lCmp = "<=";
+		if (!hi)
+			rCmp = ">";
+		else
+			rCmp = ">=";
+	} else {
+		op = "||";
+		if (!li)
+			lCmp = ">=";
+		else
+			lCmp = ">";
+		if (!hi)
+			rCmp = "<=";
+		else
+			rCmp = "<";
+	}
+
+	sprintf(weldStmt,
+	"let v%d = result("
+	"	for (v%d, appender[i64], |b: appender[i64], oid: i64, x|"
+	"		if (v%d %s x    %s    v%d %s x,"
+	"			merge(b, oid),"
+	"			b"
+	"		)"
+	"	)"
+	");"
+	"let v%dhseqbase = 0L;",
+	ret, bid, low, lCmp, op, high, rCmp, ret);
+	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
 }
 
