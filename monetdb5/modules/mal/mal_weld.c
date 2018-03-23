@@ -792,18 +792,28 @@ WeldGroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* Build zip(col1, col2, ...) */
 	wstate->groupDeps[groups] = pci;
 	InstrPtr dep = pci;
+	int count = 0, colArgNo = 3;
 	char zipStmt[STR_SIZE_INC] = {'\0'};
 	char dictTypeStmt[STR_SIZE_INC] = {'\0'};
 	char dictKeyStmt[STR_SIZE_INC] = {'\0'};
 	char structMember[64];
-	int count = 0;
 	while (dep != NULL) {
-		int col = getArg(dep, 3);
-		int colType = getBatType(getArgType(mb, dep, 3));
+		int col = getArg(dep, colArgNo);
+		int colType = getBatType(getArgType(mb, dep, colArgNo));
 		if (dep->argc == 6) {
 			int oldGrps = getArg(dep, 4);
-			dep = wstate->groupDeps[oldGrps];
+			if (wstate->groupDeps[oldGrps] != NULL) {
+				/* the previous groups were computed in this Weld program so we can use the column */
+				dep = wstate->groupDeps[oldGrps];
+			} else if (colArgNo == 3) {
+				/* the previous groups were not computed in this Weld program so we need to use them */
+				colArgNo = 4;
+			} else {
+				/* currently using the precomputed group ids, this is the last step */
+				dep = NULL;
+			}
 		} else {
+			/* last column in the grouping */
 			dep = NULL;
 		}
 		sprintf(zipStmt + strlen(zipStmt), "v%d,", col);
