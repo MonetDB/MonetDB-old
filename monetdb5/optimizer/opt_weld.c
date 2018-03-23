@@ -186,16 +186,17 @@ static void changeSubGraphID(InstrDep **instrList, int size, int sourceID, int n
 static int findWeldCycle(InstrDep *instrDep, int sourceID) {
 	if (instrDep == NULL)
 		return 0;
-	int i, result = 0;
+	int i;
 	for (i = 0; i < instrDep->numInputs; i++) {
 		InstrDep *input = instrDep->inputs[i];
 		if (input->subGraphID == sourceID) {
 			return 1;
 		} else {
-			result |= findWeldCycle(input, sourceID);
+			if (findWeldCycle(input, sourceID))
+				return 1;
 		}
 	}
-	return result;
+	return 0;
 }
 
 static void topoSort(InstrDep *instrDep, int subGraphID, InstrDep **result, int *resultIdx) {
