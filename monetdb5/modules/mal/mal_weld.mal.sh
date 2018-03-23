@@ -95,6 +95,10 @@ pattern sqlprojectdelta(select:bat[:oid], col:bat[:any_3], uid:bat[:oid], uval:b
 address WeldSqlProjectDelta
 comment "sql.projectdelta";
 
+pattern batmtimeyear(d:bat[:date], wstate:ptr):bat[:int]
+address WeldBatMtimeYear
+comment "batmtime.year";
+
 EOF
 
 for tp in ${numeric[@]}; do

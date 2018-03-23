@@ -972,6 +972,35 @@ WeldAggrSubMax(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
+WeldBatMtimeYear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	(void) mb;
+	int ret = getArg(pci, 0); /* bat[:int] */
+	int bid = getArg(pci, 1); /* bat[:date] */
+	weldState *wstate = *getArgReference_ptr(stk, pci, pci->argc - 1); /* has value */
+	char weldStmt[STR_SIZE_INC];
+	/* Only works for days >= 0. Logic taken from mtime.c */
+	sprintf(weldStmt,
+	"let v%d = result("
+	"	for(v%d, appender[i32], |b, i, x|"
+	"		let year = x / 365;"
+	"		let leapyears = (year - 1) / 4 + (year - 1) / 400 - (year - 1) / 100 + 1;"
+	"		let day = (x - year * 365) - leapyears;"
+	"		merge(b,"
+	"			iterate({day, year}, |p|"
+	"				let year = p.$1 - 1;"
+	"				let isLeap = year %% 4 == 0 && (year %% 100 != 0 || year %% 400 == 0);"
+	"				{{p.$0 + if(isLeap, 366, 365), year}, p.$0 < 0}).$1 + 1)"
+	"	)"
+	");"
+	"let v%dhseqbase = 0L;",
+	ret, bid, ret);
+	appendWeldStmt(wstate, weldStmt);
+	return MAL_SUCCEED;
+}
+
+str
 WeldLanguagePass(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;

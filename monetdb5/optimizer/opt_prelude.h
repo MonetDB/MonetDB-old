@@ -332,6 +332,7 @@ mal_export  str weldBatcalcLeRef;
 mal_export  str weldBatcalcGtRef;
 mal_export  str weldBatcalcGeRef;
 mal_export  str weldBatcalcNeRef;
+mal_export  str weldBatMtimeYearRef;
 mal_export  str weldGetResultRef;
 mal_export  str weldGroupRef;
 mal_export  str weldInitStateRef;
@@ -341,5 +342,6 @@ mal_export  str weldRunRef;
 mal_export  str weldSqlProjectDeltaRef;
 mal_export  str wlcRef;
 mal_export  str wlrRef;
+mal_export  str yearRef;
 mal_export  str zero_or_oneRef;
 #endif

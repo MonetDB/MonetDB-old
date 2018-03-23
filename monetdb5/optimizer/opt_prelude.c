@@ -324,6 +324,7 @@ str weldBatcalcLeRef;
 str weldBatcalcGtRef;
 str weldBatcalcGeRef;
 str weldBatcalcNeRef;
+str weldBatMtimeYearRef;
 str weldGetResultRef;
 str weldGroupRef;
 str weldInitStateRef;
@@ -333,6 +334,7 @@ str weldRunRef;
 str weldSqlProjectDeltaRef;
 str wlcRef;
 str wlrRef;
+str yearRef;
 str zero_or_oneRef;
 
 void optimizerInit(void)
@@ -641,6 +643,7 @@ void optimizerInit(void)
 	weldBatcalcGtRef = putName("batcalcgt");
 	weldBatcalcGeRef = putName("batcalcge");
 	weldBatcalcNeRef = putName("batcalcne");
+	weldBatMtimeYearRef = putName("batmtimeyear");
 	weldGetResultRef = putName("getresult");
 	weldGroupRef = putName("groupgroup");
 	weldInitStateRef = putName("initstate");
@@ -650,6 +653,7 @@ void optimizerInit(void)
 	weldSqlProjectDeltaRef = putName("sqlprojectdelta");
 	wlcRef = putName("wlc");
 	wlrRef = putName("wlr");
+	yearRef = putName("year");
 	selectRef = putName("select");
 	thetaselectRef = putName("thetaselect");
 	vectorRef = putName("vector");
