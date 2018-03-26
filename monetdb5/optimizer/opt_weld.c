@@ -18,7 +18,7 @@
 #include "mal_instruction.h"
 #include "opt_weld.h"
 
-#define NUM_WELD_INSTR 26
+#define NUM_WELD_INSTR 27
 #define UNMARKED 0
 #define TEMP_MARK 1
 #define PERM_MARK 2
@@ -64,6 +64,7 @@ static void initWeldInstrs(void) {
 	addWeldInstr(batcalcRef, gtRef, weldBatcalcGtRef);					 /* batcalc.> */
 	addWeldInstr(batcalcRef, geRef, weldBatcalcGeRef);					 /* batcalc.>= */
 	addWeldInstr(batcalcRef, neRef, weldBatcalcNeRef);					 /* batcalc.!= */
+	addWeldInstr(batRef, mergecandRef, weldBatMergeCandRef);			 /* bat.mergecand */
 	addWeldInstr(batmtimeRef, yearRef, weldBatMtimeYearRef);			 /* batmtime.year */
 	addWeldInstr(languageRef, passRef, weldLanguagePassRef);			 /* language.pass */
 	addWeldInstr(groupRef, groupRef, weldGroupRef);						 /* group.group*/
@@ -74,15 +75,8 @@ static void initWeldInstrs(void) {
 }
 
 static str getWeldRef(MalBlkPtr mb, InstrPtr instr) {
+	(void) mb;
 	int i;
-	for (i = instr->retc; i < instr->argc; i++) {
-		int argType = getArgType(mb, instr, i);
-		if (isaBatType(argType) && getBatType(argType) == TYPE_str &&
-			getModuleId(instr) != groupRef && getFunctionId(instr) != projectionRef) {
-			/* TODO For now only allow string columns for group.* and algebra.projection*/
-			return NULL;
-		}
-	}
 	for (i = 0; i < NUM_WELD_INSTR; i++) {
 		if (getModuleId(instr) == weldInstrs[i][0] && getFunctionId(instr) == weldInstrs[i][1]) {
 			return weldInstrs[i][2];

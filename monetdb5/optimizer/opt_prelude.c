@@ -324,6 +324,7 @@ str weldBatcalcLeRef;
 str weldBatcalcGtRef;
 str weldBatcalcGeRef;
 str weldBatcalcNeRef;
+str weldBatMergeCandRef;
 str weldBatMtimeYearRef;
 str weldGetResultRef;
 str weldGroupRef;
@@ -643,6 +644,7 @@ void optimizerInit(void)
 	weldBatcalcGtRef = putName("batcalcgt");
 	weldBatcalcGeRef = putName("batcalcge");
 	weldBatcalcNeRef = putName("batcalcne");
+	weldBatMergeCandRef = putName("batmergecand");
 	weldBatMtimeYearRef = putName("batmtimeyear");
 	weldGetResultRef = putName("getresult");
 	weldGroupRef = putName("groupgroup");

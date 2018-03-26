@@ -120,6 +120,20 @@ static str getWeldCandList(int sid, bat s) {
 	return candList;
 }
 
+/* Candidate lists can be dense so we have to replace them with a rangeiter */
+static str getWeldCandListFull(int sid, bat s) {
+	static char candList[STR_SIZE_INC];
+	BAT *list = is_bat_nil(s) ? NULL : BATdescriptor(s);
+	if (list == NULL || !BATtdense(list)) {
+		sprintf(candList, "v%d", sid);
+	} else {
+		sprintf(candList,
+				"result(for(rangeiter(%ldL, %ldL, 1L), appender[?], |b, i, x| merge(b, x)))",
+				list->tseqbase, list->tseqbase + list->batCount);
+	}
+	return candList;
+}
+
 static void dumpProgram(weldState *wstate, MalBlkPtr mb) {
 	FILE *f = fopen(tmpnam(NULL), "w");
 	int i;
@@ -558,20 +572,38 @@ WeldAlgebraThetaselect1(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int ret = getArg(pci, 0);							   /* bat[:oid] */
 	int bid = getArg(pci, 1);							   /* bat[:any_1] */
 	int val = getArg(pci, 2);							   /* any_1 */
+	int valType = getArgType(mb, pci, 2);
 	str op = *getArgReference_str(stk, pci, 3);			   /* has value */
 	weldState *wstate = *getArgReference_ptr(stk, pci, 4); /* has value */
 	char weldStmt[STR_SIZE_INC];
-	sprintf(weldStmt,
-	"let v%d = result("
-	"	for (v%d, appender[i64], |b, i, x|"
-	"		if (x %s v%d,"
-	"			merge(b, i + v%dhseqbase),"
-	"			b"
-	"		)"
-	"	)"
-	");"
-	"let v%dhseqbase = 0L;",
-	ret, bid, op, val, bid, ret);
+	if (valType == TYPE_str) {
+		if (strcmp(op, "==") != 0) {
+			throw(MAL, "weld.algebrathetaselect", PROGRAM_NYI": str thetaselect only supports ==");
+		}
+		sprintf(weldStmt,
+		"let v%d = result("
+		"	for (v%d, appender[i64], |b, i, x|"
+		"		if (strslice(v%dstr, i64(x) + v%dstroffset) %s v%d,"
+		"			merge(b, i + v%dhseqbase),"
+		"			b"
+		"		)"
+		"	)"
+		");"
+		"let v%dhseqbase = 0L;",
+		ret, bid, bid, bid, op, val, bid, ret);
+	} else {
+		sprintf(weldStmt,
+		"let v%d = result("
+		"	for (v%d, appender[i64], |b, i, x|"
+		"		if (x %s v%d,"
+		"			merge(b, i + v%dhseqbase),"
+		"			b"
+		"		)"
+		"	)"
+		");"
+		"let v%dhseqbase = 0L;",
+		ret, bid, op, val, bid, ret);
+	}
 	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
 }
@@ -587,20 +619,39 @@ WeldAlgebraThetaselect2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int sid = getArg(pci, 2);							   /* bat[:oid] */
 	bat s = *getArgReference_bat(stk, pci, 2);			   /* might have value */
 	int val = getArg(pci, 3);							   /* any_1 */
+	int valType = getArgType(mb, pci, 3);
 	str op = *getArgReference_str(stk, pci, 4);			   /* has value */
 	weldState *wstate = *getArgReference_ptr(stk, pci, 5); /* has value */
 	char weldStmt[STR_SIZE_INC];
-	sprintf(weldStmt,
-	"let v%d = result("
-	"	for (%s, appender[i64], |b: appender[i64], i: i64, oid: i64|"
-	"		if (lookup(v%d, oid - v%dhseqbase) %s v%d,"
-	"			merge(b, oid),"
-	"			b"
-	"		)"
-	"	)"
-	");"
-	"let v%dhseqbase = 0L;",
-	ret, getWeldCandList(sid, s), bid, bid, op, val, ret);
+	if (valType == TYPE_str) {
+		if (strcmp(op, "==") != 0) {
+			throw(MAL, "weld.algebrathetaselect", PROGRAM_NYI": str thetaselect only supports ==");
+		}
+		sprintf(weldStmt,
+		"let v%d = result("
+		"	for (%s, appender[i64], |b, i, oid|"
+		"		let offset = lookup(v%d, oid - v%dhseqbase);"
+		"		if (strslice(v%dstr, i64(offset) + v%dstroffset) %s v%d,"
+		"			merge(b, oid),"
+		"			b"
+		"		)"
+		"	)"
+		");"
+		"let v%dhseqbase = 0L;",
+		ret, getWeldCandList(sid, s), bid, bid, bid, bid, op, val, ret);
+	} else {
+		sprintf(weldStmt,
+		"let v%d = result("
+		"	for (%s, appender[i64], |b: appender[i64], i: i64, oid: i64|"
+		"		if (lookup(v%d, oid - v%dhseqbase) %s v%d,"
+		"			merge(b, oid),"
+		"			b"
+		"		)"
+		"	)"
+		");"
+		"let v%dhseqbase = 0L;",
+		ret, getWeldCandList(sid, s), bid, bid, op, val, ret);
+	}
 	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
 }
@@ -997,6 +1048,53 @@ WeldBatMtimeYear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	"let v%dhseqbase = 0L;",
 	ret, bid, ret);
 	appendWeldStmt(wstate, weldStmt);
+	return MAL_SUCCEED;
+}
+
+str
+WeldBatMergeCand(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	(void) mb;
+	int ret = getArg(pci, 0);										   /* bat[:oid] */
+	int left = getArg(pci, 1);										   /* bat[:oid] */
+	bat leftBat = *getArgReference_bat(stk, pci, 1);				   /* might have value */
+	int right = getArg(pci, 2);										   /* bat[:oid] */
+	bat rightBat = *getArgReference_bat(stk, pci, 2);				   /* might have value */
+	weldState *wstate = *getArgReference_ptr(stk, pci, pci->argc - 1); /* has value */
+
+	char *leftWeld = strdup(getWeldCandListFull(left, leftBat));
+	char *rightWeld = strdup(getWeldCandListFull(right, rightBat));
+	char weldStmt[STR_SIZE_INC];
+	sprintf(weldStmt,
+	"let left = %s;"
+	"let right = %s;"
+	"let iter_res = if(len(left) > 0L && len(right) > 0L,"
+	"	iterate({0L, 0L, appender[i64]}, |x|"
+	"		let leftIdx = x.$0;"
+	"		let rightIdx = x.$1;"
+	"		let b = x.$2;"
+	"		let leftVal = lookup(left, leftIdx);"
+	"		let rightVal = lookup(right, rightIdx);"
+	"		let output = "
+	"		if(leftVal < rightVal,"
+	"			{leftIdx + 1L, rightIdx, merge(b, leftVal)},"
+   	"			if (leftVal > rightVal,"
+	"				{leftIdx, rightIdx + 1L, merge(b, rightVal)},"
+	"				{leftIdx + 1L, rightIdx + 1L, merge(b, leftVal)}"
+	"			)"
+	"		);"	
+	"		{output, output.$0 < len(left) && output.$1 < len(right)}),"
+	"	{0L, 0L, appender[i64]});"
+	"let res = iter_res.$2;"
+	"let res = for(rangeiter(iter_res.$0, len(left), 1L), res, |b, i, x| merge(b, lookup(left, x)));"
+	"let res = for(rangeiter(iter_res.$1, len(right), 1L), res, |b, i, x| merge(b, lookup(right, x)));"
+	"let v%d = result(res);"
+	"let v%dhseqbase = 0L;",
+	leftWeld, rightWeld, ret, ret);
+	appendWeldStmt(wstate, weldStmt);
+	free(leftWeld);
+	free(rightWeld);
 	return MAL_SUCCEED;
 }
 

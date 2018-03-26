@@ -99,6 +99,10 @@ pattern batmtimeyear(d:bat[:date], wstate:ptr):bat[:int]
 address WeldBatMtimeYear
 comment "batmtime.year";
 
+pattern batmergecand(a:bat[:oid], b:bat[:oid], wstate:ptr):bat[:oid]
+address WeldBatMergeCand
+comment "bat.mergecand";
+
 EOF
 
 for tp in ${numeric[@]}; do
