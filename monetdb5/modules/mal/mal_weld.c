@@ -321,6 +321,7 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 							b->ttype = in->ttype;
 							b->twidth = in->twidth;
 							b->tshift = in->tshift;
+							b->tsorted = in->tsorted;
 							b->tvarsized = 1;
 							break;
 						}
@@ -577,9 +578,6 @@ WeldAlgebraThetaselect1(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	weldState *wstate = *getArgReference_ptr(stk, pci, 4); /* has value */
 	char weldStmt[STR_SIZE_INC];
 	if (valType == TYPE_str) {
-		if (strcmp(op, "==") != 0) {
-			throw(MAL, "weld.algebrathetaselect", PROGRAM_NYI": str thetaselect only supports ==");
-		}
 		sprintf(weldStmt,
 		"let v%d = result("
 		"	for (v%d, appender[i64], |b, i, x|"
@@ -678,15 +676,21 @@ WeldBatcalcBinary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc
 	int rightType = getArgType(mb, pci, 2);
 	str any_1 = getWeldType(getBatType(getArgType(mb, pci, 0)));
 
-	if (getBatType(leftType) != getBatType(rightType)) {
-		throw(MAL, malfunc, PROGRAM_NYI": missmatching types in BatcalcBinary: %s", malfunc);
+
+	char weldStmt[STR_SIZE_INC], *resCast, *leftCast, *rightCast;
+	if (getBatType(getArgType(mb, pci, 0)) == TYPE_bit) {
+		resCast = any_1;
+	} else {
+		resCast = "";
 	}
 
-	char weldStmt[STR_SIZE_INC], *cast;
-	if (getBatType(getArgType(mb, pci, 0)) == TYPE_bit) {
-		cast = any_1;
-	} else {
-		cast = "";
+	/* Check if we have mismatching types and we need to cast */
+	leftCast = "";
+	rightCast = "";
+	if (getBatType(leftType) > getBatType(rightType)) {
+		rightCast = getWeldType(getBatType(leftType));
+	} else if (getBatType(leftType) < getBatType(rightType)) {
+		leftCast = getWeldType(getBatType(rightType));
 	}
 
 	if (sid != -1) {
@@ -718,11 +722,11 @@ WeldBatcalcBinary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc
 		sprintf(weldStmt,
 		"let v%d = result("
 		"	for (%s, appender[?], |b, i, oid|"
-		"		merge(b, %s(%s %s %s))"
+		"		merge(b, %s(%s(%s) %s %s(%s)))"
 		"	)"
 		");"
 		"let v%dhseqbase = 0L;",
-		ret, getWeldCandList(sid, s), cast, leftStmt, op, rightStmt, ret);
+		ret, getWeldCandList(sid, s), resCast, leftCast, leftStmt, op, rightCast, rightStmt, ret);
 	} else {
 		char forStmt[64];
 		char leftStmt[512], rightStmt[512];
@@ -755,11 +759,11 @@ WeldBatcalcBinary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc
 		sprintf(weldStmt,
 		"let v%d = result("
 		"	for (%s, appender[?], |b , i, x|"
-		"		merge(b, %s(%s %s %s))"
+		"		merge(b, %s(%s(%s) %s %s(%s)))"
 		"	)"
 		");"
 		"let v%dhseqbase = 0L;",
-		ret, forStmt, cast, leftStmt, op, rightStmt, ret);
+		ret, forStmt, resCast, leftCast, leftStmt, op, rightCast, rightStmt, ret);
 	}
 	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
