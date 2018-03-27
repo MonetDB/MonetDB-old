@@ -444,8 +444,8 @@ re_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int an
 		BUN r;
 
 		assert(s->ttype == TYPE_oid || s->ttype == TYPE_void);
-		assert(s->tsorted);
-		assert(s->tkey);
+		//assert(s->tsorted);
+		//assert(s->tkey);
 		/* setup candscanloop loop vars to only iterate over
 		 * part of s that has values that are in range of b */
 		o = b->hseqbase + BATcount(b);
