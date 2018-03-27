@@ -361,7 +361,7 @@ WeldAggrUnary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc)
 		s = *getArgReference_bat(stk, pci, 2);		/* might have value */
 		wstate = *getArgReference_ptr(stk, pci, 3); /* has value */
 		if (!isaBatType(getArgType(mb, pci, 2))) {  /* nil_if_empty not implemented */
-			throw(MAL, malfunc, PROGRAM_NYI);
+			throw(MAL, malfunc, PROGRAM_NYI": nil_if_empty not implemented");
 		}
 	} else {
 		sid = -1;
@@ -679,7 +679,7 @@ WeldBatcalcBinary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc
 	str any_1 = getWeldType(getBatType(getArgType(mb, pci, 0)));
 
 	if (getBatType(leftType) != getBatType(rightType)) {
-		throw(MAL, malfunc, PROGRAM_NYI);
+		throw(MAL, malfunc, PROGRAM_NYI": missmatching types in BatcalcBinary: %s", malfunc);
 	}
 
 	char weldStmt[STR_SIZE_INC], *cast;
@@ -970,7 +970,7 @@ WeldAggrSub(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc)
 	weldState *wstate = *getArgReference_ptr(stk, pci, pci->argc - 1); /* has value */
 	/* TODO Weld doesn't yet accept mismatching types for binary ops */
 	if (retType != bidType) {
-		throw(MAL, malfunc, PROGRAM_NYI);
+		throw(MAL, malfunc, PROGRAM_NYI": missmatching types in AggrSum: %s", malfunc);
 	}
 
 	char identValue[128];
