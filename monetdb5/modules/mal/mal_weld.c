@@ -1047,6 +1047,49 @@ WeldAggrSubMax(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
+WeldAggrSubCount(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	int ret = getArg(pci, 0); /* any_1 */
+	int gid = getArg(pci, 2); /* bat[:oid] */
+	int eid = getArg(pci, 3); /* bat[:oid] */
+	int sid = getArg(pci, 4); /* bat[:oid] ? */
+	int sidType = getArgType(mb, pci, 4);
+	weldState *wstate = *getArgReference_ptr(stk, pci, pci->argc - 1); /* has value */
+	char weldStmt[STR_SIZE_INC];
+	sprintf(weldStmt,
+	"let empty = result("
+	"	for(rangeiter(0L, len(v%d), 1L), appender[i64], |b, i, x|"
+	"		merge(b, 0L)"
+	"	)"
+	");",
+	eid);
+	if (isaBatType(sidType)) {
+		bat s = *getArgReference_bat(stk, pci, 4);		/* might have value */
+		sprintf(weldStmt + strlen(weldStmt),
+		"let v%d = result("
+		"	for(%s, vecmerger[i64, +](empty), |b, i, oid|"
+		"		let groupId = lookup(v%d, oid - v%dhseqbase);"
+		"		merge(b, {groupId, 1L})"
+		"	)"
+		");"
+		"let v%dhseqbase = 0;",
+		ret, getWeldCandList(sid, s), gid, gid, ret);
+	} else {
+		sprintf(weldStmt + strlen(weldStmt),
+		"let v%d = result("
+		"	for(v%d, vecmerger[i64, +](empty), |b, i, x|"
+		"		merge(b, {x, 1L})"
+		"	)"
+		");"
+		"let v%dhseqbase = 0;",
+		ret, gid, ret);
+	}
+	appendWeldStmt(wstate, weldStmt);
+	return MAL_SUCCEED;
+}
+
+str
 WeldBatMtimeYear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;

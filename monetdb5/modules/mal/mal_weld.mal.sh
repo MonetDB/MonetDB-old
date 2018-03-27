@@ -87,6 +87,14 @@ pattern aggrsubmax(b:bat[:any_1], g:bat[:oid], e:bat[:any_2], s:bat[:oid], skip_
 address WeldAggrSubMax
 comment "aggr.submax";
 
+pattern aggrsubcount(b:bat[:any_1], g:bat[:oid], e:bat[:any_2], skip_nils:bit, wstate:ptr):bat[:lng]
+address WeldAggrSubCount
+comment "aggr.subcount";
+
+pattern aggrsubcount(b:bat[:any_1], g:bat[:oid], e:bat[:any_2], s:bat[:oid], skip_nils:bit, wstate:ptr):bat[:lng]
+address WeldAggrSubCount
+comment "aggr.subcount";
+
 pattern sqlprojectdelta(select:bat[:oid], col:bat[:any_3], uid:bat[:oid], uval:bat[:any_3], wstate:ptr):bat[:any_3]
 address WeldSqlProjectDelta
 comment "sql.projectdelta";

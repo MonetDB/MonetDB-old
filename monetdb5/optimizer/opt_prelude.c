@@ -305,6 +305,7 @@ str updateRef;
 str userRef;
 str vectorRef;
 str weldAddArgRef;
+str weldAggrSubCountRef;
 str weldAggrSubMaxRef;
 str weldAggrSubMinRef;
 str weldAggrSubProdRef;
@@ -625,6 +626,7 @@ void optimizerInit(void)
 	updateRef = putName("update");
 	userRef = putName("user");
 	weldAddArgRef = putName("addarg");
+	weldAggrSubCountRef = putName("aggrsubcount");
 	weldAggrSubMaxRef = putName("aggrsubmax");
 	weldAggrSubMinRef = putName("aggrsubmin");
 	weldAggrSubProdRef = putName("aggrsubprod");

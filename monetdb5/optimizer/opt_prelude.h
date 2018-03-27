@@ -313,6 +313,7 @@ mal_export  str updateRef;
 mal_export  str userRef;
 mal_export  str vectorRef;
 mal_export  str weldAddArgRef;
+mal_export  str weldAggrSubCountRef;
 mal_export  str weldAggrSubMaxRef;
 mal_export  str weldAggrSubMinRef;
 mal_export  str weldAggrSubProdRef;
