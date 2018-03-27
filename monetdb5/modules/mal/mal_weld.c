@@ -657,6 +657,7 @@ WeldAlgebraThetaselect2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 static str
 WeldBatcalcBinary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc)
 {
+	(void) malfunc;
 	int ret = getArg(pci, 0);   /* bat[:any_1] */
 	int left = getArg(pci, 1);  /* bat[:any_1] or any_1 */
 	int right = getArg(pci, 2); /* bat[:any_1] or any_1 */
@@ -945,15 +946,15 @@ WeldGroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	"	merge(b, {groupId, 1L})"
 	");"
 	"let v%d = result(ids);"
-	"let v%dhseqbase = 0;"
+	"let v%dhseqbase = 0L;"
 	"let v%d = result(counts);"
-	"let v%dhseqbase = 0;"
+	"let v%dhseqbase = 0L;"
 	"let v%d = result("
 	"	for(groupHashVec, vecmerger[i64, +](empty), |b, i, n|"
 	"		merge(b, {i, lookup(groupHash, n.$0)})"
 	"	)"
 	");"
-	"let v%dhseqbase = 0;",
+	"let v%dhseqbase = 0L;",
 	zipStmt, dictTypeStmt, dictKeyStmt, dictTypeStmt, zipStmt, dictKeyStmt, zipStmt, dictKeyStmt, groups, groups, histo, histo,
 	extents, extents);
 	appendWeldStmt(wstate, weldStmt);
@@ -1006,7 +1007,7 @@ WeldAggrSub(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc)
 		"		merge(b, {groupId, val})"
 		"	)"
 		");"
-		"let v%dhseqbase = 0;",
+		"let v%dhseqbase = 0L;",
 		ret, getWeldCandList(sid, s), getWeldType(retType), op, gid, gid, bid, bid, ret);
 	} else {
 		sprintf(weldStmt + strlen(weldStmt),
@@ -1015,7 +1016,7 @@ WeldAggrSub(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc)
 		"		merge(b, {x.$0, x.$1})"
 		"	)"
 		");"
-		"let v%dhseqbase = 0;",
+		"let v%dhseqbase = 0L;",
 		ret, gid, bid, getWeldType(retType), op, ret);
 	}
 	appendWeldStmt(wstate, weldStmt);
@@ -1077,7 +1078,7 @@ WeldAggrSubCount(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		"		merge(b, {groupId, 1L})"
 		"	)"
 		");"
-		"let v%dhseqbase = 0;",
+		"let v%dhseqbase = 0L;",
 		ret, getWeldCandList(sid, s), gid, gid, ret);
 	} else {
 		sprintf(weldStmt + strlen(weldStmt),
@@ -1086,7 +1087,7 @@ WeldAggrSubCount(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		"		merge(b, {x, 1L})"
 		"	)"
 		");"
-		"let v%dhseqbase = 0;",
+		"let v%dhseqbase = 0L;",
 		ret, gid, ret);
 	}
 	appendWeldStmt(wstate, weldStmt);
