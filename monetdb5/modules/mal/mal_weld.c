@@ -1166,6 +1166,34 @@ WeldBatMergeCand(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
+WeldBatMirror(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	(void) mb;
+	int ret = getArg(pci, 0);										   /* bat[:oid] */
+	int bid = getArg(pci, 1);										   /* bat[:any_1] */
+	weldState *wstate = *getArgReference_ptr(stk, pci, pci->argc - 1); /* has value */
+
+	char weldStmt[STR_SIZE_INC];
+	sprintf(weldStmt,
+	"let v%d = result("
+	"	for(rangeiter(v%dhseqbase, v%dhseqbase + len(v%d), 1L), appender[i64], |b, i, n|"
+	"		merge(b, n)"
+	"	)"
+	");"
+	"let v%dhseqbase = 0L;",
+	ret, bid, bid, bid, ret);
+	appendWeldStmt(wstate, weldStmt);
+	return MAL_SUCCEED;
+}
+
+str
+WeldBatcalcIdentity(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	return WeldBatMirror(cntxt, mb, stk, pci);
+}
+
+str
 WeldLanguagePass(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;

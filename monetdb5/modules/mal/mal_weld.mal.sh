@@ -111,6 +111,14 @@ pattern batmergecand(a:bat[:oid], b:bat[:oid], wstate:ptr):bat[:oid]
 address WeldBatMergeCand
 comment "bat.mergecand";
 
+pattern batmirror(b:bat[:any_2], wstate:ptr):bat[:oid]
+address WeldBatMirror
+comment "bat.mirror";
+
+pattern batcalcidentity(b:bat[:any_2], wstate:ptr):bat[:oid] 
+address WeldBatcalcIdentity
+comment "batcalc.identity";
+
 EOF
 
 for tp in ${numeric[@]}; do
