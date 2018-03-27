@@ -693,12 +693,24 @@ WeldBatcalcBinary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc
 		char leftStmt[STR_SIZE_INC];
 		char rightStmt[STR_SIZE_INC];
 		if (isaBatType(leftType)) {
-			sprintf(leftStmt, "lookup(v%d, oid - v%dhseqbase)", left, left);
+			if (getBatType(leftType) == TYPE_str) {
+				sprintf(leftStmt,
+						"strslice(v%dstr, i64(lookup(v%d, oid - v%dhseqbase)) + v%dstroffset)",
+						left, left, left, left);
+			} else {
+				sprintf(leftStmt, "lookup(v%d, oid - v%dhseqbase)", left, left);
+			}
 		} else {
 			sprintf(leftStmt, "v%d", left);
 		}
 		if (isaBatType(rightType)) {
-			sprintf(rightStmt, "lookup(v%d, oid - v%dhseqbase)", right, right);
+			if (getBatType(rightType) == TYPE_str) {
+				sprintf(rightStmt,
+						"strslice(v%dstr, i64(lookup(v%d, oid - v%dhseqbase)) + v%dstroffset)",
+						right, right, right, right);
+			} else {
+				sprintf(rightStmt, "lookup(v%d, oid - v%dhseqbase)", right, right);
+			}
 		} else {
 			sprintf(rightStmt, "v%d", right);
 		}
@@ -712,34 +724,42 @@ WeldBatcalcBinary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc
 		"let v%dhseqbase = 0L;",
 		ret, getWeldCandList(sid, s), cast, leftStmt, op, rightStmt, ret);
 	} else {
+		char forStmt[64];
+		char leftStmt[512], rightStmt[512];
 		if (isaBatType(leftType) && isaBatType(rightType)) {
-			sprintf(weldStmt,
-			"let v%d = result("
-			"	for (zip(v%d, v%d), appender[?], |b , i, x|"
-			"		merge(b, %s(x.$0 %s x.$1))"
-			"	)"
-			");"
-			"let v%dhseqbase = 0L;",
-			ret, left, right, cast, op, ret);
+			sprintf(forStmt, "zip(v%d, v%d)", left, right);
+			if (getBatType(leftType) == TYPE_str) {
+				sprintf(leftStmt, "strslice(v%dstr, i64(x.$0) + v%dstroffset)", left, left);
+				sprintf(rightStmt, "strslice(v%dstr, i64(x.$1) + v%dstroffset)", right, right);
+			} else {
+				sprintf(leftStmt, "x.$0");
+				sprintf(rightStmt, "x.$1");
+			}
 		} else if (isaBatType(leftType)) {
-			sprintf(weldStmt,
-			"let v%d = result("
-			"	for (v%d, appender[?], |b, i, x|"
-			"		merge(b, %s(x %s v%d))"
-			"	)"
-			");"
-			"let v%dhseqbase = 0L;",
-			ret, left, cast, op, right, ret);
+			sprintf(forStmt, "v%d", left);
+			if (getBatType(leftType) == TYPE_str) {
+				sprintf(leftStmt, "strslice(v%dstr, i64(x) + v%dstroffset)", left, left);
+			} else {
+				sprintf(leftStmt, "x");
+			}
+			sprintf(rightStmt, "v%d", right);
 		} else if (isaBatType(rightType)) {
-			sprintf(weldStmt,
-			"let v%d = result("
-			"	for (v%d, appender[?], |b, i, x|"
-			"		merge(b, %s(v%d %s x))"
-			"	)"
-			");"
-			"let v%dhseqbase = 0L;",
-			ret, right, cast, left, op, ret);
+			sprintf(forStmt, "v%d", right);
+			sprintf(leftStmt, "v%d", left);
+			if (getBatType(rightType) == TYPE_str) {
+				sprintf(rightStmt, "strslice(v%dstr, i64(x) + v%dstroffset)", right, right);
+			} else {
+				sprintf(rightStmt, "x");
+			}
 		}
+		sprintf(weldStmt,
+		"let v%d = result("
+		"	for (%s, appender[?], |b , i, x|"
+		"		merge(b, %s(%s %s %s))"
+		"	)"
+		");"
+		"let v%dhseqbase = 0L;",
+		ret, forStmt, cast, leftStmt, op, rightStmt, ret);
 	}
 	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
