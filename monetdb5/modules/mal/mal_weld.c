@@ -932,13 +932,17 @@ WeldGroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	"		merge(b, 0L)"
 	"	)"
 	");"
-	"let idsAndCounts = for(zip(%s), {appender[i64], vecmerger[i64, +](empty)}, |b, i, n|"
+	"let ids = for(zip(%s), appender[i64], |b, i, n|"
 	"	let groupId = lookup(groupIdsDict, %s);"
-	"	{merge(b.$0, groupId), merge(b.$1, {groupId, 1L})}"
+	"	merge(b, groupId)"
 	");"
-	"let v%d = result(idsAndCounts.$0);"
+	"let counts = for(zip(%s), vecmerger[i64, +](empty), |b, i, n|"
+	"	let groupId = lookup(groupIdsDict, %s);"
+	"	merge(b, {groupId, 1L})"
+	");"
+	"let v%d = result(ids);"
 	"let v%dhseqbase = 0;"
-	"let v%d = result(idsAndCounts.$1);"
+	"let v%d = result(counts);"
 	"let v%dhseqbase = 0;"
 	"let v%d = result("
 	"	for(groupHashVec, vecmerger[i64, +](empty), |b, i, n|"
@@ -946,7 +950,7 @@ WeldGroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	"	)"
 	");"
 	"let v%dhseqbase = 0;",
-	zipStmt, dictTypeStmt, dictKeyStmt, dictTypeStmt, zipStmt, dictKeyStmt, groups, groups, histo, histo,
+	zipStmt, dictTypeStmt, dictKeyStmt, dictTypeStmt, zipStmt, dictKeyStmt, zipStmt, dictKeyStmt, groups, groups, histo, histo,
 	extents, extents);
 	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
