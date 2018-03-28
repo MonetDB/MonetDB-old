@@ -86,7 +86,7 @@ static str getWeldUTypeFromWidth(int width) {
 		return "u64";
 }
 
-static void getOrSetStructMember(char **addr, int type, void *value, int op) {
+static void getOrSetStructMember(char **addr, int type, const void *value, int op) {
 	if (type == TYPE_bte) {
 		getOrSetStructMemberImpl(addr, char, value, op);
 	} else if (type == TYPE_int) {
@@ -196,13 +196,15 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 	}
 	/* Min/Max constants for the Weld types */
-	if (inputLen + 128 > inputMaxLen) {
+	if (inputLen + 512 > inputMaxLen) {
 		inputMaxLen += STR_SIZE_INC;
 		inputStmt = realloc(inputStmt, inputMaxLen * sizeof(char));
 	}
 	inputLen += sprintf(inputStmt + inputLen,
 						"i8MIN:i8, i8MAX:i8, i32MIN:i32, i32MAX:i32, i64MIN:i64, i64MAX:i64, "
-						"f32MIN:f32, f32MAX:f32, f64MIN:f64, f64MAX:f64 ");
+						"f32MIN:f32, f32MAX:f32, f64MIN:f64, f64MAX:f64, ");
+	inputLen += sprintf(inputStmt + inputLen,
+						"i8nil:i8, i32nil:i32, oidnil:i64, i64nil:i64, f32nil:f32, f64nil:f64, ");
 
 	inputStmt[0] = '|';
 	inputStmt[inputLen - 1] = '|';
@@ -284,6 +286,12 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	getOrSetStructMember(&inputPtr, TYPE_flt, &weldMinMaxInst.f32max, OP_SET);
 	getOrSetStructMember(&inputPtr, TYPE_dbl, &weldMinMaxInst.f64min, OP_SET);
 	getOrSetStructMember(&inputPtr, TYPE_dbl, &weldMinMaxInst.f64max, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_bte, &bte_nil, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_int, &int_nil, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_lng, &lng_nil, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_oid, &oid_nil, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_flt, &flt_nil, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_dbl, &dbl_nil, OP_SET);
 
 	weld_value_t arg = weld_value_new(inputStruct);
 	conf = weld_conf_new();
@@ -304,7 +312,7 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			/* TODO check if the sorted props are important for the rest of the execution */
 			b->tsorted = b->trevsorted = 0;
 			if (getBatType(type) == TYPE_str) {
-				char *base;
+				char *base = NULL;
 				long size;
 				getOrSetStructMember(&outputStruct, TYPE_str, &base, OP_GET);
 				getOrSetStructMember(&outputStruct, TYPE_lng, &size, OP_GET);
@@ -1055,11 +1063,20 @@ str
 WeldAggrSubCount(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
-	int ret = getArg(pci, 0); /* any_1 */
+	(void) mb;
+	int ret = getArg(pci, 0); /* bat[:lng] */
+	int bid = getArg(pci, 1); /* bat[:any_1] */
 	int gid = getArg(pci, 2); /* bat[:oid] */
 	int eid = getArg(pci, 3); /* bat[:oid] */
-	int sid = getArg(pci, 4); /* bat[:oid] ? */
-	int sidType = getArgType(mb, pci, 4);
+	int sid = -1;
+	int skip_nils;
+	if (pci->argc == 6) {
+		skip_nils = *getArgReference_bit(stk, pci, 4);
+	} else {
+		sid = getArg(pci, 4);
+		skip_nils = *getArgReference_bit(stk, pci, 5);
+	}
+	int bidType = getBatType(getArgType(mb, pci, 1));
 	weldState *wstate = *getArgReference_ptr(stk, pci, pci->argc - 1); /* has value */
 	char weldStmt[STR_SIZE_INC];
 	sprintf(weldStmt,
@@ -1069,26 +1086,52 @@ WeldAggrSubCount(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	"	)"
 	");",
 	eid);
-	if (isaBatType(sidType)) {
+	if (sid != -1) {
 		bat s = *getArgReference_bat(stk, pci, 4);		/* might have value */
-		sprintf(weldStmt + strlen(weldStmt),
-		"let v%d = result("
-		"	for(%s, vecmerger[i64, +](empty), |b, i, oid|"
-		"		let groupId = lookup(v%d, oid - v%dhseqbase);"
-		"		merge(b, {groupId, 1L})"
-		"	)"
-		");"
-		"let v%dhseqbase = 0L;",
-		ret, getWeldCandList(sid, s), gid, gid, ret);
+		if (skip_nils) {
+			sprintf(weldStmt + strlen(weldStmt),
+			"let v%d = result("
+			"	for(%s, vecmerger[i64, +](empty), |b, i, oid|"
+			"		let groupId = lookup(v%d, oid - v%dhseqbase);"
+			"		let value = lookup(v%d, oid - v%dhseqbase);"
+			"		if(value != %snil, merge(b, {groupId, 1L}), b)"
+			"	)"
+			");"
+			"let v%dhseqbase = 0L;",
+			ret, getWeldCandList(sid, s), gid, gid, bid, bid, bidType == TYPE_oid ? "oid" : getWeldType(bidType), ret);
+		} else {
+			sprintf(weldStmt + strlen(weldStmt),
+			"let v%d = result("
+			"	for(%s, vecmerger[i64, +](empty), |b, i, oid|"
+			"		let groupId = lookup(v%d, oid - v%dhseqbase);"
+			"		merge(b, {groupId, 1L})"
+			"	)"
+			");"
+			"let v%dhseqbase = 0L;",
+			ret, getWeldCandList(sid, s), gid, gid, ret);
+		}
 	} else {
-		sprintf(weldStmt + strlen(weldStmt),
-		"let v%d = result("
-		"	for(v%d, vecmerger[i64, +](empty), |b, i, x|"
-		"		merge(b, {x, 1L})"
-		"	)"
-		");"
-		"let v%dhseqbase = 0L;",
-		ret, gid, ret);
+		if (skip_nils) {
+			sprintf(weldStmt + strlen(weldStmt),
+			"let v%d = result("
+			"	for(zip(v%d, v%d), vecmerger[i64, +](empty), |b, i, x|"
+			"		let groupId = x.$0;"
+			"		let value = x.$1;"
+			"		if(value != %snil, merge(b, {groupId, 1L}), b)"
+			"	)"
+			");"
+			"let v%dhseqbase = 0L;",
+			ret, gid, bid, bidType == TYPE_oid ? "oid" : getWeldType(bidType), ret);
+		} else {
+			sprintf(weldStmt + strlen(weldStmt),
+			"let v%d = result("
+			"	for(v%d, vecmerger[i64, +](empty), |b, i, x|"
+			"		merge(b, {x, 1L})"
+			"	)"
+			");"
+			"let v%dhseqbase = 0L;",
+			ret, gid, ret);
+		}
 	}
 	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
