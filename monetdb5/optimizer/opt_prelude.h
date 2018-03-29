@@ -319,6 +319,7 @@ mal_export  str weldAggrSubMinRef;
 mal_export  str weldAggrSubProdRef;
 mal_export  str weldAggrSubSumRef;
 mal_export  str weldAggrSumRef;
+mal_export  str weldAlgebraJoinRef;
 mal_export  str weldAlgebraProjectionRef;
 mal_export  str weldAlgebraSelectRef;
 mal_export  str weldAlgebraThetaselectRef;

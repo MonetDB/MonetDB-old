@@ -311,6 +311,7 @@ str weldAggrSubMinRef;
 str weldAggrSubProdRef;
 str weldAggrSubSumRef;
 str weldAggrSumRef;
+str weldAlgebraJoinRef;
 str weldAlgebraProjectionRef;
 str weldAlgebraSelectRef;
 str weldAlgebraThetaselectRef;
@@ -634,6 +635,7 @@ void optimizerInit(void)
 	weldAggrSubProdRef = putName("aggrsubprod");
 	weldAggrSubSumRef = putName("aggrsubsum");
 	weldAggrSumRef = putName("aggrsum");
+	weldAlgebraJoinRef = putName("algebrajoin");
 	weldAlgebraProjectionRef = putName("algebraprojection");
 	weldAlgebraSelectRef = putName("algebraselect");
 	weldAlgebraThetaselectRef = putName("algebrathetaselect");

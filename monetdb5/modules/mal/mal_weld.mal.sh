@@ -119,6 +119,10 @@ pattern batcalcidentity(b:bat[:any_2], wstate:ptr):bat[:oid]
 address WeldBatcalcIdentity
 comment "batcalc.identity";
 
+pattern algebrajoin(l:bat[:any_1], r:bat[:any_1], sl:bat[:oid], sr:bat[:oid], nil_matches:bit, estimate:lng, wstate:ptr) (X_0:bat[:oid], X_1:bat[:oid])
+address WeldAlgebraJoin
+comment "algebra.join"
+
 EOF
 
 for tp in ${numeric[@]}; do

@@ -4,7 +4,7 @@
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
 
-INCLUDES = ../../mal ../atoms ../kernel \
+INCLUDES = ../../mal ../atoms ../kernel ../weldudfs \
 	../../../clients/mapilib \
 	../../../common/options \
 	../../../common/stream \

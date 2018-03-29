@@ -13,11 +13,9 @@
 #include "mal_instruction.h"
 #include "mal_weld.h"
 #include "weld.h"
+#include "weld_udfs.h"
 
 #define STR_SIZE_INC 4096
-#define OP_GET 0
-#define OP_SET 1
-
 /* Variables in Weld will be named vXX - e.g. v19 
  * */
 
@@ -86,7 +84,7 @@ static str getWeldUTypeFromWidth(int width) {
 		return "u64";
 }
 
-static void getOrSetStructMember(char **addr, int type, const void *value, int op) {
+void getOrSetStructMember(char **addr, int type, const void *value, int op) {
 	if (type == TYPE_bte) {
 		getOrSetStructMemberImpl(addr, char, value, op);
 	} else if (type == TYPE_int) {
@@ -159,6 +157,7 @@ WeldInitState(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	wstate->programMaxLen = 1;
 	wstate->program = calloc(wstate->programMaxLen, sizeof(char));
 	wstate->groupDeps = calloc(mb->vtop, sizeof(InstrPtr));
+	wstate->cudfOutputs = calloc(mb->vtop, sizeof(bit));
 	*getArgReference_ptr(stk, pci, 0) = wstate;;
 	return MAL_SUCCEED;
 }
@@ -222,6 +221,10 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			/* Also return the string column base ptr */
 			outputLen += sprintf(outputStmt + outputLen, " v%dstr,", getArg(pci, i));
 		}
+		if (wstate->cudfOutputs[getArg(pci, i)]) {
+			/* Output bat produced by an UDF */
+			outputLen += sprintf(outputStmt + outputLen, " v%dbat,", getArg(pci, i));
+		}
 	}
 
 	outputStmt[0] = '{';
@@ -239,9 +242,6 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 	weld_module_t m = weld_module_compile(wstate->program, conf, e);
 	weld_conf_free(conf);
-	free(wstate->program);
-	free(wstate->groupDeps);
-	free(wstate);
 	if (weld_error_code(e)) {
 		throw(MAL, "weld.run", PROGRAM_GENERAL ": %s", weld_error_message(e));
 	}
@@ -259,7 +259,13 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			bat bid = *getArgReference_bat(stk, pci, i);
 			BAT *b = BATdescriptor(bid);
 			if (b == NULL) throw(MAL, "weld.run", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
-			getOrSetStructMember(&inputPtr, TYPE_ptr, &b->theap.base, OP_SET);
+			if (BATtdense(b)) {
+				/* Hack: store -b->seqbase instead: udfs will check if it's a dense bat */
+				lng seqbase = -b->tseqbase;
+				getOrSetStructMember(&inputPtr, TYPE_lng, &seqbase, OP_SET);
+			} else {
+				getOrSetStructMember(&inputPtr, TYPE_ptr, &b->theap.base, OP_SET);
+			}
 			getOrSetStructMember(&inputPtr, TYPE_lng, &b->batCount, OP_SET);
 			getOrSetStructMember(&inputPtr, TYPE_lng, &b->hseqbase, OP_SET);
 			if (getBatType(type) == TYPE_str) {
@@ -301,7 +307,7 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	char *outputStruct = weld_value_data(result);
 	for (i = 0; i < pci->retc; i++) {
 		int type = getArgType(mb, pci, i);
-		if (isaBatType(type)) {
+		if (isaBatType(type) && !wstate->cudfOutputs[getArg(pci, i)]) {
 			BAT *b = COLnew(0, getBatType(type), 0, TRANSIENT);
 			getOrSetStructMember(&outputStruct, TYPE_ptr, &b->theap.base, OP_GET);
 			getOrSetStructMember(&outputStruct, TYPE_lng, &b->batCount, OP_GET);
@@ -340,6 +346,15 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			b->theap.size = b->batCount << b->tshift;
 			BBPkeepref(b->batCacheid);
 			*getArgReference_bat(stk, pci, i) = b->batCacheid;
+		} else if (isaBatType(type) && wstate->cudfOutputs[getArg(pci, i)]) {
+			/* BAT produced by an UDF, we just get its bat cacheID */
+			char *base = NULL;
+			lng count = -1;
+			bat bid = -1;
+			getOrSetStructMember(&outputStruct, TYPE_ptr, &base, OP_GET);  /* skip */
+			getOrSetStructMember(&outputStruct, TYPE_lng, &count, OP_GET); /* skip */
+			getOrSetStructMember(&outputStruct, TYPE_bat, &bid, OP_GET);
+			*getArgReference_bat(stk, pci, i) = bid;
 		} else {
 			/* TODO handle strings */
 			getOrSetStructMember(&outputStruct, type, getArgReference(stk, pci, i), OP_GET);
@@ -353,6 +368,10 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	weld_conf_free(conf);
 	weld_module_free(m);
 	free(inputStruct);
+	free(wstate->program);
+	free(wstate->groupDeps);
+	free(wstate->cudfOutputs);
+	free(wstate);
 
 	return MAL_SUCCEED;
 }
@@ -1239,6 +1258,47 @@ str
 WeldBatcalcIdentity(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	return WeldBatMirror(cntxt, mb, stk, pci);
+}
+
+str
+WeldAlgebraJoin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	int leftRet = getArg(pci, 0);									   /* bat[:oid] */
+	int rightRet = getArg(pci, 1);									   /* bat[:oid] */
+	int left = getArg(pci, 2);										   /* bat[:any_1] */
+	int right = getArg(pci, 3);										   /* bat[:any_1] */
+	int sleft = getArg(pci, 4);										   /* bat[:oid] */
+	int sright = getArg(pci, 5);									   /* bat[:oid] */
+	int nilMatches = getArg(pci, 6);								   /* bit */
+	int estimate = getArg(pci, 7);									   /* lng */
+	weldState *wstate = *getArgReference_ptr(stk, pci, pci->argc - 1); /* has value */
+
+	str any_1 = getWeldType(getBatType(getArgType(mb, pci, 2)));
+	bat sleftBat = *getArgReference_bat(stk, pci, 4);
+	bat srightBat = *getArgReference_bat(stk, pci, 5);
+	char weldStmt[STR_SIZE_INC];
+	if (is_bat_nil(sleftBat) && is_bat_nil(srightBat)) {
+		sprintf(weldStmt,
+		"let joinResult = cudf[weldJoinNoCandList%s, {vec[i64], vec[i64], i32, i32}](v%d, v%d, v%d, v%d);",
+		any_1, left, right, nilMatches, estimate);
+	} else {
+		sprintf(weldStmt,
+		"let joinResult = cudf[weldJoin%s, {vec[i64], vec[i64], i32, i32}](v%d, v%d, v%d, v%d, v%d, v%d);",
+		any_1, left, right, sleft, sright, nilMatches, estimate);
+	}
+	sprintf(weldStmt + strlen(weldStmt),
+	"let v%d = joinResult.$0;"
+	"let v%dbat = joinResult.$2;"
+	"let v%dhseqbase = 0L;"
+	"let v%d = joinResult.$1;"
+	"let v%dbat = joinResult.$3;"
+	"let v%dhseqbase = 0L;",
+	leftRet, leftRet, leftRet, rightRet, rightRet, rightRet);
+	wstate->cudfOutputs[leftRet] = 1;
+	wstate->cudfOutputs[rightRet] = 1;
+	appendWeldStmt(wstate, weldStmt);
+	return MAL_SUCCEED;
 }
 
 str

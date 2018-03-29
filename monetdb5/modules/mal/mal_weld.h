@@ -11,12 +11,17 @@
 #include "mal.h"
 #include "mal_interpreter.h"
 
+#define OP_GET 0
+#define OP_SET 1
+
 typedef struct {
 	char *program;
 	InstrPtr *groupDeps;
+	bit *cudfOutputs;
 	size_t programMaxLen;
 } weldState;
 
+mal_export void getOrSetStructMember(char **addr, int type, const void *value, int op);
 mal_export str WeldInitState(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str WeldAggrSum(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
@@ -47,6 +52,7 @@ mal_export str WeldBatMtimeYear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 mal_export str WeldBatMergeCand(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str WeldBatMirror(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str WeldBatcalcIdentity(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+mal_export str WeldAlgebraJoin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mal_export str WeldLanguagePass(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 #endif
