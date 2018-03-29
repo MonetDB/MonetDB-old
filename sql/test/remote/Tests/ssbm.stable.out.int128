@@ -12,9 +12,9 @@ Ready.
 356
 # Running Q 01
 
-# 21:57:34 >  
-# 21:57:34 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=39831 --database=master --host=localhost < "/home/niels/data/rc/clean/sql/benchmarks/ssbm/Tests/01.sql"
-# 21:57:34 >  
+# 22:13:42 >  
+# 22:13:42 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=37905 --database=master --host=localhost < "/home/niels/data/malparsing/sql/benchmarks/ssbm/Tests/01.sql"
+# 22:13:42 >  
 
 #select sum(lo_extendedprice*lo_discount) as revenue
 #	from lineorder, dwdate
@@ -27,10 +27,11 @@ Ready.
 % hugeint # type
 % 10 # length
 [ 4199635969	]
+# Running Q 02
 
-# 21:57:34 >  
-# 21:57:34 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=39831 --database=master --host=localhost < "/home/niels/data/rc/clean/sql/benchmarks/ssbm/Tests/02.sql"
-# 21:57:34 >  
+# 22:13:42 >  
+# 22:13:42 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=37905 --database=master --host=localhost < "/home/niels/data/malparsing/sql/benchmarks/ssbm/Tests/02.sql"
+# 22:13:42 >  
 
 #select sum(lo_extendedprice*lo_discount) as revenue
 #	from lineorder, dwdate
@@ -43,10 +44,11 @@ Ready.
 % hugeint # type
 % 9 # length
 [ 927530712	]
+# Running Q 03
 
-# 21:57:34 >  
-# 21:57:34 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=39831 --database=master --host=localhost < "/home/niels/data/rc/clean/sql/benchmarks/ssbm/Tests/03.sql"
-# 21:57:34 >  
+# 22:13:42 >  
+# 22:13:42 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=37905 --database=master --host=localhost < "/home/niels/data/malparsing/sql/benchmarks/ssbm/Tests/03.sql"
+# 22:13:42 >  
 
 #select sum(lo_extendedprice*lo_discount) as revenue
 #	from lineorder, dwdate
@@ -59,10 +61,11 @@ Ready.
 % hugeint # type
 % 9 # length
 [ 213477639	]
+# Running Q 04
 
-# 21:57:34 >  
-# 21:57:34 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=39831 --database=master --host=localhost < "/home/niels/data/rc/clean/sql/benchmarks/ssbm/Tests/04.sql"
-# 21:57:34 >  
+# 22:13:42 >  
+# 22:13:42 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=37905 --database=master --host=localhost < "/home/niels/data/malparsing/sql/benchmarks/ssbm/Tests/04.sql"
+# 22:13:42 >  
 
 #select sum(lo_revenue), d_year, p_brand1
 #	from lineorder, dwdate, part, supplier
@@ -232,10 +235,11 @@ Ready.
 [ 8693908,	1998,	"MFGR#127"	]
 [ 2768015,	1998,	"MFGR#128"	]
 [ 11569138,	1998,	"MFGR#129"	]
+# Running Q 05
 
-# 21:57:35 >  
-# 21:57:35 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=39831 --database=master --host=localhost < "/home/niels/data/rc/clean/sql/benchmarks/ssbm/Tests/05.sql"
-# 21:57:35 >  
+# 22:13:42 >  
+# 22:13:42 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=37905 --database=master --host=localhost < "/home/niels/data/malparsing/sql/benchmarks/ssbm/Tests/05.sql"
+# 22:13:42 >  
 
 #select sum(lo_revenue), d_year, p_brand1
 #	from lineorder, dwdate, part, supplier
@@ -297,10 +301,11 @@ Ready.
 [ 4449696,	1998,	"MFGR#2225"	]
 [ 5931644,	1998,	"MFGR#2226"	]
 [ 18442636,	1998,	"MFGR#2227"	]
+# Running Q 06
 
-# 21:57:35 >  
-# 21:57:35 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=39831 --database=master --host=localhost < "/home/niels/data/rc/clean/sql/benchmarks/ssbm/Tests/06.sql"
-# 21:57:35 >  
+# 22:13:43 >  
+# 22:13:43 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=37905 --database=master --host=localhost < "/home/niels/data/malparsing/sql/benchmarks/ssbm/Tests/06.sql"
+# 22:13:43 >  
 
 #select sum(lo_revenue), d_year, p_brand1
 #	from lineorder, dwdate, part, supplier
@@ -324,6 +329,11 @@ Ready.
 [ 6838192,	1996,	"MFGR#2221"	]
 [ 4605666,	1997,	"MFGR#2221"	]
 [ 9102972,	1998,	"MFGR#2221"	]
+# Running Q 07
+
+# 22:13:43 >  
+# 22:13:43 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=37905 --database=master --host=localhost < "/home/niels/data/malparsing/sql/benchmarks/ssbm/Tests/07.sql"
+# 22:13:43 >  
 
 #select c_nation, s_nation, d_year, sum(lo_revenue) as revenue
 #	from customer, lineorder, supplier, dwdate
@@ -489,10 +499,11 @@ Ready.
 [ "JAPAN",	"INDIA",	1997,	33111440	]
 [ "JAPAN",	"JAPAN",	1997,	26883620	]
 [ "INDIA",	"JAPAN",	1997,	15498069	]
+# Running Q 08
 
-# 11:35:35 >  
-# 11:35:35 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=36148 --database=master --host=localhost < "/net/madrid/export/scratch1/sjoerd/src/MonetDB/devel/sql/benchmarks/ssbm/Tests/08.sql"
-# 11:35:35 >  
+# 22:13:43 >  
+# 22:13:43 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=37905 --database=master --host=localhost < "/home/niels/data/malparsing/sql/benchmarks/ssbm/Tests/08.sql"
+# 22:13:43 >  
 
 #select c_city, s_city, d_year, sum(lo_revenue) as revenue
 #	from customer, lineorder, supplier, dwdate
@@ -508,10 +519,11 @@ Ready.
 % c_city,	s_city,	d_year,	revenue # name
 % clob,	clob,	int,	hugeint # type
 % 0,	0,	1,	1 # length
+# Running Q 09
 
-# 11:35:35 >  
-# 11:35:35 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=36148 --database=master --host=localhost < "/net/madrid/export/scratch1/sjoerd/src/MonetDB/devel/sql/benchmarks/ssbm/Tests/09.sql"
-# 11:35:35 >  
+# 22:13:44 >  
+# 22:13:44 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=37905 --database=master --host=localhost < "/home/niels/data/malparsing/sql/benchmarks/ssbm/Tests/09.sql"
+# 22:13:44 >  
 
 #select c_city, s_city, d_year, sum(lo_revenue) as revenue
 #	from customer, lineorder, supplier, dwdate
@@ -529,10 +541,11 @@ Ready.
 % c_city,	s_city,	d_year,	revenue # name
 % clob,	clob,	int,	hugeint # type
 % 0,	0,	1,	1 # length
+# Running Q 10
 
-# 11:35:36 >  
-# 11:35:36 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=36148 --database=master --host=localhost < "/net/madrid/export/scratch1/sjoerd/src/MonetDB/devel/sql/benchmarks/ssbm/Tests/10.sql"
-# 11:35:36 >  
+# 22:13:44 >  
+# 22:13:44 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=37905 --database=master --host=localhost < "/home/niels/data/malparsing/sql/benchmarks/ssbm/Tests/10.sql"
+# 22:13:44 >  
 
 #select c_city, s_city, d_year, sum(lo_revenue) as revenue
 #	from customer, lineorder, supplier, dwdate
@@ -550,10 +563,11 @@ Ready.
 % c_city,	s_city,	d_year,	revenue # name
 % clob,	clob,	int,	hugeint # type
 % 0,	0,	1,	1 # length
+# Running Q 11
 
-# 11:35:36 >  
-# 11:35:36 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=36148 --database=master --host=localhost < "/net/madrid/export/scratch1/sjoerd/src/MonetDB/devel/sql/benchmarks/ssbm/Tests/11.sql"
-# 11:35:36 >  
+# 22:13:44 >  
+# 22:13:44 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=37905 --database=master --host=localhost < "/home/niels/data/malparsing/sql/benchmarks/ssbm/Tests/11.sql"
+# 22:13:44 >  
 
 #select d_year, c_nation, sum(lo_revenue-lo_supplycost) as profit1
 #	from dwdate, customer, supplier, part, lineorder
@@ -598,10 +612,11 @@ Ready.
 [ 1998,	"BRAZIL",	17035775	]
 [ 1998,	"CANADA",	93061401	]
 [ 1998,	"PERU",	41688725	]
+# Running Q 12
 
-# 11:35:37 >  
-# 11:35:37 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=36148 --database=master --host=localhost < "/net/madrid/export/scratch1/sjoerd/src/MonetDB/devel/sql/benchmarks/ssbm/Tests/12.sql"
-# 11:35:37 >  
+# 22:13:45 >  
+# 22:13:45 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=37905 --database=master --host=localhost < "/home/niels/data/malparsing/sql/benchmarks/ssbm/Tests/12.sql"
+# 22:13:45 >  
 
 #select d_year, s_nation, p_category, sum(lo_revenue-lo_supplycost) as profit1
 #	from dwdate, customer, supplier, part, lineorder
@@ -695,10 +710,11 @@ Ready.
 [ 1998,	"UNITED STATES",	"MFGR#23",	11917571	]
 [ 1998,	"UNITED STATES",	"MFGR#24",	8482069	]
 [ 1998,	"UNITED STATES",	"MFGR#25",	3295629	]
+# Running Q 13
 
-# 11:35:37 >  
-# 11:35:37 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=36148 --database=master --host=localhost < "/net/madrid/export/scratch1/sjoerd/src/MonetDB/devel/sql/benchmarks/ssbm/Tests/13.sql"
-# 11:35:37 >  
+# 22:13:45 >  
+# 22:13:45 >  Mtimeout -timeout 60 mclient -lsql -ftest -Eutf-8 -i -e --port=37905 --database=master --host=localhost < "/home/niels/data/malparsing/sql/benchmarks/ssbm/Tests/13.sql"
+# 22:13:45 >  
 
 #select d_year, s_city, p_brand1, sum(lo_revenue-lo_supplycost) as profit1
 #	from dwdate, customer, supplier, part, lineorder
@@ -723,4 +739,8 @@ Ready.
 [ 1998,	"UNITED ST2",	"MFGR#1414",	442555	]
 [ 1998,	"UNITED ST7",	"MFGR#142",	306182	]
 [ 1998,	"UNITED ST9",	"MFGR#1433",	141465	]
+
+# 02:22:55 >  
+# 02:22:55 >  "Done."
+# 02:22:55 >  
 

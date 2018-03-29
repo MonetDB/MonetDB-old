@@ -25,7 +25,6 @@
 #include <pwd.h>
 #endif
 #include <sys/types.h>
-#include <stdio.h>
 
 #define ODBCVER 0x0351
 
@@ -45,8 +44,8 @@
  * CONSTANTS WHICH DO NOT EXIST ELSEWHERE
  ********************************************************/
 #ifndef TRUE
-#define FALSE 0;
-#define TRUE 1;
+#define FALSE 0
+#define TRUE 1
 #endif
 
 /*********************************

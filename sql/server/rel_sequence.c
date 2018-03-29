@@ -91,17 +91,14 @@ rel_create_seq(
 	sql_schema *s = NULL;
 
 	if (sname && !(s = mvc_bind_schema(sql, sname)))
-		return sql_error(sql, 02, "3F000!CREATE SEQUENCE: no such schema '%s'", sname);
+		return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: no such schema '%s'", sname);
 	if (s == NULL)
 		s = ss;
 	(void) tpe;
 	if (find_sql_sequence(s, name)) {
-		return sql_error(sql, 02,
-				"CREATE SEQUENCE: "
-				"name '%s' already in use", name);
+		return sql_error(sql, 02, SQLSTATE(42000) "CREATE SEQUENCE: " "name '%s' already in use", name);
 	} else if (!mvc_schema_privs(sql, s)) {
-		return sql_error(sql, 02,
-				"CREATE SEQUENCE: insufficient privileges "
+		return sql_error(sql, 02, SQLSTATE(42000) "CREATE SEQUENCE: insufficient privileges "
 				"for '%s' in schema '%s'", stack_get_string(sql, "current_user"), s->base.name);
 	}
 
@@ -116,8 +113,11 @@ rel_create_seq(
 	seq->bedropped = bedropped;
 	res = rel_seq(sql->sa, DDL_CREATE_SEQ, s->base.name, seq, NULL, NULL);
 	/* for multi statements we keep the sequence around */
-	if (res && stack_has_frame(sql, "MUL") != 0)
-		stack_push_rel_view(sql, name, rel_dup(res));
+	if (res && stack_has_frame(sql, "MUL") != 0) {
+		if(!stack_push_rel_view(sql, name, rel_dup(res)))
+			return sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	}
+
 	return res;
 }
 
@@ -149,43 +149,43 @@ list_create_seq(
 		switch(s->token) {
 		case SQL_TYPE:
 			if ((used&(1<<SEQ_TYPE))) 
-				return sql_error(sql, 02, "3F000!CREATE SEQUENCE: AS type found should be used as most once");
+				return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: AS type found should be used as most once");
 			used |= (1<<SEQ_TYPE);
 			t = &s->data.lval->h->data.typeval;
 			break;
 		case SQL_START:
 			if ((used&(1<<SEQ_START))) 
-				return sql_error(sql, 02, "3F000!CREATE SEQUENCE: START value should be passed as most once");
+				return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: START value should be passed as most once");
 			used |= (1<<SEQ_START);
 			start = s->data.l_val;
 			break;
 		case SQL_INC:
 			if ((used&(1<<SEQ_INC))) 
-				return sql_error(sql, 02, "3F000!CREATE SEQUENCE: INCREMENT value should be passed as most once");
+				return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: INCREMENT value should be passed as most once");
 			used |= (1<<SEQ_INC);
 			inc = s->data.l_val;
 			break;
 		case SQL_MINVALUE:
 			if ((used&(1<<SEQ_MIN))) 
-				return sql_error(sql, 02, "3F000!CREATE SEQUENCE: MINVALUE or NO MINVALUE should be passed as most once");
+				return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: MINVALUE or NO MINVALUE should be passed as most once");
 			used |= (1<<SEQ_MIN);
 			min = s->data.l_val;
 			break;
 		case SQL_MAXVALUE:
 			if ((used&(1<<SEQ_MAX))) 
-				return sql_error(sql, 02, "3F000!CREATE SEQUENCE: MAXVALUE or NO MAXVALUE should be passed as most once");
+				return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: MAXVALUE or NO MAXVALUE should be passed as most once");
 			used |= (1<<SEQ_MAX);
 			max = s->data.l_val;
 			break;
 		case SQL_CYCLE:
 			if ((used&(1<<SEQ_CYCLE))) 
-				return sql_error(sql, 02, "3F000!CREATE SEQUENCE: CYCLE or NO CYCLE should be passed as most once");
+				return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: CYCLE or NO CYCLE should be passed as most once");
 			used |= (1<<SEQ_CYCLE);
 			cycle = s->data.i_val;
 			break;
 		case SQL_CACHE:
 			if ((used&(1<<SEQ_CACHE))) 
-				return sql_error(sql, 02, "3F000!CREATE SEQUENCE: CACHE value should be passed as most once");
+				return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: CACHE value should be passed as most once");
 			used |= (1<<SEQ_CACHE);
 			cache = s->data.l_val;
 			break;
@@ -220,18 +220,15 @@ rel_alter_seq(
 
 	assert(start_list->h->type == type_int);
 	if (sname && !(s = mvc_bind_schema(sql, sname)))
-		return sql_error(sql, 02, "3F000!CREATE SEQUENCE: no such schema '%s'", sname);
+		return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: no such schema '%s'", sname);
 	if (!s)
 		s = ss;
 	(void) tpe;
 	if (!(seq = find_sql_sequence(s, name))) {
-		return sql_error(sql, 02,
-				"ALTER SEQUENCE: "
-				"no such sequence '%s'", name);
+		return sql_error(sql, 02, SQLSTATE(42000) "ALTER SEQUENCE: " "no such sequence '%s'", name);
 	}
 	if (!mvc_schema_privs(sql, s)) {
-		return sql_error(sql, 02,
-				"ALTER SEQUENCE: insufficient privileges "
+		return sql_error(sql, 02, SQLSTATE(42000) "ALTER SEQUENCE: insufficient privileges "
 				"for '%s' in schema '%s'", stack_get_string(sql, "current_user"), s->base.name);
 	}
 
@@ -279,43 +276,43 @@ list_alter_seq(
 		switch(s->token) {
 		case SQL_TYPE:
 			if ((used&(1<<SEQ_TYPE))) 
-				return sql_error(sql, 02, "3F000!CREATE SEQUENCE: AS type found should be used as most once");
+				return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: AS type found should be used as most once");
 			used |= (1<<SEQ_TYPE);
 			t = &s->data.lval->h->data.typeval;
 			break;
 		case SQL_START:
 			if ((used&(1<<SEQ_START))) 
-				return sql_error(sql, 02, "3F000!CREATE SEQUENCE: START value should be passed as most once");
+				return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: START value should be passed as most once");
 			used |= (1<<SEQ_START);
 			start = s->data.lval;
 			break;
 		case SQL_INC:
 			if ((used&(1<<SEQ_INC))) 
-				return sql_error(sql, 02, "3F000!CREATE SEQUENCE: INCREMENT value should be passed as most once");
+				return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: INCREMENT value should be passed as most once");
 			used |= (1<<SEQ_INC);
 			inc = s->data.l_val;
 			break;
 		case SQL_MINVALUE:
 			if ((used&(1<<SEQ_MIN))) 
-				return sql_error(sql, 02, "3F000!CREATE SEQUENCE: MINVALUE or NO MINVALUE should be passed as most once");
+				return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: MINVALUE or NO MINVALUE should be passed as most once");
 			used |= (1<<SEQ_MIN);
 			min = s->data.l_val;
 			break;
 		case SQL_MAXVALUE:
 			if ((used&(1<<SEQ_MAX))) 
-				return sql_error(sql, 02, "3F000!CREATE SEQUENCE: MAXVALUE or NO MAXVALUE should be passed as most once");
+				return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: MAXVALUE or NO MAXVALUE should be passed as most once");
 			used |= (1<<SEQ_MAX);
 			max = s->data.l_val;
 			break;
 		case SQL_CYCLE:
 			if ((used&(1<<SEQ_CYCLE))) 
-				return sql_error(sql, 02, "3F000!CREATE SEQUENCE: CYCLE or NO CYCLE should be passed as most once");
+				return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: CYCLE or NO CYCLE should be passed as most once");
 			used |= (1<<SEQ_CYCLE);
 			cycle = s->data.i_val;
 			break;
 		case SQL_CACHE:
 			if ((used&(1<<SEQ_CACHE))) 
-				return sql_error(sql, 02, "3F000!CREATE SEQUENCE: CACHE value should be passed as most once");
+				return sql_error(sql, 02, SQLSTATE(3F000) "CREATE SEQUENCE: CACHE value should be passed as most once");
 			used |= (1<<SEQ_CACHE);
 			cache = s->data.l_val;
 			break;
@@ -370,7 +367,7 @@ rel_sequences(mvc *sql, symbol *s)
 		}
 		break;
 		default:
-			return sql_error(sql, 01, "sql_stmt Symbol(" PTRFMT ")->token = %s", PTRFMTCAST s, token2string(s->token));
+			return sql_error(sql, 01, SQLSTATE(42000) "sql_stmt Symbol(%p)->token = %s", s, token2string(s->token));
 	}
 	sql->type = Q_SCHEMA; 
 	return res;

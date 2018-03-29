@@ -16,6 +16,7 @@
 CREATE_SQL_FUNCTION_PTR(void, SQLdestroyResult);
 CREATE_SQL_FUNCTION_PTR(str, SQLstatementIntern);
 CREATE_SQL_FUNCTION_PTR(str, create_table_from_emit);
+CREATE_SQL_FUNCTION_PTR(str, append_to_table_from_emit);
 
 static PyObject *_connection_execute(Py_ConnectionObject *self, PyObject *args)
 {
@@ -44,7 +45,7 @@ static PyObject *_connection_execute(Py_ConnectionObject *self, PyObject *args)
 		return NULL;
 	}
 	if (!query) {
-		PyErr_Format(PyExc_Exception, "%s", MAL_MALLOC_FAIL);
+		PyErr_Format(PyExc_Exception, "%s", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		return NULL;
 	}
 	if (!self->mapped) {
@@ -59,7 +60,7 @@ Py_END_ALLOW_THREADS;
 		GDKfree(query);
 		if (res != MAL_SUCCEED) {
 			PyErr_Format(PyExc_Exception, "SQL Query Failed: %s",
-						 (res ? res : "<no error>"));
+						 (res ? getExceptionMessage(res) : "<no error>"));
 			return NULL;
 		}
 
@@ -89,7 +90,7 @@ Py_END_ALLOW_THREADS;
 					_connection_cleanup_result(output);
 					BBPunfix(b->batCacheid);
 					PyErr_Format(PyExc_Exception, "SQL Query Failed: %s",
-								 (res ? res : "<no error>"));
+								 (res ? getExceptionMessage(res) : "<no error>"));
 					return NULL;
 				}
 				PyDict_SetItem(result,
@@ -195,6 +196,12 @@ str _connection_create_table(Client cntxt, char *sname, char *tname,
 	return (*create_table_from_emit_ptr)(cntxt, sname, tname, columns, ncols);
 }
 
+str _connection_append_to_table(Client cntxt, char *sname, char *tname,
+							 sql_emit_col *columns, size_t ncols)
+{
+	return (*append_to_table_from_emit_ptr)(cntxt, sname, tname, columns, ncols);
+}
+
 PyObject *Py_Connection_Create(Client cntxt, bit mapped, QueryStruct *query_ptr,
 							   int query_sem)
 {
@@ -223,6 +230,7 @@ str _connection_init(void)
 	LOAD_SQL_FUNCTION_PTR(SQLdestroyResult);
 	LOAD_SQL_FUNCTION_PTR(SQLstatementIntern);
 	LOAD_SQL_FUNCTION_PTR(create_table_from_emit);
+	LOAD_SQL_FUNCTION_PTR(append_to_table_from_emit);
 
 	if (msg != MAL_SUCCEED) {
 		return msg;
@@ -230,6 +238,6 @@ str _connection_init(void)
 
 	if (PyType_Ready(&Py_ConnectionType) < 0)
 		return createException(MAL, "pyapi.eval",
-							   "Failed to initialize connection type.");
+				       SQLSTATE(PY000) "Failed to initialize connection type.");
 	return msg;
 }

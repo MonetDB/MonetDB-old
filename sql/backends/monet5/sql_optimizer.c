@@ -165,21 +165,24 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe, int prepare)
 	InstrPtr q;
 	backend *be;
 	str msg= MAL_SUCCEED;
-	lng space;
 
 	be = (backend *) c->sqlcontext;
 	assert(be && be->mvc);	/* SQL clients should always have their state set */
 
-	space = SQLgetSpace(be->mvc, mb, prepare);
+	(void) SQLgetSpace(be->mvc, mb, prepare); // detect empty bats.
+	/* The volcano optimizer seems relevant for traditional HDD settings.
+	 * It produced about 8 % improvement onf TPCH SF 100 on a 16G machine.
+	 * In a SSD setting it was counter productive, leading to worse parallel behavior.
+	 * The automatic switch to volcano is now disabled assuming more use of SSD.
+	 * The volcano optimizer pipeline can be used instead
 	if(space && (pipe == NULL || strcmp(pipe,"default_pipe")== 0)){
-		/* for queries with a potential large footprint and running the default pipe line,
-		 * we can switch to a better one. */
 		if( space > (lng)(0.8 * MT_npages() * MT_pagesize())  && GDKnr_threads > 1){
 			pipe = "volcano_pipe";
-			//mnstr_printf(GDKout, "#use volcano optimizer pipeline? "SZFMT"\n", space);
+			//mnstr_printf(GDKout, "#use volcano optimizer pipeline? %zu\n", space);
 		}else
 			pipe = "default_pipe";
 	} else
+	*/
 		pipe = pipe? pipe: "default_pipe";
 	msg = addOptimizerPipe(c, mb, pipe);
 	if (msg){
@@ -240,7 +243,7 @@ SQLoptimizeQuery(Client c, MalBlkPtr mb)
 	assert(be && be->mvc);	/* SQL clients should always have their state set */
 
 	c->blkmode = 0;
-	chkProgram(c->fdout, c->nspace, mb);
+	chkProgram(c->usermodule, mb);
 
 	/*
 	 * An error in the compilation should be reported to the user.
@@ -248,8 +251,6 @@ SQLoptimizeQuery(Client c, MalBlkPtr mb)
 	 * to allow inspection.
 	 */
 	if (mb->errors) {
-		showErrors(c);
-
 		if (c->listing)
 			printFunction(c->fdout, mb, 0, c->listing);
 		if (be->mvc->debug) {
@@ -273,6 +274,6 @@ SQLoptimizeQuery(Client c, MalBlkPtr mb)
 void
 SQLaddQueryToCache(Client c)
 {
-	insertSymbol(c->nspace, c->curprg);
+	insertSymbol(c->usermodule, c->curprg);
 }
 

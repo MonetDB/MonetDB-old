@@ -30,6 +30,7 @@ stderr of test 'createorreplace-system-func.Bug-6499` in directory 'sql/test/Bug
 MAPI  = (monetdb) /var/tmp/mtest-10252/.s.monetdb.38213
 QUERY = CREATE OR REPLACE FUNCTION levenshtein(s1 string, s2 string) RETURNS integer EXTERNAL NAME mdb."levenshtein_utf8";
 ERROR = !CREATE OR REPLACE FUNCTION: not allowed to replace system function levenshtein;
+CODE  = 42000
 
 # 12:24:14 >  
 # 12:24:14 >  "Done."

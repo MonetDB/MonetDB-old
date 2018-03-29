@@ -54,7 +54,7 @@ AGGRgrouped(bat *retval1, bat *retval2, const bat *bid, const bat *gid, const ba
 			BBPunfix(s->batCacheid);
 		if (q)
 			BBPunfix(q->batCacheid);
-		throw(MAL, malfunc, RUNTIME_OBJECT_MISSING);
+		throw(MAL, malfunc, SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 	}
 	if (tp == TYPE_any &&
 		(grpfunc1 == BATgroupmedian || quantilefunc == BATgroupquantile))

@@ -8,7 +8,7 @@
 
 #include "monetdb_config.h"
 #include "opt_garbageCollector.h"
-#include "mal_interpreter.h"	/* for showErrors() */
+#include "mal_interpreter.h"
 #include "mal_builder.h"
 #include "mal_function.h"
 #include "opt_prelude.h"
@@ -30,6 +30,7 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 	int actions = 0;
 	char buf[256];
 	lng usec = GDKusec();
+	str msg = MAL_SUCCEED;
 	//int *varlnk, *stmtlnk;
 
 	(void) pci;
@@ -81,7 +82,7 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 */
 
 	if ( newMalBlkStmt(mb,mb->ssize) < 0) 
-		throw(MAL, "optimizer.garbagecollector", MAL_MALLOC_FAIL);
+		throw(MAL, "optimizer.garbagecollector", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 	p = NULL;
 	for (i = 0; i < limit; i++) {
@@ -119,9 +120,11 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 		}
 */
 	}
-	assert(p);
-	assert( p->token == ENDsymbol);
+	/* A good MAL plan should end with an END instruction */
 	pushInstruction(mb, p);
+	if( p && p->token != ENDsymbol){
+		throw(MAL, "optimizer.garbagecollector", SQLSTATE(42000) "Incorrect MAL plan encountered");
+	}
 	for (i++; i < limit; i++) 
 		pushInstruction(mb, old[i]);
 	for (; i < slimit; i++) 
@@ -135,10 +138,15 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 	{ 	int k;
 		fprintf(stderr, "#Garbage collected BAT variables \n");
 		for ( k =0; k < vlimit; k++)
-			fprintf(stderr,"%10s eolife %3d  begin %3d lastupd %3d end %3d\n",
-				getVarName(mb,k), mb->var[k]->eolife,
-				getBeginScope(mb,k), getLastUpdate(mb,k), getEndScope(mb,k));
-		chkFlow(cntxt->fdout,mb);
+		fprintf(stderr,"%10s eolife %3d  begin %3d lastupd %3d end %3d\n",
+			getVarName(mb,k), mb->var[k]->eolife,
+			getBeginScope(mb,k), getLastUpdate(mb,k), getEndScope(mb,k));
+		chkFlow(mb);
+		if ( mb->errors != MAL_SUCCEED ){
+			fprintf(stderr,"%s\n",mb->errors);
+			GDKfree(mb->errors);
+			mb->errors = MAL_SUCCEED;
+		}
 		fprintFunction(stderr,mb, 0, LIST_MAL_ALL);
 		fprintf(stderr, "End of GCoptimizer\n");
 	}
@@ -146,18 +154,19 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 
 	/* rename all temporaries for ease of debugging */
 	for( i = 0; i < mb->vtop; i++)
-		if( sscanf(getVarName(mb,i),"X_%d", &j) == 1)
-			snprintf(getVarName(mb,i),IDLENGTH,"X_%d",i);
-		else if( sscanf(getVarName(mb,i),"C_%d", &j) == 1)
-			snprintf(getVarName(mb,i),IDLENGTH,"C_%d",i);
+	if( sscanf(getVarName(mb,i),"X_%d", &j) == 1)
+		snprintf(getVarName(mb,i),IDLENGTH,"X_%d",i);
+	else
+	if( sscanf(getVarName(mb,i),"C_%d", &j) == 1)
+		snprintf(getVarName(mb,i),IDLENGTH,"C_%d",i);
 
 	/* leave a consistent scope admin behind */
 	setVariableScope(mb);
 	/* Defense line against incorrect plans */
 	if( actions > 0){
-		chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-		chkFlow(cntxt->fdout, mb);
-		chkDeclarations(cntxt->fdout, mb);
+		chkTypes(cntxt->usermodule, mb, FALSE);
+		chkFlow(mb);
+		chkDeclarations(mb);
 	}
 	/* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;
@@ -166,6 +175,6 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 	if( actions >= 0)
 		addtoMalBlkHistory(mb);
 
-	return MAL_SUCCEED;
+	return msg;
 }
 

@@ -42,6 +42,7 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	int activeClients;
 	char buf[256];
 	lng usec = GDKusec();
+	str msg = MAL_SUCCEED;
 
 	//if ( optimizerIsApplied(mb,"mitosis") )
 		//return 0;
@@ -86,7 +87,7 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			 getBatType(getArgType(mb, p, p->retc)) == TYPE_dbl))
 			return 0;
 
-		if (p->argc > 2 && (getModuleId(p) == rapiRef || getModuleId(p) == pyapiRef || getModuleId(p) == pyapi3Ref) && 
+		if (p->argc > 2 && (getModuleId(p) == capiRef || getModuleId(p) == rapiRef || getModuleId(p) == pyapiRef || getModuleId(p) == pyapi3Ref) && 
 		        getFunctionId(p) == subeval_aggrRef)
 			return 0;
 
@@ -172,7 +173,7 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 #ifdef DEBUG_OPT_MITOSIS
 	fprintf(stderr, "#opt_mitosis: target is %s.%s "
-							   " with " BUNFMT " rows of size %d into " SZFMT
+							   " with " BUNFMT " rows of size %d into %zu"
 								" rows/piece %d threads %d pieces"
 								" fixed parts %d fixed size %d\n",
 				 getVarConstant(mb, getArg(target, 2)).val.sval,
@@ -185,7 +186,7 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	limit = mb->stop;
 	slimit = mb->ssize;
 	if (newMalBlkStmt(mb, mb->stop + 2 * estimate) < 0)
-		throw(MAL,"optimizer.mitosis", MAL_MALLOC_FAIL);
+		throw(MAL,"optimizer.mitosis", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	estimate = 0;
 
 	schema = getVarConstant(mb, getArg(target, 2)).val.sval;
@@ -248,6 +249,13 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 		for (j = 0; j < pieces; j++) {
 			q = copyInstruction(p);
+			if( q == NULL){
+				for (; i<limit; i++) 
+					if (old[i])
+						pushInstruction(mb,old[i]);
+				GDKfree(old);
+				throw(MAL,"optimizer.mitosis", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			}
 			q = pushInt(mb, q, j);
 			q = pushInt(mb, q, pieces);
 
@@ -276,9 +284,9 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
     /* Defense line against incorrect plans */
     if( 1){
-        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-        chkFlow(cntxt->fdout, mb);
-        chkDeclarations(cntxt->fdout, mb);
+        chkTypes(cntxt->usermodule, mb, FALSE);
+        chkFlow(mb);
+        chkDeclarations(mb);
     }
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;
@@ -286,5 +294,5 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
     newComment(mb,buf);
 	addtoMalBlkHistory(mb);
 
-	return MAL_SUCCEED;
+	return msg;
 }

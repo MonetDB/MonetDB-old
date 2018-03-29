@@ -17,8 +17,8 @@ gdk_export BAT *GDKval;
 
 gdk_export char *GDKgetenv(const char *name);
 
+gdk_export int GDKgetenv_istext(const char *name, const char* text);
 gdk_export int GDKgetenv_isyes(const char *name);
-
 gdk_export int GDKgetenv_istrue(const char *name);
 
 gdk_export int GDKgetenv_int(const char *name, int def);
@@ -104,6 +104,14 @@ gdk_export gdk_return GDKextractParentAndLastDirFromPath(const char *path, char 
 gdk_export jmp_buf GDKfataljump;
 gdk_export str GDKfatalmsg;
 gdk_export bit GDKfataljumpenable;
+
+/* Timers
+ * The following relative timers are available for inspection.
+ * Note that they may consume recognizable overhead.
+ *
+ */
+gdk_export lng GDKusec(void);
+gdk_export int GDKms(void);
 
 
 #endif /* _GDK_UTILS_H_ */

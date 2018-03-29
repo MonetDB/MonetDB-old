@@ -49,6 +49,7 @@ typedef enum tokens {
 	SQL_DROP_DEFAULT,
 	SQL_ANALYZE,
 	SQL_DECLARE,
+	SQL_COMMENT,
 	SQL_SET,
 	SQL_CALL,
 	SQL_PREP,
@@ -60,7 +61,10 @@ typedef enum tokens {
 	SQL_SCHEMA,
 	SQL_TABLE,
 	SQL_TABLE_OPERATOR,
+	SQL_VIEW,
+	SQL_INDEX,
 	SQL_TYPE,
+	SQL_SEQUENCE,
 	SQL_CASE,
 	SQL_CAST,
 	SQL_RETURN,
@@ -90,6 +94,7 @@ typedef enum tokens {
 	TR_MODE,
 	SQL_INSERT,
 	SQL_DELETE,
+	SQL_TRUNCATE,
 	SQL_UPDATE,
 	SQL_STORAGE,
 	SQL_CROSS,
@@ -142,6 +147,7 @@ typedef enum tokens {
 	SQL_FRAME,
 	SQL_COMPARE,
 	SQL_FILTER,
+	SQL_ROUTINE,
 	SQL_TEMP_LOCAL,
 	SQL_TEMP_GLOBAL,
 	SQL_INT_VALUE,
@@ -189,6 +195,8 @@ extern int find_subgeometry_type(char*);
 extern char *token2string(int token);
 extern int sqlparse(mvc *m);
 extern int sqlerror(mvc *sql, const char *s);
+
+#include "mal_errors.h"		/* for SQLSTATE() */
 
 #endif /*_SQL_PARSER_H_*/
 

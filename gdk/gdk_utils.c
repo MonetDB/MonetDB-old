@@ -77,7 +77,7 @@ GDKenvironment(const char *dbpath)
 		fprintf(stderr, "!GDKenvironment: database name missing.\n");
 		return 0;
 	}
-	if (strlen(dbpath) >= PATHLENGTH) {
+	if (strlen(dbpath) >= FILENAME_MAX) {
 		fprintf(stderr, "!GDKenvironment: database name too long.\n");
 		return 0;
 	}
@@ -101,25 +101,26 @@ GDKgetenv(const char *name)
 }
 
 int
-GDKgetenv_isyes(const char *name)
+GDKgetenv_istext(const char *name, const char* text)
 {
 	char *val = GDKgetenv(name);
 
-	if (val && strcasecmp(val, "yes") == 0) {
+	if (val && strcasecmp(val, text) == 0) {
 		return 1;
 	}
 	return 0;
 }
 
 int
+GDKgetenv_isyes(const char *name)
+{
+	return GDKgetenv_istext(name, "yes");
+}
+
+int
 GDKgetenv_istrue(const char *name)
 {
-	char *val = GDKgetenv(name);
-
-	if (val && strcasecmp(val, "true") == 0) {
-		return 1;
-	}
-	return 0;
+	return GDKgetenv_istext(name, "true");
 }
 
 int
@@ -219,7 +220,7 @@ GDKlog(FILE *lockFile, const char *format, ...)
 static void
 BATSIGignore(int nr)
 {
-	GDKsyserror("! ERROR signal %d caught by thread " SZFMT "\n", nr, (size_t) MT_getpid());
+	GDKsyserror("! ERROR signal %d caught by thread %zu\n", nr, (size_t) MT_getpid());
 }
 #endif
 
@@ -603,27 +604,27 @@ GDKinit(opt *set, int setlen)
 #endif
 	}
 	if (GDKgetenv("gdk_vm_maxsize") == NULL) {
-		snprintf(buf, sizeof(buf), SZFMT, GDK_vm_maxsize);
+		snprintf(buf, sizeof(buf), "%zu", GDK_vm_maxsize);
 		if (GDKsetenv("gdk_vm_maxsize", buf) != GDK_SUCCEED)
 			GDKfatal("GDKinit: GDKsetenv failed");
 	}
 	if (GDKgetenv("gdk_mem_maxsize") == NULL) {
-		snprintf(buf, sizeof(buf), SZFMT, GDK_mem_maxsize);
+		snprintf(buf, sizeof(buf), "%zu", GDK_mem_maxsize);
 		if (GDKsetenv("gdk_mem_maxsize", buf) != GDK_SUCCEED)
 			GDKfatal("GDKinit: GDKsetenv failed");
 	}
 	if (GDKgetenv("gdk_mmap_minsize_persistent") == NULL) {
-		snprintf(buf, sizeof(buf), SZFMT, GDK_mmap_minsize_persistent);
+		snprintf(buf, sizeof(buf), "%zu", GDK_mmap_minsize_persistent);
 		if (GDKsetenv("gdk_mmap_minsize_persistent", buf) != GDK_SUCCEED)
 			GDKfatal("GDKinit: GDKsetenv failed");
 	}
 	if (GDKgetenv("gdk_mmap_minsize_transient") == NULL) {
-		snprintf(buf, sizeof(buf), SZFMT, GDK_mmap_minsize_transient);
+		snprintf(buf, sizeof(buf), "%zu", GDK_mmap_minsize_transient);
 		if (GDKsetenv("gdk_mmap_minsize_transient", buf) != GDK_SUCCEED)
 			GDKfatal("GDKinit: GDKsetenv failed");
 	}
 	if (GDKgetenv("gdk_mmap_pagesize") == NULL) {
-		snprintf(buf, sizeof(buf), SZFMT, GDK_mmap_pagesize);
+		snprintf(buf, sizeof(buf), "%zu", GDK_mmap_pagesize);
 		if (GDKsetenv("gdk_mmap_pagesize", buf) != GDK_SUCCEED)
 			GDKfatal("GDKinit: GDKsetenv failed");
 	}
@@ -694,7 +695,6 @@ GDKregister(MT_Id pid)
 	MT_lock_unset(&GDKthreadLock);
 }
 
-/* coverity[+kill] */
 void
 GDKreset(int status, int exit)
 {
@@ -830,15 +830,17 @@ GDKreset(int status, int exit)
 #endif
 }
 
+/* coverity[+kill] */
 void
 GDKexit(int status)
 {
 	if (GET_GDKLOCK(0) == NULL) {
 #ifdef HAVE_EMBEDDED
 		return;
-#endif
+#else
 		/* no database lock, so no threads, so exit now */
 		exit(status);
+#endif
 	}
 	GDKprepareExit();
 	GDKreset(status, 1);
@@ -1162,7 +1164,14 @@ GDKfatal(const char *format, ...)
 	vsnprintf(message + len, sizeof(message) - (len + 2), format, ap);
 	va_end(ap);
 
-	if (!GDKfataljumpenable) {
+#ifndef STATIC_CODE_ANALYSIS
+	if (GDKfataljumpenable) {
+		// in embedded mode, we really don't want to kill our host
+		GDKfatalmsg = GDKstrdup(message);
+		longjmp(GDKfataljump, 42);
+	} else
+#endif
+	{
 		fputs(message, stderr);
 		fputs("\n", stderr);
 		fflush(stderr);
@@ -1177,16 +1186,85 @@ GDKfatal(const char *format, ...)
 			/* exit(1); */
 		} else {
 			GDKlog(GET_GDKLOCK(0), "%s", message);
-	#ifdef COREDUMP
+#ifdef COREDUMP
 			abort();
-	#else
+#else
 			GDKexit(1);
-	#endif
+#endif
 		}
-	} else { // in embedded mode, we really don't want to kill our host
-		GDKfatalmsg = GDKstrdup(message);
-		longjmp(GDKfataljump, 42);
 	}
+}
+
+
+lng
+GDKusec(void)
+{
+	/* Return the time in microseconds since an epoch.  The epoch
+	 * is roughly the time this program started. */
+#ifdef _MSC_VER
+	static LARGE_INTEGER freq, start;	/* automatically initialized to 0 */
+	LARGE_INTEGER ctr;
+
+	if (start.QuadPart == 0 &&
+	    (!QueryPerformanceFrequency(&freq) ||
+	     !QueryPerformanceCounter(&start)))
+		start.QuadPart = -1;
+	if (start.QuadPart > 0) {
+		QueryPerformanceCounter(&ctr);
+		return (lng) (((ctr.QuadPart - start.QuadPart) * 1000000) / freq.QuadPart);
+	}
+#endif
+#ifdef HAVE_CLOCK_GETTIME
+#if defined(CLOCK_UPTIME_FAST)
+#define CLK_ID CLOCK_UPTIME_FAST	/* FreeBSD */
+#else
+#define CLK_ID CLOCK_MONOTONIC		/* Posix (fallback) */
+#endif
+	{
+		static struct timespec tsbase;
+		struct timespec ts;
+		if (tsbase.tv_sec == 0) {
+			clock_gettime(CLK_ID, &tsbase);
+			return tsbase.tv_nsec / 1000;
+		}
+		if (clock_gettime(CLK_ID, &ts) == 0)
+			return (ts.tv_sec - tsbase.tv_sec) * 1000000 + ts.tv_nsec / 1000;
+	}
+#endif
+#ifdef HAVE_GETTIMEOFDAY
+	{
+		static struct timeval tpbase;	/* automatically initialized to 0 */
+		struct timeval tp;
+
+		if (tpbase.tv_sec == 0) {
+			gettimeofday(&tpbase, NULL);
+			return (lng) tpbase.tv_usec;
+		}
+		gettimeofday(&tp, NULL);
+		return (lng) (tp.tv_sec - tpbase.tv_sec) * 1000000 + (lng) tp.tv_usec;
+	}
+#else
+#ifdef HAVE_FTIME
+	{
+		static struct timeb tbbase;	/* automatically initialized to 0 */
+		struct timeb tb;
+
+		if (tbbase.time == 0) {
+			ftime(&tbbase);
+			return (lng) tbbase.millitm * 1000;
+		}
+		ftime(&tb);
+		return (lng) (tb.time - tbbase.time) * 1000000 + (lng) tb.millitm * 1000;
+	}
+#endif
+#endif
+}
+
+
+int
+GDKms(void)
+{
+	return (int) (GDKusec() / 1000);
 }
 
 
@@ -1217,13 +1295,13 @@ THRget(int tid)
 #if defined(_MSC_VER) && _MSC_VER >= 1900
 #pragma warning(disable : 4172)
 #endif
-static inline size_t
+static inline uintptr_t
 THRsp(void)
 {
 	int l = 0;
 	uintptr_t sp = (uintptr_t) (&l);
 
-	return (size_t) sp;
+	return sp;
 }
 
 static Thread
@@ -1251,13 +1329,6 @@ THRnew(const char *name)
 	s = GDK_find_thread(pid);
 	if (s == NULL) {
 		for (s = GDKthreads, t = s + THREADS; s < t; s++) {
-			if (s->pid == pid) {
-				MT_lock_unset(&GDKthreadLock);
-				IODEBUG fprintf(stderr, "#THRnew:duplicate " SZFMT "\n", (size_t) pid);
-				return s;
-			}
-		}
-		for (s = GDKthreads, t = s + THREADS; s < t; s++) {
 			if (s->pid == 0) {
 				break;
 			}
@@ -1276,7 +1347,7 @@ THRnew(const char *name)
 		s->data[0] = THRdata[0];
 		s->sp = THRsp();
 
-		PARDEBUG fprintf(stderr, "#%x " SZFMT " sp = " SZFMT "\n", s->tid, (size_t) pid, s->sp);
+		PARDEBUG fprintf(stderr, "#%x %zu sp = %zu\n", (unsigned) s->tid, (size_t) pid, (size_t) s->sp);
 		PARDEBUG fprintf(stderr, "#nrofthreads %d\n", GDKnrofthreads);
 
 		GDKnrofthreads++;
@@ -1294,7 +1365,7 @@ THRdel(Thread t)
 		GDKfatal("THRdel: illegal call\n");
 	}
 	MT_lock_set(&GDKthreadLock);
-	PARDEBUG fprintf(stderr, "#pid = " SZFMT ", disconnected, %d left\n", (size_t) t->pid, GDKnrofthreads);
+	PARDEBUG fprintf(stderr, "#pid = %zu, disconnected, %d left\n", (size_t) t->pid, GDKnrofthreads);
 
 	GDKfree(t->name);
 	t->name = NULL;
@@ -1306,7 +1377,7 @@ THRdel(Thread t)
 int
 THRhighwater(void)
 {
-	size_t c;
+	uintptr_t c;
 	Thread s;
 	size_t diff;
 	int rc = 0;
@@ -1529,7 +1600,7 @@ GDKmemfail(const char *s, size_t len)
 	   }
 	 */
 
-	fprintf(stderr, "#%s(" SZFMT ") fails, try to free up space [memory in use=" SZFMT ",virtual memory in use=" SZFMT "]\n", s, len, GDKmem_cursize(), GDKvm_cursize());
+	fprintf(stderr, "#%s(%zu) fails, try to free up space [memory in use=%zu,virtual memory in use=%zu]\n", s, len, GDKmem_cursize(), GDKvm_cursize());
 }
 
 /* Memory allocation
@@ -1589,7 +1660,7 @@ GDKmalloc_internal(size_t size)
 	nsize = (size + 7) & ~7;
 	if ((s = malloc(nsize + MALLOC_EXTRA_SPACE + DEBUG_SPACE)) == NULL) {
 		GDKmemfail("GDKmalloc", size);
-		GDKerror("GDKmalloc_internal: failed for " SZFMT " bytes", size);
+		GDKerror("GDKmalloc_internal: failed for %zu bytes", size);
 		return NULL;
 	}
 	s = (void *) ((char *) s + MALLOC_EXTRA_SPACE);
@@ -1747,7 +1818,7 @@ GDKrealloc(void *s, size_t size)
 		os[-1] &= ~2;	/* not freed after all */
 #endif
 		GDKmemfail("GDKrealloc", size);
-		GDKerror("GDKrealloc: failed for " SZFMT " bytes", size);
+		GDKerror("GDKrealloc: failed for %zu bytes", size);
 		return NULL;
 	}
 	s = (void *) ((char *) s + MALLOC_EXTRA_SPACE);
@@ -1779,7 +1850,7 @@ GDKmalloc(size_t size)
 {
 	void *p = malloc(size);
 	if (p == NULL)
-		GDKerror("GDKmalloc: failed for " SZFMT " bytes", size);
+		GDKerror("GDKmalloc: failed for %zu bytes", size);
 	return p;
 }
 
@@ -1795,7 +1866,7 @@ GDKzalloc(size_t size)
 {
 	void *ptr = calloc(size, 1);
 	if (ptr == NULL)
-		GDKerror("GDKzalloc: failed for " SZFMT " bytes", size);
+		GDKerror("GDKzalloc: failed for %zu bytes", size);
 	return ptr;
 }
 
@@ -1804,7 +1875,7 @@ GDKrealloc(void *ptr, size_t size)
 {
 	void *p = realloc(ptr, size);
 	if (p == NULL)
-		GDKerror("GDKrealloc: failed for " SZFMT " bytes", size);
+		GDKerror("GDKrealloc: failed for %zu bytes", size);
 	return p;
 }
 

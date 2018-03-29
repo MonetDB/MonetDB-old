@@ -28,10 +28,6 @@
 #include "ODBCGlobal.h"
 #include "ODBCStmt.h"
 #include "ODBCUtil.h"
-#include <time.h>
-#ifdef HAVE_STRINGS_H
-#include <strings.h>		/* for strncasecmp */
-#endif
 
 SQLRETURN
 MNDBFetch(ODBCStmt *stmt, SQLUSMALLINT *RowStatusArray)
@@ -161,7 +157,7 @@ SQLFetch(SQLHSTMT StatementHandle)
 	ODBCStmt *stmt = (ODBCStmt *) StatementHandle;
 
 #ifdef ODBCDEBUG
-	ODBCLOG("SQLFetch " PTRFMT "\n", PTRFMTCAST StatementHandle);
+	ODBCLOG("SQLFetch %p\n", StatementHandle);
 #endif
 
 	if (!isValidStmt(stmt))

@@ -29,28 +29,34 @@
 str
 CMDraise(str *ret, str *msg)
 {
+	str res;
 	*ret = GDKstrdup(*msg);
-	return GDKstrdup(*msg);
+	if( *ret == NULL)
+		throw(MAL, "mal.raise", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	res = GDKstrdup(*msg);
+	if( res == NULL)
+		throw(MAL, "mal.raise", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	return res;
 }
 
 str
 MALassertBit(void *ret, bit *val, str *msg){
 	(void) ret;
-	if( *val == 0 || *val == bit_nil)
+	if( *val == 0 || is_bit_nil(*val))
 		throw(MAL, "mal.assert", "%s", *msg);
 	return MAL_SUCCEED;
 }
 str
 MALassertInt(void *ret, int *val, str *msg){
 	(void) ret;
-	if( *val == 0 || *val == int_nil)
+	if( *val == 0 || is_int_nil(*val))
 		throw(MAL, "mal.assert", "%s", *msg);
 	return MAL_SUCCEED;
 }
 str
 MALassertLng(void *ret, lng *val, str *msg){
 	(void) ret;
-	if( *val == 0 || *val == lng_nil)
+	if( *val == 0 || is_lng_nil(*val))
 		throw(MAL, "mal.assert", "%s", *msg);
 	return MAL_SUCCEED;
 }
@@ -58,7 +64,7 @@ MALassertLng(void *ret, lng *val, str *msg){
 str
 MALassertHge(void *ret, hge *val, str *msg){
 	(void) ret;
-	if( *val == 0 || *val == hge_nil)
+	if( *val == 0 || is_hge_nil(*val))
 		throw(MAL, "mal.assert", "%s", *msg);
 	return MAL_SUCCEED;
 }
@@ -66,14 +72,14 @@ MALassertHge(void *ret, hge *val, str *msg){
 str
 MALassertSht(void *ret, sht *val, str *msg){
 	(void) ret;
-	if( *val == 0 || *val == sht_nil)
+	if( *val == 0 || is_sht_nil(*val))
 		throw(MAL, "mal.assert", "%s", *msg);
 	return MAL_SUCCEED;
 }
 str
 MALassertOid(void *ret, oid *val, str *msg){
 	(void) ret;
-	if( *val == oid_nil)
+	if( is_oid_nil(*val))
 		throw(MAL, "mal.assert", "%s", *msg);
 	return MAL_SUCCEED;
 }
@@ -115,8 +121,7 @@ CMDcallString(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	s = getArgReference_str(stk, pci, 1);
 	if (strlen(*s) == 0)
 		return MAL_SUCCEED;
-	callString(cntxt, *s, FALSE);
-	return MAL_SUCCEED;
+	return callString(cntxt, *s, FALSE);
 }
 
 str
@@ -131,8 +136,7 @@ CMDcallFunction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return MAL_SUCCEED;
 	// lazy implementation of the call
 	snprintf(buf,BUFSIZ,"%s.%s();",mod,fcn);
-	callString(cntxt, buf, FALSE);
-	return MAL_SUCCEED;
+	return callString(cntxt, buf, FALSE);
 }
 
 str
@@ -184,16 +188,17 @@ CMDregisterFunction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	msg= compileString(&sym, cntxt,*code);
 	if( sym) {
-		mnstr_printf(cntxt->fdout,"#register FUNCTION %s.%s\n",
-			getModuleId(sym->def->stmt[0]), getFunctionId(sym->def->stmt[0]));
+		assert(cntxt->usermodule);
+		//mnstr_printf(cntxt->fdout,"#register FUNCTION %s.%s\n",
+			//getModuleId(sym->def->stmt[0]), getFunctionId(sym->def->stmt[0]));
 		mb= sym->def;
 		fcnName = putName(*fcn);
 		modName = putName(*mod);
 		ahelp = GDKstrdup(*help);
-		if(fcnName == NULL || modName == NULL || help == NULL) {
+		if(fcnName == NULL || modName == NULL || ahelp == NULL) {
 			freeSymbol(sym);
 			GDKfree(ahelp);
-			throw(MAL, "language.register", MAL_MALLOC_FAIL);
+			throw(MAL, "language.register", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 		if( help)
 			mb->help= ahelp;
@@ -201,7 +206,7 @@ CMDregisterFunction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		sym->name= fcnName;
 		setModuleId(sig, modName);
 		setFunctionId(sig, sym->name);
-		insertSymbol(findModule(cntxt->nspace, getModuleId(sig)), sym);
+		insertSymbol(findModule(cntxt->usermodule, getModuleId(sig)), sym);
 	}
 	return msg;
 }
@@ -211,6 +216,7 @@ CMDevalFile(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str s = *getArgReference_str(stk,pci,1);
 	char *msg = NULL;
 	(void) mb;
+	(void) cntxt;
 
 	if (s == 0) 
 		throw(MAL, "mal.evalFile", RUNTIME_FILE_NOT_FOUND "missing file name");
@@ -218,15 +224,15 @@ CMDevalFile(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (*s != '/') {
 		char *buf = GDKmalloc(strlen(monet_cwd) + strlen(s) + 2);
 		if ( buf == NULL)
-			throw(MAL,"language.eval", MAL_MALLOC_FAIL);
+			throw(MAL,"language.eval", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 		strcpy(buf, monet_cwd);
 		strcat(buf, "/");
 		strcat(buf, s);
-		msg = evalFile(cntxt, buf, 0);
+		msg = evalFile(buf, 0);
 		GDKfree(buf);
 	} else 
-		msg = evalFile(cntxt, s, 0);
+		msg = evalFile(s, 0);
 	return msg;
 }
 /*

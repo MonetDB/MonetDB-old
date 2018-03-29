@@ -15,6 +15,7 @@
 #include "rel_exp.h"
 #include "rel_prop.h"
 #include "rel_remote.h"
+#include "mal_errors.h"		/* for SQLSTATE() */
 
 static void
 print_indent(mvc *sql, stream *fout, int depth, int decorate)
@@ -289,7 +290,8 @@ op2string(operator_type op)
 		return "sample";
 	case op_insert: 
 	case op_update: 
-	case op_delete: 
+	case op_delete:
+	case op_truncate:
 		return "modify op";
 	default:
 		return "unknown";
@@ -476,7 +478,8 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 		break;
 	case op_insert:
 	case op_update:
-	case op_delete: {
+	case op_delete:
+	case op_truncate: {
 
 		print_indent(sql, fout, depth, decorate);
 		if (rel->op == op_insert)
@@ -485,6 +488,8 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 			mnstr_printf(fout, "update(");
 		else if (rel->op == op_delete)
 			mnstr_printf(fout, "delete(");
+		else if (rel->op == op_truncate)
+			mnstr_printf(fout, "truncate(");
 
 		if (rel_is_ref(rel->l)) {
 			int nr = find_ref(refs, rel->l);
@@ -565,7 +570,8 @@ rel_print_refs(mvc *sql, stream* fout, sql_rel *rel, int depth, list *refs, int 
 		break;
 	case op_insert: 
 	case op_update: 
-	case op_delete: 
+	case op_delete:
+	case op_truncate:
 		rel_print_refs(sql, fout, rel->l, depth, refs, decorate);
 		if (rel->l && rel_is_ref(rel->l) && !find_ref(refs, rel->l)) {
 			rel_print_(sql, fout, rel->l, depth, refs, decorate);
@@ -583,7 +589,7 @@ rel_print_refs(mvc *sql, stream* fout, sql_rel *rel, int depth, list *refs, int 
 static void
 skipWS( char *r, int *pos)
 {
-	while(r[*pos] && (isspace(r[*pos]) || r[*pos] == '|')) 
+	while(r[*pos] && (isspace((unsigned char) r[*pos]) || r[*pos] == '|')) 
 		(*pos)++;
 }
 
@@ -603,7 +609,7 @@ skipIdent( char *r, int *pos)
 			(*pos)++;
 		(*pos)++;
 	} else {
-		while(r[*pos] && (isalnum(r[*pos]) || r[*pos] == '_' || r[*pos] == '%'))
+		while(r[*pos] && (isalnum((unsigned char) r[*pos]) || r[*pos] == '_' || r[*pos] == '%'))
 			(*pos)++;
 	}
 }
@@ -614,7 +620,7 @@ skipIdentOrSymbol( char *r, int *pos)
 	if (r[*pos] == '"') {
 		skipIdent(r, pos);
 	} else {
-		while(r[*pos] && (isalnum(r[*pos]) ||
+		while(r[*pos] && (isalnum((unsigned char) r[*pos]) ||
 				  r[*pos] == '=' ||
 				  r[*pos] == '_' || r[*pos] == '%' ||
 				  r[*pos] == '<' || r[*pos] == '>' ||
@@ -630,7 +636,7 @@ readInt( char *r, int *pos)
 {
 	int res = 0;
 
-	while (isdigit(r[*pos])) {
+	while (isdigit((unsigned char) r[*pos])) {
 		res *= 10;
 		res += r[*pos]-'0';
 		(*pos)++;
@@ -673,12 +679,12 @@ read_prop( mvc *sql, sql_exp *exp, char *r, int *pos)
 		sname = r+*pos;
 		skipIdent(r,pos);
 		if (r[*pos] != '.') 
-			return sql_error(sql, -1, "JOINIDX: missing '.'\n");
+			return sql_error(sql, -1, SQLSTATE(42000) "JOINIDX: missing '.'\n");
 		r[*pos] = 0;
 		(*pos)++;
 		skipIdent(r,pos);
 		if (r[*pos] != '.') 
-			return sql_error(sql, -1, "JOINIDX: missing '.'\n");
+			return sql_error(sql, -1, SQLSTATE(42000) "JOINIDX: missing '.'\n");
 		r[*pos] = 0;
 		(*pos)++;
 		iname = r+*pos;
@@ -711,7 +717,7 @@ read_exps(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos
 		skipWS( r, pos);
 		e = exp_read(sql, lrel, rrel, pexps, r, pos, grp);
 		if (!e && r[*pos] != ebracket) {
-			return sql_error(sql, -1, "missing closing %c\n", ebracket);
+			return sql_error(sql, -1, SQLSTATE(42000) "Missing closing %c\n", ebracket);
 		} else if (!e) {
 			(*pos)++;
 			skipWS( r, pos);
@@ -738,7 +744,7 @@ read_exps(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos
 			read_prop( sql, e, r, pos);
 		}
 		if (r[*pos] != ebracket) 
-			return sql_error(sql, -1, "missing closing %c\n", ebracket);
+			return sql_error(sql, -1, SQLSTATE(42000) "Missing closing %c\n", ebracket);
 		(*pos)++;
 		skipWS( r, pos);
 	}
@@ -808,7 +814,7 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos,
 				(*pos)+= (int) strlen("FILTER");
 				filter = 1;
 			} else {
-				return sql_error(sql, -1, "type: missing 'or'\n");
+				return sql_error(sql, -1, SQLSTATE(42000) "Type: missing 'or'\n");
 			}
 			skipWS(r, pos);
 			if (filter) {
@@ -825,7 +831,7 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos,
 			if (filter) {
 				sql_subfunc *func = sql_find_func(sql->sa, mvc_bind_schema(sql, "sys"), fname, 1+list_length(exps), F_FILT, NULL);
 				if (!func)
-					return sql_error(sql, -1, "filter: missing function '%s'\n", fname);
+					return sql_error(sql, -1, SQLSTATE(42000) "Filter: missing function '%s'\n", fname);
 					
 				return exp_filter(sql->sa, lexps, rexps, func, anti);
 			}
@@ -840,13 +846,13 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos,
 			(*pos)++;
 			d = readInt(r,pos);
 			if (r[*pos] != ')' && r[*pos] != ',')
-				return sql_error(sql, -1, "type: missing ')' or ','\n");
+				return sql_error(sql, -1, SQLSTATE(42000) "Type: missing ')' or ','\n");
 			if (r[*pos] == ',') {
 				(*pos)++;
 				s = readInt(r,pos);
 			}
 			if (r[*pos] != ')') 
-				return sql_error(sql, -1, "type: missing ')'\n");
+				return sql_error(sql, -1, SQLSTATE(42000) "Type: missing ')'\n");
 			(*pos)++;
 		}
 		tpe = sql_bind_subtype(sql->sa, tname, d, s);
@@ -859,7 +865,7 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos,
 			if (!exp)
 				return NULL;
 			if (r[*pos] != ']') 
-				return sql_error(sql, -1, "convert: missing ']'\n");
+				return sql_error(sql, -1, SQLSTATE(42000) "Convert: missing ']'\n");
 			(*pos)++;
 			skipWS(r, pos);
 			exp = exp_convert(sql->sa, exp, exp_subtype(exp), tpe);
@@ -942,12 +948,12 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos,
 			if (f)
 				exp = exp_op( sql->sa, exps, f);
 			else
-				return sql_error(sql, -1, "Function: missing '%s.%s %d'\n", tname, cname, list_length(ops));
+				return sql_error(sql, -1, SQLSTATE(42000) "Function: missing '%s.%s %d'\n", tname, cname, list_length(ops));
 		}
 	}
 
 	if (!exp && b != e) { /* simple ident */
-		if (b[0] == 'A' && isdigit(b[1])) {
+		if (b[0] == 'A' && isdigit((unsigned char) b[1])) {
 			char *e2;
 			int nr = strtol(b+1,&e2,10);
 
@@ -1199,14 +1205,14 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 			*pos += (int) strlen("table");
 			skipWS(r, pos);
 			if (r[*pos] != '(') 
-				return sql_error(sql, -1, "table: missing '('\n");
+				return sql_error(sql, -1, SQLSTATE(42000) "Table: missing '('\n");
 			(*pos)++;
 			skipWS(r, pos);
 			sname = r+*pos;
 			skipIdent(r, pos);
 			e = r+*pos;
 			if (r[*pos] != '.') 
-				return sql_error(sql, -1, "table: missing '.' in table name\n");
+				return sql_error(sql, -1, SQLSTATE(42000) "Table: missing '.' in table name\n");
 			*e = 0;
 			(*pos)++;
 			tname = r+*pos;
@@ -1214,7 +1220,7 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 			e = r+*pos;
 			skipWS(r, pos);
 			if (r[*pos] != ')') 
-				sql_error(sql, -1, "table: missing ')'\n");
+				sql_error(sql, -1, SQLSTATE(42000) "Table: missing ')'\n");
 			*e = 0;
 			(*pos)++;
 			skipWS(r, pos);
@@ -1222,7 +1228,7 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 			if (s)
 				t = mvc_bind_table(sql, s, tname);
 			if (!s || !t)
-				return sql_error(sql, -1, "table: missing '%s.%s'\n", sname, tname);
+				return sql_error(sql, -1, SQLSTATE(42000) "Table: missing '%s.%s'\n", sname, tname);
 			rel = rel_basetable(sql, t, tname);
 		
 			if (!r[*pos])
@@ -1240,12 +1246,12 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 			*pos += (int) strlen("top N");
 			skipWS(r, pos);
 			if (r[*pos] != '(') 
-				return sql_error(sql, -1, "top N: missing '('\n");
+				return sql_error(sql, -1, SQLSTATE(42000) "Top N: missing '('\n");
 			(*pos)++;
 			skipWS(r, pos);
 			nrel = rel_read(sql, r, pos, refs);
 			if (r[*pos] != ')') 
-				return sql_error(sql, -1, "top N: missing ')'\n");
+				return sql_error(sql, -1, SQLSTATE(42000) "Top N: missing ')'\n");
 			(*pos)++;
 			skipWS(r, pos);
 			exps = read_exps(sql, nrel, NULL, NULL, r, pos, '[', 0);
@@ -1257,13 +1263,13 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 		skipWS(r, pos);
 
 		if (r[*pos] != '(') 
-			return sql_error(sql, -1, "project: missing '('\n");
+			return sql_error(sql, -1, SQLSTATE(42000) "Project: missing '('\n");
 		(*pos)++;
 		skipWS(r, pos);
 		nrel = rel_read(sql, r, pos, refs);
 		skipWS(r, pos);
 		if (r[*pos] != ')') 
-			return sql_error(sql, -1, "project: missing ')'\n");
+			return sql_error(sql, -1, SQLSTATE(42000) "Project: missing ')'\n");
 		(*pos)++;
 		skipWS(r, pos);
 
@@ -1281,13 +1287,13 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 		skipWS(r, pos);
 
 		if (r[*pos] != '(') 
-			return sql_error(sql, -1, "group by: missing '('\n");
+			return sql_error(sql, -1, SQLSTATE(42000) "Group by: missing '('\n");
 		(*pos)++;
 		skipWS(r, pos);
 		nrel = rel_read(sql, r, pos, refs);
 		skipWS(r, pos);
 		if (r[*pos] != ')') 
-			return sql_error(sql, -1, "group by: missing ')'\n");
+			return sql_error(sql, -1, SQLSTATE(42000) "Group by: missing ')'\n");
 		(*pos)++;
 		skipWS(r, pos);
 
@@ -1306,12 +1312,12 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 			*pos += (int) strlen("sample");
 			skipWS(r, pos);
 			if (r[*pos] != '(') 
-				return sql_error(sql, -1, "sample: missing '('\n");
+				return sql_error(sql, -1, SQLSTATE(42000) "Sample: missing '('\n");
 			(*pos)++;
 			skipWS(r, pos);
 			nrel = rel_read(sql, r, pos, refs);
 			if (r[*pos] != ')') 
-				return sql_error(sql, -1, "sample: missing ')'\n");
+				return sql_error(sql, -1, SQLSTATE(42000) "Sample: missing ')'\n");
 			(*pos)++;
 			skipWS(r, pos);
 			exps = read_exps(sql, nrel, NULL, NULL, r, pos, '[', 0);
@@ -1320,13 +1326,13 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 			*pos += (int) strlen("select");
 			skipWS(r, pos);
 			if (r[*pos] != '(') 
-				return sql_error(sql, -1, "select: missing '('\n");
+				return sql_error(sql, -1, SQLSTATE(42000) "Select: missing '('\n");
 			(*pos)++;
 			skipWS(r, pos);
 			nrel = rel_read(sql, r, pos, refs);
 			skipWS(r, pos);
 			if (r[*pos] != ')') 
-				return sql_error(sql, -1, "select: missing ')'\n");
+				return sql_error(sql, -1, SQLSTATE(42000) "Select: missing ')'\n");
 			(*pos)++;
 			skipWS(r, pos);
 
@@ -1342,21 +1348,21 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 			*pos += (int) strlen("semijoin");
 			skipWS(r, pos);
 			if (r[*pos] != '(') 
-				return sql_error(sql, -1, "semijoin: missing '('\n");
+				return sql_error(sql, -1, SQLSTATE(42000) "Semijoin: missing '('\n");
 			(*pos)++;
 			skipWS(r, pos);
 			lrel = rel_read(sql, r, pos, refs);
 			skipWS(r, pos);
 
 			if (r[*pos] != ',') 
-				return sql_error(sql, -1, "semijoin: missing ','\n");
+				return sql_error(sql, -1, SQLSTATE(42000) "Semijoin: missing ','\n");
 			(*pos)++;
 			skipWS(r, pos);
 			rrel = rel_read(sql, r, pos, refs);
 
 			skipWS(r, pos);
 			if (r[*pos] != ')') 
-				return sql_error(sql, -1, "semijoin: missing ')'\n");
+				return sql_error(sql, -1, SQLSTATE(42000) "Semijoin: missing ')'\n");
 			(*pos)++;
 			skipWS(r, pos);
 
@@ -1395,21 +1401,21 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 		skipWS(r, pos);
 
 		if (r[*pos] != '(') 
-			return sql_error(sql, -1, "join: missing '('\n");
+			return sql_error(sql, -1, SQLSTATE(42000) "Join: missing '('\n");
 		(*pos)++;
 		skipWS(r, pos);
 		lrel = rel_read(sql, r, pos, refs);
 		skipWS(r, pos);
 
 		if (r[*pos] != ',') 
-			return sql_error(sql, -1, "join: missing ','\n");
+			return sql_error(sql, -1, SQLSTATE(42000) "Join: missing ','\n");
 		(*pos)++;
 		skipWS(r, pos);
 		rrel = rel_read(sql, r, pos, refs);
 
 		skipWS(r, pos);
 		if (r[*pos] != ')') 
-			return sql_error(sql, -1, "join: missing ')'\n");
+			return sql_error(sql, -1, SQLSTATE(42000) "Join: missing ')'\n");
 		(*pos)++;
 		skipWS(r, pos);
 
@@ -1437,21 +1443,21 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 		skipWS(r, pos);
 
 		if (r[*pos] != '(') 
-			return sql_error(sql, -1, "setop: missing '('\n");
+			return sql_error(sql, -1, SQLSTATE(42000) "Setop: missing '('\n");
 		(*pos)++;
 		skipWS(r, pos);
 		lrel = rel_read(sql, r, pos, refs);
 		skipWS(r, pos);
 
 		if (r[*pos] != ',') 
-			return sql_error(sql, -1, "setop: missing ','\n");
+			return sql_error(sql, -1, SQLSTATE(42000) "Setop: missing ','\n");
 		(*pos)++;
 		skipWS(r, pos);
 		rrel = rel_read(sql, r, pos, refs);
 
 		skipWS(r, pos);
 		if (r[*pos] != ')') 
-			return sql_error(sql, -1, "setop: missing ')'\n");
+			return sql_error(sql, -1, SQLSTATE(42000) "Setop: missing ')'\n");
 		(*pos)++;
 		skipWS(r, pos);
 

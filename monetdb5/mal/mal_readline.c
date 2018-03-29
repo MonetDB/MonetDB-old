@@ -9,14 +9,10 @@
 #include "monetdb_config.h"
 #ifndef HAVE_EMBEDDED
 #include "mal.h"
-#undef PATHLENGTH
 #include "mal_client.h"
 #include "mal_scenario.h"
 #include "mal_readline.h"
 #include "mal_debugger.h"
-#ifdef HAVE_STRINGS_H
-#include <strings.h>		/* for strncasecmp */
-#endif
 
 #ifndef S_ISCHR
 #define S_ISCHR(m)  (((m) & S_IFMT) == S_IFCHR)
@@ -69,7 +65,7 @@ getConsoleInput(Client c, const char *prompt, int linemode, int exit_on_error)
 			/* test for special commands */
 			while (length > 0 &&
 			       (*line & ~0x7F) == 0 &&
-			       isspace((int) *line)) {
+			       isspace((unsigned char) *line)) {
 				line++;
 				length--;
 			}
@@ -119,7 +115,7 @@ readConsole(Client cntxt)
 		size_t len= strlen(buf);
 		if( len >= cntxt->fdin->size) {
 			char *nbuf;
-			/* extremly dirty inplace buffer overwriting */
+			/* extremely dirty inplace buffer overwriting */
 			nbuf= realloc(cntxt->fdin->buf, len+1);
 			if( nbuf == NULL) {
 				GDKerror("readConsole: " MAL_MALLOC_FAIL);

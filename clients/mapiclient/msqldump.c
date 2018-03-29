@@ -16,24 +16,9 @@
 #endif
 #include "mapi.h"
 #include <unistd.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <string.h>
-
-#ifdef HAVE_FTIME
-#include <sys/timeb.h>
-#endif
-
-#ifdef TIME_WITH_SYS_TIME
-# include <sys/time.h>
-# include <time.h>
-#else
-# ifdef HAVE_SYS_TIME_H
-#  include <sys/time.h>
-# else
-#  include <time.h>
-# endif
-#endif
+#include <time.h>
 
 #include "stream.h"
 #include "msqldump.h"
@@ -219,7 +204,7 @@ main(int argc, char **argv)
 		dump_version(mid, out, "--");
 	}
 	if (functions)
-		c = dump_functions(mid, out, NULL, NULL);
+		c = dump_functions(mid, out, 1, NULL, NULL, NULL);
 	else if (table)
 		c = dump_table(mid, NULL, table, out, describe, 1, useinserts);
 	else

@@ -68,7 +68,7 @@ MATpackInternal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	bn = COLnew(0, tt, cap, TRANSIENT);
 	if (bn == NULL)
-		throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
+		throw(MAL, "mat.pack", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 	for (i = 1; i < p->argc; i++) {
 		b = BATdescriptor(stk->stk[getArg(p,i)].val.ival);
@@ -105,7 +105,7 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	(void) cntxt;
 	b = BATdescriptor( stk->stk[getArg(p,1)].val.ival);
 	if ( b == NULL)
-		throw(MAL, "mat.pack", RUNTIME_OBJECT_MISSING);
+		throw(MAL, "mat.pack", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 
 	if ( getArgType(mb,p,2) == TYPE_int){
 		/* first step, estimate with some slack */
@@ -113,7 +113,7 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		bn = COLnew(b->hseqbase, ATOMtype(b->ttype), (BUN)(1.2 * BATcount(b) * pieces), TRANSIENT);
 		if (bn == NULL) {
 			BBPunfix(b->batCacheid);
-			throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
+			throw(MAL, "mat.pack", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 		/* allocate enough space for the vheap, but not for strings,
 		 * since BATappend does clever things for strings */
@@ -122,7 +122,7 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			if (HEAPextend(bn->tvheap, newsize, TRUE) != GDK_SUCCEED) {
 				BBPunfix(b->batCacheid);
 				BBPunfix(bn->batCacheid);
-				throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
+				throw(MAL, "mat.pack", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			}
 		}
 		BATtseqbase(bn, b->tseqbase);
@@ -176,7 +176,7 @@ MATpackValues(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	type = getArgType(mb,p,first);
 	bn = COLnew(0, type, p->argc, TRANSIENT);
 	if( bn == NULL)
-		throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
+		throw(MAL, "mat.pack", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 	if (ATOMextern(type)) {
 		for(i = first; i < p->argc; i++)
@@ -192,5 +192,5 @@ MATpackValues(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	return MAL_SUCCEED;
   bailout:
 	BBPreclaim(bn);
-	throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
+	throw(MAL, "mat.pack", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 }

@@ -171,7 +171,7 @@ AUTHinitTables(const char *passwd) {
 	if (!bid) {
 		user = COLnew(0, TYPE_str, 256, PERSISTENT);
 		if (user == NULL)
-			throw(MAL, "initTables.user", MAL_MALLOC_FAIL " user table");
+			throw(MAL, "initTables.user", SQLSTATE(HY001) MAL_MALLOC_FAIL " user table");
 
 		if (BATkey(user, TRUE) != GDK_SUCCEED ||
 			BBPrename(BBPcacheid(user), "M5system_auth_user") != 0 ||
@@ -183,6 +183,8 @@ AUTHinitTables(const char *passwd) {
 		/* don't check this bat since we'll fix it below */
 		GDKdebug &= ~CHECKMASK;
 		user = BATdescriptor(bid);
+		if (user == NULL)
+			throw(MAL, "initTables.user", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 		GDKdebug = dbg;
 		isNew = 0;
 	}
@@ -193,7 +195,7 @@ AUTHinitTables(const char *passwd) {
 	if (!bid) {
 		pass = COLnew(0, TYPE_str, 256, PERSISTENT);
 		if (pass == NULL)
-			throw(MAL, "initTables.passwd", MAL_MALLOC_FAIL " password table");
+			throw(MAL, "initTables.passwd", SQLSTATE(HY001) MAL_MALLOC_FAIL " password table");
 
 		if (BBPrename(BBPcacheid(pass), "M5system_auth_passwd_v2") != 0 ||
 			BATmode(pass, PERSISTENT) != GDK_SUCCEED) {
@@ -204,6 +206,8 @@ AUTHinitTables(const char *passwd) {
 		/* don't check this bat since we'll fix it below */
 		GDKdebug &= ~CHECKMASK;
 		pass = BATdescriptor(bid);
+		if (pass == NULL)
+			throw(MAL, "initTables.passwd", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 		GDKdebug = dbg;
 		isNew = 0;
 	}
@@ -214,7 +218,7 @@ AUTHinitTables(const char *passwd) {
 	if (!bid) {
 		duser = COLnew(0, TYPE_oid, 256, PERSISTENT);
 		if (duser == NULL)
-			throw(MAL, "initTables.duser", MAL_MALLOC_FAIL " deleted user table");
+			throw(MAL, "initTables.duser", SQLSTATE(HY001) MAL_MALLOC_FAIL " deleted user table");
 
 		if (BBPrename(BBPcacheid(duser), "M5system_auth_deleted") != 0 ||
 			BATmode(duser, PERSISTENT) != GDK_SUCCEED) {
@@ -224,6 +228,8 @@ AUTHinitTables(const char *passwd) {
 			AUTHcommit();
 	} else {
 		duser = BATdescriptor(bid);
+		if (duser == NULL)
+			throw(MAL, "initTables.duser", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 		isNew = 0;
 	}
 	assert(duser);
@@ -238,6 +244,8 @@ AUTHinitTables(const char *passwd) {
 		if (passwd == NULL)
 			passwd = "monetdb";	/* default password */
 		pw = mcrypt_BackendSum(passwd, strlen(passwd));
+		if(!pw)
+			throw(MAL, "initTables", SQLSTATE(42000) "Crypt backend hash not found");
 		msg = AUTHaddUser(&uid, c, "monetdb", pw);
 		free(pw);
 		if (msg)
@@ -299,6 +307,8 @@ AUTHcheckCredentials(
 	/* generate the hash as the client should have done */
 	hash = mcrypt_hashPassword(algo, pwd, challenge);
 	GDKfree(pwd);
+	if(!hash)
+		throw(MAL, "checkCredentials", "hash '%s' backend not found", algo);
 	/* and now we have it, compare it to what was given to us */
 	if (strcmp(passwd, hash) != 0) {
 		/* of course we DO NOT print the password here */
@@ -344,7 +354,7 @@ AUTHaddUser(oid *uid, Client cntxt, const char *username, const char *passwd)
 	if (BUNappend(user, username, TRUE) != GDK_SUCCEED ||
 		BUNappend(pass, hash, TRUE) != GDK_SUCCEED) {
 		GDKfree(hash);
-		throw(MAL, "addUser", MAL_MALLOC_FAIL);
+		throw(MAL, "addUser", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 	GDKfree(hash);
 	/* retrieve the oid of the just inserted user */
@@ -387,7 +397,7 @@ AUTHremoveUser(Client cntxt, const char *username)
 
 	/* now, we got the oid, start removing the related tuples */
 	if (BUNappend(duser, &id, TRUE) != GDK_SUCCEED)
-		throw(MAL, "removeUser", MAL_MALLOC_FAIL);
+		throw(MAL, "removeUser", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 	/* make the stuff persistent */
 	AUTHcommit();
@@ -551,13 +561,13 @@ AUTHresolveUser(str *username, oid uid)
 	BUN p;
 	BATiter useri;
 
-	if (uid == oid_nil || (p = (BUN) uid) >= BATcount(user))
+	if (is_oid_nil(uid) || (p = (BUN) uid) >= BATcount(user))
 		throw(ILLARG, "resolveUser", "userid should not be nil");
 
 	assert(username != NULL);
 	useri = bat_iterator(user);
 	if ((*username = GDKstrdup((str)(BUNtail(useri, p)))) == NULL)
-		throw(MAL, "resolveUser", MAL_MALLOC_FAIL);
+		throw(MAL, "resolveUser", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	return(MAL_SUCCEED);
 }
 
@@ -582,7 +592,7 @@ AUTHgetUsername(str *username, Client cntxt)
 
 	useri = bat_iterator(user);
 	if ((*username = GDKstrdup( BUNtail(useri, p))) == NULL)
-		throw(MAL, "getUsername", MAL_MALLOC_FAIL);
+		throw(MAL, "getUsername", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	return(MAL_SUCCEED);
 }
 
@@ -599,7 +609,7 @@ AUTHgetUsers(BAT **ret1, BAT **ret2, Client cntxt)
 
 	*ret1 = BATdense(user->hseqbase, user->hseqbase, BATcount(user));
 	if (*ret1 == NULL)
-		throw(MAL, "getUsers", MAL_MALLOC_FAIL);
+		throw(MAL, "getUsers", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	if (BATcount(duser)) {
 		bn = BATdiff(*ret1, duser, NULL, NULL, 0, BUN_NONE);
 		BBPunfix((*ret1)->batCacheid);
@@ -613,7 +623,7 @@ AUTHgetUsers(BAT **ret1, BAT **ret2, Client cntxt)
 			BBPunfix((*ret1)->batCacheid);
 		if (*ret2)
 			BBPunfix((*ret2)->batCacheid);
-		throw(MAL, "getUsers", MAL_MALLOC_FAIL);
+		throw(MAL, "getUsers", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 	return(NULL);
 }
@@ -674,7 +684,7 @@ AUTHunlockVault(const char *password)
 		GDKfree(vaultKey);
 
 	if ((vaultKey = GDKstrdup(password)) == NULL)
-		throw(MAL, "unlockVault", MAL_MALLOC_FAIL " vault key");
+		throw(MAL, "unlockVault", SQLSTATE(HY001) MAL_MALLOC_FAIL " vault key");
 	return(MAL_SUCCEED);
 }
 
@@ -711,7 +721,7 @@ AUTHdecypherValue(str *ret, const char *value)
 		throw(MAL, "decypherValue", "The vault is still locked!");
 	w = r = GDKmalloc(sizeof(char) * (strlen(value) + 1));
 	if( r == NULL)
-		throw(MAL, "decypherValue", MAL_MALLOC_FAIL);
+		throw(MAL, "decypherValue", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 	keylen = (int) strlen(vaultKey);
 
@@ -753,7 +763,7 @@ AUTHcypherValue(str *ret, const char *value)
 		throw(MAL, "cypherValue", "The vault is still locked!");
 	w = r = GDKmalloc(sizeof(char) * (strlen(value) * 2 + 1));
 	if( r == NULL)
-		throw(MAL, "cypherValue", MAL_MALLOC_FAIL);
+		throw(MAL, "cypherValue", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 	keylen = (int) strlen(vaultKey);
 

@@ -72,6 +72,10 @@
 #define SOCKLEN int
 #endif
 
+#if !defined(HAVE_ACCEPT4) || !defined(SOCK_CLOEXEC)
+#define accept4(sockfd, addr, addrlen, flags)	accept(sockfd, addr, addrlen)
+#endif
+
 static char seedChars[] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
 	'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
 	'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
@@ -129,7 +133,6 @@ doChallenge(void *data)
 #endif
 	char *buf = (char *) GDKmalloc(BLOCK + 1);
 	char challenge[13];
-	char *algos;
 
 	stream *fdin = ((struct challengedata *) data)->in;
 	stream *fdout = ((struct challengedata *) data)->out;
@@ -152,12 +155,11 @@ doChallenge(void *data)
 
 	/* generate the challenge string */
 	generateChallenge(challenge, 8, 12);
-	algos = mcrypt_getHashAlgorithms();
 
 	// send the challenge over the block stream
 	mnstr_printf(fdout, "%s:mserver:9:%s:%s:%s:",
 			challenge,
-			algos,
+			mcrypt_getHashAlgorithms(),
 #ifdef WORDS_BIGENDIAN
 			"BIG",
 #else
@@ -165,7 +167,6 @@ doChallenge(void *data)
 #endif
 			MONETDB5_PASSWDHASH
 			);
-	free(algos);
 	mnstr_flush(fdout);
 	/* get response */
 	if ((len = mnstr_read_block(fdin, buf, 1, BLOCK)) < 0) {
@@ -187,6 +188,7 @@ doChallenge(void *data)
 			mnstr_printf(fdout, "!buffer size needs to be set and bigger than %d\n", BLOCK);
 			close_stream(fdin);
 			close_stream(fdout);
+			GDKfree(buf);
 			return;
 		}
 		buflenstr++;			/* position after ':' */
@@ -204,6 +206,7 @@ doChallenge(void *data)
 			mnstr_printf(fdout, "!buffer size needs to be set and bigger than %d\n", BLOCK);
 			close_stream(fdin);
 			close_stream(fdout);
+			GDKfree(buf);
 			return;
 		}
 
@@ -231,6 +234,7 @@ doChallenge(void *data)
 			mnstr_printf(fdout, "%s", errmsg);
 			close_stream(fdin);
 			close_stream(fdout);
+			GDKfree(buf);
 			return;
 		}
 
@@ -249,6 +253,7 @@ doChallenge(void *data)
 			GDKsyserror("SERVERlisten:"MAL_MALLOC_FAIL);
 			close_stream(fdin);
 			close_stream(fdout);
+			GDKfree(buf);
 			return;
 		}
 	}
@@ -263,6 +268,7 @@ doChallenge(void *data)
 	bs = bstream_create(fdin, 128 * BLOCK);
 
 	if (bs == NULL){
+		mnstr_printf(fdout, "!allocation failure in the server\n");
 		close_stream(fdin);
 		close_stream(fdout);
 		GDKfree(buf);
@@ -342,7 +348,7 @@ SERVERlistenThread(SOCKET *Sock)
 			continue;
 		}
 		if (sock != INVALID_SOCKET && FD_ISSET(sock, &fds)) {
-			if ((msgsock = accept(sock, (SOCKPTR)0, (socklen_t *)0)) == INVALID_SOCKET) {
+			if ((msgsock = accept4(sock, (SOCKPTR)0, (socklen_t *)0, SOCK_CLOEXEC)) == INVALID_SOCKET) {
 				if (
 #ifdef _MSC_VER
 					WSAGetLastError() != WSAEINTR
@@ -355,7 +361,7 @@ SERVERlistenThread(SOCKET *Sock)
 				}
 				continue;
 			}
-#ifdef HAVE_FCNTL
+#if defined(HAVE_FCNTL) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
 			(void) fcntl(msgsock, F_SETFD, FD_CLOEXEC);
 #endif
 #ifdef HAVE_SYS_UN_H
@@ -367,7 +373,7 @@ SERVERlistenThread(SOCKET *Sock)
 			char ccmsg[CMSG_SPACE(sizeof(int))];
 			struct cmsghdr *cmsg;
 
-			if ((msgsock = accept(usock, (SOCKPTR)0, (socklen_t *)0)) == INVALID_SOCKET) {
+			if ((msgsock = accept4(usock, (SOCKPTR)0, (socklen_t *)0, SOCK_CLOEXEC)) == INVALID_SOCKET) {
 				if (
 #ifdef _MSC_VER
 					WSAGetLastError() != WSAEINTR
@@ -380,7 +386,7 @@ SERVERlistenThread(SOCKET *Sock)
 				}
 				continue;
 			}
-#ifdef HAVE_FCNTL
+#if defined(HAVE_FCNTL) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
 			(void) fcntl(msgsock, F_SETFD, FD_CLOEXEC);
 #endif
 
@@ -421,7 +427,7 @@ SERVERlistenThread(SOCKET *Sock)
 				{	int *c_d;
 					/* filedescriptor, put it in place of msgsock */
 					cmsg = CMSG_FIRSTHDR(&msgh);
-					shutdown(msgsock, SHUT_WR);
+					(void) shutdown(msgsock, SHUT_WR);
 					closesocket(msgsock);
 					if (!cmsg || cmsg->cmsg_type != SCM_RIGHTS) {
 						fprintf(stderr, "!mal_mapi.listen: "
@@ -455,7 +461,7 @@ SERVERlistenThread(SOCKET *Sock)
 		data = GDKmalloc(sizeof(*data));
 		if( data == NULL){
 			closesocket(msgsock);
-			showException(GDKstdout, MAL, "initClient", MAL_MALLOC_FAIL);
+			showException(GDKstdout, MAL, "initClient", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			continue;
 		}
 		data->in = socket_rastream(msgsock, "Server read");
@@ -574,7 +580,7 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 
 	psock = GDKmalloc(sizeof(SOCKET) * 3);
 	if (psock == NULL)
-		throw(MAL,"mal_mapi.listen", MAL_MALLOC_FAIL);
+		throw(MAL,"mal_mapi.listen", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 	port = *Port;
 	if (Usockfile == NULL || *Usockfile == 0 ||
@@ -606,7 +612,11 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 	}
 
 	if (port > 0) {
-		sock = socket(AF_INET, SOCK_STREAM, 0);
+		sock = socket(AF_INET, SOCK_STREAM
+#ifdef SOCK_CLOEXEC
+					  | SOCK_CLOEXEC
+#endif
+					  , 0);
 		if (sock == INVALID_SOCKET) {
 			GDKfree(psock);
 			if (usockfile)
@@ -620,7 +630,7 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 #endif
 				);
 		}
-#ifdef HAVE_FCNTL
+#if !defined(SOCK_CLOEXEC) && defined(HAVE_FCNTL)
 		(void) fcntl(sock, F_SETFD, FD_CLOEXEC);
 #endif
 
@@ -695,11 +705,28 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 #endif
 				);
 		}
-		listen(sock, maxusers);
+		if(listen(sock, maxusers) == SOCKET_ERROR) {
+			closesocket(sock);
+			GDKfree(psock);
+			if (usockfile)
+				GDKfree(usockfile);
+			throw(IO, "mal_mapi.listen",
+				  OPERATION_FAILED ": failed to set socket to listen %s",
+#ifdef _MSC_VER
+				  wsaerror(WSAGetLastError())
+#else
+				  strerror(errno)
+#endif
+				);
+		}
 	}
 #ifdef HAVE_SYS_UN_H
 	if (usockfile) {
-		usock = socket(AF_UNIX, SOCK_STREAM, 0);
+		usock = socket(AF_UNIX, SOCK_STREAM
+#ifdef SOCK_CLOEXEC
+					   | SOCK_CLOEXEC
+#endif
+					   , 0);
 		if (usock == INVALID_SOCKET ) {
 			GDKfree(psock);
 			GDKfree(usockfile);
@@ -712,7 +739,7 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 #endif
 				);
 		}
-#ifdef HAVE_FCNTL
+#if !defined(SOCK_CLOEXEC) && defined(HAVE_FCNTL)
 		(void) fcntl(usock, F_SETFD, FD_CLOEXEC);
 #endif
 
@@ -734,11 +761,16 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 		userver.sun_path[sizeof(userver.sun_path) - 1] = 0;
 
 		length = (SOCKLEN) sizeof(userver);
-		unlink(usockfile);
+		if(remove(usockfile) == -1 && errno != ENOENT) {
+			char *e = createException(IO, "mal_mapi.listen", OPERATION_FAILED ": remove UNIX socket file");
+			closesocket(usock);
+			GDKfree(psock);
+			return e;
+		}
 		if (bind(usock, (SOCKPTR) &userver, length) == SOCKET_ERROR) {
 			char *e;
 			closesocket(usock);
-			unlink(usockfile);
+			(void) remove(usockfile);
 			GDKfree(psock);
 			e = createException(IO, "mal_mapi.listen",
 								OPERATION_FAILED
@@ -753,7 +785,24 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 			GDKfree(usockfile);
 			return e;
 		}
-		listen(usock, maxusers);
+		if(listen(usock, maxusers) == SOCKET_ERROR) {
+			char *e;
+			closesocket(usock);
+			(void) remove(usockfile);
+			GDKfree(psock);
+			e = createException(IO, "mal_mapi.listen",
+								OPERATION_FAILED
+								": setting UNIX socket file %s to listen failed: %s",
+								usockfile,
+#ifdef _MSC_VER
+								wsaerror(WSAGetLastError())
+#else
+								strerror(errno)
+#endif
+				);
+			GDKfree(usockfile);
+			return e;
+		}
 	}
 #endif
 
@@ -879,19 +928,19 @@ SERVERclient(void *res, const Stream *In, const Stream *Out)
 	/* in embedded mode we allow just one client */
 	data = GDKmalloc(sizeof(*data));
 	if( data == NULL)
-		throw(MAL, "mapi.SERVERclient", MAL_MALLOC_FAIL);
+		throw(MAL, "mapi.SERVERclient", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	data->in = block_stream(*In);
 	data->out = block_stream(*Out);
 	if (data->in == NULL || data->out == NULL) {
 		mnstr_destroy(data->in);
 		mnstr_destroy(data->out);
 		GDKfree(data);
-		throw(MAL, "mapi.SERVERclient", MAL_MALLOC_FAIL);
+		throw(MAL, "mapi.SERVERclient", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 	if (MT_create_thread(&tid, doChallenge, data, MT_THR_DETACHED)) {
 		mnstr_destroy(data->in);
 		mnstr_destroy(data->out);
-		free(data);
+		GDKfree(data);
 		throw(MAL, "mapi.SERVERclient", "cannot fork new client thread");
 	}
 	return MAL_SUCCEED;
@@ -924,10 +973,11 @@ SERVERclient(void *res, const Stream *In, const Stream *Out)
 	do {																\
 		int rn = mapi_error(mid);										\
 		if ((rn == -4 && hdl && mapi_result_error(hdl)) || rn) {		\
-			str err, newerr;											\
+			const char *err, *e;										\
+			str newerr;													\
 			str ret;													\
 			size_t l;													\
-			char *e, *f;												\
+			char *f;													\
 																		\
 			if (hdl && mapi_result_error(hdl))							\
 				err = mapi_result_error(hdl);							\
@@ -939,7 +989,7 @@ SERVERclient(void *res, const Stream *In, const Stream *Out)
 																		\
 			l = 2 * strlen(err) + 8192;									\
 			newerr = (str) GDKmalloc(l);								\
-			if(newerr == NULL) { err = MAL_MALLOC_FAIL; break;}			\
+			if(newerr == NULL) { err = SQLSTATE(HY001) MAL_MALLOC_FAIL; break;}	\
 																		\
 			f = newerr;													\
 			/* I think this code tries to deal with multiple errors, this \
@@ -1000,7 +1050,7 @@ SERVERconnectAll(Client cntxt, int *key, str *host, int *port, str *username, st
 	mid = mapi_connect(*host, *port, *username, *password, *lang, NULL);
 
 	if (mapi_error(mid)) {
-		str err = mapi_error_str(mid);
+		const char *err = mapi_error_str(mid);
 		str ex;
 		if (err == NULL)
 			err = "(no reason given)";
@@ -1158,7 +1208,7 @@ SERVERsetAlias(void *ret, int *key, str *dbalias){
 	accessTest(*key, "setAlias");
 	SERVERsessions[i].dbalias= GDKstrdup(*dbalias);
 	if(SERVERsessions[i].dbalias == NULL)
-		throw(MAL, "mapi.set_alias", MAL_MALLOC_FAIL);
+		throw(MAL, "mapi.set_alias", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	(void) ret;
 	return MAL_SUCCEED;
 }
@@ -1295,7 +1345,7 @@ SERVERget_row_count(lng *ret, int *key){
 	Mapi mid;
 	int i;
 	accessTest(*key, "get_row_count");
-	*ret= mapi_get_row_count(SERVERsessions[i].hdl);
+	*ret= (lng) mapi_get_row_count(SERVERsessions[i].hdl);
 	if( mapi_error(mid) )
 		throw(MAL, "mapi.get_row_count", "%s",
 			mapi_result_error(SERVERsessions[i].hdl));
@@ -1319,7 +1369,7 @@ SERVERrows_affected(lng *ret, int *key){
 	Mapi mid;
 	int i;
 	accessTest(*key, "rows_affected");
-	*ret= mapi_rows_affected(SERVERsessions[i].hdl);
+	*ret= (lng) mapi_rows_affected(SERVERsessions[i].hdl);
 	return MAL_SUCCEED;
 }
 
@@ -1337,7 +1387,7 @@ SERVERfetch_all_rows(lng *ret, int *key){
 	Mapi mid;
 	int i;
 	accessTest(*key, "fetch_all_rows");
-	*ret= mapi_fetch_all_rows(SERVERsessions[i].hdl);
+	*ret= (lng) mapi_fetch_all_rows(SERVERsessions[i].hdl);
 	return MAL_SUCCEED;
 }
 
@@ -1350,7 +1400,7 @@ SERVERfetch_field_str(str *ret, int *key, int *fnr){
 	fld= mapi_fetch_field(SERVERsessions[i].hdl,*fnr);
 	*ret= GDKstrdup(fld? fld: str_nil);
 	if(*ret == NULL)
-		throw(MAL, "mapi.fetch_field_str", MAL_MALLOC_FAIL);
+		throw(MAL, "mapi.fetch_field_str", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	if( mapi_error(mid) )
 		throw(MAL, "mapi.fetch_field_str", "%s",
 			mapi_result_error(SERVERsessions[i].hdl));
@@ -1469,7 +1519,7 @@ SERVERfetch_line(str *ret, int *key){
 			mapi_result_error(SERVERsessions[i].hdl));
 	*ret= GDKstrdup(fld? fld:str_nil);
 	if(*ret == NULL)
-		throw(MAL, "mapi.fetch_line", MAL_MALLOC_FAIL);
+		throw(MAL, "mapi.fetch_line", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	return MAL_SUCCEED;
 }
 
@@ -1509,7 +1559,7 @@ SERVERfetch_field_bat(bat *bid, int *key){
 	accessTest(*key, "rpc");
 	b= COLnew(0,TYPE_str,256, TRANSIENT);
 	if( b == NULL)
-		throw(MAL,"mapi.fetch",MAL_MALLOC_FAIL);
+		throw(MAL,"mapi.fetch", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	cnt= mapi_get_field_count(SERVERsessions[i].hdl);
 	for(j=0; j< cnt; j++){
 		fld= mapi_fetch_field(SERVERsessions[i].hdl,j);
@@ -1520,7 +1570,7 @@ SERVERfetch_field_bat(bat *bid, int *key){
 		}
 		if (BUNappend(b,fld, FALSE) != GDK_SUCCEED) {
 			BBPreclaim(b);
-			throw(MAL, "mapi.fetch_field_bat", MAL_MALLOC_FAIL);
+			throw(MAL, "mapi.fetch_field_bat", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 	}
 	*bid = b->batCacheid;
@@ -1544,7 +1594,7 @@ SERVERgetError(str *ret, int *key){
 	accessTest(*key, "getError");
 	*ret= GDKstrdup(mapi_error_str(mid));
 	if(*ret == NULL)
-		throw(MAL, "mapi.get_error", MAL_MALLOC_FAIL);
+		throw(MAL, "mapi.get_error", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	return MAL_SUCCEED;
 }
 
@@ -1556,7 +1606,7 @@ SERVERexplain(str *ret, int *key){
 	accessTest(*key, "explain");
 	*ret= GDKstrdup(mapi_error_str(mid));
 	if(*ret == NULL)
-		throw(MAL, "mapi.explain", MAL_MALLOC_FAIL);
+		throw(MAL, "mapi.explain", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	return MAL_SUCCEED;
 }
 /*
@@ -1665,12 +1715,12 @@ SERVERmapi_rpc_single_row(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 		if( qry == 0) {
 			qry= GDKstrdup(fld);
 			if ( qry == NULL)
-				throw(MAL, "mapi.rpc",MAL_MALLOC_FAIL);
+				throw(MAL, "mapi.rpc",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		} else {
 			s= (char*) GDKmalloc(strlen(qry)+strlen(fld)+1);
 			if ( s == NULL) {
 				GDKfree(qry);
-				throw(MAL, "mapi.rpc",MAL_MALLOC_FAIL);
+				throw(MAL, "mapi.rpc", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			}
 			strcpy(s,qry);
 			strcat(s,fld);
@@ -1704,7 +1754,7 @@ SERVERmapi_rpc_single_row(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			case TYPE_dbl:
 			case TYPE_str:
 				if(SERVERfieldAnalysis(fld,getVarType(mb,getArg(pci,j)),&stk->stk[pci->argv[j]]) < 0)
-					throw(MAL, "mapi.rpc", MAL_MALLOC_FAIL);
+					throw(MAL, "mapi.rpc", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 				break;
 			default:
 				throw(MAL, "mapi.rpc",
@@ -1747,16 +1797,16 @@ SERVERmapi_rpc_bat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 	b= COLnew(0,tt,256, TRANSIENT);
 	if ( b == NULL)
-		throw(MAL,"mapi.rpc",MAL_MALLOC_FAIL);
+		throw(MAL,"mapi.rpc", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	while( mapi_fetch_row(hdl)){
 		fld2= mapi_fetch_field(hdl,1);
 		if(SERVERfieldAnalysis(fld2, tt, &tval) < 0) {
 			BBPreclaim(b);
-			throw(MAL, "mapi.rpc", MAL_MALLOC_FAIL);
+			throw(MAL, "mapi.rpc", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 		if (BUNappend(b,VALptr(&tval), FALSE) != GDK_SUCCEED) {
 			BBPreclaim(b);
-			throw(MAL, "mapi.rpc", MAL_MALLOC_FAIL);
+			throw(MAL, "mapi.rpc", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 	}
 	*ret = b->batCacheid;
@@ -1815,8 +1865,8 @@ SERVERput(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		SERVERsessions[i].hdl= mapi_query(mid, buf);
 		break;
 	default:
-		if(ATOMformat(tpe,val,&w) < 0)
-			throw(MAL,"mapi.put",MAL_MALLOC_FAIL);
+		if ((w = ATOMformat(tpe,val)) == NULL)
+			throw(MAL, "mapi.put", SQLSTATE(HY001) GDK_EXCEPTION);
 		snprintf(buf,BUFSIZ,"%s:=%s;",*nme,w);
 		GDKfree(w);
 		if( SERVERsessions[i].hdl)
@@ -1847,15 +1897,15 @@ SERVERputLocal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		snprintf(buf,BUFSIZ,"%s:=%s;",*nme,*(char**)val);
 		break;
 	default:
-		if(ATOMformat(tpe,val,&w) < 0)
-			throw(MAL, "mapi.glue",MAL_MALLOC_FAIL);
+		if ((w = ATOMformat(tpe,val)) == NULL)
+			throw(MAL, "mapi.glue", SQLSTATE(HY001) GDK_EXCEPTION);
 		snprintf(buf,BUFSIZ,"%s:=%s;",*nme,w);
 		GDKfree(w);
 		break;
 	}
 	*ret= GDKstrdup(buf);
 	if(*ret == NULL)
-		throw(MAL, "mapi.glue",MAL_MALLOC_FAIL);
+		throw(MAL, "mapi.glue", SQLSTATE(HY001) GDK_EXCEPTION);
 	return MAL_SUCCEED;
 }
 

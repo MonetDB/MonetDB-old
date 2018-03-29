@@ -9,14 +9,12 @@
 #ifndef _REL_PSM_H_
 #define _REL_PSM_H_
 
-#include <stdio.h>
-#include <stdarg.h>
 #include "sql_list.h"
 #include "sql_relation.h"
 #include "sql_symbol.h"
 #include "sql_mvc.h"
 
-extern sql_func *resolve_func( mvc *sql, sql_schema *s, const char *name, dlist *typelist, int type, char *op);
+extern sql_func *resolve_func( mvc *sql, sql_schema *s, const char *name, dlist *typelist, int type, char *op, int if_exists);
 extern sql_rel *rel_psm(mvc *sql, symbol *sym);
 extern sql_rel *rel_select_with_into( mvc *sql, symbol *sq);
 

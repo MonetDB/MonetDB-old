@@ -10,6 +10,7 @@
 #include "sql_mem.h"
 #include "gdk.h"
 #include "sql_string.h"
+#include "mal_exception.h"
 
 /* 
  * some string functions.
@@ -80,7 +81,7 @@ strip_extra_zeros(char *s)
 {
 	char *res = s;
 
-	for (; *s && isspace((int) (unsigned char) *s); s++)
+	for (; *s && isspace((unsigned char) *s); s++)
 		;
 	res = s;
 	/* find end, and strip extra 0's */
@@ -202,7 +203,7 @@ char *sql_message( const char *format, ... )
 	va_start (ap,format);
 	(void) vsnprintf( buf, BUFSIZ, format, ap); 
 	va_end (ap);
-	return _STRDUP(buf);
+	return GDKstrdup(buf);
 }
 
 char *sa_message( sql_allocator *sa, const char *format, ... )
