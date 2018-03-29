@@ -7,26 +7,24 @@
  */
 
 #include "monetdb_config.h"
-#include <stdio.h>
-#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <sys/stat.h>
+#include <signal.h>
 #include <unistd.h>
 #include <string.h> /* char ** */
 #include <time.h> /* localtime */
-#include <errno.h>
 
 #include "msabaoth.h"
 #include "utils/utils.h"
 #include "utils/glob.h"
 #include "utils/properties.h"
+#include "mutils.h"
 
 #include "merovingian.h"
 #include "discoveryrunner.h" /* remotedb */
 #include "multiplex-funnel.h" /* multiplexInit */
 #include "forkmserver.h"
-
 
 static pthread_mutex_t fork_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -50,7 +48,7 @@ terminateProcess(pid_t pid, char *dbname, mtype type, int lock)
 	if (er != NULL) {
 		if (lock)
 			pthread_mutex_unlock(&fork_lock);
-		Mfprintf(stderr, "cannot terminate process " LLFMT ": %s\n",
+		Mfprintf(stderr, "cannot terminate process %lld: %s\n",
 				 (long long int)pid, er);
 		free(er);
 		free(dbname);
@@ -60,7 +58,7 @@ terminateProcess(pid_t pid, char *dbname, mtype type, int lock)
 	if (stats == NULL) {
 		if (lock)
 			pthread_mutex_unlock(&fork_lock);
-		Mfprintf(stderr, "strange, process " LLFMT " serves database '%s' "
+		Mfprintf(stderr, "strange, process %lld serves database '%s' "
 				 "which does not exist\n", (long long int)pid, dbname);
 		free(dbname);
 		return;
@@ -74,7 +72,7 @@ terminateProcess(pid_t pid, char *dbname, mtype type, int lock)
 		if (lock)
 			pthread_mutex_unlock(&fork_lock);
 		Mfprintf(stderr, "cannot shut down database '%s', mserver "
-				 "(pid " LLFMT ") has crashed\n",
+				 "(pid %lld) has crashed\n",
 				 dbname, (long long int)pid);
 		msab_freeStatus(&stats);
 		free(dbname);
@@ -89,8 +87,6 @@ terminateProcess(pid_t pid, char *dbname, mtype type, int lock)
 		free(dbname);
 		return;
 	case SABdbStarting:
-		if (lock)
-			pthread_mutex_unlock(&fork_lock);
 		Mfprintf(stderr, "database '%s' appears to be starting up\n",
 				 dbname);
 		/* starting up, so we'll go to the shut down phase */
@@ -122,7 +118,7 @@ terminateProcess(pid_t pid, char *dbname, mtype type, int lock)
 	}
 
 	/* ok, once we get here, we'll be shutting down the server */
-	Mfprintf(stdout, "sending process " LLFMT " (database '%s') the "
+	Mfprintf(stdout, "sending process %lld (database '%s') the "
 			 "TERM signal\n", (long long int)pid, dbname);
 	kill(pid, SIGTERM);
 	kv = findConfKey(_mero_props, "exittimeout");
@@ -166,7 +162,7 @@ terminateProcess(pid_t pid, char *dbname, mtype type, int lock)
 			}
 		}
 	}
-	Mfprintf(stderr, "timeout of %s seconds expired, sending process " LLFMT
+	Mfprintf(stderr, "timeout of %s seconds expired, sending process %lld"
 			 " (database '%s') the KILL signal\n",
 			 kv->val, (long long int)pid, dbname);
 	kill(pid, SIGKILL);
@@ -212,6 +208,7 @@ forkMserver(char *database, sabdb** stats, int force)
 	char *readonly = NULL;
 	char *embeddedr = NULL;
 	char *embeddedpy = NULL;
+	char *embeddedc = NULL;
 	char *dbextra = NULL;
 	char *argv[512];	/* for the exec arguments */
 	char property_other[1024];
@@ -395,15 +392,14 @@ forkMserver(char *database, sabdb** stats, int force)
 		/* refresh stats, now we will have a connection registered */
 		msab_freeStatus(stats);
 		er = msab_getStatus(stats, database);
+		pthread_mutex_unlock(&fork_lock);
 		if (er != NULL) {
 			/* since the client mserver lives its own life anyway,
 			 * it's not really a problem we exit here */
 			err e = newErr("%s", er);
 			free(er);
-			pthread_mutex_unlock(&fork_lock);
 			return(e);
 		}
-		pthread_mutex_unlock(&fork_lock);
 		return(NO_ERR);
 	}
 
@@ -422,9 +418,10 @@ forkMserver(char *database, sabdb** stats, int force)
 
 	er = msab_getDBfarm(&sabdbfarm);
 	if (er != NULL) {
-		err e = newErr("%s", er);
-		free(er);
-		return(e);
+		freeConfFile(ckv);
+		free(ckv);
+		pthread_mutex_unlock(&fork_lock);
+		return(er);
 	}
 
 	mydoproxy = strcmp(getConfVal(_mero_props, "forward"), "proxy") == 0;
@@ -472,10 +469,17 @@ forkMserver(char *database, sabdb** stats, int force)
 	if (kv->val != NULL && strcmp(kv->val, "no") != 0) {
 		if (embeddedpy) {
 			// only one python version can be active at a time
+			freeConfFile(ckv);
+			free(ckv);
+			pthread_mutex_unlock(&fork_lock);
+			free(sabdbfarm);
 			return newErr("attempting to start mserver with both embedded python2 and embedded python3; only one python version can be active at a time\n");
 		}
 		embeddedpy = "embedded_py=3";
 	}
+	kv = findConfKey(ckv, "embedc");
+	if (kv->val != NULL && strcmp(kv->val, "no") != 0)
+		embeddedc = "embedded_c=true";
 	kv = findConfKey(ckv, "dbextra");
 	if (kv != NULL && kv->val != NULL) {
 		dbextra = kv->val;
@@ -487,6 +491,7 @@ forkMserver(char *database, sabdb** stats, int force)
 	/* ok, now exec that mserver we want */
 	snprintf(dbpath, sizeof(dbpath),
 			 "--dbpath=%s/%s", sabdbfarm, database);
+	free(sabdbfarm);
 	snprintf(vaultkey, sizeof(vaultkey),
 			 "monet_vault_key=%s/.vaultkey", (*stats)->path);
 	snprintf(muri, sizeof(muri),
@@ -543,6 +548,9 @@ forkMserver(char *database, sabdb** stats, int force)
 	}
 	if (embeddedpy != NULL) {
 		argv[c++] = "--set"; argv[c++] = embeddedpy;
+	}
+	if (embeddedc != NULL) {
+		argv[c++] = "--set"; argv[c++] = embeddedc;
 	}
 	if (readonly != NULL) {
 		argv[c++] = readonly;
@@ -745,6 +753,297 @@ forkMserver(char *database, sabdb** stats, int force)
 	close(pfde[1]);
 	pthread_mutex_unlock(&fork_lock);
 	return(newErr("%s", strerror(errno)));
+}
+
+/**
+ * Fork stethoscope and detatch, after performing sanity checks. The assumption
+ * is that each mserver5 process can have at most one stethoscope process
+ * attached to it.
+ */
+err
+fork_profiler(char *dbname, sabdb **stats, char **log_path)
+{
+	pid_t pid;
+	char *error = NO_ERR;
+	char *pidfilename = NULL;
+	confkeyval *ckv = NULL, *kv;
+	size_t pidfnlen;
+	FILE *pidfile;
+	char *profiler_executable;
+	char *tmp_exe;
+	struct stat path_info;
+	int error_code;
+
+	error = msab_getStatus(stats, dbname);
+	if (error != NULL) {
+		return error;
+	}
+
+	if (*stats == NULL) {
+		/* TODO: What now? */
+		error = newErr("Null stats for db %s", dbname);
+		return error;
+	}
+
+	/* Find the profiler executable. The mserver is running as
+	 * /path/to/installation/mserver5
+	 * and the profiler executable should be:
+	 * /path/to/installation/stethoscope
+	 */
+	tmp_exe = strdup(_mero_mserver);
+	if (tmp_exe == NULL) {
+		error = newErr("Cannot find the profiler executable");
+		return error;
+	} else {
+		char *server_filename = "mserver5";
+		char *profiler_filename = "stethoscope";
+		char *s = strstr(tmp_exe, server_filename);
+		size_t executable_len = 0;
+
+		if (s == NULL || strncmp(s, server_filename, strlen(server_filename)) != 0) {
+			error = newErr("Unexpected executable (missing the string \"%s\")", server_filename);
+			free(tmp_exe);
+			return error;
+		}
+
+		executable_len = strlen(tmp_exe) + strlen(profiler_filename) - strlen(server_filename) + 1;
+		*s = '\0';
+		profiler_executable = malloc(executable_len);
+		snprintf(profiler_executable, executable_len, "%s%s%s",
+				 tmp_exe, profiler_filename, s + 8);
+		free(tmp_exe);
+		if (stat(profiler_executable, &path_info) == -1) {
+			error = newErr("Cannot find profiler executable");
+			goto cleanup;
+		}
+		/* free(tmp_exe); */
+	}
+
+	pthread_mutex_lock(&fork_lock);
+
+	/* Verify that the requested db is running */
+	if ((*stats)->state != SABdbRunning) {
+		/* server is not running, shoo */
+		error = newErr("Database %s is not running.", dbname);
+		goto cleanup;
+	}
+
+	/* find the path that the profiler will be storing files */
+	ckv = getDefaultProps();
+	readAllProps(ckv, (*stats)->path);
+	kv = findConfKey(ckv, PROFILERLOGPROPERTY);
+
+	if (kv == NULL) {
+		error = newErr("Property '"PROFILERLOGPROPERTY"' not set for db %s\n",
+					   dbname);
+		goto cleanup;
+	}
+
+	*log_path = strdup(kv->val);
+
+	/* Check that the log_path exists and create it if it does not */
+	error_code = stat(*log_path, &path_info);
+	if (error_code == -1) {  /* stat failed */
+		if (errno == ENOENT) {  /* dir does not exist, create it */
+			mode_t mode = 0755;
+			if (mkdir(*log_path, mode) == -1) {  /* mkdir failed, bail out */
+				char error_message[BUFSIZ];
+				if (strerror_r(errno, error_message, BUFSIZ) != 0)
+					strcpy(error_message, "unknown error");
+				error = newErr("%s", error_message);
+				free(*log_path);
+				*log_path = NULL;
+				goto cleanup;
+			}
+		} else {  /* Something else went wrong, can't handle the heat */
+			char error_message[BUFSIZ];
+			if (strerror_r(errno, error_message, BUFSIZ) != 0)
+				strcpy(error_message, "unknown error");
+			error = newErr("%s", error_message);
+			free(*log_path);
+			*log_path = NULL;
+			goto cleanup;
+		}
+	} else {  /* stat succeeded */
+		if(!S_ISDIR(path_info.st_mode)) {  /* file exists but is not a directory, bail out */
+			error = newErr("File %s exists but is not a directory.", *log_path);
+			free(*log_path);
+			*log_path = NULL;
+			goto cleanup;
+		}
+	}
+
+	/* construct the filename of the pid file */
+	pidfnlen = strlen(*log_path) + strlen("/profiler.pid") + 1;
+	pidfilename = malloc(pidfnlen);
+	if (pidfilename == NULL) {
+		error = newErr("Cannot allocate buffer while starting profiler");
+		goto cleanup;
+	}
+	snprintf(pidfilename, pidfnlen, "%s/profiler.pid", *log_path);
+
+	/* Make sure that the pid file is does not exist */
+	error_code = stat(pidfilename, &path_info);
+	if (error_code != -1) {
+		error = newErr("pid file %s already exists. Is the profiler already running?",
+					   pidfilename);
+		free(*log_path);
+		*log_path = NULL;
+		goto cleanup;
+	}
+
+	/* TODO: if the pid file exists read it and check if stethoscope with the
+	 * given pid is running */
+	/* Open the pid file */
+	if ((pidfile = fopen(pidfilename, "w")) == NULL) {
+		error = newErr("unable to open %s for writing", pidfilename);
+		free(*log_path);
+		*log_path = NULL;
+		goto cleanup;
+	}
+
+	pid = fork();
+	if (pid == 0) {
+		char timestamp[20];
+		char *argv[512];
+		int arg_idx = 0;
+		size_t log_filename_len;
+		char *log_filename;
+		time_t current_time;
+		struct tm *tm_ctime;
+
+		fclose(pidfile);
+		/* construct the log output file */
+		log_filename_len = strlen(*log_path) + strlen("/proflog_") + strlen(dbname) + 26;
+		log_filename = malloc(log_filename_len);
+		if (log_filename == NULL) {
+			/* TODO What now? */
+			Mfprintf(stderr, "failed to allocate buffer\n");
+			exit(1);
+		}
+		current_time = time(NULL);
+		tm_ctime = localtime(&current_time);
+		strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H:%M:%S", tm_ctime);
+		snprintf(log_filename, log_filename_len, "%s/proflog_%s_%s.json",
+				 *log_path, dbname, timestamp);
+
+		/* build the arguments */
+		argv[arg_idx++] = profiler_executable;
+		argv[arg_idx++] = "-j";  /* JSON output */
+		argv[arg_idx++] = "-d";
+		argv[arg_idx++] = dbname;
+		argv[arg_idx++] = "-o";
+		argv[arg_idx++] = log_filename;
+		/* execute */
+		execv(profiler_executable, argv);
+		exit(1);
+	} else {
+		/* write pid of stethoscope */
+		Mfprintf(pidfile, "%d", (int)pid);
+		fclose(pidfile);
+	}
+
+  cleanup:
+	freeConfFile(ckv);
+	free(ckv);
+	free(profiler_executable);
+	free(pidfilename);
+	pthread_mutex_unlock(&fork_lock);
+	return error;
+}
+
+err
+shutdown_profiler(char *dbname, sabdb **stats)
+{
+	err error=NO_ERR;
+	confkeyval *ckv = NULL, *kv;
+	size_t pidfnlen = 0;
+	char *pidfilename = NULL;
+	FILE *pidfile;
+	char buf[BUFSIZ];
+	size_t nbytes;
+	pid_t pid;
+
+	error = msab_getStatus(stats, dbname);
+	if (error != NULL) {
+		return error;
+	}
+
+	if (*stats == NULL) {
+		/* TODO: What now? */
+		error = newErr("Null stats for db %s", dbname);
+		return error;
+	}
+
+	/* Verify that the requested db is running */
+	if ((*stats)->state != SABdbRunning) {
+		/* server is not running, shoo */
+		error = newErr("Database %s is not running.", dbname);
+		goto cleanup;
+	}
+
+	/* Find the pid file and make sure the profiler is running */
+	ckv = getDefaultProps();
+	readAllProps(ckv, (*stats)->path);
+	kv = findConfKey(ckv, PROFILERLOGPROPERTY);
+
+	if (kv == NULL) {
+		error = newErr("Property '"PROFILERLOGPROPERTY"' not set for db %s\n",
+					   dbname);
+		goto cleanup;
+	}
+
+	/* construct the filename of the pid file */
+	pidfnlen = strlen(kv->val) + strlen("/profiler.pid") + 1;
+	pidfilename = malloc(pidfnlen);
+	if (pidfilename == NULL) {
+		error = newErr("Cannot allocate buffer while shutting down of profiler");
+		goto cleanup;
+	}
+	snprintf(pidfilename, pidfnlen, "%s/profiler.pid", kv->val);
+
+	if ((pidfile = fopen(pidfilename, "r")) == NULL) {
+		error = newErr("Unable to open %s for reading", pidfilename);
+		goto cleanup;
+	}
+
+	clearerr(pidfile);
+	nbytes = fread(buf, 1, BUFSIZ, pidfile);
+
+	if (ferror(pidfile)) {
+		error = newErr("Cannot read pid (%s) from file %s", buf, pidfilename);
+		fclose(pidfile);
+		goto cleanup;
+	}
+	fclose(pidfile);
+
+	if (buf[nbytes - 1] == '\n') {
+		buf[nbytes - 1] = '\0';
+	}
+
+	pid = (pid_t)strtol(buf, NULL, 10);
+	if (pid == 0 && errno == EINVAL) {
+		error = newErr("File contents %s not a valid pid", buf);
+		goto cleanup;
+	}
+
+	if (kill(pid, SIGTERM) == -1) {
+		char error_message[BUFSIZ];
+		if (strerror_r(errno, error_message, BUFSIZ) != 0)
+			strcpy(error_message, "unknown error");
+		error = newErr("%s", error_message);
+		goto cleanup;
+	}
+
+	/* All went well. Remove the pidfile */
+	if (remove(pidfilename) != 0) {
+		error = newErr("Profiler seems to have stopped, but cannot remove pid file.");
+	}
+
+  cleanup:
+	freeConfFile(ckv);
+	free(pidfilename);
+	return error;
 }
 
 /* vim:set ts=4 sw=4 noexpandtab: */

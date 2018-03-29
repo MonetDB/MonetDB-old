@@ -17,6 +17,7 @@
 #include "rel_updates.h"
 #include "rel_optimizer.h"
 #include "sql_env.h"
+#include "sql_optimizer.h"
 
 #define OUTER_ZERO 64
 
@@ -58,7 +59,7 @@ sql_unop_(backend *be, sql_schema *s, const char *fname, stmt *rs)
 	} else if (rs) {
 		char *type = tail_type(rs)->type->sqlname;
 
-		return sql_error(sql, 02, "SELECT: no such unary operator '%s(%s)'", fname, type);
+		return sql_error(sql, 02, SQLSTATE(42000) "SELECT: no such unary operator '%s(%s)'", fname, type);
 	}
 	return NULL;
 }
@@ -207,7 +208,7 @@ static stmt *column(backend *be, stmt *val )
 	return val;
 }
 
-static stmt *Column(backend *be, stmt *val )
+static stmt *create_const_column(backend *be, stmt *val )
 {
 	if (val->nrcols == 0)
 		val = const_column(be, val);
@@ -480,7 +481,7 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 				if (!es) 
 					return NULL;
 
-				if (rows && en == exps->h)
+				if (rows && en == exps->h && f->func->type != F_LOADER)
 					es = stmt_const(be, rows, es);
 				if (es->nrcols > nrcols)
 					nrcols = es->nrcols;
@@ -862,7 +863,7 @@ check_table_types(backend *be, list *types, stmt *s, check_type tpe)
 	if (s->type != st_table) {
 		return sql_error(
 			sql, 03,
-			"single value and complex type are not equal");
+			SQLSTATE(42000) "single value and complex type are not equal");
 	}
 	tab = s->op1;
 	temp = s->flag;
@@ -909,7 +910,7 @@ check_table_types(backend *be, list *types, stmt *s, check_type tpe)
 		if (list_length(types) != 1) {
 			stmt *res = sql_error(
 				sql, 03,
-				"single value of type %s and complex type are not equal",
+				SQLSTATE(42000) "single value of type %s and complex type are not equal",
 				st->type->sqlname
 			);
 			return res;
@@ -994,7 +995,7 @@ check_types(backend *be, sql_subtype *ct, stmt *s, check_type tpe)
 	if ((!st || !st->type) && stmt_set_type_param(sql, ct, s) == 0) {
 		return s;
 	} else if (!st) {
-		return sql_error(sql, 02, "statement has no type information");
+		return sql_error(sql, 02, SQLSTATE(42000) "statement has no type information");
 	}
 
 	/* first try cheap internal (inplace) convertions ! */
@@ -1018,7 +1019,7 @@ check_types(backend *be, sql_subtype *ct, stmt *s, check_type tpe)
 	if (!s) {
 		stmt *res = sql_error(
 			sql, 03,
-			"types %s(%d,%d) (%s) and %s(%d,%d) (%s) are not equal",
+			SQLSTATE(42000) "types %s(%u,%u) (%s) and %s(%u,%u) (%s) are not equal",
 			st->type->sqlname,
 			st->digits,
 			st->scale,
@@ -1055,7 +1056,7 @@ sql_Nop_(backend *be, const char *fname, stmt *a1, stmt *a2, stmt *a3, stmt *a4)
 	f = sql_bind_func_(sql->sa, sql->session->schema, fname, tl, F_FUNC);
 	if (f)
 		return stmt_Nop(be, stmt_list(be, sl), f);
-	return sql_error(sql, 02, "SELECT: no such operator '%s'", fname);
+	return sql_error(sql, 02, SQLSTATE(42000) "SELECT: no such operator '%s'", fname);
 }
 
 static stmt *
@@ -1081,7 +1082,7 @@ rel_parse_value(backend *be, char *query, char emode)
 	if (b == NULL || n == NULL) {
 		GDKfree(b);
 		GDKfree(n);
-		return sql_error(m, 02, MAL_MALLOC_FAIL);
+		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 	strncpy(n, query, len);
 	query = n;
@@ -1092,12 +1093,12 @@ rel_parse_value(backend *be, char *query, char emode)
 	sr = buffer_rastream(b, "sqlstatement");
 	if (sr == NULL) {
 		buffer_destroy(b);
-		return sql_error(m, 02, MAL_MALLOC_FAIL);
+		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 	bs = bstream_create(sr, b->len);
 	if(bs == NULL) {
 		buffer_destroy(b);
-		return sql_error(m, 02, MAL_MALLOC_FAIL);
+		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 	scanner_init(&m->scanner, bs, NULL);
 	m->scanner.mode = LINE_1; 
@@ -1393,6 +1394,7 @@ rel2bin_args(backend *be, sql_rel *rel, list *args)
 	case op_insert:
 	case op_update:
 	case op_delete:
+	case op_truncate:
 		args = rel2bin_args(be, rel->r, args);
 		break;
 	}
@@ -1403,7 +1405,7 @@ typedef struct trigger_input {
 	sql_table *t;
 	stmt *tids;
 	stmt **updates;
-	int type; /* insert 1, update 2, delete 3 */
+	int type; /* insert 1, update 2, delete 3, truncate 4 */
 	const char *on;
 	const char *nn;
 } trigger_input;
@@ -1463,34 +1465,36 @@ rel2bin_table(backend *be, sql_rel *rel, list *refs)
 			return NULL;	
 		}
 		l = sa_list(sql->sa);
-		if (f->func->varres) {
-			for(i=0, en = rel->exps->h, n = f->res->h; en; en = en->next, n = n->next, i++ ) {
-				sql_exp *exp = en->data;
-				sql_subtype *st = n->data;
-				const char *rnme = exp->rname?exp->rname:exp->l;
-				stmt *s = stmt_rs_column(be, psub, i, st); 
-		
-				s = stmt_alias(be, s, rnme, exp->name);
-				list_append(l, s);
-			}
-		} else {
-			for(i = 0, n = f->func->res->h; n; n = n->next, i++ ) {
-				sql_arg *a = n->data;
-				stmt *s = stmt_rs_column(be, psub, i, &a->type); 
-				const char *rnme = exp_find_rel_name(op);
-	
-				s = stmt_alias(be, s, rnme, a->name);
-				list_append(l, s);
-			}
-			if (list_length(f->res) == list_length(f->func->res) + 1) {
-				/* add missing %TID% column */
-				sql_subtype *t = f->res->t->data;
-				stmt *s = stmt_rs_column(be, psub, i, t); 
-				const char *rnme = exp_find_rel_name(op);
-	
-				s = stmt_alias(be, s, rnme, TID);
-				list_append(l, s);
-			}
+		if (f->func->res) {
+				if (f->func->varres) {
+					for(i=0, en = rel->exps->h, n = f->res->h; en; en = en->next, n = n->next, i++ ) {
+						sql_exp *exp = en->data;
+						sql_subtype *st = n->data;
+						const char *rnme = exp->rname?exp->rname:exp->l;
+						stmt *s = stmt_rs_column(be, psub, i, st); 
+				
+						s = stmt_alias(be, s, rnme, exp->name);
+						list_append(l, s);
+					}
+				} else {
+					for(i = 0, n = f->func->res->h; n; n = n->next, i++ ) {
+						sql_arg *a = n->data;
+						stmt *s = stmt_rs_column(be, psub, i, &a->type); 
+						const char *rnme = exp_find_rel_name(op);
+			
+						s = stmt_alias(be, s, rnme, a->name);
+						list_append(l, s);
+					}
+					if (list_length(f->res) == list_length(f->func->res) + 1) {
+						/* add missing %TID% column */
+						sql_subtype *t = f->res->t->data;
+						stmt *s = stmt_rs_column(be, psub, i, t); 
+						const char *rnme = exp_find_rel_name(op);
+			
+						s = stmt_alias(be, s, rnme, TID);
+						list_append(l, s);
+					}
+				}
 		}
 		if (!rel->flag && sub && sub->nrcols) { 
 			assert(0);
@@ -1892,7 +1896,7 @@ rel2bin_join(backend *be, sql_rel *rel, list *refs)
 
 		/* as append isn't save, we append to a new copy */
 		if (rel->op == op_left || rel->op == op_full || rel->op == op_right)
-			s = Column(be, s);
+			s = create_const_column(be, s);
 		if (rel->op == op_left || rel->op == op_full)
 			s = stmt_append(be, s, stmt_project(be, ld, c));
 		if (rel->op == op_right || rel->op == op_full) 
@@ -1909,7 +1913,7 @@ rel2bin_join(backend *be, sql_rel *rel, list *refs)
 
 		/* as append isn't save, we append to a new copy */
 		if (rel->op == op_left || rel->op == op_full || rel->op == op_right)
-			s = Column(be, s);
+			s = create_const_column(be, s);
 		if (rel->op == op_left || rel->op == op_full) 
 			s = stmt_append(be, s, stmt_const(be, ld, (c->flag&OUTER_ZERO)?stmt_atom_lng(be, 0):stmt_atom(be, atom_general(sql->sa, tail_type(c), NULL))));
 		if (rel->op == op_right || rel->op == op_full) 
@@ -2167,7 +2171,7 @@ rel2bin_union(backend *be, sql_rel *rel, list *refs)
 		const char *nme = column_name(sql->sa, c1);
 		stmt *s;
 
-		s = stmt_append(be, Column(be, c1), c2);
+		s = stmt_append(be, create_const_column(be, c1), c2);
 		s = stmt_alias(be, s, rnme, nme);
 		list_append(l, s);
 	}
@@ -2873,9 +2877,10 @@ sql_parse(backend *be, sql_allocator *sa, char *query, char mode)
 	char *n;
 	int len = _strlen(query);
 	stream *buf;
+	bstream * bst;
 
  	if (THRhighwater())
-		return sql_error(m, 10, "SELECT: too many nested operators");
+		return sql_error(m, 10, SQLSTATE(42000) "SELECT: too many nested operators");
 
 	o = MNEW(mvc);
 	if (!o)
@@ -2890,10 +2895,10 @@ sql_parse(backend *be, sql_allocator *sa, char *query, char mode)
 
 	b = (buffer*)GDKmalloc(sizeof(buffer));
 	if (b == 0)
-		return sql_error(m, 02, MAL_MALLOC_FAIL);
+		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	n = GDKmalloc(len + 1 + 1);
 	if (n == 0)
-		return sql_error(m, 02, MAL_MALLOC_FAIL);
+		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	strncpy(n, query, len);
 	query = n;
 	query[len] = '\n';
@@ -2903,9 +2908,13 @@ sql_parse(backend *be, sql_allocator *sa, char *query, char mode)
 	buf = buffer_rastream(b, "sqlstatement");
 	if(buf == NULL) {
 		buffer_destroy(b);
-		return sql_error(m, 02, MAL_MALLOC_FAIL);
+		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
-	scanner_init( &m->scanner, bstream_create(buf, b->len), NULL);
+	if((bst = bstream_create(buf, b->len)) == NULL) {
+		close_stream(buf);
+		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	}
+	scanner_init( &m->scanner, bst, NULL);
 	m->scanner.mode = LINE_1; 
 	bstream_next(m->scanner.rs);
 
@@ -2921,7 +2930,7 @@ sql_parse(backend *be, sql_allocator *sa, char *query, char mode)
 		GDKfree(query);
 		GDKfree(b);
 		bstream_destroy(m->scanner.rs);
-		return sql_error(m, 02, MAL_MALLOC_FAIL);
+		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 
 	if (sqlparse(m) || !m->sym) {
@@ -3192,7 +3201,7 @@ sql_insert_key(backend *be, list *inserts, sql_key *k, stmt *idx_inserts, stmt *
 	}
 }
 
-static void
+static int
 sql_stack_add_inserted( mvc *sql, const char *name, sql_table *t, stmt **updates) 
 {
 	/* Put single relation of updates and old values on to the stack */
@@ -3215,7 +3224,7 @@ sql_stack_add_inserted( mvc *sql, const char *name, sql_table *t, stmt **updates
 	r = rel_table_func(sql->sa, NULL, NULL, exps, 2);
 	r->l = ti;
 
-	stack_push_rel_view(sql, name, r);
+	return stack_push_rel_view(sql, name, r) ? 1 : 0;
 }
 
 static int
@@ -3231,15 +3240,17 @@ sql_insert_triggers(backend *be, sql_table *t, stmt **updates, int time)
 	for (n = t->triggers.set->h; n; n = n->next) {
 		sql_trigger *trigger = n->data;
 
-		stack_push_frame(sql, "OLD-NEW");
+		if(!stack_push_frame(sql, "OLD-NEW"))
+			return 0;
 		if (trigger->event == 0 && trigger->time == time) { 
 			stmt *s = NULL;
 			const char *n = trigger->new_name;
 
 			/* add name for the 'inserted' to the stack */
-			if (!n) n = "new"; 
-	
-			sql_stack_add_inserted(sql, n, t, updates);
+			if (!n) n = "new";
+
+			if(!sql_stack_add_inserted(sql, n, t, updates))
+				return 0;
 			s = sql_parse(be, sql->sa, trigger->statement, m_instantiate);
 			
 			if (!s) 
@@ -3350,7 +3361,7 @@ rel2bin_insert(backend *be, sql_rel *rel, list *refs)
 
 /* before */
 	if (!sql_insert_triggers(be, t, updates, 0)) 
-		return sql_error(sql, 02, "INSERT INTO: triggers failed for table '%s'", t->base.name);
+		return sql_error(sql, 02, SQLSTATE(42000) "INSERT INTO: triggers failed for table '%s'", t->base.name);
 
 	if (t->idxs.set)
 	for (n = t->idxs.set->h; n && m; n = n->next, m = m->next) {
@@ -3384,7 +3395,7 @@ rel2bin_insert(backend *be, sql_rel *rel, list *refs)
 		return NULL;
 
 	if (!sql_insert_triggers(be, t, updates, 1)) 
-		return sql_error(sql, 02, "INSERT INTO: triggers failed for table '%s'", t->base.name);
+		return sql_error(sql, 02, SQLSTATE(42000) "INSERT INTO: triggers failed for table '%s'", t->base.name);
 	if (ddl) {
 		list_prepend(l, ddl);
 	} else {
@@ -4107,7 +4118,7 @@ update_idxs_and_check_keys(backend *be, sql_table *t, stmt *rows, stmt **updates
 	return idx_updates;
 }
 
-static void
+static int
 sql_stack_add_updated(mvc *sql, const char *on, const char *nn, sql_table *t, stmt *tids, stmt **updates)
 {
 	/* Put single relation of updates and old values on to the stack */
@@ -4143,8 +4154,9 @@ sql_stack_add_updated(mvc *sql, const char *on, const char *nn, sql_table *t, st
 	r->l = ti;
 		
 	/* put single table into the stack with 2 names, needed for the psm code */
-	stack_push_rel_view(sql, on, r);
-	stack_push_rel_view(sql, nn, rel_dup(r));
+	if(!stack_push_rel_view(sql, on, r) || !stack_push_rel_view(sql, nn, rel_dup(r)))
+		return 0;
+	return 1;
 }
 
 static int
@@ -4160,7 +4172,8 @@ sql_update_triggers(backend *be, sql_table *t, stmt *tids, stmt **updates, int t
 	for (n = t->triggers.set->h; n; n = n->next) {
 		sql_trigger *trigger = n->data;
 
-		stack_push_frame(sql, "OLD-NEW");
+		if(!stack_push_frame(sql, "OLD-NEW"))
+			return 0;
 		if (trigger->event == 2 && trigger->time == time) {
 			stmt *s = NULL;
 	
@@ -4170,8 +4183,9 @@ sql_update_triggers(backend *be, sql_table *t, stmt *tids, stmt **updates, int t
 	
 			if (!n) n = "new"; 
 			if (!o) o = "old"; 
-	
-			sql_stack_add_updated(sql, o, n, t, tids, updates);
+
+			if(!sql_stack_add_updated(sql, o, n, t, tids, updates))
+				return 0;
 			s = sql_parse(be, sql->sa, trigger->statement, m_instantiate);
 			if (!s) 
 				return 0;
@@ -4226,12 +4240,12 @@ sql_update(backend *be, sql_table *t, stmt *rows, stmt **updates)
 	idx_updates = update_idxs_and_check_keys(be, t, rows, updates, l, NULL);
 	if (!idx_updates) {
 		assert(0);
-		return sql_error(sql, 02, "UPDATE: failed to update indexes for table '%s'", t->base.name);
+		return sql_error(sql, 02, SQLSTATE(42000) "UPDATE: failed to update indexes for table '%s'", t->base.name);
 	}
 
 /* before */
 	if (!sql_update_triggers(be, t, rows, updates, 0)) 
-		return sql_error(sql, 02, "UPDATE: triggers failed for table '%s'", t->base.name);
+		return sql_error(sql, 02, SQLSTATE(42000) "UPDATE: triggers failed for table '%s'", t->base.name);
 
 /* apply updates */
 	for (i = 0, n = t->columns.set->h; i < nr_cols && n; i++, n = n->next) { 
@@ -4241,11 +4255,11 @@ sql_update(backend *be, sql_table *t, stmt *rows, stmt **updates)
 	       		append(l, stmt_update_col(be, c, rows, updates[i]));
 	}
 	if (cascade_updates(be, t, rows, updates))
-		return sql_error(sql, 02, "UPDATE: cascade failed for table '%s'", t->base.name);
+		return sql_error(sql, 02, SQLSTATE(42000) "UPDATE: cascade failed for table '%s'", t->base.name);
 
 /* after */
 	if (!sql_update_triggers(be, t, rows, updates, 1)) 
-		return sql_error(sql, 02, "UPDATE: triggers failed for table '%s'", t->base.name);
+		return sql_error(sql, 02, SQLSTATE(42000) "UPDATE: triggers failed for table '%s'", t->base.name);
 
 /* cascade ?? */
 	return l;
@@ -4328,7 +4342,7 @@ rel2bin_update(backend *be, sql_rel *rel, list *refs)
 
 /* before */
 	if (!sql_update_triggers(be, t, tids, updates, 0)) 
-		return sql_error(sql, 02, "UPDATE: triggers failed for table '%s'", t->base.name);
+		return sql_error(sql, 02, SQLSTATE(42000) "UPDATE: triggers failed for table '%s'", t->base.name);
 
 /* apply the update */
 	for (m = rel->exps->h; m; m = m->next) {
@@ -4340,11 +4354,11 @@ rel2bin_update(backend *be, sql_rel *rel, list *refs)
 	}
 
 	if (cascade_updates(be, t, tids, updates))
-		return sql_error(sql, 02, "UPDATE: cascade failed for table '%s'", t->base.name);
+		return sql_error(sql, 02, SQLSTATE(42000) "UPDATE: cascade failed for table '%s'", t->base.name);
 
 /* after */
 	if (!sql_update_triggers(be, t, tids, updates, 1)) 
-		return sql_error(sql, 02, "UPDATE: triggers failed for table '%s'", t->base.name);
+		return sql_error(sql, 02, SQLSTATE(42000) "UPDATE: triggers failed for table '%s'", t->base.name);
 
 	if (ddl) {
 		list_prepend(l, ddl);
@@ -4358,9 +4372,9 @@ rel2bin_update(backend *be, sql_rel *rel, list *refs)
 		sql->cascade_action = NULL;
 	return cnt;
 }
- 
-static void
-sql_stack_add_deleted(mvc *sql, const char *name, sql_table *t, stmt *tids)
+
+static int
+sql_stack_add_deleted(mvc *sql, const char *name, sql_table *t, stmt *tids, int type)
 {
 	/* Put single relation of updates and old values on to the stack */
 	sql_rel *r = NULL;
@@ -4371,7 +4385,7 @@ sql_stack_add_deleted(mvc *sql, const char *name, sql_table *t, stmt *tids)
 	ti->t = t;
 	ti->tids = tids;
 	ti->updates = NULL;
-	ti->type = 3;
+	ti->type = type;
 	ti->nn = name;
 	for (n = t->columns.set->h; n; n = n->next) {
 		sql_column *c = n->data;
@@ -4382,11 +4396,11 @@ sql_stack_add_deleted(mvc *sql, const char *name, sql_table *t, stmt *tids)
 	r = rel_table_func(sql->sa, NULL, NULL, exps, 2);
 	r->l = ti;
 
-	stack_push_rel_view(sql, name, r);
+	return stack_push_rel_view(sql, name, r) ? 1 : 0;
 }
 
 static int
-sql_delete_triggers(backend *be, sql_table *t, stmt *tids, int time)
+sql_delete_triggers(backend *be, sql_table *t, stmt *tids, int time, int firing_type, int internal_type)
 {
 	mvc *sql = be->mvc;
 	node *n;
@@ -4398,16 +4412,18 @@ sql_delete_triggers(backend *be, sql_table *t, stmt *tids, int time)
 	for (n = t->triggers.set->h; n; n = n->next) {
 		sql_trigger *trigger = n->data;
 
-		stack_push_frame(sql, "OLD-NEW");
-		if (trigger->event == 1 && trigger->time == time) {
+		if(!stack_push_frame(sql, "OLD-NEW"))
+			return 0;
+		if (trigger->event == firing_type && trigger->time == time) {
 			stmt *s = NULL;
-	
+
 			/* add name for the 'deleted' to the stack */
 			const char *o = trigger->old_name;
-		
-			if (!o) o = "old"; 
-		
-			sql_stack_add_deleted(sql, o, t, tids);
+
+			if (!o) o = "old";
+
+			if(!sql_stack_add_deleted(sql, o, t, tids, internal_type))
+				return 0;
 			s = sql_parse(be, sql->sa, trigger->statement, m_instantiate);
 
 			if (!s) 
@@ -4428,7 +4444,7 @@ sql_delete_cascade_Fkeys(backend *be, sql_key *fk, stmt *ftids)
 }
 
 static void 
-sql_delete_ukey(backend *be, stmt *utids /* deleted tids from ukey table */, sql_key *k, list *l) 
+sql_delete_ukey(backend *be, stmt *utids /* deleted tids from ukey table */, sql_key *k, list *l, char* which, int cascade)
 {
 	mvc *sql = be->mvc;
 	sql_ukey *uk = (sql_ukey*)k;
@@ -4449,31 +4465,36 @@ sql_delete_ukey(backend *be, stmt *utids /* deleted tids from ukey table */, sql
 			s = stmt_join(be, s, utids, 0, cmp_equal); /* join over the join index */
 			s = stmt_result(be, s, 0);
 			tids = stmt_project(be, s, tids);
-			switch (((sql_fkey*)fk)->on_delete) {
-				case ACT_NO_ACTION: 
-					break;
-				case ACT_SET_NULL: 
-				case ACT_SET_DEFAULT: 
-					s = sql_delete_set_Fkeys(be, fk, tids, ((sql_fkey*)fk)->on_delete);
-					list_prepend(l, s);
-					break;
-				case ACT_CASCADE: 
-					s = sql_delete_cascade_Fkeys(be, fk, tids);
-					list_prepend(l, s);
-					break;
-				default:	/*RESTRICT*/
-					/* The overlap between deleted primaries and foreign should be empty */
-					s = stmt_binop(be, stmt_aggr(be, tids, NULL, NULL, cnt, 1, 0, 1), stmt_atom_lng(be, 0), ne);
-					msg = sa_message(sql->sa, "DELETE: FOREIGN KEY constraint '%s.%s' violated", fk->t->base.name, fk->base.name);
-					s = stmt_exception(be, s, msg, 00001);
-					list_prepend(l, s);
+			if(cascade) { //for truncate statements with the cascade option
+				s = sql_delete_cascade_Fkeys(be, fk, tids);
+				list_prepend(l, s);
+			} else {
+				switch (((sql_fkey*)fk)->on_delete) {
+					case ACT_NO_ACTION:
+						break;
+					case ACT_SET_NULL:
+					case ACT_SET_DEFAULT:
+						s = sql_delete_set_Fkeys(be, fk, tids, ((sql_fkey*)fk)->on_delete);
+						list_prepend(l, s);
+						break;
+					case ACT_CASCADE:
+						s = sql_delete_cascade_Fkeys(be, fk, tids);
+						list_prepend(l, s);
+						break;
+					default:	/*RESTRICT*/
+						/* The overlap between deleted primaries and foreign should be empty */
+						s = stmt_binop(be, stmt_aggr(be, tids, NULL, NULL, cnt, 1, 0, 1), stmt_atom_lng(be, 0), ne);
+						msg = sa_message(sql->sa, "%s: FOREIGN KEY constraint '%s.%s' violated", which, fk->t->base.name, fk->base.name);
+						s = stmt_exception(be, s, msg, 00001);
+						list_prepend(l, s);
+				}
 			}
 		}
 	}
 }
 
 static int
-sql_delete_keys(backend *be, sql_table *t, stmt *rows, list *l)
+sql_delete_keys(backend *be, sql_table *t, stmt *rows, list *l, char* which, int cascade)
 {
 	mvc *sql = be->mvc;
 	int res = 1;
@@ -4493,7 +4514,7 @@ sql_delete_keys(backend *be, sql_table *t, stmt *rows, list *l)
 				
 				*local_id = k->base.id;
 				list_append(sql->cascade_action, local_id); 
-				sql_delete_ukey(be, rows, k, l);
+				sql_delete_ukey(be, rows, k, l, which, cascade);
 			}
 		}
 	}
@@ -4504,7 +4525,7 @@ static stmt *
 sql_delete(backend *be, sql_table *t, stmt *rows)
 {
 	mvc *sql = be->mvc;
-	stmt *v, *s = NULL;
+	stmt *v = NULL, *s = NULL;
 	list *l = sa_list(sql->sa);
 
 	if (rows) {
@@ -4514,11 +4535,11 @@ sql_delete(backend *be, sql_table *t, stmt *rows)
 	}
 
 /* before */
-	if (!sql_delete_triggers(be, t, v, 0)) 
-		return sql_error(sql, 02, "DELETE: triggers failed for table '%s'", t->base.name);
+	if (!sql_delete_triggers(be, t, v, 0, 1, 3))
+		return sql_error(sql, 02, SQLSTATE(42000) "DELETE: triggers failed for table '%s'", t->base.name);
 
-	if (!sql_delete_keys(be, t, v, l)) 
-		return sql_error(sql, 02, "DELETE: failed to delete indexes for table '%s'", t->base.name);
+	if (!sql_delete_keys(be, t, v, l, "DELETE", 0))
+		return sql_error(sql, 02, SQLSTATE(42000) "DELETE: failed to delete indexes for table '%s'", t->base.name);
 
 	if (rows) { 
 		sql_subtype to;
@@ -4532,8 +4553,8 @@ sql_delete(backend *be, sql_table *t, stmt *rows)
 	}
 
 /* after */
-	if (!sql_delete_triggers(be, t, v, 1)) 
-		return sql_error(sql, 02, "DELETE: triggers failed for table '%s'", t->base.name);
+	if (!sql_delete_triggers(be, t, v, 1, 1, 3))
+		return sql_error(sql, 02, SQLSTATE(42000) "DELETE: triggers failed for table '%s'", t->base.name);
 	if (rows) 
 		s = stmt_aggr(be, rows, NULL, NULL, sql_bind_aggr(sql->sa, sql->session->schema, "count", NULL), 1, 0, 1);
 	return s;
@@ -4543,7 +4564,7 @@ static stmt *
 rel2bin_delete(backend *be, sql_rel *rel, list *refs)
 {
 	mvc *sql = be->mvc;
-	stmt *rows = NULL, *delete;
+	stmt *rows = NULL, *stdelete = NULL;
 	sql_rel *tr = rel->l;
 	sql_table *t = NULL;
 
@@ -4561,14 +4582,199 @@ rel2bin_delete(backend *be, sql_rel *rel, list *refs)
 		stmt *s = rows;
 		rows = s->op4.lval->h->data;
 	}
-	delete = sql_delete(be, t, rows); 
+	stdelete = sql_delete(be, t, rows);
 	if (sql->cascade_action) 
 		sql->cascade_action = NULL;
-	return delete;
+	return stdelete;
 }
 
-#define E_ATOM_INT(e) ((atom*)((sql_exp*)e)->l)->data.val.lval
+struct tablelist {
+	sql_table *table;
+	struct tablelist* next;
+};
+
+static void //inspect the other tables recursively for foreign key dependencies
+check_for_foreign_key_references(mvc *sql, struct tablelist* list, struct tablelist* next_append, sql_table *t, int cascade, int *error) {
+	node *n;
+	int found;
+	struct tablelist* new_node, *node_check;
+
+	if(*error)
+		return;
+
+	if (t->keys.set) { /* Check for foreign key references */
+		for (n = t->keys.set->h; n; n = n->next) {
+			sql_key *k = n->data;
+
+			if (k->type == ukey || k->type == pkey) {
+				sql_ukey *uk = (sql_ukey *) k;
+
+				if (uk->keys && list_length(uk->keys)) {
+					node *l = uk->keys->h;
+
+					for (; l; l = l->next) {
+						k = l->data;
+						/* make sure it is not a self referencing key */
+						if (k->t != t && !cascade) {
+							node *n = t->columns.set->h;
+							sql_column *c = n->data;
+							size_t n_rows = store_funcs.count_col(sql->session->tr, c, 1);
+							size_t n_deletes = store_funcs.count_del(sql->session->tr, c->t);
+							assert (n_rows >= n_deletes);
+							if(n_rows - n_deletes > 0) {
+								sql_error(sql, 02, SQLSTATE(42000) "TRUNCATE: FOREIGN KEY %s.%s depends on %s", k->t->base.name, k->base.name, t->base.name);
+								*error = 1;
+								return;
+							}
+						} else if(k->t != t) {
+							found = 0;
+							for (node_check = list; node_check; node_check = node_check->next) {
+								if(node_check->table == k->t) {
+									found = 1;
+								}
+							}
+							if(!found) {
+								if((new_node = MNEW(struct tablelist)) == NULL) {
+									sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+									*error = 1;
+									return;
+								}
+								new_node->table = k->t;
+								new_node->next = NULL;
+								next_append->next = new_node;
+								check_for_foreign_key_references(sql, list, new_node, k->t, cascade, error);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+static stmt *
+sql_truncate(backend *be, sql_table *t, int restart_sequences, int cascade)
+{
+	mvc *sql = be->mvc;
+	list *l = sa_list(sql->sa);
+	stmt *v, *ret = NULL, *other = NULL;
+	const char *next_value_for = "next value for \"sys\".\"seq_";
+	char *seq_name = NULL;
+	str seq_pos = NULL;
+	sql_column *col = NULL;
+	sql_sequence *seq = NULL;
+	sql_schema *sche = NULL;
+	sql_table *next = NULL;
+	sql_trans *tr = sql->session->tr;
+	node *n = NULL;
+	int error = 0;
+
+	struct tablelist* new_list = MNEW(struct tablelist), *list_node, *aux;
+	if(!new_list) {
+		sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		error = 1;
+		goto finalize;
+	}
+
+	new_list->table = t;
+	new_list->next = NULL;
+	check_for_foreign_key_references(sql, new_list, new_list, t, cascade, &error);
+	if(error)
+		goto finalize;
+
+	for (list_node = new_list; list_node; list_node = list_node->next) {
+		next = list_node->table;
+		sche = next->s;
+
+		if(restart_sequences) { /* restart the sequences if it's the case */
+			for (n = next->columns.set->h; n; n = n->next) {
+				col = n->data;
+				if (col->def && (seq_pos = strstr(col->def, next_value_for))) {
+					seq_name = _STRDUP(seq_pos + (strlen(next_value_for) - strlen("seq_")));
+					if(!seq_name) {
+						sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+						error = 1;
+						goto finalize;
+					}
+					seq_name[strlen(seq_name)-1] = '\0';
+					seq = find_sql_sequence(sche, seq_name);
+					if (seq) {
+						sql_trans_sequence_restart(tr, seq, seq->start);
+						seq->base.wtime = sche->base.wtime = tr->wtime = tr->wstime;
+						tr->schema_updates++;
+					}
+					_DELETE(seq_name);
+				}
+			}
+		}
+
+		v = stmt_tid(be, next, 0);
+
+		/* before */
+		if (!sql_delete_triggers(be, next, v, 0, 3, 4)) {
+			sql_error(sql, 02, SQLSTATE(42000) "TRUNCATE: triggers failed for table '%s'", next->base.name);
+			error = 1;
+			goto finalize;
+		}
+
+		if (!sql_delete_keys(be, next, v, l, "TRUNCATE", cascade)) {
+			sql_error(sql, 02, SQLSTATE(42000) "TRUNCATE: failed to delete indexes for table '%s'", next->base.name);
+			error = 1;
+			goto finalize;
+		}
+
+		other = stmt_table_clear(be, next);
+		list_append(l, other);
+		if(next == t)
+			ret = other;
+
+		/* after */
+		if (!sql_delete_triggers(be, next, v, 1, 3, 4)) {
+			sql_error(sql, 02, SQLSTATE(42000) "TRUNCATE: triggers failed for table '%s'", next->base.name);
+			error = 1;
+			goto finalize;
+		}
+	}
+
+finalize:
+	for (list_node = new_list; list_node;) {
+		aux = list_node->next;
+		_DELETE(list_node);
+		list_node = aux;
+	}
+
+	if(error)
+		return NULL;
+	return ret;
+}
+
+#define E_ATOM_INT(e) ((atom*)((sql_exp*)e)->l)->data.val.ival
 #define E_ATOM_STRING(e) ((atom*)((sql_exp*)e)->l)->data.val.sval
+
+static stmt *
+rel2bin_truncate(backend *be, sql_rel *rel)
+{
+	mvc *sql = be->mvc;
+	stmt *truncate = NULL;
+	sql_rel *tr = rel->l;
+	sql_table *t = NULL;
+	node *n = NULL;
+	int restart_sequences, cascade;
+
+	if (tr->op == op_basetable)
+		t = tr->l;
+	else
+		assert(0/*ddl statement*/);
+
+	n = rel->exps->h;
+	restart_sequences = E_ATOM_INT(n->data);
+	cascade = E_ATOM_INT(n->next->data);
+
+	truncate = sql_truncate(be, t, restart_sequences, cascade);
+	if (sql->cascade_action)
+		sql->cascade_action = NULL;
+	return truncate;
+}
 
 static stmt *
 rel2bin_output(backend *be, sql_rel *rel, list *refs) 
@@ -4688,7 +4894,7 @@ rel2bin_catalog(backend *be, sql_rel *rel, list *refs)
 	mvc *sql = be->mvc;
 	node *en = rel->exps->h;
 	stmt *action = exp_bin(be, en->data, NULL, NULL, NULL, NULL, NULL, NULL);
-	stmt *sname = NULL, *name = NULL;
+	stmt *sname = NULL, *name = NULL, *ifexists = NULL;
 	list *l = sa_list(sql->sa);
 
 	(void)refs;
@@ -4699,8 +4905,14 @@ rel2bin_catalog(backend *be, sql_rel *rel, list *refs)
 	} else {
 		name = stmt_atom_string_nil(be);
 	}
+	if (en->next && en->next->next) {
+		ifexists = exp_bin(be, en->next->next->data, NULL, NULL, NULL, NULL, NULL, NULL);
+	} else {
+		ifexists = stmt_atom_int(be, 0);
+	}
 	append(l, sname);
 	append(l, name);
+	append(l, ifexists);
 	append(l, action);
 	return stmt_catalog(be, rel->flag, stmt_list(be, l));
 }
@@ -4711,7 +4923,7 @@ rel2bin_catalog_table(backend *be, sql_rel *rel, list *refs)
 	mvc *sql = be->mvc;
 	node *en = rel->exps->h;
 	stmt *action = exp_bin(be, en->data, NULL, NULL, NULL, NULL, NULL, NULL);
-	stmt *table = NULL, *sname, *tname = NULL;
+	stmt *table = NULL, *sname, *tname = NULL, *ifexists = NULL;
 	list *l = sa_list(sql->sa);
 
 	(void)refs;
@@ -4722,13 +4934,22 @@ rel2bin_catalog_table(backend *be, sql_rel *rel, list *refs)
 		tname = exp_bin(be, en->data, NULL, NULL, NULL, NULL, NULL, NULL);
 		en = en->next;
 	}
-	if (en) 
-		table = exp_bin(be, en->data, NULL, NULL, NULL, NULL, NULL, NULL);
 	append(l, sname);
 	assert(tname);
 	append(l, tname);
-	if (rel->flag != DDL_DROP_TABLE && rel->flag != DDL_DROP_TABLE_IF_EXISTS && rel->flag != DDL_DROP_VIEW && rel->flag != DDL_DROP_VIEW_IF_EXISTS && rel->flag != DDL_DROP_CONSTRAINT)
+	if (rel->flag != DDL_DROP_TABLE && rel->flag != DDL_DROP_VIEW && rel->flag != DDL_DROP_CONSTRAINT) {
+		if (en) {
+			table = exp_bin(be, en->data, NULL, NULL, NULL, NULL, NULL, NULL);
+		}
 		append(l, table);
+	} else {
+		if (en) {
+			ifexists = exp_bin(be, en->data, NULL, NULL, NULL, NULL, NULL, NULL);
+		} else {
+			ifexists = stmt_atom_int(be, 0);
+		}
+		append(l, ifexists);
+	}
 	append(l, action);
 	return stmt_catalog(be, rel->flag, stmt_list(be, l));
 }
@@ -4784,7 +5005,7 @@ rel2bin_ddl(backend *be, sql_rel *rel, list *refs)
 	} else if (rel->flag <= DDL_ALTER_TABLE) {
 		s = rel2bin_catalog_table(be, rel, refs);
 		sql->type = Q_SCHEMA;
-	} else if (rel->flag <= DDL_ALTER_TABLE_SET_ACCESS) {
+	} else if (rel->flag <= DDL_COMMENT_ON) {
 		s = rel2bin_catalog2(be, rel, refs);
 		sql->type = Q_SCHEMA;
 	}
@@ -4875,6 +5096,11 @@ subrel_bin(backend *be, sql_rel *rel, list *refs)
 		break;
 	case op_delete: 
 		s = rel2bin_delete(be, rel, refs);
+		if (sql->type == Q_TABLE)
+			sql->type = Q_UPDATE;
+		break;
+	case op_truncate:
+		s = rel2bin_truncate(be, rel);
 		if (sql->type == Q_TABLE)
 			sql->type = Q_UPDATE;
 		break;
@@ -5105,7 +5331,8 @@ rel_deps(sql_allocator *sa, sql_rel *r, list *refs, list *l)
 		break;
 	case op_insert: 
 	case op_update: 
-	case op_delete: 
+	case op_delete:
+	case op_truncate:
 		if (rel_deps(sa, r->l, refs, l) != 0 ||
 		    rel_deps(sa, r->r, refs, l) != 0)
 			return -1;
@@ -5120,20 +5347,10 @@ rel_deps(sql_allocator *sa, sql_rel *r, list *refs, list *l)
 			if (r->r)
 				return rel_deps(sa, r->r, refs, l);
 		} else if (r->flag == DDL_PSM) {
-			exps_deps(sa, r->exps, refs, l);
+			break;
 		} else if (r->flag <= DDL_ALTER_SEQ) {
 			if (r->l)
 				return rel_deps(sa, r->l, refs, l);
-		} else if (r->flag <= DDL_DROP_SEQ) {
-			exps_deps(sa, r->exps, refs, l);
-		} else if (r->flag <= DDL_TRANS) {
-			exps_deps(sa, r->exps, refs, l);
-		} else if (r->flag <= DDL_DROP_SCHEMA) {
-			exps_deps(sa, r->exps, refs, l);
-		} else if (r->flag <= DDL_ALTER_TABLE) {
-			exps_deps(sa, r->exps, refs, l);
-		} else if (r->flag <= DDL_ALTER_TABLE_SET_ACCESS) {
-			exps_deps(sa, r->exps, refs, l);
 		}
 		break;
 	}

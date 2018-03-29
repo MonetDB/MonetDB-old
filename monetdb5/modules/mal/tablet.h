@@ -43,13 +43,12 @@ typedef struct Column_t {
 	int fieldstart;				/* Fixed character field load positions */
 	int fieldwidth;
 	int scale, precision;
-	int (*tostr)(void *extra, char **buf, int *len, int type, const void *a);
+	ssize_t (*tostr)(void *extra, char **buf, size_t *len, int type, const void *a);
 	void *(*frstr)(struct Column_t *fmt, int type, const char *s);
 	void *extra;
 	void *data;
 	int skip;					/* only skip to the next field */
-	int len;
-	int nillen;
+	size_t len;
 	bit ws;						/* if set we need to skip white space */
 	char quote;					/* if set use this character for string quotes */
 	const void *nildata;
@@ -73,7 +72,7 @@ typedef struct Table_t {
 	BAT *complaints;			/* lines that did not match the required input */
 } Tablet;
 
-mal_export BUN SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char *rsep, char quote, lng skip, lng maxrow, int best);
+mal_export BUN SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, const char *csep, const char *rsep, char quote, lng skip, lng maxrow, int best);
 mal_export str TABLETcreate_bats(Tablet *as, BUN est);
 mal_export str TABLETcollect(BAT **bats, Tablet *as);
 mal_export str TABLETcollect_parts(BAT **bats, Tablet *as, BUN offset);

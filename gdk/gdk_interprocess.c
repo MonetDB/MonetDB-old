@@ -14,8 +14,6 @@
 #include "gdk.h"
 #include "gdk_private.h"
 
-#include <stdlib.h>
-#include <assert.h>
 #include <string.h>
 
 #include <sys/types.h>
@@ -27,7 +25,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sched.h>
-#include <errno.h>
 #include <sys/sem.h>
 #include <time.h>
 
@@ -163,7 +160,7 @@ GDKreleasemmap(void *ptr, size_t size, size_t id, str *msg)
 gdk_return
 GDKmmapfile(str buffer, size_t max, size_t id)
 {
-	snprintf(buffer, max, "pymmap" SZFMT, id);
+	snprintf(buffer, max, "pymmap%zu", id);
 	return GDK_SUCCEED;
 }
 

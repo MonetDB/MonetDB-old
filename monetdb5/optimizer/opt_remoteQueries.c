@@ -56,8 +56,8 @@ RQcall2str(MalBlkPtr mb, InstrPtr p)
 				if( v->type == TYPE_void) {
 					sprintf(msg+len, "nil");
 				} else {
-					if(VALformat(&cv, &v->value) < 0) {
-						GDKfree(cv);
+					if ((cv = VALformat(&v->value)) == NULL) {
+						GDKfree(msg);
 						return NULL;
 					}
 					sprintf(msg+len,"%s:%s",cv, ATOMname(v->type));
@@ -149,6 +149,7 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 	char buf[BUFSIZ],*s, *db;
 	ValRecord cst;
 	lng usec = GDKusec();
+	str msg = MAL_SUCCEED;
 
 	cst.vtype= TYPE_int;
 	cst.val.ival= 0;
@@ -168,18 +169,18 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 
 	location= (int*) GDKzalloc(mb->vsize * sizeof(int));
 	if ( location == NULL)
-		throw(MAL, "optimizer.remote",MAL_MALLOC_FAIL);
+		throw(MAL, "optimizer.remote", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	dbalias= (DBalias*) GDKzalloc(128 * sizeof(DBalias));
 	if (dbalias == NULL){
 		GDKfree(location);
-		throw(MAL, "optimizer.remote",MAL_MALLOC_FAIL);
+		throw(MAL, "optimizer.remote", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 	dbtop= 0;
 
 	if ( newMalBlkStmt(mb, mb->ssize) < 0){
 		GDKfree(dbalias);
 		GDKfree(location);
-		throw(MAL, "optimizer.remote",MAL_MALLOC_FAIL);
+		throw(MAL, "optimizer.remote", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 
 	for (i = 0; i < limit; i++) {
@@ -367,9 +368,9 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 
     /* Defense line against incorrect plans */
     if( doit){
-        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-        chkFlow(cntxt->fdout, mb);
-        chkDeclarations(cntxt->fdout, mb);
+        chkTypes(cntxt->usermodule, mb, FALSE);
+        chkFlow(mb);
+        chkDeclarations(mb);
     }
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;
@@ -378,5 +379,5 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 	if( doit >= 0)
 		addtoMalBlkHistory(mb);
 
-	return MAL_SUCCEED;
+	return msg;
 }

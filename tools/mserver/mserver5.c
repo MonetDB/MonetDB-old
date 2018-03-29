@@ -7,8 +7,6 @@
  */
 
 #include "monetdb_config.h"
-#include <stdio.h>
-#include <errno.h>
 #include <string.h> /* strerror */
 #include <locale.h>
 #include "monet_options.h"
@@ -150,7 +148,7 @@ monet_hello(void)
 	printf("\n# Serving database '%s', using %d thread%s\n",
 			GDKgetenv("gdk_dbname"),
 			GDKnr_threads, (GDKnr_threads != 1) ? "s" : "");
-	printf("# Compiled for %s/" SZFMT "bit%s\n",
+	printf("# Compiled for %s/%zubit%s\n",
 			HOST, sizeof(ptr) * 8,
 #ifdef HAVE_HGE
 			" with 128bit integers"
@@ -174,7 +172,7 @@ monet_hello(void)
 	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"host\":\"%s\",\n", HOST);
 	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"threads\":\"%d\",\n", GDKnr_threads);
 	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"memory\":\"%.3f %cB\",\n", sz_mem_h, qc[qi]);
-	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"oid\":\""SZFMT"\",\n", sizeof(oid) *8);
+	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"oid\":\"%zu\",\n", sizeof(oid) *8);
 	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"packages\":[");
 	// add the compiled in package names
 #ifdef HAVE_HGE
@@ -286,7 +284,7 @@ main(int argc, char **av)
 		GDKfatal("cannot set locale\n");
 	}
 
-	if (getcwd(monet_cwd, PATHLENGTH - 1) == NULL) {
+	if (getcwd(monet_cwd, FILENAME_MAX - 1) == NULL) {
 		perror("pwd");
 		fprintf(stderr,"monet_init: could not determine current directory\n");
 		exit(-1);
@@ -403,7 +401,7 @@ main(int argc, char **av)
 				break;
 			}
 			usage(prog, -1);
-		/* not reached */
+			/* not reached */
 		case 'c':
 			/* coverity[var_deref_model] */
 			setlen = mo_add_option(&set, setlen, opt_cmdline, "config", optarg);
@@ -446,7 +444,7 @@ main(int argc, char **av)
 			usage(prog, strcmp(av[optind - 1], "-?") == 0 || strcmp(av[optind - 1], "--help") == 0 ? 0 : -1);
 		default:
 			fprintf(stderr, "ERROR: getopt returned character "
-							"code '%c' 0%o\n", c, c);
+				"code '%c' 0%o\n", c, (uint8_t) c);
 			usage(prog, -1);
 		}
 	}
@@ -627,7 +625,7 @@ main(int argc, char **av)
 				GDKfatal("%s", secret);
 			} else if (len < 5) {
 				fprintf(stderr, "#warning: your vault key is too short "
-								"(" SZFMT "), enlarge your vault key!\n", len);
+								"(%zu), enlarge your vault key!\n", len);
 			}
 			fclose(secretf);
 		}
@@ -649,15 +647,22 @@ main(int argc, char **av)
 		return 0;
 	}
 
-	MSinitClientPrg(mal_clients, "user", "main");
+	if((err = MSinitClientPrg(mal_clients, "user", "main")) != MAL_SUCCEED) {
+		msab_registerStop();
+		GDKfatal("%s", err);
+	}
 	if (dbinit == NULL)
 		dbinit = GDKgetenv("dbinit");
-	if (dbinit)
-		callString(mal_clients, dbinit, listing);
+	if (dbinit) {
+		if((err = callString(mal_clients, dbinit, listing)) != MAL_SUCCEED) {
+			msab_registerStop();
+			GDKfatal("%s", err);
+		}
+	}
 
 	emergencyBreakpoint();
 	for (i = 0; monet_script[i]; i++) {
-		str msg = evalFile(mal_clients, monet_script[i], listing);
+		str msg = evalFile(monet_script[i], listing);
 		/* check for internal exception message to terminate */
 		if (msg) {
 			if (strcmp(msg, "MALException:client.quit:Server stopped.") == 0)

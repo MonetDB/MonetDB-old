@@ -31,17 +31,6 @@
 #endif
 #include <sched.h>
 #include <pthread.h>
-#ifndef WIN32
-/* Linux gprof messes up on multithreaded programs */
-#ifdef PROFILE
-/* Linux gprof messes up on multithreaded programs */
-gdk_export int gprof_pthread_create(pthread_t * __restrict,
-				    __const pthread_attr_t * __restrict,
-				    void *(*fcn) (void *),
-				    void *__restrict);
-#define pthread_create gprof_pthread_create
-#endif
-#endif
 #endif
 
 #ifdef HAVE_SEMAPHORE_H
@@ -346,14 +335,5 @@ typedef struct {
 	} while (0)
 
 gdk_export int MT_check_nr_cores(void);
-
-/*
- * @- Timers
- * The following relative timers are available for inspection.
- * Note that they may consume recognizable overhead.
- *
- */
-gdk_export lng GDKusec(void);
-gdk_export int GDKms(void);
 
 #endif /*_GDK_SYSTEM_H_*/

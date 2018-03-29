@@ -29,10 +29,6 @@
 // 'bat' is a BAT* pointer, which will contain the new BAT. TYPE_'mtpe' is the
 // BAT type, and 'batstore' is the heap storage type of the BAT (this should be
 // STORE_CMEM or STORE_SHARED)
-#if defined(_MSC_VER) && _MSC_VER <= 1600
-#define isnan(x) _isnan(x)
-#endif
-
 #define nancheck_flt(bat)                                                      \
 	do {                                                                       \
 		for (iu = 0; iu < ret->count; iu++) {                                  \
@@ -65,7 +61,7 @@
 	{                                                                          \
 		bat = COLnew(seqbase, TYPE_##mtpe, 0, TRANSIENT);                      \
 		if (bat == NULL) {                                                     \
-			msg = createException(MAL, "pyapi.eval", "Cannor create BAT");     \
+		msg = createException(MAL, "pyapi.eval", SQLSTATE(PY000) "Cannot create column");     \
 			goto wrapup;                                                       \
 		}                                                                      \
 		bat->tnil = 0;                                                         \
@@ -110,8 +106,8 @@
 				 * the absolute path */                                        \
 				char address[100];                                             \
 				GDKmmapfile(address, sizeof(address), ret->mmap_id);           \
-				bat->theap.filename =                                          \
-					GDKfilepath(NOFARM, BATDIR, address, "tmp");               \
+				snprintf(bat->theap.filename, sizeof(bat->theap.filename),     \
+					"%s%c%s.tmp", BATDIR, DIR_SEP, address);                   \
 				ret->mmap_id = -1;                                             \
 			}                                                                  \
 		}                                                                      \
@@ -129,7 +125,7 @@
 	{                                                                          \
 		bat = COLnew(seqbase, TYPE_##mtpe, 0, TRANSIENT);                      \
 		if (bat == NULL) {                                                     \
-			msg = createException(MAL, "pyapi.eval", "Cannor create BAT");     \
+			msg = createException(MAL, "pyapi.eval", SQLSTATE(PY000) "Cannot create column");     \
 			goto wrapup;                                                       \
 		}                                                                      \
 		bat->tnil = 0;                                                         \
@@ -259,7 +255,7 @@
 				}                                                              \
 				((mtpe_to *)Tloc(bat, 0))[index + iu] = value;                 \
 				if (bat->tnil == 0)                                            \
-					bat->tnil = value == mtpe_to##_nil ? 1 : 0;                \
+					bat->tnil = is_##mtpe_to##_nil(value);                     \
 			}                                                                  \
 		} else {                                                               \
 			for (iu = 0; iu < ret->count; iu++) {                              \
@@ -276,7 +272,7 @@
 					}                                                          \
 					((mtpe_to *)Tloc(bat, 0))[index + iu] = value;             \
 					if (bat->tnil == 0)                                        \
-						bat->tnil = value == mtpe_to##_nil ? 1 : 0;            \
+						bat->tnil = is_##mtpe_to##_nil(value);                 \
 				}                                                              \
 			}                                                                  \
 		}                                                                      \
@@ -291,7 +287,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 		return BUNappend(b, BATatoms[b->ttype].atomNull, force);
 	} else {
 		void* element = NULL;
-		int len = 0;
+		size_t len = 0;
 		gdk_return ret;
 
 		BATatoms[b->ttype].atomFromStr(text, &len, &element);
@@ -312,7 +308,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 									 ret->memory_size]));                      \
 			if (convert_and_append(bat, utf8_string, FALSE) != GDK_SUCCEED) {           \
 				msg =                                                          \
-					createException(MAL, "pyapi.eval", "BUNappend failed.\n"); \
+					createException(MAL, "pyapi.eval", SQLSTATE(PY000) "BUNappend failed.\n"); \
 				goto wrapup;                                                   \
 			}                                                                  \
 		}                                                                      \
@@ -322,7 +318,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 				bat->tnil = 1;                                                 \
 				if (convert_and_append(bat, str_nil, FALSE) != GDK_SUCCEED) {           \
 					msg = createException(MAL, "pyapi.eval",                   \
-										  "BUNappend failed.\n");              \
+										  SQLSTATE(PY000) "BUNappend failed.\n");              \
 					goto wrapup;                                               \
 				}                                                              \
 			} else {                                                           \
@@ -331,7 +327,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 										 ret->memory_size]));                  \
 				if (convert_and_append(bat, utf8_string, FALSE) != GDK_SUCCEED) {       \
 					msg = createException(MAL, "pyapi.eval",                   \
-										  "BUNappend failed.\n");              \
+										  SQLSTATE(PY000) "BUNappend failed.\n");              \
 					goto wrapup;                                               \
 				}                                                              \
 			}                                                                  \
@@ -398,7 +394,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 			default:                                                           \
 				msg = createException(                                         \
 					MAL, "pyapi.eval",                                         \
-					"Unrecognized type. Could not convert to %s.\n",           \
+					SQLSTATE(PY000) "Unrecognized type. Could not convert to %s.\n",           \
 					BatType_Format(TYPE_##mtpe));                              \
 				goto wrapup;                                                   \
 		}                                                                      \
@@ -438,7 +434,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 			NP_COL_BAT_STR_LOOP(b, unsigned long, "%lu");                      \
 			break;                                                             \
 		case NPY_ULONGLONG:                                                    \
-			NP_COL_BAT_STR_LOOP(b, unsigned long long, ULLFMT);                \
+			NP_COL_BAT_STR_LOOP(b, ulng, ULLFMT);                              \
 			break;                                                             \
 		case NPY_FLOAT16:                                                      \
 		case NPY_FLOAT:                                                        \
@@ -455,7 +451,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 					b->tnil = 1;                                               \
 					if (convert_and_append(b, str_nil, FALSE) != GDK_SUCCEED) {         \
 						msg = createException(MAL, "pyapi.eval",               \
-											  "BUNappend failed.\n");          \
+											  SQLSTATE(PY000) "BUNappend failed.\n");          \
 						goto wrapup;                                           \
 					}                                                          \
 				} else {                                                       \
@@ -463,7 +459,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 										   ret->memory_size],                  \
 									 utf8_string, ret->memory_size, false)) {  \
 						msg = createException(MAL, "pyapi.eval",               \
-											  "Invalid string encoding used. " \
+											  SQLSTATE(PY000) "Invalid string encoding used. " \
 											  "Please return a regular ASCII " \
 											  "string, or a Numpy_Unicode "    \
 											  "object.\n");                    \
@@ -471,7 +467,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 					}                                                          \
 					if (convert_and_append(b, utf8_string, FALSE) != GDK_SUCCEED) {     \
 						msg = createException(MAL, "pyapi.eval",               \
-											  "BUNappend failed.\n");          \
+											  SQLSTATE(PY000) "BUNappend failed.\n");          \
 						goto wrapup;                                           \
 					}                                                          \
 				}                                                              \
@@ -484,7 +480,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 					b->tnil = 1;                                               \
 					if (convert_and_append(b, str_nil, FALSE) != GDK_SUCCEED) {         \
 						msg = createException(MAL, "pyapi.eval",               \
-											  "BUNappend failed.\n");          \
+											  SQLSTATE(PY000) "BUNappend failed.\n");          \
 						goto wrapup;                                           \
 					}                                                          \
 				} else {                                                       \
@@ -495,7 +491,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 									  ret->memory_size]));                     \
 					if (convert_and_append(b, utf8_string, FALSE) != GDK_SUCCEED) {     \
 						msg = createException(MAL, "pyapi.eval",               \
-											  "BUNappend failed.\n");          \
+											  SQLSTATE(PY000) "BUNappend failed.\n");          \
 						goto wrapup;                                           \
 					}                                                          \
 				}                                                              \
@@ -523,7 +519,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 			}                                                                  \
 			utf8_string = GDKzalloc(utf8_size);                                \
 			if (utf8_string == NULL) {			\
-				msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL); \
+				msg = createException(MAL, "pyapi.eval", SQLSTATE(HY001) MAL_MALLOC_FAIL); \
 				goto wrapup;				\
 			}						\
 			for (iu = 0; iu < ret->count; iu++) {                              \
@@ -532,7 +528,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 					b->tnil = 1;                                               \
 					if (convert_and_append(b, str_nil, FALSE) != GDK_SUCCEED) {         \
 						msg = createException(MAL, "pyapi.eval",               \
-											  "BUNappend failed.\n");          \
+											  SQLSTATE(PY000) "BUNappend failed.\n");          \
 						goto wrapup;                                           \
 					}                                                          \
 				} else {                                                       \
@@ -543,7 +539,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 						utf8_size, &utf8_string);                              \
 					if (convert_and_append(b, utf8_string, FALSE) != GDK_SUCCEED) {     \
 						msg = createException(MAL, "pyapi.eval",               \
-											  "BUNappend failed.\n");          \
+											  SQLSTATE(PY000) "BUNappend failed.\n");          \
 						goto wrapup;                                           \
 					}                                                          \
 				}                                                              \
@@ -553,7 +549,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 		default:                                                               \
 			msg = createException(                                             \
 				MAL, "pyapi.eval",                                             \
-				"Unrecognized type. Could not convert to NPY_UNICODE.\n");     \
+				SQLSTATE(PY000) "Unrecognized type. Could not convert to NPY_UNICODE.\n");     \
 			goto wrapup;                                                       \
 	}                                                                          \
 	b->tnonil = 1 - b->tnil;
@@ -579,7 +575,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 		if (ret->array_data == NULL) {                                         \
 			msg =                                                              \
 				createException(MAL, "pyapi.eval",                             \
-								"No return value stored in the structure.\n"); \
+								SQLSTATE(PY000) "No return value stored in the structure.\n"); \
 			goto wrapup;                                                       \
 		}                                                                      \
 		data = (char *)ret->array_data;                                        \
@@ -601,7 +597,7 @@ convert_and_append(BAT* b, const char* text, bit force) {
 		} else {                                                               \
 			bat = COLnew(seqbase, TYPE_##mtpe, (BUN)ret->count, TRANSIENT);    \
 			if (bat == NULL) {                                                 \
-				msg = createException(MAL, "pyapi.eval", "Cannor create BAT"); \
+				msg = createException(MAL, "pyapi.eval", SQLSTATE(PY000) "Cannot create column"); \
 				goto wrapup;                                                   \
 			}                                                                  \
 			bat->tkey = 0;                                                     \

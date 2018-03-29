@@ -1,4 +1,10 @@
 
+# Run these first so comment-dump doesn't encounter
+# leftovers from other tests
+comment-dump
+comment-on
+comment-auth
+
 bincopycollist-prepare
 bincopycollist
 
@@ -111,6 +117,13 @@ str-trim
 alastair_udf_mergetable_bug
 
 copy-into-fwf
+
+truncate-statements
+truncate-statements-extra
+create-or-replace-triggers
+create-or-replace-views
+drop-function-if-exists
+drop-trigger-if-exists
 
 constant-not-in
 

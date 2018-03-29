@@ -47,6 +47,8 @@ mal_export str PCREindex(int *ret, const pcre *pat, const str *val);
 mal_export str PCREpatindex(int *ret, const str *pat, const str *val);
 mal_export str PCREreplace_wrap(str *res, const str *or, const str *pat, const str *repl, const str *flags);
 mal_export str PCREreplace_bat_wrap(bat *res, const bat *or, const str *pat, const str *repl, const str *flags);
+mal_export str PCREreplacefirst_wrap(str *res, const str *or, const str *pat, const str *repl, const str *flags);
+mal_export str PCREreplacefirst_bat_wrap(bat *res, const bat *or, const str *pat, const str *repl, const str *flags);
 mal_export str PCREsql2pcre(str *ret, const str *pat, const str *esc);
 
 mal_export str PCRElike3(bit *ret, const str *s, const str *pat, const str *esc);
@@ -90,24 +92,15 @@ typedef struct RE {
 static const char *
 strcasestr(const char *haystack, const char *needle)
 {
-	const char *p, *np = 0, *startn = 0;
+	size_t nlen = strlen(needle);
 
-	for (p = haystack; *p; p++) {
-		if (np) {
-			if (toupper(*p) == toupper(*np)) {
-				if (!*++np)
-					return startn;
-			} else
-				np = 0;
-		} else if (toupper(*p) == toupper(*needle)) {
-			np = needle + 1;
-			startn = p;
-			if (!*np)
-				return startn;
-		}
+	if (nlen == 0)
+		return haystack;
+	for (size_t hlen = strlen(haystack); nlen <= hlen; haystack++, hlen--) {
+		if (strncasecmp(haystack, needle, nlen) == 0)
+			return haystack;
 	}
-
-	return 0;
+	return NULL;
 }
 #endif
 
@@ -228,10 +221,10 @@ re_create(const char *pat, int nr)
 	return NULL;
 }
 
+#ifdef HAVE_LIBPCRE
 static str
 pcre_compile_wrap(pcre **res, const char *pattern, bit insensitive)
 {
-#ifdef HAVE_LIBPCRE
 	pcre *r;
 	const char *err_p = NULL;
 	int errpos = 0;
@@ -246,13 +239,8 @@ pcre_compile_wrap(pcre **res, const char *pattern, bit insensitive)
 	}
 	*res = r;
 	return MAL_SUCCEED;
-#else
-	(void) res;
-	(void) pattern;
-	(void) insensitive;
-	throw(MAL, "pcre.compile", "Database was compiled without PCRE support.");
-#endif
 }
+#endif
 
 /* these two defines are copies from gdk_select.c */
 
@@ -345,7 +333,7 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int 
 #else
 		regfree(&re);
 #endif
-		throw(MAL, "pcre.likeselect", MAL_MALLOC_FAIL);
+		throw(MAL, "pcre.likeselect", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 	off = b->hseqbase;
 
@@ -433,14 +421,14 @@ re_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int an
 
 	bn = COLnew(0, TYPE_oid, s ? BATcount(s) : BATcount(b), TRANSIENT);
 	if (bn == NULL)
-		throw(MAL, "pcre.likeselect", MAL_MALLOC_FAIL);
+		throw(MAL, "pcre.likeselect", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	off = b->hseqbase;
 
 	if (!use_strcmp) {
 		nr = re_simple(pat);
 		re = re_create(pat, nr);
 		if (!re)
-			throw(MAL, "pcre.likeselect", MAL_MALLOC_FAIL);
+			throw(MAL, "pcre.likeselect", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 	if (s && !BATtdense(s)) {
 		const oid *candlist;
@@ -553,22 +541,173 @@ re_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int an
 	throw(MAL, "pcre.likeselect", OPERATION_FAILED);
 }
 
-#define MAX_NR_CAPTURES  1024 /* Maximal number of captured substrings in one original string */
+/* maximum number of back references and quoted \ or $ in replacement string */
+#define MAX_NR_REFS		20
+
+struct backref {
+	int idx;
+	int start;
+	int end;
+};
+
+#ifdef HAVE_LIBPCRE
+/* fill in parameter backrefs (length maxrefs) with information about
+ * back references in the replacement string; a back reference is a
+ * dollar or backslash followed by a number */
+static int
+parse_replacement(const char *replacement, int len_replacement,
+				  struct backref *backrefs, int maxrefs)
+{
+	int nbackrefs = 0;
+
+	for (int i = 0; i < len_replacement && nbackrefs < maxrefs; i++) {
+		if (replacement[i] == '$' || replacement[i] == '\\') {
+			char *endptr;
+			backrefs[nbackrefs].idx = strtol(replacement + i + 1, &endptr, 10);
+			if (endptr > replacement + i + 1) {
+				int k = (int) (endptr - (replacement + i + 1));
+				backrefs[nbackrefs].start = i;
+				backrefs[nbackrefs].end = i + k + 1;
+				nbackrefs++;
+			} else if (replacement[i] == replacement[i + 1]) {
+				/* doubled $ or \, we must copy just one to the output */
+				backrefs[nbackrefs].idx = INT_MAX; /* impossible value > 0 */
+				backrefs[nbackrefs].start = i;
+				backrefs[nbackrefs].end = i + 1;
+				i++;			/* don't look at second $ or \ again */
+				nbackrefs++;
+			}
+			/* else: $ or \ followed by something we don't recognize,
+			 * so just leave it */
+		}
+	}
+	return nbackrefs;
+}
+
+static char *
+single_replace(pcre *pcre_code, pcre_extra *extra,
+			   const char *origin_str, int len_origin_str,
+			   int exec_options, int *ovector, int ovecsize,
+			   const char *replacement, int len_replacement,
+			   struct backref *backrefs, int nbackrefs,
+			   bool global, char *result, int *max_result)
+{
+	int offset = 0;
+	int len_result = 0;
+	int addlen;
+	char *tmp;
+
+	do {
+		int j = pcre_exec(pcre_code, extra, origin_str, len_origin_str, offset,
+					  exec_options, ovector, ovecsize);
+		if (j <= 0)
+			break;
+		addlen = ovector[0] - offset + (nbackrefs == 0 ? len_replacement : 0);
+		if (len_result + addlen >= *max_result) {
+			tmp = GDKrealloc(result, len_result + addlen + 1);
+			if (tmp == NULL) {
+				GDKfree(result);
+				return NULL;
+			}
+			result = tmp;
+			*max_result = len_result + addlen + 1;
+		}
+		if (ovector[0] > offset) {
+			strncpy(result + len_result, origin_str + offset,
+					ovector[0] - offset);
+			len_result += ovector[0] - offset;
+		}
+		if (nbackrefs == 0) {
+			strncpy(result + len_result, replacement, len_replacement);
+			len_result += len_replacement;
+		} else {
+			int prevend = 0;
+			for (int i = 0; i < nbackrefs; i++) {
+				int off, len;
+				if (backrefs[i].idx >= ovecsize / 3) {
+					/* out of bounds, replace with empty string */
+					off = 0;
+					len = 0;
+				} else {
+					off = ovector[backrefs[i].idx * 2];
+					len = ovector[backrefs[i].idx * 2 + 1] - off;
+				}
+				addlen = backrefs[i].start - prevend + len;
+				if (len_result + addlen >= *max_result) {
+					tmp = GDKrealloc(result, len_result + addlen + 1);
+					if (tmp == NULL) {
+						GDKfree(result);
+						return NULL;
+					}
+					result = tmp;
+					*max_result = len_result + addlen + 1;
+				}
+				if (backrefs[i].start > prevend) {
+					strncpy(result + len_result, replacement + prevend,
+							backrefs[i].start - prevend);
+					len_result += backrefs[i].start - prevend;
+				}
+				if (len > 0) {
+					strncpy(result + len_result, origin_str + off, len);
+					len_result += len;
+				}
+				prevend = backrefs[i].end;
+			}
+			/* copy rest of replacement string (after last backref) */
+			addlen = len_replacement - prevend;
+			if (addlen > 0) {
+				if (len_result + addlen >= *max_result) {
+					tmp = GDKrealloc(result, len_result + addlen + 1);
+					if (tmp == NULL) {
+						GDKfree(result);
+						return NULL;
+					}
+					result = tmp;
+					*max_result = len_result + addlen + 1;
+				}
+				strncpy(result + len_result, replacement + prevend, addlen);
+				len_result += addlen;
+			}
+		}
+		offset = ovector[1];
+	} while (offset < len_origin_str && global);
+	if (offset < len_origin_str) {
+		addlen = len_origin_str - offset;
+		if (len_result + addlen >= *max_result) {
+			tmp = GDKrealloc(result, len_result + addlen + 1);
+			if (tmp == NULL) {
+				GDKfree(result);
+				return NULL;
+			}
+			result = tmp;
+			*max_result = len_result + addlen + 1;
+		}
+		strncpy(result + len_result, origin_str + offset, addlen);
+		len_result += addlen;
+	}
+	/* null terminate string */
+	result[len_result] = '\0';
+	return result;
+}
+#endif
 
 static str
-pcre_replace(str *res, const char *origin_str, const char *pattern, const char *replacement, const char *flags)
+pcre_replace(str *res, const char *origin_str, const char *pattern,
+			 const char *replacement, const char *flags, bool global)
 {
 #ifdef HAVE_LIBPCRE
 	const char *err_p = NULL;
 	pcre *pcre_code = NULL;
 	pcre_extra *extra;
 	char *tmpres;
-	int i, j, k, len, errpos = 0, offset = 0;
+	int max_result;
+	int i, errpos = 0;
 	int compile_options = PCRE_UTF8, exec_options = PCRE_NOTEMPTY;
 	int *ovector, ovecsize;
 	int len_origin_str = (int) strlen(origin_str);
 	int len_replacement = (int) strlen(replacement);
-	int capture_offsets[MAX_NR_CAPTURES * 2], ncaptures = 0, len_del = 0;
+	struct backref backrefs[MAX_NR_REFS];
+	int nbackrefs = 0;
 
 	while (*flags) {
 		switch (*flags) {
@@ -588,13 +727,17 @@ pcre_replace(str *res, const char *origin_str, const char *pattern, const char *
 			compile_options |= PCRE_EXTENDED;
 			break;
 		default:
-			throw(MAL, "pcre.replace", ILLEGAL_ARGUMENT ": unsupported flag character '%c'\n", *flags);
+			throw(MAL, global ? "pcre.replace" : "pcre.replace_first",
+				  ILLEGAL_ARGUMENT ": unsupported flag character '%c'\n",
+				  *flags);
 		}
 		flags++;
 	}
 
 	if ((pcre_code = pcre_compile(pattern, compile_options, &err_p, &errpos, NULL)) == NULL) {
-		throw(MAL, "pcre.replace", OPERATION_FAILED ": pcre compile of pattern (%s) failed at %d with\n'%s'.\n", pattern, errpos, err_p);
+		throw(MAL, global ? "pcre.replace" : "pcre.replace_first",
+			  OPERATION_FAILED ": pcre compile of pattern (%s) failed at %d with\n'%s'.\n",
+			  pattern, errpos, err_p);
 	}
 
 	/* Since the compiled pattern is going to be used several times, it is
@@ -604,70 +747,44 @@ pcre_replace(str *res, const char *origin_str, const char *pattern, const char *
 	extra = pcre_study(pcre_code, 0, &err_p);
 	if (err_p != NULL) {
 		pcre_free(pcre_code);
-		throw(MAL, "pcre.replace", OPERATION_FAILED ": pcre study of pattern (%s) failed with '%s'.\n", pattern, err_p);
+		throw(MAL, global ? "pcre.replace" : "pcre.replace_first",
+			  OPERATION_FAILED ": pcre study of pattern (%s) failed with '%s'.\n",
+			  pattern, err_p);
 	}
 	pcre_fullinfo(pcre_code, extra, PCRE_INFO_CAPTURECOUNT, &i);
 	ovecsize = (i + 1) * 3;
 	if ((ovector = (int *) GDKmalloc(sizeof(int) * ovecsize)) == NULL) {
 		pcre_free_study(extra);
 		pcre_free(pcre_code);
-		throw(MAL, "pcre.replace", MAL_MALLOC_FAIL);
+		throw(MAL, global ? "pcre.replace" : "pcre.replace_first",
+			  SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 
-	i = 0;
-	do {
-		j = pcre_exec(pcre_code, extra, origin_str, len_origin_str,
-					  offset, exec_options, ovector, ovecsize);
-		if (j > 0) {
-			capture_offsets[i] = ovector[0];
-			capture_offsets[i+1] = ovector[1];
-			ncaptures++;
-			i += 2;
-			len_del += (ovector[1] - ovector[0]);
-			offset = ovector[1];
-		}
-	} while (j > 0 && offset < len_origin_str && ncaptures < MAX_NR_CAPTURES);
-	pcre_free_study(extra);
+	/* identify back references in the replacement string */
+	nbackrefs = parse_replacement(replacement, len_replacement,
+								  backrefs, MAX_NR_REFS);
 
-	if (ncaptures > 0) {
-		tmpres = GDKmalloc(len_origin_str - len_del + (len_replacement * ncaptures) + 1);
-		if (tmpres) {
-			j = k = 0;
-
-			/* possibly copy the substring before the first captured
-			 * substring */
-			strncpy(tmpres, origin_str, capture_offsets[j]);
-			k = capture_offsets[j];
-			j++;
-
-			for (i = 0; i < ncaptures - 1; i++) {
-				strncpy(tmpres+k, replacement, len_replacement);
-				k += len_replacement;
-				/* copy the substring between two captured substrings */
-				len = capture_offsets[j+1] - capture_offsets[j];
-				strncpy(tmpres+k, origin_str+capture_offsets[j], len);
-				k += len;
-				j += 2;
-			}
-
-			/* replace the last captured substring */
-			strncpy(tmpres+k, replacement, len_replacement);
-			k += len_replacement;
-			/* possibly copy the substring after the last captured substring */
-			len = len_origin_str - capture_offsets[j];
-			strncpy(tmpres+k, origin_str+capture_offsets[j], len);
-			k += len;
-			tmpres[k] = '\0';
-		}
-	} else {
-		/* no captured substrings, return the original string */
-		tmpres = GDKstrdup(origin_str);
+	max_result = len_origin_str + 1;
+	tmpres = GDKmalloc(max_result);
+	if (tmpres == NULL) {
+		GDKfree(ovector);
+		pcre_free_study(extra);
+		pcre_free(pcre_code);
+		throw(MAL, global ? "pcre.replace" : "pcre.replace_first",
+			  SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 
-	pcre_free(pcre_code);
+	tmpres = single_replace(pcre_code, extra, origin_str, len_origin_str,
+							exec_options, ovector, ovecsize, replacement,
+							len_replacement, backrefs, nbackrefs, global,
+							tmpres, &max_result);
 	GDKfree(ovector);
+	pcre_free_study(extra);
+	pcre_free(pcre_code);
 	if (tmpres == NULL)
-		throw(MAL, "pcre.replace", MAL_MALLOC_FAIL);
+		throw(MAL, global ? "pcre.replace" : "pcre.replace_first",
+			  SQLSTATE(HY001) MAL_MALLOC_FAIL);
+
 	*res = tmpres;
 	return MAL_SUCCEED;
 #else
@@ -676,27 +793,32 @@ pcre_replace(str *res, const char *origin_str, const char *pattern, const char *
 	(void) pattern;
 	(void) replacement;
 	(void) flags;
-	throw(MAL, "pcre.replace", "Database was compiled without PCRE support.");
+	(void) global;
+	throw(MAL, global ? "pcre.replace" : "pcre.replace_first",
+		  "Database was compiled without PCRE support.");
 #endif
 }
 
 static str
-pcre_replace_bat(BAT **res, BAT *origin_strs, const char *pattern, const char *replacement, const char *flags)
+pcre_replace_bat(BAT **res, BAT *origin_strs, const char *pattern,
+				 const char *replacement, const char *flags, bool global)
 {
 #ifdef HAVE_LIBPCRE
 	BATiter origin_strsi = bat_iterator(origin_strs);
 	const char *err_p = NULL;
-	int i, j, k, len, errpos = 0, offset = 0;
+	char *tmpres;
+	int i, errpos = 0;
 	int compile_options = PCRE_UTF8, exec_options = PCRE_NOTEMPTY;
 	pcre *pcre_code = NULL;
 	pcre_extra *extra;
 	BAT *tmpbat;
 	BUN p, q;
 	int *ovector, ovecsize;
-	int len_origin_str, len_replacement = (int) strlen(replacement);
-	int capture_offsets[MAX_NR_CAPTURES * 2], ncaptures = 0, len_del = 0;
+	int len_replacement = (int) strlen(replacement);
+	struct backref backrefs[MAX_NR_REFS];
+	int nbackrefs = 0;
 	const char *origin_str;
-	char *replaced_str;
+	int max_dest_size = 0;
 
 	while (*flags) {
 		switch (*flags) {
@@ -716,118 +838,79 @@ pcre_replace_bat(BAT **res, BAT *origin_strs, const char *pattern, const char *r
 			compile_options |= PCRE_EXTENDED;
 			break;
 		default:
-			throw(MAL, "batpcre.replace", ILLEGAL_ARGUMENT ": unsupported flag character '%c'\n", *flags);
+			throw(MAL, global ? "batpcre.replace" : "batpcre.replace_first",
+				  ILLEGAL_ARGUMENT ": unsupported flag character '%c'\n",
+				  *flags);
 		}
 		flags++;
 	}
 
 	if ((pcre_code = pcre_compile(pattern, compile_options, &err_p, &errpos, NULL)) == NULL) {
-		throw(MAL, "batpcre.replace", OPERATION_FAILED
+		throw(MAL, global ? "batpcre.replace" : "batpcre.replace_first",
+			  OPERATION_FAILED
 			  ": pcre compile of pattern (%s) failed at %d with\n'%s'.\n",
 			  pattern, errpos, err_p);
 	}
 
-	/* Since the compiled pattern is ging to be used several times, it
-	 * is worth spending more time analyzing it in order to speed up
-	 * the time taken for matching.
+	/* Since the compiled pattern is going to be used several times,
+	 * it is worth spending more time analyzing it in order to speed
+	 * up the time taken for matching.
 	 */
 	extra = pcre_study(pcre_code, 0, &err_p);
 	if (err_p != NULL) {
 		pcre_free(pcre_code);
-		throw(MAL, "batpcre.replace", OPERATION_FAILED);
+		throw(MAL, global ? "batpcre.replace" : "batpcre.replace_first",
+			  OPERATION_FAILED);
 	}
 	pcre_fullinfo(pcre_code, extra, PCRE_INFO_CAPTURECOUNT, &i);
 	ovecsize = (i + 1) * 3;
 	if ((ovector = (int *) GDKzalloc(sizeof(int) * ovecsize)) == NULL) {
 		pcre_free_study(extra);
 		pcre_free(pcre_code);
-		throw(MAL, "batpcre.replace", MAL_MALLOC_FAIL);
+		throw(MAL, global ? "batpcre.replace" : "batpcre.replace_first",
+			  SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 
+	/* identify back references in the replacement string */
+	nbackrefs = parse_replacement(replacement, len_replacement,
+								  backrefs, MAX_NR_REFS);
+
 	tmpbat = COLnew(origin_strs->hseqbase, TYPE_str, BATcount(origin_strs), TRANSIENT);
-	if (tmpbat == NULL) {
+
+	/* the buffer for all destination strings is allocated only once,
+	 * and extended when needed */
+	max_dest_size = len_replacement + 1;
+	tmpres = GDKmalloc(max_dest_size);
+	if (tmpbat == NULL || tmpres == NULL) {
 		pcre_free_study(extra);
 		pcre_free(pcre_code);
 		GDKfree(ovector);
-		throw(MAL, "batpcre.replace", MAL_MALLOC_FAIL);
+		BBPreclaim(tmpbat);
+		GDKfree(tmpres);
+		throw(MAL, global ? "batpcre.replace" : "batpcre.replace_first",
+			  SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 	BATloop(origin_strs, p, q) {
 		origin_str = BUNtail(origin_strsi, p);
-		len_origin_str = (int) strlen(origin_str);
-		i = ncaptures = len_del = offset = 0;
-		do {
-			j = pcre_exec(pcre_code, extra, origin_str, len_origin_str, offset,
-						  exec_options, ovector, ovecsize);
-			if (j > 0) {
-				capture_offsets[i] = ovector[0];
-				capture_offsets[i+1] = ovector[1];
-				ncaptures++;
-				i += 2;
-				len_del += (ovector[1] - ovector[0]);
-				offset = ovector[1];
-			}
-		} while (j > 0 && offset < len_origin_str && ncaptures < MAX_NR_CAPTURES);
-
-		if (ncaptures > 0) {
-			replaced_str = GDKmalloc(len_origin_str - len_del + (len_replacement * ncaptures) + 1);
-			if (replaced_str == NULL) {
-				pcre_free_study(extra);
-				pcre_free(pcre_code);
-				GDKfree(ovector);
-				BBPreclaim(tmpbat);
-				throw(MAL, "batpcre.replace", MAL_MALLOC_FAIL);
-			}
-
-			j = k = 0;
-
-			/* copy eventually the substring before the first captured
-			 * substring */
-			strncpy(replaced_str, origin_str, capture_offsets[j]);
-			k = capture_offsets[j];
-			j++;
-
-			for (i = 0; i < ncaptures - 1; i++) {
-				strncpy(replaced_str+k, replacement, len_replacement);
-				k += len_replacement;
-				/* copy the substring between two captured substrings */
-				len = capture_offsets[j+1] - capture_offsets[j];
-				strncpy(replaced_str+k, origin_str+capture_offsets[j], len);
-				k += len;
-				j += 2;
-			}
-
-			/* replace the last captured substring */
-			strncpy(replaced_str+k, replacement, len_replacement);
-			k += len_replacement;
-			/* copy eventually the substring after the last captured substring */
-			len = len_origin_str - capture_offsets[j];
-			strncpy(replaced_str+k, origin_str+capture_offsets[j], len);
-			k += len;
-			replaced_str[k] = '\0';
-			if (BUNappend(tmpbat, replaced_str, FALSE) != GDK_SUCCEED) {
-				pcre_free_study(extra);
-				pcre_free(pcre_code);
-				GDKfree(ovector);
-				GDKfree(replaced_str);
-				BBPreclaim(tmpbat);
-				throw(MAL, "batpcre.replace", MAL_MALLOC_FAIL);
-			}
-			GDKfree(replaced_str);
-		} else {
-			/* no captured substrings, copy the original string into new bat */
-			if (BUNappend(tmpbat, origin_str, FALSE) != GDK_SUCCEED) {
-				pcre_free_study(extra);
-				pcre_free(pcre_code);
-				GDKfree(ovector);
-				BBPreclaim(tmpbat);
-				throw(MAL, "batpcre.replace", MAL_MALLOC_FAIL);
-			}
+		tmpres = single_replace(pcre_code, extra, origin_str,
+								(int) strlen(origin_str), exec_options,
+								ovector, ovecsize, replacement,
+								len_replacement, backrefs, nbackrefs, global,
+								tmpres, &max_dest_size);
+		if (tmpres == NULL || BUNappend(tmpbat, tmpres, FALSE) != GDK_SUCCEED) {
+			pcre_free_study(extra);
+			pcre_free(pcre_code);
+			GDKfree(ovector);
+			GDKfree(tmpres);
+			BBPreclaim(tmpbat);
+			throw(MAL, global ? "batpcre.replace" : "batpcre.replace_first",
+				  SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 	}
-
 	pcre_free_study(extra);
 	pcre_free(pcre_code);
 	GDKfree(ovector);
+	GDKfree(tmpres);
 	*res = tmpbat;
 	return MAL_SUCCEED;
 #else
@@ -836,7 +919,9 @@ pcre_replace_bat(BAT **res, BAT *origin_strs, const char *pattern, const char *r
 	(void) pattern;
 	(void) replacement;
 	(void) flags;
-	throw(MAL, "batpcre.replace", "Database was compiled without PCRE support.");
+	(void) global;
+	throw(MAL, global ? "batpcre.replace" : "batpcre.replace_first",
+		  "Database was compiled without PCRE support.");
 #endif
 }
 
@@ -960,7 +1045,7 @@ sql2pcre(str *r, const char *pat, const char *esc_str)
 		throw(MAL, "pcre.sql2pcre", OPERATION_FAILED);
 	ppat = GDKmalloc(strlen(pat)*2+3 /* 3 = "^'the translated regexp'$0" */);
 	if (ppat == NULL)
-		throw(MAL, "pcre.sql2pcre", MAL_MALLOC_FAIL);
+		throw(MAL, "pcre.sql2pcre", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 	*r = ppat;
 	/* The escape character can be a char which is special in a PCRE
@@ -1016,7 +1101,7 @@ sql2pcre(str *r, const char *pat, const char *esc_str)
 			throw(MAL, "pcre.sql2pcre", OPERATION_FAILED);
 		*r = GDKstrdup(str_nil);
 		if (*r == NULL)
-			throw(MAL, "pcre.sql2pcre", MAL_MALLOC_FAIL);
+			throw(MAL, "pcre.sql2pcre", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	} else {
 		*ppat++ = '$';
 		*ppat = 0;
@@ -1024,6 +1109,7 @@ sql2pcre(str *r, const char *pat, const char *esc_str)
 	return MAL_SUCCEED;
 }
 
+#ifdef HAVE_LIBPCRE
 /* change SQL PATINDEX pattern into PCRE pattern */
 static str
 pat2pcre(str *r, const char *pat)
@@ -1033,7 +1119,7 @@ pat2pcre(str *r, const char *pat)
 	int start = 0;
 
 	if (ppat == NULL)
-		throw(MAL, "pcre.sql2pcre", MAL_MALLOC_FAIL);
+		throw(MAL, "pcre.sql2pcre", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	*r = ppat;
 	while (*pat) {
 		int c = *pat++;
@@ -1056,25 +1142,52 @@ pat2pcre(str *r, const char *pat)
 	*ppat = 0;
 	return MAL_SUCCEED;
 }
+#endif
+
 /*
  * @+ Wrapping
  */
 #include "mal.h"
 str
-PCREreplace_wrap(str *res, const str *or, const str *pat, const str *repl, const str *flags) {
-	return pcre_replace(res, *or, *pat, *repl, *flags);
+PCREreplace_wrap(str *res, const str *or, const str *pat, const str *repl, const str *flags)
+{
+	return pcre_replace(res, *or, *pat, *repl, *flags, true);
 }
 
 str
-PCREreplace_bat_wrap(bat *res, const bat *bid, const str *pat, const str *repl, const str *flags) {
+PCREreplace_bat_wrap(bat *res, const bat *bid, const str *pat, const str *repl, const str *flags)
+{
 	BAT *b, *bn = NULL;
 	str msg;
 	if ((b = BATdescriptor(*bid)) == NULL)
-		throw(MAL, "pcre.replace", RUNTIME_OBJECT_MISSING);
+		throw(MAL, "batpcre.replace", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 
-	msg = pcre_replace_bat(&bn, b, *pat, *repl, *flags);
+	msg = pcre_replace_bat(&bn, b, *pat, *repl, *flags, true);
 	if (msg == MAL_SUCCEED) {
-		*res= bn->batCacheid;
+		*res = bn->batCacheid;
+		BBPkeepref(*res);
+	}
+	BBPunfix(b->batCacheid);
+	return msg;
+}
+
+str
+PCREreplacefirst_wrap(str *res, const str *or, const str *pat, const str *repl, const str *flags)
+{
+	return pcre_replace(res, *or, *pat, *repl, *flags, false);
+}
+
+str
+PCREreplacefirst_bat_wrap(bat *res, const bat *bid, const str *pat, const str *repl, const str *flags)
+{
+	BAT *b,*bn = NULL;
+	str msg;
+	if ((b = BATdescriptor(*bid)) == NULL)
+		throw(MAL, "batpcre.replace_first", RUNTIME_OBJECT_MISSING);
+
+	msg = pcre_replace_bat(&bn, b, *pat, *repl, *flags, false);
+	if (msg == MAL_SUCCEED) {
+		*res = bn->batCacheid;
 		BBPkeepref(*res);
 	}
 	BBPunfix(b->batCacheid);
@@ -1116,17 +1229,26 @@ PCREindex(int *res, const pcre *pattern, const str *s)
 str
 PCREpatindex(int *ret, const str *pat, const str *val)
 {
+#ifdef HAVE_LIBPCRE
 	pcre *re = NULL;
 	char *ppat = NULL, *msg;
 
 	if ((msg = pat2pcre(&ppat, *pat)) != MAL_SUCCEED)
 		return msg;
-	if ((msg = pcre_compile_wrap(&re, ppat, FALSE)) != MAL_SUCCEED)
+	if ((msg = pcre_compile_wrap(&re, ppat, FALSE)) != MAL_SUCCEED) {
+		GDKfree(ppat);
 		return msg;
+	}
 	GDKfree(ppat);
 	msg = PCREindex(ret, re, val);
 	pcre_free(re);
 	return msg;
+#else
+	(void) ret;
+	(void) pat;
+	(void) val;
+	throw(MAL, "pcre.patindex", "Database was compiled without PCRE support.");
+#endif
 }
 
 str
@@ -1137,7 +1259,7 @@ PCREquote(str *ret, const str *val)
 
 	*ret = p = GDKmalloc(strlen(s) * 2 + 1); /* certainly long enough */
 	if (p == NULL)
-		throw(MAL, "pcre.quote", MAL_MALLOC_FAIL);
+		throw(MAL, "pcre.quote", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	/* quote all non-alphanumeric ASCII characters (i.e. leave
 	   non-ASCII and alphanumeric alone) */
 	while (*s) {
@@ -1287,7 +1409,7 @@ BATPCRElike3(bat *ret, const bat *bid, const str *pat, const str *esc, const bit
 		if (r==NULL) {
 			GDKfree(ppat);
 			BBPunfix(strs->batCacheid);
-			throw(MAL, "pcre.like3", MAL_MALLOC_FAIL);
+			throw(MAL, "pcre.like3", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 		br = (bit*)Tloc(r, 0);
 		strsi = bat_iterator(strs);
@@ -1468,11 +1590,11 @@ PCRElikeselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, const 
 	int use_strcmp = 0;
 
 	if ((b = BATdescriptor(*bid)) == NULL) {
-		throw(MAL, "algebra.likeselect", RUNTIME_OBJECT_MISSING);
+		throw(MAL, "algebra.likeselect", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 	}
-	if (sid && (*sid) != bat_nil && *sid && (s = BATdescriptor(*sid)) == NULL) {
+	if (sid && !is_bat_nil(*sid) && *sid && (s = BATdescriptor(*sid)) == NULL) {
 		BBPunfix(b->batCacheid);
-		throw(MAL, "algebra.likeselect", RUNTIME_OBJECT_MISSING);
+		throw(MAL, "algebra.likeselect", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 	}
 
 	/* no escape, try if a simple list of keywords works */
@@ -1499,7 +1621,7 @@ PCRElikeselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, const 
 					BBPunfix(b->batCacheid);
 					if (s)
 						BBPunfix(s->batCacheid);
-					throw(MAL, "algebra.likeselect", MAL_MALLOC_FAIL);
+					throw(MAL, "algebra.likeselect", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 				}
 				ppat[0] = '^';
 				strcpy(ppat + 1, *pat);
@@ -1668,7 +1790,7 @@ pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 		if (*esc == 0 && (nr = re_simple(vr)) > 0) {
 			re = re_create(vr, nr);
 			if (re == NULL) {
-				msg = createException(MAL, "pcre.join", MAL_MALLOC_FAIL);
+				msg = createException(MAL, "pcre.join", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 				goto bailout;
 			}
 		} else {
@@ -1681,7 +1803,7 @@ pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 				if (caseignore) {
 					pcrepat = GDKmalloc(strlen(vr) + 3);
 					if (pcrepat == NULL) {
-						msg = createException(MAL, "pcre.join", MAL_MALLOC_FAIL);
+						msg = createException(MAL, "pcre.join", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 						goto bailout;
 					}
 					sprintf(pcrepat, "^%s$", vr);
@@ -1764,7 +1886,7 @@ pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 				BATsetcount(r2, BATcount(r2));
 				if (BATextend(r1, newcap) != GDK_SUCCEED ||
 					BATextend(r2, newcap) != GDK_SUCCEED) {
-					msg = createException(MAL, "pcre.join", MAL_MALLOC_FAIL);
+					msg = createException(MAL, "pcre.join", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 					goto bailout;
 				}
 				assert(BATcapacity(r1) == BATcapacity(r2));
@@ -1865,14 +1987,14 @@ PCREjoin(bat *r1, bat *r2, bat lid, bat rid, bat slid, bat srid,
 		goto fail;
 	if ((right = BATdescriptor(rid)) == NULL)
 		goto fail;
-	if (slid != bat_nil && (candleft = BATdescriptor(slid)) == NULL)
+	if (!is_bat_nil(slid) && (candleft = BATdescriptor(slid)) == NULL)
 		goto fail;
-	if (srid != bat_nil && (candright = BATdescriptor(srid)) == NULL)
+	if (!is_bat_nil(srid) && (candright = BATdescriptor(srid)) == NULL)
 		goto fail;
 	result1 = COLnew(0, TYPE_oid, BATcount(left), TRANSIENT);
 	result2 = COLnew(0, TYPE_oid, BATcount(left), TRANSIENT);
 	if (result1 == NULL || result2 == NULL) {
-		msg = createException(MAL, "pcre.join", MAL_MALLOC_FAIL);
+		msg = createException(MAL, "pcre.join", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		goto fail;
 	}
 	result1->tnil = 0;
@@ -1918,7 +2040,7 @@ PCREjoin(bat *r1, bat *r2, bat lid, bat rid, bat slid, bat srid,
 		BBPunfix(result2->batCacheid);
 	if (msg)
 		return msg;
-	throw(MAL, "pcre.join", RUNTIME_OBJECT_MISSING);
+	throw(MAL, "pcre.join", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 }
 
 str

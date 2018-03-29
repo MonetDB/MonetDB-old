@@ -36,7 +36,7 @@ OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	limit = mb->stop;
 	slimit = mb->ssize;
 	if (newMalBlkStmt(mb, mb->ssize) < 0) {
-		msg= createException(MAL,"optimizer.deadcode",MAL_MALLOC_FAIL);
+		msg= createException(MAL,"optimizer.deadcode", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		goto wrapup;
 	}
 
@@ -46,6 +46,9 @@ OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 		p = old[i];
 		for( k=p->retc; k<p->argc; k++)
 			varused[getArg(p,k)]++;
+		if ( blockCntrl(p) )
+			for( k= 0; k < p->retc; k++)
+				varused[getArg(p,k)]++;
 	}
 
 	// Consolidate the actual need for variables
@@ -60,7 +63,9 @@ OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 		}
 		if ( getModuleId(p) == batRef && isUpdateInstruction(p) && !p->barrier){
 			/* bat.append and friends are intermediates that need not be retained 
-			 * unless they are used */
+			 * unless they are not used outside of an update */
+			if( varused[getArg(p,1)] > 1 )
+				varused[getArg(p,0)]++; // force keeping it
 		} else
 		if (hasSideEffects(mb, p, FALSE) || !isLinearFlow(p) || 
 				(p->retc == 1 && mb->unsafeProp) || p->barrier /* ==side-effect */){
@@ -103,6 +108,17 @@ OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 				freeInstruction(p);
 				actions ++;
 			}
+			/* Enable when bugTracker-2012/Tests/mal_errors survives it
+			if ( getModuleId(p) == groupRef && p->retc == 3 && varused[getArg(p,2)] == 0 &&
+				(getFunctionId(p) == groupRef || 
+				 getFunctionId(p) == subgroupRef || 
+				 getFunctionId(p) == groupdoneRef || 
+				 getFunctionId(p) == subgroupdoneRef)){
+				// remove the histogram unless needed
+				delArgument(p,2);
+				actions++;
+			}
+			*/
 		}
 	}
 	for(; i<slimit; i++)
@@ -111,9 +127,9 @@ OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
     /* Defense line against incorrect plans */
 	/* we don't create or change existing structures */
     //if( actions > 0){
-        //chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-        chkFlow(cntxt->fdout, mb);
-        //chkDeclarations(cntxt->fdout, mb);
+        chkTypes(cntxt->usermodule, mb, FALSE);
+        chkFlow(mb);
+        chkDeclarations(mb);
     //}
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;

@@ -202,11 +202,11 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname )
 			*p = rel;
 			l = rel_bind_column_(sql, p, rel->l, cname);
 			if (l && r && !rel_issubquery(r)) {
-				(void) sql_error(sql, ERR_AMBIGUOUS, "SELECT: identifier '%s' ambiguous", cname);
+				(void) sql_error(sql, ERR_AMBIGUOUS, SQLSTATE(42000) "SELECT: identifier '%s' ambiguous", cname);
 				return NULL;
 			}
 		}
-		if (sql->session->status == -ERR_AMBIGUOUS) 
+		if (sql->session->status == -ERR_AMBIGUOUS)
 			return NULL;
 		if (l && !r)
 			return l;
@@ -222,7 +222,7 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname )
 		if (rel->exps && exps_bind_column(rel->exps, cname, &ambiguous))
 			return rel;
 		if (ambiguous) {
-			(void) sql_error(sql, ERR_AMBIGUOUS, "SELECT: identifier '%s' ambiguous", cname);
+			(void) sql_error(sql, ERR_AMBIGUOUS, SQLSTATE(42000) "SELECT: identifier '%s' ambiguous", cname);
 			return NULL;
 		}
 		*p = rel;
@@ -291,7 +291,7 @@ rel_bind_column2( mvc *sql, sql_rel *rel, const char *tname, const char *cname, 
 	} else if (is_set(rel->op) ||
 		   is_sort(rel) ||
 		   is_semi(rel->op) ||
-		   is_select(rel->op) || 
+		   is_select(rel->op) ||
 		   is_topn(rel->op)) {
 		if (rel->l)
 			return rel_bind_column2(sql, rel->l, tname, cname, f);
@@ -363,7 +363,7 @@ rel_inplace_groupby(sql_rel *rel, sql_rel *l, list *groupbyexps, list *exps )
 {
 	rel_destroy_(rel);
 	rel->card = CARD_ATOM;
-	if (groupbyexps) 
+	if (groupbyexps)
 		rel->card = CARD_AGGR;
 	rel->l = l;
 	rel->r = groupbyexps;
@@ -392,7 +392,7 @@ rel_setop(sql_allocator *sa, sql_rel *l, sql_rel *r, operator_type setop)
 }
 
 sql_rel *
-rel_setop_check_types(mvc *sql, sql_rel *l, sql_rel *r, list *ls, list *rs, operator_type op) 
+rel_setop_check_types(mvc *sql, sql_rel *l, sql_rel *r, list *ls, list *rs, operator_type op)
 {
 	list *nls = new_exp_list(sql->sa);
 	list *nrs = new_exp_list(sql->sa);
@@ -506,7 +506,7 @@ rel_label( mvc *sql, sql_rel *r, int all)
 	return r;
 }
 
-void
+sql_exp *
 rel_project_add_exp( mvc *sql, sql_rel *rel, sql_exp *e)
 {
 	assert(is_project(rel->op));
@@ -523,8 +523,9 @@ rel_project_add_exp( mvc *sql, sql_rel *rel, sql_exp *e)
 		if (e->card > rel->card)
 			rel->card = e->card;
 	} else if (rel->op == op_groupby) {
-		(void) rel_groupby_add_aggr(sql, rel, e);
+		return rel_groupby_add_aggr(sql, rel, e);
 	}
+	return e;
 }
 
 void
@@ -614,7 +615,6 @@ rel_groupby_add_aggr(mvc *sql, sql_rel *rel, sql_exp *e)
 {
 	sql_exp *m = NULL, *ne;
 	char name[16], *nme = NULL;
-	char *tname = NULL;
 
 	if ((m=exps_find_match_exp(rel->exps, e)) == NULL) {
 		if (!e->name) {
@@ -624,11 +624,8 @@ rel_groupby_add_aggr(mvc *sql, sql_rel *rel, sql_exp *e)
 		append(rel->exps, e);
 		m = e;
 	}
-	if (e->type == e_column)
-		tname = e->l;
-	ne = exp_column(sql->sa, tname, m->name, exp_subtype(m),
+	ne = exp_column(sql->sa, exp_relname(m), exp_name(m), exp_subtype(m),
 			rel->card, has_nil(m), is_intern(m));
-	exp_setname(sql->sa, ne, NULL, e->name);
 	return ne;
 }
 
@@ -690,7 +687,7 @@ rel_basetable(mvc *sql, sql_table *t, const char *atname)
 		return NULL;
 	}
 
-	if (isRemote(t)) 
+	if (isRemote(t))
 		tname = mapiuri_table(t->query, sql->sa, tname);
 	for (cn = t->columns.set->h; cn; cn = cn->next) {
 		sql_column *c = cn->data;
@@ -723,7 +720,7 @@ rel_basetable(mvc *sql, sql_table *t, const char *atname)
 				continue;
 
 			if (i->type == join_idx)
-				t = sql_bind_localtype("oid"); 
+				t = sql_bind_localtype("oid");
 
 			iname = sa_strconcat( sa, "%", i->base.name);
 			e = exp_alias(sa, atname, iname, tname, iname, t, CARD_MULTI, 0, 1);
@@ -764,8 +761,8 @@ rel_groupby(mvc *sql, sql_rel *l, list *groupbyexps )
 		for (en = groupbyexps->h; en; en = en->next) {
 			sql_exp *e = en->data, *ne;
 
-			if ((ne=exps_find_exp(gexps, e)) == NULL || 
-			    strcmp(exp_relname(e),exp_relname(ne)) != 0 || 
+			if ((ne=exps_find_exp(gexps, e)) == NULL ||
+			    strcmp(exp_relname(e),exp_relname(ne)) != 0 ||
 			    strcmp(exp_name(e),exp_name(ne)) != 0  )
 				append(gexps, e);
 		}
@@ -988,6 +985,7 @@ rel_bind_path_(sql_rel *rel, sql_exp *e, list *path )
 	case op_insert:
 	case op_update:
 	case op_delete:
+	case op_truncate:
 		break;
 	case op_ddl:
 		break;
@@ -1054,7 +1052,7 @@ rel_push_select(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *e)
 			break;
 		p = lrel;
 	}
-	if (!lrel) 
+	if (!lrel)
 		return NULL;
 	if (p && p->op == op_select && !rel_is_ref(p)) { /* refine old select */
 		rel_select_add_exp(sql->sa, p, e);
@@ -1086,13 +1084,13 @@ rel_push_join(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_exp *rs2, sq
 {
 	list *l = rel_bind_path(sql->sa, rel, ls);
 	list *r = rel_bind_path(sql->sa, rel, rs);
-	list *r2 = NULL; 
+	list *r2 = NULL;
 	node *ln, *rn;
 	sql_rel *lrel = NULL, *rrel = NULL, *rrel2 = NULL, *p = NULL;
 
 	if (rs2)
 		r2 = rel_bind_path(sql->sa, rel, rs2);
-	if (!l || !r || (rs2 && !r2)) 
+	if (!l || !r || (rs2 && !r2))
 		return NULL;
 
 	if (!sql->pushdown)
@@ -1112,7 +1110,7 @@ rel_push_join(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_exp *rs2, sq
 
 			/* push down as long as the operators allow this
 				and the relation is equal.
-		 	*/
+			*/
 			if (lrel != rrel || lrel != rrel2 ||
 				(!is_select(lrel->op) &&
 				 !(is_semi(lrel->op) && !rel_is_ref(lrel->l)) &&
@@ -1134,7 +1132,7 @@ rel_push_join(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_exp *rs2, sq
 
 			/* push down as long as the operators allow this
 				and the relation is equal.
-		 	*/
+			*/
 			if (lrel != rrel ||
 				(!is_select(lrel->op) &&
 				 !(is_semi(lrel->op) && !rel_is_ref(lrel->l)) &&
@@ -1184,11 +1182,11 @@ rel_or(mvc *sql, sql_rel *rel, sql_rel *l, sql_rel *r, list *oexps, list *lexps,
 	assert(!lexps || l == r);
 	if (l == r && lexps) { /* merge both lists */
 		sql_exp *e = exp_or(sql->sa, lexps, rexps, 0);
-		list *nl = oexps?oexps:new_exp_list(sql->sa); 
+		list *nl = oexps?oexps:new_exp_list(sql->sa);
 		
 		rel_destroy(r);
 		append(nl, e);
-		if (is_outerjoin(l->op) && is_processed(l)) 
+		if (is_outerjoin(l->op) && is_processed(l))
 			l = rel_select(sql->sa, l, NULL);
 		l->exps = nl;
 		return l;
@@ -1198,7 +1196,7 @@ rel_or(mvc *sql, sql_rel *rel, sql_rel *l, sql_rel *r, list *oexps, list *lexps,
 	if (l->op == r->op && l->op == op_select &&
 	    ll == rl && ll == rel && !rel_is_ref(l) && !rel_is_ref(r)) {
 		sql_exp *e = exp_or(sql->sa, l->exps, r->exps, 0);
-		list *nl = new_exp_list(sql->sa); 
+		list *nl = new_exp_list(sql->sa);
 		
 		rel_destroy(r);
 		append(nl, e);
@@ -1255,7 +1253,7 @@ rel_ddl_table_get(sql_rel *r)
 }
 
 static sql_exp *
-exps_find_identity(list *exps, sql_rel *p) 
+exps_find_identity(list *exps, sql_rel *p)
 {
 	node *n;
 
@@ -1285,14 +1283,14 @@ _rel_add_identity(mvc *sql, sql_rel *rel, sql_exp **exp)
 	set_intern(e);
 	e->p = prop_create(sql->sa, PROP_HASHCOL, e->p);
 	*exp = exp_label(sql->sa, e, ++sql->label);
-	rel_project_add_exp(sql, rel, e);
+	(void) rel_project_add_exp(sql, rel, e);
 	return rel;
 }
 
 sql_rel *
 rel_add_identity(mvc *sql, sql_rel *rel, sql_exp **exp)
 {
-	if (rel && is_project(rel->op) && (*exp = exps_find_identity(rel->exps, rel->l)) != NULL) 
+	if (rel && is_project(rel->op) && (*exp = exps_find_identity(rel->exps, rel->l)) != NULL)
 		return rel;
 	return _rel_add_identity(sql, rel, exp);
 }

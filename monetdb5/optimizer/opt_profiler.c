@@ -55,7 +55,6 @@ OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	InstrPtr p;
 	char buf[BUFSIZ];
 	lng usec = GDKusec();
-	char *packIncrementRef = putName("packIncrement");
 
 	(void) pci;
 	(void) stk;
@@ -108,9 +107,9 @@ OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	}
     /* Defense line against incorrect plans */
 	/* Plan remains unaffected */
-	//chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-	//chkFlow(cntxt->fdout, mb);
-	//chkDeclarations(cntxt->fdout, mb);
+	//chkTypes(cntxt->usermodule, mb, FALSE);
+	//chkFlow(mb);
+	//chkDeclarations(mb);
 	//
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;

@@ -8,7 +8,6 @@
 
 #include "monetdb_config.h"
 
-#include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -20,8 +19,6 @@
 #include <unistd.h>  /* select */
 #include <signal.h>
 #include <fcntl.h>
-
-#include <errno.h>
 
 #include "msabaoth.h"
 #include "mcrypt.h"
@@ -39,6 +36,9 @@
 #include "controlrunner.h"
 #include "multiplex-funnel.h"
 
+#if !defined(HAVE_ACCEPT4) || !defined(SOCK_CLOEXEC)
+#define accept4(sockfd, addr, addrlen, flags)	accept(sockfd, addr, addrlen)
+#endif
 
 static void
 leavedb(char *name)
@@ -450,7 +450,7 @@ static void ctl_handle_client(
 								freeException(err);
 							} else {
 								/* don't start locked */
-								unlink(".maintenance");
+								remove(".maintenance");
 							}
 
 							exit(0); /* return to the parent */
@@ -501,7 +501,7 @@ static void ctl_handle_client(
 				} while(1);
 				if (e != NO_ERR) {
 					Mfprintf(_mero_ctlerr, "%s: invalid multiplex-funnel "
-							"specification '%s': %s at char " SZFMT "\n",
+							"specification '%s': %s at char %zu\n",
 							origin, p, getErrMsg(e), (size_t)(r - p));
 					len = snprintf(buf2, sizeof(buf2),
 							"invalid pattern: %s\n", getErrMsg(e));
@@ -619,6 +619,41 @@ static void ctl_handle_client(
 					len = snprintf(buf2, sizeof(buf2), "OK\n");
 					send_client("=");
 				}
+			} else if (strncmp(p, "profilerstart", strlen("profilerstart")) == 0) {
+				char *log_path = NULL;
+				char *e = fork_profiler(q, &stats, &log_path);
+				if (e != NULL) {
+					Mfprintf(_mero_ctlerr, "%s: failed to start the profiler "
+							 "database '%s': %s\n", origin, q, getErrMsg(e));
+					len = snprintf(buf2, sizeof(buf2),
+								   "%s\n", getErrMsg(e));
+					send_client("!");
+					freeErr(e);
+				} else {
+					len = snprintf(buf2, sizeof(buf2), "OK\n");
+					send_client("=");
+					Mfprintf(_mero_ctlout, "%s: started profiler for '%s'\n",
+							 origin, q);
+					Mfprintf(_mero_ctlout, "%s: logs at: %s\n",
+							 origin, log_path);
+				}
+				msab_freeStatus(&stats);
+			}  else if (strncmp(p, "profilerstop", strlen("profilerstop")) == 0) {
+				char *e = shutdown_profiler(q, &stats);
+				if (e != NULL) {
+					Mfprintf(_mero_ctlerr, "%s: failed to shutdown the profiler "
+							 "database '%s': %s\n", origin, q, getErrMsg(e));
+					len = snprintf(buf2, sizeof(buf2),
+								   "%s\n", getErrMsg(e));
+					send_client("!");
+					freeErr(e);
+				} else {
+					len = snprintf(buf2, sizeof(buf2), "OK\n");
+					send_client("=");
+					Mfprintf(_mero_ctlout, "%s: profiler shut down for '%s'\n",
+							 origin, q);
+				}
+				msab_freeStatus(&stats);
 			} else if (strncmp(p, "name=", strlen("name=")) == 0) {
 				char *e;
 
@@ -979,7 +1014,7 @@ controlRunner(void *d)
 			continue;
 		}
 
-		if ((msgsock = accept(usock, (SOCKPTR) 0, (socklen_t *) 0)) == -1) {
+		if ((msgsock = accept4(usock, (SOCKPTR) 0, (socklen_t *) 0, SOCK_CLOEXEC)) == -1) {
 			if (_mero_keep_listening == 0)
 				break;
 			if (errno != EINTR) {
@@ -988,7 +1023,9 @@ controlRunner(void *d)
 			}
 			continue;
 		}
-		fcntl(msgsock, F_SETFD, FD_CLOEXEC);
+#if defined(HAVE_FCNTL) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
+		(void) fcntl(msgsock, F_SETFD, FD_CLOEXEC);
+#endif
 
 		if (pthread_create(&tid, NULL, handle_client, &msgsock) != 0)
 			closesocket(msgsock);

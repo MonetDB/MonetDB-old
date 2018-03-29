@@ -149,7 +149,7 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 	(void) pci;
 	vars= (int*) GDKzalloc(sizeof(int)* mb->vtop);
 	if( vars == NULL)
-		throw(MAL,"optimizer.pushselect", MAL_MALLOC_FAIL);
+		throw(MAL,"optimizer.pushselect", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 	limit = mb->stop;
 	slimit= mb->ssize;
@@ -181,7 +181,7 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		if (getModuleId(p) == sqlRef && getFunctionId(p) == deltaRef)
 			push_down_delta++;
 
-		if (0 && getModuleId(p) == sqlRef && getFunctionId(p) == tidRef) { /* rewrite equal table ids */
+		if (/* DISABLES CODE */ (0) && getModuleId(p) == sqlRef && getFunctionId(p) == tidRef) { /* rewrite equal table ids */
 			int sname = getArg(p, 2), tname = getArg(p, 3), s;
 
 			for (s = 0; s < subselects.nr; s++) {
@@ -428,6 +428,16 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		 		 */
 				else if (getModuleId(q) == sqlRef && getFunctionId(q) == deltaRef && q->argc == 5) {
 					q = copyInstruction(q);
+					if( q == NULL){
+						for (; i<limit; i++) 
+							if (old[i])
+								pushInstruction(mb,old[i]);
+						GDKfree(slices);
+						GDKfree(rslices);
+						GDKfree(old);
+						throw(MAL,"optimizer.pushselect", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+					}
+
 					setFunctionId(q, projectdeltaRef);
 					getArg(q, 0) = getArg(p, 0); 
 					q = PushArgument(mb, q, getArg(p, 1), 1);
@@ -491,6 +501,16 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 				rslices[getArg(q,0)] = 1; /* mark projectdelta as rewriten */
 				rslices[getArg(p,0)] = 1; /* mark slice as rewriten */
 
+				if (r == NULL || s == NULL){
+					GDKfree(vars);
+					GDKfree(nvars);
+					GDKfree(slices);
+					GDKfree(rslices);
+					GDKfree(oclean);
+					GDKfree(old);
+					throw(MAL,"optimizer.pushselect", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+				}
+
 				/* slice the candidates */
 				setFunctionId(r, sliceRef);
 				nvars[getArg(p,0)] =  getArg(r, 0) = 
@@ -532,6 +552,15 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 					}
 					if (s && getModuleId(s) == sqlRef && getFunctionId(s) == projectdeltaRef) {
 						InstrPtr t = copyInstruction(s);
+						if (t == NULL){
+							GDKfree(vars);
+							GDKfree(nvars);
+							GDKfree(slices);
+							GDKfree(rslices);
+							GDKfree(oclean);
+							GDKfree(old);
+							throw(MAL,"optimizer.pushselect", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+						}
 
 						getArg(t, 1) = nvars[getArg(r, 0)]; /* use result of slice */
 						rslices[col] = 1;
@@ -539,7 +568,15 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 				    			newTmpVariable(mb, getArgType(mb, t, 0));
 						pushInstruction(mb, t);
 						if (u) { /* add again */
-							t = copyInstruction(u);
+							if((t = copyInstruction(u)) == NULL) {
+								GDKfree(vars);
+								GDKfree(nvars);
+								GDKfree(slices);
+								GDKfree(rslices);
+								GDKfree(oclean);
+								GDKfree(old);
+								throw(MAL,"optimizer.pushselect", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+							}
 							getArg(t, 1) = nvars[getArg(t,1)];
 							pushInstruction(mb, t);
 						}
@@ -592,6 +629,19 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 				InstrPtr t = copyInstruction(p);
 				InstrPtr u = copyInstruction(q);
 		
+				if( r == NULL || s == NULL || t== NULL ||u == NULL){
+					freeInstruction(r);
+					freeInstruction(s);
+					freeInstruction(t);
+					freeInstruction(u);
+					GDKfree(vars);
+					GDKfree(nvars);
+					GDKfree(slices);
+					GDKfree(rslices);
+					GDKfree(oclean);
+					GDKfree(old);
+					throw(MAL,"optimizer.pushselect", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+				}
 				getArg(r, 0) = newTmpVariable(mb, newBatType(TYPE_oid));
 				setVarCList(mb,getArg(r,0));
 				getArg(r, 1) = getArg(q, 1); /* column */
@@ -644,9 +694,9 @@ OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 
     /* Defense line against incorrect plans */
     if( actions > 0){
-        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-        chkFlow(cntxt->fdout, mb);
-        chkDeclarations(cntxt->fdout, mb);
+        chkTypes(cntxt->usermodule, mb, FALSE);
+        chkFlow(mb);
+        chkDeclarations(mb);
     }
 wrapup:
     /* keep all actions taken as a post block comment */

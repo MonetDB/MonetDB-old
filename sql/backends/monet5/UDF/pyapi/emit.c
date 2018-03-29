@@ -18,7 +18,7 @@
 
 #define scalar_convert(tpe)                                                    \
 	{                                                                          \
-		tpe val = (tpe)tpe##_nil;                                              \
+		tpe val = tpe##_nil;                                                   \
 		msg = pyobject_to_##tpe(&dictEntry, 42, &val);                         \
 		if (msg != MAL_SUCCEED ||                                              \
 			BUNappend(self->cols[i].b, &val, 0) != GDK_SUCCEED) {              \
@@ -67,10 +67,10 @@ PyObject *PyEmit_Emit(PyEmitObject *self, PyObject *args)
 			if (el_count < 0) {
 				el_count = this_size;
 			} else if (el_count != this_size) {
-				/* don't use SZFMT since format given to Python */
+				/* don't use "%zu" since format given to Python */
 				PyErr_Format(
-					PyExc_TypeError, "Element %s has size %zu, but expected an "
-									 "element with size %zu",
+					PyExc_TypeError, "Element %s has size %zd, but expected an "
+									 "element with size %zd",
 					PyString_AsString(PyObject_Str(key)), this_size, el_count);
 				Py_DECREF(items);
 				return NULL;
@@ -223,50 +223,64 @@ PyObject *PyEmit_Emit(PyEmitObject *self, PyObject *args)
 		PyObject *dictEntry = PyDict_GetItemString(args, self->cols[i].name);
 		if (dictEntry && dictEntry != Py_None) {
 			if (PyType_IsPyScalar(dictEntry)) {
-				switch (self->cols[i].b->ttype) {
-					case TYPE_bit:
-						scalar_convert(bit);
-						break;
-					case TYPE_bte:
-						scalar_convert(bte);
-						break;
-					case TYPE_sht:
-						scalar_convert(sht);
-						break;
-					case TYPE_int:
-						scalar_convert(int);
-						break;
-					case TYPE_oid:
-						scalar_convert(oid);
-						break;
-					case TYPE_lng:
-						scalar_convert(lng);
-						break;
-					case TYPE_flt:
-						scalar_convert(flt);
-						break;
-					case TYPE_dbl:
-						scalar_convert(dbl);
-						break;
-#ifdef HAVE_HGE
-					case TYPE_hge:
-						scalar_convert(hge);
-						break;
-#endif
-					default: {
-						str val = NULL;
-						gdk_return retval;
-						msg = pyobject_to_str(&dictEntry, 42, &val);
-						if (msg != MAL_SUCCEED) {
-							goto wrapup;
-						}
-						assert(val);
-						retval = convert_and_append(self->cols[i].b, val, 0);
-						free(val);
-						if (retval != GDK_SUCCEED) {
+				if (self->cols[i].b->ttype == TYPE_blob || self->cols[i].b->ttype == TYPE_sqlblob) {
+					blob s;
+					blob* val = &s;
+					val->nitems = ~(size_t) 0;
+					msg = pyobject_to_blob(&dictEntry, 42, &val);
+					if (msg != MAL_SUCCEED ||
+						BUNappend(self->cols[i].b, val, 0) != GDK_SUCCEED) {
+						if (msg == MAL_SUCCEED)
 							msg = GDKstrdup("BUNappend failed.");
-							goto wrapup;
-						}
+						goto wrapup;
+					}
+				GDKfree(val);
+				} else {
+					switch (self->cols[i].b->ttype) {
+						case TYPE_bit:
+							scalar_convert(bit);
+							break;
+						case TYPE_bte:
+							scalar_convert(bte);
+							break;
+						case TYPE_sht:
+							scalar_convert(sht);
+							break;
+						case TYPE_int:
+							scalar_convert(int);
+							break;
+						case TYPE_oid:
+							scalar_convert(oid);
+							break;
+						case TYPE_lng:
+							scalar_convert(lng);
+							break;
+						case TYPE_flt:
+							scalar_convert(flt);
+							break;
+						case TYPE_dbl:
+							scalar_convert(dbl);
+							break;
+#ifdef HAVE_HGE
+						case TYPE_hge:
+							scalar_convert(hge);
+							break;
+#endif
+						default: {
+							str val = NULL;
+							gdk_return retval;
+							msg = pyobject_to_str(&dictEntry, 42, &val);
+							if (msg != MAL_SUCCEED) {
+								goto wrapup;
+							}
+							assert(val);
+							retval = convert_and_append(self->cols[i].b, val, 0);
+							free(val);
+							if (retval != GDK_SUCCEED) {
+								msg = GDKstrdup("BUNappend failed.");
+								goto wrapup;
+							}
+						} break;
 					}
 				}
 			} else {
@@ -284,7 +298,7 @@ PyObject *PyEmit_Emit(PyEmitObject *self, PyObject *args)
 				msg = PyObject_GetReturnValues(dictEntry, ret);
 				if (msg != MAL_SUCCEED) {
 					goto wrapup;
-				}
+				}	
 				if (ret->array_data == NULL) {
 					msg = GDKstrdup("No return value stored in the structure.");
 					goto wrapup;
@@ -453,6 +467,6 @@ str _emit_init(void)
 	_import_array();
 	if (PyType_Ready(&PyEmitType) < 0)
 		return createException(MAL, "pyapi.eval",
-							   "Failed to initialize emit type.");
+							   SQLSTATE(PY000) "Failed to initialize emit type.");
 	return MAL_SUCCEED;
 }

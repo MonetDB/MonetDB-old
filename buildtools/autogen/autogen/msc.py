@@ -4,6 +4,8 @@
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
 
+from __future__ import print_function
+
 import string
 import os
 import re
@@ -207,6 +209,8 @@ def msc_additional_libs(fd, name, sep, type, list, dlibs, msc, pref, ext):
     for l in list:
         if '?' in l:
             c, l = l.split('?', 1)
+            if c in ('NATIVE_WIN32', 'WIN32'):
+                c = None
         else:
             c = None
         d = None

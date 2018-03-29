@@ -46,9 +46,9 @@
 #define GB (((lng)1024)*1024*1024)
 #define MEMORY_THRESHOLD  (0.2 * monet_memory > 8 * GB?  monet_memory - 8 * GB: 0.8 * monet_memory)
 
-mal_export char     monet_cwd[PATHLENGTH];
+mal_export char     monet_cwd[FILENAME_MAX];
 mal_export size_t	monet_memory;
-mal_export char 	monet_characteristics[PATHLENGTH];
+mal_export char 	monet_characteristics[4096];
 mal_export lng 		memorypool;      /* memory claimed by concurrent threads */
 mal_export int 		memoryclaims;    /* number of threads active with expensive operations */
 mal_export int		mal_trace;		/* enable profile events on console */
@@ -139,7 +139,7 @@ typedef struct SYMDEF {
 	struct SYMDEF *peer;		/* where to look next */
 	struct SYMDEF *skip;		/* skip to next different symbol */
 	str name;
-	int kind;
+	int kind;					/* what kind of symbol */
 	struct MALBLK *def;			/* the details of the MAL fcn */
 } *Symbol, SymRecord;
 
@@ -212,9 +212,7 @@ typedef struct MALBLK {
 		     unsafeProp:1,		/* unsafe property */
 		     sealedProp:1;		/* sealed property (opertions for sealed object should be on the full object once) */
 
-	int errors;				/* left over errors */
-	int typefixed;			/* no undetermined instruction */
-	int flowfixed;			/* all flow instructions are fixed */
+	str errors;				/* left over errors */
 	struct MALBLK *history;	/* of optimizer actions */
 	short keephistory;		/* do we need the history at all */
 	int maxarg;				/* keep track on the maximal arguments used */

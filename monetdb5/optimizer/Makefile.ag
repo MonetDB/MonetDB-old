@@ -41,6 +41,7 @@ lib_optimizer = {
 		opt_mitosis.c opt_mitosis.h \
 		opt_multiplex.c opt_multiplex.h \
 		opt_oltp.c opt_oltp.h \
+		opt_wlc.c opt_wlc.h \
 		opt_pipes.c opt_pipes.h \
 		opt_prelude.c opt_prelude.h \
 		opt_reduce.c opt_reduce.h \
@@ -50,6 +51,7 @@ lib_optimizer = {
 		opt_support.c opt_support.h \
 		opt_pushselect.c opt_pushselect.h \
 		opt_profiler.c opt_profiler.h \
+		opt_postfix.c opt_postfix.h \
 		opt_volcano.c opt_volcano.h \
 		opt_wrapper.c
 }

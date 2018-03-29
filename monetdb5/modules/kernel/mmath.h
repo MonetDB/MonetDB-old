@@ -10,19 +10,6 @@
 #define __MMATH_H__
 #include "mal.h"
 #include "mal_exception.h"
-#include <math.h>
-
-/* these are only for older Visual Studio compilers (VS 2010) */
-#if defined(_MSC_VER) && !defined(__INTEL_COMPILER) && _MSC_VER < 1800
-#include <float.h>
-#define isnan(x)	_isnan(x)
-#define isinf(x)	(_fpclass(x) & (_FPCLASS_NINF | _FPCLASS_PINF))
-#define isfinite(x)	_finite(x)
-#endif
-
-#define MNisnan(x)	isnan(x)
-#define MNfinite(x)	isfinite(x)
-#define MNisinf(x)	isinf(x)
 
 #define unopbaseM5_export(X1,X2)\
 mal_export str MATHunary##X1##X2(X2 *res, const X2 *a);

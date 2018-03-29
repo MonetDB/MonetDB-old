@@ -9,8 +9,6 @@
 #ifndef _REL_UPDATES_H_
 #define _REL_UPDATES_H_
 
-#include <stdio.h>
-#include <stdarg.h>
 #include "sql_list.h"
 #include "sql_symbol.h"
 #include "sql_mvc.h"
@@ -21,6 +19,7 @@ extern sql_rel *rel_update(mvc *sql, sql_rel *t, sql_rel *uprel, sql_exp **updat
 
 extern sql_rel *rel_insert(mvc *sql, sql_rel *t, sql_rel *inserts);
 extern sql_rel *rel_delete(sql_allocator *sa, sql_rel *t, sql_rel *deletes);
+extern sql_rel *rel_truncate(sql_allocator *sa, sql_rel *t, int drop_action, int check_identity);
 
 extern sql_exp * rel_parse_val(mvc *m, char *query, char emode);
 

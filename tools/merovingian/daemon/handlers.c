@@ -7,7 +7,6 @@
  */
 
 #include "monetdb_config.h"
-#include <stdio.h>
 #include <signal.h>
 #include <unistd.h> /* isatty */
 #include <time.h> /* time, localtime */
@@ -16,7 +15,6 @@
 #include <sys/wait.h> /* wait */
 #include <sys/stat.h> /* open */
 #include <fcntl.h> /* open */
-#include <errno.h>
 
 #include "utils/properties.h"
 
@@ -70,17 +68,11 @@ sigtostr(int sig)
 void
 handler(int sig)
 {
-	char buf[64];
 	const char *signame = sigtostr(sig);
 
-	strcpy(buf, "caught ");
-	if (signame) {
-		strcpy(buf + 7, signame);
-	} else {
-		strcpy(buf + 7, "some signal");
-	}
-	strcpy(buf + strlen(buf), ", starting shutdown sequence\n");
-	if (write(1, buf, strlen(buf)) < 0)
+	if (write(1, "caught ", 7) < 0 ||
+		(signame ? write(1, signame, strlen(signame)) : write(1, "some signal", 11)) < 0 ||
+		write(1, ", starting shutdown sequence\n", 29) < 0)
 		perror("write failed");
 	_mero_keep_listening = 0;
 }
@@ -154,15 +146,15 @@ void reinitialize(void)
 				"'%s': %s\n", f, strerror(errno));
 	} else {
 #if O_CLOEXEC == 0
-		fcntl(t, F_SETFD, FD_CLOEXEC);
+		(void) fcntl(t, F_SETFD, FD_CLOEXEC);
 #endif
-		Mfprintf(_mero_logfile, "%s END merovingian[" LLFMT "]: "
+		Mfprintf(_mero_logfile, "%s END merovingian[%lld]: "
 				"caught SIGHUP, closing logfile\n",
 				mytime, (long long int)_mero_topdp->next->pid);
 		fflush(_mero_logfile);
 		_mero_topdp->out = _mero_topdp->err = t;
 		_mero_logfile = fdopen(t, "a");
-		Mfprintf(_mero_logfile, "%s BEG merovingian[" LLFMT "]: "
+		Mfprintf(_mero_logfile, "%s BEG merovingian[%lld]: "
 				"reopening logfile\n",
 				mytime, (long long int)_mero_topdp->next->pid);
 	}
@@ -223,7 +215,6 @@ childhandler(void)
 				if (p->dbname)
 					free(p->dbname);
 				free(p);
-				pthread_mutex_unlock(&_mero_topdp_lock);
 				break;
 			}
 			q = p;

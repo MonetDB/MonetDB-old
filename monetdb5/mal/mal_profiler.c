@@ -8,11 +8,11 @@
 
 /* (c) M.L. Kersten
  * Performance tracing
- * The stethoscope/tachograph and tomograph performance monitors have exclusive access 
- * to a single event stream, which avoids concurrency conflicts amongst clients. 
+ * The stethoscope/tachograph and tomograph performance monitors have exclusive access
+ * to a single event stream, which avoids concurrency conflicts amongst clients.
  * It also avoid cluthered event records on the stream. Since this event stream is owned
- * by a client, we should ensure that the profiler is automatically 
- * reset once the owner leaves. 
+ * by a client, we should ensure that the profiler is automatically
+ * reset once the owner leaves.
  */
 #include "monetdb_config.h"
 #include "mal_function.h"
@@ -108,15 +108,14 @@ truncate_string(char *inp)
 		return NULL;
 	}
 
-	*ret = 0;
-	ret = strncat(ret, inp, ret_len/2);
-	ret = strncat(ret, " ...<truncated>... ", strlen(" ...<truncated>... "));
-	ret = strncat(ret, inp + (len - ret_len/2 + padding), ret_len/2 - padding);
+	snprintf(ret, ret_len + 1, "%.*s...<truncated>...%.*s",
+			 (int) (ret_len/2), inp, (int) (ret_len/2 - padding),
+			 inp + (len - ret_len/2 + padding));
 
 	return ret;
 }
 
-/* JSON rendering method of performance data. 
+/* JSON rendering method of performance data.
  * The eventparser may assume this layout for ease of parsing
 EXAMPLE:
 {
@@ -139,17 +138,13 @@ EXAMPLE:
 static void
 renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str usrname)
 {
+	(void)usrname;
 	char logbuffer[LOGLEN], *logbase;
 	size_t loglen;
 	str stmt, c;
 	str stmtq;
 	lng usec= GDKusec();
-	lng sec = (lng)startup_time.tv_sec + usec/1000000;
-	long microseconds = (long)startup_time.tv_usec + (usec % 1000000);
-
-	assert (microseconds / 1000000 >= 0 && microseconds / 1000000 < 2);
-	sec += (microseconds / 1000000);
-	microseconds %= 1000000;
+	uint64_t microseconds = (uint64_t)startup_time.tv_sec*1000000 + (uint64_t)startup_time.tv_usec + (uint64_t)usec;
 
 	// ignore generation of events for instructions that are called too often
 	if(highwatermark && highwatermark + (start == 0) < pci->calls)
@@ -158,12 +153,10 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
 	/* make profile event tuple  */
 	lognew();
 	logadd("{%s",prettify); // fill in later with the event counter
+	logadd("\"source\":\"trace\",%s", prettify);
 
-	if( usrname)
-		//logadd("\"user\":\"%s\",%s",usrname, prettify);
-
-	logadd("\"clk\":"LLFMT",%s",usec,prettify);
-	logadd("\"ctime\":"LLFMT".%06ld,%s", sec, microseconds, prettify);
+	logadd("\"clk\":"LLFMT",%s", usec, prettify);
+	logadd("\"ctime\":%"PRIu64",%s", microseconds, prettify);
 	logadd("\"thread\":%d,%s", THRgettid(),prettify);
 
 	logadd("\"function\":\"%s.%s\",%s", getModuleId(getInstrPtr(mb, 0)), getFunctionId(getInstrPtr(mb, 0)), prettify);
@@ -184,7 +177,7 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
 		logadd("\"state\":\"done\",%s", prettify);
 		logadd("\"usec\":"LLFMT",%s", pci->ticks, prettify);
 	}
-	logadd("\"rss\":"SZFMT ",%s", MT_getrss()/1024/1024, prettify);
+	logadd("\"rss\":%zu,%s", MT_getrss()/1024/1024, prettify);
 	logadd("\"size\":"LLFMT ",%s", pci? pci->wbytes/1024/1024:0, prettify);	// result size
 
 #ifdef NUMAprofiling
@@ -223,7 +216,7 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
 		if (stmt) {
 			c = stmt;
 
-			while (*c && isspace((int)*c))
+			while (*c && isspace((unsigned char)*c))
 				c++;
 			if( *c){
 				stmtq = mal_quote(c, strlen(c));
@@ -348,8 +341,7 @@ This information can be used to determine memory footprint and variable life tim
 					char *truncated = NULL;
 					tname = getTypeName(tpe);
 					logadd("\"type\":\"%s\",%s", tname,pret);
-					cv = 0;
-					VALformat(&cv, &stk->stk[getArg(pci,j)]);
+					cv = VALformat(&stk->stk[getArg(pci,j)]);
 					stmtq = mal_quote(cv, strlen(cv));
 					if (stmtq != NULL && strlen(stmtq) > LOGLEN/2) {
 						truncated = truncate_string(stmtq);
@@ -368,7 +360,7 @@ This information can be used to determine memory footprint and variable life tim
 				GDKfree(tname);
 				logadd("}%s%s", (j< pci->argc-1 && j != pci->retc -1?",":""), pret);
 			}
-			logadd("] %s",prettify); // end marker for arguments
+			logadd("]%s",prettify); // end marker for arguments
 		}
 	}
 #endif
@@ -385,10 +377,10 @@ getCPULoad(char cpuload[BUFSIZ]){
 	static FILE *proc= NULL;
 	lng newload;
 
-	if ( proc == NULL || ferror(proc))
+	if (proc == NULL || ferror(proc))
 		proc = fopen("/proc/stat","r");
 	else rewind(proc);
-	if ( proc == NULL) {
+	if (proc == NULL) {
 		/* unexpected */
 		return -1;
 	}
@@ -396,10 +388,10 @@ getCPULoad(char cpuload[BUFSIZ]){
 	if ((n = fread(buf, 1, BUFSIZ,proc)) == 0 )
 		return -1;
 	buf[n] = 0;
-	for ( s= buf; *s; s++) {
-		if ( strncmp(s,"cpu",3)== 0){
+	for (s= buf; *s; s++) {
+		if (strncmp(s,"cpu",3)== 0){
 			s +=3;
-			if ( *s == ' ') {
+			if (*s == ' ') {
 				s++;
 				cpu = 255; // the cpu totals stored here
 			}  else {
@@ -411,7 +403,7 @@ getCPULoad(char cpuload[BUFSIZ]){
 			if (s == NULL)		/* unexpected format of file */
 				break;
 
-			while( *s && isspace((int)*s)) s++;
+			while( *s && isspace((unsigned char)*s)) s++;
 			i= sscanf(s,LLFMT" "LLFMT" "LLFMT" "LLFMT" "LLFMT,  &user, &nice, &system, &idle, &iowait);
 			if ( i != 5 )
 				goto skip;
@@ -423,18 +415,18 @@ getCPULoad(char cpuload[BUFSIZ]){
 			corestat[cpu].system = system;
 			corestat[cpu].idle = idle;
 			corestat[cpu].iowait = iowait;
-		} 
+		}
 	  skip:
 		while (*s && *s != '\n')
 			s++;
 	}
 
-	if( cpuload == 0)
+	if(cpuload == 0)
 		return 0;
 	// identify core processing
-	len += snprintf(cpuload, BUFSIZ, "[ ");
-	for ( cpu = 0; cpuload && cpu < 255 && corestat[cpu].user; cpu++) {
-		len +=snprintf(cpuload + len, BUFSIZ - len, "%c %.2f", (cpu?',':' '), corestat[cpu].load);
+	len += snprintf(cpuload, BUFSIZ, "[");
+	for (cpu = 0; cpuload && cpu < 255 && corestat[cpu].user; cpu++) {
+		len +=snprintf(cpuload + len, BUFSIZ - len, "%s%.2f", (cpu?",":""), corestat[cpu].load);
 	}
 	(void) snprintf(cpuload + len, BUFSIZ - len, "]");
 	return 0;
@@ -446,6 +438,8 @@ profilerHeartbeatEvent(char *alter)
 	char cpuload[BUFSIZ];
 	char logbuffer[LOGLEN], *logbase;
 	int loglen;
+	lng usec = GDKusec();
+	uint64_t microseconds = (uint64_t)startup_time.tv_sec*1000000 + (uint64_t)startup_time.tv_usec + (uint64_t)usec;
 
 	if (ATOMIC_GET(hbdelay, mal_beatLock) == 0 || eventstream  == NULL)
 		return;
@@ -456,8 +450,12 @@ profilerHeartbeatEvent(char *alter)
 
 	lognew();
 	logadd("{%s",prettify); // fill in later with the event counter
-	logadd("\"user\":\"heartbeat\",%s", prettify);
-	logadd("\"rss\":"SZFMT ",%s", MT_getrss()/1024/1024, prettify);
+	logadd("\"source\":\"heartbeat\",%s", prettify);
+	if(mal_session_uuid)
+		logadd("\"session\":\"%s\",%s", mal_session_uuid, prettify);
+	logadd("\"clk\":"LLFMT",%s",usec,prettify);
+	logadd("\"ctime\":%"PRIu64",%s", microseconds, prettify);
+	logadd("\"rss\":%zu,%s", MT_getrss()/1024/1024, prettify);
 #ifdef HAVE_SYS_RESOURCE_H
 	getrusage(RUSAGE_SELF, &infoUsage);
 	if(infoUsage.ru_inblock - prevUsage.ru_inblock)
@@ -473,7 +471,7 @@ profilerHeartbeatEvent(char *alter)
 	prevUsage = infoUsage;
 #endif
 	logadd("\"state\":\"%s\",%s",alter,prettify);
-	logadd("\"cpuload\":\"%s\",%s",cpuload,prettify);
+	logadd("\"cpuload\":%s%s",cpuload,prettify);
 	logadd("}\n"); // end marker
 	logjsonInternal(logbuffer);
 }
@@ -488,7 +486,7 @@ profilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str usrname)
 
 	if( sqlProfiling && !start )
 		cachedProfilerEvent(mb, stk, pci);
-		
+
 	if( eventstream) {
 		renderProfilerEvent(mb, stk, pci, start, usrname);
 		if ( start && pci->pc ==0)
@@ -500,7 +498,7 @@ profilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str usrname)
 
 /* The first scheme dumps the events
  * on a stream (and in the pool)
- * The mode encodes two flags: 
+ * The mode encodes two flags:
  * - showing all running instructions
  * - single line json
  */
@@ -525,13 +523,13 @@ openProfilerStream(stream *fd, int mode)
 		closeProfilerStream();
 	malProfileMode = -1;
 	eventstream = fd;
-	prettify = (mode & PROFSINGLELINE) ? " ": "\n";
+	prettify = (mode & PROFSINGLELINE) ? "": "\n";
 
 	/* show all in progress instructions for stethoscope startup */
 	if( (mode & PROFSHOWRUNNING) > 0){
 		for (i = 0; i < MAL_MAXCLIENTS; i++) {
 			c = mal_clients+i;
-			if ( c->active ) 
+			if ( c->active )
 				for(j = 0; j <THREADS; j++)
 				if( c->inprogress[j].mb)
 				/* show the event */
@@ -585,17 +583,23 @@ static int tracecounter = 0;
 str
 startTrace(str path)
 {
-	char buf[PATHLENGTH];
+	char buf[FILENAME_MAX];
 
 	if( path && eventstream == NULL){
 		// create a file to keep the events, unless we
 		// already have a profiler stream
 		MT_lock_set(&mal_profileLock );
 		if(eventstream == NULL && offlinestore ==0){
-			snprintf(buf,PATHLENGTH,"%s%c%s",GDKgetenv("gdk_dbname"), DIR_SEP, path);
-			(void) mkdir(buf,0755);
-			snprintf(buf,PATHLENGTH,"%s%c%s%ctrace_%d",GDKgetenv("gdk_dbname"), DIR_SEP, path,DIR_SEP,tracecounter++ % MAXTRACEFILES);
-			eventstream = open_wastream(buf);
+			snprintf(buf,FILENAME_MAX,"%s%c%s",GDKgetenv("gdk_dbpath"), DIR_SEP, path);
+			if (mkdir(buf, 0755) < 0 && errno != EEXIST) {
+				MT_lock_unset(&mal_profileLock);
+				throw(MAL, "profiler.startTrace", SQLSTATE(42000) "Failed to create directory %s", buf);
+			}
+			snprintf(buf,FILENAME_MAX,"%s%c%s%ctrace_%d",GDKgetenv("gdk_dbpath"), DIR_SEP, path,DIR_SEP,tracecounter++ % MAXTRACEFILES);
+			if((eventstream = open_wastream(buf)) == NULL) {
+				MT_lock_unset(&mal_profileLock );
+				throw(MAL,"profiler.startTrace", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			}
 			offlinestore++;
 		}
 		MT_lock_unset(&mal_profileLock );
@@ -616,7 +620,7 @@ stopTrace(str path)
 		offlinestore =0;
 	}
 	MT_lock_unset(&mal_profileLock );
-	
+
 	malProfileMode = eventstream != NULL;
 	sqlProfiling = FALSE;
 	return MAL_SUCCEED;
@@ -815,7 +819,7 @@ initTrace(void)
 		TRACE_id_minflt == NULL ||
 		TRACE_id_majflt == NULL ||
 		TRACE_id_nvcsw == NULL ||
-		TRACE_id_thread == NULL 
+		TRACE_id_thread == NULL
 	)
 		_cleanupProfiler();
 	else
@@ -857,7 +861,7 @@ cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str stmt, c;
 	lng clock;
 	lng rssMB = MT_getrss()/1024/1024;
-	lng tmpspace = pci->wbytes/1024/1024;
+	lng tmpspace = 0;
 	int errors = 0;
 
 	clock = GDKusec();
@@ -876,7 +880,7 @@ cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	stmt = instruction2str(mb, stk, pci, LIST_MAL_ALL);
 	c = stmt;
 
-	while (c && *c && (isspace((int)*c) || *c == '!'))
+	while (c && *c && (isspace((unsigned char)*c) || *c == '!'))
 		c++;
 
 #ifdef HAVE_SYS_RESOURCE_H
@@ -1007,42 +1011,6 @@ getDiskSpace(void)
 	return size;
 }
 
-//
-// Retrieve the io statistics for the complete process group
-// This information can only be obtained using root-permissions.
-//
-#ifdef GETIOSTAT
-static str getIOactivity(void){
-	Thread t,s;
-	FILE *fd;
-	char fnme[BUFSIZ], *buf;
-	int n,i=0;
-	size_t len=0;
-
-	buf= GDKzalloc(BUFSIZ);
-	if ( buf == NULL)
-		return 0;
-	buf[len++]='"';
-	//MT_lock_set(&GDKthreadLock);
-	for (t = GDKthreads, s = t + THREADS; t < s; t++, i++)
-		if (t->pid ){
-			(void) snprintf(fnme,BUFSIZ,"/proc/"SZFMT"/io",t->pid);
-			fd = fopen(fnme,"r");
-			if ( fd == NULL)
-				return buf;
-			(void) snprintf(buf+len, BUFSIZ-len-2,"thr %d ",i);
-			n = fread(buf+len, 1, BUFSIZ-len-2,fd);
-			(void) fclose(fd);
-			if (n == 0)
-				return buf;
-			// extract the properties
-			mnstr_printf(GDKout,"#got io stat:%s\n",buf);
-		 }
-	//MT_lock_unset(&GDKthreadLock);
-	buf[len++]='"';
-	return buf;
-}
-#endif
 
 void profilerGetCPUStat(lng *user, lng *nice, lng *sys, lng *idle, lng *iowait)
 {
@@ -1112,4 +1080,3 @@ void initHeartbeat(void)
 		ATOMIC_SET(hbrunning, 0, mal_beatLock);
 	}
 }
-

@@ -25,6 +25,7 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 	InstrPtr p;
 	str bufName, fcnName;
 
+	(void) cntxt;
 	(void) stk;
 	mod = VALget(&getVar(mb, getArg(pci, retc+0))->value);
 	fcn = VALget(&getVar(mb, getArg(pci, retc+1))->value);
@@ -56,7 +57,7 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 #endif
 
 	/* now see if we can resolve the instruction */
-	typeChecker(cntxt->fdout, scope,mb,p,TRUE);
+	typeChecker(scope,mb,p,TRUE);
 	if( p->typechk== TYPE_UNKNOWN) {
 #ifdef DEBUG_OPT_REMAP
 		fprintf(stderr,"#type error\n");
@@ -117,7 +118,7 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 	str msg;
 
 
-	s= findSymbol(cntxt->nspace, 
+	s= findSymbol(cntxt->usermodule, 
 			VALget(&getVar(mb, getArg(p, retc+0))->value),
 			VALget(&getVar(mb, getArg(p, retc+1))->value));
 
@@ -246,7 +247,7 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 
 					actions++;
 					/* now see if we can resolve the instruction */
-					typeChecker(cntxt->fdout, cntxt->nspace,mq,q,TRUE);
+					typeChecker(cntxt->usermodule,mq,q,TRUE);
 					if( q->typechk== TYPE_UNKNOWN)
 						goto terminateMX;
 					break;
@@ -262,7 +263,7 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 				
 					actions++;
 					q->typechk = TYPE_UNKNOWN;
-					typeChecker(cntxt->fdout, cntxt->nspace,mq,q,TRUE);
+					typeChecker(cntxt->usermodule,mq,q,TRUE);
 					if( q->typechk== TYPE_UNKNOWN)
 						goto terminateMX;
 					break;
@@ -365,16 +366,17 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	InstrPtr *old, p;
 	int i, limit, slimit, doit= 0;
-	Module scope = cntxt->nspace;
+	Module scope = cntxt->usermodule;
 	lng usec = GDKusec();
 	char buf[256];
+	str msg = MAL_SUCCEED;
 
 	(void) pci;
 	old = mb->stmt;
 	limit = mb->stop;
 	slimit = mb->ssize;
 	if ( newMalBlkStmt(mb, mb->ssize) < 0 )
-		throw(MAL,"optmizer.remap",MAL_MALLOC_FAIL);
+		throw(MAL,"optmizer.remap", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 	for (i = 0; i < limit; i++) {
 		p = old[i];
@@ -387,7 +389,7 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			 */
 			str mod = VALget(&getVar(mb, getArg(p, 1))->value);
 			str fcn = VALget(&getVar(mb, getArg(p, 2))->value);
-			Symbol s = findSymbol(cntxt->nspace, mod,fcn);
+			Symbol s = findSymbol(cntxt->usermodule, mod,fcn);
 
 			if (s && s->def->inlineProp ){
 #ifdef DEBUG_OPT_REMAP
@@ -411,8 +413,16 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			getModuleId(p) == aggrRef && 
 			getFunctionId(p) == avgRef) {
 			/* group aggr.avg -> aggr.sum/aggr.count */	
-			InstrPtr sum = copyInstruction(p), avg, t, iszero;
-			InstrPtr cnt = copyInstruction(p);
+			InstrPtr sum, avg,t, iszero;
+			InstrPtr cnt;
+			sum = copyInstruction(p);
+			if( sum == NULL)
+				throw(MAL, "remap", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			cnt = copyInstruction(p);
+			if( cnt == NULL){
+				freeInstruction(sum);
+				throw(MAL, "remap", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			}
 			setFunctionId(sum, sumRef);
 			setFunctionId(cnt, countRef);
 			getArg(sum,0) = newTmpVariable(mb, getArgType(mb, p, 1));
@@ -469,12 +479,12 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 
 	if (doit) 
-		chkTypes(cntxt->fdout, cntxt->nspace,mb,TRUE);
+		chkTypes(cntxt->usermodule,mb,TRUE);
     /* Defense line against incorrect plans */
-    if( mb->errors == 0 && doit > 0){
-        chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
-        chkFlow(cntxt->fdout, mb);
-        chkDeclarations(cntxt->fdout, mb);
+    if( mb->errors == MAL_SUCCEED && doit > 0){
+        chkTypes(cntxt->usermodule, mb, FALSE);
+        chkFlow(mb);
+        chkDeclarations(mb);
     }
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;
@@ -483,5 +493,5 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( doit >= 0)
 		addtoMalBlkHistory(mb);
 
-	return MAL_SUCCEED;
+	return msg;
 }

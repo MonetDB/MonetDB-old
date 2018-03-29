@@ -96,11 +96,13 @@ CMDvarADDstr(str *ret, str *s1, str *s2)
 
 	if (strNil(*s1) || strNil(*s2)) {
 		*ret= GDKstrdup(str_nil);
+		if (*ret == NULL)
+			return mythrow(MAL, "calc.+", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		return MAL_SUCCEED;
 	}
 	s = GDKzalloc((l1 = strlen(*s1)) + strlen(*s2) + 1);
 	if (s == NULL)
-		return mythrow(MAL, "calc.+", MAL_MALLOC_FAIL);
+		return mythrow(MAL, "calc.+", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	strcpy(s, *s1);
 	strcpy(s + l1, *s2);
 	*ret = s;
@@ -115,14 +117,16 @@ CMDvarADDstrint(str *ret, str *s1, int *i)
 	str s;
 	size_t len;
 
-	if (strNil(*s1) || *i == int_nil) {
+	if (strNil(*s1) || is_int_nil(*i)) {
 		*ret= GDKstrdup(str_nil);
+		if (*ret == NULL)
+			return mythrow(MAL, "calc.+", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		return MAL_SUCCEED;
 	}
 	len = strlen(*s1) + 16;		/* maxint = 2147483647 which fits easily */
 	s = GDKmalloc(len);
 	if (s == NULL)
-		return mythrow(MAL, "calc.+", MAL_MALLOC_FAIL);
+		return mythrow(MAL, "calc.+", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	snprintf(s, len, "%s%d", *s1, *i);
 	*ret = s;
 	return MAL_SUCCEED;
@@ -621,9 +625,9 @@ CALCswitchbit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (t1 != t2)
 		return mythrow(MAL, "ifthenelse", SEMANTIC_TYPE_MISMATCH);
 
-	if (b == bit_nil) {
+	if (is_bit_nil(b)) {
 		if (VALinit(&stk->stk[pci->argv[0]], t1, ATOMnilptr(t1)) == NULL)
-			return mythrow(MAL, "ifthenelse", MAL_MALLOC_FAIL);
+			return mythrow(MAL, "ifthenelse", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		return MAL_SUCCEED;
 	}
 	if (b) {
@@ -634,7 +638,7 @@ CALCswitchbit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (ATOMextern(t1)) {
 		*(ptr **) retval = ATOMdup(t1, *(ptr**)p);
 		if (*(ptr **) retval == NULL)
-			throw(MAL, "ifthenelse", MAL_MALLOC_FAIL);
+			throw(MAL, "ifthenelse", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	} else if (t1 == TYPE_void) {
 		memcpy(retval, p, sizeof(oid));
 	} else {
@@ -666,7 +670,7 @@ CALCmin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	else if (ATOMcmp(t, p1, p2) > 0)
 		p1 = p2;
 	if (VALinit(&stk->stk[getArg(pci, 0)], t, p1) == NULL)
-		return mythrow(MAL, "calc.min", MAL_MALLOC_FAIL);
+		return mythrow(MAL, "calc.min", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	return MAL_SUCCEED;
 }
 
@@ -692,7 +696,7 @@ CALCmin_no_nil(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		(ATOMcmp(t, p2, nil) != 0 && ATOMcmp(t, p1, p2) > 0))
 		p1 = p2;
 	if (VALinit(&stk->stk[getArg(pci, 0)], t, p1) == NULL)
-		return mythrow(MAL, "calc.min", MAL_MALLOC_FAIL);
+		return mythrow(MAL, "calc.min", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	return MAL_SUCCEED;
 }
 
@@ -719,7 +723,7 @@ CALCmax(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	else if (ATOMcmp(t, p1, p2) < 0)
 		p1 = p2;
 	if (VALinit(&stk->stk[getArg(pci, 0)], t, p1) == NULL)
-		return mythrow(MAL, "calc.max", MAL_MALLOC_FAIL);
+		return mythrow(MAL, "calc.max", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	return MAL_SUCCEED;
 }
 
@@ -745,7 +749,7 @@ CALCmax_no_nil(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		(ATOMcmp(t, p2, nil) != 0 && ATOMcmp(t, p1, p2) < 0))
 		p1 = p2;
 	if (VALinit(&stk->stk[getArg(pci, 0)], t, p1) == NULL)
-		return mythrow(MAL, "calc.max", MAL_MALLOC_FAIL);
+		return mythrow(MAL, "calc.max", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	return MAL_SUCCEED;
 }
 
@@ -762,7 +766,7 @@ CMDBATsumprod(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci,
 	gdk_return r;
 
 	if ((b = BATdescriptor(bid)) == NULL)
-		throw(MAL, func, RUNTIME_OBJECT_MISSING);
+		throw(MAL, func, SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 	if (pci->argc >= 3) {
 		if (getArgType(mb, pci, 2) == TYPE_bit) {
 			assert(pci->argc == 3);
@@ -771,7 +775,7 @@ CMDBATsumprod(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci,
 			bat sid = * getArgReference_bat(stk, pci, 2);
 			if ((s = BATdescriptor(sid)) == NULL) {
 				BBPunfix(b->batCacheid);
-				throw(MAL, func, RUNTIME_OBJECT_MISSING);
+				throw(MAL, func, SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 			}
 			if (pci->argc >= 4) {
 				assert(pci->argc == 4);
