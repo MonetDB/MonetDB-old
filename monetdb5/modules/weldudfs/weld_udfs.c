@@ -102,3 +102,101 @@ joinImpl(TYPE_int, i32);
 joinImpl(TYPE_oid, i64);
 joinImpl(TYPE_flt, f32);
 joinImpl(TYPE_dbl, f64);
+
+/* TODO - for now it only works for non string BATs */
+static void weldDifference(void *l, int ltype, void *r, int rtype, void *sl, void *sr, bit *nilmatches,
+					 lng *estimate, void *result) {
+	BAT *lbat = weldVecToBat(((WeldVec *)l)->data, ((WeldVec *)l)->length, ltype);
+	BAT *rbat = weldVecToBat(((WeldVec *)r)->data, ((WeldVec *)r)->length, rtype);
+	BAT *slbat =
+		sl == NULL ? NULL : weldVecToBat(((WeldVec *)sl)->data, ((WeldVec *)sl)->length, TYPE_oid);
+	BAT *srbat =
+		sr == NULL ? NULL : weldVecToBat(((WeldVec *)sr)->data, ((WeldVec *)sr)->length, TYPE_oid);
+	bat r1;
+	bat lid = lbat->batCacheid;
+	bat rid = rbat->batCacheid;
+	bat slid = slbat == NULL ? bat_nil : slbat->batCacheid;
+	bat srid = srbat == NULL ? bat_nil : srbat->batCacheid;
+	ALGdifference(&r1, &lid, &rid, &slid, &srid, nilmatches, estimate);
+
+	/* Tell gdk not to free weld's data */
+	lbat->theap.base = NULL;
+	rbat->theap.base = NULL;
+	if (slbat != NULL) slbat->theap.base = NULL;
+	if (srbat != NULL) srbat->theap.base = NULL;
+
+	BAT *r1bat = BATdescriptor(r1);
+	r1bat = replaceDenseBat(r1bat, TYPE_oid);
+
+	/* result is a pointer to a struct with 1 weld vector and 1 int */
+	char *resultPtr = result;
+	getOrSetStructMember(&resultPtr, TYPE_ptr, &r1bat->theap.base, OP_SET);
+	getOrSetStructMember(&resultPtr, TYPE_lng, &r1bat->batCount, OP_SET);
+	getOrSetStructMember(&resultPtr, TYPE_bat, &r1bat->batCacheid, OP_SET);
+}
+
+#define differenceImpl(MTYPE, WTYPE)                                                               \
+	mal_export void weldDifferenceNoCandList##WTYPE(                                               \
+		WeldVec##WTYPE *l, WeldVec##WTYPE *r, bit *nilmatches, lng *estimate, void *result) {      \
+		weldDifference(l, MTYPE, r, MTYPE, NULL, NULL, nilmatches, estimate, result);              \
+	}                                                                                              \
+	mal_export void weldDifference##WTYPE(WeldVec##WTYPE *l, WeldVec##WTYPE *r,                    \
+										  WeldVec##WTYPE *sl, WeldVec##WTYPE *sr, bit *nilmatches, \
+										  lng *estimate, void *result) {                           \
+		weldDifference(l, MTYPE, r, MTYPE, sl, sr, nilmatches, estimate, result);                  \
+	}
+
+differenceImpl(TYPE_bte, i8);
+differenceImpl(TYPE_int, i32);
+differenceImpl(TYPE_oid, i64);
+differenceImpl(TYPE_flt, f32);
+differenceImpl(TYPE_dbl, f64);
+
+/* TODO - for now it only works for non string BATs */
+static void weldIntersect(void *l, int ltype, void *r, int rtype, void *sl, void *sr, bit *nilmatches,
+					 lng *estimate, void *result) {
+	BAT *lbat = weldVecToBat(((WeldVec *)l)->data, ((WeldVec *)l)->length, ltype);
+	BAT *rbat = weldVecToBat(((WeldVec *)r)->data, ((WeldVec *)r)->length, rtype);
+	BAT *slbat =
+		sl == NULL ? NULL : weldVecToBat(((WeldVec *)sl)->data, ((WeldVec *)sl)->length, TYPE_oid);
+	BAT *srbat =
+		sr == NULL ? NULL : weldVecToBat(((WeldVec *)sr)->data, ((WeldVec *)sr)->length, TYPE_oid);
+	bat r1;
+	bat lid = lbat->batCacheid;
+	bat rid = rbat->batCacheid;
+	bat slid = slbat == NULL ? bat_nil : slbat->batCacheid;
+	bat srid = srbat == NULL ? bat_nil : srbat->batCacheid;
+	ALGintersect(&r1, &lid, &rid, &slid, &srid, nilmatches, estimate);
+
+	/* Tell gdk not to free weld's data */
+	lbat->theap.base = NULL;
+	rbat->theap.base = NULL;
+	if (slbat != NULL) slbat->theap.base = NULL;
+	if (srbat != NULL) srbat->theap.base = NULL;
+
+	BAT *r1bat = BATdescriptor(r1);
+	r1bat = replaceDenseBat(r1bat, TYPE_oid);
+
+	/* result is a pointer to a struct with 1 weld vector and 1 int */
+	char *resultPtr = result;
+	getOrSetStructMember(&resultPtr, TYPE_ptr, &r1bat->theap.base, OP_SET);
+	getOrSetStructMember(&resultPtr, TYPE_lng, &r1bat->batCount, OP_SET);
+	getOrSetStructMember(&resultPtr, TYPE_bat, &r1bat->batCacheid, OP_SET);
+}
+
+#define intersectImpl(MTYPE, WTYPE)                                                                \
+	mal_export void weldIntersectNoCandList##WTYPE(WeldVec##WTYPE *l, WeldVec##WTYPE *r,           \
+												   bit *nilmatches, lng *estimate, void *result) { \
+		weldIntersect(l, MTYPE, r, MTYPE, NULL, NULL, nilmatches, estimate, result);               \
+	}                                                                                              \
+	mal_export void weldIntersect##WTYPE(WeldVec##WTYPE *l, WeldVec##WTYPE *r, WeldVec##WTYPE *sl, \
+										 WeldVec##WTYPE *sr, bit *nilmatches, lng *estimate,       \
+										 void *result) {                                           \
+		weldIntersect(l, MTYPE, r, MTYPE, sl, sr, nilmatches, estimate, result);                   \
+	}
+
+intersectImpl(TYPE_bte, i8);
+intersectImpl(TYPE_int, i32);
+intersectImpl(TYPE_oid, i64);
+intersectImpl(TYPE_flt, f32);
+intersectImpl(TYPE_dbl, f64);

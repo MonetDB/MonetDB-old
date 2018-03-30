@@ -800,6 +800,13 @@ WeldBatcalcBinary(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc
 }
 
 str
+WeldBatcalcANDsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	return WeldBatcalcBinary(mb, stk, pci, "&", "weld.batcalcadd");
+}
+
+str
 WeldBatcalcADDsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
@@ -1299,6 +1306,78 @@ WeldAlgebraJoin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	leftRet, leftRet, leftRet, rightRet, rightRet, rightRet);
 	wstate->cudfOutputs[leftRet] = 1;
 	wstate->cudfOutputs[rightRet] = 1;
+	appendWeldStmt(wstate, weldStmt);
+	return MAL_SUCCEED;
+}
+
+str
+WeldAlgebraDifference(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	int ret = getArg(pci, 0);										   /* bat[:oid] */
+	int left = getArg(pci, 1);										   /* bat[:any_1] */
+	int right = getArg(pci, 2);										   /* bat[:any_1] */
+	int sleft = getArg(pci, 3);										   /* bat[:oid] */
+	int sright = getArg(pci, 4);									   /* bat[:oid] */
+	int nilMatches = getArg(pci, 5);								   /* bit */
+	int estimate = getArg(pci, 6);									   /* lng */
+	weldState *wstate = *getArgReference_ptr(stk, pci, pci->argc - 1); /* has value */
+
+	str any_1 = getWeldType(getBatType(getArgType(mb, pci, 1)));
+	bat sleftBat = *getArgReference_bat(stk, pci, 3);
+	bat srightBat = *getArgReference_bat(stk, pci, 4);
+	char weldStmt[STR_SIZE_INC];
+	if (is_bat_nil(sleftBat) && is_bat_nil(srightBat)) {
+		sprintf(weldStmt,
+		"let diffResult = cudf[weldDifferenceNoCandList%s, {vec[i64], i32}](v%d, v%d, v%d, v%d);",
+		any_1, left, right, nilMatches, estimate);
+	} else {
+		sprintf(weldStmt,
+		"let diffResult = cudf[weldDifference%s, {vec[i64], i32}](v%d, v%d, v%d, v%d, v%d, v%d);",
+		any_1, left, right, sleft, sright, nilMatches, estimate);
+	}
+	sprintf(weldStmt + strlen(weldStmt),
+	"let v%d = diffResult.$0;"
+	"let v%dbat = diffResult.$1;"
+	"let v%dhseqbase = 0L;",
+	ret, ret, ret);
+	wstate->cudfOutputs[ret] = 1;
+	appendWeldStmt(wstate, weldStmt);
+	return MAL_SUCCEED;
+}
+
+str
+WeldAlgebraIntersect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	int ret = getArg(pci, 0);										   /* bat[:oid] */
+	int left = getArg(pci, 1);										   /* bat[:any_1] */
+	int right = getArg(pci, 2);										   /* bat[:any_1] */
+	int sleft = getArg(pci, 3);										   /* bat[:oid] */
+	int sright = getArg(pci, 4);									   /* bat[:oid] */
+	int nilMatches = getArg(pci, 5);								   /* bit */
+	int estimate = getArg(pci, 6);									   /* lng */
+	weldState *wstate = *getArgReference_ptr(stk, pci, pci->argc - 1); /* has value */
+
+	str any_1 = getWeldType(getBatType(getArgType(mb, pci, 1)));
+	bat sleftBat = *getArgReference_bat(stk, pci, 3);
+	bat srightBat = *getArgReference_bat(stk, pci, 4);
+	char weldStmt[STR_SIZE_INC];
+	if (is_bat_nil(sleftBat) && is_bat_nil(srightBat)) {
+		sprintf(weldStmt,
+		"let interResult = cudf[weldIntersectNoCandList%s, {vec[i64], i32}](v%d, v%d, v%d, v%d);",
+		any_1, left, right, nilMatches, estimate);
+	} else {
+		sprintf(weldStmt,
+		"let interResult = cudf[weldIntersect%s, {vec[i64], i32}](v%d, v%d, v%d, v%d, v%d, v%d);",
+		any_1, left, right, sleft, sright, nilMatches, estimate);
+	}
+	sprintf(weldStmt + strlen(weldStmt),
+	"let v%d = interResult.$0;"
+	"let v%dbat = interResult.$1;"
+	"let v%dhseqbase = 0L;",
+	ret, ret, ret);
+	wstate->cudfOutputs[ret] = 1;
 	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
 }

@@ -18,20 +18,39 @@ typedef struct {
 	lng length;
 } WeldVec;
 
-#define joinStructAndFunc(CTYPE, WTYPE)                                                       \
-	typedef struct {                                                                          \
-		CTYPE *data;                                                                          \
-		lng length;                                                                           \
-	} WeldVec##WTYPE;                                                                         \
-	mal_export void weldJoinNoCandList##WTYPE(WeldVec##WTYPE *l, WeldVec##WTYPE *r,           \
-											  bit *nilmatches, lng *estimate, void *result);  \
-	mal_export void weldJoin##WTYPE(WeldVec##WTYPE *l, WeldVec##WTYPE *r, WeldVec##WTYPE *sl, \
-									WeldVec##WTYPE *sr, bit *nilmatches, lng *estimate,       \
-									void *result);
-joinStructAndFunc(bte, i8);
-joinStructAndFunc(int, i32);
-joinStructAndFunc(void, i64);
-joinStructAndFunc(flt, f32);
-joinStructAndFunc(dbl, f64);
+#define structDef(CTYPE, WTYPE) \
+	typedef struct {            \
+		CTYPE *data;            \
+		lng length;             \
+	} WeldVec##WTYPE;
+
+#define funcDef(WTYPE)                                                                             \
+	mal_export void weldJoinNoCandList##WTYPE(WeldVec##WTYPE *l, WeldVec##WTYPE *r,                \
+											  bit *nilmatches, lng *estimate, void *result);       \
+	mal_export void weldJoin##WTYPE(WeldVec##WTYPE *l, WeldVec##WTYPE *r, WeldVec##WTYPE *sl,      \
+									WeldVec##WTYPE *sr, bit *nilmatches, lng *estimate,            \
+									void *result);                                                 \
+	mal_export void weldDifferenceNoCandList##WTYPE(WeldVec##WTYPE *l, WeldVec##WTYPE *r,          \
+													bit *nilmatches, lng *estimate, void *result); \
+	mal_export void weldDifference##WTYPE(WeldVec##WTYPE *l, WeldVec##WTYPE *r,                    \
+										  WeldVec##WTYPE *sl, WeldVec##WTYPE *sr, bit *nilmatches, \
+										  lng *estimate, void *result);                            \
+	mal_export void weldIntersectNoCandList##WTYPE(WeldVec##WTYPE *l, WeldVec##WTYPE *r,           \
+												   bit *nilmatches, lng *estimate, void *result);  \
+	mal_export void weldIntersect##WTYPE(WeldVec##WTYPE *l, WeldVec##WTYPE *r, WeldVec##WTYPE *sl, \
+										 WeldVec##WTYPE *sr, bit *nilmatches, lng *estimate,       \
+										 void *result);
+
+structDef(bte, i8);
+structDef(int, i32);
+structDef(lng, i64);
+structDef(flt, f32);
+structDef(dbl, f64);
+
+funcDef(i8);
+funcDef(i32);
+funcDef(i64);
+funcDef(f32);
+funcDef(f64);
 
 #endif

@@ -123,6 +123,14 @@ pattern algebrajoin(l:bat[:any_1], r:bat[:any_1], sl:bat[:oid], sr:bat[:oid], ni
 address WeldAlgebraJoin
 comment "algebra.join"
 
+pattern algebradifference(l:bat[:any_1], r:bat[:any_1], sl:bat[:oid], sr:bat[:oid], nil_matches:bit, estimate:lng, wstate:ptr):bat[:oid]
+address WeldAlgebraDifference
+comment "algebra.difference";
+
+pattern algebraintersect(l:bat[:any_1], r:bat[:any_1], sl:bat[:oid], sr:bat[:oid], nil_matches:bit, estimate:lng, wstate:ptr):bat[:oid]
+address WeldAlgebraIntersect
+comment "algebra.intersect";
+
 EOF
 
 for tp in ${numeric[@]}; do
@@ -177,7 +185,7 @@ EOF
     done
 done
 
-for func in batcalclt:LT batcalcle:LE batcalceq:EQ batcalcgt:GT batcalcge:GE batcalcne:NE; do
+for func in batcalclt:LT batcalcle:LE batcalceq:EQ batcalcgt:GT batcalcge:GE batcalcne:NE batcalcand:AND; do
     name=${func#*:}
     op=${func%:*}
 	cat <<EOF
