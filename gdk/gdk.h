@@ -741,8 +741,9 @@ typedef struct {
 	 descdirty:1,		/* bat descriptor dirty marker */
 	 restricted:2,		/* access privileges */
 	 persistence:1,		/* should the BAT persist on disk? */
+	 iscand:1,		/* BAT is a candidate list */
 	 role:8,		/* role of the bat */
-	 unused:17;		/* value=0 for now (sneakily used by mat.c) */
+	 unused:16;		/* value=0 for now (sneakily used by mat.c) */
 	int sharecnt;		/* incoming view count */
 
 	/* delta status administration */
@@ -822,6 +823,7 @@ typedef struct BATiter {
 #define batCapacity	S.capacity
 #define batSharecnt	S.sharecnt
 #define batRestricted	S.restricted
+#define batIscand	S.iscand
 #define batRole		S.role
 #define creator_tid	S.tid
 #define ttype		T.type
@@ -2761,6 +2763,7 @@ gdk_export BAT *BATslice(BAT *b, BUN low, BUN high);
 
 gdk_export BAT *BATunique(BAT *b, BAT *s);
 
+gdk_export BAT *BATfixcand(BAT *bn);
 gdk_export BAT *BATmergecand(BAT *a, BAT *b);
 gdk_export BAT *BATintersectcand(BAT *a, BAT *b);
 

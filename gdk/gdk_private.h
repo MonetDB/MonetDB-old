@@ -215,8 +215,6 @@ __hidden void VIEWdestroy(BAT *b)
 __hidden gdk_return VIEWreset(BAT *b)
 	__attribute__((__warn_unused_result__))
 	__attribute__((__visibility__("hidden")));
-__hidden BAT *virtualize(BAT *bn)
-	__attribute__((__visibility__("hidden")));
 __hidden bool binsearchcand(const oid *cand, BUN lo, BUN hi, oid v)
 	__attribute__((__visibility__("hidden")));
 __hidden void gdk_bbp_reset(void)

@@ -14976,6 +14976,7 @@ Ready.
 [ "remote",	"batbincopy",	"pattern remote.batbincopy():bat[:any] ",	"RMTbincopyfrom;",	"store the binary BAT data in the BBP and return as BAT"	]
 [ "remote",	"batbincopy",	"pattern remote.batbincopy(b:bat[:any]):void ",	"RMTbincopyto;",	"dump BAT b in binary form to the stream"	]
 [ "remote",	"batload",	"pattern remote.batload(tt:any_1, size:int):bat[:any_1] ",	"RMTbatload;",	"create a BAT of the given type and size, and load values from the input stream"	]
+[ "remote",	"batload",	"pattern remote.batload(tt:any_1, size:int, iscand:bit):bat[:any_1] ",	"RMTbatload;",	"create a BAT of the given type and size, and load values from the input stream"	]
 [ "remote",	"bintype",	"pattern remote.bintype():void ",	"RMTbintype;",	"print the binary type of this mserver5"	]
 [ "remote",	"connect",	"command remote.connect(uri:str, user:str, passwd:str):str ",	"RMTconnect;",	"returns a newly created connection for uri, using user name and password"	]
 [ "remote",	"connect",	"command remote.connect(uri:str, user:str, passwd:str, scen:str):str ",	"RMTconnectScen;",	"returns a newly created connection for uri, using user name, password and scenario"	]

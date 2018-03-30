@@ -74,6 +74,8 @@
 static gdk_return
 joinparamcheck(BAT *l, BAT *r1, BAT *r2, BAT *sl, BAT *sr, const char *func)
 {
+	assert(sl == NULL || sl->batIscand || BATcount(sl) == 0);
+	assert(sr == NULL || sr->batIscand || BATcount(sr) == 0);
 	if (ATOMtype(l->ttype) != ATOMtype(r1->ttype) ||
 	    (r2 && ATOMtype(l->ttype) != ATOMtype(r2->ttype))) {
 		GDKerror("%s: inputs not compatible.\n", func);
@@ -232,11 +234,9 @@ nomatch(BAT *r1, BAT *r2, BAT *l, BAT *r, BUN lstart, BUN lend,
 		r2->tnonil = true;
 	}
 	if (lstart == lend || !(nil_on_miss | only_misses)) {
-		virtualize(r1);
 		r1->trevsorted = true;
 		r1->tnorevsorted = 0;
 		if (r2) {
-			virtualize(r2);
 			r2->trevsorted = true;
 			r2->tnorevsorted = 0;
 		}
@@ -900,10 +900,6 @@ mergejoin_void(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 		}
 	}
   doreturn:
-	if (r1->tkey)
-		virtualize(r1);
-	if (r2 && r2->tkey && r2->tsorted)
-		virtualize(r2);
 	ALGODEBUG fprintf(stderr, "#mergejoin_void(l=%s,r=%s)=(%s#"BUNFMT"%s%s%s%s,%s#"BUNFMT"%s%s%s%s) " LLFMT "us\n",
 			  BATgetId(l), BATgetId(r),
 			  BATgetId(r1), BATcount(r1),
@@ -3761,7 +3757,6 @@ fetchjoin(BAT *r1, BAT *r2, BAT *l, BAT *r)
 		r2->tsorted = true;
 		r2->trevsorted = e - b <= 1;
 		r2->tseqbase = e == b ? 0 : r->hseqbase + b;
-		virtualize(r2);
 	}
 	if (BATextend(r1, e - b) != GDK_SUCCEED)
 		goto bailout;
@@ -3868,8 +3863,7 @@ BATouterjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_mat
 
 /* Perform a semi-join over l and r.  Returns one or two new, bats
  * with the oids of matching tuples.  The result is in the same order
- * as l (i.e. r1 is sorted).  If a single bat is returned, it is a
- * candidate list. */
+ * as l (i.e. r1 is sorted). */
 gdk_return
 BATsemijoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate)
 {
@@ -3888,7 +3882,7 @@ BATintersect(BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate)
 	if (leftjoin(&bn, NULL, l, r, sl, sr, nil_matches,
 		     false, true, false, estimate, "BATintersect",
 		     GDKdebug & ALGOMASK ? GDKusec() : 0) == GDK_SUCCEED)
-		return virtualize(bn);
+		return BATfixcand(bn);
 	return NULL;
 }
 
@@ -3903,7 +3897,7 @@ BATdiff(BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate)
 	if (leftjoin(&bn, NULL, l, r, sl, sr, nil_matches,
 		     false, false, true, estimate, "BATdiff",
 		     GDKdebug & ALGOMASK ? GDKusec() : 0) == GDK_SUCCEED)
-		return virtualize(bn);
+		return BATfixcand(bn);
 	return NULL;
 }
 

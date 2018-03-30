@@ -57,7 +57,7 @@ BATunique(BAT *b, BAT *s)
 				return NULL;
 			bn = BATproject(b, s);
 			BBPunfix(b->batCacheid);
-			return virtualize(bn);
+			return BATfixcand(bn);
 		}
 		/* we can return all values */
 		ALGODEBUG fprintf(stderr, "#BATunique(b=%s#" BUNFMT ",s=NULL): trivial case: already unique, return all\n",
@@ -104,7 +104,7 @@ BATunique(BAT *b, BAT *s)
 		nr = BATproject(r, s);
 		BBPunfix(nb->batCacheid);
 		BBPunfix(r->batCacheid);
-		return virtualize(nr);
+		return BATfixcand(nr);
 	}
 
 	assert(b->ttype != TYPE_void);
@@ -356,7 +356,7 @@ BATunique(BAT *b, BAT *s)
 	bn->tkey = 1;
 	bn->tnil = 0;
 	bn->tnonil = 1;
-	return virtualize(bn);
+	return BATfixcand(bn);
 
   bunins_failed:
 	if (seen)

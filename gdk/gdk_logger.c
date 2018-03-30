@@ -671,6 +671,7 @@ la_bat_create(logger *lg, logaction *la)
 	if (la->tt < 0)
 		BATtseqbase(b, 0);
 
+
 	if (BATsetaccess(b, BAT_READ) != GDK_SUCCEED ||
 	    logger_add_bat(lg, b, la->name) != GDK_SUCCEED)
 		return GDK_FAIL;
@@ -1291,9 +1292,9 @@ bm_tids(BAT *b, BAT *d)
 	if (BATcount(d)) {
 		BAT *diff = BATdiff(tids, d, NULL, NULL, 0, BUN_NONE);
 		logbat_destroy(tids);
-		tids = diff;
+		return diff;
 	}
-	return tids;
+	return BATfixcand(tids);
 }
 
 

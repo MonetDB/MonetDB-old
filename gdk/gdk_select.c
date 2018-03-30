@@ -31,34 +31,43 @@
 	} while (false)
 
 BAT *
-virtualize(BAT *bn)
+BATfixcand(BAT *bn)
 {
-	/* input must be a valid candidate list or NULL */
-	assert(bn == NULL ||
-	       (((bn->ttype == TYPE_void && !is_oid_nil(bn->tseqbase)) ||
-		 bn->ttype == TYPE_oid) &&
-		bn->tkey && bn->tsorted));
-	/* since bn has unique and strictly ascending values, we can
-	 * easily check whether the column is dense */
-	if (bn && bn->ttype == TYPE_oid &&
-	    (BATcount(bn) <= 1 ||
-	     * (const oid *) Tloc(bn, 0) + BATcount(bn) - 1 ==
-	     * (const oid *) Tloc(bn, BUNlast(bn) - 1))) {
-		/* column is dense, replace by virtual oid */
-		ALGODEBUG fprintf(stderr, "#virtualize(bn=%s#"BUNFMT",seq="OIDFMT")\n",
-				  BATgetId(bn), BATcount(bn),
-				  BATcount(bn) > 0 ? * (const oid *) Tloc(bn, 0) : 0);
-		if (BATcount(bn) == 0)
+	/* input must be a potential valid candidate list (or NULL) */
+	if (bn) {
+		assert(ATOMtype(bn->ttype) == TYPE_oid);
+		assert(bn->ttype != TYPE_void || !is_oid_nil(bn->tseqbase) || bn->batCount == 0);
+		assert(bn->tsorted);
+		assert(bn->tkey);
+		assert(bn->tnonil);
+
+		bn->batIscand = true;
+		if (bn->ttype != TYPE_void) {
+			/* since bn has unique and strictly ascending
+			 * values, we can easily check whether it is
+			 * dense */
+			if (BATcount(bn) <= 1 ||
+			    * (const oid *) Tloc(bn, 0) + BATcount(bn) - 1 ==
+			    * (const oid *) Tloc(bn, BUNlast(bn) - 1)) {
+				/* bat is dense, replace by virtual oid */
+				ALGODEBUG fprintf(stderr, "#BATfixcand(bn=%s#"BUNFMT",seq="OIDFMT")\n",
+						  BATgetId(bn), BATcount(bn),
+						  BATcount(bn) > 0 ? * (const oid *) Tloc(bn, 0) : 0);
+				if (BATcount(bn) == 0)
+					bn->tseqbase = 0;
+				else
+					bn->tseqbase = * (const oid *) Tloc(bn, 0);
+				HEAPfree(&bn->theap, 1);
+				bn->theap.storage = bn->theap.newstorage = STORE_MEM;
+				bn->theap.size = 0;
+				bn->ttype = TYPE_void;
+				bn->tvarsized = true;
+				bn->twidth = 0;
+				bn->tshift = 0;
+			}
+		} else if (bn->batCount == 0 && is_oid_nil(bn->tseqbase)) {
 			bn->tseqbase = 0;
-		else
-			bn->tseqbase = * (const oid *) Tloc(bn, 0);
-		HEAPfree(&bn->theap, 1);
-		bn->theap.storage = bn->theap.newstorage = STORE_MEM;
-		bn->theap.size = 0;
-		bn->ttype = TYPE_void;
-		bn->tvarsized = true;
-		bn->twidth = 0;
-		bn->tshift = 0;
+		}
 	}
 
 	return bn;
@@ -74,7 +83,7 @@ doublerange(oid l1, oid h1, oid l2, oid h2)
 	assert(l2 <= h2);
 	assert(h1 <= l2);
 	if (l1 == h1 || l2 == h2) {
-		return BATdense(0, l1 == h1 ? l2 : l1, h1 - l1 + h2 - l2);
+		return BATfixcand(BATdense(0, l1 == h1 ? l2 : l1, h1 - l1 + h2 - l2));
 	}
 	bn = COLnew(0, TYPE_oid, h1 - l1 + h2 - l2, TRANSIENT);
 	if (bn == NULL)
@@ -88,9 +97,9 @@ doublerange(oid l1, oid h1, oid l2, oid h2)
 	bn->tkey = true;
 	bn->tsorted = true;
 	bn->trevsorted = BATcount(bn) <= 1;
-	bn->tnil = false;
+	bn->tnil = 0;
 	bn->tnonil = true;
-	return bn;
+	return BATfixcand(bn);
 }
 
 static BAT *
@@ -122,9 +131,9 @@ doubleslice(BAT *b, BUN l1, BUN h1, BUN l2, BUN h2)
 	bn->tkey = true;
 	bn->tsorted = true;
 	bn->trevsorted = BATcount(bn) <= 1;
-	bn->tnil = false;
+	bn->tnil = 0;
 	bn->tnonil = true;
-	return virtualize(bn);
+	return BATfixcand(bn);
 }
 
 #define HASHloop_bound(bi, h, hb, v, lo, hi)		\
@@ -1123,7 +1132,7 @@ BAT_scanselect(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 				if (!li) {				\
 					/* open range on left */	\
 					if (*(TYPE*)tl == MAXVALUE##TYPE) \
-						return BATdense(0, 0, 0); \
+						return BATfixcand(BATdense(0, 0, 0)); \
 					/* vl < x === vl+1 <= x */	\
 					vl.v_##TYPE = NEXTVALUE##TYPE(*(TYPE*)tl); \
 					li = true;			\
@@ -1141,7 +1150,7 @@ BAT_scanselect(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 				if (!hi) {				\
 					/* open range on right */	\
 					if (*(TYPE*)th == MINVALUE##TYPE) \
-						return BATdense(0, 0, 0); \
+						return BATfixcand(BATdense(0, 0, 0)); \
 					/* x < vh === x <= vh-1 */	\
 					vh.v_##TYPE = PREVVALUE##TYPE(*(TYPE*)th); \
 					hi = true;			\
@@ -1155,7 +1164,7 @@ BAT_scanselect(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 				hval = true;				\
 			}						\
 			if (*(TYPE*)tl > *(TYPE*)th)			\
-				return BATdense(0, 0, 0);		\
+				return BATfixcand(BATdense(0, 0, 0));	\
 		}							\
 		assert(lval);						\
 		assert(hval);						\
@@ -1200,6 +1209,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 	BATcheck(tl, "BATselect: tl value required", NULL);
 
 	assert(s == NULL || s->ttype == TYPE_oid || s->ttype == TYPE_void);
+	assert(s == NULL || s->batIscand || BATcount(s) == 0);
 	assert(hi == 0 || hi == 1);
 	assert(li == 0 || li == 1);
 	assert(anti == 0 || anti == 1);
@@ -1228,7 +1238,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
 				  s && BATtdense(s) ? "(dense)" : "", anti);
-		return BATdense(0, 0, 0);
+		return BATfixcand(BATdense(0, 0, 0));
 	}
 
 	t = b->ttype;
@@ -1247,7 +1257,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 				  s ? BATgetId(s) : "NULL",
 				  s && BATtdense(s) ? "(dense)" : "",
 				  li, hi, anti);
-		return BATdense(0, 0, 0);
+		return BATfixcand(BATdense(0, 0, 0));
 	}
 
 	lval = !lnil || th == NULL;	 /* low value used for comparison */
@@ -1297,7 +1307,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 					  s ? BATgetId(s) : "NULL",
 					  s && BATtdense(s) ? "(dense)" : "",
 					  anti);
-			return BATdense(0, 0, 0);
+			return BATfixcand(BATdense(0, 0, 0));
 		} else if (equi && lnil) {
 			/* antiselect for nil value: turn into range
 			 * select for nil-nil range (i.e. everything
@@ -1352,7 +1362,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
 				  s && BATtdense(s) ? "(dense)" : "", anti);
-		return BATdense(0, 0, 0);
+		return BATfixcand(BATdense(0, 0, 0));
 	}
 	if (equi && lnil && b->tnonil) {
 		/* return all nils, but there aren't any */
@@ -1361,7 +1371,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
 				  s && BATtdense(s) ? "(dense)" : "", anti);
-		return BATdense(0, 0, 0);
+		return BATfixcand(BATdense(0, 0, 0));
 	}
 
 	if (!equi && !lval && !hval && lnil && b->tnonil) {
@@ -1376,10 +1386,11 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 			oid o = b->hseqbase + BATcount(b);
 			BUN q = SORTfndfirst(s, &o);
 			BUN p = SORTfndfirst(s, &b->hseqbase);
-			return BATslice(s, p, q);
+			bn = BATslice(s, p, q);
 		} else {
-			return BATdense(0, b->hseqbase, BATcount(b));
+			bn = BATdense(0, b->hseqbase, BATcount(b));
 		}
+		return BATfixcand(bn);
 	}
 
 	if (ATOMtype(b->ttype) == TYPE_oid) {
@@ -1529,7 +1540,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 			}
 		} else {
 			assert(use_orderidx);
-			ALGODEBUG fprintf(stderr, "#BATsubselect(b=%s#" BUNFMT
+			ALGODEBUG fprintf(stderr, "#BATselect(b=%s#" BUNFMT
 					  ",s=%s%s,anti=%d): orderidx\n",
 					  BATgetId(b), BATcount(b),
 					  s ? BATgetId(s) : "NULL",
@@ -1631,8 +1642,9 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 				bn->trevsorted = bn->batCount <= 1;
 				bn->tkey = true;
 				bn->tseqbase = bn->batCount == 0 ? 0 : bn->batCount == 1 ? * (oid *) Tloc(bn, 0) : oid_nil;
-				bn->tnil = false;
-				bn->tnonil = true;
+				bn->tnil = 0;
+				bn->tnonil = 1;
+				bn = BATfixcand(bn);
 				if (s) {
 					s = BATintersectcand(bn, s);
 					BBPunfix(bn->batCacheid);
@@ -1653,7 +1665,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 				}
 			}
 		}
-		return virtualize(bn);
+		return bn;
 	}
 
 	/* upper limit for result size */
@@ -1815,7 +1827,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 				    lval, hval, maximum, use_imprints);
 	}
 
-	return virtualize(bn);
+	return BATfixcand(bn);
 }
 
 /* theta select
@@ -1844,7 +1856,7 @@ BATthetaselect(BAT *b, BAT *s, const void *val, const char *op)
 
 	nil = ATOMnilptr(b->ttype);
 	if (ATOMcmp(b->ttype, val, nil) == 0)
-		return BATdense(0, 0, 0);
+		return BATfixcand(BATdense(0, 0, 0));
 	if (op[0] == '=' && ((op[1] == '=' && op[2] == 0) || op[1] == 0)) {
 		/* "=" or "==" */
 		return BATselect(b, s, val, NULL, 1, 1, 0);

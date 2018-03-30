@@ -341,7 +341,8 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int 
 		const oid *candlist;
 		BUN r;
 
-		assert(s->ttype == TYPE_oid || s->ttype == TYPE_void);
+		assert(ATOMtype(s->ttype) == TYPE_oid);
+		assert(s->batIscand);
 		assert(s->tsorted);
 		assert(s->tkey);
 		/* setup candscanloop loop vars to only iterate over
@@ -388,7 +389,7 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int 
 	bn->trevsorted = bn->batCount <= 1;
 	bn->tkey = 1;
 	bn->tseqbase = bn->batCount == 0 ? 0 : bn->batCount == 1 ? * (oid *) Tloc(bn, 0) : oid_nil;
-	*bnp = bn;
+	*bnp = BATfixcand(bn);
 	return MAL_SUCCEED;
 
   bunins_failed:
@@ -432,7 +433,8 @@ re_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int an
 		const oid *candlist;
 		BUN r;
 
-		assert(s->ttype == TYPE_oid || s->ttype == TYPE_void);
+		assert(ATOMtype(s->ttype) == TYPE_oid);
+		assert(s->batIscand);
 		assert(s->tsorted);
 		assert(s->tkey);
 		/* setup candscanloop loop vars to only iterate over
@@ -526,7 +528,7 @@ re_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int an
 	bn->trevsorted = bn->batCount <= 1;
 	bn->tkey = 1;
 	bn->tseqbase = bn->batCount == 0 ? 0 : bn->batCount == 1 ? * (oid *) Tloc(bn, 0) : oid_nil;
-	*bnp = bn;
+	*bnp = BATfixcand(bn);
 	re_destroy(re);
 	return MAL_SUCCEED;
 

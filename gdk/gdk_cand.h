@@ -6,7 +6,25 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
  */
 
-/* This macro initializes the variables start, end, cnt, cand, and
+/* A candidate list is a bat of type oid (or void with non-nil
+ * tseqbase) whose values are strictly increasing.  I.e., there are no
+ * duplicate values, and the list is ordered.  The following
+ * properties must be true: tkey, tnonil, tsorted, batIscand.
+ *
+ * The following functions return a candidate list:
+ * BATdiff
+ * BATfirstn
+ * BATintersect
+ * BATintersectcand
+ * BATmergecand
+ * BATproject -- only if both inputs are candidate lists
+ * BATprojectchain -- only if all inputs are candidate lists
+ * BATsample
+ * BATselect
+ * BATthetaselect
+ * BATunique
+ *
+ * This macro initializes the variables start, end, cnt, cand, and
  * candend that were passed as arguments from the input parameters b
  * and s (the candidate list).  Start and end are the start and end
  * BUNs of b that need to be considered.  They are relative to the
@@ -19,6 +37,7 @@
 		end = cnt = BATcount(b);				\
 		cand = candend = NULL;					\
 		if (s) {						\
+			assert(s->batIscand || BATcount(s) == 0);	\
 			assert(BATttype(s) == TYPE_oid);		\
 			if (BATcount(s) == 0) {				\
 				start = end = 0;			\

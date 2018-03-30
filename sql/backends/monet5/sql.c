@@ -1473,6 +1473,7 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 		throw(MAL, "sql.delta", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 	if (ins && (i = BBPquickdesc(*ins, 0)) == NULL)
 		throw(MAL, "sql.delta", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
+	assert(i == NULL || i->batIscand || BATcount(i) == 0);
 
 	/* no updates, no inserts */
 	if (BATcount(u_id) == 0 && (!i || BATcount(i) == 0)) {
@@ -1482,6 +1483,7 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 
 	if ((c = BBPquickdesc(*col, 0)) == NULL)
 		throw(MAL, "sql.delta", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
+	assert(c->batIscand || BATcount(c) == 0);
 
 	/* bat may change */
 	if (i && BATcount(c) == 0 && BATcount(u_id) == 0) {
@@ -1520,6 +1522,7 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 			BBPunfix(u_id->batCacheid);
 			throw(MAL, "sql.delta", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 		}
+		assert(u_val->batIscand || BATcount(u_val) == 0);
 		if (BATcount(u_val)) {
 			u = BATproject(u_val, u_id);
 			BBPunfix(u_val->batCacheid);
@@ -1537,6 +1540,7 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 				BBPunfix(u->batCacheid);
 				throw(MAL, "sql.delta", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 			}
+			assert(c_ids->batIscand || BATcount(c_ids) == 0);
 			cminu = BATintersect(u, c_ids, NULL, NULL, 0, BUN_NONE);
 			BBPunfix(c_ids->batCacheid);
 			if (cminu == NULL) {
@@ -1614,6 +1618,7 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 		res = u;
 	}
 	BATkey(res, true);
+	res = BATfixcand(res);
 	BBPkeepref(*result = res->batCacheid);
 	return MAL_SUCCEED;
 }
@@ -1625,6 +1630,7 @@ DELTAproject(bat *result, const bat *sub, const bat *col, const bat *uid, const 
 
 	if ((s = BATdescriptor(*sub)) == NULL)
 		throw(MAL, "sql.delta", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
+	assert(s->batIscand || BATcount(s) == 0);
 
 	if (ins && (i = BATdescriptor(*ins)) == NULL) {
 		BBPunfix(s->batCacheid);
@@ -1897,6 +1903,7 @@ SQLtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		BAThseqbase(diff, sb);
 		tids = diff;
 	}
+	tids = BATfixcand(tids);
 	BBPkeepref(*res = tids->batCacheid);
 	return MAL_SUCCEED;
 }

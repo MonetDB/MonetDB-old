@@ -854,6 +854,7 @@ COLcopy(BAT *b, int tt, int writable, int role)
 	}
 	if (writable != TRUE)
 		bn->batRestricted = BAT_READ;
+	bn->batIscand = b->batIscand;
 	return bn;
       bunins_failed:
 	BBPreclaim(bn);
@@ -914,6 +915,8 @@ setcolprops(BAT *b, const void *x)
 
 	/* x may only be NULL if the column type is VOID */
 	assert(x != NULL || b->ttype == TYPE_void);
+	/* nil not allowed for CND */
+	assert(!isnil || !b->batIscand);
 	if (b->batCount == 0) {
 		/* first value */
 		b->tsorted = b->trevsorted = ATOMlinear(b->ttype) != 0;
@@ -958,6 +961,9 @@ setcolprops(BAT *b, const void *x)
 		pos = BUNlast(b);
 		prv = BUNtail(bi, pos - 1);
 		cmp = ATOMcmp(b->ttype, prv, x);
+
+		/* candidate lists must be strictly ascending */
+		assert(cmp < 0 || !b->batIscand);
 
 		if (!b->tunique && /* assume outside check if tunique */
 		    b->tkey &&
@@ -1070,6 +1076,9 @@ BUNdelete(BAT *b, oid o)
 	BUN p;
 	BATiter bi = bat_iterator(b);
 
+	/* this function messes with the order of the rows, so no
+	 * candidate lists allowed */
+	assert(!b->batIscand);
 	assert(!is_oid_nil(b->hseqbase) || BATcount(b) == 0);
 	if (o < b->hseqbase || o >= b->hseqbase + BATcount(b)) {
 		/* value already not there */
@@ -2020,6 +2029,15 @@ BATassertProps(BAT *b)
 		assert(b->batCount <= b->batCapacity);
 		assert(b->theap.size >= b->theap.free);
 		assert(b->theap.size >> b->tshift >= b->batCapacity);
+	}
+
+	/* candidate lists must have certain properties */
+	if (b->batIscand) {
+		assert(ATOMtype(b->ttype) == TYPE_oid);
+		assert(b->tnonil);
+		assert(b->tsorted);
+		assert(b->tkey);
+		assert(b->batRole == TRANSIENT);
 	}
 
 	/* void and str imply varsized */

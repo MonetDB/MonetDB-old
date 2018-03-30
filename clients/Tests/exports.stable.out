@@ -117,6 +117,7 @@ BAT *BATdiff(BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate);
 gdk_return BATextend(BAT *b, BUN newcap) __attribute__((__warn_unused_result__));
 void BATfakeCommit(BAT *b);
 gdk_return BATfirstn(BAT **topn, BAT **gids, BAT *b, BAT *cands, BAT *grps, BUN n, int asc, int distinct) __attribute__((__warn_unused_result__));
+BAT *BATfixcand(BAT *bn);
 int BATgetaccess(BAT *b);
 PROPrec *BATgetprop(BAT *b, int idx);
 gdk_return BATgroup(BAT **groups, BAT **extents, BAT **histo, BAT *b, BAT *s, BAT *g, BAT *e, BAT *h) __attribute__((__warn_unused_result__));

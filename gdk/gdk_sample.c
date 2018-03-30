@@ -175,5 +175,5 @@ BATsample(BAT *b, BUN n)
 		bn->tkey = 1;
 		bn->tseqbase = bn->batCount == 0 ? 0 : bn->batCount == 1 ? *(oid *) Tloc(bn, 0) : oid_nil;
 	}
-	return bn;
+	return BATfixcand(bn);
 }

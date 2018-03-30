@@ -32,7 +32,7 @@ _delta_cands(sql_trans *tr, sql_table *t)
 		bat_destroy(tids);
 		tids = diff;
 	}
-	return tids;
+	return BATfixcand(tids);
 }
 
 static BAT *

@@ -61,6 +61,10 @@ pattern batload(tt:any_1, size:int):bat[:any_1]
 address RMTbatload
 comment "create a BAT of the given type and size, and load values from the input stream";
 
+pattern batload(tt:any_1, size:int, iscand:bit):bat[:any_1]
+address RMTbatload
+comment "create a BAT of the given type and size, and load values from the input stream";
+
 pattern batbincopy(b:bat[:any]):void
 address RMTbincopyto
 comment "dump BAT b in binary form to the stream";

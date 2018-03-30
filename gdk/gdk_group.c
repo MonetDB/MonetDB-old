@@ -33,8 +33,8 @@
  * The extents and histo bats are indexed by group id.  The tail of
  * extents is the head oid from b of a representative of the group.
  * The tail of histo is of type lng and contains the number of
- * elements from b that are member of the group.  The extents BAT can
- * be used as a candidate list (sorted and unique).
+ * elements from b that are member of the group.  The extents BAT is a
+ * candidate list (sorted and unique).
  *
  * The extents and histo bats are optionally created.  The groups bat
  * is always created.  In other words, the groups argument may not be
@@ -637,7 +637,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 				if (en == NULL)
 					goto error;
 			}
-			*extents = en;
+			*extents = BATfixcand(en);
 		}
 		if (histo) {
 			lng one = 1;
@@ -1217,7 +1217,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		en->trevsorted = ngrp == 1;
 		en->tnonil = 1;
 		en->tnil = 0;
-		*extents = virtualize(en);
+		*extents = BATfixcand(en);
 	}
 	if (histo) {
 		BATsetcount(hn, (BUN) ngrp);

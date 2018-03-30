@@ -225,6 +225,12 @@ BATproject(BAT *l, BAT *r)
 				  bn->tsorted ? "-sorted" : "",
 				  bn->trevsorted ? "-revsorted" : "",
 				  bn->tkey ? "-key" : "");
+		/* the result is a candidate list only if both inputs
+		 * are candidate lists */
+		if (l->batIscand & r->batIscand)
+			bn = BATfixcand(bn);
+		else
+			bn->batIscand = false; /* could be true if r is cand */
 		return bn;
 	}
 	/* if l has type void, it is either empty or not dense (i.e. nil) */
@@ -247,6 +253,8 @@ BATproject(BAT *l, BAT *r)
 				  bn->tsorted ? "-sorted" : "",
 				  bn->trevsorted ? "-revsorted" : "",
 				  bn->tkey ? "-key" : "");
+		if (l->batIscand & r->batIscand)
+			bn = BATfixcand(bn);
 		return bn;
 	}
 	assert(l->ttype == TYPE_oid);
@@ -391,6 +399,8 @@ BATproject(BAT *l, BAT *r)
 			  bn->tkey ? "-key" : "",
 			  bn->ttype == TYPE_str && bn->tvheap == r->tvheap ? " shared string heap" : "",
 			  GDKusec() - t0);
+	if (l->batIscand & r->batIscand)
+		bn = BATfixcand(bn);
 	return bn;
 
   bailout:
@@ -436,6 +446,7 @@ BATprojectchain(BAT **bats)
 	oid hseq, tseq;
 	bool allnil = false, nonil = true;
 	bool stringtrick = false;
+	bool iscand = true;
 
 	/* count number of participating BATs and allocate some
 	 * temporary work space */
@@ -451,6 +462,7 @@ BATprojectchain(BAT **bats)
 	off = 0;		/* this will be the BUN offset into last BAT */
 	for (i = n = 0; b != NULL; n++, i++) {
 		nonil &= b->tnonil; /* not guaranteed without nils */
+		iscand &= b->batIscand;
 		if (!allnil) {
 			if (n > 0 && ba[i-1].vals == NULL) {
 				/* previous BAT was dense-tailed: we will
@@ -529,7 +541,10 @@ BATprojectchain(BAT **bats)
 		/* somewhere on the way we encountered a void-nil BAT */
 		ALGODEBUG fprintf(stderr, "#BATprojectchain with %d BATs, size "BUNFMT", type %s, all nil\n", n, cnt, ATOMname(tpe));
 		GDKfree(ba);
-		return BATconstant(hseq, tpe == TYPE_oid ? TYPE_void : tpe, nil, cnt, TRANSIENT);
+		bn = BATconstant(hseq, tpe == TYPE_oid ? TYPE_void : tpe, nil, cnt, TRANSIENT);
+		if (iscand)
+			bn = BATfixcand(bn);
+		return bn;
 	}
 	if (i == 1) {
 		/* only dense-tailed BATs before last: we can return a
@@ -546,6 +561,8 @@ BATprojectchain(BAT **bats)
 			if (bn->ttype == TYPE_void)
 				BATtseqbase(bn, tseq);
 		}
+		if (iscand)
+			bn = BATfixcand(bn);
 		return bn;
 	}
 	ALGODEBUG fprintf(stderr, "#BATprojectchain with %d (%d) BATs, size "BUNFMT", type %s\n", n, i, cnt, ATOMname(tpe));
@@ -561,6 +578,8 @@ BATprojectchain(BAT **bats)
 	bn = COLnew(hseq, tpe, cnt, TRANSIENT);
 	if (bn == NULL || cnt == 0) {
 		GDKfree(ba);
+		if (iscand)
+			bn = BATfixcand(bn);
 		return bn;
 	}
 	bn->tnil = bn->tnonil = false; /* we're not paying attention to this */
@@ -740,6 +759,8 @@ BATprojectchain(BAT **bats)
 	bn->tsorted = bn->trevsorted = cnt <= 1;
 	bn->tseqbase = oid_nil;
 	GDKfree(ba);
+	if (iscand)
+		bn = BATfixcand(bn);
 	return bn;
 
   bunins_failed:

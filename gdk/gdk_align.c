@@ -101,6 +101,7 @@ VIEWcreate(oid seq, BAT *b)
 	bn->batInserted = b->batInserted;
 	bn->batCount = b->batCount;
 	bn->batCapacity = b->batCapacity;
+	bn->batIscand = b->batIscand;
 	bn->T = b->T;
 
 	if (tp)

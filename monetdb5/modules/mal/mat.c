@@ -125,7 +125,7 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 				throw(MAL, "mat.pack", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			}
 		}
-		BATtseqbase(bn, b->tseqbase);
+		bn->batIscand = b->batIscand;
 		if (BATappend(bn, b, NULL, FALSE) != GDK_SUCCEED) {
 			BBPunfix(bn->batCacheid);
 			BBPunfix(b->batCacheid);
@@ -151,8 +151,11 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			BBPunfix(bb->batCacheid);
 		}
 		b->S.unused--;
-		if(b->S.unused == 0)
+		if(b->S.unused == 0) {
+			if (b->batIscand)
+				b = BATfixcand(b);
 			BATsetaccess(b, BAT_READ);
+		}
 		assert(!b->tnil || !b->tnonil);
 		BBPkeepref(*ret = b->batCacheid);
 	}

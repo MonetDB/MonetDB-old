@@ -160,18 +160,15 @@ BATfirstn_unique(BAT *b, BAT *s, BUN n, int asc, oid *lastp)
 			 * part that refers to b, that is) */
 			if (lastp)
 				*lastp = 0;
-			return BATslice(s,
-					(BUN) (cand - (const oid *) Tloc(s, 0)),
-					(BUN) (candend - (const oid *) Tloc(s, 0)));
+			return BATfixcand(BATslice(s,
+						   (BUN) (cand - (const oid *) Tloc(s, 0)),
+						   (BUN) (candend - (const oid *) Tloc(s, 0))));
 		}
 	} else if (n >= cnt) {
 		/* trivial: return everything */
-		bn = BATdense(0, start + b->hseqbase, cnt);
-		if (bn == NULL)
-			return NULL;
 		if (lastp)
 			*lastp = 0;
-		return bn;
+		return BATfixcand(BATdense(0, start + b->hseqbase, cnt));
 	}
 	/* note, we want to do both calls */
 	if (BATordered(b) | BATordered_rev(b)) {
@@ -185,14 +182,14 @@ BATfirstn_unique(BAT *b, BAT *s, BUN n, int asc, oid *lastp)
 				i = (BUN) (cand - (const oid *) Tloc(s, 0));
 				if (lastp)
 					*lastp = cand[n - 1];
-				return BATslice(s, i, i + n);
+				return BATfixcand(BATslice(s, i, i + n));
 			}
 			/* return copy of last relevant part of
 			 * candidate list */
 			i = (BUN) (candend - (const oid *) Tloc(s, 0));
 			if (lastp)
 				*lastp = candend[-(ssize_t)n];
-			return BATslice(s, i - n, i);
+			return BATfixcand(BATslice(s, i - n, i));
 		}
 		if (asc ? b->tsorted : b->trevsorted) {
 			/* first n entries from b */
@@ -205,7 +202,7 @@ BATfirstn_unique(BAT *b, BAT *s, BUN n, int asc, oid *lastp)
 			if (lastp)
 				*lastp = start + cnt + b->hseqbase - n;
 		}
-		return bn;
+		return BATfixcand(bn);
 	}
 
 	assert(b->ttype != TYPE_void); /* tsorted above took care of this */
@@ -327,7 +324,7 @@ BATfirstn_unique(BAT *b, BAT *s, BUN n, int asc, oid *lastp)
 	bn->tseqbase = n <= 1 ? oids[0] : oid_nil;
 	bn->tnil = 0;
 	bn->tnonil = 1;
-	return bn;
+	return BATfixcand(bn);
 }
 
 #define LTfixgrp(p1, p2)			\
@@ -435,7 +432,7 @@ BATfirstn_unique_with_groups(BAT *b, BAT *s, BAT *g, BUN n, int asc, oid *lastp,
 			*lastp = 0;
 		if (lastgp)
 			*lastgp = 0;
-		return BATdense(0, 0, 0);
+		return BATfixcand(BATdense(0, 0, 0));
 	}
 
 	if (BATtdense(g)) {
@@ -457,11 +454,11 @@ BATfirstn_unique_with_groups(BAT *b, BAT *s, BAT *g, BUN n, int asc, oid *lastp,
 			bn->tseqbase = n <= 1 ? cand[0] : oid_nil;
 			bn->tnil = 0;
 			bn->tnonil = 1;
-			return bn;
+			return BATfixcand(bn);
 		}
 		if (lastp)
 			*lastp = b->hseqbase + start + n - 1;
-		return BATdense(0, b->hseqbase + start, n);
+		return BATfixcand(BATdense(0, b->hseqbase + start, n));
 	}
 
 	bn = COLnew(0, TYPE_oid, n, TRANSIENT);
@@ -616,7 +613,7 @@ BATfirstn_unique_with_groups(BAT *b, BAT *s, BAT *g, BUN n, int asc, oid *lastp,
 	bn->tseqbase = n <= 1 ? oids[0] : oid_nil;
 	bn->tnil = 0;
 	bn->tnonil = 1;
-	return bn;
+	return BATfixcand(bn);
 }
 
 static gdk_return

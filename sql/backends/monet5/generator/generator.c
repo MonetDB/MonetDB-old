@@ -411,6 +411,7 @@ VLTgenerator_subselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			bn->tkey = 1;
 			bn->tnil = 0;
 			bn->tnonil = 1;
+			bn = BATfixcand(bn);
 			* getArgReference_bat(stk, pci, 0) = bn->batCacheid;
 			BBPkeepref(bn->batCacheid);
 			return MAL_SUCCEED;
@@ -489,6 +490,7 @@ VLTgenerator_subselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				      SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 	}
+	bn = BATfixcand(bn);
 	* getArgReference_bat(stk, pci, 0) = bn->batCacheid;
 	BBPkeepref(bn->batCacheid);
 	return MAL_SUCCEED;
@@ -707,6 +709,7 @@ wrapup:
 		bn->tnil = 0;
 		bn->tnonil = 1;
 		BATsetcount(bn,c);
+		bn = BATfixcand(bn);
 		BBPkeepref(*getArgReference_bat(stk,pci,0)= bn->batCacheid);
 	}
 	return msg;

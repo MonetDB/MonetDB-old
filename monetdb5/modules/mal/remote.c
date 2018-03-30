@@ -737,8 +737,9 @@ str RMTput(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 
 		/* call our remote helper to do this more efficiently */
 		mnstr_printf(sout,
-				"%s := remote.batload(:%s, " BUNFMT ");\n",
-				ident, tail, (bid == 0 ? 0 : BATcount(b)));
+				"%s := remote.batload(:%s, " BUNFMT "%s);\n",
+					 ident, tail, (bid == 0 ? 0 : BATcount(b)),
+					 b && b->batIscand ? ", true" : "");
 		mnstr_flush(sout);
 		GDKfree(tail);
 
@@ -1068,6 +1069,8 @@ str RMTbatload(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 		}
 		GDKfree(r);
 	}
+	if (pci->argc == 4 && *getArgReference_bit(stk, pci, 3))
+		b = BATfixcand(b);
 
 	v->val.bval = b->batCacheid;
 	v->vtype = TYPE_bat;
