@@ -289,14 +289,14 @@ static void getWeldResults(MalBlkPtr mb, InstrPtr *weldRun, InstrDep *instrDep,
 }
 
 str OPTweldImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p) {
-	int i, j, k, fcnEnd, actions = 0, vtop = mb->vtop, stop = mb->stop, subGraphIDs, change;
+	int i, j, fcnEnd, actions = 0, vtop = mb->vtop, stop = mb->stop, subGraphIDs, change;
 	InstrPtr instr, *old = mb->stmt;
 	InstrDep **instrList = calloc(stop, sizeof(InstrDep *));
 	InstrDep **varInstrMap = calloc(vtop, sizeof(InstrDep *));
-	InstrDep *subGraphRep; /* Nodes that will represent a weld subGraphID */
+	InstrDep *subGraphReps; /* Nodes that will represent a weld subGraphID */
 	InstrDep **ordInstr = calloc(stop, sizeof(InstrDep *));
 	InstrDep **ordSubgraph = calloc(stop, sizeof(InstrDep *));
-	int ordInstrSize, ordSubgraphSize, *subgraphCounts, subgraphCountsSize;
+	int ordInstrSize, ordSubgraphSize, *subgraphCounts, numSubGraphs;
 	lng usec = GDKusec();
 	char buf[256];
 	initWeldInstrs();
@@ -377,59 +377,47 @@ str OPTweldImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		}
 	}
 	/* Count the number of nodes in each subgraph */
-	subgraphCountsSize = subGraphIDs + 1;
-	subgraphCounts = calloc(subgraphCountsSize, sizeof(int));
+	numSubGraphs = subGraphIDs + 1;
+	subgraphCounts = calloc(numSubGraphs, sizeof(int));
 	for (i = 0; i < stop; i++) {
 		if (instrList[i] != NULL) {
 			subgraphCounts[instrList[i]->subGraphID]++;
 		}
 	}
 	/* Remove subgraphs that have fewer than 2 nodes */
-	for (i = 1; i < subgraphCountsSize; i++) {
+	for (i = 1; i < numSubGraphs; i++) {
 		if (subgraphCounts[i] < 2) {
 			removeSubGraph(instrList, stop, i);
 			subgraphCounts[i] = 0;
 		}
 	}
-	subGraphIDs = 0;
-	/* Start at 1 because id = 0 is not a subgraph */
-	for (i = 1; i < subgraphCountsSize; i++) {
+	subGraphReps = calloc(numSubGraphs, sizeof(InstrDep));
+	for (i = 1; i < numSubGraphs; i++) {
 		if (subgraphCounts[i] != 0) {
-			subGraphIDs++;
-		}
-	}
-	subGraphRep = calloc(subGraphIDs, sizeof(InstrDep));
-	subGraphIDs = 0;
-	for (i = 1; i < subgraphCountsSize; i++) {
-		if (subgraphCounts[i] != 0) {
-			subGraphRep[subGraphIDs].subGraphID = i;
-			subGraphRep[subGraphIDs].isSubGraph = 1;
-			subGraphIDs++;
+			subGraphReps[i].subGraphID = i;
+			subGraphReps[i].isSubGraph = 1;
 		}
 	}
 
-	/* Collapse a subgraph into its representative node */
-	for (i = 0; i < subGraphIDs; i++) {
-		for (j = stop - 1; j >= 0; j--) {
-			InstrDep *instrDep = instrList[j];
-			if (instrDep != NULL && instrDep->subGraphID == 0) {
-				/* A MAL node, not part of any subgraph */
-				for (k = 0; k < instrDep->numInputs; k++) {
-					/* For each input dependecy of the node */
-					InstrDep *input = instrDep->inputs[k];
-					if (input->subGraphID == subGraphRep[i].subGraphID) {
-						/* Replace the dependecy with the subgraph representative */
-						instrDep->inputs[k] = &subGraphRep[i];
-					}
-				}
-			} else if (instrDep != NULL && instrDep->subGraphID == subGraphRep[i].subGraphID) {
-				/* A Weld node part of the current subgraph */
-				for (k = 0; k < instrDep->numInputs; k++) {
-					InstrDep *input = instrDep->inputs[k];
-					if (input->subGraphID != instrDep->subGraphID) {
-						/* instDep dependes on a MAL node or a Weld node from another subgraph */
-						addInputInstrDep(&subGraphRep[i], input);
-					}
+	/* Collapse subgraphs into their representative nodes */
+	for (i = 0; i < stop; i++) {
+		InstrDep *instrDep = instrList[i];
+		if (instrDep == NULL)
+			continue;
+		for (j = 0; j < instrDep->numInputs; j++) {
+			InstrDep *input = instrDep->inputs[j];
+			if (input->subGraphID != 0 && input->subGraphID != instrDep->subGraphID) {
+				/* A node depends on a subgraph */
+				instrDep->inputs[j] = &subGraphReps[input->subGraphID];
+			}
+			if (instrDep->subGraphID != 0) {
+				InstrDep *subGraphRep = &subGraphReps[instrDep->subGraphID];
+				if (input->subGraphID == 0) {
+					/* A subgraph depends on a MAL node */
+					addInputInstrDep(subGraphRep, input);
+				} else if (input->subGraphID != subGraphRep->subGraphID) {
+					/* A subgraph depends on another subgraph */
+					addInputInstrDep(subGraphRep, &subGraphReps[input->subGraphID]);
 				}
 			}
 		}
@@ -440,8 +428,9 @@ str OPTweldImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	for (i = stop - 1; i >= 0; i--) {
 		topoSort(instrList[i], 0 /*subGraphID*/, ordInstr, &ordInstrSize);
 	}
-	for (i = 0; i < subGraphIDs; i++) {
-		topoSort(&subGraphRep[i], 0 /*subGraphID*/, ordInstr, &ordInstrSize);
+	for (i = 1; i < numSubGraphs; i++) {
+		if (subGraphReps[i].isSubGraph)
+			topoSort(&subGraphReps[i], 0 /*subGraphID*/, ordInstr, &ordInstrSize);
 	}
 
 	if (newMalBlkStmt(mb, mb->ssize) < 0) {
@@ -489,7 +478,7 @@ str OPTweldImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	}
 	free(instrList);
 	free(varInstrMap);
-	free(subGraphRep);
+	free(subGraphReps);
 	free(ordInstr);
 	free(ordSubgraph);
 

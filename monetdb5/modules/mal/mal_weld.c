@@ -184,7 +184,7 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		} else if (isaBatType(type) && getBatType(type) == TYPE_str) {
 			bat bid = *getArgReference_bat(stk, pci, i);
 			BAT *b = BATdescriptor(bid);
-			if (b == NULL) throw(MAL, "weld.run", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
+			if (b == NULL) throw(MAL, "weld.run", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING": %d", getArg(pci, i));
 			inputLen += sprintf(inputStmt + inputLen,
 								" v%d:vec[%s], v%dhseqbase:i64, v%dstr:vec[i8], v%dstroffset:i64,",
 								getArg(pci, i), getWeldUTypeFromWidth(b->twidth), getArg(pci, i),
@@ -258,7 +258,7 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if (isaBatType(type)) {
 			bat bid = *getArgReference_bat(stk, pci, i);
 			BAT *b = BATdescriptor(bid);
-			if (b == NULL) throw(MAL, "weld.run", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
+			if (b == NULL) throw(MAL, "weld.run", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING": %d", getArg(pci, i));
 			if (BATtdense(b)) {
 				/* Hack: store -b->seqbase instead: udfs will check if it's a dense bat */
 				lng seqbase = -b->tseqbase;
@@ -328,7 +328,9 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					if (isaBatType(inputType) && getBatType(inputType) == TYPE_str) {
 						bat inid = *getArgReference_bat(stk, pci, j);
 						BAT *in = BATdescriptor(inid);
-						if (in == NULL) throw(MAL, "weld.run", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
+						if (in == NULL)
+							throw(MAL, "weld.run", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING ": %d",
+								  getArg(pci, j));
 						if (in->tvheap->base == base) {
 							BBPshare(in->tvheap->parentid);
 							b->tvheap = in->tvheap;
