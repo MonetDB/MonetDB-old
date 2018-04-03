@@ -55,11 +55,10 @@ pattern groupgroup(b:bat[:any_1], g:bat[:oid], wstate:ptr) (groups:bat[:oid], ex
 address WeldGroup
 comment "group.groupdone";
 
-pattern aggrsubsum(b:bat[:any_1], g:bat[:oid], e:bat[:any_2], skip_nils:bit, abort_on_error:bit, wstate:ptr):bat[:any_1]
+pattern aggrsubsum(b:bat[:any_1], g:bat[:oid], e:bat[:any_2], skip_nils:bit, abort_on_error:bit, wstate:ptr):bat[:any_3]
 address WeldAggrSubSum
 comment "aggr.subsum";
-
-pattern aggrsubsum(b:bat[:any_1], g:bat[:oid], e:bat[:any_2], s:bat[:oid], skip_nils:bit, abort_on_error:bit, wstate:ptr):bat[:any_1]
+pattern aggrsubsum(b:bat[:any_1], g:bat[:oid], e:bat[:any_2], s:bat[:oid], skip_nils:bit, abort_on_error:bit, wstate:ptr):bat[:any_3]
 address WeldAggrSubSum
 comment "aggr.subsum";
 

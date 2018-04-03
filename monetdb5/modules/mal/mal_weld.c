@@ -1000,6 +1000,7 @@ WeldGroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 static str
 WeldAggrSub(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc)
 {
+	(void) malfunc;
 	int ret = getArg(pci, 0); /* any_1 */
 	int bid = getArg(pci, 1); /* bat[:any_1] */
 	int gid = getArg(pci, 2); /* bat[:oid] */
@@ -1009,10 +1010,6 @@ WeldAggrSub(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc)
 	int bidType = getBatType(getArgType(mb, pci, 1));
 	int sidType = getArgType(mb, pci, 4);
 	weldState *wstate = *getArgReference_ptr(stk, pci, pci->argc - 1); /* has value */
-	/* TODO Weld doesn't yet accept mismatching types for binary ops */
-	if (retType != bidType) {
-		throw(MAL, malfunc, PROGRAM_NYI": missmatching types in AggrSum: %s", malfunc);
-	}
 
 	char identValue[128];
 	if (strcmp(op, "+") == 0)
@@ -1023,6 +1020,12 @@ WeldAggrSub(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc)
 		sprintf(identValue, "%sMAX", getWeldType(retType));
 	else if (strcmp(op, "max") == 0)
 		sprintf(identValue, "%sMIN", getWeldType(retType));
+	char *cast;
+	if (retType != bidType) {
+		cast = getWeldType(retType);
+	} else {
+		cast = "";
+	}
 
 	char weldStmt[STR_SIZE_INC];
 	sprintf(weldStmt,
@@ -1040,20 +1043,20 @@ WeldAggrSub(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, str op, str malfunc)
 		"	for(%s, vecmerger[%s, %s](empty), |b, i, oid|"
 		"		let groupId = lookup(v%d, oid - v%dhseqbase);"
 		"		let val = lookup(v%d, oid - v%dhseqbase);"
-		"		merge(b, {groupId, val})"
+		"		merge(b, {groupId, %s(val)})"
 		"	)"
 		");"
 		"let v%dhseqbase = 0L;",
-		ret, getWeldCandList(sid, s), getWeldType(retType), op, gid, gid, bid, bid, ret);
+		ret, getWeldCandList(sid, s), getWeldType(retType), op, gid, gid, bid, bid, cast, ret);
 	} else {
 		sprintf(weldStmt + strlen(weldStmt),
 		"let v%d = result("
 		"	for(zip(v%d, v%d), vecmerger[%s, %s](empty), |b, i, x|"
-		"		merge(b, {x.$0, x.$1})"
+		"		merge(b, {x.$0, %s(x.$1)})"
 		"	)"
 		");"
 		"let v%dhseqbase = 0L;",
-		ret, gid, bid, getWeldType(retType), op, ret);
+		ret, gid, bid, getWeldType(retType), op, cast, ret);
 	}
 	appendWeldStmt(wstate, weldStmt);
 	return MAL_SUCCEED;
