@@ -204,7 +204,7 @@ EOF
     done
 done
 
-for func in batcalclt:LT batcalcle:LE batcalceq:EQ batcalcgt:GT batcalcge:GE batcalcne:NE batcalcand:AND; do
+for func in batcalclt:LT batcalcle:LE batcalceq:EQ batcalcgt:GT batcalcge:GE batcalcne:NE batcalcand:AND batcalcor:OR; do
     name=${func#*:}
     op=${func%:*}
 	cat <<EOF

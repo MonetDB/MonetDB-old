@@ -807,6 +807,13 @@ WeldBatcalcANDsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
+WeldBatcalcORsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	return WeldBatcalcBinary(mb, stk, pci, "|", "weld.batcalcadd");
+}
+
+str
 WeldBatcalcADDsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;

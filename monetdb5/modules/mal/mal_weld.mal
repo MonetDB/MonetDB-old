@@ -2683,6 +2683,25 @@ pattern batcalcand(v:any_1, b:bat[:any_1], s:bat[:oid], wstate:ptr):bat[:bit]
 address WeldBatcalcANDsignal
 comment "batcalcand with candidates list";
 
+pattern batcalcor(b1:bat[:any_1], b2:bat[:any_1], wstate:ptr):bat[:bit]
+address WeldBatcalcORsignal
+comment "batcalcor";
+pattern batcalcor(b1:bat[:any_1], b2:bat[:any_1], s:bat[:oid], wstate:ptr):bat[:bit]
+address WeldBatcalcORsignal
+comment "batcalcor with candidates list";
+pattern batcalcor(b:bat[:any_1], v:any_1, wstate:ptr):bat[:bit]
+address WeldBatcalcORsignal
+comment "batcalcor";
+pattern batcalcor(b:bat[:any_1], v:any_1, s:bat[:oid], wstate:ptr):bat[:bit]
+address WeldBatcalcORsignal
+comment "batcalcor with candidates list";
+pattern batcalcor(v:any_1, b:bat[:any_1], wstate:ptr):bat[:bit]
+address WeldBatcalcORsignal
+comment "batcalcor";
+pattern batcalcor(v:any_1, b:bat[:any_1], s:bat[:oid], wstate:ptr):bat[:bit]
+address WeldBatcalcORsignal
+comment "batcalcor with candidates list";
+
 pattern language.pass(v:any_1, wstate:ptr):void
 address WeldLanguagePass
 comment "language.pass";
