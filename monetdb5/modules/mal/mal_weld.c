@@ -201,9 +201,9 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	inputLen += sprintf(inputStmt + inputLen,
 						"i8MIN:i8, i8MAX:i8, i32MIN:i32, i32MAX:i32, i64MIN:i64, i64MAX:i64, "
-						"f32MIN:f32, f32MAX:f32, f64MIN:f64, f64MAX:f64, ");
+						"f32MIN:f32, f32MAX:f32, f64MIN:f64, f64MAX:f64,");
 	inputLen += sprintf(inputStmt + inputLen,
-						"i8nil:i8, i32nil:i32, oidnil:i64, i64nil:i64, f32nil:f32, f64nil:f64, ");
+						"i8nil:i8, i32nil:i32, oidnil:i64, i64nil:i64, f32nil:f32, f64nil:f64,");
 
 	inputStmt[0] = '|';
 	inputStmt[inputLen - 1] = '|';
@@ -880,6 +880,94 @@ WeldBatcalcMODsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
 	return WeldBatcalcBinary(mb, stk, pci, "%", "weld.batcalcmod");
+}
+
+str
+WeldBatcalcIsNil(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void)cntxt;
+	int ret = getArg(pci, 0); /* bat[:bit] */
+	int bid = getArg(pci, 1); /* bat[:any_1] */
+	int sid = -1;
+	bat s;
+	if (pci->argc == 4) {
+		sid = getArg(pci, 2);
+		s = *getArgReference_bat(stk, pci, 2); /* might have value */
+	}
+	weldState *wstate = *getArgReference_ptr(stk, pci, pci->argc - 1); /* has value */
+	str any_1 = getWeldType(getBatType(getArgType(mb, pci, 0)));
+	char weldStmt[STR_SIZE_INC];
+	if (sid != -1) {
+		sprintf(weldStmt,
+		"let v%d = result("
+		"	for(%s, appender[i8], |b, i, oid|"
+		"		if(lookup(v%d, oid - v%dhseqbase) == %snil,"
+		"			merge(b, 1c),"
+		"			merge(b, 0c)"
+		"		)"
+		"	)"
+		");"
+		"let v%dhseqbase = 0L",
+		ret, getWeldCandList(sid, s), bid, bid, any_1, ret);
+	} else {
+		sprintf(weldStmt,
+		"let v%d = result("
+		"	for(v%d, appender[i8], |b, i, x|"
+		"		if(x == %snil,"
+		"			merge(b, 1c),"
+		"			merge(b, 0c)"
+		"		)"
+		"	)"
+		");"
+		"let v%dhseqbase = 0L;",
+		ret, bid, any_1, ret);	
+	}
+	appendWeldStmt(wstate, weldStmt);
+	return MAL_SUCCEED;
+}
+
+str
+WeldBatcalcIfThenElse(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void)cntxt;
+	int ret = getArg(pci, 0);										   /* bat[:any_1] */
+	int cond = getArg(pci, 1);										   /* bat[:bit] */
+	int bthen = getArg(pci, 2);										   /* bat[:any_1] */
+	int belse = getArg(pci, 3);										   /* bat[:any_1] */
+	weldState *wstate = *getArgReference_ptr(stk, pci, pci->argc - 1); /* has value */
+	str any_1 = getWeldType(getBatType(getArgType(mb, pci, 0)));
+	int bthenType = getArgType(mb, pci, 2);
+	int belseType = getArgType(mb, pci, 3);
+	char weldStmt[STR_SIZE_INC];
+	char bthenStmt[64], belseStmt[64];
+
+	if (isaBatType(bthenType)) {
+		sprintf(bthenStmt, "lookup(v%d, i)", bthen);
+	} else {
+		sprintf(bthenStmt, "v%d", bthen);
+	}
+	if (isaBatType(belseType)) {
+		sprintf(belseStmt, "lookup(v%d, i)", belse);
+	} else {
+		sprintf(belseStmt, "v%d", belse);
+	}
+   
+	sprintf(weldStmt,
+	"let v%d = result("
+	"	for (v%d, appender[?], |b, i, x|"
+	"		if(x == i8nil,"
+	"			merge(b, %snil),"
+	"			if(x != 0c,"
+	"				merge(b, %s),"
+	"				merge(b, %s)"
+	"			)"
+	"		)"
+	"	)"
+	");"
+	"let v%dhseqbase = 0L;",
+	ret, cond, any_1, bthenStmt, belseStmt, ret);
+	appendWeldStmt(wstate, weldStmt);
+	return MAL_SUCCEED;
 }
 
 /* Ignore the existing groups and instead use all the columns up to this point to

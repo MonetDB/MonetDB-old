@@ -120,6 +120,26 @@ pattern algebraintersect(l:bat[:any_1], r:bat[:any_1], sl:bat[:oid], sr:bat[:oid
 address WeldAlgebraIntersect
 comment "algebra.intersect";
 
+pattern batcalcisnil(b:bat[:any], wstate:ptr):bat[:bit]
+address WeldBatcalcIsNil
+comment "batcalcisnil";
+pattern batcalcisnil(b:bat[:any], s:bat[:oid], wstate:ptr):bat[:bit]
+address WeldBatcalcIsNil
+comment "batcalcisnil";
+
+pattern batcalcifthenelse(b:bat[:bit], b1:bat[:any_1], b2:bat[:any_1], wstate:ptr):bat[:any_1]
+address WeldBatcalcIfThenElse
+comment "batcalc.ifthenelse";
+pattern batcalcifthenelse(b:bat[:bit], b1:bat[:any_1], v2:any_1, wstate:ptr):bat[:any_1]
+address WeldBatcalcIfThenElse
+comment "batcalc.ifthenelse";
+pattern batcalcifthenelse(b:bat[:bit], v1:any_1, b2:bat[:any_1], wstate:ptr):bat[:any_1]
+address WeldBatcalcIfThenElse
+comment "batcalc.ifthenelse";
+pattern batcalcifthenelse(b:bat[:bit], v1:any_1, v2:any_1, wstate:ptr):bat[:any_1]
+address WeldBatcalcIfThenElse
+comment "batcalc.ifthenelse";
+
 pattern aggrsum(b:bat[:bte], wstate:ptr):bte
 address WeldAggrSum
 comment "aggr.sum";

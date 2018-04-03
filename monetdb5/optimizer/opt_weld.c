@@ -18,7 +18,7 @@
 #include "mal_instruction.h"
 #include "opt_weld.h"
 
-#define NUM_WELD_INSTR 34
+#define NUM_WELD_INSTR 35
 #define UNMARKED 0
 #define TEMP_MARK 1
 #define PERM_MARK 2
@@ -70,6 +70,7 @@ static void initWeldInstrs(void) {
 	addWeldInstr(batcalcRef, geRef, weldBatcalcGeRef);					 /* batcalc.>= */
 	addWeldInstr(batcalcRef, neRef, weldBatcalcNeRef);					 /* batcalc.!= */
 	addWeldInstr(batcalcRef, identityRef, weldBatcalcIdentityRef);		 /* batcalc.identity */
+	addWeldInstr(batcalcRef, isnilRef, weldBatcalcIsNilRef);			 /* batcalc.isnil */
 	addWeldInstr(batRef, mergecandRef, weldBatMergeCandRef);			 /* bat.mergecand */
 	addWeldInstr(batRef, mirrorRef, weldBatMirrorRef);					 /* bat.mirror */
 	addWeldInstr(batmtimeRef, yearRef, weldBatMtimeYearRef);			 /* batmtime.year */
