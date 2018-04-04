@@ -248,6 +248,11 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	weld_conf_set(conf, "weld.compile.dumpCode", "true");
 	weld_conf_set(conf, "weld.compile.dumpCodeDir", "/tmp");
 #endif
+	char nrThreads[8], memLimit[64];
+	sprintf(nrThreads, "%d", GDKnr_threads);
+	sprintf(memLimit, "%ld", 256L * 1L << 30); /* 256 GB */
+	weld_conf_set(conf, "weld.threads", nrThreads);
+	weld_conf_set(conf, "weld.memory.limit", memLimit);
 	long start = getTimeNowMs();
 	weld_module_t m = weld_module_compile(wstate->program, conf, e);
 	weld_conf_free(conf);
