@@ -28,6 +28,8 @@
 		*(TYPE *)(*ADDR) = *(TYPE *)VALUE; /* set */                    \
 	*ADDR += sizeof(TYPE);				   /* increase */
 
+MalBlkPtr oldMb = NULL; /* Keep track of new MAL programs so that we print the compilation times on a separate line */
+
 struct weldMinMax {
 	char i8min, i8max;
 	int i32min, i32max;
@@ -149,6 +151,12 @@ static void dumpProgram(weldState *wstate, MalBlkPtr mb) {
 	fclose(f);
 }
 
+static long getTimeNowMs(void) {
+    struct timeval timecheck;
+    gettimeofday(&timecheck, NULL);
+    return (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000;
+}
+
 str
 WeldInitState(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -240,11 +248,18 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	weld_conf_set(conf, "weld.compile.dumpCode", "true");
 	weld_conf_set(conf, "weld.compile.dumpCodeDir", "/tmp");
 #endif
+	long start = getTimeNowMs();
 	weld_module_t m = weld_module_compile(wstate->program, conf, e);
 	weld_conf_free(conf);
 	if (weld_error_code(e)) {
 		throw(MAL, "weld.run", PROGRAM_GENERAL ": %s", weld_error_message(e));
 	}
+	long elapsed = getTimeNowMs() - start;
+	if (oldMb != mb) {
+		oldMb = mb;
+		fprintf(stderr, "\n");
+	}
+	fprintf(stderr, "%ld,", elapsed);
 
 	/* Prepare the input for Weld. We're building an array that has the layout of a struct */
 	/* Max possible size is when we only have string bats: 2 ptrs for theap and tvheap and 4 lngs
