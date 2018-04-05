@@ -2181,11 +2181,6 @@ mapi_reconnect(Mapi mid)
 	char buf[BLOCK];
 	size_t len;
 	MapiHdl hdl;
-	int pversion = 0;
-	char *chal;
-	char *server;
-	char *protover;
-	char *rest;
 
 	if (mid->connected)
 		close_connection(mid);
@@ -2545,6 +2540,206 @@ mapi_reconnect(Mapi mid)
 
   try_again_after_redirect:
 
+	if ((mid->error = mapi_authorize(mid, buf)) != MOK) {
+		return mid->error;
+	}
+
+	if (mid->trace == MAPI_TRACE) {
+		printf("sending first request [%d]:%s", BLOCK, buf);
+		fflush(stdout);
+	}
+	len = strlen(buf);
+	mnstr_write(mid->to, buf, 1, len);
+	mapi_log_record(mid, buf);
+	check_stream(mid, mid->to, "Could not send initial byte sequence", "mapi_reconnect", mid->error);
+	mnstr_flush(mid->to);
+	check_stream(mid, mid->to, "Could not send initial byte sequence", "mapi_reconnect", mid->error);
+
+	/* consume the welcome message from the server */
+	hdl = mapi_new_handle(mid);
+	if (hdl == NULL) {
+		close_connection(mid);
+		return MERROR;
+	}
+	mid->active = hdl;
+	read_into_cache(hdl, 0);
+	if (mid->error) {
+		char *errorstr = NULL;
+		MapiMsg error;
+		struct MapiResultSet *result;
+		/* propagate error from result to mid, the error probably is in
+		 * the last produced result, not the first
+		 * mapi_close_handle clears the errors, so save them first */
+		for (result = hdl->result; result; result = result->next) {
+			errorstr = result->errorstr;
+			result->errorstr = NULL;	/* clear these so errorstr doesn't get freed */
+		}
+		if (!errorstr)
+			errorstr = mid->errorstr;
+		error = mid->error;
+
+		if (hdl->result)
+			hdl->result->errorstr = NULL;	/* clear these so errorstr doesn't get freed */
+		mid->errorstr = NULL;
+		mapi_close_handle(hdl);
+		mapi_setError(mid, errorstr, "mapi_reconnect", error);
+		if (errorstr != nomem)
+			free(errorstr);	/* now free it after a copy has been made */
+		close_connection(mid);
+		return mid->error;
+	}
+	if (hdl->result && hdl->result->cache.line) {
+		int i;
+		size_t motdlen = 0;
+		struct MapiResultSet *result = hdl->result;
+
+		for (i = 0; i < result->cache.writer; i++) {
+			if (result->cache.line[i].rows) {
+				char **r;
+				int m;
+				switch (result->cache.line[i].rows[0]) {
+				case '#':
+					motdlen += strlen(result->cache.line[i].rows) + 1;
+					break;
+				case '^':
+					r = mid->redirects;
+					m = sizeof(mid->redirects) / sizeof(mid->redirects[0]) - 1;
+					while (*r != NULL && m > 0) {
+						m--;
+						r++;
+					}
+					if (m == 0)
+						break;
+					*r++ = strdup(result->cache.line[i].rows + 1);
+					*r = NULL;
+					break;
+				}
+			}
+		}
+		if (motdlen > 0) {
+			mid->motd = malloc(motdlen + 1);
+			*mid->motd = 0;
+			for (i = 0; i < result->cache.writer; i++)
+				if (result->cache.line[i].rows && result->cache.line[i].rows[0] == '#') {
+					strcat(mid->motd, result->cache.line[i].rows);
+					strcat(mid->motd, "\n");
+				}
+		}
+
+		if (*mid->redirects != NULL) {
+			char *red;
+			char *p, *q;
+			char **fr;
+
+			/* redirect, looks like:
+			 * ^mapi:monetdb://localhost:50001/test?lang=sql&user=monetdb
+			 * or
+			 * ^mapi:merovingian://proxy?database=test */
+
+			/* first see if we reached our redirection limit */
+			if (mid->redircnt >= mid->redirmax) {
+				mapi_close_handle(hdl);
+				mapi_setError(mid, "too many redirects", "mapi_reconnect", MERROR);
+				close_connection(mid);
+				return mid->error;
+			}
+			/* we only implement following the first */
+			red = mid->redirects[0];
+
+			/* see if we can possibly handle the redirect */
+			if (strncmp("mapi:monetdb://", red, 15) == 0) {
+				char *db = NULL;
+				/* parse components (we store the args
+				 * immediately in the mid... ok,
+				 * that's dirty) */
+				red += 15; /* "mapi:monetdb://" */
+				p = red;
+				q = NULL;
+				if ((red = strchr(red, ':')) != NULL) {
+					*red++ = '\0';
+					q = red;
+				} else {
+					red = p;
+				}
+				if ((red = strchr(red, '/')) != NULL) {
+					*red++ = '\0';
+					if (q != NULL) {
+						mid->port = atoi(q);
+						if (mid->port == 0)
+							mid->port = 50000;	/* hardwired default */
+					}
+					db = red;
+				} else {
+					red = p;
+					db = NULL;
+				}
+				if (mid->hostname)
+					free(mid->hostname);
+				mid->hostname = strdup(p);
+				if (mid->database)
+					free(mid->database);
+				mid->database = db != NULL ? strdup(db) : NULL;
+
+				parse_uri_query(mid, red);
+
+				mid->redircnt++;
+				mapi_close_handle(hdl);
+				/* free all redirects */
+				fr = mid->redirects;
+				while (*fr != NULL) {
+					free(*fr);
+					*fr = NULL;
+					fr++;
+				}
+				/* reconnect using the new values */
+				return mapi_reconnect(mid);
+			} else if (strncmp("mapi:merovingian", red, 16) == 0) {
+				/* this is a proxy "offer", it means we should
+				 * restart the login ritual, without
+				 * disconnecting */
+				parse_uri_query(mid, red + 16);
+				mid->redircnt++;
+				/* free all redirects */
+				fr = mid->redirects;
+				while (*fr != NULL) {
+					free(*fr);
+					*fr = NULL;
+					fr++;
+				}
+				goto try_again_after_redirect;
+			} else {
+				char re[BUFSIZ];
+				snprintf(re, sizeof(re),
+					 "error while parsing redirect: %.100s\n", red);
+				mapi_close_handle(hdl);
+				mapi_setError(mid, re, "mapi_reconnect", MERROR);
+				close_connection(mid);
+				return mid->error;
+			}
+		}
+	}
+	mapi_close_handle(hdl);
+
+	if (mid->trace == MAPI_TRACE)
+		printf("connection established\n");
+	if (mid->languageId != LANG_SQL)
+		return mid->error;
+
+	/* tell server about cachelimit */
+	mapi_cache_limit(mid, mid->cachelimit);
+	return mid->error;
+}
+
+MapiMsg
+mapi_authorize(Mapi mid, char *ret) {
+	size_t len;
+	char buf[BLOCK];
+	int pversion;
+	char *rest;
+	char *protover;
+	char *server;
+	char *chal;
+
 	/* consume server challenge */
 	len = mnstr_read_block(mid->from, buf, 1, BLOCK);
 
@@ -2755,189 +2950,8 @@ mapi_reconnect(Mapi mid)
 		close_connection(mid);
 		return mid->error;
 	}
-	if (mid->trace == MAPI_TRACE) {
-		printf("sending first request [%d]:%s", BLOCK, buf);
-		fflush(stdout);
-	}
-	len = strlen(buf);
-	mnstr_write(mid->to, buf, 1, len);
-	mapi_log_record(mid, buf);
-	check_stream(mid, mid->to, "Could not send initial byte sequence", "mapi_reconnect", mid->error);
-	mnstr_flush(mid->to);
-	check_stream(mid, mid->to, "Could not send initial byte sequence", "mapi_reconnect", mid->error);
 
-	/* consume the welcome message from the server */
-	hdl = mapi_new_handle(mid);
-	if (hdl == NULL) {
-		close_connection(mid);
-		return MERROR;
-	}
-	mid->active = hdl;
-	read_into_cache(hdl, 0);
-	if (mid->error) {
-		char *errorstr = NULL;
-		MapiMsg error;
-		struct MapiResultSet *result;
-		/* propagate error from result to mid, the error probably is in
-		 * the last produced result, not the first
-		 * mapi_close_handle clears the errors, so save them first */
-		for (result = hdl->result; result; result = result->next) {
-			errorstr = result->errorstr;
-			result->errorstr = NULL;	/* clear these so errorstr doesn't get freed */
-		}
-		if (!errorstr)
-			errorstr = mid->errorstr;
-		error = mid->error;
-
-		if (hdl->result)
-			hdl->result->errorstr = NULL;	/* clear these so errorstr doesn't get freed */
-		mid->errorstr = NULL;
-		mapi_close_handle(hdl);
-		mapi_setError(mid, errorstr, "mapi_reconnect", error);
-		if (errorstr != nomem)
-			free(errorstr);	/* now free it after a copy has been made */
-		close_connection(mid);
-		return mid->error;
-	}
-	if (hdl->result && hdl->result->cache.line) {
-		int i;
-		size_t motdlen = 0;
-		struct MapiResultSet *result = hdl->result;
-
-		for (i = 0; i < result->cache.writer; i++) {
-			if (result->cache.line[i].rows) {
-				char **r;
-				int m;
-				switch (result->cache.line[i].rows[0]) {
-				case '#':
-					motdlen += strlen(result->cache.line[i].rows) + 1;
-					break;
-				case '^':
-					r = mid->redirects;
-					m = sizeof(mid->redirects) / sizeof(mid->redirects[0]) - 1;
-					while (*r != NULL && m > 0) {
-						m--;
-						r++;
-					}
-					if (m == 0)
-						break;
-					*r++ = strdup(result->cache.line[i].rows + 1);
-					*r = NULL;
-					break;
-				}
-			}
-		}
-		if (motdlen > 0) {
-			mid->motd = malloc(motdlen + 1);
-			*mid->motd = 0;
-			for (i = 0; i < result->cache.writer; i++)
-				if (result->cache.line[i].rows && result->cache.line[i].rows[0] == '#') {
-					strcat(mid->motd, result->cache.line[i].rows);
-					strcat(mid->motd, "\n");
-				}
-		}
-
-		if (*mid->redirects != NULL) {
-			char *red;
-			char *p, *q;
-			char **fr;
-
-			/* redirect, looks like:
-			 * ^mapi:monetdb://localhost:50001/test?lang=sql&user=monetdb
-			 * or
-			 * ^mapi:merovingian://proxy?database=test */
-
-			/* first see if we reached our redirection limit */
-			if (mid->redircnt >= mid->redirmax) {
-				mapi_close_handle(hdl);
-				mapi_setError(mid, "too many redirects", "mapi_reconnect", MERROR);
-				close_connection(mid);
-				return mid->error;
-			}
-			/* we only implement following the first */
-			red = mid->redirects[0];
-
-			/* see if we can possibly handle the redirect */
-			if (strncmp("mapi:monetdb://", red, 15) == 0) {
-				char *db = NULL;
-				/* parse components (we store the args
-				 * immediately in the mid... ok,
-				 * that's dirty) */
-				red += 15; /* "mapi:monetdb://" */
-				p = red;
-				q = NULL;
-				if ((red = strchr(red, ':')) != NULL) {
-					*red++ = '\0';
-					q = red;
-				} else {
-					red = p;
-				}
-				if ((red = strchr(red, '/')) != NULL) {
-					*red++ = '\0';
-					if (q != NULL) {
-						mid->port = atoi(q);
-						if (mid->port == 0)
-							mid->port = 50000;	/* hardwired default */
-					}
-					db = red;
-				} else {
-					red = p;
-					db = NULL;
-				}
-				if (mid->hostname)
-					free(mid->hostname);
-				mid->hostname = strdup(p);
-				if (mid->database)
-					free(mid->database);
-				mid->database = db != NULL ? strdup(db) : NULL;
-
-				parse_uri_query(mid, red);
-
-				mid->redircnt++;
-				mapi_close_handle(hdl);
-				/* free all redirects */
-				fr = mid->redirects;
-				while (*fr != NULL) {
-					free(*fr);
-					*fr = NULL;
-					fr++;
-				}
-				/* reconnect using the new values */
-				return mapi_reconnect(mid);
-			} else if (strncmp("mapi:merovingian", red, 16) == 0) {
-				/* this is a proxy "offer", it means we should
-				 * restart the login ritual, without
-				 * disconnecting */
-				parse_uri_query(mid, red + 16);
-				mid->redircnt++;
-				/* free all redirects */
-				fr = mid->redirects;
-				while (*fr != NULL) {
-					free(*fr);
-					*fr = NULL;
-					fr++;
-				}
-				goto try_again_after_redirect;
-			} else {
-				char re[BUFSIZ];
-				snprintf(re, sizeof(re),
-					 "error while parsing redirect: %.100s\n", red);
-				mapi_close_handle(hdl);
-				mapi_setError(mid, re, "mapi_reconnect", MERROR);
-				close_connection(mid);
-				return mid->error;
-			}
-		}
-	}
-	mapi_close_handle(hdl);
-
-	if (mid->trace == MAPI_TRACE)
-		printf("connection established\n");
-	if (mid->languageId != LANG_SQL)
-		return mid->error;
-
-	/* tell server about cachelimit */
-	mapi_cache_limit(mid, mid->cachelimit);
+	strncpy(ret, buf, BLOCK);
 	return mid->error;
 }
 
@@ -5397,4 +5411,3 @@ mapi_get_active(Mapi mid)
 {
 	return mid->active;
 }
-

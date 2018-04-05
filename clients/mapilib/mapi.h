@@ -129,6 +129,7 @@ mapi_export Mapi mapi_connect(const char *host, int port, const char *username, 
 mapi_export char **mapi_resolve(const char *host, int port, const char *pattern);
 mapi_export MapiMsg mapi_disconnect(Mapi mid);
 mapi_export MapiMsg mapi_reconnect(Mapi mid);
+mapi_export MapiMsg mapi_authorize(Mapi mid, char *ret);
 mapi_export MapiMsg mapi_ping(Mapi mid);
 
 mapi_export MapiMsg mapi_error(Mapi mid);
