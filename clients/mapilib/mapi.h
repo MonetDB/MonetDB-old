@@ -57,6 +57,7 @@ typedef int MapiMsg;
 #define PROMPTBEG	'\001'	/* start prompt bracket */
 #define PROMPT1		"\001\001\n"	/* prompt: ready for new query */
 #define PROMPT2		"\001\002\n"	/* prompt: more data needed */
+#define PROMPT3_PREFIX		"\001\003"	/* prompt: read and transmit the contents of a file */
 
 /*
  * The table field information is extracted from the table headers

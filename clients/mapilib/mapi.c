@@ -896,6 +896,7 @@ struct MapiStatement {
 	struct MapiParam *params;
 	struct MapiResultSet *result, *active, *lastresult;
 	int needmore;		/* need more input */
+	char *filename;	/* read the contents of the file */
 	int *pending_close;
 	int npending_close;
 	MapiHdl prev, next;
@@ -1722,6 +1723,7 @@ mapi_new_handle(Mapi mid)
 	hdl->lastresult = NULL;
 	hdl->active = NULL;
 	hdl->needmore = 0;
+	hdl->filename = NULL;
 	hdl->pending_close = NULL;
 	hdl->npending_close = 0;
 	/* add to doubly-linked list */
@@ -1817,6 +1819,8 @@ mapi_close_handle(MapiHdl hdl)
 	hdl->query = NULL;
 	if (hdl->template)
 		free(hdl->template);
+	if (hdl->filename)
+		free(hdl->filename);
 	hdl->template = NULL;
 	/* remove from doubly-linked list */
 	if (hdl->prev)
@@ -3925,6 +3929,58 @@ parse_header_line(MapiHdl hdl, char *line, struct MapiResultSet *result)
 	return result;
 }
 
+
+/* We have seen so far the prompt \001\003 which is meant to make the
+ * client read a file in 8K blocks and send data back to the
+ * server. Following this prompt should be one space, the lenght of
+ * the filepath, a space, and the filepath itself:
+ * \001\003 21 /home/alice/file1.csv
+ *
+ * The pointer passed to this function starts at the first space,
+ * right after the bytes \001 and \003. Note that filename is malloc'ed
+ * here so the caller is responsible to free it.
+ */
+static bool
+parse_file_prompt(const char *prompt, char *filename) {
+	const char *p = prompt;
+	char buf[BLOCK];
+
+	if (*p != ' ') {
+		return false;
+	}
+
+	p++;
+	while (isdigit(*p)) {
+		buf[p - prompt + 1] = *p;
+		p++;
+	}
+	buf[p - prompt + 1] = 0;
+	if (*p != ' ') {
+		return false;
+	}
+
+	errno = 0;
+	long sz = strtol(buf, NULL, 10);
+	if (errno != 0) {
+		return false;
+	}
+
+	/* As a basic sanity check reject any filenames that do not
+	 * fit in one block (~8K bytes)
+	 */
+	if (sz > BLOCK - (p - prompt + 1) - 4) {
+		return false;
+	}
+
+	filename = (char *)malloc(sz + 1);
+	if (filename == NULL) {
+		return false;
+	}
+	strncpy(filename, p + 1, (size_t)sz);
+	*(filename + sz) = 0;
+	return true;
+}
+
 /* Read ahead and cache data read.  Depending on the second argument,
    reading may stop at the first non-header and non-error line, or at
    a prompt.
@@ -3941,7 +3997,7 @@ parse_header_line(MapiHdl hdl, char *line, struct MapiResultSet *result)
 static MapiMsg
 read_into_cache(MapiHdl hdl, int lookahead)
 {
-	char *line, *copy;
+	char *line, *filename = NULL;
 	Mapi mid;
 	struct MapiResultSet *result;
 
@@ -3962,23 +4018,34 @@ read_into_cache(MapiHdl hdl, int lookahead)
 		case PROMPTBEG: /* \001 */
 			mid->active = NULL;
 			hdl->active = NULL;
-			/* set needmore flag if line equals PROMPT2 up
-			   to newline */
-			copy = PROMPT2; /* \001\002\n */
-			while (*line) {
-				if (*line != *copy) /* must be EOF or PROMPT1 \001\001\n */
+			switch (*(line + 1)) {
+			case 1:  /* Server is ready for new input */
+				return mid->error;
+			case 2:  /* Server needs more */
+				if (*(line + 2) == '\n' || *(line + 2) == 0) {
+					/* skip end of block */
+					mid->active = hdl;
+					read_line(mid);
+					hdl->needmore = 1;
+					mid->active = hdl;
+				}
+				return mid->error;
+			case 3:  /* Server needs the contents of a file */
+				if (!parse_file_prompt(line + 2, filename)) {
+					/* parsing failed, prepare an
+					 * appropriate error */
+					mapi_setError(mid, "Cannot parse prompt", "read_into_cache", MERROR);
 					return mid->error;
-				line++;
-				copy++;
-			}
-			if (*copy == '\n' || *copy == 0) {
-				/* skip end of block */
+				}
+				/* skip to the end of the block */
 				mid->active = hdl;
 				read_line(mid);
-				hdl->needmore = 1;
+				hdl->filename = filename;
 				mid->active = hdl;
+				return mid->error;
+			default:
+				return mid->error;
 			}
-			return mid->error;
 		case '!':
 			/* start a new result set if we don't have one
 			   yet (duh!), or if we've already seen
