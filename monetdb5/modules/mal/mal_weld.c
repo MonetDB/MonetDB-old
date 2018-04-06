@@ -253,7 +253,6 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	weld_conf_set(conf, "weld.memory.limit", memLimit);
 	long start = getTimeNowMs();
 	weld_module_t m = weld_module_compile(wstate->program, conf, e);
-	weld_conf_free(conf);
 	if (weld_error_code(e)) {
 		throw(MAL, "weld.run", PROGRAM_GENERAL ": %s", weld_error_message(e));
 	}
@@ -314,7 +313,6 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	getOrSetStructMember(&inputPtr, TYPE_dbl, &dbl_nil, OP_SET);
 
 	weld_value_t arg = weld_value_new(inputStruct);
-	conf = weld_conf_new();
 	weld_value_t result = weld_module_run(m, conf, arg, e);
 
 	/* Retrieve the output */
