@@ -28,8 +28,6 @@
 		*(TYPE *)(*ADDR) = *(TYPE *)VALUE; /* set */                    \
 	*ADDR += sizeof(TYPE);				   /* increase */
 
-MalBlkPtr oldMb = NULL; /* Keep track of new MAL programs so that we print the compilation times on a separate line */
-
 struct weldMinMax {
 	char i8min, i8max;
 	int i32min, i32max;
@@ -260,10 +258,6 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL, "weld.run", PROGRAM_GENERAL ": %s", weld_error_message(e));
 	}
 	long elapsed = getTimeNowMs() - start;
-	if (oldMb != mb) {
-		oldMb = mb;
-		fprintf(stderr, "\n");
-	}
 	fprintf(stderr, "%ld,", elapsed);
 
 	/* Prepare the input for Weld. We're building an array that has the layout of a struct */

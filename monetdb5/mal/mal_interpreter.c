@@ -347,6 +347,12 @@ str runMAL(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr env)
 	if (stk->cmd && env && stk->cmd != 'f')
 		stk->cmd = env->cmd;
 	ret = runMALsequence(cntxt, mb, 1, 0, stk, env, 0);
+	for (i = 0; i < mb->stop; i++) {
+		if (getModuleId(mb->stmt[i]) != NULL && strcmp(getModuleId(mb->stmt[i]), "weld") == 0) {
+			fprintf(stderr, "\n");
+			break;
+		}
+	}
 
 	/* pass the new debug mode to the caller */
 	if (stk->cmd && env && stk->cmd != 'f')
