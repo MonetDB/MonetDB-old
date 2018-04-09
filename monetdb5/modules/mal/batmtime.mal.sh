@@ -21,19 +21,19 @@ for func in '<:lt' '<=:le' '>:gt' '>=:ge' '==:eq' '!=:ne'; do
 pattern $op(b1:bat[:$tp],b2:bat[:$tp]) :bat[:bit]
 address CMDbat${func^^}
 comment "Return B1 $op B2";
-pattern $op(b1:bat[:$tp],b2:bat[:$tp],s:bat[:oid]) :bat[:bit]
+pattern $op(b1:bat[:$tp],b2:bat[:$tp],s:bat[:cnd]) :bat[:bit]
 address CMDbat${func^^}
 comment "Return B1 $op B2 with candidates list";
 pattern $op(b:bat[:$tp],v:$tp) :bat[:bit]
 address CMDbat${func^^}
 comment "Return B $op V";
-pattern $op(b:bat[:$tp],v:$tp,s:bat[:oid]) :bat[:bit]
+pattern $op(b:bat[:$tp],v:$tp,s:bat[:cnd]) :bat[:bit]
 address CMDbat${func^^}
 comment "Return B $op V with candidates list";
 pattern $op(v:$tp,b:bat[:$tp]) :bat[:bit]
 address CMDbat${func^^}
 comment "Return V $op B";
-pattern $op(v:$tp,b:bat[:$tp],s:bat[:oid]) :bat[:bit]
+pattern $op(v:$tp,b:bat[:$tp],s:bat[:cnd]) :bat[:bit]
 address CMDbat${func^^}
 comment "Return V $op B with candidates list";
 

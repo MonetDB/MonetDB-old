@@ -98,6 +98,7 @@ BATcreatedesc(oid hseq, int tt, int heapnames, int role)
 
 	bn->batRole = role;
 	bn->batPersistence = TRANSIENT;
+	bn->batIscand = tt == TYPE_cnd;
 	/*
 	 * add to BBP
 	 */
@@ -220,6 +221,7 @@ COLnew(oid hseq, int tt, BUN cap, int role)
 	assert(cap <= BUN_MAX);
 	assert(hseq <= oid_nil);
 	assert(tt != TYPE_bat);
+	assert(tt != TYPE_cnd || role == TRANSIENT);
 	ERRORcheck((tt < 0) || (tt > GDKatomcnt), "COLnew:tt error\n", NULL);
 	ERRORcheck(role < 0 || role >= 32, "COLnew:role error\n", NULL);
 
@@ -666,6 +668,7 @@ COLcopy(BAT *b, int tt, int writable, int role)
 	BUN bunstocopy = BUN_NONE;
 	BUN cnt;
 	BAT *bn = NULL;
+	bool iscnd = tt == TYPE_cnd;
 
 	BATcheck(b, "BATcopy", NULL);
 	assert(tt != TYPE_bat);
@@ -853,7 +856,8 @@ COLcopy(BAT *b, int tt, int writable, int role)
 	}
 	if (writable != TRUE)
 		bn->batRestricted = BAT_READ;
-	bn->batIscand = b->batIscand;
+	if (tt == TYPE_void)
+		bn->batIscand = iscnd;
 	return bn;
       bunins_failed:
 	BBPreclaim(bn);
@@ -920,7 +924,7 @@ setcolprops(BAT *b, const void *x)
 		/* first value */
 		b->tsorted = b->trevsorted = ATOMlinear(b->ttype) != 0;
 		b->tnosorted = b->tnorevsorted = 0;
-		b->tkey = 1;
+		b->tkey = true;
 		b->tnokey[0] = b->tnokey[1] = 0;
 		if (b->ttype == TYPE_void) {
 			if (x) {
@@ -931,7 +935,7 @@ setcolprops(BAT *b, const void *x)
 		} else {
 			b->tnil = isnil;
 			b->tnonil = !isnil;
-			if (b->ttype == TYPE_oid) {
+			if (b->ttype == TYPE_oid || b->ttype == TYPE_cnd) {
 				b->tseqbase = * (const oid *) x;
 			}
 		}
@@ -941,19 +945,19 @@ setcolprops(BAT *b, const void *x)
 		 * are affected */
 		if (!is_oid_nil(b->tseqbase)) {
 			if (b->trevsorted) {
-				b->tnorevsorted = BUNlast(b);
-				b->trevsorted = 0;
+				b->tnorevsorted = 1;
+				b->trevsorted = false;
 			}
-			b->tnil = 0;
-			b->tnonil = 1;
+			b->tnil = false;
+			b->tnonil = true;
 		} else {
 			if (b->tkey) {
 				b->tnokey[0] = 0;
-				b->tnokey[1] = BUNlast(b);
-				b->tkey = 0;
+				b->tnokey[1] = 1;
+				b->tkey = false;
 			}
-			b->tnil = 1;
-			b->tnonil = 0;
+			b->tnil = true;
+			b->tnonil = false;
 		}
 	} else {
 		bi = bat_iterator(b);
@@ -971,7 +975,7 @@ setcolprops(BAT *b, const void *x)
 		      ((b->tsorted && cmp > 0) ||
 		       (b->trevsorted && cmp < 0) ||
 		       (!b->tsorted && !b->trevsorted))))) {
-			b->tkey = 0;
+			b->tkey = false;
 			if (cmp == 0) {
 				b->tnokey[0] = pos - 1;
 				b->tnokey[1] = pos;
@@ -979,12 +983,12 @@ setcolprops(BAT *b, const void *x)
 		}
 		if (b->tsorted && cmp > 0) {
 			/* out of order */
-			b->tsorted = 0;
+			b->tsorted = false;
 			b->tnosorted = pos;
 		}
 		if (b->trevsorted && cmp < 0) {
 			/* out of order */
-			b->trevsorted = 0;
+			b->trevsorted = false;
 			b->tnorevsorted = pos;
 		}
 		if (BATtdense(b) && (cmp >= 0 || * (const oid *) prv + 1 != * (const oid *) x)) {
@@ -992,8 +996,8 @@ setcolprops(BAT *b, const void *x)
 			b->tseqbase = oid_nil;
 		}
 		if (isnil) {
-			b->tnonil = 0;
-			b->tnil = 1;
+			b->tnonil = false;
+			b->tnil = true;
 		}
 	}
 }
@@ -1950,10 +1954,10 @@ BATmode(BAT *b, int mode)
  *
  * The properties currently maintained are:
  *
- * seqbase	Only valid for TYPE_oid and TYPE_void columns: each
- *		value in the column is exactly one more than the
- *		previous value, starting at position 0 with the value
- *		stored in this property.
+ * seqbase	Only valid for TYPE_oid, TYPE_cnd and TYPE_void
+ *		columns: each value in the column is exactly one more
+ *		than the previous value, starting at position 0 with
+ *		the value stored in this property.
  *		This implies sorted, key, nonil (which therefore need
  *		to be set).
  * nil		There is at least one NIL value in the column.
@@ -2031,12 +2035,14 @@ BATassertProps(BAT *b)
 	}
 
 	/* candidate lists must have certain properties */
+	assert(b->ttype != TYPE_cnd || b->batIscand);
 	if (b->batIscand) {
-		assert(ATOMtype(b->ttype) == TYPE_oid);
+		assert(b->ttype == TYPE_void || b->ttype == TYPE_cnd);
 		assert(b->tnonil);
 		assert(b->tsorted);
 		assert(b->tkey);
 		assert(b->batRole == TRANSIENT);
+		assert(b->ttype != TYPE_void || !is_oid_nil(b->tseqbase));
 	}
 
 	/* void and str imply varsized */
@@ -2054,14 +2060,14 @@ BATassertProps(BAT *b)
 	else
 		assert(b->twidth == ATOMsize(b->ttype));
 	assert(b->tseqbase <= oid_nil);
-	/* only oid/void columns can be dense */
-	assert(is_oid_nil(b->tseqbase) || b->ttype == TYPE_oid || b->ttype == TYPE_void);
 	if (!is_oid_nil(b->tseqbase)) {
+		/* only oid/cnd/void columns can be dense */
+		assert(ATOMtype(b->ttype) == TYPE_oid);
 		/* dense implies sorted and key */
 		assert(b->tsorted);
 		assert(b->tkey);
 		assert(b->tnonil);
-		if (b->ttype == TYPE_oid && b->batCount > 0) {
+		if (b->ttype != TYPE_void && b->batCount > 0) {
 			/* tseqbase must correspond to actual value */
 			assert(* (oid *) BUNtail(bi, 0) == b->tseqbase);
 		}

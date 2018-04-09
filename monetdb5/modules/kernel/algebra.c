@@ -512,7 +512,7 @@ ALGintersect(bat *r1, const bat *lid, const bat *rid, const bat *slid, const bat
 }
 
 /* algebra.firstn(b:bat[:any],
- *                [ s:bat[:oid],
+ *                [ s:bat[:cnd],
  *                [ g:bat[:oid], ] ]
  *                n:lng,
  *                asc:bit,

@@ -1944,7 +1944,7 @@ rel2bin_join(backend *be, sql_rel *rel, list *refs)
 		if (rel->op == op_left || rel->op == op_full || rel->op == op_right)
 			s = create_const_column(be, s);
 		if (rel->op == op_left || rel->op == op_full) 
-			s = stmt_append(be, s, stmt_const(be, ld, (c->flag&OUTER_ZERO)?stmt_atom_lng(be, 0):stmt_atom(be, atom_general(sql->sa, tail_type(c), NULL))));
+			s = stmt_append(be, s, stmt_const(be, ld, (c->flag&OUTER_ZERO)?stmt_atom_lng(be, 0):stmt_atom(be, atom_general(sql->sa, tail_type(s), NULL))));
 		if (rel->op == op_right || rel->op == op_full) 
 			s = stmt_append(be, s, stmt_project(be, rd, c));
 

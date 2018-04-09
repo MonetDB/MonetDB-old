@@ -325,7 +325,7 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int 
 			  OPERATION_FAILED ": compilation of pattern \"%s\" failed\n", pat);
 	}
 #endif
-	bn = COLnew(0, TYPE_oid, s ? BATcount(s) : BATcount(b), TRANSIENT);
+	bn = COLnew(0, TYPE_cnd, s ? BATcount(s) : BATcount(b), TRANSIENT);
 	if (bn == NULL) {
 #ifdef HAVE_LIBPCRE
 		pcre_free_study(pe);
@@ -418,7 +418,7 @@ re_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int an
 	assert(ATOMstorage(b->ttype) == TYPE_str);
 	assert(anti == 0 || anti == 1);
 
-	bn = COLnew(0, TYPE_oid, s ? BATcount(s) : BATcount(b), TRANSIENT);
+	bn = COLnew(0, TYPE_cnd, s ? BATcount(s) : BATcount(b), TRANSIENT);
 	if (bn == NULL)
 		throw(MAL, "pcre.likeselect", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	off = b->hseqbase;

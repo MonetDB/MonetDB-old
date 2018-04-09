@@ -376,7 +376,7 @@ VLTgenerator_subselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			 * computation to be done as lng, reducing the
 			 * risk of overflow */
 			o2 = (BUN) ((((lng) tsl.days - tsf.days) * 24*60*60*1000 + tsl.msecs - tsf.msecs) / tss);
-			bn = COLnew(0, TYPE_oid, o2 + 1, TRANSIENT);
+			bn = COLnew(0, TYPE_cnd, o2 + 1, TRANSIENT);
 			if (bn == NULL)
 				throw(MAL, "generator.select", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
@@ -437,7 +437,7 @@ VLTgenerator_subselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		o2 = SORTfndfirst(cand, &o);
 		n = BATcount(cand);
 		if (anti && o1 < o2) {
-			bn = COLnew(0, TYPE_oid, n - (o2 - o1), TRANSIENT);
+			bn = COLnew(0, TYPE_cnd, n - (o2 - o1), TRANSIENT);
 			if (bn) {
 				oid *op = (oid *) Tloc(bn, 0);
 				const oid *cp = (const oid *) Tloc(cand, 0);
@@ -468,7 +468,7 @@ VLTgenerator_subselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			oid o;
 			oid *op;
 
-			bn = COLnew(0, TYPE_oid, n - (o2 - o1), TRANSIENT);
+			bn = COLnew(0, TYPE_cnd, n - (o2 - o1), TRANSIENT);
 			if (bn == NULL)
 				throw(MAL, "generator.select",
 				      SQLSTATE(HY001) MAL_MALLOC_FAIL);
@@ -531,7 +531,7 @@ VLTgenerator_subselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( s == 0 || (f<l && s < 0) || (f>l && s> 0)) \
 		throw(MAL,"generator.thetaselect", SQLSTATE(42000) "Illegal range");\
 	cap = (BUN)(ABS(l-f)/ABS(s));\
-	bn = COLnew(0, TYPE_oid, cap, TRANSIENT);\
+	bn = COLnew(0, TYPE_cnd, cap, TRANSIENT);\
 	if( bn == NULL)\
 		throw(MAL,"generator.thetaselect", SQLSTATE(HY001) MAL_MALLOC_FAIL);\
 	low= hgh = TPE##_nil;\
@@ -671,7 +671,7 @@ str VLTgenerator_thetasubselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 			}
 
 			cap = (BUN) ((((lng) l.days - f.days) * 24*60*60*1000 + l.msecs - f.msecs) / s);
-			bn = COLnew(0, TYPE_oid, cap, TRANSIENT);
+			bn = COLnew(0, TYPE_cnd, cap, TRANSIENT);
 			if( bn == NULL) {
 				if (cand)
 					BBPunfix(cand->batCacheid);

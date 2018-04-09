@@ -812,6 +812,11 @@ binding(Client cntxt, MalBlkPtr curBlk, InstrPtr curInstr, int flag)
 			if ( varid < 0)
 				return curInstr;
 			type = typeElm(cntxt, TYPE_any);
+			if (type == TYPE_cnd) {
+				parseError(cntxt, "Type identified expected\n");
+				cntxt->yycur -= 3; /* keep it */
+				type = TYPE_void;
+			}
 			if (isPolymorphic(type))
 				setPolymorphic(curInstr, type, TRUE);
 			setVarType(curBlk, varid, type);
@@ -821,6 +826,11 @@ binding(Client cntxt, MalBlkPtr curBlk, InstrPtr curInstr, int flag)
 		} else {
 			advance(cntxt, l);
 			type = typeElm(cntxt, getVarType(curBlk, varid));
+			if (type == TYPE_cnd) {
+				parseError(cntxt, "Type identified expected\n");
+				cntxt->yycur -= 3; /* keep it */
+				type = TYPE_void;
+			}
 			if( type != getVarType(curBlk,varid))
 				parseError(cntxt, "Incompatible argument type\n");
 			if (isPolymorphic(type))
@@ -829,6 +839,11 @@ binding(Client cntxt, MalBlkPtr curBlk, InstrPtr curInstr, int flag)
 		}
 	} else if (currChar(cntxt) == ':') {
 		type = typeElm(cntxt, TYPE_any);
+		if (type == TYPE_cnd) {
+			parseError(cntxt, "Type identified expected\n");
+			cntxt->yycur -= 3; /* keep it */
+			type = TYPE_void;
+		}
 		varid = newTmpVariable(curBlk, type);
 		if ( varid < 0)
 			return curInstr;
@@ -869,6 +884,11 @@ term(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr, int ret)
 
 			if (currChar(cntxt) == ':') {
 				tpe = typeElm(cntxt, getVarType(curBlk, cstidx));
+				if (tpe == TYPE_cnd) {
+					parseError(cntxt, "Type identified expected\n");
+					cntxt->yycur -= 3; /* keep it */
+					tpe = TYPE_void;
+				}
 				if (tpe < 0)
 					return 3;
 				if(tpe == getVarType(curBlk,cstidx) ){
@@ -893,6 +913,11 @@ term(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr, int ret)
 			/* add a new constant */
 			flag = currChar(cntxt) == ':';
 			tpe = typeElm(cntxt, cst.vtype);
+			if (tpe == TYPE_cnd) {
+				parseError(cntxt, "Type identified expected\n");
+				cntxt->yycur -= 3; /* keep it */
+				tpe = TYPE_void;
+			}
 			if (tpe < 0)
 				return 3;
 			cstidx = defConstant(curBlk, tpe, &cst);
@@ -941,8 +966,14 @@ parseAtom(Client cntxt)
 	advance(cntxt, l);
 	if (currChar(cntxt) != ':')
 		tpe = TYPE_void;  /* no type qualifier */
-	else
+	else {
 		tpe = parseTypeId(cntxt, TYPE_int);
+		if (tpe == TYPE_cnd) {
+			parseError(cntxt, "Type identified expected\n");
+			cntxt->yycur -= 3; /* keep it */
+			tpe = TYPE_void;
+		}
+	}
 	if( ATOMindex(modnme) >= 0)
 		parseError(cntxt, "Atom redefinition\n");
 	else {
@@ -1170,6 +1201,11 @@ fcnHeader(Client cntxt, int kind)
  */
 	if (currChar(cntxt) == ':') {
 		tpe = typeElm(cntxt, TYPE_void);
+		if (tpe == TYPE_cnd) {
+			parseError(cntxt, "Type identified expected\n");
+			cntxt->yycur -= 3; /* keep it */
+			tpe = TYPE_void;
+		}
 		setPolymorphic(curInstr, tpe, TRUE);
 		setVarType(curBlk, curInstr->argv[0], tpe);
 		/* we may be confronted by a variable target type list */
@@ -1563,6 +1599,11 @@ parseAssign(Client cntxt, int cntrl)
 			if (currChar(cntxt) == ':') {
 				setVarUDFtype(curBlk, varid);
 				type = typeElm(cntxt, getVarType(curBlk, varid));
+				if (type == TYPE_cnd) {
+					parseError(cntxt, "Type identified expected\n");
+					cntxt->yycur -= 3; /* keep it */
+					type = TYPE_void;
+				}
 				if (type < 0)
 					goto part3;
 				setPolymorphic(curInstr, type, FALSE);
@@ -1617,6 +1658,11 @@ parseAssign(Client cntxt, int cntrl)
 			if (currChar(cntxt) == ':') {
 				setVarUDFtype(curBlk, varid);
 				type = typeElm(cntxt, getVarType(curBlk, varid));
+				if (type == TYPE_cnd) {
+					parseError(cntxt, "Type identified expected\n");
+					cntxt->yycur -= 3; /* keep it */
+					type = TYPE_void;
+				}
 				if (type < 0)
 					goto part3;
 				setPolymorphic(curInstr, type, FALSE);

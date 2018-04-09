@@ -11,6 +11,10 @@ command groupby(gids:bat[:oid], cnts:bat[:lng]) :bat[:oid]
 address ALGgroupby
 comment "Produces a new BAT with groups identified by the head column. The result contains tail times the head value, ie the tail contains the result group sizes.";
 
+command groupby(gids:bat[:cnd], cnts:bat[:lng]) :bat[:oid]
+address ALGgroupby
+comment "Produces a new BAT with groups identified by the head column. The result contains tail times the head value, ie the tail contains the result group sizes.";
+
 command find(b:bat[:any_1], t:any_1):oid
 address ALGfind
 comment "Returns the index position of a value.  If no such BUN exists return OID-nil." ;
@@ -19,11 +23,23 @@ command fetch(b:bat[:any_1], x:oid) :any_1
 address ALGfetchoid
 comment "Returns the value of the BUN at x-th position with 0 <= x < b.count";
 
+command fetch(b:bat[:cnd], x:oid) :oid
+address ALGfetchoid
+comment "Returns the value of the BUN at x-th position with 0 <= x < b.count";
+
 pattern project(b:bat[:any_1],v:any_3) :bat[:any_3]
 address ALGprojecttail
 comment "Fill the tail with a constant";
 
+command projection( left:bat[:cnd], right:bat[:any_3] ) :bat[:any_3]
+address ALGprojection
+comment "Project left input onto right input.";
+
 command projection( left:bat[:oid], right:bat[:any_3] ) :bat[:any_3]
+address ALGprojection
+comment "Project left input onto right input.";
+
+command projection( left:bat[:oid], right:bat[:cnd] ) :bat[:oid]
 address ALGprojection
 comment "Project left input onto right input.";
 
@@ -37,7 +53,7 @@ address ALGexist
 comment "Returns whether 'val' occurs in b.";
 
 # The range selections are targeted at the tail of the BAT.
-command select(b:bat[:any_1], low:any_1, high:any_1, li:bit, hi:bit, anti:bit) :bat[:oid]
+command select(b:bat[:any_1], low:any_1, high:any_1, li:bit, hi:bit, anti:bit) :bat[:cnd]
 address ALGselect1
 comment "Select all head values for which the tail value is in range.
 	Input is a dense-headed BAT, output is a dense-headed BAT with in
@@ -52,7 +68,10 @@ comment "Select all head values for which the tail value is in range.
 	Note that the output is suitable as second input for the other
 	version of this function.";
 
-command select(b:bat[:any_1], s:bat[:oid], low:any_1, high:any_1, li:bit, hi:bit, anti:bit) :bat[:oid]
+command select(b:bat[:cnd], low:oid, high:oid, li:bit, hi:bit, anti:bit) :bat[:cnd]
+address ALGselect1;
+
+command select(b:bat[:any_1], s:bat[:cnd], low:any_1, high:any_1, li:bit, hi:bit, anti:bit) :bat[:cnd]
 address ALGselect2
 comment "Select all head values of the first input BAT for which the tail value
 	is in range and for which the head value occurs in the tail of the
@@ -70,7 +89,7 @@ comment "Select all head values of the first input BAT for which the tail value
 	Note that the output is suitable as second input for this
 	function.";
 
-command thetaselect(b:bat[:any_1], val:any_1, op:str) :bat[:oid]
+command thetaselect(b:bat[:any_1], val:any_1, op:str) :bat[:cnd]
 address ALGthetaselect1
 comment "Select all head values for which the tail value obeys the relation
 	value OP VAL.
@@ -78,7 +97,7 @@ comment "Select all head values for which the tail value obeys the relation
 	the tail the head value of the input BAT for which the
 	relationship holds.  The output BAT is sorted on the tail value.";
 
-command thetaselect(b:bat[:any_1], s:bat[:oid], val:any_1, op:str) :bat[:oid]
+command thetaselect(b:bat[:any_1], s:bat[:cnd], val:any_1, op:str) :bat[:cnd]
 address ALGthetaselect2
 comment "Select all head values of the first input BAT for which the tail value
 	obeys the relation value OP VAL and for which the head value occurs in
@@ -153,7 +172,7 @@ comment "Returns a copy of the BAT sorted on tail values, a BAT that specifies
          The order is descending if the reverse bit is set.
 		 This is a stable sort if the stable bit is set.";
 
-command unique(b:bat[:any_1], s:bat[:oid]) :bat[:oid]
+command unique(b:bat[:any_1], s:bat[:cnd]) :bat[:cnd]
 address ALGunique2
 comment "Select all unique values from the tail of the first input.
 	Input is a dense-headed BAT, the second input is a
@@ -161,7 +180,7 @@ comment "Select all unique values from the tail of the first input.
 	BAT with in the tail the head value of the input BAT that was
 	selected.  The output BAT is sorted on the tail value.  The
 	second input BAT is a list of candidates.";
-command unique(b:bat[:any_1]) :bat[:oid]
+command unique(b:bat[:any_1]) :bat[:cnd]
 address ALGunique1
 comment "Select all unique values from the tail of the input.
 	Input is a dense-headed BAT, output is a dense-headed BAT with
@@ -179,65 +198,89 @@ comment "Returns 2 columns with all BUNs, consisting of the head-oids
 	  from 'left' and 'right' for which there are BUNs in 'left'
 	  and 'right' with equal tails";
 
-command join(l:bat[:any_1],r:bat[:any_1],sl:bat[:oid],sr:bat[:oid],nil_matches:bit,estimate:lng) (:bat[:oid],:bat[:oid])
+command join(l:bat[:any_1],r:bat[:any_1],sl:bat[:cnd],sr:bat[:cnd],nil_matches:bit,estimate:lng) (:bat[:oid],:bat[:oid])
 address ALGjoin
 comment "Join";
 
-command leftjoin(l:bat[:any_1],r:bat[:any_1],sl:bat[:oid],sr:bat[:oid],nil_matches:bit,estimate:lng) (:bat[:oid],:bat[:oid])
+command join(l:bat[:oid],r:bat[:cnd],sl:bat[:cnd],sr:bat[:cnd],nil_matches:bit,estimate:lng) (:bat[:oid],:bat[:oid])
+address ALGjoin
+comment "Join";
+
+command join(l:bat[:cnd],r:bat[:oid],sl:bat[:cnd],sr:bat[:cnd],nil_matches:bit,estimate:lng) (:bat[:oid],:bat[:oid])
+address ALGjoin
+comment "Join";
+
+command leftjoin(l:bat[:any_1],r:bat[:any_1],sl:bat[:cnd],sr:bat[:cnd],nil_matches:bit,estimate:lng) (:bat[:oid],:bat[:oid])
 address ALGleftjoin
 comment "Left join with candidate lists";
 
-command outerjoin(l:bat[:any_1],r:bat[:any_1],sl:bat[:oid],sr:bat[:oid],nil_matches:bit,estimate:lng) (:bat[:oid],:bat[:oid])
+command outerjoin(l:bat[:any_1],r:bat[:any_1],sl:bat[:cnd],sr:bat[:cnd],nil_matches:bit,estimate:lng) (:bat[:oid],:bat[:oid])
 address ALGouterjoin
 comment "Left outer join with candidate lists";
 
-command semijoin(l:bat[:any_1],r:bat[:any_1],sl:bat[:oid],sr:bat[:oid],nil_matches:bit,estimate:lng) (:bat[:oid],:bat[:oid])
+command semijoin(l:bat[:any_1],r:bat[:any_1],sl:bat[:cnd],sr:bat[:cnd],nil_matches:bit,estimate:lng) (:bat[:oid],:bat[:oid])
 address ALGsemijoin
 comment "Semi join with candidate lists";
 
-command thetajoin(l:bat[:any_1],r:bat[:any_1],sl:bat[:oid],sr:bat[:oid],op:int,nil_matches:bit,estimate:lng) (:bat[:oid],:bat[:oid])
+command thetajoin(l:bat[:any_1],r:bat[:any_1],sl:bat[:cnd],sr:bat[:cnd],op:int,nil_matches:bit,estimate:lng) (:bat[:oid],:bat[:oid])
 address ALGthetajoin
 comment "Theta join with candidate lists";
 
-function antijoin(l:bat[:any_1],r:bat[:any_1],sl:bat[:oid],sr:bat[:oid],nil_matches:bit,estimate:lng) (:bat[:oid],:bat[:oid]);
+function antijoin(l:bat[:any_1],r:bat[:any_1],sl:bat[:cnd],sr:bat[:cnd],nil_matches:bit,estimate:lng) (:bat[:oid],:bat[:oid]);
 	 # JOIN_NE == -3
 	(r1,r2) := thetajoin(l,r,sl,sr,-3:int,nil_matches,estimate);
 	return (r1,r2);
 end antijoin;
 
-command bandjoin(l:bat[:any_1],r:bat[:any_1],sl:bat[:oid],sr:bat[:oid],c1:any_1,c2:any_1,li:bit,hi:bit,estimate:lng) (:bat[:oid],:bat[:oid])
+command bandjoin(l:bat[:any_1],r:bat[:any_1],sl:bat[:cnd],sr:bat[:cnd],c1:any_1,c2:any_1,li:bit,hi:bit,estimate:lng) (:bat[:oid],:bat[:oid])
 address ALGbandjoin
 comment "Band join: values in l and r match if r - c1 <[=] l <[=] r + c2";
 
-command rangejoin(l:bat[:any_1],r1:bat[:any_1],r2:bat[:any_1],sl:bat[:oid],sr:bat[:oid],li:bit,hi:bit,estimate:lng) (:bat[:oid],:bat[:oid])
+command rangejoin(l:bat[:any_1],r1:bat[:any_1],r2:bat[:any_1],sl:bat[:cnd],sr:bat[:cnd],li:bit,hi:bit,estimate:lng) (:bat[:oid],:bat[:oid])
 address ALGrangejoin
 comment "Range join: values in l and r1/r2 match if r1 <[=] l <[=] r2";
 
-command difference(l:bat[:any_1],r:bat[:any_1],sl:bat[:oid],sr:bat[:oid],nil_matches:bit,estimate:lng) :bat[:oid]
+command difference(l:bat[:any_1],r:bat[:any_1],sl:bat[:cnd],sr:bat[:cnd],nil_matches:bit,estimate:lng) :bat[:cnd]
 address ALGdifference
 comment "Difference of l and r with candidate lists";
 
-command intersect(l:bat[:any_1],r:bat[:any_1],sl:bat[:oid],sr:bat[:oid],nil_matches:bit,estimate:lng) :bat[:oid]
+command difference(l:bat[:cnd],r:bat[:oid],sl:bat[:cnd],sr:bat[:cnd],nil_matches:bit,estimate:lng) :bat[:cnd]
+address ALGdifference
+comment "Difference of l and r with candidate lists";
+
+command difference(l:bat[:oid],r:bat[:cnd],sl:bat[:cnd],sr:bat[:cnd],nil_matches:bit,estimate:lng) :bat[:cnd]
+address ALGdifference
+comment "Difference of l and r with candidate lists";
+
+command intersect(l:bat[:any_1],r:bat[:any_1],sl:bat[:cnd],sr:bat[:cnd],nil_matches:bit,estimate:lng) :bat[:cnd]
+address ALGintersect
+comment "Intersection of l and r with candidate lists (i.e. half of semi-join)";
+
+command intersect(l:bat[:oid],r:bat[:cnd],sl:bat[:cnd],sr:bat[:cnd],nil_matches:bit,estimate:lng) :bat[:cnd]
+address ALGintersect
+comment "Intersection of l and r with candidate lists (i.e. half of semi-join)";
+
+command intersect(l:bat[:cnd],r:bat[:oid],sl:bat[:cnd],sr:bat[:cnd],nil_matches:bit,estimate:lng) :bat[:cnd]
 address ALGintersect
 comment "Intersection of l and r with candidate lists (i.e. half of semi-join)";
 
 # @+ Projection operations
-pattern firstn(b:bat[:any], n:lng, asc:bit, distinct:bit) :bat[:oid]
+pattern firstn(b:bat[:any], n:lng, asc:bit, distinct:bit) :bat[:cnd]
 address ALGfirstn
 comment "Calculate first N values of B";
-pattern firstn(b:bat[:any], s:bat[:oid], n:lng, asc:bit, distinct:bit) :bat[:oid]
+pattern firstn(b:bat[:any], s:bat[:cnd], n:lng, asc:bit, distinct:bit) :bat[:cnd]
 address ALGfirstn
 comment "Calculate first N values of B with candidate list S";
-pattern firstn(b:bat[:any], s:bat[:oid], g:bat[:oid], n:lng, asc:bit, distinct:bit) :bat[:oid]
+pattern firstn(b:bat[:any], s:bat[:cnd], g:bat[:oid], n:lng, asc:bit, distinct:bit) :bat[:cnd]
 address ALGfirstn
 comment "Calculate first N values of B with candidate list S";
-pattern firstn(b:bat[:any], n:lng, asc:bit, distinct:bit) (:bat[:oid],:bat[:oid])
+pattern firstn(b:bat[:any], n:lng, asc:bit, distinct:bit) (:bat[:cnd],:bat[:oid])
 address ALGfirstn
 comment "Calculate first N values of B";
-pattern firstn(b:bat[:any], s:bat[:oid], n:lng, asc:bit, distinct:bit) (:bat[:oid],:bat[:oid])
+pattern firstn(b:bat[:any], s:bat[:cnd], n:lng, asc:bit, distinct:bit) (:bat[:cnd],:bat[:oid])
 address ALGfirstn
 comment "Calculate first N values of B with candidate list S";
-pattern firstn(b:bat[:any], s:bat[:oid], g:bat[:oid], n:lng, asc:bit, distinct:bit) (:bat[:oid],:bat[:oid])
+pattern firstn(b:bat[:any], s:bat[:cnd], g:bat[:oid], n:lng, asc:bit, distinct:bit) (:bat[:cnd],:bat[:oid])
 address ALGfirstn
 comment "Calculate first N values of B with candidate list S";
 
@@ -264,7 +307,7 @@ command slice(b:bat[:any_1], x:lng, y:lng) :bat[:any_1]
 address ALGslice_lng
 comment "Return the slice with the BUNs at position x till y.";
 
-command subslice(b:bat[:any_1], x:lng, y:lng) :bat[:oid]
+command subslice(b:bat[:any_1], x:lng, y:lng) :bat[:cnd]
 address ALGsubslice_lng
 comment "Return the oids of the slice with the BUNs at position x till y.";
 
@@ -287,14 +330,14 @@ comment "Return the number of elements currently
 	in a BAT ignoring BUNs with nil-tail";
 
 # the variants with a candidate list
-command count( b:bat[:any], cnd:bat[:oid] ) :lng
+command count( b:bat[:any], s:bat[:cnd] ) :lng
 address ALGcountCND_bat
 comment "Return the current size (in number of elements) in a BAT.";
-command count ( b:bat[:any], cnd:bat[:oid], ignore_nils:bit ) :lng
+command count ( b:bat[:any], s:bat[:cnd], ignore_nils:bit ) :lng
 address ALGcountCND_nil
 comment "Return the number of elements currently in a BAT ignores
 		BUNs with nil-tail iff ignore_nils==TRUE.";
-command count_no_nil ( b:bat[:any_2], cnd:bat[:oid]) :lng
+command count_no_nil ( b:bat[:any_2], s:bat[:cnd]) :lng
 address ALGcountCND_no_nil
 comment "Return the number of elements currently
 	in a BAT ignoring BUNs with nil-tail";

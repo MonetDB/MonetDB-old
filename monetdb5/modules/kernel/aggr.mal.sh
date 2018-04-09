@@ -36,7 +36,7 @@ command subsum(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_o
 address AGGRsubsum_${tp2#*:}
 comment "Grouped sum aggregate";
 
-command subsum(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
+command subsum(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
 address AGGRsubsumcand_${tp2#*:}
 comment "Grouped sum aggregate with candidates list";
 
@@ -49,7 +49,7 @@ command subprod(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_
 address AGGRsubprod_${tp2#*:}
 comment "Grouped product aggregate";
 
-command subprod(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
+command subprod(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
 address AGGRsubprodcand_${tp2#*:}
 comment "Grouped product aggregate with candidates list";
 
@@ -71,7 +71,7 @@ command subsum(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_o
 address AGGRsubsum_${tp2#*:}
 comment "Grouped sum aggregate";
 
-command subsum(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
+command subsum(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
 address AGGRsubsumcand_${tp2#*:}
 comment "Grouped sum aggregate with candidates list";
 
@@ -84,7 +84,7 @@ command subprod(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_
 address AGGRsubprod_${tp2#*:}
 comment "Grouped product aggregate";
 
-command subprod(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
+command subprod(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
 address AGGRsubprodcand_${tp2#*:}
 comment "Grouped product aggregate with candidates list";
 
@@ -108,7 +108,7 @@ command subavg(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_on_er
 address AGGRsubavg1_dbl
 comment "Grouped average aggregate";
 
-command subavg(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:dbl]
+command subavg(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:dbl]
 address AGGRsubavg1cand_dbl
 comment "Grouped average aggregate with candidates list";
 
@@ -116,7 +116,7 @@ command subavg(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_on_er
 address AGGRsubavg2_dbl
 comment "Grouped average aggregate, also returns count";
 
-command subavg(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) (:bat[:dbl],:bat[:lng])
+command subavg(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) (:bat[:dbl],:bat[:lng])
 address AGGRsubavg2cand_dbl
 comment "Grouped average aggregate with candidates list, also returns count";
 
@@ -133,7 +133,7 @@ command sub${func}(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_o
 address AGGRsub${func}_dbl
 comment "Grouped ${comm} (sample/non-biased) aggregate";
 
-command sub${func}(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:dbl]
+command sub${func}(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:dbl]
 address AGGRsub${func}cand_dbl
 comment "Grouped ${comm} (sample/non-biased) aggregate with candidates list";
 
@@ -145,7 +145,7 @@ command sub${func}p(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_
 address AGGRsub${func}p_dbl
 comment "Grouped ${comm} (population/biased) aggregate";
 
-command sub${func}p(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:dbl]
+command sub${func}p(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:dbl]
 address AGGRsub${func}pcand_dbl
 comment "Grouped ${comm} (population/biased) aggregate with candidates list";
 
@@ -165,7 +165,7 @@ command submin(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],skip_nils:bit) :bat[:oid]
 address AGGRsubmin
 comment "Grouped minimum aggregate";
 
-command submin(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],s:bat[:oid],skip_nils:bit) :bat[:oid]
+command submin(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],s:bat[:cnd],skip_nils:bit) :bat[:oid]
 address AGGRsubmincand
 comment "Grouped minimum aggregate with candidates list";
 
@@ -173,7 +173,7 @@ command submax(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],skip_nils:bit) :bat[:oid]
 address AGGRsubmax
 comment "Grouped maximum aggregate";
 
-command submax(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],s:bat[:oid],skip_nils:bit) :bat[:oid]
+command submax(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],s:bat[:cnd],skip_nils:bit) :bat[:oid]
 address AGGRsubmaxcand
 comment "Grouped maximum aggregate with candidates list";
 
@@ -181,7 +181,7 @@ command submin(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],skip_nils:bit) :bat[:any_
 address AGGRsubmin_val
 comment "Grouped minimum aggregate";
 
-command submin(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],s:bat[:oid],skip_nils:bit) :bat[:any_1]
+command submin(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],s:bat[:cnd],skip_nils:bit) :bat[:any_1]
 address AGGRsubmincand_val
 comment "Grouped minimum aggregate with candidates list";
 
@@ -189,7 +189,7 @@ command submax(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],skip_nils:bit) :bat[:any_
 address AGGRsubmax_val
 comment "Grouped maximum aggregate";
 
-command submax(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],s:bat[:oid],skip_nils:bit) :bat[:any_1]
+command submax(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],s:bat[:cnd],skip_nils:bit) :bat[:any_1]
 address AGGRsubmaxcand_val
 comment "Grouped maximum aggregate with candidates list";
 
@@ -210,7 +210,7 @@ command subcount(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],skip_nils:bit) :bat[:ln
 address AGGRsubcount
 comment "Grouped count aggregate";
 
-command subcount(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],s:bat[:oid],skip_nils:bit) :bat[:lng]
+command subcount(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],s:bat[:cnd],skip_nils:bit) :bat[:lng]
 address AGGRsubcountcand
 comment "Grouped count aggregate with candidates list";
 
@@ -223,7 +223,7 @@ command submedian(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],skip_nils:bit) :bat[:a
 address AGGRsubmedian
 comment "Grouped median aggregate";
 
-command submedian(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],s:bat[:oid],skip_nils:bit) :bat[:any_1]
+command submedian(b:bat[:any_1],g:bat[:oid],e:bat[:any_2],s:bat[:cnd],skip_nils:bit) :bat[:any_1]
 address AGGRsubmediancand
 comment "Grouped median aggregate with candidate list";
 
@@ -236,7 +236,7 @@ command subquantile(b:bat[:any_1],q:bat[:dbl],g:bat[:oid],e:bat[:any_2],skip_nil
 address AGGRsubquantile
 comment "Grouped quantile aggregate";
 
-command subquantile(b:bat[:any_1],q:bat[:dbl],g:bat[:oid],e:bat[:any_2],s:bat[:oid],skip_nils:bit) :bat[:any_1]
+command subquantile(b:bat[:any_1],q:bat[:dbl],g:bat[:oid],e:bat[:any_2],s:bat[:cnd],skip_nils:bit) :bat[:any_1]
 address AGGRsubquantilecand
 comment "Grouped quantile aggregate with candidate list";
 
@@ -251,7 +251,7 @@ command substr_group_concat(b:bat[:str],g:bat[:oid],e:bat[:any_1],skip_nils:bit,
 address AGGRsubstr_group_concat
 comment "Grouped string concat";
 
-command substr_group_concat(b:bat[:str],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:str]
+command substr_group_concat(b:bat[:str],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:str]
 address AGGRsubstr_group_concatcand
 comment "Grouped string concat with candidates list";
 
@@ -263,7 +263,7 @@ command substr_group_concat(b:bat[:str],sep:bat[:str],g:bat[:oid],e:bat[:any_1],
 address AGGRsubstr_group_concat_sep
 comment "Grouped string concat with custom separator";
 
-command substr_group_concat(b:bat[:str],sep:bat[:str],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:str]
+command substr_group_concat(b:bat[:str],sep:bat[:str],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:str]
 address AGGRsubstr_group_concatcand_sep
 comment "Grouped string concat with candidates list with custom separator";
 EOF

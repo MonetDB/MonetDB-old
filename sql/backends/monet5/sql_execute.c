@@ -625,7 +625,7 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 			if (strlen(m->errstr) > 6 && m->errstr[5] == '!')
 				msg = createException(PARSE, "SQLparser", "%s", m->errstr);
 			else
-				msg = createException(PARSE, "SQLparser", SQLSTATE(42000) "%s", m->errstr);
+				msg = createException(PARSE, "SQLparser", SQLSTATE(42000) "%s", msg ? msg : c->curprg->def->errors ? c->curprg->def->errors : m->errstr);
 			*m->errstr = 0;
 			goto endofcompile;
 		}

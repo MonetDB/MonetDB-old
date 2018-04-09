@@ -580,7 +580,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 	assert(g == NULL || BATcount(g) == cnt);
 	assert(g == NULL || BATcount(b) == 0 || (s ? g->hseqbase == s->hseqbase : g->hseqbase == b->hseqbase));
 	/* e is NULL or [oid(dense),oid] */
-	assert(e == NULL || BATttype(e) == TYPE_oid);
+	assert(e == NULL || e->batIscand);
 	/* h is NULL or [oid(dense),lng] */
 	assert(h == NULL || h->ttype == TYPE_lng);
 	/* e and h are aligned */
@@ -621,7 +621,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		*groups = gn;
 		if (extents) {
 			if (cand) {
-				en = COLnew(0, TYPE_oid, cnt, TRANSIENT);
+				en = COLnew(0, TYPE_cnd, cnt, TRANSIENT);
 				if (en == NULL)
 					goto error;
 				BATsetcount(en, cnt);
@@ -764,7 +764,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 	    maxgrps > ((BUN) 1 << (8 << (b->twidth == 2))))
 		maxgrps = (BUN) 1 << (8 << (b->twidth == 2));
 	if (extents) {
-		en = COLnew(0, TYPE_oid, maxgrps, TRANSIENT);
+		en = COLnew(0, TYPE_cnd, maxgrps, TRANSIENT);
 		if (en == NULL)
 			goto error;
 		exts = (oid *) Tloc(en, 0);

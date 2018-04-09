@@ -456,6 +456,8 @@ stmt_temp(backend *be, sql_subtype *t)
 
 	if (q == NULL)
 		return NULL;
+	if (tt == TYPE_cnd)
+		tt = TYPE_oid;
 	setVarType(mb, getArg(q, 0), newBatType(tt));
 	setVarUDFtype(mb, getArg(q, 0));
 	q = pushType(mb, q, tt);
@@ -478,7 +480,7 @@ stmt_temp(backend *be, sql_subtype *t)
 stmt *
 stmt_tid(backend *be, sql_table *t, int partition)
 {
-	int tt = TYPE_oid;
+	int tt = TYPE_cnd;
 	MalBlkPtr mb = be->mb;
 	InstrPtr q;
 
@@ -1235,9 +1237,12 @@ stmt_atom(backend *be, atom *a)
 	if (!q)
 		return NULL;
 	if (atom_null(a)) {
-		q = pushNil(mb, q, atom_type(a)->type->localtype);
+		if (atom_type(a)->type->localtype == TYPE_cnd)
+			setFunctionId(q, putName("oid"));
+		q = pushNil(mb, q, ATOMtype(atom_type(a)->type->localtype));
 	} else {
 		int k;
+		assert(atom_type(a)->type->localtype != TYPE_cnd);
 		if((k = constantAtom(be, mb, a)) == -1) {
 			freeInstruction(q);
 			return NULL;
@@ -3159,16 +3164,18 @@ tail_type(stmt *st)
 		case st_join2:
 		case st_joinN:
 			if (st->flag == cmp_project) {
-				st = st->op2;
-				continue;
+				sql_subtype *t = tail_type(st->op2);
+				if (t == NULL || t->type->localtype != TYPE_cnd)
+					return t;
 			}
 			/* fall through */
 		case st_reorder:
 		case st_group:
 		case st_result:
+			return sql_bind_localtype("oid");
 		case st_tid:
 		case st_mirror:
-			return sql_bind_localtype("oid");
+			return sql_bind_localtype("cnd");
 		case st_table_clear:
 			return sql_bind_localtype("lng");
 

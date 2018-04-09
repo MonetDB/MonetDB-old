@@ -1348,7 +1348,7 @@ BATsort(BAT **sorted, BAT **order, BAT **groups,
 		return GDK_FAIL;
 	}
 	if (o != NULL &&
-	    (ATOMtype(o->ttype) != TYPE_oid || /* oid tail */
+	    (BATttype(o) != TYPE_oid || /* oid tail */
 	     BATcount(o) != BATcount(b) ||     /* same size as b */
 	     (o->ttype == TYPE_void &&	       /* no nil tail */
 	      BATcount(o) != 0 &&
@@ -1357,7 +1357,7 @@ BATsort(BAT **sorted, BAT **order, BAT **groups,
 		return GDK_FAIL;
 	}
 	if (g != NULL &&
-	    (ATOMtype(g->ttype) != TYPE_oid || /* oid tail */
+	    (BATttype(g) != TYPE_oid || /* oid tail */
 	     !g->tsorted ||		       /* sorted */
 	     BATcount(o) != BATcount(b) ||     /* same size as b */
 	     (g->ttype == TYPE_void &&	       /* no nil tail */
@@ -1698,6 +1698,8 @@ BATconstant(oid hseq, int tailtype, const void *v, BUN n, int role)
 
 	if (v == NULL)
 		return NULL;
+	assert(tailtype != TYPE_cnd || n <= 1);
+	assert(tailtype != TYPE_cnd || !is_oid_nil(*(oid*)v));
 	bn = COLnew(hseq, tailtype, n, role);
 	if (bn == NULL)
 		return NULL;
@@ -1947,16 +1949,16 @@ BATmergecand(BAT *a, BAT *b)
 
 	BATcheck(a, "BATmergecand", NULL);
 	BATcheck(b, "BATmergecand", NULL);
-	assert(ATOMtype(a->ttype) == TYPE_oid);
-	assert(ATOMtype(b->ttype) == TYPE_oid);
+	assert(BATttype(a) == TYPE_cnd);
+	assert(BATttype(b) == TYPE_cnd);
 	assert(a->tsorted);
 	assert(b->tsorted);
 	assert(a->tkey);
 	assert(b->tkey);
 	assert(a->tnonil);
 	assert(b->tnonil);
-	assert(a->batIscand || BATcount(a) == 0);
-	assert(b->batIscand || BATcount(b) == 0);
+	assert(a->batIscand /*|| BATcount(a) == 0*/);
+	assert(b->batIscand /*|| BATcount(b) == 0*/);
 
 	/* we can return a if b is empty (and v.v.) */
 	if (BATcount(a) == 0) {
@@ -2002,7 +2004,7 @@ BATmergecand(BAT *a, BAT *b)
 		return newdensecand(bf, bl + 1);
 	}
 
-	bn = COLnew(0, TYPE_oid, BATcount(a) + BATcount(b), TRANSIENT);
+	bn = COLnew(0, TYPE_cnd, BATcount(a) + BATcount(b), TRANSIENT);
 	if (bn == NULL)
 		return NULL;
 	p = (oid *) Tloc(bn, 0);
@@ -2028,7 +2030,7 @@ BATmergecand(BAT *a, BAT *b)
 			a = b;
 			b = t;
 		}
-		/* a is dense, b->ttype == TYPE_oid */
+		/* a is dense, b->ttype == TYPE_cnd */
 		bp = (const oid *) Tloc(b, 0);
 		bpe = bp + BATcount(b);
 		while (bp < bpe && *bp < a->tseqbase)
@@ -2040,7 +2042,7 @@ BATmergecand(BAT *a, BAT *b)
 		while (bp < bpe)
 			*p++ = *bp++;
 	} else {
-		/* a->ttype == TYPE_oid, b->ttype == TYPE_oid */
+		/* a->ttype == TYPE_cnd, b->ttype == TYPE_cnd */
 		ap = (const oid *) Tloc(a, 0);
 		ape = ap + BATcount(a);
 		bp = (const oid *) Tloc(b, 0);
@@ -2082,16 +2084,16 @@ BATintersectcand(BAT *a, BAT *b)
 
 	BATcheck(a, "BATintersectcand", NULL);
 	BATcheck(b, "BATintersectcand", NULL);
-	assert(ATOMtype(a->ttype) == TYPE_oid);
-	assert(ATOMtype(b->ttype) == TYPE_oid);
+	assert(BATttype(a) == TYPE_cnd);
+	assert(BATttype(b) == TYPE_cnd);
 	assert(a->tsorted);
 	assert(b->tsorted);
 	assert(a->tkey);
 	assert(b->tkey);
 	assert(a->tnonil);
 	assert(b->tnonil);
-	assert(a->batIscand || BATcount(a) == 0);
-	assert(b->batIscand || BATcount(b) == 0);
+	assert(a->batIscand /*|| BATcount(a) == 0*/);
+	assert(b->batIscand /*|| BATcount(b) == 0*/);
 
 	if (BATcount(a) == 0 || BATcount(b) == 0) {
 		return newdensecand(0, 0);
@@ -2117,7 +2119,7 @@ BATintersectcand(BAT *a, BAT *b)
 		return newdensecand(MAX(af, bf), MIN(al, bl) + 1);
 	}
 
-	bn = COLnew(0, TYPE_oid, MIN(BATcount(a), BATcount(b)), TRANSIENT);
+	bn = COLnew(0, TYPE_cnd, MIN(BATcount(a), BATcount(b)), TRANSIENT);
 	if (bn == NULL)
 		return NULL;
 	p = (oid *) Tloc(bn, 0);
@@ -2128,7 +2130,7 @@ BATintersectcand(BAT *a, BAT *b)
 			a = b;
 			b = t;
 		}
-		/* a is dense, b->ttype == TYPE_oid */
+		/* a is dense, b->ttype == TYPE_cnd */
 		bp = (const oid *) Tloc(b, 0);
 		bpe = bp + BATcount(b);
 		while (bp < bpe && *bp < a->tseqbase)
@@ -2136,7 +2138,7 @@ BATintersectcand(BAT *a, BAT *b)
 		while (bp < bpe && *bp < a->tseqbase + BATcount(a))
 			*p++ = *bp++;
 	} else {
-		/* a->ttype == TYPE_oid, b->ttype == TYPE_oid */
+		/* a->ttype == TYPE_cnd, b->ttype == TYPE_cnd */
 		ap = (const oid *) Tloc(a, 0);
 		ape = ap + BATcount(a);
 		bp = (const oid *) Tloc(b, 0);

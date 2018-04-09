@@ -227,10 +227,14 @@ BATproject(BAT *l, BAT *r)
 				  bn->tkey ? "-key" : "");
 		/* the result is a candidate list only if both inputs
 		 * are candidate lists */
-		if (l->batIscand & r->batIscand)
+		if (l->batIscand & r->batIscand) {
 			bn = BATfixcand(bn);
-		else
-			bn->batIscand = false; /* could be true if r is cand */
+		} else {
+			/* could be true if r is cand */
+			if (bn->ttype == TYPE_cnd)
+				bn->ttype = TYPE_oid;
+			bn->batIscand = false;
+		}
 		return bn;
 	}
 	/* if l has type void, it is either empty or not dense (i.e. nil) */
@@ -239,7 +243,7 @@ BATproject(BAT *l, BAT *r)
 		/* trivial: all values are nil (includes no entries at all) */
 		const void *nil = ATOMnilptr(r->ttype);
 
-		bn = BATconstant(l->hseqbase, r->ttype == TYPE_oid ? TYPE_void : r->ttype,
+		bn = BATconstant(l->hseqbase, ATOMtype(r->ttype) == TYPE_oid ? TYPE_void : r->ttype,
 				 nil, BATcount(l), TRANSIENT);
 		if (bn == NULL)
 			return NULL;
@@ -257,7 +261,7 @@ BATproject(BAT *l, BAT *r)
 			bn = BATfixcand(bn);
 		return bn;
 	}
-	assert(l->ttype == TYPE_oid);
+	assert(l->ttype == TYPE_oid || l->ttype == TYPE_cnd);
 
 	if (ATOMstorage(tpe) == TYPE_str &&
 	    l->tnonil &&

@@ -220,7 +220,7 @@ BKCmirror(bat *ret, const bat *bid)
 	if ((b = BATdescriptor(*bid)) == NULL) {
 		throw(MAL, "bat.mirror", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 	}
-	bn = BATdense(b->hseqbase, b->hseqbase, BATcount(b));
+	bn = BATfixcand(BATdense(b->hseqbase, b->hseqbase, BATcount(b)));
 	BBPunfix(b->batCacheid);
 	if (bn == NULL) {
 		throw(MAL, "bat.mirror", GDK_EXCEPTION);

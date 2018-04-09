@@ -6,7 +6,7 @@
 
 module bat;
 
-command mirror(b:bat[:any_2]) :bat[:oid] 
+command mirror(b:bat[:any_2]) :bat[:cnd] 
 address BKCmirror
 comment "Returns the head-mirror image of a BAT (two head columns).";
 
@@ -16,6 +16,10 @@ address BKCdelete
 comment "Delete BUN indicated by head value, exchanging with last BUN";
 
 command delete(b:bat[ :any_1], d:bat[ :oid]) :bat[ :any_1]
+address BKCdelete_multi
+comment "Delete multiple BUN, shifting BUNs up";
+
+command delete(b:bat[ :any_1], d:bat[ :cnd]) :bat[ :any_1]
 address BKCdelete_multi
 comment "Delete multiple BUN, shifting BUNs up";
 
@@ -44,15 +48,31 @@ command append( i:bat[:any_1], u:bat[:any_1] ) :bat[:any_1]
 address BKCappend_wrap
 comment "append the content of u to i";
 
+command append( i:bat[:oid], u:bat[:cnd] ) :bat[:oid]
+address BKCappend_wrap
+comment "append the content of u to i";
+
 command append( i:bat[:any_1], u:bat[:any_1], force:bit ) :bat[:any_1]
 address BKCappend_force_wrap
 comment "append the content of u to i";
 
-command append( i:bat[:any_1], u:bat[:any_1], s:bat[:oid] ) :bat[:any_1]
+command append( i:bat[:oid], u:bat[:cnd], force:bit ) :bat[:oid]
+address BKCappend_force_wrap
+comment "append the content of u to i";
+
+command append( i:bat[:any_1], u:bat[:any_1], s:bat[:cnd] ) :bat[:any_1]
 address BKCappend_cand_wrap
 comment "append the content of u with candidate list s to i";
 
-command append( i:bat[:any_1], u:bat[:any_1], s:bat[:oid], force:bit ) :bat[:any_1]
+command append( i:bat[:oid], u:bat[:cnd], s:bat[:cnd] ) :bat[:oid]
+address BKCappend_cand_wrap
+comment "append the content of u with candidate list s to i";
+
+command append( i:bat[:any_1], u:bat[:any_1], s:bat[:cnd], force:bit ) :bat[:any_1]
+address BKCappend_cand_force_wrap
+comment "append the content of u with candidate list s to i";
+
+command append( i:bat[:oid], u:bat[:cnd], s:bat[:cnd], force:bit ) :bat[:oid]
 address BKCappend_cand_force_wrap
 comment "append the content of u with candidate list s to i";
 
@@ -190,10 +210,10 @@ command reuseMap(b:bat[:any_1],del:bat[:oid]):bat[:oid]
 address BKCreuseBATmap
 comment "Derive the oid mapping for reuse BAT based on list of to-be-deleted";
 
-command mergecand(a:bat[:oid],b:bat[:oid]) :bat[:oid]
+command mergecand(a:bat[:cnd],b:bat[:cnd]) :bat[:cnd]
 address BKCmergecand
 comment "Merge two candidate lists into one";
 
-command intersectcand(a:bat[:oid],b:bat[:oid]) :bat[:oid]
+command intersectcand(a:bat[:cnd],b:bat[:cnd]) :bat[:cnd]
 address BKCintersectcand
 comment "Intersect two candidate lists into one";

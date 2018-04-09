@@ -11,342 +11,342 @@ module batcalc;
 pattern <(b1:bat[:date],b2:bat[:date]) :bat[:bit]
 address CMDbatLT
 comment "Return B1 < B2";
-pattern <(b1:bat[:date],b2:bat[:date],s:bat[:oid]) :bat[:bit]
+pattern <(b1:bat[:date],b2:bat[:date],s:bat[:cnd]) :bat[:bit]
 address CMDbatLT
 comment "Return B1 < B2 with candidates list";
 pattern <(b:bat[:date],v:date) :bat[:bit]
 address CMDbatLT
 comment "Return B < V";
-pattern <(b:bat[:date],v:date,s:bat[:oid]) :bat[:bit]
+pattern <(b:bat[:date],v:date,s:bat[:cnd]) :bat[:bit]
 address CMDbatLT
 comment "Return B < V with candidates list";
 pattern <(v:date,b:bat[:date]) :bat[:bit]
 address CMDbatLT
 comment "Return V < B";
-pattern <(v:date,b:bat[:date],s:bat[:oid]) :bat[:bit]
+pattern <(v:date,b:bat[:date],s:bat[:cnd]) :bat[:bit]
 address CMDbatLT
 comment "Return V < B with candidates list";
 
 pattern <(b1:bat[:daytime],b2:bat[:daytime]) :bat[:bit]
 address CMDbatLT
 comment "Return B1 < B2";
-pattern <(b1:bat[:daytime],b2:bat[:daytime],s:bat[:oid]) :bat[:bit]
+pattern <(b1:bat[:daytime],b2:bat[:daytime],s:bat[:cnd]) :bat[:bit]
 address CMDbatLT
 comment "Return B1 < B2 with candidates list";
 pattern <(b:bat[:daytime],v:daytime) :bat[:bit]
 address CMDbatLT
 comment "Return B < V";
-pattern <(b:bat[:daytime],v:daytime,s:bat[:oid]) :bat[:bit]
+pattern <(b:bat[:daytime],v:daytime,s:bat[:cnd]) :bat[:bit]
 address CMDbatLT
 comment "Return B < V with candidates list";
 pattern <(v:daytime,b:bat[:daytime]) :bat[:bit]
 address CMDbatLT
 comment "Return V < B";
-pattern <(v:daytime,b:bat[:daytime],s:bat[:oid]) :bat[:bit]
+pattern <(v:daytime,b:bat[:daytime],s:bat[:cnd]) :bat[:bit]
 address CMDbatLT
 comment "Return V < B with candidates list";
 
 pattern <(b1:bat[:timestamp],b2:bat[:timestamp]) :bat[:bit]
 address CMDbatLT
 comment "Return B1 < B2";
-pattern <(b1:bat[:timestamp],b2:bat[:timestamp],s:bat[:oid]) :bat[:bit]
+pattern <(b1:bat[:timestamp],b2:bat[:timestamp],s:bat[:cnd]) :bat[:bit]
 address CMDbatLT
 comment "Return B1 < B2 with candidates list";
 pattern <(b:bat[:timestamp],v:timestamp) :bat[:bit]
 address CMDbatLT
 comment "Return B < V";
-pattern <(b:bat[:timestamp],v:timestamp,s:bat[:oid]) :bat[:bit]
+pattern <(b:bat[:timestamp],v:timestamp,s:bat[:cnd]) :bat[:bit]
 address CMDbatLT
 comment "Return B < V with candidates list";
 pattern <(v:timestamp,b:bat[:timestamp]) :bat[:bit]
 address CMDbatLT
 comment "Return V < B";
-pattern <(v:timestamp,b:bat[:timestamp],s:bat[:oid]) :bat[:bit]
+pattern <(v:timestamp,b:bat[:timestamp],s:bat[:cnd]) :bat[:bit]
 address CMDbatLT
 comment "Return V < B with candidates list";
 
 pattern <=(b1:bat[:date],b2:bat[:date]) :bat[:bit]
 address CMDbatLE
 comment "Return B1 <= B2";
-pattern <=(b1:bat[:date],b2:bat[:date],s:bat[:oid]) :bat[:bit]
+pattern <=(b1:bat[:date],b2:bat[:date],s:bat[:cnd]) :bat[:bit]
 address CMDbatLE
 comment "Return B1 <= B2 with candidates list";
 pattern <=(b:bat[:date],v:date) :bat[:bit]
 address CMDbatLE
 comment "Return B <= V";
-pattern <=(b:bat[:date],v:date,s:bat[:oid]) :bat[:bit]
+pattern <=(b:bat[:date],v:date,s:bat[:cnd]) :bat[:bit]
 address CMDbatLE
 comment "Return B <= V with candidates list";
 pattern <=(v:date,b:bat[:date]) :bat[:bit]
 address CMDbatLE
 comment "Return V <= B";
-pattern <=(v:date,b:bat[:date],s:bat[:oid]) :bat[:bit]
+pattern <=(v:date,b:bat[:date],s:bat[:cnd]) :bat[:bit]
 address CMDbatLE
 comment "Return V <= B with candidates list";
 
 pattern <=(b1:bat[:daytime],b2:bat[:daytime]) :bat[:bit]
 address CMDbatLE
 comment "Return B1 <= B2";
-pattern <=(b1:bat[:daytime],b2:bat[:daytime],s:bat[:oid]) :bat[:bit]
+pattern <=(b1:bat[:daytime],b2:bat[:daytime],s:bat[:cnd]) :bat[:bit]
 address CMDbatLE
 comment "Return B1 <= B2 with candidates list";
 pattern <=(b:bat[:daytime],v:daytime) :bat[:bit]
 address CMDbatLE
 comment "Return B <= V";
-pattern <=(b:bat[:daytime],v:daytime,s:bat[:oid]) :bat[:bit]
+pattern <=(b:bat[:daytime],v:daytime,s:bat[:cnd]) :bat[:bit]
 address CMDbatLE
 comment "Return B <= V with candidates list";
 pattern <=(v:daytime,b:bat[:daytime]) :bat[:bit]
 address CMDbatLE
 comment "Return V <= B";
-pattern <=(v:daytime,b:bat[:daytime],s:bat[:oid]) :bat[:bit]
+pattern <=(v:daytime,b:bat[:daytime],s:bat[:cnd]) :bat[:bit]
 address CMDbatLE
 comment "Return V <= B with candidates list";
 
 pattern <=(b1:bat[:timestamp],b2:bat[:timestamp]) :bat[:bit]
 address CMDbatLE
 comment "Return B1 <= B2";
-pattern <=(b1:bat[:timestamp],b2:bat[:timestamp],s:bat[:oid]) :bat[:bit]
+pattern <=(b1:bat[:timestamp],b2:bat[:timestamp],s:bat[:cnd]) :bat[:bit]
 address CMDbatLE
 comment "Return B1 <= B2 with candidates list";
 pattern <=(b:bat[:timestamp],v:timestamp) :bat[:bit]
 address CMDbatLE
 comment "Return B <= V";
-pattern <=(b:bat[:timestamp],v:timestamp,s:bat[:oid]) :bat[:bit]
+pattern <=(b:bat[:timestamp],v:timestamp,s:bat[:cnd]) :bat[:bit]
 address CMDbatLE
 comment "Return B <= V with candidates list";
 pattern <=(v:timestamp,b:bat[:timestamp]) :bat[:bit]
 address CMDbatLE
 comment "Return V <= B";
-pattern <=(v:timestamp,b:bat[:timestamp],s:bat[:oid]) :bat[:bit]
+pattern <=(v:timestamp,b:bat[:timestamp],s:bat[:cnd]) :bat[:bit]
 address CMDbatLE
 comment "Return V <= B with candidates list";
 
 pattern >(b1:bat[:date],b2:bat[:date]) :bat[:bit]
 address CMDbatGT
 comment "Return B1 > B2";
-pattern >(b1:bat[:date],b2:bat[:date],s:bat[:oid]) :bat[:bit]
+pattern >(b1:bat[:date],b2:bat[:date],s:bat[:cnd]) :bat[:bit]
 address CMDbatGT
 comment "Return B1 > B2 with candidates list";
 pattern >(b:bat[:date],v:date) :bat[:bit]
 address CMDbatGT
 comment "Return B > V";
-pattern >(b:bat[:date],v:date,s:bat[:oid]) :bat[:bit]
+pattern >(b:bat[:date],v:date,s:bat[:cnd]) :bat[:bit]
 address CMDbatGT
 comment "Return B > V with candidates list";
 pattern >(v:date,b:bat[:date]) :bat[:bit]
 address CMDbatGT
 comment "Return V > B";
-pattern >(v:date,b:bat[:date],s:bat[:oid]) :bat[:bit]
+pattern >(v:date,b:bat[:date],s:bat[:cnd]) :bat[:bit]
 address CMDbatGT
 comment "Return V > B with candidates list";
 
 pattern >(b1:bat[:daytime],b2:bat[:daytime]) :bat[:bit]
 address CMDbatGT
 comment "Return B1 > B2";
-pattern >(b1:bat[:daytime],b2:bat[:daytime],s:bat[:oid]) :bat[:bit]
+pattern >(b1:bat[:daytime],b2:bat[:daytime],s:bat[:cnd]) :bat[:bit]
 address CMDbatGT
 comment "Return B1 > B2 with candidates list";
 pattern >(b:bat[:daytime],v:daytime) :bat[:bit]
 address CMDbatGT
 comment "Return B > V";
-pattern >(b:bat[:daytime],v:daytime,s:bat[:oid]) :bat[:bit]
+pattern >(b:bat[:daytime],v:daytime,s:bat[:cnd]) :bat[:bit]
 address CMDbatGT
 comment "Return B > V with candidates list";
 pattern >(v:daytime,b:bat[:daytime]) :bat[:bit]
 address CMDbatGT
 comment "Return V > B";
-pattern >(v:daytime,b:bat[:daytime],s:bat[:oid]) :bat[:bit]
+pattern >(v:daytime,b:bat[:daytime],s:bat[:cnd]) :bat[:bit]
 address CMDbatGT
 comment "Return V > B with candidates list";
 
 pattern >(b1:bat[:timestamp],b2:bat[:timestamp]) :bat[:bit]
 address CMDbatGT
 comment "Return B1 > B2";
-pattern >(b1:bat[:timestamp],b2:bat[:timestamp],s:bat[:oid]) :bat[:bit]
+pattern >(b1:bat[:timestamp],b2:bat[:timestamp],s:bat[:cnd]) :bat[:bit]
 address CMDbatGT
 comment "Return B1 > B2 with candidates list";
 pattern >(b:bat[:timestamp],v:timestamp) :bat[:bit]
 address CMDbatGT
 comment "Return B > V";
-pattern >(b:bat[:timestamp],v:timestamp,s:bat[:oid]) :bat[:bit]
+pattern >(b:bat[:timestamp],v:timestamp,s:bat[:cnd]) :bat[:bit]
 address CMDbatGT
 comment "Return B > V with candidates list";
 pattern >(v:timestamp,b:bat[:timestamp]) :bat[:bit]
 address CMDbatGT
 comment "Return V > B";
-pattern >(v:timestamp,b:bat[:timestamp],s:bat[:oid]) :bat[:bit]
+pattern >(v:timestamp,b:bat[:timestamp],s:bat[:cnd]) :bat[:bit]
 address CMDbatGT
 comment "Return V > B with candidates list";
 
 pattern >=(b1:bat[:date],b2:bat[:date]) :bat[:bit]
 address CMDbatGE
 comment "Return B1 >= B2";
-pattern >=(b1:bat[:date],b2:bat[:date],s:bat[:oid]) :bat[:bit]
+pattern >=(b1:bat[:date],b2:bat[:date],s:bat[:cnd]) :bat[:bit]
 address CMDbatGE
 comment "Return B1 >= B2 with candidates list";
 pattern >=(b:bat[:date],v:date) :bat[:bit]
 address CMDbatGE
 comment "Return B >= V";
-pattern >=(b:bat[:date],v:date,s:bat[:oid]) :bat[:bit]
+pattern >=(b:bat[:date],v:date,s:bat[:cnd]) :bat[:bit]
 address CMDbatGE
 comment "Return B >= V with candidates list";
 pattern >=(v:date,b:bat[:date]) :bat[:bit]
 address CMDbatGE
 comment "Return V >= B";
-pattern >=(v:date,b:bat[:date],s:bat[:oid]) :bat[:bit]
+pattern >=(v:date,b:bat[:date],s:bat[:cnd]) :bat[:bit]
 address CMDbatGE
 comment "Return V >= B with candidates list";
 
 pattern >=(b1:bat[:daytime],b2:bat[:daytime]) :bat[:bit]
 address CMDbatGE
 comment "Return B1 >= B2";
-pattern >=(b1:bat[:daytime],b2:bat[:daytime],s:bat[:oid]) :bat[:bit]
+pattern >=(b1:bat[:daytime],b2:bat[:daytime],s:bat[:cnd]) :bat[:bit]
 address CMDbatGE
 comment "Return B1 >= B2 with candidates list";
 pattern >=(b:bat[:daytime],v:daytime) :bat[:bit]
 address CMDbatGE
 comment "Return B >= V";
-pattern >=(b:bat[:daytime],v:daytime,s:bat[:oid]) :bat[:bit]
+pattern >=(b:bat[:daytime],v:daytime,s:bat[:cnd]) :bat[:bit]
 address CMDbatGE
 comment "Return B >= V with candidates list";
 pattern >=(v:daytime,b:bat[:daytime]) :bat[:bit]
 address CMDbatGE
 comment "Return V >= B";
-pattern >=(v:daytime,b:bat[:daytime],s:bat[:oid]) :bat[:bit]
+pattern >=(v:daytime,b:bat[:daytime],s:bat[:cnd]) :bat[:bit]
 address CMDbatGE
 comment "Return V >= B with candidates list";
 
 pattern >=(b1:bat[:timestamp],b2:bat[:timestamp]) :bat[:bit]
 address CMDbatGE
 comment "Return B1 >= B2";
-pattern >=(b1:bat[:timestamp],b2:bat[:timestamp],s:bat[:oid]) :bat[:bit]
+pattern >=(b1:bat[:timestamp],b2:bat[:timestamp],s:bat[:cnd]) :bat[:bit]
 address CMDbatGE
 comment "Return B1 >= B2 with candidates list";
 pattern >=(b:bat[:timestamp],v:timestamp) :bat[:bit]
 address CMDbatGE
 comment "Return B >= V";
-pattern >=(b:bat[:timestamp],v:timestamp,s:bat[:oid]) :bat[:bit]
+pattern >=(b:bat[:timestamp],v:timestamp,s:bat[:cnd]) :bat[:bit]
 address CMDbatGE
 comment "Return B >= V with candidates list";
 pattern >=(v:timestamp,b:bat[:timestamp]) :bat[:bit]
 address CMDbatGE
 comment "Return V >= B";
-pattern >=(v:timestamp,b:bat[:timestamp],s:bat[:oid]) :bat[:bit]
+pattern >=(v:timestamp,b:bat[:timestamp],s:bat[:cnd]) :bat[:bit]
 address CMDbatGE
 comment "Return V >= B with candidates list";
 
 pattern ==(b1:bat[:date],b2:bat[:date]) :bat[:bit]
 address CMDbatEQ
 comment "Return B1 == B2";
-pattern ==(b1:bat[:date],b2:bat[:date],s:bat[:oid]) :bat[:bit]
+pattern ==(b1:bat[:date],b2:bat[:date],s:bat[:cnd]) :bat[:bit]
 address CMDbatEQ
 comment "Return B1 == B2 with candidates list";
 pattern ==(b:bat[:date],v:date) :bat[:bit]
 address CMDbatEQ
 comment "Return B == V";
-pattern ==(b:bat[:date],v:date,s:bat[:oid]) :bat[:bit]
+pattern ==(b:bat[:date],v:date,s:bat[:cnd]) :bat[:bit]
 address CMDbatEQ
 comment "Return B == V with candidates list";
 pattern ==(v:date,b:bat[:date]) :bat[:bit]
 address CMDbatEQ
 comment "Return V == B";
-pattern ==(v:date,b:bat[:date],s:bat[:oid]) :bat[:bit]
+pattern ==(v:date,b:bat[:date],s:bat[:cnd]) :bat[:bit]
 address CMDbatEQ
 comment "Return V == B with candidates list";
 
 pattern ==(b1:bat[:daytime],b2:bat[:daytime]) :bat[:bit]
 address CMDbatEQ
 comment "Return B1 == B2";
-pattern ==(b1:bat[:daytime],b2:bat[:daytime],s:bat[:oid]) :bat[:bit]
+pattern ==(b1:bat[:daytime],b2:bat[:daytime],s:bat[:cnd]) :bat[:bit]
 address CMDbatEQ
 comment "Return B1 == B2 with candidates list";
 pattern ==(b:bat[:daytime],v:daytime) :bat[:bit]
 address CMDbatEQ
 comment "Return B == V";
-pattern ==(b:bat[:daytime],v:daytime,s:bat[:oid]) :bat[:bit]
+pattern ==(b:bat[:daytime],v:daytime,s:bat[:cnd]) :bat[:bit]
 address CMDbatEQ
 comment "Return B == V with candidates list";
 pattern ==(v:daytime,b:bat[:daytime]) :bat[:bit]
 address CMDbatEQ
 comment "Return V == B";
-pattern ==(v:daytime,b:bat[:daytime],s:bat[:oid]) :bat[:bit]
+pattern ==(v:daytime,b:bat[:daytime],s:bat[:cnd]) :bat[:bit]
 address CMDbatEQ
 comment "Return V == B with candidates list";
 
 pattern ==(b1:bat[:timestamp],b2:bat[:timestamp]) :bat[:bit]
 address CMDbatEQ
 comment "Return B1 == B2";
-pattern ==(b1:bat[:timestamp],b2:bat[:timestamp],s:bat[:oid]) :bat[:bit]
+pattern ==(b1:bat[:timestamp],b2:bat[:timestamp],s:bat[:cnd]) :bat[:bit]
 address CMDbatEQ
 comment "Return B1 == B2 with candidates list";
 pattern ==(b:bat[:timestamp],v:timestamp) :bat[:bit]
 address CMDbatEQ
 comment "Return B == V";
-pattern ==(b:bat[:timestamp],v:timestamp,s:bat[:oid]) :bat[:bit]
+pattern ==(b:bat[:timestamp],v:timestamp,s:bat[:cnd]) :bat[:bit]
 address CMDbatEQ
 comment "Return B == V with candidates list";
 pattern ==(v:timestamp,b:bat[:timestamp]) :bat[:bit]
 address CMDbatEQ
 comment "Return V == B";
-pattern ==(v:timestamp,b:bat[:timestamp],s:bat[:oid]) :bat[:bit]
+pattern ==(v:timestamp,b:bat[:timestamp],s:bat[:cnd]) :bat[:bit]
 address CMDbatEQ
 comment "Return V == B with candidates list";
 
 pattern !=(b1:bat[:date],b2:bat[:date]) :bat[:bit]
 address CMDbatNE
 comment "Return B1 != B2";
-pattern !=(b1:bat[:date],b2:bat[:date],s:bat[:oid]) :bat[:bit]
+pattern !=(b1:bat[:date],b2:bat[:date],s:bat[:cnd]) :bat[:bit]
 address CMDbatNE
 comment "Return B1 != B2 with candidates list";
 pattern !=(b:bat[:date],v:date) :bat[:bit]
 address CMDbatNE
 comment "Return B != V";
-pattern !=(b:bat[:date],v:date,s:bat[:oid]) :bat[:bit]
+pattern !=(b:bat[:date],v:date,s:bat[:cnd]) :bat[:bit]
 address CMDbatNE
 comment "Return B != V with candidates list";
 pattern !=(v:date,b:bat[:date]) :bat[:bit]
 address CMDbatNE
 comment "Return V != B";
-pattern !=(v:date,b:bat[:date],s:bat[:oid]) :bat[:bit]
+pattern !=(v:date,b:bat[:date],s:bat[:cnd]) :bat[:bit]
 address CMDbatNE
 comment "Return V != B with candidates list";
 
 pattern !=(b1:bat[:daytime],b2:bat[:daytime]) :bat[:bit]
 address CMDbatNE
 comment "Return B1 != B2";
-pattern !=(b1:bat[:daytime],b2:bat[:daytime],s:bat[:oid]) :bat[:bit]
+pattern !=(b1:bat[:daytime],b2:bat[:daytime],s:bat[:cnd]) :bat[:bit]
 address CMDbatNE
 comment "Return B1 != B2 with candidates list";
 pattern !=(b:bat[:daytime],v:daytime) :bat[:bit]
 address CMDbatNE
 comment "Return B != V";
-pattern !=(b:bat[:daytime],v:daytime,s:bat[:oid]) :bat[:bit]
+pattern !=(b:bat[:daytime],v:daytime,s:bat[:cnd]) :bat[:bit]
 address CMDbatNE
 comment "Return B != V with candidates list";
 pattern !=(v:daytime,b:bat[:daytime]) :bat[:bit]
 address CMDbatNE
 comment "Return V != B";
-pattern !=(v:daytime,b:bat[:daytime],s:bat[:oid]) :bat[:bit]
+pattern !=(v:daytime,b:bat[:daytime],s:bat[:cnd]) :bat[:bit]
 address CMDbatNE
 comment "Return V != B with candidates list";
 
 pattern !=(b1:bat[:timestamp],b2:bat[:timestamp]) :bat[:bit]
 address CMDbatNE
 comment "Return B1 != B2";
-pattern !=(b1:bat[:timestamp],b2:bat[:timestamp],s:bat[:oid]) :bat[:bit]
+pattern !=(b1:bat[:timestamp],b2:bat[:timestamp],s:bat[:cnd]) :bat[:bit]
 address CMDbatNE
 comment "Return B1 != B2 with candidates list";
 pattern !=(b:bat[:timestamp],v:timestamp) :bat[:bit]
 address CMDbatNE
 comment "Return B != V";
-pattern !=(b:bat[:timestamp],v:timestamp,s:bat[:oid]) :bat[:bit]
+pattern !=(b:bat[:timestamp],v:timestamp,s:bat[:cnd]) :bat[:bit]
 address CMDbatNE
 comment "Return B != V with candidates list";
 pattern !=(v:timestamp,b:bat[:timestamp]) :bat[:bit]
 address CMDbatNE
 comment "Return V != B";
-pattern !=(v:timestamp,b:bat[:timestamp],s:bat[:oid]) :bat[:bit]
+pattern !=(v:timestamp,b:bat[:timestamp],s:bat[:cnd]) :bat[:bit]
 address CMDbatNE
 comment "Return V != B with candidates list";
 

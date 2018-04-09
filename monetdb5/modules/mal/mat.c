@@ -110,7 +110,7 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	if ( getArgType(mb,p,2) == TYPE_int){
 		/* first step, estimate with some slack */
 		pieces = stk->stk[getArg(p,2)].val.ival;
-		bn = COLnew(b->hseqbase, ATOMtype(b->ttype), (BUN)(1.2 * BATcount(b) * pieces), TRANSIENT);
+		bn = COLnew(b->hseqbase, BATttype(b), (BUN)(1.2 * BATcount(b) * pieces), TRANSIENT);
 		if (bn == NULL) {
 			BBPunfix(b->batCacheid);
 			throw(MAL, "mat.pack", SQLSTATE(HY001) MAL_MALLOC_FAIL);

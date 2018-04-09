@@ -36,7 +36,7 @@ command subsum(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_o
 address AGGRsubsum_${tp2#*:}
 comment "Grouped sum aggregate";
 
-command subsum(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
+command subsum(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
 address AGGRsubsumcand_${tp2#*:}
 comment "Grouped sum aggregate with candidates list";
 
@@ -49,7 +49,7 @@ command subprod(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_
 address AGGRsubprod_${tp2#*:}
 comment "Grouped product aggregate";
 
-command subprod(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
+command subprod(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
 address AGGRsubprodcand_${tp2#*:}
 comment "Grouped product aggregate with candidates list";
 
@@ -76,7 +76,7 @@ command subsum(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_o
 address AGGRsubsum_${tp2#*:}
 comment "Grouped sum aggregate";
 
-command subsum(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
+command subsum(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
 address AGGRsubsumcand_${tp2#*:}
 comment "Grouped sum aggregate with candidates list";
 
@@ -89,7 +89,7 @@ command subprod(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_
 address AGGRsubprod_${tp2#*:}
 comment "Grouped product aggregate";
 
-command subprod(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
+command subprod(b:bat[:${tp1#*:}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:${tp2#*:}]
 address AGGRsubprodcand_${tp2#*:}
 comment "Grouped product aggregate with candidates list";
 
@@ -113,7 +113,7 @@ command subavg(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_on_er
 address AGGRsubavg1_dbl
 comment "Grouped average aggregate";
 
-command subavg(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:dbl]
+command subavg(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:dbl]
 address AGGRsubavg1cand_dbl
 comment "Grouped average aggregate with candidates list";
 
@@ -121,7 +121,7 @@ command subavg(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_on_er
 address AGGRsubavg2_dbl
 comment "Grouped average aggregate, also returns count";
 
-command subavg(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) (:bat[:dbl],:bat[:lng])
+command subavg(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) (:bat[:dbl],:bat[:lng])
 address AGGRsubavg2cand_dbl
 comment "Grouped average aggregate with candidates list, also returns count";
 
@@ -138,7 +138,7 @@ command sub${func}(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_o
 address AGGRsub${func}_dbl
 comment "Grouped ${comm} (sample/non-biased) aggregate";
 
-command sub${func}(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:dbl]
+command sub${func}(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:dbl]
 address AGGRsub${func}cand_dbl
 comment "Grouped ${comm} (sample/non-biased) aggregate with candidates list";
 
@@ -150,7 +150,7 @@ command sub${func}p(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],skip_nils:bit,abort_
 address AGGRsub${func}p_dbl
 comment "Grouped ${comm} (population/biased) aggregate";
 
-command sub${func}p(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:oid],skip_nils:bit,abort_on_error:bit) :bat[:dbl]
+command sub${func}p(b:bat[:${tp}],g:bat[:oid],e:bat[:any_1],s:bat[:cnd],skip_nils:bit,abort_on_error:bit) :bat[:dbl]
 address AGGRsub${func}pcand_dbl
 comment "Grouped ${comm} (population/biased) aggregate with candidates list";
 

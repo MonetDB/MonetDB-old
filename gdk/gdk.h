@@ -469,15 +469,16 @@
 #define TYPE_bat	4	/* BAT id: index in BBPcache */
 #define TYPE_int	5
 #define TYPE_oid	6
-#define TYPE_ptr	7	/* C pointer! */
-#define TYPE_flt	8
-#define TYPE_dbl	9
-#define TYPE_lng	10
+#define TYPE_cnd	7
+#define TYPE_ptr	8	/* C pointer! */
+#define TYPE_flt	9
+#define TYPE_dbl	10
+#define TYPE_lng	11
 #ifdef HAVE_HGE
-#define TYPE_hge	11
-#define TYPE_str	12
+#define TYPE_hge	12
+#define TYPE_str	13
 #else
-#define TYPE_str	11
+#define TYPE_str	12
 #endif
 #define TYPE_any	255	/* limit types to <255! */
 
@@ -1232,7 +1233,7 @@ gdk_export BUN BUNfnd(BAT *b, const void *right);
 	 BUN_NONE :							\
 	 (BUN) (*(const oid*)(v) - (b)->tseqbase))
 
-#define BATttype(b)	(BATtdense(b) ? TYPE_oid : (b)->ttype)
+#define BATttype(b)	(BATtdense(b) ? (b)->batIscand ? TYPE_cnd : TYPE_oid : (b)->ttype)
 #define Tbase(b)	((b)->tvheap->base)
 
 #define Tsize(b)	((b)->twidth)
@@ -1494,10 +1495,12 @@ gdk_export void GDKqsort_rev(void *restrict h, void *restrict t, const void *res
 			if ((b)->batCount == 0) {			\
 				(b)->tnonil = true;			\
 				(b)->tnil = false;			\
-				if ((b)->ttype == TYPE_oid) {		\
+				if ((b)->ttype == TYPE_oid ||		\
+				    (b)->ttype == TYPE_cnd) {		\
 					(b)->tseqbase = 0;		\
 				}					\
-			} else if ((b)->ttype == TYPE_oid) {		\
+			} else if ((b)->ttype == TYPE_oid ||		\
+				   (b)->ttype == TYPE_cnd) {		\
 				/* b->batCount == 1 */			\
 				oid sqbs = ((const oid *) (b)->theap.base)[0]; \
 				if (is_oid_nil(sqbs)) {			\

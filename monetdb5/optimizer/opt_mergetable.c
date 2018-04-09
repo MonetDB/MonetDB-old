@@ -1633,6 +1633,7 @@ mat_topn(MalBlkPtr mb, InstrPtr p, matlist_t *ml, int m, int n, int o)
 	int tpe = getArgType(mb,p,0), k, is_slice = isSlice(p), zero = -1;
 	InstrPtr pck, gpck = NULL, q, r;
 	int with_groups = (p->retc == 2), piv = 0, topn2 = (n >= 0);
+	int tpe2 = with_groups ? getArgType(mb,p,1) : tpe;
 
 	assert( topn2 || o < 0);
 	/* dummy mat instruction (needed to share result of p) */
@@ -1663,7 +1664,7 @@ mat_topn(MalBlkPtr mb, InstrPtr p, matlist_t *ml, int m, int n, int o)
 		}
 		getArg(q,0) = newTmpVariable(mb, tpe);
 		if (with_groups)
-			getArg(q,1) = newTmpVariable(mb, tpe);
+			getArg(q,1) = newTmpVariable(mb, tpe2);
 		getArg(q,q->retc) = getArg(ml->v[m].mi,k);
 		if (is_slice) /* lower bound should always be 0 on partial slices */
 			getArg(q,q->retc+1) = zero;

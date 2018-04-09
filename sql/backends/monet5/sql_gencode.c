@@ -173,7 +173,7 @@ _create_relational_function(mvc *m, const char *mod, const char *name, sql_rel *
 		for (n = ops->h; n; n = n->next) {
 			stmt *op = n->data;
 			sql_subtype *t = tail_type(op);
-			int type = t->type->localtype;
+			int type = ATOMtype(t->type->localtype);
 			int varid = 0;
 			const char *nme = (op->op3)?op->op3->op4.aval->data.val.sval:op->cname;
 			char buf[64];

@@ -64,6 +64,9 @@ BATfixcand(BAT *bn)
 				bn->tvarsized = true;
 				bn->twidth = 0;
 				bn->tshift = 0;
+			} else {
+				/* in case it was TYPE_oid */
+				bn->ttype = TYPE_cnd;
 			}
 		} else if (bn->batCount == 0 && is_oid_nil(bn->tseqbase)) {
 			bn->tseqbase = 0;
@@ -85,7 +88,7 @@ doublerange(oid l1, oid h1, oid l2, oid h2)
 	if (l1 == h1 || l2 == h2) {
 		return BATfixcand(BATdense(0, l1 == h1 ? l2 : l1, h1 - l1 + h2 - l2));
 	}
-	bn = COLnew(0, TYPE_oid, h1 - l1 + h2 - l2, TRANSIENT);
+	bn = COLnew(0, TYPE_cnd, h1 - l1 + h2 - l2, TRANSIENT);
 	if (bn == NULL)
 		return NULL;
 	BATsetcount(bn, h1 - l1 + h2 - l2);
@@ -117,7 +120,7 @@ doubleslice(BAT *b, BUN l1, BUN h1, BUN l2, BUN h2)
 	if (b->ttype == TYPE_void)
 		return doublerange(l1 + b->tseqbase, h1 + b->tseqbase,
 				   l2 + b->tseqbase, h2 + b->tseqbase);
-	bn = COLnew(0, TYPE_oid, h1 - l1 + h2 - l2, TRANSIENT);
+	bn = COLnew(0, TYPE_cnd, h1 - l1 + h2 - l2, TRANSIENT);
 	if (bn == NULL)
 		return NULL;
 	BATsetcount(bn, h1 - l1 + h2 - l2);
@@ -154,7 +157,7 @@ BAT_hashselect(BAT *b, BAT *s, BAT *bn, const void *tl, BUN maximum)
 	oid seq;
 	int (*cmp)(const void *, const void *);
 
-	assert(bn->ttype == TYPE_oid);
+	assert(bn->ttype == TYPE_cnd);
 	seq = b->hseqbase;
 	l = 0;
 	h = BUNlast(b);
@@ -871,7 +874,7 @@ BAT_scanselect(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 
 	assert(b != NULL);
 	assert(bn != NULL);
-	assert(bn->ttype == TYPE_oid);
+	assert(bn->ttype == TYPE_cnd);
 	assert(!lval || tl != NULL);
 	assert(!hval || th != NULL);
 	assert(!equi || (li && hi && !anti));
@@ -1208,7 +1211,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 	BATcheck(b, "BATselect", NULL);
 	BATcheck(tl, "BATselect: tl value required", NULL);
 
-	assert(s == NULL || s->ttype == TYPE_oid || s->ttype == TYPE_void);
+	assert(s == NULL || s->ttype == TYPE_cnd || s->ttype == TYPE_void);
 	assert(s == NULL || s->batIscand || BATcount(s) == 0);
 	assert(hi == 0 || hi == 1);
 	assert(li == 0 || li == 1);
@@ -1621,7 +1624,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 
 				rs = (const oid *) b->torderidx->base + ORDERIDXOFF;
 				rs += low;
-				bn = COLnew(0, TYPE_oid, high-low, TRANSIENT);
+				bn = COLnew(0, TYPE_cnd, high-low, TRANSIENT);
 				if (bn == NULL)
 					return NULL;
 
@@ -1637,7 +1640,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 				BATsetcount(bn, cnt);
 
 				/* output must be sorted */
-				GDKqsort(Tloc(bn, 0), NULL, NULL, (size_t) bn->batCount, sizeof(oid), 0, TYPE_oid);
+				GDKqsort(Tloc(bn, 0), NULL, NULL, (size_t) bn->batCount, sizeof(oid), 0, TYPE_cnd);
 				bn->tsorted = true;
 				bn->trevsorted = bn->batCount <= 1;
 				bn->tkey = true;
@@ -1797,7 +1800,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 	/* limit estimation by upper limit */
 	estimate = MIN(estimate, maximum);
 
-	bn = COLnew(0, TYPE_oid, estimate, TRANSIENT);
+	bn = COLnew(0, TYPE_cnd, estimate, TRANSIENT);
 	if (bn == NULL)
 		return NULL;
 

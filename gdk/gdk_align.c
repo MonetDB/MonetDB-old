@@ -174,7 +174,7 @@ BATmaterialize(BAT *b)
 		/* no voids */
 		return GDK_SUCCEED;
 	}
-	tt = TYPE_oid;
+	tt = b->batIscand ? TYPE_cnd : TYPE_oid;
 
 	/* cleanup possible ACC's */
 	HASHdestroy(b);

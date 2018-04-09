@@ -257,7 +257,7 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 			 * We already know that all heads are void. Only the last element may have a non-oid type.
 			 */
 			for(j=1; j<q->argc-1; j++)
-				if( getBatType(getArgType(mb,q,j)) != TYPE_oid  && getBatType(getArgType(mb,q,j)) != TYPE_void ){
+				if( ATOMtype(getBatType(getArgType(mb,q,j))) != TYPE_oid ){
 					/* don't use the candidate list */
 					freeInstruction(q);
 					goto wrapup;
@@ -265,7 +265,7 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 
 			/* fix the type */
 			setVarUDFtype(mb, getArg(q,0));
-			setVarType(mb, getArg(q,0), newBatType(getBatType(getArgType(mb,q,q->argc-1))));
+			setVarType(mb, getArg(q,0), newBatType(ATOMtype(getBatType(getArgType(mb,q,q->argc-1)))));
 			if ( getFunctionId(q) == projectionRef )
 				setFunctionId(q,projectionpathRef);
 			q->typechk = TYPE_UNKNOWN;

@@ -680,7 +680,10 @@ rel_named_table_function(mvc *sql, sql_rel *rel, symbol *query, int lateral)
 				if (m)
 			       		e = m->data;
 				a->name = sa_strdup(sql->sa, (e)?exp_name(e):TID);
-				a->type = *tpe;
+				if (tpe->type->localtype == TYPE_cnd)
+					sql_find_subtype(&a->type, "oid", 0, 0);
+				else
+					a->type = *tpe;
 				append(args, a);
 
 				ae = exp_param(sql->sa, a->name, &a->type, 0);

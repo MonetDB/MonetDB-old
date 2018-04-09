@@ -5300,6 +5300,7 @@ insert into sys.args values (22364, 135, 'res', 'bigint', 64, 0, 0, 0);
 delete from sys.systemfunctions where function_id < 2000;
 insert into sys.systemfunctions (select id from sys.functions where id < 2000);
 set schema "sys";
+commit;
 
 Running database upgrade commands:
 set schema "sys";

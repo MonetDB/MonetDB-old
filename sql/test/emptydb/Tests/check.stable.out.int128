@@ -6929,6 +6929,7 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"bit",	"boolean",	1,	0,	2,	"BIT"	]
 [ "sys",	"bte",	"decimal",	2,	1,	10,	"DEC"	]
 [ "sys",	"bte",	"tinyint",	8,	1,	2,	"NUM"	]
+[ "sys",	"cnd",	"cnd",	63,	0,	2,	"POS"	]
 [ "sys",	"date",	"date",	0,	0,	0,	"DATE"	]
 [ "sys",	"daytime",	"time",	7,	0,	0,	"TIME"	]
 [ "sys",	"daytime",	"timetz",	7,	1,	0,	"TIME"	]

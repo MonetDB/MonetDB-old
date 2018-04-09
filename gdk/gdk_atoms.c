@@ -2006,6 +2006,39 @@ atomDesc BATatoms[MAXATOMS] = {
 	 0,			/* atomLen */
 	 0,			/* atomHeap */
 	},
+	{"cnd",			/* name */
+#if SIZEOF_OID == SIZEOF_INT
+	 TYPE_int,		/* storage */
+#else
+	 TYPE_lng,		/* storage */
+#endif
+	 true,			/* linear */
+	 sizeof(oid),		/* size */
+#if SIZEOF_OID == SIZEOF_INT
+	 (ptr) &int_nil,	/* atomNull */
+#else
+	 (ptr) &lng_nil,	/* atomNull */
+#endif
+	 (ssize_t (*)(const char *, size_t *, ptr *)) OIDfromStr,   /* atomFromStr */
+	 (ssize_t (*)(str *, size_t *, const void *)) OIDtoStr,     /* atomToStr */
+#if SIZEOF_OID == SIZEOF_INT
+	 (void *(*)(void *, stream *, size_t)) intRead,	     /* atomRead */
+	 (gdk_return (*)(const void *, stream *, size_t)) intWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) intCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) intHash,		     /* atomHash */
+#else
+	 (void *(*)(void *, stream *, size_t)) lngRead,	     /* atomRead */
+	 (gdk_return (*)(const void *, stream *, size_t)) lngWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) lngCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) lngHash,		     /* atomHash */
+#endif
+	 0,			/* atomFix */
+	 0,			/* atomUnfix */
+	 0,			/* atomPut */
+	 0,			/* atomDel */
+	 0,			/* atomLen */
+	 0,			/* atomHeap */
+	},
 	{"ptr",			/* name */
 	 TYPE_ptr,		/* storage */
 	 true,			/* linear */

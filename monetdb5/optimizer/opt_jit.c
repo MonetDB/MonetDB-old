@@ -11,7 +11,7 @@
  * candidate lists into MAL operations where possible.
  * It should be ran after the candidates optimizer.
  * Specific snippets to be replaced
- *     C_1:bat[:oid] := sql.tid(X_0,"sys","t");
+ *     C_1:bat[:cnd] := sql.tid(X_0,"sys","t");
  *     X_4:bat[:int] := sql.bind(X_0,"sys","t","i",0);
  *     X_13 := algebra.projection(C_1,X_4);
  * projection can be avoided

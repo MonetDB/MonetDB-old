@@ -147,7 +147,7 @@ BATsample(BAT *b, BUN n)
 		if (tree == NULL) {
 			return NULL;
 		}
-		bn = COLnew(0, TYPE_oid, slen, TRANSIENT);
+		bn = COLnew(0, TYPE_cnd, slen, TRANSIENT);
 		if (bn == NULL) {
 			GDKfree(tree);
 			return NULL;

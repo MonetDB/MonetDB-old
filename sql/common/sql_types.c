@@ -1335,7 +1335,7 @@ sqltypeinit( sql_allocator *sa)
 	sql_type *ts[100];
 	sql_type **strings, **numerical;
 	sql_type **decimals, **floats, **dates, **end, **t;
-	sql_type *STR, *BTE, *SHT, *INT, *LNG, *OID, *FLT, *DBL, *DEC;
+	sql_type *STR, *BTE, *SHT, *INT, *LNG, *OID, *CND, *FLT, *DBL, *DEC;
 #ifdef HAVE_HGE
 	sql_type *HGE = NULL;
 #endif
@@ -1364,9 +1364,11 @@ sqltypeinit( sql_allocator *sa)
 	numerical = t;
 #if SIZEOF_OID == SIZEOF_INT
 	OID = *t++ = sql_create_type(sa, "OID", 31, 0, 2, EC_POS, "oid");
+	CND = *t++ = sql_create_type(sa, "CND", 31, 0, 2, EC_POS, "cnd");
 #endif
 #if SIZEOF_OID == SIZEOF_LNG
 	OID = *t++ = sql_create_type(sa, "OID", 63, 0, 2, EC_POS, "oid");
+	CND = *t++ = sql_create_type(sa, "CND", 63, 0, 2, EC_POS, "cnd");
 #endif
 
 	BTE = *t++ = sql_create_type(sa, "TINYINT",   8, SCALE_FIX, 2, EC_NUM, "bte");
@@ -1550,7 +1552,8 @@ sqltypeinit( sql_allocator *sa)
 #endif
 
 	for (t = numerical; t < dates; t++) {
-		sql_create_func(sa, "mod", "calc", "%", *t, *t, *t, SCALE_FIX);
+		if (*t != CND)
+			sql_create_func(sa, "mod", "calc", "%", *t, *t, *t, SCALE_FIX);
 	}
 
 	for (t = floats; t < dates; t++) {
@@ -1603,7 +1606,11 @@ sqltypeinit( sql_allocator *sa)
 	/* allow smaller types for arguments of mul/div */
 	for (t = numerical, t++; t != decimals; t++) {
 		sql_type **u;
+		if (*t == CND)
+			continue;
 		for (u = numerical, u++; u != decimals; u++) {
+			if (*u == CND)
+				continue;
 			if (t != u && (*t)->localtype >  (*u)->localtype) {
 				sql_create_func(sa, "sql_mul", "calc", "*", *t, *u, *t, SCALE_MUL);
 				sql_create_func(sa, "sql_mul", "calc", "*", *u, *t, *t, SCALE_MUL);
@@ -1626,6 +1633,8 @@ sqltypeinit( sql_allocator *sa)
 	for (t = numerical; *t != TME; t++) {
 		sql_subtype *lt;
 
+		if (*t == CND)
+			continue;
 		lt = sql_bind_localtype((*t)->base.name);
 
 		sql_create_func(sa, "sql_sub", "calc", "-", *t, *t, *t, SCALE_FIX);
@@ -1661,7 +1670,7 @@ sqltypeinit( sql_allocator *sa)
 	for (t = decimals, t++; t != floats; t++) {
 		sql_type **u;
 		for (u = numerical; u != floats; u++) {
-			if (*u == OID)
+			if (*u == OID || *u == CND)
 				continue;
 			if ((*t)->localtype >  (*u)->localtype) {
 				sql_create_func(sa, "sql_mul", "calc", "*", *t, *u, *t, SCALE_MUL);
@@ -1676,7 +1685,11 @@ sqltypeinit( sql_allocator *sa)
 	for (t = numerical; t < end; t++) {
 		sql_type **u;
 
+		if (*t == CND)
+			continue;
 		for (u = numerical; u < end; u++) {
+			if (*u == CND)
+				continue;
 			sql_create_func(sa, "scale_up", "calc", "*", *u, *t, *t, SCALE_NONE);
 		}
 	}

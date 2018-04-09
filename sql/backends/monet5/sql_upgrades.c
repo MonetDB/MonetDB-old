@@ -26,7 +26,7 @@
  * functions, args) when internal types and/or functions have changed
  * (i.e. the ones in sql_types.c) */
 static str
-sql_fix_system_tables(Client c, mvc *sql)
+sql_fix_system_tables(Client c, mvc *sql, bool commit)
 {
 	size_t bufsize = 1000000, pos = 0;
 	char *buf = GDKmalloc(bufsize), *err = NULL;
@@ -176,6 +176,9 @@ sql_fix_system_tables(Client c, mvc *sql)
 	if (schema)
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
 
+	if (commit)
+		pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
+
 	assert(pos < bufsize);
 	printf("Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
@@ -192,7 +195,7 @@ sql_update_hugeint(Client c, mvc *sql)
 	char *schema;
 	sql_schema *s;
 
-	if ((err = sql_fix_system_tables(c, sql)) != NULL)
+	if ((err = sql_fix_system_tables(c, sql, false)) != NULL)
 		return err;
 
 	if ((buf = GDKmalloc(bufsize)) == NULL)
@@ -822,7 +825,7 @@ sql_update_jul2017_sp3(Client c, mvc *sql)
 	col = find_sql_column(tab, "name");
 	rid = table_funcs.column_find_row(sql->session->tr, col, "sys_update_schemas", NULL);
 	if (is_oid_nil(rid)) {
-		err = sql_fix_system_tables(c, sql);
+		err = sql_fix_system_tables(c, sql, false);
 		if (err != NULL)
 			return err;
 	}
@@ -917,7 +920,7 @@ sql_update_mar2018(Client c, mvc *sql)
 			/* if there is no value "quarter" in
 			 * sys.functions.name, we need to update the
 			 * sys.functions table */
-			err = sql_fix_system_tables(c, sql);
+			err = sql_fix_system_tables(c, sql, false);
 			if (err != NULL)
 				return err;
 		}
@@ -1657,6 +1660,16 @@ SQLupgrades(Client c, mvc *m)
 	sql_find_subtype(&tp, "clob", 0, 0);
 	if (sql_bind_aggr(m->sa, s, "group_concat", &tp) == NULL) {
 		if ((err = sql_update_default(c, m)) != NULL) {
+			fprintf(stderr, "!%s\n", err);
+			freeException(err);
+		}
+	}
+
+	if ((t = mvc_bind_table(m, s, "types")) != NULL &&
+	    (col = mvc_bind_column(m, t, "systemname")) != NULL) {
+		oid rid = table_funcs.column_find_row(m->session->tr, col, "cnd", NULL);
+		if (is_oid_nil(rid) &&
+		    (err = sql_fix_system_tables(c, m, true)) != NULL) {
 			fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}

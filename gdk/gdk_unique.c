@@ -109,7 +109,7 @@ BATunique(BAT *b, BAT *s)
 
 	assert(b->ttype != TYPE_void);
 
-	bn = COLnew(0, TYPE_oid, 1024, TRANSIENT);
+	bn = COLnew(0, TYPE_cnd, 1024, TRANSIENT);
 	if (bn == NULL)
 		return NULL;
 	vals = Tloc(b, 0);

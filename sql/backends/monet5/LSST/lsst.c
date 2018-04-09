@@ -568,7 +568,7 @@ LSSTxmatchselect(bat *res, bat *bid, bat *sid, lng *r, int *delta, bit *anti)
 		BBPunfix(b->batCacheid);
 		throw(MAL, "algebra.xmatch", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 	}
-	if ((bn = COLnew(0, TYPE_oid, 0, TRANSIENT)) == NULL) {
+	if ((bn = COLnew(0, TYPE_cnd, 0, TRANSIENT)) == NULL) {
 		BBPunfix(b->batCacheid);
 		if (s)
 			BBPunfix(s->batCacheid);

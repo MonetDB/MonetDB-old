@@ -207,7 +207,7 @@ BATfirstn_unique(BAT *b, BAT *s, BUN n, int asc, oid *lastp)
 
 	assert(b->ttype != TYPE_void); /* tsorted above took care of this */
 
-	bn = COLnew(0, TYPE_oid, n, TRANSIENT);
+	bn = COLnew(0, TYPE_cnd, n, TRANSIENT);
 	if (bn == NULL)
 		return NULL;
 	BATsetcount(bn, n);
@@ -443,7 +443,7 @@ BATfirstn_unique_with_groups(BAT *b, BAT *s, BAT *g, BUN n, int asc, oid *lastp,
 		if (cand) {
 			if (lastp)
 				*lastp = cand[n - 1];
-			bn = COLnew(0, TYPE_oid, n, TRANSIENT);
+			bn = COLnew(0, TYPE_cnd, n, TRANSIENT);
 			if (bn == NULL)
 				return NULL;
 			memcpy(Tloc(bn, 0), cand, n * sizeof(oid));
@@ -461,7 +461,7 @@ BATfirstn_unique_with_groups(BAT *b, BAT *s, BAT *g, BUN n, int asc, oid *lastp,
 		return BATfixcand(BATdense(0, b->hseqbase + start, n));
 	}
 
-	bn = COLnew(0, TYPE_oid, n, TRANSIENT);
+	bn = COLnew(0, TYPE_cnd, n, TRANSIENT);
 	if (bn == NULL)
 		return NULL;
 	BATsetcount(bn, n);

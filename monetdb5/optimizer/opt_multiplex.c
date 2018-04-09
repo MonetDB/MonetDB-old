@@ -121,7 +121,7 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for (i = pci->retc+2; i < pci->argc; i++) {
 		if (getArg(pci, i) != iter && isaBatType(getArgType(mb, pci, i))) {
 			q = newFcnCall(mb, algebraRef, "fetch");
-			alias[i] = newTmpVariable(mb, getBatType(getArgType(mb, pci, i)));
+			alias[i] = newTmpVariable(mb, ATOMtype(getBatType(getArgType(mb, pci, i))));
 			getArg(q, 0) = alias[i];
 			q= pushArgument(mb, q, getArg(pci, i));
 			(void) pushArgument(mb, q, hvar);
@@ -133,7 +133,7 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for (i = 0; i < pci->retc; i++) {
 		int nvar = 0;
 		if (bat) {
-			tt = getBatType(getArgType(mb, pci, i));
+			tt = ATOMtype(getBatType(getArgType(mb, pci, i)));
 			nvar = newTmpVariable(mb, newBatType(tt));
 		} else {
 			nvar = newTmpVariable(mb, TYPE_any);

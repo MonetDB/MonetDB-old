@@ -37,8 +37,8 @@
 		end = cnt = BATcount(b);				\
 		cand = candend = NULL;					\
 		if (s) {						\
-			assert(s->batIscand || BATcount(s) == 0);	\
-			assert(BATttype(s) == TYPE_oid);		\
+			assert(s->batIscand /*|| BATcount(s) == 0*/);	\
+			assert(BATttype(s) == TYPE_cnd);		\
 			if (BATcount(s) == 0) {				\
 				start = end = 0;			\
 			} else {					\

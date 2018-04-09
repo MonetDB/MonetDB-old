@@ -231,6 +231,10 @@ else:
                 i = 0
                 for t in rtypes:
                     i = i + 1
+                    # special dispensation for this function: it
+                    # handles oid returns correctly
+                    if func == 'ALGfetchoid' and t == 'oid':
+                        t = args[0][0]
                     if t != args[0][0] or args[0][1]:
                         print('%s in %s: return %d type mismatch for %s %s (%s vs %s)' % (func, funcf, i, malf, f, t, args[0][0]))
                     del args[0]
@@ -240,6 +244,10 @@ else:
                     # special dispensation for these functions: they
                     # handle str and json arguments both correctly
                     if func in ('JSONstr2json', 'JSONisvalid', 'JSONisobject', 'JSONisarray') and t in ('str', 'json'):
+                        t = args[0][0]
+                    # special dispensation for this function: it
+                    # handles oid arguments correctly
+                    elif func == 'ALGselect1' and t == 'oid':
                         t = args[0][0]
                     if t != args[0][0]:
                         print('%s in %s: argument %d type mismatch for %s %s (%s vs %s)' % (func, funcf, i, malf, f, t, args[0][0]))
