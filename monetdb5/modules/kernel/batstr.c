@@ -98,7 +98,8 @@ mal_export str STRbatsubstring(bat *ret, const bat *l, const bat *r, const bat *
 		throw(MAL, Z, SQLSTATE(HY001) MAL_MALLOC_FAIL);	\
 	}													\
 	X->tsorted=0;										\
-	X->trevsorted=0;
+	X->trevsorted=0;									\
+	X->tkey=0;
 #define prepareResult2(X,Y,A,T,Z)						\
 	X= COLnew((Y)->hseqbase,T,BATcount(Y), TRANSIENT);	\
 	if( X == NULL){										\
@@ -107,7 +108,8 @@ mal_export str STRbatsubstring(bat *ret, const bat *l, const bat *r, const bat *
 		throw(MAL, Z, SQLSTATE(HY001) MAL_MALLOC_FAIL);	\
 	}													\
 	X->tsorted=0;										\
-	X->trevsorted=0;
+	X->trevsorted=0;									\
+	X->tkey=0;
 #define finalizeResult(X,Y,Z)								\
 	*X = (Y)->batCacheid;									\
 	BBPkeepref(*(X));										\

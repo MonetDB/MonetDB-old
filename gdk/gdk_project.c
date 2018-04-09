@@ -756,7 +756,7 @@ BATprojectchain(BAT **bats)
 		bn->twidth = b->twidth;
 		bn->tshift = b->tshift;
 	}
-	bn->tsorted = bn->trevsorted = cnt <= 1;
+	bn->tsorted = bn->trevsorted = bn->tkey = cnt <= 1;
 	bn->tseqbase = oid_nil;
 	GDKfree(ba);
 	if (iscand)

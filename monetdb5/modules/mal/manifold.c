@@ -333,6 +333,7 @@ MANIFOLDevaluate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		goto wrapup;
 	}
 	mat[0].b->tnonil=0;
+	mat[0].b->tkey=0;
 	mat[0].b->tsorted=0;
 	mat[0].b->trevsorted=0;
 	mat[0].bi = bat_iterator(mat[0].b);

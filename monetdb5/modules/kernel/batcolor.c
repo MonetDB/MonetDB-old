@@ -41,6 +41,7 @@ str CLRbat##NAME(bat *ret, const bat *l)								\
 	bn->trevsorted=0;													\
 	bn->tnil = 0;														\
 	bn->tnonil = 1;														\
+	bn->tkey = 0;														\
 																		\
 	bi = bat_iterator(b);												\
 																		\

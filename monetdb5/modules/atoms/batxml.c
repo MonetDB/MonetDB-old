@@ -67,6 +67,7 @@ mal_export str AGGRsubxml(bat *retval, const bat *bid, const bat *gid, const bat
 		(X)->tsorted =  0;											\
 		(X)->trevsorted =  0;										\
 		(X)->tnonil = 1;											\
+		(X)->tkey = 0;												\
 	} while (0)
 
 #define finalizeResult(X,Y,Z)					\

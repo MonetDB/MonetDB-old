@@ -1708,6 +1708,7 @@ MTIMEtimestamp_create_from_date_bulk(bat *ret, bat *bid)
 	BATsetcount(bn, BATcount(b));
 	bn->tsorted = b->tsorted || BATcount(bn) <= 1;
 	bn->trevsorted = b->trevsorted || BATcount(bn) <= 1;
+	bn->tkey = BATcount(bn) <= 1;
 	bn->tnonil = !bn->tnil;
 	BBPunfix(b->batCacheid);
 	*ret = bn->batCacheid;
@@ -1952,6 +1953,7 @@ MTIMEtimestamp_extract_daytime_default_bulk(bat *ret, bat *bid)
 	BATsetcount(bn, BATcount(b));
 	bn->tsorted = b->tsorted || BATcount(bn) <= 1;
 	bn->trevsorted = b->trevsorted || BATcount(bn) <= 1;
+	bn->tkey = BATcount(bn) <= 1;
 	bn->tnonil = !bn->tnil;
 	BBPunfix(b->batCacheid);
 	*ret = bn->batCacheid;
@@ -2027,6 +2029,7 @@ MTIMEtimestamp_extract_date_default_bulk(bat *ret, bat *bid)
 	BATsetcount(bn, BATcount(b));
 	bn->tsorted = b->tsorted || BATcount(bn) <= 1;
 	bn->trevsorted = b->trevsorted || BATcount(bn) <= 1;
+	bn->tkey = BATcount(bn) <= 1;
 	bn->tnonil = !bn->tnil;
 	BBPunfix(b->batCacheid);
 	*ret = bn->batCacheid;
@@ -2184,6 +2187,7 @@ MTIMEdate_diff_bulk(bat *ret, const bat *bid1, const bat *bid2)
 	BATsetcount(bn, (BUN) (tn - (int *) Tloc(bn, 0)));
 	bn->tsorted = BATcount(bn) <= 1;
 	bn->trevsorted = BATcount(bn) <= 1;
+	bn->tkey = BATcount(bn) <= 1;
 	BBPunfix(b1->batCacheid);
 	BBPkeepref(bn->batCacheid);
 	*ret = bn->batCacheid;
@@ -2263,6 +2267,7 @@ MTIMEtimestamp_diff_bulk(bat *ret, const bat *bid1, const bat *bid2)
 	BATsetcount(bn, (BUN) (tn - (lng *) Tloc(bn, 0)));
 	bn->tsorted = BATcount(bn) <= 1;
 	bn->trevsorted = BATcount(bn) <= 1;
+	bn->tkey = BATcount(bn) <= 1;
 	BBPunfix(b1->batCacheid);
 	BBPkeepref(bn->batCacheid);
 	*ret = bn->batCacheid;
@@ -2667,6 +2672,7 @@ MTIMEsecs2daytime_bulk(bat *ret, bat *bid)
 	bn->tsorted = b->tsorted || BATcount(bn) <= 1;
 	bn->trevsorted = b->trevsorted || BATcount(bn) <= 1;
 	bn->tnonil = !bn->tnil;
+	bn->tkey = BATcount(bn) <= 1;
 	BBPunfix(b->batCacheid);
 	*ret = bn->batCacheid;
 	BBPkeepref(*ret);
@@ -2783,6 +2789,7 @@ MTIMEepoch_bulk(bat *ret, bat *bid)
 	BATsetcount(bn, (BUN) (tn - (lng *) Tloc(bn, 0)));
 	bn->tsorted = BATcount(bn) <= 1;
 	bn->trevsorted = BATcount(bn) <= 1;
+	bn->tkey = BATcount(bn) <= 1;
 	BBPkeepref(bn->batCacheid);
 	*ret = bn->batCacheid;
 	return msg;
@@ -2863,6 +2870,7 @@ MTIMEtimestamp_bulk(bat *ret, bat *bid)
 	bn->tsorted = b->tsorted || BATcount(bn) <= 1;
 	bn->trevsorted = b->trevsorted || BATcount(bn) <= 1;
 	bn->tnonil = !bn->tnil;
+	bn->tkey = BATcount(bn) <= 1;
 	BBPunfix(b->batCacheid);
 	*ret = bn->batCacheid;
 	BBPkeepref(*ret);
@@ -2920,6 +2928,7 @@ MTIMEtimestamp_lng_bulk(bat *ret, bat *bid)
 	bn->tsorted = b->tsorted || BATcount(bn) <= 1;
 	bn->trevsorted = b->trevsorted || BATcount(bn) <= 1;
 	bn->tnonil = !bn->tnil;
+	bn->tkey = BATcount(bn) <= 1;
 	BBPunfix(b->batCacheid);
 	*ret = bn->batCacheid;
 	BBPkeepref(*ret);
@@ -3220,6 +3229,7 @@ MTIMEdate_extract_year_bulk(bat *ret, const bat *bid)
 	bn->tnonil = !bn->tnil;
 	bn->tsorted = BATcount(bn) < 2;
 	bn->trevsorted = BATcount(bn) < 2;
+	bn->tkey = BATcount(bn) <= 1;
 
 	BBPkeepref(*ret = bn->batCacheid);
 	BBPunfix(b->batCacheid);
@@ -3266,6 +3276,7 @@ MTIMEdate_extract_quarter_bulk(bat *ret, const bat *bid)
 	bn->tnonil = !bn->tnil;
 	bn->tsorted = BATcount(bn) < 2;
 	bn->trevsorted = BATcount(bn) < 2;
+	bn->tkey = BATcount(bn) <= 1;
 
 	BBPkeepref(*ret = bn->batCacheid);
 	BBPunfix(b->batCacheid);
@@ -3312,6 +3323,7 @@ MTIMEdate_extract_month_bulk(bat *ret, const bat *bid)
 	bn->tnonil = !bn->tnil;
 	bn->tsorted = BATcount(bn) < 2;
 	bn->trevsorted = BATcount(bn) < 2;
+	bn->tkey = BATcount(bn) <= 1;
 
 	BBPkeepref(*ret = bn->batCacheid);
 	BBPunfix(b->batCacheid);
@@ -3359,6 +3371,7 @@ MTIMEdate_extract_day_bulk(bat *ret, const bat *bid)
 	bn->tnonil = !bn->tnil;
 	bn->tsorted = BATcount(bn) < 2;
 	bn->trevsorted = BATcount(bn) < 2;
+	bn->tkey = BATcount(bn) <= 1;
 
 	BBPkeepref(*ret = bn->batCacheid);
 	BBPunfix(b->batCacheid);
@@ -3405,6 +3418,7 @@ MTIMEdaytime_extract_hours_bulk(bat *ret, const bat *bid)
 	bn->tnonil = !bn->tnil;
 	bn->tsorted = BATcount(bn) < 2;
 	bn->trevsorted = BATcount(bn) < 2;
+	bn->tkey = BATcount(bn) <= 1;
 
 	BBPkeepref(*ret = bn->batCacheid);
 	BBPunfix(b->batCacheid);
@@ -3451,6 +3465,7 @@ MTIMEdaytime_extract_minutes_bulk(bat *ret, const bat *bid)
 	bn->tnonil = !bn->tnil;
 	bn->tsorted = BATcount(bn) < 2;
 	bn->trevsorted = BATcount(bn) < 2;
+	bn->tkey = BATcount(bn) <= 1;
 
 	BBPkeepref(*ret = bn->batCacheid);
 	BBPunfix(b->batCacheid);
@@ -3497,6 +3512,7 @@ MTIMEdaytime_extract_seconds_bulk(bat *ret, const bat *bid)
 	bn->tnonil = !bn->tnil;
 	bn->tsorted = BATcount(bn) < 2;
 	bn->trevsorted = BATcount(bn) < 2;
+	bn->tkey = BATcount(bn) <= 1;
 
 	BBPkeepref(*ret = bn->batCacheid);
 	BBPunfix(b->batCacheid);
@@ -3544,6 +3560,7 @@ MTIMEdaytime_extract_sql_seconds_bulk(bat *ret, const bat *bid)
 	bn->tnonil = !bn->tnil;
 	bn->tsorted = BATcount(bn) < 2;
 	bn->trevsorted = BATcount(bn) < 2;
+	bn->tkey = BATcount(bn) <= 1;
 
 	BBPkeepref(*ret = bn->batCacheid);
 	BBPunfix(b->batCacheid);
@@ -3590,6 +3607,7 @@ MTIMEdaytime_extract_milliseconds_bulk(bat *ret, const bat *bid)
 	bn->tnonil = !bn->tnil;
 	bn->tsorted = BATcount(bn) < 2;
 	bn->trevsorted = BATcount(bn) < 2;
+	bn->tkey = BATcount(bn) <= 1;
 
 	BBPkeepref(*ret = bn->batCacheid);
 	BBPunfix(b->batCacheid);

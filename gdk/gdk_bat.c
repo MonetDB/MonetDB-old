@@ -87,10 +87,10 @@ BATcreatedesc(oid hseq, int tt, int heapnames, int role)
 	bn->hseqbase = hseq;
 
 	bn->ttype = tt;
-	bn->tkey = FALSE;
-	bn->tunique = FALSE;
-	bn->tnonil = TRUE;
-	bn->tnil = FALSE;
+	bn->tkey = true;
+	bn->tunique = false;
+	bn->tnonil = true;
+	bn->tnil = false;
 	bn->tsorted = bn->trevsorted = ATOMlinear(tt) != 0;
 	bn->tident = BATstring_t;
 	bn->tseqbase = oid_nil;
@@ -821,8 +821,7 @@ COLcopy(BAT *b, int tt, int writable, int role)
 		BUN h = BUNlast(b);
 		bn->tsorted = b->tsorted;
 		bn->trevsorted = b->trevsorted;
-		if (b->tkey)
-			BATkey(bn, true);
+		BATkey(bn, b->tkey);
 		bn->tnonil = b->tnonil;
 		bn->tnil = b->tnil;
 		if (b->tnosorted > 0 && b->tnosorted < h)

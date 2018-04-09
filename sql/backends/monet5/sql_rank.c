@@ -19,6 +19,7 @@
 		r->tsorted = 0;					\
 		r->trevsorted = 0;				\
 		r->tnonil = 1;					\
+		r->tkey = 0;					\
 	} while (0)
 
 str 
