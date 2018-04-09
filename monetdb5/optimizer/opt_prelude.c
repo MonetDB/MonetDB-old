@@ -228,6 +228,7 @@ str rapiRef;
 str reconnectRef;
 str refineRef;
 str registerRef;
+str register_supervisorRef;
 str releaseRef;
 str remapRef;
 str remoteRef;
@@ -532,6 +533,7 @@ void optimizerInit(void)
 	reconnectRef = putName("reconnect");
 	refineRef = putName("refine");
 	registerRef = putName("register");
+	register_supervisorRef = putName("register_supervisor");
 	releaseRef = putName("release");
 	remapRef = putName("remap");
 	remoteRef = putName("remote");
