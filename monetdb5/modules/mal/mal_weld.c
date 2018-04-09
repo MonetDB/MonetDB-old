@@ -84,6 +84,17 @@ static str getWeldUTypeFromWidth(int width) {
 		return "u64";
 }
 
+static int getMalTypeFromWidth(int width) {
+	if (width == 1)
+		return TYPE_bte;
+	else if (width == 2)
+		return TYPE_sht;
+	else if (width == 4)
+		return TYPE_int;
+	else
+		return TYPE_lng;
+}
+
 void getOrSetStructMember(char **addr, int type, const void *value, int op) {
 	if (type == TYPE_bte) {
 		getOrSetStructMemberImpl(addr, char, value, op);
@@ -320,20 +331,16 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for (i = 0; i < pci->retc; i++) {
 		int type = getArgType(mb, pci, i);
 		if (isaBatType(type) && !wstate->cudfOutputs[getArg(pci, i)]) {
-			BAT *b = COLnew(0, getBatType(type), 0, TRANSIENT);
-			getOrSetStructMember(&outputStruct, TYPE_ptr, &b->theap.base, OP_GET);
-			getOrSetStructMember(&outputStruct, TYPE_lng, &b->batCount, OP_GET);
-			if (b->batCount == 0)
-				b->theap.base = NULL;
-			b->batCapacity = b->batCount;
-			b->theap.storage = STORE_CMEM;
-			/* TODO check if the sorted props are important for the rest of the execution */
-			b->tsorted = b->trevsorted = 0;
+			BAT *b = NULL;
+			char *base = NULL;
+			long size = 0;
+			getOrSetStructMember(&outputStruct, TYPE_ptr, &base, OP_GET);
+			getOrSetStructMember(&outputStruct, TYPE_lng, &size, OP_GET);
 			if (getBatType(type) == TYPE_str) {
-				char *base = NULL;
-				long size;
-				getOrSetStructMember(&outputStruct, TYPE_str, &base, OP_GET);
-				getOrSetStructMember(&outputStruct, TYPE_lng, &size, OP_GET);
+				char *strbase = NULL;
+				char *strsize = 0;
+				getOrSetStructMember(&outputStruct, TYPE_str, &strbase, OP_GET);
+				getOrSetStructMember(&outputStruct, TYPE_lng, &strsize, OP_GET);
 				/* Find the matching vheap from the input bats */
 				for (j = pci->retc; j < pci->argc; j++) {
 					int inputType = getArgType(mb, pci, j);
@@ -343,21 +350,24 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 						if (in == NULL)
 							throw(MAL, "weld.run", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING ": %d",
 								  getArg(pci, j));
-						if (in->tvheap->base == base) {
+						if (in->tvheap->base == strbase) {
 							BBPshare(in->tvheap->parentid);
+							b = COLnew(0, getMalTypeFromWidth(in->twidth), size, TRANSIENT);
+							b->tsorted = b->trevsorted = 0;
 							b->tvheap = in->tvheap;
 							b->ttype = in->ttype;
-							b->twidth = in->twidth;
-							b->tshift = in->tshift;
 							b->tsorted = in->tsorted;
 							b->tvarsized = 1;
 							break;
 						}
 					}
 				}
+			} else {
+				b = COLnew(0, getBatType(type), size, TRANSIENT);
+				b->tsorted = b->trevsorted = 0;
 			}
-			b->theap.free = b->batCount << b->tshift;
-			b->theap.size = b->batCount << b->tshift;
+			memcpy(b->theap.base, base, size * b->twidth);
+			BATsetcount(b, size);
 			BBPkeepref(b->batCacheid);
 			*getArgReference_bat(stk, pci, i) = b->batCacheid;
 		} else if (isaBatType(type) && wstate->cudfOutputs[getArg(pci, i)]) {
@@ -377,8 +387,7 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	weld_error_free(e);
 	weld_value_free(arg);
-	/* TODO does not work as advertised in the doc. It will free our data buffers as well */
-	//weld_value_free(result);
+	weld_value_free(result);
 	weld_conf_free(conf);
 	weld_module_free(m);
 	free(inputStruct);
