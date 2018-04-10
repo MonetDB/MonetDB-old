@@ -1045,16 +1045,16 @@ WeldGroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			dep = NULL;
 		}
 		sprintf(zipStmt + strlen(zipStmt), "v%d,", col);
-		sprintf(dictTypeStmt + strlen(dictTypeStmt), " %s,", getWeldType(colType));
 		if (count > 0 || dep != NULL) {
 			sprintf(structMember, ".$%d", count);
 		} else {
 			structMember[0] = '\0';
 		}
 		if (getBatType(colType) == TYPE_str) {
-			sprintf(dictKeyStmt + strlen(dictKeyStmt),
-					" strslice(v%dstr, i64(n%s) + v%dstroffset),", col, structMember, col);
+			sprintf(dictTypeStmt + strlen(dictTypeStmt), " i64,");
+			sprintf(dictKeyStmt + strlen(dictKeyStmt), " i64(n%s),", structMember);
 		} else {
+			sprintf(dictTypeStmt + strlen(dictTypeStmt), " %s,", getWeldType(colType));
 			sprintf(dictKeyStmt + strlen(dictKeyStmt), " n%s,", structMember);
 		}
 		++count;
