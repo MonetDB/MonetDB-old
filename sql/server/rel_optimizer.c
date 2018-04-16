@@ -2900,16 +2900,22 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 		if (!f->func->s && !strcmp(f->func->base.name, "sql_mul") && list_length(l) == 2) {
 			sql_exp *le = l->h->data;
 			sql_exp *re = l->h->next->data;
+			sql_subtype *et = exp_subtype(e);
+
 			/* 0*a = 0 */
 			if (exp_is_atom(le) && exp_is_zero(sql, le) && exp_is_atom(re) && exp_is_not_null(sql, re)) {
 				(*changes)++;
 				exp_setname(sql->sa, le, exp_relname(e), exp_name(e));
+				if (subtype_cmp(et, exp_subtype(le)) != 0)
+					le = exp_convert(sql->sa, le, exp_subtype(le), et);
 				return le;
 			}
 			/* a*0 = 0 */
 			if (exp_is_atom(re) && exp_is_zero(sql, re) && exp_is_atom(le) && exp_is_not_null(sql, le)) {
 				(*changes)++;
 				exp_setname(sql->sa, re, exp_relname(e), exp_name(e));
+				if (subtype_cmp(et, exp_subtype(re)) != 0)
+					re = exp_convert(sql->sa, re, exp_subtype(re), et);
 				return re;
 			}
 			/* 1*a = a
@@ -2933,7 +2939,7 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 				if (la && ra) {
 					atom *a = atom_mul(la, ra);
 
-					if (a) {
+					if (a && atom_cast(sql->sa, a, exp_subtype(e))) {
 						sql_exp *ne = exp_atom(sql->sa, a);
 						(*changes)++;
 						exp_setname(sql->sa, ne, exp_relname(e), exp_name(e));
@@ -2942,10 +2948,11 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 				}
 			}
 			/* move constants to the right, ie c*A = A*c */
-			/* TODO beware of overflow,  */
 			else if (exp_is_atom(le)) {
 				l->h->data = re;
 				l->h->next->data = le;
+				e->f = sql_bind_func(sql->sa, NULL, "sql_mul", exp_subtype(re), exp_subtype(le), F_FUNC);
+				exp_sum_scales(e->f, re, le);
 				(*changes)++;
 				return e;
 			}
@@ -2993,9 +3000,13 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 						append(l, lre);
 						append(l, re);
 						le->l = l;
+						le->f = sql_bind_func(sql->sa, NULL, "sql_mul", exp_subtype(lre), exp_subtype(re), F_FUNC);
+						exp_sum_scales(le->f, lre, re);
 						l = e->l;
 						l->h->data = lle;
 						l->h->next->data = le;
+						e->f = sql_bind_func(sql->sa, NULL, "sql_mul", exp_subtype(lle), exp_subtype(le), F_FUNC);
+						exp_sum_scales(e->f, lle, le);
 						(*changes)++;
 						return e;
 					}
@@ -3022,7 +3033,7 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 				if (la && ra) {
 					atom *a = atom_add(la, ra);
 
-					if (a) {
+					if (a) { 
 						sql_exp *ne = exp_atom(sql->sa, a);
 						(*changes)++;
 						exp_setname(sql->sa, ne, exp_relname(e), exp_name(e));
@@ -6085,12 +6096,14 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 			sql_rel *l = rel->l;
 
 			positional_exps_mark_used(rel, l);
-		//	rel_mark_used(sql, rel->l, 1);
+			exps_mark_used(sql->sa, rel, l);
+			rel_mark_used(sql, rel->l, 0);
 			/* based on child check set expression list */
 			if (is_project(l->op) && need_distinct(l))
 				positional_exps_mark_used(l, rel);
 			positional_exps_mark_used(rel, rel->r);
-		//	rel_mark_used(sql, rel->r, 1);
+			exps_mark_used(sql->sa, rel, rel->r);
+			rel_mark_used(sql, rel->r, 0);
 		}
 		break;
 
@@ -6440,10 +6453,14 @@ rel_dce_down(mvc *sql, sql_rel *rel, list *refs, int skip_proj)
 			rel_dce_sub(sql, rel, refs);
 		/* fall through */
 
-	case op_insert:
 	case op_truncate:
 	case op_ddl:
 
+		return rel;
+
+	case op_insert:
+		rel_used(rel->r);
+		rel_dce_sub(sql, rel->r, refs);
 		return rel;
 
 	case op_update:
@@ -6603,7 +6620,7 @@ rel_dce(mvc *sql, sql_rel *rel)
 		node *n;
 
 		for(n = sql->sqs->h; n; n = n->next) {
-			sql_var *v = n->data;
+			sql_subquery *v = n->data;
 			sql_rel *i = v->rel;
 
 			while (!rel_is_ref(i) && i->l && !is_base(i->op))
@@ -9396,7 +9413,7 @@ rel_optimizer(mvc *sql, sql_rel *rel)
 		node *n;
 
 		for(n = sql->sqs->h; n; n = n->next) {
-			sql_var *v = n->data;
+			sql_subquery *v = n->data;
 
 			v->rel = optimize(sql, v->rel);
 		}
