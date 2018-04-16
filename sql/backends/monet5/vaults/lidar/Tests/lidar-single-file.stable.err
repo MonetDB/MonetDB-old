@@ -21,11 +21,12 @@ stderr of test 'lidar-single-file` in directory 'sql/backends/monet5/vaults/lida
 # cmdline opt 	mapi_usock = /var/tmp/mtest-10899/.s.monetdb.34483
 # cmdline opt 	monet_prompt = 
 # cmdline opt 	gdk_dbpath = /home/kutsurak/work/monet/sources/MonetDB/build/install/var/MonetDB/mTests_sql_backends_monet5_vaults_lidar
-# cmdline opt 	gdk_debug = 536870922
-Params: XYZauinrcpedM
-Initial table name: tbl0
-tname: tbl0
-tablename: tbl0
+# cmdline opt 	embedded_c = true
+# cmdline opt 	gdk_debug = 553648138
+# Params: XYZauinrcpedM
+# Initial table name: tbl0
+# tname: tbl0
+# tablename: tbl0
 
 #---------------------------------------------------------
 #  Header Summary
@@ -66,15 +67,15 @@ tablename: tbl0
 #   User: 'liblas' - Description: 'OGR variant of OpenGIS WKT SRS'
 #   ID: 2112 Length: 720
 
-Scale: 0.010000 0.010000 0.010000
-Decimal type scale: 2 2 2
-Decimal type precision: 6 6 3
-decimal digits: 2 2 2
-total digits: 8 8 5
-count: 1
-id, rid: 0 1
+# Scale: 0.010000 0.010000 0.010000
+# Decimal type scale: 2 2 2
+# Decimal type precision: 6 6 3
+# decimal digits: 2 2 2
+# total digits: 8 8 5
+# count: 1
+# id, rid: 0 1
 #Loading 106 rows
-----------------LIDARloadTable_ called, creating reader
+# ----------------LIDARloadTable_ called, creating reader
 #File loaded in 1 ms	
 # 16:54:24 >  
 # 16:54:24 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-10899" "--port=34483"

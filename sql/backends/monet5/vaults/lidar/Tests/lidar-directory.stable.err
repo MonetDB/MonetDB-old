@@ -21,13 +21,14 @@ stderr of test 'lidar-directory` in directory 'sql/backends/monet5/vaults/lidar`
 # cmdline opt 	mapi_usock = /var/tmp/mtest-10899/.s.monetdb.34483
 # cmdline opt 	monet_prompt = 
 # cmdline opt 	gdk_dbpath = /home/kutsurak/work/monet/sources/MonetDB/build/install/var/MonetDB/mTests_sql_backends_monet5_vaults_lidar
-# cmdline opt 	gdk_debug = 536870922
-Params: XYZainrcpedM
-Initial table name: tbl1
+# cmdline opt 	embedded_c = true
+# cmdline opt 	gdk_debug = 553648138
+# Params: XYZainrcpedM
+# Initial table name: tbl1
 #file: /home/kutsurak/work/monet/sources/monetdb-test-data/lidar/directory_loading/lidar1.las 2
 #file: /home/kutsurak/work/monet/sources/monetdb-test-data/lidar/directory_loading/lidar2.las 2
-tname: tbl1
-tablename: tbl1
+# tname: tbl1
+# tablename: tbl1
 
 #---------------------------------------------------------
 #  Header Summary
@@ -68,11 +69,11 @@ tablename: tbl1
 #   User: 'liblas' - Description: 'OGR variant of OpenGIS WKT SRS'
 #   ID: 2112 Length: 720
 
-Scale: 0.010000 0.010000 0.010000
-Decimal type scale: 2 2 2
-Decimal type precision: 6 6 3
-decimal digits: 2 2 2
-total digits: 8 8 5
+# Scale: 0.010000 0.010000 0.010000
+# Decimal type scale: 2 2 2
+# Decimal type precision: 6 6 3
+# decimal digits: 2 2 2
+# total digits: 8 8 5
 
 #---------------------------------------------------------
 #  Header Summary
@@ -113,22 +114,22 @@ total digits: 8 8 5
 #   User: 'liblas' - Description: 'OGR variant of OpenGIS WKT SRS'
 #   ID: 2112 Length: 720
 
-Scale: 0.010000 0.010000 0.010000
-Decimal type scale: 2 2 2
-Decimal type precision: 6 6 3
-decimal digits: 2 2 2
-total digits: 8 8 5
-count: 2
-id, rid: 0 2
+# Scale: 0.010000 0.010000 0.010000
+# Decimal type scale: 2 2 2
+# Decimal type precision: 6 6 3
+# decimal digits: 2 2 2
+# total digits: 8 8 5
+# count: 2
+# id, rid: 0 2
 #Loading 106 rows
-----------------LIDARloadTable_ called, creating reader
-#File loaded in 1 ms	id, rid: 1 3
+# ----------------LIDARloadTable_ called, creating reader
+#File loaded in 1 ms	# id, rid: 1 3
 #Loading 106 rows
-----------------LIDARloadTable_ called, creating reader
-#File loaded in 1 ms	
-# 16:54:25 >  
-# 16:54:25 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-10899" "--port=34483"
-# 16:54:25 >  
+# ----------------LIDARloadTable_ called, creating reader
+#File loaded in 0 ms	
+# 08:51:09 >  
+# 08:51:09 >  "mclient" "-lsql" "-ftest" "-tnone" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-25522" "--port=33181"
+# 08:51:09 >  
 
 
 # 16:54:25 >  
