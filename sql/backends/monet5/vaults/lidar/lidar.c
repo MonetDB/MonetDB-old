@@ -831,7 +831,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		tname = *getArgReference_str(stk, pci, 2);
 		params = *getArgReference_str(stk, pci, 3);
 #ifndef NDEBUG
-		fprintf(stderr, "Params: %s\n", params);
+		fprintf(stderr, "# Params: %s\n", params);
 #endif
 		break;
 	default:
@@ -841,7 +841,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 #ifndef NDEBUG
 	if (tname != NULL) {
-		fprintf(stderr, "Initial table name: %s\n", tname);
+		fprintf(stderr, "# Initial table name: %s\n", tname);
 	}
 #endif
 
@@ -879,7 +879,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 #ifndef NDEBUG
-	fprintf(stderr, "tname: %s\n", tname);
+	fprintf(stderr, "# tname: %s\n", tname);
 #endif
 
 	/* extract the file name from the absolute path */
@@ -909,7 +909,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 #ifndef NDEBUG
-	fprintf(stderr, "tablename: %s\n", tname_low);
+	fprintf(stderr, "# tablename: %s\n", tname_low);
 #endif
 
 	/* check table name for existence in the lidar catalog */
@@ -966,22 +966,22 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		precisionZ = scaleZ + (int)ceil(log(header.maxZ)/log(10));
 
 #ifndef NDEBUG
-		fprintf(stderr, "Scale: %f %f %f\n",
+		fprintf(stderr, "# Scale: %f %f %f\n",
 				header.scaleX,
 				header.scaleY,
 				header.scaleZ);
-		fprintf(stderr, "Decimal type scale: %d %d %d\n",
+		fprintf(stderr, "# Decimal type scale: %d %d %d\n",
 				(int)ceil(-log(header.scaleX)/log(10)),
 				(int)ceil(-log(header.scaleY)/log(10)),
 				(int)ceil(-log(header.scaleZ)/log(10)));
 
-		fprintf(stderr, "Decimal type precision: %d %d %d\n",
+		fprintf(stderr, "# Decimal type precision: %d %d %d\n",
 				(int)ceil(log(header.maxX)/log(10)),
 				(int)ceil(log(header.maxY)/log(10)),
 				(int)ceil(log(header.maxZ)/log(10)));
 
-		fprintf(stderr, "decimal digits: %d %d %d\n", scaleX, scaleY, scaleZ);
-		fprintf(stderr, "total digits: %d %d %d\n", precisionX, precisionY, precisionZ);
+		fprintf(stderr, "# decimal digits: %d %d %d\n", scaleX, scaleY, scaleZ);
+		fprintf(stderr, "# total digits: %d %d %d\n", precisionX, precisionY, precisionZ);
 #endif
 
 		/* Parse the input parameters */
@@ -1629,7 +1629,7 @@ LIDARloadTable_(mvc *m, sql_schema *sch, sql_table *lidar_tbl, sql_table *tbl, o
 	fname = (char *)table_funcs.column_find_value(m->session->tr, col, frid);
 
 #ifndef NDEBUG
-	fprintf(stderr, "----------------LIDARloadTable_ called, creating reader\n");
+	fprintf(stderr, "# ----------------LIDARloadTable_ called, creating reader\n");
 #endif
 	MT_lock_set(&mt_lidar_lock);
 	LASError_Reset();
@@ -1864,12 +1864,12 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				goto loadtable_cleanup;
 			}
 #ifndef NDEBUG
-			fprintf(stderr, "count: " OIDFMT "\n", cnt);
+			fprintf(stderr, "# count: " OIDFMT "\n", cnt);
 #endif
 			for (id = 0; id < cnt; id++) {
 				int rid = *(int*)BUNtail(fs_rid, id);
 #ifndef NDEBUG
-				fprintf(stderr, "id, rid: " OIDFMT " %d\n", id, rid);
+				fprintf(stderr, "# id, rid: " OIDFMT " %d\n", id, rid);
 #endif
 				msg = LIDARloadTable_(m, sch, lidar_tbl, tbl, rid - 1);
 				if (msg != MAL_SUCCEED) {
