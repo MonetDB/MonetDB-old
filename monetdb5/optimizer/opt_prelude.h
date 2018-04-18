@@ -307,6 +307,8 @@ mal_export  str unpackRef;
 mal_export  str unpinRef;
 mal_export  str updateRef;
 mal_export  str userRef;
+mal_export  str weldRef;
+mal_export  str weldRunRef;
 mal_export  str vectorRef;
 mal_export  str wlcRef;
 mal_export  str wlrRef;

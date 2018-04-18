@@ -126,6 +126,7 @@ typedef struct stmt {
 
 extern int stmt_key(stmt *s);
 
+extern stmt * stmt_create(sql_allocator *sa, st_type type);
 extern stmt *stmt_none(backend *be);
 
 //#define VAR_DECLARE 1
@@ -237,5 +238,6 @@ extern const char *table_name(sql_allocator *sa, stmt *st);
 extern const char *schema_name(sql_allocator *sa, stmt *st);
 
 extern stmt *const_column(backend *ba, stmt *val);
+extern InstrPtr pushPtr(MalBlkPtr mb, InstrPtr q, ptr val);
 
 #endif /* _SQL_STATEMENT_H_ */

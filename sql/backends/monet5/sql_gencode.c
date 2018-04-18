@@ -51,6 +51,7 @@
 #include "rel_bin.h"
 #include "rel_dump.h"
 #include "rel_remote.h"
+#include "rel_weld.h"
 
 int
 constantAtom(backend *sql, MalBlkPtr mb, atom *a)
@@ -529,7 +530,11 @@ sql_relation2stmt(backend *be, sql_rel *r)
 		if (c->emode == m_plan) {
 			rel_print(c, r, 0);
 		} else {
-			s = output_rel_bin(be, r);
+			s = output_rel_weld(be, r);
+			if (!s) {
+				/* Fallback */
+				s = output_rel_bin(be, r);
+			}
 		}
 	}
 	return s;

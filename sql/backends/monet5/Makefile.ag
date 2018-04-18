@@ -31,6 +31,7 @@ lib__sql = {
 		sql_assert.c sql_assert.h \
 		sql_upgrades.c sql_upgrades.h \
 		rel_bin.c rel_bin.h \
+		rel_weld.c rel_weld.h \
 		sql_cat.c sql_cat.h \
 		sql_transaction.c sql_transaction.h \
 		sql_statement.c sql_statement.h \

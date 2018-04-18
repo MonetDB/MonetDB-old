@@ -299,6 +299,8 @@ str unpackRef;
 str unpinRef;
 str updateRef;
 str userRef;
+str weldRef;
+str weldRunRef;
 str vectorRef;
 str wlcRef;
 str wlrRef;
@@ -586,6 +588,8 @@ void optimizerInit(void)
 	unpinRef = putName("unpin");
 	updateRef = putName("update");
 	userRef = putName("user");
+	weldRef = putName("weld");
+	weldRunRef = putName("run");
 	wlcRef = putName("wlc");
 	wlrRef = putName("wlr");
 	selectRef = putName("select");

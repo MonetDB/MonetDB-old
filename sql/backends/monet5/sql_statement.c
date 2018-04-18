@@ -93,7 +93,7 @@ dump_2(MalBlkPtr mb, const char *mod, const char *name, stmt *o1, stmt *o2)
 	return q;
 }
 
-static InstrPtr
+InstrPtr
 pushPtr(MalBlkPtr mb, InstrPtr q, ptr val)
 {
 	int _t;
@@ -185,7 +185,7 @@ stmt_bool(backend *be, int b)
 	}
 }
 
-static stmt *
+stmt *
 stmt_create(sql_allocator *sa, st_type type)
 {
 	stmt *s = SA_NEW(sa, stmt);

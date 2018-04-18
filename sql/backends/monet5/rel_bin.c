@@ -20,10 +20,7 @@
 
 #define OUTER_ZERO 64
 
-static stmt * exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stmt *cnt, stmt *sel);
 static stmt * rel_bin(backend *be, sql_rel *rel);
-static stmt * subrel_bin(backend *be, sql_rel *rel, list *refs);
-
 static stmt *check_types(backend *be, sql_subtype *ct, stmt *s, check_type tpe);
 
 static stmt *
@@ -177,7 +174,7 @@ list_find_column(backend *be, list *l, const char *rname, const char *name )
 	return res;
 }
 
-static stmt *
+stmt *
 bin_find_column( backend *be, stmt *sub, const char *rname, const char *name ) 
 {
 	return list_find_column( be, sub->op4.lval, rname, name);
@@ -4982,7 +4979,7 @@ rel2bin_ddl(backend *be, sql_rel *rel, list *refs)
 	return s;
 }
 
-static stmt *
+stmt *
 subrel_bin(backend *be, sql_rel *rel, list *refs) 
 {
 	mvc *sql = be->mvc;
