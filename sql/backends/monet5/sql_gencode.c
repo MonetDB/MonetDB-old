@@ -530,7 +530,9 @@ sql_relation2stmt(backend *be, sql_rel *r)
 		if (c->emode == m_plan) {
 			rel_print(c, r, 0);
 		} else {
-			s = output_rel_weld(be, r);
+			if (GDKgetenv_istrue("weld")) {
+				s = output_rel_weld(be, r);
+			}
 			if (!s) {
 				/* Fallback */
 				s = output_rel_bin(be, r);
