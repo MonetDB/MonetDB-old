@@ -76,14 +76,15 @@ sql_fix_system_tables(Client c, mvc *sql)
 		pos += snprintf(buf + pos, bufsize - pos,
 				"insert into sys.functions values"
 				" (%d, '%s', '%s', '%s',"
-				" %d, %d, %s, %s, %s, %d);\n",
+				" %d, %d, %s, %s, %s, %d, %s);\n",
 				func->base.id, func->base.name,
 				func->imp, func->mod, FUNC_LANG_INT,
 				func->type,
 				func->side_effect ? "true" : "false",
 				func->varres ? "true" : "false",
 				func->vararg ? "true" : "false",
-				func->s ? func->s->base.id : s->base.id);
+				func->s ? func->s->base.id : s->base.id,
+				func->system ? "true" : "false");
 		if (func->res) {
 			for (m = func->res->h; m; m = m->next, number++) {
 				arg = m->data;
@@ -143,12 +144,13 @@ sql_fix_system_tables(Client c, mvc *sql)
 		pos += snprintf(buf + pos, bufsize - pos,
 				"insert into sys.functions values"
 				" (%d, '%s', '%s', '%s', %d, %d, false,"
-				" %s, %s, %d);\n",
+				" %s, %s, %d, %s);\n",
 				aggr->base.id, aggr->base.name, aggr->imp,
 				aggr->mod, FUNC_LANG_INT, aggr->type,
 				aggr->varres ? "true" : "false",
 				aggr->vararg ? "true" : "false",
-				aggr->s ? aggr->s->base.id : s->base.id);
+				aggr->s ? aggr->s->base.id : s->base.id,
+				aggr->system ? "true" : "false");
 		arg = aggr->res->h->data;
 		pos += snprintf(buf + pos, bufsize - pos,
 				"insert into sys.args values"
