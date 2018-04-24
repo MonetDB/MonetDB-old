@@ -41,12 +41,12 @@ create table netcdf_attrs(
 -- used for groups in HDF5 files
 -- global attributes have obj_name=""
 
--- create function netcdfvar (fname varchar(256)) 
+-- create system function netcdfvar (fname varchar(256)) 
 --	returns int external name netcdf.test;
 
-create procedure netcdf_attach(fname varchar(256))
+create system procedure netcdf_attach(fname varchar(256))
     external name netcdf.attach;
-create procedure netcdf_importvar(fid integer, varnname varchar(256))
+create system procedure netcdf_importvar(fid integer, varnname varchar(256))
     external name netcdf.importvariable;
 
 grant select on netcdf_files to public;

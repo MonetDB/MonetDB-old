@@ -4,6 +4,6 @@
 --
 -- Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
 
-create procedure SHPattach(fname string) external name shp.attach;
-create procedure SHPload(fid integer) external name shp.import;
-create procedure SHPload(fid integer, filter geometry) external name shp.import;
+create system procedure SHPattach(fname string) external name shp.attach;
+create system procedure SHPload(fid integer) external name shp.import;
+create system procedure SHPload(fid integer, filter geometry) external name shp.import;

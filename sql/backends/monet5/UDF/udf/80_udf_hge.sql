@@ -8,5 +8,5 @@
 
 
 -- fuse two (8-byte) integer values into one (16-byte) bigint value
-create function fuse(one bigint, two bigint)
+create system function fuse(one bigint, two bigint)
 returns hugeint external name udf.fuse;
