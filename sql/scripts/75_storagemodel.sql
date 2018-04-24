@@ -17,7 +17,7 @@
 -- of columns and foreign key indices, and possible temporary hash indices.
 -- For strings we take a sample to determine their average length.
 
-create function sys."storage"()
+create system function sys."storage"()
 returns table (
 	"schema" string,
 	"table" string,
@@ -42,7 +42,7 @@ external name sql."storage";
 create view sys."storage" as select * from sys."storage"();
 
 -- refinements for schemas, tables, and individual columns
-create function sys."storage"( sname string)
+create system function sys."storage"( sname string)
 returns table (
 	"schema" string,
 	"table" string,
@@ -64,7 +64,7 @@ returns table (
 )
 external name sql."storage";
 
-create function sys."storage"( sname string, tname string)
+create system function sys."storage"( sname string, tname string)
 returns table (
 	"schema" string,
 	"table" string,
@@ -86,7 +86,7 @@ returns table (
 )
 external name sql."storage";
 
-create function sys."storage"( sname string, tname string, cname string)
+create system function sys."storage"( sname string, tname string, cname string)
 returns table (
 	"schema" string,
 	"table" string,
@@ -129,7 +129,7 @@ create table sys.storagemodelinput(
 -- this table can be adjusted to reflect the anticipated final database size
 
 -- The model input can be derived from the current database using
-create procedure sys.storagemodelinit()
+create system procedure sys.storagemodelinit()
 begin
 	delete from sys.storagemodelinput;
 
@@ -159,7 +159,7 @@ end;
 -- and the upperbound when all possible index structures are created.
 -- The storage requirement for foreign key joins is split amongst the participants.
 
-create function sys.columnsize(nme string, i bigint, d bigint)
+create system function sys.columnsize(nme string, i bigint, d bigint)
 returns bigint
 begin
 	case
@@ -181,7 +181,7 @@ begin
 	end case;
 end;
 
-create function sys.heapsize(tpe string, i bigint, w int)
+create system function sys.heapsize(tpe string, i bigint, w int)
 returns bigint
 begin
 	if  tpe <> 'varchar' and tpe <> 'clob'
@@ -191,7 +191,7 @@ begin
 	return 10240 + i * w;
 end;
 
-create function sys.hashsize(b boolean, i bigint)
+create system function sys.hashsize(b boolean, i bigint)
 returns bigint
 begin
 	-- assume non-compound keys
@@ -202,7 +202,7 @@ begin
 	return 0;
 end;
 
-create function sys.imprintsize(i bigint, nme string)
+create system function sys.imprintsize(i bigint, nme string)
 returns bigint
 begin
 	if nme = 'boolean'
@@ -222,7 +222,7 @@ begin
 	return 0;
 end;
 
-create function sys.storagemodel()
+create system function sys.storagemodel()
 returns table (
 	"schema" string,
 	"table" string,

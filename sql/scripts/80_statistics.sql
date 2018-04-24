@@ -23,14 +23,14 @@ CREATE TABLE sys.statistics(
 	sorted boolean,
 	revsorted boolean);
 
-create procedure sys.analyze(minmax int, "sample" bigint)
+create system procedure sys.analyze(minmax int, "sample" bigint)
 external name sql.analyze;
 
-create procedure sys.analyze(minmax int, "sample" bigint, sch string)
+create system procedure sys.analyze(minmax int, "sample" bigint, sch string)
 external name sql.analyze;
 
-create procedure sys.analyze(minmax int, "sample" bigint, sch string, tbl string)
+create system procedure sys.analyze(minmax int, "sample" bigint, sch string, tbl string)
 external name sql.analyze;
 
-create procedure sys.analyze(minmax int, "sample" bigint, sch string, tbl string, col string)
+create system procedure sys.analyze(minmax int, "sample" bigint, sch string, tbl string, col string)
 external name sql.analyze;

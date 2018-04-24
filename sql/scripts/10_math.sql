@@ -4,11 +4,11 @@
 --
 -- Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
 
-CREATE FUNCTION degrees(r double)
+CREATE SYSTEM FUNCTION degrees(r double)
 RETURNS double
 	RETURN r*180/pi();
 
-CREATE FUNCTION radians(d double)
+CREATE SYSTEM FUNCTION radians(d double)
 RETURNS double
 	RETURN d*pi()/180;
 

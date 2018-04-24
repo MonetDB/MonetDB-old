@@ -500,6 +500,7 @@ int yydebug=1;
 	opt_constraint
 	set_distinct
 	opt_with_check_option
+	opt_system
 	create
 	create_or_replace
 	if_exists
@@ -619,6 +620,7 @@ SQLCODE SQLERROR UNDER WHENEVER
 %token OVER PARTITION CURRENT EXCLUDE FOLLOWING PRECEDING OTHERS TIES RANGE UNBOUNDED
 
 %token X_BODY 
+%token SYSTEM
 %%
 
 sqlstmt:
@@ -1816,63 +1818,70 @@ function_body:
 ;
 
 
+opt_system:
+    /* empty */	        		{ $$ = 0; }
+ |  SYSTEM				{ $$ = 1; }
+ ;
+
 func_def:
-    create_or_replace FUNCTION qname
+    create_or_replace opt_system FUNCTION qname
 	'(' opt_paramlist ')'
     RETURNS func_data_type
     EXTERNAL sqlNAME external_function_name 	
 			{ dlist *f = L();
-				append_list(f, $3);
-				append_list(f, $5);
-				append_symbol(f, $8);
-				append_list(f, $11);
+				append_list(f, $4);
+				append_list(f, $6);
+				append_symbol(f, $9);
+				append_list(f, $12);
 				append_list(f, NULL);
 				append_int(f, F_FUNC);
 				append_int(f, FUNC_LANG_MAL);
 				append_int(f, $1);
+				append_int(f, $2);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
- |  create_or_replace FUNCTION qname
+ |  create_or_replace opt_system FUNCTION qname
 	'(' opt_paramlist ')'
     RETURNS func_data_type
     routine_body
 			{ dlist *f = L();
-				append_list(f, $3);
-				append_list(f, $5);
-				append_symbol(f, $8);
+				append_list(f, $4);
+				append_list(f, $6);
+				append_symbol(f, $9);
 				append_list(f, NULL);
-				append_list(f, $9);
+				append_list(f, $10);
 				append_int(f, F_FUNC);
 				append_int(f, FUNC_LANG_SQL);
 				append_int(f, $1);
+				append_int(f, $2);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
-  | create_or_replace FUNCTION qname
+  | create_or_replace opt_system FUNCTION qname
 	'(' opt_paramlist ')'
     RETURNS func_data_type
     LANGUAGE IDENT function_body
 		{
 			int lang = 0;
 			dlist *f = L();
-			char l = *$10;
+			char l = *$11;
 
 			if (l == 'R' || l == 'r')
 				lang = FUNC_LANG_R;
 			else if (l == 'P' || l == 'p') {
 				// code does not get cleaner than this people
-				if (strcasecmp($10, "PYTHON_MAP") == 0) {
+				if (strcasecmp($11, "PYTHON_MAP") == 0) {
 					lang = FUNC_LANG_MAP_PY;
-				} else if (strcasecmp($10, "PYTHON3_MAP") == 0) {
+				} else if (strcasecmp($11, "PYTHON3_MAP") == 0) {
 					lang = FUNC_LANG_MAP_PY3;
-				} else if (strcasecmp($10, "PYTHON3") == 0) {
+				} else if (strcasecmp($11, "PYTHON3") == 0) {
 					lang = FUNC_LANG_PY3;
-				} else if (strcasecmp($10, "PYTHON2_MAP") == 0) {
+				} else if (strcasecmp($11, "PYTHON2_MAP") == 0) {
 					lang = FUNC_LANG_MAP_PY2;
-				} else if (strcasecmp($10, "PYTHON2") == 0) {
+				} else if (strcasecmp($11, "PYTHON2") == 0) {
 					lang = FUNC_LANG_PY2;
 				} else {
 					lang = FUNC_LANG_PY;
 				}
 			} else if (l == 'C' || l == 'c') {
-				if (strcasecmp($10, "CPP") == 0) {
+				if (strcasecmp($11, "CPP") == 0) {
 					lang = FUNC_LANG_CPP;
 				} else {
 					lang = FUNC_LANG_C;
@@ -1886,71 +1895,74 @@ func_def:
 				_DELETE(msg);
 			}
 
-			append_list(f, $3);
-			append_list(f, $5);
-			append_symbol(f, $8);
+			append_list(f, $4);
+			append_list(f, $6);
+			append_symbol(f, $9);
 			append_list(f, NULL);
-			append_list(f, append_string(L(), $11));
+			append_list(f, append_string(L(), $12));
 			append_int(f, F_FUNC);
 			append_int(f, lang);
 			append_int(f, $1);
+			append_int(f, $2);
 			$$ = _symbol_create_list( SQL_CREATE_FUNC, f );
 		}
-  | create_or_replace FILTER FUNCTION qname
+  | create_or_replace opt_system FILTER FUNCTION qname
 	'(' opt_paramlist ')'
     EXTERNAL sqlNAME external_function_name 	
 			{ dlist *f = L();
-				append_list(f, $4);
-				append_list(f, $6); 
+				append_list(f, $5);
+				append_list(f, $7); 
 				/* no returns - use OID */
 				append_symbol(f, NULL); 
-				append_list(f, $10);
+				append_list(f, $11);
 				append_list(f, NULL);
 				append_int(f, F_FILT);
 				append_int(f, FUNC_LANG_MAL);
 				append_int(f, $1);
+				append_int(f, $2);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
-  | create_or_replace AGGREGATE qname
+  | create_or_replace opt_system AGGREGATE qname
 	'(' opt_paramlist ')'
     RETURNS func_data_type
     EXTERNAL sqlNAME external_function_name 	
 			{ dlist *f = L();
-				append_list(f, $3);
-				append_list(f, $5);
-				append_symbol(f, $8);
-				append_list(f, $11);
+				append_list(f, $4);
+				append_list(f, $6);
+				append_symbol(f, $9);
+				append_list(f, $12);
 				append_list(f, NULL);
 				append_int(f, F_AGGR);
 				append_int(f, FUNC_LANG_MAL);
 				append_int(f, $1);
+				append_int(f, $2);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
-  | create_or_replace AGGREGATE qname
+  | create_or_replace opt_system AGGREGATE qname
 	'(' opt_paramlist ')'
     RETURNS func_data_type
     LANGUAGE IDENT function_body
 		{
 			int lang = 0;
 			dlist *f = L();
-			char l = *$10;
+			char l = *$11;
 
 			if (l == 'R' || l == 'r')
 				lang = FUNC_LANG_R;
 			else if (l == 'P' || l == 'p') {
-				if (strcasecmp($10, "PYTHON_MAP") == 0) {
+				if (strcasecmp($11, "PYTHON_MAP") == 0) {
 					lang = FUNC_LANG_MAP_PY;
-				} else if (strcasecmp($10, "PYTHON3_MAP") == 0) {
+				} else if (strcasecmp($11, "PYTHON3_MAP") == 0) {
 					lang = FUNC_LANG_MAP_PY3;
-				} else if (strcasecmp($10, "PYTHON3") == 0) {
+				} else if (strcasecmp($11, "PYTHON3") == 0) {
 					lang = FUNC_LANG_PY3;
-				} else if (strcasecmp($10, "PYTHON2_MAP") == 0) {
+				} else if (strcasecmp($11, "PYTHON2_MAP") == 0) {
 					lang = FUNC_LANG_MAP_PY2;
-				} else if (strcasecmp($10, "PYTHON2") == 0) {
+				} else if (strcasecmp($11, "PYTHON2") == 0) {
 					lang = FUNC_LANG_PY2;
 				} else {
 					lang = FUNC_LANG_PY;
 				}
 			} else if (l == 'C' || l == 'c') {
-				if (strcasecmp($10, "CPP") == 0) {
+				if (strcasecmp($11, "CPP") == 0) {
 					lang = FUNC_LANG_CPP;
 				} else {
 					lang = FUNC_LANG_C;
@@ -1964,62 +1976,66 @@ func_def:
 				_DELETE(msg);
 			}
 
-			append_list(f, $3);
-			append_list(f, $5);
-			append_symbol(f, $8);
+			append_list(f, $4);
+			append_list(f, $6);
+			append_symbol(f, $9);
 			append_list(f, NULL);
-			append_list(f, append_string(L(), $11));
+			append_list(f, append_string(L(), $12));
 			append_int(f, F_AGGR);
 			append_int(f, lang);
 			append_int(f, $1);
+			append_int(f, $2);
 			$$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
  | /* proc ie no result */
-    create_or_replace PROCEDURE qname
+    create_or_replace opt_system PROCEDURE qname
 	'(' opt_paramlist ')'
     EXTERNAL sqlNAME external_function_name 	
 			{ dlist *f = L();
-				append_list(f, $3);
-				append_list(f, $5);
+				append_list(f, $4);
+				append_list(f, $6);
 				append_symbol(f, NULL); /* no result */
-				append_list(f, $9);
+				append_list(f, $10);
 				append_list(f, NULL);
 				append_int(f, F_PROC);
 				append_int(f, FUNC_LANG_MAL);
 				append_int(f, $1);
+				append_int(f, $2);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
-  | create_or_replace PROCEDURE qname
+  | create_or_replace opt_system PROCEDURE qname
 	'(' opt_paramlist ')'
     routine_body
 			{ dlist *f = L();
-				append_list(f, $3);
-				append_list(f, $5);
+				append_list(f, $4);
+				append_list(f, $6);
 				append_symbol(f, NULL); /* no result */
 				append_list(f, NULL); 
-				append_list(f, $7);
+				append_list(f, $8);
 				append_int(f, F_PROC);
 				append_int(f, FUNC_LANG_SQL);
 				append_int(f, $1);
+				append_int(f, $2);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
-  |	create_or_replace sqlLOADER qname
+  |	create_or_replace opt_system sqlLOADER qname
 	'(' opt_paramlist ')'
     LANGUAGE IDENT function_body { 
 			int lang = 0;
 			dlist *f = L();
-			char l = *$8;
+			char l = *$9;
 			/* other languages here if we ever get to it */
 			if (l == 'P' || l == 'p') {
 				lang = FUNC_LANG_PY;
 			} else
 				yyerror(m, sql_message("Language name P(ython) expected, received '%c'", l));
 
-			append_list(f, $3);
-			append_list(f, $5);
+			append_list(f, $4);
+			append_list(f, $6);
 			append_symbol(f, NULL);
 			append_list(f, NULL); 
-			append_list(f, append_string(L(), $9));
+			append_list(f, append_string(L(), $10));
 			append_int(f, F_LOADER);
 			append_int(f, lang);
 			append_int(f, $1);
+			append_int(f, $2);
 			$$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
 ;
 
@@ -5426,6 +5442,7 @@ non_reserved_word:
 |  GEOMETRY	{ $$ = sa_strdup(SA, "geometry"); }
 |  REPLACE	{ $$ = sa_strdup(SA, "replace"); }
 |  COMMENT	{ $$ = sa_strdup(SA, "comment"); }
+|  SYSTEM	{ $$ = sa_strdup(SA, "system"); }
 ;
 
 name_commalist:

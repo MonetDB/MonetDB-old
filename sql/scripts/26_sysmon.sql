@@ -7,7 +7,7 @@
 -- System monitoring
 
 -- show status of all active SQL queries.
-create function sys.queue()
+create system function sys.queue()
 returns table(
 	qtag bigint,
 	"user" string,
@@ -23,16 +23,16 @@ external name sql.sysmon_queue;
 create view sys.queue as select * from sys.queue();
 
 -- operations to manipulate the state of havoc queries
-create procedure sys.pause(tag int)
+create system procedure sys.pause(tag int)
 external name sql.sysmon_pause;
-create procedure sys.resume(tag int)
+create system procedure sys.resume(tag int)
 external name sql.sysmon_resume;
-create procedure sys.stop(tag int)
+create system procedure sys.stop(tag int)
 external name sql.sysmon_stop;
 
-create procedure sys.pause(tag bigint)
+create system procedure sys.pause(tag bigint)
 external name sql.sysmon_pause;
-create procedure sys.resume(tag bigint)
+create system procedure sys.resume(tag bigint)
 external name sql.sysmon_resume;
-create procedure sys.stop(tag bigint)
+create system procedure sys.stop(tag bigint)
 external name sql.sysmon_stop;

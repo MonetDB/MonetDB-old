@@ -7,6 +7,6 @@
 -- (co) Martin Kersten
 -- The JSON type comes with a few operators.
 
-create function json.filter(js json, name hugeint)
+create system function json.filter(js json, name hugeint)
 returns json external name json.filter;
 GRANT EXECUTE ON FUNCTION json.filter(json, hugeint) TO PUBLIC;

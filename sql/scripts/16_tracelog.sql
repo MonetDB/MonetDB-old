@@ -5,7 +5,7 @@
 -- Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
 
 -- make the offline tracing table available for inspection
-create function sys.tracelog()
+create system function sys.tracelog()
 	returns table (
 		event integer,		-- event counter
 		clk varchar(20),	-- wallclock, no mtime in kernel

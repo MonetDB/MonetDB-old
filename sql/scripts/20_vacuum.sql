@@ -11,12 +11,12 @@
 -- The foreign key constraints should be dropped before
 -- and re-established after the cluster operation.
 
-create procedure shrink(sys string, tab string)
+create system procedure shrink(sys string, tab string)
 	external name sql.shrink;
 
-create procedure reuse(sys string, tab string)
+create system procedure reuse(sys string, tab string)
 	external name sql.reuse;
 
-create procedure vacuum(sys string, tab string)
+create system procedure vacuum(sys string, tab string)
 	external name sql.vacuum;
 

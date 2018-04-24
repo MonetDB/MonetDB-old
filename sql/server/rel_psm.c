@@ -801,6 +801,11 @@ rel_create_func(mvc *sql, dlist *qname, dlist *params, symbol *res, dlist *ext_n
 	if (s == NULL)
 		s = cur_schema(sql);
 
+	if (system && !mvc_schema_privs(sql, NULL))
+		return sql_error(sql, 02, SQLSTATE(42000) "CREATE SYSTEM %s%s: insufficient privileges "
+				"for user '%s'", KF, F,
+				stack_get_string(sql, "current_user"));
+
 	type_list = create_type_list(sql, params, 1);
 	if ((sf = sql_bind_func_(sql->sa, s, fname, type_list, type)) != NULL && create) {
 		if (replace) {
@@ -1444,7 +1449,7 @@ rel_psm(mvc *sql, symbol *s)
 		int type = l->h->next->next->next->next->next->data.i_val;
 		int lang = l->h->next->next->next->next->next->next->data.i_val;
 		int repl = l->h->next->next->next->next->next->next->next->data.i_val;
-		int system = 0;
+		int system = l->h->next->next->next->next->next->next->next->next->data.i_val;
 
 		ret = rel_create_func(sql, l->h->data.lval, l->h->next->data.lval, l->h->next->next->data.sym, l->h->next->next->next->data.lval, l->h->next->next->next->next->data.lval, type, lang, repl, system);
 		sql->type = Q_SCHEMA;

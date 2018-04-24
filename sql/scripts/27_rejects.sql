@@ -6,7 +6,7 @@
 
 -- COPY into reject management
 
-create function sys.rejects()
+create system function sys.rejects()
 returns table(
 	rowid bigint,
 	fldid int,
@@ -18,5 +18,5 @@ external name sql.copy_rejects;
 grant execute on function rejects to public;
 
 create view sys.rejects as select * from sys.rejects();
-create procedure sys.clearrejects()
+create system procedure sys.clearrejects()
 external name sql.copy_rejects_clear;

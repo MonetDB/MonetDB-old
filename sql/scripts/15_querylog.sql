@@ -9,7 +9,7 @@
 -- The most important one is a global system variable which controls
 --  monitoring of all sessions.
 
-create function sys.querylog_catalog()
+create system function sys.querylog_catalog()
 returns table(
 	id oid,
 	owner string,
@@ -36,7 +36,7 @@ external name sql.querylog_catalog;
 -- Reducing the space component improves performance/
 -- All timing in usec and all storage in bytes.
 
-create function sys.querylog_calls()
+create system function sys.querylog_calls()
 returns table(
 	id oid,		 -- references query plan
 	"start" timestamp,	-- time the statement was started
@@ -59,13 +59,13 @@ from sys.querylog_catalog() qd, sys.querylog_calls() ql
 where qd.id = ql.id and qd.owner = user;
 
 -- reset history for a particular user
-create procedure sys.querylog_empty()
+create system procedure sys.querylog_empty()
 external name sql.querylog_empty;
 
 -- manipulate the query logger
-create procedure sys.querylog_enable()
+create system procedure sys.querylog_enable()
 external name sql.querylog_enable;
-create procedure sys.querylog_enable(threshold smallint)
+create system procedure sys.querylog_enable(threshold smallint)
 external name sql.querylog_enable_threshold;
-create procedure sys.querylog_disable()
+create system procedure sys.querylog_disable()
 external name sql.querylog_disable;

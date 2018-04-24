@@ -7,7 +7,7 @@
 -- Provide a simple equivalent for the UNIX times command
 -- times 0 ms user 0 ms system 0 ms 0 reads 0 writes
 
-create procedure times()
+create system procedure times()
 external name sql.times;
 
 grant execute on procedure times to public;
