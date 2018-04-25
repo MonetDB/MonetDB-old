@@ -20,6 +20,7 @@ static gdk_return
 bl_preversion(int oldversion, int newversion)
 {
 #define CATALOG_JUL2015 52200
+#define CATALOG_MAR2018 52201
 
 	(void)newversion;
 	if (oldversion == CATALOG_JUL2015) {
@@ -29,11 +30,17 @@ bl_preversion(int oldversion, int newversion)
 		return GDK_SUCCEED;
 	}
 
+	if (oldversion == CATALOG_MAR2018) {
+		/* upgrade to default releases */
+		catalog_version = oldversion;
+		return GDK_SUCCEED;
+	}
+
 	return GDK_FAIL;
 }
 
 static char *
-N( char *buf, char *pre, char *schema, char *post)
+N(char *buf, const char *pre, const char *schema, const char *post)
 {
 	if (pre)
 		snprintf(buf, 64, "%s_%s_%s", pre, schema, post);
@@ -189,6 +196,55 @@ bl_postversion( void *lg)
 			 * nothing */
 		}
 	}
+
+	if (catalog_version <= CATALOG_MAR2018) {
+		const char *s = "sys";
+		char n[64];
+		BAT *fid = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "functions_id")));
+		BAT *sf = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "systemfunctions_function_id")));
+		if (fid == NULL || sf == NULL) {
+			bat_destroy(fid);
+			bat_destroy(sf);
+			return GDK_FAIL;
+		}
+		BAT *b = COLnew(fid->hseqbase, TYPE_bit, BATcount(fid), PERSISTENT);
+		if (b == NULL) {
+			bat_destroy(fid);
+			bat_destroy(sf);
+			return GDK_FAIL;
+		}
+		const int *fids = (const int *) Tloc(fid, 0);
+		bit *fsys = (bit *) Tloc(b, 0);
+		BATiter sfi = bat_iterator(sf);
+		if (BAThash(sf, 0) != GDK_SUCCEED) {
+			BBPreclaim(b);
+			bat_destroy(fid);
+			bat_destroy(sf);
+			return GDK_FAIL;
+		}
+		for (BUN p = 0, q = BATcount(fid); p < q; p++) {
+			BUN i;
+			fsys[p] = 0;
+			HASHloop_int(sfi, sf->thash, i, fids + p) {
+				fsys[p] = 1;
+				break;
+			}
+		}
+		b->tkey = false;
+		b->tsorted = b->trevsorted = false;
+		b->tnonil = true;
+		b->tnil = false;
+		BATsetcount(b, BATcount(fid));
+		bat_destroy(fid);
+		bat_destroy(sf);
+		if (BATsetaccess(b, BAT_READ) != GDK_SUCCEED ||
+		    logger_add_bat(lg, b, N(n, NULL, s, "functions_system")) != GDK_SUCCEED) {
+			BBPreclaim(b);
+			return GDK_FAIL;
+		}
+		bat_destroy(b);
+	}
+
 	return GDK_SUCCEED;
 }
 
