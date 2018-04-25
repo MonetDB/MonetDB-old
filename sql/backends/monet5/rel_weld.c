@@ -587,8 +587,7 @@ root_produce(backend *be, sql_rel *rel)
 	wstate->program = calloc(1, 1);
 	wstate->stmt_list = sa_list(be->mvc->sa);
 
-	/* TODO handle TOPN */
-	sql_rel *root = rel;
+	sql_rel *root = rel->op == op_topn ? rel->l : rel;
 	node *en;
 	char weld_stmt[STR_BUF_SIZE], col_name[256];
 	int i, count, len = 0;
@@ -616,9 +615,9 @@ root_produce(backend *be, sql_rel *rel)
 		len += sprintf(weld_stmt + len, "}");
 		wstate->builder = weld_stmt;
 	}
-	produce_func input_produce = getproduce_func(rel);
+	produce_func input_produce = getproduce_func(root);
 	if (input_produce == NULL) return NULL;
-	if (input_produce(be, rel, wstate) != 0) {
+	if (input_produce(be, root, wstate) != 0) {
 		/* Can't convert this query */
 		free(wstate->program);
 		free(wstate);
@@ -655,8 +654,27 @@ root_produce(backend *be, sql_rel *rel)
 	/* Final result statement */
 	if (result_is_bat) {
 		len += sprintf(weld_stmt + len, "{");
+		char limit[64], offset[64];
+		if (rel->op == op_topn) {
+			sql_exp *limit_exp = rel->exps->h->data;
+			stmt *limit_stmt = exp_bin(be, limit_exp, NULL, NULL, NULL, NULL, NULL, NULL);
+			list_append(wstate->stmt_list, limit_stmt);
+			sprintf(limit, "i64(in%d)", limit_stmt->nr);
+			if (rel->exps->h->next != NULL) {
+				sql_exp *offset_exp = rel->exps->h->next->data;
+				stmt *offset_stmt = exp_bin(be, offset_exp, NULL, NULL, NULL, NULL, NULL, NULL);
+				list_append(wstate->stmt_list, offset_stmt);
+				sprintf(offset, "i64(in%d)", offset_stmt->nr);
+			} else {
+				sprintf(offset, "0L");
+			}
+		}
 		for (en = root->exps->h, count = 0; en; en = en->next, count++) {
+			if (rel->op == op_topn)
+				len += sprintf(weld_stmt + len, "slice(");
 			len += sprintf(weld_stmt + len, "result(v%d.$%d)", result_var, count);
+			if (rel->op == op_topn)
+				len += sprintf(weld_stmt + len, ", %s, %s)", offset, limit);
 			sql_exp *exp = en->data;
 			int type = exp_subtype(en->data)->type->localtype;
 			if (type == TYPE_str) {
