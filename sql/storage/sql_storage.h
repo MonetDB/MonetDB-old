@@ -291,6 +291,7 @@ typedef int (*log_tstart_fptr) (void);
 typedef int (*log_tend_fptr) (void);
 typedef int (*log_sequence_fptr) (int seq, lng id);
 
+typedef void *(*log_find_table_value_fptr)(const char *, const char *, const void *, ...);
 typedef struct logger_functions {
 	logger_create_fptr create;
 	logger_create_shared_fptr create_shared;
@@ -309,6 +310,7 @@ typedef struct logger_functions {
 	log_tstart_fptr log_tstart;
 	log_tend_fptr log_tend;
 	log_sequence_fptr log_sequence;
+	log_find_table_value_fptr log_find_table_value;
 } logger_functions;
 
 sqlstore_export logger_functions logger_funcs;

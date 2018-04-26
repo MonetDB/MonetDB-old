@@ -39,31 +39,97 @@ bl_preversion(int oldversion, int newversion)
 	return GDK_FAIL;
 }
 
-static char *
-N(char *buf, const char *pre, const char *schema, const char *post)
+#define N(schema, table, column)	schema "_" table "_" column
+
+#ifdef CATALOG_MAR2018
+static int
+find_table_id(logger *lg, const char *val)
 {
-	if (pre)
-		snprintf(buf, 64, "%s_%s_%s", pre, schema, post);
-	else
-		snprintf(buf, 64, "%s_%s", schema, post);
-	return buf;
+	BAT *s = NULL;
+	BAT *b, *t;
+	BATiter bi;
+	oid o;
+	int id;
+
+	b = temp_descriptor(logger_find_bat(lg, N("sys", "schemas", "name")));
+	if (b == NULL)
+		return 0;
+	s = BATselect(b, NULL, "sys", NULL, 1, 1, 0);
+	bat_destroy(b);
+	if (s == NULL)
+		return 0;
+	if (BATcount(s) == 0) {
+		bat_destroy(s);
+		return 0;
+	}
+	bi = bat_iterator(s);
+	o = * (const oid *) BUNtail(bi, 0);
+	bat_destroy(s);
+	b = temp_descriptor(logger_find_bat(lg, N("sys", "schemas", "id")));
+	if (b == NULL)
+		return 0;
+	bi = bat_iterator(b);
+	id = * (const int *) BUNtail(bi, o - b->hseqbase);
+	bat_destroy(b);
+
+	b = temp_descriptor(logger_find_bat(lg, N("sys", "_tables", "name")));
+	if (b == NULL) {
+		bat_destroy(s);
+		return 0;
+	}
+	s = BATselect(b, NULL, val, NULL, 1, 1, 0);
+	bat_destroy(b);
+	if (s == NULL)
+		return 0;
+	if (BATcount(s) == 0) {
+		bat_destroy(s);
+		return 0;
+	}
+	b = temp_descriptor(logger_find_bat(lg, N("sys", "_tables", "schema_id")));
+	if (b == NULL) {
+		bat_destroy(s);
+		return 0;
+	}
+	t = BATselect(b, s, &id, NULL, 1, 1, 0);
+	bat_destroy(b);
+	bat_destroy(s);
+	s = t;
+	if (s == NULL)
+		return 0;
+	if (BATcount(s) == 0) {
+		bat_destroy(s);
+		return 0;
+	}
+
+	bi = bat_iterator(s);
+	o = * (const oid *) BUNtail(bi, 0);
+	bat_destroy(s);
+
+	b = temp_descriptor(logger_find_bat(lg, N("sys", "_tables", "id")));
+	if (b == NULL)
+		return 0;
+	bi = bat_iterator(b);
+	id = * (const int *) BUNtail(bi, o - b->hseqbase);
+	bat_destroy(b);
+	return id;
 }
+#endif
 
 static gdk_return
-bl_postversion( void *lg) 
+bl_postversion(void *lg) 
 {
 	(void)lg;
 
+#ifdef CATALOG_JUL2015
 	if (catalog_version <= CATALOG_JUL2015) {
 		BAT *b;
 		BATiter bi;
 		BAT *te, *tne;
 		BUN p, q;
 		int geomUpgrade = 0;
-		char *s = "sys", n[64];
 		geomcatalogfix_fptr func;
 
-		te = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "types_eclass")));
+		te = temp_descriptor(logger_find_bat(lg, N("sys", "types", "eclass")));
 		if (te == NULL)
 			return GDK_FAIL;
 		bi = bat_iterator(te);
@@ -85,7 +151,7 @@ bl_postversion( void *lg)
 		}
 		bat_destroy(te);
 		if (BATsetaccess(tne, BAT_READ) != GDK_SUCCEED ||
-		    logger_add_bat(lg, tne, N(n, NULL, s, "types_eclass")) != GDK_SUCCEED) {
+		    logger_add_bat(lg, tne, N("sys", "types", "eclass")) != GDK_SUCCEED) {
 			bat_destroy(tne);
 			return GDK_FAIL;
 		}
@@ -94,7 +160,7 @@ bl_postversion( void *lg)
 		/* in the past, the args.inout column may have been
 		 * incorrectly upgraded to a bit instead of a bte
 		 * column */
-		te = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "args_inout")));
+		te = temp_descriptor(logger_find_bat(lg, N("sys", "args", "inout")));
 		if (te == NULL)
 			return GDK_FAIL;
 		if (te->ttype == TYPE_bit) {
@@ -114,7 +180,7 @@ bl_postversion( void *lg)
 				}
 			}
 			if (BATsetaccess(tne, BAT_READ) != GDK_SUCCEED ||
-			    logger_add_bat(lg, tne, N(n, NULL, s, "args_inout")) != GDK_SUCCEED) {
+			    logger_add_bat(lg, tne, N("sys", "args", "inout")) != GDK_SUCCEED) {
 				bat_destroy(tne);
 				bat_destroy(te);
 				return GDK_FAIL;
@@ -125,7 +191,7 @@ bl_postversion( void *lg)
 
 		/* test whether the catalog contains information
 		 * regarding geometry types */
-		b = BATdescriptor((bat) logger_find_bat(lg, N(n, NULL, s, "types_systemname")));
+		b = BATdescriptor((bat) logger_find_bat(lg, N("sys", "types", "systemname")));
 		if (b == NULL)
 			return GDK_FAIL;
 		bi = bat_iterator(b);
@@ -145,7 +211,7 @@ bl_postversion( void *lg)
 		if (!geomUpgrade) {
 			/* test whether the catalog contains
 			 * information about geometry columns */
-			b = BATdescriptor((bat) logger_find_bat(lg, N(n, NULL, s, "_columns_type")));
+			b = BATdescriptor((bat) logger_find_bat(lg, N("sys", "_columns", "type")));
 			if (b == NULL)
 				return GDK_FAIL;
 			bi = bat_iterator(b);
@@ -196,13 +262,15 @@ bl_postversion( void *lg)
 			 * nothing */
 		}
 	}
+#endif
 
+#ifdef CATALOG_MAR2018
 	if (catalog_version <= CATALOG_MAR2018) {
-		const char *s = "sys";
-		char n[64];
-		BAT *fid = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "functions_id")));
-		BAT *sf = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "systemfunctions_function_id")));
-		if (fid == NULL || sf == NULL) {
+		lng id;
+		BAT *fid = temp_descriptor(logger_find_bat(lg, N("sys", "functions", "id")));
+		BAT *sf = temp_descriptor(logger_find_bat(lg, N("sys", "systemfunctions", "function_id")));
+		if (logger_sequence(lg, OBJ_SID, &id) == 0 ||
+		    fid == NULL || sf == NULL) {
 			bat_destroy(fid);
 			bat_destroy(sf);
 			return GDK_FAIL;
@@ -238,12 +306,64 @@ bl_postversion( void *lg)
 		bat_destroy(fid);
 		bat_destroy(sf);
 		if (BATsetaccess(b, BAT_READ) != GDK_SUCCEED ||
-		    logger_add_bat(lg, b, N(n, NULL, s, "functions_system")) != GDK_SUCCEED) {
-			BBPreclaim(b);
+		    logger_add_bat(lg, b, N("sys", "functions", "system")) != GDK_SUCCEED) {
+
+  bailout:
+			bat_destroy(b);
 			return GDK_FAIL;
 		}
 		bat_destroy(b);
+		int i = (int) id;
+		if ((b = temp_descriptor(logger_find_bat(lg, N("sys", "_columns", "id")))) == NULL ||
+		    BUNappend(b, &i, TRUE) != GDK_SUCCEED)
+			goto bailout;
+		bat_destroy(b);
+		if ((b = temp_descriptor(logger_find_bat(lg, N("sys", "_columns", "name")))) == NULL ||
+		    BUNappend(b, "system", TRUE) != GDK_SUCCEED)
+			goto bailout;
+		bat_destroy(b);
+		if ((b = temp_descriptor(logger_find_bat(lg, N("sys", "_columns", "type")))) == NULL ||
+		    BUNappend(b, "boolean", TRUE) != GDK_SUCCEED)
+			goto bailout;
+		bat_destroy(b);
+		i = 1;
+		if ((b = temp_descriptor(logger_find_bat(lg, N("sys", "_columns", "type_digits")))) == NULL ||
+		    BUNappend(b, &i, TRUE) != GDK_SUCCEED)
+			goto bailout;
+		bat_destroy(b);
+		i = 0;
+		if ((b = temp_descriptor(logger_find_bat(lg, N("sys", "_columns", "type_scale")))) == NULL ||
+		    BUNappend(b, &i, TRUE) != GDK_SUCCEED)
+			goto bailout;
+		bat_destroy(b);
+		i = find_table_id(lg, "functions");
+		if (i == 0)
+			return GDK_FAIL;
+		if ((b = temp_descriptor(logger_find_bat(lg, N("sys", "_columns", "table_id")))) == NULL ||
+		    BUNappend(b, &i, TRUE) != GDK_SUCCEED)
+			goto bailout;
+		bat_destroy(b);
+		if ((b = temp_descriptor(logger_find_bat(lg, N("sys", "_columns", "default")))) == NULL ||
+		    BUNappend(b, str_nil, TRUE) != GDK_SUCCEED)
+			goto bailout;
+		bat_destroy(b);
+		bit bt = 1;
+		if ((b = temp_descriptor(logger_find_bat(lg, N("sys", "_columns", "null")))) == NULL ||
+		    BUNappend(b, &bt, TRUE) != GDK_SUCCEED)
+			goto bailout;
+		bat_destroy(b);
+		i = 10;
+		if ((b = temp_descriptor(logger_find_bat(lg, N("sys", "_columns", "number")))) == NULL ||
+		    BUNappend(b, &b, TRUE) != GDK_SUCCEED)
+			goto bailout;
+		bat_destroy(b);
+		if ((b = temp_descriptor(logger_find_bat(lg, N("sys", "_columns", "storage")))) == NULL ||
+		    BUNappend(b, str_nil, TRUE) != GDK_SUCCEED)
+			goto bailout;
+		bat_destroy(b);
+		//log_sequence(lg, OBJ_SID, id + 1);
 	}
+#endif
 
 	return GDK_SUCCEED;
 }
@@ -398,6 +518,51 @@ bl_reload_shared(void)
 	return logger_reload(bat_logger_shared) == GDK_SUCCEED ? LOG_OK : LOG_ERR;
 }
 
+static void *
+bl_find_table_value(const char *tabnam, const char *tab, const void *val, ...)
+{
+	BAT *s = NULL;
+	BAT *b;
+	va_list va;
+
+	va_start(va, val);
+	do {
+		b = temp_descriptor(logger_find_bat(bat_logger, tab));
+		if (b == NULL) {
+			bat_destroy(s);
+			return NULL;
+		}
+		BAT *t = BATselect(b, s, val, val, 1, 1, 0);
+		bat_destroy(b);
+		bat_destroy(s);
+		if (t == NULL)
+			return NULL;
+		s = t;
+		if (BATcount(s) == 0) {
+			bat_destroy(s);
+			return NULL;
+		}
+	} while ((tab = va_arg(va, const char *)) != NULL &&
+		 (val = va_arg(va, const void *)) != NULL);
+	va_end(va);
+
+	BATiter bi = bat_iterator(s);
+	oid o = * (const oid *) BUNtail(bi, 0);
+	bat_destroy(s);
+
+	b = temp_descriptor(logger_find_bat(bat_logger, tabnam));
+	if (b == NULL)
+		return NULL;
+	bi = bat_iterator(b);
+	val = BUNtail(bi, o - b->hseqbase);
+	size_t sz = ATOMlen(b->ttype, val);
+	void *res = GDKmalloc(sz);
+	if (res)
+		memcpy(res, val, sz);
+	bat_destroy(b);
+	return res;
+}
+
 void
 bat_logger_init( logger_functions *lf )
 {
@@ -411,6 +576,7 @@ bat_logger_init( logger_functions *lf )
 	lf->log_tstart = bl_tstart;
 	lf->log_tend = bl_tend;
 	lf->log_sequence = bl_sequence;
+	lf->log_find_table_value = bl_find_table_value;
 }
 
 void

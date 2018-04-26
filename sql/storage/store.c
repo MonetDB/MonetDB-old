@@ -26,6 +26,8 @@ static int store_oid = 0;
 static int prev_oid = 0;
 static int nr_sessions = 0;
 static int transactions = 0;
+static int *store_oids = NULL;
+static int nstore_oids = 0;
 sql_trans *gtrans = NULL;
 list *active_sessions = NULL;
 int store_nr_active = 0;
@@ -54,6 +56,9 @@ static int logger_debug = 0;
 static sql_trans *spare_trans[MAX_SPARES];
 static int spares = 0;
 
+/* builtin functions have ids less than this */
+#define FUNC_OIDS 2000
+
 static int
 key_cmp(sql_key *k, sqlid *id)
 {
@@ -66,6 +71,26 @@ static int stamp = 1;
 
 static int timestamp (void) {
 	return stamp++;
+}
+
+static inline bool
+instore(int id, int maxid)
+{
+	if (store_oids == NULL)
+		return id < maxid;
+	int lo = 0, hi = nstore_oids - 1;
+	if (id < store_oids[0] || id > store_oids[hi])
+		return false;
+	while (hi > lo) {
+		int mid = (lo + hi) / 2;
+		if (store_oids[mid] == id)
+			return true;
+		if (store_oids[mid] < id)
+			lo = mid + 1;
+		else
+			hi = mid - 1;
+	}
+	return store_oids[lo] == id;
 }
 
 void
@@ -922,7 +947,7 @@ load_schema(sql_trans *tr, sqlid id, oid rid)
 
 	v = table_funcs.column_find_value(tr, find_sql_column(ss, "id"), rid);
 	sid = *(sqlid *)v; 	_DELETE(v);
-	if (sid < id) {
+	if (instore(sid, id)) {
 		s = find_sql_schema_id(tr, sid);
 
 		if (s==NULL) {
@@ -959,10 +984,12 @@ load_schema(sql_trans *tr, sqlid id, oid rid)
 	if (bs_debug)
 		fprintf(stderr, "#load schema %s %d\n", s->base.name, s->base.id);
 
+	sqlid tmpid = store_oids ? FUNC_OIDS : id;
+
 	/* first load simple types */
 	type_schema = find_sql_column(types, "schema_id");
 	type_id = find_sql_column(types, "id");
-	rs = table_funcs.rids_select(tr, type_schema, &s->base.id, &s->base.id, type_id, &id, NULL, NULL);
+	rs = table_funcs.rids_select(tr, type_schema, &s->base.id, &s->base.id, type_id, &tmpid, NULL, NULL);
 	for(rid = table_funcs.rids_next(rs); !is_oid_nil(rid); rid = table_funcs.rids_next(rs)) 
 	    	cs_add(&s->types, load_type(tr, s, rid), TR_OLD);
 	table_funcs.rids_destroy(rs);
@@ -971,7 +998,7 @@ load_schema(sql_trans *tr, sqlid id, oid rid)
 	table_schema = find_sql_column(tables, "schema_id");
 	table_id = find_sql_column(tables, "id");
 	/* all tables with id >= id */
-	rs = table_funcs.rids_select(tr, table_schema, &sid, &sid, table_id, &id, NULL, NULL);
+	rs = table_funcs.rids_select(tr, table_schema, &sid, &sid, table_id, &tmpid, NULL, NULL);
 	if (rs && !table_funcs.rids_empty(rs)) {
 		sql_table *columns = find_sql_table(syss, "_columns");
 		sql_column *column_table_id = find_sql_column(columns, "table_id");
@@ -979,8 +1006,13 @@ load_schema(sql_trans *tr, sqlid id, oid rid)
 		subrids *nrs = table_funcs.subrids_create(tr, rs, table_id, column_table_id, column_number);
 		sqlid tid;
 
-		for(tid = table_funcs.subrids_nextid(nrs); tid >= 0; tid = table_funcs.subrids_nextid(nrs)) 
-			cs_add(&s->tables, load_table(tr, s, tid, nrs), TR_OLD);
+		for(tid = table_funcs.subrids_nextid(nrs); tid >= 0; tid = table_funcs.subrids_nextid(nrs)) {
+			if (!instore(tid, id))
+				cs_add(&s->tables, load_table(tr, s, tid, nrs), TR_OLD);
+			else
+				while (!is_oid_nil(table_funcs.subrids_next(nrs)))
+					;
+		}
 		table_funcs.subrids_destroy(nrs);
 	}
 	table_funcs.rids_destroy(rs);
@@ -988,7 +1020,7 @@ load_schema(sql_trans *tr, sqlid id, oid rid)
 	/* next functions which could use these types */
 	func_schema = find_sql_column(funcs, "schema_id");
 	func_id = find_sql_column(funcs, "id");
-	rs = table_funcs.rids_select(tr, func_schema, &s->base.id, &s->base.id, func_id, &id, NULL, NULL);
+	rs = table_funcs.rids_select(tr, func_schema, &s->base.id, &s->base.id, func_id, &tmpid, NULL, NULL);
 	if (rs && !table_funcs.rids_empty(rs)) {
 		sql_table *args = find_sql_table(syss, "args");
 		sql_column *arg_func_id = find_sql_column(args, "func_id");
@@ -1012,7 +1044,7 @@ load_schema(sql_trans *tr, sqlid id, oid rid)
 	/* last sequence numbers */
 	seq_schema = find_sql_column(seqs, "schema_id");
 	seq_id = find_sql_column(seqs, "id");
-	rs = table_funcs.rids_select(tr, seq_schema, &s->base.id, &s->base.id, seq_id, &id, NULL, NULL);
+	rs = table_funcs.rids_select(tr, seq_schema, &s->base.id, &s->base.id, seq_id, &tmpid, NULL, NULL);
 	for(rid = table_funcs.rids_next(rs); !is_oid_nil(rid); rid = table_funcs.rids_next(rs)) 
 		cs_add(&s->seqs, load_seq(tr, s, rid), TR_OLD);
 	table_funcs.rids_destroy(rs);
@@ -1075,7 +1107,7 @@ load_trans(sql_trans* tr, sqlid id)
 
 	for(rid = table_funcs.rids_next(schemas); !is_oid_nil(rid); rid = table_funcs.rids_next(schemas)) {
 		sql_schema *ns = load_schema(tr, id, rid);
-		if (ns && ns->base.id > id)
+		if (ns && !instore(ns->base.id, id))
 			cs_add(&tr->schemas, ns, TR_OLD);
 	}
 	/* members maybe from different schemas */
@@ -1259,7 +1291,14 @@ bootstrap_create_column(sql_trans *tr, sql_table *t, char *name, char *sqltype, 
 	if (bs_debug)
 		fprintf(stderr, "#bootstrap_create_column %s\n", name );
 
-	base_init(tr->sa, &col->base, next_oid(), t->base.flag, name);
+	if (store_oids) {
+		int *idp = logger_funcs.log_find_table_value("sys__columns_id", "sys__columns_name", name, "sys__columns_table_id", &t->base.id, NULL, NULL);
+		base_init(tr->sa, &col->base, *idp, t->base.flag, name);
+		store_oids[nstore_oids++] = *idp;
+		GDKfree(idp);
+	} else {
+		base_init(tr->sa, &col->base, next_oid(), t->base.flag, name);
+	}
 	sql_find_subtype(&col->type, sqltype, digits, 0);
 	col->def = NULL;
 	col->null = 1;
@@ -1374,7 +1413,15 @@ bootstrap_create_table(sql_trans *tr, sql_schema *s, char *name)
 	int istmp = isTempSchema(s);
 	int persistence = istmp?SQL_GLOBAL_TEMP:SQL_PERSIST;
 	sht commit_action = istmp?CA_PRESERVE:CA_COMMIT;
-	sql_table *t = create_sql_table(tr->sa, name, tt_table, 1, persistence, commit_action);
+	sql_table *t;
+	if (store_oids) {
+		int *idp = logger_funcs.log_find_table_value("sys__tables_id", "sys__tables_name", name, "sys__tables_schema_id", &s->base.id, NULL, NULL);
+		t = create_sql_table_with_id(tr->sa, *idp, name, tt_table, 1, persistence, commit_action);
+		store_oids[nstore_oids++] = *idp;
+		GDKfree(idp);
+	} else {
+		t = create_sql_table(tr->sa, name, tt_table, 1, persistence, commit_action);
+	}
 
 	if (bs_debug)
 		fprintf(stderr, "#bootstrap_create_table %s\n", name );
@@ -1399,7 +1446,18 @@ bootstrap_create_schema(sql_trans *tr, char *name, int auth_id, int owner)
 	if (bs_debug)
 		fprintf(stderr, "#bootstrap_create_schema %s %d %d\n", name, auth_id, owner);
 
-	base_init(tr->sa, &s->base, next_oid(), TR_NEW, name);
+	if (store_oids) {
+		int *idp = logger_funcs.log_find_table_value("sys_schemas_id", "sys_schemas_name", name, NULL, NULL);
+		if (idp == NULL && strcmp(name, dt_schema) == 0)
+			base_init(tr->sa, &s->base, (sqlid) FUNC_OIDS - 1, TR_NEW, name);
+		else {
+			base_init(tr->sa, &s->base, (sqlid) *idp, TR_NEW, name);
+			store_oids[nstore_oids++] = *idp;
+			GDKfree(idp);
+		}
+	} else {
+		base_init(tr->sa, &s->base, next_oid(), TR_NEW, name);
+	}
 	s->auth_id = auth_id;
 	s->owner = owner;
 	s->system = TRUE;
@@ -1425,7 +1483,7 @@ store_schema_number(void)
 
 static int
 store_load(void) {
-	int first = 1;
+	bool first;
 
 	sql_allocator *sa;
 	sql_trans *tr;
@@ -1438,9 +1496,11 @@ store_load(void) {
 	sa = sa_create();
 	if(!sa)
 		return -1;
+
+	first = logger_funcs.log_isnew();
+
 	types_init(sa, logger_debug);
 
-#define FUNC_OIDS 2000
 	// TODO: Niels: Are we fine running this twice?
 
 	/* we store some spare oids */
@@ -1455,7 +1515,7 @@ store_load(void) {
 	transactions = 0;
 	active_sessions = sa_list(sa);
 
-	if (logger_funcs.log_isnew()) {
+	if (first) {
 		/* cannot initialize database in readonly mode
 		 * unless this is a slave instance with a read-only/shared logger */
 		if (store_readonly && !create_shared_logger) {
@@ -1465,13 +1525,12 @@ store_load(void) {
 		if(!tr)
 			return -1;
 	} else {
-		first = 0;
+		store_oids = GDKzalloc(300 * sizeof(int)); /* 150 suffices */
 	}
 
 	s = bootstrap_create_schema(tr, "sys", ROLE_SYSADMIN, USER_MONETDB);
-	if (!first) {
+	if (!first)
 		s->base.flag = TR_OLD;
-	}
 
 	t = bootstrap_create_table(tr, s, "schemas");
 	bootstrap_create_column(tr, t, "id", "int", 32);
@@ -1608,6 +1667,9 @@ store_load(void) {
 			fprintf(stderr, "cannot commit initial transaction\n");
 		}
 		sql_trans_destroy(tr);
+	} else {
+		GDKqsort(store_oids, NULL, NULL, nstore_oids, sizeof(int), 0, TYPE_int);
+		store_oid = store_oids[nstore_oids - 1] + 1;
 	}
 
 	id = store_oid; /* db objects up till id are already created */
@@ -1622,6 +1684,9 @@ store_load(void) {
 	if (!first)
 		load_trans(gtrans, id);
 	store_initialized = 1;
+	GDKfree(store_oids);
+	store_oids = NULL;
+	nstore_oids = 0;
 	return first;
 }
 
