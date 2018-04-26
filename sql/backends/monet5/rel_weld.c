@@ -98,7 +98,7 @@ static void append_weld_stmt(weld_state *wstate, str weld_stmt) {
 	wstate->program = strcat(wstate->program, weld_stmt);
 }
 
-static int exps_to_weld(backend *be, str weld_stmt, int* len, list *exps, list *stmt_list, str delim) {
+static int exps_to_weld(backend *be, str weld_stmt, int *len, list *exps, list *stmt_list, str delim) {
 	node *en;
 	for (en = exps->h; en; en = en->next) {
 		if (exp_to_weld(be, weld_stmt, len, en->data, stmt_list) != 0) {
@@ -124,11 +124,12 @@ static str get_weld_cmp(int cmp) {
 }
 
 static str get_weld_func(sql_subfunc *f) {
-	if (strcmp(f->func->imp, "+") == 0)
+	if (strcmp(f->func->imp, "+") == 0 || strcmp(f->func->imp, "sum") == 0 ||
+		strcmp(f->func->imp, "count") == 0)
 		return "+";
 	else if (strcmp(f->func->imp, "-") == 0)
 		return "-";
-	else if (strcmp(f->func->imp, "*") == 0)
+	else if (strcmp(f->func->imp, "*") == 0 || strcmp(f->func->imp, "prod") == 0)
 		return "*";
 	else if (strcmp(f->func->imp, "/") == 0)
 		return "/";
@@ -139,11 +140,11 @@ static str get_weld_func(sql_subfunc *f) {
 /* Check wether the relation return a BAT as opposed to a single value */
 static int rel_returns_bat(sql_rel *rel) {
 	switch (rel->op) {
+	case op_project:
 	case op_select:
 		return rel_returns_bat(rel->l);
-		return rel_returns_bat(rel->l);
 	case op_groupby:
-		return 0;
+		return ((list*)rel->r)->h != NULL ? 1 : 0;
 	case op_basetable:
 	case op_topn:
 	case op_join:
@@ -161,6 +162,7 @@ static int exp_has_column(sql_exp *exp) {
 	case e_psm:
 		ret = 0;
 		break;
+	case e_aggr:
 	case e_column:
 		ret = 1;
 		break;
@@ -173,7 +175,6 @@ static int exp_has_column(sql_exp *exp) {
 		if (exp->f) ret |= exp_has_column(exp->f);
 		break;
 	case e_func:
-	case e_aggr:
 		for (en = ((list*)exp->l)->h; en; en = en->next) {
 			ret |= exp_has_column(en->data);
 		}
@@ -260,6 +261,18 @@ static int exp_to_weld(backend *be, str weld_stmt, int *len, sql_exp *exp, list 
 			*len += sprintf(weld_stmt + *len, "%s(", weld_func);
 			if (exps_to_weld(be, weld_stmt, len, exp->l, stmt_list, ", ") != 0) return -1;
 			*len += sprintf(weld_stmt + *len, ")");
+		}
+		break;
+	}
+	case e_aggr: {
+		if (exp->l) {
+			if (exps_to_weld(be, weld_stmt, len, exp->l, stmt_list, NULL) != 0) return -1;
+		} else {
+			if (strcmp(((sql_subfunc*)exp->f)->func->imp, "count") == 0) {
+				*len += sprintf(weld_stmt + *len, "1L");
+			} else {
+				return -1;
+			}
 		}
 		break;
 	}
@@ -491,6 +504,154 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			} else {
 				len += sprintf(weld_stmt + len, "let %s = n%d.$%d;", col_name, wstate->num_loops, count);
 			}
+		}
+	}
+	append_weld_stmt(wstate, weld_stmt);
+	return 0;
+}
+
+static int
+groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
+{
+	char weld_stmt[STR_BUF_SIZE * 2];
+	char col_name[256];
+	int len = 0, i, col_count, aggr_count;
+	node *en;
+	sql_exp *exp;
+	list *group_by_exps = rel->r;
+
+	/* === Produce === */
+	int old_num_parens = wstate->num_parens;
+	int old_num_loops = wstate->num_loops;
+	str old_builder = wstate->builder;
+
+	/* Create a new builder */
+	wstate->num_parens = wstate->num_loops = 0;
+	int result_var = wstate->next_var++;
+	sprintf(weld_stmt, "let v%d = (", result_var);
+	append_weld_stmt(wstate, weld_stmt);
+	wstate->num_parens++;
+	len = 0;
+	if (group_by_exps->h) {
+		len += sprintf(weld_stmt + len, "dictmerger[{");
+		for (en = group_by_exps->h; en; en = en->next) {
+			exp = en->data;
+			int type = exp_subtype(exp)->type->localtype;
+			if (type == TYPE_str) {
+				len += sprintf(weld_stmt + len, "?");
+			} else {
+				len += sprintf(weld_stmt + len, "%s", getWeldType(type));
+			}
+			if (en->next != NULL) {
+				len += sprintf(weld_stmt + len, ", ");
+			}
+		}
+		len += sprintf(weld_stmt + len, "}, {");
+	} else {
+		len += sprintf(weld_stmt + len, "merger[{");
+	}
+	str aggr_func = NULL;
+	for (en = rel->exps->h; en; en = en->next) {
+		exp = en->data;
+		if (exp->type == e_aggr) {
+			int type = exp_subtype(exp)->type->localtype;
+			if (aggr_func == NULL) {
+				aggr_func = get_weld_func(exp->f);
+			} else if (aggr_func != get_weld_func(exp->f)) {
+				/* Currently Weld only supports a single operation for mergers */
+				return -1;
+			}
+			len += sprintf(weld_stmt + len, "%s", getWeldType(type));
+			if (en->next != NULL) {
+				len += sprintf(weld_stmt + len, ", ");
+			}
+		}
+	}
+	len += sprintf(weld_stmt + len, "}, %s]", aggr_func);
+	wstate->builder = weld_stmt;
+	produce_func input_produce = getproduce_func(rel->l);
+	if (input_produce == NULL) return -1;
+	if (input_produce(be, rel->l, wstate) != 0) return -1;
+
+	/* === Consume === */
+	len = 0;
+	len += sprintf(weld_stmt + len, "merge(b%d, {", wstate->num_loops);
+	if (group_by_exps->h) {
+		/* Build the key */
+		len += sprintf(weld_stmt + len, "{");
+		for (en = group_by_exps->h; en; en = en->next) {
+			exp = en->data;
+			exp_to_weld(be, weld_stmt, &len, exp, wstate->stmt_list);
+			int type = exp_subtype(exp)->type->localtype;
+			if (type == TYPE_str) {
+				len += sprintf(weld_stmt + len, "_stridx");
+			}
+			if (en->next != NULL) {
+				len += sprintf(weld_stmt + len, ", ");
+			}
+		}
+		len += sprintf(weld_stmt + len, "}, {");
+	}
+	for (en = rel->exps->h; en; en = en->next) {
+		exp = en->data;
+		if (exp->type == e_aggr) {
+			exp_to_weld(be, weld_stmt, &len, exp, wstate->stmt_list);
+			if (en->next != NULL) {
+				len += sprintf(weld_stmt + len, ", ");
+			}
+		}
+	}
+	if (group_by_exps->h) {
+		len += sprintf(weld_stmt + len, "}");
+	}
+	len += sprintf(weld_stmt + len, "})");
+	for (i = 0; i < wstate->num_parens; i++) {
+		len += sprintf(weld_stmt + len, ")");
+	}
+	len += sprintf(weld_stmt + len, ";");
+
+	/* Resume the pipeline */
+	wstate->num_parens = old_num_parens;
+	wstate->num_loops = old_num_loops;
+	wstate->builder = old_builder;
+	char struct_mbr[64];
+	col_count = aggr_count = 0;
+	if (group_by_exps->h) {
+		wstate->num_loops++;
+		wstate->num_parens++;
+		len += sprintf(weld_stmt + len, "for(tovec(result(v%d)), %s, |b%d, i%d, n%d|", result_var,
+					   wstate->builder, wstate->num_loops, wstate->num_loops, wstate->num_loops);
+	} else {
+		wstate->next_var++;
+		len += sprintf(weld_stmt + len, "let v%d = result(v%d);", wstate->next_var, result_var);
+	}
+	/* Column renaming */
+	for (en = rel->exps->h; en; en = en->next) {
+		exp = en->data;
+		if (group_by_exps->h) {
+			if (exp->type == e_column) {
+				sprintf(struct_mbr, "n%d.$0.$%d", wstate->num_loops, col_count++);
+			} else {
+				sprintf(struct_mbr, "n%d.$1.$%d", wstate->num_loops, aggr_count++);
+			}
+		} else {
+			sprintf(struct_mbr, "v%d.$%d", wstate->next_var, col_count++);
+		}
+		sprintf(col_name, "%s_%s", exp->rname ? exp->rname : exp->name, exp->name);
+		if (exp_subtype(exp)->type->localtype == TYPE_str) {
+			len += sprintf(weld_stmt + len, "let %s = strslice(%s_strcol, i64(%s) + %s_stroffset);", 
+						   col_name, col_name, struct_mbr, col_name);
+			len += sprintf(weld_stmt + len, "let %s_stridx = %s;", col_name, struct_mbr);
+			/* Global string col renaming */
+			char old_col_name[256];
+			int old_col_len = 0;
+			if (exp_to_weld(be, old_col_name, &old_col_len, exp, wstate->stmt_list) < 0) return -1;
+			sprintf(wstate->str_cols + strlen(wstate->str_cols), "let %s_strcol = %s_strcol;",
+					col_name, old_col_name);
+			sprintf(wstate->str_cols + strlen(wstate->str_cols), "let %s_stroffset = %s_stroffset;",
+					col_name, old_col_name);
+		} else {
+			len += sprintf(weld_stmt + len, "let %s = %s;", col_name, struct_mbr);
 		}
 	}
 	append_weld_stmt(wstate, weld_stmt);
@@ -732,6 +893,8 @@ produce_func getproduce_func(sql_rel *rel)
 			return &select_produce;
 		case op_project:
 			return &project_produce;
+		case op_groupby:
+			return &groupby_produce;
 		default:
 			return NULL;
 	}
