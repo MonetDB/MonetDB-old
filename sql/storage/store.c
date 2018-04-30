@@ -1678,7 +1678,9 @@ store_load(void) {
 	} else {
 		shared_logger_funcs.get_sequence(OBJ_SID, &lng_store_oid);
 	}
-	prev_oid = store_oid = (sqlid)lng_store_oid;
+	prev_oid = (sqlid)lng_store_oid;
+	if (store_oid < prev_oid)
+		store_oid = prev_oid;
 
 	/* load remaining schemas, tables, columns etc */
 	if (!first)
