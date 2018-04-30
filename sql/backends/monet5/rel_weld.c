@@ -45,6 +45,9 @@
 
 #define STR_BUF_SIZE 4096
 
+#define REL 0
+#define ALIAS 1
+
 /* From sql_statement.c */
 #define meta(Id, Tpe)                \
 	q = newStmt(mb, batRef, newRef); \
@@ -67,21 +70,25 @@ typedef struct {
 	unsigned long program_max_len;
 	char str_cols[STR_BUF_SIZE * 3]; /* names the vheaps take */
 	list *stmt_list;
+	sql_allocator *sa;
+	int error;
 } weld_state;
 
-typedef int (*produce_func)(backend*, sql_rel*, weld_state*);
+typedef void (*produce_func)(backend*, sql_rel*, weld_state*);
 
 static produce_func getproduce_func(sql_rel *rel);
-static int exps_to_weld(backend*, str, int*, list*, list*, str);
-static int exp_to_weld(backend*, str, int*, sql_exp*, list*);
+static void exps_to_weld(backend*, weld_state*, str, int*, list*, list*, str);
+static void exp_to_weld(backend*, weld_state*, str, int*, sql_exp*, list*);
 
-static void dump_program(weld_state *wstate) {
+static void
+dump_program(weld_state *wstate) {
 	FILE *f = fopen(tmpnam(NULL), "w");
 	dumpWeldProgram(wstate->program, f);
 	fclose(f);
 }
 
-static void prepend_weld_stmt(weld_state *wstate, str weld_stmt) {
+static void
+prepend_weld_stmt(weld_state *wstate, str weld_stmt) {
 	if (strlen(wstate->program) + strlen(weld_stmt) >= wstate->program_max_len) {
 		wstate->program_max_len  = strlen(wstate->program) + strlen(weld_stmt) + 1;
 		wstate->program = realloc(wstate->program, wstate->program_max_len * sizeof(char));
@@ -90,7 +97,8 @@ static void prepend_weld_stmt(weld_state *wstate, str weld_stmt) {
 	memcpy(wstate->program, weld_stmt, strlen(weld_stmt));
 }
 
-static void append_weld_stmt(weld_state *wstate, str weld_stmt) {
+static void
+append_weld_stmt(weld_state *wstate, str weld_stmt) {
 	if (strlen(wstate->program) + strlen(weld_stmt) >= wstate->program_max_len) {
 		wstate->program_max_len = strlen(wstate->program) + strlen(weld_stmt) + 1;
 		wstate->program = realloc(wstate->program, wstate->program_max_len * sizeof(char));
@@ -98,20 +106,20 @@ static void append_weld_stmt(weld_state *wstate, str weld_stmt) {
 	wstate->program = strcat(wstate->program, weld_stmt);
 }
 
-static int exps_to_weld(backend *be, str weld_stmt, int *len, list *exps, list *stmt_list, str delim) {
+static void
+exps_to_weld(backend *be, weld_state *wstate, str weld_stmt, int *len, list *exps,
+						 list *stmt_list, str delim) {
 	node *en;
 	for (en = exps->h; en; en = en->next) {
-		if (exp_to_weld(be, weld_stmt, len, en->data, stmt_list) != 0) {
-			return -1;
-		}
-		if (en->next != NULL) {
+		exp_to_weld(be, wstate, weld_stmt, len, en->data, stmt_list);
+		if (en->next != NULL && delim != NULL) {
 			*len += sprintf(weld_stmt + *len, "%s", delim);
 		}
 	}
-	return 0;
 }
 
-static str get_weld_cmp(int cmp) {
+static str
+get_weld_cmp(int cmp) {
 	switch(cmp) {
 	case cmp_gt:       return ">";
 	case cmp_gte:      return ">=";
@@ -123,7 +131,8 @@ static str get_weld_cmp(int cmp) {
 	}
 }
 
-static str get_weld_func(sql_subfunc *f) {
+static str
+get_weld_func(sql_subfunc *f) {
 	if (strcmp(f->func->imp, "+") == 0 || strcmp(f->func->imp, "sum") == 0 ||
 		strcmp(f->func->imp, "count") == 0)
 		return "+";
@@ -137,8 +146,26 @@ static str get_weld_func(sql_subfunc *f) {
 	return NULL;
 }
 
+static str
+get_col_name(sql_allocator *sa, sql_exp *exp, int name_type) {
+	char col_name[256];
+	size_t i;
+	if (name_type == REL) {
+		sprintf(col_name, "%s_%s", exp->l ? (str)exp->l : (str)exp->r, (str)exp->r);
+	} else if (name_type == ALIAS) {
+		sprintf(col_name, "%s_%s", exp->rname ? exp->rname : exp->name, exp->name);
+	}
+	for (i = 0; i < strlen(col_name); i++) {
+		if (!isalnum(col_name[i])) {
+			col_name[i] = '_';
+		}
+	}
+	return sa_strdup(sa, col_name);
+}
+
 /* Check wether the relation return a BAT as opposed to a single value */
-static int rel_returns_bat(sql_rel *rel) {
+static int
+rel_returns_bat(sql_rel *rel) {
 	switch (rel->op) {
 	case op_project:
 	case op_select:
@@ -154,7 +181,8 @@ static int rel_returns_bat(sql_rel *rel) {
 	}
 }
 
-static int exp_has_column(sql_exp *exp) {
+static int
+exp_has_column(sql_exp *exp) {
 	node *en;
 	int ret = 0;
 	switch (exp->type) {
@@ -186,17 +214,18 @@ static int exp_has_column(sql_exp *exp) {
 /* Produce Weld code from an expression. If the expression doesn't involve a column, call `exp_bin` on it
  * to produce a stmt and then use the result variable in the Weld program. This way we let MonetDB evaluate
  * complex conversions or atom expansions. */
-static int exp_to_weld(backend *be, str weld_stmt, int *len, sql_exp *exp, list *stmt_list) {
+static void
+exp_to_weld(backend *be, weld_state *wstate, str weld_stmt, int *len, sql_exp *exp, list *stmt_list) {
 	if (!exp_has_column(exp)) {
 		stmt* sub = exp_bin(be, exp, NULL, NULL, NULL, NULL, NULL, NULL);
 		*len += sprintf(weld_stmt + *len, "in%d", sub->nr);
 		list_append(stmt_list, sub);
-		return 0;
+		return;
 	}
 	switch (exp->type) {
 	case e_convert: {
 		*len += sprintf(weld_stmt + *len, "%s(", getWeldType(exp->tpe.type->localtype));
-		if (exp_to_weld(be, weld_stmt, len, exp->l, stmt_list) < 0) return -1;
+		exp_to_weld(be, wstate, weld_stmt, len, exp->l, stmt_list);
 		*len += sprintf(weld_stmt + *len, ")");
 		break;
 	}
@@ -205,19 +234,25 @@ static int exp_to_weld(backend *be, str weld_stmt, int *len, sql_exp *exp, list 
 			*len += sprintf(weld_stmt + *len, "(");
 		}
 		if (exp->f) {
-			if (get_weld_cmp(swap_compare(range2lcompare(exp->flag))) == NULL) return -1;
-			if (exp_to_weld(be, weld_stmt, len, exp->r, stmt_list) != 0) return -1;
+			if (get_weld_cmp(swap_compare(range2lcompare(exp->flag))) == NULL) {
+				wstate->error = 1;
+				return;
+			}
+			exp_to_weld(be, wstate, weld_stmt, len, exp->r, stmt_list);
 			*len += sprintf(weld_stmt + *len, " %s ", get_weld_cmp(swap_compare(range2lcompare(exp->flag))));
-			if (exp_to_weld(be, weld_stmt, len, exp->l, stmt_list) != 0) return -1;
+			exp_to_weld(be, wstate, weld_stmt, len, exp->l, stmt_list);
 			*len += sprintf(weld_stmt + *len, " && ");
-			if (exp_to_weld(be, weld_stmt, len, exp->f, stmt_list) != 0) return -1;
+			exp_to_weld(be, wstate, weld_stmt, len, exp->f, stmt_list);
 			*len += sprintf(weld_stmt + *len, " %s ", get_weld_cmp(range2lcompare(exp->flag)));
-			if (exp_to_weld(be, weld_stmt, len, exp->l, stmt_list) != 0) return -1;
+			exp_to_weld(be, wstate, weld_stmt, len, exp->l, stmt_list);
 		} else {
-			if (get_weld_cmp(get_cmp(exp)) == NULL) return -1;
-			if (exp_to_weld(be, weld_stmt, len, exp->l, stmt_list) != 0) return -1;
+			if (get_weld_cmp(get_cmp(exp)) == NULL) {
+				wstate->error = 1;
+				return;
+			}
+			exp_to_weld(be, wstate, weld_stmt, len, exp->l, stmt_list);
 			*len += sprintf(weld_stmt + *len, " %s ", get_weld_cmp(get_cmp(exp)));
-			if (exp_to_weld(be, weld_stmt, len, exp->r, stmt_list) != 0) return -1;
+			exp_to_weld(be, wstate, weld_stmt, len, exp->r, stmt_list);
 		}
 		if (is_anti(exp)) {
 			*len += sprintf(weld_stmt + *len, ") == false ");
@@ -225,9 +260,7 @@ static int exp_to_weld(backend *be, str weld_stmt, int *len, sql_exp *exp, list 
 		break;
 	}
 	case e_column: {
-		char col_name[256];
-		sprintf(col_name, "%s_%s", exp->l ? (str)exp->l : (str)exp->r, (str)exp->r);
-		*len += sprintf(weld_stmt + *len, "%s", col_name);
+		*len += sprintf(weld_stmt + *len, "%s", get_col_name(wstate->sa, exp, REL));
 		break;
 	}
 	case e_func: {
@@ -246,7 +279,7 @@ static int exp_to_weld(backend *be, str weld_stmt, int *len, sql_exp *exp, list 
 			/* Left operand */
 			if (left_type < right_type)
 				*len += sprintf(weld_stmt + *len, "%s(", getWeldType(right_type));
-			if (exp_to_weld(be, weld_stmt, len, left, stmt_list) != 0) return -1;
+			exp_to_weld(be, wstate, weld_stmt, len, left, stmt_list);
 			if (left_type < right_type)
 				*len += sprintf(weld_stmt + *len, ")");
 			/* Operator */
@@ -254,40 +287,40 @@ static int exp_to_weld(backend *be, str weld_stmt, int *len, sql_exp *exp, list 
 			/* Right operand */
 			if (right_type < left_type)
 				*len += sprintf(weld_stmt + *len, "%s(", getWeldType(left_type));
-			if (exp_to_weld(be, weld_stmt, len, right, stmt_list) != 0) return -1;
+			exp_to_weld(be, wstate, weld_stmt, len, right, stmt_list);
 			if (right_type < left_type)
 				*len += sprintf(weld_stmt + *len, ")");
 		} else {
 			*len += sprintf(weld_stmt + *len, "%s(", weld_func);
-			if (exps_to_weld(be, weld_stmt, len, exp->l, stmt_list, ", ") != 0) return -1;
+			exps_to_weld(be, wstate, weld_stmt, len, exp->l, stmt_list, ", ");
 			*len += sprintf(weld_stmt + *len, ")");
 		}
 		break;
 	}
 	case e_aggr: {
 		if (exp->l) {
-			if (exps_to_weld(be, weld_stmt, len, exp->l, stmt_list, NULL) != 0) return -1;
+			exps_to_weld(be, wstate, weld_stmt, len, exp->l, stmt_list, NULL);
 		} else {
 			if (strcmp(((sql_subfunc*)exp->f)->func->imp, "count") == 0) {
 				*len += sprintf(weld_stmt + *len, "1L");
 			} else {
-				return -1;
+				wstate->error = 1;
+				return;
 			}
 		}
 		break;
 	}
-	default: return -1;
+	default: wstate->error = 1;
 	}
-	return 0;
 }
 
-static int
+static void
 base_table_produce(backend *be, sql_rel *rel, weld_state *wstate)
 {
 	stmt *sub = subrel_bin(be, rel, NULL);
 	node *en;
 	sql_exp *exp;
-	char weld_stmt[STR_BUF_SIZE], col_name[256], iter_idx[64];
+	char weld_stmt[STR_BUF_SIZE], iter_idx[64];
 	int count;
 	int len = sprintf(weld_stmt, "for(zip(");
 	for (en = rel->exps->h; en; en = en->next) {
@@ -299,11 +332,10 @@ base_table_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		}
 		if (exp_subtype(exp)->type->localtype == TYPE_str) {
 			/* Save the vheap and stroffset names */
-			sprintf(col_name, "%s_%s", (str)exp->l, (str)exp->r);
 			sprintf(wstate->str_cols + strlen(wstate->str_cols), "let %s_strcol = in%dstr;",
-					col_name, col->nr);
+					get_col_name(wstate->sa, exp, REL), col->nr);
 			sprintf(wstate->str_cols + strlen(wstate->str_cols), "let %s_stroffset = in%dstroffset;",
-					col_name, col->nr);
+					get_col_name(wstate->sa, exp, REL), col->nr);
 		}
 	}
 	/* builder and function header */
@@ -313,7 +345,7 @@ base_table_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	/* extract named values from the tuple */
 	for (en = rel->exps->h, count = 0; en; en = en->next, count++) {
 		exp = en->data;
-		sprintf(col_name, "%s_%s", (str)exp->l, (str)exp->r);
+		str col_name = get_col_name(wstate->sa, exp, REL);
 		if (rel->exps->h->next == NULL) {
 			/* just a single column so n.$0 doesn't work */
 			sprintf(iter_idx, "n%d", wstate->num_loops);
@@ -331,16 +363,18 @@ base_table_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	++wstate->num_parens;
 	append_weld_stmt(wstate, weld_stmt);
 	list_append(wstate->stmt_list, sub);
-	return 0;
 }
 
-static int
+static void
 select_produce(backend *be, sql_rel *rel, weld_state *wstate)
 {
 	/* === Produce === */
 	produce_func input_produce = getproduce_func(rel->l);
-	if (input_produce == NULL) return -1;
-	if (input_produce(be, rel->l, wstate) != 0) return -1;
+	if (input_produce == NULL) {
+		wstate->error = 1;
+		return;
+	}
+	input_produce(be, rel->l, wstate);
 
 	/* === Consume === */
 	char weld_stmt[STR_BUF_SIZE * 2];
@@ -348,7 +382,7 @@ select_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	node *en;
 	for (en = rel->exps->h; en; en = en->next) {
 		len += sprintf(weld_stmt + len, "(");
-		if (exp_to_weld(be, weld_stmt, &len, en->data, wstate->stmt_list) < 0) return -1;
+		exp_to_weld(be, wstate, weld_stmt, &len, en->data, wstate->stmt_list);
 		len += sprintf(weld_stmt + len, ")");
 		if (en->next != NULL) {
 			len += sprintf(weld_stmt + len, " && ");
@@ -358,14 +392,13 @@ select_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	len += sprintf(weld_stmt + len, ") == false, b%d, ", wstate->num_loops);
 	++wstate->num_parens;
 	append_weld_stmt(wstate, weld_stmt);
-	return 0;
 }
 
-static int
+static void
 project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 {
 	char weld_stmt[STR_BUF_SIZE * 2];
-	char col_name[256];
+	str col_name;
 	int len = 0, i, count;
 	node *en;
 	sql_exp *exp;
@@ -391,7 +424,7 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		exp_list = list_merge(exp_list, rel->r, NULL);
 		for (en = exp_list->h; en; en = en->next) {
 			exp = en->data;
-			sprintf(col_name, "%s_%s", exp->rname ? exp->rname : exp->name, exp->name);
+			col_name = get_col_name(wstate->sa, exp, ALIAS);
 			if (list_find(col_list, col_name, (fcmp)strcmp)) {
 				/* column already added from projection */
 				continue;
@@ -409,23 +442,24 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	}
 
 	produce_func input_produce = getproduce_func(rel->l);
-	if (input_produce == NULL) return -1;
-	if (input_produce(be, rel->l, wstate) != 0) return -1;
+	if (input_produce == NULL) {
+		wstate->error = 1;
+		return;
+	}
+	input_produce(be, rel->l, wstate);
 
 	/* === Consume === */
 	len = 0;
 	for (en = rel->exps->h; en; en = en->next) {
 		exp = en->data;
-		sprintf(col_name, "%s_%s", exp->rname ? exp->rname : exp->name, exp->name);
+		col_name = get_col_name(wstate->sa, exp, ALIAS);
 		if (exp_subtype(exp)->type->localtype == TYPE_str) {
 			if (exp->type != e_column) {
 				/* We can only handle string column renaming. If this is something else, like producing
 				 * a new string, we don't support it yet. */
-				return -1;
+				wstate->error = 1;
 			}
-			char old_col_name[256];
-			int old_col_len = 0;
-			if (exp_to_weld(be, old_col_name, &old_col_len, exp, wstate->stmt_list) < 0) return -1;
+			str old_col_name = get_col_name(wstate->sa, exp, REL);
 			len += sprintf(weld_stmt + len, "let %s = %s;", col_name, old_col_name);
 			len += sprintf(weld_stmt + len, "let %s_stridx = %s_stridx;", col_name, old_col_name);
 			sprintf(wstate->str_cols + strlen(wstate->str_cols), "let %s_strcol = %s_strcol;",
@@ -434,7 +468,7 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 					col_name, old_col_name);
 		} else {
 			len += sprintf(weld_stmt + len, "let %s = ", col_name);
-			if (exp_to_weld(be, weld_stmt, &len, exp, wstate->stmt_list) < 0) return -1;
+			exp_to_weld(be, wstate, weld_stmt, &len, exp, wstate->stmt_list);
 			len += sprintf(weld_stmt + len, ";");
 		}
 	}
@@ -444,7 +478,7 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		list* col_list = sa_list(be->mvc->sa);
 		for (en = exp_list->h; en; en = en->next) {
 			exp = en->data;
-			sprintf(col_name, "%s_%s", exp->rname ? exp->rname : exp->name, exp->name);
+			col_name = get_col_name(wstate->sa, exp, ALIAS);
 			if (list_find(col_list, col_name, (fcmp)strcmp)) {
 				/* column already added from projection */
 				continue;
@@ -454,7 +488,7 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			} else {
 				len += sprintf(weld_stmt + len, "%s,", col_name);
 			}
-			list_append(col_list, sa_strdup(be->mvc->sa, col_name));
+			list_append(col_list, col_name);
 		}
 		weld_stmt[len - 1] = '}';
 		for (i = 0; i < wstate->num_parens + 1; i++) {
@@ -466,7 +500,7 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		len += sprintf(weld_stmt + len, "let v%d = sort(result(v%d), |n| ", wstate->next_var, result_var);
 		for (en = ((list*)rel->r)->h; en; en = en->next) {
 			exp = en->data;
-			sprintf(col_name, "%s_%s", exp->rname ? exp->rname : exp->name, exp->name);
+			col_name = get_col_name(wstate->sa, exp, ALIAS);
 			node *col_list_node = list_find(col_list, col_name, (fcmp)strcmp);
 			int idx = list_position(col_list, col_list_node->data);
 			if (exp_subtype(exp)->type->localtype == TYPE_str) {
@@ -479,7 +513,7 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		len += sprintf(weld_stmt + len, "{");
 		for (en = ((list*)rel->r)->h; en; en = en->next) {
 			exp = en->data;
-			sprintf(col_name, "%s_%s", exp->rname ? exp->rname : exp->name, exp->name);
+			col_name = get_col_name(wstate->sa, exp, ALIAS);
 			len += sprintf(weld_stmt + len, "%s", col_name);
 			if (en->next != NULL) {
 				len += sprintf(weld_stmt + len, ", ");
@@ -496,7 +530,7 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 					   wstate->builder, wstate->num_loops, wstate->num_loops, wstate->num_loops);
 		for (en = rel->exps->h, count = 0; en; en = en->next, count++) {
 			exp = en->data;
-			sprintf(col_name, "%s_%s", exp->rname ? exp->rname : exp->name, exp->name);
+			col_name = get_col_name(wstate->sa, exp, ALIAS);
 			if (exp_subtype(exp)->type->localtype == TYPE_str) {
 				len += sprintf(weld_stmt + len, "let %s = strslice(%s_strcol, i64(n%d.$%d) + %s_stroffset);",
 						col_name, col_name, wstate->num_loops, count, col_name);
@@ -507,14 +541,13 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		}
 	}
 	append_weld_stmt(wstate, weld_stmt);
-	return 0;
 }
 
-static int
+static void
 groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 {
 	char weld_stmt[STR_BUF_SIZE * 2];
-	char col_name[256];
+	str col_name;
 	int len = 0, i, col_count, aggr_count;
 	node *en;
 	sql_exp *exp;
@@ -559,7 +592,7 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 				aggr_func = get_weld_func(exp->f);
 			} else if (aggr_func != get_weld_func(exp->f)) {
 				/* Currently Weld only supports a single operation for mergers */
-				return -1;
+				wstate->error = 1;
 			}
 			len += sprintf(weld_stmt + len, "%s", getWeldType(type));
 			if (en->next != NULL) {
@@ -570,8 +603,11 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	len += sprintf(weld_stmt + len, "}, %s]", aggr_func);
 	wstate->builder = weld_stmt;
 	produce_func input_produce = getproduce_func(rel->l);
-	if (input_produce == NULL) return -1;
-	if (input_produce(be, rel->l, wstate) != 0) return -1;
+	if (input_produce == NULL) {
+		wstate->error = 1;
+		return;
+	}
+	input_produce(be, rel->l, wstate);
 
 	/* === Consume === */
 	len = 0;
@@ -581,7 +617,7 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		len += sprintf(weld_stmt + len, "{");
 		for (en = group_by_exps->h; en; en = en->next) {
 			exp = en->data;
-			exp_to_weld(be, weld_stmt, &len, exp, wstate->stmt_list);
+			exp_to_weld(be, wstate, weld_stmt, &len, exp, wstate->stmt_list);
 			int type = exp_subtype(exp)->type->localtype;
 			if (type == TYPE_str) {
 				len += sprintf(weld_stmt + len, "_stridx");
@@ -595,7 +631,7 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	for (en = rel->exps->h; en; en = en->next) {
 		exp = en->data;
 		if (exp->type == e_aggr) {
-			exp_to_weld(be, weld_stmt, &len, exp, wstate->stmt_list);
+			exp_to_weld(be, wstate, weld_stmt, &len, exp, wstate->stmt_list);
 			if (en->next != NULL) {
 				len += sprintf(weld_stmt + len, ", ");
 			}
@@ -637,15 +673,13 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		} else {
 			sprintf(struct_mbr, "v%d.$%d", wstate->next_var, col_count++);
 		}
-		sprintf(col_name, "%s_%s", exp->rname ? exp->rname : exp->name, exp->name);
+		col_name = get_col_name(wstate->sa, exp, ALIAS);
 		if (exp_subtype(exp)->type->localtype == TYPE_str) {
 			len += sprintf(weld_stmt + len, "let %s = strslice(%s_strcol, i64(%s) + %s_stroffset);", 
 						   col_name, col_name, struct_mbr, col_name);
 			len += sprintf(weld_stmt + len, "let %s_stridx = %s;", col_name, struct_mbr);
 			/* Global string col renaming */
-			char old_col_name[256];
-			int old_col_len = 0;
-			if (exp_to_weld(be, old_col_name, &old_col_len, exp, wstate->stmt_list) < 0) return -1;
+			str old_col_name = get_col_name(wstate->sa, exp, REL);
 			sprintf(wstate->str_cols + strlen(wstate->str_cols), "let %s_strcol = %s_strcol;",
 					col_name, old_col_name);
 			sprintf(wstate->str_cols + strlen(wstate->str_cols), "let %s_stroffset = %s_stroffset;",
@@ -655,7 +689,6 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		}
 	}
 	append_weld_stmt(wstate, weld_stmt);
-	return 0;
 }
 
 static void
@@ -746,12 +779,16 @@ root_produce(backend *be, sql_rel *rel)
 	/* === Produce === */
 	weld_state *wstate = calloc(1, sizeof(weld_state));
 	wstate->program = calloc(1, 1);
-	wstate->stmt_list = sa_list(be->mvc->sa);
+	wstate->sa = sa_create();
+	wstate->stmt_list = sa_list(wstate->sa);
 
+	stmt *final_stmt = NULL, *program_stmt, *weld_program_stmt;
+	InstrPtr weld_instr;
 	sql_rel *root = rel->op == op_topn ? rel->l : rel;
 	node *en;
-	char weld_stmt[STR_BUF_SIZE], col_name[256];
-	int i, count, len = 0;
+	char weld_stmt[STR_BUF_SIZE];
+	str col_name;
+	int i, count, *arg_names, len = 0, idx;
 	int result_is_bat = rel_returns_bat(root);
 	/* Save the builders in a variable */
 	int result_var = wstate->next_var++;
@@ -778,11 +815,10 @@ root_produce(backend *be, sql_rel *rel)
 	}
 	produce_func input_produce = getproduce_func(root);
 	if (input_produce == NULL) return NULL;
-	if (input_produce(be, root, wstate) != 0) {
+	input_produce(be, root, wstate);
+	if (wstate->error) {
 		/* Can't convert this query */
-		free(wstate->program);
-		free(wstate);
-		return NULL;
+		goto cleanup;
 	}
 
 	/* === Consume === */
@@ -791,7 +827,7 @@ root_produce(backend *be, sql_rel *rel)
 	len += sprintf(weld_stmt + len, "{");
 	for (en = root->exps->h, count = 0; en; en = en->next, count++) {
 		sql_exp *exp = en->data;
-		sprintf(col_name, "%s_%s", exp->rname ? exp->rname : exp->name, exp->name);
+		col_name = get_col_name(wstate->sa, exp, ALIAS);
 		if (result_is_bat) {
 			int type = exp_subtype(en->data)->type->localtype;
 			if (type == TYPE_str) {
@@ -839,8 +875,7 @@ root_produce(backend *be, sql_rel *rel)
 			sql_exp *exp = en->data;
 			int type = exp_subtype(en->data)->type->localtype;
 			if (type == TYPE_str) {
-				sprintf(col_name, "%s_%s", exp->rname ? exp->rname : exp->name, exp->name);
-				len += sprintf(weld_stmt + len, ", %s_strcol", col_name);
+				len += sprintf(weld_stmt + len, ", %s_strcol", get_col_name(wstate->sa, exp, ALIAS));
 			}
 			if (en->next != NULL) {
 				len += sprintf(weld_stmt + len, ", ");
@@ -855,7 +890,7 @@ root_produce(backend *be, sql_rel *rel)
 	prepend_weld_stmt(wstate, wstate->str_cols);
 
 	/* Build the Weld MAL instruction */
-	InstrPtr weld_instr = newInstruction(be->mb, weldRef, weldRunRef);
+	weld_instr = newInstruction(be->mb, weldRef, weldRunRef);
 	for (en = root->exps->h; en; en = en->next) {
 		sql_subtype *subtype = exp_subtype(en->data);
 		int type = subtype->type->localtype;
@@ -865,23 +900,26 @@ root_produce(backend *be, sql_rel *rel)
 		weld_instr = pushReturn(be->mb, weld_instr, newTmpVariable(be->mb, type));
 	}
 	/* Push the arguments, first arg: the weld program, second arg: array of arg names */
-	stmt *program_stmt = stmt_atom_string(be, wstate->program);
-	int *arg_names = (int*)sa_alloc(be->mvc->sa, 1000 * sizeof(int)); /* Should be enough */
+	idx = 0;
+	program_stmt = stmt_atom_string(be, wstate->program);
+	arg_names = (int*)sa_alloc(be->mvc->sa, 1000 * sizeof(int)); /* Should be enough */
 	weld_instr = pushArgument(be->mb, weld_instr, program_stmt->nr);
 	weld_instr = pushPtr(be->mb, weld_instr, arg_names);
-	int idx = 0;
 	push_args(be->mb, &weld_instr, wstate->stmt_list, arg_names, &idx);
 	pushInstruction(be->mb, weld_instr);
 
 	list_append(wstate->stmt_list, program_stmt);
-	stmt* weld_program_stmt = stmt_list(be, wstate->stmt_list);
+	weld_program_stmt = stmt_list(be, wstate->stmt_list);
 	weld_program_stmt->q = weld_instr;
+	final_stmt = create_result_instr(be, weld_program_stmt, root->exps);
 
+cleanup:
 	dump_program(wstate);
+	sa_destroy(wstate->sa);
 	free(wstate->program);
 	free(wstate);
 
-	return create_result_instr(be, weld_program_stmt, root->exps);
+	return final_stmt;
 }
 
 produce_func getproduce_func(sql_rel *rel)
