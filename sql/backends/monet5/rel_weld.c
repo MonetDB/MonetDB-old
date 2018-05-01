@@ -409,8 +409,8 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	int len = 0, i, count;
 	node *en;
 	sql_exp *exp;
-	list* col_list = sa_list(be->mvc->sa);
-	list* exp_list = sa_list(be->mvc->sa);
+	list* col_list = sa_list(wstate->sa);
+	list* exp_list = sa_list(wstate->sa);
 
 	/* === Produce === */
 	int old_num_parens = wstate->num_parens;
@@ -450,7 +450,7 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	produce_func input_produce = getproduce_func(rel->l);
 	if (input_produce == NULL) {
 		wstate->error = 1;
-		return;
+		goto cleanup;
 	}
 	input_produce(be, rel->l, wstate);
 
@@ -481,7 +481,8 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	if (rel->r) {
 		/* Sorting phase - begin by materializing the columns in an array of structs */
 		wprintf(wstate, "merge(b%d, {", wstate->num_loops);
-		list* col_list = sa_list(be->mvc->sa);
+		list_destroy(col_list);
+		list* col_list = sa_list(wstate->sa);
 		for (en = exp_list->h; en; en = en->next) {
 			exp = en->data;
 			col_name = get_col_name(wstate->sa, exp, ALIAS);
@@ -546,6 +547,9 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			}
 		}
 	}
+cleanup:
+	list_destroy(col_list);
+	list_destroy(exp_list);
 }
 
 static void
@@ -1068,6 +1072,7 @@ root_produce(backend *be, sql_rel *rel)
 
 cleanup:
 	dump_program(wstate);
+	list_destroy(wstate->stmt_list);
 	sa_destroy(wstate->sa);
 	free(wstate);
 
