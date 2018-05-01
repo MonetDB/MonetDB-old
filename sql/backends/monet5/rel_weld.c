@@ -330,7 +330,7 @@ base_table_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	stmt *sub = subrel_bin(be, rel, NULL);
 	node *en;
 	sql_exp *exp;
-	char iter_idx[64];
+	char struct_mbr[64];
 	int count;
 	wprintf(wstate, "for(zip(");
 	for (en = rel->exps->h; en; en = en->next) {
@@ -358,16 +358,16 @@ base_table_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		str col_name = get_col_name(wstate->sa, exp, REL);
 		if (rel->exps->h->next == NULL) {
 			/* just a single column so n.$0 doesn't work */
-			sprintf(iter_idx, "n%d", wstate->num_loops);
+			sprintf(struct_mbr, "n%d", wstate->num_loops);
 		} else {
-			sprintf(iter_idx, "n%d.$%d", wstate->num_loops, count);
+			sprintf(struct_mbr, "n%d.$%d", wstate->num_loops, count);
 		}
 		if (exp_subtype(exp)->type->localtype == TYPE_str) {
 			wprintf(wstate, "let %s = strslice(%s_strcol, i64(%s) + %s_stroffset);",
-						   col_name, col_name, iter_idx, col_name);
-			wprintf(wstate, "let %s_stridx = %s;", col_name, iter_idx);
+						   col_name, col_name, struct_mbr, col_name);
+			wprintf(wstate, "let %s_stridx = %s;", col_name, struct_mbr);
 		} else {
-			wprintf(wstate, "let %s = %s;", col_name, iter_idx);
+			wprintf(wstate, "let %s = %s;", col_name, struct_mbr);
 		}
 	}
 	++wstate->num_parens;
@@ -404,20 +404,21 @@ select_produce(backend *be, sql_rel *rel, weld_state *wstate)
 static void
 project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 {
-	char new_builder[STR_BUF_SIZE];
+	char new_builder[STR_BUF_SIZE], struct_mbr[64];
 	str col_name;
 	int len = 0, i, count;
 	node *en;
 	sql_exp *exp;
-	list* col_list = sa_list(wstate->sa);
-	list* exp_list = sa_list(wstate->sa);
+	list *appender_cols = sa_list(wstate->sa);
+	list *appender_col_types = sa_list(wstate->sa);
+	list *orderby_exps = rel->r;
 
 	/* === Produce === */
 	int old_num_parens = wstate->num_parens;
 	int old_num_loops = wstate->num_loops;
 	str old_builder = wstate->builder;
 	int result_var = 0;
-	if (rel->r) {
+	if (orderby_exps) {
 		/* Order by statement */
 		wstate->num_parens = wstate->num_loops = 0;
 		result_var = wstate->next_var++;
@@ -425,25 +426,40 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		wprintf(wstate, "let v%d = (", result_var);
 
 		/* New builder */
-		len = sprintf(new_builder, "appender[{");
-		exp_list = list_merge(exp_list, rel->exps, NULL);
-		exp_list = list_merge(exp_list, rel->r, NULL);
-		for (en = exp_list->h; en; en = en->next) {
-			exp = en->data;
-			col_name = get_col_name(wstate->sa, exp, ALIAS);
-			if (list_find(col_list, col_name, (fcmp)strcmp)) {
-				/* column already added from projection */
-				continue;
-			}
-			int type = exp_subtype(exp)->type->localtype;
-			if (type == TYPE_str) {
-				len += sprintf(new_builder + len, "?,");
-			} else {
-				len += sprintf(new_builder + len, "%s,", getWeldType(type));
-			}
-			list_append(col_list, sa_strdup(be->mvc->sa, col_name));
+		for (en = rel->exps->h; en; en = en->next) {
+			col_name = get_col_name(wstate->sa, en->data, ALIAS);
+			list_append(appender_cols, col_name);
+			list_append(appender_col_types, exp_subtype(en->data)->type);
 		}
-		len += sprintf(new_builder + len - 1, "}]") - 1;  /* also replace the last comma */
+		for (en = orderby_exps->h; en; en = en->next) {
+			col_name = get_col_name(wstate->sa, en->data, ALIAS);
+			if (!list_find(appender_cols, col_name, (fcmp)strcmp)) {
+				list_append(appender_cols, col_name);
+				list_append(appender_col_types, exp_subtype(en->data)->type);
+			}
+		}
+
+		len = sprintf(new_builder, "appender[");
+		if (list_length(appender_col_types) > 1) {
+			/* We have a struct */
+			len += sprintf(new_builder + len, "{");
+		}
+		for (en = appender_col_types->h; en; en = en->next) {
+			int type = ((sql_type*)en->data)->localtype;
+			if (type == TYPE_str) {
+				len += sprintf(new_builder + len, "?");
+			} else {
+				len += sprintf(new_builder + len, "%s", getWeldType(type));
+			}
+			if (en->next != NULL) {
+				len += sprintf(new_builder + len, ", ");
+			}
+		}
+		if (list_length(appender_col_types) > 1) {
+			/* We have a struct */
+			len += sprintf(new_builder + len, "}");
+		}
+		len += sprintf(new_builder + len, "]");
 		wstate->builder = new_builder;
 	}
 
@@ -479,37 +495,38 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		}
 	}
 	if (rel->r) {
-		/* Sorting phase - begin by materializing the columns in an array of structs */
-		wprintf(wstate, "merge(b%d, {", wstate->num_loops);
-		list_destroy(col_list);
-		list* col_list = sa_list(wstate->sa);
-		for (en = exp_list->h; en; en = en->next) {
-			exp = en->data;
-			col_name = get_col_name(wstate->sa, exp, ALIAS);
-			if (list_find(col_list, col_name, (fcmp)strcmp)) {
-				/* column already added from projection */
-				continue;
-			}
-			if (exp_subtype(exp)->type->localtype == TYPE_str) {
-				wprintf(wstate, "%s_stridx,", col_name);
-			} else {
-				wprintf(wstate, "%s,", col_name);
-			}
-			list_append(col_list, col_name);
+		/* Sorting phase - begin by materializing the columns */
+		wprintf(wstate, "merge(b%d, ", wstate->num_loops);
+		if (list_length(appender_cols) > 1) {
+			wprintf(wstate, "{");
 		}
-		wstate->program[wstate->program_len - 1] = '}';
-		for (i = 0; i < wstate->num_parens + 1; i++) {
+		for (en = appender_cols->h, count = 0; en; en = en->next, count++) {
+			col_name = en->data;
+			int type = ((sql_type*)list_fetch(appender_col_types, count))->localtype;
+			wprintf(wstate, "%s", col_name);
+			if (type == TYPE_str) {
+				wprintf(wstate, "_stridx");
+			}
+			if (en->next != NULL) {
+				wprintf(wstate, ", ");
+			}
+		}
+		if (list_length(appender_cols) > 1) {
+			wprintf(wstate, "}");
+		}
+		wprintf(wstate, ")");
+		for (i = 0; i < wstate->num_parens; i++) {
 			wprintf(wstate, ")");
 		}
 		wprintf(wstate, ";");
-		/* Sort the array of structs */
+		/* Sort the array */
 		wstate->next_var++;
 		wprintf(wstate, "let v%d = sort(result(v%d), |n| ", wstate->next_var, result_var);
-		for (en = ((list*)rel->r)->h; en; en = en->next) {
+		for (en = orderby_exps->h; en; en = en->next) {
 			exp = en->data;
 			col_name = get_col_name(wstate->sa, exp, ALIAS);
-			node *col_list_node = list_find(col_list, col_name, (fcmp)strcmp);
-			int idx = list_position(col_list, col_list_node->data);
+			node *col_list_node = list_find(appender_cols, col_name, (fcmp)strcmp);
+			int idx = list_position(appender_cols, col_list_node->data);
 			if (exp_subtype(exp)->type->localtype == TYPE_str) {
 				wprintf(wstate, "let %s = strslice(%s_strcol, i64(n.$%d) + %s_stroffset);",
 					col_name, col_name, idx, col_name);
@@ -517,8 +534,10 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 				wprintf(wstate, "let %s = n.$%d;", col_name, idx);
 			}
 		}
-		wprintf(wstate, "{");
-		for (en = ((list*)rel->r)->h; en; en = en->next) {
+		if (list_length(orderby_exps) > 1) {
+			wprintf(wstate, "{");
+		}
+		for (en = orderby_exps->h; en; en = en->next) {
 			exp = en->data;
 			col_name = get_col_name(wstate->sa, exp, ALIAS);
 			wprintf(wstate, "%s", col_name);
@@ -526,7 +545,10 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 				wprintf(wstate, ", ");
 			}
 		}
-		wprintf(wstate, "});");
+		if (list_length(orderby_exps) > 1) {
+			wprintf(wstate, "}");
+		}
+		wprintf(wstate, ");");
 		/* Resume the pipeline */
 		wstate->num_parens = old_num_parens;
 		wstate->num_loops = old_num_loops;
@@ -536,20 +558,25 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		wprintf(wstate, "for(v%d, %s, |b%d, i%d, n%d|", wstate->next_var,
 					   wstate->builder, wstate->num_loops, wstate->num_loops, wstate->num_loops);
 		for (en = rel->exps->h, count = 0; en; en = en->next, count++) {
+			if (list_length(appender_cols) > 1) {
+				sprintf(struct_mbr, "n%d.$%d", wstate->num_loops, count);
+			} else {
+				sprintf(struct_mbr, "n%d", wstate->num_loops);
+			}
 			exp = en->data;
 			col_name = get_col_name(wstate->sa, exp, ALIAS);
 			if (exp_subtype(exp)->type->localtype == TYPE_str) {
-				wprintf(wstate, "let %s = strslice(%s_strcol, i64(n%d.$%d) + %s_stroffset);",
-						col_name, col_name, wstate->num_loops, count, col_name);
-				wprintf(wstate, "let %s_stridx = n%d.$%d;", col_name, wstate->num_loops, count);
+				wprintf(wstate, "let %s = strslice(%s_strcol, i64(%s) + %s_stroffset);",
+						col_name, col_name, struct_mbr, col_name);
+				wprintf(wstate, "let %s_stridx = %s;", col_name, struct_mbr);
 			} else {
-				wprintf(wstate, "let %s = n%d.$%d;", col_name, wstate->num_loops, count);
+				wprintf(wstate, "let %s = %s;", col_name, struct_mbr);
 			}
 		}
 	}
 cleanup:
-	list_destroy(col_list);
-	list_destroy(exp_list);
+	list_destroy(appender_cols);
+	list_destroy(appender_col_types);
 }
 
 static void
