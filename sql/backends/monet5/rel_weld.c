@@ -601,7 +601,10 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	wstate->num_parens++;
 	len = 0;
 	if (group_by_exps->h) {
-		len += sprintf(new_builder + len, "dictmerger[{");
+		len += sprintf(new_builder + len, "dictmerger[");
+		if (list_length(group_by_exps) > 1) {
+			len += sprintf(new_builder + len, "{"); /* key is a struct */
+		}
 		for (en = group_by_exps->h; en; en = en->next) {
 			exp = en->data;
 			int type = exp_subtype(exp)->type->localtype;
@@ -614,11 +617,17 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 				len += sprintf(new_builder + len, ", ");
 			}
 		}
-		len += sprintf(new_builder + len, "}, {");
+		if (list_length(group_by_exps) > 1) {
+			len += sprintf(new_builder + len, "}"); /* key is a struct */
+		}
+		len += sprintf(new_builder + len, ", ");
 	} else {
-		len += sprintf(new_builder + len, "merger[{");
+		len += sprintf(new_builder + len, "merger[");
 	}
 	str aggr_func = NULL;
+	if (list_length(rel->exps) - list_length(group_by_exps) > 1) {
+		len += sprintf(new_builder + len, "{"); /* value is a struct */
+	}
 	for (en = rel->exps->h; en; en = en->next) {
 		exp = en->data;
 		if (exp->type == e_aggr) {
@@ -635,7 +644,10 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			}
 		}
 	}
-	len += sprintf(new_builder + len, "}, %s]", aggr_func);
+	if (list_length(rel->exps) - list_length(group_by_exps) > 1) {
+		len += sprintf(new_builder + len, "}"); /* value is a struct */
+	}
+	len += sprintf(new_builder + len, ", %s]", aggr_func);
 	wstate->builder = new_builder;
 	produce_func input_produce = getproduce_func(rel->l);
 	if (input_produce == NULL) {
@@ -645,11 +657,15 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	input_produce(be, rel->l, wstate);
 
 	/* === Consume === */
-	len = 0;
-	wprintf(wstate, "merge(b%d, {", wstate->num_loops);
+	wprintf(wstate, "merge(b%d, ", wstate->num_loops);
+	if (group_by_exps->h) { /* {key, value} */
+		wprintf(wstate, "{");
+	}
 	if (group_by_exps->h) {
 		/* Build the key */
-		wprintf(wstate, "{");
+		if (list_length(group_by_exps) > 1) {
+			wprintf(wstate, "{"); /* key is a struct */
+		}
 		for (en = group_by_exps->h; en; en = en->next) {
 			exp = en->data;
 			exp_to_weld(be, wstate, exp);
@@ -661,7 +677,13 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 				wprintf(wstate, ", ");
 			}
 		}
-		wprintf(wstate, "}, {");
+		if (list_length(group_by_exps) > 1) {
+			wprintf(wstate, "}"); /* key is a struct */
+		}
+		wprintf(wstate, ", ");
+	}
+	if (list_length(rel->exps) - list_length(group_by_exps) > 1) {
+		wprintf(wstate, "{"); /* value is a struct */
 	}
 	for (en = rel->exps->h; en; en = en->next) {
 		exp = en->data;
@@ -672,10 +694,13 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			}
 		}
 	}
-	if (group_by_exps->h) {
-		wprintf(wstate, "}");
+	if (list_length(rel->exps) - list_length(group_by_exps) > 1) {
+		wprintf(wstate, "}"); /* value is a struct */
 	}
-	wprintf(wstate, "})");
+	if (group_by_exps->h) {
+		wprintf(wstate, "}"); /* {key, value} */
+	}
+	wprintf(wstate, ")");
 	for (i = 0; i < wstate->num_parens; i++) {
 		wprintf(wstate, ")");
 	}
@@ -701,12 +726,21 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		exp = en->data;
 		if (group_by_exps->h) {
 			if (exp->type == e_column) {
-				sprintf(struct_mbr, "n%d.$0.$%d", wstate->num_loops, col_count++);
+				len = sprintf(struct_mbr, "n%d.$0", wstate->num_loops);
+				if (list_length(group_by_exps) > 1) {
+					len += sprintf(struct_mbr + len, ".$%d", col_count++);
+				}
 			} else {
-				sprintf(struct_mbr, "n%d.$1.$%d", wstate->num_loops, aggr_count++);
+				len = sprintf(struct_mbr, "n%d.$1", wstate->num_loops);
+				if (list_length(rel->exps) - list_length(group_by_exps) > 1) {
+					len += sprintf(struct_mbr + len, ".$%d", aggr_count++);
+				}
 			}
 		} else {
-			sprintf(struct_mbr, "v%d.$%d", wstate->next_var, col_count++);
+			len = sprintf(struct_mbr, "v%d", wstate->next_var);
+			if (list_length(rel->exps) > 1) {
+				len += sprintf(struct_mbr + len, ".$%d", col_count++);
+			}
 		}
 		col_name = get_col_name(wstate->sa, exp, ALIAS);
 		if (exp_subtype(exp)->type->localtype == TYPE_str) {
