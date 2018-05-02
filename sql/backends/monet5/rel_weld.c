@@ -252,9 +252,9 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 			wprintf(wstate, " %s ", get_weld_cmp(swap_compare(range2lcompare(exp->flag))));
 			exp_to_weld(be, wstate, exp->l);
 			wprintf(wstate, " && ");
-			exp_to_weld(be, wstate, exp->f);
-			wprintf(wstate, " %s ", get_weld_cmp(range2lcompare(exp->flag)));
 			exp_to_weld(be, wstate, exp->l);
+			wprintf(wstate, " %s ", get_weld_cmp(range2rcompare(exp->flag)));
+			exp_to_weld(be, wstate, exp->f);
 		} else {
 			if (get_weld_cmp(get_cmp(exp)) == NULL) {
 				wstate->error = 1;
