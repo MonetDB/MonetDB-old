@@ -69,7 +69,8 @@ typedef struct {
 	str program;
 	unsigned long program_len;
 	unsigned long program_max_len;
-	char str_cols[STR_BUF_SIZE * 3]; /* global string cols renaming */
+	char global_init[STR_BUF_SIZE * 3]; /* global stmts such as vheap.base renaming and udfs inits */
+	char global_cleanup[STR_BUF_SIZE * 3];
 	list *stmt_list;
 	sql_allocator *sa;
 	int error;
@@ -137,16 +138,17 @@ get_weld_cmp(int cmp) {
 
 static str
 get_weld_func(sql_subfunc *f) {
-	if (strcmp(f->func->imp, "+") == 0 || strcmp(f->func->imp, "sum") == 0 ||
-		strcmp(f->func->imp, "count") == 0)
+	str name = f->func->imp ? f->func->imp : f->func->base.name;
+	if (strcmp(name, "+") == 0 || strcmp(name, "sum") == 0 || strcmp(name, "count") == 0)
 		return "+";
-	else if (strcmp(f->func->imp, "-") == 0)
+	else if (strcmp(name, "-") == 0)
 		return "-";
-	else if (strcmp(f->func->imp, "*") == 0 || strcmp(f->func->imp, "prod") == 0)
+	else if (strcmp(name, "*") == 0 || strcmp(name, "prod") == 0)
 		return "*";
-	else if (strcmp(f->func->imp, "/") == 0)
+	else if (strcmp(name, "/") == 0)
 		return "/";
-	/* TODO check for others that we might support through UDFs */
+	else if (strcmp(name, "like") == 0)
+		return "like";
 	return NULL;
 }
 
@@ -208,8 +210,20 @@ exp_has_column(sql_exp *exp) {
 		ret = exp_has_column(exp->l);
 		break;
 	case e_cmp:
-		if (exp->l) ret |= exp_has_column(exp->l);
-		if (exp->r) ret |= exp_has_column(exp->r);
+		if (exp->flag == cmp_filter || exp->flag == cmp_or) {
+			for (en = ((list*)exp->l)->h; en; en = en->next) {
+				ret |= exp_has_column(en->data);
+			}
+		} else if (exp->l) {
+			ret |= exp_has_column(exp->l);
+		}
+		if (exp->flag == cmp_filter || exp->flag == cmp_or || exp->flag == cmp_in || exp->flag == cmp_notin) {
+			for (en = ((list*)exp->r)->h; en; en = en->next) {
+				ret |= exp_has_column(en->data);
+			}
+		} else if (exp->r) {
+			ret |= exp_has_column(exp->r);
+		}
 		if (exp->f) ret |= exp_has_column(exp->f);
 		break;
 	case e_func:
@@ -234,16 +248,45 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 	}
 	switch (exp->type) {
 	case e_convert: {
-		wprintf(wstate, "%s(", getWeldType(exp->tpe.type->localtype));
-		exp_to_weld(be, wstate, exp->l);
-		wprintf(wstate, ")");
+		str conv_to = getWeldType(exp->tpe.type->localtype);
+		if (strcmp(conv_to, "vec[i8]") == 0) {
+			/* Do nothing */
+			exp_to_weld(be, wstate, exp->l);
+		} else {
+			wprintf(wstate, "%s(", conv_to);
+			exp_to_weld(be, wstate, exp->l);
+			wprintf(wstate, ")");
+		}
 		break;
 	}
 	case e_cmp: {
 		if (is_anti(exp)) {
 			wprintf(wstate, "(");
 		}
-		if (exp->f) {
+		if (exp->flag == cmp_in || exp->flag == cmp_notin) {
+			/* TODO implement this */
+			wstate->error = 1;
+			return;
+		} else if (get_cmp(exp) == cmp_or) {
+			wprintf(wstate, "(");
+			exps_to_weld(be, wstate, exp->l, "");
+			wprintf(wstate, ") || ( ");
+			exps_to_weld(be, wstate, exp->r, "");
+			wprintf(wstate, ")");
+		} else if (get_cmp(exp) == cmp_filter) {
+			/* Must be an udf */
+			str udf = get_weld_func(exp->f);
+			int state_ptr = wstate->next_var++;
+			sprintf(wstate->global_init + strlen(wstate->global_init),
+					"let v%d = cudf[state_init, i64](\"%s\");", state_ptr, udf);
+			sprintf(wstate->global_cleanup + strlen(wstate->global_cleanup),
+					"let v%d = cudf[state_cleanup, i64](\"%s\", v%d);", state_ptr, udf, state_ptr);
+			wprintf(wstate, "cudf[%s, bool](v%d,", udf, state_ptr);
+			exps_to_weld(be, wstate, exp->l, ", ");
+			wprintf(wstate, ", ");
+			exps_to_weld(be, wstate, exp->r, ", ");
+			wprintf(wstate, ")");
+		} else if (exp->f) {
 			if (get_weld_cmp(swap_compare(range2lcompare(exp->flag))) == NULL) {
 				wstate->error = 1;
 				return;
@@ -342,9 +385,9 @@ base_table_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		}
 		if (exp_subtype(exp)->type->localtype == TYPE_str) {
 			/* Save the vheap and stroffset names */
-			sprintf(wstate->str_cols + strlen(wstate->str_cols), "let %s_strcol = in%dstr;",
+			sprintf(wstate->global_init + strlen(wstate->global_init), "let %s_strcol = in%dstr;",
 					get_col_name(wstate->sa, exp, REL), col->nr);
-			sprintf(wstate->str_cols + strlen(wstate->str_cols), "let %s_stroffset = in%dstroffset;",
+			sprintf(wstate->global_init + strlen(wstate->global_init), "let %s_stroffset = in%dstroffset;",
 					get_col_name(wstate->sa, exp, REL), col->nr);
 		}
 	}
@@ -484,9 +527,9 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			wprintf(wstate, "let %s = %s;", col_name, old_col_name);
 			wprintf(wstate, "let %s_stridx = %s_stridx;", col_name, old_col_name);
 			/* Save the vheap and stroffset names */
-			sprintf(wstate->str_cols + strlen(wstate->str_cols), "let %s_strcol = %s_strcol;",
+			sprintf(wstate->global_init + strlen(wstate->global_init), "let %s_strcol = %s_strcol;",
 					col_name, old_col_name);
-			sprintf(wstate->str_cols + strlen(wstate->str_cols), "let %s_stroffset = %s_stroffset;",
+			sprintf(wstate->global_init + strlen(wstate->global_init), "let %s_stroffset = %s_stroffset;",
 					col_name, old_col_name);
 		} else {
 			wprintf(wstate, "let %s = ", col_name);
@@ -749,9 +792,9 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			wprintf(wstate, "let %s_stridx = %s;", col_name, struct_mbr);
 			/* Global string col renaming */
 			str old_col_name = get_col_name(wstate->sa, exp, REL);
-			sprintf(wstate->str_cols + strlen(wstate->str_cols), "let %s_strcol = %s_strcol;",
+			sprintf(wstate->global_init + strlen(wstate->global_init), "let %s_strcol = %s_strcol;",
 					col_name, old_col_name);
-			sprintf(wstate->str_cols + strlen(wstate->str_cols), "let %s_stroffset = %s_stroffset;",
+			sprintf(wstate->global_init + strlen(wstate->global_init), "let %s_stroffset = %s_stroffset;",
 					col_name, old_col_name);
 		} else {
 			wprintf(wstate, "let %s = %s;", col_name, struct_mbr);
@@ -1102,6 +1145,7 @@ root_produce(backend *be, sql_rel *rel)
 		wprintf(wstate, ")");
 	}
 	wprintf(wstate, ";");
+	wprintf(wstate, "%s", wstate->global_cleanup); /* TODO - this gets removed by Weld */
 	/* Final result statement */
 	if (result_is_bat) {
 		wprintf(wstate, "{");
@@ -1141,7 +1185,7 @@ root_produce(backend *be, sql_rel *rel)
 		wprintf(wstate, "v%d", result_var);
 	}
 	/* Combine the string cols renamings with the weld program */
-	wstate->program = sa_strconcat(wstate->sa, wstate->str_cols, wstate->program);
+	wstate->program = sa_strconcat(wstate->sa, wstate->global_init, wstate->program);
 
 	/* Build the Weld MAL instruction */
 	weld_instr = newInstruction(be->mb, weldRef, weldRunRef);

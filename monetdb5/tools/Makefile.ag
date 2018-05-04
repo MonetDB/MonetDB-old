@@ -15,7 +15,7 @@ lib_monetdb5 = {
 	DIR = libdir
 	SOURCES = libmonetdb5.rc
 	LIBS = ../mal/libmal ../modules/atoms/libatoms \
-		../modules/kernel/libkernel ../modules/mal/libmal \
+		../modules/kernel/libkernel ../modules/mal/libmal ../modules/weldudfs/libweldudfs \
 		../optimizer/liboptimizer ../scheduler/libscheduler \
 		../../gdk/libbat \
 		HAVE_MAPI?../../clients/mapilib/libmapi \

@@ -38,7 +38,7 @@ lib_mal = {
 		manifold.c manifold.h \
 		oltp.c oltp.h \
 		wlc.c wlc.h \
-		pcre.c \
+		pcre.c pcre_pub.h \
 		profiler.c profiler.h \
 		querylog.c querylog.h \
 		remote.c remote.h \

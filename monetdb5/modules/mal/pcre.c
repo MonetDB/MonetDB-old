@@ -23,6 +23,7 @@
 
 #include "mal.h"
 #include "mal_exception.h"
+#include "pcre_pub.h"
 
 #ifdef HAVE_LIBPCRE
 #include <pcre.h>
@@ -79,15 +80,6 @@ mal_export str LIKEjoin1(bat *r1, bat *r2, const bat *lid, const bat *rid, const
 mal_export str ILIKEjoin(bat *r1, bat *r2, const bat *lid, const bat *rid, const str *esc, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate);
 mal_export str ILIKEjoin1(bat *r1, bat *r2, const bat *lid, const bat *rid, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate);
 
-/* current implementation assumes simple %keyword% [keyw%]* */
-typedef struct RE {
-	char *k;
-	int search;
-	int skip;
-	int len;
-	struct RE *n;
-} RE;
-
 #ifndef HAVE_STRCASESTR
 static const char *
 strcasestr(const char *haystack, const char *needle)
@@ -113,7 +105,7 @@ strcasestr(const char *haystack, const char *needle)
 }
 #endif
 
-static int
+int
 re_simple(const char *pat)
 {
 	int nr = 0;
@@ -156,7 +148,7 @@ re_match_ignore(const char *s, RE *pattern)
 	return 1;
 }
 
-static int
+int
 re_match_no_ignore(const char *s, RE *pattern)
 {
 	RE *r;
@@ -183,7 +175,7 @@ re_destroy(RE *p)
 	}
 }
 
-static RE *
+RE *
 re_create(const char *pat, int nr)
 {
 	char *x = GDKstrdup(pat);
