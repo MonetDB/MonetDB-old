@@ -151,6 +151,8 @@ get_weld_func(sql_subfunc *f) {
 		return "like";
 	else if (strcmp(name, "year") == 0)
 		return "year";
+	else if (strcmp(name, "identity") == 0)
+		return "identity";
 	return NULL;
 }
 
@@ -352,6 +354,9 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 		} else {
 			if (strcmp(weld_func, "year") == 0) {
 				wprintf(wstate, "cudf[%s, i32](", weld_func);
+			} else if (strcmp(weld_func, "identity") == 0) {
+				wprintf(wstate, "i%d", wstate->num_loops);
+				break;
 			} else {
 				wprintf(wstate, "%s(", weld_func);
 			}
