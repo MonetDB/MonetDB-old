@@ -9,6 +9,7 @@
 #include "monetdb_config.h"
 #include "gdk.h"
 #include "mal.h"
+#include "mtime.h"
 #include "pcre_pub.h"
 
 typedef struct {
@@ -20,6 +21,7 @@ MT_Lock initLock MT_LOCK_INITIALIZER("udfs_init");
 
 mal_export void state_init(i8vec *op, int64_t *state_ptr);
 mal_export void like(int64_t *state_ptr, i8vec *col, i8vec *pattern, i8vec *exc, int8_t *result);
+mal_export void year(int32_t *col, int32_t *result);
 
 void state_init(i8vec *op, int64_t *state_ptr) {
 	(void)op;
@@ -42,4 +44,8 @@ void like(int64_t *state_ptr, i8vec *col, i8vec *pattern, i8vec *exc, int8_t *re
 		MT_lock_unset(&initLock);
 	}
 	*result = (int8_t)re_match_no_ignore(col->data, re);
+}
+
+void year(int32_t *col, int32_t *result) {
+	(void)MTIMEdate_extract_year(result, col);
 }
