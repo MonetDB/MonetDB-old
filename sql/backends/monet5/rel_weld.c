@@ -963,7 +963,11 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	/* === 2nd Consume === */
 	wstate->num_loops++;
 	wstate->num_parens++;
-	wprintf(wstate, "for(lookup(v%d, ", result_var);
+	wprintf(wstate, "for(");
+	if (rel->op == op_semi) {
+		wprintf(wstate, "slice(");
+	}
+	wprintf(wstate, "lookup(v%d, ", result_var);
 	if (list_length(left_cmp_cols) > 1) {
 		wprintf(wstate, "{"); /* key is a struct */
 	}
@@ -977,8 +981,11 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	if (list_length(left_cmp_cols) > 1) {
 		wprintf(wstate, "}"); /* key is a struct */
 	}
-
-	wprintf(wstate, "), b%d, |b%d, i%d, n%d|", wstate->num_loops - 1, wstate->num_loops,
+	wprintf(wstate, ")");
+	if (rel->op == op_semi) {
+		wprintf(wstate, ", 0L, 1L)"); /* Just the first element of the vector */
+	}
+	wprintf(wstate, ", b%d, |b%d, i%d, n%d|", wstate->num_loops - 1, wstate->num_loops,
 			wstate->num_loops, wstate->num_loops);
 	for (en = right->exps->h, count = 0; en; en = en->next, count++) {
 		len = sprintf(struct_mbr, "n%d", wstate->num_loops);
@@ -1242,6 +1249,7 @@ produce_func getproduce_func(sql_rel *rel)
 		case op_groupby:
 			return &groupby_produce;
 		case op_join:
+		case op_semi:
 			return &join_produce;
 		default:
 			return NULL;
