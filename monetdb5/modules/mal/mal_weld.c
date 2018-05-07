@@ -26,7 +26,6 @@
 		*(TYPE *)(*ADDR) = *(TYPE *)VALUE; /* set */                    \
 	*ADDR += sizeof(TYPE);				   /* increase */
 
-
 void getOrSetStructMember(char **addr, int type, const void *value, int op) {
 	if (type == TYPE_bte) {
 		getOrSetStructMemberImpl(addr, char, value, op);
@@ -138,6 +137,19 @@ static long getTimeNowMs(void) {
     return (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000;
 }
 
+static BAT*
+BATundense(BAT *b) {
+	/* A dense BAT should always be of TYPE_oid ? */
+	BAT *newb = COLnew(b->hseqbase, TYPE_oid, BATcount(b), TRANSIENT);
+	oid *base = (oid*)Tloc(newb, 0);
+	for (oid i = b->tseqbase; i < b->tseqbase + BATcount(b); i++) {
+		*base = i;
+		base++;
+	}
+	BATsetcount(newb, BATcount(b));
+	return newb;
+}
+
 str
 WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -204,7 +216,7 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BAT *b = BATdescriptor(bid);
 			if (b == NULL) throw(MAL, "weld.run", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING": %d", getArg(pci, i));
 			if (BATtdense(b)) {
-				fprintf(stderr, "bat is dense: %d\n", getArg(pci, i));
+				b = BATundense(b);
 			}
 			getOrSetStructMember(&inputPtr, TYPE_ptr, &b->theap.base, OP_SET);
 			getOrSetStructMember(&inputPtr, TYPE_lng, &b->batCount, OP_SET);
