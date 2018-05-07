@@ -320,6 +320,10 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 	}
 	case e_func: {
 		str weld_func = get_weld_func(exp->f);
+		if (weld_func == NULL) {
+			wstate->error = 1;
+			return;
+		}
 		int is_infix = 0;
 		if (strcmp(weld_func, "+") == 0 || strcmp(weld_func, "-") == 0 ||
 			strcmp(weld_func, "*") == 0 || strcmp(weld_func, "/") == 0) {
