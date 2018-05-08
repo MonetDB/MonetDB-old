@@ -179,6 +179,9 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				sprintf(program + headerLen, " in%d:%s,", names[namesIdx], getWeldType(type));
 		}
 	}
+	headerLen += sprintf(program + headerLen,
+						 "i8nil:i8, i32nil:i32, oidnil:i64, i64nil:i64, f32nil:f32, f64nil:f64,");
+
 	program[0] = '|';
 	program[headerLen - 1] = '|';
 	program = strcat(program, programBody);
@@ -234,6 +237,12 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			}
 		}
 	}
+	getOrSetStructMember(&inputPtr, TYPE_bte, &bte_nil, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_int, &int_nil, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_lng, &lng_nil, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_oid, &oid_nil, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_flt, &flt_nil, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_dbl, &dbl_nil, OP_SET);
 
 	/* Run the weld program */
 	weld_value_t arg = weld_value_new(inputStruct);
