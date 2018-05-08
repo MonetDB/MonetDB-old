@@ -153,6 +153,12 @@ get_weld_func(sql_subfunc *f) {
 		return "year";
 	else if (strcmp(name, "identity") == 0)
 		return "identity";
+	else if (strcmp(name, "ifthenelse") == 0)
+		return "ifthenelse";
+	else if (strcmp(name, "=") == 0)
+		return "=";
+	else if (strcmp(name, "isnil") == 0)
+		return "isnil";
 	return NULL;
 }
 
@@ -364,14 +370,41 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 		} else {
 			if (strcmp(weld_func, "year") == 0) {
 				wprintf(wstate, "cudf[%s, i32](", weld_func);
+				exps_to_weld(be, wstate, exp->l, ", ");
+				wprintf(wstate, ")");
 			} else if (strcmp(weld_func, "identity") == 0) {
 				wprintf(wstate, "i%d", wstate->num_loops);
-				break;
+			} else if (strcmp(weld_func, "ifthenelse") == 0) {
+				/* if(x == i8nil, TYPEnil, if(x != 0, y, z)) */
+				node *en = ((list*)exp->l)->h;
+				sql_exp *cond_exp = en->data;
+				sql_exp *then_exp = en->next->data;
+				sql_exp *else_exp = en->next->next->data;
+				str then_type = getWeldType(exp_subtype(then_exp)->type->localtype);
+				wprintf(wstate, "if(");
+				exp_to_weld(be, wstate, cond_exp);
+				wprintf(wstate, " == i8nil, %snil, if(", then_type);
+				exp_to_weld(be, wstate, cond_exp);
+				wprintf(wstate, " > 0c, ");
+				exp_to_weld(be, wstate, then_exp);
+				wprintf(wstate, ", ");
+				exp_to_weld(be, wstate, else_exp);
+				wprintf(wstate, "))");
+			} else if (strcmp(weld_func, "=")) {
+				wprintf(wstate, "i8(");
+				exps_to_weld(be, wstate, exp->l, " == ");
+				wprintf(wstate, ")");
+			} else if (strcmp(weld_func, "isnil")) {
+				sql_exp *e = ((list*)exp->l)->h->data;
+				str type = getWeldType(exp_subtype(e)->type->localtype);
+				wprintf(wstate, "i8(");
+				exp_to_weld(be, wstate, e);
+				wprintf(wstate, " == %snil)", type);
 			} else {
 				wprintf(wstate, "%s(", weld_func);
+				exps_to_weld(be, wstate, exp->l, ", ");
+				wprintf(wstate, ")");
 			}
-			exps_to_weld(be, wstate, exp->l, ", ");
-			wprintf(wstate, ")");
 		}
 		break;
 	}
