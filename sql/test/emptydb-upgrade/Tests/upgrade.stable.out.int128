@@ -5297,8 +5297,6 @@ insert into sys.functions values (134, 'count_no_nil', 'count_no_nil', 'aggr', 0
 insert into sys.args values (11882, 134, 'res', 'bigint', 64, 0, 0, 0);
 insert into sys.functions values (135, 'count', 'count', 'aggr', 0, 3, false, false, false, 2000, true);
 insert into sys.args values (11883, 135, 'res', 'bigint', 64, 0, 0, 0);
-delete from sys.systemfunctions where function_id < 2000;
-insert into sys.systemfunctions (select id from sys.functions where id < 2000);
 set schema "sys";
 
 Running database upgrade commands:
@@ -5338,8 +5336,6 @@ as select "schema","table",max(count) as "count",
   sum("imprints") as "imprints",
   sum(case when sorted = false then 8 * count else 0 end) as auxiliary
 from sys.storagemodel() group by "schema","table";
-insert into sys.systemfunctions (select id from sys.functions where name in ('fuse', 'generate_series', 'stddev_samp', 'stddev_pop', 'var_samp', 'var_pop', 'median', 'quantile', 'corr') and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));
-insert into sys.systemfunctions (select id from sys.functions where name = 'filter' and schema_id = (select id from sys.schemas where name = 'json') and id not in (select function_id from sys.systemfunctions));
 update sys._tables set system = true where name = 'tablestoragemodel' and schema_id = (select id from sys.schemas where name = 'sys');
 grant execute on aggregate sys.stddev_samp(hugeint) to public;
 grant execute on aggregate sys.stddev_pop(hugeint) to public;
@@ -5358,7 +5354,10 @@ create system aggregate sys.group_concat(str string) returns string external nam
 grant execute on aggregate sys.group_concat(string) to public;
 create system aggregate sys.group_concat(str string, sep string) returns string external name "aggr"."str_group_concat";
 grant execute on aggregate sys.group_concat(string, string) to public;
-insert into sys.systemfunctions (select id from sys.functions where name in ('group_concat') and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));
+drop table sys.systemfunctions;
+create view sys.systemfunctions as select id as function_id from sys.functions where system;
+grant select on sys.systemfunctions to public;
+update sys._tables set system = true where name = 'systemfunctions' and schema_id = (select id from sys.schemas where name = 'sys');
 set schema "sys";
 commit;
 

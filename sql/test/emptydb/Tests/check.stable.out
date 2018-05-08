@@ -73,7 +73,6 @@ Ready.
 \dSt sys.spatial_ref_sys
 \dSt sys.statistics
 \dSt sys.storagemodelinput
-\dSt sys.systemfunctions
 \dSt sys.table_types
 \dSt sys.triggers
 \dSt sys.types
@@ -124,6 +123,7 @@ Ready.
 \dSv sys.sessions
 \dSv sys.storage
 \dSv sys.storagemodel
+\dSv sys.systemfunctions
 \dSv sys.tables
 \dSv sys.tablestoragemodel
 \dSv sys.tracelog
@@ -402,7 +402,6 @@ SYSTEM TABLE  sys.sequences
 SYSTEM TABLE  sys.spatial_ref_sys
 SYSTEM TABLE  sys.statistics
 SYSTEM TABLE  sys.storagemodelinput
-SYSTEM TABLE  sys.systemfunctions
 SYSTEM TABLE  sys.table_types
 SYSTEM TABLE  sys.triggers
 SYSTEM TABLE  sys.types
@@ -447,6 +446,7 @@ SYSTEM VIEW  sys.roles
 SYSTEM VIEW  sys.sessions
 SYSTEM VIEW  sys.storage
 SYSTEM VIEW  sys.storagemodel
+SYSTEM VIEW  sys.systemfunctions
 SYSTEM VIEW  sys.tables
 SYSTEM VIEW  sys.tablestoragemodel
 SYSTEM VIEW  sys.tracelog
@@ -885,7 +885,6 @@ CREATE TABLE "sys"."sequences" ("id" INTEGER, "schema_id" INTEGER, "name" VARCHA
 CREATE TABLE "sys"."spatial_ref_sys" ("srid" INTEGER NOT NULL, "auth_name" VARCHAR(256), "auth_srid" INTEGER, "srtext" VARCHAR(2048), "proj4text" VARCHAR(2048), CONSTRAINT "spatial_ref_sys_srid_pkey" PRIMARY KEY ("srid"));
 CREATE TABLE "sys"."statistics" ("column_id" INTEGER, "type" CHARACTER LARGE OBJECT, "width" INTEGER, "stamp" TIMESTAMP, "sample" BIGINT, "count" BIGINT, "unique" BIGINT, "nils" BIGINT, "minval" CHARACTER LARGE OBJECT, "maxval" CHARACTER LARGE OBJECT, "sorted" BOOLEAN, "revsorted" BOOLEAN);
 CREATE TABLE "sys"."storagemodelinput" ("schema" CHARACTER LARGE OBJECT, "table" CHARACTER LARGE OBJECT, "column" CHARACTER LARGE OBJECT, "type" CHARACTER LARGE OBJECT, "typewidth" INTEGER, "count" BIGINT, "distinct" BIGINT, "atomwidth" INTEGER, "reference" BOOLEAN, "sorted" BOOLEAN, "revsorted" BOOLEAN, "unique" BOOLEAN, "orderidx" BIGINT);
-CREATE TABLE "sys"."systemfunctions" ("function_id" INTEGER NOT NULL);
 CREATE TABLE "sys"."table_types" ("table_type_id" SMALLINT NOT NULL, "table_type_name" VARCHAR(25) NOT NULL, CONSTRAINT "table_types_table_type_id_pkey" PRIMARY KEY ("table_type_id"), CONSTRAINT "table_types_table_type_name_unique" UNIQUE ("table_type_name"));
 CREATE TABLE "sys"."triggers" ("id" INTEGER, "name" VARCHAR(1024), "table_id" INTEGER, "time" SMALLINT, "orientation" SMALLINT, "event" SMALLINT, "old_name" VARCHAR(1024), "new_name" VARCHAR(1024), "condition" VARCHAR(2048), "statement" VARCHAR(2048));
 CREATE TABLE "sys"."types" ("id" INTEGER, "systemname" VARCHAR(256), "sqlname" VARCHAR(1024), "digits" INTEGER, "scale" INTEGER, "radix" INTEGER, "eclass" INTEGER, "schema_id" INTEGER);
@@ -936,6 +935,7 @@ create view sys.roles as select id, name, grantor from sys.auths a where a.name 
 create view sys.sessions as select * from sys.sessions();
 create view sys."storage" as select * from sys."storage"();
 create view sys.storagemodel as select * from sys.storagemodel();
+create view sys.systemfunctions as select id as function_id from sys.functions where system;
 SELECT "id", "name", "schema_id", "query", CAST(CASE WHEN "system" THEN "type" + 10 ELSE (CASE WHEN "commit_action" = 0 THEN "type" ELSE "type" + 20 END) END AS SMALLINT) AS "type", "system", "commit_action", "access", CASE WHEN (NOT "system" AND "commit_action" > 0) THEN 1 ELSE 0 END AS "temporary" FROM "sys"."_tables" WHERE "type" <> 2 UNION ALL SELECT "id", "name", "schema_id", "query", CAST("type" + 30 AS SMALLINT) AS "type", "system", "commit_action", "access", 1 AS "temporary" FROM "tmp"."_tables";
 create view sys.tablestoragemodel as select "schema","table",max(count) as "count", sum(columnsize) as columnsize, sum(heapsize) as heapsize, sum(hashes) as hashes, sum("imprints") as "imprints", sum(case when sorted = false then 8 * count else 0 end) as auxiliary from sys.storagemodel() group by "schema","table";
 create view sys.tracelog as select * from sys.tracelog();
@@ -1459,7 +1459,7 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"storage",	"create view sys.\"storage\" as select * from sys.\"storage\"();",	"VIEW",	true,	"COMMIT",	"WRITABLE"	]
 [ "sys",	"storagemodel",	"create view sys.storagemodel as select * from sys.storagemodel();",	"VIEW",	true,	"COMMIT",	"WRITABLE"	]
 [ "sys",	"storagemodelinput",	NULL,	"TABLE",	true,	"COMMIT",	"WRITABLE"	]
-[ "sys",	"systemfunctions",	NULL,	"TABLE",	true,	"COMMIT",	"WRITABLE"	]
+[ "sys",	"systemfunctions",	"create view sys.systemfunctions as select id as function_id from sys.functions where system;",	"VIEW",	true,	"COMMIT",	"WRITABLE"	]
 [ "sys",	"table_types",	NULL,	"TABLE",	true,	"COMMIT",	"READONLY"	]
 [ "sys",	"tables",	"SELECT \"id\", \"name\", \"schema_id\", \"query\", CAST(CASE WHEN \"system\" THEN \"type\" + 10 /* system table/view */ ELSE (CASE WHEN \"commit_action\" = 0 THEN \"type\" /* table/view */ ELSE \"type\" + 20 /* global temp table */ END) END AS SMALLINT) AS \"type\", \"system\", \"commit_action\", \"access\", CASE WHEN (NOT \"system\" AND \"commit_action\" > 0) THEN 1 ELSE 0 END AS \"temporary\" FROM \"sys\".\"_tables\" WHERE \"type\" <> 2 UNION ALL SELECT \"id\", \"name\", \"schema_id\", \"query\", CAST(\"type\" + 30 /* local temp table */ AS SMALLINT) AS \"type\", \"system\", \"commit_action\", \"access\", 1 AS \"temporary\" FROM \"tmp\".\"_tables\";",	"VIEW",	true,	"COMMIT",	"WRITABLE"	]
 [ "sys",	"tablestoragemodel",	"create view sys.tablestoragemodel as select \"schema\",\"table\",max(count) as \"count\", sum(columnsize) as columnsize, sum(heapsize) as heapsize, sum(hashes) as hashes, sum(\"imprints\") as \"imprints\", sum(case when sorted = false then 8 * count else 0 end) as auxiliary from sys.storagemodel() group by \"schema\",\"table\";",	"VIEW",	true,	"COMMIT",	"WRITABLE"	]
@@ -2003,7 +2003,7 @@ drop function pcre_replace(string, string, string, string);
 [ "storagemodelinput",	"revsorted",	"boolean",	1,	0,	NULL,	true,	10,	NULL	]
 [ "storagemodelinput",	"unique",	"boolean",	1,	0,	NULL,	true,	11,	NULL	]
 [ "storagemodelinput",	"orderidx",	"bigint",	64,	0,	NULL,	true,	12,	NULL	]
-[ "systemfunctions",	"function_id",	"int",	32,	0,	NULL,	false,	0,	NULL	]
+[ "systemfunctions",	"function_id",	"int",	32,	0,	NULL,	true,	0,	NULL	]
 [ "table_types",	"table_type_id",	"smallint",	16,	0,	NULL,	false,	0,	NULL	]
 [ "table_types",	"table_type_name",	"varchar",	25,	0,	NULL,	false,	1,	NULL	]
 [ "tables",	"id",	"int",	32,	0,	NULL,	true,	0,	NULL	]
@@ -4113,6 +4113,7 @@ drop function pcre_replace(string, string, string, string);
 [ "tmp",	"keys",	"sys",	"ids",	"VIEW"	]
 [ "tmp",	"triggers",	"sys",	"ids",	"VIEW"	]
 [ "sys",	"auths",	"sys",	"roles",	"VIEW"	]
+[ "sys",	"functions",	"sys",	"systemfunctions",	"VIEW"	]
 #select s1.name, t1.name, c1.name, s2.name, t2.name, dt.dependency_type_name from sys.dependencies d left outer join sys.dependency_types dt on d.depend_type = dt.dependency_type_id, schemas s1, _tables t1, _columns c1, schemas s2, _tables t2 where d.id = c1.id and c1.table_id = t1.id and t1.schema_id = s1.id and d.depend_id = t2.id and t2.schema_id = s2.id order by s2.name, t2.name, s1.name, t1.name, c1.name;
 % sys.s1,	sys.t1,	sys.c1,	sys.s2,	sys.t2,	.dt # table_name
 % name,	name,	name,	name,	name,	dependency_type_name # name
@@ -4328,6 +4329,8 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"auths",	"grantor",	"sys",	"roles",	"VIEW"	]
 [ "sys",	"auths",	"id",	"sys",	"roles",	"VIEW"	]
 [ "sys",	"auths",	"name",	"sys",	"roles",	"VIEW"	]
+[ "sys",	"functions",	"id",	"sys",	"systemfunctions",	"VIEW"	]
+[ "sys",	"functions",	"system",	"sys",	"systemfunctions",	"VIEW"	]
 #select s1.name, t1.name, c1.name, s2.name, t2.name, k2.name, dt.dependency_type_name from sys.dependencies d left outer join sys.dependency_types dt on d.depend_type = dt.dependency_type_id, _tables t1, _tables t2, schemas s1, schemas s2, _columns c1, keys k2 where d.id = c1.id and d.depend_id = k2.id and c1.table_id = t1.id and t1.schema_id = s1.id and k2.table_id = t2.id and t2.schema_id = s2.id order by s2.name, t2.name, k2.name, s1.name, t1.name, c1.name;
 % sys.s1,	sys.t1,	sys.c1,	sys.s2,	sys.t2,	sys.k2,	.dt # table_name
 % name,	name,	name,	name,	name,	name,	dependency_type_name # name

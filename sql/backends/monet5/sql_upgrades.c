@@ -170,10 +170,6 @@ sql_fix_system_tables(Client c, mvc *sql)
 					arg->inout);
 		}
 	}
-	pos += snprintf(buf + pos, bufsize - pos,
-			"delete from sys.systemfunctions where function_id < 2000;\n"
-			"insert into sys.systemfunctions"
-			" (select id from sys.functions where id < 2000);\n");
 
 	if (schema)
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
@@ -256,8 +252,6 @@ sql_update_hugeint(Client c, mvc *sql)
 			"from sys.storagemodel() group by \"schema\",\"table\";\n");
 
 	pos += snprintf(buf + pos, bufsize - pos,
-			"insert into sys.systemfunctions (select id from sys.functions where name in ('fuse', 'generate_series', 'stddev_samp', 'stddev_pop', 'var_samp', 'var_pop', 'median', 'quantile', 'corr') and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));\n"
-			"insert into sys.systemfunctions (select id from sys.functions where name = 'filter' and schema_id = (select id from sys.schemas where name = 'json') and id not in (select function_id from sys.systemfunctions));\n"
 			"update sys._tables set system = true where name = 'tablestoragemodel' and schema_id = (select id from sys.schemas where name = 'sys');\n");
 
 	if (s != NULL) {
@@ -536,15 +530,6 @@ sql_update_dec2016(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos,
 			"alter table sys.statistics add column \"revsorted\" boolean;\n");
 
-	pos += snprintf(buf + pos, bufsize - pos,
-			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('storage', 'storagemodel') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n",
-			F_UNION);
-	pos += snprintf(buf + pos, bufsize - pos,
-			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('createorderindex', 'droporderindex', 'storagemodelinit') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n",
-			F_PROC);
-	pos += snprintf(buf + pos, bufsize - pos,
-			"delete from systemfunctions where function_id not in (select id from functions);\n");
-
 	if (schema)
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
@@ -625,8 +610,7 @@ sql_update_dec2016_sp3(Client c, mvc *sql)
 			"drop procedure sys.setsession(bigint);\n"
 			"create system procedure sys.settimeout(\"query\" bigint) external name clients.settimeout;\n"
 			"create system procedure sys.settimeout(\"query\" bigint, \"session\" bigint) external name clients.settimeout;\n"
-			"create system procedure sys.setsession(\"timeout\" bigint) external name clients.setsession;\n"
-			"delete from systemfunctions where function_id not in (select id from functions);\n");
+			"create system procedure sys.setsession(\"timeout\" bigint) external name clients.setsession;\n");
 	if (schema)
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
@@ -667,16 +651,14 @@ sql_update_jul2017(Client c, mvc *sql)
 			"drop function sys.optimizer_stats();\n"
 			"create system function sys.optimizer_stats() "
 			"returns table (optname string, count int, timing bigint) "
-			"external name inspect.optimizer_stats;\n"
-			"insert into sys.systemfunctions (select id from sys.functions where name in ('malfunctions', 'optimizer_stats') and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));\n");
+			"external name inspect.optimizer_stats;\n");
 
 	/* 46_profiler.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
 			"create system function profiler.getlimit() returns integer external name profiler.getlimit;\n"
 			"create system procedure profiler.setlimit(lim integer) external name profiler.setlimit;\n"
 			"drop procedure profiler.setpoolsize;\n"
-			"drop procedure profiler.setstream;\n"
-			"insert into sys.systemfunctions (select id from sys.functions where name in ('getlimit', 'setlimit') and schema_id = (select id from sys.schemas where name = 'profiler') and id not in (select function_id from sys.systemfunctions));\n");
+			"drop procedure profiler.setstream;\n");
 
 	/* 51_sys_schema_extensions.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -736,15 +718,11 @@ sql_update_jul2017(Client c, mvc *sql)
 		if (BATcount(b) > 0) {
 			pos += snprintf(buf + pos, bufsize - pos,
 					"drop procedure SHPload(integer);\n"
-					"create system procedure SHPload(fid integer) external name shp.import;\n"
-					"insert into sys.systemfunctions (select id from sys.functions where name = 'shpload' and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));\n");
+					"create system procedure SHPload(fid integer) external name shp.import;\n");
 		}
 		BBPunfix(b->batCacheid);
 	}
 	res_tables_destroy(output);
-
-	pos += snprintf(buf + pos, bufsize - pos,
-			"delete from sys.systemfunctions where function_id not in (select id from sys.functions);\n");
 
 	if (schema)
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
@@ -882,9 +860,6 @@ sql_update_mar2018_geom(Client c, mvc *sql, sql_table *t)
 			"\t  and c.type in (select sqlname from sys.types where systemname in ('wkb', 'wkba'));\n"
 			"GRANT SELECT ON sys.geometry_columns TO PUBLIC;\n"
 			"update sys._tables set system = true where name = 'geometry_columns' and schema_id in (select id from schemas where name = 'sys');\n");
-
-	pos += snprintf(buf + pos, bufsize - pos,
-			"delete from sys.systemfunctions where function_id not in (select id from sys.functions);\n");
 
 	if (schema)
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
@@ -1212,9 +1187,6 @@ sql_update_mar2018(Client c, mvc *sql)
 				"create system aggregate corr(e1 HUGEINT, e2 HUGEINT) returns DOUBLE\n\texternal name \"aggr\".\"corr\";\n"
 			"grant execute on aggregate sys.corr(hugeint, hugeint) to public;\n");
 #endif
-	pos += snprintf(buf + pos, bufsize - pos,
-			"insert into sys.systemfunctions (select id from sys.functions where name = 'corr' and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));\n");
-
 	/* 51_sys_schema_extensions.sql */
 	t = mvc_bind_table(sql, s, "privilege_codes");
 	t->system = 0;
@@ -1347,7 +1319,6 @@ sql_update_mar2018(Client c, mvc *sql)
 			"external name wlr.\"getreplicaclock\";\n"
 			"create system function replicaTick() returns bigint\n"
 			"external name wlr.\"getreplicatick\";\n"
-			"insert into sys.systemfunctions (select id from sys.functions where name in ('master', 'stopmaster', 'masterbeat', 'masterclock', 'mastertick', 'replicate', 'replicabeat', 'replicaclock', 'replicatick') and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));\n"
 		);
 
 	/* comments */
@@ -1356,12 +1327,7 @@ sql_update_mar2018(Client c, mvc *sql)
 			"SET system = true\n"
 			"WHERE name = 'comments'\n"
 			"AND schema_id = (SELECT id FROM sys.schemas WHERE name = 'sys');\n"
-			"DELETE FROM sys.systemfunctions WHERE function_id IS NULL;\n"
-			"ALTER TABLE sys.systemfunctions ALTER COLUMN function_id SET NOT NULL;\n"
 		);
-	pos += snprintf(buf + pos, bufsize - pos,
-			"delete from sys.systemfunctions where function_id not in (select id from sys.functions);\n");
-
 	if (schema)
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
@@ -1453,23 +1419,20 @@ sql_update_mar2018_samtools(Client c, mvc *sql)
 	if (sql_bind_func_(sql->sa, s, "seq_char", l, F_FUNC) == NULL) {
 		pos += snprintf(buf + pos, bufsize - pos,
 				"CREATE SYSTEM FUNCTION bam.seq_char(ref_pos INT, alg_seq STRING, alg_pos INT, alg_cigar STRING)\n"
-				"RETURNS CHAR(1) EXTERNAL NAME bam.seq_char;\n"
-			"insert into sys.systemfunctions (select id from sys.functions where name in ('seq_char') and schema_id = (select id from sys.schemas where name = 'bam') and id not in (select function_id from sys.systemfunctions));\n");
+				"RETURNS CHAR(1) EXTERNAL NAME bam.seq_char;\n");
 	}
 	sql_find_subtype(&tpi, "smallint", 0, 0);
 	if (sql_bind_func3(sql->sa, s, "bam_loader_repos", &tps, &tpi, &tpi, F_PROC) != NULL) {
 		pos += snprintf(buf + pos, bufsize - pos,
 				"drop procedure bam.bam_loader_repos(string, smallint, smallint);\n"
-				"drop procedure bam.bam_loader_files(string, smallint, smallint);\n"
-				"delete from systemfunctions where function_id not in (select id from functions);\n");
+				"drop procedure bam.bam_loader_files(string, smallint, smallint);\n");
 	}
 	if (sql_bind_func(sql->sa, s, "bam_loader_repos", &tps, &tpi, F_PROC) == NULL) {
 		pos += snprintf(buf + pos, bufsize - pos,
 				"CREATE SYSTEM PROCEDURE bam.bam_loader_repos(bam_repos STRING, dbschema SMALLINT)\n"
 				"EXTERNAL NAME bam.bam_loader_repos;\n"
 				"CREATE SYSTEM PROCEDURE bam.bam_loader_files(bam_files STRING, dbschema SMALLINT)\n"
-				"EXTERNAL NAME bam.bam_loader_files;\n"
-			"insert into sys.systemfunctions (select id from sys.functions where name in ('bam_loader_repos', 'bam_loader_files') and schema_id = (select id from sys.schemas where name = 'bam') and id not in (select function_id from sys.systemfunctions));\n");
+				"EXTERNAL NAME bam.bam_loader_files;\n");
 	}
 
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -1508,18 +1471,29 @@ sql_update_default(Client c, mvc *sql)
 	size_t bufsize = 1000, pos = 0;
 	char *buf, *err;
 	char *schema;
+	sql_schema *s;
+	sql_table *t;
 
 	schema = stack_get_string(sql, "current_schema");
 	if ((buf = GDKmalloc(bufsize)) == NULL)
 		throw(SQL, "sql_update_default", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+
+	s = mvc_bind_schema(sql, "sys");
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema sys;\n");
 	pos += snprintf(buf + pos, bufsize - pos,
 			"create system aggregate sys.group_concat(str string) returns string external name \"aggr\".\"str_group_concat\";\n"
 			"grant execute on aggregate sys.group_concat(string) to public;\n"
 			"create system aggregate sys.group_concat(str string, sep string) returns string external name \"aggr\".\"str_group_concat\";\n"
-			"grant execute on aggregate sys.group_concat(string, string) to public;\n"
-			"insert into sys.systemfunctions (select id from sys.functions where name in ('group_concat') and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));\n");
+			"grant execute on aggregate sys.group_concat(string, string) to public;\n");
+
+	t = mvc_bind_table(sql, s, "systemfunctions");
+	t->system = 0;
+	pos += snprintf(buf + pos, bufsize - pos,
+			"drop table sys.systemfunctions;\n"
+			"create view sys.systemfunctions as select id as function_id from sys.functions where system;\n"
+			"grant select on sys.systemfunctions to public;\n"
+			"update sys._tables set system = true where name = 'systemfunctions' and schema_id = (select id from sys.schemas where name = 'sys');\n");
 
 	if (schema)
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
