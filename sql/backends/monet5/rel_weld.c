@@ -360,7 +360,8 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 		}
 		int is_infix = 0;
 		if (strcmp(weld_func, "+") == 0 || strcmp(weld_func, "-") == 0 ||
-			strcmp(weld_func, "*") == 0 || strcmp(weld_func, "/") == 0) {
+			strcmp(weld_func, "*") == 0 || strcmp(weld_func, "/") == 0 ||
+			strcmp(weld_func, "&") == 0 || strcmp(weld_func, "|") == 0) {
 			is_infix = 1;
 		}
 		if (is_infix) {
