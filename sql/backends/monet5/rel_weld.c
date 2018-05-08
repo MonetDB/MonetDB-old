@@ -817,7 +817,11 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	for (en = rel->exps->h; en; en = en->next) {
 		exp = en->data;
 		if (exp->type == e_aggr) {
+			/* We might have different types when doing the aggregation */
+			str weld_type = getWeldType(exp_subtype(exp)->type->localtype);
+			wprintf(wstate, "%s(", weld_type);
 			exp_to_weld(be, wstate, exp);
+			wprintf(wstate, ")");
 			if (en->next != NULL) {
 				wprintf(wstate, ", ");
 			}
