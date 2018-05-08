@@ -560,7 +560,7 @@ bl_postversion(void *lg)
 		bat_destroy(b);
 		i = 10;
 		if ((b = temp_descriptor(logger_find_bat(lg, N("sys", "_columns", "number")))) == NULL ||
-		    BUNappend(b, &b, TRUE) != GDK_SUCCEED)
+		    BUNappend(b, &i, TRUE) != GDK_SUCCEED)
 			goto bailout;
 		bat_destroy(b);
 		if ((b = temp_descriptor(logger_find_bat(lg, N("sys", "_columns", "storage")))) == NULL ||
