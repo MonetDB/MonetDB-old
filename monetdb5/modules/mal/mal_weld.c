@@ -50,6 +50,8 @@ void getOrSetStructMember(char **addr, int type, const void *value, int op) {
 str getWeldType(int type) {
 	if (type == TYPE_bte)
 		return "i8";
+	if (type == TYPE_sht)
+		return "i16";
 	else if (type == TYPE_int)
 		return "i32";
 	else if (type == TYPE_lng)
