@@ -914,7 +914,7 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	for (en = rel->exps->h; en; en = en->next) {
 		/* left cmp */
 		exp = ((sql_exp*)en->data)->l;
-		col_name = get_col_name(wstate->sa, exp, ANY);
+		col_name = get_col_name(wstate->sa, exp, REL);
 		if (list_find(right_cols, col_name, (fcmp)strcmp)) {
 			list_append(right_cmp_cols, col_name);
 		} else {
@@ -922,7 +922,7 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		}
 		/* right cmp */
 		exp = ((sql_exp*)en->data)->r;
-		col_name = get_col_name(wstate->sa, exp, ANY);
+		col_name = get_col_name(wstate->sa, exp, REL);
 		if (list_find(right_cols, col_name, (fcmp)strcmp)) {
 			list_append(right_cmp_cols, col_name);
 		} else {
