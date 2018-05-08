@@ -163,7 +163,7 @@ re_match_no_ignore(const char *s, RE *pattern)
 	return 1;
 }
 
-static void
+void
 re_destroy(RE *p)
 {
 	while (p) {

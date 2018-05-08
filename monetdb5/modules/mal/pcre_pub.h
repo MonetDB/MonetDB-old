@@ -18,3 +18,4 @@ typedef struct RE {
 int re_simple(const char *pat);
 RE *re_create(const char *pat, int nr);
 int re_match_no_ignore(const char *s, RE *pattern);
+void re_destroy(RE *p);

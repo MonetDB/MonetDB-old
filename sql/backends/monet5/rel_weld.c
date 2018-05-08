@@ -278,18 +278,28 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 			exps_to_weld(be, wstate, exp->r, "");
 			wprintf(wstate, ")");
 		} else if (get_cmp(exp) == cmp_filter) {
-			/* Must be an udf */
 			str udf = get_weld_func(exp->f);
-			int state_ptr = wstate->next_var++;
-			sprintf(wstate->global_init + strlen(wstate->global_init),
-					"let v%d = cudf[state_init, i64](\"%s\");", state_ptr, udf);
-			sprintf(wstate->global_cleanup + strlen(wstate->global_cleanup),
-					"let v%d = cudf[state_cleanup, i64](\"%s\", v%d);", state_ptr, udf, state_ptr);
-			wprintf(wstate, "cudf[%s, bool](v%d,", udf, state_ptr);
-			exps_to_weld(be, wstate, exp->l, ", ");
-			wprintf(wstate, ", ");
-			exps_to_weld(be, wstate, exp->r, ", ");
-			wprintf(wstate, ")");
+			if (strcmp(udf, "like") == 0) {
+				int state_ptr = wstate->next_var++;
+				sprintf(wstate->global_init + strlen(wstate->global_init),
+						"let v%d = cudf[like_pattern_init, i64](", state_ptr);
+				/* Process the pattern and the escape */
+				unsigned long old_len = wstate->program_len;
+				exps_to_weld(be, wstate, exp->r, ", ");
+				/* Add the pattern and the escape to the init udf */
+				sprintf(wstate->global_init + strlen(wstate->global_init), "%s);",
+						wstate->program + old_len);
+				sprintf(wstate->global_cleanup + strlen(wstate->global_cleanup),
+						"let v%d = cudf[like_pattern_cleanup, i64](v%d);", state_ptr, state_ptr);
+				wstate->program_len = old_len;
+
+				wprintf(wstate, "cudf[%s, bool](v%d,", udf, state_ptr);
+				exps_to_weld(be, wstate, exp->l, ", ");
+				wprintf(wstate, ")");
+			} else {
+				wstate->error = 1;
+				return;
+			}
 		} else if (exp->f) {
 			if (get_weld_cmp(swap_compare(range2lcompare(exp->flag))) == NULL) {
 				wstate->error = 1;
