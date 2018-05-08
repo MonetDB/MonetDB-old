@@ -116,10 +116,10 @@ has_hugeint(Mapi mid)
 {
 	MapiHdl hdl;
 	int ret;
-	static int hashge = -1;
+	static int answer = -1;
 
-	if (hashge >= 0)
-		return hashge;
+	if (answer >= 0)
+		return answer;
 
 	if ((hdl = mapi_query(mid,
 			      "SELECT id "
@@ -135,8 +135,56 @@ has_hugeint(Mapi mid)
 	if (mapi_error(mid))
 		goto bailout;
 	mapi_close_handle(hdl);
-	hashge = ret;
-	return ret;
+	answer = ret;
+	return answer;
+
+  bailout:
+	if (hdl) {
+		if (mapi_result_error(hdl))
+			mapi_explain_result(hdl, stderr);
+		else
+			mapi_explain_query(hdl, stderr);
+		mapi_close_handle(hdl);
+	} else
+		mapi_explain(mid, stderr);
+	return 0;
+}
+
+/* return TRUE if the sys.functions table has a column called system */
+static int
+has_funcsys(Mapi mid)
+{
+	MapiHdl hdl;
+	int ret;
+	static int answer = -1;
+
+	if (answer >= 0)
+		return answer;
+
+	if ((hdl = mapi_query(mid,
+			      "SELECT id "
+			      "FROM sys._columns "
+			      "WHERE name = 'system' "
+			      "AND table_id = ("
+			      " SELECT id"
+			      " FROM sys._tables"
+			      " WHERE name = 'functions'"
+			      " AND schema_id = ("
+			      "  SELECT id"
+			      "  FROM sys.schemas"
+			      "  WHERE name = 'sys'))")) == NULL ||
+	    mapi_error(mid))
+		goto bailout;
+	ret = mapi_get_row_count(hdl) == 1;
+	while ((mapi_fetch_row(hdl)) != 0) {
+		if (mapi_error(mid))
+			goto bailout;
+	}
+	if (mapi_error(mid))
+		goto bailout;
+	mapi_close_handle(hdl);
+	answer = ret;
+	return answer;
 
   bailout:
 	if (hdl) {
@@ -1544,15 +1592,19 @@ dump_functions(Mapi mid, stream *toConsole, char set_schema, const char *sname, 
 		"FROM sys.schemas s "
 		"JOIN sys.functions f ON s.id = f.schema_id "
 		"LEFT OUTER JOIN sys.comments rem ON f.id = rem.id "
-		"WHERE f.language > 0 ");
+		"WHERE f.language > 0");
 	if (sname)
-		q += snprintf(q, end_q - q, "AND s.name = '%s' ", sname);
+		q += snprintf(q, end_q - q, " AND s.name = '%s'", sname);
 	if (fname)
-		q += snprintf(q, end_q - q, "AND f.name = '%s' ", fname);
+		q += snprintf(q, end_q - q, " AND f.name = '%s'", fname);
 	if (id)
-		q += snprintf(q, end_q - q, "AND f.id = %s ", id);
-	if (!wantSystem)
-		q += snprintf(q, end_q - q, "AND f.id NOT IN (SELECT function_id FROM sys.systemfunctions) ");
+		q += snprintf(q, end_q - q, " AND f.id = %s", id);
+	if (!wantSystem) {
+		if (has_funcsys(mid))
+			q += snprintf(q, end_q - q, " AND NOT f.system");
+		else
+			q += snprintf(q, end_q - q, " AND f.id NOT IN (SELECT function_id FROM sys.systemfunctions)");
+	}
 	q += snprintf(q, end_q - q, " ORDER BY f.func, f.id");
 
 	hdl = mapi_query(mid, query);
@@ -1675,6 +1727,25 @@ dump_database(Mapi mid, stream *toConsole, int describe, bool useInserts)
 		      "p.grantor = g.id "
 		"ORDER BY s.name, t.name, c.name, a.name, g.name, p.grantable";
 	const char *function_grants =
+		has_funcsys(mid) ?
+		"SELECT s.name, f.name, a.name, "
+		       "CASE p.privileges "
+			    "WHEN 1 THEN 'SELECT' "
+			    "WHEN 2 THEN 'UPDATE' "
+			    "WHEN 4 THEN 'INSERT' "
+			    "WHEN 8 THEN 'DELETE' "
+			    "WHEN 16 THEN 'EXECUTE' "
+			    "WHEN 32 THEN 'GRANT' END, "
+		       "g.name, p.grantable "
+		"FROM sys.schemas s, sys.functions f, "
+		     "sys.auths a, sys.privileges p, sys.auths g "
+		"WHERE s.id = f.schema_id AND "
+		      "f.id = p.obj_id AND "
+		      "p.auth_id = a.id AND "
+		      "p.grantor = g.id "
+		      "AND NOT f.system "
+		"ORDER BY s.name, f.name, a.name, g.name, p.grantable"
+		:
 		"SELECT s.name, f.name, a.name, "
 		       "CASE p.privileges "
 			    "WHEN 1 THEN 'SELECT' "
@@ -1751,6 +1822,43 @@ dump_database(Mapi mid, stream *toConsole, int describe, bool useInserts)
 	/* we must dump views, functions and triggers in order of
 	 * creation since they can refer to each other */
 	const char *views_functions_triggers =
+		has_funcsys(mid) ?
+		"WITH vft (sname, name, id, query, remark) AS ("
+			"SELECT s.name AS sname, "
+			       "t.name AS name, "
+			       "t.id AS id, "
+			       "t.query AS query, "
+			       "rem.remark AS remark "
+			"FROM sys.schemas s, "
+			     "sys._tables t LEFT OUTER JOIN sys.comments rem ON t.id = rem.id "
+			"WHERE t.type = 1 AND "
+			      "t.system = FALSE AND "
+			      "s.id = t.schema_id AND "
+			      "s.name <> 'tmp' "
+			"UNION "
+			"SELECT s.name AS sname, "
+			       "f.name AS name, "
+			       "f.id AS id, "
+			       "NULL AS query, "
+			       "NULL AS remark " /* emitted separately */
+			"FROM sys.schemas s, "
+			     "sys.functions f "
+			"WHERE s.id = f.schema_id "
+			"AND NOT f.system "
+			"UNION "
+			"SELECT s.name AS sname, "
+			       "tr.name AS name, "
+			       "tr.id AS id, "
+			       "tr.\"statement\" AS query, "
+			       "NULL AS remark " /* not available yet */
+			"FROM sys.triggers tr, "
+			     "sys.schemas s, "
+			     "sys._tables t "
+			"WHERE s.id = t.schema_id AND "
+			      "t.id = tr.table_id AND t.system = FALSE"
+		") "
+		"SELECT id, sname, name, query, remark FROM vft ORDER BY id"
+		:
 		"WITH vft (sname, name, id, query, remark) AS ("
 			"SELECT s.name AS sname, "
 			       "t.name AS name, "
