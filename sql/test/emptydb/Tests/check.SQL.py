@@ -53,7 +53,7 @@ for res in re.finditer(r'(?<=\n)(?:create|select)\b.*?;', out, flags = re.DOTALL
     nout += out[pos:res.start(0)] + wsre.sub(' ', res.group(0)).replace('( ', '(').replace(' )', ')')
     pos = res.end(0)
 nout += out[pos:]
-out = nout
+out = nout.replace('\ncreate system ', '\ncreate ')
 
 sys.stdout.write(out)
 sys.stderr.write(err)
@@ -84,7 +84,7 @@ MAXARGS = 16
 # columns of the args table we're interested in
 args = ['name', 'type', 'type_digits', 'type_scale', 'inout']
 
-out += r"select s.name, f.name, case f.system when true then 'SYSTEM' else '' end as system, replace(replace(pcre_replace(pcre_replace(pcre_replace(f.func, '--.*\n', '', ''), '[ \t\n]+', ' ', 'm'), '^ ', '', ''), '( ', '('), ' )', ')') as query, f.mod, fl.language_name, ft.function_type_name, f.side_effect, f.varres, f.vararg"
+out += r"select s.name, f.name, case f.system when true then 'SYSTEM' else '' end as system, replace(replace(replace(pcre_replace(pcre_replace(pcre_replace(f.func, '--.*\n', '', ''), '[ \t\n]+', ' ', 'm'), '^ ', '', ''), '( ', '('), ' )', ')'), 'create system ', 'create ') as query, f.mod, fl.language_name, ft.function_type_name, f.side_effect, f.varres, f.vararg"
 for i in range(0, MAXARGS):
     for a in args[:-1]:
         out += ", a%d.%s as %s%d" % (i, a, a, i)
