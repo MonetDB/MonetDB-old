@@ -403,7 +403,12 @@ base_table_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	wprintf(wstate, "for(zip(");
 	for (en = rel->exps->h; en; en = en->next) {
 		exp = en->data;
-		stmt *col = bin_find_column(be, sub, exp->l, exp->r);
+		stmt *col;
+		if (exp->name) {
+			col = bin_find_column(be, sub, exp->rname ? exp->rname : exp->name, exp->name);
+		} else {
+			col = bin_find_column(be, sub, exp->l, exp->r);
+		}
 		wprintf(wstate, "in%d", col->nr);
 		if (en->next != NULL) {
 			wprintf(wstate, ", ");
@@ -423,7 +428,7 @@ base_table_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	/* extract named values from the tuple */
 	for (en = rel->exps->h, count = 0; en; en = en->next, count++) {
 		exp = en->data;
-		str col_name = get_col_name(wstate->sa, exp, REL);
+		str col_name = get_col_name(wstate->sa, exp, ANY);
 		if (rel->exps->h->next == NULL) {
 			/* just a single column so n.$0 doesn't work */
 			sprintf(struct_mbr, "n%d", wstate->num_loops);
