@@ -423,6 +423,25 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 				wprintf(wstate, "i8(");
 				exp_to_weld(be, wstate, e);
 				wprintf(wstate, " == %snil)", type);
+			} else if (strcmp(weld_func, "like") == 0) {
+				/* Same as `like` from cmp but not quite ... */
+				int state_ptr = wstate->next_var++;
+				sprintf(wstate->global_init + strlen(wstate->global_init),
+						"let v%d = cudf[like_pattern_init, i64](", state_ptr);
+				/* Process the pattern and the escape */
+				node *en = ((list*)exp->l)->h;
+				unsigned long old_len = wstate->program_len;
+				exp_to_weld(be, wstate, en->next->data);
+				/* Add the pattern and the escape to the init udf */
+				sprintf(wstate->global_init + strlen(wstate->global_init), "%s, "");",
+						wstate->program + old_len);
+				sprintf(wstate->global_cleanup + strlen(wstate->global_cleanup),
+						"let v%d = cudf[like_pattern_cleanup, i64](v%d);", state_ptr, state_ptr);
+				wstate->program_len = old_len;
+
+				wprintf(wstate, "i8(cudf[%s, bool](v%d,", weld_func, state_ptr);
+				exp_to_weld(be, wstate, en->data);
+				wprintf(wstate, "))");
 			} else {
 				wprintf(wstate, "%s(", weld_func);
 				exps_to_weld(be, wstate, exp->l, ", ");
