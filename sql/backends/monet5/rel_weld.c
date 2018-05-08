@@ -147,6 +147,10 @@ get_weld_func(sql_subfunc *f) {
 		return "*";
 	else if (strcmp(name, "/") == 0)
 		return "/";
+	else if (strcmp(name, "&") == 0 || strcmp(name, "and") == 0)
+		return "&";
+	else if (strcmp(name, "|") == 0 || strcmp(name, "or") == 0)
+		return "|";
 	else if (strcmp(name, "like") == 0)
 		return "like";
 	else if (strcmp(name, "year") == 0)
