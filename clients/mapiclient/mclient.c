@@ -2540,7 +2540,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 					} else {
 						/* get all object names in current schema */
 						char *with_clause = 
-							"WITH describe_all_objects AS ("
+							", describe_all_objects AS ("
 							"  SELECT s.name AS sname,"
 							"      t.name,"
 							"      s.name || '.' || t.name AS fullname,"
@@ -2591,7 +2591,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 							"    LEFT OUTER JOIN sys.comments c ON s.id = c.id"
 							"  ORDER BY system, name, sname, ntype)"
 							;
-						size_t len = strlen(with_clause) + 500 + strlen(line);
+						size_t len = strlen(with_clause) + 1500 + strlen(line);
 						char *query = malloc(len);
 						char *q = query, *endq = query + len;
 						char *name_column = hasSchema ? "fullname" : "name";
@@ -2609,6 +2609,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 						 * | "data.my*"      | no            | fullname LIKE 'data.my%'      |
 						 * | "*a.my*"        | no            | fullname LIKE '%a.my%'        |
 						 */
+						q += snprintf(q, endq - q, "%s", get_with_comments_as_clause(mid));
 						q += snprintf(q, endq - q, "%s", with_clause);
 						q += snprintf(q, endq - q, " SELECT type, fullname, remark FROM describe_all_objects");
 						q += snprintf(q, endq - q, " WHERE (ntype & %u) > 0", x);
