@@ -151,6 +151,8 @@ get_weld_func(sql_subfunc *f) {
 		return "&";
 	else if (strcmp(name, "|") == 0 || strcmp(name, "or") == 0)
 		return "|";
+	else if (strcmp(name, "<>") == 0 || strcmp(name, "!=") == 0)
+		return "!=";
 	else if (strcmp(name, "like") == 0)
 		return "like";
 	else if (strcmp(name, "year") == 0)
@@ -410,6 +412,10 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 			} else if (strcmp(weld_func, "=") == 0) {
 				wprintf(wstate, "i8(");
 				exps_to_weld(be, wstate, exp->l, " == ");
+				wprintf(wstate, ")");
+			} else if (strcmp(weld_func, "!=") == 0) {
+				wprintf(wstate, "i8(");
+				exps_to_weld(be, wstate, exp->l, " != ");
 				wprintf(wstate, ")");
 			} else if (strcmp(weld_func, "isnil") == 0) {
 				sql_exp *e = ((list*)exp->l)->h->data;
