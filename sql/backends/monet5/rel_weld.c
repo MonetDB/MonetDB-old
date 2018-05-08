@@ -373,7 +373,7 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 				exps_to_weld(be, wstate, exp->l, ", ");
 				wprintf(wstate, ")");
 			} else if (strcmp(weld_func, "identity") == 0) {
-				wprintf(wstate, "i%d", wstate->num_loops);
+				wprintf(wstate, "i_%d", wstate->num_loops);
 			} else if (strcmp(weld_func, "ifthenelse") == 0) {
 				/* if(x == i8nil, TYPEnil, if(x != 0, y, z)) */
 				node *en = ((list*)exp->l)->h;
@@ -456,7 +456,7 @@ base_table_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	}
 	/* builder and function header */
 	++wstate->num_loops;
-	wprintf(wstate, "), %s, |b%d, i%d, n%d|", wstate->builder, wstate->num_loops,
+	wprintf(wstate, "), %s, |b%d, i_%d, n%d|", wstate->builder, wstate->num_loops,
 				   wstate->num_loops, wstate->num_loops);
 	/* extract named values from the tuple */
 	for (en = rel->exps->h, count = 0; en; en = en->next, count++) {
@@ -661,7 +661,7 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		wstate->builder = old_builder;
 		wstate->num_loops++;
 		wstate->num_parens++;
-		wprintf(wstate, "for(v%d, %s, |b%d, i%d, n%d|", wstate->next_var,
+		wprintf(wstate, "for(v%d, %s, |b%d, i_%d, n%d|", wstate->next_var,
 					   wstate->builder, wstate->num_loops, wstate->num_loops, wstate->num_loops);
 		for (en = rel->exps->h, count = 0; en; en = en->next, count++) {
 			if (list_length(appender_cols) > 1) {
@@ -821,7 +821,7 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	if (group_by_exps->h) {
 		wstate->num_loops++;
 		wstate->num_parens++;
-		wprintf(wstate, "for(tovec(result(v%d)), %s, |b%d, i%d, n%d|", result_var,
+		wprintf(wstate, "for(tovec(result(v%d)), %s, |b%d, i_%d, n%d|", result_var,
 					   wstate->builder, wstate->num_loops, wstate->num_loops, wstate->num_loops);
 	} else {
 		wstate->next_var++;
@@ -1038,7 +1038,7 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	if (rel->op == op_semi) {
 		wprintf(wstate, ", 0L, 1L)"); /* Just the first element of the vector */
 	}
-	wprintf(wstate, ", b%d, |b%d, i%d, n%d|", wstate->num_loops - 1, wstate->num_loops,
+	wprintf(wstate, ", b%d, |b%d, i_%d, n%d|", wstate->num_loops - 1, wstate->num_loops,
 			wstate->num_loops, wstate->num_loops);
 	for (en = right->exps->h, count = 0; en; en = en->next, count++) {
 		len = sprintf(struct_mbr, "n%d", wstate->num_loops);
