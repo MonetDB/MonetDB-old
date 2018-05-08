@@ -390,11 +390,11 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 				wprintf(wstate, ", ");
 				exp_to_weld(be, wstate, else_exp);
 				wprintf(wstate, "))");
-			} else if (strcmp(weld_func, "=")) {
+			} else if (strcmp(weld_func, "=") == 0) {
 				wprintf(wstate, "i8(");
 				exps_to_weld(be, wstate, exp->l, " == ");
 				wprintf(wstate, ")");
-			} else if (strcmp(weld_func, "isnil")) {
+			} else if (strcmp(weld_func, "isnil") == 0) {
 				sql_exp *e = ((list*)exp->l)->h->data;
 				str type = getWeldType(exp_subtype(e)->type->localtype);
 				wprintf(wstate, "i8(");
@@ -449,9 +449,9 @@ base_table_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		if (exp_subtype(exp)->type->localtype == TYPE_str) {
 			/* Save the vheap and stroffset names */
 			sprintf(wstate->global_init + strlen(wstate->global_init), "let %s_strcol = in%dstr;",
-					get_col_name(wstate->sa, exp, REL), col->nr);
+					get_col_name(wstate->sa, exp, ANY), col->nr);
 			sprintf(wstate->global_init + strlen(wstate->global_init), "let %s_stroffset = in%dstroffset;",
-					get_col_name(wstate->sa, exp, REL), col->nr);
+					get_col_name(wstate->sa, exp, ANY), col->nr);
 		}
 	}
 	/* builder and function header */
