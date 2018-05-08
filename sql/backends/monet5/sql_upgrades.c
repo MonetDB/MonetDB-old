@@ -207,40 +207,40 @@ sql_update_hugeint(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 
 	pos += snprintf(buf + pos, bufsize - pos,
-			"create function fuse(one bigint, two bigint)\n"
+			"create system function fuse(one bigint, two bigint)\n"
 			"returns hugeint\n"
 			"external name udf.fuse;\n");
 
 	pos += snprintf(buf + pos, bufsize - pos,
-			"create function sys.generate_series(first hugeint, last hugeint)\n"
+			"create system function sys.generate_series(first hugeint, last hugeint)\n"
 			"returns table (value hugeint)\n"
 			"external name generator.series;\n");
 
 	pos += snprintf(buf + pos, bufsize - pos,
-			"create function sys.generate_series(first hugeint, last hugeint, stepsize hugeint)\n"
+			"create system function sys.generate_series(first hugeint, last hugeint, stepsize hugeint)\n"
 			"returns table (value hugeint)\n"
 			"external name generator.series;\n");
 
 	/* 39_analytics_hge.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
-			"create aggregate stddev_samp(val HUGEINT) returns DOUBLE\n"
+			"create system aggregate stddev_samp(val HUGEINT) returns DOUBLE\n"
 			"    external name \"aggr\".\"stdev\";\n"
-			"create aggregate stddev_pop(val HUGEINT) returns DOUBLE\n"
+			"create system aggregate stddev_pop(val HUGEINT) returns DOUBLE\n"
 			"    external name \"aggr\".\"stdevp\";\n"
-			"create aggregate var_samp(val HUGEINT) returns DOUBLE\n"
+			"create system aggregate var_samp(val HUGEINT) returns DOUBLE\n"
 			"    external name \"aggr\".\"variance\";\n"
-			"create aggregate var_pop(val HUGEINT) returns DOUBLE\n"
+			"create system aggregate var_pop(val HUGEINT) returns DOUBLE\n"
 			"    external name \"aggr\".\"variancep\";\n"
-			"create aggregate median(val HUGEINT) returns HUGEINT\n"
+			"create system aggregate median(val HUGEINT) returns HUGEINT\n"
 			"    external name \"aggr\".\"median\";\n"
-			"create aggregate quantile(val HUGEINT, q DOUBLE) returns HUGEINT\n"
+			"create system aggregate quantile(val HUGEINT, q DOUBLE) returns HUGEINT\n"
 			"    external name \"aggr\".\"quantile\";\n"
-			"create aggregate corr(e1 HUGEINT, e2 HUGEINT) returns DOUBLE\n"
+			"create system aggregate corr(e1 HUGEINT, e2 HUGEINT) returns DOUBLE\n"
 			"    external name \"aggr\".\"corr\";\n");
 
 	/* 40_json_hge.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
-			"create function json.filter(js json, name hugeint)\n"
+			"create system function json.filter(js json, name hugeint)\n"
 			"returns json\n"
 			"external name json.filter;\n");
 
@@ -366,9 +366,9 @@ sql_update_dec2016(Client c, mvc *sql)
 
 	/* 18_index.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
-			"create procedure sys.createorderindex(sys string, tab string, col string)\n"
+			"create system procedure sys.createorderindex(sys string, tab string, col string)\n"
 			"external name sql.createorderindex;\n"
-			"create procedure sys.droporderindex(sys string, tab string, col string)\n"
+			"create system procedure sys.droporderindex(sys string, tab string, col string)\n"
 			"external name sql.droporderindex;\n");
 
 	/* 24_zorder.sql */
@@ -391,7 +391,7 @@ sql_update_dec2016(Client c, mvc *sql)
 			"alter table sys.storagemodelinput add column \"revsorted\" boolean;\n"
 			"alter table sys.storagemodelinput add column \"unique\" boolean;\n"
 			"alter table sys.storagemodelinput add column \"orderidx\" bigint;\n"
-			"create function sys.\"storage\"()\n"
+			"create system function sys.\"storage\"()\n"
 			"returns table (\n"
 			" \"schema\" string,\n"
 			" \"table\" string,\n"
@@ -413,7 +413,7 @@ sql_update_dec2016(Client c, mvc *sql)
 			")\n"
 			"external name sql.\"storage\";\n"
 			"create view sys.\"storage\" as select * from sys.\"storage\"();\n"
-			"create function sys.\"storage\"( sname string)\n"
+			"create system function sys.\"storage\"( sname string)\n"
 			"returns table (\n"
 			" \"schema\" string,\n"
 			" \"table\" string,\n"
@@ -434,7 +434,7 @@ sql_update_dec2016(Client c, mvc *sql)
 			" orderidx bigint\n"
 			")\n"
 			"external name sql.\"storage\";\n"
-			"create function sys.\"storage\"( sname string, tname string)\n"
+			"create system function sys.\"storage\"( sname string, tname string)\n"
 			"returns table (\n"
 			" \"schema\" string,\n"
 			" \"table\" string,\n"
@@ -455,7 +455,7 @@ sql_update_dec2016(Client c, mvc *sql)
 			" orderidx bigint\n"
 			")\n"
 			"external name sql.\"storage\";\n"
-			"create function sys.\"storage\"( sname string, tname string, cname string)\n"
+			"create system function sys.\"storage\"( sname string, tname string, cname string)\n"
 			"returns table (\n"
 			" \"schema\" string,\n"
 			" \"table\" string,\n"
@@ -476,7 +476,7 @@ sql_update_dec2016(Client c, mvc *sql)
 			" orderidx bigint\n"
 			")\n"
 			"external name sql.\"storage\";\n"
-			"create procedure sys.storagemodelinit()\n"
+			"create system procedure sys.storagemodelinit()\n"
 			"begin\n"
 			" delete from sys.storagemodelinput;\n"
 			" insert into sys.storagemodelinput\n"
@@ -497,7 +497,7 @@ sql_update_dec2016(Client c, mvc *sql)
 			" set \"distinct\" = \"count\"\n"
 			" where \"type\" = 'varchar' or \"type\"='clob';\n"
 			"end;\n"
-			"create function sys.storagemodel()\n"
+			"create system function sys.storagemodel()\n"
 			"returns table (\n"
 			" \"schema\" string,\n"
 			" \"table\" string,\n"
@@ -623,10 +623,9 @@ sql_update_dec2016_sp3(Client c, mvc *sql)
 			"drop procedure sys.settimeout(bigint);\n"
 			"drop procedure sys.settimeout(bigint,bigint);\n"
 			"drop procedure sys.setsession(bigint);\n"
-			"create procedure sys.settimeout(\"query\" bigint) external name clients.settimeout;\n"
-			"create procedure sys.settimeout(\"query\" bigint, \"session\" bigint) external name clients.settimeout;\n"
-			"create procedure sys.setsession(\"timeout\" bigint) external name clients.setsession;\n"
-			"insert into sys.systemfunctions (select id from sys.functions where name in ('settimeout', 'setsession') and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));\n"
+			"create system procedure sys.settimeout(\"query\" bigint) external name clients.settimeout;\n"
+			"create system procedure sys.settimeout(\"query\" bigint, \"session\" bigint) external name clients.settimeout;\n"
+			"create system procedure sys.setsession(\"timeout\" bigint) external name clients.setsession;\n"
 			"delete from systemfunctions where function_id not in (select id from functions);\n");
 	if (schema)
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
@@ -664,17 +663,17 @@ sql_update_jul2017(Client c, mvc *sql)
 	/* 25_debug.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
 			"drop function sys.malfunctions;\n"
-			"create function sys.malfunctions() returns table(\"module\" string, \"function\" string, \"signature\" string, \"address\" string, \"comment\" string) external name \"manual\".\"functions\";\n"
+			"create system function sys.malfunctions() returns table(\"module\" string, \"function\" string, \"signature\" string, \"address\" string, \"comment\" string) external name \"manual\".\"functions\";\n"
 			"drop function sys.optimizer_stats();\n"
-			"create function sys.optimizer_stats() "
+			"create system function sys.optimizer_stats() "
 			"returns table (optname string, count int, timing bigint) "
 			"external name inspect.optimizer_stats;\n"
 			"insert into sys.systemfunctions (select id from sys.functions where name in ('malfunctions', 'optimizer_stats') and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));\n");
 
 	/* 46_profiler.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
-			"create function profiler.getlimit() returns integer external name profiler.getlimit;\n"
-			"create procedure profiler.setlimit(lim integer) external name profiler.setlimit;\n"
+			"create system function profiler.getlimit() returns integer external name profiler.getlimit;\n"
+			"create system procedure profiler.setlimit(lim integer) external name profiler.setlimit;\n"
 			"drop procedure profiler.setpoolsize;\n"
 			"drop procedure profiler.setstream;\n"
 			"insert into sys.systemfunctions (select id from sys.functions where name in ('getlimit', 'setlimit') and schema_id = (select id from sys.schemas where name = 'profiler') and id not in (select function_id from sys.systemfunctions));\n");
@@ -737,7 +736,7 @@ sql_update_jul2017(Client c, mvc *sql)
 		if (BATcount(b) > 0) {
 			pos += snprintf(buf + pos, bufsize - pos,
 					"drop procedure SHPload(integer);\n"
-					"create procedure SHPload(fid integer) external name shp.import;\n"
+					"create system procedure SHPload(fid integer) external name shp.import;\n"
 					"insert into sys.systemfunctions (select id from sys.functions where name = 'shpload' and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));\n");
 		}
 		BBPunfix(b->batCacheid);
@@ -1197,20 +1196,20 @@ sql_update_mar2018(Client c, mvc *sql)
 				"drop aggregate corr(hugeint, hugeint);\n");
 #endif
 	pos += snprintf(buf + pos, bufsize - pos,
-			"create aggregate corr(e1 TINYINT, e2 TINYINT) returns DOUBLE\n\texternal name \"aggr\".\"corr\";\n"
+			"create system aggregate corr(e1 TINYINT, e2 TINYINT) returns DOUBLE\n\texternal name \"aggr\".\"corr\";\n"
 			"grant execute on aggregate sys.corr(tinyint, tinyint) to public;\n"
-			"create aggregate corr(e1 SMALLINT, e2 SMALLINT) returns DOUBLE\n\texternal name \"aggr\".\"corr\";\n"
+			"create system aggregate corr(e1 SMALLINT, e2 SMALLINT) returns DOUBLE\n\texternal name \"aggr\".\"corr\";\n"
 			"grant execute on aggregate sys.corr(smallint, smallint) to public;\n"
-			"create aggregate corr(e1 INTEGER, e2 INTEGER) returns DOUBLE\n\texternal name \"aggr\".\"corr\";\n"
+			"create system aggregate corr(e1 INTEGER, e2 INTEGER) returns DOUBLE\n\texternal name \"aggr\".\"corr\";\n"
 			"grant execute on aggregate sys.corr(integer, integer) to public;\n"
-			"create aggregate corr(e1 BIGINT, e2 BIGINT) returns DOUBLE\n\texternal name \"aggr\".\"corr\";\n"
+			"create system aggregate corr(e1 BIGINT, e2 BIGINT) returns DOUBLE\n\texternal name \"aggr\".\"corr\";\n"
 			"grant execute on aggregate sys.corr(bigint, bigint) to public;\n"
-			"create aggregate corr(e1 REAL, e2 REAL) returns DOUBLE\n\texternal name \"aggr\".\"corr\";\n"
+			"create system aggregate corr(e1 REAL, e2 REAL) returns DOUBLE\n\texternal name \"aggr\".\"corr\";\n"
 			"grant execute on aggregate sys.corr(real, real) to public;\n");
 #ifdef HAVE_HGE
 	if (have_hge)
 		pos += snprintf(buf + pos, bufsize - pos,
-				"create aggregate corr(e1 HUGEINT, e2 HUGEINT) returns DOUBLE\n\texternal name \"aggr\".\"corr\";\n"
+				"create system aggregate corr(e1 HUGEINT, e2 HUGEINT) returns DOUBLE\n\texternal name \"aggr\".\"corr\";\n"
 			"grant execute on aggregate sys.corr(hugeint, hugeint) to public;\n");
 #endif
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -1314,39 +1313,39 @@ sql_update_mar2018(Client c, mvc *sql)
 
 	/* 60_wlcr.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
-			"create procedure master()\n"
+			"create system procedure master()\n"
 			"external name wlc.master;\n"
-			"create procedure master(path string)\n"
+			"create system procedure master(path string)\n"
 			"external name wlc.master;\n"
-			"create procedure stopmaster()\n"
+			"create system procedure stopmaster()\n"
 			"external name wlc.stopmaster;\n"
-			"create procedure masterbeat( duration int)\n"
+			"create system procedure masterbeat( duration int)\n"
 			"external name wlc.\"setmasterbeat\";\n"
-			"create function masterClock() returns string\n"
+			"create system function masterClock() returns string\n"
 			"external name wlc.\"getmasterclock\";\n"
-			"create function masterTick() returns bigint\n"
+			"create system function masterTick() returns bigint\n"
 			"external name wlc.\"getmastertick\";\n"
-			"create procedure replicate()\n"
+			"create system procedure replicate()\n"
 			"external name wlr.replicate;\n"
-			"create procedure replicate(pointintime timestamp)\n"
+			"create system procedure replicate(pointintime timestamp)\n"
 			"external name wlr.replicate;\n"
-			"create procedure replicate(dbname string)\n"
+			"create system procedure replicate(dbname string)\n"
 			"external name wlr.replicate;\n"
-			"create procedure replicate(dbname string, pointintime timestamp)\n"
+			"create system procedure replicate(dbname string, pointintime timestamp)\n"
 			"external name wlr.replicate;\n"
-			"create procedure replicate(dbname string, id tinyint)\n"
+			"create system procedure replicate(dbname string, id tinyint)\n"
 			"external name wlr.replicate;\n"
-			"create procedure replicate(dbname string, id smallint)\n"
+			"create system procedure replicate(dbname string, id smallint)\n"
 			"external name wlr.replicate;\n"
-			"create procedure replicate(dbname string, id integer)\n"
+			"create system procedure replicate(dbname string, id integer)\n"
 			"external name wlr.replicate;\n"
-			"create procedure replicate(dbname string, id bigint)\n"
+			"create system procedure replicate(dbname string, id bigint)\n"
 			"external name wlr.replicate;\n"
-			"create procedure replicabeat(duration integer)\n"
+			"create system procedure replicabeat(duration integer)\n"
 			"external name wlr.\"setreplicabeat\";\n"
-			"create function replicaClock() returns string\n"
+			"create system function replicaClock() returns string\n"
 			"external name wlr.\"getreplicaclock\";\n"
-			"create function replicaTick() returns bigint\n"
+			"create system function replicaTick() returns bigint\n"
 			"external name wlr.\"getreplicatick\";\n"
 			"insert into sys.systemfunctions (select id from sys.functions where name in ('master', 'stopmaster', 'masterbeat', 'masterclock', 'mastertick', 'replicate', 'replicabeat', 'replicaclock', 'replicatick') and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));\n"
 		);
@@ -1453,7 +1452,7 @@ sql_update_mar2018_samtools(Client c, mvc *sql)
 	list_append(l, &tps);
 	if (sql_bind_func_(sql->sa, s, "seq_char", l, F_FUNC) == NULL) {
 		pos += snprintf(buf + pos, bufsize - pos,
-				"CREATE FUNCTION bam.seq_char(ref_pos INT, alg_seq STRING, alg_pos INT, alg_cigar STRING)\n"
+				"CREATE SYSTEM FUNCTION bam.seq_char(ref_pos INT, alg_seq STRING, alg_pos INT, alg_cigar STRING)\n"
 				"RETURNS CHAR(1) EXTERNAL NAME bam.seq_char;\n"
 			"insert into sys.systemfunctions (select id from sys.functions where name in ('seq_char') and schema_id = (select id from sys.schemas where name = 'bam') and id not in (select function_id from sys.systemfunctions));\n");
 	}
@@ -1466,9 +1465,9 @@ sql_update_mar2018_samtools(Client c, mvc *sql)
 	}
 	if (sql_bind_func(sql->sa, s, "bam_loader_repos", &tps, &tpi, F_PROC) == NULL) {
 		pos += snprintf(buf + pos, bufsize - pos,
-				"CREATE PROCEDURE bam.bam_loader_repos(bam_repos STRING, dbschema SMALLINT)\n"
+				"CREATE SYSTEM PROCEDURE bam.bam_loader_repos(bam_repos STRING, dbschema SMALLINT)\n"
 				"EXTERNAL NAME bam.bam_loader_repos;\n"
-				"CREATE PROCEDURE bam.bam_loader_files(bam_files STRING, dbschema SMALLINT)\n"
+				"CREATE SYSTEM PROCEDURE bam.bam_loader_files(bam_files STRING, dbschema SMALLINT)\n"
 				"EXTERNAL NAME bam.bam_loader_files;\n"
 			"insert into sys.systemfunctions (select id from sys.functions where name in ('bam_loader_repos', 'bam_loader_files') and schema_id = (select id from sys.schemas where name = 'bam') and id not in (select function_id from sys.systemfunctions));\n");
 	}

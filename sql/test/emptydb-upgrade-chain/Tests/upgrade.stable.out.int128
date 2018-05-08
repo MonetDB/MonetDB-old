@@ -5303,30 +5303,30 @@ set schema "sys";
 
 Running database upgrade commands:
 set schema "sys";
-create function fuse(one bigint, two bigint)
+create system function fuse(one bigint, two bigint)
 returns hugeint
 external name udf.fuse;
-create function sys.generate_series(first hugeint, last hugeint)
+create system function sys.generate_series(first hugeint, last hugeint)
 returns table (value hugeint)
 external name generator.series;
-create function sys.generate_series(first hugeint, last hugeint, stepsize hugeint)
+create system function sys.generate_series(first hugeint, last hugeint, stepsize hugeint)
 returns table (value hugeint)
 external name generator.series;
-create aggregate stddev_samp(val HUGEINT) returns DOUBLE
+create system aggregate stddev_samp(val HUGEINT) returns DOUBLE
     external name "aggr"."stdev";
-create aggregate stddev_pop(val HUGEINT) returns DOUBLE
+create system aggregate stddev_pop(val HUGEINT) returns DOUBLE
     external name "aggr"."stdevp";
-create aggregate var_samp(val HUGEINT) returns DOUBLE
+create system aggregate var_samp(val HUGEINT) returns DOUBLE
     external name "aggr"."variance";
-create aggregate var_pop(val HUGEINT) returns DOUBLE
+create system aggregate var_pop(val HUGEINT) returns DOUBLE
     external name "aggr"."variancep";
-create aggregate median(val HUGEINT) returns HUGEINT
+create system aggregate median(val HUGEINT) returns HUGEINT
     external name "aggr"."median";
-create aggregate quantile(val HUGEINT, q DOUBLE) returns HUGEINT
+create system aggregate quantile(val HUGEINT, q DOUBLE) returns HUGEINT
     external name "aggr"."quantile";
-create aggregate corr(e1 HUGEINT, e2 HUGEINT) returns DOUBLE
+create system aggregate corr(e1 HUGEINT, e2 HUGEINT) returns DOUBLE
     external name "aggr"."corr";
-create function json.filter(js json, name hugeint)
+create system function json.filter(js json, name hugeint)
 returns json
 external name json.filter;
 drop view sys.tablestoragemodel;
