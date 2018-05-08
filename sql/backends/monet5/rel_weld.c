@@ -278,14 +278,26 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 			wprintf(wstate, "(");
 		}
 		if (exp->flag == cmp_in || exp->flag == cmp_notin) {
-			/* TODO implement this */
-			wstate->error = 1;
-			return;
+			if (exp->flag == cmp_notin) {
+				wprintf(wstate, "(");
+			}
+			node *en;
+			for (en = ((list*)exp->r)->h; en; en = en->next) {
+				exp_to_weld(be, wstate, exp->l);
+				wprintf(wstate, " == ");
+				exp_to_weld(be, wstate, en->data);
+				if (en->next != NULL) {
+					wprintf(wstate, " || ");
+				}
+			}
+			if (exp->flag == cmp_notin) {
+				wprintf(wstate, ") == false");
+			}
 		} else if (get_cmp(exp) == cmp_or) {
 			wprintf(wstate, "(");
-			exps_to_weld(be, wstate, exp->l, "");
+			exps_to_weld(be, wstate, exp->l, " && ");
 			wprintf(wstate, ") || ( ");
-			exps_to_weld(be, wstate, exp->r, "");
+			exps_to_weld(be, wstate, exp->r, " && ");
 			wprintf(wstate, ")");
 		} else if (get_cmp(exp) == cmp_filter) {
 			str udf = get_weld_func(exp->f);
