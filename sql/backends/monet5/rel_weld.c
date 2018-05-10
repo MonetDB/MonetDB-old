@@ -153,6 +153,10 @@ get_weld_func(sql_subfunc *f) {
 		return "|";
 	else if (strcmp(name, "<>") == 0 || strcmp(name, "!=") == 0)
 		return "!=";
+	else if (strcmp(name, "min") == 0)
+		return "min";
+	else if (strcmp(name, "max") == 0)
+		return "max";
 	else if (strcmp(name, "like") == 0)
 		return "like";
 	else if (strcmp(name, "year") == 0)
@@ -735,20 +739,36 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	int len = 0, i, col_count, aggr_count;
 	node *en;
 	sql_exp *exp;
-	list *group_by_exps = rel->r;
+	str aggr_func = NULL;
+	produce_func  input_produce;
+	list *group_by_exps = sa_list(wstate->sa);
+	list *aggr_exps = sa_list(wstate->sa);
+	list *project_exps = sa_list(wstate->sa);
 
 	/* === Produce === */
 	int old_num_parens = wstate->num_parens;
 	int old_num_loops = wstate->num_loops;
 	str old_builder = wstate->builder;
 
+	for (en = rel->exps->h; en; en = en->next) {
+		exp = en->data;
+		if (exp->type == e_aggr) {
+			list_append(aggr_exps, exp);
+		} else {
+			if (exp->type == e_column && exp->r && exp->name && strcmp((str)exp->r, exp->name) != 0) {
+				list_append(project_exps, exp);
+			} else {
+				list_append(group_by_exps, exp);
+			}
+		}
+	}
 	/* Create a new builder */
 	wstate->num_parens = wstate->num_loops = 0;
 	int result_var = wstate->next_var++;
 	wprintf(wstate, "let v%d = (", result_var);
 	wstate->num_parens++;
 	len = 0;
-	if (group_by_exps->h) {
+	if (list_length(group_by_exps) > 0) {
 		len += sprintf(new_builder + len, "dictmerger[");
 		if (list_length(group_by_exps) > 1) {
 			len += sprintf(new_builder + len, "{"); /* key is a struct */
@@ -772,45 +792,41 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	} else {
 		len += sprintf(new_builder + len, "merger[");
 	}
-	str aggr_func = NULL;
-	if (list_length(rel->exps) - list_length(group_by_exps) > 1) {
+	if (list_length(aggr_exps) > 1) {
 		len += sprintf(new_builder + len, "{"); /* value is a struct */
 	}
-	for (en = rel->exps->h; en; en = en->next) {
+	for (en = aggr_exps->h; en; en = en->next) {
 		exp = en->data;
-		if (exp->type == e_aggr) {
-			int type = exp_subtype(exp)->type->localtype;
-			if (aggr_func == NULL) {
-				aggr_func = get_weld_func(exp->f);
-			} else if (aggr_func != get_weld_func(exp->f)) {
-				/* Currently Weld only supports a single operation for mergers */
-				wstate->error = 1;
-			}
-			len += sprintf(new_builder + len, "%s", getWeldType(type));
-			if (en->next != NULL) {
-				len += sprintf(new_builder + len, ", ");
-			}
+		int type = exp_subtype(exp)->type->localtype;
+		if (aggr_func == NULL) {
+			aggr_func = get_weld_func(exp->f);
+		} else if (aggr_func != get_weld_func(exp->f)) {
+			/* Currently Weld only supports a single operation for mergers */
+			wstate->error = 1;
+			goto cleanup;
+		}
+		len += sprintf(new_builder + len, "%s", getWeldType(type));
+		if (en->next != NULL) {
+			len += sprintf(new_builder + len, ", ");
 		}
 	}
-	if (list_length(rel->exps) - list_length(group_by_exps) > 1) {
+	if (list_length(aggr_exps) > 1) {
 		len += sprintf(new_builder + len, "}"); /* value is a struct */
 	}
 	len += sprintf(new_builder + len, ", %s]", aggr_func);
 	wstate->builder = new_builder;
-	produce_func input_produce = getproduce_func(rel->l);
+	input_produce = getproduce_func(rel->l);
 	if (input_produce == NULL) {
 		wstate->error = 1;
-		return;
+		goto cleanup;
 	}
 	input_produce(be, rel->l, wstate);
 
 	/* === Consume === */
 	wprintf(wstate, "merge(b%d, ", wstate->num_loops);
-	if (group_by_exps->h) { /* {key, value} */
-		wprintf(wstate, "{");
-	}
-	if (group_by_exps->h) {
+	if (list_length(group_by_exps) > 0) { /* {key, value} */
 		/* Build the key */
+		wprintf(wstate, "{");
 		if (list_length(group_by_exps) > 1) {
 			wprintf(wstate, "{"); /* key is a struct */
 		}
@@ -830,26 +846,24 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		}
 		wprintf(wstate, ", ");
 	}
-	if (list_length(rel->exps) - list_length(group_by_exps) > 1) {
+	if (list_length(aggr_exps) > 1) {
 		wprintf(wstate, "{"); /* value is a struct */
 	}
-	for (en = rel->exps->h; en; en = en->next) {
+	for (en = aggr_exps->h; en; en = en->next) {
 		exp = en->data;
-		if (exp->type == e_aggr) {
-			/* We might have different types when doing the aggregation */
-			str weld_type = getWeldType(exp_subtype(exp)->type->localtype);
-			wprintf(wstate, "%s(", weld_type);
-			exp_to_weld(be, wstate, exp);
-			wprintf(wstate, ")");
-			if (en->next != NULL) {
-				wprintf(wstate, ", ");
-			}
+		/* We might have different types when doing the aggregation so we need to cast */
+		str weld_type = getWeldType(exp_subtype(exp)->type->localtype);
+		wprintf(wstate, "%s(", weld_type);
+		exp_to_weld(be, wstate, exp);
+		wprintf(wstate, ")");
+		if (en->next != NULL) {
+			wprintf(wstate, ", ");
 		}
 	}
-	if (list_length(rel->exps) - list_length(group_by_exps) > 1) {
+	if (list_length(aggr_exps) > 1) {
 		wprintf(wstate, "}"); /* value is a struct */
 	}
-	if (group_by_exps->h) {
+	if (list_length(group_by_exps) > 0) {
 		wprintf(wstate, "}"); /* {key, value} */
 	}
 	wprintf(wstate, ")");
@@ -876,25 +890,29 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	/* Column renaming */
 	for (en = rel->exps->h; en; en = en->next) {
 		exp = en->data;
-		if (group_by_exps->h) {
-			if (exp->type == e_column) {
-				len = sprintf(struct_mbr, "n%d.$0", wstate->num_loops);
-				if (list_length(group_by_exps) > 1) {
-					len += sprintf(struct_mbr + len, ".$%d", col_count++);
-				}
-			} else {
-				len = sprintf(struct_mbr, "n%d.$1", wstate->num_loops);
-				if (list_length(rel->exps) - list_length(group_by_exps) > 1) {
-					len += sprintf(struct_mbr + len, ".$%d", aggr_count++);
-				}
+		col_name = get_col_name(wstate->sa, exp, ALIAS);
+		if (list_find(project_exps, exp, NULL)) {
+			/* Just use the old name */
+			sprintf(struct_mbr, "%s", get_col_name(wstate->sa, exp, REL));
+		} else if (list_find(group_by_exps, exp, NULL)) {
+			/* Set the name of a group by column */
+			len = sprintf(struct_mbr, "n%d.$0", wstate->num_loops);
+			if (list_length(group_by_exps) > 1) {
+				len += sprintf(struct_mbr + len, ".$%d", col_count++);
+			}
+		} else if (list_find(aggr_exps, exp, NULL) && list_length(group_by_exps) > 0) {
+			/* Set the name of an aggregate if we used a dictmerger */
+			len = sprintf(struct_mbr, "n%d.$1", wstate->num_loops);
+			if (list_length(aggr_exps) > 1) {
+				len += sprintf(struct_mbr + len, ".$%d", aggr_count++);
 			}
 		} else {
+			/* Set the name of an aggregate if we used a merger */
 			len = sprintf(struct_mbr, "v%d", wstate->next_var);
-			if (list_length(rel->exps) > 1) {
+			if (list_length(aggr_exps) > 1) {
 				len += sprintf(struct_mbr + len, ".$%d", col_count++);
 			}
 		}
-		col_name = get_col_name(wstate->sa, exp, ALIAS);
 		if (exp_subtype(exp)->type->localtype == TYPE_str) {
 			wprintf(wstate, "let %s = strslice(%s_strcol, i64(%s) + %s_stroffset);", 
 						   col_name, col_name, struct_mbr, col_name);
@@ -909,6 +927,10 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			wprintf(wstate, "let %s = %s;", col_name, struct_mbr);
 		}
 	}
+cleanup:
+	list_destroy(group_by_exps);
+	list_destroy(aggr_exps);
+	list_destroy(project_exps);
 }
 
 static void
