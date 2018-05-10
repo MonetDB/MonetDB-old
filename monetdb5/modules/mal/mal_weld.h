@@ -17,6 +17,7 @@
 mal_export void dumpWeldProgram(str program, FILE *f);
 mal_export void getOrSetStructMember(char **addr, int type, const void *value, int op);
 mal_export str getWeldType(int type);
+mal_export str getWeldTypeSuffix(int type);
 mal_export str WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 #endif

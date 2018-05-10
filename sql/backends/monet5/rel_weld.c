@@ -273,13 +273,32 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 	}
 	switch (exp->type) {
 	case e_convert: {
-		str conv_to = getWeldType(exp->tpe.type->localtype);
+		sql_subtype *from = ((list*)exp->r)->h->data;
+		sql_subtype *to = ((list*)exp->r)->h->next->data;
+		str conv_to = getWeldType(to->type->localtype);
 		if (strcmp(conv_to, "vec[i8]") == 0) {
 			/* Do nothing */
 			exp_to_weld(be, wstate, exp->l);
 		} else {
 			wprintf(wstate, "%s(", conv_to);
 			exp_to_weld(be, wstate, exp->l);
+			int scale_diff = to->scale - from->scale;
+			if (scale_diff != 0) {
+				if (scale_diff < 0) {
+					wprintf(wstate, " / 1");
+					scale_diff = -scale_diff;
+				} else {
+					wprintf(wstate, " * 1");
+				}
+				while (scale_diff--) {
+					wprintf(wstate, "0");
+				}
+				str conv_from = getWeldType(from->type->localtype);
+				if (strcmp(conv_from, "f32") == 0 || strcmp(conv_from, "f64") == 0) {
+					wprintf(wstate, ".0");
+				}
+				wprintf(wstate, "%s", getWeldTypeSuffix(from->type->localtype));
+			}
 			wprintf(wstate, ")");
 		}
 		break;

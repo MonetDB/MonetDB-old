@@ -68,6 +68,25 @@ str getWeldType(int type) {
 		return NULL;
 }
 
+str getWeldTypeSuffix(int type) {
+	if (type == TYPE_bte)
+		return "c";
+	if (type == TYPE_sht)
+		return "si";
+	else if (type == TYPE_int)
+		return "";
+	else if (type == TYPE_lng)
+		return "L";
+	else if (type == TYPE_flt)
+		return "f";
+	else if (type == TYPE_dbl)
+		return "";
+	else if (ATOMstorage(type) != type)
+		return getWeldType(ATOMstorage(type));
+	else
+		return NULL;
+}
+
 static str getWeldUTypeFromWidth(int width) {
 	if (width == 1)
 		return "u8";
