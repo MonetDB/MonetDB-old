@@ -26,6 +26,15 @@
 		*(TYPE *)(*ADDR) = *(TYPE *)VALUE; /* set */                    \
 	*ADDR += sizeof(TYPE);				   /* increase */
 
+struct weldMinMax {
+	char i8min, i8max;
+	int i32min, i32max;
+	long i64min, i64max;
+	float f32min, f32max;
+	double f64min, f64max;
+} weldMinMaxInst = {SCHAR_MIN, SCHAR_MAX, INT_MIN, INT_MAX, LLONG_MIN,
+					LLONG_MAX, FLT_MIN,   FLT_MAX, DBL_MIN, DBL_MAX};
+
 void getOrSetStructMember(char **addr, int type, const void *value, int op) {
 	if (type == TYPE_bte) {
 		getOrSetStructMemberImpl(addr, char, value, op);
@@ -201,6 +210,9 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 	}
 	headerLen += sprintf(program + headerLen,
+						"i8MIN:i8, i8MAX:i8, i32MIN:i32, i32MAX:i32, i64MIN:i64, i64MAX:i64, "
+						"f32MIN:f32, f32MAX:f32, f64MIN:f64, f64MAX:f64,");
+	headerLen += sprintf(program + headerLen,
 						 "i8nil:i8, i32nil:i32, oidnil:i64, i64nil:i64, f32nil:f32, f64nil:f64,");
 
 	program[0] = '|';
@@ -258,6 +270,16 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			}
 		}
 	}
+	getOrSetStructMember(&inputPtr, TYPE_bte, &weldMinMaxInst.i8min, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_bte, &weldMinMaxInst.i8max, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_int, &weldMinMaxInst.i32min, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_int, &weldMinMaxInst.i32max, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_lng, &weldMinMaxInst.i64min, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_lng, &weldMinMaxInst.i64max, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_flt, &weldMinMaxInst.f32min, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_flt, &weldMinMaxInst.f32max, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_dbl, &weldMinMaxInst.f64min, OP_SET);
+	getOrSetStructMember(&inputPtr, TYPE_dbl, &weldMinMaxInst.f64max, OP_SET);
 	getOrSetStructMember(&inputPtr, TYPE_bte, &bte_nil, OP_SET);
 	getOrSetStructMember(&inputPtr, TYPE_int, &int_nil, OP_SET);
 	getOrSetStructMember(&inputPtr, TYPE_lng, &lng_nil, OP_SET);

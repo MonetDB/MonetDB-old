@@ -178,6 +178,32 @@ get_weld_func(sql_subfunc *f) {
 }
 
 static str
+get_identity(sql_allocator *sa, str weld_func, str weld_type, int type) {
+	char identity[64];
+	int len = 0;
+	if (strcmp(weld_func, "+") == 0) {
+		len += sprintf(identity + len, "0");
+		if (strcmp(weld_type, "f32") == 0 || strcmp(weld_type, "f64") == 0) {
+			len += sprintf(identity + len, ".0");
+		}
+		len += sprintf(identity + len, "%s", getWeldTypeSuffix(type));
+	} else if (strcmp(weld_func, "*") == 0) {
+		len += sprintf(identity + len, "1");
+		if (strcmp(weld_type, "f32") == 0 || strcmp(weld_type, "f64") == 0) {
+			len += sprintf(identity + len, ".0");
+		}
+		len += sprintf(identity + len, "%s", getWeldTypeSuffix(type));
+	} else if (strcmp(weld_func, "min") == 0) {
+		len += sprintf(identity, "MAX%s", weld_type);
+	} else if (strcmp(weld_func, "max") == 0) {
+		len += sprintf(identity + len, "MIN%s", weld_type);
+	} else {
+		return NULL;
+	}
+	return sa_strdup(sa, identity);
+}
+
+static str
 get_col_name(sql_allocator *sa, sql_exp *exp, int name_type) {
 	char col_name[256];
 	size_t i;
@@ -882,12 +908,31 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	for (en = aggr_exps->h; en; en = en->next) {
 		exp = en->data;
 		/* We might have different types when doing the aggregation so we need to cast */
-		str weld_type = getWeldType(exp_subtype(exp)->type->localtype);
+		int type = exp_subtype(exp)->type->localtype;
+		str weld_type = getWeldType(type);
+		if (has_nil(exp) && need_no_nil(exp)) {
+			wprintf(wstate, "if(");
+		}
 		wprintf(wstate, "%s(", weld_type);
 		exp_to_weld(be, wstate, exp);
 		wprintf(wstate, ")");
+		if (has_nil(exp) && need_no_nil(exp)) {
+			/* if (x == TYPEnil, identity, x) */
+			wprintf(wstate, " == %snil, %s, ", weld_type, get_identity(wstate->sa, aggr_func, weld_type, type));
+			wprintf(wstate, "%s(", weld_type);
+			exp_to_weld(be, wstate, exp);
+			wprintf(wstate, "))");
+		}
 		if (strcmp(get_func_name(exp->f), "avg") == 0) {
-			wprintf(wstate, ", 1L");
+			if (has_nil(exp) && need_no_nil(exp)) {
+				wprintf(wstate, ", if(");
+				wprintf(wstate, "%s(", weld_type);
+				exp_to_weld(be, wstate, exp);
+				wprintf(wstate, ")");
+				wprintf(wstate, " == %snil, 0L, 1L)", weld_type);
+			} else {
+				wprintf(wstate, ", 1L");
+			}
 		}
 		if (en->next != NULL) {
 			wprintf(wstate, ", ");
