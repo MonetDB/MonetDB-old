@@ -1165,7 +1165,7 @@ describe_schema(Mapi mid, const char *sname, stream *toConsole)
 	MapiHdl hdl = NULL;
 	char schemas[5120];
 
-	snprintf(schemas, 5120,
+	snprintf(schemas, sizeof(schemas),
 		"%s "
 		"SELECT s.name, a.name, c.remark "
 		"FROM sys.auths a, "
