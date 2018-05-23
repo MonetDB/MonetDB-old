@@ -451,8 +451,8 @@ BAT_hashselect(BAT *b, BAT *s, BAT *bn, const void *tl, BUN maximum)
 
 /* argument list for type-specific core scan select function call */
 #define scanargs							\
-	b, s, bn, tl, th, li, hi, equi, anti, lval, hval, p, q, cnt, off, \
-	dst, candlist, maximum, use_imprints
+	b, s, bn, tl, th, li, hi, equi, anti, lval, hval, lnil, p, q,	\
+	cnt, off, dst, candlist, maximum, use_imprints
 
 #define PREVVALUEbte(x)	((x) - 1)
 #define PREVVALUEsht(x)	((x) - 1)
@@ -511,8 +511,8 @@ BAT_hashselect(BAT *b, BAT *s, BAT *bn, const void *tl, BUN maximum)
 #define scanfunc(NAME, TYPE, CAND, END)					\
 static BUN								\
 NAME##_##TYPE(BAT *b, BAT *s, BAT *bn, const TYPE *tl, const TYPE *th,	\
-	      bool li, bool hi, bool equi, bool anti, bool lval, bool hval,	\
-	      BUN r, BUN q, BUN cnt, lng off, oid *restrict dst,	\
+	      bool li, bool hi, bool equi, bool anti, bool lval, bool hval, \
+	      bool lnil, BUN r, BUN q, BUN cnt, lng off, oid *restrict dst, \
 	      const oid *candlist, BUN maximum, bool use_imprints)	\
 {									\
 	TYPE vl = *tl;							\
@@ -552,12 +552,15 @@ NAME##_##TYPE(BAT *b, BAT *s, BAT *bn, const TYPE *tl, const TYPE *th,	\
 	END;								\
 	if (equi) {							\
 		assert(!use_imprints);					\
-		scanloop(NAME, CAND, v == vl);				\
+		if (lnil)						\
+			scanloop(NAME, CAND, is_##TYPE##_nil(v));	\
+		else							\
+			scanloop(NAME, CAND, v == vl);			\
 	} else if (anti) {						\
 		if (b->tnonil) {					\
 			choose(NAME, CAND, (v <= vl || v >= vh), TYPE);	\
 		} else {						\
-			choose(NAME, CAND, (v <= vl || v >= vh) && v != nil, TYPE); \
+			choose(NAME, CAND, !is_##TYPE##_nil(v) && (v <= vl || v >= vh), TYPE); \
 		}							\
 	} else if (b->tnonil && vl == minval) {				\
 		choose(NAME, CAND, v <= vh, TYPE);			\
@@ -572,7 +575,7 @@ NAME##_##TYPE(BAT *b, BAT *s, BAT *bn, const TYPE *tl, const TYPE *th,	\
 static BUN
 candscan_any (BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 	      bool li, bool hi, bool equi, bool anti, bool lval, bool hval,
-	      BUN r, BUN q, BUN cnt, lng off, oid *restrict dst,
+	      bool lnil, BUN r, BUN q, BUN cnt, lng off, oid *restrict dst,
 	      const oid *candlist, BUN maximum, bool use_imprints)
 {
 	const void *v;
@@ -585,6 +588,7 @@ candscan_any (BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 
 	(void) maximum;
 	(void) use_imprints;
+	(void) lnil;
 
 	if (equi) {
 		ALGODEBUG fprintf(stderr,
@@ -659,7 +663,7 @@ candscan_any (BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 static BUN
 fullscan_any(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 	     bool li, bool hi, bool equi, bool anti, bool lval, bool hval,
-	     BUN r, BUN q, BUN cnt, lng off, oid *restrict dst,
+	     bool lnil, BUN r, BUN q, BUN cnt, lng off, oid *restrict dst,
 	     const oid *candlist, BUN maximum, bool use_imprints)
 {
 	const void *v;
@@ -673,6 +677,7 @@ fullscan_any(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 	(void) candlist;
 	(void) maximum;
 	(void) use_imprints;
+	(void) lnil;
 
 	if (equi) {
 		ALGODEBUG fprintf(stderr,
@@ -747,7 +752,7 @@ fullscan_any(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 static BUN
 fullscan_str(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 	     bool li, bool hi, bool equi, bool anti, bool lval, bool hval,
-	     BUN r, BUN q, BUN cnt, lng off, oid *restrict dst,
+	     bool lnil, BUN r, BUN q, BUN cnt, lng off, oid *restrict dst,
 	     const oid *candlist, BUN maximum, bool use_imprints)
 {
 	var_t pos;
@@ -756,7 +761,7 @@ fullscan_str(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 
 	if (!equi || !GDK_ELIMDOUBLES(b->tvheap))
 		return fullscan_any(b, s, bn, tl, th, li, hi, equi, anti,
-				    lval, hval, r, q, cnt, off, dst,
+				    lval, hval, lnil, r, q, cnt, off, dst,
 				    candlist, maximum, use_imprints);
 	ALGODEBUG fprintf(stderr,
 			  "#BATselect(b=%s#"BUNFMT",s=%s%s,anti=%d): "
@@ -861,7 +866,7 @@ scan_sel(fullscan, o = (oid) (p+off), w = (BUN) (q+off))
 static BAT *
 BAT_scanselect(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 	       bool li, bool hi, bool equi, bool anti, bool lval, bool hval,
-	       BUN maximum, bool use_imprints)
+	       bool lnil, BUN maximum, bool use_imprints)
 {
 #ifndef NDEBUG
 	int (*cmp)(const void *, const void *);
@@ -1827,7 +1832,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 			use_imprints = true;
 		}
 		bn = BAT_scanselect(b, s, bn, tl, th, li, hi, equi, anti,
-				    lval, hval, maximum, use_imprints);
+				    lval, hval, lnil, maximum, use_imprints);
 	}
 
 	return BATfixcand(bn);
@@ -2248,6 +2253,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 					ncnt = candscan_bte(l, sl, r1, &vl, &vh,
 							    true, true, false,
 							    false, true, true,
+							    false,
 							    lstart, lend, cnt,
 							    off, dst1, lcand,
 							    cnt + maximum,
@@ -2256,6 +2262,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 					ncnt = fullscan_bte(l, sl, r1, &vl, &vh,
 							    true, true, false,
 							    false, true, true,
+							    false,
 							    lstart, lend, cnt,
 							    off, dst1, NULL,
 							    cnt + maximum,
@@ -2284,6 +2291,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 					ncnt = candscan_sht(l, sl, r1, &vl, &vh,
 							    true, true, false,
 							    false, true, true,
+							    false,
 							    lstart, lend, cnt,
 							    off, dst1, lcand,
 							    cnt + maximum,
@@ -2292,6 +2300,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 					ncnt = fullscan_sht(l, sl, r1, &vl, &vh,
 							    true, true, false,
 							    false, true, true,
+							    false,
 							    lstart, lend, cnt,
 							    off, dst1, NULL,
 							    cnt + maximum,
@@ -2333,6 +2342,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 					ncnt = candscan_int(l, sl, r1, &vl, &vh,
 							    true, true, false,
 							    false, true, true,
+							    false,
 							    lstart, lend, cnt,
 							    off, dst1, lcand,
 							    cnt + maximum,
@@ -2341,6 +2351,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 					ncnt = fullscan_int(l, sl, r1, &vl, &vh,
 							    true, true, false,
 							    false, true, true,
+							    false,
 							    lstart, lend, cnt,
 							    off, dst1, NULL,
 							    cnt + maximum,
@@ -2382,6 +2393,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 					ncnt = candscan_lng(l, sl, r1, &vl, &vh,
 							    true, true, false,
 							    false, true, true,
+							    false,
 							    lstart, lend, cnt,
 							    off, dst1, lcand,
 							    cnt + maximum,
@@ -2390,6 +2402,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 					ncnt = fullscan_lng(l, sl, r1, &vl, &vh,
 							    true, true, false,
 							    false, true, true,
+							    false,
 							    lstart, lend, cnt,
 							    off, dst1, NULL,
 							    cnt + maximum,
@@ -2419,6 +2432,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 					ncnt = candscan_hge(l, sl, r1, &vl, &vh,
 							    true, true, false,
 							    false, true, true,
+							    false,
 							    lstart, lend, cnt,
 							    off, dst1, lcand,
 							    cnt + maximum,
@@ -2427,6 +2441,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 					ncnt = fullscan_hge(l, sl, r1, &vl, &vh,
 							    true, true, false,
 							    false, true, true,
+							    false,
 							    lstart, lend, cnt,
 							    off, dst1, NULL,
 							    cnt + maximum,
@@ -2458,6 +2473,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 					ncnt = candscan_flt(l, sl, r1, &vl, &vh,
 							    true, true, false,
 							    false, true, true,
+							    false,
 							    lstart, lend, cnt,
 							    off, dst1, lcand,
 							    cnt + maximum,
@@ -2466,6 +2482,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 					ncnt = fullscan_flt(l, sl, r1, &vl, &vh,
 							    true, true, false,
 							    false, true, true,
+							    false,
 							    lstart, lend, cnt,
 							    off, dst1, NULL,
 							    cnt + maximum,
@@ -2496,6 +2513,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 					ncnt = candscan_dbl(l, sl, r1, &vl, &vh,
 							    true, true, false,
 							    false, true, true,
+							    false,
 							    lstart, lend, cnt,
 							    off, dst1, lcand,
 							    cnt + maximum,
@@ -2504,6 +2522,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 					ncnt = fullscan_dbl(l, sl, r1, &vl, &vh,
 							    true, true, false,
 							    false, true, true,
+							    false,
 							    lstart, lend, cnt,
 							    off, dst1, NULL,
 							    cnt + maximum,
