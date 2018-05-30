@@ -107,6 +107,7 @@ static str getWeldUTypeFromWidth(int width) {
 		return "u64";
 }
 
+/*
 static int getMalTypeFromWidth(int width) {
 	if (width == 1)
 		return TYPE_bte;
@@ -117,6 +118,7 @@ static int getMalTypeFromWidth(int width) {
 	else
 		return TYPE_lng;
 }
+*/
 
 void dumpWeldProgram(str program, FILE *f) {
 	int i, j, tabs = 0, print_tabs = 0, print_before = 1;
@@ -317,12 +319,13 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 								  getArg(pci, j));
 						if (in->tvheap->base == strbase) {
 							BBPshare(in->tvheap->parentid);
-							b = COLnew(0, getMalTypeFromWidth(in->twidth), size, TRANSIENT);
+							b = COLnew(0, TYPE_lng, size, TRANSIENT);
 							b->tsorted = b->trevsorted = 0;
 							b->tvheap = in->tvheap;
 							b->ttype = in->ttype;
 							b->tsorted = in->tsorted;
 							b->tvarsized = 1;
+							memcpy(b->theap.base, base, size * BATatoms[TYPE_lng].size);
 							break;
 						}
 					}
@@ -330,8 +333,8 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			} else {
 				b = COLnew(0, getBatType(type), size, TRANSIENT);
 				b->tsorted = b->trevsorted = 0;
+				memcpy(b->theap.base, base, size * b->twidth);
 			}
-			memcpy(b->theap.base, base, size * b->twidth);
 			BATsetcount(b, size);
 			BBPkeepref(b->batCacheid);
 			*getArgReference_bat(stk, pci, i) = b->batCacheid;

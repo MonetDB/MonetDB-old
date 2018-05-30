@@ -543,7 +543,7 @@ base_table_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			wprintf(wstate, ", ");
 		}
 		if (exp_subtype(exp)->type->localtype == TYPE_str) {
-			/* Save the vheap and stroffset names */
+			/* Save the vheap name */
 			sprintf(wstate->global_init + strlen(wstate->global_init), "let %s_strcol = in%dstr;",
 					get_col_name(wstate->sa, exp, ANY), col->nr);
 			sprintf(wstate->global_init + strlen(wstate->global_init), "let %s_stroffset = in%dstroffset;",
@@ -565,9 +565,9 @@ base_table_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			sprintf(struct_mbr, "n%d.$%d", wstate->num_loops, count);
 		}
 		if (exp_subtype(exp)->type->localtype == TYPE_str) {
-			wprintf(wstate, "let %s = strslice(%s_strcol, i64(%s) + %s_stroffset);",
-						   col_name, col_name, struct_mbr, col_name);
-			wprintf(wstate, "let %s_stridx = %s;", col_name, struct_mbr);
+			wprintf(wstate, "let %s_stridx = i64(%s) + %s_stroffset;", col_name, struct_mbr, col_name);
+			wprintf(wstate, "let %s = strslice(%s_strcol, %s_stridx);",
+						   col_name, col_name, col_name);
 		} else {
 			wprintf(wstate, "let %s = %s;", col_name, struct_mbr);
 		}
@@ -649,7 +649,7 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		for (en = appender_col_types->h; en; en = en->next) {
 			int type = ((sql_type*)en->data)->localtype;
 			if (type == TYPE_str) {
-				len += sprintf(new_builder + len, "?");
+				len += sprintf(new_builder + len, "i64");
 			} else {
 				len += sprintf(new_builder + len, "%s", getWeldType(type));
 			}
@@ -685,10 +685,8 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			str old_col_name = get_col_name(wstate->sa, exp, REL);
 			wprintf(wstate, "let %s = %s;", col_name, old_col_name);
 			wprintf(wstate, "let %s_stridx = %s_stridx;", col_name, old_col_name);
-			/* Save the vheap and stroffset names */
+			/* Save the vheap name */
 			sprintf(wstate->global_init + strlen(wstate->global_init), "let %s_strcol = %s_strcol;",
-					col_name, old_col_name);
-			sprintf(wstate->global_init + strlen(wstate->global_init), "let %s_stroffset = %s_stroffset;",
 					col_name, old_col_name);
 		} else {
 			wprintf(wstate, "let %s = ", col_name);
@@ -730,8 +728,8 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			node *col_list_node = list_find(appender_cols, col_name, (fcmp)strcmp);
 			int idx = list_position(appender_cols, col_list_node->data);
 			if (exp_subtype(exp)->type->localtype == TYPE_str) {
-				wprintf(wstate, "let %s = strslice(%s_strcol, i64(n.$%d) + %s_stroffset);",
-					col_name, col_name, idx, col_name);
+				wprintf(wstate, "let %s = strslice(%s_strcol, n.$%d);",
+					col_name, col_name, idx);
 			} else {
 				wprintf(wstate, "let %s = n.$%d;", col_name, idx);
 			}
@@ -768,8 +766,8 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			exp = en->data;
 			col_name = get_col_name(wstate->sa, exp, ALIAS);
 			if (exp_subtype(exp)->type->localtype == TYPE_str) {
-				wprintf(wstate, "let %s = strslice(%s_strcol, i64(%s) + %s_stroffset);",
-						col_name, col_name, struct_mbr, col_name);
+				wprintf(wstate, "let %s = strslice(%s_strcol, %s);",
+						col_name, col_name, struct_mbr);
 				wprintf(wstate, "let %s_stridx = %s;", col_name, struct_mbr);
 			} else {
 				wprintf(wstate, "let %s = %s;", col_name, struct_mbr);
@@ -837,7 +835,7 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			exp = en->data;
 			int type = exp_subtype(exp)->type->localtype;
 			if (type == TYPE_str) {
-				len += sprintf(new_builder + len, "?");
+				len += sprintf(new_builder + len, "i64");
 			} else {
 				len += sprintf(new_builder + len, "%s", getWeldType(type));
 			}
@@ -1000,14 +998,12 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			}
 		}
 		if (exp_subtype(exp)->type->localtype == TYPE_str) {
-			wprintf(wstate, "let %s = strslice(%s_strcol, i64(%s) + %s_stroffset);", 
-						   col_name, col_name, struct_mbr, col_name);
+			wprintf(wstate, "let %s = strslice(%s_strcol, %s);", 
+						   col_name, col_name, struct_mbr);
 			wprintf(wstate, "let %s_stridx = %s;", col_name, struct_mbr);
 			/* Global string col renaming */
 			str old_col_name = get_col_name(wstate->sa, exp, REL);
 			sprintf(wstate->global_init + strlen(wstate->global_init), "let %s_strcol = %s_strcol;",
-					col_name, old_col_name);
-			sprintf(wstate->global_init + strlen(wstate->global_init), "let %s_stroffset = %s_stroffset;",
 					col_name, old_col_name);
 		} else {
 			wprintf(wstate, "let %s = %s;", col_name, struct_mbr);
@@ -1097,7 +1093,7 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		exp = en->data;
 		int type = exp_subtype(exp)->type->localtype;
 		if (type == TYPE_str) {
-			len += sprintf(new_builder + len, "?");
+			len += sprintf(new_builder + len, "i64");
 		} else {
 			len += sprintf(new_builder + len, "%s", getWeldType(type));
 		}
@@ -1202,8 +1198,8 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		exp = en->data;
 		col_name = list_fetch(right_cols, count);
 		if (exp_subtype(exp)->type->localtype == TYPE_str) {
-			wprintf(wstate, "let %s = strslice(%s_strcol, i64(%s) + %s_stroffset);", 
-						   col_name, col_name, struct_mbr, col_name);
+			wprintf(wstate, "let %s = strslice(%s_strcol, %s);", 
+						   col_name, col_name, struct_mbr);
 			wprintf(wstate, "let %s_stridx = %s;", col_name, struct_mbr);
 		} else {
 			wprintf(wstate, "let %s = %s;", col_name, struct_mbr);
@@ -1324,7 +1320,7 @@ root_produce(backend *be, sql_rel *rel)
 			int type = exp_subtype(en->data)->type->localtype;
 			if (type == TYPE_str) {
 				/* We'll append just the offset in vheap, we don't know the type yet */
-				len += sprintf(builder + len, "appender[?]");
+				len += sprintf(builder + len, "appender[i64]");
 			} else {
 				len += sprintf(builder + len, "appender[%s]", getWeldType(type));
 			}
