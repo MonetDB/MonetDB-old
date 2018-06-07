@@ -248,6 +248,7 @@ static int
 exp_has_column(sql_exp *exp) {
 	node *en;
 	int ret = 0;
+	int cmp = get_cmp(exp);
 	switch (exp->type) {
 	case e_atom:
 	case e_psm:
@@ -261,14 +262,14 @@ exp_has_column(sql_exp *exp) {
 		ret = exp_has_column(exp->l);
 		break;
 	case e_cmp:
-		if (exp->flag == cmp_filter || exp->flag == cmp_or) {
+		if (cmp == cmp_filter || cmp == cmp_or) {
 			for (en = ((list*)exp->l)->h; en; en = en->next) {
 				ret |= exp_has_column(en->data);
 			}
 		} else if (exp->l) {
 			ret |= exp_has_column(exp->l);
 		}
-		if (exp->flag == cmp_filter || exp->flag == cmp_or || exp->flag == cmp_in || exp->flag == cmp_notin) {
+		if (cmp == cmp_filter || cmp == cmp_or || cmp == cmp_in || cmp == cmp_notin) {
 			for (en = ((list*)exp->r)->h; en; en = en->next) {
 				ret |= exp_has_column(en->data);
 			}
@@ -330,11 +331,12 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 		break;
 	}
 	case e_cmp: {
+		int cmp = get_cmp(exp);
 		if (is_anti(exp)) {
 			wprintf(wstate, "(");
 		}
-		if (exp->flag == cmp_in || exp->flag == cmp_notin) {
-			if (exp->flag == cmp_notin) {
+		if (cmp == cmp_in || cmp == cmp_notin) {
+			if (cmp == cmp_notin) {
 				wprintf(wstate, "(");
 			}
 			node *en;
@@ -346,7 +348,7 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 					wprintf(wstate, " || ");
 				}
 			}
-			if (exp->flag == cmp_notin) {
+			if (cmp == cmp_notin) {
 				wprintf(wstate, ") == false");
 			}
 		} else if (get_cmp(exp) == cmp_or) {
@@ -379,16 +381,16 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 				return;
 			}
 		} else if (exp->f) {
-			if (get_weld_cmp(swap_compare(range2lcompare(exp->flag))) == NULL) {
+			if (get_weld_cmp(swap_compare(range2lcompare(cmp))) == NULL) {
 				wstate->error = 1;
 				return;
 			}
 			exp_to_weld(be, wstate, exp->r);
-			wprintf(wstate, " %s ", get_weld_cmp(swap_compare(range2lcompare(exp->flag))));
+			wprintf(wstate, " %s ", get_weld_cmp(swap_compare(range2lcompare(cmp))));
 			exp_to_weld(be, wstate, exp->l);
 			wprintf(wstate, " && ");
 			exp_to_weld(be, wstate, exp->l);
-			wprintf(wstate, " %s ", get_weld_cmp(range2rcompare(exp->flag)));
+			wprintf(wstate, " %s ", get_weld_cmp(range2rcompare(cmp)));
 			exp_to_weld(be, wstate, exp->f);
 		} else {
 			if (get_weld_cmp(get_cmp(exp)) == NULL) {
