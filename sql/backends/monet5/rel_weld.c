@@ -856,31 +856,37 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	} else {
 		len += sprintf(new_builder + len, "merger[");
 	}
-	if (list_length(aggr_exps) > 1 || have_avg) {
-		len += sprintf(new_builder + len, "{"); /* value is a struct */
-	}
-	for (en = aggr_exps->h; en; en = en->next) {
-		exp = en->data;
-		int type = exp_subtype(exp)->type->localtype;
-		len += sprintf(new_builder + len, "%s", getWeldType(type));
-		if (strcmp(get_func_name(exp->f), "avg") == 0) {
-			len += sprintf(new_builder + len, ", i64");
+
+	if (list_length(aggr_exps) == 0) {
+		/* No aggregations, so we'll have to add one ourselves */
+		len += sprintf(new_builder + len, "i8, +]");
+	} else {
+		if (list_length(aggr_exps) > 1 || have_avg) {
+			len += sprintf(new_builder + len, "{"); /* value is a struct */
 		}
-		if (en->next != NULL) {
-			len += sprintf(new_builder + len, ", ");
+		for (en = aggr_exps->h; en; en = en->next) {
+			exp = en->data;
+			int type = exp_subtype(exp)->type->localtype;
+			len += sprintf(new_builder + len, "%s", getWeldType(type));
+			if (strcmp(get_func_name(exp->f), "avg") == 0) {
+				len += sprintf(new_builder + len, ", i64");
+			}
+			if (en->next != NULL) {
+				len += sprintf(new_builder + len, ", ");
+			}
 		}
+		if (list_length(aggr_exps) > 1 || have_avg) {
+			len += sprintf(new_builder + len, "}"); /* value is a struct */
+		}
+		len += sprintf(new_builder + len, ", %s]", aggr_func);
 	}
-	if (list_length(aggr_exps) > 1 || have_avg) {
-		len += sprintf(new_builder + len, "}"); /* value is a struct */
-	}
-	len += sprintf(new_builder + len, ", %s]", aggr_func);
 	wstate->builder = new_builder;
 	input_produce = getproduce_func(rel->l);
 	if (input_produce == NULL) {
 		wstate->error = 1;
 		goto cleanup;
 	}
-	input_produce(be, rel->l, wstate);
+		input_produce(be, rel->l, wstate);
 
 	/* === Consume === */
 	wprintf(wstate, "merge(b%d, ", wstate->num_loops);
@@ -912,28 +918,44 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	for (en = aggr_exps->h; en; en = en->next) {
 		exp = en->data;
 		/* We might have different types when doing the aggregation so we need to cast */
+		int orig_type = 0;
+		str orig_weld_type = NULL;
+		if (exp->l) {
+			sql_exp *orig_exp = ((list*)exp->l)->h->data;
+			orig_type = exp_subtype(orig_exp)->type->localtype;
+			orig_weld_type = getWeldType(orig_type);
+		}
 		int type = exp_subtype(exp)->type->localtype;
 		str weld_type = getWeldType(type);
-		if (has_nil(exp) && need_no_nil(exp)) {
-			wprintf(wstate, "if(");
-		}
-		wprintf(wstate, "%s(", weld_type);
-		exp_to_weld(be, wstate, exp);
-		wprintf(wstate, ")");
-		if (has_nil(exp) && need_no_nil(exp)) {
+		if (need_no_nil(exp)) {
 			/* if (x == TYPEnil, identity, x) */
-			wprintf(wstate, " == %snil, %s, ", weld_type, get_identity(wstate->sa, aggr_func, weld_type, type));
-			wprintf(wstate, "%s(", weld_type);
+			wprintf(wstate, "if(");
 			exp_to_weld(be, wstate, exp);
-			wprintf(wstate, "))");
-		}
-		if (strcmp(get_func_name(exp->f), "avg") == 0) {
-			if (has_nil(exp) && need_no_nil(exp)) {
-				wprintf(wstate, ", if(");
+			wprintf(wstate, " == %snil, %s, ", orig_weld_type,
+					get_identity(wstate->sa, aggr_func, weld_type, type));
+			if (strcmp(((sql_subfunc*)exp->f)->func->imp, "count") == 0) {
+				wprintf(wstate, "1L");
+			} else {
 				wprintf(wstate, "%s(", weld_type);
 				exp_to_weld(be, wstate, exp);
 				wprintf(wstate, ")");
-				wprintf(wstate, " == %snil, 0L, 1L)", weld_type);
+			}
+			wprintf(wstate, ")");
+
+		} else {
+			if (strcmp(((sql_subfunc*)exp->f)->func->imp, "count") == 0) {
+				wprintf(wstate, "1L");
+			} else {
+				wprintf(wstate, "%s(", weld_type);
+				exp_to_weld(be, wstate, exp);
+				wprintf(wstate, ")");
+			}
+		}
+		if (strcmp(get_func_name(exp->f), "avg") == 0) {
+			if (need_no_nil(exp)) {
+				wprintf(wstate, ", if(");
+				exp_to_weld(be, wstate, exp);
+				wprintf(wstate, " == %snil, 0L, 1L)", orig_weld_type);
 			} else {
 				wprintf(wstate, ", 1L");
 			}
@@ -944,6 +966,10 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	}
 	if (list_length(aggr_exps) > 1 || have_avg) {
 		wprintf(wstate, "}"); /* value is a struct */
+	}
+	if (list_length(aggr_exps) == 0) {
+		/* No aggregation columns */
+		wprintf(wstate, "0c");
 	}
 	if (list_length(group_by_exps) > 0) {
 		wprintf(wstate, "}"); /* {key, value} */
@@ -1244,8 +1270,8 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		}
 		wstate->num_parens++;
 		wstate->num_loops++;
-		wprintf(wstate, "for(lookup(v%d, %s), b%d, |b%d, i_%d, n%d|", result_var, probe_key,
-				wstate->num_loops - 1, wstate->num_loops, wstate->num_loops, wstate->num_loops);
+		wprintf(wstate, "for(match, b%d, |b%d, i_%d, n%d|", wstate->num_loops - 1,
+				wstate->num_loops, wstate->num_loops, wstate->num_loops);
 		for (en = right->exps->h, count = 0; en; en = en->next, count++) {
 			len = sprintf(struct_mbr, "n%d", wstate->num_loops);
 			if (list_length(right->exps) > 1) {
