@@ -194,9 +194,9 @@ get_identity(sql_allocator *sa, str weld_func, str weld_type, int type) {
 		}
 		len += sprintf(identity + len, "%s", getWeldTypeSuffix(type));
 	} else if (strcmp(weld_func, "min") == 0) {
-		len += sprintf(identity, "MAX%s", weld_type);
+		len += sprintf(identity, "%sMAX", weld_type);
 	} else if (strcmp(weld_func, "max") == 0) {
-		len += sprintf(identity + len, "MIN%s", weld_type);
+		len += sprintf(identity + len, "%sMIN", weld_type);
 	} else {
 		return NULL;
 	}
