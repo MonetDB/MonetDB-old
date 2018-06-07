@@ -237,7 +237,11 @@ rel_returns_bat(sql_rel *rel) {
 		return ((list*)rel->r)->h != NULL ? 1 : 0;
 	case op_basetable:
 	case op_topn:
+	case op_left:
+	case op_right:
 	case op_join:
+	case op_semi:
+	case op_anti:
 		return 1;
 	default:
 		return -1;
@@ -1020,9 +1024,9 @@ cleanup:
 static void
 join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 {
-	char new_builder[STR_BUF_SIZE], probe_key[STR_BUF_SIZE], struct_mbr[64];
+	char new_builder[STR_BUF_SIZE], probe_key[STR_BUF_SIZE], nulls[STR_BUF_SIZE], struct_mbr[64];
 	str col_name, old_builder;
-	int len = 0, i, count, is_filter = 0, result_var, old_num_loops, old_num_parens;
+	int len, nulls_len, i, count, is_filter = 0, result_var, old_num_loops, old_num_parens;
 	node *en;
 	sql_exp *exp;
 	sql_rel *right = rel->r;
@@ -1124,23 +1128,29 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		/* We only need a dictionary to lookup the key */
 		len += sprintf(new_builder + len, "i64, +");
 	} else {
+		nulls_len = 0;
 		if (list_length(right->exps) > 1) {
 			len += sprintf(new_builder + len, "{"); /* value is a struct */
+			nulls_len += sprintf(nulls + nulls_len, "{");
 		}
 		for (en = right->exps->h; en; en = en->next) {
 			exp = en->data;
 			int type = exp_subtype(exp)->type->localtype;
 			if (type == TYPE_str) {
 				len += sprintf(new_builder + len, "i64");
+				nulls_len += sprintf(nulls + nulls_len, "i64nil");
 			} else {
 				len += sprintf(new_builder + len, "%s", getWeldType(type));
+				nulls_len += sprintf(nulls + nulls_len, "%snil", getWeldType(type));
 			}
 			if (en->next != NULL) {
 				len += sprintf(new_builder + len, ", ");
+				nulls_len += sprintf(nulls + nulls_len, ", ");
 			}
 		}
 		if (list_length(right->exps) > 1) {
 			len += sprintf(new_builder + len, "}"); /* value is a struct */
+			nulls_len += sprintf(nulls + nulls_len, "}");
 		}
 	}
 	len += sprintf(new_builder + len, "]");
@@ -1216,15 +1226,22 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		len += sprintf(probe_key + len, "}");
 	}
 
-	wstate->num_parens++;
 	if (rel->op == op_semi) {
 		/* Reverse the condition */
+		wstate->num_parens++;
 		wprintf(wstate, "if(keyexists(v%d, %s) == false, b%d, ", result_var, probe_key, wstate->num_loops);
 	} else if (rel->op == op_anti) {
 		/* Reverse the condition */
+		wstate->num_parens++;
 		wprintf(wstate, "if(keyexists(v%d, %s) == true, b%d, ", result_var, probe_key, wstate->num_loops);
 	} else {
-		wprintf(wstate, "if(keyexists(v%d, %s) == false, b%d, ", result_var, probe_key, wstate->num_loops);
+		if (rel->op == op_join) {
+			wprintf(wstate, "let match = if(keyexists(v%d, %s), lookup(v%d, %s), []);", result_var,
+					probe_key, result_var, probe_key);
+		} else if (rel->op == op_left) {
+			wprintf(wstate, "let match = if(keyexists(v%d, %s), lookup(v%d, %s), [%s]);", result_var,
+					probe_key, result_var, probe_key, nulls);
+		}
 		wstate->num_parens++;
 		wstate->num_loops++;
 		wprintf(wstate, "for(lookup(v%d, %s), b%d, |b%d, i_%d, n%d|", result_var, probe_key,
@@ -1237,8 +1254,8 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			exp = en->data;
 			col_name = list_fetch(right_cols, count);
 			if (exp_subtype(exp)->type->localtype == TYPE_str) {
-				wprintf(wstate, "let %s = strslice(%s_strcol, %s);", 
-							   col_name, col_name, struct_mbr);
+				wprintf(wstate, "let %s = strslice(%s_strcol, %s);", col_name, col_name,
+						struct_mbr);
 				wprintf(wstate, "let %s_stridx = %s;", col_name, struct_mbr);
 			} else {
 				wprintf(wstate, "let %s = %s;", col_name, struct_mbr);
@@ -1492,6 +1509,7 @@ produce_func getproduce_func(sql_rel *rel)
 		case op_groupby:
 			return &groupby_produce;
 		case op_join:
+		case op_left:
 		case op_anti:
 		case op_semi:
 			return &join_produce;
