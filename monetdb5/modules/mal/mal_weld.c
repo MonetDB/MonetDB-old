@@ -143,20 +143,28 @@ static str getWeldCandListFull(int sid, bat s) {
 	return candList;
 }
 
+int run_no = 0;
 static void dumpProgram(weldState *wstate, MalBlkPtr mb) {
-	FILE *f = fopen(tmpnam(NULL), "w");
+	(void)mb;
+	char fname[64];
+	sprintf(fname, "/tmp/weld-%d.asd", run_no++);
+	FILE *f = fopen(fname, "w");
 	int i;
-	for (i = 0; i < mb->stop; i++) {
-		fprintInstruction(f, mb, NULL, mb->stmt[i], LIST_MAL_ALL);
-	}
-	fprintf(f, "\n\n\n");
+	int count = 0;
 	for (i = 0; i < (int)strlen(wstate->program); i++) {
 		fputc(wstate->program[i], f);
+		if (wstate->program[i] == '|') {
+			count++;
+			if (count == 2) {
+				fputc('\n', f);
+			}
+		}
 		if (wstate->program[i] != '\t' && wstate->program[i + 1] == '\t')
 			fputc('\n', f);
 		if (wstate->program[i] == ';')
 			fputc('\n', f);
 	}
+	fputc('\n', f);
 	fclose(f);
 }
 
