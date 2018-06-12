@@ -1514,7 +1514,9 @@ root_produce(backend *be, sql_rel *rel)
 	final_stmt = create_result_instr(be, weld_program_stmt, root->exps);
 
 cleanup:
+#ifdef WELD_DEBUG
 	dump_program(wstate);
+#endif
 	list_destroy(wstate->stmt_list);
 	sa_destroy(wstate->sa);
 	free(wstate);
