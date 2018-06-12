@@ -15,7 +15,6 @@
 #include "weld.h"
 
 #define STR_BUF_SIZE 4096
-#define WELD_DEBUG 1
 
 #define getOrSetStructMemberImpl(ADDR, TYPE, VALUE, OP)                 \
 	if ((long)*ADDR % sizeof(TYPE) != 0)                                \
