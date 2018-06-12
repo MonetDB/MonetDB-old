@@ -340,9 +340,7 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 			wprintf(wstate, "(");
 		}
 		if (cmp == cmp_in || cmp == cmp_notin) {
-			if (cmp == cmp_notin) {
-				wprintf(wstate, "(");
-			}
+			wprintf(wstate, "(");
 			node *en;
 			for (en = ((list*)exp->r)->h; en; en = en->next) {
 				exp_to_weld(be, wstate, exp->l);
@@ -352,8 +350,9 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 					wprintf(wstate, " || ");
 				}
 			}
+			wprintf(wstate, ")");
 			if (cmp == cmp_notin) {
-				wprintf(wstate, ") == false");
+				wprintf(wstate, " == false");
 			}
 		} else if (get_cmp(exp) == cmp_or) {
 			wprintf(wstate, "(");
