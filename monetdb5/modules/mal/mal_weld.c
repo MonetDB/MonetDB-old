@@ -234,6 +234,7 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sprintf(memLimit, "%ld", 256L * 1L << 30); /* 256 GB */
 	weld_conf_set(conf, "weld.threads", nrThreads);
 	weld_conf_set(conf, "weld.memory.limit", memLimit);
+	weld_conf_set(conf,"weld.optimization.passes", "infer-size,short-circuit-booleans,predicate,vectorize,fix-iterate");
 	long start = getTimeNowMs();
 	weld_module_t m = weld_module_compile(program, conf, e);
 	if (weld_error_code(e)) {
