@@ -34,6 +34,45 @@ struct weldMinMax {
 } weldMinMaxInst = {SCHAR_MIN, SCHAR_MAX, INT_MIN, INT_MAX, LLONG_MIN,
 					LLONG_MAX, FLT_MIN,   FLT_MAX, DBL_MIN, DBL_MAX};
 
+struct progCache {
+	str prog;
+	weld_module_t module;
+};
+
+struct progCache *progCache = NULL;
+int progCacheSize = 0;
+int progCacheMaxSize = 0;
+
+static void addToProgCache(str prog, weld_module_t module) {
+	int i;
+	for (i = 0; i < progCacheSize; i++) {
+		if (strcmp(progCache[i].prog, prog) == 0) {
+			return;
+		}
+	};
+	if (progCacheSize == progCacheMaxSize) {
+		if (progCacheMaxSize == 0) {
+			progCacheMaxSize = 10;
+		} else {
+			progCacheMaxSize *= 2;
+		}
+		progCache = realloc(progCache, progCacheMaxSize * sizeof(struct progCache));
+	}
+	progCache[progCacheSize].prog = strdup(prog);
+	progCache[progCacheSize].module = module;
+	progCacheSize++;
+}
+
+static weld_module_t* getCachedModule(str prog) {
+	int i;
+	for (i = 0; i < progCacheSize; i++) {
+		if (strcmp(progCache[i].prog, prog) == 0) {
+			return &progCache[i].module;
+		}
+	}
+	return NULL;
+}
+
 void getOrSetStructMember(char **addr, int type, const void *value, int op) {
 	if (type == TYPE_bte) {
 		getOrSetStructMemberImpl(addr, char, value, op);
@@ -234,13 +273,21 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	weld_conf_set(conf, "weld.threads", nrThreads);
 	weld_conf_set(conf, "weld.memory.limit", memLimit);
 	weld_conf_set(conf,"weld.optimization.passes", "infer-size,short-circuit-booleans,predicate,vectorize,fix-iterate");
-	long start = getTimeNowMs();
-	weld_module_t m = weld_module_compile(program, conf, e);
-	if (weld_error_code(e)) {
-		throw(MAL, "weld.run", PROGRAM_GENERAL ": %s", weld_error_message(e));
+	weld_module_t *cachedModule = getCachedModule(program);
+	weld_module_t m;
+	if (cachedModule != NULL) {
+		m = *cachedModule;
+		fprintf(stderr, "0,");
+	} else {
+		long start = getTimeNowMs();
+		m = weld_module_compile(program, conf, e);
+		if (weld_error_code(e)) {
+			throw(MAL, "weld.run", PROGRAM_GENERAL ": %s", weld_error_message(e));
+		}
+		long elapsed = getTimeNowMs() - start;
+		fprintf(stderr, "%ld,", elapsed);
+		addToProgCache(program, m);
 	}
-	long elapsed = getTimeNowMs() - start;
-	fprintf(stderr, "%ld,", elapsed);
 
 	/* Prepare the input for Weld. We're building an array that has the layout of a struct */
 	/* Max possible size is when we only have string bats: 2 ptrs for theap and tvheap and 4 lngs
@@ -348,7 +395,6 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	weld_value_free(arg);
 	weld_value_free(result);
 	weld_conf_free(conf);
-	weld_module_free(m);
 	free(program);
 	free(inputStruct);
 	return MAL_SUCCEED;
