@@ -1047,11 +1047,11 @@ cleanup:
 }
 
 static void
-join_produce(backend *be, sql_rel *rel, weld_state *wstate)
+semi_anti_produce(backend *be, sql_rel *rel, weld_state *wstate)
 {
-	char new_builder[STR_BUF_SIZE], probe_key[STR_BUF_SIZE], nulls[STR_BUF_SIZE], struct_mbr[64];
+	char new_builder[STR_BUF_SIZE], probe_key[STR_BUF_SIZE];
 	str col_name, old_builder;
-	int len, nulls_len, i, count, is_filter = 0, result_var, old_num_loops, old_num_parens;
+	int len, i, is_filter = 0, result_var, old_num_loops, old_num_parens;
 	node *en;
 	sql_exp *exp;
 	sql_rel *right = rel->r;
@@ -1112,11 +1112,7 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	}
 
 	len = 0;
-	if (rel->op == op_semi || rel->op == op_anti) {
-		len += sprintf(new_builder + len, "dictmerger[");
-	} else {
-		len += sprintf(new_builder + len, "groupmerger[");
-	}
+	len += sprintf(new_builder + len, "dictmerger[");
 	if (list_length(rel->exps) > 1) {
 		len += sprintf(new_builder + len, "{"); /* key is a struct */
 	}
@@ -1148,37 +1144,7 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	if (list_length(rel->exps) > 1) {
 		len += sprintf(new_builder + len, "}"); /* key is a struct */
 	}
-	len += sprintf(new_builder + len, ", ");
-	if (rel->op == op_semi || rel->op == op_anti) {
-		/* We only need a dictionary to lookup the key */
-		len += sprintf(new_builder + len, "i64, +");
-	} else {
-		nulls_len = 0;
-		if (list_length(right->exps) > 1) {
-			len += sprintf(new_builder + len, "{"); /* value is a struct */
-			nulls_len += sprintf(nulls + nulls_len, "{");
-		}
-		for (en = right->exps->h; en; en = en->next) {
-			exp = en->data;
-			int type = exp_subtype(exp)->type->localtype;
-			if (type == TYPE_str) {
-				len += sprintf(new_builder + len, "i64");
-				nulls_len += sprintf(nulls + nulls_len, "i64nil");
-			} else {
-				len += sprintf(new_builder + len, "%s", getWeldType(type));
-				nulls_len += sprintf(nulls + nulls_len, "%snil", getWeldType(type));
-			}
-			if (en->next != NULL) {
-				len += sprintf(new_builder + len, ", ");
-				nulls_len += sprintf(nulls + nulls_len, ", ");
-			}
-		}
-		if (list_length(right->exps) > 1) {
-			len += sprintf(new_builder + len, "}"); /* value is a struct */
-			nulls_len += sprintf(nulls + nulls_len, "}");
-		}
-	}
-	len += sprintf(new_builder + len, "]");
+	len += sprintf(new_builder + len, ", i64, +]");
 
 	wstate->builder = new_builder;
 	right_produce(be, rel->r, wstate);
@@ -1198,30 +1164,7 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	if (list_length(right_cmp_cols) > 1) {
 		wprintf(wstate, "}"); /* key is a struct */
 	}
-	wprintf(wstate, ", ");
-	if (rel->op == op_semi || rel->op == op_anti) {
-		wprintf(wstate, "1L");
-	} else {
-		if (list_length(right->exps) > 1) {
-			wprintf(wstate, "{"); /* value is a struct */
-		}
-		/* Build the value */
-		for (en = right->exps->h, count = 0; en; en = en->next, count++) {
-			exp = en->data;
-			wprintf(wstate, "%s", (str)list_fetch(right_cols, count));
-			if (exp_subtype(exp)->type->localtype == TYPE_str) {
-				wprintf(wstate, "_stridx");
-			}
-			if (en->next != NULL) {
-				wprintf(wstate, ", ");
-			}
-		}
-		if (list_length(right->exps) > 1) {
-			wprintf(wstate, "}"); /* value is a struct */
-		}
-	}
-
-	wprintf(wstate, "})");
+	wprintf(wstate, ", 1L})");
 	for (i = 0; i < wstate->num_parens; i++) {
 		wprintf(wstate, ")");
 	}
@@ -1251,40 +1194,230 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		len += sprintf(probe_key + len, "}");
 	}
 
+	wstate->num_parens++;
+	/* Reverse the condition */
 	if (rel->op == op_semi) {
-		/* Reverse the condition */
-		wstate->num_parens++;
 		wprintf(wstate, "if(keyexists(v%d, %s) == false, b%d, ", result_var, probe_key, wstate->num_loops);
 	} else if (rel->op == op_anti) {
-		/* Reverse the condition */
-		wstate->num_parens++;
 		wprintf(wstate, "if(keyexists(v%d, %s) == true, b%d, ", result_var, probe_key, wstate->num_loops);
-	} else {
-		if (rel->op == op_join) {
-			wprintf(wstate, "let match = if(keyexists(v%d, %s), lookup(v%d, %s), []);", result_var,
-					probe_key, result_var, probe_key);
-		} else if (rel->op == op_left) {
-			wprintf(wstate, "let match = if(keyexists(v%d, %s), lookup(v%d, %s), [%s]);", result_var,
-					probe_key, result_var, probe_key, nulls);
+	}
+cleanup:
+	list_destroy(right_cols);
+	list_destroy(right_cmp_cols);
+	list_destroy(left_cmp_cols);
+}
+
+static void
+join_produce(backend *be, sql_rel *rel, weld_state *wstate)
+{
+	char new_builder[STR_BUF_SIZE], probe_key[STR_BUF_SIZE], nulls[STR_BUF_SIZE], value[64];
+	str col_name, old_builder;
+	int len, nulls_len, i, count, is_filter = 0, result_var, old_num_loops, old_num_parens;
+	node *en;
+	sql_exp *exp;
+	sql_rel *right = rel->r;
+	list *right_cols = sa_list(wstate->sa);
+	list *right_cmp_cols = sa_list(wstate->sa);
+	list *left_cmp_cols = sa_list(wstate->sa);
+	produce_func left_produce, right_produce;
+
+	if (rel->exps == NULL) {
+		/* Cross product */
+		wstate->error = 1;
+		goto cleanup;
+	}
+	for (en = rel->exps->h; en; en = en->next) {
+		exp = en->data;
+		if (get_cmp(exp) == cmp_notequal) {
+			/* We don't support this yet */
+			wstate->error = 1;
+			goto cleanup;
+		} else if (get_cmp(exp) != cmp_equal) {
+			is_filter = 1;
 		}
-		wstate->num_parens++;
-		wstate->num_loops++;
-		wprintf(wstate, "for(match, b%d, |b%d, i_%d, n%d|", wstate->num_loops - 1,
-				wstate->num_loops, wstate->num_loops, wstate->num_loops);
-		for (en = right->exps->h, count = 0; en; en = en->next, count++) {
-			len = sprintf(struct_mbr, "n%d", wstate->num_loops);
-			if (list_length(right->exps) > 1) {
-				len += sprintf(struct_mbr + len, ".$%d", count);
-			}
-			exp = en->data;
-			col_name = list_fetch(right_cols, count);
-			if (exp_subtype(exp)->type->localtype == TYPE_str) {
-				wprintf(wstate, "let %s = strslice(%s_strcol, %s);", col_name, col_name,
-						struct_mbr);
-				wprintf(wstate, "let %s_stridx = %s;", col_name, struct_mbr);
-			} else {
-				wprintf(wstate, "let %s = %s;", col_name, struct_mbr);
-			}
+	}
+
+	right_produce = getproduce_func(rel->r);
+	left_produce = getproduce_func(rel->l);
+	if (right_produce == NULL || left_produce == NULL) {
+		wstate->error = 1;
+		goto cleanup;
+	}
+	if (is_filter) {
+		right_produce(be, rel->r, wstate);
+		select_produce(be, rel, wstate);
+		goto cleanup;
+	}
+
+	/* === Produce === */
+	old_num_parens = wstate->num_parens;
+	old_num_loops = wstate->num_loops;
+	old_builder = wstate->builder;
+
+	/* Create a new builder */
+	wstate->num_parens = wstate->num_loops = 0;
+	result_var = wstate->next_var++;
+	wprintf(wstate, "let v%dvecs = (", result_var);
+	wstate->num_parens++;
+
+	/* Find the operator that produces the columns */
+	while (right != NULL && right->op != op_project && right->op != op_basetable) {
+		right = right->l;
+	}
+	if (right == NULL) {
+		wstate->error = 1;
+		goto cleanup;
+	}
+	for (en = right->exps->h; en; en = en->next) {
+		list_append(right_cols, get_col_name(wstate->sa, en->data, ANY));
+	}
+
+	/* {appender[{..}], appender[..], appender[..] ... } */
+	len = 0;
+	len += sprintf(new_builder + len, "{appender[");
+	if (list_length(rel->exps) > 1) {
+		len += sprintf(new_builder + len, "{"); /* key is a struct */
+	}
+	for (en = rel->exps->h; en; en = en->next) {
+		/* left cmp */
+		exp = ((sql_exp*)en->data)->l;
+		col_name = get_col_name(wstate->sa, exp, REL);
+		if (list_find(right_cols, col_name, (fcmp)strcmp)) {
+			list_append(right_cmp_cols, col_name);
+		} else {
+			list_append(left_cmp_cols, col_name);
+		}
+		/* right cmp */
+		exp = ((sql_exp*)en->data)->r;
+		col_name = get_col_name(wstate->sa, exp, REL);
+		if (list_find(right_cols, col_name, (fcmp)strcmp)) {
+			list_append(right_cmp_cols, col_name);
+		} else {
+			list_append(left_cmp_cols, col_name);
+		}
+
+		/* both have the same type */
+		int type = exp_subtype(exp)->type->localtype;
+		len += sprintf(new_builder + len, "%s", getWeldType(type));
+		if (en->next != NULL) {
+			len += sprintf(new_builder + len, ", ");
+		}
+	}
+	if (list_length(rel->exps) > 1) {
+		len += sprintf(new_builder + len, "}"); /* key is a struct */
+	}
+	len += sprintf(new_builder + len, "], ");
+	nulls_len = 0;
+	for (en = right->exps->h, count = 1; en; en = en->next, count++) {
+		exp = en->data;
+		int type = exp_subtype(exp)->type->localtype;
+		if (type == TYPE_str) {
+			type = TYPE_lng;
+		}
+		len += sprintf(new_builder + len, "appender[%s]", getWeldType(type));
+		nulls_len += sprintf(nulls + nulls_len, "merge(v%dvecs.$%d, %snil)", result_var, count, getWeldType(type));
+		if (en->next != NULL) {
+			len += sprintf(new_builder + len, ", ");
+			nulls_len += sprintf(nulls + nulls_len, ", ");
+		}
+	}
+	len += sprintf(new_builder + len, "}"); /* complete the builder */
+
+	wstate->builder = new_builder;
+	right_produce(be, rel->r, wstate);
+
+	/* === Consume === */
+	wprintf(wstate, "{merge(b%d.$0, ", wstate->num_loops); /* {key, value} */
+	/* Build the key */
+	if (list_length(right_cmp_cols) > 1) {
+		wprintf(wstate, "{"); /* key is a struct */
+	}
+	for (en = right_cmp_cols->h; en; en = en->next) {
+		wprintf(wstate, "%s", (str)en->data);
+		if (en->next != NULL) {
+			wprintf(wstate, ", ");
+		}
+	}
+	if (list_length(right_cmp_cols) > 1) {
+		wprintf(wstate, "}"); /* key is a struct */
+	}
+	wprintf(wstate, "), ");
+	/* Append the values */
+	for (en = right->exps->h, count = 0; en; en = en->next, count++) {
+		exp = en->data;
+		wprintf(wstate, "merge(b%d.$%d, %s", wstate->num_loops, count + 1, (str)list_fetch(right_cols, count));
+		if (exp_subtype(exp)->type->localtype == TYPE_str) {
+			wprintf(wstate, "_stridx");
+		}
+		wprintf(wstate, ")");
+		if (en->next != NULL) {
+			wprintf(wstate, ", ");
+		}
+	}
+	wprintf(wstate, "}");
+	for (i = 0; i < wstate->num_parens; i++) {
+		wprintf(wstate, ")");
+	}
+	wprintf(wstate, ";");
+	/* Append the nulls at the end */
+	wprintf(wstate, "let v%dvecs = {v%dvecs.$0, %s};", result_var, result_var, nulls);
+	/* Materialize the hashtable */
+	wprintf(wstate, "let v%dkeys = result(v%dvecs.$0);", result_var, result_var);
+	for (en = right->exps->h, count = 0; en; en = en->next, count++) {
+		wprintf(wstate, "let v%dvec%d = result(v%dvecs.$%d);", result_var, count + 1, result_var, count + 1);
+	}
+
+	/* Build the hastable with indexes */
+	wprintf(wstate, 
+	"let v%dtable = result("
+	"	for(v%dkeys, groupmerger[?, i64], |b, i, n|"
+	"		merge(b, {n, i})"
+	"	)"
+	");", result_var, result_var);
+
+	/* Resume the pipeline */
+	wstate->num_parens = old_num_parens;
+	wstate->num_loops = old_num_loops;
+	wstate->builder = old_builder;
+	left_produce(be, rel->l, wstate);
+
+	/* === 2nd Consume === */
+	len = 0;
+	if (list_length(left_cmp_cols) > 1) {
+		len += sprintf(probe_key + len, "{"); /* key is a struct */
+	}
+	for (en = left_cmp_cols->h; en; en = en->next) {
+		/* Hashtable key */
+		len += sprintf(probe_key + len, "%s", (str)en->data);
+		if (en->next != NULL) {
+			len += sprintf(probe_key + len, ", ");
+		}
+	}
+	if (list_length(left_cmp_cols) > 1) {
+		len += sprintf(probe_key + len, "}");
+	}
+
+	if (rel->op == op_join) {
+		wprintf(wstate, "let match = if(keyexists(v%dtable, %s), lookup(v%dtable, %s), []);", result_var,
+				probe_key, result_var, probe_key);
+	} else if (rel->op == op_left) {
+		wprintf(wstate, "let match = if(keyexists(v%dtable, %s), lookup(v%dtable, %s), [len(v%dkeys)]);", result_var,
+				probe_key, result_var, probe_key, result_var);
+	}
+	wstate->num_parens++;
+	wstate->num_loops++;
+	wprintf(wstate, "for(match, b%d, |b%d, i_%d, n%d|", wstate->num_loops - 1,
+			wstate->num_loops, wstate->num_loops, wstate->num_loops);
+	for (en = right->exps->h, count = 0; en; en = en->next, count++) {
+		sprintf(value, "lookup(v%dvec%d, n%d)", result_var, count + 1, wstate->num_loops);
+		exp = en->data;
+		col_name = list_fetch(right_cols, count);
+		if (exp_subtype(exp)->type->localtype == TYPE_str) {
+			wprintf(wstate, "let %s = strslice(%s_strcol, %s);", col_name, col_name,
+					value);
+			wprintf(wstate, "let %s_stridx = %s;", col_name, value);
+		} else {
+			wprintf(wstate, "let %s = %s;", col_name, value);
 		}
 	}
 cleanup:
@@ -1514,6 +1647,7 @@ root_produce(backend *be, sql_rel *rel)
 	final_stmt = create_result_instr(be, weld_program_stmt, root->exps);
 
 cleanup:
+	(void)dump_program;
 #ifdef WELD_DEBUG
 	dump_program(wstate);
 #endif
@@ -1537,9 +1671,10 @@ produce_func getproduce_func(sql_rel *rel)
 			return &groupby_produce;
 		case op_join:
 		case op_left:
+			return &join_produce;
 		case op_anti:
 		case op_semi:
-			return &join_produce;
+			return &semi_anti_produce;
 		default:
 			return NULL;
 	}
