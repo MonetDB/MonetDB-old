@@ -96,6 +96,38 @@ static struct PIPELINES {
 	 "optimizer.wlc();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
+
+	{"weld_pipe",
+	 "optimizer.inline();"
+	 "optimizer.remap();"
+	 "optimizer.costModel();"
+	 "optimizer.coercions();"
+	 "optimizer.evaluate();"
+	 "optimizer.emptybind();"
+	 "optimizer.pushselect();"
+	 "optimizer.aliases();"
+	 "optimizer.deadcode();"
+	 "optimizer.aliases();"
+	 "optimizer.constants();"
+	 "optimizer.commonTerms();"
+	 "optimizer.projectionpath();"
+	 "optimizer.deadcode();"
+	 "optimizer.reorder();"
+//	 "optimizer.reduce();" deprecated
+	 "optimizer.matpack();"
+	 "optimizer.querylog();"
+	 "optimizer.multiplex();"
+	 "optimizer.generator();"
+	 "optimizer.profiler();"
+	 "optimizer.candidates();"
+	 "optimizer.postfix();"
+	 "optimizer.deadcode();"
+//	 "optimizer.jit();" awaiting the new batcalc api
+//	 "optimizer.oltp();"awaiting the autocommit front-end changes
+	 "optimizer.wlc();"
+	 "optimizer.garbageCollector();",
+	 "stable", NULL, NULL, 1},
+
 /*
  * Volcano style execution produces a sequence of blocks from the source relation
  */
