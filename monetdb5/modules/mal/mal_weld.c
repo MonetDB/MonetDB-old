@@ -233,7 +233,7 @@ parseAndSetCustomWeldConf(weld_conf_t conf, char *customWeldConfStr) {
 		char *key = strtok_r(pair, ":", &end_token);
 		char *val = strtok_r(NULL, ":", &end_token);
 		weld_conf_set(conf, key, val);
-		pair = strtok_r(NULL, "\n", &end_str);
+		pair = strtok_r(NULL, ";", &end_str);
 	}
 	free(customWeldConfStrCpy);
 }
