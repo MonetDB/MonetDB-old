@@ -1055,7 +1055,7 @@ semi_anti_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	node *en;
 	sql_exp *exp;
 	sql_rel *right = rel->r;
-	list *right_cols = sa_list(wstate->sa);
+	list *right_cols_names = sa_list(wstate->sa);
 	list *right_cmp_cols = sa_list(wstate->sa);
 	list *left_cmp_cols = sa_list(wstate->sa);
 	produce_func left_produce, right_produce;
@@ -1108,7 +1108,7 @@ semi_anti_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		goto cleanup;
 	}
 	for (en = right->exps->h; en; en = en->next) {
-		list_append(right_cols, get_col_name(wstate->sa, en->data, ANY));
+		list_append(right_cols_names, get_col_name(wstate->sa, en->data, ANY));
 	}
 
 	len = 0;
@@ -1120,7 +1120,7 @@ semi_anti_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		/* left cmp */
 		exp = ((sql_exp*)en->data)->l;
 		col_name = get_col_name(wstate->sa, exp, REL);
-		if (list_find(right_cols, col_name, (fcmp)strcmp)) {
+		if (list_find(right_cols_names, col_name, (fcmp)strcmp)) {
 			list_append(right_cmp_cols, col_name);
 		} else {
 			list_append(left_cmp_cols, col_name);
@@ -1128,7 +1128,7 @@ semi_anti_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		/* right cmp */
 		exp = ((sql_exp*)en->data)->r;
 		col_name = get_col_name(wstate->sa, exp, REL);
-		if (list_find(right_cols, col_name, (fcmp)strcmp)) {
+		if (list_find(right_cols_names, col_name, (fcmp)strcmp)) {
 			list_append(right_cmp_cols, col_name);
 		} else {
 			list_append(left_cmp_cols, col_name);
@@ -1202,7 +1202,7 @@ semi_anti_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		wprintf(wstate, "if(keyexists(v%d, %s) == true, b%d, ", result_var, probe_key, wstate->num_loops);
 	}
 cleanup:
-	list_destroy(right_cols);
+	list_destroy(right_cols_names);
 	list_destroy(right_cmp_cols);
 	list_destroy(left_cmp_cols);
 }
@@ -1217,6 +1217,7 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	sql_exp *exp;
 	sql_rel *right = rel->r;
 	list *right_cols = sa_list(wstate->sa);
+	list *right_cols_names = sa_list(wstate->sa);
 	list *right_cmp_cols = sa_list(wstate->sa);
 	list *left_cmp_cols = sa_list(wstate->sa);
 	produce_func left_produce, right_produce;
@@ -1269,7 +1270,7 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		goto cleanup;
 	}
 	for (en = right->exps->h; en; en = en->next) {
-		list_append(right_cols, get_col_name(wstate->sa, en->data, ANY));
+		list_append(right_cols_names, get_col_name(wstate->sa, en->data, ANY));
 	}
 
 	/* {appender[{..}], appender[..], appender[..] ... } */
@@ -1282,7 +1283,7 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		/* left cmp */
 		exp = ((sql_exp*)en->data)->l;
 		col_name = get_col_name(wstate->sa, exp, REL);
-		if (list_find(right_cols, col_name, (fcmp)strcmp)) {
+		if (list_find(right_cols_names, col_name, (fcmp)strcmp)) {
 			list_append(right_cmp_cols, col_name);
 		} else {
 			list_append(left_cmp_cols, col_name);
@@ -1290,7 +1291,7 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		/* right cmp */
 		exp = ((sql_exp*)en->data)->r;
 		col_name = get_col_name(wstate->sa, exp, REL);
-		if (list_find(right_cols, col_name, (fcmp)strcmp)) {
+		if (list_find(right_cols_names, col_name, (fcmp)strcmp)) {
 			list_append(right_cmp_cols, col_name);
 		} else {
 			list_append(left_cmp_cols, col_name);
@@ -1306,20 +1307,29 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	if (list_length(rel->exps) > 1) {
 		len += sprintf(new_builder + len, "}"); /* key is a struct */
 	}
-	len += sprintf(new_builder + len, "], ");
+	len += sprintf(new_builder + len, "]");
+	/* Create a list of right columns that are not part of the join key */
+	for (en = right->exps->h, count = 1; en; en = en->next) {
+		exp = en->data;
+		col_name = get_col_name(wstate->sa, exp, REL);
+		if (list_find(right_cmp_cols, col_name, (fcmp)strcmp)) {
+			/* Column is part of the key */
+			list_remove_node(right_cols_names, list_find(right_cols_names, col_name, (fcmp)strcmp));
+		} else {
+			list_append(right_cols, exp);
+		}
+	}
+
 	nulls_len = 0;
-	for (en = right->exps->h, count = 1; en; en = en->next, count++) {
+	for (en = right_cols->h, count = 1; en; en = en->next) {
 		exp = en->data;
 		int type = exp_subtype(exp)->type->localtype;
 		if (type == TYPE_str) {
 			type = TYPE_lng;
 		}
-		len += sprintf(new_builder + len, "appender[%s]", getWeldType(type));
-		nulls_len += sprintf(nulls + nulls_len, "merge(v%dvecs.$%d, %snil)", result_var, count, getWeldType(type));
-		if (en->next != NULL) {
-			len += sprintf(new_builder + len, ", ");
-			nulls_len += sprintf(nulls + nulls_len, ", ");
-		}
+		len += sprintf(new_builder + len, ", appender[%s]", getWeldType(type));
+		nulls_len += sprintf(nulls + nulls_len, ", merge(v%dvecs.$%d, %snil)", result_var, count, getWeldType(type));
+		count++;
 	}
 	len += sprintf(new_builder + len, "}"); /* complete the builder */
 
@@ -1343,9 +1353,9 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	}
 	wprintf(wstate, "), ");
 	/* Append the values */
-	for (en = right->exps->h, count = 0; en; en = en->next, count++) {
+	for (en = right_cols->h, count = 0; en; en = en->next, count++) {
 		exp = en->data;
-		wprintf(wstate, "merge(b%d.$%d, %s", wstate->num_loops, count + 1, (str)list_fetch(right_cols, count));
+		wprintf(wstate, "merge(b%d.$%d, %s", wstate->num_loops, count + 1, (str)list_fetch(right_cols_names, count));
 		if (exp_subtype(exp)->type->localtype == TYPE_str) {
 			wprintf(wstate, "_stridx");
 		}
@@ -1360,10 +1370,10 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	}
 	wprintf(wstate, ";");
 	/* Append the nulls at the end */
-	wprintf(wstate, "let v%dvecs = {v%dvecs.$0, %s};", result_var, result_var, nulls);
+	wprintf(wstate, "let v%dvecs = {v%dvecs.$0 %s};", result_var, result_var, nulls);
 	/* Materialize the hashtable */
 	wprintf(wstate, "let v%dkeys = result(v%dvecs.$0);", result_var, result_var);
-	for (en = right->exps->h, count = 0; en; en = en->next, count++) {
+	for (en = right_cols->h, count = 0; en; en = en->next, count++) {
 		wprintf(wstate, "let v%dvec%d = result(v%dvecs.$%d);", result_var, count + 1, result_var, count + 1);
 	}
 
@@ -1408,10 +1418,10 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	wstate->num_loops++;
 	wprintf(wstate, "for(match, b%d, |b%d, i_%d, n%d|", wstate->num_loops - 1,
 			wstate->num_loops, wstate->num_loops, wstate->num_loops);
-	for (en = right->exps->h, count = 0; en; en = en->next, count++) {
+	for (en = right_cols->h, count = 0; en; en = en->next, count++) {
 		sprintf(value, "lookup(v%dvec%d, n%d)", result_var, count + 1, wstate->num_loops);
 		exp = en->data;
-		col_name = list_fetch(right_cols, count);
+		col_name = list_fetch(right_cols_names, count);
 		if (exp_subtype(exp)->type->localtype == TYPE_str) {
 			wprintf(wstate, "let %s = strslice(%s_strcol, %s);", col_name, col_name,
 					value);
@@ -1420,8 +1430,12 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			wprintf(wstate, "let %s = %s;", col_name, value);
 		}
 	}
+	for (en = right_cmp_cols->h, count = 0; en; en = en->next, count++) {
+		wprintf(wstate, "let %s = %s;", (str)en->data, (str)list_fetch(left_cmp_cols, count));
+	}
 cleanup:
 	list_destroy(right_cols);
+	list_destroy(right_cols_names);
 	list_destroy(right_cmp_cols);
 	list_destroy(left_cmp_cols);
 }
