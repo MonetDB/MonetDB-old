@@ -220,6 +220,24 @@ BATundense(BAT *b) {
 	return newb;
 }
 
+static void
+parseAndSetCustomWeldConf(weld_conf_t conf, char *customWeldConfStr) {
+	char *customWeldConfStrCpy = malloc(strlen(customWeldConfStr) + 1);
+	strcpy(customWeldConfStrCpy, customWeldConfStr);
+
+	char *end_str;
+	char *pair = strtok_r(customWeldConfStrCpy, ";", &end_str);
+
+	while (pair != NULL) {
+		char *end_token;
+		char *key = strtok_r(pair, ":", &end_token);
+		char *val = strtok_r(NULL, ":", &end_token);
+		weld_conf_set(conf, key, val);
+		pair = strtok_r(NULL, "\n", &end_str);
+	}
+	free(customWeldConfStrCpy);
+}
+
 str
 WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -273,7 +291,14 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	weld_conf_set(conf, "weld.threads", nrThreads);
 	weld_conf_set(conf, "weld.memory.limit", memLimit);
 	weld_conf_set(conf,"weld.optimization.passes", "infer-size,short-circuit-booleans,predicate,vectorize,fix-iterate");
-	weld_module_t *cachedModule = getCachedModule(program);
+	char *customWeldConf = GDKgetenv("weld_conf");
+	if (customWeldConf != NULL) {
+		parseAndSetCustomWeldConf(conf, customWeldConf);
+	}
+	weld_module_t *cachedModule = NULL;
+	if (!GDKgetenv_istrue("no_weld_cache")) {
+		cachedModule = getCachedModule(program);
+	}
 	weld_module_t m;
 	if (cachedModule != NULL) {
 		m = *cachedModule;
