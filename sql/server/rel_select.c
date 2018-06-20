@@ -184,6 +184,8 @@ rel_project2groupby(mvc *sql, sql_rel *g)
 		g->op = op_groupby;
 		g->r = new_exp_list(sql->sa); /* add empty groupby column list */
 		
+		if (!g->exps)
+			g->exps = new_exp_list(sql->sa);
 		for (en = g->exps->h; en; en = en->next) {
 			sql_exp *e = en->data;
 
@@ -1339,63 +1341,6 @@ rel_check_type(mvc *sql, sql_subtype *t, sql_exp *exp, int tpe)
 }
 
 static sql_exp *
-exp_sum_scales(mvc *sql, sql_subfunc *f, sql_exp *l, sql_exp *r)
-{
-	sql_arg *ares = f->func->res->h->data;
-
-	if (strcmp(f->func->imp, "*") == 0 && ares->type.type->scale == SCALE_FIX) {
-		sql_subtype t;
-		sql_subtype *lt = exp_subtype(l);
-		sql_subtype *rt = exp_subtype(r);
-		sql_subtype *res = f->res->h->data;
-
-		res->scale = lt->scale + rt->scale;
-		res->digits = lt->digits + rt->digits;
-
-		/* HACK alert: digits should be less than max */
-#ifdef HAVE_HGE
-		if (have_hge) {
-			if (ares->type.type->radix == 10 && res->digits > 39)
-				res->digits = 39;
-			if (ares->type.type->radix == 2 && res->digits > 128)
-				res->digits = 128;
-		} else
-#endif
-		{
-
-			if (ares->type.type->radix == 10 && res->digits > 19)
-				res->digits = 19;
-			if (ares->type.type->radix == 2 && res->digits > 64)
-				res->digits = 64;
-		}
-
-		/* sum of digits may mean we need a bigger result type
-		 * as the function don't support this we need to
-		 * make bigger input types!
-		 */
-
-		/* numeric types are fixed length */
-		if (ares->type.type->eclass == EC_NUM) {
-			sql_find_numeric(&t, ares->type.type->localtype, res->digits);
-		} else {
-			sql_find_subtype(&t, ares->type.type->sqlname, res->digits, res->scale);
-		}
-		if (type_cmp(t.type, ares->type.type) != 0) {
-			/* do we need to convert to the a larger localtype
-			   int * int may not fit in an int, so we need to
-			   convert to lng * int.
-			 */
-			sql_subtype nlt;
-
-			sql_init_subtype(&nlt, t.type, res->digits, lt->scale);
-			l = rel_check_type( sql, &nlt, l, type_equal );
-		}
-		*res = t;
-	}
-	return l;
-}
-
-static sql_exp *
 exp_scale_algebra(mvc *sql, sql_subfunc *f, sql_exp *l, sql_exp *r)
 {
 	sql_subtype *lt = exp_subtype(l);
@@ -2109,7 +2054,7 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 		dnode *n = dl->h->next;
 		sql_rel *left = NULL, *right = NULL, *outer = *rel;
 		sql_exp *l = NULL, *r = NULL;
-		int needproj = 0, vals_only = 1;
+		int needproj = 0, vals_only = 1, is_new = 0;
 		list *vals = NULL, *pexps = NULL;
 
 		if (outer && f == sql_sel && is_project(outer->op) && !is_processed(outer) && !list_empty(outer->exps)) {
@@ -2127,15 +2072,16 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 		ek.card = card_set;
 		if (!left) {
 			left = *rel;
-			if (outer && !outer->l && !list_empty(outer->exps) && needproj) {
+			if (!exp_is_atom(l) && outer && !outer->l && !list_empty(outer->exps) && needproj) {
 				l = rel_project_add_exp(sql, left, l);
 				l = exp_column(sql->sa, exp_relname(l), exp_name(l), exp_subtype(l), l->card, has_nil(l), is_intern(l));
 			}
 		}
 
-		if (!left || (!left->l && f == sql_sel)) {
+		if (!left || (!left->l && f == sql_sel && list_empty(left->exps))) {
 			needproj = (left != NULL);
 			left = rel_project_exp(sql->sa, l);
+			is_new = 1;
 		}
 		if (left && is_project(left->op) && list_empty(left->exps))
 			left = left->l;
@@ -2152,7 +2098,10 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 
 				r = rel_value_exp(sql, &z, sval, f, ek);
 				if (l && r && IS_ANY(st->type->eclass)){
-					l = rel_check_type(sql, exp_subtype(r), l, type_equal);
+					sql_exp *nl = rel_check_type(sql, exp_subtype(r), l, type_equal);
+					if (nl != l && is_new)
+						left = rel_project_exp(sql->sa, nl);
+					l = nl;
 					if (l)
 						st = exp_subtype(l);
 				}
@@ -2162,6 +2111,11 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 					sql->errstr[0] = 0;
 
 					z = left;
+					if (is_new) {
+						l = exp_label(sql->sa, l, ++sql->label);
+						l = exp_column(sql->sa, exp_relname(l), exp_name(l), exp_subtype(l), l->card, has_nil(l), is_intern(l));
+						is_new = 0;
+					}
 					r = rel_value_exp(sql, &z, sval, f, ek); 
 					if (z == left && r) {
 						if (l && r && IS_ANY(st->type->eclass)){
@@ -2172,12 +2126,16 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 								return NULL;
 						}
 					}
-					if (r && z && is_project(z->op) && z->l) {
+					if (r && z && is_project(z->op) && z->l && f == sql_sel) {
 						sql_rel *gp = z->l;
 						r = rel_project_add_exp(sql, z, r);
 						reset_processed(gp);
 						r = exp_column(sql->sa, exp_relname(r), exp_name(r), exp_subtype(r), r->card, has_nil(r), is_intern(r));
 						left = z;
+						if (!needproj) {
+							needproj = 1;
+							pexps = outer->exps;
+						}
 					}
 					z = NULL;
 				}
@@ -2581,7 +2539,6 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 			ek.card = card_set;
 			select = rel_select(sql->sa, rel_dup(rel), NULL); /* dup to make sure we get a new select op */
 			rel_destroy(rel);
-
 			/* first remove the NULLs */
 			if (!l_is_value && sc->token == SQL_NOT_IN &&
 		    	    l->card != CARD_ATOM && has_nil(l)) {
@@ -2850,10 +2807,11 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 				rel = rel_crossproduct(sql->sa, left, right, op_join);
 				rel->exps = jexps;
 			}
-			if (sc->token == SQL_IN || correlated || l_is_value) {
-				rel->op = (sc->token == SQL_IN)?op_semi:op_anti;
-			} else if (sc->token == SQL_NOT_IN) {
+			if (sc->token == SQL_IN || correlated || l_is_value)
+				rel->op = op_semi;
+			if (sc->token == SQL_NOT_IN) {
 				rel->op = op_anti;
+				set_no_nil(rel);
 				set_processed(rel);
 			}
 			if (pexps) 
@@ -3274,7 +3232,7 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 		} else if (f->func->fix_scale == SCALE_DIV) {
 			l = exp_scale_algebra(sql, f, l, r);
 		} else if (f->func->fix_scale == SCALE_MUL) {
-			l = exp_sum_scales(sql, f, l, r);
+			exp_sum_scales(f, l, r);
 		} else if (f->func->fix_scale == DIGITS_ADD) {
 			sql_subtype *res = f->res->h->data;
 			res->digits = (t1->digits && t2->digits)?t1->digits + t2->digits:0;
@@ -3368,7 +3326,7 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 				} else if (f->func->fix_scale == SCALE_DIV) {
 					l = exp_scale_algebra(sql, f, l, r);
 				} else if (f->func->fix_scale == SCALE_MUL) {
-					l = exp_sum_scales(sql, f, l, r);
+					exp_sum_scales(f, l, r);
 				} else if (f->func->fix_scale == DIGITS_ADD) {
 					sql_subtype *res = f->res->h->data;
 					res->digits = (t1->digits && t2->digits)?t1->digits + t2->digits:0;
