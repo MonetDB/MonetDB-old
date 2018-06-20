@@ -16,9 +16,6 @@ stdout of test 'lidar-single-file` in directory 'sql/backends/monet5/vaults/lida
 # Listening for connection requests on mapi:monetdb://zarquon.zarniwoop.org:34483/
 # Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-10899/.s.monetdb.34483
 # MonetDB/GIS module loaded
-# MonetDB/SQL module loaded
-
-Ready.
 # SQL catalog created, loading sql scripts once
 # loading sql script: 09_like.sql
 # loading sql script: 10_math.sql
@@ -60,6 +57,9 @@ Ready.
 # loading sql script: 90_generator.sql
 # loading sql script: 90_generator_hge.sql
 # loading sql script: 99_system.sql
+# MonetDB/SQL module loaded
+
+Ready.
 
 # 16:54:24 >  
 # 16:54:24 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-10899" "--port=34483"
