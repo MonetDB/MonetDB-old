@@ -142,11 +142,14 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 			sql_table *deps = find_sql_table(s, "dependencies");
 			sql_column *depids = find_sql_column(deps, "id");
 			oid rid;
+			rids *rs;
 
 			table_funcs.table_insert(m->session->tr, privs, &t->base.id, &pub, &p, &zero, &zero);
-			while ((rid = table_funcs.column_find_row(m->session->tr, depids, &tid, NULL)), !is_oid_nil(rid)) {
+			rs = table_funcs.rids_select(m->session->tr, depids, &tid, &tid, NULL);
+			while ((rid = table_funcs.rids_next(rs)), !is_oid_nil(rid)) {
 				table_funcs.column_update_value(m->session->tr, depids, rid, &ntid);
 			}
+			table_funcs.rids_destroy(rs);
 		}
 
 		t = mvc_create_view(m, s, "columns", SQL_PERSIST, "SELECT * FROM (SELECT p.* FROM \"sys\".\"_columns\" AS p UNION ALL SELECT t.* FROM \"tmp\".\"_columns\" AS t) AS columns;", 1);
@@ -170,11 +173,14 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 			sql_table *deps = find_sql_table(s, "dependencies");
 			sql_column *depids = find_sql_column(deps, "id");
 			oid rid;
+			rids *rs;
 
 			table_funcs.table_insert(m->session->tr, privs, &t->base.id, &pub, &p, &zero, &zero);
-			while ((rid = table_funcs.column_find_row(m->session->tr, depids, &cid, NULL)), !is_oid_nil(rid)) {
+			rs = table_funcs.rids_select(m->session->tr, depids, &cid, &cid, NULL);
+			while ((rid = table_funcs.rids_next(rs)), !is_oid_nil(rid)) {
 				table_funcs.column_update_value(m->session->tr, depids, rid, &ncid);
 			}
+			table_funcs.rids_destroy(rs);
 		} else {
 			sql_create_env(m, s);
 			sql_create_comments(m, s);
@@ -620,6 +626,7 @@ mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 	m->history = 0;
 
 	m->label = 0;
+	m->remote = 0;
 	m->cascade_action = NULL;
 	for(i=0;i<MAXSTATS;i++)
 		m->opt_stats[i] = 0;
@@ -701,6 +708,7 @@ mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars)
 	m->history = 0;
 
 	m->label = 0;
+	m->remote = 0;
 	m->cascade_action = NULL;
 	m->type = Q_PARSE;
 	m->pushdown = 1;
@@ -1829,25 +1837,26 @@ mvc_copy_idx(mvc *m, sql_table *t, sql_idx *i)
 	return sql_trans_copy_idx(m->session->tr, t, i);
 }
 
-sql_rel *
+sql_subquery *
 mvc_push_subquery(mvc *m, const char *name, sql_rel *r)
 {
-	sql_rel *res = NULL;
+	sql_subquery *res = NULL;
 
 	if (!m->sqs)
 		m->sqs = sa_list(m->sa);
 	if (m->sqs) {
-		sql_var *v = SA_NEW(m->sa, sql_var);
+		sql_subquery *v = SA_NEW(m->sa, sql_subquery);
 
 		v->name = name;
 		v->rel = r;
+		v->s = NULL;
 		list_append(m->sqs, v);
-		res = r;
+		res = v;
 	}
 	return res;
 }
 
-sql_rel *
+sql_subquery *
 mvc_find_subquery(mvc *m, const char *rname, const char *name) 
 {
 	node *n;
@@ -1855,13 +1864,13 @@ mvc_find_subquery(mvc *m, const char *rname, const char *name)
 	if (!m->sqs)
 		return NULL;
 	for (n = m->sqs->h; n; n = n->next) {
-		sql_var *v = n->data;
+		sql_subquery *v = n->data;
 
 		if (strcmp(v->name, rname) == 0) {
 			sql_exp *ne = exps_bind_column2(v->rel->exps, rname, name);
 
 			if (ne)
-				return v->rel;
+				return v;
 		}
 	}
 	return NULL;
@@ -1875,7 +1884,7 @@ mvc_find_subexp(mvc *m, const char *rname, const char *name)
 	if (!m->sqs)
 		return NULL;
 	for (n = m->sqs->h; n; n = n->next) {
-		sql_var *v = n->data;
+		sql_subquery *v = n->data;
 
 		if (strcmp(v->name, rname) == 0) {
 			sql_exp *ne = exps_bind_column2(v->rel->exps, rname, name);
