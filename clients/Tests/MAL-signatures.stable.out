@@ -8,13 +8,14 @@ stdout of test 'MAL-signatures` in directory 'clients` itself:
 # MonetDB 5 server v11.20.0
 # This is an unreleased version
 # Serving database 'mTests_clients', using 8 threads
-# Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs and 128bit integers dynamically linked
-# Found 7.734 GiB available main-memory.
-# Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
-# Visit http://www.monetdb.org/ for further information
-
-Ready.
+# Compiled for x86_64-unknown-linux-gnu/64bit with 128bit integers
+# Found 15.386 GiB available main-memory.
+# Copyright (c) 1993 - July 2008 CWI.
+# Copyright (c) August 2008 - 2018 MonetDB B.V., all rights reserved
+# Visit https://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://xps13:39285/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-1158/.s.monetdb.39285
+# MonetDB/GIS module loaded
 # SQL catalog created, loading sql scripts once
 # loading sql script: 09_like.sql
 # loading sql script: 10_math.sql
@@ -51,6 +52,11 @@ Ready.
 # loading sql script: 85_bam.sql
 # loading sql script: 90_generator.sql
 # loading sql script: 99_system.sql
+# MonetDB/SQL module loaded
+# MonetDB/Python2 module loaded
+# MonetDB/R   module loaded
+
+Ready.
 
 # 14:39:22 >  
 # 14:39:22 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-23085" "--port=30158"
@@ -10371,14 +10377,6 @@ Ready.
 [ "lidar",	"load",	"pattern lidar.load(tablename:str):void ",	"LIDARloadTable;",	"Load a LIDAR table from an attached file"	]
 [ "lidar",	"prelude",	"command lidar.prelude():void ",	"LIDARprelude;",	""	]
 [ "lidar",	"unload",	"pattern lidar.unload(tablename:str):void ",	"LIDARunload;",	"Unload the data from a LIDAR table"	]
-[ "lsst",	"angsep",	"command lsst.angsep(ra1:dbl, dec1:dbl, ra2:dbl, dec2:dbl):dbl ",	"qserv_angSep;",	"Returns the angular separation in degrees between two spherical\ncoordinate pairs (ra1,dec1) and (ra2,dec2)"	]
-[ "lsst",	"ptinsphbox",	"command lsst.ptinsphbox(ra:dbl, dec:dbl, ra_min:dbl, dec_min:dbl, ra_max:dbl, dec_max:dbl):int ",	"qserv_ptInSphBox;",	"Returns 1 if the given spherical longitude/latitude box contains the given position"	]
-[ "lsst",	"ptinsphcircle",	"command lsst.ptinsphcircle(ra:dbl, dec:dbl, ra_cen:dbl, dec_cen:dbl, radius:dbl):int ",	"qserv_ptInSphCircle;",	"Returns 1 if the given spherical longitude/latitude circle contains the given position"	]
-[ "lsst",	"ptinsphellipse",	"command lsst.ptinsphellipse(ra:dbl, dec:dbl, ra_cen:dbl, dec_cen:dbl, smaa:dbl, smia:dbl, ang:dbl):int ",	"qserv_ptInSphEllipse;",	"Returns 1 if the given spherical longitude/latitude ellipse contains the given position"	]
-[ "lsst",	"ptinsphpoly",	"pattern lsst.ptinsphpoly(ra:dbl, dec:dbl, list:dbl...):int ",	"qserv_ptInSphPoly;",	"Returns 1 if the given spherical longitude/latitude polyline contains the given position"	]
-[ "lsst",	"xmatch",	"command lsst.xmatch(l:lng, r:lng, depth:int):bit ",	"LSSTxmatch;",	"Return true when the HtmID pairs that lie within the same triangle at level depth"	]
-[ "lsst",	"xmatchjoin",	"command lsst.xmatchjoin(l:bat[:lng], r:bat[:lng], depth:int, sl:bat[:oid], sr:bat[:oid], nil_matches:bit, estimate:lng) (lr:bat[:oid], rr:bat[:oid]) ",	"LSSTxmatchjoin;",	"Return the HtmID pairs that lie within the same triangle at level depth"	]
-[ "lsst",	"xmatchselect",	"command lsst.xmatchselect(l:bat[:lng], cand:bat[:oid], r:lng, depth:int, anti:bit):bat[:oid] ",	"LSSTxmatchselect;",	"Return the HtmID's that lie within the same triangle as r at level depth"	]
 [ "mal",	"manifold",	"pattern mal.manifold(mod:str, fcn:str, a:any...):bat[:any] ",	"MANIFOLDevaluate;",	""	]
 [ "mal",	"multiplex",	"pattern mal.multiplex(mod:str, fcn:str, a:any...):any... ",	"MANIFOLDremapMultiplex;",	""	]
 [ "manual",	"functions",	"pattern manual.functions() (mod:bat[:str], fcn:bat[:str], sig:bat[:str], adr:bat[:str], com:bat[:str]) ",	"MANUALcreateOverview;",	"Produces a table with all MAL functions known"	]
@@ -10799,6 +10797,7 @@ Ready.
 [ "remote",	"bintype",	"pattern remote.bintype():void ",	"RMTbintype;",	"print the binary type of this mserver5"	]
 [ "remote",	"connect",	"command remote.connect(uri:str, user:str, passwd:str):str ",	"RMTconnect;",	"returns a newly created connection for uri, using user name and password"	]
 [ "remote",	"connect",	"command remote.connect(uri:str, user:str, passwd:str, scen:str):str ",	"RMTconnectScen;",	"returns a newly created connection for uri, using user name, password and scenario"	]
+[ "remote",	"connect",	"pattern remote.connect(table:str, schen:str):str ",	"RMTconnectTable;",	"return a newly created connection for a table. username and password should be in the vault"	]
 [ "remote",	"disconnect",	"command remote.disconnect(conn:str):void ",	"RMTdisconnect;",	"disconnects the connection pointed to by handle (received from a call to connect()"	]
 [ "remote",	"epilogue",	"command remote.epilogue():void ",	"RMTepilogue;",	"release the resources held by the remote module"	]
 [ "remote",	"exec",	"pattern remote.exec(conn:str, mod:str, func:str):str ",	"RMTexec;",	"remotely executes <mod>.<func> and returns the handle to its result"	]
@@ -10910,7 +10909,7 @@ Ready.
 [ "sql",	"optimizer_updates",	"pattern sql.optimizer_updates():void ",	"SQLoptimizersUpdate;",	""	]
 [ "sql",	"optimizers",	"command sql.optimizers() (X_0:bat[:str], X_1:bat[:str], X_2:bat[:str]) ",	"getPipeCatalog;",	""	]
 [ "sql",	"password",	"pattern sql.password(user:str):str ",	"db_password_wrap;",	"Return password hash of user"	]
-[ "sql",	"prelude",	"command sql.prelude():void ",	"SQLprelude;",	""	]
+[ "sql",	"prelude",	"pattern sql.prelude():void ",	"SQLprelude;",	""	]
 [ "sql",	"project",	"command sql.project(col:bat[:oid], l:bat[:oid], r:bat[:oid]):bat[:oid] ",	"BATleftproject;",	"Last step of a left outer join, ie project the inner join (l,r) over the left input side (col)"	]
 [ "sql",	"projectdelta",	"command sql.projectdelta(select:bat[:oid], col:bat[:any_3], uid:bat[:oid], uval:bat[:any_3]):bat[:any_3] ",	"DELTAproject2;",	"Return column bat with delta's applied."	]
 [ "sql",	"projectdelta",	"command sql.projectdelta(select:bat[:oid], col:bat[:any_3], uid:bat[:oid], uval:bat[:any_3], ins:bat[:any_3]):bat[:any_3] ",	"DELTAproject;",	"Return column bat with delta's applied."	]
@@ -10934,6 +10933,7 @@ Ready.
 [ "sql",	"round",	"command sql.round(v:lng, d:int, s:int, r:bte):lng ",	"lng_round_wrap;",	"round off the decimal v(d,s) to r digits behind the dot (if r < 0, before the dot)"	]
 [ "sql",	"round",	"command sql.round(v:sht, d:int, s:int, r:bte):sht ",	"sht_round_wrap;",	"round off the decimal v(d,s) to r digits behind the dot (if r < 0, before the dot)"	]
 [ "sql",	"row_number",	"pattern sql.row_number(b:any_1, p:bit, o:bit):int ",	"SQLrow_number;",	"return the row_numer-ed groups"	]
+[ "sql",	"rt_credentials",	"pattern sql.rt_credentials(tablename:str) (uri:bat[:str], username:bat[:str], hash:bat[:str]) ",	"sql_rt_credentials_wrap;",	"Return the remote table credentials for the given table"	]
 [ "sql",	"sessions",	"pattern sql.sessions() (user:bat[:str], start:bat[:timestamp], stimeout:bat[:lng], lastcmd:bat[:timestamp], qtimeout:bat[:lng], idle:bat[:bit]) ",	"sql_sessions_wrap;",	"SQL export table of active sessions, their timeouts and idle status"	]
 [ "sql",	"setVariable",	"pattern sql.setVariable(mvc:int, varname:str, value:any_1):int ",	"setVariable;",	"Set the value of a session variable"	]
 [ "sql",	"shrink",	"pattern sql.shrink(sch:str, tbl:str):void ",	"SQLshrink;",	"Consolidate the deletion table over all columns using shrinking"	]
@@ -11161,13 +11161,7 @@ Ready.
 [ "url",	"url",	"command url.url(s:str):url ",	"URLnew;",	"Create an URL from a string literal"	]
 [ "url",	"url",	"command url.url(s:url):url ",	"URLnoop;",	"Create an URL from a string literal"	]
 [ "user",	"main",	"function user.main():void;",	"",	""	]
-[ "user",	"main",	"function user.main():void;",	"",	""	]
-[ "user",	"main",	"function user.main():void;",	"",	""	]
-[ "user",	"main",	"function user.main():void;",	"",	""	]
-[ "user",	"main",	"function user.main():void;",	"",	""	]
-[ "user",	"main",	"function user.main():void;",	"",	""	]
 [ "user",	"s2_1",	"function user.s2_1():void;",	"",	""	]
-[ "user",	"sql.init",	"function user.sql.init():void;",	"",	""	]
 [ "uuid",	"#cmp",	"command uuid.#cmp():void ",	"UUIDcompare;",	""	]
 [ "uuid",	"#fromstr",	"command uuid.#fromstr():void ",	"UUIDfromString;",	""	]
 [ "uuid",	"#hash",	"command uuid.#hash():void ",	"UUIDhash;",	""	]
@@ -11212,6 +11206,7 @@ Ready.
 [ "wlc",	"append",	"pattern wlc.append(sname:str, tname:str, cname:str, ins:any):int ",	"WLCappend;",	"Keep the insertions in the workload-capture-replay list"	]
 [ "wlc",	"catalog",	"pattern wlc.catalog(q:str):void ",	"WLCcatalog;",	"Keep the catalog changing queries for replay. "	]
 [ "wlc",	"clear_table",	"pattern wlc.clear_table(sname:str, tname:str):int ",	"WLCclear_table;",	"Keep the deletions in the workload-capture-replay list"	]
+[ "wlc",	"comment_on",	"pattern wlc.comment_on(objid:int, remark:str):void ",	"WLCgeneric;",	"Catalog operation comment_on"	]
 [ "wlc",	"commit",	"pattern wlc.commit():void ",	"WLCcommitCmd;",	"Commit the workload-capture-replay record"	]
 [ "wlc",	"commit",	"pattern wlc.commit():void ",	"WLCcommitCmd;",	"Mark the end of the work unit"	]
 [ "wlc",	"create_function",	"pattern wlc.create_function(sname:str, fname:str):void ",	"WLCgeneric;",	"Catalog operation create_function"	]
@@ -11271,6 +11266,7 @@ Ready.
 [ "wlr",	"append",	"pattern wlr.append(sname:str, tname:str, cname:str, ins:any...):int ",	"WLRappend;",	"Apply the insertions in the workload-capture-replay list"	]
 [ "wlr",	"catalog",	"pattern wlr.catalog(q:str):void ",	"WLRcatalog;",	"A catalog changing query"	]
 [ "wlr",	"clear_table",	"pattern wlr.clear_table(sname:str, tname:str):int ",	"WLRclear_table;",	"Destroy the tuples in the table"	]
+[ "wlr",	"comment_on",	"pattern wlr.comment_on(objid:int, remark:str):void ",	"WLRgeneric;",	"Catalog operation comment_on"	]
 [ "wlr",	"commit",	"pattern wlr.commit():void ",	"WLRcommit;",	"Mark the end of the work unit"	]
 [ "wlr",	"create_function",	"pattern wlr.create_function(sname:str, fname:str):void ",	"WLRgeneric;",	"Catalog operation create_function"	]
 [ "wlr",	"create_role",	"pattern wlr.create_role(sname:str, role:str, grator:int):void ",	"WLRgeneric;",	"Catalog operation create_role"	]

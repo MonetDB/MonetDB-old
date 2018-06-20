@@ -22,6 +22,8 @@
 #include "gdk_logger.h"
 #include "wlc.h"
 
+#include "mal_authorize.h"
+
 static int mvc_debug = 0;
 
 static void
@@ -627,6 +629,7 @@ mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 	m->history = 0;
 
 	m->label = 0;
+	m->remote = 0;
 	m->cascade_action = NULL;
 	for(i=0;i<MAXSTATS;i++)
 		m->opt_stats[i] = 0;
@@ -709,6 +712,7 @@ mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars)
 	m->history = 0;
 
 	m->label = 0;
+	m->remote = 0;
 	m->cascade_action = NULL;
 	m->type = Q_PARSE;
 	m->pushdown = 1;
@@ -1246,6 +1250,29 @@ mvc_drop_table(mvc *m, sql_schema *s, sql_table *t, int drop_action)
 {
 	if (mvc_debug)
 		fprintf(stderr, "#mvc_drop_table %s %s\n", s->base.name, t->base.name);
+
+
+	if (isRemote(t)) {
+		sql_allocator *sa = m->sa;
+		m->sa = sa_create();
+		if (!m->sa) {
+			return -1;
+		}
+		char *qualified_name = sa_strconcat(m->sa, sa_strconcat(m->sa, t->s->base.name, "."), t->base.name);
+		if (!qualified_name) {
+			sa_destroy(m->sa);
+			m->sa = sa;
+			return -1;
+		}
+
+		if (AUTHdeleteRemoteTableCredentials(qualified_name)) {
+			sa_destroy(m->sa);
+			m->sa = sa;
+			return -1;
+		}
+		sa_destroy(m->sa);
+		m->sa = sa;
+	}
 
 	return sql_trans_drop_table(m->session->tr, s, t->base.id, drop_action ? DROP_CASCADE_START : DROP_RESTRICT);
 }

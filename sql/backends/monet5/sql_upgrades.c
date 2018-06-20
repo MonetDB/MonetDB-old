@@ -18,6 +18,9 @@
 #include <unistd.h>
 #include "sql_upgrades.h"
 
+#include "rel_remote.h"
+#include "mal_authorize.h"
+
 #ifdef HAVE_EMBEDDED
 #define printf(fmt,...) ((void) 0)
 #endif
@@ -647,7 +650,7 @@ sql_update_jul2017(Client c, mvc *sql)
 	res_table *output;
 	BAT *b;
 
-	if( buf== NULL)
+	if( buf == NULL)
 		throw(SQL, "sql_update_jul2017", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 
@@ -776,7 +779,7 @@ sql_update_jul2017_sp2(Client c)
 			size_t bufsize = 2048, pos = 0;
 			char *buf = GDKmalloc(bufsize);
 
-			if (buf== NULL)
+			if (buf == NULL)
 				throw(SQL, "sql_update_jul2017_sp2", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 			/* 51_sys_schema_extensions.sql and 25_debug.sql */
@@ -861,7 +864,7 @@ sql_update_mar2018_geom(Client c, mvc *sql, sql_table *t)
 	char *buf = GDKmalloc(bufsize), *err = NULL;
 	char *schema = stack_get_string(sql, "current_schema");
 
-	if (buf== NULL)
+	if (buf == NULL)
 		throw(SQL, "sql_update_mar2018_geom", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 
@@ -927,7 +930,7 @@ sql_update_mar2018(Client c, mvc *sql)
 
 	schema = stack_get_string(sql, "current_schema");
 	buf = GDKmalloc(bufsize);
-	if (buf== NULL)
+	if (buf == NULL)
 		throw(SQL, "sql_update_mar2018", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	s = mvc_bind_schema(sql, "sys");
 
@@ -1394,7 +1397,7 @@ sql_update_mar2018_netcdf(Client c, mvc *sql)
 
 	schema = stack_get_string(sql, "current_schema");
 	buf = GDKmalloc(bufsize);
-	if (buf== NULL)
+	if (buf == NULL)
 		throw(SQL, "sql_update_mar2018_netcdf", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema sys;\n");
@@ -1435,7 +1438,7 @@ sql_update_mar2018_samtools(Client c, mvc *sql)
 
 	schema = stack_get_string(sql, "current_schema");
 	buf = GDKmalloc(bufsize);
-	if (buf== NULL)
+	if (buf == NULL)
 		throw(SQL, "sql_update_mar2018_samtools", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema sys;\n");
@@ -1509,7 +1512,7 @@ sql_update_mar2018_sp1(Client c, mvc *sql)
 	char *schema = stack_get_string(sql, "current_schema");
 
 	if (buf == NULL)
-		throw(SQL, "sql_update_dec2016_sp3", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		throw(SQL, "sql_update_mar2018_sp1", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	pos += snprintf(buf + pos, bufsize - pos,
 			"set schema \"sys\";\n"
 			"drop function sys.dependencies_functions_os_triggers();\n"
@@ -1517,6 +1520,189 @@ sql_update_mar2018_sp1(Client c, mvc *sql)
 			"RETURNS TABLE (sch varchar(100), usr varchar(100), dep_type varchar(32))\n"
 			"RETURN TABLE (SELECT f.name, tri.name, 'DEP_TRIGGER' from functions as f, triggers as tri, dependencies as dep where dep.id = f.id AND dep.depend_id =tri.id AND dep.depend_type = 8);\n"
 			"insert into sys.systemfunctions (select id from sys.functions where name in ('dependencies_functions_on_triggers') and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));\n"
+			"delete from systemfunctions where function_id not in (select id from functions);\n");
+	if (schema)
+		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
+	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
+	assert(pos < bufsize);
+
+	printf("Running database upgrade commands:\n%s\n", buf);
+	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
+	GDKfree(buf);
+	return err;		/* usually MAL_SUCCEED */
+}
+
+static str
+sql_update_remote_tables(Client c, mvc *sql)
+{
+	res_table *output;
+	str err = MAL_SUCCEED;
+	size_t bufsize = 1000, pos = 0;
+	char *buf;
+	char *schema;
+	BAT *tbl = NULL;
+	BAT *uri = NULL;
+
+	schema = stack_get_string(sql, "current_schema");
+	if ((buf = GDKmalloc(bufsize)) == NULL)
+		throw(SQL, "sql_update_remote_tables", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+
+	/* Create the SQL function needed to dump the remote table credentials */
+	pos += snprintf(buf + pos, bufsize - pos, "set schema sys;\n");
+	pos += snprintf(buf + pos, bufsize - pos,
+			"create function sys.remote_table_credentials (tablename string)"
+			" returns table (\"uri\" string, \"username\" string, \"hash\" string)"
+			" external name sql.rt_credentials;\n"
+			"insert into sys.systemfunctions (select id from sys.functions where name='remote_table_credentials' and id not in (select function_id from sys.systemfunctions));\n");
+
+	if (schema)
+		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
+	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
+
+	assert(pos < bufsize);
+	printf("Running database upgrade commands:\n%s\n", buf);
+	err = SQLstatementIntern(c, &buf, "create function", 1, 0, NULL);
+	if (err)
+		goto bailout;
+
+	pos = 0;
+	pos += snprintf(buf + pos, bufsize - pos,
+			"SELECT concat(concat(scm.name, '.'), tbl.name), tbl.query"
+			" FROM sys._tables AS tbl JOIN sys.schemas AS scm ON"
+			" tbl.schema_id=scm.id WHERE tbl.type=5;\n");
+
+	assert(pos < bufsize);
+
+	err = SQLstatementIntern(c, &buf, "get remote table names", 1, 0, &output);
+	if (err)
+		goto bailout;
+
+	/* We executed the query, now process the results */
+	tbl = BATdescriptor(output->cols[0].b);
+	uri = BATdescriptor(output->cols[1].b);
+
+	if (tbl && uri) {
+		size_t cnt;
+		assert(BATcount(tbl) == BATcount(uri));
+		if ((cnt = BATcount(tbl)) > 0) {
+			BATiter tbl_it = bat_iterator(tbl);
+			BATiter uri_it = bat_iterator(uri);
+			const void *restrict nil = ATOMnilptr(tbl->ttype);
+			int (*cmp)(const void *, const void *) = ATOMcompare(tbl->ttype);
+			const char *v;
+			const char *u;
+			const char *remote_server_uri;
+
+			/* This is probably not correct: offsets? */
+			for (BUN i = 0; i < cnt; i++) {
+				v = BUNtail(tbl_it, i);
+				u = BUNtail(uri_it, i);
+				if (v == NULL || (*cmp)(v, nil) == 0 ||
+				    u == NULL || (*cmp)(u, nil) == 0) {
+					BBPunfix(tbl->batCacheid);
+					BBPunfix(uri->batCacheid);
+					goto bailout;
+				}
+
+				/* Since the loop might fail, it might be a good idea
+				 * to update the credentials as a second step
+				 */
+				remote_server_uri = mapiuri_uri((char *)u, sql->sa);
+				AUTHaddRemoteTableCredentials((char *)v, "monetdb", remote_server_uri, "monetdb", "monetdb", false);
+			}
+		}
+		BBPunfix(tbl->batCacheid);
+		BBPunfix(uri->batCacheid);
+	}
+	res_table_destroy(output);
+
+  bailout:
+	GDKfree(buf);
+	return err;
+}
+
+static str
+sql_replace_Mar2018_ids_view(Client c, mvc *sql)
+{
+	size_t bufsize = 4400, pos = 0;
+	char *buf = GDKmalloc(bufsize), *err = NULL;
+	char *schema;
+	sql_schema *s;
+	sql_table *t;
+
+	if (buf == NULL)
+		throw(SQL, "sql_replace_Mar2018_ids_view", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+
+	schema = stack_get_string(sql, "current_schema");
+	s = mvc_bind_schema(sql, "sys");
+	t = mvc_bind_table(sql, s, "ids");
+	t->system = 0;	/* make it non-system else the drop view will fail */
+	t = mvc_bind_table(sql, s, "dependencies_vw");	/* dependencies_vw uses view sys.ids so must be removed first */
+	t->system = 0;
+
+	/* 21_dependency_views.sql */
+	pos += snprintf(buf + pos, bufsize - pos,
+			"set schema \"sys\";\n"
+			"DROP VIEW sys.dependencies_vw;\n"
+			"DROP VIEW sys.ids;\n"
+
+			"CREATE VIEW sys.ids (id, name, schema_id, table_id, table_name, obj_type, sys_table) AS\n"
+			"SELECT id, name, cast(null as int) as schema_id, cast(null as int) as table_id, cast(null as varchar(124)) as table_name, 'author' AS obj_type, 'sys.auths' AS sys_table FROM sys.auths UNION ALL\n"
+			"SELECT id, name, cast(null as int) as schema_id, cast(null as int) as table_id, cast(null as varchar(124)) as table_name, 'schema', 'sys.schemas' FROM sys.schemas UNION ALL\n"
+			"SELECT id, name, schema_id, id as table_id, name as table_name, case when type = 1 then 'view' else 'table' end, 'sys._tables' FROM sys._tables UNION ALL\n"
+			"SELECT id, name, schema_id, id as table_id, name as table_name, case when type = 1 then 'view' else 'table' end, 'tmp._tables' FROM tmp._tables UNION ALL\n"
+			"SELECT c.id, c.name, t.schema_id, c.table_id, t.name as table_name, 'column', 'sys._columns' FROM sys._columns c JOIN sys._tables t ON c.table_id = t.id UNION ALL\n"
+			"SELECT c.id, c.name, t.schema_id, c.table_id, t.name as table_name, 'column', 'tmp._columns' FROM tmp._columns c JOIN tmp._tables t ON c.table_id = t.id UNION ALL\n"
+			"SELECT k.id, k.name, t.schema_id, k.table_id, t.name as table_name, 'key', 'sys.keys' FROM sys.keys k JOIN sys._tables t ON k.table_id = t.id UNION ALL\n"
+			"SELECT k.id, k.name, t.schema_id, k.table_id, t.name as table_name, 'key', 'tmp.keys' FROM tmp.keys k JOIN tmp._tables t ON k.table_id = t.id UNION ALL\n"
+			"SELECT i.id, i.name, t.schema_id, i.table_id, t.name as table_name, 'index', 'sys.idxs' FROM sys.idxs i JOIN sys._tables t ON i.table_id = t.id UNION ALL\n"
+			"SELECT i.id, i.name, t.schema_id, i.table_id, t.name as table_name, 'index', 'tmp.idxs' FROM tmp.idxs i JOIN tmp._tables t ON i.table_id = t.id UNION ALL\n"
+			"SELECT g.id, g.name, t.schema_id, g.table_id, t.name as table_name, 'trigger', 'sys.triggers' FROM sys.triggers g JOIN sys._tables t ON g.table_id = t.id UNION ALL\n"
+			"SELECT g.id, g.name, t.schema_id, g.table_id, t.name as table_name, 'trigger', 'tmp.triggers' FROM tmp.triggers g JOIN tmp._tables t ON g.table_id = t.id UNION ALL\n"
+			"SELECT id, name, schema_id, cast(null as int) as table_id, cast(null as varchar(124)) as table_name, case when type = 2 then 'procedure' else 'function' end, 'sys.functions' FROM sys.functions UNION ALL\n"
+			"SELECT a.id, a.name, f.schema_id, cast(null as int) as table_id, cast(null as varchar(124)) as table_name, case when f.type = 2 then 'procedure arg' else 'function arg' end, 'sys.args' FROM sys.args a JOIN sys.functions f ON a.func_id = f.id UNION ALL\n"
+			"SELECT id, name, schema_id, cast(null as int) as table_id, cast(null as varchar(124)) as table_name, 'sequence', 'sys.sequences' FROM sys.sequences UNION ALL\n"
+			"SELECT id, sqlname, schema_id, cast(null as int) as table_id, cast(null as varchar(124)) as table_name, 'type', 'sys.types' FROM sys.types WHERE id > 2000 /* exclude system types to prevent duplicates with auths.id */\n"
+			" ORDER BY id;\n"
+			"GRANT SELECT ON sys.ids TO PUBLIC;\n"
+
+			"CREATE VIEW sys.dependencies_vw AS\n"
+			"SELECT d.id, i1.obj_type, i1.name,\n"
+			"       d.depend_id as used_by_id, i2.obj_type as used_by_obj_type, i2.name as used_by_name,\n"
+			"       d.depend_type, dt.dependency_type_name\n"
+			"  FROM sys.dependencies d\n"
+			"  JOIN sys.ids i1 ON d.id = i1.id\n"
+			"  JOIN sys.ids i2 ON d.depend_id = i2.id\n"
+			"  JOIN sys.dependency_types dt ON d.depend_type = dt.dependency_type_id\n"
+			" ORDER BY id, depend_id;\n"
+			"GRANT SELECT ON sys.dependencies_vw TO PUBLIC;\n"
+
+			"update sys._tables set system = true where name in ('ids', 'dependencies_vw') and schema_id in (select id from sys.schemas where name = 'sys');\n"
+			);
+
+	if (schema)
+		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
+	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
+	assert(pos < bufsize);
+
+	printf("Running database upgrade commands:\n%s\n", buf);
+	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
+	GDKfree(buf);
+	return err;		/* usually MAL_SUCCEED */
+}
+
+static str
+sql_update_gsl(Client c, mvc *sql)
+{
+	size_t bufsize = 1024, pos = 0;
+	char *buf = GDKmalloc(bufsize), *err = NULL;
+	char *schema = stack_get_string(sql, "current_schema");
+
+	if (buf == NULL)
+		throw(SQL, "sql_update_gsl", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	pos += snprintf(buf + pos, bufsize - pos,
+			"set schema \"sys\";\n"
+			"drop function sys.chi2prob(double, double);\n"
 			"delete from systemfunctions where function_id not in (select id from functions);\n");
 	if (schema)
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
@@ -1553,6 +1739,53 @@ sql_update_default(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
+	printf("Running database upgrade commands:\n%s\n", buf);
+	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
+	if (err)
+		goto bailout;
+	err = sql_update_remote_tables(c, sql);
+
+  bailout:
+	GDKfree(buf);
+	return err;		/* usually MAL_SUCCEED */
+}
+
+static str
+sql_drop_functions_dependencies_Xs_on_Ys(Client c, mvc *sql)
+{
+	size_t bufsize = 1600, pos = 0;
+	char *schema = NULL, *err = NULL;
+	char *buf = GDKmalloc(bufsize);
+
+	if (buf == NULL)
+		throw(SQL, "sql_drop_functions_dependencies_Xs_on_Ys", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	schema = stack_get_string(sql, "current_schema");
+	/* remove functions which were created in sql/scripts/21_dependency_functions.sql */
+	pos += snprintf(buf + pos, bufsize - pos,
+			"set schema \"sys\";\n"
+			"DROP FUNCTION dependencies_schemas_on_users();\n"
+			"DROP FUNCTION dependencies_owners_on_schemas();\n"
+			"DROP FUNCTION dependencies_tables_on_views();\n"
+			"DROP FUNCTION dependencies_tables_on_indexes();\n"
+			"DROP FUNCTION dependencies_tables_on_triggers();\n"
+			"DROP FUNCTION dependencies_tables_on_foreignKeys();\n"
+			"DROP FUNCTION dependencies_tables_on_functions();\n"
+			"DROP FUNCTION dependencies_columns_on_views();\n"
+			"DROP FUNCTION dependencies_columns_on_keys();\n"
+			"DROP FUNCTION dependencies_columns_on_indexes();\n"
+			"DROP FUNCTION dependencies_columns_on_functions();\n"
+			"DROP FUNCTION dependencies_columns_on_triggers();\n"
+			"DROP FUNCTION dependencies_views_on_functions();\n"
+			"DROP FUNCTION dependencies_views_on_triggers();\n"
+			"DROP FUNCTION dependencies_functions_on_functions();\n"
+			"DROP FUNCTION dependencies_functions_on_triggers();\n"
+			"DROP FUNCTION dependencies_keys_on_foreignKeys();\n"
+			"delete from systemfunctions where function_id not in (select id from functions);\n");
+	if (schema)
+		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
+	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
+	assert(pos < bufsize);
+
 	printf("Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	GDKfree(buf);
@@ -1689,9 +1922,72 @@ SQLupgrades(Client c, mvc *m)
 		}
 	}
 
+	if (mvc_bind_table(m, s, "ids") != NULL) {
+		/* determine if sys.ids needs to be updated (only the version of Mar2018) */
+		char * qry = "select id from sys._tables where name = 'ids' and query like '% tmp.keys k join sys._tables% tmp.idxs i join sys._tables% tmp.triggers g join sys._tables% ';";
+		res_table *output = NULL;
+		err = SQLstatementIntern(c, &qry, "update", 1, 0, &output);
+		if (err) {
+			fprintf(stderr, "!%s\n", err);
+			freeException(err);
+		} else {
+			BAT *b = BATdescriptor(output->cols[0].b);
+			if (b) {
+				if (BATcount(b) > 0) {
+					/* yes old view definition exists, it needs to be replaced */
+					if ((err = sql_replace_Mar2018_ids_view(c, m)) != NULL) {
+						fprintf(stderr, "!%s\n", err);
+						freeException(err);
+					}
+				}
+				BBPunfix(b->batCacheid);
+			}
+		}
+		if (output != NULL)
+			res_tables_destroy(output);
+	}
+
+	/* temporarily use variable `err' to check existence of MAL
+	 * module gsl */
+	if ((err = getName("gsl")) == NULL || getModule(err) == NULL) {
+		/* no MAL module gsl, check for SQL function sys.chi2prob */
+		sql_find_subtype(&tp, "double", 0, 0);
+		if (sql_bind_func(m->sa, s, "chi2prob", &tp, &tp, F_FUNC)) {
+			/* sys.chi2prob exists, but there is no
+			 * implementation */
+			if ((err = sql_update_gsl(c, m)) != NULL) {
+				fprintf(stderr, "!%s\n", err);
+				freeException(err);
+			}
+		}
+	}
+
 	sql_find_subtype(&tp, "clob", 0, 0);
 	if (sql_bind_aggr(m->sa, s, "group_concat", &tp) == NULL) {
 		if ((err = sql_update_default(c, m)) != NULL) {
+			fprintf(stderr, "!%s\n", err);
+			freeException(err);
+		}
+	}
+
+	if (sql_bind_func(m->sa, s, "dependencies_schemas_on_users", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_owners_on_schemas", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_tables_on_views", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_tables_on_indexes", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_tables_on_triggers", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_tables_on_foreignkeys", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_tables_on_functions", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_columns_on_views", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_columns_on_keys", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_columns_on_indexes", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_columns_on_functions", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_columns_on_triggers", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_views_on_functions", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_views_on_triggers", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_functions_on_functions", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_functions_on_triggers", NULL, NULL, F_UNION)
+	 && sql_bind_func(m->sa, s, "dependencies_keys_on_foreignkeys", NULL, NULL, F_UNION)	) {
+		if ((err = sql_drop_functions_dependencies_Xs_on_Ys(c, m)) != NULL) {
 			fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}
