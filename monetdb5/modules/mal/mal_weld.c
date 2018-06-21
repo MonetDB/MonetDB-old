@@ -317,7 +317,7 @@ WeldRun(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* Prepare the input for Weld. We're building an array that has the layout of a struct */
 	/* Max possible size is when we only have string bats: 2 ptrs for theap and tvheap and 4 lngs
 	 * for batCount, hseqbase, stroffset and tvheap->size. */
-	char *inputStruct = malloc((pci->argc - pci->retc) * (2 * sizeof(void *) + 3 * sizeof(lng)));
+	char *inputStruct = malloc((pci->argc - pci->retc) * (2 * sizeof(void *) + 3 * sizeof(lng)) + 20 * sizeof(void*));
 	char *inputPtr = inputStruct;
 	for (i = pci->retc + 2; i < pci->argc; i++) { /* skip wstate and names */
 		int type = getArgType(mb, pci, i);
