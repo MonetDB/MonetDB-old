@@ -679,7 +679,6 @@ fi
 %endif
 %{_libdir}/monetdb5/lib_capi.so
 %{_libdir}/monetdb5/lib_generator.so
-%{_libdir}/monetdb5/lib_lsst.so
 %{_libdir}/monetdb5/lib_opt_sql_append.so
 %{_libdir}/monetdb5/lib_udf.so
 %{_libdir}/monetdb5/lib_vault.so
@@ -1034,6 +1033,9 @@ done
 %postun -p /sbin/ldconfig
 
 %changelog
+* Thu May 31 2018 Panagiotis Koutsourakis <kutsurak@monetdbsolutions.com> - 11.29.7-20180531
+- Rebuilt.
+
 * Fri May 25 2018 Panagiotis Koutsourakis <kutsurak@monetdbsolutions.com> - 11.29.5-20180525
 - Rebuilt.
 - BZ#6562: Sqlitelogictest crash on group by query with not in operator
@@ -1049,13 +1051,11 @@ done
   statement
 - BZ#6574: server crashed could not find ordered index while creating
   a table
-- BZ#6575: Sqlitelogictest crash on groupby query with coalesce call
 - BZ#6576: Sqlitelogictest aritmetic expressions with negative numbers
   handling
 - BZ#6577: creating temp table kills performance of the original query
 - BZ#6578: One two-tuple insert gives different results than two single
   inserts
-- BZ#6579: Sqlitelogic test infinite loop while compiling SQL query
 - BZ#6581: Join condition errors.
 - BZ#6583: Fixed size string concatenation with integer results in fixed
   size string of size 0
@@ -1074,7 +1074,6 @@ done
 - BZ#6602: Sqlitelogictest wrong results in IN query
 - BZ#6603: Sqlitelogictest: Aggregation query with distinct clause
   produces duplicated rows
-- BZ#6605: Sqlitelogictest set queries with wrong results
 
 * Thu May 17 2018 Martin van Dinther <martin.van.dinther@monetdbsolutions.com> - 11.29.5-20180525
 - sql: Corrected the definition of view: sys.ids.
