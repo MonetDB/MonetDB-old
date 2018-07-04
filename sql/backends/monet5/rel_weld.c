@@ -72,6 +72,7 @@ typedef struct {
 	char global_init[STR_BUF_SIZE * 3]; /* global stmts such as vheap.base renaming and udfs inits */
 	char global_cleanup[STR_BUF_SIZE * 3];
 	list *stmt_list;
+	list *used_columns;
 	sql_allocator *sa;
 	int error;
 } weld_state;
@@ -527,6 +528,30 @@ exp_to_weld(backend *be, weld_state *wstate, sql_exp *exp) {
 }
 
 static void
+append_used_cols(weld_state *wstate, str program, int len) {
+	char buffer[STR_BUF_SIZE];
+	int start = 0, word_len = 0, i;
+	for (i = 0; i < len; i++) {
+		if (!isalnum(program[i]) && program[i] != '_') {
+			if (word_len > 3) {
+				strncpy(buffer, program + start, word_len);
+				buffer[word_len] = 0;
+				list_append(wstate->used_columns, strdup(buffer));
+			}
+			start = i + 1;
+			word_len = 0;
+		} else {
+			word_len += 1;
+		}
+	}
+	if (word_len > 3) {
+		strncpy(buffer, program + start, word_len);
+		buffer[word_len] = 0;
+		list_append(wstate->used_columns, strdup(buffer));
+	}
+}
+
+static void
 base_table_produce(backend *be, sql_rel *rel, weld_state *wstate)
 {
 	stmt *sub = subrel_bin(be, rel, NULL);
@@ -584,17 +609,36 @@ base_table_produce(backend *be, sql_rel *rel, weld_state *wstate)
 static void
 select_produce(backend *be, sql_rel *rel, weld_state *wstate)
 {
+	node *en;
 	/* === Produce === */
 	produce_func input_produce = getproduce_func(rel->l);
 	if (input_produce == NULL) {
 		wstate->error = 1;
 		return;
 	}
+
+	/* HACK to get a list of used columns */
+	int old_len = wstate->program_len;
+	int old_init_len = strlen(wstate->global_init);
+	int old_cleanup_len = strlen(wstate->global_cleanup);
+	for (en = rel->exps->h; en; en = en->next) {
+		wprintf(wstate, "(");
+		exp_to_weld(be, wstate, en->data);
+		wprintf(wstate, ")");
+		if (en->next != NULL) {
+			wprintf(wstate, " && ");
+		}
+	}
+	append_used_cols(wstate, wstate->program + old_len, wstate->program_len - old_len);
+	wstate->program_len = old_len;
+	wstate->program[wstate->program_len] = 0;
+	wstate->global_init[old_init_len] = 0;
+	wstate->global_cleanup[old_cleanup_len] = 0;
+
 	input_produce(be, rel->l, wstate);
 
 	/* === Consume === */
 	wprintf(wstate, "if((");
-	node *en;
 	for (en = rel->exps->h; en; en = en->next) {
 		wprintf(wstate, "(");
 		exp_to_weld(be, wstate, en->data);
@@ -669,6 +713,37 @@ project_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		len += sprintf(new_builder + len, "]");
 		wstate->builder = new_builder;
 	}
+
+	/* HACK to get a list of used columns */
+	int old_len = wstate->program_len;
+	int old_init_len = strlen(wstate->global_init);
+	int old_cleanup_len = strlen(wstate->global_cleanup);
+	for (en = rel->exps->h; en; en = en->next) {
+		exp = en->data;
+		col_name = get_col_name(wstate->sa, exp, ALIAS);
+		if (exp_subtype(exp)->type->localtype == TYPE_str) {
+			if (exp->type != e_column) {
+				/* We can only handle string column renaming. If this is something else, like producing
+				 * a new string, we don't support it yet. */
+				wstate->error = 1;
+			}
+			str old_col_name = get_col_name(wstate->sa, exp, REL);
+			wprintf(wstate, "let %s = %s;", col_name, old_col_name);
+			wprintf(wstate, "let %s_stridx = %s_stridx;", col_name, old_col_name);
+			/* Save the vheap name */
+			sprintf(wstate->global_init + strlen(wstate->global_init), "let %s_strcol = %s_strcol;",
+					col_name, old_col_name);
+		} else {
+			wprintf(wstate, "let %s = ", col_name);
+			exp_to_weld(be, wstate, exp);
+			wprintf(wstate, ";");
+		}
+	}
+	append_used_cols(wstate, wstate->program + old_len, wstate->program_len - old_len);
+	wstate->program_len = old_len;
+	wstate->program[wstate->program_len] = 0;
+	wstate->global_init[old_init_len] = 0;
+	wstate->global_cleanup[old_cleanup_len] = 0;
 
 	produce_func input_produce = getproduce_func(rel->l);
 	if (input_produce == NULL) {
@@ -817,12 +892,25 @@ groupby_produce(backend *be, sql_rel *rel, weld_state *wstate)
 			if (strcmp(get_func_name(exp->f), "avg") == 0) {
 				have_avg = 1;
 			}
+
+			/* HACK to get a list of used columns */
+			int old_len = wstate->program_len;
+			int old_init_len = strlen(wstate->global_init);
+			int old_cleanup_len = strlen(wstate->global_cleanup);
+			exp_to_weld(be, wstate, exp);
+			append_used_cols(wstate, wstate->program + old_len, wstate->program_len - old_len);
+			wstate->program_len = old_len;
+			wstate->program[wstate->program_len] = 0;
+			wstate->global_init[old_init_len] = 0;
+			wstate->global_cleanup[old_cleanup_len] = 0;
 		} else {
 			if (exp->type == e_column && exp->r && exp->name && strcmp((str)exp->r, exp->name) != 0) {
 				list_append(project_exps, exp);
 			} else {
 				list_append(group_by_exps, exp);
 			}
+			col_name = get_col_name(wstate->sa, exp, REL);
+			list_append(wstate->used_columns, col_name);
 		}
 	}
 	/* Create a new builder */
@@ -1125,6 +1213,7 @@ semi_anti_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		} else {
 			list_append(left_cmp_cols, col_name);
 		}
+		list_append(wstate->used_columns, col_name);
 		/* right cmp */
 		exp = ((sql_exp*)en->data)->r;
 		col_name = get_col_name(wstate->sa, exp, REL);
@@ -1133,6 +1222,7 @@ semi_anti_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		} else {
 			list_append(left_cmp_cols, col_name);
 		}
+		list_append(wstate->used_columns, col_name);
 
 		/* both have the same type */
 		int type = exp_subtype(exp)->type->localtype;
@@ -1270,7 +1360,8 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		goto cleanup;
 	}
 	for (en = right->exps->h; en; en = en->next) {
-		list_append(right_cols_names, get_col_name(wstate->sa, en->data, ANY));
+		col_name = get_col_name(wstate->sa, en->data, ANY);
+		list_append(right_cols_names, col_name);
 	}
 
 	/* {appender[{..}], appender[..], appender[..] ... } */
@@ -1288,6 +1379,7 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		} else {
 			list_append(left_cmp_cols, col_name);
 		}
+		list_append(wstate->used_columns, col_name);
 		/* right cmp */
 		exp = ((sql_exp*)en->data)->r;
 		col_name = get_col_name(wstate->sa, exp, REL);
@@ -1296,6 +1388,7 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 		} else {
 			list_append(left_cmp_cols, col_name);
 		}
+		list_append(wstate->used_columns, col_name);
 
 		/* both have the same type */
 		int type = exp_subtype(exp)->type->localtype;
@@ -1311,8 +1404,8 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	/* Create a list of right columns that are not part of the join key */
 	for (en = right->exps->h, count = 1; en; en = en->next) {
 		exp = en->data;
-		col_name = get_col_name(wstate->sa, exp, REL);
-		if (list_find(right_cmp_cols, col_name, (fcmp)strcmp)) {
+		col_name = get_col_name(wstate->sa, exp, ANY);
+		if (list_find(right_cmp_cols, col_name, (fcmp)strcmp) || !list_find(wstate->used_columns, col_name, (fcmp)strcmp)) {
 			/* Column is part of the key */
 			list_remove_node(right_cols_names, list_find(right_cols_names, col_name, (fcmp)strcmp));
 		} else {
@@ -1321,6 +1414,7 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	}
 
 	nulls_len = 0;
+	nulls[0] = 0;
 	for (en = right_cols->h, count = 1; en; en = en->next) {
 		exp = en->data;
 		int type = exp_subtype(exp)->type->localtype;
@@ -1529,6 +1623,7 @@ root_produce(backend *be, sql_rel *rel)
 	weld_state *wstate = calloc(1, sizeof(weld_state));
 	wstate->sa = sa_create();
 	wstate->stmt_list = sa_list(wstate->sa);
+	wstate->used_columns = sa_list(wstate->sa);
 
 	stmt *final_stmt = NULL, *program_stmt, *weld_program_stmt;
 	InstrPtr weld_instr;
@@ -1546,6 +1641,8 @@ root_produce(backend *be, sql_rel *rel)
 	if (result_is_bat) {
 		len += sprintf(builder + len, "{");
 		for (en = root->exps->h; en; en = en->next) {
+			col_name = get_col_name(wstate->sa, en->data, REL);
+			list_append(wstate->used_columns, col_name);
 			int type = exp_subtype(en->data)->type->localtype;
 			if (type == TYPE_str) {
 				/* We'll append just the offset in vheap, we don't know the type yet */
@@ -1666,6 +1763,7 @@ cleanup:
 	dump_program(wstate);
 #endif
 	list_destroy(wstate->stmt_list);
+	list_destroy(wstate->used_columns);
 	sa_destroy(wstate->sa);
 	free(wstate);
 
