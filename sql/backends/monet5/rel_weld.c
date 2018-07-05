@@ -1432,102 +1432,128 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	wprintf(wstate, "let v%dvecs = (", result_var);
 	wstate->num_parens++;
 
-	/* {appender[{..}], appender[..], appender[..] ... } */
+	/* Build the key in probe_key */
 	len = 0;
-	len += sprintf(new_builder + len, "{appender[");
 	if (list_length(rel->exps) > 1) {
-		len += sprintf(new_builder + len, "{"); /* key is a struct */
+		len += sprintf(probe_key + len, "{"); /* key is a struct */
 	}
 	for (en = rel->exps->h; en; en = en->next) {
 		/* left cmp */
 		exp = ((sql_exp*)en->data)->l;
 		/* both have the same type */
 		int type = exp_subtype(exp)->type->localtype;
-		len += sprintf(new_builder + len, "%s", getWeldType(type));
+		len += sprintf(probe_key + len, "%s", getWeldType(type));
 		if (en->next != NULL) {
-			len += sprintf(new_builder + len, ", ");
+			len += sprintf(probe_key + len, ", ");
 		}
 	}
 	if (list_length(rel->exps) > 1) {
-		len += sprintf(new_builder + len, "}"); /* key is a struct */
+		len += sprintf(probe_key + len, "}"); /* key is a struct */
 	}
-	len += sprintf(new_builder + len, "]");
-	/* Create a list of right columns that are not part of the join key */
 
-	nulls_len = 0;
-	nulls[0] = 0;
-	for (en = right_cols->h, count = 1; en; en = en->next) {
-		exp = en->data;
-		int type = exp_subtype(exp)->type->localtype;
-		if (type == TYPE_str) {
-			type = TYPE_lng;
+	if (is_unique && list_length(right_cols) == 0) {
+		sprintf(new_builder, "dictmerger[%s, i64, +]", probe_key);
+	} else if (!is_unique && list_length(right_cols) == 1) {
+		sprintf(new_builder, "groupmerger[%s, ?]", probe_key);
+	} else {
+		/* {appender[{..}], appender[..], appender[..] ... } */
+		len = 0;
+		len += sprintf(new_builder + len, "{appender[%s]", probe_key);
+		/* Create a list of right columns that are not part of the join key */
+		nulls_len = 0;
+		nulls[0] = 0;
+		for (en = right_cols->h, count = 1; en; en = en->next) {
+			exp = en->data;
+			int type = exp_subtype(exp)->type->localtype;
+			if (type == TYPE_str) {
+				type = TYPE_lng;
+			}
+			len += sprintf(new_builder + len, ", appender[%s]", getWeldType(type));
+			nulls_len += sprintf(nulls + nulls_len, ", merge(v%dvecs.$%d, %snil)", result_var, count, getWeldType(type));
+			count++;
 		}
-		len += sprintf(new_builder + len, ", appender[%s]", getWeldType(type));
-		nulls_len += sprintf(nulls + nulls_len, ", merge(v%dvecs.$%d, %snil)", result_var, count, getWeldType(type));
-		count++;
+		len += sprintf(new_builder + len, "}"); /* complete the builder */
 	}
-	len += sprintf(new_builder + len, "}"); /* complete the builder */
 
 	wstate->builder = new_builder;
 	right_produce(be, rel->r, wstate);
 
 	/* === Consume === */
-	wprintf(wstate, "{merge(b%d.$0, ", wstate->num_loops); /* {key, value} */
 	/* Build the key */
+	len = 0;
 	if (list_length(right_cmp_cols) > 1) {
-		wprintf(wstate, "{"); /* key is a struct */
+		len += sprintf(probe_key + len, "{"); /* key is a struct */
 	}
 	for (en = right_cmp_cols->h; en; en = en->next) {
-		wprintf(wstate, "%s", (str)en->data);
+		len += sprintf(probe_key + len, "%s", (str)en->data);
 		if (en->next != NULL) {
-			wprintf(wstate, ", ");
+			len += sprintf(probe_key + len, ", ");
 		}
 	}
 	if (list_length(right_cmp_cols) > 1) {
-		wprintf(wstate, "}"); /* key is a struct */
-	}
-	wprintf(wstate, "), ");
-	/* Append the values */
-	for (en = right_cols->h, count = 0; en; en = en->next, count++) {
-		exp = en->data;
-		wprintf(wstate, "merge(b%d.$%d, %s", wstate->num_loops, count + 1, (str)list_fetch(right_cols_names, count));
-		if (exp_subtype(exp)->type->localtype == TYPE_str) {
-			wprintf(wstate, "_stridx");
-		}
-		wprintf(wstate, ")");
-		if (en->next != NULL) {
-			wprintf(wstate, ", ");
-		}
-	}
-	wprintf(wstate, "}");
-	for (i = 0; i < wstate->num_parens; i++) {
-		wprintf(wstate, ")");
-	}
-	wprintf(wstate, ";");
-	/* Append the nulls at the end */
-	wprintf(wstate, "let v%dvecs = {v%dvecs.$0 %s};", result_var, result_var, nulls);
-	/* Materialize the hashtable */
-	wprintf(wstate, "let v%dkeys = result(v%dvecs.$0);", result_var, result_var);
-	for (en = right_cols->h, count = 0; en; en = en->next, count++) {
-		wprintf(wstate, "let v%dvec%d = result(v%dvecs.$%d);", result_var, count + 1, result_var, count + 1);
+		len += sprintf(probe_key + len, "}"); /* key is a struct */
 	}
 
-	/* Build the hastable with indexes */
-	if (is_unique) {
-		wprintf(wstate, 
-		"let v%dtable = result("
-		"	for(v%dkeys, dictmerger[?, i64, +], |b, i, n|"
-		"		merge(b, {n, i})"
-		"	)"
-		");", result_var, result_var);
-
+	if (is_unique && list_length(right_cols) == 0) {
+		/* unique values and no right cols */
+		wprintf(wstate, "merge(b%d, {%s, 0L})", wstate->num_loops, probe_key);
+		for (i = 0; i < wstate->num_parens; i++) {
+			wprintf(wstate, ")");
+		}
+		wprintf(wstate, ";");
+		wprintf(wstate, "let v%dtable = result(v%dvecs);", result_var, result_var);
+	} else if (!is_unique && list_length(right_cols) == 1) {
+		/* groupmerger + a single right col */
+		wprintf(wstate, "merge(b%d, {%s, %s})", wstate->num_loops, probe_key, (str)right_cols_names->h->data);
+		for (i = 0; i < wstate->num_parens; i++) {
+			wprintf(wstate, ")");
+		}
+		wprintf(wstate, ";");
+		wprintf(wstate, "let v%dtable = result(v%dvecs);", result_var, result_var);
 	} else {
-		wprintf(wstate, 
-		"let v%dtable = result("
-		"	for(v%dkeys, groupmerger[?, i64], |b, i, n|"
-		"		merge(b, {n, i})"
-		"	)"
-		");", result_var, result_var);
+		wprintf(wstate, "{merge(b%d.$0, %s), ", wstate->num_loops, probe_key); /* {key, value} */
+		/* Append the values */
+		for (en = right_cols->h, count = 0; en; en = en->next, count++) {
+			exp = en->data;
+			wprintf(wstate, "merge(b%d.$%d, %s", wstate->num_loops, count + 1, (str)list_fetch(right_cols_names, count));
+			if (exp_subtype(exp)->type->localtype == TYPE_str) {
+				wprintf(wstate, "_stridx");
+			}
+			wprintf(wstate, ")");
+			if (en->next != NULL) {
+				wprintf(wstate, ", ");
+			}
+		}
+		wprintf(wstate, "}");
+		for (i = 0; i < wstate->num_parens; i++) {
+			wprintf(wstate, ")");
+		}
+		wprintf(wstate, ";");
+		/* Append the nulls at the end */
+		wprintf(wstate, "let v%dvecs = {v%dvecs.$0 %s};", result_var, result_var, nulls);
+		/* Materialize the hashtable */
+		wprintf(wstate, "let v%dkeys = result(v%dvecs.$0);", result_var, result_var);
+		for (en = right_cols->h, count = 0; en; en = en->next, count++) {
+			wprintf(wstate, "let v%dvec%d = result(v%dvecs.$%d);", result_var, count + 1, result_var, count + 1);
+		}
+
+		/* Build the hastable with indexes */
+		if (is_unique) {
+			wprintf(wstate, 
+			"let v%dtable = result("
+			"	for(v%dkeys, dictmerger[?, i64, +], |b, i, n|"
+			"		merge(b, {n, i})"
+			"	)"
+			");", result_var, result_var);
+
+		} else {
+			wprintf(wstate, 
+			"let v%dtable = result("
+			"	for(v%dkeys, groupmerger[?, i64], |b, i, n|"
+			"		merge(b, {n, i})"
+			"	)"
+			");", result_var, result_var);
+		}
 	}
 
 	/* Resume the pipeline */
@@ -1574,6 +1600,8 @@ join_produce(backend *be, sql_rel *rel, weld_state *wstate)
 	for (en = right_cols->h, count = 0; en; en = en->next, count++) {
 		if (is_unique) {
 			sprintf(value, "lookup(v%dvec%d, match)", result_var, count + 1);
+		} else if (!is_unique && list_length(right_cols) == 1) {
+			sprintf(value, "n%d", wstate->num_loops);
 		} else {
 			sprintf(value, "lookup(v%dvec%d, n%d)", result_var, count + 1, wstate->num_loops);
 		}
