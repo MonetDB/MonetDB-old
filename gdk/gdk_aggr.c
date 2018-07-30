@@ -2834,6 +2834,7 @@ BATgroupquantile(BAT *b, BAT *g, BAT *e, BAT *s, int tp, double quantile,
 		while (BATcount(bn) < ngrp) {
 			bunfastapp_nocheck(bn, BUNlast(bn), nil, Tsize(bn));
 		}
+		bn->theap.dirty = true;
 		BBPunfix(g->batCacheid);
 	} else {
 		BUN index, r, p = BATcount(b);
@@ -3108,7 +3109,8 @@ dogroupstdev(BAT **avgb, BAT *b, BAT *g, BAT *e, BAT *s, int tp,
 
 	if ((e == NULL ||
 	     (BATcount(e) == BATcount(b) && e->hseqbase == b->hseqbase)) &&
-	    (BATtdense(g) || (g->tkey && g->tnonil))) {
+	    (BATtdense(g) || (g->tkey && g->tnonil)) &&
+	    (issample || b->tnonil)) {
 		/* trivial: singleton groups, so all results are equal
 		 * to zero (population) or nil (sample) */
 		dbl v = issample ? dbl_nil : 0;
@@ -3193,7 +3195,8 @@ dogroupstdev(BAT **avgb, BAT *b, BAT *g, BAT *e, BAT *s, int tp,
 	} else {
 		GDKfree(mean);
 	}
-	nils += nils2;
+	if (issample)
+		nils += nils2;
 	GDKfree(delta);
 	GDKfree(m2);
 	GDKfree(cnts);

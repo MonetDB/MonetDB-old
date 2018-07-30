@@ -76,7 +76,7 @@ AUTHfindUser(const char *username)
 	BATiter cni = bat_iterator(user);
 	BUN p;
 
-	if (BAThash(user, 0) == GDK_SUCCEED) {
+	if (BAThash(user) == GDK_SUCCEED) {
 		HASHloop_str(cni, cni.b->thash, p, username) {
 			oid pos = p;
 			if (BUNfnd(duser, &pos) == BUN_NONE)
@@ -975,7 +975,7 @@ lookupRemoteTableKey(const char *key)
 	assert(rt_key);
 	assert(rt_deleted);
 
-	if (BAThash(rt_key, 0) == GDK_SUCCEED) {
+	if (BAThash(rt_key) == GDK_SUCCEED) {
 		HASHloop_str(cni, cni.b->thash, p, key) {
 			oid pos = p;
 			if (BUNfnd(rt_deleted, &pos) == BUN_NONE)
@@ -1030,7 +1030,7 @@ AUTHaddRemoteTableCredentials(const char *local_table, const char *local_user, c
 {
 	char *pwhash = NULL;
 	bool free_pw = false;
-	str tmp;
+	str tmp, output = MAL_SUCCEED;
 	BUN p;
 
 	if (uri == NULL || strNil(uri))
@@ -1088,23 +1088,27 @@ AUTHaddRemoteTableCredentials(const char *local_table, const char *local_user, c
 	 * Implementation note: we first delete the entry and then add a
 	 * new entry with the same key.
 	 */
-		AUTHdeleteRemoteTableCredentials(local_table);
+		if((output = AUTHdeleteRemoteTableCredentials(local_table)) != MAL_SUCCEED)
+			return output;
 	}
 
 	if (pass == NULL) {
 		/* NOTE: Is having the client == NULL safe? */
-		AUTHgetPasswordHash(&pwhash, NULL, local_user);
+		if((output = AUTHgetPasswordHash(&pwhash, NULL, local_user)) != MAL_SUCCEED)
+			return output;
 	}
 	else {
 		free_pw = true;
 		if (pw_encrypted) {
-			pwhash = strdup(pass);
+			if((pwhash = strdup(pass)) == NULL)
+				throw(MAL, "addRemoteTableCredentials", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 		else {
 			/* Note: the remote server might have used a different
 			 * algorithm to hash the pwhash.
 			 */
-			pwhash = mcrypt_BackendSum(pass, strlen(pass));
+			if((pwhash = mcrypt_BackendSum(pass, strlen(pass))) == NULL)
+				throw(MAL, "addRemoteTableCredentials", SQLSTATE(42000) "Crypt backend hash not found");
 		}
 	}
 	rethrow("addRemoteTableCredentials", tmp, AUTHverifyPassword(pwhash));

@@ -384,6 +384,7 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, int caseignore, int 
 	regfree(&re);
 #endif
 	BATsetcount(bn, BATcount(bn)); /* set some properties */
+	bn->theap.dirty |= BATcount(bn) > 0;
 	bn->tsorted = 1;
 	bn->trevsorted = bn->batCount <= 1;
 	bn->tkey = 1;
@@ -1037,6 +1038,8 @@ sql2pcre(str *r, const char *pat, const char *esc_str)
 	int specials;
 	int c;
 
+	if (strlen(esc_str) > 1)
+		throw(MAL, "pcre.sql2pcre", SQLSTATE(22019) ILLEGAL_ARGUMENT ": ESCAPE string must have length 1");
 	if (pat == NULL )
 		throw(MAL, "pcre.sql2pcre", OPERATION_FAILED);
 	ppat = GDKmalloc(strlen(pat)*2+3 /* 3 = "^'the translated regexp'$0" */);
@@ -1597,7 +1600,7 @@ PCRElikeselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, const 
 	if (is_strcmpable(*pat, *esc)) {
 		use_re = 1;
 		use_strcmp = 1;
-	} else if ((strcmp(*esc, str_nil) == 0 || strlen(*esc) == 0) &&
+	} else if ((strcmp(*esc, str_nil) == 0 || strlen(*esc) == 0 || strchr(*pat, **esc) == NULL) &&
 			   re_simple(*pat) > 0) {
 		use_re = 1;
 	} else {

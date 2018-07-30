@@ -490,7 +490,7 @@ bl_postversion(void *lg)
 		const int *fids = (const int *) Tloc(fid, 0);
 		bit *fsys = (bit *) Tloc(b, 0);
 		BATiter sfi = bat_iterator(sf);
-		if (BAThash(sf, 0) != GDK_SUCCEED) {
+		if (BAThash(sf) != GDK_SUCCEED) {
 			BBPreclaim(b);
 			bat_destroy(fid);
 			bat_destroy(sf);

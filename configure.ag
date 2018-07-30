@@ -46,7 +46,7 @@ dnl  configure file, whereas comments starting with dnl are elided
 dnl  (including their trailing newline).
 
 AC_PREREQ([2.63])
-AC_INIT([MonetDB], [11.30.0], [https://bugs.monetdb.org/], [MonetDB], [https://www.monetdb.org/])
+AC_INIT([MonetDB], [11.32.0], [https://bugs.monetdb.org/], [MonetDB], [https://www.monetdb.org/])
 AC_COPYRIGHT([Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.])
 AC_CONFIG_AUX_DIR([buildtools/conf])
 AC_CONFIG_MACRO_DIR([buildtools/conf])
@@ -120,18 +120,9 @@ AC_SUBST([Qexec_prefix])
 AS_CASE([$CC],
 	[*icc*-no-gcc*], [],
 	[*icc*], [
-		#  Since version 8.0, ecc/ecpc are also called icc/icpc,
-		#  and icc/icpc requires "-no-gcc" to avoid predefining
-		#  __GNUC__, __GNUC_MINOR__, and __GNUC_PATCHLEVEL__ macros.
-		icc_ver=`$CC -dumpversion 2>/dev/null`
-		AS_CASE([$icc_ver],
-			[8.*], [CC="$CC -no-gcc"],
-			[9.*], [CC="$CC -no-gcc"],
-			[10.*], [CC="$CC -no-gcc"],
-			[11.*], [CC="$CC -no-gcc"],
-			[15.*], [CC="$CC -no-gcc"],
-			[17.*], [CC="$CC -no-gcc"],
-			[AC_MSG_WARN([icc ($CC) $icc_ver not handled, yet])])])
+		#  Use "-no-gcc" to avoid predefining __GNUC__,
+		#  __GNUC_MINOR__, and __GNUC_PATCHLEVEL__ macros.
+		CC="$CC -no-gcc"])
 
 AS_IF([test -f "$srcdir"/vertoo.data],
 	[
@@ -744,6 +735,12 @@ AS_VAR_IF([enable_sanitizer], [no], [], [
 AC_SUBST([CFLAGS])
 AC_SUBST([X_CFLAGS])
 
+# see https://software.intel.com/en-us/forums/intel-c-compiler/topic/760979
+AS_CASE([$CC_ver], [icc-*], [
+	AS_IF([test -f /usr/include/math.h && ! grep -q _LIB_VERSION_TYPE /usr/include/math.h],
+		[AC_DEFINE([INTEL_MATH_H_HACK], 1,
+			[Define if using Intel compiler with icompatible system math.h])])])
+
 AC_MSG_CHECKING([for ld -Bsymbolic-functions option])
 save_LDFLAGS="$LDFLAGS"
 LDFLAGS="$LDFLAGS -Wl,-Bsymbolic-functions"
@@ -866,8 +863,10 @@ AS_VAR_IF([enable_debug], [yes], [
 	# remove "-Ox" as some compilers don't like "-g -Ox" combinations
 	CFLAGS=" $CFLAGS "
 	CFLAGS=`AS_ECHO(["$CFLAGS"]) | sed -e 's| -O[[0-9]] | |g' -e 's| -g | |g' -e 's|^ ||' -e 's| $||'`
-	# add "-g"
-	CFLAGS="$CFLAGS -g"
+	# add "-g or -g3"
+	AS_CASE([$CC_ver],
+		[gcc-*], [CFLAGS="$CFLAGS -g3"],
+		[CFLAGS="$CFLAGS -g"])
 	AS_CASE([$GCC-$host_os],
 		[yes-aix*], [CFLAGS="$CFLAGS -gxcoff"])
 	changedCFLAGS=
@@ -2927,6 +2926,17 @@ AH_TOP([
 @%:@define _SEEN_MONETDB_CONFIG_H 1
 ])
 AH_BOTTOM([
+@%:@ifdef INTEL_MATH_H_HACK
+/* see https://software.intel.com/en-us/forums/intel-c-compiler/topic/760979 */
+typedef enum {
+	_IEEE_ = -1,	/* According to IEEE 754/IEEE 854.  */
+	_SVID_,		/* According to System V, release 4.  */
+	_XOPEN_,	/* Nowadays also Unix98.  */
+	_POSIX_,
+	_ISOC_		/* Actually this is ISO C99.  */
+} _LIB_VERSION_TYPE;
+@%:@endif
+
 @%:@ifdef HAVE_SYS_TYPES_H
 @%:@ include <sys/types.h>
 @%:@endif
@@ -2952,20 +2962,6 @@ typedef __uint128_t uhge;
 @%:@define SIZEOF_HGE SIZEOF___INT128_T
 @%:@endif
 
-/* defines to help the compiler check printf-style format arguments */
-@%:@if !defined(__GNUC__) || __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 5)
-/* This feature is available in gcc versions 2.5 and later.  */
-@%:@ ifndef __attribute__
-@%:@  define __attribute__(Spec) /* empty */
-@%:@ endif
-@%:@else
-/* The __-protected variants of `format' and `printf' attributes are
- * accepted by gcc versions 2.6.4 (effectively 2.7) and later.  */
-@%:@ if !defined(__format__) && (__GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 7))
-@%:@  define __format__ format
-@%:@  define __printf__ printf
-@%:@ endif
-@%:@endif
 @%:@if !defined(_MSC_VER) && !defined(_In_z_)
 @%:@ define _In_z_
 @%:@ define _Printf_format_string_

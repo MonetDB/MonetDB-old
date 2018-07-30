@@ -304,12 +304,15 @@ create_table_or_view(mvc *sql, char *sname, char *tname, sql_table *t, int temp)
 
 	osa = sql->sa;
 	sql->sa = NULL;
+
+	nt = sql_trans_create_table(sql->session->tr, s, t->base.name, t->query, t->type, t->system, temp, t->commit_action, t->sz);
+
 	/* first check default values */
 	for (n = t->columns.set->h; n; n = n->next) {
 		sql_column *c = n->data;
 
 		if (c->def) {
-			char *buf;
+			char *buf, *typestr;
 			sql_rel *r = NULL;
 
 			sql->sa = sa_create();
@@ -318,17 +321,24 @@ create_table_or_view(mvc *sql, char *sname, char *tname, sql_table *t, int temp)
 			buf = sa_alloc(sql->sa, strlen(c->def) + 8);
 			if(!buf)
 				throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
-			snprintf(buf, BUFSIZ, "select %s;", c->def);
+			typestr = subtype2string2(&c->type);
+			if(!typestr)
+				throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			snprintf(buf, BUFSIZ, "select cast(%s as %s);", c->def, typestr);
+			_DELETE(typestr);
 			r = rel_parse(sql, s, buf, m_deps);
 			if (!r || !is_project(r->op) || !r->exps || list_length(r->exps) != 1 || rel_check_type(sql, &c->type, r->exps->h->data, type_equal) == NULL)
 				throw(SQL, "sql.catalog", SQLSTATE(42000) "%s", sql->errstr);
+			if (r) {
+				list *id_l = rel_dependencies(sql, r);
+				mvc_create_dependencies(sql, id_l, nt->base.id, FUNC_DEPENDENCY);
+			}
+
 			rel_destroy(r);
 			sa_destroy(sql->sa);
 			sql->sa = NULL;
 		}
 	}
-
-	nt = sql_trans_create_table(sql->session->tr, s, t->base.name, t->query, t->type, t->system, temp, t->commit_action, t->sz);
 
 	for (n = t->columns.set->h; n; n = n->next) {
 		sql_column *c = n->data;
@@ -360,7 +370,7 @@ create_table_or_view(mvc *sql, char *sname, char *tname, sql_table *t, int temp)
 		if (r)
 			r = rel_optimizer(sql, r, 0);
 		if (r) {
-			list *id_l = rel_dependencies(sql->sa, r);
+			list *id_l = rel_dependencies(sql, r);
 
 			mvc_create_dependencies(sql, id_l, nt->base.id, VIEW_DEPENDENCY);
 		}
@@ -572,7 +582,11 @@ setVariable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	src = &stk->stk[getArg(pci, 3)];
 	if (stack_find_var(m, varname)) {
+#ifdef HAVE_HGE
+		hge sgn = val_get_number(src);
+#else
 		lng sgn = val_get_number(src);
+#endif
 		if ((msg = sql_update_var(m, varname, src->val.sval, sgn)) != NULL) {
 			snprintf(buf, BUFSIZ, "%s", msg);
 			if (strlen(msg) > 6 && msg[5] == '!')
@@ -1965,6 +1979,8 @@ mvc_result_set_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* now send it to the channel cntxt->fdout */
 	if (mvc_export_result(cntxt->sqlcontext, cntxt->fdout, res, mb->starttime, mb->optimize))
 		msg = createException(SQL, "sql.resultset", SQLSTATE(45000) "Result set construction failed");
+	mb->starttime = 0;
+	mb->optimize = 0;
   wrapup_result_set:
 	if( tbl) BBPunfix(tblId);
 	if( atr) BBPunfix(atrId);
@@ -2107,6 +2123,8 @@ mvc_export_table_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	if (mvc_export_result(cntxt->sqlcontext, s, res, mb->starttime, mb->optimize))
 		msg = createException(SQL, "sql.resultset", SQLSTATE(45000) "Result set construction failed");
+	mb->starttime = 0;
+	mb->optimize = 0;
 	if( s != cntxt->fdout)
 		close_stream(s);
   wrapup_result_set1:
@@ -2175,6 +2193,8 @@ mvc_row_result_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	if (mvc_export_result(cntxt->sqlcontext, cntxt->fdout, res, mb->starttime, mb->optimize))
 		msg = createException(SQL, "sql.resultset", SQLSTATE(45000) "Result set construction failed");
+	mb->starttime = 0;
+	mb->optimize = 0;
   wrapup_result_set:
 	if( tbl) BBPunfix(tblId);
 	if( atr) BBPunfix(atrId);
@@ -2309,6 +2329,8 @@ mvc_export_row_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	if (mvc_export_result(cntxt->sqlcontext, s, res, mb->starttime, mb->optimize))
 		msg = createException(SQL, "sql.resultset", SQLSTATE(45000) "Result set construction failed");
+	mb->starttime = 0;
+	mb->optimize = 0;
 	if( s != cntxt->fdout)
 		mnstr_close(s);
   wrapup_result_set:
@@ -2374,6 +2396,8 @@ mvc_affected_rows_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	nr = *getArgReference_lng(stk, pci, 2);
 	b = cntxt->sqlcontext;
 	error = mvc_export_affrows(b, b->out, nr, "", mb->tag, mb->starttime, mb->optimize);
+	mb->starttime = 0;
+	mb->optimize = 0;
 	if (error)
 		throw(SQL, "sql.affectedRows", SQLSTATE(45000) "Result set construction failed");
 	return MAL_SUCCEED;
@@ -2394,6 +2418,8 @@ mvc_export_head_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	b = cntxt->sqlcontext;
 	if (mvc_export_head(b, *s, res_id, FALSE, TRUE, mb->starttime, mb->optimize))
 		throw(SQL, "sql.exportHead", SQLSTATE(45000) "Result set construction failed");
+	mb->starttime = 0;
+	mb->optimize = 0;
 	return MAL_SUCCEED;
 }
 
@@ -2416,6 +2442,8 @@ mvc_export_result_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			throw(SQL, "sql.exportResult", SQLSTATE(45000) "Result set construction failed");
 	} else if (mvc_export_result(b, *s, res_id, mb->starttime, mb->optimize))
 		throw(SQL, "sql.exportResult", SQLSTATE(45000) "Result set construction failed");
+	mb->starttime = 0;
+	mb->optimize = 0;
 	return MAL_SUCCEED;
 }
 
@@ -2458,6 +2486,8 @@ mvc_export_operation_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	b = cntxt->sqlcontext;
 	if (mvc_export_operation(b, b->out, "", mb->starttime, mb->optimize))
 		throw(SQL, "sql.exportOperation", SQLSTATE(45000) "Result set construction failed");
+	mb->starttime = 0;
+	mb->optimize = 0;
 	return NULL;
 }
 
@@ -2493,6 +2523,8 @@ mvc_scalar_value_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (mvc_export_result(b, b->out, res_id, mb->starttime, mb->optimize) < 0) {
 		throw(SQL, "sql.exportValue", SQLSTATE(45000) "Result set construction failed");
 	}
+	mb->starttime = 0;
+	mb->optimize = 0;
 	return MAL_SUCCEED;
 }
 

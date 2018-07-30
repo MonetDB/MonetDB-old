@@ -212,7 +212,7 @@ TABLETcollect_parts(BAT **bats, Tablet *as, BUN offset)
 			b->trevsorted = 0;
 		if (BATtdense(b))
 			b->tkey = TRUE;
-		b->batDirty = TRUE;
+		b->batDirtydesc = true;
 
 		if (offset > 0) {
 			BBPunfix(bv->batCacheid);
@@ -945,6 +945,7 @@ SQLworker_column(READERtask *task, int col)
 		}
 	}
 	BATsetcount(fmt[col].c, BATcount(fmt[col].c));
+	fmt[col].c->theap.dirty |= BATcount(fmt[col].c) > 0;
 
 	return 0;
 }
