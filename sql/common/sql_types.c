@@ -418,6 +418,28 @@ subtype2string(sql_subtype *t)
 	return _STRDUP(buf);
 }
 
+char *
+subtype2string2(sql_subtype *tpe) //distinguish char(n), decimal(n,m) from other SQL types
+{
+	char buf[BUFSIZ];
+
+	switch (tpe->type->eclass) {
+		case EC_SEC:
+			snprintf(buf, BUFSIZ, "BIGINT");
+			break;
+		case EC_MONTH:
+			snprintf(buf, BUFSIZ, "INT");
+			break;
+		case EC_CHAR:
+		case EC_STRING:
+		case EC_DEC:
+			return subtype2string(tpe);
+		default:
+			snprintf(buf, BUFSIZ, "%s", tpe->type->sqlname);
+	}
+	return _STRDUP(buf);
+}
+
 int 
 subaggr_cmp( sql_subaggr *a1, sql_subaggr *a2)
 {
@@ -1206,7 +1228,7 @@ sql_create_func(sql_allocator *sa, const char *name, const char *mod, const char
 }
 
 static sql_func *
-sql_create_func_res(sql_allocator *sa, const char *name, const char *mod, const char *imp, sql_type *tpe1, sql_type *tpe2, sql_type *res, int fix_scale, int scale)
+sql_create_func_res(sql_allocator *sa, const char *name, const char *mod, const char *imp, sql_type *tpe1, sql_type *tpe2, sql_type *res, int fix_scale, unsigned int scale)
 {
 	list *l = sa_list(sa);
 	sql_arg *sres;

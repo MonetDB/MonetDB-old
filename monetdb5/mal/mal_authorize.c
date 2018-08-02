@@ -76,7 +76,7 @@ AUTHfindUser(const char *username)
 	BATiter cni = bat_iterator(user);
 	BUN p;
 
-	if (BAThash(user, 0) == GDK_SUCCEED) {
+	if (BAThash(user) == GDK_SUCCEED) {
 		HASHloop_str(cni, cni.b->thash, p, username) {
 			oid pos = p;
 			if (BUNfnd(duser, &pos) == BUN_NONE)
@@ -192,7 +192,7 @@ AUTHinitTables(const char *passwd) {
 			throw(MAL, "initTables.user", SQLSTATE(HY001) MAL_MALLOC_FAIL " user table");
 
 		if (BATkey(user, true) != GDK_SUCCEED ||
-			BBPrename(BBPcacheid(user), "M5system_auth_user") != 0 ||
+			BBPrename(user->batCacheid, "M5system_auth_user") != 0 ||
 			BATmode(user, PERSISTENT) != GDK_SUCCEED) {
 			throw(MAL, "initTables.user", GDK_EXCEPTION);
 		}
@@ -215,7 +215,7 @@ AUTHinitTables(const char *passwd) {
 		if (pass == NULL)
 			throw(MAL, "initTables.passwd", SQLSTATE(HY001) MAL_MALLOC_FAIL " password table");
 
-		if (BBPrename(BBPcacheid(pass), "M5system_auth_passwd_v2") != 0 ||
+		if (BBPrename(pass->batCacheid, "M5system_auth_passwd_v2") != 0 ||
 			BATmode(pass, PERSISTENT) != GDK_SUCCEED) {
 			throw(MAL, "initTables.user", GDK_EXCEPTION);
 		}
@@ -238,7 +238,7 @@ AUTHinitTables(const char *passwd) {
 		if (duser == NULL)
 			throw(MAL, "initTables.duser", SQLSTATE(HY001) MAL_MALLOC_FAIL " deleted user table");
 
-		if (BBPrename(BBPcacheid(duser), "M5system_auth_deleted") != 0 ||
+		if (BBPrename(duser->batCacheid, "M5system_auth_deleted") != 0 ||
 			BATmode(duser, PERSISTENT) != GDK_SUCCEED) {
 			throw(MAL, "initTables.user", GDK_EXCEPTION);
 		}
@@ -262,7 +262,7 @@ AUTHinitTables(const char *passwd) {
 		if (rt_key == NULL)
 			throw(MAL, "initTables.rt_key", SQLSTATE(HY001) MAL_MALLOC_FAIL " remote table key bat");
 
-		if (BBPrename(BBPcacheid(rt_key), "M5system_auth_rt_key") != 0 ||
+		if (BBPrename(rt_key->batCacheid, "M5system_auth_rt_key") != 0 ||
 			BATmode(rt_key, PERSISTENT) != GDK_SUCCEED)
 			throw(MAL, "initTables.rt_key", GDK_EXCEPTION);
 	}
@@ -286,7 +286,7 @@ AUTHinitTables(const char *passwd) {
 		if (rt_uri == NULL)
 			throw(MAL, "initTables.rt_uri", SQLSTATE(HY001) MAL_MALLOC_FAIL " remote table uri bat");
 
-		if (BBPrename(BBPcacheid(rt_uri), "M5system_auth_rt_uri") != 0 ||
+		if (BBPrename(rt_uri->batCacheid, "M5system_auth_rt_uri") != 0 ||
 			BATmode(rt_uri, PERSISTENT) != GDK_SUCCEED)
 			throw(MAL, "initTables.rt_uri", GDK_EXCEPTION);
 	}
@@ -310,7 +310,7 @@ AUTHinitTables(const char *passwd) {
 		if (rt_remoteuser == NULL)
 			throw(MAL, "initTables.rt_remoteuser", SQLSTATE(HY001) MAL_MALLOC_FAIL " remote table local user bat");
 
-		if (BBPrename(BBPcacheid(rt_remoteuser), "M5system_auth_rt_remoteuser") != 0 ||
+		if (BBPrename(rt_remoteuser->batCacheid, "M5system_auth_rt_remoteuser") != 0 ||
 			BATmode(rt_remoteuser, PERSISTENT) != GDK_SUCCEED)
 			throw(MAL, "initTables.rt_remoteuser", GDK_EXCEPTION);
 	}
@@ -334,7 +334,7 @@ AUTHinitTables(const char *passwd) {
 		if (rt_hashedpwd == NULL)
 			throw(MAL, "initTables.rt_hashedpwd", SQLSTATE(HY001) MAL_MALLOC_FAIL " remote table local user bat");
 
-		if (BBPrename(BBPcacheid(rt_hashedpwd), "M5system_auth_rt_hashedpwd") != 0 ||
+		if (BBPrename(rt_hashedpwd->batCacheid, "M5system_auth_rt_hashedpwd") != 0 ||
 			BATmode(rt_hashedpwd, PERSISTENT) != GDK_SUCCEED)
 			throw(MAL, "initTables.rt_hashedpwd", GDK_EXCEPTION);
 	}
@@ -358,7 +358,7 @@ AUTHinitTables(const char *passwd) {
 		if (rt_deleted == NULL)
 			throw(MAL, "initTables.rt_deleted", SQLSTATE(HY001) MAL_MALLOC_FAIL " remote table local user bat");
 
-		if (BBPrename(BBPcacheid(rt_deleted), "M5system_auth_rt_deleted") != 0 ||
+		if (BBPrename(rt_deleted->batCacheid, "M5system_auth_rt_deleted") != 0 ||
 			BATmode(rt_deleted, PERSISTENT) != GDK_SUCCEED)
 			throw(MAL, "initTables.rt_deleted", GDK_EXCEPTION);
 		/* If the database is not new, but we just created this BAT,
@@ -975,7 +975,7 @@ lookupRemoteTableKey(const char *key)
 	assert(rt_key);
 	assert(rt_deleted);
 
-	if (BAThash(rt_key, 0) == GDK_SUCCEED) {
+	if (BAThash(rt_key) == GDK_SUCCEED) {
 		HASHloop_str(cni, cni.b->thash, p, key) {
 			oid pos = p;
 			if (BUNfnd(rt_deleted, &pos) == BUN_NONE)
@@ -1030,7 +1030,7 @@ AUTHaddRemoteTableCredentials(const char *local_table, const char *local_user, c
 {
 	char *pwhash = NULL;
 	bool free_pw = false;
-	str tmp;
+	str tmp, output = MAL_SUCCEED;
 	BUN p;
 
 	if (uri == NULL || strNil(uri))
@@ -1088,23 +1088,27 @@ AUTHaddRemoteTableCredentials(const char *local_table, const char *local_user, c
 	 * Implementation note: we first delete the entry and then add a
 	 * new entry with the same key.
 	 */
-		AUTHdeleteRemoteTableCredentials(local_table);
+		if((output = AUTHdeleteRemoteTableCredentials(local_table)) != MAL_SUCCEED)
+			return output;
 	}
 
 	if (pass == NULL) {
 		/* NOTE: Is having the client == NULL safe? */
-		AUTHgetPasswordHash(&pwhash, NULL, local_user);
+		if((output = AUTHgetPasswordHash(&pwhash, NULL, local_user)) != MAL_SUCCEED)
+			return output;
 	}
 	else {
 		free_pw = true;
 		if (pw_encrypted) {
-			pwhash = strdup(pass);
+			if((pwhash = strdup(pass)) == NULL)
+				throw(MAL, "addRemoteTableCredentials", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 		else {
 			/* Note: the remote server might have used a different
 			 * algorithm to hash the pwhash.
 			 */
-			pwhash = mcrypt_BackendSum(pass, strlen(pass));
+			if((pwhash = mcrypt_BackendSum(pass, strlen(pass))) == NULL)
+				throw(MAL, "addRemoteTableCredentials", SQLSTATE(42000) "Crypt backend hash not found");
 		}
 	}
 	rethrow("addRemoteTableCredentials", tmp, AUTHverifyPassword(pwhash));

@@ -1147,7 +1147,8 @@ str RMTbincopyto(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (b == NULL)
 		throw(MAL, "remote.bincopyto", RUNTIME_OBJECT_UNDEFINED);
 
-	BBPfix(bid);
+	if (BBPfix(bid) <= 0)
+		throw(MAL, "remote.bincopyto", MAL_MALLOC_FAIL);
 
 	sendtheap = b->ttype != TYPE_void && b->tvarsized;
 
@@ -1355,7 +1356,7 @@ RMTinternalcopyfrom(BAT **ret, char *hdr, stream *in)
 	if (bb.Ttype == TYPE_str && bb.size)
 		BATsetcapacity(b, (BUN) (bb.tailsize >> b->tshift));
 	BATsetcount(b, bb.size);
-	b->batDirty = TRUE;
+	b->batDirtydesc = true;
 
 	/* read blockmode flush */
 	while (mnstr_read(in, &tmp, 1, 1) > 0) {

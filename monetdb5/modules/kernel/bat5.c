@@ -934,14 +934,17 @@ BKCsave(bit *res, const char * const *input)
 	BAT *b;
 
 	*res = FALSE;
-	if (bid) {
-		BBPfix(bid);
-		b = BBP_cache(bid);
-		if (b && BATdirty(b)) {
-			if (BBPsave(b) == GDK_SUCCEED)
-				*res = TRUE;
+	if (!is_bat_nil(bid)) {
+		if (BBPfix(bid) > 0) {
+			b = BBP_cache(bid);
+			if (b && BATdirty(b)) {
+				if (BBPsave(b) == GDK_SUCCEED)
+					*res = TRUE;
+			}
+			BBPunfix(bid);
+			return MAL_SUCCEED;
 		}
-		BBPunfix(bid);
+		throw(MAL, "bat.save", "fix failed");
 	}
 	return MAL_SUCCEED;
 }
@@ -978,7 +981,7 @@ BKCsetHash(bit *ret, const bat *bid)
 	if ((b = BATdescriptor(*bid)) == NULL) {
 		throw(MAL, "bat.setHash", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 	}
-	*ret = BAThash(b, 0) == GDK_SUCCEED;
+	*ret = BAThash(b) == GDK_SUCCEED;
 	BBPunfix(b->batCacheid);
 	return MAL_SUCCEED;
 }
