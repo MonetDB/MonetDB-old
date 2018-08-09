@@ -82,7 +82,9 @@ static inline str RMTinternalcopyfrom(BAT **ret, char *hdr, stream *in);
  * merovingian is not running, this function throws an error.
  */
 str RMTresolve(bat *ret, str *pat) {
-#ifdef WIN32
+#ifdef NATIVE_WIN32
+	(void) ret;
+	(void) pat;
 	throw(MAL, "remote.resolve", "merovingian is not available on "
 			"your platform, sorry"); /* please upgrade to Linux, etc. */
 #else
@@ -1147,7 +1149,8 @@ str RMTbincopyto(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (b == NULL)
 		throw(MAL, "remote.bincopyto", RUNTIME_OBJECT_UNDEFINED);
 
-	BBPfix(bid);
+	if (BBPfix(bid) <= 0)
+		throw(MAL, "remote.bincopyto", MAL_MALLOC_FAIL);
 
 	sendtheap = b->ttype != TYPE_void && b->tvarsized;
 

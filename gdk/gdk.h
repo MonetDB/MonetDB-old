@@ -335,31 +335,6 @@
 #include "gdk_posix.h"
 #include "stream.h"
 
-/* if __has_attribute is not known to the preprocessor, we ignore
- * attributes completely; if it is known, use it to find out whether
- * specific attributes that we use are known */
-#ifndef __has_attribute
-#define __has_attribute(attr)	0
-#ifndef __attribute__
-#define __attribute__(attr)	/* empty */
-#endif
-#endif
-#if !__has_attribute(__warn_unused_result__)
-#define __warn_unused_result__
-#endif
-#if !__has_attribute(__malloc__)
-#define __malloc__
-#endif
-#if !__has_attribute(__alloc_size__)
-#define __alloc_size__(a)
-#endif
-#if !__has_attribute(__format__)
-#define __format__(a,b,c)
-#endif
-#if !__has_attribute(__noreturn__)
-#define __noreturn__
-#endif
-
 #undef MIN
 #undef MAX
 #define MAX(A,B)	((A)<(B)?(B):(A))
@@ -1536,8 +1511,6 @@ gdk_export void GDKqsort_rev(void *restrict h, void *restrict t, const void *res
  * @tab BBPindex  (str nme)
  * @item BAT*
  * @tab BATdescriptor (bat bi)
- * @item bat
- * @tab BBPcacheid (BAT *b)
  * @end multitable
  *
  * The BAT Buffer Pool module contains the code to manage the storage
@@ -1551,8 +1524,7 @@ gdk_export void GDKqsort_rev(void *restrict h, void *restrict t, const void *res
  *
  * BATs loaded into memory are retained in a BAT buffer pool.  They
  * retain their position within the cache during their life cycle,
- * which make indexing BATs a stable operation.  Their descriptor can
- * be obtained using BBPcacheid.
+ * which make indexing BATs a stable operation.
  *
  * The BBPindex routine checks if a BAT with a certain name is
  * registered in the buffer pools. If so, it returns its BAT id.  The
@@ -1575,7 +1547,7 @@ typedef struct {
 	str options;		/* A string list of options */
 	int refs;		/* in-memory references on which the loaded status of a BAT relies */
 	int lrefs;		/* logical references on which the existence of a BAT relies */
-	volatile int status;	/* status mask used for spin locking */
+	volatile unsigned status; /* status mask used for spin locking */
 	/* MT_Id pid;           non-zero thread-id if this BAT is private */
 } BBPrec;
 
@@ -1609,8 +1581,7 @@ gdk_export BBPrec *BBP[N_BBPINIT];
 #define BBP_pid(i)	BBP[(i)>>BBPINITLOG][(i)&(BBPINIT-1)].pid
 
 /* macros that nicely check parameters */
-#define BBPcacheid(b)	((b)->batCacheid)
-#define BBPstatus(i)	(BBPcheck((i),"BBPstatus")?BBP_status(i):-1)
+#define BBPstatus(i)	(BBPcheck((i),"BBPstatus")?BBP_status(i):0)
 #define BBPrefs(i)	(BBPcheck((i),"BBPrefs")?BBP_refs(i):-1)
 #define BBPcache(i)	(BBPcheck((i),"BBPcache")?BBP_cache(i):(BAT*) NULL)
 #define BBPname(i)						\
@@ -2319,18 +2290,19 @@ VALptr(const ValRecord *v)
  * each thread. This speeds up access to tid and file descriptors.
  */
 #define THREADS	1024
-#define THREADDATA	16
+#define THREADDATA	3
 
 typedef struct threadStruct {
-	int tid;		/* logical ID by MonetDB; val == index into this array + 1 (0 is invalid) */
-	MT_Id pid;		/* physical thread id (pointer-sized) from the OS thread library */
+	int tid;		/* logical ID by MonetDB; val == index
+				 * into this array + 1 (0 is
+				 * invalid) */
+	MT_Id pid;		/* physical thread id (pointer-sized)
+				 * from the OS thread library */
 	str name;
-	ptr data[THREADDATA];
+	void *data[THREADDATA];
 	uintptr_t sp;
 } ThreadRec, *Thread;
 
-
-gdk_export ThreadRec GDKthreads[THREADS];
 
 gdk_export int THRgettid(void);
 gdk_export Thread THRget(int tid);
@@ -2379,7 +2351,8 @@ BATdescriptor(bat i)
 	BAT *b = NULL;
 
 	if (BBPcheck(i, "BATdescriptor")) {
-		BBPfix(i);
+		if (BBPfix(i) <= 0)
+			return NULL;
 		b = BBP_cache(i);
 		if (b == NULL)
 			b = BBPdescriptor(i);

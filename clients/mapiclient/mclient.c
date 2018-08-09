@@ -1773,30 +1773,32 @@ start_pager(stream **saveFD)
 
 		/* ignore SIGPIPE so that we get an error instead of signal */
 		act.sa_handler = SIG_IGN;
-		sigemptyset(&act.sa_mask);
+		(void) sigemptyset(&act.sa_mask);
 		act.sa_flags = 0;
-		sigaction(SIGPIPE, &act, NULL);
-
-		p = popen(pager, "w");
-		if (p == NULL)
+		if(sigaction(SIGPIPE, &act, NULL) == -1) {
 			fprintf(stderr, "Starting '%s' failed\n", pager);
-		else {
-			*saveFD = toConsole;
-			/* put | in name to indicate that file should be closed with pclose */
-			if ((toConsole = file_wastream(p, "|pager")) == NULL) {
-				toConsole = *saveFD;
-				*saveFD = NULL;
+		} else {
+			p = popen(pager, "w");
+			if (p == NULL)
 				fprintf(stderr, "Starting '%s' failed\n", pager);
-			}
-#ifdef HAVE_ICONV
-			if (encoding != NULL) {
-				if ((toConsole = iconv_wstream(toConsole, encoding, "pager")) == NULL) {
+			else {
+				*saveFD = toConsole;
+				/* put | in name to indicate that file should be closed with pclose */
+				if ((toConsole = file_wastream(p, "|pager")) == NULL) {
 					toConsole = *saveFD;
 					*saveFD = NULL;
 					fprintf(stderr, "Starting '%s' failed\n", pager);
 				}
-			}
+#ifdef HAVE_ICONV
+				if (encoding != NULL) {
+					if ((toConsole = iconv_wstream(toConsole, encoding, "pager")) == NULL) {
+						toConsole = *saveFD;
+						*saveFD = NULL;
+						fprintf(stderr, "Starting '%s' failed\n", pager);
+					}
+				}
 #endif
+			}
 		}
 	}
 }
@@ -2541,7 +2543,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 						start_pager(&saveFD);
 #endif
 						if (x & MD_TABLE || x & MD_VIEW)
-							describe_table(mid, NULL, line, toConsole, 1);
+							describe_table(mid, NULL, line, toConsole, 1, false);
 						if (x & MD_SEQ)
 							describe_sequence(mid, NULL, line, toConsole);
 						if (x & MD_FUNC)
@@ -2609,9 +2611,16 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 						char *query = malloc(len);
 						char *q = query, *endq = query + len;
 						char *name_column = hasSchema ? "fullname" : "name";
+						const char *comments_clause = get_comments_clause(mid);
 
-						if (!query)
-							return true;
+						if (query == NULL) {
+							fprintf(stderr, "memory allocation failure\n");
+							continue;
+						}
+						if (comments_clause == NULL) {
+							free(query);
+							continue;
+						}
 
 						/*
 						 * | LINE            | SCHEMA FILTER | NAME FILTER                   |
@@ -2623,7 +2632,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 						 * | "data.my*"      | no            | fullname LIKE 'data.my%'      |
 						 * | "*a.my*"        | no            | fullname LIKE '%a.my%'        |
 						 */
-						q += snprintf(q, endq - q, "%s", get_with_comments_as_clause(mid));
+						q += snprintf(q, endq - q, "%s", comments_clause);
 						q += snprintf(q, endq - q, "%s", with_clause);
 						q += snprintf(q, endq - q, " SELECT type, fullname, remark FROM describe_all_objects");
 						q += snprintf(q, endq - q, " WHERE (ntype & %u) > 0", x);
@@ -2693,7 +2702,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 #endif
 					if (*line) {
 						mnstr_printf(toConsole, "START TRANSACTION;\n");
-						dump_table(mid, NULL, line, toConsole, 0, 1, useinserts);
+						dump_table(mid, NULL, line, toConsole, 0, 1, useinserts, false);
 						mnstr_printf(toConsole, "COMMIT;\n");
 					} else
 						dump_database(mid, toConsole, 0, useinserts);
@@ -3125,10 +3134,21 @@ main(int argc, char **argv)
 	 * causes the output to be converted (we could set it to
 	 * ".OCP" if we knew for sure that we were running in a cmd
 	 * window) */
-	setlocale(LC_CTYPE, "");
+	if(setlocale(LC_CTYPE, "") == NULL) {
+		fprintf(stderr, "error: could not set locale\n");
+		exit(2);
+	}
 #endif
 	toConsole = stdout_stream = file_wastream(stdout, "stdout");
 	stderr_stream = file_wastream(stderr, "stderr");
+	if(!stdout_stream || !stderr_stream) {
+		if(stdout_stream)
+			close_stream(stdout_stream);
+		if(stderr_stream)
+			close_stream(stderr_stream);
+		fprintf(stderr, "error: could not open an output stream\n");
+		exit(2);
+	}
 
 	/* parse config file first, command line options override */
 	parse_dotmonetdb(&user, &passwd, &dbname, &language, &save_history, &output, &pagewidth);
@@ -3539,6 +3559,13 @@ main(int argc, char **argv)
 
 	if (!has_fileargs && command == NULL) {
 		stream *s = file_rastream(stdin, "<stdin>");
+		if(!s) {
+			mapi_destroy(mid);
+			mnstr_destroy(stdout_stream);
+			mnstr_destroy(stderr_stream);
+			fprintf(stderr,"Failed to open stream for stdin\n");
+			exit(2);
+		}
 		c = doFile(mid, s, useinserts, interactive, save_history);
 	}
 

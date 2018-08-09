@@ -1298,7 +1298,7 @@ static str CUDFeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci,
 	if (option_enable_mprotect) {
 		memset(&sa, 0, sizeof(sa));
 		sa.sa_flags = SA_SIGINFO;
-		sigfillset(&sa.sa_mask);
+		(void) sigfillset(&sa.sa_mask);
 		sa.sa_sigaction = handler;
 		if (sigaction(SIGSEGV, &sa, &oldsa) == -1 ||
 			sigaction(SIGBUS, &sa, &oldsb) == -1) {
@@ -1528,8 +1528,8 @@ wrapup:
 	// remove the signal handler, if any was set
 	if (option_enable_mprotect) {
 		if (sa.sa_sigaction) {
-			sigaction(SIGSEGV, &oldsa, NULL);
-			sigaction(SIGBUS, &oldsb, NULL);
+			(void) sigaction(SIGSEGV, &oldsa, NULL);
+			(void) sigaction(SIGBUS, &oldsb, NULL);
 
 			memset(&sa, 0, sizeof(sa));
 		}
