@@ -56,6 +56,8 @@
 #include "monetdb_config.h"
 #include "remote.h"
 
+#include "mal_authorize.h"
+
 /*
  * Technically, these methods need to be serialised per connection,
  * hence a scheduler that interleaves e.g. multiple get calls, simply
@@ -80,7 +82,9 @@ static inline str RMTinternalcopyfrom(BAT **ret, char *hdr, stream *in);
  * merovingian is not running, this function throws an error.
  */
 str RMTresolve(bat *ret, str *pat) {
-#ifdef WIN32
+#ifdef NATIVE_WIN32
+	(void) ret;
+	(void) pat;
 	throw(MAL, "remote.resolve", "merovingian is not available on "
 			"your platform, sorry"); /* please upgrade to Linux, etc. */
 #else
@@ -117,7 +121,7 @@ str RMTresolve(bat *ret, str *pat) {
 		throw(MAL, "remote.resolve", "unknown failure when resolving pattern");
 
 	while (*redirs != NULL) {
-		if (BUNappend(list, (ptr)*redirs, FALSE) != GDK_SUCCEED) {
+		if (BUNappend(list, (ptr)*redirs, false) != GDK_SUCCEED) {
 			BBPreclaim(list);
 			do
 				free(*redirs);
@@ -253,6 +257,59 @@ str RMTconnect(
 {
 	str scen = "mal";
 	return RMTconnectScen(ret, uri, user, passwd, &scen);
+}
+
+str
+RMTconnectTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	char *local_table;
+	char *remoteuser;
+	char *passwd;
+	char *uri;
+	char *tmp;
+	char *ret;
+	str scen;
+	str msg;
+	ValPtr v;
+
+	(void)mb;
+	(void)cntxt;
+
+	local_table = *getArgReference_str(stk, pci, 1);
+	scen = *getArgReference_str(stk, pci, 2);
+	if (local_table == NULL || strcmp(local_table, (str)str_nil) == 0) {
+		throw(ILLARG, "remote.connect", ILLEGAL_ARGUMENT ": local table is NULL or nil");
+	}
+
+	rethrow("remote.connect", tmp, AUTHgetRemoteTableCredentials(local_table, &uri, &remoteuser, &passwd));
+
+	/* The password we just got is hashed. Add the byte \1 in front to
+	 * signal this fact to the mapi. */
+	size_t pwlen = strlen(passwd);
+	char *pwhash = (char*)GDKmalloc(pwlen + 2);
+	if (pwhash == NULL) {
+		GDKfree(remoteuser);
+		GDKfree(passwd);
+		throw(MAL, "remote.connect", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	}
+	snprintf(pwhash, pwlen + 2, "\1%s", passwd);
+
+	msg = RMTconnectScen(&ret, &uri, &remoteuser, &pwhash, &scen);
+
+	GDKfree(passwd);
+	GDKfree(pwhash);
+
+	if (msg == MAL_SUCCEED) {
+		v = &stk->stk[pci->argv[0]];
+		v->vtype = TYPE_str;
+		if((v->val.sval = GDKstrdup(ret)) == NULL) {
+			GDKfree(ret);
+			throw(MAL, "remote.connect", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		}
+	}
+
+	GDKfree(ret);
+	return msg;
 }
 
 
@@ -542,7 +599,7 @@ str RMTget(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 		if (ATOMvarsized(t)) {
 			while (mapi_fetch_row(mhdl)) {
 				var = mapi_fetch_field(mhdl, 1);
-				if (BUNappend(b, var == NULL ? str_nil : var, FALSE) != GDK_SUCCEED) {
+				if (BUNappend(b, var == NULL ? str_nil : var, false) != GDK_SUCCEED) {
 					BBPreclaim(b);
 					throw(MAL, "remote.get", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 				}
@@ -555,7 +612,7 @@ str RMTget(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 				s = 0;
 				r = NULL;
 				if (ATOMfromstr(t, &r, &s, var) < 0 ||
-					BUNappend(b, r, FALSE) != GDK_SUCCEED) {
+					BUNappend(b, r, false) != GDK_SUCCEED) {
 					BBPreclaim(b);
 					GDKfree(r);
 					throw(MAL, "remote.get", GDK_EXCEPTION);
@@ -1062,7 +1119,7 @@ str RMTbatload(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 		s = 0;
 		r = NULL;
 		if (ATOMfromstr(t, &r, &s, var) < 0 ||
-			BUNappend(b, r, FALSE) != GDK_SUCCEED) {
+			BUNappend(b, r, false) != GDK_SUCCEED) {
 			BBPreclaim(b);
 			GDKfree(r);
 			throw(MAL, "remote.get", GDK_EXCEPTION);
@@ -1095,7 +1152,8 @@ str RMTbincopyto(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (b == NULL)
 		throw(MAL, "remote.bincopyto", RUNTIME_OBJECT_UNDEFINED);
 
-	BBPfix(bid);
+	if (BBPfix(bid) <= 0)
+		throw(MAL, "remote.bincopyto", MAL_MALLOC_FAIL);
 
 	sendtheap = b->ttype != TYPE_void && b->tvarsized;
 
@@ -1281,13 +1339,13 @@ RMTinternalcopyfrom(BAT **ret, char *hdr, stream *in)
 	}
 
 	if (bb.tailsize > 0) {
-		if (HEAPextend(&b->theap, bb.tailsize, TRUE) != GDK_SUCCEED ||
+		if (HEAPextend(&b->theap, bb.tailsize, true) != GDK_SUCCEED ||
 			mnstr_read(in, b->theap.base, bb.tailsize, 1) < 0)
 			goto bailout;
 		b->theap.dirty = TRUE;
 	}
 	if (bb.theapsize > 0) {
-		if (HEAPextend(b->tvheap, bb.theapsize, TRUE) != GDK_SUCCEED ||
+		if (HEAPextend(b->tvheap, bb.theapsize, true) != GDK_SUCCEED ||
 			mnstr_read(in, b->tvheap->base, bb.theapsize, 1) < 0)
 			goto bailout;
 		b->tvheap->free = bb.theapsize;
@@ -1303,7 +1361,7 @@ RMTinternalcopyfrom(BAT **ret, char *hdr, stream *in)
 	if (bb.Ttype == TYPE_str && bb.size)
 		BATsetcapacity(b, (BUN) (bb.tailsize >> b->tshift));
 	BATsetcount(b, bb.size);
-	b->batDirty = TRUE;
+	b->batDirtydesc = true;
 
 	/* read blockmode flush */
 	while (mnstr_read(in, &tmp, 1, 1) > 0) {

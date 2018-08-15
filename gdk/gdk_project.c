@@ -178,6 +178,7 @@ project_any(BAT *bn, BAT *l, BAT *r, bool nilcheck)
 	}
 	assert(n == BATcount(l));
 	BATsetcount(bn, n);
+	bn->theap.dirty = true;
 	return GDK_SUCCEED;
 bunins_failed:
 	return GDK_FAIL;
@@ -196,16 +197,9 @@ BATproject(BAT *l, BAT *r)
 
 	ALGODEBUG t0 = GDKusec();
 
-	ALGODEBUG fprintf(stderr, "#BATproject(l=%s#" BUNFMT "%s%s%s,"
-			  "r=%s#" BUNFMT "[%s]%s%s%s)\n",
-			  BATgetId(l), BATcount(l),
-			  l->tsorted ? "-sorted" : "",
-			  l->trevsorted ? "-revsorted" : "",
-			  l->tkey ? "-key" : "",
-			  BATgetId(r), BATcount(r), ATOMname(r->ttype),
-			  r->tsorted ? "-sorted" : "",
-			  r->trevsorted ? "-revsorted" : "",
-			  r->tkey ? "-key" : "");
+	ALGODEBUG fprintf(stderr, "#BATproject(l=" ALGOBATFMT ","
+			  "r=" ALGOBATFMT ")\n",
+			  ALGOBATPAR(l), ALGOBATPAR(r));
 
 	assert(ATOMtype(l->ttype) == TYPE_oid);
 
@@ -217,14 +211,7 @@ BATproject(BAT *l, BAT *r)
 			return NULL;
 		}
 		bn = BATslice(r, lo - r->hseqbase, hi - r->hseqbase);
-		if (bn == NULL)
-			return NULL;
 		BAThseqbase(bn, l->hseqbase + (lo - l->tseqbase));
-		ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=%s#"BUNFMT"%s%s%s\n",
-				  BATgetId(l), BATgetId(r), BATgetId(bn), BATcount(bn),
-				  bn->tsorted ? "-sorted" : "",
-				  bn->trevsorted ? "-revsorted" : "",
-				  bn->tkey ? "-key" : "");
 		/* the result is a candidate list only if both inputs
 		 * are candidate lists */
 		if (l->batIscand & r->batIscand) {
@@ -235,6 +222,8 @@ BATproject(BAT *l, BAT *r)
 				bn->ttype = TYPE_oid;
 			bn->batIscand = false;
 		}
+		ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=" ALGOOPTBATFMT " (slice)\n",
+				  BATgetId(l), BATgetId(r),  ALGOOPTBATPAR(bn));
 		return bn;
 	}
 	/* if l has type void, it is either empty or not dense (i.e. nil) */
@@ -245,20 +234,15 @@ BATproject(BAT *l, BAT *r)
 
 		bn = BATconstant(l->hseqbase, ATOMtype(r->ttype) == TYPE_oid ? TYPE_void : r->ttype,
 				 nil, BATcount(l), TRANSIENT);
-		if (bn == NULL)
-			return NULL;
-		if (ATOMtype(bn->ttype) == TYPE_oid &&
+		if (bn != NULL &&
+		    ATOMtype(bn->ttype) == TYPE_oid &&
 		    BATcount(bn) == 0) {
 			BATtseqbase(bn, 0);
 		}
-		ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=%s#"BUNFMT"%s%s%s\n",
-				  BATgetId(l), BATgetId(r),
-				  BATgetId(bn), BATcount(bn),
-				  bn->tsorted ? "-sorted" : "",
-				  bn->trevsorted ? "-revsorted" : "",
-				  bn->tkey ? "-key" : "");
 		if (l->batIscand & r->batIscand)
 			bn = BATfixcand(bn);
+		ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=" ALGOOPTBATFMT " (constant)\n",
+				  BATgetId(l), BATgetId(r), ALGOOPTBATPAR(bn));
 		return bn;
 	}
 	assert(l->ttype == TYPE_oid || l->ttype == TYPE_cnd);
@@ -281,8 +265,11 @@ BATproject(BAT *l, BAT *r)
 		stringtrick = true;
 	}
 	bn = COLnew(l->hseqbase, tpe, BATcount(l), TRANSIENT);
-	if (bn == NULL)
+	if (bn == NULL) {
+		ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=0\n",
+				  BATgetId(l), BATgetId(r));
 		return NULL;
+	}
 	if (stringtrick) {
 		/* "string type" */
 		bn->tsorted = false;
@@ -396,11 +383,8 @@ BATproject(BAT *l, BAT *r)
 
 	if (!BATtdense(r))
 		BATtseqbase(bn, oid_nil);
-	ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=%s#"BUNFMT"%s%s%s%s " LLFMT "us\n",
-			  BATgetId(l), BATgetId(r), BATgetId(bn), BATcount(bn),
-			  bn->tsorted ? "-sorted" : "",
-			  bn->trevsorted ? "-revsorted" : "",
-			  bn->tkey ? "-key" : "",
+	ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=" ALGOBATFMT "%s " LLFMT "us\n",
+			  BATgetId(l), BATgetId(r), ALGOBATPAR(bn),
 			  bn->ttype == TYPE_str && bn->tvheap == r->tvheap ? " shared string heap" : "",
 			  GDKusec() - t0);
 	if (l->batIscand & r->batIscand)
@@ -451,6 +435,7 @@ BATprojectchain(BAT **bats)
 	bool allnil = false, nonil = true;
 	bool stringtrick = false;
 	bool iscand = true;
+	bool issorted = true;	/* result sorted if all bats sorted */
 
 	/* count number of participating BATs and allocate some
 	 * temporary work space */
@@ -467,6 +452,7 @@ BATprojectchain(BAT **bats)
 	for (i = n = 0; b != NULL; n++, i++) {
 		nonil &= b->tnonil; /* not guaranteed without nils */
 		iscand &= b->batIscand;
+		issorted &= b->tsorted;
 		if (!allnil) {
 			if (n > 0 && ba[i-1].vals == NULL) {
 				/* previous BAT was dense-tailed: we will
@@ -586,7 +572,8 @@ BATprojectchain(BAT **bats)
 			bn = BATfixcand(bn);
 		return bn;
 	}
-	bn->tnil = bn->tnonil = false; /* we're not paying attention to this */
+	bn->tnil = false;	/* we're not paying attention to this */
+	bn->tnonil = nonil;
 	n = i - 1;		/* ba[n] is last BAT */
 
 /* figure out the "other" type, i.e. not compatible with oid */
@@ -715,7 +702,7 @@ BATprojectchain(BAT **bats)
 				}
 				v = BUNtvar(bi, o + off);
 			}
-			bunfastapp(bn, v);
+			bunfastappVAR(bn, v);
 		}
 	} else {
 		/* generic code for fixed-sized atoms */
@@ -746,12 +733,25 @@ BATprojectchain(BAT **bats)
 				}
 				v = BUNtloc(bi, o + off);
 			}
-			bunfastapp(bn, v);
+			if (BATcount(bn) >= BATcapacity(bn)) {
+				if (BATcount(bn) == BUN_MAX) {
+					GDKerror("BATprojectchain: too many elements to accomodate (" BUNFMT ")\n", BUN_MAX);
+					goto bunins_failed;
+				}
+				if (BATextend(bn, BATgrows(bn)) != GDK_SUCCEED)
+					goto bunins_failed;
+			}
+			bn->theap.free += Tsize(bn);
+			bn->theap.dirty |= Tsize(bn) != 0;
+			ATOMputFIX(bn->ttype, Tloc(bn, bn->batCount), v);
+			bn->batCount++;
 		}
 	}
+	bn->theap.dirty = true;
 	BATsetcount(bn, cnt);
 	if (stringtrick) {
-		bn->tnonil = bn->tnil = false;
+		bn->tnil = false;
+		bn->tnonil = nonil;
 		bn->tkey = false;
 		BBPshare(b->tvheap->parentid);
 		bn->tvheap = b->tvheap;
@@ -761,10 +761,13 @@ BATprojectchain(BAT **bats)
 		bn->tshift = b->tshift;
 	}
 	bn->tsorted = bn->trevsorted = bn->tkey = cnt <= 1;
+	bn->tsorted |= issorted;
 	bn->tseqbase = oid_nil;
 	GDKfree(ba);
-	if (iscand)
+	if (iscand) {
+		bn->tkey = true;
 		bn = BATfixcand(bn);
+	}
 	return bn;
 
   bunins_failed:

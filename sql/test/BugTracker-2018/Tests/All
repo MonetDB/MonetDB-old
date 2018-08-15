@@ -66,3 +66,16 @@ sqlitelogictest-select-not-in-wrong.Bug-6602
 sqlitelogictest-groupby-distinct-duplicate.Bug-6603
 procedure-create-table.Bug-6604
 sqlitelogictest-cast-null-not-in.Bug-6605
+sqlitelogictest-groupby-coalesce-error-message.Bug-6608
+sqlitelogictest-algebra-rangejoin-undefined.Bug-6610
+dependency_column_on_sequence.Bug-6618
+local_replica_table_not_detected.Bug-6620
+remote-table-where-not-equal.Bug-6621
+groupby_having_orderby_count.Bug-6624
+or_in_subselect.Bug-6625
+strptime.Bug-6626
+singleton-stddev.Bug-6627
+create_table_if_not_exists_returns_42000.Bug-6629
+sqlitelogictest-cast-null-add.Bug-6630
+ilike-foreign-characters.Bug-6633
+multi-column-hash-wrongly-NIL.Bug-6638

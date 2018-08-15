@@ -690,7 +690,7 @@ rel_named_table_function(mvc *sql, sql_rel *rel, symbol *query, int lateral)
 				if (n->next)
 					append(nexps, ae);
 			}
-			f = mvc_create_func(sql, sql->sa, s, nfname, args, res, F_UNION, FUNC_LANG_SQL, "user", "intern", "intern", FALSE, sf->func->vararg);
+			f = mvc_create_func(sql, sql->sa, s, nfname, args, res, F_UNION, FUNC_LANG_SQL, "user", "intern", "intern", FALSE, sf->func->vararg, FALSE);
 			/* call normal table function */
 			ie = exp_op(sql->sa, nexps, sf);
 			nexps = sa_list(sql->sa);
@@ -1593,7 +1593,7 @@ exp_is_subquery( mvc *sql, sql_exp *e)
 	return 0;
 }
 
-static sql_rel *
+sql_rel *
 rel_compare_exp_(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_exp *rs2, int type, int anti )
 {
 	sql_exp *L = ls, *R = rs, *e = NULL;
@@ -4380,7 +4380,29 @@ rel_order_by(mvc *sql, sql_rel **R, symbol *orderby, int f )
 				sql->session->status = 0;
 				sql->errstr[0] = '\0';
 
-				e = rel_order_by_column_exp(sql, &rel, col, f);
+				/* check for project->select->groupby */
+				if (is_project(rel->op) && f == sql_orderby) {
+					sql_rel *s = rel->l;
+					sql_rel *p = rel;
+					sql_rel *g = s;
+
+					if (is_select(s->op)) {
+						g = s->l;
+						p = s;
+					}
+					if (is_groupby(g->op)) { /* check for is processed */
+						e = rel_order_by_column_exp(sql, &g, col, sql_sel);
+						if (e && g != p->l)
+							p->l = g;
+						if (!e && sql->session->status != -ERR_AMBIGUOUS) {
+							/* reset error */
+							sql->session->status = 0;
+							sql->errstr[0] = '\0';
+						}
+					}
+				}
+				if (!e)
+					e = rel_order_by_column_exp(sql, &rel, col, f);
 				if (e && e->card != rel->card) 
 					e = NULL;
 			}

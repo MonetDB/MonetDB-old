@@ -212,7 +212,7 @@ TABLETcollect_parts(BAT **bats, Tablet *as, BUN offset)
 			b->trevsorted = 0;
 		if (BATtdense(b))
 			b->tkey = TRUE;
-		b->batDirty = TRUE;
+		b->batDirtydesc = true;
 
 		if (offset > 0) {
 			BBPunfix(bv->batCacheid);
@@ -657,10 +657,10 @@ tablet_error(READERtask *task, lng row, int col, const char *msg, const char *fc
 {
 	if (task->cntxt->error_row != NULL) {
 		MT_lock_set(&errorlock);
-		if (BUNappend(task->cntxt->error_row, &row, FALSE) != GDK_SUCCEED ||
-			BUNappend(task->cntxt->error_fld, &col, FALSE) != GDK_SUCCEED ||
-			BUNappend(task->cntxt->error_msg, msg, FALSE) != GDK_SUCCEED ||
-			BUNappend(task->cntxt->error_input, fcn, FALSE) != GDK_SUCCEED)
+		if (BUNappend(task->cntxt->error_row, &row, false) != GDK_SUCCEED ||
+			BUNappend(task->cntxt->error_fld, &col, false) != GDK_SUCCEED ||
+			BUNappend(task->cntxt->error_msg, msg, false) != GDK_SUCCEED ||
+			BUNappend(task->cntxt->error_input, fcn, false) != GDK_SUCCEED)
 			task->besteffort = 0;
 		if (task->as->error == NULL && (msg == NULL || (task->as->error = GDKstrdup(msg)) == NULL)) {
 			task->as->error = createException(MAL, "sql.copy_from", SQLSTATE(HY001) MAL_MALLOC_FAIL);
@@ -857,10 +857,10 @@ SQLinsert_val(READERtask *task, int col, int idx)
 					task->rowerror[idx]++;
 					task->errorcnt++;
 					task->besteffort = 0; /* no longer best effort */
-					if (BUNappend(task->cntxt->error_row, &row, FALSE) != GDK_SUCCEED ||
-						BUNappend(task->cntxt->error_fld, &col, FALSE) != GDK_SUCCEED ||
-						BUNappend(task->cntxt->error_msg, SQLSTATE(HY001) MAL_MALLOC_FAIL, FALSE) != GDK_SUCCEED ||
-						BUNappend(task->cntxt->error_input, err, FALSE) != GDK_SUCCEED) {
+					if (BUNappend(task->cntxt->error_row, &row, false) != GDK_SUCCEED ||
+						BUNappend(task->cntxt->error_fld, &col, false) != GDK_SUCCEED ||
+						BUNappend(task->cntxt->error_msg, SQLSTATE(HY001) MAL_MALLOC_FAIL, false) != GDK_SUCCEED ||
+						BUNappend(task->cntxt->error_input, err, false) != GDK_SUCCEED) {
 						;		/* ignore error here: we're already not best effort */
 					}
 					GDKfree(err);
@@ -880,10 +880,10 @@ SQLinsert_val(READERtask *task, int col, int idx)
 				task->as->error = createException(MAL, "sql.copy_from", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			task->rowerror[idx]++;
 			task->errorcnt++;
-			if (BUNappend(task->cntxt->error_row, &row, FALSE) != GDK_SUCCEED ||
-				BUNappend(task->cntxt->error_fld, &col, FALSE) != GDK_SUCCEED ||
-				BUNappend(task->cntxt->error_msg, buf, FALSE) != GDK_SUCCEED ||
-				BUNappend(task->cntxt->error_input, err, FALSE) != GDK_SUCCEED) {
+			if (BUNappend(task->cntxt->error_row, &row, false) != GDK_SUCCEED ||
+				BUNappend(task->cntxt->error_fld, &col, false) != GDK_SUCCEED ||
+				BUNappend(task->cntxt->error_msg, buf, false) != GDK_SUCCEED ||
+				BUNappend(task->cntxt->error_input, err, false) != GDK_SUCCEED) {
 				freeException(err);
 				task->besteffort = 0; /* no longer best effort */
 				MT_lock_unset(&errorlock);
@@ -903,11 +903,11 @@ SQLinsert_val(READERtask *task, int col, int idx)
 	if (task->rowerror) {
 		lng row = BATcount(fmt->c);
 		MT_lock_set(&errorlock);
-		if (BUNappend(task->cntxt->error_row, &row, FALSE) != GDK_SUCCEED ||
-			BUNappend(task->cntxt->error_fld, &col, FALSE) != GDK_SUCCEED ||
-			BUNappend(task->cntxt->error_msg, "insert failed", FALSE) != GDK_SUCCEED ||
+		if (BUNappend(task->cntxt->error_row, &row, false) != GDK_SUCCEED ||
+			BUNappend(task->cntxt->error_fld, &col, false) != GDK_SUCCEED ||
+			BUNappend(task->cntxt->error_msg, "insert failed", false) != GDK_SUCCEED ||
 			(err = SQLload_error(task, idx,task->as->nr_attrs)) == NULL ||
-			BUNappend(task->cntxt->error_input, err, FALSE) != GDK_SUCCEED)
+			BUNappend(task->cntxt->error_input, err, false) != GDK_SUCCEED)
 			task->besteffort = 0;
 		freeException(err);
 		task->rowerror[idx]++;
@@ -945,6 +945,7 @@ SQLworker_column(READERtask *task, int col)
 		}
 	}
 	BATsetcount(fmt[col].c, BATcount(fmt[col].c));
+	fmt[col].c->theap.dirty |= BATcount(fmt[col].c) > 0;
 
 	return 0;
 }
@@ -1098,6 +1099,13 @@ SQLworker(void *arg)
 	Thread thr;
 
 	thr = THRnew("SQLworker");
+	if (thr == NULL) {
+		task->id = -1;			/* signal failure */
+		MT_sema_up(&task->reply);
+		return;
+	}
+	MT_sema_up(&task->reply);
+
 	GDKsetbuf(GDKzalloc(GDKMAXERRLEN));	/* where to leave errors */
 	GDKclrerr();
 	task->errbuf = GDKerrbuf;
@@ -1236,6 +1244,18 @@ SQLproducer(void *p)
 	Thread thr;
 
 	thr = THRnew("SQLproducer");
+	if (thr == NULL) {
+		task->id = -1;
+		tablet_error(task, lng_nil, int_nil, "cannot create producer thread", "SQLproducer");
+		MT_sema_up(&task->consumer);
+		return;
+	}
+	MT_sema_up(&task->consumer);
+	MT_sema_down(&task->producer);
+	if (task->id < 0) {
+		THRdel(thr);
+		return;
+	}
 
 #ifdef _DEBUG_TABLET_CNTRL
 	mnstr_printf(GDKout, "#SQLproducer started size %zu len %zu\n",
@@ -1544,6 +1564,7 @@ SQLproducer(void *p)
 		tablet_error(task, lng_nil, int_nil, "incomplete record at end of file", s);
 		task->b->pos += partial;
 	}
+	THRdel(thr);
 }
 
 static void
@@ -1698,8 +1719,15 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, const char *csep
 		goto bailout;
 	}
 
+	task.id = 0;
 	if(MT_create_thread(&task.tid, SQLproducer, (void *) &task, MT_THR_JOINABLE) < 0) {
 		tablet_error(&task, lng_nil, int_nil, SQLSTATE(42000) "failed to start producer thread", "SQLload_file");
+		goto bailout;
+	}
+	/* wait until producer started */
+	MT_sema_down(&task.consumer);
+	if (task.id < 0) {
+		/* producer failed to properly start */
 		goto bailout;
 	}
 #ifdef _DEBUG_TABLET_
@@ -1714,6 +1742,8 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, const char *csep
 		ptask[j].cols = (int *) GDKzalloc(as->nr_attrs * sizeof(int));
 		if (ptask[j].cols == 0) {
 			tablet_error(&task, lng_nil, int_nil, SQLSTATE(HY001) MAL_MALLOC_FAIL, "SQLload_file");
+			task.id = -1;
+			MT_sema_up(&task.producer);
 			goto bailout;
 		}
 #ifdef MLOCK_TST
@@ -1723,9 +1753,27 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, const char *csep
 		MT_sema_init(&ptask[j].reply, 0, "ptask[j].reply");
 		if(MT_create_thread(&ptask[j].tid, SQLworker, (void *) &ptask[j], MT_THR_JOINABLE) < 0) {
 			tablet_error(&task, lng_nil, int_nil, SQLSTATE(42000) "failed to start worker thread", "SQLload_file");
-			goto bailout;
+			threads = j;
+			for (j = 0; j < threads; j++)
+				ptask[j].workers = threads;
+		}
+		/* wait until thread started */
+		MT_sema_down(&ptask[j].reply);
+		if (ptask[j].id == -1) {
+			/* allocation failure inside thread */
+			tablet_error(&task, lng_nil, int_nil, SQLSTATE(42000) "failed to start worker thread", "SQLload_file");
+			threads = j;
+			for (j = 0; j < threads; j++)
+				ptask[j].workers = threads;
 		}
 	}
+	if (threads == 0) {
+		/* no threads started */
+		task.id = -1;
+		MT_sema_up(&task.producer);
+		goto bailout;
+	}
+	MT_sema_up(&task.producer);
 
 	tio = GDKusec();
 	tio = GDKusec() - tio;
@@ -2044,10 +2092,10 @@ COPYrejects_clear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	if (cntxt->error_row) {
 		MT_lock_set(&errorlock);
-		BATclear(cntxt->error_row, TRUE);
-		if(cntxt->error_fld) BATclear(cntxt->error_fld, TRUE);
-		if(cntxt->error_msg) BATclear(cntxt->error_msg, TRUE);
-		if(cntxt->error_input) BATclear(cntxt->error_input, TRUE);
+		BATclear(cntxt->error_row, true);
+		if(cntxt->error_fld) BATclear(cntxt->error_fld, true);
+		if(cntxt->error_msg) BATclear(cntxt->error_msg, true);
+		if(cntxt->error_input) BATclear(cntxt->error_input, true);
 		MT_lock_unset(&errorlock);
 	}
 	(void) mb;

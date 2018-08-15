@@ -193,7 +193,6 @@
 
 #ifndef HAVE_STRPTIME
 extern char *strptime(const char *, const char *, struct tm *);
-#include "strptime.c"
 #endif
 
 
@@ -246,12 +245,11 @@ static int CUMLEAPDAYS[13] = {
 
 static date DATE_MAX, DATE_MIN;		/* often used dates; computed once */
 
-#define YEAR_MAX		5867411
 #define YEAR_MIN		(-YEAR_MAX)
 #define MONTHDAYS(m,y)	((m) != 2 ? LEAPDAYS[m] : leapyear(y) ? 29 : 28)
 #define YEARDAYS(y)		(leapyear(y) ? 366 : 365)
 #define DATE(d,m,y)		((m) > 0 && (m) <= 12 && (d) > 0 && (y) != 0 && (y) >= YEAR_MIN && (y) <= YEAR_MAX && (d) <= MONTHDAYS(m, y))
-#define TIME(h,m,s,x)	((h) >= 0 && (h) < 24 && (m) >= 0 && (m) < 60 && (s) >= 0 && (s) < 60 && (x) >= 0 && (x) < 1000)
+#define TIME(h,m,s,x)	((h) >= 0 && (h) < 24 && (m) >= 0 && (m) < 60 && (s) >= 0 && (s) <= 60 && (x) >= 0 && (x) < 1000)
 #define LOWER(c)		((c) >= 'A' && (c) <= 'Z' ? (c) + 'a' - 'A' : (c))
 
 /*
@@ -1332,8 +1330,8 @@ union lng_tzone {
 		if ((err = MTIMEtzone_create(&ltz.tzval, &ticks)) != MAL_SUCCEED) \
 			return err;													\
 		vr.val.lval = ltz.lval;											\
-		if (BUNappend(tzbatnme, (X1), FALSE) != GDK_SUCCEED ||			\
-			BUNappend(tzbatdef, &vr.val.lval, FALSE) != GDK_SUCCEED)	\
+		if (BUNappend(tzbatnme, (X1), false) != GDK_SUCCEED ||			\
+			BUNappend(tzbatdef, &vr.val.lval, false) != GDK_SUCCEED)	\
 			goto bailout;												\
 	} while (0)
 
@@ -1344,8 +1342,8 @@ union lng_tzone {
 		if ((err = MTIMEtzone_create_dst(&ltz.tzval, &ticks, &(X3), &(X4))) != MAL_SUCCEED) \
 			return err;													\
 		vr.val.lval = ltz.lval;											\
-		if (BUNappend(tzbatnme, (X1), FALSE) != GDK_SUCCEED ||			\
-			BUNappend(tzbatdef, &vr.val.lval, FALSE) != GDK_SUCCEED)	\
+		if (BUNappend(tzbatnme, (X1), false) != GDK_SUCCEED ||			\
+			BUNappend(tzbatdef, &vr.val.lval, false) != GDK_SUCCEED)	\
 			goto bailout;												\
 	} while (0)
 
