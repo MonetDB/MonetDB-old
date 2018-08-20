@@ -91,7 +91,10 @@ static struct PIPELINES {
 	 "optimizer.candidates();"
 	 "optimizer.postfix();"
 	 "optimizer.deadcode();"
-//	 "optimizer.projection2candidate();" awaiting the new batcalc api
+	 "optimizer.projection2candidate();"
+	 "optimizer.deadcode();"
+	 "optimizer.projectionpath();"
+	 "optimizer.deadcode();"
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
 	 "optimizer.wlc();"
 	 "optimizer.garbageCollector();",
@@ -128,7 +131,10 @@ static struct PIPELINES {
 	 "optimizer.candidates();"
 	 "optimizer.postfix();"
 	 "optimizer.deadcode();"
-//	 "optimizer.projection2candidate();" awaiting the new batcalc api
+	 "optimizer.projection2candidate();"
+	 "optimizer.deadcode();"
+	 "optimizer.projectionpath();"
+	 "optimizer.deadcode();"
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
 	 "optimizer.wlc();"
 	 "optimizer.garbageCollector();",
@@ -170,7 +176,10 @@ static struct PIPELINES {
 	 "optimizer.candidates();"
 	 "optimizer.postfix();"
 	 "optimizer.deadcode();"
-//	 "optimizer.projection2candidate();" awaiting the new batcalc api
+	 "optimizer.projection2candidate();"
+	 "optimizer.deadcode();"
+	 "optimizer.projectionpath();"
+	 "optimizer.deadcode();"
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
 	 "optimizer.wlc();"
 	 "optimizer.garbageCollector();",
@@ -199,7 +208,7 @@ static struct PIPELINES {
 	 "optimizer.aliases();"
 	 "optimizer.constants();"
 	 "optimizer.commonTerms();"
-	 "optimizer.projectionpath();"
+	 //"optimizer.projectionpath();"
 	 "optimizer.reorder();"
 	 "optimizer.deadcode();"
 //	 "optimizer.reduce();" deprecated
@@ -211,7 +220,10 @@ static struct PIPELINES {
 	 "optimizer.candidates();"
 	 "optimizer.postfix();"
 	 "optimizer.deadcode();"
-//	 "optimizer.projection2candidate();" awaiting the new batcalc api
+	 "optimizer.projection2candidate();"
+	 "optimizer.deadcode();"
+	 "optimizer.projectionpath();"
+	 "optimizer.deadcode();"
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
 	 "optimizer.wlc();"
 	 "optimizer.garbageCollector();",
