@@ -419,6 +419,13 @@ BAThash_impl(BAT *b, BAT *s, const char *ext)
 
 	nslots = 0;
 	p = 0;
+	HEAPfree(&h->heap, true);
+	/* create the hash structures */
+	if (HASHnew(h, ATOMtype(b->ttype), s ? cnt : BATcapacity(b),
+	            mask, cnt) != GDK_SUCCEED) {
+		GDKfree(h);
+		return NULL;
+	}
 	hnil = HASHnil(h);
 
 	/* build the hashtable with the full-size mask */
