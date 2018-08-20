@@ -67,9 +67,10 @@ HASHmask(BUN cnt)
 #endif
 	m -= m >> 1;
 
-	/* if cnt is more than 1/3 into the gap between m and 2*m,
-	   double m */
-	if (m + m - cnt < 2 * (cnt - m))
+	/* if cnt is larger than m, double m,
+	   i.e., ensure m is smallest power of 2
+	   larger than or equal to cnt (cnt <= m < 2*cnt) */
+	if (m < cnt)
 		m += m;
 	if (m < BATTINY)
 		m = BATTINY;
@@ -282,36 +283,6 @@ BAThashsync(void *arg)
 }
 #endif
 
-#define starthash(TYPE)							\
-	do {								\
-		const TYPE *restrict v = (const TYPE *) BUNtloc(bi, 0);	\
-		if (cand) {						\
-			for (; p < cnt1; p++) {				\
-				c = hash_##TYPE(h, v + cand[p] - b->hseqbase); \
-				hget = HASHget(h, c);			\
-				if (hget == hnil) {			\
-					if (nslots == maxslots)		\
-						break; /* mask too full */ \
-					nslots++;			\
-				}					\
-				HASHputlink(h, p, hget);		\
-				HASHput(h, c, p);			\
-			}						\
-		} else {						\
-			v += start;					\
-			for (; p < cnt1; p++) {				\
-				c = hash_##TYPE(h, v + p);		\
-				hget = HASHget(h, c);			\
-				if (hget == hnil) {			\
-					if (nslots == maxslots)		\
-						break; /* mask too full */ \
-					nslots++;			\
-				}					\
-				HASHputlink(h, p, hget);		\
-				HASHput(h, c, p);			\
-			}						\
-		}							\
-	} while (0)
 #define finishhash(TYPE)						\
 	do {								\
 		const TYPE *restrict v = (const TYPE *) BUNtloc(bi, 0);	\
@@ -335,6 +306,60 @@ BAThashsync(void *arg)
 		}							\
 	} while (0)
 
+#define SHRINK_HASH(BUNtpe,BUNnil)					\
+do {									\
+	/* try to shrink hash mask to hsh (power of 2) < mask */	\
+	BUN msk = hsh - 1, q;						\
+	/* iterate over entire mask */					\
+	for (p = hsh; p < mask; p++) {					\
+		if (((BUNtpe*) h->Hash)[p] != BUNnil) {			\
+			/* found used slot */				\
+			/* calculate its new position in smaller mask */\
+			q = p & msk;					\
+			if (((BUNtpe*) h->Hash)[q] == BUNnil) {		\
+				/* new position still empty => move */	\
+				((BUNtpe*) h->Hash)[q] = ((BUNtpe*) h->Hash)[p];\
+			} else {					\
+				/* new position already occupied */	\
+				/* => bail out */			\
+				break;					\
+			}						\
+		}							\
+	}								\
+	if (p < mask) {							\
+		/* we bailed-out => restore original mask */		\
+		BUN pp = p;						\
+		for (p--; p >= hsh; p--) {				\
+			if (((BUNtpe*) h->Hash)[p] != BUNnil) {		\
+				q = p & msk;				\
+				((BUNtpe*) h->Hash)[q] = BUNnil;	\
+			}						\
+		}							\
+		p = pp;							\
+		/* try to double hsh until we find a free slot for */	\
+		/* given value; but don't exceed original mask size */	\
+		do {							\
+			hsh <<= 1;					\
+			msk = hsh - 1;					\
+			q = p & msk;					\
+		} while (hsh < mask && ((BUNtpe*) h->Hash)[q] != BUNnil);\
+	} else {							\
+		/* all slots fit in smaller mask without conflicts */	\
+		/* shrink mask and heap accordingly */			\
+		size_t sz;						\
+		mask = hsh;						\
+		h->mask = msk;						\
+		((size_t *) h->heap.base)[2] = mask;			\
+		sz = (mask + h->lim) * h->width + HASH_HEADER_SIZE * SIZEOF_SIZE_T;\
+		h->heap.free = sz;					\
+		if (HEAPshrink(&h->heap,sz) != GDK_SUCCEED) {		\
+			GDKerror("BAThash: HEAPshrink() failed\n");	\
+			/* TODO: any clean-up required, here ? */	\
+			return NULL;					\
+		}							\
+	}								\
+} while (0)
+
 /*
  * The prime routine for the BAT layer is to create a new hash index.
  * Its argument is the element type and the maximum number of BUNs be
@@ -345,9 +370,9 @@ BAThash_impl(BAT *b, BAT *s, const char *ext)
 {
 	lng t0 = 0;
 	unsigned int tpe = ATOMbasetype(b->ttype);
-	BUN cnt, start, end, cnt1;
+	BUN cnt, start, end;
 	const oid *cand, *candend;
-	BUN mask, maxmask = 0;
+	BUN mask, hsh;
 	BUN p, c;
 	BUN nslots;
 	BUN hnil, hget;
@@ -381,116 +406,24 @@ BAThash_impl(BAT *b, BAT *s, const char *ext)
 	snprintf(h->heap.filename, sizeof(h->heap.filename), "%s.%s", nme, ext);
 
 	/* determine hash mask size */
-	cnt1 = 0;
 	if (ATOMsize(tpe) == 1) {
 		/* perfect hash for one-byte sized atoms */
 		mask = (1 << 8);
 	} else if (ATOMsize(tpe) == 2) {
 		/* perfect hash for two-byte sized atoms */
 		mask = (1 << 16);
-	} else if (b->tkey || cnt <= 4096) {
-		/* if key, or if small, don't bother dynamically
-		 * adjusting the hash mask */
+	} else {
+		/* use mask with cnt <= mask < 2*cnt */
 		mask = HASHmask(cnt);
- 	} else {
-		/* dynamic hash: we start with HASHmask(cnt)/64, or,
-		 * if cnt large enough, HASHmask(cnt)/256; if there
-		 * are too many collisions we try HASHmask(cnt)/64,
-		 * HASHmask(cnt)/16, HASHmask(cnt)/4, and finally
-		 * HASHmask(cnt), but we might skip some of these if
-		 * there are many distinct values.  */
-		maxmask = HASHmask(cnt);
-		mask = maxmask >> 6;
-		while (mask > 4096)
-			mask >>= 2;
-		/* try out on first 25% of b */
-		cnt1 = cnt >> 2;
 	}
 
-	for (;;) {
-		BUN maxslots = (mask >> 3) - 1;	/* 1/8 full is too full */
+	nslots = 0;
+	p = 0;
+	hnil = HASHnil(h);
 
-		nslots = 0;
-		p = 0;
-		HEAPfree(&h->heap, true);
-		/* create the hash structures */
-		if (HASHnew(h, ATOMtype(b->ttype), s ? cnt : BATcapacity(b),
-			    mask, cnt) != GDK_SUCCEED) {
-
-			GDKfree(h);
-			return NULL;
-		}
-
-		hnil = HASHnil(h);
-
-		switch (tpe) {
-		case TYPE_bte:
-			starthash(bte);
-			break;
-		case TYPE_sht:
-			starthash(sht);
-			break;
-		case TYPE_flt:
-			starthash(flt);
-			break;
-		case TYPE_int:
-			starthash(int);
-			break;
-		case TYPE_dbl:
-			starthash(dbl);
-			break;
-		case TYPE_lng:
-			starthash(lng);
-			break;
-#ifdef HAVE_HGE
-		case TYPE_hge:
-			starthash(hge);
-			break;
-#endif
-		default:
-			if (cand) {
-				for (; p < cnt1; p++) {
-					const void *restrict v = BUNtail(bi, cand[p] - b->hseqbase);
-					c = heap_hash_any(b->tvheap, h, v);
-					hget = HASHget(h, c);
-					if (hget == hnil) {
-						if (nslots == maxslots)
-							break; /* mask too full */
-						nslots++;
-					}
-					HASHputlink(h, p, hget);
-					HASHput(h, c, p);
-				}
-			} else {
-				for (; p < cnt1; p++) {
-					const void *restrict v = BUNtail(bi, p + start);
-					c = heap_hash_any(b->tvheap, h, v);
-					hget = HASHget(h, c);
-					if (hget == hnil) {
-						if (nslots == maxslots)
-							break; /* mask too full */
-						nslots++;
-					}
-					HASHputlink(h, p, hget);
-					HASHput(h, c, p);
-				}
-			}
-			break;
-		}
-		ALGODEBUG if (p < cnt1)
-			fprintf(stderr, "#BAThash(%s): abort starthash with "
-				"mask " BUNFMT " at " BUNFMT "\n", BATgetId(b),
-				mask, p);
-		if (p == cnt1 || mask == maxmask)
-			break;
-		mask <<= 2;
-		/* if we fill up the slots fast (p <= maxslots * 1.2)
-		 * increase mask size a bit more quickly */
-		if (mask < maxmask && p <= maxslots * 1.2)
-			mask <<= 2;
-	}
-
-	/* finish the hashtable with the current mask */
+	/* build the hashtable with the full-size mask */
+	/* we'll try to shrink it later on,
+	 * in case less than half the slots are occupied */
 	switch (tpe) {
 	case TYPE_bte:
 		finishhash(bte);
@@ -548,6 +481,30 @@ BAThash_impl(BAT *b, BAT *s, const char *ext)
 	if (nslots == BATcount(b) && !b->tkey) {
 		b->tkey = true;
 		b->batDirtydesc = true;
+	}
+	/* if less than half of the mask is occupied,
+	 * try to shrink the mask to a smaller power of 2 size,
+	 * starting with the minimal size to hold all used slots:
+	 * nslots <= hsh < 2*nslots;
+	 * however, make sure that we keep the same nslots used
+	 * slots */
+	hsh = HASHmask(nslots);
+	while (hsh < mask) {
+		switch (h->width) {
+		case BUN2:
+			SHRINK_HASH(BUN2type,BUN2_NONE);
+			break;
+		case BUN4:
+			SHRINK_HASH(BUN4type,BUN4_NONE);
+			break;
+#ifdef BUN8
+		case BUN8:
+			SHRINK_HASH(BUN8type,BUN8_NONE);
+			break;
+#endif
+		default:
+			assert(0);
+		}
 	}
 	ALGODEBUG {
 		fprintf(stderr, "#BAThash: hash construction " LLFMT " usec\n", GDKusec() - t0);
