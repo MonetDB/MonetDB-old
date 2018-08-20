@@ -6,11 +6,11 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
  */
 
-#ifndef _MAL_JIT_
-#define _MAL_JIT_
+#ifndef _MAL_P2C_
+#define _MAL_P2C_
 #include "opt_prelude.h"
 #include "opt_support.h"
 
-mal_export str OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+mal_export str OPTprojection2candidateImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 
 #endif

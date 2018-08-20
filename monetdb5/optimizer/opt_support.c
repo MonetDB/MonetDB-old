@@ -41,7 +41,7 @@ struct OPTcatalog {
 {"history",		0,	0,	0},
 {"inline",		0,	0,	0},
 {"projectionpath",	0,	0,	0},
-{"jit",			0,	0,	0},
+{"projection2candidate",	0,	0,	0},
 {"json",		0,	0,	0},
 {"macro",		0,	0,	0},
 {"matpack",		0,	0,	0},

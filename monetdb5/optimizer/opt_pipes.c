@@ -91,7 +91,7 @@ static struct PIPELINES {
 	 "optimizer.candidates();"
 	 "optimizer.postfix();"
 	 "optimizer.deadcode();"
-//	 "optimizer.jit();" awaiting the new batcalc api
+//	 "optimizer.projection2candidate();" awaiting the new batcalc api
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
 	 "optimizer.wlc();"
 	 "optimizer.garbageCollector();",
@@ -128,7 +128,7 @@ static struct PIPELINES {
 	 "optimizer.candidates();"
 	 "optimizer.postfix();"
 	 "optimizer.deadcode();"
-//	 "optimizer.jit();" awaiting the new batcalc api
+//	 "optimizer.projection2candidate();" awaiting the new batcalc api
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
 	 "optimizer.wlc();"
 	 "optimizer.garbageCollector();",
@@ -170,7 +170,7 @@ static struct PIPELINES {
 	 "optimizer.candidates();"
 	 "optimizer.postfix();"
 	 "optimizer.deadcode();"
-//	 "optimizer.jit();" awaiting the new batcalc api
+//	 "optimizer.projection2candidate();" awaiting the new batcalc api
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
 	 "optimizer.wlc();"
 	 "optimizer.garbageCollector();",
@@ -211,7 +211,7 @@ static struct PIPELINES {
 	 "optimizer.candidates();"
 	 "optimizer.postfix();"
 	 "optimizer.deadcode();"
-//	 "optimizer.jit();" awaiting the new batcalc api
+//	 "optimizer.projection2candidate();" awaiting the new batcalc api
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
 	 "optimizer.wlc();"
 	 "optimizer.garbageCollector();",

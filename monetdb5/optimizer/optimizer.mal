@@ -90,11 +90,11 @@ pattern optimizer.emptybind(mod:str, fcn:str):str
 address OPTwrapper
 comment "Evaluate empty set expressions.";
 
-#opt_jit.mal
+#opt_projection2candidate.mal
 
-pattern optimizer.jit():str
+pattern optimizer.projection2candidate():str
 address OPTwrapper;
-pattern optimizer.jit(mod:str, fcn:str):str
+pattern optimizer.projection2candidate(mod:str, fcn:str):str
 address OPTwrapper
 comment "Propagate candidate lists in just-in-time optimization";
 

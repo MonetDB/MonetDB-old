@@ -20,16 +20,16 @@
  */
 #include "monetdb_config.h"
 #include "mal_builder.h"
-#include "opt_jit.h"
+#include "opt_projection2candidate.h"
 
 #if 0
-#define OPTDEBUGjit(CODE) { CODE }
+#define OPTDEBUGprojection2candidate(CODE) { CODE }
 #else
-#define OPTDEBUGjit(CODE)
+#define OPTDEBUGprojection2candidate(CODE)
 #endif
 
 str
-OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+OPTprojection2candidateImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int i,actions = 0;
 	int limit = mb->stop;
@@ -42,14 +42,14 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) cntxt;
 	(void) pci;
 
-	OPTDEBUGjit(
-		fprintf(stderr, "#Optimize JIT\n");
+	OPTDEBUGprojection2candidate(
+		fprintf(stderr, "#Optimize projection2candidate\n");
 		fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG);
 	)
 
 	setVariableScope(mb);
 	if ( newMalBlkStmt(mb, mb->ssize) < 0)
-		throw(MAL,"optimizer.jit", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		throw(MAL,"optimizer.projection2candidate", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 	/* peephole optimization */
 	for (i = 0; i < limit; i++) {
@@ -72,8 +72,8 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if( q && getArg(q,0) == getArg(p,2) && getModuleId(q) == algebraRef && getFunctionId(q) == projectionRef ){
 				getArg(p,2)=  getArg(q,2);
 				p= pushArgument(mb,p, getArg(q,1));
-				OPTDEBUGjit(
-					fprintf(stderr, "#Optimize JIT case 1\n");
+				OPTDEBUGprojection2candidate(
+					fprintf(stderr, "#Optimize projection2candidate case 1\n");
 					fprintInstruction(stderr, mb,0,p,LIST_MAL_DEBUG);
 				)
 			}
@@ -81,11 +81,11 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		pushInstruction(mb,p);
 	}
 
-	OPTDEBUGjit(
+	OPTDEBUGprojection2candidate(
 		chkTypes(cntxt->usermodule,mb,TRUE);
 		freeException(msg);
 		msg = MAL_SUCCEED;
-		fprintf(stderr, "#Optimize JIT done\n");
+		fprintf(stderr, "#Optimize projection2candidate done\n");
 		fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG);
 	)
 
@@ -96,7 +96,7 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	chkDeclarations(mb);
     /* keep all actions taken as a post block comment */
 	usec = GDKusec()- usec;
-    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","jit",actions, usec);
+    snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","projection2candidate",actions, usec);
     newComment(mb,buf);
 	if( actions >= 0)
 		addtoMalBlkHistory(mb);
