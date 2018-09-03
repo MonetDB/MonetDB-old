@@ -22,6 +22,8 @@
 #include "gdk_logger.h"
 #include "wlc.h"
 
+#include "mal_authorize.h"
+
 static int mvc_debug = 0;
 
 static void
@@ -45,6 +47,7 @@ int
 mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 {
 	int first = 0;
+	str msg;
 
 	logger_settings log_settings;
 	/* Set the default WAL directory. "sql_logs" by default */
@@ -114,12 +117,23 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 		assert(m->session->schema != NULL);
 
 		if (!first) {
+			str output;
 			t = mvc_bind_table(m, s, "tables");
 			tid = t->base.id;
-			mvc_drop_table(m, s, t, 0);
+			if((output = mvc_drop_table(m, s, t, 0)) != MAL_SUCCEED) {
+				mvc_destroy(m);
+				fprintf(stderr, "!mvc_init: %s\n", output);
+				GDKfree(output);
+				return -1;
+			}
 			t = mvc_bind_table(m, s, "columns");
 			cid = t->base.id;
-			mvc_drop_table(m, s, t, 0);
+			if((output = mvc_drop_table(m, s, t, 0)) != MAL_SUCCEED) {
+				mvc_destroy(m);
+				fprintf(stderr, "!mvc_init: %s\n", output);
+				GDKfree(output);
+				return -1;
+			}
 		}
 
 		t = mvc_create_view(m, s, "tables", SQL_PERSIST, "SELECT \"id\", \"name\", \"schema_id\", \"query\", CAST(CASE WHEN \"system\" THEN \"type\" + 10 /* system table/view */ ELSE (CASE WHEN \"commit_action\" = 0 THEN \"type\" /* table/view */ ELSE \"type\" + 20 /* global temp table */ END) END AS SMALLINT) AS \"type\", \"system\", \"commit_action\", \"access\", CASE WHEN (NOT \"system\" AND \"commit_action\" > 0) THEN 1 ELSE 0 END AS \"temporary\" FROM \"sys\".\"_tables\" WHERE \"type\" <> 2 UNION ALL SELECT \"id\", \"name\", \"schema_id\", \"query\", CAST(\"type\" + 30 /* local temp table */ AS SMALLINT) AS \"type\", \"system\", \"commit_action\", \"access\", 1 AS \"temporary\" FROM \"tmp\".\"_tables\";", 1);
@@ -190,8 +204,9 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 		s = m->session->schema = mvc_bind_schema(m, "tmp");
 		assert(m->session->schema != NULL);
 
-		if (mvc_commit(m, 0, NULL) < 0) {
-			fprintf(stderr, "!mvc_init: unable to commit system tables\n");
+		if ((msg = mvc_commit(m, 0, NULL, false)) != MAL_SUCCEED) {
+			fprintf(stderr, "!mvc_init: unable to commit system tables: %s\n", (msg + 6));
+			freeException(msg);
 			return -1;
 		}
 
@@ -215,6 +230,9 @@ mvc_logmanager(void)
 {
 	Thread thr = THRnew("logmanager");
 
+	if (thr == NULL)
+		GDKfatal("logmanager: cannot allocate thread");
+
 	store_manager();
 	THRdel(thr);
 }
@@ -223,6 +241,9 @@ void
 mvc_idlemanager(void)
 {
 	Thread thr = THRnew("idlemanager");
+
+	if (thr == NULL)
+		GDKfatal("idlemanager: cannot allocate thread");
 
 	idle_manager();
 	THRdel(thr);
@@ -336,12 +357,13 @@ sql_trans_deref( sql_trans *tr )
 	return tr->parent;
 }
 
-int
-mvc_commit(mvc *m, int chain, const char *name)
+str
+mvc_commit(mvc *m, int chain, const char *name, bool enabling_auto_commit)
 {
 	sql_trans *cur, *tr = m->session->tr, *ctr;
 	int ok = SQL_OK;//, wait = 0;
-	str msg;
+	str msg, other;
+	char operation[BUFSIZ];
 
 	assert(tr);
 	assert(m->session->active);	/* only commit an active transaction */
@@ -349,10 +371,18 @@ mvc_commit(mvc *m, int chain, const char *name)
 	if (mvc_debug)
 		fprintf(stderr, "#mvc_commit %s\n", (name) ? name : "");
 
+	if(enabling_auto_commit)
+		snprintf(operation, BUFSIZ, "Commit failed while enabling auto_commit: ");
+	else if(name)
+		snprintf(operation, BUFSIZ, "SAVEPOINT: (%s)", name);
+	else
+		snprintf(operation, BUFSIZ, "COMMIT:");
+
 	if (m->session->status < 0) {
-		(void)sql_error(m, 010, SQLSTATE(40000) "COMMIT: transaction is aborted, will ROLLBACK instead");
-		mvc_rollback(m, chain, name);
-		return -1;
+		msg = createException(SQL, "sql.commit", SQLSTATE(40000) "%s transaction is aborted, will ROLLBACK instead", operation);
+		if((other = mvc_rollback(m, chain, name, false)) != MAL_SUCCEED)
+			GDKfree(other);
+		return msg;
 	}
 
 	/* savepoint then simply make a copy of the current transaction */
@@ -364,16 +394,17 @@ mvc_commit(mvc *m, int chain, const char *name)
 		m->session->tr = sql_trans_create(m->session->stk, tr, name);
 		if(!m->session->tr) {
 			store_unlock();
-			(void) sql_error(m, 02, SQLSTATE(HY001) "Allocation failure while committing the transaction, will ROLLBACK instead");
-			mvc_rollback(m, chain, name);
-			return -1;
+			msg = createException(SQL, "sql.commit", SQLSTATE(HY001) "%s allocation failure while committing the transaction, will ROLLBACK instead", operation);
+			if((other = mvc_rollback(m, chain, name, false)) != MAL_SUCCEED)
+				GDKfree(other);
+			return msg;
 		}
 		msg = WLCcommit(m->clientid);
 		store_unlock();
 		if(msg != MAL_SUCCEED) {
-			(void) sql_error(m, 02, "%s\n", msg);
-			mvc_rollback(m, chain, name);
-			return -1;
+			if((other = mvc_rollback(m, chain, name, false)) != MAL_SUCCEED)
+				GDKfree(other);
+			return msg;
 		}
 		m->type = Q_TRANS;
 		if (m->qc) /* clean query cache, protect against concurrent access on the hash tables (when functions already exists, concurrent mal will
@@ -382,7 +413,7 @@ build up the hash (not copied in the trans dup)) */
 		m->session->schema = find_sql_schema(m->session->tr, m->session->schema_name);
 		if (mvc_debug)
 			fprintf(stderr, "#mvc_commit %s done\n", name);
-		return 0;
+		return msg;
 	}
 
 	/* first release all intermediate savepoints */
@@ -412,23 +443,23 @@ build up the hash (not copied in the trans dup)) */
 		msg = WLCcommit(m->clientid);
 		store_unlock();
 		if(msg != MAL_SUCCEED) {
-			(void) sql_error(m, 02, "%s\n", msg);
-			mvc_rollback(m, chain, name);
-			return -1;
+			if((other = mvc_rollback(m, chain, name, false)) != MAL_SUCCEED)
+				GDKfree(other);
+			return msg;
 		}
 		if (mvc_debug)
 			fprintf(stderr, "#mvc_commit %s done\n", (name) ? name : "");
-		return 0;
+		return msg;
 	}
 
 	/*
-	while (tr->schema_updates && store_nr_active > 1) {
+	while (tr->schema_updates && ATOMIC_GET(store_nr_active, store_nr_active_lock) > 1) {
 		store_unlock();
 		MT_sleep_ms(100);
 		wait += 100;
 		if (wait > 1000) {
 			(void)sql_error(m, 010, SQLSTATE(40000) "COMMIT: transaction is aborted because of DDL concurrency conflicts, will ROLLBACK instead");
-			mvc_rollback(m, chain, name);
+			mvc_rollback(m, chain, name, false);
 			return -1;
 		}
 		store_lock();
@@ -437,37 +468,37 @@ build up the hash (not copied in the trans dup)) */
 	/* validation phase */
 	if (sql_trans_validate(tr)) {
 		if ((ok = sql_trans_commit(tr)) != SQL_OK) {
-			char *msg = sql_message(SQLSTATE(40000) "COMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
-			GDKfatal("%s", msg);
-			_DELETE(msg);
+			char *err = sql_message(SQLSTATE(40000) "%s transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", operation, GDKerrbuf);
+			GDKfatal("%s", err);
+			_DELETE(err);
 		}
 	} else {
 		store_unlock();
-		(void)sql_error(m, 010, SQLSTATE(40000) "COMMIT: transaction is aborted because of concurrency conflicts, will ROLLBACK instead");
-		mvc_rollback(m, chain, name);
-		return -1;
+		msg = createException(SQL, "sql.commit", SQLSTATE(40000) "%s transaction is aborted because of concurrency conflicts, will ROLLBACK instead", operation);
+		if((other = mvc_rollback(m, chain, name, false)) != MAL_SUCCEED)
+			GDKfree(other);
+		return msg;
 	}
 	msg = WLCcommit(m->clientid);
 	if(msg != MAL_SUCCEED) {
 		store_unlock();
-		(void) sql_error(m, 02, "%s\n", msg);
-		mvc_rollback(m, chain, name);
-		return -1;
+		if((other = mvc_rollback(m, chain, name, false)) != MAL_SUCCEED)
+			GDKfree(other);
+		return msg;
 	}
 	sql_trans_end(m->session);
-	if (chain) 
+	if (chain)
 		sql_trans_begin(m->session);
 	store_unlock();
 	m->type = Q_TRANS;
 	if (mvc_debug)
 		fprintf(stderr, "#mvc_commit %s done\n", (name) ? name : "");
-	return ok;
+	return msg;
 }
 
-int
-mvc_rollback(mvc *m, int chain, const char *name)
+str
+mvc_rollback(mvc *m, int chain, const char *name, bool disabling_auto_commit)
 {
-	int res = 0;
 	sql_trans *tr = m->session->tr;
 	str msg;
 
@@ -476,6 +507,7 @@ mvc_rollback(mvc *m, int chain, const char *name)
 
 	assert(tr);
 	assert(m->session->active);	/* only abort an active transaction */
+	(void) disabling_auto_commit;
 
 	store_lock();
 	if (m->qc) 
@@ -484,10 +516,10 @@ mvc_rollback(mvc *m, int chain, const char *name)
 		while (tr && (!tr->name || strcmp(tr->name, name) != 0))
 			tr = tr->parent;
 		if (!tr) {
-			(void)sql_error(m, 010, SQLSTATE(42000) "ROLLBACK: no such savepoint: '%s'", name);
+			msg = createException(SQL, "sql.rollback", SQLSTATE(42000) "ROLLBACK TO SAVEPOINT: no such savepoint: '%s'", name);
 			m->session->status = -1;
 			store_unlock();
-			return -1;
+			return msg;
 		}
 		tr = m->session->tr;
 		while (!tr->name || strcmp(tr->name, name) != 0) {
@@ -517,25 +549,25 @@ mvc_rollback(mvc *m, int chain, const char *name)
 	msg = WLCrollback(m->clientid);
 	store_unlock();
 	if (msg != MAL_SUCCEED) {
-		(void)sql_error(m, 02, "%s\n", msg);
 		m->session->status = -1;
-		return -1;
+		return msg;
 	}
 	m->type = Q_TRANS;
 	if (mvc_debug)
 		fprintf(stderr, "#mvc_rollback %s done\n", (name) ? name : "");
-	return res;
+	return msg;
 }
 
 /* release all savepoints up including the given named savepoint 
  * but keep the current changes.
  * */
-int
+str
 mvc_release(mvc *m, const char *name)
 {
 	int ok = SQL_OK;
 	int res = Q_TRANS;
 	sql_trans *tr = m->session->tr;
+	str msg = MAL_SUCCEED;
 
 	assert(tr);
 	assert(m->session->active);	/* only release active transactions */
@@ -543,15 +575,17 @@ mvc_release(mvc *m, const char *name)
 	if (mvc_debug)
 		fprintf(stderr, "#mvc_release %s\n", (name) ? name : "");
 
-	if (!name)
-		mvc_rollback(m, 0, name);
+	if (!name && (msg = mvc_rollback(m, 0, name, false)) != MAL_SUCCEED) {
+		m->session->status = -1;
+		return msg;
+	}
 
 	while (tr && (!tr->name || strcmp(tr->name, name) != 0))
 		tr = tr->parent;
 	if (!tr || !tr->name || strcmp(tr->name, name) != 0) {
-		(void)sql_error(m, 010, SQLSTATE(42000) "Release savepoint %s doesn't exists", name);
+		msg = createException(SQL, "sql.release", SQLSTATE(42000) "Release savepoint %s doesn't exist", name);
 		m->session->status = -1;
-		return -1;
+		return msg;
 	}
 	tr = m->session->tr;
 	store_lock();
@@ -567,7 +601,7 @@ mvc_release(mvc *m, const char *name)
 	m->session->schema = find_sql_schema(m->session->tr, m->session->schema_name);
 
 	m->type = res;
-	return res;
+	return msg;
 }
 
 mvc *
@@ -613,6 +647,7 @@ mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 	m->argc = 0;
 	m->sym = NULL;
 
+	m->Topt = 0;
 	m->rowcnt = m->last_id = m->role_id = m->user_id = -1;
 	m->timezone = 0;
 	m->clientid = clientid;
@@ -687,6 +722,7 @@ mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars)
 	m->argc = 0;
 	m->sym = NULL;
 
+	m->Topt = 0;
 	m->rowcnt = m->last_id = m->role_id = m->user_id = -1;
 	m->emode = m_normal;
 	m->emod = mod_none;
@@ -1241,13 +1277,37 @@ mvc_create_remote(mvc *m, sql_schema *s, const char *name, int persistence, cons
 	return t;
 }
 
-int
+str
 mvc_drop_table(mvc *m, sql_schema *s, sql_table *t, int drop_action)
 {
 	if (mvc_debug)
 		fprintf(stderr, "#mvc_drop_table %s %s\n", s->base.name, t->base.name);
 
-	return sql_trans_drop_table(m->session->tr, s, t->base.id, drop_action ? DROP_CASCADE_START : DROP_RESTRICT);
+	if (isRemote(t)) {
+		str AUTHres;
+		sql_allocator *sa = m->sa;
+
+		m->sa = sa_create();
+		if (!m->sa)
+			throw(SQL, "sql.mvc_drop_table", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		char *qualified_name = sa_strconcat(m->sa, sa_strconcat(m->sa, t->s->base.name, "."), t->base.name);
+		if (!qualified_name) {
+			sa_destroy(m->sa);
+			m->sa = sa;
+			throw(SQL, "sql.mvc_drop_table", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		}
+
+		AUTHres = AUTHdeleteRemoteTableCredentials(qualified_name);
+		sa_destroy(m->sa);
+		m->sa = sa;
+
+		if(AUTHres != MAL_SUCCEED)
+			return AUTHres;
+	}
+
+	if(sql_trans_drop_table(m->session->tr, s, t->base.id, drop_action ? DROP_CASCADE_START : DROP_RESTRICT))
+		throw(SQL, "sql.mvc_drop_table", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	return MAL_SUCCEED;
 }
 
 BUN

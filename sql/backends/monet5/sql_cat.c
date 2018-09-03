@@ -219,7 +219,7 @@ create_trigger(mvc *sql, char *sname, char *tname, char *triggername, int time, 
 		if (r)
 			r = rel_optimizer(sql, r, 0);
 		if (r) {
-			list *id_l = rel_dependencies(sql->sa, r);
+			list *id_l = rel_dependencies(sql, r);
 
 			mvc_create_dependencies(sql, id_l, tri->base.id, TRIGGER_DEPENDENCY);
 		}
@@ -304,9 +304,7 @@ drop_table(mvc *sql, char *sname, char *tname, int drop_action, int if_exists)
 	if (!drop_action && mvc_check_dependency(sql, t->base.id, TABLE_DEPENDENCY, NULL))
 		throw (SQL,"sql.droptable",SQLSTATE(42000) "DROP TABLE: unable to drop table %s (there are database objects which depend on it)\n", t->base.name);
 
-	if(mvc_drop_table(sql, s, t, drop_action))
-		throw(SQL,"sql.droptable", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	return MAL_SUCCEED;
+	return mvc_drop_table(sql, s, t, drop_action);
 }
 
 static char *
@@ -335,11 +333,8 @@ drop_view(mvc *sql, char *sname, char *tname, int drop_action, int if_exists)
 		throw(SQL,"sql.drop_view", SQLSTATE(42000) "DROP VIEW: cannot drop system view '%s'", tname);
 	} else if (!drop_action && mvc_check_dependency(sql, t->base.id, VIEW_DEPENDENCY, NULL)) {
 		throw(SQL,"sql.drop_view", SQLSTATE(42000) "DROP VIEW: cannot drop view '%s', there are database objects which depend on it", t->base.name);
-	} else {
-		if(mvc_drop_table(sql, ss, t, drop_action))
-			throw(SQL,"sql.drop_view", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-		return MAL_SUCCEED;
 	}
+	return mvc_drop_table(sql, ss, t, drop_action);
 }
 
 static str
@@ -552,7 +547,7 @@ create_func(mvc *sql, char *sname, char *fname, sql_func *f)
 			r = rel_optimizer(sql, r, 0);
 		if (r) {
 			node *n;
-			list *id_l = rel_dependencies(sql->sa, r);
+			list *id_l = rel_dependencies(sql, r);
 
 			if (!f->vararg && f->ops) {
 				for (n = f->ops->h; n; n = n->next) {
@@ -1274,7 +1269,7 @@ SQLcomment_on(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (!id_col || !remark_col)
 		throw(SQL, "sql.comment_on", SQLSTATE(3F000) "no table sys.comments");
 	rid = table_funcs.column_find_row(tx, id_col, &objid, NULL);
-	if (remark != NULL && *remark) {
+	if (remark != NULL && *remark && strcmp(remark, str_nil) != 0) {
 		if (!is_oid_nil(rid)) {
 			// have new remark and found old one, so update field
 			/* UPDATE sys.comments SET remark = %s WHERE id = %d */
