@@ -1455,7 +1455,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 	    (!s || (s && BATtdense(s)))    &&
 	    (BATcheckorderidx(b) ||
 	     (VIEWtparent(b) &&
-	      BATcheckorderidx(BBPquickdesc(VIEWtparent(b), 0))))) {
+	      BATcheckorderidx(BBPquickdesc(VIEWtparent(b), false))))) {
 		BAT *view = NULL;
 		if (VIEWtparent(b) && !BATcheckorderidx(b)) {
 			view = b;
@@ -1759,7 +1759,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 		 * hash chain (count divided by #slots) times the cost
 		 * to do a binary search on the candidate list (or 1
 		 * if no need for search)) */
-		tmp = BBPquickdesc(parent, 0);
+		tmp = BBPquickdesc(parent, false);
 		hash = phash = BATcheckhash(tmp) &&
 			(BATcount(tmp) == BATcount(b) ||
 			 BATcount(tmp) / ((size_t *) tmp->thash->heap.base)[5] * (s && !BATtdense(s) ? ilog2(BATcount(s)) : 1) < (s ? BATcount(s) : BATcount(b)) ||
@@ -1840,7 +1840,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 			!b->tvarsized &&
 			(b->batPersistence == PERSISTENT ||
 			 (parent != 0 &&
-			  (tmp = BBPquickdesc(parent, 0)) != NULL &&
+			  (tmp = BBPquickdesc(parent, false)) != NULL &&
 			  tmp->batPersistence == PERSISTENT));
 		bn = scanselect(b, s, bn, tl, th, li, hi, equi, anti,
 				lval, hval, lnil, maximum, use_imprints);
@@ -2011,7 +2011,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, bool li,
 	ll = l->hseqbase;
 	lh = ll + l->batCount;
 	if ((!sl || (sl && BATtdense(sl))) &&
-	    (BATcheckorderidx(l) || (VIEWtparent(l) && BATcheckorderidx(BBPquickdesc(VIEWtparent(l), 0))))) {
+	    (BATcheckorderidx(l) || (VIEWtparent(l) && BATcheckorderidx(BBPquickdesc(VIEWtparent(l), false))))) {
 		use_orderidx = true;
 		if (VIEWtparent(l) && !BATcheckorderidx(l)) {
 			l = BBPdescriptor(VIEWtparent(l));
@@ -2179,7 +2179,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, bool li,
 	} else if ((BATcount(rl) > 2 ||
 		    l->batPersistence == PERSISTENT ||
 		    (VIEWtparent(l) != 0 &&
-		     (tmp = BBPquickdesc(VIEWtparent(l), 0)) != NULL &&
+		     (tmp = BBPquickdesc(VIEWtparent(l), false)) != NULL &&
 		     tmp->batPersistence == PERSISTENT) ||
 		    BATcheckimprints(l)) &&
 		   BATimprints(l) == GDK_SUCCEED) {
