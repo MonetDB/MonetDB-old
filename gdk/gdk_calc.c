@@ -843,14 +843,15 @@ BATcalcisnil_implementation(BAT *b, BAT *s, int notnil)
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
 	if (start == 0 && end == cnt && cand == NULL) {
-		if (b->tnonil ||
-		    (b->ttype == TYPE_void && !is_oid_nil(b->tseqbase))) {
+		if (b->tnonil || BATtdense(b)) {
 			bit zero = 0;
 
 			return BATconstant(b->hseqbase, TYPE_bit, &zero, cnt, TRANSIENT);
-		} else if (b->ttype == TYPE_void && is_oid_nil(b->tseqbase)) {
+		} else if (b->ttype == TYPE_void) {
 			bit one = 1;
 
+			/* non-nil handled above */
+			assert(is_oid_nil(b->tseqbase));
 			return BATconstant(b->hseqbase, TYPE_bit, &one, cnt, TRANSIENT);
 		}
 	}
@@ -1004,6 +1005,7 @@ BATcalcmin(BAT *b1, BAT *b2, BAT *s)
 	}
 	for (i = end; i < cnt; i++)
 		bunfastapp(bn, nil);
+	bn->theap.dirty = true;
 	nils += cnt - end;
 	bn->tnil = nils > 0;
 	bn->tnonil = nils == 0;
@@ -1011,14 +1013,12 @@ BATcalcmin(BAT *b1, BAT *b2, BAT *s)
 		bn->tsorted = 1;
 		bn->trevsorted = 1;
 		bn->tkey = 1;
-		bn->tdense = ATOMtype(b1->ttype) == TYPE_oid;
-		if (bn->tdense)
-			bn->tseqbase = cnt == 1 ? *(oid*)Tloc(bn,0) : 0;
+		bn->tseqbase = ATOMtype(b1->ttype) == TYPE_oid ? cnt == 1 ? *(oid*)Tloc(bn,0) : 0 : oid_nil;
 	} else {
 		bn->tsorted = 0;
 		bn->trevsorted = 0;
 		bn->tkey = 0;
-		bn->tdense = 0;
+		bn->tseqbase = oid_nil;
 	}
 	return bn;
   bunins_failed:
@@ -1089,6 +1089,7 @@ BATcalcmin_no_nil(BAT *b1, BAT *b2, BAT *s)
 	}
 	for (i = end; i < cnt; i++)
 		bunfastapp(bn, nil);
+	bn->theap.dirty = true;
 	nils += cnt - end;
 	bn->tnil = nils > 0;
 	bn->tnonil = nils == 0;
@@ -1096,14 +1097,12 @@ BATcalcmin_no_nil(BAT *b1, BAT *b2, BAT *s)
 		bn->tsorted = 1;
 		bn->trevsorted = 1;
 		bn->tkey = 1;
-		bn->tdense = ATOMtype(b1->ttype) == TYPE_oid;
-		if (bn->tdense)
-			bn->tseqbase = cnt == 1 ? *(oid*)Tloc(bn,0) : 0;
+		bn->tseqbase = ATOMtype(b1->ttype) == TYPE_oid ? cnt == 1 ? *(oid*)Tloc(bn,0) : 0 : oid_nil;
 	} else {
 		bn->tsorted = 0;
 		bn->trevsorted = 0;
 		bn->tkey = 0;
-		bn->tdense = 0;
+		bn->tseqbase = oid_nil;
 	}
 	return bn;
   bunins_failed:
@@ -1169,6 +1168,7 @@ BATcalcmincst(BAT *b, const ValRecord *v, BAT *s)
 	}
 	for (i = end; i < cnt; i++)
 		bunfastapp(bn, nil);
+	bn->theap.dirty = true;
 	nils += cnt - end;
 	bn->tnil = nils > 0;
 	bn->tnonil = nils == 0;
@@ -1176,14 +1176,12 @@ BATcalcmincst(BAT *b, const ValRecord *v, BAT *s)
 		bn->tsorted = 1;
 		bn->trevsorted = 1;
 		bn->tkey = 1;
-		bn->tdense = ATOMtype(b->ttype) == TYPE_oid;
-		if (bn->tdense)
-			bn->tseqbase = cnt == 1 ? *(oid*)Tloc(bn,0) : 0;
+		bn->tseqbase = ATOMtype(bn->ttype) == TYPE_oid ? cnt == 1 ? *(oid*)Tloc(bn,0) : 0 : oid_nil;
 	} else {
 		bn->tsorted = 0;
 		bn->trevsorted = 0;
 		bn->tkey = 0;
-		bn->tdense = 0;
+		bn->tseqbase = oid_nil;
 	}
 	return bn;
   bunins_failed:
@@ -1259,6 +1257,7 @@ BATcalcmincst_no_nil(BAT *b, const ValRecord *v, BAT *s)
 	}
 	for (i = end; i < cnt; i++)
 		bunfastapp(bn, nil);
+	bn->theap.dirty = true;
 	nils += cnt - end;
 	bn->tnil = nils > 0;
 	bn->tnonil = nils == 0;
@@ -1266,14 +1265,12 @@ BATcalcmincst_no_nil(BAT *b, const ValRecord *v, BAT *s)
 		bn->tsorted = 1;
 		bn->trevsorted = 1;
 		bn->tkey = 1;
-		bn->tdense = ATOMtype(b->ttype) == TYPE_oid;
-		if (bn->tdense)
-			bn->tseqbase = cnt == 1 ? *(oid*)Tloc(bn,0) : 0;
+		bn->tseqbase = ATOMtype(bn->ttype) == TYPE_oid ? cnt == 1 ? *(oid*)Tloc(bn,0) : 0 : oid_nil;
 	} else {
 		bn->tsorted = 0;
 		bn->trevsorted = 0;
 		bn->tkey = 0;
-		bn->tdense = 0;
+		bn->tseqbase = oid_nil;
 	}
 	return bn;
   bunins_failed:
@@ -1346,6 +1343,7 @@ BATcalcmax(BAT *b1, BAT *b2, BAT *s)
 	}
 	for (i = end; i < cnt; i++)
 		bunfastapp(bn, nil);
+	bn->theap.dirty = true;
 	nils += cnt - end;
 	bn->tnil = nils > 0;
 	bn->tnonil = nils == 0;
@@ -1353,14 +1351,12 @@ BATcalcmax(BAT *b1, BAT *b2, BAT *s)
 		bn->tsorted = 1;
 		bn->trevsorted = 1;
 		bn->tkey = 1;
-		bn->tdense = ATOMtype(b1->ttype) == TYPE_oid;
-		if (bn->tdense)
-			bn->tseqbase = cnt == 1 ? *(oid*)Tloc(bn,0) : 0;
+		bn->tseqbase = ATOMtype(bn->ttype) == TYPE_oid ? cnt == 1 ? *(oid*)Tloc(bn,0) : 0 : oid_nil;
 	} else {
 		bn->tsorted = 0;
 		bn->trevsorted = 0;
 		bn->tkey = 0;
-		bn->tdense = 0;
+		bn->tseqbase = oid_nil;
 	}
 	return bn;
   bunins_failed:
@@ -1431,6 +1427,7 @@ BATcalcmax_no_nil(BAT *b1, BAT *b2, BAT *s)
 	}
 	for (i = end; i < cnt; i++)
 		bunfastapp(bn, nil);
+	bn->theap.dirty = true;
 	nils += cnt - end;
 	bn->tnil = nils > 0;
 	bn->tnonil = nils == 0;
@@ -1438,14 +1435,12 @@ BATcalcmax_no_nil(BAT *b1, BAT *b2, BAT *s)
 		bn->tsorted = 1;
 		bn->trevsorted = 1;
 		bn->tkey = 1;
-		bn->tdense = ATOMtype(b1->ttype) == TYPE_oid;
-		if (bn->tdense)
-			bn->tseqbase = cnt == 1 ? *(oid*)Tloc(bn,0) : 0;
+		bn->tseqbase = ATOMtype(b1->ttype) == TYPE_oid ? cnt == 1 ? *(oid*)Tloc(bn,0) : 0 : oid_nil;
 	} else {
 		bn->tsorted = 0;
 		bn->trevsorted = 0;
 		bn->tkey = 0;
-		bn->tdense = 0;
+		bn->tseqbase = oid_nil;
 	}
 	return bn;
   bunins_failed:
@@ -1511,6 +1506,7 @@ BATcalcmaxcst(BAT *b, const ValRecord *v, BAT *s)
 	}
 	for (i = end; i < cnt; i++)
 		bunfastapp(bn, nil);
+	bn->theap.dirty = true;
 	nils += cnt - end;
 	bn->tnil = nils > 0;
 	bn->tnonil = nils == 0;
@@ -1518,14 +1514,12 @@ BATcalcmaxcst(BAT *b, const ValRecord *v, BAT *s)
 		bn->tsorted = 1;
 		bn->trevsorted = 1;
 		bn->tkey = 1;
-		bn->tdense = ATOMtype(b->ttype) == TYPE_oid;
-		if (bn->tdense)
-			bn->tseqbase = cnt == 1 ? *(oid*)Tloc(bn,0) : 0;
+		bn->tseqbase = ATOMtype(bn->ttype) == TYPE_oid ? cnt == 1 ? *(oid*)Tloc(bn,0) : 0 : oid_nil;
 	} else {
 		bn->tsorted = 0;
 		bn->trevsorted = 0;
 		bn->tkey = 0;
-		bn->tdense = 0;
+		bn->tseqbase = oid_nil;
 	}
 	return bn;
   bunins_failed:
@@ -1601,6 +1595,7 @@ BATcalcmaxcst_no_nil(BAT *b, const ValRecord *v, BAT *s)
 	}
 	for (i = end; i < cnt; i++)
 		bunfastapp(bn, nil);
+	bn->theap.dirty = true;
 	nils += cnt - end;
 	bn->tnil = nils > 0;
 	bn->tnonil = nils == 0;
@@ -1608,14 +1603,12 @@ BATcalcmaxcst_no_nil(BAT *b, const ValRecord *v, BAT *s)
 		bn->tsorted = 1;
 		bn->trevsorted = 1;
 		bn->tkey = 1;
-		bn->tdense = ATOMtype(b->ttype) == TYPE_oid;
-		if (bn->tdense)
-			bn->tseqbase = cnt == 1 ? *(oid*)Tloc(bn,0) : 0;
+		bn->tseqbase = ATOMtype(bn->ttype) == TYPE_oid ? cnt == 1 ? *(oid*)Tloc(bn,0) : 0 : oid_nil;
 	} else {
 		bn->tsorted = 0;
 		bn->trevsorted = 0;
 		bn->tkey = 0;
-		bn->tdense = 0;
+		bn->tseqbase = oid_nil;
 	}
 	return bn;
   bunins_failed:
@@ -3412,12 +3405,12 @@ addstr_loop(BAT *b1, const char *l, BAT *b2, const char *r, BAT *bn,
 	if (s == NULL)
 		goto bunins_failed;
 	for (i = 0; i < start; i++)
-		tfastins_nocheck(bn, i, str_nil, Tsize(bn));
+		tfastins_nocheckVAR(bn, i, str_nil, Tsize(bn));
 	for (i = start; i < end; i++) {
 		if (cand) {
 			if (i < *cand - candoff) {
 				nils++;
-				tfastins_nocheck(bn, i, str_nil, Tsize(bn));
+				tfastins_nocheckVAR(bn, i, str_nil, Tsize(bn));
 				continue;
 			}
 			assert(i == *cand - candoff);
@@ -3430,7 +3423,7 @@ addstr_loop(BAT *b1, const char *l, BAT *b2, const char *r, BAT *bn,
 			r = BUNtvar(b2i, i);
 		if (strcmp(l, str_nil) == 0 || strcmp(r, str_nil) == 0) {
 			nils++;
-			tfastins_nocheck(bn, i, str_nil, Tsize(bn));
+			tfastins_nocheckVAR(bn, i, str_nil, Tsize(bn));
 		} else {
 			llen = strlen(l);
 			rlen = strlen(r);
@@ -3447,11 +3440,12 @@ addstr_loop(BAT *b1, const char *l, BAT *b2, const char *r, BAT *bn,
 #else
 			(void) strcpy(strcpy(s, l) + llen, r);
 #endif
-			tfastins_nocheck(bn, i, s, Tsize(bn));
+			tfastins_nocheckVAR(bn, i, s, Tsize(bn));
 		}
 	}
 	for (i = end; i < cnt; i++)
-		tfastins_nocheck(bn, i, str_nil, Tsize(bn));
+		tfastins_nocheckVAR(bn, i, str_nil, Tsize(bn));
+	bn->theap.dirty = true;
 	GDKfree(s);
 	return nils;
 
@@ -13173,7 +13167,7 @@ BATcalcifthenelse_intern(BAT *b,
 				else
 					p = col2;
 			}
-			tfastins_nocheck(bn, i, p, Tsize(bn));
+			tfastins_nocheckVAR(bn, i, p, Tsize(bn));
 			k += incr1;
 			l += incr2;
 		}
@@ -13221,6 +13215,7 @@ BATcalcifthenelse_intern(BAT *b,
 	}
 
 	BATsetcount(bn, cnt);
+	bn->theap.dirty = true;
 
 	bn->tsorted = cnt <= 1 || nils == cnt;
 	bn->trevsorted = cnt <= 1 || nils == cnt;
@@ -13629,7 +13624,7 @@ convert_any_str(BAT *b, BAT *bn, BUN cnt, BUN start, BUN end,
 	int (*atomcmp)(const void *, const void *) = ATOMcompare(tp);
 
 	for (i = 0; i < start; i++)
-		tfastins_nocheck(bn, i, str_nil, bn->twidth);
+		tfastins_nocheckVAR(bn, i, str_nil, bn->twidth);
 	if (atomtostr == BATatoms[TYPE_str].atomToStr) {
 		/* compatible with str, we just copy the value */
 		BATiter bi = bat_iterator(b);
@@ -13639,7 +13634,7 @@ convert_any_str(BAT *b, BAT *bn, BUN cnt, BUN start, BUN end,
 			if (cand) {
 				if (i < *cand - candoff) {
 					nils++;
-					tfastins_nocheck(bn, i, str_nil, bn->twidth);
+					tfastins_nocheckVAR(bn, i, str_nil, bn->twidth);
 					continue;
 				}
 				assert(i == *cand - candoff);
@@ -13649,7 +13644,7 @@ convert_any_str(BAT *b, BAT *bn, BUN cnt, BUN start, BUN end,
 			src = BUNtvar(bi, i);
 			if ((*atomcmp)(src, str_nil) == 0)
 				nils++;
-			tfastins_nocheck(bn, i, src, bn->twidth);
+			tfastins_nocheckVAR(bn, i, src, bn->twidth);
 		}
 	} else if (b->tvarsized) {
 		BATiter bi = bat_iterator(b);
@@ -13659,7 +13654,7 @@ convert_any_str(BAT *b, BAT *bn, BUN cnt, BUN start, BUN end,
 			if (cand) {
 				if (i < *cand - candoff) {
 					nils++;
-					tfastins_nocheck(bn, i, str_nil, bn->twidth);
+					tfastins_nocheckVAR(bn, i, str_nil, bn->twidth);
 					continue;
 				}
 				assert(i == *cand - candoff);
@@ -13671,7 +13666,7 @@ convert_any_str(BAT *b, BAT *bn, BUN cnt, BUN start, BUN end,
 				goto bunins_failed;
 			if ((*atomcmp)(src, nil) == 0)
 				nils++;
-			tfastins_nocheck(bn, i, dst, bn->twidth);
+			tfastins_nocheckVAR(bn, i, dst, bn->twidth);
 		}
 	} else {
 		size_t size = ATOMsize(tp);
@@ -13681,7 +13676,7 @@ convert_any_str(BAT *b, BAT *bn, BUN cnt, BUN start, BUN end,
 			if (cand) {
 				if (i < *cand - candoff) {
 					nils++;
-					tfastins_nocheck(bn, i, str_nil, bn->twidth);
+					tfastins_nocheckVAR(bn, i, str_nil, bn->twidth);
 					continue;
 				}
 				assert(i == *cand - candoff);
@@ -13692,12 +13687,13 @@ convert_any_str(BAT *b, BAT *bn, BUN cnt, BUN start, BUN end,
 				goto bunins_failed;
 			if ((*atomcmp)(src, nil) == 0)
 				nils++;
-			tfastins_nocheck(bn, i, dst, bn->twidth);
+			tfastins_nocheckVAR(bn, i, dst, bn->twidth);
 			src = (const void *) ((const char *) src + size);
 		}
 	}
 	for (i = end; i < cnt; i++)
-		tfastins_nocheck(bn, i, str_nil, bn->twidth);
+		tfastins_nocheckVAR(bn, i, str_nil, bn->twidth);
+	bn->theap.dirty = true;
 	BATsetcount(bn, cnt);
 	GDKfree(dst);
 	return nils;
@@ -13866,12 +13862,12 @@ convert_void_any(oid seq, BUN cnt, BAT *bn,
 			break;
 		case TYPE_str:
 			for (i = 0; i < start; i++)
-				tfastins_nocheck(bn, i, str_nil, bn->twidth);
+				tfastins_nocheckVAR(bn, i, str_nil, bn->twidth);
 			for (i = 0; i < end; i++) {
 				if (cand) {
 					if (i < *cand - candoff) {
 						nils++;
-						tfastins_nocheck(bn, i, str_nil,
+						tfastins_nocheckVAR(bn, i, str_nil,
 								 bn->twidth);
 						continue;
 					}
@@ -13881,7 +13877,7 @@ convert_void_any(oid seq, BUN cnt, BAT *bn,
 				}
 				if ((*atomtostr)(&s, &len, &seq) < 0)
 					goto bunins_failed;
-				tfastins_nocheck(bn, i, s, bn->twidth);
+				tfastins_nocheckVAR(bn, i, s, bn->twidth);
 				seq++;
 			}
 			break;
@@ -13926,12 +13922,13 @@ convert_void_any(oid seq, BUN cnt, BAT *bn,
 		if ((*atomtostr)(&s, &len, &seq) < 0)
 			goto bunins_failed;
 		for (; i < cnt; i++) {
-			tfastins_nocheck(bn, i, s, bn->twidth);
+			tfastins_nocheckVAR(bn, i, s, bn->twidth);
 		}
 		break;
 	default:
 		return BUN_NONE + 1;
 	}
+	bn->theap.dirty = true;
 	nils += cnt - end;
 	GDKfree(s);
 	return nils;
@@ -14358,7 +14355,7 @@ BATconvert(BAT *b, BAT *s, int tp, int abort_on_error)
 	    ATOMbasetype(b->ttype) == ATOMbasetype(tp) &&
 	    (tp != TYPE_str ||
 	     BATatoms[b->ttype].atomToStr == BATatoms[TYPE_str].atomToStr)) {
-		return COLcopy(b, tp, 0, TRANSIENT);
+		return COLcopy(b, tp, false, TRANSIENT);
 	}
 
 	bn = COLnew(b->hseqbase, tp, b->batCount, TRANSIENT);

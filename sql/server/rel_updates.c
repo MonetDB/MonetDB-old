@@ -25,7 +25,12 @@ insert_value(mvc *sql, sql_column *c, sql_rel **r, symbol *s)
 		return exp_atom(sql->sa, atom_general(sql->sa, &c->type, NULL));
 	} else if (s->token == SQL_DEFAULT) {
 		if (c->def) {
-			sql_exp *e = rel_parse_val(sql, sa_message(sql->sa, "select CAST(%s AS %s);", c->def, c->type.type->sqlname), sql->emode);
+			sql_exp *e;
+			char *typestr = subtype2string2(&c->type);
+			if(!typestr)
+				return sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			e = rel_parse_val(sql, sa_message(sql->sa, "select cast(%s as %s);", c->def, typestr), sql->emode);
+			_DELETE(typestr);
 			if (!e || (e = rel_check_type(sql, &c->type, e, type_equal)) == NULL)
 				return NULL;
 			return e;
@@ -351,7 +356,11 @@ rel_inserts(mvc *sql, sql_table *t, sql_rel *r, list *collist, size_t rowcount, 
 						sql_exp *e = NULL;
 
 						if (c->def) {
-							char *q = sa_message(sql->sa, "select %s;", c->def);
+							char *q, *typestr = subtype2string2(&c->type);
+							if(!typestr)
+								return sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+							q = sa_message(sql->sa, "select cast(%s as %s);", c->def, typestr);
+							_DELETE(typestr);
 							e = rel_parse_val(sql, q, sql->emode);
 							if (!e || (e = rel_check_type(sql, &c->type, e, type_equal)) == NULL)
 								return NULL;
@@ -397,6 +406,8 @@ insert_allowed(mvc *sql, sql_table *t, char *tname, char *op, char *opname)
 		return sql_error(sql, 02, SQLSTATE(42000) "%s: cannot %s view '%s'", op, opname, tname);
 	} else if (isMergeTable(t)) {
 		return sql_error(sql, 02, SQLSTATE(42000) "%s: cannot %s merge table '%s'", op, opname, tname);
+	} else if (isRemote(t)) {
+		return sql_error(sql, 02, SQLSTATE(42000) "%s: cannot %s remote table '%s' from this server at the moment", op, opname, tname);
 	} else if (isStream(t)) {
 		return sql_error(sql, 02, SQLSTATE(42000) "%s: cannot %s stream '%s'", op, opname, tname);
 	} else if (t->access == TABLE_READONLY) {
@@ -428,6 +439,8 @@ update_allowed(mvc *sql, sql_table *t, char *tname, char *op, char *opname, int 
 		return sql_error(sql, 02, SQLSTATE(42000) "%s: cannot %s view '%s'", op, opname, tname);
 	} else if (isMergeTable(t)) {
 		return sql_error(sql, 02, SQLSTATE(42000) "%s: cannot %s merge table '%s'", op, opname, tname);
+	} else if (isRemote(t)) {
+		return sql_error(sql, 02, SQLSTATE(42000) "%s: cannot %s remote table '%s' from this server at the moment", op, opname, tname);
 	} else if (isStream(t)) {
 		return sql_error(sql, 02, SQLSTATE(42000) "%s: cannot %s stream '%s'", op, opname, tname);
 	} else if (t->access == TABLE_READONLY || t->access == TABLE_APPENDONLY) {
@@ -1006,7 +1019,11 @@ update_table(mvc *sql, dlist *qname, dlist *assignmentlist, symbol *opt_from, sy
 					char *colname = assignment->h->next->data.sval;
 					sql_column *col = mvc_bind_column(sql, t, colname);
 					if (col->def) {
-						v = rel_parse_val(sql, sa_message(sql->sa, "select CAST(%s AS %s);", col->def, col->type.type->sqlname), sql->emode);
+						char *typestr = subtype2string2(&col->type);
+						if(!typestr)
+							return sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+						v = rel_parse_val(sql, sa_message(sql->sa, "select cast(%s as %s);", col->def, typestr), sql->emode);
+						_DELETE(typestr);
 					} else {
 						return sql_error(sql, 02, SQLSTATE(42000) "UPDATE: column '%s' has no valid default value", col->base.name);
 					}
@@ -1369,7 +1386,7 @@ copyfrom(mvc *sql, dlist *qname, dlist *columns, dlist *files, dlist *headers, d
 		if (headers)
 			return sql_error(sql, 02, SQLSTATE(42000) "COPY INTO .. LOCKED: not allowed with column lists");
 		store_lock();
-		while (store_nr_active > 1) {
+		while (ATOMIC_GET(store_nr_active, store_nr_active_lock) > 1) {
 			store_unlock();
 			MT_sleep_ms(100);
 			store_lock();
@@ -1731,10 +1748,8 @@ rel_parse_val(mvc *m, char *query, char emode)
 		GDKfree(n);
 		return NULL;
 	}
-	strncpy(n, query, len);
+	snprintf(n, len + 2, "%s\n", query);
 	query = n;
-	query[len] = '\n';
-	query[len+1] = 0;
 	len++;
 	buffer_init(b, query, len);
 	s = buffer_rastream(b, "sqlstatement");

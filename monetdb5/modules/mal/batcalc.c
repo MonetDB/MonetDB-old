@@ -977,7 +977,7 @@ CMDcalcavg(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bid = getArgReference_bat(stk, pci, pci->retc + 0);
 	if ((b = BATdescriptor(*bid)) == NULL)
 		throw(MAL, "aggr.avg", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
-	if (pci->retc == pci->retc + 2) {
+	if (pci->argc == pci->retc + 2) {
 		bat *sid = getArgReference_bat(stk, pci, pci->retc + 1);
 		if (*sid && (s = BATdescriptor(*sid)) == NULL) {
 			BBPunfix(b->batCacheid);
@@ -1325,12 +1325,12 @@ CMDifthen(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				bn = BATconstant(b2->hseqbase, b2->ttype, ATOMnilptr(b2->ttype), BATcount(b2), TRANSIENT);
 		} else if (v) {
 			if (b1 != NULL)
-				bn = COLcopy(b1, b1->ttype, 0, TRANSIENT);
+				bn = COLcopy(b1, b1->ttype, false, TRANSIENT);
 			else
 				bn = BATconstant(b2->hseqbase, b2->ttype, VALptr(&stk->stk[getArg(pci, 2)]), BATcount(b2), TRANSIENT);
 		} else {
 			if (b2 != NULL)
-				bn = COLcopy(b2, b2->ttype, 0, TRANSIENT);
+				bn = COLcopy(b2, b2->ttype, false, TRANSIENT);
 			else
 				bn = BATconstant(b1->hseqbase, b1->ttype, VALptr(&stk->stk[getArg(pci, 3)]), BATcount(b1), TRANSIENT);
 		}
