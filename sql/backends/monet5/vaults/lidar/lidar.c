@@ -278,7 +278,7 @@ LIDARinitCatalog(mvc *m)
 
 	vault_journal = mvc_bind_table(m, sch, "vault_journal");
 	if (vault_journal == NULL) {
-		vault_journal = mvc_create_table(m, sch, "vault_journal", tt_table, 0, SQL_PERSIST, 0, 4);
+		vault_journal = mvc_create_table(m, sch, "vault_journal", tt_table, 0, SQL_PERSIST, 0, 4, 0);
 		mvc_create_column_(m, vault_journal, "table_id", "int", 32);
 		mvc_create_column_(m, vault_journal, "table_name", "varchar", 255);
 		mvc_create_column_(m, vault_journal, "vault_reader_id", "int", 32);
@@ -1107,7 +1107,7 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	/* create an SQL table to hold the LIDAR table */
-	tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, input_params.cnum);
+	tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, input_params.cnum, 0);
 	/* TODO Check for failure */
 
 	for (prm = 1; prm <= PARAM_INTENSITY; prm <<= 1) {

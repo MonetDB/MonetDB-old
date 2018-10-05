@@ -72,14 +72,14 @@ gadgetInitCatalog(mvc *m)
 
   gadget_fl = mvc_bind_table(m, sch, "gadget_files");
   if (gadget_fl == NULL) {
-    gadget_fl = mvc_create_table(m, sch, "gadget_files", tt_table, 0, SQL_PERSIST, 0, 2);
+    gadget_fl = mvc_create_table(m, sch, "gadget_files", tt_table, 0, SQL_PERSIST, 0, 2, 0);
     mvc_create_column_(m, gadget_fl, "id", "int", 32);
     mvc_create_column_(m, gadget_fl, "name", "varchar", 80);
   }
 
   gadget_tbl = mvc_bind_table(m, sch, "gadget_tables");
   if (gadget_tbl == NULL) {
-    gadget_tbl = mvc_create_table(m, sch, "gadget_tables", tt_table, 0, SQL_PERSIST, 0, 37);
+    gadget_tbl = mvc_create_table(m, sch, "gadget_tables", tt_table, 0, SQL_PERSIST, 0, 37, 0);
     mvc_create_column_(m, gadget_tbl, "id", "int", 32);
     mvc_create_column_(m, gadget_tbl, "file_id", "int", 32);
     mvc_create_column_(m, gadget_tbl, "name", "varchar", 80);
@@ -121,7 +121,7 @@ gadgetInitCatalog(mvc *m)
 
   gadget_col = mvc_bind_table(m, sch, "gadget_columns");
   if (gadget_col == NULL) {
-    gadget_col = mvc_create_table(m, sch, "gadget_columns", tt_table, 0, SQL_PERSIST, 0, 15);
+    gadget_col = mvc_create_table(m, sch, "gadget_columns", tt_table, 0, SQL_PERSIST, 0, 15, 0);
     mvc_create_column_(m, gadget_col, "id", "int", 32);
     mvc_create_column_(m, gadget_col, "file_id", "int", 32);
     mvc_create_column_(m, gadget_col, "table_id", "int", 32);
@@ -474,7 +474,7 @@ str gadgetListDirAll(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
         /*Let's create a table per GadgetFile*/
         if (i == 0) {
           cnum = 9;//x, y, z. TODO: Add all available columnt 
-          tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, cnum); 
+          tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, cnum, 0);
           mvc_create_column_(m, tbl, "id", "bigint", 64); 
           mvc_create_column_(m, tbl, "posx", "real", 32); 
           mvc_create_column_(m, tbl, "posy", "real", 32); 
@@ -836,7 +836,7 @@ str gadgetAttach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
   /*Let's create a table per GadgetFile*/
   cnum = 9;//x, y, z. TODO: Add all available columnt 
-  tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, cnum); 
+  tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, cnum, 0);
   mvc_create_column_(m, tbl, "id", "bigint", 64); 
   mvc_create_column_(m, tbl, "posx", "real", 32); 
   mvc_create_column_(m, tbl, "posy", "real", 32); 
@@ -1024,7 +1024,7 @@ str gadgetAttachAll(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     /*Let's create a table per GadgetFile*/
     if (i == 2) {
       cnum = 9;//x, y, z. TODO: Add all available columnt 
-      tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, cnum); 
+      tbl = mvc_create_table(m, sch, tname_low, tt_table, 0, SQL_PERSIST, 0, cnum, 0);
       mvc_create_column_(m, tbl, "id", "bigint", 64); 
       mvc_create_column_(m, tbl, "posx", "real", 32); 
       mvc_create_column_(m, tbl, "posy", "real", 32); 

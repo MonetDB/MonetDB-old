@@ -599,7 +599,7 @@ VLTTid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     tids = diff;
   }
 
-  if (!(tids->batDirty&2)) BATsetaccess(tids, BAT_READ);
+  if (!(tids->batDirtydesc&2)) BATsetaccess(tids, BAT_READ);
   BBPkeepref(*res = tids->batCacheid);
   return MAL_SUCCEED;
 }
