@@ -221,14 +221,14 @@ LIDARinitCatalog(mvc *m)
 
 	lidar_fl = mvc_bind_table(m, sch, "lidar_files");
 	if (lidar_fl == NULL) {
-		lidar_fl = mvc_create_table(m, sch, "lidar_files", tt_table, 0, SQL_PERSIST, 0, 2);
+		lidar_fl = mvc_create_table(m, sch, "lidar_files", tt_table, 0, SQL_PERSIST, 0, 2, 0);
 		mvc_create_column_(m, lidar_fl, "id", "int", 32);
 		mvc_create_column_(m, lidar_fl, "name", "varchar", 255);
 	}
 
 	lidar_tbl = mvc_bind_table(m, sch, "lidar_tables");
 	if (lidar_tbl == NULL) {
-		lidar_tbl = mvc_create_table(m, sch, "lidar_tables", tt_table, 0, SQL_PERSIST, 0, 21);
+		lidar_tbl = mvc_create_table(m, sch, "lidar_tables", tt_table, 0, SQL_PERSIST, 0, 21, 0);
 		mvc_create_column_(m, lidar_tbl, "id", "int", 32);
 		mvc_create_column_(m, lidar_tbl, "file_id", "int", 32);
 		mvc_create_column_(m, lidar_tbl, "name", "varchar", 255);
@@ -255,7 +255,7 @@ LIDARinitCatalog(mvc *m)
 
 	lidar_col = mvc_bind_table(m, sch, "lidar_columns");
 	if (lidar_col == NULL) {
-		lidar_col = mvc_create_table(m, sch, "lidar_columns", tt_table, 0, SQL_PERSIST, 0, 15);
+		lidar_col = mvc_create_table(m, sch, "lidar_columns", tt_table, 0, SQL_PERSIST, 0, 15, 0);
 		mvc_create_column_(m, lidar_col, "id", "int", 32);
 		mvc_create_column_(m, lidar_col, "file_id", "int", 32);
 		mvc_create_column_(m, lidar_col, "table_id", "int", 32);
@@ -925,7 +925,6 @@ LIDARattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for (idx = 0; idx < files_len; idx++) {
 		filename = files[idx];
 		msg = LIDARopenFile(filename, &header);
-
 		/* If we cannot open the file, just ignore it. */
 		if (msg != MAL_SUCCEED) {
 #ifndef NDEBUG

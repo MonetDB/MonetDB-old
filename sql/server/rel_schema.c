@@ -15,8 +15,10 @@
 #include "rel_schema.h"
 #include "rel_remote.h"
 #include "rel_psm.h"
+#include "rel_propagate.h"
 #include "sql_parser.h"
 #include "sql_privileges.h"
+#include "sql_partition.h"
 
 #include "mal_authorize.h"
 
@@ -189,10 +191,10 @@ mvc_create_table_as_subquery( mvc *sql, sql_rel *sq, sql_schema *s, const char *
 {
 	int tt =(temp == SQL_REMOTE)?tt_remote:
 		(temp == SQL_STREAM)?tt_stream:
-	        (temp == SQL_MERGE_TABLE)?tt_merge_table:
-	        (temp == SQL_REPLICA_TABLE)?tt_replica_table:tt_table;
+		(temp == SQL_MERGE_TABLE)?tt_merge_table:
+		(temp == SQL_REPLICA_TABLE)?tt_replica_table:tt_table;
 
-	sql_table *t = mvc_create_table(sql, s, tname, tt, 0, SQL_DECLARED_TABLE, commit_action, -1);
+	sql_table *t = mvc_create_table(sql, s, tname, tt, 0, SQL_DECLARED_TABLE, commit_action, -1, 0);
 	if (as_subquery( sql, t, sq, column_spec, "CREATE TABLE") != 0)
 
 		return NULL;
@@ -441,7 +443,7 @@ column_option(
 			sql->session->status = 0;
 			sql->errstr[0] = '\0';
 		}
-	       	r = symbol2string(sql, s->data.sym, &err);
+	       	r = symbol2string(sql, s->data.sym, 0, &err);
 		if (!r) {
 			(void) sql_error(sql, 02, SQLSTATE(42000) "Incorrect default value '%s'\n", err?err:"");
 			if (err) _DELETE(err);
@@ -689,8 +691,11 @@ table_element(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 	if (alter && 
 		(isView(t) || 
 		((isMergeTable(t) || isReplicaTable(t)) && (s->token != SQL_TABLE && s->token != SQL_DROP_TABLE && cs_size(&t->members)>0)) || 
-	  	(isTable(t) && (s->token == SQL_TABLE || s->token == SQL_DROP_TABLE)) ||
- 		(isPartition(t) && (s->token == SQL_DROP_COLUMN || s->token == SQL_COLUMN || s->token == SQL_CONSTRAINT)))){
+		(isTable(t) && (s->token == SQL_TABLE || s->token == SQL_DROP_TABLE)) ||
+		(isPartition(t) && (s->token == SQL_DROP_COLUMN || s->token == SQL_COLUMN || s->token == SQL_CONSTRAINT)) ||
+		(isPartition(t) && (isRangePartitionTable(t->p) || isListPartitionTable(t->p)) &&
+		(s->token == SQL_DEFAULT || s->token == SQL_DROP_DEFAULT || s->token == SQL_NOT_NULL || s->token == SQL_NULL ||
+		 s->token == SQL_DROP_CONSTRAINT)))){
 		char *msg = "";
 
 		switch (s->token) {
@@ -767,7 +772,7 @@ table_element(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 			sql_error(sql, 02, SQLSTATE(42S22) "ALTER TABLE: no such column '%s'\n", cname);
 			return SQL_ERR;
 		}
-		r = symbol2string(sql, sym, &err);
+		r = symbol2string(sql, sym, 0, &err);
 		if (!r) {
 			(void) sql_error(sql, 02, SQLSTATE(42000) "incorrect default value '%s'\n", err?err:"");
 			if (err) _DELETE(err);
@@ -882,6 +887,19 @@ table_element(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 				}
 			}
 		}
+		if (isPartitionedByColumnTable(t) && t->part.pcol->base.id == col->base.id) {
+			sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: cannot drop column '%s': is the partitioned column on the table '%s'\n", cname, t->base.name);
+			return SQL_ERR;
+		}
+		if (isPartitionedByExpressionTable(t)) {
+			for(node *n = t->part.pexp->cols->h; n; n = n->next) {
+				int next = *(int*) n->data;
+				if(next == col->colnr) {
+					sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: cannot drop column '%s': the expression used in '%s' depends on it\n", cname, t->base.name);
+					return SQL_ERR;
+				}
+			}
+		}
 		if(mvc_drop_column(sql, t, col, drop_action)) {
 			sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: %s\n", MAL_MALLOC_FAIL);
 			return SQL_ERR;
@@ -897,8 +915,63 @@ table_element(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 	return res;
 }
 
+static int
+create_partition_definition(mvc *sql, sql_table *t, symbol *partition_def)
+{
+	char *err = NULL;
+
+	if(partition_def) {
+		dlist *list = partition_def->data.lval;
+		symbol *type = list->h->next->data.sym;
+		dlist *list2 = type->data.lval;
+		if(isPartitionedByColumnTable(t)) {
+			str colname = list2->h->data.sval;
+			node *n;
+			int sql_ec;
+			for (n = t->columns.set->h; n ; n = n->next) {
+				sql_column *col = n->data;
+				if(!strcmp(col->base.name, colname)) {
+					t->part.pcol = col;
+					break;
+				}
+			}
+			if(!t->part.pcol) {
+				sql_error(sql, 02, SQLSTATE(42000) "CREATE MERGE TABLE: the partition column '%s' is not part of the table", colname);
+				return SQL_ERR;
+			}
+			sql_ec = t->part.pcol->type.type->eclass;
+			if(!(sql_ec == EC_BIT || EC_VARCHAR(sql_ec) || EC_TEMP(sql_ec) || sql_ec == EC_POS || sql_ec == EC_NUM ||
+				 EC_INTERVAL(sql_ec)|| sql_ec == EC_DEC || sql_ec == EC_BLOB)) {
+				err = sql_subtype_string(&(t->part.pcol->type));
+				if (!err) {
+					sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+				} else {
+					sql_error(sql, 02, SQLSTATE(42000) "CREATE MERGE TABLE: column type %s not yet supported for the partition column", err);
+					GDKfree(err);
+				}
+				return SQL_ERR;
+			}
+		} else if(isPartitionedByExpressionTable(t)) {
+			sql_subtype *empty = sql_bind_localtype("void");
+			char *query = symbol2string(sql, list2->h->data.sym, 1, &err);
+			if (!query) {
+				(void) sql_error(sql, 02, SQLSTATE(42000) "CREATE MERGE TABLE: error compiling expression '%s'", err?err:"");
+				if (err) _DELETE(err);
+				return SQL_ERR;
+			}
+			t->part.pexp = SA_ZNEW(sql->sa, sql_expression);
+			t->part.pexp->exp = sa_strdup(sql->sa, query);
+			t->part.pexp->type = *empty;
+			_DELETE(query);
+		}
+	}
+	return SQL_OK;
+}
+
 sql_rel *
-rel_create_table(mvc *sql, sql_schema *ss, int temp, const char *sname, const char *name, symbol *table_elements_or_subquery, int commit_action, const char *loc, const char *username, const char *password, bool pw_encrypted, int if_not_exists)
+rel_create_table(mvc *sql, sql_schema *ss, int temp, const char *sname, const char *name, symbol *table_elements_or_subquery,
+				 int commit_action, const char *loc, const char *username, const char *password, bool pw_encrypted,
+				 symbol* partition_def, int if_not_exists)
 {
 	sql_schema *s = NULL;
 
@@ -907,8 +980,9 @@ rel_create_table(mvc *sql, sql_schema *ss, int temp, const char *sname, const ch
 	int create = (!instantiate && !deps);
 	int tt = (temp == SQL_REMOTE)?tt_remote:
 		 (temp == SQL_STREAM)?tt_stream:
-	         (temp == SQL_MERGE_TABLE)?tt_merge_table:
-	         (temp == SQL_REPLICA_TABLE)?tt_replica_table:tt_table;
+		 (temp == SQL_MERGE_TABLE)?tt_merge_table:
+		 (temp == SQL_REPLICA_TABLE)?tt_replica_table:tt_table;
+	bit properties = partition_def ? (bit) partition_def->data.lval->h->next->next->data.i_val : 0;
 
 	(void)create;
 	if (sname && !(s = mvc_bind_schema(sql, sname)))
@@ -965,7 +1039,7 @@ rel_create_table(mvc *sql, sql_schema *ss, int temp, const char *sname, const ch
 			}
 			t = mvc_create_remote(sql, s, name, SQL_DECLARED_TABLE, loc);
 		} else {
-			t = mvc_create_table(sql, s, name, tt, 0, SQL_DECLARED_TABLE, commit_action, -1);
+			t = mvc_create_table(sql, s, name, tt, 0, SQL_DECLARED_TABLE, commit_action, -1, properties);
 		}
 		if (!t)
 			return NULL;
@@ -977,6 +1051,10 @@ rel_create_table(mvc *sql, sql_schema *ss, int temp, const char *sname, const ch
 			if (res == SQL_ERR)
 				return NULL;
 		}
+
+		if(create_partition_definition(sql, t, partition_def) != SQL_OK)
+			return NULL;
+
 		temp = (tt == tt_table)?temp:SQL_PERSIST;
 		return rel_table(sql, DDL_CREATE_TABLE, sname, t, temp);
 	} else { /* [col name list] as subquery with or without data */
@@ -993,7 +1071,8 @@ rel_create_table(mvc *sql, sql_schema *ss, int temp, const char *sname, const ch
 			return NULL;
 
 		if ((tt == tt_merge_table || tt == tt_remote || tt == tt_replica_table) && with_data)
-			return sql_error(sql, 02, SQLSTATE(42000) "CREATE TABLE: cannot create %s table 'with data'", tt == tt_merge_table?"MERGE TABLE":tt == tt_remote?"REMOTE TABLE":"REPLICA TABLE");
+			return sql_error(sql, 02, SQLSTATE(42000) "CREATE TABLE: cannot create %s table 'with data'",
+							 TABLE_TYPE_DESCRIPTION(tt, properties));
 
 		/* create table */
 		if ((t = mvc_create_table_as_subquery( sql, sq, s, name, column_spec, temp, commit_action)) == NULL) { 
@@ -1334,7 +1413,7 @@ get_schema_name( mvc *sql, char *sname, char *tname)
 }
 
 static sql_rel *
-sql_alter_table(mvc *sql, dlist *qname, symbol *te)
+sql_alter_table(mvc *sql, dlist *qname, symbol *te, symbol *extra)
 {
 	char *sname = qname_schema(qname);
 	char *tname = qname_table(qname);
@@ -1373,14 +1452,64 @@ sql_alter_table(mvc *sql, dlist *qname, symbol *te)
 
 		if (te && (te->token == SQL_TABLE || te->token == SQL_DROP_TABLE)) {
 			dlist *nqname = te->data.lval->h->data.lval;
+			sql_schema *spt = NULL;
+			sql_table *pt = NULL;
 			char *nsname = qname_schema(nqname);
 			char *ntname = qname_table(nqname);
 
 			/* partition sname */
 			if (!nsname)
 				nsname = sname;
+
+			if (nsname && !(spt=mvc_bind_schema(sql, nsname))) {
+				(void) sql_error(sql, 02, SQLSTATE(3F000) "ALTER TABLE: no such schema '%s'", sname);
+				return NULL;
+			}
+			if ((pt = mvc_bind_table(sql, spt, ntname)) == NULL)
+				return sql_error(sql, 02, SQLSTATE(42S02) "ALTER TABLE: no such table '%s' in schema '%s'", ntname, spt->base.name);
+
 			if (te->token == SQL_TABLE) {
-				return rel_alter_table(sql->sa, DDL_ALTER_TABLE_ADD_TABLE, sname, tname, nsname, ntname, 0);
+				if(!extra)
+					return rel_alter_table(sql->sa, DDL_ALTER_TABLE_ADD_TABLE, sname, tname, sname, ntname, 0);
+
+				if ((isMergeTable(pt) || isReplicaTable(pt)) && list_empty(pt->members.set))
+					return sql_error(sql, 02, SQLSTATE(42000) "The %s table %s.%s should have at least one table associated",
+									 TABLE_TYPE_DESCRIPTION(pt->type, pt->properties), spt->base.name, pt->base.name);
+
+				if(extra->token == SQL_MERGE_PARTITION) { //partition to hold null values only
+					dlist* ll = extra->data.lval;
+					int update = ll->h->next->next->next->data.i_val;
+
+					if(isRangePartitionTable(t)) {
+						return rel_alter_table_add_partition_range(sql, t, pt, sname, tname, sname, ntname, NULL, NULL, 1, update);
+					} else if(isListPartitionTable(t)) {
+						return rel_alter_table_add_partition_list(sql, t, pt, sname, tname, sname, ntname, NULL, 1, update);
+					} else {
+						return sql_error(sql, 02,SQLSTATE(42000) "ALTER TABLE: cannot add a partition into a merge table");
+					}
+				} else if(extra->token == SQL_PARTITION_RANGE) {
+					dlist* ll = extra->data.lval;
+					symbol* min = ll->h->data.sym, *max = ll->h->next->data.sym;
+					int nills = ll->h->next->next->data.i_val, update = ll->h->next->next->next->data.i_val;
+
+					if(!isRangePartitionTable(t)) {
+						return sql_error(sql, 02,SQLSTATE(42000) "ALTER TABLE: cannot add a range partition into a %s table",
+										 isListPartitionTable(t)?"list partition":"merge");
+					}
+
+					return rel_alter_table_add_partition_range(sql, t, pt, sname, tname, sname, ntname, min, max, nills, update);
+				} else if(extra->token == SQL_PARTITION_LIST) {
+					dlist* ll = extra->data.lval, *values = ll->h->data.lval;
+					int nills = ll->h->next->data.i_val, update = ll->h->next->next->data.i_val;
+
+					if(!isListPartitionTable(t)) {
+						return sql_error(sql, 02,SQLSTATE(42000) "ALTER TABLE: cannot add a value partition into a %s table",
+										 isRangePartitionTable(t)?"range partition":"merge");
+					}
+
+					return rel_alter_table_add_partition_list(sql, t, pt, sname, tname, sname, ntname, values, nills, update);
+				}
+				assert(0);
 			} else {
 				int drop_action = te->data.lval->h->next->data.i_val;
 
@@ -1401,7 +1530,7 @@ sql_alter_table(mvc *sql, dlist *qname, symbol *te)
 			return rel_alter_table(sql->sa, DDL_ALTER_TABLE_SET_ACCESS, sname, tname, NULL, NULL, state);
 		}
 
-	       	nt = dup_sql_table(sql->sa, t);
+		nt = dup_sql_table(sql->sa, t);
 		if (!nt || (te && table_element(sql, te, s, nt, 1) == SQL_ERR)) 
 			return NULL;
 
@@ -1427,7 +1556,7 @@ sql_alter_table(mvc *sql, dlist *qname, symbol *te)
 						return sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 					d = sql_message("select cast(%s as %s);", c->def, typestr);
 					_DELETE(typestr);
-					e = rel_parse_val(sql, d, sql->emode);
+					e = rel_parse_val(sql, d, sql->emode, NULL);
 					_DELETE(d);
 				} else {
 					e = exp_atom(sql->sa, atom_general(sql->sa, &c->type, NULL));
@@ -2336,6 +2465,7 @@ rel_schemas(mvc *sql, symbol *s)
 			   l->h->next->data.i_val, 	/* drop_action */
 			   l->h->next->next->data.i_val); /* if exists */
 	} 	break;
+	case SQL_DECLARE_TABLE:
 	case SQL_CREATE_TABLE:
 	{
 		dlist *l = s->data.lval;
@@ -2359,6 +2489,7 @@ rel_schemas(mvc *sql, symbol *s)
 				       l->h->next->next->next->data.i_val,           /* commit action */
 				       l->h->next->next->next->next->data.sval,      /* location */
 				       username, password, pw_encrypted,
+				       l->h->next->next->next->next->next->next->next->data.sym,
 				       l->h->next->next->next->next->next->next->data.i_val); /* if not exists */
 	} 	break;
 	case SQL_CREATE_VIEW:
@@ -2405,7 +2536,8 @@ rel_schemas(mvc *sql, symbol *s)
 
 		ret = sql_alter_table(sql, 
 			l->h->data.lval,      /* table name */
-		  	l->h->next->data.sym);/* table element */
+			l->h->next->data.sym, /* table element */
+			l->h->next->next->data.sym);
 	} 	break;
 	case SQL_GRANT_ROLES:
 	{

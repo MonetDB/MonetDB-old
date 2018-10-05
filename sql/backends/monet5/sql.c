@@ -23,6 +23,7 @@
 #include "store_sequence.h"
 #include "sql_optimizer.h"
 #include "sql_datetime.h"
+#include "sql_partition.h"
 #include "rel_optimizer.h"
 #include "rel_partition.h"
 #include "rel_distribute.h"
@@ -116,15 +117,14 @@ sql_symbol2relation(mvc *c, symbol *sym)
 	sql_rel *r;
 
 	r = rel_semantic(c, sym);
-	if (!r)
-		return NULL;
-	if (r) {
+	if (r)
 		r = rel_optimizer(c, r, 1);
+	if (r)
 		r = rel_distribute(c, r);
+	if (r)
 		r = rel_partition(c, r);
-		if (rel_no_mitosis(r) || rel_need_distinct_query(r))
-			c->no_mitosis = 1;
-	}
+	if (r && (rel_no_mitosis(r) || rel_need_distinct_query(r)))
+		c->no_mitosis = 1;
 	return r;
 }
 
@@ -226,7 +226,6 @@ SQLmvc(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 SQLcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int ret;
 	mvc *sql = NULL;
 	str msg;
 	(void) stk;
@@ -239,11 +238,7 @@ SQLcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	if (sql->session->auto_commit != 0)
 		throw(SQL, "sql.trans", SQLSTATE(2DM30) "COMMIT not allowed in auto commit mode");
-	ret = mvc_commit(sql, 0, 0);
-	if (ret < 0) {
-		throw(SQL, "sql.trans", SQLSTATE(2D000) "transaction commit failed");
-	}
-	return msg;
+	return mvc_commit(sql, 0, 0, false);
 }
 
 str
@@ -260,7 +255,7 @@ SQLabort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 
 	if (sql->session->active) {
-		mvc_rollback(sql, 0, NULL);
+		msg = mvc_rollback(sql, 0, NULL, false);
 	}
 	return msg;
 }
@@ -284,6 +279,7 @@ create_table_or_view(mvc *sql, char *sname, char *tname, sql_table *t, int temp)
 	sql_schema *s = mvc_bind_schema(sql, sname);
 	sql_table *nt = NULL;
 	node *n;
+	int check = 0;
 
 	(void)tname;
 	if (STORE_READONLY)
@@ -299,13 +295,12 @@ create_table_or_view(mvc *sql, char *sname, char *tname, sql_table *t, int temp)
 		return sql_message(SQLSTATE(42000) "CREATE TABLE: insufficient privileges for user '%s' in schema '%s'", stack_get_string(sql, "current_user"), s->base.name);
 	} else if (temp == SQL_DECLARED_TABLE && !list_empty(t->keys.set)) {
 		return sql_message(SQLSTATE(42000) "DECLARE TABLE: '%s' cannot have constraints", t->base.name);
-
 	}
 
 	osa = sql->sa;
 	sql->sa = NULL;
 
-	nt = sql_trans_create_table(sql->session->tr, s, t->base.name, t->query, t->type, t->system, temp, t->commit_action, t->sz);
+	nt = sql_trans_create_table(sql->session->tr, s, t->base.name, t->query, t->type, t->system, temp, t->commit_action, t->sz, t->properties);
 
 	/* first check default values */
 	for (n = t->columns.set->h; n; n = n->next) {
@@ -314,26 +309,37 @@ create_table_or_view(mvc *sql, char *sname, char *tname, sql_table *t, int temp)
 		if (c->def) {
 			char *buf, *typestr;
 			sql_rel *r = NULL;
+			list *id_l;
 
 			sql->sa = sa_create();
-			if(!sql->sa)
+			if(!sql->sa) {
+				sql->sa = osa;
 				throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			}
 			buf = sa_alloc(sql->sa, strlen(c->def) + 8);
-			if(!buf)
+			if(!buf) {
+				sa_destroy(sql->sa);
+				sql->sa = osa;
 				throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			}
 			typestr = subtype2string2(&c->type);
-			if(!typestr)
+			if(!typestr) {
+				sa_destroy(sql->sa);
+				sql->sa = osa;
 				throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			}
 			snprintf(buf, BUFSIZ, "select cast(%s as %s);", c->def, typestr);
 			_DELETE(typestr);
 			r = rel_parse(sql, s, buf, m_deps);
-			if (!r || !is_project(r->op) || !r->exps || list_length(r->exps) != 1 || rel_check_type(sql, &c->type, r->exps->h->data, type_equal) == NULL)
+			if (!r || !is_project(r->op) || !r->exps || list_length(r->exps) != 1 || rel_check_type(sql, &c->type, r->exps->h->data, type_equal) == NULL) {
+				if(r)
+					rel_destroy(r);
+				sa_destroy(sql->sa);
+				sql->sa = osa;
 				throw(SQL, "sql.catalog", SQLSTATE(42000) "%s", sql->errstr);
-			if (r) {
-				list *id_l = rel_dependencies(sql, r);
-				mvc_create_dependencies(sql, id_l, nt->base.id, FUNC_DEPENDENCY);
 			}
-
+			id_l = rel_dependencies(sql, r);
+			mvc_create_dependencies(sql, id_l, nt->base.id, FUNC_DEPENDENCY);
 			rel_destroy(r);
 			sa_destroy(sql->sa);
 			sql->sa = NULL;
@@ -341,11 +347,43 @@ create_table_or_view(mvc *sql, char *sname, char *tname, sql_table *t, int temp)
 	}
 
 	for (n = t->columns.set->h; n; n = n->next) {
-		sql_column *c = n->data;
-		if (mvc_copy_column(sql, nt, c) == NULL)
-			throw(SQL, "sql.catalog", SQLSTATE(42000) "CREATE TABLE: %s_%s_%s conflicts", s->base.name, t->base.name, c->base.name);
+		sql_column *c = n->data, *copied = mvc_copy_column(sql, nt, c);
 
+		if (copied == NULL) {
+			sql->sa = osa;
+			throw(SQL, "sql.catalog", SQLSTATE(42000) "CREATE TABLE: %s_%s_%s conflicts", s->base.name, t->base.name, c->base.name);
+		}
+		if(isPartitionedByColumnTable(t) && c->base.id == t->part.pcol->base.id)
+			nt->part.pcol = copied;
 	}
+	if(isPartitionedByExpressionTable(t)) {
+		char *err = NULL;
+
+		nt->part.pexp->exp = sa_strdup(sql->session->tr->sa, t->part.pexp->exp);
+
+		sql->sa = sa_create();
+		if(!sql->sa) {
+			sql->sa = osa;
+			throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		}
+
+		err = bootstrap_partition_expression(sql, sql->session->tr->sa, nt, 1);
+		sa_destroy(sql->sa);
+		sql->sa = NULL;
+		if(err) {
+			sql->sa = osa;
+			return err;
+		}
+	}
+	check = sql_trans_set_partition_table(sql->session->tr, nt);
+	if(check == -1) {
+		sql->sa = osa;
+		throw(SQL, "sql.catalog", SQLSTATE(42000) "CREATE TABLE: %s_%s: the partition's expression is too long", s->base.name, t->base.name);
+	} else if(check) {
+		sql->sa = osa;
+		throw(SQL, "sql.catalog", SQLSTATE(42000) "CREATE TABLE: %s_%s: an internal error occurred", s->base.name, t->base.name);
+	}
+
 	if (t->idxs.set) {
 		for (n = t->idxs.set->h; n; n = n->next) {
 			sql_idx *i = n->data;
@@ -355,7 +393,21 @@ create_table_or_view(mvc *sql, char *sname, char *tname, sql_table *t, int temp)
 	if (t->keys.set) {
 		for (n = t->keys.set->h; n; n = n->next) {
 			sql_key *k = n->data;
+			char *err = NULL;
 
+			sql->sa = sa_create();
+			if(!sql->sa) {
+				sql->sa = osa;
+				throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			}
+
+			err = sql_partition_validate_key(sql, nt, k, "CREATE");
+			sa_destroy(sql->sa);
+			sql->sa = NULL;
+			if(err) {
+				sql->sa = osa;
+				return err;
+			}
 			mvc_copy_key(sql, nt, k);
 		}
 	}
@@ -364,8 +416,10 @@ create_table_or_view(mvc *sql, char *sname, char *tname, sql_table *t, int temp)
 		sql_rel *r = NULL;
 
 		sql->sa = sa_create();
-		if(!sql->sa)
+		if(!sql->sa) {
+			sql->sa = osa;
 			throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		}
 		r = rel_parse(sql, s, nt->query, m_deps);
 		if (r)
 			r = rel_optimizer(sql, r, 0);
@@ -405,7 +459,7 @@ create_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *col
 		msg = sql_error(sql, 02, "3F000!CREATE TABLE: no such schema '%s'", sname);
 		goto cleanup;
 	}
-	if (!(t = mvc_create_table(sql, s, tname, tt_table, 0, SQL_DECLARED_TABLE, CA_COMMIT, -1))) {
+	if (!(t = mvc_create_table(sql, s, tname, tt_table, 0, SQL_DECLARED_TABLE, CA_COMMIT, -1, 0))) {
 		msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not create table '%s'", tname);
 		goto cleanup;
 	}
@@ -1411,9 +1465,9 @@ DELTAbat(bat *result, const bat *col, const bat *uid, const bat *uval, const bat
 {
 	BAT *c, *u_id, *u_val, *i = NULL, *res;
 
-	if ((u_id = BBPquickdesc(*uid, 0)) == NULL)
+	if ((u_id = BBPquickdesc(*uid, false)) == NULL)
 		throw(MAL, "sql.delta", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
-	if (ins && (i = BBPquickdesc(*ins, 0)) == NULL)
+	if (ins && (i = BBPquickdesc(*ins, false)) == NULL)
 		throw(MAL, "sql.delta", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 
 	/* no updates, no inserts */
@@ -1422,7 +1476,7 @@ DELTAbat(bat *result, const bat *col, const bat *uid, const bat *uval, const bat
 		return MAL_SUCCEED;
 	}
 
-	if ((c = BBPquickdesc(*col, 0)) == NULL)
+	if ((c = BBPquickdesc(*col, false)) == NULL)
 		throw(MAL, "sql.delta", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 
 	/* bat may change */
@@ -1483,9 +1537,9 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 	BAT *c, *cminu = NULL, *u_id, *u_val, *u, *i = NULL, *res;
 	gdk_return ret;
 
-	if ((u_id = BBPquickdesc(*uid, 0)) == NULL)
+	if ((u_id = BBPquickdesc(*uid, false)) == NULL)
 		throw(MAL, "sql.delta", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
-	if (ins && (i = BBPquickdesc(*ins, 0)) == NULL)
+	if (ins && (i = BBPquickdesc(*ins, false)) == NULL)
 		throw(MAL, "sql.delta", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 
 	/* no updates, no inserts */
@@ -1494,7 +1548,7 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 		return MAL_SUCCEED;
 	}
 
-	if ((c = BBPquickdesc(*col, 0)) == NULL)
+	if ((c = BBPquickdesc(*col, false)) == NULL)
 		throw(MAL, "sql.delta", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 
 	/* bat may change */
@@ -2116,7 +2170,7 @@ mvc_export_table_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	else if ( (s = open_wastream(filename)) == NULL || mnstr_errnr(s)) {
 		int errnr = mnstr_errnr(s);
 		if (s)
-			mnstr_destroy(s);
+			close_stream(s);
 		msg=  createException(IO, "streams.open", SQLSTATE(42000) "could not open file '%s': %s",
 				      filename?filename:"stdout", strerror(errnr));
 		goto wrapup_result_set1;
@@ -2322,7 +2376,7 @@ mvc_export_row_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	else if ( (s = open_wastream(filename)) == NULL || mnstr_errnr(s)) {
 		int errnr = mnstr_errnr(s);
 		if (s)
-			mnstr_destroy(s);
+			close_stream(s);
 		msg=  createException(IO, "streams.open", SQLSTATE(42000) "could not open file '%s': %s",
 				      filename?filename:"stdout", strerror(errnr));
 		goto wrapup_result_set;
@@ -2636,7 +2690,7 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if (!ss || mnstr_errnr(ss)) {
 			int errnr = mnstr_errnr(ss);
 			if (ss)
-				mnstr_destroy(ss);
+				close_stream(ss);
 			GDKfree(tsep);
 			GDKfree(rsep);
 			GDKfree(ssep);
@@ -2658,7 +2712,7 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			}
 			widths = malloc(sizeof(size_t) * ncol);
 			if (!widths) {
-				mnstr_destroy(ss);
+				close_stream(ss);
 				GDKfree(tsep);
 				GDKfree(rsep);
 				GDKfree(ssep);
@@ -2678,7 +2732,7 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if (!ssep) {
 				ssep = GDKmalloc(2);
 				if(ssep == NULL) {
-					mnstr_destroy(ss);
+					close_stream(ss);
 					GDKfree(tsep);
 					GDKfree(rsep);
 					GDKfree(ns);
@@ -2706,8 +2760,7 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	GDKfree(tsep);
 	GDKfree(rsep);
-	if (ssep)
-		GDKfree(ssep);
+	GDKfree(ssep);
 	GDKfree(ns);
 	if (fname && s == NULL)
 		throw(IO, "bstreams.create", SQLSTATE(42000) "Failed to create block stream");
@@ -2730,7 +2783,7 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	mvc *m = NULL;
 	str msg;
 	BUN cnt = 0;
-	int init = 0;
+	bool init = false;
 	int i;
 	const char *sname = *getArgReference_str(stk, pci, 0 + pci->retc);
 	const char *tname = *getArgReference_str(stk, pci, 1 + pci->retc);
@@ -2837,7 +2890,7 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			throw(SQL, "sql", SQLSTATE(42000) "Binary files for table '%s' have inconsistent counts", tname);
 		}
 		cnt = BATcount(c);
-		init = 1;
+		init = true;
 		*getArgReference_bat(stk, pci, i - (2 + pci->retc)) = c->batCacheid;
 		BBPkeepref(c->batCacheid);
 	}
