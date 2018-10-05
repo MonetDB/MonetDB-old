@@ -1262,6 +1262,7 @@ readValue(LASPointH p, ParameterValues param)
 	RetVal ret;
 	LASColorH color;
 
+	ret.val_bte = 0;
 	switch(param) {
 	case PARAM_X_COORD:
 		ret.val_dbl = LASPoint_GetX(p);
@@ -1314,7 +1315,7 @@ readValue(LASPointH p, ParameterValues param)
 		color = LASPoint_GetColor(p);
 		ret.val_int = LASColor_GetRed(color);
 		break;
-	case PARAM_VERTEX_INDEX:
+	default:
 		/* This data is implicit. Set the return value just for the
 		 * compiler
 		 */
