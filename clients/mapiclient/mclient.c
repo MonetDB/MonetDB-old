@@ -2204,9 +2204,9 @@ showCommands(void)
 	mnstr_printf(toConsole, "\\f       - format using renderer {csv,tab,raw,sql,xml,trash,rowcount,expanded,sam}\n");
 	mnstr_printf(toConsole, "\\w#      - set maximal page width (-1=unlimited, 0=terminal width, >0=limit to num)\n");
 	mnstr_printf(toConsole, "\\r#      - set maximum rows per page (-1=raw)\n");
-	mnstr_printf(toConsole, "\\L file  - save client/server interaction\n");
+	mnstr_printf(toConsole, "\\L file  - save client-server interaction\n");
 	mnstr_printf(toConsole, "\\X       - trace mclient code\n");
-	mnstr_printf(toConsole, "\\q       - terminate session\n");
+	mnstr_printf(toConsole, "\\q       - terminate session and quit mclient\n");
 }
 
 #define MD_TABLE    1
@@ -2330,11 +2330,11 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 
 	bufsiz = READBLOCK;
 	buf = malloc(bufsiz);
-
 	if (buf == NULL) {
 		fprintf(stderr,"Malloc for doFile failed");
 		exit(2);
 	}
+
 	do {
 		bool seen_null_byte = false;
 
@@ -2392,7 +2392,6 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 			/* end of file */
 			if (hdl == NULL) {
 				/* nothing more to do */
-				free(buf);
 				goto bailout;
 			}
 
@@ -2425,11 +2424,18 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 					line[5] = prepno < 10 ? ' ' : prepno / 10 + '0';
 					line[6] = prepno % 10 + '0';
 				}
+				if (strcmp(line, "exit\n") == 0) {
+					goto bailout;
+				}
+				break;
+			case 'q':
+				if (strcmp(line, "quit\n") == 0) {
+					goto bailout;
+				}
 				break;
 			case '\\':
 				switch (line[1]) {
 				case 'q':
-					free(buf);
 					goto bailout;
 				case 'X':
 					/* toggle interaction trace */
@@ -2438,12 +2444,12 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 				case 'A':
 					if (mode != SQL)
 						break;
-					mapi_setAutocommit(mid, 1);
+					mapi_setAutocommit(mid, true);
 					continue;
 				case 'a':
 					if (mode != SQL)
 						break;
-					mapi_setAutocommit(mid, 0);
+					mapi_setAutocommit(mid, false);
 					continue;
 				case 'w':
 					pagewidth = atoi(line + 2);
@@ -2608,18 +2614,13 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 							"    LEFT OUTER JOIN comments c ON s.id = c.id\n"
 							"  ORDER BY system, name, sname, ntype)\n"
 							;
-						size_t len = strlen(with_clause) + 1500 + strlen(line);
+						const char *comments_clause = get_comments_clause(mid);
+						size_t len = strlen(comments_clause) + strlen(with_clause) + 400 + strlen(line);
 						char *query = malloc(len);
 						char *q = query, *endq = query + len;
-						char *name_column = hasSchema ? "fullname" : "name";
-						const char *comments_clause = get_comments_clause(mid);
 
 						if (query == NULL) {
 							fprintf(stderr, "memory allocation failure\n");
-							continue;
-						}
-						if (comments_clause == NULL) {
-							free(query);
 							continue;
 						}
 
@@ -2633,10 +2634,8 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 						 * | "data.my*"      | no            | fullname LIKE 'data.my%'      |
 						 * | "*a.my*"        | no            | fullname LIKE '%a.my%'        |
 						 */
-						q += snprintf(q, endq - q, "%s", comments_clause);
-						q += snprintf(q, endq - q, "%s", with_clause);
-						q += snprintf(q, endq - q, " SELECT type, fullname, remark FROM describe_all_objects");
-						q += snprintf(q, endq - q, " WHERE (ntype & %u) > 0", x);
+						q += snprintf(q, endq - q, "%s%s", comments_clause, with_clause);
+						q += snprintf(q, endq - q, " SELECT type, fullname, remark FROM describe_all_objects WHERE (ntype & %u) > 0", x);
 						if (!wantsSystem) {
 							q += snprintf(q, endq - q, " AND NOT system");
 						}
@@ -2644,7 +2643,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 							q += snprintf(q, endq - q, " AND (sname IS NULL OR sname = current_schema)");
 						}
 						if (*line) {
-							q += snprintf(q, endq - q, " AND (%s LIKE '%s')", name_column, line);
+							q += snprintf(q, endq - q, " AND (%s LIKE '%s')", (hasSchema ? "fullname" : "name"), line);
 						}
 						q += snprintf(q, endq - q, " ORDER BY fullname, type, remark");
 
@@ -2950,6 +2949,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 	/* reached on end of file */
 	assert(hdl == NULL);
   bailout:
+	free(buf);
 #ifdef HAVE_LIBREADLINE
 	if (prompt)
 		deinit_readline();
@@ -3027,6 +3027,123 @@ set_timezone(Mapi mid)
 	mapi_close_handle(hdl);
 }
 
+struct privdata {
+	stream *f;
+	char *buf;
+};
+
+#define READSIZE	(1 << 16)
+//#define READSIZE	(1 << 20)
+
+static char *
+getfile(void *data, const char *filename, bool binary,
+	uint64_t offset, size_t *size)
+{
+	stream *f;
+	char *buf;
+	struct privdata *priv = data;
+	ssize_t s;
+
+	if (priv->buf == NULL) {
+		priv->buf = malloc(READSIZE);
+		if (priv->buf == NULL) {
+			*size = 0;
+			return "allocation failed";
+		}
+	}
+	buf = priv->buf;
+	if (filename != NULL) {
+		if (binary) {
+			f = open_rstream(filename);
+			assert(offset <= 1);
+			offset = 0;
+		} else {
+			f = open_rastream(filename);
+#ifdef HAVE_ICONV
+			if (encoding) {
+				stream *tmpf = f;
+				f = iconv_rstream(f, encoding, mnstr_name(f));
+				if (f == NULL)
+					close_stream(tmpf);
+			}
+#endif
+		}
+		if (f == NULL) {
+			*size = 0;	/* indicate error */
+			return "cannot open file";
+		}
+		while (offset > 1) {
+			s = mnstr_readline(f, buf, READSIZE);
+			if (s < 0) {
+				close_stream(f);
+				*size = 0;
+				return "error reading file";
+			}
+			if (s == 0) {
+				/* reached EOF withing offset lines */
+				close_stream(f);
+				*size = 0;
+				return NULL;
+			}
+			if (buf[s - 1] == '\n')
+				offset--;
+		}
+		priv->f = f;
+	} else {
+		f = priv->f;
+		if (size == NULL) {
+			/* done reading before reaching EOF */
+			close_stream(f);
+			priv->f = NULL;
+			return NULL;
+		}
+	}
+	s = mnstr_read(f, buf, 1, READSIZE);
+	if (s <= 0) {
+		*size = 0;
+		close_stream(f);
+		priv->f = NULL;
+		return s < 0 ? "error reading file" : NULL;
+	}
+	*size = (size_t) s;
+	return buf;
+}
+
+static char *
+putfile(void *data, const char *filename, const void *buf, size_t bufsize)
+{
+	struct privdata *priv = data;
+
+	if (filename != NULL) {
+		if ((priv->f = open_wastream(filename)) == NULL)
+			return "cannot open file";
+#ifdef HAVE_ICONV
+		if (encoding) {
+			stream *f = priv->f;
+			priv->f = iconv_wstream(f, encoding, mnstr_name(f));
+			if (priv->f == NULL) {
+				close_stream(f);
+				return "cannot open file";
+			}
+		}
+#endif
+		if (buf == NULL || bufsize == 0)
+			return NULL; /* successfully opened file */
+	} else if (buf == NULL) {
+		/* done writing */
+		int flush = mnstr_flush(priv->f);
+		close_stream(priv->f);
+		priv->f = NULL;
+		return flush < 0 ? "error writing output" : NULL;
+	}
+	if (mnstr_write(priv->f, buf, 1, bufsize) < (ssize_t) bufsize) {
+		close_stream(priv->f);
+		priv->f = NULL;
+		return "error writing output";
+	}
+	return NULL;		/* success */
+}
+
 __declspec(noreturn) static void usage(const char *prog, int xit)
 	__attribute__((__noreturn__));
 
@@ -3088,7 +3205,7 @@ main(int argc, char **argv)
 	char *dbname = NULL;
 	char *output = NULL;	/* output format as string */
 	FILE *fp = NULL;
-	int trace = 0;
+	bool trace = false;
 	bool dump = false;
 	bool useinserts = false;
 	int c = 0;
@@ -3321,7 +3438,7 @@ main(int argc, char **argv)
 			pagewidthset = pagewidth != 0;
 			break;
 		case 'X':
-			trace = MAPI_TRACE;
+			trace = true;
 			break;
 		case 'z':
 			settz = false;
@@ -3428,6 +3545,10 @@ main(int argc, char **argv)
 			exit(1);
 		}
 	}
+
+	struct privdata priv;
+	priv = (struct privdata) {0};
+	mapi_setfilecallback(mid, getfile, putfile, &priv);
 
 	if (!autocommit)
 		mapi_setAutocommit(mid, autocommit);

@@ -137,7 +137,7 @@ add_to_merge_partitions_accumulator(backend *be, int nr)
 	q = pushArgument(mb, q, help);
 	q = pushArgument(mb, q, nr);
 
-	be->first_statement_generated = 1; /* set the first statement as generated */
+	be->first_statement_generated = true; /* set the first statement as generated */
 
 	return getDestVar(q);
 }
@@ -1143,7 +1143,7 @@ stmt_limit(backend *be, stmt *col, stmt *piv, stmt *gid, stmt *offset, stmt *lim
 }
 
 stmt *
-stmt_sample(backend *be, stmt *s, stmt *sample)
+stmt_sample(backend *be, stmt *s, stmt *sample, stmt *seed)
 {
 	MalBlkPtr mb = be->mb;
 	InstrPtr q = NULL;
@@ -1153,6 +1153,14 @@ stmt_sample(backend *be, stmt *s, stmt *sample)
 	q = newStmt(mb, sampleRef, subuniformRef);
 	q = pushArgument(mb, q, s->nr);
 	q = pushArgument(mb, q, sample->nr);
+
+	if (seed) {
+		if (seed->nr < 0)
+			return NULL;
+
+		q = pushArgument(mb, q, seed->nr);
+	}
+
 	if (q) {
 		stmt *ns = stmt_create(be->mvc->sa, st_sample);
 		if (ns == NULL) {
@@ -1162,6 +1170,11 @@ stmt_sample(backend *be, stmt *s, stmt *sample)
 
 		ns->op1 = s;
 		ns->op2 = sample;
+
+		if (seed) {
+			ns->op3 = seed;
+		}
+
 		ns->nrcols = s->nrcols;
 		ns->key = s->key;
 		ns->aggr = s->aggr;
@@ -2170,7 +2183,7 @@ Id = getArg(p,0);
 
 
 static int
-dump_export_header(mvc *sql, MalBlkPtr mb, list *l, int file, const char * format, const char * sep,const char * rsep,const char * ssep,const char * ns)
+dump_export_header(mvc *sql, MalBlkPtr mb, list *l, int file, const char * format, const char * sep,const char * rsep,const char * ssep,const char * ns, int onclient)
 {
 	node *n;
 	InstrPtr q = NULL;
@@ -2182,12 +2195,13 @@ dump_export_header(mvc *sql, MalBlkPtr mb, list *l, int file, const char * forma
 	list = newInstruction(mb, sqlRef, export_tableRef);
 	getArg(list,0) = newTmpVariable(mb,TYPE_int);
 	if( file >= 0){
-		list  = pushArgument(mb, list, file);
-		list  = pushStr(mb, list, format);
-		list  = pushStr(mb, list, sep);
-		list  = pushStr(mb, list, rsep);
-		list  = pushStr(mb, list, ssep);
-		list  = pushStr(mb, list, ns);
+		list = pushArgument(mb, list, file);
+		list = pushStr(mb, list, format);
+		list = pushStr(mb, list, sep);
+		list = pushStr(mb, list, rsep);
+		list = pushStr(mb, list, ssep);
+		list = pushStr(mb, list, ns);
+		list = pushInt(mb, list, onclient);
 	}
 	k = list->argc;
 	meta(tblId,TYPE_str);
@@ -2243,7 +2257,7 @@ dump_export_header(mvc *sql, MalBlkPtr mb, list *l, int file, const char * forma
 
 
 stmt *
-stmt_export(backend *be, stmt *t, const char *sep, const char *rsep, const char *ssep, const char *null_string, stmt *file)
+stmt_export(backend *be, stmt *t, const char *sep, const char *rsep, const char *ssep, const char *null_string, int onclient, stmt *file)
 {
 	MalBlkPtr mb = be->mb;
 	InstrPtr q = NULL;
@@ -2263,7 +2277,7 @@ stmt_export(backend *be, stmt *t, const char *sep, const char *rsep, const char 
 		fnr = getArg(q,0);
 	}
 	if (t->type == st_list) {
-		if (dump_export_header(be->mvc, mb, l, fnr, "csv", sep, rsep, ssep, null_string) < 0)
+		if (dump_export_header(be->mvc, mb, l, fnr, "csv", sep, rsep, ssep, null_string, onclient) < 0)
 			return NULL;
 	} else {
 		q = newStmt(mb, sqlRef, raiseRef);

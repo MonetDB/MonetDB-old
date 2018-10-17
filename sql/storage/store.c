@@ -596,8 +596,7 @@ load_range_partition(sql_trans *tr, sql_schema *syss, sql_part *pt)
 		ValRecord vmin, vmax;
 		ptr ok;
 
-		memset(&vmin, 0, sizeof(ValRecord));
-		memset(&vmax, 0, sizeof(ValRecord));
+		vmin = vmax = (ValRecord) {.vtype = TYPE_void,};
 
 		v1 = table_funcs.column_find_value(tr, find_sql_column(ranges, "minimum"), rid);
 		v2 = table_funcs.column_find_value(tr, find_sql_column(ranges, "maximum"), rid);
@@ -652,7 +651,7 @@ load_value_partition(sql_trans *tr, sql_schema *syss, sql_part *pt)
 		ValRecord vvalue;
 		ptr ok;
 
-		memset(&vvalue, 0, sizeof(ValRecord));
+		vvalue = (ValRecord) {.vtype = TYPE_void,};
 		void *v = table_funcs.column_find_value(tr, find_sql_column(values, "value"), rid);
 		ok = VALinit(&vvalue, TYPE_str, v);
 		_DELETE(v);
@@ -1277,6 +1276,45 @@ load_trans(sql_trans* tr, sqlid id)
 	table_funcs.rids_destroy(schemas);
 }
 
+static int
+store_upgrade_ids(sql_trans* tr)
+{
+	node *n, *m, *o;
+	for (n = tr->schemas.set->h; n; n = n->next) {
+		sql_schema *s = n->data;
+
+		if (isDeclaredSchema(s))
+			continue;
+		if (s->tables.set == NULL)
+			continue;
+		for (m = s->tables.set->h; m; m = m->next) {
+			sql_table *t = m->data;
+
+			if (!isTable(t))
+				continue;
+			if (store_funcs.upgrade_del(t) != LOG_OK)
+				return SQL_ERR;
+			for (o = t->columns.set->h; o; o = o->next) {
+				sql_column *c = o->data;
+
+				if (store_funcs.upgrade_col(c) != LOG_OK)
+					return SQL_ERR;
+			}
+			if (t->idxs.set == NULL)
+				continue;
+			for (o = t->idxs.set->h; o; o = o->next) {
+				sql_idx *i = o->data;
+
+				if (store_funcs.upgrade_idx(i) != LOG_OK)
+					return SQL_ERR;
+			}
+		}
+	}
+	store_apply_deltas();
+	logger_funcs.with_ids();
+	return SQL_OK;
+}
+
 static sqlid
 next_oid(void)
 {
@@ -1622,6 +1660,7 @@ bootstrap_create_table(sql_trans *tr, sql_schema *s, char *name)
 	} else {
 		t = create_sql_table(tr->sa, name, tt_table, 1, persistence, commit_action, 0);
 	}
+	t->bootstrap = 1;
 
 	if (bs_debug)
 		fprintf(stderr, "#bootstrap_create_table %s\n", name );
@@ -1908,6 +1947,9 @@ store_load(void) {
 	GDKfree(store_oids);
 	store_oids = NULL;
 	nstore_oids = 0;
+	if (logger_funcs.log_needs_update())
+		if (store_upgrade_ids(gtrans) != SQL_OK)
+			fprintf(stderr, "cannot commit upgrade transaction\n");
 	return first;
 }
 
@@ -2722,6 +2764,7 @@ table_dup(sql_trans *tr, int flag, sql_table *ot, sql_schema *s)
 	obj_ref(ot,t,flag);
 	t->type = ot->type;
 	t->system = ot->system;
+	t->bootstrap = ot->bootstrap;
 	t->persistence = ot->persistence;
 	t->commit_action = ot->commit_action;
 	t->access = ot->access;
@@ -4269,7 +4312,7 @@ sys_drop_column(sql_trans *tr, sql_column *col, int drop_action)
 		n = cs_find_name(&syss->seqs, seq_name);
 		seq = find_sql_sequence(syss, seq_name);
 		if (seq && sql_trans_get_dependency_type(tr, seq->base.id, BEDROPPED_DEPENDENCY)) {
-			sys_drop_sequence(tr, seq, drop_action);		
+			sys_drop_sequence(tr, seq, drop_action);
 			seq->base.wtime = syss->base.wtime = tr->wtime = tr->wstime;
 			cs_del(&syss->seqs, n, seq->base.flag);
 		}
@@ -4817,8 +4860,7 @@ sql_trans_add_range_partition(sql_trans *tr, sql_table *mt, sql_table *pt, sql_s
 	ptr ok;
 
 	assert(isGlobal(mt));
-	memset(&vmin, 0, sizeof(ValRecord));
-	memset(&vmax, 0, sizeof(ValRecord));
+	vmin = vmax = (ValRecord) {.vtype = TYPE_void,};
 
 	if(min) {
 		ok = VALinit(&vmin, localtype, min);

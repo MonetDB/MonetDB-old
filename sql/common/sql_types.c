@@ -779,8 +779,6 @@ sql_find_func(sql_allocator *sa, sql_schema *s, const char *sqlfname, int nrargs
 		for (; he && !found; he = he->chain) 
 			if (he->value == prev->func)
 				found = 1;
-		if (found)
-			he = he->chain;
 	}
 	for (; he; he = he->chain) {
 		sql_func *f = he->value;
@@ -809,8 +807,6 @@ sql_find_func(sql_allocator *sa, sql_schema *s, const char *sqlfname, int nrargs
 					for (; he && !found; he = he->chain) 
 						if (he->value == prev->func)
 							found = 1;
-					if (found)
-						he = he->chain;
 				}
 				for (; he; he = he->chain) {
 					sql_func *f = he->value;
@@ -830,8 +826,6 @@ sql_find_func(sql_allocator *sa, sql_schema *s, const char *sqlfname, int nrargs
 					for (; n && !found; n = n->next) 
 						if (n->data == prev)
 							found = 1;
-					if (found)
-						n = n->next;
 				}
 				for (; n; n = n->next) {
 					sql_func *f = n->data;
@@ -914,8 +908,6 @@ sql_bind_member(sql_allocator *sa, sql_schema *s, const char *sqlfname, sql_subt
 		for(; n && !found; n = n->next)
 			if (n->data == prev->func)
 				found = 1;
-		if (n)
-			n = n->next;
 	}
 	for (; n; n = n->next) {
 		sql_func *f = n->data;
@@ -937,8 +929,6 @@ sql_bind_member(sql_allocator *sa, sql_schema *s, const char *sqlfname, sql_subt
 			for(; n && !found; n = n->next)
 				if (n->data == prev->func)
 					found = 1;
-			if (n)
-				n = n->next;
 		}
 		for (; n; n = n->next) {
 			sql_func *f = n->data;
@@ -1860,9 +1850,9 @@ sqltypeinit( sql_allocator *sa)
 				sres, FALSE, F_FUNC, SCALE_FIX);
 	}
 	sres = create_arg(sa, NULL, sql_create_subtype(sa, TABLE, 0, 0), ARG_OUT); 
-	/* copyfrom fname (arg 11) */
+	/* copyfrom fname (arg 12) */
 	f=sql_create_func_(sa, "copyfrom", "sql", "copy_from",
-	 	list_append( list_append( list_append( list_append( list_append( list_append(list_append (list_append (list_append(list_append(list_append(sa_list(sa),
+	 	list_append( list_append( list_append( list_append( list_append( list_append(list_append (list_append (list_append(list_append(list_append(list_append(sa_list(sa),
 			create_arg(sa, NULL, sql_create_subtype(sa, STR, 0, 0), ARG_IN)), 
 			create_arg(sa, NULL, sql_create_subtype(sa, STR, 0, 0), ARG_IN)), 
 			create_arg(sa, NULL, sql_create_subtype(sa, STR, 0, 0), ARG_IN)), 
@@ -1873,14 +1863,16 @@ sqltypeinit( sql_allocator *sa)
 			create_arg(sa, NULL, sql_create_subtype(sa, LNG, 0, 0), ARG_IN)), 
 			create_arg(sa, NULL, sql_create_subtype(sa, INT, 0, 0), ARG_IN)),
 			create_arg(sa, NULL, sql_create_subtype(sa, INT, 0, 0), ARG_IN)),
-			create_arg(sa, NULL, sql_create_subtype(sa, STR, 0, 0), ARG_IN)), sres, FALSE, F_UNION, SCALE_FIX);
+			create_arg(sa, NULL, sql_create_subtype(sa, STR, 0, 0), ARG_IN)),
+			create_arg(sa, NULL, sql_create_subtype(sa, INT, 0, 0), ARG_IN)), sres, FALSE, F_UNION, SCALE_FIX);
 	f->varres = 1;
 
 	/* bincopyfrom */
 	f = sql_create_func_(sa, "copyfrom", "sql", "importTable",
-	 	list_append(list_append(sa_list(sa), 
+	 	list_append(list_append(list_append(sa_list(sa), 
 			create_arg(sa, NULL, sql_create_subtype(sa, STR, 0, 0), ARG_IN)), 
-			create_arg(sa, NULL, sql_create_subtype(sa, STR, 0, 0), ARG_IN)), sres, FALSE, F_UNION, SCALE_FIX);
+			create_arg(sa, NULL, sql_create_subtype(sa, STR, 0, 0), ARG_IN)),
+			create_arg(sa, NULL, sql_create_subtype(sa, INT, 0, 0), ARG_IN)), sres, FALSE, F_UNION, SCALE_FIX);
 	f->varres = 1;
 
 	/* sys_update_schemas, sys_update_tables */

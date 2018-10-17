@@ -243,6 +243,7 @@ int yydebug=1;
 	opt_limit
 	opt_offset
 	opt_sample
+	opt_seed
 	param
 	case_exp
 	case_scalar_exp
@@ -512,6 +513,7 @@ int yydebug=1;
 	set_distinct
 	opt_with_check_option
 	opt_with_nulls
+	opt_on_location
 	create
 	create_or_replace
 	if_exists
@@ -620,11 +622,11 @@ SQLCODE SQLERROR UNDER WHENEVER
 %token ALTER ADD TABLE COLUMN TO UNIQUE VALUES VIEW WHERE WITH
 %token<sval> sqlDATE TIME TIMESTAMP INTERVAL
 %token YEAR QUARTER MONTH WEEK DAY HOUR MINUTE SECOND ZONE
-%token LIMIT OFFSET SAMPLE
+%token LIMIT OFFSET SAMPLE SEED
 
 %token CASE WHEN THEN ELSE NULLIF COALESCE IF ELSEIF WHILE DO
 %token ATOMIC BEGIN END
-%token COPY RECORDS DELIMITERS STDIN STDOUT FWF
+%token COPY RECORDS DELIMITERS STDIN STDOUT FWF CLIENT SERVER
 %token INDEX REPLACE
 
 %token AS TRIGGER OF BEFORE AFTER ROW STATEMENT sqlNEW OLD EACH REFERENCING
@@ -2827,22 +2829,29 @@ opt_to_savepoint:
  |  TO SAVEPOINT ident  { $$ = $3; }
  ;
 
+opt_on_location:
+    /* empty */		{ $$ = 0; }
+  | ON CLIENT		{ $$ = 1; }
+  | ON SERVER		{ $$ = 0; }
+  ;
+
 copyfrom_stmt:
-    COPY opt_nr INTO qname opt_column_list FROM string_commalist opt_header_list opt_seps opt_null_string opt_locked opt_best_effort opt_constraint opt_fwf_widths
+    COPY opt_nr INTO qname opt_column_list FROM string_commalist opt_header_list opt_on_location opt_seps opt_null_string opt_locked opt_best_effort opt_constraint opt_fwf_widths
 	{ dlist *l = L();
 	  append_list(l, $4);
 	  append_list(l, $5);
 	  append_list(l, $7);
 	  append_list(l, $8);
-	  append_list(l, $9);
+	  append_list(l, $10);
 	  append_list(l, $2);
-	  append_string(l, $10);
-	  append_int(l, $11);
+	  append_string(l, $11);
 	  append_int(l, $12);
 	  append_int(l, $13);
-	  append_list(l, $14);
+	  append_int(l, $14);
+	  append_list(l, $15);
+	  append_int(l, $9);
 	  $$ = _symbol_create_list( SQL_COPYFROM, l ); }
-  | COPY opt_nr INTO qname opt_column_list FROM STDIN  opt_header_list opt_seps opt_null_string opt_locked opt_best_effort opt_constraint 
+  | COPY opt_nr INTO qname opt_column_list FROM STDIN  opt_header_list opt_seps opt_null_string opt_locked opt_best_effort opt_constraint
 	{ dlist *l = L();
 	  append_list(l, $4);
 	  append_list(l, $5);
@@ -2855,29 +2864,28 @@ copyfrom_stmt:
 	  append_int(l, $12);
 	  append_int(l, $13);
 	  append_list(l, NULL);
+	  append_int(l, 0);
 	  $$ = _symbol_create_list( SQL_COPYFROM, l ); }
   | COPY sqlLOADER INTO qname FROM func_ref
 	{ dlist *l = L();
 	  append_list(l, $4);
 	  append_symbol(l, $6);
 	  $$ = _symbol_create_list( SQL_COPYLOADER, l ); }
-   | COPY opt_nr BINARY INTO qname opt_column_list FROM string_commalist /* binary copy from */ opt_constraint
+   | COPY BINARY INTO qname opt_column_list FROM string_commalist opt_on_location opt_constraint
 	{ dlist *l = L();
-	  if ($2 != NULL) {
-	  	yyerror(m, "COPY INTO: cannot pass number of records when using binary COPY INTO");
-		YYABORT;
-	  }
+	  append_list(l, $4);
 	  append_list(l, $5);
-	  append_list(l, $6);
-	  append_list(l, $8);
+	  append_list(l, $7);
 	  append_int(l, $9);
+	  append_int(l, $8);
 	  $$ = _symbol_create_list( SQL_BINCOPYFROM, l ); }
-  | COPY query_expression_def INTO string opt_seps opt_null_string 
+  | COPY query_expression_def INTO string opt_on_location opt_seps opt_null_string
 	{ dlist *l = L();
 	  append_symbol(l, $2);
 	  append_string(l, $4);
-	  append_list(l, $5);
-	  append_string(l, $6);
+	  append_list(l, $6);
+	  append_string(l, $7);
+	  append_int(l, $5);
 	  $$ = _symbol_create_list( SQL_COPYTO, l ); }
   | COPY query_expression_def INTO STDOUT opt_seps opt_null_string
 	{ dlist *l = L();
@@ -2885,6 +2893,7 @@ copyfrom_stmt:
 	  append_string(l, NULL);
 	  append_list(l, $5);
 	  append_string(l, $6);
+	  append_int(l, 0);
 	  $$ = _symbol_create_list( SQL_COPYTO, l ); }
   ;
   
@@ -3590,16 +3599,38 @@ opt_offset:
 
 opt_sample:
 	/* empty */	{ $$ = NULL; }
- |  SAMPLE poslng	{
-		  	  sql_subtype *t = sql_bind_localtype("lng");
-			  $$ = _newAtomNode( atom_int(SA, t, $2));
+ |  SAMPLE poslng opt_seed	{
+
+	 				dlist *l = L();
+
+					 append_symbol(l,
+					 	_newAtomNode( atom_int(SA, sql_bind_localtype("lng"), $2)) );
+
+					if ($3)
+						append_symbol(l,$3);
+
+			  $$ = _symbol_create_list(SQL_SAMPLE, l);
 			}
- |  SAMPLE INTNUM	{
-		  	  sql_subtype *t = sql_bind_localtype("dbl");
-			  $$ = _newAtomNode( atom_float(SA, t, strtod($2,NULL)));
+ |  SAMPLE INTNUM opt_seed	{
+
+	 				dlist *l = L();
+
+				append_symbol(l,
+					 	_newAtomNode( atom_float(SA, sql_bind_localtype("dbl"), strtod($2,NULL))) );
+				
+				if ($3)
+						append_symbol(l,$3);
+
+			  $$ = _symbol_create_list(SQL_SAMPLE, l);
 			}
  |  SAMPLE param	{ $$ = $2; }
  ;
+
+ opt_seed:
+	/* empty */	{ $$ = NULL; }
+ | SEED intval {
+			  $$ = _newAtomNode( atom_int(SA, sql_bind_localtype("int"), $2));
+ }
 
 sort_specification_list:
     ordering_spec	 { $$ = append_symbol(L(), $1); }
@@ -4637,7 +4668,7 @@ literal:
 		  	while (err == 0 && i < len)
 		  	{
 				res <<= 4;
-				if ('0'<= hexa[i] && hexa[i] <= '9')
+				if (isdigit((unsigned char) hexa[i]))
 					res = res + (hexa[i] - '0');
 				else if ('A' <= hexa[i] && hexa[i] <= 'F')
 					res = res + (hexa[i] - 'A' + 10);
@@ -5574,6 +5605,8 @@ non_reserved_word:
 |  GEOMETRY	{ $$ = sa_strdup(SA, "geometry"); }
 |  REPLACE	{ $$ = sa_strdup(SA, "replace"); }
 |  COMMENT	{ $$ = sa_strdup(SA, "comment"); }
+|  CLIENT	{ $$ = sa_strdup(SA, "client"); }
+|  SERVER	{ $$ = sa_strdup(SA, "server"); }
 ;
 
 name_commalist:
@@ -6372,6 +6405,7 @@ char *token2string(int token)
 	TR(MODE);
 	SQL(INSERT);
 	SQL(DELETE);
+	SQL(TRUNCATE);
 	SQL(UPDATE);
 	SQL(CROSS);
 	SQL(JOIN);
@@ -6443,6 +6477,11 @@ char *token2string(int token)
 	SQL(XMLTEXT);
 	SQL(XMLVALIDATE);
 	SQL(XMLNAMESPACES);
+	SQL(MERGE_PARTITION);
+	SQL(PARTITION_LIST);
+	SQL(PARTITION_RANGE);
+	SQL(PARTITION_COLUMN);
+	SQL(PARTITION_EXPRESSION);
 	}
 	return "unknown";	/* just needed for broken compilers ! */
 }

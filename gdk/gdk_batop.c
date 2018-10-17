@@ -951,9 +951,9 @@ BATslice(BAT *b, BUN l, BUN h)
 		BUN q = h;
 
 		bn = COLnew((oid) (b->hseqbase + low), BATtdense(b) ? TYPE_void : b->ttype, h - l, TRANSIENT);
-		if (bn == NULL) {
+		if (bn == NULL)
 			return NULL;
-		}
+
 		if (bn->ttype == TYPE_void ||
 		    (!bn->tvarsized &&
 		     BATatoms[bn->ttype].atomPut == NULL &&
@@ -1019,6 +1019,8 @@ BATslice(BAT *b, BUN l, BUN h)
 		bn->trevsorted = b->trevsorted;
 		BATkey(bn, BATtkey(b));
 	}
+	ALGODEBUG fprintf(stderr, "#BATslice()=" ALGOBATFMT "\n",
+			  ALGOBATPAR(bn));
 	return bn;
       bunins_failed:
 	BBPreclaim(bn);
@@ -1822,6 +1824,7 @@ BATconstant(oid hseq, int tailtype, const void *v, BUN n, int role)
 	bn->trevsorted = true;
 	bn->tnonil = !bn->tnil;
 	bn->tkey = BATcount(bn) <= 1;
+	ALGODEBUG fprintf(stderr, "#BATconstant()=" ALGOBATFMT "\n", ALGOBATPAR(bn));
 	return bn;
 
   bunins_failed:
@@ -1890,7 +1893,7 @@ BATsetprop(BAT *b, int idx, int type, const void *v)
 	PROPrec *p = BATgetprop(b, idx);
 
 	if (p == NULL) {
-		if ((p = (PROPrec *) GDKmalloc(sizeof(PROPrec))) == NULL) {
+		if ((p = GDKmalloc(sizeof(PROPrec))) == NULL) {
 			/* properties are hints, so if we can't create
 			 * one we ignore the error */
 			return;

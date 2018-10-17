@@ -603,6 +603,8 @@ dnl		MCHECK_ADD_FLAG([-Wformat-signedness]) -- numpy messes this up
 		MCHECK_ADD_FLAG([-Wmissing-declarations])
 		MCHECK_ADD_FLAG([-Wmissing-format-attribute])
 		MCHECK_ADD_FLAG([-Wmissing-prototypes])
+		# need this for clang 9.1.0 on Darwin:
+		MCHECK_ADD_FLAG([-Wno-missing-field-initializers])
 		MCHECK_ADD_FLAG([-Wold-style-definition])
 		MCHECK_ADD_FLAG([-Wpacked])
 		MCHECK_ADD_FLAG([-Wunknown-pragmas])
@@ -2051,7 +2053,8 @@ AS_VAR_IF([enable_odbc], [no],
 		CPPFLAGS="$save_CPPFLAGS"
 		AC_MSG_RESULT([using "$lenp_or_pointer_t"])
 		AC_DEFINE_UNQUOTED([LENP_OR_POINTER_T], [$lenp_or_pointer_t],
-			[Define as SQLLEN * or SQLPOINTER depending on the include file])])
+			[Define as SQLLEN * or SQLPOINTER depending on the include file])
+		AC_CHECK_SIZEOF([SQLWCHAR],,[@%:@include <sql.h>])])
 	 AC_SUBST([ODBC_INCS])
 	 AC_SUBST([ODBCINST_LIBS])
 	 AC_SUBST([ODBC_LIBS])
@@ -2664,18 +2667,6 @@ AM_CONDITIONAL([HAVE_DEVELOPER], [test "x$enable_developer" = xyes])
 AC_SUBST([compilercall], ["$CC $CFLAGS $X_CFLAGS"])
 AC_SUBST([linkercall], ["$LD $LDFLAGS"])
 AC_SUBST([builtby], ["${USER}@`hostname`"])
-pcreversion="not linked to any PCRE library"
-AS_VAR_IF([have_pcre], [yes], [
-        pcreversion="compiled with `pkg-config --modversion libpcre 2>/dev/null`"])
-AC_SUBST([pcreversion])
-opensslversion="not linked to any openssl library"
-AS_VAR_IF([have_openssl], [yes], [
-        opensslversion="compiled with `openssl version 2>/dev/null`"])
-AC_SUBST([opensslversion])
-libxml2version="not linked to any libxml2 library"
-AS_VAR_IF([have_libxml2], [yes], [
-        libxml2version="compiled with `pkg-config --modversion libxml-2.0 2>/dev/null`"])
-AC_SUBST([libxml2version])
 
 # provide different versions of the paths derived above
 AS_VAR_IF([prefix], [NONE],
@@ -2845,6 +2836,12 @@ typedef enum {
 @%:@include <stdbool.h>
 @%:@include <assert.h>
 
+@%:@ifndef static_assert
+/* static_assert is a C11 feature, defined in assert.h which also exists
+ * in many other compilers we ignore it if the compiler doesn't support it */
+@%:@define static_assert(expr, mesg)	((void) 0)
+@%:@endif
+
 @%:@if defined(HAVE___INT128)
 typedef __int128 hge;
 typedef unsigned __int128 uhge;
@@ -2880,6 +2877,7 @@ typedef __uint128_t uhge;
 
 @%:@define PROMPT1		"\001\001\n"	/* prompt: ready for new query */
 @%:@define PROMPT2		"\001\002\n"	/* prompt: more data needed */
+@%:@define PROMPT3		"\001\003\n"	/* prompt: get file content */
 
 @%:@endif /* _SEEN_MONETDB_CONFIG_H */
 ])

@@ -539,7 +539,6 @@ BATprojectchain(BAT **bats)
 	if (i == 1) {
 		/* only dense-tailed BATs before last: we can return a
 		 * slice and manipulate offsets and head seqbase */
-		ALGODEBUG fprintf(stderr, "#BATprojectchain with %d BATs, size "BUNFMT", type %s, using BATslice("BUNFMT","BUNFMT")\n", n, cnt, ATOMname(tpe), off, off + cnt);
 		GDKfree(ba);
 		if (BATtdense(b)) {
 			bn = BATdense(hseq, tseq, cnt);
@@ -553,6 +552,12 @@ BATprojectchain(BAT **bats)
 		}
 		if (iscand)
 			bn = BATfixcand(bn);
+		ALGODEBUG fprintf(stderr, "#BATprojectchain with %d BATs, "
+				  "size " BUNFMT ", type %s, using "
+				  "BATslice(" BUNFMT "," BUNFMT ")="
+				  ALGOOPTBATFMT "\n",
+				  n, cnt, ATOMname(tpe), off, off + cnt,
+				  ALGOOPTBATPAR(bn));
 		return bn;
 	}
 	ALGODEBUG fprintf(stderr, "#BATprojectchain with %d (%d) BATs, size "BUNFMT", type %s\n", n, i, cnt, ATOMname(tpe));
@@ -570,6 +575,10 @@ BATprojectchain(BAT **bats)
 		GDKfree(ba);
 		if (iscand)
 			bn = BATfixcand(bn);
+		ALGODEBUG fprintf(stderr, "#BATprojectchain with %d BATs, "
+				  "size " BUNFMT ", type %s="
+				  ALGOOPTBATFMT "\n",
+				  n, cnt, ATOMname(tpe), ALGOOPTBATPAR(bn));
 		return bn;
 	}
 	bn->tnil = false;	/* we're not paying attention to this */
@@ -768,6 +777,8 @@ BATprojectchain(BAT **bats)
 		bn->tkey = true;
 		bn = BATfixcand(bn);
 	}
+	ALGODEBUG fprintf(stderr, "#BATprojectchain()=" ALGOBATFMT "\n",
+			  ALGOBATPAR(bn));
 	return bn;
 
   bunins_failed:
