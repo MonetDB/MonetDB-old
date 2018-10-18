@@ -1613,6 +1613,11 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 				BBPunfix(u->batCacheid);
 				throw(MAL, "sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			}
+			if (!u->batIscand) {
+				if (res->ttype == TYPE_cnd)
+					res->ttype = TYPE_oid;
+				res->batIscand = false;
+			}
 			ret = BATappend(res, u, cminu, true);
 			BBPunfix(u->batCacheid);
 			if (cminu)
@@ -1628,7 +1633,7 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 			if (ret != GDK_SUCCEED) {
 				throw(MAL, "sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			}
-			res = u;
+			res = BATfixcand(u);
 		} else {
 			BBPunfix(u_val->batCacheid);
 			BBPunfix(u_id->batCacheid);

@@ -265,7 +265,8 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 
 			/* fix the type */
 			setVarUDFtype(mb, getArg(q,0));
-			setVarType(mb, getArg(q,0), newBatType(ATOMtype(getBatType(getArgType(mb,q,q->argc-1)))));
+			/* j = getBatType(getArgType(mb,q,q->argc-1)); */
+			/* setVarType(mb, getArg(q,0), newBatType(j == TYPE_void ? TYPE_oid : j)); */
 			if ( getFunctionId(q) == projectionRef )
 				setFunctionId(q,projectionpathRef);
 			q->typechk = TYPE_UNKNOWN;
