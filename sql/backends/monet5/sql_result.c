@@ -447,7 +447,7 @@ bat_max_strlength(BAT *b)
 	BATiter bi = bat_iterator(b);
 
 	BATloop(b, p, q) {
-		l = STRwidth((const char *) BUNtail(bi, p));
+		l = STRwidth((const char *) BUNtvar(bi, p));
 
 		if (is_int_nil(l))
 			l = 0;
@@ -468,7 +468,7 @@ bat_max_btelength(BAT *b)
 
 	BATloop(b, p, q) {
 		lng m = 0;
-		bte l = *((bte *) BUNtail(bi, p));
+		bte l = *((bte *) BUNtloc(bi, p));
 
 		if (!is_bte_nil(l))
 			m = l;
@@ -499,7 +499,7 @@ bat_max_shtlength(BAT *b)
 
 	BATloop(b, p, q) {
 		lng m = 0;
-		sht l = *((sht *) BUNtail(bi, p));
+		sht l = *((sht *) BUNtloc(bi, p));
 
 		if (!is_sht_nil(l))
 			m = l;
@@ -530,7 +530,7 @@ bat_max_intlength(BAT *b)
 
 	BATloop(b, p, q) {
 		lng m = 0;
-		int l = *((int *) BUNtail(bi, p));
+		int l = *((int *) BUNtloc(bi, p));
 
 		if (!is_int_nil(l))
 			m = l;
@@ -561,7 +561,7 @@ bat_max_lnglength(BAT *b)
 
 	BATloop(b, p, q) {
 		lng m = 0;
-		lng l = *((lng *) BUNtail(bi, p));
+		lng l = *((lng *) BUNtloc(bi, p));
 
 		if (!is_lng_nil(l))
 			m = l;
@@ -593,7 +593,7 @@ bat_max_hgelength(BAT *b)
 
 	BATloop(b, p, q) {
 		hge m = 0;
-		hge l = *((hge *)BUNtail(bi, p));
+		hge l = *((hge *)BUNtloc(bi, p));
 
 		if (!is_hge_nil(l))
 			m = l;
@@ -1578,7 +1578,7 @@ mvc_export_table_prot10(backend *b, stream *s, res_table *t, BAT *order, BUN off
 					int convert_to_string = !type_supports_binary_transfer(c->type.type);
 					if (convert_to_string || ATOMvarsized(mtype)) {
 						if (c->type.type->eclass == EC_BLOB) {
-							blob *b = (blob*) BUNtail(iterators[i], row);
+							blob *b = (blob*) BUNtvar(iterators[i], row);
 							rowsize += sizeof(lng) + ((b->nitems == ~(size_t) 0) ? 0 : b->nitems);
 						} else {
 							ssize_t slen = 0;
@@ -1589,7 +1589,7 @@ mvc_export_table_prot10(backend *b, stream *s, res_table *t, BAT *order, BUN off
 									goto cleanup;
 								}
 							} else {
-								slen = (ssize_t) strlen((const char*) BUNtail(iterators[i], row));
+								slen = (ssize_t) strlen((const char*) BUNtvar(iterators[i], row));
 							}
 							rowsize += slen + 1;
 						}
@@ -1650,7 +1650,7 @@ mvc_export_table_prot10(backend *b, stream *s, res_table *t, BAT *order, BUN off
 					char *startbuf = buf;
 					buf += sizeof(lng);
 					for (crow = srow; crow < row; crow++) {
-						blob *b = (blob*) BUNtail(iterators[i], crow);
+						blob *b = (blob*) BUNtvar(iterators[i], crow);
 						if (b->nitems == ~(size_t) 0) {
 							(*(lng*)buf) = mnstr_swap_lng(s, -1);
 							buf += sizeof(lng);
@@ -1972,7 +1972,14 @@ get_print_width(int mtype, int eclass, int digits, int scale, int tz, bat bid, p
 				BAT *b = BATdescriptor(bid);
 
 				if (b) {
-					l = bat_max_strlength(b);
+					/* in practice, b can be a
+					 * void(nil) bat, an oid bat
+					 * with all nil values, or an
+					 * empty void/oid bat */
+					if (ATOMstorage(b->ttype) == TYPE_str)
+						l = bat_max_strlength(b);
+					else
+						l = 0;
 					BBPunfix(b->batCacheid);
 				} else {
 					assert(b);
@@ -2489,16 +2496,12 @@ mvc_export_head(backend *b, stream *s, int res_id, int only_header, int compute_
 }
 
 static int
-mvc_export_file(backend *b, stream *s, res_table *t, lng starttime, lng maloptimizer)
+mvc_export_file(backend *b, stream *s, res_table *t)
 {
 	mvc *m = b->mvc;
 	int res = 0;
 	BUN count;
 	BAT *order = NULL;
-
-	if (m->scanner.ws == s)
-		/* need header */
-		mvc_export_head(b, s, t->id, TRUE, TRUE, starttime, maloptimizer);
 
 	if (!t->order) {
 		res = mvc_export_row(b, s, t, "", t->tsep, t->rsep, t->ssep, t->ns);
@@ -2516,7 +2519,7 @@ mvc_export_file(backend *b, stream *s, res_table *t, lng starttime, lng maloptim
 }
 
 int
-mvc_export_result(backend *b, stream *s, int res_id, lng starttime, lng maloptimizer)
+mvc_export_result(backend *b, stream *s, int res_id, bool header, lng starttime, lng maloptimizer)
 {
 	mvc *m = b->mvc;
 	int clean = 0, res = 0;
@@ -2534,8 +2537,13 @@ mvc_export_result(backend *b, stream *s, int res_id, lng starttime, lng maloptim
 	}
 	/* we shouldn't have anything else but Q_TABLE here */
 	assert(t->query_type == Q_TABLE);
-	if (t->tsep)
-		return mvc_export_file(b, s, t, starttime, maloptimizer);
+	if (t->tsep) {
+		if (header) {
+			/* need header */
+			mvc_export_head(b, s, t->id, TRUE, TRUE, starttime, maloptimizer);
+		}
+		return mvc_export_file(b, s, t);
+	}
 
 	if (!json) {
 		mvc_export_head(b, s, res_id, TRUE, TRUE, starttime, maloptimizer);

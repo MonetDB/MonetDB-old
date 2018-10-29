@@ -60,11 +60,7 @@ FUN(,TP1,_num2dec_,TP2)(TP2 *res, const TP1 *v, const int *d2, const int *s2)
 		      inlen + scale, precision);
 
 #ifndef TRUNCATE_NUMBERS
-#if TPE(TP1) == TYPE_flt
-	*res = (TP2) roundf(val * scales[scale]);
-#else
-	*res = (TP2) round(val * scales[scale]);
-#endif
+	*res = (TP2) round_float(val * scales[scale]);
 #endif
 
 
@@ -89,7 +85,7 @@ FUN(bat,TP1,_num2dec_,TP2) (bat *res, const bat *bid, const int *d2, const int *
 		throw(SQL, "sql."STRNG(FUN(,TP1,_num2dec_,TP2)), SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 	BATloop(b, p, q) {
-		TP1 *v = (TP1 *) BUNtail(bi, p);
+		TP1 *v = (TP1 *) BUNtloc(bi, p);
 		TP2 r;
 		msg = FUN(,TP1,_num2dec_,TP2) (&r, v, d2, s2);
 		if (msg) {

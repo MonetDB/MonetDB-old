@@ -864,7 +864,7 @@ stmt_col( backend *be, sql_column *c, stmt *del)
 	stmt *sc = stmt_bat(be, c, RDONLY, del?del->partition:0);
 
 	if (isTable(c->t) && c->t->access != TABLE_READONLY &&
-	   (c->base.flag != TR_NEW || c->t->base.flag != TR_NEW /* alter */) &&
+	   (!isNew(c) || !isNew(c->t) /* alter */) &&
 	   (c->t->persistence == SQL_PERSIST || c->t->persistence == SQL_DECLARED_TABLE) && !c->t->commit_action) {
 		stmt *i = stmt_bat(be, c, RD_INS, 0);
 		stmt *u = stmt_bat(be, c, RD_UPD_ID, del?del->partition:0);
@@ -882,7 +882,7 @@ stmt_idx( backend *be, sql_idx *i, stmt *del)
 	stmt *sc = stmt_idxbat(be, i, RDONLY, del?del->partition:0);
 
 	if (isTable(i->t) && i->t->access != TABLE_READONLY &&
-	   (i->base.flag != TR_NEW || i->t->base.flag != TR_NEW /* alter */) &&
+	   (!isNew(i) || !isNew(i->t) /* alter */) &&
 	   (i->t->persistence == SQL_PERSIST || i->t->persistence == SQL_DECLARED_TABLE) && !i->t->commit_action) {
 		stmt *ic = stmt_idxbat(be, i, RD_INS, 0);
 		stmt *u = stmt_idxbat(be, i, RD_UPD_ID, del?del->partition:0);
@@ -2925,7 +2925,7 @@ rel2bin_sample(backend *be, sql_rel *rel, list *refs)
 {
 	mvc *sql = be->mvc;
 	list *newl;
-	stmt *sub = NULL, *s = NULL, *sample = NULL;
+	stmt *sub = NULL, *sample_size = NULL, *sample = NULL, *seed = NULL;
 	node *n;
 
 	if (rel->l) /* first construct the sub relation */
@@ -2941,13 +2941,17 @@ rel2bin_sample(backend *be, sql_rel *rel, list *refs)
 		const char *cname = column_name(sql->sa, sc);
 		const char *tname = table_name(sql->sa, sc);
 
-		s = exp_bin(be, rel->exps->h->data, NULL, NULL, NULL, NULL, NULL, NULL);
+		sample_size = exp_bin(be, rel->exps->h->data, NULL, NULL, NULL, NULL, NULL, NULL);
 
-		if (!s)
-			s = stmt_atom_lng_nil(be);
+		if (!sample_size)
+			sample_size = stmt_atom_lng_nil(be);
+		
+		if (rel->exps->cnt == 2) {
+			seed = exp_bin(be, rel->exps->h->next->data, NULL, NULL, NULL, NULL, NULL, NULL);
+		}
 
 		sc = column(be, sc);
-		sample = stmt_sample(be, stmt_alias(be, sc, tname, cname),s);
+		sample = stmt_sample(be, stmt_alias(be, sc, tname, cname),sample_size, seed);
 
 		for ( ; n; n = n->next) {
 			stmt *sc = n->data;
@@ -4965,6 +4969,7 @@ rel2bin_output(backend *be, sql_rel *rel, list *refs)
 	node *n;
 	const char *tsep, *rsep, *ssep, *ns;
 	const char *fn   = NULL;
+	int onclient = 0;
 	stmt *s = NULL, *fns = NULL;
 	list *slist = sa_list(sql->sa);
 
@@ -4984,8 +4989,9 @@ rel2bin_output(backend *be, sql_rel *rel, list *refs)
 	if (n->next->next->next->next) {
 		fn = E_ATOM_STRING(n->next->next->next->next->data);
 		fns = stmt_atom_string(be, sa_strdup(sql->sa, fn));
+		onclient = E_ATOM_INT(n->next->next->next->next->next->data);
 	}
-	list_append(slist, stmt_export(be, s, tsep, rsep, ssep, ns, fns));
+	list_append(slist, stmt_export(be, s, tsep, rsep, ssep, ns, onclient, fns));
 	if (s->type == st_list && ((stmt*)s->op4.lval->h->data)->nrcols != 0) {
 		stmt *cnt = stmt_aggr(be, s->op4.lval->h->data, NULL, NULL, sql_bind_aggr(sql->sa, sql->session->schema, "count", NULL), 1, 0, 1);
 		return cnt;
@@ -5246,7 +5252,7 @@ rel2bin_ddl(backend *be, sql_rel *rel, list *refs)
 	} else if (rel->flag <= DDL_ALTER_TABLE) {
 		s = rel2bin_catalog_table(be, rel, refs);
 		sql->type = Q_SCHEMA;
-	} else if (rel->flag <= DDL_COMMENT_ON) {
+	} else if (rel->flag <= DDL_RENAME_COLUMN) {
 		s = rel2bin_catalog2(be, rel, refs);
 		sql->type = Q_SCHEMA;
 	}

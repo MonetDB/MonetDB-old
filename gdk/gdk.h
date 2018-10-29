@@ -376,8 +376,10 @@
 */
 #define PARMASK		(1<<7)
 #define PARDEBUG	if (GDKdebug & PARMASK)
+/* HEADLESSMASK not used anymore
 #define HEADLESSMASK	(1<<8)
 #define HEADLESSDEBUG	if (GDKdebug & HEADLESSMASK)
+*/
 #define TMMASK		(1<<9)
 #define TMDEBUG		if (GDKdebug & TMMASK)
 #define TEMMASK		(1<<10)
@@ -462,24 +464,24 @@
 #define BATTINY_BITS	8
 #define BATTINY		((BUN)1<<BATTINY_BITS)	/* minimum allocation buncnt for a BAT */
 
-#define TYPE_void	0
-#define TYPE_bit	1
-#define TYPE_bte	2
-#define TYPE_sht	3
-#define TYPE_bat	4	/* BAT id: index in BBPcache */
-#define TYPE_int	5
-#define TYPE_oid	6
-#define TYPE_ptr	7	/* C pointer! */
-#define TYPE_flt	8
-#define TYPE_dbl	9
-#define TYPE_lng	10
+enum {
+	TYPE_void = 0,
+	TYPE_bit,
+	TYPE_bte,
+	TYPE_sht,
+	TYPE_bat,		/* BAT id: index in BBPcache */
+	TYPE_int,
+	TYPE_oid,
+	TYPE_ptr,		/* C pointer! */
+	TYPE_flt,
+	TYPE_dbl,
+	TYPE_lng,
 #ifdef HAVE_HGE
-#define TYPE_hge	11
-#define TYPE_str	12
-#else
-#define TYPE_str	11
+	TYPE_hge,
 #endif
-#define TYPE_any	255	/* limit types to <255! */
+	TYPE_str,
+	TYPE_any = 255,		/* limit types to <255! */
+};
 
 typedef int8_t bit;
 typedef int8_t bte;
@@ -1227,6 +1229,15 @@ typedef var_t stridx_t;
 #define BUNtvar(bi,p)	(assert((bi).b->ttype && (bi).b->tvarsized), Tbase((bi).b)+BUNtvaroff(bi,p))
 #define BUNtail(bi,p)	((bi).b->ttype?(bi).b->tvarsized?BUNtvar(bi,p):BUNtloc(bi,p):BUNtpos(bi,p))
 
+/* return the oid value at BUN position p from the (v)oid bat b
+ * works with any TYPE_void or TYPE_oid bat */
+#define BUNtoid(b,p)	(assert(ATOMtype((b)->ttype) == TYPE_oid),	\
+			 (is_oid_nil((b)->tseqbase)			\
+			  ? ((b)->ttype == TYPE_void			\
+			     ? (void) (p), oid_nil			\
+			     : ((const oid *) (b)->T.heap.base)[p])	\
+			  : (oid) ((b)->tseqbase + (BUN) (p))))
+
 static inline BATiter
 bat_iterator(BAT *b)
 {
@@ -1310,7 +1321,6 @@ gdk_export int BATgetaccess(BAT *b);
 #define PERSISTENT		0
 #define TRANSIENT		1
 #define LOG_DIR			2
-#define SHARED_LOG_DIR		3
 
 #define BAT_WRITE		0	/* all kinds of access allowed */
 #define BAT_READ		1	/* only read-access allowed */
@@ -2763,6 +2773,7 @@ gdk_export gdk_return BATfirstn(BAT **topn, BAT **gids, BAT *b, BAT *cands, BAT 
  *
  */
 gdk_export BAT *BATsample(BAT *b, BUN n);
+gdk_export BAT *BATsample_with_seed(BAT *b, BUN n, unsigned seed);
 
 /*
  *

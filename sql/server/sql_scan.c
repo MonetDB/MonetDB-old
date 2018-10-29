@@ -140,6 +140,8 @@ scanner_init_keywords(void)
 	failed += keywords_insert("TINYTEXT", sqlTEXT);
 	failed += keywords_insert("STRING", CLOB);	/* ? */
 	failed += keywords_insert("CHECK", CHECK);
+	failed += keywords_insert("CLIENT", CLIENT);
+	failed += keywords_insert("SERVER", SERVER);
 	failed += keywords_insert("COMMENT", COMMENT);
 	failed += keywords_insert("CONSTRAINT", CONSTRAINT);
 	failed += keywords_insert("CREATE", CREATE);
@@ -210,6 +212,7 @@ scanner_init_keywords(void)
 	failed += keywords_insert("LIKE", LIKE);
 	failed += keywords_insert("LIMIT", LIMIT);
 	failed += keywords_insert("SAMPLE", SAMPLE);
+	failed += keywords_insert("SEED", SEED);
 	failed += keywords_insert("LOCAL", LOCAL);
 	failed += keywords_insert("LOCKED", LOCKED);
 	failed += keywords_insert("NATURAL", NATURAL);

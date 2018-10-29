@@ -2621,6 +2621,7 @@ BATmin(BAT *b, void *aggr)
 	PROPrec *prop;
 	const void *res;
 	size_t s;
+	BATiter bi;
 
 	if (!ATOMlinear(b->ttype)) {
 		GDKerror("BATmin: non-linear type");
@@ -2632,7 +2633,6 @@ BATmin(BAT *b, void *aggr)
 		res = VALptr(&prop->v);
 	} else {
 		oid pos;
-		BATiter bi;
 		BAT *pb = NULL;
 
 		if (BATcheckorderidx(b) ||
@@ -2715,6 +2715,7 @@ BATmax(BAT *b, void *aggr)
 	PROPrec *prop;
 	const void *res;
 	size_t s;
+	BATiter bi;
 
 	if (!ATOMlinear(b->ttype)) {
 		GDKerror("BATmax: non-linear type");
@@ -2726,7 +2727,6 @@ BATmax(BAT *b, void *aggr)
 		res = VALptr(&prop->v);
 	} else {
 		oid pos;
-		BATiter bi;
 		BAT *pb = NULL;
 
 		if (BATcheckorderidx(b) ||
@@ -3359,7 +3359,7 @@ BATgroupvariance_population(BAT *b, BAT *g, BAT *e, BAT *s, int tp,
 
 static gdk_return
 concat_strings(void *res, int what, BAT* b, int nonil, oid seqb, BUN start, BUN end, BUN ngrp, const oid *restrict cand,
-			   const oid *candend, const oid *restrict gids, oid min, oid max, bool skip_nils, const str separator,
+			   const oid *candend, const oid *restrict gids, oid min, oid max, bool skip_nils, const char *separator,
 			   const char *func, BUN *has_nils)
 {
 	oid gid;
@@ -3387,14 +3387,14 @@ concat_strings(void *res, int what, BAT* b, int nonil, oid seqb, BUN start, BUN 
 		if (cand == NULL) {
 			if(nonil) {
 				BATloop(b,p,q) {
-					s = BUNtail(bi, p);
+					s = BUNtvar(bi, p);
 					next_length = strlen(s);
 					single_length += next_length + separator_length;
 					single_oid = p;
 				}
 			} else {
 				BATloop(b,p,q) {
-					s = BUNtail(bi, p);
+					s = BUNtvar(bi, p);
 					if (*s != '\200') {
 						next_length = strlen(s);
 						single_length += next_length + separator_length;
@@ -3413,7 +3413,7 @@ concat_strings(void *res, int what, BAT* b, int nonil, oid seqb, BUN start, BUN 
 					goto finish;
 				}
 				BATloop(b,p,q){
-					s = BUNtail(bi, p);
+					s = BUNtvar(bi, p);
 					next_length = strlen(s);
 					memcpy(single_str + offset, s, next_length);
 					offset += next_length;
@@ -3460,7 +3460,7 @@ concat_strings(void *res, int what, BAT* b, int nonil, oid seqb, BUN start, BUN 
 					i = *cand++ - seqb;
 					if (i >= end)
 						break;
-					s = BUNtail(bi, i);
+					s = BUNtvar(bi, i);
 					next_length = strlen(s);
 					single_length += next_length + separator_length;
 					single_oid = i;
@@ -3470,7 +3470,7 @@ concat_strings(void *res, int what, BAT* b, int nonil, oid seqb, BUN start, BUN 
 					i = *cand++ - seqb;
 					if (i >= end)
 						break;
-					s = BUNtail(bi, i);
+					s = BUNtvar(bi, i);
 					if (*s != '\200') {
 						next_length = strlen(s);
 						single_length += next_length + separator_length;
@@ -3493,7 +3493,7 @@ concat_strings(void *res, int what, BAT* b, int nonil, oid seqb, BUN start, BUN 
 					i = *cand++ - seqb;
 					if (i >= end)
 						break;
-					s = BUNtail(bi, i);
+					s = BUNtvar(bi, i);
 					next_length = strlen(s);
 					memcpy(single_str + offset, s, next_length);
 					offset += next_length;
@@ -3532,7 +3532,7 @@ concat_strings(void *res, int what, BAT* b, int nonil, oid seqb, BUN start, BUN 
 				if (gids == NULL || (gids[i] >= min && gids[i] <= max)) {
 					gid = gids ? gids[i] - min : (oid) i;
 					if (lastoid[gid] != BUN_NONE) {
-						s = BUNtail(bi, i);
+						s = BUNtvar(bi, i);
 						if (*s != '\200') {
 							next_length = strlen(s);
 							lengths[gid] += next_length + separator_length;
@@ -3558,7 +3558,7 @@ concat_strings(void *res, int what, BAT* b, int nonil, oid seqb, BUN start, BUN 
 				if (gids == NULL || (gids[i] >= min && gids[i] <= max)) {
 					gid = gids ? gids[i] - min : (oid) i;
 					if (lastoid[gid] < BUN_NONE) {
-						s = BUNtail(bi, i);
+						s = BUNtvar(bi, i);
 						next_length = strlen(s);
 						memcpy(astrings[gid] + lengths[gid], s, next_length);
 						lengths[gid] += next_length;
@@ -3592,7 +3592,7 @@ concat_strings(void *res, int what, BAT* b, int nonil, oid seqb, BUN start, BUN 
 				if (gids == NULL || (gids[i] >= min && gids[i] <= max)) {
 					gid = gids ? gids[i] - min : (oid) i;
 					if (lastoid[gid] != BUN_NONE) {
-						s = BUNtail(bi, i);
+						s = BUNtvar(bi, i);
 						if (*s != '\200') {
 							next_length = strlen(s);
 							lengths[gid] += next_length;
@@ -3622,7 +3622,7 @@ concat_strings(void *res, int what, BAT* b, int nonil, oid seqb, BUN start, BUN 
 				if (gids == NULL || (gids[i] >= min && gids[i] <= max)) {
 					gid = gids ? gids[i] - min : (oid) i;
 					if (lastoid[gid] < BUN_NONE) {
-						s = BUNtail(bi, i);
+						s = BUNtvar(bi, i);
 						next_length = strlen(s);
 						memcpy(astrings[gid] + lengths[gid], s, next_length);
 						lengths[gid] += next_length;
@@ -3686,7 +3686,7 @@ finish:
 }
 
 gdk_return
-BATstr_group_concat(ValPtr res, BAT *b, BAT *s, bool skip_nils, bool abort_on_error, bool nil_if_empty, const str separator)
+BATstr_group_concat(ValPtr res, BAT *b, BAT *s, bool skip_nils, bool abort_on_error, bool nil_if_empty, const char *separator)
 {
 	oid min, max;
 	BUN ngrp, start, end;
@@ -3716,7 +3716,7 @@ BATstr_group_concat(ValPtr res, BAT *b, BAT *s, bool skip_nils, bool abort_on_er
 }
 
 BAT *
-BATgroupstr_group_concat(BAT *b, BAT *g, BAT *e, BAT *s, bool skip_nils, bool abort_on_error, const str separator)
+BATgroupstr_group_concat(BAT *b, BAT *g, BAT *e, BAT *s, bool skip_nils, bool abort_on_error, const char *separator)
 {
 	const oid *restrict gids;
 	BAT *bn = NULL;
