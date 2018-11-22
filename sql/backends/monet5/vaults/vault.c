@@ -560,7 +560,7 @@ VLTTid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
   nr = store_funcs.count_col(tr, c, 1);
 
-  if (isTable(t) && t->access == TABLE_WRITABLE && (t->base.flag != TR_NEW /* alter */ ) &&
+  if (isTable(t) && t->access == TABLE_WRITABLE && (t->base.flags != TR_NEW /* alter */ ) &&
       t->persistence == SQL_PERSIST && !t->commit_action)
     inr = store_funcs.count_col(tr, c, 0);
   nr -= inr;
