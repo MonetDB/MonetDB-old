@@ -112,10 +112,14 @@ __hidden BUN binsearch_flt(const oid *restrict indir, oid offset, const flt *res
 	__attribute__((__visibility__("hidden")));
 __hidden BUN binsearch_dbl(const oid *restrict indir, oid offset, const dbl *restrict vals, BUN lo, BUN hi, dbl v, int ordering, int last)
 	__attribute__((__visibility__("hidden")));
-__hidden Heap *createOIDXheap(BAT *b, bool stable)
-	__attribute__((__visibility__("hidden")));
 __hidden gdk_return BUNreplace(BAT *b, oid left, const void *right, bool force)
 	__attribute__((__warn_unused_result__))
+	__attribute__((__visibility__("hidden")));
+__hidden Heap *createOIDXheap(BAT *b, bool stable)
+	__attribute__((__visibility__("hidden")));
+__hidden BAT *doublerange(oid l1, oid h1, oid l2, oid h2)
+	__attribute__((__visibility__("hidden")));
+__hidden BAT *doubleslice(BAT *b, BUN l1, BUN h1, BUN l2, BUN h2)
 	__attribute__((__visibility__("hidden")));
 __hidden void gdk_bbp_reset(void)
 	__attribute__((__visibility__("hidden")));
@@ -226,7 +230,7 @@ __hidden var_t strPut(Heap *h, var_t *dst, const char *v)
 	__attribute__((__visibility__("hidden")));
 __hidden str strRead(str a, stream *s, size_t cnt)
 	__attribute__((__visibility__("hidden")));
-__hidden ssize_t strToStr(char **restrict dst, size_t *restrict len, const char *restrict src)
+__hidden ssize_t strToStr(char **restrict dst, size_t *restrict len, const char *restrict src, bool external)
 	__attribute__((__visibility__("hidden")));
 __hidden gdk_return strWrite(const char *a, stream *s, size_t cnt)
 	__attribute__((__visibility__("hidden")));
@@ -274,7 +278,7 @@ __hidden BAT *virtualize(BAT *bn)
 			b && b->torderidx ? "O" : "",	\
 			b ? b->timprints ? "I" : b->theap.parentid && BBP_cache(b->theap.parentid)->timprints ? "(I)" : "" : ""
 
-#define BBP_BATMASK	511
+#define BBP_BATMASK	(128 * SIZEOF_SIZE_T - 1)
 #define BBP_THREADMASK	63
 
 struct PROPrec {

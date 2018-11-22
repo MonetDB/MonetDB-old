@@ -190,7 +190,7 @@ SQLhelp sqlhelp[] = {
 	 "See also https://www.monetdb.org/Documentation/Cookbooks/SQLrecipes/DataPartitioning"},
 	{"CREATE REMOTE TABLE",
 	 "",
-	 "CREATE REMOTE TABLE [ IF NOT EXISTS ] qname ON string",
+	 "CREATE REMOTE TABLE [ IF NOT EXISTS ] qname ON string [WITH [USER 'username'] [[ENCRYPTED] PASSWORD 'password']]",
 	 NULL,
 	 "remote name should match mapi:monetdb://host:port/database[/schema[/table]]"},
 	{"CREATE REPLICA TABLE",
@@ -401,7 +401,7 @@ SQLhelp sqlhelp[] = {
 	 "[ GROUP BY grouping_element ',', ...] ]\n"
 	 "[ HAVING condition [',' ...] ]\n"
 	 "[ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] [ CORRESPONDING ] select ]\n"
-	 "[ ORDER BY expression [ ASC | DESC ] [',' ...] ]\n"
+	 "[ ORDER BY expression [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [',' ...] ]\n"
 	 "[ LIMIT { count | param } ]\n"
 	 "[ OFFSET { count | param } ]\n"
 	 "[ SAMPLE size ]",

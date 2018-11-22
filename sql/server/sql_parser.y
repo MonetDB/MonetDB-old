@@ -527,6 +527,7 @@ int yydebug=1;
 	opt_grant_for
 
 	opt_asc_desc
+	opt_nulls_first_last
 	tz
 
 %right <sval> STRING
@@ -609,7 +610,7 @@ SQLCODE SQLERROR UNDER WHENEVER
 
 %token TEMP TEMPORARY STREAM MERGE REMOTE REPLICA
 %token<sval> ASC DESC AUTHORIZATION
-%token CHECK CONSTRAINT CREATE COMMENT
+%token CHECK CONSTRAINT CREATE COMMENT NULLS FIRST LAST
 %token TYPE PROCEDURE FUNCTION sqlLOADER AGGREGATE RETURNS EXTERNAL sqlNAME DECLARE
 %token CALL LANGUAGE
 %token ANALYZE MINMAX SQL_EXPLAIN SQL_PLAN SQL_DEBUG SQL_TRACE PREP PREPARE EXEC EXECUTE
@@ -818,7 +819,7 @@ set_statement:
 	        sql_find_subtype(&t, "char", UTF8_strlen($4), 0 );
 		append_string(l, sa_strdup(SA, "current_user"));
 		append_symbol(l,
-			_newAtomNode( _atom_string(&t, sql2str($4))) );
+			_newAtomNode( _atom_string(&t, $4)) );
 		$$ = _symbol_create_list( SQL_SET, l); }
   |	set SCHEMA ident
 		{ dlist *l = L();
@@ -826,7 +827,7 @@ set_statement:
 		sql_find_subtype(&t, "char", UTF8_strlen($3), 0 );
 		append_string(l, sa_strdup(SA, "current_schema"));
 		append_symbol(l,
-			_newAtomNode( _atom_string(&t, sql2str($3))) );
+			_newAtomNode( _atom_string(&t, $3)) );
 		$$ = _symbol_create_list( SQL_SET, l); }
   |	set user '=' ident
 		{ dlist *l = L();
@@ -834,7 +835,7 @@ set_statement:
 		sql_find_subtype(&t, "char", UTF8_strlen($4), 0 );
 		append_string(l, sa_strdup(SA, "current_user"));
 		append_symbol(l,
-			_newAtomNode( _atom_string(&t, sql2str($4))) );
+			_newAtomNode( _atom_string(&t, $4)) );
 		$$ = _symbol_create_list( SQL_SET, l); }
   |	set ROLE ident
 		{ dlist *l = L();
@@ -842,7 +843,7 @@ set_statement:
 		sql_find_subtype(&t, "char", UTF8_strlen($3), 0);
 		append_string(l, sa_strdup(SA, "current_role"));
 		append_symbol(l,
-			_newAtomNode( _atom_string(&t, sql2str($3))) );
+			_newAtomNode( _atom_string(&t, $3)) );
 		$$ = _symbol_create_list( SQL_SET, l); }
   |	set TIME ZONE LOCAL
 		{ dlist *l = L();
@@ -1775,7 +1776,7 @@ generated_column:
 
 		/* finally all the options */
 		append_list(l, $5);
-		append_int(l, 0); /* to be dropped */
+		append_int(l, 1); /* to be dropped */
 		$$ = _symbol_create_symbol(SQL_DEFAULT, _symbol_create_list(SQL_NEXT, append_string(L(), sn)));
 
 		if (m->sym) {
@@ -1807,7 +1808,7 @@ generated_column:
 		sql_find_subtype(&it, "int", 32, 0);
     		append_symbol(o, _symbol_create_list(SQL_TYPE, append_type(L(),&it)));
 		append_list(l, o);
-		append_int(l, 0); /* to be dropped */
+		append_int(l, 1); /* to be dropped */
 		if (m->scanner.schema)
 			append_string(seqn2, m->scanner.schema);
 		append_string(seqn2, sn);
@@ -2961,12 +2962,12 @@ opt_seps:
     /* empty */
 				{ dlist *l = L();
 				  append_string(l, sa_strdup(SA, "|"));
-				  append_string(l, sa_strdup(SA, "\\n"));
+				  append_string(l, sa_strdup(SA, "\n"));
 				  $$ = l; }
  |  opt_using DELIMITERS string
 				{ dlist *l = L();
 				  append_string(l, $3);
-				  append_string(l, sa_strdup(SA, "\\n"));
+				  append_string(l, sa_strdup(SA, "\n"));
 				  $$ = l; }
  |  opt_using DELIMITERS string ',' string
 				{ dlist *l = L();
@@ -2977,7 +2978,7 @@ opt_seps:
 				{ dlist *l = L();
 				  append_string(l, $3);
 				  append_string(l, $5);
-				  append_string(l, sql2str($7));
+				  append_string(l, $7);
 				  $$ = l; }
  ;
 
@@ -3662,10 +3663,10 @@ sort_specification_list:
  ;
 
 ordering_spec:
-    scalar_exp opt_asc_desc
+    scalar_exp opt_asc_desc opt_nulls_first_last
 	{ dlist *l = L();
 	  append_symbol(l, $1);
-	  append_int(l, $2);
+	  append_int(l, $2 | (($3 == -1 ? !$2 : $3) << 1));
 	  $$ = _symbol_create_list(SQL_COLUMN, l ); }
 
  ;
@@ -3674,6 +3675,12 @@ opt_asc_desc:
     /* empty */ 	{ $$ = TRUE; }
  |  ASC			{ $$ = TRUE; }
  |  DESC		{ $$ = FALSE; }
+ ;
+
+opt_nulls_first_last:
+    /* empty */ 	{ $$ = -1; }
+ |  NULLS LAST		{ $$ = TRUE; }
+ |  NULLS FIRST		{ $$ = FALSE; }
  ;
 
 predicate:
@@ -3786,7 +3793,7 @@ like_exp:
 	  append_symbol(l, $1);
 	  $$ = _symbol_create_list(SQL_ESCAPE, l ); }
  |  scalar_exp ESCAPE string
- 	{ const char *s = sql2str($3);
+ 	{ const char *s = $3;
 	  if (_strlen(s) != 1) {
 		yyerror(m, SQLSTATE(22019) "ESCAPE must be one character");
 		$$ = NULL;
@@ -4665,7 +4672,7 @@ user:
  ;
 
 literal:
-    string 	{ const char *s = sql2str($1);
+    string 	{ const char *s = $1;
 		  int len = UTF8_strlen(s);
 		  sql_subtype t;
 		  sql_find_subtype(&t, "char", len, 0 );
@@ -4741,7 +4748,7 @@ literal:
 		  lng value, *p = &value;
 		  sql_subtype t;
 
-		  if (lngFromStr($1, &len, &p) < 0 || is_lng_nil(value))
+		  if (lngFromStr($1, &len, &p, false) < 0 || is_lng_nil(value))
 		  	err = 2;
 
 		  if (!err) {
@@ -4780,10 +4787,10 @@ literal:
 		  sql_subtype t;
 
 #ifdef HAVE_HGE
-		  if (hgeFromStr($1, &len, &p) < 0 || is_hge_nil(value))
+		  if (hgeFromStr($1, &len, &p, false) < 0 || is_hge_nil(value))
 		  	err = 2;
 #else
-		  if (lngFromStr($1, &len, &p) < 0 || is_lng_nil(value))
+		  if (lngFromStr($1, &len, &p, false) < 0 || is_lng_nil(value))
 		  	err = 2;
 #endif
 
@@ -5656,6 +5663,9 @@ non_reserved_word:
 |  COMMENT	{ $$ = sa_strdup(SA, "comment"); }
 |  CLIENT	{ $$ = sa_strdup(SA, "client"); }
 |  SERVER	{ $$ = sa_strdup(SA, "server"); }
+|  NULLS	{ $$ = sa_strdup(SA, "nulls"); }
+|  LAST		{ $$ = sa_strdup(SA, "last"); }
+|  FIRST	{ $$ = sa_strdup(SA, "first"); }
 ;
 
 name_commalist:

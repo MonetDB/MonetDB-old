@@ -35,7 +35,9 @@
 #endif
 #include "stream.h"
 #include "msqldump.h"
+#define LIBMUTILS 1
 #include "mprompt.h"
+#include "mutils.h"		/* mercurial_revision */
 #include "dotmonetdb.h"
 
 #include <locale.h>
@@ -896,8 +898,8 @@ static void
 CSVrenderer(MapiHdl hdl)
 {
 	int fields;
-	char *s;
-	char *sep = separator;
+	const char *s;
+	const char specials[] = {'"', '\\', '\n', '\r', '\t', *separator, '\0'};
 	int i;
 
 	if (csvheader) {
@@ -906,20 +908,16 @@ CSVrenderer(MapiHdl hdl)
 			s = mapi_get_name(hdl, i);
 			if (s == NULL)
 				s = "";
-			mnstr_printf(toConsole, "%s%s", i == 0 ? "" : sep, s);
+			mnstr_printf(toConsole, "%s%s", i == 0 ? "" : separator, s);
 		}
 		mnstr_printf(toConsole, "\n");
 	}
 	while (!mnstr_errnr(toConsole) && (fields = fetch_row(hdl)) != 0) {
 		for (i = 0; i < fields; i++) {
 			s = mapi_fetch_field(hdl, i);
-			if (s == NULL)
-				s = nullstring == default_nullstring ? "" : nullstring;
-			if (strchr(s, *sep) != NULL ||
-			    strchr(s, '\n') != NULL ||
-			    strchr(s, '"') != NULL) {
+			if (s != NULL && s[strcspn(s, specials)] != '\0') {
 				mnstr_printf(toConsole, "%s\"",
-					     i == 0 ? "" : sep);
+					     i == 0 ? "" : separator);
 				while (*s) {
 					switch (*s) {
 					case '\n':
@@ -944,9 +942,12 @@ CSVrenderer(MapiHdl hdl)
 					s++;
 				}
 				mnstr_write(toConsole, "\"", 1, 1);
-			} else
+			} else {
+				if (s == NULL)
+					s = nullstring == default_nullstring ? "" : nullstring;
 				mnstr_printf(toConsole, "%s%s",
-					     i == 0 ? "" : sep, s);
+					     i == 0 ? "" : separator, s);
+			}
 		}
 		mnstr_printf(toConsole, "\n");
 	}
@@ -3428,13 +3429,22 @@ main(int argc, char **argv)
 			user = strdup(optarg);
 			user_set_as_flag = true;
 			break;
-		case 'v':
+		case 'v': {
+			const char *rev = mercurial_revision();
 			mnstr_printf(toConsole,
-				     "mclient, the MonetDB interactive terminal (%s)\n",
-				     MONETDB_RELEASE);
+				     "mclient, the MonetDB interactive "
+				     "terminal, version %s", VERSION);
+			/* coverity[pointless_string_compare] */
+			if (strcmp(MONETDB_RELEASE, "unreleased") != 0)
+				mnstr_printf(toConsole, " (%s)",
+					     MONETDB_RELEASE);
+			else if (strcmp(rev, "Unknown") != 0)
+				mnstr_printf(toConsole, " (hg id: %s)", rev);
+			mnstr_printf(toConsole, "\n");
 #ifdef HAVE_LIBREADLINE
 			mnstr_printf(toConsole,
-				     "support for command-line editing compiled-in\n");
+				     "support for command-line editing "
+				     "compiled-in\n");
 #endif
 #ifdef HAVE_ICONV
 #ifdef HAVE_NL_LANGINFO
@@ -3442,9 +3452,11 @@ main(int argc, char **argv)
 				encoding = nl_langinfo(CODESET);
 #endif
 			mnstr_printf(toConsole,
-				     "character encoding: %s\n", encoding ? encoding : "utf-8 (default)");
+				     "character encoding: %s\n",
+				     encoding ? encoding : "utf-8 (default)");
 #endif
 			return 0;
+		}
 		case 'w':
 			assert(optarg);
 			pagewidth = atoi(optarg);
@@ -3710,5 +3722,8 @@ main(int argc, char **argv)
 	mapi_destroy(mid);
 	mnstr_destroy(stdout_stream);
 	mnstr_destroy(stderr_stream);
+	if (priv.buf != NULL)
+		free(priv.buf);
+
 	return c;
 }
