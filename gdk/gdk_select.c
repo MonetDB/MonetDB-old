@@ -83,7 +83,7 @@ BATfixcand(BAT *bn)
 	return bn;
 }
 
-static BAT *
+BAT *
 doublerange(oid l1, oid h1, oid l2, oid h2)
 {
 	BAT *bn;
@@ -112,7 +112,7 @@ doublerange(oid l1, oid h1, oid l2, oid h2)
 	return BATfixcand(bn);
 }
 
-static BAT *
+BAT *
 doubleslice(BAT *b, BUN l1, BUN h1, BUN l2, BUN h2)
 {
 	BAT *bn;
@@ -291,7 +291,7 @@ hashselect(BAT *b, BAT *s, BAT *bn, const void *tl, BUN maximum, bool phash)
 	do {								\
 		BUN dcnt, icnt, limit, i, l, e;				\
 		cchdc_t *restrict d = (cchdc_t *) imprints->dict;	\
-		bte rpp    = ATOMelmshift(IMPS_PAGE >> b->tshift);	\
+		uint8_t rpp = ATOMelmshift(IMPS_PAGE >> b->tshift);	\
 		CAND;							\
 		for (i = 0, dcnt = 0, icnt = 0;				\
 		     dcnt < imprints->dictcnt && i + off < w + pr_off && p < q; \
@@ -1425,10 +1425,10 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 
 		if ((prop = BATgetprop(b, GDK_MIN_VALUE)) != NULL) {
 			c = ATOMcmp(t, tl, VALptr(&prop->v));
-			if (c > 0 || (li && c == 0)) {
+			if (c < 0 || (li && c == 0)) {
 				if ((prop = BATgetprop(b, GDK_MAX_VALUE)) != NULL) {
 					c = ATOMcmp(t, th, VALptr(&prop->v));
-					if (c < 0 || (hi && c == 0)) {
+					if (c > 0 || (hi && c == 0)) {
 						/* tl..th range fully
 						 * inside MIN..MAX
 						 * range of values in
@@ -1439,7 +1439,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 								  ",s=" ALGOOPTBATFMT ",anti=%d): "
 								  "nothing, out of range\n",
 								  ALGOBATPAR(b), ALGOOPTBATPAR(s), anti);
-						return BATdense(0, 0, 0);
+						return BATfixcand(BATdense(0, 0, 0));
 					}
 				}
 			}
@@ -1459,7 +1459,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 						  "nothing, out of range\n",
 						  ALGOBATPAR(b),
 						  ALGOOPTBATPAR(s), anti);
-				return BATdense(0, 0, 0);
+				return BATfixcand(BATdense(0, 0, 0));
 			}
 		}
 		if (lval && (prop = BATgetprop(b, GDK_MAX_VALUE)) != NULL) {
@@ -1473,7 +1473,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 						  "nothing, out of range\n",
 						  ALGOBATPAR(b),
 						  ALGOOPTBATPAR(s), anti);
-				return BATdense(0, 0, 0);
+				return BATfixcand(BATdense(0, 0, 0));
 			}
 		}
 	}
@@ -1718,7 +1718,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 				BATsetcount(bn, cnt);
 
 				/* output must be sorted */
-				GDKqsort(Tloc(bn, 0), NULL, NULL, (size_t) bn->batCount, sizeof(oid), 0, TYPE_cnd);
+				GDKqsort(Tloc(bn, 0), NULL, NULL, (size_t) bn->batCount, sizeof(oid), 0, TYPE_oid, false, false);
 				bn->tsorted = true;
 				bn->trevsorted = bn->batCount <= 1;
 				bn->tkey = true;

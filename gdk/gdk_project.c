@@ -610,7 +610,7 @@ BATprojectchain(BAT **bats)
 					o -= ba[i].hlo;
 					if (o >= ba[i].cnt) {
 						if (o == oid_nil - ba[i].hlo) {
-							bn->tnil = 1;
+							bn->tnil = true;
 							o = oid_nil;
 							break;
 						}
