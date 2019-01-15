@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -1111,8 +1111,8 @@ SQLparser(Client c)
 			if (m->session->active) {
 				if (commit) {
 					msg = mvc_commit(m, 0, NULL, true);
-				} else if (!commit && (msg = mvc_rollback(m, 0, NULL, true)) != MAL_SUCCEED) {
-					mnstr_printf(out, "!COMMIT: rollback failed while " "disabling auto_commit\n");
+				} else {
+					msg = mvc_rollback(m, 0, NULL, true);
 				}
 			}
 			in->pos = in->len;	/* HACK: should use parsed length */

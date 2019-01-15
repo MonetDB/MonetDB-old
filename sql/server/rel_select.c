@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -41,6 +41,9 @@ static list *
 rel_table_projections( mvc *sql, sql_rel *rel, char *tname, int level )
 {
 	list *exps;
+
+	if (THRhighwater())
+		return sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
 
 	if (!rel)
 		return NULL;
@@ -593,14 +596,14 @@ rel_named_table_function(mvc *sql, sql_rel *rel, symbol *query, int lateral)
 	node *en;
 	sql_schema *s = sql->session->schema;
 	sql_subtype *oid = sql_bind_localtype("oid");
-		
+
 	tl = sa_list(sql->sa);
 	exps = new_exp_list(sql->sa);
 	if (l->next) { /* table call with subquery */
 		if (l->next->type == type_symbol && l->next->data.sym->token == SQL_SELECT) {
 			if (l->next->next != NULL)
 				return sql_error(sql, 02, SQLSTATE(42000) "SELECT: '%s' requires a single sub query", fname);
-	       		sq = rel_subquery(sql, NULL, l->next->data.sym, ek, 0 /*apply*/);
+			sq = rel_subquery(sql, NULL, l->next->data.sym, ek, 0 /*apply*/);
 		} else if (l->next->type == type_symbol || l->next->type == type_list) {
 			dnode *n;
 			exp_kind iek = {type_value, card_column, TRUE};
@@ -732,6 +735,20 @@ rel_named_table_function(mvc *sql, sql_rel *rel, symbol *query, int lateral)
 	if (e->type != e_func || sf->func->type != F_UNION) {
 		(void) sql_error(sql, 02, SQLSTATE(42000) "SELECT: '%s' does not return a table", exp_func_name(e));
 		return NULL;
+	}
+
+	if(sql->emode == m_prepare && rel && rel->exps && sql->params) {
+		int i = 0;
+		//for prepared statements set possible missing parameter SQL types from
+		for (m = sf->func->ops->h; m; m = m->next, i++) {
+			sql_arg *func_arg = m->data;
+			sql_exp *proj_parameter = (sql_exp*) list_fetch(rel->exps, i);
+			if(proj_parameter) {
+				sql_arg *prep_arg = (sql_arg*) list_fetch(sql->params, proj_parameter->flag);
+				if(prep_arg && !prep_arg->type.type)
+					prep_arg->type = func_arg->type;
+			}
+		}
 	}
 
 	/* for each column add table.column name */
@@ -2542,7 +2559,7 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 			/* first remove the NULLs */
 			if (!l_is_value && sc->token == SQL_NOT_IN &&
 		    	    l->card != CARD_ATOM && has_nil(l)) {
-				sql_exp *ol;
+				sql_exp *ol = NULL;
 
 				if (l->type != e_column) {
 					pexps = rel_projections(sql, rel, NULL, 1, 1);
@@ -2556,7 +2573,7 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 				e = rel_unop_(sql, l, NULL, "isnull", card_value);
 				e = exp_compare(sql->sa, e, exp_atom_bool(sql->sa, 0), cmp_equal);
 				rel_select_add_exp(sql->sa, select, e);
-				if (pexps)
+				if (pexps && ol)
 					l = exp_column(sql->sa, exp_relname(ol), exp_name(ol), exp_subtype(ol), ol->card, has_nil(ol), is_intern(ol));
 			}
 			rel = left = select;
@@ -2608,8 +2625,11 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 					int r_is_rel = 0;
 
 					r = rel_value_exp(sql, &z, sval, f, ek);
-					if (z)
+					if (z) {
+						for(node *nn = z->exps->h ; nn ; nn = nn->next)
+							exp_label(sql->sa, (sql_exp*)nn->data, ++sql->label);
 						r_is_rel = 1;
+					}
 					if (!r && sql->session->status != -ERR_AMBIGUOUS) {
 						/* reset error */
 						sql->session->status = 0;
@@ -3122,7 +3142,7 @@ rel_unop(mvc *sql, sql_rel **rel, symbol *se, int fs, exp_kind ek)
 			/* reset error */
 			sql->session->status = 0;
 			sql->errstr[0] = '\0';
-			return sql_error(sql, 02, "SELECT: no such aggregate '%s'", fname);
+			return sql_error(sql, 02, SQLSTATE(42000) "SELECT: no such aggregate '%s'", fname);
 		}
 		return NULL;
 	}
@@ -3415,7 +3435,7 @@ rel_binop(mvc *sql, sql_rel **rel, symbol *se, int f, exp_kind ek)
 		/* reset error */
 		sql->session->status = 0;
 		sql->errstr[0] = '\0';
-		return sql_error(sql, 02, "SELECT: no such aggregate '%s'", fname);
+		return sql_error(sql, 02, SQLSTATE(42000) "SELECT: no such aggregate '%s'", fname);
 	}
 	if (!l && !r && sf) { /* possibly we cannot resolve the argument as the function maybe an aggregate */
 		/* reset error */
@@ -3505,7 +3525,7 @@ rel_nop(mvc *sql, sql_rel **rel, symbol *se, int fs, exp_kind ek)
 		/* reset error */
 		sql->session->status = 0;
 		sql->errstr[0] = '\0';
-		return sql_error(sql, 02, "SELECT: no such aggregate '%s'", fname);
+		return sql_error(sql, 02, SQLSTATE(42000) "SELECT: no such aggregate '%s'", fname);
 	}
 	if (f) {
 		if (err) {
@@ -3632,10 +3652,20 @@ _rel_aggr(mvc *sql, sql_rel **rel, int distinct, sql_schema *s, char *aname, dno
 	if (!a && list_length(exps) > 1) { 
 		sql_subtype *t1 = exp_subtype(exps->h->data);
 		a = sql_bind_member_aggr(sql->sa, s, aname, exp_subtype(exps->h->data), list_length(exps));
+		bool is_group_concat = (!a && strcmp(s->base.name, "sys") == 0 && strcmp(aname, "group_concat") == 0);
 
-		if (list_length(exps) != 2 || (!EC_NUMBER(t1->type->eclass) || !a || subtype_cmp( 
+		if (list_length(exps) != 2 || (!EC_NUMBER(t1->type->eclass) || !a || is_group_concat || subtype_cmp(
 						&((sql_arg*)a->aggr->ops->h->data)->type,
 						&((sql_arg*)a->aggr->ops->h->next->data)->type) != 0) )  {
+			if(!a && is_group_concat) {
+				sql_subtype *tstr = sql_bind_localtype("str");
+				list *sargs = sa_list(sql->sa);
+				if (list_length(exps) >= 1)
+					append(sargs, tstr);
+				if (list_length(exps) == 2)
+					append(sargs, tstr);
+				a = sql_bind_aggr_(sql->sa, s, aname, sargs);
+			}
 			if (a) {
 				node *n, *op = a->aggr->ops->h;
 				list *nexps = sa_list(sql->sa);
@@ -3651,7 +3681,7 @@ _rel_aggr(mvc *sql, sql_rel **rel, int distinct, sql_schema *s, char *aname, dno
 				}
 				if (a && list_length(nexps))  /* count(col) has |exps| != |nexps| */
 					exps = nexps;
-				}
+			}
 		} else {
 			sql_exp *l = exps->h->data, *ol = l;
 			sql_exp *r = exps->h->next->data, *or = r;
@@ -4124,6 +4154,9 @@ rel_projections_(mvc *sql, sql_rel *rel)
 {
 	list *rexps, *exps ;
 
+	if (THRhighwater())
+		return sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+
 	if (is_subquery(rel) && is_project(rel->op))
 		return new_exp_list(sql->sa);
 
@@ -4291,8 +4324,12 @@ rel_order_by_column_exp(mvc *sql, sql_rel **R, symbol *column_r, int f)
 		}
 		/* try with reverted aliases */
 		if (!e && r && sql->session->status != -ERR_AMBIGUOUS) {
-			sql_rel *nr = rel_project(sql->sa, r, rel_projections_(sql, r));
+			list *proj = rel_projections_(sql, r);
+			sql_rel *nr;
 
+			if (!proj)
+				return NULL;
+			nr = rel_project(sql->sa, r, proj);
 			/* reset error */
 			sql->session->status = 0;
 			sql->errstr[0] = '\0';
@@ -4666,7 +4703,7 @@ rel_value_exp2(mvc *sql, sql_rel **rel, symbol *se, int f, exp_kind ek, int *is_
 			e = _rel_lastexp(sql, r);
 
 			/* group by needed ? */
-			if (e->card > CARD_ATOM && e->card > ek.card) {
+			if (e->card >= CARD_ATOM && e->card > ek.card) {
 				int processed = is_processed(r);
 				sql_subaggr *zero_or_one = sql_bind_aggr(sql->sa, sql->session->schema, "zero_or_one", exp_subtype(e));
 
@@ -4686,7 +4723,7 @@ rel_value_exp2(mvc *sql, sql_rel **rel, symbol *se, int f, exp_kind ek, int *is_
 				/* in the selection phase we should have project/groupbys, unless 
 				 * this is the value (column) for the aggregation then the 
 				 * crossproduct is pushed under the project/groupby.  */ 
-				if (f == sql_sel && r->op == op_project && list_length(r->exps) == 1 && exps_are_atoms(r->exps)) {
+				if (f == sql_sel && r->op == op_project && list_length(r->exps) == 1 && exps_are_atoms(r->exps) && !r->l) {
 					sql_exp *ne = r->exps->h->data;
 
 					exp_setname(sql->sa, ne, exp_relname(e), exp_name(e));
@@ -4837,8 +4874,11 @@ column_exp(mvc *sql, sql_rel **rel, symbol *column_e, int f)
 {
 	dlist *l = column_e->data.lval;
 	exp_kind ek = {type_value, card_column, FALSE};
-	sql_exp *ve = rel_value_exp(sql, rel, l->h->data.sym, f, ek);
+	sql_exp *ve;
 
+	if (f == sql_sel && rel && *rel && (*rel)->card < CARD_AGGR)
+		ek.card = card_value;
+       	ve = rel_value_exp(sql, rel, l->h->data.sym, f, ek);
 	if (!ve)
 		return NULL;
 	/* AS name */
@@ -4895,7 +4935,11 @@ rel_simple_select(mvc *sql, sql_rel *rel, symbol *where, dlist *selection, int d
 	if (!selection)
 		return sql_error(sql, 02, SQLSTATE(42000) "SELECT: the selection or from part is missing");
 	if (where) {
-		sql_rel *r = rel_logical_exp(sql, rel, where, sql_where);
+		sql_rel *r;
+
+		if(!rel)
+			rel = rel_project(sql->sa, NULL, list_append(new_exp_list(sql->sa), exp_atom_bool(sql->sa, 1)));
+		r = rel_logical_exp(sql, rel, where, sql_where);
 		if (!r)
 			return NULL;
 		rel = r;
@@ -5763,7 +5807,8 @@ schema_selects(mvc *sql, sql_schema *schema, symbol *s)
 }
 
 sql_rel *
-rel_loader_function(mvc* sql, symbol* fcall, list *fexps, sql_subfunc **loader_function) {
+rel_loader_function(mvc* sql, symbol* fcall, list *fexps, sql_subfunc **loader_function)
+{
 	list *exps = NULL, *tl;
 	exp_kind ek = { type_value, card_relation, TRUE };
 	sql_rel *sq = NULL;
@@ -5777,14 +5822,13 @@ rel_loader_function(mvc* sql, symbol* fcall, list *fexps, sql_subfunc **loader_f
 	sql_schema *s = sql->session->schema;
 	sql_subfunc* sf;
 
-		
 	tl = sa_list(sql->sa);
 	exps = new_exp_list(sql->sa);
 	if (l->next) { /* table call with subquery */
 		if (l->next->type == type_symbol && l->next->data.sym->token == SQL_SELECT) {
 			if (l->next->next != NULL)
-				return sql_error(sql, 02, "SELECT: '%s' requires a single sub query", fname);
-	       		sq = rel_subquery(sql, NULL, l->next->data.sym, ek, 0 /*apply*/);
+				return sql_error(sql, 02, SQLSTATE(42000) "SELECT: '%s' requires a single sub query", fname);
+			sq = rel_subquery(sql, NULL, l->next->data.sym, ek, 0 /*apply*/);
 		} else if (l->next->type == type_symbol || l->next->type == type_list) {
 			dnode *n;
 			exp_kind iek = {type_value, card_column, TRUE};
@@ -5808,7 +5852,7 @@ rel_loader_function(mvc* sql, symbol* fcall, list *fexps, sql_subfunc **loader_f
 		sql->session->status = 0;
 		sql->errstr[0] = '\0';
 		if (!sq)
-			return sql_error(sql, 02, "SELECT: no such operator '%s'", fname);
+			return sql_error(sql, 02, SQLSTATE(42000) "SELECT: no such operator '%s'", fname);
 		for (en = sq->exps->h; en; en = en->next) {
 			sql_exp *e = en->data;
 
@@ -5819,16 +5863,12 @@ rel_loader_function(mvc* sql, symbol* fcall, list *fexps, sql_subfunc **loader_f
 	if (sname)
 		s = mvc_bind_schema(sql, sname);
 
-
 	e = find_table_function_type(sql, s, fname, exps, tl, F_LOADER, &sf);
-	if (!e || !sf) {
-		return sql_error(sql, 02, "SELECT: no such operator '%s'", fname);
-	}
+	if (!e || !sf)
+		return sql_error(sql, 02, SQLSTATE(42000) "SELECT: no such operator '%s'", fname);
 
-	if (loader_function) {
+	if (loader_function)
 		*loader_function = sf;
-	}
 
 	return rel_table_func(sql->sa, sq, e, fexps, (sq != NULL));
 }
-

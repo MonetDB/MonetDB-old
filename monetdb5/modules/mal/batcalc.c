@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -477,12 +477,12 @@ CMDbatBINARY0(MalStkPtr stk, InstrPtr pci,
 			BBPunfix(b->batCacheid);
 			if (s)
 				BBPunfix(s->batCacheid);
-			throw(MAL, malfunc, PROGRAM_NYI);
+			throw(MAL, malfunc, SQLSTATE(0A000) PROGRAM_NYI);
 		} else {
 			bn = (*batfunc1)(b, &stk->stk[getArg(pci, 2)], s);
 		}
 	} else if (batfunc2 == NULL) {
-		throw(MAL, malfunc, PROGRAM_NYI);
+		throw(MAL, malfunc, SQLSTATE(0A000) PROGRAM_NYI);
 	} else {
 		assert(tp1 != TYPE_bat && !isaBatType(tp1));
 		assert(tp2 == TYPE_bat || isaBatType(tp2));

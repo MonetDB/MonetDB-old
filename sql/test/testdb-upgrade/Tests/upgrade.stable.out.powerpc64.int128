@@ -5298,10 +5298,10 @@ set schema "sys";
 create function fuse(one bigint, two bigint)
 returns hugeint
 external name udf.fuse;
-create function sys.generate_series(first hugeint, last hugeint)
+create function sys.generate_series(first hugeint, "limit" hugeint)
 returns table (value hugeint)
 external name generator.series;
-create function sys.generate_series(first hugeint, last hugeint, stepsize hugeint)
+create function sys.generate_series(first hugeint, "limit" hugeint, stepsize hugeint)
 returns table (value hugeint)
 external name generator.series;
 create aggregate stddev_samp(val HUGEINT) returns DOUBLE
@@ -5341,6 +5341,12 @@ grant execute on aggregate sys.median(hugeint) to public;
 grant execute on aggregate sys.quantile(hugeint, double) to public;
 grant execute on aggregate sys.corr(hugeint, hugeint) to public;
 grant execute on function json.filter(json, hugeint) to public;
+set schema "sys";
+commit;
+
+Running database upgrade commands:
+set schema sys;
+update sys.functions set side_effect = true where language <> 0 and not side_effect and type <> 4 and (type = 2 or (language <> 2 and id not in (select func_id from sys.args where inout = 1)));
 set schema "sys";
 commit;
 

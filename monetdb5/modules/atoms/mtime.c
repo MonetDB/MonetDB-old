@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -3234,7 +3234,7 @@ MTIMEdate_extract_quarter_bulk(bat *ret, const bat *bid)
 	const date *t;
 
 	if ((b = BATdescriptor(*bid)) == NULL)
-		throw(MAL, "batmtime.quarter", "Cannot access descriptor");
+		throw(MAL, "batmtime.quarter", SQLSTATE(HY005) "Cannot access descriptor");
 	n = BATcount(b);
 
 	bn = COLnew(b->hseqbase, TYPE_int, n, TRANSIENT);

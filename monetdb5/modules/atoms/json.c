@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -2000,7 +2000,7 @@ JSONtextString(str *ret, bat *bid)
 {
 	(void) ret;
 	(void) bid;
-	throw(MAL, "json.text", PROGRAM_NYI);
+	throw(MAL, "json.text", SQLSTATE(0A000) PROGRAM_NYI);
 }
 
 
@@ -2012,7 +2012,7 @@ JSONtextGrouped(bat *ret, bat *bid, bat *gid, bat *ext, bit *flg)
 	(void) gid;
 	(void) ext;
 	(void) flg;
-	throw(MAL, "json.text", PROGRAM_NYI);
+	throw(MAL, "json.text", SQLSTATE(0A000) PROGRAM_NYI);
 }
 
 str

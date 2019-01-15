@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -97,7 +97,7 @@ MALassertTriple(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	(void) mb;
 	(void) stk;
 	(void) p;
-	throw(MAL, "mal.assert", PROGRAM_NYI);
+	throw(MAL, "mal.assert", SQLSTATE(0A000) PROGRAM_NYI);
 }
 
 /*
@@ -245,5 +245,5 @@ CMDcallBAT(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 	(void) stk;
 	(void) pci;		/* fool compiler */
-	throw(MAL, "mal.call", PROGRAM_NYI);
+	throw(MAL, "mal.call", SQLSTATE(0A000) PROGRAM_NYI);
 }
