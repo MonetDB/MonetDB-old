@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -466,7 +466,7 @@ bam_exportf(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) stk;
 	(void) pci;
 
-	throw(MAL, "bam_export", SQLSTATE(BA000) "Exporting to BAM files is not implemented yet. This is our first priority for the next release of the BAM library.");
+	throw(MAL, "bam_export", SQLSTATE(0A000) PROGRAM_NYI);
 #else
 	/* arg 1: path to desired output file */
 	str output_path = *getArgReference_str(stk, pci, pci->retc);

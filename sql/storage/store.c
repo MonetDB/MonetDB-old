@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -808,6 +808,7 @@ load_func(sql_trans *tr, sql_schema *s, sqlid fid, subrids *rs)
 	}
 	if (t->type == F_FUNC && !t->res)
 		t->type = F_PROC;
+	t->side_effect = (t->type==F_FILT || (t->res && (t->lang==FUNC_LANG_SQL || !list_empty(t->ops))))?FALSE:TRUE;
 	return t;
 }
 
@@ -3660,10 +3661,11 @@ sql_trans_drop_all_dependencies(sql_trans *tr, sql_schema *s, int id, short type
 							(void) sql_trans_drop_table(tr, s, dep_id, DROP_CASCADE);
 							break;
 				case COLUMN_DEPENDENCY :
-							t_id = sql_trans_get_dependency_type(tr, dep_id, TABLE_DEPENDENCY);
-							t = find_sql_table_id(s, t_id);
-							(void) sql_trans_drop_column(tr, t, dep_id, DROP_CASCADE);
-							t = NULL;
+							if ((t_id = sql_trans_get_dependency_type(tr, dep_id, TABLE_DEPENDENCY)) > 0) {
+								t = find_sql_table_id(s, t_id);
+								if (t)
+									(void) sql_trans_drop_column(tr, t, dep_id, DROP_CASCADE);
+							}
 							break;
 				case VIEW_DEPENDENCY :
 							(void) sql_trans_drop_table(tr, s, dep_id, DROP_CASCADE );
@@ -3871,7 +3873,7 @@ sys_drop_statistics(sql_trans *tr, sql_column *col)
 	}
 }
 
-static void
+static int
 sys_drop_column(sql_trans *tr, sql_column *col, int drop_action)
 {
 	str seq_pos = NULL;
@@ -3882,7 +3884,7 @@ sys_drop_column(sql_trans *tr, sql_column *col, int drop_action)
 				  &col->base.id, NULL);
 
 	if (is_oid_nil(rid))
-		return ;
+		return 0;
 	table_funcs.table_delete(tr, syscolumn, rid);
 	sql_trans_drop_dependencies(tr, col->base.id);
 	sql_trans_drop_any_comment(tr, col->base.id);
@@ -3891,10 +3893,13 @@ sys_drop_column(sql_trans *tr, sql_column *col, int drop_action)
 		sql_sequence * seq = NULL;
 		char *seq_name = _STRDUP(seq_pos + (strlen(next_value_for) - strlen("seq_")));
 		node *n = NULL;
+
+		if(!seq_name)
+			return -1;
 		seq_name[strlen(seq_name)-1] = '\0';
 		n = cs_find_name(&syss->seqs, seq_name);
 		seq = find_sql_sequence(syss, seq_name);
-		if (seq && sql_trans_get_dependency_type(tr, seq->base.id, BEDROPPED_DEPENDENCY)) {
+		if (seq && sql_trans_get_dependency_type(tr, seq->base.id, BEDROPPED_DEPENDENCY) > 0) {
 			sys_drop_sequence(tr, seq, drop_action);
 			seq->base.wtime = syss->base.wtime = tr->wtime = tr->wstime;
 			cs_del(&syss->seqs, n, seq->base.flag);
@@ -3910,6 +3915,7 @@ sys_drop_column(sql_trans *tr, sql_column *col, int drop_action)
 		sql_trans_drop_all_dependencies(tr, col->t->s, col->base.id, COLUMN_DEPENDENCY);
 	if (col->type.type->s) 
 		sql_trans_drop_dependency(tr, col->base.id, col->type.type->base.id, TYPE_DEPENDENCY);
+	return 0;
 }
 
 static void
@@ -3938,7 +3944,7 @@ sys_drop_idxs(sql_trans *tr, sql_table *t, int drop_action)
 		}
 }
 
-static void
+static int
 sys_drop_columns(sql_trans *tr, sql_table *t, int drop_action)
 {
 	node *n;
@@ -3947,8 +3953,10 @@ sys_drop_columns(sql_trans *tr, sql_table *t, int drop_action)
 		for (n = t->columns.set->h; n; n = n->next) {
 			sql_column *c = n->data;
 
-			sys_drop_column(tr, c, drop_action);
+			if(sys_drop_column(tr, c, drop_action))
+				return -1;
 		}
+	return 0;
 }
 
 static void
@@ -3968,7 +3976,7 @@ sys_drop_parts(sql_trans *tr, sql_table *t, int drop_action)
 }
 
 
-static void
+static int
 sys_drop_table(sql_trans *tr, sql_table *t, int drop_action)
 {
 	sql_schema *syss = find_sql_schema(tr, isGlobal(t)?"sys":"tmp");
@@ -3977,7 +3985,7 @@ sys_drop_table(sql_trans *tr, sql_table *t, int drop_action)
 	oid rid = table_funcs.column_find_row(tr, syscol, &t->base.id, NULL);
 
 	if (is_oid_nil(rid))
-		return ;
+		return 0;
 	table_funcs.table_delete(tr, systable, rid);
 	sys_drop_keys(tr, t, drop_action);
 	sys_drop_idxs(tr, t, drop_action);
@@ -3989,13 +3997,15 @@ sys_drop_table(sql_trans *tr, sql_table *t, int drop_action)
 	sql_trans_drop_dependencies(tr, t->base.id);
 
 	if (isKindOfTable(t) || isView(t))
-		sys_drop_columns(tr, t, drop_action);
+		if(sys_drop_columns(tr, t, drop_action))
+			return -1;
 
 	if (isGlobal(t)) 
 		tr->schema_updates ++;
 
 	if (drop_action) 
 		sql_trans_drop_all_dependencies(tr, t->s, t->base.id, !isView(t) ? TABLE_DEPENDENCY : VIEW_DEPENDENCY);
+	return 0;
 }
 
 static void
@@ -4065,7 +4075,7 @@ sys_drop_types(sql_trans *tr, sql_schema *s, int drop_action)
 		}
 }
 
-static void
+static int
 sys_drop_tables(sql_trans *tr, sql_schema *s, int drop_action)
 {
 	node *n;
@@ -4074,8 +4084,10 @@ sys_drop_tables(sql_trans *tr, sql_schema *s, int drop_action)
 		for (n = s->tables.set->h; n; n = n->next) {
 			sql_table *t = n->data;
 
-			sys_drop_table(tr, t, drop_action);
+			if(sys_drop_table(tr, t, drop_action))
+				return -1;
 		}
+	return 0;
 }
 
 static void
@@ -4160,7 +4172,7 @@ create_sql_func(sql_allocator *sa, const char *func, list *args, list *res, int 
 	t->type = type;
 	t->lang = lang;
 	t->sql = (lang==FUNC_LANG_SQL||lang==FUNC_LANG_MAL);
-	t->side_effect = (type==F_FILT||res)?FALSE:TRUE;
+	t->side_effect = (type==F_FILT || (res && (lang==FUNC_LANG_SQL || !list_empty(args))))?FALSE:TRUE;
 	t->varres = varres;
 	t->vararg = vararg;
 	t->ops = args;
@@ -4188,7 +4200,7 @@ sql_trans_create_func(sql_trans *tr, sql_schema * s, const char *func, list *arg
 	t->type = type;
 	t->lang = lang;
 	t->sql = (lang==FUNC_LANG_SQL||lang==FUNC_LANG_MAL);
-	se = t->side_effect = (type==F_FILT||res)?FALSE:TRUE;
+	se = t->side_effect = (type==F_FILT || (res && (lang==FUNC_LANG_SQL || !list_empty(args))))?FALSE:TRUE;
 	t->varres = varres;
 	t->vararg = vararg;
 	t->ops = sa_list(tr->sa);
@@ -4379,7 +4391,8 @@ sql_trans_drop_schema(sql_trans *tr, int id, int drop_action)
 
 	table_funcs.table_delete(tr, sysschema, rid);
 	sys_drop_funcs(tr, s, drop_action);
-	sys_drop_tables(tr, s, drop_action);
+	if(sys_drop_tables(tr, s, drop_action))
+		return -1;
 	sys_drop_types(tr, s, drop_action);
 	sys_drop_sequences(tr, s, drop_action);
 	sql_trans_drop_any_comment(tr, s->base.id);
@@ -4626,9 +4639,10 @@ sql_trans_drop_table(sql_trans *tr, sql_schema *s, int id, int drop_action)
 		*local_id = t->base.id;
 		list_append(tr->dropped, local_id);
 	}
-		
+
 	if (!isDeclaredTable(t))
-		sys_drop_table(tr, t, drop_action);
+		if(sys_drop_table(tr, t, drop_action))
+			return -1;
 
 	t->base.wtime = s->base.wtime = tr->wtime = tr->wstime;
 	if (isGlobal(t) || (t->commit_action != CA_DROP)) 
@@ -4753,7 +4767,8 @@ sql_trans_drop_column(sql_trans *tr, sql_table *t, int id, int drop_action)
 	}
 	
 	if (isKindOfTable(t))
-		sys_drop_column(tr, col, drop_action);
+		if(sys_drop_column(tr, col, drop_action))
+			return -1;
 
 	col->base.wtime = t->base.wtime = t->s->base.wtime = tr->wtime = tr->wstime;
 	cs_del(&t->columns, n, col->base.flag);
@@ -5492,30 +5507,30 @@ sql_trans_alter_sequence(sql_trans *tr, sql_sequence *seq, lng min, lng max, lng
 
 	if (is_oid_nil(rid))
 		return NULL;
-	if (min >= 0 && seq->minvalue != min) {
+	if (!is_lng_nil(min) && seq->minvalue != min) {
 		seq->minvalue = min; 
 		c = find_sql_column(seqs, "minvalue");
 		table_funcs.column_update_value(tr, c, rid, &seq->minvalue);
 	}
-	if (max >= 0 && seq->maxvalue != max) {
+	if (!is_lng_nil(max) && seq->maxvalue != max) {
 		seq->maxvalue = max; 
 		changed = 1;
 		c = find_sql_column(seqs, "maxvalue");
 		table_funcs.column_update_value(tr, c, rid, &seq->maxvalue);
 	}
-	if (inc >= 0 && seq->increment != inc) {
+	if (!is_lng_nil(inc) && seq->increment != inc) {
 		seq->increment = inc; 
 		changed = 1;
 		c = find_sql_column(seqs, "increment");
 		table_funcs.column_update_value(tr, c, rid, &seq->increment);
 	}
-	if (cache >= 0 && seq->cacheinc != cache) {
+	if (!is_lng_nil(cache) && seq->cacheinc != cache) {
 		seq->cacheinc = cache; 
 		changed = 1;
 		c = find_sql_column(seqs, "cacheinc");
 		table_funcs.column_update_value(tr, c, rid, &seq->cacheinc);
 	}
-	if (seq->cycle != cycle) {
+	if (!is_lng_nil(cycle) && seq->cycle != cycle) {
 		seq->cycle = cycle != 0; 
 		changed = 1;
 		c = find_sql_column(seqs, "cycle");

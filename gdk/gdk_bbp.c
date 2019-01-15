@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -101,7 +101,7 @@ static volatile ATOMIC_TYPE BBPsize = 0; /* current used size of BBP array */
 
 struct BBPfarm_t BBPfarms[MAXFARMS];
 
-#define KITTENNAP 4 	/* used to suspend processing */
+#define KITTENNAP 1		/* used to suspend processing */
 #define BBPNONAME "."		/* filler for no name in BBP.dir */
 /*
  * The hash index uses a bucket index (int array) of size mask that is
@@ -482,7 +482,7 @@ fixstroffheap(BAT *b, int *restrict offsets)
 		h2 = *b->tvheap;
 		if (GDKmove(h2.farmid, srcdir, bnme, "theap", BAKDIR, bnme, "theap") != GDK_SUCCEED)
 			GDKfatal("fixstroffheap: cannot make backup of %s.theap\n", nme);
-		snprintf(h2.filename, sizeof(h2.filename), "%s.theap", nme);
+		stpconcat(h2.filename, nme, ".theap", NULL);
 		h2.base = NULL;
 		if (HEAPalloc(&h2, h2.size, 1) != GDK_SUCCEED)
 			GDKfatal("fixstroffheap: allocating new string heap "
@@ -492,7 +492,7 @@ fixstroffheap(BAT *b, int *restrict offsets)
 		h2.free = b->tvheap->free;
 		/* load old offset heap and copy contents to new heap */
 		h1 = *b->tvheap;
-		snprintf(h1.filename, sizeof(h1.filename), "%s.theap", filename);
+		stpconcat(h1.filename, filename, ".theap", NULL);
 		h1.base = NULL;
 		h1.dirty = 0;
 		if (HEAPload(&h1, filename, "theap", false) != GDK_SUCCEED)
@@ -519,7 +519,7 @@ fixstroffheap(BAT *b, int *restrict offsets)
 		GDKfatal("fixstroffheap: cannot make backup of %s.tail\n", nme);
 	/* load old offset heap */
 	h1 = b->theap;
-	snprintf(h1.filename, sizeof(h1.filename), "%s.tail", filename);
+	stpconcat(h1.filename, filename, ".tail", NULL);
 	h1.base = NULL;
 	h1.dirty = 0;
 	if (HEAPload(&h1, filename, "tail", false) != GDK_SUCCEED)
@@ -528,7 +528,7 @@ fixstroffheap(BAT *b, int *restrict offsets)
 
 	/* create new offset heap */
 	h3 = b->theap;
-	snprintf(h3.filename, sizeof(h3.filename), "%s.tail", nme);
+	stpconcat(h3.filename, nme, ".tail", NULL);
 	if (HEAPalloc(&h3, b->batCapacity, width) != GDK_SUCCEED)
 		GDKfatal("fixstroffheap: allocating new tail heap "
 			 "for BAT %d failed\n", b->batCacheid);
@@ -702,7 +702,7 @@ fixfltheap(BAT *b)
 		GDKfatal("fixfltheap: cannot make backup of %s.tail\n", nme);
 	/* load old heap */
 	h1 = b->theap;
-	snprintf(h1.filename, sizeof(h1.filename), "%s.tail", filename);
+	stpconcat(h1.filename, filename, ".tail", NULL);
 	h1.base = NULL;
 	h1.dirty = 0;
 	if (HEAPload(&h1, filename, "tail", false) != GDK_SUCCEED)
@@ -711,7 +711,7 @@ fixfltheap(BAT *b)
 
 	/* create new heap */
 	h2 = b->theap;
-	snprintf(h2.filename, sizeof(h2.filename), "%s.tail", nme);
+	stpconcat(h2.filename, nme, ".tail", NULL);
 	if (HEAPalloc(&h2, b->batCapacity, b->twidth) != GDK_SUCCEED)
 		GDKfatal("fixfltheap: allocating new tail heap "
 			 "for BAT %d failed\n", b->batCacheid);
@@ -967,8 +967,7 @@ heapinit(BAT *b, const char *buf, int *hashash, const char *HT, unsigned bbpvers
 	b->theap.free = (size_t) free;
 	b->theap.size = (size_t) size;
 	b->theap.base = NULL;
-	snprintf(b->theap.filename, sizeof(b->theap.filename),
-		 "%s.tail", filename);
+	stpconcat(b->theap.filename, filename, ".tail", NULL);
 	b->theap.storage = (storage_t) storage;
 	b->theap.copied = 0;
 	b->theap.newstorage = (storage_t) storage;
@@ -998,8 +997,7 @@ vheapinit(BAT *b, const char *buf, int hashash, bat bid, const char *filename)
 		b->tvheap->free = (size_t) free;
 		b->tvheap->size = (size_t) size;
 		b->tvheap->base = NULL;
-		snprintf(b->tvheap->filename, sizeof(b->tvheap->filename),
-			 "%s.theap", filename);
+		stpconcat(b->tvheap->filename, filename, ".theap", NULL);
 		b->tvheap->storage = (storage_t) storage;
 		b->tvheap->copied = 0;
 		b->tvheap->hashash = hashash != 0;
@@ -2499,7 +2497,7 @@ decref(bat i, bool logical, bool releaseShare, bool lock, const char *func)
 	    (BBP_lrefs(i) > 0 &&
 	     (b == NULL || BATdirty(b) || !(BBP_status(i) & BBPPERSISTENT)))) {
 		/* bat cannot be swapped out */
-	} else if (b || (BBP_status(i) & BBPTMP)) {
+	} else if (b ? b->batSharecnt == 0 : (BBP_status(i) & BBPTMP)) {
 		/* bat will be unloaded now. set the UNLOADING bit
 		 * while locked so no other thread thinks it's
 		 * available anymore */
@@ -2653,7 +2651,7 @@ getBBPdescriptor(bat i, bool lock)
 			if (b == NULL) {
 				load = true;
 				BATDEBUG {
-					fprintf(stderr, "#BBPdescriptor set to unloading BAT %d\n", i);
+					fprintf(stderr, "#BBPdescriptor set to loading BAT %d\n", i);
 				}
 				BBP_status_on(i, BBPLOADING, "BBPdescriptor");
 			}
@@ -2956,7 +2954,7 @@ heap_move(Heap *hp, const char *srcdir, const char *dstdir, const char *nme, con
 		long_str kill_ext;
 		char *path;
 
-		snprintf(kill_ext, sizeof(kill_ext), "%s.kill", ext);
+		stpconcat(kill_ext, ext, ".kill", NULL);
 		path = GDKfilepath(hp->farmid, dstdir, nme, kill_ext);
 		if (path == NULL)
 			return GDK_FAIL;
@@ -3079,7 +3077,7 @@ do_backup(const char *srcdir, const char *nme, const char *ext,
 		char extnew[16];
 		gdk_return mvret = GDK_SUCCEED;
 
-		snprintf(extnew, sizeof(extnew), "%s.new", ext);
+		stpconcat(extnew, ext, ".new", NULL);
 		if (dirty &&
 		    !file_exists(h->farmid, BAKDIR, nme, extnew) &&
 		    !file_exists(h->farmid, BAKDIR, nme, ext)) {
@@ -3118,7 +3116,7 @@ do_backup(const char *srcdir, const char *nme, const char *ext,
 		    (h->storage == STORE_PRIV || h->newstorage == STORE_PRIV)) {
 			long_str kill_ext;
 
-			snprintf(kill_ext, sizeof(kill_ext), "%s.new.kill", ext);
+			stpconcat(kill_ext, ext, ".new.kill", NULL);
 			if (file_exists(h->farmid, BAKDIR, nme, kill_ext) &&
 			    file_move(h->farmid, BAKDIR, SUBDIR, nme, kill_ext) != GDK_SUCCEED) {
 				ret = GDK_FAIL;

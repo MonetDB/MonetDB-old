@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -384,7 +384,7 @@ str CLTmd5sum(str *ret, str *pw) {
 #else
 	(void) ret;
 	(void) pw;
-	throw(MAL, "clients.md5sum", PROGRAM_NYI);
+	throw(MAL, "clients.md5sum", SQLSTATE(0A000) PROGRAM_NYI);
 #endif
 }
 
@@ -399,7 +399,7 @@ str CLTsha1sum(str *ret, str *pw) {
 #else
 	(void) ret;
 	(void) pw;
-	throw(MAL, "clients.sha1sum", PROGRAM_NYI);
+	throw(MAL, "clients.sha1sum", SQLSTATE(0A000) PROGRAM_NYI);
 #endif
 }
 
@@ -414,7 +414,7 @@ str CLTripemd160sum(str *ret, str *pw) {
 #else
 	(void) ret;
 	(void) pw;
-	throw(MAL, "clients.ripemd160sum", PROGRAM_NYI);
+	throw(MAL, "clients.ripemd160sum", SQLSTATE(0A000) PROGRAM_NYI);
 #endif
 }
 

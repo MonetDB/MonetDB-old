@@ -1,5 +1,5 @@
 %global name MonetDB
-%global version 11.31.9
+%global version 11.31.13
 %{!?buildno: %global buildno %(date +%Y%m%d)}
 
 # Use bcond_with to add a --with option; i.e., "without" is default.
@@ -13,6 +13,10 @@
 %endif
 
 %global release %{buildno}%{?dist}
+
+# This package contains monetdbd which is a (long running) daemon, so
+# we need to harden:
+%global _hardened_build 1
 
 # On RedHat Enterprise Linux and derivatives, if the Extra Packages
 # for Enterprise Linux (EPEL) repository is available, you can enable
@@ -103,7 +107,8 @@ Vendor: MonetDB BV <info@monetdb.org>
 Group: Applications/Databases
 License: MPLv2.0
 URL: https://www.monetdb.org/
-Source: https://www.monetdb.org/downloads/sources/Aug2018-SP1/%{name}-%{version}.tar.bz2
+BugURL: https://bugs.monetdb.org/
+Source: https://www.monetdb.org/downloads/sources/Aug2018-SP2/%{name}-%{version}.tar.bz2
 
 # we need systemd for the _unitdir macro to exist
 # we need checkpolicy and selinux-policy-devel for the SELinux policy
@@ -341,7 +346,8 @@ This package contains the files needed to develop with the
 Summary: MonetDB ODBC driver
 Group: Applications/Databases
 Requires: %{name}-client%{?_isa} = %{version}-%{release}
-Requires(pre): unixODBC
+Requires(post): unixODBC
+Requires(postun): unixODBC
 
 %description client-odbc
 MonetDB is a database management system that is developed from a
@@ -696,11 +702,7 @@ used from the MAL level.
 %package SQL-server5
 Summary: MonetDB5 SQL server modules
 Group: Applications/Databases
-Requires: MonetDB5-server%{?_isa} = %{version}-%{release}
-%if %{?rhel:0}%{!?rhel:1} || 0%{?rhel} >= 7
-# RHEL >= 7, and all current Fedora
-Requires: %{_bindir}/systemd-tmpfiles
-%endif
+Requires(pre): MonetDB5-server%{?_isa} = %{version}-%{release}
 %if (0%{?fedora} >= 22)
 %if %{with hugeint}
 Recommends: %{name}-SQL-server5-hugeint%{?_isa} = %{version}-%{release}
@@ -717,11 +719,6 @@ accelerators.  It also has an SQL frontend.
 This package contains the SQL frontend for MonetDB.  If you want to
 use SQL with MonetDB, you will need to install this package.
 
-%if %{?rhel:0}%{!?rhel:1} || 0%{?rhel} >= 7
-%post SQL-server5
-systemd-tmpfiles --create %{_sysconfdir}/tmpfiles.d/monetdbd.conf
-%endif
-
 %files SQL-server5
 %defattr(-,root,root)
 %{_bindir}/monetdb
@@ -729,7 +726,8 @@ systemd-tmpfiles --create %{_sysconfdir}/tmpfiles.d/monetdbd.conf
 %dir %attr(775,monetdb,monetdb) %{_localstatedir}/log/monetdb
 %if %{?rhel:0}%{!?rhel:1} || 0%{?rhel} >= 7
 # RHEL >= 7, and all current Fedora
-%{_sysconfdir}/tmpfiles.d/monetdbd.conf
+%dir %attr(775,monetdb,monetdb) /run/monetdb
+%{_tmpfilesdir}/monetdbd.conf
 %{_unitdir}/monetdbd.service
 %else
 # RedHat Enterprise Linux < 7
@@ -840,9 +838,12 @@ Group: Applications/Databases
 %if "%{?_selinux_policy_version}" != ""
 Requires:       selinux-policy >= %{?_selinux_policy_version}
 %endif
-Requires:       %{name}-SQL-server5 = %{version}-%{release}
-Requires(post):   /usr/sbin/semodule, /sbin/restorecon, /sbin/fixfiles, MonetDB-SQL-server5, MonetDB5-server
-Requires(postun): /usr/sbin/semodule, /sbin/restorecon, /sbin/fixfiles, MonetDB-SQL-server5, MonetDB5-server
+Requires(post):   MonetDB5-server%{?_isa} = %{version}-%{release}
+Requires(postun): MonetDB5-server%{?_isa} = %{version}-%{release}
+Requires(post):   %{name}-SQL-server5%{?_isa} = %{version}-%{release}
+Requires(postun): %{name}-SQL-server5%{?_isa} = %{version}-%{release}
+Requires(post):   /usr/sbin/semodule, /sbin/restorecon, /sbin/fixfiles
+Requires(postun): /usr/sbin/semodule, /sbin/restorecon, /sbin/fixfiles
 BuildArch: noarch
 
 %global selinux_types %(%{__awk} '/^#[[:space:]]*SELINUXTYPE=/,/^[^#]/ { if ($3 == "-") printf "%s ", $2 }' /etc/selinux/config 2>/dev/null)
@@ -863,6 +864,8 @@ do
   /usr/sbin/semodule -s ${selinuxvariant} -i \
     %{_datadir}/selinux/${selinuxvariant}/monetdb.pp &> /dev/null || :
 done
+# use %{_localstatedir}/run/monetdb here for EPEL 6; on other systems,
+# %{_localstatedir}/run is a symlink to /run
 /sbin/restorecon -R %{_localstatedir}/monetdb5 %{_localstatedir}/log/monetdb %{_localstatedir}/run/monetdb %{_bindir}/monetdbd %{_bindir}/mserver5 %{_unitdir}/monetdbd.service &> /dev/null || :
 /usr/bin/systemctl try-restart monetdbd.service
 
@@ -876,6 +879,8 @@ if [ $1 -eq 0 ] ; then
   do
     /usr/sbin/semodule -s ${selinuxvariant} -r monetdb &> /dev/null || :
   done
+  # use %{_localstatedir}/run/monetdb here for EPEL 6; on other systems,
+  # %{_localstatedir}/run is a symlink to /run
   /sbin/restorecon -R %{_localstatedir}/monetdb5 %{_localstatedir}/log/monetdb %{_localstatedir}/run/monetdb %{_bindir}/monetdbd %{_bindir}/mserver5 %{_unitdir}/monetdbd.service &> /dev/null || :
   if [ $active = active ]; then
     /usr/bin/systemctl start monetdbd.service
@@ -898,11 +903,18 @@ fi
 # that causes it to report an internal error when compiling
 # testing/difflib.c.  The work around is to not use -fstack-protector-strong.
 # The bug exhibits itself on CentOS 7 on AArch64.
-if [ `gcc -v 2>&1 | grep -c 'Target: aarch64\|gcc version 4\.'` -eq 2 ]; then
-	# set CFLAGS before configure, so that this value gets used
-	CFLAGS='-O2 -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fexceptions --param=ssp-buffer-size=4 -grecord-gcc-switches  '
-	export CFLAGS
-fi
+# Everywhere else, add -Wno-format-truncation to the compiler options
+# to reduce the number of warnings during compilation.
+%ifarch aarch64
+    if gcc -v 2>&1 | grep -q 'gcc version 4\.'; then
+	CFLAGS="${CFLAGS:-$(echo %optflags | sed 's/-fstack-protector-strong//')"
+    else
+	CFLAGS="${CFLAGS:-%optflags -Wno-format-truncation}"
+    fi
+%else
+    CFLAGS="${CFLAGS:-%optflags -Wno-format-truncation}"
+%endif
+export CFLAGS
 %{configure} \
 	--enable-assert=no \
 	--enable-console=yes \
@@ -972,10 +984,23 @@ cd -
 %install
 %make_install
 
-mkdir -p %{buildroot}%{_localstatedir}/MonetDB
-mkdir -p %{buildroot}%{_localstatedir}/monetdb5/dbfarm
-mkdir -p %{buildroot}%{_localstatedir}/log/monetdb
-mkdir -p %{buildroot}%{_localstatedir}/run/monetdb
+# move file to correct location
+%if %{?rhel:0}%{!?rhel:1} || 0%{?rhel} >= 7
+mkdir -p %{buildroot}%{_tmpfilesdir}
+mv %{buildroot}%{_sysconfdir}/tmpfiles.d/monetdbd.conf %{buildroot}%{_tmpfilesdir}
+rmdir %{buildroot}%{_sysconfdir}/tmpfiles.d
+%endif
+
+install -d -m 0750 %{buildroot}%{_localstatedir}/MonetDB
+install -d -m 0770 %{buildroot}%{_localstatedir}/monetdb5/dbfarm
+install -d -m 0775 %{buildroot}%{_localstatedir}/log/monetdb
+%if %{?rhel:0}%{!?rhel:1} || 0%{?rhel} >= 7
+# RHEL >= 7, and all current Fedora
+install -d -m 0775 %{buildroot}/run/monetdb
+%else
+# RedHat Enterprise Linux < 7
+install -d -m 0775 %{buildroot}%{_localstatedir}/run/monetdb
+%endif
 
 # remove unwanted stuff
 # .la files
@@ -997,6 +1022,45 @@ done
 %postun -p /sbin/ldconfig
 
 %changelog
+* Fri Jan 04 2019 Sjoerd Mullender <sjoerd@acm.org> - 11.31.13-20190104
+- Rebuilt.
+- BZ#6643: schema name qualifier in create global temporary table
+  json.table6643 ... is not honered
+- BZ#6645: optimizer treats all the functions with no or constant
+  parameters as constant
+- BZ#6650: PREPARE SQL statement fails to compile user defined functions
+  with parameter/s
+- BZ#6651: Multi-column IN clause for subquery produces wrong results
+- BZ#6653: CREATE TABLE accepts empty table/column name
+- BZ#6654: Incorrect handling of 'TRUE' in compound select
+- BZ#6657: Restart sequence with a non atomic sub-query cardinality
+  gives wrong error message
+- BZ#6660: GRANTing a ROLE is not idempotent
+- BZ#6662: Concurrency Conflicts Exception string "!transaction is
+  aborted because of concurrency conflicts, will ROLLBACK instead" not
+  shown on prompt.
+- BZ#6664: mserver5 crash: infinite recursive happens at rel_bin.c:489
+- BZ#6665: Creation of serial types does not accept negative numbers
+- BZ#6666: COPY INTO from .. LOCKED doubles input data
+- BZ#6668: The SAMPLE key word doesn't work in a subquery.
+- BZ#6669: COPY [xxx RECORDS] INTO foo FROM STDIN ... doesn't work
+  without specifying nr of to be copied records
+- BZ#6672: SQLGetData with SQL_C_WCHAR string truncation and invalid
+  StrLen_or_Ind value
+
+* Tue Oct 30 2018 Sjoerd Mullender <sjoerd@acm.org> - 11.31.13-20190104
+- sql: Disabled function sys.getcontent(url).
+
+* Thu Oct 11 2018 Sjoerd Mullender <sjoerd@acm.org> - 11.31.13-20190104
+
+* Thu Oct 11 2018 Sjoerd Mullender <sjoerd@acm.org> - 11.31.11-20181011
+- Rebuilt.
+- BZ#6648: key property potentially wrong after type conversion
+- BZ#6649: Projection inside within transaction gives wrong results
+
+* Wed Oct 10 2018 Sjoerd Mullender <sjoerd@acm.org> - 11.31.11-20181011
+- MonetDB: Some subtle dependencies between RPMs have been fixed.
+
 * Fri Oct 05 2018 Sjoerd Mullender <sjoerd@acm.org> - 11.31.9-20181005
 - Rebuilt.
 - BZ#6640: timestamp_to_str returning incorrectly adjusted results
@@ -1007,7 +1071,7 @@ done
 * Wed Oct  3 2018 Sjoerd Mullender <sjoerd@acm.org> - 11.31.9-20181005
 - buildtools: On Ubuntu 18.10 (Cosmic Cuttlefish), the libmonetdb5-server-bam package
   cannot be built because of an incompatibility in the libbam library
-  (it cannot be used in a shared object.
+  (it cannot be used in a shared object).
 
 * Wed Aug 29 2018 Sjoerd Mullender <sjoerd@acm.org> - 11.31.7-20180829
 - Rebuilt.

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -22,20 +22,6 @@
 #ifndef HAVE_LLABS
 #define llabs(x)	((x) < 0 ? -(x) : (x))
 #endif
-
-// stpcpy definition, for systems that do not have stpcpy
-/* Copy YYSRC to YYDEST, returning the address of the terminating '\0' in
-   YYDEST.  */
-static char *
-mystpcpy (char *yydest, const char *yysrc) {
-	char *yyd = yydest;
-	const char *yys = yysrc;
-
-	while ((*yyd++ = *yys++) != '\0')
-	continue;
-
-	return yyd - 1;
-}
 
 #ifdef _MSC_VER
 /* use intrinsic functions on Windows */
@@ -1693,7 +1679,7 @@ mvc_export_table_prot10(backend *b, stream *s, res_table *t, BAT *order, BUN off
 						} else {
 							str = (char*) element;
 						}
-						buf = mystpcpy(buf, str) + 1;
+						buf = stpcpy(buf, str) + 1;
 						assert(buf - bs2_buffer(s).buf <= (lng) bsize);
 					}
 					*((lng*)startbuf) = mnstr_swap_lng(s, buf - (startbuf + sizeof(lng)));

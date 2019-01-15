@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -2735,9 +2735,10 @@ BATgroupquantile(BAT *b, BAT *g, BAT *e, BAT *s, int tp, double quantile,
 		return NULL;
 	}
 
-	if (BATcount(b) == 0 || ngrp == 0) {
+	if (BATcount(b) == 0 || ngrp == 0 || is_dbl_nil(quantile)) {
 		/* trivial: no values, thus also no quantiles,
-		 * so return bat aligned with e with nil in the tail */
+		 * so return bat aligned with e with nil in the tail
+		 * The same happens for a NULL quantile */
 		return BATconstant(ngrp == 0 ? 0 : min, tp, nil, ngrp, TRANSIENT);
 	}
 

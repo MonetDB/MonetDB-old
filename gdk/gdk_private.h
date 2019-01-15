@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /* This file should not be included in any file outside of this directory */
@@ -206,6 +206,19 @@ __hidden void persistOIDX(BAT *b)
 __hidden gdk_return rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, bool li, bool hi, BUN maxsize)
 	__attribute__((__warn_unused_result__))
 	__attribute__((__visibility__("hidden")));
+static inline char *
+stpconcat(char *restrict dst, const char *src, ...)
+{
+	va_list ap;
+
+	va_start(ap, src);
+	while (src) {
+		dst = stpcpy(dst, src);
+		src = va_arg(ap, const char *);
+	}
+	va_end(ap);
+	return dst;
+}
 __hidden void strCleanHash(Heap *hp, bool rebuild)
 	__attribute__((__visibility__("hidden")));
 __hidden int strCmpNoNil(const unsigned char *l, const unsigned char *r)
@@ -262,7 +275,7 @@ __hidden void gdk_system_reset(void)
 			b && b->torderidx ? "O" : "",	\
 			b ? b->timprints ? "I" : b->theap.parentid && BBP_cache(b->theap.parentid)->timprints ? "(I)" : "" : ""
 
-#define BBP_BATMASK	511
+#define BBP_BATMASK	(128 * SIZEOF_SIZE_T - 1)
 #define BBP_THREADMASK	63
 
 struct PROPrec {

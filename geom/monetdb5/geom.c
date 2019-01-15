@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -5290,7 +5290,7 @@ mbrFROMSTR(const char *src, size_t *len, mbr **atom)
 	if (strcmp(src, str_nil) == 0)
 		nil = 1;
 
-	if (!nil && (strstr(src, "mbr") == src || strstr(src, "MBR") == src) && (c = strstr(src, "(")) != NULL) {
+	if (!nil && (strstr(src, "mbr") == src || strstr(src, "MBR") == src || strstr(src, "box") == src || strstr(src, "BOX") == src) && (c = strstr(src, "(")) != NULL) {
 		/* Parse the mbr */
 		if ((c - src) != 3 && (c - src) != 4) {
 			GDKerror("ParseException: Expected a string like 'MBR(0 0,1 1)' or 'MBR (0 0,1 1)'\n");

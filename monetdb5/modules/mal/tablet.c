@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -625,7 +625,7 @@ typedef struct {
 	lng skip;					/* number of lines to be skipped */
 	lng *time, wtime;			/* time per col + time per thread */
 	int rounds;					/* how often did we divide the work */
-	int ateof;					/* io control */
+	bool ateof;					/* io control */
 	bstream *b;
 	stream *out;
 	MT_Id tid;
@@ -1235,7 +1235,7 @@ SQLproducer(void *p)
 	int consoleinput = 0;
 	int cur = 0;		// buffer being filled
 	int blocked[MAXBUFFERS] = { 0 };
-	int ateof[MAXBUFFERS] = { 0 };
+	bool ateof[MAXBUFFERS] = { false };
 	BUN cnt = 0, bufcnt[MAXBUFFERS] = { 0 };
 	char *end, *e, *s, *base;
 	const char *rsep = task->rsep;
@@ -1271,7 +1271,7 @@ SQLproducer(void *p)
 	for (;;) {
 		ateof[cur] = tablet_read_more(task->b, task->out, task->b->size) == EOF;
 #ifdef _DEBUG_TABLET_CNTRL
-		if (ateof[cur] == 0)
+		if (!ateof[cur])
 			mnstr_printf(GDKout, "#read %zu bytes pos = %zu eof=%d offset=" LLFMT " \n",
 						 task->b->len, task->b->pos, task->b->eof,
 						 (lng) (s - task->input[cur]));
@@ -1292,14 +1292,14 @@ SQLproducer(void *p)
 #ifdef _DEBUG_TABLET_CNTRL
 				mnstr_printf(GDKout, "#bailout on SQLload %s\n", msg);
 #endif
-				ateof[cur] = 1;
+				ateof[cur] = true;
 				break;
 			}
 		}
 
 	  parseSTDIN:
 #ifdef _DEBUG_TABLET_
-		if (ateof[cur] == 0)
+		if (!ateof[cur])
 			mnstr_printf(GDKout, "#parse input:%.63s\n",
 						 task->b->buf + task->b->pos);
 #endif
@@ -1314,7 +1314,7 @@ SQLproducer(void *p)
 			   between the threads, which we can not now update.
 			   Mimick an ateof instead; */
 			tablet_error(task, lng_nil, int_nil, "record too long", "");
-			ateof[cur] = 1;
+			ateof[cur] = true;
 #ifdef _DEBUG_TABLET_CNTRL
 			mnstr_printf(GDKout, "#bailout on SQLload confronted with too large record\n");
 #endif
@@ -1334,6 +1334,10 @@ SQLproducer(void *p)
 		 * scan ended (we need to back off some since we could be in
 		 * the middle of the record separator).  If this is too
 		 * costly, we have to rethink the matter. */
+		if (task->out && *s == '\n' && task->maxrow == BUN_NONE) {
+			ateof[cur] = true;
+			goto reportlackofinput;
+		}
 		for (e = s; *e && e < end && cnt < task->maxrow;) {
 			/* tokenize the record completely the format of the input
 			 * should comply to the following grammar rule [
@@ -1457,7 +1461,7 @@ SQLproducer(void *p)
 				if (s+partial < end) {
 					/* found a EOS in the input */
 					tablet_error(task, lng_nil, int_nil, "record too long (EOS found)", "");
-					ateof[cur] = 1;
+					ateof[cur] = true;
 					goto reportlackofinput;
 				}
 				break;
@@ -1535,7 +1539,7 @@ SQLproducer(void *p)
 		/* consumers ask us to stop? */
 		if (task->state == ENDOFCOPY) {
 #ifdef _DEBUG_TABLET_CNTRL
-			if (ateof[cur] == 0)
+			if (!ateof[cur])
 				mnstr_printf(GDKout, "#SQL producer early exit %.63s\n",
 							 task->b->buf + task->b->pos);
 #endif
@@ -1544,7 +1548,7 @@ SQLproducer(void *p)
 		}
 		bufcnt[cur] = cnt;
 #ifdef _DEBUG_TABLET_CNTRL
-		if (ateof[cur] == 0)
+		if (!ateof[cur])
 			mnstr_printf(GDKout, "#shuffle %zu: %.63s\n", strlen(s), s);
 #endif
 		/* move the non-parsed correct row data to the head of the next buffer */
@@ -1674,7 +1678,7 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, const char *csep
 
 	MT_sema_init(&task.producer, 0, "task.producer");
 	MT_sema_init(&task.consumer, 0, "task.consumer");
-	task.ateof = 0;
+	task.ateof = false;
 	task.b = b;
 	task.out = out;
 
@@ -1958,7 +1962,7 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, const char *csep
 						 ptask[j].wtime);
 	}
 
-	task.ateof = 1;
+	task.ateof = true;
 	task.state = ENDOFCOPY;
 #ifdef _DEBUG_TABLET_
 	for (i = 0; i < as->nr_attrs; i++) {

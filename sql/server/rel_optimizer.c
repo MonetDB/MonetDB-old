@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*#define DEBUG*/
@@ -6964,7 +6964,7 @@ rel_simplify_predicates(int *changes, mvc *sql, sql_rel *rel)
 				/* remove simple select true expressions */
 				if (flag) {
 					sql->caching = 0;
-					break;
+					continue;
 				}
 			}
 			if (e->type == e_cmp && get_cmp(e) == cmp_equal) {
@@ -9441,7 +9441,7 @@ optimize(mvc *sql, sql_rel *rel, int value_based_opt)
 	int level = 0, changes = 1;
 
 	rel_reset_subquery(rel);
-	for( ;rel && level < 20 && changes; level++) 
+	for( ;rel && level < 20 && changes; level++)
 		rel = optimize_rel(sql, rel, &changes, level, value_based_opt);
 	return rel;
 }

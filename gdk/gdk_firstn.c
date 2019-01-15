@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -550,7 +550,7 @@ BATfirstn_unique_with_groups(BAT *b, BAT *s, BAT *g, BUN n, bool asc, oid *lastp
 	} else {
 		switch (tpe) {
 		case TYPE_void:
-			heapify(LTvoidgrp, SWAP2);
+			heapify(GTvoidgrp, SWAP2);
 			while (cand ? cand < candend : start < end) {
 				i = cand ? *cand++ : start++ + b->hseqbase;
 				if (gv[ci] < goids[0] ||
@@ -558,7 +558,7 @@ BATfirstn_unique_with_groups(BAT *b, BAT *s, BAT *g, BUN n, bool asc, oid *lastp
 				     i > oids[0] -- always true */)) {
 					oids[0] = i;
 					goids[0] = gv[ci];
-					siftup(LTvoidgrp, 0, SWAP2);
+					siftup(GTvoidgrp, 0, SWAP2);
 				}
 				ci++;
 			}

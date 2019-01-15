@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -1524,8 +1524,11 @@ copyfrom(mvc *sql, dlist *qname, dlist *columns, dlist *files, dlist *headers, d
 			return NULL;
 	}
 	rel = rel_insert_table(sql, t, tname, rel);
-	if (rel && locked)
+	if (rel && locked) {
 		rel->flag |= UPD_LOCKED;
+		if (rel->flag & UPD_COMP)
+			((sql_rel *) rel->r)->flag |= UPD_LOCKED;
+	}
 	if (rel && !constraint)
 		rel->flag |= UPD_NO_CONSTRAINT;
 	return rel;

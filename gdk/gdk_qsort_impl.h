@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /* This file is included multiple times.  We expect the tokens SWAP,
@@ -50,7 +50,8 @@
  */
 
 static void
-GDKqsort_impl(struct qsort_t *buf, char *restrict h, char *restrict t, size_t n)
+GDKqsort_impl(const struct qsort_t *restrict buf,
+	      char *restrict h, char *restrict t, size_t n)
 {
 	size_t a, b, c, d;
 	size_t r;
@@ -63,7 +64,7 @@ GDKqsort_impl(struct qsort_t *buf, char *restrict h, char *restrict t, size_t n)
 	if (n < 7) {
 		/* insertion sort for very small chunks */
 		for (b = 1; b < n; b++) {
-			for (a = b; a > 0 && LE(a, a - 1); a--) {
+			for (a = b; a > 0 && LT(a, a - 1); a--) {
 				SWAP(a, a - 1);
 			}
 		}
@@ -133,7 +134,7 @@ GDKqsort_impl(struct qsort_t *buf, char *restrict h, char *restrict t, size_t n)
 	if (!swap_cnt && n < 1024) {
 		/* switch to insertion sort, but only for small chunks */
 		for (b = 1; b < n; b++) {
-			for (a = b; a > 0 && LE(a, a - 1); a--) {
+			for (a = b; a > 0 && LT(a, a - 1); a--) {
 				SWAP(a, a - 1);
 			}
 		}

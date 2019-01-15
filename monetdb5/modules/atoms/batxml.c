@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -499,7 +499,7 @@ BATXMLoptions(bat *ret, const char * const *name, const char * const *options, c
 		snprintf(buf, size, "nil");
 	else {
 		/*if(strcmp(*options,"niloncontent")==0) */
-		err = PROGRAM_NYI;
+		err = SQLSTATE(0A000) PROGRAM_NYI;
 		goto bunins_failed;
 	}
 
@@ -1443,7 +1443,7 @@ BATXMLxquery(bat *ret, const bat *bid, const char * const *expr)
 	(void) bid;
 	(void) expr;
 	/* use external library to solve this */
-	throw(MAL, "xml.xquery", PROGRAM_NYI);
+	throw(MAL, "xml.xquery", SQLSTATE(0A000) PROGRAM_NYI);
 }
 
 #else
