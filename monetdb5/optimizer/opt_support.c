@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
  /* (c) M. Kersten
@@ -522,9 +522,18 @@ isOrderDepenent(InstrPtr p)
 	if( getModuleId(p) != batsqlRef)
 		return 0;
 	if ( getFunctionId(p) == differenceRef ||
+		getFunctionId(p) == window_boundRef ||
 		getFunctionId(p) == row_numberRef ||
 		getFunctionId(p) == rankRef ||
-		getFunctionId(p) == dense_rankRef)
+		getFunctionId(p) == dense_rankRef ||
+		getFunctionId(p) == percent_rankRef ||
+		getFunctionId(p) == cume_distRef ||
+		getFunctionId(p) == ntileRef ||
+		getFunctionId(p) == first_valueRef ||
+		getFunctionId(p) == last_valueRef ||
+		getFunctionId(p) == nth_valueRef ||
+		getFunctionId(p) == lagRef ||
+		getFunctionId(p) == leadRef)
 		return 1;
 	return 0;
 }

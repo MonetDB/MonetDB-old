@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /* multi version catalog */
@@ -22,6 +22,8 @@
 #include "sql_keyword.h"
 #include "sql_atom.h"
 #include "sql_query.h"
+#include "sql_tokens.h"
+#include "sql_symbol.h"
 
 #define ERRSIZE 8192
 
@@ -29,11 +31,10 @@
 #define type_value	0
 #define type_predicate	1
 
-/* todo cleanup card_row and card_set, both seem to be not used */
 /* cardinality expected by enclosing operator */
 #define card_none	-1	/* psm call doesn't return anything */
 #define card_value	0
-#define card_row 	1
+#define card_row 	1 /* needed for subqueries on single value tables (select (select 1))*/
 #define card_column 	2
 #define card_set	3 /* some operators require only a set (IN/EXISTS) */
 #define card_relation 	4
@@ -65,13 +66,22 @@
 /* locked needs unlocking */
 #define mod_locked 	16 
 
+typedef struct sql_groupby_expression {
+	symbol *sdef;
+	tokens token;
+	sql_exp *exp;
+} sql_groupby_expression;
+
 typedef struct sql_var {
 	const char *name;
 	atom a;
 	sql_table *t;
-	sql_rel *rel;	
+	sql_rel *rel;
+	dlist *wdef;
+	sql_groupby_expression *exp;
 	char view;
 	char frame;
+	char visited; //used for window definitions lookup
 } sql_var;
 
 typedef struct sql_subquery {
@@ -105,9 +115,10 @@ typedef struct mvc {
 	int argmax;
 	struct symbol *sym;
 	int no_mitosis;		/* run query without mitosis */
+	bool has_groupby_expressions;
 
-	int user_id;
-	int role_id;
+	sqlid user_id;
+	sqlid role_id;
 	lng last_id;
 	lng rowcnt;
 
@@ -186,7 +197,7 @@ extern int mvc_drop_func(mvc *c, sql_schema *s, sql_func * func, int drop_action
 extern int mvc_drop_all_func(mvc *c, sql_schema *s, list *list_func, int drop_action);
 
 extern int mvc_drop_schema(mvc *c, sql_schema *s, int drop_action);
-extern sql_schema *mvc_create_schema(mvc *m, const char *name, int auth_id, int owner);
+extern sql_schema *mvc_create_schema(mvc *m, const char *name, sqlid auth_id, sqlid owner);
 extern BUN mvc_clear_table(mvc *m, sql_table *t);
 extern str mvc_drop_table(mvc *c, sql_schema *s, sql_table * t, int drop_action);
 extern sql_table *mvc_create_table(mvc *c, sql_schema *s, const char *name, int tt, bit system, int persistence, int commit_action, int sz, bit properties);
@@ -222,16 +233,24 @@ extern int mvc_drop_trigger(mvc *m, sql_schema *s, sql_trigger * tri);
 
 
 /*dependency control*/
-extern void mvc_create_dependency(mvc *m, int id, int depend_id, int depend_type);
-extern void mvc_create_dependencies(mvc *m, list *id_l, sqlid depend_id, int dep_type);
-extern int mvc_check_dependency(mvc * m, int id, int type, list *ignore_ids);
+extern void mvc_create_dependency(mvc *m, sqlid id, sqlid depend_id, sht depend_type);
+extern void mvc_create_dependencies(mvc *m, list *id_l, sqlid depend_id, sht dep_type);
+extern int mvc_check_dependency(mvc * m, sqlid id, sht type, list *ignore_ids);
 
 /* variable management */
 extern sql_var* stack_push_var(mvc *sql, const char *name, sql_subtype *type);
 extern sql_var* stack_push_rel_var(mvc *sql, const char *name, sql_rel *var, sql_subtype *type);
 extern sql_var* stack_push_table(mvc *sql, const char *name, sql_rel *var, sql_table *t);
 extern sql_var* stack_push_rel_view(mvc *sql, const char *name, sql_rel *view);
+extern sql_var* stack_push_window_def(mvc *sql, const char *name, dlist *sym);
+extern dlist* stack_get_window_def(mvc *sql, const char *name, int *pos);
+extern sql_var* stack_push_groupby_expression(mvc *sql, symbol *def, sql_exp *exp);
+extern sql_exp* stack_get_groupby_expression(mvc *sql, symbol *def);
 extern void stack_update_rel_view(mvc *sql, const char *name, sql_rel *view);
+
+extern char stack_check_var_visited(mvc *sql, int i);
+extern void stack_set_var_visited(mvc *sql, int i);
+extern void stack_clear_frame_visited_flag(mvc *sql);
 
 extern sql_var* stack_push_frame(mvc *sql, const char *name);
 extern void stack_pop_frame(mvc *sql);
@@ -276,5 +295,7 @@ extern void *sql_error(mvc *sql, int error_code, _In_z_ _Printf_format_string_ c
 extern sql_subquery *mvc_push_subquery(mvc *m, const char *name, sql_rel *r);
 extern sql_subquery *mvc_find_subquery(mvc *m, const char *rname, const char *name);
 extern sql_exp *mvc_find_subexp(mvc *m, const char *rname, const char *name);
+
+extern int symbol_cmp(mvc* sql, symbol *s1, symbol *s2);
 
 #endif /*_SQL_MVC_H*/

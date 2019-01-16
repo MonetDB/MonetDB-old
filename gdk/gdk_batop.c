@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -30,8 +30,8 @@ unshare_string_heap(BAT *b)
 			return GDK_FAIL;
 		h->parentid = b->batCacheid;
 		h->farmid = BBPselectfarm(b->batRole, TYPE_str, varheap);
-		snprintf(h->filename, sizeof(h->filename),
-			 "%s.theap", BBP_physical(b->batCacheid));
+		stpconcat(h->filename, BBP_physical(b->batCacheid),
+			  ".theap", NULL);
 		if (HEAPcopy(h, b->tvheap) != GDK_SUCCEED) {
 			HEAPfree(h, true);
 			GDKfree(h);
@@ -479,8 +479,8 @@ append_varsized_bat(BAT *b, BAT *n, BAT *s)
 			return GDK_FAIL;
 		h->parentid = b->batCacheid;
 		h->farmid = BBPselectfarm(b->batRole, b->ttype, varheap);
-		snprintf(h->filename, sizeof(h->filename),
-			 "%s.theap", BBP_physical(b->batCacheid));
+		stpconcat(h->filename, BBP_physical(b->batCacheid),
+			  ".theap", NULL);
 		if (HEAPcopy(h, b->tvheap) != GDK_SUCCEED) {
 			HEAPfree(h, true);
 			GDKfree(h);
@@ -969,7 +969,9 @@ BATslice(BAT *b, BUN l, BUN h)
 
 	/* If the source BAT is readonly, then we can obtain a VIEW
 	 * that just reuses the memory of the source. */
-	if (BAThrestricted(b) == BAT_READ && BATtrestricted(b) == BAT_READ) {
+	if (b->batRestricted == BAT_READ &&
+	    (!VIEWtparent(b) ||
+	     BBP_cache(VIEWtparent(b))->batRestricted == BAT_READ)) {
 		bn = VIEWcreate(b->hseqbase + low, b);
 		if (bn == NULL)
 			return NULL;

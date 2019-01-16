@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -103,9 +103,9 @@ strHeap(Heap *d, size_t cap)
 	size = GDK_STRHASHTABLE * sizeof(stridx_t) + MIN(GDK_ELIMLIMIT, cap * GDK_VARALIGN);
 	if (HEAPalloc(d, size, 1) == GDK_SUCCEED) {
 		d->free = GDK_STRHASHTABLE * sizeof(stridx_t);
-		d->dirty = 1;
+		d->dirty = true;
 		memset(d->base, 0, d->free);
-		d->hashash = 0;
+		d->hashash = false;
 #ifndef NDEBUG
 		/* fill should solve initialization problems within valgrind */
 		memset(d->base + d->free, 0, d->size - d->free);
@@ -168,7 +168,7 @@ strCleanHash(Heap *h, bool rebuild)
 			if (!(GDKdebug & NOSYNCMASK))
 				(void) MT_msync(h->base, GDK_STRHASHSIZE);
 		} else
-			h->dirty = 1;
+			h->dirty = true;
 	}
 #ifndef NDEBUG
 	if (GDK_ELIMDOUBLES(h)) {
@@ -184,7 +184,7 @@ strCleanHash(Heap *h, bool rebuild)
 		}
 	}
 #endif
-	h->cleanhash = 0;
+	h->cleanhash = false;
 }
 
 /*
@@ -368,7 +368,7 @@ strPut(Heap *h, var_t *dst, const char *v)
 #endif
 	}
 	h->free += pad + len + extralen;
-	h->dirty = 1;
+	h->dirty = true;
 
 	/* maintain hash table */
 	pos -= extralen;
@@ -513,6 +513,7 @@ GDKstrFromStr(unsigned char *restrict dst, const unsigned char *restrict src, ss
 					}
 					*p++ = 0x80 | (c & 0x3F);
 				}
+				escaped = false;
 				continue;
 			case 'a':
 				c = '\a';
@@ -794,7 +795,8 @@ strToStr(char **restrict dst, size_t *restrict len, const char *restrict src, bo
 	}
 	if (GDK_STRNIL(src)) {
 		atommem(4);
-		return snprintf(*dst, *len, "nil");
+		strcpy(*dst, "nil");
+		return 3;
 	} else {
 		ssize_t l = 0;
 		size_t sz = escapedStrlen(src, NULL, NULL, '"');

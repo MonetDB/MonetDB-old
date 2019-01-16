@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -458,8 +458,10 @@ create_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *col
 
 	/* for some reason we don't have an allocator here, so make one */
 	sql->sa = sa_create();
-	if(!sql->sa)
-		throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	if (!sql->sa) {
+		msg = sql_error(sql, 02, SQLSTATE(HY001) "CREATE TABLE: %s", MAL_MALLOC_FAIL);
+		goto cleanup;
+	}
 
 	if (!sname)
 		sname = "sys";
@@ -512,14 +514,16 @@ create_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *col
 		}
 	}
 
-  cleanup:
-	sa_destroy(sql->sa);
-	sql->sa = NULL;
+cleanup:
+	if(sql->sa) {
+		sa_destroy(sql->sa);
+		sql->sa = NULL;
+	}
 	return msg;
 }
 
 str 
-append_to_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *columns, size_t ncols) 
+append_to_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *columns, size_t ncols)
 {
 	size_t i;
 	sql_table *t;
@@ -534,8 +538,12 @@ append_to_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *
 
 	/* for some reason we don't have an allocator here, so make one */
 	sql->sa = sa_create();
+	if (!sql->sa) {
+		msg = sql_error(sql, 02, SQLSTATE(HY001) "CREATE TABLE: %s", MAL_MALLOC_FAIL);
+		goto cleanup;
+	}
 
-	if (!sname) 
+	if (!sname)
 		sname = "sys";
 	if (!(s = mvc_bind_schema(sql, sname))) {
 		msg = sql_error(sql, 02, "3F000!CREATE TABLE: no such schema '%s'", sname);
@@ -561,9 +569,11 @@ append_to_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *
 		}
 	}
 
-  cleanup:
-	sa_destroy(sql->sa);
-	sql->sa = NULL;
+cleanup:
+	if(sql->sa) {
+		sa_destroy(sql->sa);
+		sql->sa = NULL;
+	}
 	return msg;
 }
 
@@ -827,7 +837,7 @@ mvc_bat_next_value(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BBPunfix(b->batCacheid);
 			BBPunfix(r->batCacheid);
 			seqbulk_destroy(sb);
-			throw(SQL, "sql.next_value", SQLSTATE(HY050) "Cannot generate next seuqnce value %s.%s", sname, seqname);
+			throw(SQL, "sql.next_value", SQLSTATE(HY050) "Cannot generate next sequence value %s.%s", sname, seqname);
 		}
 		if (BUNappend(r, &l, false) != GDK_SUCCEED) {
 			BBPunfix(b->batCacheid);
@@ -1214,11 +1224,13 @@ mvc_grow_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void)cntxt;
 	*res = 0;
 	if ((tid = BATdescriptor(Tid)) == NULL)
-		throw(SQL, "sql.grow", "Cannot access descriptor");
+		throw(SQL, "sql.grow", SQLSTATE(HY005) "Cannot access descriptor");
 	if (tpe > GDKatomcnt)
 		tpe = TYPE_bat;
-	if (tpe == TYPE_bat && (ins = BATdescriptor(*(int *) Ins)) == NULL)
-		throw(SQL, "sql.append", "Cannot access descriptor");
+	if (tpe == TYPE_bat && (ins = BATdescriptor(*(bat *) Ins)) == NULL) {
+		BBPunfix(Tid);
+		throw(SQL, "sql.grow", SQLSTATE(HY005) "Cannot access descriptor");
+	}
 	if (ins) {
 		cnt = BATcount(ins);
 		BBPunfix(ins->batCacheid);
@@ -1261,7 +1273,7 @@ mvc_append_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if (tpe > GDKatomcnt)
 		tpe = TYPE_bat;
-	if (tpe == TYPE_bat && (ins = BATdescriptor(*(int *) ins)) == NULL)
+	if (tpe == TYPE_bat && (ins = BATdescriptor(*(bat *) ins)) == NULL)
 		throw(SQL, "sql.append", SQLSTATE(HY005) "Cannot access column descriptor %s.%s.%s",
 			sname,tname,cname);
 	if (ATOMextern(tpe))
@@ -1323,7 +1335,7 @@ mvc_update_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	else
 		assert(0);
 	if (tpe != TYPE_bat)
-		throw(SQL, "sql.update", SQLSTATE(HY005) "Cannot access column descriotor %s.%s.%s",
+		throw(SQL, "sql.update", SQLSTATE(HY005) "Cannot access column descriptor %s.%s.%s",
 		sname,tname,cname);
 	if ((tids = BATdescriptor(Tids)) == NULL)
 		throw(SQL, "sql.update", SQLSTATE(HY005) "Cannot access column descriptor %s.%s.%s",
@@ -1410,7 +1422,7 @@ mvc_delete_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if (tpe > TYPE_any)
 		tpe = TYPE_bat;
-	if (tpe == TYPE_bat && (b = BATdescriptor(*(int *) ins)) == NULL)
+	if (tpe == TYPE_bat && (b = BATdescriptor(*(bat *) ins)) == NULL)
 		throw(SQL, "sql.delete", SQLSTATE(HY005) "Cannot access column descriptor");
 	if (tpe != TYPE_bat || (b->ttype != TYPE_oid && b->ttype != TYPE_void)) {
 		if (b)
@@ -1535,7 +1547,7 @@ DELTAbat(bat *result, const bat *col, const bat *uid, const bat *uval, const bat
 		if (BATappend(res, i, NULL, true) != GDK_SUCCEED) {
 			BBPunfix(res->batCacheid);
 			BBPunfix(i->batCacheid);
-			throw(MAL, "sql.delta", SQLSTATE(45002) "Cannot access delta structuren");
+			throw(MAL, "sql.delta", SQLSTATE(45002) "Cannot access delta structure");
 		}
 		BBPunfix(i->batCacheid);
 	}
@@ -1878,11 +1890,11 @@ BATleftproject(bat *Res, const bat *Col, const bat *L, const bat *R)
 		for(i=0;i<cnt; i++) 
 			p[lp[i]] = rp[i];
 	}
-	res->tsorted = 0;
-	res->trevsorted = 0;
-	res->tnil = 0;
-	res->tnonil = 0;
-	res->tkey = 0;
+	res->tsorted = false;
+	res->trevsorted = false;
+	res->tnil = false;
+	res->tnonil = false;
+	res->tkey = false;
 	BBPunfix(c->batCacheid);
 	BBPunfix(l->batCacheid);
 	BBPunfix(r->batCacheid);
@@ -2259,11 +2271,10 @@ mvc_export_row_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int *res_id= getArgReference_int(stk, pci,0);
 	str filename = * getArgReference_str(stk,pci,1);
 	const char *format = *getArgReference_str(stk,pci,2);
-	unsigned char *tsep = NULL, *rsep = NULL, *ssep = NULL, *ns = NULL;
-	unsigned char *T = (unsigned char *) *getArgReference_str(stk, pci, 3);
-	unsigned char *R = (unsigned char *) *getArgReference_str(stk, pci, 4);
-	unsigned char *S = (unsigned char *) *getArgReference_str(stk, pci, 5);
-	unsigned char *N = (unsigned char *) *getArgReference_str(stk, pci, 6);
+	const char *tsep = *getArgReference_str(stk, pci, 3);
+	const char *rsep = *getArgReference_str(stk, pci, 4);
+	const char *ssep = *getArgReference_str(stk, pci, 5);
+	const char *ns = *getArgReference_str(stk, pci, 6);
 	int onclient = *getArgReference_int(stk, pci, 7);
 
 	bat tblId= *getArgReference_bat(stk, pci,8);
@@ -2272,7 +2283,6 @@ mvc_export_row_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bat lenId= *getArgReference_bat(stk, pci,11);
 	bat scaleId= *getArgReference_bat(stk, pci,12);
 
-	size_t l;
 	int i, res;
 	stream *s;
 	str tblname, colname, tpename, msg= MAL_SUCCEED;
@@ -2305,47 +2315,10 @@ mvc_export_row_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		goto wrapup_result_set;
 	}
 
-	l = strlen((char *) T);
-	tsep = GDKmalloc(l + 1);
-	if(tsep == 0){
-		msg = createException(SQL, "sql.resultSet", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-		goto wrapup_result_set;
-	}
-	GDKstrFromStr(tsep, T, l);
-	l = 0;
-	l = strlen((char *) R);
-	rsep = GDKmalloc(l + 1);
-	if(rsep == 0){
-		GDKfree(tsep);
-		msg = createException(SQL, "sql.resultSet", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-		goto wrapup_result_set;
-	}
-	GDKstrFromStr(rsep, R, l);
-	l = 0;
-	l = strlen((char *) S);
-	ssep = GDKmalloc(l + 1);
-	if(ssep == 0){
-		GDKfree(tsep);
-		GDKfree(rsep);
-		msg = createException(SQL, "sql.resultSet", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-		goto wrapup_result_set;
-	}
-	GDKstrFromStr(ssep, S, l);
-	l = 0;
-	l = strlen((char *) N);
-	ns = GDKmalloc(l + 1);
-	if(ns == 0){
-		GDKfree(tsep);
-		GDKfree(rsep);
-		GDKfree(ssep);
-		msg = createException(SQL, "sql.resultSet", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-		goto wrapup_result_set;
-	}
-	GDKstrFromStr(ns, N, l);
-	t->tsep = (char *) tsep;
-	t->rsep = (char *) rsep;
-	t->ssep = (char *) ssep;
-	t->ns = (char *) ns;
+	t->tsep = tsep;
+	t->rsep = rsep;
+	t->ssep = ssep;
+	t->ns = ns;
 
 	tbl = BATdescriptor(tblId);
 	atr = BATdescriptor(atrId);
@@ -2676,7 +2649,7 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (fname != NULL && strcmp(str_nil, fname) == 0)
 		fname = NULL;
 	if (fname == NULL) {
-		msg = mvc_import_table(cntxt, &b, be->mvc, be->mvc->scanner.rs, t, tsep, rsep, ssep, ns, sz, offset, locked, besteffort);
+		msg = mvc_import_table(cntxt, &b, be->mvc, be->mvc->scanner.rs, t, tsep, rsep, ssep, ns, sz, offset, locked, besteffort, true);
 	} else {
 		if (onclient) {
 			mnstr_write(be->mvc->scanner.ws, PROMPT3, sizeof(PROMPT3)-1, 1);
@@ -2751,7 +2724,7 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		s = bstream_create(ss, 0x200000);
 #endif
 		if (s != NULL) {
-			msg = mvc_import_table(cntxt, &b, be->mvc, s, t, tsep, rsep, ssep, ns, sz, offset, locked, besteffort);
+			msg = mvc_import_table(cntxt, &b, be->mvc, s, t, tsep, rsep, ssep, ns, sz, offset, locked, besteffort, false);
 			if (onclient) {
 				mnstr_write(be->mvc->scanner.ws, PROMPT3, sizeof(PROMPT3)-1, 1);
 				mnstr_flush(be->mvc->scanner.ws);
@@ -2931,20 +2904,11 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 		}
 
 		if (tpe <= TYPE_str || tpe == TYPE_date || tpe == TYPE_daytime || tpe == TYPE_timestamp) {
-			size_t flen =  strlen(fname);
-			char *fn = GDKmalloc(flen + 1);
-
-			if (fn == NULL) {
-				msg = createException(SQL, "sql.attach", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-				goto bailout;
-			}
-			GDKstrFromStr((unsigned char *) fn, (const unsigned char *) fname, flen);
 			if (onclient) {
 				mnstr_write(be->mvc->scanner.ws, PROMPT3, sizeof(PROMPT3)-1, 1);
-				mnstr_printf(be->mvc->scanner.ws, "rb %s\n", fn);
+				mnstr_printf(be->mvc->scanner.ws, "rb %s\n", fname);
 				msg = MAL_SUCCEED;
 				mnstr_flush(be->mvc->scanner.ws);
-				GDKfree(fn);
 				while (!be->mvc->scanner.rs->eof)
 					bstream_next(be->mvc->scanner.rs);
 				stream *ss = be->mvc->scanner.rs->s;
@@ -2970,8 +2934,7 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 				}
 				/* this code should be extended to
 				 * deal with larger text strings. */
-				FILE *f = fopen(fn, "r");
-				GDKfree(fn);
+				FILE *f = fopen(fname, "r");
 				if (f == NULL) {
 					BBPreclaim(c);
 					msg = createException(SQL, "sql", SQLSTATE(42000) "Failed to re-open file %s", fname);
@@ -3001,8 +2964,7 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 				fclose(f);
 				GDKfree(buf);
 			} else {
-				c = BATattach(tpe, fn, TRANSIENT);
-				GDKfree(fn);
+				c = BATattach(tpe, fname, TRANSIENT);
 			}
 			if (c == NULL) {
 				msg = createException(SQL, "sql", SQLSTATE(42000) "Failed to attach file %s", fname);
@@ -4512,6 +4474,12 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 									}
 									if (cnt2)
 										w = (int) (sum / cnt2);
+								} else if (ATOMvarsized(bn->ttype)) {
+									sz = BATcount(bn);
+									if (sz > 0)
+										w = (int) ((bn->tvheap->free + sz / 2) / sz);
+									else
+										w = 0;
 								}
 								if (BUNappend(atom, &w, false) != GDK_SUCCEED)
 									goto bailout;
@@ -4805,7 +4773,7 @@ BATSTRindex_int(bat *res, const bat *src, const bit *u)
 			throw(SQL, "calc.index", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 		r->ttype = TYPE_int;
-		r->tvarsized = 0;
+		r->tvarsized = false;
 		r->tvheap = NULL;
 	}
 	BBPunfix(s->batCacheid);
@@ -4863,7 +4831,7 @@ BATSTRindex_sht(bat *res, const bat *src, const bit *u)
 			throw(SQL, "calc.index", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 		r->ttype = TYPE_sht;
-		r->tvarsized = 0;
+		r->tvarsized = false;
 		r->tvheap = NULL;
 	}
 	BBPunfix(s->batCacheid);
@@ -4922,7 +4890,7 @@ BATSTRindex_bte(bat *res, const bat *src, const bit *u)
 			throw(SQL, "calc.index", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 		r->ttype = TYPE_bte;
-		r->tvarsized = 0;
+		r->tvarsized = false;
 		r->tvheap = NULL;
 	}
 	BBPunfix(s->batCacheid);

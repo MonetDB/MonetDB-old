@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 #ifndef _SQL_ATOM_H_
@@ -75,6 +75,7 @@ extern lng scales[19];
 
 extern atom* atom_absolute_min(sql_allocator *sa, sql_subtype* tpe);
 extern atom* atom_absolute_max(sql_allocator *sa, sql_subtype* tpe);
+extern atom* atom_zero_value(sql_allocator *sa, sql_subtype* tpe);
 
 #endif /* _SQL_ATOM_H_ */
 

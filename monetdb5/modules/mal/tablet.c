@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -67,12 +67,12 @@ void_bat_create(int adt, BUN nr)
 	}
 
 	/* disable all properties here */
-	b->tsorted = FALSE;
-	b->trevsorted = FALSE;
+	b->tsorted = false;
+	b->trevsorted = false;
 	b->tnosorted = 0;
 	b->tnorevsorted = 0;
 	b->tseqbase = oid_nil;
-	b->tkey = FALSE;
+	b->tkey = false;
 	b->tnokey[0] = 0;
 	b->tnokey[1] = 0;
 	return b;
@@ -171,8 +171,8 @@ TABLETcollect(BAT **bats, Tablet *as)
 		bats[j] = fmt[i].c;
 		BBPfix(bats[j]->batCacheid);
 		BATsetaccess(fmt[i].c, BAT_READ);
-		fmt[i].c->tsorted = fmt[i].c->trevsorted = 0;
-		fmt[i].c->tkey = 0;
+		fmt[i].c->tsorted = fmt[i].c->trevsorted = false;
+		fmt[i].c->tkey = false;
 		BATsettrivprop(fmt[i].c);
 
 		if (cnt != BATcount(fmt[i].c))
@@ -197,8 +197,8 @@ TABLETcollect_parts(BAT **bats, Tablet *as, BUN offset)
 		if (fmt[i].skip)
 			continue;
 		b = fmt[i].c;
-		b->tsorted = b->trevsorted = 0;
-		b->tkey = 0;
+		b->tsorted = b->trevsorted = false;
+		b->tkey = false;
 		BATsettrivprop(b);
 		BATsetaccess(b, BAT_READ);
 		bv = BATslice(b, (offset > 0) ? offset - 1 : 0, BATcount(b));
@@ -207,11 +207,11 @@ TABLETcollect_parts(BAT **bats, Tablet *as, BUN offset)
 		b->tkey = (offset > 0) ? FALSE : bv->tkey;
 		b->tnonil &= bv->tnonil;
 		if (b->tsorted != bv->tsorted)
-			b->tsorted = 0;
+			b->tsorted = false;
 		if (b->trevsorted != bv->trevsorted)
-			b->trevsorted = 0;
+			b->trevsorted = false;
 		if (BATtdense(b))
-			b->tkey = TRUE;
+			b->tkey = true;
 		b->batDirtydesc = true;
 
 		if (offset > 0) {
@@ -627,6 +627,7 @@ typedef struct {
 	lng *time, wtime;			/* time per col + time per thread */
 	int rounds;					/* how often did we divide the work */
 	bool ateof;					/* io control */
+	bool from_stdin;
 	bstream *b;
 	stream *out;
 	MT_Id tid;
@@ -837,7 +838,7 @@ SQLinsert_val(READERtask *task, int col, int idx)
 	/* include testing on the terminating null byte !! */
 	if (s == 0) {
 		adt = fmt->nildata;
-		fmt->c->tnonil = 0;
+		fmt->c->tnonil = false;
 	} else
 		adt = fmt->frstr(fmt, fmt->adt, s);
 
@@ -896,7 +897,7 @@ SQLinsert_val(READERtask *task, int col, int idx)
 		freeException(err);
 		/* replace it with a nil */
 		adt = fmt->nildata;
-		fmt->c->tnonil = 0;
+		fmt->c->tnonil = false;
 	}
 	bunfastapp(fmt->c, adt);
 	return ret;
@@ -1235,8 +1236,8 @@ SQLproducer(void *p)
 	READERtask *task = (READERtask *) p;
 	int consoleinput = 0;
 	int cur = 0;		// buffer being filled
-	bool blocked[MAXBUFFERS] = { 0 };
-	bool ateof[MAXBUFFERS] = { 0 };
+	bool blocked[MAXBUFFERS] = { false };
+	bool ateof[MAXBUFFERS] = { false };
 	BUN cnt = 0, bufcnt[MAXBUFFERS] = { 0 };
 	char *end, *e, *s, *base;
 	const char *rsep = task->rsep;
@@ -1335,6 +1336,10 @@ SQLproducer(void *p)
 		 * scan ended (we need to back off some since we could be in
 		 * the middle of the record separator).  If this is too
 		 * costly, we have to rethink the matter. */
+		if (task->from_stdin && *s == '\n' && task->maxrow == BUN_NONE) {
+			ateof[cur] = true;
+			goto reportlackofinput;
+		}
 		for (e = s; *e && e < end && cnt < task->maxrow;) {
 			/* tokenize the record completely the format of the input
 			 * should comply to the following grammar rule [
@@ -1597,7 +1602,7 @@ create_rejects_table(Client cntxt)
 }
 
 BUN
-SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, const char *csep, const char *rsep, char quote, lng skip, lng maxrow, int best)
+SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, const char *csep, const char *rsep, char quote, lng skip, lng maxrow, int best, bool from_stdin)
 {
 	BUN cnt = 0, cntstart = 0, leftover = 0;
 	int res = 0;		/* < 0: error, > 0: success, == 0: continue processing */
@@ -1617,6 +1622,7 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, const char *csep
 	memset(ptask, 0, sizeof(ptask));
 	task = (READERtask) {
 		.cntxt = cntxt,
+		.from_stdin = from_stdin,
 	};
 
 	/* create the reject tables */

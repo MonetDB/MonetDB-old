@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 #ifndef SQL_TYPES_H
@@ -96,6 +96,7 @@ extern sql_subaggr *sql_find_aggr(sql_allocator *sa, sql_schema *s, const char *
 extern int subaggr_cmp( sql_subaggr *a1, sql_subaggr *a2);
 
 extern int subfunc_cmp( sql_subfunc *f1, sql_subfunc *f2);
+extern sql_subfunc *sql_find_func_by_name(sql_allocator *sa, sql_schema *s, const char *name, int nrargs, int type);
 extern sql_subfunc *sql_find_func(sql_allocator *sa, sql_schema *s, const char *name, int nrargs, int type, sql_subfunc *prev);
 extern list *sql_find_funcs(sql_allocator *sa, sql_schema *s, const char *name, int nrargs, int type);
 extern sql_subfunc *sql_bind_member(sql_allocator *sa, sql_schema *s, const char *name, sql_subtype *tp, int nrargs, sql_subfunc *prev);

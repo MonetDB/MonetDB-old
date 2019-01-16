@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -5102,7 +5102,7 @@ wkbTOSTR(char **geomWKT, size_t *len, const wkb *geomWKB, bool external)
 		if (external)
 			snprintf(*geomWKT, *len, "\"%s\"", wkt);
 		else
-			snprintf(*geomWKT, *len, "%s", wkt);
+			strcpy(*geomWKT, wkt);
 		GEOSFree(wkt);
 
 		return (ssize_t) dstStrLen;
@@ -5231,7 +5231,7 @@ wkbPUT(Heap *h, var_t *bun, const wkb *val)
 	base = h->base;
 	if (*bun) {
 		memcpy(&base[*bun], val, wkb_size(val->len));
-		h->dirty = 1;
+		h->dirty = true;
 	}
 	return *bun;
 }
@@ -5286,7 +5286,7 @@ mbrTOSTR(char **dst, size_t *len, const mbr *atom, bool external)
 			snprintf(*dst, *len, "\"%s\"", tempWkt);
 			dstStrLen += 2;
 		} else {
-			snprintf(*dst, *len, "%s", tempWkt);
+			strcpy(*dst, tempWkt);
 		}
 	} else if (external) {
 		strcpy(*dst, "nil");
@@ -5662,7 +5662,7 @@ wkbaPUT(Heap *h, var_t *bun, const wkba *val)
 	base = h->base;
 	if (*bun) {
 		memcpy(&base[*bun], val, wkba_size(val->itemsNum));
-		h->dirty = 1;
+		h->dirty = true;
 	}
 	return *bun;
 }
@@ -5753,8 +5753,8 @@ pnpoly(int *out, int nvert, dbl *vx, dbl *vy, bat *point_x, bat *point_y)
 		*cs++ = wn & 1;
 	}
 
-	bo->tsorted = bo->trevsorted = 0;
-	bo->tkey = 0;
+	bo->tsorted = bo->trevsorted = false;
+	bo->tkey = false;
 	BATsetcount(bo, cnt);
 	BBPunfix(bpx->batCacheid);
 	BBPunfix(bpy->batCacheid);
@@ -5841,8 +5841,8 @@ pnpolyWithHoles(bat *out, int nvert, dbl *vx, dbl *vy, int nholes, dbl **hx, dbl
 		}
 		*cs++ = wn & 1;
 	}
-	bo->tsorted = bo->trevsorted = 0;
-	bo->tkey = 0;
+	bo->tsorted = bo->trevsorted = false;
+	bo->tkey = false;
 	BATsetcount(bo, cnt);
 	BBPunfix(bpx->batCacheid);
 	BBPunfix(bpy->batCacheid);

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 #ifndef _LOGGER_H_
@@ -52,7 +52,6 @@ typedef struct logger {
 	char *fn;
 	char *dir;
 	char *local_dir; /* the directory in which the log is written */
-	int dbfarm_role; /* role for the dbfarm used for the logdir, PERSISTENT by default */
 	preversionfix_fptr prefuncp;
 	postversionfix_fptr postfuncp;
 	stream *log;

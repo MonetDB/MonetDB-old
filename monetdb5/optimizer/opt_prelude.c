@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -99,6 +99,7 @@ str create_typeRef;
 str create_userRef;
 str create_viewRef;
 str crossRef;
+str cume_distRef;
 str dataflowRef;
 str dateRef;
 str dblRef;
@@ -106,9 +107,7 @@ str defineRef;
 str deleteRef;
 str deltaRef;
 str dense_rankRef;
-str dense_rankRef;
 str differenceRef;
-str diffRef;
 str disconnectRef;
 str divRef;
 str drop_constraintRef;
@@ -133,6 +132,7 @@ str export_tableRef;
 str findRef;
 str finishRef;
 str firstnRef;
+str first_valueRef;
 str generatorRef;
 str getRef;
 str getTraceRef;
@@ -159,7 +159,10 @@ str iteratorRef;
 str jitRef;
 str joinRef;
 str jsonRef;
+str lagRef;
 str languageRef;
+str last_valueRef;
+str leadRef;
 str leftjoinRef;
 str likeRef;
 str likeselectRef;
@@ -195,6 +198,8 @@ str not_ilikeRef;
 str not_likeRef;
 str notRef;
 str not_uniqueRef;
+str nth_valueRef;
+str ntileRef;
 str oidRef;
 str oltpRef;
 str openRef;
@@ -206,6 +211,7 @@ str parametersRef;
 str partitionRef;
 str passRef;
 str pcreRef;
+str percent_rankRef;
 str pinRef;
 str plusRef;
 str postludeRef;
@@ -226,7 +232,6 @@ str querylogRef;
 str queryRef;
 str raiseRef;
 str rangejoinRef;
-str rankRef;
 str rankRef;
 str rapiRef;
 str reconnectRef;
@@ -276,8 +281,6 @@ str strRef;
 str subavgRef;
 str subcountRef;
 str subdeltaRef;
-str subdiffRef;
-str subeval_aggrRef;
 str subeval_aggrRef;
 str subgroupdoneRef;
 str subgroupRef;
@@ -309,6 +312,7 @@ str updateRef;
 str userRef;
 str vaultRef;
 str vectorRef;
+str window_boundRef;
 str wlcRef;
 str wlrRef;
 str zero_or_oneRef;
@@ -400,6 +404,7 @@ void optimizerInit(void)
 	create_userRef = putName("create_user");
 	create_viewRef = putName("create_view");
 	crossRef = putName("crossproduct");
+	cume_distRef = putName("cume_dist");
 	dataflowRef = putName("dataflow");
 	dateRef = putName("date");
 	dblRef = putName("dbl");
@@ -432,6 +437,7 @@ void optimizerInit(void)
 	findRef = putName("find");
 	finishRef = putName("finish");
 	firstnRef = putName("firstn");
+	first_valueRef = putName("first_value");
 	generatorRef = putName("generator");
 	getRef = putName("get");
 	getTraceRef = putName("getTrace");
@@ -458,7 +464,10 @@ void optimizerInit(void)
 	jitRef = putName("jit");
 	joinRef = putName("join");
 	jsonRef = putName("json");
+	lagRef = putName("lag");
 	languageRef= putName("language");
+	last_valueRef = putName("last_value");
+	leadRef = putName("lead");
 	leftjoinRef = putName("leftjoin");
 	likeRef = putName("like");
 	likeselectRef = putName("likeselect");
@@ -494,6 +503,8 @@ void optimizerInit(void)
 	not_likeRef = putName("not_like");
 	notRef = putName("not");
 	not_uniqueRef= putName("not_unique");
+	nth_valueRef = putName("nth_value");
+	ntileRef = putName("ntile");
 	oidRef = putName("oid");
 	oltpRef = putName("oltp");
 	openRef = putName("open");
@@ -505,6 +516,7 @@ void optimizerInit(void)
 	partitionRef = putName("partition");
 	passRef = putName("pass");
 	pcreRef = putName("pcre");
+	percent_rankRef = putName("percent_rank");
 	pinRef = putName("pin");
 	plusRef = putName("+");
 	postludeRef = putName("postlude");
@@ -577,6 +589,7 @@ void optimizerInit(void)
 	subeval_aggrRef = putName("subeval_aggr");
 	subgroupdoneRef= putName("subgroupdone");
 	subgroupRef = putName("subgroup");
+	subinterRef = putName("subinterRef");
 	submaxRef = putName("submax");
 	submedianRef = putName("submedian");
 	subminRef = putName("submin");
@@ -604,6 +617,7 @@ void optimizerInit(void)
 	userRef = putName("user");
 	vaultRef = putName("vault");
 	vectorRef = putName("vector");
+	window_boundRef = putName("window_bound");
 	wlcRef = putName("wlc");
 	wlrRef = putName("wlr");
 	zero_or_oneRef = putName("zero_or_one");

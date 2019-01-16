@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -36,10 +36,12 @@
 #endif
 
 #define YEAR_MAX		5867411
+#define YEAR_MIN		(-YEAR_MAX)
 
 typedef int date;
 #define date_nil		((date) int_nil)
 #define date_isnil(X)	((X) == date_nil)
+#define date_max		GDK_int_max /* used for overflow checks */
 
 /*
  * @- daytime
@@ -49,6 +51,7 @@ typedef int date;
 typedef int daytime;
 #define daytime_nil ((daytime) int_nil)
 #define daytime_isnil(X) ((X) == daytime_nil)
+/* it should never overflow */
 
 /*
  * @- timestamp
@@ -266,5 +269,8 @@ mal_export void MTIMEfromdate(date n, int *d, int *m, int *y);
 
 mal_export daytime MTIMEtotime(int hour, int min, int sec, int msec);
 mal_export void MTIMEfromtime(daytime n, int *hour, int *min, int *sec, int *msec);
+
+mal_export str MTIMEanalyticalrangebounds(BAT *r, BAT *b, BAT *p, BAT *l, const void* restrict bound, int tp1, int tp2,
+										  bool preceding, lng first_half);
 
 #endif /* _MONETTIME_H_ */

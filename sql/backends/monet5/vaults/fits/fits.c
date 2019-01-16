@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -1072,8 +1072,8 @@ str FITSloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		else {
 			fits_read_col(fptr, tpcode[j - 1], j, 1, 1, rows, (void *) nilptr, (void *)BUNtloc(bat_iterator(tmp), 0), &anynull, &status);
 			BATsetcount(tmp, rows);
-			tmp->tsorted = 0;
-			tmp->trevsorted = 0;
+			tmp->tsorted = false;
+			tmp->trevsorted = false;
 		}
 
 		if (status) {

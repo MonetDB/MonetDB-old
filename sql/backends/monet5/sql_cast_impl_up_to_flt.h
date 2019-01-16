@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /* This file is included multiple times (from sql_cast.c).
@@ -109,7 +109,7 @@ FUN(bat,TP1,_dec2_,TP2) (bat *res, const int *s1, const bat *bid)
 	o = (TP2 *) Tloc(bn, 0);
 	p = (TP1 *) Tloc(b, 0);
 	q = (TP1 *) Tloc(b, BUNlast(b));
-	bn->tnonil = 1;
+	bn->tnonil = true;
 	if (b->tnonil) {
 		for (; p < q; p++, o++)
 			*o = (((TP2) *p) / scales[scale]);
@@ -117,14 +117,14 @@ FUN(bat,TP1,_dec2_,TP2) (bat *res, const int *s1, const bat *bid)
 		for (; p < q; p++, o++) {
 			if (ISNIL(TP1)(*p)) {
 				*o = NIL(TP2);
-				bn->tnonil = FALSE;
+				bn->tnonil = false;
 			} else
 				*o = (((TP2) *p) / scales[scale]);
 		}
 	}
 	BATsetcount(bn, BATcount(b));
-	bn->tsorted = 0;
-	bn->trevsorted = 0;
+	bn->tsorted = false;
+	bn->trevsorted = false;
 	BATkey(bn, false);
 
 	BBPkeepref(*res = bn->batCacheid);

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -1338,14 +1338,14 @@ RMTinternalcopyfrom(BAT **ret, char *hdr, stream *in)
 		if (HEAPextend(&b->theap, bb.tailsize, true) != GDK_SUCCEED ||
 			mnstr_read(in, b->theap.base, bb.tailsize, 1) < 0)
 			goto bailout;
-		b->theap.dirty = TRUE;
+		b->theap.dirty = true;
 	}
 	if (bb.theapsize > 0) {
 		if (HEAPextend(b->tvheap, bb.theapsize, true) != GDK_SUCCEED ||
 			mnstr_read(in, b->tvheap->base, bb.theapsize, 1) < 0)
 			goto bailout;
 		b->tvheap->free = bb.theapsize;
-		b->tvheap->dirty = TRUE;
+		b->tvheap->dirty = true;
 	}
 
 	/* set properties */

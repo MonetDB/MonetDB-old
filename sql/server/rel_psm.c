@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -666,7 +666,8 @@ sequential_block (mvc *sql, sql_subtype *restype, list *restypelist, dlist *blk,
 		case SQL_INSERT:
 		case SQL_UPDATE:
 		case SQL_DELETE:
-		case SQL_TRUNCATE: {
+		case SQL_TRUNCATE:
+		case SQL_MERGE: {
 			sql_rel *r = rel_updates(sql, s);
 			if (!r)
 				return NULL;
@@ -1175,6 +1176,7 @@ _stack_push_table(mvc *sql, const char *tname, sql_table *t)
 static sql_rel *
 create_trigger(mvc *sql, dlist *qname, int time, symbol *trigger_event, dlist *tqname, dlist *opt_ref, dlist *triggered_action, int replace)
 {
+	const char *triggerschema = qname_schema(qname);
 	const char *triggername = qname_table(qname);
 	const char *sname = qname_schema(tqname);
 	const char *tname = qname_table(tqname);
@@ -1218,6 +1220,8 @@ create_trigger(mvc *sql, dlist *qname, int time, symbol *trigger_event, dlist *t
 		return sql_error(sql, 02, SQLSTATE(42000) "%s TRIGGER: unknown table '%s'", base, tname);
 	if (create && isView(t))
 		return sql_error(sql, 02, SQLSTATE(42000) "%s TRIGGER: cannot create trigger on view '%s'", base, tname);
+	if (triggerschema && strcmp(triggerschema, sname) != 0)
+		return sql_error(sql, 02, SQLSTATE(42000) "%s TRIGGER: trigger and respective table must belong to the same schema", base);
 	if (create && (st = mvc_bind_trigger(sql, ss, triggername)) != NULL) {
 		if (replace) {
 			if(mvc_drop_trigger(sql, ss, st))

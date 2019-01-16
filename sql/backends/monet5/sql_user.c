@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -89,7 +89,7 @@ monet5_create_user(ptr _mvc, str user, str passwd, char enc, str fullname, sqlid
 	oid uid = 0;
 	bat bid = 0;
 	str ret;
-	int user_id;
+	sqlid user_id;
 	str pwd;
 	sql_schema *s = find_sql_schema(m->session->tr, "sys");
 	sql_table *db_user_info, *auths;
@@ -204,7 +204,7 @@ monet5_create_privileges(ptr _mvc, sql_schema *s)
 	sql_table *t, *uinfo;
 	mvc *m = (mvc *) _mvc;
 	char *err = NULL;
-	int schema_id = 0;
+	sqlid schema_id = 0;
 	str monetdbuser = "monetdb";
 	list *res, *ops;
 

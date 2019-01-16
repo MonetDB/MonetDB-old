@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -272,7 +272,7 @@ hashselect(BAT *b, BAT *s, BAT *bn, const void *tl, BUN maximum, bool phash)
 	do {								\
 		BUN dcnt, icnt, limit, i, l, e;				\
 		cchdc_t *restrict d = (cchdc_t *) imprints->dict;	\
-		bte rpp    = ATOMelmshift(IMPS_PAGE >> b->tshift);	\
+		uint8_t rpp = ATOMelmshift(IMPS_PAGE >> b->tshift);	\
 		CAND;							\
 		for (i = 0, dcnt = 0, icnt = 0;				\
 		     dcnt < imprints->dictcnt && i + off < w + pr_off && p < q; \

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2018 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
 /*
@@ -116,14 +116,12 @@ BATcreatedesc(oid hseq, int tt, bool heapnames, int role)
 	assert(bn->batCacheid > 0);
 
 	const char *nme = BBP_physical(bn->batCacheid);
-	snprintf(bn->theap.filename, sizeof(bn->theap.filename),
-		 "%s.tail", nme);
+	stpconcat(bn->theap.filename, nme, ".tail", NULL);
 	bn->theap.farmid = BBPselectfarm(role, bn->ttype, offheap);
 	if (heapnames && ATOMneedheap(tt)) {
 		if ((bn->tvheap = (Heap *) GDKzalloc(sizeof(Heap))) == NULL)
 			goto bailout;
-		snprintf(bn->tvheap->filename, sizeof(bn->tvheap->filename),
-			 "%s.theap", nme);
+		stpconcat(bn->tvheap->filename, nme, ".theap", NULL);
 		bn->tvheap->parentid = bn->batCacheid;
 		bn->tvheap->farmid = BBPselectfarm(role, bn->ttype, varheap);
 	}
@@ -141,10 +139,10 @@ BATcreatedesc(oid hseq, int tt, bool heapnames, int role)
 	return NULL;
 }
 
-bte
+uint8_t
 ATOMelmshift(int sz)
 {
-	bte sh;
+	uint8_t sh;
 	int i = sz >> 1;
 
 	for (sh = 0; i != 0; sh++) {
@@ -680,8 +678,9 @@ COLcopy(BAT *b, int tt, bool writable, int role)
 	/* first try case (1); create a view, possibly with different
 	 * atom-types */
 	if (role == b->batRole &&
-	    BAThrestricted(b) == BAT_READ &&
-	    BATtrestricted(b) == BAT_READ &&
+	    b->batRestricted == BAT_READ &&
+	    (!VIEWtparent(b) ||
+	     BBP_cache(VIEWtparent(b))->batRestricted == BAT_READ) &&
 	    !writable) {
 		bn = VIEWcreate(b->hseqbase, b);
 		if (bn == NULL)
@@ -736,10 +735,10 @@ COLcopy(BAT *b, int tt, bool writable, int role)
 			thp = (Heap) {
 				.farmid = BBPselectfarm(role, b->ttype, varheap),
 			};
-			snprintf(bthp.filename, sizeof(bthp.filename),
-				 "%s.tail", BBP_physical(bn->batCacheid));
-			snprintf(thp.filename, sizeof(thp.filename), "%s.theap",
-				 BBP_physical(bn->batCacheid));
+			stpconcat(bthp.filename, BBP_physical(bn->batCacheid),
+				  ".tail", NULL);
+			stpconcat(thp.filename, BBP_physical(bn->batCacheid),
+				  ".theap", NULL);
 			if ((b->ttype && HEAPcopy(&bthp, &b->theap) != GDK_SUCCEED) ||
 			    (bn->tvheap && HEAPcopy(&thp, b->tvheap) != GDK_SUCCEED)) {
 				HEAPfree(&thp, true);
@@ -1008,7 +1007,7 @@ BUNappend(BAT *b, const void *t, bool force)
 
 	BATcheck(b, "BUNappend", GDK_FAIL);
 
-	assert(!isVIEW(b));
+	assert(!VIEWtparent(b));
 	if (b->tunique && BUNfnd(b, t) != BUN_NONE) {
 		return GDK_SUCCEED;
 	}
@@ -1934,15 +1933,17 @@ BATcheckmodes(BAT *b, bool existing)
 }
 
 gdk_return
-BATsetaccess(BAT *b, int newmode)
+BATsetaccess(BAT *b, restrict_t newmode)
 {
-	int bakmode, bakdirty;
+	restrict_t bakmode;
+	bool bakdirty;
+
 	BATcheck(b, "BATsetaccess", GDK_FAIL);
 	if (isVIEW(b) && newmode != BAT_READ) {
 		if (VIEWreset(b) != GDK_SUCCEED)
 			return GDK_FAIL;
 	}
-	bakmode = b->batRestricted;
+	bakmode = (restrict_t) b->batRestricted;
 	bakdirty = b->batDirtydesc;
 	if (bakmode != newmode || (b->batSharecnt && newmode != BAT_READ)) {
 		bool existing = (BBP_status(b->batCacheid) & BBPEXISTING) != 0;
@@ -1969,7 +1970,7 @@ BATsetaccess(BAT *b, int newmode)
 			return GDK_FAIL;
 
 		/* set new access mode and mmap modes */
-		b->batRestricted = newmode;
+		b->batRestricted = (unsigned int) newmode;
 		b->batDirtydesc = true;
 		b->theap.newstorage = m1;
 		if (b->tvheap)
@@ -1977,7 +1978,7 @@ BATsetaccess(BAT *b, int newmode)
 
 		if (existing && BBPsave(b) != GDK_SUCCEED) {
 			/* roll back all changes */
-			b->batRestricted = bakmode;
+			b->batRestricted = (unsigned int) bakmode;
 			b->batDirtydesc = bakdirty;
 			b->theap.newstorage = b1;
 			if (b->tvheap)
@@ -1988,11 +1989,12 @@ BATsetaccess(BAT *b, int newmode)
 	return GDK_SUCCEED;
 }
 
-int
+restrict_t
 BATgetaccess(BAT *b)
 {
-	BATcheck(b, "BATgetaccess", 0);
-	return b->batRestricted;
+	BATcheck(b, "BATgetaccess", BAT_WRITE /* 0 */);
+	assert(b->batRestricted != 3); /* only valid restrict_t values */
+	return (restrict_t) b->batRestricted;
 }
 
 /*
@@ -2200,7 +2202,6 @@ BATassertProps(BAT *b)
 	    ATOMstorage(b->ttype) < TYPE_str)
 		assert(!b->tvarsized);
 	/* shift and width have a particular relationship */
-	assert(b->tshift >= 0);
 	if (ATOMstorage(b->ttype) == TYPE_str)
 		assert(b->twidth >= 1 && b->twidth <= ATOMsize(b->ttype));
 	else
