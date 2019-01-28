@@ -74,7 +74,11 @@ gdk_export size_t _MT_pagesize;
 #define MT_npages()	_MT_npages
 
 gdk_export void MT_init(void);	/*  init the package. */
+#ifndef HAVE_EMBEDDED
 gdk_export bool GDKinit(opt *set, int setlen);
+#else
+gdk_export bool GDKinit(char* dbpath, bool silent);
+#endif
 
 /* used for testing only */
 gdk_export void GDKsetmallocsuccesscount(lng count);
@@ -96,7 +100,9 @@ gdk_export bool GDKexiting(void);
 gdk_export void GDKregister(MT_Id pid);
 gdk_export void GDKprepareExit(void);
 gdk_export void GDKreset(int status, int exit);
+#ifndef HAVE_EMBEDDED
 gdk_export const char *GDKversion(void);
+#endif
 
 gdk_export gdk_return GDKextractParentAndLastDirFromPath(const char *path, char *last_dir_parent, char *last_dir);
 

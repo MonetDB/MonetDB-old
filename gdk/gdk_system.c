@@ -168,6 +168,15 @@ static CRITICAL_SECTION winthread_cs;
 static bool winthread_cs_init = false;
 
 void
+gdk_system_init(void)
+{
+	if (!winthread_cs_init) {
+		InitializeCriticalSection(&winthread_cs);
+		winthread_cs_init = true;
+	}
+}
+
+void
 gdk_system_reset(void)
 {
 	winthread_cs_init = false;
@@ -268,13 +277,6 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d)
 	if (w == NULL)
 		return -1;
 
-	if (!winthread_cs_init) {
-		/* we only get here before any threads are created,
-		 * and this is the only time that winthread_cs_init is
-		 * ever changed */
-		InitializeCriticalSection(&winthread_cs);
-		winthread_cs_init = true;
-	}
 	join_threads();
 	w->func = f;
 	w->arg = arg;
@@ -307,6 +309,7 @@ MT_exiting_thread(void)
 void
 MT_exit_thread(int s)
 {
+#ifndef HAVE_EMBEDDED
 	if (winthread_cs_init) {
 		MT_exiting_thread();
 		ExitThread(s);
@@ -314,6 +317,9 @@ MT_exit_thread(int s)
 		/* no threads started yet, so this is a global exit */
 		MT_global_exit(s);
 	}
+#else
+	(void) s;
+#endif
 }
 
 int
@@ -642,10 +648,14 @@ MT_exiting_thread(void)
 void
 MT_exit_thread(int s)
 {
+#ifndef HAVE_EMBEDDED
 	int st = s;
 
 	MT_exiting_thread();
 	pthread_exit(&st);
+#else
+	(void) s;
+#endif
 }
 
 int
@@ -667,7 +677,7 @@ MT_join_thread(MT_Id t)
 int
 MT_kill_thread(MT_Id t)
 {
-#ifdef HAVE_PTHREAD_KILL
+#if defined(HAVE_PTHREAD_KILL) && !defined(HAVE_EMBEDDED)
 	pthread_t id;
 #ifdef PTW32
 	id.p = (void *) (t - 1);
@@ -731,7 +741,11 @@ pthread_sema_down(pthread_sema_t *s)
 void
 MT_global_exit(int s)
 {
+#ifndef HAVE_EMBEDDED
 	exit(s);
+#else
+	(void) s;
+#endif
 }
 
 MT_Id
@@ -788,4 +802,15 @@ MT_check_nr_cores(void)
 #endif
 
 	return ncpus;
+}
+
+int
+MT_check_endianness(void)
+{
+	int num = 1;
+	if(*(char *)&num == 1) {
+		return HOST_LITTLE_ENDIAN;
+	} else {
+		return HOST_BIG_ENDIAN;
+	}
 }

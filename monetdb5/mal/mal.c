@@ -81,7 +81,11 @@ void tstAligned(void)
 	    GDKfatal("Recompile with STRUCT_ALIGNED flag disabled\n");
 #endif
 }
-int mal_init(void){
+
+str
+mal_init(const char* library_path)
+{
+	str msg = MAL_SUCCEED;
 #ifdef NEED_MT_LOCK_INIT
 	MT_lock_init( &mal_contextLock, "mal_contextLock");
 	MT_lock_init( &mal_namespaceLock, "mal_namespaceLock");
@@ -96,19 +100,22 @@ int mal_init(void){
 /* Any error encountered here terminates the process
  * with a message sent to stderr
  */
+	if ((msg = initLinker(library_path)) != MAL_SUCCEED)
+		return msg;
 	tstAligned();
 	MCinit();
-	mdbInit();
 	monet_memory = MT_npages() * MT_pagesize();
 	initNamespace();
 	initParser();
 #ifndef HAVE_EMBEDDED
+	mdbInit();
 	initHeartbeat();
-#endif
 	initResource();
-	malBootstrap();
 	initProfiler();
-	return 0;
+#endif
+	if ((msg = malBootstrap()) != MAL_SUCCEED)
+		return msg;
+	return msg;
 }
 
 /*
@@ -121,15 +128,15 @@ int mal_init(void){
  * activity first.
  * This function should be called after you have issued sql_reset();
  */
-void cleanOptimizerPipe(void);
 
 void mserver_reset(int exit)
 {
 	str err = 0;
 
 	GDKprepareExit();
-	WLCreset();
 	MCstopClients(0);
+#ifndef HAVE_EMBEDDED
+	WLCreset();
 	setHeartbeat(-1);
 	stopProfiler();
 	AUTHreset(); 
@@ -141,39 +148,48 @@ void mserver_reset(int exit)
 		fprintf(stderr, "!%s", err);
 		free(err);
 	}
+	mal_factory_reset();
+#endif
 	/* TODO: make sure this is still required
 #ifdef HAVE_EMBEDDED
 	MTIMEreset();
 #endif
 */
-	mal_factory_reset();
 	mal_dataflow_reset();
-	THRdel(mal_clients->mythread);
-	GDKfree(mal_clients->errbuf);
-	mal_clients->fdin->s = NULL;
-	bstream_destroy(mal_clients->fdin);
-	GDKfree(mal_clients->prompt);
-	GDKfree(mal_clients->username);
-	freeStack(mal_clients->glb);
-	if (mal_clients->usermodule/* && strcmp(mal_clients->usermodule->name,"user")==0*/)
-		freeModule(mal_clients->usermodule);
+	if (mal_clients) {
+		THRdel(mal_clients->mythread);
+		GDKfree(mal_clients->errbuf);
+		mal_clients->fdin->s = NULL;
+		bstream_destroy(mal_clients->fdin);
+		GDKfree(mal_clients->prompt);
+		GDKfree(mal_clients->username);
+		freeStack(mal_clients->glb);
+		if (mal_clients->usermodule/* && strcmp(mal_clients->usermodule->name,"user")==0*/)
+			freeModule(mal_clients->usermodule);
 
-	mal_clients->fdin = 0;
-	mal_clients->prompt = 0;
-	mal_clients->username = 0;
-	mal_clients->curprg = 0;
-	mal_clients->usermodule = 0;
+		mal_clients->fdin = 0;
+		mal_clients->prompt = 0;
+		mal_clients->username = 0;
+		mal_clients->curprg = 0;
+		mal_clients->usermodule = 0;
+	}
 
 	mal_client_reset();
-  	mal_linker_reset();
-	mal_resource_reset();
 	mal_runtime_reset();
+	opt_pipes_reset();
+
+#ifndef HAVE_EMBEDDED
+	mal_linker_reset();
+	mal_resource_reset();
 	mal_module_reset();
 	mal_atom_reset();
-	opt_pipes_reset();
 	mdbExit();
-	GDKfree(mal_session_uuid);
-	mal_session_uuid = NULL;
+#endif
+
+	if (mal_session_uuid) {
+		GDKfree(mal_session_uuid);
+		mal_session_uuid = NULL;
+	}
 
 	memset((char*)monet_cwd,0, sizeof(monet_cwd));
 	monet_memory = 0;
@@ -182,7 +198,9 @@ void mserver_reset(int exit)
 	mal_namespace_reset();
 	/* No need to clean up the namespace, it will simply be extended
 	 * upon restart mal_namespace_reset(); */
+#ifndef HAVE_EMBEDDED
 	GDKreset(0, exit);	// terminate all other threads
+#endif
 }
 
 

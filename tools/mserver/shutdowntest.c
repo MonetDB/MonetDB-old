@@ -262,10 +262,9 @@ static str monetdb_initialize(void) {
 		GDKfatal("%s", retval);
 	}
 
-	if (mal_init() != 0) { // mal_init() does not return meaningful codes on failure
-		retval = GDKstrdup("mal_init() failed");
+	if ((retval = mal_init("libmonetdb5")) != MAL_SUCCEED)
 		goto cleanup;
-	}
+
 	GDKfataljumpenable = 0;
 
 	LOAD_SQL_FUNCTION_PTR(SQLautocommit);

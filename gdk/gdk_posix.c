@@ -704,8 +704,12 @@ MT_path_absolute(const char *pathname)
 void *
 mdlopen(const char *library, int mode)
 {
+#ifndef HAVE_EMBEDDED
 	(void) library;
 	return dlopen(NULL, mode);
+#else
+	return dlopen(library, mode);
+#endif
 }
 
 #else /* WIN32 native */
@@ -995,14 +999,14 @@ reduce_dir_name(const char *src, char *dst, size_t cap)
 
 #undef _stat64
 int
-win_stat(const char *pathname, struct _stat64 *st)
+win_stat(const char *pathname, struct stat *st)
 {
 	char buf[128], *p = reduce_dir_name(pathname, buf, sizeof(buf));
 	int ret;
 
 	if (p == NULL)
 		return -1;
-	ret = _stat64(p, st);
+	ret = _stat64(p, (struct _stat64*) st);
 	if (p != buf)
 		free(p);
 	return ret;

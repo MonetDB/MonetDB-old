@@ -83,7 +83,7 @@ mal_export MT_Lock  mal_beatLock ;
 mal_export MT_Lock  mal_oltpLock ;
 
 
-mal_export int mal_init(void);
+mal_export str mal_init(const char* library_path);
 mal_export void mal_exit(void);
 mal_export void mserver_reset(int exit);
 

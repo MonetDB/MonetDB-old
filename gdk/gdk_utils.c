@@ -78,15 +78,15 @@ static int
 GDKenvironment(const char *dbpath)
 {
 	if (dbpath == 0) {
-		fprintf(stderr, "!GDKenvironment: database name missing.\n");
+		mnstr_printf(GDKerr, "!GDKenvironment: database name missing.\n");
 		return 0;
 	}
 	if (strlen(dbpath) >= FILENAME_MAX) {
-		fprintf(stderr, "!GDKenvironment: database name too long.\n");
+		mnstr_printf(GDKerr, "!GDKenvironment: database name too long.\n");
 		return 0;
 	}
 	if (!MT_path_absolute(dbpath)) {
-		fprintf(stderr, "!GDKenvironment: directory not an absolute path: %s.\n", dbpath);
+		mnstr_printf(GDKerr, "!GDKenvironment: directory not an absolute path: %s.\n", dbpath);
 		return 0;
 	}
 	return 1;
@@ -211,6 +211,7 @@ GDKlog(FILE *lockFile, const char *format, ...)
 	fflush(lockFile);
 }
 
+#ifndef HAVE_EMBEDDED
 /*
  * @+ Interrupt handling
  * The current version simply catches signals and prints a warning.
@@ -269,6 +270,7 @@ BATSIGinit(void)
 	return 0;
 }
 #endif /* NATIVE_WIN32 */
+#endif /* HAVE_EMBEDDED */
 
 /* memory thresholds; these values some "sane" constants only, really
  * set in GDKinit() */
@@ -420,7 +422,7 @@ MT_init(void)
 
 #define CATNAP		50	/* time to sleep in ms for catnaps */
 
-static int THRinit(void);
+static int THRinit(bool silent);
 static void GDKlockHome(int farmid);
 
 #ifndef STATIC_CODE_ANALYSIS
@@ -429,15 +431,10 @@ static MT_Lock mallocsuccesslock MT_LOCK_INITIALIZER("mallocsuccesslock");
 #endif
 #endif
 
-bool
-GDKinit(opt *set, int setlen)
+static bool
+GDKInitInternal(char* dbpath, bool silent)
 {
-	char *dbpath = mo_find_option(set, setlen, "gdk_dbpath");
-	char *p;
-	opt *n;
-	int i, nlen = 0;
-	int farmid;
-	char buf[16];
+	int i, farmid;
 
 	/* some sanity checks (should also find if symbols are not defined) */
 	static_assert(sizeof(char) == SIZEOF_CHAR, "error in configure: bad value for SIZEOF_CHAR");
@@ -451,7 +448,8 @@ GDKinit(opt *set, int setlen)
 	static_assert(sizeof(oid) == SIZEOF_OID, "error in configure: bad value for SIZEOF_OID");
 	static_assert(sizeof(void *) == SIZEOF_VOID_P, "error in configure: bad value for SIZEOF_VOID_P");
 	static_assert(sizeof(size_t) == SIZEOF_SIZE_T, "error in configure: bad value for SIZEOF_SIZE_T");
-	static_assert(SIZEOF_OID == SIZEOF_INT || SIZEOF_OID == SIZEOF_LNG, "SIZEOF_OID should be equal to SIZEOF_INT or SIZEOF_LNG");
+	static_assert(SIZEOF_OID == SIZEOF_INT || SIZEOF_OID == SIZEOF_LNG,
+				  "SIZEOF_OID should be equal to SIZEOF_INT or SIZEOF_LNG");
 
 #ifdef NEED_MT_LOCK_INIT
 	MT_lock_init(&MT_system_lock,"MT_system_lock");
@@ -478,14 +476,15 @@ GDKinit(opt *set, int setlen)
 	if (!GDKinmemory() && !GDKenvironment(dbpath))
 		return 0;
 
-	if ((p = mo_find_option(set, setlen, "gdk_debug")))
-		GDKdebug = strtol(p, NULL, 10);
-
 	if (mnstr_init() < 0)
 		return 0;
+#if !defined(HAVE_PTHREAD_H) && defined(WIN32)
+	gdk_system_init();
+#endif
 	MT_init_posix();
-	if (THRinit() < 0)
+	if (THRinit(silent) < 0)
 		return 0;
+#ifndef HAVE_EMBEDDED
 #ifndef NATIVE_WIN32
 	if (BATSIGinit() < 0)
 		return 0;
@@ -495,6 +494,7 @@ GDKinit(opt *set, int setlen)
 #if !defined(__MINGW32__) && !defined(__CYGWIN__)
 	_set_abort_behavior(0, _CALL_REPORTFAULT | _WRITE_ABORT_MSG);
 	_set_error_mode(_OUT_TO_STDERR);
+#endif
 #endif
 #endif
 	MT_init();
@@ -508,7 +508,7 @@ GDKinit(opt *set, int setlen)
 			int j;
 			for (j = 0; j < farmid; j++) {
 				if (BBPfarms[j].dirname != NULL &&
-				    strcmp(BBPfarms[farmid].dirname, BBPfarms[j].dirname) == 0) {
+					strcmp(BBPfarms[farmid].dirname, BBPfarms[j].dirname) == 0) {
 					skip = 1;
 					break;
 				}
@@ -528,55 +528,6 @@ GDKinit(opt *set, int setlen)
 			GDK_mmap_minsize_persistent = GDK_mmap_minsize_transient;
 	}
 
-	n = (opt *) malloc(setlen * sizeof(opt));
-	if (n == NULL)
-		GDKfatal("GDKinit: malloc failed\n");
-	for (i = 0; i < setlen; i++) {
-		int done = 0;
-		int j;
-
-		for (j = 0; j < nlen; j++) {
-			if (strcmp(n[j].name, set[i].name) == 0) {
-				if (n[j].kind < set[i].kind) {
-					n[j] = set[i];
-				}
-				done = 1;
-				break;
-			}
-		}
-		if (!done) {
-			n[nlen] = set[i];
-			nlen++;
-		}
-	}
-	/* check some options before creating our first BAT */
-	for (i = 0; i < nlen; i++) {
-		if (strcmp("gdk_mem_maxsize", n[i].name) == 0) {
-			GDK_mem_maxsize = (size_t) strtoll(n[i].value, NULL, 10);
-			GDK_mem_maxsize = MAX(1 << 26, GDK_mem_maxsize);
-		} else if (strcmp("gdk_vm_maxsize", n[i].name) == 0) {
-			GDK_vm_maxsize = (size_t) strtoll(n[i].value, NULL, 10);
-			GDK_vm_maxsize = MAX(1 << 30, GDK_vm_maxsize);
-			if (GDK_vm_maxsize < GDK_mmap_minsize_persistent / 4)
-				GDK_mmap_minsize_persistent = GDK_vm_maxsize / 4;
-			if (GDK_vm_maxsize < GDK_mmap_minsize_transient / 4)
-				GDK_mmap_minsize_transient = GDK_vm_maxsize / 4;
-		} else if (strcmp("gdk_mmap_minsize_persistent", n[i].name) == 0) {
-			GDK_mmap_minsize_persistent = (size_t) strtoll(n[i].value, NULL, 10);
-		} else if (strcmp("gdk_mmap_minsize_transient", n[i].name) == 0) {
-			GDK_mmap_minsize_transient = (size_t) strtoll(n[i].value, NULL, 10);
-		} else if (strcmp("gdk_mmap_pagesize", n[i].name) == 0) {
-			GDK_mmap_pagesize = (size_t) strtoll(n[i].value, NULL, 10);
-			if (GDK_mmap_pagesize < 1 << 12 ||
-			    GDK_mmap_pagesize > 1 << 20 ||
-			    /* x & (x - 1): turn off rightmost 1 bit;
-			     * i.e. if result is zero, x is power of
-			     * two */
-			    (GDK_mmap_pagesize & (GDK_mmap_pagesize - 1)) != 0)
-				GDKfatal("GDKinit: gdk_mmap_pagesize must be power of 2 between 2**12 and 2**20\n");
-		}
-	}
-
 	GDKkey = COLnew(0, TYPE_str, 100, TRANSIENT);
 	GDKval = COLnew(0, TYPE_str, 100, TRANSIENT);
 	if (GDKkey == NULL || GDKval == NULL) {
@@ -584,14 +535,17 @@ GDKinit(opt *set, int setlen)
 		GDKfatal("GDKinit: Could not create environment BAT");
 	}
 	if (BBPrename(GDKkey->batCacheid, "environment_key") != 0 ||
-	    BBPrename(GDKval->batCacheid, "environment_val") != 0)
+		BBPrename(GDKval->batCacheid, "environment_val") != 0)
 		GDKfatal("GDKinit: BBPrename failed");
 
-	/* store options into environment BATs */
-	for (i = 0; i < nlen; i++)
-		if (GDKsetenv(n[i].name, n[i].value) != GDK_SUCCEED)
-			GDKfatal("GDKinit: GDKsetenv failed");
-	free(n);
+	return 1;
+}
+
+static void
+GDKInitEnvVariables(void)
+{
+	char *p;
+	char buf[16];
 
 	GDKnr_threads = GDKgetenv_int("gdk_nr_threads", 0);
 	if (GDKnr_threads == 0)
@@ -609,10 +563,9 @@ GDKinit(opt *set, int setlen)
 				GDKfatal("GDKinit: GDKsetenv failed");
 #endif
 		}
-	} else {
-		if (GDKsetenv("gdk_dbname", ":inmemory") != GDK_SUCCEED)
-			GDKfatal("GDKinit: GDKsetenv failed");
-	}
+	} else if (GDKsetenv("gdk_dbname", ":inmemory") != GDK_SUCCEED)
+		GDKfatal("GDKinit: GDKsetenv failed");
+
 	if (GDKgetenv("gdk_vm_maxsize") == NULL) {
 		snprintf(buf, sizeof(buf), "%zu", GDK_vm_maxsize);
 		if (GDKsetenv("gdk_vm_maxsize", buf) != GDK_SUCCEED)
@@ -638,16 +591,122 @@ GDKinit(opt *set, int setlen)
 		if (GDKsetenv("gdk_mmap_pagesize", buf) != GDK_SUCCEED)
 			GDKfatal("GDKinit: GDKsetenv failed");
 	}
-	if (GDKgetenv("monet_pid") == NULL) {
-		snprintf(buf, sizeof(buf), "%d", (int) getpid());
-		if (GDKsetenv("monet_pid", buf) != GDK_SUCCEED)
+}
+
+#ifndef HAVE_EMBEDDED
+bool
+GDKinit(opt *set, int setlen)
+{
+	char* dbpath = NULL, *p;
+	int i, nlen = 0;
+	char buf[16];
+
+	if (set) {
+		dbpath = mo_find_option(set, setlen, "gdk_dbpath");
+		if ((p = mo_find_option(set, setlen, "gdk_debug")))
+			GDKdebug = strtol(p, NULL, 10);
+	}
+
+	if (!GDKInitInternal(dbpath, false))
+		return 0;
+
+	if (set) {
+		opt *n = (opt *) GDKmalloc(setlen * sizeof(opt));
+		if (n == NULL)
+			GDKfatal("GDKinit: malloc failed\n");
+		for (i = 0; i < setlen; i++) {
+			int done = 0;
+			int j;
+
+			for (j = 0; j < nlen; j++) {
+				if (strcmp(n[j].name, set[i].name) == 0) {
+					if (n[j].kind < set[i].kind) {
+						n[j] = set[i];
+					}
+					done = 1;
+					break;
+				}
+			}
+			if (!done) {
+				n[nlen] = set[i];
+				nlen++;
+			}
+		}
+		/* check some options before creating our first BAT */
+		for (i = 0; i < nlen; i++) {
+			if (strcmp("gdk_mem_maxsize", n[i].name) == 0) {
+				GDK_mem_maxsize = (size_t) strtoll(n[i].value, NULL, 10);
+				GDK_mem_maxsize = MAX(1 << 26, GDK_mem_maxsize);
+			} else if (strcmp("gdk_vm_maxsize", n[i].name) == 0) {
+				GDK_vm_maxsize = (size_t) strtoll(n[i].value, NULL, 10);
+				GDK_vm_maxsize = MAX(1 << 30, GDK_vm_maxsize);
+				if (GDK_vm_maxsize < GDK_mmap_minsize_persistent / 4)
+					GDK_mmap_minsize_persistent = GDK_vm_maxsize / 4;
+				if (GDK_vm_maxsize < GDK_mmap_minsize_transient / 4)
+					GDK_mmap_minsize_transient = GDK_vm_maxsize / 4;
+			} else if (strcmp("gdk_mmap_minsize_persistent", n[i].name) == 0) {
+				GDK_mmap_minsize_persistent = (size_t) strtoll(n[i].value, NULL, 10);
+			} else if (strcmp("gdk_mmap_minsize_transient", n[i].name) == 0) {
+				GDK_mmap_minsize_transient = (size_t) strtoll(n[i].value, NULL, 10);
+			} else if (strcmp("gdk_mmap_pagesize", n[i].name) == 0) {
+				GDK_mmap_pagesize = (size_t) strtoll(n[i].value, NULL, 10);
+				if (GDK_mmap_pagesize < 1 << 12 ||
+					GDK_mmap_pagesize > 1 << 20 ||
+					/* x & (x - 1): turn off rightmost 1 bit;
+					 * i.e. if result is zero, x is power of
+					 * two */
+					(GDK_mmap_pagesize & (GDK_mmap_pagesize - 1)) != 0)
+					GDKfatal("GDKinit: gdk_mmap_pagesize must be power of 2 between 2**12 and 2**20\n");
+			}
+		}
+
+		/* store options into environment BATs */
+		for (i = 0; i < nlen; i++)
+			if (GDKsetenv(n[i].name, n[i].value) != GDK_SUCCEED)
+				GDKfatal("GDKinit: GDKsetenv failed");
+		GDKfree(n);
+
+		if (GDKgetenv("monet_pid") == NULL) {
+			snprintf(buf, sizeof(buf), "%d", (int) getpid());
+			if (GDKsetenv("monet_pid", buf) != GDK_SUCCEED)
+				GDKfatal("GDKinit: GDKsetenv failed");
+		}
+		if (GDKsetenv("revision", mercurial_revision()) != GDK_SUCCEED)
 			GDKfatal("GDKinit: GDKsetenv failed");
 	}
-	if (GDKsetenv("revision", mercurial_revision()) != GDK_SUCCEED)
-		GDKfatal("GDKinit: GDKsetenv failed");
 
+	GDKInitEnvVariables();
 	return 1;
 }
+#else
+bool
+GDKinit(char* dbpath, bool silent)
+{
+	if (!GDKInitInternal(dbpath, silent))
+		return 0;
+
+	if (dbpath)
+		GDKsetenv("gdk_dbpath", dbpath);
+
+	GDKsetenv("gdk_debug", "0");
+	GDKsetenv("gdk_vmtrim", "no");
+
+	GDKsetenv("mapi_open", "false");
+	GDKsetenv("monet_daemon", "no");
+	GDKsetenv("monet_prompt", ">");
+	GDKsetenv("mapi_autosense", "false");
+
+	GDKsetenv("sql_optimizer", "default_pipe");
+	GDKsetenv("sql_debug", "0");
+
+	GDKsetenv("monet_mod_path", "");
+	GDKsetenv("max_clients", "256");
+	GDKsetenv("mapi_disable", "true");
+
+	GDKInitEnvVariables();
+	return 1;
+}
+#endif
 
 int GDKnr_threads = 0;
 static int GDKnrofthreads;
@@ -836,11 +895,8 @@ GDKreset(int status, int exit)
 	MT_lock_destroy(&mallocsuccesslock);
 #endif
 #endif
-#ifndef HAVE_EMBEDDED
-	if (exit) {
+	if (exit)
 		MT_global_exit(status);
-	}
-#endif
 }
 
 /* coverity[+kill] */
@@ -857,9 +913,7 @@ GDKexit(int status)
 	}
 	GDKprepareExit();
 	GDKreset(status, 1);
-#ifndef HAVE_EMBEDDED
 	MT_exit_thread(-1);
-#endif
 }
 
 /*
@@ -1167,7 +1221,7 @@ GDKfatal(const char *format, ...)
 	va_list ap;
 
 	GDKdebug |= IOMASK;
-#ifndef NATIVE_WIN32
+#if !defined(NATIVE_WIN32) && !defined(HAVE_EMBEDDED)
 	BATSIGinit();
 #endif
 	if (!strncmp(format, GDKFATAL, len)) {
@@ -1421,11 +1475,12 @@ THRhighwater(void)
  */
 
 static int
-THRinit(void)
+THRinit(bool silent)
 {
 	int i = 0;
 
-	if((THRdata[0] = (void *) file_wastream(stdout, "stdout")) == NULL)
+	THRdata[0] = silent ? (void *) stream_blackhole_create() : (void *) file_wastream(stdout, "stdout");
+	if(!THRdata[0])
 		return -1;
 	if((THRdata[1] = (void *) file_rastream(stdin, "stdin")) == NULL) {
 		close_stream(THRdata[0]);
@@ -1537,6 +1592,7 @@ THRprintf(stream *s, const char *format, ...)
 	return n;
 }
 
+#ifndef HAVE_EMBEDDED
 static const char *_gdk_version_string = VERSION;
 /**
  * Returns the GDK version as internally allocated string.  Hence the
@@ -1548,6 +1604,7 @@ GDKversion(void)
 {
 	return (_gdk_version_string);
 }
+#endif
 
 /**
  * Extracts the last directory from a path string, if possible.

@@ -648,8 +648,9 @@ main(int argc, char **av)
 		msab_registerStop();
 		GDKfatal("%s", err);
 	}
-	if (mal_init()) {
+	if ((err = mal_init("libmonetdb5")) != MAL_SUCCEED) {
 		/* don't show this as a crash */
+		GDKfree(err);
 		msab_registerStop();
 		return 0;
 	}

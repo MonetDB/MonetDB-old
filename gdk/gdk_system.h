@@ -384,4 +384,8 @@ typedef struct {
 
 gdk_export int MT_check_nr_cores(void);
 
+#define HOST_LITTLE_ENDIAN 1
+#define HOST_BIG_ENDIAN 2
+gdk_export int MT_check_endianness(void);
+
 #endif /*_GDK_SYSTEM_H_*/

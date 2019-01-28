@@ -44,6 +44,22 @@ static FileRecord filesLoaded[MAXMODULES];
 static int maxfiles = MAXMODULES;
 static int lastfile = 0;
 
+/*
+ * In MonetDBLite, libmonetdb5 will be set dynamically.
+ */
+static char* monetdb_lib_path = NULL;
+
+str
+initLinker(const char* path)
+{
+	if (monetdb_lib_path)
+		GDKfree(monetdb_lib_path);
+	monetdb_lib_path = GDKstrdup(path);
+	if (!monetdb_lib_path)
+		throw(MAL, "mal.linker", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	return MAL_SUCCEED;
+}
+
 #ifndef O_CLOEXEC
 #define O_CLOEXEC 0
 #endif
@@ -103,17 +119,23 @@ getAddress(str fcnname)
 	 *
 	 * the first argument must be the same as the base name of the
 	 * library that is created in src/tools */
-	dl = mdlopen("libmonetdb5", RTLD_NOW | RTLD_GLOBAL);
+	assert(monetdb_lib_path);
+	dl = mdlopen(monetdb_lib_path, RTLD_NOW
+#ifndef HAVE_EMBEDDED
+	| RTLD_GLOBAL);
+#else
+	| RTLD_LOCAL);
+#endif
 	if (dl == NULL) 
 		return NULL;
 
 	adr = (MALfcn) dlsym(dl, fcnname);
-	filesLoaded[lastfile].modname = GDKstrdup("libmonetdb5");
+	filesLoaded[lastfile].modname = GDKstrdup(monetdb_lib_path);
 	if(filesLoaded[lastfile].modname == NULL) {
 		dlclose(dl);
 		return NULL;
 	}
-	filesLoaded[lastfile].fullname = GDKstrdup("libmonetdb5");
+	filesLoaded[lastfile].fullname = GDKstrdup(monetdb_lib_path);
 	if(filesLoaded[lastfile].fullname == NULL) {
 		dlclose(dl);
 		GDKfree(filesLoaded[lastfile].modname);
@@ -283,6 +305,10 @@ mal_linker_reset(void)
 	}
 	lastfile = 0;
 	MT_lock_unset(&mal_contextLock);
+	if (monetdb_lib_path) {
+		GDKfree(monetdb_lib_path);
+		monetdb_lib_path = NULL;
+	}
 }
 
 /*
