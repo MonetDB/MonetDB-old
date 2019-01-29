@@ -57,6 +57,8 @@
 #include "gdk.h"
 #include "gdk_private.h"
 #include "gdk_logger.h"
+#include "mutils.h"
+
 #include <string.h>
 
 /*

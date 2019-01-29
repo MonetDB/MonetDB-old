@@ -113,8 +113,12 @@ mal_init(const char* library_path)
 	initResource();
 	initProfiler();
 #endif
-	if ((msg = malBootstrap()) != MAL_SUCCEED)
+	if ((msg = malBootstrap()) != MAL_SUCCEED) {
+#ifndef HAVE_EMBEDDED
+		mal_exit();
+#endif
 		return msg;
+	}
 	return msg;
 }
 
@@ -141,11 +145,11 @@ void mserver_reset(int exit)
 	stopProfiler();
 	AUTHreset(); 
 	if ((err = msab_wildRetreat()) != NULL) {
-		fprintf(stderr, "!%s", err);
+		mnstr_printf(GDKerr, "!%s", err);
 		free(err);
 	}
 	if ((err = msab_registerStop()) != NULL) {
-		fprintf(stderr, "!%s", err);
+		mnstr_printf(GDKerr, "!%s", err);
 		free(err);
 	}
 	mal_factory_reset();

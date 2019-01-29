@@ -10,7 +10,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>
 #include "mutils.h"
 
@@ -38,13 +40,49 @@
 
 #ifdef NATIVE_WIN32
 
-/* Some definitions that we need to compile on Windows.
- * Note that Windows only runs on little endian architectures. */
-typedef unsigned int u_int32_t;
-typedef int int32_t;
-#define BIG_ENDIAN	4321
-#define LITTLE_ENDIAN	1234
-#define BYTE_ORDER	LITTLE_ENDIAN
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <errno.h>
+#include <io.h>
+
+int
+fsync(int fd)
+{
+	HANDLE h = (HANDLE) _get_osfhandle (fd);
+	DWORD err;
+
+	if (h == INVALID_HANDLE_VALUE) {
+		errno = EBADF;
+		return -1;
+	}
+
+	if (!FlushFileBuffers (h)) {
+	  /* Translate some Windows errors into rough approximations of Unix
+	   * errors.  MSDN is useless as usual - in this case it doesn't
+	   * document the full range of errors.
+	   */
+		err = GetLastError ();
+		switch (err) {
+			case ERROR_ACCESS_DENIED:
+				/* For a read-only handle, fsync should succeed, even though we have
+				 no way to sync the access-time changes.  */
+				return 0;
+
+				/* eg. Trying to fsync a tty. */
+			case ERROR_INVALID_HANDLE:
+				errno = EINVAL;
+				break;
+
+			default:
+				errno = EIO;
+		}
+		return -1;
+	}
+
+	return 0;
+}
 
 /* translate Windows error code (GetLastError()) to Unix-style error */
 int
@@ -435,6 +473,7 @@ MT_lockf(char *filename, int mode, off_t off, off_t len)
 
 #endif
 
+#ifndef HAVE_EMBEDDED
 #ifndef PATH_MAX
 # define PATH_MAX 1024
 #endif
@@ -487,4 +526,29 @@ get_bin_path(void)
 	/* could use argv[0] (passed) to deduce location based on PATH, but
 	 * that's a lot of work and unreliable */
 	return NULL;
+}
+#endif /* HAVE_EMBEDDED */
+
+#ifdef HAVE_EMBEDDED_R
+extern int embedded_r_rand(void);
+#endif
+
+int
+MT_rand(void)
+{
+#ifdef HAVE_EMBEDDED_R
+	return embedded_r_rand();
+#else
+	return rand();
+#endif
+}
+
+void
+MT_srand(unsigned int seed)
+{
+#ifdef HAVE_EMBEDDED_R
+	(void) seed;
+#else
+	srand(seed);
+#endif
 }

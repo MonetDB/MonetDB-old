@@ -7,6 +7,7 @@
  */
 
 #include "capi.h"
+#include "mutils.h"
 #include "cheader.h"
 #include "cheader.text.h"
 
@@ -661,7 +662,7 @@ static str CUDFeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci,
 		memcpy(buf, prefix, sizeof(char) * strlen(prefix));
 		// generate a random 32-character name for the temporary files
 		for (i = prefix_size; i < prefix_size + RANDOM_NAME_SIZE; i++) {
-			buf[i] = valid_path_characters[rand() %
+			buf[i] = valid_path_characters[MT_rand() %
 										   (sizeof(valid_path_characters) - 1)];
 		}
 		buf[i] = '\0';

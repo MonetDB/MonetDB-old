@@ -11,6 +11,7 @@
  * Implement a parallel sort-merge MAL program generator
  */
 #include "monetdb_config.h"
+#include "mutils.h"
 #include "orderidx.h"
 #include "gdk.h"
 
@@ -97,7 +98,7 @@ OIDXcreateImplementation(Client cntxt, int tpe, BAT *b, int pieces)
 #endif
 
 	/* create a temporary MAL function to sort the BAT in parallel */
-	snprintf(name, IDLENGTH, "sort%d", rand()%1000);
+	snprintf(name, IDLENGTH, "sort%d", MT_rand()%1000);
 	snew = newFunction(putName("user"), putName(name),
 	       FUNCTIONsymbol);
 	if(snew == NULL) {

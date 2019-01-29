@@ -33,6 +33,7 @@
 #include "gdk_system_private.h"
 
 #include <time.h>
+#include <stdlib.h>
 
 #ifdef HAVE_FTIME
 #include <sys/timeb.h>		/* ftime */

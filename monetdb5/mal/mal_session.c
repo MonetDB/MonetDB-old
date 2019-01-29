@@ -21,11 +21,6 @@
 #include "mal_private.h"
 #include "gdk.h"	/* for opendir and friends */
 
-#ifdef HAVE_EMBEDDED
-// FIXME:
-//#include "mal_init_inline.h"
-#endif
-
 /*
  * The MonetDB server uses a startup script to boot the system.
  * This script is an ordinary MAL program, but will mostly
@@ -36,60 +31,47 @@ str
 malBootstrap(void)
 {
 	Client c;
-	str msg = MAL_SUCCEED;
-	str bootfile = "mal_init", s = NULL;
+	str msg = MAL_SUCCEED, error = MAL_SUCCEED;
+	str bootfile = "mal_init";
 
 	c = MCinitClient((oid) 0, 0, 0);
-	if(c == NULL) {
-		fprintf(stderr,"#malBootstrap:Failed to initialise client");
-		mal_exit();
-	}
+	if (c == NULL)
+		return createException(MAL, "malBootstrap", "Failed to initialise client");
 	assert(c != NULL);
 	c->curmodule = c->usermodule = userModule();
-	if(c->usermodule == NULL) {
-		fprintf(stderr,"#malBootstrap:Failed to initialise client MAL module");
-		mal_exit();
-	}
-	if ( (msg = defaultScenario(c)) ) {
-		fprintf(stderr,"#malBootstrap:Failed to initialise default scenario: %s", msg);
+	if (c->usermodule == NULL)
+		return createException(MAL, "malBootstrap", "Failed to initialise client MAL module");
+	if ((msg = defaultScenario(c)) != MAL_SUCCEED) {
+		error = createException(MAL, "malBootstrap", "Failed to initialise default scenario: %s", msg);
 		freeException(msg);
-		mal_exit();
+		return error;
 	}
-	if((msg = MSinitClientPrg(c, "user", "main")) != MAL_SUCCEED) {
-		fprintf(stderr,"#malBootstrap:Failed to initialise client: %s", msg);
+	if ((msg = MSinitClientPrg(c, "user", "main")) != MAL_SUCCEED) {
+		error = createException(MAL, "malBootstrap", "Failed to initialise client: %s", msg);
 		freeException(msg);
-		mal_exit();
+		return error;
 	}
-	if( MCinitClientThread(c) < 0){
-		fprintf(stderr,"#malBootstrap:Failed to create client thread");
-		mal_exit();
-	}
-	s = malInclude(c, bootfile, 0);
-	if (s != NULL) {
-		fprintf(stderr, "!%s\n", s);
-		GDKfree(s);
-		mal_exit();
+	if ( MCinitClientThread(c) < 0)
+		return createException(MAL, "malBootstrap", "Failed to create client thread");
+	if ((msg = malInclude(c, bootfile, 0)) != MAL_SUCCEED) {
+		error = createException(MAL, "malBootstrap", "Failed to initialise client: %s", msg);
+		freeException(msg);
+		return error;
 	}
 	pushEndInstruction(c->curprg->def);
 	chkProgram(c->usermodule, c->curprg->def);
 	if ( (msg= c->curprg->def->errors) != MAL_SUCCEED ) {
-		mnstr_printf(c->fdout,"!%s%s",msg, (msg[strlen(msg)-1] == '\n'? "":"\n"));
-		mnstr_flush(c->fdout);
+		error = createException(MAL, "malBootstrap", "Failed to initialise client: %s", msg);
+		freeException(msg);
+#ifndef HAVE_EMBEDDED
 		if( GDKerrbuf && GDKerrbuf[0]){
 			mnstr_printf(c->fdout,"!GDKerror: %s\n",GDKerrbuf);
 			mnstr_flush(c->fdout);
 		}
-#ifdef HAVE_EMBEDDED
-		return msg;
 #endif
+		return error;
 	}
-	s = MALengine(c);
-	if (s != MAL_SUCCEED) {
-		GDKfree(s);
-#ifdef HAVE_EMBEDDED
-		return msg;
-#endif
-	}
+	msg = MALengine(c);
 	return msg;
 }
 
@@ -159,7 +141,7 @@ MSinitClientPrg(Client cntxt, str mod, str nme)
 		return MSresetClientPrg(cntxt, putName(mod), putName(nme));
 	cntxt->curprg = newFunction(putName(mod), putName(nme), FUNCTIONsymbol);
 	if( cntxt->curprg == 0)
-		throw(MAL, "initClientPrg", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		throw(MAL, "initClientPrg", MAL_MALLOC_FAIL);
 	if( (idx= findVariable(cntxt->curprg->def,"main")) >=0)
 		setVarType(cntxt->curprg->def, idx, TYPE_void);
 	insertSymbol(cntxt->usermodule,cntxt->curprg);
@@ -167,12 +149,13 @@ MSinitClientPrg(Client cntxt, str mod, str nme)
 	if (cntxt->glb == NULL )
 		cntxt->glb = newGlobalStack(MAXGLOBALS + cntxt->curprg->def->vsize);
 	if( cntxt->glb == NULL)
-		throw(MAL,"initClientPrg", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		throw(MAL,"initClientPrg", MAL_MALLOC_FAIL);
 	assert(cntxt->curprg->def != NULL);
 	assert(cntxt->curprg->def->vtop >0);
 	return MAL_SUCCEED;
 }
 
+#ifndef HAVE_EMBEDDED
 /*
  * The default method to interact with the database server is to connect
  * using a port number. The first line received should contain
@@ -407,6 +390,7 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 		freeException(msg);
 	}
 }
+#endif
 
 /*
  * After the client initialization has been finished, we can start the
@@ -483,6 +467,7 @@ MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start)
 #endif
 }
 
+#ifndef HAVE_EMBEDDED
 /*
  * This is a phtread started function.  Here we start the client. We
  * need to initialize and allocate space for the global variables.
@@ -558,6 +543,7 @@ MSserveClient(void *dummy)
 	}
 	return MAL_SUCCEED;
 }
+#endif
 
 /*
  * The stages of processing user requests are controlled by a scenario.

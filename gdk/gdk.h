@@ -331,6 +331,7 @@
 #include <limits.h>		/* for *_MIN and *_MAX */
 #include <float.h>		/* for FLT_MAX and DBL_MAX */
 
+#include "mutils.h"
 #include "gdk_system.h"
 #include "gdk_posix.h"
 #include "stream.h"

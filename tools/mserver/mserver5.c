@@ -650,6 +650,7 @@ main(int argc, char **av)
 	}
 	if ((err = mal_init("libmonetdb5")) != MAL_SUCCEED) {
 		/* don't show this as a crash */
+		fprintf(stderr, "%s", err);
 		GDKfree(err);
 		msab_registerStop();
 		return 0;
