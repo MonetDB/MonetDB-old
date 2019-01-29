@@ -21,9 +21,10 @@
 #include "rel_rel.h"
 #include "rel_exp.h"
 #include "gdk_logger.h"
+#ifndef HAVE_EMBEDDED
 #include "wlc.h"
-
 #include "mal_authorize.h"
+#endif
 
 static int mvc_debug = 0;
 
@@ -413,6 +414,7 @@ mvc_commit(mvc *m, int chain, const char *name, bool enabling_auto_commit)
 				GDKfree(other);
 			return msg;
 		}
+#ifndef HAVE_EMBEDDED
 		msg = WLCcommit(m->clientid);
 		store_unlock();
 		if(msg != MAL_SUCCEED) {
@@ -420,6 +422,7 @@ mvc_commit(mvc *m, int chain, const char *name, bool enabling_auto_commit)
 				GDKfree(other);
 			return msg;
 		}
+#endif
 		m->type = Q_TRANS;
 		if (m->qc) /* clean query cache, protect against concurrent access on the hash tables (when functions already exists, concurrent mal will
 build up the hash (not copied in the trans dup)) */
@@ -493,7 +496,9 @@ build up the hash (not copied in the trans dup)) */
 			GDKfree(other);
 		return msg;
 	}
+#ifndef HAVE_EMBEDDED
 	msg = WLCcommit(m->clientid);
+#endif
 	if(msg != MAL_SUCCEED) {
 		store_unlock();
 		if((other = mvc_rollback(m, chain, name, false)) != MAL_SUCCEED)

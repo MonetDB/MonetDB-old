@@ -8,7 +8,9 @@
 
 #include "monetdb_config.h"
 #include "control.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h> /* close */
+#endif
 #include <string.h> /* strerror */
 #include <sys/socket.h> /* socket */
 #ifdef HAVE_SYS_UN_H

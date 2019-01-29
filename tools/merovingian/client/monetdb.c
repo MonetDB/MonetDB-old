@@ -30,7 +30,9 @@
 #include <sys/stat.h> /* mkdir, stat, umask */
 #include <sys/types.h> /* mkdir, readdir */
 #include <dirent.h> /* readdir */
+#ifdef HAVE_UNISTD_H
 #include <unistd.h> /* stat, rmdir, unlink, ioctl */
+#endif
 #include <time.h> /* strftime */
 #include <sys/socket.h> /* socket */
 #ifdef HAVE_SYS_UN_H

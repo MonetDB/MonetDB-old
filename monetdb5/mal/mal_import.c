@@ -139,15 +139,12 @@ malLoadScript(str name, bstream **fdin)
 	restoreClient1 \
 	restoreClient2
 
-#ifdef HAVE_EMBEDDED
-extern char* mal_init_inline;
-#endif
 /*
  * The include operation parses the file indentified and
  * leaves the MAL code behind in the 'main' function.
  */
 str
-malInclude(Client c, str name, int listing)
+malInclude(Client c, str data, int listing, bool isFile)
 {
 	str msg = MAL_SUCCEED;
 	str filename;
@@ -172,62 +169,54 @@ malInclude(Client c, str name, int listing)
 	c->listing = listing;
 	c->fdin = NULL;
 
-#ifdef HAVE_EMBEDDED
-	(void) filename;
-	(void) p;
-	{
-		size_t mal_init_len = strlen(mal_init_inline);
-		buffer* mal_init_buf;
-		stream* mal_init_stream;
-
-		if ((mal_init_buf = GDKmalloc(sizeof(buffer))) == NULL)
-			throw(MAL, "malInclude", MAL_MALLOC_FAIL);
-		if ((mal_init_stream = buffer_rastream(mal_init_buf, name)) == NULL) {
-			GDKfree(mal_init_buf);
-			throw(MAL, "malInclude", MAL_MALLOC_FAIL);
+	if (isFile) {
+		if ((filename = malResolveFile(data)) != NULL) {
+			data = filename;
+			do {
+				p = strchr(filename, PATH_SEP);
+				if (p)
+					*p = '\0';
+				c->srcFile = filename;
+				c->yycur = 0;
+				c->bak = NULL;
+				if ((msg = malLoadScript(filename, &c->fdin)) == MAL_SUCCEED) {
+					parseMAL(c, c->curprg, 1, INT_MAX);
+					bstream_destroy(c->fdin);
+				} else {
+					/* TODO output msg ? */
+					freeException(msg);
+					msg = MAL_SUCCEED;
+				}
+				if (p)
+					filename = p + 1;
+			} while (p);
+			GDKfree(data);
+			c->fdin = NULL;
 		}
-		buffer_init(mal_init_buf, mal_init_inline, mal_init_len);
-		c->srcFile = name;
+	} else {
+		size_t mal_init_len = strlen(data);
+		buffer mal_init_buf;
+		stream* mal_init_stream = buffer_rastream(&mal_init_buf, data);
+		if (!mal_init_stream) {
+			restoreClient;
+			return createException(MAL,"mal.eval", "WARNING: could not setup init script.");
+		}
+		mal_init_buf.pos = 0;
+		mal_init_buf.len = mal_init_len;
+		mal_init_buf.buf = data;
+		c->srcFile = data;
 		c->yycur = 0;
 		c->bak = NULL;
-		if ((c->fdin = bstream_create(mal_init_stream, mal_init_len)) == NULL) {
-			mnstr_destroy(mal_init_stream);
-			GDKfree(mal_init_buf);
-			throw(MAL, "malInclude", MAL_MALLOC_FAIL);
+		c->fdin = bstream_create(mal_init_stream, mal_init_len);
+		if (!c->fdin) {
+			restoreClient;
+			return createException(MAL,"mal.eval", "WARNING: could not setup init script.");
 		}
 		bstream_next(c->fdin);
 		parseMAL(c, c->curprg, 1, INT_MAX);
-		free(mal_init_buf);
-		free(mal_init_stream);
-		free(c->fdin);
-		c->fdin = NULL;
-		GDKfree(mal_init_buf);
-	}
-#else
-	if ((filename = malResolveFile(name)) != NULL) {
-		name = filename;
-		do {
-			p = strchr(filename, PATH_SEP);
-			if (p)
-				*p = '\0';
-			c->srcFile = filename;
-			c->yycur = 0;
-			c->bak = NULL;
-			if ((msg = malLoadScript(filename, &c->fdin)) == MAL_SUCCEED) {
-				parseMAL(c, c->curprg, 1, INT_MAX);
-				bstream_destroy(c->fdin);
-			} else {
-				/* TODO output msg ? */
-				freeException(msg);
-				msg = MAL_SUCCEED;
-			}
-			if (p)
-				filename = p + 1;
-		} while (p);
-		GDKfree(name);
+		bstream_destroy(c->fdin);
 		c->fdin = NULL;
 	}
-#endif
 	restoreClient;
 	return msg;
 }

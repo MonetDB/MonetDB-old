@@ -17,7 +17,9 @@
 #include <setjmp.h>
 #include <signal.h>
 #include <sys/mman.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>
 
 #if defined(__GNUC__) && !defined(__clang__)

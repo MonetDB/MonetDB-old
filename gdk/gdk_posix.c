@@ -19,7 +19,9 @@
 #include "gdk.h"		/* includes gdk_posix.h */
 #include "gdk_private.h"
 #include "mutils.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>     /* strncpy */
 
 #ifdef HAVE_FCNTL_H

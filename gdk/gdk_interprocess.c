@@ -20,7 +20,9 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/wait.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>

@@ -11,7 +11,9 @@
 #include <sys/param.h>
 #include <sys/times.h>
 #include <limits.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 
 struct tms cpuTime;

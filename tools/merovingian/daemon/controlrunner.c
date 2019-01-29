@@ -16,7 +16,9 @@
 #include <netinet/in.h>
 #include <time.h>
 #include <string.h>  /* strerror */
-#include <unistd.h>  /* select */
+#ifdef HAVE_UNISTD_H
+#include <unistd.h> /* select */
+#endif
 #include <signal.h>
 #include <fcntl.h>
 

@@ -10,7 +10,9 @@
 
 #include "monetdb_config.h"
 #include "msabaoth.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h> /* stat, rmdir, unlink, ioctl */
+#endif
 #include <dirent.h> /* readdir */
 #include <sys/stat.h> /* mkdir, stat, umask */
 #include <sys/types.h> /* mkdir, readdir */

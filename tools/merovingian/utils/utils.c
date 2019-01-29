@@ -18,7 +18,9 @@
 #include "monetdb_config.h"
 #include "utils.h"
 #include "mutils.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h> /* unlink */
+#endif
 #include <string.h> /* memcpy */
 #include <strings.h> /* strcasecmp */
 #include <sys/types.h>

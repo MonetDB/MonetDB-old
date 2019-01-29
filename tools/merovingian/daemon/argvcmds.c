@@ -7,7 +7,9 @@
  */
 
 #include "monetdb_config.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h> /* chdir */
+#endif
 #include <string.h> /* strerror */
 #include <sys/types.h>
 #include <sys/stat.h>

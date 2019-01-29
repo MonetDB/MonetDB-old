@@ -22,22 +22,24 @@ int have_hge;
 
 #include "mal_stack.h"
 #include "mal_linker.h"
-#include "mal_authorize.h"
 #include "mal_session.h"
 #include "mal_scenario.h"
 #include "mal_parser.h"
 #include "mal_interpreter.h"
 #include "mal_namespace.h"  /* for initNamespace() */
 #include "mal_client.h"
-#include "mal_sabaoth.h"
 #include "mal_dataflow.h"
-#include "mal_profiler.h"
 #include "mal_private.h"
 #include "mal_runtime.h"
-#include "mal_resource.h"
-#include "wlc.h"
-#include "mal_atom.h"
 #include "opt_pipes.h"
+#include "mal_atom.h"
+#include "mal_resource.h"
+#ifndef HAVE_EMBEDDED
+#include "mal_authorize.h"
+#include "mal_sabaoth.h"
+#include "mal_profiler.h"
+#include "wlc.h"
+#endif
 
 MT_Lock     mal_contextLock MT_LOCK_INITIALIZER("mal_contextLock");
 MT_Lock     mal_namespaceLock MT_LOCK_INITIALIZER("mal_namespaceLock");
@@ -83,7 +85,7 @@ void tstAligned(void)
 }
 
 str
-mal_init(const char* library_path)
+mal_init(const char* library_path, const char *mal_init_data)
 {
 	str msg = MAL_SUCCEED;
 #ifdef NEED_MT_LOCK_INIT
@@ -113,7 +115,7 @@ mal_init(const char* library_path)
 	initResource();
 	initProfiler();
 #endif
-	if ((msg = malBootstrap()) != MAL_SUCCEED) {
+	if ((msg = malBootstrap(mal_init_data)) != MAL_SUCCEED) {
 #ifndef HAVE_EMBEDDED
 		mal_exit();
 #endif

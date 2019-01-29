@@ -262,7 +262,7 @@ static str monetdb_initialize(void) {
 		GDKfatal("%s", retval);
 	}
 
-	if ((retval = mal_init("libmonetdb5")) != MAL_SUCCEED)
+	if ((retval = mal_init("libmonetdb5", NULL)) != MAL_SUCCEED)
 		goto cleanup;
 
 	GDKfataljumpenable = 0;

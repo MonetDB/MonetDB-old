@@ -1033,7 +1033,7 @@ parseInclude(Client cntxt)
 		GDKfree(s);
 		return 0;
 	}
-	if ((s = malInclude(cntxt, modnme, 0))) {
+	if ((s = malInclude(cntxt, modnme, 0, true))) {
 		parseError(cntxt, s);
 		GDKfree(s);
 		return 0;

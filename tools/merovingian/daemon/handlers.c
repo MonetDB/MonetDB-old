@@ -8,7 +8,9 @@
 
 #include "monetdb_config.h"
 #include <signal.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h> /* isatty */
+#endif
 #include <time.h> /* time, localtime */
 #include <string.h> /* str* */
 #include <sys/types.h> /* open */

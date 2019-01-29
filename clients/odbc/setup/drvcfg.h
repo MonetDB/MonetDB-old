@@ -20,7 +20,9 @@
 #ifndef _ODBCINST_H
 #define _ODBCINST_H
 
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #ifdef HAVE_PWD_H
 #include <pwd.h>
 #endif

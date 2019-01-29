@@ -62,7 +62,9 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <fcntl.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h> /* unlink, isatty */
+#endif
 #include <string.h> /* strerror */
 #include <signal.h> /* handle Ctrl-C, etc. */
 #include <time.h>

@@ -15,7 +15,9 @@
 # endif
 #endif
 #include "mapi.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <sys/stat.h>
 #include <string.h>
 #include <time.h>

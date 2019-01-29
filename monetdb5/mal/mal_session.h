@@ -11,7 +11,7 @@
 
 #include "mal_scenario.h"
 
-mal_export str malBootstrap(void);
+mal_export str malBootstrap(const char *mal_init_data);
 mal_export str MSserveClient(void *dummy);
 mal_export str MSinitClientPrg(Client cntxt, str mod, str nme);
 mal_export void MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protocol_version protocol, size_t blocksize);

@@ -18,7 +18,9 @@
  */
 
 #include "monetdb_config.h"
-#include <unistd.h>	/* unlink and friends */
+#ifdef HAVE_UNISTD_H
+#include <unistd.h> /* unlink and friends */
+#endif
 #include <sys/types.h>
 #ifdef HAVE_DIRENT_H
 #include <dirent.h> /* readdir, DIR */

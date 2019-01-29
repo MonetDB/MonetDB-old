@@ -14,11 +14,13 @@
 #include "mal_interpreter.h" /* for runMAL(), garbageElement() */
 #include "mal_parser.h"	     /* for parseMAL() */
 #include "mal_namespace.h"
+#include "mal_builder.h"
+#include "mal_private.h"
+#ifndef HAVE_EMBEDDED
 #include "mal_readline.h"
 #include "mal_authorize.h"
-#include "mal_builder.h"
 #include "mal_sabaoth.h"
-#include "mal_private.h"
+#endif
 #include "gdk.h"	/* for opendir and friends */
 
 /*
@@ -28,11 +30,10 @@
  * The startup script is run as user Admin.
  */
 str
-malBootstrap(void)
+malBootstrap(const char *mal_init_data)
 {
 	Client c;
 	str msg = MAL_SUCCEED, error = MAL_SUCCEED;
-	str bootfile = "mal_init";
 
 	c = MCinitClient((oid) 0, 0, 0);
 	if (c == NULL)
@@ -53,7 +54,8 @@ malBootstrap(void)
 	}
 	if ( MCinitClientThread(c) < 0)
 		return createException(MAL, "malBootstrap", "Failed to create client thread");
-	if ((msg = malInclude(c, bootfile, 0)) != MAL_SUCCEED) {
+	if ((msg = malInclude(c, (str) (mal_init_data ? mal_init_data : "mal_init"), 0,
+						  mal_init_data == NULL)) != MAL_SUCCEED) {
 		error = createException(MAL, "malBootstrap", "Failed to initialise client: %s", msg);
 		freeException(msg);
 		return error;

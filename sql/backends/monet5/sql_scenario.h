@@ -14,6 +14,7 @@
 /* #define _SQL_READER_DEBUG */
 /* #define _SQL_PARSER_DEBUG */
 
+sql5_export int SQLisInitialized(void);
 sql5_export int SQLdebug;
 sql5_export str SQLsession(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLsession2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

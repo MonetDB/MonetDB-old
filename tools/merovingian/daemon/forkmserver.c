@@ -11,7 +11,9 @@
 #include <sys/un.h>
 #include <sys/stat.h>
 #include <signal.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h> /* char ** */
 #include <time.h> /* localtime */
 

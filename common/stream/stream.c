@@ -131,55 +131,6 @@
 #define UTF8BOM		"\xEF\xBB\xBF"	/* UTF-8 encoding of Unicode BOM */
 #define UTF8BOMLENGTH	3		/* length of above */
 
-#ifdef _MSC_VER
-/* use intrinsic functions on Windows */
-#define short_int_SWAP(s)	((int16_t) _byteswap_ushort((uint16_t) (s)))
-/* on Windows, long is the same size as int */
-#define normal_int_SWAP(i)	((int) _byteswap_ulong((unsigned long) (i)))
-#define long_int_SWAP(l)	((int64_t) _byteswap_uint64((unsigned __int64) (l)))
-#else
-#define short_int_SWAP(s)				\
-	((int16_t) (((0x00ff & (uint16_t) (s)) << 8) |	\
-		  ((0xff00 & (uint16_t) (s)) >> 8)))
-
-#define normal_int_SWAP(i)						\
-	((int) (((((unsigned) 0xff <<  0) & (unsigned) (i)) << 24) |	\
-		((((unsigned) 0xff <<  8) & (unsigned) (i)) <<  8) |	\
-		((((unsigned) 0xff << 16) & (unsigned) (i)) >>  8) |	\
-		((((unsigned) 0xff << 24) & (unsigned) (i)) >> 24)))
-
-#define long_int_SWAP(l)						\
-	((int64_t) (((((uint64_t) 0xff <<  0) & (uint64_t) (l)) << 56) | \
-		((((uint64_t) 0xff <<  8) & (uint64_t) (l)) << 40) |	\
-		((((uint64_t) 0xff << 16) & (uint64_t) (l)) << 24) |	\
-		((((uint64_t) 0xff << 24) & (uint64_t) (l)) <<  8) |	\
-		((((uint64_t) 0xff << 32) & (uint64_t) (l)) >>  8) |	\
-		((((uint64_t) 0xff << 40) & (uint64_t) (l)) >> 24) |	\
-		((((uint64_t) 0xff << 48) & (uint64_t) (l)) >> 40) |	\
-		((((uint64_t) 0xff << 56) & (uint64_t) (l)) >> 56)))
-#endif
-
-#ifdef HAVE_HGE
-#define huge_int_SWAP(h)					\
-	((hge) (((((uhge) 0xff <<   0) & (uhge) (h)) << 120) |	\
-		((((uhge) 0xff <<   8) & (uhge) (h)) << 104) |	\
-		((((uhge) 0xff <<  16) & (uhge) (h)) <<  88) |	\
-		((((uhge) 0xff <<  24) & (uhge) (h)) <<  72) |	\
-		((((uhge) 0xff <<  32) & (uhge) (h)) <<  56) |	\
-		((((uhge) 0xff <<  40) & (uhge) (h)) <<  40) |	\
-		((((uhge) 0xff <<  48) & (uhge) (h)) <<  24) |	\
-		((((uhge) 0xff <<  56) & (uhge) (h)) <<   8) |	\
-		((((uhge) 0xff <<  64) & (uhge) (h)) >>   8) |	\
-		((((uhge) 0xff <<  72) & (uhge) (h)) >>  24) |	\
-		((((uhge) 0xff <<  80) & (uhge) (h)) >>  40) |	\
-		((((uhge) 0xff <<  88) & (uhge) (h)) >>  56) |	\
-		((((uhge) 0xff <<  96) & (uhge) (h)) >>  72) |	\
-		((((uhge) 0xff << 104) & (uhge) (h)) >>  88) |	\
-		((((uhge) 0xff << 112) & (uhge) (h)) >> 104) |	\
-		((((uhge) 0xff << 120) & (uhge) (h)) >> 120)))
-#endif
-
-
 struct stream {
 	char *name;		/* name of the stream */
 	bool swapbytes;		/* whether to swap bytes */
@@ -216,7 +167,7 @@ mnstr_init(void)
 	if (inited)
 		return 0;
 
-#ifdef NATIVE_WIN32
+#if defined(NATIVE_WIN32) && !defined(HAVE_EMBEDDED)
 	{
 		WSADATA w;
 
@@ -2153,6 +2104,7 @@ open_wastream(const char *filename)
 	return s;
 }
 
+#ifndef HAVE_EMBEDDED
 /* ------------------------------------------------------------------ */
 /* streams working on a remote file using cURL */
 
@@ -2932,6 +2884,7 @@ console_destroy(stream *s)
 	destroy(s);
 }
 #endif
+#endif /* HAVE EMBEDDED*/
 
 static stream *
 file_stream(const char *name)
@@ -3088,7 +3041,7 @@ file_wastream(FILE *restrict fp, const char *restrict name)
 FILE *
 getFile(stream *s)
 {
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(HAVE_EMBEDDED)
 	if (s->read == console_read)
 		return stdin;
 	if (s->write == console_write)

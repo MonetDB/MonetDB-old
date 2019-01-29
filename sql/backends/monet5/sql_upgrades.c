@@ -15,15 +15,13 @@
 #include "sql_execute.h"
 #include "sql_mvc.h"
 #include "mtime.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include "sql_upgrades.h"
 
 #include "rel_remote.h"
 #include "mal_authorize.h"
-
-#ifdef HAVE_EMBEDDED
-#define printf(fmt,...) ((void) 0)
-#endif
 
 /* this function can be used to recreate the system tables (types,
  * functions, args) when internal types and/or functions have changed

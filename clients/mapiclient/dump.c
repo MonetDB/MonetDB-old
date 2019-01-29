@@ -10,7 +10,9 @@
 #include "monet_options.h"
 #include "mapi.h"
 #include "stream.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>
 #include <ctype.h>
 #include "msqldump.h"

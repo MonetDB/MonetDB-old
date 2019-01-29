@@ -685,23 +685,37 @@ GDKinit(char* dbpath, bool silent)
 	if (!GDKInitInternal(dbpath, silent))
 		return 0;
 
-	if (dbpath)
-		GDKsetenv("gdk_dbpath", dbpath);
+	if (dbpath && GDKsetenv("gdk_dbpath", dbpath) != GDK_SUCCEED)
+		GDKfatal("GDKinit: GDKsetenv failed");
 
-	GDKsetenv("gdk_debug", "0");
-	GDKsetenv("gdk_vmtrim", "no");
+	if (GDKsetenv("gdk_debug", "0") != GDK_SUCCEED)
+		GDKfatal("GDKinit: GDKsetenv failed");
 
-	GDKsetenv("mapi_open", "false");
-	GDKsetenv("monet_daemon", "no");
-	GDKsetenv("monet_prompt", ">");
-	GDKsetenv("mapi_autosense", "false");
+	if (GDKsetenv("gdk_debug", "0") != GDK_SUCCEED)
+		GDKfatal("GDKinit: GDKsetenv failed");
+	if (GDKsetenv("gdk_vmtrim", "no") != GDK_SUCCEED)
+		GDKfatal("GDKinit: GDKsetenv failed");
 
-	GDKsetenv("sql_optimizer", "default_pipe");
-	GDKsetenv("sql_debug", "0");
+	if (GDKsetenv("mapi_open", "false") != GDK_SUCCEED)
+		GDKfatal("GDKinit: GDKsetenv failed");
+	if (GDKsetenv("monet_daemon", "no") != GDK_SUCCEED)
+		GDKfatal("GDKinit: GDKsetenv failed");
+	if (GDKsetenv("monet_prompt", ">") != GDK_SUCCEED)
+		GDKfatal("GDKinit: GDKsetenv failed");
+	if (GDKsetenv("mapi_autosense", "false") != GDK_SUCCEED)
+		GDKfatal("GDKinit: GDKsetenv failed");
 
-	GDKsetenv("monet_mod_path", "");
-	GDKsetenv("max_clients", "256");
-	GDKsetenv("mapi_disable", "true");
+	if (GDKsetenv("sql_optimizer", "default_pipe") != GDK_SUCCEED)
+		GDKfatal("GDKinit: GDKsetenv failed");
+	if (GDKsetenv("sql_debug", "0") != GDK_SUCCEED)
+		GDKfatal("GDKinit: GDKsetenv failed");
+
+	if (GDKsetenv("monet_mod_path", "") != GDK_SUCCEED)
+		GDKfatal("GDKinit: GDKsetenv failed");
+	if (GDKsetenv("max_clients", "256") != GDK_SUCCEED)
+		GDKfatal("GDKinit: GDKsetenv failed");
+	if (GDKsetenv("mapi_disable", "true") != GDK_SUCCEED)
+		GDKfatal("GDKinit: GDKsetenv failed");
 
 	GDKInitEnvVariables();
 	return 1;

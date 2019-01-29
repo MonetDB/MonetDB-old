@@ -24,7 +24,9 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <signal.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <time.h>
 
 #define TME_US  1
