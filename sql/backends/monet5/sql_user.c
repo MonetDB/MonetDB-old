@@ -22,7 +22,9 @@
 #include "bat5.h"
 #include "mal_interpreter.h"
 #include "mal_authorize.h"
+#ifndef HAVE_EMBEDDED
 #include "mcrypt.h"
+#endif
 
 #if 0
 int
@@ -53,6 +55,11 @@ static int
 monet5_drop_user(ptr _mvc, str user)
 {
 	mvc *m = (mvc *) _mvc;
+#ifdef HAVE_EMBEDDED
+	(void) user;
+	(void) sql_error(m, 02, SQLSTATE(42000) "DROP USER: user administration not available in MonetDBLite version");
+	return FALSE;
+#else
 	oid rid;
 	sql_schema *sys;
 	sql_table *users;
@@ -62,7 +69,7 @@ monet5_drop_user(ptr _mvc, str user)
 
 	err = AUTHremoveUser(c, user);
 	if (err !=MAL_SUCCEED) {
-		(void) sql_error(m, 02, "DROP USER: %s", getExceptionMessage(err));
+		(void) sql_error(m, 02, SQLSTATE(42000) "DROP USER: %s", getExceptionMessage(err));
 		_DELETE(err);
 		return FALSE;
 	}
@@ -80,11 +87,22 @@ monet5_drop_user(ptr _mvc, str user)
 	 * administration. */
 
 	return TRUE;
+#endif
 }
 
 static str
 monet5_create_user(ptr _mvc, str user, str passwd, char enc, str fullname, sqlid schema_id, sqlid grantorid)
 {
+#ifdef HAVE_EMBEDDED
+	(void) _mvc;
+	(void) user;
+	(void) passwd;
+	(void) enc;
+	(void) fullname;
+	(void) schema_id;
+	(void) grantorid;
+	throw(MAL, "sql.create_user", SQLSTATE(42000) "CREATE USER: user administration not available in MonetDBLite version");
+#else
 	mvc *m = (mvc *) _mvc;
 	oid uid = 0;
 	bat bid = 0;
@@ -117,11 +135,17 @@ monet5_create_user(ptr _mvc, str user, str passwd, char enc, str fullname, sqlid
 	table_funcs.table_insert(m->session->tr, db_user_info, user, fullname, &schema_id);
 	table_funcs.table_insert(m->session->tr, auths, &user_id, user, &grantorid);
 	return NULL;
+#endif
 }
 
 static int
 monet5_find_user(ptr mp, str user)
 {
+#ifdef HAVE_EMBEDDED
+	(void) mp;
+	(void) user;
+	return -1;
+#else
 	BAT *uid, *nme;
 	BUN p;
 	mvc *m = (mvc *) mp;
@@ -138,11 +162,19 @@ monet5_find_user(ptr mp, str user)
 
 	/* yeah, I would prefer to return something different too */
 	return (p == BUN_NONE ? -1 : 1);
+#endif
 }
 
 str
 db_users_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+#ifdef HAVE_EMBEDDED
+	(void) cntxt;
+	(void) stk;
+	(void) pci;
+	(void) mb;
+	throw(SQL, "sql.db_users_wrap", SQLSTATE(42000) "User administration not available in MonetDBLite version");
+#else
 	bat *r = getArgReference_bat(stk, pci, 0);
 	BAT *uid, *nme;
 	str err;
@@ -154,13 +186,19 @@ db_users_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	*r = nme->batCacheid;
 	BBPkeepref(*r);
 	return MAL_SUCCEED;
+#endif
 }
 
 str
 db_password_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) mb;
-
+#ifdef HAVE_EMBEDDED
+	(void) cntxt;
+	(void) stk;
+	(void) pci;
+	throw(SQL, "sql.db_password_wrap", SQLSTATE(42000) "User administration not available in MonetDBLite version");
+#else
 	if (stk->stk[pci->argv[0]].vtype == TYPE_bat) {
 		BAT *b = BATdescriptor(*getArgReference_bat(stk, pci, 1));
 		if (b == NULL)
@@ -196,6 +234,7 @@ db_password_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str *user = getArgReference_str(stk, pci, 1);
 
 	return AUTHgetPasswordHash(hash, cntxt, *user);
+#endif
 }
 
 static void
@@ -262,6 +301,15 @@ static int
 monet5_alter_user(ptr _mvc, str user, str passwd, char enc, sqlid schema_id, str oldpasswd)
 {
 	mvc *m = (mvc *) _mvc;
+#ifdef HAVE_EMBEDDED
+	(void) user;
+	(void) passwd;
+	(void) enc;
+	(void) schema_id;
+	(void) oldpasswd;
+	(void) sql_error(m, 02, SQLSTATE(42000) "ALTER USER: user administration not available in MonetDBLite version");
+	return FALSE;
+#else
 	Client c = MCgetClient(m->clientid);
 	str err;
 
@@ -293,7 +341,7 @@ monet5_alter_user(ptr _mvc, str user, str passwd, char enc, sqlid schema_id, str
 				free(opwd);
 			}
 			if (err !=MAL_SUCCEED) {
-				(void) sql_error(m, 02, "ALTER USER: %s", getExceptionMessage(err));
+				(void) sql_error(m, 02, SQLSTATE(42000) "ALTER USER: %s", getExceptionMessage(err));
 				freeException(err);
 				return (FALSE);
 			}
@@ -304,7 +352,7 @@ monet5_alter_user(ptr _mvc, str user, str passwd, char enc, sqlid schema_id, str
 					free(pwd);
 					free(opwd);
 				}
-				(void) sql_error(m, 02, "ALTER USER: %s", getExceptionMessage(err));
+				(void) sql_error(m, 02, SQLSTATE(42000) "ALTER USER: %s", getExceptionMessage(err));
 				freeException(err);
 				return (FALSE);
 			}
@@ -315,7 +363,7 @@ monet5_alter_user(ptr _mvc, str user, str passwd, char enc, sqlid schema_id, str
 					free(pwd);
 					free(opwd);
 				}
-				(void) sql_error(m, 02, "ALTER USER: "
+				(void) sql_error(m, 02, SQLSTATE(42000) "ALTER USER: "
 					"use 'ALTER USER SET [ ENCRYPTED ] PASSWORD xxx "
 					"USING OLD PASSWORD yyy' "
 					"when changing your own password");
@@ -328,7 +376,7 @@ monet5_alter_user(ptr _mvc, str user, str passwd, char enc, sqlid schema_id, str
 				free(opwd);
 			}
 			if (err !=MAL_SUCCEED) {
-				(void) sql_error(m, 02, "ALTER USER: %s", getExceptionMessage(err));
+				(void) sql_error(m, 02, SQLSTATE(42000) "ALTER USER: %s", getExceptionMessage(err));
 				freeException(err);
 				return (FALSE);
 			}
@@ -351,12 +399,22 @@ monet5_alter_user(ptr _mvc, str user, str passwd, char enc, sqlid schema_id, str
 	}
 
 	return TRUE;
+#endif
 }
 
 static int
 monet5_rename_user(ptr _mvc, str olduser, str newuser)
 {
 	mvc *m = (mvc *) _mvc;
+#ifdef HAVE_EMBEDDED
+	(void) user;
+	(void) passwd;
+	(void) enc;
+	(void) schema_id;
+	(void) oldpasswd;
+	(void) sql_error(m, 02, SQLSTATE(42000) "ALTER USER: User administration not available in MonetDBLite version");
+	return FALSE;
+#else
 	Client c = MCgetClient(m->clientid);
 	str err;
 	oid rid;
@@ -367,14 +425,14 @@ monet5_rename_user(ptr _mvc, str olduser, str newuser)
 	sql_column *auths_name = find_sql_column(auths, "name");
 
 	if ((err = AUTHchangeUsername(c, olduser, newuser)) !=MAL_SUCCEED) {
-		(void) sql_error(m, 02, "ALTER USER: %s", getExceptionMessage(err));
+		(void) sql_error(m, 02, SQLSTATE(42000) "ALTER USER: %s", getExceptionMessage(err));
 		freeException(err);
 		return (FALSE);
 	}
 
 	rid = table_funcs.column_find_row(m->session->tr, users_name, olduser, NULL);
 	if (is_oid_nil(rid)) {
-		(void) sql_error(m, 02, "ALTER USER: local inconsistency, "
+		(void) sql_error(m, 02, SQLSTATE(42000) "ALTER USER: local inconsistency, "
 				 "your database is damaged, user not found in SQL catalog");
 		return (FALSE);
 	}
@@ -382,13 +440,14 @@ monet5_rename_user(ptr _mvc, str olduser, str newuser)
 
 	rid = table_funcs.column_find_row(m->session->tr, auths_name, olduser, NULL);
 	if (is_oid_nil(rid)) {
-		(void) sql_error(m, 02, "ALTER USER: local inconsistency, "
+		(void) sql_error(m, 02, SQLSTATE(42000) "ALTER USER: local inconsistency, "
 				 "your database is damaged, auth not found in SQL catalog");
 		return (FALSE);
 	}
 	table_funcs.column_update_value(m->session->tr, auths_name, rid, newuser);
 
 	return (TRUE);
+#endif
 }
 
 static void *
@@ -499,15 +558,19 @@ monet5_user_set_def_schema(mvc *m, oid user)
 
 	str schema = NULL;
 	str username = NULL;
-	str err = NULL;
 
 	if (m->debug &1)
 		mnstr_printf(GDKerr, "monet5_user_set_def_schema " OIDFMT "\n", user);
 
-	if ((err = AUTHresolveUser(&username, user)) !=MAL_SUCCEED) {
-		freeException(err);
-		return (NULL);	/* don't reveal that the user doesn't exist */
+#ifndef HAVE_EMBEDDED
+	{
+		str err = NULL;
+		if ((err = AUTHresolveUser(&username, user)) !=MAL_SUCCEED) {
+			freeException(err);
+			return (NULL);	/* don't reveal that the user doesn't exist */
+		}
 	}
+#endif
 
 	if(mvc_trans(m) < 0) {
 		GDKfree(username);

@@ -33,10 +33,12 @@
 #include "rel_rel.h"
 #include "rel_exp.h"
 #include "rel_dump.h"
-#include "mal_debugger.h"
 #include "mtime.h"
 #include "optimizer.h"
 #include "opt_inline.h"
+#ifndef HAVE_EMBEDDED
+#include "mal_debugger.h"
+#endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -64,6 +66,7 @@
 * is executed within the client context specified. This leads to context juggling.
 */
 
+#ifndef HAVE_EMBEDDED
 /*
  * The trace operation collects the events in the BATs
  * and creates a secondary result set upon termination
@@ -190,6 +193,7 @@ SQLsetTrace(Client cntxt, MalBlkPtr mb)
 
 	return msg;
 }
+#endif
 
 /*
  * Execution of the SQL program is delegated to the MALengine.
@@ -269,8 +273,10 @@ SQLexecutePrepared(Client c, backend *be, MalBlkPtr mb)
 		v->val.ival = int_nil;
 	}
 	q->stk = (backend_stack) glb; /* save garbageCollected stack */
+#ifndef HAVE_EMBEDDED
 	if (glb && SQLdebug & 1)
 		printStack(GDKstdout, mb, glb);
+#endif
 	if (pci->argc >= MAXARG && argv != argvbuffer)
 		GDKfree(argv);
 	if (pci->retc >= MAXARG && argrec != argrecbuffer)
@@ -364,17 +370,19 @@ SQLrun(Client c, backend *be, mvc *m)
 	if (m->emod & mod_explain) {
 		if (c->curprg->def)
 			printFunction(c->fdout, mb, 0, LIST_MAL_NAME | LIST_MAL_VALUE  | LIST_MAL_TYPE |  LIST_MAL_MAPI);
-	} else if( m->emod & mod_debug) {
+	}
+#ifndef HAVE_EMBEDDED
+	else if( m->emod & mod_debug) {
 		msg = runMALDebugger(c, mb);
-	} else {
-		if( m->emod & mod_trace){
-			if((msg = SQLsetTrace(c,mb)) == MAL_SUCCEED) {
-				msg = runMAL(c, mb, 0, 0);
-				stopTrace(0);
-			}
-		} else {
+	} else if( m->emod & mod_trace){
+		if((msg = SQLsetTrace(c,mb)) == MAL_SUCCEED) {
 			msg = runMAL(c, mb, 0, 0);
+			stopTrace(0);
 		}
+	}
+#endif
+	else {
+		msg = runMAL(c, mb, 0, 0);
 	}
 
 	// release the resources
@@ -592,6 +600,43 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 		mnstr_printf(c->fdout, "#SQLstatement:\n");
 #endif
 		scanner_query_processed(&(m->scanner));
+
+#ifdef HAVE_EMBEDDED
+		// PLAN output
+		if (m->emode == m_plan && mvc_status(m) == 0) {
+			list *refs = sa_list(m->sa);
+			stream *s;
+			buffer *b = buffer_create(16364); /* hopefully enough */
+			if (!b) {
+				msg = createException(PARSE, "SQLparser", "Memory allocation failed");
+				goto endofcompile;
+			}
+			s = buffer_wastream(b, "SQL Plan");
+			if (!s) {
+				msg = createException(PARSE, "SQLparser", "Memory allocation failed");
+				buffer_destroy(b);
+				goto endofcompile;
+			}
+
+			rel_print_refs(m, s, r, 0, refs, 1);
+			rel_print_(m, s, r, 0, refs, 1);
+			mnstr_printf(s, "\n");
+			mnstr_writeBte(s, 0);
+
+			*result = res_table_create(m->session->tr, m->result_id++, 1, 1, 1, NULL, NULL);
+			if (!*result) {
+				msg = createException(PARSE, "SQLparser", "Memory allocation failed");
+			} else {
+				res_col_create(m->session->tr, *result, "plan", "plan", "varchar", 0, 0, TYPE_str, b->buf);
+			}
+
+			mnstr_close(s);
+			mnstr_destroy(s);
+			buffer_destroy(b);
+
+			goto endofcompile;
+		}
+#endif
 		if ((err = mvc_status(m)) ) {
 				if (strlen(m->errstr) > 6 && m->errstr[5] == '!')
 					msg = createException(PARSE, "SQLparser", "%s", m->errstr);
@@ -620,8 +665,9 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 		mnstr_printf(c->fdout, "#SQLstatement:post-compile\n");
 		printFunction(c->fdout, c->curprg->def, 0, LIST_MAL_NAME | LIST_MAL_VALUE  |  LIST_MAL_MAPI);
 #endif
+#ifndef HAVE_EMBEDDED
 		msg = SQLoptimizeFunction(c, c->curprg->def);
-
+#endif
 		if (err || c->curprg->def->errors || msg) {
 			/* restore the state */
 			MSresetInstructions(c->curprg->def, oldstop);
