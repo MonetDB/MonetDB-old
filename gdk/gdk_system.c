@@ -121,7 +121,7 @@ GDKlockstatistics(int what)
 	int n = 0;
 
 	if (ATOMIC_TAS(GDKlocklistlock, dummy) != 0) {
-		fprintf(stderr, "#WARNING: GDKlocklistlock is set, so cannot access lock list\n");
+		mnstr_printf(GDKerr, "#WARNING: GDKlocklistlock is set, so cannot access lock list\n");
 		return;
 	}
 	if (what == -1) {
@@ -134,23 +134,23 @@ GDKlockstatistics(int what)
 		return;
 	}
 	GDKlocklist = sortlocklist(GDKlocklist);
-	fprintf(stderr, "# lock name\tcount\tcontention\tsleep\tlocked\t(un)locker\n");
+	mnstr_printf(GDKerr, "# lock name\tcount\tcontention\tsleep\tlocked\t(un)locker\n");
 	for (l = GDKlocklist; l; l = l->next) {
 		n++;
 		if (what == 0 ||
 		    (what == 1 && l->count) ||
 		    (what == 2 && l->contention) ||
 		    (what == 3 && l->lock))
-			fprintf(stderr, "# %-18s\t%zu\t%zu\t%zu\t%s\t%s\n",
+			mnstr_printf(GDKerr, "# %-18s\t%zu\t%zu\t%zu\t%s\t%s\n",
 				l->name ? l->name : "unknown",
 				l->count, l->contention, l->sleep,
 				l->lock ? "locked" : "",
 				l->locker ? l->locker : "");
 	}
-	fprintf(stderr, "#number of locks  %d\n", n);
-	fprintf(stderr, "#total lock count %zu\n", (size_t) GDKlockcnt);
-	fprintf(stderr, "#lock contention  %zu\n", (size_t) GDKlockcontentioncnt);
-	fprintf(stderr, "#lock sleep count %zu\n", (size_t) GDKlocksleepcnt);
+	mnstr_printf(GDKerr, "#number of locks  %d\n", n);
+	mnstr_printf(GDKerr, "#total lock count %zu\n", (size_t) GDKlockcnt);
+	mnstr_printf(GDKerr, "#lock contention  %zu\n", (size_t) GDKlockcontentioncnt);
+	mnstr_printf(GDKerr, "#lock sleep count %zu\n", (size_t) GDKlocksleepcnt);
 	ATOMIC_CLEAR(GDKlocklistlock, dummy);
 }
 #endif

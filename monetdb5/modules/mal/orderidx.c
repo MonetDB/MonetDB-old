@@ -93,8 +93,8 @@ OIDXcreateImplementation(Client cntxt, int tpe, BAT *b, int pieces)
 		pieces = 1;
 	}
 #ifdef _DEBUG_OIDX_
-	fprintf(stderr,"#bat.orderidx pieces %d\n",pieces);
-	fprintf(stderr,"#oidx ttype %s bat %s\n", ATOMname(b->ttype),ATOMname(tpe));
+	mnstr_printf(GDKerr,"#bat.orderidx pieces %d\n",pieces);
+	mnstr_printf(GDKerr,"#oidx ttype %s bat %s\n", ATOMname(b->ttype),ATOMname(tpe));
 #endif
 
 	/* create a temporary MAL function to sort the BAT in parallel */
@@ -186,7 +186,7 @@ OIDXcreateImplementation(Client cntxt, int tpe, BAT *b, int pieces)
 		freeStack(newstk);
 	}
 #ifdef _DEBUG_OIDX_
-	fprintFunction(stderr, smb, 0, LIST_MAL_ALL);
+	fprintFunction(GDKerr, smb, 0, LIST_MAL_ALL);
 #endif
 	/* get rid of temporary MAL block */
 bailout:

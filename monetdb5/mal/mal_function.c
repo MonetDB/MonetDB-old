@@ -218,7 +218,7 @@ void chkFlow(MalBlkPtr mb)
 		mb->errors = createMalException( mb,lastInstruction,SYNTAX,
 			"instructions after END");
 #ifdef DEBUG_MAL_FCN
-		fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
+		fprintFunction(GDKerr, mb, 0, LIST_MAL_ALL);
 #endif
 	}
 	if( endseen)
@@ -272,13 +272,13 @@ static void replaceTypeVar(MalBlkPtr mb, InstrPtr p, int v, malType t){
 	int j,i,x,y;
 #ifdef DEBUG_MAL_FCN
 	char *tpenme = getTypeName(t);
-	fprintf(stderr,"#replace type _%d by type %s\n",v, tpenme);
+	mnstr_printf(GDKerr,"#replace type _%d by type %s\n",v, tpenme);
 	GDKfree(tpenme);
 #endif
 	for(j=0; j<mb->stop; j++){
 	    p= getInstrPtr(mb,j);
 #ifdef DEBUG_MAL_FCN
-		fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
+		fprintInstruction(GDKerr,mb,0,p,LIST_MAL_ALL);
 #endif
 	if( p->polymorphic)
 	for(i=0;i<p->argc; i++)
@@ -298,7 +298,7 @@ static void replaceTypeVar(MalBlkPtr mb, InstrPtr p, int v, malType t){
 #ifdef DEBUG_MAL_FCN
 			{
 				char *xnme = getTypeName(x), *ynme = getTypeName(y);
-				fprintf(stderr," %d replaced %s->%s \n",i,xnme,ynme);
+				mnstr_printf(GDKerr," %d replaced %s->%s \n",i,xnme,ynme);
 				GDKfree(xnme);
 				GDKfree(ynme);
 			}
@@ -307,7 +307,7 @@ static void replaceTypeVar(MalBlkPtr mb, InstrPtr p, int v, malType t){
 		if(getTypeIndex(x) == v){
 #ifdef DEBUG_MAL_FCN
 			char *xnme = getTypeName(x);
-			fprintf(stderr," replace x= %s polymorphic\n",xnme);
+			mnstr_printf(GDKerr," replace x= %s polymorphic\n",xnme);
 			GDKfree(xnme);
 #endif
 			setArgType(mb,p,i,t);
@@ -315,13 +315,13 @@ static void replaceTypeVar(MalBlkPtr mb, InstrPtr p, int v, malType t){
 #ifdef DEBUG_MAL_FCN
 		else {
 			char *xnme = getTypeName(x);
-			fprintf(stderr," non x= %s %d\n",xnme,getTypeIndex(x));
+			mnstr_printf(GDKerr," non x= %s %d\n",xnme,getTypeIndex(x));
 			GDKfree(xnme);
 		}
 #endif
 	}
 #ifdef DEBUG_MAL_FCN
-		fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
+		fprintInstruction(GDKerr,mb,0,p,LIST_MAL_ALL);
 #endif
 	}
 }
@@ -377,25 +377,25 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 	InstrPtr pp;
 
 #ifdef DEBUG_CLONE
-	fprintf(stderr,"clone the function %s to scope %s\n",
+	mnstr_printf(GDKerr,"clone the function %s to scope %s\n",
 				 proc->name,scope->name);
-	fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
+	fprintInstruction(GDKerr,mb,0,p,LIST_MAL_ALL);
 #endif
 	new = newFunction(scope->name, proc->name, getSignature(proc)->token);
 	if( new == NULL){
-		fprintf(stderr,"cloneFunction() failed");
+		mnstr_printf(GDKerr,"cloneFunction() failed");
 		return NULL;
 	}
 	freeMalBlk(new->def);
 	if((new->def = copyMalBlk(proc->def)) == NULL) {
 		freeSymbol(new);
-		fprintf(stderr,"cloneFunction() failed");
+		mnstr_printf(GDKerr,"cloneFunction() failed");
 		return NULL;
 	}
 	/* now change the definition of the original proc */
 #ifdef DEBUG_CLONE
-	fprintf(stderr, "CLONED VERSION\n");
-	fprintFunction(stderr, new->def, 0, LIST_MAL_ALL);
+	mnstr_printf(GDKerr, "CLONED VERSION\n");
+	fprintFunction(GDKerr, new->def, 0, LIST_MAL_ALL);
 #endif
 	/* check for errors after fixation , TODO*/
 	pp = getSignature(new);
@@ -414,7 +414,7 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 #ifdef DEBUG_MAL_FCN
 		else {
 			char *tpenme = getTypeName(v);
-			fprintf(stderr,"%d remains %s\n", i, tpenme);
+			mnstr_printf(GDKerr,"%d remains %s\n", i, tpenme);
 			GDKfree(tpenme);
 		}
 #endif
@@ -431,8 +431,8 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 		clrVarFixed(new->def, i);
 
 #ifdef DEBUG_MAL_FCN
-	fprintf(stderr, "FUNCTION TO BE CHECKED\n");
-	fprintFunction(stderr, new->def, 0, LIST_MAL_ALL);
+	mnstr_printf(GDKerr, "FUNCTION TO BE CHECKED\n");
+	fprintFunction(GDKerr, new->def, 0, LIST_MAL_ALL);
 #endif
 
 	/* check for errors after fixation , TODO*/
@@ -445,14 +445,14 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 			mb->errors = createMalException(mb,0,TYPE,"Error in cloned function");
 			new->def->errors = 0;
 #ifdef DEBUG_MAL_FCN
-			fprintFunction(stderr, new->def, 0, LIST_MAL_ALL);
+			fprintFunction(GDKerr, new->def, 0, LIST_MAL_ALL);
 #endif
 		}
 	}
 #ifdef DEBUG_CLONE
-	fprintf(stderr, "newly cloned function added to %s %d \n",
+	mnstr_printf(GDKerr, "newly cloned function added to %s %d \n",
 				 scope->name, i);
-	fprintFunction(stderr, new->def, 0, LIST_MAL_ALL);
+	fprintFunction(GDKerr, new->def, 0, LIST_MAL_ALL);
 #endif
 	return new;
 }
@@ -552,7 +552,7 @@ void printFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg)
 	listFunction(fd,mb,stk,flg,0,mb->stop);
 }
 
-void fprintFunction(FILE *fd, MalBlkPtr mb, MalStkPtr stk, int flg)
+void fprintFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg)
 {
 	int i,j;
 	InstrPtr p;
@@ -828,7 +828,7 @@ void chkDeclarations(MalBlkPtr mb){
 				else
 					setVarScope(mb, l, blks[top]);
 #ifdef DEBUG_MAL_FCN
-				fprintf(stderr,"#defined %s in block %d\n", getVarName(mb,l), getVarScope(mb,l));
+				mnstr_printf(GDKerr,"#defined %s in block %d\n", getVarName(mb,l), getVarScope(mb,l));
 #endif
 			}
 			if( blockCntrl(p) || blockStart(p) )
@@ -849,12 +849,12 @@ void chkDeclarations(MalBlkPtr mb){
 				} 
 				blks[++top]= blkId;
 #ifdef DEBUG_MAL_FCN
-				fprintf(stderr,"#new block %d at top %d\n",blks[top], top);
+				mnstr_printf(GDKerr,"#new block %d at top %d\n",blks[top], top);
 #endif
 			}
 			if( blockExit(p) && top > 0 ){
 #ifdef DEBUG_MAL_FCN
-				fprintf(stderr,"leave block %d at top %d\n",blks[top], top);
+				mnstr_printf(GDKerr,"leave block %d at top %d\n",blks[top], top);
 #endif
 				if( dflow == blkId){
 					dflow = -1;

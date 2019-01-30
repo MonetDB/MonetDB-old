@@ -107,6 +107,11 @@ static str monetdb_initialize(void) {
 	if (monetdb_initialized) return MAL_SUCCEED;
 	monetdb_initialized = 1;
 
+	if (THRinit(false) < 0) {
+		retval = GDKstrdup("Could not initialize GDK streams\n");
+		goto cleanup;
+	}
+
 	if (setlocale(LC_CTYPE, "") == NULL) {
 		retval = GDKstrdup("setlocale() failed");
 		goto cleanup;

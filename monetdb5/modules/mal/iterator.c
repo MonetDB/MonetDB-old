@@ -61,7 +61,7 @@ ITRnewChunk(lng *res, bat *vid, bat *bid, lng *granule)
 		throw(MAL, "chop.newChunk", GDK_EXCEPTION);
 	}
 
-	/*  printf("set bat chunk bound to " LLFMT " 0 - " BUNFMT "\n",
+	/*  mnstr_printf(GDKout, "set bat chunk bound to " LLFMT " 0 - " BUNFMT "\n",
 	 *granule, MIN(cnt,(BUN) *granule)); */
 	VIEWbounds(b, view, 0, MIN(cnt, (BUN) * granule));
 	*vid = view->batCacheid;
@@ -97,7 +97,7 @@ ITRnextChunk(lng *res, bat *vid, bat *bid, lng *granule)
 		BBPunfix(b->batCacheid);
 		return MAL_SUCCEED;
 	}
-	/* printf("set bat chunk bound to " BUNFMT " - " BUNFMT " \n",
+	/* mnstr_printf(GDKout, "set bat chunk bound to " BUNFMT " - " BUNFMT " \n",
 	   i, i+(BUN) *granule-1); */
 	VIEWbounds(b, view, i, i + (BUN) * granule);
 	BAThseqbase(view, is_oid_nil(b->hseqbase) ? oid_nil : b->hseqbase + i);

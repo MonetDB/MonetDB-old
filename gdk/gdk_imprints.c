@@ -248,7 +248,7 @@ BATcheckimprints(BAT *b)
 					close(fd);
 					imprints->imprints.parentid = b->batCacheid;
 					b->timprints = imprints;
-					ALGODEBUG fprintf(stderr, "#BATcheckimprints(" ALGOBATFMT "): reusing persisted imprints\n", ALGOBATPAR(b));
+					ALGODEBUG mnstr_printf(GDKerr, "#BATcheckimprints(" ALGOBATFMT "): reusing persisted imprints\n", ALGOBATPAR(b));
 					MT_lock_unset(&GDKimprintsLock(b->batCacheid));
 
 					return true;
@@ -263,7 +263,7 @@ BATcheckimprints(BAT *b)
 	}
 	ret = b->timprints != NULL;
 	MT_lock_unset(&GDKimprintsLock(b->batCacheid));
-	ALGODEBUG if (ret) fprintf(stderr, "#BATcheckimprints(" ALGOBATFMT "): already has imprints\n", ALGOBATPAR(b));
+	ALGODEBUG if (ret) mnstr_printf(GDKerr, "#BATcheckimprints(" ALGOBATFMT "): already has imprints\n", ALGOBATPAR(b));
 	return ret;
 }
 
@@ -313,7 +313,7 @@ BATimpsync(void *arg)
 				    MT_msync(hp->base, SIZEOF_SIZE_T) < 0)
 					((size_t *) hp->base)[0] &= ~((size_t) IMPRINTS_VERSION << 8);
 			}
-			ALGODEBUG fprintf(stderr, "#BATimpsync(" ALGOBATFMT "): "
+			ALGODEBUG mnstr_printf(GDKerr, "#BATimpsync(" ALGOBATFMT "): "
 					  "imprints persisted "
 					  "(" LLFMT " usec)%s\n", ALGOBATPAR(b),
 					  GDKusec() - t0, failed);
@@ -373,12 +373,12 @@ BATimprints(BAT *b)
 
 		ALGODEBUG {
 			if (s2)
-				fprintf(stderr, "#BATimprints(b=" ALGOBATFMT
+				mnstr_printf(GDKerr, "#BATimprints(b=" ALGOBATFMT
 					"): creating imprints on parent "
 					ALGOBATFMT "\n",
 					ALGOBATPAR(s2), ALGOBATPAR(b));
 			else
-				fprintf(stderr, "#BATimprints(b=" ALGOBATFMT
+				mnstr_printf(GDKerr, "#BATimprints(b=" ALGOBATFMT
 					"): creating imprints\n",
 					ALGOBATPAR(b));
 		}
@@ -528,7 +528,7 @@ BATimprints(BAT *b)
 		}
 	}
 
-	ALGODEBUG fprintf(stderr, "#BATimprints(%s): imprints construction " LLFMT " usec\n", BATgetId(b), GDKusec() - t0);
+	ALGODEBUG mnstr_printf(GDKerr, "#BATimprints(%s): imprints construction " LLFMT " usec\n", BATgetId(b), GDKusec() - t0);
 	MT_lock_unset(&GDKimprintsLock(b->batCacheid));
 
 	/* BBPUnfix tries to get the imprints lock which might lead to
@@ -631,10 +631,10 @@ IMPSremove(BAT *b)
 
 		if ((GDKdebug & ALGOMASK) &&
 		    * (size_t *) imprints->imprints.base & (1 << 16))
-			fprintf(stderr, "#IMPSremove: removing persisted imprints\n");
+			mnstr_printf(GDKerr, "#IMPSremove: removing persisted imprints\n");
 		if (HEAPdelete(&imprints->imprints, BBP_physical(b->batCacheid),
 			       "timprints") != GDK_SUCCEED)
-			IODEBUG fprintf(stderr, "#IMPSremove(%s): imprints heap\n", BATgetId(b));
+			IODEBUG mnstr_printf(GDKerr, "#IMPSremove(%s): imprints heap\n", BATgetId(b));
 
 		GDKfree(imprints);
 	}
@@ -712,7 +712,7 @@ IMPSprint(BAT *b)
 	int i;
 
 	if (!BATcheckimprints(b)) {
-		fprintf(stderr, "no imprint\n");
+		mnstr_printf(GDKerr, "no imprint\n");
 		return;
 	}
 	imprints = b->timprints;
@@ -721,35 +721,35 @@ IMPSprint(BAT *b)
 	max_bins = min_bins + 64;
 	cnt_bins = max_bins + 64;
 
-	fprintf(stderr,
+	mnstr_printf(GDKerr,
 		"bits = %d, impcnt = " BUNFMT ", dictcnt = " BUNFMT "\n",
 		imprints->bits, imprints->impcnt, imprints->dictcnt);
-	fprintf(stderr,"MIN = ");
+	mnstr_printf(GDKerr,"MIN = ");
 	for (i = 0; i < imprints->bits; i++) {
-		fprintf(stderr, "[ " BUNFMT " ] ", min_bins[i]);
+		mnstr_printf(GDKerr, "[ " BUNFMT " ] ", min_bins[i]);
 	}
-	fprintf(stderr,"\n");
-	fprintf(stderr,"MAX = ");
+	mnstr_printf(GDKerr,"\n");
+	mnstr_printf(GDKerr,"MAX = ");
 	for (i = 0; i < imprints->bits; i++) {
-		fprintf(stderr, "[ " BUNFMT " ] ", max_bins[i]);
+		mnstr_printf(GDKerr, "[ " BUNFMT " ] ", max_bins[i]);
 	}
-	fprintf(stderr,"\n");
-	fprintf(stderr,"COUNT = ");
+	mnstr_printf(GDKerr,"\n");
+	mnstr_printf(GDKerr,"COUNT = ");
 	for (i = 0; i < imprints->bits; i++) {
-		fprintf(stderr, "[ " BUNFMT " ] ", cnt_bins[i]);
+		mnstr_printf(GDKerr, "[ " BUNFMT " ] ", cnt_bins[i]);
 	}
-	fprintf(stderr,"\n");
+	mnstr_printf(GDKerr,"\n");
 	for (dcnt = 0, icnt = 0, pages = 1; dcnt < imprints->dictcnt; dcnt++) {
 		if (d[dcnt].repeat) {
 			BINSIZE(imprints->bits, IMPSPRNTMASK, " ");
 			pages += d[dcnt].cnt;
-			fprintf(stderr, "[ " BUNFMT " ]r %s\n", pages, s);
+			mnstr_printf(GDKerr, "[ " BUNFMT " ]r %s\n", pages, s);
 			icnt++;
 		} else {
 			l = icnt + d[dcnt].cnt;
 			for (; icnt < l; icnt++) {
 				BINSIZE(imprints->bits, IMPSPRNTMASK, " ");
-				fprintf(stderr, "[ " BUNFMT " ]  %s\n",
+				mnstr_printf(GDKerr, "[ " BUNFMT " ]  %s\n",
 					pages++, s);
 			}
 		}

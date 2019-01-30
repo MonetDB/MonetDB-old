@@ -33,7 +33,7 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 	if(strncmp(mod,"bat",3)==0)
 		mod+=3;
 #ifdef DEBUG_OPT_REMAP
-	fprintf(stderr,"#Found a candidate %s.%s\n",mod,fcn);
+	mnstr_printf(GDKerr,"#Found a candidate %s.%s\n",mod,fcn);
 #endif
 
 	snprintf(buf,1024,"bat%s",mod);
@@ -53,15 +53,15 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 	for(i= pci->retc+2; i<pci->argc; i++)
 		p= pushArgument(mb,p,getArg(pci,i));
 #ifdef DEBUG_OPT_REMAP
-	fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
+	fprintInstruction(GDKerr,mb,0,p,LIST_MAL_ALL);
 #endif
 
 	/* now see if we can resolve the instruction */
 	typeChecker(scope,mb,p,TRUE);
 	if( p->typechk== TYPE_UNKNOWN) {
 #ifdef DEBUG_OPT_REMAP
-		fprintf(stderr,"#type error\n");
-		fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
+		mnstr_printf(GDKerr,"#type error\n");
+		fprintInstruction(GDKerr,mb,0,p,LIST_MAL_ALL);
 #endif
 
 		freeInstruction(p);
@@ -69,7 +69,7 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 	}
 	pushInstruction(mb,p);
 #ifdef DEBUG_OPT_REMAP
-	fprintf(stderr,"success\n");
+	mnstr_printf(GDKerr,"success\n");
 #endif
 	return 1;
 }
@@ -126,9 +126,9 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 		getInstrPtr(s->def,0)->retc != p->retc ) {
 #ifdef DEBUG_OPT_REMAP
 		if( s== NULL)
-			fprintf(stderr,"#not found \n");
+			mnstr_printf(GDKerr,"#not found \n");
 		else
-			fprintf(stderr,"#side-effects\n");
+			mnstr_printf(GDKerr,"#side-effects\n");
 #endif
 		return 0;
 	}
@@ -140,9 +140,9 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 	}
 	sig= getInstrPtr(mq,0);
 #ifdef DEBUG_OPT_REMAP
-	fprintf(stderr,"#Modify the code\n");
-	fprintFunction(stderr,mq, 0, LIST_MAL_ALL);
-	fprintInstruction(stderr,mb, 0, p,LIST_MAL_ALL);
+	mnstr_printf(GDKerr,"#Modify the code\n");
+	fprintFunction(GDKerr,mq, 0, LIST_MAL_ALL);
+	fprintInstruction(GDKerr,mb, 0, p,LIST_MAL_ALL);
 #endif
 
 	upgrade = (bit*) GDKzalloc(sizeof(bit)*mq->vtop);
@@ -161,12 +161,12 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 
 			if( getBatType(getArgType(mb,p,i)) != getArgType(mq,sig,i-2)){
 #ifdef DEBUG_OPT_REMAP
-				fprintf(stderr,"#Type mismatch %d\n",i);
+				mnstr_printf(GDKerr,"#Type mismatch %d\n",i);
 #endif
 				goto terminateMX;
 			}
 #ifdef DEBUG_OPT_REMAP
-			fprintf(stderr,"#Upgrade type %d %d\n",i, getArg(sig,i-2));
+			mnstr_printf(GDKerr,"#Upgrade type %d %d\n",i, getArg(sig,i-2));
 #endif
 			setVarType(mq, i-2,newBatType(getArgType(mb,p,i)));
 			upgrade[getArg(sig,i-2)]= TRUE;
@@ -275,9 +275,9 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 	if(mq->errors){
 terminateMX:
 #ifdef DEBUG_OPT_REMAP
-		fprintf(stderr,"Abort remap\n");
+		mnstr_printf(GDKerr,"Abort remap\n");
 		if (q)
-			fprintInstruction(stderr,mb,0,q,LIST_MAL_ALL);
+			fprintInstruction(GDKerr,mb,0,q,LIST_MAL_ALL);
 #endif
 		freeMalBlk(mq);
 		GDKfree(upgrade);
@@ -299,11 +299,11 @@ terminateMX:
 	delArgument(p,1);
 	inlineMALblock(mb,pc,mq);
 #ifdef DEBUG_OPT_REMAP
-	fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
-	fprintf(stderr,"#NEW BLOCK\n");
-	fprintFunction(stderr,mq, 0, LIST_MAL_ALL);
-	fprintf(stderr,"#INLINED RESULT\n");
-	fprintFunction(stderr,mb, 0, LIST_MAL_ALL);
+	fprintInstruction(GDKerr,mb,0,p,LIST_MAL_ALL);
+	mnstr_printf(GDKerr,"#NEW BLOCK\n");
+	fprintFunction(GDKerr,mq, 0, LIST_MAL_ALL);
+	mnstr_printf(GDKerr,"#INLINED RESULT\n");
+	fprintFunction(GDKerr,mb, 0, LIST_MAL_ALL);
 #endif
 	freeMalBlk(mq);
 	GDKfree(upgrade);
@@ -393,14 +393,14 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 			if (s && s->def->inlineProp ){
 #ifdef DEBUG_OPT_REMAP
-				fprintf(stderr,"#Multiplex inline\n");
-				fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
+				mnstr_printf(GDKerr,"#Multiplex inline\n");
+				fprintInstruction(GDKerr,mb,0,p,LIST_MAL_ALL);
 #endif
 				pushInstruction(mb, p);
 				if( OPTmultiplexInline(cntxt,mb,p,mb->stop-1) )
 					doit++;
 #ifdef DEBUG_OPT_REMAP
-				fprintf(stderr,"#actions %d\n",doit);
+				mnstr_printf(GDKerr,"#actions %d\n",doit);
 #endif
 			} else if (OPTremapDirect(cntxt, mb, stk, p, scope) ||
 				OPTremapSwitched(cntxt, mb, stk, p, scope)) {
@@ -473,8 +473,8 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	GDKfree(old);
 #ifdef DEBUG_OPT_REMAP
 	if (doit){
-		fprintf(stderr,"#After remap, before type check\n");
-		fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+		mnstr_printf(GDKerr,"#After remap, before type check\n");
+		fprintFunction(GDKerr, mb, 0,  LIST_MAL_ALL);
 	}
 #endif
 

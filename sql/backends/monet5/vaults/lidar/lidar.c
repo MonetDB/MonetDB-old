@@ -542,7 +542,7 @@ return MAL_SUCCEED;
 	snprintf(fulldirectory, BUFSIZ, "%s%s", dir, pat);
 	glob(fulldirectory, GLOB_DOOFFS, NULL, &globbuf);
 
-	/*	fprintf(stderr,"#fulldir: %s \nSize: %lu\n",fulldirectory, globbuf.gl_pathc);*/
+	/*	mnstr_printf(GDKerr,"#fulldir: %s \nSize: %lu\n",fulldirectory, globbuf.gl_pathc);*/
 
 	if (globbuf.gl_pathc == 0)
 		throw(MAL, "listdir", SQLSTATE(LI000) "Couldn't open the directory or there are no files that match the pattern");
@@ -954,7 +954,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	col = mvc_bind_column(m, lidar_tbl, "PointRecordsCount");
 	rows = *(int*)table_funcs.column_find_value(m->session->tr, col, rid);
 #ifndef NDEBUG
-	fprintf(stderr,"#Loading %ld rows in table %s\n", rows, tname);
+	mnstr_printf(GDKerr,"#Loading %ld rows in table %s\n", rows, tname);
 	time0 = GDKms();
 #endif
 	colx = mvc_bind_column(m, tbl, "x");
@@ -1003,7 +1003,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			double t = LASPoint_GetTime(p);
 			char anglerank = LASPoint_GetScanAngleRank (p);
 			unsigned short sourceid = LASPoint_GetPointSourceId (p);
-			fprintf(stderr,
+			mnstr_printf(GDKerr,
 				"(point # %d)"
 				"X (raw)           : %f (%ld)\n"
 				"Z (raw)           : %f (%ld)\n"
@@ -1044,7 +1044,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	z->tsorted = false;
 	z->trevsorted = false;
 #ifndef NDEBUG
-	fprintf(stderr,"#File loaded in %d ms\t", GDKms() - time0);
+	mnstr_printf(GDKerr,"#File loaded in %d ms\t", GDKms() - time0);
 #endif
 	BATmode(x, PERSISTENT);
 	BATmode(y, PERSISTENT);
@@ -1053,7 +1053,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	store_funcs.append_col(m->session->tr, coly, y, TYPE_bat);
 	store_funcs.append_col(m->session->tr, colz, z, TYPE_bat);
 #ifndef NDEBUG
-	fprintf(stderr,"#Total time %d ms\n", GDKms() - time0);
+	mnstr_printf(GDKerr,"#Total time %d ms\n", GDKms() - time0);
 #endif
 	BBPrelease(x->batCacheid);
 	BBPrelease(y->batCacheid);

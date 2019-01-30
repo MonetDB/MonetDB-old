@@ -4425,7 +4425,7 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 								if (bn == NULL)
 									throw(SQL, "sql.storage", SQLSTATE(HY005) "Cannot access column descriptor");
 
-								/*printf("schema %s.%s.%s" , b->name, bt->name, bc->name); */
+								/*mnstr_printf(GDKout, "schema %s.%s.%s" , b->name, bt->name, bc->name); */
 								if (BUNappend(sch, b->name, false) != GDK_SUCCEED ||
 								    BUNappend(tab, bt->name, false) != GDK_SUCCEED ||
 								    BUNappend(col, bc->name, false) != GDK_SUCCEED)
@@ -4446,15 +4446,15 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 								if (BUNappend(type, c->type.type->sqlname, false) != GDK_SUCCEED)
 									goto bailout;
 
-								/*printf(" cnt "BUNFMT, BATcount(bn)); */
+								/*mnstr_printf(GDKout, " cnt "BUNFMT, BATcount(bn)); */
 								sz = BATcount(bn);
 								if (BUNappend(cnt, &sz, false) != GDK_SUCCEED)
 									goto bailout;
 
-								/*printf(" loc %s", BBP_physical(bn->batCacheid)); */
+								/*mnstr_printf(GDKout, " loc %s", BBP_physical(bn->batCacheid)); */
 								if (BUNappend(loc, BBP_physical(bn->batCacheid), false) != GDK_SUCCEED)
 									goto bailout;
-								/*printf(" width %d", bn->twidth); */
+								/*mnstr_printf(GDKout, " width %d", bn->twidth); */
 								w = bn->twidth;
 								if (bn->ttype == TYPE_str) {
 									BUN p, q;
@@ -4503,8 +4503,8 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 								sz = IMPSimprintsize(bn);
 								if (BUNappend(imprints, &sz, false) != GDK_SUCCEED)
 									goto bailout;
-								/*printf(" indices "BUNFMT, bn->thash?bn->thash->heap.size:0); */
-								/*printf("\n"); */
+								/*mnstr_printf(GDKout, " indices "BUNFMT, bn->thash?bn->thash->heap.size:0); */
+								/*mnstr_printf(GDKout, "\n"); */
 
 								bitval = BATtordered(bn);
 								if (!bitval && bn->tnosorted == 0)
@@ -4543,7 +4543,7 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 										throw(SQL, "sql.storage", SQLSTATE(HY005) "Cannot access column descriptor");
 									if( cname && strcmp(bc->name, cname) )
 										continue;
-									/*printf("schema %s.%s.%s" , b->name, bt->name, bc->name); */
+									/*mnstr_printf(GDKout, "schema %s.%s.%s" , b->name, bt->name, bc->name); */
 									if (BUNappend(sch, b->name, false) != GDK_SUCCEED ||
 									    BUNappend(tab, bt->name, false) != GDK_SUCCEED ||
 									    BUNappend(col, bc->name, false) != GDK_SUCCEED)
@@ -4564,15 +4564,15 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 									if (BUNappend(type, "oid", false) != GDK_SUCCEED)
 										goto bailout;
 
-									/*printf(" cnt "BUNFMT, BATcount(bn)); */
+									/*mnstr_printf(GDKout, " cnt "BUNFMT, BATcount(bn)); */
 									sz = BATcount(bn);
 									if (BUNappend(cnt, &sz, false) != GDK_SUCCEED)
 										goto bailout;
 
-									/*printf(" loc %s", BBP_physical(bn->batCacheid)); */
+									/*mnstr_printf(GDKout, " loc %s", BBP_physical(bn->batCacheid)); */
 									if (BUNappend(loc, BBP_physical(bn->batCacheid), false) != GDK_SUCCEED)
 										goto bailout;
-									/*printf(" width %d", bn->twidth); */
+									/*mnstr_printf(GDKout, " width %d", bn->twidth); */
 									w = bn->twidth;
 									if (bn->ttype == TYPE_str) {
 										BUN p, q;
@@ -4595,7 +4595,7 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 									}
 									if (BUNappend(atom, &w, false) != GDK_SUCCEED)
 										goto bailout;
-									/*printf(" size "BUNFMT, tailsize(bn,BATcount(bn)) + (bn->tvheap? bn->tvheap->size:0)); */
+									/*mnstr_printf(GDKout, " size "BUNFMT, tailsize(bn,BATcount(bn)) + (bn->tvheap? bn->tvheap->size:0)); */
 									sz = tailsize(bn, BATcount(bn));
 									if (BUNappend(size, &sz, false) != GDK_SUCCEED)
 										goto bailout;
@@ -4614,8 +4614,8 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 									sz = IMPSimprintsize(bn);
 									if (BUNappend(imprints, &sz, false) != GDK_SUCCEED)
 										goto bailout;
-									/*printf(" indices "BUNFMT, bn->thash?bn->thash->heap.size:0); */
-									/*printf("\n"); */
+									/*mnstr_printf(GDKout, " indices "BUNFMT, bn->thash?bn->thash->heap.size:0); */
+									/*mnstr_printf(GDKout, "\n"); */
 									bitval = BATtordered(bn);
 									if (!bitval && bn->tnosorted == 0)
 										bitval = bit_nil;

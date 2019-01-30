@@ -207,7 +207,7 @@ dofsum(const void *restrict values, oid seqb, BUN start, BUN end,
 	BUN nils = 0;
 	volatile flt f;
 
-	ALGODEBUG fprintf(stderr, "#%s: floating point summation\n", func);
+	ALGODEBUG mnstr_printf(GDKerr, "#%s: floating point summation\n", func);
 	/* we only deal with the two floating point types */
 	assert(tp1 == TYPE_flt || tp1 == TYPE_dbl);
 	assert(tp2 == TYPE_flt || tp2 == TYPE_dbl);
@@ -460,7 +460,7 @@ dofsum(const void *restrict values, oid seqb, BUN start, BUN end,
 		if (ngrp == 1 && cand == NULL) {			\
 			/* single group, no candidate list */		\
 			TYPE2 sum;					\
-			ALGODEBUG fprintf(stderr,			\
+			ALGODEBUG mnstr_printf(GDKerr,			\
 					  "#%s: no candidates, no groups; " \
 					  "start " BUNFMT ", end " BUNFMT \
 					  ", nonil = %d\n",		\
@@ -500,7 +500,7 @@ dofsum(const void *restrict values, oid seqb, BUN start, BUN end,
 			/* single group, with candidate list */		\
 			TYPE2 sum;					\
 			bool seenval = false;				\
-			ALGODEBUG fprintf(stderr,			\
+			ALGODEBUG mnstr_printf(GDKerr,			\
 					  "#%s: with candidates, no groups; " \
 					  "start " BUNFMT ", end " BUNFMT \
 					  "\n",				\
@@ -528,7 +528,7 @@ dofsum(const void *restrict values, oid seqb, BUN start, BUN end,
 				*sums = sum;				\
 		} else if (cand == NULL) {				\
 			/* multiple groups, no candidate list */	\
-			ALGODEBUG fprintf(stderr,			\
+			ALGODEBUG mnstr_printf(GDKerr,			\
 					  "#%s: no candidates, with groups; " \
 					  "start " BUNFMT ", end " BUNFMT \
 					  "\n",				\
@@ -563,7 +563,7 @@ dofsum(const void *restrict values, oid seqb, BUN start, BUN end,
 			}						\
 		} else {						\
 			/* multiple groups, with candidate list */	\
-			ALGODEBUG fprintf(stderr,			\
+			ALGODEBUG mnstr_printf(GDKerr,			\
 					  "#%s: with candidates, with " \
 					  "groups; start " BUNFMT ", "	\
 					  "end " BUNFMT "\n",		\

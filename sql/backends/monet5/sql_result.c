@@ -1815,7 +1815,7 @@ mvc_export_table_prot10(backend *b, stream *s, res_table *t, BAT *order, BUN off
 
 		assert(buf >= bs2_buffer(s).buf);
 		if (buf - bs2_buffer(s).buf > (lng) bsize) {
-			fprintf(stderr, "Too many bytes in the buffer.\n");
+			mnstr_printf(GDKerr, "Too many bytes in the buffer.\n");
 			fres = -1;
 			goto cleanup;
 		}

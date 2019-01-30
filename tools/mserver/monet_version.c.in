@@ -31,10 +31,10 @@
 static void
 print_libversion(const char *lib, const char *rtvers, const char *cmvers)
 {
-	printf("  %s: %s", lib, rtvers);
+	mnstr_printf(GDKout, "  %s: %s", lib, rtvers);
 	if (strcmp(rtvers, cmvers) != 0)
-		printf(" (compiled with %s)", cmvers);
-	printf("\n");
+		mnstr_printf(GDKout, " (compiled with %s)", cmvers);
+	mnstr_printf(GDKout, "\n");
 }
 #endif
 
@@ -49,13 +49,13 @@ monet_version(void)
 	cores = MT_check_nr_cores();
 
 	const char *rev = mercurial_revision();
-	printf("MonetDB 5 server %s", GDKversion());
+	mnstr_printf(GDKout, "MonetDB 5 server %s", GDKversion());
 	/* coverity[pointless_string_compare] */
 	if (strcmp(MONETDB_RELEASE, "unreleased") != 0)
-		printf(" (%s)", MONETDB_RELEASE);
+		mnstr_printf(GDKout, " (%s)", MONETDB_RELEASE);
 	else if (strcmp(rev, "Unknown") != 0)
-		printf(" (hg id: %s)", rev);
-	printf(" (%zu-bit%s)\n",
+		mnstr_printf(GDKout, " (hg id: %s)", rev);
+	mnstr_printf(GDKout, " (%zu-bit%s)\n",
 			(size_t) (sizeof(ptr) * 8),
 #ifdef HAVE_HGE
 			", 128-bit integers"
@@ -65,16 +65,16 @@ monet_version(void)
 	);
 	/* coverity[pointless_string_compare] */
 	if (strcmp(MONETDB_RELEASE, "unreleased") == 0)
-		printf("This is an unreleased version\n");
-	printf("Copyright (c) 1993 - July 2008 CWI\n"
+		mnstr_printf(GDKout, "This is an unreleased version\n");
+	mnstr_printf(GDKout, "Copyright (c) 1993 - July 2008 CWI\n"
 	       "Copyright (c) August 2008 - 2019 MonetDB B.V., all rights reserved\n");
-	printf("Visit https://www.monetdb.org/ for further information\n");
-	printf("Found %.1fGiB available memory, %d available cpu core%s\n",
+	mnstr_printf(GDKout, "Visit https://www.monetdb.org/ for further information\n");
+	mnstr_printf(GDKout, "Found %.1fGiB available memory, %d available cpu core%s\n",
 			sz_mem_gb, cores, cores != 1 ? "s" : "");
 	/* don't want to GDKinit just for this
 			"using %d thread%s\n",
 			GDKnr_threads, GDKnr_threads != 1 ? "s" : ""); */
-	printf("Libraries:\n");
+	mnstr_printf(GDKout, "Libraries:\n");
 #ifdef HAVE_LIBPCRE
 	/* PCRE_PRERELEASE may be defined as an empty value.  In order
 	 * to get the proper amount of white space between various
@@ -101,9 +101,9 @@ monet_version(void)
 #endif
 #ifdef HAVE_LIBXML
 	/* no run-time version available, so only compile time */
-	printf("  libxml2: %s\n", LIBXML_DOTTED_VERSION);
+	mnstr_printf(GDKout, "  libxml2: %s\n", LIBXML_DOTTED_VERSION);
 #endif
-	printf("Compiled by: %s (%s)\n", "@builtby@", HOST);
-	printf("Compilation: %s\n", "@compilercall@");
-	printf("Linking    : %s\n", "@linkercall@");
+	mnstr_printf(GDKout, "Compiled by: %s (%s)\n", "@builtby@", HOST);
+	mnstr_printf(GDKout, "Compilation: %s\n", "@compilercall@");
+	mnstr_printf(GDKout, "Linking    : %s\n", "@linkercall@");
 }

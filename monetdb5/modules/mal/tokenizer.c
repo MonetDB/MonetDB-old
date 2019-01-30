@@ -339,7 +339,7 @@ TKNZRappend(oid *pos, str *s)
 		*pos = BUNfnd(tokenBAT[INDEX].val, (ptr) & comp);
 		if (*pos != BUN_NONE) {
 			/* the string is already there */
-			/* printf("The string %s is already there",url); */
+			/* mnstr_printf(GDKout, "The string %s is already there",url); */
 			GDKfree(url);
 			return MAL_SUCCEED;
 		}

@@ -126,7 +126,7 @@ inline static int
 mat_add(matlist_t *ml, InstrPtr q, mat_type_t type, const char *func)
 {
 	(void)func;
-	//printf (" ml.top %d %s\n", ml.top, func);
+	//mnstr_printf(GDKout, " ml.top %d %s\n", ml.top, func);
 	return mat_add_var(ml, q, NULL, getArg(q,0), type, -1, -1, 0);
 }
 
@@ -217,7 +217,7 @@ setPartnr(matlist_t *ml, int ivar, int ovar, int pnr)
 	if (tpnr >= 0) 
 		ml->torigin[ovar] = tpnr;
 	ml->horigin[ovar] = pnr;
-	//printf("%d %d ", pnr, tpnr);
+	//mnstr_printf(GDKout, "%d %d ", pnr, tpnr);
 	return 0;
 }
 
@@ -234,7 +234,7 @@ propagatePartnr(matlist_t *ml, int ivar, int ovar, int pnr)
 	if (tpnr >= 0) 
 		ml->torigin[ovar] = tpnr;
 	ml->horigin[ovar] = pnr;
-	//printf("%d %d ", pnr, tpnr);
+	//mnstr_printf(GDKout, "%d %d ", pnr, tpnr);
 	return 0;
 }
 
@@ -295,7 +295,7 @@ mat_delta(matlist_t *ml, MalBlkPtr mb, InstrPtr p, mat_t *mat, int m, int n, int
 	InstrPtr r = NULL;
 	int pushed = 0;
 
-	//printf("# %s.%s(%d,%d,%d,%d)", getModuleId(p), getFunctionId(p), m, n, o, e);
+	//mnstr_printf(GDKout, "# %s.%s(%d,%d,%d,%d)", getModuleId(p), getFunctionId(p), m, n, o, e);
 
 	if((r = newInstruction(mb,  matRef,packRef)) == NULL)
 		return NULL;
@@ -592,7 +592,7 @@ mat_setop(MalBlkPtr mb, InstrPtr p, matlist_t *ml, int m, int n)
 
 	getArg(r,0) = getArg(p,0);
 	
-	//printf("# %s.%s(%d,%d)", getModuleId(p), getFunctionId(p), m, n);
+	//mnstr_printf(GDKout, "# %s.%s(%d,%d)", getModuleId(p), getFunctionId(p), m, n);
 	assert(m>=0 || n>=0);
 	if (m >= 0 && n >= 0) {
 		int nr = 1;
@@ -675,7 +675,7 @@ mat_projection(MalBlkPtr mb, InstrPtr p, matlist_t *ml, int m, int n)
 
 	getArg(r,0) = getArg(p,0);
 	
-	//printf("# %s.%s(%d,%d)", getModuleId(p), getFunctionId(p), m, n);
+	//mnstr_printf(GDKout, "# %s.%s(%d,%d)", getModuleId(p), getFunctionId(p), m, n);
 	assert(m>=0 || n>=0);
 	if (m >= 0 && n >= 0) {
 		int nr = 1;
@@ -753,7 +753,7 @@ mat_join2(MalBlkPtr mb, InstrPtr p, matlist_t *ml, int m, int n)
 	getArg(l,0) = getArg(p,0);
 	getArg(r,0) = getArg(p,1);
 
-	//printf("# %s.%s(%d,%d)", getModuleId(p), getFunctionId(p), m, n);
+	//mnstr_printf(GDKout, "# %s.%s(%d,%d)", getModuleId(p), getFunctionId(p), m, n);
 	
 	assert(m>=0 || n>=0);
 	if (m >= 0 && n >= 0) {
@@ -885,7 +885,7 @@ mat_joinNxM(Client cntxt, MalBlkPtr mb, InstrPtr p, matlist_t *ml, int args)
 	getArg(l,0) = getArg(p,0);
 	getArg(r,0) = getArg(p,1);
 
-	//printf("# %s.%s(%d,%d)", getModuleId(p), getFunctionId(p), m, n);
+	//mnstr_printf(GDKout, "# %s.%s(%d,%d)", getModuleId(p), getFunctionId(p), m, n);
 	
 	if (args == nr_mats) {
 		int mv1 = mats[0], i;
@@ -1787,8 +1787,8 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 	old = mb->stmt;
 	oldtop= mb->stop;
 #ifdef DEBUG_OPT_MERGETABLE
-	fprintf(stderr,"#Start of multi table optimizer\n");
-	fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
+	mnstr_printf(GDKerr,"#Start of multi table optimizer\n");
+	fprintFunction(GDKerr, mb, 0, LIST_MAL_ALL);
 #endif
 
 	vars= (int*) GDKmalloc(sizeof(int)* mb->vtop);
@@ -2219,7 +2219,7 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		 * It requires MAT materialization.
 		 */
 #ifdef DEBUG_OPT_MERGETABLE
-		fprintf(stderr, "# %s.%s %d\n", getModuleId(p), getFunctionId(p), match);
+		mnstr_printf(GDKerr, "# %s.%s %d\n", getModuleId(p), getFunctionId(p), match);
 #endif
 
 		for (k = p->retc; k<p->argc; k++) {
@@ -2242,11 +2242,11 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 
 #ifdef DEBUG_OPT_MERGETABLE
 	{
-		fprintf(stderr,"#Result of multi table optimizer\n");
+		mnstr_printf(GDKerr,"#Result of multi table optimizer\n");
         chkTypes(cntxt->usermodule, mb, FALSE);
         chkFlow(mb);
         chkDeclarations(mb);
-		fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
+		fprintFunction(GDKerr, mb, 0, LIST_MAL_ALL);
 	}
 #endif
 

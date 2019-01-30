@@ -35,7 +35,7 @@ malBootstrap(const char *mal_init_data)
 	Client c;
 	str msg = MAL_SUCCEED, error = MAL_SUCCEED;
 
-	c = MCinitClient((oid) 0, 0, 0);
+	c = MCinitClient((oid) 0, 0, 0, 0);
 	if (c == NULL)
 		return createException(MAL, "malBootstrap", "Failed to initialise client");
 	assert(c != NULL);
@@ -109,11 +109,11 @@ MSresetClientPrg(Client cntxt, str mod, str fcn)
 	p->argv[0] = 0;
 
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"reset sym %s %s to %s, id %d\n", 
+	mnstr_printf(GDKerr,"reset sym %s %s to %s, id %d\n",
 		cntxt->curprg->name, getFunctionId(p), nme, findVariable(mb,nme) );
-	fprintf(stderr,"vtop %d\n", mb->vtop);
+	mnstr_printf(GDKerr,"vtop %d\n", mb->vtop);
 	if( mb->vtop)
-	fprintf(stderr,"first var %s\n", mb->var[0].id);
+	mnstr_printf(GDKerr,"first var %s\n", mb->var[0].id);
 #endif
 
 	setModuleId(p, mod);
@@ -294,7 +294,7 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 		if (err != MAL_SUCCEED) {
 			/* this is kind of awful, but we need to get rid of this
 			 * message */
-			fprintf(stderr, "!SABAOTHgetMyStatus: %s\n", err);
+			mnstr_printf(GDKerr, "!SABAOTHgetMyStatus: %s\n", err);
 			freeException(err);
 			mnstr_printf(fout, "!internal server error, "
 						 "please try again later\n");
@@ -317,7 +317,7 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 		}
 		SABAOTHfreeStatus(&stats);
 
-		c = MCinitClient(uid, fin, fout);
+		c = MCinitClient(uid, fin, fout, NULL);
 		if (c == NULL) {
 			if ( MCshutdowninprogress())
 				mnstr_printf(fout, "!system shutdown in progress, please try again later\n");
@@ -439,7 +439,7 @@ MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start)
 	int i;
 
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"resetVarables %d  vtop %d errors %s\n", start, mb->vtop,mb->errors);
+	mnstr_printf(GDKerr,"resetVarables %d  vtop %d errors %s\n", start, mb->vtop,mb->errors);
 #endif
 	for (i = 0; i < start && i < mb->vtop ; i++)
 		setVarUsed(mb,i);
@@ -460,12 +460,12 @@ MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start)
 		}
 
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"resetVar %s %d\n", getFunctionId(mb->stmt[0]), mb->var[mb->stmt[0]->argv[0]].used);
+	mnstr_printf(GDKerr,"resetVar %s %d\n", getFunctionId(mb->stmt[0]), mb->var[mb->stmt[0]->argv[0]].used);
 #endif
 	if (mb->errors == MAL_SUCCEED)
 		trimMalVariables_(mb, glb);
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"after trim %s %d\n", getFunctionId(mb->stmt[0]), mb->vtop);
+	mnstr_printf(GDKerr,"after trim %s %d\n", getFunctionId(mb->stmt[0]), mb->vtop);
 #endif
 }
 

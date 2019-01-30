@@ -7,7 +7,6 @@
  */
 
 #include "monetdb_config.h"
-#ifndef HAVE_EMBEDDED
 #include "mal.h"
 #include "mal_client.h"
 #include "mal_scenario.h"
@@ -135,4 +134,3 @@ readConsole(Client cntxt)
 	cntxt->fdin->eof = true;
 	return -1;
 }
-#endif

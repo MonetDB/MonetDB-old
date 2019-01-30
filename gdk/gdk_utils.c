@@ -422,7 +422,6 @@ MT_init(void)
 
 #define CATNAP		50	/* time to sleep in ms for catnaps */
 
-static int THRinit(bool silent);
 static void GDKlockHome(int farmid);
 
 #ifndef STATIC_CODE_ANALYSIS
@@ -432,7 +431,7 @@ static MT_Lock mallocsuccesslock MT_LOCK_INITIALIZER("mallocsuccesslock");
 #endif
 
 static bool
-GDKInitInternal(char* dbpath, bool silent)
+GDKInitInternal(char* dbpath)
 {
 	int i, farmid;
 
@@ -482,8 +481,6 @@ GDKInitInternal(char* dbpath, bool silent)
 	gdk_system_init();
 #endif
 	MT_init_posix();
-	if (THRinit(silent) < 0)
-		return 0;
 #ifndef HAVE_EMBEDDED
 #ifndef NATIVE_WIN32
 	if (BATSIGinit() < 0)
@@ -607,7 +604,7 @@ GDKinit(opt *set, int setlen)
 			GDKdebug = strtol(p, NULL, 10);
 	}
 
-	if (!GDKInitInternal(dbpath, false))
+	if (!GDKInitInternal(dbpath))
 		return 0;
 
 	if (set) {
@@ -680,9 +677,9 @@ GDKinit(opt *set, int setlen)
 }
 #else
 bool
-GDKinit(char* dbpath, bool silent)
+GDKinit(char* dbpath)
 {
-	if (!GDKInitInternal(dbpath, silent))
+	if (!GDKInitInternal(dbpath))
 		return 0;
 
 	if (dbpath && GDKsetenv("gdk_dbpath", dbpath) != GDK_SUCCEED)
@@ -823,7 +820,7 @@ GDKreset(int status, int exit)
 
 					killed = 1;
 					e = MT_kill_thread(victim);
-					fprintf(stderr, "#GDKexit: killing thread %d\n", e);
+					mnstr_printf(GDKerr, "#GDKexit: killing thread %d\n", e);
 					GDKnrofthreads --;
 				}
 			}
@@ -1255,16 +1252,16 @@ GDKfatal(const char *format, ...)
 	} else
 #endif
 	{
-		fputs(message, stderr);
-		fputs("\n", stderr);
-		fflush(stderr);
+		mnstr_write(GDKerr, message, strlen(message), 1);
+		mnstr_write(GDKerr, "\n", strlen("\n"), 1);
+		mnstr_flush(GDKerr);
 
 		/*
 		 * Real errors should be saved in the log file for post-crash
 		 * inspection.
 		 */
 		if (GDKexiting()) {
-			fflush(stdout);
+			mnstr_flush(GDKout);
 			MT_exit_thread(1);
 			/* exit(1); */
 		} else {
@@ -1417,7 +1414,7 @@ THRnew(const char *name)
 		}
 		if (s == t) {
 			MT_lock_unset(&GDKthreadLock);
-			IODEBUG fprintf(stderr, "#THRnew: too many threads\n");
+			IODEBUG mnstr_printf(GDKerr, "#THRnew: too many threads\n");
 			GDKerror("THRnew: too many threads\n");
 			return NULL;
 		}
@@ -1425,19 +1422,20 @@ THRnew(const char *name)
 		*s = (ThreadRec) {
 			.pid = pid,
 			.tid = tid,
+			.data[2] = THRdata[2],
 			.data[1] = THRdata[1],
 			.data[0] = THRdata[0],
 			.sp = THRsp(),
 		};
 
-		PARDEBUG fprintf(stderr, "#%x %zu sp = %zu\n", (unsigned) s->tid, (size_t) pid, (size_t) s->sp);
-		PARDEBUG fprintf(stderr, "#nrofthreads %d\n", GDKnrofthreads);
+		PARDEBUG mnstr_printf(GDKerr, "#%x %zu sp = %zu\n", (unsigned) s->tid, (size_t) pid, (size_t) s->sp);
+		PARDEBUG mnstr_printf(GDKerr, "#nrofthreads %d\n", GDKnrofthreads);
 
 		GDKnrofthreads++;
 		s->name = GDKstrdup(name);
 		if(!s->name) {
 			MT_lock_unset(&GDKthreadLock);
-			IODEBUG fprintf(stderr, "#THRnew: malloc failure\n");
+			IODEBUG mnstr_printf(GDKerr, "#THRnew: malloc failure\n");
 			GDKerror("THRnew: malloc failure\n");
 			return NULL;
 		}
@@ -1454,7 +1452,7 @@ THRdel(Thread t)
 		GDKfatal("THRdel: illegal call\n");
 	}
 	MT_lock_set(&GDKthreadLock);
-	PARDEBUG fprintf(stderr, "#pid = %zu, disconnected, %d left\n", (size_t) t->pid, GDKnrofthreads);
+	PARDEBUG mnstr_printf(GDKerr, "#pid = %zu, disconnected, %d left\n", (size_t) t->pid, GDKnrofthreads);
 
 	GDKfree(t->name);
 	t->name = NULL;
@@ -1488,7 +1486,7 @@ THRhighwater(void)
  * the network.  The code below should be improved to gain speed.
  */
 
-static int
+int
 THRinit(bool silent)
 {
 	int i = 0;
@@ -1496,9 +1494,18 @@ THRinit(bool silent)
 	THRdata[0] = silent ? (void *) stream_blackhole_create() : (void *) file_wastream(stdout, "stdout");
 	if(!THRdata[0])
 		return -1;
-	if((THRdata[1] = (void *) file_rastream(stdin, "stdin")) == NULL) {
+	THRdata[1] = silent ? (void *) stream_blackhole_create() : (void *) file_rastream(stdin, "stdin");
+	if(!THRdata[1]) {
 		close_stream(THRdata[0]);
 		THRdata[0] = NULL;
+		return -1;
+	}
+	THRdata[2] = silent ? (void *) stream_blackhole_create() : (void *) file_wastream(stderr, "stderr");
+	if(!THRdata[2]) {
+		close_stream(THRdata[0]);
+		close_stream(THRdata[1]);
+		THRdata[0] = NULL;
+		THRdata[1] = NULL;
 		return -1;
 	}
 	for (i = 0; i < THREADS; i++) {
@@ -1698,7 +1705,7 @@ GDKmemfail(const char *s, size_t len)
 	   }
 	 */
 
-	fprintf(stderr, "#%s(%zu) fails, try to free up space [memory in use=%zu,virtual memory in use=%zu]\n", s, len, GDKmem_cursize(), GDKvm_cursize());
+	mnstr_printf(GDKerr, "#%s(%zu) fails, try to free up space [memory in use=%zu,virtual memory in use=%zu]\n", s, len, GDKmem_cursize(), GDKvm_cursize());
 }
 
 /* Memory allocation

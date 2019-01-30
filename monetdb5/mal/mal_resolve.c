@@ -119,7 +119,7 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 	 * Simplify polytype using a map into the concrete argument table.
 	 */
 #ifdef DEBUG_MAL_RESOLVE
-		fprintf(stderr,"#findFunction %s.%s\n", getModuleId(p), getFunctionId(p));
+		mnstr_printf(GDKerr,"#findFunction %s.%s\n", getModuleId(p), getFunctionId(p));
 #endif
 	m = scope;
 	s = m->space[(int) (getSymbolIndex(getFunctionId(p)))];
@@ -191,10 +191,10 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 
 #ifdef DEBUG_MAL_RESOLVE
 		if (tracefcn && (sig->polymorphic || sig->retc == p->retc)) {
-			fprintf(stderr, "#resolving: ");
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
-			fprintf(stderr, "#against:");
-			fprintInstruction(stderr, s->def, 0, getSignature(s), LIST_MAL_ALL);
+			mnstr_printf(GDKerr, "#resolving: ");
+			fprintInstruction(GDKerr, mb, 0, p, LIST_MAL_ALL);
+			mnstr_printf(GDKerr, "#against:");
+			fprintInstruction(GDKerr, s->def, 0, getSignature(s), LIST_MAL_ALL);
 		}
 #endif
 			for (k = 0; k < limit; k++)
@@ -281,10 +281,10 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 			}
 #ifdef DEBUG_MAL_RESOLVE
 		if (tracefcn && (sig->polymorphic || sig->retc == p->retc)) {
-			fprintf(stderr, "#resolving: ");
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
-			fprintf(stderr, "#against:");
-			fprintInstruction(stderr, s->def, 0, getSignature(s), LIST_MAL_ALL);
+			mnstr_printf(GDKerr, "#resolving: ");
+			fprintInstruction(GDKerr, mb, 0, p, LIST_MAL_ALL);
+			mnstr_printf(GDKerr, "#against:");
+			fprintInstruction(GDKerr, s->def, 0, getSignature(s), LIST_MAL_ALL);
 		}
 #endif
 			for (i = p->retc; i < p->argc; i++) {
@@ -294,7 +294,7 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 #ifdef DEBUG_MAL_RESOLVE
 					char *ftpe = getTypeName(formal);
 					char *atpe = getTypeName(actual);
-					fprintf(stderr, "#unmatched %d formal %s actual %s\n",
+					mnstr_printf(GDKerr, "#unmatched %d formal %s actual %s\n",
 								 i, ftpe, atpe);
 					GDKfree(ftpe);
 					GDKfree(atpe);
@@ -315,28 +315,28 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 #ifdef DEBUG_MAL_RESOLVE
 		if (tracefcn) {
 			char *tpe, *tpe2;
-			fprintf(stderr, "#finished %s.%s unmatched=%d polymorphic=%d %d",
+			mnstr_printf(GDKerr, "#finished %s.%s unmatched=%d polymorphic=%d %d",
 						 getModuleId(sig), getFunctionId(sig), unmatched,
 						 sig->polymorphic, p == sig);
 			if (sig->polymorphic) {
 				int l;
-				fprintf(stderr,"poly ");
+				mnstr_printf(GDKerr,"poly ");
 				for (l = 0; l < 2 * p->argc; l++)
 					if (polytype[l] != TYPE_any) {
 						tpe = getTypeName(polytype[l]);
-						fprintf(stderr, " %d %s", l, tpe);
+						mnstr_printf(GDKerr, " %d %s", l, tpe);
 						GDKfree(tpe);
 					}
-				fprintf(stderr,"\n");
+				mnstr_printf(GDKerr,"\n");
 			}
-			fprintf(stderr, "#resolving:");
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
-			fprintf(stderr, "#against :");
-			fprintInstruction(stderr, s->def, 0, getSignature(s), LIST_MAL_ALL);
+			mnstr_printf(GDKerr, "#resolving:");
+			fprintInstruction(GDKerr, mb, 0, p, LIST_MAL_ALL);
+			mnstr_printf(GDKerr, "#against :");
+			fprintInstruction(GDKerr, s->def, 0, getSignature(s), LIST_MAL_ALL);
 			tpe = getTypeName(getArgType(mb, p, unmatched));
 			tpe2 = getTypeName(getArgType(s->def, sig, unmatched));
 			if( unmatched)
-				fprintf(stderr, "#unmatched %d test %s poly %s\n",
+				mnstr_printf(GDKerr, "#unmatched %d test %s poly %s\n",
 							 unmatched, tpe, tpe2);
 			GDKfree(tpe);
 			GDKfree(tpe2);
@@ -407,8 +407,8 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 		 * Beware, this is not yet effectuated in the interpreter.
 		 */
 #ifdef DEBUG_MAL_RESOLVE
-		fprintf(stderr,"#TYPE RESOLVED:");
-		fprintInstruction(stderr, mb, 0, p, LIST_MAL_DEBUG);
+		mnstr_printf(GDKerr,"#TYPE RESOLVED:");
+		fprintInstruction(GDKerr, mb, 0, p, LIST_MAL_DEBUG);
 #endif
 		p->typechk = TYPE_RESOLVED;
 		for (i = 0; i < p->retc; i++) {
@@ -487,8 +487,8 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
   wrapup:
 #ifdef DEBUG_MAL_RESOLVE
 		if (tracefcn) {
-			fprintf(stderr, "#Wrapup matching returntype %d returns %d:",*returntype,*returns);
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+			mnstr_printf(GDKerr, "#Wrapup matching returntype %d returns %d:",*returntype,*returns);
+			fprintInstruction(GDKerr, mb, 0, p, LIST_MAL_ALL);
 		}
 #endif
 	if (returntype != returns)
@@ -503,7 +503,7 @@ resolveType(int dsttype, int srctype)
 	if (tracefcn) {
 		char *dtpe = getTypeName(dsttype);
 		char *stpe = getTypeName(srctype);
-		fprintf(stderr, "#resolveType dst %s (%d) %s(%d)\n",
+		mnstr_printf(GDKerr, "#resolveType dst %s (%d) %s(%d)\n",
 					 dtpe, dsttype, stpe, srctype);
 		GDKfree(dtpe);
 		GDKfree(stpe);
@@ -535,7 +535,7 @@ resolveType(int dsttype, int srctype)
 		else {
 #ifdef DEBUG_MAL_RESOLVE
 			if (tracefcn)
-				fprintf(stderr, "#Tail can not be resolved \n");
+				mnstr_printf(GDKerr, "#Tail can not be resolved \n");
 #endif
 			return -1;
 		}
@@ -546,7 +546,7 @@ resolveType(int dsttype, int srctype)
 			tpe1 = getTypeName(t1);
 			tpe2 = getTypeName(t2);
 			tpe3 = getTypeName(t3);
-			fprintf(stderr, "#resolved to bat[:oid,:%s] bat[:oid,:%s]->bat[:oid,%s:%d]\n",
+			mnstr_printf(GDKerr, "#resolved to bat[:oid,:%s] bat[:oid,:%s]->bat[:oid,%s:%d]\n",
 						 tpe1, tpe2, tpe3, i2);
 			GDKfree(tpe1);
 			GDKfree(tpe2);
@@ -557,7 +557,7 @@ resolveType(int dsttype, int srctype)
 	}
 #ifdef DEBUG_MAL_RESOLVE
 	if (tracefcn)
-		fprintf(stderr, "#Can not be resolved \n");
+		mnstr_printf(GDKerr, "#Can not be resolved \n");
 #endif
 	return -1;
 }
@@ -626,7 +626,7 @@ typeChecker(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 		m = findModule(scope, getModuleId(p));
 		s1 = findFunctionType(m, mb, p, silent);
 #ifdef DEBUG_MAL_RESOLVE
-		fprintf(stderr,"#typeChecker matched %d\n",s1);
+		mnstr_printf(GDKerr,"#typeChecker matched %d\n",s1);
 #endif
 		if (s1 >= 0)
 			return;
@@ -665,7 +665,7 @@ typeChecker(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 		} else
 			p->typechk = TYPE_RESOLVED;
 #ifdef DEBUG_MAL_RESOLVE
-		fprintf(stderr,"#typeChecker  no-sig and no-oly could not find it %d\n",p->typechk);
+		mnstr_printf(GDKerr,"#typeChecker  no-sig and no-oly could not find it %d\n",p->typechk);
 #endif
 		return;
 	}
@@ -677,7 +677,7 @@ typeChecker(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 	 */
 	if (getFunctionId(p)){
 #ifdef DEBUG_MAL_RESOLVE
-		fprintf(stderr,"#typeChecker function call break %s\n", getFunctionId(p));
+		mnstr_printf(GDKerr,"#typeChecker function call break %s\n", getFunctionId(p));
 #endif
 		return;
 	}
@@ -697,7 +697,7 @@ typeChecker(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 			if (s1 == -1) {
 				typeMismatch(mb, p, lhs, rhs, silent);
 #ifdef DEBUG_MAL_RESOLVE
-				fprintf(stderr,"#typeChecker function mismatch %s\n", getFunctionId(p));
+				mnstr_printf(GDKerr,"#typeChecker function mismatch %s\n", getFunctionId(p));
 #endif
 				return;
 			}
@@ -860,7 +860,7 @@ updateTypeMap(int formal, int actual, int polytype[MAXTYPEVAR])
 #ifdef DEBUG_MAL_RESOLVE
 	if(tracefcn){
 		char *tpe1 = getTypeName(formal), *tpe2 = getTypeName(actual);
-		fprintf(stderr, "#updateTypeMap:formal %s actual %s\n", tpe1, tpe2);
+		mnstr_printf(GDKerr, "#updateTypeMap:formal %s actual %s\n", tpe1, tpe2);
 		GDKfree(tpe1);
 		GDKfree(tpe2);
 	}
@@ -891,7 +891,7 @@ updateTypeMap(int formal, int actual, int polytype[MAXTYPEVAR])
 	}
   updLabel:
 #ifdef DEBUG_MAL_RESOLVE
-	fprintf(stderr, "#updateTypeMap returns: %d\n", ret);
+	mnstr_printf(GDKerr, "#updateTypeMap returns: %d\n", ret);
 #endif
 	return ret;
 }

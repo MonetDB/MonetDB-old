@@ -307,7 +307,7 @@ WLRprocess(void *arg)
 							if((other = mvc_rollback(sql,0,NULL, false)) != MAL_SUCCEED) //an error was already established
 								GDKfree(other);
 							// cleanup
-							fprintFunction(stderr,mb,0,63);
+							fprintFunction(GDKerr,mb,0,63);
 							resetMalBlkAndFreeInstructions(mb, 1);
 							trimMalVariables(mb, NULL);
 							pc = 0;

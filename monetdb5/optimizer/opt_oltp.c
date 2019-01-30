@@ -25,7 +25,7 @@ addLock(Client cntxt, OLTPlocks locks, MalBlkPtr mb, InstrPtr p, int sch, int tb
 	hash += (hash == 0);
 	locks[hash] = 1;
 #ifdef _DEBUG_OLP_
-	fprintf(stderr,"#addLock %s "BUNFMT", %s "BUNFMT" combined "BUNFMT"\n",
+	mnstr_printf(GDKerr,"#addLock %s "BUNFMT", %s "BUNFMT" combined "BUNFMT"\n",
 		r, strHash(r), s, strHash(s),hash);
 #else
 	(void) cntxt;

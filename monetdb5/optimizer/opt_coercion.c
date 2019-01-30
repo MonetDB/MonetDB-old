@@ -70,8 +70,8 @@ coercionOptimizerCalcStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 	if ( a == r && coerce[varid].src && coerce[varid].fromtype < r ) 
 	{
 #ifdef _DEBUG_COERCION_
-		fprintf(stderr,"#remove upcast on first argument %d\n", varid);
-		fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+		mnstr_printf(GDKerr,"#remove upcast on first argument %d\n", varid);
+		fprintInstruction(GDKerr, mb, 0, p, LIST_MAL_ALL);
 #endif
 		getArg(p,1) = coerce[varid].src;
 		if ( chkInstruction(cntxt->usermodule, mb, p) || p->typechk == TYPE_UNKNOWN)
@@ -81,16 +81,16 @@ coercionOptimizerCalcStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 	if ( b == r && coerce[varid].src &&  coerce[varid].fromtype < r ) 
 	{
 #ifdef _DEBUG_COERCION_
-		fprintf(stderr,"#remove upcast on second argument %d\n", varid);
-		fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+		mnstr_printf(GDKerr,"#remove upcast on second argument %d\n", varid);
+		fprintInstruction(GDKerr, mb, 0, p, LIST_MAL_ALL);
 #endif
 		getArg(p,2) = coerce[varid].src;
 		if ( chkInstruction(cntxt->usermodule, mb, p) || p->typechk == TYPE_UNKNOWN)
 			getArg(p,2) = varid;
 	}
 #ifdef _DEBUG_COERCION_
-		fprintf(stderr,"#final instruction\n");
-		fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+		mnstr_printf(GDKerr,"#final instruction\n");
+		fprintInstruction(GDKerr, mb, 0, p, LIST_MAL_ALL);
 #endif
 	return;
 }

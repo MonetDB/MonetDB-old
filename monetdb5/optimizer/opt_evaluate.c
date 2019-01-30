@@ -136,7 +136,7 @@ OPTevaluateImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	cntxt->itrace = 0;
 
 #ifdef DEBUG_OPT_EVALUATE
-	fprintf(stderr, "Constant expression optimizer started\n");
+	mnstr_printf(GDKerr, "Constant expression optimizer started\n");
 #endif
 
 	assigned = (int*) GDKzalloc(sizeof(int) * mb->vtop);
@@ -172,7 +172,7 @@ OPTevaluateImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			if (alias[getArg(p, k)])
 				getArg(p, k) = alias[getArg(p, k)];
 #ifdef DEBUG_OPT_EVALUATE
-		fprintInstruction(stderr , mb, 0, p, LIST_MAL_ALL);
+		fprintInstruction(GDKerr, mb, 0, p, LIST_MAL_ALL);
 #endif
 		/* be aware that you only assign once to a variable */
 		if (use && p->retc == 1 && OPTallConstant(cntxt, mb, p) && !isUnsafeFunction(p)) {
@@ -192,8 +192,8 @@ OPTevaluateImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			malProfileMode= profiler;
 			p->barrier = barrier;
 #ifdef DEBUG_OPT_EVALUATE
-			fprintf(stderr, "#retc var %s\n", getVarName(mb, getArg(p, 0)));
-			fprintf(stderr, "#result:%s\n", msg == MAL_SUCCEED ? "ok" : msg);
+			mnstr_printf(GDKerr, "#retc var %s\n", getVarName(mb, getArg(p, 0)));
+			mnstr_printf(GDKerr, "#result:%s\n", msg == MAL_SUCCEED ? "ok" : msg);
 #endif
 			if (msg == MAL_SUCCEED) {
 				int nvar;
@@ -219,7 +219,7 @@ OPTevaluateImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 				setVarUDFtype(mb,getArg(p,1));
 #ifdef DEBUG_OPT_EVALUATE
 				{str tpename;
-				fprintf(stderr, "Evaluated new constant=%d -> %d:%s\n",
+				mnstr_printf(GDKerr, "Evaluated new constant=%d -> %d:%s\n",
 					getArg(p, 0), getArg(p, 1), tpename = getTypeName(getArgType(mb, p, 1)));
 				GDKfree(tpename);
 				}
@@ -228,7 +228,7 @@ OPTevaluateImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 				/* if there is an error, we should postpone message handling,
 					as the actual error (eg. division by zero ) may not happen) */
 #ifdef DEBUG_OPT_EVALUATE
-				fprintf(stderr, "Evaluated %s\n", msg);
+				mnstr_printf(GDKerr, "Evaluated %s\n", msg);
 #endif
 				freeException(msg);
 				msg= MAL_SUCCEED;

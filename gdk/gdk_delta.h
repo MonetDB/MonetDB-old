@@ -21,7 +21,7 @@
 		(P1)->theap.free = 0;				\
 		(P1)->batInserted = 0;				\
 		(P1)->tshift = ATOMelmshift(Tsize(P1));		\
-		DELTADEBUG fprintf(stderr,			\
+		DELTADEBUG mnstr_printf(GDKerr, 			\
 			"#DELTAinit %s free %zu ins " BUNFMT	\
 			" base %p\n",				\
 			BATgetId(P1),				\

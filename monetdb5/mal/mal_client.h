@@ -109,6 +109,7 @@ typedef struct CLIENT {
 	ClientInput *bak;   /* used for recursive script and string execution */
 
 	stream   *fdout;    /* streams from and to user. */
+	stream   *fderr;    /* stderr stream */
 	/*
 	 * In interactive mode, reading one line at a time, we should be
 	 * aware of parsing compound structures, such as functions and
@@ -200,8 +201,8 @@ mal_export ClientRec *mal_clients;
 mal_export int MCdefault;
 
 mal_export Client  MCgetClient(int id);
-mal_export Client  MCinitClient(oid user, bstream *fin, stream *fout);
-mal_export Client  MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout);
+mal_export Client  MCinitClient(oid user, bstream *fin, stream *fout, stream *ferr);
+mal_export Client  MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout, stream *ferr);
 mal_export int     MCinitClientThread(Client c);
 mal_export Client  MCforkClient(Client father);
 mal_export void	   MCstopClients(Client c);

@@ -23,8 +23,8 @@ libgeom_init(void)
 {
 	initGEOS((GEOSMessageHandler) GDKerror, (GEOSMessageHandler) GDKerror);
 	GEOS_setWKBByteOrder(1);	/* NDR (little endian) */
-	printf("# MonetDB/GIS module loaded\n");
-	fflush(stdout);		/* make merovingian see this *now* */
+	mnstr_printf(GDKout, "# MonetDB/GIS module loaded\n");
+	mnstr_flush(GDKout);		/* make merovingian see this *now* */
 }
 
 void
@@ -196,15 +196,15 @@ geomerty_2_geometry(wkb *res, wkb **geom, int *columnType, int *columnSRID, int 
 
 	//char* geomStr;
 	//size_t len = 0;
-	//fprintf(stderr, "geometry_2_geometry\n");
+	//mnstr_printf(GDKerr, "geometry_2_geometry\n");
 	//wkbTOSTR(&geomStr, &len, *geom);
 	if (*geom != NULL)
-		fprintf(stderr, "type:%d - wkbTOSTR cannot be seen at this point\n", *columnType);
+		mnstr_printf(GDKerr, "type:%d - wkbTOSTR cannot be seen at this point\n", *columnType);
 
 	if (res == NULL)
-		fprintf(stderr, "-> ");
+		mnstr_printf(GDKerr, "-> ");
 
-	fprintf(stderr, "%d vs %d\n", *columnSRID, *valueSRID);
+	mnstr_printf(GDKerr, "%d vs %d\n", *columnSRID, *valueSRID);
 	return "0";
 }
 */

@@ -43,8 +43,8 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) pci;
 
 	OPTDEBUGjit(
-		fprintf(stderr, "#Optimize JIT\n");
-		fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG);
+		mnstr_printf(GDKerr, "#Optimize JIT\n");
+		fprintFunction(GDKerr, mb, 0, LIST_MAL_DEBUG);
 	)
 
 	setVariableScope(mb);
@@ -73,8 +73,8 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				getArg(p,2)=  getArg(q,2);
 				p= pushArgument(mb,p, getArg(q,1));
 				OPTDEBUGjit(
-					fprintf(stderr, "#Optimize JIT case 1\n");
-					fprintInstruction(stderr, mb,0,p,LIST_MAL_DEBUG);
+					mnstr_printf(GDKerr, "#Optimize JIT case 1\n");
+					fprintInstruction(GDKerr, mb,0,p,LIST_MAL_DEBUG);
 				)
 			}
 		}
@@ -85,8 +85,8 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		chkTypes(cntxt->usermodule,mb,TRUE);
 		freeException(msg);
 		msg = MAL_SUCCEED;
-		fprintf(stderr, "#Optimize JIT done\n");
-		fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG);
+		mnstr_printf(GDKerr, "#Optimize JIT done\n");
+		fprintFunction(GDKerr, mb, 0, LIST_MAL_DEBUG);
 	)
 
 	GDKfree(old);

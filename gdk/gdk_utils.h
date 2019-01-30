@@ -73,11 +73,12 @@ gdk_export size_t _MT_pagesize;
 #define MT_pagesize()	_MT_pagesize
 #define MT_npages()	_MT_npages
 
+gdk_export int THRinit(bool silent);
 gdk_export void MT_init(void);	/*  init the package. */
 #ifndef HAVE_EMBEDDED
 gdk_export bool GDKinit(opt *set, int setlen);
 #else
-gdk_export bool GDKinit(char* dbpath, bool silent);
+gdk_export bool GDKinit(char* dbpath);
 #endif
 
 /* used for testing only */

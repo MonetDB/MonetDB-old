@@ -389,7 +389,7 @@ extern MT_Lock MT_system_lock;
 		size_t _len = (l);				\
 		gdk_return _res = GDKmunmap(_ptr, _len);	\
 		ALLOCDEBUG					\
-			fprintf(stderr,				\
+			mnstr_printf(GDKerr,				\
 				"#GDKmunmap(%p,%zu) -> %u"	\
 				" %s[%s:%d]\n",			\
 				_ptr, _len, _res,		\
@@ -406,7 +406,7 @@ extern MT_Lock MT_system_lock;
 		size_t _ons = *_ns;					\
 		void *_res = GDKmremap(_path, _mode, _oa, _os, _ns);	\
 		ALLOCDEBUG						\
-			fprintf(stderr,					\
+			mnstr_printf(GDKerr,					\
 				"#GDKmremap(%s,0x%x,%p,%zu,%zu > %zu) -> %p" \
 				" %s[%s:%d]\n",				\
 				_path ? _path : "NULL", (unsigned) _mode, \
@@ -420,7 +420,7 @@ static inline gdk_return
 GDKmunmap_debug(void *ptr, size_t len, const char *filename, int lineno)
 {
 	gdk_return res = GDKmunmap(ptr, len);
-	ALLOCDEBUG fprintf(stderr,
+	ALLOCDEBUG mnstr_printf(GDKerr,
 			   "#GDKmunmap(%p,%zu) -> %d [%s:%d]\n",
 			   ptr, len, (int) res, filename, lineno);
 	return res;
@@ -432,7 +432,7 @@ GDKmremap_debug(const char *path, int mode, void *old_address, size_t old_size, 
 	size_t orig_new_size = *new_size;
 	void *res = GDKmremap(path, mode, old_address, old_size, new_size);
 	ALLOCDEBUG
-		fprintf(stderr,
+		mnstr_printf(GDKerr,
 			"#GDKmremap(%s,0x%x,%p,%zu,%zu > %zu) -> %p"
 			" [%s:%d]\n",
 			path ? path : "NULL", mode,

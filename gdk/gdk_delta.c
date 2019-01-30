@@ -35,7 +35,7 @@ BATcommit(BAT *b)
 {
 	if (b == NULL)
 		return;
-	DELTADEBUG fprintf(stderr, "#BATcommit1 %s free %zu ins " BUNFMT " base %p\n",
+	DELTADEBUG mnstr_printf(GDKerr, "#BATcommit1 %s free %zu ins " BUNFMT " base %p\n",
 			   BATgetId(b),
 			   b->theap.free,
 			   b->batInserted,
@@ -47,7 +47,7 @@ BATcommit(BAT *b)
 		b->batDirtydesc = true;
 	}
 	b->batInserted = BUNlast(b);
-	DELTADEBUG fprintf(stderr, "#BATcommit2 %s free %zu ins " BUNFMT " base %p\n",
+	DELTADEBUG mnstr_printf(GDKerr, "#BATcommit2 %s free %zu ins " BUNFMT " base %p\n",
 			   BATgetId(b),
 			   b->theap.free,
 			   b->batInserted,
@@ -83,7 +83,7 @@ BATundo(BAT *b)
 
 	if (b == NULL)
 		return;
-	DELTADEBUG fprintf(stderr, "#BATundo %s \n", BATgetId(b));
+	DELTADEBUG mnstr_printf(GDKerr, "#BATundo %s \n", BATgetId(b));
 	if (b->batDirtyflushed) {
 		b->batDirtydesc = b->theap.dirty = true;
 	} else {

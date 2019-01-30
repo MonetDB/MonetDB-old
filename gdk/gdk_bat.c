@@ -219,7 +219,7 @@ COLnew(oid hseq, int tt, BUN cap, int role)
 		GDKfree(bn->tvheap);
 		goto bailout;
 	}
-	ALGODEBUG fprintf(stderr, "#COLnew()=" ALGOBATFMT "\n", ALGOBATPAR(bn));
+	ALGODEBUG mnstr_printf(GDKerr, "#COLnew()=" ALGOBATFMT "\n", ALGOBATPAR(bn));
 	return bn;
   bailout:
 	BBPclear(bn->batCacheid);
@@ -237,7 +237,7 @@ BATdense(oid hseq, oid tseq, BUN cnt)
 	if (bn != NULL) {
 		BATtseqbase(bn, tseq);
 		BATsetcount(bn, cnt);
-		ALGODEBUG fprintf(stderr, "#BATdense()=" ALGOBATFMT "\n", ALGOBATPAR(bn));
+		ALGODEBUG mnstr_printf(GDKerr, "#BATdense()=" ALGOBATFMT "\n", ALGOBATPAR(bn));
 	}
 	return bn;
 }
@@ -456,7 +456,7 @@ BATextend(BAT *b, BUN newcap)
 
 	theap_size *= Tsize(b);
 	if (b->theap.base && GDKdebug & HEAPMASK)
-		fprintf(stderr, "#HEAPextend in BATextend %s %zu %zu\n", b->theap.filename, b->theap.size, theap_size);
+		mnstr_printf(GDKerr, "#HEAPextend in BATextend %s %zu %zu\n", b->theap.filename, b->theap.size, theap_size);
 	if (b->theap.base &&
 	    HEAPextend(&b->theap, theap_size, b->batRestricted == BAT_READ) != GDK_SUCCEED)
 		return GDK_FAIL;
@@ -852,7 +852,7 @@ COLcopy(BAT *b, int tt, bool writable, int role)
 	}
 	if (!writable)
 		bn->batRestricted = BAT_READ;
-	ALGODEBUG fprintf(stderr, "#COLcopy(" ALGOBATFMT ")=" ALGOBATFMT "\n",
+	ALGODEBUG mnstr_printf(GDKerr, "#COLcopy(" ALGOBATFMT ")=" ALGOBATFMT "\n",
 			  ALGOBATPAR(b), ALGOBATPAR(bn));
 	return bn;
       bunins_failed:
@@ -1840,12 +1840,12 @@ backup_new(Heap *hp, int lockbat)
 		if ((ret = rename(batpath, bakpath)) < 0)
 			GDKsyserror("backup_new: rename %s to %s failed\n",
 				    batpath, bakpath);
-		IODEBUG fprintf(stderr, "#rename(%s,%s) = %d\n", batpath, bakpath, ret);
+		IODEBUG mnstr_printf(GDKerr, "#rename(%s,%s) = %d\n", batpath, bakpath, ret);
 	} else if (batret == 0) {
 		/* there is a backup already; just remove the X.new */
 		if ((ret = remove(batpath)) != 0)
 			GDKsyserror("backup_new: remove %s failed\n", batpath);
-		IODEBUG fprintf(stderr, "#remove(%s) = %d\n", batpath, ret);
+		IODEBUG mnstr_printf(GDKerr, "#remove(%s) = %d\n", batpath, ret);
 	}
 	GDKfree(batpath);
 	GDKfree(bakpath);
@@ -2102,7 +2102,7 @@ BATmode(BAT *b, int mode)
 #ifdef NDEBUG
 /* assertions are disabled, turn failing tests into a message */
 #undef assert
-#define assert(test)	((void) ((test) || fprintf(stderr, "!WARNING: %s:%d: assertion `%s' failed\n", __FILE__, __LINE__, #test)))
+#define assert(test)	((void) ((test) || mnstr_printf(GDKerr, "!WARNING: %s:%d: assertion `%s' failed\n", __FILE__, __LINE__, #test)))
 #endif
 
 /* Assert that properties are set correctly.
@@ -2355,7 +2355,7 @@ BATassertProps(BAT *b)
 			BUN mask;
 
 			if ((hs = GDKzalloc(sizeof(Hash))) == NULL) {
-				fprintf(stderr,
+				mnstr_printf(GDKerr,
 					"#BATassertProps: cannot allocate "
 					"hash table\n");
 				goto abort_check;
@@ -2373,7 +2373,7 @@ BATassertProps(BAT *b)
 			    HASHnew(hs, b->ttype, BUNlast(b),
 				    mask, BUN_NONE) != GDK_SUCCEED) {
 				GDKfree(hs);
-				fprintf(stderr,
+				mnstr_printf(GDKerr,
 					"#BATassertProps: cannot allocate "
 					"hash table\n");
 				goto abort_check;

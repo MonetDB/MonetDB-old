@@ -227,7 +227,7 @@ str FITSexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL, "fits.exporttable", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 
-	/*	fprintf(stderr,"Number of columns: %d\n", columns);*/
+	/*	mnstr_printf(GDKerr,"Number of columns: %d\n", columns);*/
 
 	tables = mvc_bind_table(m, sch, "_tables");
 	col = mvc_bind_column(m, tables, "name");
@@ -278,7 +278,7 @@ str FITSexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	assert(nrows <= (size_t) GDK_oid_max);
 
 	snprintf(filename,BUFSIZ,"\n%s.fit",tname);
-	fprintf(stderr, "Filename: %s\n", filename);
+	mnstr_printf(GDKerr, "Filename: %s\n", filename);
 
 	remove(filename);
 
@@ -545,15 +545,15 @@ str FITSexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	/* print all the times that were needed to export each one of the columns
 
-	fprintf(stderr, "\n\n");
-	if (texportboolean > 0)		fprintf(stderr, "%d Boolean\tcolumn(s) exported in %d ms\n", boolcols,   texportboolean);
-	if (texportchar > 0)		fprintf(stderr, "%d Char\t\tcolumn(s) exported in %d ms\n",    charcols,   texportchar);
-	if (texportstring > 0)		fprintf(stderr, "%d String\tcolumn(s) exported in %d ms\n",  strcols,    texportstring);
-	if (texportshort > 0)		fprintf(stderr, "%d Short\t\tcolumn(s) exported in %d ms\n",   shortcols,  texportshort);
-	if (texportint > 0)		fprintf(stderr, "%d Integer\tcolumn(s) exported in %d ms\n", intcols,    texportint);
-	if (texportlng > 0)		fprintf(stderr, "%d Long\t\tcolumn(s) exported in %d ms\n",    lngcols,   texportlng);
-	if (texportfloat > 0)		fprintf(stderr, "%d Float\t\tcolumn(s) exported in %d ms\n",   floatcols,  texportfloat);
-	if (texportdouble > 0) 		fprintf(stderr, "%d Double\tcolumn(s) exported in %d ms\n",  doublecols, texportdouble);
+	mnstr_printf(GDKerr, "\n\n");
+	if (texportboolean > 0)		mnstr_printf(GDKerr, "%d Boolean\tcolumn(s) exported in %d ms\n", boolcols,   texportboolean);
+	if (texportchar > 0)		mnstr_printf(GDKerr, "%d Char\t\tcolumn(s) exported in %d ms\n",    charcols,   texportchar);
+	if (texportstring > 0)		mnstr_printf(GDKerr, "%d String\tcolumn(s) exported in %d ms\n",  strcols,    texportstring);
+	if (texportshort > 0)		mnstr_printf(GDKerr, "%d Short\t\tcolumn(s) exported in %d ms\n",   shortcols,  texportshort);
+	if (texportint > 0)		mnstr_printf(GDKerr, "%d Integer\tcolumn(s) exported in %d ms\n", intcols,    texportint);
+	if (texportlng > 0)		mnstr_printf(GDKerr, "%d Long\t\tcolumn(s) exported in %d ms\n",    lngcols,   texportlng);
+	if (texportfloat > 0)		mnstr_printf(GDKerr, "%d Float\t\tcolumn(s) exported in %d ms\n",   floatcols,  texportfloat);
+	if (texportdouble > 0) 		mnstr_printf(GDKerr, "%d Double\tcolumn(s) exported in %d ms\n",  doublecols, texportdouble);
 	*/
 
 	fits_close_file(fptr, &status);
@@ -592,7 +592,7 @@ str FITSdir(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if (status == 0) {
 				snprintf(stmt, BUFSIZ, ATTACHDIR, fname);
 #ifndef NDEBUG
-				fprintf(stderr, "Executing:\n%s\n", s);
+				mnstr_printf(GDKerr, "Executing:\n%s\n", s);
 #endif
 				msg = SQLstatementIntern(cntxt, &s, "fits.listofdir", TRUE, FALSE, NULL);
 				fits_close_file(fptr, &status);
@@ -626,7 +626,7 @@ str FITSdirpat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	snprintf(fulldirectory, BUFSIZ, "%s%s", dir, pat);
 	glob(fulldirectory, GLOB_DOOFFS, NULL, &globbuf);
 
-	/*	fprintf(stderr,"#fulldir: %s \nSize: %lu\n",fulldirectory, globbuf.gl_pathc);*/
+	/*	mnstr_printf(GDKerr,"#fulldir: %s \nSize: %lu\n",fulldirectory, globbuf.gl_pathc);*/
 
 	if (globbuf.gl_pathc == 0)
 		throw(MAL, "fits.listdirpat", SQLSTATE(FI000) "Couldn't open the directory or there are no files that match the pattern");
@@ -647,7 +647,7 @@ str FITSdirpat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			snprintf(stmt, BUFSIZ, ATTACHDIR, filename);
 			GDKfree(filename);
 #ifndef NDEBUG
-			fprintf(stderr, "Executing:\n%s\n", s);
+			mnstr_printf(GDKerr, "Executing:\n%s\n", s);
 #endif
 			msg = SQLstatementIntern(cntxt, &s, "fits.listofdirpat", TRUE, FALSE, NULL);
 			fits_close_file(fptr, &status);
@@ -966,14 +966,14 @@ str FITSloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		fits_get_coltype(fptr, j, &tpcode[j - 1], &rep[j - 1], &wid[j - 1], &status);
 		fits2subtype(&tpe, tpcode[j - 1], rep[j - 1], wid[j - 1]);
 
-		/*		fprintf(stderr,"#%d %ld %ld - M: %s\n", tpcode[j-1], rep[j-1], wid[j-1], tpe.type->sqlname); */
+		/*		mnstr_printf(GDKerr,"#%d %ld %ld - M: %s\n", tpcode[j-1], rep[j-1], wid[j-1], tpe.type->sqlname); */
 
 		mvc_create_column(m, tbl, cname[j - 1], &tpe);
 	}
 
 	/* data load */
 	fits_get_num_rows(fptr, &rows, &status);
-	fprintf(stderr,"#Loading %ld rows in table %s\n", rows, tname);
+	mnstr_printf(GDKerr,"#Loading %ld rows in table %s\n", rows, tname);
 	for (j = 1; j <= cnum; j++) {
 		BAT *tmp = NULL;
 		int time0 = GDKms();
@@ -1067,7 +1067,7 @@ str FITSloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			for(i = 0; i < bsize ; i++)
 				GDKfree(v[i]);
 			GDKfree(v);
-			fprintf(stderr,"#String column load %d ms, BUNappend %d ms\n", tloadtm, tattachtm);
+			mnstr_printf(GDKerr,"#String column load %d ms, BUNappend %d ms\n", tloadtm, tattachtm);
 		}
 		else {
 			fits_read_col(fptr, tpcode[j - 1], j, 1, 1, rows, (void *) nilptr, (void *)BUNtloc(bat_iterator(tmp), 0), &anynull, &status);
@@ -1082,13 +1082,13 @@ str FITSloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			msg = createException(MAL, "fits.loadtable", SQLSTATE(FI000) "Cannot load column %s of %s table: %s.\n", cname[j - 1], tname, buf);
 			break;
 		}
-		fprintf(stderr,"#Column %s loaded for %d ms\t", cname[j-1], GDKms() - time0);
+		mnstr_printf(GDKerr,"#Column %s loaded for %d ms\t", cname[j-1], GDKms() - time0);
 		if (store_funcs.append_col(m->session->tr, col, tmp, TYPE_bat) != LOG_OK) {
 			BBPunfix(tmp->batCacheid);
 			msg = createException(MAL, "fits.loadtable", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			break;
 		}
-		fprintf(stderr,"#Total %d ms\n", GDKms() - time0);
+		mnstr_printf(GDKerr,"#Total %d ms\n", GDKms() - time0);
 		BBPunfix(tmp->batCacheid);
 	}
 

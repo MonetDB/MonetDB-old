@@ -9,6 +9,8 @@
 #ifndef _GDK_SYSTEM_H_
 #define _GDK_SYSTEM_H_
 
+#include "stream.h"
+
 #ifdef WIN32
 #ifndef LIBGDK
 #define gdk_export extern __declspec(dllimport)
@@ -109,6 +111,52 @@ typedef size_t MT_Id;		/* thread number. will not be zero */
 
 enum MT_thr_detach { MT_THR_JOINABLE, MT_THR_DETACHED };
 
+/*
+ * The kernel maintains a central table of all active threads.  They
+ * are indexed by their tid. The structure contains information on the
+ * input/output file descriptors, which should be set before a
+ * database operation is started. It ensures that output is delivered
+ * to the proper client.
+ *
+ * The Thread structure should be ideally made directly accessible to
+ * each thread. This speeds up access to tid and file descriptors.
+ */
+#define THREADS	1024
+#define THREADDATA	4
+
+typedef struct threadStruct {
+	int tid;		/* logical ID by MonetDB; val == index
+				 * into this array + 1 (0 is
+				 * invalid) */
+	MT_Id pid;		/* physical thread id (pointer-sized)
+				 * from the OS thread library */
+	char* name;
+	void *data[THREADDATA];
+	uintptr_t sp;
+} ThreadRec, *Thread;
+
+gdk_export int THRgettid(void);
+gdk_export Thread THRget(int tid);
+gdk_export Thread THRnew(const char *name);
+gdk_export void THRdel(Thread t);
+gdk_export void THRsetdata(int, void *);
+gdk_export void *THRgetdata(int);
+gdk_export int THRhighwater(void);
+gdk_export int THRprintf(stream *s, _In_z_ _Printf_format_string_ const char *format, ...)
+__attribute__((__format__(__printf__, 2, 3)));
+
+gdk_export void *THRdata[THREADDATA];
+
+#define GDKstdout	((stream*)THRdata[0])
+#define GDKstdin	((stream*)THRdata[1])
+#define GDKstderr	((stream*)THRdata[2])
+
+#define GDKout		((stream*)THRgetdata(0))
+#define GDKin		((stream*)THRgetdata(1))
+#define GDKerr		((stream*)THRgetdata(2))
+#define GDKerrbuf	((char*)THRgetdata(3))
+#define GDKsetbuf(x)	THRsetdata(3,(void *)(x))
+
 gdk_export int MT_create_thread(MT_Id *t, void (*function) (void *),
 				void *arg, enum MT_thr_detach d);
 gdk_export void MT_exiting_thread(void);
@@ -163,15 +211,15 @@ typedef struct {
 #define MT_lock_destroy(l)	pthread_mutex_destroy(&(l)->lock)
 #define MT_lock_set(l)							\
 	do {								\
-		TEMDEBUG fprintf(stderr, "#%s: locking %s...\n",	\
+		TEMDEBUG mnstr_printf(GDKerr, "#%s: locking %s...\n",	\
 				 __func__, (l)->name);			\
 		pthread_mutex_lock(&(l)->lock);				\
-		TEMDEBUG fprintf(stderr, "#%s: locking %s complete\n",	\
+		TEMDEBUG mnstr_printf(GDKerr, "#%s: locking %s complete\n",	\
 				 __func__, (l)->name);			\
 	} while (0)
 #define MT_lock_unset(l)						\
 	do {								\
-		TEMDEBUG fprintf(stderr, "#%s: unlocking %s\n",		\
+		TEMDEBUG mnstr_printf(GDKerr, "#%s: unlocking %s\n",		\
 				 __func__, (l)->name);			\
 		pthread_mutex_unlock(&(l)->lock);			\
 	} while (0)
@@ -214,7 +262,7 @@ gdk_export ATOMIC_TYPE volatile GDKlocksleepcnt;
 #define _DBG_LOCK_LOCKER(l, n)		((l)->locker = (n))
 #define _DBG_LOCK_CONTENTION(l, n)					\
 	do {								\
-		TEMDEBUG fprintf(stderr, "#lock %s contention in %s\n", \
+		TEMDEBUG mnstr_printf(GDKerr, "#lock %s contention in %s\n", \
 				 (l)->name, n);				\
 		(void) ATOMIC_INC(GDKlockcontentioncnt, dummy);		\
 		(l)->contention++;					\
@@ -369,16 +417,16 @@ typedef struct {
 #define MT_sema_destroy(s)	pthread_sema_destroy(&(s)->sema)
 #define MT_sema_up(s)						\
 	do {							\
-		TEMDEBUG fprintf(stderr, "#%s: sema %s up\n",	\
+		TEMDEBUG mnstr_printf(GDKerr, "#%s: sema %s up\n",	\
 				 __func__, (s)->name);		\
 		pthread_sema_up(&(s)->sema);			\
 	} while (0)
 #define MT_sema_down(s)							\
 	do {								\
-		TEMDEBUG fprintf(stderr, "#%s: sema %s down...\n",	\
+		TEMDEBUG mnstr_printf(GDKerr, "#%s: sema %s down...\n",	\
 				 __func__, (s)->name);			\
 		pthread_sema_down(&(s)->sema);				\
-		TEMDEBUG fprintf(stderr, "#%s: sema %s down complete\n", \
+		TEMDEBUG mnstr_printf(GDKerr, "#%s: sema %s down complete\n", \
 				 __func__, (s)->name);			\
 	} while (0)
 

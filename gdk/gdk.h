@@ -331,10 +331,10 @@
 #include <limits.h>		/* for *_MIN and *_MAX */
 #include <float.h>		/* for FLT_MAX and DBL_MAX */
 
+#include "stream.h"
 #include "mutils.h"
 #include "gdk_system.h"
 #include "gdk_posix.h"
-#include "stream.h"
 
 #undef MIN
 #undef MAX
@@ -1918,7 +1918,7 @@ gdk_export str GDKstrndup(const char *s, size_t n)
 		size_t _size = (s);				\
 		void *_res = GDKmalloc(_size);			\
 		ALLOCDEBUG					\
-			fprintf(stderr,				\
+			mnstr_printf(GDKerr,				\
 				"#GDKmalloc(%zu) -> %p"		\
 				" %s[%s:%d]\n",			\
 				_size, _res,			\
@@ -1930,7 +1930,7 @@ gdk_export str GDKstrndup(const char *s, size_t n)
 		size_t _size = (s);				\
 		void *_res = GDKzalloc(_size);			\
 		ALLOCDEBUG					\
-			fprintf(stderr,				\
+			mnstr_printf(GDKerr,				\
 				"#GDKzalloc(%zu) -> %p"		\
 				" %s[%s:%d]\n",			\
 				_size, _res,			\
@@ -1943,7 +1943,7 @@ gdk_export str GDKstrndup(const char *s, size_t n)
 		size_t _size = (s);				\
 		void *_res = GDKrealloc(_ptr, _size);		\
 		ALLOCDEBUG					\
-			fprintf(stderr,				\
+			mnstr_printf(GDKerr,				\
 				"#GDKrealloc(%p,%zu) -> %p"	\
 				" %s[%s:%d]\n",			\
 				_ptr, _size, _res,		\
@@ -1954,7 +1954,7 @@ gdk_export str GDKstrndup(const char *s, size_t n)
 	({							\
 		void *_ptr = (p);				\
 		ALLOCDEBUG if (_ptr)				\
-			fprintf(stderr,				\
+			mnstr_printf(GDKerr,				\
 				"#GDKfree(%p)"			\
 				" %s[%s:%d]\n",			\
 				_ptr,				\
@@ -1966,7 +1966,7 @@ gdk_export str GDKstrndup(const char *s, size_t n)
 		const char *_str = (s);				\
 		void *_res = GDKstrdup(_str);			\
 		ALLOCDEBUG					\
-			fprintf(stderr,				\
+			mnstr_printf(GDKerr,				\
 				"#GDKstrdup(len=%zu) -> %p"	\
 				" %s[%s:%d]\n",			\
 				strlen(_str),			\
@@ -1980,7 +1980,7 @@ gdk_export str GDKstrndup(const char *s, size_t n)
 		size_t _n = (n);				\
 		void *_res = GDKstrndup(_str, _n);		\
 		ALLOCDEBUG					\
-			fprintf(stderr,				\
+			mnstr_printf(GDKerr,				\
 				"#GDKstrndup(len=%zu) -> %p"	\
 				" %s[%s:%d]\n",			\
 				_n,				\
@@ -1995,7 +1995,7 @@ gdk_export str GDKstrndup(const char *s, size_t n)
 		size_t _len = (l);					\
 		void *_res = GDKmmap(_path, _mode, _len);		\
 		ALLOCDEBUG						\
-			fprintf(stderr,					\
+			mnstr_printf(GDKerr,					\
 				"#GDKmmap(%s,0x%x,%zu) -> %p"		\
 				" %s[%s:%d]\n",				\
 				_path ? _path : "NULL",			\
@@ -2009,7 +2009,7 @@ gdk_export str GDKstrndup(const char *s, size_t n)
 		size_t _size = (s);				\
 		void *_res = malloc(_size);			\
 		ALLOCDEBUG					\
-			fprintf(stderr,				\
+			mnstr_printf(GDKerr,				\
 				"#malloc(%zu) -> %p"		\
 				" %s[%s:%d]\n",			\
 				_size, _res,			\
@@ -2022,7 +2022,7 @@ gdk_export str GDKstrndup(const char *s, size_t n)
 		size_t _size = (s);				\
 		void *_res = calloc(_nmemb,_size);		\
 		ALLOCDEBUG					\
-			fprintf(stderr,				\
+			mnstr_printf(GDKerr,				\
 				"#calloc(%zu,%zu) -> %p"	\
 				" %s[%s:%d]\n",			\
 				_nmemb, _size, _res,		\
@@ -2035,7 +2035,7 @@ gdk_export str GDKstrndup(const char *s, size_t n)
 		size_t _size = (s);				\
 		void *_res = realloc(_ptr, _size);		\
 		ALLOCDEBUG					\
-			fprintf(stderr,				\
+			mnstr_printf(GDKerr,				\
 				"#realloc(%p,%zu) -> %p"	\
 				" %s[%s:%d]\n",			\
 				_ptr, _size, _res,		\
@@ -2046,7 +2046,7 @@ gdk_export str GDKstrndup(const char *s, size_t n)
 	({							\
 		void *_ptr = (p);				\
 		ALLOCDEBUG					\
-			fprintf(stderr,				\
+			mnstr_printf(GDKerr,				\
 				"#free(%p)"			\
 				" %s[%s:%d]\n",			\
 				_ptr,				\
@@ -2058,7 +2058,7 @@ static inline void *
 GDKmalloc_debug(size_t size, const char *filename, int lineno)
 {
 	void *res = GDKmalloc(size);
-	ALLOCDEBUG fprintf(stderr,
+	ALLOCDEBUG mnstr_printf(GDKerr,
 			   "#GDKmalloc(%zu) -> %p [%s:%d]\n",
 			   size, res, filename, lineno);
 	return res;
@@ -2068,7 +2068,7 @@ static inline void *
 GDKzalloc_debug(size_t size, const char *filename, int lineno)
 {
 	void *res = GDKzalloc(size);
-	ALLOCDEBUG fprintf(stderr,
+	ALLOCDEBUG mnstr_printf(GDKerr,
 			   "#GDKzalloc(%zu) -> %p [%s:%d]\n",
 			   size, res, filename, lineno);
 	return res;
@@ -2078,7 +2078,7 @@ static inline void *
 GDKrealloc_debug(void *ptr, size_t size, const char *filename, int lineno)
 {
 	void *res = GDKrealloc(ptr, size);
-	ALLOCDEBUG fprintf(stderr,
+	ALLOCDEBUG mnstr_printf(GDKerr,
 			   "#GDKrealloc(%p,%zu) -> "
 			   "%p [%s:%d]\n",
 			   ptr, size, res,
@@ -2089,7 +2089,7 @@ GDKrealloc_debug(void *ptr, size_t size, const char *filename, int lineno)
 static inline void
 GDKfree_debug(void *ptr, const char *filename, int lineno)
 {
-	ALLOCDEBUG fprintf(stderr, "#GDKfree(%p) [%s:%d]\n",
+	ALLOCDEBUG mnstr_printf(GDKerr, "#GDKfree(%p) [%s:%d]\n",
 			   ptr, filename, lineno);
 	GDKfree(ptr);
 }
@@ -2098,7 +2098,7 @@ static inline char *
 GDKstrdup_debug(const char *str, const char *filename, int lineno)
 {
 	void *res = GDKstrdup(str);
-	ALLOCDEBUG fprintf(stderr, "#GDKstrdup(len=%zu) -> "
+	ALLOCDEBUG mnstr_printf(GDKerr, "#GDKstrdup(len=%zu) -> "
 			   "%p [%s:%d]\n",
 			   strlen(str), res, filename, lineno);
 	return res;
@@ -2108,7 +2108,7 @@ static inline char *
 GDKstrndup_debug(const char *str, size_t n, const char *filename, int lineno)
 {
 	void *res = GDKstrndup(str, n);
-	ALLOCDEBUG fprintf(stderr, "#GDKstrndup(len=%zu) -> "
+	ALLOCDEBUG mnstr_printf(GDKerr, "#GDKstrndup(len=%zu) -> "
 			   "%p [%s:%d]\n",
 			   n, res, filename, lineno);
 	return res;
@@ -2118,7 +2118,7 @@ static inline void *
 GDKmmap_debug(const char *path, int mode, size_t len, const char *filename, int lineno)
 {
 	void *res = GDKmmap(path, mode, len);
-	ALLOCDEBUG fprintf(stderr,
+	ALLOCDEBUG mnstr_printf(GDKerr,
 			   "#GDKmmap(%s,0x%x,%zu) -> "
 			   "%p [%s:%d]\n",
 			   path ? path : "NULL", mode, len,
@@ -2130,7 +2130,7 @@ static inline void *
 malloc_debug(size_t size, const char *filename, int lineno)
 {
 	void *res = malloc(size);
-	ALLOCDEBUG fprintf(stderr,
+	ALLOCDEBUG mnstr_printf(GDKerr,
 			   "#malloc(%zu) -> %p [%s:%d]\n",
 			   size, res, filename, lineno);
 	return res;
@@ -2140,7 +2140,7 @@ static inline void *
 calloc_debug(size_t nmemb, size_t size, const char *filename, int lineno)
 {
 	void *res = calloc(nmemb, size);
-	ALLOCDEBUG fprintf(stderr,
+	ALLOCDEBUG mnstr_printf(GDKerr,
 			   "#calloc(%zu,%zu) -> "
 			   "%p [%s:%d]\n",
 			   nmemb, size, res, filename, lineno);
@@ -2151,7 +2151,7 @@ static inline void *
 realloc_debug(void *ptr, size_t size, const char *filename, int lineno)
 {
 	void *res = realloc(ptr, size);
-	ALLOCDEBUG fprintf(stderr,
+	ALLOCDEBUG mnstr_printf(GDKerr,
 			   "#realloc(%p,%zu) -> "
 			   "%p [%s:%d]\n",
 			   ptr, size, res,
@@ -2162,7 +2162,7 @@ realloc_debug(void *ptr, size_t size, const char *filename, int lineno)
 static inline void
 free_debug(void *ptr, const char *filename, int lineno)
 {
-	ALLOCDEBUG fprintf(stderr, "#free(%p) [%s:%d]\n",
+	ALLOCDEBUG mnstr_printf(GDKerr, "#free(%p) [%s:%d]\n",
 			   ptr, filename, lineno);
 	free(ptr);
 }
@@ -2278,55 +2278,6 @@ VALptr(const ValRecord *v)
 	}
 }
 
-/*
- * The kernel maintains a central table of all active threads.  They
- * are indexed by their tid. The structure contains information on the
- * input/output file descriptors, which should be set before a
- * database operation is started. It ensures that output is delivered
- * to the proper client.
- *
- * The Thread structure should be ideally made directly accessible to
- * each thread. This speeds up access to tid and file descriptors.
- */
-#define THREADS	1024
-#define THREADDATA	3
-
-typedef struct threadStruct {
-	int tid;		/* logical ID by MonetDB; val == index
-				 * into this array + 1 (0 is
-				 * invalid) */
-	MT_Id pid;		/* physical thread id (pointer-sized)
-				 * from the OS thread library */
-	str name;
-	void *data[THREADDATA];
-	uintptr_t sp;
-} ThreadRec, *Thread;
-
-
-gdk_export int THRgettid(void);
-gdk_export Thread THRget(int tid);
-gdk_export Thread THRnew(const char *name);
-gdk_export void THRdel(Thread t);
-gdk_export void THRsetdata(int, void *);
-gdk_export void *THRgetdata(int);
-gdk_export int THRhighwater(void);
-gdk_export int THRprintf(stream *s, _In_z_ _Printf_format_string_ const char *format, ...)
-	__attribute__((__format__(__printf__, 2, 3)));
-
-gdk_export void *THRdata[THREADDATA];
-
-#define GDKstdout	((stream*)THRdata[0])
-#define GDKstdin	((stream*)THRdata[1])
-
-#define GDKout		((stream*)THRgetdata(0))
-#define GDKin		((stream*)THRgetdata(1))
-#define GDKerrbuf	((char*)THRgetdata(2))
-#define GDKsetbuf(x)	THRsetdata(2,(void *)(x))
-#define GDKerr		GDKout
-
-#define THRget_errbuf(t)	((char*)t->data[2])
-#define THRset_errbuf(t,b)	(t->data[2] = b)
-
 #ifndef GDK_NOLINK
 
 static inline bat
@@ -2336,7 +2287,7 @@ BBPcheck(bat x, const char *y)
 		assert(x > 0);
 
 		if (x < 0 || x >= getBBPsize() || BBP_logical(x) == NULL) {
-			CHECKDEBUG fprintf(stderr,"#%s: range error %d\n", y, (int) x);
+			CHECKDEBUG mnstr_printf(GDKerr,"#%s: range error %d\n", y, (int) x);
 		} else {
 			return x;
 		}

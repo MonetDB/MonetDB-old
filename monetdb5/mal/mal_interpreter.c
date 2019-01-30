@@ -404,8 +404,8 @@ callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *env, ValPtr argv[], char debug)
 
 	cntxt->lastcmd= time(0);
 #ifdef DEBUG_CALLMAL
-	fprintf(stderr, "callMAL\n");
-	fprintInstruction(stderr, mb, 0, pci, LIST_MAL_ALL);
+	mnstr_printf(GDKerr, "callMAL\n");
+	fprintInstruction(GDKerr, mb, 0, pci, LIST_MAL_ALL);
 #endif
 	switch (pci->token) {
 	case FUNCTIONsymbol:
@@ -856,7 +856,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 						bat bid = stk->stk[a].val.bval;
 
 						if (garbage[i] >= 0) {
-							PARDEBUG fprintf(stderr, "#GC pc=%d bid=%d %s done\n", stkpc, bid, getVarName(mb, garbage[i]));
+							PARDEBUG mnstr_printf(GDKerr, "#GC pc=%d bid=%d %s done\n", stkpc, bid, getVarName(mb, garbage[i]));
 							bid = stk->stk[garbage[i]].val.bval;
 							stk->stk[garbage[i]].val.bval = bat_nil;
 							BBPrelease(bid);
