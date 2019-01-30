@@ -24,8 +24,8 @@
 static void
 showCommands(void)
 {
-	printf("?\t - show this message\n");
-	printf("\\q\t- terminate session\n");
+	mnstr_printf(GDKout, "?\t - show this message\n");
+	mnstr_printf(GDKout, "\\q\t- terminate session\n");
 }
 
 char *
@@ -40,8 +40,8 @@ getConsoleInput(Client c, const char *prompt, int linemode, int exit_on_error)
 
 	do {
 		if (prompt) {
-			fputs(prompt, stdout);
-			fflush(stdout);
+			mnstr_writeStr(GDKout, prompt);
+			mnstr_flush(GDKout);
 		}
 		if (buf == NULL) {
 			buf= malloc(BUFSIZ);
@@ -50,9 +50,11 @@ getConsoleInput(Client c, const char *prompt, int linemode, int exit_on_error)
 				return NULL;
 			}
 		}
-		line = fgets(buf, BUFSIZ, stdin);
-
-		if (line == NULL) {
+		if (mnstr_read(GDKin, buf, 1, BUFSIZ) > 0)
+			line = buf;
+		else
+			line = NULL;
+		if (line == NULL || *line == '\0') {
 			/* end of file */
 			if (buf)
 				free(buf);
