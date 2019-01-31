@@ -21,8 +21,8 @@
 #include "sql_privileges.h"
 #include "bat5.h"
 #include "mal_interpreter.h"
-#include "mal_authorize.h"
 #ifndef HAVE_EMBEDDED
+#include "mal_authorize.h"
 #include "mcrypt.h"
 #endif
 

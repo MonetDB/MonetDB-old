@@ -21,9 +21,10 @@
 #include "sql_partition.h"
 #include "mal_namespace.h"
 #include "opt_prelude.h"
-#include "querylog.h"
 #include "mal_builder.h"
-#include "mal_debugger.h"
+#ifndef HAVE_EMBEDDED
+#include "querylog.h"
+#endif
 
 #include "rel_select.h"
 #include "rel_optimizer.h"

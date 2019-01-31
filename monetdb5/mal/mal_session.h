@@ -14,7 +14,9 @@
 mal_export str malBootstrap(const char *mal_init_data);
 mal_export str MSserveClient(void *dummy);
 mal_export str MSinitClientPrg(Client cntxt, str mod, str nme);
+#ifndef HAVE_EMBEDDED
 mal_export void MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protocol_version protocol, size_t blocksize);
+#endif
 
 mal_export str MALreader(Client c);
 mal_export str MALinitClient(Client c);

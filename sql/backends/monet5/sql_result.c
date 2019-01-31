@@ -1074,11 +1074,9 @@ mvc_export_prepare(mvc *c, stream *out, cq *q, str w)
 		goto failure;
 	}
 	(void) w;
-	(void) out;
-#else
+#endif
 	if (!out)
 		return 0;
-#endif
 
 	if (is_topn(r->op))
 		r = r->l;
@@ -1141,14 +1139,12 @@ mvc_export_prepare(mvc *c, stream *out, cq *q, str w)
 		}
 	}
 
-#ifndef HAVE_EMBEDDED
 	/* write header, query type: Q_PREPARE */
 	if (mnstr_printf(out, "&5 %d %d 6 %d\n"	/* TODO: add type here: r(esult) or u(pdate) */
 			 "%% .prepare,\t.prepare,\t.prepare,\t.prepare,\t.prepare,\t.prepare # table_name\n" "%% type,\tdigits,\tscale,\tschema,\ttable,\tcolumn # name\n" "%% varchar,\tint,\tint,\tstr,\tstr,\tstr # type\n" "%% %zu,\t%d,\t%d,\t"
 			 "%zu,\t%zu,\t%zu # length\n", q->id, nrows, nrows, len1, len2, len3, len4, len5, len6) < 0) {
 		return -1;
 	}
-#endif
 
 	if (r && is_project(r->op) && r->exps) {
 		for (n = r->exps->h; n; n = n->next) {
@@ -1175,11 +1171,10 @@ mvc_export_prepare(mvc *c, stream *out, cq *q, str w)
 
 				goto failure;
 			}
-#else
+#endif
 			if (mnstr_printf(out, "[ \"%s\",\t%u,\t%u,\t\"%s\",\t\"%s\",\t\"%s\"\t]\n", t->type->sqlname, t->digits, t->scale, schema ? schema : "", rname ? rname : "", name ? name : "") < 0) {
 				return -1;
 			}
-#endif
 		}
 	}
 	if (c->params) {
@@ -1203,11 +1198,10 @@ mvc_export_prepare(mvc *c, stream *out, cq *q, str w)
 					BUNappend(b_column, str_nil,          FALSE) != GDK_SUCCEED) {
 					goto failure;
 				}
-#else
+#endif
 				if (mnstr_printf(out, "[ \"%s\",\t%u,\t%u,\tNULL,\tNULL,\tNULL\t]\n", t->type->sqlname, t->digits, t->scale) < 0) {
 					return -1;
 				}
-#endif
 				/* add to the query cache parameters */
 				q->params[i] = *t;
 			} else {
@@ -1232,10 +1226,9 @@ mvc_export_prepare(mvc *c, stream *out, cq *q, str w)
 			!res_col_create(c->session->tr, c->results, "prepare", "column",          "varchar", 0, 0, TYPE_bat, b_column)) {
 		goto failure;
 	}
-#else
+#endif
 	if (mvc_export_warning(out, w) != 1)
 		return -1;
-#endif
 	return 0;
 #ifdef HAVE_EMBEDDED
 failure:

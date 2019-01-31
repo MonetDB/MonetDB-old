@@ -40,8 +40,6 @@
 
 #ifndef HAVE_EMBEDDED
 #include "muuid.h"
-#include "querylog.h"
-#include "mal_debugger.h"
 #endif
 
 #include "rel_select.h"

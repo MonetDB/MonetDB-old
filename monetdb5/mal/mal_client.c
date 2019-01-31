@@ -42,13 +42,15 @@
 /* (author) M.L. Kersten */
 #include "monetdb_config.h"
 #include "mal_client.h"
-#include "mal_readline.h"
 #include "mal_import.h"
 #include "mal_parser.h"
 #include "mal_namespace.h"
 #include "mal_private.h"
 #include "mal_runtime.h"
+#ifndef HAVE_EMBEDDED
+#include "mal_profiler.h"
 #include "mal_authorize.h"
+#endif
 
 int MAL_MAXCLIENTS = 0;
 ClientRec *mal_clients;
@@ -57,8 +59,10 @@ void
 mal_client_reset(void)
 {
 	MAL_MAXCLIENTS = 0;
-	if (mal_clients)
+	if (mal_clients) {
 		GDKfree(mal_clients);
+		mal_clients = NULL;
+	}
 }
 
 void
@@ -135,6 +139,10 @@ MCnewClient(void)
 {
 	Client c;
 	MT_lock_set(&mal_contextLock);
+	if (!mal_clients) {
+		MT_lock_unset(&mal_contextLock);
+		return NULL;
+	}
 	if (mal_clients[CONSOLE].user && mal_clients[CONSOLE].mode == FINISHCLIENT) {
 		/*system shutdown in progress */
 		MT_lock_unset(&mal_contextLock);
@@ -182,8 +190,10 @@ MCexitClient(Client c)
 #ifdef MAL_CLIENT_DEBUG
 	mnstr_printf(GDKerr,"# Exit client %d\n", c->idx);
 #endif
+#ifndef HAVE_EMBEDDED
 	finishSessionProfiler(c);
 	MPresetProfiler(c->fdout);
+#endif
 	if (c->father == NULL) { /* normal client */
 		if (c->fdout && c->fdout != GDKstdout) {
 			close_stream(c->fdout);
@@ -298,7 +308,9 @@ MCinitClientThread(Client c)
 	cname[11] = '\0';
 	t = THRnew(cname);
 	if (t == 0) {
+#ifndef HAVE_EMBEDDED
 		MPresetProfiler(c->fdout);
+#endif
 		return -1;
 	}
 	/*
@@ -313,7 +325,9 @@ MCinitClientThread(Client c)
 	if (c->errbuf == NULL) {
 		char *n = GDKzalloc(GDKMAXERRLEN);
 		if ( n == NULL){
+#ifndef HAVE_EMBEDDED
 			MPresetProfiler(c->fdout);
+#endif
 			return -1;
 		}
 		GDKsetbuf(n);
@@ -400,10 +414,6 @@ freeClient(Client c)
 	c->prompt = NULL;
 	c->promptlength = -1;
 	if (c->errbuf) {
-/* no client threads in embedded mode */
-#ifndef HAVE_EMBEDDED
-		GDKsetbuf(0);
-#endif
 		if (c->father == NULL)
 			GDKfree(c->errbuf);
 		c->errbuf = 0;
@@ -468,9 +478,13 @@ MCshutdowninprogress(void){
 void
 MCstopClients(Client cntxt)
 {
-	Client c = mal_clients;
-
+	Client c;
 	MT_lock_set(&mal_contextLock);
+	c = mal_clients;
+	if (!c) {
+		MT_lock_unset(&mal_contextLock);
+		return;
+	}
 	for(c= mal_clients +1;  c < mal_clients+MAL_MAXCLIENTS; c++)
 	if( cntxt != c){
 		if ( c->mode == RUNCLIENT)
@@ -640,13 +654,22 @@ MCvalid(Client tc)
 str
 PROFinitClient(Client c){
 	(void) c;
+#ifndef HAVE_EMBEDDED
 	return startProfiler();
+#else
+	return MAL_SUCCEED;
+#endif
+
 }
 
 str
 PROFexitClient(Client c){
 	(void) c;
+#ifndef HAVE_EMBEDDED
 	return stopProfiler();
+#else
+	return MAL_SUCCEED;
+#endif
 }
 
 

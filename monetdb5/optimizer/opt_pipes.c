@@ -84,16 +84,22 @@ static struct PIPELINES {
 //	 "optimizer.reduce();" deprecated
 	 "optimizer.matpack();"
 	 "optimizer.dataflow();"
+#ifndef HAVE_EMBEDDED
 	 "optimizer.querylog();"
+#endif
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
+#ifndef HAVE_EMBEDDED
 	 "optimizer.postfix();"
+#endif
 	 "optimizer.deadcode();"
 //	 "optimizer.jit();" awaiting the new batcalc api
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
+#ifndef HAVE_EMBEDDED
 	 "optimizer.wlc();"
+#endif
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /*
@@ -120,17 +126,23 @@ static struct PIPELINES {
 //	 "optimizer.reduce();" deprecated
 	 "optimizer.matpack();"
 	 "optimizer.dataflow();"
+#ifndef HAVE_EMBEDDED
 	 "optimizer.querylog();"
+#endif
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
 	 "optimizer.volcano();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
+#ifndef HAVE_EMBEDDED
 	 "optimizer.postfix();"
+#endif
 	 "optimizer.deadcode();"
 //	 "optimizer.jit();" awaiting the new batcalc api
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
+#ifndef HAVE_EMBEDDED
 	 "optimizer.wlc();"
+#endif
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The no_mitosis pipe line is (and should be kept!) identical to the
@@ -163,16 +175,22 @@ static struct PIPELINES {
 //	 "optimizer.reduce();" deprecated
 	 "optimizer.matpack();"
 	 "optimizer.dataflow();"
+#ifndef HAVE_EMBEDDED
 	 "optimizer.querylog();"
+#endif
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
+#ifndef HAVE_EMBEDDED
 	 "optimizer.postfix();"
+#endif
 	 "optimizer.deadcode();"
 //	 "optimizer.jit();" awaiting the new batcalc api
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
+#ifndef HAVE_EMBEDDED
 	 "optimizer.wlc();"
+#endif
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The sequential pipe line is (and should be kept!) identical to the
@@ -204,16 +222,22 @@ static struct PIPELINES {
 	 "optimizer.reorder();"
 //	 "optimizer.reduce();" deprecated
 	 "optimizer.matpack();"
+#ifndef HAVE_EMBEDDED
 	 "optimizer.querylog();"
+#endif
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
+#ifndef HAVE_EMBEDDED
 	 "optimizer.postfix();"
+#endif
 	 "optimizer.deadcode();"
 //	 "optimizer.jit();" awaiting the new batcalc api
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
+#ifndef HAVE_EMBEDDED
 	 "optimizer.wlc();"
+#endif
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* Experimental pipelines stressing various components under

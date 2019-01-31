@@ -181,10 +181,10 @@ void mserver_reset(int exit)
 	}
 
 	mal_client_reset();
-	mal_runtime_reset();
 	opt_pipes_reset();
 
 #ifndef HAVE_EMBEDDED
+	mal_runtime_reset();
 	mal_linker_reset();
 	mal_resource_reset();
 	mal_module_reset();

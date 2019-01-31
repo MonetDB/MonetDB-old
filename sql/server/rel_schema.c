@@ -20,7 +20,9 @@
 #include "sql_privileges.h"
 #include "sql_partition.h"
 
+#ifndef HAVE_EMBEDDED
 #include "mal_authorize.h"
+#endif
 
 #define qname_index(qname) qname_table(qname)
 #define qname_func(qname) qname_table(qname)
@@ -1037,6 +1039,7 @@ rel_create_table(mvc *sql, sql_schema *ss, int temp, const char *sname, const ch
 		sql_table *t;
 
 		if (tt == tt_remote) {
+#ifndef HAVE_EMBEDDED
 			char *local_user = stack_get_string(sql, "current_user");
 			char *local_table = sa_strconcat(sql->sa, sa_strconcat(sql->sa, sname, "."), name);
 			if (!local_table) {
@@ -1054,6 +1057,13 @@ rel_create_table(mvc *sql, sql_schema *ss, int temp, const char *sname, const ch
 				return sql_error(sql, 02, SQLSTATE(42000) "CREATE TABLE: cannot register credentials for remote table '%s' in vault: %s", name, reg_credentials);
 			}
 			t = mvc_create_remote(sql, s, name, SQL_DECLARED_TABLE, loc);
+#else
+			(void) loc;
+			(void) username;
+			(void) password;
+			(void) pw_encrypted;
+			return sql_error(sql, 02, SQLSTATE(42S01) "No remote tables in MonetDBLite version :)");
+#endif
 		} else {
 			t = mvc_create_table(sql, s, name, tt, 0, SQL_DECLARED_TABLE, commit_action, -1, properties);
 		}

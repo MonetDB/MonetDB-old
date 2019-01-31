@@ -70,7 +70,6 @@ malOpenSource(str file)
 	return fd;
 }
 
-#ifndef HAVE_EMBEDDED
 /*
  * The malLoadScript routine merely reads the contents of a file into
  * the input buffer of the client. It is typically used in situations
@@ -106,7 +105,6 @@ malLoadScript(str name, bstream **fdin)
 	}
 	return MAL_SUCCEED;
 }
-#endif
 
 /*
  * Beware that we have to isolate the execution of the source file

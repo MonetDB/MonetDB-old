@@ -29,7 +29,7 @@
 #include "mal_dataflow.h"
 #include "mal_private.h"
 #include "mal_runtime.h"
-#include "mal_resource.h"
+#include "mal_interpreter.h"
 
 #define DFLOWpending 0		/* runnable */
 #define DFLOWrunning 1		/* currently in progress */
@@ -479,8 +479,10 @@ DFLOWworker(void *T)
 			MT_lock_set(&todo->l);
 			last = todo->last;
 			MT_lock_unset(&todo->l);
+#ifndef HAVE_EMBEDDED
 			if (last == 0)
 				profilerHeartbeatEvent("wait");
+#endif
 		}
 	}
 	GDKfree(GDKerrbuf);

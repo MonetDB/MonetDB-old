@@ -65,12 +65,10 @@ malBootstrap(const char *mal_init_data)
 	if ( (msg= c->curprg->def->errors) != MAL_SUCCEED ) {
 		error = createException(MAL, "malBootstrap", "Failed to initialise client: %s", msg);
 		freeException(msg);
-#ifndef HAVE_EMBEDDED
 		if( GDKerrbuf && GDKerrbuf[0]){
 			mnstr_printf(c->fdout,"!GDKerror: %s\n",GDKerrbuf);
 			mnstr_flush(c->fdout);
 		}
-#endif
 		return error;
 	}
 	msg = MALengine(c);
