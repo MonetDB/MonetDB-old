@@ -50,7 +50,7 @@ getConsoleInput(Client c, const char *prompt, int linemode, int exit_on_error)
 				return NULL;
 			}
 		}
-		if (mnstr_read(GDKin, buf, 1, BUFSIZ) > 0)
+		if (mnstr_read(GDKstdin, buf, 1, BUFSIZ) > 0)
 			line = buf;
 		else
 			line = NULL;

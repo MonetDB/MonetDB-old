@@ -484,13 +484,17 @@ main(int argc, char **av)
 	monet_script[i] = NULL;
 	if (!dbpath) {
 		dbpath = absolute_path(mo_find_option(set, setlen, "gdk_dbpath"));
-		if (dbpath == NULL || GDKcreatedir(dbpath) != GDK_SUCCEED) {
+		if (!dbpath) {
 			mnstr_printf(GDKerr, "!ERROR: cannot allocate memory for database directory \n");
 			exit(1);
 		}
 	}
 	BBPaddfarm(dbpath, 1 << PERSISTENT);
 	BBPaddfarm(dbextra ? dbextra : dbpath, 1 << TRANSIENT);
+	if (GDKcreatedir(dbpath) != GDK_SUCCEED) {
+		mnstr_printf(GDKerr, "!ERROR: cannot create database directory \n");
+		exit(1);
+	}
 	GDKfree(dbpath);
 	if (monet_init(set, setlen) == 0) {
 		mo_free_options(set, setlen);
