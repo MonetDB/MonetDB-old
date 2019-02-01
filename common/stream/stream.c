@@ -3716,6 +3716,7 @@ bs_write(stream *restrict ss, const void *restrict buf, size_t elmsize, size_t c
 			if (!mnstr_writeSht(s->s, (int16_t) blksize) ||
 			    s->s->write(s->s, s->buf, 1, s->nr) != (ssize_t) s->nr) {
 				ss->errnr = MNSTR_WRITE_ERROR;
+				s->nr = 0; /* data is lost due to error */
 				return -1;
 			}
 			s->blks++;
@@ -3768,6 +3769,7 @@ bs_flush(stream *ss)
 		     (s->nr > 0 &&
 		      s->s->write(s->s, s->buf, 1, s->nr) != (ssize_t) s->nr))) {
 			ss->errnr = MNSTR_WRITE_ERROR;
+			s->nr = 0; /* data is lost due to error */
 			return -1;
 		}
 		s->blks++;

@@ -614,8 +614,10 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 #endif
 					  , 0);
 		if (sock == INVALID_SOCKET) {
+			int e = errno;
 			GDKfree(psock);
 			GDKfree(usockfile);
+			errno = e;
 			throw(IO, "mal_mapi.listen",
 				  OPERATION_FAILED ": creation of stream socket failed: %s",
 #ifdef _MSC_VER
@@ -653,6 +655,7 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 		do {
 			server.sin_port = htons((unsigned short) ((port) & 0xFFFF));
 			if (bind(sock, (SOCKPTR) &server, length) == SOCKET_ERROR) {
+				int e = errno;
 				if (
 #ifdef _MSC_VER
 					WSAGetLastError() == WSAEADDRINUSE &&
@@ -670,6 +673,7 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 				closesocket(sock);
 				GDKfree(psock);
 				GDKfree(usockfile);
+				errno = e;
 				throw(IO, "mal_mapi.listen",
 					  OPERATION_FAILED ": bind to stream socket port %d "
 					  "failed: %s", port,
@@ -685,9 +689,11 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 		} while (1);
 
 		if (getsockname(sock, (SOCKPTR) &server, &length) == SOCKET_ERROR) {
+			int e = errno;
 			closesocket(sock);
 			GDKfree(psock);
 			GDKfree(usockfile);
+			errno = e;
 			throw(IO, "mal_mapi.listen",
 				  OPERATION_FAILED ": failed getting socket name: %s",
 #ifdef _MSC_VER
@@ -698,9 +704,11 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 				);
 		}
 		if(listen(sock, maxusers) == SOCKET_ERROR) {
+			int e = errno;
 			closesocket(sock);
 			GDKfree(psock);
 			GDKfree(usockfile);
+			errno = e;
 			throw(IO, "mal_mapi.listen",
 				  OPERATION_FAILED ": failed to set socket to listen %s",
 #ifdef _MSC_VER
@@ -719,8 +727,10 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 #endif
 					   , 0);
 		if (usock == INVALID_SOCKET ) {
+			int e = errno;
 			GDKfree(psock);
 			GDKfree(usockfile);
+			errno = e;
 			throw(IO, "mal_mapi.listen",
 				  OPERATION_FAILED ": creation of UNIX socket failed: %s",
 #ifdef _MSC_VER
@@ -761,9 +771,11 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 		}
 		if (bind(usock, (SOCKPTR) &userver, length) == SOCKET_ERROR) {
 			char *e;
+			int err = errno;
 			closesocket(usock);
 			(void) remove(usockfile);
 			GDKfree(psock);
+			errno = err;
 			e = createException(IO, "mal_mapi.listen",
 								OPERATION_FAILED
 								": binding to UNIX socket file %s failed: %s",
@@ -779,9 +791,11 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 		}
 		if(listen(usock, maxusers) == SOCKET_ERROR) {
 			char *e;
+			int err = errno;
 			closesocket(usock);
 			(void) remove(usockfile);
 			GDKfree(psock);
+			errno = err;
 			e = createException(IO, "mal_mapi.listen",
 								OPERATION_FAILED
 								": setting UNIX socket file %s to listen failed: %s",

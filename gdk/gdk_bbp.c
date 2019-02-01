@@ -316,14 +316,13 @@ BBPinithash(int j)
 }
 
 int
-BBPselectfarm(int role, int type, enum heaptype hptype)
+BBPselectfarm(role_t role, int type, enum heaptype hptype)
 {
 	int i;
 
 	(void) type;		/* may use in future */
 	(void) hptype;		/* may use in future */
 
-	assert(role >= 0 && role < 32);
 	if (GDKinmemory())
 		return 0;
 
@@ -336,7 +335,7 @@ BBPselectfarm(int role, int type, enum heaptype hptype)
 		role = TRANSIENT;
 #endif
 	for (i = 0; i < MAXFARMS; i++)
-		if (BBPfarms[i].dirname && BBPfarms[i].roles & (1 << role))
+		if (BBPfarms[i].dirname && BBPfarms[i].roles & (1 << (int) role))
 			return i;
 	/* must be able to find farms for TRANSIENT and PERSISTENT */
 	assert(role != TRANSIENT && role != PERSISTENT);
@@ -772,7 +771,7 @@ BBPreadEntries(FILE *fp, unsigned bbpversion)
 		bn->batCacheid = bid;
 		if (BATroles(bn, NULL) != GDK_SUCCEED)
 			GDKfatal("BBPinit: BATroles failed.");
-		bn->batPersistence = PERSISTENT;
+		bn->batTransient = false;
 		bn->batCopiedtodisk = true;
 		bn->batRestricted = (properties & 0x06) >> 1;
 		bn->batCount = (BUN) count;
@@ -1495,7 +1494,7 @@ BBPdump(void)
 		}
 		mnstr_printf(GDKerr, " role: %s, persistence: %s\n",
 			b->batRole == PERSISTENT ? "persistent" : "transient",
-			b->batPersistence == PERSISTENT ? "persistent" : "transient");
+			b->batTransient ? "transient" : "persistent");
 	}
 	mnstr_printf(GDKerr,
 		"# %d bats: mem=%zu, vm=%zu %d cached bats: mem=%zu, vm=%zu\n",
@@ -1929,7 +1928,7 @@ BBPrename(bat bid, const char *nme)
 		BBP_insert(bid);
 	}
 	b->batDirtydesc = true;
-	if (b->batPersistence == PERSISTENT) {
+	if (!b->batTransient) {
 		bool lock = locked_by == 0 || locked_by != MT_getpid();
 
 		if (lock)
@@ -2385,7 +2384,7 @@ BBPsave(BAT *b)
 			flags |= BBPSWAPPED;
 			BBP_dirty = true;
 		}
-		if (b->batPersistence != PERSISTENT) {
+		if (b->batTransient) {
 			flags |= BBPTMP;
 		}
 		BBP_status_on(bid, flags, "BBPsave");
@@ -2808,7 +2807,7 @@ BBPbackup(BAT *b, bool subcommit)
 	if (BBPprepare(subcommit) != GDK_SUCCEED) {
 		return GDK_FAIL;
 	}
-	if (!b->batCopiedtodisk || b->batPersistence != PERSISTENT) {
+	if (!b->batCopiedtodisk || b->batTransient) {
 		return GDK_SUCCEED;
 	}
 	/* determine location dir and physical suffix */
