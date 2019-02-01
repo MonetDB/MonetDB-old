@@ -1745,13 +1745,9 @@ AS_VAR_IF([have_pcre], [no], [
 		[AC_MSG_RESULT([no]); have_gnuregex=no])
 ])
 
-AS_CASE([$enable_monetdb5-$have_pcre-$have_gnuregex],
-[yes-no-no], [
-	AC_MSG_ERROR([PCRE library or GNU regex library not found but required for MonetDB5])],
-[auto-no-no], [
-	enable_monetdb5=no
-	AS_VAR_IF([why_not_monetdb5], [], [
-		why_not_monetdb5="(PCRE library or GNU regex library not found but required for MonetDB5)"])])
+AS_VAR_IF([have_pcre], [no], [
+	AS_VAR_IF([have_gnuregex], [yes], [
+		AC_DEFINE([HAVE_LIBGNUREGEX], 1, [Define if you have the posix regex library])])])
 
 org_have_libxml2=yes
 have_libxml2=$org_have_libxml2
