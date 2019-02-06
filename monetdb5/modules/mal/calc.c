@@ -361,7 +361,11 @@ CMDvarEQ(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) cntxt;
 	(void) mb;
 
-	if (VARcalceq(&stk->stk[getArg(pci, 0)], &stk->stk[getArg(pci, 1)], &stk->stk[getArg(pci, 2)]) != GDK_SUCCEED)
+	if (VARcalceq(&stk->stk[getArg(pci, 0)],
+				  &stk->stk[getArg(pci, 1)],
+				  &stk->stk[getArg(pci, 2)],
+				  pci->argc == 3 ? false : *getArgReference_bit(stk, pci, 3)
+			) != GDK_SUCCEED)
 		return mythrow(MAL, "calc.==", OPERATION_FAILED);
 	return MAL_SUCCEED;
 }
@@ -374,7 +378,11 @@ CMDvarNE(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) cntxt;
 	(void) mb;
 
-	if (VARcalcne(&stk->stk[getArg(pci, 0)], &stk->stk[getArg(pci, 1)], &stk->stk[getArg(pci, 2)]) != GDK_SUCCEED)
+	if (VARcalcne(&stk->stk[getArg(pci, 0)],
+				  &stk->stk[getArg(pci, 1)],
+				  &stk->stk[getArg(pci, 2)],
+				  pci->argc == 3 ? false : *getArgReference_bit(stk, pci, 3)
+			) != GDK_SUCCEED)
 		return mythrow(MAL, "calc.!=", OPERATION_FAILED);
 	return MAL_SUCCEED;
 }
@@ -755,14 +763,14 @@ CALCmax_no_nil(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 static str
 CMDBATsumprod(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci,
-			  gdk_return (*sumprod)(void *, int, BAT *, BAT *, int, int, int),
+			  gdk_return (*sumprod)(void *, int, BAT *, BAT *, bool, bool, bool),
 			  const char *func)
 {
 	ValPtr ret = &stk->stk[getArg(pci, 0)];
 	bat bid = * getArgReference_bat(stk, pci, 1);
 	BAT *b;
 	BAT *s = NULL;
-	int nil_if_empty = 1;
+	bool nil_if_empty = true;
 	gdk_return r;
 
 	if ((b = BATdescriptor(bid)) == NULL)
@@ -784,7 +792,7 @@ CMDBATsumprod(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci,
 			}
 		}
 	}
-	r = (*sumprod)(VALget(ret), ret->vtype, b, s, 1, 1, nil_if_empty);
+	r = (*sumprod)(VALget(ret), ret->vtype, b, s, true, true, nil_if_empty);
 	BBPunfix(b->batCacheid);
 	if (s)
 		BBPunfix(s->batCacheid);
@@ -822,7 +830,8 @@ CMDBATstr_group_concat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bat bid = * getArgReference_bat(stk, pci, 1), ssid = 0;
 	BAT *b, *s = NULL, *sep = NULL;
 	BATiter bi;
-	int nil_if_empty = 1, next_argument = 2;
+	bool nil_if_empty = true;
+	int next_argument = 2;
 	str separator = ",";
 	gdk_return r;
 
@@ -840,7 +849,7 @@ CMDBATstr_group_concat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if(sep->ttype == TYPE_str) { /* the separator bat */
 			next_argument = 3;
 			bi = bat_iterator(sep);
-			separator = BUNtail(bi, 0);
+			separator = BUNtvar(bi, 0);
 		}
 	}
 
@@ -868,7 +877,7 @@ CMDBATstr_group_concat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 	}
 
-	r = BATstr_group_concat(ret, b, s, 1, 1, nil_if_empty, separator);
+	r = BATstr_group_concat(ret, b, s, true, true, nil_if_empty, separator);
 	BBPunfix(b->batCacheid);
 	if (sep)
 		BBPunfix(sep->batCacheid);

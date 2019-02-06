@@ -18,7 +18,8 @@
 #include "sql_scenario.h"
 #include "sql_mvc.h"
 #include "sql_qc.h"
-#include "sql_optimizer.h"
+#include "sql_partition.h"
+#include "sql_statistics.h"
 #include "mal_namespace.h"
 #include "opt_prelude.h"
 #include "querylog.h"
@@ -65,7 +66,7 @@ table_has_updates(sql_trans *tr, sql_table *t)
 		if ( b == 0)
 			return -1;
 		cnt |= BATcount(b) > 0;
-		if (isTable(t) && t->access != TABLE_READONLY && (t->base.flag != TR_NEW /* alter */ ) &&
+		if (isTable(t) && t->access != TABLE_READONLY && (!isNew(t) /* alter */ ) &&
 		    t->persistence == SQL_PERSIST && !t->commit_action)
 			cnt |= store_funcs.count_col(tr, c, 0) > 0;
 		BBPunfix(b->batCacheid);
@@ -74,63 +75,290 @@ table_has_updates(sql_trans *tr, sql_table *t)
 }
 
 static char *
-rel_check_tables(sql_table *nt, sql_table *nnt)
+rel_check_tables(sql_table *nt, sql_table *nnt, const char *errtable)
 {
-	node *n, *m;
+	node *n, *m, *nn, *mm;
 
 	if (cs_size(&nt->columns) != cs_size(&nnt->columns))
-		throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER MERGE TABLE: to be added table doesn't match MERGE TABLE definition");
+		throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER %s: to be added table doesn't match %s definition", errtable, errtable);
 	for (n = nt->columns.set->h, m = nnt->columns.set->h; n && m; n = n->next, m = m->next) {
 		sql_column *nc = n->data;
 		sql_column *mc = m->data;
 
 		if (subtype_cmp(&nc->type, &mc->type) != 0)
-			throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER MERGE TABLE: to be added table column type doesn't match MERGE TABLE definition");
-	}
-	if (cs_size(&nt->idxs) != cs_size(&nnt->idxs))
-		throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER MERGE TABLE: to be added table index doesn't match MERGE TABLE definition");
-	if (cs_size(&nt->idxs))
-		for (n = nt->idxs.set->h, m = nnt->idxs.set->h; n && m; n = n->next, m = m->next) {
-			sql_idx *ni = n->data;
-			sql_idx *mi = m->data;
-
-			if (ni->type != mi->type)
-				throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER MERGE TABLE: to be added table index type doesn't match MERGE TABLE definition");
+			throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER %s: to be added table column type doesn't match %s definition", errtable, errtable);
+		if(isRangePartitionTable(nt) || isListPartitionTable(nt)) {
+			if (nc->null != mc->null)
+				throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER %s: to be added table column NULL check doesn't match %s definition", errtable, errtable);
+			if ((!nc->def && mc->def) || (nc->def && !mc->def) || (nc->def && mc->def && strcmp(nc->def, mc->def) != 0))
+				throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER %s: to be added table column DEFAULT value doesn't match %s definition", errtable, errtable);
 		}
+	}
+	if(isNonPartitionedTable(nt)) {
+		if (cs_size(&nt->idxs) != cs_size(&nnt->idxs))
+			throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER %s: to be added table index doesn't match %s definition", errtable, errtable);
+		if (cs_size(&nt->idxs))
+			for (n = nt->idxs.set->h, m = nnt->idxs.set->h; n && m; n = n->next, m = m->next) {
+				sql_idx *ni = n->data;
+				sql_idx *mi = m->data;
+
+				if (ni->type != mi->type)
+					throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER %s: to be added table index type doesn't match %s definition", errtable, errtable);
+			}
+	} else { //for partitioned tables we allow indexes but the key set must be exactly the same
+		if (cs_size(&nt->keys) != cs_size(&nnt->keys))
+			throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER %s: to be added table key doesn't match %s definition", errtable, errtable);
+		if (cs_size(&nt->keys))
+			for (n = nt->keys.set->h, m = nnt->keys.set->h; n && m; n = n->next, m = m->next) {
+				sql_key *ni = n->data;
+				sql_key *mi = m->data;
+
+				if (ni->type != mi->type)
+					throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER %s: to be added table key type doesn't match %s definition", errtable, errtable);
+				if (list_length(ni->columns) != list_length(mi->columns))
+					throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER %s: to be added table key type doesn't match %s definition", errtable, errtable);
+				for (nn = ni->columns->h, mm = mi->columns->h; nn && mm; nn = nn->next, mm = mm->next) {
+					sql_kc *nni = nn->data;
+					sql_kc *mmi = mm->data;
+
+					if (nni->c->colnr != mmi->c->colnr)
+						throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER %s: to be added table key's columns doesn't match %s definition", errtable, errtable);
+				}
+			}
+	}
+
 	for(sql_table *up = nt->p ; up ; up = up->p) {
 		if(!strcmp(up->s->base.name, nnt->s->base.name) && !strcmp(up->base.name, nnt->base.name))
-			throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER MERGE TABLE: to be added table is a parent of the MERGE TABLE");
+			throw(SQL,"sql.rel_check_tables",SQLSTATE(3F000) "ALTER %s: to be added table is a parent of the %s", errtable, errtable);
 	}
 	return MAL_SUCCEED;
+}
+
+static char*
+validate_alter_table_add_table(mvc *sql, char* call, char *msname, char *mtname, char *psname, char *ptname,
+							   sql_table **mt, sql_table **pt, int update)
+{
+	sql_schema *ms = mvc_bind_schema(sql, msname), *ps = mvc_bind_schema(sql, psname);
+	sql_table *rmt = NULL, *rpt = NULL;
+
+	if (ms)
+		rmt = mvc_bind_table(sql, ms, mtname);
+	if (ps)
+		rpt = mvc_bind_table(sql, ps, ptname);
+	*mt = rmt;
+	*pt = rpt;
+	if (!update && rmt && (!isMergeTable(rmt) && !isReplicaTable(rmt)))
+		throw(SQL,call,SQLSTATE(42S02) "ALTER TABLE: cannot add table '%s.%s' to table '%s.%s'", psname, ptname, msname, mtname);
+	if (rmt && rpt) {
+		char *msg;
+		node *n = cs_find_id(&rmt->members, rpt->base.id);
+		const char *errtable = TABLE_TYPE_DESCRIPTION(rmt->type, rmt->properties);
+
+		if (n && !update)
+			throw(SQL,call,SQLSTATE(42S02) "ALTER TABLE: table '%s.%s' is already part of the %s '%s.%s'", psname, ptname, errtable, msname, mtname);
+		if (!n && update)
+			throw(SQL,call,SQLSTATE(42S02) "ALTER TABLE: table '%s.%s' isn't part of the %s '%s.%s'", psname, ptname, errtable, msname, mtname);
+		if ((msg = rel_check_tables(rmt, rpt, errtable)) != NULL)
+			return msg;
+		return MAL_SUCCEED;
+	} else if (rmt) {
+		throw(SQL,call,SQLSTATE(42S02) "ALTER TABLE: no such table '%s' in schema '%s'", ptname, psname);
+	} else {
+		throw(SQL,call,SQLSTATE(42S02) "ALTER TABLE: no such table '%s' in schema '%s'", mtname, msname);
+	}
 }
 
 static char *
 alter_table_add_table(mvc *sql, char *msname, char *mtname, char *psname, char *ptname)
 {
-	sql_schema *ms = mvc_bind_schema(sql, msname), *ps = mvc_bind_schema(sql, psname);
 	sql_table *mt = NULL, *pt = NULL;
+	str msg = validate_alter_table_add_table(sql, "sql.alter_table_add_table", msname, mtname, psname, ptname, &mt, &pt, 0);
 
-	if (ms)
-		mt = mvc_bind_table(sql, ms, mtname);
-	if (ps)
-		pt = mvc_bind_table(sql, ps, ptname);
-	if (mt && (mt->type != tt_merge_table && mt->type != tt_replica_table))
-		throw(SQL,"sql.alter_table_add_table",SQLSTATE(42S02) "ALTER TABLE: cannot add table '%s.%s' to table '%s.%s'", psname, ptname, msname, mtname);
-	if (mt && pt) {
-		char *msg;
-		node *n = cs_find_id(&mt->members, pt->base.id);
-
-		if (n)
-			throw(SQL,"alter_table_add_table",SQLSTATE(42S02) "ALTER TABLE: table '%s.%s' is already part of the MERGE TABLE '%s.%s'", psname, ptname, msname, mtname);
-		if ((msg = rel_check_tables(mt, pt)) != NULL)
-			return msg;
+	if(msg == MAL_SUCCEED)
 		sql_trans_add_table(sql->session->tr, mt, pt);
-	} else if (mt) {
-		throw(SQL,"sql.alter_table_add_table",SQLSTATE(42S02) "ALTER TABLE: no such table '%s' in schema '%s'", ptname, psname);
-	} else {
-		throw(SQL,"sql.alter_table_add_table",SQLSTATE(42S02) "ALTER TABLE: no such table '%s' in schema '%s'", mtname, msname);
+
+	return msg;
+}
+
+static char *
+alter_table_add_range_partition(mvc *sql, char *msname, char *mtname, char *psname, char *ptname, ptr min, ptr max,
+								int with_nills, int update)
+{
+	sql_table *mt = NULL, *pt = NULL;
+	sql_part *err = NULL;
+	str msg = MAL_SUCCEED, err_min = NULL, err_max = NULL, conflict_err_min = NULL, conflict_err_max = NULL;
+	int tp1 = 0, errcode = 0, min_null = 0, max_null = 0;
+	size_t length = 0;
+	ssize_t (*atomtostr)(str *, size_t *, const void *, bool);
+	sql_subtype tpe;
+
+	if((msg = validate_alter_table_add_table(sql, "sql.alter_table_add_range_partition", msname, mtname, psname, ptname,
+											 &mt, &pt, update))) {
+		return msg;
+	} else if(!isRangePartitionTable(mt)) {
+		msg = createException(SQL,"sql.alter_table_add_range_partition",SQLSTATE(42000)
+									"ALTER TABLE: cannot add range partition into a %s table",
+									(mt->type == tt_merge_table)?"merge":"list partition");
+		goto finish;
+	} else if(!update && pt->p) {
+		msg = createException(SQL,"sql.alter_table_add_range_partition",SQLSTATE(42000)
+							  "ALTER TABLE: table %s.%s is already part of another range partition table",
+							  psname, ptname);
+		goto finish;
 	}
-	return MAL_SUCCEED;
+
+	find_partition_type(&tpe, mt);
+	tp1 = tpe.type->localtype;
+	min_null = ATOMcmp(tp1, min, ATOMnilptr(tp1)) == 0;
+	max_null = ATOMcmp(tp1, max, ATOMnilptr(tp1)) == 0;
+	if(min_null || max_null)
+		with_nills = 1;
+
+	if(!max_null && min_null) {
+		msg = createException(SQL,"sql.alter_table_add_range_partition",SQLSTATE(42000) "ALTER TABLE: range bound cannot be null");
+		goto finish;
+	} else if(!min_null && max_null) {
+		msg = createException(SQL,"sql.alter_table_add_range_partition",SQLSTATE(42000) "ALTER TABLE: range bound cannot be null");
+		goto finish;
+	} else if(!with_nills && ATOMcmp(tp1, min, max) > 0) {
+		msg = createException(SQL,"sql.alter_table_add_range_partition",SQLSTATE(42000) "ALTER TABLE: minimum value is higher than maximum value");
+		goto finish;
+	}
+
+	errcode = sql_trans_add_range_partition(sql->session->tr, mt, pt, tpe, min, max, with_nills, update, &err);
+	switch(errcode) {
+		case 0:
+			break;
+		case -1:
+			msg = createException(SQL,"sql.alter_table_add_range_partition",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			break;
+		case -2:
+			msg = createException(SQL,"sql.alter_table_add_range_partition",SQLSTATE(42000)
+									"ALTER TABLE: minimum value length is higher than %d", STORAGE_MAX_VALUE_LENGTH);
+			break;
+		case -3:
+			msg = createException(SQL,"sql.alter_table_add_range_partition",SQLSTATE(42000)
+									"ALTER TABLE: maximum value length is higher than %d", STORAGE_MAX_VALUE_LENGTH);
+			break;
+		case -4:
+			assert(err);
+			if(with_nills && err->with_nills) {
+				msg = createException(SQL,"sql.alter_table_add_range_partition",SQLSTATE(42000)
+										"ALTER TABLE: conflicting partitions: table %s.%s stores null values and only "
+										"one partition can store null values at the time", err->t->s->base.name, err->t->base.name);
+			} else {
+				atomtostr = BATatoms[tp1].atomToStr;
+				if(atomtostr(&conflict_err_min, &length, err->part.range.minvalue, true) < 0) {
+					msg = createException(SQL,"sql.alter_table_add_range_partition",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+				} else if(atomtostr(&conflict_err_max, &length, err->part.range.maxvalue, true) < 0) {
+					msg = createException(SQL,"sql.alter_table_add_range_partition",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+				} else if(atomtostr(&err_min, &length, min, true) < 0) {
+					msg = createException(SQL,"sql.alter_table_add_range_partition",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+				} else if(atomtostr(&err_max, &length, max, true) < 0) {
+					msg = createException(SQL,"sql.alter_table_add_range_partition",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+				} else {
+					sql_table *errt = mvc_bind_table(sql, mt->s, err->base.name);
+					msg = createException(SQL,"sql.alter_table_add_range_partition",SQLSTATE(42000)
+									  "ALTER TABLE: conflicting partitions: %s to %s and %s to %s from table %s.%s",
+									  err_min, err_max, conflict_err_min, conflict_err_max, errt->s->base.name, errt->base.name);
+				}
+			}
+			break;
+		default:
+			assert(0);
+	}
+
+finish:
+	if(err_min)
+		GDKfree(err_min);
+	if(err_max)
+		GDKfree(err_max);
+	if(conflict_err_min)
+		GDKfree(conflict_err_min);
+	if(conflict_err_max)
+		GDKfree(conflict_err_max);
+	if(msg != MAL_SUCCEED)
+		pt->p = NULL;
+	return msg;
+}
+
+static char *
+alter_table_add_value_partition(mvc *sql, MalStkPtr stk, InstrPtr pci, char *msname, char *mtname, char *psname,
+								char *ptname, int with_nills, int update)
+{
+	sql_table *mt = NULL, *pt = NULL;
+	str msg = MAL_SUCCEED;
+	sql_part *err = NULL;
+	int errcode = 0, i = 0, ninserts = 0;
+	list *values = list_new(sql->session->tr->sa, (fdestroy) NULL);
+	sql_subtype tpe;
+
+	if((msg = validate_alter_table_add_table(sql, "sql.alter_table_add_value_partition", msname, mtname, psname, ptname,
+											 &mt, &pt, update))) {
+		return msg;
+	} else if(!isListPartitionTable(mt)) {
+		msg = createException(SQL,"sql.alter_table_add_value_partition",SQLSTATE(42000)
+									"ALTER TABLE: cannot add value partition into a %s table",
+									(mt->type == tt_merge_table)?"merge":"range partition");
+		goto finish;
+	} else if(!update && pt->p) {
+		msg = createException(SQL,"sql.alter_table_add_value_partition",SQLSTATE(42000)
+							  "ALTER TABLE: table %s.%s is already part of another list partition table",
+							  psname, ptname);
+		goto finish;
+	}
+
+	find_partition_type(&tpe, mt);
+	ninserts = pci->argc - pci->retc - 6;
+	if(ninserts <= 0 && !with_nills) {
+		msg = createException(SQL,"sql.alter_table_add_value_partition",SQLSTATE(42000) "ALTER TABLE: no values in the list");
+		goto finish;
+	}
+	for( i = pci->retc+6; i < pci->argc; i++){
+		sql_part_value *nextv = NULL;
+		ValRecord *vnext = &(stk)->stk[(pci)->argv[i]];
+		ptr pnext = VALget(vnext);
+		size_t len = ATOMlen(vnext->vtype, pnext);
+
+		if(VALisnil(vnext)) { /* check for an eventual null value which cannot be */
+			msg = createException(SQL,"sql.alter_table_add_value_partition",SQLSTATE(42000)
+																			"ALTER TABLE: list value cannot be null");
+			goto finish;
+		}
+
+		nextv = SA_ZNEW(sql->session->tr->sa, sql_part_value); /* instantiate the part value */
+		nextv->tpe = tpe;
+		nextv->value = sa_alloc(sql->session->tr->sa, len);
+		memcpy(nextv->value, pnext, len);
+		nextv->length = len;
+
+		if(list_append_sorted(values, nextv, sql_values_list_element_validate_and_insert) != NULL) {
+			msg = createException(SQL,"sql.alter_table_add_value_partition",SQLSTATE(42000)
+									"ALTER TABLE: there are duplicated values in the list");
+			goto finish;
+		}
+	}
+
+	errcode = sql_trans_add_value_partition(sql->session->tr, mt, pt, tpe, values, with_nills, update, &err);
+	switch(errcode) {
+		case 0:
+			break;
+		case -1:
+			msg = createException(SQL,"sql.alter_table_add_value_partition",SQLSTATE(42000)
+									"ALTER TABLE: the new partition is conflicting with the existing partition %s.%s",
+									err->t->s->base.name, err->t->base.name);
+			break;
+		default:
+			msg = createException(SQL,"sql.alter_table_add_value_partition",SQLSTATE(42000)
+									"ALTER TABLE: value at position %d length is higher than %d",
+									(errcode * -1) - 1, STORAGE_MAX_VALUE_LENGTH);
+			break;
+	}
+
+finish:
+	if(msg != MAL_SUCCEED)
+		pt->p = NULL;
+	return msg;
 }
 
 static char *
@@ -159,7 +387,7 @@ alter_table_del_table(mvc *sql, char *msname, char *mtname, char *psname, char *
 }
 
 static char *
-alter_table_set_access(mvc *sql, char *sname, char *tname, int access)
+alter_table_set_access(Client cntxt, mvc *sql, char *sname, char *tname, int access)
 {
 	sql_schema *s = mvc_bind_schema(sql, sname);
 	sql_table *t = NULL;
@@ -167,13 +395,15 @@ alter_table_set_access(mvc *sql, char *sname, char *tname, int access)
 	if (s)
 		t = mvc_bind_table(sql, s, tname);
 	if (t) {
-		if (t->type == tt_merge_table)
+		if (isMergeTable(t))
 			throw(SQL,"sql.alter_table_set_access",SQLSTATE(42S02) "ALTER TABLE: read only MERGE TABLES are not supported");
 		if (t->access != access) {
 			if (access && table_has_updates(sql->session->tr, t))
 				throw(SQL,"sql.alter_table_set_access",SQLSTATE(40000) "ALTER TABLE: set READ or INSERT ONLY not possible with outstanding updates (wait until updates are flushed)\n");
 
 			mvc_access(sql, t, access);
+			if (access == 0)
+				sql_drop_statistics(cntxt, t);
 		}
 	} else {
 		throw(SQL,"sql.alter_table_set_access",SQLSTATE(42S02) "ALTER TABLE: no such table '%s' in schema '%s'", tname, sname);
@@ -409,7 +639,7 @@ create_seq(mvc *sql, char *sname, char *seqname, sql_sequence *seq)
 	} else if (!mvc_schema_privs(sql, s)) {
 		throw(SQL,"sql.create_seq", SQLSTATE(42000) "CREATE SEQUENCE: insufficient privileges for '%s' in schema '%s'", stack_get_string(sql, "current_user"), s->base.name);
 	} else if (is_lng_nil(seq->start) || is_lng_nil(seq->minvalue) || is_lng_nil(seq->maxvalue) ||
-			   is_lng_nil(seq->increment) || is_lng_nil(seq->cacheinc) || is_lng_nil(seq->cycle)) {
+			   is_lng_nil(seq->increment) || is_lng_nil(seq->cacheinc) || is_bit_nil(seq->cycle)) {
 		throw(SQL,"sql.create_seq", SQLSTATE(42000) "CREATE SEQUENCE: sequence properties must be non-NULL");
 	}
 	sql_trans_create_sequence(sql->session->tr, s, seq->base.name, seq->start, seq->minvalue, seq->maxvalue, seq->increment, seq->cacheinc, seq->cycle, seq->bedropped);
@@ -465,7 +695,7 @@ drop_seq(mvc *sql, char *sname, char *name)
 }
 
 static str
-drop_func(mvc *sql, char *sname, char *name, int fid, int type, int action)
+drop_func(mvc *sql, char *sname, char *name, sqlid fid, int type, int action)
 {
 	sql_schema *s = NULL;
 	char is_aggr = (type == F_AGGR);
@@ -535,7 +765,7 @@ create_func(mvc *sql, char *sname, char *fname, sql_func *f)
 		throw(SQL,"sql.create_func", SQLSTATE(3F000) "CREATE %s%s: no such schema '%s'", KF, F, sname);
 	if (!s)
 		s = cur_schema(sql);
-	nf = mvc_create_func(sql, NULL, s, f->base.name, f->ops, f->res, f->type, f->lang, f->mod, f->imp, f->query, f->varres, f->vararg);
+	nf = mvc_create_func(sql, NULL, s, f->base.name, f->ops, f->res, f->type, f->lang, f->mod, f->imp, f->query, f->varres, f->vararg, f->system);
 	if (nf && nf->query && nf->lang <= FUNC_LANG_SQL) {
 		char *buf;
 		sql_rel *r = NULL;
@@ -712,6 +942,9 @@ alter_table(Client cntxt, mvc *sql, char *sname, sql_table *t)
 		/* alter add key */
 		for (n = t->keys.nelm; n; n = n->next) {
 			sql_key *k = n->data;
+			str err;
+			if((err = sql_partition_validate_key(sql, t, k, "ALTER")))
+				return err;
 			mvc_copy_key(sql, nt, k);
 		}
 	}
@@ -769,7 +1002,7 @@ SQLcreate_schema(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg = MAL_SUCCEED;
 	str sname = *getArgReference_str(stk, pci, 1);
 	str name = SaveArgReference(stk, pci, 2);
-	int auth_id;
+	sqlid auth_id;
 
 	initcontext();
 	auth_id = sql->role_id;
@@ -827,12 +1060,12 @@ SQLcreate_table(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {	mvc *sql = NULL;
 	str msg;
 	str sname = *getArgReference_str(stk, pci, 1);
-	str tname = *getArgReference_str(stk, pci, 2); 
+	//str tname = *getArgReference_str(stk, pci, 2);
 	sql_table *t = *(sql_table **) getArgReference(stk, pci, 3);
 	int temp = *getArgReference_int(stk, pci, 4);
 
 	initcontext();
-	msg = create_table_or_view(sql, sname, tname, t, temp);
+	msg = create_table_or_view(sql, sname, t->base.name, t, temp);
 	return msg;
 }
 
@@ -841,12 +1074,12 @@ SQLcreate_view(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {	mvc *sql = NULL;
 	str msg;
 	str sname = *getArgReference_str(stk, pci, 1);
-	str vname = *getArgReference_str(stk, pci, 2); 
+	//str vname = *getArgReference_str(stk, pci, 2);
 	sql_table *t = *(sql_table **) getArgReference(stk, pci, 3);
 	int temp = *getArgReference_int(stk, pci, 4);
 
 	initcontext();
-	msg = create_table_or_view(sql, sname, vname, t, temp);
+	msg = create_table_or_view(sql, sname, t->base.name, t, temp);
 	return msg;
 }
 
@@ -954,7 +1187,7 @@ SQLgrant_roles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg;
 	str sname = *getArgReference_str(stk, pci, 1); 
 	char *auth = SaveArgReference(stk, pci, 2);
-	int grantor = *getArgReference_int(stk, pci, 3);
+	sqlid grantor = (sqlid) *getArgReference_int(stk, pci, 3);
 	int admin = *getArgReference_int(stk, pci, 4);
 
 	initcontext();
@@ -968,7 +1201,7 @@ SQLrevoke_roles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg;
 	str sname = *getArgReference_str(stk, pci, 1); 
 	char *auth = SaveArgReference(stk, pci, 2);
-	int grantor = *getArgReference_int(stk, pci, 3);
+	sqlid grantor = (sqlid) *getArgReference_int(stk, pci, 3);
 	int admin = *getArgReference_int(stk, pci, 4);
 
 	initcontext();
@@ -986,7 +1219,7 @@ SQLgrant(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int privs = *getArgReference_int(stk, pci, 4);
 	char *cname = SaveArgReference(stk, pci, 5);
 	int grant = *getArgReference_int(stk, pci, 6);
-	int grantor = *getArgReference_int(stk, pci, 7);
+	sqlid grantor = (sqlid) *getArgReference_int(stk, pci, 7);
 
 	initcontext();
 	if (!tname || strcmp(tname, str_nil) == 0)
@@ -1005,7 +1238,7 @@ str SQLrevoke(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int privs = *getArgReference_int(stk, pci, 4);
 	char *cname = SaveArgReference(stk, pci, 5);
 	int grant = *getArgReference_int(stk, pci, 6);
-	int grantor = *getArgReference_int(stk, pci, 7);
+	sqlid grantor = (sqlid) *getArgReference_int(stk, pci, 7);
 
 	initcontext();
 	if (!tname || strcmp(tname, str_nil) == 0)
@@ -1019,12 +1252,12 @@ str
 SQLgrant_function(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) 
 {	mvc *sql = NULL;
 	str msg;
-	str sname = *getArgReference_str(stk, pci, 1); 
-	int func_id = *getArgReference_int(stk, pci, 2);
+	str sname = *getArgReference_str(stk, pci, 1);
+	sqlid func_id = (sqlid) *getArgReference_int(stk, pci, 2);
 	char *grantee = *getArgReference_str(stk, pci, 3);
 	int privs = *getArgReference_int(stk, pci, 4);
 	int grant = *getArgReference_int(stk, pci, 5);
-	int grantor = *getArgReference_int(stk, pci, 6);
+	sqlid grantor = (sqlid) *getArgReference_int(stk, pci, 6);
 
 	initcontext();
 	msg = sql_grant_func_privs(sql, grantee, privs, sname, func_id, grant, grantor);
@@ -1035,12 +1268,12 @@ str
 SQLrevoke_function(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) 
 {	mvc *sql = NULL;
 	str msg;
-	str sname = *getArgReference_str(stk, pci, 1); 
-	int func_id = *getArgReference_int(stk, pci, 2);
+	str sname = *getArgReference_str(stk, pci, 1);
+	sqlid func_id = (sqlid) *getArgReference_int(stk, pci, 2);
 	char *grantee = *getArgReference_str(stk, pci, 3);
 	int privs = *getArgReference_int(stk, pci, 4);
 	int grant = *getArgReference_int(stk, pci, 5);
-	int grantor = *getArgReference_int(stk, pci, 6);
+	sqlid grantor = (sqlid) *getArgReference_int(stk, pci, 6);
 
 	initcontext();
 	msg = sql_revoke_func_privs(sql, grantee, privs, sname, func_id, grant, grantor);
@@ -1107,7 +1340,7 @@ SQLcreate_role(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg;
 	str sname = *getArgReference_str(stk, pci, 1); 
 	char *role = sname;
-	int grantor = *getArgReference_int(stk, pci, 3);
+	sqlid grantor = (sqlid)*getArgReference_int(stk, pci, 3);
 
 	initcontext();
 	msg = sql_create_role(sql, role, grantor);
@@ -1144,7 +1377,7 @@ SQLdrop_function(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg;
 	str sname = *getArgReference_str(stk, pci, 1); 
 	char *fname = *getArgReference_str(stk, pci, 2);
-	int fid = *getArgReference_int(stk, pci, 3);
+	sqlid fid = (sqlid)*getArgReference_int(stk, pci, 3);
 	int type = *getArgReference_int(stk, pci, 4);
 	int action = *getArgReference_int(stk, pci, 5);
 
@@ -1217,6 +1450,40 @@ SQLalter_add_table(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
+SQLalter_add_range_partition(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{	mvc *sql = NULL;
+	str msg;
+	str sname = *getArgReference_str(stk, pci, 1);
+	char *mtname = SaveArgReference(stk, pci, 2);
+	char *psname = SaveArgReference(stk, pci, 3);
+	char *ptname = SaveArgReference(stk, pci, 4);
+	ValRecord *min = &(stk)->stk[(pci)->argv[5]];
+	ValRecord *max = &(stk)->stk[(pci)->argv[6]];
+	int with_nills = *getArgReference_int(stk, pci, 7);
+	int update = *getArgReference_int(stk, pci, 8);
+
+	initcontext();
+	msg = alter_table_add_range_partition(sql, sname, mtname, psname, ptname, VALget(min), VALget(max), with_nills, update);
+	return msg;
+}
+
+str
+SQLalter_add_value_partition(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{	mvc *sql = NULL;
+	str msg;
+	str sname = *getArgReference_str(stk, pci, 1);
+	char *mtname = SaveArgReference(stk, pci, 2);
+	char *psname = SaveArgReference(stk, pci, 3);
+	char *ptname = SaveArgReference(stk, pci, 4);
+	int with_nills = *getArgReference_int(stk, pci, 5);
+	int update = *getArgReference_int(stk, pci, 6);
+
+	initcontext();
+	msg = alter_table_add_value_partition(sql, stk, pci, sname, mtname, psname, ptname, with_nills, update);
+	return msg;
+}
+
+str
 SQLalter_del_table(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) 
 {	mvc *sql = NULL;
 	str msg;
@@ -1240,7 +1507,7 @@ SQLalter_set_table(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int access = *getArgReference_int(stk, pci, 3);
 
 	initcontext();
-	msg = alter_table_set_access(sql, sname, tname, access);
+	msg = alter_table_set_access(cntxt, sql, sname, tname, access);
 
 	return msg;
 }
@@ -1250,7 +1517,7 @@ SQLcomment_on(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	mvc *sql = NULL;
 	str msg;
-	int objid = *getArgReference_int(stk, pci, 1);
+	sqlid objid = (sqlid) *getArgReference_int(stk, pci, 1);
 	char *remark = *getArgReference_str(stk, pci, 2);
 	sql_trans *tx;
 	sql_schema *sys;
@@ -1294,4 +1561,105 @@ SQLcomment_on(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (ok != LOG_OK)
 		throw(SQL, "sql.comment_on", SQLSTATE(3F000) "operation failed");
 	return MAL_SUCCEED;
+}
+
+str
+SQLrename_schema(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	mvc *sql = NULL;
+	str msg = MAL_SUCCEED;
+	str old_name = *getArgReference_str(stk, pci, 1);
+	str new_name = *getArgReference_str(stk, pci, 2);
+	sql_schema *s;
+
+	initcontext();
+	if (!(s = mvc_bind_schema(sql, old_name)))
+		throw(SQL, "sql.rename_schema", SQLSTATE(42S02) "ALTER SCHEMA: no such schema '%s'", old_name);
+	if (!mvc_schema_privs(sql, s))
+		throw(SQL, "sql.rename_schema", SQLSTATE(3F000) "ALTER SCHEMA: access denied for %s to schema '%s'", stack_get_string(sql, "current_user"), old_name);
+	if (s->system)
+		throw(SQL, "sql.rename_schema", SQLSTATE(3F000) "ALTER SCHEMA: cannot rename a system schema");
+	if (!list_empty(s->tables.set) || !list_empty(s->types.set) || !list_empty(s->funcs.set) || !list_empty(s->seqs.set))
+		throw(SQL, "sql.rename_schema", SQLSTATE(2BM37) "ALTER SCHEMA: unable to rename schema '%s' (there are database objects which depend on it)", old_name);
+	if (!new_name || strcmp(new_name, str_nil) == 0 || *new_name == '\0')
+		throw(SQL, "sql.rename_schema", SQLSTATE(3F000) "ALTER SCHEMA: invalid new schema name");
+	if (mvc_bind_schema(sql, new_name))
+		throw(SQL, "sql.rename_schema", SQLSTATE(3F000) "ALTER SCHEMA: there is a schema named '%s' in the database", new_name);
+
+	if (!sql_trans_rename_schema(sql->session->tr, s->base.id, new_name))
+		throw(SQL, "sql.rename_schema",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	if (s == cur_schema(sql))
+		if(!mvc_set_schema(sql, new_name))
+			throw(SQL, "sql.rename_schema",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	return msg;
+}
+
+str
+SQLrename_table(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	mvc *sql = NULL;
+	str msg = MAL_SUCCEED;
+	str schema_name = *getArgReference_str(stk, pci, 1);
+	str old_name = *getArgReference_str(stk, pci, 2);
+	str new_name = *getArgReference_str(stk, pci, 3);
+	sql_schema *s;
+	sql_table *t;
+
+	initcontext();
+	if (!(s = mvc_bind_schema(sql, schema_name)))
+		throw(SQL, "sql.rename_table", SQLSTATE(42S02) "ALTER TABLE: no such schema '%s'", schema_name);
+	if (!mvc_schema_privs(sql, s))
+		throw(SQL, "sql.rename_table", SQLSTATE(42000) "ALTER TABLE: access denied for %s to schema '%s'", stack_get_string(sql, "current_user"), schema_name);
+	if (!(t = mvc_bind_table(sql, s, old_name)))
+		throw(SQL, "sql.rename_table", SQLSTATE(42S02) "ALTER TABLE: no such table '%s' in schema '%s'", old_name, schema_name);
+	if (t->system)
+		throw(SQL, "sql.rename_table", SQLSTATE(42000) "ALTER TABLE: cannot rename a system table");
+	if (mvc_check_dependency(sql, t->base.id, TABLE_DEPENDENCY, NULL))
+		throw (SQL,"sql.rename_table", SQLSTATE(2BM37) "ALTER TABLE: unable to rename table '%s' (there are database objects which depend on it)", old_name);
+	if (!new_name || strcmp(new_name, str_nil) == 0 || *new_name == '\0')
+		throw(SQL, "sql.rename_table", SQLSTATE(3F000) "ALTER TABLE: invalid new table name");
+	if (mvc_bind_table(sql, s, new_name))
+		throw(SQL, "sql.rename_table", SQLSTATE(3F000) "ALTER TABLE: there is a table named '%s' in schema '%s'", new_name, schema_name);
+
+	if (!sql_trans_rename_table(sql->session->tr, s, t->base.id, new_name))
+		throw(SQL, "sql.rename_table",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	return msg;
+}
+
+str
+SQLrename_column(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	mvc *sql = NULL;
+	str msg = MAL_SUCCEED;
+	str schema_name = *getArgReference_str(stk, pci, 1);
+	str table_name = *getArgReference_str(stk, pci, 2);
+	str old_name = *getArgReference_str(stk, pci, 3);
+	str new_name = *getArgReference_str(stk, pci, 4);
+	sql_schema *s;
+	sql_table *t;
+	sql_column *col;
+
+	initcontext();
+	if (!(s = mvc_bind_schema(sql, schema_name)))
+		throw(SQL, "sql.rename_column", SQLSTATE(42S02) "ALTER TABLE: no such schema '%s'", schema_name);
+	if (!mvc_schema_privs(sql, s))
+		throw(SQL, "sql.rename_column", SQLSTATE(42000) "ALTER TABLE: access denied for %s to schema '%s'", stack_get_string(sql, "current_user"), schema_name);
+	if (!(t = mvc_bind_table(sql, s, table_name)))
+		throw(SQL, "sql.rename_column", SQLSTATE(42S02) "ALTER TABLE: no such table '%s' in schema '%s'", table_name, schema_name);
+	if (t->system)
+		throw(SQL, "sql.rename_column", SQLSTATE(42000) "ALTER TABLE: cannot rename a column in a system table");
+	if (isView(t))
+		throw(SQL, "sql.rename_column", SQLSTATE(42000) "ALTER TABLE: cannot rename column '%s': '%s' is a view", old_name, table_name);
+	if (!(col = mvc_bind_column(sql, t, old_name)))
+		throw(SQL, "sql.rename_column", SQLSTATE(42S22) "ALTER TABLE: no such column '%s' in table '%s'", old_name, table_name);
+	if (mvc_check_dependency(sql, col->base.id, COLUMN_DEPENDENCY, NULL))
+		throw(SQL, "sql.rename_column", SQLSTATE(2BM37) "ALTER TABLE: cannot rename column '%s' (there are database objects which depend on it)", old_name);
+	if (!new_name || strcmp(new_name, str_nil) == 0 || *new_name == '\0')
+		throw(SQL, "sql.rename_column", SQLSTATE(3F000) "ALTER TABLE: invalid new column name");
+	if (mvc_bind_column(sql, t, new_name))
+		throw(SQL, "sql.rename_column", SQLSTATE(3F000) "ALTER TABLE: there is a column named '%s' in table '%s'", new_name, table_name);
+
+	if (!sql_trans_rename_column(sql->session->tr, t, old_name, new_name))
+		throw(SQL, "sql.rename_column",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	return msg;
 }

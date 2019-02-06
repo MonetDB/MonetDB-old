@@ -28,6 +28,7 @@
 #include <time.h>
 #include <string.h> /* for getting error messages */
 #include <stddef.h>
+#include <ctype.h>
 
 #include "msabaoth.h"
 #include "mutils.h"
@@ -106,7 +107,7 @@ msab_isuuid(const char *restrict s)
 		return 0;
 	/* only hexadecimals and hypens */
 	while (*s) {
-		if (!('a' <= *s && *s <= 'f') && !('0' <= *s && *s <= '9')) {
+		if (!isxdigit((unsigned char) *s)) {
 			if (*s == '-')
 				hyphens++;
 			else
@@ -326,9 +327,9 @@ msab_retreatScenario(const char *lang)
 				rewind(f);
 				len = strlen(buf) + 1;
 				if (fwrite(buf, 1, len, f) < len) {
-					(void)fclose(f);
 					snprintf(buf, sizeof(buf), "failed to write: %s (%s)",
 							strerror(errno), pathbuf);
+					(void)fclose(f);
 					return(strdup(buf));
 				}
 				fflush(f);
@@ -832,10 +833,11 @@ msab_getUplogInfo(sabuplog *ret, const sabdb *db)
 	memset(avg30, 0, sizeof(int) * 30);
 
 	/* clear the struct */
-	memset(ret, 0, sizeof(sabuplog));
-	ret->minuptime = -1;
-	ret->lastcrash = -1;
-	ret->laststop = -1;
+	*ret = (sabuplog) {
+		.minuptime = -1,
+		.lastcrash = -1,
+		.laststop = -1,
+	};
 
 	snprintf(log, sizeof(log), "%s/%s", db->path, UPLOGFILE);
 	if ((f = fopen(log, "r")) != NULL) {

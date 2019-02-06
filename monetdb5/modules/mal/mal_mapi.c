@@ -131,7 +131,7 @@ doChallenge(void *data)
 #ifdef DEBUG_SERVER
 	Client cntxt= mal_clients;
 #endif
-	char *buf = (char *) GDKmalloc(BLOCK + 1);
+	char *buf = GDKmalloc(BLOCK + 1);
 	char challenge[13];
 
 	stream *fdin = ((struct challengedata *) data)->in;
@@ -140,14 +140,12 @@ doChallenge(void *data)
 	ssize_t len = 0;
 	protocol_version protocol = PROTOCOL_9;
 	size_t buflen = BLOCK;
-	column_compression colcomp = COLUMN_COMPRESSION_NONE;
-	int compute_column_widths = 0;
 
 #ifdef _MSC_VER
 	srand((unsigned int) GDKusec());
 #endif
 	GDKfree(data);
-	if (buf == NULL){
+	if (buf == NULL) {
 		close_stream(fdin);
 		close_stream(fdout);
 		return;
@@ -198,10 +196,6 @@ doChallenge(void *data)
 		buflen = atol(buflenstr);
 		if (buflenstrend) buflenstrend[0] = ':';
 
-		if (strstr(buf, "COMPUTECOLWIDTH")) {
-			compute_column_widths = 1;
-		}
-
 		if (buflen < BLOCK) {
 			mnstr_printf(fdout, "!buffer size needs to be set and bigger than %d\n", BLOCK);
 			close_stream(fdin);
@@ -241,20 +235,17 @@ doChallenge(void *data)
 		{
 			// convert the block_stream into a block_stream2
 			stream *from, *to;
-			from = bs_stealstream(fdin);
-			to = bs_stealstream(fdout);
-			close_stream(fdin);
-			close_stream(fdout);
-			fdin = block_stream2(from, buflen, comp, colcomp);
-			fdout = block_stream2(to, buflen, comp, colcomp);
-		}
-
-		if (fdin == NULL || fdout == NULL) {
-			GDKsyserror("SERVERlisten:"MAL_MALLOC_FAIL);
-			close_stream(fdin);
-			close_stream(fdout);
-			GDKfree(buf);
-			return;
+			from = block_stream2(fdin, buflen, comp);
+			to = block_stream2(fdout, buflen, comp);
+			if (from == NULL || to == NULL) {
+				GDKsyserror("SERVERlisten:"MAL_MALLOC_FAIL);
+				close_stream(fdin);
+				close_stream(fdout);
+				GDKfree(buf);
+				return;
+			}
+			fdin = from;
+			fdout = to;
 		}
 	}
 
@@ -275,8 +266,8 @@ doChallenge(void *data)
 		GDKsyserror("SERVERlisten:"MAL_MALLOC_FAIL);
 		return;
 	}
-	bs->eof = 1;
-	MSscheduleClient(buf, challenge, bs, fdout, protocol, buflen, compute_column_widths);
+	bs->eof = true;
+	MSscheduleClient(buf, challenge, bs, fdout, protocol, buflen);
 }
 
 static volatile ATOMIC_TYPE nlistener = 0; /* nr of listeners */
@@ -420,7 +411,7 @@ SERVERlistenThread(SOCKET *Sock)
 				continue;
 			}
 
-			switch (*buf) {
+			switch (buf[0]) {
 				case '0':
 					/* nothing special, nothing to do */
 				break;
@@ -465,8 +456,8 @@ SERVERlistenThread(SOCKET *Sock)
 			showException(GDKstdout, MAL, "initClient", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			continue;
 		}
-		data->in = socket_rastream(msgsock, "Server read");
-		data->out = socket_wastream(msgsock, "Server write");
+		data->in = socket_rstream(msgsock, "Server read");
+		data->out = socket_wstream(msgsock, "Server write");
 		if (data->in == NULL || data->out == NULL) {
 		  stream_alloc_fail:
 			mnstr_destroy(data->in);
@@ -487,7 +478,7 @@ SERVERlistenThread(SOCKET *Sock)
 			goto stream_alloc_fail;
 		}
 		data->out = s;
-		if (MT_create_thread(&tid, doChallenge, data, MT_THR_DETACHED)) {
+		if ((tid = THRcreate(doChallenge, data, MT_THR_DETACHED, "doChallenge")) == 0) {
 			mnstr_destroy(data->in);
 			mnstr_destroy(data->out);
 			GDKfree(data);
@@ -553,8 +544,8 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 	struct sockaddr_in server;
 	SOCKET sock = INVALID_SOCKET;
 	SOCKET *psock;
-	char accept_any = 0;
-	char autosense = 0;
+	bool accept_any = false;
+	bool autosense = false;
 #ifdef HAVE_SYS_UN_H
 	struct sockaddr_un userver;
 	SOCKET usock = INVALID_SOCKET;
@@ -622,8 +613,10 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 #endif
 					  , 0);
 		if (sock == INVALID_SOCKET) {
+			int e = errno;
 			GDKfree(psock);
 			GDKfree(usockfile);
+			errno = e;
 			throw(IO, "mal_mapi.listen",
 				  OPERATION_FAILED ": creation of stream socket failed: %s",
 #ifdef _MSC_VER
@@ -661,6 +654,7 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 		do {
 			server.sin_port = htons((unsigned short) ((port) & 0xFFFF));
 			if (bind(sock, (SOCKPTR) &server, length) == SOCKET_ERROR) {
+				int e = errno;
 				if (
 #ifdef _MSC_VER
 					WSAGetLastError() == WSAEADDRINUSE &&
@@ -678,6 +672,7 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 				closesocket(sock);
 				GDKfree(psock);
 				GDKfree(usockfile);
+				errno = e;
 				throw(IO, "mal_mapi.listen",
 					  OPERATION_FAILED ": bind to stream socket port %d "
 					  "failed: %s", port,
@@ -693,9 +688,11 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 		} while (1);
 
 		if (getsockname(sock, (SOCKPTR) &server, &length) == SOCKET_ERROR) {
+			int e = errno;
 			closesocket(sock);
 			GDKfree(psock);
 			GDKfree(usockfile);
+			errno = e;
 			throw(IO, "mal_mapi.listen",
 				  OPERATION_FAILED ": failed getting socket name: %s",
 #ifdef _MSC_VER
@@ -706,9 +703,11 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 				);
 		}
 		if(listen(sock, maxusers) == SOCKET_ERROR) {
+			int e = errno;
 			closesocket(sock);
 			GDKfree(psock);
 			GDKfree(usockfile);
+			errno = e;
 			throw(IO, "mal_mapi.listen",
 				  OPERATION_FAILED ": failed to set socket to listen %s",
 #ifdef _MSC_VER
@@ -727,8 +726,10 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 #endif
 					   , 0);
 		if (usock == INVALID_SOCKET ) {
+			int e = errno;
 			GDKfree(psock);
 			GDKfree(usockfile);
+			errno = e;
 			throw(IO, "mal_mapi.listen",
 				  OPERATION_FAILED ": creation of UNIX socket failed: %s",
 #ifdef _MSC_VER
@@ -769,9 +770,11 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 		}
 		if (bind(usock, (SOCKPTR) &userver, length) == SOCKET_ERROR) {
 			char *e;
+			int err = errno;
 			closesocket(usock);
 			(void) remove(usockfile);
 			GDKfree(psock);
+			errno = err;
 			e = createException(IO, "mal_mapi.listen",
 								OPERATION_FAILED
 								": binding to UNIX socket file %s failed: %s",
@@ -787,9 +790,11 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 		}
 		if(listen(usock, maxusers) == SOCKET_ERROR) {
 			char *e;
+			int err = errno;
 			closesocket(usock);
 			(void) remove(usockfile);
 			GDKfree(psock);
+			errno = err;
 			e = createException(IO, "mal_mapi.listen",
 								OPERATION_FAILED
 								": setting UNIX socket file %s to listen failed: %s",
@@ -937,7 +942,7 @@ SERVERclient(void *res, const Stream *In, const Stream *Out)
 		GDKfree(data);
 		throw(MAL, "mapi.SERVERclient", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
-	if (MT_create_thread(&tid, doChallenge, data, MT_THR_DETACHED)) {
+	if ((tid = THRcreate(doChallenge, data, MT_THR_DETACHED, "doChallenge")) == 0) {
 		mnstr_destroy(data->in);
 		mnstr_destroy(data->out);
 		GDKfree(data);
@@ -1229,7 +1234,7 @@ SERVERlookup(int *ret, str *dbalias)
 str
 SERVERtrace(void *ret, int *key, int *flag){
 	(void )ret;
-	mapi_trace(SERVERsessions[*key].mid,*flag);
+	mapi_trace(SERVERsessions[*key].mid,(bool)*flag);
 	return MAL_SUCCEED;
 }
 

@@ -266,7 +266,7 @@ SYSmem_usage(bat *ret, bat *ret2, const lng *minsize)
 	}
 	BBPlock();
 	for (i = 1; i < getBBPsize(); i++) {
-		BAT *c = BBPquickdesc(i,0);
+		BAT *c = BBPquickdesc(i, false);
 		str s;
 
 		if( c == NULL  || !BBPvalid(i))
@@ -587,10 +587,10 @@ SYSgdkEnv(bat *ret, bat *ret2)
 		if (BBPvalid(i)) {
 			pbat++;
 			if (BBP_cache(i)) {
-				if (BBP_cache(i)->batPersistence == PERSISTENT)
-					per++;
-				else
+				if (BBP_cache(i)->batTransient)
 					tmp++;
+				else
+					per++;
 			} else {
 				pdisk++;
 			}

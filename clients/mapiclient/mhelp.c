@@ -45,22 +45,31 @@ SQLhelp sqlhelp1[] = {
 	// major commands
 	{"ALTER TABLE",
 	 "",
-	 "ALTER TABLE qname ADD [ COLUMN ] { column_def | table_constraint }\n"
-	 "ALTER TABLE qname ALTER [ COLUMN ] ident SET DEFAULT value\n"
-	 "ALTER TABLE qname ALTER [ COLUMN ] ident SET [NOT] NULL\n"
-	 "ALTER TABLE qname ALTER [ COLUMN ] ident DROP DEFAULT\n"
-	 "ALTER TABLE qname ALTER [ COLUMN ] ident SET STORAGE {string | NULL}\n"
-	 "ALTER TABLE qname DROP [ COLUMN ] ident [ RESTRICT | CASCADE ]\n"
-	 "ALTER TABLE qname DROP CONSTRAINT ident [ RESTRICT | CASCADE ]\n"
-	 "ALTER TABLE qname SET { { READ | INSERT } ONLY | READ WRITE }",
+	 "ALTER TABLE [ IF EXISTS ] qname ADD [ COLUMN ] { column_def | table_constraint }\n"
+	 "ALTER TABLE [ IF EXISTS ] qname ALTER [ COLUMN ] ident SET DEFAULT value\n"
+	 "ALTER TABLE [ IF EXISTS ] qname ALTER [ COLUMN ] ident SET [NOT] NULL\n"
+	 "ALTER TABLE [ IF EXISTS ] qname ALTER [ COLUMN ] ident DROP DEFAULT\n"
+	 "ALTER TABLE [ IF EXISTS ] qname ALTER [ COLUMN ] ident SET STORAGE {string | NULL}\n"
+	 "ALTER TABLE [ IF EXISTS ] qname RENAME [ COLUMN ] ident TO ident\n"
+	 "ALTER TABLE [ IF EXISTS ] qname DROP [ COLUMN ] ident [ RESTRICT | CASCADE ]\n"
+	 "ALTER TABLE [ IF EXISTS ] qname DROP CONSTRAINT ident [ RESTRICT | CASCADE ]\n"
+	 "ALTER TABLE [ IF EXISTS ] qname RENAME TO ident\n"
+	 "ALTER TABLE [ IF EXISTS ] qname SET { { READ | INSERT } ONLY | READ WRITE }\n"
+	 "ALTER TABLE [ IF EXISTS ] qname SET SCHEMA ident",
 	 "qname,column_def,table_constraint,ident",
 	 "See also https://www.monetdb.org/Documentation/SQLreference/Alter"},
 	{"ALTER MERGE TABLE",
 	 "",
-	 "ALTER TABLE qname ADD TABLE qname\n"
-	 "ALTER TABLE qname DROP TABLE qname [ RESTRICT | CASCADE ]\n",
-	 "qname",
+	 "ALTER TABLE [ IF EXISTS ] qname ADD TABLE qname [ AS PARTITION opt_partition_spec ]\n"
+	 "ALTER TABLE [ IF EXISTS ] qname DROP TABLE qname [ RESTRICT | CASCADE ]\n"
+	 "ALTER TABLE [ IF EXISTS ] qname SET TABLE qname AS PARTITION opt_partition_spec",
+	 "qname,opt_partition_spec",
 	 "See also https://www.monetdb.org/Documentation/Cookbooks/SQLrecipes/DataPartitioning"},
+	{"ALTER SCHEMA",
+	 "",
+	 "ALTER SCHEMA [ IF EXISTS ] ident RENAME TO ident",
+	 "ident",
+	 "See also https://www.monetdb.org/Documentation/SQLreference/Alter"},
 	{"ALTER SEQUENCE",
 	 "",
 	 "ALTER SEQUENCE ident [ AS data_type] [ RESTART [WITH start]] [INCREMENT BY increment]\n"
@@ -78,7 +87,7 @@ SQLhelp sqlhelp1[] = {
 	 "See also https://www.monetdb.org/Documentation/SQLreference/Users"},
 	{"ANALYZE",
 	 "Collect column data statistics for optimizations",
-	 "ANALYZE schemaname [ . tablename [ column_list ] ] [SAMPLE size] [MINMAX]",
+	 "ANALYZE ident [ . ident [ column_list ] ] [SAMPLE size] [MINMAX]",
 	 "column_list",
 	 "See also https://www.monetdb.org/Documentation/Cookbooks/SQLrecipes/statistics"},
 	{"CALL",
@@ -105,16 +114,16 @@ SQLhelp sqlhelp1[] = {
 	 NULL},
 	{"COPY BINARY",
 	 "Append binary representations into a table",
-	 "COPY [nrofrecords] BINARY INTO qname [column_list] FROM string [',' ...] [NO CONSTRAINT]",
+	 "COPY [nrofrecords] BINARY INTO qname [column_list] FROM string [',' ...] [ON { CLIENT | SERVER }] [NO CONSTRAINT]",
 	 "nrofrecords,qname,column_list",
 	 "See also https://www.monetdb.org/Documentation/Cookbooks/SQLrecipes/BinaryBulkLoad"},
 	{"COPY INTO",
-	 "Parse a csv-file into a table",
-	 "COPY [nrofrecords] INTO qname [column_list] FROM string [',' ...] [headerlist] [ separators]\n"
+	 "Parse a csv file into a table or write a query result to a csv file",
+	 "COPY [nrofrecords] INTO qname [column_list] FROM string [',' ...] [headerlist] [ON { CLIENT | SERVER }] [ separators]\n"
 	 " [NULL [AS] string] [LOCKED] [BEST EFFORT] [NO CONSTRAINT] [FWF '(' integer [',' ...] ')'\n"
 	 "COPY [nrofrecords] INTO qname [column_list] FROM STDIN [headerlist] [ separators]\n"
 	 " [NULL [AS] string] [LOCKED] [BEST EFFORT] [NO CONSTRAINT]\n"
-	 "COPY query_expression INTO [STDOUT | string] [separators] [NULL [AS] string]",
+	 "COPY query_expression INTO [STDOUT | string [ON { CLIENT | SERVER }]] [separators] [NULL [AS] string]",
 	 "nrofrecords,qname,column_list,headerlist,separators",
 	 "See also https://www.monetdb.org/Documentation/Cookbooks/SQLrecipes/LoadingBulkData"},
 	{"COPY LOADER",
@@ -175,8 +184,8 @@ SQLhelp sqlhelp1[] = {
 	 NULL},
 	{"CREATE MERGE TABLE",
 	 "",
-	 "CREATE MERGE TABLE [ IF NOT EXISTS ] qname table_source;",
-	 NULL,
+	 "CREATE MERGE TABLE [ IF NOT EXISTS ] qname table_source [ opt_partition_by ];",
+	 "table_source,opt_partition_by",
 	 "See also https://www.monetdb.org/Documentation/Cookbooks/SQLrecipes/DataPartitioning"},
 	{"CREATE REMOTE TABLE",
 	 "",
@@ -207,7 +216,7 @@ SQLhelp sqlhelp1[] = {
 	{"CREATE STREAM TABLE",
 	 "Temporary table, locked during updates/ continues query processing",
 	 "CREATE STREAM TABLE [ IF NOT EXISTS ] qname table_source\n",
-	 NULL,
+	 "table_source",
 	 NULL},
 	{"CREATE TABLE",
 	 "",
@@ -220,7 +229,7 @@ SQLhelp sqlhelp1[] = {
 	 "",
 	 "CREATE [ OR REPLACE ] TRIGGER qname { BEFORE | AFTER } { INSERT | DELETE | TRUNCATE ...\n"
 	 " | UPDATE [ OF ident [',' ident]] } ON qname REFERENCING trigger_reference... triggered_action",
-	 "trigger_reference",
+	 "trigger_reference,triggered_action",
 	 NULL},
 	{"CREATE TYPE",
 	 "Add user defined type to the type system ",
@@ -257,7 +266,7 @@ SQLhelp sqlhelp1[] = {
 	 "Give execution plan details",
 	 "EXPLAIN statement",
 	 NULL,
-	 "See alsp https://www.monetdb.org/Documentation/Manuals/SQLreference/Explain"},
+	 "See also https://www.monetdb.org/Documentation/Manuals/SQLreference/Explain"},
 	{"LOCAL_TIMESTAMP",
 	 "Built-in function",
 	 "LOCAL_TIMESTAMP [ '(' ')']",
@@ -275,20 +284,20 @@ SQLhelp sqlhelp1[] = {
 	 NULL},
 	{"DELETE",
 	 "",
-	 "[ WITH with_list ] DELETE FROM qname [ WHERE search_condition ]",
+	 "[ WITH with_list ] DELETE FROM qname [ [AS] ident ] [ WHERE search_condition ]",
 	 "with_list,search_condition",
 	 NULL},
 	{"DROP AGGREGATE",
 	 "",
 	 "DROP ALL AGGREGATE qname [ RESTRICT | CASCADE ]\n"
 	 "DROP AGGREGATE [ IF EXISTS ] qname [ '(' [ param [',' ...]] ')' ] [ RESTRICT | CASCADE ]",
-	 NULL,
+	 "param",
 	 NULL},
 	{"DROP FUNCTION",
 	 "",
 	 "DROP ALL [FILTER] FUNCTION qname [ RESTRICT | CASCADE ]\n"
 	 "DROP [FILTER] FUNCTION [ IF EXISTS ] qname [ '(' [ param [',' ...]] ')' ] [ RESTRICT | CASCADE ]",
-	 NULL,
+	 "param",
 	 NULL},
 	{"DROP INDEX",
 	 "",
@@ -299,13 +308,13 @@ SQLhelp sqlhelp1[] = {
 	 "",
 	 "DROP ALL LOADER qname [ RESTRICT | CASCADE ]\n"
 	 "DROP LOADER [ IF EXISTS ] qname [ '(' [ param [',' ...]] ')' ] [ RESTRICT | CASCADE ]",
-	 NULL,
+	 "param",
 	 NULL},
 	{"DROP PROCEDURE",
 	 "",
 	 "DROP ALL PROCEDURE qname [ RESTRICT | CASCADE ]\n"
 	 "DROP PROCEDURE [ IF EXISTS ] qname [ '(' [ param [',' ...]] ')' ] [ RESTRICT | CASCADE ]",
-	 NULL,
+	 "param",
 	 NULL},
 	{"DROP ROLE",
 	 "",
@@ -356,15 +365,20 @@ SQLhelp sqlhelp1[] = {
 	 "See also https://www.monetdb.org/Documentation/SQLreference/Flowofcontrol"},
 	{"INSERT",
 	 "",
-	 "[ WITH with_list ] INSERT INTO qname [ column_list ] { DEFAULT VALUES | VALUES row_values | query_expression }",
+	 "[ WITH with_list ] INSERT INTO qname [ column_list ] [ { DEFAULT VALUES | VALUES row_values | query_expression } ]",
 	 "with_list,column_list,row_values,query_expression",
 	 "See also https://www.monetdb.org/Documentation/SQLreference/Updates"},
 	{"GRANT",
 	 "Define access privileges",
 	 "GRANT privileges TO grantee [',' ...] [ WITH GRANT OPTION ]\n"
 	 "GRANT role [',' ...] TO grantee [',' ...] [ WITH ADMIN OPTION]",
-	 "privileges,role",
+	 "privileges,role,grantee",
 	 "See also https://www.monetdb.org/Documentation/SQLreference/Permissions"},
+	{"MERGE",
+	 "",
+	 "[ WITH with_list ] MERGE INTO qname [ [AS] ident ] USING table_ref ON search_condition merge_list",
+	 "with_list,table_ref,search_condition,merge_list",
+	 NULL},
 	{"RELEASE SAVEPOINT",
 	 "",
 	 "RELEASE SAVEPOINT ident",
@@ -373,7 +387,7 @@ SQLhelp sqlhelp1[] = {
 	{"RETURN",
 	 "",
 	 "RETURN { query_expression | search_condition | TABLE '(' query_expression ')'",
-	 NULL,
+	 "query_expression,search_condition",
 	 NULL},
 	{"REVOKE",
 	 "Remove some privileges",
@@ -397,15 +411,16 @@ SQLhelp sqlhelp1[] = {
 	 "SELECT [ ALL | DISTINCT [ ON { expression [',' ...] } ] ]\n"
 	 "[ '*' | expression [ [ AS ] output_name ] [',' ...] ]\n"
 	 "[ FROM from_item [',' ...] ]\n"
+	 "[ WINDOW window_definition [',' ...] ]\n"
 	 "[ WHERE condition ]\n"
-	 "[ GROUP BY grouping_element ',', ...] ]\n"
+	 "[ GROUP BY expression [',' ...] ]\n"
 	 "[ HAVING condition [',' ...] ]\n"
 	 "[ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] [ CORRESPONDING ] select ]\n"
-	 "[ ORDER BY expression [ ASC | DESC ] [',' ...] ]\n"
+	 "[ ORDER BY expression [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [',' ...] ]\n"
 	 "[ LIMIT { count | param } ]\n"
 	 "[ OFFSET { count | param } ]\n"
-	 "[ SAMPLE size ]",
-	 "with_list,expression",
+	 "[ SAMPLE size [ SEED size ] ]",
+	 "with_list,expression,window_definition",
 	 "See also https://www.monetdb.org/Documentation/SQLreference/TableExpressions"},
 	{"SET",
 	 "Assign a value to a variable or column",
@@ -464,7 +479,7 @@ SQLhelp sqlhelp1[] = {
 	 "table_ref NATURAL [ INNER | LEFT | RIGHT | FULL ] JOIN table_ref |\n"
 	 "table_ref UNION JOIN table_ref { ON search_condition | USING column_list } |\n"
 	 "table_ref [ INNER | LEFT | RIGHT | FULL ] JOIN table_ref { ON search_condition | USING column_list }",
-	 NULL,
+	 "table_ref,search_condition,column_list",
 	 "See also https://www.monetdb.org/Documentation/SQLreference/TableExpressions"},
 	{"TRACE",
 	 "Give execution trace",
@@ -478,25 +493,18 @@ SQLhelp sqlhelp1[] = {
 	 NULL},
 	{"UPDATE",
 	 "",
-	 "[ WITH with_list ] UPDATE qname SET assignment_list [ WHERE search_condition ]",
+	 "[ WITH with_list ] UPDATE qname [ [AS] ident ] SET assignment_list [ WHERE search_condition ]",
 	 "with_list,assignment_list,search_condition",
 	 NULL},
 	{"WHILE",
 	 "",
 	 "[ident ':'] WHILE search_condition DO procedure_statement ... END WHILE [ident]",
-	 NULL,
+	 "search_condition,procedure_statement",
 	 "See also https://www.monetdb.org/Documentation/SQLreference/Flowofcontrol"},
-	{"WINDOW",
+	{"WINDOW FUNCTIONS",
 	 "",
-	 "{ RANK | DENSE_RANK | PERCENT_RANK | CUME_DIST } OVER window_name |\n"
-	 "{ RANK | DENSE_RANK | PERCENT_RANK | CUME_DIST } OVER '('\n"
-	 "[ window_name ] [ PARTITION BY column_ref ... ]\n"
-	 "[ ORDER BY sort_spec]\n"
-	 "{ ROWS | RANGE } { UNBOUNDED PRECEDING | value PRECEDING | CURRENT ROW }\n"
-	 "[ BETWEEN { UNBOUNDED FOLLOWING | value FOLLOWING | UNBOUNDED PRECEDING | value PRECEDING | CURRENT ROW }\n"
-	 " AND { UNBOUNDED FOLLOWING | value FOLLOWING | UNBOUNDED PRECEDING | value PRECEDING | CURRENT ROW } ]\n"
-	 "[ EXCLUDING {CURRENT ROW | GROUP | TIES | NO OTHERS} ]",
-	 NULL,
+	 "{ window_aggregate_function | window_rank_function } OVER { ident | '(' window_specification ')' }",
+	 "window_aggregate_function,window_rank_function,window_specification",
 	 "See also https://www.monetdb.org/Documentation/Manuals/SQLreference/WindowFunctions"},
 	{NULL, NULL, NULL, NULL, NULL}	/* End of list marker */
 };
@@ -534,9 +542,9 @@ SQLhelp sqlhelp2[] = {
 	 NULL},
 	{"column_constraint",
 	 NULL,
-	 "NULL | NOT NULL | UNIQUE | PRIMARY KEY | CHECK '(' search_condition ')' |\n"
-	 " REFERENCES qname [ column_list ] [ MATCH {FULL|PARTIAL|SIMPLE} ] reference_action ...\n",
-	 "search_condition,reference_action",
+	 "[ CONSTRAINT ident ] { NOT NULL | NULL | UNIQUE | PRIMARY KEY | CHECK '(' search_condition ')' |\n"
+	 "    REFERENCES qname [ column_list ] [ match_options ] [ reference_action ] }\n",
+	 "column_list,search_condition,match_options,reference_action",
 	 "See also https://www.monetdb.org/Documentation/SQLreference/TableIdentityColumn"},
 	{"control_statement",
 	 NULL,
@@ -628,8 +636,24 @@ SQLhelp sqlhelp2[] = {
 	 NULL},
 	{"isolevel",
 	 NULL,
-	 "READ UNCOMMITTED | READ COMMITTED | REPEATABLE READ | SERIALIZABLE ",
+	 "READ UNCOMMITTED | READ COMMITTED | REPEATABLE READ | SERIALIZABLE",
 	 NULL,
+	 NULL},
+	{"match_options",
+	 NULL,
+	 "MATCH { FULL | PARTIAL | SIMPLE }",
+	 NULL,
+	 NULL},
+	{"merge_clause",
+	 NULL,
+	 "{ WHEN MATCHED [ AND search_condition ] THEN { UPDATE SET assignment_list | DELETE } } |\n"
+	 "{ WHEN NOT MATCHED [ AND search_condition ] THEN INSERT [ column_list ] [ { DEFAULT VALUES | VALUES row_values } ] }",
+	 "search_condition,assignment_list,column_list,row_values",
+	 NULL},
+	{"merge_list",
+	 NULL,
+	 "merge_clause [ ',' ... ]",
+	 "merge_clause",
 	 NULL},
 	{"nrofrecords",
 	 "",
@@ -641,10 +665,37 @@ SQLhelp sqlhelp2[] = {
 	 "ON COMMIT { DELETE ROWS | PRESERVE ROWS | DROP }",
 	 NULL,
 	 NULL},
+	{"opt_partition_by",
+	 NULL,
+	 "PARTITION BY { RANGE | VALUES } { ON '(' ident ')' | USING '(' query_expression ')' }",
+	 "query_expression",
+	 NULL},
+	{"opt_partition_spec",
+	 NULL,
+	 "IN '(' partition_list ')' [ WITH NULL ]\n"
+	 "BETWEEN partition_range_from AND partition_range_to [ WITH NULL ]\n"
+	 "WITH NULL",
+	 "partition_list,partition_range_from,partition_range_to",
+	 NULL},
 	{"param",
 	 NULL,
 	 "ident data_type",
 	 NULL,
+	 NULL},
+	{"partition_list",
+	 NULL,
+	 "query_expression [ ',' ... ]",
+	 "query_expression",
+	 NULL},
+	{"partition_range_from",
+	 NULL,
+	 "{ RANGE MINVALUE | query_expression }",
+	 "query_expression",
+	 NULL},
+	{"partition_range_to",
+	 NULL,
+	 "{ RANGE MAXVALUE | query_expression }",
+	 "query_expression",
 	 NULL},
 	{"privileges",
 	 NULL,
@@ -698,9 +749,9 @@ SQLhelp sqlhelp2[] = {
 	 NULL,},
 	{"table_constraint",
 	 NULL,
-	 "CONSTRAINT [ ident ] { PRIMARY KEY column_list | UNIQUE column_list |\n"
-	 "    FOREIGN KEY column_list REFERENCES qname [ column_list ] [ MATCH {FULL|PARTIAL|SIMPLE} ] }",
-	 "column_list",
+	 "[ CONSTRAINT ident ] { PRIMARY KEY column_list | UNIQUE column_list |\n"
+	 "    FOREIGN KEY column_list REFERENCES qname [ column_list ] [ match_options ] [ reference_action ] }",
+	 "column_list,match_options,reference_action",
 	 "See also https://www.monetdb.org/Documentation/SQLreference/TableIdentityColumn"},
 	{"table_element",
 	 NULL,
@@ -721,7 +772,7 @@ SQLhelp sqlhelp2[] = {
 	{"table_ref",
 	 NULL,
 	 "[LATERAL] func_ref [table_name] | [LATERAL] subquery | joined_table",
-	 NULL,
+	 "table_name,subquery",
 	 NULL},
 	{"table_source",
 	 NULL,
@@ -746,7 +797,7 @@ SQLhelp sqlhelp2[] = {
 	{"transactionmode",
 	 NULL,
 	 "{ READ ONLY | READ WRITE | ISOLATION LEVEL isolevel | DIAGNOSTICS intval } [ , ... ]",
-	 NULL,
+	 "isolevel",
 	 NULL},
 	{"trigger_reference",
 	 NULL,
@@ -755,14 +806,14 @@ SQLhelp sqlhelp2[] = {
 	 NULL},
 	{"update_statement",
 	 NULL,
-	 "delete_stmt | truncate_stmt | insert_stmt | update_stmt | copyfrom_stmt",
-	 "delete_stmt | truncate_stmt | insert_stmt | update_stmt | copyfrom_stmt",
+	 "delete_stmt | truncate_stmt | insert_stmt | update_stmt | merge_stmt | copyfrom_stmt",
+	 "delete_stmt,truncate_stmt,insert_stmt,update_stmt,merge_stmt,copyfrom_stmt",
 	 NULL},
 	{"triggered_action",
 	 NULL,
 	 "[ FOR EACH { ROW | STATEMENT } ] [ WHEN '(' search_condition ')'\n"
 	 "BEGIN ATOMIC trigger_statement ... END ",
-	 NULL,
+	 "trigger_statement,search_condition",
 	 NULL},
 	{"trigger_statement",
 	 NULL,
@@ -772,7 +823,46 @@ SQLhelp sqlhelp2[] = {
 	{"when_statement",
 	 NULL,
 	 "WHEN scalar_expression THEN procedure_statement ...",
+	 "procedure_statement",
+	 NULL},
+	{"window_aggregate_function",
 	 NULL,
+	 "{ AVG '(' query_expression ')' | COUNT '(' { '*' | query_expression } ')' | MAX '(' query_expression ')'\n"
+	 "| MIN '(' query_expression ')' | PROD '(' query_expression ')' | SUM '(' query_expression ')' }",
+	 "query_expression",
+	 NULL},
+	{"window_bound",
+	 NULL,
+	 "{ UNBOUNDED FOLLOWING | query_expression FOLLOWING | UNBOUNDED PRECEDING | query_expression PRECEDING | CURRENT ROW }",
+	 "query_expression",
+	 NULL},
+	{"window_definition",
+	 NULL,
+	 "ident AS '(' window_specification ')'",
+	 "window_specification",
+	 NULL},
+	{"window_frame_start",
+	 NULL,
+	 "{ UNBOUNDED PRECEDING | query_expression PRECEDING | CURRENT ROW }",
+	 "query_expression",
+	 NULL},
+	{"window_rank_function",
+	 NULL,
+	 "{ CUME_DIST '(' ')' | DENSE_RANK '(' ')' | FIRST_VALUE '(' query_expression ')'\n"
+	 "| LAG '(' query_expression [ ',' query_expression [ ',' query_expression ] ] ')' | LAST_VALUE '(' query_expression ')'\n"
+	 "| LEAD '(' query_expression [ ',' query_expression [ ',' query_expression ] ] ')'\n"
+	 "| NTH_VALUE '(' query_expression ',' query_expression ')' | NTILE '(' query_expression ')'\n"
+	 "| PERCENT_RANK '(' ')' | RANK '(' ')' | ROW_NUMBER '(' ')' }",
+	 "query_expression",
+	 NULL},
+	{"window_specification",
+	 NULL,
+	 "[ ident ]\n"
+	 "[ PARTITION BY expression [ ',' ... ] ]\n"
+	 "[ ORDER BY expression [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [ ',' ... ] ]\n"
+	 "[ { ROWS | RANGE | GROUPS } { window_frame_start | BETWEEN window_bound AND window_bound }\n"
+	 "  [ EXCLUDING { CURRENT ROW | GROUP | TIES | NO OTHERS } ] ]",
+	 "window_bound,window_frame_start",
 	 NULL},
 	{"with_list",
 	 NULL,

@@ -35,7 +35,9 @@
 #endif
 #include "stream.h"
 #include "msqldump.h"
+#define LIBMUTILS 1
 #include "mprompt.h"
+#include "mutils.h"		/* mercurial_revision */
 #include "dotmonetdb.h"
 
 #include <locale.h>
@@ -76,6 +78,7 @@ static bool echoquery = false;
 static char *encoding;
 #endif
 static bool errseen = false;
+static bool allow_remote = false;
 
 #define setPrompt() sprintf(promptbuf, "%.*s>", (int) sizeof(promptbuf) - 2, language)
 #define debugMode() (strncmp(promptbuf, "mdb", 3) == 0)
@@ -895,8 +898,8 @@ static void
 CSVrenderer(MapiHdl hdl)
 {
 	int fields;
-	char *s;
-	char *sep = separator;
+	const char *s;
+	const char specials[] = {'"', '\\', '\n', '\r', '\t', *separator, '\0'};
 	int i;
 
 	if (csvheader) {
@@ -905,20 +908,16 @@ CSVrenderer(MapiHdl hdl)
 			s = mapi_get_name(hdl, i);
 			if (s == NULL)
 				s = "";
-			mnstr_printf(toConsole, "%s%s", i == 0 ? "" : sep, s);
+			mnstr_printf(toConsole, "%s%s", i == 0 ? "" : separator, s);
 		}
 		mnstr_printf(toConsole, "\n");
 	}
 	while (!mnstr_errnr(toConsole) && (fields = fetch_row(hdl)) != 0) {
 		for (i = 0; i < fields; i++) {
 			s = mapi_fetch_field(hdl, i);
-			if (s == NULL)
-				s = nullstring == default_nullstring ? "" : nullstring;
-			if (strchr(s, *sep) != NULL ||
-			    strchr(s, '\n') != NULL ||
-			    strchr(s, '"') != NULL) {
+			if (s != NULL && s[strcspn(s, specials)] != '\0') {
 				mnstr_printf(toConsole, "%s\"",
-					     i == 0 ? "" : sep);
+					     i == 0 ? "" : separator);
 				while (*s) {
 					switch (*s) {
 					case '\n':
@@ -943,9 +942,12 @@ CSVrenderer(MapiHdl hdl)
 					s++;
 				}
 				mnstr_write(toConsole, "\"", 1, 1);
-			} else
+			} else {
+				if (s == NULL)
+					s = nullstring == default_nullstring ? "" : nullstring;
 				mnstr_printf(toConsole, "%s%s",
-					     i == 0 ? "" : sep, s);
+					     i == 0 ? "" : separator, s);
+			}
 		}
 		mnstr_printf(toConsole, "\n");
 	}
@@ -2204,9 +2206,9 @@ showCommands(void)
 	mnstr_printf(toConsole, "\\f       - format using renderer {csv,tab,raw,sql,xml,trash,rowcount,expanded,sam}\n");
 	mnstr_printf(toConsole, "\\w#      - set maximal page width (-1=unlimited, 0=terminal width, >0=limit to num)\n");
 	mnstr_printf(toConsole, "\\r#      - set maximum rows per page (-1=raw)\n");
-	mnstr_printf(toConsole, "\\L file  - save client/server interaction\n");
+	mnstr_printf(toConsole, "\\L file  - save client-server interaction\n");
 	mnstr_printf(toConsole, "\\X       - trace mclient code\n");
-	mnstr_printf(toConsole, "\\q       - terminate session\n");
+	mnstr_printf(toConsole, "\\q       - terminate session and quit mclient\n");
 }
 
 #define MD_TABLE    1
@@ -2330,11 +2332,11 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 
 	bufsiz = READBLOCK;
 	buf = malloc(bufsiz);
-
 	if (buf == NULL) {
 		fprintf(stderr,"Malloc for doFile failed");
 		exit(2);
 	}
+
 	do {
 		bool seen_null_byte = false;
 
@@ -2392,7 +2394,6 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 			/* end of file */
 			if (hdl == NULL) {
 				/* nothing more to do */
-				free(buf);
 				goto bailout;
 			}
 
@@ -2425,11 +2426,18 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 					line[5] = prepno < 10 ? ' ' : prepno / 10 + '0';
 					line[6] = prepno % 10 + '0';
 				}
+				if (strcmp(line, "exit\n") == 0) {
+					goto bailout;
+				}
+				break;
+			case 'q':
+				if (strcmp(line, "quit\n") == 0) {
+					goto bailout;
+				}
 				break;
 			case '\\':
 				switch (line[1]) {
 				case 'q':
-					free(buf);
 					goto bailout;
 				case 'X':
 					/* toggle interaction trace */
@@ -2438,12 +2446,12 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 				case 'A':
 					if (mode != SQL)
 						break;
-					mapi_setAutocommit(mid, 1);
+					mapi_setAutocommit(mid, true);
 					continue;
 				case 'a':
 					if (mode != SQL)
 						break;
-					mapi_setAutocommit(mid, 0);
+					mapi_setAutocommit(mid, false);
 					continue;
 				case 'w':
 					pagewidth = atoi(line + 2);
@@ -2544,7 +2552,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 						start_pager(&saveFD);
 #endif
 						if (x & MD_TABLE || x & MD_VIEW)
-							describe_table(mid, NULL, line, toConsole, 1);
+							describe_table(mid, NULL, line, toConsole, 1, false);
 						if (x & MD_SEQ)
 							describe_sequence(mid, NULL, line, toConsole);
 						if (x & MD_FUNC)
@@ -2608,18 +2616,13 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 							"    LEFT OUTER JOIN comments c ON s.id = c.id\n"
 							"  ORDER BY system, name, sname, ntype)\n"
 							;
-						size_t len = strlen(with_clause) + 1500 + strlen(line);
+						const char *comments_clause = get_comments_clause(mid);
+						size_t len = strlen(comments_clause) + strlen(with_clause) + 400 + strlen(line);
 						char *query = malloc(len);
 						char *q = query, *endq = query + len;
-						char *name_column = hasSchema ? "fullname" : "name";
-						const char *comments_clause = get_comments_clause(mid);
 
 						if (query == NULL) {
 							fprintf(stderr, "memory allocation failure\n");
-							continue;
-						}
-						if (comments_clause == NULL) {
-							free(query);
 							continue;
 						}
 
@@ -2633,21 +2636,18 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 						 * | "data.my*"      | no            | fullname LIKE 'data.my%'      |
 						 * | "*a.my*"        | no            | fullname LIKE '%a.my%'        |
 						 */
-						q += snprintf(q, endq - q, "%s", comments_clause);
-						q += snprintf(q, endq - q, "%s", with_clause);
-						q += snprintf(q, endq - q, "SELECT type, fullname, remark FROM describe_all_objects\n");
-						q += snprintf(q, endq - q, "WHERE (ntype & %u) > 0\n", x);
+						q += snprintf(q, endq - q, "%s%s", comments_clause, with_clause);
+						q += snprintf(q, endq - q, " SELECT type, fullname, remark FROM describe_all_objects WHERE (ntype & %u) > 0", x);
 						if (!wantsSystem) {
-							q += snprintf(q, endq - q, "AND NOT system\n");
+							q += snprintf(q, endq - q, " AND NOT system");
 						}
 						if (!hasSchema) {
-							q += snprintf(q, endq - q, "AND (sname IS NULL OR sname = current_schema)\n");
+							q += snprintf(q, endq - q, " AND (sname IS NULL OR sname = current_schema)");
 						}
 						if (*line) {
-							q += snprintf(q, endq - q, "AND (%s LIKE '%s')\n", name_column, line);
+							q += snprintf(q, endq - q, " AND (%s LIKE '%s')", (hasSchema ? "fullname" : "name"), line);
 						}
-						q += snprintf(q, endq - q, "ORDER BY fullname, type, remark\n");
-						q += snprintf(q, endq - q, ";\n");
+						q += snprintf(q, endq - q, " ORDER BY fullname, type, remark");
 
 						hdl = mapi_query(mid, query);
 						free(query);
@@ -2704,7 +2704,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 #endif
 					if (*line) {
 						mnstr_printf(toConsole, "START TRANSACTION;\n");
-						dump_table(mid, NULL, line, toConsole, false, true, useinserts);
+						dump_table(mid, NULL, line, toConsole, false, true, useinserts, false);
 						mnstr_printf(toConsole, "COMMIT;\n");
 					} else
 						dump_database(mid, toConsole, 0, useinserts);
@@ -2951,6 +2951,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 	/* reached on end of file */
 	assert(hdl == NULL);
   bailout:
+	free(buf);
 #ifdef HAVE_LIBREADLINE
 	if (prompt)
 		deinit_readline();
@@ -3028,6 +3029,134 @@ set_timezone(Mapi mid)
 	mapi_close_handle(hdl);
 }
 
+struct privdata {
+	stream *f;
+	char *buf;
+};
+
+#define READSIZE	(1 << 16)
+//#define READSIZE	(1 << 20)
+
+static char alpha[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	"abcdefghijklmnopqrstuvwxyz";
+
+static char *
+getfile(void *data, const char *filename, bool binary,
+	uint64_t offset, size_t *size)
+{
+	stream *f;
+	char *buf;
+	struct privdata *priv = data;
+	ssize_t s;
+
+	*size = 0;		/* most returns require this */
+	if (priv->buf == NULL) {
+		priv->buf = malloc(READSIZE);
+		if (priv->buf == NULL)
+			return "allocation failed in client";
+	}
+	buf = priv->buf;
+	if (filename != NULL) {
+		if (binary) {
+			f = open_rstream(filename);
+			assert(offset <= 1);
+			offset = 0;
+		} else {
+			f = open_rastream(filename);
+			if (f == NULL) {
+				size_t x;
+				/* simplistic check for URL
+				 * (schema://...) */
+				if ((x = strspn(filename, alpha)) > 0
+				    && filename[x] == ':'
+				    && filename[x+1] == '/'
+				    && filename[x+2] == '/') {
+					if (allow_remote)
+						f = open_urlstream(filename);
+					else
+						return "client refuses to retrieve remote content";
+				}
+			}
+#ifdef HAVE_ICONV
+			else if (encoding) {
+				stream *tmpf = f;
+				f = iconv_rstream(f, encoding, mnstr_name(f));
+				if (f == NULL)
+					close_stream(tmpf);
+			}
+#endif
+		}
+		if (f == NULL)
+			return "cannot open file";
+		while (offset > 1) {
+			s = mnstr_readline(f, buf, READSIZE);
+			if (s < 0) {
+				close_stream(f);
+				return "error reading file";
+			}
+			if (s == 0) {
+				/* reached EOF withing offset lines */
+				close_stream(f);
+				return NULL;
+			}
+			if (buf[s - 1] == '\n')
+				offset--;
+		}
+		priv->f = f;
+	} else {
+		f = priv->f;
+		if (size == NULL) {
+			/* done reading before reaching EOF */
+			close_stream(f);
+			priv->f = NULL;
+			return NULL;
+		}
+	}
+	s = mnstr_read(f, buf, 1, READSIZE);
+	if (s <= 0) {
+		close_stream(f);
+		priv->f = NULL;
+		return s < 0 ? "error reading file" : NULL;
+	}
+	*size = (size_t) s;
+	return buf;
+}
+
+static char *
+putfile(void *data, const char *filename, const void *buf, size_t bufsize)
+{
+	struct privdata *priv = data;
+
+	if (filename != NULL) {
+		if ((priv->f = open_wastream(filename)) == NULL)
+			return "cannot open file";
+#ifdef HAVE_ICONV
+		if (encoding) {
+			stream *f = priv->f;
+			priv->f = iconv_wstream(f, encoding, mnstr_name(f));
+			if (priv->f == NULL) {
+				close_stream(f);
+				return "cannot open file";
+			}
+		}
+#endif
+		if (buf == NULL || bufsize == 0)
+			return NULL; /* successfully opened file */
+	} else if (buf == NULL) {
+		/* done writing */
+		int flush = mnstr_flush(priv->f);
+		close_stream(priv->f);
+		priv->f = NULL;
+		return flush < 0 ? "error writing output" : NULL;
+	}
+	if (mnstr_write(priv->f, buf, 1, bufsize) < (ssize_t) bufsize) {
+		close_stream(priv->f);
+		priv->f = NULL;
+		return "error writing output";
+	}
+	return NULL;		/* success */
+}
+
 __declspec(noreturn) static void usage(const char *prog, int xit)
 	__attribute__((__noreturn__));
 
@@ -3067,6 +3196,7 @@ usage(const char *prog, int xit)
 	fprintf(stderr, "\nSQL specific opions \n");
 	fprintf(stderr, " -n nullstr  | --null=nullstr     change NULL representation for sql, csv and tab output modes\n");
 	fprintf(stderr, " -a          | --autocommit       turn off autocommit mode\n");
+	fprintf(stderr, " -R          | --allow-remote     allow remote content\n");
 	fprintf(stderr, " -r nr       | --rows=nr          for pagination\n");
 	fprintf(stderr, " -w nr       | --width=nr         for pagination\n");
 	fprintf(stderr, " -D          | --dump             create an SQL dump\n");
@@ -3089,7 +3219,7 @@ main(int argc, char **argv)
 	char *dbname = NULL;
 	char *output = NULL;	/* output format as string */
 	FILE *fp = NULL;
-	int trace = 0;
+	bool trace = false;
 	bool dump = false;
 	bool useinserts = false;
 	int c = 0;
@@ -3131,6 +3261,7 @@ main(int argc, char **argv)
 		{"width", 1, 0, 'w'},
 		{"Xdebug", 0, 0, 'X'},
 		{"timezone", 0, 0, 'z'},
+		{"allow-remote", 0, 0, 'R'},
 		{0, 0, 0, 0}
 	};
 
@@ -3173,7 +3304,7 @@ main(int argc, char **argv)
 #ifdef HAVE_ICONV
 				"E:"
 #endif
-				"f:h:Hil:L:n:Np:P:r:s:t:u:vw:Xz"
+				"f:h:Hil:L:n:Np:P:r:Rs:t:u:vw:Xz"
 #ifdef HAVE_POPEN
 				"|:"
 #endif
@@ -3181,12 +3312,8 @@ main(int argc, char **argv)
 				long_options, &option_index)) != -1) {
 		switch (c) {
 		case 0:
-#ifdef HAVE_POPEN
-			if (strcmp(long_options[option_index].name, "pager") == 0) {
-				pager = optarg;
-				(void) pager;	/* will be further used later */
-			}
-#endif
+			/* only needed for options that only have a
+			 * long form */
 			break;
 		case 'a':
 			autocommit = false;
@@ -3274,6 +3401,9 @@ main(int argc, char **argv)
 			assert(optarg);
 			rowsperpage = atoi(optarg);
 			break;
+		case 'R':
+			allow_remote = true;
+			break;
 		case 's':
 			assert(optarg);
 			command = optarg;
@@ -3299,13 +3429,22 @@ main(int argc, char **argv)
 			user = strdup(optarg);
 			user_set_as_flag = true;
 			break;
-		case 'v':
+		case 'v': {
+			const char *rev = mercurial_revision();
 			mnstr_printf(toConsole,
-				     "mclient, the MonetDB interactive terminal (%s)\n",
-				     MONETDB_RELEASE);
+				     "mclient, the MonetDB interactive "
+				     "terminal, version %s", VERSION);
+			/* coverity[pointless_string_compare] */
+			if (strcmp(MONETDB_RELEASE, "unreleased") != 0)
+				mnstr_printf(toConsole, " (%s)",
+					     MONETDB_RELEASE);
+			else if (strcmp(rev, "Unknown") != 0)
+				mnstr_printf(toConsole, " (hg id: %s)", rev);
+			mnstr_printf(toConsole, "\n");
 #ifdef HAVE_LIBREADLINE
 			mnstr_printf(toConsole,
-				     "support for command-line editing compiled-in\n");
+				     "support for command-line editing "
+				     "compiled-in\n");
 #endif
 #ifdef HAVE_ICONV
 #ifdef HAVE_NL_LANGINFO
@@ -3313,16 +3452,18 @@ main(int argc, char **argv)
 				encoding = nl_langinfo(CODESET);
 #endif
 			mnstr_printf(toConsole,
-				     "character encoding: %s\n", encoding ? encoding : "utf-8 (default)");
+				     "character encoding: %s\n",
+				     encoding ? encoding : "utf-8 (default)");
 #endif
 			return 0;
+		}
 		case 'w':
 			assert(optarg);
 			pagewidth = atoi(optarg);
 			pagewidthset = pagewidth != 0;
 			break;
 		case 'X':
-			trace = MAPI_TRACE;
+			trace = true;
 			break;
 		case 'z':
 			settz = false;
@@ -3429,6 +3570,10 @@ main(int argc, char **argv)
 			exit(1);
 		}
 	}
+
+	struct privdata priv;
+	priv = (struct privdata) {0};
+	mapi_setfilecallback(mid, getfile, putfile, &priv);
 
 	if (!autocommit)
 		mapi_setAutocommit(mid, autocommit);
@@ -3577,5 +3722,8 @@ main(int argc, char **argv)
 	mapi_destroy(mid);
 	mnstr_destroy(stdout_stream);
 	mnstr_destroy(stderr_stream);
+	if (priv.buf != NULL)
+		free(priv.buf);
+
 	return c;
 }

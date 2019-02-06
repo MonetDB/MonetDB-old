@@ -186,8 +186,7 @@ MCexitClient(Client c)
 	MPresetProfiler(c->fdout);
 	if (c->father == NULL) { /* normal client */
 		if (c->fdout && c->fdout != GDKstdout) {
-			(void) mnstr_close(c->fdout);
-			(void) mnstr_destroy(c->fdout);
+			close_stream(c->fdout);
 		}
 		assert(c->bak == NULL);
 		if (c->fdin) {
@@ -263,7 +262,9 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 #endif
 	c->blocksize = BLOCK;
 	c->protocol = PROTOCOL_9;
-	c->compute_column_widths = 0;
+
+	c->filetrans = false;
+
 	MT_sema_init(&c->s, 0, "Client->s");
 	return c;
 }
@@ -375,7 +376,6 @@ MCforkClient(Client father)
 static void
 freeClient(Client c)
 {
-	Thread t = c->mythread;
 	c->mode = FINISHCLIENT;
 
 #ifdef MAL_CLIENT_DEBUG
@@ -429,8 +429,6 @@ freeClient(Client c)
 		freeMalBlk(c->wlc);
 	c->wlc_kind = 0;
 	c->wlc = NULL;
-	if (t)
-		THRdel(t);  /* you may perform suicide */
 	MT_sema_destroy(&c->s);
 	c->mode = MCshutdowninprogress()? BLOCKCLIENT: FREECLIENT;
 }
@@ -567,7 +565,7 @@ MCreadClient(Client c)
 			if (!isa_block_stream(c->fdout) && c->promptlength > 0)
 				mnstr_write(c->fdout, c->prompt, c->promptlength, 1);
 			mnstr_flush(c->fdout);
-			in->eof = 0;
+			in->eof = false;
 		}
 		while ((rd = bstream_next(in)) > 0 && !in->eof) {
 			sum += rd;

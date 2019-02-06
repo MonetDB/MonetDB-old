@@ -193,8 +193,7 @@ str RMTconnectScen(
 
 	/* generate an unique connection name, they are only known
 	 * within one mserver, id is primary key, the rest is super key */
-	s = mapi_get_dbname(m);
-	snprintf(conn, BUFSIZ, "%s_%s_%zu", s, *user, connection_id++);
+	snprintf(conn, BUFSIZ, "%s_%s_%zu", mapi_get_dbname(m), *user, connection_id++);
 	/* make sure we can construct MAL identifiers using conn */
 	for (s = conn; *s != '\0'; s++) {
 		if (!isalnum((unsigned char)*s)) {
@@ -238,7 +237,7 @@ str RMTconnectScen(
 	MT_lock_init(&c->lock, "remote connection lock");
 
 #ifdef _DEBUG_MAPI_
-	mapi_trace(c->mconn, TRUE);
+	mapi_trace(c->mconn, true);
 #endif
 
 	MT_lock_unset(&mal_remoteLock);
@@ -611,7 +610,7 @@ str RMTget(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 					var = "nil";
 				s = 0;
 				r = NULL;
-				if (ATOMfromstr(t, &r, &s, var) < 0 ||
+				if (ATOMfromstr(t, &r, &s, var, true) < 0 ||
 					BUNappend(b, r, false) != GDK_SUCCEED) {
 					BBPreclaim(b);
 					GDKfree(r);
@@ -694,7 +693,7 @@ str RMTget(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 			if (p == NULL)
 				throw(MAL, "remote.get", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			VALset(v, rtype, p);
-		} else if (ATOMfromstr(rtype, &p, &len, val == NULL ? "nil" : val) < 0) {
+		} else if (ATOMfromstr(rtype, &p, &len, val == NULL ? "nil" : val, true) < 0) {
 			char *msg;
 			msg = createException(MAL, "remote.get",
 								  "unable to parse value: %s",
@@ -1092,7 +1091,7 @@ str RMTbatload(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 		throw(MAL, "remote.load", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 	/* grab the input stream and start reading */
-	fdin->eof = 0;
+	fdin->eof = false;
 	len = fdin->pos;
 	while (len < fdin->len || bstream_next(fdin) > 0) {
 		/* newline hunting (how spartan) */
@@ -1117,7 +1116,7 @@ str RMTbatload(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 
 		s = 0;
 		r = NULL;
-		if (ATOMfromstr(t, &r, &s, var) < 0 ||
+		if (ATOMfromstr(t, &r, &s, var, true) < 0 ||
 			BUNappend(b, r, false) != GDK_SUCCEED) {
 			BBPreclaim(b);
 			GDKfree(r);
@@ -1139,7 +1138,7 @@ str RMTbatload(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 str RMTbincopyto(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	bat bid = *getArgReference_bat(stk, pci, 1);
-	BAT *b = BBPquickdesc(bid, FALSE);
+	BAT *b = BBPquickdesc(bid, false);
 	char sendtheap = 0;
 
 	(void)mb;
@@ -1265,7 +1264,7 @@ RMTinternalcopyfrom(BAT **ret, char *hdr, stream *in)
 				} else {
 					/* all values should be non-negative, so we check that
 					 * here as well */
-					if (lngFromStr(val, &len, &lvp) < 0 ||
+					if (lngFromStr(val, &len, &lvp, true) < 0 ||
 						lv < 0 /* includes lng_nil */)
 						throw(MAL, "remote.bincopyfrom",
 							  "bad %s value: %s", nme, val);
@@ -1339,14 +1338,14 @@ RMTinternalcopyfrom(BAT **ret, char *hdr, stream *in)
 		if (HEAPextend(&b->theap, bb.tailsize, true) != GDK_SUCCEED ||
 			mnstr_read(in, b->theap.base, bb.tailsize, 1) < 0)
 			goto bailout;
-		b->theap.dirty = TRUE;
+		b->theap.dirty = true;
 	}
 	if (bb.theapsize > 0) {
 		if (HEAPextend(b->tvheap, bb.theapsize, true) != GDK_SUCCEED ||
 			mnstr_read(in, b->tvheap->base, bb.theapsize, 1) < 0)
 			goto bailout;
 		b->tvheap->free = bb.theapsize;
-		b->tvheap->dirty = TRUE;
+		b->tvheap->dirty = true;
 	}
 
 	/* set properties */
@@ -1389,7 +1388,7 @@ str RMTbincopyfrom(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	 * rest is binary data directly on the stream.  We get the first
 	 * line from the buffered stream we have here, and pass it on
 	 * together with the raw stream we have. */
-	cntxt->fdin->eof = 0; /* in case it was before */
+	cntxt->fdin->eof = false; /* in case it was before */
 	if (bstream_next(cntxt->fdin) <= 0)
 		throw(MAL, "remote.bincopyfrom", "expected JSON header");
 
@@ -1457,7 +1456,7 @@ RMTisalive(int *ret, str *conn)
 	rethrow("remote.get", tmp, RMTfindconn(&c, *conn));
 
 	*ret = 0;
-	if (mapi_is_connected(c->mconn) != 0 && mapi_ping(c->mconn) == MOK)
+	if (mapi_is_connected(c->mconn) && mapi_ping(c->mconn) == MOK)
 		*ret = 1;
 
 	return MAL_SUCCEED;

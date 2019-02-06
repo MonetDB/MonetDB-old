@@ -178,17 +178,17 @@ BATorderidx(BAT *b, bool stable)
 	if (!BATtdense(b)) {
 		BAT *on;
 		ALGODEBUG fprintf(stderr, "#BATorderidx(" ALGOBATFMT ",%d) create index\n", ALGOBATPAR(b), stable);
-		if (BATsort(NULL, &on, NULL, b, NULL, NULL, false, stable) != GDK_SUCCEED)
+		if (BATsort(NULL, &on, NULL, b, NULL, NULL, false, false, stable) != GDK_SUCCEED)
 			return GDK_FAIL;
 		assert(BATcount(b) == BATcount(on));
 		if (BATtdense(on)) {
 			/* if the order bat is dense, the input was
 			 * sorted and we don't need an order index */
-			assert(b->tnosorted == 0);
+			assert(!b->tnosorted);
 			if (!b->tsorted) {
-				b->tsorted = 1;
-				b->tnosorted = 0;
-				b->batDirtydesc = 1;
+				b->tsorted = true;
+				b->tnosorted = false;
+				b->batDirtydesc = true;
 			}
 		} else {
 			/* BATsort quite possibly already created the
@@ -202,7 +202,7 @@ BATorderidx(BAT *b, bool stable)
 				}
 				memcpy((oid *) m->base + ORDERIDXOFF, Tloc(on, 0), BATcount(on) * sizeof(oid));
 				b->torderidx = m;
-				b->batDirtydesc = 1;
+				b->batDirtydesc = true;
 				persistOIDX(b);
 			}
 			MT_lock_unset(&GDKhashLock(b->batCacheid));
@@ -280,7 +280,7 @@ BATorderidx(BAT *b, bool stable)
 	do {								\
 		TYPE *minhp, t;						\
 		TYPE *v = (TYPE *) Tloc(b, 0);				\
-		if ((minhp = (TYPE *) GDKmalloc(sizeof(TYPE)*n_ar)) == NULL) { \
+		if ((minhp = GDKmalloc(sizeof(TYPE)*n_ar)) == NULL) {	\
 			goto bailout;					\
 		}							\
 		/* init min heap */					\
@@ -421,8 +421,8 @@ GDKmergeidx(BAT *b, BAT**a, int n_ar)
 		/* use min-heap */
 		oid **p, **q, *t_oid;
 
-		p = (oid **) GDKmalloc(n_ar*sizeof(oid *));
-		q = (oid **) GDKmalloc(n_ar*sizeof(oid *));
+		p = GDKmalloc(n_ar*sizeof(oid *));
+		q = GDKmalloc(n_ar*sizeof(oid *));
 		if (p == NULL || q == NULL) {
 		  bailout:
 			GDKfree(p);
@@ -474,7 +474,7 @@ GDKmergeidx(BAT *b, BAT**a, int n_ar)
 		ALGODEBUG fprintf(stderr, "#GDKmergeidx(%s): NOT persisting index\n", BATgetId(b));
 #endif
 
-	b->batDirtydesc = TRUE;
+	b->batDirtydesc = true;
 	MT_lock_unset(&GDKhashLock(b->batCacheid));
 	return GDK_SUCCEED;
 }
