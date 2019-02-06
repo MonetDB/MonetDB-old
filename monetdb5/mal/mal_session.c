@@ -19,6 +19,7 @@
 #include "mal_builder.h"
 #include "mal_sabaoth.h"
 #include "mal_private.h"
+#include "mal_embedded.h"
 #include "gdk.h"	/* for opendir and friends */
 
 #ifdef HAVE_EMBEDDED
@@ -64,6 +65,7 @@ malBootstrap(void)
 		fprintf(stderr,"#malBootstrap:Failed to create client thread");
 		mal_exit();
 	}
+	malEmbeddedBoot(c);
 	s = malInclude(c, bootfile, 0);
 	if (s != NULL) {
 		fprintf(stderr, "!%s\n", s);

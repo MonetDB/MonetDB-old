@@ -47,7 +47,8 @@ lib_mal = {
 		mal_stack.c mal_stack.h \
 		mal_type.c mal_type.h \
 		mal_utils.c mal_utils.h \
-		mal_private.h
+		mal_private.h \
+		mal_embedded.c mal_embedded.h mal_signatures
 }
 
 headers_h = {
@@ -68,7 +69,9 @@ headers_h = {
 		mal_profiler.h \
 		mal_resolve.h \
 		mal_stack.h \
-		mal_type.h
+		mal_type.h \
+		mal_embedded.h \
+		mal_signatures
 }
 
 EXTRA_DIST_DIR = Tests
