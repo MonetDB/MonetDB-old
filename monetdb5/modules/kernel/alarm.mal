@@ -25,3 +25,4 @@ comment "Return the current time as UNIX epoch.";
 unsafe command alarm.ctime() :str
 address ALARMctime
 comment "Return the current time as a C-time string.";
+

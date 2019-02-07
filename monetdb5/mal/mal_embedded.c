@@ -52,7 +52,7 @@ static struct{
 #include "../modules/atoms/uuid.include"
 #include "../modules/atoms/json.include"
 #include "../modules/mal/json_util.include"
-//#include "../modules/atoms/mtime.include"
+#include "../modules/atoms/mtime.include"
 #include "../modules/atoms/inet.include"
 #include "../modules/atoms/identifier.include"
 #include "../modules/atoms/xml.include"
@@ -90,7 +90,7 @@ static struct{
 
 //#include "../modules/mal/mal_mapi.include"
 #include "../modules/mal/oltp.include"
-//#include "../modules/mal/wlc.include"
+#include "../modules/mal/wlc.include"
 
 // Any extensions (MAL scripts) that should be automatically loaded upon
 // startup can be placed in the autoload directory.  One typically finds
@@ -128,6 +128,7 @@ malEmbeddedBoot(Client c)
 
 		// fprintf(stderr, "Parse the source %s\n", malSignatures[i].source);
 		compileString(&fcn, c, malSignatures[i].source);
+		fprintFunction(stderr, c->curprg->def, 0, LIST_MAL_ALL);
 	}
 	embeddedinitialized = 1;
 	return MAL_SUCCEED;
