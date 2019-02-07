@@ -14,6 +14,7 @@
 #include "mal_client.h"
 #include "mal_namespace.h"
 #include "mal_exception.h"
+#include "mal_linker.h"
 #include "mal_import.h"
 #include "mal_private.h"
 

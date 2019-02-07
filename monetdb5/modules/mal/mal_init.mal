@@ -23,71 +23,71 @@
 # upon use of the function will it create the necessary exception.
 #
 # The order of the includes defines the dependencies.
-include mdb;
-include alarm;
-include mmath;
-include streams;
+#include mdb;
+#include alarm;
+#include mmath;
+#include streams;
 # The kernel stuff to make it work
-include bat5;
-include batExtensions;
-include algebra;
-include orderidx;
-#include calc; --- moved to autoload/01_calc
-include status;
-include groupby;
-include group;
-include aggr;
-include mkey;
+#include bat5;
+#include batExtensions;
+#include algebra;
+#include orderidx;
+##include calc; --- moved to autoload/01_calc
+#include status;
+#include groupby;
+#include group;
+#include aggr;
+#include mkey;
 
-# Atom extensions
-include blob;
-include color;
-include str;
-include url;
-include uuid;
-include json;
-include json_util;
+## Atom extensions
+#include blob;
+#include color;
+#include str;
+#include url;
+#include uuid;
+#include json;
+#include json_util;
 include mtime;
-include inet;
-include identifier;
-include xml;
-include batxml;
+#include inet;
+#include identifier;
+#include xml;
+#include batxml;
 
 # The hardwired multiplex extensions
-include batmmath;
-#include batcalc; -- moved to autoload/01_batcalc
-include batmtime;
-include batstr;
-include batcolor;
+#include batmmath;
+##include batcalc; -- moved to autoload/01_batcalc
+#include batmtime;
+#include batstr;
+#include batcolor;
 
-# MAL related extensions
-include sabaoth;
-include pcre;
-include clients;
-include bbp;
-include mal_io;
-include manifold;
-include factories;
-include remote;
+## MAL related extensions
+#include sabaoth;
+#include pcre;
+#include clients;
+#include bbp;
+#include mal_io;
+#include manifold;
+#include factories;
+#include remote;
 
-include mat;
-include inspect;
-include manual;
-include language;
+#include mat;
+#include inspect;
+#include manual;
+#include language;
 
-include profiler;
-include querylog;
-include sysmon;
-include sample;
+#include profiler;
+#include querylog;
+#include sysmon;
+#include sample;
 
-include optimizer;
+include optimizer; -- FATAL: error initSQLreferences when embedded
 
-include iterator;
-include txtsim;
-include tokenizer;
+#include iterator;
+#include txtsim;
+#include tokenizer;
 
 include mal_mapi;
-include oltp;
+#include oltp;
 include wlc;
 
 # Any extensions (MAL scripts) that should be automatically loaded upon

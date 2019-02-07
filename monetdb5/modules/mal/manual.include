@@ -1,0 +1,11 @@
+{ "manual",
+"# This Source Code Form is subject to the terms of the Mozilla Public \n"
+"# License, v. 2.0.  If a copy of the MPL was not distributed with this \n"
+"# file, You can obtain one at http://mozilla.org/MPL/2.0/. \n"
+"# \n"
+"# Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V. \n"
+"module manual; \n"
+"pattern functions() (mod:bat[:str], fcn:bat[:str], sig:bat[:str], adr:bat[:str], com:bat[:str]) \n"
+"address MANUALcreateOverview \n"
+"comment \"Produces a table with all MAL functions known\"; \n"
+},
