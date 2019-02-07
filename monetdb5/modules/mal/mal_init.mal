@@ -80,13 +80,13 @@
 #include sysmon;
 #include sample;
 
-include optimizer; -- FATAL: error initSQLreferences when embedded
+#include optimizer; -- FATAL: error initSQLreferences when embedded
 
 #include iterator;
 #include txtsim;
 #include tokenizer;
 
-include mal_mapi;
+#include mal_mapi;
 #include oltp;
 #include wlc;
 

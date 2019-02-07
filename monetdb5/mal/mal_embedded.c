@@ -19,6 +19,7 @@
 #include "mal_namespace.h"
 #include "mal_exception.h"
 #include "mal_private.h"
+#include "mal_builder.h"
 #include "mal_embedded.h"
 
 static int embeddedinitialized = 0;
@@ -82,13 +83,13 @@ static struct{
 #include "../modules/mal/sysmon.include"
 #include "../modules/mal/sample.include"
 
-//#include "../optimizer/optimizer.include"
+#include "../optimizer/optimizer.include"
 
 #include "../modules/mal/iterator.include"
 #include "../modules/mal/txtsim.include"
 #include "../modules/mal/tokenizer.include"
 
-//#include "../modules/mal/mal_mapi.include"
+#include "../modules/mal/mal_mapi.include"
 #include "../modules/mal/oltp.include"
 #include "../modules/mal/wlc.include"
 
@@ -111,27 +112,20 @@ str
 malEmbeddedBoot(Client c)
 {
 	int i;
-	str s;
-	Symbol fcn;
+	str msg = MAL_SUCCEED;
 
-	(void) c;
+	
 	if( embeddedinitialized )
 		return MAL_SUCCEED;
 	for(i = 0; malSignatures[i].modnme; i++){
-		// fprintf(stderr, "Module %s", malSignatures[i].modnme);
-
-		s = loadLibrary(malSignatures[i].modnme, FALSE);
-		if (s) {
-			fprintf(stderr,"%s\n", s);
-			GDKfree(s);
+		msg = callString(c, malSignatures[i].source, FALSE);
+		if (msg) {
+			fprintf(stderr,"!ERROR: malEmbeddedBoot: %s\n", msg);
+			GDKfree(msg);
 		}
-
-		// fprintf(stderr, "Parse the source %s\n", malSignatures[i].source);
-		compileString(&fcn, c, malSignatures[i].source);
-		fprintFunction(stderr, c->curprg->def, 0, LIST_MAL_ALL);
 	}
 	embeddedinitialized = 1;
-	return MAL_SUCCEED;
+	return msg;
 }
 
 str
