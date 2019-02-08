@@ -26,10 +26,8 @@ sql_install_99_system(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, " create trigger system_update_schemas after update on sys.schemas for each statement call sys_update_schemas(); create trigger system_update_tables after update on sys._tables for each statement call sys_update_tables(); update sys.functions set system = true; create view sys.systemfunctions as select id as function_id from sys.functions where system; grant select on sys.systemfunctions to public; update sys._tables set system = true; update sys.schemas set system = true; UPDATE sys.types SET schema_id = (SELECT id FROM sys.schemas WHERE name = 'sys') WHERE schema_id = 0 AND schema_id NOT IN (SELECT id from sys.schemas); UPDATE sys.functions SET schema_id = (SELECT id FROM sys.schemas WHERE name = 'sys') WHERE schema_id = 0 AND schema_id NOT IN (SELECT id from sys.schemas);");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 99_system.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.99_system", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 99_system.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.99_system", 1, 0, NULL);
 }

@@ -172,12 +172,10 @@ if current_pointer > 0:
 # insert more common stuff
 insert2 = (
 '");\n'
-'\n'
-'\tpos += snprintf(buf + pos, bufsize - pos, "commit;\\n");\n'
-'\n'
-'\tassert(pos < bufsize);\n'
-'\tprintf("#Loading: {0}{1}\\n");\n'
-'\treturn SQLstatementIntern(c, &buf, "install", 1, 0, NULL);\n'
+'\tif (pos >= bufsize)\n'
+'\t\tthrow(SQL, "createdb.{0}", SQLSTATE(42000) "SQL script to install is too large");\n'
+'\tprintf("# loading sql script: {0}{1}\\n");\n'
+'\treturn SQLstatementIntern(c, &buf, "createdb.{0}", 1, 0, NULL);\n'
 '}}\n').format(filebasename, split[1])
 
 sql_c_output_file.write(insert2)

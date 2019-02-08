@@ -26,10 +26,8 @@ sql_install_40_json_hge(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, "  create function json.filter(js json, name hugeint) returns json external name json.filter; GRANT EXECUTE ON FUNCTION json.filter(json, hugeint) TO PUBLIC;");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 40_json_hge.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.40_json_hge", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 40_json_hge.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.40_json_hge", 1, 0, NULL);
 }

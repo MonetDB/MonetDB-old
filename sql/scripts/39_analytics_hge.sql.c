@@ -26,10 +26,8 @@ sql_install_39_analytics_hge(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, " create aggregate stddev_samp(val HUGEINT) returns DOUBLE external name \"aggr\".\"stdev\"; GRANT EXECUTE ON AGGREGATE stddev_samp(HUGEINT) TO PUBLIC; create aggregate stddev_pop(val HUGEINT) returns DOUBLE external name \"aggr\".\"stdevp\"; GRANT EXECUTE ON AGGREGATE stddev_pop(HUGEINT) TO PUBLIC; create aggregate var_samp(val HUGEINT) returns DOUBLE external name \"aggr\".\"variance\"; GRANT EXECUTE ON AGGREGATE var_samp(HUGEINT) TO PUBLIC; create aggregate var_pop(val HUGEINT) returns DOUBLE external name \"aggr\".\"variancep\"; GRANT EXECUTE ON AGGREGATE var_pop(HUGEINT) TO PUBLIC; create aggregate median(val HUGEINT) returns HUGEINT external name \"aggr\".\"median\"; GRANT EXECUTE ON AGGREGATE median(HUGEINT) TO PUBLIC; create aggregate quantile(val HUGEINT, q DOUBLE) returns HUGEINT external name \"aggr\".\"quantile\"; GRANT EXECUTE ON AGGREGATE quantile(HUGEINT, DOUBLE) TO PUBLIC; create aggregate corr(e1 HUGEINT, e2 HUGEINT) returns DOUBLE external name \"aggr\".\"corr\"; GRANT EXECUTE ON AGGREGATE corr(HUGEINT, HUGEINT) TO PUBLIC;");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 39_analytics_hge.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.39_analytics_hge", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 39_analytics_hge.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.39_analytics_hge", 1, 0, NULL);
 }

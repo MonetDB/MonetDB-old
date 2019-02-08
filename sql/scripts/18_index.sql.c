@@ -26,10 +26,8 @@ sql_install_18_index(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, "  create procedure sys.createorderindex(sys string, tab string, col string) external name sql.createorderindex; create procedure sys.droporderindex(sys string, tab string, col string) external name sql.droporderindex; ");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 18_index.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.18_index", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 18_index.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.18_index", 1, 0, NULL);
 }

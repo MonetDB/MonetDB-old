@@ -26,10 +26,8 @@ sql_install_20_vacuum(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, "   create procedure shrink(sys string, tab string) external name sql.shrink; create procedure reuse(sys string, tab string) external name sql.reuse; create procedure vacuum(sys string, tab string) external name sql.vacuum; ");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 20_vacuum.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.20_vacuum", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 20_vacuum.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.20_vacuum", 1, 0, NULL);
 }

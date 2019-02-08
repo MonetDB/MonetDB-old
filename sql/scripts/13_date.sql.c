@@ -26,10 +26,8 @@ sql_install_13_date(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, " create function str_to_date(s string, format string) returns date external name mtime.\"str_to_date\"; create function date_to_str(d date, format string) returns string external name mtime.\"date_to_str\"; create function str_to_time(s string, format string) returns time external name mtime.\"str_to_time\"; create function time_to_str(d time, format string) returns string external name mtime.\"time_to_str\"; create function str_to_timestamp(s string, format string) returns timestamp external name mtime.\"str_to_timestamp\"; create function timestamp_to_str(d timestamp, format string) returns string external name mtime.\"timestamp_to_str\"; grant execute on function str_to_date to public; grant execute on function date_to_str to public; grant execute on function str_to_time to public; grant execute on function time_to_str to public; grant execute on function str_to_timestamp to public; grant execute on function timestamp_to_str to public;");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 13_date.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.13_date", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 13_date.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.13_date", 1, 0, NULL);
 }

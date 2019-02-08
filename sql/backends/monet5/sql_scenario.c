@@ -470,14 +470,16 @@ SQLinit(Client c)
 			SQLnewcatalog = 1;
 	}
 	if (SQLnewcatalog > 0) {
-		size_t bufsize = 16384;
-		char *buf = GDKmalloc(bufsize);
+		size_t bufsize = 128 * BLOCK;
+		char *buf = GDKmalloc(bufsize), *commit = "commit;\n";
 
 		SQLnewcatalog = 0;
 		maybeupgrade = 0;
 
 		if (buf == NULL)
 			throw(SQL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+
+		fprintf(stdout, "# SQL catalog created, loading sql scripts once\n");
 
 		if ((msg = install_sql_scripts(c, buf, bufsize)) != MAL_SUCCEED) {
 			MT_lock_unset(&sql_contextLock);
@@ -493,6 +495,10 @@ SQLinit(Client c)
 #endif
 
 		GDKfree(buf);
+		if ((msg = SQLstatementIntern(c, &commit, "sql.init", 1, 0, NULL)) != MAL_SUCCEED) {
+			MT_lock_unset(&sql_contextLock);
+			return msg;
+		}
 		if (m->sa)
 			sa_destroy(m->sa);
 		m->sa = NULL;

@@ -26,10 +26,8 @@ sql_install_16_tracelog(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, " create function sys.tracelog() returns table ( event integer,		clk varchar(20),		pc varchar(50),		thread int,		ticks bigint,		rrsMB bigint,		vmMB bigint,		reads bigint,		writes bigint,		minflt bigint,		majflt bigint,		nvcsw bigint,		stmt string		) external name sql.dump_trace; create view sys.tracelog as select * from sys.tracelog();");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 16_tracelog.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.16_tracelog", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 16_tracelog.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.16_tracelog", 1, 0, NULL);
 }

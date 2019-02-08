@@ -26,10 +26,8 @@ sql_install_45_uuid(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, "  create type uuid external name uuid; create function sys.uuid() returns uuid external name uuid.\"new\"; GRANT EXECUTE ON FUNCTION sys.uuid() TO PUBLIC; create function sys.isaUUID(s string) returns boolean external name uuid.\"isaUUID\"; GRANT EXECUTE ON FUNCTION sys.isaUUID(string) TO PUBLIC;");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 45_uuid.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.45_uuid", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 45_uuid.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.45_uuid", 1, 0, NULL);
 }

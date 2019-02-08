@@ -26,10 +26,8 @@ sql_install_80_statistics(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, "  CREATE TABLE sys.statistics( \"column_id\" integer, \"type\" string, width integer, stamp timestamp, \"sample\" bigint, \"count\" bigint, \"unique\" bigint, \"nils\" bigint, minval string, maxval string, sorted boolean, revsorted boolean); create procedure sys.analyze(minmax int, \"sample\" bigint) external name sql.analyze; create procedure sys.analyze(minmax int, \"sample\" bigint, sch string) external name sql.analyze; create procedure sys.analyze(minmax int, \"sample\" bigint, sch string, tbl string) external name sql.analyze; create procedure sys.analyze(minmax int, \"sample\" bigint, sch string, tbl string, col string) external name sql.analyze;");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 80_statistics.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.80_statistics", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 80_statistics.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.80_statistics", 1, 0, NULL);
 }

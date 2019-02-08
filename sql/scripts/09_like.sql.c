@@ -26,10 +26,8 @@ sql_install_09_like(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, " create filter function \"like\"(val string, pat string, esc string) external name algebra.\"like\"; create filter function \"ilike\"(val string, pat string, esc string) external name algebra.\"ilike\"; create filter function \"like\"(val string, pat string) external name algebra.\"like\"; create filter function \"ilike\"(val string, pat string) external name algebra.\"ilike\"; grant execute on filter function \"like\" (string, string, string) to public; grant execute on filter function \"ilike\" (string, string, string) to public; grant execute on filter function \"like\" (string, string) to public; grant execute on filter function \"ilike\" (string, string) to public;");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 09_like.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.09_like", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 09_like.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.09_like", 1, 0, NULL);
 }

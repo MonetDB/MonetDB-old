@@ -26,10 +26,8 @@ sql_install_22_clients(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, " create function sys.password_hash (username string) returns string external name sql.password; create function sys.remote_table_credentials (tablename string) returns table (\"uri\" string, \"username\" string, \"hash\" string) external name sql.rt_credentials; create function sys.sessions() returns table(\"user\" string, \"login\" timestamp, \"sessiontimeout\" bigint, \"lastcommand\" timestamp, \"querytimeout\" bigint, \"active\" bool) external name sql.sessions; create view sys.sessions as select * from sys.sessions(); create procedure sys.shutdown(delay tinyint) external name sql.shutdown; create procedure sys.shutdown(delay tinyint, force bool) external name sql.shutdown; create procedure sys.settimeout(\"query\" bigint) external name clients.settimeout; create procedure sys.settimeout(\"query\" bigint, \"session\" bigint) external name clients.settimeout; create procedure sys.setsession(\"timeout\" bigint) external name clients.setsession;");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 22_clients.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.22_clients", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 22_clients.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.22_clients", 1, 0, NULL);
 }

@@ -26,10 +26,8 @@ sql_install_11_times(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, "  create procedure times() external name sql.times; grant execute on procedure times to public;");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 11_times.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.11_times", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 11_times.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.11_times", 1, 0, NULL);
 }

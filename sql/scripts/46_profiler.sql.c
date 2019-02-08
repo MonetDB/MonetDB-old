@@ -26,10 +26,8 @@ sql_install_46_profiler(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, " create schema profiler; create procedure profiler.start() external name profiler.\"start\"; create procedure profiler.stop() external name profiler.stop; create procedure profiler.setheartbeat(beat int) external name profiler.setheartbeat; create function profiler.getlimit() returns integer external name profiler.getlimit; create procedure profiler.setlimit(lim integer) external name profiler.setlimit;");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 46_profiler.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.46_profiler", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 46_profiler.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.46_profiler", 1, 0, NULL);
 }

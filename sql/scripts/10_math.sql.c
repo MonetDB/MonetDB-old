@@ -26,10 +26,8 @@ sql_install_10_math(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, " CREATE FUNCTION degrees(r double) RETURNS double RETURN r*180/pi(); CREATE FUNCTION radians(d double) RETURNS double RETURN d*pi()/180; grant execute on function degrees to public; grant execute on function radians to public;");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 10_math.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.10_math", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 10_math.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.10_math", 1, 0, NULL);
 }

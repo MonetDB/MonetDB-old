@@ -26,10 +26,8 @@ sql_install_15_querylog(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, "  create function sys.querylog_catalog() returns table( id oid, owner string, defined timestamp, query string, pipe string, \"plan\" string,		mal int,		optimize bigint	) external name sql.querylog_catalog;  create function sys.querylog_calls() returns table( id oid,		\"start\" timestamp,		\"stop\" timestamp,		arguments string,		tuples bigint,		run bigint,		ship bigint,		cpu int,		io int	) external name sql.querylog_calls; create view sys.querylog_catalog as select * from sys.querylog_catalog(); create view sys.querylog_calls as select * from sys.querylog_calls(); create view sys.querylog_history as select qd.*, ql.\"start\",ql.\"stop\", ql.arguments, ql.tuples, ql.run, ql.ship, ql.cpu, ql.io from sys.querylog_catalog() qd, sys.querylog_calls() ql where qd.id = ql.id and qd.owner = user; create procedure sys.querylog_empty() external name sql.querylog_empty; create procedure sys.querylog_enable() external name sql.querylog_enable; create procedure sys.querylog_enable(threshold smallint) external name sql.querylog_enable_threshold; create procedure sys.querylog_disable() external name sql.querylog_disable;");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 15_querylog.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.15_querylog", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 15_querylog.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.15_querylog", 1, 0, NULL);
 }

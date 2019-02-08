@@ -26,10 +26,8 @@ sql_install_41_md5sum(Client c, char *buf, size_t bufsize)
 	size_t pos = 0;
 
 	pos += snprintf(buf, bufsize, "  create function sys.md5(v string) returns string external name clients.md5sum; grant execute on function md5 to public;");
-
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-
-	assert(pos < bufsize);
-	printf("#Loading: 41_md5sum.sql\n");
-	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
+	if (pos >= bufsize)
+		throw(SQL, "createdb.41_md5sum", SQLSTATE(42000) "SQL script to install is too large");
+	printf("# loading sql script: 41_md5sum.sql\n");
+	return SQLstatementIntern(c, &buf, "createdb.41_md5sum", 1, 0, NULL);
 }
