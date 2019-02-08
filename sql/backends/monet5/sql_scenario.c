@@ -24,6 +24,7 @@
 #include "sql_optimizer.h"
 #include "sql_assert.h"
 #include "sql_execute.h"
+#include "sql_embedded.h"
 #include "sql_env.h"
 #include "sql_mvc.h"
 #include "sql_user.h"
@@ -387,6 +388,7 @@ SQLinit(Client c)
 #ifdef NEED_MT_LOCK_INIT
 	MT_lock_init(&sql_contextLock, "sql_contextLock");
 #endif
+	sqlEmbeddedBoot(c);
 
 	MT_lock_set(&sql_contextLock);
 	be_funcs = (backend_functions) {

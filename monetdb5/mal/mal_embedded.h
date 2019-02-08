@@ -16,6 +16,7 @@
 #include "mal_exception.h"
 #include "mal_linker.h"
 #include "mal_import.h"
+#include "mal_builder.h"
 #include "mal_private.h"
 
 /* #define MAL_EMBEDDED_DEBUG  */

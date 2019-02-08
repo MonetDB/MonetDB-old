@@ -6,7 +6,7 @@
 
 # This script should be ran after a change has been made to a MAL signature file.
 
-for i in *.mal
+for i in *.mal 
 do
 	if  [ ${i}x = 'mal_init.malx' ]
 	then 
@@ -15,9 +15,9 @@ do
 	fi
 	bn=`basename $i .mal`
 	incl=${bn}.include
-	echo "create the $incl file"
 	echo ${incl}
 	echo "{ \"${bn}\","  >${incl}
 	cat $i | sed  -e "s/\\\\/\\\\\\\\/g" -e "/^$/d" -e "s/\"/\\\\\"/g" -e "s/.*/\"& \\\\n\"/" >>${incl}
 	echo "}," >>${incl}
 done
+

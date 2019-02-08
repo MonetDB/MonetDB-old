@@ -14,12 +14,6 @@
  * It assumes that all necessary libraries are already loaded.
  * A failure to bind the address in the context of an embedded version is not considered an error.
  */
-#include "monetdb_config.h"
-#include "mal_type.h"
-#include "mal_namespace.h"
-#include "mal_exception.h"
-#include "mal_private.h"
-#include "mal_builder.h"
 #include "mal_embedded.h"
 
 static int embeddedinitialized = 0;
