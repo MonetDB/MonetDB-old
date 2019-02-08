@@ -117,6 +117,10 @@ static struct{
 #include "../modules/mal/language.include"
 #include "../modules/mal/01_batcalc.include"
 #include "../modules/mal/01_calc.include"
+
+#include "../scheduler/run_adder.include"
+#include "../scheduler/run_isolate.include"
+#include "../scheduler/run_memo.include"
 { 0, 0}
 }
 ;
