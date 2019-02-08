@@ -21,20 +21,15 @@
 extern str SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_table **result);
 
 str
-sql_install_60_wlcr(Client c)
+sql_install_60_wlcr(Client c, char *buf, size_t bufsize)
 {
-	size_t bufsize = 16384, pos = 0;
-	char *buf = GDKmalloc(bufsize), *err = NULL;
+	size_t pos = 0;
 
-	if (buf == NULL)
-		throw(SQL, "sql.install_60_wlcr", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	pos += snprintf(buf + pos, bufsize - pos, "  create procedure master() external name wlc.master; create procedure master(path string) external name wlc.master; create procedure stopmaster() external name wlc.stopmaster; create procedure masterbeat( duration int) external name wlc.\"setmasterbeat\"; create function masterClock() returns string external name wlc.\"getmasterclock\"; create function masterTick() returns bigint external name wlc.\"getmastertick\"; create procedure replicate() external name wlr.replicate; create procedure replicate(pointintime timestamp) external name wlr.replicate; create procedure replicate(dbname string) external name wlr.replicate; create procedure replicate(dbname string, pointintime timestamp) external name wlr.replicate; create procedure replicate(dbname string, id tinyint) external name wlr.replicate; create procedure replicate(dbname string, id smallint) external name wlr.replicate; create procedure replicate(dbname string, id integer) external name wlr.replicate; create procedure replicate(dbname string, id bigint) external name wlr.replicate; create procedure replicabeat(duration integer) external name wlr.\"setreplicabeat\"; create function replicaClock() returns string external name wlr.\"getreplicaclock\"; create function replicaTick() returns bigint external name wlr.\"getreplicatick\"; ");
+	pos += snprintf(buf, bufsize, "  create procedure master() external name wlc.master; create procedure master(path string) external name wlc.master; create procedure stopmaster() external name wlc.stopmaster; create procedure masterbeat( duration int) external name wlc.\"setmasterbeat\"; create function masterClock() returns string external name wlc.\"getmasterclock\"; create function masterTick() returns bigint external name wlc.\"getmastertick\"; create procedure replicate() external name wlr.replicate; create procedure replicate(pointintime timestamp) external name wlr.replicate; create procedure replicate(dbname string) external name wlr.replicate; create procedure replicate(dbname string, pointintime timestamp) external name wlr.replicate; create procedure replicate(dbname string, id tinyint) external name wlr.replicate; create procedure replicate(dbname string, id smallint) external name wlr.replicate; create procedure replicate(dbname string, id integer) external name wlr.replicate; create procedure replicate(dbname string, id bigint) external name wlr.replicate; create procedure replicabeat(duration integer) external name wlr.\"setreplicabeat\"; create function replicaClock() returns string external name wlr.\"getreplicaclock\"; create function replicaTick() returns bigint external name wlr.\"getreplicatick\"; ");
 
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
 	printf("#Loading: 60_wlcr.sql\n");
-	err = SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
-	GDKfree(buf);
-	return err;
+	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
 }

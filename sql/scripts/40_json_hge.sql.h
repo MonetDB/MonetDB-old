@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_40_json_hge(Client c);
+extern str sql_install_40_json_hge(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_40_JSON_HGE_H

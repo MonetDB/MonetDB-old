@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_16_tracelog(Client c);
+extern str sql_install_16_tracelog(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_16_TRACELOG_H

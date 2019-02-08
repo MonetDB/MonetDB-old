@@ -21,20 +21,15 @@
 extern str SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_table **result);
 
 str
-sql_install_46_profiler(Client c)
+sql_install_46_profiler(Client c, char *buf, size_t bufsize)
 {
-	size_t bufsize = 16384, pos = 0;
-	char *buf = GDKmalloc(bufsize), *err = NULL;
+	size_t pos = 0;
 
-	if (buf == NULL)
-		throw(SQL, "sql.install_46_profiler", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	pos += snprintf(buf + pos, bufsize - pos, " create schema profiler; create procedure profiler.start() external name profiler.\"start\"; create procedure profiler.stop() external name profiler.stop; create procedure profiler.setheartbeat(beat int) external name profiler.setheartbeat; create function profiler.getlimit() returns integer external name profiler.getlimit; create procedure profiler.setlimit(lim integer) external name profiler.setlimit;");
+	pos += snprintf(buf, bufsize, " create schema profiler; create procedure profiler.start() external name profiler.\"start\"; create procedure profiler.stop() external name profiler.stop; create procedure profiler.setheartbeat(beat int) external name profiler.setheartbeat; create function profiler.getlimit() returns integer external name profiler.getlimit; create procedure profiler.setlimit(lim integer) external name profiler.setlimit;");
 
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
 	printf("#Loading: 46_profiler.sql\n");
-	err = SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
-	GDKfree(buf);
-	return err;
+	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
 }

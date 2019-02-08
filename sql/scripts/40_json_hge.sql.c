@@ -21,20 +21,15 @@
 extern str SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_table **result);
 
 str
-sql_install_40_json_hge(Client c)
+sql_install_40_json_hge(Client c, char *buf, size_t bufsize)
 {
-	size_t bufsize = 16384, pos = 0;
-	char *buf = GDKmalloc(bufsize), *err = NULL;
+	size_t pos = 0;
 
-	if (buf == NULL)
-		throw(SQL, "sql.install_40_json_hge", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	pos += snprintf(buf + pos, bufsize - pos, "  create function json.filter(js json, name hugeint) returns json external name json.filter; GRANT EXECUTE ON FUNCTION json.filter(json, hugeint) TO PUBLIC;");
+	pos += snprintf(buf, bufsize, "  create function json.filter(js json, name hugeint) returns json external name json.filter; GRANT EXECUTE ON FUNCTION json.filter(json, hugeint) TO PUBLIC;");
 
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
 	printf("#Loading: 40_json_hge.sql\n");
-	err = SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
-	GDKfree(buf);
-	return err;
+	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
 }

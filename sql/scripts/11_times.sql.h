@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_11_times(Client c);
+extern str sql_install_11_times(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_11_TIMES_H

@@ -49,6 +49,7 @@ lib__sql = {
 		sql_rank.c sql_rank.h
 	# libmapi on Windows for mcrypt_*
 	LIBS = ../../server/libsqlserver \
+		../../scripts/libsqlscripts \
 		../../storage/libstore \
 		../../storage/bat/libbatstore \
 		../../common/libsqlcommon \
@@ -56,7 +57,8 @@ lib__sql = {
  		WIN32?../../../monetdb5/tools/libmonetdb5 \
 		WIN32?../../../gdk/libbat \
 		WIN32?../../../common/stream/libstream \
-		WIN32?$(openssl_LIBS)
+		WIN32?$(openssl_LIBS) \
+		HAVE_HGE?../../scripts/libsqlscriptshge
 }
 
 headers_mal = {

@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_51_sys_schema_extension(Client c);
+extern str sql_install_51_sys_schema_extension(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_51_SYS_SCHEMA_EXTENSION_H

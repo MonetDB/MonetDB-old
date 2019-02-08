@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_23_skyserver(Client c);
+extern str sql_install_23_skyserver(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_23_SKYSERVER_H

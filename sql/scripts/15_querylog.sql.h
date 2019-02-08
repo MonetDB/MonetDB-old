@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_15_querylog(Client c);
+extern str sql_install_15_querylog(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_15_QUERYLOG_H

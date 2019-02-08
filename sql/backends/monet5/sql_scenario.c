@@ -470,16 +470,29 @@ SQLinit(Client c)
 			SQLnewcatalog = 1;
 	}
 	if (SQLnewcatalog > 0) {
+		size_t bufsize = 16384;
+		char *buf = GDKmalloc(bufsize);
+
 		SQLnewcatalog = 0;
 		maybeupgrade = 0;
 
-		if ((msg = install_sql_scripts(c)) != MAL_SUCCEED)
+		if (buf == NULL)
+			throw(SQL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+
+		if ((msg = install_sql_scripts(c, buf, bufsize)) != MAL_SUCCEED) {
+			MT_lock_unset(&sql_contextLock);
+			GDKfree(buf);
 			return msg;
+		}
 #ifdef HAVE_HGE
-		if ((msg = install_sql_scripts_hge(c)) != MAL_SUCCEED)
+		if ((msg = install_sql_scripts_hge(c, buf, bufsize)) != MAL_SUCCEED) {
+			MT_lock_unset(&sql_contextLock);
+			GDKfree(buf);
 			return msg;
+		}
 #endif
 
+		GDKfree(buf);
 		if (m->sa)
 			sa_destroy(m->sa);
 		m->sa = NULL;

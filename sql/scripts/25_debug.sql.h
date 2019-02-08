@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_25_debug(Client c);
+extern str sql_install_25_debug(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_25_DEBUG_H

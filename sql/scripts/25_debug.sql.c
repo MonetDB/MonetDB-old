@@ -21,20 +21,15 @@
 extern str SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_table **result);
 
 str
-sql_install_25_debug(Client c)
+sql_install_25_debug(Client c, char *buf, size_t bufsize)
 {
-	size_t bufsize = 16384, pos = 0;
-	char *buf = GDKmalloc(bufsize), *err = NULL;
+	size_t pos = 0;
 
-	if (buf == NULL)
-		throw(SQL, "sql.install_25_debug", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	pos += snprintf(buf + pos, bufsize - pos, " create function sys.optimizer_stats() returns table (optname string, count int, timing bigint) external name inspect.optimizer_stats;  create function sys.queryCache() returns table (query string, count int) external name sql.dump_cache; create procedure sys.querylog(filename string) external name sql.logfile; create function sys.optimizers () returns table (name string, def string, status string) external name sql.optimizers; create view sys.optimizers as select * from sys.optimizers(); create view sys.environment as select * from sys.env(); GRANT SELECT ON sys.environment TO PUBLIC; create function sys.bbp () returns table (id int, name string, ttype string, count BIGINT, refcnt int, lrefcnt int, location string, heat int, dirty string, status string, kind string) external name bbp.get; create function sys.malfunctions() returns table(\"module\" string, \"function\" string, \"signature\" string, \"address\" string, \"comment\" string) external name \"manual\".\"functions\"; create procedure sys.evalAlgebra( ra_stmt string, opt bool) external name sql.\"evalAlgebra\"; create procedure sys.flush_log () external name sql.\"flush_log\"; create function sys.debug(debug int) returns integer external name mdb.\"setDebug\";");
+	pos += snprintf(buf, bufsize, " create function sys.optimizer_stats() returns table (optname string, count int, timing bigint) external name inspect.optimizer_stats;  create function sys.queryCache() returns table (query string, count int) external name sql.dump_cache; create procedure sys.querylog(filename string) external name sql.logfile; create function sys.optimizers () returns table (name string, def string, status string) external name sql.optimizers; create view sys.optimizers as select * from sys.optimizers(); create view sys.environment as select * from sys.env(); GRANT SELECT ON sys.environment TO PUBLIC; create function sys.bbp () returns table (id int, name string, ttype string, count BIGINT, refcnt int, lrefcnt int, location string, heat int, dirty string, status string, kind string) external name bbp.get; create function sys.malfunctions() returns table(\"module\" string, \"function\" string, \"signature\" string, \"address\" string, \"comment\" string) external name \"manual\".\"functions\"; create procedure sys.evalAlgebra( ra_stmt string, opt bool) external name sql.\"evalAlgebra\"; create procedure sys.flush_log () external name sql.\"flush_log\"; create function sys.debug(debug int) returns integer external name mdb.\"setDebug\";");
 
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
 	printf("#Loading: 25_debug.sql\n");
-	err = SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
-	GDKfree(buf);
-	return err;
+	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
 }

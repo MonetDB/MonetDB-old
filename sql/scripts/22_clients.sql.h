@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_22_clients(Client c);
+extern str sql_install_22_clients(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_22_CLIENTS_H

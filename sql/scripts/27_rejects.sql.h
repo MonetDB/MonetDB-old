@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_27_rejects(Client c);
+extern str sql_install_27_rejects(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_27_REJECTS_H

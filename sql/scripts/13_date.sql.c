@@ -21,20 +21,15 @@
 extern str SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_table **result);
 
 str
-sql_install_13_date(Client c)
+sql_install_13_date(Client c, char *buf, size_t bufsize)
 {
-	size_t bufsize = 16384, pos = 0;
-	char *buf = GDKmalloc(bufsize), *err = NULL;
+	size_t pos = 0;
 
-	if (buf == NULL)
-		throw(SQL, "sql.install_13_date", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	pos += snprintf(buf + pos, bufsize - pos, " create function str_to_date(s string, format string) returns date external name mtime.\"str_to_date\"; create function date_to_str(d date, format string) returns string external name mtime.\"date_to_str\"; create function str_to_time(s string, format string) returns time external name mtime.\"str_to_time\"; create function time_to_str(d time, format string) returns string external name mtime.\"time_to_str\"; create function str_to_timestamp(s string, format string) returns timestamp external name mtime.\"str_to_timestamp\"; create function timestamp_to_str(d timestamp, format string) returns string external name mtime.\"timestamp_to_str\"; grant execute on function str_to_date to public; grant execute on function date_to_str to public; grant execute on function str_to_time to public; grant execute on function time_to_str to public; grant execute on function str_to_timestamp to public; grant execute on function timestamp_to_str to public;");
+	pos += snprintf(buf, bufsize, " create function str_to_date(s string, format string) returns date external name mtime.\"str_to_date\"; create function date_to_str(d date, format string) returns string external name mtime.\"date_to_str\"; create function str_to_time(s string, format string) returns time external name mtime.\"str_to_time\"; create function time_to_str(d time, format string) returns string external name mtime.\"time_to_str\"; create function str_to_timestamp(s string, format string) returns timestamp external name mtime.\"str_to_timestamp\"; create function timestamp_to_str(d timestamp, format string) returns string external name mtime.\"timestamp_to_str\"; grant execute on function str_to_date to public; grant execute on function date_to_str to public; grant execute on function str_to_time to public; grant execute on function time_to_str to public; grant execute on function str_to_timestamp to public; grant execute on function timestamp_to_str to public;");
 
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
 	printf("#Loading: 13_date.sql\n");
-	err = SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
-	GDKfree(buf);
-	return err;
+	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
 }

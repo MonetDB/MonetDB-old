@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_18_index(Client c);
+extern str sql_install_18_index(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_18_INDEX_H

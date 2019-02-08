@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_13_date(Client c);
+extern str sql_install_13_date(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_13_DATE_H

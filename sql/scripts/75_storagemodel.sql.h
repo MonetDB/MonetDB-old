@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_75_storagemodel(Client c);
+extern str sql_install_75_storagemodel(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_75_STORAGEMODEL_H

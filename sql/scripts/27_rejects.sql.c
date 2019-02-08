@@ -21,20 +21,15 @@
 extern str SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_table **result);
 
 str
-sql_install_27_rejects(Client c)
+sql_install_27_rejects(Client c, char *buf, size_t bufsize)
 {
-	size_t bufsize = 16384, pos = 0;
-	char *buf = GDKmalloc(bufsize), *err = NULL;
+	size_t pos = 0;
 
-	if (buf == NULL)
-		throw(SQL, "sql.install_27_rejects", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	pos += snprintf(buf + pos, bufsize - pos, "  create function sys.rejects() returns table( rowid bigint, fldid int, \"message\" string, \"input\" string ) external name sql.copy_rejects; grant execute on function rejects to public; create view sys.rejects as select * from sys.rejects(); create procedure sys.clearrejects() external name sql.copy_rejects_clear;");
+	pos += snprintf(buf, bufsize, "  create function sys.rejects() returns table( rowid bigint, fldid int, \"message\" string, \"input\" string ) external name sql.copy_rejects; grant execute on function rejects to public; create view sys.rejects as select * from sys.rejects(); create procedure sys.clearrejects() external name sql.copy_rejects_clear;");
 
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
 	printf("#Loading: 27_rejects.sql\n");
-	err = SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
-	GDKfree(buf);
-	return err;
+	return SQLstatementIntern(c, &buf, "install", 1, 0, NULL);
 }

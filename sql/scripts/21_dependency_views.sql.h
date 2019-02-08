@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_21_dependency_views(Client c);
+extern str sql_install_21_dependency_views(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_21_DEPENDENCY_VIEWS_H

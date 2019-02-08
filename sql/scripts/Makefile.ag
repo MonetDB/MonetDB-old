@@ -16,7 +16,7 @@ INCLUDES = ../include ../common ../storage \
 		   ../../gdk
 
 lib_sqlscripts = {
-	MODULE
+	NOINST
 	DIR = libdir
 	SOURCES = sql_scripts.c sql_scripts.h \
 		09_like.sql.c 09_like.sql.h \
@@ -48,8 +48,8 @@ lib_sqlscripts = {
 		99_system.sql.c 99_system.sql.h
 }
 
-lib_sqlscripts_hge = {
-	MODULE
+lib_sqlscriptshge = {
+	NOINST
 	COND = HAVE_HGE
 	DIR = libdir
 	SOURCES = sql_scripts_hge.c sql_scripts_hge.h \

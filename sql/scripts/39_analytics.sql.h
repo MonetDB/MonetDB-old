@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_39_analytics(Client c);
+extern str sql_install_39_analytics(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_39_ANALYTICS_H

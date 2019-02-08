@@ -14,6 +14,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str install_sql_scripts(Client c);
+extern str install_sql_scripts(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_SCRIPTS_HGE_H

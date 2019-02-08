@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_80_statistics(Client c);
+extern str sql_install_80_statistics(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_80_STATISTICS_H

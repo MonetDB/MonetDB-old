@@ -17,6 +17,6 @@
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str sql_install_26_sysmon(Client c);
+extern str sql_install_26_sysmon(Client c, char *buf, size_t bufsize);
 
 #endif //SQL_26_SYSMON_H

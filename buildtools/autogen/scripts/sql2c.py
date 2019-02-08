@@ -49,14 +49,11 @@ insert1 = (
     'extern str SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_table **result);\n'
     '\n'
     'str\n'
-    'sql_install_{0}(Client c)\n'
+    'sql_install_{0}(Client c, char *buf, size_t bufsize)\n'
     '{{\n'
-    '\tsize_t bufsize = 16384, pos = 0;\n'
-    '\tchar *buf = GDKmalloc(bufsize), *err = NULL;\n'
+    '\tsize_t pos = 0;\n'
     '\n'
-    '\tif (buf == NULL)\n'
-    '\t\tthrow(SQL, "sql.install_{1}", SQLSTATE(HY001) MAL_MALLOC_FAIL);\n'
-    '\tpos += snprintf(buf + pos, bufsize - pos, "').format(filebasename, filebasename)
+    '\tpos += snprintf(buf, bufsize, "').format(filebasename, filebasename)
 
 sql_c_output_file.write(insert1)
 
@@ -180,9 +177,7 @@ insert2 = (
 '\n'
 '\tassert(pos < bufsize);\n'
 '\tprintf("#Loading: {0}{1}\\n");\n'
-'\terr = SQLstatementIntern(c, &buf, "install", 1, 0, NULL);\n'
-'\tGDKfree(buf);\n'
-'\treturn err;\n'
+'\treturn SQLstatementIntern(c, &buf, "install", 1, 0, NULL);\n'
 '}}\n').format(filebasename, split[1])
 
 sql_c_output_file.write(insert2)
@@ -208,7 +203,7 @@ insert3 = (
     '#include "gdk.h"\n'
     '#include "mal_client.h"\n'
     '\n'
-    'extern str sql_install_{1}(Client c);\n'
+    'extern str sql_install_{1}(Client c, char *buf, size_t bufsize);\n'
     '\n'
     '#endif //SQL_{0}_H\n').format(filebasename.upper(), filebasename)
 

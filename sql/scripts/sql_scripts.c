@@ -43,11 +43,11 @@
 #include <assert.h>
 
 #define LOAD_SQL_SCRIPT(script) \
-	if ((err = script(c)) != MAL_SUCCEED) \
+	if ((err = script(c, buf, bufsize)) != MAL_SUCCEED) \
 		return err;
 
 str
-install_sql_scripts(Client c)
+install_sql_scripts(Client c, char *buf, size_t bufsize)
 {
 	str err;
 LOAD_SQL_SCRIPT(sql_install_09_like)
