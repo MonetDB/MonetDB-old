@@ -93,6 +93,16 @@ static struct{
 #include "../modules/mal/oltp.include"
 #include "../modules/mal/wlc.include"
 
+#ifdef HAVE_HGE
+#include "../modules/mal/00_batcalc_hge.include"
+#include "../modules/mal/00_calc_hge.include"
+#include "../modules/mal/00_batExtensions_hge.include"
+#include "../modules/mal/00_iterator_hge.include"
+#include "../modules/mal/00_language_hge.include"
+#include "../modules/mal/00_mkey_hge.include"
+#include "../modules/mal/00_mal_mapi_hge.include"
+#endif
+
 // Any extensions (MAL scripts) that should be automatically loaded upon
 // startup can be placed in the autoload directory.  One typically finds
 // the SQL module in here, but it can also be used to load custom scripts.
@@ -100,9 +110,19 @@ static struct{
 //include calc; --- moved to autoload/01_calc
 //include batcalc; -- moved to autoload/01_batcalc
 // include autoload;
-// test case
-//{ "mdbextension", "module dummy; pattern dummy.embed(mod:str, fcn:str): void address MDBstartFactory; "
-//"pattern dummy.genius():void address MDBnotknown;"},
+#ifdef HAVE_HGE
+#include "../modules/kernel/00_aggr_hge.include"
+#include "../modules/mal/00_batcalc_hge.include"
+#include "../modules/mal/00_batExtensions_hge.include"
+#include "../modules/mal/00_calc_hge.include"
+#include "../modules/mal/00_iterator_hge.include"
+#include "../modules/atoms/00_json_hge.include"
+#include "../modules/mal/00_mkey_hge.include"
+#endif
+
+#include "../modules/mal/language.include"
+#include "../modules/mal/01_batcalc.include"
+#include "../modules/mal/01_calc.include"
 { 0, 0}
 }
 ;

@@ -53,13 +53,5 @@ headers_mal = {
 		xml.mal
 }
 
-headers_hge = {
-	COND = HAVE_HGE
-	HEADERS = mal
-	DIR = libdir/monetdb5/autoload
-	SOURCES = \
-		00_json_hge.mal
-}
-
 EXTRA_DIST_DIR = Tests
 EXTRA_DIST = xml.sql batxml.sql
