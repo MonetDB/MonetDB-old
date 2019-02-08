@@ -56,10 +56,4 @@ lib_optimizer = {
 		opt_wrapper.c
 }
 
-headers_mal = {
-	HEADERS = mal
-	DIR = libdir/monetdb5
-	SOURCES = optimizer.mal 
-}
-
 EXTRA_DIST_DIR = Tests

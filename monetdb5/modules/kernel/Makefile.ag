@@ -29,14 +29,4 @@ lib_kernel = {
 		status.c status.h 
 }
 
-headers_mal = {
-	HEADERS = mal
-	DIR = libdir/monetdb5
-	SOURCES = bat5.mal algebra.mal status.mal \
-		mmath.mal alarm.mal batstr.mal \
-		batcolor.mal batmmath.mal \
-		group.mal aggr.mal \
-		logger.mal microbenchmark.mal
-}
-
 EXTRA_DIST_DIR = Tests
