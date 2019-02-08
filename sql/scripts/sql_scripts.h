@@ -6,14 +6,14 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
-#ifndef SQL_SCRIPTS_HGE_H
-#define SQL_SCRIPTS_HGE_H
+#ifndef SQL_SCRIPTS_H
+#define SQL_SCRIPTS_H
 
 #include "monetdb_config.h"
 
 #include "gdk.h"
 #include "mal_client.h"
 
-extern str install_sql_scripts(Client c, char *buf, size_t bufsize);
+extern str install_sql_scripts(Client c);
 
-#endif //SQL_SCRIPTS_HGE_H
+#endif //SQL_SCRIPTS_H
