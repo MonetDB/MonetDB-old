@@ -39,12 +39,6 @@ headers_shpmal = {
 	SOURCES = shp.mal
 }
 
-headers_shpsql = {
-	HEADERS = sql
-	DIR = libdir/monetdb5/createdb
-	SOURCES = 75_shp.sql
-}
-
 headers_shpautoload = {
 	HEADERS = mal
 	DIR = libdir/monetdb5/autoload

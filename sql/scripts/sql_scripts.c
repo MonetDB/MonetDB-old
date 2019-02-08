@@ -35,19 +35,48 @@ static struct sql_scripts {
 #include "26_sysmon.sql.h"
 #include "27_rejects.sql.h"
 #include "39_analytics.sql.h"
+#ifdef HAVE_HGE
+#include "39_analytics_hge.sql.h"
+#endif
 #include "40_json.sql.h"
+#ifdef HAVE_HGE
+#include "40_json_hge.sql.h"
+#endif
 #include "41_md5sum.sql.h"
+#ifdef HAVE_GEOM
+#include "42_geom.sql.h"
+#include "43_geom_import.sql.h"
+#endif
 #include "45_uuid.sql.h"
 #include "46_profiler.sql.h"
 #include "51_sys_schema_extension.sql.h"
 #include "60_wlcr.sql.h"
-#include "75_storagemodel.sql.h"
-#include "80_statistics.sql.h"
-#include "99_system.sql.h"
-#ifdef HAVE_HGE
-#include "39_analytics_hge.sql.h"
-#include "40_json_hge.sql.h"
+#include "70_storagemodel.sql.h"
+#ifdef HAVE_FITS
+#include "72_fits.sql.h"
 #endif
+#ifdef HAVE_NETCDF
+#include "74_netcdf.sql.h"
+#endif
+#ifdef HAVE_LIDAR
+#include "75_lidar.sql.h"
+#endif
+#ifdef HAVE_SHP
+#include "76_shp.sql.h"
+#endif
+#include "80_statistics.sql.h"
+#include "81_udf.sql.h"
+#ifdef HAVE_HGE
+#include "81_udf_hge.sql.h"
+#endif
+#ifdef HAVE_SAMTOOLS
+#include "85_bam.sql.h"
+#endif
+#include "90_generator.sql.h"
+#ifdef HAVE_HGE
+#include "90_generator_hge.sql.h"
+#endif
+#include "99_system.sql.h"
 	{NULL, NULL}
 };
 

@@ -37,16 +37,27 @@ lib_sqlscripts = {
 		25_debug.sql.h \
 		26_sysmon.sql.h \
 		27_rejects.sql.h \
-		39_analytics.sql.h \
 		39_analytics_hge.sql.h \
-		40_json.sql.h \
+		39_analytics.sql.h \
 		40_json_hge.sql.h \
+		40_json.sql.h \
 		41_md5sum.sql.h \
+		42_geom.sql.h \
+		43_geom_import.sql.h \
 		45_uuid.sql.h \
 		46_profiler.sql.h \
 		51_sys_schema_extension.sql.h \
 		60_wlcr.sql.h \
-		75_storagemodel.sql.h \
+		70_storagemodel.sql.h \
+		72_fits.sql.h \
+		74_netcdf.sql.h \
+		75_lidar.sql.h \
+		76_shp.sql.h \
 		80_statistics.sql.h \
+		81_udf_hge.sql.h \
+		81_udf.sql.h \
+		85_bam.sql.h \
+		90_generator_hge.sql.h \
+		90_generator.sql.h \
 		99_system.sql.h
 }

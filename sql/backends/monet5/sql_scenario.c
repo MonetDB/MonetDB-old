@@ -491,7 +491,7 @@ SQLinit(Client c)
 		if (!m->sa)
 			m->sa = sa_create();
 		if (!m->sa) {
-			msg = createException(MAL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			msg = createException(MAL, "sql.init", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		} else if (maybeupgrade) {
 			SQLupgrades(c,m);
 		}

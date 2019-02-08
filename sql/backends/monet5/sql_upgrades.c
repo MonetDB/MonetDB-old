@@ -1621,10 +1621,10 @@ sql_update_storagemodel(Client c, mvc *sql)
 	if ((t = mvc_bind_table(sql, s, "tablestoragemodel")) != NULL)
 		t->system = 0;
 
-	/* new 75_storagemodel.sql */
+	/* new 70_storagemodel.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
 		"set schema sys;\n"
-		/* drop objects in reverse order of original creation of old 75_storagemodel.sql */
+		/* drop objects in reverse order of original creation of old 70_storagemodel.sql */
 		"drop view if exists sys.tablestoragemodel;\n"
 		"drop view if exists sys.storagemodel cascade;\n"
 		"drop function if exists sys.storagemodel() cascade;\n"
@@ -2118,7 +2118,7 @@ SQLupgrades(Client c, mvc *m)
 
 	/* when function storagemodel() exists and views tablestorage
 	 * and schemastorage don't, then upgrade storagemodel to match
-	 * 75_storagemodel.sql */
+	 * 70_storagemodel.sql */
 	if (sql_bind_func(m->sa, s, "storagemodel", NULL, NULL, F_UNION)
 	 && (t = mvc_bind_table(m, s, "tablestorage")) == NULL
 	 && (t = mvc_bind_table(m, s, "schemastorage")) == NULL ) {

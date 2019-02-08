@@ -43,12 +43,6 @@ headers_mal = {
 	SOURCES = bam.mal
 }
 
-headers_sql = {
-	HEADERS = sql
-	DIR = libdir/monetdb5/createdb
-	SOURCES = 85_bam.sql
-}
-
 headers_autoload = {
 	HEADERS = mal
 	DIR = libdir/monetdb5/autoload
