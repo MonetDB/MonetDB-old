@@ -388,7 +388,6 @@ SQLinit(Client c)
 #ifdef NEED_MT_LOCK_INIT
 	MT_lock_init(&sql_contextLock, "sql_contextLock");
 #endif
-	sqlEmbeddedBoot(c);
 
 	MT_lock_set(&sql_contextLock);
 	be_funcs = (backend_functions) {
