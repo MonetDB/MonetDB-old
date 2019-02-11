@@ -7,33 +7,36 @@
 from __future__ import print_function
 
 import os
-import sys
+import argparse
 
+
+parser = argparse.ArgumentParser(description='Convert MonetDB SQL scripts to C header files to be inlined')
+parser.add_argument('file', metavar='F', type=str, help='The SQL file to convert')
+parser.add_argument('-t', '--trim', dest='trim', action='store_true', help='trim whitespaces')
 
 # check arguments and veracity of the input file first
-if len(sys.argv) < 2:
-    raise Exception("One argument must be given to sql2h.py")
+args = parser.parse_args()
 
-if not os.path.exists(sys.argv[1]):
-    raise Exception("File {0} doesn't exist".format(sys.argv[1]))
-if not os.path.isfile(sys.argv[1]):
-    raise Exception("{0} is not a file".format(sys.argv[1]))
+if not os.path.exists(args.file):
+    raise Exception("File {0} doesn't exist".format(args.file))
+if not os.path.isfile(args.file):
+    raise Exception("{0} is not a file".format(args.file))
 
-file_stat = os.stat(sys.argv[1])
+file_stat = os.stat(args.file)
 if file_stat.st_size > (1 << 29):
-    raise Exception("File {0} is too large to process".format(sys.argv[1]))
+    raise Exception("File {0} is too large to process".format(args.file))
 
 # get the file name and extension
-base = os.path.basename(sys.argv[1])
+base = os.path.basename(args.file)
 split = os.path.splitext(base)
 if len(split) < 2 or split[1] != '.sql':
     raise Exception("Only .sql files are supported")
 
 filebasename = split[0]
 # output file will be written on the same directory
-sql_h_output_file = open(os.path.join(os.path.dirname(sys.argv[1]), filebasename) + ".sql.h", 'w')
+sql_h_output_file = open(os.path.join(os.path.dirname(args.file), filebasename) + ".sql.h", 'w')
 
-sql_content_file = open(sys.argv[1], 'r')
+sql_content_file = open(args.file, 'r')
 sql_content = sql_content_file.read()
 sql_content_file.close()
 
@@ -158,7 +161,8 @@ while i < endloop:
             write_to_buffer('t')
         else:
             write_to_buffer(c)
-        cur_state = 6
+        if args.trim:
+            cur_state = 6
         i += 1
         continue
 
