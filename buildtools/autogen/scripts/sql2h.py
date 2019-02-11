@@ -74,13 +74,13 @@ while i < endloop:
         i += 1
         continue
     elif cur_state == 3:
-        if c == '*' and sql_content[i + 1] == '/':
+        if c == '*' and i + 1 < endloop and sql_content[i + 1] == '/':
             cur_state = 0
             i += 1
         i += 1
         continue
     elif cur_state == 4:
-        if c == '\\':
+        if c == '\\' and i + 1 < endloop:
             write_to_buffer('\\')
             write_to_buffer('\\')
             write_to_buffer('\\')
@@ -92,7 +92,7 @@ while i < endloop:
             write_to_buffer(c)
             i += 1
         continue
-    elif cur_state == 5:
+    elif cur_state == 5 and i + 1 < endloop:
         if c == '\\':
             write_to_buffer('\\')
             write_to_buffer('\\')
@@ -117,11 +117,11 @@ while i < endloop:
         cur_state = 1
         i += 1
         continue
-    elif c == '-' and sql_content[i + 1] == '-':
+    elif c == '-' and i + 1 < endloop and sql_content[i + 1] == '-':
         cur_state = 2
         i += 2
         continue
-    elif c == '/' and sql_content[i + 1] == '*':
+    elif c == '/' and i + 1 < endloop and sql_content[i + 1] == '*':
         cur_state = 3
         i += 2
         continue
@@ -138,13 +138,19 @@ while i < endloop:
         continue
     elif c in (' ', '\t', '\n'):
         if c == '\n':
-            write_to_buffer(' ')
+            write_to_buffer('\\')
+            write_to_buffer('n')
+        elif c == '\t':
+            write_to_buffer('\\')
+            write_to_buffer('t')
         else:
             write_to_buffer(c)
         cur_state = 6
         i += 1
         continue
 
+    if c == '\\':
+        write_to_buffer('\\')
     write_to_buffer(c)
     i += 1
 
