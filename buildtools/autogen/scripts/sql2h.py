@@ -10,21 +10,34 @@ import os
 import sys
 
 
+# check arguments and veracity of the input file first
 if len(sys.argv) < 2:
     raise Exception("One argument must be given to sql2h.py")
+
+if not os.path.exists(sys.argv[1]):
+    raise Exception("File {0} doesn't exist".format(sys.argv[1]))
+if not os.path.isfile(sys.argv[1]):
+    raise Exception("{0} is not a file".format(sys.argv[1]))
+
+file_stat = os.stat(sys.argv[1])
+if file_stat.st_size > (1 << 29):
+    raise Exception("File {0} is too large to process".format(sys.argv[1]))
+
+# get the file name and extension
+base = os.path.basename(sys.argv[1])
+split = os.path.splitext(base)
+if len(split) < 2 or split[1] != '.sql':
+    raise Exception("Only .sql files are supported")
+
+filebasename = split[0]
+# output file will be written on the same directory
+sql_h_output_file = open(os.path.join(os.path.dirname(sys.argv[1]), filebasename) + ".sql.h", 'w')
 
 sql_content_file = open(sys.argv[1], 'r')
 sql_content = sql_content_file.read()
 sql_content_file.close()
 
-# get the file name and extension
-base = os.path.basename(sys.argv[1])
-split = os.path.splitext(base)
-filebasename = split[0]
-
-sql_h_output_file = open(filebasename + ".sql.h", 'w')
-
-# write the common header
+# write the common header, plus the C array entry
 insert1 = (
 '/*\n'
 '* This Source Code Form is subject to the terms of the Mozilla Public\n'
@@ -42,7 +55,7 @@ sql_h_output_file.write(insert1)
 # Let's remove comments from the sql script with a Markov chain :) Bugs might still be there
 # STATES 0 - OK, 1 in # comment, 2 in -- comment, 3 in /* comment, 4 inside ' string, 5 inside " string,
 # 6 inside whitespaces
-CACHE_SIZE = 4096
+CACHE_SIZE = file_stat.st_blksize  # we will set the cache size to the filesystem blocksize
 
 buffer = ['\0'] * CACHE_SIZE
 cur_state = 0
@@ -157,8 +170,6 @@ while i < endloop:
 if current_pointer > 0:
     sql_h_output_file.write("".join(buffer[:current_pointer]))
 
-# insert more common stuff
+# finish C array entry
 sql_h_output_file.write('" }}, \n'.format())
-sql_h_output_file.close()
-
 sql_h_output_file.close()
