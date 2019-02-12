@@ -26,6 +26,7 @@
  * access it mostly without expensive locking.
  */
 #include "monetdb_config.h"
+#include "mal_client.h"
 #include "mal_dataflow.h"
 #include "mal_private.h"
 #include "mal_runtime.h"
@@ -471,7 +472,13 @@ DFLOWworker(void *T)
 			last = todo->last;
 			MT_lock_unset(&todo->l);
 			if (last == 0)
-				profilerHeartbeatEvent("wait");
+				profilerHeartbeatEvent("wait",
+#ifdef HAVE_SYS_RESOURCE_H
+									   &(cntxt->res_usage)
+#else
+									   NULL
+#endif
+									  );
 		}
 	}
 	GDKfree(GDKerrbuf);

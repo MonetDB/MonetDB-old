@@ -16,6 +16,7 @@
  */
 #include "monetdb_config.h"
 #include "mutils.h"         /* mercurial_revision */
+#include "mal_client.h"
 #include "mal_function.h"
 #include "mal_listing.h"
 #include "mal_profiler.h"
@@ -29,7 +30,7 @@
 
 #include <string.h>
 
-static void cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+static void cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, void *res_usage);
 
 stream *eventstream = 0;
 
@@ -47,14 +48,9 @@ static struct timeval startup_time;
 
 static volatile ATOMIC_TYPE hbdelay = 0;
 
-#ifdef HAVE_SYS_RESOURCE_H
-struct rusage infoUsage;
-static struct rusage prevUsage;
-#endif
-
 static struct{
 	lng user, nice, system, idle, iowait;
-	double load;
+	dbl load;
 } corestat[256];
 
 
@@ -138,7 +134,7 @@ EXAMPLE:
 }
 */
 static void
-renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str usrname)
+renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str usrname, void *res_usage)
 {
 	(void)usrname;
 	char logbuffer[LOGLEN], *logbase;
@@ -147,6 +143,9 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
 	str stmtq;
 	lng usec= GDKusec();
 	uint64_t microseconds = (uint64_t)startup_time.tv_sec*1000000 + (uint64_t)startup_time.tv_usec + (uint64_t)usec;
+#ifdef HAVE_SYS_RESOURCE_H
+	struct rusage infoUsage, *prevUsage = (struct rusage*) res_usage;
+#endif
 
 	// ignore generation of events for instructions that are called too often
 	if(highwatermark && highwatermark + (start == 0) < pci->calls)
@@ -199,17 +198,19 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
 
 #ifdef HAVE_SYS_RESOURCE_H
 	getrusage(RUSAGE_SELF, &infoUsage);
-	if(infoUsage.ru_inblock - prevUsage.ru_inblock)
-		logadd("\"inblock\":%ld,%s", infoUsage.ru_inblock - prevUsage.ru_inblock, prettify);
-	if(infoUsage.ru_oublock - prevUsage.ru_oublock)
-		logadd("\"oublock\":%ld,%s", infoUsage.ru_oublock - prevUsage.ru_oublock, prettify);
-	if(infoUsage.ru_majflt - prevUsage.ru_majflt)
-		logadd("\"majflt\":%ld,%s", infoUsage.ru_majflt - prevUsage.ru_majflt, prettify);
-	if(infoUsage.ru_nswap - prevUsage.ru_nswap)
-		logadd("\"nswap\":%ld,s%sn", infoUsage.ru_nswap - prevUsage.ru_nswap, prettify);
-	if(infoUsage.ru_nvcsw - prevUsage.ru_nvcsw)
-		logadd("\"nvcsw\":%ld,%s", infoUsage.ru_nvcsw - prevUsage.ru_nvcsw +infoUsage.ru_nivcsw - prevUsage.ru_nivcsw, prettify);
-	prevUsage = infoUsage;
+	if(infoUsage.ru_inblock - prevUsage->ru_inblock)
+		logadd("\"inblock\":%ld,%s", infoUsage.ru_inblock - prevUsage->ru_inblock, prettify);
+	if(infoUsage.ru_oublock - prevUsage->ru_oublock)
+		logadd("\"oublock\":%ld,%s", infoUsage.ru_oublock - prevUsage->ru_oublock, prettify);
+	if(infoUsage.ru_majflt - prevUsage->ru_majflt)
+		logadd("\"majflt\":%ld,%s", infoUsage.ru_majflt - prevUsage->ru_majflt, prettify);
+	if(infoUsage.ru_nswap - prevUsage->ru_nswap)
+		logadd("\"nswap\":%ld,s%sn", infoUsage.ru_nswap - prevUsage->ru_nswap, prettify);
+	if(infoUsage.ru_nvcsw - prevUsage->ru_nvcsw)
+		logadd("\"nvcsw\":%ld,%s", infoUsage.ru_nvcsw - prevUsage->ru_nvcsw +infoUsage.ru_nivcsw - prevUsage->ru_nivcsw, prettify);
+	memcpy(prevUsage, &infoUsage, sizeof(struct rusage));
+#else
+	(void) res_usage;
 #endif
 
 	if( mb){
@@ -417,7 +418,7 @@ getCPULoad(char cpuload[BUFSIZ]){
 				goto skip;
 			newload = (user - corestat[cpu].user + nice - corestat[cpu].nice + system - corestat[cpu].system);
 			if (  newload)
-				corestat[cpu].load = (double) newload / (newload + idle - corestat[cpu].idle + iowait - corestat[cpu].iowait);
+				corestat[cpu].load = (dbl) newload / (newload + idle - corestat[cpu].idle + iowait - corestat[cpu].iowait);
 			corestat[cpu].user = user;
 			corestat[cpu].nice = nice;
 			corestat[cpu].system = system;
@@ -441,13 +442,16 @@ getCPULoad(char cpuload[BUFSIZ]){
 }
 
 void
-profilerHeartbeatEvent(char *alter)
+profilerHeartbeatEvent(char *alter, void *res_usage)
 {
 	char cpuload[BUFSIZ];
 	char logbuffer[LOGLEN], *logbase;
 	int loglen;
 	lng usec = GDKusec();
 	uint64_t microseconds = (uint64_t)startup_time.tv_sec*1000000 + (uint64_t)startup_time.tv_usec + (uint64_t)usec;
+#ifdef HAVE_SYS_RESOURCE_H
+	struct rusage infoUsage, *prevUsage = (struct rusage*) res_usage;
+#endif
 
 	if (ATOMIC_GET(hbdelay, mal_beatLock) == 0 || eventstream  == NULL)
 		return;
@@ -465,18 +469,21 @@ profilerHeartbeatEvent(char *alter)
 	logadd("\"ctime\":%"PRIu64",%s", microseconds, prettify);
 	logadd("\"rss\":%zu,%s", MT_getrss()/1024/1024, prettify);
 #ifdef HAVE_SYS_RESOURCE_H
+	assert(res_usage);
 	getrusage(RUSAGE_SELF, &infoUsage);
-	if(infoUsage.ru_inblock - prevUsage.ru_inblock)
-		logadd("\"inblock\":%ld,%s", infoUsage.ru_inblock - prevUsage.ru_inblock, prettify);
-	if(infoUsage.ru_oublock - prevUsage.ru_oublock)
-		logadd("\"oublock\":%ld,%s", infoUsage.ru_oublock - prevUsage.ru_oublock, prettify);
-	if(infoUsage.ru_majflt - prevUsage.ru_majflt)
-		logadd("\"majflt\":%ld,%s", infoUsage.ru_majflt - prevUsage.ru_majflt, prettify);
-	if(infoUsage.ru_nswap - prevUsage.ru_nswap)
-		logadd("\"nswap\":%ld,%s", infoUsage.ru_nswap - prevUsage.ru_nswap, prettify);
-	if(infoUsage.ru_nvcsw - prevUsage.ru_nvcsw)
-		logadd("\"nvcsw\":%ld,%s", infoUsage.ru_nvcsw - prevUsage.ru_nvcsw +infoUsage.ru_nivcsw - prevUsage.ru_nivcsw, prettify);
-	prevUsage = infoUsage;
+	if(infoUsage.ru_inblock - prevUsage->ru_inblock)
+		logadd("\"inblock\":%ld,%s", infoUsage.ru_inblock - prevUsage->ru_inblock, prettify);
+	if(infoUsage.ru_oublock - prevUsage->ru_oublock)
+		logadd("\"oublock\":%ld,%s", infoUsage.ru_oublock - prevUsage->ru_oublock, prettify);
+	if(infoUsage.ru_majflt - prevUsage->ru_majflt)
+		logadd("\"majflt\":%ld,%s", infoUsage.ru_majflt - prevUsage->ru_majflt, prettify);
+	if(infoUsage.ru_nswap - prevUsage->ru_nswap)
+		logadd("\"nswap\":%ld,%s", infoUsage.ru_nswap - prevUsage->ru_nswap, prettify);
+	if(infoUsage.ru_nvcsw - prevUsage->ru_nvcsw)
+		logadd("\"nvcsw\":%ld,%s", infoUsage.ru_nvcsw - prevUsage->ru_nvcsw +infoUsage.ru_nivcsw - prevUsage->ru_nivcsw, prettify);
+	memcpy(prevUsage, &infoUsage, sizeof(struct rusage));
+#else
+	(void) res_usage;
 #endif
 	logadd("\"state\":\"%s\",%s",alter,prettify);
 	logadd("\"cpuload\":%s%s",cpuload,prettify);
@@ -485,7 +492,7 @@ profilerHeartbeatEvent(char *alter)
 }
 
 void
-profilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str usrname)
+profilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str usrname, void *res_usage)
 {
 	if (stk == NULL) return;
 	if (pci == NULL) return;
@@ -493,14 +500,14 @@ profilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str usrname)
 		return;
 
 	if( sqlProfiling && !start )
-		cachedProfilerEvent(mb, stk, pci);
+		cachedProfilerEvent(mb, stk, pci, res_usage);
 
 	if( eventstream) {
-		renderProfilerEvent(mb, stk, pci, start, usrname);
+		renderProfilerEvent(mb, stk, pci, start, usrname, res_usage);
 		if ( start && pci->pc ==0)
-			profilerHeartbeatEvent("ping");
+			profilerHeartbeatEvent("ping", res_usage);
 		if ( !start && pci->token == ENDsymbol)
-			profilerHeartbeatEvent("ping");
+			profilerHeartbeatEvent("ping", res_usage);
 	}
 }
 
@@ -518,10 +525,6 @@ openProfilerStream(stream *fd, int mode)
 	int i,j;
 	Client c;
 
-#ifdef HAVE_SYS_RESOURCE_H
-	getrusage(RUSAGE_SELF, &infoUsage);
-	prevUsage = infoUsage;
-#endif
 	if (myname == 0){
 		myname = putName("profiler");
 		eventcounter = 0;
@@ -537,11 +540,21 @@ openProfilerStream(stream *fd, int mode)
 	if( (mode & PROFSHOWRUNNING) > 0){
 		for (i = 0; i < MAL_MAXCLIENTS; i++) {
 			c = mal_clients+i;
-			if ( c->active )
+			if ( c->active ) {
+#ifdef HAVE_SYS_RESOURCE_H
+				getrusage(RUSAGE_SELF, &(c->res_usage));
+#endif
 				for(j = 0; j <THREADS; j++)
-				if( c->inprogress[j].mb)
-				/* show the event */
-					profilerEvent(c->inprogress[j].mb, c->inprogress[j].stk, c->inprogress[j].pci, 1, c->username);
+					if( c->inprogress[j].mb)
+						/* show the event */
+						profilerEvent(c->inprogress[j].mb, c->inprogress[j].stk, c->inprogress[j].pci, 1, c->username,
+#ifdef HAVE_SYS_RESOURCE_H
+									  &(c->res_usage)
+#else
+									  NULL
+#endif
+									 );
+			}
 		}
 	}
 	return MAL_SUCCEED;
@@ -561,11 +574,6 @@ closeProfilerStream(void)
 str
 startProfiler(void)
 {
-#ifdef HAVE_SYS_RESOURCE_H
-	getrusage(RUSAGE_SELF, &infoUsage);
-	prevUsage = infoUsage;
-#endif
-
 	if( eventstream){
 		throw(MAL,"profiler.start","Profiler already running, stream not available");
 	}
@@ -709,6 +717,16 @@ TRACEtable(BAT **r)
 	r[11] = COLcopy(TRACE_id_nvcsw, TRACE_id_nvcsw->ttype, false, TRANSIENT);
 	r[12] = COLcopy(TRACE_id_stmt, TRACE_id_stmt->ttype, false, TRANSIENT);
 	MT_lock_unset(&mal_profileLock);
+	for (int i = 0 ; i < 13; i++) {
+		if (!r[i]) {
+			for ( i = 0; i< 13; i++)
+				if (r[i]) {
+					BBPunfix(r[i]->batCacheid);
+					r[i] = NULL;
+				}
+			return -1;
+		}
+	}
 	return 13;
 }
 
@@ -861,7 +879,7 @@ cleanupTraces(void)
 }
 
 void
-cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, void *res_usage)
 {
 	char buf[BUFSIZ]= {0};
 	int tid = (int)THRgettid();
@@ -871,11 +889,11 @@ cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	lng rssMB = MT_getrss()/1024/1024;
 	lng tmpspace = 0;
 	int errors = 0;
+#ifdef HAVE_SYS_RESOURCE_H
+	struct rusage infoUsage, *prevUsage = (struct rusage*) res_usage;
+#endif
 
 	clock = GDKusec();
-#ifdef HAVE_SYS_RESOURCE_H
-	getrusage(RUSAGE_SELF, &infoUsage);
-#endif
 	if (TRACE_init == 0)
 		return;
 
@@ -892,13 +910,16 @@ cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		c++;
 
 #ifdef HAVE_SYS_RESOURCE_H
+	assert(res_usage);
 	getrusage(RUSAGE_SELF, &infoUsage);
-	v1= infoUsage.ru_inblock - prevUsage.ru_inblock;
-	v2= infoUsage.ru_oublock - prevUsage.ru_oublock;
-	v3= infoUsage.ru_majflt - prevUsage.ru_majflt;
-	v4= infoUsage.ru_nswap - prevUsage.ru_nswap;
-	v5= infoUsage.ru_nvcsw - prevUsage.ru_nvcsw +infoUsage.ru_nivcsw - prevUsage.ru_nivcsw;
-	prevUsage = infoUsage;
+	v1= infoUsage.ru_inblock - prevUsage->ru_inblock;
+	v2= infoUsage.ru_oublock - prevUsage->ru_oublock;
+	v3= infoUsage.ru_majflt - prevUsage->ru_majflt;
+	v4= infoUsage.ru_nswap - prevUsage->ru_nswap;
+	v5= infoUsage.ru_nvcsw - prevUsage->ru_nvcsw +infoUsage.ru_nivcsw - prevUsage->ru_nivcsw;
+	memcpy(prevUsage, &infoUsage, sizeof(struct rusage));
+#else
+	(void) res_usage;
 #endif
 
 	// keep it a short transaction
@@ -909,7 +930,7 @@ cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	errors += BUNappend(TRACE_id_event, &TRACE_event, false) != GDK_SUCCEED;
 	errors += BUNappend(TRACE_id_pc, buf, false) != GDK_SUCCEED;
-	snprintf(buf, sizeof(buf), LLFMT ".%06ld", clock / 1000000, (long) (clock % 1000000));
+	snprintf(buf, sizeof(buf), LLFMT ".%06ld", clock / 1000000, (lng) (clock % 1000000));
 	errors += BUNappend(TRACE_id_time, buf, false) != GDK_SUCCEED;
 	errors += BUNappend(TRACE_id_thread, &tid, false) != GDK_SUCCEED;
 	errors += BUNappend(TRACE_id_ticks, &pci->ticks, false) != GDK_SUCCEED;
@@ -1037,6 +1058,10 @@ static void profilerHeartbeat(void *dummy)
 {
 	int t;
 	const int timeout = GDKdebug & FORCEMITOMASK ? 10 : 25;
+#ifdef HAVE_SYS_RESOURCE_H
+	struct rusage heartbeatResUsage;
+	getrusage(RUSAGE_SELF, &heartbeatResUsage);
+#endif
 
 	(void) dummy;
 	for (;;) {
@@ -1051,7 +1076,13 @@ static void profilerHeartbeat(void *dummy)
 				return;
 			MT_sleep_ms(t > timeout ? timeout : t);
 		}
-		profilerHeartbeatEvent("ping");
+		profilerHeartbeatEvent("ping",
+#ifdef HAVE_SYS_RESOURCE_H
+							   &heartbeatResUsage
+#else
+							   NULL
+#endif
+							  );
 	}
 	ATOMIC_SET(hbdelay, 0, mal_beatLock);
 }

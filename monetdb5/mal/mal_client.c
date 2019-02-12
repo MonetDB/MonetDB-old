@@ -266,6 +266,9 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->filetrans = false;
 
 	MT_sema_init(&c->s, 0, "Client->s");
+#ifdef HAVE_SYS_RESOURCE_H
+	memset(&(c->res_usage), 0, sizeof(struct rusage));
+#endif
 	return c;
 }
 
@@ -430,6 +433,9 @@ freeClient(Client c)
 	c->wlc_kind = 0;
 	c->wlc = NULL;
 	MT_sema_destroy(&c->s);
+#ifdef HAVE_SYS_RESOURCE_H
+	memset(&(c->res_usage), 0, sizeof(struct rusage));
+#endif
 	c->mode = MCshutdowninprogress()? BLOCKCLIENT: FREECLIENT;
 }
 

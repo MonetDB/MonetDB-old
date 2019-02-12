@@ -15,6 +15,10 @@
 #include "mal_resolve.h"
 #include "mal_profiler.h"
 
+#ifdef HAVE_SYS_RESOURCE_H
+#include <sys/resource.h>
+#endif
+
 #define SCENARIO_PROPERTIES 8
 
 #define CONSOLE     0
@@ -191,6 +195,10 @@ typedef struct CLIENT {
 	size_t blocksize;
 	protocol_version protocol;
 	bool filetrans;				/* whether the client can read files for us */
+
+#ifdef HAVE_SYS_RESOURCE_H
+	struct rusage res_usage; /* used by the mal_profiler */
+#endif
 } *Client, ClientRec;
 
 mal_export void    MCinit(void);

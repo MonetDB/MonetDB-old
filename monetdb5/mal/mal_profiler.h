@@ -15,20 +15,13 @@
 # include <sys/times.h>
 #endif
 
-#ifdef HAVE_SYS_RESOURCE_H
-# include <sys/resource.h>
-typedef struct rusage Rusage;
-#endif
-
-typedef struct tms Tms;
-
 mal_export int malProfileMode;
 
 mal_export void initProfiler(void);
 mal_export str openProfilerStream(stream *fd, int mode);
 mal_export str closeProfilerStream(void);
 
-mal_export void profilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str usrname);
+mal_export void profilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str usrname, void *res_usage);
 
 mal_export str startProfiler(void);
 mal_export str stopProfiler(void);
@@ -37,7 +30,8 @@ mal_export str stopTrace(str path);
 mal_export void setHeartbeat(int delay);
 mal_export str setprofilerpoolsize(int size);
 mal_export void initHeartbeat(void);
-mal_export void profilerHeartbeatEvent(char *alter);
+mal_export void profilerHeartbeatEvent(char *alter, void *res_usage);
+
 mal_export int getprofilerlimit(void);
 mal_export void setprofilerlimit(int limit);
 
