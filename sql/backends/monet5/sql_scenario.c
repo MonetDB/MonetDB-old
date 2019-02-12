@@ -24,6 +24,7 @@
 #include "sql_optimizer.h"
 #include "sql_assert.h"
 #include "sql_execute.h"
+#include "sql_embedded.h"
 #include "sql_env.h"
 #include "sql_mvc.h"
 #include "sql_user.h"

@@ -251,8 +251,10 @@ void freeModule(Module m)
 		if (pci && pci->token == COMMANDsymbol && pci->argc == 1) {
 			int ret = 0;
 
-			assert(pci->fcn != NULL);
-			(*pci->fcn)(&ret);
+			if ( pci->fcn)
+				(*pci->fcn)(&ret);
+			else
+				GDKerror("Missing address for epilogue '%s' ", m->name); 
 			(void)ret;
 		}
 	}
