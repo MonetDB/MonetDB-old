@@ -13,6 +13,7 @@ import argparse
 parser = argparse.ArgumentParser(description='Convert MonetDB MAL scripts to C header files to be inlined')
 parser.add_argument('file', metavar='F', type=str, help='The MAL file to convert')
 parser.add_argument('-t', '--trim', dest='trim', action='store_true', help='trim whitespaces')
+parser.add_argument('-r', '--rcomments', dest='rcom', action='store_true', help='remove comments')
 
 # check arguments and veracity of the input file first
 args = parser.parse_args()
@@ -56,8 +57,10 @@ insert1 = (
 mal_h_output_file.write(insert1)
 
 # Let's remove comments from the mal script with a Markov chain :) Bugs might still be there
-# STATES 0 - OK, 1 in # comment, 2 between comment keyword and comment block, 3 inside address comment block,
-# 4 inside ' string, 5 inside " string, 6 inside whitespaces
+# STATES 0 - OK, 1 in # comment, 2 between comment keyword and comment block (removing comments),
+# 3 inside address comment block (removing comments),
+# 4 between comment keyword and comment block (not removing comments),
+# 5 inside address comment block (not removing comments), 6 inside " string, 7 inside whitespaces
 CACHE_SIZE = file_stat.st_blksize  # we will set the cache size to the filesystem blocksize
 
 buffer = ['\0'] * CACHE_SIZE
@@ -79,17 +82,17 @@ def write_to_buffer(input_c):
 while i < endloop:
     c = mal_content[i]
 
-    if cur_state == 1:
+    if cur_state == 1:  # inside an hashtag comment
         if c == '\n':
             cur_state = 0
         i += 1
         continue
-    elif cur_state == 2:
+    elif cur_state == 2:  # before entering a MAL comment, and removing it
         if c == '"':
             cur_state = 3
         i += 1
         continue
-    elif cur_state == 3:
+    elif cur_state == 3:  # inside a MAL comment, and removing it
         if c == '\\':
             i += 2
         elif c == '"':
@@ -98,8 +101,17 @@ while i < endloop:
         else:
             i += 1
         continue
-    elif cur_state == 4:
+    elif cur_state == 4:  # before entering a MAL comment, but not removing it
+        if c == '"':
+            write_to_buffer('\\')
+            write_to_buffer('"')
+            cur_state = 5
+        i += 1
+        continue
+    elif cur_state == 5:  # inside a MAL comment, but not removing it
         if c == '\\' and i + 1 < endloop:
+            write_to_buffer('\\')
+            write_to_buffer('\\')
             write_to_buffer('\\')
             write_to_buffer('\\')
             write_to_buffer('\\')
@@ -108,14 +120,21 @@ while i < endloop:
         elif c == '\n':
             write_to_buffer('\\')
             write_to_buffer('n')
+            i += 1
+        elif c == '\t':
+            write_to_buffer('\\')
+            write_to_buffer('t')
             i += 1
         else:
-            if c == '\'':
+            if c == '"':
+                write_to_buffer('\\')
+                write_to_buffer('\"')
                 cur_state = 0
-            write_to_buffer(c)
+            else:
+                write_to_buffer(c)
             i += 1
         continue
-    elif cur_state == 5:
+    elif cur_state == 6:  # inside a string
         if c == '\\' and i + 1 < endloop:
             write_to_buffer('\\')
             write_to_buffer('\\')
@@ -125,6 +144,10 @@ while i < endloop:
         elif c == '\n':
             write_to_buffer('\\')
             write_to_buffer('n')
+            i += 1
+        elif c == '\t':
+            write_to_buffer('\\')
+            write_to_buffer('t')
             i += 1
         else:
             if c == '"':
@@ -133,7 +156,7 @@ while i < endloop:
             write_to_buffer(c)
             i += 1
         continue
-    elif cur_state == 6:
+    elif cur_state == 7:  # inside whitespaces
         if c not in (' ', '\t', '\n'):
             cur_state = 0
             continue
@@ -144,14 +167,14 @@ while i < endloop:
         cur_state = 1
         i += 1
         continue
-    elif c == '\'':
-        write_to_buffer(c)
-        cur_state = 4
-        i += 1
-        continue
     elif c == 'c':
-        if i + 7 < endloop and mal_content[i:i+8] == 'comment ':
-            cur_state = 2
+        if i + 8 < endloop and mal_content[i:i+8] == 'comment ':
+            if args.rcom:
+                cur_state = 2
+            else:
+                for mchar in 'comment ':
+                    write_to_buffer(mchar)
+                cur_state = 4
             i += 7
         else:
             write_to_buffer('c')
@@ -160,7 +183,7 @@ while i < endloop:
     elif c == '"':
         write_to_buffer('\\')
         write_to_buffer(c)
-        cur_state = 5
+        cur_state = 6
         i += 1
         continue
     elif c in (' ', '\t', '\n'):
@@ -173,7 +196,7 @@ while i < endloop:
         else:
             write_to_buffer(c)
         if args.trim:
-            cur_state = 6
+            cur_state = 7
         i += 1
         continue
 

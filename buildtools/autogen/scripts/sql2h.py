@@ -106,6 +106,10 @@ while i < endloop:
             write_to_buffer('\\')
             write_to_buffer('n')
             i += 1
+        elif c == '\t':
+            write_to_buffer('\\')
+            write_to_buffer('t')
+            i += 1
         else:
             if c == '\'':
                 cur_state = 0
@@ -122,6 +126,10 @@ while i < endloop:
         elif c == '\n':
             write_to_buffer('\\')
             write_to_buffer('n')
+            i += 1
+        elif c == '\t':
+            write_to_buffer('\\')
+            write_to_buffer('t')
             i += 1
         else:
             if c == '"':
