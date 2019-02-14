@@ -38,7 +38,6 @@ malBootstrap(void)
 {
 	Client c;
 	str msg = MAL_SUCCEED;
-	str bootfile = "mal_init", s = NULL;
 
 	c = MCinitClient((oid) 0, 0, 0);
 	if(c == NULL) {
@@ -65,11 +64,9 @@ malBootstrap(void)
 		fprintf(stderr,"#malBootstrap:Failed to create client thread");
 		mal_exit(1);
 	}
-	malEmbeddedBoot(c);
-	s = malInclude(c, bootfile, 0);
-	if (s != NULL) {
-		fprintf(stderr, "!%s\n", s);
-		GDKfree(s);
+	if ((msg = malEmbeddedBoot(c)) != MAL_SUCCEED) {
+		fprintf(stderr,"#malBootstrap:Failed to load MAL scripts: %s", msg);
+		freeException(msg);
 		mal_exit(1);
 	}
 	pushEndInstruction(c->curprg->def);
@@ -85,9 +82,9 @@ malBootstrap(void)
 		return msg;
 #endif
 	}
-	s = MALengine(c);
-	if (s != MAL_SUCCEED) {
-		GDKfree(s);
+	msg = MALengine(c);
+	if (msg != MAL_SUCCEED) {
+		GDKfree(msg);
 #ifdef HAVE_EMBEDDED
 		return msg;
 #endif

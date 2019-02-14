@@ -11,6 +11,9 @@ INCLUDES = ../../common/options \
 		   ../../gdk \
 		   ../optimizer \
 		   ../modules/mal \
+		   ../modules/kernel \
+		   ../modules/atoms \
+		   ../scheduler \
 		   $(openssl_CFLAGS)
 MTSAFE
 

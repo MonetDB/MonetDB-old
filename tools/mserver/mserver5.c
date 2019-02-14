@@ -19,7 +19,7 @@
 #include "mal_authorize.h"
 #include "msabaoth.h"
 #include "mutils.h"
-#include "sql_embedded.h"
+//#include "sql_embedded.h"
 
 #ifdef HAVE_LIBGEN_H
 #include <libgen.h>
@@ -481,7 +481,7 @@ main(int argc, char **av)
 	monet_script[i] = NULL;
 	if (!dbpath) {
 		dbpath = absolute_path(mo_find_option(set, setlen, "gdk_dbpath"));
-		if (dbpath == NULL || GDKcreatedir(dbpath) != GDK_SUCCEED) {
+		if (!dbpath) {
 			fprintf(stderr, "!ERROR: cannot allocate memory for database directory \n");
 			exit(1);
 		}
@@ -697,7 +697,7 @@ main(int argc, char **av)
 	}
 
 	// Now it is time to also bootstrap the SQL part
-	sqlEmbeddedBoot(mal_clients);
+	//sqlEmbeddedBoot(mal_clients);
 
 	free(monet_script);
 #ifdef HAVE_CONSOLE

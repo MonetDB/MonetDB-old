@@ -25,106 +25,89 @@ static struct{
 {
 // Include the MAL definitions files in the proper order.
 
-#include "../modules/mal/mdb.include"
-#include "../modules/kernel/alarm.include"
-#include "../modules/kernel/mmath.include"
-#include "../modules/atoms/streams.include"
+#include "mdb.mal.h"
+#include "alarm.mal.h"
+#include "mmath.mal.h"
+#include "streams.mal.h"
 
-#include "../modules/kernel/bat5.include"
-#include "../modules/mal/batExtensions.include"
-#include "../modules/kernel/algebra.include"
-#include "../modules/mal/orderidx.include"
-#include "../modules/kernel/status.include"
-#include "../modules/mal/groupby.include"
-#include "../modules/kernel/group.include"
-#include "../modules/kernel/aggr.include"
-#include "../modules/mal/mkey.include"
+#include "bat5.mal.h"
+#include "batExtensions.mal.h"
+#include "algebra.mal.h"
+#include "orderidx.mal.h"
+#include "status.mal.h"
+#include "groupby.mal.h"
+#include "group.mal.h"
+#include "aggr.mal.h"
+#include "mkey.mal.h"
 
-#include "../modules/atoms/blob.include"
-#include "../modules/atoms/color.include"
-#include "../modules/atoms/str.include"
-#include "../modules/atoms/url.include"
-#include "../modules/atoms/uuid.include"
-#include "../modules/atoms/json.include"
-#include "../modules/mal/json_util.include"
-#include "../modules/atoms/mtime.include"
-#include "../modules/atoms/inet.include"
-#include "../modules/atoms/identifier.include"
-#include "../modules/atoms/xml.include"
-#include "../modules/atoms/batxml.include"
+#include "blob.mal.h"
+#include "color.mal.h"
+#include "str.mal.h"
+#include "url.mal.h"
+#include "uuid.mal.h"
+#include "json.mal.h"
+#include "json_util.mal.h"
+#include "mtime.mal.h"
+#include "inet.mal.h"
+#include "identifier.mal.h"
+#include "xml.mal.h"
+#include "batxml.mal.h"
 
-#include "../modules/kernel/batmmath.include"
-#include "../modules/mal/batmtime.include"
-#include "../modules/kernel/batstr.include"
-#include "../modules/kernel/batcolor.include"
+#include "batmmath.mal.h"
+#include "batmtime.mal.h"
+#include "batstr.mal.h"
+#include "batcolor.mal.h"
 
-#include "../modules/mal/sabaoth.include"
-#include "../modules/mal/pcre.include"
-#include "../modules/mal/clients.include"
-#include "../modules/mal/bbp.include"
-#include "../modules/mal/mal_io.include"
-#include "../modules/mal/manifold.include"
-#include "../modules/mal/factories.include"
-#include "../modules/mal/remote.include"
+#include "sabaoth.mal.h"
+#include "pcre.mal.h"
+#include "clients.mal.h"
+#include "bbp.mal.h"
+#include "mal_io.mal.h"
+#include "manifold.mal.h"
+#include "factories.mal.h"
+#include "remote.mal.h"
 
-#include "../modules/mal/mat.include"
-#include "../modules/mal/inspect.include"
-#include "../modules/mal/manual.include"
-#include "../modules/mal/language.include"
+#include "mat.mal.h"
+#include "inspect.mal.h"
+#include "manual.mal.h"
+#include "language.mal.h"
 
-#include "../modules/mal/profiler.include"
-#include "../modules/mal/querylog.include"
-#include "../modules/mal/sysmon.include"
-#include "../modules/mal/sample.include"
+#include "profiler.mal.h"
+#include "querylog.mal.h"
+#include "sysmon.mal.h"
+#include "sample.mal.h"
 
-#include "../optimizer/optimizer.include"
+#include "optimizer.mal.h"
 
-#include "../modules/mal/iterator.include"
-#include "../modules/mal/txtsim.include"
-#include "../modules/mal/tokenizer.include"
+#include "iterator.mal.h"
+#include "txtsim.mal.h"
+#include "tokenizer.mal.h"
 
-#include "../modules/mal/mal_mapi.include"
-#include "../modules/mal/oltp.include"
-#include "../modules/mal/wlc.include"
+#include "mal_mapi.mal.h"
+#include "oltp.mal.h"
+#include "wlc.mal.h"
 
 #ifdef HAVE_HGE
-#include "../modules/mal/00_batcalc_hge.include"
-#include "../modules/mal/00_calc_hge.include"
-#include "../modules/mal/00_batExtensions_hge.include"
-#include "../modules/mal/00_iterator_hge.include"
-#include "../modules/mal/00_language_hge.include"
-#include "../modules/mal/00_mkey_hge.include"
-#include "../modules/mal/00_mal_mapi_hge.include"
+#include "00_aggr_hge.mal.h"
+#include "00_batcalc_hge.mal.h"
+#include "00_calc_hge.mal.h"
+#include "00_batExtensions_hge.mal.h"
+#include "00_iterator_hge.mal.h"
+#include "00_language_hge.mal.h"
+#include "00_mkey_hge.mal.h"
+#include "00_mal_mapi_hge.mal.h"
+#include "00_json_hge.mal.h"
 #endif
 
-// Any extensions (MAL scripts) that should be automatically loaded upon
-// startup can be placed in the autoload directory.  One typically finds
-// the SQL module in here, but it can also be used to load custom scripts.
+#include "language.mal.h"
+#include "01_batcalc.mal.h"
+#include "01_calc.mal.h"
 
-//include calc; --- moved to autoload/01_calc
-//include batcalc; -- moved to autoload/01_batcalc
-// include autoload;
-#ifdef HAVE_HGE
-#include "../modules/kernel/00_aggr_hge.include"
-#include "../modules/mal/00_batcalc_hge.include"
-#include "../modules/mal/00_batExtensions_hge.include"
-#include "../modules/mal/00_calc_hge.include"
-#include "../modules/mal/00_iterator_hge.include"
-#include "../modules/atoms/00_json_hge.include"
-#include "../modules/mal/00_mkey_hge.include"
-#endif
-
-#include "../modules/mal/language.include"
-#include "../modules/mal/01_batcalc.include"
-#include "../modules/mal/01_calc.include"
-
-#include "../scheduler/run_adder.include"
-#include "../scheduler/run_isolate.include"
-#include "../scheduler/run_memo.include"
+#include "run_adder.mal.h"
+#include "run_isolate.mal.h"
+#include "run_memo.mal.h"
 { 0, 0}
-}
-;
-
+};
 
 str
 malEmbeddedBoot(Client c)
@@ -132,15 +115,11 @@ malEmbeddedBoot(Client c)
 	int i;
 	str msg = MAL_SUCCEED;
 
-	
 	if( embeddedinitialized )
 		return MAL_SUCCEED;
 	for(i = 0; malSignatures[i].modnme; i++){
-		msg = callString(c, malSignatures[i].source, FALSE);
-		if (msg) {
-			fprintf(stderr,"!ERROR: malEmbeddedBoot: %s\n", msg);
-			GDKfree(msg);
-		}
+		if ((msg = callString(c, malSignatures[i].source, FALSE)) != MAL_SUCCEED)
+			return msg;
 	}
 	embeddedinitialized = 1;
 	return msg;
