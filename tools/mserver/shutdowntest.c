@@ -22,6 +22,7 @@
 #include "mal_linker.h"
 #include "sql_execute.h"
 #include "sql_scenario.h"
+#include "sql_embedded.h"
 
 static char* dbdir = NULL;
 
@@ -267,8 +268,8 @@ static str monetdb_initialize(void) {
 		exit(1);
 	}
 
-	if (mal_init() != 0) { // mal_init() does not return meaningful codes on failure
-		retval = GDKstrdup("mal_init() failed");
+	if (sqlEmbeddedBoot() != 0) {
+		retval = GDKstrdup("sqlEmbeddedBoot() failed");
 		goto cleanup;
 	}
 	GDKfataljumpenable = 0;

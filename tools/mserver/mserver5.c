@@ -19,7 +19,7 @@
 #include "mal_authorize.h"
 #include "msabaoth.h"
 #include "mutils.h"
-//#include "sql_embedded.h"
+#include "sql_embedded.h"
 
 #ifdef HAVE_LIBGEN_H
 #include <libgen.h>
@@ -663,17 +663,11 @@ main(int argc, char **av)
 		freeException(err);
 		exit(1);
 	}
-	if (mal_init()) {
+
+	if (sqlEmbeddedBoot() != 0) {
 		/* don't show this as a crash */
 		msab_registerStop();
 		return 0;
-	}
-
-	if((err = MSinitClientPrg(mal_clients, "user", "main")) != MAL_SUCCEED) {
-		msab_registerStop();
-		fprintf(stderr, "%s\n", err);
-		freeException(err);
-		exit(1);
 	}
 
 	emergencyBreakpoint();
@@ -695,9 +689,6 @@ main(int argc, char **av)
 		fprintf(stderr, "!%s\n", err);
 		free(err);
 	}
-
-	// Now it is time to also bootstrap the SQL part
-	//sqlEmbeddedBoot(mal_clients);
 
 	free(monet_script);
 #ifdef HAVE_CONSOLE

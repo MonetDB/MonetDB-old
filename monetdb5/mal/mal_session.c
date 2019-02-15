@@ -78,16 +78,11 @@ malBootstrap(void)
 			mnstr_printf(c->fdout,"!GDKerror: %s\n",GDKerrbuf);
 			mnstr_flush(c->fdout);
 		}
-#ifdef HAVE_EMBEDDED
-		return msg;
-#endif
 	}
-	msg = MALengine(c);
-	if (msg != MAL_SUCCEED) {
-		GDKfree(msg);
-#ifdef HAVE_EMBEDDED
-		return msg;
-#endif
+	if ((msg = MALengine(c)) != MAL_SUCCEED) {
+		fprintf(stderr,"#malBootstrap:Failed to start MAL engine: %s", msg);
+		freeException(msg);
+		mal_exit(1);
 	}
 	return msg;
 }

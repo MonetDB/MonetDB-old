@@ -106,6 +106,8 @@ static struct{
 #include "run_adder.mal.h"
 #include "run_isolate.mal.h"
 #include "run_memo.mal.h"
+
+#include "mal_init.mal.h" //for autoload extensions
 { 0, 0}
 };
 

@@ -19,6 +19,12 @@ INCLUDES = ../../include ../../common ../../storage ../../server ../../scripts \
 		   ../../../common/utils \
 		   ../../../gdk
 
+lib_sqlstart = {
+	NOINST
+	DIR = libdir/monetdb5
+	SOURCES = sql_embedded.c sql_embedded.h
+}
+
 lib__sql = {
 	MODULE
 	DIR = libdir/monetdb5
