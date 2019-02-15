@@ -530,7 +530,8 @@ BATimprints(BAT *b)
 		    !GDKinmemory()) {
 			MT_Id tid;
 			BBPfix(b->batCacheid);
-			if (MT_create_thread(&tid, BATimpsync, b, MT_THR_DETACHED) < 0)
+			if (MT_create_thread(&tid, BATimpsync, b,
+					     MT_THR_DETACHED, "BATimpsync") < 0)
 				BBPunfix(b->batCacheid);
 		}
 	}
