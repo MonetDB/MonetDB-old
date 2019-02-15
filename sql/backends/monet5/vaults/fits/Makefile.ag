@@ -37,8 +37,14 @@ headers_fitsmal = {
 	SOURCES = fits.mal
 }
 
+headers_fitssql = {
+	HEADERS = sql
+	DIR = libdir/monetdb5/createdb
+	SOURCES = 73_fits.sql
+}
+
 headers_fitsautoload = {
 	HEADERS = mal
 	DIR = libdir/monetdb5/autoload
-	SOURCES = 72_fits.mal
+	SOURCES = 73_fits.mal
 }

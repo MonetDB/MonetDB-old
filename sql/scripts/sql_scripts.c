@@ -13,10 +13,12 @@
 #include "mal_client.h"
 #include "sql_catalog.h"
 
-static struct sql_scripts {
+struct sql_scripts {
 	char *name;
 	char *script;
-} scripts[] = {
+};
+
+static struct sql_scripts scripts1[] = {
 #include "09_like.sql.h"
 #include "10_math.sql.h"
 #include "11_times.sql.h"
@@ -43,34 +45,19 @@ static struct sql_scripts {
 #include "40_json_hge.sql.h"
 #endif
 #include "41_md5sum.sql.h"
-#ifdef HAVE_GEOM
-#include "42_geom.sql.h"
-#include "43_geom_import.sql.h"
-#endif
 #include "45_uuid.sql.h"
 #include "46_profiler.sql.h"
 #include "51_sys_schema_extension.sql.h"
 #include "60_wlcr.sql.h"
 #include "70_storagemodel.sql.h"
-#ifdef HAVE_FITS
-#include "72_fits.sql.h"
-#endif
-#ifdef HAVE_NETCDF
-#include "74_netcdf.sql.h"
-#endif
-#ifdef HAVE_LIDAR
-#include "75_lidar.sql.h"
-#endif
-#ifdef HAVE_SHP
-#include "76_shp.sql.h"
-#endif
-#include "80_statistics.sql.h"
-#include "81_udf.sql.h"
+#include "71_statistics.sql.h"
+	{NULL, NULL}
+};
+
+static struct sql_scripts scripts2[] = {
+#include "89_udf.sql.h"
 #ifdef HAVE_HGE
-#include "81_udf_hge.sql.h"
-#endif
-#ifdef HAVE_SAMTOOLS
-#include "85_bam.sql.h"
+#include "89_udf_hge.sql.h"
 #endif
 #include "90_generator.sql.h"
 #ifdef HAVE_HGE
@@ -82,15 +69,32 @@ static struct sql_scripts {
 
 extern str SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_table **result);
 
-str
-install_sql_scripts(Client c)
+static str
+install_sql_scripts_array(Client c, struct sql_scripts scripts[])
 {
 	str err;
-
 	for (int i = 0 ; scripts[i].name ; i++) {
 		fprintf(stdout, "# loading sql script: %s.sql\n", scripts[i].name);
 		if ((err = SQLstatementIntern(c, &scripts[i].script, scripts[i].name, 1, 0, NULL)) != MAL_SUCCEED)
 			return err;
 	}
+	return MAL_SUCCEED;
+}
+
+str
+install_sql_scripts1(Client c)
+{
+	str err;
+	if ((err = install_sql_scripts_array(c, scripts1)) != MAL_SUCCEED)
+		return err;
+	return MAL_SUCCEED;
+}
+
+str
+install_sql_scripts2(Client c)
+{
+	str err;
+	if ((err = install_sql_scripts_array(c, scripts2)) != MAL_SUCCEED)
+		return err;
 	return MAL_SUCCEED;
 }

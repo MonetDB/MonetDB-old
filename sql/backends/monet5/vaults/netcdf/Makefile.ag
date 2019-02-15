@@ -37,6 +37,12 @@ headers_netcdfmal = {
 	SOURCES = netcdf.mal
 }
 
+headers_netcdfsql = {
+	HEADERS = sql
+	DIR = libdir/monetdb5/createdb
+	SOURCES = 74_netcdf.sql
+}
+
 headers_netcdfautoload = {
 	HEADERS = mal
 	DIR = libdir/monetdb5/autoload

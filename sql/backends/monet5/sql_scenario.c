@@ -467,6 +467,8 @@ SQLinit(Client c)
 			SQLnewcatalog = 1;
 	}
 	if (SQLnewcatalog > 0) {
+		char path[FILENAME_MAX];
+		str fullname;
 		char *commit = "commit;\n";
 
 		SQLnewcatalog = 0;
@@ -474,7 +476,68 @@ SQLinit(Client c)
 
 		fprintf(stdout, "# SQL catalog created, loading sql scripts once\n");
 
-		if ((msg = install_sql_scripts(c)) != MAL_SUCCEED) {
+		if ((msg = install_sql_scripts1(c)) != MAL_SUCCEED) {
+			MT_lock_unset(&sql_contextLock);
+			return msg;
+		}
+
+		//load custom scripts here
+		snprintf(path, FILENAME_MAX, "createdb");
+		slash_2_dir_sep(path);
+		fullname = MSP_locate_sqlscript(path, 1);
+		if (fullname) {
+			str filename = fullname;
+			str p, n, newmsg= MAL_SUCCEED;
+			fprintf(stdout, "# SQL catalog created, loading sql scripts once\n");
+			do {
+				stream *fd = NULL;
+
+				p = strchr(filename, PATH_SEP);
+				if (p)
+					*p = '\0';
+				if ((n = strrchr(filename, DIR_SEP)) == NULL) {
+					n = filename;
+				} else {
+					n++;
+				}
+				fprintf(stdout, "# loading sql script: %s\n", n);
+				fd = open_rastream(filename);
+				if (p)
+					filename = p + 1;
+
+				if (fd) {
+					size_t sz;
+					sz = getFileSize(fd);
+					if (sz > (size_t) 1 << 29) {
+						close_stream(fd);
+						newmsg = createException(MAL, "createdb", SQLSTATE(42000) "File %s too large to process", filename);
+					} else {
+						bstream *bfd = NULL;
+
+						if((bfd = bstream_create(fd, sz == 0 ? (size_t) (128 * BLOCK) : sz)) == NULL) {
+							close_stream(fd);
+							newmsg = createException(MAL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+						} else {
+							if (bstream_next(bfd) >= 0)
+								newmsg = SQLstatementIntern(c, &bfd->buf, "sql.init", TRUE, FALSE, NULL);
+							bstream_destroy(bfd);
+						}
+					}
+					if (m->sa)
+						sa_destroy(m->sa);
+					m->sa = NULL;
+					m->sqs = NULL;
+					if (newmsg){
+						fprintf(stderr,"%s",newmsg);
+						freeException(newmsg);
+					}
+				}
+			} while (p);
+			GDKfree(fullname);
+		} else
+			fprintf(stderr, "!could not read createdb.sql\n");
+
+		if ((msg = install_sql_scripts2(c)) != MAL_SUCCEED) {
 			MT_lock_unset(&sql_contextLock);
 			return msg;
 		}

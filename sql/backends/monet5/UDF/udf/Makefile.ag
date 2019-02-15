@@ -21,9 +21,16 @@ INCLUDES = ../.. \
 lib__udf = {
 	MODULE
 	DIR = libdir/monetdb5
-	SOURCES = udf.c udf.h udf_impl.h
+	SOURCES = udf.c udf.h udf_impl.h 89_udf.sql.h
 	LIBS = WIN32?../../../../../monetdb5/tools/libmonetdb5 \
 	       WIN32?../../../../../gdk/libbat
+}
+
+lib__udf_hge = {
+	COND = HAVE_HGE
+	MODULE
+	DIR = libdir/monetdb5
+	SOURCES = 89_udf_hge.sql.h
 }
 
 headers_mal = {
