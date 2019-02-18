@@ -27,11 +27,11 @@ static struct mal_sql_scripts {
 #include "sql_aggr_flt.mal.h"
 #include "sql_aggr_dbl.mal.h"
 #include "sql_inspect.mal.h"
+#include "sql.mal.h"
 #include "sqlcatalog.mal.h"
 #include "sql_transaction.mal.h"
 #include "wlr.mal.h"
 #include "40_sql.mal.h"
-#include "sql.mal.h"
 
 #ifdef HAVE_HGE
 #include "sql_decimal_hge.mal.h"

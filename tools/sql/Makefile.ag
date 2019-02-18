@@ -1,0 +1,26 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.  If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+
+MTSAFE
+
+lib_sql = {
+	VERSION = $(MONETDB5_VERSION)
+	NAME = sql
+	DIR = libdir
+	SOURCES = libsql.rc
+	# libmapi on Windows for mcrypt_*
+	LIBS = ../../sql/backends/monet5/libsqlcatalog \
+		../../sql/server/libsqlserver \
+		../../sql/scripts/libsqlscripts \
+		../../sql/storage/libstore \
+		../../sql/storage/bat/libbatstore \
+		../../sql/common/libsqlcommon \
+		WIN32?../../clients/mapilib/libmapi \
+ 		WIN32?../../monetdb5/tools/libmonetdb5 \
+		WIN32?../../gdk/libbat \
+		WIN32?../../common/stream/libstream \
+		WIN32?$(openssl_LIBS)
+}

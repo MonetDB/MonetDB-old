@@ -19,14 +19,8 @@ INCLUDES = ../../include ../../common ../../storage ../../server ../../scripts \
 		   ../../../common/utils \
 		   ../../../gdk
 
-lib_sqlstart = {
+lib_sqlcatalog = {
 	NOINST
-	DIR = libdir/monetdb5
-	SOURCES = sql_embedded.c sql_embedded.h
-}
-
-lib__sql = {
-	MODULE
 	DIR = libdir/monetdb5
 	SOURCES = \
 		sql.c sql.h \
@@ -52,19 +46,8 @@ lib__sql = {
 		sql_fround.c sql_fround_impl.h \
 		sql_orderidx.c sql_orderidx.h \
 		wlr.c wlr.h \
-		sql_rank.c sql_rank.h
-
-	# libmapi on Windows for mcrypt_*
-	LIBS = ../../server/libsqlserver \
-		../../scripts/libsqlscripts \
-		../../storage/libstore \
-		../../storage/bat/libbatstore \
-		../../common/libsqlcommon \
-		WIN32?../../../clients/mapilib/libmapi \
- 		WIN32?../../../monetdb5/tools/libmonetdb5 \
-		WIN32?../../../gdk/libbat \
-		WIN32?../../../common/stream/libstream \
-		WIN32?$(openssl_LIBS)
+		sql_rank.c sql_rank.h \
+		sql_embedded.c sql_embedded.h
 }
 
 EXTRA_DIST_DIR = Tests

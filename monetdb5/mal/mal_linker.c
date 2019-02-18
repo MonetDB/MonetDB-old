@@ -103,17 +103,17 @@ getAddress(str fcnname)
 	 *
 	 * the first argument must be the same as the base name of the
 	 * library that is created in src/tools */
-	dl = mdlopen("libmonetdb5", RTLD_NOW | RTLD_GLOBAL);
+	dl = mdlopen("libsql", RTLD_NOW | RTLD_GLOBAL);
 	if (dl == NULL) 
 		return NULL;
 
 	adr = (MALfcn) dlsym(dl, fcnname);
-	filesLoaded[lastfile].modname = GDKstrdup("libmonetdb5");
+	filesLoaded[lastfile].modname = GDKstrdup("libsql");
 	if(filesLoaded[lastfile].modname == NULL) {
 		dlclose(dl);
 		return NULL;
 	}
-	filesLoaded[lastfile].fullname = GDKstrdup("libmonetdb5");
+	filesLoaded[lastfile].fullname = GDKstrdup("libsql");
 	if(filesLoaded[lastfile].fullname == NULL) {
 		dlclose(dl);
 		GDKfree(filesLoaded[lastfile].modname);
