@@ -1,2 +1,3 @@
 copy-into-from-stdin-empty-line.Bug-67999
 date_trunc
+date_trunc_bulk
