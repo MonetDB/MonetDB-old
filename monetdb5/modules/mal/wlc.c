@@ -347,7 +347,8 @@ WLCinit(void)
 		msg =  WLCgetConfig();
 		if( msg)
 			GDKerror("%s",msg);
-		if (MT_create_thread(&wlc_logger, WLClogger , (void*) 0, MT_THR_JOINABLE) < 0) {
+		if (MT_create_thread(&wlc_logger, WLClogger , (void*) 0,
+							 MT_THR_JOINABLE, "WLClogger") < 0) {
 			GDKerror("wlc.logger thread could not be spawned");
 		}
 		GDKregister(wlc_logger);
@@ -658,7 +659,7 @@ WLCdatashipping(Client cntxt, MalBlkPtr mb, InstrPtr pci, int bid)
 					pci = pushStr(cntxt->wlc, pci, col);
 				}
 				k++;
-				pci = pushStr(cntxt->wlc, pci ,(str) BUNtail(bi,p));
+				pci = pushStr(cntxt->wlc, pci ,(str) BUNtvar(bi,p));
 		} }
 		break;
 	default:
@@ -725,7 +726,7 @@ WLCdelete(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	(void) stk;
 	(void) mb;
-	b= BBPquickdesc(bid, FALSE);
+	b= BBPquickdesc(bid, false);
 	if( BATcount(b) == 0)
 		return MAL_SUCCEED;
 	WLCstart(p, WLC_UPDATE, msg, "wlr.delete");
@@ -825,7 +826,7 @@ WLCupdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				p = pushStr(cntxt->wlc, p, tbl);
 				p = pushStr(cntxt->wlc, p, col);
 				p = pushOid(cntxt->wlc, p, (ol? *ol++ : o++));
-				p = pushStr(cntxt->wlc, p , BUNtail(bi,x));
+				p = pushStr(cntxt->wlc, p , BUNtvar(bi,x));
 				k++;
 		} }
 		/* fall through */

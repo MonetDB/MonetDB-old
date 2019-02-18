@@ -190,7 +190,8 @@ typedef struct CLIENT {
 
 	size_t blocksize;
 	protocol_version protocol;
-	int compute_column_widths;
+	bool filetrans;				/* whether the client can read files for us */
+	char name[16];
 } *Client, ClientRec;
 
 mal_export void    MCinit(void);

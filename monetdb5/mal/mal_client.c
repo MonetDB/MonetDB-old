@@ -64,7 +64,7 @@ mal_client_reset(void)
 void
 MCinit(void)
 {
-	char *max_clients = GDKgetenv("max_clients");
+	const char *max_clients = GDKgetenv("max_clients");
 	int maxclients = 0;
 
 	if (max_clients != NULL)
@@ -73,7 +73,7 @@ MCinit(void)
 		maxclients = 64;
 		if (GDKsetenv("max_clients", "64") != GDK_SUCCEED) {
 			fprintf(stderr,"#MCinit: GDKsetenv failed");
-			mal_exit();
+			mal_exit(1);
 		}
 	}
 
@@ -83,7 +83,7 @@ MCinit(void)
 	mal_clients = GDKzalloc(sizeof(ClientRec) * MAL_MAXCLIENTS);
 	if( mal_clients == NULL){
 		fprintf(stderr,"#MCinit:" MAL_MALLOC_FAIL);
-		mal_exit();
+		mal_exit(1);
 	}
 }
 
@@ -154,6 +154,8 @@ MCnewClient(void)
 #ifdef MAL_CLIENT_DEBUG
 	fprintf(stderr,"New client created %d\n", (int) (c - mal_clients));
 #endif
+	snprintf(c->name, sizeof(c->name), "client%d", (int) (c - mal_clients));
+	MT_thread_setname(c->name);
 	return c;
 }
 
@@ -186,8 +188,7 @@ MCexitClient(Client c)
 	MPresetProfiler(c->fdout);
 	if (c->father == NULL) { /* normal client */
 		if (c->fdout && c->fdout != GDKstdout) {
-			(void) mnstr_close(c->fdout);
-			(void) mnstr_destroy(c->fdout);
+			close_stream(c->fdout);
 		}
 		assert(c->bak == NULL);
 		if (c->fdin) {
@@ -202,7 +203,7 @@ MCexitClient(Client c)
 Client
 MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 {
-	str prompt;
+	const char *prompt;
 
 	c->user = user;
 	c->username = 0;
@@ -263,7 +264,9 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 #endif
 	c->blocksize = BLOCK;
 	c->protocol = PROTOCOL_9;
-	c->compute_column_widths = 0;
+
+	c->filetrans = false;
+
 	MT_sema_init(&c->s, 0, "Client->s");
 	return c;
 }
@@ -375,7 +378,6 @@ MCforkClient(Client father)
 static void
 freeClient(Client c)
 {
-	Thread t = c->mythread;
 	c->mode = FINISHCLIENT;
 
 #ifdef MAL_CLIENT_DEBUG
@@ -429,8 +431,6 @@ freeClient(Client c)
 		freeMalBlk(c->wlc);
 	c->wlc_kind = 0;
 	c->wlc = NULL;
-	if (t)
-		THRdel(t);  /* you may perform suicide */
 	MT_sema_destroy(&c->s);
 	c->mode = MCshutdowninprogress()? BLOCKCLIENT: FREECLIENT;
 }
@@ -503,7 +503,7 @@ MCcloseClient(Client c)
 
 	/* adm is set to disallow new clients entering */
 	mal_clients[CONSOLE].mode = FINISHCLIENT;
-	mal_exit();
+	mal_exit(0);
 }
 
 str
@@ -567,7 +567,7 @@ MCreadClient(Client c)
 			if (!isa_block_stream(c->fdout) && c->promptlength > 0)
 				mnstr_write(c->fdout, c->prompt, c->promptlength, 1);
 			mnstr_flush(c->fdout);
-			in->eof = 0;
+			in->eof = false;
 		}
 		while ((rd = bstream_next(in)) > 0 && !in->eof) {
 			sum += rd;

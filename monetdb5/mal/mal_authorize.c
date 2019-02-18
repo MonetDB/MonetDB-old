@@ -193,7 +193,7 @@ AUTHinitTables(const char *passwd) {
 
 		if (BATkey(user, true) != GDK_SUCCEED ||
 			BBPrename(user->batCacheid, "M5system_auth_user") != 0 ||
-			BATmode(user, PERSISTENT) != GDK_SUCCEED) {
+			BATmode(user, false) != GDK_SUCCEED) {
 			throw(MAL, "initTables.user", GDK_EXCEPTION);
 		}
 	} else {
@@ -216,7 +216,7 @@ AUTHinitTables(const char *passwd) {
 			throw(MAL, "initTables.passwd", SQLSTATE(HY001) MAL_MALLOC_FAIL " password table");
 
 		if (BBPrename(pass->batCacheid, "M5system_auth_passwd_v2") != 0 ||
-			BATmode(pass, PERSISTENT) != GDK_SUCCEED) {
+			BATmode(pass, false) != GDK_SUCCEED) {
 			throw(MAL, "initTables.user", GDK_EXCEPTION);
 		}
 	} else {
@@ -239,7 +239,7 @@ AUTHinitTables(const char *passwd) {
 			throw(MAL, "initTables.duser", SQLSTATE(HY001) MAL_MALLOC_FAIL " deleted user table");
 
 		if (BBPrename(duser->batCacheid, "M5system_auth_deleted") != 0 ||
-			BATmode(duser, PERSISTENT) != GDK_SUCCEED) {
+			BATmode(duser, false) != GDK_SUCCEED) {
 			throw(MAL, "initTables.user", GDK_EXCEPTION);
 		}
 	} else {
@@ -263,7 +263,7 @@ AUTHinitTables(const char *passwd) {
 			throw(MAL, "initTables.rt_key", SQLSTATE(HY001) MAL_MALLOC_FAIL " remote table key bat");
 
 		if (BBPrename(rt_key->batCacheid, "M5system_auth_rt_key") != 0 ||
-			BATmode(rt_key, PERSISTENT) != GDK_SUCCEED)
+			BATmode(rt_key, false) != GDK_SUCCEED)
 			throw(MAL, "initTables.rt_key", GDK_EXCEPTION);
 	}
 	else {
@@ -287,7 +287,7 @@ AUTHinitTables(const char *passwd) {
 			throw(MAL, "initTables.rt_uri", SQLSTATE(HY001) MAL_MALLOC_FAIL " remote table uri bat");
 
 		if (BBPrename(rt_uri->batCacheid, "M5system_auth_rt_uri") != 0 ||
-			BATmode(rt_uri, PERSISTENT) != GDK_SUCCEED)
+			BATmode(rt_uri, false) != GDK_SUCCEED)
 			throw(MAL, "initTables.rt_uri", GDK_EXCEPTION);
 	}
 	else {
@@ -311,7 +311,7 @@ AUTHinitTables(const char *passwd) {
 			throw(MAL, "initTables.rt_remoteuser", SQLSTATE(HY001) MAL_MALLOC_FAIL " remote table local user bat");
 
 		if (BBPrename(rt_remoteuser->batCacheid, "M5system_auth_rt_remoteuser") != 0 ||
-			BATmode(rt_remoteuser, PERSISTENT) != GDK_SUCCEED)
+			BATmode(rt_remoteuser, false) != GDK_SUCCEED)
 			throw(MAL, "initTables.rt_remoteuser", GDK_EXCEPTION);
 	}
 	else {
@@ -335,7 +335,7 @@ AUTHinitTables(const char *passwd) {
 			throw(MAL, "initTables.rt_hashedpwd", SQLSTATE(HY001) MAL_MALLOC_FAIL " remote table local user bat");
 
 		if (BBPrename(rt_hashedpwd->batCacheid, "M5system_auth_rt_hashedpwd") != 0 ||
-			BATmode(rt_hashedpwd, PERSISTENT) != GDK_SUCCEED)
+			BATmode(rt_hashedpwd, false) != GDK_SUCCEED)
 			throw(MAL, "initTables.rt_hashedpwd", GDK_EXCEPTION);
 	}
 	else {
@@ -359,7 +359,7 @@ AUTHinitTables(const char *passwd) {
 			throw(MAL, "initTables.rt_deleted", SQLSTATE(HY001) MAL_MALLOC_FAIL " remote table local user bat");
 
 		if (BBPrename(rt_deleted->batCacheid, "M5system_auth_rt_deleted") != 0 ||
-			BATmode(rt_deleted, PERSISTENT) != GDK_SUCCEED)
+			BATmode(rt_deleted, false) != GDK_SUCCEED)
 			throw(MAL, "initTables.rt_deleted", GDK_EXCEPTION);
 		/* If the database is not new, but we just created this BAT,
 		 * write everything to disc. This needs to happen only after
@@ -443,7 +443,7 @@ AUTHcheckCredentials(
 
 	/* find the corresponding password to the user */
 	passi = bat_iterator(pass);
-	tmp = (str)BUNtail(passi, p);
+	tmp = (str)BUNtvar(passi, p);
 	assert (tmp != NULL);
 	/* decypher the password (we lose the original tmp here) */
 	rethrow("checkCredentials", tmp, AUTHdecypherValue(&pwd, tmp));
@@ -609,7 +609,7 @@ AUTHchangePassword(Client cntxt, const char *oldpass, const char *passwd)
 	p = id;
 	assert(p != BUN_NONE);
 	passi = bat_iterator(pass);
-	tmp = BUNtail(passi, p);
+	tmp = BUNtvar(passi, p);
 	assert (tmp != NULL);
 	/* decypher the password */
 	msg = AUTHdecypherValue(&hash, tmp);
@@ -666,7 +666,7 @@ AUTHsetPassword(Client cntxt, const char *username, const char *passwd)
 	p = id;
 	assert (p != BUN_NONE);
 	useri = bat_iterator(user);
-	tmp = BUNtail(useri, p);
+	tmp = BUNtvar(useri, p);
 	assert (tmp != NULL);
 	if (strcmp(tmp, username) == 0)
 		throw(INVCRED, "setPassword", "The administrator cannot set its own password, use changePassword instead");
@@ -709,7 +709,7 @@ AUTHresolveUser(str *username, oid uid)
 
 	assert(username != NULL);
 	useri = bat_iterator(user);
-	if ((*username = GDKstrdup((str)(BUNtail(useri, p)))) == NULL)
+	if ((*username = GDKstrdup((str)(BUNtvar(useri, p)))) == NULL)
 		throw(MAL, "resolveUser", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	return(MAL_SUCCEED);
 }
@@ -730,11 +730,10 @@ AUTHgetUsername(str *username, Client cntxt)
 	 * happens, it may be a security breach/attempt, and hence
 	 * terminating the entire system seems like the right thing to do to
 	 * me. */
-	if (p == BUN_NONE || p >= BATcount(user))
-		GDKfatal("Internal error: user id that doesn't exist: " OIDFMT, cntxt->user);
+	assert(p < BATcount(user));
 
 	useri = bat_iterator(user);
-	if ((*username = GDKstrdup( BUNtail(useri, p))) == NULL)
+	if ((*username = GDKstrdup( BUNtvar(useri, p))) == NULL)
 		throw(MAL, "getUsername", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	return(MAL_SUCCEED);
 }
@@ -794,7 +793,7 @@ AUTHgetPasswordHash(str *ret, Client cntxt, const char *username)
 	i = bat_iterator(user);
 	assert(p != BUN_NONE);
 	i = bat_iterator(pass);
-	tmp = BUNtail(i, p);
+	tmp = BUNtvar(i, p);
 	assert (tmp != NULL);
 	/* decypher the password */
 	rethrow("changePassword", tmp, AUTHdecypherValue(&passwd, tmp));
@@ -951,7 +950,7 @@ AUTHverifyPassword(const char *passwd)
 	}
 	len++; // required in case all the checks above are false
 	while (*p != '\0') {
-		if (!((*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9')))
+		if (!((*p >= 'a' && *p <= 'z') || isdigit((unsigned char) *p)))
 			throw(MAL, "verifyPassword",
 					"password does contain invalid characters, is it a"
 					"lowercase hex representation of a hash?");
@@ -1011,13 +1010,13 @@ AUTHgetRemoteTableCredentials(const char *local_table, str *uri, str *username, 
 
 	assert(p != BUN_NONE);
 	i = bat_iterator(rt_uri);
-	*uri = BUNtail(i, p);
+	*uri = BUNtvar(i, p);
 
 	i = bat_iterator(rt_remoteuser);
-	*username = BUNtail(i, p);
+	*username = BUNtvar(i, p);
 
 	i = bat_iterator(rt_hashedpwd);
-	tmp = BUNtail(i, p);
+	tmp = BUNtvar(i, p);
 	rethrow("getRemoteTableCredentials", tmp, AUTHdecypherValue(&pwhash, tmp));
 
 	*password = pwhash;

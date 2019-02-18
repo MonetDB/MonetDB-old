@@ -12,18 +12,16 @@
 #include "monet_options.h"
 #include <setjmp.h>
 
-gdk_export BAT *GDKkey;
-gdk_export BAT *GDKval;
+gdk_export const char *GDKgetenv(const char *name);
 
-gdk_export char *GDKgetenv(const char *name);
-
-gdk_export int GDKgetenv_istext(const char *name, const char* text);
-gdk_export int GDKgetenv_isyes(const char *name);
-gdk_export int GDKgetenv_istrue(const char *name);
+gdk_export bool GDKgetenv_istext(const char *name, const char* text);
+gdk_export bool GDKgetenv_isyes(const char *name);
+gdk_export bool GDKgetenv_istrue(const char *name);
 
 gdk_export int GDKgetenv_int(const char *name, int def);
 
 gdk_export gdk_return GDKsetenv(const char *name, const char *value);
+gdk_export gdk_return GDKcopyenv(BAT **key, BAT **val, bool writable);
 
 /*
  * @+ Memory management
@@ -74,7 +72,7 @@ gdk_export size_t _MT_pagesize;
 #define MT_npages()	_MT_npages
 
 gdk_export void MT_init(void);	/*  init the package. */
-gdk_export int GDKinit(opt *set, int setlen);
+gdk_export gdk_return GDKinit(opt *set, int setlen);
 
 /* used for testing only */
 gdk_export void GDKsetmallocsuccesscount(lng count);
@@ -91,11 +89,11 @@ __declspec(noreturn) gdk_export void GDKexit(int status)
 #else
 gdk_export void GDKexit(int status);
 #endif
-gdk_export int GDKexiting(void);
+gdk_export bool GDKexiting(void);
 
 gdk_export void GDKregister(MT_Id pid);
 gdk_export void GDKprepareExit(void);
-gdk_export void GDKreset(int status, int exit);
+gdk_export void GDKreset(int status);
 gdk_export const char *GDKversion(void);
 
 gdk_export gdk_return GDKextractParentAndLastDirFromPath(const char *path, char *last_dir_parent, char *last_dir);

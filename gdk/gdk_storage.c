@@ -118,14 +118,14 @@ GDKcreatedir(const char *dir)
 #ifdef WIN32
 			strlen(path) > 3 &&
 #endif
-			mkdir(path, 0755) < 0) {
+			mkdir(path, MONETDB_DIRMODE) < 0) {
 			if (errno != EEXIST) {
 				GDKsyserror("GDKcreatedir: cannot create directory %s\n", path);
 				IODEBUG fprintf(stderr, "#GDKcreatedir: mkdir(%s) failed\n", path);
 				return GDK_FAIL;
 			}
 			if ((dirp = opendir(path)) == NULL) {
-				GDKerror("GDKcreatedir: %s not a directory\n", path);
+				GDKsyserror("GDKcreatedir: %s not a directory\n", path);
 				IODEBUG fprintf(stderr, "#GDKcreatedir: opendir(%s) failed\n", path);
 				return GDK_FAIL;
 			}
@@ -279,6 +279,8 @@ GDKunlink(int farmid, const char *dir, const char *nme, const char *ext)
 		char *path;
 
 		path = GDKfilepath(farmid, dir, nme, ext);
+		if (path == NULL)
+			return GDK_FAIL;
 		/* if file already doesn't exist, we don't care */
 		if (remove(path) != 0 && errno != ENOENT) {
 			GDKsyserror("GDKunlink(%s)\n", path);
@@ -305,7 +307,7 @@ GDKmove(int farmid, const char *dir1, const char *nme1, const char *ext1, const 
 	IODEBUG t0 = GDKms();
 
 	if ((nme1 == NULL) || (*nme1 == 0)) {
-		errno = EFAULT;
+		GDKerror("GDKmove: no file specified\n");
 		return GDK_FAIL;
 	}
 	path1 = GDKfilepath(farmid, dir1, nme1, ext1);
@@ -483,9 +485,10 @@ GDKsave(int farmid, const char *nme, const char *ext, void *buf, size_t size, st
 				/* do not tolerate corrupt heap images
 				 * (BBPrecover on restart will kill
 				 * them) */
-				GDKfatal("GDKsave: could not open: name=%s, "
+				GDKerror("GDKsave: could not remove: name=%s, "
 					 "ext=%s, mode %d\n", nme,
 					 ext ? ext : "", (int) mode);
+				return GDK_FAIL;
 			}
 		} else {
 			err = -1;
@@ -627,8 +630,8 @@ DESCload(int i)
 
 	/* reconstruct mode from BBP status (BATmode doesn't flush
 	 * descriptor, so loaded mode may be stale) */
-	b->batPersistence = (BBP_status(b->batCacheid) & BBPPERSISTENT) ? PERSISTENT : TRANSIENT;
-	b->batCopiedtodisk = 1;
+	b->batTransient = (BBP_status(b->batCacheid) & BBPPERSISTENT) == 0;
+	b->batCopiedtodisk = true;
 	DESCclean(b);
 	return b;
 }
@@ -636,11 +639,11 @@ DESCload(int i)
 void
 DESCclean(BAT *b)
 {
-	b->batDirtyflushed = DELTAdirty(b) ? TRUE : FALSE;
-	b->batDirtydesc = 0;
-	b->theap.dirty = 0;
+	b->batDirtyflushed = DELTAdirty(b);
+	b->batDirtydesc = false;
+	b->theap.dirty = false;
 	if (b->tvheap)
-		b->tvheap->dirty = 0;
+		b->tvheap->dirty = false;
 }
 
 /* spawning the background msync should be done carefully 
@@ -694,14 +697,15 @@ BATmsync(BAT *b)
 #endif
 		struct msync *arg;
 
-		assert(b->batPersistence == PERSISTENT);
+		assert(!b->batTransient);
 		if (b->theap.storage == STORE_MMAP &&
 		    (arg = GDKmalloc(sizeof(*arg))) != NULL) {
 			arg->id = b->batCacheid;
 			arg->h = &b->theap;
 			BBPfix(b->batCacheid);
 #ifdef MSYNC_BACKGROUND
-			if (MT_create_thread(&tid, BATmsyncImplementation, arg, MT_THR_DETACHED) < 0) {
+			if (MT_create_thread(&tid, BATmsyncImplementation, arg,
+					     MT_THR_DETACHED, "BATmsync") < 0) {
 				/* don't bother if we can't create a thread */
 				BBPunfix(b->batCacheid);
 				GDKfree(arg);
@@ -717,7 +721,8 @@ BATmsync(BAT *b)
 			arg->h = b->tvheap;
 			BBPfix(b->batCacheid);
 #ifdef MSYNC_BACKGROUND
-			if (MT_create_thread(&tid, BATmsyncImplementation, arg, MT_THR_DETACHED) < 0) {
+			if (MT_create_thread(&tid, BATmsyncImplementation, arg,
+					     MT_THR_DETACHED, "BATmsync") < 0) {
 				/* don't bother if we can't create a thread */
 				BBPunfix(b->batCacheid);
 				GDKfree(arg);
@@ -763,7 +768,7 @@ BATsave(BAT *bd)
 	b = &bs;
 
 	if (b->tvheap) {
-		b->tvheap = (Heap *) GDKmalloc(sizeof(Heap));
+		b->tvheap = GDKmalloc(sizeof(Heap));
 		if (b->tvheap == NULL) {
 			return GDK_FAIL;
 		}
@@ -772,10 +777,10 @@ BATsave(BAT *bd)
 
 	/* start saving data */
 	nme = BBP_physical(b->batCacheid);
-	if (b->batCopiedtodisk == 0 || b->batDirtydesc || b->theap.dirty)
+	if (!b->batCopiedtodisk || b->batDirtydesc || b->theap.dirty)
 		if (err == GDK_SUCCEED && b->ttype)
 			err = HEAPsave(&b->theap, nme, "tail");
-	if (b->tvheap && (b->batCopiedtodisk == 0 || b->batDirtydesc || b->tvheap->dirty))
+	if (b->tvheap && (!b->batCopiedtodisk || b->batDirtydesc || b->tvheap->dirty))
 		if (b->ttype && b->tvarsized) {
 			if (err == GDK_SUCCEED)
 				err = HEAPsave(b->tvheap, nme, "theap");
@@ -785,7 +790,7 @@ BATsave(BAT *bd)
 		GDKfree(b->tvheap);
 
 	if (err == GDK_SUCCEED) {
-		bd->batCopiedtodisk = 1;
+		bd->batCopiedtodisk = true;
 		DESCclean(bd);
 		return GDK_SUCCEED;
 	}
@@ -839,7 +844,7 @@ BATload_intern(bat bid, bool lock)
 	}
 
 	/* initialize descriptor */
-	b->batDirtydesc = FALSE;
+	b->batDirtydesc = false;
 	b->theap.parentid = 0;
 
 	/* load succeeded; register it in BBP */
@@ -899,7 +904,7 @@ BATdelete(BAT *b)
 			HEAPfree(b->tvheap, true);
 		}
 	}
-	b->batCopiedtodisk = FALSE;
+	b->batCopiedtodisk = false;
 }
 
 /*
@@ -912,7 +917,7 @@ BATprintcolumns(stream *s, int argc, BAT *argv[])
 	int i;
 	BUN n, cnt;
 	struct colinfo {
-		ssize_t (*s) (str *, size_t *, const void *);
+		ssize_t (*s) (str *, size_t *, const void *, bool);
 		BATiter i;
 	} *colinfo;
 	char *buf;
@@ -964,7 +969,7 @@ BATprintcolumns(stream *s, int argc, BAT *argv[])
 	for (n = 0, cnt = BATcount(argv[0]); n < cnt; n++) {
 		mnstr_write(s, "[ ", 1, 2);
 		for (i = 0; i < argc; i++) {
-			len = colinfo[i].s(&buf, &buflen, BUNtail(colinfo[i].i, n));
+			len = colinfo[i].s(&buf, &buflen, BUNtail(colinfo[i].i, n), true);
 			if (len < 0) {
 				GDKfree(buf);
 				GDKfree(colinfo);

@@ -139,7 +139,7 @@ VLTgenerator_table_(BAT **result, Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 			if (s == 0 ||
 			    (s > 0 && ret.val.btval > 0) ||
 			    (s < 0 && ret.val.btval < 0) ||
-				timestamp_isnil(f) || timestamp_isnil(l))
+				is_timestamp_nil(f) || is_timestamp_nil(l))
 				throw(MAL, "generator.table",
 				      SQLSTATE(42000) "Illegal generator range");
 			/* casting one value to lng causes the whole
@@ -170,9 +170,9 @@ VLTgenerator_table_(BAT **result, Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 		break;
 	}
 	BATsetcount(bn, c);
-	bn->tkey = 1;
-	bn->tnil = 0;
-	bn->tnonil = 1;
+	bn->tkey = true;
+	bn->tnil = false;
+	bn->tnonil = true;
 	*result = bn;
 	return MAL_SUCCEED;
 }
@@ -352,7 +352,7 @@ VLTgenerator_subselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					throw(MAL,"generator.table", SQLSTATE(42000) "Timestamp step missing");
 			tss = *getArgReference_lng(stk, p, 3);
 			if ( tss == 0 || 
-				timestamp_isnil(tsf) || timestamp_isnil(tsl) ||
+				is_timestamp_nil(tsf) || is_timestamp_nil(tsl) ||
 				 (tss > 0 && (tsf.days > tsl.days || (tsf.days == tsl.days && tsf.msecs > tsl.msecs) )) ||
 				 (tss < 0 && (tsf.days < tsl.days || (tsf.days == tsl.days && tsf.msecs < tsl.msecs) )) 
 				)
@@ -363,12 +363,12 @@ VLTgenerator_subselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 			if (tlow.msecs == thgh.msecs &&
 			    tlow.days == thgh.days &&
-			    !timestamp_isnil(tlow))
+			    !is_timestamp_nil(tlow))
 				hi = li;
-			if( hi && !timestamp_isnil(thgh) &&
+			if( hi && !is_timestamp_nil(thgh) &&
 			    (msg = MTIMEtimestamp_add(&thgh, &thgh, &one)) != MAL_SUCCEED)
 				return msg;
-			if( !li && !timestamp_isnil(tlow) &&
+			if( !li && !is_timestamp_nil(tlow) &&
 			    (msg = MTIMEtimestamp_add(&tlow, &tlow, &one)) != MAL_SUCCEED)
 				return msg;
 
@@ -383,8 +383,8 @@ VLTgenerator_subselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			// simply enumerate the sequence and filter it by predicate and candidate list
 			ol = (oid *) Tloc(bn, 0);
 			for (c=0, o1=0; o1 <= o2; o1++) {
-				if( (((tsf.days>tlow.days || (tsf.days== tlow.days && tsf.msecs >= tlow.msecs) || timestamp_isnil(tlow))) &&
-				    ((tsf.days<thgh.days || (tsf.days== thgh.days && tsf.msecs < thgh.msecs))  || timestamp_isnil(thgh)) ) != anti ){
+				if( (((tsf.days>tlow.days || (tsf.days== tlow.days && tsf.msecs >= tlow.msecs) || is_timestamp_nil(tlow))) &&
+				    ((tsf.days<thgh.days || (tsf.days== thgh.days && tsf.msecs < thgh.msecs))  || is_timestamp_nil(thgh)) ) != anti ){
 					/* could be improved when no candidate list is available into a void/void BAT */
 					if( cl){
 						while ( c < BATcount(cand) && *cl < o1 ) {cl++; c++;}
@@ -406,11 +406,11 @@ VLTgenerator_subselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				}
 			}
 			BATsetcount(bn, (BUN) n);
-			bn->tsorted = 1;
+			bn->tsorted = true;
 			bn->trevsorted = BATcount(bn) <= 1;
-			bn->tkey = 1;
-			bn->tnil = 0;
-			bn->tnonil = 1;
+			bn->tkey = true;
+			bn->tnil = false;
+			bn->tnonil = true;
 			* getArgReference_bat(stk, pci, 0) = bn->batCacheid;
 			BBPkeepref(bn->batCacheid);
 			return MAL_SUCCEED;
@@ -441,11 +441,11 @@ VLTgenerator_subselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				oid *op = (oid *) Tloc(bn, 0);
 				const oid *cp = (const oid *) Tloc(cand, 0);
 				BATsetcount(bn, n - (o2 - o1));
-				bn->tnil = 0;
-				bn->tnonil = 1;
-				bn->tsorted = 1;
+				bn->tnil = false;
+				bn->tnonil = true;
+				bn->tsorted = true;
 				bn->trevsorted = BATcount(bn) <= 1;
-				bn->tkey = 1;
+				bn->tkey = true;
 				for (o = 0; o < o1; o++)
 					*op++ = cp[o];
 				for (o = o2; o < (oid) n; o++)
@@ -477,11 +477,11 @@ VLTgenerator_subselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				*op++ = o;
 			for (o = o2; o < (oid) n; o++)
 				*op++ = o;
-			bn->tnil = 0;
-			bn->tnonil = 1;
-			bn->tsorted = 1;
+			bn->tnil = false;
+			bn->tnonil = true;
+			bn->tsorted = true;
 			bn->trevsorted = BATcount(bn) <= 1;
-			bn->tkey = 1;
+			bn->tkey = true;
 		} else {
 			bn = BATdense(0, o1, (BUN) (o2 - o1));
 			if (bn == NULL)
@@ -680,8 +680,8 @@ str VLTgenerator_thetasubselect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 			if(cand){ cn = BATcount(cand); if( cl == 0) oc = cand->tseqbase; }
 			val = f;
 			for(j = 0; j< cap; j++,  o++){
-				if( (( timestamp_isnil(low) || (val.days > low.days || (val.days == low.days && val.msecs >=low.msecs))) && 
-					 ( timestamp_isnil(hgh) || (val.days < hgh.days || (val.days == hgh.days && val.msecs <= hgh.msecs)))) != anti){
+				if( (( is_timestamp_nil(low) || (val.days > low.days || (val.days == low.days && val.msecs >=low.msecs))) && 
+					 ( is_timestamp_nil(hgh) || (val.days < hgh.days || (val.days == hgh.days && val.msecs <= hgh.msecs)))) != anti){
 					if(cand){
 						if( cl){ while(cn-- >= 0 && *cl < o) cl++; if ( *cl == o){ *v++= o; c++;}}
 						else { while(cn-- >= 0 && oc < o) oc++; if ( oc == o){ *v++= o; c++;} }
@@ -701,11 +701,11 @@ wrapup:
 	if( cndid)
 		BBPunfix(cndid);
 	if( bn){
-		bn->tsorted = 1;
-		bn->trevsorted = 0;
-		bn->tkey = 1;
-		bn->tnil = 0;
-		bn->tnonil = 1;
+		bn->tsorted = true;
+		bn->trevsorted = false;
+		bn->tkey = true;
+		bn->tnil = false;
+		bn->tnonil = true;
 		BATsetcount(bn,c);
 		BBPkeepref(*getArgReference_bat(stk,pci,0)= bn->batCacheid);
 	}
@@ -818,7 +818,7 @@ str VLTgenerator_projection(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 				if( (msg = MTIMEtimestamp_add(&val, &f, &t)) != MAL_SUCCEED)
 					return msg;
 
-				if ( timestamp_isnil(val))
+				if ( is_timestamp_nil(val))
 					continue;
 				if (s > 0 && ((val.days < f.days || (val.days == f.days && val.msecs < f.msecs)) || ((val.days>l.days || (val.days== l.days && val.msecs >= l.msecs)))  ) )
 					continue;
@@ -833,10 +833,10 @@ str VLTgenerator_projection(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 	/* adminstrative wrapup of the projection */
 	BBPunfix(bid);
 	if( bn){
-		bn->tsorted = bn->trevsorted = 0;
-		bn->tkey = 0;
-		bn->tnil = 0;
-		bn->tnonil = 0;
+		bn->tsorted = bn->trevsorted = false;
+		bn->tkey = false;
+		bn->tnil = false;
+		bn->tnonil = false;
 		BATsetcount(bn,c);
 		BBPkeepref(*getArgReference_bat(stk,pci,0)= bn->batCacheid);
 	}
@@ -952,18 +952,18 @@ str VLTgenerator_join(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL,"generator.join", SQLSTATE(42000) "Illegal type");
 	}
 
-	bln->tsorted = bln->trevsorted = 0;
-	bln->tkey = 0;
-	bln->tnil = 0;
-	bln->tnonil = 0;
+	bln->tsorted = bln->trevsorted = false;
+	bln->tkey = false;
+	bln->tnil = false;
+	bln->tnonil = false;
 	BATsetcount(bln,c);
 	bln->tsorted = incr || c <= 1;
 	bln->trevsorted = !incr || c <= 1;
 	
-	brn->tsorted = brn->trevsorted = 0;
-	brn->tkey = 0;
-	brn->tnil = 0;
-	brn->tnonil = 0;
+	brn->tsorted = brn->trevsorted = false;
+	brn->tkey = false;
+	brn->tnil = false;
+	brn->tnonil = false;
 	BATsetcount(brn,c);
 	brn->tsorted = incr || c <= 1;
 	brn->trevsorted = !incr || c <= 1;
@@ -1093,18 +1093,18 @@ str VLTgenerator_rangejoin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 		throw(MAL,"generator.rangejoin","Illegal type");
 	}
 
-	bln->tsorted = bln->trevsorted = 0;
-	bln->tkey = 0;
-	bln->tnil = 0;
-	bln->tnonil = 0;
+	bln->tsorted = bln->trevsorted = false;
+	bln->tkey = false;
+	bln->tnil = false;
+	bln->tnonil = false;
 	BATsetcount(bln,c);
 	bln->tsorted = incr || c <= 1;
 	bln->trevsorted = !incr || c <= 1;
 	
-	brn->tsorted = brn->trevsorted = 0;
-	brn->tkey = 0;
-	brn->tnil = 0;
-	brn->tnonil = 0;
+	brn->tsorted = brn->trevsorted = false;
+	brn->tkey = false;
+	brn->tnil = false;
+	brn->tnonil = false;
 	BATsetcount(brn,c);
 	brn->tsorted = incr || c <= 1;
 	brn->trevsorted = !incr || c <= 1;

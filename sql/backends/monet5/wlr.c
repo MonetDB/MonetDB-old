@@ -222,7 +222,7 @@ WLRprocess(void *arg)
 			mnstr_printf(GDKerr,"#wlr.process: filename path is too large\n");
 			continue;
 		}
-		fd= open_rstream(path);
+		fd= open_rastream(path);
 		if( fd == NULL){
 			mnstr_printf(GDKerr,"#wlr.process:'%s' can not be accessed \n",path);
 			// Be careful not to miss log files.
@@ -435,7 +435,8 @@ WLRinit(void)
 	if( wlr_state != WLR_START)
 		return MAL_SUCCEED;
 	// time to continue the consolidation process in the background
-	if (MT_create_thread(&wlr_thread, WLRprocessScheduler, (void*) cntxt, MT_THR_JOINABLE) < 0) {
+	if (MT_create_thread(&wlr_thread, WLRprocessScheduler, (void*) cntxt,
+			     MT_THR_JOINABLE, "WLRprocessScheduler") < 0) {
 			throw(SQL,"wlr.init",SQLSTATE(42000) "Starting wlr manager failed");
 	}
 	GDKregister(wlr_thread);
@@ -473,7 +474,7 @@ WLRreplicate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	if( getArgType(mb, pci, pci->argc-1) == TYPE_timestamp){
-		if (timestamp_tz_tostr(&timelimit, &size, (timestamp*) getArgReference(stk,pci,1), &tzone_local) < 0)
+		if (timestamp_tz_tostr(&timelimit, &size, (timestamp*) getArgReference(stk,pci,1), &tzone_local, true) < 0)
 			throw(SQL, "wlr.replicate", GDK_EXCEPTION);
 		mnstr_printf(cntxt->fdout,"#time limit %s\n",timelimit);
 	} else

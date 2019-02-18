@@ -353,7 +353,7 @@ def client(lang, args=[], stdin=None, stdout=None, stderr=None,
 
 def server(args=[], stdin=None, stdout=None, stderr=None,
            mapiport=None, dbname=os.getenv('TSTDB'), dbfarm=None,
-           dbinit=None, dbextra=None, bufsize=0, log=False,
+           dbextra=None, bufsize=0, log=False,
            notrace=False, notimeout=False):
     '''Start a server process.'''
     cmd = _server[:]
@@ -366,9 +366,6 @@ def server(args=[], stdin=None, stdout=None, stderr=None,
         sys.stdout.write('Default server: ' + ' '.join(cmd +  args) + '\n')
     if notrace and '--trace' in cmd:
         cmd.remove('--trace')
-    if dbinit is not None:
-        cmd.append('--dbinit')
-        cmd.append(dbinit)
     if mapiport is not None:
         # make sure it's a string
         mapiport = str(int(mapiport))

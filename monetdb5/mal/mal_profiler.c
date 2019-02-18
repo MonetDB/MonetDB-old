@@ -15,6 +15,7 @@
  * reset once the owner leaves.
  */
 #include "monetdb_config.h"
+#include "mutils.h"         /* mercurial_revision */
 #include "mal_function.h"
 #include "mal_listing.h"
 #include "mal_profiler.h"
@@ -55,6 +56,7 @@ static struct{
 	lng user, nice, system, idle, iowait;
 	double load;
 } corestat[256];
+
 
 /* the heartbeat process produces a ping event once every X milliseconds */
 //#ifdef ATOMIC_LOCK
@@ -153,6 +155,10 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
 	/* make profile event tuple  */
 	lognew();
 	logadd("{%s",prettify); // fill in later with the event counter
+	/* TODO: This could probably be optimized somehow to avoid the
+	 * function call to mercurial_revision().
+	 */
+	logadd("\"version\":\""VERSION" (hg id: %s)\",%s", mercurial_revision(), prettify);
 	logadd("\"source\":\"trace\",%s", prettify);
 
 	logadd("\"clk\":"LLFMT",%s", usec, prettify);
@@ -326,10 +332,10 @@ This information can be used to determine memory footprint and variable life tim
 							logadd("\"parent\":%d,%s", VIEWtparent(d), pret);
 							logadd("\"seqbase\":"BUNFMT",%s", d->hseqbase, pret);
 							logadd("\"hghbase\":"BUNFMT",%s", d->hseqbase + cnt, pret);
-							v= BBPquickdesc(VIEWtparent(d),0);
-							logadd("\"kind\":\"%s\",%s", (v &&  v->batPersistence == PERSISTENT ? "persistent":"transient"), pret);
+							v= BBPquickdesc(VIEWtparent(d), false);
+							logadd("\"kind\":\"%s\",%s", (v &&  !v->batTransient ? "persistent" : "transient"), pret);
 						} else
-							logadd("\"kind\":\"%s\",%s", ( d->batPersistence == PERSISTENT ? "persistent":"transient"), pret);
+							logadd("\"kind\":\"%s\",%s", ( d->batTransient ? "transient" : "persistent"), pret);
 						total += cnt * d->twidth;
 						total += heapinfo(d->tvheap, d->batCacheid);
 						total += hashinfo(d->thash, d->batCacheid);
@@ -592,13 +598,13 @@ startTrace(str path)
 		// create a file to keep the events, unless we
 		// already have a profiler stream
 		MT_lock_set(&mal_profileLock );
-		if (eventstream == NULL && offlinestore ==0){
+		if(eventstream == NULL && offlinestore ==0){
 			len = snprintf(buf,FILENAME_MAX,"%s%c%s",GDKgetenv("gdk_dbpath"), DIR_SEP, path);
 			if (len == -1 || len >= FILENAME_MAX) {
 				MT_lock_unset(&mal_profileLock);
 				throw(MAL, "profiler.startTrace", SQLSTATE(HY001) "Profiler filename path is too large");
 			}
-			if (mkdir(buf, 0755) < 0 && errno != EEXIST) {
+			if (mkdir(buf, MONETDB_DIRMODE) < 0 && errno != EEXIST) {
 				MT_lock_unset(&mal_profileLock);
 				throw(MAL, "profiler.startTrace", SQLSTATE(42000) "Failed to create directory %s", buf);
 			}
@@ -1085,7 +1091,8 @@ void initHeartbeat(void)
 	ATOMIC_INIT(mal_beatLock, "beatLock");
 #endif
 	ATOMIC_SET(hbrunning, 1, mal_beatLock);
-	if (MT_create_thread(&hbthread, profilerHeartbeat, NULL, MT_THR_JOINABLE) < 0) {
+	if (MT_create_thread(&hbthread, profilerHeartbeat, NULL, MT_THR_JOINABLE,
+						 "heartbeat") < 0) {
 		/* it didn't happen */
 		hbthread = 0;
 		ATOMIC_SET(hbrunning, 0, mal_beatLock);

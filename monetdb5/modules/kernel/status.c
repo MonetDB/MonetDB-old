@@ -266,7 +266,7 @@ SYSmem_usage(bat *ret, bat *ret2, const lng *minsize)
 	}
 	BBPlock();
 	for (i = 1; i < getBBPsize(); i++) {
-		BAT *c = BBPquickdesc(i,0);
+		BAT *c = BBPquickdesc(i, false);
 		str s;
 
 		if( c == NULL  || !BBPvalid(i))
@@ -587,10 +587,10 @@ SYSgdkEnv(bat *ret, bat *ret2)
 		if (BBPvalid(i)) {
 			pbat++;
 			if (BBP_cache(i)) {
-				if (BBP_cache(i)->batPersistence == PERSISTENT)
-					per++;
-				else
+				if (BBP_cache(i)->batTransient)
 					tmp++;
+				else
+					per++;
 			} else {
 				pdisk++;
 			}
@@ -604,10 +604,6 @@ SYSgdkEnv(bat *ret, bat *ret2)
 		BUNappend(b, &per, false) != GDK_SUCCEED ||
 		BUNappend(bn, "ondisk", false) != GDK_SUCCEED ||
 		BUNappend(b, &pdisk, false) != GDK_SUCCEED ||
-		BUNappend(bn, "todisk", false) != GDK_SUCCEED ||
-		BUNappend(b, &BBPout, false) != GDK_SUCCEED ||
-		BUNappend(bn, "fromdisk", false) != GDK_SUCCEED ||
-		BUNappend(b, &BBPin, false) != GDK_SUCCEED ||
 		pseudo(ret,ret2, bn,b)) {
 		BBPunfix(b->batCacheid);
 		BBPunfix(bn->batCacheid);

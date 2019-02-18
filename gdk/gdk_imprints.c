@@ -422,8 +422,8 @@ BATimprints(BAT *b)
 			GDKfree(imprints);
 			return GDK_FAIL;
 		}
-		s3->tkey = 1;	/* we know is unique on tail now */
-		if (BATsort(&s4, NULL, NULL, s3, NULL, NULL, false, false) != GDK_SUCCEED) {
+		s3->tkey = true;	/* we know is unique on tail now */
+		if (BATsort(&s4, NULL, NULL, s3, NULL, NULL, false, false, false) != GDK_SUCCEED) {
 			MT_lock_unset(&GDKimprintsLock(b->batCacheid));
 			BBPunfix(s1->batCacheid);
 			BBPunfix(s2->batCacheid);
@@ -528,7 +528,8 @@ BATimprints(BAT *b)
 		    !b->theap.dirty) {
 			MT_Id tid;
 			BBPfix(b->batCacheid);
-			if (MT_create_thread(&tid, BATimpsync, b, MT_THR_DETACHED) < 0)
+			if (MT_create_thread(&tid, BATimpsync, b,
+					     MT_THR_DETACHED, "BATimpsync") < 0)
 				BBPunfix(b->batCacheid);
 		}
 	}
