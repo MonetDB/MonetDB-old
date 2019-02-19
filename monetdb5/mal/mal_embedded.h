@@ -10,18 +10,22 @@
 #define _MAL_EMBEDDED_H
 
 #include "monetdb_config.h"
-#include "mal_type.h"
+
 #include "mal_client.h"
-#include "mal_namespace.h"
-#include "mal_exception.h"
-#include "mal_linker.h"
 #include "mal_import.h"
-#include "mal_builder.h"
-#include "mal_private.h"
 
 /* #define MAL_EMBEDDED_DEBUG  */
 
+#define MAXMODULES  128
+
+typedef struct {
+	str modnme, source;
+} malSignatures;
+
+mal_export malSignatures malModules[];
+
 mal_export str malEmbeddedBoot(Client c);
+mal_export str malExtraModulesBoot(Client c, malSignatures extraMalModules[]);
 mal_export str malEmbeddedStop(Client c);
 mal_export str malEmbeddedRestart(Client c);
 

@@ -16,12 +16,10 @@
  */
 #include "mal_embedded.h"
 
-static int embeddedinitialized = 0;
+static bool embeddedinitialized = false;
 
 /* The source for the MAL signatures*/
-static struct{
-	str modnme, source;
-} malSignatures[] = 
+malSignatures malModules[MAXMODULES] =
 {
 // Include the MAL definitions files in the proper order.
 
@@ -119,11 +117,35 @@ malEmbeddedBoot(Client c)
 
 	if( embeddedinitialized )
 		return MAL_SUCCEED;
-	for(i = 0; malSignatures[i].modnme; i++){
-		if ((msg = callString(c, malSignatures[i].source, FALSE)) != MAL_SUCCEED)
+	for(i = 0; malModules[i].modnme; i++) {
+		if ((msg = callString(c, malModules[i].source, FALSE)) != MAL_SUCCEED)
 			return msg;
 	}
-	embeddedinitialized = 1;
+	embeddedinitialized = true;
+	return msg;
+}
+
+str
+malExtraModulesBoot(Client c, malSignatures extraMalModules[])
+{
+	int i, j, k;
+	str msg = MAL_SUCCEED;
+
+	for (i = 0; malModules[i].modnme; i++);
+	if (i == MAXMODULES-1) //the last entry must be set to NULL
+		throw(MAL, "malInclude", "too many MAL modules loaded");
+
+	for (j = 0, k = i; k < MAXMODULES-1 && extraMalModules[j].modnme && extraMalModules[j].source; k++, j++);
+	if (k == MAXMODULES-1)
+		throw(MAL, "malInclude", "the number of MAL modules to load, exceed the available MAL modules slots");
+
+	memcpy(&malModules[i], &extraMalModules[0], j * sizeof(malSignatures));
+	memset(&malModules[k], 0, sizeof(malSignatures));
+
+	for(i = 0; extraMalModules[i].modnme && extraMalModules[i].source; i++) {
+		if ((msg = callString(c, extraMalModules[i].source, FALSE)) != MAL_SUCCEED)
+			return msg;
+	}
 	return msg;
 }
 

@@ -9,15 +9,15 @@
 #include "monetdb_config.h"
 
 #include "sql_embedded.h"
+#include "mal_embedded.h"
 #include "gdk.h"
-#include "mal.h"
 #include "mal_client.h"
-#include "language.h"
+#include "mal_import.h"
 
-static struct mal_sql_scripts {
-	char *modnme;
-	char *script;
-} mal_sql_scripts[] = {
+static bool SQLembeddedinitialized = false;
+
+malSignatures sqlMalModules[] = //these modules will be added to the
+{
 #include "sql_decimal.mal.h"
 #include "sql_rank.mal.h"
 #include "sql_aggr_bte.mal.h"
@@ -50,6 +50,9 @@ sqlEmbeddedBoot(void)
 	str msg;
 	Client c;
 
+	if( SQLembeddedinitialized )
+		return 0;
+
 	if (mal_init())
 		return -1;
 
@@ -61,14 +64,14 @@ sqlEmbeddedBoot(void)
 	}
 
 	c = &mal_clients[0];
-	for (int i = 0; mal_sql_scripts[i].modnme; i++) {
-		if ((msg = callString(c, mal_sql_scripts[i].script, FALSE)) != MAL_SUCCEED) {
-			fprintf(stderr,"#sqlEmbeddedBoot: Failed to start SQL MAL scripts: %s", msg);
-			freeException(msg);
-			mal_exit(1);
-			return -1;
-		}
+
+	if ((msg = malExtraModulesBoot(c, sqlMalModules)) != MAL_SUCCEED) {
+		fprintf(stderr, "%s\n", msg);
+		freeException(msg);
+		mal_exit(1);
+		return -1;
 	}
 
+	SQLembeddedinitialized = true;
 	return 0;
 }
