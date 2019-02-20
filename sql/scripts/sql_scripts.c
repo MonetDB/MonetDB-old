@@ -51,6 +51,10 @@ static struct sql_scripts scripts1[] = {
 #include "60_wlcr.sql.h"
 #include "70_storagemodel.sql.h"
 #include "71_statistics.sql.h"
+#include "90_generator.sql.h"
+#ifdef HAVE_HGE
+#include "90_generator_hge.sql.h"
+#endif
 	{NULL, NULL}
 };
 

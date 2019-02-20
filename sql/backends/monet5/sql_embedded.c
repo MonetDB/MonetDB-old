@@ -16,7 +16,7 @@
 
 static bool SQLembeddedinitialized = false;
 
-malSignatures sqlMalModules[] = //these modules will be added to the
+malSignatures sqlMalModules[] =
 {
 #include "sql_decimal.mal.h"
 #include "sql_rank.mal.h"
@@ -27,20 +27,20 @@ malSignatures sqlMalModules[] = //these modules will be added to the
 #include "sql_aggr_flt.mal.h"
 #include "sql_aggr_dbl.mal.h"
 #include "sql_inspect.mal.h"
+#include "sql_generator.mal.h"
 
 #ifdef HAVE_HGE
 #include "sql_decimal_hge.mal.h"
 #include "sql_rank_hge.mal.h"
 #include "sql_aggr_hge.mal.h"
 #include "sql_hge.mal.h"
-//#include "41_sql_hge.mal.h"
+#include "sql_generator_hge.mal.h"
 #endif
 
 #include "sqlcatalog.mal.h"
 #include "sql_transaction.mal.h"
 #include "wlr.mal.h"
 #include "sql.mal.h"
-//#include "40_sql.mal.h"
 	{NULL, NULL}
 };
 

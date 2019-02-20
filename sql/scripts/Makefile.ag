@@ -5,8 +5,6 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 
 INCLUDES = ../include ../common ../storage \
-		   ../backends/monet5/generator \
-		   ../backends/monet5/UDF/udf \
 		   ../../monetdb5/modules/atoms \
 		   ../../monetdb5/modules/kernel \
 		   ../../monetdb5/mal \
@@ -50,5 +48,7 @@ lib_sqlscripts = {
 		60_wlcr.sql.h \
 		70_storagemodel.sql.h \
 		71_statistics.sql.h \
+		90_generator.sql.h \
+		90_generator_hge.sql.h \
 		99_system.sql.h
 }
