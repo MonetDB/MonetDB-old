@@ -17,6 +17,7 @@
 #include "mal_embedded.h"
 
 static bool embeddedinitialized = false;
+static int nDefaultModules = 0;
 
 /* The source for the MAL signatures*/
 malSignatures malModules[MAXMODULES] =
@@ -112,15 +113,16 @@ malSignatures malModules[MAXMODULES] =
 str
 malEmbeddedBoot(Client c)
 {
-	int i;
+	int i = 0;
 	str msg = MAL_SUCCEED;
 
 	if( embeddedinitialized )
 		return MAL_SUCCEED;
-	for(i = 0; malModules[i].modnme; i++) {
+	for(; malModules[i].modnme; i++) {
 		if ((msg = callString(c, malModules[i].source, FALSE)) != MAL_SUCCEED)
 			return msg;
 	}
+	nDefaultModules = i;
 	embeddedinitialized = true;
 	return msg;
 }
@@ -150,9 +152,10 @@ malExtraModulesBoot(Client c, malSignatures extraMalModules[])
 }
 
 str
-malEmbeddedStop(Client c)
+malEmbeddedStop(void) //remove extra modules and set to non-initialized again
 {
-	(void) c;
+	memset(&malModules[nDefaultModules], 0, (MAXMODULES-1 - nDefaultModules) * sizeof(malSignatures));
+	embeddedinitialized = false;
 	return MAL_SUCCEED;
 }
 

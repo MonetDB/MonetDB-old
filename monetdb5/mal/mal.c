@@ -81,6 +81,7 @@ int mal_init(void){
 	return 0;
 }
 
+extern void optimizerReset(void);
 /*
  * Upon exit we should attempt to remove all allocated memory explicitly.
  * This seemingly superflous action is necessary to simplify analyis of
@@ -148,6 +149,7 @@ void mserver_reset(void)
 	memset((char*)monet_characteristics,0, sizeof(monet_characteristics));
 	mal_trace = 0;
 	mal_namespace_reset();
+	optimizerReset();
 	/* No need to clean up the namespace, it will simply be extended
 	 * upon restart mal_namespace_reset(); */
 	GDKreset(0);	// terminate all other threads

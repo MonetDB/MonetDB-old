@@ -10,5 +10,6 @@
 #define SQL_EMBEDDED_H
 
 extern int sqlEmbeddedBoot(void);
+extern int sqlEmbeddedShutdown(void);
 
 #endif //SQL_EMBEDDED_H

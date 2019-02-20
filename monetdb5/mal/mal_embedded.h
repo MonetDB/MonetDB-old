@@ -26,7 +26,7 @@ mal_export malSignatures malModules[];
 
 mal_export str malEmbeddedBoot(Client c);
 mal_export str malExtraModulesBoot(Client c, malSignatures extraMalModules[]);
-mal_export str malEmbeddedStop(Client c);
+mal_export str malEmbeddedStop(void);
 mal_export str malEmbeddedRestart(Client c);
 
 #endif /*  _MAL_EMBEDDED_H*/

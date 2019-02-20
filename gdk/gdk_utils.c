@@ -697,6 +697,7 @@ GDKinit(opt *set, int setlen)
 		return GDK_FAIL;
 	}
 
+	GDKstopped = 0;
 	return GDK_SUCCEED;
 }
 

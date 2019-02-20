@@ -50,15 +50,18 @@
 #include "mal_runtime.h"
 #include "mal_authorize.h"
 
+static int shutdowninprogress = 0;
 int MAL_MAXCLIENTS = 0;
-ClientRec *mal_clients;
+ClientRec *mal_clients = 0;
 
 void 
 mal_client_reset(void)
 {
 	MAL_MAXCLIENTS = 0;
-	if (mal_clients)
+	if (mal_clients) {
 		GDKfree(mal_clients);
+		mal_clients = 0;
+	}
 }
 
 void
@@ -85,6 +88,7 @@ MCinit(void)
 		fprintf(stderr,"#MCinit:" MAL_MALLOC_FAIL);
 		mal_exit(1);
 	}
+	shutdowninprogress = 0;
 }
 
 /* stack the files from which you read */
@@ -450,7 +454,6 @@ freeClient(Client c)
  * When the server is about to shutdown, we should softly terminate
  * all outstanding session.
  */
-static int shutdowninprogress = 0;
 
 int
 MCshutdowninprogress(void){

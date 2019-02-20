@@ -55,14 +55,6 @@ static struct sql_scripts scripts1[] = {
 };
 
 static struct sql_scripts scripts2[] = {
-#include "89_udf.sql.h"
-#ifdef HAVE_HGE
-#include "89_udf_hge.sql.h"
-#endif
-#include "90_generator.sql.h"
-#ifdef HAVE_HGE
-#include "90_generator_hge.sql.h"
-#endif
 #include "99_system.sql.h"
 	{NULL, NULL}
 };
