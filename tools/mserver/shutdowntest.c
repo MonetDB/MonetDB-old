@@ -269,11 +269,6 @@ static str monetdb_initialize(void) {
 		exit(1);
 	}
 
-	if (mal_init()) {
-		retval = GDKstrdup("mal_init() failed");
-		goto cleanup;
-	}
-
 	if (sqlEmbeddedBoot() != 0) {
 		retval = GDKstrdup("sqlEmbeddedBoot() failed");
 		goto cleanup;
@@ -311,7 +306,6 @@ cleanup:
 
 static void monetdb_shutdown(void) {
 	if (monetdb_initialized) {
-		mserver_reset();
 		(void) sqlEmbeddedShutdown();
 		monetdb_initialized = 0;
 	}

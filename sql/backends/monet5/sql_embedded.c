@@ -53,6 +53,11 @@ sqlEmbeddedBoot(void)
 	if( SQLembeddedinitialized )
 		return 0;
 
+	if (mal_init()) {
+		fprintf(stderr, "MAL init failed\n");
+		return -1;
+	}
+
 	if ((msg = MSinitClientPrg(mal_clients, "user", "main")) != MAL_SUCCEED) {
 		fprintf(stderr, "%s\n", msg);
 		freeException(msg);
@@ -79,6 +84,7 @@ sqlEmbeddedShutdown(void)
 	if( !SQLembeddedinitialized )
 		return 0;
 	(void) malEmbeddedStop();
+	mserver_reset();
 	SQLembeddedinitialized = false;
 	return 0;
 }

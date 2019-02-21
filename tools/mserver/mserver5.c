@@ -676,12 +676,6 @@ main(int argc, char **av)
 		exit(1);
 	}
 
-	if (mal_init()) {
-		/* don't show this as a crash */
-		msab_registerStop();
-		return -1;
-	}
-
 	if (sqlEmbeddedBoot() != 0) {
 		/* don't show this as a crash */
 		msab_registerStop();
