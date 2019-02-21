@@ -84,6 +84,7 @@ malSignatures malModules[MAXMODULES] =
 
 #include "mal_mapi.mal.h"
 #include "oltp.mal.h"
+#include "microbenchmark.mal.h"
 #include "wlc.mal.h"
 
 #ifdef HAVE_HGE
