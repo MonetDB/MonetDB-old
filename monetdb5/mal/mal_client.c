@@ -75,7 +75,7 @@ MCinit(void)
 	if (maxclients <= 0) {
 		maxclients = 64;
 		if (GDKsetenv("max_clients", "64") != GDK_SUCCEED) {
-			fprintf(stderr,"#MCinit: GDKsetenv failed");
+			MT_fprintf(stderr,"#MCinit: GDKsetenv failed");
 			mal_exit(1);
 		}
 	}
@@ -85,7 +85,7 @@ MCinit(void)
 		/* client connections */ maxclients;
 	mal_clients = GDKzalloc(sizeof(ClientRec) * MAL_MAXCLIENTS);
 	if( mal_clients == NULL){
-		fprintf(stderr,"#MCinit:" MAL_MALLOC_FAIL);
+		MT_fprintf(stderr,"#MCinit:" MAL_MALLOC_FAIL);
 		mal_exit(1);
 	}
 	shutdowninprogress = 0;
@@ -156,7 +156,7 @@ MCnewClient(void)
 		return NULL;
 	c->idx = (int) (c - mal_clients);
 #ifdef MAL_CLIENT_DEBUG
-	fprintf(stderr,"New client created %d\n", (int) (c - mal_clients));
+	MT_fprintf(stderr,"New client created %d\n", (int) (c - mal_clients));
 #endif
 	snprintf(c->name, sizeof(c->name), "client%d", (int) (c - mal_clients));
 	MT_thread_setname(c->name);
@@ -186,7 +186,7 @@ void
 MCexitClient(Client c)
 {
 #ifdef MAL_CLIENT_DEBUG
-	fprintf(stderr,"# Exit client %d\n", c->idx);
+	MT_fprintf(stderr,"# Exit client %d\n", c->idx);
 #endif
 	finishSessionProfiler(c);
 	MPresetProfiler(c->fdout);
@@ -385,7 +385,7 @@ freeClient(Client c)
 	c->mode = FINISHCLIENT;
 
 #ifdef MAL_CLIENT_DEBUG
-	fprintf(stderr,"# Free client %d\n", c->idx);
+	MT_fprintf(stderr,"# Free client %d\n", c->idx);
 #endif
 	MCexitClient(c);
 
@@ -496,7 +496,7 @@ void
 MCcloseClient(Client c)
 {
 #ifdef MAL_DEBUG_CLIENT
-	fprintf(stderr,"closeClient %d " OIDFMT "\n", (int) (c - mal_clients), c->user);
+	MT_fprintf(stderr,"closeClient %d " OIDFMT "\n", (int) (c - mal_clients), c->user);
 #endif
 	/* free resources of a single thread */
 	if (!isAdministrator(c)) {
@@ -555,7 +555,7 @@ MCreadClient(Client c)
 	bstream *in = c->fdin;
 
 #ifdef MAL_CLIENT_DEBUG
-	fprintf(stderr,"# streamClient %d %d\n", c->idx, isa_block_stream(in->s));
+	MT_fprintf(stderr,"# streamClient %d %d\n", c->idx, isa_block_stream(in->s));
 #endif
 
 	while (in->pos < in->len &&
@@ -590,13 +590,13 @@ MCreadClient(Client c)
 				in->len++;
 		}
 #ifdef MAL_CLIENT_DEBUG
-		fprintf(stderr, "# simple stream received %d sum %zu\n", c->idx, sum);
+		MT_fprintf(stderr, "# simple stream received %d sum %zu\n", c->idx, sum);
 #endif
 	}
 	if (in->pos >= in->len) {
 		/* end of stream reached */
 #ifdef MAL_CLIENT_DEBUG
-		fprintf(stderr,"# end of stream received %d %d\n", c->idx, c->bak == 0);
+		MT_fprintf(stderr,"# end of stream received %d %d\n", c->idx, c->bak == 0);
 #endif
 		if (c->bak) {
 			MCpopClientInput(c);
@@ -607,8 +607,8 @@ MCreadClient(Client c)
 		return 0;
 	}
 #ifdef MAL_CLIENT_DEBUG
-	fprintf(stderr,"# finished stream read %d %d\n", (int) in->pos, (int) in->len);
-	printf("#%s\n", in->buf);
+	MT_fprintf(stderr,"# finished stream read %d %d\n", (int) in->pos, (int) in->len);
+	MT_fprintf(stdout, "#%s\n", in->buf);
 #endif
 	return 1;
 }

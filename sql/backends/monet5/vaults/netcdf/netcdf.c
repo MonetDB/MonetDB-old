@@ -429,7 +429,7 @@ header: %s", nc_strerror(retval));
 				GDKfree(esc_str1);
 				GDKfree(esc_str0);
 
-				printf("statement: '%s'\n", s);
+				MT_fprintf(stdout, "statement: '%s'\n", s);
 				if ( ( msg = SQLstatementIntern(cntxt, &s, "netcdf.attach", TRUE, FALSE, NULL))
 					 != MAL_SUCCEED )
 					goto finish;
@@ -541,7 +541,7 @@ header: %s", nc_strerror(retval));
 		}
 		GDKfree(esc_str0);
 
-		printf("global: '%s'\n", s);
+		MT_fprintf(stdout, "global: '%s'\n", s);
         if ( ( msg = SQLstatementIntern(cntxt, &s, "netcdf.attach", TRUE, FALSE, NULL))
 			 != MAL_SUCCEED )
 	        goto finish;

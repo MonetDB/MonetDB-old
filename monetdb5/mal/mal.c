@@ -103,11 +103,11 @@ void mserver_reset(void)
 	stopProfiler();
 	AUTHreset(); 
 	if ((err = msab_wildRetreat()) != NULL) {
-		fprintf(stderr, "!%s", err);
+		MT_fprintf(stderr, "!%s", err);
 		free(err);
 	}
 	if ((err = msab_registerStop()) != NULL) {
-		fprintf(stderr, "!%s", err);
+		MT_fprintf(stderr, "!%s", err);
 		free(err);
 	}
 	/* TODO: make sure this is still required

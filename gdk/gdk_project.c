@@ -197,7 +197,7 @@ BATproject(BAT *l, BAT *r)
 
 	ALGODEBUG t0 = GDKusec();
 
-	ALGODEBUG fprintf(stderr, "#BATproject(l=" ALGOBATFMT ","
+	ALGODEBUG MT_fprintf(stderr, "#BATproject(l=" ALGOBATFMT ","
 			  "r=" ALGOBATFMT ")\n",
 			  ALGOBATPAR(l), ALGOBATPAR(r));
 
@@ -212,7 +212,7 @@ BATproject(BAT *l, BAT *r)
 		}
 		bn = BATslice(r, lo - r->hseqbase, hi - r->hseqbase);
 		BAThseqbase(bn, l->hseqbase + (lo - l->tseqbase));
-		ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=" ALGOOPTBATFMT " (slice)\n",
+		ALGODEBUG MT_fprintf(stderr, "#BATproject(l=%s,r=%s)=" ALGOOPTBATFMT " (slice)\n",
 				  BATgetId(l), BATgetId(r),  ALGOOPTBATPAR(bn));
 		return bn;
 	}
@@ -229,7 +229,7 @@ BATproject(BAT *l, BAT *r)
 		    BATcount(bn) == 0) {
 			BATtseqbase(bn, 0);
 		}
-		ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=" ALGOOPTBATFMT " (constant)\n",
+		ALGODEBUG MT_fprintf(stderr, "#BATproject(l=%s,r=%s)=" ALGOOPTBATFMT " (constant)\n",
 				  BATgetId(l), BATgetId(r), ALGOOPTBATPAR(bn));
 		return bn;
 	}
@@ -254,7 +254,7 @@ BATproject(BAT *l, BAT *r)
 	}
 	bn = COLnew(l->hseqbase, tpe, BATcount(l), TRANSIENT);
 	if (bn == NULL) {
-		ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=0\n",
+		ALGODEBUG MT_fprintf(stderr, "#BATproject(l=%s,r=%s)=0\n",
 				  BATgetId(l), BATgetId(r));
 		return NULL;
 	}
@@ -371,7 +371,7 @@ BATproject(BAT *l, BAT *r)
 
 	if (!BATtdense(r))
 		BATtseqbase(bn, oid_nil);
-	ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=" ALGOBATFMT "%s " LLFMT "us\n",
+	ALGODEBUG MT_fprintf(stderr, "#BATproject(l=%s,r=%s)=" ALGOBATFMT "%s " LLFMT "us\n",
 			  BATgetId(l), BATgetId(r), ALGOBATPAR(bn),
 			  bn->ttype == TYPE_str && bn->tvheap == r->tvheap ? " shared string heap" : "",
 			  GDKusec() - t0);
@@ -513,7 +513,7 @@ BATprojectchain(BAT **bats)
 	nil = ATOMnilptr(tpe);
 	if (allnil) {
 		/* somewhere on the way we encountered a void-nil BAT */
-		ALGODEBUG fprintf(stderr, "#BATprojectchain with %d BATs, size "BUNFMT", type %s, all nil\n", n, cnt, ATOMname(tpe));
+		ALGODEBUG MT_fprintf(stderr, "#BATprojectchain with %d BATs, size "BUNFMT", type %s, all nil\n", n, cnt, ATOMname(tpe));
 		GDKfree(ba);
 		return BATconstant(hseq, tpe == TYPE_oid ? TYPE_void : tpe, nil, cnt, TRANSIENT);
 	}
@@ -531,7 +531,7 @@ BATprojectchain(BAT **bats)
 			if (bn->ttype == TYPE_void)
 				BATtseqbase(bn, tseq);
 		}
-		ALGODEBUG fprintf(stderr, "#BATprojectchain with %d BATs, "
+		ALGODEBUG MT_fprintf(stderr, "#BATprojectchain with %d BATs, "
 				  "size " BUNFMT ", type %s, using "
 				  "BATslice(" BUNFMT "," BUNFMT ")="
 				  ALGOOPTBATFMT "\n",
@@ -539,7 +539,7 @@ BATprojectchain(BAT **bats)
 				  ALGOOPTBATPAR(bn));
 		return bn;
 	}
-	ALGODEBUG fprintf(stderr, "#BATprojectchain with %d (%d) BATs, size "BUNFMT", type %s\n", n, i, cnt, ATOMname(tpe));
+	ALGODEBUG MT_fprintf(stderr, "#BATprojectchain with %d (%d) BATs, size "BUNFMT", type %s\n", n, i, cnt, ATOMname(tpe));
 
 	if (nonil &&
 	    cnt > 0 &&
@@ -552,7 +552,7 @@ BATprojectchain(BAT **bats)
 	bn = COLnew(hseq, tpe, cnt, TRANSIENT);
 	if (bn == NULL || cnt == 0) {
 		GDKfree(ba);
-		ALGODEBUG fprintf(stderr, "#BATprojectchain with %d BATs, "
+		ALGODEBUG MT_fprintf(stderr, "#BATprojectchain with %d BATs, "
 				  "size " BUNFMT ", type %s="
 				  ALGOOPTBATFMT "\n",
 				  n, cnt, ATOMname(tpe), ALGOOPTBATPAR(bn));
@@ -750,7 +750,7 @@ BATprojectchain(BAT **bats)
 	bn->tsorted |= issorted;
 	bn->tseqbase = oid_nil;
 	GDKfree(ba);
-	ALGODEBUG fprintf(stderr, "#BATprojectchain()=" ALGOBATFMT "\n",
+	ALGODEBUG MT_fprintf(stderr, "#BATprojectchain()=" ALGOBATFMT "\n",
 			  ALGOBATPAR(bn));
 	return bn;
 

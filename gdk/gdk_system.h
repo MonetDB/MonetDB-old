@@ -9,6 +9,8 @@
 #ifndef _GDK_SYSTEM_H_
 #define _GDK_SYSTEM_H_
 
+#include "mutils.h"
+
 #ifdef WIN32
 #ifndef LIBGDK
 #define gdk_export extern __declspec(dllimport)
@@ -181,15 +183,15 @@ typedef struct {
 	} while (0)
 #define MT_lock_set(l)							\
 	do {								\
-		TEMDEBUG fprintf(stderr, "#%s: locking %s...\n",	\
+		TEMDEBUG MT_fprintf(stderr, "#%s: locking %s...\n",	\
 				 __func__, (l)->name);			\
 		pthread_mutex_lock(&(l)->lock);				\
-		TEMDEBUG fprintf(stderr, "#%s: locking %s complete\n",	\
+		TEMDEBUG MT_fprintf(stderr, "#%s: locking %s complete\n",	\
 				 __func__, (l)->name);			\
 	} while (0)
 #define MT_lock_unset(l)						\
 	do {								\
-		TEMDEBUG fprintf(stderr, "#%s: unlocking %s\n",		\
+		TEMDEBUG MT_fprintf(stderr, "#%s: unlocking %s\n",		\
 				 __func__, (l)->name);			\
 		pthread_mutex_unlock(&(l)->lock);			\
 	} while (0)
@@ -236,7 +238,7 @@ gdk_export ATOMIC_TYPE volatile GDKlocksleepcnt;
 #define _DBG_LOCK_LOCKER(l, n)		((l)->locker = (n), (l)->thread = MT_thread_getname())
 #define _DBG_LOCK_CONTENTION(l, n)					\
 	do {								\
-		TEMDEBUG fprintf(stderr, "#lock %s contention in %s\n", \
+		TEMDEBUG MT_fprintf(stderr, "#lock %s contention in %s\n", \
 				 (l)->name, n);				\
 		(void) ATOMIC_INC(GDKlockcontentioncnt, dummy);		\
 		(l)->contention++;					\
@@ -391,16 +393,16 @@ typedef struct {
 #define MT_sema_destroy(s)	pthread_sema_destroy(&(s)->sema)
 #define MT_sema_up(s)						\
 	do {							\
-		TEMDEBUG fprintf(stderr, "#%s: sema %s up\n",	\
+		TEMDEBUG MT_fprintf(stderr, "#%s: sema %s up\n",	\
 				 __func__, (s)->name);		\
 		pthread_sema_up(&(s)->sema);			\
 	} while (0)
 #define MT_sema_down(s)							\
 	do {								\
-		TEMDEBUG fprintf(stderr, "#%s: sema %s down...\n",	\
+		TEMDEBUG MT_fprintf(stderr, "#%s: sema %s down...\n",	\
 				 __func__, (s)->name);			\
 		pthread_sema_down(&(s)->sema);				\
-		TEMDEBUG fprintf(stderr, "#%s: sema %s down complete\n", \
+		TEMDEBUG MT_fprintf(stderr, "#%s: sema %s down complete\n", \
 				 __func__, (s)->name);			\
 	} while (0)
 

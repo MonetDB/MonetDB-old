@@ -382,7 +382,7 @@ callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *env, ValPtr argv[], char debug)
 
 	cntxt->lastcmd= time(0);
 #ifdef DEBUG_CALLMAL
-	fprintf(stderr, "callMAL\n");
+	MT_fprintf(stderr, "callMAL\n");
 	fprintInstruction(stderr, mb, 0, pci, LIST_MAL_ALL);
 #endif
 	switch (pci->token) {
@@ -834,7 +834,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 						bat bid = stk->stk[a].val.bval;
 
 						if (garbage[i] >= 0) {
-							PARDEBUG fprintf(stderr, "#GC pc=%d bid=%d %s done\n", stkpc, bid, getVarName(mb, garbage[i]));
+							PARDEBUG MT_fprintf(stderr, "#GC pc=%d bid=%d %s done\n", stkpc, bid, getVarName(mb, garbage[i]));
 							bid = stk->stk[garbage[i]].val.bval;
 							stk->stk[garbage[i]].val.bval = bat_nil;
 							BBPrelease(bid);
@@ -1344,7 +1344,7 @@ void garbageElement(Client cntxt, ValPtr v)
 		 * All references should be logical.
 		 */
 		bat bid = v->val.bval;
-		/* printf("garbage collecting: %d lrefs=%d refs=%d\n",
+		/* MT_fprintf(stdout, "garbage collecting: %d lrefs=%d refs=%d\n",
 		   bid, BBP_lrefs(bid),BBP_refs(bid));*/
 		v->val.bval = bat_nil;
 		if (is_bat_nil(bid))

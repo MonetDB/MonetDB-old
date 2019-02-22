@@ -20,6 +20,8 @@
  */
 #include "monetdb_config.h"
 #include "monet_options.h"
+#include "mutils.h"
+
 #ifndef HAVE_GETOPT_LONG
 #  include "monet_getopt.h"
 #else
@@ -69,17 +71,17 @@ mo_print_options(opt *set, int setlen)
 	setlen = mo_default_set(&set, setlen);
 	for (i = 0; i < setlen; i++) {
 		if (set[i].kind == opt_builtin) {
-			fprintf(stderr, "# builtin opt \t%s = %s\n", set[i].name, set[i].value);
+			MT_fprintf(stderr, "# builtin opt \t%s = %s\n", set[i].name, set[i].value);
 		}
 	}
 	for (i = 0; i < setlen; i++) {
 		if (set[i].kind == opt_config) {
-			fprintf(stderr, "# config opt \t%s = %s\n", set[i].name, set[i].value);
+			MT_fprintf(stderr, "# config opt \t%s = %s\n", set[i].name, set[i].value);
 		}
 	}
 	for (i = 0; i < setlen; i++) {
 		if (set[i].kind == opt_cmdline) {
-			fprintf(stderr, "# cmdline opt \t%s = %s\n", set[i].name, set[i].value);
+			MT_fprintf(stderr, "# cmdline opt \t%s = %s\n", set[i].name, set[i].value);
 		}
 	}
 }
@@ -120,7 +122,7 @@ mo_config_file(opt **Set, int setlen, char *file)
 	set = *Set;
 	fd = fopen(file, "r");
 	if (fd == NULL) {
-		fprintf(stderr, "Could not open file %s\n", file);
+		MT_fprintf(stderr, "Could not open file %s\n", file);
 		return setlen;
 	}
 	while (fgets(buf, BUFSIZ, fd) != NULL) {
@@ -136,7 +138,7 @@ mo_config_file(opt **Set, int setlen, char *file)
 
 		val = strchr(s, '=');
 		if (val == NULL) {
-			fprintf(stderr, "mo_config_file: syntax error in %s at %s\n", file, s);
+			MT_fprintf(stderr, "mo_config_file: syntax error in %s at %s\n", file, s);
 			fclose(fd);
 			exit(1);
 		}
@@ -159,7 +161,7 @@ mo_config_file(opt **Set, int setlen, char *file)
 				break;
 		}
 		if (quote) {
-			fprintf(stderr, "mo_config_file: wrong number of quotes in %s at %s\n", file, val);
+			MT_fprintf(stderr, "mo_config_file: wrong number of quotes in %s at %s\n", file, val);
 			fclose(fd);
 			exit(1);
 		}

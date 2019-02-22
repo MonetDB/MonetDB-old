@@ -436,7 +436,7 @@ INET_comp_CW(bit *retval, const inet *val1, const inet *val2)
 		 * problems */
 
 		/* if you want to see some bytes, remove this comment
-		   fprintf(stderr, "%x %x %x %x => %x %x %x %x  %x %x %x %x\n",
+		   MT_fprintf(stderr, "%x %x %x %x => %x %x %x %x  %x %x %x %x\n",
 		   m[0], m[1], m[2], m[3], val1->q1, val1->q2,
 		   val1->q3, val1->q4, val2->q1, val2->q2, val2->q3,
 		   val2->q4);
@@ -526,7 +526,7 @@ INETbroadcast(inet *retval, const inet *val)
 		m[3] = msk & 0xFF;
 
 		/* if you want to see some bytes, remove this comment
-		   fprintf(stderr, "%x %x %x %x => %x %x %x %x\n",
+		   MT_fprintf(stderr, "%x %x %x %x => %x %x %x %x\n",
 		   m[0], m[1], m[2], m[3], val->q1, val->q2,
 		   val->q3, val->q4);
 		 */

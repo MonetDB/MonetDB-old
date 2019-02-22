@@ -250,7 +250,7 @@ doChallenge(void *data)
 	}
 
 #ifdef DEBUG_SERVER
-	fprintf(stderr,"mal_mapi:Client accepted %s\n", buf);
+	MT_fprintf(stderr,"mal_mapi:Client accepted %s\n", buf);
 	fflush(stderr);
 
 	mnstr_printf(cntxt->fdout, "#SERVERlisten:client accepted\n");
@@ -422,7 +422,7 @@ SERVERlistenThread(SOCKET *Sock)
 					(void) shutdown(msgsock, SHUT_WR);
 					closesocket(msgsock);
 					if (!cmsg || cmsg->cmsg_type != SCM_RIGHTS) {
-						fprintf(stderr, "!mal_mapi.listen: "
+						MT_fprintf(stderr, "!mal_mapi.listen: "
 								"expected filedescriptor, but "
 								"received something else\n");
 						continue;
@@ -438,7 +438,7 @@ SERVERlistenThread(SOCKET *Sock)
 				default:
 					/* some unknown state */
 					closesocket(msgsock);
-					fprintf(stderr, "!mal_mapi.listen: "
+					MT_fprintf(stderr, "!mal_mapi.listen: "
 							"unknown command type in first byte\n");
 					continue;
 			}
@@ -447,7 +447,7 @@ SERVERlistenThread(SOCKET *Sock)
 			continue;
 		}
 #ifdef DEBUG_SERVER
-		fprintf(stderr,"server:accepted\n");
+		MT_fprintf(stderr,"server:accepted\n");
 		fflush(stdout);
 #endif
 		data = GDKmalloc(sizeof(*data));
@@ -492,7 +492,7 @@ SERVERlistenThread(SOCKET *Sock)
 	(void) ATOMIC_DEC(nlistener, atomicLock);
 	return;
 error:
-	fprintf(stderr, "!mal_mapi.listen: %s, terminating listener\n", msg);
+	MT_fprintf(stderr, "!mal_mapi.listen: %s, terminating listener\n", msg);
 }
 
 /**
@@ -524,7 +524,7 @@ static void SERVERannounce(struct in_addr addr, int port, str usockfile) {
 			free(buf);
 		else
 			/* announce that we're now reachable */
-			printf("# Listening for connection requests on "
+			MT_fprintf(stdout, "# Listening for connection requests on "
 					"mapi:monetdb://%s:%i/\n", host, port);
 	}
 	if (usockfile != NULL) {
@@ -533,7 +533,7 @@ static void SERVERannounce(struct in_addr addr, int port, str usockfile) {
 			free(buf);
 		else
 			/* announce that we're now reachable */
-			printf("# Listening for UNIX domain connection requests on "
+			MT_fprintf(stdout, "# Listening for UNIX domain connection requests on "
 					"mapi:monetdb://%s\n", usockfile);
 	}
 }
@@ -812,7 +812,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 #endif
 
 #ifdef DEBUG_SERVER
-	fprintf(stderr, "#SERVERlisten:Network started at %d\n", port);
+	MT_fprintf(stderr, "#SERVERlisten:Network started at %d\n", port);
 #endif
 
 	psock[0] = sock;
@@ -833,7 +833,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 #ifdef DEBUG_SERVER
 	gethostname(host, (int) 512);
 	snprintf(msg, (int) 512, "#Ready to accept connections on %s:%d\n", host, port);
-	fprintf(stderr, "%s", msg);
+	MT_fprintf(stderr, "%s", msg);
 #endif
 
 	/* seed the randomiser such that our challenges aren't
@@ -897,7 +897,7 @@ SERVERlisten_port(int *ret, int *pid)
 str
 SERVERstop(void *ret)
 {
-fprintf(stderr, "SERVERstop\n");
+MT_fprintf(stderr, "SERVERstop\n");
 	ATOMIC_SET(serverexiting, 1, atomicLock);
 	/* wait until they all exited, but skip the wait if the whole
 	 * system is going down */

@@ -92,8 +92,8 @@ OIDXcreateImplementation(Client cntxt, int tpe, BAT *b, int pieces)
 		pieces = 1;
 	}
 #ifdef _DEBUG_OIDX_
-	fprintf(stderr,"#bat.orderidx pieces %d\n",pieces);
-	fprintf(stderr,"#oidx ttype %s bat %s\n", ATOMname(b->ttype),ATOMname(tpe));
+	MT_fprintf(stderr,"#bat.orderidx pieces %d\n",pieces);
+	MT_fprintf(stderr,"#oidx ttype %s bat %s\n", ATOMname(b->ttype),ATOMname(tpe));
 #endif
 
 	/* create a temporary MAL function to sort the BAT in parallel */

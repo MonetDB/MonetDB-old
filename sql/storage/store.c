@@ -224,12 +224,12 @@ sql_trans_destroy(sql_trans *t)
 	sql_trans *res = t->parent;
 
 #ifdef STORE_DEBUG
-	fprintf(stderr, "#destroy trans (%p)\n", t);
+	MT_fprintf(stderr, "#destroy trans (%p)\n", t);
 #endif
 
 	if (res == gtrans && spares < MAX_SPARES && !t->name) {
 #ifdef STORE_DEBUG
-		fprintf(stderr, "#spared (%d) trans (%p)\n", spares, t);
+		MT_fprintf(stderr, "#spared (%d) trans (%p)\n", spares, t);
 #endif
 		trans_drop_tmp(t);
 		spare_trans[spares++] = t;
@@ -548,7 +548,7 @@ load_column(sql_trans *tr, sql_table *t, oid rid)
 	if (!sql_find_subtype(&c->type, tpe, sz, d)) {
 		sql_type *lt = sql_trans_bind_type(tr, t->s, tpe);
 		if (lt == NULL) {
-			fprintf(stderr, "SQL type %s missing\n", tpe);
+			MT_fprintf(stderr, "SQL type %s missing\n", tpe);
 			_DELETE(tpe);
 			return NULL;
 		}
@@ -576,7 +576,7 @@ load_column(sql_trans *tr, sql_table *t, oid rid)
 	c->sorted = sql_trans_is_sorted(tr, c);
 	c->dcount = 0;
 	if (bs_debug)
-		fprintf(stderr, "#\t\tload column %s\n", c->base.name);
+		MT_fprintf(stderr, "#\t\tload column %s\n", c->base.name);
 	return c;
 }
 
@@ -766,13 +766,13 @@ load_table(sql_trans *tr, sql_schema *s, sqlid tid, subrids *nrs)
 	if (isTable(t)) {
 		if (store_funcs.create_del(tr, t) != LOG_OK) {
 			if (bs_debug)
-				fprintf(stderr, "#\tload table %s missing 'deletes'", t->base.name);
+				MT_fprintf(stderr, "#\tload table %s missing 'deletes'", t->base.name);
 			t->persistence = SQL_GLOBAL_TEMP;
 		}
 	}
 
 	if (bs_debug)
-		fprintf(stderr, "#\tload table %s\n", t->base.name);
+		MT_fprintf(stderr, "#\tload table %s\n", t->base.name);
 
 	partitions_table_id = find_sql_column(partitions, "table_id");
 	rs = table_funcs.rids_select(tr, partitions_table_id, &t->base.id, &t->base.id, NULL);
@@ -920,7 +920,7 @@ load_arg(sql_trans *tr, sql_func * f, oid rid)
 	if (!sql_find_subtype(&a->type, tpe, digits, scale)) {
 		sql_type *lt = sql_trans_bind_type(tr, f->s, tpe);
 		if (lt == NULL) {
-			fprintf(stderr, "SQL type %s missing\n", tpe);
+			MT_fprintf(stderr, "SQL type %s missing\n", tpe);
 			_DELETE(tpe);
 			return NULL;
 		}
@@ -971,7 +971,7 @@ load_func(sql_trans *tr, sql_schema *s, sqlid fid, subrids *rs)
 	}
 
 	if (bs_debug)
-		fprintf(stderr, "#\tload func %s\n", t->base.name);
+		MT_fprintf(stderr, "#\tload func %s\n", t->base.name);
 
 	t->ops = list_new(tr->sa, (fdestroy)NULL);
 	if (rs) {
@@ -1083,7 +1083,7 @@ sql_trans_update_schema(sql_trans *tr, oid rid)
 		return ;
 
 	if (bs_debug)
-		fprintf(stderr, "#update schema %s %d\n", s->base.name, s->base.id);
+		MT_fprintf(stderr, "#update schema %s %d\n", s->base.name, s->base.id);
 
 	v = table_funcs.column_find_value(tr, find_sql_column(ss, "name"), rid);
 	base_init(tr->sa, &s->base, sid, 0, v); _DELETE(v);
@@ -1151,7 +1151,7 @@ load_schema(sql_trans *tr, sqlid id, oid rid)
 	}
 
 	if (bs_debug)
-		fprintf(stderr, "#load schema %s %d\n", s->base.name, s->base.id);
+		MT_fprintf(stderr, "#load schema %s %d\n", s->base.name, s->base.id);
 
 	sqlid tmpid = store_oids ? FUNC_OIDS : id;
 
@@ -1273,7 +1273,7 @@ sql_trans_update_schemas(sql_trans* tr)
 	oid rid;
 	
 	if (bs_debug)
-		fprintf(stderr, "#update schemas\n");
+		MT_fprintf(stderr, "#update schemas\n");
 
 	for(rid = table_funcs.rids_next(schemas); !is_oid_nil(rid); rid = table_funcs.rids_next(schemas)) {
 		sql_trans_update_schema(tr, rid);
@@ -1292,7 +1292,7 @@ load_trans(sql_trans* tr, sqlid id)
 	node *n;
 	
 	if (bs_debug)
-		fprintf(stderr, "#load trans\n");
+		MT_fprintf(stderr, "#load trans\n");
 
 	for(rid = table_funcs.rids_next(schemas); !is_oid_nil(rid); rid = table_funcs.rids_next(schemas)) {
 		sql_schema *ns = load_schema(tr, id, rid);
@@ -1520,7 +1520,7 @@ bootstrap_create_column(sql_trans *tr, sql_table *t, char *name, char *sqltype, 
 	sql_column *col = SA_ZNEW(tr->sa, sql_column);
 
 	if (bs_debug)
-		fprintf(stderr, "#bootstrap_create_column %s\n", name );
+		MT_fprintf(stderr, "#bootstrap_create_column %s\n", name );
 
 	if (store_oids) {
 		sqlid *idp = logger_funcs.log_find_table_value("sys__columns_id", "sys__columns_name", name, "sys__columns_table_id", &t->base.id, NULL, NULL);
@@ -1698,7 +1698,7 @@ bootstrap_create_table(sql_trans *tr, sql_schema *s, char *name)
 	t->bootstrap = 1;
 
 	if (bs_debug)
-		fprintf(stderr, "#bootstrap_create_table %s\n", name );
+		MT_fprintf(stderr, "#bootstrap_create_table %s\n", name );
 
 	t->base.flags = s->base.flags;
 	t->query = NULL;
@@ -1718,7 +1718,7 @@ bootstrap_create_schema(sql_trans *tr, char *name, sqlid auth_id, int owner)
 	sql_schema *s = SA_ZNEW(tr->sa, sql_schema);
 
 	if (bs_debug)
-		fprintf(stderr, "#bootstrap_create_schema %s %d %d\n", name, auth_id, owner);
+		MT_fprintf(stderr, "#bootstrap_create_schema %s %d %d\n", name, auth_id, owner);
 
 	if (store_oids) {
 		sqlid *idp = logger_funcs.log_find_table_value("sys_schemas_id", "sys_schemas_name", name, NULL, NULL);
@@ -1956,7 +1956,7 @@ store_load(void) {
 		insert_schemas(tr);
 
 		if (sql_trans_commit(tr) != SQL_OK) {
-			fprintf(stderr, "cannot commit initial transaction\n");
+			MT_fprintf(stderr, "cannot commit initial transaction\n");
 		}
 		sql_trans_destroy(tr);
 	} else {
@@ -1983,7 +1983,7 @@ store_load(void) {
 	nstore_oids = 0;
 	if (logger_funcs.log_needs_update())
 		if (store_upgrade_ids(gtrans) != SQL_OK)
-			fprintf(stderr, "cannot commit upgrade transaction\n");
+			MT_fprintf(stderr, "cannot commit upgrade transaction\n");
 	return first;
 }
 
@@ -2042,7 +2042,7 @@ store_exit(void)
 	MT_lock_set(&bs_lock);
 
 #ifdef STORE_DEBUG
-	fprintf(stderr, "#store exit locked\n");
+	MT_fprintf(stderr, "#store exit locked\n");
 #endif
 	/* busy wait till the logmanager is ready */
 	while (logging) {
@@ -2071,7 +2071,7 @@ store_exit(void)
 		gtrans = NULL;
 	}
 #ifdef STORE_DEBUG
-	fprintf(stderr, "#store exit unlocked\n");
+	MT_fprintf(stderr, "#store exit unlocked\n");
 #endif
 	MT_lock_unset(&bs_lock);
 }
@@ -2244,7 +2244,7 @@ store_lock(void)
 {
 	MT_lock_set(&bs_lock);
 #ifdef STORE_DEBUG
-	fprintf(stderr, "#locked\n");
+	MT_fprintf(stderr, "#locked\n");
 #endif
 }
 
@@ -2252,7 +2252,7 @@ void
 store_unlock(void)
 {
 #ifdef STORE_DEBUG
-	fprintf(stderr, "#unlocked\n");
+	MT_fprintf(stderr, "#unlocked\n");
 #endif
 	MT_lock_unset(&bs_lock);
 }
@@ -3073,7 +3073,7 @@ trans_init(sql_trans *t, backend_stack stk, sql_trans *ot)
 
 	t->name = NULL;
 	if (bs_debug) 
-		fprintf(stderr, "#trans (%p) init (%d,%d,%d)\n", 
+		MT_fprintf(stderr, "#trans (%p) init (%d,%d,%d)\n",
 			t, t->wstime, t->stime, t->schema_number ); 
 	return t;
 }
@@ -3372,7 +3372,7 @@ rollforward_create_table(sql_trans *tr, sql_table *t, int mode)
 	int ok = LOG_OK;
 
 	if (bs_debug) 
-		fprintf(stderr, "#create table %s\n", t->base.name);
+		MT_fprintf(stderr, "#create table %s\n", t->base.name);
 
 	if (isKindOfTable(t) && isGlobal(t)) {
 		int p = (tr->parent == gtrans && !isTempTable(t));
@@ -3603,7 +3603,7 @@ rollforward_update_table(sql_trans *tr, sql_table *ft, sql_table *tt, int mode)
 		} else if (mode == R_APPLY) {
 			assert(cs_size(&tt->columns) == cs_size(&ft->columns));
 			if (bs_debug) 
-				fprintf(stderr, "#update table %s\n", tt->base.name);
+				MT_fprintf(stderr, "#update table %s\n", tt->base.name);
 			ok = store_funcs.update_table(tr, ft, tt);
 			ft->cleared = 0;
 			ft->base.rtime = ft->base.wtime = 0;
@@ -3800,13 +3800,13 @@ reset_changeset(sql_trans *tr, changeset * fs, changeset * pfs, sql_base *b, res
 				n = n->next;
 				m = m->next;
 				if (bs_debug) 
-					fprintf(stderr, "#reset_cs %s\n", (fb->name)?fb->name:"help");
+					MT_fprintf(stderr, "#reset_cs %s\n", (fb->name)?fb->name:"help");
 			} else if (fb->id < pfb->id) {  
 				node *t = n->next;
 
 				if (bs_debug) {
 					sql_base *b = n->data;
-					fprintf(stderr, "#reset_cs free %s\n", (b->name)?b->name:"help");
+					MT_fprintf(stderr, "#reset_cs free %s\n", (b->name)?b->name:"help");
 				}
 				cs_remove_node(fs, n);
 				n = t;
@@ -3817,7 +3817,7 @@ reset_changeset(sql_trans *tr, changeset * fs, changeset * pfs, sql_base *b, res
 				r->rtime = r->wtime = 0;
 				m = m->next;
 				if (bs_debug) 
-					fprintf(stderr, "#reset_cs new %s\n", (r->name)?r->name:"help");
+					MT_fprintf(stderr, "#reset_cs new %s\n", (r->name)?r->name:"help");
 			}
 		}
 		/* add new bases */
@@ -3827,7 +3827,7 @@ reset_changeset(sql_trans *tr, changeset * fs, changeset * pfs, sql_base *b, res
 			cs_add(fs, r, 0);
 			r->rtime = r->wtime = 0;
 			if (bs_debug) {
-				fprintf(stderr, "#reset_cs new %s\n",
+				MT_fprintf(stderr, "#reset_cs new %s\n",
 					(r->name)?r->name:"help");
 			}
 		}
@@ -3836,7 +3836,7 @@ reset_changeset(sql_trans *tr, changeset * fs, changeset * pfs, sql_base *b, res
 
 			if (bs_debug) {
 				sql_base *b = n->data;
-				fprintf(stderr, "#reset_cs free %s\n",
+				MT_fprintf(stderr, "#reset_cs free %s\n",
 					(b->name)?b->name:"help");
 			}
 			cs_remove_node(fs, n);
@@ -4026,7 +4026,7 @@ reset_trans(sql_trans *tr, sql_trans *ptr)
 {
 	int res = reset_changeset(tr, &tr->schemas, &ptr->schemas, (sql_base *)tr->parent, (resetf) &reset_schema, (dupfunc) &schema_dup);
 #ifdef STORE_DEBUG
-	fprintf(stderr,"#reset trans %d\n", tr->wtime);
+	MT_fprintf(stderr,"#reset trans %d\n", tr->wtime);
 #endif
 	tr->wtime = tr->rtime = 0;
 	return res;
@@ -4041,12 +4041,12 @@ sql_trans_create(backend_stack stk, sql_trans *parent, const char *name)
 		if (!parent && spares > 0 && !name) {
 			tr = spare_trans[--spares];
 #ifdef STORE_DEBUG
-			fprintf(stderr, "#reuse trans (%p) %d\n", tr, spares);
+			MT_fprintf(stderr, "#reuse trans (%p) %d\n", tr, spares);
 #endif
 		} else {
 			tr = trans_dup(stk, (parent) ? parent : gtrans, name);
 #ifdef STORE_DEBUG
-			fprintf(stderr, "#new trans (%p)\n", tr);
+			MT_fprintf(stderr, "#new trans (%p)\n", tr);
 #endif
 			if(tr)
 				transactions++;
@@ -4119,7 +4119,7 @@ sql_trans_commit(sql_trans *tr)
 
 	/* write phase */
 	if (bs_debug)
-		fprintf(stderr, "#forwarding changes %d,%d %d,%d\n", gtrans->stime, tr->stime, gtrans->wstime, tr->wstime);
+		MT_fprintf(stderr, "#forwarding changes %d,%d %d,%d\n", gtrans->stime, tr->stime, gtrans->wstime, tr->wstime);
 	/* snap shots should be saved first */
 	if (tr->parent == gtrans) {
 		ok = rollforward_trans(tr, R_SNAPSHOT);
@@ -4141,7 +4141,7 @@ sql_trans_commit(sql_trans *tr)
 		ok = rollforward_trans(tr, R_APPLY);
 	}
 	if (bs_debug)
-		fprintf(stderr, "#done forwarding changes %d,%d\n", gtrans->stime, gtrans->wstime);
+		MT_fprintf(stderr, "#done forwarding changes %d,%d\n", gtrans->stime, gtrans->wstime);
 	return (ok==LOG_OK)?SQL_OK:SQL_ERR;
 }
 
@@ -5278,7 +5278,7 @@ sql_trans_create_table(sql_trans *tr, sql_schema *s, const char *name, const cha
 	if (isTable(t)) {
 		if (store_funcs.create_del(tr, t) != LOG_OK) {
 			if (bs_debug)
-				fprintf(stderr, "#\tload table %s missing 'deletes'", t->base.name);
+				MT_fprintf(stderr, "#\tload table %s missing 'deletes'", t->base.name);
 			t->persistence = SQL_GLOBAL_TEMP;
 		}
 	}
@@ -6507,7 +6507,7 @@ sql_trans_begin(sql_session *s)
 	int snr = tr->schema_number;
 
 #ifdef STORE_DEBUG
-	fprintf(stderr,"#sql trans begin %d\n", snr);
+	MT_fprintf(stderr,"#sql trans begin %d\n", snr);
 #endif
 	if (tr->stime < gtrans->wstime || tr->wtime || 
 			store_schema_number() != snr) 
@@ -6520,7 +6520,7 @@ sql_trans_begin(sql_session *s)
 	list_append(active_sessions, s); 
 	s->status = 0;
 #ifdef STORE_DEBUG
-	fprintf(stderr,"#sql trans begin (%d)\n", tr->schema_number);
+	MT_fprintf(stderr,"#sql trans begin (%d)\n", tr->schema_number);
 #endif
 	return snr != tr->schema_number;
 }
@@ -6529,7 +6529,7 @@ void
 sql_trans_end(sql_session *s)
 {
 #ifdef STORE_DEBUG
-	fprintf(stderr,"#sql trans end (%d)\n", s->tr->schema_number);
+	MT_fprintf(stderr,"#sql trans end (%d)\n", s->tr->schema_number);
 #endif
 	s->active = 0;
 	s->auto_commit = s->ac_on_commit;

@@ -9,6 +9,7 @@ INCLUDES = ../lib \
            ../../gdk \
            ../../common/stream \
            ../../common/options \
+           ../../common/utils \
            ../../monetdb5/mal \
            $(GEOS_INCS) $(proj_CFLAGS)
 

@@ -139,22 +139,22 @@ monet_hello(void)
 		qi++;
 	}
 
-	printf("# MonetDB 5 server v%s", GDKversion());
+	MT_fprintf(stdout, "# MonetDB 5 server v%s", GDKversion());
 	{
 		const char *rev = mercurial_revision();
 		/* coverity[pointless_string_compare] */
 		if (strcmp(MONETDB_RELEASE, "unreleased") != 0)
-			printf(" (%s)", MONETDB_RELEASE);
+			MT_fprintf(stdout, " (%s)", MONETDB_RELEASE);
 		else if (strcmp(rev, "Unknown") != 0)
-			printf(" (hg id: %s)", rev);
+			MT_fprintf(stdout, " (hg id: %s)", rev);
 	}
 	/* coverity[pointless_string_compare] */
 	if (strcmp(MONETDB_RELEASE, "unreleased") == 0)
-		printf("\n# This is an unreleased version");
-	printf("\n# Serving database '%s', using %d thread%s\n",
+		MT_fprintf(stdout, "\n# This is an unreleased version");
+	MT_fprintf(stdout, "\n# Serving database '%s', using %d thread%s\n",
 			GDKgetenv("gdk_dbname"),
 			GDKnr_threads, (GDKnr_threads != 1) ? "s" : "");
-	printf("# Compiled for %s/%zubit%s\n",
+	MT_fprintf(stdout, "# Compiled for %s/%zubit%s\n",
 			HOST, sizeof(ptr) * 8,
 #ifdef HAVE_HGE
 			" with 128bit integers"
@@ -162,15 +162,15 @@ monet_hello(void)
 			""
 #endif
 			);
-	printf("# Found %.3f %ciB available main-memory.\n",
+	MT_fprintf(stdout, "# Found %.3f %ciB available main-memory.\n",
 			sz_mem_h, qc[qi]);
 #ifdef MONET_GLOBAL_DEBUG
-	printf("# Database path:%s\n", GDKgetenv("gdk_dbpath"));
-	printf("# Module path:%s\n", GDKgetenv("monet_mod_path"));
+	MT_fprintf(stdout, "# Database path:%s\n", GDKgetenv("gdk_dbpath"));
+	MT_fprintf(stdout, "# Module path:%s\n", GDKgetenv("monet_mod_path"));
 #endif
-	printf("# Copyright (c) 1993 - July 2008 CWI.\n");
-	printf("# Copyright (c) August 2008 - 2019 MonetDB B.V., all rights reserved\n");
-	printf("# Visit https://www.monetdb.org/ for further information\n");
+	MT_fprintf(stdout, "# Copyright (c) 1993 - July 2008 CWI.\n");
+	MT_fprintf(stdout, "# Copyright (c) August 2008 - 2019 MonetDB B.V., all rights reserved\n");
+	MT_fprintf(stdout, "# Visit https://www.monetdb.org/ for further information\n");
 
 	// The properties shipped through the performance profiler
 	(void) snprintf(monet_characteristics, sizeof(monet_characteristics),
@@ -558,13 +558,13 @@ main(int argc, char **av)
 					}
 				}
 			} else {
-				printf("#warning: unusable binary location, "
+				MT_fprintf(stdout, "#warning: unusable binary location, "
 					   "please use --set monet_mod_path=/path/to/... to "
 					   "allow finding modules\n");
 				fflush(NULL);
 			}
 		} else {
-			printf("#warning: unable to determine binary location, "
+			MT_fprintf(stdout, "#warning: unable to determine binary location, "
 				   "please use --set monet_mod_path=/path/to/... to "
 				   "allow finding modules\n");
 			fflush(NULL);

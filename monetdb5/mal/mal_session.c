@@ -41,31 +41,31 @@ malBootstrap(void)
 
 	c = MCinitClient((oid) 0, 0, 0);
 	if(c == NULL) {
-		fprintf(stderr,"#malBootstrap:Failed to initialise client");
+		MT_fprintf(stderr,"#malBootstrap:Failed to initialise client");
 		mal_exit(1);
 	}
 	assert(c != NULL);
 	c->curmodule = c->usermodule = userModule();
 	if(c->usermodule == NULL) {
-		fprintf(stderr,"#malBootstrap:Failed to initialise client MAL module");
+		MT_fprintf(stderr,"#malBootstrap:Failed to initialise client MAL module");
 		mal_exit(1);
 	}
 	if ( (msg = defaultScenario(c)) ) {
-		fprintf(stderr,"#malBootstrap:Failed to initialise default scenario: %s", msg);
+		MT_fprintf(stderr,"#malBootstrap:Failed to initialise default scenario: %s", msg);
 		freeException(msg);
 		mal_exit(1);
 	}
 	if((msg = MSinitClientPrg(c, "user", "main")) != MAL_SUCCEED) {
-		fprintf(stderr,"#malBootstrap:Failed to initialise client: %s", msg);
+		MT_fprintf(stderr,"#malBootstrap:Failed to initialise client: %s", msg);
 		freeException(msg);
 		mal_exit(1);
 	}
 	if( MCinitClientThread(c) < 0){
-		fprintf(stderr,"#malBootstrap:Failed to create client thread");
+		MT_fprintf(stderr,"#malBootstrap:Failed to create client thread");
 		mal_exit(1);
 	}
 	if ((msg = malEmbeddedBoot(c)) != MAL_SUCCEED) {
-		fprintf(stderr,"#malBootstrap:Failed to load MAL scripts: %s", msg);
+		MT_fprintf(stderr,"#malBootstrap:Failed to load MAL scripts: %s", msg);
 		freeException(msg);
 		mal_exit(1);
 	}
@@ -80,7 +80,7 @@ malBootstrap(void)
 		}
 	}
 	if ((msg = MALengine(c)) != MAL_SUCCEED) {
-		fprintf(stderr,"#malBootstrap:Failed to start MAL engine: %s", msg);
+		MT_fprintf(stderr,"#malBootstrap:Failed to start MAL engine: %s", msg);
 		freeException(msg);
 		mal_exit(1);
 	}
@@ -119,11 +119,11 @@ MSresetClientPrg(Client cntxt, str mod, str fcn)
 	p->argv[0] = 0;
 
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"reset sym %s %s to %s, id %d\n", 
+	MT_fprintf(stderr,"reset sym %s %s to %s, id %d\n",
 		cntxt->curprg->name, getFunctionId(p), nme, findVariable(mb,nme) );
-	fprintf(stderr,"vtop %d\n", mb->vtop);
+	MT_fprintf(stderr,"vtop %d\n", mb->vtop);
 	if( mb->vtop)
-	fprintf(stderr,"first var %s\n", mb->var[0].id);
+	MT_fprintf(stderr,"first var %s\n", mb->var[0].id);
 #endif
 
 	setModuleId(p, mod);
@@ -304,7 +304,7 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 		if (err != MAL_SUCCEED) {
 			/* this is kind of awful, but we need to get rid of this
 			 * message */
-			fprintf(stderr, "!SABAOTHgetMyStatus: %s\n", err);
+			MT_fprintf(stderr, "!SABAOTHgetMyStatus: %s\n", err);
 			freeException(err);
 			mnstr_printf(fout, "!internal server error, "
 						 "please try again later\n");
@@ -448,7 +448,7 @@ MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start)
 	int i;
 
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"resetVarables %d  vtop %d errors %s\n", start, mb->vtop,mb->errors);
+	MT_fprintf(stderr,"resetVarables %d  vtop %d errors %s\n", start, mb->vtop,mb->errors);
 #endif
 	for (i = 0; i < start && i < mb->vtop ; i++)
 		setVarUsed(mb,i);
@@ -469,12 +469,12 @@ MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start)
 		}
 
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"resetVar %s %d\n", getFunctionId(mb->stmt[0]), mb->var[mb->stmt[0]->argv[0]].used);
+	MT_fprintf(stderr,"resetVar %s %d\n", getFunctionId(mb->stmt[0]), mb->var[mb->stmt[0]->argv[0]].used);
 #endif
 	if (mb->errors == MAL_SUCCEED)
 		trimMalVariables_(mb, glb);
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"after trim %s %d\n", getFunctionId(mb->stmt[0]), mb->vtop);
+	MT_fprintf(stderr,"after trim %s %d\n", getFunctionId(mb->stmt[0]), mb->vtop);
 #endif
 }
 

@@ -186,7 +186,7 @@ static char *RAPIinstalladdons(void) {
 		return "cannot create rapi_packages directory";
 	}
 #ifdef _RAPI_DEBUG_
-	printf("# R libraries installed in %s\n",rlibs);
+	MT_fprintf(stdout, "# R libraries installed in %s\n",rlibs);
 #endif
 
 	PROTECT(librisexp = allocVector(STRSXP, 1));
@@ -390,7 +390,7 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 	free(argnames);
 	argnames = NULL;
 #ifdef _RAPI_DEBUG_
-	printf("# R call %s\n",rcall);
+	MT_fprintf(stdout, "# R call %s\n",rcall);
 #endif
 
 	x = R_ParseVector(mkString(rcall), 1, &status, R_NilValue);
@@ -537,7 +537,7 @@ str RAPIprelude(void *ret) {
 
 		}
 		MT_lock_unset(&rapiLock);
-		printf("# MonetDB/R   module loaded\n");
+		MT_fprintf(stdout, "# MonetDB/R   module loaded\n");
 	}
 	return MAL_SUCCEED;
 }

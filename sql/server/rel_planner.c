@@ -832,7 +832,7 @@ memo_compute_cost(list *memo)
 static void
 memojoin_print( memojoin *mj )
 {
-	printf("%s join-%s%d(cost=%f) %s", mj->l->name, mj->prop==p_pkey?"pkey":mj->prop==p_fkey?"fkey":"", mj->rules, mj->cost, mj->r->name);
+	MT_fprintf(stdout, "%s join-%s%d(cost=%f) %s", mj->l->name, mj->prop==p_pkey?"pkey":mj->prop==p_fkey?"fkey":"", mj->rules, mj->cost, mj->r->name);
 }
 
 static void
@@ -847,14 +847,14 @@ memojoins_print( list *joins )
 
 		memojoin_print( mj );
 		if (n->next)
-			printf(" | ");
+			MT_fprintf(stdout, " | ");
 	}
 }
 
 static void
 memoitem_print( memoitem *mi )
 {
-	printf("# %s(count="LLFMT",width="LLFMT",cost=%f): ", mi->name, mi->count, mi->width, mi->cost);
+	MT_fprintf(stdout, "# %s(count="LLFMT",width="LLFMT",cost=%f): ", mi->name, mi->count, mi->width, mi->cost);
 	memojoins_print(mi->joins);
 }
 
@@ -869,10 +869,10 @@ memo_print( list *memo )
 
 		if (mi->level > level){
 			level = mi->level;
-			printf("\n");
+			MT_fprintf(stdout, "\n");
 		}
 		memoitem_print( mi );
-		printf("\n");
+		MT_fprintf(stdout, "\n");
 	}
 }
 #endif

@@ -8,6 +8,8 @@
 
 MTSAFE
 
+INCLUDES = ../utils
+
 EXTRA_DIST = getopt.c getopt1.c
 
 lib_moptions = {

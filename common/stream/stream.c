@@ -360,7 +360,7 @@ mnstr_read(stream *restrict s, void *restrict buf, size_t elmsize, size_t cnt)
 	if (s == NULL || buf == NULL)
 		return -1;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "read %s %zu %zu\n",
+	MT_fprintf(stderr, "read %s %zu %zu\n",
 		s->name ? s->name : "<unnamed>", elmsize, cnt);
 #endif
 	assert(s->readonly);
@@ -380,7 +380,7 @@ mnstr_readline(stream *restrict s, void *restrict buf, size_t maxcnt)
 	if (s == NULL || buf == NULL)
 		return -1;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "readline %s %zu\n",
+	MT_fprintf(stderr, "readline %s %zu\n",
 		s->name ? s->name : "<unnamed>", maxcnt);
 #endif
 	assert(s->readonly);
@@ -438,7 +438,7 @@ mnstr_write(stream *restrict s, const void *restrict buf, size_t elmsize, size_t
 	if (s == NULL || buf == NULL)
 		return -1;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "write %s %zu %zu\n",
+	MT_fprintf(stderr, "write %s %zu %zu\n",
 		s->name ? s->name : "<unnamed>", elmsize, cnt);
 #endif
 	assert(!s->readonly);
@@ -463,7 +463,7 @@ mnstr_close(stream *s)
 {
 	if (s) {
 #ifdef STREAM_DEBUG
-		fprintf(stderr, "close %s\n", s->name ? s->name : "<unnamed>");
+		MT_fprintf(stderr, "close %s\n", s->name ? s->name : "<unnamed>");
 #endif
 		s->close(s);
 	}
@@ -474,7 +474,7 @@ mnstr_destroy(stream *s)
 {
 	if (s) {
 #ifdef STREAM_DEBUG
-		fprintf(stderr, "destroy %s\n",
+		MT_fprintf(stderr, "destroy %s\n",
 			s->name ? s->name : "<unnamed>");
 #endif
 		s->destroy(s);
@@ -496,7 +496,7 @@ mnstr_flush(stream *s)
 	if (s == NULL)
 		return -1;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "flush %s\n", s->name ? s->name : "<unnamed>");
+	MT_fprintf(stderr, "flush %s\n", s->name ? s->name : "<unnamed>");
 #endif
 	assert(!s->readonly);
 	if (s->errnr)
@@ -513,7 +513,7 @@ mnstr_fsync(stream *s)
 	if (s == NULL)
 		return -1;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "fsync %s (%d)\n",
+	MT_fprintf(stderr, "fsync %s (%d)\n",
 		s->name ? s->name : "<unnamed>", s->errnr);
 #endif
 	assert(!s->readonly);
@@ -530,7 +530,7 @@ mnstr_fgetpos(stream *restrict s, fpos_t *restrict p)
 	if (s == NULL || p == NULL)
 		return -1;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "fgetpos %s\n", s->name ? s->name : "<unnamed>");
+	MT_fprintf(stderr, "fgetpos %s\n", s->name ? s->name : "<unnamed>");
 #endif
 	if (s->errnr)
 		return -1;
@@ -545,7 +545,7 @@ mnstr_fsetpos(stream *restrict s, fpos_t *restrict p)
 	if (s == NULL)
 		return -1;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "fsetpos %s\n", s->name ? s->name : "<unnamed>");
+	MT_fprintf(stderr, "fsetpos %s\n", s->name ? s->name : "<unnamed>");
 #endif
 	if (s->errnr)
 		return -1;
@@ -616,7 +616,7 @@ mnstr_set_bigendian(stream *s, bool bigendian)
 	if (s == NULL)
 		return;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "mnstr_set_bigendian %s %s\n",
+	MT_fprintf(stderr, "mnstr_set_bigendian %s %s\n",
 		s->name ? s->name : "<unnamed>",
 		swapbytes ? "true" : "false");
 #endif
@@ -706,7 +706,7 @@ create_stream(const char *name)
 		return NULL;
 	}
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "create_stream %s -> %p\n",
+	MT_fprintf(stderr, "create_stream %s -> %p\n",
 		name ? name : "<unnamed>", s);
 #endif
 	return s;
@@ -2038,7 +2038,7 @@ open_rstream(const char *filename)
 	if (filename == NULL)
 		return NULL;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "open_rstream %s\n", filename);
+	MT_fprintf(stderr, "open_rstream %s\n", filename);
 #endif
 	ext = get_extension(filename);
 
@@ -2066,7 +2066,7 @@ open_wstream(const char *filename)
 	if (filename == NULL)
 		return NULL;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "open_wstream %s\n", filename);
+	MT_fprintf(stderr, "open_wstream %s\n", filename);
 #endif
 	ext = get_extension(filename);
 
@@ -2095,7 +2095,7 @@ open_rastream(const char *filename)
 	if (filename == NULL)
 		return NULL;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "open_rastream %s\n", filename);
+	MT_fprintf(stderr, "open_rastream %s\n", filename);
 #endif
 	ext = get_extension(filename);
 
@@ -2123,7 +2123,7 @@ open_wastream(const char *filename)
 	if (filename == NULL)
 		return NULL;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "open_wastream %s\n", filename);
+	MT_fprintf(stderr, "open_wastream %s\n", filename);
 #endif
 	ext = get_extension(filename);
 
@@ -2710,7 +2710,7 @@ socket_rstream(SOCKET sock, const char *name)
 	stream *s = NULL;
 
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "socket_rstream %zd %s\n", (ssize_t) sock, name);
+	MT_fprintf(stderr, "socket_rstream %zd %s\n", (ssize_t) sock, name);
 #endif
 	if ((s = socket_open(sock, name)) != NULL)
 		s->binary = true;
@@ -2723,7 +2723,7 @@ socket_wstream(SOCKET sock, const char *name)
 	stream *s;
 
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "socket_wstream %zd %s\n", (ssize_t) sock, name);
+	MT_fprintf(stderr, "socket_wstream %zd %s\n", (ssize_t) sock, name);
 #endif
 	if ((s = socket_open(sock, name)) == NULL)
 		return NULL;
@@ -2949,7 +2949,7 @@ file_rstream(FILE *restrict fp, const char *restrict name)
 	if (fp == NULL)
 		return NULL;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "file_rstream %s\n", name);
+	MT_fprintf(stderr, "file_rstream %s\n", name);
 #endif
 	if ((s = file_stream(name)) == NULL)
 		return NULL;
@@ -2966,7 +2966,7 @@ file_wstream(FILE *restrict fp, const char *restrict name)
 	if (fp == NULL)
 		return NULL;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "file_wstream %s\n", name);
+	MT_fprintf(stderr, "file_wstream %s\n", name);
 #endif
 	if ((s = file_stream(name)) == NULL)
 		return NULL;
@@ -2987,7 +2987,7 @@ file_rastream(FILE *restrict fp, const char *restrict name)
 	if (fp == NULL)
 		return NULL;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "file_rastream %s\n", name);
+	MT_fprintf(stderr, "file_rastream %s\n", name);
 #endif
 	if ((s = file_stream(name)) == NULL)
 		return NULL;
@@ -3041,7 +3041,7 @@ file_wastream(FILE *restrict fp, const char *restrict name)
 	if (fp == NULL)
 		return NULL;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "file_wastream %s\n", name);
+	MT_fprintf(stderr, "file_wastream %s\n", name);
 #endif
 	if ((s = file_stream(name)) == NULL)
 		return NULL;
@@ -3412,7 +3412,7 @@ iconv_rstream(stream *restrict ss, const char *restrict charset, const char *res
 	if (ss == NULL || charset == NULL || name == NULL)
 		return NULL;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "iconv_rstream %s %s\n", charset, name);
+	MT_fprintf(stderr, "iconv_rstream %s %s\n", charset, name);
 #endif
 	if (ss->isutf8)
 		return ss;
@@ -3438,7 +3438,7 @@ iconv_wstream(stream *restrict ss, const char *restrict charset, const char *res
 	if (ss == NULL || charset == NULL || name == NULL)
 		return NULL;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "iconv_wstream %s %s\n", charset, name);
+	MT_fprintf(stderr, "iconv_wstream %s %s\n", charset, name);
 #endif
 	if (ss->isutf8)
 		return ss;
@@ -3629,7 +3629,7 @@ buffer_rastream(buffer *restrict b, const char *restrict name)
 	if (b == NULL || name == NULL)
 		return NULL;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "buffer_rastream %s\n", name);
+	MT_fprintf(stderr, "buffer_rastream %s\n", name);
 #endif
 	if ((s = create_stream(name)) == NULL)
 		return NULL;
@@ -3650,7 +3650,7 @@ buffer_wastream(buffer *restrict b, const char *restrict name)
 	if (b == NULL || name == NULL)
 		return NULL;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "buffer_wastream %s\n", name);
+	MT_fprintf(stderr, "buffer_wastream %s\n", name);
 #endif
 	if ((s = create_stream(name)) == NULL)
 		return NULL;
@@ -3733,13 +3733,13 @@ bs_write(stream *restrict ss, const void *restrict buf, size_t elmsize, size_t c
 			{
 				unsigned i;
 
-				fprintf(stderr, "W %s %u \"", ss->name, s->nr);
+				MT_fprintf(stderr, "W %s %u \"", ss->name, s->nr);
 				for (i = 0; i < s->nr; i++)
 					if (' ' <= s->buf[i] && s->buf[i] < 127)
 						putc(s->buf[i], stderr);
 					else
-						fprintf(stderr, "\\%03o", s->buf[i]);
-				fprintf(stderr, "\"\n");
+						MT_fprintf(stderr, "\\%03o", s->buf[i]);
+				MT_fprintf(stderr, "\"\n");
 			}
 #endif
 			/* since the block is at max BLOCK (8K) - 2 size we can
@@ -3786,14 +3786,14 @@ bs_flush(stream *ss)
 		if (s->nr > 0) {
 			unsigned i;
 
-			fprintf(stderr, "W %s %u \"", ss->name, s->nr);
+			MT_fprintf(stderr, "W %s %u \"", ss->name, s->nr);
 			for (i = 0; i < s->nr; i++)
 				if (' ' <= s->buf[i] && s->buf[i] < 127)
 					putc(s->buf[i], stderr);
 				else
-					fprintf(stderr, "\\%03o", s->buf[i]);
-			fprintf(stderr, "\"\n");
-			fprintf(stderr, "W %s 0\n", ss->name);
+					MT_fprintf(stderr, "\\%03o", s->buf[i]);
+			MT_fprintf(stderr, "\"\n");
+			MT_fprintf(stderr, "W %s 0\n", ss->name);
 		}
 #endif
 		blksize = (uint16_t) (s->nr << 1);
@@ -3868,8 +3868,8 @@ bs_read(stream *restrict ss, void *restrict buf, size_t elmsize, size_t cnt)
 			return -1;
 		}
 #ifdef BSTREAM_DEBUG
-		fprintf(stderr, "RC size: %u, final: %s\n", (uint16_t) blksize >> 1, (uint16_t) blksize & 1 ? "true" : "false");
-		fprintf(stderr, "RC %s %u\n", ss->name, (uint16_t) blksize);
+		MT_fprintf(stderr, "RC size: %u, final: %s\n", (uint16_t) blksize >> 1, (uint16_t) blksize & 1 ? "true" : "false");
+		MT_fprintf(stderr, "RC %s %u\n", ss->name, (uint16_t) blksize);
 #endif
 		s->itotal = (uint16_t) blksize >> 1;	/* amount readable */
 		/* store whether this was the last block or not */
@@ -3895,14 +3895,14 @@ bs_read(stream *restrict ss, void *restrict buf, size_t elmsize, size_t cnt)
 			{
 				ssize_t i;
 
-				fprintf(stderr, "RD %s %zd \"", ss->name, m);
+				MT_fprintf(stderr, "RD %s %zd \"", ss->name, m);
 				for (i = 0; i < m; i++)
 					if (' ' <= ((char *) buf)[i] &&
 					    ((char *) buf)[i] < 127)
 						putc(((char *) buf)[i], stderr);
 					else
-						fprintf(stderr, "\\%03o", ((char *) buf)[i]);
-				fprintf(stderr, "\"\n");
+						MT_fprintf(stderr, "\\%03o", ((char *) buf)[i]);
+				MT_fprintf(stderr, "\"\n");
 			}
 #endif
 			buf = (void *) ((char *) buf + m);
@@ -3934,9 +3934,9 @@ bs_read(stream *restrict ss, void *restrict buf, size_t elmsize, size_t cnt)
 				return -1;
 			}
 #ifdef BSTREAM_DEBUG
-			fprintf(stderr, "RC size: %d, final: %s\n", (uint16_t) blksize >> 1, (uint16_t) blksize & 1 ? "true" : "false");
-			fprintf(stderr, "RC %s %d\n", ss->name, s->nr);
-			fprintf(stderr, "RC %s %d\n", ss->name, blksize);
+			MT_fprintf(stderr, "RC size: %d, final: %s\n", (uint16_t) blksize >> 1, (uint16_t) blksize & 1 ? "true" : "false");
+			MT_fprintf(stderr, "RC %s %d\n", ss->name, s->nr);
+			MT_fprintf(stderr, "RC %s %d\n", ss->name, blksize);
 #endif
 			s->itotal = (uint16_t) blksize >> 1;	/* amount readable */
 			/* store whether this was the last block or not */
@@ -4033,7 +4033,7 @@ block_stream(stream *s)
 	if (s == NULL)
 		return NULL;
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "block_stream %s\n", s->name ? s->name : "<unnamed>");
+	MT_fprintf(stderr, "block_stream %s\n", s->name ? s->name : "<unnamed>");
 #endif
 	if ((ns = create_stream(s->name)) == NULL)
 		return NULL;
@@ -4238,13 +4238,13 @@ bs2_write(stream *restrict ss, const void *restrict buf, size_t elmsize, size_t 
 			{
 				size_t i;
 
-				fprintf(stderr, "W %s %lu \"", ss->name, s->nr);
+				MT_fprintf(stderr, "W %s %lu \"", ss->name, s->nr);
 				for (i = 0; i < s->nr; i++)
 					if (' ' <= s->buf[i] && s->buf[i] < 127)
 						putc(s->buf[i], stderr);
 					else
-						fprintf(stderr, "\\%03o", s->buf[i]);
-				fprintf(stderr, "\"\n");
+						MT_fprintf(stderr, "\\%03o", s->buf[i]);
+				MT_fprintf(stderr, "\"\n");
 			}
 #endif
 
@@ -4302,14 +4302,14 @@ bs2_flush(stream *ss)
 		if (s->nr > 0) {
 			size_t i;
 
-			fprintf(stderr, "W %s %lu \"", ss->name, s->nr);
+			MT_fprintf(stderr, "W %s %lu \"", ss->name, s->nr);
 			for (i = 0; i < s->nr; i++)
 				if (' ' <= s->buf[i] && s->buf[i] < 127)
 					putc(s->buf[i], stderr);
 				else
-					fprintf(stderr, "\\%03o", s->buf[i]);
-			fprintf(stderr, "\"\n");
-			fprintf(stderr, "W %s 0\n", ss->name);
+					MT_fprintf(stderr, "\\%03o", s->buf[i]);
+			MT_fprintf(stderr, "\"\n");
+			MT_fprintf(stderr, "W %s 0\n", ss->name);
 		}
 #endif
 
@@ -4397,7 +4397,7 @@ bs2_read(stream *restrict ss, void *restrict buf, size_t elmsize, size_t cnt)
 			return -1;
 		}
 #ifdef BSTREAM_DEBUG
-		fprintf(stderr, "R1 '%s' length: %lld, final: %s\n", ss->name, blksize >> 1, blksize & 1 ? "true" : "false");
+		MT_fprintf(stderr, "R1 '%s' length: %lld, final: %s\n", ss->name, blksize >> 1, blksize & 1 ? "true" : "false");
 #endif
 		s->itotal = (size_t) (blksize >> 1);	/* amount readable */
 		/* store whether this was the last block or not */
@@ -4472,7 +4472,7 @@ bs2_read(stream *restrict ss, void *restrict buf, size_t elmsize, size_t cnt)
 				return -1;
 			}
 #ifdef BSTREAM_DEBUG
-			fprintf(stderr, "R3 '%s' length: %lld, final: %s\n", ss->name, blksize >> 1, blksize & 1 ? "true" : "false");
+			MT_fprintf(stderr, "R3 '%s' length: %lld, final: %s\n", ss->name, blksize >> 1, blksize & 1 ? "true" : "false");
 #endif
 
 
@@ -4678,7 +4678,7 @@ block_stream2(stream *s, size_t bufsiz, compression_method comp)
 	}
 
 #ifdef STREAM_DEBUG
-	fprintf(stderr, "block_stream2 %s\n", s->name ? s->name : "<unnamed>");
+	MT_fprintf(stderr, "block_stream2 %s\n", s->name ? s->name : "<unnamed>");
 #endif
 	if ((ns = create_stream(s->name)) == NULL)
 		return NULL;

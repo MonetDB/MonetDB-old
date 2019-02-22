@@ -36,6 +36,7 @@
 #endif
 
 #include "monetdb_config.h"
+#include "mutils.h"
 
 /* Comment out all this code if we are using the GNU C Library, and are not
    actually compiling the library itself.  This code is part of the GNU C
@@ -622,7 +623,7 @@ _getopt_internal(int argc, char *const *argv, const char *optstring, const struc
 
 		if (ambig && !exact) {
 			if (print_errors)
-				fprintf(stderr, _("%s: option `%s' is ambiguous\n"), argv[0], argv[optind]);
+				MT_fprintf(stderr, _("%s: option `%s' is ambiguous\n"), argv[0], argv[optind]);
 			nextchar += strlen(nextchar);
 			optind++;
 			optopt = 0;
@@ -641,10 +642,10 @@ _getopt_internal(int argc, char *const *argv, const char *optstring, const struc
 					if (print_errors) {
 						if (argv[optind - 1][1] == '-')
 							/* --option */
-							fprintf(stderr, _("%s: option `--%s' doesn't allow an argument\n"), argv[0], pfound->name);
+							MT_fprintf(stderr, _("%s: option `--%s' doesn't allow an argument\n"), argv[0], pfound->name);
 						else
 							/* +option or -option */
-							fprintf(stderr, _("%s: option `%c%s' doesn't allow an argument\n"), argv[0], argv[optind - 1][0], pfound->name);
+							MT_fprintf(stderr, _("%s: option `%c%s' doesn't allow an argument\n"), argv[0], argv[optind - 1][0], pfound->name);
 					}
 
 					nextchar += strlen(nextchar);
@@ -657,7 +658,7 @@ _getopt_internal(int argc, char *const *argv, const char *optstring, const struc
 					optarg = argv[optind++];
 				else {
 					if (print_errors)
-						fprintf(stderr, _("%s: option `%s' requires an argument\n"), argv[0], argv[optind - 1]);
+						MT_fprintf(stderr, _("%s: option `%s' requires an argument\n"), argv[0], argv[optind - 1]);
 					nextchar += strlen(nextchar);
 					optopt = pfound->val;
 					return optstring[0] == ':' ? ':' : '?';
@@ -681,10 +682,10 @@ _getopt_internal(int argc, char *const *argv, const char *optstring, const struc
 			if (print_errors) {
 				if (argv[optind][1] == '-')
 					/* --option */
-					fprintf(stderr, _("%s: unrecognized option `--%s'\n"), argv[0], nextchar);
+					MT_fprintf(stderr, _("%s: unrecognized option `--%s'\n"), argv[0], nextchar);
 				else
 					/* +option or -option */
-					fprintf(stderr, _("%s: unrecognized option `%c%s'\n"), argv[0], argv[optind][0], nextchar);
+					MT_fprintf(stderr, _("%s: unrecognized option `%c%s'\n"), argv[0], argv[optind][0], nextchar);
 			}
 			nextchar = (char *) "";
 			optind++;
@@ -707,9 +708,9 @@ _getopt_internal(int argc, char *const *argv, const char *optstring, const struc
 			if (print_errors) {
 				if (posixly_correct)
 					/* 1003.2 specifies the format of this message.  */
-					fprintf(stderr, _("%s: illegal option -- %c\n"), argv[0], c);
+					MT_fprintf(stderr, _("%s: illegal option -- %c\n"), argv[0], c);
 				else
-					fprintf(stderr, _("%s: invalid option -- %c\n"), argv[0], c);
+					MT_fprintf(stderr, _("%s: invalid option -- %c\n"), argv[0], c);
 			}
 			optopt = c;
 			return '?';
@@ -733,7 +734,7 @@ _getopt_internal(int argc, char *const *argv, const char *optstring, const struc
 			} else if (optind == argc) {
 				if (print_errors) {
 					/* 1003.2 specifies the format of this message.  */
-					fprintf(stderr, _("%s: option requires an argument -- %c\n"), argv[0], c);
+					MT_fprintf(stderr, _("%s: option requires an argument -- %c\n"), argv[0], c);
 				}
 				optopt = c;
 				if (optstring[0] == ':')
@@ -772,7 +773,7 @@ _getopt_internal(int argc, char *const *argv, const char *optstring, const struc
 				}
 			if (ambig && !exact) {
 				if (print_errors)
-					fprintf(stderr, _("%s: option `-W %s' is ambiguous\n"), argv[0], argv[optind]);
+					MT_fprintf(stderr, _("%s: option `-W %s' is ambiguous\n"), argv[0], argv[optind]);
 				nextchar += strlen(nextchar);
 				optind++;
 				return '?';
@@ -786,8 +787,7 @@ _getopt_internal(int argc, char *const *argv, const char *optstring, const struc
 						optarg = nameend + 1;
 					else {
 						if (print_errors)
-							fprintf(stderr, _("\
-%s: option `-W %s' doesn't allow an argument\n"), argv[0], pfound->name);
+							MT_fprintf(stderr, _("%s: option `-W %s' doesn't allow an argument\n"), argv[0], pfound->name);
 
 						nextchar += strlen(nextchar);
 						return '?';
@@ -797,7 +797,7 @@ _getopt_internal(int argc, char *const *argv, const char *optstring, const struc
 						optarg = argv[optind++];
 					else {
 						if (print_errors)
-							fprintf(stderr, _("%s: option `%s' requires an argument\n"), argv[0], argv[optind - 1]);
+							MT_fprintf(stderr, _("%s: option `%s' requires an argument\n"), argv[0], argv[optind - 1]);
 						nextchar += strlen(nextchar);
 						return optstring[0] == ':' ? ':' : '?';
 					}
@@ -833,7 +833,7 @@ _getopt_internal(int argc, char *const *argv, const char *optstring, const struc
 				} else if (optind == argc) {
 					if (print_errors) {
 						/* 1003.2 specifies the format of this message.  */
-						fprintf(stderr, _("%s: option requires an argument -- %c\n"), argv[0], c);
+						MT_fprintf(stderr, _("%s: option requires an argument -- %c\n"), argv[0], c);
 					}
 					optopt = c;
 					if (optstring[0] == ':')
@@ -891,36 +891,36 @@ char **argv;
 		case '8':
 		case '9':
 			if (digit_optind != 0 && digit_optind != this_option_optind)
-				printf("digits occur in two different argv-elements.\n");
+				MT_fprintf(stdout, "digits occur in two different argv-elements.\n");
 			digit_optind = this_option_optind;
-			printf("option %c\n", c);
+			MT_fprintf(stdout, "option %c\n", c);
 			break;
 
 		case 'a':
-			printf("option a\n");
+			MT_fprintf(stdout, "option a\n");
 			break;
 
 		case 'b':
-			printf("option b\n");
+			MT_fprintf(stdout, "option b\n");
 			break;
 
 		case 'c':
-			printf("option c with value `%s'\n", optarg);
+			MT_fprintf(stdout, "option c with value `%s'\n", optarg);
 			break;
 
 		case '?':
 			break;
 
 		default:
-			printf("?? getopt returned character code 0%o ??\n", c);
+			MT_fprintf(stdout, "?? getopt returned character code 0%o ??\n", c);
 		}
 	}
 
 	if (optind < argc) {
-		printf("non-option ARGV-elements: ");
+		MT_fprintf(stdout, "non-option ARGV-elements: ");
 		while (optind < argc)
-			printf("%s ", argv[optind++]);
-		printf("\n");
+			MT_fprintf(stdout, "%s ", argv[optind++]);
+		MT_fprintf(stdout, "\n");
 	}
 
 	exit(0);

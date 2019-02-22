@@ -213,7 +213,7 @@ RUNsqlbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		}
 	}
 #ifdef DEBUG_MAL_SCHEDULER
-	fprintf(stderr, "scheduler.sqlbind results\n");
+	MT_fprintf(stderr, "scheduler.sqlbind results\n");
 	fprintFunction(stderr, mb, stk, LIST_MAL_ALL);
 #endif
 	return msg;

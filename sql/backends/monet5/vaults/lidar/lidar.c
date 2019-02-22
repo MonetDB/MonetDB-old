@@ -84,56 +84,56 @@ void print_lidar_header(FILE *file, LASHeaderH header, const char* file_name, in
     }
     fprintf(file, "  Version:                    %hhu.%hhu\n", major, minor);
 
-    fprintf(file, "  Source ID:                  %hu\n", 
+    fprintf(file, "  Source ID:                  %hu\n",
                     LASHeader_GetFileSourceId(header) ) ;
 
-    fprintf(file, "  Reserved:                   %hu\n", 
+    fprintf(file, "  Reserved:                   %hu\n",
                     LASHeader_GetReserved(header) );
 
-    fprintf(file, "  Project ID/GUID:           '%s'\n", 
+    fprintf(file, "  Project ID/GUID:           '%s'\n",
                     pszProjectId);
 
-    fprintf(file, "  System Identifier:         '%s'\n", 
+    fprintf(file, "  System Identifier:         '%s'\n",
                     pszSystemId);
 
-    fprintf(file, "  Generating Software:       '%s'\n", 
+    fprintf(file, "  Generating Software:       '%s'\n",
                     pszSoftwareId);
 
-    fprintf(file, "  File Creation Day/Year:    %hu/%hu\n", 
+    fprintf(file, "  File Creation Day/Year:    %hu/%hu\n",
                     LASHeader_GetCreationDOY(header), 
                     LASHeader_GetCreationYear(header));
 
-    fprintf(file, "  Header Size                %hu\n", 
+    fprintf(file, "  Header Size                %hu\n",
                     LASHeader_GetHeaderSize(header));
 
-    fprintf(file, "  Offset to Point Data       %u\n", 
+    fprintf(file, "  Offset to Point Data       %u\n",
                     LASHeader_GetDataOffset(header));
 
-    fprintf(file, "  Number Var. Length Records %u\n", 
+    fprintf(file, "  Number Var. Length Records %u\n",
                     LASHeader_GetRecordsCount(header));
 
-    fprintf(file, "  Point Data Format          %hhu\n", 
+    fprintf(file, "  Point Data Format          %hhu\n",
                     LASHeader_GetDataFormatId(header));
 
-    fprintf(file, "  Point Data Record Length   %hu\n", 
+    fprintf(file, "  Point Data Record Length   %hu\n",
                     LASHeader_GetDataRecordLength(header));
 
-    fprintf(file, "  Number of Point Records    %u\n", 
+    fprintf(file, "  Number of Point Records    %u\n",
                     LASHeader_GetPointRecordsCount(header));
 
-    fprintf(file, "  Number of Points by Return %u %u %u %u %u\n", 
+    fprintf(file, "  Number of Points by Return %u %u %u %u %u\n",
                     LASHeader_GetPointRecordsByReturnCount(header, 0), 
                     LASHeader_GetPointRecordsByReturnCount(header, 1), 
                     LASHeader_GetPointRecordsByReturnCount(header, 2), 
                     LASHeader_GetPointRecordsByReturnCount(header, 3), 
                     LASHeader_GetPointRecordsByReturnCount(header, 4));
 
-    fprintf(file, "  Scale Factor X Y Z         %.6g %.6g %.6g\n", 
+    fprintf(file, "  Scale Factor X Y Z         %.6g %.6g %.6g\n",
                     LASHeader_GetScaleX(header), 
                     LASHeader_GetScaleY(header),
                     LASHeader_GetScaleZ(header));
 
-    fprintf(file, "  Offset X Y Z               %.6f %.6f %.6f\n", 
+    fprintf(file, "  Offset X Y Z               %.6f %.6f %.6f\n",
                     LASHeader_GetOffsetX(header), 
                     LASHeader_GetOffsetY(header), 
                     LASHeader_GetOffsetZ(header));
@@ -143,7 +143,7 @@ void print_lidar_header(FILE *file, LASHeaderH header, const char* file_name, in
                     LASHeader_GetMinY(header), 
                     LASHeader_GetMinZ(header));
 
-    fprintf(file, "  Max X Y Z                  %.6f %.6f %.6f\n", 
+    fprintf(file, "  Max X Y Z                  %.6f %.6f %.6f\n",
                     LASHeader_GetMaxX(header), 
                     LASHeader_GetMaxY(header), 
                     LASHeader_GetMaxZ(header));
@@ -542,7 +542,7 @@ return MAL_SUCCEED;
 	snprintf(fulldirectory, BUFSIZ, "%s%s", dir, pat);
 	glob(fulldirectory, GLOB_DOOFFS, NULL, &globbuf);
 
-	/*	fprintf(stderr,"#fulldir: %s \nSize: %lu\n",fulldirectory, globbuf.gl_pathc);*/
+	/*	MT_fprintf(stderr,"#fulldir: %s \nSize: %lu\n",fulldirectory, globbuf.gl_pathc);*/
 
 	if (globbuf.gl_pathc == 0)
 		throw(MAL, "listdir", SQLSTATE(LI000) "Couldn't open the directory or there are no files that match the pattern");
@@ -954,7 +954,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	col = mvc_bind_column(m, lidar_tbl, "PointRecordsCount");
 	rows = *(int*)table_funcs.column_find_value(m->session->tr, col, rid);
 #ifndef NDEBUG
-	fprintf(stderr,"#Loading %ld rows in table %s\n", rows, tname);
+	MT_fprintf(stderr,"#Loading %ld rows in table %s\n", rows, tname);
 	time0 = GDKms();
 #endif
 	colx = mvc_bind_column(m, tbl, "x");
@@ -1003,7 +1003,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			double t = LASPoint_GetTime(p);
 			char anglerank = LASPoint_GetScanAngleRank (p);
 			unsigned short sourceid = LASPoint_GetPointSourceId (p);
-			fprintf(stderr,
+			MT_fprintf(stderr,
 				"(point # %d)"
 				"X (raw)           : %f (%ld)\n"
 				"Z (raw)           : %f (%ld)\n"
@@ -1044,7 +1044,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	z->tsorted = false;
 	z->trevsorted = false;
 #ifndef NDEBUG
-	fprintf(stderr,"#File loaded in %d ms\t", GDKms() - time0);
+	MT_fprintf(stderr,"#File loaded in %d ms\t", GDKms() - time0);
 #endif
 	BATmode(x, false);
 	BATmode(y, false);
@@ -1053,7 +1053,7 @@ str LIDARloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	store_funcs.append_col(m->session->tr, coly, y, TYPE_bat);
 	store_funcs.append_col(m->session->tr, colz, z, TYPE_bat);
 #ifndef NDEBUG
-	fprintf(stderr,"#Total time %d ms\n", GDKms() - time0);
+	MT_fprintf(stderr,"#Total time %d ms\n", GDKms() - time0);
 #endif
 	BBPrelease(x->batCacheid);
 	BBPrelease(y->batCacheid);

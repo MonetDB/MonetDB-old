@@ -54,12 +54,12 @@ sqlEmbeddedBoot(void)
 		return 0;
 
 	if (mal_init()) {
-		fprintf(stderr, "MAL init failed\n");
+		MT_fprintf(stderr, "MAL init failed\n");
 		return -1;
 	}
 
 	if ((msg = MSinitClientPrg(mal_clients, "user", "main")) != MAL_SUCCEED) {
-		fprintf(stderr, "%s\n", msg);
+		MT_fprintf(stderr, "%s\n", msg);
 		freeException(msg);
 		mal_exit(1);
 		return -1;
@@ -68,7 +68,7 @@ sqlEmbeddedBoot(void)
 	c = &mal_clients[0];
 
 	if ((msg = malExtraModulesBoot(c, sqlMalModules)) != MAL_SUCCEED) {
-		fprintf(stderr, "%s\n", msg);
+		MT_fprintf(stderr, "%s\n", msg);
 		freeException(msg);
 		mal_exit(1);
 		return -1;

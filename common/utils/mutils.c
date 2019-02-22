@@ -488,3 +488,24 @@ get_bin_path(void)
 	 * that's a lot of work and unreliable */
 	return NULL;
 }
+
+static bool MT_silent = false;
+
+void
+MT_fprintf_silent(bool silent)
+{
+	MT_silent = silent;
+}
+
+int
+MT_fprintf(FILE *fp, const char *format, ...)
+{
+	int res = 0;
+	if (!MT_silent) {
+		va_list ap;
+		va_start(ap, format);
+		res = vfprintf(fp, format, ap);
+		va_end(ap);
+	}
+	return res;
+}

@@ -110,7 +110,7 @@ GROUPcollect( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 #ifdef _DEBUG_GROUPBY_
 	for(i=0; i<a->last; i++)
-		fprintf(stderr,"#group %d unique "BUNFMT "\n", i, a->unique[i]);
+		MT_fprintf(stderr,"#group %d unique "BUNFMT "\n", i, a->unique[i]);
 #endif
 	return a;
 }

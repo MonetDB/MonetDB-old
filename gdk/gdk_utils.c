@@ -79,15 +79,15 @@ static bool
 GDKenvironment(const char *dbpath)
 {
 	if (dbpath == NULL) {
-		fprintf(stderr, "!GDKenvironment: database name missing.\n");
+		MT_fprintf(stderr, "!GDKenvironment: database name missing.\n");
 		return false;
 	}
 	if (strlen(dbpath) >= FILENAME_MAX) {
-		fprintf(stderr, "!GDKenvironment: database name too long.\n");
+		MT_fprintf(stderr, "!GDKenvironment: database name too long.\n");
 		return false;
 	}
 	if (!MT_path_absolute(dbpath)) {
-		fprintf(stderr, "!GDKenvironment: directory not an absolute path: %s.\n", dbpath);
+		MT_fprintf(stderr, "!GDKenvironment: directory not an absolute path: %s.\n", dbpath);
 		return false;
 	}
 	return true;
@@ -817,7 +817,7 @@ GDKreset(int status)
 
 					killed = 1;
 					e = MT_kill_thread(victim);
-					fprintf(stderr, "#GDKexit: killing thread %d\n", e);
+					MT_fprintf(stderr, "#GDKexit: killing thread %d\n", e);
 					GDKnrofthreads --;
 				}
 			}
@@ -1075,7 +1075,7 @@ doGDKaddbuf(const char *prefix, const char *message, size_t messagelen, const ch
 		THRprintf(GDKout, "%s%.*s%s", prefix,
 			  (int) messagelen, message, suffix);
 	}
-	fprintf(stderr, "#%s:%s%.*s%s",
+	MT_fprintf(stderr, "#%s:%s%.*s%s",
 		MT_thread_getname(),
 		prefix[0] == '#' ? prefix + 1 : prefix,
 		(int) messagelen, message, suffix);
@@ -1436,7 +1436,7 @@ THRnew(const char *name)
 		}
 		if (s == GDKthreads + THREADS) {
 			MT_lock_unset(&GDKthreadLock);
-			IODEBUG fprintf(stderr, "#THRnew: too many threads\n");
+			IODEBUG MT_fprintf(stderr, "#THRnew: too many threads\n");
 			GDKerror("THRnew: too many threads\n");
 			return NULL;
 		}
@@ -1453,14 +1453,14 @@ THRnew(const char *name)
 		if (s->name == NULL) {
 			s->pid = 0;
 			MT_lock_unset(&GDKthreadLock);
-			IODEBUG fprintf(stderr, "#THRnew: malloc failure\n");
+			IODEBUG MT_fprintf(stderr, "#THRnew: malloc failure\n");
 			GDKerror("THRnew: malloc failure\n");
 			return NULL;
 		}
 		MT_thread_setdata(s);
 		GDKnrofthreads++;
-		PARDEBUG fprintf(stderr, "#%x %zu sp = %zu\n", (unsigned) s->tid, (size_t) pid, (size_t) s->sp);
-		PARDEBUG fprintf(stderr, "#nrofthreads %d\n", GDKnrofthreads);
+		PARDEBUG MT_fprintf(stderr, "#%x %zu sp = %zu\n", (unsigned) s->tid, (size_t) pid, (size_t) s->sp);
+		PARDEBUG MT_fprintf(stderr, "#nrofthreads %d\n", GDKnrofthreads);
 		MT_lock_unset(&GDKthreadLock);
 	}
 	return s;
@@ -1508,7 +1508,7 @@ THRcreate(void (*f) (void *), void *arg, enum MT_thr_detach d, const char *name)
 	}
 	if (s == GDKthreads + THREADS) {
 		MT_lock_unset(&GDKthreadLock);
-		IODEBUG fprintf(stderr, "#THRcreate: too many threads\n");
+		IODEBUG MT_fprintf(stderr, "#THRcreate: too many threads\n");
 		GDKerror("THRcreate: too many threads\n");
 		return 0;
 	}
@@ -1551,7 +1551,7 @@ THRdel(Thread t)
 	assert(GDKthreads <= t && t < GDKthreads + THREADS);
 	MT_thread_setdata(NULL);
 	MT_lock_set(&GDKthreadLock);
-	PARDEBUG fprintf(stderr, "#pid = %zu, disconnected, %d left\n", (size_t) t->pid, GDKnrofthreads);
+	PARDEBUG MT_fprintf(stderr, "#pid = %zu, disconnected, %d left\n", (size_t) t->pid, GDKnrofthreads);
 
 	GDKfree(t->name);
 	t->name = NULL;
@@ -1791,7 +1791,7 @@ GDKmemfail(const char *s, size_t len)
 	   }
 	 */
 
-	fprintf(stderr, "#%s(%zu) fails, try to free up space [memory in use=%zu,virtual memory in use=%zu]\n", s, len, GDKmem_cursize(), GDKvm_cursize());
+	MT_fprintf(stderr, "#%s(%zu) fails, try to free up space [memory in use=%zu,virtual memory in use=%zu]\n", s, len, GDKmem_cursize(), GDKvm_cursize());
 }
 
 /* Memory allocation

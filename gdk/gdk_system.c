@@ -118,7 +118,7 @@ GDKlockstatistics(int what)
 	int n = 0;
 
 	if (ATOMIC_TAS(GDKlocklistlock, dummy) != 0) {
-		fprintf(stderr, "#WARNING: GDKlocklistlock is set, so cannot access lock list\n");
+		MT_fprintf(stderr, "#WARNING: GDKlocklistlock is set, so cannot access lock list\n");
 		return;
 	}
 	if (what == -1) {
@@ -131,24 +131,24 @@ GDKlockstatistics(int what)
 		return;
 	}
 	GDKlocklist = sortlocklist(GDKlocklist);
-	fprintf(stderr, "# lock name\tcount\tcontention\tsleep\tlocked\t(un)locker\tthread\n");
+	MT_fprintf(stderr, "# lock name\tcount\tcontention\tsleep\tlocked\t(un)locker\tthread\n");
 	for (l = GDKlocklist; l; l = l->next) {
 		n++;
 		if (what == 0 ||
 		    (what == 1 && l->count) ||
 		    (what == 2 && l->contention) ||
 		    (what == 3 && l->lock))
-			fprintf(stderr, "# %-18s\t%zu\t%zu\t%zu\t%s\t%s\t%s\n",
+			MT_fprintf(stderr, "# %-18s\t%zu\t%zu\t%zu\t%s\t%s\t%s\n",
 				l->name ? l->name : "unknown",
 				l->count, l->contention, l->sleep,
 				l->lock ? "locked" : "",
 				l->locker ? l->locker : "",
 				l->thread ? l->thread : "");
 	}
-	fprintf(stderr, "#number of locks  %d\n", n);
-	fprintf(stderr, "#total lock count %zu\n", (size_t) GDKlockcnt);
-	fprintf(stderr, "#lock contention  %zu\n", (size_t) GDKlockcontentioncnt);
-	fprintf(stderr, "#lock sleep count %zu\n", (size_t) GDKlocksleepcnt);
+	MT_fprintf(stderr, "#number of locks  %d\n", n);
+	MT_fprintf(stderr, "#total lock count %zu\n", (size_t) GDKlockcnt);
+	MT_fprintf(stderr, "#lock contention  %zu\n", (size_t) GDKlockcontentioncnt);
+	MT_fprintf(stderr, "#lock sleep count %zu\n", (size_t) GDKlocksleepcnt);
 	ATOMIC_CLEAR(GDKlocklistlock, dummy);
 }
 #endif
@@ -512,14 +512,14 @@ MT_thread_init(void)
 	int ret;
 
 	if ((ret = pthread_key_create(&threadkey, NULL)) != 0) {
-		fprintf(stderr,
+		MT_fprintf(stderr,
 			"#MT_thread_init: creating specific key for thread "
 			"failed: %s\n", strerror(ret));
 		return false;
 	}
 	mainthread.tid = pthread_self();
 	if ((ret = pthread_setspecific(threadkey, &mainthread)) != 0) {
-		fprintf(stderr,
+		MT_fprintf(stderr,
 			"#MT_thread_init: setting specific value failed: %s\n",
 			strerror(ret));
 	}
@@ -677,13 +677,13 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d, 
 
 	join_threads();
 	if ((ret = pthread_attr_init(&attr)) != 0) {
-		fprintf(stderr,
+		MT_fprintf(stderr,
 			"#MT_create_thread: cannot init pthread attr: %s\n",
 			strerror(ret));
 		return -1;
 	}
 	if ((ret = pthread_attr_setstacksize(&attr, THREAD_STACK_SIZE)) != 0) {
-		fprintf(stderr,
+		MT_fprintf(stderr,
 			"#MT_create_thread: cannot set stack size: %s\n",
 			strerror(ret));
 		pthread_attr_destroy(&attr);
@@ -691,7 +691,7 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d, 
 	}
 	p = malloc(sizeof(struct posthread));
 	if (p == NULL) {
-		fprintf(stderr,
+		MT_fprintf(stderr,
 			"#MT_create_thread: cannot allocate memory: %s\n",
 			strerror(errno));
 		pthread_attr_destroy(&attr);
@@ -716,7 +716,7 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d, 
 #endif
 	ret = pthread_create(&p->tid, &attr, thread_starter, p);
 	if (ret != 0) {
-		fprintf(stderr,
+		MT_fprintf(stderr,
 			"#MT_create_thread: cannot start thread: %s\n",
 			strerror(ret));
 		rm_posthread(p);
@@ -764,7 +764,7 @@ MT_join_thread(MT_Id t)
 	if (p == NULL)
 		return -1;
 	if ((ret = pthread_join(p->tid, NULL)) != 0) {
-		fprintf(stderr, "#MT_join_thread: joining thread failed: %s\n",
+		MT_fprintf(stderr, "#MT_join_thread: joining thread failed: %s\n",
 			strerror(ret));
 		return -1;
 	}

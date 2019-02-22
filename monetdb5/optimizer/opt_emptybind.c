@@ -83,7 +83,7 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	}
 
 #ifdef DEBUG_OPT_EMPTYBIND
-	fprintf(stderr, "#Optimize Query Emptybind\n");
+	MT_fprintf(stderr, "#Optimize Query Emptybind\n");
 	fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG);
 #endif
 
@@ -112,7 +112,7 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
  		 */
 		if ( getModuleId(p) == batRef && getFunctionId(p) == newRef){
 #ifdef DEBUG_OPT_EMPTYBIND
-			fprintf(stderr, "#empty bat  pc %d var %d\n",i , getArg(p,0) );
+			MT_fprintf(stderr, "#empty bat  pc %d var %d\n",i , getArg(p,0) );
 #endif
 			empty[getArg(p,0)] = i;
 			continue;
@@ -138,7 +138,7 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 
 		if (getFunctionId(p) == emptybindRef) {
 #ifdef DEBUG_OPT_EMPTYBIND
-			fprintf(stderr, "#empty bind  pc %d var %d\n",i , getArg(p,0) );
+			MT_fprintf(stderr, "#empty bind  pc %d var %d\n",i , getArg(p,0) );
 #endif
 			setFunctionId(p,bindRef);
 			p->typechk= TYPE_UNKNOWN;
@@ -146,7 +146,7 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 			if( p->retc == 2){
 				empty[getArg(p,1)] = i;
 #ifdef DEBUG_OPT_EMPTYBIND
-				fprintf(stderr, "#empty update bind  pc %d var %d\n",i , getArg(p,1) );
+				MT_fprintf(stderr, "#empty update bind  pc %d var %d\n",i , getArg(p,1) );
 #endif
 			}
 			// replace the call into a empty bat creation unless the table was updated already in the same query 
@@ -158,12 +158,12 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 					if ( strcmp(getVarConstant(mb,getArg(q,2)).val.sval, sch) == 0 &&
 						 strcmp(getVarConstant(mb,getArg(q,3)).val.sval, tbl) == 0 ){
 #ifdef DEBUG_OPT_EMPTYBIND
-						fprintf(stderr, "#reset mark empty variable pc %d var %d\n",i , getArg(p,0) );
+						MT_fprintf(stderr, "#reset mark empty variable pc %d var %d\n",i , getArg(p,0) );
 #endif
 						empty[getArg(p,0)] = 0;
 						if( p->retc == 2){
 #ifdef DEBUG_OPT_EMPTYBIND
-							fprintf(stderr, "#reset mark empty variable pc %d var %d\n",i , getArg(p,1) );
+							MT_fprintf(stderr, "#reset mark empty variable pc %d var %d\n",i , getArg(p,1) );
 #endif
 							empty[getArg(p,1)] = 0;
 						}
@@ -175,7 +175,7 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 						empty[getArg(p,0)] = 0;
 						if( p->retc == 2){
 #ifdef DEBUG_OPT_EMPTYBIND
-							fprintf(stderr, "#reset mark empty variable pc %d var %d\n",i , getArg(p,1) );
+							MT_fprintf(stderr, "#reset mark empty variable pc %d var %d\n",i , getArg(p,1) );
 #endif
 							empty[getArg(p,1)] = 0;
 						}
@@ -188,7 +188,7 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 
 		if (getFunctionId(p) == emptybindidxRef) {
 #ifdef DEBUG_OPT_EMPTYBIND
-			fprintf(stderr, "#empty bindidx  pc %d var %d\n",i , getArg(p,0) );
+			MT_fprintf(stderr, "#empty bindidx  pc %d var %d\n",i , getArg(p,0) );
 #endif
 			setFunctionId(p,bindidxRef);
 			p->typechk= TYPE_UNKNOWN;
@@ -202,12 +202,12 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 					if ( strcmp(getVarConstant(mb,getArg(q,2)).val.sval, sch) == 0 &&
 						 strcmp(getVarConstant(mb,getArg(q,3)).val.sval, tbl) == 0 ){
 #ifdef DEBUG_OPT_EMPTYBIND
-							fprintf(stderr, "#reset mark empty variable pc %d var %d\n",i , getArg(p,0) );
+							MT_fprintf(stderr, "#reset mark empty variable pc %d var %d\n",i , getArg(p,0) );
 #endif
 						empty[getArg(p,0)] = 0;
 						if( p->retc == 2){
 #ifdef DEBUG_OPT_EMPTYBIND
-							fprintf(stderr, "#reset mark empty variable pc %d var %d\n",i , getArg(p,1) );
+							MT_fprintf(stderr, "#reset mark empty variable pc %d var %d\n",i , getArg(p,1) );
 #endif
 							empty[getArg(p,1)] = 0;
 						}
@@ -228,8 +228,8 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 		if (getModuleId(p)== sqlRef && getFunctionId(p) == deltaRef  && p->argc ==5){
 			if( empty[getArg(p,2)] && empty[getArg(p,3)] && empty[getArg(p,4)] ){
 #ifdef DEBUG_OPT_EMPTYBIND
-				fprintf(stderr, "#empty delta  pc %d var %d,%d,%d\n",i ,empty[getArg(p,2)], empty[getArg(p,3)], empty[getArg(p,4)] );
-				fprintf(stderr, "#empty delta  pc %d var %d\n",i , getArg(p,0) );
+				MT_fprintf(stderr, "#empty delta  pc %d var %d,%d,%d\n",i ,empty[getArg(p,2)], empty[getArg(p,3)], empty[getArg(p,4)] );
+				MT_fprintf(stderr, "#empty delta  pc %d var %d\n",i , getArg(p,0) );
 #endif
 				actions++;
 				clrFunction(p);
@@ -244,7 +244,7 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 		if (getModuleId(p)== sqlRef && getFunctionId(p) == projectdeltaRef) {
 			if( empty[getArg(p,3)] && empty[getArg(p,4)] ){
 #ifdef DEBUG_OPT_EMPTYBIND
-				fprintf(stderr, "#empty projectdelta  pc %d var %d\n",i , getArg(p,0) );
+				MT_fprintf(stderr, "#empty projectdelta  pc %d var %d\n",i , getArg(p,0) );
 #endif
 				actions++;
 				setModuleId(p,algebraRef);
@@ -258,7 +258,7 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 			if( getFunctionId(p) == projectionRef) {
 				if( empty[getArg(p,1)] || empty[getArg(p,2)] ){
 #ifdef DEBUG_OPT_EMPTYBIND
-					fprintf(stderr, "#empty projection  pc %d var %d\n",i , getArg(p,0) );
+					MT_fprintf(stderr, "#empty projection  pc %d var %d\n",i , getArg(p,0) );
 #endif
 					actions++;
 					emptyresult(0);
@@ -267,7 +267,7 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 			if( getFunctionId(p) == thetaselectRef || getFunctionId(p) == selectRef) {
 				if( empty[getArg(p,1)] || empty[getArg(p,2)] ){
 #ifdef DEBUG_OPT_EMPTYBIND
-					fprintf(stderr, "#empty selection  pc %d var %d\n",i , getArg(p,0) );
+					MT_fprintf(stderr, "#empty selection  pc %d var %d\n",i , getArg(p,0) );
 #endif
 					actions++;
 					emptyresult(0);
@@ -277,7 +277,7 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 		if( getModuleId(p) == batstrRef){
 			if( empty[getArg(p,1)] || empty[getArg(p,2)] ){
 #ifdef DEBUG_OPT_EMPTYBIND
-				fprintf(stderr, "#empty string operation  pc %d var %d\n",i , getArg(p,0) );
+				MT_fprintf(stderr, "#empty string operation  pc %d var %d\n",i , getArg(p,0) );
 #endif
 				actions++;
 				emptyresult(0);
@@ -297,7 +297,7 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 
 #ifdef DEBUG_OPT_EMPTYBIND
 	chkTypes(cntxt->usermodule,mb,TRUE);
-	fprintf(stderr, "#Optimize Query Emptybind done\n");
+	MT_fprintf(stderr, "#Optimize Query Emptybind done\n");
 	fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG);
 #endif
 

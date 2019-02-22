@@ -315,7 +315,7 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			for(j=i-1; j>=start;j--) {
 #ifdef DEBUG_OPT_REORDER
 				if( old[j]){
-					fprintf(stderr,"leftover: %d",start+1);
+					MT_fprintf(stderr,"leftover: %d",start+1);
 					fprintInstruction(stderr,mb,0,old[j],LIST_MAL_DEBUG);
 				}
 #endif

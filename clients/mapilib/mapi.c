@@ -97,7 +97,7 @@
  *     while (mapi_fetch_row(hdl)) {
  *         name = mapi_fetch_field(hdl, 0);
  *         age = mapi_fetch_field(hdl, 1);
- *         printf("%s is %s\n", name, age);
+ *         MT_fprintf(stdout,"%s is %s\n", name, age);
  *     }
  *
  *     mapi_close_handle(hdl);
@@ -684,6 +684,7 @@
  */
 
 #include "monetdb_config.h"
+#include "mutils.h"
 #include "stream.h"		/* include before mapi.h */
 #include "stream_socket.h"
 #include "mapi.h"
@@ -880,13 +881,9 @@ struct MapiStatement {
 };
 
 #ifdef DEBUG
-#define debugprint(fmt,arg)	printf(fmt,arg)
+#define debugprint(fmt,arg)	MT_fprintf(stdout,fmt,arg)
 #else
 #define debugprint(fmt,arg)	((void) 0)
-#endif
-
-#ifdef HAVE_EMBEDDED
-#define printf(...)	((void)0)
 #endif
 
 /*
@@ -1407,7 +1404,7 @@ new_result(MapiHdl hdl)
 	       (hdl->result != NULL && hdl->lastresult != NULL && hdl->lastresult->next == NULL));
 
 	if (hdl->mid->trace)
-		printf("allocating new result set\n");
+		MT_fprintf(stdout,"allocating new result set\n");
 	/* append a newly allocated struct to the end of the linked list */
 	result = malloc(sizeof(*result));
 	if (result == NULL)
@@ -1445,7 +1442,7 @@ close_result(MapiHdl hdl)
 	mid = hdl->mid;
 	assert(mid != NULL);
 	if (mid->trace)
-		printf("closing result set\n");
+		MT_fprintf(stdout,"closing result set\n");
 	if (result->tableid >= 0 && result->querytype != Q_PREPARE) {
 		if (mid->active &&
 		    result->next == NULL &&
@@ -2717,7 +2714,7 @@ mapi_reconnect(Mapi mid)
 		return mid->error;
 	}
 	if (mid->trace) {
-		printf("sending first request [%zu]:%s", sizeof(buf), buf);
+		MT_fprintf(stdout,"sending first request [%zu]:%s", sizeof(buf), buf);
 		fflush(stdout);
 	}
 	len = strlen(buf);
@@ -2893,7 +2890,7 @@ mapi_reconnect(Mapi mid)
 	mapi_close_handle(hdl);
 
 	if (mid->trace)
-		printf("connection established\n");
+		MT_fprintf(stdout,"connection established\n");
 	if (mid->languageId != LANG_SQL)
 		return mid->error;
 
@@ -3224,7 +3221,7 @@ mapi_timeout(Mapi mid, unsigned int timeout)
 {
 	mapi_check(mid);
 	if (mid->trace)
-		printf("Set timeout to %u\n", timeout);
+		MT_fprintf(stdout,"Set timeout to %u\n", timeout);
 	mnstr_settimeout(mid->to, timeout, NULL);
 	mnstr_settimeout(mid->from, timeout, NULL);
 	return MOK;
@@ -3476,7 +3473,7 @@ mapi_param_store(MapiHdl hdl)
 	checkSpace(strlen(p) + 1);
 	strcpy(hdl->query + k, p);
 	if (hdl->mid->trace)
-		printf("param_store: result=%s\n", hdl->query);
+		MT_fprintf(stdout,"param_store: result=%s\n", hdl->query);
 	return;
 }
 
@@ -3520,7 +3517,7 @@ read_line(Mapi mid)
 
 		/* fetch one more block */
 		if (mid->trace)
-			printf("fetch next block: start at:%d\n", mid->blk.end);
+			MT_fprintf(stdout,"fetch next block: start at:%d\n", mid->blk.end);
 		len = mnstr_read(mid->from, mid->blk.buf + mid->blk.end, 1, BLOCK);
 		check_stream(mid, mid->from, "Connection terminated during read line", "read_line", (mid->blk.eos = true, (char *) 0));
 		if (mid->tracelog) {
@@ -3530,8 +3527,8 @@ read_line(Mapi mid)
 		}
 		mid->blk.buf[mid->blk.end + len] = 0;
 		if (mid->trace) {
-			printf("got next block: length:%zd\n", len);
-			printf("text:%s\n", mid->blk.buf + mid->blk.end);
+			MT_fprintf(stdout,"got next block: length:%zd\n", len);
+			MT_fprintf(stdout,"text:%s\n", mid->blk.buf + mid->blk.end);
 		}
 		if (len == 0) {	/* add prompt */
 			if (mid->blk.end > mid->blk.nxt) {
@@ -3549,8 +3546,8 @@ read_line(Mapi mid)
 		mid->blk.end += (int) len;
 	}
 	if (mid->trace) {
-		printf("got complete block: \n");
-		printf("text:%s\n", mid->blk.buf + mid->blk.nxt);
+		MT_fprintf(stdout,"got complete block: \n");
+		MT_fprintf(stdout,"text:%s\n", mid->blk.buf + mid->blk.nxt);
 	}
 
 	/* we have a complete line in the buffer */
@@ -3560,7 +3557,7 @@ read_line(Mapi mid)
 	mid->blk.nxt = (int) (nl - mid->blk.buf);
 
 	if (mid->trace)
-		printf("read_line:%s\n", reply);
+		MT_fprintf(stdout,"read_line:%s\n", reply);
 	return reply;
 }
 
@@ -4266,7 +4263,7 @@ mapi_execute_internal(MapiHdl hdl)
 	size = strlen(cmd);
 
 	if (mid->trace) {
-		printf("mapi_query:%zu:%s\n", size, cmd);
+		MT_fprintf(stdout,"mapi_query:%zu:%s\n", size, cmd);
 	}
 	if (mid->languageId == LANG_SQL) {
 		/* indicate to server this is a SQL command */
@@ -4426,7 +4423,7 @@ mapi_query_part(MapiHdl hdl, const char *query, size_t size)
 	}
 
 	if (mid->trace) {
-		printf("mapi_query_part:%zu:%.*s\n", size, (int) size, query);
+		MT_fprintf(stdout,"mapi_query_part:%zu:%.*s\n", size, (int) size, query);
 	}
 	hdl->needmore = false;
 	mnstr_write(mid->to, query, 1, size);

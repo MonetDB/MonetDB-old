@@ -502,7 +502,7 @@ monet5_user_set_def_schema(mvc *m, oid user)
 	str err = NULL;
 
 	if (m->debug &1)
-		fprintf(stderr, "monet5_user_set_def_schema " OIDFMT "\n", user);
+		MT_fprintf(stderr, "monet5_user_set_def_schema " OIDFMT "\n", user);
 
 	if ((err = AUTHresolveUser(&username, user)) !=MAL_SUCCEED) {
 		freeException(err);

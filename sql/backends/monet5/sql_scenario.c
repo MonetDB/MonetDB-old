@@ -62,7 +62,7 @@ monet5_freestack(int clientid, backend_stack stk)
 	if (p != NULL)
 		freeStack(p);
 #ifdef _SQL_SCENARIO_DEBUG
-	fprintf(stderr, "#monet5_freestack\n");
+	MT_fprintf(stderr, "#monet5_freestack\n");
 #endif
 }
 
@@ -80,7 +80,7 @@ monet5_freecode(int clientid, backend_code code, backend_stack stk, int nr, char
 		freeException(msg);	/* do something with error? */
 
 #ifdef _SQL_SCENARIO_DEBUG
-	fprintf(stderr, "#monet5_free:%d\n", nr);
+	MT_fprintf(stderr, "#monet5_free:%d\n", nr);
 #endif
 }
 
@@ -175,15 +175,15 @@ SQLprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	ms->callback = "MALcallback";
 	tmp = SQLinit(cntxt);
 	if (tmp != MAL_SUCCEED) {
-		fprintf(stderr, "Fatal error during initialization:\n%s\n", tmp);
+		MT_fprintf(stderr, "Fatal error during initialization:\n%s\n", tmp);
 		freeException(tmp);
 		if ((tmp = GDKerrbuf) && *tmp)
-			fprintf(stderr, SQLSTATE(42000) "GDK reported: %s\n", tmp);
+			MT_fprintf(stderr, SQLSTATE(42000) "GDK reported: %s\n", tmp);
 		fflush(stderr);
 		exit(1);
 	}
 #ifndef HAVE_EMBEDDED
-	fprintf(stdout, "# MonetDB/SQL module loaded\n");
+	MT_fprintf(stdout, "# MonetDB/SQL module loaded\n");
 	fflush(stdout);		/* make merovingian see this *now* */
 #endif
 	/* only register availability of scenarios AFTER we are inited! */
@@ -200,7 +200,7 @@ str
 SQLexit(Client c)
 {
 #ifdef _SQL_SCENARIO_DEBUG
-	fprintf(stderr, "#SQLexit\n");
+	MT_fprintf(stderr, "#SQLexit\n");
 #endif
 	(void) c;		/* not used */
 	MT_lock_set(&sql_contextLock);
@@ -381,7 +381,7 @@ SQLinit(Client c)
 
 
 #ifdef _SQL_SCENARIO_DEBUG
-	fprintf(stderr, "#SQLinit Monet 5\n");
+	MT_fprintf(stderr, "#SQLinit Monet 5\n");
 #endif
 	if (SQLinitialized)
 		return MAL_SUCCEED;
@@ -447,11 +447,11 @@ SQLinit(Client c)
 
 		bstream_next(fdin);
 		if( MCpushClientInput(c, fdin, 0, "") < 0)
-			fprintf(stderr, "SQLinit:Could not switch client input stream");
+			MT_fprintf(stderr, "SQLinit:Could not switch client input stream");
 	}
 	if ((msg = SQLprepareClient(c, 0)) != NULL) {
 		MT_lock_unset(&sql_contextLock);
-		fprintf(stderr, "%s\n", msg);
+		MT_fprintf(stderr, "%s\n", msg);
 		return msg;
 	}
 	be = c->sqlcontext;
@@ -474,7 +474,7 @@ SQLinit(Client c)
 		SQLnewcatalog = 0;
 		maybeupgrade = 0;
 
-		fprintf(stdout, "# SQL catalog created, loading sql scripts once\n");
+		MT_fprintf(stdout, "# SQL catalog created, loading sql scripts once\n");
 
 		if ((msg = install_sql_scripts1(c)) != MAL_SUCCEED) {
 			MT_lock_unset(&sql_contextLock);
@@ -488,7 +488,7 @@ SQLinit(Client c)
 		if (fullname) {
 			str filename = fullname;
 			str p, n, newmsg= MAL_SUCCEED;
-			fprintf(stdout, "# SQL catalog created, loading sql scripts once\n");
+			MT_fprintf(stdout, "# SQL catalog created, loading sql scripts once\n");
 			do {
 				stream *fd = NULL;
 
@@ -500,7 +500,7 @@ SQLinit(Client c)
 				} else {
 					n++;
 				}
-				fprintf(stdout, "# loading sql script: %s\n", n);
+				MT_fprintf(stdout, "# loading sql script: %s\n", n);
 				fd = open_rastream(filename);
 				if (p)
 					filename = p + 1;
@@ -528,14 +528,14 @@ SQLinit(Client c)
 					m->sa = NULL;
 					m->sqs = NULL;
 					if (newmsg){
-						fprintf(stderr,"%s",newmsg);
+						MT_fprintf(stderr,"%s",newmsg);
 						freeException(newmsg);
 					}
 				}
 			} while (p);
 			GDKfree(fullname);
 		} else
-			fprintf(stderr, "!could not read createdb.sql\n");
+			MT_fprintf(stderr, "!could not read createdb.sql\n");
 
 		if ((msg = install_sql_scripts2(c)) != MAL_SUCCEED) {
 			MT_lock_unset(&sql_contextLock);
@@ -681,7 +681,7 @@ SQLinitClient(Client c)
 	str msg = MAL_SUCCEED;
 
 #ifdef _SQL_SCENARIO_DEBUG
-	fprintf(stderr, "#SQLinitClient\n");
+	MT_fprintf(stderr, "#SQLinitClient\n");
 #endif
 	if (SQLinitialized == 0)// && (msg = SQLprelude(NULL)) != MAL_SUCCEED)
 		return msg;
@@ -704,7 +704,7 @@ SQLexitClient(Client c)
 {
 	str err;
 #ifdef _SQL_SCENARIO_DEBUG
-	fprintf(stderr, "#SQLexitClient\n");
+	MT_fprintf(stderr, "#SQLexitClient\n");
 #endif
 	if (SQLinitialized == FALSE)
 		throw(SQL, "SQLexitClient", SQLSTATE(42000) "Catalogue not available");
@@ -847,13 +847,13 @@ SQLreader(Client c)
 	}
 	if (!be || c->mode <= FINISHCLIENT) {
 #ifdef _SQL_READER_DEBUG
-		fprintf(stderr, "#SQL client finished\n");
+		MT_fprintf(stderr, "#SQL client finished\n");
 #endif
 		c->mode = FINISHCLIENT;
 		return MAL_SUCCEED;
 	}
 #ifdef _SQL_READER_DEBUG
-	fprintf(stderr, "#SQLparser: start reading SQL %s %s\n", (be->console ? " from console" : ""), (blocked ? "Blocked read" : ""));
+	MT_fprintf(stderr, "#SQLparser: start reading SQL %s %s\n", (be->console ? " from console" : ""), (blocked ? "Blocked read" : ""));
 #endif
 	language = be->language;	/* 'S' for SQL, 'D' from debugger */
 	m = be->mvc;
@@ -863,7 +863,7 @@ SQLreader(Client c)
 	 */
 
 #ifdef _SQL_READER_DEBUG
-	fprintf(stderr, "#pos %d len %d eof %d \n", in->pos, in->len, in->eof);
+	MT_fprintf(stderr, "#pos %d len %d eof %d \n", in->pos, in->len, in->eof);
 #endif
 	/*
 	 * Distinguish between console reading and mclient connections.
@@ -890,7 +890,7 @@ SQLreader(Client c)
 
 			if (c->bak) {
 #ifdef _SQL_READER_DEBUG
-				fprintf(stderr, "#Switch to backup stream\n");
+				MT_fprintf(stderr, "#Switch to backup stream\n");
 #endif
 				in = c->fdin;
 				blocked = isa_block_stream(in->s);
@@ -920,7 +920,7 @@ SQLreader(Client c)
 				go = false;
 			} else if (go && (rd = bstream_next(in)) <= 0) {
 #ifdef _SQL_READER_DEBUG
-				fprintf(stderr, "#rd %d  language %d eof %d\n", rd, language, in->eof);
+				MT_fprintf(stderr, "#rd %d  language %d eof %d\n", rd, language, in->eof);
 #endif
 				if (be->language == 'D' && !in->eof)
 					return msg;
@@ -947,7 +947,7 @@ SQLreader(Client c)
 				}
 			}
 #ifdef _SQL_READER_DEBUG
-			fprintf(stderr, "#SQL blk:%s\n", in->buf + in->pos);
+			MT_fprintf(stderr, "#SQL blk:%s\n", in->buf + in->pos);
 #endif
 		}
 	}
@@ -1015,7 +1015,7 @@ SQLparser(Client c)
 	be = (backend *) c->sqlcontext;
 	if (be == 0) {
 		/* leave a message in the log */
-		fprintf(stderr, "SQL state descriptor missing, cannot handle client!\n");
+		MT_fprintf(stderr, "SQL state descriptor missing, cannot handle client!\n");
 		/* stop here, instead of printing the exception below to the
 		 * client in an endless loop */
 		c->mode = FINISHCLIENT;
@@ -1025,8 +1025,8 @@ SQLparser(Client c)
 	oldstop = c->curprg->def->stop;
 	be->vtop = oldvtop;
 #ifdef _SQL_PARSER_DEBUG
-	fprintf(stderr, "#SQL compilation \n");
-	fprintf(stderr,"debugger? %d(%d)\n", (int) be->mvc->emode, (int) be->mvc->emod);
+	MT_fprintf(stderr, "#SQL compilation \n");
+	MT_fprintf(stderr,"debugger? %d(%d)\n", (int) be->mvc->emode, (int) be->mvc->emod);
 #endif
 	m = be->mvc;
 	m->type = Q_PARSE;
@@ -1330,7 +1330,7 @@ SQLCacheRemove(Client c, str nme)
 	Symbol s;
 
 #ifdef _SQL_CACHE_DEBUG
-	fprintf(stderr, "#SQLCacheRemove %s\n", nme);
+	MT_fprintf(stderr, "#SQLCacheRemove %s\n", nme);
 #endif
 
 	s = findSymbolInModule(c->usermodule, nme);

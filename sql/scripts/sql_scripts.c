@@ -70,7 +70,7 @@ install_sql_scripts_array(Client c, struct sql_scripts scripts[])
 {
 	str err;
 	for (int i = 0 ; scripts[i].name ; i++) {
-		fprintf(stdout, "# loading sql script: %s.sql\n", scripts[i].name);
+		MT_fprintf(stdout, "# loading sql script: %s.sql\n", scripts[i].name);
 		if ((err = SQLstatementIntern(c, &scripts[i].script, scripts[i].name, 1, 0, NULL)) != MAL_SUCCEED)
 			return err;
 	}
