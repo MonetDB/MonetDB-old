@@ -2105,15 +2105,14 @@ SQLupgrades(Client c, mvc *m)
 
 	if ((t = mvc_bind_table(m, s, "systemfunctions")) != NULL &&
 	    t->type == tt_table) {
-		if ((err = sql_update_apr2019(c, m)) != NULL) {
+		if (!hugeint_upgraded &&
+		    (err = sql_fix_system_tables(c, m)) != NULL) {
 			MT_fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}
-		if (!hugeint_upgraded) {
-			if ((err = sql_fix_system_tables(c, m)) != NULL) {
-				MT_fprintf(stderr, "!%s\n", err);
-				freeException(err);
-			}
+		if ((err = sql_update_apr2019(c, m)) != NULL) {
+			MT_fprintf(stderr, "!%s\n", err);
+			freeException(err);
 		}
 	}
 
