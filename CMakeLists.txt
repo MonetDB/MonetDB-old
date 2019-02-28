@@ -1,16 +1,19 @@
 cmake_minimum_required(VERSION 3.10)
 
 project(MonetDB)
+
+set(C_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 99)
 
 find_package(PkgConfig REQUIRED)
 find_package(BISON REQUIRED)
 
-include(GNUInstallDirs)
-include(CheckIncludeFiles)
-include(CheckFunctionExists)
-include(CheckTypeSize)
-include(TestLargeFiles)
+set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(GNUInstallDirs REQUIRED)
+include(CheckIncludeFiles REQUIRED)
+include(CheckFunctionExists REQUIRED)
+include(CheckTypeSize REQUIRED)
+include(TestLargeFiles REQUIRED)
 
 function(defineCmacro OPTION VALUE)
 	set(${OPTION} "#define ${VALUE}" PARENT_SCOPE)
@@ -134,15 +137,13 @@ else()
 endif()
 
 # password hash algorithm
-set(PASSWORD_BACKEND "SHA512" CACHE STRING "Password hash algorithm, one of MD5, SHA1, RIPEMD160, SHA224, SHA256, SHA384, SHA512, defaults to SHA512")
+set(PASSWORD_BACKEND "SHA512" CACHE STRING "Passwor	d hash algorithm, one of MD5, SHA1, RIPEMD160, SHA224, SHA256, SHA384, SHA512, defaults to SHA512")
 if(${PASSWORD_BACKEND} MATCHES "^MD5|SHA1|RIPEMD160|SHA224|SHA256|SHA384|SHA512$")
 	defineCmacro("MONETDB5_PASSWDHASH" "MONETDB5_PASSWDHASH ${PASSWORD_BACKEND}")
 	defineCmacro("MONETDB5_PASSWDHASH_TOKEN" "MONETDB5_PASSWDHASH_TOKEN \"${PASSWORD_BACKEND}\"")
 else()
 	message(FATAL_ERROR "PASSWORD_BACKEND invalid, choose one of MD5, SHA1, RIPEMD160, SHA224, SHA256, SHA384, SHA512")
 endif()
-
-configure_file(${CMAKE_SOURCE_DIR}/monetdb_config_cmake.h.in ${CMAKE_SOURCE_DIR}/debugme.h)
 
 # instalation directories
 set(LOGDIR "${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/log/monetdb" CACHE STRING "Where to put log files (LOCALSTATEDIR/log/monetdb/)")
@@ -165,4 +166,19 @@ if(_FILE_OFFSET_BITS)
 	defineCmacro("_FILE_OFFSET_BITS" "HAVE _FILE_OFFSET_BITS 64")
 else()
 	undefineCmacro("_FILE_OFFSET_BITS")
+endif()
+
+if(NOT "${CMAKE_C_COMPILER_ID}" MATCHES "^GNU|Intel|Clang|MSVC|AppleClang|SunPro$")
+	message(WARNING "Compiler potentially not (correctly) recognized")
+endif()
+
+CHECK_TYPE_SIZE(int SIZEOF_INT BUILTIN_TYPES_ONLY LANGUAGE C)
+CHECK_TYPE_SIZE(short SIZEOF_SHORT BUILTIN_TYPES_ONLY LANGUAGE C)
+CHECK_TYPE_SIZE(char SIZEOF_CHAR BUILTIN_TYPES_ONLY LANGUAGE C)
+CHECK_TYPE_SIZE(long SIZEOF_LONG BUILTIN_TYPES_ONLY LANGUAGE C)
+
+configure_file(${CMAKE_SOURCE_DIR}/cmake/monetdb_config.h.in ${CMAKE_SOURCE_DIR}/debugme.h)
+
+if(${ENABLE_STRICT} STREQUAL "YES")
+
 endif()

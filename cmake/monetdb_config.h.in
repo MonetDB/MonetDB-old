@@ -1,0 +1,822 @@
+/* monetdb_config.h.in.  Generated from configure.ac by autoheader.  */
+
+
+#ifndef _SEEN_MONETDB_CONFIG_H
+#define _SEEN_MONETDB_CONFIG_H 1
+
+
+/* Define if building universal (internal helper macro) */
+#undef AC_APPLE_UNIVERSAL_BUILD
+
+/* location where binaries are installed */
+#undef BINDIR
+
+/* read-only architecture-independent data */
+#undef DATA_DIR
+
+/* Program to perform diffs */
+#undef DIFF
+
+/* Directory separator */
+#undef DIR_SEP
+
+/* Directory separator */
+#undef DIR_SEP_STR
+
+/* Define to nothing if C supports flexible array members, and to 1 if it does
+   not. That way, with a declaration like `struct s { int n; double
+   d[FLEXIBLE_ARRAY_MEMBER]; };', the struct hack can be used with pre-C99
+   compilers. When computing the size of such an object, don't use 'sizeof
+   (struct s)' as it overestimates the size. Use 'offsetof (struct s, d)'
+   instead. Don't use 'offsetof (struct s, d[0])', as this doesn't work with
+   MSVC and with C++ compilers. */
+#undef FLEXIBLE_ARRAY_MEMBER
+
+/* Define to 1 if you have the `accept4' function. */
+#undef HAVE_ACCEPT4
+
+/* Define to 1 if you have the `asctime_r' function. */
+#undef HAVE_ASCTIME_R
+
+/* Define if you have asctime_r(struct tm*,char *buf,size_t s) */
+#undef HAVE_ASCTIME_R3
+
+/* Define to 1 if you have the <atomic_ops.h> header file. */
+#undef HAVE_ATOMIC_OPS_H
+
+/* Define to 1 if you have the `backtrace' function. */
+#undef HAVE_BACKTRACE
+
+/* Define to 1 if you have the <bam/bam.h> header file. */
+#undef HAVE_BAM_BAM_H
+
+/* Define to 1 if you have the <bam/bgzf.h> header file. */
+#undef HAVE_BAM_BGZF_H
+
+/* Define to 1 if you have the <bam/kstring.h> header file. */
+#undef HAVE_BAM_KSTRING_H
+
+/* Define to 1 if you have the <bam/sam.h> header file. */
+#undef HAVE_BAM_SAM_H
+
+/* Define to 1 if you have the `cbrt' function. */
+#undef HAVE_CBRT
+
+/* Define to 1 if you have the `clock_gettime' function. */
+#undef HAVE_CLOCK_GETTIME
+
+/* Define if you have the CommonCrypto library */
+#undef HAVE_COMMONCRYPTO
+
+/* If the console should be used */
+${HAVE_CONSOLE}
+
+/* Define to 1 if you have the `ctime_r' function. */
+#undef HAVE_CTIME_R
+
+/* Define if you have ctime_r(time_t*,char *buf,size_t s) */
+#undef HAVE_CTIME_R3
+
+/* Define if you have the cURL library */
+#undef HAVE_CURL
+
+/* Define to 1 if you have the declaration of `tzname', and to 0 if you don't.
+   */
+#undef HAVE_DECL_TZNAME
+
+/* Define to 1 if you have the <dirent.h> header file. */
+#undef HAVE_DIRENT_H
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
+
+/* Support for MonetDB as a library */
+${HAVE_EMBEDDED}
+
+/* Support for MonetDB as a library for R */
+#undef HAVE_EMBEDDED_R
+
+/* Define to 1 if you have the <execinfo.h> header file. */
+#undef HAVE_EXECINFO_H
+
+/* Define to 1 if you have the `fallocate' function. */
+#undef HAVE_FALLOCATE
+
+/* Define to 1 if you have the `fcntl' function. */
+#undef HAVE_FCNTL
+
+/* Define to 1 if you have the <fcntl.h> header file. */
+#undef HAVE_FCNTL_H
+
+/* If the system has a working fdatasync */
+#undef HAVE_FDATASYNC
+
+/* Define if the fits module is to be enabled */
+#undef HAVE_FITS
+
+/* Define if fork exists */
+#undef HAVE_FORK
+
+/* Define to 1 if fseeko (and presumably ftello) exists and is declared. */
+#undef HAVE_FSEEKO
+
+/* Define to 1 if you have the `fsync' function. */
+#undef HAVE_FSYNC
+
+/* Define to 1 if you have the `ftime' function. */
+#undef HAVE_FTIME
+
+/* Define to 1 if you have the `getaddrinfo' function. */
+#undef HAVE_GETADDRINFO
+
+/* Define to 1 if you have the `getexecname' function. */
+#undef HAVE_GETEXECNAME
+
+/* Define to 1 if you have the `getlogin' function. */
+#undef HAVE_GETLOGIN
+
+/* Define to 1 if you have the `getopt' function. */
+#undef HAVE_GETOPT
+
+/* Define to 1 if you have the <getopt.h> header file. */
+#undef HAVE_GETOPT_H
+
+/* Define to 1 if you have the `getopt_long' function. */
+#undef HAVE_GETOPT_LONG
+
+/* Define to 1 if you have the `gettimeofday' function. */
+#undef HAVE_GETTIMEOFDAY
+
+/* Define to 1 if you have the `getuid' function. */
+#undef HAVE_GETUID
+
+/* Define if you have the iconv() function and it works. */
+#undef HAVE_ICONV
+
+/* Define to 1 if you have the <iconv.h> header file. */
+#undef HAVE_ICONV_H
+
+/* Define to 1 if the system has the type `intptr_t'. */
+#undef HAVE_INTPTR_T
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the <io.h> header file. */
+#undef HAVE_IO_H
+
+/* Define to 1 if you have the <kvm.h> header file. */
+#undef HAVE_KVM_H
+
+/* Define to 1 if you have the <langinfo.h> header file. */
+#undef HAVE_LANGINFO_H
+
+/* Define if you have the libatomic_ops library */
+#undef HAVE_LIBATOMIC_OPS
+
+/* Define if you have the bz2 library */
+#undef HAVE_LIBBZ2
+
+/* Define to 1 if you have the <libgen.h> header file. */
+#undef HAVE_LIBGEN_H
+
+/* Define to 1 if you have the <libintl.h> header file. */
+#undef HAVE_LIBINTL_H
+
+/* Define if you have the lz4 library */
+#undef HAVE_LIBLZ4
+
+/* Define if you have the lzma library */
+#undef HAVE_LIBLZMA
+
+/* Define if you have the pcre library */
+#undef HAVE_LIBPCRE
+
+/* Define if you have the pthread library */
+#undef HAVE_LIBPTHREAD
+
+/* Define if we can link to python2 */
+#undef HAVE_LIBPY
+
+/* Define if we can link to python3 */
+#undef HAVE_LIBPY3
+
+/* Define if you have libR installed */
+#undef HAVE_LIBR
+
+/* Define if you have the readline library */
+#undef HAVE_LIBREADLINE
+
+/* Define if you have the snappy library */
+#undef HAVE_LIBSNAPPY
+
+/* Define if you have the xml library */
+#undef HAVE_LIBXML
+
+/* Define if you have the z library */
+#undef HAVE_LIBZ
+
+/* Define to 1 if you have the `localtime_r' function. */
+#undef HAVE_LOCALTIME_R
+
+/* Define to 1 if you have the `lockf' function. */
+#undef HAVE_LOCKF
+
+/* Define to 1 if you have the <mach/mach_init.h> header file. */
+#undef HAVE_MACH_MACH_INIT_H
+
+/* Define to 1 if you have the <mach-o/dyld.h> header file. */
+#undef HAVE_MACH_O_DYLD_H
+
+/* Define to 1 if you have the <mach/task.h> header file. */
+#undef HAVE_MACH_TASK_H
+
+/* Define to 1 if you have the `madvise' function. */
+#undef HAVE_MADVISE
+
+/* Enable MAPI */
+${HAVE_MAPI}
+
+/* Define to 1 if you have the `MD5_Update' function. */
+#undef HAVE_MD5_UPDATE
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the `mremap' function. */
+#undef HAVE_MREMAP
+
+/* Define if the netcdf module is to be enabled */
+#undef HAVE_NETCDF
+
+/* Define to 1 if you have the <netdb.h> header file. */
+#undef HAVE_NETDB_H
+
+/* Define to 1 if you have the <netinet/in.h> header file. */
+#undef HAVE_NETINET_IN_H
+
+/* Define to 1 if you have the `nl_langinfo' function. */
+#undef HAVE_NL_LANGINFO
+
+/* Define to 1 if you have the <odbcinst.h> header file. */
+#undef HAVE_ODBCINST_H
+
+/* Define if you have the OpenSSL library */
+#undef HAVE_OPENSSL
+
+/* Define to 1 if you have the `pipe2' function. */
+#undef HAVE_PIPE2
+
+/* Define to 1 if you have the `popen' function. */
+#undef HAVE_POPEN
+
+/* Define to 1 if you have the `posix_fadvise' function. */
+#undef HAVE_POSIX_FADVISE
+
+/* Define to 1 if you have the `posix_fallocate' function. */
+#undef HAVE_POSIX_FALLOCATE
+
+/* Define to 1 if you have the `posix_madvise' function. */
+#undef HAVE_POSIX_MADVISE
+
+/* Define to 1 if you have the <procfs.h> header file. */
+#undef HAVE_PROCFS_H
+
+/* Define if the proj library exists */
+#undef HAVE_PROJ
+
+/* Define to 1 if you have the <pthread.h> header file. */
+#undef HAVE_PTHREAD_H
+
+/* Define if you have the pthread_kill function */
+#undef HAVE_PTHREAD_KILL
+
+/* Define if you have the pthread_sigmask function */
+#undef HAVE_PTHREAD_SIGMASK
+
+/* Define to 1 if the system has the type `ptrdiff_t'. */
+#undef HAVE_PTRDIFF_T
+
+/* Define to 1 if you have the `putenv' function. */
+#undef HAVE_PUTENV
+
+/* Define to 1 if you have the <pwd.h> header file. */
+#undef HAVE_PWD_H
+
+/* Define to 1 if you have the `RIPEMD160_Update' function. */
+#undef HAVE_RIPEMD160_UPDATE
+
+/* Define if you have the samtools version 0.1.x (providing the bam library)
+   */
+#undef HAVE_SAMTOOLS
+
+/* Define to 1 if you have the <samtools/bam.h> header file. */
+#undef HAVE_SAMTOOLS_BAM_H
+
+/* Define to 1 if you have the <samtools/bgzf.h> header file. */
+#undef HAVE_SAMTOOLS_BGZF_H
+
+/* Define to 1 if you have the <samtools/kstring.h> header file. */
+#undef HAVE_SAMTOOLS_KSTRING_H
+
+/* Define to 1 if you have the <samtools/sam.h> header file. */
+#undef HAVE_SAMTOOLS_SAM_H
+
+/* Define to 1 if you have the <sched.h> header file. */
+#undef HAVE_SCHED_H
+
+/* Define to 1 if you have the <semaphore.h> header file. */
+#undef HAVE_SEMAPHORE_H
+
+/* Define if semtimedop exists */
+#undef HAVE_SEMTIMEDOP
+
+/* Define to 1 if you have the `setenv' function. */
+#undef HAVE_SETENV
+
+/* Define to 1 if you have the `setsid' function. */
+#undef HAVE_SETSID
+
+/* Define to 1 if you have the `SHA1_Update' function. */
+#undef HAVE_SHA1_UPDATE
+
+/* Define to 1 if you have the `SHA224_Update' function. */
+#undef HAVE_SHA224_UPDATE
+
+/* Define to 1 if you have the `SHA256_Update' function. */
+#undef HAVE_SHA256_UPDATE
+
+/* Define to 1 if you have the `SHA384_Update' function. */
+#undef HAVE_SHA384_UPDATE
+
+/* Define to 1 if you have the `SHA512_Update' function. */
+#undef HAVE_SHA512_UPDATE
+
+/* Define to 1 if you have the `shutdown' function. */
+#undef HAVE_SHUTDOWN
+
+/* Define to 1 if you have the `sigaction' function. */
+#undef HAVE_SIGACTION
+
+/* Define to 1 if the system has the type `socklen_t'. */
+#undef HAVE_SOCKLEN_T
+
+/* Define if you have the SQLGetPrivateProfileString function */
+#undef HAVE_SQLGETPRIVATEPROFILESTRING
+
+/* Define to 1 if stdbool.h conforms to C99. */
+#undef HAVE_STDBOOL_H
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the `stpcpy' function. */
+#undef HAVE_STPCPY
+
+/* Define to 1 if you have the `strcasestr' function. */
+#undef HAVE_STRCASESTR
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the `strncasecmp' function. */
+#undef HAVE_STRNCASECMP
+
+/* Define to 1 if you have the <stropts.h> header file. */
+#undef HAVE_STROPTS_H
+
+/* Define to 1 if you have the `strptime' function. */
+#undef HAVE_STRPTIME
+
+/* Define to 1 if you have the `strsignal' function. */
+#undef HAVE_STRSIGNAL
+
+/* Define to 1 if `tm_zone' is a member of `struct tm'. */
+#undef HAVE_STRUCT_TM_TM_ZONE
+
+/* Define to 1 if you have the `sysconf' function. */
+#undef HAVE_SYSCONF
+
+/* Define to 1 if you have the <sys/file.h> header file. */
+#undef HAVE_SYS_FILE_H
+
+/* Define to 1 if you have the <sys/ioctl.h> header file. */
+#undef HAVE_SYS_IOCTL_H
+
+/* Define to 1 if you have the <sys/mman.h> header file. */
+#undef HAVE_SYS_MMAN_H
+
+/* Define to 1 if you have the <sys/param.h> header file. */
+#undef HAVE_SYS_PARAM_H
+
+/* Define to 1 if you have the <sys/resource.h> header file. */
+#undef HAVE_SYS_RESOURCE_H
+
+/* Define to 1 if you have the <sys/socket.h> header file. */
+#undef HAVE_SYS_SOCKET_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/sysctl.h> header file. */
+#undef HAVE_SYS_SYSCTL_H
+
+/* Define to 1 if you have the <sys/times.h> header file. */
+#undef HAVE_SYS_TIMES_H
+
+/* Define to 1 if you have the <sys/time.h> header file. */
+#undef HAVE_SYS_TIME_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <sys/uio.h> header file. */
+#undef HAVE_SYS_UIO_H
+
+/* Define to 1 if you have the <sys/un.h> header file. */
+#undef HAVE_SYS_UN_H
+
+/* Define to 1 if you have the <sys/utime.h> header file. */
+#undef HAVE_SYS_UTIME_H
+
+/* Define to 1 if you have the <sys/wait.h> header file. */
+#undef HAVE_SYS_WAIT_H
+
+/* Define to 1 if you have the `task_info' function. */
+#undef HAVE_TASK_INFO
+
+/* Define to 1 if you have the <termios.h> header file. */
+#undef HAVE_TERMIOS_H
+
+/* Define to 1 if you have the `times' function. */
+#undef HAVE_TIMES
+
+/* Define to 1 if your `struct tm' has `tm_zone'. Deprecated, use
+   `HAVE_STRUCT_TM_TM_ZONE' instead. */
+#undef HAVE_TM_ZONE
+
+/* Define to 1 if you don't have `tm_zone' but do have the external array
+   `tzname'. */
+#undef HAVE_TZNAME
+
+/* Define to 1 if the system has the type `uintptr_t'. */
+#undef HAVE_UINTPTR_T
+
+/* Define to 1 if you have the `uname' function. */
+#undef HAVE_UNAME
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* uuid */
+#undef HAVE_UUID
+
+/* Define to 1 if you have the <uuid/uuid.h> header file. */
+#undef HAVE_UUID_UUID_H
+
+/* Define if you have valgrind installed and want to use it */
+#undef HAVE_VALGRIND
+
+/* Define to 1 if you have the <winsock.h> header file. */
+#undef HAVE_WINSOCK_H
+
+/* Define to 1 if the system has the type `_Bool'. */
+#undef HAVE__BOOL
+
+/* Define to 1 if you have the `_NSGetExecutablePath' function. */
+#undef HAVE__NSGETEXECUTABLEPATH
+
+/* Define if you have _sys_siglist */
+#undef HAVE__SYS_SIGLIST
+
+/* Define if you have the `__builtin_{add,sub,mul}_overflow' functions. */
+#undef HAVE___BUILTIN_ADD_OVERFLOW
+
+/* Define to 1 if the system has the type `__int128'. */
+#undef HAVE___INT128
+
+/* Define to 1 if the system has the type `__int128_t'. */
+#undef HAVE___INT128_T
+
+/* Define to 1 if the system has the type `__uint128_t'. */
+#undef HAVE___UINT128_T
+
+/* Host identifier */
+${HOST}
+
+/* Define as const if the declaration of iconv() needs const. */
+#undef ICONV_CONST
+
+/* Define if using Intel compiler with incompatible system math.h */
+#undef INTEL_MATH_H_HACK
+
+/* Define as SQLLEN * or SQLPOINTER depending on the include file */
+#undef LENP_OR_POINTER_T
+
+/* location where libraries are installed */
+#undef LIBDIR
+
+/* modifiable single-machine data */
+#undef LOCALSTATEDIR
+
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
+#undef LT_OBJDIR
+
+/* The used password hash algorithm */
+${MONETDB5_PASSWDHASH}
+
+/* The used password hash algorithm */
+${MONETDB5_PASSWDHASH_TOKEN}
+
+/* Release name or "unreleased" */
+#undef MONETDB_RELEASE
+
+/* Define if NAN cannot be used as static initializer */
+#undef NAN_CANNOT_BE_USED_AS_INITIALIZER
+
+/* Define if you do not want assertions */
+#undef NDEBUG
+
+/* Name of package */
+#undef PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Path separator */
+#undef PATH_SEP
+
+/* Path separator */
+#undef PATH_SEP_STR
+
+/* The home of R */
+#undef RHOME
+
+/* The size of `char', as computed by sizeof. */
+#undef SIZEOF_CHAR
+
+/* The size of `int', as computed by sizeof. */
+#undef SIZEOF_INT
+
+/* The size of `long', as computed by sizeof. */
+#undef SIZEOF_LONG
+
+/* The size of `ptrdiff_t', as computed by sizeof. */
+#undef SIZEOF_PTRDIFF_T
+
+/* The size of `short', as computed by sizeof. */
+#undef SIZEOF_SHORT
+
+/* The size of `size_t', as computed by sizeof. */
+#undef SIZEOF_SIZE_T
+
+/* The size of `SQLWCHAR', as computed by sizeof. */
+#undef SIZEOF_SQLWCHAR
+
+/* The size of `ssize_t', as computed by sizeof. */
+#undef SIZEOF_SSIZE_T
+
+/* The size of `void *', as computed by sizeof. */
+#undef SIZEOF_VOID_P
+
+/* The size of `wchar_t', as computed by sizeof. */
+#undef SIZEOF_WCHAR_T
+
+/* The size of `__int128', as computed by sizeof. */
+#undef SIZEOF___INT128
+
+/* The size of `__int128_t', as computed by sizeof. */
+#undef SIZEOF___INT128_T
+
+/* type used for sockets */
+#undef SOCKET
+
+/* Shared Object extension */
+#undef SO_EXT
+
+/* Shared Object prefix */
+#undef SO_PREFIX
+
+/* Compiling for static code analysis */
+${STATIC_CODE_ANALYSIS}
+
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* Define to 1 if your <sys/time.h> declares `struct tm'. */
+#undef TM_IN_SYS_TIME
+
+/* Enable extensions on AIX 3, Interix.  */
+#ifndef _ALL_SOURCE
+# undef _ALL_SOURCE
+#endif
+/* Enable GNU extensions on systems that have them.  */
+#ifndef _GNU_SOURCE
+# undef _GNU_SOURCE
+#endif
+/* Enable threading extensions on Solaris.  */
+#ifndef _POSIX_PTHREAD_SEMANTICS
+# undef _POSIX_PTHREAD_SEMANTICS
+#endif
+/* Enable extensions on HP NonStop.  */
+#ifndef _TANDEM_SOURCE
+# undef _TANDEM_SOURCE
+#endif
+/* Enable general extensions on Solaris.  */
+#ifndef __EXTENSIONS__
+# undef __EXTENSIONS__
+#endif
+
+
+/* Version number of package */
+#undef VERSION
+
+/* Define on Microsoft Windows (also under Cygwin) */
+#undef WIN32
+
+/* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
+   significant byte first (like Motorola and SPARC, unlike Intel). */
+#if defined AC_APPLE_UNIVERSAL_BUILD
+# if defined __BIG_ENDIAN__
+#  define WORDS_BIGENDIAN 1
+# endif
+#else
+# ifndef WORDS_BIGENDIAN
+#  undef WORDS_BIGENDIAN
+# endif
+#endif
+
+/* Enable large inode numbers on Mac OS X 10.5.  */
+#ifndef _DARWIN_USE_64_BIT_INODE
+# define _DARWIN_USE_64_BIT_INODE 1
+#endif
+
+/* Number of bits in a file offset, on hosts where this is settable. */
+${_FILE_OFFSET_BITS}
+
+/* Define to 1 to make fseeko visible on some hosts (e.g. glibc 2.2). */
+${_LARGEFILE_SOURCE}
+
+/* Define for large files, on AIX-style hosts. */
+${_LARGE_FILES}
+
+/* Define to 1 if on MINIX. */
+#undef _MINIX
+
+/* Define to 2 if the system does not provide POSIX.1 features except with
+   this defined. */
+#undef _POSIX_1_SOURCE
+
+/* Define to 1 if you need to in order for `stat' and other things to work. */
+#undef _POSIX_SOURCE
+
+/* Define to 1 if type `char' is unsigned and you are not using gcc.  */
+#ifndef __CHAR_UNSIGNED__
+# undef __CHAR_UNSIGNED__
+#endif
+
+/* libxml2 enable threading compiler flag */
+#undef __MT__
+
+/* Does your compiler support the `__hidden' specifier? */
+#undef __hidden
+
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
+#undef inline
+#endif
+
+/* Define to `long int' if <sys/types.h> does not define. */
+#undef off_t
+
+/* Define to `int' if <sys/types.h> does not define. */
+#undef pid_t
+
+/* Define to the equivalent of the C99 'restrict' keyword, or to
+   nothing if this is not supported.  Do not define if restrict is
+   supported directly.  */
+#undef restrict
+/* Work around a bug in Sun C++: it does not support _Restrict or
+   __restrict__, even though the corresponding Sun C compiler ends up with
+   "#define restrict _Restrict" or "#define restrict __restrict__" in the
+   previous line.  Perhaps some future version of Sun C++ will work with
+   restrict; if so, hopefully it defines __RESTRICT like Sun C does.  */
+#if defined __SUNPRO_CC && !defined __RESTRICT
+# define _Restrict
+# define __restrict__
+#endif
+
+/* Define to `unsigned int' if <sys/types.h> does not define. */
+#undef size_t
+
+/* type used by connect */
+#undef socklen_t
+
+/* Define to `int' if <sys/types.h> does not define. */
+#undef ssize_t
+
+
+#ifdef INTEL_MATH_H_HACK
+/* see https://software.intel.com/en-us/forums/intel-c-compiler/topic/760979 */
+typedef enum {
+	_IEEE_ = -1,	/* According to IEEE 754/IEEE 854.  */
+	_SVID_,		/* According to System V, release 4.  */
+	_XOPEN_,	/* Nowadays also Unix98.  */
+	_POSIX_,
+	_ISOC_		/* Actually this is ISO C99.  */
+} _LIB_VERSION_TYPE;
+#endif
+
+#ifdef HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+
+#include <stdio.h>		/* NULL, printf etc. */
+
+#include <stdlib.h>
+#include <errno.h>
+#include <stdarg.h>		/* va_alist.. */
+#include <inttypes.h>
+#include <stdbool.h>
+#include <assert.h>
+
+#ifndef static_assert
+/* static_assert is a C11 feature, defined in assert.h which also exists
+ * in many other compilers we ignore it if the compiler doesn't support it */
+#define static_assert(expr, mesg)	((void) 0)
+#endif
+
+#ifndef HAVE_STPCPY
+static inline char *
+stpcpy(char *restrict dst, const char *restrict src)
+{
+	size_t i;
+	for (i = 0; src[i]; i++)
+		dst[i] = src[i];
+	dst[i] = 0;
+	return dst + i;
+}
+#endif
+
+#if defined(HAVE___INT128)
+typedef __int128 hge;
+typedef unsigned __int128 uhge;
+#define HAVE_HGE 1
+#define SIZEOF_HGE SIZEOF___INT128
+#elif defined(HAVE___INT128_T) && defined(HAVE___UINT128_T)
+typedef __int128_t hge;
+typedef __uint128_t uhge;
+#define HAVE_HGE 1
+#define SIZEOF_HGE SIZEOF___INT128_T
+#endif
+
+#ifndef HAVE_WINSOCK_H
+/* on Windows use closesocket, otherwise just close */
+#define closesocket close
+#endif
+
+#if !defined(WIN32) && !defined(_In_z_)
+/* see https://docs.microsoft.com/en-us/visualstudio/code-quality/using-sal-annotations-to-reduce-c-cpp-code-defects
+ * and Visual Studio include file <sal.h> */
+# define _In_z_
+# define _Printf_format_string_
+#endif
+
+#ifndef WIN32
+# define __declspec(x)
+#endif
+
+/* These are required to make MonetDB's source tree CRAN-compliant */
+#ifdef HAVE_EMBEDDED_R
+#include "tools/embedded/undef.h"
+#endif
+
+#define PROMPT1		"\001\001\n"	/* prompt: ready for new query */
+#define PROMPT2		"\001\002\n"	/* prompt: more data needed */
+#define PROMPT3		"\001\003\n"	/* prompt: get file content */
+
+#endif /* _SEEN_MONETDB_CONFIG_H */
+
