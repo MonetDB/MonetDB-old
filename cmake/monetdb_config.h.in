@@ -18,10 +18,10 @@
 #undef DIFF
 
 /* Directory separator */
-#undef DIR_SEP
+${DIR_SEP}
 
 /* Directory separator */
-#undef DIR_SEP_STR
+${DIR_SEP_STR}
 
 /* Define to nothing if C supports flexible array members, and to 1 if it does
    not. That way, with a declaration like `struct s { int n; double
@@ -175,7 +175,7 @@ ${HAVE_EMBEDDED}
 #undef HAVE_LIBATOMIC_OPS
 
 /* Define if you have the bz2 library */
-#undef HAVE_LIBBZ2
+${HAVE_LIBBZ2}
 
 /* Define to 1 if you have the <libgen.h> header file. */
 #undef HAVE_LIBGEN_H
@@ -184,7 +184,7 @@ ${HAVE_EMBEDDED}
 #undef HAVE_LIBINTL_H
 
 /* Define if you have the lz4 library */
-#undef HAVE_LIBLZ4
+${HAVE_LIBLZ4}
 
 /* Define if you have the lzma library */
 #undef HAVE_LIBLZMA
@@ -208,7 +208,7 @@ ${HAVE_EMBEDDED}
 #undef HAVE_LIBREADLINE
 
 /* Define if you have the snappy library */
-#undef HAVE_LIBSNAPPY
+${HAVE_LIBSNAPPY}
 
 /* Define if you have the xml library */
 #undef HAVE_LIBXML
@@ -565,10 +565,10 @@ ${MONETDB5_PASSWDHASH_TOKEN}
 #undef PACKAGE_VERSION
 
 /* Path separator */
-#undef PATH_SEP
+${PATH_SEP}
 
 /* Path separator */
-#undef PATH_SEP_STR
+${PATH_SEP_STR}
 
 /* The home of R */
 #undef RHOME
@@ -613,10 +613,10 @@ ${MONETDB5_PASSWDHASH_TOKEN}
 #undef SOCKET
 
 /* Shared Object extension */
-#undef SO_EXT
+${SO_EXT}
 
 /* Shared Object prefix */
-#undef SO_PREFIX
+${SO_PREFIX}
 
 /* Compiling for static code analysis */
 ${STATIC_CODE_ANALYSIS}
