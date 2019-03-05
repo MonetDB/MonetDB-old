@@ -151,10 +151,10 @@ ${HAVE_EMBEDDED}
 #undef HAVE_GETUID
 
 /* Define if you have the iconv() function and it works. */
-#undef HAVE_ICONV
+${HAVE_ICONV}
 
 /* Define to 1 if you have the <iconv.h> header file. */
-#undef HAVE_ICONV_H
+${HAVE_ICONV_H}
 
 /* Define to 1 if the system has the type `intptr_t'. */
 #undef HAVE_INTPTR_T
@@ -193,7 +193,7 @@ ${HAVE_LIBLZ4}
 #undef HAVE_LIBPCRE
 
 /* Define if you have the pthread library */
-#undef HAVE_LIBPTHREAD
+${HAVE_LIBPTHREAD}
 
 /* Define if we can link to python2 */
 #undef HAVE_LIBPY
@@ -205,7 +205,7 @@ ${HAVE_LIBLZ4}
 #undef HAVE_LIBR
 
 /* Define if you have the readline library */
-#undef HAVE_LIBREADLINE
+${HAVE_LIBREADLINE}
 
 /* Define if you have the snappy library */
 ${HAVE_LIBSNAPPY}
@@ -238,7 +238,7 @@ ${HAVE_LIBSNAPPY}
 ${HAVE_MAPI}
 
 /* Define to 1 if you have the `MD5_Update' function. */
-#undef HAVE_MD5_UPDATE
+${HAVE_MD5_UPDATE}
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
@@ -262,7 +262,7 @@ ${HAVE_MAPI}
 #undef HAVE_ODBCINST_H
 
 /* Define if you have the OpenSSL library */
-#undef HAVE_OPENSSL
+${HAVE_OPENSSL}
 
 /* Define to 1 if you have the `pipe2' function. */
 #undef HAVE_PIPE2
@@ -286,13 +286,13 @@ ${HAVE_MAPI}
 #undef HAVE_PROJ
 
 /* Define to 1 if you have the <pthread.h> header file. */
-#undef HAVE_PTHREAD_H
+${HAVE_PTHREAD_H}
 
 /* Define if you have the pthread_kill function */
-#undef HAVE_PTHREAD_KILL
+${HAVE_PTHREAD_KILL}
 
 /* Define if you have the pthread_sigmask function */
-#undef HAVE_PTHREAD_SIGMASK
+${HAVE_PTHREAD_SIGMASK}
 
 /* Define to 1 if the system has the type `ptrdiff_t'. */
 #undef HAVE_PTRDIFF_T
@@ -304,7 +304,7 @@ ${HAVE_MAPI}
 #undef HAVE_PWD_H
 
 /* Define to 1 if you have the `RIPEMD160_Update' function. */
-#undef HAVE_RIPEMD160_UPDATE
+${HAVE_RIPEMD160_UPDATE}
 
 /* Define if you have the samtools version 0.1.x (providing the bam library)
    */
@@ -323,10 +323,10 @@ ${HAVE_MAPI}
 #undef HAVE_SAMTOOLS_SAM_H
 
 /* Define to 1 if you have the <sched.h> header file. */
-#undef HAVE_SCHED_H
+${HAVE_SCHED_H}
 
 /* Define to 1 if you have the <semaphore.h> header file. */
-#undef HAVE_SEMAPHORE_H
+${HAVE_SEMAPHORE_H}
 
 /* Define if semtimedop exists */
 #undef HAVE_SEMTIMEDOP
@@ -338,19 +338,19 @@ ${HAVE_MAPI}
 #undef HAVE_SETSID
 
 /* Define to 1 if you have the `SHA1_Update' function. */
-#undef HAVE_SHA1_UPDATE
+${HAVE_SHA1_UPDATE}
 
 /* Define to 1 if you have the `SHA224_Update' function. */
-#undef HAVE_SHA224_UPDATE
+${HAVE_SHA224_UPDATE}
 
 /* Define to 1 if you have the `SHA256_Update' function. */
-#undef HAVE_SHA256_UPDATE
+${HAVE_SHA256_UPDATE}
 
 /* Define to 1 if you have the `SHA384_Update' function. */
-#undef HAVE_SHA384_UPDATE
+${HAVE_SHA384_UPDATE}
 
 /* Define to 1 if you have the `SHA512_Update' function. */
-#undef HAVE_SHA512_UPDATE
+${HAVE_SHA512_UPDATE}
 
 /* Define to 1 if you have the `shutdown' function. */
 #undef HAVE_SHUTDOWN
@@ -475,10 +475,10 @@ ${HAVE_MAPI}
 #undef HAVE_UNISTD_H
 
 /* uuid */
-#undef HAVE_UUID
+${HAVE_UUID}
 
 /* Define to 1 if you have the <uuid/uuid.h> header file. */
-#undef HAVE_UUID_UUID_H
+${HAVE_UUID_UUID_H}
 
 /* Define if you have valgrind installed and want to use it */
 #undef HAVE_VALGRIND

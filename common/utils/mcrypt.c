@@ -77,7 +77,7 @@ mcrypt_MD5Sum(const char *string, size_t len)
 	char *ret;
 
 	static_assert(MD5_DIGEST_LENGTH == 16, "MD5_DIGEST_LENGTH should be 16");
-	MD5_Init(&c);
+		MD5_Init(&c);
 	MD5_Update(&c, string, len);
 	MD5_Final(md, &c);
 
