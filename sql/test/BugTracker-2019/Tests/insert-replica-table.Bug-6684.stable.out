@@ -1,20 +1,20 @@
-stdout of test 'copy-into-from-stdin-empty-line.Bug-67999` in directory 'sql/test/BugTracker-2019` itself:
+stdout of test 'insert-replica-table.Bug-6684` in directory 'sql/test/BugTracker-2019` itself:
 
 
-# 16:08:07 >  
-# 16:08:07 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=31788" "--set" "mapi_usock=/var/tmp/mtest-30054/.s.monetdb.31788" "--set" "monet_prompt=" "--forcemito" "--dbpath=/ufs/sjoerd/@Monet-stable/var/MonetDB/mTests_sql_test_BugTracker-2019" "--set" "embedded_c=true"
-# 16:08:07 >  
+# 09:32:22 >  
+# 09:32:22 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=31160" "--set" "mapi_usock=/var/tmp/mtest-2676/.s.monetdb.31160" "--set" "monet_prompt=" "--forcemito" "--dbpath=/home/ferreira/repositories/MonetDB-Aug2018/BUILD/var/MonetDB/mTests_sql_test_BugTracker-2019" "--set" "embedded_c=true"
+# 09:32:22 >  
 
-# MonetDB 5 server v11.31.14 (hg id: 117117130c82+)
+# MonetDB 5 server v11.31.14
 # This is an unreleased version
 # Serving database 'mTests_sql_test_BugTracker-2019', using 8 threads
 # Compiled for x86_64-pc-linux-gnu/64bit with 128bit integers
-# Found 62.694 GiB available main-memory.
+# Found 15.528 GiB available main-memory.
 # Copyright (c) 1993 - July 2008 CWI.
 # Copyright (c) August 2008 - 2019 MonetDB B.V., all rights reserved
 # Visit https://www.monetdb.org/ for further information
-# Listening for connection requests on mapi:monetdb://methuselah.da.cwi.nl:31788/
-# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-30054/.s.monetdb.31788
+# Listening for connection requests on mapi:monetdb://localhost.localdomain:31160/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-2676/.s.monetdb.31160
 # MonetDB/GIS module loaded
 # SQL catalog created, loading sql scripts once
 # loading sql script: 09_like.sql
@@ -60,27 +60,14 @@ stdout of test 'copy-into-from-stdin-empty-line.Bug-67999` in directory 'sql/tes
 
 Ready.
 
-# 16:08:08 >  
-# 16:08:08 >  "mclient" "-lsql" "-ftest" "-tnone" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-30054" "--port=31788"
-# 16:08:08 >  
+# 09:32:22 >  
+# 09:32:22 >  "mclient" "-lsql" "-ftest" "-tnone" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-2676" "--port=31160"
+# 09:32:22 >  
 
-#start transaction;
-#create table foo (bar int, baz varchar(10));
-#copy into foo from stdin delimiters ',', '\n', '''';
-#5,'aa5aa'
-#0,'aa0aa'
-#
-[ 2	]
-#select * from foo;
-% sys.foo,	sys.foo # table_name
-% bar,	baz # name
-% int,	varchar # type
-% 1,	5 # length
-[ 5,	"aa5aa"	]
-[ 0,	"aa0aa"	]
-#rollback;
+#create replica table t1 (a int);
+#drop table t1;
 
-# 16:08:08 >  
-# 16:08:08 >  "Done."
-# 16:08:08 >  
+# 09:32:22 >  
+# 09:32:22 >  "Done."
+# 09:32:22 >  
 

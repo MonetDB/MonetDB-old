@@ -154,8 +154,6 @@ MCnewClient(void)
 #ifdef MAL_CLIENT_DEBUG
 	fprintf(stderr,"New client created %d\n", (int) (c - mal_clients));
 #endif
-	snprintf(c->name, sizeof(c->name), "client%d", (int) (c - mal_clients));
-	MT_thread_setname(c->name);
 	return c;
 }
 
@@ -267,7 +265,9 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 
 	c->filetrans = false;
 
-	MT_sema_init(&c->s, 0, "Client->s");
+	char name[16];
+	snprintf(name, sizeof(name), "Client%d->s", (int) (c - mal_clients));
+	MT_sema_init(&c->s, 0, name);
 	return c;
 }
 

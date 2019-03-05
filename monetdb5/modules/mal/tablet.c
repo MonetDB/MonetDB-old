@@ -36,6 +36,7 @@
  */
 
 #include "monetdb_config.h"
+#include "streams.h"
 #include "tablet.h"
 #include "algebra.h"
 
@@ -1723,8 +1724,11 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, const char *csep
 #ifdef MLOCK_TST
 		mlock(ptask[j].cols, sizeof(char *) * task.limit);
 #endif
-		MT_sema_init(&ptask[j].sema, 0, "ptask[j].sema");
-		MT_sema_init(&ptask[j].reply, 0, "ptask[j].reply");
+		char name[16];
+		snprintf(name, sizeof(name), "ptask%d.sema", j);
+		MT_sema_init(&ptask[j].sema, 0, name);
+		snprintf(name, sizeof(name), "ptask%d.repl", j);
+		MT_sema_init(&ptask[j].reply, 0, name);
 		if ((ptask[j].tid = THRcreate(SQLworker, (void *) &ptask[j], MT_THR_JOINABLE, "SQLworker")) == 0) {
 			tablet_error(&task, lng_nil, int_nil, SQLSTATE(42000) "failed to start worker thread", "SQLload_file");
 			threads = j;
@@ -2065,4 +2069,14 @@ COPYrejects_clear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
-#undef _DEBUG_TABLET_
+void
+initTablet(void)
+{
+#ifdef NEED_MT_LOCK_INIT
+	static bool initialized = false;
+	if (!initialized) {
+		MT_lock_init(&errorlock, "errorlock");
+		initialized = true;
+	}
+#endif
+}
