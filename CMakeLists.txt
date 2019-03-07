@@ -6,13 +6,14 @@ project(MonetDB C)
 
 set(C_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 99)
-set(CMAKE_TRY_COMPILE_TARGET_TYPE EXECUTABLE)
 
 find_package(PkgConfig REQUIRED)
 find_package(BISON)
 
-set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(GNUInstallDirs REQUIRED)
+include(CheckCSourceCompiles REQUIRED)
+include(CheckCSourceRuns REQUIRED)
 include(CheckIncludeFile REQUIRED)
 include(CheckIncludeFiles REQUIRED)
 include(CheckSymbolExists REQUIRED)
@@ -56,7 +57,7 @@ string(SUBSTRING ${STREAM_VERSION} 15 STREAM_VERSION_LENGTH STREAM_VERSION)
 
 # Intel compiler hack
 if("${CMAKE_C_COMPILER_ID}" STREQUAL "Intel")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -no-gcc")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -no-gcc")
 endif()
 
 # Set default build options
@@ -185,7 +186,21 @@ endif()
 set(X_CFLAGS "${CMAKE_C_FLAGS}")
 
 function(checkCompilerFlag Flag)
-	try_compile(COMPILE_SUCCEEDED "${CMAKE_BINARY_DIR}/temp" "${CMAKE_SOURCE_DIR}/cmake/flag_test.c" CMAKE_FLAGS "${CMAKE_C_FLAGS} ${Flag}")
+	set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${Flag}")
+	check_c_source_compiles("
+		#include <stdio.h>
+		#include <stdlib.h>
+		#include <string.h>
+
+		int main(int argc, char **av) {
+			char buf[24];
+			double d = atof(\"4.2\");
+			if (argc == 0 || strchr(av[0], av[0][0]) != NULL)
+				snprintf(buf, sizeof(buf), \"%f\", d);
+			return 0;
+		}
+	" COMPILE_SUCCEEDED)
+	set(CMAKE_REQUIRED_FLAGS "${PREV_CMAKE_REQUIRED_FLAGS}")
 	if(COMPILE_SUCCEEDED)
 		message(STATUS "Test for ${Flag} succeeded")
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${Flag}" PARENT_SCOPE)
@@ -292,7 +307,21 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Intel") # see https://software.intel.com/en-us
 	endif()
 endif()
 
-try_compile(COMPILE_SUCCEEDED "${CMAKE_BINARY_DIR}/temp" "${CMAKE_SOURCE_DIR}/cmake/flag_test.c" CMAKE_FLAGS "${CMAKE_C_FLAGS} -Wl,-Bsymbolic-functions")
+set(CMAKE_REQUIRED_LINK_OPTIONS "${CMAKE_REQUIRED_LINK_OPTIONS} -Wl,-Bsymbolic-functions")
+check_c_source_compiles("
+	#include <stdio.h>
+	#include <stdlib.h>
+	#include <string.h>
+
+	int main(int argc, char **av) {
+		char buf[24];
+		double d = atof(\"4.2\");
+		if (argc == 0 || strchr(av[0], av[0][0]) != NULL)
+			snprintf(buf, sizeof(buf), \"%f\", d);
+		return 0;
+	}
+" COMPILE_SUCCEEDED)
+set(CMAKE_REQUIRED_LINK_OPTIONS "${PREV_CMAKE_REQUIRED_LINK_OPTIONS}")
 if(COMPILE_SUCCEEDED)
 	message(STATUS "Test for -Bsymbolic-functions option succeeded")
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${Flag}")
@@ -572,6 +601,7 @@ defineCmacro("SO_PREFIX"    "SO_PREFIX \"${OS_SOPREF}\"")
 set(PREV_CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES}")
 set(PREV_CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES}")
 set(PREV_CMAKE_REQUIRED_LINK_OPTIONS "${CMAKE_REQUIRED_LINK_OPTIONS}")
+set(PREV_CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
 
 set(WITH_BZ2 "AUTO" CACHE STRING "Include bz2 support (default=auto)")
 if(NOT ${WITH_BZ2} STREQUAL "NO")
@@ -752,14 +782,25 @@ if(NOT ${WITH_READLINE} STREQUAL "NO")
 	elseif(${WITH_READLINE} STREQUAL "YES")
 		message(FATAL_ERROR "Readline library not found")
 	else()
-		message(WARN " Readline library not found2")
+		message(WARN " Readline library not found")
 	endif()
 
 	if(HAVE_READLINE_LIB)
 		check_symbol_exists("rl_completion_matches" "stdio.h;readline/readline.h" HAVE_READLINE_LIB)
 		if(HAVE_READLINE_LIB)
 			message(STATUS "Checking whether rl_completion_func_t exists")
-			try_compile(HAVE_READLINE_LIB "${CMAKE_BINARY_DIR}/temp" "${CMAKE_SOURCE_DIR}/cmake/readline_test.c" CMAKE_FLAGS "${CMAKE_C_FLAGS} ${CUSTOM_READLINE_INCS} ${CUSTOM_READLINE_LIBS}" LINK_LIBRARIES "${READLINE_LIBS}")
+			check_c_source_compiles("
+				#include <stdio.h>
+				#include <readline/readline.h>
+
+				int main(int argc, char **argv) {
+					rl_completion_func_t *func = NULL;
+					(void) argc;
+					(void) argv;
+					(void) func;
+					return 0;
+				}
+			" HAVE_READLINE_LIB)
 			if(NOT HAVE_READLINE_LIB)
 				if(${WITH_READLINE} STREQUAL "YES")
 					message(FATAL_ERROR "readline/readline.h does not contain rl_completion_func_t, is it GNU readline?")
@@ -807,7 +848,7 @@ endif()
 # OpenSSL or CommonCrypto library
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
 	defineCmacro("HAVE_COMMONCRYPTO" "HAVE_COMMONCRYPTO 1")
-	set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};crypto") # TODO is it right?
+	set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};crypto") # TODO test this
 
 	check_symbol_exists("CC_MD5_Update" "CommonCrypto/CommonDigest.h" HAVE_CC_MD5_Update_FUNC)
 	if(HAVE_CC_MD5_Update_FUNC)
@@ -844,8 +885,8 @@ else()
 
 		if(OPENSSL_FOUND)
 			message(STATUS "openssl library found")
-			defineCmacro("HAVE_OPENSSL" "HAVE_OPENSSL 1")
 			set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};ssl;crypto")
+
 			check_symbol_exists("MD5_Update" "openssl/md5.h" HAVE_MD5_Update_FUNC)
 			if(HAVE_MD5_Update_FUNC)
 				defineCmacro("HAVE_MD5_UPDATE" "HAVE_MD5_UPDATE 1")
@@ -874,17 +915,181 @@ else()
 			if(HAVE_SHA512_Update_FUNC)
 				defineCmacro("SHA512_Update" "SHA512_Update 1")
 			endif()
+
+			if(NOT HAVE_${PASSWORD_BACKEND}_Update_FUNC)
+				if(${ENABLE_MONETDB5} STREQUAL "YES")
+					message(FATAL_ERROR "OpenSSL library found but checksum algorithm required for MonetDB5 not found")
+				else()
+					set(ENABLE_MONETDB5 "NO")
+					message(WARN " OpenSSL library found but required checksum algorithm not found, so disabling")
+				endif()
+			else()
+				defineCmacro("HAVE_OPENSSL" "HAVE_OPENSSL 1")
+			endif()
 		else()
 			if(${ENABLE_MONETDB5} STREQUAL "YES")
 				message(FATAL_ERROR "OpenSSL library not found but required for MonetDB5")
 			else()
+				set(ENABLE_MONETDB5 "NO")
 				message(WARN " OpenSSL library not found but required for MonetDB5")
 			endif()
 		endif()
 	endif()
 endif()
-
 set(CMAKE_REQUIRED_LIBRARIES "${PREV_CMAKE_REQUIRED_LIBRARIES}")
+
+# Regex library
+set(WITH_REGEX "PCRE" CACHE STRING "Use either PCRE or POSIX regular expressions (default=PCRE if available)")
+if(NOT ${WITH_REGEX} MATCHES "^AUTO|PCRE|POSIX$")
+	message(FATAL_ERROR "WITH_REGEX argument must be either AUTO, PCRE or POSIX")
+endif()
+
+if(NOT ${WITH_REGEX} STREQUAL "POSIX")
+	set(PCRE_REQUIRED_VERSION "4.5")
+	pkg_search_module(PCRE NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH libpcre>=${PCRE_REQUIRED_VERSION})
+
+	if(PCRE_FOUND)
+		message(STATUS "PCRE library found")
+		message(STATUS "Checking for UTF-8 support on PCRE library")
+		set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};pcre")
+		check_c_source_runs("
+			#include <pcre.h>
+
+			int main(int argc, char **argv) {
+				int rc;
+				(void) argc;
+				(void) argv;
+				if (pcre_config(PCRE_CONFIG_UTF8, &rc) != 0)
+					return 1;
+				exit(!rc);
+				return 0;
+			}
+		" PCRE_HAS_UTF8)
+		set(CMAKE_REQUIRED_LIBRARIES "${PREV_CMAKE_REQUIRED_LIBRARIES}")
+		if(PCRE_HAS_UTF8)
+			defineCmacro("HAVE_LIBPCRE" "HAVE_LIBPCRE 1")
+		elseif(${WITH_REGEX} STREQUAL "PCRE")
+			message(FATAL_ERROR "PCRE library found but no UTF-8 support")
+		else()
+			message(ERROR " PCRE library found but no UTF-8 support")
+		endif()
+	else()
+		if(PCRE_FOUND AND PCRE_VERSION VERSION_LESS_EQUAL ${PCRE_REQUIRED_VERSION})
+			set(PCRE_ERROR_MESSAGE " PCRE library found, but the version is too old ${PCRE_VERSION} < ${PCRE_REQUIRED_VERSION}")
+		else()
+			set(PCRE_ERROR_MESSAGE " PCRE library not found or not usable")
+		endif()
+
+		if(${WITH_REGEX} STREQUAL "PCRE")
+			message(FATAL_ERROR "${PCRE_ERROR_MESSAGE}")
+		else()
+			message(WARN "${PCRE_ERROR_MESSAGE}")
+		endif()
+	endif()
+endif()
+
+if(NOT PCRE_HAS_UTF8)
+	message(STATUS "Checking for GNU regex library")
+	check_c_source_runs("
+		#include <regex.h>
+
+		int main(int argc, char **argv) {
+			regex_t re;
+			(void) argc;
+			(void) argv;
+			return regcomp(&re, \"hello\", REG_EXTENDED|REG_NOSUB) ? 1 : 0;
+		}
+	" HAS_POSIX_REGEX)
+endif()
+
+if(NOT PCRE_HAS_UTF8 AND NOT HAS_POSIX_REGEX)
+	if(${ENABLE_MONETDB5} STREQUAL "YES")
+		message(FATAL_ERROR "PCRE library or GNU regex library not found but required for MonetDB5")
+	else()
+		set(ENABLE_MONETDB5 "NO")
+		message(WARN " PCRE library or GNU regex library not found but required for MonetDB5")
+	endif()
+endif()
+
+set(WITH_LIBXML2 "AUTO" CACHE STRING "Include libxml2 support (default=auto)")
+if(NOT ${WITH_LIBXML2} STREQUAL "NO")
+	pkg_search_module(LIBXML2 NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH libxml-2.0)
+
+	if(LIBXML2_FOUND)
+		message(STATUS "libxml2 library found")
+		defineCmacro("HAVE_LIBXML" "HAVE_LIBXML 1")
+	else()
+		if(${WITH_LIBXML2} STREQUAL "YES")
+			message(FATAL_ERROR "libxml2 library not found")
+		else()
+			message(ERROR " libxml2 library not found")
+		endif()
+	endif()
+endif()
+
+set(WITH_CURL "AUTO" CACHE STRING "Include cURL support (default=auto)")
+if(NOT ${WITH_CURL} STREQUAL "NO")
+	pkg_search_module(CURL NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH libcurl)
+
+	if(CURL_FOUND)
+		message(STATUS "libcurl library found")
+		defineCmacro("HAVE_CURL" "HAVE_CURL 1")
+	else()
+		if(${WITH_CURL} STREQUAL "YES")
+			message(FATAL_ERROR "libcurl library not found")
+		else()
+			message(ERROR " libcurl library not found")
+		endif()
+	endif()
+endif()
+
+set(WITH_ZLIB "AUTO" CACHE STRING "Include zlib support (default=auto)")
+if(NOT ${WITH_ZLIB} STREQUAL "NO")
+	pkg_search_module(ZLIB NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH zlib)
+
+	if(ZLIB_FOUND)
+		message(STATUS "zlib library found")
+		defineCmacro("HAVE_LIBZ" "HAVE_LIBZ 1")
+	else()
+		if(${WITH_CURL} STREQUAL "YES")
+			message(FATAL_ERROR "zlib library not found")
+		else()
+			message(ERROR " zlib library not found")
+		endif()
+	endif()
+endif()
+
+set(WITH_LIBLZMA "AUTO" CACHE STRING "Include liblzma support (default=auto)")
+if(NOT ${WITH_LIBLZMA} STREQUAL "NO")
+	pkg_search_module(LIBLZMA NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH liblzma)
+
+	if(LIBLZMA_FOUND)
+		message(STATUS "liblzma library found")
+		defineCmacro("HAVE_LIBLZMA" "HAVE_LIBLZMA 1")
+	else()
+		if(${WITH_LIBLZMA} STREQUAL "YES")
+			message(FATAL_ERROR "liblzma library not found")
+		else()
+			message(ERROR " liblzma library not found")
+		endif()
+	endif()
+endif()
+
+set(WITH_VALGRIND "NO" CACHE STRING "Include valgrind support (default=no)")
+if(NOT ${WITH_VALGRIND} STREQUAL "NO")
+	pkg_search_module(VALGRIND NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH valgrind)
+
+	if(VALGRIND_FOUND)
+		message(STATUS "valgrind library found")
+		defineCmacro("HAVE_VALGRIND" "HAVE_VALGRIND 1")
+	else()
+		if(${WITH_VALGRIND} STREQUAL "YES")
+			message(FATAL_ERROR "valgrind library not found")
+		else()
+			message(ERROR " valgrind library not found")
+		endif()
+	endif()
+endif()
 
 CHECK_TYPE_SIZE(int SIZEOF_INT BUILTIN_TYPES_ONLY LANGUAGE C)
 CHECK_TYPE_SIZE(short SIZEOF_SHORT BUILTIN_TYPES_ONLY LANGUAGE C)

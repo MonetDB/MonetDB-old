@@ -78,7 +78,7 @@ ${HAVE_CONSOLE}
 #undef HAVE_CTIME_R3
 
 /* Define if you have the cURL library */
-#undef HAVE_CURL
+${HAVE_CURL}
 
 /* Define to 1 if you have the declaration of `tzname', and to 0 if you don't.
    */
@@ -187,10 +187,10 @@ ${HAVE_LIBBZ2}
 ${HAVE_LIBLZ4}
 
 /* Define if you have the lzma library */
-#undef HAVE_LIBLZMA
+${HAVE_LIBLZMA}
 
 /* Define if you have the pcre library */
-#undef HAVE_LIBPCRE
+${HAVE_LIBPCRE}
 
 /* Define if you have the pthread library */
 ${HAVE_LIBPTHREAD}
@@ -211,10 +211,10 @@ ${HAVE_LIBREADLINE}
 ${HAVE_LIBSNAPPY}
 
 /* Define if you have the xml library */
-#undef HAVE_LIBXML
+${HAVE_LIBXML}
 
 /* Define if you have the z library */
-#undef HAVE_LIBZ
+${HAVE_LIBZ}
 
 /* Define to 1 if you have the `localtime_r' function. */
 #undef HAVE_LOCALTIME_R
@@ -481,7 +481,7 @@ ${HAVE_UUID}
 ${HAVE_UUID_UUID_H}
 
 /* Define if you have valgrind installed and want to use it */
-#undef HAVE_VALGRIND
+${HAVE_VALGRIND}
 
 /* Define to 1 if you have the <winsock.h> header file. */
 #undef HAVE_WINSOCK_H
