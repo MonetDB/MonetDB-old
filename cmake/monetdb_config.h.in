@@ -66,7 +66,7 @@ ${HAVE_BAM_SAM_H}
 #undef HAVE_CLOCK_GETTIME
 
 /* Define if you have the CommonCrypto library */
-#undef HAVE_COMMONCRYPTO
+${HAVE_COMMONCRYPTO}
 
 /* If the console should be used */
 ${HAVE_CONSOLE}
@@ -112,7 +112,7 @@ ${HAVE_EMBEDDED}
 #undef HAVE_FDATASYNC
 
 /* Define if the fits module is to be enabled */
-#undef HAVE_FITS
+${HAVE_FITS}
 
 /* Define if fork exists */
 ${HAVE_FORK}
@@ -247,7 +247,7 @@ ${HAVE_MD5_UPDATE}
 #undef HAVE_MREMAP
 
 /* Define if the netcdf module is to be enabled */
-#undef HAVE_NETCDF
+${HAVE_NETCDF}
 
 /* Define to 1 if you have the <netdb.h> header file. */
 #undef HAVE_NETDB_H
@@ -571,7 +571,7 @@ ${PATH_SEP}
 ${PATH_SEP_STR}
 
 /* The home of R */
-#undef RHOME
+${RHOME}
 
 /* The size of `char', as computed by sizeof. */
 #undef SIZEOF_CHAR
