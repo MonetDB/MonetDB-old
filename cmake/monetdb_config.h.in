@@ -48,16 +48,16 @@ ${DIR_SEP_STR}
 #undef HAVE_BACKTRACE
 
 /* Define to 1 if you have the <bam/bam.h> header file. */
-#undef HAVE_BAM_BAM_H
+${HAVE_BAM_BAM_H}
 
 /* Define to 1 if you have the <bam/bgzf.h> header file. */
-#undef HAVE_BAM_BGZF_H
+${HAVE_BAM_BGZF_H}
 
 /* Define to 1 if you have the <bam/kstring.h> header file. */
-#undef HAVE_BAM_KSTRING_H
+${HAVE_BAM_KSTRING_H}
 
 /* Define to 1 if you have the <bam/sam.h> header file. */
-#undef HAVE_BAM_SAM_H
+${HAVE_BAM_SAM_H}
 
 /* Define to 1 if you have the `cbrt' function. */
 #undef HAVE_CBRT
@@ -115,7 +115,7 @@ ${HAVE_EMBEDDED}
 #undef HAVE_FITS
 
 /* Define if fork exists */
-#undef HAVE_FORK
+${HAVE_FORK}
 
 /* Define to 1 if fseeko (and presumably ftello) exists and is declared. */
 #undef HAVE_FSEEKO
@@ -196,13 +196,13 @@ ${HAVE_LIBPCRE}
 ${HAVE_LIBPTHREAD}
 
 /* Define if we can link to python2 */
-#undef HAVE_LIBPY
+${HAVE_LIBPY}
 
 /* Define if we can link to python3 */
-#undef HAVE_LIBPY3
+${HAVE_LIBPY3}
 
 /* Define if you have libR installed */
-#undef HAVE_LIBR
+${HAVE_LIBR}
 
 /* Define if you have the readline library */
 ${HAVE_LIBREADLINE}
@@ -259,7 +259,7 @@ ${HAVE_MD5_UPDATE}
 #undef HAVE_NL_LANGINFO
 
 /* Define to 1 if you have the <odbcinst.h> header file. */
-#undef HAVE_ODBCINST_H
+${HAVE_ODBCINST_H}
 
 /* Define if you have the OpenSSL library */
 ${HAVE_OPENSSL}
@@ -283,7 +283,7 @@ ${HAVE_OPENSSL}
 #undef HAVE_PROCFS_H
 
 /* Define if the proj library exists */
-#undef HAVE_PROJ
+${HAVE_PROJ}
 
 /* Define to 1 if you have the <pthread.h> header file. */
 ${HAVE_PTHREAD_H}
@@ -308,19 +308,19 @@ ${HAVE_RIPEMD160_UPDATE}
 
 /* Define if you have the samtools version 0.1.x (providing the bam library)
    */
-#undef HAVE_SAMTOOLS
+${HAVE_SAMTOOLS}
 
 /* Define to 1 if you have the <samtools/bam.h> header file. */
-#undef HAVE_SAMTOOLS_BAM_H
+${HAVE_SAMTOOLS_BAM_H}
 
 /* Define to 1 if you have the <samtools/bgzf.h> header file. */
-#undef HAVE_SAMTOOLS_BGZF_H
+${HAVE_SAMTOOLS_BGZF_H}
 
 /* Define to 1 if you have the <samtools/kstring.h> header file. */
-#undef HAVE_SAMTOOLS_KSTRING_H
+${HAVE_SAMTOOLS_KSTRING_H}
 
 /* Define to 1 if you have the <samtools/sam.h> header file. */
-#undef HAVE_SAMTOOLS_SAM_H
+${HAVE_SAMTOOLS_SAM_H}
 
 /* Define to 1 if you have the <sched.h> header file. */
 ${HAVE_SCHED_H}
@@ -329,7 +329,7 @@ ${HAVE_SCHED_H}
 ${HAVE_SEMAPHORE_H}
 
 /* Define if semtimedop exists */
-#undef HAVE_SEMTIMEDOP
+${HAVE_SEMTIMEDOP}
 
 /* Define to 1 if you have the `setenv' function. */
 #undef HAVE_SETENV
@@ -362,7 +362,7 @@ ${HAVE_SHA512_UPDATE}
 #undef HAVE_SOCKLEN_T
 
 /* Define if you have the SQLGetPrivateProfileString function */
-#undef HAVE_SQLGETPRIVATEPROFILESTRING
+${HAVE_SQLGETPRIVATEPROFILESTRING}
 
 /* Define to 1 if stdbool.h conforms to C99. */
 #undef HAVE_STDBOOL_H
@@ -592,7 +592,7 @@ ${PATH_SEP_STR}
 #undef SIZEOF_SIZE_T
 
 /* The size of `SQLWCHAR', as computed by sizeof. */
-#undef SIZEOF_SQLWCHAR
+${SIZEOF_SQLWCHAR}
 
 /* The size of `ssize_t', as computed by sizeof. */
 #undef SIZEOF_SSIZE_T
