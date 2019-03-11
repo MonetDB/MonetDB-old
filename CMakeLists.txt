@@ -1661,7 +1661,7 @@ check_type_size(SOCKET SIZEOF_SOCKET LANGUAGE C)
 if(NOT HAVE_SIZEOF_SOCKET OR "${SIZEOF_SOCKET}" STREQUAL "0")
 	set(SOCKET int)
 endif()
-set(CMAKE_EXTRA_INCLUDE_FILES "${PREV_CMAKE_EXTRA_INCLUDE_FILES}")
+check_type_size(socklen_t SIZEOF_SOCKETLEN_T LANGUAGE C)
 if(HAVE_SIZEOF_SOCKETLEN_T AND NOT "${SIZEOF_SOCKETLEN_T}" STREQUAL "0")
 	set(HAVE_SOCKLEN_T ON)
 else()
@@ -1672,12 +1672,14 @@ set(CMAKE_EXTRA_INCLUDE_FILES "${PREV_CMAKE_EXTRA_INCLUDE_FILES}")
 check_type_size(size_t SIZEOF_SIZE_T LANGUAGE C)
 if(HAVE_SIZEOF_SIZE_T AND NOT "${SIZEOF_SIZE_T}" STREQUAL "0")
 	set(SIZEOF_SIZE_T ${SIZEOF_SIZE_T})
-	set(size_t ON)
+else()
+	set(size_t "unsigned int")
 endif()
 check_type_size(ssize_t SIZEOF_SSIZE_T LANGUAGE C)
 if(HAVE_SIZEOF_SSIZE_T AND NOT "${SIZEOF_SSIZE_T}" STREQUAL "0")
 	set(SIZEOF_SSIZE_T ${SIZEOF_SSIZE_T})
-	set(ssize_t ON)
+else()
+	set(ssize_t "int")
 endif()
 
 check_type_size(pid_t SIZEOF_PID_T LANGUAGE C)
@@ -1751,7 +1753,7 @@ endif()
 set(FLEXIBLE_ARRAY_MEMBER ON) # We compile according to C99 standard onwards
 
 # https://github.com/Unidata/netcdf-c/commit/b432a527c4a38af45498691a44c5a88961b9c751
-message(STATUS "Check if char type is unsigned or not")
+message(STATUS "Test if char type is unsigned or not")
 check_c_source_compiles("
     #include <stdlib.h>
 
@@ -1767,7 +1769,7 @@ if(__CHAR_UNSIGNED__)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D__CHAR_UNSIGNED__")
 endif()
 
-message(STATUS "Check if __hidden macro is supported")
+message(STATUS "Test if __hidden macro is supported")
 check_c_source_compiles("
     #include <stdlib.h>
 
@@ -1784,7 +1786,7 @@ if(NOT HAVE_HIDDEN)
 	set(__hidden ON)
 endif()
 
-message(STATUS "If your compiler can use NAN as an initializer")
+message(STATUS "Test if compiler can use NAN as an initializer")
 check_c_source_compiles("
     #include <math.h>
 
@@ -1855,9 +1857,21 @@ check_c_source_compiles("
         (void) argc;(void) argv;
         __int128 a=(__int128)atoll(getenv(\"a\"))<<64, b=(__int128)atoll(getenv(\"b\"))<<64, c;
         if (!__builtin_mul_overflow(a, b, &c))
-            printf(\"%lld %lld\\n\",(long long)(c>>64), (long long)c);
+            printf(\"%lld %lld\",(long long)(c>>64), (long long)c);
         return 0;
     }" HAVE___BUILTIN_ADD_OVERFLOW)
+
+if(HAVE_ASCTIME_R)
+	message(STATUS "Test if asctime_R3 takes 3 arguments")
+	check_c_source_compiles("
+        #include <time.h>
+
+        int main(int argc, char **argv) {
+            (void) argc;(void) argv;
+            char buf[26]; struct tm t; asctime_r(&t,buf,26);(void) t; (void) buf;
+            return 0;
+        }" HAVE_ASCTIME_R3)
+endif()
 
 # leave for last
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_REENTRANT")
