@@ -6,11 +6,12 @@ project(MonetDB C)
 
 set(C_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 99)
+set(PACKAGE "MonetDB" CACHE STRING "")
 
 find_package(PkgConfig REQUIRED)
 find_package(BISON)
 
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" CACHE INTERNAL "Location of custom CMake modules.")
 include(GNUInstallDirs REQUIRED)
 include(CheckCSourceCompiles REQUIRED)
 include(CheckCSourceRuns REQUIRED)
@@ -20,6 +21,7 @@ include(CheckSymbolExists REQUIRED)
 include(CheckTypeSize REQUIRED)
 include(FindIconv REQUIRED)
 include(TestLargeFiles REQUIRED)
+include(CheckCCompilerFlag REQUIRED)
 
 cmake_policy(SET CMP0075 NEW)
 
@@ -173,21 +175,7 @@ endif()
 set(X_CFLAGS "${CMAKE_C_FLAGS}")
 
 function(checkCompilerFlag Flag)
-	set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${Flag}")
-	check_c_source_compiles("
-		#include <stdio.h>
-		#include <stdlib.h>
-		#include <string.h>
-
-		int main(int argc, char **av) {
-			char buf[24];
-			double d = atof(\"4.2\");
-			if (argc == 0 || strchr(av[0], av[0][0]) != NULL)
-				snprintf(buf, sizeof(buf), \"%f\", d);
-			return 0;
-		}
-	" COMPILE_SUCCEEDED)
-	set(CMAKE_REQUIRED_FLAGS "${PREV_CMAKE_REQUIRED_FLAGS}")
+	check_c_compiler_flag("${Flag}" COMPILE_SUCCEEDED)
 	if(COMPILE_SUCCEEDED)
 		message(STATUS "Test for ${Flag} succeeded")
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${Flag}" PARENT_SCOPE)
@@ -307,9 +295,9 @@ check_c_source_compiles("
 			snprintf(buf, sizeof(buf), \"%f\", d);
 		return 0;
 	}
-" COMPILE_SUCCEEDED)
+" HAVE_WL_BSYMBOLIC_FUNCTIONS)
 set(CMAKE_REQUIRED_LINK_OPTIONS "${PREV_CMAKE_REQUIRED_LINK_OPTIONS}")
-if(COMPILE_SUCCEEDED)
+if(HAVE_WL_BSYMBOLIC_FUNCTIONS)
 	message(STATUS "Test for -Bsymbolic-functions option succeeded")
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${Flag}")
 	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${Flag}")
@@ -1253,9 +1241,9 @@ if(NOT ${ENABLE_ODBC} STREQUAL "NO")
 		endif()
 
 		set(CMAKE_EXTRA_INCLUDE_FILES "${CMAKE_EXTRA_INCLUDE_FILES};sql.h")
-		check_type_size(SQLWCHAR SIZEOF_SQLWCHAR BUILTIN_TYPES_ONLY LANGUAGE C)
+		check_type_size(SQLWCHAR SIZEOF_SQLWCHAR LANGUAGE C)
 		set(CMAKE_EXTRA_INCLUDE_FILES "${PREV_CMAKE_EXTRA_INCLUDE_FILES}")
-		if(NOT HAVE_SIZEOF_SQLWCHAR OR ${SIZEOF_SQLWCHAR} STREQUAL "")
+		if(NOT HAVE_SIZEOF_SQLWCHAR OR ${SIZEOF_SQLWCHAR} STREQUAL "0")
 			if(${WITH_UNIXODBC} STREQUAL "YES")
 				message(FATAL_ERROR "could not determine the size of SQLWCHAR")
 			else()
@@ -1524,7 +1512,7 @@ if(NOT HAVE_LIBLAS_LIB)
 	endif()
 endif()
 
-set(WITH_ATOMIC_OPS "AUTO" CACHE STRING "Use atomic_ops library (default=auto)") # Check with HAVE_ATOMIC_OPS
+set(WITH_ATOMIC_OPS "AUTO" CACHE STRING "Use atomic_ops library (default=auto)") # Check with HAVE_ATOMIC_OPS_H
 if(NOT ${WITH_ATOMIC_OPS} STREQUAL "NO")
 	pkg_search_module(ATOMIC_OPS NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH atomic_ops)
 
@@ -1532,8 +1520,8 @@ if(NOT ${WITH_ATOMIC_OPS} STREQUAL "NO")
 		if("${CMAKE_C_COMPILER_ID}" STREQUAL "Intel")
 			message(ERROR " atomic_ops does not compile with Intel's icc")
 		else()
-			check_include_file("atomic_ops.h" HAVE_ATOMIC_OPS)
-			if(NOT HAVE_ATOMIC_OPS)
+			check_include_file("atomic_ops.h" HAVE_ATOMIC_OPS_H)
+			if(NOT HAVE_ATOMIC_OPS_H)
 				if(${WITH_ATOMIC_OPS} STREQUAL "YES")
 					message(FATAL_ERROR "atomic_ops was incorrectly installed (happens on at least Solaris/OpenIndiana)")
 				else()
@@ -1546,6 +1534,7 @@ if(NOT ${WITH_ATOMIC_OPS} STREQUAL "NO")
 	endif()
 endif()
 
+# Header files
 check_include_file("dirent.h" HAVE_DIRENT_H)
 check_include_file("dlfcn.h" HAVE_DLFCN_H)
 check_include_file("execinfo.h" HAVE_EXECINFO_H)
@@ -1571,6 +1560,7 @@ check_include_file("sys/mman.h" HAVE_SYS_MMAN_H)
 check_include_file("sys/param.h" HAVE_SYS_PARAM_H)
 check_include_file("sys/resource.h" HAVE_SYS_RESOURCE_H)
 check_include_file("sys/socket.h" HAVE_SYS_SOCKET_H)
+check_include_file("sys/stat.h" HAVE_SYS_STAT_H)
 if(${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD") # on OpenBSD, sys/sysctl.h requires sys/param.h to be included beforehand
 	check_include_files("sys/param.h;sys/sysctl.h" HAVE_SYS_SYSCTL_H)
 else()
@@ -1588,6 +1578,7 @@ check_include_file("unistd.h" HAVE_UNISTD_H)
 check_include_file("uuid/uuid.h" HAVE_UUID_UUID_H)
 check_include_file("winsock.h" HAVE_WINSOCK_H)
 
+# Socket libraries
 set(SOCKET_LIBRARIES "")
 check_symbol_exists("gethostbyname_r" "netdb.h;sys/socket.h" HAVE_GETHOSTBYNAME_R)
 if(NOT HAVE_GETHOSTBYNAME_R)
@@ -1661,10 +1652,212 @@ if(NOT HAVE_GETADDRINFO)
 	set(CMAKE_REQUIRED_LIBRARIES "${PREV_CMAKE_REQUIRED_LIBRARIES}")
 endif()
 
-check_type_size(int SIZEOF_INT BUILTIN_TYPES_ONLY LANGUAGE C)
-check_type_size(short SIZEOF_SHORT BUILTIN_TYPES_ONLY LANGUAGE C)
-check_type_size(char SIZEOF_CHAR BUILTIN_TYPES_ONLY LANGUAGE C)
-check_type_size(long SIZEOF_LONG BUILTIN_TYPES_ONLY LANGUAGE C)
+if(HAVE_WINSOCK_H)
+	set(CMAKE_EXTRA_INCLUDE_FILES "${CMAKE_EXTRA_INCLUDE_FILES};winsock.h")
+else()
+	set(CMAKE_EXTRA_INCLUDE_FILES "${CMAKE_EXTRA_INCLUDE_FILES};sys/types.h;sys/socket.h")
+endif()
+check_type_size(SOCKET SIZEOF_SOCKET LANGUAGE C)
+if(NOT HAVE_SIZEOF_SOCKET OR "${SIZEOF_SOCKET}" STREQUAL "0")
+	set(SOCKET int)
+endif()
+set(CMAKE_EXTRA_INCLUDE_FILES "${PREV_CMAKE_EXTRA_INCLUDE_FILES}")
+if(HAVE_SIZEOF_SOCKETLEN_T AND NOT "${SIZEOF_SOCKETLEN_T}" STREQUAL "0")
+	set(HAVE_SOCKLEN_T ON)
+else()
+	set(socklen_t int)
+endif()
+set(CMAKE_EXTRA_INCLUDE_FILES "${PREV_CMAKE_EXTRA_INCLUDE_FILES}")
+
+check_type_size(size_t SIZEOF_SIZE_T LANGUAGE C)
+if(HAVE_SIZEOF_SIZE_T AND NOT "${SIZEOF_SIZE_T}" STREQUAL "0")
+	set(SIZEOF_SIZE_T ${SIZEOF_SIZE_T})
+	set(size_t ON)
+endif()
+check_type_size(ssize_t SIZEOF_SSIZE_T LANGUAGE C)
+if(HAVE_SIZEOF_SSIZE_T AND NOT "${SIZEOF_SSIZE_T}" STREQUAL "0")
+	set(SIZEOF_SSIZE_T ${SIZEOF_SSIZE_T})
+	set(ssize_t ON)
+endif()
+
+check_type_size(pid_t SIZEOF_PID_T LANGUAGE C)
+if(NOT HAVE_SIZEOF_PID_T OR "${SIZEOF_PID_T}" STREQUAL "0")
+	set(pid_t int)
+endif()
+check_type_size(off_t SIZEOF_OFF_T LANGUAGE C)
+if(NOT HAVE_SIZEOF_OFF_T OR "${SIZEOF_OFF_T}" STREQUAL "0")
+	set(off_t int)
+endif()
+
+if(NOT ${ENABLE_INT128} STREQUAL "NO")
+	check_type_size(__int128 SIZEOF___INT128 LANGUAGE C)
+	if(HAVE_SIZEOF___INT128 AND NOT "${SIZEOF___INT128}" STREQUAL "0")
+		set(SIZEOF___INT128 ${SIZEOF___INT128})
+		set(HAVE___INT128 ON)
+	endif()
+
+	check_type_size(__int128_t SIZEOF___INT128_T LANGUAGE C)
+	if(HAVE_SIZEOF___INT128_T AND NOT "${SIZEOF___INT128_T}" STREQUAL "0")
+		set(SIZEOF___INT128_T ${SIZEOF___INT128_T})
+		set(HAVE___INT128_T ON)
+	endif()
+
+	check_type_size(__uint128_t SIZEOF___UINT128_T LANGUAGE C)
+	if(HAVE_SIZEOF___UINT128_T AND NOT "${SIZEOF___UINT128_T}" STREQUAL "0")
+		set(HAVE___UINT128_T ON)
+	endif()
+
+	if(NOT HAVE_SIZEOF___INT128 AND NOT HAVE_SIZEOF___INT128_T AND NOT HAVE_SIZEOF___UINT128_T)
+		if(${ENABLE_INT128} STREQUAL "YES")
+			message(FATAL_ERROR "128-bit integers not supported by platform")
+		else()
+			message(ERROR " 128-bit integers not supported by platform")
+		endif()
+	endif()
+endif()
+
+check_type_size(ptrdiff_t PTRDIFF_T LANGUAGE C)
+if(HAVE_PTRDIFF_T AND NOT "${PTRDIFF_T}" STREQUAL "0")
+	set(SIZEOF_PTRDIFF_T ${PTRDIFF_T})
+endif()
+check_type_size(intptr_t INTPTR_T LANGUAGE C)
+check_type_size(uintptr_t UINTPTR_T LANGUAGE C)
+
+check_type_size(char CHAR LANGUAGE C)
+if(HAVE_CHAR AND NOT "${CHAR}" STREQUAL "0")
+	set(SIZEOF_CHAR ${CHAR})
+endif()
+check_type_size(short SHORT LANGUAGE C)
+if(HAVE_SHORT AND NOT "${SHORT}" STREQUAL "0")
+	set(SIZEOF_SHORT ${SHORT})
+endif()
+check_type_size(int INT LANGUAGE C)
+if(HAVE_INT AND NOT "${INT}" STREQUAL "0")
+	set(SIZEOF_INT ${INT})
+endif()
+check_type_size(long LONG LANGUAGE C)
+if(HAVE_LONG AND NOT "${LONG}" STREQUAL "0")
+	set(SIZEOF_LONG ${LONG})
+endif()
+check_type_size(void* VOID_P LANGUAGE C)
+if(HAVE_VOID_P AND NOT "${VOID_P}" STREQUAL "0")
+	set(SIZEOF_VOID_P ${VOID_P})
+endif()
+check_type_size(wchar_t WCHAR_T LANGUAGE C)
+if(HAVE_WCHAR_T AND NOT "${WCHAR_T}" STREQUAL "0")
+	set(SIZEOF_WCHAR_T ${WCHAR_T})
+endif()
+
+set(FLEXIBLE_ARRAY_MEMBER ON) # We compile according to C99 standard onwards
+
+# https://github.com/Unidata/netcdf-c/commit/b432a527c4a38af45498691a44c5a88961b9c751
+message(STATUS "Check if char type is unsigned or not")
+check_c_source_compiles("
+    #include <stdlib.h>
+
+    int main(int argc, char **argv) {
+        (void) argc;
+        (void) argv;
+        char error_if_char_is_signed[((char)-1) < 0 ? -1 : 1];
+        error_if_char_is_signed[0] = 0;
+        (void) error_if_char_is_signed;
+        return 0;
+    }" __CHAR_UNSIGNED__)
+if(__CHAR_UNSIGNED__)
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D__CHAR_UNSIGNED__")
+endif()
+
+message(STATUS "Check if __hidden macro is supported")
+check_c_source_compiles("
+    #include <stdlib.h>
+
+    __hidden void test(int a);
+    void test(int a) { (void)a; }
+
+    int main(int argc, char **argv) {
+        (void) argc;
+        (void) argv;
+        test(1);
+        return 0;
+    }" HAVE_HIDDEN)
+if(NOT HAVE_HIDDEN)
+	set(__hidden ON)
+endif()
+
+message(STATUS "If your compiler can use NAN as an initializer")
+check_c_source_compiles("
+    #include <math.h>
+
+    extern const float f;
+    extern const double d;
+    const float f = NAN;
+    const double d = NAN;
+
+    int main(int argc, char **argv) {
+        (void) argc;
+        (void) argv;
+        return 0;
+    }" NAN_CAN_BE_USED_AS_INITIALIZER)
+if(NOT NAN_CAN_BE_USED_AS_INITIALIZER)
+	set(NAN_CANNOT_BE_USED_AS_INITIALIZER ON)
+endif()
+
+check_symbol_exists("accept4" "sys/types.h;sys/socket.h" HAVE_ACCEPT4)
+check_symbol_exists("asctime_r" "time.h" HAVE_ASCTIME_R)
+check_symbol_exists("backtrace" "execinfo.h" HAVE_BACKTRACE)
+check_symbol_exists("clock_gettime" "time.h" HAVE_CLOCK_GETTIME)
+check_symbol_exists("ctime_r" "time.h" HAVE_CTIME_R)
+check_symbol_exists("fallocate" "fcntl.h" HAVE_FALLOCATE)
+check_symbol_exists("fcntl" "unistd.h;fcntl.h" HAVE_FCNTL)
+if(NOT(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin" AND CMAKE_SYSTEM_VERSION VERSION_LESS_EQUAL 17))
+	check_symbol_exists("fdatasync" "unistd.h" HAVE_FDATASYNC)
+endif()
+check_symbol_exists("fseeko" "stdio.h" HAVE_FSEEKO)
+check_symbol_exists("fsync" "unistd.h" HAVE_FSYNC)
+check_symbol_exists("ftime" "sys/timeb.h" HAVE_FTIME)
+check_symbol_exists("getexecname" "stdlib.h" HAVE_GETEXECNAME)
+check_symbol_exists("getlogin" "unistd.h" HAVE_GETLOGIN)
+check_symbol_exists("getopt" "unistd.h" HAVE_GETOPT)
+check_symbol_exists("getopt_long" "unistd.h;getopt.h" HAVE_GETOPT)
+check_symbol_exists("gettimeofday" "sys/time.h" HAVE_GETTIMEOFDAY)
+check_symbol_exists("getuid" "unistd.h;sys/types.h" HAVE_GETUID)
+check_symbol_exists("localtime_r" "time.h" HAVE_LOCALTIME_R)
+check_symbol_exists("lockf" "unistd.h" HAVE_LOCKF)
+check_symbol_exists("madvise" "sys/mman.h" HAVE_MADVISE)
+check_symbol_exists("mremap" "sys/mman.h" HAVE_MREMAP)
+check_symbol_exists("nl_langinfo" "langinfo.h" HAVE_NL_LANGINFO)
+check_symbol_exists("_NSGetExecutablePath" "mach-o/dyld.h" HAVE__NSGETEXECUTABLEPATH)
+check_symbol_exists("pipe2" "fcntl.h;unistd.h" HAVE_PIPE2)
+check_symbol_exists("popen" "stdio.h" HAVE_POPEN)
+check_symbol_exists("posix_fadvise" "fcntl.h" HAVE_POSIX_FADVISE)
+check_symbol_exists("posix_fallocate" "fcntl.h" HAVE_POSIX_FALLOCATE)
+check_symbol_exists("posix_madvise" "sys/mman.h" HAVE_POSIX_MADVISE)
+check_symbol_exists("putenv" "stdlib.h" HAVE_PUTENV)
+check_symbol_exists("setenv" "stdlib.h" HAVE_SETENV)
+check_symbol_exists("setsid" "sys/types.h;unistd.h" HAVE_SETSID)
+check_symbol_exists("shutdown" "sys/socket.h" HAVE_SHUTDOWN)
+check_symbol_exists("sigaction" "signal.h" HAVE_SIGACTION)
+check_symbol_exists("stpcpy" "string.h" HAVE_STPCPY)
+check_symbol_exists("strcasestr" "string.h" HAVE_STRCASESTR)
+check_symbol_exists("strncasecmp" "strings.h" HAVE_STRNCASECMP)
+check_symbol_exists("strptime" "time.h" HAVE_STRPTIME) # TODO check _XOPEN_SOURCE ?
+check_symbol_exists("sysconf" "unistd.h" HAVE_SYSCONF)
+check_symbol_exists("task_info" "mach/task_info.h" HAVE_TASK_INFO)
+check_symbol_exists("times" "sys/times.h" HAVE_TIMES)
+check_symbol_exists("uname" "sys/utsname.h" HAVE_UNAME)
+
+message(STATUS "Test for __builtin_add_overflow")
+check_c_source_compiles("
+    #include <stdio.h>
+    #include <stdlib.h>
+
+    int main(int argc, char **argv) {
+        (void) argc;(void) argv;
+        __int128 a=(__int128)atoll(getenv(\"a\"))<<64, b=(__int128)atoll(getenv(\"b\"))<<64, c;
+        if (!__builtin_mul_overflow(a, b, &c))
+            printf(\"%lld %lld\\n\",(long long)(c>>64), (long long)c);
+        return 0;
+    }" HAVE___BUILTIN_ADD_OVERFLOW)
 
 # leave for last
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_REENTRANT")

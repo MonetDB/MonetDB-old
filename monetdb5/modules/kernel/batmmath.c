@@ -379,11 +379,7 @@ scienceImpl(log)
 scienceImpl(log10)
 scienceImpl(log2)
 scienceImpl(sqrt)
-#ifdef HAVE_CBRT
 scienceImpl(cbrt)
-#else
-scienceNotImpl(cbrt)
-#endif
 scienceImpl(ceil)
 scienceImpl(fabs)
 scienceImpl(floor)
