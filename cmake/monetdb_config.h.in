@@ -4,18 +4,26 @@
 #ifndef _SEEN_MONETDB_CONFIG_H
 #define _SEEN_MONETDB_CONFIG_H 1
 
+/* Build definitions */
+#cmakedefine BUILT_BY "@BUILT_BY@"
+
+/* Compiler call details */
+#cmakedefine COMPILER_CALL "@COMPILER_CALL@"
+
+/* Linker call details */
+#cmakedefine LINKER_CALL "@LINKER_CALL@"
 
 /* Define if building universal (internal helper macro) */
-#undef AC_APPLE_UNIVERSAL_BUILD
+#cmakedefine AC_APPLE_UNIVERSAL_BUILD
 
 /* location where binaries are installed */
-#undef BINDIR
+#cmakedefine BINDIR "@BINDIR@"
 
 /* read-only architecture-independent data */
-#undef DATA_DIR
+#cmakedefine DATA_DIR "@DATA_DIR@"
 
 /* Program to perform diffs */
-#undef DIFF
+#cmakedefine DIFF "@DIFF@"
 
 /* Directory separator */
 #cmakedefine DIR_SEP @DIR_SEP@
@@ -121,6 +129,9 @@
 
 /* Define to 1 if you have the `getaddrinfo' function. */
 #cmakedefine HAVE_GETADDRINFO
+
+/* Define to 1 if you have the `GetDynamicTimeZoneInformation' function. */
+#undef HAVE_GETDYNAMICTIMEZONEINFORMATION
 
 /* Define to 1 if you have the `getexecname' function. */
 #cmakedefine HAVE_GETEXECNAME
@@ -361,7 +372,7 @@
 #cmakedefine HAVE_STRPTIME
 
 /* Define to 1 if `tm_zone' is a member of `struct tm'. */
-#undef HAVE_STRUCT_TM_TM_ZONE
+#cmakedefine HAVE_STRUCT_TM_TM_ZONE
 
 /* Define to 1 if you have the `sysconf' function. */
 #cmakedefine HAVE_SYSCONF
@@ -457,19 +468,19 @@
 #cmakedefine HOST "@HOST@"
 
 /* Define as const if the declaration of iconv() needs const. */
-#undef ICONV_CONST
+#cmakedefine ICONV_CONST @ICONV_CONST@
 
 /* Define if using Intel compiler with incompatible system math.h */
 #cmakedefine INTEL_MATH_H_HACK
 
 /* Define as SQLLEN * or SQLPOINTER depending on the include file */
-#cmakedefine LENP_OR_POINTER_T
+#cmakedefine LENP_OR_POINTER_T @LENP_OR_POINTER_T@
 
 /* location where libraries are installed */
-#undef LIBDIR
+#cmakedefine LIBDIR "@LIBDIR@"
 
 /* modifiable single-machine data */
-#undef LOCALSTATEDIR
+#cmakedefine LOCALSTATEDIR "@LOCALSTATEDIR@"
 
 /* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
@@ -481,7 +492,7 @@
 #cmakedefine MONETDB5_PASSWDHASH_TOKEN @MONETDB5_PASSWDHASH_TOKEN@
 
 /* Release name or "unreleased" */
-#undef MONETDB_RELEASE
+#cmakedefine MONETDB_RELEASE "@MONETDB_RELEASE@"
 
 /* Define if NAN cannot be used as static initializer */
 #cmakedefine NAN_CANNOT_BE_USED_AS_INITIALIZER
@@ -490,31 +501,31 @@
 #cmakedefine NDEBUG
 
 /* Name of package */
-#undef PACKAGE
+#cmakedefine PACKAGE "@PACKAGE@"
 
 /* Define to the address where bug reports for this package should be sent. */
-#undef PACKAGE_BUGREPORT
+#cmakedefine PACKAGE_BUGREPORT "@PACKAGE_BUGREPORT@"
 
 /* Define to the full name of this package. */
-#undef PACKAGE_NAME
+#cmakedefine PACKAGE_NAME "@PACKAGE_NAME@"
 
 /* Define to the full name and version of this package. */
-#undef PACKAGE_STRING
+#cmakedefine PACKAGE_STRING "@PACKAGE_STRING@"
 
 /* Define to the one symbol short name of this package. */
-#undef PACKAGE_TARNAME
+#cmakedefine PACKAGE_TARNAME "@PACKAGE_TARNAME@"
 
 /* Define to the home page for this package. */
-#undef PACKAGE_URL
+#cmakedefine PACKAGE_URL "@PACKAGE_URL@"
 
 /* Define to the version of this package. */
-#undef PACKAGE_VERSION
+#cmakedefine PACKAGE_VERSION "@PACKAGE_VERSION@"
 
 /* Path separator */
 #cmakedefine PATH_SEP @PATH_SEP@
 
 /* Path separator */
-#cmakedefine PATH_SEP_STR "@PATH_SEP@"
+#cmakedefine PATH_SEP_STR "@PATH_SEP_STR@"
 
 /* The home of R */
 #cmakedefine RHOME "@RHOME@"
@@ -567,34 +578,11 @@
 /* Compiling for static code analysis */
 #cmakedefine STATIC_CODE_ANALYSIS
 
-
-/* Enable extensions on AIX 3, Interix.  */
-#ifndef _ALL_SOURCE
-# undef _ALL_SOURCE
-#endif
-/* Enable GNU extensions on systems that have them.  */
-#ifndef _GNU_SOURCE
-# undef _GNU_SOURCE
-#endif
-/* Enable threading extensions on Solaris.  */
-#ifndef _POSIX_PTHREAD_SEMANTICS
-# undef _POSIX_PTHREAD_SEMANTICS
-#endif
-/* Enable extensions on HP NonStop.  */
-#ifndef _TANDEM_SOURCE
-# undef _TANDEM_SOURCE
-#endif
-/* Enable general extensions on Solaris.  */
-#ifndef __EXTENSIONS__
-# undef __EXTENSIONS__
-#endif
-
-
 /* Version number of package */
-#undef VERSION
+#cmakedefine VERSION "@VERSION@"
 
 /* Define on Microsoft Windows (also under Cygwin) */
-#undef WIN32
+#cmakedefine WIN32
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */
@@ -604,7 +592,7 @@
 # endif
 #else
 # ifndef WORDS_BIGENDIAN
-#  undef WORDS_BIGENDIAN
+#cmakedefine WORDS_BIGENDIAN
 # endif
 #endif
 
@@ -622,20 +610,10 @@
 /* Define for large files, on AIX-style hosts. */
 #cmakedefine _LARGE_FILES
 
-/* Define to 2 if the system does not provide POSIX.1 features except with
-   this defined. */
-#undef _POSIX_1_SOURCE
-
-/* Define to 1 if you need to in order for `stat' and other things to work. */
-#undef _POSIX_SOURCE
-
 /* Define to 1 if type `char' is unsigned and you are not using gcc.  */
 #ifndef __CHAR_UNSIGNED__
 #cmakedefine __CHAR_UNSIGNED__
 #endif
-
-/* libxml2 enable threading compiler flag */
-#undef __MT__
 
 /* Does your compiler support the `__hidden' specifier? */
 #cmakedefine __hidden
@@ -651,20 +629,6 @@
 
 /* Define to `int' if <sys/types.h> does not define. */
 #cmakedefine pid_t @pid_t@
-
-/* Define to the equivalent of the C99 'restrict' keyword, or to
-   nothing if this is not supported.  Do not define if restrict is
-   supported directly.  */
-#cmakedefine restrict
-/* Work around a bug in Sun C++: it does not support _Restrict or
-   __restrict__, even though the corresponding Sun C compiler ends up with
-   "#define restrict _Restrict" or "#define restrict __restrict__" in the
-   previous line.  Perhaps some future version of Sun C++ will work with
-   restrict; if so, hopefully it defines __RESTRICT like Sun C does.  */
-#if defined __SUNPRO_CC && !defined __RESTRICT
-# define _Restrict
-# define __restrict__
-#endif
 
 /* Define to `unsigned int' if <sys/types.h> does not define. */
 #cmakedefine size_t @size_t@
@@ -746,14 +710,8 @@ typedef __uint128_t uhge;
 # define __declspec(x)
 #endif
 
-/* These are required to make MonetDB's source tree CRAN-compliant */
-#ifdef HAVE_EMBEDDED_R
-#include "tools/embedded/undef.h"
-#endif
-
 #define PROMPT1		"\001\001\n"	/* prompt: ready for new query */
 #define PROMPT2		"\001\002\n"	/* prompt: more data needed */
 #define PROMPT3		"\001\003\n"	/* prompt: get file content */
 
 #endif /* _SEEN_MONETDB_CONFIG_H */
-

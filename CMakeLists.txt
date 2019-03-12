@@ -22,8 +22,16 @@ include(CheckTypeSize REQUIRED)
 include(FindIconv REQUIRED)
 include(TestLargeFiles REQUIRED)
 include(CheckCCompilerFlag REQUIRED)
+include(TestBigEndian REQUIRED)
 
 cmake_policy(SET CMP0075 NEW)
+
+# Save default cmake options in the beggining
+set(PREV_CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES}")
+set(PREV_CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES}")
+set(PREV_CMAKE_REQUIRED_LINK_OPTIONS "${CMAKE_REQUIRED_LINK_OPTIONS}")
+set(PREV_CMAKE_EXTRA_INCLUDE_FILES "${CMAKE_EXTRA_INCLUDE_FILES}")
+set(PREV_CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
 
 function(MT_clibsToCmake INPUT_INCS OUTPUT_INCS) # Remove -I before the include path
 	string(LENGTH "${INPUT_INCS}" INPUT_INCS_LENGTH)
@@ -39,33 +47,35 @@ string(TOLOWER "${CMAKE_SYSTEM_NAME}" CMAKE_SYSTEM_NAME_LOWER)
 string(TOLOWER "${CMAKE_C_COMPILER_ID}" CMAKE_C_COMPILER_ID_LOWER)
 set("HOST" "${CMAKE_SYSTEM_PROCESSOR}-pc-${CMAKE_SYSTEM_NAME_LOWER}-${CMAKE_C_COMPILER_ID_LOWER}")
 
-# Read libversions file
-file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/libversions" LIB_VERSIONS)
+set(MONETDB_RELEASE "unreleased")
 
-string(REGEX MATCH "GDK_VERSION=[^\ \t\r\n]+" GDK_VERSION ${LIB_VERSIONS})
-string(LENGTH "${GDK_VERSION}" GDK_VERSION_LENGTH)
-string(SUBSTRING "${GDK_VERSION}" 12 ${GDK_VERSION_LENGTH} GDK_VERSION)
+# Change these variables between releases
+set(MONETDB_VERSION "11:34:0")
+set(GDK_VERSION "17:4:0")
+set(MAPI_VERSION "11:0:1")
+set(MONETDB5_VERSION "26:0:1")
+set(STREAM_VERSION "12:1:1")
 
-string(REGEX MATCH "MAPI_VERSION=[^\ \t\r\n]+" MAPI_VERSION ${LIB_VERSIONS})
-string(LENGTH "${MAPI_VERSION}" MAPI_VERSION_LENGTH)
-string(SUBSTRING "${MAPI_VERSION}" 13 ${MAPI_VERSION_LENGTH} MAPI_VERSION)
+string(REPLACE ":" "." VERSION "${MONETDB_VERSION}")
 
-string(REGEX MATCH "MONETDB5_VERSION=[^\ \t\r\n]+" MONETDB5_VERSION ${LIB_VERSIONS})
-string(LENGTH "${MONETDB5_VERSION}" MONETDB5_VERSION_LENGTH)
-string(SUBSTRING "${MONETDB5_VERSION}" 17 ${MONETDB5_VERSION_LENGTH} MONETDB5_VERSION)
-
-string(REGEX MATCH "STREAM_VERSION=[^\ \t\r\n]+" STREAM_VERSION ${LIB_VERSIONS})
-string(LENGTH "${STREAM_VERSION}" STREAM_VERSION_LENGTH)
-string(SUBSTRING "${STREAM_VERSION}" 15 ${STREAM_VERSION_LENGTH} STREAM_VERSION)
+# Packaging information
+set(PACKAGE "MonetDB")
+set(PACKAGE_NAME "MonetDB")
+set(PACKAGE_TARNAME "MonetDB")
+set(PACKAGE_STRING "MonetDB ${VERSION}")
+set(PACKAGE_URL "https://www.monetdb.org/")
+set(PACKAGE_BUGREPORT "https://bugs.monetdb.org/")
+set(PACKAGE_VERSION "${VERSION}")
 
 if("${CMAKE_C_COMPILER_ID}" STREQUAL "Intel")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -no-gcc") # Intel compiler hack
 elseif("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_SOURCE") # TODO CMAKE_REQUIRED_DEFINITIONS?
+	set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_GNU_SOURCE")
 endif()
+set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_REENTRANT")
 
 # Set default build options
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vertoo.data")
+if("${CMAKE_BUILD_TYPE}" MATCHES "^Debug|$")
 	set(DFT_STRICT "YES")
 	set(DFT_ASSERT "YES")
 	set(DFT_DEBUG "YES")
@@ -162,10 +172,14 @@ endif()
 # instalation directories
 set(LOGDIR "${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/log/monetdb" CACHE STRING "Where to put log files (LOCALSTATEDIR/log/monetdb)")
 set(RUNDIR "${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/run/monetdb" CACHE STRING "Where to put pid files (LOCALSTATEDIR/run/monetdb)")
+set(BINDIR "${CMAKE_INSTALL_FULL_BINDIR}")
+set(DATA_DIR "${CMAKE_INSTALL_FULL_DATAROOTDIR}")
+set(LIBDIR "${CMAKE_INSTALL_FULL_LIBDIR}")
+set(LOCALSTATEDIR "${CMAKE_INSTALL_FULL_LOCALSTATEDIR}")
 
-OPJ_TEST_LARGE_FILES(_LARGE_FILES)
-OPJ_TEST_LARGE_FILES(_LARGEFILE_SOURCE)
-OPJ_TEST_LARGE_FILES(_FILE_OFFSET_BITS)
+opj_test_large_files(_LARGE_FILES)
+opj_test_large_files(_LARGEFILE_SOURCE)
+opj_test_large_files(_FILE_OFFSET_BITS)
 
 if(NOT "${CMAKE_C_COMPILER_ID}" MATCHES "^GNU|Intel|Clang|MSVC|AppleClang|SunPro$")
 	message(WARNING "Compiler potentially not (correctly) recognized")
@@ -282,32 +296,18 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Intel") # see https://software.intel.com/en-us
 	endif()
 endif()
 
-set(CMAKE_REQUIRED_LINK_OPTIONS "${CMAKE_REQUIRED_LINK_OPTIONS} -Wl,-Bsymbolic-functions")
-check_c_source_compiles("
-	#include <stdio.h>
-	#include <stdlib.h>
-	#include <string.h>
-
-	int main(int argc, char **av) {
-		char buf[24];
-		double d = atof(\"4.2\");
-		if (argc == 0 || strchr(av[0], av[0][0]) != NULL)
-			snprintf(buf, sizeof(buf), \"%f\", d);
-		return 0;
-	}
-" HAVE_WL_BSYMBOLIC_FUNCTIONS)
-set(CMAKE_REQUIRED_LINK_OPTIONS "${PREV_CMAKE_REQUIRED_LINK_OPTIONS}")
-if(HAVE_WL_BSYMBOLIC_FUNCTIONS)
-	message(STATUS "Test for -Bsymbolic-functions option succeeded")
-	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${Flag}")
-	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${Flag}")
-	set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} ${Flag}")
-else()
-	message(STATUS "Test for -Bsymbolic-functions option failed")
+message(STATUS "Test if compiler supports -Wl,-Bsymbolic-functions flag")
+set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -Wl,-Bsymbolic-functions")
+check_c_compiler_flag("" HAVE_WL_BSYMBOLIC_FUNCTIONS)
+if(NOT HAVE_WL_BSYMBOLIC_FUNCTIONS)
+	set(CMAKE_REQUIRED_FLAGS "${PREV_CMAKE_REQUIRED_FLAGS}")
 endif()
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "CYGWIN")
 	set(NO_UNDEFINED "-no-undefined")
+endif()
+if(MSVC OR ${CMAKE_SYSTEM_NAME} STREQUAL "CYGWIN")
+	set(WIN32 ON)
 endif()
 
 if(${ENABLE_DEBUG} STREQUAL "YES" AND ${ENABLE_OPTIMIZE} STREQUAL "YES")
@@ -326,20 +326,22 @@ if(${ENABLE_DEBUG} STREQUAL "YES")
 	# Adding flags
 	set(NEW_CMAKE_C_FLAGS "")
 	if("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
-		set(NEW_CMAKE_C_FLAGS "${NEW_CMAKE_C_FLAGS} -g3")
+		set(NEW_CMAKE_C_FLAGS "-g3")
 	else()
-		set(NEW_CMAKE_C_FLAGS "${NEW_CMAKE_C_FLAGS} -g")
+		set(NEW_CMAKE_C_FLAGS "-g")
 	endif()
 
 	string(LENGTH "${NEW_CMAKE_C_FLAGS}" NEW_CMAKE_FLAGS_LENGTH)
 	if(NEW_CMAKE_FLAGS_LENGTH GREATER 0)
-		message(STATUS "Added${NEW_CMAKE_C_FLAGS} flag(s) for debug build")
+		message(STATUS "Added ${NEW_CMAKE_C_FLAGS} flag(s) for debug build")
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${NEW_CMAKE_C_FLAGS}")
 	endif()
 endif()
 
 if(${ENABLE_ASSERT} STREQUAL "NO")
 	set(NDEBUG ON)
+elseif(${ENABLE_ASSERT} STREQUAL "YES" AND ${CMAKE_SYSTEM_NAME} STREQUAL "Intel")
+	set(X_CFLAGS "${X_CFLAGS} -wd279")
 endif()
 
 if(${ENABLE_OPTIMIZE} STREQUAL "YES")
@@ -363,23 +365,23 @@ if(${ENABLE_OPTIMIZE} STREQUAL "YES")
 	# Adding flags
 	set(NEW_CMAKE_C_FLAGS "")
 	if(${CMAKE_SYSTEM_NAME} STREQUAL "Clang")
-		set(NEW_CMAKE_C_FLAGS "${NEW_CMAKE_C_FLAGS} -O3")
+		set(NEW_CMAKE_C_FLAGS "-O3")
 		if(${ENABLE_ASSERT} STREQUAL "NO")
 			set(NEW_CMAKE_C_FLAGS "${NEW_CMAKE_C_FLAGS} -fomit-frame-pointer")
 		endif()
 	elseif(${CMAKE_SYSTEM_NAME} STREQUAL "GNU")
-		set(NEW_CMAKE_C_FLAGS "${NEW_CMAKE_C_FLAGS} -O3")
+		set(NEW_CMAKE_C_FLAGS "-O3")
 		if(${ENABLE_ASSERT} STREQUAL "NO")
 			set(NEW_CMAKE_C_FLAGS "${NEW_CMAKE_C_FLAGS} -fomit-frame-pointer")
 		endif()
 		set(NEW_CMAKE_C_FLAGS "${NEW_CMAKE_C_FLAGS} -pipe")
 	elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Intel")
-		set(NEW_CMAKE_C_FLAGS "${NEW_CMAKE_C_FLAGS} -O2")
+		set(NEW_CMAKE_C_FLAGS "-O2")
 	endif()
 
 	string(LENGTH "${NEW_CMAKE_C_FLAGS}" NEW_CMAKE_FLAGS_LENGTH)
 	if(NEW_CMAKE_FLAGS_LENGTH GREATER 0)
-		message(STATUS "Added${NEW_CMAKE_C_FLAGS} flag(s) for optimize build")
+		message(STATUS "Added ${NEW_CMAKE_C_FLAGS} flag(s) for optimize build")
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${NEW_CMAKE_C_FLAGS}")
 	endif()
 
@@ -563,19 +565,19 @@ if(NOT ENABLE_TESTING STREQUAL "NO" AND NOT HAVE_PYTHON2 AND NOT HAVE_PYTHON3)
 	set(ENABLE_TESTING "NO")
 endif()
 
-if(ENABLE_EMBEDDED STREQUAL "NO") # TODO is this check needed anymore???
-	if(${ENABLE_SQL} STREQUAL "YES" AND NOT BISON_FOUND)
-		message(FATAL_ERROR "MonetDB/SQL requires bison")
-	endif()
-	if(BISON_FOUND AND BISON_VERSION VERSION_LESS_EQUAL 2.4.3)
+if(BISON_FOUND)
+	if(BISON_VERSION VERSION_LESS_EQUAL 2.4.3)
 		string(FIND "${CMAKE_C_FLAGS}" "-Wundef" FOUND_WDEF)
 		if(NOT FOUND_WDEF EQUAL -1)
 			string(REPLACE "-Wundef" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 			message(STATUS "Removed -Wundef flag for bison")
 		endif()
 	endif()
+elseif(${ENABLE_SQL} STREQUAL "YES")
+	message(FATAL_ERROR "MonetDB/SQL requires bison")
 else()
-	message(WARN " Ignoring missing bison in embedded configuration")
+	set(ENABLE_SQL "NO")
+	message(ERROR " Bison not found")
 endif()
 
 set(OS_SOPREF "lib")
@@ -604,30 +606,25 @@ else()
 	message(FATAL_ERROR "Unknown target operating system")
 endif()
 
-set(DIR_SEP      ${OS_DIRSEP})
+set(DIR_SEP      "'${OS_DIRSEP}'")
 set(DIR_SEP_STR  ${OS_DIRSEP})
-set(PATH_SEP     ${OS_PATHSEP})
+set(PATH_SEP     "'${OS_PATHSEP}'")
 set(PATH_SEP_STR ${OS_PATHSEP})
 set(SO_EXT       ${OS_SOEXT})
 set(SO_PREFIX    ${OS_SOPREF})
 
-# checks for libraries
-set(PREV_CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES}")
-set(PREV_CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES}")
-set(PREV_CMAKE_REQUIRED_LINK_OPTIONS "${CMAKE_REQUIRED_LINK_OPTIONS}")
-set(PREV_CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
-set(PREV_CMAKE_EXTRA_INCLUDE_FILES "${CMAKE_EXTRA_INCLUDE_FILES}")
+test_big_endian(WORDS_BIGENDIAN)
+if(APPLE)
+	set(AC_APPLE_UNIVERSAL_BUILD ON)
+endif()
 
+# checks for libraries
 set(WITH_BZ2 "AUTO" CACHE STRING "Include bz2 support (default=auto)") # Check with HAVE_BZLIB
 if(NOT ${WITH_BZ2} STREQUAL "NO")
-	pkg_search_module(BZIP2 NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH bzip2)
+	include(FindBZip2)
 
-	if(BZIP2_FOUND)
-		set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};bz2")
-		check_symbol_exists("BZ2_bzopen" "bzlib.h" HAVE_BZLIB)
-		set(CMAKE_REQUIRED_LIBRARIES "${PREV_CMAKE_REQUIRED_LIBRARIES}")
-	endif()
-	if(HAVE_BZLIB)
+	if(BZip2_FOUND)
+		set(HAVE_BZLIB ON)
 		message(STATUS "bz2 library found")
 	elseif(${WITH_BZ2} STREQUAL "YES")
 		message(FATAL_ERROR "bz2 library not found")
@@ -809,6 +806,28 @@ if(Iconv_FOUND)
 	if(NOT Iconv_IS_BUILT_IN)
 		set(ICONV_LIBS "${Iconv_LIBRARIES}")
 	endif()
+
+	message(STATUS "Check if second iconv argument requires const")
+	check_c_source_compiles("
+		#include <iconv.h>
+
+		int main(int argc, char** argv){
+			(void) argc;
+			(void) argv;
+			iconv_t conv = 0;
+			const char* in = 0;
+			size_t ilen = 0;
+			char* out = 0;
+			size_t olen = 0;
+			iconv(conv, &in, &ilen, &out, &olen);
+			return 0;
+		}
+	" ICONV_REQUIRES_CONST)
+	if(ICONV_REQUIRES_CONST)
+		set(ICONV_CONST const)
+	else()
+		set(ICONV_CONST " ")
+	endif()
 endif()
 
 # UUID
@@ -898,7 +917,8 @@ else()
 					message(FATAL_ERROR "OpenSSL library found but checksum algorithm required for MonetDB5 not found")
 				else()
 					set(ENABLE_MONETDB5 "NO")
-					message(WARN " OpenSSL library found but required checksum algorithm not found, so disabling")
+					set(WHY_NOT_MONETDB5 "OpenSSL library found but required checksum algorithm not found, so disabling")
+					message(WARN " ${WHY_NOT_MONETDB5}")
 				endif()
 			else()
 				set(HAVE_OPENSSL ON)
@@ -908,7 +928,8 @@ else()
 				message(FATAL_ERROR "OpenSSL library not found but required for MonetDB5")
 			else()
 				set(ENABLE_MONETDB5 "NO")
-				message(WARN " OpenSSL library not found but required for MonetDB5")
+				set(WHY_NOT_MONETDB5 "OpenSSL library not found but required for MonetDB5")
+				message(WARN " ${WHY_NOT_MONETDB5}")
 			endif()
 		endif()
 	endif()
@@ -984,7 +1005,8 @@ if(NOT HAVE_LIBPCRE AND NOT HAVE_POSIX_REGEX)
 		message(FATAL_ERROR "PCRE library or GNU regex library not found but required for MonetDB5")
 	else()
 		set(ENABLE_MONETDB5 "NO")
-		message(WARN " PCRE library or GNU regex library not found but required for MonetDB5")
+		set(WHY_NOT_MONETDB5 "PCRE library or GNU regex library not found but required for MonetDB5")
+		message(WARN " ${WHY_NOT_MONETDB5}")
 	endif()
 endif()
 
@@ -1512,7 +1534,7 @@ if(NOT HAVE_LIBLAS_LIB)
 	endif()
 endif()
 
-set(WITH_ATOMIC_OPS "AUTO" CACHE STRING "Use atomic_ops library (default=auto)") # Check with HAVE_ATOMIC_OPS_H
+set(WITH_ATOMIC_OPS "AUTO" CACHE STRING "Use atomic_ops library (default=auto)") # Check with HAVE_LIBATOMIC_OPS
 if(NOT ${WITH_ATOMIC_OPS} STREQUAL "NO")
 	pkg_search_module(ATOMIC_OPS NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH atomic_ops)
 
@@ -1521,7 +1543,9 @@ if(NOT ${WITH_ATOMIC_OPS} STREQUAL "NO")
 			message(ERROR " atomic_ops does not compile with Intel's icc")
 		else()
 			check_include_file("atomic_ops.h" HAVE_ATOMIC_OPS_H)
-			if(NOT HAVE_ATOMIC_OPS_H)
+			if(HAVE_ATOMIC_OPS_H)
+				set(HAVE_LIBATOMIC_OPS ON)
+			else()
 				if(${WITH_ATOMIC_OPS} STREQUAL "YES")
 					message(FATAL_ERROR "atomic_ops was incorrectly installed (happens on at least Solaris/OpenIndiana)")
 				else()
@@ -1540,7 +1564,6 @@ check_include_file("dlfcn.h" HAVE_DLFCN_H)
 check_include_file("execinfo.h" HAVE_EXECINFO_H)
 check_include_file("fcntl.h" HAVE_FCNTL_H)
 check_include_file("getopt.h" HAVE_GETOPT_H)
-check_include_file("iconv.h" HAVE_ICONV_H)
 check_include_file("io.h" HAVE_IO_H)
 check_include_file("langinfo.h" HAVE_LANGINFO_H)
 check_include_file("libgen.h" HAVE_LIBGEN_H)
@@ -1755,51 +1778,51 @@ set(FLEXIBLE_ARRAY_MEMBER ON) # We compile according to C99 standard onwards
 # https://github.com/Unidata/netcdf-c/commit/b432a527c4a38af45498691a44c5a88961b9c751
 message(STATUS "Test if char type is unsigned or not")
 check_c_source_compiles("
-    #include <stdlib.h>
+	#include <stdlib.h>
 
-    int main(int argc, char **argv) {
-        (void) argc;
-        (void) argv;
-        char error_if_char_is_signed[((char)-1) < 0 ? -1 : 1];
-        error_if_char_is_signed[0] = 0;
-        (void) error_if_char_is_signed;
-        return 0;
-    }" __CHAR_UNSIGNED__)
+	int main(int argc, char **argv) {
+		(void) argc;
+		(void) argv;
+		char error_if_char_is_signed[((char)-1) < 0 ? -1 : 1];
+		error_if_char_is_signed[0] = 0;
+		(void) error_if_char_is_signed;
+		return 0;
+	}" __CHAR_UNSIGNED__)
 if(__CHAR_UNSIGNED__)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D__CHAR_UNSIGNED__")
 endif()
 
 message(STATUS "Test if __hidden macro is supported")
 check_c_source_compiles("
-    #include <stdlib.h>
+	#include <stdlib.h>
 
-    __hidden void test(int a);
-    void test(int a) { (void)a; }
+	__hidden void test(int a);
+	void test(int a) { (void)a; }
 
-    int main(int argc, char **argv) {
-        (void) argc;
-        (void) argv;
-        test(1);
-        return 0;
-    }" HAVE_HIDDEN)
+	int main(int argc, char **argv) {
+		(void) argc;
+		(void) argv;
+		test(1);
+		return 0;
+	}" HAVE_HIDDEN)
 if(NOT HAVE_HIDDEN)
 	set(__hidden ON)
 endif()
 
 message(STATUS "Test if compiler can use NAN as an initializer")
 check_c_source_compiles("
-    #include <math.h>
+	#include <math.h>
 
-    extern const float f;
-    extern const double d;
-    const float f = NAN;
-    const double d = NAN;
+	extern const float f;
+	extern const double d;
+	const float f = NAN;
+	const double d = NAN;
 
-    int main(int argc, char **argv) {
-        (void) argc;
-        (void) argv;
-        return 0;
-    }" NAN_CAN_BE_USED_AS_INITIALIZER)
+	int main(int argc, char **argv) {
+		(void) argc;
+		(void) argv;
+		return 0;
+	}" NAN_CAN_BE_USED_AS_INITIALIZER)
 if(NOT NAN_CAN_BE_USED_AS_INITIALIZER)
 	set(NAN_CANNOT_BE_USED_AS_INITIALIZER ON)
 endif()
@@ -1820,7 +1843,7 @@ check_symbol_exists("ftime" "sys/timeb.h" HAVE_FTIME)
 check_symbol_exists("getexecname" "stdlib.h" HAVE_GETEXECNAME)
 check_symbol_exists("getlogin" "unistd.h" HAVE_GETLOGIN)
 check_symbol_exists("getopt" "unistd.h" HAVE_GETOPT)
-check_symbol_exists("getopt_long" "unistd.h;getopt.h" HAVE_GETOPT)
+check_symbol_exists("getopt_long" "unistd.h;getopt.h" HAVE_GETOPT_LONG)
 check_symbol_exists("gettimeofday" "sys/time.h" HAVE_GETTIMEOFDAY)
 check_symbol_exists("getuid" "unistd.h;sys/types.h" HAVE_GETUID)
 check_symbol_exists("localtime_r" "time.h" HAVE_LOCALTIME_R)
@@ -1850,29 +1873,71 @@ check_symbol_exists("uname" "sys/utsname.h" HAVE_UNAME)
 
 message(STATUS "Test for __builtin_add_overflow")
 check_c_source_compiles("
-    #include <stdio.h>
-    #include <stdlib.h>
+	#include <stdio.h>
+	#include <stdlib.h>
 
-    int main(int argc, char **argv) {
-        (void) argc;(void) argv;
-        __int128 a=(__int128)atoll(getenv(\"a\"))<<64, b=(__int128)atoll(getenv(\"b\"))<<64, c;
-        if (!__builtin_mul_overflow(a, b, &c))
-            printf(\"%lld %lld\",(long long)(c>>64), (long long)c);
-        return 0;
-    }" HAVE___BUILTIN_ADD_OVERFLOW)
+	int main(int argc, char **argv) {
+		(void) argc;(void) argv;
+		__int128 a=(__int128)atoll(getenv(\"a\"))<<64, b=(__int128)atoll(getenv(\"b\"))<<64, c;
+		if (!__builtin_mul_overflow(a, b, &c))
+			printf(\"%lld %lld\",(long long)(c>>64), (long long)c);
+		return 0;
+	}" HAVE___BUILTIN_ADD_OVERFLOW)
 
 if(HAVE_ASCTIME_R)
-	message(STATUS "Test if asctime_R3 takes 3 arguments")
+	message(STATUS "Test if asctime_r takes 3 arguments")
 	check_c_source_compiles("
-        #include <time.h>
+		#include <time.h>
 
-        int main(int argc, char **argv) {
-            (void) argc;(void) argv;
-            char buf[26]; struct tm t; asctime_r(&t,buf,26);(void) t; (void) buf;
-            return 0;
-        }" HAVE_ASCTIME_R3)
+		int main(int argc, char **argv) {
+			(void) argc;(void) argv;
+			char buf[26]; struct tm t; asctime_r(&t,buf,26);(void) t; (void) buf;
+			return 0;
+		}" HAVE_ASCTIME_R3)
 endif()
 
-# leave for last
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_REENTRANT")
+if(HAVE_CTIME_R)
+	message(STATUS "Test if ctime_r takes 3 arguments")
+	check_c_source_compiles("
+		#include <time.h>
+
+		int main(int argc, char **argv) {
+			(void) argc;(void) argv;
+			char buf[26]; struct tm t; ctime_r(&t,buf,26);(void) t; (void) buf;
+			return 0;
+		}" HAVE_CTIME_R3)
+endif()
+
+message(STATUS "Test if struct tm has tm_zone field")
+check_c_source_compiles("
+	#include <time.h>
+
+	int main(int argc, char **argv) {
+		(void) argc;(void) argv;
+		time_t curtime = time(NULL);
+		struct tm *tmp = localtime(&curtime);
+		tmp->tm_zone = \"Amsterdam\";
+		return 0;
+	}" HAVE_STRUCT_TM_TM_ZONE)
+
+message(STATUS "Check for diff program")
+exec_program("gdiff" ARGS "--version" OUTPUT_VARIABLE GDIFF_OUPUT RETURN_VALUE GDIFF_RETURN_CODE)
+if(GDIFF_RETURN_CODE EQUAL 0 AND GDIFF_OUPUT)
+	set(DIFF "gdiff")
+else()
+	exec_program("diff" ARGS "--version" OUTPUT_VARIABLE DIFF_OUPUT RETURN_VALUE DIFF_RETURN_CODE)
+	if(DIFF_RETURN_CODE EQUAL 0 AND DIFF_OUPUT)
+		set(DIFF "diff")
+	endif()
+endif()
+
+if(${ENABLE_SQL} STREQUAL "YES" AND ${ENABLE_MONETDB5} STREQUAL "NO")
+	message(FATAL_ERROR "MonetDB/SQL requires MonetDB5: ${WHY_NOT_MONETDB5}")
+endif()
+
+site_name(BUILD_HOST)
+set(BUILT_BY "$ENV{USER}@${BUILD_HOST}")
+set(COMPILER_CALL "${CMAKE_C_COMPILER}${CMAKE_C_FLAGS}")
+set(LINKER_CALL "${CMAKE_LINKER}${CMAKE_REQUIRED_FLAGS}")
+
 configure_file(${CMAKE_SOURCE_DIR}/cmake/monetdb_config.h.in ${CMAKE_SOURCE_DIR}/debugme.h)
