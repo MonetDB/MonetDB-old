@@ -14,10 +14,6 @@
 #include "mal_readline.h"
 #include "mal_debugger.h"
 
-#ifndef S_ISCHR
-#define S_ISCHR(m)  (((m) & S_IFMT) == S_IFCHR)
-#endif
-
 #ifdef HAVE_TERMIOS_H
 #include <termios.h>
 #endif

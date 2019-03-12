@@ -2070,7 +2070,13 @@ copyto(mvc *sql, symbol *sq, const char *filename, dlist *seps, const char *null
 		if (filename && !MT_path_absolute(filename))
 			return sql_error(sql, 02, SQLSTATE(42000) "COPY INTO ON SERVER: filename must "
 					 "have absolute path: %s", filename);
+#if defined(HAVE_LSTAT)
 		if (lstat(filename, &fs) == 0)
+#elif defined(HAVE_STAT64)
+		if (_stat64(filename, &fs) == 0)
+#else
+#error lstat function or equivalent not found
+#endif
 			return sql_error(sql, 02, SQLSTATE(42000) "COPY INTO ON SERVER: file already "
 					 "exists: %s", filename);
 	}

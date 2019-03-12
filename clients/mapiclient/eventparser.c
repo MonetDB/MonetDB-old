@@ -220,8 +220,10 @@ keyvalueparser(char *txt, EventRecord *ev)
 		}
 
 		sec = atol(val);
-#ifdef HAVE_LOCALTIME_R
+#if defined(HAVE_LOCALTIME_R)
 		(void)localtime_r(&sec, &curr_time);
+#elif defined(HAVE_LOCALTIME_S)
+		(void)localtime_s(&curr_time, &sec);
 #else
 		curr_time = *localtime(&sec);
 #endif

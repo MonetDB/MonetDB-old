@@ -198,7 +198,7 @@ GDKlog(FILE *lockFile, const char *format, ...)
 	va_list ap;
 	char *p = 0, buf[1024];
 	time_t tm = time(0);
-#if defined(HAVE_CTIME_R3) || defined(HAVE_CTIME_R)
+#if defined(HAVE_CTIME_R3) || defined(HAVE_CTIME_R) || defined(HAVE_CTIME_S)
 	char tbuf[26];
 #endif
 	char *ctm;
@@ -220,14 +220,14 @@ GDKlog(FILE *lockFile, const char *format, ...)
 #ifndef HAVE_GETUID
 #define getuid() 0
 #endif
-#ifdef HAVE_CTIME_R3
+#if defined(HAVE_CTIME_R3)
 	ctm = ctime_r(&tm, tbuf, sizeof(tbuf));
-#else
-#ifdef HAVE_CTIME_R
+#elif defined(HAVE_CTIME_R)
 	ctm = ctime_r(&tm, tbuf);
+#elif defined(HAVE_CTIME_S3)
+	ctm = ctime_s(tbuf, sizeof(tbuf), &tm) ? NULL : tbuf;
 #else
 	ctm = ctime(&tm);
-#endif
 #endif
 	fprintf(lockFile, "USR=%d PID=%d TIME=%.24s @ %s\n", (int) getuid(), (int) getpid(), ctm, buf);
 	fflush(lockFile);

@@ -1223,14 +1223,26 @@ msab_deserialise(sabdb **ret, char *sdb)
 		s->scens = NULL;
 	} else {
 		l = s->scens = malloc(sizeof(sablist));
+#if defined(HAVE_STRTOK_R)
 		p = strtok_r(scens, "'", &lasts);
+#elif defined(HAVE_STRTOK_S)
+		p = strtok_s(scens, "'", &lasts);
+#else
+#error strtok_r function or equivalent not found
+#endif
 		if (p == NULL) {
 			l->val = strdup(scens);
 			l->next = NULL;
 		} else {
 			l->val = strdup(p);
 			l->next = NULL;
+#if defined(HAVE_STRTOK_R)
 			while ((p = strtok_r(NULL, "'", &lasts)) != NULL) {
+#elif defined(HAVE_STRTOK_S)
+			while ((p = strtok_s(NULL, "'", &lasts)) != NULL) {
+#else
+#error strtok_r function or equivalent not found
+#endif
 				l = l->next = malloc(sizeof(sablist));
 				l->val = strdup(p);
 				l->next = NULL;

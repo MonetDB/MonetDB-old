@@ -100,8 +100,10 @@ static void
 CLTtimeConvert(time_t l, char *s){
 			struct tm localt;
 
-#ifdef HAVE_LOCALTIME_R
+#if defined(HAVE_LOCALTIME_R)
 			(void) localtime_r(&l, &localt);
+#elif defined(HAVE_LOCALTIME_S)
+			(void)localtime_s(&localt, &l);
 #else
 			/* race condition: return value could be
 			 * overwritten in parallel thread before
@@ -109,18 +111,18 @@ CLTtimeConvert(time_t l, char *s){
 			localt = *localtime(&l);
 #endif
 
-#ifdef HAVE_ASCTIME_R3
+#if defined(HAVE_ASCTIME_R3)
 			asctime_r(&localt, s, 26);
-#else
-#ifdef HAVE_ASCTIME_R
+#elif defined(HAVE_ASCTIME_R)
 			asctime_r(&localt, s);
+#elif defined(HAVE_ASCTIME_S3)
+			asctime_s(s, 26, &localt);
 #else
 			/* race condition: return value could be
 			 * overwritten in parallel thread before copy
 			 * complete, however on Windows, asctime is
 			 * thread-safe */
 			strncpy(s, asctime(&localt), 26);
-#endif
 #endif
 			s[24] = 0;
 }

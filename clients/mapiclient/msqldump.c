@@ -199,14 +199,14 @@ main(int argc, char **argv)
 		char *p;
 		const char *rev = mercurial_revision();
 
-#ifdef HAVE_CTIME_R3
+#if defined(HAVE_CTIME_R3)
 		ctime_r(&t, buf, sizeof(buf));
-#else
-#ifdef HAVE_CTIME_R
+#elif defined(HAVE_CTIME_R)
 		ctime_r(&t, buf);
+#elif defined(HAVE_CTIME_S3)
+		ctime_s(buf, sizeof(buf), &t);
 #else
 		strncpy(buf, ctime(&t), sizeof(buf));
-#endif
 #endif
 		if ((p = strrchr(buf, '\n')) != NULL)
 			*p = 0;

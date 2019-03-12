@@ -2473,8 +2473,10 @@ ODBCFetch(ODBCStmt *stmt,
 
 		case SQL_TYPE_TIME:
 					(void) time(&t);
-#ifdef HAVE_LOCALTIME_R
+#if defined(HAVE_LOCALTIME_R)
 					(void) localtime_r(&t, &tm);
+#elif defined(HAVE_LOCALTIME_S)
+					(void) localtime_s(&tm, &t);
 #else
 					tm = *localtime(&t);
 #endif
@@ -3499,8 +3501,10 @@ ODBCStore(ODBCStmt *stmt,
 
 		case SQL_C_TYPE_TIME:
 					(void) time(&t);
-#ifdef HAVE_LOCALTIME_R
+#if defined(HAVE_LOCALTIME_R)
 					(void) localtime_r(&t, &tm);
+#elif defined(HAVE_LOCALTIME_S)
+					(void) localtime_s(&tm, &t);
 #else
 					tm = *localtime(&t);
 #endif
