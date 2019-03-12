@@ -45,18 +45,13 @@
 #include <string.h>		/* for strerror */
 #include <unistd.h>		/* for sysconf symbols */
 
-#ifndef TEMDEBUG
-/* lock and semaphore macros may use this */
-#define TEMDEBUG if (/* DISABLES CODE */ (0))
-#endif
-
 #ifdef LOCK_STATS
 
-ATOMIC_TYPE volatile GDKlockcnt;
-ATOMIC_TYPE volatile GDKlockcontentioncnt;
-ATOMIC_TYPE volatile GDKlocksleepcnt;
-MT_Lock * volatile GDKlocklist = 0;
-ATOMIC_FLAG volatile GDKlocklistlock = ATOMIC_FLAG_INIT;
+ATOMIC_TYPE GDKlockcnt = ATOMIC_VAR_INIT(0);
+ATOMIC_TYPE GDKlockcontentioncnt = ATOMIC_VAR_INIT(0);
+ATOMIC_TYPE GDKlocksleepcnt = ATOMIC_VAR_INIT(0);
+MT_Lock *volatile GDKlocklist = 0;
+ATOMIC_FLAG GDKlocklistlock = ATOMIC_FLAG_INIT;
 
 /* merge sort of linked list */
 static MT_Lock *
@@ -84,10 +79,10 @@ sortlocklist(MT_Lock *l)
 	 * start of unprocessed part of left and right lists */
 	t = ll = NULL;
 	while (l && r) {
-		if (l->sleep < r->sleep ||
-		    (l->sleep == r->sleep &&
-		     (l->contention < r->contention ||
-		      (l->contention == r->contention &&
+		if (ATOMIC_GET(&l->sleep) < ATOMIC_GET(&r->sleep) ||
+		    (ATOMIC_GET(&l->sleep) == ATOMIC_GET(&r->sleep) &&
+		     (ATOMIC_GET(&l->contention) < ATOMIC_GET(&r->contention) ||
+		      (ATOMIC_GET(&l->contention) == ATOMIC_GET(&r->contention) &&
 		       l->count <= r->count)))) {
 			/* l is smaller */
 			if (ll == NULL) {
@@ -131,17 +126,17 @@ GDKlockstatistics(int what)
 	MT_Lock *l;
 	int n = 0;
 
-	if (ATOMIC_TAS(GDKlocklistlock, dummy) != 0) {
+	if (ATOMIC_TAS(&GDKlocklistlock) != 0) {
 		fprintf(stderr, "#WARNING: GDKlocklistlock is set, so cannot access lock list\n");
 		return;
 	}
 	if (what == -1) {
 		for (l = GDKlocklist; l; l = l->next) {
 			l->count = 0;
-			l->contention = 0;
-			l->sleep = 0;
+			ATOMIC_SET(&l->contention, 0);
+			ATOMIC_SET(&l->sleep, 0);
 		}
-		ATOMIC_CLEAR(GDKlocklistlock, dummy);
+		ATOMIC_CLEAR(&GDKlocklistlock);
 		return;
 	}
 	GDKlocklist = sortlocklist(GDKlocklist);
@@ -150,20 +145,21 @@ GDKlockstatistics(int what)
 		n++;
 		if (what == 0 ||
 		    (what == 1 && l->count) ||
-		    (what == 2 && l->contention) ||
+		    (what == 2 && ATOMIC_GET(&l->contention)) ||
 		    (what == 3 && lock_isset(l)))
 			fprintf(stderr, "# %-18s\t%zu\t%zu\t%zu\t%s\t%s\t%s\n",
-				l->name ? l->name : "unknown",
-				l->count, l->contention, l->sleep,
+				l->name, l->count,
+				(size_t) ATOMIC_GET(&l->contention),
+				(size_t) ATOMIC_GET(&l->sleep),
 				lock_isset(l) ? "locked" : "",
 				l->locker ? l->locker : "",
 				l->thread ? l->thread : "");
 	}
 	fprintf(stderr, "#number of locks  %d\n", n);
-	fprintf(stderr, "#total lock count %zu\n", (size_t) GDKlockcnt);
-	fprintf(stderr, "#lock contention  %zu\n", (size_t) GDKlockcontentioncnt);
-	fprintf(stderr, "#lock sleep count %zu\n", (size_t) GDKlocksleepcnt);
-	ATOMIC_CLEAR(GDKlocklistlock, dummy);
+	fprintf(stderr, "#total lock count %zu\n", (size_t) ATOMIC_GET(&GDKlockcnt));
+	fprintf(stderr, "#lock contention  %zu\n", (size_t) ATOMIC_GET(&GDKlockcontentioncnt));
+	fprintf(stderr, "#lock sleep count %zu\n", (size_t) ATOMIC_GET(&GDKlocksleepcnt));
+	ATOMIC_CLEAR(&GDKlocklistlock);
 }
 
 #endif	/* LOCK_STATS */
@@ -175,18 +171,19 @@ static struct winthread {
 	DWORD tid;
 	void (*func) (void *);
 	void *data;
-	volatile ATOMIC_TYPE exited;
+	MT_Lock *lockwait;	/* lock we're waiting for */
+	MT_Sema *semawait;	/* semaphore we're waiting for */
+	struct winthread *joinwait; /* process we are joining with */
+	ATOMIC_TYPE exited;
 	bool detached:1, waiting:1;
-	const char *threadname;
+	char threadname[16];
 } *winthreads = NULL;
 static struct winthread mainthread = {
 	.threadname = "main thread",
+	.exited = ATOMIC_VAR_INIT(0),
 };
 
 static CRITICAL_SECTION winthread_cs;
-#ifdef ATOMIC_LOCK
-static MT_Lock exit_lock MT_LOCK_INITIALIZER("exit_lock");
-#endif
 static DWORD threadslot = TLS_OUT_OF_INDEXES;
 
 bool
@@ -203,9 +200,6 @@ MT_thread_init(void)
 			return false;
 		}
 		InitializeCriticalSection(&winthread_cs);
-#ifdef NEED_MT_LOCK_INIT
-		ATOMIC_INIT(exit_lock);
-#endif
 	}
 	return true;
 }
@@ -226,19 +220,7 @@ const char *
 MT_thread_getname(void)
 {
 	struct winthread *w = TlsGetValue(threadslot);
-	return w && w->threadname ? w->threadname : "unknown thread";
-}
-
-void
-MT_thread_setname(const char *name)
-{
-	struct winthread *w = TlsGetValue(threadslot);
-
-	if (w) {
-		EnterCriticalSection(&winthread_cs);
-		w->threadname = name;
-		LeaveCriticalSection(&winthread_cs);
-	}
+	return w ? w->threadname : "unknown thread";
 }
 
 void
@@ -248,6 +230,24 @@ MT_thread_setdata(void *data)
 
 	if (w)
 		w->data = data;
+}
+
+void
+MT_thread_setlockwait(MT_Lock *lock)
+{
+	struct winthread *w = TlsGetValue(threadslot);
+
+	if (w)
+		w->lockwait = lock;
+}
+
+void
+MT_thread_setsemawait(MT_Sema *sema)
+{
+	struct winthread *w = TlsGetValue(threadslot);
+
+	if (w)
+		w->semawait = sema;
 }
 
 void *
@@ -290,9 +290,9 @@ thread_starter(LPVOID arg)
 	w->data = NULL;
 	TlsSetValue(threadslot, w);
 	(*w->func)(data);
-	ATOMIC_SET(w->exited, 1, exit_lock);
-	ExitThread(0);
-	return TRUE;
+	ATOMIC_SET(&w->exited, 1);
+	THRDDEBUG fprintf(stderr, "#exit \"%s\"\n", w->threadname);
+	return 0;
 }
 
 static void
@@ -300,14 +300,18 @@ join_threads(void)
 {
 	bool waited;
 
+	struct winthread *self = TlsGetValue(threadslot);
 	EnterCriticalSection(&winthread_cs);
 	do {
 		waited = false;
 		for (struct winthread *w = winthreads; w; w = w->next) {
-			if (w->detached && !w->waiting && ATOMIC_GET(w->exited, exit_lock)) {
+			if (w->detached && !w->waiting && ATOMIC_GET(&w->exited)) {
 				w->waiting = true;
 				LeaveCriticalSection(&winthread_cs);
+				THRDDEBUG fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), w->threadname);
+				self->joinwait = w;
 				WaitForSingleObject(w->hdl, INFINITE);
+				self->joinwait = NULL;
 				CloseHandle(w->hdl);
 				rm_winthread(w);
 				waited = true;
@@ -324,6 +328,7 @@ join_detached_threads(void)
 {
 	bool waited;
 
+	struct winthread *self = TlsGetValue(threadslot);
 	EnterCriticalSection(&winthread_cs);
 	do {
 		waited = false;
@@ -331,7 +336,10 @@ join_detached_threads(void)
 			if (w->detached && !w->waiting) {
 				w->waiting = true;
 				LeaveCriticalSection(&winthread_cs);
+				THRDDEBUG fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), w->threadname);
+				self->joinwait = w;
 				WaitForSingleObject(w->hdl, INFINITE);
+				self->joinwait = NULL;
 				CloseHandle(w->hdl);
 				rm_winthread(w);
 				waited = true;
@@ -357,12 +365,15 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d, 
 		.data = arg,
 		.waiting = false,
 		.detached = (d == MT_THR_DETACHED),
-		.threadname = threadname,
 	};
+	ATOMIC_INIT(&w->exited, 0);
+	strncpy(w->threadname, threadname, sizeof(w->threadname));
+	w->threadname[sizeof(w->threadname) - 1] = 0;
 	EnterCriticalSection(&winthread_cs);
 	w->next = winthreads;
 	winthreads = w;
 	LeaveCriticalSection(&winthread_cs);
+	THRDDEBUG fprintf(stderr, "#create \"%s\" \"%s\"\n", MT_thread_getname(), threadname);
 	w->hdl = CreateThread(NULL, THREAD_STACK_SIZE, thread_starter, w,
 			      0, &w->tid);
 	if (w->hdl == NULL) {
@@ -386,7 +397,7 @@ MT_exiting_thread(void)
 	struct winthread *w = TlsGetValue(threadslot);
 
 	if (w) {
-		ATOMIC_SET(w->exited, 1, exit_lock);
+		ATOMIC_SET(&w->exited, 1);
 	}
 }
 
@@ -400,8 +411,12 @@ MT_join_thread(MT_Id t)
 	w = find_winthread((DWORD) t);
 	if (w == NULL || w->hdl == NULL)
 		return -1;
-	if (WaitForSingleObject(w->hdl, INFINITE) == WAIT_OBJECT_0 &&
-	    CloseHandle(w->hdl)) {
+	THRDDEBUG fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), w->threadname);
+	struct winthread *self = TlsGetValue(threadslot);
+	self->joinwait = w;
+	DWORD ret = WaitForSingleObject(w->hdl, INFINITE);
+	self->joinwait = NULL;
+	if (ret == WAIT_OBJECT_0 && CloseHandle(w->hdl)) {
 		rm_winthread(w);
 		return 0;
 	}
@@ -441,20 +456,21 @@ static struct posthread {
 	struct posthread *next;
 	void (*func)(void *);
 	void *data;
-	const char *threadname;
+	MT_Lock *lockwait;	/* lock we're waiting for */
+	MT_Sema *semawait;	/* semaphore we're waiting for */
+	struct posthread *joinwait; /* process we are joining with */
+	char threadname[16];
 	pthread_t tid;
 	MT_Id mtid;
-	volatile ATOMIC_TYPE exited;
+	ATOMIC_TYPE exited;
 	bool detached:1, waiting:1;
 } *posthreads = NULL;
 static struct posthread mainthread = {
 	.threadname = "main thread",
 	.mtid = 1,
+	.exited = ATOMIC_VAR_INIT(0),
 };
 static pthread_mutex_t posthread_lock = PTHREAD_MUTEX_INITIALIZER;
-#ifdef ATOMIC_LOCK
-static MT_Lock exit_lock MT_LOCK_INITIALIZER("exit_lock");
-#endif
 static MT_Id MT_thread_id = 1;
 
 static pthread_key_t threadkey;
@@ -464,9 +480,6 @@ MT_thread_init(void)
 {
 	int ret;
 
-#ifdef NEED_MT_LOCK_INIT
-	ATOMIC_INIT(exit_lock);
-#endif
 	if ((ret = pthread_key_create(&threadkey, NULL)) != 0) {
 		fprintf(stderr,
 			"#MT_thread_init: creating specific key for thread "
@@ -494,23 +507,13 @@ find_posthread(MT_Id tid)
 	return p;
 }
 
-void
-MT_thread_setname(const char *name)
-{
-	struct posthread *p;
-
-	p = pthread_getspecific(threadkey);
-	if (p)
-		p->threadname = name;
-}
-
 const char *
 MT_thread_getname(void)
 {
 	struct posthread *p;
 
 	p = pthread_getspecific(threadkey);
-	return p && p->threadname ? p->threadname : "unknown thread";
+	return p ? p->threadname : "unknown thread";
 }
 
 void
@@ -528,6 +531,24 @@ MT_thread_getdata(void)
 	struct posthread *p = pthread_getspecific(threadkey);
 
 	return p ? p->data : NULL;
+}
+
+void
+MT_thread_setlockwait(MT_Lock *lock)
+{
+	struct posthread *p = pthread_getspecific(threadkey);
+
+	if (p)
+		p->lockwait = lock;
+}
+
+void
+MT_thread_setsemawait(MT_Sema *sema)
+{
+	struct posthread *p = pthread_getspecific(threadkey);
+
+	if (p)
+		p->semawait = sema;
 }
 
 #ifdef HAVE_PTHREAD_SIGMASK
@@ -570,7 +591,8 @@ thread_starter(void *arg)
 	p->data = NULL;
 	pthread_setspecific(threadkey, p);
 	(*p->func)(data);
-	ATOMIC_SET(p->exited, 1, exit_lock);
+	ATOMIC_SET(&p->exited, 1);
+	THRDDEBUG fprintf(stderr, "#exit \"%s\"\n", p->threadname);
 	return NULL;
 }
 
@@ -579,14 +601,18 @@ join_threads(void)
 {
 	bool waited;
 
+	struct posthread *self = pthread_getspecific(threadkey);
 	pthread_mutex_lock(&posthread_lock);
 	do {
 		waited = false;
 		for (struct posthread *p = posthreads; p; p = p->next) {
-			if (p->detached && !p->waiting && ATOMIC_GET(p->exited, exit_lock)) {
+			if (p->detached && !p->waiting && ATOMIC_GET(&p->exited)) {
 				p->waiting = true;
 				pthread_mutex_unlock(&posthread_lock);
+				THRDDEBUG fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), p->threadname);
+				self->joinwait = p;
 				pthread_join(p->tid, NULL);
+				self->joinwait = NULL;
 				rm_posthread(p);
 				waited = true;
 				pthread_mutex_lock(&posthread_lock);
@@ -602,6 +628,7 @@ join_detached_threads(void)
 {
 	bool waited;
 
+	struct posthread *self = pthread_getspecific(threadkey);
 	pthread_mutex_lock(&posthread_lock);
 	do {
 		waited = false;
@@ -609,7 +636,10 @@ join_detached_threads(void)
 			if (p->detached && !p->waiting) {
 				p->waiting = true;
 				pthread_mutex_unlock(&posthread_lock);
+				THRDDEBUG fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), p->threadname);
+				self->joinwait = p;
 				pthread_join(p->tid, NULL);
+				self->joinwait = NULL;
 				rm_posthread(p);
 				waited = true;
 				pthread_mutex_lock(&posthread_lock);
@@ -654,8 +684,10 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d, 
 		.data = arg,
 		.waiting = false,
 		.detached = (d == MT_THR_DETACHED),
-		.threadname = threadname,
 	};
+	ATOMIC_INIT(&p->exited, 0);
+	strncpy(p->threadname, threadname, sizeof(p->threadname));
+	p->threadname[sizeof(p->threadname) - 1] = 0;
 	pthread_mutex_lock(&posthread_lock);
 	p->next = posthreads;
 	posthreads = p;
@@ -666,6 +698,7 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d, 
 	(void) sigfillset(&new_mask);
 	MT_thread_sigmask(&new_mask, &orig_mask);
 #endif
+	THRDDEBUG fprintf(stderr, "#create \"%s\" \"%s\"\n", MT_thread_getname(), threadname);
 	ret = pthread_create(&p->tid, &attr, thread_starter, p);
 	if (ret != 0) {
 		fprintf(stderr,
@@ -698,7 +731,7 @@ MT_exiting_thread(void)
 
 	p = pthread_getspecific(threadkey);
 	if (p) {
-		ATOMIC_SET(p->exited, 1, exit_lock);
+		ATOMIC_SET(&p->exited, 1);
 	}
 }
 
@@ -713,7 +746,12 @@ MT_join_thread(MT_Id t)
 	p = find_posthread(t);
 	if (p == NULL)
 		return -1;
-	if ((ret = pthread_join(p->tid, NULL)) != 0) {
+	THRDDEBUG fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), p->threadname);
+	struct posthread *self = pthread_getspecific(threadkey);
+	self->joinwait = p;
+	ret = pthread_join(p->tid, NULL);
+	self->joinwait = NULL;
+	if (ret != 0) {
 		fprintf(stderr, "#MT_join_thread: joining thread failed: %s\n",
 			strerror(ret));
 		return -1;

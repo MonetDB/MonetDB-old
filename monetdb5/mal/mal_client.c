@@ -154,8 +154,6 @@ MCnewClient(void)
 #ifdef MAL_CLIENT_DEBUG
 	fprintf(stderr,"New client created %d\n", (int) (c - mal_clients));
 #endif
-	snprintf(c->name, sizeof(c->name), "client%d", (int) (c - mal_clients));
-	MT_thread_setname(c->name);
 	return c;
 }
 
@@ -267,8 +265,9 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 
 	c->filetrans = false;
 
-	snprintf(c->semaname, sizeof(c->semaname), "Client%d->s", (int) (c - mal_clients));
-	MT_sema_init(&c->s, 0, c->semaname);
+	char name[16];
+	snprintf(name, sizeof(name), "Client%d->s", (int) (c - mal_clients));
+	MT_sema_init(&c->s, 0, name);
 	return c;
 }
 
@@ -290,12 +289,9 @@ int
 MCinitClientThread(Client c)
 {
 	Thread t;
-	char cname[11 + 1];
 
-	snprintf(cname, 11, OIDFMT, c->user);
-	cname[11] = '\0';
-	t = THRnew(cname);
-	if (t == 0) {
+	t = MT_thread_getdata();	/* should succeed */
+	if (t == NULL) {
 		MPresetProfiler(c->fdout);
 		return -1;
 	}

@@ -1686,7 +1686,7 @@ org_have_regex=auto
 dft_regex=auto
 AC_ARG_WITH([regex],
 	[AS_HELP_STRING([--with-regex=TYPE],
-	[use either PRCE or POSIX regular expressions (default=PCRE if available)])],
+	[use either PCRE or POSIX regular expressions (default=PCRE if available)])],
 	[AS_CASE([$withval],
 		[pcre|PCRE], [have_regex=pcre],
 		[posix|POSIX], [have_regex=posix],
@@ -2375,6 +2375,7 @@ AC_HEADER_STDBOOL
 # NOTE: these header files are in alphabetical order to ease maintenance
 AC_CHECK_HEADERS([ \
 	dirent.h \
+	dispatch/dispatch.h \
 	dlfcn.h \
 	execinfo.h \
 	fcntl.h \
@@ -2511,6 +2512,22 @@ AC_C_INLINE
 AC_C_RESTRICT
 AC_C_FLEXIBLE_ARRAY_MEMBER
 
+AC_MSG_CHECKING([if your compiler has usable <stdatomic.h>])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+	@%:@include <stdatomic.h>
+
+	@%:@if ATOMIC_LLONG_LOCK_FREE == 2
+	atomic_ullong i;
+	@%:@else
+	atomic_uint i;
+	@%:@endif
+	]],
+	[[ atomic_store(&i, 0); ]]
+	)],
+	[AC_MSG_RESULT([yes])
+	 AC_DEFINE([HAVE_STDATOMIC_H], 1, [Define to 1 if you have the <stdatomic.h> header file.])],
+	[AC_MSG_RESULT([no])])
+
 AC_MSG_CHECKING([if your compiler understands `__hidden'])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 	@%:@include <stdlib.h>
@@ -2563,6 +2580,7 @@ AC_CHECK_FUNCS([\
 	cbrt \
 	clock_gettime \
 	ctime_r \
+	dispatch_semaphore_create \
 	fallocate \
 	fcntl \
 	fsync \
