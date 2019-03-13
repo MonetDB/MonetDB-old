@@ -9,7 +9,6 @@ set(CMAKE_C_STANDARD 99)
 set(PACKAGE "MonetDB" CACHE STRING "")
 
 find_package(PkgConfig)
-find_package(BISON)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" CACHE INTERNAL "Location of custom CMake modules.")
 include(GNUInstallDirs REQUIRED)
@@ -19,11 +18,11 @@ include(CheckIncludeFile REQUIRED)
 include(CheckIncludeFiles REQUIRED)
 include(CheckSymbolExists REQUIRED)
 include(CheckTypeSize REQUIRED)
+include(CheckStructHasMember REQUIRED)
 include(FindIconv REQUIRED)
 include(TestLargeFiles REQUIRED)
 include(CheckCCompilerFlag REQUIRED)
 include(TestBigEndian REQUIRED)
-include(FindBZip2)
 
 cmake_policy(SET CMP0075 NEW)
 
@@ -79,6 +78,10 @@ elseif(EXISTS "${CMAKE_SOURCE_DIR}/.git")
 	if(GIT_RETURN_CODE EQUAL 0 AND GIT_OUPUT_RES)
 		set(MERCURIAL_ID "${GIT_OUPUT_RES}+")
 	endif()
+endif()
+
+if(NOT "${CMAKE_C_COMPILER_ID}" MATCHES "^GNU|Intel|Clang|MSVC|AppleClang$")
+	message(WARNING "Compiler potentially not (correctly) recognized")
 endif()
 
 if("${CMAKE_C_COMPILER_ID}" STREQUAL "Intel")
@@ -141,8 +144,6 @@ if(${ENABLE_MONETDB5} STREQUAL "NO")
 	endif()
 endif()
 
-set(ENABLE_FITS "AUTO" CACHE STRING "Enable support for FITS (default=auto)")
-set(ENABLE_NETCDF "AUTO" CACHE STRING "Enable support for netcdf (default=auto)")
 set(ENABLE_LIDAR "AUTO" CACHE STRING "Enable support for LiDAR data (default=auto)")
 set(ENABLE_SHP "AUTO" CACHE STRING "Enable support for ESRI Shapefiles (default=auto)")
 if(${ENABLE_GEOM} STREQUAL "NO")
@@ -163,7 +164,6 @@ if(NOT ${ENABLE_CONSOLE} STREQUAL "NO")
 	set(HAVE_CONSOLE ON)
 endif()
 
-set(ENABLE_INT128 "AUTO" CACHE STRING "Enable support for 128-bit integers (default=auto)")
 set(ENABLE_DEBUG "${DFT_DEBUG}" CACHE STRING "Enable full debugging (default=yes for development sources)")
 set(ENABLE_ASSERT "${DFT_ASSERT}" CACHE STRING "Enable assertions in the code (default=yes for development sources)")
 set(ENABLE_OPTIMIZE "${DFT_OPTIMIZE}" CACHE STRING "Enable extra optimization (default=no)")
@@ -195,8 +195,70 @@ opj_test_large_files(_LARGE_FILES)
 opj_test_large_files(_LARGEFILE_SOURCE)
 opj_test_large_files(_FILE_OFFSET_BITS)
 
-if(NOT "${CMAKE_C_COMPILER_ID}" MATCHES "^GNU|Intel|Clang|MSVC|AppleClang$")
-	message(WARNING "Compiler potentially not (correctly) recognized")
+message(STATUS "Test if struct tm has tm_zone field")
+check_struct_has_member("struct tm" tm_zone "time.h" HAVE_STRUCT_TM_TM_ZONE LANGUAGE C)
+
+message(STATUS "Test for __builtin_add_overflow")
+check_c_source_compiles("
+	#include <stdio.h>
+	#include <stdlib.h>
+
+	int main(int argc, char **argv) {
+		__int128 a=(__int128)atoll(getenv(\"a\"))<<64, b=(__int128)atoll(getenv(\"b\"))<<64, c;
+		(void) argc;(void) argv;
+		if (!__builtin_mul_overflow(a, b, &c))
+			printf(\"%lld %lld\",(long long)(c>>64), (long long)c);
+		return 0;
+	}" HAVE___BUILTIN_ADD_OVERFLOW)
+
+set(FLEXIBLE_ARRAY_MEMBER ON) # We compile according to C99 standard onwards
+
+# https://github.com/Unidata/netcdf-c/commit/b432a527c4a38af45498691a44c5a88961b9c751
+message(STATUS "Test if char type is unsigned or not")
+check_c_source_compiles("
+	#include <stdlib.h>
+
+	int main(int argc, char **argv) {
+		char error_if_char_is_signed[((char)-1) < 0 ? -1 : 1];
+		(void) argc; (void) argv; (void) error_if_char_is_signed;
+		error_if_char_is_signed[0] = 0;
+		return 0;
+	}" __CHAR_UNSIGNED__)
+if(__CHAR_UNSIGNED__)
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D__CHAR_UNSIGNED__")
+endif()
+
+message(STATUS "Test if __hidden macro is supported")
+check_c_source_compiles("
+	#include <stdlib.h>
+
+	__hidden void test(int a);
+	void test(int a) { (void)a; }
+
+	int main(int argc, char **argv) {
+		(void) argc; (void) argv;
+		test(1);
+		return 0;
+	}" HAVE_HIDDEN)
+if(NOT HAVE_HIDDEN)
+	set(__hidden ON)
+endif()
+
+message(STATUS "Test if compiler can use NAN as an initializer")
+check_c_source_compiles("
+	#include <math.h>
+
+	extern const float f;
+	extern const double d;
+	const float f = NAN;
+	const double d = NAN;
+
+	int main(int argc, char **argv) {
+		(void) argc; (void) argv;
+		return 0;
+	}" NAN_CAN_BE_USED_AS_INITIALIZER)
+if(NOT NAN_CAN_BE_USED_AS_INITIALIZER)
+	set(NAN_CANNOT_BE_USED_AS_INITIALIZER ON)
 endif()
 
 # Check for compiler flags
@@ -594,6 +656,7 @@ if(NOT ENABLE_TESTING STREQUAL "NO" AND NOT HAVE_PYTHON2 AND NOT HAVE_PYTHON3)
 	set(ENABLE_TESTING "NO")
 endif()
 
+find_package(BISON)
 if(BISON_FOUND)
 	if(BISON_VERSION VERSION_LESS_EQUAL 2.4.3)
 		string(FIND "${CMAKE_C_FLAGS}" "-Wundef" FOUND_WDEF)
@@ -645,23 +708,20 @@ set(SO_PREFIX    ${OS_SOPREF})
 test_big_endian(WORDS_BIGENDIAN)
 if(APPLE)
 	set(AC_APPLE_UNIVERSAL_BUILD ON)
-	set(_DARWIN_USE_64_BIT_INODE ON)
 endif()
 
 # checks for libraries
-set(WITH_BZ2 "AUTO" CACHE STRING "Include bz2 support (default=auto)") # Check with HAVE_BZLIB
+set(WITH_BZ2 "AUTO" CACHE STRING "Include bz2 support (default=auto)") # Check with BZip2_FOUND
 if(NOT ${WITH_BZ2} STREQUAL "NO")
+	include(FindBZip2)
+
 	if(BZip2_FOUND)
-		set(HAVE_BZLIB ON)
 		message(STATUS "bz2 library found")
 	elseif(${WITH_BZ2} STREQUAL "YES")
 		message(FATAL_ERROR "bz2 library not found")
 	else()
 		message(WARN " bz2 library not found")
 	endif()
-endif()
-if(HAVE_BZLIB)
-	set(HAVE_LIBBZ2 ON)
 endif()
 
 set(WITH_SNAPPY "AUTO" CACHE STRING "Include snappy support (default=auto)") # Check with HAVE_LIBSNAPPY
@@ -754,7 +814,7 @@ if(NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 	if(HAVE_PTHREAD_H)
 		set(HAVE_LIBPTHREAD ON)
 	else()
-		message(FATAL_ERROR "MonetDB requires libpthread (try -DWITH_PTHREAD")
+		message(FATAL_ERROR "MonetDB requires libpthread on UNIX systems")
 	endif()
 endif()
 
@@ -803,9 +863,7 @@ if(NOT ${WITH_READLINE} STREQUAL "NO")
 
 				int main(int argc, char **argv) {
 					rl_completion_func_t *func = NULL;
-					(void) argc;
-					(void) argv;
-					(void) func;
+					(void) argc; (void) argv; (void) func;
 					return 0;
 				}
 			" HAVE_LIBREADLINE)
@@ -841,14 +899,13 @@ if(Iconv_FOUND)
 	check_c_source_compiles("
 		#include <iconv.h>
 
-		int main(int argc, char** argv){
-			(void) argc;
-			(void) argv;
+		int main(int argc, char **argv) {
 			iconv_t conv = 0;
 			const char* in = 0;
 			size_t ilen = 0;
 			char* out = 0;
 			size_t olen = 0;
+			(void) argc; (void) argv;
 			iconv(conv, &in, &ilen, &out, &olen);
 			return 0;
 		}
@@ -861,13 +918,10 @@ if(Iconv_FOUND)
 endif()
 
 # UUID
-set(WITH_UUID "YES" CACHE STRING "Include UUID support (default=yes)") # Check with HAVE_UUID_LIB
+set(WITH_UUID "YES" CACHE STRING "Include UUID support (default=yes)") # Check with HAVE_UUID
 if(NOT ${WITH_UUID} STREQUAL "NO")
 	set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};uuid")
-	check_symbol_exists("uuid_generate" "uuid/uuid.h" HAVE_UUID_LIB)
-	if(HAVE_UUID_LIB)
-		set(HAVE_UUID ON)
-	endif()
+	check_symbol_exists("uuid_generate" "uuid/uuid.h" HAVE_UUID)
 	set(CMAKE_REQUIRED_LIBRARIES "${PREV_CMAKE_REQUIRED_LIBRARIES}")
 endif()
 
@@ -878,34 +932,13 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
 	set(HAVE_COMMONCRYPTO ON)
 	set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};crypto") # TODO test this
 
-	check_symbol_exists("CC_MD5_Update" "CommonCrypto/CommonDigest.h" HAVE_MD5_UPDATE_FUNC)
-	if(HAVE_MD5_UPDATE_FUNC)
-		set(HAVE_MD5_UPDATE ON)
-	endif()
-	check_symbol_exists("CC_RIPEMD160_Update" "CommonCrypto/CommonDigest.h" HAVE_RIPEMD160_UPDATE_FUNC)
-	if(HAVE_RIPEMD160_UPDATE_FUNC)
-		set(HAVE_RIPEMD160_UPDATE ON)
-	endif()
-	check_symbol_exists("CC_SHA1_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA1_UPDATE_FUNC)
-	if(HAVE_SHA1_UPDATE_FUNC)
-		set(HAVE_SHA1_UPDATE ON)
-	endif()
-	check_symbol_exists("CC_SHA224_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA224_UPDATE_FUNC)
-	if(HAVE_SHA224_UPDATE_FUNC)
-		set(HAVE_SHA224_UPDATE ON)
-	endif()
-	check_symbol_exists("CC_SHA256_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA256_UPDATE_FUNC)
-	if(HAVE_SHA256_UPDATE_FUNC)
-		set(HAVE_SHA256_UPDATE ON)
-	endif()
-	check_symbol_exists("CC_SHA384_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA384_UPDATE_FUNC)
-	if(HAVE_SHA384_UPDATE_FUNC)
-		set(HAVE_SHA384_UPDATE ON)
-	endif()
-	check_symbol_exists("HAVE_SHA512_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA512_UPDATE_FUNC)
-	if(HAVE_SHA512_UPDATE_FUNC)
-		set(HAVE_SHA512_UPDATE ON)
-	endif()
+	check_symbol_exists("CC_MD5_Update" "CommonCrypto/CommonDigest.h" HAVE_MD5_UPDATE)
+	check_symbol_exists("CC_RIPEMD160_Update" "CommonCrypto/CommonDigest.h" HAVE_RIPEMD160_UPDATE)
+	check_symbol_exists("CC_SHA1_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA1_UPDATE)
+	check_symbol_exists("CC_SHA224_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA224_UPDATE)
+	check_symbol_exists("CC_SHA256_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA256_UPDATE)
+	check_symbol_exists("CC_SHA384_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA384_UPDATE)
+	check_symbol_exists("HAVE_SHA512_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA512_UPDATE)
 else()
 	set(WITH_OPENSSL "YES" CACHE STRING "Include OpenSSL support (default=yes)") # Check with OPENSSL_FOUND
 	if(NOT ${WITH_OPENSSL} STREQUAL "NO")
@@ -913,41 +946,22 @@ else()
 
 		if(OPENSSL_FOUND)
 			message(STATUS "openssl library found")
+			set(HAVE_OPENSSL ON)
 			set(OPENSSL_INCS "${OPENSSL_INCLUDE_DIR}")
-			set(OPENSSL_LIBS "${OPENSSL_SSL_LIBRARY};${OPENSSL_CRYPTO_LIBRARY}")
+			set(OPENSSL_LIBS "${OPENSSL_CRYPTO_LIBRARY}")
 			set(CMAKE_REQUIRED_INCLUDES "${OPENSSL_INCS}")
-			set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};ssl;crypto")
+			set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};crypto")
 
-			check_symbol_exists("MD5_Update" "openssl/md5.h" HAVE_MD5_UPDATE_FUNC)
-			if(HAVE_MD5_UPDATE_FUNC)
-				set(HAVE_MD5_UPDATE ON)
-			endif()
-			check_symbol_exists("RIPEMD160_Update" "openssl/ripemd.h" HAVE_RIPEMD160_UPDATE_FUNC)
-			if(HAVE_RIPEMD160_UPDATE_FUNC)
-				set(HAVE_RIPEMD160_UPDATE ON)
-			endif()
-			check_symbol_exists("SHA1_Update" "openssl/sha.h" HAVE_SHA1_UPDATE_FUNC)
-			if(HAVE_SHA1_UPDATE_FUNC)
-				set(HAVE_SHA1_UPDATE ON)
-			endif()
-			check_symbol_exists("SHA224_Update" "openssl/sha.h" HAVE_SHA224_UPDATE_FUNC)
-			if(HAVE_SHA224_UPDATE_FUNC)
-				set(HAVE_SHA224_UPDATE ON)
-			endif()
-			check_symbol_exists("SHA256_Update" "openssl/sha.h" HAVE_SHA256_UPDATE_FUNC)
-			if(HAVE_SHA256_UPDATE_FUNC)
-				set(HAVE_SHA256_UPDATE ON)
-			endif()
-			check_symbol_exists("SHA384_Update" "openssl/sha.h" HAVE_SHA384_UPDATE_FUNC)
-			if(HAVE_SHA384_UPDATE_FUNC)
-				set(HAVE_SHA384_UPDATE ON)
-			endif()
-			check_symbol_exists("SHA512_Update" "openssl/sha.h" HAVE_SHA512_UPDATE_FUNC)
-			if(HAVE_SHA512_UPDATE_FUNC)
-				set(HAVE_SHA512_UPDATE ON)
-			endif()
+			check_symbol_exists("MD5_Update" "openssl/md5.h" HAVE_MD5_UPDATE)
+			check_symbol_exists("RIPEMD160_Update" "openssl/ripemd.h" HAVE_RIPEMD160_UPDATE)
+			check_symbol_exists("SHA1_Update" "openssl/sha.h" HAVE_SHA1_UPDATE)
+			check_symbol_exists("SHA224_Update" "openssl/sha.h" HAVE_SHA224_UPDATE)
+			check_symbol_exists("SHA256_Update" "openssl/sha.h" HAVE_SHA256_UPDATE)
+			check_symbol_exists("SHA384_Update" "openssl/sha.h" HAVE_SHA384_UPDATE)
+			check_symbol_exists("SHA512_Update" "openssl/sha.h" HAVE_SHA512_UPDATE)
 
-			if(NOT HAVE_${PASSWORD_BACKEND}_UPDATE_FUNC)
+			if(NOT HAVE_${PASSWORD_BACKEND}_UPDATE)
+				set(OPENSSL_FOUND NO)
 				if(${ENABLE_MONETDB5} STREQUAL "YES")
 					message(FATAL_ERROR "OpenSSL library found but checksum algorithm required for MonetDB5 not found")
 				else()
@@ -955,8 +969,6 @@ else()
 					set(WHY_NOT_MONETDB5 "OpenSSL library found but required checksum algorithm not found, so disabling")
 					message(WARN " ${WHY_NOT_MONETDB5}")
 				endif()
-			else()
-				set(HAVE_OPENSSL ON)
 			endif()
 		else()
 			if(${ENABLE_MONETDB5} STREQUAL "YES")
@@ -987,12 +999,12 @@ if(NOT ${WITH_REGEX} STREQUAL "POSIX")
 		message(STATUS "Checking for UTF-8 support on PCRE library")
 		set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};pcre")
 		check_c_source_runs("
+			#include <stdlib.h>
 			#include <pcre.h>
 
 			int main(int argc, char **argv) {
 				int rc;
-				(void) argc;
-				(void) argv;
+				(void) argc; (void) argv;
 				if (pcre_config(PCRE_CONFIG_UTF8, &rc) != 0)
 					return 1;
 				exit(!rc);
@@ -1029,8 +1041,7 @@ if(NOT HAVE_LIBPCRE)
 
 		int main(int argc, char **argv) {
 			regex_t re;
-			(void) argc;
-			(void) argv;
+			(void) argc; (void) argv;
 			return regcomp(&re, \"hello\", REG_EXTENDED|REG_NOSUB) ? 1 : 0;
 		}
 	" HAVE_POSIX_REGEX)
@@ -1274,19 +1285,12 @@ if(NOT ${ENABLE_ODBC} STREQUAL "NO")
 
 			SQLRETURN SQL_API
 			SQLColAttribute(SQLHSTMT hStmt, SQLUSMALLINT nCol, SQLUSMALLINT nFieldIdentifier, SQLPOINTER pszValue, SQLSMALLINT nValueLengthMax, SQLSMALLINT *pnValueLength, SQLLEN *pnValue) {
-				(void) hStmt;
-				(void) nCol;
-				(void) nFieldIdentifier;
-				(void) pszValue;
-				(void) nValueLengthMax;
-				(void) pnValueLength;
-				(void) pnValue;
+				(void) hStmt; (void) nCol; (void) nFieldIdentifier; (void) pszValue; (void) nValueLengthMax; (void) pnValueLength; (void) pnValue;
 				return SQL_SUCCESS;
 			}
 
 			int main(int argc, char **argv) {
-				(void) argc;
-				(void) argv;
+				(void) argc; (void) argv;
 				return SQLColAttribute(0,0,0,0,0,0,0);
 			}
 		" SQL_COL_TEST)
@@ -1492,6 +1496,7 @@ if(NOT ${WITH_GDAL} STREQUAL "NO")
 	endif()
 endif()
 
+set(ENABLE_FITS "AUTO" CACHE STRING "Enable support for FITS (default=auto)")
 if(NOT ${ENABLE_FITS} STREQUAL "NO") # Check with CFITSIO_FOUND
 	pkg_search_module(CFITSIO NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH cfitsio)
 
@@ -1503,6 +1508,7 @@ if(NOT ${ENABLE_FITS} STREQUAL "NO") # Check with CFITSIO_FOUND
 	endif()
 endif()
 
+set(ENABLE_NETCDF "AUTO" CACHE STRING "Enable support for netcdf (default=auto)")
 if(NOT ${ENABLE_NETCDF} STREQUAL "NO") # Check with NETCDF_FOUND
 	pkg_search_module(NETCDF NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH netcdf>=4.2)
 
@@ -1523,7 +1529,7 @@ if(NOT ${WITH_LIBLAS} STREQUAL "NO")
 	if(${WITH_LIBLAS} MATCHES "^YES|AUTO$")
 		set(LIBLAS_EXECUTABLE "liblas-config")
 	else()
-		set(LIBLAS_EXECUTABLE "${WITH_LIBLAS}/bin")
+		set(LIBLAS_EXECUTABLE "${WITH_LIBLAS}/bin/liblas-config")
 	endif()
 
 	exec_program("${LIBLAS_EXECUTABLE}" ARGS "--version" OUTPUT_VARIABLE LIBLAS_VERSION RETURN_VALUE LIBLAS_RC)
@@ -1581,12 +1587,10 @@ if(NOT ${WITH_ATOMIC_OPS} STREQUAL "NO")
 			check_include_file("atomic_ops.h" HAVE_ATOMIC_OPS_H)
 			if(HAVE_ATOMIC_OPS_H)
 				set(HAVE_LIBATOMIC_OPS ON)
+			elseif(${WITH_ATOMIC_OPS} STREQUAL "YES")
+				message(FATAL_ERROR "atomic_ops was incorrectly installed (happens on at least Solaris/OpenIndiana)")
 			else()
-				if(${WITH_ATOMIC_OPS} STREQUAL "YES")
-					message(FATAL_ERROR "atomic_ops was incorrectly installed (happens on at least Solaris/OpenIndiana)")
-				else()
-					message(WARN " atomic_ops was incorrectly installed (happens on at least Solaris/OpenIndiana)")
-				endif()
+				message(WARN " atomic_ops was incorrectly installed (happens on at least Solaris/OpenIndiana)")
 			endif()
 		endif()
 	elseif(${WITH_ATOMIC_OPS} STREQUAL "YES")
@@ -1755,6 +1759,7 @@ if(NOT HAVE_SIZEOF_OFF_T OR "${SIZEOF_OFF_T}" STREQUAL "0")
 	set(off_t int)
 endif()
 
+set(ENABLE_INT128 "AUTO" CACHE STRING "Enable support for 128-bit integers (default=auto)")
 if(NOT ${ENABLE_INT128} STREQUAL "NO")
 	check_type_size(__int128 SIZEOF___INT128 LANGUAGE C)
 	if(HAVE_SIZEOF___INT128 AND NOT "${SIZEOF___INT128}" STREQUAL "0")
@@ -1805,60 +1810,6 @@ endif()
 check_type_size(wchar_t WCHAR_T LANGUAGE C)
 if(HAVE_WCHAR_T AND NOT "${WCHAR_T}" STREQUAL "0")
 	set(SIZEOF_WCHAR_T ${WCHAR_T})
-endif()
-
-set(FLEXIBLE_ARRAY_MEMBER ON) # We compile according to C99 standard onwards
-
-# https://github.com/Unidata/netcdf-c/commit/b432a527c4a38af45498691a44c5a88961b9c751
-message(STATUS "Test if char type is unsigned or not")
-check_c_source_compiles("
-	#include <stdlib.h>
-
-	int main(int argc, char **argv) {
-		(void) argc;
-		(void) argv;
-		char error_if_char_is_signed[((char)-1) < 0 ? -1 : 1];
-		error_if_char_is_signed[0] = 0;
-		(void) error_if_char_is_signed;
-		return 0;
-	}" __CHAR_UNSIGNED__)
-if(__CHAR_UNSIGNED__)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D__CHAR_UNSIGNED__")
-endif()
-
-message(STATUS "Test if __hidden macro is supported")
-check_c_source_compiles("
-	#include <stdlib.h>
-
-	__hidden void test(int a);
-	void test(int a) { (void)a; }
-
-	int main(int argc, char **argv) {
-		(void) argc;
-		(void) argv;
-		test(1);
-		return 0;
-	}" HAVE_HIDDEN)
-if(NOT HAVE_HIDDEN)
-	set(__hidden ON)
-endif()
-
-message(STATUS "Test if compiler can use NAN as an initializer")
-check_c_source_compiles("
-	#include <math.h>
-
-	extern const float f;
-	extern const double d;
-	const float f = NAN;
-	const double d = NAN;
-
-	int main(int argc, char **argv) {
-		(void) argc;
-		(void) argv;
-		return 0;
-	}" NAN_CAN_BE_USED_AS_INITIALIZER)
-if(NOT NAN_CAN_BE_USED_AS_INITIALIZER)
-	set(NAN_CANNOT_BE_USED_AS_INITIALIZER ON)
 endif()
 
 check_symbol_exists("accept4" "sys/types.h;sys/socket.h" HAVE_ACCEPT4)
@@ -1916,27 +1867,15 @@ check_symbol_exists("_wfopen" "stdio.h" HAVE__WFOPEN)
 check_symbol_exists("_mul128" "intrin.h" HAVE__MUL128)
 check_symbol_exists("_stat64" "sys/types.h;sys/stat.h" HAVE_STAT64)
 
-message(STATUS "Test for __builtin_add_overflow")
-check_c_source_compiles("
-	#include <stdio.h>
-	#include <stdlib.h>
-
-	int main(int argc, char **argv) {
-		(void) argc;(void) argv;
-		__int128 a=(__int128)atoll(getenv(\"a\"))<<64, b=(__int128)atoll(getenv(\"b\"))<<64, c;
-		if (!__builtin_mul_overflow(a, b, &c))
-			printf(\"%lld %lld\",(long long)(c>>64), (long long)c);
-		return 0;
-	}" HAVE___BUILTIN_ADD_OVERFLOW)
-
 if(HAVE_ASCTIME_R)
 	message(STATUS "Test if asctime_r takes 3 arguments")
 	check_c_source_compiles("
 		#include <time.h>
 
 		int main(int argc, char **argv) {
-			(void) argc;(void) argv;
-			char buf[26]; struct tm t; asctime_r(&t,buf,26);(void) t; (void) buf;
+			char buf[26]; struct tm t;
+			(void) argc; (void) argv; (void) t; (void) buf;
+			asctime_r(&t,buf,26);
 			return 0;
 		}" HAVE_ASCTIME_R3)
 endif()
@@ -1947,32 +1886,25 @@ if(HAVE_CTIME_R)
 		#include <time.h>
 
 		int main(int argc, char **argv) {
-			(void) argc;(void) argv;
-			char buf[26]; struct tm t; ctime_r(&t,buf,26);(void) t; (void) buf;
+			char buf[26]; struct tm t;
+			(void) argc; (void) argv; (void) t; (void) buf;
+			ctime_r(&t,buf,26);
 			return 0;
 		}" HAVE_CTIME_R3)
 endif()
-
-message(STATUS "Test if struct tm has tm_zone field")
-check_c_source_compiles("
-	#include <time.h>
-
-	int main(int argc, char **argv) {
-		(void) argc;(void) argv;
-		time_t curtime = time(NULL);
-		struct tm *tmp = localtime(&curtime);
-		tmp->tm_zone = \"Amsterdam\";
-		return 0;
-	}" HAVE_STRUCT_TM_TM_ZONE)
 
 message(STATUS "Check for diff program")
 exec_program("gdiff" ARGS "--version" OUTPUT_VARIABLE GDIFF_OUPUT RETURN_VALUE GDIFF_RETURN_CODE)
 if(GDIFF_RETURN_CODE EQUAL 0 AND GDIFF_OUPUT)
 	set(DIFF "gdiff")
+	message(STATUS "gdiff program found")
 else()
 	exec_program("diff" ARGS "--version" OUTPUT_VARIABLE DIFF_OUPUT RETURN_VALUE DIFF_RETURN_CODE)
 	if(DIFF_RETURN_CODE EQUAL 0 AND DIFF_OUPUT)
 		set(DIFF "diff")
+		message(STATUS "diff program found")
+	else()
+		message(WARN "No diff program found")
 	endif()
 endif()
 
