@@ -672,28 +672,12 @@ else()
 	message(WARN " Bison not found")
 endif()
 
-set(OS_SOPREF "lib")
-if(${CMAKE_SYSTEM_NAME} STREQUAL "CYGWIN")
-	set(OS_DIRSEP  "/")
-	set(OS_QDIRSEP "/")
-	set(OS_PATHSEP ":")
-	set(OS_SOEXT   "-0.dll")
-	set(OS_SOPREF  ".cyg")
-elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-	set(OS_DIRSEP  "/")
-	set(OS_QDIRSEP "/")
-	set(OS_PATHSEP ":")
-	set(OS_SOEXT   ".dylib")
-elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 	set(OS_DIRSEP  "\\\\")
-	set(OS_QDIRSEP "\\\\")
 	set(OS_PATHSEP ";")
-	set(OS_SOEXT   ".dll")
-elseif(UNIX)
+elseif(UNIX OR APPLE OR ${CMAKE_SYSTEM_NAME} STREQUAL "CYGWIN")
 	set(OS_DIRSEP  "/")
-	set(OS_QDIRSEP "/")
 	set(OS_PATHSEP ":")
-	set(OS_SOEXT   ".so")
 else()
 	message(FATAL_ERROR "Unknown target operating system")
 endif()
@@ -702,8 +686,8 @@ set(DIR_SEP      "'${OS_DIRSEP}'")
 set(DIR_SEP_STR  ${OS_DIRSEP})
 set(PATH_SEP     "'${OS_PATHSEP}'")
 set(PATH_SEP_STR ${OS_PATHSEP})
-set(SO_EXT       ${OS_SOEXT})
-set(SO_PREFIX    ${OS_SOPREF})
+set(SO_EXT       ${CMAKE_SHARED_LIBRARY_SUFFIX})
+set(SO_PREFIX    ${CMAKE_SHARED_LIBRARY_PREFIX})
 
 test_big_endian(WORDS_BIGENDIAN)
 if(APPLE)
@@ -857,16 +841,7 @@ if(NOT ${WITH_READLINE} STREQUAL "NO")
 		check_symbol_exists("rl_completion_matches" "stdio.h;readline/readline.h" HAVE_LIBREADLINE)
 		if(HAVE_LIBREADLINE)
 			message(STATUS "Checking whether rl_completion_func_t exists")
-			check_c_source_compiles("
-				#include <stdio.h>
-				#include <readline/readline.h>
-
-				int main(int argc, char **argv) {
-					rl_completion_func_t *func = NULL;
-					(void) argc; (void) argv; (void) func;
-					return 0;
-				}
-			" HAVE_LIBREADLINE)
+			check_symbol_exists("rl_completion_func_t" "stdio.h;readline/readline.h" HAVE_LIBREADLINE)
 			if(NOT HAVE_LIBREADLINE)
 				if(${WITH_READLINE} STREQUAL "YES")
 					message(FATAL_ERROR "readline/readline.h does not contain rl_completion_func_t, is it GNU readline?")
@@ -895,21 +870,23 @@ if(Iconv_FOUND)
 		set(ICONV_LIBS "${Iconv_LIBRARIES}")
 	endif()
 
-	message(STATUS "Check if second iconv argument requires const")
-	check_c_source_compiles("
-		#include <iconv.h>
+	if(NOT MSVC)
+		message(STATUS "Check if second iconv argument requires const")
+		check_c_source_compiles("
+			#include <iconv.h>
 
-		int main(int argc, char **argv) {
-			iconv_t conv = 0;
-			const char* in = 0;
-			size_t ilen = 0;
-			char* out = 0;
-			size_t olen = 0;
-			(void) argc; (void) argv;
-			iconv(conv, &in, &ilen, &out, &olen);
-			return 0;
-		}
-	" ICONV_REQUIRES_CONST)
+			int main(int argc, char **argv) {
+				iconv_t conv = 0;
+				const char* in = 0;
+				size_t ilen = 0;
+				char* out = 0;
+				size_t olen = 0;
+				(void) argc; (void) argv;
+				iconv(conv, &in, &ilen, &out, &olen);
+				return 0;
+			}
+		" ICONV_REQUIRES_CONST)
+	endif()
 	if(ICONV_REQUIRES_CONST)
 		set(ICONV_CONST const)
 	else()
@@ -938,7 +915,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
 	check_symbol_exists("CC_SHA224_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA224_UPDATE)
 	check_symbol_exists("CC_SHA256_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA256_UPDATE)
 	check_symbol_exists("CC_SHA384_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA384_UPDATE)
-	check_symbol_exists("HAVE_SHA512_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA512_UPDATE)
+	check_symbol_exists("CC_SHA512_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA512_UPDATE)
 else()
 	set(WITH_OPENSSL "YES" CACHE STRING "Include OpenSSL support (default=yes)") # Check with OPENSSL_FOUND
 	if(NOT ${WITH_OPENSSL} STREQUAL "NO")
@@ -949,16 +926,27 @@ else()
 			set(HAVE_OPENSSL ON)
 			set(OPENSSL_INCS "${OPENSSL_INCLUDE_DIR}")
 			set(OPENSSL_LIBS "${OPENSSL_CRYPTO_LIBRARY}")
-			set(CMAKE_REQUIRED_INCLUDES "${OPENSSL_INCS}")
-			set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};crypto")
 
-			check_symbol_exists("MD5_Update" "openssl/md5.h" HAVE_MD5_UPDATE)
-			check_symbol_exists("RIPEMD160_Update" "openssl/ripemd.h" HAVE_RIPEMD160_UPDATE)
-			check_symbol_exists("SHA1_Update" "openssl/sha.h" HAVE_SHA1_UPDATE)
-			check_symbol_exists("SHA224_Update" "openssl/sha.h" HAVE_SHA224_UPDATE)
-			check_symbol_exists("SHA256_Update" "openssl/sha.h" HAVE_SHA256_UPDATE)
-			check_symbol_exists("SHA384_Update" "openssl/sha.h" HAVE_SHA384_UPDATE)
-			check_symbol_exists("SHA512_Update" "openssl/sha.h" HAVE_SHA512_UPDATE)
+			if(MSVC)
+				set(HAVE_MD5_UPDATE ON)
+				set(HAVE_RIPEMD160_UPDATE ON)
+				set(HAVE_SHA1_UPDATE ON)
+				set(HAVE_SHA224_UPDATE ON)
+				set(HAVE_SHA256_UPDATE ON)
+				set(HAVE_SHA384_UPDATE ON)
+				set(HAVE_SHA512_UPDATE ON)
+			else()
+				set(CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES};${OPENSSL_INCS}")
+				set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};crypto")
+
+				check_symbol_exists("MD5_Update" "openssl/md5.h" HAVE_MD5_UPDATE)
+				check_symbol_exists("RIPEMD160_Update" "openssl/ripemd.h" HAVE_RIPEMD160_UPDATE)
+				check_symbol_exists("SHA1_Update" "openssl/sha.h" HAVE_SHA1_UPDATE)
+				check_symbol_exists("SHA224_Update" "openssl/sha.h" HAVE_SHA224_UPDATE)
+				check_symbol_exists("SHA256_Update" "openssl/sha.h" HAVE_SHA256_UPDATE)
+				check_symbol_exists("SHA384_Update" "openssl/sha.h" HAVE_SHA384_UPDATE)
+				check_symbol_exists("SHA512_Update" "openssl/sha.h" HAVE_SHA512_UPDATE)
+			endif()
 
 			if(NOT HAVE_${PASSWORD_BACKEND}_UPDATE)
 				set(OPENSSL_FOUND NO)
@@ -996,22 +984,26 @@ if(NOT ${WITH_REGEX} STREQUAL "POSIX")
 
 	if(PCRE_FOUND)
 		message(STATUS "PCRE library found")
-		message(STATUS "Checking for UTF-8 support on PCRE library")
-		set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};pcre")
-		check_c_source_runs("
-			#include <stdlib.h>
-			#include <pcre.h>
+		if(MSVC)
+			set(HAVE_LIBPCRE ON)
+		else()
+			message(STATUS "Checking for UTF-8 support on PCRE library")
+			set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};pcre")
+			check_c_source_runs("
+				#include <stdlib.h>
+				#include <pcre.h>
 
-			int main(int argc, char **argv) {
-				int rc;
-				(void) argc; (void) argv;
-				if (pcre_config(PCRE_CONFIG_UTF8, &rc) != 0)
-					return 1;
-				exit(!rc);
-				return 0;
-			}
-		" HAVE_LIBPCRE)
-		set(CMAKE_REQUIRED_LIBRARIES "${PREV_CMAKE_REQUIRED_LIBRARIES}")
+				int main(int argc, char **argv) {
+					int rc;
+					(void) argc; (void) argv;
+					if (pcre_config(PCRE_CONFIG_UTF8, &rc) != 0)
+						return 1;
+					exit(!rc);
+					return 0;
+				}
+			" HAVE_LIBPCRE)
+			set(CMAKE_REQUIRED_LIBRARIES "${PREV_CMAKE_REQUIRED_LIBRARIES}")
+		endif()
 		if(NOT HAVE_LIBPCRE)
 			if(${WITH_REGEX} STREQUAL "PCRE")
 				message(FATAL_ERROR "PCRE library found but no UTF-8 support")
@@ -1036,15 +1028,7 @@ endif()
 
 if(NOT HAVE_LIBPCRE)
 	message(STATUS "Checking for GNU regex library")
-	check_c_source_runs("
-		#include <regex.h>
-
-		int main(int argc, char **argv) {
-			regex_t re;
-			(void) argc; (void) argv;
-			return regcomp(&re, \"hello\", REG_EXTENDED|REG_NOSUB) ? 1 : 0;
-		}
-	" HAVE_POSIX_REGEX)
+	check_symbol_exists("regcomp" "regex.h" HAVE_POSIX_REGEX)
 endif()
 
 if(NOT HAVE_LIBPCRE AND NOT HAVE_POSIX_REGEX)
@@ -1240,7 +1224,7 @@ if(NOT ${ENABLE_ODBC} STREQUAL "NO")
 		if(NOT ${WITH_UNIXODBC} MATCHES "^YES|AUTO$")
 			set(ODBC_INCS "${WITH_UNIXODBC}/include")
 			set(ODBC_LIBS "${WITH_UNIXODBC}/lib")
-			set(CMAKE_REQUIRED_INCS "${CMAKE_REQUIRED_INCLUDES};${ODBC_INCS}")
+			set(CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES};${ODBC_INCS}")
 			set(CMAKE_REQUIRED_LINK_OPTIONS "${CMAKE_REQUIRED_LINK_OPTIONS};${ODBC_LIBS}")
 		endif()
 
@@ -1644,22 +1628,15 @@ check_include_file("winsock.h" HAVE_WINSOCK_H)
 
 # Socket libraries
 set(SOCKET_LIBRARIES "")
-check_symbol_exists("gethostbyname_r" "netdb.h;sys/socket.h" HAVE_GETHOSTBYNAME_R)
-if(NOT HAVE_GETHOSTBYNAME_R)
-	message(STATUS "Trying to find gethostbyname_r by linking to nsl_r")
-	set(CMAKE_REQUIRED_LIBRARIES "${PREV_CMAKE_REQUIRED_LIBRARIES};nsl_r")
-	check_symbol_exists("gethostbyname_r" "netdb.h;sys/socket.h" HAVE_GETHOSTBYNAME_R)
-	if(HAVE_GETHOSTBYNAME_R)
-		set(SOCKET_LIBRARIES "${SOCKET_LIBRARIES} nsl_r")
+check_symbol_exists("gethostbyname" "netdb.h;sys/socket.h" HAVE_GETHOSTBYNAME)
+if(NOT HAVE_GETHOSTBYNAME)
+	message(STATUS "Trying to find gethostbyname by linking to nsl")
+	set(CMAKE_REQUIRED_LIBRARIES "${PREV_CMAKEEQUIRED_LIBRARIES};nsl")
+	check_symbol_exists("gethostbyname" "netdb.h;sys/socket.h" HAVE_GETHOSTBYNAME)
+	if(HAVE_GETHOSTBYNAME)
+		set(SOCKET_LIBRARIES "${SOCKET_LIBRARIES} nsl")
 	else()
-		message(STATUS "Trying to find gethostbyname_r by linking to nsl")
-		set(CMAKE_REQUIRED_LIBRARIES "${PREV_CMAKE_REQUIRED_LIBRARIES};nsl")
-		check_symbol_exists("gethostbyname_r" "netdb.h;sys/socket.h" HAVE_GETHOSTBYNAME_R)
-		if(HAVE_GETHOSTBYNAME_R)
-			set(SOCKET_LIBRARIES "${SOCKET_LIBRARIES} nsl")
-		else()
-			message(FATAL_ERROR "Could not find gethostbyname_r symbol")
-		endif()
+		message(FATAL_ERROR "Could not find gethostbyname symbol")
 	endif()
 	set(CMAKE_REQUIRED_LIBRARIES "${PREV_CMAKE_REQUIRED_LIBRARIES}")
 endif()
