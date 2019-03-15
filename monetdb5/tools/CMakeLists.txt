@@ -8,8 +8,8 @@
 
 set(MONETDB5_DEPENDENCIES atoms kernel malmodules optimizer scheduler msabaoth msabaoth bat stream)
 set(MONETDB5_LINK_LIBRARIES atoms kernel malmodules optimizer scheduler msabaoth msabaoth bat stream ${UUID_LIBRARIES}
-							${MATH_LIBS} ${SOCKET_LIBRARIES} ${MALLOC_LIBS} ${PTHREAD_LIBRARIES} ${DL_LIBS}
-							${OPENSSL_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES})
+	${MATH_LIBS} ${SOCKET_LIBRARIES} ${MALLOC_LIBS} ${PTHREAD_LIBRARIES} ${CMAKE_DL_LIBS} ${OPENSSL_LIBRARIES}
+	${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES})
 if(HAVE_MAPI)
 	list(APPEND MONETDB5_DEPENDENCIES mapi)
 	list(APPEND MONETDB5_LINK_LIBRARIES mapi)
@@ -23,3 +23,17 @@ add_library(monetdb5 SHARED monetdb.c)
 add_dependencies(monetdb5 ${MONETDB5_DEPENDENCIES})
 target_link_libraries(monetdb5 ${MONETDB5_LINK_LIBRARIES})
 set_target_properties(monetdb5 PROPERTIES VERSION ${MONETDB5_VERSION} SOVERSION ${MONETDB5_VERSION_MAJOR})
+
+if(NOT WIN32)
+	if(MATH_LIBS)
+		set(PKG_LIBXML2 "libxml-2.0")
+	endif()
+	if(MALLOC_LIBS)
+		set(PKG_OPENSSL "-l${OPENSSL_LIBRARIES}")
+	endif()
+	if(CMAKE_DL_LIBS)
+		set(PKG_PCRE "-l${PCRE_LIBRARIES}")
+	endif()
+	configure_file(monetdb5.pc.in monetdb5.pc @ONLY)
+	install(FILES monetdb5.pc DESTINATION ${PKGCONFIGDIR})
+endif()

@@ -14,3 +14,5 @@ add_library(scheduler STATIC
 			run_isolate.c run_isolate.h
 			run_memo.c run_memo.h
 			run_pipeline.c run_pipeline.h)
+
+install(FILES run_adder.mal run_isolate.mal run_memo.mal DESTINATION ${LIBDIR}/monetdb5)

@@ -77,15 +77,6 @@
 #include <ws2tcpip.h>
 #endif /* _MSC_VER */
 
-/* Build definitions */
-#cmakedefine BUILT_BY "@BUILT_BY@"
-
-/* Compiler call details */
-#cmakedefine COMPILER_CALL "@COMPILER_CALL@"
-
-/* Linker call details */
-#cmakedefine LINKER_CALL "@LINKER_CALL@"
-
 /* Mercurial repository version */
 #cmakedefine MERCURIAL_ID "@MERCURIAL_ID@"
 

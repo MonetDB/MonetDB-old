@@ -5715,8 +5715,9 @@ join_on_column_name(mvc *sql, sql_rel *rel, sql_rel *t1, sql_rel *t2, int op, in
 
 
 static int
-exp_is_not_intern(sql_exp *e)
+exp_is_not_intern(sql_exp *e, sql_exp *f)
 {
+	(void) f; //the parameter f is required to compile
 	return is_intern(e)?-1:0;
 }
 

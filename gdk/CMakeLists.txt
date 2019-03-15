@@ -35,6 +35,39 @@ add_library(bat SHARED
 			gdk_analytic_func.c gdk_analytic.h)
 add_dependencies(bat moptions mutils stream)
 target_link_libraries(bat moptions mutils stream ${MATH_LIBS} ${SOCKET_LIBRARIES} ${MALLOC_LIBS} ${PTHREAD_LIBRARIES}
-					  ${DL_LIBS})
+					  ${CMAKE_DL_LIBS})
 set_target_properties(bat PROPERTIES COMPILE_DEFINITIONS "LIBGDK")
 set_target_properties(bat PROPERTIES VERSION ${GDK_VERSION} SOVERSION ${GDK_VERSION_MAJOR})
+install(TARGETS bat LIBRARY DESTINATION ${LIBDIR})
+
+install(FILES
+		gdk.h
+		gdk_analytic.h
+		gdk_atomic.h
+		gdk_atoms.h
+		gdk_bbp.h
+		gdk_calc.h
+		gdk_cand.h
+		gdk_delta.h
+		gdk_posix.h
+		gdk_hash.h
+		gdk_system.h
+		gdk_utils.h
+		DESTINATION ${INCLUDEDIR})
+
+if(NOT WIN32)
+	if(MATH_LIBS)
+		set(PKG_MATH_LIBS "-l${MATH_LIBS}")
+	endif()
+	if(MALLOC_LIBS)
+		set(PKG_MALLOC_LIBS "-l${MALLOC_LIBS}")
+	endif()
+	if(PTHREAD_LIBRARIES)
+		set(PKG_PTHREAD_LIBRARIES "-${PTHREAD_LIBRARIES}")
+	endif()
+	if(CMAKE_DL_LIBS)
+		set(PKG_DL_LIBS "-l${CMAKE_DL_LIBS}")
+	endif()
+	configure_file(monetdb-gdk.pc.in monetdb-gdk.pc @ONLY)
+	install(FILES monetdb-gdk.pc DESTINATION ${PKGCONFIGDIR})
+endif()

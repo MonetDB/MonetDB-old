@@ -6,5 +6,12 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-add_library(moptions STATIC monet_options.c monet_options.h monet_getopt.h)
-install(FILES monet_options.h DESTINATION ${INCLUDEDIR})
+add_subdirectory(include)
+add_subdirectory(common)
+add_subdirectory(storage)
+add_subdirectory(server)
+add_subdirectory(backends)
+add_subdirectory(scripts)
+if(WIN32)
+	add_subdirectory(NT)
+endif()

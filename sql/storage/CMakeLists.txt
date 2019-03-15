@@ -6,5 +6,12 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-add_library(moptions STATIC monet_options.c monet_options.h monet_getopt.h)
-install(FILES monet_options.h DESTINATION ${INCLUDEDIR})
+add_subdirectory(bat)
+
+include_directories(. ../include ../common ../../common/options ../../common/stream ../../gdk)
+
+add_library(store STATIC
+			store_dependency.c store_sequence.c
+			store.c sql_catalog.c
+			sql_storage.h store_dependency.h
+			store_sequence.h)

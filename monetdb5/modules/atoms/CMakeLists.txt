@@ -26,3 +26,22 @@ add_library(atoms STATIC
 if(WIN32)
 	add_library(strptime STATIC strptime.c)
 endif()
+
+install(FILES
+		batxml.mal
+		blob.mal
+		color.mal
+		identifier.mal
+		inet.mal
+		json.mal
+		mtime.mal
+		streams.mal
+		str.mal
+		url.mal
+		uuid.mal
+		xml.mal
+		DESTINATION ${LIBDIR}/monetdb5)
+
+if(HAVE_HGE)
+	install(FILES 00_json_hge.mal DESTINATION ${LIBDIR}/monetdb5/autoload)
+endif()

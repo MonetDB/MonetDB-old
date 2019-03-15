@@ -11,3 +11,7 @@ include_directories(../../optimizer ../../mal ../../../gdk ../../../common/strea
 add_library(opt_sql_append MODULE opt_sql_append.c opt_sql_append.h)
 add_dependencies(opt_sql_append monetdb5 bat)
 target_link_libraries(opt_sql_append monetdb5 bat)
+
+install(FILES opt_sql_append.mal DESTINATION ${LIBDIR}/monetdb5)
+
+install(FILES 91_opt_sql_append.mal DESTINATION ${LIBDIR}/monetdb5/autoload)

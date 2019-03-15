@@ -41,5 +41,22 @@ add_library(mal STATIC
 			mal_type.c mal_type.h
 			mal_utils.c mal_utils.h
 			mal_private.h)
-
 set_target_properties(mal PROPERTIES COMPILE_DEFINITIONS "LIBMAL")
+
+install(FILES
+		mal.h
+		mal_client.h
+		mal_errors.h
+		mal_exception.h
+		mal_factory.h
+		mal_function.h
+		mal_instruction.h
+		mal_interpreter.h
+		mal_listing.h
+		mal_module.h
+		mal_namespace.h
+		mal_profiler.h
+		mal_resolve.h
+		mal_stack.h
+		mal_type.h
+		DESTINATION ${INCLUDEDIR})

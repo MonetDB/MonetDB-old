@@ -103,7 +103,7 @@ monet_version(void)
 	/* no run-time version available, so only compile time */
 	printf("  libxml2: %s\n", LIBXML_DOTTED_VERSION);
 #endif
-	printf("Compiled by: "BUILT_BY" (%s)\n", HOST);
-	printf("Compilation: "COMPILER_CALL"\n");
-	printf("Linking    : "LINKER_CALL"\n");
+	printf("Compiled by: %s (%s)\n", "@BUILT_BY@", HOST);
+	printf("Compilation: %s\n", "@COMPILER_CALL@");
+	printf("Linking    : %s\n", "@LINKER_CALL@");
 }

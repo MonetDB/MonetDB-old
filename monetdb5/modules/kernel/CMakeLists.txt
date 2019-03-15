@@ -22,6 +22,14 @@ add_library(kernel STATIC
 			mmath.c mmath.h mmath_private.h
 			status.c status.h)
 
-if(WIN32)
-	add_library(strptime STATIC strptime.c)
+install(FILES
+		bat5.mal algebra.mal status.mal
+		mmath.mal alarm.mal batstr.mal
+		batcolor.mal batmmath.mal
+		group.mal aggr.mal
+		logger.mal microbenchmark.mal
+		DESTINATION ${LIBDIR}/monetdb5)
+
+if(HAVE_HGE)
+	install(FILES 00_aggr_hge.mal DESTINATION ${LIBDIR}/monetdb5/autoload)
 endif()

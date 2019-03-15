@@ -2991,11 +2991,12 @@ tr_log_dbat(sql_trans *tr, sql_dbat *fdb, int cleared, char tpe, oid id)
 }
 
 static int
-log_table(sql_trans *tr, sql_table *ft)
+log_table(sql_trans *tr, sql_table *ft, sql_table *tt)
 {
 	int ok = LOG_OK;
 	node *n;
 
+	(void) tt;
 	assert(tr->parent == gtrans);
 	if (ft->base.wtime && ft->base.allocated)
 		ok = tr_log_dbat(tr, ft->data, ft->cleared, ft->bootstrap?0:LOG_TAB, ft->base.id);
@@ -3046,11 +3047,12 @@ tr_snapshot_bat( sql_trans *tr, sql_delta *cbat)
 }
 
 static int
-snapshot_table(sql_trans *tr, sql_table *ft)
+snapshot_table(sql_trans *tr, sql_table *ft, sql_table *tt)
 {
 	int ok = LOG_OK;
 	node *n;
 
+	(void) tt;
 	assert(tr->parent == gtrans);
 
 	for (n = ft->columns.set->h; ok == LOG_OK && n; n = n->next) {

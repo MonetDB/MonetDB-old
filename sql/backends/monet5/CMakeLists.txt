@@ -1,0 +1,46 @@
+#[[
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.  If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+#]]
+
+#[[if(NOT WIN32)
+	add_subdirectory(vaults)
+endif()
+add_subdirectory(UDF)
+add_subdirectory(generator)#]]
+
+include_directories(../../include ../../common ../../storage ../../server ../../../monetdb5/modules/atoms 
+					../../../monetdb5/modules/kernel ../../../monetdb5/mal ../../../monetdb5/modules/mal 
+					../../../monetdb5/optimizer ../../../monetdb5/scheduler ../../../monetdb5/extras/rapi 
+					../../../common/options ../../../common/stream ../../../common/utils ../../../gdk)
+
+add_library(sql MODULE
+			sql.c sql.h
+			mal_backend.c mal_backend.h
+			sql_user.c sql_user.h
+			sql_scenario.c sql_scenario.h
+			sql_execute.c sql_execute.h
+			sql_assert.c sql_assert.h
+			sql_upgrades.c sql_upgrades.h
+			rel_bin.c rel_bin.h
+			sql_cat.c sql_cat.h
+			sql_transaction.c sql_transaction.h
+			sql_statement.c sql_statement.h
+			sql_statistics.c sql_statistics.h
+			sql_gencode.c sql_gencode.h
+			sql_optimizer.c sql_optimizer.h
+			sql_result.c sql_result.h
+			sql_cast.c sql_cast.h
+			sql_cast_impl_down_from_flt.h
+			sql_cast_impl_int.h
+			sql_cast_impl_up_to_flt.h
+			sql_round.c sql_round_impl.h sql_bat2time.c
+			sql_fround.c sql_fround_impl.h
+			sql_orderidx.c sql_orderidx.h
+			wlr.c wlr.h
+			sql_rank.c sql_rank.h)
+target_link_libraries(sql store batstore sqlcommon mapi monetdb5 bat stream ${OPENSSL_LIBRARIES})
+add_dependencies(sql store batstore sqlcommon mapi monetdb5 bat stream)
