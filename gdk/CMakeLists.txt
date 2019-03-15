@@ -8,7 +8,7 @@
 
 include_directories(../common/options ../common/stream ../common/utils ${VALGRIND_INCLUDE_DIR})
 
-add_library(gdk SHARED
+add_library(bat SHARED
 			gdk_select.c
 			gdk_calc.c gdk_calc.h gdk_calc_compare.h gdk_calc_private.h
 			gdk_ssort.c gdk_ssort_impl.h
@@ -33,8 +33,8 @@ add_library(gdk SHARED
 			gdk_firstn.c
 			gdk_analytic_bounds.c
 			gdk_analytic_func.c gdk_analytic.h)
-add_dependencies(gdk moptions mutils stream)
-target_link_libraries(gdk moptions mutils stream ${MATH_LIBS} ${SOCKET_LIBRARIES} ${MALLOC_LIBS} ${PTHREAD_LIBRARIES}
+add_dependencies(bat moptions mutils stream)
+target_link_libraries(bat moptions mutils stream ${MATH_LIBS} ${SOCKET_LIBRARIES} ${MALLOC_LIBS} ${PTHREAD_LIBRARIES}
 					  ${DL_LIBS})
-set_target_properties(gdk PROPERTIES COMPILE_DEFINITIONS "LIBGDK")
-set_target_properties(gdk PROPERTIES VERSION ${GDK_VERSION} SOVERSION ${GDK_VERSION_MAJOR})
+set_target_properties(bat PROPERTIES COMPILE_DEFINITIONS "LIBGDK")
+set_target_properties(bat PROPERTIES VERSION ${GDK_VERSION} SOVERSION ${GDK_VERSION_MAJOR})

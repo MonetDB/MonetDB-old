@@ -47,14 +47,14 @@ malAtomProperty(MalBlkPtr mb, InstrPtr pci)
 	switch (name[0]) {
 	case 'd':
 		if (idcmp("del", name) == 0 && pci->argc == 1) {
-			BATatoms[tpe].atomDel = (void (*)(Heap *, var_t *))pci->fcn;
+			BATatoms[tpe].atomDel = (void (*)(Heap *, var_t *)) (void*) pci->fcn;
 			setAtomName(pci);
 			return MAL_SUCCEED;
 		}
 		break;
 	case 'c':
 		if (idcmp("cmp", name) == 0 && pci->argc == 1) {
-			BATatoms[tpe].atomCmp = (int (*)(const void *, const void *))pci->fcn;
+			BATatoms[tpe].atomCmp = (int (*)(const void *, const void *)) (void*) pci->fcn;
 			BATatoms[tpe].linear = true;
 			setAtomName(pci);
 			return MAL_SUCCEED;
@@ -62,12 +62,12 @@ malAtomProperty(MalBlkPtr mb, InstrPtr pci)
 		break;
 	case 'f':
 		if (idcmp("fromstr", name) == 0 && pci->argc == 1) {
-			BATatoms[tpe].atomFromStr = (ssize_t (*)(const char *, size_t *, ptr *, bool))pci->fcn;
+			BATatoms[tpe].atomFromStr = (ssize_t (*)(const char *, size_t *, ptr *, bool)) (void*) pci->fcn;
 			setAtomName(pci);
 			return MAL_SUCCEED;
 		}
 		if (idcmp("fix", name) == 0 && pci->argc == 1) {
-			BATatoms[tpe].atomFix = (int (*)(const void *))pci->fcn;
+			BATatoms[tpe].atomFix = (int (*)(const void *)) (void*) pci->fcn;
 			setAtomName(pci);
 			return MAL_SUCCEED;
 		}
@@ -77,19 +77,19 @@ malAtomProperty(MalBlkPtr mb, InstrPtr pci)
 			/* heap function makes an atom varsized */
 			BATatoms[tpe].size = sizeof(var_t);
 			assert_shift_width(ATOMelmshift(ATOMsize(tpe)), ATOMsize(tpe));
-			BATatoms[tpe].atomHeap = (void (*)(Heap *, size_t))pci->fcn;
+			BATatoms[tpe].atomHeap = (void (*)(Heap *, size_t)) (void*) pci->fcn;
 			setAtomName(pci);
 			return MAL_SUCCEED;
 		}
 		if (idcmp("hash", name) == 0 && pci->argc == 1) {
-			BATatoms[tpe].atomHash = (BUN (*)(const void *))pci->fcn;
+			BATatoms[tpe].atomHash = (BUN (*)(const void *)) (void*) pci->fcn;
 			setAtomName(pci);
 			return MAL_SUCCEED;
 		}
 		break;
 	case 'l':
 		if (idcmp("length", name) == 0 && pci->argc == 1) {
-			BATatoms[tpe].atomLen = (size_t (*)(const void *))pci->fcn;
+			BATatoms[tpe].atomLen = (size_t (*)(const void *)) (void*) pci->fcn;
 			setAtomName(pci);
 			return MAL_SUCCEED;
 		}
@@ -103,35 +103,35 @@ malAtomProperty(MalBlkPtr mb, InstrPtr pci)
 			return MAL_SUCCEED;
 		}
 		if (idcmp("nequal", name) == 0 && pci->argc == 1) {
-			BATatoms[tpe].atomCmp = (int (*)(const void *, const void *))pci->fcn;
+			BATatoms[tpe].atomCmp = (int (*)(const void *, const void *)) (void*) pci->fcn;
 			setAtomName(pci);
 			return MAL_SUCCEED;
 		}
 		break;
 	case 'p':
 		if (idcmp("put", name) == 0 && pci->argc == 1) {
-			BATatoms[tpe].atomPut = (var_t (*)(Heap *, var_t *, const void *))pci->fcn;
+			BATatoms[tpe].atomPut = (var_t (*)(Heap *, var_t *, const void *)) (void*) pci->fcn;
 			setAtomName(pci);
 			return MAL_SUCCEED;
 		}
 		break;
 	case 's':
 		if (idcmp("storage", name) == 0 && pci->argc == 1) {
-			BATatoms[tpe].storage = (*(int (*)(void))pci->fcn)();
+			BATatoms[tpe].storage = (*(int (*)(void)) (void*) pci->fcn)();
 			setAtomName(pci);
 			return MAL_SUCCEED;
 		}
 		break;
 	case 't':
 		if (idcmp("tostr", name) == 0 && pci->argc == 1) {
-			BATatoms[tpe].atomToStr = (ssize_t (*)(str *, size_t *, const void *, bool))pci->fcn;
+			BATatoms[tpe].atomToStr = (ssize_t (*)(str *, size_t *, const void *, bool)) (void*) pci->fcn;
 			setAtomName(pci);
 			return MAL_SUCCEED;
 		}
 		break;
 	case 'u':
 		if (idcmp("unfix", name) == 0 && pci->argc == 1) {
-			BATatoms[tpe].atomUnfix = (int (*)(const void *))pci->fcn;
+			BATatoms[tpe].atomUnfix = (int (*)(const void *)) (void*) pci->fcn;
 			setAtomName(pci);
 			return MAL_SUCCEED;
 		}
@@ -145,7 +145,7 @@ malAtomProperty(MalBlkPtr mb, InstrPtr pci)
 		break;
 	case 'w':
 		if (idcmp("write", name) == 0 && pci->argc == 1) {
-			BATatoms[tpe].atomWrite = (gdk_return (*)(const void *, stream *, size_t))pci->fcn;
+			BATatoms[tpe].atomWrite = (gdk_return (*)(const void *, stream *, size_t)) (void*) pci->fcn;
 			setAtomName(pci);
 			return MAL_SUCCEED;
 		}
