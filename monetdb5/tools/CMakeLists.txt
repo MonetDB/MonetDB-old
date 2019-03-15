@@ -23,6 +23,7 @@ add_library(monetdb5 SHARED monetdb.c)
 add_dependencies(monetdb5 ${MONETDB5_DEPENDENCIES})
 target_link_libraries(monetdb5 ${MONETDB5_LINK_LIBRARIES})
 set_target_properties(monetdb5 PROPERTIES VERSION ${MONETDB5_VERSION} SOVERSION ${MONETDB5_VERSION_MAJOR})
+install(TARGETS monetdb5 DESTINATION ${LIBDIR})
 
 if(NOT WIN32)
 	if(MATH_LIBS)

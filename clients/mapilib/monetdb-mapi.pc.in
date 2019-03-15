@@ -4,7 +4,7 @@
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 
-prefix=@prefix@
+prefix=@CMAKE_INSTALL_PREFIX@
 exec_prefix=${exec_prefix}
 libdir=${libdir}
 includedir=${includedir}
@@ -14,5 +14,5 @@ Description: MonetDB MAPI C-client libary
 Version: @PACKAGE_VERSION@
 Requires: monetdb-stream openssl
 
-Libs: -L${libdir} -lmapi @SOCKET_LIBS@
+Libs: -L${libdir} -lmapi @PKG_SOCKET_LIBS@
 Cflags: -I${includedir}/monetdb

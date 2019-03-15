@@ -5,3 +5,37 @@
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
+
+install(FILES
+		09_like.sql
+		10_math.sql
+		11_times.sql
+		12_url.sql
+		13_date.sql
+		14_inet.sql
+		15_querylog.sql
+		16_tracelog.sql
+		17_temporal.sql
+		18_index.sql
+		20_vacuum.sql
+		21_dependency_views.sql
+		22_clients.sql
+		23_skyserver.sql
+		25_debug.sql
+		26_sysmon.sql
+		27_rejects.sql
+		39_analytics.sql
+		40_json.sql
+		41_md5sum.sql
+		45_uuid.sql
+		46_profiler.sql
+		51_sys_schema_extension.sql
+		60_wlcr.sql
+		75_storagemodel.sql
+		80_statistics.sql
+		99_system.sql
+		DESTINATION ${LIBDIR}/monetdb5/createdb)
+
+if(HAVE_HGE)
+	install(FILES 39_analytics_hge.sql 40_json_hge.sql DESTINATION ${LIBDIR}/monetdb5/createdb)
+endif()

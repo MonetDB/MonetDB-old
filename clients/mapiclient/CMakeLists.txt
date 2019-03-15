@@ -39,3 +39,5 @@ add_dependencies(tomograph mcutil mutils mapi stream)
 target_link_libraries(tomograph mcutil mutils mapi stream ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES}
 					  ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARY} ${CURL_LIBRARY} ${Iconv_LIBRARY}
 					  ${OPENSSL_LIBRARIES})
+
+install(TARGETS mclient msqldump stethoscope tachograph tomograph DESTINATION ${BINDIR})

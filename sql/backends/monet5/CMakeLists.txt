@@ -44,3 +44,16 @@ add_library(sql MODULE
 			sql_rank.c sql_rank.h)
 target_link_libraries(sql store batstore sqlcommon mapi monetdb5 bat stream ${OPENSSL_LIBRARIES})
 add_dependencies(sql store batstore sqlcommon mapi monetdb5 bat stream)
+
+install(FILES
+		sql_aggr_bte.mal sql_aggr_flt.mal sql_aggr_dbl.mal sql_aggr_int.mal sql_aggr_lng.mal
+		sql_aggr_sht.mal sql_decimal.mal sql_inspect.mal wlr.mal
+		sql_rank.mal sqlcatalog.mal sql_transaction.mal sql.mal
+		DESTINATION ${LIBDIR}/monetdb5)
+
+install(FILES 40_sql.mal DESTINATION ${LIBDIR}/monetdb5/autoload)
+
+if(HAVE_HGE)
+	install(FILES sql_hge.mal sql_aggr_hge.mal sql_decimal_hge.mal sql_rank_hge.mal DESTINATION ${LIBDIR}/monetdb5)
+	install(FILES 41_sql_hge.mal DESTINATION ${LIBDIR}/monetdb5/autoload)
+endif()

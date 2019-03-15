@@ -10,9 +10,10 @@ include_directories(${ZLIB_INCLUDE_DIR} ${BZIP2_INCLUDE_DIR} ${SNAPPY_INCLUDEDIR
 				    ${LIBLZMA_INCLUDE_DIR} ${CURL_INCLUDE_DIR})
 
 add_library(stream SHARED stream.c stream.h stream_socket.h)
-target_link_libraries(stream ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES}
+target_link_libraries(stream PRIVATE ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES}
 					  ${LIBLZMA_LIBRARY} ${CURL_LIBRARY} ${Iconv_LIBRARY})
 target_include_directories(stream PRIVATE ${Iconv_INCLUDE_DIR})
+set_target_properties(stream PROPERTIES VERSION ${STREAM_VERSION} SOVERSION ${STREAM_VERSION_MAJOR})
 install(TARGETS stream LIBRARY DESTINATION ${LIBDIR})
 
 install(FILES stream_socket.h stream.h DESTINATION ${INCLUDEDIR})
@@ -36,8 +37,8 @@ if(NOT WIN32)
 	if(SNAPPY_LIBRARIES)
 		set(PKG_SNAPPY "-lsnappy")
 	endif()
-	if(SOCKET_LIBS)
-		set(PKG_SOCKET_LIBS "-l${SOCKET_LIBS}") #TODO fix this
+	if(SOCKET_LIBRARIES)
+		set(PKG_SOCKET_LIBS "-l${SOCKET_LIBRARIES}") #TODO fix this
 	endif()
 	if(Iconv_LIBRARY AND NOT Iconv_IS_BUILT_IN)
 		set(PKG_LIBICONV "-l${Iconv_LIBRARY}")

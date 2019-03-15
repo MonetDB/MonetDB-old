@@ -753,6 +753,10 @@ find_library(M_LIBRARY NAMES m)
 if(M_LIBRARY)
 	set(MATH_LIBS "m")
 endif()
+find_library(PSAPILIB_LIBRARY NAMES psapi)
+if(PSAPILIB_LIBRARY)
+	set(PSAPILIB_LIBS "psapi")
+endif()
 
 # Malloc libs
 set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};umem")
@@ -1952,8 +1956,8 @@ if(HAVE_SQL)
 endif()
 #[[if(HAVE_GEOM)
 	add_subdirectory(geom)
-endif()
+endif()#]]
 add_subdirectory(tools)
-if(HAVE_TESTING)
+#[[if(HAVE_TESTING)
 	add_subdirectory(testing)
 endif()#]]

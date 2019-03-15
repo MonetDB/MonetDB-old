@@ -12,3 +12,13 @@ add_library(mapi SHARED mapi.c)
 add_dependencies(mapi moptions mcrypt stream)
 target_link_libraries(mapi moptions mcrypt stream ${SOCKET_LIBRARIES} ${OPENSSL_LIBRARIES})
 set_target_properties(mapi PROPERTIES VERSION ${MAPI_VERSION} SOVERSION ${MAPI_VERSION_MAJOR})
+install(TARGETS mapi DESTINATION ${LIBDIR})
+install(FILES mapi.h DESTINATION ${INCLUDEDIR}/monetdb)
+
+if(NOT WIN32)
+	if(SOCKET_LIBRARIES)
+		set(PKG_SOCKET_LIBS "-l${SOCKET_LIBRARIES}") #TODO fix this
+	endif()
+	configure_file(monetdb-mapi.pc.in monetdb-mapi.pc @ONLY)
+	install(FILES monetdb-mapi.pc DESTINATION ${PKGCONFIGDIR})
+endif()
