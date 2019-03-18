@@ -6,23 +6,17 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-set(MONETDB5_DEPENDENCIES atoms kernel malmodules optimizer scheduler msabaoth msabaoth bat stream)
-set(MONETDB5_LINK_LIBRARIES atoms kernel malmodules optimizer scheduler msabaoth msabaoth bat stream ${UUID_LIBRARIES}
-	${MATH_LIBS} ${SOCKET_LIBRARIES} ${MALLOC_LIBS} ${PTHREAD_LIBRARIES} ${CMAKE_DL_LIBS} ${OPENSSL_LIBRARIES}
-	${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES})
+set(MONETDB5_PRIVATE_LINK_OBJECTS gdk stream)
 if(HAVE_MAPI)
-	list(APPEND MONETDB5_DEPENDENCIES mapi)
-	list(APPEND MONETDB5_LINK_LIBRARIES mapi)
-endif()
-if(WIN32)
-	list(APPEND MONETDB5_DEPENDENCIES strptime)
-	list(APPEND MONETDB5_LINK_LIBRARIES strptime)
+	list(APPEND MONETDB5_PRIVATE_LINK_OBJECTS mapi)
 endif()
 
-add_library(monetdb5 SHARED monetdb.c)
-add_dependencies(monetdb5 ${MONETDB5_DEPENDENCIES})
-target_link_libraries(monetdb5 ${MONETDB5_LINK_LIBRARIES})
+add_library(monetdb5 SHARED)
+target_link_libraries(monetdb5 PRIVATE ${UUID_LIBRARIES} ${MATH_LIBS} ${SOCKET_LIBRARIES} ${MALLOC_LIBS} 
+					  ${PTHREAD_LIBRARIES} ${CMAKE_DL_LIBS} ${OPENSSL_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} 
+					  ${MONETDB5_PRIVATE_LINK_OBJECTS} PUBLIC mal atoms kernel malmodules optimizer scheduler msabaoth)
 set_target_properties(monetdb5 PROPERTIES VERSION ${MONETDB5_VERSION} SOVERSION ${MONETDB5_VERSION_MAJOR})
+
 install(TARGETS monetdb5 DESTINATION ${LIBDIR})
 
 if(NOT WIN32)
