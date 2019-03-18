@@ -9,7 +9,7 @@
 include_directories(../../mal ../atoms ../kernel ../../../clients/mapilib ../../../common/options ../../../common/stream
 					../../../common/utils ../../../gdk ${PCRE_INCLUDE_DIR} ${OPENSSL_INCS})
 
-add_library(malmodules STATIC
+add_library(malmodules OBJECT
 			batExtensions.c batExtensions.h
 			bbp.c bbp.h
 			clients.c clients.h
@@ -42,7 +42,6 @@ add_library(malmodules STATIC
 			sample.c sample.h
 			json_util.c json_util.h
 			calc.c batcalc.c)
-
 set_target_properties(malmodules PROPERTIES COMPILE_DEFINITIONS "LIBMAL")
 
 install(FILES
@@ -57,7 +56,6 @@ install(FILES
 		tokenizer.mal sample.mal json_util.mal
 		batmtime.mal querylog.mal sysmon.mal
 		DESTINATION ${LIBDIR}/monetdb5)
-
 install(FILES 01_calc.mal 01_batcalc.mal DESTINATION ${LIBDIR}/monetdb5/autoload)
 
 if(HAVE_HGE)

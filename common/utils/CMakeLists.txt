@@ -8,9 +8,6 @@
 
 include_directories(${OPENSSL_INCS})
 
-add_library(mutils STATIC mutils.h mutils.c prompt.c mprompt.h revision.c)
-add_library(mcrypt STATIC mcrypt.h mcrypt.c)
-add_library(muuid STATIC muuid.h muuid.c)
-add_library(msabaoth STATIC msabaoth.h msabaoth.c)
-add_dependencies(msabaoth muuid)
-target_link_libraries(msabaoth muuid)
+add_library(mutils OBJECT mutils.h mutils.c prompt.c mprompt.h revision.c)
+add_library(mcrypt OBJECT mcrypt.h mcrypt.c)
+add_library(msabaoth OBJECT muuid.h muuid.c msabaoth.h msabaoth.c)

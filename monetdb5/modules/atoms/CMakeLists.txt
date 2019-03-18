@@ -9,23 +9,23 @@
 include_directories(../../mal ../../../common/options ../../../common/stream ../../../common/utils ../../../gdk
 					${LIBXML2_INCLUDE_DIRS} ${OPENSSL_INCS})
 
-add_library(atoms STATIC
-			batxml.c
-			blob.c blob.h
-			color.c color.h
-			identifier.c
-			inet.c
-			json.c json.h
-			mtime.c mtime_analytic.c mtime.h
-			str.c str.h
-			streams.c streams.h
-			url.c url.h
-			uuid.c
-			xml.c xml.h)
-
+set(ATOM_ITEMS
+	batxml.c
+	blob.c blob.h
+	color.c color.h
+	identifier.c
+	inet.c
+	json.c json.h
+	mtime.c mtime_analytic.c mtime.h
+	str.c str.h
+	streams.c streams.h
+	url.c url.h
+	uuid.c
+	xml.c xml.h)
 if(WIN32)
-	add_library(strptime STATIC strptime.c)
+	list(APPEND ATOM_ITEMS strptime.c)
 endif()
+add_library(atoms OBJECT ${ATOM_ITEMS})
 
 install(FILES
 		batxml.mal

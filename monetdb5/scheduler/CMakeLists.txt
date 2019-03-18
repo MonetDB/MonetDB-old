@@ -9,7 +9,7 @@
 include_directories(../mal ../optimizer ../modules/atoms ../modules/mal ../modules/kernel ../../clients/mapilib
 					../../common/options ../../common/stream ../../common/utils ../../gdk)
 
-add_library(scheduler STATIC
+add_library(scheduler OBJECT
 			run_adder.c run_adder.h
 			run_isolate.c run_isolate.h
 			run_memo.c run_memo.h

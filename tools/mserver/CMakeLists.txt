@@ -14,8 +14,7 @@ include_directories(../../monetdb5/mal ../../gdk ../../common/stream ../../commo
 configure_file(monet_version.c.in monet_version.c @ONLY)
 
 add_executable(mserver5 mserver5.c monet_version.h monet_version.c)
-add_dependencies(mserver5 monetdb5 mal bat stream mapi)
-target_link_libraries(mserver5 monetdb5 mal bat stream mapi ${UUID_LIBRARIES} ${MATH_LIBS} ${SOCKET_LIBRARIES}
+target_link_libraries(mserver5 PRIVATE monetdb5 mal gdk stream mapi ${UUID_LIBRARIES} ${MATH_LIBS} ${SOCKET_LIBRARIES}
 					  ${MALLOC_LIBS} ${PTHREAD_LIBRARIES} ${PTHREAD_LIBRARIES} ${CMAKE_DL_LIBS} ${OPENSSL_LIBRARIES}
 					  ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} ${PSAPILIB_LIBS} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES}
 					  ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARY} ${CURL_LIBRARY} ${Iconv_LIBRARY})
@@ -23,10 +22,10 @@ install(TARGETS mserver5 DESTINATION ${BINDIR})
 
 if(HAVE_TESTING)
 	add_executable(shutdowntest shutdowntest.c)
-	add_dependencies(shutdowntest monetdb5 mal bat stream mapi)
-	target_link_libraries(shutdowntest monetdb5 mal bat stream mapi ${UUID_LIBRARIES} ${MATH_LIBS} ${SOCKET_LIBRARIES}
-			${MALLOC_LIBS} ${PTHREAD_LIBRARIES} ${PTHREAD_LIBRARIES} ${CMAKE_DL_LIBS} ${OPENSSL_LIBRARIES}
-			${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} ${PSAPILIB_LIBS} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES}
-			${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARY} ${CURL_LIBRARY} ${Iconv_LIBRARY})
+	target_link_libraries(shutdowntest PRIVATE monetdb5 mal gdk stream mapi ${UUID_LIBRARIES} ${MATH_LIBS}
+						  ${SOCKET_LIBRARIES} ${MALLOC_LIBS} ${PTHREAD_LIBRARIES} ${PTHREAD_LIBRARIES} ${CMAKE_DL_LIBS}
+						  ${OPENSSL_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} ${PSAPILIB_LIBS} ${ZLIB_LIBRARIES}
+						  ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARY} ${CURL_LIBRARY}
+						  ${Iconv_LIBRARY})
 	install(TARGETS mserver5 DESTINATION ${BINDIR})
 endif()

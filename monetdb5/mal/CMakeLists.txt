@@ -9,7 +9,7 @@
 include_directories(. ../../common/options ../../common/stream ../../common/utils ../../clients/mapilib ../../gdk
 					../optimizer ../modules/mal ${OPENSSL_INCS})
 
-add_library(mal STATIC
+add_library(mal OBJECT
 			mal.c mal.h
 			mal_atom.c mal_atom.h
 			mal_authorize.c mal_authorize.h

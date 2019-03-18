@@ -8,7 +8,7 @@
 
 include_directories(../common/options ../common/stream ../common/utils ${VALGRIND_INCLUDE_DIR})
 
-add_library(bat SHARED
+add_library(gdk SHARED
 			gdk_select.c
 			gdk_calc.c gdk_calc.h gdk_calc_compare.h gdk_calc_private.h
 			gdk_ssort.c gdk_ssort_impl.h
@@ -33,13 +33,12 @@ add_library(bat SHARED
 			gdk_firstn.c
 			gdk_analytic_bounds.c
 			gdk_analytic_func.c gdk_analytic.h)
-add_dependencies(bat moptions mutils stream)
-target_link_libraries(bat moptions mutils stream ${MATH_LIBS} ${SOCKET_LIBRARIES} ${MALLOC_LIBS} ${PTHREAD_LIBRARIES}
-					  ${CMAKE_DL_LIBS})
-set_target_properties(bat PROPERTIES COMPILE_DEFINITIONS "LIBGDK")
-set_target_properties(bat PROPERTIES VERSION ${GDK_VERSION} SOVERSION ${GDK_VERSION_MAJOR})
-install(TARGETS bat LIBRARY DESTINATION ${LIBDIR})
+target_link_libraries(gdk PRIVATE ${MATH_LIBS} ${SOCKET_LIBRARIES} ${MALLOC_LIBS} ${PTHREAD_LIBRARIES} ${CMAKE_DL_LIBS}
+					  moptions mutils stream)
+set_target_properties(gdk PROPERTIES RUNTIME_OUTPUT_NAME bat LIBRARY_OUTPUT_NAME bat COMPILE_DEFINITIONS "LIBGDK"
+					  VERSION ${GDK_VERSION} SOVERSION ${GDK_VERSION_MAJOR})
 
+install(TARGETS gdk LIBRARY DESTINATION ${LIBDIR})
 install(FILES
 		gdk.h
 		gdk_analytic.h

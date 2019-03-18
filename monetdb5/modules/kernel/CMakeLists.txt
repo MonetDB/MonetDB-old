@@ -8,7 +8,7 @@
 
 include_directories(../../mal ../atoms ../../../common/options ../../../common/stream ../../../gdk)
 
-add_library(kernel STATIC
+add_library(kernel OBJECT
 			aggr.c
 			alarm.c
 			algebra.c algebra.h

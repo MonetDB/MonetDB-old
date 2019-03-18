@@ -14,8 +14,8 @@ target_link_libraries(stream PRIVATE ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAP
 					  ${LIBLZMA_LIBRARY} ${CURL_LIBRARY} ${Iconv_LIBRARY})
 target_include_directories(stream PRIVATE ${Iconv_INCLUDE_DIR})
 set_target_properties(stream PROPERTIES VERSION ${STREAM_VERSION} SOVERSION ${STREAM_VERSION_MAJOR})
-install(TARGETS stream LIBRARY DESTINATION ${LIBDIR})
 
+install(TARGETS stream LIBRARY DESTINATION ${LIBDIR})
 install(FILES stream_socket.h stream.h DESTINATION ${INCLUDEDIR})
 
 if(NOT WIN32)
