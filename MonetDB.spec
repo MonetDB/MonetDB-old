@@ -141,12 +141,6 @@ BuildRequires: geos-devel >= 3.4.0
 BuildRequires: liblas-devel >= 1.8.0
 BuildRequires: pkgconfig(gdal)
 %endif
-%if 0%{?rhel} >= 7
-# On RHEL 7, use the atomic_ops package for atomic operation.
-# On RHEL 6 the package is not available.
-# On Fedora, we use <stdatomic.h> from C11.
-BuildRequires: pkgconfig(atomic_ops)
-%endif
 BuildRequires: pkgconfig(libcurl)
 BuildRequires: pkgconfig(liblzma)
 # BuildRequires: libmicrohttpd-devel
@@ -213,10 +207,6 @@ Summary: MonetDB development files
 Group: Applications/Databases
 Requires: %{name}%{?_isa} = %{version}-%{release}
 Requires: %{name}-stream-devel%{?_isa} = %{version}-%{release}
-%if 0%{?rhel} >= 7
-# RHEL >= 7
-Requires: libatomic_ops-devel
-%endif
 
 %description devel
 MonetDB is a database management system that is developed from a

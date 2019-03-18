@@ -86,6 +86,7 @@ typedef struct CLIENT {
 	lng 		session;	/* usec since start of server */
 	lng 	    qtimeout;	/* query abort after x usec*/
 	lng	        stimeout;	/* session abort after x usec */
+	ATOMIC_TYPE	lastprint;	/* when we last printed the query */
 	/*
 	 * Communication channels for the interconnect are stored here.
 	 * It is perfectly legal to have a client without input stream.
@@ -191,6 +192,7 @@ typedef struct CLIENT {
 	size_t blocksize;
 	protocol_version protocol;
 	bool filetrans;				/* whether the client can read files for us */
+	const char *query;			/* string, identify whatever we're working on */
 } *Client, ClientRec;
 
 mal_export void    MCinit(void);
@@ -201,7 +203,6 @@ mal_export int MCdefault;
 
 mal_export Client  MCgetClient(int id);
 mal_export Client  MCinitClient(oid user, bstream *fin, stream *fout);
-mal_export Client  MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout);
 mal_export int     MCinitClientThread(Client c);
 mal_export Client  MCforkClient(Client father);
 mal_export void	   MCstopClients(Client c);

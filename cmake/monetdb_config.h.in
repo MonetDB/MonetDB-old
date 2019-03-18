@@ -119,9 +119,6 @@
 /* Define if you have asctime_s(char *buf,size_t s, struct tm*) */
 #cmakedefine HAVE_ASCTIME_S3
 
-/* Define if you have the <atomic_ops.h> header file. */
-#cmakedefine HAVE_ATOMIC_OPS_H
-
 /* Define if you have the `backtrace' function. */
 #cmakedefine HAVE_BACKTRACE
 
@@ -244,9 +241,6 @@
 
 /* Define if you have the <langinfo.h> header file. */
 #cmakedefine HAVE_LANGINFO_H
-
-/* Define if you have the libatomic_ops library */
-#cmakedefine HAVE_LIBATOMIC_OPS
 
 /* Define if you have the bz2 library */
 #cmakedefine HAVE_LIBBZ2
