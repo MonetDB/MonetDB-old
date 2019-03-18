@@ -47,6 +47,6 @@ add_library(optimizer OBJECT
 			opt_postfix.c opt_postfix.h
 			opt_volcano.c opt_volcano.h
 			opt_wrapper.c)
-set_target_properties(optimizer PROPERTIES COMPILE_DEFINITIONS "LIBOPTIMIZER")
+set_target_properties(optimizer PROPERTIES POSITION_INDEPENDENT_CODE ON COMPILE_DEFINITIONS "LIBOPTIMIZER")
 
 install(FILES optimizer.mal DESTINATION ${LIBDIR}/monetdb5)

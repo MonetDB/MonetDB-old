@@ -15,3 +15,4 @@ add_library(store STATIC
 			store.c sql_catalog.c
 			sql_storage.h store_dependency.h
 			store_sequence.h)
+set_target_properties(store PROPERTIES POSITION_INDEPENDENT_CODE ON)

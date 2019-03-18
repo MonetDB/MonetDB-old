@@ -21,6 +21,7 @@ add_library(kernel OBJECT
 			microbenchmark.c microbenchmark.h
 			mmath.c mmath.h mmath_private.h
 			status.c status.h)
+set_target_properties(kernel PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 install(FILES
 		bat5.mal algebra.mal status.mal

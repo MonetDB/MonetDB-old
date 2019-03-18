@@ -52,3 +52,4 @@ add_library(sqlserver STATIC
 			sql_decimal.h sql_env.h sql_mvc.h sql_parser.h
 			sql_privileges.h sql_qc.h sql_scan.h
 			sql_semantic.h sql_symbol.h sql_tokens.h sql_partition.h)
+set_target_properties(sqlserver PROPERTIES POSITION_INDEPENDENT_CODE ON)

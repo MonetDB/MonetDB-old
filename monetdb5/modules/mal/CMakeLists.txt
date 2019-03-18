@@ -42,7 +42,7 @@ add_library(malmodules OBJECT
 			sample.c sample.h
 			json_util.c json_util.h
 			calc.c batcalc.c)
-set_target_properties(malmodules PROPERTIES COMPILE_DEFINITIONS "LIBMAL")
+set_target_properties(malmodules PROPERTIES POSITION_INDEPENDENT_CODE ON COMPILE_DEFINITIONS "LIBMAL")
 
 install(FILES
 		language.mal mal_init.mal bbp.mal

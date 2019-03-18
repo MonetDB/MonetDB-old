@@ -12,3 +12,4 @@ add_library(sqlcommon STATIC
 			sql_mem.c sql_list.c sql_hash.c sql_stack.c sql_backend.c
 			sql_keyword.c sql_changeset.c sql_types.c sql_string.c
 			sql_backend.h sql_string.h sql_types.h)
+set_target_properties(sqlcommon PROPERTIES POSITION_INDEPENDENT_CODE ON)

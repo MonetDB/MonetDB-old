@@ -14,5 +14,6 @@ add_library(scheduler OBJECT
 			run_isolate.c run_isolate.h
 			run_memo.c run_memo.h
 			run_pipeline.c run_pipeline.h)
+set_target_properties(scheduler PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 install(FILES run_adder.mal run_isolate.mal run_memo.mal DESTINATION ${LIBDIR}/monetdb5)
