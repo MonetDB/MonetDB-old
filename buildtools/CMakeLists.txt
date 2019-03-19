@@ -6,12 +6,4 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-add_subdirectory(include)
-add_subdirectory(common)
-add_subdirectory(storage)
-add_subdirectory(server)
-add_subdirectory(backends)
-add_subdirectory(scripts)
-#if(WIN32)
-#	add_subdirectory(NT)
-#endif()
+add_subdirectory(conf)
