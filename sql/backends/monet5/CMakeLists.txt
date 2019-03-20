@@ -41,6 +41,7 @@ add_library(sql MODULE
 			sql_fround.c sql_fround_impl.h
 			sql_orderidx.c sql_orderidx.h
 			wlr.c wlr.h
+			sql_datetrunc.c
 			sql_rank.c sql_rank.h)
 target_link_libraries(sql PRIVATE monetdb5 mapi gdk stream ${OPENSSL_LIBRARIES} PUBLIC sqlserver store batstore sqlcommon)
 set_target_properties(sql PROPERTIES RUNTIME_OUTPUT_NAME _sql LIBRARY_OUTPUT_NAME _sql COMPILE_DEFINITIONS "LIBSQL")
