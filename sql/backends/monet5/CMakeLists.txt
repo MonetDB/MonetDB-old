@@ -9,8 +9,8 @@
 #[[if(NOT WIN32)
 	add_subdirectory(vaults)
 endif()
-add_subdirectory(UDF)
-add_subdirectory(generator)#]]
+add_subdirectory(UDF)#]]
+add_subdirectory(generator)
 
 include_directories(../../include ../../common ../../storage ../../server ../../../monetdb5/modules/atoms 
 					../../../monetdb5/modules/kernel ../../../monetdb5/mal ../../../monetdb5/modules/mal 
