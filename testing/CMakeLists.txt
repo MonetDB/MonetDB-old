@@ -32,8 +32,14 @@ string(REPLACE "\\" "\\\\" QXPYTHON3 "${PYTHON3_INTERPRETER}")
 string(REPLACE "\\" "\\\\" QXPYTHON3_LIBDIR "${PYTHON3_LIBDIR}")
 
 find_program(SH sh)
+if(NOT SH)
+	message(FATAL_ERROR "A shell interpreter was not found")
+endif()
 set(BASH "${SH}")
 find_program(PYTHON2_INT python2)
+if(NOT SH)
+	message(FATAL_ERROR "A shell interpreter was not found")
+endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 4)
 	set(BITS32_FALSE "#")
@@ -61,21 +67,23 @@ foreach(loop_var IN LISTS HAVE_LIST)
 	endif()
 endforeach(loop_var)
 
-configure_file(Mtest.py.in Mtest.py @ONLY)
-configure_file(monet_options.py.in monet_options.py @ONLY)
-configure_file(listexports.py.in listexports.py @ONLY)
+configure_file(Mtest.py.in ${CMAKE_CURRENT_BINARY_DIR}/Mtest.py @ONLY)
+configure_file(monet_options.py.in ${CMAKE_CURRENT_BINARY_DIR}/monet_options.py @ONLY)
+configure_file(listexports.py.in ${CMAKE_CURRENT_BINARY_DIR}/listexports.py @ONLY)
 
-install(FILES Mtest.py PERMISSIONS ${PROGRAM_PERMISSIONS_DEFAULT} DESTINATION ${BINDIR})
-install(FILES Mfilter.py process.py monet_options.py __init__.py listexports.py exportutils.py malcheck.py
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/Mtest.py PERMISSIONS ${PROGRAM_PERMISSIONS_DEFAULT} DESTINATION ${BINDIR})
+install(FILES Mfilter.py process.py ${CMAKE_CURRENT_BINARY_DIR}/monet_options.py __init__.py
+		${CMAKE_CURRENT_BINARY_DIR}/listexports.py exportutils.py malcheck.py
 		DESTINATION ${CMAKE_INSTALL_PREFIX}${PYTHON_LIBDIR}/MonetDBtesting)
 
 if(WIN32)
 	install(FILES Mlog.bat Mtest.py.bat DESTINATION ${BINDIR})
 else()
-	configure_file(Mlog.in Mlog @ONLY)
-	install(FILES Mlog PERMISSIONS ${PROGRAM_PERMISSIONS_DEFAULT} DESTINATION ${BINDIR})
+	configure_file(Mlog.in ${CMAKE_CURRENT_BINARY_DIR}/Mlog @ONLY)
+	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/Mlog PERMISSIONS ${PROGRAM_PERMISSIONS_DEFAULT} DESTINATION ${BINDIR})
 
-	add_custom_target(Mapprove COMMAND ${CMAKE_COMMAND} -E create_symlink Mtest.py Mapprove.py DEPENDS Mtest.py
+	add_custom_target(Mbindir ALL COMMAND ${CMAKE_COMMAND} -E make_directory ${BINDIR})
+	add_custom_target(Mapprove ALL COMMAND ${CMAKE_COMMAND} -E create_symlink Mtest.py Mapprove.py
 					  WORKING_DIRECTORY ${BINDIR} COMMENT "Creating symlink to Mtest.py")
-	add_dependencies(Mdiff Mapprove) # Hack, this will make the custom_target "Mapprove" run every time
+	add_dependencies(Mdiff Mbindir Mapprove) # Hack, this will make the custom_target "Mapprove" run every time
 endif()

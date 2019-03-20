@@ -20,5 +20,5 @@ target_link_libraries(monetdbd PRIVATE meroutil mcrypt msabaoth mutils stream ma
 					  ${PTHREAD_LIBRARIES} ${CMAKE_DL_LIBS} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES})
 install(TARGETS monetdbd DESTINATION ${BINDIR})
 
-configure_file(monetdbd.1.in monetdbd.1 @ONLY)
-install(FILES monetdbd.1 DESTINATION ${DATADIR}/man/man1)
+configure_file(monetdbd.1.in ${CMAKE_CURRENT_BINARY_DIR}/monetdbd.1 @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/monetdbd.1 DESTINATION ${DATADIR}/man/man1)

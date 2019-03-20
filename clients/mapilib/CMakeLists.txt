@@ -19,6 +19,6 @@ if(NOT WIN32)
 	if(SOCKET_LIBRARIES)
 		set(PKG_SOCKET_LIBS "-l${SOCKET_LIBRARIES}") #TODO fix this
 	endif()
-	configure_file(monetdb-mapi.pc.in monetdb-mapi.pc @ONLY)
-	install(FILES monetdb-mapi.pc DESTINATION ${PKGCONFIGDIR})
+	configure_file(monetdb-mapi.pc.in ${CMAKE_CURRENT_BINARY_DIR}/monetdb-mapi.pc @ONLY)
+	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/monetdb-mapi.pc DESTINATION ${PKGCONFIGDIR})
 endif()
