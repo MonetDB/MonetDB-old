@@ -81,10 +81,6 @@ if(WIN32)
 else()
 	configure_file(Mlog.in ${CMAKE_CURRENT_BINARY_DIR}/Mlog @ONLY)
 	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/Mlog PERMISSIONS ${PROGRAM_PERMISSIONS_DEFAULT} DESTINATION ${BINDIR})
-
-	add_custom_target(Mapprove ALL
-					  COMMAND ${CMAKE_COMMAND} -E make_directory ${BINDIR}
-					  COMMAND ${CMAKE_COMMAND} -E create_symlink Mtest.py ${BINDIR}/Mapprove.py
-					  COMMENT "Creating symlink to Mtest.py")
-	add_dependencies(Mdiff Mapprove) # Hack, this will make the custom_target "Mapprove" run every time
+	install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory ${BINDIR})")
+	install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink Mtest.py ${BINDIR}/Mapprove.py)")
 endif()
