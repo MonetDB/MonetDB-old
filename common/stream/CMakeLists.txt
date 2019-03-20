@@ -6,12 +6,12 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(${ZLIB_INCLUDE_DIR} ${BZIP2_INCLUDE_DIR} ${SNAPPY_INCLUDEDIR} ${LZ4_INCLUDEDIR}
+include_directories(${ZLIB_INCLUDE_DIR} ${BZIP2_INCLUDE_DIR} ${SNAPPY_INCLUDE_DIR} ${LZ4_INCLUDE_DIR}
 				    ${LIBLZMA_INCLUDE_DIR} ${CURL_INCLUDE_DIR})
 
 add_library(stream SHARED stream.c stream.h stream_socket.h)
 target_link_libraries(stream PRIVATE ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES}
-					  ${LIBLZMA_LIBRARY} ${CURL_LIBRARY} ${Iconv_LIBRARY})
+					  ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES})
 target_include_directories(stream PRIVATE ${Iconv_INCLUDE_DIR})
 set_target_properties(stream PROPERTIES VERSION ${STREAM_VERSION} SOVERSION ${STREAM_VERSION_MAJOR})
 
@@ -19,13 +19,13 @@ install(TARGETS stream LIBRARY DESTINATION ${LIBDIR})
 install(FILES stream_socket.h stream.h DESTINATION ${INCLUDEDIR}/monetdb)
 
 if(NOT WIN32)
-	if(CURL_LIBRARY)
+	if(CURL_LIBRARIES)
 		set(PKG_CURL "-lcurl")
 	endif()
 	if(ZLIB_LIBRARIES)
 		set(PKG_ZLIB "-lz")
 	endif()
-	if(LIBLZMA_LIBRARY)
+	if(LIBLZMA_LIBRARIES)
 		set(PKG_LIBLZMA "-llzma")
 	endif()
 	if(LZ4_LIBRARIES)
@@ -40,8 +40,8 @@ if(NOT WIN32)
 	if(SOCKET_LIBRARIES)
 		set(PKG_SOCKET_LIBS "-l${SOCKET_LIBRARIES}") #TODO fix this
 	endif()
-	if(Iconv_LIBRARY AND NOT Iconv_IS_BUILT_IN)
-		set(PKG_LIBICONV "-l${Iconv_LIBRARY}")
+	if(Iconv_FOUND AND NOT Iconv_IS_BUILT_IN)
+		set(PKG_LIBICONV "-l${ICONV_LIBRARIES}")
 	endif()
 	configure_file(monetdb-stream.pc.in ${CMAKE_CURRENT_BINARY_DIR}/monetdb-stream.pc @ONLY)
 	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/monetdb-stream.pc DESTINATION ${PKGCONFIGDIR})

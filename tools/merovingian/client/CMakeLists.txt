@@ -9,8 +9,8 @@
 include_directories(../../../common/stream ../../../common/utils ../utils)
 
 add_executable(monetdb monetdb.c)
-target_link_libraries(monetdb PRIVATE meroutil mcrypt msabaoth mutils stream ${UUID_LIBRARIES} ${OPENSSL_LIBRARIES}
+target_link_libraries(monetdb PRIVATE meroutil mcrypt msabaoth mutils stream ${UUID_LIBRARIES} ${CRYPTO_LIBRARIES}
 					  ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES}
-					  ${LIBLZMA_LIBRARY} ${CURL_LIBRARY} ${Iconv_LIBRARY})
+					  ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES})
 install(TARGETS monetdb DESTINATION ${BINDIR})
 install(FILES monetdb.1 DESTINATION ${DATADIR}/man/man1)

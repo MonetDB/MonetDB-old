@@ -15,9 +15,9 @@ add_executable(monetdbd merovingian.c merovingian.h argvcmds.c argvcmds.h client
 			   controlrunner.c controlrunner.h discoveryrunner.c discoveryrunner.h forkmserver.c forkmserver.h
 			   handlers.c handlers.h multiplex-funnel.c multiplex-funnel.h proxy.c proxy.h)
 target_link_libraries(monetdbd PRIVATE meroutil mcrypt msabaoth mutils stream mapi monetdb5 gdk ${UUID_LIBRARIES}
-					  ${OPENSSL_LIBRARIES} ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES}
-					  ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARY} ${CURL_LIBRARY} ${Iconv_LIBRARY} ${MATH_LIBS} ${MALLOC_LIBS}
-					  ${PTHREAD_LIBRARIES} ${CMAKE_DL_LIBS} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES})
+					  ${CRYPTO_LIBRARIES} ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES}
+					  ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES} ${MATH_LIBRARIES} ${MALLOC_LIBRARIES}
+					  ${PTHREAD_LIBRARIES} ${DL_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES})
 install(TARGETS monetdbd DESTINATION ${BINDIR})
 
 configure_file(monetdbd.1.in ${CMAKE_CURRENT_BINARY_DIR}/monetdbd.1 @ONLY)

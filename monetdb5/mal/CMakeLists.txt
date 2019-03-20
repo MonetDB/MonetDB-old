@@ -7,7 +7,7 @@
 #]]
 
 include_directories(. ../../common/options ../../common/stream ../../common/utils ../../clients/mapilib ../../gdk
-					../optimizer ../modules/mal ${OPENSSL_INCS})
+					../optimizer ../modules/mal ${CRYPTO_INCLUDE_DIR})
 
 add_library(mal OBJECT
 			mal.c mal.h

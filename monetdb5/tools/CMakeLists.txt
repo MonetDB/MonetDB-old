@@ -12,21 +12,21 @@ if(HAVE_MAPI)
 endif()
 
 add_library(monetdb5 SHARED)
-target_link_libraries(monetdb5 PRIVATE ${UUID_LIBRARIES} ${MATH_LIBS} ${SOCKET_LIBRARIES} ${MALLOC_LIBS} 
-					  ${PTHREAD_LIBRARIES} ${CMAKE_DL_LIBS} ${OPENSSL_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} 
+target_link_libraries(monetdb5 PRIVATE ${UUID_LIBRARIES} ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES}
+					  ${PTHREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES}
 					  ${MONETDB5_PRIVATE_LINK_OBJECTS} PUBLIC mal atoms kernel malmodules optimizer scheduler msabaoth)
 set_target_properties(monetdb5 PROPERTIES VERSION ${MONETDB5_VERSION} SOVERSION ${MONETDB5_VERSION_MAJOR})
 
 install(TARGETS monetdb5 DESTINATION ${LIBDIR})
 
 if(NOT WIN32)
-	if(MATH_LIBS)
+	if(MATH_LIBRARIES)
 		set(PKG_LIBXML2 "libxml-2.0")
 	endif()
-	if(MALLOC_LIBS)
-		set(PKG_OPENSSL "-l${OPENSSL_LIBRARIES}")
+	if(MALLOC_LIBRARIES)
+		set(PKG_OPENSSL "-l${CRYPTO_LIBRARIES}")
 	endif()
-	if(CMAKE_DL_LIBS)
+	if(DL_LIBRARIES)
 		set(PKG_PCRE "-l${PCRE_LIBRARIES}")
 	endif()
 	configure_file(monetdb5.pc.in ${CMAKE_CURRENT_BINARY_DIR}/monetdb5.pc @ONLY)

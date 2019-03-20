@@ -8,16 +8,16 @@
 
 include_directories(. ../../monetdb5/mal ../../gdk ../../common/stream ../../common/utils ../../common/options
 					../../monetdb5/modules/atoms ../../monetdb5/modules/mal ../../sql/backends/monet5 ../../sql/common
-					../../sql/include ../../sql/server ../../sql/storage ${OPENSSL_INCS} ${PCRE_INCLUDE_DIR}
-					${LIBXML2_INCLUDE_DIRS})
+					../../sql/include ../../sql/server ../../sql/storage ${CRYPTO_INCLUDE_DIR} ${PCRE_INCLUDE_DIR}
+					${LIBXML2_INCLUDE_DIR})
 
 configure_file(monet_version.c.in ${CMAKE_CURRENT_BINARY_DIR}/monet_version.c @ONLY)
 
 add_executable(mserver5 mserver5.c monet_version.h ${CMAKE_CURRENT_BINARY_DIR}/monet_version.c)
-target_link_libraries(mserver5 PRIVATE monetdb5 mal gdk stream mapi ${UUID_LIBRARIES} ${MATH_LIBS} ${SOCKET_LIBRARIES}
-					  ${MALLOC_LIBS} ${PTHREAD_LIBRARIES} ${PTHREAD_LIBRARIES} ${CMAKE_DL_LIBS} ${OPENSSL_LIBRARIES}
+target_link_libraries(mserver5 PRIVATE monetdb5 mal gdk stream mapi ${UUID_LIBRARIES} ${MATH_LIBRARIES} ${SOCKET_LIBRARIES}
+					  ${MALLOC_LIBRARIES} ${PTHREAD_LIBRARIES} ${PTHREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES}
 					  ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} ${PSAPILIB_LIBS} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES}
-					  ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARY} ${CURL_LIBRARY} ${Iconv_LIBRARY})
+					  ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES})
 install(TARGETS mserver5 DESTINATION ${BINDIR})
 
 install(FILES tomographintro.docx tomographintro.pdf DESTINATION ${DATADIR}/doc/MonetDB-client-tools)
@@ -29,10 +29,10 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/mserver5.1 DESTINATION ${DATADIR}/man/
 
 if(HAVE_TESTING)
 	add_executable(shutdowntest shutdowntest.c)
-	target_link_libraries(shutdowntest PRIVATE monetdb5 mal gdk stream mapi ${UUID_LIBRARIES} ${MATH_LIBS}
-						  ${SOCKET_LIBRARIES} ${MALLOC_LIBS} ${PTHREAD_LIBRARIES} ${PTHREAD_LIBRARIES} ${CMAKE_DL_LIBS}
-						  ${OPENSSL_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} ${PSAPILIB_LIBS} ${ZLIB_LIBRARIES}
-						  ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARY} ${CURL_LIBRARY}
-						  ${Iconv_LIBRARY})
+	target_link_libraries(shutdowntest PRIVATE monetdb5 mal gdk stream mapi ${UUID_LIBRARIES} ${MATH_LIBRARIES}
+						  ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES} ${PTHREAD_LIBRARIES} ${PTHREAD_LIBRARIES} ${DL_LIBRARIES}
+						  ${CRYPTO_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} ${PSAPILIB_LIBS} ${ZLIB_LIBRARIES}
+						  ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES}
+						  ${ICONV_LIBRARIES})
 	install(TARGETS shutdowntest DESTINATION ${BINDIR})
 endif()

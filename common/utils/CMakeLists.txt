@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(${OPENSSL_INCS})
+include_directories(${CRYPTO_INCLUDE_DIR})
 
 add_library(mutils OBJECT mutils.h mutils.c prompt.c mprompt.h revision.c)
 set_target_properties(mutils PROPERTIES POSITION_INDEPENDENT_CODE ON)

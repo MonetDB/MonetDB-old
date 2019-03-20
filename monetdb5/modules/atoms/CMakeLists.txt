@@ -7,7 +7,7 @@
 #]]
 
 include_directories(../../mal ../../../common/options ../../../common/stream ../../../common/utils ../../../gdk
-					${LIBXML2_INCLUDE_DIRS} ${OPENSSL_INCS})
+					${LIBXML2_INCLUDE_DIR} ${CRYPTO_INCLUDE_DIR})
 
 set(ATOM_ITEMS
 	batxml.c

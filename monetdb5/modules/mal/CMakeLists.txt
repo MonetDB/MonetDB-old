@@ -7,7 +7,7 @@
 #]]
 
 include_directories(../../mal ../atoms ../kernel ../../../clients/mapilib ../../../common/options ../../../common/stream
-					../../../common/utils ../../../gdk ${PCRE_INCLUDE_DIR} ${OPENSSL_INCS})
+					../../../common/utils ../../../gdk ${PCRE_INCLUDE_DIR} ${CRYPTO_INCLUDE_DIR})
 
 add_library(malmodules OBJECT
 			batExtensions.c batExtensions.h

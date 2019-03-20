@@ -7,7 +7,7 @@
 #]]
 
 add_executable(Mdiff difflib.c helpers.c Mdiff.c difflib.h helpers.h)
-target_link_libraries(Mdiff PRIVATE ${MALLOC_LIBS})
+target_link_libraries(Mdiff PRIVATE ${MALLOC_LIBRARIES})
 install(TARGETS Mdiff DESTINATION ${BINDIR})
 
 string(REPLACE "\\" "\\\\" SOURCE "${CMAKE_SOURCE_DIR}")
@@ -36,10 +36,6 @@ if(NOT SH)
 	message(FATAL_ERROR "A shell interpreter was not found")
 endif()
 set(BASH "${SH}")
-find_program(PYTHON2_INT python2)
-if(NOT SH)
-	message(FATAL_ERROR "A shell interpreter was not found")
-endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 4)
 	set(BITS32_FALSE "#")
