@@ -20,6 +20,13 @@ target_link_libraries(mserver5 PRIVATE monetdb5 mal gdk stream mapi ${UUID_LIBRA
 					  ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARY} ${CURL_LIBRARY} ${Iconv_LIBRARY})
 install(TARGETS mserver5 DESTINATION ${BINDIR})
 
+install(FILES tomographintro.docx tomographintro.pdf DESTINATION ${DATADIR}/doc/MonetDB-client-tools)
+install(FILES monetdblogo.png DESTINATION ${DATADIR}/doc/MonetDB)
+
+set(localstatedir "${LOCALSTATEDIR}")
+configure_file(mserver5.1.in mserver5.1 @ONLY)
+install(FILES mserver5.1 DESTINATION ${DATADIR}/man/man1)
+
 if(HAVE_TESTING)
 	add_executable(shutdowntest shutdowntest.c)
 	target_link_libraries(shutdowntest PRIVATE monetdb5 mal gdk stream mapi ${UUID_LIBRARIES} ${MATH_LIBS}

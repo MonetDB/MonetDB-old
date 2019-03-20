@@ -188,7 +188,7 @@ if(UNIX OR APPLE) # instalation directories. This has to come earlier
 	set(LIBDIR "${CMAKE_INSTALL_FULL_LIBDIR}")
 	set(LIBEXECDIR "${CMAKE_INSTALL_FULL_LIBEXECDIR}")
 	set(LOCALSTATEDIR "${CMAKE_INSTALL_FULL_LOCALSTATEDIR}")
-	set(INCLUDEDIR "${CMAKE_INSTALL_FULL_INCLUDEDIR}/monetdb")
+	set(INCLUDEDIR "${CMAKE_INSTALL_FULL_INCLUDEDIR}")
 	set(PKGCONFIGDIR "${LIBDIR}/pkgconfig")
 	set(SYSCONFDIR "${CMAKE_INSTALL_FULL_SYSCONFDIR}")
 	set(MANDIR "${CMAKE_INSTALL_FULL_MANDIR}")
@@ -1985,6 +1985,7 @@ set(compilercall "${CMAKE_C_COMPILER}${CMAKE_C_FLAGS}")
 set(linkercall "${CMAKE_LINKER}${CMAKE_REQUIRED_FLAGS}")
 
 configure_file(${CMAKE_SOURCE_DIR}/cmake/monetdb_config.h.in ${CMAKE_SOURCE_DIR}/monetdb_config.h)
+install(FILES monetdb_config.h DESTINATION ${INCLUDEDIR}/monetdb)
 include_directories(${CMAKE_SOURCE_DIR})
 
 add_subdirectory(buildtools)

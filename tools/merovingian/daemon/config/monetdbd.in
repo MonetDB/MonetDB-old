@@ -1,9 +1,9 @@
 # this is the logrotate configuration for merovingian
-@Elogdir@@DIRSEP@merovingian.log {
+@Elogdir@@DIR_SEP_STR@merovingian.log {
 	su monetdb monetdb
 	missingok
 	notifempty
 	postrotate
-		[ -s @Erundir@@DIRSEP@merovingian.pid ] && kill -HUP $(cat @Erundir@@DIRSEP@merovingian.pid)
+		[ -s @Erundir@@DIR_SEP_STR@merovingian.pid ] && kill -HUP $(cat @Erundir@@DIR_SEP_STR@merovingian.pid)
 	endscript
 }

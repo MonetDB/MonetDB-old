@@ -15,3 +15,5 @@ add_subdirectory(scripts)
 #if(WIN32)
 #	add_subdirectory(NT)
 #endif()
+
+install(FILES dump-restore.txt dump-restore.html DESTINATION ${DATADIR}/doc/MonetDB-SQL)

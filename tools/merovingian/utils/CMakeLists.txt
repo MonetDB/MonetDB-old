@@ -6,8 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-add_subdirectory(utils)
-add_subdirectory(client)
-if(HAVE_MONETDB5)
-	add_subdirectory(daemon)
-endif()
+include_directories(../../../common/stream ../../../common/options ../../../common/utils ${OPENSSL_INCS})
+
+add_library(meroutil OBJECT control.c control.h database.c database.h glob.c glob.h properties.c properties.h utils.c
+			utils.h)

@@ -59,4 +59,4 @@ install(FILES
 		mal_resolve.h
 		mal_stack.h
 		mal_type.h
-		DESTINATION ${INCLUDEDIR})
+		DESTINATION ${INCLUDEDIR}/monetdb)

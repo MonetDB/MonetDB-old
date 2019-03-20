@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../include ../common ../storage ../../monetdb5/mal ../../monetdb5/modules/atoms 
+include_directories(. ../include ../common ../storage ../../monetdb5/mal ../../monetdb5/modules/atoms
 					../../monetdb5/modules/mal ../../monetdb5/extras/rapi ../../clients/mapilib ../../common/options 
 					../../common/stream ../../gdk)
 

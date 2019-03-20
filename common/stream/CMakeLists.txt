@@ -16,7 +16,7 @@ target_include_directories(stream PRIVATE ${Iconv_INCLUDE_DIR})
 set_target_properties(stream PROPERTIES VERSION ${STREAM_VERSION} SOVERSION ${STREAM_VERSION_MAJOR})
 
 install(TARGETS stream LIBRARY DESTINATION ${LIBDIR})
-install(FILES stream_socket.h stream.h DESTINATION ${INCLUDEDIR})
+install(FILES stream_socket.h stream.h DESTINATION ${INCLUDEDIR}/monetdb)
 
 if(NOT WIN32)
 	if(CURL_LIBRARY)

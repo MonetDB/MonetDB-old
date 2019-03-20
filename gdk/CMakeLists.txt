@@ -52,7 +52,7 @@ install(FILES
 		gdk_hash.h
 		gdk_system.h
 		gdk_utils.h
-		DESTINATION ${INCLUDEDIR})
+		DESTINATION ${INCLUDEDIR}/monetdb)
 
 if(NOT WIN32)
 	if(MATH_LIBS)
