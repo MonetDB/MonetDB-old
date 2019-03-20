@@ -8,7 +8,7 @@
 
 include_directories(. ../include ../common ../storage ../../monetdb5/mal ../../monetdb5/modules/atoms
 					../../monetdb5/modules/mal ../../monetdb5/extras/rapi ../../clients/mapilib ../../common/options 
-					../../common/stream ../../gdk)
+					../../common/stream ../../gdk ${CMAKE_CURRENT_BINARY_DIR})
 
 bison_target(sqlparser sql_parser.y ${CMAKE_CURRENT_BINARY_DIR}/sql_parser.tab.c
 			COMPILE_FLAGS "-d -p sql -r all"
