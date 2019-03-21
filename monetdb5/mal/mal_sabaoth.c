@@ -19,12 +19,18 @@
  */
 #include "monetdb_config.h"
 #include "mal_sabaoth.h"
-#include <unistd.h>	/* unlink and friends */
+#ifdef HAVE_UNISTD_H
+#include <unistd.h> 	/* unlink and friends */
+#endif
+#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
+#endif
 #ifdef HAVE_DIRENT_H
 #include <dirent.h> /* readdir, DIR */
 #endif
+#ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
+#endif
 #include <string.h> /* for getting error messages */
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400

@@ -19,12 +19,17 @@
 #ifndef _EVENT_PARSER_
 #define _EVENT_PARSER_
 
+#include "monetdb_config.h"
 #include "mapi.h"
 #include "stream.h"
 #include <string.h>
+#ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
+#endif
 #include <signal.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <time.h>
 
 #define TME_US  1

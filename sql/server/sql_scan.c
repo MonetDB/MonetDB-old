@@ -18,7 +18,9 @@
 #include "sql_parser.h"		/* for sql_error() */
 
 #include "stream.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>
 #include <ctype.h>
 #include "sql_keyword.h"

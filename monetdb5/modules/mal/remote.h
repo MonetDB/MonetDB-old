@@ -41,7 +41,9 @@ typedef struct _connection {
 #include <sys/socket.h> /* socket */
 #include <sys/un.h> /* sockaddr_un */
 #endif
-#include <unistd.h> /* gethostname */
+#ifdef HAVE_UNISTD_H
+# include <unistd.h> /* gethostname */
+#endif
 
 /* #define _DEBUG_REMOTE_	    trace the interaction */
 /* #define _DEBUG_MAPI_		    trace mapi interaction */

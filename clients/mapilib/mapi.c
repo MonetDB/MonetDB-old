@@ -695,7 +695,9 @@
 #ifdef HAVE_PWD_H
 #include  <pwd.h>
 #endif
-#include  <sys/types.h>
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
 
 #ifdef HAVE_SYS_UN_H
 # include <sys/un.h>

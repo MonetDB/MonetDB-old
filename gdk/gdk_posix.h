@@ -9,7 +9,9 @@
 #ifndef GDK_POSIX_H
 #define GDK_POSIX_H
 
+#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
+#endif
 
 #include <time.h>
 

@@ -15,7 +15,9 @@
 #include "sql_execute.h"
 #include "sql_mvc.h"
 #include "mtime.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include "sql_upgrades.h"
 
 #include "rel_remote.h"

@@ -30,20 +30,25 @@
 
 /* Prevent pollution through excessive inclusion of include files by Windows.h. */
 #ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN 1
+#define WIN32_LEAN_AND_MEAN
 #endif
 
 /* Visual Studio 8 has deprecated lots of stuff: suppress warnings */
 #ifndef _CRT_SECURE_NO_DEPRECATE
-#define _CRT_SECURE_NO_DEPRECATE 1
+#define _CRT_SECURE_NO_DEPRECATE
+#endif
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
 #endif
 
 /* indicate to sqltypes.h that windows.h has already been included and
    that it doesn't have to define Windows constants */
-#define ALREADY_HAVE_WINDOWS_TYPE 1
+#ifndef ALREADY_HAVE_WINDOWS_TYPE
+#define ALREADY_HAVE_WINDOWS_TYPE
+#endif
 
 #ifndef NATIVE_WIN32
-#define NATIVE_WIN32 1
+#define NATIVE_WIN32
 #endif
 
 #define ftruncate(fd, sz) (-(_chsize_s((fd), (__int64) (sz)) != 0))

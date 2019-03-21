@@ -31,7 +31,9 @@
 #include "monetdb_config.h"
 #ifdef HAVE_MAPI
 #include "mal_mapi.h"
+#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
+#endif
 #include "stream_socket.h"
 #include "mapi.h"
 #ifdef HAVE_OPENSSL
@@ -47,7 +49,9 @@
 #else           /* UNIX specific */
 # include <sys/select.h>
 # include <sys/socket.h>
+#ifdef HAVE_UNISTD_H
 # include <unistd.h>     /* gethostname() */
+#endif
 # include <netinet/in.h> /* hton and ntoh */
 # include <arpa/inet.h>  /* addr_in */
 #endif

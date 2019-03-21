@@ -43,7 +43,9 @@
 
 #include <signal.h>
 #include <string.h>		/* for strerror */
-#include <unistd.h>		/* for sysconf symbols */
+#ifdef HAVE_UNISTD_H
+#include <unistd.h> /* for sysconf symbols */
+#endif
 
 #ifdef LOCK_STATS
 

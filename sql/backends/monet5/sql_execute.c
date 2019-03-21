@@ -37,7 +37,9 @@
 #include "mtime.h"
 #include "optimizer.h"
 #include "opt_inline.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 /*
  * The SQLcompile operation can be used by separate

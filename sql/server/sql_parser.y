@@ -20,7 +20,9 @@
 #include "mal.h"		/* for have_hge */
 #endif
 
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>
 
 #define SA 	m->sa

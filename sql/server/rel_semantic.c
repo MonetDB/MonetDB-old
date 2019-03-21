@@ -18,7 +18,9 @@
 #include "rel_sequence.h"
 #include "rel_exp.h"
 
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>
 #include <ctype.h>
 

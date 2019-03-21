@@ -43,7 +43,9 @@
 #include "opt_prelude.h"
 #include "opt_pipes.h"
 #include "opt_mitosis.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include "sql_upgrades.h"
 
 static int SQLinitialized = 0;

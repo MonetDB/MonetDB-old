@@ -22,10 +22,12 @@
 #include "stream_socket.h"
 #include "mapi.h"
 #include <string.h>
+#ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
+#endif
 #include <signal.h>
 #ifdef HAVE_UNISTD_H
-# include <unistd.h>
+#include <unistd.h>
 #endif
 #include "mprompt.h"
 #include "dotmonetdb.h"
