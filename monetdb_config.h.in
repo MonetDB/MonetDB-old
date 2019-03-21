@@ -49,6 +49,7 @@
 #endif
 
 #define ftruncate(fd, sz) (-(_chsize_s((fd), (__int64) (sz)) != 0))
+#define strdup _strdup
 #ifndef strcasecmp
 #define strcasecmp  _stricmp
 #endif

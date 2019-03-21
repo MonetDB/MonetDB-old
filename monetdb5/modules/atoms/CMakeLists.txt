@@ -27,6 +27,7 @@ if(WIN32)
 endif()
 add_library(atoms OBJECT ${ATOM_ITEMS})
 set_target_properties(atoms PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(atoms PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
 
 install(FILES
 		batxml.mal

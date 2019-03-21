@@ -33,10 +33,11 @@ add_library(gdk SHARED
 			gdk_firstn.c
 			gdk_analytic_bounds.c
 			gdk_analytic_func.c gdk_analytic.h)
-target_link_libraries(gdk PRIVATE ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES} ${PTHREAD_LIBRARIES} ${DL_LIBRARIES}
-					  moptions mutils stream)
-set_target_properties(gdk PROPERTIES RUNTIME_OUTPUT_NAME bat LIBRARY_OUTPUT_NAME bat COMPILE_DEFINITIONS "LIBGDK"
+target_link_libraries(gdk PRIVATE ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES} ${PTHREAD_LIBRARIES}
+					  ${DL_LIBRARIES} moptions mutils stream)
+set_target_properties(gdk PROPERTIES RUNTIME_OUTPUT_NAME bat LIBRARY_OUTPUT_NAME bat
 					  VERSION ${GDK_VERSION} SOVERSION ${GDK_VERSION_MAJOR})
+target_compile_definitions(gdk PRIVATE LIBGDK)
 
 install(TARGETS gdk LIBRARY DESTINATION ${LIBDIR})
 install(FILES
@@ -55,16 +56,16 @@ install(FILES
 		DESTINATION ${INCLUDEDIR}/monetdb)
 
 if(NOT WIN32)
-	if(MATH_LIBRARIES)
+	if(NOT MATH_LIBRARIES STREQUAL "")
 		set(PKG_MATH_LIBRARIES "-l${MATH_LIBRARIES}")
 	endif()
-	if(MALLOC_LIBRARIES)
+	if(NOT MALLOC_LIBRARIES STREQUAL "")
 		set(PKG_MALLOC_LIBRARIES "-l${MALLOC_LIBRARIES}")
 	endif()
-	if(PTHREAD_LIBRARIES)
+	if(NOT PTHREAD_LIBRARIES STREQUAL "")
 		set(PKG_PTHREAD_LIBRARIES "-${PTHREAD_LIBRARIES}")
 	endif()
-	if(DL_LIBRARIES)
+	if(NOT DL_LIBRARIES STREQUAL "")
 		set(PKG_DL_LIBS "-l${DL_LIBRARIES}")
 	endif()
 	configure_file(monetdb-gdk.pc.in ${CMAKE_CURRENT_BINARY_DIR}/monetdb-gdk.pc @ONLY)

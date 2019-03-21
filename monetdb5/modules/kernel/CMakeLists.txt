@@ -22,6 +22,7 @@ add_library(kernel OBJECT
 			mmath.c mmath.h mmath_private.h
 			status.c status.h)
 set_target_properties(kernel PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(kernel PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
 
 install(FILES
 		bat5.mal algebra.mal status.mal

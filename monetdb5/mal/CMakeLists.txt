@@ -41,7 +41,8 @@ add_library(mal OBJECT
 			mal_type.c mal_type.h
 			mal_utils.c mal_utils.h
 			mal_private.h)
-set_target_properties(mal PROPERTIES POSITION_INDEPENDENT_CODE ON COMPILE_DEFINITIONS "LIBMAL")
+set_target_properties(mal PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(mal PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
 
 install(FILES
 		mal.h

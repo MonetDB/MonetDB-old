@@ -15,5 +15,6 @@ add_library(scheduler OBJECT
 			run_memo.c run_memo.h
 			run_pipeline.c run_pipeline.h)
 set_target_properties(scheduler PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(scheduler PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
 
 install(FILES run_adder.mal run_isolate.mal run_memo.mal DESTINATION ${LIBDIR}/monetdb5)

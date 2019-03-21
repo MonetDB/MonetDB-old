@@ -11,7 +11,8 @@ include_directories(../lib ../../gdk ../../common/stream ../../common/options ..
 
 add_library(geom MODULE geom.h geom.c geomBulk.c geom_upgrade.c)
 target_link_libraries(geom PRIVATE geomobj gdk stream monetdb5 ${GEOS_LIBS} ${PROJ_LIBRARIES})
-set_target_properties(geom PROPERTIES RUNTIME_OUTPUT_NAME _geom LIBRARY_OUTPUT_NAME _geom COMPILE_DEFINITIONS "LIBGEOM")
+set_target_properties(geom PROPERTIES RUNTIME_OUTPUT_NAME _geom LIBRARY_OUTPUT_NAME _geom)
+target_compile_definitions(geom PRIVATE LIBGEOM)
 
 install(TARGETS geom DESTINATION ${LIBDIR}/monetdb5)
 install(FILES geom.mal DESTINATION ${LIBDIR}/monetdb5)

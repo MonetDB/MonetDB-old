@@ -10,3 +10,4 @@ include_directories(../../common/options ../../common/stream ../../gdk ${GEOS_IN
 
 add_library(geomobj STATIC libgeom.c libgeom.h)
 set_target_properties(geomobj PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(geomobj PRIVATE LIBGEOM)

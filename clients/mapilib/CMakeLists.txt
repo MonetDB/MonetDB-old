@@ -11,6 +11,7 @@ include_directories(../../common/options ../../common/stream ../../common/utils 
 add_library(mapi SHARED mapi.c)
 target_link_libraries(mapi PRIVATE ${SOCKET_LIBRARIES} ${CRYPTO_LIBRARIES} moptions mcrypt stream)
 set_target_properties(mapi PROPERTIES VERSION ${MAPI_VERSION} SOVERSION ${MAPI_VERSION_MAJOR})
+target_compile_definitions(mapi PRIVATE LIBMAPI)
 
 install(TARGETS mapi DESTINATION ${LIBDIR})
 install(FILES mapi.h DESTINATION ${INCLUDEDIR}/monetdb)

@@ -8,5 +8,5 @@
 
 include_directories(../../../common/stream ../../../common/options ../../../common/utils ${CRYPTO_INCLUDE_DIR})
 
-add_library(meroutil OBJECT control.c control.h database.c database.h glob.c glob.h properties.c properties.h utils.c
+add_library(meroutil STATIC control.c control.h database.c database.h glob.c glob.h properties.c properties.h utils.c
 			utils.h)
