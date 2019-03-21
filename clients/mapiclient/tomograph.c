@@ -43,6 +43,13 @@
 
 #include <time.h>
 
+#if defined(_MSC_VER) && _MSC_VER >= 1400
+#define open  _open
+#define close _close
+#define read  _read
+#define write _write
+#endif
+
 #ifdef NATIVE_WIN32
 #include <direct.h>
 #endif

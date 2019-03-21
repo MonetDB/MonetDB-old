@@ -46,6 +46,13 @@
 #include "gdk.h"
 #include "gdk_private.h"
 
+#if defined(_MSC_VER) && _MSC_VER >= 1400
+#define open  _open
+#define close _close
+#define read  _read
+#define write _write
+#endif
+
 static void *
 HEAPcreatefile(int farmid, size_t *maxsz, const char *fn)
 {

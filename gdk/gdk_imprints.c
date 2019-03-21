@@ -18,6 +18,13 @@
 #include "gdk_private.h"
 #include "gdk_imprints.h"
 
+#if defined(_MSC_VER) && _MSC_VER >= 1400
+#define open  _open
+#define close _close
+#define read  _read
+#define write _write
+#endif
+
 #define IMPRINTS_VERSION	2
 #define IMPRINTS_HEADER_SIZE	4 /* nr of size_t fields in header */
 
