@@ -33,11 +33,6 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-/* Visual Studio 8 has deprecated lots of stuff: suppress warnings */
-#ifndef _CRT_SECURE_NO_DEPRECATE
-#define _CRT_SECURE_NO_DEPRECATE
-#endif
-
 /* indicate to sqltypes.h that windows.h has already been included and
    that it doesn't have to define Windows constants */
 #ifndef ALREADY_HAVE_WINDOWS_TYPE

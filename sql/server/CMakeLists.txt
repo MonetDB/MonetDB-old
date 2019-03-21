@@ -14,7 +14,7 @@ bison_target(sqlparser sql_parser.y ${CMAKE_CURRENT_BINARY_DIR}/sql_parser.tab.c
 			COMPILE_FLAGS "-d -p sql -r all"
 			DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/sql_parser.tab.h)
 
-add_library(sqlserver STATIC
+add_library(sqlserver OBJECT
 			sql_atom.c
 			sql_datetime.c
 			sql_decimal.c

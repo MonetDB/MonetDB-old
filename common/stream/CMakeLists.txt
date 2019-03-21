@@ -11,7 +11,7 @@ include_directories(${ZLIB_INCLUDE_DIR} ${BZIP2_INCLUDE_DIR} ${SNAPPY_INCLUDE_DI
 
 add_library(stream SHARED stream.c stream.h stream_socket.h)
 target_link_libraries(stream PRIVATE ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES}
-					  ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES})
+					  ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES} ${SOCKET_LIBRARIES})
 target_include_directories(stream PRIVATE ${Iconv_INCLUDE_DIR})
 set_target_properties(stream PROPERTIES VERSION ${STREAM_VERSION} SOVERSION ${STREAM_VERSION_MAJOR})
 target_compile_definitions(stream PRIVATE LIBSTREAM)

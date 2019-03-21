@@ -237,7 +237,7 @@ set(FLEXIBLE_ARRAY_MEMBER ON) # We compile according to C99 standard
 if(MSVC)
 	set(__attribute__(a) ON)
 	set(restrict __restrict)
-	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+	add_compile_definitions(_CRT_SECURE_NO_WARNINGS _CRT_SECURE_NO_DEPRECATE _WINSOCK_DEPRECATED_NO_WARNINGS)
 endif()
 
 # https://github.com/Unidata/netcdf-c/commit/b432a527c4a38af45498691a44c5a88961b9c751

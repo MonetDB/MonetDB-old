@@ -36,6 +36,13 @@
 #define O_CLOEXEC 0
 #endif
 
+#if defined(_MSC_VER) && _MSC_VER >= 1400
+#define open  _open
+#define close _close
+#define read  _read
+#define write _write
+#endif
+
 /* GDKfilepath returns a newly allocated string containing the path
  * name of a database farm.
  * The arguments are the farmID or -1, the name of a subdirectory

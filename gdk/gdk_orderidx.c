@@ -10,6 +10,13 @@
 #include "gdk.h"
 #include "gdk_private.h"
 
+#if defined(_MSC_VER) && _MSC_VER >= 1400
+#define open  _open
+#define close _close
+#define read  _read
+#define write _write
+#endif
+
 #define ORDERIDX_VERSION	((oid) 3)
 
 #ifdef PERSISTENTIDX

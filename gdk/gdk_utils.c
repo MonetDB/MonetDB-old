@@ -48,6 +48,7 @@ int GDKverbose = 0;
 
 #ifdef NATIVE_WIN32
 #define chdir _chdir
+#define getpid _getpid
 #endif
 
 static ATOMIC_TYPE GDKstopped = ATOMIC_VAR_INIT(0);
