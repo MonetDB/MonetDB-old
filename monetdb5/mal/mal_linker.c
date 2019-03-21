@@ -30,6 +30,9 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+#ifdef HAVE_IO_H
+# include <io.h>
+#endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 #define open _open

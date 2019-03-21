@@ -123,6 +123,10 @@
 #define INVALID_SOCKET	(-1)
 #endif
 
+#ifdef HAVE_IO_H
+# include <io.h>
+#endif
+
 #ifdef NATIVE_WIN32
 #define pclose _pclose
 #define fileno(fd) _fileno(fd)

@@ -31,6 +31,9 @@
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
+#ifdef HAVE_IO_H
+#include <io.h>
+#endif
 #include <string.h> /* for getting error messages */
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400

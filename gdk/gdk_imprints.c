@@ -18,6 +18,10 @@
 #include "gdk_private.h"
 #include "gdk_imprints.h"
 
+#ifdef HAVE_IO_H
+# include <io.h>
+#endif
+
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 #define open  _open
 #define close _close

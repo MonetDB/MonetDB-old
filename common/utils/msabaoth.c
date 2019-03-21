@@ -33,6 +33,9 @@
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
+#ifdef HAVE_IO_H
+#include <io.h>
+#endif
 #include <time.h>
 #include <string.h> /* for getting error messages */
 #include <stddef.h>

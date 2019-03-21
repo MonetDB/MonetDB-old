@@ -46,6 +46,10 @@ int GDKverbose = 0;
 #include <sysinfoapi.h>
 #endif
 
+#ifdef HAVE_IO_H
+# include <io.h>
+#endif
+
 #ifdef NATIVE_WIN32
 #define chdir _chdir
 #define getpid _getpid
