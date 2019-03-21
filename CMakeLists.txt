@@ -20,6 +20,7 @@ include(CheckCSourceCompiles REQUIRED)
 include(CheckCSourceRuns REQUIRED)
 include(CheckIncludeFile REQUIRED)
 include(CheckIncludeFiles REQUIRED)
+include(CMakePushCheckState REQUIRED)
 include(CheckStructHasMember REQUIRED)
 include(CheckSymbolExists REQUIRED)
 include(CheckTypeSize REQUIRED)
@@ -235,6 +236,7 @@ check_c_source_compiles("
 set(FLEXIBLE_ARRAY_MEMBER ON) # We compile according to C99 standard
 if(MSVC)
 	set(__attribute__(a) ON)
+	set(restrict __restrict)
 endif()
 
 # https://github.com/Unidata/netcdf-c/commit/b432a527c4a38af45498691a44c5a88961b9c751

@@ -667,7 +667,9 @@
 #cmakedefine VERSION "@VERSION@"
 
 /* Define on Microsoft Windows (also under Cygwin) */
+#ifndef WIN32
 #cmakedefine WIN32
+#endif
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */
@@ -711,6 +713,9 @@
    calls it, or to nothing if 'inline' is not supported under any name.  */
 #ifndef __cplusplus
 #cmakedefine inline
+#ifndef restrict
+#cmakedefine restrict @restrict@
+#endif
 #endif
 
 /* Define to `long int' if <sys/types.h> does not define. */
