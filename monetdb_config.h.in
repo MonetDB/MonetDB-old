@@ -37,9 +37,6 @@
 #ifndef _CRT_SECURE_NO_DEPRECATE
 #define _CRT_SECURE_NO_DEPRECATE
 #endif
-#ifndef _CRT_SECURE_NO_WARNINGS
-#define _CRT_SECURE_NO_WARNINGS
-#endif
 
 /* indicate to sqltypes.h that windows.h has already been included and
    that it doesn't have to define Windows constants */
@@ -52,22 +49,12 @@
 #endif
 
 #define ftruncate(fd, sz) (-(_chsize_s((fd), (__int64) (sz)) != 0))
-#define strdup(s)         _strdup(s)
 #ifndef strcasecmp
-#define strcasecmp(x,y)   _stricmp(x,y)
+#define strcasecmp  _stricmp
 #endif
 #ifndef strncasecmp
-#define strncasecmp(x,y,z) _strnicmp(x,y,z)
+#define strncasecmp _strnicmp
 #endif
-
-#ifdef stat
-#undef stat
-#endif
-#define stat _stat64
-#ifdef fstat
-#undef fstat
-#endif
-#define fstat _fstat64
 
 #if defined(_DEBUG) && defined(_CRTDBG_MAP_ALLOC)
 /* In this case, malloc and friends are redefined in crtdbg.h to debug
