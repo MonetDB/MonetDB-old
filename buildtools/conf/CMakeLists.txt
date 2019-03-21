@@ -11,7 +11,7 @@ if(HAVE_DEVELOPER)
 endif()
 
 if(WIN32)
-	install(FILES banner.bmp license.rtf monetdb.ico website.html DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
+	install(FILES banner.bmp license.rtf monetdb.ico website.html DESTINATION ${BINDIR})
 else()
 	install(FILES monetdbd.conf DESTINATION ${SYSCONFDIR}/tmpfiles.d)
 endif()

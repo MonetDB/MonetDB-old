@@ -36,4 +36,6 @@ target_link_libraries(tomograph PRIVATE mcutil mutils mapi stream ${SOCKET_LIBRA
 					  ${ICONV_LIBRARIES} ${CRYPTO_LIBRARIES})
 
 install(TARGETS mclient msqldump stethoscope tachograph tomograph DESTINATION ${BINDIR})
-install(FILES mclient.1 msqldump.1 DESTINATION ${DATADIR}/man/man1)
+if(NOT WIN32)
+	install(FILES mclient.1 msqldump.1 DESTINATION ${MANDIR}/man1)
+endif()

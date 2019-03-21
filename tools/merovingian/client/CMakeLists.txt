@@ -13,4 +13,4 @@ target_link_libraries(monetdb PRIVATE meroutil mcrypt msabaoth mutils stream ${U
 					  ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES}
 					  ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES})
 install(TARGETS monetdb DESTINATION ${BINDIR})
-install(FILES monetdb.1 DESTINATION ${DATADIR}/man/man1)
+install(FILES monetdb.1 DESTINATION ${MANDIR}/man1)
