@@ -198,7 +198,7 @@ GDKlog(FILE *lockFile, const char *format, ...)
 	va_list ap;
 	char *p = 0, buf[1024];
 	time_t tm = time(0);
-#if defined(HAVE_CTIME_R3) || defined(HAVE_CTIME_R) || defined(HAVE_CTIME_S)
+#if defined(HAVE_CTIME_R3) || defined(HAVE_CTIME_R) || defined(HAVE_CTIME_S3)
 	char tbuf[26];
 #endif
 	char *ctm;

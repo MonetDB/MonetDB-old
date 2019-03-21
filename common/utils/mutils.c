@@ -40,6 +40,15 @@
 # include <sys/sysctl.h>  /* KERN_PROC_PATHNAME on BSD */
 #endif
 
+#ifdef HAVE_IO_H
+# include <io.h>
+#endif
+
+#if defined(_MSC_VER) && _MSC_VER >= 1400
+#define open _open
+#define close _close
+#endif
+
 #ifndef O_CLOEXEC
 #define O_CLOEXEC 0
 #endif

@@ -179,6 +179,9 @@
 		((((uhge) 0xff << 120) & (uhge) (h)) >> 120)))
 #endif
 
+#if defined(_MSC_VER) && _MSC_VER >= 1400
+#define isatty _isatty
+#endif
 
 struct stream {
 	char *name;		/* name of the stream */
