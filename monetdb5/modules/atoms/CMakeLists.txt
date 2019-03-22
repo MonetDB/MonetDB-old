@@ -25,7 +25,7 @@ set(ATOM_ITEMS
 if(WIN32)
 	list(APPEND ATOM_ITEMS strptime.c)
 endif()
-add_library(atoms OBJECT ${ATOM_ITEMS})
+add_library(atoms ${LIBMONETDB5_LINKING} ${ATOM_ITEMS})
 set_target_properties(atoms PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_definitions(atoms PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
 

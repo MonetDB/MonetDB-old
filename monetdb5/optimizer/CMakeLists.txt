@@ -9,7 +9,7 @@
 include_directories(../mal ../modules/atoms ../modules/mal ../modules/kernel ../../clients/mapilib ../../common/options
 					../../common/stream ../../common/utils ../../gdk)
 
-add_library(optimizer OBJECT
+add_library(optimizer ${LIBMONETDB5_LINKING}
 			optimizer.c optimizer.h optimizer_private.h
 			opt_aliases.c opt_aliases.h
 			opt_coercion.c opt_coercion.h

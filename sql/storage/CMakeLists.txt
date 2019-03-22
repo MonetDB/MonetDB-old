@@ -10,7 +10,7 @@ add_subdirectory(bat)
 
 include_directories(. ../include ../common ../../common/options ../../common/stream ../../gdk)
 
-add_library(store OBJECT
+add_library(store STATIC
 			store_dependency.c store_sequence.c
 			store.c sql_catalog.c
 			sql_storage.h store_dependency.h

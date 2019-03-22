@@ -9,7 +9,7 @@
 include_directories(. ../../common/options ../../common/stream ../../common/utils ../../clients/mapilib ../../gdk
 					../optimizer ../modules/mal ${CRYPTO_INCLUDE_DIR})
 
-add_library(mal OBJECT
+add_library(mal ${LIBMONETDB5_LINKING}
 			mal.c mal.h
 			mal_atom.c mal_atom.h
 			mal_authorize.c mal_authorize.h

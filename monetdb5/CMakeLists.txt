@@ -6,6 +6,12 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
+if(WIN32) # hack to link libmonetdb5, cmake has trouble linking static libraries into a single shared library while exposing symbols on Linux..
+	set(LIBMONETDB5_LINKING STATIC)
+else()
+	set(LIBMONETDB5_LINKING OBJECT)
+endif()
+
 add_subdirectory(mal)
 add_subdirectory(modules)
 add_subdirectory(optimizer)

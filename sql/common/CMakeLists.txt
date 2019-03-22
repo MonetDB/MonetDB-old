@@ -8,8 +8,9 @@
 
 include_directories(.. ../include ../storage ../../common/options ../../common/stream ../../monetdb5/mal ../../gdk)
 
-add_library(sqlcommon OBJECT
+add_library(sqlcommon STATIC
 			sql_mem.c sql_list.c sql_hash.c sql_stack.c sql_backend.c
 			sql_keyword.c sql_changeset.c sql_types.c sql_string.c
 			sql_backend.h sql_string.h sql_types.h)
 set_target_properties(sqlcommon PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(sqlcommon PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)
