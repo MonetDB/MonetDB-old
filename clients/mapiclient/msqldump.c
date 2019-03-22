@@ -26,7 +26,6 @@
 
 #include "stream.h"
 #include "msqldump.h"
-#define LIBMUTILS 1
 #include "mprompt.h"
 #include "mutils.h"		/* mercurial_revision */
 #include "dotmonetdb.h"

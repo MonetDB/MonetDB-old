@@ -11,27 +11,27 @@ include_directories(../mapilib ../../common/options ../../common/stream ../../co
 add_library(mcutil STATIC dump.c dotmonetdb.c dotmonetdb.h eventparser.c eventparser.h)
 
 add_executable(mclient mclient.c ReadlineTools.c ReadlineTools.h mhelp.c mhelp.h)
-target_link_libraries(mclient PRIVATE mcutil mutils mcrypt mapi stream ${READLINE_LIBS} ${READLINE_LIBRARIES}
+target_link_libraries(mclient PRIVATE mcutil mutils mcrypt moptions mapi stream ${READLINE_LIBS} ${READLINE_LIBRARIES}
 					  ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES}
 					  ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES} ${CRYPTO_LIBRARIES})
 
 add_executable(msqldump msqldump.c msqldump.h)
-target_link_libraries(msqldump PRIVATE mcutil mutils mapi stream ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES}
+target_link_libraries(msqldump PRIVATE mcutil mutils moptions mapi stream ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES}
 					  ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES}
 					  ${ICONV_LIBRARIES} ${CRYPTO_LIBRARIES})
 
 add_executable(stethoscope stethoscope.c)
-target_link_libraries(stethoscope PRIVATE mcutil mutils mapi stream ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES}
+target_link_libraries(stethoscope PRIVATE mcutil mutils moptions mapi stream ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES}
 					  ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES}
 					  ${ICONV_LIBRARIES} ${CRYPTO_LIBRARIES})
 
 add_executable(tachograph tachograph.c)
-target_link_libraries(tachograph PRIVATE mcutil mutils mapi stream ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES}
+target_link_libraries(tachograph PRIVATE mcutil mutils moptions mapi stream ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES}
 					  ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES}
 					  ${ICONV_LIBRARIES} ${CRYPTO_LIBRARIES})
 
 add_executable(tomograph tomograph.c)
-target_link_libraries(tomograph PRIVATE mcutil mutils mapi stream ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES}
+target_link_libraries(tomograph PRIVATE mcutil mutils moptions mapi stream ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES}
 					  ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES}
 					  ${ICONV_LIBRARIES} ${CRYPTO_LIBRARIES})
 

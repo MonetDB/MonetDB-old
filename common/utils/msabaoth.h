@@ -51,32 +51,22 @@ typedef struct Ssabuplog {
 	double crashavg30; /* average of crashes in the last 30 start attempts */
 } sabuplog;
 
-#ifdef WIN32
-#if !defined(LIBMAL) && !defined(LIBATOMS) && !defined(LIBKERNEL) && !defined(LIBOPTIMIZER) && !defined(LIBSCHEDULER) && !defined(LIBMONETDB5) && !defined(LIBMSABAOTH)
-#define msab_export extern __declspec(dllimport)
-#else
-#define msab_export extern __declspec(dllexport)
-#endif
-#else
-#define msab_export extern
-#endif
-
-msab_export void msab_dbpathinit(const char *dbpath);
-msab_export void msab_dbfarminit(const char *dbfarm);
-msab_export char *msab_getDBfarm(char **ret);
-msab_export char *msab_getDBname(char **ret);
-msab_export char *msab_marchScenario(const char *lang);
-msab_export char *msab_retreatScenario(const char *lang);
-msab_export char *msab_marchConnection(const char *host, const int port);
-msab_export char *msab_wildRetreat(void);
-msab_export char *msab_registerStarting(void);
-msab_export char *msab_registerStarted(void);
-msab_export char *msab_registerStop(void);
-msab_export char *msab_getMyStatus(sabdb** ret);
-msab_export char *msab_getStatus(sabdb** ret, char *dbname);
-msab_export char *msab_freeStatus(sabdb** ret);
-msab_export char *msab_getUplogInfo(sabuplog *ret, const sabdb *db);
-msab_export char *msab_serialise(char **ret, const sabdb *db);
-msab_export char *msab_deserialise(sabdb **ret, char *sabdb);
+extern void msab_dbpathinit(const char *dbpath);
+extern void msab_dbfarminit(const char *dbfarm);
+extern char *msab_getDBfarm(char **ret);
+extern char *msab_getDBname(char **ret);
+extern char *msab_marchScenario(const char *lang);
+extern char *msab_retreatScenario(const char *lang);
+extern char *msab_marchConnection(const char *host, const int port);
+extern char *msab_wildRetreat(void);
+extern char *msab_registerStarting(void);
+extern char *msab_registerStarted(void);
+extern char *msab_registerStop(void);
+extern char *msab_getMyStatus(sabdb** ret);
+extern char *msab_getStatus(sabdb** ret, char *dbname);
+extern char *msab_freeStatus(sabdb** ret);
+extern char *msab_getUplogInfo(sabuplog *ret, const sabdb *db);
+extern char *msab_serialise(char **ret, const sabdb *db);
+extern char *msab_deserialise(sabdb **ret, char *sabdb);
 
 #endif

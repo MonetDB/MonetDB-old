@@ -8,5 +8,4 @@
 
 add_library(moptions STATIC monet_options.c monet_options.h monet_getopt.h)
 set_target_properties(moptions PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_compile_definitions(moptions PRIVATE LIBMOPTIONS LIBGDK LIBMAPI)
 install(FILES monet_options.h DESTINATION ${INCLUDEDIR}/monetdb)

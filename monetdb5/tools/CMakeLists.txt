@@ -11,7 +11,7 @@ if(HAVE_MAPI)
 	list(APPEND MONETDB5_PRIVATE_LINK_OBJECTS mapi)
 endif()
 
-add_library(monetdb5 SHARED)
+add_library(monetdb5 SHARED monetdb.c)
 target_link_libraries(monetdb5 PRIVATE ${UUID_LIBRARIES} ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES}
 					  ${PTHREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES}
 					  ${MONETDB5_PRIVATE_LINK_OBJECTS} PUBLIC mal atoms kernel malmodules optimizer scheduler msabaoth)
