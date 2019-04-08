@@ -14,7 +14,8 @@ endif()
 add_library(monetdb5 SHARED monetdb.c)
 target_link_libraries(monetdb5 PRIVATE ${UUID_LIBRARIES} ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES}
 					  ${PTHREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES}
-					  ${MONETDB5_PRIVATE_LINK_OBJECTS} PUBLIC mal atoms kernel malmodules optimizer scheduler msabaoth)
+					  ${MONETDB5_PRIVATE_LINK_OBJECTS} PUBLIC mal atoms kernel malmodules optimizer scheduler mutils
+					  mcrypt msabaoth)
 set_target_properties(monetdb5 PROPERTIES VERSION ${MONETDB5_VERSION} SOVERSION ${MONETDB5_VERSION_MAJOR})
 target_compile_definitions(monetdb5 PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
 

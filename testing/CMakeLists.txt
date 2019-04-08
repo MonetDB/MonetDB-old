@@ -62,9 +62,11 @@ configure_file(monet_options.py.in ${CMAKE_CURRENT_BINARY_DIR}/monet_options.py 
 configure_file(listexports.py.in ${CMAKE_CURRENT_BINARY_DIR}/listexports.py @ONLY)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/Mtest.py PERMISSIONS ${PROGRAM_PERMISSIONS_DEFAULT} DESTINATION ${BINDIR})
-install(FILES Mfilter.py process.py ${CMAKE_CURRENT_BINARY_DIR}/monet_options.py __init__.py
-		${CMAKE_CURRENT_BINARY_DIR}/listexports.py exportutils.py malcheck.py
-		DESTINATION ${CMAKE_INSTALL_PREFIX}${PYTHON_LIBDIR}/MonetDBtesting)
+if(PYTHON_LIBDIR)
+	install(FILES Mfilter.py process.py ${CMAKE_CURRENT_BINARY_DIR}/monet_options.py __init__.py
+			${CMAKE_CURRENT_BINARY_DIR}/listexports.py exportutils.py malcheck.py
+			DESTINATION ${CMAKE_INSTALL_PREFIX}${PYTHON_LIBDIR}/MonetDBtesting)
+endif()
 
 if(WIN32)
 	install(FILES Mlog.bat Mtest.py.bat DESTINATION ${BINDIR})
