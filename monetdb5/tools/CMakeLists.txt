@@ -6,18 +6,27 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-set(MONETDB5_PRIVATE_LINK_OBJECTS gdk stream)
+
+set(MONETDB5_PRIVATE_LINK_OBJECTS ${UUID_LIBRARIES} ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES}
+								  ${PTHREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES} ${PCRE_LIBRARIES}
+								  ${LIBXML2_LIBRARIES} gdk stream)
+set(MONETDB5_PUBLIC_LINK_OBJECTS mal atoms kernel malmodules optimizer scheduler mutils mcrypt msabaoth)
 if(HAVE_MAPI)
 	list(APPEND MONETDB5_PRIVATE_LINK_OBJECTS mapi)
 endif()
 
-add_library(monetdb5 SHARED monetdb.c)
-target_link_libraries(monetdb5 PRIVATE ${UUID_LIBRARIES} ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES}
-					  ${PTHREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES}
-					  ${MONETDB5_PRIVATE_LINK_OBJECTS} PUBLIC mal atoms kernel malmodules optimizer scheduler mutils
-					  mcrypt msabaoth)
-set_target_properties(monetdb5 PROPERTIES VERSION ${MONETDB5_VERSION} SOVERSION ${MONETDB5_VERSION_MAJOR})
-target_compile_definitions(monetdb5 PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
+if(MSVC)
+	add_library(monetdb5 STATIC monetdb.c)
+	target_link_libraries(monetdb5 PRIVATE ${MONETDB5_PRIVATE_LINK_OBJECTS} PUBLIC ${MONETDB5_PUBLIC_LINK_OBJECTS})
+
+	add_library(monetdb5shared SHARED monetdb.c)
+	target_link_libraries(monetdb5shared PRIVATE ${MONETDB5_PRIVATE_LINK_OBJECTS} PUBLIC ${MONETDB5_PUBLIC_LINK_OBJECTS})
+	set_target_properties(monetdb5shared PROPERTIES OUTPUT_NAME monetdb5)
+else()
+	add_library(monetdb5 SHARED monetdb.c)
+	target_link_libraries(monetdb5 PRIVATE ${MONETDB5_PRIVATE_LINK_OBJECTS} PUBLIC ${MONETDB5_PUBLIC_LINK_OBJECTS})
+	set_target_properties(monetdb5 PROPERTIES VERSION ${MONETDB5_VERSION} SOVERSION ${MONETDB5_VERSION_MAJOR})
+endif()
 
 install(TARGETS monetdb5 DESTINATION ${LIBDIR})
 
