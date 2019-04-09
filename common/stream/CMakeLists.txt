@@ -7,14 +7,28 @@
 #]]
 
 include_directories(${ZLIB_INCLUDE_DIR} ${BZIP2_INCLUDE_DIR} ${SNAPPY_INCLUDE_DIR} ${LZ4_INCLUDE_DIR}
-				    ${LIBLZMA_INCLUDE_DIR} ${CURL_INCLUDE_DIR})
+					${LIBLZMA_INCLUDE_DIR} ${CURL_INCLUDE_DIR} ${ICONV_INCLUDE_DIR})
 
-add_library(stream SHARED stream.c stream.h stream_socket.h)
-target_link_libraries(stream PRIVATE ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES}
-					  ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES} ${SOCKET_LIBRARIES})
-target_include_directories(stream PRIVATE ${Iconv_INCLUDE_DIR})
-set_target_properties(stream PROPERTIES VERSION ${STREAM_VERSION} SOVERSION ${STREAM_VERSION_MAJOR})
-target_compile_definitions(stream PRIVATE LIBSTREAM)
+set(STREAM_OBJECTS stream.c stream.h stream_socket.h)
+set(STREAM_LIBRARIES ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES}
+					 ${CURL_LIBRARIES} ${ICONV_LIBRARIES} ${SOCKET_LIBRARIES})
+
+if(MSVC)
+	add_library(stream STATIC ${STREAM_OBJECTS})
+	target_link_libraries(stream PRIVATE ${STREAM_LIBRARIES})
+
+	add_library(streamshared SHARED ${STREAM_OBJECTS})
+	target_link_libraries(streamshared PRIVATE ${STREAM_LIBRARIES})
+	set_target_properties(streamshared PROPERTIES OUTPUT_NAME stream)
+	target_compile_definitions(streamshared PRIVATE LIBSTREAM)
+
+	install(TARGETS streamshared LIBRARY DESTINATION ${LIBDIR})
+else()
+	add_library(stream SHARED ${STREAM_OBJECTS})
+	target_link_libraries(stream PRIVATE ${STREAM_LIBRARIES})
+	set_target_properties(stream PROPERTIES VERSION ${STREAM_VERSION} SOVERSION ${STREAM_VERSION_MAJOR})
+	target_compile_definitions(stream PRIVATE LIBSTREAM)
+endif()
 
 install(TARGETS stream LIBRARY DESTINATION ${LIBDIR})
 install(FILES stream_socket.h stream.h DESTINATION ${INCLUDEDIR}/monetdb)

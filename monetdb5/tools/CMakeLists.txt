@@ -6,7 +6,6 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-
 set(MONETDB5_PRIVATE_LINK_OBJECTS ${UUID_LIBRARIES} ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES}
 								  ${PTHREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES} ${PCRE_LIBRARIES}
 								  ${LIBXML2_LIBRARIES} gdk stream)
@@ -22,6 +21,7 @@ if(MSVC)
 	add_library(monetdb5shared SHARED monetdb.c)
 	target_link_libraries(monetdb5shared PRIVATE ${MONETDB5_PRIVATE_LINK_OBJECTS} PUBLIC ${MONETDB5_PUBLIC_LINK_OBJECTS})
 	set_target_properties(monetdb5shared PROPERTIES OUTPUT_NAME monetdb5)
+
 	install(TARGETS monetdb5shared DESTINATION ${LIBDIR})
 else()
 	add_library(monetdb5 SHARED monetdb.c)

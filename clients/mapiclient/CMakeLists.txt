@@ -6,7 +6,8 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../mapilib ../../common/options ../../common/stream ../../common/utils ${READLINE_INCLUDE_DIR})
+include_directories(../mapilib ../../common/options ../../common/stream ../../common/utils ${READLINE_INCLUDE_DIR}
+					${ICONV_INCLUDE_DIR})
 
 add_library(mcutil STATIC dump.c dotmonetdb.c dotmonetdb.h eventparser.c eventparser.h)
 

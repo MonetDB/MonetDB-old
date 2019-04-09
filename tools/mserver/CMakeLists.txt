@@ -9,7 +9,7 @@
 include_directories(. ../../monetdb5/mal ../../gdk ../../common/stream ../../common/utils ../../common/options
 					../../monetdb5/modules/atoms ../../monetdb5/modules/mal ../../sql/backends/monet5 ../../sql/common
 					../../sql/include ../../sql/server ../../sql/storage ${CRYPTO_INCLUDE_DIR} ${PCRE_INCLUDE_DIR}
-					${LIBXML2_INCLUDE_DIR})
+					${LIBXML2_INCLUDE_DIR} ${ICONV_INCLUDE_DIR})
 
 configure_file(monet_version.c.in ${CMAKE_CURRENT_BINARY_DIR}/monet_version.c @ONLY)
 

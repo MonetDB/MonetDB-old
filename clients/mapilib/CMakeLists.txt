@@ -8,10 +8,25 @@
 
 include_directories(../../common/options ../../common/stream ../../common/utils ${CRYPTO_INCLUDE_DIR})
 
-add_library(mapi SHARED mapi.c)
-target_link_libraries(mapi PRIVATE ${SOCKET_LIBRARIES} ${CRYPTO_LIBRARIES} moptions mcrypt stream)
-set_target_properties(mapi PROPERTIES VERSION ${MAPI_VERSION} SOVERSION ${MAPI_VERSION_MAJOR})
-target_compile_definitions(mapi PRIVATE LIBMAPI)
+set(MAPI_OBJECTS mapi.c)
+set(MAPI_LIBRARIES ${SOCKET_LIBRARIES} ${CRYPTO_LIBRARIES} moptions mcrypt stream)
+
+if(MSVC)
+	add_library(mapi STATIC ${MAPI_OBJECTS})
+	target_link_libraries(mapi PRIVATE ${MAPI_LIBRARIES})
+
+	add_library(mapishared SHARED ${MAPI_OBJECTS})
+	target_link_libraries(mapishared PRIVATE ${MAPI_LIBRARIES})
+	set_target_properties(mapishared PROPERTIES OUTPUT_NAME mapi)
+	target_compile_definitions(mapishared PRIVATE LIBMAPI)
+
+	install(TARGETS mapishared LIBRARY DESTINATION ${LIBDIR})
+else()
+	add_library(mapi SHARED ${MAPI_OBJECTS})
+	target_link_libraries(mapi PRIVATE ${MAPI_LIBRARIES})
+	set_target_properties(mapi PROPERTIES VERSION ${MAPI_VERSION} SOVERSION ${MAPI_VERSION_MAJOR})
+	target_compile_definitions(mapi PRIVATE LIBMAPI)
+endif()
 
 install(TARGETS mapi DESTINATION ${LIBDIR})
 install(FILES mapi.h DESTINATION ${INCLUDEDIR}/monetdb)

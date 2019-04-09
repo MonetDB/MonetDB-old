@@ -33,20 +33,20 @@ set(GDK_OBJECTS
 	gdk_firstn.c
 	gdk_analytic_bounds.c
 	gdk_analytic_func.c gdk_analytic.h)
-
 set(GDK_LIBRARIES ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES} ${PTHREAD_LIBRARIES} ${DL_LIBRARIES}
-				  moptions mutils stream)
+	moptions mutils stream)
 
 if(MSVC)
 	add_library(gdk STATIC ${GDK_OBJECTS})
-	target_link_libraries(monetdb5 PRIVATE ${GDK_LIBRARIES})
+	target_link_libraries(gdk PRIVATE ${GDK_LIBRARIES})
 	set_target_properties(gdk PROPERTIES OUTPUT_NAME bat)
 
 	add_library(gdkshared SHARED ${GDK_OBJECTS})
 	target_link_libraries(gdkshared PRIVATE ${GDK_LIBRARIES})
 	set_target_properties(gdkshared PROPERTIES OUTPUT_NAME bat)
-	install(TARGETS gdkshared LIBRARY DESTINATION ${LIBDIR})
 	target_compile_definitions(gdkshared PRIVATE LIBGDK)
+
+	install(TARGETS gdkshared LIBRARY DESTINATION ${LIBDIR})
 else()
 	add_library(gdk SHARED ${GDK_OBJECTS})
 	target_link_libraries(gdk PRIVATE PRIVATE ${GDK_LIBRARIES})
