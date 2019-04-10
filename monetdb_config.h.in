@@ -72,7 +72,7 @@
 #cmakedefine AC_APPLE_UNIVERSAL_BUILD
 
 /* location where binaries are installed */
-#cmakedefine BINDIR "@BINDIR@"
+#cmakedefine BINDIR "@BIN_DIR@"
 
 /* read-only architecture-independent data */
 #cmakedefine DATA_DIR "@DATA_DIR@"
@@ -559,10 +559,10 @@
 #cmakedefine LENP_OR_POINTER_T @LENP_OR_POINTER_T@
 
 /* location where libraries are installed */
-#cmakedefine LIBDIR "@LIBDIR@"
+#cmakedefine LIBDIR "@LIB_DIR@"
 
 /* modifiable single-machine data */
-#cmakedefine LOCALSTATEDIR "@LOCALSTATEDIR@"
+#cmakedefine LOCALSTATEDIR "@LOCALSTATE_DIR@"
 
 /* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
@@ -649,7 +649,7 @@
 #cmakedefine SO_EXT "@SO_EXT@"
 
 /* Shared Object prefix */
-#cmakedefine SO_PREFIX "@SO_PREFIX@"
+#define SO_PREFIX "@SO_PREFIX@"
 
 /* Compiling for static code analysis */
 #cmakedefine STATIC_CODE_ANALYSIS
