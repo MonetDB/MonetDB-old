@@ -35,8 +35,7 @@ add_library(gdk SHARED
 			gdk_analytic_func.c gdk_analytic.h)
 target_link_libraries(gdk PRIVATE ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES} ${PTHREAD_LIBRARIES}
 					  ${DL_LIBRARIES} moptions mutils stream)
-set_target_properties(gdk PROPERTIES VERSION ${GDK_VERSION} SOVERSION ${GDK_VERSION_MAJOR} RUNTIME_OUTPUT_NAME bat
-					  LIBRARY_OUTPUT_NAME bat)
+set_target_properties(gdk PROPERTIES VERSION ${GDK_VERSION} SOVERSION ${GDK_VERSION_MAJOR} OUTPUT_NAME bat)
 target_compile_definitions(gdk PRIVATE LIBGDK)
 
 install(TARGETS gdk DESTINATION ${LIBDIR})

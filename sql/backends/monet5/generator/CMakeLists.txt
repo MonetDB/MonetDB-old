@@ -13,7 +13,6 @@ include_directories(../../../include ../../../common ../../../storage ../../../s
 
 add_library(generator MODULE generator.c generator.h)
 target_link_libraries(generator PRIVATE monetdb5 gdk)
-set_target_properties(generator PROPERTIES RUNTIME_OUTPUT_NAME _generator LIBRARY_OUTPUT_NAME _generator)
 target_compile_definitions(generator PRIVATE LIBGENERATOR)
 
 install(TARGETS generator DESTINATION ${LIBDIR}/monetdb5)
