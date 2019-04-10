@@ -14,12 +14,10 @@ include_directories(. ../../monetdb5/mal ../../gdk ../../common/stream ../../com
 configure_file(monet_version.c.in ${CMAKE_CURRENT_BINARY_DIR}/monet_version.c @ONLY)
 
 add_executable(mserver5 mserver5.c monet_version.h ${CMAKE_CURRENT_BINARY_DIR}/monet_version.c)
-target_link_libraries(mserver5 PRIVATE monetdb5 mal gdk stream mapi moptions mutils ${UUID_LIBRARIES} ${MATH_LIBRARIES}
-					  ${SOCKET_LIBRARIES}
-					  ${MALLOC_LIBRARIES} ${PTHREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES}
+target_link_libraries(mserver5 PRIVATE monetdb5 gdk stream mapi moptions mutils ${UUID_LIBRARIES} ${MATH_LIBRARIES}
+					  ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES} ${PTHREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES}
 					  ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} ${PSAPI_LIBRARIES} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES}
 					  ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES})
-target_compile_definitions(mserver5 PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
 install(TARGETS mserver5 DESTINATION ${BINDIR})
 
 install(FILES tomographintro.docx tomographintro.pdf DESTINATION ${DATADIR}/doc/MonetDB-client-tools)
@@ -33,11 +31,10 @@ endif()
 
 if(HAVE_TESTING)
 	add_executable(shutdowntest shutdowntest.c)
-	target_link_libraries(shutdowntest PRIVATE monetdb5 mal gdk stream mapi moptions mutils ${UUID_LIBRARIES} ${MATH_LIBRARIES}
-						  ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES} ${PTHREAD_LIBRARIES} ${DL_LIBRARIES}
+	target_link_libraries(shutdowntest PRIVATE monetdb5 gdk stream mapi moptions mutils ${UUID_LIBRARIES}
+						  ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES} ${PTHREAD_LIBRARIES} ${DL_LIBRARIES}
 						  ${CRYPTO_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} ${PSAPI_LIBRARIES} ${ZLIB_LIBRARIES}
 						  ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES}
 						  ${ICONV_LIBRARIES})
-	target_compile_definitions(shutdowntest PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
 	install(TARGETS shutdowntest DESTINATION ${BINDIR})
 endif()

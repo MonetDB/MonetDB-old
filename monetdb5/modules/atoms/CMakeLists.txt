@@ -6,29 +6,6 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../../mal ../../../common/options ../../../common/stream ../../../common/utils ../../../gdk
-					${LIBXML2_INCLUDE_DIR} ${CRYPTO_INCLUDE_DIR})
-
-set(ATOM_ITEMS
-	batxml.c
-	blob.c blob.h
-	color.c color.h
-	identifier.c
-	inet.c
-	json.c json.h
-	mtime.c mtime_analytic.c mtime.h
-	str.c str.h
-	streams.c streams.h
-	url.c url.h
-	uuid.c
-	xml.c xml.h)
-if(WIN32)
-	list(APPEND ATOM_ITEMS strptime.c)
-endif()
-add_library(atoms ${LIBMONETDB5_LINKING} ${ATOM_ITEMS})
-set_target_properties(atoms PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_compile_definitions(atoms PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
-
 install(FILES
 		batxml.mal
 		blob.mal

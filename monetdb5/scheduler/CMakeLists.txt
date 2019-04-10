@@ -6,15 +6,4 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../mal ../optimizer ../modules/atoms ../modules/mal ../modules/kernel ../../clients/mapilib
-					../../common/options ../../common/stream ../../common/utils ../../gdk)
-
-add_library(scheduler ${LIBMONETDB5_LINKING}
-			run_adder.c run_adder.h
-			run_isolate.c run_isolate.h
-			run_memo.c run_memo.h
-			run_pipeline.c run_pipeline.h)
-set_target_properties(scheduler PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_compile_definitions(scheduler PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
-
 install(FILES run_adder.mal run_isolate.mal run_memo.mal DESTINATION ${LIBDIR}/monetdb5)
