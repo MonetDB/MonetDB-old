@@ -13,9 +13,11 @@ target_compile_definitions(mutils PRIVATE LIBMUTILS LIBGDK LIBMEROUTIL)
 install(TARGETS mutils DESTINATION ${LIBDIR})
 
 add_library(mcrypt SHARED mcrypt.h mcrypt.c)
+target_link_libraries(mcrypt PRIVATE ${CRYPTO_LIBRARIES})
 target_compile_definitions(mcrypt PRIVATE LIBMAPI LIBMCRYPT)
 install(TARGETS mcrypt DESTINATION ${LIBDIR})
 
 add_library(msabaoth SHARED muuid.h muuid.c msabaoth.h msabaoth.c)
+target_link_libraries(msabaoth PRIVATE ${CRYPTO_LIBRARIES} mutils)
 target_compile_definitions(msabaoth PRIVATE LIBMSABAOTH LIBMUUID LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
 install(TARGETS msabaoth DESTINATION ${LIBDIR})
