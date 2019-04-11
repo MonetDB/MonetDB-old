@@ -9,10 +9,10 @@
 include_directories(../lib ../../gdk ../../common/stream ../../common/options ../../monetdb5/mal ${GEOS_INCLUDE_DIR}
 					${PROJ_INCLUDE_DIR})
 
-add_library(geom MODULE geom.h geom.c geomBulk.c geom_upgrade.c)
-target_link_libraries(geom PRIVATE geomobj gdk stream monetdb5 ${GEOS_LIBRARIES} ${PROJ_LIBRARIES})
-target_compile_definitions(geom PRIVATE LIBGEOM)
+add_library(geom_module MODULE geom.h geom.c geomBulk.c geom_upgrade.c)
+target_link_libraries(geom_module PRIVATE geom gdk stream monetdb5 ${GEOS_LIBRARIES} ${PROJ_LIBRARIES})
+set_target_properties(geom_module PROPERTIES OUTPUT_NAME geom)
 
-install(TARGETS geom DESTINATION ${LIBDIR}/monetdb5)
+install(TARGETS geom_module DESTINATION ${LIBDIR}/monetdb5)
 install(FILES geom.mal DESTINATION ${LIBDIR}/monetdb5)
 install(FILES 30_geom.mal DESTINATION ${LIBDIR}/monetdb5/autoload)

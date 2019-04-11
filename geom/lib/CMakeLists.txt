@@ -8,5 +8,13 @@
 
 include_directories(../../common/options ../../common/stream ../../gdk ${GEOS_INCLUDE_DIR} ${PROJ_INCLUDE_DIR})
 
-add_library(geomobj STATIC libgeom.c libgeom.h)
-set_target_properties(geomobj PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set(GEOM_OBJECTS libgeom.c libgeom.h)
+
+if(WIN32)
+	add_library(geom SHARED ${GEOM_OBJECTS})
+	target_compile_definitions(geom LIBGEOM)
+	install(TARGETS geom DESTINATION ${LIBDIR})
+else()
+	add_library(geom STATIC ${GEOM_OBJECTS})
+	set_target_properties(geom PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()

@@ -6,8 +6,15 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-add_library(moptions SHARED monet_options.c monet_options.h monet_getopt.h)
-target_compile_definitions(moptions PRIVATE LIBMOPTIONS LIBGDK LIBMAPI)
+set(OPTIONS_OBJECTS monet_options.c monet_options.h monet_getopt.h)
 
-install(TARGETS moptions DESTINATION ${LIBDIR})
+if(WIN32)
+	add_library(moptions SHARED ${OPTIONS_OBJECTS})
+	target_compile_definitions(moptions PRIVATE LIBMOPTIONS LIBGDK LIBMAPI)
+	install(TARGETS moptions DESTINATION ${LIBDIR})
+else()
+	add_library(moptions STATIC ${OPTIONS_OBJECTS})
+	set_target_properties(moptions PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
+
 install(FILES monet_options.h DESTINATION ${INCLUDEDIR}/monetdb)
