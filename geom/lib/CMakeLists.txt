@@ -12,7 +12,7 @@ set(GEOM_OBJECTS libgeom.c libgeom.h)
 
 if(WIN32)
 	add_library(geom SHARED ${GEOM_OBJECTS})
-	target_compile_definitions(geom LIBGEOM)
+	target_compile_definitions(geom PRIVATE LIBGEOM)
 	install(TARGETS geom DESTINATION ${LIBDIR})
 else()
 	add_library(geom STATIC ${GEOM_OBJECTS})
