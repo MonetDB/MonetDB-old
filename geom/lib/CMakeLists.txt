@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../../common/options ../../common/stream ../../gdk ${GEOS_INCS} ${PROJ_INCLUDE_DIR})
+include_directories(../../common/options ../../common/stream ../../gdk ${GEOS_INCLUDE_DIR} ${PROJ_INCLUDE_DIR})
 
 add_library(geomobj STATIC libgeom.c libgeom.h)
 set_target_properties(geomobj PROPERTIES POSITION_INDEPENDENT_CODE ON)

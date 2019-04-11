@@ -6,11 +6,11 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../lib ../../gdk ../../common/stream ../../common/options ../../monetdb5/mal ${GEOS_INCS}
+include_directories(../lib ../../gdk ../../common/stream ../../common/options ../../monetdb5/mal ${GEOS_INCLUDE_DIR}
 					${PROJ_INCLUDE_DIR})
 
 add_library(geom MODULE geom.h geom.c geomBulk.c geom_upgrade.c)
-target_link_libraries(geom PRIVATE geomobj gdk stream monetdb5 ${GEOS_LIBS} ${PROJ_LIBRARIES})
+target_link_libraries(geom PRIVATE geomobj gdk stream monetdb5 ${GEOS_LIBRARIES} ${PROJ_LIBRARIES})
 target_compile_definitions(geom PRIVATE LIBGEOM)
 
 install(TARGETS geom DESTINATION ${LIBDIR}/monetdb5)

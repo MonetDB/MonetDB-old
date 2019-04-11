@@ -6,16 +6,6 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-if(HAVE_MAPI)
-	add_subdirectory(mapilib)
-	add_subdirectory(mapiclient)
-endif()
-#[[if(HAVE_ODBC)
-	add_subdirectory(odbc)
-endif()#]]
-if(HAVE_MAPI)
-	add_subdirectory(examples)
-endif()
-if(WIN32)
-	add_subdirectory(NT)
+if(HAVE_TESTING)
+    install(FILES sqlsample.php PERMISSIONS ${PROGRAM_PERMISSIONS_DEFAULT} DESTINATION ${BINDIR})
 endif()
