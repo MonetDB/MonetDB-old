@@ -18,12 +18,10 @@ if(WIN32)
 	install(TARGETS mutils DESTINATION ${LIBDIR})
 
 	add_library(mcrypt SHARED ${MCRYPT_OBJECTS})
-	target_link_libraries(mcrypt PRIVATE ${CRYPTO_LIBRARIES})
 	target_compile_definitions(mcrypt PRIVATE LIBMAPI LIBMCRYPT)
 	install(TARGETS mcrypt DESTINATION ${LIBDIR})
 
 	add_library(msabaoth SHARED ${MSABAOTH_OBJECTS})
-	target_link_libraries(msabaoth PRIVATE ${CRYPTO_LIBRARIES} mutils)
 	target_compile_definitions(msabaoth PRIVATE LIBMSABAOTH LIBMUUID LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER
 							   LIBMONETDB5)
 	install(TARGETS msabaoth DESTINATION ${LIBDIR})
@@ -32,10 +30,11 @@ else()
 	set_target_properties(mutils PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 	add_library(mcrypt STATIC ${MCRYPT_OBJECTS})
-	target_link_libraries(mcrypt PRIVATE ${CRYPTO_LIBRARIES})
 	set_target_properties(mcrypt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 	add_library(msabaoth STATIC ${MSABAOTH_OBJECTS})
-	target_link_libraries(msabaoth PRIVATE ${CRYPTO_LIBRARIES} mutils)
 	set_target_properties(msabaoth PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
+
+target_link_libraries(mcrypt PRIVATE ${CRYPTO_LIBRARIES})
+target_link_libraries(msabaoth PRIVATE ${CRYPTO_LIBRARIES} mutils)

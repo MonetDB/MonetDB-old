@@ -18,3 +18,5 @@ else()
 	add_library(geom STATIC ${GEOM_OBJECTS})
 	set_target_properties(geom PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
+
+target_link_libraries(geom PRIVATE gdk ${GEOS_LIBRARIES} ${PROJ_LIBRARIES})
