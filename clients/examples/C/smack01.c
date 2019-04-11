@@ -8,7 +8,9 @@
 
 #ifdef _MSC_VER
 /* suppress deprecation warning for snprintf */
+#ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
+#endif
 #endif
 
 #include <stdlib.h>
