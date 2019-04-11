@@ -9,6 +9,16 @@
 #ifndef _MUTILS_H_
 #define _MUTILS_H_
 
+#ifdef WIN32
+#if !defined(LIBMUTILS) && !defined(LIBGDK) && !defined(LIBMEROUTIL)
+#define mutils_export extern __declspec(dllimport)
+#else
+#define mutils_export extern __declspec(dllexport)
+#endif
+#else
+#define mutils_export extern
+#endif
+
 #ifdef NATIVE_WIN32
 
 struct DIR {
@@ -24,12 +34,13 @@ struct dirent {
 	int d_namelen;
 };
 
-extern int winerror(int);
-extern DIR *opendir(const char *dirname);
-extern struct dirent *readdir(DIR *dir);
-extern void rewinddir(DIR *dir);
-extern int closedir(DIR *dir);
-extern char *dirname(char *path);
+mutils_export int winerror(int);
+mutils_export DIR *opendir(const char *dirname);
+mutils_export struct dirent *readdir(DIR *dir);
+mutils_export void rewinddir(DIR *dir);
+mutils_export int closedir(DIR *dir);
+
+mutils_export char *dirname(char *path);
 
 #endif
 
@@ -54,18 +65,18 @@ extern char *dirname(char *path);
 #define F_ULOCK	0		/* unlock a previously locked region */
 #define F_LOCK	1		/* lock a region for exclusive use */
 
-extern int MT_lockf(char *filename, int mode, off_t off, off_t len);
+mutils_export int MT_lockf(char *filename, int mode, off_t off, off_t len);
 
-extern void print_trace(void);
+mutils_export void print_trace(void);
 
 /* Retrieves the absolute path to the executable being run, with no
  * extra /, /./, or /../ sequences.  On Darwin and Solaris this function
  * needs to be called before any chdirs are performed.  Returns a
  * pointer to a static buffer that is overwritten by subsequent calls to
  * this function. */
-extern char *get_bin_path(void);
+mutils_export char *get_bin_path(void);
 
 /* Returns the Mercurial changeset of the current checkout, if available */
-extern const char *mercurial_revision(void);
+mutils_export const char *mercurial_revision(void);
 
 #endif	/* _MUTILS_H_ */

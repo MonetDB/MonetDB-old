@@ -603,9 +603,6 @@
 /* Path separator */
 #cmakedefine PATH_SEP @PATH_SEP@
 
-/* Path separator */
-#cmakedefine PATH_SEP_STR "@PATH_SEP_STR@"
-
 /* The home of R */
 #cmakedefine RHOME "@RHOME@"
 

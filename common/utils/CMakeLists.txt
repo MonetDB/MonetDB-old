@@ -8,9 +8,14 @@
 
 include_directories(${CRYPTO_INCLUDE_DIR})
 
-add_library(mutils STATIC mutils.h mutils.c prompt.c mprompt.h revision.c)
-set_target_properties(mutils PROPERTIES POSITION_INDEPENDENT_CODE ON)
-add_library(mcrypt STATIC mcrypt.h mcrypt.c)
-set_target_properties(mcrypt PROPERTIES POSITION_INDEPENDENT_CODE ON)
-add_library(msabaoth STATIC muuid.h muuid.c msabaoth.h msabaoth.c)
-set_target_properties(msabaoth PROPERTIES POSITION_INDEPENDENT_CODE ON)
+add_library(mutils SHARED mutils.h mutils.c prompt.c mprompt.h revision.c)
+target_compile_definitions(mutils PRIVATE LIBMUTILS LIBGDK LIBMEROUTIL)
+install(TARGETS mutils DESTINATION ${LIBDIR})
+
+add_library(mcrypt SHARED mcrypt.h mcrypt.c)
+target_compile_definitions(mcrypt PRIVATE LIBMAPI LIBMCRYPT)
+install(TARGETS mcrypt DESTINATION ${LIBDIR})
+
+add_library(msabaoth SHARED muuid.h muuid.c msabaoth.h msabaoth.c)
+target_compile_definitions(msabaoth PRIVATE LIBMSABAOTH LIBMUUID LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
+install(TARGETS msabaoth DESTINATION ${LIBDIR})

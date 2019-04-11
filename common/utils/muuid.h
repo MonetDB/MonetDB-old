@@ -13,7 +13,15 @@
  * msabaoth is part of monetdb5 and we want this function to be
  * exported so that the call in sql can be satisfied by the version
  * that is included in monetdb5 */
-extern char *generateUUID(void);
+extern
+#ifdef WIN32
+#if !defined(LIBMSABAOTH) && !defined(LIBMUUID)
+__declspec(dllimport)
+#else
+__declspec(dllexport)
+#endif
+#endif
+char *generateUUID(void);
 
 #endif
 
