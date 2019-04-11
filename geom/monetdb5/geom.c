@@ -2118,7 +2118,7 @@ wkba_size(int items)
 	return size;
 }
 
-#ifndef HAVE_STRNCASECMP
+#if !defined(HAVE_STRNCASECMP) && !defined(_MSC_VER) // For _MSC_VER we use _strnicmp
 static int
 strncasecmp(const char *s1, const char *s2, size_t n)
 {
