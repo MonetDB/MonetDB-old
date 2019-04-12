@@ -8,7 +8,7 @@
 
 add_subdirectory(bat)
 
-include_directories(. ../include ../common ../../common/options ../../common/stream ../../gdk)
+include_directories(. ../include ../common ../../common/stream ../../common/utils ../../gdk)
 
 add_library(store STATIC
 			store_dependency.c store_sequence.c

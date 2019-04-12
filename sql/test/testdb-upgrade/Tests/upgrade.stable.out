@@ -5388,14 +5388,13 @@ commit;
 
 # MonetDB/SQL module loaded
 
-Ready.
 
 # 15:56:11 >  
 # 15:56:11 >  "/usr/bin/python" "upgrade.SQL.py" "upgrade"
 # 15:56:11 >  
 
 #select count(*) from testschema.smallstring;
-% testschema.L3 # table_name
+% .L3 # table_name
 % L3 # name
 % bigint # type
 % 2 # length

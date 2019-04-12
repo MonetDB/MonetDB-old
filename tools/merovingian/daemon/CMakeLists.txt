@@ -8,7 +8,7 @@
 
 add_subdirectory(config)
 
-include_directories(.. ../../../common/stream ../../../common/utils ../../../common/options ../../../clients/mapilib
+include_directories(.. ../../../common/options ../../../common/stream ../../../common/utils ../../../clients/mapilib
 					../../../gdk ../../../monetdb5/mal ${ICONV_INCLUDE_DIR})
 
 add_executable(monetdbd merovingian.c merovingian.h argvcmds.c argvcmds.h client.c client.h connections.c connections.h

@@ -8,8 +8,8 @@
 
 include_directories(../../../include ../../../common ../../../storage ../../../server ../../../../monetdb5/modules/atoms
 					../../../../monetdb5/modules/kernel ../../../../monetdb5/mal ../../../../monetdb5/modules/mal
-					../../../../monetdb5/optimizer ../../../../monetdb5/scheduler ../../../../common/options
-					../../../../common/stream ../../../../common/utils ../../../../gdk)
+					../../../../monetdb5/optimizer ../../../../monetdb5/scheduler ../../../../common/stream
+					../../../../common/utils ../../../../gdk)
 
 add_library(generator MODULE generator.c generator.h)
 target_link_libraries(generator PRIVATE monetdb5 gdk)

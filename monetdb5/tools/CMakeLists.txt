@@ -6,9 +6,9 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../mal ../../common/options ../../common/stream ../../common/utils ../../clients/mapilib ../../gdk
-					../optimizer ../modules/atoms ../modules/mal ../modules/kernel ${CRYPTO_INCLUDE_DIR}
-					${PCRE_INCLUDE_DIR} ${LIBXML2_INCLUDE_DIR})
+include_directories(../mal ../../common/stream ../../common/utils ../../clients/mapilib ../../gdk ../optimizer
+					../modules/atoms ../modules/mal ../modules/kernel ${CRYPTO_INCLUDE_DIR} ${PCRE_INCLUDE_DIR}
+					${LIBXML2_INCLUDE_DIR})
 
 set(MONETDB5_PRIVATE_LINK_LIBRARIES ${UUID_LIBRARIES} ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES}
 									${PTHREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES} ${PCRE_LIBRARIES}

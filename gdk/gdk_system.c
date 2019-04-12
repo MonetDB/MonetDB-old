@@ -287,15 +287,6 @@ MT_thread_getdata(void)
 	return w ? w->data : NULL;
 }
 
-void
-gdk_system_reset(void)
-{
-	assert(threadslot != TLS_OUT_OF_INDEXES);
-	TlsFree(threadslot);
-	threadslot = TLS_OUT_OF_INDEXES;
-	DeleteCriticalSection(&winthread_cs);
-}
-
 static void
 rm_winthread(struct winthread *w)
 {
@@ -307,6 +298,7 @@ rm_winthread(struct winthread *w)
 	if (*wp)
 		*wp = w->next;
 	LeaveCriticalSection(&winthread_cs);
+	ATOMIC_DESTROY(&w->exited);
 	free(w);
 }
 
@@ -628,6 +620,7 @@ rm_posthread_locked(struct posthread *p)
 		;
 	if (*pp)
 		*pp = p->next;
+	ATOMIC_DESTROY(&p->exited);
 	free(p);
 }
 

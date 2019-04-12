@@ -19,7 +19,6 @@ stdout of test 'without_oid` in directory 'sql/test/pg_regress` itself:
 # MonetDB/SQL module loaded
 # MonetDB/R   module loaded
 
-Ready.
 # SQL catalog created, loading sql scripts once
 # loading sql script: 09_like.sql
 # loading sql script: 10_math.sql
@@ -160,7 +159,7 @@ Ready.
 % 1 # length
 [ 2	]
 #SELECT count(*) FROM create_table_test3;
-% sys.L3 # table_name
+% .L3 # table_name
 % L3 # name
 % bigint # type
 % 1 # length

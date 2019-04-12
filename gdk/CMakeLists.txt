@@ -13,7 +13,7 @@ add_library(gdk SHARED
 			gdk_calc.c gdk_calc.h gdk_calc_compare.h gdk_calc_private.h
 			gdk_ssort.c gdk_ssort_impl.h
 			gdk_aggr.c
-			gdk.h gdk_cand.h gdk_atomic.h gdk_batop.c
+			gdk.h gdk_cand.h gdk_batop.c
 			gdk_search.c gdk_hash.c gdk_hash.h gdk_tm.c
 			gdk_orderidx.c
 			gdk_align.c gdk_bbp.c gdk_bbp.h
@@ -42,7 +42,6 @@ install(TARGETS gdk DESTINATION ${LIBDIR})
 install(FILES
 		gdk.h
 		gdk_analytic.h
-		gdk_atomic.h
 		gdk_atoms.h
 		gdk_bbp.h
 		gdk_calc.h

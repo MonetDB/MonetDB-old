@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(.. ../include ../storage ../../common/options ../../common/stream ../../monetdb5/mal ../../gdk)
+include_directories(.. ../include ../storage ../../common/stream ../../common/utils ../../monetdb5/mal ../../gdk)
 
 add_library(sqlcommon STATIC
 			sql_mem.c sql_list.c sql_hash.c sql_stack.c sql_backend.c

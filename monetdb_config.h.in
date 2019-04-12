@@ -305,6 +305,9 @@
 /* Define if you have the `mremap' function. */
 #cmakedefine HAVE_MREMAP
 
+/* Define if you have the `nanosleep' function. */
+#cmakedefine HAVE_NANOSLEEP
+
 /* Define if the netcdf module is to be enabled */
 #cmakedefine HAVE_NETCDF
 
@@ -697,6 +700,9 @@
 /* Does your compiler support the `__hidden' specifier? */
 #cmakedefine __hidden
 
+/* Does your compiler support the `_Noreturn' specifier? */
+#cmakedefine _Noreturn @_Noreturn@
+
 /* Define to `__inline__' or `__inline' if that's what the C compiler
    calls it, or to nothing if 'inline' is not supported under any name.  */
 #ifndef __cplusplus
@@ -720,7 +726,6 @@
 
 /* Define to `int' if <sys/types.h> does not define. */
 #cmakedefine ssize_t @ssize_t@
-
 
 #ifdef INTEL_MATH_H_HACK
 /* see https://software.intel.com/en-us/forums/intel-c-compiler/topic/760979 */

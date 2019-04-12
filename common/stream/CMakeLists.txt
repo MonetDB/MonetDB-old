@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(${ZLIB_INCLUDE_DIR} ${BZIP2_INCLUDE_DIR} ${SNAPPY_INCLUDE_DIR} ${LZ4_INCLUDE_DIR}
+include_directories(../utils ${ZLIB_INCLUDE_DIR} ${BZIP2_INCLUDE_DIR} ${SNAPPY_INCLUDE_DIR} ${LZ4_INCLUDE_DIR}
 					${LIBLZMA_INCLUDE_DIR} ${CURL_INCLUDE_DIR} ${ICONV_INCLUDE_DIR})
 
 add_library(stream SHARED stream.c stream.h stream_socket.h)

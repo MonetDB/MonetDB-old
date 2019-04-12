@@ -49,17 +49,17 @@ set(MONETDB_VERSION_MAJOR "11")
 set(MONETDB_VERSION "${MONETDB_VERSION_MAJOR}.34.0")
 set(VERSION "${MONETDB_VERSION}")
 
-set(GDK_VERSION_MAJOR "17")
-set(GDK_VERSION "${GDK_VERSION_MAJOR}.4.0")
+set(GDK_VERSION_MAJOR "18")
+set(GDK_VERSION "${GDK_VERSION_MAJOR}.0.0")
 
-set(MAPI_VERSION_MAJOR "11")
-set(MAPI_VERSION "${MAPI_VERSION_MAJOR}.0.1")
+set(MAPI_VERSION_MAJOR "12")
+set(MAPI_VERSION "${MAPI_VERSION_MAJOR}.0.0")
 
-set(MONETDB5_VERSION_MAJOR "26")
-set(MONETDB5_VERSION "${MONETDB5_VERSION_MAJOR}.0.1")
+set(MONETDB5_VERSION_MAJOR "27")
+set(MONETDB5_VERSION "${MONETDB5_VERSION_MAJOR}.0.0")
 
-set(STREAM_VERSION_MAJOR "12")
-set(STREAM_VERSION "${STREAM_VERSION_MAJOR}.1.1")
+set(STREAM_VERSION_MAJOR "13")
+set(STREAM_VERSION "${STREAM_VERSION_MAJOR}.0.0")
 
 # Packaging information
 set(PACKAGE "MonetDB")
@@ -286,6 +286,28 @@ check_c_source_compiles("
 	}" HAVE_HIDDEN)
 if(NOT HAVE_HIDDEN)
 	set(__hidden ON)
+endif()
+
+if(MSVC)
+	set(_Noreturn __declspec(noreturn))
+else()
+	message(STATUS "Test if _Noreturn keyword is supported")
+	check_c_source_compiles("
+		#include <stdlib.h>
+
+		_Noreturn void foo(const char *a, ...);
+		void foo(const char *a, ...) { (void)a; exit(0); }
+
+		int main(int argc, char **argv) {
+			(void) argc; (void) argv;
+			foo (\"%s\", \"\");
+			return 0;
+		}" HAVE_NORETURN)
+	if(HAVE_NORETURN)
+		set(_Noreturn _Noreturn)
+	else()
+		set(_Noreturn __attribute__((__noreturn__)))
+	endif()
 endif()
 
 message(STATUS "Test if compiler can use NAN as an initializer")
@@ -1994,6 +2016,7 @@ check_symbol_exists("lockf" "unistd.h" HAVE_LOCKF)
 check_symbol_exists("lstat" "sys/types.h;sys/stat.h;unistd.h" HAVE_LSTAT)
 check_symbol_exists("madvise" "sys/mman.h" HAVE_MADVISE)
 check_symbol_exists("mremap" "sys/mman.h" HAVE_MREMAP)
+check_symbol_exists("nanosleep" "time.h" HAVE_NANOSLEEP)
 check_symbol_exists("nl_langinfo" "langinfo.h" HAVE_NL_LANGINFO)
 check_symbol_exists("_NSGetExecutablePath" "mach-o/dyld.h" HAVE__NSGETEXECUTABLEPATH)
 check_symbol_exists("pipe2" "fcntl.h;unistd.h" HAVE_PIPE2)

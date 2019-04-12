@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(.. ../../include ../../common ../../../common/options ../../../common/stream ../../../gdk
+include_directories(.. ../../include ../../common ../../../common/stream ../../../common/utils ../../../gdk
 					../../../monetdb5/modules/atoms ../../../monetdb5/modules/kernel ../../../monetdb5/mal
 					../../../monetdb5/modules/mal ../../../monetdb5/optimizer ../../../monetdb5/scheduler)
 

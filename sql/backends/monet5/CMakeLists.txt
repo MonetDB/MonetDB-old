@@ -15,7 +15,7 @@ add_subdirectory(generator)
 include_directories(../../include ../../common ../../storage ../../server ../../../monetdb5/modules/atoms 
 					../../../monetdb5/modules/kernel ../../../monetdb5/mal ../../../monetdb5/modules/mal 
 					../../../monetdb5/optimizer ../../../monetdb5/scheduler ../../../monetdb5/extras/rapi 
-					../../../common/options ../../../common/stream ../../../common/utils ../../../gdk)
+					../../../common/stream ../../../common/utils ../../../gdk)
 
 add_library(sql MODULE
 			sql.c sql.h
@@ -43,7 +43,8 @@ add_library(sql MODULE
 			wlr.c wlr.h
 			sql_datetrunc.c
 			sql_rank.c sql_rank.h)
-target_link_libraries(sql PRIVATE monetdb5 mapi gdk stream ${CRYPTO_LIBRARIES} PUBLIC sqlserver store batstore sqlcommon)
+target_link_libraries(sql PRIVATE monetdb5 mapi gdk stream ${CRYPTO_LIBRARIES} PUBLIC sqlserver store batstore
+					  sqlcommon)
 target_compile_definitions(sql PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)
 
 install(TARGETS sql DESTINATION ${LIBDIR}/monetdb5)

@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../../optimizer ../../mal ../../../gdk ../../../common/stream ../../../common/options)
+include_directories(../../optimizer ../../mal ../../../gdk ../../../common/stream ../../../common/utils)
 
 add_library(opt_sql_append MODULE opt_sql_append.c opt_sql_append.h)
 target_link_libraries(opt_sql_append PRIVATE monetdb5 gdk)

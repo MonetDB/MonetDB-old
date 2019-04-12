@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../lib ../../gdk ../../common/stream ../../common/options ../../monetdb5/mal ${GEOS_INCLUDE_DIR}
+include_directories(../lib ../../gdk ../../common/stream ../../common/utils ../../monetdb5/mal ${GEOS_INCLUDE_DIR}
 					${PROJ_INCLUDE_DIR})
 
 add_library(geom MODULE geom.h geom.c geomBulk.c geom_upgrade.c ../lib/libgeom.c ../lib/libgeom.h)

@@ -38,3 +38,5 @@ endif()
 
 target_link_libraries(mcrypt PRIVATE ${CRYPTO_LIBRARIES})
 target_link_libraries(msabaoth PRIVATE ${CRYPTO_LIBRARIES} mutils)
+
+install(FILES matomic.h DESTINATION ${INCLUDEDIR}/monetdb)
