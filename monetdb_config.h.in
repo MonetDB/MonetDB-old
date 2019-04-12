@@ -362,9 +362,6 @@
 /* Define if you have the pthread_sigmask function */
 #cmakedefine HAVE_PTHREAD_SIGMASK
 
-/* Define if you have the `putenv' function. */
-#cmakedefine HAVE_PUTENV
-
 /* Define if you have the <pwd.h> header file. */
 #cmakedefine HAVE_PWD_H
 
