@@ -774,6 +774,11 @@ if(WIN32)
 	set(OS_DIRSEP  "\\\\")
 	set(OS_PATHSEP ";")
 	set(SO_PREFIX  "lib")
+	# We don't use the library naming convention on Windows :(
+	set(CMAKE_IMPORT_LIBRARY_PREFIX "${SO_PREFIX}" CACHE STRING "Import library name prefix" FORCE)
+	set(CMAKE_SHARED_LIBRARY_PREFIX "${SO_PREFIX}" CACHE STRING "Shared library name prefix" FORCE)
+	set(CMAKE_SHARED_MODULE_PREFIX "${SO_PREFIX}" CACHE STRING "Library module name prefix" FORCE)
+	set(CMAKE_STATIC_LIBRARY_PREFIX "${SO_PREFIX}" CACHE STRING "Static Library name prefix" FORCE)
 elseif(UNIX OR APPLE OR ${CMAKE_SYSTEM_NAME} STREQUAL "CYGWIN")
 	set(OS_DIRSEP  "/")
 	set(OS_PATHSEP ":")
@@ -2106,7 +2111,6 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}" CACHE STRING "Debug flags" FORC
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}" CACHE STRING "Release flags" FORCE)
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}" CACHE STRING "RelWithDebugInfo flags" FORCE)
 set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL}" CACHE STRING "MinSizeRel flags" FORCE)
-set(CMAKE_SHARED_LIBRARY_PREFIX "${SO_PREFIX}" CACHE STRING "Library name prefix" FORCE) # We don't use the library naming convention on Windows :(
 
 site_name(BUILD_HOST)
 set(builtby "$ENV{USER}@${BUILD_HOST}")
