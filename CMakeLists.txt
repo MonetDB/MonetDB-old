@@ -289,7 +289,7 @@ if(NOT HAVE_HIDDEN)
 endif()
 
 if(MSVC)
-	set(_Noreturn __declspec(noreturn))
+	set(_Noreturn "__declspec(noreturn)")
 else()
 	message(STATUS "Test if _Noreturn keyword is supported")
 	check_c_source_compiles("
