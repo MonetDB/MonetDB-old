@@ -224,10 +224,12 @@ endif()
 if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 	add_compile_options(-no-gcc) # Intel compiler hack
 elseif(${CMAKE_C_COMPILER_ID} STREQUAL "GNU")
-	add_compile_definitions(_GNU_SOURCE)
+	add_compile_definitions(_GNU_SOURCE _XOPEN_SOURCE)
+	set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_GNU_SOURCE -D_XOPEN_SOURCE")
 endif()
 if(NOT MSVC)
 	add_compile_definitions(_REENTRANT)
+	set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_REENTRANT")
 endif()
 
 opj_test_large_files(_LARGE_FILES)
@@ -325,6 +327,45 @@ check_c_source_compiles("
 	}" NAN_CAN_BE_USED_AS_INITIALIZER)
 if(NOT NAN_CAN_BE_USED_AS_INITIALIZER)
 	set(NAN_CANNOT_BE_USED_AS_INITIALIZER ON)
+endif()
+
+# Iconv - Check before adding any new compiler flag
+set(ICONV_INCLUDE_DIR "")
+set(ICONV_LIBRARIES "")
+include(FindIconv)
+if(Iconv_FOUND)
+	set(HAVE_ICONV ON)
+	set(HAVE_ICONV_H ON)
+	cmake_push_check_state()
+	if(NOT Iconv_IS_BUILT_IN)
+		set(ICONV_INCLUDE_DIR "${Iconv_INCLUDE_DIR}")
+		set(ICONV_LIBRARIES "${Iconv_LIBRARY}")
+		set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};${ICONV_LIBRARIES}")
+	endif()
+
+	if(MSVC)
+		set(ICONV_CONST " ")
+	else()
+		message(STATUS "Check if second iconv argument requires const")
+		check_c_source_compiles("
+			#include <iconv.h>
+
+			int main(int argc, char **argv) {
+				iconv_t conv = 0;
+				char* in, *out = 0;
+				size_t ilen = 0, olen = 0;
+				(void) argc; (void) argv;
+				iconv(conv, &in, &ilen, &out, &olen);
+				return 0;
+			}
+		" ICONV_NOT_REQUIRES_CONST)
+		if(ICONV_NOT_REQUIRES_CONST)
+			set(ICONV_CONST " ")
+		else()
+			set(ICONV_CONST const)
+		endif()
+	endif()
+	cmake_pop_check_state()
 endif()
 
 if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel" AND EXISTS "${ROOT}/usr/include/math.h") # see https://software.intel.com/en-us/forums/intel-c-compiler/topic/760979
@@ -999,45 +1040,6 @@ if(NOT ${WITH_READLINE} STREQUAL "NO")
 		endif()
 	endif()
 	cmake_pop_check_state()
-endif()
-
-# Iconv
-set(ICONV_INCLUDE_DIR "")
-set(ICONV_LIBRARIES "")
-include(FindIconv)
-if(Iconv_FOUND)
-	set(HAVE_ICONV ON)
-	set(HAVE_ICONV_H ON)
-	cmake_push_check_state()
-	if(NOT Iconv_IS_BUILT_IN)
-		set(ICONV_INCLUDE_DIR "${Iconv_INCLUDE_DIR}")
-		set(ICONV_LIBRARIES "${Iconv_LIBRARY}")
-		set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};${ICONV_LIBRARIES}")
-	endif()
-
-	if(NOT MSVC)
-		message(STATUS "Check if second iconv argument requires const")
-		check_c_source_compiles("
-			#include <iconv.h>
-
-			int main(int argc, char **argv) {
-				iconv_t conv = 0;
-				const char* in = 0;
-				size_t ilen = 0;
-				char* out = 0;
-				size_t olen = 0;
-				(void) argc; (void) argv;
-				iconv(conv, &in, &ilen, &out, &olen);
-				return 0;
-			}
-		" ICONV_REQUIRES_CONST)
-	endif()
-	cmake_pop_check_state()
-	if(ICONV_REQUIRES_CONST)
-		set(ICONV_CONST const)
-	else()
-		set(ICONV_CONST " ")
-	endif()
 endif()
 
 # UUID
@@ -2039,7 +2041,7 @@ check_symbol_exists("sigaction" "signal.h" HAVE_SIGACTION)
 check_symbol_exists("stpcpy" "string.h" HAVE_STPCPY)
 check_symbol_exists("strcasestr" "string.h" HAVE_STRCASESTR)
 check_symbol_exists("strncasecmp" "strings.h" HAVE_STRNCASECMP)
-check_symbol_exists("strptime" "time.h" HAVE_STRPTIME) # TODO check _XOPEN_SOURCE ?
+check_symbol_exists("strptime" "time.h" HAVE_STRPTIME)
 check_symbol_exists("strtok_r" "string.h" HAVE_STRTOK_R)
 check_symbol_exists("strtok_s" "string.h" HAVE_STRTOK_S)
 check_symbol_exists("sysconf" "unistd.h" HAVE_SYSCONF)

@@ -4,7 +4,9 @@
 #define _SEEN_MONETDB_CONFIG_H 1
 
 /* Define if you do not want assertions */
+#ifndef NDEBUG
 #cmakedefine NDEBUG
+#endif
 
 /* Define if you have the <sys/types.h> header file. */
 #cmakedefine HAVE_SYS_TYPES_H
@@ -43,8 +45,12 @@
 #define NATIVE_WIN32
 #endif
 
+#ifndef ftruncate
 #define ftruncate(fd, sz) (-(_chsize_s((fd), (__int64) (sz)) != 0))
+#endif
+#ifndef strdup
 #define strdup _strdup
+#endif
 #ifndef strcasecmp
 #define strcasecmp  _stricmp
 #endif
@@ -680,13 +686,19 @@
 #endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */
+#ifndef _FILE_OFFSET_BITS
 #cmakedefine _FILE_OFFSET_BITS
+#endif
 
 /* Define to make fseeko visible on some hosts (e.g. glibc 2.2). */
+#ifndef _LARGEFILE_SOURCE
 #cmakedefine _LARGEFILE_SOURCE
+#endif
 
 /* Define for large files, on AIX-style hosts. */
+#ifndef _LARGE_FILES
 #cmakedefine _LARGE_FILES
+#endif
 
 /* Define if type `char' is unsigned and you are not using gcc.  */
 #ifndef __CHAR_UNSIGNED__
@@ -695,37 +707,55 @@
 
 /* If the compiler does not support function attributes via __attribute__,
    we just define __attribute__(a) to nothing. */
+#ifndef __attribute__
 #cmakedefine __attribute__(a)
+#endif
 
 /* Does your compiler support the `__hidden' specifier? */
+#ifndef __hidden
 #cmakedefine __hidden
+#endif
 
 /* Does your compiler support the `_Noreturn' specifier? */
+#ifndef _Noreturn
 #cmakedefine _Noreturn @_Noreturn@
+#endif
 
 /* Define to `__inline__' or `__inline' if that's what the C compiler
    calls it, or to nothing if 'inline' is not supported under any name.  */
 #ifndef __cplusplus
+#ifndef inline
 #cmakedefine inline
+#endif
 #ifndef restrict
 #cmakedefine restrict @restrict@
 #endif
 #endif
 
 /* Define to `long int' if <sys/types.h> does not define. */
+#ifndef off_t
 #cmakedefine off_t @off_t@
+#endif
 
 /* Define to `int' if <sys/types.h> does not define. */
+#ifndef pid_t
 #cmakedefine pid_t @pid_t@
+#endif
 
 /* Define to `unsigned int' if <sys/types.h> does not define. */
+#ifndef size_t
 #cmakedefine size_t @size_t@
+#endif
 
 /* type used by connect */
+#ifndef socklen_t
 #cmakedefine socklen_t @socklen_t@
+#endif
 
 /* Define to `int' if <sys/types.h> does not define. */
+#ifndef ssize_t
 #cmakedefine ssize_t @ssize_t@
+#endif
 
 #ifdef INTEL_MATH_H_HACK
 /* see https://software.intel.com/en-us/forums/intel-c-compiler/topic/760979 */
@@ -768,20 +798,23 @@ typedef __uint128_t uhge;
 #define SIZEOF_HGE SIZEOF___INT128_T
 #endif
 
-#ifndef HAVE_WINSOCK_H
+#if !defined(HAVE_WINSOCK_H) && !defined(closesocket)
 /* on Windows use closesocket, otherwise just close */
 #define closesocket close
 #endif
 
-#if !defined(WIN32) && !defined(_In_z_)
+#ifndef WIN32
 /* see https://docs.microsoft.com/en-us/visualstudio/code-quality/using-sal-annotations-to-reduce-c-cpp-code-defects
  * and Visual Studio include file <sal.h> */
-# define _In_z_
-# define _Printf_format_string_
+#ifndef _In_z_
+#define _In_z_
 #endif
-
-#ifndef WIN32
+#ifndef _Printf_format_string_
+#define _Printf_format_string_
+#endif
+#ifndef __declspec
 #define __declspec(x)
+#endif
 #endif
 
 #define PROMPT1		"\001\001\n"	/* prompt: ready for new query */
