@@ -24,7 +24,13 @@ file(GLOB MODULES_SRC "../modules/mal/*.h" "../modules/mal/*.c")
 file(GLOB OPTIMIZER_SRC "../optimizer/*.h" "../optimizer/*.c")
 file(GLOB SCHEDULER_SRC "../scheduler/*.h" "../scheduler/*.c")
 
-add_library(monetdb5 SHARED ${MAL_SRC} ${ATOMS_SRC} ${KERNEL_SRC} ${MODULES_SRC} ${OPTIMIZER_SRC} ${SCHEDULER_SRC})
+set(MONETDB5_RC "")
+if(WIN32)
+	set(MONETDB5_RC libmonetdb5.rc)
+endif()
+
+add_library(monetdb5 SHARED ${MAL_SRC} ${ATOMS_SRC} ${KERNEL_SRC} ${MODULES_SRC} ${OPTIMIZER_SRC} ${SCHEDULER_SRC}
+			${MONETDB5_RC})
 target_link_libraries(monetdb5 PRIVATE ${MONETDB5_PRIVATE_LINK_LIBRARIES} PUBLIC mutils mcrypt msabaoth)
 set_target_properties(monetdb5 PROPERTIES VERSION ${MONETDB5_VERSION} SOVERSION ${MONETDB5_VERSION_MAJOR})
 target_compile_definitions(monetdb5 PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
