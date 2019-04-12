@@ -13,9 +13,13 @@ include_directories(../../../include ../../../common ../../../storage ../../../s
 
 add_library(generator MODULE generator.c generator.h)
 target_link_libraries(generator PRIVATE monetdb5 gdk)
+set_target_properties(generator PROPERTIES OUTPUT_NAME _generator)
 target_compile_definitions(generator PRIVATE LIBGENERATOR)
 
 install(TARGETS generator DESTINATION ${LIBDIR}/monetdb5)
+if(WIN32)
+	install(FILES $<TARGET_PDB_FILE:generator> DESTINATION ${LIBDIR}/monetdb5 OPTIONAL)
+endif()
 install(FILES generator.mal DESTINATION ${LIBDIR}/monetdb5)
 install(FILES 90_generator.mal DESTINATION ${LIBDIR}/monetdb5/autoload)
 install(FILES 90_generator.sql DESTINATION ${LIBDIR}/monetdb5/createdb)

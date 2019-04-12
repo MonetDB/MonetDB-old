@@ -194,11 +194,11 @@ loadLibrary(str filename, int flag)
 
 		/* try hardcoded SO_EXT if that is the same for modules */
 #ifdef _AIX
-		len = snprintf(nme, FILENAME_MAX, "%.*s%c%s%s%s(%s%s.0)",
+		len = snprintf(nme, FILENAME_MAX, "%.*s%c%s_%s%s(%s_%s.0)",
 				 (int) (p - mod_path),
 				 mod_path, DIR_SEP, SO_PREFIX, s, SO_EXT, SO_PREFIX, s);
 #else
-		len = snprintf(nme, FILENAME_MAX, "%.*s%c%s%s%s",
+		len = snprintf(nme, FILENAME_MAX, "%.*s%c%s_%s%s",
 				 (int) (p - mod_path),
 				 mod_path, DIR_SEP, SO_PREFIX, s, SO_EXT);
 #endif
@@ -209,7 +209,7 @@ loadLibrary(str filename, int flag)
 			throw(LOADER, "loadLibrary", RUNTIME_LOAD_ERROR " failed to open library %s (from within file '%s'): %s", s, nme, dlerror());
 		if (handle == NULL && strcmp(SO_EXT, ".so") != /* DISABLES CODE */ (0)) {
 			/* try .so */
-			len = snprintf(nme, FILENAME_MAX, "%.*s%c%s%s.so",
+			len = snprintf(nme, FILENAME_MAX, "%.*s%c%s_%s.so",
 					 (int) (p - mod_path),
 					 mod_path, DIR_SEP, SO_PREFIX, s);
 			if (len == -1 || len >= FILENAME_MAX)
@@ -221,7 +221,7 @@ loadLibrary(str filename, int flag)
 #ifdef __APPLE__
 		if (handle == NULL && strcmp(SO_EXT, ".bundle") != 0) {
 			/* try .bundle */
-			len = snprintf(nme, FILENAME_MAX, "%.*s%c%s%s.bundle",
+			len = snprintf(nme, FILENAME_MAX, "%.*s%c%s_%s.bundle",
 					 (int) (p - mod_path),
 					 mod_path, DIR_SEP, SO_PREFIX, s);
 			if (len == -1 || len >= FILENAME_MAX)

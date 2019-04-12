@@ -21,5 +21,10 @@ if(HAVE_TESTING)
 	target_link_libraries(smack00 PRIVATE ${COMMON_LIBRARIES})
 	add_executable(smack01 smack01.c)
 	target_link_libraries(smack01 PRIVATE ${COMMON_LIBRARIES})
+
 	install(TARGETS sample0 sample1 sample4 smack00 smack01 DESTINATION ${BINDIR})
+	if(WIN32)
+		install(FILES $<TARGET_PDB_FILE:sample0> $<TARGET_PDB_FILE:sample1> $<TARGET_PDB_FILE:sample4>
+				$<TARGET_PDB_FILE:smack00> $<TARGET_PDB_FILE:smack01> DESTINATION ${BINDIR} OPTIONAL)
+	endif()
 endif()

@@ -11,8 +11,12 @@ include_directories(../lib ../../gdk ../../common/stream ../../common/utils ../.
 
 add_library(geom MODULE geom.h geom.c geomBulk.c geom_upgrade.c ../lib/libgeom.c ../lib/libgeom.h)
 target_link_libraries(geom PRIVATE gdk stream monetdb5 ${GEOS_LIBRARIES} ${PROJ_LIBRARIES})
+set_target_properties(geom PROPERTIES OUTPUT_NAME _geom)
 target_compile_definitions(geom PRIVATE LIBGEOM)
 
 install(TARGETS geom DESTINATION ${LIBDIR}/monetdb5)
+if(WIN32)
+	install(FILES $<TARGET_PDB_FILE:geom> DESTINATION ${LIBDIR}/monetdb5 OPTIONAL)
+endif()
 install(FILES geom.mal DESTINATION ${LIBDIR}/monetdb5)
 install(FILES 30_geom.mal DESTINATION ${LIBDIR}/monetdb5/autoload)

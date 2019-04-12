@@ -17,5 +17,10 @@ if(HAVE_TESTING)
 	target_link_libraries(arraytest PRIVATE ${ODBC_LIBRARIES})
 	add_executable(testStmtAttr testStmtAttr.c)
 	target_link_libraries(testStmtAttr PRIVATE ${ODBC_LIBRARIES})
+
 	install(TARGETS odbcsample1 testgetinfo arraytest testStmtAttr DESTINATION ${BINDIR})
+	if(WIN32)
+		install(FILES $<TARGET_PDB_FILE:odbcsample1> $<TARGET_PDB_FILE:testgetinfo> $<TARGET_PDB_FILE:arraytest>
+				$<TARGET_PDB_FILE:testStmtAttr> DESTINATION ${BINDIR} OPTIONAL)
+	endif()
 endif()

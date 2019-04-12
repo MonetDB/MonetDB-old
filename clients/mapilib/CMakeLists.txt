@@ -21,7 +21,9 @@ target_compile_definitions(mapi PRIVATE LIBMAPI)
 install(TARGETS mapi DESTINATION ${LIBDIR})
 install(FILES mapi.h DESTINATION ${INCLUDEDIR}/monetdb)
 
-if(NOT WIN32)
+if(WIN32)
+	install(FILES $<TARGET_PDB_FILE:mapi> DESTINATION ${LIBDIR} OPTIONAL)
+else()
 	if(SOCKET_LIBRARIES)
 		set(PKG_SOCKET_LIBS "-l${SOCKET_LIBRARIES}") #TODO fix this
 	endif()

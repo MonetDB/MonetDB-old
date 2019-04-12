@@ -15,3 +15,8 @@ install(TARGETS MonetODBCs DESTINATION ${LIBDIR})
 add_executable(odbcinstall install.c)
 target_link_libraries(odbcinstall PRIVATE version shlwapi ${ODBC_LIBRARIES} ${ODBCINST_LIBRARIES})
 install(TARGETS odbcinstall DESTINATION ${BINDIR})
+
+if(WIN32)
+	install(FILES $<TARGET_PDB_FILE:MonetODBCs> DESTINATION ${LIBDIR} OPTIONAL)
+	install(FILES $<TARGET_PDB_FILE:odbcinstall> DESTINATION ${BINDIR} OPTIONAL)
+endif()

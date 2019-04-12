@@ -37,7 +37,9 @@ target_compile_definitions(monetdb5 PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZ
 
 install(TARGETS monetdb5 DESTINATION ${LIBDIR})
 
-if(NOT WIN32)
+if(WIN32)
+	install(FILES $<TARGET_PDB_FILE:monetdb5> DESTINATION ${LIBDIR} OPTIONAL)
+else()
 	if(LIBXML2_FOUND)
 		set(PKG_LIBXML2 "libxml-2.0")
 	endif()

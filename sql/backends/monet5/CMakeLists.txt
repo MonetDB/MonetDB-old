@@ -45,6 +45,7 @@ add_library(sql MODULE
 			sql_rank.c sql_rank.h)
 target_link_libraries(sql PRIVATE monetdb5 mapi gdk stream ${CRYPTO_LIBRARIES} PUBLIC sqlserver store batstore
 					  sqlcommon)
+set_target_properties(sql PROPERTIES OUTPUT_NAME _sql)
 target_compile_definitions(sql PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)
 
 install(TARGETS sql DESTINATION ${LIBDIR}/monetdb5)
@@ -54,6 +55,9 @@ install(FILES
 		sql_rank.mal sqlcatalog.mal sql_transaction.mal sql.mal
 		DESTINATION ${LIBDIR}/monetdb5)
 install(FILES 40_sql.mal DESTINATION ${LIBDIR}/monetdb5/autoload)
+if(WIN32)
+	install(FILES $<TARGET_PDB_FILE:sql> DESTINATION ${LIBDIR}/monetdb5 OPTIONAL)
+endif()
 
 if(HAVE_HGE)
 	install(FILES sql_hge.mal sql_aggr_hge.mal sql_decimal_hge.mal sql_rank_hge.mal DESTINATION ${LIBDIR}/monetdb5)

@@ -58,7 +58,9 @@ install(FILES
 		gdk_utils.h
 		DESTINATION ${INCLUDEDIR}/monetdb)
 
-if(NOT WIN32)
+if(WIN32)
+	install(FILES $<TARGET_PDB_FILE:gdk> DESTINATION ${LIBDIR} OPTIONAL)
+else()
 	if(NOT MATH_LIBRARIES STREQUAL "")
 		set(PKG_MATH_LIBRARIES "-l${MATH_LIBRARIES}")
 	endif()

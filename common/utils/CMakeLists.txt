@@ -16,15 +16,18 @@ if(WIN32)
 	add_library(mutils SHARED ${MUTILS_OBJECTS})
 	target_compile_definitions(mutils PRIVATE LIBMUTILS LIBGDK LIBMEROUTIL)
 	install(TARGETS mutils DESTINATION ${LIBDIR})
+	install(FILES $<TARGET_PDB_FILE:mutils> DESTINATION ${LIBDIR} OPTIONAL)
 
 	add_library(mcrypt SHARED ${MCRYPT_OBJECTS})
 	target_compile_definitions(mcrypt PRIVATE LIBMAPI LIBMCRYPT)
 	install(TARGETS mcrypt DESTINATION ${LIBDIR})
+	install(FILES $<TARGET_PDB_FILE:mcrypt> DESTINATION ${LIBDIR} OPTIONAL)
 
 	add_library(msabaoth SHARED ${MSABAOTH_OBJECTS})
 	target_compile_definitions(msabaoth PRIVATE LIBMSABAOTH LIBMUUID LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER
 							   LIBMONETDB5)
 	install(TARGETS msabaoth DESTINATION ${LIBDIR})
+	install(FILES $<TARGET_PDB_FILE:msabaoth> DESTINATION ${LIBDIR} OPTIONAL)
 else()
 	add_library(mutils STATIC ${MUTILS_OBJECTS})
 	set_target_properties(mutils PROPERTIES POSITION_INDEPENDENT_CODE ON)
