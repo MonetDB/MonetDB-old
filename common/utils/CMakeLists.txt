@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(${CRYPTO_INCLUDE_DIR})
+include_directories(${UUID_INCLUDE_DIR} ${CRYPTO_INCLUDE_DIR})
 
 set(MUTILS_OBJECTS mutils.h mutils.c prompt.c mprompt.h revision.c)
 set(MCRYPT_OBJECTS mcrypt.h mcrypt.c)
