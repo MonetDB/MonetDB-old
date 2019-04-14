@@ -6,7 +6,7 @@ CMAKE_C_FLAGS - C compilation flags used for all builds
 CMAKE_C_FLAGS_DEBUG - C compilation flags used for Debug build
 CMAKE_C_FLAGS_RELEASE - C compilation flags used for Release build
 CMAKE_INSTALL_PREFIX - Installation directory
-LINK_OPTIONS - Linker options for all builds
+CMAKE_C_LINK_FLAGS - Linker options for all builds
 
 - Compilation options
 ENABLE_ASSERT
@@ -69,5 +69,4 @@ WITH_VALGRIND
 WITH_ZLIB
 
 Linux notes:
- - Make install doesn't run ldconfig, use LD_LIBRARY_PATH https://cmake.org/pipermail/cmake/2016-June/063721.html
  - libtools files are not generated yet.
