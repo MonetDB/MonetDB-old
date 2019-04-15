@@ -6,9 +6,9 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-#[[if(NOT WIN32)
+if(NOT WIN32)
 	add_subdirectory(vaults)
-endif()#]]
+endif()
 add_subdirectory(UDF)
 add_subdirectory(generator)
 
