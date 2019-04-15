@@ -40,9 +40,10 @@ function(MT_clibsToCmake INPUT_INCS OUTPUT_INCS) # Remove -I before the include 
 endfunction()
 
 # set host data
+string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" CMAKE_SYSTEM_PROCESSOR_LOWER)
 string(TOLOWER "${CMAKE_SYSTEM_NAME}" CMAKE_SYSTEM_NAME_LOWER)
 string(TOLOWER "${CMAKE_C_COMPILER_ID}" CMAKE_C_COMPILER_ID_LOWER)
-set("HOST" "${CMAKE_SYSTEM_PROCESSOR}-pc-${CMAKE_SYSTEM_NAME_LOWER}-${CMAKE_C_COMPILER_ID_LOWER}")
+set("HOST" "${CMAKE_SYSTEM_PROCESSOR_LOWER}-pc-${CMAKE_SYSTEM_NAME_LOWER}-${CMAKE_C_COMPILER_ID_LOWER}")
 
 # Change these variables between releases
 set(MONETDB_VERSION_MAJOR "11")
@@ -151,7 +152,7 @@ else()
 	set(HAVE_GEOM ON)
 endif()
 
-set(ENABLE_EMBEDDED "NO" CACHE STRING "Enable support for running MonetDB as a library (default=NO)")
+set(ENABLE_EMBEDDED "NO" CACHE STRING "Enable support for running MonetDB as a library (default=NO)") # TODO check this
 if(NOT ${ENABLE_EMBEDDED} STREQUAL "NO")
 	set(HAVE_EMBEDDED ON)
 endif()
@@ -681,12 +682,12 @@ if(NOT ${PYTHON2} STREQUAL "NO")
 			endif()
 		endif()
 		if(APPLE AND CMAKE_SYSTEM_VERSION VERSION_EQUAL 9 AND PY2_VERSION VERSION_EQUAL 2.5)
-			exec_program("${PYTHON2_INTERPRETER}" ARGS "-c 'import distutils.sysconfig; print distutils.sysconfig.get_python_lib(1,1,\"${LIBDIR}\")'" OUTPUT_VARIABLE PYTHON2_LIBDIR RETURN_VALUE PYTHON2_LIBDIR_CODE) # TODO Escape this
+			exec_program("${PYTHON2_INTERPRETER}" ARGS "-c \"import distutils.sysconfig; print distutils.sysconfig.get_python_lib(1,1,'${LIBDIR}')\"" OUTPUT_VARIABLE PYTHON2_LIBDIR RETURN_VALUE PYTHON2_LIBDIR_CODE) # TODO Escape this
 			if(PYTHON2_LIBDIR)
 				set(PYTHON2_LIBDIR "${PYTHON2_LIBDIR}/site-packages") # Runs on a POSIX platform, so it's safe to do
 			endif()
 		else()
-			exec_program("${PYTHON2_INTERPRETER}" ARGS "-c 'import distutils.sysconfig; print distutils.sysconfig.get_python_lib(1,0,\"${LIBDIR}\")'" OUTPUT_VARIABLE PYTHON2_LIBDIR RETURN_VALUE PYTHON2_LIBDIR_CODE) # TODO Escape this
+			exec_program("${PYTHON2_INTERPRETER}" ARGS "-c \"import distutils.sysconfig; print distutils.sysconfig.get_python_lib(1,0,'${LIBDIR}')\"" OUTPUT_VARIABLE PYTHON2_LIBDIR RETURN_VALUE PYTHON2_LIBDIR_CODE) # TODO Escape this
 		endif()
 
 		if(PYTHON2_LIBDIR AND PYTHON2_LIBDIR_CODE EQUAL 0)
@@ -761,7 +762,7 @@ if(NOT ${PYTHON3} STREQUAL "NO")
 				message(WARNING "Must specify PYTHON3_LIBDIR when cross compiling")
 			endif()
 		endif()
-		exec_program("${PYTHON3_INTERPRETER}" ARGS "-c 'import distutils.sysconfig; print(distutils.sysconfig.get_python_lib(1,0,\"${LIBDIR}\"))'" OUTPUT_VARIABLE PYTHON3_LIBDIR RETURN_VALUE PYTHON3_LIBDIR_CODE)
+		exec_program("${PYTHON3_INTERPRETER}" ARGS "-c \"import distutils.sysconfig; print(distutils.sysconfig.get_python_lib(1,0,'${LIBDIR}'))\"" OUTPUT_VARIABLE PYTHON3_LIBDIR RETURN_VALUE PYTHON3_LIBDIR_CODE)
 
 		if(PYTHON3_LIBDIR AND PYTHON3_LIBDIR_CODE EQUAL 0)
 			string(LENGTH "${LIBDIR}" LIBDIR_LENGTH)
@@ -1298,7 +1299,7 @@ if(NOT ${ENABLE_RINTEGRATION} STREQUAL "NO")
 	endif()
 
 	message(STATUS "Checking major version of R interpreter")
-	exec_program("${R_INTERPRETER}" ARGS "RHOME" OUTPUT_VARIABLE R_HOME RETURN_VALUE R_HOME_RC)
+	exec_program("${R_INTERPRETER}" ARGS "RHOME" OUTPUT_VARIABLE RHOME RETURN_VALUE R_HOME_RC)
 	exec_program("${R_INTERPRETER}" ARGS "CMD config --cppflags" OUTPUT_VARIABLE R_CPP_OUTPUT RETURN_VALUE R_CPP_RC)
 	exec_program("${R_INTERPRETER}" ARGS "CMD config --ldflags" OUTPUT_VARIABLE R_LD_OUTPUT RETURN_VALUE R_LD_RC)
 	if(R_HOME_RC EQUAL 0 AND R_CPP_RC EQUAL 0 AND R_LD_RC EQUAL 0)
