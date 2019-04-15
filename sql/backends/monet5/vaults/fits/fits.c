@@ -17,9 +17,9 @@
 
 /* clash with GDK? */
 #undef ttype
-#include <fitsio.h>
-#include <fitsio2.h>
-#include <longnam.h>
+#include <cfitsio/fitsio.h>
+#include <cfitsio/fitsio2.h>
+#include <cfitsio/longnam.h>
 
 #include "fits.h"
 #include "mutils.h"

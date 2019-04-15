@@ -6,7 +6,7 @@
 # CFITSIO_FOUND	- True if cfitsio found.
 
 # Look for the header file.
-find_path(CFITSIO_INCLUDE_DIR NAMES fitsio.h)
+find_path(CFITSIO_INCLUDE_DIR NAMES cfitsio/fitsio.h)
 
 # Look for the library.
 find_library(CFITSIO_LIBRARIES NAMES cfitsio)
