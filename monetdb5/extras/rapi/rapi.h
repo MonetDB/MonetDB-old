@@ -44,4 +44,23 @@ rapi_export void clearRErrConsole(void);
 
 char* rtypename(int rtypeid);
 
+#if defined(WIN32) && !defined(HAVE_EMBEDDED)
+// On Windows we need to dynamically load any SQL functions we use
+// For embedded, this is not necessary because we create one large shared object
+#define CREATE_SQL_FUNCTION_PTR(retval, fcnname)                               \
+	typedef retval (*fcnname##_ptr_tpe)();                                     \
+	fcnname##_ptr_tpe fcnname##_ptr = NULL;
+
+#define LOAD_SQL_FUNCTION_PTR(fcnname)                                         \
+	fcnname##_ptr = (fcnname##_ptr_tpe)getAddress(#fcnname);                   \
+	if (fcnname##_ptr == NULL)                                                 \
+		e = createException(MAL, "rapi.initialize", SQLSTATE(PY000) "Failed to load function %s", #fcnname);
+#else
+#define CREATE_SQL_FUNCTION_PTR(retval, fcnname)                               \
+	typedef retval (*fcnname##_ptr_tpe)();                                     \
+	fcnname##_ptr_tpe fcnname##_ptr = (fcnname##_ptr_tpe)fcnname;
+
+#define LOAD_SQL_FUNCTION_PTR(fcnname) (void)fcnname
+#endif
+
 #endif /* _RAPI_LIB_ */

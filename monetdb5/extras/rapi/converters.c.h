@@ -6,6 +6,11 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
+//disable warning converting from double to int
+#ifdef _MSC_VER
+#pragma warning (disable:4244)
+#endif
+
 #define RSTR(somestr) mkCharCE(somestr, CE_UTF8)
 
 //Element-wise conversion functions, use no-op as passthrough when no conversion required

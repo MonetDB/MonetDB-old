@@ -45,6 +45,9 @@
 # undef warning
 #endif
 
+CREATE_SQL_FUNCTION_PTR(str, SQLstatementIntern);
+CREATE_SQL_FUNCTION_PTR(void, res_table_destroy);
+
 /* we need the BAT-SEXP-BAT conversion in two places, here and in tools/embedded */
 #include "converters.c.h"
 
@@ -154,6 +157,14 @@ static char *RAPIinitialize(void) {
 	SET_INTERNAL(install("quit"), R_NilValue);
 	// install.packages() uses system2 to call gcc etc., so we cannot disable it (perhaps store the pointer somewhere just for that?)
 	//SET_INTERNAL(install("system"), R_NilValue);
+
+	LOAD_SQL_FUNCTION_PTR(SQLstatementIntern);
+	if (e)
+		return e;
+
+	LOAD_SQL_FUNCTION_PTR(res_table_destroy);
+	if (e)
+		return e;
 
 	rapiInitialized = true;
 	return NULL;
@@ -482,7 +493,7 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 void* RAPIloopback(void *query) {
 	res_table* output = NULL;
 	char* querystr = (char*)CHAR(STRING_ELT(query, 0));
-	char* err = SQLstatementIntern(rapiClient, &querystr, "name", 1, 0, &output);
+	char* err = (*SQLstatementIntern_ptr)(rapiClient, &querystr, "name", 1, 0, &output);
 
 	if (err) { // there was an error
 		return ScalarString(RSTR(err));
@@ -506,12 +517,12 @@ void* RAPIloopback(void *query) {
 				SET_STRING_ELT(names, i, RSTR(output->cols[i].name));
 				SET_VECTOR_ELT(retlist, i, varvalue);
 			}
-			res_table_destroy(output);
+			(*res_table_destroy_ptr)(output);
 			SET_NAMES(retlist, names);
 			UNPROTECT(ncols + 2);
 			return retlist;
 		}
-		res_table_destroy(output);
+		(*res_table_destroy_ptr)(output);
 	}
 	return ScalarLogical(1);
 }
