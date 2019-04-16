@@ -11,7 +11,6 @@ include_directories(../../../../../clients/mapilib ../../../../../common/utils .
 					../../../../../monetdb5/mal ../../../../../sql/backends/monet5 ../../../../../sql/common
 					../../../../../sql/include ../../../../../sql/server ../../../../../sql/storage ${PY2_INCLUDE_DIR})
 
-# TODO check XDEPS
 add_library(pyapi MODULE
 			pyapi.c pyapi.h unicode.c unicode.h pytypes.c pytypes.h type_conversion.c type_conversion.h formatinput.c
 			formatinput.h connection.c connection.h undef.h pyloader.c emit.h emit.c conversion.c conversion.h

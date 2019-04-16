@@ -18,7 +18,7 @@
 #define PyString_CheckExact PyUnicode_CheckExact
 #endif
 
-bool string_copy(const char *source, char *dest, size_t max_size, bool allow_unicode)
+bool py_string_copy(const char *source, char *dest, size_t max_size, bool allow_unicode)
 {
 	size_t i;
 	for (i = 0; i < max_size; i++) {
@@ -148,7 +148,7 @@ str pyobject_to_str(PyObject **ptr, size_t maxsize, str *value)
 #ifndef IS_PY3K
 	if (PyString_CheckExact(obj)) {
 		char *str = ((PyStringObject *)obj)->ob_sval;
-		if (!string_copy(str, utf8_string, len-1, false)) {
+		if (!py_string_copy(str, utf8_string, len-1, false)) {
 			msg = createException(MAL, "pyapi.eval",
 								  SQLSTATE(PY000) "Invalid string encoding used. Please return "
 								  "a regular ASCII string, or a Numpy_Unicode "
@@ -159,7 +159,7 @@ str pyobject_to_str(PyObject **ptr, size_t maxsize, str *value)
 #endif
 		if (PyByteArray_CheckExact(obj)) {
 		char *str = ((PyByteArrayObject *)obj)->ob_bytes;
-		if (!string_copy(str, utf8_string, len-1, false)) {
+		if (!py_string_copy(str, utf8_string, len-1, false)) {
 			msg = createException(MAL, "pyapi.eval",
 								  SQLSTATE(PY000) "Invalid string encoding used. Please return "
 								  "a regular ASCII string, or a Numpy_Unicode "
@@ -176,7 +176,7 @@ str pyobject_to_str(PyObject **ptr, size_t maxsize, str *value)
 #endif
 #else
 		const char *str = PyUnicode_AsUTF8(obj);
-		if (!string_copy(str, utf8_string, len-1, true)) {
+		if (!py_string_copy(str, utf8_string, len-1, true)) {
 			msg = createException(MAL, "pyapi.eval",
 								  SQLSTATE(PY000) "Invalid string encoding used. Please return "
 								  "a regular ASCII string, or a Numpy_Unicode "
