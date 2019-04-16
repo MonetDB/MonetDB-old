@@ -58,6 +58,20 @@
 #define strncasecmp _strnicmp
 #endif
 
+#include <sys/stat.h>
+#ifdef lstat
+#undef lstat
+#endif
+#define lstat _stat64
+#ifdef stat
+#undef stat
+#endif
+#define stat _stat64
+#ifdef fstat
+#undef fstat
+#endif
+#define fstat _fstat64
+
 #if defined(_DEBUG) && defined(_CRTDBG_MAP_ALLOC)
 /* In this case, malloc and friends are redefined in crtdbg.h to debug
  * versions.  We need to include stdlib.h first or else we get
@@ -288,9 +302,6 @@
 /* Define to 1 if you have the `lockf' function. */
 #cmakedefine HAVE_LOCKF 1
 
-/* Define to 1 if you have the `lstat' function. */
-#cmakedefine HAVE_LSTAT 1
-
 /* Define to 1 if you have the <mach/mach_init.h> header file. */
 #cmakedefine HAVE_MACH_MACH_INIT_H 1
 
@@ -425,9 +436,6 @@
 
 /* Define to 1 if you have the SQLGetPrivateProfileString function */
 #cmakedefine HAVE_SQLGETPRIVATEPROFILESTRING 1
-
-/* Define to 1 if you have the `_stat64' function. */
-#cmakedefine HAVE_STAT64 1
 
 /* Define to 1 if you have the <stdatomic.h> header file */
 #cmakedefine HAVE_STDATOMIC_H 1
