@@ -11,8 +11,13 @@ include_directories(. ../include ../common ../storage ../../monetdb5/mal ../../m
 					../../common/stream ../../common/utils ../../gdk ${CMAKE_CURRENT_BINARY_DIR})
 
 bison_target(sqlparser sql_parser.y ${CMAKE_CURRENT_BINARY_DIR}/sql_parser.tab.c
-			COMPILE_FLAGS "-d -p sql -r all"
-			DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/sql_parser.tab.h)
+			COMPILE_FLAGS "-d -p sql -r all" DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/sql_parser.tab.h)
+add_library(bison_obj OBJECT ${BISON_sqlparser_OUTPUTS})
+set_target_properties(bison_obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
+check_c_compiler_flag("-Wno-unreachable-code" COMPILER_-Wno-unreachable-code_FLAG)
+if(COMPILER_-Wno-unreachable-code_FLAG)
+	target_compile_options(bison_obj PRIVATE -Wno-unreachable-code) # use this flag only to compile the bison output
+endif()
 
 add_library(sqlserver STATIC
 			sql_atom.c
@@ -22,7 +27,6 @@ add_library(sqlserver STATIC
 			sql_qc.c
 			sql_symbol.c
 			sql_scan.c
-			${BISON_sqlparser_OUTPUTS}
 			sql_partition.c
 			sql_mvc.c
 			sql_env.c
@@ -52,5 +56,6 @@ add_library(sqlserver STATIC
 			sql_decimal.h sql_env.h sql_mvc.h sql_parser.h
 			sql_privileges.h sql_qc.h sql_scan.h
 			sql_semantic.h sql_symbol.h sql_tokens.h sql_partition.h)
+target_link_libraries(sqlserver PRIVATE bison_obj)
 set_target_properties(sqlserver PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_definitions(sqlserver PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)

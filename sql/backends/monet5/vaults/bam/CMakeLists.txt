@@ -17,7 +17,7 @@ if(WIN32)
 	list(APPEND BAM_LINK_LIBRARIES monetdb5 gdk)
 endif()
 
-# the bam library is also called bam, so cmake gets confused. Give another name
+# the bam library is also called bam, so cmake gets confused. Give it another name
 add_library(bamm MODULE
 			bam_loader.c bam_loader.h
 			bam_wrapper.c bam_wrapper.h
