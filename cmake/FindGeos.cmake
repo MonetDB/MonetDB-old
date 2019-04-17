@@ -10,7 +10,7 @@
 find_path(GEOS_INCLUDE_DIR NAMES geos_c.h)
 
 # Look for the library.
-find_library(GEOS_LIBRARIES NAMES geos_c geos)
+find_library(GEOS_LIBRARIES NAMES geos_c)
 
 # Handle the QUIETLY and REQUIRED arguments and set GEOS_FOUND to TRUE if all listed variables are TRUE.
 include(FindPackageHandleStandardArgs)
