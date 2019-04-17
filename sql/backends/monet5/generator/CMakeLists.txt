@@ -12,7 +12,7 @@ include_directories(../../../include ../../../common ../../../storage ../../../s
 					../../../../common/utils ../../../../gdk)
 
 add_library(generator MODULE generator.c generator.h)
-target_link_libraries(generator PRIVATE monetdb5 gdk)
+target_link_libraries(generator PRIVATE $<$<PLATFORM_ID:Windows>:"monetdb5 gdk">)
 set_target_properties(generator PROPERTIES OUTPUT_NAME _generator)
 target_compile_definitions(generator PRIVATE LIBGENERATOR)
 

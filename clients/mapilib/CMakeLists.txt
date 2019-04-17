@@ -8,13 +8,8 @@
 
 include_directories(../../common/stream ../../common/utils ${CRYPTO_INCLUDE_DIR})
 
-set(MAPI_RC "")
-if(WIN32)
-	set(MAPI_RC mapi.rc)
-endif()
-
-add_library(mapi SHARED mapi.c ${MAPI_RC})
-target_link_libraries(mapi PRIVATE ${SOCKET_LIBRARIES} ${CRYPTO_LIBRARIES} moptions mcrypt stream)
+add_library(mapi SHARED mapi.c $<$<PLATFORM_ID:Windows>:mapi.rc>)
+target_link_libraries(mapi PRIVATE moptions mcrypt $<$<PLATFORM_ID:Windows>:"stream ${SOCKET_LIBRARIES} ${CRYPTO_LIBRARIES}">)
 set_target_properties(mapi PROPERTIES VERSION ${MAPI_VERSION} SOVERSION ${MAPI_VERSION_MAJOR})
 target_compile_definitions(mapi PRIVATE LIBMAPI)
 

@@ -43,8 +43,8 @@ add_library(sql MODULE
 			wlr.c wlr.h
 			sql_datetrunc.c
 			sql_rank.c sql_rank.h)
-target_link_libraries(sql PRIVATE monetdb5 mapi gdk stream ${CRYPTO_LIBRARIES} PUBLIC sqlserver store batstore
-					  sqlcommon)
+target_link_libraries(sql PRIVATE sqlserver store batstore sqlcommon
+					  $<$<PLATFORM_ID:Windows>:"mapi monetdb5 gdk stream ${CRYPTO_LIBRARIES}">)
 set_target_properties(sql PROPERTIES OUTPUT_NAME _sql)
 target_compile_definitions(sql PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)
 

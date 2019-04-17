@@ -12,7 +12,7 @@ include_directories(../.. ../../../../include ../../../../common ../../../../sto
 					../../../../../common/utils ../../../../../common/stream ../../../../../gdk)
 
 add_library(udf MODULE udf.c udf.h udf_impl.h)
-target_link_libraries(udf PRIVATE monetdb5 gdk)
+target_link_libraries(udf PRIVATE $<$<PLATFORM_ID:Windows>:"monetdb5 gdk">)
 set_target_properties(udf PROPERTIES OUTPUT_NAME _udf)
 target_compile_definitions(udf PRIVATE LIBUDF)
 

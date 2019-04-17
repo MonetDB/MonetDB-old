@@ -13,7 +13,7 @@ include_directories(.. ../.. ../../../../include ../../../../common ../../../../
 					../../../../../gdk ${CFITSIO_INCLUDE_DIR})
 
 add_library(fits MODULE fits.c fits.h)
-target_link_libraries(fits PRIVATE monetdb5 gdk ${CFITSIO_LIBRARIES})
+target_link_libraries(fits PRIVATE $<$<PLATFORM_ID:Windows>:"monetdb5 gdk"> ${CFITSIO_LIBRARIES})
 set_target_properties(fits PROPERTIES OUTPUT_NAME _fits)
 target_compile_definitions(fits PRIVATE LIBFITS)
 

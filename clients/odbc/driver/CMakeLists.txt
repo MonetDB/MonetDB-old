@@ -8,11 +8,6 @@
 
 include_directories(../../mapilib ${ODBC_INCLUDE_DIR})
 
-set(MonetODBC_RC "")
-if(WIN32)
-	set(MonetODBC_RC driver.rc ODBC.syms)
-endif()
-
 add_library(MonetODBC MODULE
 			ODBCConvert.c
 			ODBCDbc.c
@@ -104,7 +99,7 @@ add_library(MonetODBC MODULE
 			SQLStatistics.c
 			SQLTablePrivileges.c
 			SQLTables.c
-			SQLTransact.c ${MonetODBC_RC})
+			SQLTransact.c $<$<PLATFORM_ID:Windows>:"driver.rc ODBC.syms">)
 target_link_libraries(MonetODBC PRIVATE mapi stream ${ICONV_LIBRARIES} ${ODBCINST_LIBRARIES} ${CRYPTO_LIBRARIES}
 					  ${SOCKET_LIBRARIES})
 

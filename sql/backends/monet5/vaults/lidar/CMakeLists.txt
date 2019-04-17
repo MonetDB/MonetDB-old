@@ -13,7 +13,7 @@ include_directories(.. ../.. ../../../../include ../../../../common ../../../../
 					../../../../../gdk ${LIBLAS_INCLUDE_DIR})
 
 add_library(lidar MODULE lidar.c lidar.h)
-target_link_libraries(lidar PRIVATE monetdb5 gdk ${LIBLAS_LIBRARIES})
+target_link_libraries(lidar PRIVATE $<$<PLATFORM_ID:Windows>:"monetdb5 gdk"> ${LIBLAS_LIBRARIES})
 set_target_properties(lidar PROPERTIES OUTPUT_NAME _lidar)
 target_compile_definitions(lidar PRIVATE LIBLIDAR)
 

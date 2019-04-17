@@ -16,7 +16,7 @@ include_directories(../../../../../clients/mapilib ../../../../../common/utils .
 add_library(pyapi3 MODULE
 			pyapi3.c unicode3.c pytypes3.c type_conversion3.c formatinput3.c connection3.c pyloader3.c emit3.c
 			conversion3.c)
-target_link_libraries(pyapi3 PRIVATE monetdb5 gdk ${PY3_LIBRARIES})
+target_link_libraries(pyapi3 PRIVATE $<$<PLATFORM_ID:Windows>:"monetdb5 gdk"> ${PY3_LIBRARIES})
 set_target_properties(pyapi3 PROPERTIES OUTPUT_NAME _pyapi3)
 target_compile_definitions(pyapi3 PRIVATE LIBPYAPI LIBPYAPI3)
 

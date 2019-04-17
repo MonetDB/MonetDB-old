@@ -9,7 +9,7 @@
 include_directories(../../optimizer ../../mal ../../../gdk ../../../common/stream ../../../common/utils)
 
 add_library(opt_sql_append MODULE opt_sql_append.c opt_sql_append.h)
-target_link_libraries(opt_sql_append PRIVATE monetdb5 gdk)
+target_link_libraries(opt_sql_append PRIVATE $<$<PLATFORM_ID:Windows>:"monetdb5 gdk">)
 set_target_properties(opt_sql_append PROPERTIES OUTPUT_NAME _opt_sql_append)
 target_compile_definitions(opt_sql_append PRIVATE LIBOPT_SQL_APPEND)
 

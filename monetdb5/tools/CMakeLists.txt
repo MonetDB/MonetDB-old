@@ -10,13 +10,6 @@ include_directories(../mal ../../common/stream ../../common/utils ../../clients/
 					../modules/atoms ../modules/mal ../modules/kernel ${CRYPTO_INCLUDE_DIR} ${PCRE_INCLUDE_DIR}
 					${UUID_INCLUDE_DIR} ${LIBXML2_INCLUDE_DIR})
 
-set(MONETDB5_PRIVATE_LINK_LIBRARIES ${UUID_LIBRARIES} ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES}
-									${PTHREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES} ${PCRE_LIBRARIES}
-									${LIBXML2_LIBRARIES} gdk stream)
-if(HAVE_MAPI)
-	list(APPEND MONETDB5_PRIVATE_LINK_LIBRARIES mapi)
-endif()
-
 file(GLOB MAL_SRC "../mal/*.h" "../mal/*.c")
 file(GLOB ATOMS_SRC "../modules/atoms/*.h" "../modules/atoms/*.c")
 file(GLOB KERNEL_SRC  "../modules/kernel/*.h" "../modules/kernel/*.c")
@@ -24,14 +17,11 @@ file(GLOB MODULES_SRC "../modules/mal/*.h" "../modules/mal/*.c")
 file(GLOB OPTIMIZER_SRC "../optimizer/*.h" "../optimizer/*.c")
 file(GLOB SCHEDULER_SRC "../scheduler/*.h" "../scheduler/*.c")
 
-set(MONETDB5_RC "")
-if(WIN32)
-	set(MONETDB5_RC libmonetdb5.rc)
-endif()
-
 add_library(monetdb5 SHARED ${MAL_SRC} ${ATOMS_SRC} ${KERNEL_SRC} ${MODULES_SRC} ${OPTIMIZER_SRC} ${SCHEDULER_SRC}
-			${MONETDB5_RC})
-target_link_libraries(monetdb5 PRIVATE ${MONETDB5_PRIVATE_LINK_LIBRARIES} PUBLIC mutils mcrypt msabaoth)
+			$<$<PLATFORM_ID:Windows>:libmonetdb5.rc>)
+target_link_libraries(monetdb5 PRIVATE mutils mcrypt msabaoth
+					  $<$<PLATFORM_ID:Windows>:"${UUID_LIBRARIES} ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES} ${PTHREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} gdk stream">
+					  $<$<AND:$<PLATFORM_ID:Windows>,$<BOOL:HAVE_MAPI>>:mapi>)
 set_target_properties(monetdb5 PROPERTIES VERSION ${MONETDB5_VERSION} SOVERSION ${MONETDB5_VERSION_MAJOR})
 target_compile_definitions(monetdb5 PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
 
