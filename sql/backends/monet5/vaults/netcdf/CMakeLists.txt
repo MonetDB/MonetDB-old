@@ -12,8 +12,13 @@ include_directories(.. ../.. ../../../../include ../../../../common ../../../../
 					../../../../../monetdb5/scheduler ../../../../../common/stream ../../../../../common/utils
 					../../../../../gdk ${NETCDF_INCLUDE_DIR})
 
+set(NETCDF_LINK_LIBRARIES ${NETCDF_LIBRARIES})
+if(WIN32)
+	list(APPEND NETCDF_LINK_LIBRARIES monetdb5 gdk)
+endif()
+
 add_library(netcdf MODULE netcdf.c netcdf_vault.h)
-target_link_libraries(netcdf PRIVATE monetdb5 gdk ${NETCDF_LIBRARIES})
+target_link_libraries(netcdf PRIVATE ${NETCDF_LINK_LIBRARIES})
 set_target_properties(netcdf PROPERTIES OUTPUT_NAME _netcdf)
 target_compile_definitions(netcdf PRIVATE LIBNCDF)
 

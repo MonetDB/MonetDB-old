@@ -8,8 +8,13 @@
 
 include_directories(../../optimizer ../../mal ../../../gdk ../../../common/stream ../../../common/utils)
 
+set(OPT_SQL_APPEND_LINK_LIBRARIES )
+if(WIN32)
+	list(APPEND OPT_SQL_APPEND_LINK_LIBRARIES monetdb5 gdk)
+endif()
+
 add_library(opt_sql_append MODULE opt_sql_append.c opt_sql_append.h)
-target_link_libraries(opt_sql_append PRIVATE $<$<PLATFORM_ID:Windows>:monetdb5> $<$<PLATFORM_ID:Windows>:gdk>)
+target_link_libraries(opt_sql_append PRIVATE ${OPT_SQL_APPEND_LINK_LIBRARIES})
 set_target_properties(opt_sql_append PROPERTIES OUTPUT_NAME _opt_sql_append)
 target_compile_definitions(opt_sql_append PRIVATE LIBOPT_SQL_APPEND)
 

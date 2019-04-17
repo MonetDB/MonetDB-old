@@ -11,11 +11,16 @@ include_directories(../../../../../clients/mapilib ../../../../../common/utils .
 					../../../../../monetdb5/mal ../../../../../sql/backends/monet5 ../../../../../sql/common
 					../../../../../sql/include ../../../../../sql/server ../../../../../sql/storage ${PY2_INCLUDE_DIR})
 
+set(PYAPI_LINK_LIBRARIES ${PY2_LIBRARIES})
+if(WIN32)
+	list(APPEND PYAPI_LINK_LIBRARIES monetdb5 gdk)
+endif()
+
 add_library(pyapi MODULE
 			pyapi.c pyapi.h unicode.c unicode.h pytypes.c pytypes.h type_conversion.c type_conversion.h formatinput.c
 			formatinput.h connection.c connection.h undef.h pyloader.c emit.h emit.c conversion.c conversion.h
 			convert_loops.h pyheader.h)
-target_link_libraries(pyapi PRIVATE $<$<PLATFORM_ID:Windows>:monetdb5> $<$<PLATFORM_ID:Windows>:gdk> ${PY2_LIBRARIES})
+target_link_libraries(pyapi PRIVATE ${PYAPI_LINK_LIBRARIES})
 set_target_properties(pyapi PROPERTIES OUTPUT_NAME _pyapi)
 target_compile_definitions(pyapi PRIVATE LIBPYAPI LIBPYAPI3)
 

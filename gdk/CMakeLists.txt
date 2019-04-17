@@ -8,6 +8,12 @@
 
 include_directories(../common/options ../common/stream ../common/utils ${VALGRIND_INCLUDE_DIR})
 
+set(GDK_LINK_LIBRARIES moptions mutils)
+if(WIN32)
+	list(APPEND GDK_LINK_LIBRARIES stream ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES} ${PTHREAD_LIBRARIES}
+		 ${DL_LIBRARIES} ${PSAPI_LIBRARIES})
+endif()
+
 add_library(gdk SHARED
 			gdk_select.c
 			gdk_calc.c gdk_calc.h gdk_calc_compare.h gdk_calc_private.h
@@ -33,10 +39,7 @@ add_library(gdk SHARED
 			gdk_firstn.c
 			gdk_analytic_bounds.c
 			gdk_analytic_func.c gdk_analytic.h $<$<PLATFORM_ID:Windows>:libbat.rc>)
-target_link_libraries(gdk PRIVATE moptions mutils $<$<PLATFORM_ID:Windows>:stream>
-					  $<$<PLATFORM_ID:Windows>:${MATH_LIBRARIES}> $<$<PLATFORM_ID:Windows>:${SOCKET_LIBRARIES}>
-					  $<$<PLATFORM_ID:Windows>:${MALLOC_LIBRARIES}> $<$<PLATFORM_ID:Windows>:${PTHREAD_LIBRARIES}>
-					  $<$<PLATFORM_ID:Windows>:${DL_LIBRARIES}> $<$<PLATFORM_ID:Windows>:${PSAPI_LIBRARIES}>)
+target_link_libraries(gdk PRIVATE ${GDK_LINK_LIBRARIES})
 set_target_properties(gdk PROPERTIES VERSION ${GDK_VERSION} SOVERSION ${GDK_VERSION_MAJOR} OUTPUT_NAME bat)
 target_compile_definitions(gdk PRIVATE LIBGDK)
 

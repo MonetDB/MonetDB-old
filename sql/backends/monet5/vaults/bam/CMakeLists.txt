@@ -12,6 +12,11 @@ include_directories(.. ../.. ../../../../include ../../../../common ../../../../
 					../../../../../common/stream ../../../../../common/utils ../../../../../gdk
 					../../../../../tools/merovingian ../../../../../tools/merovingian/daemon ${SAMTOOLS_INCLUDE_DIR})
 
+set(BAM_LINK_LIBRARIES ${SAMTOOLS_LIBRARIES})
+if(WIN32)
+	list(APPEND BAM_LINK_LIBRARIES monetdb5 gdk)
+endif()
+
 # the bam library is also called bam, so cmake gets confused. Give another name
 add_library(bamm MODULE
 			bam_loader.c bam_loader.h
@@ -21,8 +26,7 @@ add_library(bamm MODULE
 			bam_lib.c bam_lib.h
 			bam_export.c bam_export.h
 			mykstring.h)
-target_link_libraries(bamm PRIVATE $<$<PLATFORM_ID:Windows>:monetdb5> $<$<PLATFORM_ID:Windows>:gdk>
-					  ${SAMTOOLS_LIBRARIES})
+target_link_libraries(bamm PRIVATE ${BAM_LINK_LIBRARIES})
 set_target_properties(bamm PROPERTIES OUTPUT_NAME _bam)
 target_compile_definitions(bamm PRIVATE LIBBAM)
 

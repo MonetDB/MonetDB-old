@@ -11,8 +11,13 @@ include_directories(../.. ../../../../include ../../../../common ../../../../sto
 					../../../../../monetdb5/mal ../../../../../monetdb5/modules/mal ../../../../../monetdb5/optimizer
 					../../../../../common/utils ../../../../../common/stream ../../../../../gdk)
 
+set(UDF_LINK_LIBRARIES )
+if(WIN32)
+	list(APPEND UDF_LINK_LIBRARIES monetdb5 gdk)
+endif()
+
 add_library(udf MODULE udf.c udf.h udf_impl.h)
-target_link_libraries(udf PRIVATE $<$<PLATFORM_ID:Windows>:monetdb5> $<$<PLATFORM_ID:Windows>:gdk>)
+target_link_libraries(udf PRIVATE ${UDF_LINK_LIBRARIES})
 set_target_properties(udf PROPERTIES OUTPUT_NAME _udf)
 target_compile_definitions(udf PRIVATE LIBUDF)
 

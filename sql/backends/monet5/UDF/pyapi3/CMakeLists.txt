@@ -12,11 +12,15 @@ include_directories(../../../../../clients/mapilib ../../../../../common/utils .
 					../../../../../sql/include ../../../../../sql/server ../../../../../sql/storage ../pyapi
 					${PY3_INCLUDE_DIR})
 
-# TODO check XDEPS
+set(PYAPI3_LINK_LIBRARIES ${PY3_LIBRARIES})
+if(WIN32)
+	list(APPEND PYAPI3_LINK_LIBRARIES monetdb5 gdk)
+endif()
+
 add_library(pyapi3 MODULE
 			pyapi3.c unicode3.c pytypes3.c type_conversion3.c formatinput3.c connection3.c pyloader3.c emit3.c
 			conversion3.c)
-target_link_libraries(pyapi3 PRIVATE $<$<PLATFORM_ID:Windows>:monetdb5> $<$<PLATFORM_ID:Windows>:gdk> ${PY3_LIBRARIES})
+target_link_libraries(pyapi3 PRIVATE ${PYAPI3_LINK_LIBRARIES})
 set_target_properties(pyapi3 PROPERTIES OUTPUT_NAME _pyapi3)
 target_compile_definitions(pyapi3 PRIVATE LIBPYAPI LIBPYAPI3)
 

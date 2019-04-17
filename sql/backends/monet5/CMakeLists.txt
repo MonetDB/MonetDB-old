@@ -17,6 +17,11 @@ include_directories(../../include ../../common ../../storage ../../server ../../
 					../../../monetdb5/optimizer ../../../monetdb5/scheduler ../../../monetdb5/extras/rapi 
 					../../../common/stream ../../../common/utils ../../../gdk)
 
+set(SQL_LINK_LIBRARIES sqlserver store batstore sqlcommon)
+if(WIN32)
+	list(APPEND SQL_LINK_LIBRARIES mapi monetdb5 gdk stream ${CRYPTO_LIBRARIES})
+endif()
+
 add_library(sql MODULE
 			sql.c sql.h
 			mal_backend.c mal_backend.h
@@ -43,9 +48,7 @@ add_library(sql MODULE
 			wlr.c wlr.h
 			sql_datetrunc.c
 			sql_rank.c sql_rank.h)
-target_link_libraries(sql PRIVATE sqlserver store batstore sqlcommon $<$<PLATFORM_ID:Windows>:mapi>
-					  $<$<PLATFORM_ID:Windows>:monetdb5> $<$<PLATFORM_ID:Windows>:gdk> $<$<PLATFORM_ID:Windows>:stream>
-					  $<$<PLATFORM_ID:Windows>:${CRYPTO_LIBRARIES}>)
+target_link_libraries(sql PRIVATE ${SQL_LINK_LIBRARIES})
 set_target_properties(sql PROPERTIES OUTPUT_NAME _sql)
 target_compile_definitions(sql PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)
 

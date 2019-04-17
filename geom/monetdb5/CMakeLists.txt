@@ -9,9 +9,13 @@
 include_directories(../lib ../../gdk ../../common/stream ../../common/utils ../../monetdb5/mal ${GEOS_INCLUDE_DIR}
 					${PROJ_INCLUDE_DIR})
 
+set(GEOM_LINK_LIBRARIES ${GEOS_LIBRARIES} ${PROJ_LIBRARIES})
+if(WIN32)
+	list(APPEND GEOM_LINK_LIBRARIES monetdb5 gdk stream)
+endif()
+
 add_library(geom MODULE geom.h geom.c geomBulk.c geom_upgrade.c ../lib/libgeom.c ../lib/libgeom.h)
-target_link_libraries(geom PRIVATE $<$<PLATFORM_ID:Windows>:monetdb5> $<$<PLATFORM_ID:Windows>:gdk>
-					  $<$<PLATFORM_ID:Windows>:stream> ${GEOS_LIBRARIES} ${PROJ_LIBRARIES})
+target_link_libraries(geom PRIVATE ${GEOM_LINK_LIBRARIES})
 set_target_properties(geom PROPERTIES OUTPUT_NAME _geom)
 target_compile_definitions(geom PRIVATE LIBGEOM)
 

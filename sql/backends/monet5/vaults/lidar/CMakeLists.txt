@@ -12,9 +12,13 @@ include_directories(.. ../.. ../../../../include ../../../../common ../../../../
 					../../../../../monetdb5/scheduler ../../../../../common/stream ../../../../../common/utils
 					../../../../../gdk ${LIBLAS_INCLUDE_DIR})
 
+set(LIDAR_LINK_LIBRARIES ${LIBLAS_LIBRARIES})
+if(WIN32)
+	list(APPEND LIDAR_LINK_LIBRARIES monetdb5 gdk)
+endif()
+
 add_library(lidar MODULE lidar.c lidar.h)
-target_link_libraries(lidar PRIVATE $<$<PLATFORM_ID:Windows>:monetdb5> $<$<PLATFORM_ID:Windows>:gdk>
-					  ${LIBLAS_LIBRARIES})
+target_link_libraries(lidar PRIVATE ${LIDAR_LINK_LIBRARIES})
 set_target_properties(lidar PROPERTIES OUTPUT_NAME _lidar)
 target_compile_definitions(lidar PRIVATE LIBLIDAR)
 

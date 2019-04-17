@@ -12,8 +12,13 @@ include_directories(../../../../../clients/mapilib ../../../../../common/utils .
 					../../../../../sql/include ../../../../../sql/server ../../../../../sql/storage
 					${CMAKE_CURRENT_BINARY_DIR})
 
+set(CAPI_LINK_LIBRARIES )
+if(WIN32)
+	list(APPEND CAPI_LINK_LIBRARIES monetdb5 gdk)
+endif()
+
 add_library(capi MODULE capi.c capi.h cheader.h ${CMAKE_CURRENT_BINARY_DIR}/cheader.text.h)
-target_link_libraries(capi PRIVATE $<$<PLATFORM_ID:Windows>:monetdb5> $<$<PLATFORM_ID:Windows>:gdk>)
+target_link_libraries(capi PRIVATE ${CAPI_LINK_LIBRARIES})
 set_target_properties(capi PROPERTIES OUTPUT_NAME _capi)
 target_compile_definitions(capi PRIVATE LIBCUDF)
 

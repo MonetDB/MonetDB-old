@@ -10,8 +10,13 @@ include_directories(../../../common/stream ../../../common/utils ../../../gdk ..
 					../../modules/atoms ../../modules/mal ../../../sql/common ../../../sql/include
 					../../../sql/server ../../../sql/storage ../../../sql/backends/monet5 ${R_INCLUDE_DIR})
 
+set(RAPI_LINK_LIBRARIES ${R_LIBRARIES})
+if(WIN32)
+	list(APPEND RAPI_LINK_LIBRARIES monetdb5 gdk)
+endif()
+
 add_library(rapi MODULE rapi.c rapi.h converters.c.h)
-target_link_libraries(rapi PRIVATE $<$<PLATFORM_ID:Windows>:monetdb5> $<$<PLATFORM_ID:Windows>:gdk> ${R_LIBRARIES})
+target_link_libraries(rapi PRIVATE ${RAPI_LINK_LIBRARIES})
 set_target_properties(rapi PROPERTIES OUTPUT_NAME _rapi)
 target_compile_definitions(rapi PRIVATE LIBRAPI)
 if(NOT MSVC)
