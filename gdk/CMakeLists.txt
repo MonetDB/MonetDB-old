@@ -33,8 +33,10 @@ add_library(gdk SHARED
 			gdk_firstn.c
 			gdk_analytic_bounds.c
 			gdk_analytic_func.c gdk_analytic.h $<$<PLATFORM_ID:Windows>:libbat.rc>)
-target_link_libraries(gdk PRIVATE moptions mutils
-					  $<$<PLATFORM_ID:Windows>:"stream ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES} ${PTHREAD_LIBRARIES} ${DL_LIBRARIES} ${PSAPI_LIBRARIES}">)
+target_link_libraries(gdk PRIVATE moptions mutils $<$<PLATFORM_ID:Windows>:stream>
+					  $<$<PLATFORM_ID:Windows>:${MATH_LIBRARIES}> $<$<PLATFORM_ID:Windows>:${SOCKET_LIBRARIES}>
+					  $<$<PLATFORM_ID:Windows>:${MALLOC_LIBRARIES}> $<$<PLATFORM_ID:Windows>:${PTHREAD_LIBRARIES}>
+					  $<$<PLATFORM_ID:Windows>:${DL_LIBRARIES}> $<$<PLATFORM_ID:Windows>:${PSAPI_LIBRARIES}>)
 set_target_properties(gdk PROPERTIES VERSION ${GDK_VERSION} SOVERSION ${GDK_VERSION_MAJOR} OUTPUT_NAME bat)
 target_compile_definitions(gdk PRIVATE LIBGDK)
 

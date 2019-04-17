@@ -21,7 +21,8 @@ add_library(bamm MODULE
 			bam_lib.c bam_lib.h
 			bam_export.c bam_export.h
 			mykstring.h)
-target_link_libraries(bamm PRIVATE $<$<PLATFORM_ID:Windows>:"monetdb5 gdk"> ${SAMTOOLS_LIBRARIES})
+target_link_libraries(bamm PRIVATE $<$<PLATFORM_ID:Windows>:monetdb5> $<$<PLATFORM_ID:Windows>:gdk>
+					  ${SAMTOOLS_LIBRARIES})
 set_target_properties(bamm PROPERTIES OUTPUT_NAME _bam)
 target_compile_definitions(bamm PRIVATE LIBBAM)
 

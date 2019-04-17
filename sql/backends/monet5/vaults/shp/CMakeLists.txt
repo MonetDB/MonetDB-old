@@ -13,7 +13,7 @@ include_directories(.. ../.. ../../../../include ../../../../common ../../../../
 					../../../../../gdk ../../../../../geom/lib ../../../../../geom/monetdb5 ${GDAL_INCLUDE_DIR})
 
 add_library(shp MODULE shp.c shp.h)
-target_link_libraries(shp PRIVATE $<$<PLATFORM_ID:Windows>:"monetdb5 gdk"> ${GDAL_LIBRARIES})
+target_link_libraries(shp PRIVATE $<$<PLATFORM_ID:Windows>:monetdb5> $<$<PLATFORM_ID:Windows>:gdk> ${GDAL_LIBRARIES})
 set_target_properties(shp PROPERTIES OUTPUT_NAME _shp)
 target_compile_definitions(shp PRIVATE LIBGTIFF)
 

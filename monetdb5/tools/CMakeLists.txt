@@ -19,8 +19,12 @@ file(GLOB SCHEDULER_SRC "../scheduler/*.h" "../scheduler/*.c")
 
 add_library(monetdb5 SHARED ${MAL_SRC} ${ATOMS_SRC} ${KERNEL_SRC} ${MODULES_SRC} ${OPTIMIZER_SRC} ${SCHEDULER_SRC}
 			$<$<PLATFORM_ID:Windows>:libmonetdb5.rc>)
-target_link_libraries(monetdb5 PRIVATE mutils mcrypt msabaoth
-					  $<$<PLATFORM_ID:Windows>:"${UUID_LIBRARIES} ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES} ${PTHREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} gdk stream">
+target_link_libraries(monetdb5 PRIVATE mutils mcrypt msabaoth $<$<PLATFORM_ID:Windows>:${UUID_LIBRARIES}>
+					  $<$<PLATFORM_ID:Windows>:${MATH_LIBRARIES}> $<$<PLATFORM_ID:Windows>:${SOCKET_LIBRARIES}>
+					  $<$<PLATFORM_ID:Windows>:${MALLOC_LIBRARIES}> $<$<PLATFORM_ID:Windows>:${PTHREAD_LIBRARIES}>
+					  $<$<PLATFORM_ID:Windows>:${DL_LIBRARIES}> $<$<PLATFORM_ID:Windows>:${CRYPTO_LIBRARIES}>
+					  $<$<PLATFORM_ID:Windows>:${PCRE_LIBRARIES}> $<$<PLATFORM_ID:Windows>:${LIBXML2_LIBRARIES}>
+					  $<$<PLATFORM_ID:Windows>:gdk> $<$<PLATFORM_ID:Windows>:stream>
 					  $<$<AND:$<PLATFORM_ID:Windows>,$<BOOL:HAVE_MAPI>>:mapi>)
 set_target_properties(monetdb5 PROPERTIES VERSION ${MONETDB5_VERSION} SOVERSION ${MONETDB5_VERSION_MAJOR})
 target_compile_definitions(monetdb5 PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)

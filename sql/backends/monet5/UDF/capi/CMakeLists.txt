@@ -13,7 +13,7 @@ include_directories(../../../../../clients/mapilib ../../../../../common/utils .
 					${CMAKE_CURRENT_BINARY_DIR})
 
 add_library(capi MODULE capi.c capi.h cheader.h ${CMAKE_CURRENT_BINARY_DIR}/cheader.text.h)
-target_link_libraries(capi PRIVATE $<$<PLATFORM_ID:Windows>:"monetdb5 gdk">)
+target_link_libraries(capi PRIVATE $<$<PLATFORM_ID:Windows>:monetdb5> $<$<PLATFORM_ID:Windows>:gdk>)
 set_target_properties(capi PROPERTIES OUTPUT_NAME _capi)
 target_compile_definitions(capi PRIVATE LIBCUDF)
 

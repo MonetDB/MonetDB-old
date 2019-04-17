@@ -9,7 +9,8 @@
 include_directories(../../common/stream ../../common/utils ${CRYPTO_INCLUDE_DIR})
 
 add_library(mapi SHARED mapi.c $<$<PLATFORM_ID:Windows>:mapi.rc>)
-target_link_libraries(mapi PRIVATE moptions mcrypt $<$<PLATFORM_ID:Windows>:"stream ${SOCKET_LIBRARIES} ${CRYPTO_LIBRARIES}">)
+target_link_libraries(mapi PRIVATE moptions mcrypt $<$<PLATFORM_ID:Windows>:stream>
+					  $<$<PLATFORM_ID:Windows>:${SOCKET_LIBRARIES}> $<$<PLATFORM_ID:Windows>:${CRYPTO_LIBRARIES}>)
 set_target_properties(mapi PROPERTIES VERSION ${MAPI_VERSION} SOVERSION ${MAPI_VERSION_MAJOR})
 target_compile_definitions(mapi PRIVATE LIBMAPI)
 
