@@ -20,12 +20,14 @@ if(WIN32)
 
 	add_library(mcrypt SHARED ${MCRYPT_OBJECTS})
 	target_compile_definitions(mcrypt PRIVATE LIBMAPI LIBMCRYPT)
+	target_link_libraries(mcrypt PRIVATE ${CRYPTO_LIBRARIES})
 	install(TARGETS mcrypt DESTINATION ${LIBDIR})
 	install(FILES $<TARGET_PDB_FILE:mcrypt> DESTINATION ${LIBDIR} OPTIONAL)
 
 	add_library(msabaoth SHARED ${MSABAOTH_OBJECTS})
 	target_compile_definitions(msabaoth PRIVATE LIBMSABAOTH LIBMUUID LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER
 							   LIBMONETDB5)
+	target_link_libraries(msabaoth PRIVATE ${CRYPTO_LIBRARIES} mutils)
 	install(TARGETS msabaoth DESTINATION ${LIBDIR})
 	install(FILES $<TARGET_PDB_FILE:msabaoth> DESTINATION ${LIBDIR} OPTIONAL)
 else()
@@ -38,8 +40,5 @@ else()
 	add_library(msabaoth STATIC ${MSABAOTH_OBJECTS})
 	set_target_properties(msabaoth PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
-
-target_link_libraries(mcrypt PRIVATE ${CRYPTO_LIBRARIES})
-target_link_libraries(msabaoth PRIVATE ${CRYPTO_LIBRARIES} mutils)
 
 install(FILES matomic.h DESTINATION ${INCLUDEDIR}/monetdb)
