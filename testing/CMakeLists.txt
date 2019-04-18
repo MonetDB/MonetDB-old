@@ -7,7 +7,6 @@
 #]]
 
 add_executable(Mdiff difflib.c helpers.c Mdiff.c difflib.h helpers.h)
-target_link_libraries(Mdiff PRIVATE ${MALLOC_LIBRARIES})
 install(TARGETS Mdiff DESTINATION ${BINDIR})
 
 string(REPLACE "\\" "\\\\" SOURCE "${CMAKE_SOURCE_DIR}")

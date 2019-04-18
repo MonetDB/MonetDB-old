@@ -6,12 +6,12 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../common/options ../common/stream ../common/utils ${VALGRIND_INCLUDE_DIR})
+include_directories(../common/options ../common/stream ../common/utils ${THREAD_INCLUDE_DIR} ${VALGRIND_INCLUDE_DIR})
 
 set(GDK_LINK_LIBRARIES moptions mutils)
 if(WIN32)
-	list(APPEND GDK_LINK_LIBRARIES stream ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${MALLOC_LIBRARIES} ${PTHREAD_LIBRARIES}
-		 ${DL_LIBRARIES} ${PSAPI_LIBRARIES})
+	list(APPEND GDK_LINK_LIBRARIES stream ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${THREAD_LIBRARIES} ${DL_LIBRARIES}
+		 ${PSAPI_LIBRARIES})
 endif()
 
 add_library(gdk SHARED
@@ -64,11 +64,8 @@ else()
 	if(NOT MATH_LIBRARIES STREQUAL "")
 		set(PKG_MATH_LIBRARIES "-l${MATH_LIBRARIES}")
 	endif()
-	if(NOT MALLOC_LIBRARIES STREQUAL "")
-		set(PKG_MALLOC_LIBRARIES "-l${MALLOC_LIBRARIES}")
-	endif()
-	if(NOT PTHREAD_LIBRARIES STREQUAL "")
-		set(PKG_PTHREAD_LIBRARIES "-${PTHREAD_LIBRARIES}")
+	if(NOT THREAD_LIBRARIES STREQUAL "")
+		set(PKG_PTHREAD_LIBRARIES "-${THREAD_LIBRARIES}")
 	endif()
 	if(NOT DL_LIBRARIES STREQUAL "")
 		set(PKG_DL_LIBS "-l${DL_LIBRARIES}")

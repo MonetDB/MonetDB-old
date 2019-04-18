@@ -269,9 +269,6 @@
 /* Define to 1 if you have the pcre library */
 #cmakedefine HAVE_LIBPCRE 1
 
-/* Define to 1 if you have the pthread library */
-#cmakedefine HAVE_LIBPTHREAD 1
-
 /* Define to 1 if we can link to python2 */
 #cmakedefine HAVE_LIBPY 1
 
@@ -395,9 +392,6 @@
 /* Define to 1 if you have the <samtools/sam.h> header file. */
 #cmakedefine HAVE_SAMTOOLS_SAM_H 1
 
-/* Define to 1 if you have the <sched.h> header file. */
-#cmakedefine HAVE_SCHED_H 1
-
 /* Define to 1 if you have the <semaphore.h> header file. */
 #cmakedefine HAVE_SEMAPHORE_H 1
 
@@ -506,12 +500,6 @@
 /* Define to 1 if you have the <sys/un.h> header file. */
 #cmakedefine HAVE_SYS_UN_H 1
 
-/* Define to 1 if you have the <sys/utime.h> header file. */
-#cmakedefine HAVE_SYS_UTIME_H 1
-
-/* Define to 1 if you have the <sys/wait.h> header file. */
-#cmakedefine HAVE_SYS_WAIT_H 1
-
 /* Define to 1 if you have the `task_info' function. */
 #cmakedefine HAVE_TASK_INFO 1
 
@@ -577,9 +565,6 @@
 
 /* modifiable single-machine data */
 #cmakedefine LOCALSTATEDIR "@LOCALSTATE_DIR@"
-
-/* Define to the sub-directory where libtool stores uninstalled libraries. */
-#undef LT_OBJDIR
 
 /* The used password hash algorithm */
 #cmakedefine MONETDB5_PASSWDHASH "@MONETDB5_PASSWDHASH@"
