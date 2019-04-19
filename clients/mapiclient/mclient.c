@@ -157,9 +157,6 @@ static char *nullstring = default_nullstring;
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>		/* gettimeofday */
 #endif
-#ifdef HAVE_STROPTS_H
-#include <stropts.h>		/* ioctl on Solaris */
-#endif
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif

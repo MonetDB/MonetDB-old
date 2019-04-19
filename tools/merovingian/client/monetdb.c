@@ -36,9 +36,6 @@
 #ifdef HAVE_SYS_UN_H
 #include <sys/un.h> /* sockaddr_un */
 #endif
-#ifdef HAVE_STROPTS_H
-#include <stropts.h>		/* ioctl on Solaris */
-#endif
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif

@@ -27,20 +27,11 @@
 #ifdef HAVE_FCNTL_H
 # include <fcntl.h>
 #endif
-#ifdef HAVE_PROCFS_H
-# include <procfs.h>
-#endif
 #ifdef HAVE_MACH_TASK_H
 # include <mach/task.h>
 #endif
 #ifdef HAVE_MACH_MACH_INIT_H
 # include <mach/mach_init.h>
-#endif
-#if defined(HAVE_KVM_H) && defined(HAVE_SYS_SYSCTL_H)
-# include <kvm.h>
-# include <sys/param.h>
-# include <sys/sysctl.h>
-# include <sys/user.h>
 #endif
 
 #ifdef NDEBUG
@@ -278,20 +269,7 @@ MT_init_posix(void)
 size_t
 MT_getrss(void)
 {
-#if defined(HAVE_PROCFS_H) && defined(__sun__)
-	/* retrieve RSS the Solaris way (2.6+) */
-	int fd;
-	psinfo_t psbuff;
-
-	fd = open("/proc/self/psinfo", O_RDONLY | O_CLOEXEC);
-	if (fd >= 0) {
-		if (read(fd, &psbuff, sizeof(psbuff)) == sizeof(psbuff)) {
-			close(fd);
-			return psbuff.pr_rssize * 1024;
-		}
-		close(fd);
-	}
-#elif defined(HAVE_TASK_INFO)
+#if defined(HAVE_TASK_INFO)
 	/* Darwin/MACH call for process' RSS */
 	task_t task = mach_task_self();
 	struct task_basic_info_64 t_info;
@@ -299,30 +277,6 @@ MT_getrss(void)
 
 	if (task_info(task, TASK_BASIC_INFO_64, (task_info_t)&t_info, &t_info_count) != KERN_INVALID_POLICY)
 		return t_info.resident_size;  /* bytes */
-#elif defined(HAVE_KVM_H) && defined(HAVE_SYS_SYSCTL_H)
-	/* get RSS on FreeBSD and NetBSD */
-	struct kinfo_proc *ki;
-	int ski = 1;
-	kvm_t *kd;
-	size_t rss = 0;
-
-	kd = kvm_open(NULL, "/dev/null", NULL, O_RDONLY, "kvm_open");
-	if (kd != NULL) {
-		ki = kvm_getprocs(kd, KERN_PROC_PID, getpid(), &ski);
-		if (ki != NULL) {
-#ifdef __NetBSD__		/* should we use configure for this? */
-			/* see bug 3217 */
-			rss = ki->kp_eproc.e_vm.vm_rssize;
-#else
-			rss = ki->ki_rssize;
-#endif
-			kvm_close(kd);
-
-			return rss * MT_pagesize();
-		} else {
-			kvm_close(kd);
-		}
-	}
 #elif defined(__linux__)
 	/* get RSS on Linux */
 	int fd;

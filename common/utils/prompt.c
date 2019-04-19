@@ -32,15 +32,7 @@ char *
 prompt_getlogin(void)
 {
 #ifdef HAVE_GETLOGIN
-# ifdef __sun__
-	/* from Solaris' getlogin manpage:
-	 *  The correct procedure for determining the login name is to call
-	 *  cuserid(3C), or to call getlogin() and if  it fails to call
-	 *  getpwuid(3C). */
-	return cuserid(NULL);
-# else
 	return getlogin();
-# endif
 #else
 	return defaultlogin;
 #endif

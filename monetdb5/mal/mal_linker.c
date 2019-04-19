@@ -157,12 +157,6 @@ loadLibrary(str filename, int flag)
 	int idx;
 	const char *mod_path = GDKgetenv("monet_mod_path");
 
-	/* AIX requires RTLD_MEMBER to load a module that is a member of an
-	 * archive.  */
-#ifdef RTLD_MEMBER
-	mode |= RTLD_MEMBER;
-#endif
-
 	for (idx = 0; idx < lastfile; idx++)
 		if (filesLoaded[idx].modname &&
 		    strcmp(filesLoaded[idx].modname, filename) == 0)

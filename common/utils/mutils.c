@@ -480,22 +480,6 @@ get_bin_path(void)
 	mib[3] = -1;
 	if (sysctl(mib, 4, _bin_path, &cb, NULL, 0) == 0)
 		return _bin_path;
-#elif defined(HAVE_GETEXECNAME)  /* Solaris */
-	char buf[PATH_MAX];
-	const char *execn = getexecname();
-	/* getexecname doesn't always return an absolute path, the only
-	 * thing it seems to do is strip leading ./ from the invocation
-	 * string. */
-	if (*execn != '/') {
-		if (getcwd(buf, PATH_MAX) != NULL) {
-			snprintf(buf + strlen(buf), PATH_MAX - strlen(buf), "/%s", execn);
-			if (realpath(buf, _bin_path) != NULL)
-				return(_bin_path);
-		}
-	} else {
-		if (realpath(execn, _bin_path) != NULL)
-			return(_bin_path);
-	}
 #else  /* try Linux approach, also works on Cygwin */
 	if (readlink("/proc/self/exe",
 				_bin_path, sizeof(_bin_path)) != -1)

@@ -34,12 +34,7 @@ char *
 generateUUID(void)
 {
 #ifdef HAVE_UUID
-# ifdef UUID_PRINTABLE_STRING_LENGTH
-	/* Solaris */
-	char out[UUID_PRINTABLE_STRING_LENGTH];
-# else
 	char out[37];
-# endif
 	uuid_t uuid;
 	uuid_generate(uuid);
 	uuid_unparse(uuid, out);

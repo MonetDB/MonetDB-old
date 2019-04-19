@@ -218,9 +218,6 @@
 /* Define to 1 if you have the `GetDynamicTimeZoneInformation' function. */
 #cmakedefine HAVE_GETDYNAMICTIMEZONEINFORMATION 1
 
-/* Define to 1 if you have the `getexecname' function. */
-#cmakedefine HAVE_GETEXECNAME 1
-
 /* Define to 1 if you have the `getlogin' function. */
 #cmakedefine HAVE_GETLOGIN 1
 
@@ -329,9 +326,6 @@
 /* Define to 1 if you have the <netdb.h> header file. */
 #cmakedefine HAVE_NETDB_H 1
 
-/* Define to 1 if you have the <netinet/in.h> header file. */
-#cmakedefine HAVE_NETINET_IN_H 1
-
 /* Define to 1 if you have the `nl_langinfo' function. */
 #cmakedefine HAVE_NL_LANGINFO 1
 
@@ -355,9 +349,6 @@
 
 /* Define to 1 if you have the `posix_madvise' function. */
 #cmakedefine HAVE_POSIX_MADVISE 1
-
-/* Define to 1 if you have the <procfs.h> header file. */
-#cmakedefine HAVE_PROCFS_H 1
 
 /* Define to 1 if the proj library exists */
 #cmakedefine HAVE_PROJ 1
@@ -445,9 +436,6 @@
 
 /* Define to 1 if you have the `strncasecmp' function. */
 #cmakedefine HAVE_STRNCASECMP 1
-
-/* Define to 1 if you have the <stropts.h> header file. */
-#cmakedefine HAVE_STROPTS_H 1
 
 /* Define to 1 if you have the `strptime' function. */
 #cmakedefine HAVE_STRPTIME 1
