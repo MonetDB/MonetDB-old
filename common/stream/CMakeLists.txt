@@ -45,7 +45,7 @@ else()
 		set(PKG_SNAPPY "-lsnappy")
 	endif()
 	if(SOCKET_LIBRARIES)
-		set(PKG_SOCKET_LIBS "-l${SOCKET_LIBRARIES}") #TODO fix this
+		set(PKG_SOCKET_LIBS "-l${SOCKET_LIBRARIES}")
 	endif()
 	if(Iconv_FOUND AND NOT Iconv_IS_BUILT_IN)
 		set(PKG_LIBICONV "-l${ICONV_LIBRARIES}")

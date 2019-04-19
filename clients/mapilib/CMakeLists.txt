@@ -25,7 +25,7 @@ if(WIN32)
 	install(FILES $<TARGET_PDB_FILE:mapi> DESTINATION ${LIBDIR} OPTIONAL)
 else()
 	if(SOCKET_LIBRARIES)
-		set(PKG_SOCKET_LIBS "-l${SOCKET_LIBRARIES}") #TODO fix this
+		set(PKG_SOCKET_LIBS "-l${SOCKET_LIBRARIES}")
 	endif()
 	configure_file(monetdb-mapi.pc.in ${CMAKE_CURRENT_BINARY_DIR}/monetdb-mapi.pc @ONLY)
 	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/monetdb-mapi.pc DESTINATION ${PKGCONFIGDIR})

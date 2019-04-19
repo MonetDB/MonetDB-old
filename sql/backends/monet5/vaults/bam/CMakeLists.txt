@@ -10,7 +10,7 @@ include_directories(.. ../.. ../../../../include ../../../../common ../../../../
 					../../../../../monetdb5/modules/atoms ../../../../../monetdb5/modules/kernel
 					../../../../../monetdb5/mal ../../../../../monetdb5/modules/mal ../../../../../monetdb5/optimizer
 					../../../../../common/stream ../../../../../common/utils ../../../../../gdk
-					../../../../../tools/merovingian ../../../../../tools/merovingian/daemon ${SAMTOOLS_INCLUDE_DIR})
+					../../../../../tools/merovingian ../../../../../tools/merovingian/daemon)
 
 set(BAM_LINK_LIBRARIES ${SAMTOOLS_LIBRARIES})
 if(WIN32)

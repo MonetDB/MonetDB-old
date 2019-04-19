@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../common/options ../common/stream ../common/utils ${THREAD_INCLUDE_DIR} ${VALGRIND_INCLUDE_DIR})
+include_directories(../common/options ../common/stream ../common/utils ${VALGRIND_INCLUDE_DIR})
 
 set(GDK_LINK_LIBRARIES moptions mutils)
 if(WIN32)
