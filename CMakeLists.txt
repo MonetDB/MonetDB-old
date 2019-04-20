@@ -27,12 +27,9 @@ include(CheckTypeSize REQUIRED)
 include(TestBigEndian REQUIRED)
 include(TestLargeFiles REQUIRED)
 
-cmake_policy(SET CMP0075 NEW)
+cmake_policy(SET CMP0075 NEW) # Include file check macros honor CMAKE_REQUIRED_LIBRARIES
 
-# Save default cmake options in the begining
-set(PREV_CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES}")
-
-# set host data
+# Set host information
 string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" CMAKE_SYSTEM_PROCESSOR_LOWER)
 string(TOLOWER "${CMAKE_SYSTEM_NAME}" CMAKE_SYSTEM_NAME_LOWER)
 string(TOLOWER "${CMAKE_C_COMPILER_ID}" CMAKE_C_COMPILER_ID_LOWER)
@@ -86,11 +83,11 @@ if(NOT CMAKE_BUILD_TYPE)
 	message(STATUS "Setting build type to Debug as none was selected")
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "The type of build" FORCE)
 endif()
-if(EXISTS "${CMAKE_SOURCE_DIR}/vertoo.data")
+if(MERCURIAL_ID) # Developers compiling from Mercurial
 	set(DFT_STRICT "YES")
 	set(DFT_ASSERT "YES")
 	set(DFT_DEVELOPER "YES")
-else()
+else() # Users compiling from source tarball(s):
 	set(DFT_STRICT "NO")
 	set(DFT_ASSERT "NO")
 	set(DFT_DEVELOPER "NO")
@@ -168,11 +165,8 @@ if(NOT ${ENABLE_STATIC_ANALYSIS} STREQUAL "NO")
 endif()
 
 set(SOURCE "${CMAKE_SOURCE_DIR}")
-set(PREFIX "${CMAKE_INSTALL_PREFIX}")
-set(EXEC_PREFIX "${CMAKE_INSTALL_PREFIX}")
-
 if(WIN32)
-	string(REPLACE "/" "\\\\" TRIMMED_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
+	string(REPLACE "/" "\\\\" TRIMMED_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}") # Fix cmake conversions
 	set(BINDIR "${CMAKE_INSTALL_PREFIX}/bin")
 	set(BIN_DIR "${TRIMMED_INSTALL_PREFIX}\\\\bin")
 	set(DATADIR "${CMAKE_INSTALL_PREFIX}/share")
@@ -209,8 +203,8 @@ set(PROGRAM_PERMISSIONS_DEFAULT OWNER_WRITE OWNER_READ OWNER_EXECUTE GROUP_READ 
 # password hash algorithm
 set(PASSWORD_BACKEND "SHA512" CACHE STRING "Password hash algorithm, one of MD5, SHA1, RIPEMD160, SHA224, SHA256, SHA384, SHA512, defaults to SHA512")
 if(${PASSWORD_BACKEND} MATCHES "^MD5|SHA1|RIPEMD160|SHA224|SHA256|SHA384|SHA512$")
-	set("MONETDB5_PASSWDHASH" ${PASSWORD_BACKEND})
-	set("MONETDB5_PASSWDHASH_TOKEN" ${PASSWORD_BACKEND})
+	set(MONETDB5_PASSWDHASH ${PASSWORD_BACKEND})
+	set(MONETDB5_PASSWDHASH_TOKEN ${PASSWORD_BACKEND})
 else()
 	message(FATAL_ERROR "PASSWORD_BACKEND invalid, choose one of MD5, SHA1, RIPEMD160, SHA224, SHA256, SHA384, SHA512")
 endif()
@@ -219,19 +213,22 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 	add_compile_options(-no-gcc) # Intel compiler hack
 elseif(${CMAKE_C_COMPILER_ID} STREQUAL "GNU")
 	add_compile_definitions(_GNU_SOURCE _XOPEN_SOURCE)
-	set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_GNU_SOURCE -D_XOPEN_SOURCE")
-endif()
-if(NOT MSVC)
-	add_compile_definitions(_REENTRANT)
-	set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_REENTRANT")
+	set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_GNU_SOURCE -D_XOPEN_SOURCE") # required for tests
+elseif(MSVC)
+	set(_Noreturn "__declspec(noreturn)")
+	set(__attribute__(a) ON)
+	set(restrict "__restrict")
+	add_compile_definitions(_CRT_SECURE_NO_WARNINGS _CRT_SECURE_NO_DEPRECATE _WINSOCK_DEPRECATED_NO_WARNINGS)
 endif()
 
+# Tests for large files support
 opj_test_large_files(_LARGE_FILES)
 opj_test_large_files(_LARGEFILE_SOURCE)
 opj_test_large_files(_FILE_OFFSET_BITS)
-
 #Test if struct tm has tm_zone field
 check_struct_has_member("struct tm" tm_zone "time.h" HAVE_STRUCT_TM_TM_ZONE LANGUAGE C)
+#Test CPU endianness
+test_big_endian(WORDS_BIGENDIAN)
 
 #Test for __builtin_add_overflow
 check_c_source_compiles("
@@ -246,47 +243,7 @@ check_c_source_compiles("
 		return 0;
 	}" HAVE___BUILTIN_ADD_OVERFLOW)
 
-set(FLEXIBLE_ARRAY_MEMBER ON) # We compile according to C99 standard
-if(MSVC)
-	set(__attribute__(a) ON)
-	set(restrict __restrict)
-	add_compile_definitions(_CRT_SECURE_NO_WARNINGS _CRT_SECURE_NO_DEPRECATE _WINSOCK_DEPRECATED_NO_WARNINGS)
-endif()
-
-# https://github.com/Unidata/netcdf-c/commit/b432a527c4a38af45498691a44c5a88961b9c751
-# Test if char type is unsigned or not
-check_c_source_compiles("
-	#include <stdlib.h>
-
-	int main(int argc, char **argv) {
-		char error_if_char_is_signed[((char)-1) < 0 ? -1 : 1];
-		(void) argc; (void) argv; (void) error_if_char_is_signed;
-		error_if_char_is_signed[0] = 0;
-		return 0;
-	}" __CHAR_UNSIGNED__)
-if(__CHAR_UNSIGNED__)
-	add_compile_definitions(__CHAR_UNSIGNED__)
-endif()
-
-# Test if __hidden macro is supported
-check_c_source_compiles("
-	#include <stdlib.h>
-
-	__hidden void test(int a);
-	void test(int a) { (void)a; }
-
-	int main(int argc, char **argv) {
-		(void) argc; (void) argv;
-		test(1);
-		return 0;
-	}" HAVE_HIDDEN)
-if(NOT HAVE_HIDDEN)
-	set(__hidden ON)
-endif()
-
-if(MSVC)
-	set(_Noreturn "__declspec(noreturn)")
-else()
+if(NOT MSVC)
 	#Test if _Noreturn keyword is supported
 	check_c_source_compiles("
 		#include <stdlib.h>
@@ -300,9 +257,9 @@ else()
 			return 0;
 		}" HAVE_NORETURN)
 	if(HAVE_NORETURN)
-		set(_Noreturn _Noreturn)
+		set(_Noreturn "_Noreturn")
 	else()
-		set(_Noreturn __attribute__((__noreturn__)))
+		set(_Noreturn "__attribute__((__noreturn__))")
 	endif()
 endif()
 
@@ -425,10 +382,12 @@ if(WIN32)
 	set(CMAKE_SHARED_LIBRARY_PREFIX "${SO_PREFIX}" CACHE STRING "Shared library name prefix" FORCE)
 	set(CMAKE_SHARED_MODULE_PREFIX "${SO_PREFIX}" CACHE STRING "Library module name prefix" FORCE)
 	set(CMAKE_STATIC_LIBRARY_PREFIX "${SO_PREFIX}" CACHE STRING "Static Library name prefix" FORCE)
+	set(COMPILER_OPTION "/") # Used for Intel compiler available on Windows and Linux
 elseif(UNIX OR APPLE OR ${CMAKE_SYSTEM_NAME} STREQUAL "CYGWIN")
 	set(OS_DIRSEP  "/")
 	set(OS_PATHSEP ":")
 	set(SO_PREFIX  "${CMAKE_SHARED_LIBRARY_PREFIX}")
+	set(COMPILER_OPTION "-") # Used for Intel compiler available on Windows and Linux
 else()
 	message(FATAL_ERROR "Unknown target operating system")
 endif()
@@ -438,12 +397,7 @@ set(DIR_SEP_STR  ${OS_DIRSEP})
 set(PATH_SEP     "'${OS_PATHSEP}'")
 set(SO_EXT       "${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
-test_big_endian(WORDS_BIGENDIAN)
-if(APPLE)
-	set(AC_APPLE_UNIVERSAL_BUILD ON)
-endif()
-
-# checks for libraries
+# Bison
 find_package(BISON)
 if(NOT BISON_FOUND)
 	if(${ENABLE_SQL} STREQUAL "YES")
@@ -590,7 +544,9 @@ if(NOT ${WITH_READLINE} STREQUAL "NO")
 		if(HAVE_LIBREADLINE)
 			list(APPEND READLINE_LIBRARIES termcap)
 		else()
-			set(CMAKE_REQUIRED_LIBRARIES "${PREV_CMAKE_REQUIRED_LIBRARIES};readline;ncurses")
+			cmake_pop_check_state()
+			cmake_push_check_state()
+			set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};readline;ncurses")
 			check_symbol_exists("rl_reverse_search_history" "stdio.h;readline/readline.h;readline/history.h" HAVE_LIBREADLINE)
 			if(HAVE_LIBREADLINE)
 				list(APPEND READLINE_LIBRARIES ncurses)
@@ -654,7 +610,6 @@ if(APPLE)
 		set(CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES};${CRYPTO_INCLUDE_DIR}")
 		set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};${CRYPTO_LIBRARIES}")
 		check_symbol_exists("CC_MD5_Update" "CommonCrypto/CommonDigest.h" HAVE_MD5_UPDATE)
-		check_symbol_exists("CC_RIPEMD160_Update" "CommonCrypto/CommonDigest.h" HAVE_RIPEMD160_UPDATE)
 		check_symbol_exists("CC_SHA1_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA1_UPDATE)
 		check_symbol_exists("CC_SHA224_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA224_UPDATE)
 		check_symbol_exists("CC_SHA256_Update" "CommonCrypto/CommonDigest.h" HAVE_SHA256_UPDATE)
@@ -725,27 +680,7 @@ if(NOT ${WITH_REGEX} STREQUAL "POSIX")
 	include(FindPCRE)
 
 	if(PCRE_FOUND)
-		if(MSVC)
-			set(HAVE_LIBPCRE ON)
-		else()
-			#Test for UTF-8 support on PCRE library
-			cmake_push_check_state()
-			set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};pcre")
-			check_c_source_runs("
-				#include <stdlib.h>
-				#include <pcre.h>
-
-				int main(int argc, char **argv) {
-					int rc;
-					(void) argc; (void) argv;
-					if (pcre_config(PCRE_CONFIG_UTF8, &rc) != 0)
-						return 1;
-					exit(!rc);
-					return 0;
-				}
-			" HAVE_LIBPCRE)
-			cmake_pop_check_state()
-		endif()
+		check_symbol_exists("PCRE_CONFIG_UTF8" "pcre.h" HAVE_LIBPCRE) #Test for UTF-8 support on PCRE library (PCRE_CONFIG_UTF8 is a macro)
 		if(NOT HAVE_LIBPCRE)
 			if(${WITH_REGEX} STREQUAL "PCRE")
 				message(FATAL_ERROR "PCRE library found but no UTF-8 support")
@@ -767,13 +702,11 @@ if(NOT ${WITH_REGEX} STREQUAL "POSIX")
 		endif()
 	endif()
 endif()
-
 if(NOT HAVE_LIBPCRE)
 	set(PCRE_INCLUDE_DIR "")
 	set(PCRE_LIBRARIES "")
 	check_symbol_exists("regcomp" "regex.h" HAVE_POSIX_REGEX)
 endif()
-
 if(NOT HAVE_LIBPCRE AND NOT HAVE_POSIX_REGEX)
 	if(${ENABLE_MONETDB5} STREQUAL "YES")
 		message(FATAL_ERROR "PCRE library or GNU regex library not found but required for MonetDB5")
@@ -1033,66 +966,22 @@ set(SAMTOOLS_LIBRARIES "")
 set(WITH_SAMTOOLS "AUTO" CACHE PATH "Include Samtools support (default=AUTO)") # Check with HAVE_SAMTOOLS
 if(NOT ${WITH_SAMTOOLS} STREQUAL "NO")
 	cmake_push_check_state()
-
+	set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};${MATH_LIBRARIES};${THREAD_LIBRARIES};${ZLIB_LIBRARIES};bam")
 	check_include_file("samtools/bam.h" HAVE_SAMTOOLS_BAM_H)
-	if(NOT HAVE_SAMTOOLS_BAM_H)
-		set(SAMTOOLS_ERROR "bam.h header not found")
-		check_include_file("bam/bam.h" HAVE_BAM_BAM_H)
-		if(HAVE_BAM_BAM_H)
-			unset(SAMTOOLS_ERROR)
-		else()
-			set(SAMTOOLS_ERROR "Neither samtools/bam.h nor bam/bam.h header found")
-		endif()
-	endif()
-
-	if(NOT SAMTOOLS_ERROR)
-		check_include_file("samtools/sam.h" HAVE_SAMTOOLS_SAM_H)
-		if(NOT HAVE_SAMTOOLS_SAM_H)
-			set(SAMTOOLS_ERROR "samtools/sam.h header not found")
-			check_include_file("bam/sam.h" HAVE_BAM_SAM_H)
-			if(HAVE_BAM_SAM_H)
-				unset(SAMTOOLS_ERROR)
-			else()
-				set(SAMTOOLS_ERROR "Neither samtools/sam.h nor bam/sam.h header found")
-			endif()
-		endif()
-	endif()
-
-	if(NOT SAMTOOLS_ERROR)
-		check_include_file("samtools/bgzf.h" HAVE_SAMTOOLS_BGZF_H)
-		if(NOT HAVE_SAMTOOLS_BGZF_H)
-			set(SAMTOOLS_ERROR "samtools/bgzf.h header not found")
-			check_include_file("bam/bgzf.h" HAVE_BAM_BGZF_H)
-			if(HAVE_BAM_BGZF_H)
-				unset(SAMTOOLS_ERROR)
-			else()
-				set(SAMTOOLS_ERROR "Neither samtool/bgzf.h nor bam/bgzf.h header found")
-			endif()
-		endif()
-	endif()
-
-	if(NOT SAMTOOLS_ERROR)
-		set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES}bam;m;pthread;z")
-		check_symbol_exists("bam_header_read" "samtools/bam.h" HAVE_SAMTOOLS)
-		if(HAVE_SAMTOOLS)
-			set(SAMTOOLS_LIBRARIES bam)
-		else()
-			set(SAMTOOLS_ERROR "bam library not found")
-		endif()
-	endif()
-
-	if(NOT SAMTOOLS_ERROR)
-		check_include_file("samtools/kstring.h" HAVE_SAMTOOLS_KSTRING_H)
-		check_include_file("bam/kstring.h" HAVE_BAM_KSTRING_H)
-	endif()
-
-	if(SAMTOOLS_ERROR)
-		if(${WITH_SAMTOOLS} STREQUAL "YES")
-			message(FATAL_ERROR "${SAMTOOLS_ERROR}")
-		else()
-			message(STATUS "${SAMTOOLS_ERROR}")
-		endif()
-		set(HAVE_SAMTOOLS NO)
+	check_include_file("bam/bam.h" HAVE_BAM_BAM_H)
+	check_include_file("samtools/sam.h" HAVE_SAMTOOLS_SAM_H)
+	check_include_file("bam/sam.h" HAVE_BAM_SAM_H)
+	check_include_file("samtools/bgzf.h" HAVE_SAMTOOLS_BGZF_H)
+	check_include_file("bam/bgzf.h" HAVE_BAM_BGZF_H)
+	check_include_file("samtools/kstring.h" HAVE_SAMTOOLS_KSTRING_H)
+	check_include_file("bam/kstring.h" HAVE_BAM_KSTRING_H)
+	check_symbol_exists("bam_header_read" "samtools/bam.h" HAVE_SAMTOOLS)
+	if(HAVE_SAMTOOLS)
+		set(SAMTOOLS_LIBRARIES "bam")
+	elseif(${WITH_SAMTOOLS} STREQUAL "YES")
+		message(FATAL_ERROR "bam_header_read symbol not found")
+	else()
+		message(STATUS "bam_header_read symbol not found")
 	endif()
 	cmake_pop_check_state()
 endif()
@@ -1246,11 +1135,7 @@ check_include_file("sys/param.h" HAVE_SYS_PARAM_H)
 check_include_file("sys/resource.h" HAVE_SYS_RESOURCE_H)
 check_include_file("sys/socket.h" HAVE_SYS_SOCKET_H)
 check_include_file("sys/stat.h" HAVE_SYS_STAT_H)
-if(${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD") # on OpenBSD, sys/sysctl.h requires sys/param.h to be included beforehand
-	check_include_files("sys/param.h;sys/sysctl.h" HAVE_SYS_SYSCTL_H)
-else()
-	check_include_file("sys/sysctl.h" HAVE_SYS_SYSCTL_H)
-endif()
+check_include_files("sys/param.h;sys/sysctl.h" HAVE_SYS_SYSCTL_H) # on OpenBSD, sys/sysctl.h requires sys/param.h to be included beforehand
 check_include_file("sys/time.h" HAVE_SYS_TIME_H)
 check_include_file("sys/times.h" HAVE_SYS_TIMES_H)
 check_include_file("sys/types.h" HAVE_SYS_TYPES_H)
@@ -1343,6 +1228,7 @@ if(NOT ${ENABLE_INT128} STREQUAL "NO")
 
 	check_type_size(__uint128_t SIZEOF___UINT128_T LANGUAGE C)
 	if(HAVE_SIZEOF___UINT128_T AND NOT "${SIZEOF___UINT128_T}" STREQUAL "0")
+		set(SIZEOF___INT128_T ${SIZEOF___UINT128_T})
 		set(HAVE___UINT128_T ON)
 	endif()
 
@@ -1379,17 +1265,15 @@ endif()
 
 check_symbol_exists("accept4" "sys/types.h;sys/socket.h" HAVE_ACCEPT4)
 check_symbol_exists("asctime_r" "time.h" HAVE_ASCTIME_R)
-check_symbol_exists("asctime_s" "time.h" HAVE_ASCTIME_S3)
+check_symbol_exists("asctime_s" "time.h" HAVE_ASCTIME_S)
 check_symbol_exists("backtrace" "execinfo.h" HAVE_BACKTRACE)
 check_symbol_exists("clock_gettime" "time.h" HAVE_CLOCK_GETTIME)
 check_symbol_exists("ctime_r" "time.h" HAVE_CTIME_R)
-check_symbol_exists("ctime_s" "time.h" HAVE_CTIME_S3)
+check_symbol_exists("ctime_s" "time.h" HAVE_CTIME_S)
 check_symbol_exists("dispatch_semaphore_create" "dispatch/dispatch.h" HAVE_DISPATCH_SEMAPHORE_CREATE)
 check_symbol_exists("fallocate" "fcntl.h" HAVE_FALLOCATE)
 check_symbol_exists("fcntl" "unistd.h;fcntl.h" HAVE_FCNTL)
-if(NOT(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin" AND CMAKE_SYSTEM_VERSION VERSION_LESS_EQUAL 17))
-	check_symbol_exists("fdatasync" "unistd.h" HAVE_FDATASYNC)
-endif()
+check_symbol_exists("fdatasync" "unistd.h" HAVE_FDATASYNC)
 check_symbol_exists("fork" "sys/types.h;unistd.h" HAVE_FORK)
 check_symbol_exists("fseeko" "stdio.h" HAVE_FSEEKO)
 check_symbol_exists("fsync" "unistd.h" HAVE_FSYNC)
@@ -1439,43 +1323,10 @@ else()
 endif()
 check_symbol_exists("_wfopen_s" "wchar.h" HAVE__WFOPEN) # Check for _wfopen_s to avoid warnings
 
-if(HAVE_ASCTIME_R)
-	#Test if asctime_r takes 3 arguments
-	check_c_source_compiles("
-		#include <time.h>
-
-		int main(int argc, char **argv) {
-			char buf[26]; struct tm t;
-			(void) argc; (void) argv; (void) t; (void) buf;
-			asctime_r(&t,buf,26);
-			return 0;
-		}" HAVE_ASCTIME_R3)
-endif()
-
-if(HAVE_CTIME_R)
-	#Test if ctime_r takes 3 arguments
-	check_c_source_compiles("
-		#include <time.h>
-
-		int main(int argc, char **argv) {
-			char buf[26]; struct tm t;
-			(void) argc; (void) argv; (void) t; (void) buf;
-			ctime_r(&t,buf,26);
-			return 0;
-		}" HAVE_CTIME_R3)
-endif()
-
-#Test For diff program existance
-exec_program("gdiff" ARGS "--version" OUTPUT_VARIABLE GDIFF_OUPUT RETURN_VALUE GDIFF_RETURN_CODE)
-if(GDIFF_RETURN_CODE EQUAL 0 AND GDIFF_OUPUT)
-	set(DIFF "gdiff" CACHE STRING "Diff program")
-else()
-	exec_program("diff" ARGS "--version" OUTPUT_VARIABLE DIFF_OUPUT RETURN_VALUE DIFF_RETURN_CODE)
-	if(DIFF_RETURN_CODE EQUAL 0 AND DIFF_OUPUT)
-		set(DIFF "diff" CACHE STRING "Diff program")
-	else()
-		message(STATUS "No diff program found")
-	endif()
+#Test for diff program existance
+find_program(DIFF_PROGRAM NAMES gdiff diff DOC "Diff program")
+if(DIFF_PROGRAM)
+	set(DIFF "${DIFF_PROGRAM}")
 endif()
 
 if(${ENABLE_SQL} STREQUAL "YES" AND ${ENABLE_MONETDB5} STREQUAL "NO")
@@ -1493,7 +1344,7 @@ endif()
 
 # Very Important, check for compiler flags after all libraries checks, otherwise extra compiler flags might break the
 # library tests
-if(NOT "${LINK_OPTIONS}" MATCHES "-Wl,-Bsymbolic-function")
+if(NOT "${LINK_OPTIONS}" MATCHES "-Wl,-Bsymbolic-functions")
 	set(PREV_LINK_OPTIONS "${LINK_OPTIONS}")
 	set(LINK_OPTIONS "${LINK_OPTIONS} -Wl,-Bsymbolic-functions")
 	check_c_compiler_flag("" HAVE_WL_BSYMBOLIC_FUNCTIONS)
@@ -1516,38 +1367,20 @@ function(MT_addCompilerFlag REGEX_EXPRESSION FLAG_TO_ADD OLD_FLAGS BUILD NEW_FLA
 		message(STATUS "Added ${FLAG_TO_ADD} flag for ${BUILD} build(s)")
 	endif()
 endfunction()
-function(MT_addLinkerFlag REGEX_EXPRESSION FLAG_TO_ADD OLD_FLAGS NEW_FLAGS)
-	if(NOT ${OLD_FLAGS} MATCHES "${REGEX_EXPRESSION}")
-		set(${NEW_FLAGS} "${OLD_FLAGS} ${FLAG_TO_ADD}" PARENT_SCOPE)
-		message(STATUS "Added ${FLAG_TO_ADD} flag")
-	endif()
-endfunction()
 
-if(NOT CMAKE_C_FLAGS)
-	set(CMAKE_C_FLAGS "")
-endif()
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}") # Initialize variable
 if(MSVC)
 	MT_addCompilerFlag("/GF" "/GF" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
 	MT_addCompilerFlag("/W3" "/W3" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
 	MT_addCompilerFlag("/nologo" "/nologo" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
 	MT_addCompilerFlag("/Zi" "/Zi" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
 	MT_addCompilerFlag("/Oi" "/Oi" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
-endif()
-set(X_CFLAGS "")
 
-if(${ENABLE_ASSERT} STREQUAL "NO")
-	set(NDEBUG ON)
-elseif(${ENABLE_ASSERT} STREQUAL "YES" AND ${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
-	set(X_CFLAGS "${X_CFLAGS} -wd279")
-endif()
-
-if(MSVC)
 	# Remove all /Ox but /Oi on all, /Od on Debug and /Ox on others
 	MT_removeCompilerFlag("/O[0-9a-ce-hj-zA-CE-HJ-Z]+[ ]?" "/Ox" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
 	MT_removeCompilerFlag("/O[0-9a-hj-wyzA-HJ-WYZ]+[ ]?" "/Ox" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
 	MT_removeCompilerFlag("/O[0-9a-hj-wyzA-HJ-WYZ]+[ ]?" "/Ox" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
 	MT_removeCompilerFlag("/O[0-9a-hj-wyzA-HJ-WYZ]+[ ]?" "/Ox" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
-
 	MT_addCompilerFlag("/Od" "/Od" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
 	MT_addCompilerFlag("/Ox" "/Ox" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
 	MT_addCompilerFlag("/Ox" "/Ox" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
@@ -1560,60 +1393,56 @@ if(MSVC)
 	MT_addCompilerFlag("/MD" "/MD" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
 	MT_addCompilerFlag("/MD" "/MD" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
 	MT_addCompilerFlag("/MD" "/MD" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
-else()
+elseif(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
+	MT_removeCompilerFlag("${COMPILER_OPTION}O[0-9]+[ ]?" "${COMPILER_OPTION}Ox" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
+	MT_removeCompilerFlag("${COMPILER_OPTION}O[013-9]+[ ]?" "${COMPILER_OPTION}Ox" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
+	MT_removeCompilerFlag("${COMPILER_OPTION}O[013-9]+[ ]?" "${COMPILER_OPTION}Ox" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
+	MT_removeCompilerFlag("${COMPILER_OPTION}O[013-9]+[ ]?" "${COMPILER_OPTION}Ox" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
+	MT_addCompilerFlag("${COMPILER_OPTION}Od" "${COMPILER_OPTION}Od" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
+	MT_addCompilerFlag("${COMPILER_OPTION}O3" "${COMPILER_OPTION}O3" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
+	MT_addCompilerFlag("${COMPILER_OPTION}O3" "${COMPILER_OPTION}O3" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
+	MT_addCompilerFlag("${COMPILER_OPTION}O3" "${COMPILER_OPTION}O3" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
+else() #GCC, clang and Apple clang
 	# Remove existing -Ox flags
-	MT_removeCompilerFlag("-O[0-2sS]+[ ]?" "-Ox" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
+	MT_removeCompilerFlag("-O[1-2sS]+[ ]?" "-Ox" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
 	MT_removeCompilerFlag("-O[0-2sS]+[ ]?" "-Ox" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
 	MT_removeCompilerFlag("-O[0-2sS]+[ ]?" "-Ox" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
 	MT_removeCompilerFlag("-O[0-2sS]+[ ]?" "-Ox" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
-	if(${CMAKE_C_COMPILER_ID} MATCHES "^GNU|Clang|AppleClang$")
-		MT_addCompilerFlag("-O3" "-O3" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
-		MT_addCompilerFlag("-O3" "-O3" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
-		MT_addCompilerFlag("-O3" "-O3" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
-	elseif(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
-		MT_addCompilerFlag("-O2" "-O2" "${CMAKE_C_FLAGS_RELEASE}" CMAKE_C_FLAGS_RELEASE)
-		MT_addCompilerFlag("-O2" "-O2" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" CMAKE_C_FLAGS_RELWITHDEBINFO)
-		MT_addCompilerFlag("-O2" "-O2" "${CMAKE_C_FLAGS_MINSIZEREL}" CMAKE_C_FLAGS_MINSIZEREL)
-	endif()
+	MT_addCompilerFlag("-O0" "-O0" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
+	MT_addCompilerFlag("-O3" "-O3" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
+	MT_addCompilerFlag("-O3" "-O3" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
+	MT_addCompilerFlag("-O3" "-O3" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
 
 	# Replace -g flag with -g3
-	if(${CMAKE_C_FLAGS_DEBUG} MATCHES "-g$") # hack
-		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ")
-		set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} ")
-	endif()
 	MT_removeCompilerFlag("-g[ ]" "-g" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
 	MT_removeCompilerFlag("-g[ ]" "-g" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
 	if("${CMAKE_C_FLAGS_DEBUG}" STREQUAL "") # hack
 		set(CMAKE_C_FLAGS_DEBUG "-g3")
 		set(CMAKE_C_FLAGS_RELWITHDEBINFO "-g3")
-		message(STATUS "Added -g3 flag for Debug and RelWithDebugInfo build(s)")
+		message(STATUS "Added -g3 flag for Debug and RelWithDebugInfo builds")
 	else()
 		MT_addCompilerFlag("-g3" "-g3" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
 		MT_addCompilerFlag("-g3" "-g3" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
 	endif()
 
 	if(NOT ${CMAKE_C_FLAGS_RELEASE} MATCHES "D_FORTIFY_SOURCE")
-		cmake_push_check_state()
-		set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_FORTIFY_SOURCE=2")
-		check_c_compiler_flag("" HAVE_FORTIFY_SOURCE)
-		cmake_pop_check_state()
-		if(HAVE_FORTIFY_SOURCE)
-			set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
-			set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -D_FORTIFY_SOURCE=2")
-			set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -D_FORTIFY_SOURCE=2")
-			message(STATUS "Added definition _FORTIFY_SOURCE=2 for Release build")
-		endif()
+		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
+		set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -D_FORTIFY_SOURCE=2")
+		set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -D_FORTIFY_SOURCE=2")
+		message(STATUS "Added definition _FORTIFY_SOURCE=2 for Release, RelWithDebugInfo and MinSizeRel builds")
 	endif()
 
-	if(${CMAKE_C_COMPILER_ID} MATCHES "^GNU|Clang|AppleClang$")
+	if(${ENABLE_ASSERT} STREQUAL "NO")
 		MT_addCompilerFlag("-fomit-frame-pointer" "-fomit-frame-pointer" "${CMAKE_C_FLAGS}" "All" CMAKE_C_FLAGS)
 	endif()
 endif()
 
 function(MT_checkCompilerFlag Flag)
 	if(NOT "${CMAKE_C_FLAGS}" MATCHES "${Flag}")
-		check_c_compiler_flag("${Flag}" COMPILER_${Flag}_FLAG)
-		if(COMPILER_${Flag}_FLAG)
+		string(REPLACE "-" "" FLAG_TEST ${Flag}) # cmake will get confused
+		string(REPLACE "/" "" FLAG_TEST ${FLAG_TEST}) # cmake will get confused
+		check_c_compiler_flag("${Flag}" COMPILER_${FLAG_TEST})
+		if(COMPILER_${FLAG_TEST})
 			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${Flag}" PARENT_SCOPE)
 		endif()
 	endif()
@@ -1632,10 +1461,8 @@ if(${ENABLE_STRICT} STREQUAL "YES")
 		MT_checkCompilerFlag("-Wformat-overflow=1")
 		MT_checkCompilerFlag("-Wno-format-truncation")
 		MT_checkCompilerFlag("-Wno-format-nonliteral")
-		if(${CMAKE_SYSTEM_NAME} STREQUAL "CYGWIN")
-			MT_checkCompilerFlag("-Wno-error=suggest-attribute=format")
-			MT_checkCompilerFlag("-Wno-cast-function-type")
-		endif()
+		MT_checkCompilerFlag("-Wno-error=suggest-attribute=format")
+		MT_checkCompilerFlag("-Wno-cast-function-type")
 		MT_checkCompilerFlag("-Winit-self")
 		MT_checkCompilerFlag("-Winvalid-pch")
 		MT_checkCompilerFlag("-Wmissing-declarations")
@@ -1659,47 +1486,28 @@ if(${ENABLE_STRICT} STREQUAL "YES")
 		MT_checkCompilerFlag("-Wnested-externs")
 		MT_checkCompilerFlag("-Wno-char-subscripts")
 		MT_checkCompilerFlag("-Wunreachable-code")
-	elseif(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
-		if(CMAKE_C_COMPILER_VERSION VERSION_LESS 10)
-			MT_addLinkerFlag("-i_dynamic" "-i_dynamic" "${LINK_OPTIONS}" LINK_OPTIONS)
-		else()
-			MT_addLinkerFlag("-shared-intel" "-shared-intel" "${LINK_OPTIONS}" LINK_OPTIONS)
-		endif()
-		if(CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 8.1 AND CMAKE_C_COMPILER_VERSION VERSION_LESS_EQUAL 11)
-			MT_addLinkerFlag("-wd1418" "-wd1418" "${LINK_OPTIONS}" LINK_OPTIONS)
-		endif()
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -we140 -we147")
-		if(CMAKE_C_COMPILER_VERSION VERSION_LESS 8 OR CMAKE_C_COMPILER_VERSION VERSION_GREATER 17)
-			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ansi")
-		endif()
-
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -w2 -Wcheck")
-		set(X_CFLAGS "${X_CFLAGS} -we266,181,810,271,593")
-		set(X_CFLAGS "${X_CFLAGS} -Werror -Werror-all")
-		set(X_CFLAGS "${X_CFLAGS} -wd1418,1419,981,193,1357")
-
-		if(CMAKE_C_COMPILER_VERSION VERSION_EQUAL 11 OR CMAKE_C_COMPILER_VERSION VERSION_EQUAL 15 OR CMAKE_C_COMPILER_VERSION VERSION_EQUAL 17)
-			set(X_CFLAGS "${X_CFLAGS},2259")
-		endif()
-		if(CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 8.1 OR CMAKE_C_COMPILER_VERSION VERSION_LESS_EQUAL 8.9)
-			set(X_CFLAGS "${X_CFLAGS},1572")
-		elseif(CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 9.1 OR CMAKE_C_COMPILER_VERSION VERSION_LESS_EQUAL 9.9 OR (CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 10 AND CMAKE_C_COMPILER_VERSION VERSION_EQUAL 11))
-			set(X_CFLAGS "${X_CFLAGS},1572,1599")
+	elseif(${CMAKE_C_COMPILER_ID} STREQUAL "Intel" AND ${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+		set(LINK_OPTIONS "${LINK_OPTIONS} -shared-intel")
+		MT_checkCompilerFlag("-ansi")
+		MT_checkCompilerFlag("-Wall")
+		MT_checkCompilerFlag("-w2")
+		MT_checkCompilerFlag("-Wcheck")
+		MT_checkCompilerFlag("-Werror")
+		MT_checkCompilerFlag("-Werror-all")
+		MT_checkCompilerFlag("-we140,147,266,181,810,271,593")
+		MT_checkCompilerFlag("-wd1418,1419,981,193,1357")
+		MT_checkCompilerFlag("-wd2259")
+		if("${ENABLE_ASSERT}" STREQUAL "YES")
+			MT_checkCompilerFlag("-wd279")
 		endif()
 	elseif(MSVC)
 		MT_checkCompilerFlag("/WX")
 	endif()
 endif()
 
-if(BISON_FOUND AND BISON_VERSION VERSION_LESS_EQUAL 2.4.3)
-	MT_removeCompilerFlag("-Wundef[ ]?" "-Wundef" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
-endif()
-
 if(NOT ${ENABLE_SANITIZER} STREQUAL "NO")
 	if("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
-		string(TOLOWER "${ENABLE_SANITIZER}" ENABLE_SANITIZER_LOWER)
 		MT_checkCompilerFlag("-fsanitize=address")
-		MT_checkCompilerFlag("-fsanitize=${ENABLE_SANITIZER_LOWER}")
 		MT_checkCompilerFlag("-fno-omit-frame-pointer")
 		add_compile_definitions(NO_ATOMIC_INSTRUCTIONS)
 	else()
@@ -1707,11 +1515,8 @@ if(NOT ${ENABLE_SANITIZER} STREQUAL "NO")
 	endif()
 endif()
 
-set(CMAKE_C_LINK_FLAGS "${LINK_OPTIONS}" CACHE STRING "Link flags for all builds" FORCE)
+set(CMAKE_C_LINK_FLAGS "${LINK_OPTIONS}" CACHE STRING "Link flags for all builds" FORCE) # This variable is depreacted but still used
 set(LINK_OPTIONS "${LINK_OPTIONS}" CACHE STRING "Link options for all builds" FORCE)
-if(NOT "${X_CFLAGS}" STREQUAL "")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${X_CFLAGS}")
-endif()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "Compilation flags for all builds" FORCE)
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}" CACHE STRING "Debug flags" FORCE)
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}" CACHE STRING "Release flags" FORCE)

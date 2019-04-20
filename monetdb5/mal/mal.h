@@ -188,7 +188,7 @@ typedef struct {
 	str modname;				/* module context, reference into namespace */
 	str fcnname;				/* function name, reference into namespace */
 	int argc, retc, maxarg;		/* total and result argument count */
-	int argv[FLEXIBLE_ARRAY_MEMBER]; /* at least a few entries */
+	int argv[]; /* at least a few entries */
 } *InstrPtr, InstrRecord;
 
 typedef struct MALBLK {
@@ -255,7 +255,7 @@ typedef struct MALSTK {
 	int tag;		/* unique invocation call tag */
 	struct MALSTK *up;	/* stack trace list */
 	struct MALBLK *blk;	/* associated definition */
-	ValRecord stk[FLEXIBLE_ARRAY_MEMBER];
+	ValRecord stk[];
 } MalStack, *MalStkPtr;
 
 #define MAXOLTPLOCKS  1024

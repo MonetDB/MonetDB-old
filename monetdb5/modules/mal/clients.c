@@ -111,11 +111,9 @@ CLTtimeConvert(time_t l, char *s){
 			localt = *localtime(&l);
 #endif
 
-#if defined(HAVE_ASCTIME_R3)
-			asctime_r(&localt, s, 26);
-#elif defined(HAVE_ASCTIME_R)
+#if defined(HAVE_ASCTIME_R)
 			asctime_r(&localt, s);
-#elif defined(HAVE_ASCTIME_S3)
+#elif defined(HAVE_ASCTIME_S)
 			asctime_s(s, 26, &localt);
 #else
 			/* race condition: return value could be

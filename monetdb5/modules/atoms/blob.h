@@ -16,7 +16,7 @@
 
 typedef struct blob {
 	size_t nitems;
-	/*unsigned */ char data[FLEXIBLE_ARRAY_MEMBER];
+	/*unsigned */ char data[];
 } blob;
 
 mal_export int TYPE_blob;

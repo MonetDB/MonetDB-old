@@ -201,11 +201,9 @@ main(int argc, char **argv)
 		time_t t = time(0);
 		char *p;
 
-#if defined(HAVE_CTIME_R3)
-		ctime_r(&t, buf, sizeof(buf));
-#elif defined(HAVE_CTIME_R)
+#if defined(HAVE_CTIME_R)
 		ctime_r(&t, buf);
-#elif defined(HAVE_CTIME_S3)
+#elif defined(HAVE_CTIME_S)
 		ctime_s(buf, sizeof(buf), &t);
 #else
 		strncpy(buf, ctime(&t), sizeof(buf));

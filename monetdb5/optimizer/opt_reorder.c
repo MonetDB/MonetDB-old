@@ -56,7 +56,7 @@ typedef struct{
 	int cnt;
 	int used;
 	int pos,pos2;
-	int stmt[FLEXIBLE_ARRAY_MEMBER];
+	int stmt[];
 } *Node, NodeRecord;
 
 static void

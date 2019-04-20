@@ -58,15 +58,13 @@ ALARMctime(str *res)
 {
 	time_t t = time(0);
 	char *base;
-#if defined(HAVE_CTIME_R3) || defined(HAVE_CTIME_R) || defined(HAVE_CTIME_S3)
+#if defined(HAVE_CTIME_R) || defined(HAVE_CTIME_S)
 	char buf[26];
 #endif
 
-#if defined(HAVE_CTIME_R3)
-	base = ctime_r(&t, buf, sizeof(buf));
-#elif defined(HAVE_CTIME_R)
+#if defined(HAVE_CTIME_R)
 	base = ctime_r(&t, buf);
-#elif defined(HAVE_CTIME_S3)
+#elif defined(HAVE_CTIME_S)
 	base = ctime_s(buf, sizeof(buf), &t) ? NULL : buf;
 #else
 	base = ctime(&t);

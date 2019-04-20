@@ -3,11 +3,6 @@
 #ifndef _SEEN_MONETDB_CONFIG_H
 #define _SEEN_MONETDB_CONFIG_H 1
 
-/* Define if you do not want assertions */
-#ifndef NDEBUG
-#cmakedefine NDEBUG
-#endif
-
 /* Define to 1 if you have the <sys/types.h> header file. */
 #cmakedefine HAVE_SYS_TYPES_H 1
 
@@ -88,11 +83,6 @@
 /* Mercurial repository version */
 #cmakedefine MERCURIAL_ID "@MERCURIAL_ID@"
 
-/* Define if building universal (internal helper macro) */
-#ifndef AC_APPLE_UNIVERSAL_BUILD
-#cmakedefine AC_APPLE_UNIVERSAL_BUILD
-#endif
-
 /* location where binaries are installed */
 #cmakedefine BINDIR "@BIN_DIR@"
 
@@ -108,28 +98,14 @@
 /* Directory separator */
 #cmakedefine DIR_SEP_STR "@DIR_SEP_STR@"
 
-/* Define to nothing if C supports flexible array members, and to 1 if it does
-   not. That way, with a declaration like `struct s { int n; double
-   d[FLEXIBLE_ARRAY_MEMBER]; };', the struct hack can be used with pre-C99
-   compilers. When computing the size of such an object, don't use 'sizeof
-   (struct s)' as it overestimates the size. Use 'offsetof (struct s, d)'
-   instead. Don't use 'offsetof (struct s, d[0])', as this doesn't work with
-   MSVC and with C++ compilers. */
-#ifndef FLEXIBLE_ARRAY_MEMBER
-#cmakedefine FLEXIBLE_ARRAY_MEMBER
-#endif
-
 /* Define to 1 if you have the `accept4' function. */
 #cmakedefine HAVE_ACCEPT4 1
 
 /* Define to 1 if you have the `asctime_r' function. */
 #cmakedefine HAVE_ASCTIME_R 1
 
-/* Define to 1 if you have asctime_r(struct tm*,char *buf,size_t s) */
-#cmakedefine HAVE_ASCTIME_R3 1
-
-/* Define to 1 if you have asctime_s(char *buf,size_t s, struct tm*) */
-#cmakedefine HAVE_ASCTIME_S3 1
+/* Define to 1 if you have `asctime_s' function. */
+#cmakedefine HAVE_ASCTIME_S 1
 
 /* Define to 1 if you have the `backtrace' function. */
 #cmakedefine HAVE_BACKTRACE 1
@@ -158,11 +134,8 @@
 /* Define to 1 if you have the `ctime_r' function. */
 #cmakedefine HAVE_CTIME_R 1
 
-/* Define to 1 if you have ctime_r(time_t*,char *buf,size_t s) */
-#cmakedefine HAVE_CTIME_R3 1
-
-/* Define to 1 if you have ctime_s(time_t*,char *buf,size_t s) */
-#cmakedefine HAVE_CTIME_S3 1
+/* Define to 1 if you have `ctime_s' function. */
+#cmakedefine HAVE_CTIME_S 1
 
 /* Define to 1 if you have the cURL library */
 #cmakedefine HAVE_CURL 1
@@ -235,6 +208,9 @@
 
 /* Define to 1 if you have the `getuid' function. */
 #cmakedefine HAVE_GETUID 1
+
+/* Have huge */
+#cmakedefine HAVE_HGE 1
 
 /* Define to 1 if you have the iconv() function and it works. */
 #cmakedefine HAVE_ICONV 1
@@ -648,19 +624,13 @@
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */
-#if defined AC_APPLE_UNIVERSAL_BUILD
-# if defined __BIG_ENDIAN__
-#  define WORDS_BIGENDIAN 1
-# endif
-#else
-# ifndef WORDS_BIGENDIAN
+#ifndef WORDS_BIGENDIAN
 #cmakedefine WORDS_BIGENDIAN
-# endif
 #endif
 
 /* Enable large inode numbers on Mac OS X 10.5.  */
 #ifndef _DARWIN_USE_64_BIT_INODE
-# define _DARWIN_USE_64_BIT_INODE
+#define _DARWIN_USE_64_BIT_INODE
 #endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */
@@ -678,20 +648,10 @@
 #cmakedefine _LARGE_FILES
 #endif
 
-/* Define if type `char' is unsigned and you are not using gcc.  */
-#ifndef __CHAR_UNSIGNED__
-#cmakedefine __CHAR_UNSIGNED__
-#endif
-
 /* If the compiler does not support function attributes via __attribute__,
    we just define __attribute__(a) to nothing. */
 #ifndef __attribute__
 #cmakedefine __attribute__(a)
-#endif
-
-/* Does your compiler support the `__hidden' specifier? */
-#ifndef __hidden
-#cmakedefine __hidden
 #endif
 
 /* Does your compiler support the `_Noreturn' specifier? */
@@ -767,12 +727,10 @@ stpcpy(char *restrict dst, const char *restrict src)
 #if defined(HAVE___INT128)
 typedef __int128 hge;
 typedef unsigned __int128 uhge;
-#define HAVE_HGE 1
 #define SIZEOF_HGE SIZEOF___INT128
 #elif defined(HAVE___INT128_T) && defined(HAVE___UINT128_T)
 typedef __int128_t hge;
 typedef __uint128_t uhge;
-#define HAVE_HGE 1
 #define SIZEOF_HGE SIZEOF___INT128_T
 #endif
 
