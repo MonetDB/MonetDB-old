@@ -572,15 +572,9 @@
 #cmakedefine __attribute__(a)
 #endif
 
-/* Does your compiler support the `_Noreturn' specifier? */
+/* Does your compiler support the `_Noreturn' specifier? (C11 feature) */
 #ifndef _Noreturn
 #cmakedefine _Noreturn @_Noreturn@
-#endif
-
-/* Define to `__inline__' or `__inline' if that's what the C compiler
-   calls it, or to nothing if 'inline' is not supported under any name.  */
-#ifndef inline
-#cmakedefine inline
 #endif
 
 /* Does your compiler support the `__restrict' specifier? */
