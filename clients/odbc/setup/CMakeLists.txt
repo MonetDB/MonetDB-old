@@ -9,4 +9,5 @@
 include_directories(${ODBC_INCLUDE_DIR})
 
 add_library(MonetODBCs MODULE drvcfg.c drvcfg.h)
+target_compile_definitions(MonetODBCs PRIVATE LIBMONETODBCS)
 install(TARGETS MonetODBCs DESTINATION ${LIBDIR})

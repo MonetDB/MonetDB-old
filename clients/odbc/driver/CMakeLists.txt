@@ -102,7 +102,7 @@ add_library(MonetODBC MODULE
 			SQLTransact.c $<$<PLATFORM_ID:Windows>:driver.rc> $<$<PLATFORM_ID:Windows>:ODBC.syms>)
 target_link_libraries(MonetODBC PRIVATE mapi stream ${ICONV_LIBRARIES} ${ODBCINST_LIBRARIES} ${CRYPTO_LIBRARIES}
 					  ${SOCKET_LIBRARIES})
-
+target_compile_definitions(MonetODBC PRIVATE LIBMONETODBC)
 install(TARGETS MonetODBC DESTINATION ${LIBDIR})
 if(WIN32)
 	install(FILES $<TARGET_PDB_FILE:MonetODBC> DESTINATION ${LIBDIR} OPTIONAL)
