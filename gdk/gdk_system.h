@@ -539,59 +539,6 @@ typedef struct {
 #define MT_sema_up(s)		dispatch_semaphore_signal((s)->sema)
 #define MT_sema_down(s)		dispatch_semaphore_wait((s)->sema, DISPATCH_TIME_FOREVER)
 
-#elif defined(_AIX) || defined(__MACH__)
-
-/* simulate semaphores using mutex and condition variable */
-
-typedef struct {
-	int cnt;
-	pthread_mutex_t mutex;
-	pthread_cond_t cond;
-	char name[16];
-} MT_Sema;
-
-#define MT_sema_init(s, nr, n)					\
-	do {							\
-		strncpy((s)->name, (n), sizeof((s)->name));	\
-		(s)->name[sizeof((s)->name) - 1] = 0;		\
-		(s)->cnt = (nr);				\
-		pthread_mutex_init(&(s)->mutex, 0);		\
-		pthread_cond_init(&(s)->cond, 0);		\
-	} while (0)
-
-#define MT_sema_destroy(s)				\
-	do {						\
-		pthread_mutex_destroy(&(s)->mutex);	\
-		pthread_cond_destroy(&(s)->cond);	\
-	} while (0)
-
-#define MT_sema_up(s)						\
-	do {							\
-		pthread_mutex_lock(&(s)->mutex);		\
-		if ((s)->cnt++ < 0) {				\
-			pthread_cond_signal(&(s)->cond);	\
-		}						\
-		pthread_mutex_unlock(&(s)->mutex);		\
-	} while (0)
-
-#define MT_sema_down(s)							\
-	do {								\
-		TEMDEBUG fprintf(stderr, "#%s: %s: sema %s down...\n",	\
-				 MT_thread_getname(), __func__, (s)->name); \
-		pthread_mutex_lock(&(s)->mutex);			\
-		if (--(s)->cnt < 0) {					\
-			MT_thread_setsemawait(s);			\
-			do {						\
-				pthread_cond_wait(&(s)->cond,		\
-						  &(s)->mutex);		\
-			} while ((s)->cnt < 0);				\
-			MT_thread_setsemawait(NULL);			\
-			pthread_mutex_unlock(&(s)->mutex);		\
-		}							\
-		TEMDEBUG fprintf(stderr, "#%s: %s: sema %s down complete\n", \
-				 MT_thread_getname(), __func__, (s)->name); \
-	} while (0)
-
 #else
 
 typedef struct {

@@ -26,6 +26,10 @@ endif()
 
 # Handle the QUIETLY and REQUIRED arguments and set UUID_FOUND to TRUE if all listed variables are TRUE.
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(UUID DEFAULT_MSG UUID_LIBRARIES UUID_INCLUDE_DIR)
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+	find_package_handle_standard_args(UUID DEFAULT_MSG UUID_LIBRARIES UUID_INCLUDE_DIR)
+else()
+	find_package_handle_standard_args(UUID DEFAULT_MSG UUID_INCLUDE_DIR)
+endif()
 
 mark_as_advanced(UUID_INCLUDE_DIR UUID_LIBRARIES)
