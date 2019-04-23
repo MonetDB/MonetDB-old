@@ -6,4 +6,4 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-install(FILES M5server.bat DESTINATION ${PREFIX})
+install(FILES M5server.bat DESTINATION ${CMAKE_INSTALL_PREFIX})

@@ -18,7 +18,7 @@ endif()
 cmake_push_check_state()
 set(CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES};${UUID_INCLUDE_DIR}")
 set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};${UUID_LIBRARIES}")
-check_symbol_exists("uuid_generate" "uuid/uuid.h" HAVE_UUID_GENERATE)
+check_symbol_exists("uuid_generate" "uuid/uuid.h" HAVE_UUID_GENERATE) # some uuid instalations don't supply this symbol
 cmake_pop_check_state()
 if(NOT HAVE_UUID_GENERATE)
 	set(UUID_FOUND OFF)
