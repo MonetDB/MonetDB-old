@@ -30,10 +30,8 @@
 #ifdef HAVE_FCNTL_H
 # include <fcntl.h>
 #endif
-#ifdef HAVE_MACH_TASK_H
+#ifdef __MACH__
 # include <mach/task.h>
-#endif
-#ifdef HAVE_MACH_MACH_INIT_H
 # include <mach/mach_init.h>
 #endif
 #if defined(HAVE_KVM_H) && defined(HAVE_SYS_SYSCTL_H)
@@ -247,7 +245,7 @@ MT_init_posix(void)
 size_t
 MT_getrss(void)
 {
-#if defined(HAVE_TASK_INFO)
+#if defined(__MACH__)
 	/* Darwin/MACH call for process' RSS */
 	task_t task = mach_task_self();
 	struct task_basic_info_64 t_info;

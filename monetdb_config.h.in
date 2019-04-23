@@ -235,12 +235,6 @@
 /* Define to 1 if you have the `localtime_s' function. */
 #cmakedefine HAVE_LOCALTIME_S 1
 
-/* Define to 1 if you have the <mach/mach_init.h> header file. */
-#cmakedefine HAVE_MACH_MACH_INIT_H 1
-
-/* Define to 1 if you have the <mach/task.h> header file. */
-#cmakedefine HAVE_MACH_TASK_H 1
-
 /* Define to 1 if you have the `madvise' function. */
 #cmakedefine HAVE_MADVISE 1
 
@@ -387,9 +381,6 @@
 
 /* Define to 1 if you have the <sys/un.h> header file. */
 #cmakedefine HAVE_SYS_UN_H 1
-
-/* Define to 1 if you have the `task_info' function. */
-#cmakedefine HAVE_TASK_INFO 1
 
 /* Define to 1 if you have the <termios.h> header file. */
 #cmakedefine HAVE_TERMIOS_H 1

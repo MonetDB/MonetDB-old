@@ -1042,8 +1042,6 @@ check_include_file("getopt.h" HAVE_GETOPT_H)
 check_include_file("io.h" HAVE_IO_H)
 check_include_file("kvm.h" HAVE_KVM_H)
 check_include_file("libintl.h" HAVE_LIBINTL_H)
-check_include_file("mach/mach_init.h" HAVE_MACH_MACH_INIT_H)
-check_include_file("mach/task.h" HAVE_MACH_TASK_H)
 check_include_file("netdb.h" HAVE_NETDB_H)
 check_include_file("pthread.h" HAVE_PTHREAD_H)
 check_include_file("semaphore.h" HAVE_SEMAPHORE_H)
@@ -1074,7 +1072,7 @@ check_type_size(SOCKET _SOCKET LANGUAGE C)
 if(NOT HAVE__SOCKET)
 	set(SOCKET int)
 endif()
-check_type_size(size_t SIZEOF_SIZE_T LANGUAGE C) #On C99
+check_type_size(size_t SIZEOF_SIZE_T LANGUAGE C) #On C99, but we have to calculate the size
 check_type_size(ssize_t SIZEOF_SSIZE_T LANGUAGE C)
 if(NOT HAVE_SIZEOF_SSIZE_T AND MSVC AND CMAKE_SIZEOF_VOID_P EQUAL 8) # Windows 64 bit
 	set(ssize_t "int64_t")
@@ -1137,7 +1135,6 @@ check_symbol_exists("strptime" "time.h" HAVE_STRPTIME)
 check_symbol_exists("strtok_r" "string.h" HAVE_STRTOK_R)
 check_symbol_exists("strtok_s" "string.h" HAVE_STRTOK_S)
 check_symbol_exists("sysconf" "unistd.h" HAVE_SYSCONF)
-check_symbol_exists("task_info" "mach/task_info.h" HAVE_TASK_INFO)
 check_symbol_exists("times" "sys/times.h" HAVE_TIMES)
 check_symbol_exists("_wfopen_s" "wchar.h" HAVE__WFOPEN) # Check for _wfopen_s to avoid warnings
 
