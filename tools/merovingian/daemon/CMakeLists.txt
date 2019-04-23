@@ -17,7 +17,7 @@ add_executable(monetdbd merovingian.c merovingian.h argvcmds.c argvcmds.h client
 target_link_libraries(monetdbd PRIVATE meroutil moptions stream mapi monetdb5 gdk ${UUID_LIBRARIES}
 					  ${CRYPTO_LIBRARIES} ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES}
 					  ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES} ${MATH_LIBRARIES}
-					  ${THREAD_LIBRARIES} ${DL_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES})
+					  ${THREAD_LIBRARIES} ${DL_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} ${KVM_LIBRARIES})
 
 install(TARGETS monetdbd DESTINATION ${BINDIR})
 if(WIN32)

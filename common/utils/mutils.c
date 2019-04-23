@@ -22,11 +22,11 @@
 #include <string.h>
 #include "mutils.h"
 
-#if defined(HAVE_EXECINFO_H) && defined(HAVE_BACKTRACE)
-#include <execinfo.h>
+#ifdef HAVE_BACKTRACE
+# include <execinfo.h>
 #endif
 
-#ifdef HAVE_MACH_O_DYLD_H
+#ifdef HAVE__NSGETEXECUTABLEPATH
 # include <mach-o/dyld.h>  /* _NSGetExecutablePath on OSX >=10.5 */
 #endif
 
@@ -393,32 +393,6 @@ MT_lockf(char *filename, int mode, off_t off, off_t len)
 }
 
 #else
-
-#if defined(HAVE_LOCKF) && defined(__MACH__)
-/* lockf() seems to be there, but I didn't find any header file that
-   declares the prototype ... */
-extern int lockf(int fd, int cmd, off_t len);
-#endif
-
-#ifndef HAVE_LOCKF
-/* Cygwin implementation: struct flock is there, but lockf() is
-   missing.
- */
-static int
-lockf(int fd, int cmd, off_t len)
-{
-	struct flock l;
-
-	if (cmd == F_LOCK || cmd == F_TLOCK)
-		l.l_type = F_WRLCK;
-	else if (cmd == F_ULOCK)
-		l.l_type = F_UNLCK;
-	l.l_whence = SEEK_CUR;
-	l.l_start = 0;
-	l.l_len = len;
-	return fcntl(fd, cmd == F_TLOCK ? F_SETLKW : F_SETLK, &l);
-}
-#endif
 
 #ifndef O_TEXT
 #define O_TEXT 0

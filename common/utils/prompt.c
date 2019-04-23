@@ -23,18 +23,13 @@
 #include <conio.h>
 #endif
 
-#ifndef HAVE_GETLOGIN
-/* we assume this must be windows */
-static char *defaultlogin = "win32";
-#endif
-
 char *
 prompt_getlogin(void)
 {
-#ifdef HAVE_GETLOGIN
+#ifndef NATIVE_WIN32
 	return getlogin();
 #else
-	return defaultlogin;
+	return "win32";
 #endif
 }
 

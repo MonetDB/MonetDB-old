@@ -143,8 +143,7 @@ main(int argc, char **argv)
 	/* call the stream wrappers based on the user's choice, stream
 	 * everything from/to stdin/stdout */
 
-	if (!clisten) {
-#ifdef HAVE_GETADDRINFO
+	if (!clisten) { //All available platforms have getaddrinfo
 		struct addrinfo hints, *res, *rp;
 		char sport[32];
 		int ret;
@@ -182,42 +181,6 @@ main(int argc, char **argv)
 					host, sport, strerror(errno));
 			exit(1);
 		}
-#else
-		struct sockaddr_in server;
-		struct hostent *hp;
-		struct sockaddr *serv = (struct sockaddr *) &server;
-
-		if ((hp = gethostbyname(host)) == NULL) {
-			fprintf(stderr, "gethostbyname failed: %s\n", errno ? strerror(errno) : hstrerror(h_errno));
-			exit(1);
-		}
-		server = (struct sockaddr_in) {
-			.sin_family = hp->h_addrtype,
-			.sin_port = htons((unsigned short) port),
-		};
-		memcpy(&server.sin_addr, hp->h_addr_list[0], hp->h_length);
-		s = socket(server.sin_family, SOCK_STREAM
-#ifdef SOCK_CLOEXEC
-			   | SOCK_CLOEXEC
-#endif
-			   , IPPROTO_TCP);
-
-		if (s == INVALID_SOCKET) {
-			fprintf(stderr, "opening socket failed: %s\n", strerror(errno));
-			exit(1);
-		}
-#if !defined(SOCK_CLOEXEC) && defined(HAVE_FCNTL)
-		(void) fcntl(s, F_SETFD, FD_CLOEXEC);
-#endif
-
-		if (connect(s, serv, sizeof(server)) == SOCKET_ERROR) {
-			closesocket(s);
-			fprintf(stderr,
-				 "initiating connection on socket failed: %s\n",
-				 strerror(errno));
-			exit(1);
-		}
-#endif
 	} else {
 		struct sockaddr_in server;
 		SOCKLEN length = 0;

@@ -3309,7 +3309,7 @@ bandjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr,
 				break;
 			}
 #else
-#ifdef HAVE___INT128
+#ifdef SIZEOF___INT128
 			case TYPE_lng: {
 				__int128 v1 = (__int128) *(const lng *) vr, v2;
 

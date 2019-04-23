@@ -55,7 +55,6 @@
 #include "matomic.h"
 
 #include <string.h>
-#include <stddef.h>
 
 #ifdef HAVE_SYS_TYPES_H
 # include <sys/types.h>
@@ -98,10 +97,8 @@
 #endif
 
 #ifdef HAVE_ICONV
-#ifdef HAVE_ICONV_H
 #include <iconv.h>
-#endif
-#ifdef HAVE_LANGINFO_H
+#ifdef HAVE_NL_LANGINFO
 #include <langinfo.h>
 #endif
 #endif
@@ -334,7 +331,7 @@ cvfilename(const char *filename)
 		if (cd != (iconv_t) -1) {
 			size_t len = strlen(filename);
 			size_t size = 4 * len;
-			ICONV_CONST char *from = (ICONV_CONST char *) filename;
+			char *from = (char *) filename;
 			char *r = malloc(size + 1);
 			char *p = r;
 
@@ -2595,9 +2592,7 @@ socket_close(stream *s)
 		 * created.
 		 */
 		if (s->readonly) {
-#ifdef HAVE_SHUTDOWN
 			shutdown(fd, SHUT_RDWR);
-#endif
 			closesocket(fd);
 		}
 	}
@@ -3267,7 +3262,7 @@ static ssize_t
 ic_write(stream *restrict s, const void *restrict buf, size_t elmsize, size_t cnt)
 {
 	struct icstream *ic = (struct icstream *) s->stream_data.p;
-	ICONV_CONST char *inbuf;
+	char *inbuf;
 	size_t inbytesleft = elmsize * cnt;
 	char *bf = NULL;
 
@@ -3288,7 +3283,7 @@ ic_write(stream *restrict s, const void *restrict buf, size_t elmsize, size_t cn
 		inbytesleft += ic->buflen;
 		ic->buflen = 0;
 	}
-	inbuf = (ICONV_CONST char *) buf;
+	inbuf = (char *) buf;
 	while (inbytesleft > 0) {
 		char *outbuf = ic->buffer;
 		size_t outbytesleft = sizeof(ic->buffer);
@@ -3345,7 +3340,7 @@ static ssize_t
 ic_read(stream *restrict s, void *restrict buf, size_t elmsize, size_t cnt)
 {
 	struct icstream *ic = (struct icstream *) s->stream_data.p;
-	ICONV_CONST char *inbuf;
+	char *inbuf;
 	size_t inbytesleft;
 	char *outbuf;
 	size_t outbytesleft;

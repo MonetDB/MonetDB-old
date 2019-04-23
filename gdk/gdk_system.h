@@ -91,7 +91,7 @@
 # include <semaphore.h>
 #endif
 
-#ifdef HAVE_DISPATCH_DISPATCH_H
+#ifdef HAVE_DISPATCH_SEMAPHORE_CREATE
 #include <dispatch/dispatch.h>
 #endif
 

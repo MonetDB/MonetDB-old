@@ -97,11 +97,7 @@ sql_command_generator(const char *text, int state)
 
 
 	while ((name = sql_commands[idx++])) {
-#ifdef HAVE_STRNCASECMP
 		if (strncasecmp(name, text, len) == 0)
-#else
-		if (strncmp(name, text, len) == 0)
-#endif
 			return strdup(name);
 	}
 
@@ -224,11 +220,7 @@ mal_command_generator(const char *text, int state)
 	printf("currentline:%s\n",rl_line_buffer); */
 
 	while (mal_commands[idx] && (name = mal_commands[idx++])) {
-#ifdef HAVE_STRNCASECMP
 		if (strncasecmp(name, text, len) == 0)
-#else
-		if (strncmp(name, text, len) == 0)
-#endif
 			return strdup(name);
 	}
 	/* try the server to answer */

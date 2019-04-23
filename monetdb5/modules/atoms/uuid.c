@@ -17,7 +17,7 @@
 #include "mal.h"
 #include "mal_exception.h"
 #include "mal_atom.h"			/* for malAtomSize */
-#ifdef HAVE_UUID_UUID_H
+#ifdef HAVE_UUID
 #include <uuid/uuid.h>
 #endif
 #ifndef HAVE_UUID

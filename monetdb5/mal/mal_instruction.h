@@ -15,7 +15,7 @@
 
 #define isaSignature(P)  ((P)->token >=COMMANDsymbol)
 
-#ifdef HAVE_SYS_TIMES_H
+#ifdef HAVE_TIMES
 # include <sys/times.h>
 #endif
 

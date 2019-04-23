@@ -32,10 +32,6 @@ int GDKverbose = 0;
 #include <fcntl.h>
 #endif
 
-#ifdef HAVE_PWD_H
-# include <pwd.h>
-#endif
-
 #ifdef HAVE_SYS_PARAM_H
 # include <sys/param.h>  /* prerequisite of sys/sysctl on OpenBSD */
 #endif
@@ -55,6 +51,7 @@ int GDKverbose = 0;
 #define chdir _chdir
 #define getpid _getpid
 #define close _close
+#define getuid() 0
 #endif
 
 static ATOMIC_TYPE GDKstopped = ATOMIC_VAR_INIT(0);
@@ -224,9 +221,6 @@ GDKlog(FILE *lockFile, const char *format, ...)
 		;
 
 	fseek(lockFile, 0, SEEK_END);
-#ifndef HAVE_GETUID
-#define getuid() 0
-#endif
 #if defined(HAVE_CTIME_R)
 	ctm = ctime_r(&tm, tbuf);
 #elif defined(HAVE_CTIME_S)

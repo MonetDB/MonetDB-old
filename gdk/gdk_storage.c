@@ -36,6 +36,10 @@
 #define O_CLOEXEC 0
 #endif
 
+#ifdef HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+
 #ifdef HAVE_IO_H
 # include <io.h>
 #endif

@@ -20,10 +20,6 @@
 #include "msabaoth.h"
 #include "mutils.h"
 
-#ifdef HAVE_LIBGEN_H
-#include <libgen.h>
-#endif
-
 #ifndef HAVE_GETOPT_LONG
 #  include "monet_getopt.h"
 #else
@@ -221,7 +217,7 @@ monet_init(opt *set, int setlen)
 	monet_daemon = false;
 	if (GDKgetenv_isyes("monet_daemon")) {
 		monet_daemon = true;
-#ifdef HAVE_SETSID
+#ifndef NATIVE_WIN32
 		setsid();
 #endif
 	}
@@ -624,7 +620,7 @@ main(int argc, char **av)
 		free(err);
 	}
 
-#ifdef HAVE_SIGACTION
+#ifndef NATIVE_WIN32
 	{
 		struct sigaction sa;
 

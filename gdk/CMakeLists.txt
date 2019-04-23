@@ -10,8 +10,7 @@ include_directories(../common/options ../common/stream ../common/utils ${VALGRIN
 
 set(GDK_LINK_LIBRARIES moptions mutils)
 if(WIN32)
-	list(APPEND GDK_LINK_LIBRARIES stream ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${THREAD_LIBRARIES} ${DL_LIBRARIES}
-		 ${PSAPI_LIBRARIES})
+	list(APPEND GDK_LINK_LIBRARIES stream ${SOCKET_LIBRARIES} ${THREAD_LIBRARIES} ${PSAPI_LIBRARIES})
 endif()
 
 add_library(gdk SHARED

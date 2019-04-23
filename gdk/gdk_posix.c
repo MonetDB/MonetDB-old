@@ -24,6 +24,9 @@
 #endif
 #include <string.h>     /* strncpy */
 
+#ifdef HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
 #ifdef HAVE_FCNTL_H
 # include <fcntl.h>
 #endif
@@ -32,6 +35,12 @@
 #endif
 #ifdef HAVE_MACH_MACH_INIT_H
 # include <mach/mach_init.h>
+#endif
+#if defined(HAVE_KVM_H) && defined(HAVE_SYS_SYSCTL_H)
+# include <kvm.h>
+# include <sys/param.h>
+# include <sys/sysctl.h>
+# include <sys/user.h>
 #endif
 
 #ifdef NDEBUG
@@ -60,30 +69,6 @@
 
 #ifndef O_CLOEXEC
 #define O_CLOEXEC 0
-#endif
-
-/* DDALERT: AIX4.X 64bits needs HAVE_SETENV==0 due to a AIX bug, but
- * it probably isn't detected so by configure */
-
-#ifndef HAVE_SETENV
-int
-setenv(const char *name, const char *value, int overwrite)
-{
-	int ret = 0;
-
-	if (overwrite || getenv(name) == NULL) {
-		char *p = GDKmalloc(2 + strlen(name) + strlen(value));
-
-		if (p == NULL)
-			return -1;
-		strcpy(p, name);
-		strcat(p, "=");
-		strcat(p, value);
-		ret = putenv(p);
-		/* GDKfree(p); LEAK INSERTED DUE TO SOME WEIRD CRASHES */
-	}
-	return ret;
-}
 #endif
 
 /* Crude VM buffer management that keep a list of all memory mapped
@@ -254,11 +239,6 @@ setenv(const char *name, const char *value, int overwrite)
 #endif
 
 #ifndef NATIVE_WIN32
-#ifdef HAVE_POSIX_FADVISE
-#ifdef HAVE_UNAME
-#include <sys/utsname.h>
-#endif
-#endif
 
 void
 MT_init_posix(void)
@@ -277,6 +257,30 @@ MT_getrss(void)
 
 	if (task_info(task, TASK_BASIC_INFO_64, (task_info_t)&t_info, &t_info_count) != KERN_INVALID_POLICY)
 		return t_info.resident_size;  /* bytes */
+#elif defined(HAVE_KVM_H) && defined(HAVE_SYS_SYSCTL_H)
+	/* get RSS on FreeBSD and NetBSD */
+	struct kinfo_proc *ki;
+	int ski = 1;
+	kvm_t *kd;
+	size_t rss = 0;
+
+	kd = kvm_open(NULL, "/dev/null", NULL, O_RDONLY, "kvm_open");
+	if (kd != NULL) {
+		ki = kvm_getprocs(kd, KERN_PROC_PID, getpid(), &ski);
+		if (ki != NULL) {
+#ifdef __NetBSD__		/* should we use configure for this? */
+			/* see bug 3217 */
+			rss = ki->kp_eproc.e_vm.vm_rssize;
+#else
+			rss = ki->ki_rssize;
+#endif
+			kvm_close(kd);
+
+			return rss * MT_pagesize();
+		} else {
+			kvm_close(kd);
+		}
+	}
 #elif defined(__linux__)
 	/* get RSS on Linux */
 	int fd;
@@ -1055,15 +1059,9 @@ win_mkdir(const char *pathname, const int mode)
 void
 MT_sleep_ms(unsigned int ms)
 {
-#ifdef HAVE_NANOSLEEP
 	(void) nanosleep(&(struct timespec) {.tv_sec = ms / 1000,
 				.tv_nsec = ms == 1 ? 1000 : (long) (ms % 1000) * 1000000,},
 		NULL);
-#else
-	(void) select(0, NULL, NULL, NULL,
-		      &(struct timeval) {.tv_sec = ms / 1000,
-				      .tv_usec = ms == 1 ? 1 : (ms % 1000) * 1000,});
-#endif
 }
 
 #else /* WIN32 */

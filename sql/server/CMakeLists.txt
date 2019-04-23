@@ -15,7 +15,10 @@ bison_target(sqlparser sql_parser.y ${CMAKE_CURRENT_BINARY_DIR}/sql_parser.tab.c
 add_library(bison_obj OBJECT ${BISON_sqlparser_OUTPUTS})
 set_target_properties(bison_obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if(NOT MSVC)
-	check_c_compiler_flag("-Wno-unreachable-code" COMPILER_Wnounreachablecode) # Warning don't add '-' or '/' to the output variable!
+	cmake_push_check_state()
+	set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS};-Wno-unreachable-code")
+	check_c_source_compiles("int main(int argc,char** argv){(void)argc;(void)argv;return 0;}" COMPILER_Wnounreachablecode) # Warning don't add '-' or '/' to the output variable!
+	cmake_pop_check_state()
 	if(COMPILER_Wnounreachablecode)
 		target_compile_options(bison_obj PRIVATE -Wno-unreachable-code) # use this flag only to compile the bison output
 	endif()

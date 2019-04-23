@@ -693,9 +693,6 @@
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
-#ifdef HAVE_PWD_H
-#include  <pwd.h>
-#endif
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
@@ -2369,8 +2366,7 @@ mapi_reconnect(Mapi mid)
 		}
 	} else
 #endif
-	{
-#ifdef HAVE_GETADDRINFO
+	{ //All available platforms have getaddrinfo
 		struct addrinfo hints, *res, *rp;
 		char port[32];
 		int ret;
@@ -2423,61 +2419,6 @@ mapi_reconnect(Mapi mid)
 			}
 			return mapi_setError(mid, errbuf, "mapi_reconnect", MERROR);
 		}
-#else
-		struct sockaddr_in server;
-		struct hostent *hp;
-		struct sockaddr *serv = (struct sockaddr *) &server;
-
-		if (mid->hostname == NULL)
-			mid->hostname = strdup("localhost");
-
-		if ((hp = gethostbyname(mid->hostname)) == NULL) {
-			snprintf(errbuf, sizeof(errbuf), "gethostbyname failed: %s",
-#ifdef _MSC_VER
-				 wsaerror(WSAGetLastError())
-#else
-				 errno ? strerror(errno) : hstrerror(h_errno)
-#endif
-				);
-			return mapi_setError(mid, errbuf, "mapi_reconnect", MERROR);
-		}
-		server = (struct sockaddr_in) {
-			.sin_family = hp->h_addrtype,
-			.sin_port = htons((unsigned short) mid->port),
-		};
-		memcpy(&server.sin_addr, hp->h_addr_list[0], hp->h_length);
-		s = socket(server.sin_family, SOCK_STREAM
-#ifdef SOCK_CLOEXEC
-			   | SOCK_CLOEXEC
-#endif
-			   , IPPROTO_TCP);
-
-		if (s == INVALID_SOCKET) {
-			snprintf(errbuf, sizeof(errbuf), "opening socket failed: %s",
-#ifdef _MSC_VER
-				 wsaerror(WSAGetLastError())
-#else
-				 strerror(errno)
-#endif
-				);
-			return mapi_setError(mid, errbuf, "mapi_reconnect", MERROR);
-		}
-#if !defined(SOCK_CLOEXEC) && defined(HAVE_FCNTL)
-		(void) fcntl(s, F_SETFD, FD_CLOEXEC);
-#endif
-
-		if (connect(s, serv, sizeof(server)) == SOCKET_ERROR) {
-			snprintf(errbuf, sizeof(errbuf),
-				 "initiating connection on socket failed: %s",
-#ifdef _MSC_VER
-				 wsaerror(WSAGetLastError())
-#else
-				 strerror(errno)
-#endif
-				);
-			return mapi_setError(mid, errbuf, "mapi_reconnect", MERROR);
-		}
-#endif
 	}
 
 	mid->to = socket_wstream(s, "Mapi client write");

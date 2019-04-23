@@ -44,7 +44,7 @@
 #include <ctype.h>
 #include <string.h>
 
-#ifdef WIN32
+#ifndef HAVE_STRPTIME
 
 /*
  * We do not implement alternate representations. However, we always

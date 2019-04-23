@@ -11,7 +11,7 @@
 
 #include "mal_client.h"
 
-#ifdef HAVE_SYS_TIMES_H
+#ifdef HAVE_TIMES
 # include <sys/times.h>
 #endif
 

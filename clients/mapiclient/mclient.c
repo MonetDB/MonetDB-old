@@ -44,13 +44,9 @@
 #include <locale.h>
 
 #ifdef HAVE_ICONV
-#ifdef HAVE_ICONV_H
 #include <iconv.h>
-#endif
 #ifdef HAVE_NL_LANGINFO
-#ifdef HAVE_LANGINFO_H
 #include <langinfo.h>
-#endif
 #endif
 #endif
 
@@ -3665,7 +3661,7 @@ main(int argc, char **argv)
 		if (encoding != NULL &&
 		    (cd_in = iconv_open("utf-8", encoding)) != (iconv_t) -1) {
 			char *savecommand = command;
-			ICONV_CONST char *from = command;
+			char *from = command;
 			size_t fromlen = strlen(from);
 			int factor = 4;
 			size_t tolen = factor * fromlen + 1;
