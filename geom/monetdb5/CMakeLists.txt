@@ -14,7 +14,7 @@ if(WIN32)
 	list(APPEND GEOM_LINK_LIBRARIES monetdb5 gdk stream)
 endif()
 
-add_library(geom MODULE geom.h geom.c geomBulk.c geom_upgrade.c ../lib/libgeom.c ../lib/libgeom.h)
+add_library(geom MODULE geom.h geom.c geomBulk.c geom_upgrade.c libgeom.c libgeom.h)
 target_link_libraries(geom PRIVATE ${GEOM_LINK_LIBRARIES})
 set_target_properties(geom PROPERTIES OUTPUT_NAME _geom)
 target_compile_definitions(geom PRIVATE LIBGEOM)

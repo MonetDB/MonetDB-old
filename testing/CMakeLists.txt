@@ -26,11 +26,9 @@ string(REPLACE "\\" "\\\\" QXmandir "${MANDIR}")
 string(REPLACE "\\" "\\\\" QXprefix "${CMAKE_INSTALL_PREFIX}")
 string(REPLACE "\\" "\\\\" QXsysconfdir "${SYSCONFDIR}")
 
-string(REPLACE "\\" "\\\\" QXPYTHON2 "${Python2_EXECUTABLE}")
+set(PYTHON3 "${Python3_EXECUTABLE}")
 string(REPLACE "\\" "\\\\" QXPYTHON3 "${Python3_EXECUTABLE}")
-string(REPLACE "\\" "\\\\" QXPYTHON_LIBDIR "${PYTHON_LIBDIR}")
-string(REPLACE "\\" "\\\\" QXPYTHON2_LIBDIR "${Python2_SITEARCH}")
-string(REPLACE "\\" "\\\\" QXPYTHON3_LIBDIR "${Python3_SITEARCH}")
+string(REPLACE "\\" "\\\\" QXPYTHON3_LIBDIR "${PYTHON_LIBDIR}")
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 4)
 	set(BITS32_FALSE "#")

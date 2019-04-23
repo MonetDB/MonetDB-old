@@ -10,5 +10,5 @@ INCLUDES = ../../common/stream ../../common/utils ../../gdk $(GEOS_INCS) $(proj_
 lib_geom = {
 	NOINST
 	DIR = libdir/MonetDB
-	SOURCES = libgeom.c  libgeom.h
+	SOURCES = ../monetdb5/libgeom.c  ../monetdb5/libgeom.h
 }
