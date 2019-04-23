@@ -10,7 +10,7 @@ include_directories(../../../../../clients/mapilib ../../../../../common/utils .
 					../../../../../monetdb5/modules/atoms ../../../../../monetdb5/modules/mal ../../../../../gdk
 					../../../../../monetdb5/mal ../../../../../sql/backends/monet5 ../../../../../sql/common
 					../../../../../sql/include ../../../../../sql/server ../../../../../sql/storage ../pyapi
-					${PY3_INCLUDE_DIR})
+					${PY3_INCLUDE_DIR} ${NUMPY3_INCLUDE_DIR})
 
 set(PYAPI3_LINK_LIBRARIES ${PY3_LIBRARIES})
 if(WIN32)

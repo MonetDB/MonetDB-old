@@ -9,7 +9,8 @@
 include_directories(../../../../../clients/mapilib ../../../../../common/utils ../../../../../common/stream
 					../../../../../monetdb5/modules/atoms ../../../../../monetdb5/modules/mal ../../../../../gdk
 					../../../../../monetdb5/mal ../../../../../sql/backends/monet5 ../../../../../sql/common
-					../../../../../sql/include ../../../../../sql/server ../../../../../sql/storage ${PY2_INCLUDE_DIR})
+					../../../../../sql/include ../../../../../sql/server ../../../../../sql/storage ${PY2_INCLUDE_DIR}
+					${NUMPY2_INCLUDE_DIR})
 
 set(PYAPI_LINK_LIBRARIES ${PY2_LIBRARIES})
 if(WIN32)
