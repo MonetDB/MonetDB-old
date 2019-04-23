@@ -26,7 +26,7 @@
 # include <execinfo.h>
 #endif
 
-#ifdef HAVE__NSGETEXECUTABLEPATH
+#ifdef __MACH__
 # include <mach-o/dyld.h>  /* _NSGetExecutablePath on OSX >=10.5 */
 #endif
 
@@ -439,7 +439,7 @@ get_bin_path(void)
 	if (GetModuleFileName(NULL, _bin_path,
 			      (DWORD) sizeof(_bin_path)) != 0)
 		return _bin_path;
-#elif defined(HAVE__NSGETEXECUTABLEPATH)  /* Darwin/OSX */
+#elif defined(__MACH__)  /* Darwin/OSX */
 	char buf[PATH_MAX];
 	uint32_t size = PATH_MAX;
 	if (_NSGetExecutablePath(buf, &size) == 0 &&

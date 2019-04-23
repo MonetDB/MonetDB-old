@@ -229,8 +229,6 @@
  */
 
 #ifdef HAVE_PTHREAD_H
-/* pthread.h on Windows includes config.h if HAVE_CONFIG_H is set */
-#undef HAVE_CONFIG_H
 #include <sched.h>
 #include <pthread.h>
 #endif
@@ -306,7 +304,6 @@ MT_getrss(void)
 #endif
 	return 0;
 }
-
 
 void *
 MT_mmap(const char *path, int mode, size_t len)

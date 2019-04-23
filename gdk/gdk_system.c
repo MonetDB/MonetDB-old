@@ -600,7 +600,6 @@ MT_thread_setworking(const char *work)
 		p->working = work;
 }
 
-#ifdef HAVE_PTHREAD_SIGMASK
 static void
 MT_thread_sigmask(sigset_t *new_mask, sigset_t *orig_mask)
 {
@@ -609,7 +608,6 @@ MT_thread_sigmask(sigset_t *new_mask, sigset_t *orig_mask)
 	sigdelset(new_mask, SIGPROF);
 	pthread_sigmask(SIG_SETMASK, new_mask, orig_mask);
 }
-#endif
 
 static void
 rm_posthread_locked(struct posthread *p)
@@ -706,6 +704,7 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d, 
 	pthread_attr_t attr;
 	int ret;
 	struct posthread *p;
+	sigset_t new_mask, orig_mask;
 
 	join_threads();
 	if ((ret = pthread_attr_init(&attr)) != 0) {
@@ -743,11 +742,9 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d, 
 	posthreads = p;
 	*t = p->mtid = ++MT_thread_id;
 	pthread_mutex_unlock(&posthread_lock);
-#ifdef HAVE_PTHREAD_SIGMASK
-	sigset_t new_mask, orig_mask;
+
 	(void) sigfillset(&new_mask);
 	MT_thread_sigmask(&new_mask, &orig_mask);
-#endif
 	THRDDEBUG fprintf(stderr, "#create \"%s\" \"%s\"\n", MT_thread_getname(), threadname);
 	ret = pthread_create(&p->tid, &attr, thread_starter, p);
 	if (ret != 0) {
@@ -759,9 +756,7 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d, 
 	} else {
 		/* must not fail after this: the thread has been started */
 	}
-#ifdef HAVE_PTHREAD_SIGMASK
 	MT_thread_sigmask(&orig_mask, NULL);
-#endif
 	return ret;
 }
 
@@ -815,18 +810,13 @@ MT_join_thread(MT_Id t)
 int
 MT_kill_thread(MT_Id t)
 {
-	assert(t > 1);
-#ifdef HAVE_PTHREAD_KILL
 	struct posthread *p;
+	assert(t > 1);
 
 	join_threads();
 	p = find_posthread(t);
 	if (p)
 		return pthread_kill(p->tid, SIGHUP);
-#else
-	(void) t;
-	join_threads();
-#endif
 	return -1;
 }
 #endif

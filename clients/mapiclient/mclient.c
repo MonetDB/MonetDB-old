@@ -2997,7 +2997,7 @@ set_timezone(Mapi mid)
 	MapiHdl hdl;
 
 	/* figure out our current timezone */
-#if defined HAVE_GETDYNAMICTIMEZONEINFORMATION
+#if defined NATIVE_WIN32 // GetDynamicTimeZoneInformation is available from Windows Vista up
 	DYNAMIC_TIME_ZONE_INFORMATION tzinf;
 
 	/* documentation says: UTC = localtime + Bias (in minutes),

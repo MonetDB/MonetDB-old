@@ -77,12 +77,6 @@
  * @- pthreads Includes and Definitions
  */
 #ifdef HAVE_PTHREAD_H
-/* don't re-include config.h; on Windows, don't redefine pid_t in an
- * incompatible way */
-#undef HAVE_CONFIG_H
-#ifdef pid_t
-#undef pid_t
-#endif
 #include <sched.h>
 #include <pthread.h>
 #endif
@@ -91,7 +85,7 @@
 # include <semaphore.h>
 #endif
 
-#ifdef HAVE_DISPATCH_SEMAPHORE_CREATE
+#ifdef __MACH__ /* dispatch_semaphore_create function */
 #include <dispatch/dispatch.h>
 #endif
 
@@ -526,7 +520,7 @@ typedef struct {
 				 MT_thread_getname(), __func__, (s)->name); \
 	} while (0)
 
-#elif defined(HAVE_DISPATCH_SEMAPHORE_CREATE)
+#elif defined(__MACH__)
 
 /* MacOS X */
 typedef struct {
