@@ -19,11 +19,6 @@
 #define CONTROL_SOCK   ".s.merovingian."
 
 #define SOCKPTR struct sockaddr *
-#ifdef HAVE_SOCKLEN_T
-#define SOCKLEN socklen_t
-#else
-#define SOCKLEN int
-#endif
 
 typedef char* err;
 

@@ -298,9 +298,6 @@
 /* Define to 1 if you have the pthread_sigmask function */
 #cmakedefine HAVE_PTHREAD_SIGMASK 1
 
-/* Define to 1 if you have the <pwd.h> header file. */
-#cmakedefine HAVE_PWD_H 1
-
 /* Define to 1 if you have the `RIPEMD160_Update' function. */
 #cmakedefine HAVE_RIPEMD160_UPDATE 1
 
@@ -342,9 +339,6 @@
 
 /* Define to 1 if you have the `sigaction' function. */
 #cmakedefine HAVE_SIGACTION 1
-
-/* Define to 1 if the system has the type `socklen_t'. */
-#cmakedefine HAVE_SOCKLEN_T 1
 
 /* Define to 1 if you have the SQLGetPrivateProfileString function */
 #cmakedefine HAVE_SQLGETPRIVATEPROFILESTRING 1
@@ -529,9 +523,6 @@
 /* The size of `__uint128_t', as computed by sizeof. */
 #cmakedefine SIZEOF___UINT128_T @SIZEOF___UINT128_T@
 
-/* type used for sockets */
-#cmakedefine SOCKET @SOCKET@
-
 /* Shared Object extension */
 #cmakedefine SO_EXT "@SO_EXT@"
 
@@ -597,9 +588,9 @@
 #cmakedefine restrict @restrict@
 #endif
 
-/* type used by connect */
-#ifndef socklen_t
-#cmakedefine socklen_t @socklen_t@
+/* type used for sockets */
+#ifndef SOCKET
+#cmakedefine SOCKET @SOCKET@
 #endif
 
 /* Define to `int' if <sys/types.h> does not define. */

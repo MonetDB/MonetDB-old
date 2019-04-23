@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../../mapilib)
+include_directories(../../mapilib ${ODBC_INCLUDE_DIR})
 
 add_library(MonetODBC MODULE
 			ODBCConvert.c

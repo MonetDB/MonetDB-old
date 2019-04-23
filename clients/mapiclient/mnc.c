@@ -44,13 +44,6 @@
 # endif
 #endif
 
-#define SOCKPTR struct sockaddr *
-#ifdef HAVE_SOCKLEN_T
-#define SOCKLEN socklen_t
-#else
-#define SOCKLEN int
-#endif
-
 #if !defined(HAVE_ACCEPT4) || !defined(SOCK_CLOEXEC)
 #define accept4(sockfd, addr, addlen, flags)	accept(sockfd, addr, addrlen)
 #endif
@@ -183,7 +176,7 @@ main(int argc, char **argv)
 		}
 	} else {
 		struct sockaddr_in server;
-		SOCKLEN length = 0;
+		socklen_t length = 0;
 		SOCKET sock = INVALID_SOCKET;
 		int on = 1;
 		int i = 0;
@@ -211,7 +204,7 @@ main(int argc, char **argv)
 		server.sin_addr.s_addr = htonl(INADDR_ANY);
 		for (i = 0; i < 8; i++)
 			server.sin_zero[i] = 0;
-		length = (SOCKLEN) sizeof(server);
+		length = (socklen_t) sizeof(server);
 
 		server.sin_port = htons((unsigned short) ((port) & 0xFFFF));
 		if (bind(sock, (SOCKPTR) &server, length) == SOCKET_ERROR) {

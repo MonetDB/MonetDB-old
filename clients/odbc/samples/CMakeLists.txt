@@ -6,6 +6,8 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
+include_directories(${ODBC_INCLUDE_DIR})
+
 if(HAVE_TESTING)
 	add_executable(odbcsample1 odbcsample1.c)
 	target_link_libraries(odbcsample1 PRIVATE ${ODBC_LIBRARIES})
