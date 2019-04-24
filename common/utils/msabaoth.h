@@ -9,6 +9,8 @@
 #ifndef _SEEN_SABAOTH_H
 #define _SEEN_SABAOTH_H 1
 
+#include <time.h>  /* for time_t */
+
 typedef struct Ssablist {
 	char *val;               /* list value */
 	struct Ssablist* next;   /* pointer to the next available value*/

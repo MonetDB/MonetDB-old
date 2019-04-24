@@ -256,9 +256,6 @@
 /* Define to 1 if you have the `nl_langinfo' function. */
 #cmakedefine HAVE_NL_LANGINFO 1
 
-/* Define to 1 if you have the <odbcinst.h> header file. */
-#cmakedefine HAVE_ODBCINST_H 1
-
 /* Define to 1 if you have the OpenSSL library */
 #cmakedefine HAVE_OPENSSL 1
 
@@ -318,12 +315,6 @@
 
 /* Define to 1 if you have the `SHA512_Update' function. */
 #cmakedefine HAVE_SHA512_UPDATE 1
-
-/* Define to 1 if you have the `sigaction' function. */
-#cmakedefine HAVE_SIGACTION 1
-
-/* Define to 1 if you have the SQLGetPrivateProfileString function */
-#cmakedefine HAVE_SQLGETPRIVATEPROFILESTRING 1
 
 /* Define to 1 if you have the <stdatomic.h> header file */
 #cmakedefine HAVE_STDATOMIC_H 1
