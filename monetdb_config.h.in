@@ -178,9 +178,6 @@
 /* Define to 1 if you have the `gettimeofday' function. */
 #cmakedefine HAVE_GETTIMEOFDAY 1
 
-/* Define to 1 if you have the `getuid' function. */
-#cmakedefine HAVE_GETUID 1
-
 /* Have huge */
 #cmakedefine HAVE_HGE 1
 
@@ -601,8 +598,6 @@ typedef __uint128_t uhge;
 #endif
 
 #ifndef WIN32
-/* see https://docs.microsoft.com/en-us/visualstudio/code-quality/using-sal-annotations-to-reduce-c-cpp-code-defects
- * and Visual Studio include file <sal.h> */
 #ifndef _In_z_
 #define _In_z_
 #endif

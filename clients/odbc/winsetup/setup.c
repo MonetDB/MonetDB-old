@@ -6,11 +6,6 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
-/* Visual Studio 8 has deprecated lots of stuff: suppress warnings */
-#ifndef _CRT_SECURE_NO_DEPRECATE
-#define _CRT_SECURE_NO_DEPRECATE 1
-#endif
-
 #include "monetdb_config.h"
 #include <windows.h>
 /* indicate to sqltypes.h that windows.h has already been included and
