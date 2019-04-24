@@ -23,7 +23,7 @@ set_target_properties(capi PROPERTIES OUTPUT_NAME _capi)
 target_compile_definitions(capi PRIVATE LIBCUDF)
 
 # Generate cheader.text.h file
-add_custom_command(OUTPUT cheader COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/boot.py
+add_custom_command(OUTPUT cheader COMMAND "${Python3_EXECUTABLE}" ${CMAKE_CURRENT_SOURCE_DIR}/boot.py
 				   ${CMAKE_CURRENT_SOURCE_DIR}/cheader.h ${CMAKE_CURRENT_BINARY_DIR}/cheader.text.h
 				   BYPRODUCTS cheader.text.h)
 add_custom_target(do_cheader DEPENDS cheader)
