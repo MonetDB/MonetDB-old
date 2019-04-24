@@ -1195,13 +1195,16 @@ else() #GCC, clang and Apple clang
 
 	# Linker flags
 	MT_addCompilerFlag("-Wl,-Bsymbolic-functions" "-Wl,-Bsymbolic-functions" "${LINK_OPTIONS}" "all" LINK_OPTIONS)
-	MT_addCompilerFlag("-Wl,-undefined,dynamic_lookup" "-Wl,-undefined,dynamic_lookup" "${LINK_OPTIONS}" "all" LINK_OPTIONS)
+	if(${CMAKE_C_COMPILER_ID} STREQUAL "AppleClang")
+		MT_addCompilerFlag("-Wl,-undefined,dynamic_lookup" "-Wl,-undefined,dynamic_lookup" "${CMAKE_SHARED_LINKER_FLAGS}" "all shared libraries" CMAKE_SHARED_LINKER_FLAGS)
+		MT_addCompilerFlag("-Wl,-undefined,dynamic_lookup" "-Wl,-undefined,dynamic_lookup" "${CMAKE_STATIC_LINKER_FLAGS}" "all static libraries" CMAKE_STATIC_LINKER_FLAGS)
+		MT_addCompilerFlag("-Wl,-undefined,dynamic_lookup" "-Wl,-undefined,dynamic_lookup" "${CMAKE_MODULE_LINKER_FLAGS}" "all shared library modules" CMAKE_MODULE_LINKER_FLAGS)
+	endif()
 endif()
 
 function(MT_checkCompilerFlag Flag) # WARNING this doesn't work with LINK_OPTIONS yet!
 	if(NOT "${CMAKE_C_FLAGS}" MATCHES "${Flag}")
-		string(REPLACE "-" "" FLAG_TEST ${Flag}) # cmake will get confused
-		string(REPLACE "/" "" FLAG_TEST ${FLAG_TEST}) # cmake will get confused
+		string(REGEX REPLACE "[-/=]" "" FLAG_TEST "${Flag}") # cmake will get confused if we don't remove - / =
 		cmake_push_check_state()
 		set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${Flag}")
 		check_c_source_compiles("int main(int argc,char** argv){(void)argc;(void)argv;return 0;}" COMPILER_${FLAG_TEST})
@@ -1282,6 +1285,9 @@ endif()
 
 set(CMAKE_C_LINK_FLAGS "${LINK_OPTIONS}" CACHE STRING "Link flags for all builds" FORCE) # This variable is depreacted but still used
 set(LINK_OPTIONS "${LINK_OPTIONS}" CACHE STRING "Link options for all builds" FORCE)
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" CACHE STRING "Shared library link options for all builds" FORCE)
+set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS}" CACHE STRING "Static library link options for all builds" FORCE)
+set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}" CACHE STRING "Shared library module link options for all builds" FORCE)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "Compilation flags for all builds" FORCE)
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}" CACHE STRING "Debug flags" FORCE)
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}" CACHE STRING "Release flags" FORCE)
