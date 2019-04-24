@@ -12,7 +12,7 @@
 #define MAL_EXT ".mal"
 #define SQL_EXT ".sql"
 
-#ifdef HAVE_DLFCN_H
+#ifndef NATIVE_WIN32
 #include <dlfcn.h>
 #else
 #define RTLD_LAZY   1

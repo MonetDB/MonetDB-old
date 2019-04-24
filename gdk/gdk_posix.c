@@ -41,6 +41,10 @@
 # include <sys/user.h>
 #endif
 
+#ifndef NATIVE_WIN32
+# include <dlfcn.h>
+#endif
+
 #ifdef NDEBUG
 #ifndef NVALGRIND
 #define NVALGRIND NDEBUG
@@ -651,10 +655,6 @@ MT_path_absolute(const char *pathname)
 {
 	return (*pathname == DIR_SEP);
 }
-
-#ifdef HAVE_DLFCN_H
-# include <dlfcn.h>
-#endif
 
 void *
 mdlopen(const char *library, int mode)

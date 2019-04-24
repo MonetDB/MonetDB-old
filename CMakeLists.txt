@@ -776,13 +776,24 @@ if(NOT ${ENABLE_ODBC} STREQUAL "NO")
 	find_path(ODBCINST_INCLUDE odbcinst.h)
 	if(ODBCINST_INCLUDE)
 		set(ODBC_INCLUDE_DIR "${ODBCINST_INCLUDE}")
-		if(MSVC)
-			if(CMAKE_SIZEOF_VOID_P EQUAL 8) # Windows 64 bit
-				set(LENP_OR_POINTER_T "SQLLEN *")
-			else()
-				set(LENP_OR_POINTER_T "SQLPOINTER")
-			endif()
+		cmake_push_check_state()
+		set(CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES};${ODBC_INCLUDE_DIR}")
+		if(WIN32)
+			set(CMAKE_EXTRA_INCLUDE_FILES "${CMAKE_EXTRA_INCLUDE_FILES};windows.h;sqlext.h;sqltypes.h")
+		else()
+			set(CMAKE_EXTRA_INCLUDE_FILES "${CMAKE_EXTRA_INCLUDE_FILES};sql.h;sqltypes.h")
+		endif()
 
+		check_type_size(SQLLEN _SQLLEN LANGUAGE C)
+		if(HAVE__SQLLEN)
+			set(LENP_OR_POINTER_T "SQLLEN *")
+		else()
+			set(LENP_OR_POINTER_T "SQLPOINTER")
+		endif()
+
+		check_type_size(SQLWCHAR SIZEOF_SQLWCHAR LANGUAGE C)
+		cmake_pop_check_state()
+		if(WIN32) # Windows uses different libraries for the ODBC driver
 			find_library(ODBCCP32_LIBRARY odbccp32)
 			if(ODBCCP32_LIBRARY)
 				set(ODBCINST_LIBRARIES "${ODBCINST_LIBRARIES};${ODBCCP32_LIBRARY}")
@@ -808,9 +819,6 @@ if(NOT ${ENABLE_ODBC} STREQUAL "NO")
 				message(STATUS "ODBC libraries missing")
 			endif()
 		else()
-			cmake_push_check_state()
-			set(CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES};${ODBC_INCLUDE_DIR}")
-
 			find_library(ODBCINST_LIBRARY odbcinst)
 			if(ODBCINST_LIBRARY)
 				set(ODBCINST_LIBRARIES "${ODBCINST_LIBRARY}")
@@ -819,32 +827,6 @@ if(NOT ${ENABLE_ODBC} STREQUAL "NO")
 			if(ODBC_LIBRARY)
 				set(ODBC_LIBRARIES "${ODBC_LIBRARY}")
 			endif()
-
-			message(STATUS "Checking SQLColAttribute uses SQLLEN * or SQLPOINTER")
-			check_c_source_compiles("
-				#include <sql.h>
-
-				SQLRETURN SQL_API
-				SQLColAttribute(SQLHSTMT hStmt, SQLUSMALLINT nCol, SQLUSMALLINT nFieldIdentifier, SQLPOINTER pszValue, SQLSMALLINT nValueLengthMax, SQLSMALLINT *pnValueLength, SQLLEN *pnValue) {
-					(void) hStmt; (void) nCol; (void) nFieldIdentifier; (void) pszValue; (void) nValueLengthMax; (void) pnValueLength; (void) pnValue;
-					return SQL_SUCCESS;
-				}
-				int main(int argc, char **argv) {
-					(void) argc; (void) argv;
-					return SQLColAttribute(0,0,0,0,0,0,0);
-				}
-			" SQL_COL_TEST)
-			if(SQL_COL_TEST)
-				message(STATUS "Using 'SQLLEN *' as SQLColAttribute")
-				set(LENP_OR_POINTER_T "SQLLEN *")
-			else()
-				message(STATUS "Using 'SQLPOINTER' as SQLColAttribute")
-				set(LENP_OR_POINTER_T "SQLPOINTER")
-			endif()
-
-			set(CMAKE_EXTRA_INCLUDE_FILES "${CMAKE_EXTRA_INCLUDE_FILES};sqltypes.h")
-			check_type_size(SQLWCHAR SIZEOF_SQLWCHAR LANGUAGE C)
-			cmake_pop_check_state()
 
 			if(ODBCINST_LIBRARY AND ODBC_LIBRARY AND HAVE_SIZEOF_SQLWCHAR)
 				set(HAVE_ODBC YES)
@@ -1012,7 +994,6 @@ endif()
 
 # Header files
 check_include_file("dirent.h" HAVE_DIRENT_H)
-check_include_file("dlfcn.h" HAVE_DLFCN_H)
 check_include_file("fcntl.h" HAVE_FCNTL_H)
 check_include_file("getopt.h" HAVE_GETOPT_H)
 check_include_file("io.h" HAVE_IO_H)
