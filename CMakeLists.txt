@@ -186,11 +186,12 @@ else()
 	message(FATAL_ERROR "PASSWORD_BACKEND invalid, choose one of MD5, SHA1, RIPEMD160, SHA224, SHA256, SHA384, SHA512")
 endif()
 
-if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
-	add_compile_options(-no-gcc) # Intel compiler hack
-elseif(${CMAKE_C_COMPILER_ID} STREQUAL "GNU")
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 	add_compile_definitions(_GNU_SOURCE _XOPEN_SOURCE)
 	set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_GNU_SOURCE -D_XOPEN_SOURCE") # required for tests
+endif()
+if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
+	add_compile_options(-no-gcc) # Intel compiler hack
 elseif(MSVC)
 	set(_Noreturn "__declspec(noreturn)")
 	set(__attribute__(a) ON)
@@ -261,7 +262,7 @@ endif()
 if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel" AND EXISTS "${ROOT}/usr/include/math.h") # see https://software.intel.com/en-us/forums/intel-c-compiler/topic/760979
 	file(READ "${ROOT}/usr/include/math.h" TMPTXT)
 	string(FIND "${TMPTXT}" "_LIB_VERSION_TYPE" FOUND_VERSION)
-	if(FOUND_VERSION)
+	if(NOT FOUND_VERSION)
 		set(INTEL_MATH_H_HACK ON)
 	endif()
 endif()
@@ -1111,14 +1112,14 @@ endif()
 # Very Important, check for compiler flags after all libraries checks, otherwise extra compiler flags might break the
 # library tests
 function(MT_removeCompilerFlag REGEX_EXPRESSION FLAG_TO_REMOVE OLD_FLAGS BUILD NEW_FLAGS)
-	if(${OLD_FLAGS} MATCHES "${REGEX_EXPRESSION}")
+	if("${OLD_FLAGS}" MATCHES "${REGEX_EXPRESSION}")
 		string(REGEX REPLACE "${REGEX_EXPRESSION}" "" NEW_VAR "${OLD_FLAGS}")
 		set(${NEW_FLAGS} "${NEW_VAR}" PARENT_SCOPE)
 		message(STATUS "Removed ${FLAG_TO_REMOVE} flag for ${BUILD} build(s)")
 	endif()
 endfunction()
 function(MT_addCompilerFlag REGEX_EXPRESSION FLAG_TO_ADD OLD_FLAGS BUILD NEW_FLAGS)
-	if(NOT ${OLD_FLAGS} MATCHES "${REGEX_EXPRESSION}")
+	if(NOT "${OLD_FLAGS}" MATCHES "${REGEX_EXPRESSION}")
 		set(${NEW_FLAGS} "${OLD_FLAGS} ${FLAG_TO_ADD}" PARENT_SCOPE)
 		message(STATUS "Added ${FLAG_TO_ADD} flag for ${BUILD} build(s)")
 	endif()
@@ -1189,15 +1190,15 @@ else() #GCC, clang and Apple clang
 	endif()
 
 	if(${ENABLE_ASSERT} STREQUAL "NO")
-		MT_addCompilerFlag("-fomit-frame-pointer" "-fomit-frame-pointer" "${CMAKE_C_FLAGS}" "All" CMAKE_C_FLAGS)
+		MT_addCompilerFlag("-fomit-frame-pointer" "-fomit-frame-pointer" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
 	endif()
 
 	# Linker flags
-	MT_addCompilerFlag("-Wl,-Bsymbolic-functions" "-Wl,-Bsymbolic-functions" "${LINK_OPTIONS}" "All" LINK_OPTIONS)
-	MT_addCompilerFlag("-Wl,-undefined,dynamic_lookup" "-Wl,-undefined,dynamic_lookup" "${LINK_OPTIONS}" "All" LINK_OPTIONS)
+	MT_addCompilerFlag("-Wl,-Bsymbolic-functions" "-Wl,-Bsymbolic-functions" "${LINK_OPTIONS}" "all" LINK_OPTIONS)
+	MT_addCompilerFlag("-Wl,-undefined,dynamic_lookup" "-Wl,-undefined,dynamic_lookup" "${LINK_OPTIONS}" "all" LINK_OPTIONS)
 endif()
 
-function(MT_checkCompilerFlag Flag)
+function(MT_checkCompilerFlag Flag) # WARNING this doesn't work with LINK_OPTIONS yet!
 	if(NOT "${CMAKE_C_FLAGS}" MATCHES "${Flag}")
 		string(REPLACE "-" "" FLAG_TEST ${Flag}) # cmake will get confused
 		string(REPLACE "/" "" FLAG_TEST ${FLAG_TEST}) # cmake will get confused
@@ -1225,6 +1226,7 @@ if(${ENABLE_STRICT} STREQUAL "YES")
 		MT_checkCompilerFlag("-Wno-format-truncation")
 		MT_checkCompilerFlag("-Wno-format-nonliteral")
 		MT_checkCompilerFlag("-Wno-error=suggest-attribute=format")
+		MT_checkCompilerFlag("-Wno-unused-command-line-argument")
 		MT_checkCompilerFlag("-Wno-cast-function-type")
 		MT_checkCompilerFlag("-Winit-self")
 		MT_checkCompilerFlag("-Winvalid-pch")
@@ -1250,7 +1252,7 @@ if(${ENABLE_STRICT} STREQUAL "YES")
 		MT_checkCompilerFlag("-Wno-char-subscripts")
 		MT_checkCompilerFlag("-Wunreachable-code")
 	elseif(${CMAKE_C_COMPILER_ID} STREQUAL "Intel" AND ${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-		MT_addCompilerFlag("-shared-intel" "-shared-intel" "${LINK_OPTIONS}" "All" LINK_OPTIONS)
+		MT_addCompilerFlag("-shared-intel" "-shared-intel" "${LINK_OPTIONS}" "all" LINK_OPTIONS)
 		MT_checkCompilerFlag("-ansi")
 		MT_checkCompilerFlag("-Wall")
 		MT_checkCompilerFlag("-w2")
