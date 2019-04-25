@@ -29,7 +29,10 @@
 #include <geos_c.h>
 
 #ifdef HAVE_PROJ
-#include <proj_api.h> //it is needed to transform from one srid to another
+#ifndef ACCEPT_USE_OF_DEPRECATED_PROJ_API_H
+#define ACCEPT_USE_OF_DEPRECATED_PROJ_API_H
+#endif
+#include <proj_api.h> //it is needed to transform from one srid to another TODO proj_api.h is deprecated and should be replace with a more modern version
 #endif
 
 /* geos does not support 3d envelope */

@@ -1186,10 +1186,11 @@ else() #GCC, clang and Apple clang
 	MT_addCompilerFlag("-fomit-frame-pointer" "-fomit-frame-pointer" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
 
 	# Linker flags
-	MT_addCompilerFlag("-Wl,-Bsymbolic-functions" "-Wl,-Bsymbolic-functions" "${LINK_OPTIONS}" "all" LINK_OPTIONS)
 	if(${CMAKE_C_COMPILER_ID} STREQUAL "AppleClang")
 		MT_addCompilerFlag("-Wl,-undefined,dynamic_lookup" "-Wl,-undefined,dynamic_lookup" "${CMAKE_SHARED_LINKER_FLAGS}" "all shared libraries" CMAKE_SHARED_LINKER_FLAGS)
 		MT_addCompilerFlag("-Wl,-undefined,dynamic_lookup" "-Wl,-undefined,dynamic_lookup" "${CMAKE_MODULE_LINKER_FLAGS}" "all shared library modules" CMAKE_MODULE_LINKER_FLAGS)
+	else()
+		MT_addCompilerFlag("-Wl,-Bsymbolic-functions" "-Wl,-Bsymbolic-functions" "${LINK_OPTIONS}" "all" LINK_OPTIONS)
 	endif()
 endif()
 
