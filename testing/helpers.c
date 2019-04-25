@@ -11,10 +11,6 @@
 #include <ctype.h>
 #include <string.h>
 
-#ifndef DIR_SEP
-# define DIR_SEP '/'
-#endif
-
 void
 ErrXit(char *text1, char *text2, int num)
 {

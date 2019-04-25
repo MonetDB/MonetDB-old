@@ -826,7 +826,7 @@ MT_check_nr_cores(void)
 {
 	int ncpus = -1;
 
-#if defined(HAVE_SYSCONF) && defined(_SC_NPROCESSORS_ONLN)
+#if !defined(WIN32) && defined(_SC_NPROCESSORS_ONLN)
 	/* this works on Linux, Solaris and AIX */
 	ncpus = sysconf(_SC_NPROCESSORS_ONLN);
 #elif defined(HAVE_SYS_SYSCTL_H) && defined(HW_NCPU)   /* BSD */

@@ -322,7 +322,7 @@ MT_init(void)
 		sysctl(mib, 2, &size, &len, NULL, 0);
 		_MT_pagesize = size;
 	}
-#elif defined(HAVE_SYSCONF) && defined(_SC_PAGESIZE)
+#elif defined(_SC_PAGESIZE)
 	_MT_pagesize = (size_t)sysconf(_SC_PAGESIZE);
 #endif
 	if (_MT_pagesize <= 0)
@@ -382,7 +382,7 @@ MT_init(void)
 		sysctl(mib, 2, &size, &len, NULL, 0);
 		_MT_npages = size / _MT_pagesize;
 	}
-#elif defined(HAVE_SYSCONF) && defined(_SC_PHYS_PAGES)
+#elif defined(_SC_PHYS_PAGES)
 	_MT_npages = (size_t)sysconf(_SC_PHYS_PAGES);
 # if SIZEOF_SIZE_T == SIZEOF_INT
 	/* Bug #2935: the value returned here can be more than what can be

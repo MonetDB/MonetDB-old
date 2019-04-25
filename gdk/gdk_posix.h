@@ -22,13 +22,10 @@
 #include <sys/time.h>		/* gettimeofday */
 #endif
 
-#ifdef HAVE_WINSOCK_H
-#include <winsock.h>		/* for timeval */
-#endif
-
 #include "gdk_system.h" /* gdk_export */
 
 #ifdef NATIVE_WIN32
+#include <winsock.h>		/* for timeval */
 #include <io.h>
 #include <direct.h>
 #endif

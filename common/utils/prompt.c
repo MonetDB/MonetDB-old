@@ -11,10 +11,8 @@
 #include <unistd.h>
 #endif
 #include <string.h>
-#ifndef _MSC_VER
-#ifdef HAVE_TERMIOS_H
+#ifndef NATIVE_WIN32
 #include <termios.h>
-#endif
 #endif
 #include "mprompt.h"
 
@@ -81,7 +79,7 @@ simple_prompt(const char *prompt, int maxlen, int echo, const char *def)
 	char *destination = NULL;
 	FILE *termin = NULL, *termout = NULL;
 
-#ifdef HAVE_TERMIOS_H
+#ifndef NATIVE_WIN32
 	struct termios t_orig, t;
 #else
 	(void) echo;
@@ -103,7 +101,7 @@ simple_prompt(const char *prompt, int maxlen, int echo, const char *def)
 		termout = stderr;
 	}
 
-#ifdef HAVE_TERMIOS_H
+#ifndef NATIVE_WIN32
 	if (!echo) {
 		tcgetattr(fileno(termin), &t);
 		t_orig = t;
@@ -135,7 +133,7 @@ simple_prompt(const char *prompt, int maxlen, int echo, const char *def)
 
 	if (length > 0 && destination[length - 1] == '\n')
 		destination[length - 1] = '\0';
-#ifdef HAVE_TERMIOS_H
+#ifndef NATIVE_WIN32
 	if (!echo) {
 		tcsetattr(fileno(termin), TCSAFLUSH, &t_orig);
 		fputs("\n", termout);

@@ -235,7 +235,7 @@ mnstr_init(void)
 /* #define STREAM_DEBUG 1  */
 /* #define BSTREAM_DEBUG 1 */
 
-#ifdef HAVE__WFOPEN
+#ifdef _MSC_VER
 /* convert a string from UTF-8 to wide characters; the return value is
  * freshly allocated */
 static wchar_t *
@@ -864,7 +864,7 @@ open_stream(const char *restrict filename, const char *restrict flags)
 
 	if ((s = create_stream(filename)) == NULL)
 		return NULL;
-#ifdef HAVE__WFOPEN
+#ifdef _MSC_VER
 	{
 		wchar_t *wfname = utf8towchar(filename);
 		wchar_t *wflags = utf8towchar(flags);
@@ -1039,7 +1039,7 @@ open_gzstream(const char *restrict filename, const char *restrict flags)
 
 	if ((s = create_stream(filename)) == NULL)
 		return NULL;
-#ifdef HAVE__WFOPEN
+#ifdef _MSC_VER
 	{
 		wchar_t *wfname = utf8towchar(filename);
 		if (wfname != NULL) {
@@ -1255,7 +1255,7 @@ open_bzstream(const char *restrict filename, const char *restrict flags)
 	fl[0] = flags[0];	/* 'r' or 'w' */
 	fl[1] = 'b';		/* always binary */
 	fl[2] = '\0';
-#ifdef HAVE__WFOPEN
+#ifdef _MSC_VER
 	{
 		wchar_t *wfname = utf8towchar(filename);
 		wchar_t *wflags = utf8towchar(fl);
@@ -1553,7 +1553,7 @@ open_xzstream(const char *restrict filename, const char *restrict flags)
 	fl[0] = flags[0];	/* 'r' or 'w' */
 	fl[1] = 'b';		/* always binary */
 	fl[2] = '\0';
-#ifdef HAVE__WFOPEN
+#ifdef _MSC_VER
 	{
 		wchar_t *wfname = utf8towchar(filename);
 		wchar_t *wflags = utf8towchar(fl);
@@ -1911,7 +1911,7 @@ open_lz4stream(const char *restrict filename, const char *restrict flags)
 	fl[0] = flags[0];	/* 'r' or 'w' */
 	fl[1] = 'b';		/* always binary */
 	fl[2] = '\0';
-#ifdef HAVE__WFOPEN
+#ifdef _MSC_VER
 	{
 		wchar_t *wfname = utf8towchar(filename);
 		wchar_t *wflags = utf8towchar(fl);

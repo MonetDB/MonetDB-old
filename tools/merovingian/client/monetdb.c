@@ -39,7 +39,7 @@
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif
-#ifdef HAVE_TERMIOS_H
+#ifndef NATIVE_WIN32
 #include <termios.h> /* TIOCGWINSZ/TIOCSWINSZ */
 #endif
 

@@ -164,6 +164,14 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 endif()
 if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 	add_compile_options(-no-gcc) # Intel compiler hack
+	if(EXISTS "${ROOT}/usr/include/math.h") # see https://software.intel.com/en-us/forums/intel-c-compiler/topic/760979
+		file(READ "${ROOT}/usr/include/math.h" TMPTXT)
+		string(FIND "${TMPTXT}" "_LIB_VERSION_TYPE" FOUND_VERSION)
+		if(NOT FOUND_VERSION)
+			set(INTEL_MATH_H_HACK ON)
+		endif()
+	endif()
+	set(NAN_CANNOT_BE_USED_AS_INITIALIZER ON) # This hack is only required by the Intel compiler
 elseif(MSVC)
 	set(_Noreturn "__declspec(noreturn)")
 	set(__attribute__(a) ON)
@@ -211,31 +219,6 @@ if(NOT MSVC)
 		}" HAVE_NORETURN)
 	if(NOT HAVE_NORETURN)
 		set(_Noreturn "__attribute__((__noreturn__))")
-	endif()
-endif()
-
-#Test if compiler can use NAN as an initializer
-check_c_source_compiles("
-	#include <math.h>
-
-	extern const float f;
-	extern const double d;
-	const float f = NAN;
-	const double d = NAN;
-
-	int main(int argc, char **argv) {
-		(void) argc; (void) argv;
-		return 0;
-	}" NAN_CAN_BE_USED_AS_INITIALIZER)
-if(NOT NAN_CAN_BE_USED_AS_INITIALIZER)
-	set(NAN_CANNOT_BE_USED_AS_INITIALIZER ON)
-endif()
-
-if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel" AND EXISTS "${ROOT}/usr/include/math.h") # see https://software.intel.com/en-us/forums/intel-c-compiler/topic/760979
-	file(READ "${ROOT}/usr/include/math.h" TMPTXT)
-	string(FIND "${TMPTXT}" "_LIB_VERSION_TYPE" FOUND_VERSION)
-	if(NOT FOUND_VERSION)
-		set(INTEL_MATH_H_HACK ON)
 	endif()
 endif()
 
@@ -412,7 +395,7 @@ set(PSAPI_LIBRARIES "")
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 	set(DL_LIBRARIES "${CMAKE_DL_LIBS}")
 endif()
-if(${CMAKE_SYSTEM_NAME} MATCHES "^FreeBSD|DragonFly|NetBSD$")
+if(${CMAKE_SYSTEM_NAME} MATCHES "^FreeBSD|DragonFly|NetBSD$") # Warning - I checked the man pages and only tested on FreeBSD yet
 	set(KVM_LIBRARIES "kvm")
 endif()
 if(${CMAKE_SYSTEM_NAME} MATCHES "^Linux|FreeBSD|NetBSD$")
@@ -425,13 +408,13 @@ if(WIN32)
 	endif()
 	set(PSAPI_LIBRARIES "${PSAPI_LIBRARY}")
 
-	find_library(WSOCK32_LIBRARY NAMES Wsock32 wsock32)
+	find_library(WSOCK32_LIBRARY NAMES Wsock32 wsock32 DOC "wsock32 library to link on Windows")
 	if(WSOCK32_LIBRARY)
 		list(APPEND SOCKET_LIBRARIES "${WSOCK32_LIBRARY}")
 	else()
 		message(FATAL_ERROR "Wsock32 library is missing and required to compile MonetDB on Windows")
 	endif()
-	find_library(WS2_32_LIBRARY NAMES Ws2_32 ws2_32)
+	find_library(WS2_32_LIBRARY NAMES Ws2_32 ws2_32 DOC "ws2_32 library to link on Windows")
 	if(WS2_32_LIBRARY)
 		list(APPEND SOCKET_LIBRARIES "${WS2_32_LIBRARY}")
 	else()
@@ -582,7 +565,7 @@ if(NOT HAVE_${PASSWORD_BACKEND}_UPDATE)
 		set(HAVE_COMMONCRYPTO NO)
 		set(OPENSSL_FOUND NO)
 		set(ENABLE_MONETDB5 "NO")
-		message(WARNING "A crypto library was found, but required checksum algorithm was not found, so not disabling MonetDB5")
+		message(WARNING "A crypto library was found, but required checksum algorithm was not found, so disabling MonetDB5")
 	endif()
 endif()
 
@@ -980,11 +963,10 @@ check_include_file("kvm.h" HAVE_KVM_H)
 check_include_file("libintl.h" HAVE_LIBINTL_H)
 check_include_file("netdb.h" HAVE_NETDB_H)
 check_include_file("pthread.h" HAVE_PTHREAD_H)
-check_include_file("semaphore.h" HAVE_SEMAPHORE_H)
-check_include_file("stdatomic.h" HAVE_STDATOMIC_H)
+check_include_file("stdatomic.h" HAVE_STDATOMIC_H) # C11 include file
 check_include_file("strings.h" HAVE_STRINGS_H)
 check_include_file("sys/ioctl.h" HAVE_SYS_IOCTL_H)
-check_include_file("sys/mman.h" HAVE_SYS_MMAN_H)
+check_include_file("sys/mman.h" HAVE_SYS_MMAN_H) # For madvise and posix_madvise on BSD systems
 check_include_file("sys/param.h" HAVE_SYS_PARAM_H)
 check_include_file("sys/resource.h" HAVE_SYS_RESOURCE_H)
 check_include_file("sys/socket.h" HAVE_SYS_SOCKET_H)
@@ -994,9 +976,7 @@ check_include_file("sys/time.h" HAVE_SYS_TIME_H)
 check_include_file("sys/types.h" HAVE_SYS_TYPES_H)
 check_include_file("sys/uio.h" HAVE_SYS_UIO_H)
 check_include_file("sys/un.h" HAVE_SYS_UN_H)
-check_include_file("termios.h" HAVE_TERMIOS_H)
 check_include_file("unistd.h" HAVE_UNISTD_H)
-check_include_file("winsock.h" HAVE_WINSOCK_H)
 
 cmake_push_check_state()
 if(MSVC)
@@ -1065,14 +1045,12 @@ check_symbol_exists("pipe2" "fcntl.h;unistd.h" HAVE_PIPE2)
 check_symbol_exists("popen" "stdio.h" HAVE_POPEN)
 check_symbol_exists("posix_fallocate" "fcntl.h" HAVE_POSIX_FALLOCATE)
 check_symbol_exists("posix_madvise" "sys/mman.h" HAVE_POSIX_MADVISE)
-check_symbol_exists("semtimedop" "sys/types.h;sys/ipc.h;sys/sem.h" HAVE_SEMTIMEDOP)
+check_symbol_exists("semtimedop" "sys/types.h;sys/ipc.h;sys/sem.h" HAVE_SEMTIMEDOP) # Some libc versions on Linux distributions don't have it
 check_symbol_exists("stpcpy" "string.h" HAVE_STPCPY)
 check_symbol_exists("strptime" "time.h" HAVE_STRPTIME)
 check_symbol_exists("strtok_r" "string.h" HAVE_STRTOK_R)
 check_symbol_exists("strtok_s" "string.h" HAVE_STRTOK_S)
-check_symbol_exists("sysconf" "unistd.h" HAVE_SYSCONF)
 check_symbol_exists("times" "sys/times.h" HAVE_TIMES)
-check_symbol_exists("_wfopen_s" "wchar.h" HAVE__WFOPEN) # Check for _wfopen_s to avoid warnings
 
 #Test for diff program existance
 find_program(DIFF NAMES gdiff diff DOC "Diff program")

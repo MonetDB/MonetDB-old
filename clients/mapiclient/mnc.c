@@ -29,7 +29,7 @@
 #ifdef HAVE_SYS_SOCKET_H
 # include <sys/socket.h>
 #endif
-#ifdef HAVE_WINSOCK_H
+#ifdef NATIVE_WIN32
 # include <winsock.h>
 #endif
 #ifdef HAVE_NETDB_H

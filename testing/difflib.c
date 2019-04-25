@@ -30,25 +30,13 @@
 #include <time.h>
 
 #ifdef NATIVE_WIN32
-#include <windows.h>
-#define DIFF	"diff"		/* --binary */
-#define COPY	"copy /y"	/* "cp -f" */
 #define popen _popen
 #define pclose _pclose
-
-#ifndef DIR_SEP
-# define DIR_SEP '\\'
-#endif
-
 #define getpid _getpid
-#else
-#ifndef DIFF
-#define DIFF	"diff"
 #endif
 
-#ifndef DIR_SEP
-# define DIR_SEP '/'
-#endif
+#ifndef DIFF
+#define DIFF "diff"
 #endif
 
 #ifdef DEBUG

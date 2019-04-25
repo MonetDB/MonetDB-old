@@ -129,7 +129,7 @@ SYScpuStatistics(bat *ret, bat *ret2)
 	static int HZ = 0;
 
 	if (HZ == 0) {
-#  if defined(HAVE_SYSCONF) && defined(_SC_CLK_TCK)
+#  if !defined(WIN32) && defined(_SC_CLK_TCK)
 		HZ = sysconf(_SC_CLK_TCK);
 #  else
 		HZ = CLK_TCK;

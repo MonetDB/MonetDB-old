@@ -14,7 +14,7 @@
 #include "mal_readline.h"
 #include "mal_debugger.h"
 
-#ifdef HAVE_TERMIOS_H
+#ifndef NATIVE_WIN32
 #include <termios.h>
 #endif
 

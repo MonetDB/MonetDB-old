@@ -289,9 +289,6 @@
 /* Define to 1 if you have the <samtools/sam.h> header file. */
 #cmakedefine HAVE_SAMTOOLS_SAM_H 1
 
-/* Define to 1 if you have the <semaphore.h> header file. */
-#cmakedefine HAVE_SEMAPHORE_H 1
-
 /* Define to 1 if semtimedop exists */
 #cmakedefine HAVE_SEMTIMEDOP 1
 
@@ -331,9 +328,6 @@
 /* Define to 1 if `tm_zone' is a member of `struct tm'. */
 #cmakedefine HAVE_STRUCT_TM_TM_ZONE 1
 
-/* Define to 1 if you have the `sysconf' function. */
-#cmakedefine HAVE_SYSCONF 1
-
 /* Define to 1 if you have the <sys/ioctl.h> header file. */
 #cmakedefine HAVE_SYS_IOCTL_H 1
 
@@ -367,9 +361,6 @@
 /* Define to 1 if you have the <sys/un.h> header file. */
 #cmakedefine HAVE_SYS_UN_H 1
 
-/* Define to 1 if you have the <termios.h> header file. */
-#cmakedefine HAVE_TERMIOS_H 1
-
 /* Define to 1 if you have the `times' function. */
 #cmakedefine HAVE_TIMES 1
 
@@ -381,12 +372,6 @@
 
 /* Define to 1 if you have valgrind installed and want to use it */
 #cmakedefine HAVE_VALGRIND 1
-
-/* Define to 1 if you have the `_wfopen' function. */
-#cmakedefine HAVE__WFOPEN 1
-
-/* Define to 1 if you have the <winsock.h> header file. */
-#cmakedefine HAVE_WINSOCK_H 1
 
 /* Define to 1 if you have the `_mul128' function. */
 #cmakedefine HAVE__MUL128 1
@@ -592,7 +577,7 @@ typedef __uint128_t uhge;
 #define SIZEOF_HGE SIZEOF___INT128_T
 #endif
 
-#if !defined(HAVE_WINSOCK_H) && !defined(closesocket)
+#if !defined(NATIVE_WIN32) && !defined(closesocket)
 /* on Windows use closesocket, otherwise just close */
 #define closesocket close
 #endif

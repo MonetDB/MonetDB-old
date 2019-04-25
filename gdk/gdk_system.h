@@ -79,10 +79,7 @@
 #ifdef HAVE_PTHREAD_H
 #include <sched.h>
 #include <pthread.h>
-#endif
-
-#ifdef HAVE_SEMAPHORE_H
-# include <semaphore.h>
+#include <semaphore.h>
 #endif
 
 #ifdef __MACH__ /* dispatch_semaphore_create function */
