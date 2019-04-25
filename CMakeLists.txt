@@ -30,6 +30,8 @@ project(MonetDB VERSION "${MONETDB_VERSION}" DESCRIPTION "MonetDB, SQL queries a
 set(C_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 99)
 
+set(CMAKE_FIND_FRAMEWORK LAST) # We give precedence to UNIX include directories over OS X Frameworks directories
+set(CMAKE_FIND_APPBUNDLE LAST)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" CACHE INTERNAL "Location of custom CMake modules.")
 include(CheckCSourceCompiles REQUIRED)
 include(CheckIncludeFile REQUIRED)
