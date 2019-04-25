@@ -443,13 +443,6 @@ endif()
 set(THREADS_PREFER_PTHREAD_FLAG ON) # We do prefer pthreads
 find_package(Threads)
 set(THREAD_LIBRARIES "${CMAKE_THREAD_LIBS_INIT}")
-if("${THREAD_LIBRARIES}" STREQUAL "")
-	if(${ENABLE_GDK} STREQUAL "YES")
-		message(FATAL_ERROR "GDK requires a thread library")
-	elseif(${ENABLE_GDK} STREQUAL "AUTO")
-		set(ENABLE_GDK "NO")
-	endif()
-endif()
 
 # Readline libraries
 set(READLINE_LIBRARIES "")
