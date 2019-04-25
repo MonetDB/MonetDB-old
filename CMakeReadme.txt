@@ -1,22 +1,36 @@
 While running the cmake command set internal variables to change the build properties in the form -D<var>=<value>
 
-- Variables intrinsic to Cmake
+- Variables intrinsic to Cmake that we set on our scripts
 CMAKE_BUILD_TYPE - Set the build type: Debug or Release (default Debug)
 CMAKE_C_FLAGS - C compilation flags used for all builds
 CMAKE_C_FLAGS_DEBUG - C compilation flags used for Debug build
+CMAKE_C_FLAGS_MINSIZEREL - C compilation flags used for Release build woth minimal size
 CMAKE_C_FLAGS_RELEASE - C compilation flags used for Release build
+CMAKE_C_FLAGS_RELWITHDEBINFO - C compilation flags used for Release build with debug symbols
+CMAKE_C_LINK_FLAGS - Linker options (deprecated for LINK_OPTIONS variable, but still used by some Cmake modules)
+CMAKE_MODULE_LINKER_FLAGS - Linker options for shared library modules
+CMAKE_MODULE_PATH - Location of custom CMake modules (in cmake directory)
+CMAKE_SHARED_LINKER_FLAGS - Linker options for shared libraries
+LINK_OPTIONS - Linker options for translation units for all builds
+
+- We set the library prefix variables on Windows compilation because we don't follow the naming convention there :(
+CMAKE_IMPORT_LIBRARY_PREFIX
+CMAKE_SHARED_LIBRARY_PREFIX
+CMAKE_SHARED_MODULE_PREFIX
+CMAKE_STATIC_LIBRARY_PREFIX
+
+- These other Cmake variables worth to set
+CMAKE_C_COMPILER_ID - Which compiler to use
 CMAKE_INSTALL_PREFIX - Installation directory
-CMAKE_C_LINK_FLAGS - Linker options for all builds
 
 - Compilation options
-ENABLE_ASSERT
-ENABLE_DEVELOPER
 ENABLE_SANITIZER
 ENABLE_STATIC_ANALYSIS
 ENABLE_STRICT
 
-- Available Monetdb features
-ENABLE_EMBEDDED
+- Available MonetDB features
+ENABLE_CINTEGRATION
+ENABLE_EMBEDDED - TODO check this
 ENABLE_FITS
 ENABLE_GDK
 ENABLE_GEOM

@@ -7,7 +7,7 @@
 #]]
 
 add_subdirectory(udf)
-if(NOT WIN32 AND HAVE_PYTHON3)
+if(HAVE_CUDF)
 	add_subdirectory(capi)
 endif()
 if(HAVE_LIBPY)

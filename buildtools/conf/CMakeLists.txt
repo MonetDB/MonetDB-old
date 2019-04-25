@@ -6,9 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-if(HAVE_DEVELOPER)
-	install(FILES Maddlog PERMISSIONS ${PROGRAM_PERMISSIONS_DEFAULT} DESTINATION ${BINDIR})
-endif()
+install(FILES Maddlog PERMISSIONS ${PROGRAM_PERMISSIONS_DEFAULT} DESTINATION ${BINDIR})
 
 if(WIN32)
 	install(FILES banner.bmp license.rtf monetdb.ico website.html DESTINATION ${BINDIR})
