@@ -104,7 +104,7 @@ SQLsession(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		logmsg = GDKgetenv("recovery");
 		if( logmsg== NULL && ++cnt  == 5)
 			throw(SQL,"SQLinit", "#WARNING server not ready, recovery in progress\n");
-    }while (logmsg == NULL);
+	} while (logmsg == NULL);
 	return msg;
 }
 
@@ -127,7 +127,7 @@ SQLsession2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		logmsg = GDKgetenv("recovery");
 		if( logmsg== NULL && ++cnt  == 5)
 			throw(SQL,"SQLinit","#WARNING server not ready, recovery in progress\n");
-    }while (logmsg == NULL);
+	} while (logmsg == NULL);
 	return msg;
 }
 
@@ -515,7 +515,6 @@ SQLinit(Client c)
 		if (m->sa)
 			sa_destroy(m->sa);
 		m->sa = NULL;
-		m->sqs = NULL;
 
 #else
 		char path[FILENAME_MAX];
@@ -565,7 +564,6 @@ SQLinit(Client c)
 					if (m->sa)
 						sa_destroy(m->sa);
 					m->sa = NULL;
-					m->sqs = NULL;
 					if (newmsg){
 						fprintf(stderr,"%s",newmsg);
 						freeException(newmsg);
@@ -577,7 +575,6 @@ SQLinit(Client c)
 			fprintf(stderr, "!could not read createdb.sql\n");
 #endif
 	} else {		/* handle upgrades */
-		m->sqs = NULL;
 		if (!m->sa)
 			m->sa = sa_create();
 		if (!m->sa) {
@@ -835,7 +832,6 @@ SQLinclude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (m->sa)
 		sa_destroy(m->sa);
 	m->sa = NULL;
-	m->sqs = NULL;
 	(void) mb;
 	return msg;
 }
@@ -1078,7 +1074,6 @@ SQLparser(Client c)
 
 	/* sqlparse needs sql allocator to be available.  It can be NULL at
 	 * this point if this is a recursive call. */
-	m->sqs = NULL;
 	if (!m->sa) 
 		m->sa = sa_create();
 	if (!m->sa) {

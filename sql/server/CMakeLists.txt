@@ -36,6 +36,7 @@ add_library(sqlserver STATIC
 			sql_mvc.c
 			sql_env.c
 			sql_privileges.c
+			sql_query.c
 			rel_semantic.c
 			rel_select.c
 			rel_updates.c
@@ -45,6 +46,7 @@ add_library(sqlserver STATIC
 			rel_prop.c
 			rel_exp.c
 			rel_rel.c
+			rel_unnest.c
 			rel_optimizer.c
 			rel_partition.c
 			rel_planner.c rel_planner.h
@@ -55,11 +57,11 @@ add_library(sqlserver STATIC
 			rel_xml.c
 			rel_dump.c
 			rel_dump.h rel_exp.h rel_rel.h
-			rel_optimizer.h rel_partition.h rel_distribute.h rel_prop.h rel_schema.h rel_select.h
+			rel_unnest.h rel_optimizer.h rel_partition.h rel_distribute.h rel_prop.h rel_schema.h rel_select.h
 			rel_semantic.h rel_sequence.h rel_trans.h
 			rel_updates.h rel_psm.h rel_xml.h sql_atom.h sql_datetime.h
 			sql_decimal.h sql_env.h sql_mvc.h sql_parser.h
-			sql_privileges.h sql_qc.h sql_scan.h
+			sql_privileges.h sql_query.h sql_qc.h sql_scan.h
 			sql_semantic.h sql_symbol.h sql_tokens.h sql_partition.h)
 target_link_libraries(sqlserver PRIVATE bison_obj)
 set_target_properties(sqlserver PROPERTIES POSITION_INDEPENDENT_CODE ON)
