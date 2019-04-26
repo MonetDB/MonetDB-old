@@ -1,7 +1,7 @@
 # - Find netcdf
 # Find the native netcdf headers and libraries.
 #
-# NETCDF_INCLUDE_DIR	- where to find proj_api.h, etc.
+# NETCDF_INCLUDE_DIR	- where to find netcdf.h, etc.
 # NETCDF_LIBRARIES	- List of libraries when using netcdf.
 # NETCDF_VERSION	- netcdf version if found
 # NETCDF_FOUND	- True if netcdf found.

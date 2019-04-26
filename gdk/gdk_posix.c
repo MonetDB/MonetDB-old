@@ -672,11 +672,9 @@ mdlopen(const char *library, int mode)
 #undef rmdir
 #undef mkdir
 
-#include <windows.h>
-
-#ifdef _MSC_VER
+#ifdef HAVE_IO_H
 #include <io.h>
-#endif /* _MSC_VER */
+#endif
 #include <Psapi.h>
 
 #define MT_SMALLBLOCK 256

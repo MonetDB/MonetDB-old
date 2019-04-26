@@ -64,7 +64,7 @@ else()
 		set(PKG_MATH "-l${MATH_LIBRARIES}")
 	endif()
 	if(NOT "${THREAD_LIBRARIES}" STREQUAL "")
-		set(PKG_THREAD "${THREAD_LIBRARIES}") # TODO this one is broken on some platforms
+		set(PKG_THREAD "${THREAD_LIBRARIES}")
 	endif()
 	if(NOT "${DL_LIBRARIES}" STREQUAL "")
 		set(PKG_DL "-l${DL_LIBRARIES}")

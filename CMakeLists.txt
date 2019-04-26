@@ -321,15 +321,12 @@ if(NOT BISON_FOUND)
 endif()
 
 # Iconv
-set(ICONV_INCLUDE_DIR "")
-set(ICONV_LIBRARIES "")
-include(FindIconv)
-if(Iconv_FOUND)
+include(FindIconvMonetDB)
+if(ICONV_FOUND)
 	set(HAVE_ICONV ON)
-	if(NOT Iconv_IS_BUILT_IN)
-		set(ICONV_INCLUDE_DIR "${Iconv_INCLUDE_DIR}")
-		set(ICONV_LIBRARIES "${Iconv_LIBRARY}")
-	endif()
+else()
+	set(ICONV_INCLUDE_DIR "")
+	set(ICONV_LIBRARIES "")
 endif()
 
 set(WITH_BZ2 "AUTO" CACHE STRING "Include bz2 support (default=AUTO)") # Check with BZip2_FOUND
@@ -429,7 +426,7 @@ set(THREAD_LIBRARIES "${CMAKE_THREAD_LIBS_INIT}")
 
 # Readline libraries
 set(READLINE_LIBRARIES "")
-set(WITH_READLINE "AUTO" CACHE PATH "Include readline support (default=AUTO)") # Check with HAVE_LIBREADLINE
+set(WITH_READLINE "AUTO" CACHE STRING "Include readline support (default=AUTO)") # Check with HAVE_LIBREADLINE
 if(NOT ${WITH_READLINE} STREQUAL "NO")
 	cmake_push_check_state()
 	set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};readline")
@@ -821,7 +818,7 @@ if(NOT PROJ_FOUND)
 endif()
 
 set(SAMTOOLS_LIBRARIES "")
-set(ENABLE_SAMTOOLS "AUTO" CACHE PATH "Include Samtools support (default=AUTO)") # Check with HAVE_SAMTOOLS
+set(ENABLE_SAMTOOLS "AUTO" CACHE STRING "Include Samtools support (default=AUTO)") # Check with HAVE_SAMTOOLS
 if(NOT ${ENABLE_SAMTOOLS} STREQUAL "NO")
 	cmake_push_check_state()
 	set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};${MATH_LIBRARIES};${THREAD_LIBRARIES};${ZLIB_LIBRARIES};bam")
