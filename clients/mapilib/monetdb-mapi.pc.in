@@ -14,5 +14,5 @@ Description: MonetDB MAPI C-client libary
 Version: @PACKAGE_VERSION@
 Requires: monetdb-stream openssl
 
-Libs: -L${libdir} -lmapi @PKG_SOCKET_LIBS@
+Libs: -L${libdir} -lmapi
 Cflags: -I${includedir}/monetdb

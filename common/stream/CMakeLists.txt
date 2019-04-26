@@ -45,7 +45,7 @@ else()
 		set(PKG_SNAPPY "-lsnappy")
 	endif()
 	if(Iconv_FOUND AND NOT Iconv_IS_BUILT_IN)
-		set(PKG_LIBICONV "-l${ICONV_LIBRARIES}")
+		set(PKG_LIBICONV "-l${ICONV_LIBRARIES}") # TODO this one is broken in some platforms
 	endif()
 	configure_file(monetdb-stream.pc.in ${CMAKE_CURRENT_BINARY_DIR}/monetdb-stream.pc @ONLY)
 	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/monetdb-stream.pc DESTINATION ${PKGCONFIGDIR})

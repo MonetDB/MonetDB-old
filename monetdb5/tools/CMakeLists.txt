@@ -6,17 +6,6 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../mal ../../common/stream ../../common/utils ../../clients/mapilib ../../gdk ../optimizer
-					../modules/atoms ../modules/mal ../modules/kernel ${CRYPTO_INCLUDE_DIR} ${PCRE_INCLUDE_DIR}
-					${UUID_INCLUDE_DIR} ${LIBXML2_INCLUDE_DIR})
-
-file(GLOB MAL_SRC "../mal/*.h" "../mal/*.c")
-file(GLOB ATOMS_SRC "../modules/atoms/*.h" "../modules/atoms/*.c")
-file(GLOB KERNEL_SRC  "../modules/kernel/*.h" "../modules/kernel/*.c")
-file(GLOB MODULES_SRC "../modules/mal/*.h" "../modules/mal/*.c")
-file(GLOB OPTIMIZER_SRC "../optimizer/*.h" "../optimizer/*.c")
-file(GLOB SCHEDULER_SRC "../scheduler/*.h" "../scheduler/*.c")
-
 set(MONETDB5_PRIVATE_LINK_LIBRARIES )
 if(WIN32)
 	list(APPEND MONETDB5_PRIVATE_LINK_LIBRARIES ${UUID_LIBRARIES} ${MATH_LIBRARIES} ${SOCKET_LIBRARIES}
@@ -26,11 +15,9 @@ if(WIN32)
 	endif()
 endif()
 
-add_library(monetdb5 SHARED ${MAL_SRC} ${ATOMS_SRC} ${KERNEL_SRC} ${MODULES_SRC} ${OPTIMIZER_SRC} ${SCHEDULER_SRC}
-			$<$<PLATFORM_ID:Windows>:libmonetdb5.rc>)
+add_library(monetdb5 SHARED ${MONETDB5_OBJECTS} $<$<PLATFORM_ID:Windows>:libmonetdb5.rc>)
 target_link_libraries(monetdb5 PUBLIC mutils mcrypt msabaoth PRIVATE ${MONETDB5_PRIVATE_LINK_LIBRARIES})
 set_target_properties(monetdb5 PROPERTIES VERSION ${MONETDB5_VERSION} SOVERSION ${MONETDB5_VERSION_MAJOR})
-target_compile_definitions(monetdb5 PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
 
 install(TARGETS monetdb5 DESTINATION ${LIBDIR})
 
@@ -40,11 +27,11 @@ else()
 	if(LIBXML2_FOUND)
 		set(PKG_LIBXML2 "libxml-2.0")
 	endif()
-	if(NOT CRYPTO_LIBRARIES STREQUAL "")
-		set(PKG_OPENSSL "-l${CRYPTO_LIBRARIES}")
+	if(COMMONCRYPTO_FOUND OR OPENSSL_FOUND)
+		set(PKG_CRYPTO "-lcrypto") # In OpenSSL case, we link only to the crypto library, so it will be always one library to link to
 	endif()
 	if(HAVE_LIBPCRE)
-		set(PKG_PCRE "-l${PCRE_LIBRARIES}")
+		set(PKG_PCRE "-lpcre")
 	endif()
 	configure_file(monetdb5.pc.in ${CMAKE_CURRENT_BINARY_DIR}/monetdb5.pc @ONLY)
 	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/monetdb5.pc DESTINATION ${PKGCONFIGDIR})

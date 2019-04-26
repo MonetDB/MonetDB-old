@@ -9,3 +9,5 @@
 add_subdirectory(atoms)
 add_subdirectory(kernel)
 add_subdirectory(mal)
+
+set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} PARENT_SCOPE)

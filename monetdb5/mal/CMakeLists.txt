@@ -6,6 +6,45 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
+include_directories(../../common/stream ../../common/utils ../../clients/mapilib ../../gdk ../optimizer ../modules/mal
+					${CRYPTO_INCLUDE_DIR})
+
+add_library(mal OBJECT
+			mal.c mal.h
+			mal_atom.c mal_atom.h
+			mal_authorize.c mal_authorize.h
+			mal_builder.c mal_builder.h
+			mal_client.c mal_client.h
+			mal_debugger.c mal_debugger.h
+			mal_errors.h
+			mal_exception.c mal_exception.h
+			mal_factory.c mal_factory.h
+			mal_function.c mal_function.h
+			mal_import.c mal_import.h
+			mal_runtime.c mal_runtime.h
+			mal_instruction.c mal_instruction.h
+			mal_resource.c mal_resource.h
+			mal_interpreter.c mal_interpreter.h
+			mal_dataflow.c mal_dataflow.h
+			mal_linker.c mal_linker.h
+			mal_listing.c mal_listing.h
+			mal_module.c mal_module.h
+			mal_namespace.c mal_namespace.h
+			mal_parser.c mal_parser.h
+			mal_profiler.c mal_profiler.h
+			mal_readline.c mal_readline.h
+			mal_resolve.c mal_resolve.h
+			mal_sabaoth.c mal_sabaoth.h
+			mal_scenario.c mal_scenario.h
+			mal_session.c mal_session.h
+			mal_stack.c mal_stack.h
+			mal_type.c mal_type.h
+			mal_utils.c mal_utils.h
+			mal_private.h)
+target_compile_definitions(mal PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
+set_target_properties(mal PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:mal> PARENT_SCOPE)
+
 install(FILES
 		mal.h
 		mal_client.h

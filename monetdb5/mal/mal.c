@@ -35,10 +35,7 @@ int have_hge;
 #include "mal_private.h"
 #include "mal_runtime.h"
 #include "mal_resource.h"
-#include "wlc.h"
 #include "mal_atom.h"
-#include "opt_pipes.h"
-#include "tablet.h"
 
 MT_Lock     mal_contextLock = MT_LOCK_INITIALIZER("mal_contextLock");
 MT_Lock     mal_namespaceLock = MT_LOCK_INITIALIZER("mal_namespaceLk");
@@ -82,6 +79,9 @@ int mal_init(void){
 	return 0;
 }
 
+extern void WLCreset(void); // Don't include wlc.h or opt_support.h, it creates a circular dependency
+extern void opt_pipes_reset(void);
+
 /*
  * Upon exit we should attempt to remove all allocated memory explicitly.
  * This seemingly superflous action is necessary to simplify analyis of
@@ -92,7 +92,6 @@ int mal_init(void){
  * activity first.
  * This function should be called after you have issued sql_reset();
  */
-void cleanOptimizerPipe(void);
 
 void mserver_reset(void)
 {

@@ -14,5 +14,5 @@ Description: MonetDB GDK libary
 Version: @PACKAGE_VERSION@
 Requires: monetdb-stream
 
-Libs: -L${libdir} -lbat @PKG_MATH_LIBS@ @PKG_MALLOC_LIBS@ @PKG_PTHREAD_LIBRARIES@ @PKG_DL_LIBS@
+Libs: -L${libdir} -lbat @PKG_MATH@ @PKG_THREAD@ @PKG_DL@  @PKG_KVM@
 Cflags: -I${includedir}/monetdb

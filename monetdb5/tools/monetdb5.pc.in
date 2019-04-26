@@ -14,5 +14,5 @@ Description: MonetDB5
 Version: @PACKAGE_VERSION@
 Requires: monetdb-gdk monetdb-stream @PKG_LIBXML2@
 
-Libs: -L${libdir} -lmonetdb5 @PKG_OPENSSL@ @PKG_PCRE@
+Libs: -L${libdir} -lmonetdb5 @PKG_CRYPTO@ @PKG_PCRE@
 Cflags: -I${includedir}/monetdb
