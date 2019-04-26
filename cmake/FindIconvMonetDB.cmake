@@ -16,21 +16,14 @@ endif()
 
 if(ICONV_IS_BUILT_IN)
 	set(ICONV_INCLUDE_DIR "")
-	set(ICONV_LIBRARY_NAME "c")
+	set(ICONV_LIBRARIES "")
+	set(ICONV_FOUND ON)
 else()
-	# Look for the header file
+	# Look for the header file and library
 	find_path(ICONV_INCLUDE_DIR NAMES "iconv.h" DOC "iconv include directory")
-	# Search if the library name is iconv or libiconv
-	find_path(ICONV_LIBRARY_NAME NAMES "iconv" "libiconv" DOC "iconv library")
-endif()
+	find_library(ICONV_LIBRARIES NAMES "iconv" DOC "iconv library")
 
-# Look for the library
-find_library(ICONV_LIBRARIES NAMES "${ICONV_LIBRARY_NAME}" DOC "iconv library (potentially the C library)")
-
-include(FindPackageHandleStandardArgs)
-if(ICONV_IS_BUILT_IN) # If the library is built in, we don't have to check if the include directory is ok, because it will be empty
-	find_package_handle_standard_args(Iconv REQUIRED_VARS ICONV_LIBRARIES)
-else()
+	include(FindPackageHandleStandardArgs)
 	find_package_handle_standard_args(Iconv REQUIRED_VARS ICONV_LIBRARIES ICONV_INCLUDE_DIR)
 endif()
 
