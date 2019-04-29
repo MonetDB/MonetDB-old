@@ -7,6 +7,4 @@
 #]]
 
 add_subdirectory(mal_optimizer_template)
-if(HAVE_LIBR)
-	add_subdirectory(rapi)
-endif()
+add_subdirectory(rapi)

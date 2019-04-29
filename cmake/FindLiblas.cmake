@@ -10,25 +10,12 @@
 find_path(LIBLAS_INCLUDE_DIR NAMES liblas/capi/liblas.h liblas/capi/las_version.h liblas/capi/las_config.h)
 
 # Look for the library.
-find_library(LIBLAS_LIBRARY las)
-find_library(LIBLAS_C_LIBRARY las_c)
-find_library(BOOST_PROGRAM_LIBRARY NAMES boost_program_options boost_program_options-mt)
-find_library(BOOST_THREAD_LIBRARY NAMES boost_thread boost_thread-mt)
-find_library(GEOTIFF_LIBRARY geotiff)
-find_library(TIFF_LIBRARY tiff)
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-	find_library(LASZIP_LIBRARY laszip)
-else()
-	set(LASZIP_LIBRARY "")
-endif()
-if(${CMAKE_SYSTEM_NAME} MATCHES "^Linux|Darwin$")
-	find_library(GDAL_LIBRARY gdal)
-else()
-	set(GDAL_LIBRARY "")
-endif()
-
-if(LIBLAS_LIBRARY AND LIBLAS_C_LIBRARY AND BOOST_PROGRAM_LIBRARY AND BOOST_THREAD_LIBRARY AND GDAL_LIBRARY AND GEOTIFF_LIBRARY AND TIFF_LIBRARY AND LASZIP_LIBRARY)
-	set(LIBLAS_LIBRARIES "${LIBLAS_LIBRARY};${LIBLAS_C_LIBRARY};${BOOST_PROGRAM_LIBRARY};${BOOST_THREAD_LIBRARY};${GDAL_LIBRARY};${GEOTIFF_LIBRARY};${TIFF_LIBRARY};${LASZIP_LIBRARY}")
+find_program(LIBLAS_CONFIG "liblas-config")
+if(LIBLAS_CONFIG)
+	exec_program("${LIBLAS_CONFIG}" ARGS "--libs" OUTPUT_VARIABLE LIBLAS_LIBRARIES RETURN_VALUE LIBLAS_LIBDIR_CODE)
+	if(NOT LIBLAS_LIBDIR_CODE EQUAL 0)
+		unset(LIBLAS_LIBRARIES)
+	endif()
 endif()
 
 # Handle the QUIETLY and REQUIRED arguments and set LIBLAS_FOUND to TRUE if all listed variables are TRUE.

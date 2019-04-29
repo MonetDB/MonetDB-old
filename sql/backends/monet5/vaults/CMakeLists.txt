@@ -6,18 +6,8 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-if(HAVE_SAMTOOLS)
-	add_subdirectory(bam)
-endif()
-if(HAVE_FITS)
-	add_subdirectory(fits)
-endif()
-if(HAVE_LIDAR)
-	add_subdirectory(lidar)
-endif()
-if(HAVE_NETCDF)
-	add_subdirectory(netcdf)
-endif()
-if(HAVE_SHP)
-	add_subdirectory(shp)
-endif()
+add_subdirectory(bam)
+add_subdirectory(fits)
+add_subdirectory(lidar)
+add_subdirectory(netcdf)
+add_subdirectory(shp)

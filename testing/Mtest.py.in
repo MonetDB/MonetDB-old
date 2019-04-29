@@ -388,7 +388,6 @@ CONDITIONALS = {
     # `grep AM_CONDITIONAL configure.ag | sed 's|^AM_CONDITIONAL(\([^,]*\),.*$|\1|' | sort -u`
     'BITS32'               : "@BITS32_FALSE@",
     'BITS64'               : "@BITS64_FALSE@",
-    'CROSS_COMPILING'      : "@CROSS_COMPILING_FALSE@",
     'HAVE_CUDF'            : "@HAVE_CUDF_FALSE@",
     'HAVE_CURL'            : "@HAVE_CURL_FALSE@",
     'HAVE_FITS'            : "@HAVE_FITS_FALSE@",
@@ -406,7 +405,7 @@ CONDITIONALS = {
     'HAVE_SHP'             : "@HAVE_SHP_FALSE@",
     'HAVE_NETCDF'          : "@HAVE_NETCDF_FALSE@",
     'HAVE_ODBC'            : "@HAVE_ODBC_FALSE@",
-    'HAVE_PCRE'            : "@HAVE_PCRE_FALSE@",
+    'HAVE_PCRE'            : "@HAVE_LIBPCRE_FALSE@",
     'HAVE_PROJ'            : "@HAVE_PROJ_FALSE@",
     'HAVE_PYTHON2'         : "@HAVE_PYTHON2_FALSE@",
     'HAVE_PYTHON3'         : "@HAVE_PYTHON3_FALSE@",
@@ -3568,12 +3567,6 @@ else:
         MAJOR = RELEASE.split(".", 1)[0]
         if "A" <= MAJOR and MAJOR <= "Z":
             RELEASE = RELEASE.split(".", 1)[1]
-
-# this is for the wine/mingw setup
-if sys.platform == 'linux2' and CONDITIONALS['CROSS_COMPILING']:
-    SYST = 'Windows'
-    HOST = "WINE"
-    RELEASE = "5.2"
 
 # see if we can use UNIX sockets
 try:

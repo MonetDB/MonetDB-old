@@ -70,6 +70,11 @@
 #endif
 
 #define SOCKPTR struct sockaddr *
+#ifdef _MSC_VER
+#define SOCKLEN int
+#else
+#define SOCKLEN socklen_t
+#endif
 
 #if !defined(HAVE_ACCEPT4) || !defined(SOCK_CLOEXEC)
 #define accept4(sockfd, addr, addrlen, flags)	accept(sockfd, addr, addrlen)
@@ -556,7 +561,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 	struct sockaddr_un userver;
 	SOCKET usock = INVALID_SOCKET;
 #endif
-	socklen_t length = 0;
+	SOCKLEN length = 0;
 	int on = 1;
 	int i = 0;
 	MT_Id pid;
@@ -655,7 +660,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 			server.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 		for (i = 0; i < 8; i++)
 			server.sin_zero[i] = 0;
-		length = (socklen_t) sizeof(server);
+		length = (SOCKLEN) sizeof(server);
 
 		for (;;) {
 			server.sin_port = htons((unsigned short) ((port) & 0xFFFF));
@@ -770,7 +775,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 		strncpy(userver.sun_path, usockfile, sizeof(userver.sun_path));
 		userver.sun_path[sizeof(userver.sun_path) - 1] = 0;
 
-		length = (socklen_t) sizeof(userver);
+		length = (SOCKLEN) sizeof(userver);
 		if(remove(usockfile) == -1 && errno != ENOENT) {
 			char *e = createException(IO, "mal_mapi.listen", OPERATION_FAILED ": remove UNIX socket file");
 			if (sock != INVALID_SOCKET)

@@ -7,12 +7,8 @@
 #]]
 
 add_subdirectory(udf)
-if(HAVE_CUDF)
-	add_subdirectory(capi)
-endif()
-if(HAVE_LIBPY)
+add_subdirectory(capi)
+#[[if(HAVE_LIBPY)
 	add_subdirectory(pyapi)
-endif()
-if(HAVE_LIBPY3)
-	add_subdirectory(pyapi3)
-endif()
+endif()#]]
+add_subdirectory(pyapi3)

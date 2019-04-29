@@ -6,6 +6,9 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
+#Test for diff program existance
+find_program(DIFF NAMES gdiff diff DOC "Diff program")
+
 add_executable(Mdiff difflib.c helpers.c Mdiff.c difflib.h helpers.h)
 install(TARGETS Mdiff DESTINATION ${BINDIR})
 
@@ -40,16 +43,9 @@ if(WIN32)
 else()
 	set(NOT_WIN32_FALSE "#")
 endif()
-if(CMAKE_CROSSCOMPILING)
-	set(CROSS_COMPILING_FALSE "#")
-endif()
-if(HAVE_LIBPCRE)
-	set(HAVE_PCRE_FALSE "#")
-endif()
 
-set(HAVE_LIST
-	CUDF CURL FITS GEOM HGE LIBBZ2 LIBLZ4 LIBLZMA LIBR LIBPY LIBPY3 LIBXML LIBZ LIDAR SHP NETCDF ODBC PROJ PYTHON
-	PYTHON2 PYTHON3 SAMTOOLS)
+set(HAVE_LIST CUDF CURL FITS GEOM HGE LIBBZ2 LIBLZ4 LIBLZMA LIBR LIBPY LIBPY3 LIBXML LIBZ LIDAR SHP NETCDF ODBC PROJ
+	PYTHON3 SAMTOOLS)
 foreach(loop_var IN LISTS HAVE_LIST)
 	if(HAVE_${loop_var})
 		set(HAVE_${loop_var}_FALSE "#")
@@ -71,7 +67,7 @@ if(WIN32)
 	install(FILES Mlog.bat Mtest.py.bat DESTINATION ${BINDIR})
 	install(FILES $<TARGET_PDB_FILE:Mdiff> DESTINATION ${BINDIR} OPTIONAL)
 else()
-	find_program(SH NAMES sh bash)
+	find_program(SH NAMES sh bash DOC "shell interpreter")
 	if(NOT SH)
 		message(FATAL_ERROR "A shell interpreter was not found")
 	endif()
