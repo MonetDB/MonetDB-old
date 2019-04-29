@@ -42,7 +42,7 @@ if(NOT ${WITH_READLINE} STREQUAL "NO")
 
 				int main(int argc, char **argv) {
 					rl_completion_func_t *func = NULL;
-					(void) argc;(void) argv;
+					(void) argc;(void) argv;(void) func;
 					return 0;
 				}" HAVE_RL_COMPLETION_FUNC_T)
 			if(HAVE_RL_COMPLETION_FUNC_T)

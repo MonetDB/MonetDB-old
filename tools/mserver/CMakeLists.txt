@@ -11,6 +11,11 @@ include_directories(. ../../monetdb5/mal ../../gdk ../../common/stream ../../com
 					../../sql/include ../../sql/server ../../sql/storage ${CRYPTO_INCLUDE_DIR} ${PCRE_INCLUDE_DIR}
 					${LIBXML2_INCLUDE_DIR} ${ICONV_INCLUDE_DIR})
 
+site_name(BUILD_HOST)
+set(builtby "$ENV{USER}@${BUILD_HOST}")
+string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE_UPPER)
+set(compilercall "${CMAKE_C_COMPILER}${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
+set(linkercall "${CMAKE_LINKER}${CMAKE_C_LINK_FLAGS}")
 configure_file(monet_version.c.in ${CMAKE_CURRENT_BINARY_DIR}/monet_version.c @ONLY)
 
 add_executable(mserver5 mserver5.c monet_version.h ${CMAKE_CURRENT_BINARY_DIR}/monet_version.c)

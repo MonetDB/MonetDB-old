@@ -582,25 +582,6 @@ if(NOT "${ENABLE_TESTING}" STREQUAL "NO" AND HAVE_PYTHON3)
 	set(HAVE_TESTING ON CACHE INTERNAL "Test suite is enabled")
 endif()
 
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
-add_subdirectory(buildtools)
-add_subdirectory(common)
-add_subdirectory(clients) # Must come before monetdb5!
-if(HAVE_GDK)
-	add_subdirectory(gdk)
-endif()
-if(HAVE_MONETDB5)
-	add_subdirectory(monetdb5)
-	add_subdirectory(geom) # The SHP vault requires the geom module, so the geom module should compile before SQL
-endif()
-if(HAVE_SQL)
-	add_subdirectory(sql)
-endif()
-add_subdirectory(tools)
-if(HAVE_TESTING)
-	add_subdirectory(testing) # This one must be the last visted directory!
-endif()
-
 # Very Important, check for compiler flags after all libraries checks, otherwise extra compiler flags might break the
 # library tests
 function(MT_removeCompilerFlag REGEX_EXPRESSION FLAG_TO_REMOVE OLD_FLAGS BUILD NEW_FLAGS)
@@ -686,6 +667,7 @@ else() #GCC, clang and Apple clang
 	# Add -fomit-frame-pointer for non debug builds
 	MT_addCompilerFlag("-fomit-frame-pointer" "-fomit-frame-pointer" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
 	MT_addCompilerFlag("-fomit-frame-pointer" "-fomit-frame-pointer" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
+	MT_addCompilerFlag("-Wl,--export-dynamic" "-Wl,--export-dynamic" "${LINK_OPTIONS}" "all" LINK_OPTIONS)
 
 	# Linker flags
 	if(${CMAKE_C_COMPILER_ID} STREQUAL "AppleClang")
@@ -783,11 +765,25 @@ set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}" CACHE STRING "Share
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" CACHE STRING "Shared library link options for all builds" FORCE)
 set(LINK_OPTIONS "${LINK_OPTIONS}" CACHE STRING "Link options for all builds" FORCE)
 
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+add_subdirectory(buildtools)
+add_subdirectory(common)
+add_subdirectory(clients) # Must come before monetdb5!
+if(HAVE_GDK)
+	add_subdirectory(gdk)
+endif()
+if(HAVE_MONETDB5)
+	add_subdirectory(monetdb5)
+	add_subdirectory(geom) # The SHP vault requires the geom module, so the geom module should compile before SQL
+endif()
+if(HAVE_SQL)
+	add_subdirectory(sql)
+endif()
+add_subdirectory(tools)
+if(HAVE_TESTING)
+	add_subdirectory(testing) # This one must be the last visted directory!
+endif()
+
 # Set monetdb_config.h at the end!
-site_name(BUILD_HOST)
-set(builtby "$ENV{USER}@${BUILD_HOST}")
-string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE_UPPER)
-set(compilercall "${CMAKE_C_COMPILER}${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
-set(linkercall "${CMAKE_LINKER}${CMAKE_C_LINK_FLAGS}")
 configure_file(monetdb_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/monetdb_config.h)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/monetdb_config.h DESTINATION ${INCLUDEDIR}/monetdb)
