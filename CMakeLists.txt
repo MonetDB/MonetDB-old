@@ -667,14 +667,15 @@ else() #GCC, clang and Apple clang
 	# Add -fomit-frame-pointer for non debug builds
 	MT_addCompilerFlag("-fomit-frame-pointer" "-fomit-frame-pointer" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
 	MT_addCompilerFlag("-fomit-frame-pointer" "-fomit-frame-pointer" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
-	MT_addCompilerFlag("-Wl,--export-dynamic" "-Wl,--export-dynamic" "${LINK_OPTIONS}" "all" LINK_OPTIONS)
 
 	# Linker flags
 	if(${CMAKE_C_COMPILER_ID} STREQUAL "AppleClang")
 		MT_addCompilerFlag("-Wl,-undefined,dynamic_lookup" "-Wl,-undefined,dynamic_lookup" "${CMAKE_SHARED_LINKER_FLAGS}" "all shared libraries" CMAKE_SHARED_LINKER_FLAGS)
 		MT_addCompilerFlag("-Wl,-undefined,dynamic_lookup" "-Wl,-undefined,dynamic_lookup" "${CMAKE_MODULE_LINKER_FLAGS}" "all shared library modules" CMAKE_MODULE_LINKER_FLAGS)
+		MT_addCompilerFlag("-Wl,-single_module" "-Wl,-single_module" "${LINK_OPTIONS}" "all" LINK_OPTIONS)
 	else()
 		MT_addCompilerFlag("-Wl,-Bsymbolic-functions" "-Wl,-Bsymbolic-functions" "${LINK_OPTIONS}" "all" LINK_OPTIONS)
+		MT_addCompilerFlag("-Wl,--export-dynamic" "-Wl,--export-dynamic" "${LINK_OPTIONS}" "all" LINK_OPTIONS)
 	endif()
 endif()
 
