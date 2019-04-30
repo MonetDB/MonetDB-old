@@ -459,7 +459,6 @@ void mo_print_options(opt *set, int setlen);
 int mo_system_config(opt **Set, int setlen);
 const oid oid_nil;
 DIR *opendir(const char *dirname);
-void print_trace(void);
 ssize_t ptrFromStr(const char *src, size_t *len, ptr **dst, bool external);
 ssize_t ptrToStr(str *dst, size_t *len, const ptr *src, bool external);
 const ptr ptr_nil;

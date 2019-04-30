@@ -8,7 +8,7 @@
 
 include_directories(${UUID_INCLUDE_DIR} ${CRYPTO_INCLUDE_DIR})
 
-set(MUTILS_OBJECTS mutils.h mutils.c prompt.c mprompt.h revision.c)
+set(MUTILS_OBJECTS mutils.h mutils.c revision.c)
 set(MCRYPT_OBJECTS mcrypt.h mcrypt.c)
 set(MSABAOTH_OBJECTS muuid.h muuid.c msabaoth.h msabaoth.c)
 

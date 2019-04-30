@@ -6,7 +6,5 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
-#include "mutils.h"
-
-mutils_export char *prompt_getlogin(void);
-mutils_export char *simple_prompt(const char *prompt, int maxlen, int echo, const char *def);
+extern char *prompt_getlogin(void);
+extern char *simple_prompt(const char *prompt, int maxlen, int echo, const char *def);

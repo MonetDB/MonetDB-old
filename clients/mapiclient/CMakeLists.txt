@@ -63,7 +63,7 @@ endif()
 
 include_directories(../mapilib ../../common/options ../../common/stream ../../common/utils ${ICONV_INCLUDE_DIR})
 
-add_library(mcutil STATIC dump.c dotmonetdb.c dotmonetdb.h eventparser.c eventparser.h)
+add_library(mcutil STATIC dump.c dotmonetdb.c dotmonetdb.h eventparser.c eventparser.h mprompt.h prompt.c)
 
 add_executable(mclient mclient.c ReadlineTools.c ReadlineTools.h mhelp.c mhelp.h)
 target_link_libraries(mclient PRIVATE mcutil mutils mcrypt moptions mapi stream ${READLINE_LIBRARIES}

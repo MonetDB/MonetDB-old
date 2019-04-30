@@ -67,8 +67,6 @@ mutils_export char *dirname(char *path);
 
 mutils_export int MT_lockf(char *filename, int mode, off_t off, off_t len);
 
-mutils_export void print_trace(void);
-
 /* Retrieves the absolute path to the executable being run, with no
  * extra /, /./, or /../ sequences.  On Darwin and Solaris this function
  * needs to be called before any chdirs are performed.  Returns a
