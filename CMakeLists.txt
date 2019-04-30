@@ -123,7 +123,7 @@ set(WITH_ZLIB "AUTO" CACHE STRING "Include zlib support (default=AUTO)") # Check
 
 # Instalation directories
 set(PROGRAM_PERMISSIONS_DEFAULT OWNER_WRITE OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE) # required for some instalation files
-if(WIN32)
+if(WIN32) # Variables with _DIR are used for monetdb_config.h file, which need proper escape on Windows
 	string(REPLACE "/" "\\\\" TRIMMED_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}") # Fix cmake conversions
 	set(BINDIR "${CMAKE_INSTALL_PREFIX}/bin")
 	set(BIN_DIR "${TRIMMED_INSTALL_PREFIX}\\\\bin")

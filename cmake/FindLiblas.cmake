@@ -16,11 +16,11 @@ if(LIBLAS_CONFIG)
 	if(NOT LIBLAS_LIBDIR_CODE EQUAL 0)
 		unset(LIBLAS_LIBRARIES)
 	endif()
-endif()
 
-# Handle the QUIETLY and REQUIRED arguments and set LIBLAS_FOUND to TRUE if all listed variables are TRUE.
-include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(LIBLAS DEFAULT_MSG LIBLAS_LIBRARIES LIBLAS_INCLUDE_DIR)
+	# Call find_package_handle_standard_args only if LIBLAS_CONFIG succeded
+	include(FindPackageHandleStandardArgs)
+	find_package_handle_standard_args(LIBLAS DEFAULT_MSG LIBLAS_INCLUDE_DIR)
+endif()
 
 if(LIBLAS_FOUND)
 	file(STRINGS "${LIBLAS_INCLUDE_DIR}/liblas/capi/las_version.h" LIBLAS_VERSION_LINES REGEX "#define[ \t]+LIBLAS_VERSION_(MAJOR|MINOR|REV)")

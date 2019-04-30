@@ -73,9 +73,6 @@
 #include <ws2tcpip.h>
 #endif /* _MSC_VER */
 
-/* Mercurial repository version */
-#cmakedefine MERCURIAL_ID "@MERCURIAL_ID@"
-
 /* location where binaries are installed */
 #cmakedefine BINDIR "@BIN_DIR@"
 
@@ -393,6 +390,9 @@
 
 /* modifiable single-machine data */
 #cmakedefine LOCALSTATEDIR "@LOCALSTATE_DIR@"
+
+/* Mercurial repository version */
+#cmakedefine MERCURIAL_ID "@MERCURIAL_ID@"
 
 /* The used password hash algorithm */
 #cmakedefine MONETDB5_PASSWDHASH "@MONETDB5_PASSWDHASH@"
