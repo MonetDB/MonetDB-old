@@ -3460,7 +3460,7 @@ main(int argc, char **argv)
 		case 'v': {
 			mnstr_printf(toConsole,
 				     "mclient, the MonetDB interactive "
-				     "terminal, version %s", VERSION);
+				     "terminal, version %s", MONETDB_VERSION);
 #ifdef MONETDB_RELEASE
 			mnstr_printf(toConsole, " (%s)", MONETDB_RELEASE);
 #else

@@ -132,7 +132,7 @@ main(int argc, char **argv)
 			break;
 		case 'v': {
 			printf("msqldump, the MonetDB interactive database "
-			       "dump tool, version %s", VERSION);
+			       "dump tool, version %s", MONETDB_VERSION);
 #ifdef MONETDB_RELEASE
 			printf(" (%s)", MONETDB_RELEASE);
 #else
@@ -212,7 +212,7 @@ main(int argc, char **argv)
 			*p = 0;
 
 		mnstr_printf(out,
-			     "-- msqldump version %s", VERSION);
+			     "-- msqldump version %s", MONETDB_VERSION);
 #ifdef MONETDB_RELEASE
 		mnstr_printf(out, " (%s)", MONETDB_RELEASE);
 #else

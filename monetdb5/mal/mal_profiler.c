@@ -155,7 +155,7 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
 	/* TODO: This could probably be optimized somehow to avoid the
 	 * function call to mercurial_revision().
 	 */
-	logadd("\"version\":\""VERSION" (hg id: %s)\",%s", mercurial_revision(), prettify);
+	logadd("\"version\":\""MONETDB_VERSION" (hg id: %s)\",%s", mercurial_revision(), prettify);
 	logadd("\"source\":\"trace\",%s", prettify);
 
 	logadd("\"clk\":"LLFMT",%s", usec, prettify);
