@@ -69,3 +69,7 @@ WITH_ZLIB
 
 Linux notes:
  - libtools files are not generated yet.
+
+We use CPack module to generate source tar files with compression. After cmake run:
+ cpack -G <generator> --config <path to compilation directory where CPackConfig.cmake is located>
+For generators we use TBZ2 TGZ TXZ and ZIP. Check with 'cpack --help' for details.

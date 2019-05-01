@@ -778,3 +778,19 @@ endif()
 # Set monetdb_config.h at the end!
 configure_file(monetdb_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/monetdb_config.h)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/monetdb_config.h DESTINATION ${INCLUDEDIR}/monetdb)
+
+# Cpack configuration variables
+set(CPACK_GENERATOR "DEB;RPM;TBZ2;TGZ;TXZ;ZIP")
+set(CPACK_SOURCE_GENERATOR "TBZ2;TGZ;TXZ;ZIP")
+set(CPACK_PACKAGE_VENDOR "MonetDBSolutions")
+set(CPACK_PACKAGE_CHECKSUM "SHA512")
+set(CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/buildtools/conf/monetdb.ico")
+set(CPACK_PACKAGE_FILE_NAME "MonetDB-${MONETDB_VERSION}")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/license.txt")
+# Using regular expressions for ignored files, later we could move to a generated variable
+set(CPACK_SOURCE_IGNORE_FILES "/bootstrap" "/buildtools/autogen/" "/debian/" "/de-bootstrap" "/libversions" "/MacOSX/"
+	"/NT/" "/rpm.mk.in" "/tools/monetdbbincopy" "/testing/quicktest" "/testing/cmptests.py" "/vertoo.config"
+	"/vertoo.data" "/\.idea/" "/\.git/" "/\.hg/" "ChangeLog.*" "CMakeFiles*" "\.hg.*"  "#" "\.ac$" "\.ag$" "\.dll$"
+	"\.exe$" "\.la$" "\.lib$" "\.lo$" "\.lst$" "\.mal\.sh$" "\.o$" "\.obj$" "\.pdb$" "\.pyc$" "\.swp$" "~")
+set(CPACK_SOURCE_PACKAGE_FILE_NAME "MonetDB-${MONETDB_VERSION}")
+include(CPack)
