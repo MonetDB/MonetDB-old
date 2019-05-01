@@ -788,9 +788,9 @@ set(CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/buildtools/conf/monetdb.ico")
 set(CPACK_PACKAGE_FILE_NAME "MonetDB-${MONETDB_VERSION}")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/license.txt")
 # Using regular expressions for ignored files, later we could move to a generated variable
-set(CPACK_SOURCE_IGNORE_FILES "/bootstrap" "/buildtools/autogen/" "/debian/" "/de-bootstrap" "/libversions" "/MacOSX/"
-	"/NT/" "/rpm.mk.in" "/tools/monetdbbincopy" "/testing/quicktest" "/testing/cmptests.py" "/vertoo.config"
-	"/vertoo.data" "/\.idea/" "/\.git/" "/\.hg/" "ChangeLog.*" "CMakeFiles*" "\.hg.*"  "#" "\.ac$" "\.ag$" "\.dll$"
-	"\.exe$" "\.la$" "\.lib$" "\.lo$" "\.lst$" "\.mal\.sh$" "\.o$" "\.obj$" "\.pdb$" "\.pyc$" "\.swp$" "~")
+set(CPACK_SOURCE_IGNORE_FILES "/bootstrap" "/buildtools/autogen/" "/clients/odbc/doc" "/debian/" "/de-bootstrap"
+	"/libversions" "/MacOSX/" "/rpm.mk.in" "/tools/monetdbbincopy" "/testing/quicktest" "/testing/cmptests.py"
+	"/vertoo.config" "/vertoo.data" "/\.idea/" "/\.git/" "/\.hg/" "ChangeLog.*" "CMakeFiles*" "\.hg.*" "#" "~" "\.ac$"
+	"\.ag$" "\.lst$" "\.mal\.sh$")
 set(CPACK_SOURCE_PACKAGE_FILE_NAME "MonetDB-${MONETDB_VERSION}")
 include(CPack)
