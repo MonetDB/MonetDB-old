@@ -10,8 +10,8 @@ include_directories(../../../common/stream ../../../common/utils ../utils ${ICON
 
 add_executable(monetdb monetdb.c)
 target_link_libraries(monetdb PRIVATE meroutil mcrypt msabaoth mutils stream ${UUID_LIBRARIES} ${CRYPTO_LIBRARIES}
-					  ${SOCKET_LIBRARIES} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES}
-					  ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES})
+					  ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES}
+					  ${CURL_LIBRARIES} ${ICONV_LIBRARIES})
 
 install(TARGETS monetdb DESTINATION ${BINDIR})
 if(WIN32)
