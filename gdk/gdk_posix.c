@@ -1051,8 +1051,7 @@ void
 MT_sleep_ms(unsigned int ms)
 {
 	(void) nanosleep(&(struct timespec) {.tv_sec = ms / 1000,
-				.tv_nsec = ms == 1 ? 1000 : (long) (ms % 1000) * 1000000,},
-		NULL);
+					.tv_nsec = ms == 1 ? 1000 : (long) (ms % 1000) * 1000000,}, NULL);
 }
 
 #else /* WIN32 */
