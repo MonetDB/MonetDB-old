@@ -11,6 +11,7 @@
 
 #include "sql_types.h"
 #include "sql_atom.h"
+#include "sql_tokens.h"
 
 typedef enum symtype {
 	type_int,
@@ -53,7 +54,7 @@ extern dlist *dlist_append_symbol(sql_allocator *sa, dlist *l, struct symbol *da
 extern dlist *dlist_append_type(sql_allocator *sa, dlist *l, struct sql_subtype *data);
 
 typedef struct symbol {
-	int token;
+	tokens token;
 	symtype type;
 	symbdata data;
 } symbol;
@@ -74,6 +75,7 @@ typedef struct SelectNode {
 	symbol *having;
 	symbol *orderby;
 	symbol *name;
+	symbol *window;
 } SelectNode;
 
 typedef struct AtomNode {
@@ -81,15 +83,13 @@ typedef struct AtomNode {
 	struct atom *a;
 } AtomNode;
 
-extern symbol *symbol_create(sql_allocator *sa, int token, char *data);
-extern symbol *symbol_create_list(sql_allocator *sa, int token, dlist *data);
-extern symbol *symbol_create_int(sql_allocator *sa, int token, int data);
-extern symbol *symbol_create_lng(sql_allocator *sa, int token, lng data);
-extern symbol *symbol_create_symbol(sql_allocator *sa, int token, symbol *data);
+extern symbol *symbol_create(sql_allocator *sa, tokens token, char *data);
+extern symbol *symbol_create_list(sql_allocator *sa, tokens token, dlist *data);
+extern symbol *symbol_create_int(sql_allocator *sa, tokens token, int data);
+extern symbol *symbol_create_lng(sql_allocator *sa, tokens token, lng data);
+extern symbol *symbol_create_symbol(sql_allocator *sa, tokens token, symbol *data);
 
-extern int symbol_cmp(symbol *s1, symbol *s2);
-
-extern symbol *newSelectNode(sql_allocator *sa, int distinct, struct dlist *selection, struct dlist *into, symbol *from, symbol *where, symbol *groupby, symbol *having, symbol *orderby, symbol *name, symbol *limit, symbol *offset, symbol *sample);
+extern symbol *newSelectNode(sql_allocator *sa, int distinct, struct dlist *selection, struct dlist *into, symbol *from, symbol *where, symbol *groupby, symbol *having, symbol *orderby, symbol *name, symbol *limit, symbol *offset, symbol *sample, symbol *window);
 
 extern symbol *newAtomNode(sql_allocator *sa, atom *a);
 

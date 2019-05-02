@@ -46,6 +46,7 @@ lib__sql = {
 		sql_fround.c sql_fround_impl.h \
 		sql_orderidx.c sql_orderidx.h \
 		wlr.c wlr.h \
+		sql_datetrunc.c \
 		sql_rank.c sql_rank.h
 	# libmapi on Windows for mcrypt_*
 	LIBS = ../../server/libsqlserver \
@@ -85,6 +86,13 @@ headers_autoload_hge = {
 	HEADERS = mal
 	DIR = libdir/monetdb5/autoload
 	SOURCES = 41_sql_hge.mal
+}
+
+headers_sqlrank_hge = {
+	COND = HAVE_HGE
+	HEADERS = mal
+	DIR = libdir/monetdb5
+	SOURCES = sql_rank_hge.mal
 }
 
 EXTRA_DIST_DIR = Tests

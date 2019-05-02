@@ -82,16 +82,13 @@ static struct worker {
 	enum {IDLE, RUNNING, JOINING, EXITED} flag;
 	Client cntxt;				/* client we do work for (NULL -> any) */
 	MT_Sema s;
-	MT_Sema startup;
 } workers[THREADS];
 
 static Queue *todo = 0;	/* pending instructions */
 
-#ifdef ATOMIC_LOCK
-static MT_Lock exitingLock MT_LOCK_INITIALIZER("exitingLock");
-#endif
-static volatile ATOMIC_TYPE exiting = 0;
-static MT_Lock dataflowLock MT_LOCK_INITIALIZER("dataflowLock");
+static ATOMIC_TYPE exiting = ATOMIC_VAR_INIT(0);
+static MT_Lock dataflowLock = MT_LOCK_INITIALIZER("dataflowLock");
+static void stopMALdataflow(void);
 
 void
 mal_dataflow_reset(void)
@@ -105,7 +102,7 @@ mal_dataflow_reset(void)
 		GDKfree(todo);
 	}
 	todo = 0;	/* pending instructions */
-	exiting = 0;
+	ATOMIC_SET(&exiting, 0);
 }
 
 /*
@@ -135,14 +132,14 @@ q_create(int sz, const char *name)
 
 	if (q == NULL)
 		return NULL;
-	q->size = ((sz << 1) >> 1); /* we want a multiple of 2 */
-	q->last = 0;
+	*q = (Queue) {
+		.size = ((sz << 1) >> 1), /* we want a multiple of 2 */
+	};
 	q->data = (FlowEvent*) GDKmalloc(sizeof(FlowEvent) * q->size);
 	if (q->data == NULL) {
 		GDKfree(q);
 		return NULL;
 	}
-	q->exitcount = 0;
 
 	MT_lock_init(&q->l, name);
 	MT_sema_init(&q->s, 0, name);
@@ -229,7 +226,7 @@ q_dequeue(Queue *q, Client cntxt)
 
 	assert(q);
 	MT_sema_down(&q->s);
-	if (ATOMIC_GET(exiting, exitingLock))
+	if (ATOMIC_GET(&exiting))
 		return NULL;
 	MT_lock_set(&q->l);
 	if (cntxt) {
@@ -325,19 +322,11 @@ DFLOWworker(void *T)
 	DataFlow flow;
 	FlowEvent fe = 0, fnxt = 0;
 	int id = (int) (t - workers);
-	Thread thr;
+	int tid = THRgettid();
 	str error = 0;
 	int i,last;
 	Client cntxt;
 	InstrPtr p;
-
-	thr = THRnew("DFLOWworker");
-	if (thr == NULL) {
-		t->flag = IDLE;
-		MT_sema_up(&t->startup);
-		return;
-	}
-	MT_sema_up(&t->startup);
 
 #ifdef _MSC_VER
 	srand((unsigned int) GDKusec());
@@ -356,6 +345,7 @@ DFLOWworker(void *T)
 	}
 	while (1) {
 		if (fnxt == 0) {
+			MT_thread_setworking(NULL);
 			MT_lock_set(&dataflowLock);
 			cntxt = t->cntxt;
 			MT_lock_unset(&dataflowLock);
@@ -374,9 +364,11 @@ DFLOWworker(void *T)
 				/* no more work to be done: exit */
 				break;
 			}
+			if (fe->flow->cntxt && fe->flow->cntxt->mythread)
+				MT_thread_setworking(fe->flow->cntxt->mythread->name);
 		} else
 			fe = fnxt;
-		if (ATOMIC_GET(exiting, exitingLock)) {
+		if (ATOMIC_GET(&exiting)) {
 			break;
 		}
 		fnxt = 0;
@@ -417,7 +409,7 @@ DFLOWworker(void *T)
 		/* update the numa information. keep the thread-id producing the value */
 		p= getInstrPtr(flow->mb,fe->pc);
 		for( i = 0; i < p->argc; i++)
-			setVarWorker(flow->mb,getArg(p,i),thr->tid);
+			setVarWorker(flow->mb,getArg(p,i),tid);
 
 		MT_lock_set(&flow->flowlock);
 		fe->state = DFLOWwrapup;
@@ -485,7 +477,6 @@ DFLOWworker(void *T)
 	}
 	GDKfree(GDKerrbuf);
 	GDKsetbuf(0);
-	THRdel(thr);
 	MT_lock_set(&dataflowLock);
 	t->flag = EXITED;
 	MT_lock_unset(&dataflowLock);
@@ -516,27 +507,24 @@ DFLOWinitialize(void)
 		return -1;
 	}
 	for (i = 0; i < THREADS; i++) {
-		MT_sema_init(&workers[i].s, 0, "DFLOWinitialize");
-		MT_sema_init(&workers[i].startup, 0, "DFLOWinitialize:startup");
+		char name[16];
+		snprintf(name, sizeof(name), "DFLOWsema%d", i);
+		MT_sema_init(&workers[i].s, 0, name);
+		workers[i].flag = IDLE;
 	}
 	limit = GDKnr_threads ? GDKnr_threads - 1 : 0;
-#ifdef NEED_MT_LOCK_INIT
-	ATOMIC_INIT(exitingLock);
-	MT_lock_init(&dataflowLock, "dataflowLock");
-#endif
+	if (limit > THREADS)
+		limit = THREADS;
 	MT_lock_set(&dataflowLock);
 	for (i = 0; i < limit; i++) {
 		workers[i].flag = RUNNING;
 		workers[i].cntxt = NULL;
-		if (MT_create_thread(&workers[i].id, DFLOWworker, (void *) &workers[i], MT_THR_JOINABLE) < 0)
+		char name[16];
+		snprintf(name, sizeof(name), "DFLOWworker%d", i);
+		if ((workers[i].id = THRcreate(DFLOWworker, (void *) &workers[i], MT_THR_JOINABLE, name)) == 0)
 			workers[i].flag = IDLE;
-		else {
-			/* wait until it started */
-			MT_sema_down(&workers[i].startup);
-			/* then check whether it finished right away */
-			if (workers[i].flag != IDLE)
-				created++;
-		}
+		else
+			created++;
 	}
 	MT_lock_unset(&dataflowLock);
 	if (created == 0) {
@@ -764,7 +752,7 @@ DFLOWscheduler(DataFlow flow, struct worker *w)
 
 	while (actions != tasks ) {
 		f = q_dequeue(flow->done, NULL);
-		if (ATOMIC_GET(exiting, exitingLock))
+		if (ATOMIC_GET(&exiting))
 			break;
 		if (f == NULL)
 			throw(MAL, "dataflow", "DFLOWscheduler(): q_dequeue(flow->done) returned NULL");
@@ -899,19 +887,14 @@ runMALdataflow(Client cntxt, MalBlkPtr mb, int startpc, int stoppc, MalStkPtr st
 				workers[i].cntxt = cntxt;
 			}
 			workers[i].flag = RUNNING;
-			if (MT_create_thread(&workers[i].id, DFLOWworker, (void *) &workers[i], MT_THR_JOINABLE) < 0) {
+			char name[16];
+			snprintf(name, sizeof(name), "DFLOWworker%d", i);
+			if ((workers[i].id = THRcreate(DFLOWworker, (void *) &workers[i], MT_THR_JOINABLE, name)) == 0) {
 				/* cannot start new thread, run serially */
 				*ret = TRUE;
 				workers[i].flag = IDLE;
 				MT_lock_unset(&dataflowLock);
 				return MAL_SUCCEED;
-			}
-			/* wait until it started */
-			MT_sema_down(&workers[i].startup);
-			/* then check whether it finished right away */
-			if (workers[i].flag == IDLE) {
-				/* it wasn't to be */
-				i = THREADS;
 			}
 			break;
 		}
@@ -1002,16 +985,17 @@ deblockdataflow( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     return MAL_SUCCEED;
 }
 
-void
+static void
 stopMALdataflow(void)
 {
 	int i;
 
-	ATOMIC_SET(exiting, 1, exitingLock);
+	ATOMIC_SET(&exiting, 1);
 	if (todo) {
-		for (i = 0; i < THREADS; i++)
-			MT_sema_up(&todo->s);
 		MT_lock_set(&dataflowLock);
+		for (i = 0; i < THREADS; i++)
+			if (workers[i].flag == RUNNING)
+				MT_sema_up(&todo->s);
 		for (i = 0; i < THREADS; i++) {
 			if (workers[i].flag != IDLE && workers[i].flag != JOINING) {
 				workers[i].flag = JOINING;
@@ -1020,6 +1004,7 @@ stopMALdataflow(void)
 				MT_lock_set(&dataflowLock);
 			}
 			workers[i].flag = IDLE;
+			MT_sema_destroy(&workers[i].s);
 		}
 		MT_lock_unset(&dataflowLock);
 	}

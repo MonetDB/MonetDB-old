@@ -50,7 +50,7 @@
 #endif
 
 #ifdef HAVE_CONSOLE
-static int monet_daemon;
+static bool monet_daemon;
 #endif
 
 /* NEEDED? */
@@ -94,7 +94,6 @@ usage(char *prog, int xit)
 	fprintf(stderr, "Usage: %s [options] [scripts]\n", prog);
 	fprintf(stderr, "    --dbpath=<directory>      Specify database location\n");
 	fprintf(stderr, "    --dbextra=<directory>     Directory for transient BATs\n");
-	fprintf(stderr, "    --dbinit=<stmt>           Execute statement at startup\n");
 	fprintf(stderr, "    --config=<config_file>    Use config_file to read options from\n");
 	fprintf(stderr, "    --daemon=yes|no           Do not read commands from standard input [no]\n");
 	fprintf(stderr, "    --single-user             Allow only one user at a time\n");
@@ -102,6 +101,7 @@ usage(char *prog, int xit)
 	fprintf(stderr, "    --set <option>=<value>    Set configuration option\n");
 	fprintf(stderr, "    --help                    Print this list of options\n");
 	fprintf(stderr, "    --version                 Print version and compile time info\n");
+	fprintf(stderr, "    --verbose[=value]         Set or increase verbosity level\n");
 
 	fprintf(stderr, "The debug, testing & trace options:\n");
 	fprintf(stderr, "     --threads\n");
@@ -130,7 +130,6 @@ monet_hello(void)
 	dbl sz_mem_h;
 	char  *qc = " kMGTPE";
 	int qi = 0;
-	size_t len;
 
 	monet_memory = MT_npages() * MT_pagesize();
 	sz_mem_h = (dbl) monet_memory;
@@ -139,12 +138,19 @@ monet_hello(void)
 		qi++;
 	}
 
-	printf("# MonetDB 5 server v" VERSION);
-	/* coverity[pointless_string_compare] */
-	if (strcmp(MONETDB_RELEASE, "unreleased") == 0)
-		printf("\n# This is an unreleased version");
-	else
-		printf(" \"%s\"", MONETDB_RELEASE);
+	printf("# MonetDB 5 server v%s", GDKversion());
+	{
+#ifdef MONETDB_RELEASE
+		printf(" (%s)", MONETDB_RELEASE);
+#else
+		const char *rev = mercurial_revision();
+		if (strcmp(rev, "Unknown") != 0)
+			printf(" (hg id: %s)", rev);
+#endif
+	}
+#ifndef MONETDB_RELEASE
+	printf("\n# This is an unreleased version");
+#endif
 	printf("\n# Serving database '%s', using %d thread%s\n",
 			GDKgetenv("gdk_dbname"),
 			GDKnr_threads, (GDKnr_threads != 1) ? "s" : "");
@@ -167,18 +173,27 @@ monet_hello(void)
 	printf("# Visit https://www.monetdb.org/ for further information\n");
 
 	// The properties shipped through the performance profiler
-	len = snprintf(monet_characteristics, sizeof(monet_characteristics)-1, "{\n\"version\":\"%s\",\n", VERSION);
-	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"release\":\"%s\",\n", MONETDB_RELEASE);
-	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"host\":\"%s\",\n", HOST);
-	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"threads\":\"%d\",\n", GDKnr_threads);
-	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"memory\":\"%.3f %cB\",\n", sz_mem_h, qc[qi]);
-	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"oid\":\"%zu\",\n", sizeof(oid) *8);
-	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"packages\":[");
-	// add the compiled in package names
+	(void) snprintf(monet_characteristics, sizeof(monet_characteristics),
+			"{\n"
+			"\"version\":\"%s\",\n"
+			"\"release\":\"%s\",\n"
+			"\"host\":\"%s\",\n"
+			"\"threads\":\"%d\",\n"
+			"\"memory\":\"%.3f %cB\",\n"
+			"\"oid\":\"%zu\",\n"
+			"\"packages\":["
 #ifdef HAVE_HGE
-	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"%s\"","huge");
+			"\"huge\""
 #endif
-	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "]\n}");
+			"]\n}",
+			GDKversion(),
+#ifdef MONETDB_RELEASE
+			MONETDB_RELEASE,
+#else
+			"unreleased",
+#endif
+			HOST, GDKnr_threads,
+			sz_mem_h, qc[qi], sizeof(oid) * 8);
 }
 
 static str
@@ -204,9 +219,9 @@ monet_init(opt *set, int setlen)
 		return 0;
 
 #ifdef HAVE_CONSOLE
-	monet_daemon = 0;
+	monet_daemon = false;
 	if (GDKgetenv_isyes("monet_daemon")) {
-		monet_daemon = 1;
+		monet_daemon = true;
 #ifdef HAVE_SETSID
 		setsid();
 #endif
@@ -234,39 +249,39 @@ main(int argc, char **av)
 	char *prog = *av;
 	opt *set = NULL;
 	int i, grpdebug = 0, debug = 0, setlen = 0, listing = 0;
-	str dbinit = NULL;
 	str err = MAL_SUCCEED;
-	char prmodpath[1024];
+	char prmodpath[FILENAME_MAX];
 	char *modpath = NULL;
 	char *binpath = NULL;
 	str *monet_script;
 	char *dbpath = NULL;
 	char *dbextra = NULL;
+	int verbosity = 0;
 	static struct option long_options[] = {
-		{ "config", 1, 0, 'c' },
-		{ "dbpath", 1, 0, 0 },
-		{ "dbextra", 1, 0, 0 },
-		{ "dbinit", 1, 0, 0 } ,
-		{ "daemon", 1, 0, 0 },
-		{ "debug", 2, 0, 'd' },
-		{ "help", 0, 0, '?' },
-		{ "version", 0, 0, 0 },
-		{ "readonly", 0, 0, 'r' },
-		{ "single-user", 0, 0, 0 },
-		{ "set", 1, 0, 's' },
-		{ "threads", 0, 0, 0 },
-		{ "memory", 0, 0, 0 },
-		{ "properties", 0, 0, 0 },
-		{ "io", 0, 0, 0 },
-		{ "transactions", 0, 0, 0 },
-		{ "trace", 2, 0, 't' },
-		{ "modules", 0, 0, 0 },
-		{ "algorithms", 0, 0, 0 },
-		{ "optimizers", 0, 0, 0 },
-		{ "performance", 0, 0, 0 },
-		{ "forcemito", 0, 0, 0 },
-		{ "heaps", 0, 0, 0 },
-		{ 0, 0, 0, 0 }
+		{ "config", required_argument, NULL, 'c' },
+		{ "dbpath", required_argument, NULL, 0 },
+		{ "dbextra", required_argument, NULL, 0 },
+		{ "daemon", required_argument, NULL, 0 },
+		{ "debug", optional_argument, NULL, 'd' },
+		{ "help", no_argument, NULL, '?' },
+		{ "version", no_argument, NULL, 0 },
+		{ "verbose", optional_argument, NULL, 'v' },
+		{ "readonly", no_argument, NULL, 'r' },
+		{ "single-user", no_argument, NULL, 0 },
+		{ "set", required_argument, NULL, 's' },
+		{ "threads", no_argument, NULL, 0 },
+		{ "memory", no_argument, NULL, 0 },
+		{ "properties", no_argument, NULL, 0 },
+		{ "io", no_argument, NULL, 0 },
+		{ "transactions", no_argument, NULL, 0 },
+		{ "trace", optional_argument, NULL, 't' },
+		{ "modules", no_argument, NULL, 0 },
+		{ "algorithms", no_argument, NULL, 0 },
+		{ "optimizers", no_argument, NULL, 0 },
+		{ "performance", no_argument, NULL, 0 },
+		{ "forcemito", no_argument, NULL, 0 },
+		{ "heaps", no_argument, NULL, 0 },
+		{ NULL, 0, NULL, 0 }
 	};
 
 #if defined(_MSC_VER) && defined(__cplusplus)
@@ -301,7 +316,7 @@ main(int argc, char **av)
 	for (;;) {
 		int option_index = 0;
 
-		int c = getopt_long(argc, av, "c:d::rs:t::?",
+		int c = getopt_long(argc, av, "c:d::rs:t::v::?",
 				long_options, &option_index);
 
 		if (c == -1)
@@ -328,13 +343,6 @@ main(int argc, char **av)
 					fprintf(stderr, "#warning: ignoring multiple --dbextra arguments\n");
 				else
 					dbextra = optarg;
-				break;
-			}
-			if (strcmp(long_options[option_index].name, "dbinit") == 0) {
-				if (dbinit)
-					fprintf(stderr, "#warning: ignoring multiple --dbinit argument\n");
-				else
-					dbinit = optarg;
 				break;
 			}
 #ifdef HAVE_CONSOLE
@@ -437,6 +445,19 @@ main(int argc, char **av)
 		case 't':
 			mal_trace = 1;
 			break;
+		case 'v':
+			if (optarg) {
+				char *endarg;
+				verbosity = (int) strtol(optarg, &endarg, 10);
+				if (*endarg != '\0') {
+					fprintf(stderr, "ERROR: wrong format for --verbose=%s\n",
+							optarg);
+					usage(prog, -1);
+				}
+			} else {
+				verbosity++;
+			}
+			break;
 		case '?':
 			/* a bit of a hack: look at the option that the
 			   current `c' is based on and see if we recognize
@@ -452,16 +473,10 @@ main(int argc, char **av)
 	if (!(setlen = mo_system_config(&set, setlen)))
 		usage(prog, -1);
 
-	if (debug || grpdebug) {
-		char buf[16];
-		char wasdebug = debug != 0;
-
-		debug |= grpdebug;  /* add the algorithm tracers */
-		snprintf(buf, sizeof(buf) - 1, "%d", debug);
-		setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_debug", buf);
-		if (wasdebug)
-			mo_print_options(set, setlen);
-	}
+	GDKsetdebug(debug | grpdebug);  /* add the algorithm tracers */
+	if (debug)
+		mo_print_options(set, setlen);
+	GDKsetverbose(verbosity);
 
 	monet_script = (str *) malloc(sizeof(str) * (argc + 1));
 	if (monet_script == NULL) {
@@ -499,8 +514,14 @@ main(int argc, char **av)
 	}
 	mo_free_options(set, setlen);
 
-	if (GDKsetenv("monet_version", VERSION) != GDK_SUCCEED ||
-	    GDKsetenv("monet_release", MONETDB_RELEASE) != GDK_SUCCEED) {
+	if (GDKsetenv("monet_version", GDKversion()) != GDK_SUCCEED ||
+	    GDKsetenv("monet_release",
+#ifdef MONETDB_RELEASE
+		      MONETDB_RELEASE
+#else
+		      "unreleased"
+#endif
+		    ) != GDK_SUCCEED) {
 		fprintf(stderr, "!ERROR: GDKsetenv failed\n");
 		exit(1);
 	}
@@ -511,7 +532,19 @@ main(int argc, char **av)
 		 * bin/mserver5 -> ../
 		 * libX/monetdb5/lib/
 		 * probe libX = lib, lib32, lib64, lib/64 */
-		char *libdirs[] = { "lib", "lib64", "lib/64", "lib32", NULL };
+		size_t pref;
+		/* "remove" common prefix of configured BIN and LIB
+		 * directories from LIBDIR */
+		for (pref = 0; LIBDIR[pref] != 0 && BINDIR[pref] == LIBDIR[pref]; pref++)
+			;
+		const char *libdirs[] = {
+			&LIBDIR[pref],
+			"lib",
+			"lib64",
+			"lib/64",
+			"lib32",
+			NULL,
+		};
 		struct stat sb;
 		if (binpath != NULL) {
 			char *p = strrchr(binpath, DIR_SEP);
@@ -521,8 +554,10 @@ main(int argc, char **av)
 			if (p != NULL) {
 				*p = '\0';
 				for (i = 0; libdirs[i] != NULL; i++) {
-					snprintf(prmodpath, sizeof(prmodpath), "%s%c%s%cmonetdb5",
-							binpath, DIR_SEP, libdirs[i], DIR_SEP);
+					int len = snprintf(prmodpath, sizeof(prmodpath), "%s%c%s%cmonetdb5",
+									   binpath, DIR_SEP, libdirs[i], DIR_SEP);
+					if (len == -1 || len >= FILENAME_MAX)
+						continue;
 					if (stat(prmodpath, &sb) == 0) {
 						modpath = prmodpath;
 						break;
@@ -652,14 +687,6 @@ main(int argc, char **av)
 		msab_registerStop();
 		GDKfatal("%s", err);
 	}
-	if (dbinit == NULL)
-		dbinit = GDKgetenv("dbinit");
-	if (dbinit) {
-		if((err = callString(mal_clients, dbinit, listing)) != MAL_SUCCEED) {
-			msab_registerStop();
-			GDKfatal("%s", err);
-		}
-	}
 
 	emergencyBreakpoint();
 	for (i = 0; monet_script[i]; i++) {
@@ -687,8 +714,9 @@ main(int argc, char **av)
 		MSserveClient(mal_clients);
 	} else
 #endif
-	while (1)
-		MT_sleep_ms(5000);
+	while (!GDKexiting()) {
+		MT_sleep_ms(100);
+	}
 
 	/* mal_exit calls MT_global_exit, so statements after this call will
 	 * never get reached */

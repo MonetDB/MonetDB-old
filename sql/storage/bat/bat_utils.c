@@ -18,7 +18,7 @@ bat_destroy(BAT *b)
 }
 
 BAT *
-bat_new(int tt, BUN size, int role)
+bat_new(int tt, BUN size, role_t role)
 {
 	return COLnew(0, tt, size, role);
 }
@@ -32,7 +32,7 @@ temp_descriptor(log_bid b)
 BAT *
 quick_descriptor(log_bid b)
 {
-	return BBPquickdesc((bat) b, FALSE);
+	return BBPquickdesc((bat) b, false);
 }
 
 void

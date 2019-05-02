@@ -52,7 +52,7 @@ dnl  configure file, whereas comments starting with dnl are elided
 dnl  (including their trailing newline).
 
 AC_PREREQ([2.63b])
-AC_INIT([MonetDB], [11.31.13], [https://bugs.monetdb.org/], [MonetDB], [https://www.monetdb.org/])
+AC_INIT([MonetDB], [11.33.3], [https://bugs.monetdb.org/], [MonetDB], [https://www.monetdb.org/])
 AC_COPYRIGHT([Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.])
 AC_CONFIG_AUX_DIR([buildtools/conf])
 AC_CONFIG_MACRO_DIR([buildtools/conf])
@@ -67,7 +67,8 @@ AC_SUBST([CONFIG_H], [monetdb_config.h])
 HOST=[$target]
 AC_DEFINE_UNQUOTED([HOST], ["$HOST"], [Host identifier])
 
-AC_DEFINE([MONETDB_RELEASE], ["Aug2018-SP2"], [Release name or "unreleased"])
+dnl The next line is modified for a release and commented between releases
+AC_DEFINE([MONETDB_RELEASE], ["Apr2019"], [Release name])
 
 AS_VAR_IF([target_os], [cygwin],
 	[AC_DEFINE([WIN32], 1, [Define on Microsoft Windows (also under Cygwin)])])
@@ -285,12 +286,12 @@ AC_ARG_ENABLE([rintegration],
 	[enable_rintegration=$enableval],
 	[enable_rintegration=$dft_rintegration])
 
-dft_pyintegration=auto
-AC_ARG_ENABLE([pyintegration],
-	[AS_HELP_STRING([--enable-pyintegration],
+dft_py2integration=auto
+AC_ARG_ENABLE([py2integration],
+	[AS_HELP_STRING([--enable-py2integration],
 		[enable support for Python 2 integration into MonetDB (default=auto)])],
-	[enable_pyintegration=$enableval],
-	[enable_pyintegration=$dft_pyintegration])
+	[enable_py2integration=$enableval],
+	[enable_py2integration=$dft_py2integration])
 
 dft_py3integration=auto
 AC_ARG_ENABLE(py3integration,
@@ -603,6 +604,8 @@ dnl		MCHECK_ADD_FLAG([-Wformat-signedness]) -- numpy messes this up
 		MCHECK_ADD_FLAG([-Wmissing-declarations])
 		MCHECK_ADD_FLAG([-Wmissing-format-attribute])
 		MCHECK_ADD_FLAG([-Wmissing-prototypes])
+		# need this for clang 9.1.0 on Darwin:
+		MCHECK_ADD_FLAG([-Wno-missing-field-initializers])
 		MCHECK_ADD_FLAG([-Wold-style-definition])
 		MCHECK_ADD_FLAG([-Wpacked])
 		MCHECK_ADD_FLAG([-Wunknown-pragmas])
@@ -1184,7 +1187,9 @@ AS_VAR_IF([have_python3], [no],
 	 # and no interpreter
 	 PYTHON3=false
 	 # and no Python 3 integration
-	 enable_py3integration=no],
+	 AS_CASE([$enable_py3integration],
+	 	[no|auto], [enable_py3integration=no],
+		[AC_MSG_ERROR([--enable-py3integration requires Python 3])])],
 	[have_python3_libdir=auto
 
 	 AC_ARG_WITH([python3-libdir],
@@ -1316,14 +1321,6 @@ AC_DEFINE_UNQUOTED([PATH_SEP], ['$PATHSEP'], [Path separator])
 AC_DEFINE_UNQUOTED([PATH_SEP_STR], ["$PATHSEP"], [Path separator])
 AC_DEFINE_UNQUOTED([SO_PREFIX], ["$SOPREF"], [Shared Object prefix])
 AC_DEFINE_UNQUOTED([SO_EXT], ["$SOEXT"], [Shared Object extension])
-
-AS_CASE([$host_os],
-    [cygwin*], [],
-    [
-	CYGPATH_W=echo
-	CYGPATH_WP=echo
-	AC_SUBST([CYGPATH_W])
-	AC_SUBST([CYGPATH_WP])])
 
 #    checks for libraries
 # check for bz2 (de)compression library
@@ -1477,7 +1474,7 @@ AS_VAR_IF([have_pthread], [no], [], [
 			LIBS="$LIBS $PTHREAD_LIBS"],
 		[
 			# ok, do old-fashioned stuff
-			CPPFLAGS="$CPPFLAGS $PTHREAD_INCS" # in case user did --with-pthreads
+			CPPFLAGS="$CPPFLAGS $PTHREAD_INCS" # in case user did --with-pthread
 			LIBS="$LIBS $PTHREAD_LIBS"
 			pthread_found=yes
 			AC_SEARCH_LIBS([sem_init], [pthreadGC2 pthreadGC1 pthreadGC pthread],
@@ -1523,7 +1520,7 @@ AS_VAR_IF([have_pthread], [no],
 	[PTHREAD_LIBS=""
 	 PTHREAD_INCS=""
 	 AC_MSG_RESULT([no])
-	 AC_MSG_ERROR([MonetDB requires libpthread (try --with-pthreada)])],
+	 AC_MSG_ERROR([MonetDB requires libpthread (try --with-pthread)])],
 	[AC_DEFINE([HAVE_LIBPTHREAD], 1, [Define if you have the pthread library])
 	 PTHREAD_INCS="$PTHREAD_INCS $PTHREAD_EXTRA"
 	 # CPPFLAGS="$CPPFLAGS $PTHREAD_INCS"
@@ -1690,7 +1687,7 @@ org_have_regex=auto
 dft_regex=auto
 AC_ARG_WITH([regex],
 	[AS_HELP_STRING([--with-regex=TYPE],
-	[use either PRCE or POSIX regular expressions (default=PCRE if available)])],
+	[use either PCRE or POSIX regular expressions (default=PCRE if available)])],
 	[AS_CASE([$withval],
 		[pcre|PCRE], [have_regex=pcre],
 		[posix|POSIX], [have_regex=posix],
@@ -1838,27 +1835,27 @@ AM_CONDITIONAL([HAVE_LIBR], [test x"$have_libr" != xno])
 
 # Python API (Python UDFs)
 have_libpy=no
-AS_VAR_IF([enable_pyintegration], [no], [], [
-	AS_CASE([$enable_pyintegration],
+AS_VAR_IF([enable_py2integration], [no], [], [
+	AS_CASE([$enable_py2integration],
 		[yes|auto], [XPATH="$PATH"],
-		[/*], [XPATH="$enable_pyintegration"
-		       enable_pyintegration=yes],
-		[AC_MSG_ERROR([--enable-pyintegration value must be yes|no|auto|absolute path of python-config])])
+		[/*], [XPATH="$enable_py2integration"
+		       enable_py2integration=yes],
+		[AC_MSG_ERROR([--enable-py2integration value must be yes|no|auto|absolute path of python-config])])
 	AS_VAR_IF([have_py2config], [], [
 	   	AC_PATH_PROG([PY2CONFIG], [python2-config], [no], [$PATH])
 	   	AS_VAR_IF([PY2CONFIG], [no], [
 		   	AC_PATH_PROG([PYCMD2], [python-config], [no], [$PATH])
 		   	AS_VAR_IF([PYCMD2], [no], [
-		   		AS_VAR_IF([enable_pyintegration], [yes],
+		   		AS_VAR_IF([enable_py2integration], [yes],
 					[AC_MSG_ERROR([python2-config library required for Python integration support])],
 					[have_libpy=no
 					 why_not_libpy="(python2-config command not found)"
-					 enable_pyintegration=no
-					 why_not_pyintegration="(python2-config command not found)"])
+					 enable_py2integration=no
+					 why_not_py2integration="(python2-config command not found)"])
 			], [PY2CONFIG="$PYCMD2"])
 	   	], [])
 	], [PY2CONFIG="$have_py2config"])
-	AS_VAR_IF([enable_pyintegration], [no], [], [
+	AS_VAR_IF([enable_py2integration], [no], [], [
 		PYTHON_CMD=$PYTHON2
 		NUMPYVER=`$PYTHON_CMD -c "import numpy; print(int(numpy.__version__.split('.').__getitem__(1)) >= 7)" 2> /dev/null`
 		# check numpyconfig.h because autoconf tests includes by
@@ -1868,33 +1865,33 @@ AS_VAR_IF([enable_pyintegration], [no], [], [
 			[NUMPYHEADERS=True],
 			[NUMPYHEADERS=`$PYTHON_CMD -c "import numpy, os; print(os.path.isfile(os.path.join(numpy.get_include(), 'numpy/arrayobject.h')))" 2> /dev/null`])
 		AS_IF([test "x$NUMPYVER" = x -o "x$NUMPYVER" = xFalse],
-			[AS_VAR_IF([enable_pyintegration], [yes],
+			[AS_VAR_IF([enable_py2integration], [yes],
 				[AC_MSG_ERROR([numpy version >= 1.7.0 required for Python integration support])],
 				[have_libpy=no
 				 why_not_libpy="(numpy version >= 1.7.0 not found)"
-				 enable_pyintegration=no
-				 why_not_pyintegration="(numpy version >= 1.7.0 not found)"])],
+				 enable_py2integration=no
+				 why_not_py2integration="(numpy version >= 1.7.0 not found)"])],
 			[test "x$NUMPYHEADERS" = xFalse ],
-			[AS_VAR_IF([enable_pyintegration], [yes],
+			[AS_VAR_IF([enable_py2integration], [yes],
 				[AC_MSG_ERROR([numpy/arrayobject.h not found])],
 				[have_libpy=no
 				 why_not_libpy="(numpy/arrayobject.h not found)"
-				 enable_pyintegration=no
-				 why_not_pyintegration="(numpy/arrayobject.h not found)"])],
+				 enable_py2integration=no
+				 why_not_py2integration="(numpy/arrayobject.h not found)"])],
 			[libpy_CFLAGS=`$PYTHON_CMD -c "from distutils.sysconfig import get_python_inc; import numpy; print(' -I' + get_python_inc() + ' -I' + numpy.get_include());" 2> /dev/null`
 			 libpy_LIBS=`$PY2CONFIG --ldflags`
 			 HAVEPYTHONHEADER=`$PYTHON_CMD -c "import distutils.sysconfig, os; print(os.path.isfile(os.path.join(distutils.sysconfig.get_python_inc(), 'Python.h')))" 2> /dev/null`
 			 AS_VAR_IF([HAVEPYTHONHEADER], [True],
 				[have_libpy=yes
-				 AC_DEFINE([HAVE_LIBPY], 1, [Define if we can link to python])
+				 AC_DEFINE([HAVE_LIBPY], 1, [Define if we can link to python2])
 				 AC_SUBST([libpy_CFLAGS], [$libpy_CFLAGS])
 				 AC_SUBST([libpy_LIBS], [$libpy_LIBS])],
-				[AS_VAR_IF([enable_pyintegration], [yes],
+				[AS_VAR_IF([enable_py2integration], [yes],
 					[AC_MSG_ERROR([Python.h not found])],
 					[have_libpy=no
 					 why_not_libpy="Python.h not found"
-					 enable_pyintegration=no
-					 why_not_pyintegration="Python.h not found"])])])])])
+					 enable_py2integration=no
+					 why_not_py2integration="Python.h not found"])])])])])
 AM_CONDITIONAL([HAVE_LIBPY], [test x"$have_libpy" != xno])
 
 
@@ -1962,7 +1959,7 @@ AS_VAR_IF([enable_py3integration], [no], [],
 			 HAVEPYTHONHEADER=`$PYTHON_CMD -c "import distutils.sysconfig, os; print(os.path.isfile(os.path.join(distutils.sysconfig.get_python_inc(), 'Python.h')))" 2> /dev/null`
 			 AS_VAR_IF([HAVEPYTHONHEADER], [True],
 				[have_libpy3=yes
-				 AC_DEFINE(HAVE_LIBPY3, 1, [Define if we can link to python])
+				 AC_DEFINE(HAVE_LIBPY3, 1, [Define if we can link to python3])
 				 AC_SUBST(libpy3_CFLAGS, $libpy3_CFLAGS)
 				 AC_SUBST(libpy3_LIBS, $libpy3_LIBS)],
 				[AS_VAR_IF([enable_py3integration], [yes],
@@ -2341,37 +2338,72 @@ AC_SUBST([LIBLAS_LIBS])
 
 AM_CONDITIONAL([HAVE_LIDAR], [test "x$have_lidar" = xyes -o "x$have_lidar" = xauto])
 
-PKG_CHECK_MODULES([atomic_ops], [atomic_ops], [have_atomic_ops=yes],
-	[have_atomic_ops=no; why_not_atomic_ops="(atomic_ops library not found)"])
-AS_VAR_IF([have_atomic_ops], [yes], [
-	AS_CASE([$GCC-$CC],
-	[-*icc*], [
-		# Even with libatomic_ops available, compilation with
-		# atomic_ops enabled fails with Intel's icc (version 11.1);
-		# hence, we refrain from from using atomic_ops with icc.
-		have_atomic_ops=no
-		why_not_atomic_ops="(atomic_ops do not compile with Intel's icc)"],
-	[
-		# On some systems, notably OpenIndiana, atomic_ops may
-		# seem to be installed in that there is a pkg-config
-		# file for it, but that file contains incorrect
-		# information, and can not, in fact, be used.  The
-		# bogus pkg-config file for atomic_ops is part of the
-		# library/gc package.
-		save_CFLAGS="$CFLAGS"
-		CFLAGS="$CFLAGS $atomic_ops_CFLAGS"
-		AC_CHECK_HEADERS([atomic_ops.h], [have_atomic_ops=yes], [have_atomic_ops=no why_not_atomic_ops="(atomic_ops was incorrectly installed (happens on at least Solaris/OpenIndiana))"])
-		CFLAGS="$save_CFLAGS"
-		AS_VAR_IF([have_atomic_ops], [yes], [
-			AC_DEFINE([HAVE_LIBATOMIC_OPS], 1, [Define if you have the libatomic_ops library])
+org_have_atomic_ops=auto
+have_atomic_ops=$org_have_atomic_ops
+AC_ARG_WITH([atomic-ops],
+	[AS_HELP_STRING([--with-atomic-ops],
+		[use atomic_ops library (default=auto)])],
+	[have_atomic_ops=$withval])
+AS_VAR_IF([have_atomic_ops], [no], [], [
+	PKG_CHECK_MODULES([atomic_ops], [atomic_ops], [have_atomic_ops=yes], [
+		dnl  RHEL 6 doesn't have a pkgconfig file for atomic_ops,
+		dnl  so we also do it the old-fashioned way.
+		dnl  When we drop support for RHEL 6, this whole "not found"
+		dnl  section can be replaced with
+		dnl  [have_atomic_ops=no; why_not_atomic_ops="(atomic_ops library not found)"]
+		atomic_ops_CFLAGS=""
+		atomic_ops_LIBS="-latomic_ops"
+		save_CPPFLAGS="$CPPFLAGS"
+		CPPFLAGS="$CPPFLAGS $atomic_ops_CFLAGS"
+		save_LDFLAGS="$LDFLAGS"
+		LDFLAGS="$LDFLAGS $atomic_ops_LIBS"
+		AC_CHECK_HEADER([atomic_ops.h],
+			[AC_CHECK_LIB([atomic_ops], [AO_pause],
+				[have_atomic_ops=yes],
+				[AS_VAR_IF([have_atomic_ops], [auto], [],
+					[AC_MSG_ERROR([atomic_ops library not found])])
+				 have_atomic_ops=no
+				 atomic_ops_LIBS=
+				 atomic_ops_CFLAGS=
+				 why_not_atomic_ops="(atomic_ops library not found)"])],
+			[AS_VAR_IF([have_atomic_ops], [auto], [],
+				[AC_MSG_ERROR([atomic_ops.h header not found])])
+			 have_atomic_ops=no
+			 atomic_ops_LIBS=
+			 atomic_ops_CFLAGS=
+			 why_not_atomic_ops="(atomic_ops.h header not found)"])
+		LDFLAGS="$save_LDFLAGS"
+		CPPFLAGS="$save_CPPFLAGS"])
+	AS_VAR_IF([have_atomic_ops], [yes], [
+		AS_CASE([$GCC-$CC],
+		[-*icc*], [
+			# Even with libatomic_ops available, compilation with
+			# atomic_ops enabled fails with Intel's icc (version 11.1);
+			# hence, we refrain from from using atomic_ops with icc.
+			have_atomic_ops=no
+			why_not_atomic_ops="(atomic_ops do not compile with Intel's icc)"],
+		[
+			# On some systems, notably OpenIndiana, atomic_ops may
+			# seem to be installed in that there is a pkg-config
+			# file for it, but that file contains incorrect
+			# information, and can not, in fact, be used.  The
+			# bogus pkg-config file for atomic_ops is part of the
+			# library/gc package.
+			save_CFLAGS="$CFLAGS"
 			CFLAGS="$CFLAGS $atomic_ops_CFLAGS"
-			LIBS="$LIBS $atomic_ops_LIBS"])])])
+			AC_CHECK_HEADERS([atomic_ops.h], [have_atomic_ops=yes], [have_atomic_ops=no why_not_atomic_ops="(atomic_ops was incorrectly installed (happens on at least Solaris/OpenIndiana))"])
+			CFLAGS="$save_CFLAGS"
+			AS_VAR_IF([have_atomic_ops], [yes], [
+				AC_DEFINE([HAVE_LIBATOMIC_OPS], 1, [Define if you have the libatomic_ops library])
+				CFLAGS="$CFLAGS $atomic_ops_CFLAGS"
+				LIBS="$LIBS $atomic_ops_LIBS"])])])])
 
 #    checks for header files
 AC_HEADER_STDBOOL
 # NOTE: these header files are in alphabetical order to ease maintenance
 AC_CHECK_HEADERS([ \
 	dirent.h \
+	dispatch/dispatch.h \
 	dlfcn.h \
 	execinfo.h \
 	fcntl.h \
@@ -2508,6 +2540,22 @@ AC_C_INLINE
 AC_C_RESTRICT
 AC_C_FLEXIBLE_ARRAY_MEMBER
 
+AC_MSG_CHECKING([if your compiler has usable <stdatomic.h>])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+	@%:@include <stdatomic.h>
+
+	@%:@if ATOMIC_LLONG_LOCK_FREE == 2
+	atomic_ullong i;
+	@%:@else
+	atomic_uint i;
+	@%:@endif
+	]],
+	[[ atomic_store(&i, 0); ]]
+	)],
+	[AC_MSG_RESULT([yes])
+	 AC_DEFINE([HAVE_STDATOMIC_H], 1, [Define to 1 if you have the <stdatomic.h> header file.])],
+	[AC_MSG_RESULT([no])])
+
 AC_MSG_CHECKING([if your compiler understands `__hidden'])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 	@%:@include <stdlib.h>
@@ -2560,6 +2608,7 @@ AC_CHECK_FUNCS([\
 	cbrt \
 	clock_gettime \
 	ctime_r \
+	dispatch_semaphore_create \
 	fallocate \
 	fcntl \
 	fsync \
@@ -2574,6 +2623,7 @@ AC_CHECK_FUNCS([\
 	lockf \
 	madvise \
 	mremap \
+	nanosleep \
 	nl_langinfo \
 	_NSGetExecutablePath \
 	pipe2 \
@@ -2666,18 +2716,6 @@ AM_CONDITIONAL([HAVE_DEVELOPER], [test "x$enable_developer" = xyes])
 AC_SUBST([compilercall], ["$CC $CFLAGS $X_CFLAGS"])
 AC_SUBST([linkercall], ["$LD $LDFLAGS"])
 AC_SUBST([builtby], ["${USER}@`hostname`"])
-pcreversion="not linked to any PCRE library"
-AS_VAR_IF([have_pcre], [yes], [
-        pcreversion="compiled with `pkg-config --modversion libpcre 2>/dev/null`"])
-AC_SUBST([pcreversion])
-opensslversion="not linked to any openssl library"
-AS_VAR_IF([have_openssl], [yes], [
-        opensslversion="compiled with `openssl version 2>/dev/null`"])
-AC_SUBST([opensslversion])
-libxml2version="not linked to any libxml2 library"
-AS_VAR_IF([have_libxml2], [yes], [
-        libxml2version="compiled with `pkg-config --modversion libxml-2.0 2>/dev/null`"])
-AC_SUBST([libxml2version])
 
 # provide different versions of the paths derived above
 AS_VAR_IF([prefix], [NONE],
@@ -2900,6 +2938,7 @@ typedef __uint128_t uhge;
 
 @%:@define PROMPT1		"\001\001\n"	/* prompt: ready for new query */
 @%:@define PROMPT2		"\001\002\n"	/* prompt: more data needed */
+@%:@define PROMPT3		"\001\003\n"	/* prompt: get file content */
 
 @%:@endif /* _SEEN_MONETDB_CONFIG_H */
 ])
@@ -2959,7 +2998,7 @@ for comp in \
 	'sql           ' \
 	'geom          ' \
 	'console       ' \
-	'pyintegration ' \
+	'py2integration' \
 	'py3integration' \
 	'rintegration  ' \
 	'odbc          ' \

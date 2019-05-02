@@ -23,8 +23,7 @@
 BAT *GDKkey = NULL;
 BAT *GDKval = NULL;
 int GDKdebug = 0;
-
-static char THRprintbuf[BUFSIZ];
+int GDKverbose = 0;
 
 #include <signal.h>
 
@@ -51,7 +50,7 @@ static char THRprintbuf[BUFSIZ];
 #define chdir _chdir
 #endif
 
-static volatile ATOMIC_FLAG GDKstopped = ATOMIC_FLAG_INIT;
+static ATOMIC_TYPE GDKstopped = ATOMIC_VAR_INIT(0);
 static void GDKunlockHome(int farmid);
 
 #undef malloc
@@ -99,29 +98,26 @@ GDKgetenv(const char *name)
 
 	if (b != BUN_NONE) {
 		BATiter GDKenvi = bat_iterator(GDKval);
-		return BUNtail(GDKenvi, b);
+		return BUNtvar(GDKenvi, b);
 	}
 	return NULL;
 }
 
-int
-GDKgetenv_istext(const char *name, const char* text)
+bool
+GDKgetenv_istext(const char *name, const char *text)
 {
-	char *val = GDKgetenv(name);
+	const char *val = GDKgetenv(name);
 
-	if (val && strcasecmp(val, text) == 0) {
-		return 1;
-	}
-	return 0;
+	return val && strcasecmp(val, text) == 0;
 }
 
-int
+bool
 GDKgetenv_isyes(const char *name)
 {
 	return GDKgetenv_istext(name, "yes");
 }
 
-int
+bool
 GDKgetenv_istrue(const char *name)
 {
 	return GDKgetenv_istext(name, "true");
@@ -234,7 +230,7 @@ static void
 BATSIGabort(int nr)
 {
 	(void) nr;
-	GDKexit(3);		/* emulate Windows exit code without pop-up */
+	_Exit(3);		/* emulate Windows exit code without pop-up */
 }
 #endif
 
@@ -242,7 +238,7 @@ BATSIGabort(int nr)
 static void
 BATSIGinterrupt(int nr)
 {
-	GDKexit(nr);
+	_Exit(nr);
 }
 
 static int
@@ -259,9 +255,6 @@ BATSIGinit(void)
 #endif
 #ifdef __SIGRTMIN
 	(void) signal(__SIGRTMIN + 1, SIG_IGN);
-#endif
-#ifdef SIGHUP
-	(void) signal(SIGHUP, MT_global_exit);
 #endif
 #ifdef SIGINT
 	(void) signal(SIGINT, BATSIGinterrupt);
@@ -288,8 +281,6 @@ size_t GDK_mmap_pagesize = MMAP_PAGESIZE; /* mmap granularity */
 size_t GDK_mem_maxsize = GDK_VM_MAXSIZE;
 size_t GDK_vm_maxsize = GDK_VM_MAXSIZE;
 
-int GDK_vm_trim = 1;
-
 #define SEG_SIZE(x,y)	((x)+(((x)&((1<<(y))-1))?(1<<(y))-((x)&((1<<(y))-1)):0))
 
 /* This block is to provide atomic addition and subtraction to select
@@ -298,15 +289,11 @@ int GDK_vm_trim = 1;
  * Studio.  By doing this, we avoid locking overhead.  There is also a
  * fall-back for other compilers. */
 #include "gdk_atomic.h"
-static volatile ATOMIC_TYPE GDK_mallocedbytes_estimate = 0;
+static ATOMIC_TYPE GDK_mallocedbytes_estimate = ATOMIC_VAR_INIT(0);
 #ifndef NDEBUG
 static volatile lng GDK_malloc_success_count = -1;
 #endif
-static volatile ATOMIC_TYPE GDK_vm_cursize = 0;
-#ifdef ATOMIC_LOCK
-static MT_Lock mbyteslock MT_LOCK_INITIALIZER("mbyteslock");
-static MT_Lock GDKstoppedLock MT_LOCK_INITIALIZER("GDKstoppedLock");
-#endif
+static ATOMIC_TYPE GDK_vm_cursize = ATOMIC_VAR_INIT(0);
 
 size_t _MT_pagesize = 0;	/* variable holding page size */
 size_t _MT_npages = 0;		/* variable holding memory size in pages */
@@ -428,11 +415,23 @@ static void GDKlockHome(int farmid);
 
 #ifndef STATIC_CODE_ANALYSIS
 #ifndef NDEBUG
-static MT_Lock mallocsuccesslock MT_LOCK_INITIALIZER("mallocsuccesslock");
+static MT_Lock mallocsuccesslock = MT_LOCK_INITIALIZER("mallocsuccesslk");
 #endif
 #endif
 
-int
+void
+GDKsetdebug(int debug)
+{
+	GDKdebug = debug;
+}
+
+void
+GDKsetverbose(int verbose)
+{
+	GDKverbose = verbose;
+}
+
+bool
 GDKinit(opt *set, int setlen)
 {
 	char *dbpath = mo_find_option(set, setlen, "gdk_dbpath");
@@ -456,33 +455,29 @@ GDKinit(opt *set, int setlen)
 	static_assert(sizeof(size_t) == SIZEOF_SIZE_T, "error in configure: bad value for SIZEOF_SIZE_T");
 	static_assert(SIZEOF_OID == SIZEOF_INT || SIZEOF_OID == SIZEOF_LNG, "SIZEOF_OID should be equal to SIZEOF_INT or SIZEOF_LNG");
 
-#ifdef NEED_MT_LOCK_INIT
-	MT_lock_init(&MT_system_lock,"MT_system_lock");
-	ATOMIC_INIT(GDKstoppedLock);
-	ATOMIC_INIT(mbyteslock);
-	MT_lock_init(&GDKnameLock, "GDKnameLock");
-	MT_lock_init(&GDKthreadLock, "GDKthreadLock");
-	MT_lock_init(&GDKtmLock, "GDKtmLock");
-#ifndef NDEBUG
-	MT_lock_init(&mallocsuccesslock, "mallocsuccesslock");
-#endif
-#endif
+	if (!MT_thread_init())
+		return 0;
+
 	for (i = 0; i <= BBP_BATMASK; i++) {
-		MT_lock_init(&GDKbatLock[i].swap, "GDKswapLock");
-		MT_lock_init(&GDKbatLock[i].hash, "GDKhashLock");
-		MT_lock_init(&GDKbatLock[i].imprints, "GDKimprintsLock");
+		char name[16];
+		snprintf(name, sizeof(name), "GDKswapLock%d", i);
+		MT_lock_init(&GDKbatLock[i].swap, name);
+		snprintf(name, sizeof(name), "GDKhashLock%d", i);
+		MT_lock_init(&GDKbatLock[i].hash, name);
+		snprintf(name, sizeof(name), "GDKimpsLock%d", i);
+		MT_lock_init(&GDKbatLock[i].imprints, name);
 	}
 	for (i = 0; i <= BBP_THREADMASK; i++) {
-		MT_lock_init(&GDKbbpLock[i].alloc, "GDKcacheLock");
-		MT_lock_init(&GDKbbpLock[i].trim, "GDKtrimLock");
+		char name[16];
+		snprintf(name, sizeof(name), "GDKcacheLock%d", i);
+		MT_lock_init(&GDKbbpLock[i].cache, name);
+		snprintf(name, sizeof(name), "GDKtrimLock%d", i);
+		MT_lock_init(&GDKbbpLock[i].trim, name);
 		GDKbbpLock[i].free = 0;
 	}
 	errno = 0;
 	if (!GDKenvironment(dbpath))
 		return 0;
-
-	if ((p = mo_find_option(set, setlen, "gdk_debug")))
-		GDKdebug = strtol(p, NULL, 10);
 
 	if (mnstr_init() < 0)
 		return 0;
@@ -501,7 +496,6 @@ GDKinit(opt *set, int setlen)
 #endif
 #endif
 	MT_init();
-	BBP_dirty = true;
 
 	/* now try to lock the database: go through all farms, and if
 	 * we see a new directory, lock it */
@@ -641,6 +635,8 @@ GDKinit(opt *set, int setlen)
 		if (GDKsetenv("monet_pid", buf) != GDK_SUCCEED)
 			GDKfatal("GDKinit: GDKsetenv failed");
 	}
+	if (GDKsetenv("revision", mercurial_revision()) != GDK_SUCCEED)
+		GDKfatal("GDKinit: GDKsetenv failed");
 
 	return 1;
 }
@@ -649,18 +645,10 @@ int GDKnr_threads = 0;
 static int GDKnrofthreads;
 static ThreadRec GDKthreads[THREADS];
 
-int
+bool
 GDKexiting(void)
 {
-	int stopped;
-#ifdef ATOMIC_LOCK
-	pthread_mutex_lock(&GDKstoppedLock.lock);
-#endif
-	stopped = GDKstopped != 0;
-#ifdef ATOMIC_LOCK
-	pthread_mutex_unlock(&GDKstoppedLock.lock);
-#endif
-	return stopped;
+	return (bool) (ATOMIC_GET(&GDKstopped) > 0);
 }
 
 static struct serverthread {
@@ -673,9 +661,10 @@ GDKprepareExit(void)
 {
 	struct serverthread *st;
 
-	if (ATOMIC_TAS(GDKstopped, GDKstoppedLock) != 0)
+	if (ATOMIC_ADD(&GDKstopped, 1) > 0)
 		return;
 
+	THRDDEBUG dump_threads();
 	MT_lock_set(&GDKthreadLock);
 	for (st = serverthread; st; st = serverthread) {
 		MT_lock_unset(&GDKthreadLock);
@@ -705,25 +694,21 @@ GDKregister(MT_Id pid)
 }
 
 void
-GDKreset(int status, int exit)
+GDKreset(int status, int doexit)
 {
 	MT_Id pid = MT_getpid();
-	Thread t, s;
-	struct serverthread *st;
-	int farmid;
-	int i;
 
-	if( GDKkey){
+	if (GDKkey) {
 		BBPunfix(GDKkey->batCacheid);
-		GDKkey = 0;
+		GDKkey = NULL;
 	}
-	if( GDKval){
+	if (GDKval) {
 		BBPunfix(GDKval->batCacheid);
-		GDKval = 0;
+		GDKval = NULL;
 	}
 
 	MT_lock_set(&GDKthreadLock);
-	for (st = serverthread; st; st = serverthread) {
+	for (struct serverthread *st = serverthread; st; st = serverthread) {
 		MT_lock_unset(&GDKthreadLock);
 		MT_join_thread(st->pid);
 		MT_lock_set(&GDKthreadLock);
@@ -737,7 +722,7 @@ GDKreset(int status, int exit)
 		/* they had their chance, now kill them */
 		int killed = 0;
 		MT_lock_set(&GDKthreadLock);
-		for (t = GDKthreads, s = t + THREADS; t < s; t++) {
+		for (Thread t = GDKthreads; t < GDKthreads + THREADS; t++) {
 			if (t->pid) {
 				MT_Id victim = t->pid;
 
@@ -759,16 +744,15 @@ GDKreset(int status, int exit)
 			/* we can't clean up after killing threads */
 			BBPexit();
 		}
-		GDKlog(GET_GDKLOCK(0), GDKLOGOFF);
+		GDKlog(GET_GDKLOCK(PERSISTENT), GDKLOGOFF);
 
-		for (farmid = 0; farmid < MAXFARMS; farmid++) {
+		for (int farmid = 0; farmid < MAXFARMS; farmid++) {
 			if (BBPfarms[farmid].dirname != NULL) {
-				int skip = 0;
-				int j;
-				for (j = 0; j < farmid; j++) {
+				bool skip = false;
+				for (int j = 0; j < farmid; j++) {
 					if (BBPfarms[j].dirname != NULL &&
 					    strcmp(BBPfarms[farmid].dirname, BBPfarms[j].dirname) == 0) {
-						skip = 1;
+						skip = true;
 						break;
 					}
 				}
@@ -777,7 +761,7 @@ GDKreset(int status, int exit)
 			}
 		}
 
-#if !defined(USE_PTHREAD_LOCKS) && !defined(NDEBUG)
+#ifdef LOCK_STATS
 		TEMDEBUG GDKlockstatistics(1);
 #endif
 		GDKdebug = 0;
@@ -787,8 +771,6 @@ GDKreset(int status, int exit)
 		GDK_mem_maxsize = (size_t) ((double) MT_npages() * (double) MT_pagesize() * 0.815);
 		GDK_vm_maxsize = GDK_VM_MAXSIZE;
 		GDKatomcnt = TYPE_str + 1;
-
-		GDK_vm_trim = 1;
 
 		if (GDK_mem_maxsize / 16 < GDK_mmap_minsize_transient) {
 			GDK_mmap_minsize_transient = GDK_mem_maxsize / 16;
@@ -800,41 +782,27 @@ GDKreset(int status, int exit)
 		GDKnrofthreads = 0;
 		close_stream((stream *) THRdata[0]);
 		close_stream((stream *) THRdata[1]);
-		for (i = 0; i <= BBP_BATMASK; i++) {
+		for (int i = 0; i <= BBP_BATMASK; i++) {
 			MT_lock_destroy(&GDKbatLock[i].swap);
 			MT_lock_destroy(&GDKbatLock[i].hash);
 			MT_lock_destroy(&GDKbatLock[i].imprints);
 		}
-		for (i = 0; i <= BBP_THREADMASK; i++) {
-			MT_lock_destroy(&GDKbbpLock[i].alloc);
+		for (int i = 0; i <= BBP_THREADMASK; i++) {
+			MT_lock_destroy(&GDKbbpLock[i].cache);
 			MT_lock_destroy(&GDKbbpLock[i].trim);
 			GDKbbpLock[i].free = 0;
 		}
 
-		memset((char*) GDKthreads, 0, sizeof(GDKthreads));
-		memset((char*) THRdata, 0, sizeof(THRdata));
-		memset((char*) THRprintbuf,0, sizeof(THRprintbuf));
+		memset(GDKthreads, 0, sizeof(GDKthreads));
+		memset(THRdata, 0, sizeof(THRdata));
 		gdk_bbp_reset();
 		MT_lock_unset(&GDKthreadLock);
 		//gdk_system_reset(); CHECK OUT
 	}
 	ATOMunknown_clean();
-#ifdef NEED_MT_LOCK_INIT
-	MT_lock_destroy(&MT_system_lock);
-#if defined(USE_PTHREAD_LOCKS) && defined(ATOMIC_LOCK)
-	MT_lock_destroy(&GDKstoppedLock);
-	MT_lock_destroy(&mbyteslock);
-#endif
-	MT_lock_destroy(&GDKnameLock);
-	MT_lock_destroy(&GDKthreadLock);
-	MT_lock_destroy(&GDKtmLock);
-#ifndef NDEBUG
-	MT_lock_destroy(&mallocsuccesslock);
-#endif
-#endif
 #ifndef HAVE_EMBEDDED
-	if (exit) {
-		MT_global_exit(status);
+	if (doexit) {
+		exit(status);
 	}
 #endif
 }
@@ -843,7 +811,7 @@ GDKreset(int status, int exit)
 void
 GDKexit(int status)
 {
-	if (GET_GDKLOCK(0) == NULL) {
+	if (GET_GDKLOCK(PERSISTENT) == NULL) {
 #ifdef HAVE_EMBEDDED
 		return;
 #else
@@ -854,7 +822,7 @@ GDKexit(int status)
 	GDKprepareExit();
 	GDKreset(status, 1);
 #ifndef HAVE_EMBEDDED
-	MT_exit_thread(-1);
+	exit(-1);
 #endif
 }
 
@@ -865,9 +833,9 @@ GDKexit(int status)
 
 batlock_t GDKbatLock[BBP_BATMASK + 1];
 bbplock_t GDKbbpLock[BBP_THREADMASK + 1];
-MT_Lock GDKnameLock MT_LOCK_INITIALIZER("GDKnameLock");
-MT_Lock GDKthreadLock MT_LOCK_INITIALIZER("GDKthreadLock");
-MT_Lock GDKtmLock MT_LOCK_INITIALIZER("GDKtmLock");
+MT_Lock GDKnameLock = MT_LOCK_INITIALIZER("GDKnameLock");
+MT_Lock GDKthreadLock = MT_LOCK_INITIALIZER("GDKthreadLock");
+MT_Lock GDKtmLock = MT_LOCK_INITIALIZER("GDKtmLock");
 
 /*
  * @+ Concurrency control
@@ -968,7 +936,7 @@ doGDKaddbuf(const char *prefix, const char *message, size_t messagelen, const ch
 		char *dst = buf + strlen(buf);
 		size_t maxlen = GDKMAXERRLEN - (dst - buf) - 1;
 
-		if (prefix && *prefix && dst < buf + GDKMAXERRLEN) {
+		if (*prefix && dst < buf + GDKMAXERRLEN) {
 			size_t preflen;
 
 			strncpy(dst, prefix, maxlen);
@@ -981,7 +949,7 @@ doGDKaddbuf(const char *prefix, const char *message, size_t messagelen, const ch
 			maxlen = messagelen;
 		strncpy(dst, message, maxlen);
 		dst += maxlen;
-		if (suffix && *suffix && dst < buf + GDKMAXERRLEN) {
+		if (*suffix && dst < buf + GDKMAXERRLEN) {
 			size_t sufflen;
 
 			maxlen = buf + GDKMAXERRLEN - dst - 1;
@@ -993,19 +961,21 @@ doGDKaddbuf(const char *prefix, const char *message, size_t messagelen, const ch
 		}
 		*dst = '\0';
 	} else {
-		THRprintf(GDKout, "%s%.*s%s", prefix ? prefix : "",
-			  (int) messagelen, message, suffix ? suffix : "");
+		mnstr_printf(GDKout, "%s%.*s%s", prefix,
+			     (int) messagelen, message, suffix);
 	}
+	fprintf(stderr, "#%s:%s%.*s%s",
+		MT_thread_getname(),
+		prefix[0] == '#' ? prefix + 1 : prefix,
+		(int) messagelen, message, suffix);
 }
 
 /* print an error or warning message, making sure the message ends in
  * a newline, and also that every line in the message (if there are
  * multiple), starts with an exclamation point.
  * One of the problems complicating this whole issue is that each line
- * should be printed using a single call to THRprintf, and moreover,
- * the format string should start with a "!".  This is because
- * THRprintf adds a "#" to the start of the printed text if the format
- * string doesn't start with "!".
+ * should be printed using a single call to mnstr_printf, and moreover,
+ * the format string should start with a "!".
  * Another problem is that we're religious about bounds checking. It
  * would probably also not be quite as bad if we could write in the
  * message buffer.
@@ -1091,10 +1061,9 @@ GDKerror(const char *format, ...)
 void
 GDKsyserror(const char *format, ...)
 {
+	int err = errno;
 	char message[GDKERRLEN];
 	size_t len = strlen(GDKERROR);
-
-	int err = errno;
 	va_list ap;
 
 	if (strncmp(format, GDKERROR, len) == 0) {
@@ -1193,10 +1162,9 @@ GDKfatal(const char *format, ...)
 		 */
 		if (GDKexiting()) {
 			fflush(stdout);
-			MT_exit_thread(1);
-			/* exit(1); */
+			exit(1);
 		} else {
-			GDKlog(GET_GDKLOCK(0), "%s", message);
+			GDKlog(GET_GDKLOCK(PERSISTENT), "%s", message);
 #ifdef COREDUMP
 			abort();
 #else
@@ -1317,61 +1285,152 @@ THRsp(void)
 static Thread
 GDK_find_thread(MT_Id pid)
 {
-	Thread t, s;
-
-	for (t = GDKthreads, s = t + THREADS; t < s; t++) {
-		if (t->pid && t->pid == pid) {
+	MT_lock_set(&GDKthreadLock);
+	for (Thread t = GDKthreads; t < GDKthreads + THREADS; t++) {
+		if (t->pid == pid) {
+			MT_lock_unset(&GDKthreadLock);
 			return t;
 		}
 	}
+	MT_lock_unset(&GDKthreadLock);
 	return NULL;
 }
 
-Thread
+static Thread
+GDK_find_self(void)
+{
+	Thread t;
+
+	if ((t = MT_thread_getdata()) != NULL) /* should succeed */
+		return t;
+	return GDK_find_thread(MT_getpid());
+}
+
+static Thread
 THRnew(const char *name)
 {
 	int tid = 0;
-	Thread t;
 	Thread s;
-	MT_Id pid = MT_getpid();
 
 	MT_lock_set(&GDKthreadLock);
-	s = GDK_find_thread(pid);
-	if (s == NULL) {
-		for (s = GDKthreads, t = s + THREADS; s < t; s++) {
-			if (s->pid == 0) {
-				break;
-			}
-		}
-		if (s == t) {
-			MT_lock_unset(&GDKthreadLock);
-			IODEBUG fprintf(stderr, "#THRnew: too many threads\n");
-			GDKerror("THRnew: too many threads\n");
-			return NULL;
-		}
-		tid = s->tid;
-		memset(s, 0, sizeof(*s));
-		s->pid = pid;
-		s->tid = tid;
-		s->data[1] = THRdata[1];
-		s->data[0] = THRdata[0];
-		s->sp = THRsp();
-
-		PARDEBUG fprintf(stderr, "#%x %zu sp = %zu\n", (unsigned) s->tid, (size_t) pid, (size_t) s->sp);
-		PARDEBUG fprintf(stderr, "#nrofthreads %d\n", GDKnrofthreads);
-
-		GDKnrofthreads++;
-		s->name = GDKstrdup(name);
-		if(!s->name) {
-			MT_lock_unset(&GDKthreadLock);
-			IODEBUG fprintf(stderr, "#THRnew: malloc failure\n");
-			GDKerror("THRnew: malloc failure\n");
-			return NULL;
+	for (s = GDKthreads; s < GDKthreads + THREADS; s++) {
+		if (s->pid == 0) {
+			break;
 		}
 	}
-	MT_lock_unset(&GDKthreadLock);
+	if (s == GDKthreads + THREADS) {
+		MT_lock_unset(&GDKthreadLock);
+		IODEBUG fprintf(stderr, "#THRnew: too many threads\n");
+		GDKerror("THRnew: too many threads\n");
+		return NULL;
+	}
+	tid = s->tid;
+	*s = (ThreadRec) {
+		.pid = MT_getpid(),
+		.tid = tid,
+		.data[0] = THRdata[0],
+		.data[1] = THRdata[1],
+		.sp = THRsp(),
+		.name = GDKstrdup(name),
+	};
 
+	if (s->name == NULL) {
+		s->pid = 0; /* deallocate */
+		MT_lock_unset(&GDKthreadLock);
+		IODEBUG fprintf(stderr, "#THRnew: malloc failure\n");
+		GDKerror("THRnew: malloc failure\n");
+		return NULL;
+	}
+	MT_thread_setdata(s);
+	GDKnrofthreads++;
+	PARDEBUG fprintf(stderr, "#%x %zu sp = %zu\n", (unsigned) s->tid, (size_t) s->pid, (size_t) s->sp);
+	PARDEBUG fprintf(stderr, "#nrofthreads %d\n", GDKnrofthreads);
+	MT_lock_unset(&GDKthreadLock);
 	return s;
+}
+
+struct THRstart {
+	void (*func) (void *);
+	void *arg;
+	MT_Sema sem;
+	Thread thr;
+	char semname[16];
+};
+
+static void
+THRstarter(void *a)
+{
+	struct THRstart *t = a;
+	void (*func) (void *) = t->func;
+	void *arg = t->arg;
+
+	MT_sema_down(&t->sem);
+	t->thr->sp = THRsp();
+	MT_thread_setdata(t->thr);
+	(*func)(arg);
+	THRdel(t->thr);
+	MT_sema_destroy(&t->sem);
+	GDKfree(a);
+}
+
+MT_Id
+THRcreate(void (*f) (void *), void *arg, enum MT_thr_detach d, const char *name)
+{
+	MT_Id pid;
+	Thread s;
+	struct THRstart *t;
+	static uint64_t ctr = 0; /* protected by GDKthreadLock */
+
+	if ((t = GDKmalloc(sizeof(*t))) == NULL)
+		return 0;
+	*t = (struct THRstart) {
+		.func = f,
+		.arg = arg,
+	};
+	MT_lock_set(&GDKthreadLock);
+	for (s = GDKthreads; s < GDKthreads + THREADS; s++) {
+		if (s->pid == 0) {
+			break;
+		}
+	}
+	if (s == GDKthreads + THREADS) {
+		MT_lock_unset(&GDKthreadLock);
+		IODEBUG fprintf(stderr, "#THRcreate: too many threads\n");
+		GDKerror("THRcreate: too many threads\n");
+		return 0;
+	}
+	int tid = s->tid;
+	/* name is for debugging and may be NULL */
+	*s = (ThreadRec) {
+		.pid = ~0,
+		.tid = tid,
+		.data[0] = THRdata[0],
+		.data[1] = THRdata[1],
+		.name = GDKstrdup(name),
+	};
+	MT_lock_unset(&GDKthreadLock);
+	t->thr = s;
+	snprintf(t->semname, sizeof(t->semname), "THRcreate%" PRIu64, ++ctr);
+	MT_sema_init(&t->sem, 0, t->semname);
+	if (MT_create_thread(&pid, THRstarter, t, d, name) != 0) {
+		GDKerror("THRcreate: could not start thread\n");
+		MT_sema_destroy(&t->sem);
+		GDKfree(t);
+		MT_lock_set(&GDKthreadLock);
+		GDKfree(s->name);
+		s->name = NULL;
+		s->pid = 0;
+		MT_lock_unset(&GDKthreadLock);
+		return 0;
+	}
+	/* must not fail after this: the thread has been started */
+	MT_lock_set(&GDKthreadLock);
+	GDKnrofthreads++;
+	s->pid = pid;
+	MT_lock_unset(&GDKthreadLock);
+	/* send new thread on its way */
+	MT_sema_up(&t->sem);
+	return pid;
 }
 
 void
@@ -1380,6 +1439,7 @@ THRdel(Thread t)
 	if (t < GDKthreads || t > GDKthreads + THREADS) {
 		GDKfatal("THRdel: illegal call\n");
 	}
+	MT_thread_setdata(NULL);
 	MT_lock_set(&GDKthreadLock);
 	PARDEBUG fprintf(stderr, "#pid = %zu, disconnected, %d left\n", (size_t) t->pid, GDKnrofthreads);
 
@@ -1398,15 +1458,13 @@ THRhighwater(void)
 	size_t diff;
 	int rc = 0;
 
-	MT_lock_set(&GDKthreadLock);
-	s = GDK_find_thread(MT_getpid());
+	s = GDK_find_self();
 	if (s != NULL) {
 		c = THRsp();
 		diff = c < s->sp ? s->sp - c : c - s->sp;
 		if (diff > THREAD_STACK_SIZE - 80 * 1024)
 			rc = 1;
 	}
-	MT_lock_unset(&GDKthreadLock);
 	return rc;
 }
 
@@ -1420,15 +1478,22 @@ THRinit(void)
 {
 	int i = 0;
 
-	if((THRdata[0] = (void *) file_wastream(stdout, "stdout")) == NULL)
+	if ((THRdata[0] = (void *) file_wastream(stdout, "stdout")) == NULL)
 		return -1;
-	if((THRdata[1] = (void *) file_rastream(stdin, "stdin")) == NULL) {
-		close_stream(THRdata[0]);
+	if ((THRdata[1] = (void *) file_rastream(stdin, "stdin")) == NULL) {
+		mnstr_destroy(THRdata[0]);
 		THRdata[0] = NULL;
 		return -1;
 	}
 	for (i = 0; i < THREADS; i++) {
 		GDKthreads[i].tid = i + 1;
+	}
+	if (THRnew("main thread") == NULL) {
+		mnstr_destroy(THRdata[0]);
+		THRdata[0] = NULL;
+		mnstr_destroy(THRdata[1]);
+		THRdata[1] = NULL;
+		return -1;
 	}
 	return 0;
 }
@@ -1438,13 +1503,11 @@ THRsetdata(int n, ptr val)
 {
 	Thread s;
 
-	MT_lock_set(&GDKthreadLock);
-	s = GDK_find_thread(MT_getpid());
+	s = GDK_find_self();
 	if (s) {
 		assert(val == NULL || s->data[n] == NULL);
 		s->data[n] = val;
 	}
-	MT_lock_unset(&GDKthreadLock);
 }
 
 void *
@@ -1453,10 +1516,8 @@ THRgetdata(int n)
 	Thread s;
 	void *d;
 
-	MT_lock_set(&GDKthreadLock);
-	s = GDK_find_thread(MT_getpid());
+	s = GDK_find_self();
 	d = s ? s->data[n] : THRdata[n];
-	MT_lock_unset(&GDKthreadLock);
 	return d;
 }
 
@@ -1466,70 +1527,9 @@ THRgettid(void)
 	Thread s;
 	int t;
 
-	MT_lock_set(&GDKthreadLock);
-	s = GDK_find_thread(MT_getpid());
+	s = GDK_find_self();
 	t = s ? s->tid : 1;
-	MT_lock_unset(&GDKthreadLock);
 	return t;
-}
-
-int
-THRprintf(stream *s, const char *format, ...)
-{
-	str bf = THRprintbuf, p = 0;
-	size_t bfsz = BUFSIZ;
-	int n = 0;
-	ptrdiff_t m = 0;
-	char c;
-	va_list ap;
-
-	if (!s)
-		return -1;
-
-	MT_lock_set(&MT_system_lock);
-	if (*format != '!') {
-		c = '#';
-		if (*format == '#')
-			format++;
-	} else {
-		c = '!';
-		format++;
-	}
-
-	do {
-		p = bf;
-		*p++ = c;
-		if (GDKdebug & THRDMASK) {
-			sprintf(p, "%02d ", THRgettid());
-			while (*p)
-				p++;
-		}
-		m = p - bf;
-		va_start(ap, format);
-		n = vsnprintf(p, bfsz-m, format, ap);
-		va_end(ap);
-		if (n < 0)
-			goto cleanup;
-		if ((size_t) n < bfsz - m)
-			break;	  /* normal loop exit, usually 1st iteration */
-		bfsz = m + n + 1;	/* precisely what is needed */
-		if (bf != THRprintbuf)
-			free(bf);
-		bf = (str) malloc(bfsz);
-		if (bf == NULL)
-			return -1;
-	} while (1);
-
-	p += n;
-
-	n = 0;
-	if (mnstr_write(s, bf, p - bf, 1) != 1)
-		n = -1;
-      cleanup:
-	if (bf != THRprintbuf)
-		free(bf);
-	MT_lock_unset(&MT_system_lock);
-	return n;
 }
 
 static const char *_gdk_version_string = VERSION;
@@ -1544,62 +1544,29 @@ GDKversion(void)
 	return (_gdk_version_string);
 }
 
-/**
- * Extracts the last directory from a path string, if possible.
- * Stores the parent directory (path) in last_dir_parent and
- * the last directory (name) without a leading separators in last_dir.
- * Returns GDK_SUCCEED for success, GDK_FAIL on failure.
- */
-gdk_return
-GDKextractParentAndLastDirFromPath(const char *path, char *last_dir_parent, char *last_dir)
-{
-	char *last_dir_with_sep;
-	ptrdiff_t last_dirsep_index;
-
-	if (path == NULL || *path == 0) {
-		GDKerror("GDKextractParentAndLastDirFromPath: no path\n");
-		return GDK_FAIL;
-	}
-
-	last_dir_with_sep = strrchr(path, DIR_SEP);
-	if (last_dir_with_sep == NULL) {
-		/* it wasn't a path, can't work with that */
-		GDKerror("GDKextractParentAndLastDirFromPath: no separator\n");
-		return GDK_FAIL;
-	}
-	last_dirsep_index = last_dir_with_sep - path;
-	/* split the dir string into absolute parent dir path and
-	 * (relative) log dir name */
-	strncpy(last_dir, last_dir_with_sep + 1, strlen(path));
-	strncpy(last_dir_parent, path, last_dirsep_index);
-	last_dir_parent[last_dirsep_index] = 0;
-
-	return GDK_SUCCEED;
-}
-
 size_t
 GDKmem_cursize(void)
 {
 	/* RAM/swapmem that Monet is really using now */
-	return (size_t) ATOMIC_GET(GDK_mallocedbytes_estimate, mbyteslock);
+	return (size_t) ATOMIC_GET(&GDK_mallocedbytes_estimate);
 }
 
 size_t
 GDKvm_cursize(void)
 {
 	/* current Monet VM address space usage */
-	return (size_t) ATOMIC_GET(GDK_vm_cursize, mbyteslock) + GDKmem_cursize();
+	return (size_t) ATOMIC_GET(&GDK_vm_cursize) + GDKmem_cursize();
 }
 
 #define heapinc(_memdelta)						\
-	(void) ATOMIC_ADD(GDK_mallocedbytes_estimate, _memdelta, mbyteslock)
+	(void) ATOMIC_ADD(&GDK_mallocedbytes_estimate, _memdelta)
 #define heapdec(_memdelta)						\
-	(void) ATOMIC_SUB(GDK_mallocedbytes_estimate, _memdelta, mbyteslock)
+	(void) ATOMIC_SUB(&GDK_mallocedbytes_estimate, _memdelta)
 
 #define meminc(vmdelta)							\
-	(void) ATOMIC_ADD(GDK_vm_cursize, (ssize_t) SEG_SIZE((vmdelta), MT_VMUNITLOG), mbyteslock)
+	(void) ATOMIC_ADD(&GDK_vm_cursize, (ssize_t) SEG_SIZE((vmdelta), MT_VMUNITLOG))
 #define memdec(vmdelta)							\
-	(void) ATOMIC_SUB(GDK_vm_cursize, (ssize_t) SEG_SIZE((vmdelta), MT_VMUNITLOG), mbyteslock)
+	(void) ATOMIC_SUB(&GDK_vm_cursize, (ssize_t) SEG_SIZE((vmdelta), MT_VMUNITLOG))
 
 #ifndef STATIC_CODE_ANALYSIS
 

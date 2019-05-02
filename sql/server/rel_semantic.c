@@ -152,7 +152,12 @@ rel_semantic(mvc *sql, symbol *s)
 	case SQL_CREATE_USER:
 	case SQL_DROP_USER:
 	case SQL_ALTER_USER:
+
+	case SQL_RENAME_COLUMN:
+	case SQL_RENAME_SCHEMA:
+	case SQL_RENAME_TABLE:
 	case SQL_RENAME_USER:
+	case SQL_SET_TABLE_SCHEMA:
 
 	case SQL_CREATE_TYPE:
 	case SQL_DROP_TYPE:
@@ -181,6 +186,7 @@ rel_semantic(mvc *sql, symbol *s)
 	case SQL_UPDATE:
 	case SQL_DELETE:
 	case SQL_TRUNCATE:
+	case SQL_MERGE:
 	case SQL_COPYFROM:
 	case SQL_BINCOPYFROM:
 	case SQL_COPYLOADER:

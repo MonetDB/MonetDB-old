@@ -79,7 +79,7 @@ setenv(const char *name, const char *value, int overwrite)
 	int ret = 0;
 
 	if (overwrite || getenv(name) == NULL) {
-		char *p = (char *) GDKmalloc(2 + strlen(name) + strlen(value));
+		char *p = GDKmalloc(2 + strlen(name) + strlen(value));
 
 		if (p == NULL)
 			return -1;
@@ -691,7 +691,7 @@ MT_msync(void *p, size_t len)
 	return ret;
 }
 
-int
+bool
 MT_path_absolute(const char *pathname)
 {
 	return (*pathname == DIR_SEP);
@@ -891,7 +891,7 @@ MT_msync(void *p, size_t len)
 	return 0;
 }
 
-int
+bool
 MT_path_absolute(const char *pathname)
 {
 	/* drive letter, colon, directory separator */
@@ -1099,19 +1099,14 @@ win_mkdir(const char *pathname, const int mode)
 void
 MT_sleep_ms(unsigned int ms)
 {
-#ifdef HAVE_NANOSLEEP_dont_use
-	struct timespec ts;
-
-	ts.tv_sec = (time_t) (ms / 1000);
-	ts.tv_nsec = 1000000 * (ms % 1000);
-	while (nanosleep(&ts, &ts) == -1 && errno == EINTR)
-		;
+#ifdef HAVE_NANOSLEEP
+	(void) nanosleep(&(struct timespec) {.tv_sec = ms / 1000,
+				.tv_nsec = ms == 1 ? 1000 : (long) (ms % 1000) * 1000000,},
+		NULL);
 #else
-	struct timeval tv;
-
-	tv.tv_sec = ms / 1000;
-	tv.tv_usec = 1000 * (ms % 1000);
-	(void) select(0, NULL, NULL, NULL, &tv);
+	(void) select(0, NULL, NULL, NULL,
+		      &(struct timeval) {.tv_sec = ms / 1000,
+				      .tv_usec = ms == 1 ? 1 : (ms % 1000) * 1000,});
 #endif
 }
 

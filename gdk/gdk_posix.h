@@ -32,12 +32,6 @@
 #endif
 
 /*
- * @- locking, sleep
- */
-
-gdk_export void MT_sleep_ms(unsigned int ms);
-
-/*
  * @- virtual memory
  */
 #define MT_VMUNITLOG	16
@@ -132,7 +126,7 @@ gdk_export size_t MT_getrss(void);
 gdk_export void *MT_mmap(const char *path, int mode, size_t len);
 gdk_export int MT_munmap(void *p, size_t len);
 
-gdk_export int MT_path_absolute(const char *path);
+gdk_export bool MT_path_absolute(const char *path);
 
 
 /*
