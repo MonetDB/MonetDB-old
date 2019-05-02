@@ -17,9 +17,9 @@ gdk_export BAT *GDKval;
 
 gdk_export char *GDKgetenv(const char *name);
 
-gdk_export int GDKgetenv_istext(const char *name, const char* text);
-gdk_export int GDKgetenv_isyes(const char *name);
-gdk_export int GDKgetenv_istrue(const char *name);
+gdk_export bool GDKgetenv_istext(const char *name, const char* text);
+gdk_export bool GDKgetenv_isyes(const char *name);
+gdk_export bool GDKgetenv_istrue(const char *name);
 
 gdk_export int GDKgetenv_int(const char *name, int def);
 
@@ -74,7 +74,7 @@ gdk_export size_t _MT_pagesize;
 #define MT_npages()	_MT_npages
 
 gdk_export void MT_init(void);	/*  init the package. */
-gdk_export int GDKinit(opt *set, int setlen);
+gdk_export bool GDKinit(opt *set, int setlen);
 
 /* used for testing only */
 gdk_export void GDKsetmallocsuccesscount(lng count);
@@ -84,21 +84,18 @@ gdk_export void GDKsetmallocsuccesscount(lng count);
  * the transient BATs should be removed.  The buffer pool manager
  * takes care of this.
  */
-gdk_export int GDKnr_threads;
 #ifndef HAVE_EMBEDDED
 __declspec(noreturn) gdk_export void GDKexit(int status)
 	__attribute__((__noreturn__));
 #else
 gdk_export void GDKexit(int status);
 #endif
-gdk_export int GDKexiting(void);
+gdk_export bool GDKexiting(void);
 
 gdk_export void GDKregister(MT_Id pid);
 gdk_export void GDKprepareExit(void);
 gdk_export void GDKreset(int status, int exit);
 gdk_export const char *GDKversion(void);
-
-gdk_export gdk_return GDKextractParentAndLastDirFromPath(const char *path, char *last_dir_parent, char *last_dir);
 
 // these are used in embedded mode to jump out of GDKfatal
 gdk_export jmp_buf GDKfataljump;

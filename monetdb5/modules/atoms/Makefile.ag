@@ -21,8 +21,7 @@ lib_atoms = {
 		identifier.c \
 		inet.c \
 		json.c json.h \
-		mcurl.c \
-		mtime.c mtime.h \
+		mtime.c mtime_analytic.c mtime.h \
 		str.c str.h \
 		streams.c streams.h \
 		url.c url.h \
@@ -46,7 +45,6 @@ headers_mal = {
 		identifier.mal \
 		inet.mal \
 		json.mal \
-		mcurl.mal \
 		mtime.mal \
 		streams.mal \
 		str.mal \

@@ -8,7 +8,6 @@ stderr of test 'mserver5--help` in directory 'monetdb5/tools` itself:
 Usage: mserver5.exe [options] [scripts]
     --dbpath=<directory>      Specify database location
     --dbextra=<directory>     Directory for transient BATs
-    --dbinit=<stmt>           Execute statement at startup
     --config=<config_file>    Use config_file to read options from
     --daemon=yes|no           Do not read commands from standard input [no]
     --single-user             Allow only one user at a time
@@ -16,6 +15,7 @@ Usage: mserver5.exe [options] [scripts]
     --set <option>=<value>    Set configuration option
     --help                    Print this list of options
     --version                 Print version and compile time info
+    --verbose[=value]         Set or increase verbosity level
 The debug, testing & trace options:
      --threads
      --memory

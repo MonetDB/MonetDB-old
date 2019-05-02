@@ -35,9 +35,13 @@
 #include <sys/time.h>		/* gettimeofday */
 #endif
 
+#define YEAR_MAX		5867411
+#define YEAR_MIN		(-YEAR_MAX)
+
 typedef int date;
 #define date_nil		((date) int_nil)
-#define date_isnil(X)	((X) == date_nil)
+#define is_date_nil(X)	((X) == date_nil)
+#define date_max		GDK_int_max /* used for overflow checks */
 
 /*
  * @- daytime
@@ -46,7 +50,8 @@ typedef int date;
  */
 typedef int daytime;
 #define daytime_nil ((daytime) int_nil)
-#define daytime_isnil(X) ((X) == daytime_nil)
+#define is_daytime_nil(X) ((X) == daytime_nil)
+/* it should never overflow */
 
 /*
  * @- timestamp
@@ -97,16 +102,15 @@ typedef struct {
 mal_export tzone tzone_local;
 mal_export timestamp *timestamp_nil;
 
-#define timestamp_isnil(X) ts_isnil(X)
-#define tz_isnil(z)   (get_offset(&(z)) == get_offset(tzone_nil))
-#define ts_isnil(t)   ((t).days == timestamp_nil->days && (t).msecs == timestamp_nil->msecs)
+#define is_tzone_nil(z)   (get_offset(&(z)) == get_offset(tzone_nil))
+#define is_timestamp_nil(t)   ((t).days == timestamp_nil->days && (t).msecs == timestamp_nil->msecs)
 
-mal_export ssize_t daytime_tz_fromstr(const char *buf, size_t *len, daytime **ret);
-mal_export ssize_t timestamp_tz_fromstr(const char *buf, size_t *len, timestamp **ret);
+mal_export ssize_t daytime_tz_fromstr(const char *buf, size_t *len, daytime **ret, bool external);
+mal_export ssize_t timestamp_tz_fromstr(const char *buf, size_t *len, timestamp **ret, bool external);
 mal_export str MTIMEcurrent_timestamp(timestamp *t);
 mal_export str MTIMEcurrent_date(date *d);
 mal_export str MTIMEcurrent_time(daytime *t);
-mal_export ssize_t timestamp_tz_tostr(str *buf, size_t *len, const timestamp *val, const tzone *timezone);
+mal_export ssize_t timestamp_tz_tostr(str *buf, size_t *len, const timestamp *val, const tzone *timezone, bool external);
 mal_export str MTIMEnil2date(date *ret, const void *src);
 mal_export str MTIMEdate2date(date *ret, const date *src);
 mal_export str MTIMEdaytime2daytime(daytime *ret, const daytime *src);
@@ -224,16 +228,16 @@ mal_export str MTIMEtimestamp_lng_bulk(bat *ret, bat *bid);
 mal_export str MTIMEruleDef0(rule *ret, const int *m, const int *d, const int *w, const int *h, const int *mint);
 mal_export str MTIMEruleDef1(rule *ret, const int *m, const char * const *dnme, const int *w, const int *h, const int *mint);
 mal_export str MTIMEruleDef2(rule *ret, const int *m, const char * const *dnme, const int *w, const int *mint);
-mal_export ssize_t date_fromstr(const char *buf, size_t *len, date **d);
-mal_export ssize_t date_tostr(str *buf, size_t *len, const date *val);
-mal_export ssize_t daytime_fromstr(const char *buf, size_t *len, daytime **ret);
-mal_export ssize_t daytime_tostr(str *buf, size_t *len, const daytime *val);
-mal_export ssize_t timestamp_fromstr(const char *buf, size_t *len, timestamp **ret);
-mal_export ssize_t timestamp_tostr(str *buf, size_t *len, const timestamp *val);
-mal_export ssize_t tzone_tostr(str *buf, size_t *len, const tzone *z);
-mal_export ssize_t rule_fromstr(const char *buf, size_t *len, rule **d);
-mal_export ssize_t rule_tostr(str *buf, size_t *len, const rule *r);
-mal_export ssize_t tzone_fromstr(const char *buf, size_t *len, tzone **d);
+mal_export ssize_t date_fromstr(const char *buf, size_t *len, date **d, bool external);
+mal_export ssize_t date_tostr(str *buf, size_t *len, const date *val, bool external);
+mal_export ssize_t daytime_fromstr(const char *buf, size_t *len, daytime **ret, bool external);
+mal_export ssize_t daytime_tostr(str *buf, size_t *len, const daytime *val, bool external);
+mal_export ssize_t timestamp_fromstr(const char *buf, size_t *len, timestamp **ret, bool external);
+mal_export ssize_t timestamp_tostr(str *buf, size_t *len, const timestamp *val, bool external);
+mal_export ssize_t tzone_tostr(str *buf, size_t *len, const tzone *z, bool external);
+mal_export ssize_t rule_fromstr(const char *buf, size_t *len, rule **d, bool external);
+mal_export ssize_t rule_tostr(str *buf, size_t *len, const rule *r, bool external);
+mal_export ssize_t tzone_fromstr(const char *buf, size_t *len, tzone **d, bool external);
 
 mal_export str MTIMEstr_to_date(date *d, const char * const *s, const char * const *format);
 mal_export str MTIMEdate_to_str(str *s, const date *d, const char * const *format);
@@ -246,6 +250,8 @@ mal_export str MTIMEdate_extract_year_bulk(bat *ret, const bat *bid);
 mal_export str MTIMEdate_extract_quarter_bulk(bat *ret, const bat *bid);
 mal_export str MTIMEdate_extract_month_bulk(bat *ret, const bat *bid);
 mal_export str MTIMEdate_extract_day_bulk(bat *ret, const bat *bid);
+mal_export str MTIMEdate_extract_ymd(int *year, int *month, int *day, const date *v);
+
 
 mal_export str MTIMEdaytime_extract_hours_bulk(bat *ret, const bat *bid);
 mal_export str MTIMEdaytime_extract_minutes_bulk(bat *ret, const bat *bid);
@@ -264,5 +270,8 @@ mal_export void MTIMEfromdate(date n, int *d, int *m, int *y);
 
 mal_export daytime MTIMEtotime(int hour, int min, int sec, int msec);
 mal_export void MTIMEfromtime(daytime n, int *hour, int *min, int *sec, int *msec);
+
+mal_export str MTIMEanalyticalrangebounds(BAT *r, BAT *b, BAT *p, BAT *l, const void* restrict bound, int tp1, int tp2,
+										  bool preceding, lng first_half);
 
 #endif /* _MONETTIME_H_ */

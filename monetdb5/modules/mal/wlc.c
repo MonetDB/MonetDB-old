@@ -150,7 +150,7 @@
 #include "mal_builder.h"
 #include "wlc.h"
 
-MT_Lock     wlc_lock MT_LOCK_INITIALIZER("wlc_lock");
+MT_Lock     wlc_lock = MT_LOCK_INITIALIZER("wlc_lock");
 
 static char wlc_snapshot[FILENAME_MAX]; // The location of the snapshot against which the logs work
 static stream *wlc_fd = 0;
@@ -245,13 +245,18 @@ str WLCsetConfig(void){
 static str
 WLCsetlogger(void)
 {
+	int len;
 	char path[FILENAME_MAX];
 	str msg = MAL_SUCCEED;
 
 	if( wlc_dir[0] == 0)
 		throw(MAL,"wlc.setlogger","Path not initalized");
 	MT_lock_set(&wlc_lock);
-	snprintf(path,FILENAME_MAX,"%s%c%s_%012d", wlc_dir, DIR_SEP, wlc_name, wlc_batches);
+	len = snprintf(path,FILENAME_MAX,"%s%c%s_%012d", wlc_dir, DIR_SEP, wlc_name, wlc_batches);
+	if (len == -1 || len >= FILENAME_MAX) {
+		MT_lock_unset(&wlc_lock);
+		throw(MAL, "wlc.setlogger", "Logger filename path is too large");
+	}
 	wlc_fd = open_wastream(path);
 	if( wlc_fd == 0){
 		MT_lock_unset(&wlc_lock);
@@ -308,12 +313,13 @@ WLClogger(void *arg)
 	(void) arg;
 	while(!GDKexiting()){
 		if( wlc_dir[0] && wlc_fd ){
-				MT_lock_set(&wlc_lock);
-				if((msg = WLCcloselogger()) != MAL_SUCCEED) {
-					GDKerror("%s",msg);
-				}
-				MT_lock_unset(&wlc_lock);
+			MT_lock_set(&wlc_lock);
+			if((msg = WLCcloselogger()) != MAL_SUCCEED) {
+				GDKerror("%s",msg);
+				freeException(msg);
 			}
+			MT_lock_unset(&wlc_lock);
+		}
 		for( seconds = 0; (wlc_beat == 0 || seconds < wlc_beat) && ! GDKexiting(); seconds++)
 			MT_sleep_ms( 1000);
 	}
@@ -342,7 +348,8 @@ WLCinit(void)
 		msg =  WLCgetConfig();
 		if( msg)
 			GDKerror("%s",msg);
-		if (MT_create_thread(&wlc_logger, WLClogger , (void*) 0, MT_THR_JOINABLE) < 0) {
+		if (MT_create_thread(&wlc_logger, WLClogger , (void*) 0,
+							 MT_THR_JOINABLE, "WLClogger") < 0) {
 			GDKerror("wlc.logger thread could not be spawned");
 		}
 		GDKregister(wlc_logger);
@@ -406,7 +413,8 @@ WLCgetmasterbeat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 str 
 WLCmaster(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{	
+{
+	int len;
 	char path[FILENAME_MAX];
 	str l;
 
@@ -416,13 +424,17 @@ WLCmaster(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL,"master","WARNING: logging has been stopped. Use new snapshot");
 	if( wlc_state == WLC_RUN)
 		throw(MAL,"master","WARNING: already in master mode, call ignored");
-	if( pci->argc == 2)
-		snprintf(path, FILENAME_MAX, "%s", *getArgReference_str(stk, pci,1));
-	else{
+	if( pci->argc == 2) {
+		len = snprintf(path, FILENAME_MAX, "%s", *getArgReference_str(stk, pci,1));
+		if (len == -1 || len >= FILENAME_MAX)
+			throw(MAL, "wlc.master", "wlc master filename path is too large");
+	} else {
 		if((l = GDKfilepath(0,0,"wlc_logs",0)) == NULL)
 			throw(SQL,"wlc.master", MAL_MALLOC_FAIL);
-		snprintf(path,FILENAME_MAX,"%s%c",l, DIR_SEP);
+		len = snprintf(path,FILENAME_MAX,"%s%c",l, DIR_SEP);
 		GDKfree(l);
+		if (len == -1 || len >= FILENAME_MAX)
+			throw(MAL, "wlc.master", "wlc master filename path is too large");
 	}
 	// set location for logs
 	if( GDKcreatedir(path) == GDK_FAIL)
@@ -648,7 +660,7 @@ WLCdatashipping(Client cntxt, MalBlkPtr mb, InstrPtr pci, int bid)
 					pci = pushStr(cntxt->wlc, pci, col);
 				}
 				k++;
-				pci = pushStr(cntxt->wlc, pci ,(str) BUNtail(bi,p));
+				pci = pushStr(cntxt->wlc, pci ,(str) BUNtvar(bi,p));
 		} }
 		break;
 	default:
@@ -715,7 +727,7 @@ WLCdelete(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	(void) stk;
 	(void) mb;
-	b= BBPquickdesc(bid, FALSE);
+	b= BBPquickdesc(bid, false);
 	if( BATcount(b) == 0)
 		return MAL_SUCCEED;
 	WLCstart(p, WLC_UPDATE, msg, "wlr.delete");
@@ -815,7 +827,7 @@ WLCupdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				p = pushStr(cntxt->wlc, p, tbl);
 				p = pushStr(cntxt->wlc, p, col);
 				p = pushOid(cntxt->wlc, p, (ol? *ol++ : o++));
-				p = pushStr(cntxt->wlc, p , BUNtail(bi,x));
+				p = pushStr(cntxt->wlc, p , BUNtvar(bi,x));
 				k++;
 		} }
 		/* fall through */

@@ -34,12 +34,11 @@ Ready.
 % clob # type
 % 143 # length
 function user.s4_1():void;
-    X_1:void := querylog.define("explain select count(*) from fk left outer join pk1 on fk.fk1 = pk1.pk1;":str, "sequential_pipe":str, 27:int);
+    X_1:void := querylog.define("explain select count(*) from fk left outer join pk1 on fk.fk1 = pk1.pk1;":str, "sequential_pipe":str, 12:int);
     X_4:int := sql.mvc();
     C_5:bat[:oid] := sql.tid(X_4:int, "sys":str, "fk":str);
-    X_8:bat[:int] := sql.bind(X_4:int, "sys":str, "fk":str, "id":str, 0:int);
-    X_18:lng := aggr.count(X_8:bat[:int], C_5:bat[:oid]);
-    sql.resultSet("sys.L4":str, "L3":str, "bigint":str, 64:int, 0:int, 7:int, X_18:lng);
+    X_18:lng := aggr.count(C_5:bat[:oid]);
+    sql.resultSet(".L3":str, "L3":str, "bigint":str, 64:int, 0:int, 7:int, X_18:lng);
 end user.s4_1;
 #inline               actions= 0 time=0 usec 
 #remap                actions= 0 time=0 usec 
@@ -73,7 +72,7 @@ end user.s4_1;
 % clob # type
 % 149 # length
 function user.s6_1():void;
-    X_1:void := querylog.define("explain select id from fk left outer join pk1 on fk.fk1 = pk1.pk1 order by id;":str, "sequential_pipe":str, 48:int);
+    X_1:void := querylog.define("explain select id from fk left outer join pk1 on fk.fk1 = pk1.pk1 order by id;":str, "sequential_pipe":str, 23:int);
     X_25:bat[:str] := bat.new(nil:str);
     X_31:bat[:int] := bat.new(nil:int);
     X_29:bat[:int] := bat.new(nil:int);
@@ -83,7 +82,7 @@ function user.s6_1():void;
     C_5:bat[:oid] := sql.tid(X_4:int, "sys":str, "fk":str);
     X_8:bat[:int] := sql.bind(X_4:int, "sys":str, "fk":str, "id":str, 0:int);
     X_17:bat[:int] := algebra.projection(C_5:bat[:oid], X_8:bat[:int]);
-    (X_18:bat[:int], X_19:bat[:oid], X_20:bat[:oid]) := algebra.sort(X_17:bat[:int], false:bit, false:bit);
+    (X_18:bat[:int], X_19:bat[:oid], X_20:bat[:oid]) := algebra.sort(X_17:bat[:int], false:bit, false:bit, false:bit);
     X_23:bat[:int] := algebra.projection(X_19:bat[:oid], X_17:bat[:int]);
     X_32:bat[:str] := bat.append(X_25:bat[:str], "sys.fk":str);
     X_34:bat[:str] := bat.append(X_27:bat[:str], "id":str);
@@ -154,7 +153,7 @@ function user.s8_1():void;
     X_77:bat[:int] := bat.new(nil:int);
     X_76:bat[:str] := bat.new(nil:str);
     X_75:bat[:str] := bat.new(nil:str);
-    (X_67:bat[:int], X_68:bat[:oid], X_69:bat[:oid]) := algebra.sort(X_48:bat[:int], false:bit, false:bit);
+    (X_67:bat[:int], X_68:bat[:oid], X_69:bat[:oid]) := algebra.sort(X_48:bat[:int], false:bit, false:bit, false:bit);
     X_71:bat[:int] := algebra.projection(X_68:bat[:oid], X_60:bat[:int]);
     X_70:bat[:int] := algebra.projection(X_68:bat[:oid], X_48:bat[:int]);
     X_80:bat[:str] := bat.append(X_73:bat[:str], ".fk":str);
@@ -231,7 +230,7 @@ function user.s10_1():void;
     X_77:bat[:int] := bat.new(nil:int);
     X_76:bat[:str] := bat.new(nil:str);
     X_75:bat[:str] := bat.new(nil:str);
-    (X_67:bat[:int], X_68:bat[:oid], X_69:bat[:oid]) := algebra.sort(X_48:bat[:int], false:bit, false:bit);
+    (X_67:bat[:int], X_68:bat[:oid], X_69:bat[:oid]) := algebra.sort(X_48:bat[:int], false:bit, false:bit, false:bit);
     X_71:bat[:int] := algebra.projection(X_68:bat[:oid], X_60:bat[:int]);
     X_70:bat[:int] := algebra.projection(X_68:bat[:oid], X_48:bat[:int]);
     X_80:bat[:str] := bat.append(X_73:bat[:str], ".fk":str);

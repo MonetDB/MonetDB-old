@@ -195,11 +195,12 @@ exit_streams( bstream *fin, stream *fout )
 const char* mal_enableflag = "mal_for_all";
 
 void
-MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protocol_version protocol, size_t blocksize, int compute_column_widths)
+MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protocol_version protocol, size_t blocksize)
 {
 	char *user = command, *algo = NULL, *passwd = NULL, *lang = NULL;
 	char *database = NULL, *s, *dbname;
 	str msg = MAL_SUCCEED;
+	bool filetrans = false;
 	Client c;
 
 	/* decode BIG/LIT:user:{cypher}passwordchal:lang:database: line */
@@ -208,7 +209,7 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 	s = strchr(user, ':');
 	if (s) {
 		*s = 0;
-		mnstr_set_byteorder(fin->s, strcmp(user, "BIG") == 0);
+		mnstr_set_bigendian(fin->s, strcmp(user, "BIG") == 0);
 		user = s + 1;
 	} else {
 		mnstr_printf(fout, "!incomplete challenge '%s'\n", user);
@@ -266,7 +267,12 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 		/* we can have stuff following, make it void */
 		s = strchr(database, ':');
 		if (s)
-			*s = 0;
+			*s++ = 0;
+	}
+
+	if (s && strncmp(s, "FILETRANS:", 10) == 0) {
+		s += 10;
+		filetrans = true;
 	}
 
 	dbname = GDKgetenv("gdk_dbname");
@@ -337,6 +343,7 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 			GDKfree(command);
 			return;
 		}
+		c->filetrans = filetrans;
 		/* move this back !! */
 		if (c->usermodule == 0) {
 			c->curmodule = c->usermodule = userModule();
@@ -391,7 +398,6 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 
 	c->protocol = protocol;
 	c->blocksize = blocksize;
-	c->compute_column_widths = compute_column_widths;
 
 	mnstr_settimeout(c->fdin->s, 50, GDKexiting);
 	msg = MSserveClient(c);
@@ -478,15 +484,14 @@ MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start)
 }
 
 /*
- * This is a phtread started function.  Here we start the client. We
- * need to initialize and allocate space for the global variables.
- * Thereafter it is up to the scenario interpreter to process input.
+ * Here we start the client.  We need to initialize and allocate space
+ * for the global variables.  Thereafter it is up to the scenario
+ * interpreter to process input.
  */
 str
-MSserveClient(void *dummy)
+MSserveClient(Client c)
 {
 	MalBlkPtr mb;
-	Client c = (Client) dummy;
 	str msg = 0;
 
 	if (!isAdministrator(c) && MCinitClientThread(c) < 0) {
@@ -516,6 +521,7 @@ MSserveClient(void *dummy)
 	} else {
 		do {
 			do {
+				MT_thread_setworking("running scenario");
 				msg = runScenario(c,0);
 				freeException(msg);
 				if (c->mode == FINISHCLIENT)
@@ -524,6 +530,7 @@ MSserveClient(void *dummy)
 			} while (c->scenario && !GDKexiting());
 		} while (c->scenario && c->mode != FINISHCLIENT && !GDKexiting());
 	}
+	MT_thread_setworking("exiting");
 	/* pre announce our exiting: cleaning up may take a while and we
 	 * don't want to get killed during that time for fear of
 	 * deadlocks */
@@ -599,7 +606,7 @@ MALreader(Client c)
 	int r = 1;
 	if (c == mal_clients) {
 		r = readConsole(c);
-		if (r < 0 && c->fdin->eof == 0)
+		if (r < 0 && !c->fdin->eof)
 			r = MCreadClient(c);
 		if (r > 0)
 			return MAL_SUCCEED;

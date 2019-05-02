@@ -43,6 +43,8 @@ unopM5_export(_DEGREES)
 unopM5_export(_EXP)
 unopM5_export(_LOG)
 unopM5_export(_LOG10)
+unopM5_export(_LOG2)
+binopM5_export(_LOG)
 
 binopM5_export(_POW)
 unopM5_export(_SQRT)
@@ -62,4 +64,6 @@ mal_export str MATHrandintarg(int *res, const int *dummy);
 mal_export str MATHsrandint(void *ret, const int *seed);
 mal_export str MATHsqlrandint(int *res, const int *seed);
 mal_export str MATHpi(dbl *pi);
+mal_export str MATHprelude(void *ret);
+
 #endif /* __MMATH_H__ */

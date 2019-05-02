@@ -27,16 +27,26 @@ case $# in
 	echo "don't know what distro this is"
 	exit 1
     fi
+    ARCH=$(arch)
     ;;
-1|2)
+1)
     # we're passed the name of the distribution
     SUITE=$1
+    ARCH=$(arch)
+    ;;
+2)
+    SUITE=$1
+    ARCH=$2
     ;;
 esac
 
+if [[ $ARCH == i?86 ]]; then
+    ARCH=i386			# normalize
+fi
+
 case $SUITE in
-wheezy | trusty)
-    # fix control file because these systems don't have liblas and a
+trusty)
+    # fix control file because this system doesn't have liblas and a
     # too old version of libgeos
     sed -i -e 's/, libgeos-dev[^,]*//;s/, liblas-c-dev[^,]*//' \
 	-e 's/libcfitsio-dev/libcfitsio3-dev/' \
@@ -48,7 +58,7 @@ wheezy | trusty)
 esac
 
 case $SUITE in
-wheezy | jessie | trusty | wily)
+jessie | trusty)
     # Xenial Xerus (and presumably newer releases) uses php-cli,
     # all others still have php5-cli and don't have php*-sockets
     sed -i 's/php-cli/php5-cli/;s/, *php-sockets//' debian/control
@@ -56,18 +66,23 @@ wheezy | jessie | trusty | wily)
 esac
 
 case $SUITE in
-wheezy)
-    # numpy is too old
-    sed -i -e 's/, python-dev[^,]*//;s/, python-numpy[^,]*//' \
-	-e '/^Package:.*monetdb-python2/,/^$/d' debian/control
-    sed -i '/pyintegration=yes/s/yes/no/' debian/rules
-    rm debian/monetdb-python2.install
-    ;;
 trusty)
     # the trusty linker produces unresolved references to openSSL functions
     sed -i '/openssl_LIBS/s/WIN32?//' clients/mapilib/Makefile.ag
     sed -i '/^libmapi_la_LIBADD/s/$/ $(openssl_LIBS)/' clients/mapilib/Makefile.am clients/mapilib/Makefile.in
     ;;
+esac
+
+case $SUITE in
+jessie | trusty)
+    # The Python 3 version is too old for py3integration.
+    sed -i '/^Package: monetdb-python3/,/^$/d' debian/control
+    # There is a separate line for the Python3 dependencies: delete it
+    sed -i '/python3/d' debian/control
+    rm debian/monetdb-python3.install
+    sed -i -e 's/py3integration=yes/py3integration=no/' \
+	-e 's/python3=yes/python3=no/' debian/rules
+;;
 esac
 
 case $SUITE in
@@ -79,5 +94,17 @@ cosmic)
 	-e '/^Package: libmonetdb5-server-bam/,/^$/d' debian/control
     sed -i '/samtools=yes/s/yes/no/' debian/rules
     rm debian/libmonetdb5-server-bam.install
+    ;;
+esac
+
+# debhelper compatibility 9 and later support multiarch by using
+# architecture-specific subdirectories in /usr/lib (and /lib); our
+# code base is set up for amd64 (x86_64), so change to whatever
+# architecture we're compiling for
+case $ARCH in
+x86_64 | amd64)
+    ;;
+*)
+    sed -i "s/x86_64/$ARCH/g" debian/*.install
     ;;
 esac

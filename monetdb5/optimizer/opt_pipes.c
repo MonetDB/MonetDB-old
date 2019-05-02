@@ -68,6 +68,7 @@ static struct PIPELINES {
 	 "optimizer.remap();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
+	 "optimizer.aliases();"
 	 "optimizer.evaluate();"
 	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
@@ -104,6 +105,7 @@ static struct PIPELINES {
 	 "optimizer.remap();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
+	 "optimizer.aliases();"
 	 "optimizer.evaluate();"
 	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
@@ -148,6 +150,7 @@ static struct PIPELINES {
 	 "optimizer.remap();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
+	 "optimizer.aliases();"
 	 "optimizer.evaluate();"
 	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
@@ -190,6 +193,7 @@ static struct PIPELINES {
 	 "optimizer.remap();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
+	 "optimizer.aliases();"
 	 "optimizer.evaluate();"
 	 "optimizer.emptybind();"
 	 "optimizer.pushselect();"
@@ -237,15 +241,7 @@ static struct PIPELINES {
 #include "opt_pipes.h"
 #include "optimizer_private.h"
 
-static MT_Lock pipeLock MT_LOCK_INITIALIZER("pipeLock");
-
-void
-optPipeInit(void)
-{
-#ifdef NEED_MT_LOCK_INIT
-	MT_lock_init(&pipeLock, "pipeLock");
-#endif
-}
+static MT_Lock pipeLock = MT_LOCK_INITIALIZER("pipeLock");
 
 /* the session_pipe is the one defined by the user */
 str

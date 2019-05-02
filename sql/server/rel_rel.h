@@ -12,11 +12,21 @@
 #include "sql_relation.h"
 #include "sql_mvc.h"
 
-#define sql_from 	0
-#define sql_where 	1
-#define sql_sel   	2	
-#define sql_having 	3
-#define sql_orderby   	4	
+#define sql_from     1
+#define sql_where    2
+#define sql_sel      4
+#define sql_having   8
+#define sql_orderby 16
+#define sql_groupby 32 //ORed
+#define sql_partitionby 64 //ORed
+
+#define is_sql_from(X)    ((X & sql_from) == sql_from)
+#define is_sql_where(X)   ((X & sql_where) == sql_where)
+#define is_sql_sel(X)     ((X & sql_sel) == sql_sel)
+#define is_sql_having(X)  ((X & sql_having) == sql_having)
+#define is_sql_orderby(X) ((X & sql_orderby) == sql_orderby)
+#define is_sql_groupby(X) ((X & sql_groupby) == sql_groupby)
+#define is_sql_partitionby(X) ((X & sql_partitionby) == sql_partitionby)
 
 #define ERR_AMBIGUOUS		050000
 
@@ -33,7 +43,7 @@ extern sql_rel *rel_distinct(sql_rel *l);
 extern sql_rel *rel_dup(sql_rel *r);
 extern void rel_destroy(sql_rel *rel);
 extern sql_rel *rel_create(sql_allocator *sa);
-extern sql_rel *rel_copy(sql_allocator *sa, sql_rel *r);
+extern sql_rel *rel_copy(sql_allocator *sa, sql_rel *r, int deep);
 extern sql_rel *rel_select_copy(sql_allocator *sa, sql_rel *l, list *exps);
 
 extern sql_exp *rel_bind_column( mvc *sql, sql_rel *rel, const char *cname, int f );
@@ -61,6 +71,7 @@ extern sql_rel *rel_select(sql_allocator *sa, sql_rel *l, sql_exp *e);
 extern sql_rel *rel_basetable(mvc *sql, sql_table *t, const char *tname);
 extern sql_rel *rel_groupby(mvc *sql, sql_rel *l, list *groupbyexps );
 extern sql_rel *rel_project(sql_allocator *sa, sql_rel *l, list *e);
+extern sql_rel *rel_exception(sql_allocator *sa, sql_rel *l, sql_rel *r, list *exps);
 
 extern sql_rel *rel_relational_func(sql_allocator *sa, sql_rel *l, list *exps);
 extern sql_rel *rel_table_func(sql_allocator *sa, sql_rel *l, sql_exp *f, list *exps, int kind);

@@ -55,8 +55,7 @@ getConsoleInput(Client c, const char *prompt, int linemode, int exit_on_error)
 
 		if (line == NULL) {
 			/* end of file */
-			if (buf)
-				free(buf);
+			free(buf);
 			return NULL;
 		} else
 			length = strlen(line);
@@ -132,7 +131,7 @@ readConsole(Client cntxt)
 		return 1;
 	}
   bailout:
-	cntxt->fdin->eof = 1;
+	cntxt->fdin->eof = true;
 	return -1;
 }
 #endif

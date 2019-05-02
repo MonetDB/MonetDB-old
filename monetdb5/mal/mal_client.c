@@ -186,8 +186,7 @@ MCexitClient(Client c)
 	MPresetProfiler(c->fdout);
 	if (c->father == NULL) { /* normal client */
 		if (c->fdout && c->fdout != GDKstdout) {
-			(void) mnstr_close(c->fdout);
-			(void) mnstr_destroy(c->fdout);
+			close_stream(c->fdout);
 		}
 		assert(c->bak == NULL);
 		if (c->fdin) {
@@ -199,7 +198,7 @@ MCexitClient(Client c)
 	}
 }
 
-Client
+static Client
 MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 {
 	str prompt;
@@ -213,6 +212,9 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 
 	c->fdin = fin ? fin : bstream_create(GDKin, 0);
 	if ( c->fdin == NULL){
+		MT_lock_set(&mal_contextLock);
+		c->mode = FREECLIENT;
+		MT_lock_unset(&mal_contextLock);
 		showException(GDKout, MAL, "initClientRecord", MAL_MALLOC_FAIL);
 		return NULL;
 	}
@@ -244,6 +246,13 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	prompt = !fin ? GDKgetenv("monet_prompt") : PROMPT1;
 	c->prompt = GDKstrdup(prompt);
 	if ( c->prompt == NULL){
+		if (fin == NULL) {
+			c->fdin->s = NULL;
+			bstream_destroy(c->fdin);
+			MT_lock_set(&mal_contextLock);
+			c->mode = FREECLIENT;
+			MT_lock_unset(&mal_contextLock);
+		}
 		showException(GDKout, MAL, "initClientRecord", MAL_MALLOC_FAIL);
 		return NULL;
 	}
@@ -263,8 +272,13 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 #endif
 	c->blocksize = BLOCK;
 	c->protocol = PROTOCOL_9;
-	c->compute_column_widths = 0;
-	MT_sema_init(&c->s, 0, "Client->s");
+
+	c->filetrans = false;
+	c->query = NULL;
+
+	char name[16];
+	snprintf(name, sizeof(name), "Client%d->s", (int) (c - mal_clients));
+	MT_sema_init(&c->s, 0, name);
 	return c;
 }
 
@@ -286,12 +300,9 @@ int
 MCinitClientThread(Client c)
 {
 	Thread t;
-	char cname[11 + 1];
 
-	snprintf(cname, 11, OIDFMT, c->user);
-	cname[11] = '\0';
-	t = THRnew(cname);
-	if (t == 0) {
+	t = MT_thread_getdata();	/* should succeed */
+	if (t == NULL) {
 		MPresetProfiler(c->fdout);
 		return -1;
 	}
@@ -375,7 +386,6 @@ MCforkClient(Client father)
 static void
 freeClient(Client c)
 {
-	Thread t = c->mythread;
 	c->mode = FINISHCLIENT;
 
 #ifdef MAL_CLIENT_DEBUG
@@ -429,8 +439,6 @@ freeClient(Client c)
 		freeMalBlk(c->wlc);
 	c->wlc_kind = 0;
 	c->wlc = NULL;
-	if (t)
-		THRdel(t);  /* you may perform suicide */
 	MT_sema_destroy(&c->s);
 	c->mode = MCshutdowninprogress()? BLOCKCLIENT: FREECLIENT;
 }
@@ -450,7 +458,7 @@ freeClient(Client c)
  * When the server is about to shutdown, we should softly terminate
  * all outstanding session.
  */
-static int shutdowninprogress = 0;
+static volatile int shutdowninprogress = 0;
 
 int
 MCshutdowninprogress(void){
@@ -567,7 +575,7 @@ MCreadClient(Client c)
 			if (!isa_block_stream(c->fdout) && c->promptlength > 0)
 				mnstr_write(c->fdout, c->prompt, c->promptlength, 1);
 			mnstr_flush(c->fdout);
-			in->eof = 0;
+			in->eof = false;
 		}
 		while ((rd = bstream_next(in)) > 0 && !in->eof) {
 			sum += rd;

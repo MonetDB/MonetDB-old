@@ -18,38 +18,24 @@
 #include "mal_debugger.h"   /* for mdbStep() */
 #include "mal_type.h"
 #include "mal_private.h"
-  
 
-/*
- * The struct alignment leads to 40% gain in simple instructions when set.
- */
+static lng qptimeout = 0; /* how often we print still running queries (usec) */
+static MT_Lock qptimeoutLock = MT_LOCK_INITIALIZER("qptimeoutLock");
+
+void
+setqptimeout(lng usecs)
+{
+	qptimeout = usecs;
+}
+
 inline
 ptr getArgReference(MalStkPtr stk, InstrPtr pci, int k)
 {
-	ValRecord *v = &stk->stk[pci->argv[k]];
-
-#ifdef STRUCT_ALIGNED
-	return (ptr) &v->val.ival;
-#else
-	switch (ATOMstorage(v->vtype)) {
-	case TYPE_void: return (ptr) &v->val.ival;
-	case TYPE_bit:  return (ptr) &v->val.btval;
-	case TYPE_sht:  return (ptr) &v->val.shval;
-	case TYPE_bat:  return (ptr) &v->val.bval;
-	case TYPE_int:  return (ptr) &v->val.ival;
-	case TYPE_bte:  return (ptr) &v->val.btval;
-	case TYPE_oid:  return (ptr) &v->val.oval;
-	case TYPE_ptr:  return (ptr) &v->val.pval;
-	case TYPE_flt:  return (ptr) &v->val.fval;
-	case TYPE_dbl:  return (ptr) &v->val.dval;
-	case TYPE_lng:  return (ptr) &v->val.lval;
-#ifdef HAVE_HGE
-	case TYPE_hge:  return (ptr) &v->val.hval;
-#endif
-	case TYPE_str:  return (ptr) &v->val.sval;
-	default:        return (ptr) &v->val.pval;
-	}
-#endif
+	/* the C standard says: "A pointer to a union object, suitably
+	 * converted, points to each of its members (or if a member is a
+	 * bit-field, then to the unit in which it resides), and vice
+	 * versa." */
+	return (ptr) &stk->stk[pci->argv[k]].val;
 }
 
 str malCommandCall(MalStkPtr stk, InstrPtr pci)
@@ -311,6 +297,7 @@ str runMAL(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr env)
 	 * enough
 	 */
 	cntxt->lastcmd= time(0);
+	cntxt->lastprint = GDKusec();
 	if (env != NULL) {
 		int res = 1;
 		stk = env;
@@ -573,6 +560,18 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			lastcheck = runtimeProfile.ticks;
 		}
 
+		if (qptimeout > 0) {
+			MT_lock_set(&qptimeoutLock);
+			lng t = GDKusec();
+			if (cntxt->lastprint + qptimeout < t) {
+				fprintf(stderr, "#%s: query already running "LLFMT"s: %.200s\n",
+						cntxt->mythread->name, (lng) (time(0) - cntxt->lastcmd),
+						cntxt->query);
+				cntxt->lastprint = t;
+			}
+			MT_lock_unset(&qptimeoutLock);
+		}
+
 		/* The interpreter loop
 		 * The interpreter is geared towards execution a MAL
 		 * procedure together with all its descendant
@@ -644,23 +643,25 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			} else {
 				ret = (*pci->fcn)(cntxt, mb, stk, pci);
 #ifndef NDEBUG
-				/* check that the types of actual results match
-				 * expected results */
-				for (i = 0; i < pci->retc; i++) {
-					int a = getArg(pci, i);
-					int t = getArgType(mb, pci, i);
+				if (ret == MAL_SUCCEED) {
+					/* check that the types of actual results match
+					 * expected results */
+					for (i = 0; i < pci->retc; i++) {
+						int a = getArg(pci, i);
+						int t = getArgType(mb, pci, i);
 
-					if (isaBatType(t)) {
-						bat bid = stk->stk[a].val.bval;
-						BAT *_b = BATdescriptor(bid);
-						t = getBatType(t);
-						assert(stk->stk[a].vtype == TYPE_bat);
-						assert(is_bat_nil(bid) ||
-							   t == TYPE_any ||
-							   ATOMtype(_b->ttype) == ATOMtype(t));
-						if(_b) BBPunfix(bid);
-					} else {
-						assert(t == stk->stk[a].vtype);
+						if (isaBatType(t)) {
+							bat bid = stk->stk[a].val.bval;
+							BAT *_b = BATdescriptor(bid);
+							t = getBatType(t);
+							assert(stk->stk[a].vtype == TYPE_bat);
+							assert(is_bat_nil(bid) ||
+								   t == TYPE_any ||
+								   ATOMtype(_b->ttype) == ATOMtype(t));
+							if(_b) BBPunfix(bid);
+						} else {
+							assert(t == stk->stk[a].vtype);
+						}
 					}
 				}
 #endif
@@ -669,21 +670,23 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 		case CMDcall:
 			ret = malCommandCall(stk, pci);
 #ifndef NDEBUG
-			/* check that the types of actual results match
-			 * expected results */
-			for (i = 0; i < pci->retc; i++) {
-				int a = getArg(pci, i);
-				int t = getArgType(mb, pci, i);
+			if (ret == MAL_SUCCEED) {
+				/* check that the types of actual results match
+				 * expected results */
+				for (i = 0; i < pci->retc; i++) {
+					int a = getArg(pci, i);
+					int t = getArgType(mb, pci, i);
 
-				if (isaBatType(t)) {
-					bat bid = stk->stk[a].val.bval;
-					t = getBatType(t);
-					assert(stk->stk[a].vtype == TYPE_bat);
-					assert(is_bat_nil(bid) ||
-						   t == TYPE_any ||
-						   ATOMtype(BBP_desc(bid)->ttype) == ATOMtype(t));
-				} else {
-					assert(t == stk->stk[a].vtype);
+					if (isaBatType(t)) {
+						bat bid = stk->stk[a].val.bval;
+						t = getBatType(t);
+						assert(stk->stk[a].vtype == TYPE_bat);
+						assert(is_bat_nil(bid) ||
+							   t == TYPE_any ||
+							   ATOMtype(BBP_desc(bid)->ttype) == ATOMtype(t));
+					} else {
+						assert(t == stk->stk[a].vtype);
+					}
 				}
 			}
 #endif
@@ -832,7 +835,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 					if (garbage[i] == -1 && stk->stk[getArg(pci, i)].vtype == TYPE_bat &&
 						!is_bat_nil(stk->stk[getArg(pci, i)].val.bval)) {
 						assert(stk->stk[getArg(pci, i)].val.bval > 0);
-						b = BBPquickdesc(stk->stk[getArg(pci, i)].val.bval, FALSE);
+						b = BBPquickdesc(stk->stk[getArg(pci, i)].val.bval, false);
 						if (b == NULL) {
 							if (ret == MAL_SUCCEED)
 								ret = createException(MAL, "mal.propertyCheck", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
