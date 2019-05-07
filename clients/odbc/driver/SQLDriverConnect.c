@@ -28,7 +28,7 @@
 #include "ODBCGlobal.h"
 #include "ODBCDbc.h"
 #include "ODBCUtil.h"
-#ifdef HAVE_STRINGS_H
+#ifndef NATIVE_WIN32
 #include <strings.h>		/* for strcasecmp */
 #else
 #include <string.h>

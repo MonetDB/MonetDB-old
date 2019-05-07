@@ -9,7 +9,7 @@
 #include "monetdb_config.h"
 
 #include "difflib.h"
-#ifdef HAVE_IO_H
+#ifdef NATIVE_WIN32
 # include <io.h>
 #endif
 #include <string.h>

@@ -10,7 +10,7 @@
 #include "ODBCStmt.h"
 #include "ODBCUtil.h"
 #include <time.h>
-#ifdef HAVE_STRINGS_H
+#ifndef NATIVE_WIN32
 #include <strings.h>		/* for strncasecmp */
 #endif
 #include <float.h>		/* for FLT_MAX */

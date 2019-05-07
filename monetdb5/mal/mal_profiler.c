@@ -47,7 +47,7 @@ static struct timeval startup_time;
 
 static ATOMIC_TYPE hbdelay = ATOMIC_VAR_INIT(0);
 
-#ifdef HAVE_SYS_RESOURCE_H
+#ifndef NATIVE_WIN32
 struct rusage infoUsage;
 static struct rusage prevUsage;
 #endif
@@ -194,7 +194,7 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
 		logadd("],%s", prettify);
 #endif
 
-#ifdef HAVE_SYS_RESOURCE_H
+#ifndef NATIVE_WIN32
 	getrusage(RUSAGE_SELF, &infoUsage);
 	if(infoUsage.ru_inblock - prevUsage.ru_inblock)
 		logadd("\"inblock\":%ld,%s", infoUsage.ru_inblock - prevUsage.ru_inblock, prettify);
@@ -461,7 +461,7 @@ profilerHeartbeatEvent(char *alter)
 	logadd("\"clk\":"LLFMT",%s",usec,prettify);
 	logadd("\"ctime\":%"PRIu64",%s", microseconds, prettify);
 	logadd("\"rss\":%zu,%s", MT_getrss()/1024/1024, prettify);
-#ifdef HAVE_SYS_RESOURCE_H
+#ifndef NATIVE_WIN32
 	getrusage(RUSAGE_SELF, &infoUsage);
 	if(infoUsage.ru_inblock - prevUsage.ru_inblock)
 		logadd("\"inblock\":%ld,%s", infoUsage.ru_inblock - prevUsage.ru_inblock, prettify);
@@ -515,7 +515,7 @@ openProfilerStream(stream *fd, int mode)
 	int i,j;
 	Client c;
 
-#ifdef HAVE_SYS_RESOURCE_H
+#ifndef NATIVE_WIN32
 	getrusage(RUSAGE_SELF, &infoUsage);
 	prevUsage = infoUsage;
 #endif
@@ -558,7 +558,7 @@ closeProfilerStream(void)
 str
 startProfiler(void)
 {
-#ifdef HAVE_SYS_RESOURCE_H
+#ifndef NATIVE_WIN32
 	getrusage(RUSAGE_SELF, &infoUsage);
 	prevUsage = infoUsage;
 #endif
@@ -879,7 +879,7 @@ cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int errors = 0;
 
 	clock = GDKusec();
-#ifdef HAVE_SYS_RESOURCE_H
+#ifndef NATIVE_WIN32
 	getrusage(RUSAGE_SELF, &infoUsage);
 #endif
 	if (TRACE_init == 0)
@@ -897,7 +897,7 @@ cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	while (c && *c && (isspace((unsigned char)*c) || *c == '!'))
 		c++;
 
-#ifdef HAVE_SYS_RESOURCE_H
+#ifndef NATIVE_WIN32
 	getrusage(RUSAGE_SELF, &infoUsage);
 	v1= infoUsage.ru_inblock - prevUsage.ru_inblock;
 	v2= infoUsage.ru_oublock - prevUsage.ru_oublock;
@@ -952,7 +952,7 @@ void setprofilerlimit(int limit)
 lng
 getDiskWrites(void)
 {
-#ifdef HAVE_SYS_RESOURCE_H
+#ifndef NATIVE_WIN32
 	struct rusage infoUsage;
 	getrusage(RUSAGE_SELF, &infoUsage);
 	return infoUsage.ru_oublock;
@@ -964,7 +964,7 @@ getDiskWrites(void)
 lng
 getDiskReads(void)
 {
-#ifdef HAVE_SYS_RESOURCE_H
+#ifndef NATIVE_WIN32
 	struct rusage infoUsage;
 	getrusage(RUSAGE_SELF, &infoUsage);
 	return infoUsage.ru_inblock;

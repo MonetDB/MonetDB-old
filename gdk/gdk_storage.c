@@ -28,20 +28,17 @@
 #include "gdk_private.h"
 #include "gdk_storage.h"
 #include "mutils.h"
-#ifdef HAVE_FCNTL_H
-#include <fcntl.h>
-#endif
 
 #ifndef O_CLOEXEC
 #define O_CLOEXEC 0
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
+#include <sys/types.h>
 
-#ifdef HAVE_IO_H
+#ifdef NATIVE_WIN32
 # include <io.h>
+#else
+# include <fcntl.h>
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400

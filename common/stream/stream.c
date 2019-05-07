@@ -55,29 +55,18 @@
 #include "matomic.h"
 
 #include <string.h>
-
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_STAT_H
-# include <sys/stat.h>
-#endif
-#ifdef HAVE_UNISTD_H
+#include <sys/types.h>
+#include <sys/stat.h>
+#ifdef NATIVE_WIN32
+#include <io.h>
+#else
 # include <unistd.h>
-#endif
-#ifdef HAVE_NETDB_H
 # include <netinet/in_systm.h>
 # include <netinet/in.h>
 # include <netinet/ip.h>
 # include <netinet/tcp.h>
 # include <netdb.h>
-#endif
-
-#ifdef NATIVE_WIN32
-#include <io.h>
-#endif
-#ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #ifdef HAVE_LIBZ
 #include <zlib.h>
@@ -119,10 +108,6 @@
 
 #ifndef INVALID_SOCKET
 #define INVALID_SOCKET	(-1)
-#endif
-
-#ifdef HAVE_IO_H
-# include <io.h>
 #endif
 
 #ifdef NATIVE_WIN32

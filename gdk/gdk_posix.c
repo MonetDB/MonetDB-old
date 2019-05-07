@@ -19,22 +19,13 @@
 #include "gdk.h"		/* includes gdk_posix.h */
 #include "gdk_private.h"
 #include "mutils.h"
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
 #include <string.h>     /* strncpy */
-
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-#ifdef HAVE_FCNTL_H
-# include <fcntl.h>
-#endif
+#include <sys/types.h>
 #ifdef __MACH__
 # include <mach/task.h>
 # include <mach/mach_init.h>
 #endif
-#if defined(HAVE_KVM_H) && defined(HAVE_SYS_SYSCTL_H)
+#if defined(HAVE_KVM_H)
 # include <kvm.h>
 # include <sys/param.h>
 # include <sys/sysctl.h>
@@ -42,6 +33,8 @@
 #endif
 
 #ifndef NATIVE_WIN32
+# include <unistd.h>
+# include <fcntl.h>
 # include <dlfcn.h>
 #endif
 
@@ -255,7 +248,7 @@ MT_getrss(void)
 
 	if (task_info(task, TASK_BASIC_INFO_64, (task_info_t)&t_info, &t_info_count) != KERN_INVALID_POLICY)
 		return t_info.resident_size;  /* bytes */
-#elif defined(HAVE_KVM_H) && defined(HAVE_SYS_SYSCTL_H)
+#elif defined(HAVE_KVM_H)
 	/* get RSS on FreeBSD and NetBSD */
 	struct kinfo_proc *ki;
 	int ski = 1;
@@ -672,9 +665,7 @@ mdlopen(const char *library, int mode)
 #undef rmdir
 #undef mkdir
 
-#ifdef HAVE_IO_H
 #include <io.h>
-#endif
 #include <Psapi.h>
 
 #define MT_SMALLBLOCK 256

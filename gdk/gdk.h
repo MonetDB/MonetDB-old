@@ -306,22 +306,16 @@
 #define _GDK_H_
 
 /* standard includes upon which all configure tests depend */
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_STAT_H
-# include <sys/stat.h>
-#endif
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <stddef.h>
 #include <string.h>
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
 
 #include <ctype.h>		/* isspace etc. */
 
-#ifdef HAVE_DIRENT_H
+#ifndef NATIVE_WIN32
 # include <dirent.h>
+# include <unistd.h>
 #endif
 
 #include <limits.h>		/* for *_MIN and *_MAX */

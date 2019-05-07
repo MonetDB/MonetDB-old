@@ -18,20 +18,13 @@
 #include "mal_private.h"
 
 #include "mutils.h"
-#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h> /* opendir */
-#endif
-#ifdef HAVE_DIRENT_H
-#include <dirent.h>
-#endif
-#ifdef HAVE_FCNTL_H
-#include <fcntl.h>
-#endif
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-#ifdef HAVE_IO_H
+#ifdef NATIVE_WIN32
 # include <io.h>
+#else
+#include <unistd.h>
+#include <dirent.h>
+#include <fcntl.h>
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400

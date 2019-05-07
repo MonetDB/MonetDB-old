@@ -690,41 +690,26 @@
 #include "mcrypt.h"
 #include "matomic.h"
 
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
-#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
-#endif
-
-#ifdef HAVE_SYS_UN_H
+#include <sys/stat.h>
+#ifndef NATIVE_WIN32
+# include <unistd.h>
+# include <dirent.h>
 # include <sys/un.h>
-# include <sys/stat.h>
-# ifdef HAVE_DIRENT_H
-#  include <dirent.h>
-# endif
-#endif
-#ifdef HAVE_NETDB_H
 # include <netdb.h>
 # include <netinet/in.h>
-#endif
-#ifdef HAVE_SYS_UIO_H
 # include <sys/uio.h>
+# include <fcntl.h>
 #endif
 
 #include <signal.h>
 #include <string.h>
-#include <memory.h>
 #include <time.h>
 #ifdef HAVE_FTIME
 # include <sys/timeb.h>		/* ftime */
 #endif
 #ifdef HAVE_SYS_TIME_H
 # include <sys/time.h>		/* gettimeofday */
-#endif
-
-#ifdef HAVE_FCNTL_H
-#include <fcntl.h>
 #endif
 
 #ifndef INVALID_SOCKET
@@ -2174,7 +2159,7 @@ mapi_reconnect(Mapi mid)
 
 		if (host != NULL && port != 0) {
 			/* case 0), just do what the user told us */
-#ifdef HAVE_SYS_UN_H
+#ifndef NATIVE_WIN32
 			if (*host == '/') {
 				/* don't stat or anything, the
 				 * mapi_reconnect will return the
@@ -2197,7 +2182,7 @@ mapi_reconnect(Mapi mid)
 			if (port != 0) {
 				/* case 2a), if unix socket found, use
 				 * it, otherwise TCP */
-#ifdef HAVE_SYS_UN_H
+#ifndef NATIVE_WIN32
 				struct stat st;
 				snprintf(buf, sizeof(buf),
 					 "/tmp/.s.monetdb.%d", port);
@@ -2208,7 +2193,7 @@ mapi_reconnect(Mapi mid)
 #endif
 					host = "localhost";
 			} else if (host != NULL) {
-#ifdef HAVE_SYS_UN_H
+#ifndef NATIVE_WIN32
 				if (*host == '/') {
 					/* see comment above for why
 					 * we don't stat */
@@ -2221,7 +2206,7 @@ mapi_reconnect(Mapi mid)
 			} else {
 				/* case 2b), no host, no port, but a
 				 * dbname, search for meros */
-#ifdef HAVE_SYS_UN_H
+#ifndef NATIVE_WIN32
 				DIR *d;
 				struct dirent *e;
 				struct stat st;
@@ -2300,7 +2285,7 @@ mapi_reconnect(Mapi mid)
 		set_uri(mid);
 	}
 
-#ifdef HAVE_SYS_UN_H
+#ifndef NATIVE_WIN32
 	if (mid->hostname && mid->hostname[0] == '/') {
 		struct msghdr msg;
 		struct iovec vec;

@@ -21,9 +21,7 @@
 #include "stream_socket.h"
 #include "mapi.h"
 #include <string.h>
-#ifdef HAVE_SYS_STAT_H
-# include <sys/stat.h>
-#endif
+#include <sys/stat.h>
 #include <signal.h>
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
@@ -40,13 +38,11 @@
 # endif
 #endif
 
-#ifdef HAVE_NETDB_H
+#ifdef NATIVE_WIN32
+# include <io.h>
+#else
 # include <netdb.h>
 # include <netinet/in.h>
-#endif
-
-#ifdef HAVE_IO_H
-# include <io.h>
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400

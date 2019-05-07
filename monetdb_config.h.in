@@ -125,9 +125,6 @@
 /* Define to 1 if you have the cURL library */
 #cmakedefine HAVE_CURL 1
 
-/* Define to 1 if you have the <dirent.h> header file. */
-#cmakedefine HAVE_DIRENT_H 1
-
 /* Support for MonetDB as a library */
 #cmakedefine HAVE_EMBEDDED 1
 
@@ -136,9 +133,6 @@
 
 /* Define to 1 if you have the `fcntl' function. */
 #cmakedefine HAVE_FCNTL 1
-
-/* Define to 1 if you have the <fcntl.h> header file. */
-#cmakedefine HAVE_FCNTL_H 1
 
 /* Define to 1 if the system has a working fdatasync */
 #cmakedefine HAVE_FDATASYNC 1
@@ -175,9 +169,6 @@
 
 /* Define to 1 if you have the iconv() function and it works. */
 #cmakedefine HAVE_ICONV 1
-
-/* Define to 1 if you have the <io.h> header file. */
-#cmakedefine HAVE_IO_H 1
 
 /* Define to 1 if you have the bz2 library */
 #cmakedefine HAVE_LIBBZ2 1
@@ -236,9 +227,6 @@
 /* Define to 1 if the netcdf module is to be enabled */
 #cmakedefine HAVE_NETCDF 1
 
-/* Define to 1 if you have the <netdb.h> header file. */
-#cmakedefine HAVE_NETDB_H 1
-
 /* Define to 1 if you have the `nl_langinfo' function. */
 #cmakedefine HAVE_NL_LANGINFO 1
 
@@ -293,9 +281,6 @@
 /* Define to 1 if you have the `stpcpy' function. */
 #cmakedefine HAVE_STPCPY 1
 
-/* Define to 1 if you have the <strings.h> header file. */
-#cmakedefine HAVE_STRINGS_H 1
-
 /* Define to 1 if you have the `strptime' function. */
 #cmakedefine HAVE_STRPTIME 1
 
@@ -308,44 +293,20 @@
 /* Define to 1 if `tm_zone' is a member of `struct tm'. */
 #cmakedefine HAVE_STRUCT_TM_TM_ZONE 1
 
-/* Define to 1 if you have the <sys/ioctl.h> header file. */
-#cmakedefine HAVE_SYS_IOCTL_H 1
-
 /* Define to 1 if you have the <sys/mman.h> header file. */
 #cmakedefine HAVE_SYS_MMAN_H 1
-
-/* Define to 1 if you have the <sys/param.h> header file. */
-#cmakedefine HAVE_SYS_PARAM_H 1
 
 /* Define to 1 if you have the <sys/resource.h> header file. */
 #cmakedefine HAVE_SYS_RESOURCE_H 1
 
-/* Define to 1 if you have the <sys/socket.h> header file. */
-#cmakedefine HAVE_SYS_SOCKET_H 1
-
-/* Define to 1 if you have the <sys/stat.h> header file. */
-#cmakedefine HAVE_SYS_STAT_H 1
-
-/* Define to 1 if you have the <sys/sysctl.h> header file. */
-#cmakedefine HAVE_SYS_SYSCTL_H 1
-
 /* Define to 1 if you have the <sys/time.h> header file. */
 #cmakedefine HAVE_SYS_TIME_H 1
-
-/* Define to 1 if you have the <sys/types.h> header file. */
-#cmakedefine HAVE_SYS_TYPES_H 1
-
-/* Define to 1 if you have the <sys/uio.h> header file. */
-#cmakedefine HAVE_SYS_UIO_H 1
 
 /* Define to 1 if you have the <sys/un.h> header file. */
 #cmakedefine HAVE_SYS_UN_H 1
 
 /* Define to 1 if you have the `times' function. */
 #cmakedefine HAVE_TIMES 1
-
-/* Define to 1 if you have the <unistd.h> header file. */
-#cmakedefine HAVE_UNISTD_H 1
 
 /* uuid */
 #cmakedefine HAVE_UUID 1

@@ -23,7 +23,7 @@
 #include "mal_exception.h"
 #include "mal_private.h"
 #include "mcrypt.h"
-#ifdef HAVE_UNISTD_H
+#ifndef NATIVE_WIN32
 #include <unistd.h>
 #endif
 #ifndef HAVE_EMBEDDED

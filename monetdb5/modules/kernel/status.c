@@ -24,16 +24,13 @@
 #include <time.h>
 #include "mal_exception.h"
 #include "status.h"
-#ifdef HAVE_UNISTD_H
+#ifndef NATIVE_WIN32
 # include <unistd.h>
+# include <sys/resource.h>
 #endif
 
 #ifdef HAVE_TIMES
 # include <sys/times.h>
-#endif
-
-#ifdef HAVE_SYS_RESOURCE_H
-# include <sys/resource.h>
 #endif
 
 static int
@@ -484,13 +481,13 @@ SYSvm_usage(bat *ret, bat *ret2, const lng *minsize)
 str
 SYSioStatistics(bat *ret, bat *ret2)
 {
-#ifdef HAVE_SYS_RESOURCE_H
+#ifndef NATIVE_WIN32
 	struct rusage ru;
 #endif
 	lng i;
 	BAT *b, *bn;
 
-#ifdef HAVE_SYS_RESOURCE_H
+#ifndef NATIVE_WIN32
 	getrusage(RUSAGE_SELF, &ru);
 #endif
 	bn = COLnew(0, TYPE_str, 32, TRANSIENT);
@@ -501,7 +498,7 @@ SYSioStatistics(bat *ret, bat *ret2)
 		throw(MAL, "status.ioStatistics", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 
-#ifdef HAVE_SYS_RESOURCE_H
+#ifndef NATIVE_WIN32
 	/* store counters, ignore errors */
 	i = ru.ru_maxrss;
 	if (BUNappend(bn, "maxrss", false) != GDK_SUCCEED ||

@@ -30,10 +30,6 @@
 #include <string.h>
 #include <ctype.h>
 
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-
 #ifndef HAVE_GETOPT_LONG
 #  include "getopt.c"
 #  include "getopt1.c"
@@ -41,6 +37,8 @@
 
 #ifdef NATIVE_WIN32
 #define getpid _getpid
+#else
+#include <unistd.h>
 #endif
 
 /* these two are used of the set parameter passed into functions is NULL */

@@ -9,7 +9,7 @@
 #include "monetdb_config.h"
 #include "mapi.h"
 #include "stream.h"
-#ifdef HAVE_UNISTD_H
+#ifndef NATIVE_WIN32
 #include <unistd.h>
 #endif
 #include <string.h>

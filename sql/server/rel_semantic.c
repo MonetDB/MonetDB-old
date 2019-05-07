@@ -18,7 +18,7 @@
 #include "rel_sequence.h"
 #include "rel_exp.h"
 
-#ifdef HAVE_UNISTD_H
+#ifndef NATIVE_WIN32
 #include <unistd.h>
 #endif
 #include <string.h>

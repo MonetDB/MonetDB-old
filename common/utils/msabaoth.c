@@ -18,23 +18,14 @@
  */
 
 #include "monetdb_config.h"
-#ifdef HAVE_UNISTD_H
-#include <unistd.h> /* unlink and friends */
-#endif
-#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
-#endif
-#ifdef HAVE_DIRENT_H
-#include <dirent.h> /* readdir, DIR */
-#endif
-#ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
-#endif
-#ifdef HAVE_FCNTL_H
-#include <fcntl.h>
-#endif
-#ifdef HAVE_IO_H
+#ifdef NATIVE_WIN32
 #include <io.h>
+#else
+#include <unistd.h> /* unlink and friends */
+#include <dirent.h> /* readdir, DIR */
+#include <fcntl.h>
 #endif
 #include <time.h>
 #include <string.h> /* for getting error messages */

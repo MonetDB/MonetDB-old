@@ -18,7 +18,7 @@
 #include "sql_parser.h"		/* for sql_error() */
 
 #include "stream.h"
-#ifdef HAVE_UNISTD_H
+#ifndef NATIVE_WIN32
 #include <unistd.h>
 #endif
 #include <string.h>

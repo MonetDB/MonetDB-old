@@ -7,12 +7,10 @@
  */
 
 #include "monetdb_config.h"
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
 #include <string.h>
 #ifndef NATIVE_WIN32
 #include <termios.h>
+#include <unistd.h>
 #endif
 #include "mprompt.h"
 

@@ -28,30 +28,20 @@ int GDKverbose = 0;
 
 #include <signal.h>
 
-#ifdef HAVE_FCNTL_H
-#include <fcntl.h>
-#endif
-
-#ifdef HAVE_SYS_PARAM_H
-# include <sys/param.h>  /* prerequisite of sys/sysctl on OpenBSD */
-#endif
-#ifdef HAVE_SYS_SYSCTL_H
-# include <sys/sysctl.h>
-#endif
-
 #ifdef __CYGWIN__
 #include <sysinfoapi.h>
 #endif
 
-#ifdef HAVE_IO_H
-# include <io.h>
-#endif
-
 #ifdef NATIVE_WIN32
+#include <io.h>
 #define chdir _chdir
 #define getpid _getpid
 #define close _close
 #define getuid() 0
+#else
+#include <sys/param.h>  /* prerequisite of sys/sysctl on OpenBSD */
+#include <sys/sysctl.h>
+#include <fcntl.h>
 #endif
 
 static ATOMIC_TYPE GDKstopped = ATOMIC_VAR_INIT(0);
@@ -309,7 +299,7 @@ MT_init(void)
 		GetSystemInfo(&sysInfo);
 		_MT_pagesize = sysInfo.dwPageSize;
 	}
-#elif defined(HAVE_SYS_SYSCTL_H) && defined(HW_PAGESIZE)
+#elif defined(HW_PAGESIZE)
 	{
 		int size;
 		size_t len = sizeof(int);
@@ -336,7 +326,7 @@ MT_init(void)
 		if (GlobalMemoryStatusEx(&memStatEx))
 			_MT_npages = (size_t) (memStatEx.ullTotalPhys / _MT_pagesize);
 	}
-#elif defined(HAVE_SYS_SYSCTL_H) && defined(HW_MEMSIZE) && SIZEOF_SIZE_T == SIZEOF_LNG
+#elif defined(HW_MEMSIZE) && SIZEOF_SIZE_T == SIZEOF_LNG
 	/* Darwin, 64-bits */
 	{
 		uint64_t size = 0;
@@ -350,7 +340,7 @@ MT_init(void)
 		sysctl(mib, 2, &size, &len, NULL, 0);
 		_MT_npages = size / _MT_pagesize;
 	}
-#elif defined(HAVE_SYS_SYSCTL_H) && defined (HW_PHYSMEM64) && SIZEOF_SIZE_T == SIZEOF_LNG
+#elif defined (HW_PHYSMEM64) && SIZEOF_SIZE_T == SIZEOF_LNG
 	/* OpenBSD, 64-bits */
 	{
 		int64_t size = 0;
@@ -364,7 +354,7 @@ MT_init(void)
 		sysctl(mib, 2, &size, &len, NULL, 0);
 		_MT_npages = size / _MT_pagesize;
 	}
-#elif defined(HAVE_SYS_SYSCTL_H) && defined(HW_PHYSMEM)
+#elif defined(HW_PHYSMEM)
 	/* NetBSD, OpenBSD, Darwin, 32-bits; FreeBSD 32 & 64-bits */
 	{
 # ifdef __FreeBSD__

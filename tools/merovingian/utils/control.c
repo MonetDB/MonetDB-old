@@ -11,9 +11,7 @@
 #include <unistd.h> /* close */
 #include <string.h> /* strerror */
 #include <sys/socket.h> /* socket */
-#ifdef HAVE_SYS_UN_H
 #include <sys/un.h> /* sockaddr_un */
-#endif
 #include <netdb.h>
 #include <netinet/in.h>
 #include <fcntl.h>

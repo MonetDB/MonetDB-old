@@ -16,9 +16,7 @@
 #include <netinet/in.h>
 #include <fcntl.h>
 #include <string.h> /* strerror */
-#ifdef HAVE_SYS_UIO_H
-# include <sys/uio.h>
-#endif
+#include <sys/uio.h>
 
 #include "stream.h"
 #include "stream_socket.h"

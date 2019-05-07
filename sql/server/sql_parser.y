@@ -20,7 +20,7 @@
 #include "mal.h"		/* for have_hge */
 #endif
 
-#ifdef HAVE_UNISTD_H
+#ifndef NATIVE_WIN32
 #include <unistd.h>
 #endif
 #include <string.h>

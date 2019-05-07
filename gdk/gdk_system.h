@@ -86,10 +86,8 @@
 #include <dispatch/dispatch.h>
 #endif
 
-#ifdef HAVE_SYS_PARAM_H
+#ifndef NATIVE_WIN32
 # include <sys/param.h>	   /* prerequisite of sys/sysctl on OpenBSD */
-#endif
-#ifdef HAVE_SYS_SYSCTL_H
 # include <sys/sysctl.h>
 #endif
 

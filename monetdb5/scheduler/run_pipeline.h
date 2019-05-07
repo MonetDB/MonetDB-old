@@ -18,7 +18,7 @@
 # include <sys/times.h>
 #endif
 
-#ifdef HAVE_SYS_RESOURCE_H
+#ifndef NATIVE_WIN32
 #include <sys/resource.h>
 #endif
 

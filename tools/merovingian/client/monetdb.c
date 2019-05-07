@@ -33,13 +33,9 @@
 #include <unistd.h> /* stat, rmdir, unlink, ioctl */
 #include <time.h> /* strftime */
 #include <sys/socket.h> /* socket */
-#ifdef HAVE_SYS_UN_H
-#include <sys/un.h> /* sockaddr_un */
-#endif
-#ifdef HAVE_SYS_IOCTL_H
-#include <sys/ioctl.h>
-#endif
 #ifndef NATIVE_WIN32
+#include <sys/un.h> /* sockaddr_un */
+#include <sys/ioctl.h>
 #include <termios.h> /* TIOCGWINSZ/TIOCSWINSZ */
 #endif
 

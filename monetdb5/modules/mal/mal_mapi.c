@@ -31,42 +31,28 @@
 #include "monetdb_config.h"
 #ifdef HAVE_MAPI
 #include "mal_mapi.h"
-#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
-#endif
 #include "stream_socket.h"
 #include "mapi.h"
 #ifdef HAVE_OPENSSL
 # include <openssl/rand.h>		/* RAND_bytes() */
-#else
-#ifdef HAVE_COMMONCRYPTO
+#elif defined(HAVE_COMMONCRYPTO)
 # include <CommonCrypto/CommonCrypto.h>
 # include <CommonCrypto/CommonRandom.h>
-#endif
 #endif
 #ifdef NATIVE_WIN32   /* Windows specific */
 # include <winsock.h>
 #else           /* UNIX specific */
+# include <unistd.h>     /* gethostname() */
 # include <sys/select.h>
 # include <sys/socket.h>
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>     /* gethostname() */
-#endif
 # include <netinet/in.h> /* hton and ntoh */
 # include <arpa/inet.h>  /* addr_in */
-#endif
-#ifdef HAVE_SYS_UN_H
 # include <sys/un.h>
-#endif
-#ifdef HAVE_NETDB_H
 # include <netdb.h>
 # include <netinet/in.h>
-#endif
-#ifdef HAVE_SYS_UIO_H
 # include <sys/uio.h>
-#endif
-#ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 
 #define SOCKPTR struct sockaddr *
@@ -306,7 +292,7 @@ SERVERlistenThread(SOCKET *Sock)
 		FD_ZERO(&fds);
 		if (sock != INVALID_SOCKET)
 			FD_SET(sock, &fds);
-#ifdef HAVE_SYS_UN_H
+#ifndef NATIVE_WIN32
 		if (usock != INVALID_SOCKET)
 			FD_SET(usock, &fds);
 #endif
@@ -316,7 +302,7 @@ SERVERlistenThread(SOCKET *Sock)
 
 		/* temporarily use msgsock to record the larger of sock and usock */
 		msgsock = sock;
-#ifdef HAVE_SYS_UN_H
+#ifndef NATIVE_WIN32
 		if (usock != INVALID_SOCKET && (sock == INVALID_SOCKET || usock > sock))
 			msgsock = usock;
 #endif
@@ -357,7 +343,7 @@ SERVERlistenThread(SOCKET *Sock)
 #if defined(HAVE_FCNTL) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
 			(void) fcntl(msgsock, F_SETFD, FD_CLOEXEC);
 #endif
-#ifdef HAVE_SYS_UN_H
+#ifndef NATIVE_WIN32
 		} else if (usock != INVALID_SOCKET && FD_ISSET(usock, &fds)) {
 			struct msghdr msgh;
 			struct iovec iov;
@@ -521,7 +507,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 	bool bind_ipv6 = false;
 	bool accept_any = false;
 	bool autosense = false;
-#ifdef HAVE_SYS_UN_H
+#ifndef NATIVE_WIN32
 	struct sockaddr_un userver;
 	SOCKET usock = INVALID_SOCKET;
 #endif
@@ -564,7 +550,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 	{
 		usockfile = NULL;
 	} else {
-#ifdef HAVE_SYS_UN_H
+#ifndef NATIVE_WIN32
 		usockfile = GDKstrdup(Usockfile);
 		if (usockfile == NULL) {
 			GDKfree(psock);
@@ -810,7 +796,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 				);
 		}
 	}
-#ifdef HAVE_SYS_UN_H
+#ifndef NATIVE_WIN32
 	if (usockfile) {
 		usock = socket(AF_UNIX, SOCK_STREAM
 #ifdef SOCK_CLOEXEC
@@ -917,7 +903,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 #endif
 
 	psock[0] = sock;
-#ifdef HAVE_SYS_UN_H
+#ifndef NATIVE_WIN32
 	psock[1] = usock;
 #else
 	psock[1] = INVALID_SOCKET;
@@ -927,7 +913,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 						 MT_THR_JOINABLE, "listenThread") != 0) {
 		if (sock != INVALID_SOCKET)
 			closesocket(sock);
-#ifdef HAVE_SYS_UN_H
+#ifndef NATIVE_WIN32
 		if (usock != INVALID_SOCKET)
 			closesocket(usock);
 #endif

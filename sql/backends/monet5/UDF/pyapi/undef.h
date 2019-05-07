@@ -16,7 +16,6 @@
 
 #ifdef WIN32
 
-#undef HAVE_IO_H
 #undef SIZEOF_VOID_P
 #undef SIZEOF_SIZE_T
 #undef HAVE_FTIME

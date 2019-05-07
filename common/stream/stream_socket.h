@@ -12,11 +12,10 @@
 #ifndef _STREAM_SOCKET_H_
 #define _STREAM_SOCKET_H_
 
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
 #ifdef NATIVE_WIN32
 # include <winsock.h>
+#else
+#include <sys/socket.h>
 #endif
 
 #ifndef INVALID_SOCKET

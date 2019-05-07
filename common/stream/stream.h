@@ -22,7 +22,7 @@
  */
 
 #include "monetdb_config.h"
-#ifdef HAVE_UNISTD_H
+#ifndef NATIVE_WIN32
 # include <unistd.h>
 #endif
 #include <ctype.h>

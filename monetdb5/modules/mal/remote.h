@@ -40,8 +40,7 @@ typedef struct _connection {
 #ifndef WIN32
 #include <sys/socket.h> /* socket */
 #include <sys/un.h> /* sockaddr_un */
-#endif
-#ifdef HAVE_UNISTD_H
+#else
 # include <unistd.h> /* gethostname */
 #endif
 

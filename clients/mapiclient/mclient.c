@@ -22,14 +22,13 @@
 # endif
 #endif
 #include "mapi.h"
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
 #include <string.h>
-#ifdef HAVE_STRINGS_H
+#ifdef NATIVE_WIN32
+# include <io.h>
+#else
+#include <unistd.h>
 #include <strings.h>		/* strcasecmp */
 #endif
-
 #ifdef HAVE_LIBREADLINE
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -48,10 +47,6 @@
 #ifdef HAVE_NL_LANGINFO
 #include <langinfo.h>
 #endif
-#endif
-
-#ifdef HAVE_IO_H
-# include <io.h>
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
@@ -153,10 +148,8 @@ static char *nullstring = default_nullstring;
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>		/* gettimeofday */
 #endif
-#ifdef HAVE_SYS_IOCTL_H
-#include <sys/ioctl.h>
-#endif
 #ifndef NATIVE_WIN32
+#include <sys/ioctl.h>
 #include <termios.h>		/* TIOCGWINSZ/TIOCSWINSZ */
 #endif
 
@@ -3193,7 +3186,7 @@ usage(const char *prog, int xit)
 {
 	fprintf(stderr, "Usage: %s [ options ] [ file or database [ file ... ] ]\n", prog);
 	fprintf(stderr, "\nOptions are:\n");
-#ifdef HAVE_SYS_UN_H
+#ifndef NATIVE_WIN32
 	fprintf(stderr, " -h hostname | --host=hostname    host or UNIX domain socket to connect to\n");
 #else
 	fprintf(stderr, " -h hostname | --host=hostname    host to connect to\n");

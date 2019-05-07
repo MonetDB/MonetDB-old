@@ -34,7 +34,6 @@ set(CMAKE_FIND_APPBUNDLE LAST)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" CACHE INTERNAL "Location of custom CMake modules.")
 include(CheckCSourceCompiles REQUIRED)
 include(CheckIncludeFile REQUIRED)
-include(CheckIncludeFiles REQUIRED)
 include(CMakePushCheckState REQUIRED)
 include(CheckStructHasMember REQUIRED)
 include(CheckSymbolExists REQUIRED)
@@ -414,28 +413,13 @@ endif()
 include(FindExtraLibraries)
 
 # Header files
-check_include_file("dirent.h" HAVE_DIRENT_H)
-check_include_file("fcntl.h" HAVE_FCNTL_H)
-check_include_file("getopt.h" HAVE_GETOPT_H)
-check_include_file("io.h" HAVE_IO_H)
-check_include_file("kvm.h" HAVE_KVM_H)
+check_include_file("getopt.h" HAVE_GETOPT_H) # GNU extension
+check_include_file("kvm.h" HAVE_KVM_H) # For FreeBSD
 check_include_file("libintl.h" HAVE_LIBINTL_H)
-check_include_file("netdb.h" HAVE_NETDB_H)
 check_include_file("pthread.h" HAVE_PTHREAD_H)
 check_include_file("stdatomic.h" HAVE_STDATOMIC_H) # C11 include file
-check_include_file("strings.h" HAVE_STRINGS_H)
-check_include_file("sys/ioctl.h" HAVE_SYS_IOCTL_H)
 check_include_file("sys/mman.h" HAVE_SYS_MMAN_H) # For madvise and posix_madvise on BSD systems
-check_include_file("sys/param.h" HAVE_SYS_PARAM_H)
-check_include_file("sys/resource.h" HAVE_SYS_RESOURCE_H)
-check_include_file("sys/socket.h" HAVE_SYS_SOCKET_H)
-check_include_file("sys/stat.h" HAVE_SYS_STAT_H)
-check_include_files("sys/param.h;sys/sysctl.h" HAVE_SYS_SYSCTL_H) # on OpenBSD, sys/sysctl.h requires sys/param.h to be included beforehand
 check_include_file("sys/time.h" HAVE_SYS_TIME_H)
-check_include_file("sys/types.h" HAVE_SYS_TYPES_H)
-check_include_file("sys/uio.h" HAVE_SYS_UIO_H)
-check_include_file("sys/un.h" HAVE_SYS_UN_H)
-check_include_file("unistd.h" HAVE_UNISTD_H)
 
 # C types existence
 cmake_push_check_state()

@@ -17,7 +17,7 @@
 #include <readline/history.h>
 #include "ReadlineTools.h"
 
-#ifdef HAVE_STRINGS_H
+#ifndef NATIVE_WIN32
 #include <strings.h>		/* for strncasecmp */
 #endif
 

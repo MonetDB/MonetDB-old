@@ -38,7 +38,7 @@
 #include "mtime.h"
 #include "optimizer.h"
 #include "opt_inline.h"
-#ifdef HAVE_UNISTD_H
+#ifndef NATIVE_WIN32
 #include <unistd.h>
 #endif
 

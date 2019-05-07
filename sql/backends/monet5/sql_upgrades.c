@@ -15,7 +15,7 @@
 #include "sql_execute.h"
 #include "sql_mvc.h"
 #include "mtime.h"
-#ifdef HAVE_UNISTD_H
+#ifndef NATIVE_WIN32
 #include <unistd.h>
 #endif
 #include "sql_upgrades.h"

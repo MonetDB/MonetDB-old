@@ -11,10 +11,8 @@
 #include "gdk.h"
 #include "mutils.h"
 #include <time.h>
-#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
-#endif
-#ifdef HAVE_DIRENT_H
+#ifndef NATIVE_WIN32
 #include <dirent.h>
 #endif
 #include "mal_resolve.h"

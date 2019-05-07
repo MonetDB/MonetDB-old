@@ -27,7 +27,7 @@
 #include "monetdb_config.h"
 #include <ctype.h>
 #include <string.h>
-#ifdef HAVE_STRINGS_H
+#ifndef NATIVE_WIN32
 #include <strings.h>		/* for strncasecmp */
 #endif
 #include "stream.h"

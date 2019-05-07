@@ -21,11 +21,12 @@
 #include "stream_socket.h"
 #include "mapi.h"
 #include <string.h>
-#ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
-#endif
 #include <signal.h>
-#ifdef HAVE_UNISTD_H
+#ifdef NATIVE_WIN32
+#include <direct.h>
+#include <io.h>
+#else
 #include <unistd.h>
 #endif
 #include "mprompt.h"
@@ -42,10 +43,6 @@
 
 #include <time.h>
 
-#ifdef HAVE_IO_H
-# include <io.h>
-#endif
-
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 #define open  _open
 #define close _close
@@ -53,9 +50,7 @@
 #define write _write
 #endif
 
-#ifdef NATIVE_WIN32
-#include <direct.h>
-#endif
+
 
 #define die(dbh, hdl)						\
 	do {							\

@@ -46,7 +46,7 @@
 #include "gdk.h"
 #include "gdk_private.h"
 
-#ifdef HAVE_IO_H
+#ifdef NATIVE_WIN32
 # include <io.h>
 #endif
 

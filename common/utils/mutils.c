@@ -7,19 +7,17 @@
  */
 
 #include "monetdb_config.h"
-#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
-#endif
-#ifdef HAVE_FCNTL_H
-#include <fcntl.h>
-#endif
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
 #include <string.h>
+#ifdef NATIVE_WIN32
+#include <io.h>
+#else
+# include <unistd.h>
+# include <sys/param.h>  /* realpath on OSX, prerequisite of sys/sysctl on OpenBSD */
+# include <sys/sysctl.h>  /* KERN_PROC_PATHNAME on BSD */
+# include <fcntl.h>
+#endif
 #include "mutils.h"
 
 #ifdef HAVE_BACKTRACE
@@ -31,18 +29,6 @@
 #endif
 
 #include <limits.h>		/* PATH_MAX on Solaris */
-
-#ifdef HAVE_SYS_PARAM_H
-# include <sys/param.h>  /* realpath on OSX, prerequisite of sys/sysctl on OpenBSD */
-#endif
-
-#ifdef HAVE_SYS_SYSCTL_H
-# include <sys/sysctl.h>  /* KERN_PROC_PATHNAME on BSD */
-#endif
-
-#ifdef HAVE_IO_H
-# include <io.h>
-#endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 #define open _open
@@ -445,7 +431,7 @@ get_bin_path(void)
 	if (_NSGetExecutablePath(buf, &size) == 0 &&
 			realpath(buf, _bin_path) != NULL)
 	return _bin_path;
-#elif defined(HAVE_SYS_SYSCTL_H) && defined(KERN_PROC_PATHNAME)  /* BSD */
+#elif defined(KERN_PROC_PATHNAME)  /* BSD */
 	int mib[4];
 	size_t cb = sizeof(_bin_path);
 	mib[0] = CTL_KERN;
