@@ -3087,7 +3087,8 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 				atom *la = exp_flatten(sql, le);
 				atom *ra = exp_flatten(sql, re);
 
-				if (la && ra) {
+				/* TODO check if output type is larger then input */
+				if (la && ra && subtype_cmp(atom_type(la), atom_type(ra)) == 0 && subtype_cmp(atom_type(la), exp_subtype(e)) == 0) {
 					atom *a = atom_mul(la, ra);
 
 					if (a && atom_cast(sql->sa, a, exp_subtype(e))) {
@@ -6132,7 +6133,7 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 		for (n = rel->exps->h; n && !fnd; n = n->next) {
 			sql_exp *e = n->data;
 
-			if (e->type != e_aggr && e->type != e_column) {
+			if (e->type != e_aggr && e->type != e_column && e->type != e_atom) {
 				fnd = 1;
 			}
 		}
@@ -6466,7 +6467,7 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 	}
 }
 
-static sql_rel * rel_dce_sub(mvc *sql, sql_rel *rel, list *refs);
+static sql_rel * rel_dce_sub(mvc *sql, sql_rel *rel);
 
 static sql_rel *
 rel_remove_unused(mvc *sql, sql_rel *rel) 
@@ -6718,7 +6719,7 @@ rel_dependencies(mvc *sql, list *refs)
 static void
 rel_dce_refs(mvc *sql, sql_rel *rel, list *refs) 
 {
-	if (!rel)
+	if (!rel || (rel_is_ref(rel) && list_find(refs, rel, NULL))) 
 		return ;
 
 	switch(rel->op) {
@@ -6731,6 +6732,7 @@ rel_dce_refs(mvc *sql, sql_rel *rel, list *refs)
 
 		if (rel->l && (rel->op != op_table || rel->flag != 2))
 			rel_dce_refs(sql, rel->l, refs);
+		break;
 
 	case op_basetable:
 	case op_insert:
@@ -6768,25 +6770,22 @@ rel_dce_refs(mvc *sql, sql_rel *rel, list *refs)
 }
 
 static sql_rel *
-rel_dce_down(mvc *sql, sql_rel *rel, list *refs, int skip_proj) 
+rel_dce_down(mvc *sql, sql_rel *rel, int skip_proj) 
 {
 	if (!rel)
 		return rel;
 
-	if (!skip_proj && rel_is_ref(rel)) {
-		if (!list_find(refs, rel, NULL))
-			list_append(refs, rel);
+	if (!skip_proj && rel_is_ref(rel))
 		return rel;
-	}
 
 	switch(rel->op) {
 	case op_basetable:
 	case op_table:
 
 		if (skip_proj && rel->l && rel->op == op_table && rel->flag != 2)
-			rel->l = rel_dce_down(sql, rel->l, refs, 0);
+			rel->l = rel_dce_down(sql, rel->l, 0);
 		if (!skip_proj)
-			rel_dce_sub(sql, rel, refs);
+			rel_dce_sub(sql, rel);
 		/* fall through */
 
 	case op_truncate:
@@ -6796,16 +6795,16 @@ rel_dce_down(mvc *sql, sql_rel *rel, list *refs, int skip_proj)
 
 	case op_insert:
 		rel_used(rel->r);
-		rel_dce_sub(sql, rel->r, refs);
+		rel_dce_sub(sql, rel->r);
 		return rel;
 
 	case op_update:
 	case op_delete:
 
 		if (skip_proj && rel->r)
-			rel->r = rel_dce_down(sql, rel->r, refs, 0);
+			rel->r = rel_dce_down(sql, rel->r, 0);
 		if (!skip_proj)
-			rel_dce_sub(sql, rel, refs);
+			rel_dce_sub(sql, rel);
 		return rel;
 
 	case op_topn: 
@@ -6814,9 +6813,9 @@ rel_dce_down(mvc *sql, sql_rel *rel, list *refs, int skip_proj)
 	case op_groupby: 
 
 		if (skip_proj && rel->l)
-			rel->l = rel_dce_down(sql, rel->l, refs, is_topn(rel->op) || is_sample(rel->op));
+			rel->l = rel_dce_down(sql, rel->l, is_topn(rel->op) || is_sample(rel->op));
 		if (!skip_proj)
-			rel_dce_sub(sql, rel, refs);
+			rel_dce_sub(sql, rel);
 		return rel;
 
 	case op_union: 
@@ -6824,17 +6823,17 @@ rel_dce_down(mvc *sql, sql_rel *rel, list *refs, int skip_proj)
 	case op_except: 
 		if (skip_proj) {
 			if (rel->l)
-				rel->l = rel_dce_down(sql, rel->l, refs, 0);
+				rel->l = rel_dce_down(sql, rel->l, 0);
 			if (rel->r)
-				rel->r = rel_dce_down(sql, rel->r, refs, 0);
+				rel->r = rel_dce_down(sql, rel->r, 0);
 		}
 		if (!skip_proj)
-			rel_dce_sub(sql, rel, refs);
+			rel_dce_sub(sql, rel);
 		return rel;
 
 	case op_select: 
 		if (rel->l)
-			rel->l = rel_dce_down(sql, rel->l, refs, 0);
+			rel->l = rel_dce_down(sql, rel->l, 0);
 		return rel;
 
 	case op_join: 
@@ -6844,9 +6843,9 @@ rel_dce_down(mvc *sql, sql_rel *rel, list *refs, int skip_proj)
 	case op_semi: 
 	case op_anti: 
 		if (rel->l)
-			rel->l = rel_dce_down(sql, rel->l, refs, 0);
+			rel->l = rel_dce_down(sql, rel->l, 0);
 		if (rel->r)
-			rel->r = rel_dce_down(sql, rel->r, refs, 0);
+			rel->r = rel_dce_down(sql, rel->r, 0);
 		return rel;
 	}
 	return rel;
@@ -6859,7 +6858,7 @@ rel_dce_down(mvc *sql, sql_rel *rel, list *refs, int skip_proj)
  */
 
 static sql_rel *
-rel_dce_sub(mvc *sql, sql_rel *rel, list *refs)
+rel_dce_sub(mvc *sql, sql_rel *rel)
 {
 	if (!rel)
 		return rel;
@@ -6871,7 +6870,7 @@ rel_dce_sub(mvc *sql, sql_rel *rel, list *refs)
  	 */
 	rel_mark_used(sql, rel, 1);
 	rel = rel_remove_unused(sql, rel);
-	rel_dce_down(sql, rel, refs, 1);
+	rel_dce_down(sql, rel, 1);
 	return rel;
 }
 
@@ -6947,7 +6946,6 @@ sql_rel *
 rel_dce(mvc *sql, sql_rel *rel)
 {
 	list *refs = sa_list(sql->sa);
-	node *n;
 
 	rel_dce_refs(sql, rel, refs);
 	if (refs) {
@@ -6964,13 +6962,7 @@ rel_dce(mvc *sql, sql_rel *rel)
 	}
 	rel = rel_add_projects(sql, rel);
 	rel_used(rel);
-	rel_dce_sub(sql, rel, refs);
-
-	if (refs) {
-		refs = rel_dependencies(sql, refs);
-		for (n = refs->h; n; n = n->next)
-			rel_dce_sub(sql, n->data, refs);
-	}
+	rel_dce_sub(sql, rel);
 	return rel;
 }
 
@@ -8383,16 +8375,16 @@ find_col_exp( list *exps, sql_exp *e)
 }
 
 static int
-exp_range_overlap( mvc *sql, sql_exp *e, void *min, void *max, atom *emin, atom *emax)
+exp_range_overlap( mvc *sql, sql_exp *e, char *min, char *max, atom *emin, atom *emax)
 {
 	sql_subtype *t = exp_subtype(e);
 
 	if (!min || !max || !emin || !emax)
 		return 0;
 
-	if (strcmp("nil", (char*)min) == 0)
+	if (GDK_STRNIL(min))
 		return 0;
-	if (strcmp("nil", (char*)max) == 0)
+	if (GDK_STRNIL(max))
 		return 0;
 
 	if (t->type->localtype == TYPE_dbl) {
@@ -8591,7 +8583,7 @@ rel_merge_table_rewrite(int *changes, mvc *sql, sql_rel *rel)
 								((first && (i=find_col_exp(cols, e)) != -1) ||
 								 (!first && pos[j] > 0))) {
 								/* check if the part falls within the bounds of the select expression else skip this (keep at least on part-table) */
-								void *min, *max;
+								char *min, *max;
 								sql_column *col = NULL;
 								sql_rel *bt = NULL;
 
@@ -8726,7 +8718,7 @@ exp_is_zero_rows(mvc *sql, sql_rel *rel, sql_rel *sel)
 				if (lval && hval) {
 					sql_rel *bt;
 					sql_column *col = name_find_column(sel, c->rname, c->name, -2, &bt);
-					void *min, *max;
+					char *min, *max;
 					if (col
 						&& col->t == t
 						&& sql_trans_ranges(sql->session->tr, col, &min, &max)
@@ -9158,7 +9150,7 @@ optimize(mvc *sql, sql_rel *rel, int value_based_opt)
 		for (n = refs->h; n; n = n->next)
 			n->data = optimize_rel(sql, n->data, &changes, 0, value_based_opt);
 	}
-
+	rel = rel_dce(sql, rel);
 	return rel;
 }
 
