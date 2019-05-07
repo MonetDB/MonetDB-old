@@ -37,11 +37,10 @@ typedef struct _connection {
 	struct _connection *next;     /* the next connection in the list */
 } *connection;
 
-#ifndef WIN32
+#ifndef NATIVE_WIN32
 #include <sys/socket.h> /* socket */
 #include <sys/un.h> /* sockaddr_un */
-#else
-# include <unistd.h> /* gethostname */
+#include <unistd.h> /* gethostname */
 #endif
 
 /* #define _DEBUG_REMOTE_	    trace the interaction */

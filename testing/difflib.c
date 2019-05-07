@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #include <ctype.h>
 #include <time.h>
+#include <fcntl.h>
 
 #ifdef NATIVE_WIN32
 # include <io.h>
@@ -23,7 +24,6 @@
 #define getpid _getpid
 #else
 # include <unistd.h>
-# include <fcntl.h>
 #endif
 
 #ifndef DIFF

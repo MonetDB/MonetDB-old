@@ -21,6 +21,7 @@
 #include "mutils.h"
 #include <string.h>     /* strncpy */
 #include <sys/types.h>
+#include <fcntl.h>
 #ifdef __MACH__
 # include <mach/task.h>
 # include <mach/mach_init.h>
@@ -31,10 +32,8 @@
 # include <sys/sysctl.h>
 # include <sys/user.h>
 #endif
-
 #ifndef NATIVE_WIN32
 # include <unistd.h>
-# include <fcntl.h>
 # include <dlfcn.h>
 #endif
 

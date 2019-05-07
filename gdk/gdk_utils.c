@@ -27,6 +27,7 @@ int GDKdebug = 0;
 int GDKverbose = 0;
 
 #include <signal.h>
+#include <fcntl.h>
 
 #ifdef __CYGWIN__
 #include <sysinfoapi.h>
@@ -41,7 +42,6 @@ int GDKverbose = 0;
 #else
 #include <sys/param.h>  /* prerequisite of sys/sysctl on OpenBSD */
 #include <sys/sysctl.h>
-#include <fcntl.h>
 #endif
 
 static ATOMIC_TYPE GDKstopped = ATOMIC_VAR_INIT(0);

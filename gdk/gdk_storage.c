@@ -34,11 +34,10 @@
 #endif
 
 #include <sys/types.h>
+#include <fcntl.h>
 
 #ifdef NATIVE_WIN32
 # include <io.h>
-#else
-# include <fcntl.h>
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400

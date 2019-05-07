@@ -10,13 +10,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <fcntl.h>
 #ifdef NATIVE_WIN32
 #include <io.h>
 #else
 # include <unistd.h>
 # include <sys/param.h>  /* realpath on OSX, prerequisite of sys/sysctl on OpenBSD */
 # include <sys/sysctl.h>  /* KERN_PROC_PATHNAME on BSD */
-# include <fcntl.h>
 #endif
 #include "mutils.h"
 

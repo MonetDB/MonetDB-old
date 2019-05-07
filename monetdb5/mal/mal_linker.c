@@ -19,12 +19,12 @@
 
 #include "mutils.h"
 #include <sys/types.h> /* opendir */
+#include <fcntl.h>
 #ifdef NATIVE_WIN32
 # include <io.h>
 #else
 #include <unistd.h>
 #include <dirent.h>
-#include <fcntl.h>
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400

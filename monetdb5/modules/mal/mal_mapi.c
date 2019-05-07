@@ -34,6 +34,7 @@
 #include <sys/types.h>
 #include "stream_socket.h"
 #include "mapi.h"
+#include <fcntl.h>
 #ifdef HAVE_OPENSSL
 # include <openssl/rand.h>		/* RAND_bytes() */
 #elif defined(HAVE_COMMONCRYPTO)
@@ -52,7 +53,6 @@
 # include <netdb.h>
 # include <netinet/in.h>
 # include <sys/uio.h>
-# include <fcntl.h>
 #endif
 
 #define SOCKPTR struct sockaddr *

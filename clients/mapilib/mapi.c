@@ -692,6 +692,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #ifndef NATIVE_WIN32
 # include <unistd.h>
 # include <dirent.h>
@@ -699,7 +700,6 @@
 # include <netdb.h>
 # include <netinet/in.h>
 # include <sys/uio.h>
-# include <fcntl.h>
 #endif
 
 #include <signal.h>

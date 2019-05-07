@@ -20,12 +20,12 @@
 #include "monetdb_config.h"
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #ifdef NATIVE_WIN32
 #include <io.h>
 #else
 #include <unistd.h> /* unlink and friends */
 #include <dirent.h> /* readdir, DIR */
-#include <fcntl.h>
 #endif
 #include <time.h>
 #include <string.h> /* for getting error messages */

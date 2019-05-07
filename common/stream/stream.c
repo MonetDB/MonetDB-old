@@ -57,6 +57,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #ifdef NATIVE_WIN32
 #include <io.h>
 #else
@@ -66,7 +67,6 @@
 # include <netinet/ip.h>
 # include <netinet/tcp.h>
 # include <netdb.h>
-# include <fcntl.h>
 #endif
 #ifdef HAVE_LIBZ
 #include <zlib.h>
