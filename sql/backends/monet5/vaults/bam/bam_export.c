@@ -15,6 +15,7 @@
  */
 
 #include "monetdb_config.h"
+#include "bam_config.h"
 
 #ifdef HAVE_SAMTOOLS_BAM_H
 #include <samtools/bam.h>

@@ -6,15 +6,11 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-if(NOT ${ENABLE_SAMTOOLS} STREQUAL "NO")
+if(NOT ${ENABLE_SAMTOOLS} STREQUAL "NO" AND ZLIB_FOUND)
 	cmake_push_check_state()
 	set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};${MATH_LIBRARIES};${THREAD_LIBRARIES};${ZLIB_LIBRARIES};bam")
 	check_include_file("samtools/bam.h" HAVE_SAMTOOLS_BAM_H)
-	check_include_file("bam/bam.h" HAVE_BAM_BAM_H)
 	check_include_file("samtools/sam.h" HAVE_SAMTOOLS_SAM_H)
-	check_include_file("bam/sam.h" HAVE_BAM_SAM_H)
-	check_include_file("samtools/bgzf.h" HAVE_SAMTOOLS_BGZF_H)
-	check_include_file("bam/bgzf.h" HAVE_BAM_BGZF_H)
 	check_include_file("samtools/kstring.h" HAVE_SAMTOOLS_KSTRING_H)
 	check_include_file("bam/kstring.h" HAVE_BAM_KSTRING_H)
 	check_symbol_exists("bam_header_read" "samtools/bam.h" HAVE_BAM_HEADER_READ)
@@ -29,8 +25,9 @@ if(NOT ${ENABLE_SAMTOOLS} STREQUAL "NO")
 	cmake_pop_check_state()
 endif()
 if(HAVE_SAMTOOLS)
-	include_directories(.. ../.. ../../../../include ../../../../common ../../../../storage ../../../../server
-						../../../../../monetdb5/modules/atoms ../../../../../monetdb5/modules/kernel
+	configure_file(bam_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/bam_config.h)
+	include_directories(${CMAKE_CURRENT_BINARY_DIR} .. ../.. ../../../../include ../../../../common ../../../../storage
+						../../../../server ../../../../../monetdb5/modules/atoms ../../../../../monetdb5/modules/kernel
 						../../../../../monetdb5/mal ../../../../../monetdb5/modules/mal ../../../../../monetdb5/optimizer
 						../../../../../common/stream ../../../../../common/utils ../../../../../gdk
 						../../../../../tools/merovingian ../../../../../tools/merovingian/daemon)

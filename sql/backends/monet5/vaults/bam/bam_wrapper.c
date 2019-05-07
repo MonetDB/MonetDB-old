@@ -11,6 +11,7 @@
  */
 
 #include "monetdb_config.h"
+#include "bam_config.h"
 #include "mal_exception.h"
 #include "stream.h"
 #include "bam_globals.h"

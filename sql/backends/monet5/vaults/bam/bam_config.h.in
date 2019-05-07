@@ -1,0 +1,24 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ */
+
+#ifndef BAM_CONFIG_H
+#define BAM_CONFIG_H
+
+/* Define to 1 if you have the <bam/kstring.h> header file. */
+#cmakedefine HAVE_BAM_KSTRING_H 1
+
+/* Define to 1 if you have the <samtools/bam.h> header file. */
+#cmakedefine HAVE_SAMTOOLS_BAM_H 1
+
+/* Define to 1 if you have the <samtools/kstring.h> header file. */
+#cmakedefine HAVE_SAMTOOLS_KSTRING_H 1
+
+/* Define to 1 if you have the <samtools/sam.h> header file. */
+#cmakedefine HAVE_SAMTOOLS_SAM_H 1
+
+#endif //BAM_CONFIG_H

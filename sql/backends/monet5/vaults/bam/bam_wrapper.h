@@ -17,6 +17,7 @@
 #define _BAM_WRAPPER_H
 
 #include "gdk.h"
+#include "bam_config.h"
 
 #ifdef HAVE_SAMTOOLS_SAM_H
 #include <samtools/sam.h>
