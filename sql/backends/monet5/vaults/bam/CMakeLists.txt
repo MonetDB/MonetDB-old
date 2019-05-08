@@ -8,11 +8,11 @@
 
 if(NOT ${ENABLE_SAMTOOLS} STREQUAL "NO" AND ZLIB_FOUND)
 	cmake_push_check_state()
-	set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};${MATH_LIBRARIES};${THREAD_LIBRARIES};${ZLIB_LIBRARIES};bam")
 	check_include_file("samtools/bam.h" HAVE_SAMTOOLS_BAM_H)
 	check_include_file("samtools/sam.h" HAVE_SAMTOOLS_SAM_H)
 	check_include_file("samtools/kstring.h" HAVE_SAMTOOLS_KSTRING_H)
 	check_include_file("bam/kstring.h" HAVE_BAM_KSTRING_H)
+	set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};${MATH_LIBRARIES};${THREAD_LIBRARIES};${ZLIB_LIBRARIES};bam")
 	check_symbol_exists("bam_header_read" "samtools/bam.h" HAVE_BAM_HEADER_READ)
 	if(HAVE_BAM_HEADER_READ)
 		set(BAM_LINK_LIBRARIES "bam")

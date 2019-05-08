@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 
 # Change these variables between releases
 set(MONETDB_VERSION_MAJOR "11")
@@ -24,8 +24,8 @@ set(MONETDB5_VERSION "${MONETDB5_VERSION_MAJOR}.1.0")
 set(STREAM_VERSION_MAJOR "13")
 set(STREAM_VERSION "${STREAM_VERSION_MAJOR}.1.0")
 
-project(MonetDB VERSION "${MONETDB_VERSION}" DESCRIPTION "MonetDB, SQL queries at light speed"
-		HOMEPAGE_URL "https://www.monetdb.org/" LANGUAGES C)
+# HOMEPAGE_URL "https://www.monetdb.org/" in project command supported from cmake 3.12 up
+project(MonetDB VERSION "${MONETDB_VERSION}" DESCRIPTION "MonetDB, SQL queries at light speed" LANGUAGES C)
 set(C_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 99)
 
@@ -40,8 +40,6 @@ include(CheckSymbolExists REQUIRED)
 include(CheckTypeSize REQUIRED)
 include(TestBigEndian REQUIRED)
 include(TestLargeFiles REQUIRED)
-
-cmake_policy(SET CMP0075 NEW) # Include file check macros honor CMAKE_REQUIRED_LIBRARIES
 
 # Set host information
 string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" CMAKE_SYSTEM_PROCESSOR_LOWER)
@@ -126,7 +124,7 @@ if(WIN32) # Variables with _DIR are used for monetdb_config.h file, which need p
 	set(LIBEXECDIR "${CMAKE_INSTALL_PREFIX}/libexec")
 	set(LOCALSTATEDIR "${CMAKE_INSTALL_PREFIX}/var")
 	set(LOCALSTATE_DIR "${TRIMMED_INSTALL_PREFIX}\\\\var")
-	set(MANDIR "${TRIMMED_INSTALL_PREFIX}/man")
+	set(MANDIR "${CMAKE_INSTALL_PREFIX}/man")
 	set(SYSCONFDIR "${CMAKE_INSTALL_PREFIX}/etc")
 else()
 	include(GNUInstallDirs REQUIRED)
@@ -152,7 +150,7 @@ else()
 endif()
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-	add_compile_definitions(_GNU_SOURCE _XOPEN_SOURCE)
+	add_definitions(-D_GNU_SOURCE -D_XOPEN_SOURCE)
 	set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_GNU_SOURCE -D_XOPEN_SOURCE") # required for tests
 endif()
 if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
@@ -169,7 +167,7 @@ elseif(MSVC)
 	set(_Noreturn "__declspec(noreturn)")
 	set(__attribute__(a) ON)
 	set(restrict "__restrict")
-	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+	add_definitions(/D_CRT_SECURE_NO_WARNINGS)
 	if(CMAKE_SIZEOF_VOID_P EQUAL 8)  # Windows 64 bit
 		set(HAVE__MUL128 ON CACHE INTERNAL "mul128 function is available")
 	endif()
@@ -240,8 +238,22 @@ set(PATH_SEP     "'${OS_PATHSEP}'")
 set(SO_EXT       "${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
 # We need python3 for the testweb, python udfs and c udfs compilation
-include(FindPython3)
-find_package(Python3 COMPONENTS Interpreter Development)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.12)
+	find_package(Python3 COMPONENTS Interpreter Development)
+else()
+	set(Python_ADDITIONAL_VERSIONS 3)
+	find_package(PythonInterp 3)
+	find_package(PythonLibs 3)
+	if(PYTHONINTERP_FOUND AND PYTHONLIBS_FOUND)
+		set(Python3_FOUND ON)
+		set(Python3_VERSION_MAJOR "${PYTHON_VERSION_MAJOR}")
+		set(Python3_VERSION_MINOR "${PYTHON_VERSION_MINOR}")
+		set(Python3_VERSION_PATCH "${PYTHON_VERSION_PATCH}")
+		set(Python3_EXECUTABLE "${PYTHON_EXECUTABLE}")
+		set(Python3_INCLUDE_DIRS "${PYTHON_INCLUDE_DIRS}")
+		set(Python3_LIBRARIES "${PYTHON_LIBRARIES}")
+	endif()
+endif()
 if(Python3_FOUND)
 	set(PYTHON3_REQUIRED_VERSION "3.5")
 	if("${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}" VERSION_LESS ${PYTHON3_REQUIRED_VERSION})
@@ -707,7 +719,7 @@ if(NOT ${ENABLE_SANITIZER} STREQUAL "NO")
 	if("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
 		MT_checkCompilerFlag("-fsanitize=address")
 		MT_checkCompilerFlag("-fno-omit-frame-pointer")
-		add_compile_definitions(NO_ATOMIC_INSTRUCTIONS)
+		add_definitions(-DNO_ATOMIC_INSTRUCTIONS)
 	else()
 		message(FATAL_ERROR "Sanitizer only supported with GCC")
 	endif()
