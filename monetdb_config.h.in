@@ -441,8 +441,12 @@
 #cmakedefine __attribute__(a)
 #endif
 
-#ifndef _Pragma
-#cmakedefine _Pragma(a)
+/* Intel compiler doesn't support _Pragma from GCC well */
+#ifdef _INTEL_COMPILER
+#ifdef _Pragma
+#undef _Pragma
+#endif
+#define _Pragma(a)
 #endif
 
 /* Does your compiler support the `_Noreturn' specifier? (C11 feature) */
