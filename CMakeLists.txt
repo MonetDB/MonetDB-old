@@ -63,6 +63,7 @@ elseif(EXISTS "${CMAKE_SOURCE_DIR}/.git")
 	endif()
 endif()
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}") # Initialize variable
 if(NOT "${CMAKE_C_COMPILER_ID}" MATCHES "^GNU|Intel|Clang|MSVC|AppleClang$")
 	message(WARNING "Compiler potentially not (correctly) recognized")
 endif()
@@ -574,7 +575,6 @@ function(MT_removeCompilerFlag REGEX_EXPRESSION FLAG_TO_REMOVE OLD_FLAGS BUILD N
 	endif()
 endfunction()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}") # Initialize variable
 if(MSVC)
 	MT_addCompilerFlag("/GF" "/GF" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
 	MT_addCompilerFlag("/W3" "/W3" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
