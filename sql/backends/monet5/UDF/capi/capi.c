@@ -19,7 +19,7 @@
 #include <unistd.h>
 #include <string.h>
 
-#if defined(__GNUC__) && !defined(__clang__)
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
 #pragma GCC diagnostic ignored "-Wclobbered"
 #endif
 

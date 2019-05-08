@@ -1219,8 +1219,10 @@ GDKfatal(const char *format, ...)
 #endif
 		}
 	}
+#ifdef __INTEL_COMPILER /* We should never reach here (Intel compiler fix) */
+	exit(1);
+#endif
 }
-
 
 lng
 GDKusec(void)

@@ -55,11 +55,7 @@ if(HAVE_LIBR)
 	target_link_libraries(rapi PRIVATE ${RAPI_LINK_LIBRARIES})
 	set_target_properties(rapi PROPERTIES OUTPUT_NAME _rapi)
 	target_compile_definitions(rapi PRIVATE LIBRAPI)
-	cmake_push_check_state()
-	set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS};-Wno-redundant-decls")
-	check_c_source_compiles("int main(int argc,char** argv){(void)argc;(void)argv;return 0;}" COMPILER_Wnoredundantdecls) # Warning don't add '-' or '/' to the output variable!
-	cmake_pop_check_state()
-	if(COMPILER_Wnoredundantdecls)
+	if(${CMAKE_C_COMPILER_ID} MATCHES "^GNU|Clang|AppleClang$")
 		target_compile_options(rapi PRIVATE -Wno-redundant-decls)
 	endif()
 

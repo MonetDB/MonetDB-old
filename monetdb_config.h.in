@@ -441,6 +441,10 @@
 #cmakedefine __attribute__(a)
 #endif
 
+#ifndef _Pragma
+#cmakedefine _Pragma(a)
+#endif
+
 /* Does your compiler support the `_Noreturn' specifier? (C11 feature) */
 #ifndef _Noreturn
 #cmakedefine _Noreturn @_Noreturn@
