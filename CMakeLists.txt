@@ -102,7 +102,7 @@ set(WITH_LIBXML2 "AUTO" CACHE STRING "Include libxml2 support (default=AUTO)") #
 set(WITH_LZ4 "AUTO" CACHE STRING "Include lz4 library support (default=AUTO)") # Check with HAVE_LIBLZ4
 set(WITH_PROJ "AUTO" CACHE STRING "Include proj support (default=AUTO)") # Check with HAVE_PROJ
 set(WITH_READLINE "AUTO" CACHE STRING "Include readline support (default=AUTO)") # Check with HAVE_LIBREADLINE
-set(WITH_REGEX "PCRE" CACHE STRING "Use either PCRE or POSIX regular expressions (default=PCRE if available)") # Check with HAVE_LIBPCRE and HAVE_POSIX_REGEX
+set(WITH_REGEX "AUTO" CACHE STRING "Use either PCRE or POSIX regular expressions (default=PCRE if available)") # Check with HAVE_LIBPCRE and HAVE_POSIX_REGEX
 set(WITH_SNAPPY "AUTO" CACHE STRING "Include snappy support (default=AUTO)") # Check with HAVE_LIBSNAPPY
 set(WITH_UUID "AUTO" CACHE STRING "Include UUID support (default=AUTO)") # Check with HAVE_UUID
 set(WITH_VALGRIND "NO" CACHE STRING "Include valgrind support (default=NO)") # Check with HAVE_VALGRIND
@@ -149,11 +149,28 @@ else()
 	set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}")
 endif()
 
+function(MT_checkCompilerFlag Flag) # WARNING this doesn't work with LINK_OPTIONS yet!
+	if(NOT "${CMAKE_C_FLAGS}" MATCHES "${Flag}")
+		string(REGEX REPLACE "[-/=,]" "" FLAG_TEST "${Flag}") # cmake will get confused if we don't remove - / = ,
+		cmake_push_check_state()
+		set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${Flag}")
+		check_c_source_compiles("int main(int argc,char** argv){(void)argc;(void)argv;return 0;}" COMPILER_${FLAG_TEST})
+		cmake_pop_check_state()
+		if(COMPILER_${FLAG_TEST})
+			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${Flag}" PARENT_SCOPE)
+		endif()
+	endif()
+endfunction()
+
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 	add_definitions(-D_GNU_SOURCE -D_XOPEN_SOURCE)
 	set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_GNU_SOURCE -D_XOPEN_SOURCE") # required for tests
 endif()
 if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
+	if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+		MT_checkCompilerFlag("-no-gcc")
+		add_definitions(-D_Float32=float -D_Float64="long double" -D_Float32x=double -D_Float64x="long double")
+	endif()
 	if(EXISTS "${ROOT}/usr/include/math.h") # see https://software.intel.com/en-us/forums/intel-c-compiler/topic/760979
 		file(READ "${ROOT}/usr/include/math.h" TMPTXT)
 		string(FIND "${TMPTXT}" "_LIB_VERSION_TYPE" FOUND_VERSION)
@@ -161,6 +178,7 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 			set(INTEL_MATH_H_HACK ON CACHE INTERNAL "must use intel math.h hack")
 		endif()
 	endif()
+	set(__attribute__(a) ON)
 	set(NAN_CANNOT_BE_USED_AS_INITIALIZER ON CACHE INTERNAL "NaN cannot be used as an initializer") # This hack is only required by the Intel compiler
 elseif(MSVC)
 	set(_Noreturn "__declspec(noreturn)")
@@ -649,19 +667,6 @@ else() #GCC, clang and Apple clang
 	endif()
 endif()
 
-function(MT_checkCompilerFlag Flag) # WARNING this doesn't work with LINK_OPTIONS yet!
-	if(NOT "${CMAKE_C_FLAGS}" MATCHES "${Flag}")
-		string(REGEX REPLACE "[-/=,]" "" FLAG_TEST "${Flag}") # cmake will get confused if we don't remove - / = ,
-		cmake_push_check_state()
-		set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${Flag}")
-		check_c_source_compiles("int main(int argc,char** argv){(void)argc;(void)argv;return 0;}" COMPILER_${FLAG_TEST})
-		cmake_pop_check_state()
-		if(COMPILER_${FLAG_TEST})
-			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${Flag}" PARENT_SCOPE)
-		endif()
-	endif()
-endfunction()
-
 if(${ENABLE_STRICT} STREQUAL "YES")
 	if(${CMAKE_C_COMPILER_ID} MATCHES "^GNU|Clang|AppleClang$")
 		MT_checkCompilerFlag("-W")
@@ -702,15 +707,16 @@ if(${ENABLE_STRICT} STREQUAL "YES")
 		MT_checkCompilerFlag("-Wno-char-subscripts")
 		MT_checkCompilerFlag("-Wunreachable-code")
 	elseif(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
-		if(NOT WIN32)
+		if(WIN32)
+			set(INTEL_OPTION_EXTRA "Q")
+		else()
 			MT_checkCompilerFlag("${COMPILER_OPTION}shared-intel")
 		endif()
 		MT_checkCompilerFlag("${COMPILER_OPTION}Wall")
 		MT_checkCompilerFlag("${COMPILER_OPTION}Wcheck")
 		MT_checkCompilerFlag("${COMPILER_OPTION}Werror-all")
-		# WINDOWS set(INTEL_CHECK_EXTRA "Q")
-		#MT_checkCompilerFlag("${COMPILER_OPTION}${INTEL_CHECK_EXTRA}we140,147,181,266,271,593,810")
-		#MT_checkCompilerFlag("${COMPILER_OPTION}${INTEL_CHECK_EXTRA}wd193,279,981,1357,1418,1419,2259")
+		MT_checkCompilerFlag("${COMPILER_OPTION}${INTEL_OPTION_EXTRA}we140,147,181,266,271,593,810")
+		MT_checkCompilerFlag("${COMPILER_OPTION}${INTEL_OPTION_EXTRA}wd193,279,981,1357,1418,1419,2259")
 	elseif(MSVC)
 		MT_checkCompilerFlag("/WX")
 	endif()

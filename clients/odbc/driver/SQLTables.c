@@ -211,7 +211,7 @@ MNDBTables(ODBCStmt *stmt,
 
 		if (NameLength4 > 0) {
 			/* filtering requested on table type */
-			char buf[32];	/* the longest string is "GLOBAL TEMPORARY TABLE" */
+			char buf[32] = {'\0'};	/* the longest string is "GLOBAL TEMPORARY TABLE" */
 			int i;
 			size_t j;
 
