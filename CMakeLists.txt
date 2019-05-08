@@ -149,26 +149,22 @@ else()
 	set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}")
 endif()
 
-function(MT_checkCompilerFlag Flag) # WARNING this doesn't work with LINK_OPTIONS yet!
-	if(NOT "${CMAKE_C_FLAGS}" MATCHES "${Flag}")
-		string(REGEX REPLACE "[-/=,]" "" FLAG_TEST "${Flag}") # cmake will get confused if we don't remove - / = ,
-		cmake_push_check_state()
-		set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${Flag}")
-		check_c_source_compiles("int main(int argc,char** argv){(void)argc;(void)argv;return 0;}" COMPILER_${FLAG_TEST})
-		cmake_pop_check_state()
-		if(COMPILER_${FLAG_TEST})
-			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${Flag}" PARENT_SCOPE)
-		endif()
+function(MT_addCompilerFlag REGEX_EXPRESSION FLAG_TO_ADD OLD_FLAGS BUILD NEW_FLAGS)
+	if(NOT "${OLD_FLAGS}" MATCHES "${REGEX_EXPRESSION}")
+		set(${NEW_FLAGS} "${OLD_FLAGS} ${FLAG_TO_ADD}" PARENT_SCOPE)
+		message(STATUS "Added ${FLAG_TO_ADD} flag for ${BUILD} build(s)")
 	endif()
 endfunction()
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND NOT ${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 	add_definitions(-D_GNU_SOURCE -D_XOPEN_SOURCE)
 	set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_GNU_SOURCE -D_XOPEN_SOURCE") # required for tests
 endif()
 if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 	if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-		MT_checkCompilerFlag("-no-gcc")
+		if(NOT ${CMAKE_C_FLAGS} MATCHES "no-gcc")
+			MT_addCompilerFlag("-no-gcc" "-no-gcc" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
+		endif()
 		add_definitions(-D_Float32=float -D_Float64="long double" -D_Float32x=double -D_Float64x="long double")
 	endif()
 	if(EXISTS "${ROOT}/usr/include/math.h") # see https://software.intel.com/en-us/forums/intel-c-compiler/topic/760979
@@ -577,12 +573,6 @@ function(MT_removeCompilerFlag REGEX_EXPRESSION FLAG_TO_REMOVE OLD_FLAGS BUILD N
 		message(STATUS "Removed ${FLAG_TO_REMOVE} flag for ${BUILD} build(s)")
 	endif()
 endfunction()
-function(MT_addCompilerFlag REGEX_EXPRESSION FLAG_TO_ADD OLD_FLAGS BUILD NEW_FLAGS)
-	if(NOT "${OLD_FLAGS}" MATCHES "${REGEX_EXPRESSION}")
-		set(${NEW_FLAGS} "${OLD_FLAGS} ${FLAG_TO_ADD}" PARENT_SCOPE)
-		message(STATUS "Added ${FLAG_TO_ADD} flag for ${BUILD} build(s)")
-	endif()
-endfunction()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}") # Initialize variable
 if(MSVC)
@@ -666,6 +656,19 @@ else() #GCC, clang and Apple clang
 		MT_addCompilerFlag("-Wl,--export-dynamic" "-Wl,--export-dynamic" "${LINK_OPTIONS}" "all" LINK_OPTIONS)
 	endif()
 endif()
+
+function(MT_checkCompilerFlag Flag) # WARNING this doesn't work with LINK_OPTIONS yet!
+	if(NOT "${CMAKE_C_FLAGS}" MATCHES "${Flag}")
+		string(REGEX REPLACE "[-/=,]" "" FLAG_TEST "${Flag}") # cmake will get confused if we don't remove - / = ,
+		cmake_push_check_state()
+		set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${Flag}")
+		check_c_source_compiles("int main(int argc,char** argv){(void)argc;(void)argv;return 0;}" COMPILER_${FLAG_TEST})
+		cmake_pop_check_state()
+		if(COMPILER_${FLAG_TEST})
+			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${Flag}" PARENT_SCOPE)
+		endif()
+	endif()
+endfunction()
 
 if(${ENABLE_STRICT} STREQUAL "YES")
 	if(${CMAKE_C_COMPILER_ID} MATCHES "^GNU|Clang|AppleClang$")
