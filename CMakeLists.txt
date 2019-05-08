@@ -163,9 +163,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND NOT ${CMAKE_C_COMPILER_ID} STREQUAL
 endif()
 if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 	if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-		if(NOT ${CMAKE_C_FLAGS} MATCHES "no-gcc")
-			MT_addCompilerFlag("-no-gcc" "-no-gcc" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
-		endif()
+		MT_addCompilerFlag("-no-gcc" "-no-gcc" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
 		add_definitions(-D_Float32=float -D_Float64="long double" -D_Float32x=double -D_Float64x="long double")
 	endif()
 	if(EXISTS "${ROOT}/usr/include/math.h") # see https://software.intel.com/en-us/forums/intel-c-compiler/topic/760979
