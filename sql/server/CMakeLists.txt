@@ -62,7 +62,6 @@ add_library(sqlserver STATIC
 			rel_updates.h rel_psm.h rel_xml.h sql_atom.h sql_datetime.h
 			sql_decimal.h sql_env.h sql_mvc.h sql_parser.h
 			sql_privileges.h sql_query.h sql_qc.h sql_scan.h
-			sql_semantic.h sql_symbol.h sql_tokens.h sql_partition.h)
-target_link_libraries(sqlserver PRIVATE bison_obj)
+			sql_semantic.h sql_symbol.h sql_tokens.h sql_partition.h $<TARGET_OBJECTS:bison_obj>)
 set_target_properties(sqlserver PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_definitions(sqlserver PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)
