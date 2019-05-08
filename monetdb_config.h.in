@@ -442,10 +442,8 @@
 #endif
 
 /* Intel compiler doesn't support _Pragma from GCC well */
-#ifdef _INTEL_COMPILER
-#ifdef _Pragma
+#if defined(__GNUC__) && defined(__INTEL_COMPILER)
 #undef _Pragma
-#endif
 #define _Pragma(a)
 #endif
 

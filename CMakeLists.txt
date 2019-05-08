@@ -163,7 +163,6 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND NOT ${CMAKE_C_COMPILER_ID} STREQUAL
 endif()
 if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 	if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-		MT_addCompilerFlag("-no-gcc([ ]|$)" "-no-gcc" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
 		MT_addCompilerFlag("-no-gcc-include-dir" "-no-gcc-include-dir" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
 	endif()
 	if(EXISTS "${ROOT}/usr/include/math.h") # see https://software.intel.com/en-us/forums/intel-c-compiler/topic/760979
