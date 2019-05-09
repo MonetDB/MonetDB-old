@@ -68,7 +68,6 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}") # Initialize variable
 if(NOT MSVC AND NOT ${CMAKE_C_COMPILER_ID} MATCHES "^GNU|Intel|Clang|AppleClang$")
 	message(WARNING "Compiler potentially not (correctly) recognized")
 endif()
-
 if(NOT CMAKE_BUILD_TYPE) # Set default build options
 	message(STATUS "Setting build type to Debug as none was selected")
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "The type of build" FORCE)
@@ -225,6 +224,22 @@ if(NOT MSVC)
 		set(_Noreturn "__attribute__((__noreturn__))")
 	endif()
 endif()
+#Test if compiler has usable <stdatomic.h>
+check_c_source_compiles("
+	#include <stdatomic.h>
+
+	#if ATOMIC_LLONG_LOCK_FREE == 2
+		atomic_ullong i;
+	#else
+		atomic_uint i;
+	#endif
+	typedef void *_Atomic volatile aptr;
+
+	int main(int argc, char **argv) {
+		(void) argc; (void) argv;
+		atomic_store(&i, 0);
+		return 0;
+	}" HAVE_STDATOMIC_H)
 
 if(WIN32)
 	set(OS_DIRSEP  "\\\\")
@@ -236,6 +251,7 @@ if(WIN32)
 	set(CMAKE_SHARED_MODULE_PREFIX "${SO_PREFIX}" CACHE STRING "Library module name prefix" FORCE)
 	set(CMAKE_STATIC_LIBRARY_PREFIX "${SO_PREFIX}" CACHE STRING "Static Library name prefix" FORCE)
 	set(COMPILER_OPTION "/") # Used for Intel compiler available on Windows and Linux
+	set(INTEL_OPTION_EXTRA "Q") # Intel compiler extra letter on some Windows parameters
 elseif(UNIX)
 	set(OS_DIRSEP  "/")
 	set(OS_PATHSEP ":")
@@ -603,6 +619,9 @@ elseif(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 	MT_addCompilerFlag("${COMPILER_OPTION}O3" "${COMPILER_OPTION}O3" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
 	MT_addCompilerFlag("${COMPILER_OPTION}O3" "${COMPILER_OPTION}O3" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
 	MT_addCompilerFlag("${COMPILER_OPTION}O1" "${COMPILER_OPTION}O1" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
+	if(CMAKE_VERSION VERSION_LESS 3.1)
+		MT_addCompilerFlag("${COMPILER_OPTION}${INTEL_OPTION_EXTRA}std=c99" "${COMPILER_OPTION}${INTEL_OPTION_EXTRA}std=c99" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
+	endif()
 else() #GCC, clang and Apple clang
 	# Remove existing -Ox flags
 	MT_removeCompilerFlag("-O[1-2sS]+[ ]?" "-Ox" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
@@ -628,10 +647,19 @@ else() #GCC, clang and Apple clang
 		set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -D_FORTIFY_SOURCE=2")
 		message(STATUS "Added definition _FORTIFY_SOURCE=2 for Release, RelWithDebugInfo and MinSizeRel builds")
 	endif()
+	if(NOT ${CMAKE_C_FLAGS_RELEASE} MATCHES "DNDEBUG")
+		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -DDNDEBUG")
+		set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -DDNDEBUG")
+		set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -DDNDEBUG")
+		message(STATUS "Added definition NDEBUG for Release, RelWithDebugInfo and MinSizeRel builds")
+	endif()
 
 	# Add -fomit-frame-pointer for non debug builds
 	MT_addCompilerFlag("-fomit-frame-pointer" "-fomit-frame-pointer" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
 	MT_addCompilerFlag("-fomit-frame-pointer" "-fomit-frame-pointer" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
+	if(CMAKE_VERSION VERSION_LESS 3.1) # Set C99
+		MT_addCompilerFlag("-std=c99" "-std=c99" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
+	endif()
 
 	# Linker flags
 	if(${CMAKE_C_COMPILER_ID} STREQUAL "AppleClang")
@@ -697,9 +725,7 @@ if(${ENABLE_STRICT} STREQUAL "YES")
 		MT_checkCompilerFlag("-Wno-char-subscripts")
 		MT_checkCompilerFlag("-Wunreachable-code")
 	elseif(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
-		if(WIN32)
-			set(INTEL_OPTION_EXTRA "Q")
-		else()
+		if(NOT WIN32)
 			MT_checkCompilerFlag("${COMPILER_OPTION}shared-intel")
 		endif()
 		MT_checkCompilerFlag("${COMPILER_OPTION}Wall")
