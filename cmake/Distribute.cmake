@@ -22,8 +22,8 @@ set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/license.txt")
 # Using regular expressions for ignored files, later we could move to a generated variable
 set(CPACK_SOURCE_IGNORE_FILES "/bootstrap" "/buildtools/autogen/" "/clients/odbc/doc" "/debian/" "/de-bootstrap"
 	"/libversions" "/MacOSX/" "/rpm.mk.in" "/tools/monetdbbincopy" "/testing/quicktest" "/testing/cmptests.py"
-	"/vertoo.config" "/vertoo.data" "/\.idea/" "/\.git/" "/\.hg/" "ChangeLog.*" "CMakeFiles*" "\.hg.*" "#" "~" "\.ac$"
-	"\.ag$" "\.lst$" "\.mal\.sh$")
+	"/vertoo.config" "/vertoo.data" "/\\\\.idea/" "/\\\\.git/" "/\\\\.hg/" "ChangeLog.*" "CMakeFiles*" "\\\\.hg.*" "#"
+	"~" "\\\\.ac$" "\\\\.ag$" "\\\\.lst$" "\\\\.mal\\\\.sh$")
 set(CPACK_SOURCE_PACKAGE_FILE_NAME "MonetDB-${MONETDB_VERSION}")
 include(CPack)
 
