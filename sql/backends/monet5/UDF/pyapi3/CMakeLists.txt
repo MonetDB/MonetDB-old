@@ -6,12 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-set(PY3_INCLUDE_DIR "")
-set(PY3_LIBRARIES "")
-if(HAVE_PYTHON3)
-	set(PY3_INCLUDE_DIR "${Python3_INCLUDE_DIRS}")
-	set(PY3_LIBRARIES "${Python3_LIBRARIES}")
-
+if(HAVE_PYTHON3 AND Python3_Development_FOUND)
 	message(STATUS "Checking for numpy version")
 	exec_program("${Python3_EXECUTABLE}" ARGS "-c \"import numpy; print(int(numpy.__version__.split('.').__getitem__(1)) >= 7)\"" OUTPUT_VARIABLE NUMPY_OUTPUT RETURN_VALUE NUMPY_RETURN_CODE)
 	exec_program("${Python3_EXECUTABLE}" ARGS "-c \"import numpy; print(numpy.get_include())\"" OUTPUT_VARIABLE NUMPY_CPP_FLAGS RETURN_VALUE NUMPY_CPP_RC)
@@ -33,9 +28,9 @@ if(HAVE_LIBPY3)
 						../../../../../monetdb5/modules/atoms ../../../../../monetdb5/modules/mal ../../../../../gdk
 						../../../../../monetdb5/mal ../../../../../sql/backends/monet5 ../../../../../sql/common
 						../../../../../sql/include ../../../../../sql/server ../../../../../sql/storage ../pyapi
-						${PY3_INCLUDE_DIR} ${NUMPY3_INCLUDE_DIR})
+						${Python3_INCLUDE_DIRS} ${NUMPY3_INCLUDE_DIR})
 
-	set(PYAPI3_LINK_LIBRARIES ${PY3_LIBRARIES})
+	set(PYAPI3_LINK_LIBRARIES ${Python3_LIBRARIES})
 	if(WIN32)
 		list(APPEND PYAPI3_LINK_LIBRARIES monetdb5 gdk)
 	endif()

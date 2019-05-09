@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
 # Change these variables between releases
 set(MONETDB_VERSION_MAJOR "11")
@@ -25,7 +25,8 @@ set(STREAM_VERSION_MAJOR "13")
 set(STREAM_VERSION "${STREAM_VERSION_MAJOR}.1.0")
 
 # HOMEPAGE_URL "https://www.monetdb.org/" in project command supported from cmake 3.12 up
-project(MonetDB VERSION "${MONETDB_VERSION}" DESCRIPTION "MonetDB, SQL queries at light speed" LANGUAGES C)
+# DESCRIPTION "MonetDB, SQL queries at light speed" in project command supported from cmake 3.9 up
+project(MonetDB VERSION "${MONETDB_VERSION}" LANGUAGES C)
 set(C_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 99)
 
@@ -249,23 +250,26 @@ set(PATH_SEP     "'${OS_PATHSEP}'")
 set(SO_EXT       "${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
 # We need python3 for the testweb, python udfs and c udfs compilation
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.12)
+if(CMAKE_VERSION VERSION_GREATER 3.11)
 	find_package(Python3 COMPONENTS Interpreter Development)
 else()
 	set(Python_ADDITIONAL_VERSIONS 3)
 	find_package(PythonInterp 3)
 	find_package(PythonLibs 3)
-	if(PYTHONINTERP_FOUND AND PYTHONLIBS_FOUND)
-		set(Python3_FOUND ON)
+	if(PYTHONINTERP_FOUND)
+		set(Python3_Interpreter_FOUND ON)
 		set(Python3_VERSION_MAJOR "${PYTHON_VERSION_MAJOR}")
 		set(Python3_VERSION_MINOR "${PYTHON_VERSION_MINOR}")
 		set(Python3_VERSION_PATCH "${PYTHON_VERSION_PATCH}")
 		set(Python3_EXECUTABLE "${PYTHON_EXECUTABLE}")
+	endif()
+	if(PYTHONLIBS_FOUND)
+		set(Python3_Development_FOUND ON)
 		set(Python3_INCLUDE_DIRS "${PYTHON_INCLUDE_DIRS}")
 		set(Python3_LIBRARIES "${PYTHON_LIBRARIES}")
 	endif()
 endif()
-if(Python3_FOUND)
+if(Python3_Interpreter_FOUND)
 	set(PYTHON3_REQUIRED_VERSION "3.5")
 	if("${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}" VERSION_LESS ${PYTHON3_REQUIRED_VERSION})
 		message(WARNING "The Python 3 executable is too old ${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR} < ${PYTHON3_REQUIRED_VERSION}")
