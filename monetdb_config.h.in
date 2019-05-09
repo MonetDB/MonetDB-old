@@ -457,11 +457,6 @@
 #cmakedefine restrict @restrict@
 #endif
 
-/* type used for sockets */
-#ifndef SOCKET
-#cmakedefine SOCKET @SOCKET@
-#endif
-
 /* Define to `int' if <sys/types.h> does not define. */
 #ifndef ssize_t
 #cmakedefine ssize_t @ssize_t@
@@ -506,12 +501,13 @@ typedef __uint128_t uhge;
 #define SIZEOF_HGE SIZEOF___INT128_T
 #endif
 
-#if !defined(NATIVE_WIN32) && !defined(closesocket)
-/* on Windows use closesocket, otherwise just close */
+#ifndef WIN32
+#ifndef SOCKET
+#define SOCKET int32_t
+#endif
+#ifndef closesocket
 #define closesocket close
 #endif
-
-#ifndef WIN32
 #ifndef _In_z_
 #define _In_z_
 #endif
