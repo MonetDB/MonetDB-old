@@ -37,7 +37,7 @@ add_library(gdk SHARED
 			gdk_interprocess.c gdk_interprocess.h
 			gdk_firstn.c
 			gdk_analytic_bounds.c
-			gdk_analytic_func.c gdk_analytic.h $<$<PLATFORM_ID:Windows>:libbat.rc>)
+			gdk_analytic_func.c gdk_analytic.h libbat.rc)
 target_link_libraries(gdk PRIVATE ${GDK_LINK_LIBRARIES})
 set_target_properties(gdk PROPERTIES VERSION ${GDK_VERSION} SOVERSION ${GDK_VERSION_MAJOR} OUTPUT_NAME bat)
 target_compile_definitions(gdk PRIVATE LIBGDK)

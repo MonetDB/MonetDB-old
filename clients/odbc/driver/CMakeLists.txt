@@ -99,7 +99,7 @@ add_library(MonetODBC MODULE
 			SQLStatistics.c
 			SQLTablePrivileges.c
 			SQLTables.c
-			SQLTransact.c $<$<PLATFORM_ID:Windows>:driver.rc> $<$<PLATFORM_ID:Windows>:ODBC.syms>)
+			SQLTransact.c driver.rc ODBC.syms)
 target_link_libraries(MonetODBC PRIVATE mapi stream ${ICONV_LIBRARIES} ${ODBCINST_LIBRARIES} ${CRYPTO_LIBRARIES}
 					  ${SOCKET_LIBRARIES})
 target_compile_definitions(MonetODBC PRIVATE LIBMONETODBC)

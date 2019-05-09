@@ -13,7 +13,7 @@ if(WIN32)
 	list(APPEND MAPI_LINK_LIBRARIES stream ${SOCKET_LIBRARIES} ${CRYPTO_LIBRARIES})
 endif()
 
-add_library(mapi SHARED mapi.c $<$<PLATFORM_ID:Windows>:mapi.rc>)
+add_library(mapi SHARED mapi.c mapi.rc)
 target_link_libraries(mapi PRIVATE ${MAPI_LINK_LIBRARIES})
 set_target_properties(mapi PROPERTIES VERSION ${MAPI_VERSION} SOVERSION ${MAPI_VERSION_MAJOR})
 target_compile_definitions(mapi PRIVATE LIBMAPI)

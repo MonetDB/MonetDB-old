@@ -15,7 +15,7 @@ if(WIN32)
 	endif()
 endif()
 
-add_library(monetdb5 SHARED ${MONETDB5_OBJECTS} $<$<PLATFORM_ID:Windows>:libmonetdb5.rc>)
+add_library(monetdb5 SHARED ${MONETDB5_OBJECTS} libmonetdb5.rc)
 target_link_libraries(monetdb5 PUBLIC mutils mcrypt msabaoth PRIVATE ${MONETDB5_PRIVATE_LINK_LIBRARIES})
 set_target_properties(monetdb5 PROPERTIES VERSION ${MONETDB5_VERSION} SOVERSION ${MONETDB5_VERSION_MAJOR})
 

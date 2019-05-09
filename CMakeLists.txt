@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.0) # The $<TARGET_PDB_FILE:tgt> generator expression appears only on cmake 3.1, which causes problems on Windows with cmake 3.0
 
 # Change these variables between releases
 set(MONETDB_VERSION_MAJOR "11")
