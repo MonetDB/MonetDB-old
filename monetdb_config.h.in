@@ -417,12 +417,12 @@
 
 /* Enable large inode numbers on Mac OS X 10.5.  */
 #ifndef _DARWIN_USE_64_BIT_INODE
-#define _DARWIN_USE_64_BIT_INODE
+#cmakedefine _DARWIN_USE_64_BIT_INODE
 #endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 #ifndef _FILE_OFFSET_BITS
-#cmakedefine _FILE_OFFSET_BITS
+#cmakedefine _FILE_OFFSET_BITS @_FILE_OFFSET_BITS@
 #endif
 
 /* Define to make fseeko visible on some hosts (e.g. glibc 2.2). */

@@ -8,14 +8,14 @@
 #  _LARGE_FILES
 #  _LARGEFILE_SOURCE
 #  _FILE_OFFSET_BITS 64
+#  _DARWIN_USE_64_BIT_INODE
 #  OPJ_HAVE_FSEEKO
 #
 #  However, it is YOUR job to make sure these defines are set in a #cmakedefine so they
 #  end up in a config.h file that is included in your source if necessary!
 #
 #  Adapted from Gromacs project (http://www.gromacs.org/)
-#  by Julien Malik
-#
+#  by Julien Malik adn Pedro Ferreira
 
 macro(OPJ_TEST_LARGE_FILES VARIABLE)
 	if(NOT DEFINED ${VARIABLE})
@@ -66,16 +66,16 @@ macro(OPJ_TEST_LARGE_FILES VARIABLE)
 			endif()
 		endif()
 
-
-		#if(NOT FILE64_OK)
-		#    # now check for Windows stuff
-		#    try_compile(FILE64_OK "${PROJECT_BINARY_DIR}"
-		#                "${PROJECT_SOURCE_DIR}/cmake/TestWindowsFSeek.c")
-		#    if(FILE64_OK)
-		#        message(STATUS "Checking for 64-bit off_t - present with _fseeki64")
-		#        set(HAVE__FSEEKI64 1)
-		#    endif()
-		#endif()
+		if(NOT FILE64_OK AND APPLE)
+			# Test with _DARWIN_USE_64_BIT_INODE
+			try_compile(FILE64_OK "${PROJECT_BINARY_DIR}"
+					"${PROJECT_SOURCE_DIR}/cmake/TestFileOffsetBits.c"
+					COMPILE_DEFINITIONS "-D_DARWIN_USE_64_BIT_INODE" )
+			if(FILE64_OK)
+				message(STATUS "Checking for 64-bit off_t - present with _DARWIN_USE_64_BIT_INODE")
+				set(_DARWIN_USE_64_BIT_INODE 1)
+			endif()
+		endif()
 
 		if(NOT FILE64_OK)
 			message(STATUS "Checking for 64-bit off_t - not present")
@@ -84,6 +84,7 @@ macro(OPJ_TEST_LARGE_FILES VARIABLE)
 		set(_FILE_OFFSET_BITS ${_FILE_OFFSET_BITS} CACHE INTERNAL "Result of test for needed _FILE_OFFSET_BITS=64")
 		set(_LARGE_FILES      ${_LARGE_FILES}      CACHE INTERNAL "Result of test for needed _LARGE_FILES")
 		set(_LARGEFILE_SOURCE ${_LARGEFILE_SOURCE} CACHE INTERNAL "Result of test for needed _LARGEFILE_SOURCE")
+		set(_DARWIN_USE_64_BIT_INODE ${_DARWIN_USE_64_BIT_INODE} CACHE INTERNAL "Result of test for needed _DARWIN_USE_64_BIT_INODE")
 
 		# Set the flags we might have determined to be required above
 		configure_file("${PROJECT_SOURCE_DIR}/cmake/TestLargeFiles.c.cmake.in"

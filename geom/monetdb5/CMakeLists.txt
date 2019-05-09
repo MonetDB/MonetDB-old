@@ -25,7 +25,7 @@ if(NOT ${ENABLE_GEOM} STREQUAL "NO")
 	endif()
 endif()
 if(HAVE_GEOM)
-	include_directories(../lib ../../gdk ../../common/stream ../../common/utils ../../monetdb5/mal ${GEOS_INCLUDE_DIR}
+	include_directories(../../gdk ../../common/stream ../../common/utils ../../monetdb5/mal ${GEOS_INCLUDE_DIR}
 						${PROJ_INCLUDE_DIR})
 
 	set(GEOM_LINK_LIBRARIES ${GEOS_LIBRARIES} ${PROJ_LIBRARIES})

@@ -24,7 +24,7 @@ if(HAVE_SHP)
 						../../../../../monetdb5/modules/atoms ../../../../../monetdb5/modules/kernel
 						../../../../../monetdb5/mal ../../../../../monetdb5/modules/mal ../../../../../monetdb5/optimizer
 						../../../../../monetdb5/scheduler ../../../../../common/stream ../../../../../common/utils
-						../../../../../gdk ../../../../../geom/lib ../../../../../geom/monetdb5 ${GDAL_INCLUDE_DIR})
+						../../../../../gdk ../../../../../geom/monetdb5 ${GDAL_INCLUDE_DIR})
 
 	set(SHP_LINK_LIBRARIES ${GDAL_LIBRARIES})
 	if(WIN32)
