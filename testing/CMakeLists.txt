@@ -65,6 +65,7 @@ endif()
 
 if(WIN32)
 	install(FILES Mlog.bat Mtest.py.bat DESTINATION ${BINDIR})
+	install(FILES Mtest.py.bat DESTINATION ${BINDIR} RENAME Mapprove.py.bat)
 	install(FILES $<TARGET_PDB_FILE:Mdiff> DESTINATION ${BINDIR} OPTIONAL)
 else()
 	find_program(BASH NAMES bash DOC "bash interpreter fullpath")
