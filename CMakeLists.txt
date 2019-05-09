@@ -65,7 +65,7 @@ elseif(EXISTS "${CMAKE_SOURCE_DIR}/.git")
 endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}") # Initialize variable
-if(NOT "${CMAKE_C_COMPILER_ID}" MATCHES "^GNU|Intel|Clang|MSVC|AppleClang$")
+if(NOT MSVC AND NOT ${CMAKE_C_COMPILER_ID} MATCHES "^GNU|Intel|Clang|AppleClang$")
 	message(WARNING "Compiler potentially not (correctly) recognized")
 endif()
 
@@ -713,7 +713,7 @@ if(${ENABLE_STRICT} STREQUAL "YES")
 endif()
 
 if(NOT ${ENABLE_SANITIZER} STREQUAL "NO")
-	if("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
+	if(${CMAKE_C_COMPILER_ID} STREQUAL "GNU")
 		MT_checkCompilerFlag("-fsanitize=address")
 		MT_checkCompilerFlag("-fno-omit-frame-pointer")
 		add_definitions(-DNO_ATOMIC_INSTRUCTIONS)
