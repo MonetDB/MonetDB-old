@@ -27,7 +27,8 @@ if(NOT "${ENABLE_CINTEGRATION}" STREQUAL "NO" AND HAVE_PYTHON3 AND NOT WIN32)
 		list(APPEND CAPI_LINK_LIBRARIES monetdb5 gdk)
 	endif()
 
-	add_library(capi MODULE capi.c capi.h cheader.h ${CMAKE_CURRENT_BINARY_DIR}/cheader.text.h)
+	add_library(capi MODULE capi.c capi.h ${CMAKE_CURRENT_SOURCE_DIR}/cheader.h
+				${CMAKE_CURRENT_BINARY_DIR}/cheader.text.h)
 	target_link_libraries(capi PRIVATE ${CAPI_LINK_LIBRARIES})
 	set_target_properties(capi PROPERTIES OUTPUT_NAME _capi)
 	target_compile_definitions(capi PRIVATE LIBCUDF)
