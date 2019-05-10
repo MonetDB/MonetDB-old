@@ -467,7 +467,6 @@ check_include_file("getopt.h" HAVE_GETOPT_H) # GNU extension
 check_include_file("kvm.h" HAVE_KVM_H) # For FreeBSD
 check_include_file("libintl.h" HAVE_LIBINTL_H)
 check_include_file("pthread.h" HAVE_PTHREAD_H)
-check_include_file("stdatomic.h" HAVE_STDATOMIC_H) # C11 include file
 check_include_file("sys/mman.h" HAVE_SYS_MMAN_H) # For madvise and posix_madvise on BSD systems
 check_include_file("sys/time.h" HAVE_SYS_TIME_H)
 
@@ -586,11 +585,8 @@ endfunction()
 
 if(MSVC)
 	MT_addCompilerFlag("/GF" "/GF" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
-	MT_addCompilerFlag("/W3" "/W3" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
 	MT_addCompilerFlag("/nologo" "/nologo" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
-	MT_addCompilerFlag("/Zi" "/Zi" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
 	MT_addCompilerFlag("/Oi" "/Oi" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
-
 	# Remove all /Ox but /Oi on all, /Od on Debug and /Ox on others
 	MT_removeCompilerFlag("/O[0-9a-ce-hj-zA-CE-HJ-Z]+[ ]?" "/Ox" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
 	MT_removeCompilerFlag("/O[0-9a-hj-wyzA-HJ-WYZ]+[ ]?" "/Ox" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
@@ -600,14 +596,6 @@ if(MSVC)
 	MT_addCompilerFlag("/Ox" "/Ox" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
 	MT_addCompilerFlag("/Ox" "/Ox" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
 	MT_addCompilerFlag("/Os" "/Os" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
-
-	MT_addCompilerFlag("/RTC1" "/RTC1" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
-	MT_addCompilerFlag("/D_DEBUG" "/D_DEBUG" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
-
-	MT_addCompilerFlag("/MDd" "/MDd" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
-	MT_addCompilerFlag("/MD" "/MD" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
-	MT_addCompilerFlag("/MD" "/MD" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
-	MT_addCompilerFlag("/MD" "/MD" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
 elseif(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 	MT_removeCompilerFlag("${COMPILER_OPTION}O[0-9]+[ ]?" "${COMPILER_OPTION}Ox" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
 	MT_removeCompilerFlag("${COMPILER_OPTION}O[0-24-9]+[ ]?" "${COMPILER_OPTION}Ox" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
@@ -622,7 +610,7 @@ elseif(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 	if(CMAKE_VERSION VERSION_LESS 3.1)
 		MT_addCompilerFlag("${COMPILER_OPTION}${INTEL_OPTION_EXTRA}std=c99" "${COMPILER_OPTION}${INTEL_OPTION_EXTRA}std=c99" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
 	endif()
-else() #GCC, clang and Apple clang
+else() # GCC, Clang and Apple clang
 	# Remove existing -Ox flags
 	MT_removeCompilerFlag("-O[1-2sS]+[ ]?" "-Ox" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
 	MT_removeCompilerFlag("-O[0-2sS]+[ ]?" "-Ox" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
@@ -632,7 +620,6 @@ else() #GCC, clang and Apple clang
 	MT_addCompilerFlag("-O3" "-O3" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
 	MT_addCompilerFlag("-O3" "-O3" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
 	MT_addCompilerFlag("-Os" "-Os" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
-
 	# Replace -g flag with -g3
 	if(${CMAKE_C_COMPILER_ID} STREQUAL "GNU")
 		MT_removeCompilerFlag("-g([ ]|$)" "-g" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
@@ -647,13 +634,6 @@ else() #GCC, clang and Apple clang
 		set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -D_FORTIFY_SOURCE=2")
 		message(STATUS "Added definition _FORTIFY_SOURCE=2 for Release, RelWithDebugInfo and MinSizeRel builds")
 	endif()
-	if(NOT ${CMAKE_C_FLAGS_RELEASE} MATCHES "DNDEBUG")
-		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -DDNDEBUG")
-		set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -DDNDEBUG")
-		set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -DDNDEBUG")
-		message(STATUS "Added definition NDEBUG for Release, RelWithDebugInfo and MinSizeRel builds")
-	endif()
-
 	# Add -fomit-frame-pointer for non debug builds
 	MT_addCompilerFlag("-fomit-frame-pointer" "-fomit-frame-pointer" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
 	MT_addCompilerFlag("-fomit-frame-pointer" "-fomit-frame-pointer" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
