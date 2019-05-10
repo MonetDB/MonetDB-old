@@ -441,10 +441,9 @@
 #cmakedefine __attribute__(a)
 #endif
 
-/* Intel compiler doesn't support _Pragma from GCC well */
+/* Disable __GNUC__ on Intel compiler */
 #if defined(__GNUC__) && defined(__INTEL_COMPILER)
-#undef _Pragma
-#define _Pragma(a)
+#undef __GNUC__
 #endif
 
 /* Does your compiler support the `_Noreturn' specifier? (C11 feature) */

@@ -277,6 +277,8 @@ typedef volatile char ATOMIC_FLAG;
 
 #else
 
+#include <pthread.h> //required for pthread_mutex_t
+
 /* emulate using mutexes */
 
 typedef size_t ATOMIC_BASE_TYPE;

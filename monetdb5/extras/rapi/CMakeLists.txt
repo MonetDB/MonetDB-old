@@ -27,6 +27,7 @@ if(NOT ${ENABLE_RINTEGRATION} STREQUAL "NO")
 			string(REPLACE "-I" "" R_INCLUDE_DIR ${R_CPP_OUTPUT}) # cmake will get confused
 			string(REPLACE "-fopenmp" "" R_LIBRARIES ${R_LD_OUTPUT}) # We don't want to link to OpenMP
 			string(REPLACE "-fopenmp=libgomp" "" R_LIBRARIES ${R_LIBRARIES})
+			string(REGEX REPLACE "-specs=[^\ ]*" "" R_LIBRARIES ${R_LIBRARIES}) # -specs argument is not used and both GCC and Clang complain about it
 
 			message(STATUS "R executable, library and include files found")
 		elseif(${ENABLE_RINTEGRATION} STREQUAL "YES")
