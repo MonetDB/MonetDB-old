@@ -1,3 +1,5 @@
+Cmake 3.1 is required on Windows, On all other platforms, cmake 3.0 suffices.
+On CentOS 6, enable epel repository, then install cmake3 package.
 While running the cmake command set internal variables to change the build properties in the form -D<var>=<value>
 
 - Variables intrinsic to Cmake that we set on our scripts
