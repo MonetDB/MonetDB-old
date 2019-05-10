@@ -27,18 +27,17 @@ if(NOT "${ENABLE_CINTEGRATION}" STREQUAL "NO" AND HAVE_PYTHON3 AND NOT WIN32)
 		list(APPEND CAPI_LINK_LIBRARIES monetdb5 gdk)
 	endif()
 
-	add_library(capi MODULE capi.c capi.h ${CMAKE_CURRENT_SOURCE_DIR}/cheader.h
-				${CMAKE_CURRENT_BINARY_DIR}/cheader.text.h)
+	# Generate cheader.text.h file
+	exec_program("${Python3_EXECUTABLE}" ARGS "${CMAKE_CURRENT_SOURCE_DIR}/boot.py ${CMAKE_CURRENT_SOURCE_DIR}/cheader.h ${CMAKE_CURRENT_BINARY_DIR}/cheader.text.h"
+				 OUTPUT_VARIABLE CHEADER_OUTPUT RETURN_VALUE CHEADER_CODE)
+	if(NOT CHEADER_CODE EQUAL 0)
+		message(FATAL_ERROR "Could not generate cheader.text.h file")
+	endif()
+
+	add_library(capi MODULE capi.c capi.h cheader.h)
 	target_link_libraries(capi PRIVATE ${CAPI_LINK_LIBRARIES})
 	set_target_properties(capi PROPERTIES OUTPUT_NAME _capi)
 	target_compile_definitions(capi PRIVATE LIBCUDF)
-
-	# Generate cheader.text.h file
-	add_custom_command(OUTPUT cheader COMMAND "${Python3_EXECUTABLE}" ${CMAKE_CURRENT_SOURCE_DIR}/boot.py
-					   ${CMAKE_CURRENT_SOURCE_DIR}/cheader.h ${CMAKE_CURRENT_BINARY_DIR}/cheader.text.h
-					   BYPRODUCTS cheader.text.h)
-	add_custom_target(do_cheader DEPENDS cheader)
-	add_dependencies(capi do_cheader)
 
 	install(TARGETS capi DESTINATION ${LIBDIR}/monetdb5)
 	if(WIN32)
