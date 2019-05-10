@@ -14,7 +14,7 @@ if("${ENABLE_CINTEGRATION}" STREQUAL "YES")
 	endif()
 endif()
 if(NOT "${ENABLE_CINTEGRATION}" STREQUAL "NO" AND HAVE_PYTHON3 AND NOT WIN32)
-	set(HAVE_CUDF ON CACHE INTERNAL "pyapi3 extension is available")
+	set(HAVE_CUDF ON CACHE INTERNAL "C udfs extension is available")
 
 	include_directories(../../../../../clients/mapilib ../../../../../common/utils ../../../../../common/stream
 						../../../../../monetdb5/modules/atoms ../../../../../monetdb5/modules/mal ../../../../../gdk

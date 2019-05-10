@@ -62,7 +62,7 @@ if(NOT ${ENABLE_ODBC} STREQUAL "NO")
 				set(ODBC_LIBRARIES "${ODBC_LIBRARY}")
 			endif()
 
-			if(ODBCINST_LIBRARY AND ODBC_LIBRARY AND HAVE_SIZEOF_SQLWCHAR)
+			if(ODBCINST_LIBRARY AND ODBC_LIBRARY)
 				set(HAVE_ODBC ON CACHE INTERNAL "odbc extension is available")
 			elseif(${ENABLE_ODBC} STREQUAL "YES")
 				message(FATAL_ERROR "There are unixODBC libraries missing")

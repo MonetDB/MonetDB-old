@@ -39,9 +39,10 @@ if(NOT ${ENABLE_RINTEGRATION} STREQUAL "NO")
 		set(HAVE_LIBR ON CACHE INTERNAL "rapi extension is available")
 	endif()
 endif()
-set(RHOME "${R_HOME_OUTPUT}" CACHE INTERNAL "R home directory") # No R_HOME on Windows
 
 if(HAVE_LIBR)
+	set(RHOME "${R_HOME_OUTPUT}" CACHE INTERNAL "R home directory") # No R_HOME on Windows
+
 	include_directories(../../../common/stream ../../../common/utils ../../../gdk ../../mal ../../modules/kernel
 						../../modules/atoms ../../modules/mal ../../../sql/common ../../../sql/include
 						../../../sql/server ../../../sql/storage ../../../sql/backends/monet5 ${R_INCLUDE_DIR})
