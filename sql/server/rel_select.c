@@ -2691,6 +2691,7 @@ rel_in_exp(sql_query *query, sql_rel *rel, symbol *sc, int f)
 
 			r = rel_value_exp(query, &z, n->data.sym, f /* ie no result project */, ek);
 			if (!r) {
+				sql_rel *oleft = left;
 				/* reset error */
 				sql->session->status = 0;
 				sql->errstr[0] = 0;
@@ -2698,6 +2699,8 @@ rel_in_exp(sql_query *query, sql_rel *rel, symbol *sc, int f)
 				r = rel_value_exp(query, &left, n->data.sym, f /* ie no result project */, ek);
 				if (r)
 					l_used = is_join(left->op);
+				if (oleft != left)
+					l_outer = 1;
 			}
 			if (!r) {
 				/* reset error */
@@ -2758,12 +2761,13 @@ rel_in_exp(sql_query *query, sql_rel *rel, symbol *sc, int f)
 					}
 					if (rel_convert_types(sql, &l, &r, 1, type_equal_no_any) < 0) 
 						return NULL;
-					r = exp_compare(sql->sa, l, r, sc->token==SQL_IN?mark_in:mark_notin); 
+					r = exp_compare(sql->sa, l, r, (z||l_outer)?(sc->token==SQL_IN?mark_in:mark_notin):
+									 (sc->token==SQL_IN?cmp_equal:cmp_notequal)); 
 					if (z) {
 						left = rel_crossproduct(sql->sa, left, z, sc->token==SQL_IN?op_semi:op_anti);
 						if (rel_has_freevar(z))
 							set_dependent(left);
-					} else {
+					} else if (l_outer) {
 						left->op = sc->token==SQL_IN?op_semi:op_anti;
 					}
 					rel_join_add_exp(sql->sa, left, r);
@@ -3333,8 +3337,7 @@ rel_unop_(sql_query *query, sql_exp *e, sql_schema *s, char *fname, int card)
 			f = NULL;
 	}
 	if (f && check_card(card, f)) {
-		sql_arg *ares = f->func->res?f->func->res->h->data:NULL;
-		if (ares && ares->type.scale == INOUT) {
+		if (f->func->fix_scale == INOUT) {
 			sql_subtype *res = f->res->h->data;
 			res->digits = t->digits;
 			res->scale = t->scale;
