@@ -7,10 +7,10 @@
 # GEOS_FOUND	- True if geos found.
 
 # Look for the header file.
-find_path(GEOS_INCLUDE_DIR NAMES geos_c.h)
+find_path(GEOS_INCLUDE_DIR NAMES geos_c.h geos_c_i.h)
 
 # Look for the library.
-find_library(GEOS_LIBRARIES NAMES geos_c)
+find_library(GEOS_LIBRARIES NAMES geos_c geos_c_i)
 
 # Handle the QUIETLY and REQUIRED arguments and set GEOS_FOUND to TRUE if all listed variables are TRUE.
 include(FindPackageHandleStandardArgs)

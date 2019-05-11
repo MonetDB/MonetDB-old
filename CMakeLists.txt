@@ -280,9 +280,9 @@ set(SO_EXT       "${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
 # We need python3 for the testweb, python udfs and c udfs compilation
 if(CMAKE_VERSION VERSION_LESS 3.12)
-	set(Python_ADDITIONAL_VERSIONS 3)
-	find_package(PythonInterp 3)
-	find_package(PythonLibs 3)
+	set(Python_ADDITIONAL_VERSIONS 3.7 3.6 3.5)
+	find_package(PythonInterp 3.4)
+	find_package(PythonLibs 3.4)
 	if(PYTHONINTERP_FOUND)
 		set(Python3_Interpreter_FOUND ON)
 		set(Python3_VERSION_MAJOR "${PYTHON_VERSION_MAJOR}")
@@ -468,8 +468,8 @@ endif()
 if(${CMAKE_SYSTEM_NAME} MATCHES "^Linux|FreeBSD|NetBSD$")
 	set(MATH_LIBRARIES "m")
 endif()
-if(WIN32)
-	set(PSAPI_LIBRARIES "psapi") # We need the psapi library for GetProcessMemoryInfo function, which is no longer required from Windows 7 and Windows Server 2008 R2 up
+if(WIN32) # Both these libraries and respective include files (psapi.h and winsock2.h) come with the Windows SDK <version>, which should be installed with Visual Studio and set on the path by MSVC
+	set(PSAPI_LIBRARIES "psapi") # We need the psapi library for GetProcessMemoryInfo function, which is no longer required from Windows 7 and Windows Server 2008 R2 up (the latter is suported until January 2020)
 	set(SOCKET_LIBRARIES "ws2_32")
 endif()
 include(FindExtraLibraries)
