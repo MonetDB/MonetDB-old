@@ -113,11 +113,12 @@ extern int exp_cmp( sql_exp *e1, sql_exp *e2);
 extern int exp_equal( sql_exp *e1, sql_exp *e2);
 extern int exp_refers( sql_exp *p, sql_exp *c);
 extern int exp_match( sql_exp *e1, sql_exp *e2);
-extern sql_exp* exps_find_exp( list *l, sql_exp *e);
-extern int exp_match_exp( sql_exp *e1, sql_exp *e2);
+extern sql_exp* exps_find_exp( list *l, sql_exp *e);  /* find the exact expression in the list */
+extern sql_exp* exps_match_exp(mvc *sql, list *l, sql_exp *e); /* find a matching expression in the list */
+extern int exp_match_exp(mvc *sql, sql_exp *e1, sql_exp *e2);
 /* match just the column (cmp equality) expressions */
-extern int exp_match_col_exps( sql_exp *e, list *l);
-extern int exps_match_col_exps( sql_exp *e1, sql_exp *e2);
+extern int exp_match_col_exps(mvc *sql, sql_exp *e, list *l);
+extern int exps_match_col_exps(mvc *sql, sql_exp *e1, sql_exp *e2);
 extern int exp_is_join(sql_exp *e, list *rels);
 extern int exp_is_eqjoin(sql_exp *e);
 extern int exp_is_correlation(sql_exp *e, sql_rel *r );

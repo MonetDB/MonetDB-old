@@ -697,7 +697,6 @@ mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 
 	m->type = Q_PARSE;
 	m->pushdown = 1;
-	m->has_groupby_expressions = false;
 
 	m->result_id = 0;
 	m->results = NULL;
@@ -764,7 +763,6 @@ mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars)
 	m->cascade_action = NULL;
 	m->type = Q_PARSE;
 	m->pushdown = 1;
-	m->has_groupby_expressions = false;
 
 	for(i=0;i<MAXSTATS;i++)
 		m->opt_stats[i] = 0;
@@ -1526,7 +1524,7 @@ mvc_is_sorted(mvc *m, sql_column *col)
 
 /* variable management */
 static sql_var*
-stack_set(mvc *sql, int var, const char *name, sql_subtype *type, sql_rel *rel, sql_table *t, dlist *wdef, sql_groupby_expression *exp, int view, int frame)
+stack_set(mvc *sql, int var, const char *name, sql_subtype *type, sql_rel *rel, sql_table *t, dlist *wdef, int view, int frame)
 {
 	sql_var *v, *nvars;
 	int nextsize = sql->sizevars;
@@ -1550,7 +1548,6 @@ stack_set(mvc *sql, int var, const char *name, sql_subtype *type, sql_rel *rel, 
 	v->frame = frame;
 	v->visited = 0;
 	v->wdef = wdef;
-	v->exp = exp;
 	if (type) {
 		int tpe = type->type->localtype;
 		VALset(&sql->vars[var].a.data, tpe, (ptr) ATOMnilptr(tpe));
@@ -1567,7 +1564,7 @@ stack_set(mvc *sql, int var, const char *name, sql_subtype *type, sql_rel *rel, 
 sql_var*
 stack_push_var(mvc *sql, const char *name, sql_subtype *type)
 {
-	sql_var* res = stack_set(sql, sql->topvars, name, type, NULL, NULL, NULL, NULL, 0, 0);
+	sql_var* res = stack_set(sql, sql->topvars, name, type, NULL, NULL, NULL, 0, 0);
 	if(res)
 		sql->topvars++;
 	return res;
@@ -1576,7 +1573,7 @@ stack_push_var(mvc *sql, const char *name, sql_subtype *type)
 sql_var*
 stack_push_rel_var(mvc *sql, const char *name, sql_rel *var, sql_subtype *type)
 {
-	sql_var* res = stack_set(sql, sql->topvars, name, type, var, NULL, NULL, NULL, 0, 0);
+	sql_var* res = stack_set(sql, sql->topvars, name, type, var, NULL, NULL, 0, 0);
 	if(res)
 		sql->topvars++;
 	return res;
@@ -1585,7 +1582,7 @@ stack_push_rel_var(mvc *sql, const char *name, sql_rel *var, sql_subtype *type)
 sql_var*
 stack_push_table(mvc *sql, const char *name, sql_rel *var, sql_table *t)
 {
-	sql_var* res = stack_set(sql, sql->topvars, name, NULL, var, t, NULL, NULL, 0, 0);
+	sql_var* res = stack_set(sql, sql->topvars, name, NULL, var, t, NULL, 0, 0);
 	if(res)
 		sql->topvars++;
 	return res;
@@ -1594,7 +1591,7 @@ stack_push_table(mvc *sql, const char *name, sql_rel *var, sql_table *t)
 sql_var*
 stack_push_rel_view(mvc *sql, const char *name, sql_rel *var)
 {
-	sql_var* res = stack_set(sql, sql->topvars, name, NULL, var, NULL, NULL, NULL, 1, 0);
+	sql_var* res = stack_set(sql, sql->topvars, name, NULL, var, NULL, NULL, 1, 0);
 	if(res)
 		sql->topvars++;
 	return res;
@@ -1603,7 +1600,7 @@ stack_push_rel_view(mvc *sql, const char *name, sql_rel *var)
 sql_var*
 stack_push_window_def(mvc *sql, const char *name, dlist *wdef)
 {
-	sql_var* res = stack_set(sql, sql->topvars, name, NULL, NULL, NULL, wdef, NULL, 0, 0);
+	sql_var* res = stack_set(sql, sql->topvars, name, NULL, NULL, NULL, wdef, 0, 0);
 	if(res)
 		sql->topvars++;
 	return res;
@@ -1617,38 +1614,6 @@ stack_get_window_def(mvc *sql, const char *name, int *pos)
 			if(pos)
 				*pos = i;
 			return sql->vars[i].wdef;
-		}
-	}
-	return NULL;
-}
-
-sql_var*
-stack_push_groupby_expression(mvc *sql, symbol *def, sql_exp *exp)
-{
-	sql_var* res = NULL;
-	sql_groupby_expression *sge = MNEW(sql_groupby_expression);
-
-	if(sge) {
-		sge->sdef = def;
-		sge->token = def->token;
-		sge->exp = exp;
-
-		res = stack_set(sql, sql->topvars, NULL, NULL, NULL, NULL, NULL, sge, 0, 0);
-		if(res)
-			sql->topvars++;
-	}
-	sql->has_groupby_expressions = true;
-	return res;
-}
-
-sql_exp*
-stack_get_groupby_expression(mvc *sql, symbol *def)
-{
-	if(sql->has_groupby_expressions) {
-		for (int i = sql->topvars-1; i >= 0; i--) {
-			if (!sql->vars[i].frame && sql->vars[i].exp && sql->vars[i].exp->token == def->token && symbol_cmp(sql, sql->vars[i].exp->sdef, def)==0) {
-				return sql->vars[i].exp->exp;
-			}
 		}
 	}
 	return NULL;
@@ -1717,7 +1682,7 @@ stack_get_var(mvc *sql, const char *name)
 sql_var*
 stack_push_frame(mvc *sql, const char *name)
 {
-	sql_var* res = stack_set(sql, sql->topvars, name, NULL, NULL, NULL, NULL, NULL, 0, 1);
+	sql_var* res = stack_set(sql, sql->topvars, name, NULL, NULL, NULL, NULL, 0, 1);
 	if(res) {
 		sql->topvars++;
 		sql->frame++;
@@ -1734,8 +1699,6 @@ stack_pop_until(mvc *sql, int top)
 		c_delete(v->name);
 		VALclear(&v->a.data);
 		v->a.data.vtype = 0;
-		if(v->exp)
-			_DELETE(v->exp);
 		v->wdef = NULL;
 	}
 }
@@ -1753,8 +1716,6 @@ stack_pop_frame(mvc *sql)
 			table_destroy(v->t);
 		else if (v->rel)
 			rel_destroy(v->rel);
-		else if(v->exp)
-			_DELETE(v->exp);
 		v->wdef = NULL;
 	}
 	if (sql->topvars && sql->vars[sql->topvars].name)  

@@ -3517,7 +3517,7 @@ exps_cse( mvc *sql, list *oexps, list *l, list *r )
 		for ( m = r->h, rc = 0; m; m = m->next, rc++) {
 			sql_exp *re = m->data;
 
-			if (!ru[rc] && exp_match_exp(le,re)) {
+			if (!ru[rc] && exp_match_exp(sql, le, re)) {
 				lu[lc] = 1;
 				ru[rc] = 1;
 				match = 1;
@@ -3675,7 +3675,7 @@ rel_project_cse(int *changes, mvc *sql, sql_rel *rel)
 				for (m=n->next; m; m = m->next){
 					sql_exp *e2 = m->data;
 				
-					if (exp_name(e2) && exp_match_exp(e1, e2)) 
+					if (exp_name(e2) && exp_match_exp(sql, e1, e2)) 
 						needed = 1;
 				}
 			}
@@ -3692,7 +3692,7 @@ rel_project_cse(int *changes, mvc *sql, sql_rel *rel)
 				for (m=nexps->h; m; m = m->next){
 					sql_exp *e2 = m->data;
 				
-					if (exp_name(e2) && exp_match_exp(e1, e2)) {
+					if (exp_name(e2) && exp_match_exp(sql, e1, e2)) {
 						sql_exp *ne = exp_alias(sql->sa, e1->rname, exp_name(e1), e2->rname, exp_name(e2), exp_subtype(e2), e2->card, has_nil(e2), is_intern(e1));
 						if (e2->p)
 							ne->p = prop_copy(sql->sa, e2->p);
@@ -3703,6 +3703,7 @@ rel_project_cse(int *changes, mvc *sql, sql_rel *rel)
 			}
 			append(nexps, e1);
 		}
+		sql->caching = 0;
 		rel->exps = nexps;
 	}
 	return rel;
@@ -3749,7 +3750,7 @@ exps_merge_select_rse( mvc *sql, list *l, list *r )
 			continue;
 		for (m = rexps->h; !fnd && m; m = m->next) {
 			re = m->data;
-			if (exps_match_col_exps(le, re))
+			if (exps_match_col_exps(sql, le, re))
 				fnd = re;
 		}
 		/* cases
@@ -4307,7 +4308,7 @@ rel_push_groupby_down(int *changes, mvc *sql, sql_rel *rel)
 				for (m = rel->exps->h; m; m = m->next) {
 					sql_exp *a = m->data;
 
-					if (exp_match_exp(a, ge) || exp_refers(ge, a)) {
+					if (exp_match_exp(sql, a, ge) || exp_refers(ge, a)) {
 						a = exp_column(sql->sa, exp_relname(ne), exp_name(ne), exp_subtype(ne), ne->card, has_nil(ne), is_intern(ne));
 						exp_setname(sql->sa, a, exp_relname(ne), exp_name(ne));
 						m->data = a;
@@ -5425,7 +5426,7 @@ rel_reduce_groupby_exps(int *changes, mvc *sql, sql_rel *rel)
 							sql_exp *gb = n->data;
 
 							/* pkey based group by */
-							if (scores[l] == 1 && exp_match_exp(e,gb) && find_prop(gb->p, PROP_HASHCOL) && !find_prop(e->p, PROP_HASHCOL)) {
+							if (scores[l] == 1 && exp_match_exp(sql, e,gb) && find_prop(gb->p, PROP_HASHCOL) && !find_prop(e->p, PROP_HASHCOL)) {
 								e->p = prop_create(sql->sa, PROP_HASHCOL, e->p);
 								break;
 							}
@@ -7345,14 +7346,6 @@ rel_simplify_predicates(int *changes, mvc *sql, sql_rel *rel)
 static void split_exps(mvc *sql, list *exps, sql_rel *rel);
 
 static int
-exp_match_exp_cmp( sql_exp *e1, sql_exp *e2)
-{
-	if (exp_match_exp(e1,e2))
-		return 0;
-	return -1;
-}
-
-static int
 exp_refers_cmp( sql_exp *e1, sql_exp *e2)
 {
 	if (exp_refers(e1,e2))
@@ -7363,16 +7356,19 @@ exp_refers_cmp( sql_exp *e1, sql_exp *e2)
 static sql_exp *
 add_exp_too_project(mvc *sql, sql_exp *e, sql_rel *rel)
 {
-	node *n = list_find(rel->exps, e, (fcmp)&exp_match_exp_cmp);
+	sql_exp *ne = exps_match_exp(sql, rel->exps, e);
 
 	/* if not matching we may refer to an older expression */
-	if (!n) 
-		n = list_find(rel->exps, e, (fcmp)&exp_refers_cmp);
-	if (!n) {
+	if (!ne) {
+		node *n = list_find(rel->exps, e, (fcmp)&exp_refers_cmp);
+		if (n)
+			ne = n->data;
+	}
+	if (!ne) {
 		exp_label(sql->sa, e, ++sql->label);
 		append(rel->exps, e);
 	} else {
-		e = n->data;
+		e = ne; 
 	}
 	e = exp_column(sql->sa, exp_relname(e), exp_name(e), exp_subtype(e), e->card, has_nil(e), is_intern(e));
 	return e;
@@ -7616,7 +7612,7 @@ rel_split_select(int *changes, mvc *sql, sql_rel *rel, int top)
 }
 
 static list *
-exp_merge_range(sql_allocator *sa, list *exps)
+exp_merge_range(mvc *sql, list *exps)
 {
 	node *n, *m;
 	for (n=exps->h; n; n = n->next) {
@@ -7626,8 +7622,8 @@ exp_merge_range(sql_allocator *sa, list *exps)
 
 		/* handle the and's in the or lists */
 		if (e->type == e_cmp && e->flag == cmp_or) {
-			e->l = exp_merge_range(sa, e->l);
-			e->r = exp_merge_range(sa, e->r);
+			e->l = exp_merge_range(sql, e->l);
+			e->r = exp_merge_range(sql, e->r);
 		/* only look for gt, gte, lte, lt */
 		} else if (n->next &&
 		    e->type == e_cmp && e->flag < cmp_equal && !e->f && 
@@ -7639,7 +7635,7 @@ exp_merge_range(sql_allocator *sa, list *exps)
 
 				if (f->type == e_cmp && f->flag < cmp_equal && !f->f &&
 				    rf->card == CARD_ATOM && 
-				    exp_match_exp(le, lf)) {
+				    exp_match_exp(sql, le, lf)) {
 					sql_exp *ne;
 					int swap = 0, lt = 0, gt = 0;
 					/* for now only   c1 <[=] x <[=] c2 */ 
@@ -7656,14 +7652,14 @@ exp_merge_range(sql_allocator *sa, list *exps)
 					    f->flag == cmp_lte)) 
 						continue;
 					if (!swap) 
-						ne = exp_compare2(sa, le, re, rf, compare2range(e->flag, f->flag));
+						ne = exp_compare2(sql->sa, le, re, rf, compare2range(e->flag, f->flag));
 					else
-						ne = exp_compare2(sa, le, rf, re, compare2range(f->flag, e->flag));
+						ne = exp_compare2(sql->sa, le, rf, re, compare2range(f->flag, e->flag));
 
 					list_remove_data(exps, e);
 					list_remove_data(exps, f);
 					list_append(exps, ne);
-					return exp_merge_range(sa, exps);
+					return exp_merge_range(sql, exps);
 				}
 			}
 		} else if (n->next &&
@@ -7681,7 +7677,7 @@ exp_merge_range(sql_allocator *sa, list *exps)
 					comp_type ef = (comp_type) e->flag, ff = (comp_type) f->flag;
 				
 					/* both swapped ? */
-				     	if (exp_match_exp(re, rf)) {
+				     	if (exp_match_exp(sql, re, rf)) {
 						t = re; 
 						re = le;
 						le = t;
@@ -7693,7 +7689,7 @@ exp_merge_range(sql_allocator *sa, list *exps)
 					}
 
 					/* is left swapped ? */
-				     	if (exp_match_exp(re, lf)) {
+				     	if (exp_match_exp(sql, re, lf)) {
 						t = re; 
 						re = le;
 						le = t;
@@ -7701,14 +7697,14 @@ exp_merge_range(sql_allocator *sa, list *exps)
 					}
 
 					/* is right swapped ? */
-				     	if (exp_match_exp(le, rf)) {
+				     	if (exp_match_exp(sql, le, rf)) {
 						t = rf; 
 						rf = lf;
 						lf = t;
 						ff = swap_compare(ff);
 					}
 
-				    	if (!exp_match_exp(le, lf))
+				    	if (!exp_match_exp(sql, le, lf))
 						continue;
 
 					/* for now only   c1 <[=] x <[=] c2 */ 
@@ -7720,14 +7716,14 @@ exp_merge_range(sql_allocator *sa, list *exps)
 					if (lt && (ff == cmp_lt || ff == cmp_lte)) 
 						continue;
 					if (!swap) 
-						ne = exp_compare2(sa, le, re, rf, compare2range(ef, ff));
+						ne = exp_compare2(sql->sa, le, re, rf, compare2range(ef, ff));
 					else
-						ne = exp_compare2(sa, le, rf, re, compare2range(ff, ef));
+						ne = exp_compare2(sql->sa, le, rf, re, compare2range(ff, ef));
 
 					list_remove_data(exps, e);
 					list_remove_data(exps, f);
 					list_append(exps, ne);
-					return exp_merge_range(sa, exps);
+					return exp_merge_range(sql, exps);
 				}
 			}
 		}
@@ -7740,7 +7736,7 @@ rel_find_range(int *changes, mvc *sql, sql_rel *rel)
 {
 	(void)changes;
 	if ((is_join(rel->op) || is_select(rel->op)) && rel->exps && list_length(rel->exps)>1) 
-		rel->exps = exp_merge_range(sql->sa, rel->exps);
+		rel->exps = exp_merge_range(sql, rel->exps);
 	return rel;
 }
 
@@ -8040,14 +8036,14 @@ rel_rewrite_semijoin(int *changes, mvc *sql, sql_rel *rel)
 				if (exp_find_column(rl, ne->l, -2) == cl) {
 					sql_exp *e = (or != r)?rel_find_exp(or, re):re;
 
-					equal = exp_match_exp(ne->r, e);
+					equal = exp_match_exp(sql, ne->r, e);
 					if (!equal)
 						return rel;
 					re = ne->r;
 				} else if (exp_find_column(rl, ne->r, -2) == cl) {
 					sql_exp *e = (or != r)?rel_find_exp(or, re):re;
 
-					equal = exp_match_exp(ne->l, e);
+					equal = exp_match_exp(sql, ne->l, e);
 					if (!equal)
 						return rel;
 					re = ne->l;

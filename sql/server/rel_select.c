@@ -4464,10 +4464,6 @@ rel_group_by(sql_query *query, sql_rel **rel, symbol *groupby, dlist *selection,
 				return NULL;
 			}
 		}
-		if(e->type != e_column) { //store group by expressions in the stack
-			if(!stack_push_groupby_expression(sql, grp, e))
-				return NULL;
-		}
 		append(exps, e);
 	}
 	return exps;
@@ -5596,22 +5592,6 @@ rel_value_exp2(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek, 
 	if (THRhighwater())
 		return sql_error(sql, 10, SQLSTATE(42000) "SELECT: too many nested operators");
 
-	if (rel && *rel && (*rel)->card == CARD_AGGR) { //group by expression case, handle it before
-		sql_exp *exp = stack_get_groupby_expression(sql, se);
-		if (sql->errstr[0] != '\0')
-			return NULL;
-		if (exp) {
-			sql_exp *res = exp_column(sql->sa, exp_relname(exp), exp_name(exp), exp_subtype(exp), exp->card, has_nil(exp), is_intern(exp));
-			if(se->token == SQL_AGGR) {
-				dlist *l = se->data.lval;
-				int distinct = l->h->next->data.i_val;
-				if (distinct)
-					set_distinct(res);
-			}
-			return res;
-		}
-	}
-
 	switch (se->token) {
 	case SQL_OP:
 		return rel_op(sql, se, ek);
@@ -5837,6 +5817,7 @@ rel_value_exp2(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek, 
 	}
 }
 
+
 sql_exp *
 rel_value_exp(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek)
 {
@@ -5849,6 +5830,31 @@ rel_value_exp(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek)
 		return sql_error(query->sql, 10, SQLSTATE(42000) "SELECT: too many nested operators");
 
 	e = rel_value_exp2(query, rel, se, f, ek, &is_last);
+	if (!e && rel && *rel && (*rel)->card == CARD_AGGR) { /* handle group by expression (duplication) */
+		if (is_processed(*rel))
+			reset_processed(*rel);
+       		e = rel_value_exp2(query, rel, se, sql_groupby, ek, &is_last);
+		/* check for match with group by exp */
+		if (e) {
+			sql_rel *g = *rel;
+			while (g && !is_groupby(g->op)) {
+				g=g->l;
+			}
+			if (g && is_groupby(g->op)) {
+				sql_exp *e2 = exps_match_exp(query->sql, g->r, e);
+
+				if (e2) {
+					/* reset error */
+					query->sql->session->status = 0;
+					query->sql->errstr[0] = 0;
+
+					e = exp_column(query->sql->sa, exp_relname(e2), exp_name(e2), exp_subtype(e2), e2->card, has_nil(e2), is_intern(e2));
+				} else {
+					e = NULL;
+				}
+			}
+		}
+	}
 	if (e && (se->token == SQL_SELECT || se->token == SQL_TABLE) && !is_last) {
 		assert(*rel);
 		return rel_lastexp(query->sql, *rel);
@@ -5868,6 +5874,7 @@ column_exp(sql_query *query, sql_rel **rel, symbol *column_e, int f)
        	ve = rel_value_exp(query, rel, l->h->data.sym, f, ek);
 	if (!ve)
 		return NULL;
+
 	/* AS name */
 	if (ve && l->h->next->data.sval)
 		exp_setname(query->sql->sa, ve, NULL, l->h->next->data.sval);
