@@ -42,7 +42,7 @@
 # include <CommonCrypto/CommonRandom.h>
 #endif
 #ifdef NATIVE_WIN32   /* Windows specific */
-# include <winsock.h>
+# include <winsock2.h>
 #else           /* UNIX specific */
 # include <unistd.h>     /* gethostname() */
 # include <sys/select.h>

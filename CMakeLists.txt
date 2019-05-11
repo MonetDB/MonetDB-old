@@ -7,7 +7,9 @@
 #]]
 
 if(WIN32)
-	cmake_minimum_required(VERSION 3.1) # The $<TARGET_PDB_FILE:tgt> generator expression appears on cmake 3.1
+	# The $<TARGET_PDB_FILE:tgt> generator expression appears on cmake 3.1
+	# FindOpenSSL scripts works fine on Windows from cmake 3.7 up
+	cmake_minimum_required(VERSION 3.7)
 else()
 	cmake_minimum_required(VERSION 3.0)
 endif()
@@ -176,12 +178,10 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 			set(INTEL_MATH_H_HACK ON CACHE INTERNAL "must use intel math.h hack")
 		endif()
 	endif()
-	set(__attribute__(a) ON)
 	set(NAN_CANNOT_BE_USED_AS_INITIALIZER ON CACHE INTERNAL "NaN cannot be used as an initializer") # This hack is only required by the Intel compiler
 elseif(MSVC)
-	set(_Noreturn "__declspec(noreturn)")
-	set(__attribute__(a) ON)
-	set(restrict "__restrict")
+	set(restrict "__restrict") # C99 feature not present in MSVC
+	set(inline "__inline") # C99 feature only available on C++ compiler in MSVC https://docs.microsoft.com/en-us/cpp/cpp/inline-functions-cpp?view=vs-2015
 	add_definitions(/D_CRT_SECURE_NO_WARNINGS)
 	if(CMAKE_SIZEOF_VOID_P EQUAL 8)  # Windows 64 bit
 		set(HAVE__MUL128 ON CACHE INTERNAL "mul128 function is available")
@@ -211,8 +211,10 @@ check_c_source_compiles("
 		return 0;
 	}" HAVE___BUILTIN_ADD_OVERFLOW)
 
-if(NOT MSVC)
-	#Test if _Noreturn keyword is supported
+#Test if _Noreturn keyword is supported
+if(MSVC)
+	set(_Noreturn "__declspec(noreturn)")
+else()
 	check_c_source_compiles("
 		#include <stdlib.h>
 
@@ -223,11 +225,17 @@ if(NOT MSVC)
 			(void) argc; (void) argv;
 			foo (\"%s\", \"\");
 			return 0;
-		}" HAVE_NORETURN)
-	if(NOT HAVE_NORETURN)
-		set(_Noreturn "__attribute__((__noreturn__))")
+		}" HAVE_NORETURN_KEYWORD)
+	if(NOT HAVE_NORETURN_KEYWORD)
+		check_symbol_exists("__has_attribute(__noreturn__)" "" HAVE_NORETURN_ATTRIBUTE)
+		if(HAVE_NORETURN_ATTRIBUTE) # If the compiler supports the attribute
+			set(_Noreturn "__attribute__((__noreturn__))")
+		else()
+			set(_Noreturn " ") # remove keyword
+		endif()
 	endif()
 endif()
+
 #Test if compiler has usable <stdatomic.h>
 check_c_source_compiles("
 	#include <stdatomic.h>
@@ -302,7 +310,7 @@ if(Python3_Interpreter_FOUND)
 			math(EXPR LEN1 "${LIBDIR_LENGTH}+1") # add the / separator
 			string(SUBSTRING "${PYTHON3_LIBDIR}" ${LEN1} -1 PYTHON_LIBDIR) # remove the prefix
 		else()
-			message(WARNING "Could not find Python 3 library directory")
+			message(WARNING "Could not determine MonetDB Python testing files instalation directory")
 		endif()
 		set(HAVE_PYTHON3 ON CACHE INTERNAL "python3 is available")
 	endif()
@@ -479,12 +487,13 @@ cmake_push_check_state()
 set(CMAKE_EXTRA_INCLUDE_FILES "${CMAKE_EXTRA_INCLUDE_FILES};sys/types.h")
 check_type_size(size_t SIZEOF_SIZE_T LANGUAGE C) #On C99, but we have to calculate the size
 check_type_size(ssize_t SIZEOF_SSIZE_T LANGUAGE C)
-if(NOT HAVE_SIZEOF_SSIZE_T AND MSVC AND CMAKE_SIZEOF_VOID_P EQUAL 8) # Windows 64 bit
-	set(ssize_t "int64_t")
-	set(SIZEOF_SSIZE_T 8)
-elseif(MSVC)
-	set(ssize_t "int32_t")
-	set(SIZEOF_SSIZE_T 4)
+if(NOT HAVE_SIZEOF_SSIZE_T) # Set a default value
+	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+		set(ssize_t "int64_t")
+	else()
+		set(ssize_t "int32_t")
+	endif()
+	set(SIZEOF_SSIZE_T ${CMAKE_SIZEOF_VOID_P})
 endif()
 check_type_size(char SIZEOF_CHAR LANGUAGE C)
 check_type_size(short SIZEOF_SHORT LANGUAGE C)
@@ -625,12 +634,10 @@ else() # GCC, Clang and Apple clang
 	MT_addCompilerFlag("-O3" "-O3" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
 	MT_addCompilerFlag("-Os" "-Os" "${CMAKE_C_FLAGS_MINSIZEREL}" "MinSizeRel" CMAKE_C_FLAGS_MINSIZEREL)
 	# Replace -g flag with -g3
-	if(${CMAKE_C_COMPILER_ID} STREQUAL "GNU")
-		MT_removeCompilerFlag("-g([ ]|$)" "-g" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
-		MT_removeCompilerFlag("-g([ ]|$)" "-g" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
-		MT_addCompilerFlag("-g3" "-g3" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
-		MT_addCompilerFlag("-g3" "-g3" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
-	endif()
+	MT_removeCompilerFlag("-g([ ]|$)" "-g" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
+	MT_removeCompilerFlag("-g([ ]|$)" "-g" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
+	MT_addCompilerFlag("-g3" "-g3" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
+	MT_addCompilerFlag("-g3" "-g3" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
 
 	if(NOT ${CMAKE_C_FLAGS_RELEASE} MATCHES "D_FORTIFY_SOURCE")
 		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
@@ -713,7 +720,7 @@ if(${ENABLE_STRICT} STREQUAL "YES")
 		MT_checkCompilerFlag("${COMPILER_OPTION}${INTEL_OPTION_EXTRA}we140,147,181,266,271,593,810")
 		MT_checkCompilerFlag("${COMPILER_OPTION}${INTEL_OPTION_EXTRA}wd193,279,981,1357,1418,1419,2259")
 	elseif(MSVC)
-		MT_checkCompilerFlag("/WX")
+		MT_addCompilerFlag("/WX" "/WX" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
 	endif()
 endif()
 

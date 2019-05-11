@@ -22,7 +22,7 @@
 #include "gdk_system.h" /* gdk_export */
 
 #ifdef NATIVE_WIN32
-#include <winsock.h>		/* for timeval */
+#include <winsock2.h>
 #include <io.h>
 #include <direct.h>
 #endif

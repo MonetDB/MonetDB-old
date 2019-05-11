@@ -21,8 +21,8 @@
 #include <assert.h>
 
 #ifdef _MSC_VER
-#if _MSC_VER < 1800
-#error old versions of Visual Studio are no longer supported
+#if _MSC_VER < 1900
+#error Versions bellow Visual Studio 2015 are no longer supported
 #endif
 
 /* Prevent pollution through excessive inclusion of include files by Windows.h. */
@@ -404,11 +404,6 @@
 /* Compiling for static code analysis */
 #cmakedefine STATIC_CODE_ANALYSIS
 
-/* Define on Microsoft Windows (also under Cygwin) */
-#ifndef WIN32
-#cmakedefine WIN32
-#endif
-
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */
 #ifndef WORDS_BIGENDIAN
@@ -435,10 +430,9 @@
 #cmakedefine _LARGE_FILES
 #endif
 
-/* If the compiler does not support function attributes via __attribute__,
-   we just define __attribute__(a) to nothing. */
-#ifndef __attribute__
-#cmakedefine __attribute__(a)
+/* Does your compiler support `__attribute__'? */
+#if !defined(__has_attribute) && !defined(__attribute__)
+#define __attribute__(a)
 #endif
 
 /* Disable __GNUC__ on Intel compiler */
@@ -446,17 +440,23 @@
 #undef __GNUC__
 #endif
 
-/* Does your compiler support the `_Noreturn' specifier? (C11 feature) */
+/* Does your compiler support `_Noreturn' keyword? (C11 feature) */
 #ifndef _Noreturn
 #cmakedefine _Noreturn @_Noreturn@
 #endif
 
-/* Does your compiler support the `__restrict' specifier? */
+#ifndef __cplusplus
+/* Does your compiler support `inline' keyword? (C99 feature) */
+#ifndef inline
+#cmakedefine inline @inline@
+#endif
+/* Does your compiler support `restrict' keyword? (C99 feature) */
 #ifndef restrict
 #cmakedefine restrict @restrict@
 #endif
+#endif
 
-/* Define to `int' if <sys/types.h> does not define. */
+/* Does your compiler support `ssize_t' type? (Posix type) */
 #ifndef ssize_t
 #cmakedefine ssize_t @ssize_t@
 #endif

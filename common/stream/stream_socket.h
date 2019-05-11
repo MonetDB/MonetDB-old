@@ -13,7 +13,7 @@
 #define _STREAM_SOCKET_H_
 
 #ifdef NATIVE_WIN32
-# include <winsock.h>
+# include <winsock2.h>
 #else
 #include <sys/socket.h>
 #endif
