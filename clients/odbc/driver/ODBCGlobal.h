@@ -66,7 +66,6 @@
 #include <odbcinst.h>		/* ODBC installer definitions and prototypes */
 
 /* standard C include files */
-#include <string.h>		/* for strcpy() etc. */
 #include <ctype.h>
 
 #ifdef SQLLEN			/* it's a define for 32, a typedef for 64 */

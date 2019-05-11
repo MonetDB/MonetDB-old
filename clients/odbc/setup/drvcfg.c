@@ -21,7 +21,6 @@
 #include "monetdb_config.h"
 
 #include "drvcfg.h"
-#include <string.h>		/* for memset(), memcpy(), strncpy() */
 
 static const char *aHost[] = {
 	"localhost",

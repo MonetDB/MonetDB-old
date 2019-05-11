@@ -35,9 +35,6 @@
 #include <Rinternals.h>
 #include <R_ext/Parse.h>
 
-// other headers
-#include <string.h>
-
 //#define _RAPI_DEBUG_
 
 // this macro blows up mmath.h pragmas

@@ -60,7 +60,6 @@
  */
 #include "monetdb_config.h"
 #include "str.h"
-#include <string.h>
 
 /*
  * UTF-8 Handling

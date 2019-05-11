@@ -10,7 +10,6 @@
 #include <signal.h>
 #include <unistd.h> /* isatty */
 #include <time.h> /* time, localtime */
-#include <string.h> /* str* */
 #include <sys/types.h> /* open */
 #include <sys/wait.h> /* wait */
 #include <sys/stat.h> /* open */

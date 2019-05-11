@@ -81,8 +81,6 @@ getopt_long_only(int argc, char *const *argv, const char *options, const struct 
 
 #ifdef TEST
 
-#include <stdio.h>
-
 int
 main(argc, argv)
 int argc;

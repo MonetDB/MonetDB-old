@@ -19,7 +19,6 @@
 #include "mal_client.h"
 #include "stream.h"
 
-#include <string.h>
 #include <math.h>
 #include <time.h>
 

@@ -15,7 +15,6 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <fcntl.h>
-#include <string.h> /* strerror */
 
 #include "stream.h"
 #include "stream_socket.h"

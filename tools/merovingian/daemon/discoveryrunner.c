@@ -7,7 +7,6 @@
  */
 
 #include "monetdb_config.h"
-#include <string.h> /* str* */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>

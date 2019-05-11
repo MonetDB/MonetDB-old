@@ -30,8 +30,6 @@
 #include "ODBCUtil.h"
 #ifndef NATIVE_WIN32
 #include <strings.h>		/* for strcasecmp */
-#else
-#include <string.h>
 #endif
 
 int

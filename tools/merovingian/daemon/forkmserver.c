@@ -12,7 +12,6 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <unistd.h>
-#include <string.h> /* char ** */
 #include <time.h> /* localtime */
 
 #include "msabaoth.h"

@@ -40,7 +40,6 @@
 #include "tablet.h"
 #include "algebra.h"
 
-#include <string.h>
 #include <ctype.h>
 
 /*#define _DEBUG_TABLET_ */

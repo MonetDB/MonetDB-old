@@ -23,7 +23,6 @@
 #ifndef NATIVE_WIN32
 #include <unistd.h>
 #endif
-#include <string.h>
 
 #define SA 	m->sa
 #define _symbol_create(t,d)         symbol_create( SA, t, d)

@@ -9,8 +9,6 @@
 #include "monetdb_config.h"
 #include "unicode.h"
 
-#include <string.h>
-
 int utf8_strlen(const char *utf8_str, bool *ascii)
 {
 	int utf8_char_count = 0;

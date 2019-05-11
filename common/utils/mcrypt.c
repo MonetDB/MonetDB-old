@@ -8,7 +8,6 @@
 
 #include "monetdb_config.h"
 #include "mcrypt.h"
-#include <string.h>
 
 #ifndef HAVE_EMBEDDED
 /* only provide digest functions if not embedded */

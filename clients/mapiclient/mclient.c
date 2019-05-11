@@ -22,7 +22,6 @@
 # endif
 #endif
 #include "mapi.h"
-#include <string.h>
 #ifdef NATIVE_WIN32
 # include <io.h>
 #else

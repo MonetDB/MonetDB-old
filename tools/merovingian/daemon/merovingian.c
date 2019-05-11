@@ -63,7 +63,6 @@
 #include <netinet/in.h>
 #include <fcntl.h>
 #include <unistd.h> /* unlink, isatty */
-#include <string.h> /* strerror */
 #include <signal.h> /* handle Ctrl-C, etc. */
 #include <time.h>
 

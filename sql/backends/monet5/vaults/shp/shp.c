@@ -13,7 +13,6 @@
  */
 
 #include "monetdb_config.h"
-#include <string.h>
 #include "sql_mvc.h"
 #include "sql.h"
 #define HAVE_CXX11 0		/* stupid include file gdal/cpl_port.h */

@@ -42,7 +42,6 @@
 #endif
 
 #include <signal.h>
-#include <string.h>		/* for strerror */
 #ifndef NATIVE_WIN32
 #include <unistd.h> /* for sysconf symbols */
 #endif

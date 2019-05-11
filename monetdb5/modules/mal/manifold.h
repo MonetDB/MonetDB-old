@@ -12,7 +12,6 @@
  */
 #ifndef _MANIFOLD_LIB_
 #define _MANIFOLD_LIB_
-#include <string.h>
 
 #include "mal.h"
 #include "mal_exception.h"

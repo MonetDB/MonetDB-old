@@ -26,7 +26,6 @@
 #include "control.h"
 #include "msabaoth.h"
 #include "mutils.h"
-#include <string.h> /* strerror */
 #include <sys/stat.h> /* mkdir, stat, umask */
 #include <sys/types.h> /* mkdir, readdir */
 #include <dirent.h> /* readdir */

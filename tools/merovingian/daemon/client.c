@@ -8,7 +8,6 @@
 
 #include "monetdb_config.h"
 
-#include <string.h>  /* strerror, strchr, strcmp */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>

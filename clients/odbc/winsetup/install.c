@@ -9,7 +9,6 @@
 #include "ODBCGlobal.h"
 #include <winver.h>
 #include <shlwapi.h>
-#include <string.h>
 
 #ifdef __MINGW32__
 #define DLL "-0.dll"

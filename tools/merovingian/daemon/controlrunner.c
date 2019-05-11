@@ -15,7 +15,6 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <time.h>
-#include <string.h>  /* strerror */
 #include <unistd.h>  /* select */
 #include <signal.h>
 #include <fcntl.h>

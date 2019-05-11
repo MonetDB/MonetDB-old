@@ -9,7 +9,6 @@
 #include "monetdb_config.h"
 #include "control.h"
 #include <unistd.h> /* close */
-#include <string.h> /* strerror */
 #include <sys/socket.h> /* socket */
 #include <sys/un.h> /* sockaddr_un */
 #include <netdb.h>

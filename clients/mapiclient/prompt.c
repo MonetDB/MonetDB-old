@@ -7,7 +7,6 @@
  */
 
 #include "monetdb_config.h"
-#include <string.h>
 #ifndef NATIVE_WIN32
 #include <termios.h>
 #include <unistd.h>

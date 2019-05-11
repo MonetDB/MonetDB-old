@@ -9,7 +9,6 @@
 #include "monetdb_config.h"
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <string.h>
 #include <fcntl.h>
 #ifdef NATIVE_WIN32
 #include <io.h>

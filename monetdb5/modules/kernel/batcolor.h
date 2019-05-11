@@ -10,7 +10,6 @@
 #define _BATCOLOR_H_
 
 #include "gdk.h"
-#include <string.h>
 #include "mal.h"
 #include "color.h"
 #include "mal_exception.h"

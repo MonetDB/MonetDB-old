@@ -739,7 +739,6 @@ list_hash_add(list *l, void *data, fcmp cmp)
 }
 
 #ifdef TEST
-#include <string.h>
 
 void
 print_data(void *dummy, void *data)

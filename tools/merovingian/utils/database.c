@@ -14,7 +14,6 @@
 #include <dirent.h> /* readdir */
 #include <sys/stat.h> /* mkdir, stat, umask */
 #include <sys/types.h> /* mkdir, readdir */
-#include <string.h>
 #include <ctype.h>
 #include "utils.h"
 #include "mutils.h"

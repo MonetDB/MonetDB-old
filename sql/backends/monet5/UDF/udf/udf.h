@@ -10,8 +10,8 @@
 
 #ifndef _SQL_UDF_H_
 #define _SQL_UDF_H_
+
 #include "sql.h"
-#include <string.h>
 
 /* This is required as-is (except from renaming "UDF" & "udf" as suggested
  * above) for all modules for correctly exporting function on Unix-like and

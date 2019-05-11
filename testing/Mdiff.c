@@ -12,7 +12,6 @@
 #ifdef NATIVE_WIN32
 # include <io.h>
 #endif
-#include <string.h>
 
 #ifdef HAVE_GETOPT
 #ifdef HAVE_GETOPT_H

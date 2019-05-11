@@ -21,9 +21,7 @@
 #ifndef NATIVE_WIN32
 #include <unistd.h>
 #endif
-#include <string.h>
 #include <ctype.h>
-
 
 sql_rel *
 rel_parse(mvc *m, sql_schema *s, char *query, char emode)

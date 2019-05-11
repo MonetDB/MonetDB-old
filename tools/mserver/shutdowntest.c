@@ -7,7 +7,6 @@
  */
 
 #include "monetdb_config.h"
-#include <string.h> /* strerror */
 #include <locale.h>
 #include "monet_options.h"
 #include "mal.h"

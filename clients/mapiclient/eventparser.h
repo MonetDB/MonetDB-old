@@ -22,7 +22,6 @@
 #include "monetdb_config.h"
 #include "mapi.h"
 #include "stream.h"
-#include <string.h>
 #include <sys/stat.h>
 #include <signal.h>
 #ifndef NATIVE_WIN32

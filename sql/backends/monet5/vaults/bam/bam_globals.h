@@ -15,7 +15,6 @@
 #ifndef _BAM_GLOBALS_H
 #define _BAM_GLOBALS_H
 
-#include <string.h>
 #include "gdk.h"
 #include "stream.h"
 

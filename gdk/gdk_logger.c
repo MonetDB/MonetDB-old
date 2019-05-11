@@ -57,7 +57,6 @@
 #include "gdk.h"
 #include "gdk_private.h"
 #include "gdk_logger.h"
-#include <string.h>
 
 /*
  * The log record encoding is geared at reduced storage space, but at

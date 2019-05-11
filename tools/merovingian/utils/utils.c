@@ -18,7 +18,6 @@
 #include "monetdb_config.h"
 #include "utils.h"
 #include <unistd.h> /* unlink */
-#include <string.h> /* memcpy */
 #include <strings.h> /* strcasecmp */
 #include <sys/types.h>
 #include <sys/stat.h>

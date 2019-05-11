@@ -16,7 +16,6 @@
 #include "stream.h"
 #include "stream_socket.h"
 #include "mapi.h"
-#include <string.h>
 #include <sys/stat.h>
 #include <signal.h>
 #ifdef NATIVE_WIN32

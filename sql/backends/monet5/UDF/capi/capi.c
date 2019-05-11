@@ -17,9 +17,8 @@
 #include <signal.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <string.h>
 
-#if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic ignored "-Wclobbered"
 #endif
 

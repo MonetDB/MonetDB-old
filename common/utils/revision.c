@@ -7,7 +7,6 @@
  */
 
 #include "monetdb_config.h"
-#include <string.h>
 #include "mutils.h"
 
 static const char revision[] =

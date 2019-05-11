@@ -25,7 +25,6 @@
 #include "monetdb_config.h"
 #include "gdk.h"
 #include <ctype.h>
-#include <string.h>
 #ifdef HAVE_LIBXML
 #include <libxml/parser.h>
 #endif

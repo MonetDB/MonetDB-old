@@ -23,7 +23,6 @@
 #ifdef HAVE_HGE
 #include "mal.h"		/* for have_hge */
 #endif
-#include <string.h>
 
 #define END_SUBAGGR	1
 #define END_AGGR	2

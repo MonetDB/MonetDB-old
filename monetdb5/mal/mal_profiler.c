@@ -27,8 +27,6 @@
 #include <sys/time.h>
 #endif
 
-#include <string.h>
-
 static void cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 stream *eventstream = 0;

@@ -28,8 +28,6 @@
 #include <dirent.h> /* readdir, DIR */
 #endif
 #include <time.h>
-#include <string.h> /* for getting error messages */
-#include <stddef.h>
 #include <ctype.h>
 
 #include "msabaoth.h"

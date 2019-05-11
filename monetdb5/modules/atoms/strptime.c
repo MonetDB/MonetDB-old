@@ -42,7 +42,6 @@
 
 #include <time.h>
 #include <ctype.h>
-#include <string.h>
 
 #ifndef HAVE_STRPTIME
 

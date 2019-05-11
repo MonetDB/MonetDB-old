@@ -10,9 +10,7 @@
 #define _MAPI_H_INCLUDED 1
 
 #include "monetdb_config.h"
-#include <stdio.h>		/* for FILE * */
 #include <stdint.h>		/* for int64_t */
-#include <stdbool.h>		/* for bool */
 
 #define MAPI_AUTO	0	/* automatic type detection */
 #define MAPI_TINY	1

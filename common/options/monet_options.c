@@ -27,7 +27,6 @@
 #  include "getopt.h"
 # endif
 #endif
-#include <string.h>
 #include <ctype.h>
 
 #ifndef HAVE_GETOPT_LONG

@@ -12,7 +12,6 @@
 #ifndef NATIVE_WIN32
 #include <unistd.h>
 #endif
-#include <string.h>
 #include <ctype.h>
 #include "msqldump.h"
 

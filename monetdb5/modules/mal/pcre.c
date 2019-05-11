@@ -19,7 +19,6 @@
  * ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre
  */
 #include "monetdb_config.h"
-#include <string.h>
 
 #include "mal.h"
 #include "mal_exception.h"

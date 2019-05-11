@@ -9,7 +9,6 @@
 #include "monetdb_config.h"
 #include "helpers.h"
 #include <ctype.h>
-#include <string.h>
 
 void
 ErrXit(char *text1, char *text2, int num)

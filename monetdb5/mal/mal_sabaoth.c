@@ -27,7 +27,6 @@
 #include <unistd.h> 	/* unlink and friends */
 #include <dirent.h> /* readdir, DIR */
 #endif
-#include <string.h> /* for getting error messages */
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 #define close _close

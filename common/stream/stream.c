@@ -54,7 +54,6 @@
 #include "stream_socket.h"
 #include "matomic.h"
 
-#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>

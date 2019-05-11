@@ -17,8 +17,6 @@
 #ifdef HAVE_FORK
 #include "gdk.h"
 
-#include <stddef.h>
-
 //! Obtain a set of unique identifiers that can be used to create memory mapped files or semaphores
 gdk_export size_t GDKuniqueid(size_t offset);
 

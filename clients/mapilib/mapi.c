@@ -703,7 +703,6 @@
 #endif
 
 #include <signal.h>
-#include <string.h>
 #include <time.h>
 #ifdef HAVE_FTIME
 # include <sys/timeb.h>		/* ftime */
