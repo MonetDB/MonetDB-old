@@ -431,8 +431,13 @@
 #cmakedefine _LARGE_FILES
 #endif
 
-/* Does your compiler support `__attribute__'? */
-#if !defined(__has_attribute) && !defined(__attribute__)
+/* Does your compiler support `__has_attribute' macro? */
+#ifndef __has_attribute
+#define __has_attribute(a) 0
+#endif
+
+/* Does your compiler support `__attribute__' extension? */
+#if !defined(__GNUC__) && !defined(__clang__) && !defined(__attribute__)
 #define __attribute__(a)
 #endif
 

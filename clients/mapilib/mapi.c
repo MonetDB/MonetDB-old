@@ -702,7 +702,6 @@
 # include <sys/uio.h>
 #endif
 
-#include <signal.h>
 #include <time.h>
 #ifdef HAVE_FTIME
 # include <sys/timeb.h>		/* ftime */

@@ -9,8 +9,6 @@
 #ifndef _HANDLERS_H
 #define _HANDLERS_H 1
 
-#include <signal.h>
-
 void handler(int sig);
 void huphandler(int sig);
 void childhandler(void);

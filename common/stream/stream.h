@@ -26,7 +26,6 @@
 # include <unistd.h>
 #endif
 #include <ctype.h>
-#include <signal.h>
 #include <limits.h>
 
 /* avoid using "#ifdef WIN32" so that this file does not need our config.h */
