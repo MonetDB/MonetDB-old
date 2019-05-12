@@ -43,14 +43,14 @@ typedef struct backend {
 
 	int 	mvc_var; 	/* current variable holding the latest query context (used to create dependencies in mal statements) */
 	int 	cur_append; 	/* The cur_append variable on an insert/update/delete on a partitioned table, tracks the current MAL variable holding
- 				 * the total number of rows affected. The first_statement_generated looks if the first of the sub-statements was generated or not */
+ 				 * the total number of rows affected. */
 	int	vtop;		/* top of the variable stack before the current function */
 	int 	join_idx;	/* number of index joins (used in rel_bin) */
 	lng 	reloptimizer;	/* timer for optimizer phase */
 
 	bool sizeheader:1,	/* print size header in result set */
 	     	no_mitosis:1,	/* run query without mitosis */
-	     	first_statement_generated:1,
+	     	first_statement_generated:1, /* The first_statement_generated looks if the first of the sub-statements was generated or not */
 		console:1;
 	cq 	*q;		/* pointer to the cached query */
 
