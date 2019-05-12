@@ -19,6 +19,8 @@
 #include "msabaoth.h"
 #include "mutils.h"
 
+#include <signal.h>
+
 #ifndef HAVE_GETOPT_LONG
 #  include "monet_getopt.h"
 #else
