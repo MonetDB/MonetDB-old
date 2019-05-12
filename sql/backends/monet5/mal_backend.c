@@ -16,7 +16,7 @@ backend_reset(backend *b)
 	b->out = b->client->fdout;
 	b->language = 0;
 	b->depth = 0;
-
+	b->remote = 0;
 	b->vtop = 0;
 	b->q = NULL;
 	b->mb = NULL;
@@ -24,6 +24,11 @@ backend_reset(backend *b)
 	b->cur_append = 0;
 	b->first_statement_generated = false;
 	b->output_format = OFMT_CSV;
+	b->result_id = 0;
+	b->results = NULL;
+	b->rowcnt = b->last_id = -1;
+	b->sizeheader = false;
+	b->reloptimizer = 0;
 	return b;
 }
 
@@ -39,7 +44,6 @@ backend_create(mvc *m, Client c)
 	b->client = c;
 	b->mvc_var = 0;
 	b->cur_append = 0;
-	b->first_statement_generated = false;
 	b->output_format = OFMT_CSV;
 	return backend_reset(b);
 }

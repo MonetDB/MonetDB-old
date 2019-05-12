@@ -1764,7 +1764,7 @@ store_load(void) {
 	lng lng_store_oid;
 	sqlid id = 0;
 
-	sa = sa_create();
+	sa = sa_create(NULL /*TODO*/);
 	if(!sa)
 		return -1;
 
@@ -3087,7 +3087,7 @@ trans_dup(backend_stack stk, sql_trans *ot, const char *newname)
 	if(!t)
 		return NULL;
 
-	t->sa = sa_create();
+	t->sa = sa_create(NULL /*TODO*/);
 	if(!t->sa) {
 		_DELETE(t);
 		return NULL;

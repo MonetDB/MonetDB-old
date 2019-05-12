@@ -86,7 +86,8 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 		return -1;
 	}
 
-	m->sa = sa_create();
+	m->eb = eb_create();
+	m->sa = sa_create(m->eb);
 	if (!m->sa) {
 		mvc_destroy(m);
 		fprintf(stderr, "!mvc_init: malloc failure\n");
@@ -95,8 +96,6 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 
 	/* disable caching */
 	m->caching = 0;
-	/* disable size header */
-	m->sizeheader = false;
 
 	if (first || catalog_version) {
 		if(mvc_trans(m) < 0) {
@@ -626,7 +625,6 @@ mvc_release(mvc *m, const char *name)
 mvc *
 mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 {
-	int i;
 	mvc *m;
 
  	m = ZNEW(mvc);
@@ -645,6 +643,7 @@ mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 		_DELETE(m);
 		return NULL;
 	}
+	m->eb = eb_create();
 	m->sa = NULL;
 
 	m->params = NULL;
@@ -666,8 +665,7 @@ mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 	m->argc = 0;
 	m->sym = NULL;
 
-	m->Topt = 0;
-	m->rowcnt = m->last_id = m->role_id = m->user_id = -1;
+	m->role_id = m->user_id = -1;
 	m->timezone = 0;
 	m->clientid = clientid;
 
@@ -679,10 +677,7 @@ mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 	m->caching = m->cache;
 
 	m->label = 0;
-	m->remote = 0;
 	m->cascade_action = NULL;
-	for(i=0;i<MAXSTATS;i++)
-		m->opt_stats[i] = 0;
 
 	store_lock();
 	m->session = sql_session_create(stk, 1 /*autocommit on*/);
@@ -698,9 +693,6 @@ mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 	m->type = Q_PARSE;
 	m->pushdown = 1;
 
-	m->result_id = 0;
-	m->results = NULL;
-
 	scanner_init(&m->scanner, rs, ws);
 	return m;
 }
@@ -708,7 +700,7 @@ mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 int
 mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars)
 {
-	int i, res = 1;
+	int res = 1;
 	sql_trans *tr;
 
 	if (mvc_debug)
@@ -727,7 +719,7 @@ mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars)
 	if (m->sa)
 		m->sa = sa_reset(m->sa);
 	else
-		m->sa = sa_create();
+		m->sa = sa_create(m->eb);
 	if(!m->sa)
 		res = 0;
 
@@ -740,8 +732,7 @@ mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars)
 	m->argc = 0;
 	m->sym = NULL;
 
-	m->Topt = 0;
-	m->rowcnt = m->last_id = m->role_id = m->user_id = -1;
+	m->role_id = m->user_id = -1;
 	m->emode = m_normal;
 	m->emod = mod_none;
 	if (m->reply_size != 100)
@@ -759,16 +750,9 @@ mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars)
 	m->caching = m->cache;
 
 	m->label = 0;
-	m->remote = 0;
 	m->cascade_action = NULL;
 	m->type = Q_PARSE;
 	m->pushdown = 1;
-
-	for(i=0;i<MAXSTATS;i++)
-		m->opt_stats[i] = 0;
-
-	m->result_id = 0;
-	m->results = NULL;
 
 	scanner_init(&m->scanner, rs, ws);
 	return res;
@@ -802,6 +786,7 @@ mvc_destroy(mvc *m)
 	if (m->sa)
 		sa_destroy(m->sa);
 	m->sa = NULL;
+	eb_destroy(m->eb);
 	if (m->qc)
 		qc_destroy(m->qc);
 	m->qc = NULL;
@@ -1315,7 +1300,7 @@ mvc_drop_table(mvc *m, sql_schema *s, sql_table *t, int drop_action)
 		str AUTHres;
 		sql_allocator *sa = m->sa;
 
-		m->sa = sa_create();
+		m->sa = sa_create(m->eb);
 		if (!m->sa)
 			throw(SQL, "sql.mvc_drop_table", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		char *qualified_name = sa_strconcat(m->sa, sa_strconcat(m->sa, t->s->base.name, "."), t->base.name);

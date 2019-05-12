@@ -24,6 +24,7 @@
 #include "sql_atom.h"
 #include "sql_tokens.h"
 #include "sql_symbol.h"
+#include "exception_buffer.h"
 
 #define ERRSIZE 8192
 
@@ -77,11 +78,10 @@ typedef struct sql_var {
 	char visited; //used for window definitions lookup
 } sql_var;
 
-#define MAXSTATS 8
-
 typedef struct mvc {
 	char errstr[ERRSIZE];
 
+	exception_buffer *eb;
 	sql_allocator *sa;
 	struct qc *qc;
 	int clientid;		/* id of the owner */
@@ -100,37 +100,28 @@ typedef struct mvc {
 	int argc;
 	int argmax;
 	struct symbol *sym;
-	int no_mitosis;		/* run query without mitosis */
 
+	/* session variables */
 	sqlid user_id;
 	sqlid role_id;
-	lng last_id;
-	lng rowcnt;
-
-	/* current session variables */
 	int timezone;		/* milliseconds west of UTC */
 	int cache;		/* some queries should not be cached ! */
 	int caching;		/* cache current query ? */
 	int reply_size;		/* reply size */
-	bool sizeheader;	/* print size header in result set */
 	int debug;
 
-	lng Topt;		/* timer for optimizer phase */
 	char emode;		/* execution mode */
 	char emod;		/* execution modifier */
 
 	sql_session *session;	
 
+	/* per query context */
 	int type;		/* query type */
+
+	/* during query needed flags */
 	int pushdown;		/* AND or OR query handling */
 	int label;		/* numbers for relational projection labels */
-	int remote;
 	list *cascade_action;  /* protection against recursive cascade actions */
-
-	int opt_stats[MAXSTATS];/* keep statistics about optimizer rewrites */
-
-	int result_id;
-	res_table *results;
 } mvc;
 
 extern int mvc_init(int debug, store_type store, int ro, int su, backend_stack stk);

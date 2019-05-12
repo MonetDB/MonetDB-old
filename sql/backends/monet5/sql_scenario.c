@@ -244,7 +244,7 @@ SQLepilogue(void *ret)
 }
 
 #define SQLglobal(name, val, failure)                                                                             \
-	if(!stack_push_var(sql, name, &ctype) || !stack_set_var(sql, name, VALset(&src, ctype.type->localtype, (char*)(val)))) \
+	if(!stack_push_var(be->mvc, name, &ctype) || !stack_set_var(be->mvc, name, VALset(&src, ctype.type->localtype, (char*)(val)))) \
 		failure--;
 
 #define NR_GLOBAL_VARS 9
@@ -252,7 +252,7 @@ SQLepilogue(void *ret)
    in global_variables */
 /* initialize the global variable, ie make mvc point to these */
 static int
-global_variables(mvc *sql, const char *user, const char *schema)
+global_variables(backend *be, const char *user, const char *schema)
 {
 	sql_subtype ctype;
 	const char *typename;
@@ -263,8 +263,8 @@ global_variables(mvc *sql, const char *user, const char *schema)
 
 	typename = "int";
 	sql_find_subtype(&ctype, typename, 0, 0);
-	SQLglobal("debug", &sql->debug, failure);
-	SQLglobal("cache", &sql->cache, failure);
+	SQLglobal("debug", &be->mvc->debug, failure);
+	SQLglobal("cache", &be->mvc->cache, failure);
 
 	typename = "varchar";
 	sql_find_subtype(&ctype, typename, 1024, 0);
@@ -284,8 +284,8 @@ global_variables(mvc *sql, const char *user, const char *schema)
 
 	typename = "bigint";
 	sql_find_subtype(&ctype, typename, 0, 0);
-	SQLglobal("last_id", &sql->last_id, failure);
-	SQLglobal("rowcnt", &sql->rowcnt, failure);
+	SQLglobal("last_id", &be->last_id, failure);
+	SQLglobal("rowcnt", &be->rowcnt, failure);
 	return failure;
 }
 
@@ -301,17 +301,18 @@ SQLprepareClient(Client c, int login)
 		if( m == NULL) {
 			throw(SQL,"sql.initClient",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
-		if(global_variables(m, "monetdb", "sys") < 0) {
-			mvc_destroy(m);
-			throw(SQL,"sql.initClient",SQLSTATE(HY001) MAL_MALLOC_FAIL);
-		}
-		if (isAdministrator(c) || strcmp(c->scenario, "msql") == 0)	/* console should return everything */
-			m->reply_size = -1;
 		be = (void *) backend_create(m, c);
 		if( be == NULL) {
 			mvc_destroy(m);
 			throw(SQL,"sql.initClient", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
+		if(global_variables(be, "monetdb", "sys") < 0) {
+			mvc_destroy(m);
+			backend_destroy(be);
+			throw(SQL,"sql.initClient",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		}
+		if (isAdministrator(c) || strcmp(c->scenario, "msql") == 0)	/* console should return everything */
+			m->reply_size = -1;
 	} else {
 		be = c->sqlcontext;
 		m = be->mvc;
@@ -362,8 +363,8 @@ SQLresetClient(Client c)
 		if (m->session->active)
 			other = mvc_rollback(m, 0, NULL, false);
 
-		res_tables_destroy(m->results);
-		m->results = NULL;
+		res_tables_destroy(be->results);
+		be->results = NULL;
 
 		mvc_destroy(m);
 		backend_destroy(be);
@@ -574,7 +575,7 @@ SQLinit(Client c)
 #endif
 	} else {		/* handle upgrades */
 		if (!m->sa)
-			m->sa = sa_create();
+			m->sa = sa_create(m->eb);
 		if (!m->sa) {
 			msg = createException(MAL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		} else if (maybeupgrade) {
@@ -589,7 +590,7 @@ SQLinit(Client c)
 	if (msg) {
 		msg = handle_error(m, 0, msg);
 		*m->errstr = 0;
-		sqlcleanup(m, mvc_status(m));
+		sqlcleanup(be, mvc_status(m));
 	}
 
 	msg = SQLresetClient(c);
@@ -1073,10 +1074,13 @@ SQLparser(Client c)
 	/* sqlparse needs sql allocator to be available.  It can be NULL at
 	 * this point if this is a recursive call. */
 	if (!m->sa) 
-		m->sa = sa_create();
+		m->sa = sa_create(m->eb);
 	if (!m->sa) {
 		c->mode = FINISHCLIENT;
 		throw(SQL, "SQLparser", SQLSTATE(HY001) MAL_MALLOC_FAIL " for SQL allocator");
+	}
+	if (eb_savepoint(m->eb)) {
+		printf("Exception: we should cleanup\n");
 	}
 
 	m->emode = m_normal;
@@ -1097,9 +1101,9 @@ SQLparser(Client c)
 			res_table *t;
 
 			v = (int) strtol(in->buf + in->pos + 6, NULL, 0);
-			t = res_tables_find(m->results, v);
+			t = res_tables_find(be->results, v);
 			if (t)
-				m->results = res_tables_remove(m->results, t);
+				be->results = res_tables_remove(be->results, t);
 			in->pos = in->len;	/* HACK: should use parsed length */
 			return MAL_SUCCEED;
 		}
@@ -1142,7 +1146,7 @@ SQLparser(Client c)
 		}
 		if (strncmp(in->buf + in->pos, "sizeheader", 10) == 0) {
 			v = (int) strtol(in->buf + in->pos + 10, NULL, 10);
-			m->sizeheader = v != 0;
+			be->sizeheader = v != 0;
 			in->pos = in->len;	/* HACK: should use parsed length */
 			return MAL_SUCCEED;
 		}
@@ -1172,7 +1176,7 @@ SQLparser(Client c)
 		}
 		if (m->sym)
 			msg = handle_error(m, pstatus, msg);
-		sqlcleanup(m, err);
+		sqlcleanup(be, err);
 		goto finalize;
 	}
 	assert(m->session->schema != NULL);
@@ -1197,25 +1201,25 @@ SQLparser(Client c)
 			msg = createException(SQL, "EXEC", SQLSTATE(07003) "No prepared statement with id: %d\n", m->sym->data.lval->h->data.i_val);
 			*m->errstr = 0;
 			msg = handle_error(m, pstatus, msg);
-			sqlcleanup(m, err);
+			sqlcleanup(be, err);
 			goto finalize;
 		} else if (be->q->type != Q_PREPARE) {
 			err = -1;
 			msg = createException(SQL, "EXEC", SQLSTATE(07005) "Given handle id is not for a " "prepared statement: %d\n", m->sym->data.lval->h->data.i_val);
 			*m->errstr = 0;
 			msg = handle_error(m, pstatus, msg);
-			sqlcleanup(m, err);
+			sqlcleanup(be, err);
 			goto finalize;
 		}
 		scanner_query_processed(&(m->scanner));
 	} else if (caching(m) && cachable(m, NULL) && m->emode != m_prepare && (be->q = qc_match(m->qc, m, m->sym, m->args, m->argc, m->scanner.key ^ m->session->schema->base.id)) != NULL) {
 		/* query template was found in the query cache */
 		scanner_query_processed(&(m->scanner));
-		m->no_mitosis = be->q->no_mitosis;
+		be->no_mitosis = be->q->no_mitosis;
 	} else {
 		sql_rel *r;
 
-		r = sql_symbol2relation(m, m->sym);
+		r = sql_symbol2relation(be, m->sym);
 
 		if (!r || (err = mvc_status(m) && m->type != Q_TRANS && *m->errstr)) {
 			if (strlen(m->errstr) > 6 && m->errstr[5] == '!')
@@ -1224,7 +1228,7 @@ SQLparser(Client c)
 				msg = createException(PARSE, "SQLparser", SQLSTATE(42000) "%s", m->errstr);
 			*m->errstr = 0;
 			msg = handle_error(m, pstatus, msg);
-			sqlcleanup(m, err);
+			sqlcleanup(be, err);
 			goto finalize;
 		}
 
@@ -1258,7 +1262,7 @@ SQLparser(Client c)
 						  m->argc, m->scanner.key ^ m->session->schema->base.id,	/* the statement hash key */
 						  m->emode == m_prepare ? Q_PREPARE : m->type,	/* the type of the statement */
 						  escaped_q,
-						  m->no_mitosis);
+						  be->no_mitosis);
 			}
 			if(!be->q) {
 				err = 1;
@@ -1305,7 +1309,7 @@ SQLparser(Client c)
 			msg = SQLoptimizeQuery(c, c->curprg->def);
 
 			if (msg != MAL_SUCCEED) {
-				sqlcleanup(m, err);
+				sqlcleanup(be, err);
 				goto finalize;
 			}
 		}
@@ -1333,7 +1337,7 @@ SQLparser(Client c)
 	}
 finalize:
 	if (msg) {
-		sqlcleanup(m, 0);
+		sqlcleanup(be, 0);
 		q = c->query;
 		c->query = NULL;
 		GDKfree(q);

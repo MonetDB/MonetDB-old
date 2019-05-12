@@ -9153,8 +9153,6 @@ optimize(mvc *sql, sql_rel *rel, int value_based_opt)
 sql_rel *
 rel_optimizer(mvc *sql, sql_rel *rel, int value_based_opt)
 {
-	lng Tbegin = GDKusec();
 	rel = optimize(sql, rel, value_based_opt);
-	sql->Topt += GDKusec() - Tbegin;
 	return rel;
 }

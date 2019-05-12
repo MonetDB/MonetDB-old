@@ -869,7 +869,7 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 
 		/* mark use of join indices */
 		if (right && find_prop(e->p, PROP_JOINIDX) != NULL) 
-			sql->opt_stats[0]++; 
+			be->join_idx++; 
 
 		if (!l) {
 			l = exp_bin(be, e->l, left, NULL, grp, ext, cnt, sel);
@@ -1671,7 +1671,7 @@ rel2bin_table(backend *be, sql_rel *rel, list *refs)
 		char name[16], *nme;
 		sql_rel *fr;
 
-		nme = number2name(name, 16, ++sql->remote);
+		nme = number2name(name, 16, ++be->remote);
 
 		l = rel2bin_args(be, rel->l, sa_list(sql->sa));
 		if(!l)
@@ -1925,7 +1925,7 @@ rel2bin_join(backend *be, sql_rel *rel, list *refs)
 
 		/* generate a relational join */
 		for( en = rel->exps->h; en; en = en->next ) {
-			int join_idx = sql->opt_stats[0];
+			int join_idx = be->join_idx;
 			sql_exp *e = en->data;
 			stmt *s = NULL;
 			prop *p;
@@ -1963,7 +1963,7 @@ rel2bin_join(backend *be, sql_rel *rel, list *refs)
 				assert(0);
 				return NULL;
 			}
-			if (join_idx != sql->opt_stats[0])
+			if (join_idx != be->join_idx)
 				idx = 1;
 
 			if (s->type != st_join && 
@@ -2273,7 +2273,7 @@ rel2bin_semijoin(backend *be, sql_rel *rel, list *refs)
 		list *rje = sa_list(sql->sa);
 
 		for( en = rel->exps->h; en; en = en->next ) {
-			int join_idx = sql->opt_stats[0];
+			int join_idx = be->join_idx;
 			sql_exp *e = en->data;
 			stmt *s = NULL;
 
@@ -2290,7 +2290,7 @@ rel2bin_semijoin(backend *be, sql_rel *rel, list *refs)
 				assert(0);
 				return NULL;
 			}
-			if (join_idx != sql->opt_stats[0])
+			if (join_idx != be->join_idx)
 				idx = 1;
 			/* stop on first non equality join */
 			if (!join) {
@@ -3270,7 +3270,7 @@ sql_parse(backend *be, sql_allocator *sa, const char *query, char mode)
 	m->errstr[ERRSIZE-1] = '\0';
 
 	/* create private allocator */
-	m->sa = (sa)?sa:sa_create();
+	m->sa = (sa)?sa:sa_create(m->eb);
 	if (!m->sa) {
 		bstream_destroy(bst);
 		*m = *o;
@@ -5643,6 +5643,7 @@ output_rel_bin(backend *be, sql_rel *rel )
 	int sqltype = sql->type;
 	stmt *s;
 
+	be->join_idx = 0;
 	if (refs == NULL)
 		return NULL;
 	s = subrel_bin(be, rel, refs);

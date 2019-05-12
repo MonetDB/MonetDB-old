@@ -10,6 +10,7 @@
 #define _SQL_MEM_H_
 
 #include "gdk.h"
+#include "exception_buffer.h"
 
 #define SQL_OK 	1
 #define SQL_ERR 0
@@ -58,9 +59,10 @@ typedef struct sql_allocator {
 	char **blks;
 	size_t used; 	/* memory used in last block */
 	size_t usedmem;	/* used memory */
+	exception_buffer *eb;
 } sql_allocator;
 
-extern sql_allocator *sa_create(void);
+extern sql_allocator *sa_create(exception_buffer *eb);
 extern sql_allocator *sa_reset( sql_allocator *sa );
 extern void *sa_alloc( sql_allocator *sa,  size_t sz );
 extern void *sa_zalloc( sql_allocator *sa,  size_t sz );
