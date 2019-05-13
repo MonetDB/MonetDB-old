@@ -1218,87 +1218,13 @@ sql_Nop_(backend *be, const char *fname, stmt *a1, stmt *a2, stmt *a3, stmt *a4)
 }
 
 static stmt *
-rel_parse_value(backend *be, char *query, char emode)
+parse_value(backend *be, char *query, sql_subtype *tpe, char emode)
 {
-	mvc *m = be->mvc;
-	mvc o = *m;
-	stmt *s = NULL;
-	buffer *b;
-	char *n;
-	int len = _strlen(query);
-	exp_kind ek = {type_value, card_value, FALSE};
-	stream *sr;
-	bstream *bs;
-
-	m->qc = NULL;
-
-	m->caching = 0;
-	m->emode = emode;
-	b = (buffer*)GDKmalloc(sizeof(buffer));
-	n = GDKmalloc(len + 1 + 1);
-	if (b == NULL || n == NULL) {
-		GDKfree(b);
-		GDKfree(n);
-		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	}
-	snprintf(n, len + 2, "%s\n", query);
-	query = n;
-	len++;
-	buffer_init(b, query, len);
-	sr = buffer_rastream(b, "sqlstatement");
-	if (sr == NULL) {
-		buffer_destroy(b);
-		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	}
-	bs = bstream_create(sr, b->len);
-	if(bs == NULL) {
-		buffer_destroy(b);
-		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	}
-	scanner_init(&m->scanner, bs, NULL);
-	m->scanner.mode = LINE_1; 
-	bstream_next(m->scanner.rs);
-
-	m->params = NULL;
-	/*m->args = NULL;*/
-	m->argc = 0;
-	m->sym = NULL;
-	m->errstr[0] = '\0';
-
-	(void) sqlparse(m);	/* blindly ignore errors */
-	
-	/* get out the single value as we don't want an enclosing projection! */
-	if (m->sym->token == SQL_SELECT) {
-		SelectNode *sn = (SelectNode *)m->sym;
-		if (sn->selection->h->data.sym->token == SQL_COLUMN || sn->selection->h->data.sym->token == SQL_IDENT) {
-			int is_last = 0;
-			sql_rel *rel = NULL;
-			sql_query *query = query_create(m);
-			sql_exp *e = rel_value_exp2(query, &rel, sn->selection->h->data.sym->data.lval->h->data.sym, sql_sel, ek, &is_last);
-
-			if (!rel)
-				s = exp_bin(be, e, NULL, NULL, NULL, NULL, NULL, NULL); 
-		}
-	}
-	GDKfree(query);
-	GDKfree(b);
-	bstream_destroy(m->scanner.rs);
-
-	m->sym = NULL;
-	if (m->session->status || m->errstr[0]) {
-		int status = m->session->status;
-		char errstr[ERRSIZE];
-
-		strcpy(errstr, m->errstr);
-		*m = o;
-		m->session->status = status;
-		strcpy(m->errstr, errstr);
-	} else {
-		*m = o;
-	}
-	return s;
+	sql_exp *e = rel_parse_val(be->mvc, query, tpe, emode, NULL);
+	if (e) 
+		return exp_bin(be, e, NULL, NULL, NULL, NULL, NULL, NULL); 
+	return sql_error(be->mvc, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 }
-
 
 static stmt *
 stmt_rename(backend *be, sql_rel *rel, sql_exp *exp, stmt *s )
@@ -3199,123 +3125,15 @@ rel2bin_sample(backend *be, sql_rel *rel, list *refs)
 	return sub;
 }
 
-stmt *
+static stmt *
 sql_parse(backend *be, sql_allocator *sa, const char *query, char mode)
 {
-	mvc *m = be->mvc;
-	mvc *o = NULL;
+	(void)sa;
+	sql_rel *r = rel_parse(be->mvc, be->mvc->session->schema, (char*)query, mode);
 	stmt *sq = NULL;
-	buffer *b;
-	char *nquery;
-	int len = _strlen(query);
-	stream *buf;
-	bstream * bst;
 
- 	if (THRhighwater())
-		return sql_error(m, 10, SQLSTATE(42000) "SELECT: too many nested operators");
-
-	o = MNEW(mvc);
-	if (!o)
-		return NULL;
-	*o = *m;
-
-	m->qc = NULL;
-
-	m->caching = 0;
-	m->emode = mode;
-	be->depth++;
-
-	b = (buffer*)GDKmalloc(sizeof(buffer));
-	if (b == 0) {
-		*m = *o;
-		GDKfree(o);
-		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	}
-	nquery = GDKmalloc(len + 1 + 1);
-	if (nquery == 0) {
-		*m = *o;
-		GDKfree(o);
-		GDKfree(b);
-		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	}
-	snprintf(nquery, len + 2, "%s\n", query);
-	len++;
-	buffer_init(b, nquery, len);
-	buf = buffer_rastream(b, "sqlstatement");
-	if(buf == NULL) {
-		*m = *o;
-		GDKfree(o);
-		GDKfree(b);
-		GDKfree(nquery);
-		be->depth--;
-		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	}
-	if((bst = bstream_create(buf, b->len)) == NULL) {
-		close_stream(buf);
-		*m = *o;
-		GDKfree(o);
-		GDKfree(b);
-		GDKfree(nquery);
-		be->depth--;
-		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	}
-	scanner_init( &m->scanner, bst, NULL);
-	m->scanner.mode = LINE_1; 
-	bstream_next(m->scanner.rs);
-
-	m->params = NULL;
-	m->argc = 0;
-	m->sym = NULL;
-	m->errstr[0] = '\0';
-	m->errstr[ERRSIZE-1] = '\0';
-
-	/* create private allocator */
-	m->sa = (sa)?sa:sa_create(m->eb);
-	if (!m->sa) {
-		bstream_destroy(bst);
-		*m = *o;
-		GDKfree(o);
-		GDKfree(b);
-		GDKfree(nquery);
-		be->depth--;
-		return sql_error(m, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	}
-
-	if (sqlparse(m) || !m->sym) {
-		/* oops an error */
-		snprintf(m->errstr, ERRSIZE, "An error occurred when executing "
-				"internal query: %s", nquery);
-	} else {
-		sql_query *query = query_create(m);
-		sql_rel *r = rel_semantic(query, m->sym);
-
-		if (r && (r = rel_unnest(m,r)) != NULL && (r = rel_optimizer(m, r, 1)) != NULL)
-			sq = rel_bin(be, r);
-	}
-
-	GDKfree(nquery);
-	GDKfree(b);
-	bstream_destroy(m->scanner.rs);
-	be->depth--;
-	if (m->sa && m->sa != sa)
-		sa_destroy(m->sa);
-	m->sym = NULL;
-	{
-		int status = m->session->status;
-		int sizevars = m->sizevars, topvars = m->topvars;
-		sql_var *vars = m->vars;
-		/* cascade list maybe removed */
-		list *cascade_action = m->cascade_action;
-
-		strcpy(o->errstr, m->errstr);
-		*m = *o;
-		m->sizevars = sizevars;
-		m->topvars = topvars;
-		m->vars = vars;
-		m->session->status = status;
-		m->cascade_action = cascade_action;
-	}
-	_DELETE(o);
+	if (r && (r = rel_unnest(be->mvc ,r)) != NULL && (r = rel_optimizer(be->mvc , r, 1)) != NULL)
+		sq = rel_bin(be, r);
 	return sq;
 }
 
@@ -3569,8 +3387,9 @@ sql_insert_triggers(backend *be, sql_table *t, stmt **updates, int time)
 
 			if(!sql_stack_add_inserted(sql, n, t, updates))
 				return 0;
+			be->depth++;
 			s = sql_parse(be, sql->sa, trigger->statement, m_instantiate);
-			
+			be->depth--;
 			if (!s) 
 				return 0;
 		}
@@ -4156,13 +3975,7 @@ sql_delete_set_Fkeys(backend *be, sql_key *k, stmt *ftids /* to be updated rows 
 
 		if (action == ACT_SET_DEFAULT) {
 			if (fc->c->def) {
-				stmt *sq;
-				char *msg, *typestr = subtype2string2(&fc->c->type);
-				if(!typestr)
-					return sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
-				msg = sa_message(sql->sa, "select cast(%s as %s);", fc->c->def, typestr);
-				_DELETE(typestr);
-				sq = rel_parse_value(be, msg, sql->emode);
+				stmt *sq = parse_value(be, fc->c->def, &fc->c->type, sql->emode);
 				if (!sq) 
 					return NULL;
 				upd = sq;
@@ -4219,13 +4032,7 @@ sql_update_cascade_Fkeys(backend *be, sql_key *k, stmt *utids, stmt **updates, i
 			upd = updates[c->c->colnr];
 		} else if (action == ACT_SET_DEFAULT) {
 			if (fc->c->def) {
-				stmt *sq;
-				char *msg, *typestr = subtype2string2(&fc->c->type);
-				if(!typestr)
-					return sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
-				msg = sa_message(sql->sa, "select cast(%s as %s);", fc->c->def, typestr);
-				_DELETE(typestr);
-				sq = rel_parse_value(be, msg, sql->emode);
+				stmt *sq = parse_value(be, fc->c->def, &fc->c->type, sql->emode);
 				if (!sq) 
 					return NULL;
 				upd = sq;
@@ -4533,7 +4340,9 @@ sql_update_triggers(backend *be, sql_table *t, stmt *tids, stmt **updates, int t
 
 			if(!sql_stack_add_updated(sql, o, n, t, tids, updates))
 				return 0;
+			be->depth++;
 			s = sql_parse(be, sql->sa, trigger->statement, m_instantiate);
+			be->depth--;
 			if (!s) 
 				return 0;
 		}
@@ -4800,8 +4609,9 @@ sql_delete_triggers(backend *be, sql_table *t, stmt *tids, int time, int firing_
 
 			if(!sql_stack_add_deleted(sql, o, t, tids, internal_type))
 				return 0;
+			be->depth++;
 			s = sql_parse(be, sql->sa, trigger->statement, m_instantiate);
-
+			be->depth--;
 			if (!s) 
 				return 0;
 		}

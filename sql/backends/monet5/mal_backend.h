@@ -33,7 +33,7 @@ typedef enum output_format {
 
 typedef struct backend {
 	char 	language;		/* 'S' or 's' or 'X' */
-	char 	depth;
+	char	depth;			/* depth >= 1 means no output for trans/schema statements */
 	int 	remote;			/* counter to make remote function names unique */
 	mvc 	*mvc;
 	stream 	*out;

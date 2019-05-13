@@ -22,7 +22,6 @@
 #include <string.h>
 #include <ctype.h>
 
-
 sql_rel *
 rel_parse(mvc *m, sql_schema *s, char *query, char emode)
 {
@@ -71,7 +70,6 @@ rel_parse(mvc *m, sql_schema *s, char *query, char emode)
 	bstream_next(m->scanner.rs);
 
 	m->params = NULL;
-	/*m->args = NULL;*/
 	m->argc = 0;
 	m->sym = NULL;
 	m->errstr[0] = '\0';

@@ -4771,9 +4771,8 @@ rel_order_by(sql_query *query, sql_rel **R, symbol *orderby, int f )
 						if (!e)
 							return NULL;
 						e = exp_column(sql->sa, e->rname, exp_name(e), exp_subtype(e), exp_card(e), has_nil(e), is_intern(e));
-						/* do not cache this query */
-						if (e)
-							scanner_reset_key(&sql->scanner);
+						if (e) /* do not cache this query */
+							sql->caching = 0;
 					} else if (e->type == e_atom) {
 						return sql_error(sql, 02, SQLSTATE(42000) "order not of type SQL_COLUMN");
 					}

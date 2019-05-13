@@ -28,12 +28,7 @@ insert_value(sql_query *query, sql_column *c, sql_rel **r, symbol *s, const char
 		return exp_atom(sql->sa, atom_general(sql->sa, &c->type, NULL));
 	} else if (s->token == SQL_DEFAULT) {
 		if (c->def) {
-			sql_exp *e;
-			char *typestr = subtype2string2(&c->type);
-			if(!typestr)
-				return sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
-			e = rel_parse_val(sql, sa_message(sql->sa, "select cast(%s as %s);", c->def, typestr), sql->emode, NULL);
-			_DELETE(typestr);
+			sql_exp *e = rel_parse_val(sql, c->def, &c->type, sql->emode, NULL);
 			if (!e || (e = rel_check_type(sql, &c->type, e, type_equal)) == NULL)
 				return sql_error(sql, 02, SQLSTATE(HY005) "%s: default expression could not be evaluated", action);
 			return e;
@@ -361,12 +356,7 @@ rel_inserts(mvc *sql, sql_table *t, sql_rel *r, list *collist, size_t rowcount, 
 						sql_exp *e = NULL;
 
 						if (c->def) {
-							char *q, *typestr = subtype2string2(&c->type);
-							if(!typestr)
-								return sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
-							q = sa_message(sql->sa, "select cast(%s as %s);", c->def, typestr);
-							_DELETE(typestr);
-							e = rel_parse_val(sql, q, sql->emode, NULL);
+							e = rel_parse_val(sql, c->def, &c->type, sql->emode, NULL);
 							if (!e || (e = rel_check_type(sql, &c->type, e, type_equal)) == NULL)
 								return sql_error(sql, 02, SQLSTATE(HY005) "%s: default expression could not be evaluated", action);
 						} else {
@@ -1007,11 +997,7 @@ update_generate_assignments(sql_query *query, sql_table *t, sql_rel *r, sql_rel 
 				char *colname = assignment->h->next->data.sval;
 				sql_column *col = mvc_bind_column(sql, t, colname);
 				if (col->def) {
-					char *typestr = subtype2string2(&col->type);
-					if(!typestr)
-						return sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
-					v = rel_parse_val(sql, sa_message(sql->sa, "select cast(%s as %s);", col->def, typestr), sql->emode, NULL);
-					_DELETE(typestr);
+					v = rel_parse_val(sql, col->def, &col->type, sql->emode, NULL);
 				} else {
 					return sql_error(sql, 02, SQLSTATE(42000) "%s: column '%s' has no valid default value", action, col->base.name);
 				}
@@ -2116,7 +2102,7 @@ copyto(sql_query *query, symbol *sq, const char *filename, dlist *seps, const ch
 }
 
 sql_exp *
-rel_parse_val(mvc *m, char *query, char emode, sql_rel *from)
+rel_parse_val(mvc *m, char *query, sql_subtype *tpe, char emode, sql_rel *from)
 {
 	mvc o = *m;
 	sql_exp *e = NULL;
@@ -2132,13 +2118,14 @@ rel_parse_val(mvc *m, char *query, char emode, sql_rel *from)
 	m->caching = 0;
 	m->emode = emode;
 	b = (buffer*)GDKmalloc(sizeof(buffer));
-	n = GDKmalloc(len + 1 + 1);
+	len += 8; /* add 'select ;' */
+	n = GDKmalloc(len + 2);
 	if(!b || !n) {
 		GDKfree(b);
 		GDKfree(n);
 		return NULL;
 	}
-	snprintf(n, len + 2, "%s\n", query);
+	snprintf(n, len + 2, "select %s;\n", query);
 	query = n;
 	len++;
 	buffer_init(b, query, len);
@@ -2175,6 +2162,10 @@ rel_parse_val(mvc *m, char *query, char emode, sql_rel *from)
 			symbol* sq = sn->selection->h->data.sym->data.lval->h->data.sym;
 			sql_query *query = query_create(m);
 			e = rel_value_exp2(query, &r, sq, sql_sel, ek, &is_last);
+			if (r != from && from == NULL) 
+				e = NULL;
+			if (e && tpe)
+				e = rel_check_type(m, tpe, e, type_cast);
 		}
 	}
 	GDKfree(query);

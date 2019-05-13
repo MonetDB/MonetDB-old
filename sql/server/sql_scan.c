@@ -538,12 +538,6 @@ scanner_query_processed(struct scanner *s)
 	s->schema = NULL;
 }
 
-void
-scanner_reset_key(struct scanner *s)
-{
-	s->key = 0;
-}
-
 static int
 scanner_error(mvc *lc, int cur)
 {

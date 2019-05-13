@@ -496,8 +496,6 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 	if (!output) {
 		sql->output_format = OFMT_NONE;
 	}
-	sql->depth++;
-	// and do it again
 	m->qc = NULL;
 	m->caching = 0;
 	m->user_id = m->role_id = USER_MONETDB;
@@ -650,10 +648,8 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 
 		if (!output)
 			sql->out = NULL;	/* no output stream */
-		be->depth++;
 		if (execute)
 			msg = SQLrun(c,be,m);
-		be->depth--;
 		MSresetInstructions(c->curprg->def, oldstop);
 		freeVariables(c, c->curprg->def, NULL, oldvtop);
 

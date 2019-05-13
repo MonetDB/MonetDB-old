@@ -83,8 +83,7 @@ typedef struct mvc {
 
 	exception_buffer *eb;
 	sql_allocator *sa;
-	struct qc *qc;
-	int clientid;		/* id of the owner */
+
 	struct scanner scanner;
 
 	list *params;
@@ -95,18 +94,23 @@ typedef struct mvc {
 	int topvars;
 	int sizevars;
 	int frame;
-	int use_views;
 	atom **args;
 	int argc;
 	int argmax;
 	struct symbol *sym;
 
+	bool use_views:1,	/* for triggers we sometimes have views on the stack (for old/new values), which need to be handled as normal stack variables (values),
+       			           as triggers iterate over the to be inserted/deleted/updated values.	*/
+		pushdown:1,	/* AND or OR query handling */
+		caching:1;	/* cache current query */
+	int cache;		/* query cache size */
+	struct qc *qc;
+	int clientid;		/* id of the owner */
+
 	/* session variables */
 	sqlid user_id;
 	sqlid role_id;
 	int timezone;		/* milliseconds west of UTC */
-	int cache;		/* some queries should not be cached ! */
-	int caching;		/* cache current query ? */
 	int reply_size;		/* reply size */
 	int debug;
 
@@ -119,7 +123,6 @@ typedef struct mvc {
 	int type;		/* query type */
 
 	/* during query needed flags */
-	int pushdown;		/* AND or OR query handling */
 	int label;		/* numbers for relational projection labels */
 	list *cascade_action;  /* protection against recursive cascade actions */
 } mvc;
