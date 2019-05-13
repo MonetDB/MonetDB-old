@@ -23,6 +23,7 @@ if "%APPDATA%" == "" goto usevar
 rem if the APPDATA variable does exist, put the database there
 set MONETDBDIR=%APPDATA%\MonetDB5
 set MONETDBFARM="--dbpath=%MONETDBDIR%\dbfarm\demo"
+if not exist %MONETDBDIR%\dbfarm ( mkdir %MONETDBDIR%\dbfarm )
 goto skipusevar
 :usevar
 rem if the APPDATA variable does not exist, put the database in the
