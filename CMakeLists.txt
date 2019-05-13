@@ -80,16 +80,16 @@ if(NOT CMAKE_BUILD_TYPE) # Set default build options
 endif()
 
 # Extensions to use
-set(ENABLE_CINTEGRATION "AUTO" CACHE STRING "Enable support for C UDFs (default=AUTO)")
-set(ENABLE_CONSOLE "YES" CACHE STRING "Enables direct console on the server (involves security risks) (default=YES)")
+set(ENABLE_CINTEGRATION "AUTO" CACHE STRING "Enable support for C UDFs (default=AUTO)") # Check with HAVE_CUDF
+set(ENABLE_CONSOLE "YES" CACHE STRING "Enables direct console on the server (involves security risks) (default=YES)") # Check with HAVE_CONSOLE
 set(ENABLE_EMBEDDED "NO" CACHE STRING "Enable support for running MonetDB as a library (default=NO)") # TODO check this
 set(ENABLE_FITS "AUTO" CACHE STRING "Enable support for FITS (default=AUTO)") # Check with HAVE_FITS
-set(ENABLE_GDK "YES" CACHE STRING "Enable support for GDK (default=YES)")
+set(ENABLE_GDK "YES" CACHE STRING "Enable support for GDK (default=YES)") # Check with HAVE_GDK
 set(ENABLE_GEOM "AUTO" CACHE STRING "Enable support for geom module (default=AUTO)") # Check with HAVE_GEOM
-set(ENABLE_INT128 "AUTO" CACHE STRING "Enable support for 128-bit integers (default=AUTO)")
+set(ENABLE_INT128 "AUTO" CACHE STRING "Enable support for 128-bit integers (default=AUTO)") # Check with HAVE_HGE
 set(ENABLE_LIDAR "AUTO" CACHE STRING "Enable support for LiDAR data (default=AUTO)") # Check with HAVE_LIDAR
-set(ENABLE_MAPI "YES" CACHE STRING "Enable MAPI (default=YES)")
-set(ENABLE_MONETDB5 "YES" CACHE STRING "Enable support for MonetDB5 (default=YES)")
+set(ENABLE_MAPI "YES" CACHE STRING "Enable MAPI (default=YES)") # Check with HAVE_MAPI
+set(ENABLE_MONETDB5 "YES" CACHE STRING "Enable support for MonetDB5 (default=YES)") # Check with HAVE_MONETDB5
 set(ENABLE_NETCDF "AUTO" CACHE STRING "Enable support for netcdf (default=AUTO)") # Check with HAVE_NETCDF
 set(ENABLE_ODBC "AUTO" CACHE STRING "Compile the MonetDB ODBC driver (default=AUTO)") # Check with HAVE_ODBC
 set(ENABLE_PY3INTEGRATION "AUTO" CACHE STRING "enable support for Python 3 integration into MonetDB (default=AUTO)") # Check with HAVE_LIBPY3
@@ -97,12 +97,13 @@ set(ENABLE_RINTEGRATION "AUTO" CACHE STRING "Enable support for R integration in
 set(ENABLE_SAMTOOLS "AUTO" CACHE STRING "Include Samtools support (default=AUTO)") # Check with HAVE_SAMTOOLS
 set(ENABLE_SANITIZER "NO" CACHE STRING "Enable support for the GCC address sanitizer (default=NO)")
 set(ENABLE_SHP "AUTO" CACHE STRING "Enable support for ESRI Shapefiles (default=AUTO)") # Check with HAVE_SHP
-set(ENABLE_SQL "YES" CACHE STRING "Enable support for MonetDB/SQL (default=YES)")
-set(ENABLE_STATIC_ANALYSIS "NO" CACHE STRING "Configure for static code analysis (use only if you know what you are doing)")
+set(ENABLE_SQL "YES" CACHE STRING "Enable support for MonetDB/SQL (default=YES)") # Check with HAVE_SQL
+set(ENABLE_STATIC_ANALYSIS "NO" CACHE STRING "Configure for static code analysis (use only if you know what you are doing)") # Check with STATIC_CODE_ANALYSIS
 set(ENABLE_STRICT "${DFT_STRICT}" CACHE STRING "Enable strict compiler flags (default=YES for development sources, NO for tarball instalation)")
-set(ENABLE_TESTING "AUTO" CACHE STRING "Enable support for testing (default=AUTO)")
+set(ENABLE_TESTING "AUTO" CACHE STRING "Enable support for testing (default=AUTO)") # Check with HAVE_TESTING
 
-set(WITH_BZ2 "AUTO" CACHE STRING "Include bz2 support (default=AUTO)") # Check with BZip2_FOUND
+# Optional extra libraries
+set(WITH_BZ2 "AUTO" CACHE STRING "Include bz2 support (default=AUTO)") # Check with HAVE_LIBLZMA
 set(WITH_CURL "AUTO" CACHE STRING "Include cURL support (default=AUTO)") # Check with HAVE_CURL
 set(WITH_LIBLZMA "AUTO" CACHE STRING "Include liblzma support (default=AUTO)") # Check with HAVE_LIBLZMA
 set(WITH_LIBXML2 "AUTO" CACHE STRING "Include libxml2 support (default=AUTO)") # Check with HAVE_LIBXML
@@ -182,7 +183,7 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 elseif(MSVC)
 	set(restrict "__restrict") # C99 feature not present in MSVC
 	set(inline "__inline") # C99 feature only available on C++ compiler in MSVC https://docs.microsoft.com/en-us/cpp/cpp/inline-functions-cpp?view=vs-2015
-	add_definitions(/D_CRT_SECURE_NO_WARNINGS)
+	add_definitions(/D_CRT_SECURE_NO_WARNINGS) # TODO it would be nice to remove this, but it requires lots of rewriting
 	if(CMAKE_SIZEOF_VOID_P EQUAL 8)  # Windows 64 bit
 		set(HAVE__MUL128 ON CACHE INTERNAL "mul128 function is available")
 	endif()
@@ -475,12 +476,9 @@ endif()
 include(FindExtraLibraries)
 
 # Header files
-check_include_file("getopt.h" HAVE_GETOPT_H) # GNU extension
-check_include_file("kvm.h" HAVE_KVM_H) # For FreeBSD
-check_include_file("libintl.h" HAVE_LIBINTL_H)
-check_include_file("pthread.h" HAVE_PTHREAD_H)
-check_include_file("sys/mman.h" HAVE_SYS_MMAN_H) # For madvise and posix_madvise on BSD systems
-check_include_file("sys/time.h" HAVE_SYS_TIME_H)
+check_include_file("libintl.h" HAVE_LIBINTL_H) # Some Linux distributions don't have it
+check_include_file("pthread.h" HAVE_PTHREAD_H) # Distinguish between posix thread and win32 thread libraries
+check_include_file("sys/mman.h" HAVE_SYS_MMAN_H) # TODO check this
 
 # C types existence
 cmake_push_check_state()
@@ -517,37 +515,23 @@ endif()
 cmake_pop_check_state()
 
 # Non portable functions
-check_symbol_exists("accept4" "sys/types.h;sys/socket.h" HAVE_ACCEPT4)
+check_symbol_exists("accept4" "sys/types.h;sys/socket.h" HAVE_ACCEPT4) # Some libc versions on Linux distributions don't have it
 check_symbol_exists("asctime_r" "time.h" HAVE_ASCTIME_R)
 check_symbol_exists("asctime_s" "time.h" HAVE_ASCTIME_S)
-check_symbol_exists("backtrace" "execinfo.h" HAVE_BACKTRACE)
-check_symbol_exists("clock_gettime" "time.h" HAVE_CLOCK_GETTIME)
 check_symbol_exists("ctime_r" "time.h" HAVE_CTIME_R)
 check_symbol_exists("ctime_s" "time.h" HAVE_CTIME_S)
-check_symbol_exists("fallocate" "fcntl.h" HAVE_FALLOCATE)
-check_symbol_exists("fcntl" "unistd.h;fcntl.h" HAVE_FCNTL)
-check_symbol_exists("fdatasync" "unistd.h" HAVE_FDATASYNC)
-check_symbol_exists("fork" "sys/types.h;unistd.h" HAVE_FORK)
-check_symbol_exists("fsync" "unistd.h" HAVE_FSYNC)
-check_symbol_exists("ftime" "sys/timeb.h" HAVE_FTIME)
-check_symbol_exists("getopt" "unistd.h" HAVE_GETOPT)
-check_symbol_exists("getopt_long" "unistd.h;getopt.h" HAVE_GETOPT_LONG)
-check_symbol_exists("gettimeofday" "sys/time.h" HAVE_GETTIMEOFDAY)
+check_symbol_exists("fallocate" "fcntl.h" HAVE_FALLOCATE) # Linux specific, in the future, it might be ported to other platforms
+check_symbol_exists("fcntl" "unistd.h;fcntl.h" HAVE_FCNTL) # Windows has the fcntl.h header, but not the function
 check_symbol_exists("localtime_r" "time.h" HAVE_LOCALTIME_R)
 check_symbol_exists("localtime_s" "time.h" HAVE_LOCALTIME_S)
-check_symbol_exists("madvise" "sys/mman.h" HAVE_MADVISE)
-check_symbol_exists("mremap" "sys/mman.h" HAVE_MREMAP)
-check_symbol_exists("nl_langinfo" "langinfo.h" HAVE_NL_LANGINFO)
-check_symbol_exists("pipe2" "fcntl.h;unistd.h" HAVE_PIPE2)
-check_symbol_exists("popen" "stdio.h" HAVE_POPEN)
-check_symbol_exists("posix_fallocate" "fcntl.h" HAVE_POSIX_FALLOCATE)
-check_symbol_exists("posix_madvise" "sys/mman.h" HAVE_POSIX_MADVISE)
+check_symbol_exists("madvise" "sys/mman.h" HAVE_MADVISE) # TODO check this
+check_symbol_exists("mremap" "sys/mman.h" HAVE_MREMAP) # Linux specific, in the future, it might be ported to other platforms
+check_symbol_exists("pipe2" "fcntl.h;unistd.h" HAVE_PIPE2) # Some libc versions on Linux distributions don't have it
+check_symbol_exists("posix_fallocate" "fcntl.h" HAVE_POSIX_FALLOCATE) # Some POSIX systems don't have it
+check_symbol_exists("posix_madvise" "sys/mman.h" HAVE_POSIX_MADVISE) # TODO check this
 check_symbol_exists("semtimedop" "sys/types.h;sys/ipc.h;sys/sem.h" HAVE_SEMTIMEDOP) # Some libc versions on Linux distributions don't have it
-check_symbol_exists("stpcpy" "string.h" HAVE_STPCPY)
-check_symbol_exists("strptime" "time.h" HAVE_STRPTIME)
 check_symbol_exists("strtok_r" "string.h" HAVE_STRTOK_R)
 check_symbol_exists("strtok_s" "string.h" HAVE_STRTOK_S)
-check_symbol_exists("times" "sys/times.h" HAVE_TIMES)
 
 if(${ENABLE_GDK} STREQUAL "NO")
 	if(${ENABLE_MONETDB5} STREQUAL "YES")

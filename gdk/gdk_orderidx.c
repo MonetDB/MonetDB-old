@@ -12,6 +12,8 @@
 
 #ifdef NATIVE_WIN32
 # include <io.h>
+#else
+# include <unistd.h>
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
@@ -46,9 +48,9 @@ BATidxsync(void *arg)
 						if (!(GDKdebug & NOSYNCMASK)) {
 #if defined(NATIVE_WIN32)
 							_commit(fd);
-#elif defined(HAVE_FDATASYNC)
+#elif defined(_POSIX_SYNCHRONIZED_IO) && _POSIX_SYNCHRONIZED_IO > 0
 							fdatasync(fd);
-#elif defined(HAVE_FSYNC)
+#else
 							fsync(fd);
 #endif
 						}

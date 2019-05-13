@@ -26,7 +26,7 @@
 #define mal_export extern
 #endif
 
-#ifdef HAVE_TIMES
+#ifndef NATIVE_WIN32
 # include <sys/times.h>
 #endif
 

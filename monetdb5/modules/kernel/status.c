@@ -27,9 +27,6 @@
 #ifndef NATIVE_WIN32
 # include <unistd.h>
 # include <sys/resource.h>
-#endif
-
-#ifdef HAVE_TIMES
 # include <sys/times.h>
 #endif
 
@@ -110,7 +107,7 @@ SYSsetvm_maxsize(void *ret, const lng *num)
  * Note that in multi threaded mode the routine prints the elapsed
  * time since the beginning of each process.
  */
-#ifdef HAVE_TIMES
+#ifndef NATIVE_WIN32
 static time_t clk = 0;
 static struct tms state;
 #endif
@@ -120,7 +117,7 @@ SYScpuStatistics(bat *ret, bat *ret2)
 {
 	lng i;
 	BAT *b, *bn;
-#ifdef HAVE_TIMES
+#ifndef NATIVE_WIN32
 	struct tms newst;
 # ifndef HZ
 	static int HZ = 0;
@@ -142,7 +139,7 @@ SYScpuStatistics(bat *ret, bat *ret2)
 		if ( bn) BBPunfix(bn->batCacheid);
 		throw(MAL, "status.cpuStatistics", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
-#ifdef HAVE_TIMES
+#ifndef NATIVE_WIN32
 	if (clk == 0) {
 		clk = time(0);
 		times(&state);

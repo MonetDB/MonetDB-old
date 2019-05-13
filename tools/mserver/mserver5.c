@@ -21,17 +21,12 @@
 
 #include <signal.h>
 
-#ifndef HAVE_GETOPT_LONG
-#  include "monet_getopt.h"
-#else
-# ifdef HAVE_GETOPT_H
-#  include "getopt.h"
-# endif
-#endif
-
-#ifdef _MSC_VER
+#ifdef NATIVE_WIN32
+#include "monet_getopt.h"
 #include <Psapi.h>      /* for GetModuleFileName */
 #include <crtdbg.h>	/* for _CRT_ERROR, _CRT_ASSERT */
+#else
+#include "getopt.h"
 #endif
 
 #ifdef _CRTDBG_MAP_ALLOC

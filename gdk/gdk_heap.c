@@ -48,6 +48,8 @@
 
 #ifdef NATIVE_WIN32
 # include <io.h>
+#else
+# include <unistd.h> /* For fdatasync */
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
@@ -469,9 +471,9 @@ GDKupgradevarheap(BAT *b, var_t v, bool copyall, bool mayshare)
 		    (!(GDKdebug & NOSYNCMASK)
 #if defined(NATIVE_WIN32)
 		     && _commit(fd) < 0
-#elif defined(HAVE_FDATASYNC)
+#elif defined(_POSIX_SYNCHRONIZED_IO) && _POSIX_SYNCHRONIZED_IO > 0
 		     && fdatasync(fd) < 0
-#elif defined(HAVE_FSYNC)
+#else
 		     && fsync(fd) < 0
 #endif
 			    ) ||
@@ -610,7 +612,7 @@ HEAPfree(Heap *h, bool rmheap)
 		}
 	}
 	h->base = NULL;
-#ifdef HAVE_FORK
+#ifndef NATIVE_WIN32
 	if (h->storage == STORE_MMAPABS)  {
 		/* heap is stored in a mmap() file, but h->filename
 		 * is the absolute path */

@@ -23,7 +23,7 @@
 #include "mal_debugger.h"
 #include "mal_resource.h"
 
-#ifdef HAVE_SYS_TIME_H
+#ifndef NATIVE_WIN32
 #include <sys/time.h>
 #endif
 
@@ -974,7 +974,7 @@ getDiskReads(void)
 lng
 getUserTime(void)
 {
-#ifdef HAVE_TIMES
+#ifndef NATIVE_WIN32
 	struct tms newTms;
 	times(&newTms);
 	return newTms.tms_utime;
@@ -986,7 +986,7 @@ getUserTime(void)
 lng
 getSystemTime(void)
 {
-#ifdef HAVE_TIMES
+#ifndef NATIVE_WIN32
 	struct tms newTms;
 	times(&newTms);
 	return newTms.tms_stime;

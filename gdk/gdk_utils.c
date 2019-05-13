@@ -41,6 +41,7 @@ int GDKverbose = 0;
 #define close _close
 #define getuid() 0
 #else
+#include <unistd.h> /* for _POSIX_TIMERS */
 #include <sys/param.h>  /* prerequisite of sys/sysctl on OpenBSD */
 #include <sys/sysctl.h>
 #endif
@@ -1241,9 +1242,10 @@ GDKusec(void)
 	if (start.QuadPart > 0) {
 		QueryPerformanceCounter(&ctr);
 		return (lng) (((ctr.QuadPart - start.QuadPart) * 1000000) / freq.QuadPart);
+	} else {
+		return -1;
 	}
-#endif
-#ifdef HAVE_CLOCK_GETTIME
+#elif defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0
 #if defined(CLOCK_UPTIME_FAST)
 #define CLK_ID CLOCK_UPTIME_FAST	/* FreeBSD */
 #else
@@ -1258,22 +1260,10 @@ GDKusec(void)
 		}
 		if (clock_gettime(CLK_ID, &ts) == 0)
 			return (ts.tv_sec - tsbase.tv_sec) * 1000000 + ts.tv_nsec / 1000;
+		else
+			return -1;
 	}
-#endif
-#ifdef HAVE_GETTIMEOFDAY
-	{
-		static struct timeval tpbase;	/* automatically initialized to 0 */
-		struct timeval tp;
-
-		if (tpbase.tv_sec == 0) {
-			gettimeofday(&tpbase, NULL);
-			return (lng) tpbase.tv_usec;
-		}
-		gettimeofday(&tp, NULL);
-		return (lng) (tp.tv_sec - tpbase.tv_sec) * 1000000 + (lng) tp.tv_usec;
-	}
-#else
-#ifdef HAVE_FTIME
+#elif defined(NATIVE_WIN32) //leave ftime code as a fallback
 	{
 		static struct timeb tbbase;	/* automatically initialized to 0 */
 		struct timeb tb;
@@ -1285,10 +1275,20 @@ GDKusec(void)
 		ftime(&tb);
 		return (lng) (tb.time - tbbase.time) * 1000000 + (lng) tb.millitm * 1000;
 	}
-#endif
+#else //leave gettimeofday code as the last resort
+	{
+		static struct timeval tpbase;	/* automatically initialized to 0 */
+		struct timeval tp;
+
+		if (tpbase.tv_sec == 0) {
+			gettimeofday(&tpbase, NULL);
+			return (lng) tpbase.tv_usec;
+		}
+		gettimeofday(&tp, NULL);
+		return (lng) (tp.tv_sec - tpbase.tv_sec) * 1000000 + (lng) tp.tv_usec;
+	}
 #endif
 }
-
 
 int
 GDKms(void)

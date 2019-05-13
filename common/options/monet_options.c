@@ -20,24 +20,16 @@
  */
 #include "monetdb_config.h"
 #include "monet_options.h"
-#ifndef HAVE_GETOPT_LONG
-#  include "monet_getopt.h"
-#else
-# ifdef HAVE_GETOPT_H
-#  include "getopt.h"
-# endif
-#endif
 #include <ctype.h>
 
-#ifndef HAVE_GETOPT_LONG
-#  include "getopt.c"
-#  include "getopt1.c"
-#endif
-
 #ifdef NATIVE_WIN32
+#include "monet_getopt.h"
+#include "getopt.c"
+#include "getopt1.c"
 #include <process.h>
 #define getpid _getpid
 #else
+#include "getopt.h"
 #include <unistd.h>
 #endif
 

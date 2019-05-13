@@ -24,9 +24,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <ctype.h>
-#ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
-#endif
 #ifdef HAVE_OPENSSL
 #include <openssl/rand.h>		/* RAND_bytes */
 #else

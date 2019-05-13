@@ -12,19 +12,15 @@
 #include <sys/types.h>
 #include <time.h>
 
-#ifdef HAVE_FTIME
-#include <sys/timeb.h>		/* ftime */
-#endif
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>		/* gettimeofday */
-#endif
-
 #include "gdk_system.h" /* gdk_export */
 
 #ifdef NATIVE_WIN32
 #include <winsock2.h>
 #include <io.h>
 #include <direct.h>
+#include <sys/timeb.h>		/* ftime */
+#else
+#include <sys/time.h>		/* gettimeofday */
 #endif
 
 /*
@@ -159,7 +155,7 @@ gdk_export int dlclose(void *handle);
 gdk_export void *dlsym(void *handle, const char *name);
 gdk_export char *dlerror(void);
 
-#ifndef HAVE_GETTIMEOFDAY
+#ifdef _MSC_VER
 gdk_export int gettimeofday(struct timeval *tv, int *ignore_zone);
 #endif
 gdk_export int win_stat(const char *, struct stat *);

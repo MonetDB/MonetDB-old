@@ -192,7 +192,7 @@
 #include "mtime.h"
 #include "mtime_private.h"
 
-#ifndef HAVE_STRPTIME
+#ifdef NATIVE_WIN32
 extern char *strptime(const char *, const char *, struct tm *);
 #endif
 
@@ -3222,18 +3222,16 @@ MTIMEsql_seconds(int *ret, const lng *t)
 str
 MTIMEmsec(lng *r)
 {
-#ifdef HAVE_GETTIMEOFDAY
-	struct timeval tp;
-
-	gettimeofday(&tp, NULL);
-	*r = ((lng) (tp.tv_sec)) * LL_CONSTANT(1000) + (lng) tp.tv_usec / LL_CONSTANT(1000);
-#else
-#ifdef HAVE_FTIME
+#ifdef NATIVE_WIN32
 	struct timeb tb;
 
 	ftime(&tb);
 	*r = ((lng) (tb.time)) * LL_CONSTANT(1000) + ((lng) tb.millitm);
-#endif
+#else
+	struct timeval tp;
+
+	gettimeofday(&tp, NULL);
+	*r = ((lng) (tp.tv_sec)) * LL_CONSTANT(1000) + (lng) tp.tv_usec / LL_CONSTANT(1000);
 #endif
 	return MAL_SUCCEED;
 }

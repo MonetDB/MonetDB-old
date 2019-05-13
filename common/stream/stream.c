@@ -58,8 +58,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #ifdef NATIVE_WIN32
-#include <ws2tcpip.h>
-#include <io.h>
+# include <ws2tcpip.h>
+# include <io.h>
 #else
 # include <unistd.h>
 # include <netinet/in_systm.h>
@@ -87,7 +87,7 @@
 
 #ifdef HAVE_ICONV
 #include <iconv.h>
-#ifdef HAVE_NL_LANGINFO
+#ifndef NATIVE_WIN32
 #include <langinfo.h>
 #endif
 #endif
@@ -311,7 +311,7 @@ utf8towchar(const char *src)
 static char *
 cvfilename(const char *filename)
 {
-#if defined(HAVE_NL_LANGINFO) && defined(HAVE_ICONV)
+#if !defined(NATIVE_WIN32) && defined(HAVE_ICONV)
 	char *code_set = nl_langinfo(CODESET);
 
 	if (code_set != NULL && strcmp(code_set, "UTF-8") != 0) {
@@ -805,16 +805,12 @@ file_fsync(stream *s)
 
 	if (fp == NULL ||
 	    (!s->readonly
-#ifdef NATIVE_WIN32
+#if defined(NATIVE_WIN32)
 	     && _commit(fileno(fp)) < 0
-#else
-#ifdef HAVE_FDATASYNC
+#elif defined(_POSIX_SYNCHRONIZED_IO) && _POSIX_SYNCHRONIZED_IO > 0
 	     && fdatasync(fileno(fp)) < 0
 #else
-#ifdef HAVE_FSYNC
 	     && fsync(fileno(fp)) < 0
-#endif
-#endif
 #endif
 		    )) {
 		s->errnr = MNSTR_WRITE_ERROR;

@@ -25,7 +25,7 @@
 # include <mach/task.h>
 # include <mach/mach_init.h>
 #endif
-#if defined(HAVE_KVM_H)
+#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
 # include <kvm.h>
 # include <sys/param.h>
 # include <sys/sysctl.h>
@@ -246,7 +246,7 @@ MT_getrss(void)
 
 	if (task_info(task, TASK_BASIC_INFO_64, (task_info_t)&t_info, &t_info_count) != KERN_INVALID_POLICY)
 		return t_info.resident_size;  /* bytes */
-#elif defined(HAVE_KVM_H)
+#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
 	/* get RSS on FreeBSD and NetBSD */
 	struct kinfo_proc *ki;
 	int ski = 1;
@@ -522,7 +522,7 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 					/* if it failed, try alternative */
 				}
 				if (p == MAP_FAILED && path != NULL) {
-#ifdef HAVE_POSIX_FALLOCATE
+#if defined(HAVE_POSIX_FALLOCATE) && !defined(HAVE_FALLOCATE)
 					int rt;
 #endif
 					/* write data to disk, then
@@ -842,8 +842,7 @@ MT_path_absolute(const char *pathname)
 		(pathname[0] == '\\' && pathname[1] == '\\'));
 }
 
-
-#ifndef HAVE_GETTIMEOFDAY
+#ifdef _MSC_VER
 static int nodays[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
 #define LEAPYEAR(y) ((((y)%4)==0 && ((y)%100)!=0) || ((y)%400)==0)

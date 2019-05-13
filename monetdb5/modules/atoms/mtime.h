@@ -28,10 +28,9 @@
 
 #include <time.h>
 
-#ifdef HAVE_FTIME
+#ifdef NATIVE_WIN32
 #include <sys/timeb.h>		/* ftime */
-#endif
-#ifdef HAVE_SYS_TIME_H
+#else
 #include <sys/time.h>		/* gettimeofday */
 #endif
 

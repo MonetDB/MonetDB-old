@@ -32,17 +32,12 @@
 #include "gdk_system.h"
 #include "gdk_system_private.h"
 
-#include <time.h>
-
-#ifdef HAVE_FTIME
-#include <sys/timeb.h>		/* ftime */
-#endif
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>		/* gettimeofday */
-#endif
-
 #include <signal.h>
-#ifndef NATIVE_WIN32
+#include <time.h>
+#ifdef NATIVE_WIN32
+#include <sys/timeb.h>		/* ftime */
+#else
+#include <sys/time.h>		/* gettimeofday */
 #include <unistd.h> /* for sysconf symbols */
 #endif
 

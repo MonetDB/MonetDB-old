@@ -19,8 +19,10 @@
 #include <sys/stat.h>
 #include <signal.h>
 #ifdef NATIVE_WIN32
+# include "monet_getopt.h"
 # include <io.h>
 #else
+# include "getopt.h"
 # include <unistd.h>
 # include <netdb.h>
 # include <netinet/in.h>
@@ -29,14 +31,6 @@
 #include "mprompt.h"
 #include "dotmonetdb.h"
 #include "eventparser.h"
-
-#ifndef HAVE_GETOPT_LONG
-# include "monet_getopt.h"
-#else
-# ifdef HAVE_GETOPT_H
-#  include "getopt.h"
-# endif
-#endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 #define open  _open

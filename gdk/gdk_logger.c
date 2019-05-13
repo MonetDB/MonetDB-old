@@ -58,6 +58,10 @@
 #include "gdk_private.h"
 #include "gdk_logger.h"
 
+#ifndef NATIVE_WIN32
+#include <unistd.h> /* for _POSIX_SYNCHRONIZED_IO */
+#endif
+
 /*
  * The log record encoding is geared at reduced storage space, but at
  * the expense of readability. A user can not easily inspect the log a
@@ -1682,9 +1686,9 @@ logger_load(int debug, const char *fn, char filename[FILENAME_MAX], logger *lg)
 		    (!(GDKdebug & NOSYNCMASK)
 #if defined(_MSC_VER)
 		     && _commit(_fileno(fp)) < 0
-#elif defined(HAVE_FDATASYNC)
+#elif defined(_POSIX_SYNCHRONIZED_IO) && _POSIX_SYNCHRONIZED_IO > 0
 		     && fdatasync(fileno(fp)) < 0
-#elif defined(HAVE_FSYNC)
+#else
 		     && fsync(fileno(fp)) < 0
 #endif
 			    ) ||
@@ -2067,9 +2071,9 @@ logger_load(int debug, const char *fn, char filename[FILENAME_MAX], logger *lg)
 				    fflush(fp1) != 0 || /* make sure it's save on disk */
 #if defined(_MSC_VER)
 				    _commit(_fileno(fp1)) < 0 ||
-#elif defined(HAVE_FDATASYNC)
+#elif defined(_POSIX_SYNCHRONIZED_IO) && _POSIX_SYNCHRONIZED_IO > 0
 				    fdatasync(fileno(fp1)) < 0 ||
-#elif defined(HAVE_FSYNC)
+#else
 				    fsync(fileno(fp1)) < 0 ||
 #endif
 				    fclose(fp1) != 0) {
@@ -2355,9 +2359,9 @@ logger_exit(logger *lg)
 		    (!(GDKdebug & NOSYNCMASK)
 #if defined(NATIVE_WIN32)
 		     && _commit(_fileno(fp)) < 0
-#elif defined(HAVE_FDATASYNC)
+#elif defined(_POSIX_SYNCHRONIZED_IO) && _POSIX_SYNCHRONIZED_IO > 0
 		     && fdatasync(fileno(fp)) < 0
-#elif defined(HAVE_FSYNC)
+#else
 		     && fsync(fileno(fp)) < 0
 #endif
 			    )) {

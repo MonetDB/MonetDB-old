@@ -7,15 +7,11 @@
  */
 
 #include "monetdb_config.h"
-#ifndef HAVE_GETOPT_LONG
-#  include "monet_getopt.h"
-#else
-# ifdef HAVE_GETOPT_H
-#  include "getopt.h"
-# endif
-#endif
 #include "mapi.h"
-#ifndef NATIVE_WIN32
+#ifdef NATIVE_WIN32
+# include "monet_getopt.h"
+#else
+# include "getopt.h"
 # include <unistd.h>
 #endif
 #include <sys/stat.h>

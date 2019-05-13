@@ -8,7 +8,7 @@
 
 #include "monetdb_config.h"
 
-#ifdef HAVE_FORK
+#ifndef NATIVE_WIN32
 
 #include "gdk_interprocess.h"
 #include "gdk.h"

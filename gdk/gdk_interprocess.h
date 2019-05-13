@@ -14,7 +14,7 @@
 #ifndef _GDK_INTERPROCES_H_
 #define _GDK_INTERPROCES_H_
 
-#ifdef HAVE_FORK
+#ifndef NATIVE_WIN32
 #include "gdk.h"
 
 //! Obtain a set of unique identifiers that can be used to create memory mapped files or semaphores

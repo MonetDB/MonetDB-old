@@ -11,14 +11,9 @@
 #include "difflib.h"
 #ifdef NATIVE_WIN32
 # include <io.h>
-#endif
-
-#ifdef HAVE_GETOPT
-#ifdef HAVE_GETOPT_H
-#include <getopt.h>
-#endif
-#else
 #include "testing_getopt.c"
+#else
+#include <getopt.h>
 #endif
 
 static void

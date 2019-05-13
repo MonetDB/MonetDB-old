@@ -76,6 +76,10 @@
 #include "gdk_storage.h"
 #include "mutils.h"
 
+#ifndef NATIVE_WIN32
+#include <unistd.h>
+#endif
+
 #ifndef F_OK
 #define F_OK 0
 #endif
@@ -157,7 +161,6 @@ getBBPsize(void)
 {
 	return (bat) ATOMIC_GET(&BBPsize);
 }
-
 
 /*
  * @+ BBP Consistency and Concurrency
@@ -1519,9 +1522,9 @@ BBPdir_subcommit(int cnt, bat *subcommit)
 	    (!(GDKdebug & NOSYNCMASK)
 #if defined(NATIVE_WIN32)
 	     && _commit(_fileno(nbbpf)) < 0
-#elif defined(HAVE_FDATASYNC)
+#elif defined(_POSIX_SYNCHRONIZED_IO) && _POSIX_SYNCHRONIZED_IO > 0
 	     && fdatasync(fileno(nbbpf)) < 0
-#elif defined(HAVE_FSYNC)
+#else
 	     && fsync(fileno(nbbpf)) < 0
 #endif
 		    )) {
@@ -1578,9 +1581,9 @@ BBPdir(int cnt, bat *subcommit)
 	    (!(GDKdebug & NOSYNCMASK)
 #if defined(NATIVE_WIN32)
 	     && _commit(_fileno(fp)) < 0
-#elif defined(HAVE_FDATASYNC)
+#elif defined(_POSIX_SYNCHRONIZED_IO) && _POSIX_SYNCHRONIZED_IO > 0
 	     && fdatasync(fileno(fp)) < 0
-#elif defined(HAVE_FSYNC)
+#else
 	     && fsync(fileno(fp)) < 0
 #endif
 		    )) {

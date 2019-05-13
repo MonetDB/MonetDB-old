@@ -76,6 +76,16 @@
 #endif
 
 #include <windows.h>
+
+static inline char *
+stpcpy(char *restrict dst, const char *restrict src)
+{
+	size_t i;
+	for (i = 0; src[i]; i++)
+		dst[i] = src[i];
+	dst[i] = 0;
+	return dst + i;
+}
 #endif /* _MSC_VER */
 
 /* location where binaries are installed */
@@ -102,12 +112,6 @@
 /* Define to 1 if you have `asctime_s' function. */
 #cmakedefine HAVE_ASCTIME_S 1
 
-/* Define to 1 if you have the `backtrace' function. */
-#cmakedefine HAVE_BACKTRACE 1
-
-/* Define to 1 if you have the `clock_gettime' function. */
-#cmakedefine HAVE_CLOCK_GETTIME 1
-
 /* Define to 1 if you have the CommonCrypto library */
 #cmakedefine HAVE_COMMONCRYPTO 1
 
@@ -132,35 +136,11 @@
 /* Define to 1 if you have the `fcntl' function. */
 #cmakedefine HAVE_FCNTL 1
 
-/* Define to 1 if the system has a working fdatasync */
-#cmakedefine HAVE_FDATASYNC 1
-
 /* Define to 1 if the fits module is to be enabled */
 #cmakedefine HAVE_FITS 1
 
-/* Define to 1 if fork exists */
-#cmakedefine HAVE_FORK 1
-
 /* Define to 1 if fseeko (and presumably ftello) exists and is declared. */
 #cmakedefine HAVE_FSEEKO 1
-
-/* Define to 1 if you have the `fsync' function. */
-#cmakedefine HAVE_FSYNC 1
-
-/* Define to 1 if you have the `ftime' function. */
-#cmakedefine HAVE_FTIME 1
-
-/* Define to 1 if you have the `getopt' function. */
-#cmakedefine HAVE_GETOPT 1
-
-/* Define to 1 if you have the <getopt.h> header file. */
-#cmakedefine HAVE_GETOPT_H 1
-
-/* Define to 1 if you have the `getopt_long' function. */
-#cmakedefine HAVE_GETOPT_LONG 1
-
-/* Define to 1 if you have the `gettimeofday' function. */
-#cmakedefine HAVE_GETTIMEOFDAY 1
 
 /* Have huge */
 #cmakedefine HAVE_HGE 1
@@ -219,23 +199,14 @@
 /* Define to 1 if you have the `MD5_Update' function. */
 #cmakedefine HAVE_MD5_UPDATE 1
 
-/* Define to 1 if you have the `mremap' function. */
-#cmakedefine HAVE_MREMAP 1
-
 /* Define to 1 if the netcdf module is to be enabled */
 #cmakedefine HAVE_NETCDF 1
-
-/* Define to 1 if you have the `nl_langinfo' function. */
-#cmakedefine HAVE_NL_LANGINFO 1
 
 /* Define to 1 if you have the OpenSSL library */
 #cmakedefine HAVE_OPENSSL 1
 
 /* Define to 1 if you have the `pipe2' function. */
 #cmakedefine HAVE_PIPE2 1
-
-/* Define to 1 if you have the `popen' function. */
-#cmakedefine HAVE_POPEN 1
 
 /* Define to 1 if you have the `posix_fallocate' function. */
 #cmakedefine HAVE_POSIX_FALLOCATE 1
@@ -279,9 +250,6 @@
 /* Define to 1 if you have the `stpcpy' function. */
 #cmakedefine HAVE_STPCPY 1
 
-/* Define to 1 if you have the `strptime' function. */
-#cmakedefine HAVE_STRPTIME 1
-
 /* Define to 1 if you have the `strtok_r' function. */
 #cmakedefine HAVE_STRTOK_R 1
 
@@ -293,12 +261,6 @@
 
 /* Define to 1 if you have the <sys/mman.h> header file. */
 #cmakedefine HAVE_SYS_MMAN_H 1
-
-/* Define to 1 if you have the <sys/time.h> header file. */
-#cmakedefine HAVE_SYS_TIME_H 1
-
-/* Define to 1 if you have the `times' function. */
-#cmakedefine HAVE_TIMES 1
 
 /* uuid */
 #cmakedefine HAVE_UUID 1
@@ -473,18 +435,6 @@ typedef enum {
 /* static_assert is a C11 feature, defined in assert.h which also exists
  * in many other compilers we ignore it if the compiler doesn't support it */
 #define static_assert(expr, mesg)	((void) 0)
-#endif
-
-#ifndef HAVE_STPCPY
-static inline char *
-stpcpy(char *restrict dst, const char *restrict src)
-{
-	size_t i;
-	for (i = 0; src[i]; i++)
-		dst[i] = src[i];
-	dst[i] = 0;
-	return dst + i;
-}
 #endif
 
 #if defined(SIZEOF___INT128)

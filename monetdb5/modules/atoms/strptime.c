@@ -43,7 +43,7 @@
 #include <time.h>
 #include <ctype.h>
 
-#ifndef HAVE_STRPTIME
+#ifdef NATIVE_WIN32
 
 /*
  * We do not implement alternate representations. However, we always

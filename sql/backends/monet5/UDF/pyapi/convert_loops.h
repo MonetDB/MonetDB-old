@@ -56,7 +56,7 @@
 #define nancheck_lng(bat) ((void)0)
 #define nancheck_hge(bat) ((void)0) /* not used if no HAVE_HGE */
 #define nancheck_oid(bat) ((void)0)
-#if defined(HAVE_FORK) && !defined(HAVE_EMBEDDED)
+#if !defined(NATIVE_WIN32) && !defined(HAVE_EMBEDDED)
 #define CREATE_BAT_ZEROCOPY(bat, mtpe, batstore)                               \
 	{                                                                          \
 		bat = COLnew(seqbase, TYPE_##mtpe, 0, TRANSIENT);                      \

@@ -19,10 +19,6 @@
 #endif
 #include "mutils.h"
 
-#ifdef HAVE_BACKTRACE
-# include <execinfo.h>
-#endif
-
 #ifdef __MACH__
 # include <mach-o/dyld.h>  /* _NSGetExecutablePath on OSX >=10.5 */
 #endif

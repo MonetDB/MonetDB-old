@@ -23,22 +23,16 @@
 #include <sys/stat.h>
 #include <signal.h>
 #ifdef NATIVE_WIN32
+#include "monet_getopt.h"
 #include <direct.h>
 #include <io.h>
 #else
+#include "getopt.h"
 #include <unistd.h>
 #endif
 #include "mprompt.h"
 #include "dotmonetdb.h"
 #include "eventparser.h"
-
-#ifndef HAVE_GETOPT_LONG
-# include "monet_getopt.h"
-#else
-# ifdef HAVE_GETOPT_H
-#  include "getopt.h"
-# endif
-#endif
 
 #include <time.h>
 
@@ -48,8 +42,6 @@
 #define read  _read
 #define write _write
 #endif
-
-
 
 #define die(dbh, hdl)						\
 	do {							\

@@ -17,7 +17,7 @@
 #include "conversion.h"
 #include "gdk_interprocess.h"
 
-#ifdef HAVE_FORK
+#ifndef NATIVE_WIN32
 // These libraries are used for PYTHON_MAP when forking is enabled [to start new
 // processes and wait on them]
 #include <sys/types.h>
@@ -74,7 +74,7 @@ bool PYFUNCNAME(PyAPIInitialized)(void) {
 	return pyapiInitialized;
 }
 
-#ifdef HAVE_FORK
+#ifndef NATIVE_WIN32
 static bool python_call_active = false;
 #endif
 
@@ -160,7 +160,7 @@ static str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bo
 	PyReturn *pyreturn_values = NULL;
 	PyInput *pyinput_values = NULL;
 	oid seqbase = 0;
-#ifdef HAVE_FORK
+#ifndef NATIVE_WIN32
 	char *mmap_ptr;
 	QueryStruct *query_ptr = NULL;
 	int query_sem = -1;
@@ -183,7 +183,7 @@ static str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bo
 
 	mapped = false;
 
-#ifndef HAVE_FORK
+#ifdef NATIVE_WIN32
 	(void)mapped;
 #endif
 
@@ -297,7 +297,7 @@ static str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bo
 		}
 	}
 
-#ifdef HAVE_FORK
+#ifndef NATIVE_WIN32
 	if (!option_disable_fork) {
 		if (!mapped && !parallel_aggregation) {
 			MT_lock_set(&pyapiLock);
@@ -316,7 +316,7 @@ static str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bo
 	}
 #endif
 
-#ifdef HAVE_FORK
+#ifndef NATIVE_WIN32
 	/*[FORK_PROCESS]*/
 	if (mapped) {
 		lng pid;
@@ -616,7 +616,7 @@ static str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bo
 						(code_object == NULL ? additional_columns : 0));
 	pColumns = PyDict_New();
 	pColumnTypes = PyDict_New();
-#ifdef HAVE_FORK
+#ifndef NATIVE_WIN32
 	pConnection = Py_Connection_Create(cntxt, !allow_loopback, query_ptr, query_sem);
 #else
 	pConnection = Py_Connection_Create(cntxt, !allow_loopback, 0, 0);
@@ -1032,7 +1032,7 @@ static str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bo
 		goto wrapup;
 	}
 
-#ifdef HAVE_FORK
+#ifndef NATIVE_WIN32
 	/*[FORKED]*/
 	// This is where the child process stops executing
 	// We have successfully executed the Python function and converted the
@@ -1153,7 +1153,7 @@ static str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bo
 	// the GIL
 	gstate = Python_ReleaseGIL(gstate);
 
-#ifdef HAVE_FORK // This goto is only used for multiprocessing, if HAVE_FORK is
+#ifndef NATIVE_WIN32 // This goto is only used for multiprocessing, if NATIVE_WIN32 is
 				 // set to 0 this is unused
 returnvalues:
 #endif
@@ -1203,7 +1203,7 @@ returnvalues:
 	}
 wrapup:
 
-#ifdef HAVE_FORK
+#ifndef NATIVE_WIN32
 	if (mapped && child_process) {
 		// If we get here, something went wrong in a child process
 		char *error_mem;
@@ -1245,7 +1245,7 @@ wrapup:
 	}
 #endif
 
-#ifdef HAVE_FORK
+#ifndef NATIVE_WIN32
 	if (holds_gil) {
 		MT_lock_set(&pyapiLock);
 		python_call_active = false;

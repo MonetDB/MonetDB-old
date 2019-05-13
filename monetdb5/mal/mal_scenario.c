@@ -99,7 +99,7 @@
 #include "mal_profiler.h"
 #include "mal_private.h"
 
-#ifdef HAVE_TIMES
+#ifndef NATIVE_WIN32
 # include <sys/times.h>
 #endif
 

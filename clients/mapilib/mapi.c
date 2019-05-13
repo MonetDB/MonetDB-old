@@ -690,11 +690,13 @@
 #include "mcrypt.h"
 #include "matomic.h"
 
+#include <time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #ifdef NATIVE_WIN32
 # include <ws2tcpip.h>
+# include <sys/timeb.h>		/* ftime */
 #else
 # include <unistd.h>
 # include <dirent.h>
@@ -702,13 +704,6 @@
 # include <netdb.h>
 # include <netinet/in.h>
 # include <sys/uio.h>
-#endif
-
-#include <time.h>
-#ifdef HAVE_FTIME
-# include <sys/timeb.h>		/* ftime */
-#endif
-#ifdef HAVE_SYS_TIME_H
 # include <sys/time.h>		/* gettimeofday */
 #endif
 
@@ -1302,21 +1297,18 @@ mapi_get_autocommit(Mapi mid)
 static int64_t
 usec(void)
 {
-#ifdef HAVE_GETTIMEOFDAY
-	struct timeval tp;
-
-	gettimeofday(&tp, NULL);
-	return ((int64_t) tp.tv_sec) * 1000000 + (int64_t) tp.tv_usec;
-#else
-#ifdef HAVE_FTIME
+#ifdef NATIVE_WIN32
 	struct timeb tb;
 
 	ftime(&tb);
 	return ((int64_t) tb.time) * 1000000 + ((int64_t) tb.millitm) * 1000;
-#endif
+#else
+	struct timeval tp;
+
+	gettimeofday(&tp, NULL);
+	return ((int64_t) tp.tv_sec) * 1000000 + (int64_t) tp.tv_usec;
 #endif
 }
-
 
 static void
 mapi_log_header(Mapi mid, char *mark)

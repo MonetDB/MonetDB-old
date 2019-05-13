@@ -11,11 +11,8 @@
 
 #include "mal_client.h"
 
-#ifdef HAVE_TIMES
-# include <sys/times.h>
-#endif
-
 #ifndef NATIVE_WIN32
+# include <sys/times.h>
 # include <sys/resource.h>
 typedef struct rusage Rusage;
 #endif

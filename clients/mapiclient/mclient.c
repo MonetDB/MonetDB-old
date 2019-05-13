@@ -14,17 +14,12 @@
  */
 
 #include "monetdb_config.h"
-#ifndef HAVE_GETOPT_LONG
-#  include "monet_getopt.h"
-#else
-# ifdef HAVE_GETOPT_H
-#  include "getopt.h"
-# endif
-#endif
 #include "mapi.h"
 #ifdef NATIVE_WIN32
-# include <io.h>
+#include "monet_getopt.h"
+#include <io.h>
 #else
+#include "getopt.h"
 #include <unistd.h>
 #include <strings.h>		/* strcasecmp */
 #endif
@@ -43,7 +38,7 @@
 
 #ifdef HAVE_ICONV
 #include <iconv.h>
-#ifdef HAVE_NL_LANGINFO
+#ifndef NATIVE_WIN32
 #include <langinfo.h>
 #endif
 #endif
@@ -113,7 +108,7 @@ static timertype t0, t1;	/* used for timing */
  * values may then span multiple lines. Setting the pagewidth to 0
  * turns off row size control. */
 
-#ifdef HAVE_POPEN
+#ifndef NATIVE_WIN32
 static char *pager = 0;		/* use external pager */
 #include <signal.h>		/* to block SIGPIPE */
 #endif
@@ -141,13 +136,10 @@ static char *nullstring = default_nullstring;
 #define MINVARCOLSIZE 10
 
 #include <time.h>
-#ifdef HAVE_FTIME
+#ifdef NATIVE_WIN32
 #include <sys/timeb.h>		/* ftime */
-#endif
-#ifdef HAVE_SYS_TIME_H
+#else
 #include <sys/time.h>		/* gettimeofday */
-#endif
-#ifndef NATIVE_WIN32
 #include <sys/ioctl.h>
 #include <termios.h>		/* TIOCGWINSZ/TIOCSWINSZ */
 #endif
@@ -178,20 +170,7 @@ gettime(void)
 		QueryPerformanceCounter(&ctr);
 		return (timertype) (((ctr.QuadPart - start.QuadPart) * 1000000) / freq.QuadPart);
 	}
-#endif
-#ifdef HAVE_GETTIMEOFDAY
-	{
-		static struct timeval tpbase;	/* automatically initialized to 0 */
-		struct timeval tp;
-
-		if (tpbase.tv_sec == 0)
-			gettimeofday(&tpbase, NULL);
-		gettimeofday(&tp, NULL);
-		tp.tv_sec -= tpbase.tv_sec;
-		return (timertype) tp.tv_sec * 1000000 + (timertype) tp.tv_usec;
-	}
-#else
-#ifdef HAVE_FTIME
+#elif defined(NATIVE_WIN32) //let the ftime code stay
 	{
 		static struct timeb tbbase;	/* automatically initialized to 0 */
 		struct timeb tb;
@@ -202,8 +181,18 @@ gettime(void)
 		tb.time -= tbbase.time;
 		return (timertype) tb.time * 1000000 + (timertype) tb.millitm * 1000;
 	}
-#endif	/* HAVE_FTIME */
-#endif	/* HAVE_GETTIMEOFDAY */
+#else
+	{
+		static struct timeval tpbase;	/* automatically initialized to 0 */
+		struct timeval tp;
+
+		if (tpbase.tv_sec == 0)
+			gettimeofday(&tpbase, NULL);
+		gettimeofday(&tp, NULL);
+		tp.tv_sec -= tpbase.tv_sec;
+		return (timertype) tp.tv_sec * 1000000 + (timertype) tp.tv_usec;
+	}
+#endif
 }
 
 static void
@@ -1785,7 +1774,7 @@ setWidth(void)
 	}
 }
 
-#ifdef HAVE_POPEN
+#ifndef NATIVE_WIN32
 static void
 start_pager(stream **saveFD)
 {
@@ -1847,7 +1836,7 @@ format_result(Mapi mid, MapiHdl hdl, bool singleinstr)
 	int64_t maloptimizer = 0;
 	int64_t querytime = 0;
 	int64_t rows = 0;
-#ifdef HAVE_POPEN
+#ifndef NATIVE_WIN32
 	stream *saveFD;
 
 	start_pager(&saveFD);
@@ -2026,7 +2015,7 @@ format_result(Mapi mid, MapiHdl hdl, bool singleinstr)
 		fprintf(stderr, "write error\n");
 		errseen = true;
 	}
-#ifdef HAVE_POPEN
+#ifndef NATIVE_WIN32
 	end_pager(saveFD);
 #endif
 
@@ -2209,7 +2198,7 @@ showCommands(void)
 		mnstr_printf(toConsole, "?pat     - MAL function help. pat=[modnme[.fcnnme][(][)]] wildcard *\n");
 	mnstr_printf(toConsole, "\\<file   - read input from file\n");
 	mnstr_printf(toConsole, "\\>file   - save response in file, or stdout if no file is given\n");
-#ifdef HAVE_POPEN
+#ifndef NATIVE_WIN32
 	mnstr_printf(toConsole, "\\|cmd    - pipe result to process, or stop when no command is given\n");
 #endif
 #ifdef HAVE_LIBREADLINE
@@ -2567,7 +2556,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 					}
 
 					if (*line && !hasWildcard) {
-#ifdef HAVE_POPEN
+#ifndef NATIVE_WIN32
 						stream *saveFD;
 
 						start_pager(&saveFD);
@@ -2580,7 +2569,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 							dump_functions(mid, toConsole, 0, NULL, line, NULL);
 						if (x & MD_SCHEMA)
 							describe_schema(mid, line, toConsole);
-#ifdef HAVE_POPEN
+#ifndef NATIVE_WIN32
 						end_pager(saveFD);
 #endif
 					} else {
@@ -2706,7 +2695,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 					continue;
 				}
 				case 'D':{
-#ifdef HAVE_POPEN
+#ifndef NATIVE_WIN32
 					stream *saveFD;
 #endif
 
@@ -2720,7 +2709,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 					}
 					for (line += 2; *line && my_isspace(*line); line++)
 						;
-#ifdef HAVE_POPEN
+#ifndef NATIVE_WIN32
 					start_pager(&saveFD);
 #endif
 					if (*line) {
@@ -2729,7 +2718,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 						mnstr_printf(toConsole, "COMMIT;\n");
 					} else
 						dump_database(mid, toConsole, 0, useinserts);
-#ifdef HAVE_POPEN
+#ifndef NATIVE_WIN32
 					end_pager(saveFD);
 #endif
 					continue;
@@ -2795,7 +2784,7 @@ doFile(Mapi mid, stream *fp, bool useinserts, bool interactive, int save_history
 				case '?':
 					showCommands();
 					continue;
-#ifdef HAVE_POPEN
+#ifndef NATIVE_WIN32
 				case '|':
 					if (pager)
 						free(pager);
@@ -3207,7 +3196,7 @@ usage(const char *prog, int xit)
 	fprintf(stderr, " -s stmt     | --statement=stmt   run single statement\n");
 	fprintf(stderr, " -X          | --Xdebug           trace mapi network interaction\n");
 	fprintf(stderr, " -z          | --timezone         do not tell server our timezone\n");
-#ifdef HAVE_POPEN
+#ifndef NATIVE_WIN32
 	fprintf(stderr, " -| cmd      | --pager=cmd        for pagination\n");
 #endif
 	fprintf(stderr, " -v          | --version          show version information and exit\n");
@@ -3270,7 +3259,7 @@ main(int argc, char **argv)
 		{"language", 1, 0, 'l'},
 		{"log", 1, 0, 'L'},
 		{"null", 1, 0, 'n'},
-#ifdef HAVE_POPEN
+#ifndef NATIVE_WIN32
 		{"pager", 1, 0, '|'},
 #endif
 		{"port", 1, 0, 'p'},
@@ -3325,7 +3314,7 @@ main(int argc, char **argv)
 				"E:"
 #endif
 				"f:h:Hil:L:n:Np:P:r:Rs:t:u:vw:Xz"
-#ifdef HAVE_POPEN
+#ifndef NATIVE_WIN32
 				"|:"
 #endif
 				"?",
@@ -3467,7 +3456,7 @@ main(int argc, char **argv)
 				     "compiled-in\n");
 #endif
 #ifdef HAVE_ICONV
-#ifdef HAVE_NL_LANGINFO
+#ifndef NATIVE_WIN32
 			if (encoding == NULL)
 				encoding = nl_langinfo(CODESET);
 #endif
@@ -3488,7 +3477,7 @@ main(int argc, char **argv)
 		case 'z':
 			settz = false;
 			break;
-#ifdef HAVE_POPEN
+#ifndef NATIVE_WIN32
 		case '|':
 			assert(optarg);
 			pager = optarg;
@@ -3512,7 +3501,7 @@ main(int argc, char **argv)
 	}
 
 #ifdef HAVE_ICONV
-#ifdef HAVE_NL_LANGINFO
+#ifndef NATIVE_WIN32
 	if (encoding == NULL)
 		encoding = nl_langinfo(CODESET);
 #endif

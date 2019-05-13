@@ -357,7 +357,7 @@ lineparser(char *row, EventRecord *ev)
 	/* convert time to epoch in seconds*/
 	cc =c;
 	stm = (struct tm) {0};
-#ifdef HAVE_STRPTIME
+#ifndef NATIVE_WIN32
 	c = strptime(c + 1, "%H:%M:%S", &stm);
 	ev->clkticks = (((int64_t) stm.tm_hour * 60 + stm.tm_min) * 60 + stm.tm_sec) * 1000000;
 	if (c == NULL)

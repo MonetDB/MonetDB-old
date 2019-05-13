@@ -29,17 +29,11 @@
 #include "dotmonetdb.h"
 #include "eventparser.h"
 
-#ifndef HAVE_GETOPT_LONG
-# include "monet_getopt.h"
-#else
-# ifdef HAVE_GETOPT_H
-#  include "getopt.h"
-# endif
-#endif
-
 #ifdef NATIVE_WIN32
+# include "monet_getopt.h"
 # include <io.h>
 #else
+# include "getopt.h"
 # include <netdb.h>
 # include <netinet/in.h>
 #endif
