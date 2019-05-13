@@ -58,6 +58,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #ifdef NATIVE_WIN32
+#include <ws2tcpip.h>
 #include <io.h>
 #else
 # include <unistd.h>
@@ -167,6 +168,10 @@
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 #define isatty _isatty
+#endif
+
+#ifndef S_ISREG
+#define S_ISREG(mode)	(((mode) & _S_IFMT) == _S_IFREG)
 #endif
 
 struct stream {

@@ -18,6 +18,10 @@
 #include <termios.h>
 #endif
 
+#ifndef S_ISCHR
+#define S_ISCHR(mode)	(((mode) & S_IFMT) == S_IFCHR)
+#endif
+
 static void
 showCommands(void)
 {

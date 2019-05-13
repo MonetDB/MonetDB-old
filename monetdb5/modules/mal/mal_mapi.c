@@ -43,6 +43,7 @@
 #endif
 #ifdef NATIVE_WIN32   /* Windows specific */
 # include <winsock2.h>
+# include <ws2tcpip.h>
 #else           /* UNIX specific */
 # include <unistd.h>     /* gethostname() */
 # include <sys/select.h>

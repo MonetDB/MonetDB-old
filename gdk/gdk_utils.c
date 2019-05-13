@@ -34,6 +34,7 @@ int GDKverbose = 0;
 #endif
 
 #ifdef NATIVE_WIN32
+#include <process.h>
 #include <io.h>
 #define chdir _chdir
 #define getpid _getpid

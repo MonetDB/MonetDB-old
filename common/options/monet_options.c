@@ -35,6 +35,7 @@
 #endif
 
 #ifdef NATIVE_WIN32
+#include <process.h>
 #define getpid _getpid
 #else
 #include <unistd.h>

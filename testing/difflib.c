@@ -17,7 +17,8 @@
 #include <fcntl.h>
 
 #ifdef NATIVE_WIN32
-# include <io.h>
+#include <process.h>
+#include <io.h>
 #define popen _popen
 #define pclose _pclose
 #define getpid _getpid

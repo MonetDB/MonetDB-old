@@ -693,7 +693,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#ifndef NATIVE_WIN32
+#ifdef NATIVE_WIN32
+# include <ws2tcpip.h>
+#else
 # include <unistd.h>
 # include <dirent.h>
 # include <sys/un.h>
