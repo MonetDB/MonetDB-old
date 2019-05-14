@@ -57,17 +57,12 @@ str
 ALARMctime(str *res)
 {
 	time_t t = time(0);
-	char *base;
-#if defined(HAVE_CTIME_R) || defined(HAVE_CTIME_S)
-	char buf[26];
-#endif
+	char *base, buf[26];
 
-#if defined(HAVE_CTIME_R)
-	base = ctime_r(&t, buf);
-#elif defined(HAVE_CTIME_S)
+#ifdef NATIVE_WIN32
 	base = ctime_s(buf, sizeof(buf), &t) ? NULL : buf;
 #else
-	base = ctime(&t);
+	base = ctime_r(&t, buf);
 #endif
 	if (base == NULL)
 		/* very unlikely to happen... */

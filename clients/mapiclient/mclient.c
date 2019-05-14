@@ -158,7 +158,7 @@ gettime(void)
 {
 	/* Return the time in milliseconds since an epoch.  The epoch
 	   is roughly the time this program started. */
-#ifdef _MSC_VER
+#ifdef NATIVE_WIN32
 	static LARGE_INTEGER freq, start;	/* automatically initialized to 0 */
 	LARGE_INTEGER ctr;
 
@@ -170,7 +170,6 @@ gettime(void)
 		QueryPerformanceCounter(&ctr);
 		return (timertype) (((ctr.QuadPart - start.QuadPart) * 1000000) / freq.QuadPart);
 	}
-#elif defined(NATIVE_WIN32) //let the ftime code stay
 	{
 		static struct timeb tbbase;	/* automatically initialized to 0 */
 		struct timeb tb;

@@ -220,12 +220,10 @@ keyvalueparser(char *txt, EventRecord *ev)
 		}
 
 		sec = atol(val);
-#if defined(HAVE_LOCALTIME_R)
-		(void)localtime_r(&sec, &curr_time);
-#elif defined(HAVE_LOCALTIME_S)
+#ifdef NATIVE_WIN32
 		(void)localtime_s(&curr_time, &sec);
 #else
-		curr_time = *localtime(&sec);
+		(void)localtime_r(&sec, &curr_time);
 #endif
 		ev->time = malloc(DATETIME_CHAR_LENGTH*sizeof(char));
 		snprintf(ev->time, DATETIME_CHAR_LENGTH, "%d/%02d/%02d %02d:%02d:%02d.%s",

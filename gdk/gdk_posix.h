@@ -21,6 +21,7 @@
 #include <sys/timeb.h>		/* ftime */
 #else
 #include <sys/time.h>		/* gettimeofday */
+#include <sys/mman.h>
 #endif
 
 /*
@@ -29,19 +30,9 @@
 #define MT_VMUNITLOG	16
 #define MT_VMUNITSIZE	(1 << MT_VMUNITLOG)
 
-/* make sure POSIX_MADV_* and posix_madvise() are defined somehow */
-#ifdef HAVE_SYS_MMAN_H
-# ifndef __USE_BSD
-#  define __USE_BSD
-# endif
-# include <sys/mman.h>
-#endif
-
 #ifdef __linux__
-/* on Linux, posix_madvise does not seem to work, fall back to classic
- * madvise */
+/* on Linux, posix_madvise does not seem to work, fall back to classic madvise */
 #undef HAVE_POSIX_MADVISE
-#undef HAVE_POSIX_FADVISE
 #undef POSIX_MADV_NORMAL
 #undef POSIX_MADV_RANDOM
 #undef POSIX_MADV_SEQUENTIAL
@@ -119,7 +110,6 @@ gdk_export void *MT_mmap(const char *path, int mode, size_t len);
 gdk_export int MT_munmap(void *p, size_t len);
 
 gdk_export bool MT_path_absolute(const char *path);
-
 
 /*
  * @+ Posix under WIN32

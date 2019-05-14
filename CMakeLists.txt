@@ -165,7 +165,7 @@ function(MT_addCompilerFlag REGEX_EXPRESSION FLAG_TO_ADD OLD_FLAGS BUILD NEW_FLA
 endfunction()
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND NOT ${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
-	add_definitions(-D_GNU_SOURCE -D_XOPEN_SOURCE)
+	add_definitions(-D_GNU_SOURCE -D_XOPEN_SOURCE) # required for GNU extensions
 	set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_GNU_SOURCE -D_XOPEN_SOURCE") # required for tests
 endif()
 if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
@@ -478,7 +478,6 @@ include(FindExtraLibraries)
 # Header files
 check_include_file("libintl.h" HAVE_LIBINTL_H) # Some Linux distributions don't have it
 check_include_file("pthread.h" HAVE_PTHREAD_H) # Distinguish between posix thread and win32 thread libraries
-check_include_file("sys/mman.h" HAVE_SYS_MMAN_H) # TODO check this
 
 # C types existence
 cmake_push_check_state()
@@ -516,22 +515,13 @@ cmake_pop_check_state()
 
 # Non portable functions
 check_symbol_exists("accept4" "sys/types.h;sys/socket.h" HAVE_ACCEPT4) # Some libc versions on Linux distributions don't have it
-check_symbol_exists("asctime_r" "time.h" HAVE_ASCTIME_R)
-check_symbol_exists("asctime_s" "time.h" HAVE_ASCTIME_S)
-check_symbol_exists("ctime_r" "time.h" HAVE_CTIME_R)
-check_symbol_exists("ctime_s" "time.h" HAVE_CTIME_S)
 check_symbol_exists("fallocate" "fcntl.h" HAVE_FALLOCATE) # Linux specific, in the future, it might be ported to other platforms
-check_symbol_exists("fcntl" "unistd.h;fcntl.h" HAVE_FCNTL) # Windows has the fcntl.h header, but not the function
-check_symbol_exists("localtime_r" "time.h" HAVE_LOCALTIME_R)
-check_symbol_exists("localtime_s" "time.h" HAVE_LOCALTIME_S)
-check_symbol_exists("madvise" "sys/mman.h" HAVE_MADVISE) # TODO check this
+check_symbol_exists("madvise" "sys/mman.h" HAVE_MADVISE) # The Linux kernel can be compiled without madvise
 check_symbol_exists("mremap" "sys/mman.h" HAVE_MREMAP) # Linux specific, in the future, it might be ported to other platforms
 check_symbol_exists("pipe2" "fcntl.h;unistd.h" HAVE_PIPE2) # Some libc versions on Linux distributions don't have it
 check_symbol_exists("posix_fallocate" "fcntl.h" HAVE_POSIX_FALLOCATE) # Some POSIX systems don't have it
-check_symbol_exists("posix_madvise" "sys/mman.h" HAVE_POSIX_MADVISE) # TODO check this
+check_symbol_exists("posix_madvise" "sys/mman.h" HAVE_POSIX_MADVISE) # The Linux kernel can be compiled without madvise, and posix_madvise is implemented using madvise
 check_symbol_exists("semtimedop" "sys/types.h;sys/ipc.h;sys/sem.h" HAVE_SEMTIMEDOP) # Some libc versions on Linux distributions don't have it
-check_symbol_exists("strtok_r" "string.h" HAVE_STRTOK_R)
-check_symbol_exists("strtok_s" "string.h" HAVE_STRTOK_S)
 
 if(${ENABLE_GDK} STREQUAL "NO")
 	if(${ENABLE_MONETDB5} STREQUAL "YES")

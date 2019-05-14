@@ -2452,12 +2452,10 @@ ODBCFetch(ODBCStmt *stmt,
 
 		case SQL_TYPE_TIME:
 					(void) time(&t);
-#if defined(HAVE_LOCALTIME_R)
-					(void) localtime_r(&t, &tm);
-#elif defined(HAVE_LOCALTIME_S)
+#ifdef NATIVE_WIN32
 					(void) localtime_s(&tm, &t);
 #else
-					tm = *localtime(&t);
+					(void) localtime_r(&t, &tm);
 #endif
 					tsval.year = tm.tm_year + 1900;
 					tsval.month = tm.tm_mon + 1;
@@ -3480,12 +3478,10 @@ ODBCStore(ODBCStmt *stmt,
 
 		case SQL_C_TYPE_TIME:
 					(void) time(&t);
-#if defined(HAVE_LOCALTIME_R)
-					(void) localtime_r(&t, &tm);
-#elif defined(HAVE_LOCALTIME_S)
+#ifdef NATIVE_WIN32
 					(void) localtime_s(&tm, &t);
 #else
-					tm = *localtime(&t);
+					(void) localtime_r(&t, &tm);
 #endif
 					tsval.year = tm.tm_year + 1900;
 					tsval.month = tm.tm_mon + 1;

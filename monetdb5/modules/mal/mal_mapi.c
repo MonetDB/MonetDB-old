@@ -341,7 +341,7 @@ SERVERlistenThread(SOCKET *Sock)
 				}
 				continue;
 			}
-#if defined(HAVE_FCNTL) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
+#if !defined(NATIVE_WIN32) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
 			(void) fcntl(msgsock, F_SETFD, FD_CLOEXEC);
 #endif
 #ifndef NATIVE_WIN32
@@ -366,7 +366,7 @@ SERVERlistenThread(SOCKET *Sock)
 				}
 				continue;
 			}
-#if defined(HAVE_FCNTL) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
+#if !defined(NATIVE_WIN32) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
 			(void) fcntl(msgsock, F_SETFD, FD_CLOEXEC);
 #endif
 
@@ -614,7 +614,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 						e = errno;
 						continue;
 					}
-#if !defined(SOCK_CLOEXEC) && defined(HAVE_FCNTL)
+#if !defined(SOCK_CLOEXEC) && !defined(NATIVE_WIN32)
 					(void) fcntl(sock, F_SETFD, FD_CLOEXEC);
 #endif
 
@@ -687,7 +687,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 #endif
 				);
 			}
-#if !defined(SOCK_CLOEXEC) && defined(HAVE_FCNTL)
+#if !defined(SOCK_CLOEXEC) && !defined(NATIVE_WIN32)
 			(void) fcntl(sock, F_SETFD, FD_CLOEXEC);
 #endif
 
@@ -820,7 +820,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 #endif
 				);
 		}
-#if !defined(SOCK_CLOEXEC) && defined(HAVE_FCNTL)
+#if !defined(SOCK_CLOEXEC) && !defined(NATIVE_WIN32)
 		(void) fcntl(usock, F_SETFD, FD_CLOEXEC);
 #endif
 

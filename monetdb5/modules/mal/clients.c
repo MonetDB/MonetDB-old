@@ -97,32 +97,22 @@ local_itoa(int i)
 }
 
 static void
-CLTtimeConvert(time_t l, char *s){
-			struct tm localt;
+CLTtimeConvert(time_t l, char *s)
+{
+	struct tm localt;
 
-#if defined(HAVE_LOCALTIME_R)
-			(void) localtime_r(&l, &localt);
-#elif defined(HAVE_LOCALTIME_S)
-			(void)localtime_s(&localt, &l);
+#ifdef NATIVE_WIN32
+	(void) localtime_s(&localt, &l);
 #else
-			/* race condition: return value could be
-			 * overwritten in parallel thread before
-			 * assignment complete */
-			localt = *localtime(&l);
+	(void) localtime_r(&l, &localt);
 #endif
 
-#if defined(HAVE_ASCTIME_R)
-			asctime_r(&localt, s);
-#elif defined(HAVE_ASCTIME_S)
-			asctime_s(s, 26, &localt);
+#ifdef NATIVE_WIN32
+	(void) asctime_s(s, 26, &localt);
 #else
-			/* race condition: return value could be
-			 * overwritten in parallel thread before copy
-			 * complete, however on Windows, asctime is
-			 * thread-safe */
-			strncpy(s, asctime(&localt), 26);
+	(void) asctime_r(&localt, s);
 #endif
-			s[24] = 0;
+	s[24] = 0;
 }
 
 str

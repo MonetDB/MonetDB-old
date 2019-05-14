@@ -192,12 +192,8 @@ void
 GDKlog(FILE *lockFile, const char *format, ...)
 {
 	va_list ap;
-	char *p = 0, buf[1024];
+	char *p = 0, buf[1024], tbuf[26], *ctm;
 	time_t tm = time(0);
-#if defined(HAVE_CTIME_R) || defined(HAVE_CTIME_S)
-	char tbuf[26];
-#endif
-	char *ctm;
 
 	if (MT_pagesize() == 0 || lockFile == NULL)
 		return;
@@ -213,12 +209,10 @@ GDKlog(FILE *lockFile, const char *format, ...)
 		;
 
 	fseek(lockFile, 0, SEEK_END);
-#if defined(HAVE_CTIME_R)
-	ctm = ctime_r(&tm, tbuf);
-#elif defined(HAVE_CTIME_S)
+#ifdef NATIVE_WIN32
 	ctm = ctime_s(tbuf, sizeof(tbuf), &tm) ? NULL : tbuf;
 #else
-	ctm = ctime(&tm);
+	ctm = ctime_r(&tm, tbuf);
 #endif
 	fprintf(lockFile, "USR=%d PID=%d TIME=%.24s @ %s\n", (int) getuid(), (int) getpid(), ctm, buf);
 	fflush(lockFile);
@@ -1231,7 +1225,7 @@ GDKusec(void)
 {
 	/* Return the time in microseconds since an epoch.  The epoch
 	 * is roughly the time this program started. */
-#ifdef _MSC_VER
+#ifdef NATIVE_WIN32
 	static LARGE_INTEGER freq, start;	/* automatically initialized to 0 */
 	LARGE_INTEGER ctr;
 
@@ -1242,10 +1236,20 @@ GDKusec(void)
 	if (start.QuadPart > 0) {
 		QueryPerformanceCounter(&ctr);
 		return (lng) (((ctr.QuadPart - start.QuadPart) * 1000000) / freq.QuadPart);
-	} else {
-		return -1;
 	}
-#elif defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0
+	{
+		static struct timeb tbbase;	/* automatically initialized to 0 */
+		struct timeb tb;
+
+		if (tbbase.time == 0) {
+			ftime(&tbbase);
+			return (lng) tbbase.millitm * 1000;
+		}
+		ftime(&tb);
+		return (lng) (tb.time - tbbase.time) * 1000000 + (lng) tb.millitm * 1000;
+	}
+#else
+#if defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0
 #if defined(CLOCK_UPTIME_FAST)
 #define CLK_ID CLOCK_UPTIME_FAST	/* FreeBSD */
 #else
@@ -1260,22 +1264,8 @@ GDKusec(void)
 		}
 		if (clock_gettime(CLK_ID, &ts) == 0)
 			return (ts.tv_sec - tsbase.tv_sec) * 1000000 + ts.tv_nsec / 1000;
-		else
-			return -1;
 	}
-#elif defined(NATIVE_WIN32) //leave ftime code as a fallback
-	{
-		static struct timeb tbbase;	/* automatically initialized to 0 */
-		struct timeb tb;
-
-		if (tbbase.time == 0) {
-			ftime(&tbbase);
-			return (lng) tbbase.millitm * 1000;
-		}
-		ftime(&tb);
-		return (lng) (tb.time - tbbase.time) * 1000000 + (lng) tb.millitm * 1000;
-	}
-#else //leave gettimeofday code as the last resort
+#endif //leave gettimeofday code as the last resort
 	{
 		static struct timeval tpbase;	/* automatically initialized to 0 */
 		struct timeval tp;

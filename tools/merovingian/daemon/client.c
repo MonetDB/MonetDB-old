@@ -489,7 +489,7 @@ acceptConnections(int sock, int usock)
 				}
 				continue;
 			}
-#if defined(HAVE_FCNTL) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
+#if !defined(NATIVE_WIN32) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
 			(void) fcntl(msgsock, F_SETFD, FD_CLOEXEC);
 #endif
 		} else if (FD_ISSET(usock, &fds)) {
@@ -521,7 +521,7 @@ acceptConnections(int sock, int usock)
 				}
 				continue;
 			}
-#if defined(HAVE_FCNTL) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
+#if !defined(NATIVE_WIN32) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
 			(void) fcntl(usock, F_SETFD, FD_CLOEXEC);
 #endif
 

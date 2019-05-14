@@ -1045,7 +1045,7 @@ controlRunner(void *d)
 			}
 			continue;
 		}
-#if defined(HAVE_FCNTL) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
+#if !defined(NATIVE_WIN32) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
 		(void) fcntl(msgsock, F_SETFD, FD_CLOEXEC);
 #endif
 

@@ -60,7 +60,7 @@ char* control_send(
 					strerror(errno));
 			return(strdup(sbuf));
 		}
-#if !defined(SOCK_CLOEXEC) && defined(HAVE_FCNTL)
+#if !defined(SOCK_CLOEXEC) && !defined(NATIVE_WIN32)
 		(void) fcntl(sock, F_SETFD, FD_CLOEXEC);
 #endif
 		server = (struct sockaddr_un) {
@@ -110,7 +110,7 @@ char* control_send(
 			);
 			return(strdup(sbuf));
 		}
-#if !defined(SOCK_CLOEXEC) && defined(HAVE_FCNTL)
+#if !defined(SOCK_CLOEXEC) && !defined(NATIVE_WIN32)
 		(void) fcntl(sock, F_SETFD, FD_CLOEXEC);
 #endif
 

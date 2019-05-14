@@ -77,15 +77,6 @@
 
 #include <windows.h>
 
-static inline char *
-stpcpy(char *restrict dst, const char *restrict src)
-{
-	size_t i;
-	for (i = 0; src[i]; i++)
-		dst[i] = src[i];
-	dst[i] = 0;
-	return dst + i;
-}
 #endif /* _MSC_VER */
 
 /* location where binaries are installed */
@@ -106,23 +97,11 @@ stpcpy(char *restrict dst, const char *restrict src)
 /* Define to 1 if you have the `accept4' function. */
 #cmakedefine HAVE_ACCEPT4 1
 
-/* Define to 1 if you have the `asctime_r' function. */
-#cmakedefine HAVE_ASCTIME_R 1
-
-/* Define to 1 if you have `asctime_s' function. */
-#cmakedefine HAVE_ASCTIME_S 1
-
 /* Define to 1 if you have the CommonCrypto library */
 #cmakedefine HAVE_COMMONCRYPTO 1
 
 /* If the console should be used */
 #cmakedefine HAVE_CONSOLE 1
-
-/* Define to 1 if you have the `ctime_r' function. */
-#cmakedefine HAVE_CTIME_R 1
-
-/* Define to 1 if you have `ctime_s' function. */
-#cmakedefine HAVE_CTIME_S 1
 
 /* Define to 1 if you have the cURL library */
 #cmakedefine HAVE_CURL 1
@@ -132,9 +111,6 @@ stpcpy(char *restrict dst, const char *restrict src)
 
 /* Define to 1 if you have the `fallocate' function. */
 #cmakedefine HAVE_FALLOCATE 1
-
-/* Define to 1 if you have the `fcntl' function. */
-#cmakedefine HAVE_FCNTL 1
 
 /* Define to 1 if the fits module is to be enabled */
 #cmakedefine HAVE_FITS 1
@@ -183,12 +159,6 @@ stpcpy(char *restrict dst, const char *restrict src)
 
 /* Define to 1 if you have the z library */
 #cmakedefine HAVE_LIBZ 1
-
-/* Define to 1 if you have the `localtime_r' function. */
-#cmakedefine HAVE_LOCALTIME_R 1
-
-/* Define to 1 if you have the `localtime_s' function. */
-#cmakedefine HAVE_LOCALTIME_S 1
 
 /* Define to 1 if you have the `madvise' function. */
 #cmakedefine HAVE_MADVISE 1
@@ -247,20 +217,8 @@ stpcpy(char *restrict dst, const char *restrict src)
 /* Define to 1 if you have the <stdatomic.h> header file */
 #cmakedefine HAVE_STDATOMIC_H 1
 
-/* Define to 1 if you have the `stpcpy' function. */
-#cmakedefine HAVE_STPCPY 1
-
-/* Define to 1 if you have the `strtok_r' function. */
-#cmakedefine HAVE_STRTOK_R 1
-
-/* Define to 1 if you have the `strtok_s' function. */
-#cmakedefine HAVE_STRTOK_S 1
-
 /* Define to 1 if `tm_zone' is a member of `struct tm'. */
 #cmakedefine HAVE_STRUCT_TM_TM_ZONE 1
-
-/* Define to 1 if you have the <sys/mman.h> header file. */
-#cmakedefine HAVE_SYS_MMAN_H 1
 
 /* uuid */
 #cmakedefine HAVE_UUID 1
@@ -447,7 +405,17 @@ typedef __uint128_t uhge;
 #define SIZEOF_HGE SIZEOF___INT128_T
 #endif
 
-#ifndef WIN32
+#ifdef NATIVE_WIN32
+static inline char *
+stpcpy(char *restrict dst, const char *restrict src)
+{
+	size_t i;
+	for (i = 0; src[i]; i++)
+		dst[i] = src[i];
+	dst[i] = 0;
+	return dst + i;
+}
+#else
 #ifndef SOCKET
 #define SOCKET int32_t
 #endif

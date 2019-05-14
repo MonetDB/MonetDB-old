@@ -5853,12 +5853,10 @@ wkbContains_point_bat(bat *out, wkb **a, bat *point_x, bat *point_y)
 	token += 2;
 
 	/*Lets get the polygon */
-#if defined(HAVE_STRTOK_R)
-	token = strtok_r(token, ")", &saveptr1);
-#elif defined(HAVE_STRTOK_S)
+#ifdef NATIVE_WIN32
 	token = strtok_s(token, ")", &saveptr1);
 #else
-#error strtok_r function or equivalent not found
+	token = strtok_r(token, ")", &saveptr1);
 #endif
 	vert_x = GDKmalloc(POLY_NUM_VERT * sizeof(double));
 	vert_y = GDKmalloc(POLY_NUM_VERT * sizeof(double));
@@ -5868,12 +5866,10 @@ wkbContains_point_bat(bat *out, wkb **a, bat *point_x, bat *point_y)
 	}
 
 	for (str2 = token;; str2 = NULL) {
-#if defined(HAVE_STRTOK_R)
-		subtoken = strtok_r(str2, ",", &saveptr2);
-#elif defined(HAVE_STRTOK_S)
+#ifdef NATIVE_WIN32
 		subtoken = strtok_s(str2, ",", &saveptr2);
 #else
-#error strtok_r function or equivalent not found
+		subtoken = strtok_r(str2, ",", &saveptr2);
 #endif
 		if (subtoken == NULL)
 			break;
@@ -5896,12 +5892,10 @@ wkbContains_point_bat(bat *out, wkb **a, bat *point_x, bat *point_y)
 		}
 	}
 
-#if defined(HAVE_STRTOK_R)
-	token = strtok_r(NULL, ")", &saveptr1);
-#elif defined(HAVE_STRTOK_S)
+#ifdef NATIVE_WIN32
 	token = strtok_s(NULL, ")", &saveptr1);
 #else
-#error strtok_r function or equivalent not found
+	token = strtok_r(NULL, ")", &saveptr1);
 #endif
 	if (token) {
 		holes_x = GDKzalloc(POLY_NUM_HOLE * sizeof(double *));
@@ -5932,12 +5926,10 @@ wkbContains_point_bat(bat *out, wkb **a, bat *point_x, bat *point_y)
 		}
 
 		for (str2 = token;; str2 = NULL) {
-#if defined(HAVE_STRTOK_R)
-			subtoken = strtok_r(str2, ",", &saveptr2);
-#elif defined(HAVE_STRTOK_S)
+#ifdef NATIVE_WIN32
 			subtoken = strtok_s(str2, ",", &saveptr2);
 #else
-#error strtok_r function or equivalent not found
+			subtoken = strtok_r(str2, ",", &saveptr2);
 #endif
 			if (subtoken == NULL)
 				break;
@@ -5984,12 +5976,10 @@ wkbContains_point_bat(bat *out, wkb **a, bat *point_x, bat *point_y)
 			}
 			holes_n = itmp;
 		}
-#if defined(HAVE_STRTOK_R)
-		token = strtok_r(NULL, ")", &saveptr1);
-#elif defined(HAVE_STRTOK_S)
+#ifdef NATIVE_WIN32
 		token = strtok_s(NULL, ")", &saveptr1);
 #else
-#error strtok_r function or equivalent not found
+		token = strtok_r(NULL, ")", &saveptr1);
 #endif
 	}
 

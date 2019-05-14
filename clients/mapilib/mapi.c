@@ -2303,7 +2303,7 @@ mapi_reconnect(Mapi mid)
 				);
 			return mapi_setError(mid, errbuf, "mapi_reconnect", MERROR);
 		}
-#if !defined(SOCK_CLOEXEC) && defined(HAVE_FCNTL)
+#if !defined(SOCK_CLOEXEC) && !defined(NATIVE_WIN32)
 		(void) fcntl(s, F_SETFD, FD_CLOEXEC);
 #endif
 		userver = (struct sockaddr_un) {
@@ -2377,7 +2377,7 @@ mapi_reconnect(Mapi mid)
 #endif
 				   , rp->ai_protocol);
 			if (s != INVALID_SOCKET) {
-#if !defined(SOCK_CLOEXEC) && defined(HAVE_FCNTL)
+#if !defined(SOCK_CLOEXEC) && !defined(NATIVE_WIN32)
 				(void) fcntl(s, F_SETFD, FD_CLOEXEC);
 #endif
 				if (connect(s, rp->ai_addr, (socklen_t) rp->ai_addrlen) != SOCKET_ERROR)

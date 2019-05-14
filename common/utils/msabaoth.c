@@ -1223,12 +1223,10 @@ msab_deserialise(sabdb **ret, char *sdb)
 		s->scens = NULL;
 	} else {
 		l = s->scens = malloc(sizeof(sablist));
-#if defined(HAVE_STRTOK_R)
-		p = strtok_r(scens, "'", &lasts);
-#elif defined(HAVE_STRTOK_S)
+#ifdef NATIVE_WIN32
 		p = strtok_s(scens, "'", &lasts);
 #else
-#error strtok_r function or equivalent not found
+		p = strtok_r(scens, "'", &lasts);
 #endif
 		if (p == NULL) {
 			l->val = strdup(scens);
@@ -1236,12 +1234,10 @@ msab_deserialise(sabdb **ret, char *sdb)
 		} else {
 			l->val = strdup(p);
 			l->next = NULL;
-#if defined(HAVE_STRTOK_R)
-			while ((p = strtok_r(NULL, "'", &lasts)) != NULL) {
-#elif defined(HAVE_STRTOK_S)
+#ifdef NATIVE_WIN32
 			while ((p = strtok_s(NULL, "'", &lasts)) != NULL) {
 #else
-#error strtok_r function or equivalent not found
+			while ((p = strtok_r(NULL, "'", &lasts)) != NULL) {
 #endif
 				l = l->next = malloc(sizeof(sablist));
 				l->val = strdup(p);

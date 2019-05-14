@@ -2673,7 +2673,7 @@ socket_open(SOCKET sock, const char *name)
 		(void) setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void *) &nodelay, sizeof(nodelay));
 	}
 #endif
-#ifdef HAVE_FCNTL
+#ifndef NATIVE_WIN32
 	{
 		int fl = fcntl(sock, F_GETFL);
 

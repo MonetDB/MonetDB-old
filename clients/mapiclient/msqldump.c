@@ -194,12 +194,10 @@ main(int argc, char **argv)
 		time_t t = time(0);
 		char *p;
 
-#if defined(HAVE_CTIME_R)
-		ctime_r(&t, buf);
-#elif defined(HAVE_CTIME_S)
+#ifdef NATIVE_WIN32
 		ctime_s(buf, sizeof(buf), &t);
 #else
-		strncpy(buf, ctime(&t), sizeof(buf));
+		ctime_r(&t, buf);
 #endif
 		if ((p = strrchr(buf, '\n')) != NULL)
 			*p = 0;
