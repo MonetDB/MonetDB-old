@@ -225,9 +225,6 @@
 /* Define to 1 if you have valgrind installed and want to use it */
 #cmakedefine HAVE_VALGRIND 1
 
-/* Define to 1 if you have the `_mul128' function. */
-#cmakedefine HAVE__MUL128 1
-
 /* Define to 1 if you have the `__builtin_{add,sub,mul}_overflow' functions. */
 #cmakedefine HAVE___BUILTIN_ADD_OVERFLOW 1
 

@@ -184,9 +184,6 @@ elseif(MSVC)
 	set(restrict "__restrict") # C99 feature not present in MSVC
 	set(inline "__inline") # C99 feature only available on C++ compiler in MSVC https://docs.microsoft.com/en-us/cpp/cpp/inline-functions-cpp?view=vs-2015
 	add_definitions(/D_CRT_SECURE_NO_WARNINGS) # TODO it would be nice to remove this, but it requires lots of rewriting
-	if(CMAKE_SIZEOF_VOID_P EQUAL 8)  # Windows 64 bit
-		set(HAVE__MUL128 ON CACHE INTERNAL "mul128 function is available")
-	endif()
 endif()
 
 # Tests for large files support
