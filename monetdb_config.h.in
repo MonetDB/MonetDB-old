@@ -76,7 +76,6 @@
 #endif
 
 #include <windows.h>
-
 #endif /* _MSC_VER */
 
 /* location where binaries are installed */
@@ -311,7 +310,7 @@
 #cmakedefine SO_EXT "@SO_EXT@"
 
 /* Shared Object prefix */
-#define SO_PREFIX "@SO_PREFIX@"
+#cmakedefine SO_PREFIX "@SO_PREFIX@"
 
 /* Compiling for static code analysis */
 #cmakedefine STATIC_CODE_ANALYSIS

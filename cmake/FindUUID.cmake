@@ -15,16 +15,18 @@ else()
 	set(UUID_LIBRARIES "")
 endif()
 
-cmake_push_check_state()
-set(CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES};${UUID_INCLUDE_DIR}")
-set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};${UUID_LIBRARIES}")
-check_symbol_exists("uuid_generate" "uuid/uuid.h" HAVE_UUID_GENERATE) # some uuid instalations don't supply this symbol
-cmake_pop_check_state()
-if(NOT HAVE_UUID_GENERATE)
-	set(UUID_FOUND OFF)
+if(UUID_LIBRARIES)
+	cmake_push_check_state()
+	set(CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES};${UUID_INCLUDE_DIR}")
+	set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};${UUID_LIBRARIES}")
+	check_symbol_exists("uuid_generate" "uuid/uuid.h" HAVE_UUID_GENERATE) # some uuid instalations don't supply this symbol
+	cmake_pop_check_state()
+	if(NOT HAVE_UUID_GENERATE)
+		set(UUID_FOUND OFF)
+	endif()
 endif()
 
-# Handle the QUIETLY and REQUIRED arguments and set UUID_FOUND to TRUE if all listed variables are TRUE.
+# On Linux, both library and include directory path must be set
 include(FindPackageHandleStandardArgs)
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 	find_package_handle_standard_args(UUID DEFAULT_MSG UUID_LIBRARIES UUID_INCLUDE_DIR)

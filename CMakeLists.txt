@@ -273,7 +273,6 @@ elseif(UNIX)
 else()
 	message(FATAL_ERROR "Unknown target operating system")
 endif()
-
 set(DIR_SEP      "'${OS_DIRSEP}'")
 set(DIR_SEP_STR  ${OS_DIRSEP})
 set(PATH_SEP     "'${OS_PATHSEP}'")
@@ -476,7 +475,7 @@ endif()
 include(FindExtraLibraries)
 
 # Header files
-check_include_file("libintl.h" HAVE_LIBINTL_H) # Some Linux distributions don't have it
+check_include_file("libintl.h" HAVE_LIBINTL_H) # We use it on Windows, and there are ports of this library there
 check_include_file("pthread.h" HAVE_PTHREAD_H) # Distinguish between posix thread and win32 thread libraries
 
 # C types existence
@@ -519,7 +518,7 @@ check_symbol_exists("fallocate" "fcntl.h" HAVE_FALLOCATE) # Linux specific, in t
 check_symbol_exists("madvise" "sys/mman.h" HAVE_MADVISE) # The Linux kernel can be compiled without madvise
 check_symbol_exists("mremap" "sys/mman.h" HAVE_MREMAP) # Linux specific, in the future, it might be ported to other platforms
 check_symbol_exists("pipe2" "fcntl.h;unistd.h" HAVE_PIPE2) # Some libc versions on Linux distributions don't have it
-check_symbol_exists("posix_fallocate" "fcntl.h" HAVE_POSIX_FALLOCATE) # Some POSIX systems don't have it
+check_symbol_exists("posix_fallocate" "fcntl.h" HAVE_POSIX_FALLOCATE) # Some POSIX systems don't have it (e.g. Macos)
 check_symbol_exists("posix_madvise" "sys/mman.h" HAVE_POSIX_MADVISE) # The Linux kernel can be compiled without madvise, and posix_madvise is implemented using madvise
 check_symbol_exists("semtimedop" "sys/types.h;sys/ipc.h;sys/sem.h" HAVE_SEMTIMEDOP) # Some libc versions on Linux distributions don't have it
 
