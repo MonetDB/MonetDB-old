@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <strings.h>		/* strcasecmp */
 #endif
+#include <sys/stat.h>
 #ifdef HAVE_LIBREADLINE
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -3216,6 +3217,18 @@ usage(const char *prog, int xit)
 /* hardwired defaults, only used if monet environment cannot be found */
 #define defaultPort 50000
 
+static inline bool
+isfile(FILE *fp)
+{
+	struct stat stb;
+	if (fstat(fileno(fp), &stb) < 0 ||
+	    (stb.st_mode & S_IFMT) != S_IFREG) {
+		fclose(fp);
+		return false;
+	}
+	return true;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -3534,7 +3547,8 @@ main(int argc, char **argv)
 	has_fileargs = optind != argc;
 
 	if (dbname == NULL && has_fileargs &&
-	    (fp = fopen(argv[optind], "r")) == NULL) {
+	    ((fp = fopen(argv[optind], "r")) == NULL || !isfile(fp))) {
+		fp = NULL;
 		dbname = strdup(argv[optind]);
 		optind++;
 		has_fileargs = optind != argc;
