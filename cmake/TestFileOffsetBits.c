@@ -7,5 +7,6 @@ int off_t_is_large[ (LARGE_OFF_T % 2147483629 == 721 && LARGE_OFF_T % 2147483647
 
 int main(int argc, char **argv)
 {
+	(void) argc; (void) argv;
 	return 0;
 }

@@ -90,12 +90,10 @@
 
 #ifdef NATIVE_WIN32
 #define getfilepos _ftelli64
-#else
-#ifdef HAVE_FSEEKO
+#elif (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS == 64) || (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L)
 #define getfilepos ftello
 #else
 #define getfilepos ftell
-#endif
 #endif
 
 #define NAME(name,tpe,id) (name?name:"tpe id")

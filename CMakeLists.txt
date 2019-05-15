@@ -164,10 +164,6 @@ function(MT_addCompilerFlag REGEX_EXPRESSION FLAG_TO_ADD OLD_FLAGS BUILD NEW_FLA
 	endif()
 endfunction()
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND NOT ${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
-	add_definitions(-D_GNU_SOURCE -D_XOPEN_SOURCE) # required for GNU extensions
-	set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_GNU_SOURCE -D_XOPEN_SOURCE") # required for tests
-endif()
 if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 	if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 		MT_addCompilerFlag("-no-gcc-include-dir" "-no-gcc-include-dir" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
@@ -180,17 +176,17 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 		endif()
 	endif()
 	set(NAN_CANNOT_BE_USED_AS_INITIALIZER ON CACHE INTERNAL "NaN cannot be used as an initializer") # This hack is only required by the Intel compiler
+elseif(${CMAKE_C_COMPILER_ID} STREQUAL "GNU") # Make sure this if branch comes after the Intel one
+	add_definitions(-D_GNU_SOURCE -D_XOPEN_SOURCE) # The former is required for GNU extensions and the latter for strptime function
+	set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_GNU_SOURCE") # required for tests
 elseif(MSVC)
 	set(restrict "__restrict") # C99 feature not present in MSVC
 	set(inline "__inline") # C99 feature only available on C++ compiler in MSVC https://docs.microsoft.com/en-us/cpp/cpp/inline-functions-cpp?view=vs-2015
 	add_definitions(/D_CRT_SECURE_NO_WARNINGS) # TODO it would be nice to remove this, but it requires lots of rewriting
 endif()
 
-# Tests for large files support
-opj_test_large_files(_LARGE_FILES)
-opj_test_large_files(_LARGEFILE_SOURCE)
-opj_test_large_files(_FILE_OFFSET_BITS)
-opj_test_large_files(_DARWIN_USE_64_BIT_INODE)
+# Tests for large files support (define _FILE_OFFSET_BITS conditionaly)
+opj_test_large_files()
 #Test if struct tm has tm_zone field
 check_struct_has_member("struct tm" tm_zone "time.h" HAVE_STRUCT_TM_TM_ZONE LANGUAGE C)
 #Test CPU endianness
@@ -335,6 +331,7 @@ endif()
 set(THREADS_PREFER_PTHREAD_FLAG ON) # We do prefer pthreads
 find_package(Threads)
 set(THREAD_LIBRARIES "${CMAKE_THREAD_LIBS_INIT}")
+check_include_file("pthread.h" HAVE_PTHREAD_H) # Distinguish between posix thread and win32 thread libraries
 
 # Password hash algorithm
 set(PASSWORD_BACKEND "SHA512" CACHE STRING "Password hash algorithm, one of MD5, SHA1, RIPEMD160, SHA224, SHA256, SHA384, SHA512, defaults to SHA512")
@@ -471,15 +468,11 @@ if(WIN32) # Both these libraries and respective include files (psapi.h and winso
 endif()
 include(FindExtraLibraries)
 
-# Header files
-check_include_file("libintl.h" HAVE_LIBINTL_H) # We use it on Windows, and there are ports of this library there
-check_include_file("pthread.h" HAVE_PTHREAD_H) # Distinguish between posix thread and win32 thread libraries
-
 # C types existence
 cmake_push_check_state()
 set(CMAKE_EXTRA_INCLUDE_FILES "${CMAKE_EXTRA_INCLUDE_FILES};sys/types.h")
-check_type_size(size_t SIZEOF_SIZE_T LANGUAGE C) #On C99, but we have to calculate the size
-check_type_size(ssize_t SIZEOF_SSIZE_T LANGUAGE C)
+check_type_size(size_t SIZEOF_SIZE_T LANGUAGE C) # On C99, but we have to calculate the size
+check_type_size(ssize_t SIZEOF_SSIZE_T LANGUAGE C) # POSIX type not available on Windows and maybe other platforms
 if(NOT HAVE_SIZEOF_SSIZE_T) # Set a default value
 	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 		set(ssize_t "int64_t")

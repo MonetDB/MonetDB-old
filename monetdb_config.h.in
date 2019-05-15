@@ -10,6 +10,12 @@
 #ifndef _SEEN_MONETDB_CONFIG_H
 #define _SEEN_MONETDB_CONFIG_H 1
 
+/* Number of bits in a file offset, on hosts where this is settable.
+   Make sure this macro is set before any header files. */
+#ifndef _FILE_OFFSET_BITS
+#cmakedefine _FILE_OFFSET_BITS @_FILE_OFFSET_BITS@
+#endif
+
 /* C99 standard includes */
 #include <stdio.h>
 #include <stdlib.h>
@@ -114,9 +120,6 @@
 /* Define to 1 if the fits module is to be enabled */
 #cmakedefine HAVE_FITS 1
 
-/* Define to 1 if fseeko (and presumably ftello) exists and is declared. */
-#cmakedefine HAVE_FSEEKO 1
-
 /* Have huge */
 #cmakedefine HAVE_HGE 1
 
@@ -125,9 +128,6 @@
 
 /* Define to 1 if you have the bz2 library */
 #cmakedefine HAVE_LIBBZ2 1
-
-/* Define to 1 if you have the <libintl.h> header file. */
-#cmakedefine HAVE_LIBINTL_H 1
 
 /* Define to 1 if you have the lz4 library */
 #cmakedefine HAVE_LIBLZ4 1
@@ -316,26 +316,6 @@
    significant byte first (like Motorola and SPARC, unlike Intel). */
 #ifndef WORDS_BIGENDIAN
 #cmakedefine WORDS_BIGENDIAN
-#endif
-
-/* Enable large inode numbers on Mac OS X 10.5.  */
-#ifndef _DARWIN_USE_64_BIT_INODE
-#cmakedefine _DARWIN_USE_64_BIT_INODE
-#endif
-
-/* Number of bits in a file offset, on hosts where this is settable. */
-#ifndef _FILE_OFFSET_BITS
-#cmakedefine _FILE_OFFSET_BITS @_FILE_OFFSET_BITS@
-#endif
-
-/* Define to make fseeko visible on some hosts (e.g. glibc 2.2). */
-#ifndef _LARGEFILE_SOURCE
-#cmakedefine _LARGEFILE_SOURCE
-#endif
-
-/* Define for large files, on AIX-style hosts. */
-#ifndef _LARGE_FILES
-#cmakedefine _LARGE_FILES
 #endif
 
 /* Does your compiler support `__has_attribute' macro? */

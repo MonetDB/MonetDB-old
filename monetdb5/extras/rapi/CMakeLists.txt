@@ -6,18 +6,17 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-if(NOT ${ENABLE_RINTEGRATION} STREQUAL "NO")
+if(NOT ${ENABLE_RINTEGRATION} STREQUAL "NO" AND NOT HAVE_LIBR)
 	message(STATUS "Checking for R interpreter instalation")
 	if(WIN32)
-		find_path(R_INCLUDE R.h)
-		find_library(R_LIBRARY R)
-		if(R_INCLUDE AND R_LIBRARY)
-			set(R_INCLUDE_DIR "${R_INCLUDE}")
-			set(R_LIBRARIES "${R_LIBRARY}")
-		elseif(${ENABLE_RINTEGRATION} STREQUAL "YES")
-			message(FATAL_ERROR "R include files and libraries are required for R integration support")
-		else()
-			message(STATUS "R include files and libraries are required for R integration support")
+		find_path(R_INCLUDE_DIR R.h)
+		find_library(R_LIBRARIES R)
+		if(NOT R_INCLUDE OR NOT R_LIBRARY)
+			if(${ENABLE_RINTEGRATION} STREQUAL "YES")
+				message(FATAL_ERROR "R include files and libraries are required for R integration support")
+			else()
+				message(STATUS "R include files and libraries are required for R integration support")
+			endif()
 		endif()
 	else()
 		exec_program("R" ARGS "RHOME" OUTPUT_VARIABLE R_HOME_OUTPUT RETURN_VALUE R_HOME_RC)
@@ -29,6 +28,9 @@ if(NOT ${ENABLE_RINTEGRATION} STREQUAL "NO")
 			string(REPLACE "-fopenmp=libgomp" "" R_LIBRARIES ${R_LIBRARIES})
 			string(REGEX REPLACE "-specs=[^\ ]*" "" R_LIBRARIES ${R_LIBRARIES}) # -specs argument is not used and both GCC and Clang complain about it
 
+			set(R_INCLUDE_DIR "${R_INCLUDE_DIR}" CACHE INTERNAL "R include directory path")
+			set(R_LIBRARIES "${R_LIBRARIES}" CACHE INTERNAL "R libraries path")
+			set(RHOME "${R_HOME_OUTPUT}" CACHE INTERNAL "R home directory") # No R_HOME on Windows
 			message(STATUS "R executable, library and include files found")
 		elseif(${ENABLE_RINTEGRATION} STREQUAL "YES")
 			message(FATAL_ERROR "R executable required for R integration support")
@@ -42,8 +44,6 @@ if(NOT ${ENABLE_RINTEGRATION} STREQUAL "NO")
 endif()
 
 if(HAVE_LIBR)
-	set(RHOME "${R_HOME_OUTPUT}" CACHE INTERNAL "R home directory") # No R_HOME on Windows
-
 	include_directories(../../../common/stream ../../../common/utils ../../../gdk ../../mal ../../modules/kernel
 						../../modules/atoms ../../modules/mal ../../../sql/common ../../../sql/include
 						../../../sql/server ../../../sql/storage ../../../sql/backends/monet5 ${R_INCLUDE_DIR})

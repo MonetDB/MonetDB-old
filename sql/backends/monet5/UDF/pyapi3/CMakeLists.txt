@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-if(NOT "${ENABLE_PY3INTEGRATION}" STREQUAL "NO")
+if(NOT "${ENABLE_PY3INTEGRATION}" STREQUAL "NO" AND NOT HAVE_LIBPY3)
 	if(HAVE_PYTHON3 AND Python3_Development_FOUND)
 		set(PYTHON3_DEV_REQUIRED_VERSION "3.5")
 		if("${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}" VERSION_LESS ${PYTHON3_DEV_REQUIRED_VERSION})
@@ -21,7 +21,7 @@ if(NOT "${ENABLE_PY3INTEGRATION}" STREQUAL "NO")
 			exec_program("${Python3_EXECUTABLE}" ARGS "-c \"import numpy; print(numpy.get_include())\"" OUTPUT_VARIABLE NUMPY_CPP_FLAGS RETURN_VALUE NUMPY_CPP_RC)
 			if(NUMPY_RETURN_CODE EQUAL 0 AND NUMPY_CPP_RC EQUAL 0 AND "${NUMPY_OUTPUT}" STREQUAL "True")
 				set(HAVE_LIBPY3 ON CACHE INTERNAL "pyapi3 extension is available")
-				set(NUMPY3_INCLUDE_DIR ${NUMPY_CPP_FLAGS})
+				set(NUMPY3_INCLUDE_DIR ${NUMPY_CPP_FLAGS} CACHE INTERNAL "Numpy include directory path")
 				message(STATUS "numpy version >= 1.7.0 for Python 3 found")
 			elseif("${ENABLE_PY3INTEGRATION}" STREQUAL "YES")
 				message(FATAL_ERROR "numpy version >= 1.7.0 required for Python 3 integration support")
