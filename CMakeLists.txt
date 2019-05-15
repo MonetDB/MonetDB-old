@@ -164,6 +164,10 @@ function(MT_addCompilerFlag REGEX_EXPRESSION FLAG_TO_ADD OLD_FLAGS BUILD NEW_FLA
 	endif()
 endfunction()
 
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+	add_definitions(-D_XOPEN_SOURCE -D_GNU_SOURCE)
+	set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_GNU_SOURCE") # required for tests
+endif()
 if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 	if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 		MT_addCompilerFlag("-no-gcc-include-dir" "-no-gcc-include-dir" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
@@ -176,9 +180,6 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 		endif()
 	endif()
 	set(NAN_CANNOT_BE_USED_AS_INITIALIZER ON CACHE INTERNAL "NaN cannot be used as an initializer") # This hack is only required by the Intel compiler
-elseif(${CMAKE_C_COMPILER_ID} STREQUAL "GNU") # Make sure this if branch comes after the Intel one
-	add_definitions(-D_GNU_SOURCE -D_XOPEN_SOURCE) # The former is required for GNU extensions and the latter for strptime function
-	set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -D_GNU_SOURCE") # required for tests
 elseif(MSVC)
 	set(restrict "__restrict") # C99 feature not present in MSVC
 	set(inline "__inline") # C99 feature only available on C++ compiler in MSVC https://docs.microsoft.com/en-us/cpp/cpp/inline-functions-cpp?view=vs-2015
