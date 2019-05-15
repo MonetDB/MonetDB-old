@@ -8,16 +8,15 @@
 # ICONV_FOUND	- True if iconv found.
 # ICONV_IS_BUILT_IN - If iconv is built in
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD") # On FreeBSD, libiconv_open symbol is required
-	check_symbol_exists("libiconv_open" "iconv.h" ICONV_IS_BUILT_IN)
-else()
+# On FreeBSD, libiconv_open symbol is required and not supplied by the standard C library, so force the library search
+if(NOT ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
 	check_symbol_exists("iconv_open" "iconv.h" ICONV_IS_BUILT_IN)
 endif()
 
 if(ICONV_IS_BUILT_IN)
-	set(ICONV_INCLUDE_DIR "")
-	set(ICONV_LIBRARIES "")
-	set(ICONV_FOUND ON)
+	set(ICONV_INCLUDE_DIR "" CACHE INTERNAL "iconv include directories path")
+	set(ICONV_LIBRARIES "" CACHE INTERNAL "iconv libraries path")
+	set(ICONV_FOUND ON CACHE INTERNAL "iconv is available")
 else()
 	# Look for the header file and library
 	find_path(ICONV_INCLUDE_DIR NAMES "iconv.h" DOC "iconv include directory")
