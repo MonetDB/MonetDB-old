@@ -6,6 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
+set(HAVE_NETCDF OFF CACHE INTERNAL "netcdf extension is available" FORCE) # Disable it and test it again
 if(NOT ${ENABLE_NETCDF} STREQUAL "NO")
 	include(FindNetCDF)
 
@@ -18,7 +19,7 @@ if(NOT ${ENABLE_NETCDF} STREQUAL "NO")
 				message(STATUS "netcdf library found, but the version is too old: ${NETCDF_VERSION} < ${NETCDF_MINIMUM_VERSION}")
 			endif()
 		else()
-			set(HAVE_NETCDF ON CACHE INTERNAL "netcdf extension is available")
+			set(HAVE_NETCDF ON CACHE INTERNAL "netcdf extension is available" FORCE)
 		endif()
 	elseif(${ENABLE_NETCDF} STREQUAL "YES")
 		message(FATAL_ERROR "netcdf library required for NetCDF support")

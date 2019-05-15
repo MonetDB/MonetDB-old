@@ -6,6 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
+set(HAVE_SHP OFF CACHE INTERNAL "shp extension is available" FORCE) # Disable it and test it again
 if(NOT ${ENABLE_SHP} STREQUAL "NO")
 	if(NOT HAVE_GEOM AND ${ENABLE_SHP} STREQUAL "YES")
 		message(FATAL_ERROR "geom module required for ESRI Shapefile vault")
@@ -13,7 +14,7 @@ if(NOT ${ENABLE_SHP} STREQUAL "NO")
 		include(FindGDAL)
 
 		if(GDAL_FOUND)
-			set(HAVE_SHP ON CACHE INTERNAL "shp extension is available")
+			set(HAVE_SHP ON CACHE INTERNAL "shp extension is available" FORCE)
 		elseif(${ENABLE_SHP} STREQUAL "YES")
 			message(FATAL_ERROR "gdal library required for ESRI Shapefile vault")
 		endif()

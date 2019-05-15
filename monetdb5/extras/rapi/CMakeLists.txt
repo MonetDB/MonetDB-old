@@ -6,8 +6,8 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-if(NOT ${ENABLE_RINTEGRATION} STREQUAL "NO" AND NOT HAVE_LIBR)
-	message(STATUS "Checking for R interpreter instalation")
+set(HAVE_LIBR OFF CACHE INTERNAL "rapi extension is available" FORCE)
+if(NOT ${ENABLE_RINTEGRATION} STREQUAL "NO")
 	if(WIN32)
 		find_path(R_INCLUDE_DIR R.h)
 		find_library(R_LIBRARIES R)
@@ -18,7 +18,7 @@ if(NOT ${ENABLE_RINTEGRATION} STREQUAL "NO" AND NOT HAVE_LIBR)
 				message(STATUS "R include files and libraries are required for R integration support")
 			endif()
 		endif()
-	else()
+	else() # UNIX
 		exec_program("R" ARGS "RHOME" OUTPUT_VARIABLE R_HOME_OUTPUT RETURN_VALUE R_HOME_RC)
 		exec_program("R" ARGS "CMD config --cppflags" OUTPUT_VARIABLE R_CPP_OUTPUT RETURN_VALUE R_CPP_RC)
 		exec_program("R" ARGS "CMD config --ldflags" OUTPUT_VARIABLE R_LD_OUTPUT RETURN_VALUE R_LD_RC)
@@ -39,7 +39,7 @@ if(NOT ${ENABLE_RINTEGRATION} STREQUAL "NO" AND NOT HAVE_LIBR)
 		endif()
 	endif()
 	if(R_INCLUDE_DIR AND R_LIBRARIES)
-		set(HAVE_LIBR ON CACHE INTERNAL "rapi extension is available")
+		set(HAVE_LIBR ON CACHE INTERNAL "rapi extension is available" FORCE)
 	endif()
 endif()
 

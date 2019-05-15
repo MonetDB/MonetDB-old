@@ -6,6 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
+set(HAVE_SAMTOOLS OFF CACHE INTERNAL "bam extension is available" FORCE)
 if(NOT ${ENABLE_SAMTOOLS} STREQUAL "NO" AND ZLIB_FOUND)
 	cmake_push_check_state()
 	check_include_file("samtools/bam.h" HAVE_SAMTOOLS_BAM_H)
@@ -16,7 +17,7 @@ if(NOT ${ENABLE_SAMTOOLS} STREQUAL "NO" AND ZLIB_FOUND)
 	check_symbol_exists("bam_header_read" "samtools/bam.h" HAVE_BAM_HEADER_READ)
 	if(HAVE_BAM_HEADER_READ)
 		set(BAM_LINK_LIBRARIES "bam")
-		set(HAVE_SAMTOOLS ON CACHE INTERNAL "bam extension is available")
+		set(HAVE_SAMTOOLS ON CACHE INTERNAL "bam extension is available" FORCE)
 	elseif(${ENABLE_SAMTOOLS} STREQUAL "YES")
 		message(FATAL_ERROR "bam_header_read symbol not found")
 	else()

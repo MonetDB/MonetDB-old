@@ -6,6 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
+set(HAVE_GEOM OFF CACHE INTERNAL "geom extension is available" FORCE)
 if(NOT ${ENABLE_GEOM} STREQUAL "NO")
 	include(FindGeos)
 
@@ -18,7 +19,7 @@ if(NOT ${ENABLE_GEOM} STREQUAL "NO")
 				message(STATUS "geos library found, but the version is too old: ${GEOS_VERSION} < ${GEOS_MINIMUM_VERSION}")
 			endif()
 		else()
-			set(HAVE_GEOM ON CACHE INTERNAL "geom extension is available")
+			set(HAVE_GEOM ON CACHE INTERNAL "geom extension is available" FORCE)
 		endif()
 	elseif(${ENABLE_GEOM} STREQUAL "YES")
 		message(FATAL_ERROR "geos library required for geom module")

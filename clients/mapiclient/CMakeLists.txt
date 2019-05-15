@@ -7,7 +7,8 @@
 #]]
 
 # Readline libraries
-set(READLINE_LIBRARIES "")
+set(READLINE_LIBRARIES )
+set(HAVE_LIBREADLINE OFF CACHE INTERNAL "readline library is available" FORCE)
 if(NOT ${WITH_READLINE} STREQUAL "NO")
 	cmake_push_check_state()
 	set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES};readline")
@@ -46,7 +47,7 @@ if(NOT ${WITH_READLINE} STREQUAL "NO")
 					return 0;
 				}" HAVE_RL_COMPLETION_FUNC_T)
 			if(HAVE_RL_COMPLETION_FUNC_T)
-				set(HAVE_LIBREADLINE ON CACHE INTERNAL "readline library is available")
+				set(HAVE_LIBREADLINE ON CACHE INTERNAL "readline library is available" FORCE)
 			elseif(${WITH_READLINE} STREQUAL "YES")
 				message(FATAL_ERROR "readline/readline.h does not contain rl_completion_func_t, is it GNU readline?")
 			else()

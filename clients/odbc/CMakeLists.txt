@@ -6,6 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
+set(HAVE_ODBC OFF CACHE INTERNAL "odbc extension is available" FORCE)
 if(NOT ${ENABLE_ODBC} STREQUAL "NO")
 	if(WIN32)
 		set(ODBCINST_INCLUDE "") # odbcinst.h included by the Windows SDK
@@ -34,7 +35,7 @@ if(NOT ${ENABLE_ODBC} STREQUAL "NO")
 		if(WIN32) # Windows uses different libraries for the ODBC driver, and they are included in the Windows SDK
 			set(ODBCINST_LIBRARIES "odbccp32;user32;legacy_stdio_definitions")
 			set(ODBC_LIBRARIES "odbc32")
-			set(HAVE_ODBC ON CACHE INTERNAL "odbc extension is available")
+			set(HAVE_ODBC ON CACHE INTERNAL "odbc extension is available" FORCE)
 		else()
 			find_library(ODBCINST_LIBRARY odbcinst)
 			if(ODBCINST_LIBRARY)
@@ -46,7 +47,7 @@ if(NOT ${ENABLE_ODBC} STREQUAL "NO")
 			endif()
 
 			if(ODBCINST_LIBRARY AND ODBC_LIBRARY)
-				set(HAVE_ODBC ON CACHE INTERNAL "odbc extension is available")
+				set(HAVE_ODBC ON CACHE INTERNAL "odbc extension is available" FORCE)
 			elseif(${ENABLE_ODBC} STREQUAL "YES")
 				message(FATAL_ERROR "There are unixODBC libraries missing")
 			else()

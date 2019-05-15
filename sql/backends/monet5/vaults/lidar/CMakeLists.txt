@@ -6,6 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
+set(HAVE_LIDAR OFF CACHE INTERNAL "lidar extension is available" FORCE) # Disable it and test it again
 if(NOT ${ENABLE_LIDAR} STREQUAL "NO")
 	include(FindLiblas)
 
@@ -18,7 +19,7 @@ if(NOT ${ENABLE_LIDAR} STREQUAL "NO")
 				message(STATUS "liblas library found, but the version is too old: ${LIBLAS_VERSION} < ${LIBLAS_MINIMUM_VERSION}")
 			endif()
 		else()
-			set(HAVE_LIDAR ON CACHE INTERNAL "lidar extension is available")
+			set(HAVE_LIDAR ON CACHE INTERNAL "lidar extension is available" FORCE)
 		endif()
 	elseif(${ENABLE_LIDAR} STREQUAL "YES")
 		message(FATAL_ERROR "liblas library required for lidar module")

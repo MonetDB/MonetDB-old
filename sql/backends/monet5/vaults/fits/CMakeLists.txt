@@ -6,11 +6,12 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
+set(HAVE_FITS OFF CACHE INTERNAL "fits extension is available" FORCE) # Disable it and test it again
 if(NOT ${ENABLE_FITS} STREQUAL "NO")
 	include(FindCfitsio)
 
 	if(CFITSIO_FOUND)
-		set(HAVE_FITS ON CACHE INTERNAL "fits extension is available")
+		set(HAVE_FITS ON CACHE INTERNAL "fits extension is available" FORCE)
 	elseif(${ENABLE_FITS} STREQUAL "YES")
 		message(FATAL_ERROR "cfitsio library required for FITS support")
 	endif()
