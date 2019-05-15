@@ -26,7 +26,7 @@ cmake_pop_check_state()
 
 if(HAVE_UUID_GENERATE)
 	include(FindPackageHandleStandardArgs)
-	if(${UUID_LIBRARIES} STREQUAL "")
+	if("${UUID_LIBRARIES}" STREQUAL "")
 		find_package_handle_standard_args(UUID DEFAULT_MSG UUID_INCLUDE_DIR)
 	else()
 		find_package_handle_standard_args(UUID DEFAULT_MSG UUID_LIBRARIES UUID_INCLUDE_DIR)
