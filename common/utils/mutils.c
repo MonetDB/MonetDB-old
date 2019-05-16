@@ -10,24 +10,21 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <limits.h>		/* PATH_MAX on Solaris */
+#include "mutils.h"
+
 #ifdef NATIVE_WIN32
-#include <io.h>
+# include <io.h>
+# define open _open
+# define close _close
 #else
 # include <unistd.h>
 # include <sys/param.h>  /* realpath on OSX, prerequisite of sys/sysctl on OpenBSD */
 # include <sys/sysctl.h>  /* KERN_PROC_PATHNAME on BSD */
 #endif
-#include "mutils.h"
 
 #ifdef __MACH__
 # include <mach-o/dyld.h>  /* _NSGetExecutablePath on OSX >=10.5 */
-#endif
-
-#include <limits.h>		/* PATH_MAX on Solaris */
-
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-#define open _open
-#define close _close
 #endif
 
 #ifndef O_CLOEXEC

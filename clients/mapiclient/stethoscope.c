@@ -20,35 +20,29 @@
 #include "stream.h"
 #include "stream_socket.h"
 #include "mapi.h"
-#include <sys/stat.h>
-#include <signal.h>
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
 #include "mprompt.h"
 #include "dotmonetdb.h"
 #include "eventparser.h"
+#include <sys/stat.h>
+#include <signal.h>
 
 #ifdef NATIVE_WIN32
 # include "monet_getopt.h"
 # include <io.h>
+# define open  _open
+# define close _close
+# define read  _read
+# define write _write
 #else
 # include "getopt.h"
 # include <netdb.h>
 # include <netinet/in.h>
-#endif
-
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-#define open  _open
-#define close _close
-#define read  _read
-#define write _write
+# include <unistd.h>
 #endif
 
 #ifndef INVALID_SOCKET
 #define INVALID_SOCKET (-1)
 #endif
-
 
 #define die(dbh, hdl)						\
 	do {							\

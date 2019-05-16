@@ -952,7 +952,7 @@ tr_commit(logger *lg, trans *tr)
 }
 
 #ifdef _MSC_VER
-#define access(file, mode)	_access(file, mode)
+#define access _access
 #endif
 
 static gdk_return

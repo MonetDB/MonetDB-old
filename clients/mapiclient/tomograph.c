@@ -20,27 +20,24 @@
 #include "stream.h"
 #include "stream_socket.h"
 #include "mapi.h"
+#include "mprompt.h"
+#include "dotmonetdb.h"
+#include "eventparser.h"
 #include <sys/stat.h>
 #include <signal.h>
+#include <time.h>
+
 #ifdef NATIVE_WIN32
 #include "monet_getopt.h"
 #include <direct.h>
 #include <io.h>
-#else
-#include "getopt.h"
-#include <unistd.h>
-#endif
-#include "mprompt.h"
-#include "dotmonetdb.h"
-#include "eventparser.h"
-
-#include <time.h>
-
-#if defined(_MSC_VER) && _MSC_VER >= 1400
 #define open  _open
 #define close _close
 #define read  _read
 #define write _write
+#else
+#include "getopt.h"
+#include <unistd.h>
 #endif
 
 #define die(dbh, hdl)						\

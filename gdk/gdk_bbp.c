@@ -76,17 +76,15 @@
 #include "gdk_storage.h"
 #include "mutils.h"
 
-#ifndef NATIVE_WIN32
+#ifdef NATIVE_WIN32
+#define access _access
+#else
 #include <unistd.h>
 #endif
 
 #ifndef F_OK
 #define F_OK 0
 #endif
-#ifdef _MSC_VER
-#define access(f, m)	_access(f, m)
-#endif
-
 #ifndef S_ISDIR
 #define S_ISDIR(mode)	(((mode) & _S_IFMT) == _S_IFDIR)
 #endif

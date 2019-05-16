@@ -48,7 +48,6 @@
  * write streams of the same type (txt/bin).
  */
 
-
 #include "monetdb_config.h"
 #include "stream.h"
 #include "stream_socket.h"
@@ -57,17 +56,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#ifdef NATIVE_WIN32
-# include <ws2tcpip.h>
-# include <io.h>
-#else
-# include <unistd.h>
-# include <netinet/in_systm.h>
-# include <netinet/in.h>
-# include <netinet/ip.h>
-# include <netinet/tcp.h>
-# include <netdb.h>
-#endif
 #ifdef HAVE_LIBZ
 #include <zlib.h>
 #endif
@@ -92,6 +80,21 @@
 #endif
 #endif
 
+#ifdef NATIVE_WIN32
+# include <ws2tcpip.h>
+# include <io.h>
+# define pclose _pclose
+# define isatty _isatty
+# define fileno _fileno
+#else
+# include <unistd.h>
+# include <netinet/in_systm.h>
+# include <netinet/in.h>
+# include <netinet/ip.h>
+# include <netinet/tcp.h>
+# include <netdb.h>
+#endif
+
 #ifndef SHUT_RD
 #define SHUT_RD		0
 #define SHUT_WR		1
@@ -108,11 +111,6 @@
 
 #ifndef INVALID_SOCKET
 #define INVALID_SOCKET	(-1)
-#endif
-
-#ifdef NATIVE_WIN32
-#define pclose _pclose
-#define fileno(fd) _fileno(fd)
 #endif
 
 #define UTF8BOM		"\xEF\xBB\xBF"	/* UTF-8 encoding of Unicode BOM */
@@ -164,10 +162,6 @@
 		((((uhge) 0xff << 104) & (uhge) (h)) >>  88) |	\
 		((((uhge) 0xff << 112) & (uhge) (h)) >> 104) |	\
 		((((uhge) 0xff << 120) & (uhge) (h)) >> 120)))
-#endif
-
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-#define isatty _isatty
 #endif
 
 #ifndef S_ISREG

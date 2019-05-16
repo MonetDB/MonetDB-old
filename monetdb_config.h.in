@@ -138,9 +138,6 @@
 /* Define to 1 if you have the pcre library */
 #cmakedefine HAVE_LIBPCRE 1
 
-/* Define to 1 if we can link to python2 */
-#cmakedefine HAVE_LIBPY 1
-
 /* Define to 1 if we can link to python3 */
 #cmakedefine HAVE_LIBPY3 1
 

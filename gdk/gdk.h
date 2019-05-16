@@ -2243,9 +2243,7 @@ gdk_export gdk_return void_inplace(BAT *b, oid id, const void *val, bool force)
 gdk_export BAT *BATattach(int tt, const char *heapfile, role_t role);
 
 #ifdef NATIVE_WIN32
-#ifdef _MSC_VER
 #define fileno _fileno
-#endif
 #define fdopen _fdopen
 #define putenv _putenv
 #endif

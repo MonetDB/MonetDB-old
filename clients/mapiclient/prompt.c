@@ -7,15 +7,13 @@
  */
 
 #include "monetdb_config.h"
-#ifndef NATIVE_WIN32
-#include <termios.h>
-#include <unistd.h>
-#endif
 #include "mprompt.h"
-
-#ifdef _MSC_VER
+#ifdef NATIVE_WIN32
 #define fileno _fileno
 #include <conio.h>
+#else
+#include <termios.h>
+#include <unistd.h>
 #endif
 
 char *

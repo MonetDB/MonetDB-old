@@ -21,15 +21,12 @@
 #include <sys/types.h> /* opendir */
 #include <fcntl.h>
 #ifdef NATIVE_WIN32
-# include <io.h>
+#include <io.h>
+#define open _open
+#define close _close
 #else
 #include <unistd.h>
 #include <dirent.h>
-#endif
-
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-#define open _open
-#define close _close
 #endif
 
 #define MAXMODULES 128

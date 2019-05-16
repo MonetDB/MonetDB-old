@@ -23,13 +23,10 @@
 #include <sys/stat.h>
 #ifdef NATIVE_WIN32
 #include <io.h>
+#define close _close
 #else
 #include <unistd.h> 	/* unlink and friends */
 #include <dirent.h> /* readdir, DIR */
-#endif
-
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-#define close _close
 #endif
 
 #define excFromMem(TPE, WHRE, X)						\

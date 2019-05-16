@@ -15,37 +15,32 @@
 
 #include "monetdb_config.h"
 #include "mapi.h"
-#ifdef NATIVE_WIN32
-#include "monet_getopt.h"
-#include <io.h>
-#else
-#include "getopt.h"
-#include <unistd.h>
-#include <strings.h>		/* strcasecmp */
-#endif
+#include "stream.h"
+#include "msqldump.h"
+#include "mprompt.h"
+#include "mutils.h"
+#include "dotmonetdb.h"
 #include <sys/stat.h>
 #ifdef HAVE_LIBREADLINE
 #include <readline/readline.h>
 #include <readline/history.h>
 #include "ReadlineTools.h"
 #endif
-#include "stream.h"
-#include "msqldump.h"
-#include "mprompt.h"
-#include "mutils.h"		/* mercurial_revision */
-#include "dotmonetdb.h"
-
 #include <locale.h>
-
 #ifdef HAVE_ICONV
 #include <iconv.h>
 #ifndef NATIVE_WIN32
 #include <langinfo.h>
 #endif
 #endif
-
-#if defined(_MSC_VER) && _MSC_VER >= 1400
+#ifdef NATIVE_WIN32
+#include "monet_getopt.h"
+#include <io.h>
 #define isatty _isatty
+#else
+#include "getopt.h"
+#include <unistd.h>
+#include <strings.h>		/* strcasecmp */
 #endif
 
 enum modes {
@@ -139,14 +134,11 @@ static char *nullstring = default_nullstring;
 #include <time.h>
 #ifdef NATIVE_WIN32
 #include <sys/timeb.h>		/* ftime */
+#define fileno _fileno
 #else
 #include <sys/time.h>		/* gettimeofday */
 #include <sys/ioctl.h>
 #include <termios.h>		/* TIOCGWINSZ/TIOCSWINSZ */
-#endif
-
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-#define fileno _fileno
 #endif
 
 #define my_isspace(c)	((c) == '\f' || (c) == '\n' || (c) == ' ')

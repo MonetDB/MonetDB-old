@@ -23,22 +23,9 @@
 
 #ifdef NATIVE_WIN32
 #include "monet_getopt.h"
-#include <Psapi.h>      /* for GetModuleFileName */
-#include <crtdbg.h>	/* for _CRT_ERROR, _CRT_ASSERT */
+#define getcwd _getcwd
 #else
 #include "getopt.h"
-#endif
-
-#ifdef _CRTDBG_MAP_ALLOC
-/* Windows only:
-   our definition of new and delete clashes with the one if
-   _CRTDBG_MAP_ALLOC is defined.
- */
-#undef _CRTDBG_MAP_ALLOC
-#endif
-
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-#define getcwd _getcwd
 #endif
 
 #ifdef HAVE_CONSOLE

@@ -18,26 +18,24 @@
  */
 
 #include "monetdb_config.h"
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#ifdef NATIVE_WIN32
-#include <io.h>
-#else
-#include <unistd.h> /* unlink and friends */
-#include <dirent.h> /* readdir, DIR */
-#endif
-#include <time.h>
-#include <ctype.h>
-
 #include "msabaoth.h"
 #include "mutils.h"
 #include "muuid.h"
 
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-#define close _close
-#define unlink _unlink
-#define fdopen _fdopen
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <time.h>
+#include <ctype.h>
+
+#ifdef NATIVE_WIN32
+#include <io.h>
+# define close _close
+# define unlink _unlink
+# define fdopen _fdopen
+#else
+#include <unistd.h> /* unlink and friends */
+#include <dirent.h> /* readdir, DIR */
 #endif
 
 /** the directory where the databases are (aka dbfarm) */
