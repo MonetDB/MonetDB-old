@@ -120,6 +120,9 @@
 /* Define to 1 if the fits module is to be enabled */
 #cmakedefine HAVE_FITS 1
 
+/* Define to 1 if you have the `fseeko' function. */
+#cmakedefine HAVE_FSEEKO (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS == 64) || (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L) || defined(__MACH__) || defined(__FreeBSD__)
+
 /* Have huge */
 #cmakedefine HAVE_HGE 1
 

@@ -90,7 +90,7 @@
 
 #ifdef NATIVE_WIN32
 #define getfilepos _ftelli64
-#elif (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS == 64) || (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L)
+#elif defined(HAVE_FSEEKO)
 #define getfilepos ftello
 #else
 #define getfilepos ftell
