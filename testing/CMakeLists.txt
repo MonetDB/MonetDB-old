@@ -31,7 +31,7 @@ string(REPLACE "\\" "\\\\" QXsysconfdir "${SYSCONFDIR}")
 
 set(PYTHON3 "${Python3_EXECUTABLE}")
 string(REPLACE "\\" "\\\\" QXPYTHON3 "${Python3_EXECUTABLE}")
-string(REPLACE "\\" "\\\\" QXPYTHON3_LIBDIR "${PYTHON_LIBDIR}")
+string(REPLACE "\\" "\\\\" QXPYTHON3_LIBDIR "${PYTHON3_LIBDIR}")
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 4)
 	set(BITS32_FALSE "#")
@@ -57,10 +57,10 @@ configure_file(monet_options.py.in ${CMAKE_CURRENT_BINARY_DIR}/monet_options.py 
 configure_file(listexports.py.in ${CMAKE_CURRENT_BINARY_DIR}/listexports.py @ONLY)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/Mtest.py PERMISSIONS ${PROGRAM_PERMISSIONS_DEFAULT} DESTINATION ${BINDIR})
-if(PYTHON_LIBDIR)
+if(PYTHON3_LIBDIR)
 	install(FILES Mfilter.py process.py ${CMAKE_CURRENT_BINARY_DIR}/monet_options.py __init__.py
 			${CMAKE_CURRENT_BINARY_DIR}/listexports.py exportutils.py malcheck.py
-			DESTINATION ${CMAKE_INSTALL_PREFIX}/${PYTHON_LIBDIR}/MonetDBtesting)
+			DESTINATION ${PYTHON3_LIBDIR}/MonetDBtesting)
 endif()
 
 if(WIN32)
