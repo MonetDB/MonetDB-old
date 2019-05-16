@@ -105,9 +105,6 @@
 /* Define to 1 if you have the CommonCrypto library */
 #cmakedefine HAVE_COMMONCRYPTO 1
 
-/* If the console should be used */
-#cmakedefine HAVE_CONSOLE 1
-
 /* Define to 1 if you have the cURL library */
 #cmakedefine HAVE_CURL 1
 

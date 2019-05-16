@@ -81,7 +81,6 @@ endif()
 
 # Extensions to use (please add to the OPTIONS_LIST bellow whenever a new option is added)
 set(ENABLE_CINTEGRATION "AUTO" CACHE STRING "Enable support for C UDFs (default=AUTO)") # Check with HAVE_CUDF
-set(ENABLE_CONSOLE "YES" CACHE STRING "Enables direct console on the server (involves security risks) (default=YES)") # Check with HAVE_CONSOLE
 set(ENABLE_EMBEDDED "NO" CACHE STRING "Enable support for running MonetDB as a library (default=NO)") # TODO check this
 set(ENABLE_FITS "AUTO" CACHE STRING "Enable support for FITS (default=AUTO)") # Check with HAVE_FITS
 set(ENABLE_GDK "YES" CACHE STRING "Enable support for GDK (default=YES)") # Check with HAVE_GDK
@@ -110,14 +109,14 @@ set(WITH_LIBXML2 "AUTO" CACHE STRING "Include libxml2 support (default=AUTO)") #
 set(WITH_LZ4 "AUTO" CACHE STRING "Include lz4 library support (default=AUTO)") # Check with HAVE_LIBLZ4
 set(WITH_PROJ "AUTO" CACHE STRING "Include proj support (default=AUTO)") # Check with HAVE_PROJ
 set(WITH_READLINE "AUTO" CACHE STRING "Include readline support (default=AUTO)") # Check with HAVE_LIBREADLINE
-set(WITH_REGEX "AUTO" CACHE STRING "Use either PCRE or POSIX regular expressions (default=PCRE if available)") # Check with HAVE_LIBPCRE and HAVE_POSIX_REGEX
+set(WITH_REGEX "AUTO" CACHE STRING "Use either PCRE or POSIX regular expressions (default=AUTO)") # Check with HAVE_LIBPCRE and HAVE_POSIX_REGEX
 set(WITH_SNAPPY "AUTO" CACHE STRING "Include snappy support (default=AUTO)") # Check with HAVE_LIBSNAPPY
 set(WITH_UUID "AUTO" CACHE STRING "Include UUID support (default=AUTO)") # Check with HAVE_UUID
 set(WITH_VALGRIND "NO" CACHE STRING "Include valgrind support (default=NO)") # Check with HAVE_VALGRIND
 set(WITH_ZLIB "AUTO" CACHE STRING "Include zlib support (default=AUTO)") # Check with HAVE_LIBZ
 
 # Cmake doesn't support string case insensitive compare, so convert MonetDB options to uppercase on every invocation
-set(OPTIONS_LIST CINTEGRATION CONSOLE EMBEDDED FITS GDK GEOM INT128 LIDAR MAPI MONETDB5 NETCDF ODBC PY3INTEGRATION
+set(OPTIONS_LIST CINTEGRATION EMBEDDED FITS GDK GEOM INT128 LIDAR MAPI MONETDB5 NETCDF ODBC PY3INTEGRATION
 	RINTEGRATION SAMTOOLS SANITIZER SHP SQL STATIC_ANALYSIS STRICT TESTING
 	BZ2 CURL LIBLZMA LIBXML2 LZ4 PROJ READLINE REGEX SNAPPY UUID VALGRIND ZLIB)
 foreach(EXTENSION IN LISTS OPTIONS_LIST)
@@ -561,11 +560,6 @@ if(${ENABLE_EMBEDDED} STREQUAL "YES")
 	set(HAVE_EMBEDDED ON CACHE INTERNAL "Embedded MonetDB is enabled" FORCE)
 else()
 	set(HAVE_EMBEDDED OFF CACHE INTERNAL "Embedded MonetDB is enabled" FORCE)
-endif()
-if(${ENABLE_CONSOLE} STREQUAL "YES")
-	set(HAVE_CONSOLE ON CACHE INTERNAL "Direct console on the server is available" FORCE)
-else()
-	set(HAVE_CONSOLE OFF CACHE INTERNAL "Direct console on the server is available" FORCE)
 endif()
 if(${ENABLE_STATIC_ANALYSIS} STREQUAL "YES")
 	set(STATIC_CODE_ANALYSIS ON CACHE INTERNAL "Static code analysis is available" FORCE)

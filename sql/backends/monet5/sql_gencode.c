@@ -462,7 +462,7 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 		 */
 		o = newFcnCall(curBlk, remoteRef, putRef);
 		o = pushArgument(curBlk, o, q);
-		o = pushInt(curBlk, o, TYPE_int);  
+		o = pushInt(curBlk, o, TYPE_int);
 		p = pushReturn(curBlk, p, getArg(o, 0));
 
 		o = newFcnCall(curBlk, remoteRef, putRef);
