@@ -18,10 +18,10 @@
 #include "mal_authorize.h"
 #include "msabaoth.h"
 #include "mutils.h"
-
 #include <signal.h>
 
 #ifdef NATIVE_WIN32
+#include <crtdbg.h>
 #include "monet_getopt.h"
 #define getcwd _getcwd
 #else
