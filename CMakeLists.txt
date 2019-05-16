@@ -195,7 +195,6 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 			set(INTEL_MATH_H_HACK ON CACHE INTERNAL "must use intel math.h hack" FORCE)
 		endif()
 	endif()
-	set(NAN_CANNOT_BE_USED_AS_INITIALIZER ON CACHE INTERNAL "NaN cannot be used as an initializer") # This hack is only required by the Intel compiler
 elseif(MSVC)
 	set(restrict "__restrict") # C99 feature not present in MSVC
 	set(inline "__inline") # C99 feature only available on C++ compiler in MSVC https://docs.microsoft.com/en-us/cpp/cpp/inline-functions-cpp?view=vs-2015
@@ -209,7 +208,24 @@ check_struct_has_member("struct tm" tm_zone "time.h" HAVE_STRUCT_TM_TM_ZONE LANG
 #Test CPU endianness
 test_big_endian(WORDS_BIGENDIAN)
 
-#Test for __builtin_add_overflow
+#Test if NaN can be used as initializer
+check_c_source_compiles("
+	#include <math.h>
+
+	extern const float f;
+	extern const double d;
+	const float f = NAN;
+	const double d = NAN;
+
+	int main(int argc, char **argv) {
+		(void) argc;(void) argv;
+		return 0;
+	}" NAN_CAN_BE_USED_AS_INITIALIZER)
+if(NOT NAN_CAN_BE_USED_AS_INITIALIZER)
+	set(NAN_CANNOT_BE_USED_AS_INITIALIZER ON CACHE INTERNAL "NaN cannot be used as an initializer") # This hack is only required by some versions of the Intel compiler
+endif()
+
+#Test for __builtin_add_overflow, exists since GCC 5, but inking to libgcc is optional
 check_c_source_compiles("
 	#include <stdio.h>
 	#include <stdlib.h>
