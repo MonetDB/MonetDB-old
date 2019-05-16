@@ -90,7 +90,7 @@
 
 #ifdef NATIVE_WIN32
 #define getfilepos _ftelli64
-#elif defined(HAVE_FSEEKO)
+#elif defined(HAVE_FSEEKO_MT)
 #define getfilepos ftello
 #else
 #define getfilepos ftell

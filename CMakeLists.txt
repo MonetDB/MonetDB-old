@@ -79,7 +79,7 @@ if(NOT CMAKE_BUILD_TYPE) # Set default build options
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "The type of build" FORCE)
 endif()
 
-# Extensions to use
+# Extensions to use (please add to the OPTIONS_LIST bellow whenever a new option is added)
 set(ENABLE_CINTEGRATION "AUTO" CACHE STRING "Enable support for C UDFs (default=AUTO)") # Check with HAVE_CUDF
 set(ENABLE_CONSOLE "YES" CACHE STRING "Enables direct console on the server (involves security risks) (default=YES)") # Check with HAVE_CONSOLE
 set(ENABLE_EMBEDDED "NO" CACHE STRING "Enable support for running MonetDB as a library (default=NO)") # TODO check this
@@ -102,7 +102,7 @@ set(ENABLE_STATIC_ANALYSIS "NO" CACHE STRING "Configure for static code analysis
 set(ENABLE_STRICT "${DFT_STRICT}" CACHE STRING "Enable strict compiler flags (default=YES for development sources, NO for tarball instalation)")
 set(ENABLE_TESTING "AUTO" CACHE STRING "Enable support for testing (default=AUTO)") # Check with HAVE_TESTING
 
-# Optional extra libraries
+# Optional extra libraries (please add to the OPTIONS_LIST bellow whenever a new option is added)
 set(WITH_BZ2 "AUTO" CACHE STRING "Include bz2 support (default=AUTO)") # Check with HAVE_LIBLZMA
 set(WITH_CURL "AUTO" CACHE STRING "Include cURL support (default=AUTO)") # Check with HAVE_CURL
 set(WITH_LIBLZMA "AUTO" CACHE STRING "Include liblzma support (default=AUTO)") # Check with HAVE_LIBLZMA
@@ -115,6 +115,19 @@ set(WITH_SNAPPY "AUTO" CACHE STRING "Include snappy support (default=AUTO)") # C
 set(WITH_UUID "AUTO" CACHE STRING "Include UUID support (default=AUTO)") # Check with HAVE_UUID
 set(WITH_VALGRIND "NO" CACHE STRING "Include valgrind support (default=NO)") # Check with HAVE_VALGRIND
 set(WITH_ZLIB "AUTO" CACHE STRING "Include zlib support (default=AUTO)") # Check with HAVE_LIBZ
+
+# Cmake doesn't support string case insensitive compare, so convert MonetDB options to uppercase on every invocation
+set(OPTIONS_LIST CINTEGRATION CONSOLE EMBEDDED FITS GDK GEOM INT128 LIDAR MAPI MONETDB5 NETCDF ODBC PY3INTEGRATION
+	RINTEGRATION SAMTOOLS SANITIZER SHP SQL STATIC_ANALYSIS STRICT TESTING
+	BZ2 CURL LIBLZMA LIBXML2 LZ4 PROJ READLINE REGEX SNAPPY UUID VALGRIND ZLIB)
+foreach(EXTENSION IN LISTS OPTIONS_LIST)
+	if(ENABLE_${EXTENSION})
+		string(TOUPPER "${ENABLE_${EXTENSION}}" ENABLE_${EXTENSION})
+	endif()
+	if(WITH_${EXTENSION})
+		string(TOUPPER "${WITH_${EXTENSION}}" WITH_${EXTENSION})
+	endif()
+endforeach()
 
 # Instalation directories
 set(PROGRAM_PERMISSIONS_DEFAULT OWNER_WRITE OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE) # required for some instalation files
@@ -331,7 +344,9 @@ else()
 endif()
 
 # Thread libraries
-set(THREADS_PREFER_PTHREAD_FLAG ON) # We do prefer pthreads
+if(NOT WIN32)
+	set(THREADS_PREFER_PTHREAD_FLAG ON) # We do prefer pthreads on UNIX platforms
+endif()
 find_package(Threads)
 set(THREAD_LIBRARIES "${CMAKE_THREAD_LIBS_INIT}")
 check_include_file("pthread.h" HAVE_PTHREAD_H) # Distinguish between posix thread and win32 thread libraries
