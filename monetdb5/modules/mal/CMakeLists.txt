@@ -33,7 +33,6 @@ add_library(malmodules OBJECT
 			profiler.c profiler.h
 			querylog.c querylog.h
 			remote.c remote.h
-			sabaoth.c sabaoth.h
 			sysmon.c sysmon.h
 			tablet.c tablet.h
 			tokenizer.c tokenizer.h
@@ -53,7 +52,7 @@ install(FILES
 		iterator.mal clients.mal
 		factories.mal groupby.mal mdb.mal pcre.mal mat.mal
 		transaction.mal oltp.mal wlc.mal
-		mal_mapi.mal sabaoth.mal remote.mal 
+		mal_mapi.mal remote.mal
 		txtsim.mal
 		tokenizer.mal sample.mal json_util.mal
 		batmtime.mal querylog.mal sysmon.mal

@@ -21,7 +21,7 @@
 #include "mal_listing.h"
 #include "mal_profiler.h"
 #include "mal_runtime.h"
-#include "mal_debugger.h"
+#include "mal_utils.h"
 #include "mal_resource.h"
 
 #ifndef NATIVE_WIN32

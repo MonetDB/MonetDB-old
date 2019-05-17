@@ -27,7 +27,7 @@ int have_hge;
 #include "mal_interpreter.h"
 #include "mal_namespace.h"  /* for initNamespace() */
 #include "mal_client.h"
-#include "mal_sabaoth.h"
+#include "msabaoth.h"
 #include "mal_dataflow.h"
 #include "mal_profiler.h"
 #include "mal_private.h"
@@ -54,10 +54,12 @@ int mal_init(void){
  */
 	if (!MCinit())
 		return -1;
+#ifndef NDEBUG
 	if (!mdbInit()) {
 		mal_client_reset();
 		return -1;
 	}
+#endif
 	monet_memory = MT_npages() * MT_pagesize();
 	initNamespace();
 	initParser();
@@ -68,7 +70,9 @@ int mal_init(void){
 	str err = malBootstrap();
 	if (err != MAL_SUCCEED) {
 		mal_client_reset();
+#ifndef NDEBUG
 		mdbExit();
+#endif
 		dumpExceptionsToStream(NULL, err);
 		freeException(err);
 		return -1;
@@ -120,7 +124,9 @@ void mserver_reset(void)
 	mal_module_reset();
 	mal_atom_reset();
 	opt_pipes_reset();
+#ifndef NDEBUG
 	mdbExit();
+#endif
 
 	memset((char*)monet_cwd, 0, sizeof(monet_cwd));
 	monet_memory = 0;

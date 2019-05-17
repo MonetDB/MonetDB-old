@@ -776,7 +776,7 @@ msab_getStatus(sabdb** ret, char *dbname)
 /**
  * Frees up the sabdb structure returned by getStatus.
  */
-char *
+void
 msab_freeStatus(sabdb** ret)
 {
 	sabdb *p, *q;
@@ -810,8 +810,6 @@ msab_freeStatus(sabdb** ret)
 		free(p);
 		p = q;
 	}
-
-	return(NULL);
 }
 
 /**
