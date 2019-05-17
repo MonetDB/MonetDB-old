@@ -16,7 +16,7 @@
 #include "mal_namespace.h"
 #include "mal_authorize.h"
 #include "mal_builder.h"
-#include "mal_sabaoth.h"
+#include "msabaoth.h"
 #include "mal_private.h"
 #include "gdk.h"	/* for opendir and friends */
 
@@ -284,32 +284,34 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 			return;
 		}
 
-		err = SABAOTHgetMyStatus(&stats);
-		if (err != MAL_SUCCEED) {
-			/* this is kind of awful, but we need to get rid of this
-			 * message */
-			fprintf(stderr, "!SABAOTHgetMyStatus: %s\n", err);
-			freeException(err);
-			mnstr_printf(fout, "!internal server error, "
-						 "please try again later\n");
-			exit_streams(fin, fout);
-			GDKfree(command);
-			return;
-		}
-		if (stats->locked == 1) {
-			if (uid == 0) {
-				mnstr_printf(fout, "#server is running in "
-							 "maintenance mode\n");
-			} else {
-				mnstr_printf(fout, "!server is running in "
-							 "maintenance mode, please try again later\n");
+		if (!GDKinmemory()) {
+			err = msab_getMyStatus(&stats);
+			if (err != NULL) {
+				/* this is kind of awful, but we need to get rid of this
+				 * message */
+				fprintf(stderr, "!msab_getMyStatus: %s\n", err);
+				free(err);
+				mnstr_printf(fout, "!internal server error, "
+							 "please try again later\n");
 				exit_streams(fin, fout);
-				SABAOTHfreeStatus(&stats);
 				GDKfree(command);
 				return;
 			}
+			if (stats->locked == 1) {
+				if (uid == 0) {
+					mnstr_printf(fout, "#server is running in "
+								 "maintenance mode\n");
+				} else {
+					mnstr_printf(fout, "!server is running in "
+								 "maintenance mode, please try again later\n");
+					exit_streams(fin, fout);
+					msab_freeStatus(&stats);
+					GDKfree(command);
+					return;
+				}
+			}
+			msab_freeStatus(&stats);
 		}
-		SABAOTHfreeStatus(&stats);
 
 		c = MCinitClient(uid, fin, fout);
 		if (c == NULL) {
