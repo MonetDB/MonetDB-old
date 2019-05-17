@@ -14,17 +14,11 @@
 #include "mal_interpreter.h" /* for runMAL(), garbageElement() */
 #include "mal_parser.h"	     /* for parseMAL() */
 #include "mal_namespace.h"
-#include "mal_readline.h"
 #include "mal_authorize.h"
 #include "mal_builder.h"
 #include "mal_sabaoth.h"
 #include "mal_private.h"
 #include "gdk.h"	/* for opendir and friends */
-
-#ifdef HAVE_EMBEDDED
-// FIXME:
-//#include "mal_init_inline.h"
-#endif
 
 /*
  * The MonetDB server uses a startup script to boot the system.
@@ -290,32 +284,34 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 			return;
 		}
 
-		err = SABAOTHgetMyStatus(&stats);
-		if (err != MAL_SUCCEED) {
-			/* this is kind of awful, but we need to get rid of this
-			 * message */
-			fprintf(stderr, "!SABAOTHgetMyStatus: %s\n", err);
-			freeException(err);
-			mnstr_printf(fout, "!internal server error, "
-						 "please try again later\n");
-			exit_streams(fin, fout);
-			GDKfree(command);
-			return;
-		}
-		if (stats->locked == 1) {
-			if (uid == 0) {
-				mnstr_printf(fout, "#server is running in "
-							 "maintenance mode\n");
-			} else {
-				mnstr_printf(fout, "!server is running in "
-							 "maintenance mode, please try again later\n");
+		if (!GDKinmemory()) {
+			err = SABAOTHgetMyStatus(&stats);
+			if (err != MAL_SUCCEED) {
+				/* this is kind of awful, but we need to get rid of this
+				 * message */
+				fprintf(stderr, "!SABAOTHgetMyStatus: %s\n", err);
+				freeException(err);
+				mnstr_printf(fout, "!internal server error, "
+							 "please try again later\n");
 				exit_streams(fin, fout);
-				SABAOTHfreeStatus(&stats);
 				GDKfree(command);
 				return;
 			}
+			if (stats->locked == 1) {
+				if (uid == 0) {
+					mnstr_printf(fout, "#server is running in "
+								 "maintenance mode\n");
+				} else {
+					mnstr_printf(fout, "!server is running in "
+								 "maintenance mode, please try again later\n");
+					exit_streams(fin, fout);
+					SABAOTHfreeStatus(&stats);
+					GDKfree(command);
+					return;
+				}
+			}
+			SABAOTHfreeStatus(&stats);
 		}
-		SABAOTHfreeStatus(&stats);
 
 		c = MCinitClient(uid, fin, fout);
 		if (c == NULL) {
@@ -586,16 +582,6 @@ MALexitClient(Client c)
 str
 MALreader(Client c)
 {
-#ifndef HAVE_EMBEDDED
-	int r = 1;
-	if (c == mal_clients) {
-		r = readConsole(c);
-		if (r < 0 && !c->fdin->eof)
-			r = MCreadClient(c);
-		if (r > 0)
-			return MAL_SUCCEED;
-	} else
-#endif
 	if (MCreadClient(c) > 0)
 		return MAL_SUCCEED;
 	MT_lock_set(&mal_contextLock);

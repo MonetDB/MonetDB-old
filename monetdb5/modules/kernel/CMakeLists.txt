@@ -17,7 +17,6 @@ add_library(kernel OBJECT
 			batmmath.c batmmath.h
 			batstr.c
 			group.c group.h
-			logger.c
 			microbenchmark.c microbenchmark.h
 			mmath.c mmath.h mmath_private.h
 			status.c status.h)
@@ -30,7 +29,7 @@ install(FILES
 		mmath.mal alarm.mal batstr.mal
 		batcolor.mal batmmath.mal
 		group.mal aggr.mal
-		logger.mal microbenchmark.mal
+		microbenchmark.mal
 		DESTINATION ${LIBDIR}/monetdb5)
 
 if(HAVE_HGE)
