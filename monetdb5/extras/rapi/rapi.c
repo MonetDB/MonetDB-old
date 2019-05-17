@@ -91,14 +91,63 @@ void clearRErrConsole(void) {
 	// Do nothing?
 }
 
-static char *RAPIinstalladdons(void);
-
 /* UNIX-like initialization */
 #ifndef WIN32
 
 #define R_INTERFACE_PTRS 1
 #define CSTACK_DEFNS 1
 #include <Rinterface.h>
+
+static char *RAPIinstalladdons(void) {
+	int evalErr;
+	ParseStatus status;
+	char rlibs[FILENAME_MAX];
+	char rapiinclude[BUFSIZ];
+	SEXP librisexp;
+	int len;
+
+	// r library folder, create if not exists
+	len = snprintf(rlibs, sizeof(rlibs), "%s%c%s", GDKgetenv("gdk_dbpath"), DIR_SEP, "rapi_packages");
+	if (len == -1 || len >= FILENAME_MAX)
+		return "cannot create rapi_packages directory because the path is too large";
+
+	if (mkdir(rlibs, S_IRWXU) != 0 && errno != EEXIST) {
+		return "cannot create rapi_packages directory";
+	}
+#ifdef _RAPI_DEBUG_
+		printf("# R libraries installed in %s\n",rlibs);
+#endif
+
+	PROTECT(librisexp = allocVector(STRSXP, 1));
+	SET_STRING_ELT(librisexp, 0, mkChar(rlibs));
+	Rf_defineVar(Rf_install(".rapi.libdir"), librisexp, R_GlobalEnv);
+	UNPROTECT(1);
+
+	// run rapi.R environment setup script
+	{
+		char *f = locate_file("rapi", ".R", 0);
+		snprintf(rapiinclude, sizeof(rapiinclude), "source(\"%s\")", f);
+		GDKfree(f);
+	}
+#if DIR_SEP != '/'
+	{
+		char *p;
+		for (p = rapiinclude; *p; p++)
+			if (*p == DIR_SEP)
+				*p = '/';
+	}
+#endif
+	R_tryEvalSilent(
+			VECTOR_ELT(
+					R_ParseVector(mkString(rapiinclude), 1, &status,
+								  R_NilValue), 0), R_GlobalEnv, &evalErr);
+
+	// of course the script may contain errors as well
+	if (evalErr != FALSE) {
+		return "failure running R setup script";
+	}
+	return NULL;
+}
 
 static char *RAPIinitialize(void) {
 // TODO: check for header/library version mismatch?
@@ -166,6 +215,7 @@ static char *RAPIinitialize(void) {
 	rapiInitialized = true;
 	return NULL;
 }
+
 #else
 
 #define	S_IRWXU		0000700
@@ -175,58 +225,6 @@ static char *RAPIinitialize(void) {
 }
 
 #endif
-
-
-static char *RAPIinstalladdons(void) {
-	int evalErr;
-	ParseStatus status;
-	char rlibs[FILENAME_MAX];
-	char rapiinclude[BUFSIZ];
-	SEXP librisexp;
-	int len;
-
-	// r library folder, create if not exists
-	len = snprintf(rlibs, sizeof(rlibs), "%s%c%s", GDKgetenv("gdk_dbpath"), DIR_SEP, "rapi_packages");
-	if (len == -1 || len >= FILENAME_MAX)
-		return "cannot create rapi_packages directory because the path is too large";
-
-	if (mkdir(rlibs, S_IRWXU) != 0 && errno != EEXIST) {
-		return "cannot create rapi_packages directory";
-	}
-#ifdef _RAPI_DEBUG_
-	printf("# R libraries installed in %s\n",rlibs);
-#endif
-
-	PROTECT(librisexp = allocVector(STRSXP, 1));
-	SET_STRING_ELT(librisexp, 0, mkChar(rlibs));
-	Rf_defineVar(Rf_install(".rapi.libdir"), librisexp, R_GlobalEnv);
-	UNPROTECT(1);
-
-	// run rapi.R environment setup script
-	{
-		char *f = locate_file("rapi", ".R", 0);
-		snprintf(rapiinclude, sizeof(rapiinclude), "source(\"%s\")", f);
-		GDKfree(f);
-	}
-#if DIR_SEP != '/'
-	{
-		char *p;
-		for (p = rapiinclude; *p; p++)
-			if (*p == DIR_SEP)
-				*p = '/';
-	}
-#endif
-	R_tryEvalSilent(
-		VECTOR_ELT(
-			R_ParseVector(mkString(rapiinclude), 1, &status,
-						  R_NilValue), 0), R_GlobalEnv, &evalErr);
-
-	// of course the script may contain errors as well
-	if (evalErr != FALSE) {
-		return "failure running R setup script";
-	}
-	return NULL;
-}
 
 rapi_export str RAPIevalStd(Client cntxt, MalBlkPtr mb, MalStkPtr stk,
 							InstrPtr pci) {
