@@ -6,8 +6,8 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
-#ifndef _SEEN_SABAOTH_H
-#define _SEEN_SABAOTH_H 1
+#ifndef MT_SEEN_SABAOTH_H
+#define MT_SEEN_SABAOTH_H 1
 
 #include <time.h>  /* for time_t */
 

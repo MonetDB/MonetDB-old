@@ -6,8 +6,8 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
-#ifndef _SEEN_GLOB_H
-#define _SEEN_GLOB_H 1
+#ifndef MT_SEEN_GLOB_H
+#define MT_SEEN_GLOB_H 1
 
 char db_glob(const char *expr, const char *haystack);
 

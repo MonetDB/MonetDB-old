@@ -6,8 +6,8 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
-#ifndef _SEEN_MCRYPT_H
-#define _SEEN_MCRYPT_H 1
+#ifndef MT_SEEN_MCRYPT_H
+#define MT_SEEN_MCRYPT_H 1
 
 #if defined(_MSC_VER) || defined(__CYGWIN__) || defined(__MINGW32__)
 #if !defined(LIBMAPI) && !defined(LIBMCRYPT)

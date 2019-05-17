@@ -7,8 +7,8 @@
  */
 /* monetdb_config.h.in.  Generated from CMakeLists.txt  */
 
-#ifndef _SEEN_MONETDB_CONFIG_H
-#define _SEEN_MONETDB_CONFIG_H 1
+#ifndef MT_SEEN_MONETDB_CONFIG_H
+#define MT_SEEN_MONETDB_CONFIG_H 1
 
 /* Number of bits in a file offset, on hosts where this is settable.
    Make sure this macro is set before any header files. */
@@ -81,7 +81,7 @@
 #include <crtdbg.h>
 #endif
 
-#include <windows.h>
+#include <Windows.h>
 #endif /* _MSC_VER */
 
 /* location where binaries are installed */
@@ -410,4 +410,4 @@ stpcpy(char *restrict dst, const char *restrict src)
 #define PROMPT2		"\001\002\n"	/* prompt: more data needed */
 #define PROMPT3		"\001\003\n"	/* prompt: get file content */
 
-#endif /* _SEEN_MONETDB_CONFIG_H */
+#endif /* MT_SEEN_MONETDB_CONFIG_H */

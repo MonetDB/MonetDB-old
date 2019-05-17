@@ -6,8 +6,8 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
-#ifndef _SEEN_DATABASE_H
-#define _SEEN_DATABASE_H 1
+#ifndef MT_SEEN_DATABASE_H
+#define MT_SEEN_DATABASE_H 1
 
 char* db_validname(char* dbname);
 char* db_create(char* dbname);

@@ -6,8 +6,8 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
-#ifndef _SEEN_PROPERTIES_H
-#define _SEEN_PROPERTIES_H 1
+#ifndef MT_SEEN_PROPERTIES_H
+#define MT_SEEN_PROPERTIES_H 1
 
 #include "utils.h"
 

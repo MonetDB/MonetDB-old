@@ -6,8 +6,8 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
-#ifndef _SEEN_MUUID_H
-#define _SEEN_MUUID_H 1
+#ifndef MT_SEEN_MUUID_H
+#define MT_SEEN_MUUID_H 1
 
 /* this function is (currently) only used in msabaoth and sql;
  * msabaoth is part of monetdb5 and we want this function to be

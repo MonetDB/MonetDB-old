@@ -6,8 +6,8 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
-#ifndef _SEEN_CONTROL_H
-#define _SEEN_CONTROL_H 1
+#ifndef MT_SEEN_CONTROL_H
+#define MT_SEEN_CONTROL_H 1
 
 char* control_send(
 		char** ret,
