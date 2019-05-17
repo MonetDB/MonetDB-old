@@ -17,8 +17,6 @@
 typedef struct rusage Rusage;
 #endif
 
-typedef struct tms Tms;
-
 mal_export int malProfileMode;
 
 mal_export void initProfiler(void);
@@ -32,7 +30,6 @@ mal_export str stopProfiler(void);
 mal_export str startTrace(str path);
 mal_export str stopTrace(str path);
 mal_export void setHeartbeat(int delay);
-mal_export str setprofilerpoolsize(int size);
 mal_export void initHeartbeat(void);
 mal_export void profilerHeartbeatEvent(char *alter);
 mal_export int getprofilerlimit(void);
