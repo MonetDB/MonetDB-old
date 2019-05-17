@@ -12,7 +12,6 @@
  */
 #include "monetdb_config.h"
 #include "mal.h"
-#include "mal_readline.h"
 #include "mal_debugger.h"
 #include "mal_interpreter.h"	/* for getArgReference() */
 #include "mal_linker.h"		/* for getAddress() */
@@ -437,13 +436,6 @@ retryRead:
 				goto retryRead;
 			}
 		}
-#ifndef HAVE_EMBEDDED
-		else if (cntxt == mal_clients) {
-			/* switch to mdb streams */
-			if (readConsole(cntxt) <= 0)
-				break;
-		}
-#endif
 		b = CURRENT(cntxt);
 
 		/* terminate the line with zero */
@@ -999,13 +991,13 @@ str mdbTrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	int cnt = 20;   /* total 10 sec delay */
 	int pc = getPC(mb,p);
 
-	mnstr_printf(mal_clients[0].fdout, "#trapped %s.%s[%d]\n",
+	mnstr_printf(cntxt->fdout, "#trapped %s.%s[%d]\n",
 			getModuleId(mb->stmt[0]), getFunctionId(mb->stmt[0]), pc);
-	printInstruction(mal_clients[0].fdout, mb, stk, p, LIST_MAL_DEBUG);
+	printInstruction(cntxt->fdout, mb, stk, p, LIST_MAL_DEBUG);
 	cntxt->itrace = 'W';
 	MT_lock_set(&mal_contextLock);
 	if (trapped_mb) {
-		mnstr_printf(mal_clients[0].fdout, "#registry not available\n");
+		mnstr_printf(cntxt->fdout, "#registry not available\n");
 		mnstr_flush(cntxt->fdout);
 	}
 	while (trapped_mb && cnt-- > 0) {
@@ -1040,18 +1032,18 @@ mdbStep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
 		state.p = getInstrPtr(mb, pc);
 		state.pc = pc;
 		cntxt->mdb = &state;
-		mnstr_printf(mal_clients[0].fdout, "#Process %d put to sleep\n", (int) (cntxt - mal_clients));
+		mnstr_printf(cntxt->fdout, "#Process %d put to sleep\n", (int) (cntxt - mal_clients));
 		cntxt->itrace = 'W';
 		mdbTrap(cntxt, mb, stk, state.p);
 		while (cntxt->itrace == 'W')
 			MT_sleep_ms(300);
-		mnstr_printf(mal_clients[0].fdout, "#Process %d woke up\n", (int) (cntxt - mal_clients));
+		mnstr_printf(cntxt->fdout, "#Process %d woke up\n", (int) (cntxt - mal_clients));
 		return;
 	}
 	if (stk->cmd == 0)
 		stk->cmd = 'n';
 	/* a trapped call leads to process suspension */
-	/* then the console can be used to attach a debugger */
+	/* which can be used to attach a debugger */
 	if (mb->trap) {
 		mdbTrap(cntxt, mb, stk, getInstrPtr(mb,pc));
 		return;
@@ -1405,7 +1397,7 @@ mdbHelp(stream *f)
 	mnstr_printf(f, "down             -- go down the stack\n");
 	mnstr_printf(f, "up               -- go up the stack\n");
 	mnstr_printf(f, "trace <var>      -- trace assignment to variables\n");
-	mnstr_printf(f, "trap <mod>.<fcn> -- catch MAL function call in console\n");
+	mnstr_printf(f, "trap <mod>.<fcn> -- catch MAL function call in debugger\n");
 	mnstr_printf(f, "help             -- this message\n");
 }
 
