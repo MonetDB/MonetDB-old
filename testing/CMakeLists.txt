@@ -6,9 +6,6 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-#Test for diff program existance
-find_program(DIFF NAMES gdiff diff DOC "Diff program")
-
 add_executable(Mdiff difflib.c helpers.c Mdiff.c difflib.h helpers.h)
 install(TARGETS Mdiff DESTINATION ${BINDIR})
 
@@ -68,7 +65,6 @@ if(WIN32)
 	install(FILES Mtest.py.bat DESTINATION ${BINDIR} RENAME Mapprove.py.bat)
 	install(FILES $<TARGET_PDB_FILE:Mdiff> DESTINATION ${BINDIR} OPTIONAL)
 else()
-	find_program(BASH NAMES bash DOC "bash interpreter fullpath")
 	if(NOT BASH)
 		message(FATAL_ERROR "A bash interpreter was not found")
 	endif()

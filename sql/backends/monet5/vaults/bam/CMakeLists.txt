@@ -26,7 +26,7 @@ if(NOT ${ENABLE_SAMTOOLS} STREQUAL "NO" AND ZLIB_FOUND)
 	cmake_pop_check_state()
 endif()
 if(HAVE_SAMTOOLS)
-	configure_file(bam_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/bam_config.h)
+	configure_file(bam_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/bam_config.h @ONLY)
 	include_directories(${CMAKE_CURRENT_BINARY_DIR} .. ../.. ../../../../include ../../../../common ../../../../storage
 						../../../../server ../../../../../monetdb5/modules/atoms ../../../../../monetdb5/modules/kernel
 						../../../../../monetdb5/mal ../../../../../monetdb5/modules/mal ../../../../../monetdb5/optimizer

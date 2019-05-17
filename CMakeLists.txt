@@ -63,7 +63,7 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/.hg")
 		set(DFT_STRICT "YES")
 	endif()
 elseif(EXISTS "${CMAKE_SOURCE_DIR}/.git")
-	exec_program("git" "${CMAKE_SOURCE_DIR}" ARGS "rev-parse HEAD" OUTPUT_VARIABLE GIT_OUPUT_RES RETURN_VALUE GIT_RETURN_CODE)
+	exec_program("git" "${CMAKE_SOURCE_DIR}" ARGS "rev-parse --short HEAD" OUTPUT_VARIABLE GIT_OUPUT_RES RETURN_VALUE GIT_RETURN_CODE)
 	if(GIT_RETURN_CODE EQUAL 0 AND GIT_OUPUT_RES)
 		set(MERCURIAL_ID "${GIT_OUPUT_RES}+")
 		set(DFT_STRICT "YES")
@@ -756,6 +756,10 @@ set(CMAKE_C_LINK_FLAGS "${LINK_OPTIONS}" CACHE STRING "Link flags for all builds
 set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}" CACHE STRING "Shared library module link options for all builds" FORCE)
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" CACHE STRING "Shared library link options for all builds" FORCE)
 set(LINK_OPTIONS "${LINK_OPTIONS}" CACHE STRING "Link options for all builds" FORCE)
+
+# Programs required for testing and building RPMs
+find_program(DIFF NAMES gdiff diff DOC "Diff program fullpath")
+find_program(BASH NAMES bash DOC "bash interpreter fullpath")
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(buildtools)

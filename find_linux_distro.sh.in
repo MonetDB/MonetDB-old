@@ -1,0 +1,55 @@
+#!@BASH@
+
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.  If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+
+if [ -f /etc/os-release ]
+	then
+	# this is the new way of getting release information
+	# works for Fedora >= 17, Ubuntu >= 12.04 (Precise Pangolin)
+	LINUX_DIST=`source /etc/os-release; @ECHO@ "${ID}:${VERSION_ID}"`
+elif [ -f /etc/fedora-release ]
+	then
+	LINUX_DIST=`cat /etc/fedora-release | head -n1 \
+		| sed 's|^.*\(Fedora\).* release \([[0-9]][[^ \n]]*\)\( .*\)*$|\1:\2|'`
+elif [ -f /etc/centos-release ]
+	then
+	LINUX_DIST=`cat /etc/centos-release | head -n1 | sed 's|^\(CentOS\).* release \([[0-9]][[^ \n]]*\)\( .*\)*$|\1:\2|'`
+elif [ -f /etc/yellowdog-release ]
+	then
+	LINUX_DIST=`cat /etc/yellowdog-release | head -n1 \
+		| sed 's|^\(Yellow\) Dog Linux release \([[0-9]][[^ \n]]*\)\( .*\)*$|\1:\2|'`
+elif [ -f /etc/redhat-release ]
+	then
+	LINUX_DIST=`cat /etc/redhat-release | head -n1 \
+		| sed 's|^.*\(Red\) \(Hat\).* Linux *\([[A-Z]]*\) release \([[0-9]][[^ \n]]*\)\( .*\)*$|\1\2:\4\3|' \
+		| sed 's|^Red Hat Enterprise Linux \([[AW]]S\) release \([[0-9]][[^ \n]]*\)\( .*\)*$|RHEL:\2\1|' \
+		| sed 's|^\(CentOS\).* release \([[0-9]][[^ \n]]*\)\( .*\)*$|\1:\2|' \
+		| sed 's|^\(Scientific\) Linux.* release \([[0-9]][[^ \n]]*\)\( .*\)*$|\1:\2|'`
+elif [ -f /etc/SuSE-release ]
+	then
+	LINUX_DIST=`cat /etc/SuSE-release | head -n1 \
+		| sed 's|^.*\(S[[Uu]]SE\) LINUX Enterprise \([[SD]]\)[[ervsktop]]* \([[0-9]][[^ \n]]*\)\( .*\)*$|\1:\3E\2|' \
+		| sed 's|^S[[Uu]]SE LINUX Enterprise \([[SD]]\)[[ervsktop]]* \([[0-9]][[^ \n]]*\)\( .*\)*$|SLE\1:\2|' \
+		| sed 's|^.*\(S[[Uu]]SE\) [[Ll]][[Ii]][[Nn]][[Uu]][[Xx]].* \([[0-9]][[^ \n]]*\)\( .*\)*$|\1:\2|' \
+		| sed 's|^open\(S[[Uu]]SE\) \([[0-9]][[^ \n]]*\)\( .*\)*$|\1:\2|'`
+elif [ -f /etc/gentoo-release ]
+	then
+	LINUX_DIST=`cat /etc/gentoo-release | head -n1 \
+		| sed 's|^.*\(Gentoo\) Base System.* [[versionrelease]]* \([[0-9]][[^ \n]]*\)\( .*\)*$|\1:\2|'`
+elif [ -f /etc/lsb-release ]
+	then
+	LINUX_DIST=`grep '^DISTRIB_ID=' /etc/lsb-release \
+		| cut -d'=' -f2`:`grep '^DISTRIB_RELEASE=' /etc/lsb-release | cut -d'=' -f2`
+elif [ -f /etc/debian_version ]
+	then
+	LINUX_DIST=Debian:`cat /etc/debian_version | head -n1`
+else
+	LINUX_DIST=`uname -s`:`uname -r | sed 's|^\([[0-9\.]]*\)\([[^0-9\.]].*\)$|\1|'`
+fi
+
+LINUX_DIST_TRIMMED=`@ECHO@ "${LINUX_DIST}" | sed 's|:||'`
+@ECHO@ "${LINUX_DIST_TRIMMED}"
