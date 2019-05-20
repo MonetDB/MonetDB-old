@@ -425,7 +425,7 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 	}
 	pushInstruction(curBlk, p);
 
-	char *mal_session_uuid, *err;
+	char *mal_session_uuid, *err = NULL;
 	if (!GDKinmemory() && (err = msab_getUUID(&mal_session_uuid)) == NULL) {
 		str rsupervisor_session = GDKstrdup(mal_session_uuid);
 		if (rsupervisor_session == NULL) {
@@ -491,7 +491,7 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 		free(rworker_plan_uuid);   /* This was created with strdup */
 		GDKfree(lsupervisor_session);
 		GDKfree(rsupervisor_session);
-	} else
+	} else if (err)
 		free(err);
 
 	/* (x1, x2, ..., xn) := remote.exec(q, "mod", "fcn"); */
@@ -647,7 +647,7 @@ backend_dumpstmt(backend *be, MalBlkPtr mb, sql_rel *r, int top, int add_end, co
 
 	be->mvc_var = old_mv;
 	be->mb = old_mb;
-	if (top && c->clientid && !be->depth && (c->type == Q_SCHEMA || c->type == Q_TRANS)) {
+	if (top && !be->depth && (c->type == Q_SCHEMA || c->type == Q_TRANS)) {
 		q = newStmt(mb, sqlRef, exportOperationRef);
 		if (q == NULL)
 			return -1;
