@@ -752,7 +752,7 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}" CACHE STRING "Debug flags" FORC
 set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL}" CACHE STRING "MinSizeRel flags" FORCE)
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}" CACHE STRING "Release flags" FORCE)
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}" CACHE STRING "RelWithDebugInfo flags" FORCE)
-set(CMAKE_C_LINK_FLAGS "${LINK_OPTIONS}" CACHE STRING "Link flags for all builds" FORCE) # This variable is depreacted but still used
+set(CMAKE_C_LINK_FLAGS "${LINK_OPTIONS}" CACHE STRING "Link flags for all builds" FORCE) # This variable is deprecated but still used
 set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}" CACHE STRING "Shared library module link options for all builds" FORCE)
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" CACHE STRING "Shared library link options for all builds" FORCE)
 set(LINK_OPTIONS "${LINK_OPTIONS}" CACHE STRING "Link options for all builds" FORCE)
