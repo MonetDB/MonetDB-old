@@ -24,6 +24,7 @@
 #include <io.h>
 #define open _open
 #define close _close
+#define access _access
 #else
 #include <unistd.h>
 #include <dirent.h>
@@ -50,9 +51,6 @@ static int lastfile = 0;
  */
 #ifndef F_OK
 #define F_OK 0
-#endif
-#ifdef _MSC_VER
-#define access(f, m)	_access(f, m)
 #endif
 static inline int
 fileexists(const char *path)

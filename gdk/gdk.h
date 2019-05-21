@@ -488,20 +488,16 @@ typedef size_t oid;
 
 typedef int bat;		/* Index into BBP */
 typedef void *ptr;		/* Internal coding of types */
-
-#define SIZEOF_PTR	SIZEOF_VOID_P
 typedef float flt;
 typedef double dbl;
 typedef char *str;
 
-#define SIZEOF_LNG		8
 #define LL_CONSTANT(val)	INT64_C(val)
 #define LLFMT			"%" PRId64
 #define ULLFMT			"%" PRIu64
 
 typedef oid var_t;		/* type used for heap index of var-sized BAT */
 #define SIZEOF_VAR_T	SIZEOF_OID
-#define VARFMT		OIDFMT
 
 #if SIZEOF_VAR_T == SIZEOF_INT
 #define VAR_MAX		((var_t) INT_MAX)
@@ -539,7 +535,6 @@ typedef uint64_t BUN8type;
 #if SIZEOF_BUN > 4
 #define BUN8_NONE ((BUN8type) UINT64_C(0xFFFFFFFFFFFFFFFF))
 #endif
-
 
 /*
  * @- Checking and Error definitions:
@@ -825,8 +820,6 @@ typedef struct BATiter {
 #define timprints	T.imprints
 #define tprops		T.props
 
-
-
 /*
  * @- Heap Management
  * Heaps are the low-level entities of mass storage in
@@ -927,7 +920,6 @@ gdk_export void HEAP_free(Heap *heap, var_t block);
  * The routine BATclone creates an empty BAT storage area with the
  * properties inherited from its argument.
  */
-#define BATDELETE	(-9999)
 
 gdk_export BAT *COLnew(oid hseq, int tltype, BUN capacity, role_t role)
 	__attribute__((__warn_unused_result__));
@@ -1304,7 +1296,6 @@ typedef enum {
 gdk_export gdk_return BATsetaccess(BAT *b, restrict_t mode);
 gdk_export restrict_t BATgetaccess(BAT *b);
 
-
 #define BATdirty(b)	(!(b)->batCopiedtodisk ||			\
 			 (b)->batDirtydesc ||				\
 			 (b)->theap.dirty ||				\
@@ -1409,7 +1400,6 @@ gdk_export bool BATordered(BAT *b);
 gdk_export bool BATordered_rev(BAT *b);
 gdk_export gdk_return BATsort(BAT **sorted, BAT **order, BAT **groups, BAT *b, BAT *o, BAT *g, bool reverse, bool nilslast, bool stable)
 	__attribute__((__warn_unused_result__));
-
 
 gdk_export void GDKqsort(void *restrict h, void *restrict t, const void *restrict base, size_t n, int hs, int ts, int tpe, bool reverse, bool nilslast);
 
@@ -2291,7 +2281,6 @@ typedef struct threadStruct {
 	void *data[THREADDATA];
 	uintptr_t sp;
 } ThreadRec, *Thread;
-
 
 gdk_export int THRgettid(void);
 gdk_export Thread THRget(int tid);

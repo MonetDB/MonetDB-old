@@ -23,7 +23,7 @@
 #else
 #define oidStrlen	48
 #endif
-#if SIZEOF_PTR == SIZEOF_INT
+#if SIZEOF_VOID_P == SIZEOF_INT
 #define ptrStrlen	24
 #else
 #define ptrStrlen	48

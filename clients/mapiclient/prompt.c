@@ -19,14 +19,14 @@
 char *
 prompt_getlogin(void)
 {
-#ifndef NATIVE_WIN32
-	return getlogin();
-#else
+#ifdef NATIVE_WIN32
 	return "win32";
+#else
+	return getlogin();
 #endif
 }
 
-#ifdef _MSC_VER
+#ifdef NATIVE_WIN32
 char *
 simple_prompt(const char *prompt, int maxlen, int echo, const char *def)
 {

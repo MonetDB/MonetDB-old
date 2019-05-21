@@ -1153,7 +1153,7 @@ static int height = 160;
 static char *
 findlogo(void)
 {
-#ifdef _MSC_VER
+#ifdef NATIVE_WIN32
 	/* on Windows, convert \ to  / path separators since this path
 	 * is added to gnuplot input */
 	static char buf[sizeof(LOGOFILE)];

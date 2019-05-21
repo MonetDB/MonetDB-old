@@ -152,7 +152,7 @@ int PyType_ToBat(int type)
 		case NPY_INT:
 			return TYPE_int;
 		case NPY_LONG:
-#if SIZEOF_LONG == 4
+#if SIZEOF_LNG == 4
 			return TYPE_int;
 #endif
 		case NPY_LONGLONG:

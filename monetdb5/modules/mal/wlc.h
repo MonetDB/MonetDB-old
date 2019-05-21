@@ -33,8 +33,8 @@
 #ifndef F_OK
 #define F_OK 0
 #endif
-#ifdef _MSC_VER
-#define access(f, m)    _access(f, m)
+#ifdef NATIVE_WIN32
+#define access _access
 #endif
 
 mal_export MT_Lock wlc_lock;
