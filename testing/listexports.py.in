@@ -26,7 +26,7 @@ skipdirs = ['extras']
 skipfiles = ['monet_getopt.h']
 
 # where the files are
-srcdir = r'@SOURCE@'
+srcdir = r'@QXSOURCE@'
 
 # the export command; note the keyword we look for is a word that ends
 # in "export"

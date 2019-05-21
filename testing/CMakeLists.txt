@@ -9,11 +9,8 @@
 add_executable(Mdiff difflib.c helpers.c Mdiff.c difflib.h helpers.h)
 install(TARGETS Mdiff DESTINATION ${BINDIR})
 
-string(REPLACE "\\" "\\\\" SOURCE "${CMAKE_SOURCE_DIR}")
+string(REPLACE "\\" "\\\\" QXbindir "${BINDIR}")
 string(REPLACE "\\" "\\\\" QXBUILD "${CMAKE_BINARY_DIR}")
-string(REPLACE "\\" "\\\\" QXSOURCE "${CMAKE_SOURCE_DIR}")
-
-string(REPLACE "\\" "\\\\" QXbindir "${BINDIR}") # TODO confirm these changes
 string(REPLACE "\\" "\\\\" QXdatadir "${DATADIR}")
 string(REPLACE "\\" "\\\\" QXdatarootdir "${DATAROOTDIR}")
 string(REPLACE "\\" "\\\\" QXexec_prefix "${CMAKE_INSTALL_PREFIX}")
@@ -24,11 +21,10 @@ string(REPLACE "\\" "\\\\" QXlibexecdir "${LIBEXECDIR}")
 string(REPLACE "\\" "\\\\" QXlocalstatedir "${LOCALSTATEDIR}")
 string(REPLACE "\\" "\\\\" QXmandir "${MANDIR}")
 string(REPLACE "\\" "\\\\" QXprefix "${CMAKE_INSTALL_PREFIX}")
-string(REPLACE "\\" "\\\\" QXsysconfdir "${SYSCONFDIR}")
-
-set(PYTHON3 "${Python3_EXECUTABLE}")
 string(REPLACE "\\" "\\\\" QXPYTHON3 "${Python3_EXECUTABLE}")
 string(REPLACE "\\" "\\\\" QXPYTHON3_LIBDIR "${PYTHON3_LIBDIR}")
+string(REPLACE "\\" "\\\\" QXSOURCE "${CMAKE_SOURCE_DIR}")
+string(REPLACE "\\" "\\\\" QXsysconfdir "${SYSCONFDIR}")
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 4)
 	set(BITS32_FALSE "#")
