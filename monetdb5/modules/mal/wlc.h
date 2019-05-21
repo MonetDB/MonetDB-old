@@ -33,9 +33,6 @@
 #ifndef F_OK
 #define F_OK 0
 #endif
-#ifdef NATIVE_WIN32
-#define access _access
-#endif
 
 mal_export MT_Lock wlc_lock;
 mal_export char wlc_dir[FILENAME_MAX];

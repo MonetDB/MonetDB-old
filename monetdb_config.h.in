@@ -261,17 +261,17 @@
 /* The home of R */
 #cmakedefine RHOME "@RHOME@"
 
-/* The size of `char', as computed by sizeof. */
-#cmakedefine SIZEOF_CHAR @SIZEOF_CHAR@
+/* The size of `int8_t', as computed by sizeof. */
+#cmakedefine SIZEOF_BTE @SIZEOF_BTE@
 
-/* The size of `int', as computed by sizeof. */
+/* The size of `int32_t', as computed by sizeof. */
 #cmakedefine SIZEOF_INT @SIZEOF_INT@
 
-/* The size of `long', as computed by sizeof. */
+/* The size of `int64_t', as computed by sizeof. */
 #cmakedefine SIZEOF_LNG @SIZEOF_LNG@
 
-/* The size of `short', as computed by sizeof. */
-#cmakedefine SIZEOF_SHORT @SIZEOF_SHORT@
+/* The size of `int16_t', as computed by sizeof. */
+#cmakedefine SIZEOF_SHT @SIZEOF_SHT@
 
 /* The size of `size_t', as computed by sizeof. */
 #cmakedefine SIZEOF_SIZE_T @SIZEOF_SIZE_T@

@@ -965,7 +965,7 @@ tr_commit(logger *lg, trans *tr)
 	return tr_destroy(tr);
 }
 
-#ifdef _MSC_VER
+#ifdef NATIVE_WIN32
 #define access _access
 #endif
 

@@ -150,6 +150,10 @@
 #include "mal_builder.h"
 #include "wlc.h"
 
+#ifdef NATIVE_WIN32
+#define access _access
+#endif
+
 MT_Lock     wlc_lock = MT_LOCK_INITIALIZER("wlc_lock");
 
 static char wlc_snapshot[FILENAME_MAX]; // The location of the snapshot against which the logs work

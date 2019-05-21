@@ -154,7 +154,7 @@ gdk_export int win_rename(const char *, const char *);
 gdk_export int win_unlink(const char *);
 gdk_export int win_mkdir(const char *, const int mode);
 
-#define _stat64		win_stat
+#define _stat64(x,y)	win_stat(x,y)
 #define mkdir		win_mkdir
 #define rmdir		win_rmdir
 #define rename		win_rename

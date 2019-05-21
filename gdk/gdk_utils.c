@@ -429,10 +429,10 @@ GDKinit(opt *set, int setlen)
 	char buf[16];
 
 	/* some sanity checks (should also find if symbols are not defined) */
-	static_assert(sizeof(char) == SIZEOF_CHAR,
-		      "error in configure: bad value for SIZEOF_CHAR");
-	static_assert(sizeof(short) == SIZEOF_SHORT,
-		      "error in configure: bad value for SIZEOF_SHORT");
+	static_assert(sizeof(bte) == SIZEOF_BTE,
+		      "error in configure: bad value for SIZEOF_BTE");
+	static_assert(sizeof(sht) == SIZEOF_SHT,
+		      "error in configure: bad value for SIZEOF_SHT");
 	static_assert(sizeof(int) == SIZEOF_INT,
 		      "error in configure: bad value for SIZEOF_INT");
 	static_assert(sizeof(lng) == SIZEOF_LNG,
