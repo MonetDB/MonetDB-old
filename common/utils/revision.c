@@ -7,18 +7,11 @@
  */
 
 #include "monetdb_config.h"
+#include "monetdb_hgversion.h"
 #include "mutils.h"
-
-static const char revision[] =
-#ifdef MERCURIAL_ID
-	MERCURIAL_ID
-#else
-	"Unknown"
-#endif
-	;
 
 const char *
 mercurial_revision(void)
 {
-	return revision;
+	return MERCURIAL_ID;
 }

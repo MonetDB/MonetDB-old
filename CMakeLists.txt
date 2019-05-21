@@ -54,20 +54,11 @@ string(TOLOWER "${CMAKE_SYSTEM_NAME}" CMAKE_SYSTEM_NAME_LOWER)
 string(TOLOWER "${CMAKE_C_COMPILER_ID}" CMAKE_C_COMPILER_ID_LOWER)
 set("HOST" "${CMAKE_SYSTEM_PROCESSOR_LOWER}-pc-${CMAKE_SYSTEM_NAME_LOWER}-${CMAKE_C_COMPILER_ID_LOWER}")
 
-set(DFT_STRICT "NO")
-# Check current version control revision
-if(EXISTS "${CMAKE_SOURCE_DIR}/.hg")
-	exec_program("hg" "${CMAKE_SOURCE_DIR}" ARGS "id -i" OUTPUT_VARIABLE HG_OUPUT_RES RETURN_VALUE HG_RETURN_CODE)
-	if(HG_RETURN_CODE EQUAL 0 AND HG_OUPUT_RES)
-		set(MERCURIAL_ID "${HG_OUPUT_RES}")
-		set(DFT_STRICT "YES")
-	endif()
-elseif(EXISTS "${CMAKE_SOURCE_DIR}/.git")
-	exec_program("git" "${CMAKE_SOURCE_DIR}" ARGS "rev-parse --short HEAD" OUTPUT_VARIABLE GIT_OUPUT_RES RETURN_VALUE GIT_RETURN_CODE)
-	if(GIT_RETURN_CODE EQUAL 0 AND GIT_OUPUT_RES)
-		set(MERCURIAL_ID "${GIT_OUPUT_RES}+")
-		set(DFT_STRICT "YES")
-	endif()
+# If checking out from version control enable strict compilation flags
+if(EXISTS "${CMAKE_SOURCE_DIR}/.hg" OR EXISTS "${CMAKE_SOURCE_DIR}/.git")
+	set(DFT_STRICT "YES")
+else()
+	set(DFT_STRICT "NO")
 endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}") # Initialize variable

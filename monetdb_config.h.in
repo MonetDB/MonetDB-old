@@ -240,9 +240,6 @@
 /* modifiable single-machine data */
 #cmakedefine LOCALSTATEDIR "@LOCALSTATE_DIR@"
 
-/* Mercurial repository version */
-#cmakedefine MERCURIAL_ID "@MERCURIAL_ID@"
-
 /* The used password hash algorithm */
 #cmakedefine MONETDB5_PASSWDHASH "@MONETDB5_PASSWDHASH@"
 

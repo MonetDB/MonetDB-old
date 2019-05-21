@@ -6,7 +6,11 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(${UUID_INCLUDE_DIR} ${CRYPTO_INCLUDE_DIR})
+include_directories(${CMAKE_CURRENT_BINARY_DIR} ${UUID_INCLUDE_DIR} ${CRYPTO_INCLUDE_DIR})
+
+# FindRevision script must run every time to detect the current revision
+add_custom_target(mrevision COMMAND ${CMAKE_COMMAND} ARGS -P ${CMAKE_CURRENT_SOURCE_DIR}/FindRevision.cmake
+				  ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/monetdb_hgversion.h)
 
 set(MUTILS_OBJECTS mutils.h mutils.c revision.c)
 set(MCRYPT_OBJECTS mcrypt.h mcrypt.c)
@@ -41,4 +45,5 @@ else()
 	set_target_properties(msabaoth PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
 
+add_dependencies(mutils mrevision)
 install(FILES matomic.h DESTINATION ${INCLUDEDIR}/monetdb)
