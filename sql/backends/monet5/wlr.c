@@ -29,6 +29,10 @@
 #include "mal_client.h"
 #include "querylog.h"
 
+#ifdef NATIVE_WIN32
+#include <sys/timeb.h>	/* ftime */
+#endif
+
 #define WLR_START 0
 #define WLR_RUN   100
 #define WLR_PAUSE 200
@@ -379,7 +383,6 @@ static void
 WLRprocessScheduler(void *arg)
 {	Client cntxt = (Client) arg;
 	int duration;
-	struct timeval clock;
 	time_t clk;
 	struct tm ctm;
 	char clktxt[26];
@@ -396,8 +399,20 @@ WLRprocessScheduler(void *arg)
 		MT_thread_setworking("sleeping");
 		duration = (wlc_beat? wlc_beat:1) * 1000 ;
 		if( wlr_timelimit[0]){
-			gettimeofday(&clock, NULL);
+#ifdef NATIVE_WIN32
+			struct timeb tb;
+
+			ftime(&tb);
+			clk = tb.time;
+#else
+			struct timeval clock;
+
+			if(gettimeofday(&clock,NULL) == -1) {
+				mnstr_printf(GDKerr,"Unable to retrieve current time\n");
+				return;
+			}
 			clk = clock.tv_sec;
+#endif
 			ctm = *localtime(&clk);
 			strftime(clktxt, 26, "%Y-%m-%dT%H:%M:%S.000",&ctm);
 			mnstr_printf(cntxt->fdout,"#now %s tlimit %s\n",clktxt, wlr_timelimit);

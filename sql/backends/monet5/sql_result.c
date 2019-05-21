@@ -19,10 +19,6 @@
 #include "bat/bat_storage.h"
 #include "rel_exp.h"
 
-#ifndef HAVE_LLABS
-#define llabs(x)	((x) < 0 ? -(x) : (x))
-#endif
-
 #ifdef _MSC_VER
 /* use intrinsic functions on Windows */
 #define short_int_SWAP(s)	((short) _byteswap_ushort((unsigned short) (s)))

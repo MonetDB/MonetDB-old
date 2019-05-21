@@ -24,7 +24,9 @@
 #include "mal_utils.h"
 #include "mal_resource.h"
 
-#ifndef NATIVE_WIN32
+#ifdef NATIVE_WIN32
+#include <sys/timeb.h>	/* ftime */
+#else
 #include <sys/time.h>
 #endif
 
@@ -42,7 +44,11 @@ static int highwatermark = 5;	// conservative initialization
 static int TRACE_init = 0;
 int malProfileMode = 0;     /* global flag to indicate profiling mode */
 
+#ifdef NATIVE_WIN32
+static struct timeb startup_time;
+#else
 static struct timeval startup_time;
+#endif
 
 static ATOMIC_TYPE hbdelay = ATOMIC_VAR_INIT(0);
 
@@ -142,7 +148,11 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
 	str stmt, c;
 	str stmtq;
 	lng usec= GDKusec();
+#ifdef NATIVE_WIN32
+	uint64_t microseconds = (uint64_t)startup_time.time*1000000 + ((int64_t) startup_time.millitm) * 1000 + (uint64_t)usec;
+#else
 	uint64_t microseconds = (uint64_t)startup_time.tv_sec*1000000 + (uint64_t)startup_time.tv_usec + (uint64_t)usec;
+#endif
 
 	// ignore generation of events for instructions that are called too often
 	if(highwatermark && highwatermark + (start == 0) < pci->calls)
@@ -449,7 +459,11 @@ profilerHeartbeatEvent(char *alter)
 	char logbuffer[LOGLEN], *logbase;
 	int loglen;
 	lng usec = GDKusec();
+#ifdef NATIVE_WIN32
+	uint64_t microseconds = (uint64_t)startup_time.time*1000000 + ((int64_t) startup_time.millitm) * 1000 + (uint64_t)usec;
+#else
 	uint64_t microseconds = (uint64_t)startup_time.tv_sec*1000000 + (uint64_t)startup_time.tv_usec + (uint64_t)usec;
+#endif
 
 	if (ATOMIC_GET(&hbdelay) == 0 || eventstream  == NULL)
 		return;
@@ -1034,7 +1048,6 @@ getDiskSpace(void)
 	return size;
 }
 
-
 void profilerGetCPUStat(lng *user, lng *nice, lng *sys, lng *idle, lng *iowait)
 {
 	(void) getCPULoad(0);
@@ -1087,7 +1100,11 @@ void setHeartbeat(int delay)
 
 void initProfiler(void)
 {
+#ifdef NATIVE_WIN32
+	ftime(&startup_time);
+#else
 	gettimeofday(&startup_time, NULL);
+#endif
 }
 
 void initHeartbeat(void)

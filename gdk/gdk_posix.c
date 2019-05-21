@@ -684,11 +684,9 @@ MT_init_posix(void)
 size_t
 MT_getrss(void)
 {
-#ifdef _WIN64
 	PROCESS_MEMORY_COUNTERS ctr;
 	if (GetProcessMemoryInfo(GetCurrentProcess(), &ctr, sizeof(ctr)))
 		return ctr.WorkingSetSize;
-#endif
 	return 0;
 }
 
@@ -841,34 +839,6 @@ MT_path_absolute(const char *pathname)
 		 (pathname[2] == '/' || pathname[2] == '\\')) ||
 		(pathname[0] == '\\' && pathname[1] == '\\'));
 }
-
-#ifdef _MSC_VER
-static int nodays[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-
-#define LEAPYEAR(y) ((((y)%4)==0 && ((y)%100)!=0) || ((y)%400)==0)
-#define NODAYS(m,y) (((m)!=2)?nodays[(m)-1]:LEAPYEAR(y)?29:28)
-
-int
-gettimeofday(struct timeval *tv, int *ignore_zone)
-{
-	unsigned int year, day, month;
-	SYSTEMTIME st;
-
-	(void) ignore_zone;
-	GetSystemTime(&st);
-	day = 0;
-	for (year = 1970; year < st.wYear; year++)
-		day += LEAPYEAR(year) ? 366 : 365;
-
-	for (month = 1; month < st.wMonth; month++)
-		day += NODAYS(month, st.wYear);
-
-	day += st.wDay;
-	tv->tv_sec = 60 * (day * 24 * 60 + st.wMinute) + st.wSecond;
-	tv->tv_usec = 1000 * st.wMilliseconds;
-	return 0;
-}
-#endif
 
 void *
 mdlopen(const char *file, int mode)

@@ -151,6 +151,7 @@
 #include "wlc.h"
 
 #ifdef NATIVE_WIN32
+#include <sys/timeb.h>	/* ftime */
 #define access _access
 #endif
 
@@ -466,15 +467,23 @@ WLCstopmaster(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 static str
 WLCsettime(Client cntxt, InstrPtr pci, InstrPtr p, str call)
 {
-	struct timeval clock;
-	time_t clk ;
+	time_t clk;
 	struct tm ctm;
 	char wlc_time[26];
 
-	(void) pci;
+#ifdef NATIVE_WIN32
+	struct timeb tb;
+
+	ftime(&tb);
+	clk = tb.time;
+#else
+	struct timeval clock;
+
 	if(gettimeofday(&clock,NULL) == -1)
 		throw(MAL,call,"Unable to retrieve current time");
 	clk = clock.tv_sec;
+#endif
+	(void) pci;
 	ctm = *localtime(&clk);
 	strftime(wlc_time, 26, "%Y-%m-%dT%H:%M:%S",&ctm);
 	if (pushStr(cntxt->wlc, p, wlc_time) == NULL)
