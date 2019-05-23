@@ -392,11 +392,11 @@ SQLhelp sqlhelp1[] = {
 	 "Define access privileges",
 	 "GRANT privileges TO grantee [',' ...] [ WITH GRANT OPTION ]\n"
 	 "GRANT role [',' ...] TO grantee [',' ...] [ WITH ADMIN OPTION]",
-	 "privileges,role,grantee",
+	 "privileges,table_privileges,global_privileges,role,grantee",
 	 "See also https://www.monetdb.org/Documentation/SQLreference/Permissions"},
 	{"MERGE",
 	 "",
-	 "[ WITH with_list ] MERGE INTO qname [ [AS] ident ] USING table_ref ON search_condition merge_list",
+	 "[ WITH with_list ] MERGE INTO qname [ [AS] ident ] USING table_ref [ [AS] ident ] ON search_condition merge_list",
 	 "with_list,table_ref,search_condition,merge_list",
 	 NULL},
 	{"RELEASE SAVEPOINT",
@@ -413,7 +413,7 @@ SQLhelp sqlhelp1[] = {
 	 "Remove some privileges",
 	 "REVOKE [GRANT OPTION FOR] privileges FROM { grantee [',' ...] | CURRENT_USER | CURRENT_ROLE }\n"
 	 "REVOKE [ADMIN OPTION FOR] role [',' ...] FROM { grantee [',' ...] | CURRENT_USER | CURRENT_ROLE }",
-	 "privileges,grantee,role",
+	 "privileges,table_privileges,global_privileges,grantee,role",
 	 "See also https://www.monetdb.org/Documentation/SQLreference/Permissions"},
 	{"ROLLBACK",
 	 "Rollback the current transaction",
@@ -515,6 +515,11 @@ SQLhelp sqlhelp1[] = {
 	 "",
 	 "[ WITH with_list ] UPDATE qname [ [AS] ident ] SET assignment_list [ WHERE search_condition ]",
 	 "with_list,assignment_list,search_condition",
+	 NULL},
+	{"VALUES",
+	 "",
+	 "VALUES row_values",
+	 "row_values",
 	 NULL},
 	{"WHILE",
 	 "",
@@ -678,7 +683,7 @@ SQLhelp sqlhelp2[] = {
 	 NULL},
 	{"merge_list",
 	 NULL,
-	 "merge_clause [ ',' ... ]",
+	 "merge_clause [ ... ]",
 	 "merge_clause",
 	 NULL},
 	{"nrofrecords",
@@ -698,9 +703,9 @@ SQLhelp sqlhelp2[] = {
 	 NULL},
 	{"opt_partition_spec",
 	 NULL,
-	 "IN '(' partition_list ')' [ WITH NULL ]\n"
-	 "BETWEEN partition_range_from AND partition_range_to [ WITH NULL ]\n"
-	 "WITH NULL",
+	 "IN '(' partition_list ')' [ WITH NULL VALUES ]\n"
+	 "FROM partition_range_from TO partition_range_to [ WITH NULL VALUES ]\n"
+	 "FOR NULL VALUES",
 	 "partition_list,partition_range_from,partition_range_to",
 	 NULL},
 	{"param",

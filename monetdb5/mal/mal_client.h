@@ -17,9 +17,6 @@
 
 #define SCENARIO_PROPERTIES 8
 
-#define CONSOLE     0
-#define isAdministrator(X) (X==mal_clients)
-
 enum clientmode {
 	FREECLIENT,
 	FINISHCLIENT,
@@ -31,9 +28,8 @@ enum clientmode {
 
 /*
  * The prompt structure is designed to simplify recognition of the
- * language framework for interaction. For direct console access it is a
- * short printable ASCII string. For access through an API we assume the
- * prompt is an ASCII string surrounded by a \001 character. This
+ * language framework for interaction. For access through an API we 
+ * assume the prompt is an ASCII string surrounded by a \001 character. This
  * simplifies recognition.  The information between the prompt brackets
  * can be used to pass the mode to the front-end. Moreover, the prompt
  * can be dropped if a single stream of information is expected from the
@@ -86,6 +82,7 @@ typedef struct CLIENT {
 	lng 		session;	/* usec since start of server */
 	lng 	    qtimeout;	/* query abort after x usec*/
 	lng	        stimeout;	/* session abort after x usec */
+	ATOMIC_TYPE	lastprint;	/* when we last printed the query */
 	/*
 	 * Communication channels for the interconnect are stored here.
 	 * It is perfectly legal to have a client without input stream.
@@ -126,7 +123,6 @@ typedef struct CLIENT {
 	 */
 	int debug;
 	void  *mdb;            /* context upon suspend */
-	str    history;	       /* where to keep console history */
 	enum clientmode mode;  /* FREECLIENT..BLOCKED */
 	/*
 	 * Client records are organized into a two-level dependency tree,
@@ -134,7 +130,7 @@ typedef struct CLIENT {
 	 * activities. Each client runs in its own process thread. Its
 	 * identity is retained here for access by others (=father).
 	 */
-	MT_Sema 	s;	    /* sema to (de)activate thread */ 
+	MT_Sema 	s;	    /* sema to (de)activate thread */
 	Thread      	mythread;
 	str     	errbuf;     /* location of GDK exceptions */
 	struct CLIENT   *father;    
@@ -190,19 +186,17 @@ typedef struct CLIENT {
 
 	size_t blocksize;
 	protocol_version protocol;
-	bool filetrans;				/* whether the client can read files for us */
-	char name[16];
+	bool filetrans;			/* whether the client can read files for us */
+	char *query;			/* string, identify whatever we're working on */
 } *Client, ClientRec;
 
-mal_export void    MCinit(void);
+mal_export bool    MCinit(void);
 
 mal_export int MAL_MAXCLIENTS;
 mal_export ClientRec *mal_clients;
-mal_export int MCdefault;
 
 mal_export Client  MCgetClient(int id);
 mal_export Client  MCinitClient(oid user, bstream *fin, stream *fout);
-mal_export Client  MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout);
 mal_export int     MCinitClientThread(Client c);
 mal_export Client  MCforkClient(Client father);
 mal_export void	   MCstopClients(Client c);

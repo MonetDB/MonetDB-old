@@ -14,7 +14,6 @@ INCLUDES = ../../include ../../common ../../storage ../../server ../../scripts \
 		   ../../../monetdb5/optimizer \
 		   ../../../monetdb5/scheduler \
 		   ../../../monetdb5/extras/rapi \
-		   ../../../common/options \
 		   ../../../common/stream \
 		   ../../../common/utils \
 		   ../../../gdk
@@ -48,7 +47,9 @@ lib_sqlcatalog = {
 		wlr.c wlr.h \
 		sql_rank.c sql_rank.h \
 		generator.c generator.h \
-		sql_embedded.c sql_embedded.h
+		sql_embedded.c sql_embedded.h \
+		sql_datetrunc.c \
+		sql_rank.c sql_rank.h
 }
 
 EXTRA_DIST_DIR = Tests

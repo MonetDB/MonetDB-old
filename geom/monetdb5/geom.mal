@@ -773,7 +773,7 @@ comment "It is called when adding a new geometry column to an existing table";
 command wkb(geo:wkb, columnType:int, columnSRID:int) :wkb address geom_2_geom
 comment "Called when inserting values to a table in order to check if the inserted geometries are of the same type and srid required by the column definition";
 
-#module batcalc;
+module batcalc;
 
 command batcalc.wkb(geo:bat[:wkb], columnType:int, columnSRID:int) :bat[:wkb] address geom_2_geom_bat
 comment "Called when inserting values to a table in order to check if the inserted geometries are of the same type and srid required by the column definition";
@@ -781,9 +781,6 @@ comment "Called when inserting values to a table in order to check if the insert
 #command wkb(v:bat[:wkb]) :bat[:wkb] address wkbFromWKB_bat;
 #comment "It is called when adding a new geometry column to an existing table";
 
-
-
-#module geom;
 #loading string without the need to use st_wkbtosql OR st_wkttosql
 function calc.wkb( wkt:str, srid:int, type:int ) :wkb;
         x := geom.FromText(wkt,0,0);

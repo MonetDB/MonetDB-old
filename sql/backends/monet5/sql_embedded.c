@@ -14,7 +14,7 @@
 #include "mal_client.h"
 #include "mal_import.h"
 
-static bool SQLembeddedinitialized = false;
+static volatile bool SQLembeddedinitialized = false;
 
 malSignatures sqlMalModules[] =
 {
@@ -58,15 +58,25 @@ sqlEmbeddedBoot(void)
 		return -1;
 	}
 
-	if ((msg = MSinitClientPrg(mal_clients, "user", "main")) != MAL_SUCCEED) {
+	c = MCinitClient((oid) 0, bstream_create(GDKstdin, 0), GDKstdout);
+	if (!MCvalid(c)) {
+		MT_fprintf(stderr, "MAL init failed\n");
+		mal_exit(1);
+		return -1;
+	}
+	c->curmodule = c->usermodule = userModule();
+	if ((msg = MSinitClientPrg(c, "user", "main")) != MAL_SUCCEED) {
 		MT_fprintf(stderr, "%s\n", msg);
 		freeException(msg);
 		mal_exit(1);
 		return -1;
 	}
-
-	c = &mal_clients[0];
-
+	if ((msg = malEmbeddedBoot(c)) != MAL_SUCCEED) {
+		MT_fprintf(stderr, "%s\n", msg);
+		freeException(msg);
+		mal_exit(1);
+		return -1;
+	}
 	if ((msg = malExtraModulesBoot(c, sqlMalModules)) != MAL_SUCCEED) {
 		MT_fprintf(stderr, "%s\n", msg);
 		freeException(msg);
@@ -74,6 +84,7 @@ sqlEmbeddedBoot(void)
 		return -1;
 	}
 
+	MCcloseClient(c);
 	SQLembeddedinitialized = true;
 	return 0;
 }

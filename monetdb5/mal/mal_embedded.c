@@ -57,7 +57,6 @@ malSignatures malModules[MAXMODULES] =
 #include "batstr.mal.h"
 #include "batcolor.mal.h"
 
-#include "sabaoth.mal.h"
 #include "pcre.mal.h"
 #include "clients.mal.h"
 #include "bbp.mal.h"
@@ -106,8 +105,6 @@ malSignatures malModules[MAXMODULES] =
 #include "run_adder.mal.h"
 #include "run_isolate.mal.h"
 #include "run_memo.mal.h"
-
-#include "mal_init.mal.h" //for autoload extensions
 { 0, 0}
 };
 

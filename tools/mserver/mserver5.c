@@ -50,10 +50,6 @@
 #define getcwd _getcwd
 #endif
 
-#ifdef HAVE_CONSOLE
-static bool monet_daemon;
-#endif
-
 /* NEEDED? */
 #if defined(_MSC_VER) && defined(__cplusplus)
 #include <eh.h>
@@ -86,8 +82,7 @@ mserver_invalid_parameter_handler(
 }
 #endif
 
-__declspec(noreturn) static void usage(char *prog, int xit)
-	__attribute__((__noreturn__));
+static _Noreturn void usage(char *prog, int xit);
 
 static void
 usage(char *prog, int xit)
@@ -96,7 +91,6 @@ usage(char *prog, int xit)
 	fprintf(stderr, "    --dbpath=<directory>      Specify database location\n");
 	fprintf(stderr, "    --dbextra=<directory>     Directory for transient BATs\n");
 	fprintf(stderr, "    --config=<config_file>    Use config_file to read options from\n");
-	fprintf(stderr, "    --daemon=yes|no           Do not read commands from standard input [no]\n");
 	fprintf(stderr, "    --single-user             Allow only one user at a time\n");
 	fprintf(stderr, "    --readonly                Safeguard database\n");
 	fprintf(stderr, "    --set <option>=<value>    Set configuration option\n");
@@ -115,7 +109,6 @@ usage(char *prog, int xit)
 	fprintf(stderr, "     --algorithms\n");
 	fprintf(stderr, "     --performance\n");
 	fprintf(stderr, "     --optimizers\n");
-	fprintf(stderr, "     --trace\n");
 	fprintf(stderr, "     --forcemito\n");
 	fprintf(stderr, "     --debug=<bitmask>\n");
 
@@ -139,22 +132,23 @@ monet_hello(void)
 		qi++;
 	}
 
-	MT_fprintf(stdout, "# MonetDB 5 server v%s", GDKversion());
+	printf("# MonetDB 5 server v%s", GDKversion());
 	{
+#ifdef MONETDB_RELEASE
+		printf(" (%s)", MONETDB_RELEASE);
+#else
 		const char *rev = mercurial_revision();
-		/* coverity[pointless_string_compare] */
-		if (strcmp(MONETDB_RELEASE, "unreleased") != 0)
-			MT_fprintf(stdout, " (%s)", MONETDB_RELEASE);
-		else if (strcmp(rev, "Unknown") != 0)
-			MT_fprintf(stdout, " (hg id: %s)", rev);
+		if (strcmp(rev, "Unknown") != 0)
+			printf(" (hg id: %s)", rev);
+#endif
 	}
-	/* coverity[pointless_string_compare] */
-	if (strcmp(MONETDB_RELEASE, "unreleased") == 0)
-		MT_fprintf(stdout, "\n# This is an unreleased version");
-	MT_fprintf(stdout, "\n# Serving database '%s', using %d thread%s\n",
+#ifndef MONETDB_RELEASE
+	printf("\n# This is an unreleased version");
+#endif
+	printf("\n# Serving database '%s', using %d thread%s\n",
 			GDKgetenv("gdk_dbname"),
 			GDKnr_threads, (GDKnr_threads != 1) ? "s" : "");
-	MT_fprintf(stdout, "# Compiled for %s/%zubit%s\n",
+	printf("# Compiled for %s/%zubit%s\n",
 			HOST, sizeof(ptr) * 8,
 #ifdef HAVE_HGE
 			" with 128bit integers"
@@ -162,15 +156,15 @@ monet_hello(void)
 			""
 #endif
 			);
-	MT_fprintf(stdout, "# Found %.3f %ciB available main-memory.\n",
+	printf("# Found %.3f %ciB available main-memory.\n",
 			sz_mem_h, qc[qi]);
 #ifdef MONET_GLOBAL_DEBUG
-	MT_fprintf(stdout, "# Database path:%s\n", GDKgetenv("gdk_dbpath"));
-	MT_fprintf(stdout, "# Module path:%s\n", GDKgetenv("monet_mod_path"));
+	printf("# Database path:%s\n", GDKgetenv("gdk_dbpath"));
+	printf("# Module path:%s\n", GDKgetenv("monet_mod_path"));
 #endif
-	MT_fprintf(stdout, "# Copyright (c) 1993 - July 2008 CWI.\n");
-	MT_fprintf(stdout, "# Copyright (c) August 2008 - 2019 MonetDB B.V., all rights reserved\n");
-	MT_fprintf(stdout, "# Visit https://www.monetdb.org/ for further information\n");
+	printf("# Copyright (c) 1993 - July 2008 CWI.\n");
+	printf("# Copyright (c) August 2008 - 2019 MonetDB B.V., all rights reserved\n");
+	printf("# Visit https://www.monetdb.org/ for further information\n");
 
 	// The properties shipped through the performance profiler
 	(void) snprintf(monet_characteristics, sizeof(monet_characteristics),
@@ -186,7 +180,13 @@ monet_hello(void)
 			"\"huge\""
 #endif
 			"]\n}",
-			GDKversion(), MONETDB_RELEASE, HOST, GDKnr_threads,
+			GDKversion(),
+#ifdef MONETDB_RELEASE
+			MONETDB_RELEASE,
+#else
+			"unreleased",
+#endif
+			HOST, GDKnr_threads,
 			sz_mem_h, qc[qi], sizeof(oid) * 8);
 }
 
@@ -212,14 +212,8 @@ monet_init(opt *set, int setlen)
 	if (GDKinit(set, setlen) != GDK_SUCCEED)
 		return 0;
 
-#ifdef HAVE_CONSOLE
-	monet_daemon = false;
-	if (GDKgetenv_isyes("monet_daemon")) {
-		monet_daemon = true;
 #ifdef HAVE_SETSID
-		setsid();
-#endif
-	}
+	setsid();
 #endif
 	monet_hello();
 	return 1;
@@ -230,12 +224,24 @@ static void emergencyBreakpoint(void)
 	/* just a handle to break after system initialization for GDB */
 }
 
+static volatile sig_atomic_t interrupted = 0;
+
+#ifdef _MSC_VER
+static BOOL WINAPI
+winhandler(DWORD type)
+{
+	(void) type;
+	interrupted = 1;
+	return TRUE;
+}
+#else
 static void
 handler(int sig)
 {
 	(void) sig;
-	mal_exit(-1);
+	interrupted = 1;
 }
+#endif
 
 int
 main(int argc, char **av)
@@ -251,11 +257,11 @@ main(int argc, char **av)
 	char *dbpath = NULL;
 	char *dbextra = NULL;
 	int verbosity = 0;
+	bool inmemory = false;
 	static struct option long_options[] = {
 		{ "config", required_argument, NULL, 'c' },
 		{ "dbpath", required_argument, NULL, 0 },
 		{ "dbextra", required_argument, NULL, 0 },
-		{ "daemon", required_argument, NULL, 0 },
 		{ "debug", optional_argument, NULL, 'd' },
 		{ "help", no_argument, NULL, '?' },
 		{ "version", no_argument, NULL, 0 },
@@ -268,13 +274,13 @@ main(int argc, char **av)
 		{ "properties", no_argument, NULL, 0 },
 		{ "io", no_argument, NULL, 0 },
 		{ "transactions", no_argument, NULL, 0 },
-		{ "trace", optional_argument, NULL, 't' },
 		{ "modules", no_argument, NULL, 0 },
 		{ "algorithms", no_argument, NULL, 0 },
 		{ "optimizers", no_argument, NULL, 0 },
 		{ "performance", no_argument, NULL, 0 },
 		{ "forcemito", no_argument, NULL, 0 },
 		{ "heaps", no_argument, NULL, 0 },
+		{ "in-memory", no_argument, NULL, 0 },
 		{ NULL, 0, NULL, 0 }
 	};
 
@@ -319,6 +325,10 @@ main(int argc, char **av)
 
 		switch (c) {
 		case 0:
+			if (strcmp(long_options[option_index].name, "in-memory") == 0) {
+				inmemory = true;
+				break;
+			}
 			if (strcmp(long_options[option_index].name, "dbpath") == 0) {
 				size_t optarglen = strlen(optarg);
 				/* remove trailing directory separator */
@@ -340,12 +350,6 @@ main(int argc, char **av)
 					dbextra = optarg;
 				break;
 			}
-#ifdef HAVE_CONSOLE
-			if (strcmp(long_options[option_index].name, "daemon") == 0) {
-				setlen = mo_add_option(&set, setlen, opt_cmdline, "monet_daemon", optarg);
-				break;
-			}
-#endif
 			if (strcmp(long_options[option_index].name, "single-user") == 0) {
 				setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_single_user", "yes");
 				break;
@@ -395,10 +399,6 @@ main(int argc, char **av)
 				grpdebug |= GRPthreads;
 				break;
 			}
-			if (strcmp(long_options[option_index].name, "trace") == 0) {
-				mal_trace = 1;
-				break;
-			}
 			if (strcmp(long_options[option_index].name, "heaps") == 0) {
 				grpdebug |= GRPheaps;
 				break;
@@ -436,9 +436,6 @@ main(int argc, char **av)
 			} else
 				fprintf(stderr, "ERROR: wrong format %s\n", optarg);
 			}
-			break;
-		case 't':
-			mal_trace = 1;
 			break;
 		case 'v':
 			if (optarg) {
@@ -496,14 +493,21 @@ main(int argc, char **av)
 			exit(1);
 		}
 	}
-	if (BBPaddfarm(dbpath, 1 << PERSISTENT) != GDK_SUCCEED ||
-		BBPaddfarm(dbextra ? dbextra : dbpath, 1 << TRANSIENT) != GDK_SUCCEED) {
-		fprintf(stderr, "!ERROR: cannot add farm\n");
-		exit(1);
-	}
-	if (GDKcreatedir(dbpath) != GDK_SUCCEED) {
-		fprintf(stderr, "!ERROR: cannot create directory for %s\n", dbpath);
-		exit(1);
+	if (inmemory) {
+		if (BBPaddfarm(NULL, (1 << PERSISTENT) | (1 << TRANSIENT)) != GDK_SUCCEED) {
+			fprintf(stderr, "!ERROR: cannot add in-memory farm\n");
+			exit(1);
+		}
+	} else {
+		if (BBPaddfarm(dbpath, 1 << PERSISTENT) != GDK_SUCCEED ||
+		    BBPaddfarm(dbextra ? dbextra : dbpath, 1 << TRANSIENT) != GDK_SUCCEED) {
+			fprintf(stderr, "!ERROR: cannot add farm\n");
+			exit(1);
+		}
+		if (GDKcreatedir(dbpath) != GDK_SUCCEED) {
+			fprintf(stderr, "!ERROR: cannot create directory for %s\n", dbpath);
+			exit(1);
+		}
 	}
 	GDKfree(dbpath);
 	if (monet_init(set, setlen) == 0) {
@@ -515,7 +519,13 @@ main(int argc, char **av)
 	mo_free_options(set, setlen);
 
 	if (GDKsetenv("monet_version", GDKversion()) != GDK_SUCCEED ||
-	    GDKsetenv("monet_release", MONETDB_RELEASE) != GDK_SUCCEED) {
+	    GDKsetenv("monet_release",
+#ifdef MONETDB_RELEASE
+		      MONETDB_RELEASE
+#else
+		      "unreleased"
+#endif
+		    ) != GDK_SUCCEED) {
 		fprintf(stderr, "!ERROR: GDKsetenv failed\n");
 		exit(1);
 	}
@@ -558,13 +568,13 @@ main(int argc, char **av)
 					}
 				}
 			} else {
-				MT_fprintf(stdout, "#warning: unusable binary location, "
+				printf("#warning: unusable binary location, "
 					   "please use --set monet_mod_path=/path/to/... to "
 					   "allow finding modules\n");
 				fflush(NULL);
 			}
 		} else {
-			MT_fprintf(stdout, "#warning: unable to determine binary location, "
+			printf("#warning: unable to determine binary location, "
 				   "please use --set monet_mod_path=/path/to/... to "
 				   "allow finding modules\n");
 			fflush(NULL);
@@ -576,19 +586,21 @@ main(int argc, char **av)
 		}
 	}
 
-	/* configure sabaoth to use the right dbpath and active database */
-	msab_dbpathinit(GDKgetenv("gdk_dbpath"));
-	/* wipe out all cruft, if left over */
-	if ((err = msab_wildRetreat()) != NULL) {
-		/* just swallow the error */
-		free(err);
-	}
-	/* From this point, the server should exit cleanly.  Discussion:
-	 * even earlier?  Sabaoth here registers the server is starting up. */
-	if ((err = msab_registerStarting()) != NULL) {
-		/* throw the error at the user, but don't die */
-		fprintf(stderr, "!%s\n", err);
-		free(err);
+	if (!GDKinmemory()) {
+		/* configure sabaoth to use the right dbpath and active database */
+		msab_dbpathinit(GDKgetenv("gdk_dbpath"));
+		/* wipe out all cruft, if left over */
+		if ((err = msab_wildRetreat()) != NULL) {
+			/* just swallow the error */
+			free(err);
+		}
+		/* From this point, the server should exit cleanly.  Discussion:
+		 * even earlier?  Sabaoth here registers the server is starting up. */
+		if ((err = msab_registerStarting()) != NULL) {
+			/* throw the error at the user, but don't die */
+			fprintf(stderr, "!%s\n", err);
+			free(err);
+		}
 	}
 
 #ifdef HAVE_SIGACTION
@@ -605,6 +617,10 @@ main(int argc, char **av)
 		}
 	}
 #else
+#ifdef _MSC_VER
+	if (!SetConsoleCtrlHandler(winhandler, TRUE))
+		fprintf(stderr, "!unable to create console control handler\n");
+#else
 	if(signal(SIGINT, handler) == SIG_ERR)
 		fprintf(stderr, "!unable to create signal handlers\n");
 #ifdef SIGQUIT
@@ -614,8 +630,9 @@ main(int argc, char **av)
 	if(signal(SIGTERM, handler) == SIG_ERR)
 		fprintf(stderr, "!unable to create signal handlers\n");
 #endif
+#endif
 
-	{
+	if (!GDKinmemory()) {
 		str lang = "mal";
 		/* we inited mal before, so publish its existence */
 		if ((err = msab_marchScenario(lang)) != NULL) {
@@ -633,7 +650,7 @@ main(int argc, char **av)
 		FILE *secretf;
 		size_t len;
 
-		if (GDKgetenv("monet_vault_key") == NULL) {
+		if (GDKinmemory() || GDKgetenv("monet_vault_key") == NULL) {
 			/* use a default (hard coded, non safe) key */
 			snprintf(secret, sizeof(secret), "%s", "Xas632jsi2whjds8");
 		} else {
@@ -661,7 +678,8 @@ main(int argc, char **av)
 		}
 		if ((err = AUTHunlockVault(secretp)) != MAL_SUCCEED) {
 			/* don't show this as a crash */
-			msab_registerStop();
+			if (!GDKinmemory())
+				msab_registerStop();
 			fprintf(stderr, "%s\n", err);
 			freeException(err);
 			exit(1);
@@ -670,15 +688,16 @@ main(int argc, char **av)
 	/* make sure the authorisation BATs are loaded */
 	if ((err = AUTHinitTables(NULL)) != MAL_SUCCEED) {
 		/* don't show this as a crash */
-		msab_registerStop();
+		if (!GDKinmemory())
+			msab_registerStop();
 		fprintf(stderr, "%s\n", err);
 		freeException(err);
 		exit(1);
 	}
-
 	if (sqlEmbeddedBoot() != 0) {
 		/* don't show this as a crash */
-		msab_registerStop();
+		if (!GDKinmemory())
+			msab_registerStop();
 		return -1;
 	}
 
@@ -695,21 +714,18 @@ main(int argc, char **av)
 		GDKfree(monet_script[i]);
 		monet_script[i] = 0;
 	}
+	free(monet_script);
 
-	if ((err = msab_registerStarted()) != NULL) {
+	if (!GDKinmemory() && (err = msab_registerStarted()) != NULL) {
 		/* throw the error at the user, but don't die */
 		fprintf(stderr, "!%s\n", err);
 		free(err);
 	}
 
-	free(monet_script);
-#ifdef HAVE_CONSOLE
-	if (!monet_daemon) {
-		MSserveClient(mal_clients);
-	} else
-#endif
-	while (1)
-		MT_sleep_ms(5000);
+	/* why busy wait ? */
+	while (!interrupted && !GDKexiting()) {
+		MT_sleep_ms(100);
+	}
 
 	/* mal_exit calls exit, so statements after this call will
 	 * never get reached */

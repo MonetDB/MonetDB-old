@@ -110,7 +110,7 @@ Set or increase verbosity level.  If no
 .I value
 is specified, the verbosity level is increased by
 .BR 1 .
-It a
+If a
 .I value
 is specified, the verbosity level is set to the given value.
 .TP
@@ -278,11 +278,10 @@ the dependency information maintained in the optimizer library to
 ensure there are no conflicts and at least the pre-requisite
 optimizers are used.
 The setting of sql_optimizer can be either the list of optimizers to
-run, or one or more variables containing the optimizer pipeline to
 run.
-The latter is provided for readability purposes only.
 Default:
 .BR default_pipe .
+.RS
 .P
 The following are possible pipes to use:
 .TP
@@ -295,7 +294,7 @@ minimal_pipe=inline,remap,deadcode,multiplex,generator,profiler,candidates,garba
 The default pipeline contains the mitosis-mergetable-reorder
 optimizers, aimed at large tables and improved access locality.
 .\" this documentation must be kept in sync with the respective code in monetdb5/optimizer/opt_pipes.c
-default_pipe=inline,remap,costModel,coercions,evaluate,emptybind,pushselect,aliases,mitosis,mergetable,deadcode,aliases,constants,commonTerms,projectionpath,deadcode,reorder,matpack,dataflow,querylog,multiplex,generator,profiler,candidates,postfix,deadcode,wlc,garbageCollector
+default_pipe=inline,remap,costModel,coercions,aliases,evaluate,emptybind,pushselect,aliases,mitosis,mergetable,deadcode,aliases,constants,commonTerms,projectionpath,deadcode,reorder,matpack,dataflow,querylog,multiplex,generator,profiler,candidates,postfix,deadcode,wlc,garbageCollector
 .TP
 .B no_mitosis_pipe
 The no_mitosis pipeline is identical to the default pipeline, except
@@ -304,7 +303,7 @@ It is used mainly to make some tests work deterministically, and to
 check/debug whether "unexpected" problems are related to mitosis
 (and/or mergetable).
 .\" this documentation must be kept in sync with the respective code in monetdb5/optimizer/opt_pipes.c
-no_mitosis_pipe=inline,remap,costModel,coercions,evaluate,emptybind,pushselect,aliases,mergetable,deadcode,aliases,constants,commonTerms,projectionpath,deadcode,reorder,matpack,dataflow,querylog,multiplex,generator,profiler,candidates,postfix,deadcode,wlc,garbageCollector
+no_mitosis_pipe=inline,remap,costModel,coercions,aliases,evaluate,emptybind,pushselect,aliases,mergetable,deadcode,aliases,constants,commonTerms,projectionpath,deadcode,reorder,matpack,dataflow,querylog,multiplex,generator,profiler,candidates,postfix,deadcode,wlc,garbageCollector
 .TP
 .B sequential_pipe
 The sequential pipeline is identical to the default pipeline, except
@@ -312,7 +311,38 @@ that optimizers mitosis & dataflow are omitted.
 It is use mainly to make some tests work deterministically, i.e.,
 avoid ambigious output, by avoiding parallelism.
 .\" this documentation must be kept in sync with the respective code in monetdb5/optimizer/opt_pipes.c
-sequential_pipe=inline,remap,costModel,coercions,evaluate,emptybind,pushselect,aliases,mergetable,deadcode,aliases,constants,commonTerms,projectionpath,deadcode,reorder,matpack,querylog,multiplex,generator,profiler,candidates,postfix,deadcode,wlc,garbageCollector
+sequential_pipe=inline,remap,costModel,coercions,aliases,evaluate,emptybind,pushselect,aliases,mergetable,deadcode,aliases,constants,commonTerms,projectionpath,deadcode,reorder,matpack,querylog,multiplex,generator,profiler,candidates,postfix,deadcode,wlc,garbageCollector
+.RE
+.TP
+.B embedded_py
+Enable embedded Python.  This means Python code can be called from
+SQL.
+The value is
+.B true
+or
+.B 2
+for embedded Python 2, or
+.B 3
+for embedded Python 3.  Note that by enabling embedded Python, users
+of the server are allowed to execute arbitrary Python code, and are
+therefore able to read and modify all data that the server process has
+access to.  Also note that it is not possible to enable both Python 2
+and 3 at the same time.
+.TP
+.B embedded_r=true
+Enable embedded R.  This means R code can be called from SQL.  Note
+that by enabling embedded R, users of the server are allowed to
+execute arbitrary R code, and are therefore able to read and modify
+all data that the server process has access to.
+.TP
+.B embedded_c=true
+Enable embedded C.  This means C code can be called from SQL.  The C
+code will first be compiled and then executed.  This means a C
+compiler must be available.  Note also that by enabling embedded C,
+users of the server are allowed to execute arbitrary C code, and are
+therefore able to read and modify all data that the server process has
+access to.  In addition, if the C code causes a crash, all bets are
+off.
 .SH CONFIG FILE FORMAT
 The configuration file readable by
 .I mserver5

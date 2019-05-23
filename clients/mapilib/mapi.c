@@ -689,6 +689,7 @@
 #include "stream_socket.h"
 #include "mapi.h"
 #include "mcrypt.h"
+#include "matomic.h"
 
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
@@ -733,6 +734,9 @@
 #endif
 
 #define MAPIBLKSIZE	256	/* minimum buffer shipped */
+
+/* number of elements in an array */
+#define NELEM(arr)	(sizeof(arr) / sizeof(arr[0]))
 
 /* information about the columns in a result set */
 struct MapiColumn {
@@ -946,7 +950,7 @@ static int unquote(const char *msg, char **start, const char **next, int endchar
 static int mapi_slice_row(struct MapiResultSet *result, int cr);
 static void mapi_store_bind(struct MapiResultSet *result, int cr);
 
-static bool mapi_initialized = false;
+static ATOMIC_FLAG mapi_initialized = ATOMIC_FLAG_INIT;
 
 #define check_stream(mid,s,msg,f,e)					\
 	do {								\
@@ -1030,7 +1034,7 @@ mapi_error_str(Mapi mid)
 }
 
 #ifdef _MSC_VER
-static struct {
+static const struct {
 	int e;
 	const char *m;
 } wsaerrlist[] = {
@@ -1135,7 +1139,7 @@ wsaerror(int err)
 {
 	int i;
 
-	for (i = 0; i < sizeof(wsaerrlist) / sizeof(wsaerrlist[0]); i++)
+	for (i = 0; i < NELEM(wsaerrlist); i++)
 		if (wsaerrlist[i].e == err)
 			return wsaerrlist[i].m;
 	return "Unknown error";
@@ -1790,7 +1794,7 @@ static Mapi
 mapi_new(void)
 {
 	Mapi mid;
-	static uint32_t index = 0;
+	static ATOMIC_TYPE index = ATOMIC_VAR_INIT(0);
 
 	mid = malloc(sizeof(*mid));
 	if (mid == NULL)
@@ -1798,7 +1802,7 @@ mapi_new(void)
 
 	/* then fill in some details */
 	*mid = (struct MapiStruct) {
-		.index = index++,	/* for distinctions in log records */
+		.index = (uint32_t) ATOMIC_ADD(&index, 1),	/* for distinctions in log records */
 		.auto_commit = true,
 		.error = MOK,
 		.languageId = LANG_SQL,
@@ -1906,8 +1910,7 @@ mapi_mapiuri(const char *url, const char *user, const char *pass, const char *la
 	char *dbname;
 	char *query;
 
-	if (!mapi_initialized) {
-		mapi_initialized = true;
+	if (!ATOMIC_TAS(&mapi_initialized)) {
 		if (mnstr_init() < 0)
 			return NULL;
 	}
@@ -1969,9 +1972,16 @@ mapi_mapiuri(const char *url, const char *user, const char *pass, const char *la
 		dbname = NULL;
 		query = uri;
 	} else {
-		char *p;
+		char *p = uri;
 
-		if ((p = strchr(uri, ':')) == NULL) {
+		if (*p == '[') {
+			if ((p = strchr(p, ']')) == NULL) {
+				free(uri);
+				mapi_setError(mid, "URI contains an invalid IPv6 address", "mapi_mapiuri", MERROR);
+				return mid;
+			}
+		}
+		if ((p = strchr(p, ':')) == NULL) {
 			free(uri);
 			mapi_setError(mid,
 				      "URI must contain a port number after "
@@ -2022,8 +2032,7 @@ mapi_mapi(const char *host, int port, const char *username,
 {
 	Mapi mid;
 
-	if (!mapi_initialized) {
-		mapi_initialized = true;
+	if (!ATOMIC_TAS(&mapi_initialized)) {
 		if (mnstr_init() < 0)
 			return NULL;
 	}
@@ -2234,7 +2243,7 @@ mapi_reconnect(Mapi mid)
 							socks[i].owner = st.st_uid;
 							socks[i++].port = atoi(e->d_name + 11);
 						}
-						if (i == sizeof(socks) / sizeof(socks[0]))
+						if (i == NELEM(socks))
 							break;
 					}
 					closedir(d);
@@ -2772,7 +2781,7 @@ mapi_reconnect(Mapi mid)
 					break;
 				case '^':
 					r = mid->redirects;
-					m = sizeof(mid->redirects) / sizeof(mid->redirects[0]) - 1;
+					m = NELEM(mid->redirects) - 1;
 					while (*r != NULL && m > 0) {
 						m--;
 						r++;
@@ -2824,6 +2833,14 @@ mapi_reconnect(Mapi mid)
 				red += 15; /* "mapi:monetdb://" */
 				p = red;
 				q = NULL;
+				if (*red == '[') {
+					if ((red = strchr(red, ']')) == NULL) {
+						mapi_close_handle(hdl);
+						mapi_setError(mid, "invalid IPv6 hostname", "mapi_reconnect", MERROR);
+						close_connection(mid);
+						return mid->error;
+					}
+				}
 				if ((red = strchr(red, ':')) != NULL) {
 					*red++ = '\0';
 					q = red;
@@ -3629,7 +3646,7 @@ slice_row(const char *reply, char *null, char ***anchorsp, size_t **lensp, int l
 	i = 0;
 	anchors = length == 0 ? NULL : malloc(length * sizeof(*anchors));
 	lens = length == 0 ? NULL : malloc(length * sizeof(*lens));
-	do {
+	for (;;) {
 		if (i >= length) {
 			length = i + 1;
 			REALLOC(anchors, length);
@@ -3643,9 +3660,17 @@ slice_row(const char *reply, char *null, char ***anchorsp, size_t **lensp, int l
 		}
 		lens[i] = len;
 		anchors[i++] = start;
-		while (reply && *reply && isspace((unsigned char) *reply))
+		if (reply == NULL)
+			break;
+		while (*reply && isspace((unsigned char) *reply))
 			reply++;
-	} while (reply && *reply && *reply != endchar);
+		if (*reply == ',') {
+			reply++;
+			while (*reply && isspace((unsigned char) *reply))
+				reply++;
+		} else if (*reply == 0 || *reply == endchar)
+			break;
+	}
 	*anchorsp = anchors;
 	*lensp = lens;
 	return i;
@@ -4754,8 +4779,6 @@ unquote(const char *msg, char **str, const char **next, int endchar, size_t *len
 		/* skip over trailing junk (presumably white space) */
 		while (*p && *p != ',' && *p != endchar)
 			p++;
-		if (*p == ',')
-			p++;
 		if (next)
 			*next = p;
 		*str = start;
@@ -4777,8 +4800,7 @@ unquote(const char *msg, char **str, const char **next, int endchar, size_t *len
 			;
 		if (s < msg || !isspace((unsigned char) *s))	/* gone one too far */
 			s++;
-		if (*p == ',' || *p == '\t') {
-			/* there is more to come; skip over separator */
+		if (*p == '\t') {
 			p++;
 		}
 		len = s - msg;

@@ -51,8 +51,6 @@ mal_export size_t	monet_memory;
 mal_export char 	monet_characteristics[4096];
 mal_export lng 		memorypool;      /* memory claimed by concurrent threads */
 mal_export int 		memoryclaims;    /* number of threads active with expensive operations */
-mal_export int		mal_trace;		/* enable profile events on console */
-mal_export str		mal_session_uuid;	/* unique marker for the session */
 #ifdef HAVE_HGE
 mal_export int have_hge;
 #endif
@@ -79,12 +77,10 @@ mal_export MT_Lock  mal_remoteLock;
 mal_export MT_Lock  mal_profileLock ;
 mal_export MT_Lock  mal_copyLock ;
 mal_export MT_Lock  mal_delayLock ;
-mal_export MT_Lock  mal_beatLock ;
 mal_export MT_Lock  mal_oltpLock ;
 
-
 mal_export int mal_init(void);
-mal_export void mal_exit(int status);
+mal_export _Noreturn void mal_exit(int status);
 mal_export void mserver_reset(void);
 
 /* This should be here, but cannot, as "Client" isn't known, yet ... |-(
@@ -92,7 +88,6 @@ mal_export void mserver_reset(void);
  * the only place where it is currently used. Maybe, we should concider
  * also moving the implementation there...
  */
-
 
 /* Listing modes are globally known */
 #define LIST_INPUT      1       /* echo original input */
@@ -105,17 +100,6 @@ mal_export void mserver_reset(void);
 #define LIST_MAL_CALL  (LIST_MAL_NAME | LIST_MAL_VALUE )
 #define LIST_MAL_DEBUG (LIST_MAL_NAME | LIST_MAL_VALUE | LIST_MAL_TYPE | LIST_MAL_PROPS)
 #define LIST_MAL_ALL   (LIST_MAL_NAME | LIST_MAL_VALUE | LIST_MAL_TYPE | LIST_MAL_PROPS | LIST_MAL_MAPI)
-
-/* The MAL instruction block type definitions */
-/* Variable properties */
-#define VAR_CONSTANT 	1
-#define VAR_TYPEVAR	2
-#define VAR_FIXTYPE	4
-#define VAR_UDFTYPE	8
-#define VAR_CLEANUP	16
-#define VAR_INIT	32
-#define VAR_USED	64
-#define VAR_DISABLED	128		/* used for comments and scheduler */
 
 /* type check status is kept around to improve type checking efficiency */
 #define TYPE_ERROR      -1
@@ -213,7 +197,6 @@ typedef struct MALBLK {
 	short keephistory;		/* do we need the history at all */
 	int maxarg;				/* keep track on the maximal arguments used */
 	ptr replica;			/* for the replicator tests */
-	sht trap;				/* call debugger when called */
 	lng starttime;			/* track when the query started, for resource management */
 	lng runtime;			/* average execution time of block in ticks */
 	int calls;				/* number of calls */
@@ -243,19 +226,18 @@ typedef struct MALSTK {
 	 */
 	DFhook admit;
 	DFhook wrapup;
-	MT_Lock stklock;	/* used for parallel processing */
 
 /*
  * It is handy to administer the timing in the stack frame
  * for use in profiling instructions.
  */
-	struct timeval clock;		/* time this stack was created */
-	char cmd;		/* debugger and runtime communication */
-	char status;	/* srunning 'R' uspended 'S', quiting 'Q' */
-	int pcup;		/* saved pc upon a recursive all */
-	int tag;		/* unique invocation call tag */
-	struct MALSTK *up;	/* stack trace list */
-	struct MALBLK *blk;	/* associated definition */
+	struct timeval clock;   /* time this stack was created */
+	char cmd;               /* debugger and runtime communication */
+	char status;	        /* srunning 'R' suspended 'S', quiting 'Q' */
+	int pcup;               /* saved pc upon a recursive all */
+	int tag;                /* unique invocation call tag */
+	struct MALSTK *up;      /* stack trace list */
+	struct MALBLK *blk;    	/* associated definition */
 	ValRecord stk[FLEXIBLE_ARRAY_MEMBER];
 } MalStack, *MalStkPtr;
 

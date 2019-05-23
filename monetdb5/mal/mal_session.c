@@ -14,18 +14,11 @@
 #include "mal_interpreter.h" /* for runMAL(), garbageElement() */
 #include "mal_parser.h"	     /* for parseMAL() */
 #include "mal_namespace.h"
-#include "mal_readline.h"
 #include "mal_authorize.h"
 #include "mal_builder.h"
-#include "mal_sabaoth.h"
+#include "msabaoth.h"
 #include "mal_private.h"
-#include "mal_embedded.h"
 #include "gdk.h"	/* for opendir and friends */
-
-#ifdef HAVE_EMBEDDED
-// FIXME:
-//#include "mal_init_inline.h"
-#endif
 
 /*
  * The MonetDB server uses a startup script to boot the system.
@@ -38,52 +31,42 @@ malBootstrap(void)
 {
 	Client c;
 	str msg = MAL_SUCCEED;
+	str bootfile = "mal_init";
 
-	c = MCinitClient((oid) 0, 0, 0);
+	c = MCinitClient((oid) 0, NULL, NULL);
 	if(c == NULL) {
-		MT_fprintf(stderr,"#malBootstrap:Failed to initialise client");
-		mal_exit(1);
+		throw(MAL, "malBootstrap", "Failed to initialize client");
 	}
 	assert(c != NULL);
 	c->curmodule = c->usermodule = userModule();
 	if(c->usermodule == NULL) {
-		MT_fprintf(stderr,"#malBootstrap:Failed to initialise client MAL module");
-		mal_exit(1);
+		MCfreeClient(c);
+		throw(MAL, "malBootstrap", "Failed to initialize client MAL module");
 	}
 	if ( (msg = defaultScenario(c)) ) {
-		MT_fprintf(stderr,"#malBootstrap:Failed to initialise default scenario: %s", msg);
-		freeException(msg);
-		mal_exit(1);
+		MCfreeClient(c);
+		return msg;
 	}
 	if((msg = MSinitClientPrg(c, "user", "main")) != MAL_SUCCEED) {
-		MT_fprintf(stderr,"#malBootstrap:Failed to initialise client: %s", msg);
-		freeException(msg);
-		mal_exit(1);
+		MCfreeClient(c);
+		return msg;
 	}
 	if( MCinitClientThread(c) < 0){
-		MT_fprintf(stderr,"#malBootstrap:Failed to create client thread");
-		mal_exit(1);
+		MCfreeClient(c);
+		throw(MAL, "malBootstrap", "Failed to create client thread");
 	}
-	if ((msg = malEmbeddedBoot(c)) != MAL_SUCCEED) {
-		MT_fprintf(stderr,"#malBootstrap:Failed to load MAL scripts: %s", msg);
-		freeException(msg);
-		mal_exit(1);
+	if ((msg = malInclude(c, bootfile, 0)) != MAL_SUCCEED) {
+		MCfreeClient(c);
+		return msg;
 	}
 	pushEndInstruction(c->curprg->def);
 	chkProgram(c->usermodule, c->curprg->def);
 	if ( (msg= c->curprg->def->errors) != MAL_SUCCEED ) {
-		mnstr_printf(c->fdout,"!%s%s",msg, (msg[strlen(msg)-1] == '\n'? "":"\n"));
-		mnstr_flush(c->fdout);
-		if( GDKerrbuf && GDKerrbuf[0]){
-			mnstr_printf(c->fdout,"!GDKerror: %s\n",GDKerrbuf);
-			mnstr_flush(c->fdout);
-		}
+		MCfreeClient(c);
+		return msg;
 	}
-	if ((msg = MALengine(c)) != MAL_SUCCEED) {
-		MT_fprintf(stderr,"#malBootstrap:Failed to start MAL engine: %s", msg);
-		freeException(msg);
-		mal_exit(1);
-	}
+	msg = MALengine(c);
+	MCfreeClient(c);
 	return msg;
 }
 
@@ -286,12 +269,11 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 		str err;
 		oid uid;
 		sabdb *stats = NULL;
-		Client root = &mal_clients[0];
 
 		/* access control: verify the credentials supplied by the user,
 		 * no need to check for database stuff, because that is done per
 		 * database itself (one gets a redirect) */
-		err = AUTHcheckCredentials(&uid, root, user, passwd, challenge, algo);
+		err = AUTHcheckCredentials(&uid, NULL, user, passwd, challenge, algo);
 		if (err != MAL_SUCCEED) {
 			mnstr_printf(fout, "!%s\n", err);
 			exit_streams(fin, fout);
@@ -300,32 +282,34 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 			return;
 		}
 
-		err = SABAOTHgetMyStatus(&stats);
-		if (err != MAL_SUCCEED) {
-			/* this is kind of awful, but we need to get rid of this
-			 * message */
-			MT_fprintf(stderr, "!SABAOTHgetMyStatus: %s\n", err);
-			freeException(err);
-			mnstr_printf(fout, "!internal server error, "
-						 "please try again later\n");
-			exit_streams(fin, fout);
-			GDKfree(command);
-			return;
-		}
-		if (stats->locked == 1) {
-			if (uid == 0) {
-				mnstr_printf(fout, "#server is running in "
-							 "maintenance mode\n");
-			} else {
-				mnstr_printf(fout, "!server is running in "
-							 "maintenance mode, please try again later\n");
+		if (!GDKinmemory()) {
+			err = msab_getMyStatus(&stats);
+			if (err != NULL) {
+				/* this is kind of awful, but we need to get rid of this
+				 * message */
+				MT_fprintf(stderr, "!msab_getMyStatus: %s\n", err);
+				free(err);
+				mnstr_printf(fout, "!internal server error, "
+							 "please try again later\n");
 				exit_streams(fin, fout);
-				SABAOTHfreeStatus(&stats);
 				GDKfree(command);
 				return;
 			}
+			if (stats->locked == 1) {
+				if (uid == 0) {
+					mnstr_printf(fout, "#server is running in "
+								 "maintenance mode\n");
+				} else {
+					mnstr_printf(fout, "!server is running in "
+								 "maintenance mode, please try again later\n");
+					exit_streams(fin, fout);
+					msab_freeStatus(&stats);
+					GDKfree(command);
+					return;
+				}
+			}
+			msab_freeStatus(&stats);
 		}
-		SABAOTHfreeStatus(&stats);
 
 		c = MCinitClient(uid, fin, fout);
 		if (c == NULL) {
@@ -479,18 +463,17 @@ MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start)
 }
 
 /*
- * This is a phtread started function.  Here we start the client. We
- * need to initialize and allocate space for the global variables.
- * Thereafter it is up to the scenario interpreter to process input.
+ * Here we start the client.  We need to initialize and allocate space
+ * for the global variables.  Thereafter it is up to the scenario
+ * interpreter to process input.
  */
 str
-MSserveClient(void *dummy)
+MSserveClient(Client c)
 {
 	MalBlkPtr mb;
-	Client c = (Client) dummy;
 	str msg = 0;
 
-	if (!isAdministrator(c) && MCinitClientThread(c) < 0) {
+	if (MCinitClientThread(c) < 0) {
 		MCcloseClient(c);
 		return MAL_SUCCEED;
 	}
@@ -517,6 +500,7 @@ MSserveClient(void *dummy)
 	} else {
 		do {
 			do {
+				MT_thread_setworking("running scenario");
 				msg = runScenario(c,0);
 				freeException(msg);
 				if (c->mode == FINISHCLIENT)
@@ -525,6 +509,7 @@ MSserveClient(void *dummy)
 			} while (c->scenario && !GDKexiting());
 		} while (c->scenario && c->mode != FINISHCLIENT && !GDKexiting());
 	}
+	MT_thread_setworking("exiting");
 	/* pre announce our exiting: cleaning up may take a while and we
 	 * don't want to get killed during that time for fear of
 	 * deadlocks */
@@ -545,8 +530,7 @@ MSserveClient(void *dummy)
 	}
 	*/
 
-	if (!isAdministrator(c))
-		MCcloseClient(c);
+	MCcloseClient(c);
 	if (c->usermodule /*&& strcmp(c->usermodule->name, "user") == 0*/) {
 		freeModule(c->usermodule);
 		c->usermodule = NULL;
@@ -596,16 +580,6 @@ MALexitClient(Client c)
 str
 MALreader(Client c)
 {
-#ifndef HAVE_EMBEDDED
-	int r = 1;
-	if (c == mal_clients) {
-		r = readConsole(c);
-		if (r < 0 && !c->fdin->eof)
-			r = MCreadClient(c);
-		if (r > 0)
-			return MAL_SUCCEED;
-	} else
-#endif
 	if (MCreadClient(c) > 0)
 		return MAL_SUCCEED;
 	MT_lock_set(&mal_contextLock);

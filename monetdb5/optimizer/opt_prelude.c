@@ -63,7 +63,6 @@ str batstrRef;
 str batxmlRef;
 str bbpRef;
 str betweenRef;
-str betweensymmetricRef;
 str binddbatRef;
 str bindidxRef;
 str bindRef;
@@ -273,7 +272,6 @@ str sqlcatalogRef;
 str sqlRef;
 str startRef;
 str starttraceRef;
-str stopRef;
 str stoptraceRef;
 str streamsRef;
 str strRef;
@@ -366,7 +364,6 @@ void optimizerInit(void)
 	batxmlRef = putName("batxml");
 	bbpRef = putName("bbp");
 	betweenRef = putName("between");
-	betweensymmetricRef = putName("betweensymmetric");
 	binddbatRef = putName("bind_dbat");
 	bindidxRef = putName("bind_idxbat");
 	bindRef = putName("bind");
@@ -576,7 +573,6 @@ void optimizerInit(void)
 	sqlRef = putName("sql");
 	startRef = putName("start");
 	starttraceRef = putName("starttrace");
-	stopRef = putName("stop");
 	stoptraceRef = putName("stoptrace");
 	streamsRef = putName("streams");
 	strRef = putName("str");
@@ -670,7 +666,6 @@ void optimizerReset(void)
 	batxmlRef = NULL;
 	bbpRef = NULL;
 	betweenRef = NULL;
-	betweensymmetricRef = NULL;
 	binddbatRef = NULL;
 	bindidxRef = NULL;
 	bindRef = NULL;
@@ -880,7 +875,6 @@ void optimizerReset(void)
 	sqlRef = NULL;
 	startRef = NULL;
 	starttraceRef = NULL;
-	stopRef = NULL;
 	stoptraceRef = NULL;
 	streamsRef = NULL;
 	strRef = NULL;

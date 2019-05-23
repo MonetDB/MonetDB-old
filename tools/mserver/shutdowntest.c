@@ -48,10 +48,11 @@ static void* monetdb_connect(void) {
 	if (!monetdb_initialized) {
 		return NULL;
 	}
-	conn = MCforkClient(&mal_clients[0]);
+	conn = MCinitClient((oid) 0, bstream_create(GDKstdin, 0), GDKstdout);
 	if (!MCvalid(conn)) {
 		return NULL;
 	}
+	conn->curmodule = conn->usermodule = userModule();
 	if ((*SQLinitClient_ptr)(conn) != MAL_SUCCEED) {
 		return NULL;
 	}
@@ -70,17 +71,17 @@ static str monetdb_query(Client c, str query) {
 		1, 0, &res);
 	(*SQLautocommit_ptr)(m);
 	if (retval != MAL_SUCCEED) {
-		MT_fprintf(stdout, "Failed to execute SQL query: %s\n", query);
+		printf("Failed to execute SQL query: %s\n", query);
 		freeException(retval);
 		exit(1);
 		return MAL_SUCCEED;
 	}
 	if (res) {
 		// print result columns
-		MT_fprintf(stdout, "%s (", res->cols->tn);
+		printf("%s (", res->cols->tn);
 		for(i = 0; i < res->nr_cols; i++) {
-			MT_fprintf(stdout, "%s", res->cols[i].name);
-			MT_fprintf(stdout, i + 1 == res->nr_cols ? ")\n" : ",");
+			printf("%s", res->cols[i].name);
+			printf(i + 1 == res->nr_cols ? ")\n" : ",");
 		}
 		(*SQLdestroyResult_ptr)(res);
 	}
@@ -169,13 +170,13 @@ static str monetdb_initialize(void) {
 					}
 				}
 			} else {
-				MT_fprintf(stdout, "#warning: unusable binary location, "
+				printf("#warning: unusable binary location, "
 					   "please use --set monet_mod_path=/path/to/... to "
 					   "allow finding modules\n");
 				fflush(NULL);
 			}
 		} else {
-			MT_fprintf(stdout, "#warning: unable to determine binary location, "
+			printf("#warning: unable to determine binary location, "
 				   "please use --set monet_mod_path=/path/to/... to "
 				   "allow finding modules\n");
 			fflush(NULL);
@@ -282,7 +283,7 @@ static str monetdb_initialize(void) {
 	LOAD_SQL_FUNCTION_PTR(SQLdestroyResult);
 
 	if (retval != MAL_SUCCEED) {
-		MT_fprintf(stdout, "Failed to load SQL function: %s\n", retval);
+		printf("Failed to load SQL function: %s\n", retval);
 		retval = GDKstrdup(retval);
 		goto cleanup;
 	}
@@ -316,30 +317,30 @@ int main(int argc, char **argv) {
 	Client c;
 	int i = 0;
 	if (argc <= 1) {
-		MT_fprintf(stdout, "Usage: shutdowntest [testdir]\n");
+		printf("Usage: shutdowntest [testdir]\n");
 		return -1;
 	}
 	dbdir = argv[1];
 
 	retval = monetdb_initialize();
 	if (retval != MAL_SUCCEED) {
-		MT_fprintf(stdout, "Failed first initialization: %s\n", retval);
+		printf("Failed first initialization: %s\n", retval);
 		return -1;
 	} 
 	c = (Client) monetdb_connect();
 	monetdb_query(c, "CREATE TABLE temporary_table(i INTEGER);");
 	monetdb_query(c, "INSERT INTO temporary_table VALUES (3), (4);");
 	monetdb_disconnect(c);
-	MT_fprintf(stdout, "Successfully initialized MonetDB.\n");
+	printf("Successfully initialized MonetDB.\n");
 	for(i = 0; i < 10; i++) {
 		monetdb_shutdown();
-		MT_fprintf(stdout, "Successfully shutdown MonetDB.\n");
+		printf("Successfully shutdown MonetDB.\n");
 		retval = monetdb_initialize();
 		if (retval != MAL_SUCCEED) {
-			MT_fprintf(stdout, "Failed MonetDB restart: %s\n", retval);
+			printf("Failed MonetDB restart: %s\n", retval);
 			return -1;
 		}
-		MT_fprintf(stdout, "Successfully restarted MonetDB.\n");
+		printf("Successfully restarted MonetDB.\n");
 		c = (Client) monetdb_connect();
 		monetdb_query(c, "SELECT * FROM temporary_table;");
 		monetdb_query(c, "DROP TABLE temporary_table;");

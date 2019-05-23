@@ -38,10 +38,7 @@ typedef enum store_type {
 
 extern sql_trans *gtrans;
 extern list *active_sessions;
-extern volatile ATOMIC_TYPE store_nr_active;
-#ifdef ATOMIC_LOCK
-extern MT_Lock store_nr_active_lock;
-#endif
+extern ATOMIC_TYPE store_nr_active;
 extern store_type active_store_type;
 extern int store_readonly;
 extern int store_singleuser;
@@ -302,8 +299,6 @@ typedef int (*logger_get_sequence_fptr) (int seq, lng *id);
 typedef lng (*logger_read_last_transaction_id_fptr)(void);
 typedef lng (*logger_get_transaction_drift_fptr)(void);
 
-typedef int (*logger_reload_fptr) (void);
-
 typedef int (*log_isnew_fptr)(void);
 typedef bool (*log_needs_update_fptr)(void);
 typedef int (*log_tstart_fptr) (void);
@@ -322,8 +317,6 @@ typedef struct logger_functions {
 	logger_get_sequence_fptr get_sequence;
 	logger_read_last_transaction_id_fptr read_last_transaction_id;
 	logger_get_transaction_drift_fptr get_transaction_drift;
-
-	logger_reload_fptr reload;
 
 	log_isnew_fptr log_isnew;
 	log_needs_update_fptr log_needs_update;
@@ -388,6 +381,7 @@ extern int sql_trans_add_range_partition(sql_trans *tr, sql_table *mt, sql_table
 extern int sql_trans_add_value_partition(sql_trans *tr, sql_table *mt, sql_table *pt, sql_subtype tpe, list* vals, int with_nills, int update, sql_part **err);
 
 extern sql_table *sql_trans_rename_table(sql_trans *tr, sql_schema *s, sqlid id, const char *new_name);
+extern sql_table *sql_trans_set_table_schema(sql_trans *tr, sqlid id, sql_schema *os, sql_schema *ns);
 extern sql_table *sql_trans_del_table(sql_trans *tr, sql_table *mt, sql_table *pt, int drop_action);
 
 extern int sql_trans_drop_table(sql_trans *tr, sql_schema *s, sqlid id, int drop_action);
@@ -402,7 +396,7 @@ extern sql_column *sql_trans_alter_default(sql_trans *tr, sql_column *col, char 
 extern sql_column *sql_trans_alter_storage(sql_trans *tr, sql_column *col, char *storage);
 extern int sql_trans_is_sorted(sql_trans *tr, sql_column *col);
 extern size_t sql_trans_dist_count(sql_trans *tr, sql_column *col);
-extern int sql_trans_ranges(sql_trans *tr, sql_column *col, void **min, void **max);
+extern int sql_trans_ranges(sql_trans *tr, sql_column *col, char **min, char **max);
 
 extern sql_key *sql_trans_create_ukey(sql_trans *tr, sql_table *t, const char *name, key_type kt);
 extern sql_key * sql_trans_key_done(sql_trans *tr, sql_key *k);

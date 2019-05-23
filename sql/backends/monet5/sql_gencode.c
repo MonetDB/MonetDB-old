@@ -33,7 +33,6 @@
 #include "sql_scenario.h"
 #include "sql_mvc.h"
 #include "sql_qc.h"
-#include "sql_optimizer.h"
 #include "mal_namespace.h"
 #include "opt_prelude.h"
 #include "querylog.h"
@@ -41,6 +40,7 @@
 #include "mal_debugger.h"
 
 #include "rel_select.h"
+#include "rel_unnest.h"
 #include "rel_optimizer.h"
 #include "rel_distribute.h"
 #include "rel_partition.h"
@@ -52,6 +52,7 @@
 #include "rel_dump.h"
 #include "rel_remote.h"
 
+#include "msabaoth.h"		/* msab_getUUID */
 #include "muuid.h"
 
 int
@@ -424,17 +425,21 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 	}
 	pushInstruction(curBlk, p);
 
-	if (mal_session_uuid) {
+	char *mal_session_uuid, *err = NULL;
+	if (!GDKinmemory() && (err = msab_getUUID(&mal_session_uuid)) == NULL) {
 		str rsupervisor_session = GDKstrdup(mal_session_uuid);
 		if (rsupervisor_session == NULL) {
+			free(mal_session_uuid);
 			return -1;
 		}
 
 		str lsupervisor_session = GDKstrdup(mal_session_uuid);
 		if (lsupervisor_session == NULL) {
+			free(mal_session_uuid);
 			GDKfree(rsupervisor_session);
 			return -1;
 		}
+		free(mal_session_uuid);
 
 		str rworker_plan_uuid = generateUUID();
 		if (rworker_plan_uuid == NULL) {
@@ -486,7 +491,8 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 		free(rworker_plan_uuid);   /* This was created with strdup */
 		GDKfree(lsupervisor_session);
 		GDKfree(rsupervisor_session);
-	}
+	} else if (err)
+		free(err);
 
 	/* (x1, x2, ..., xn) := remote.exec(q, "mod", "fcn"); */
 	p = newInstruction(curBlk, remoteRef, execRef);
@@ -599,7 +605,7 @@ sql_relation2stmt(backend *be, sql_rel *r)
 }
 
 int
-backend_dumpstmt(backend *be, MalBlkPtr mb, sql_rel *r, int top, int add_end, char *query)
+backend_dumpstmt(backend *be, MalBlkPtr mb, sql_rel *r, int top, int add_end, const char *query)
 {
 	mvc *c = be->mvc;
 	InstrPtr q, querylog = NULL;
@@ -641,7 +647,7 @@ backend_dumpstmt(backend *be, MalBlkPtr mb, sql_rel *r, int top, int add_end, ch
 
 	be->mvc_var = old_mv;
 	be->mb = old_mb;
-	if (top && c->clientid && !be->depth && (c->type == Q_SCHEMA || c->type == Q_TRANS)) {
+	if (top && !be->depth && (c->type == Q_SCHEMA || c->type == Q_TRANS)) {
 		q = newStmt(mb, sqlRef, exportOperationRef);
 		if (q == NULL)
 			return -1;
@@ -1031,6 +1037,7 @@ backend_create_sql_func(backend *be, sql_func *f, list *restypes, list *ops)
 		f->sql++;
 	r = rel_parse(m, f->s, f->query, m_instantiate);
 	if (r) {
+		r = rel_unnest(m, r);
 		r = rel_optimizer(m, r, 0);
 		r = rel_distribute(m, r);
 		r = rel_partition(m, r);

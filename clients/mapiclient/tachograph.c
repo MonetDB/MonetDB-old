@@ -13,7 +13,6 @@
 */
 
 #include "monetdb_config.h"
-#include "monet_options.h"
 #include "stream.h"
 #include "stream_socket.h"
 #include "mapi.h"
@@ -262,7 +261,7 @@ update(EventRecord *ev)
 	if (starttime == 0) {
 		if (ev->fcn == 0 ) {
 			if (debug)
-				fprintf(stderr, "Skip %s input %s\n",(ev->state>=0?statenames[ev->state]:"unknown"),ev->fcn);
+				fprintf(stderr, "Skip %s input\n",(ev->state>=0?statenames[ev->state]:"unknown"));
 			return;
 		}
 		if (debug)
