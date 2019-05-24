@@ -67,7 +67,7 @@ if(NOT MSVC AND NOT ${CMAKE_C_COMPILER_ID} MATCHES "^GNU|Intel|Clang|AppleClang$
 endif()
 if(NOT CMAKE_BUILD_TYPE) # Set default build options
 	message(STATUS "Setting build type to Debug as none was selected")
-	set(CMAKE_BUILD_TYPE Debug CACHE STRING "The type of build" FORCE)
+	set(CMAKE_BUILD_TYPE Debug CACHE STRING "The type of build")
 endif()
 
 # Extensions to use (please add to the OPTIONS_LIST bellow whenever a new option is added)
@@ -92,7 +92,7 @@ set(ENABLE_STATIC_ANALYSIS "NO" CACHE STRING "Configure for static code analysis
 set(ENABLE_STRICT "${DFT_STRICT}" CACHE STRING "Enable strict compiler flags (default=YES for development sources, NO for tarball instalation)")
 set(ENABLE_TESTING "AUTO" CACHE STRING "Enable support for testing (default=AUTO)") # Check with HAVE_TESTING
 
-# Optional extra libraries (please add to the OPTIONS_LIST bellow whenever a new option is added)
+# Extra libraries (please add to the OPTIONS_LIST bellow whenever a new option is added)
 set(WITH_BZ2 "AUTO" CACHE STRING "Include bz2 support (default=AUTO)") # Check with HAVE_LIBLZMA
 set(WITH_CURL "AUTO" CACHE STRING "Include cURL support (default=AUTO)") # Check with HAVE_CURL
 set(WITH_LIBLZMA "AUTO" CACHE STRING "Include liblzma support (default=AUTO)") # Check with HAVE_LIBLZMA
