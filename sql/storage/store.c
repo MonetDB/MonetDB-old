@@ -3068,7 +3068,7 @@ trans_init(sql_trans *t, backend_stack stk, sql_trans *ot)
 	t->stk = stk;
 
 	t->name = NULL;
-	if (bs_debug) 
+	if (bs_debug)
 		MT_fprintf(stderr, "#trans (%p) init (%d,%d,%d)\n",
 			t, t->wstime, t->stime, t->schema_number ); 
 	return t;
@@ -3367,7 +3367,7 @@ rollforward_create_table(sql_trans *tr, sql_table *t, int mode)
 {
 	int ok = LOG_OK;
 
-	if (bs_debug) 
+	if (bs_debug)
 		MT_fprintf(stderr, "#create table %s\n", t->base.name);
 
 	if (isKindOfTable(t) && isGlobal(t)) {
@@ -3598,7 +3598,7 @@ rollforward_update_table(sql_trans *tr, sql_table *ft, sql_table *tt, int mode)
 			ok = store_funcs.log_table(tr, ft, tt);
 		} else if (mode == R_APPLY) {
 			assert(cs_size(&tt->columns) == cs_size(&ft->columns));
-			if (bs_debug) 
+			if (bs_debug)
 				MT_fprintf(stderr, "#update table %s\n", tt->base.name);
 			ok = store_funcs.update_table(tr, ft, tt);
 			ft->cleared = 0;
@@ -3809,7 +3809,7 @@ reset_changeset(sql_trans *tr, changeset * fs, changeset * pfs, sql_base *b, res
 				fb->rtime = fb->wtime = 0;
 				n = n->next;
 				m = m->next;
-				if (bs_debug) 
+				if (bs_debug)
 					MT_fprintf(stderr, "#reset_cs %s\n", (fb->name)?fb->name:"help");
 			} else if (fb->id < pfb->id) {  
 				node *t = n->next;
@@ -3826,7 +3826,7 @@ reset_changeset(sql_trans *tr, changeset * fs, changeset * pfs, sql_base *b, res
 				cs_add_before(fs, n, r);
 				r->rtime = r->wtime = 0;
 				m = m->next;
-				if (bs_debug) 
+				if (bs_debug)
 					MT_fprintf(stderr, "#reset_cs new %s\n", (r->name)?r->name:"help");
 			}
 		}

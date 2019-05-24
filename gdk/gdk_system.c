@@ -872,3 +872,14 @@ MT_check_nr_cores(void)
 
 	return ncpus;
 }
+
+int
+MT_check_endianness(void)
+{
+	int num = 1;
+	if(*(char *)&num == 1) {
+		return HOST_LITTLE_ENDIAN;
+	} else {
+		return HOST_BIG_ENDIAN;
+	}
+}

@@ -53,7 +53,7 @@ sqlEmbeddedBoot(void)
 	if( SQLembeddedinitialized )
 		return 0;
 
-	if (mal_init()) {
+	if (mal_init("libsql")) {
 		MT_fprintf(stderr, "MAL init failed\n");
 		return -1;
 	}

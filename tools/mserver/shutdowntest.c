@@ -108,6 +108,8 @@ static str monetdb_initialize(void) {
 	if (monetdb_initialized) return MAL_SUCCEED;
 	monetdb_initialized = 1;
 
+	MT_fprintf_silent(false);
+
 	if (setlocale(LC_CTYPE, "") == NULL) {
 		retval = GDKstrdup("setlocale() failed");
 		goto cleanup;

@@ -28,16 +28,18 @@
 #include "sql_mvc.h"
 #include "sql_user.h"
 #include "sql_datetime.h"
-#include "mal_io.h"
 #include "mal_parser.h"
 #include "mal_builder.h"
 #include "mal_namespace.h"
-#include "mal_debugger.h"
 #include "mal_linker.h"
 #include "bat5.h"
+#ifndef HAVE_EMBEDDED
+#include "mal_io.h"
+#include "mal_debugger.h"
 #include "wlc.h"
 #include "wlr.h"
 #include "msabaoth.h"
+#endif
 #include "mtime.h"
 #include "optimizer.h"
 #include "opt_prelude.h"
@@ -52,6 +54,12 @@ static int SQLnewcatalog = 0;
 int SQLdebug = 0;
 static const char *sqlinit = NULL;
 MT_Lock sql_contextLock = MT_LOCK_INITIALIZER("sql_contextLock");
+
+int
+SQLisInitialized(void)
+{
+	return SQLinitialized > 0;
+}
 
 static void
 monet5_freestack(int clientid, backend_stack stk)
@@ -145,11 +153,15 @@ SQLprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	tmp = SQLinit(cntxt);
 	if (tmp != MAL_SUCCEED) {
 		MT_fprintf(stderr, "Fatal error during initialization:\n%s\n", tmp);
+#ifndef HAVE_EMBEDDED
 		freeException(tmp);
 		if ((tmp = GDKerrbuf) && *tmp)
 			MT_fprintf(stderr, SQLSTATE(42000) "GDK reported: %s\n", tmp);
 		fflush(stderr);
 		exit(1);
+#else
+		return tmp;
+#endif
 	}
 	MT_fprintf(stdout, "# MonetDB/SQL module loaded\n");
 	fflush(stdout);		/* make merovingian see this *now* */
@@ -160,6 +172,7 @@ SQLprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	/* only register availability of scenarios AFTER we are inited! */
 	s->name = "sql";
+#ifndef HAVE_EMBEDDED
 	tmp = msab_marchScenario(s->name);
 	if (tmp != NULL) {
 		char *err = createException(MAL, "sql.start", "%s", tmp);
@@ -174,6 +187,8 @@ SQLprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return err;
 	}
 	return MAL_SUCCEED;
+#endif
+	return tmp;
 }
 
 str
@@ -196,10 +211,11 @@ str
 SQLepilogue(void *ret)
 {
 	char *s = "sql", *m = "msql";
-	str res;
+	str res = MAL_SUCCEED;
 
 	(void) ret;
 	SQLexit(NULL);
+#ifndef HAVE_EMBEDDED
 	/* this function is never called, but for the style of it, we clean
 	 * up our own mess */
 	if (!GDKinmemory()) {
@@ -212,7 +228,8 @@ SQLepilogue(void *ret)
 			return err;
 		}
 	}
-	return MAL_SUCCEED;
+#endif
+	return res;
 }
 
 #define SQLglobal(name, val, failure)                                                                             \
@@ -301,7 +318,7 @@ SQLprepareClient(Client c, int login)
 			throw(PERMD, "SQLinitClient", SQLSTATE(08004) "schema authorization error");
 		}
 		_DELETE(schema);
-	} 
+	}
 
 	/*expect SQL text first */
 	be->language = 'S';
@@ -565,7 +582,10 @@ SQLinit(Client c)
 		}
 		GDKregister(idlethread);
 	}
-	return WLCinit();
+#ifndef HAVE_EMBEDDED
+	msg = WLCinit();
+#endif
+	return msg;
 }
 
 #define TRANS_ABORTED SQLSTATE(25005) "Current transaction is aborted (please ROLLBACK)\n"
@@ -659,11 +679,11 @@ SQLinitClient(Client c)
 	if (SQLinitialized == 0)// && (msg = SQLprelude(NULL)) != MAL_SUCCEED)
 		return msg;
 	MT_lock_set(&sql_contextLock);
+#ifndef HAVE_EMBEDDED
 	if ((msg = WLRinit()) != MAL_SUCCEED) {
 		MT_lock_unset(&sql_contextLock);
 		return msg;
 	}
-#ifndef HAVE_EMBEDDED
 	msg = SQLprepareClient(c, 1);
 #else
 	msg = SQLprepareClient(c, 0);
@@ -684,6 +704,10 @@ SQLexitClient(Client c)
 	if ((err = SQLresetClient(c)) != MAL_SUCCEED)
 		return err;
 	MALexitClient(c);
+	if (c->prompt) GDKfree(c->prompt);
+		c->prompt = NULL;
+	if (c->glb) freeStack(c->glb);
+		c->glb = NULL;
 	return MAL_SUCCEED;
 }
 
@@ -940,7 +964,7 @@ cachable(mvc *m, sql_rel *r)
 	if (m->type == Q_TRANS )	/* m->type == Q_SCHEMA || cachable to make sure we have trace on alter statements  */
 		return 0;
 	/* we don't store queries with a large footprint */
-	if(r && sa_size(m->sa) > MAX_QUERY) 
+	if (r && sa_size(m->sa) > MAX_QUERY)
 		return 0;
 	return 1;
 }
@@ -1002,7 +1026,7 @@ SQLparser(Client c)
 
 	/* sqlparse needs sql allocator to be available.  It can be NULL at
 	 * this point if this is a recursive call. */
-	if (!m->sa) 
+	if (!m->sa)
 		m->sa = sa_create();
 	if (!m->sa) {
 		c->mode = FINISHCLIENT;
@@ -1300,7 +1324,7 @@ SQLcallback(Client c, str msg){
 		// massage the error to comply with SQL
 		char *s;
 		s= strchr(msg,(int)':');
-		if (s ) 
+		if (s)
 			s= strchr(msg,(int)':');
 		if( s){
 			char newerr[1024];

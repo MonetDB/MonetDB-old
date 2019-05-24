@@ -21,9 +21,7 @@
 #include "sql_optimizer.h"
 #include "mal_namespace.h"
 #include "opt_prelude.h"
-#include "querylog.h"
 #include "mal_builder.h"
-#include "mal_debugger.h"
 
 #include "rel_select.h"
 #include "rel_optimizer.h"

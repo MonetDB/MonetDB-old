@@ -20,23 +20,27 @@ int have_hge;
 
 #include "mal_stack.h"
 #include "mal_linker.h"
-#include "mal_authorize.h"
 #include "mal_session.h"
 #include "mal_scenario.h"
 #include "mal_parser.h"
 #include "mal_interpreter.h"
 #include "mal_namespace.h"  /* for initNamespace() */
 #include "mal_client.h"
-#include "msabaoth.h"
 #include "mal_dataflow.h"
-#include "mal_profiler.h"
 #include "mal_private.h"
 #include "mal_runtime.h"
+#include "opt_pipes.h"
+#include "mal_atom.h"
 #include "mal_resource.h"
-#include "wlc.h"
 #include "mal_atom.h"
 #include "opt_pipes.h"
 #include "tablet.h"
+#ifndef HAVE_EMBEDDED
+#include "msabaoth.h"
+#include "mal_authorize.h"
+#include "mal_profiler.h"
+#include "wlc.h"
+#endif
 
 MT_Lock     mal_contextLock = MT_LOCK_INITIALIZER("mal_contextLock");
 MT_Lock     mal_namespaceLock = MT_LOCK_INITIALIZER("mal_namespaceLk");
@@ -50,10 +54,9 @@ MT_Lock     mal_oltpLock = MT_LOCK_INITIALIZER("mal_oltpLock");
  * Initialization of the MAL context
  */
 
-int mal_init(void){
-/* Any error encountered here terminates the process
- * with a message sent to stderr
- */
+int
+mal_init(const char* library_path)
+{
 	if (!MCinit())
 		return -1;
 #ifndef NDEBUG
@@ -62,13 +65,18 @@ int mal_init(void){
 		return -1;
 	}
 #endif
+	if (!initLinker(library_path)) {
+		mal_client_reset();
+		return -1;
+	}
+
 	monet_memory = MT_npages() * MT_pagesize();
 	initNamespace();
 	initParser();
 #ifndef HAVE_EMBEDDED
 	initHeartbeat();
-#endif
 	initResource();
+#endif
 	str err = malBootstrap();
 	if (err != MAL_SUCCEED) {
 		mal_client_reset();
@@ -79,7 +87,9 @@ int mal_init(void){
 		freeException(err);
 		return -1;
 	}
+#ifndef HAVE_EMBEDDED
 	initProfiler();
+#endif
 	return 0;
 }
 
@@ -98,8 +108,9 @@ void mserver_reset(void)
 	str err = 0;
 
 	GDKprepareExit();
-	WLCreset();
 	MCstopClients(0);
+#ifndef HAVE_EMBEDDED
+	WLCreset();
 	setHeartbeat(-1);
 	stopProfiler();
 	AUTHreset();
@@ -114,11 +125,12 @@ void mserver_reset(void)
 		}
 	}
 	mal_factory_reset();
+	mal_runtime_reset();
+#endif
 	mal_dataflow_reset();
 	mal_client_reset();
   	mal_linker_reset();
 	mal_resource_reset();
-	mal_runtime_reset();
 	mal_module_reset();
 	mal_atom_reset();
 	opt_pipes_reset();
@@ -132,7 +144,9 @@ void mserver_reset(void)
 	mal_namespace_reset();
 	/* No need to clean up the namespace, it will simply be extended
 	 * upon restart mal_namespace_reset(); */
+#ifndef HAVE_EMBEDDED
 	GDKreset(0);	// terminate all other threads
+#endif
 }
 
 /* stopping clients should be done with care, as they may be in the mids of

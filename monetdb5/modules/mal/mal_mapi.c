@@ -29,6 +29,7 @@
  * the module remote.
  */
 #include "monetdb_config.h"
+#include "mutils.h"
 #ifdef HAVE_MAPI
 #include "mal_mapi.h"
 #include <sys/types.h>
@@ -97,7 +98,7 @@ static void generateChallenge(str buf, int min, int max) {
 	if (CCRandomGenerateBytes(&size, sizeof(size)) != kCCSuccess)
 #endif
 #endif
-		size = rand();
+		size = MT_rand();
 	size = (size % (max - min)) + min;
 #ifdef HAVE_OPENSSL
 	if (RAND_bytes((unsigned char *) buf, (int) size) >= 0)
@@ -113,7 +114,7 @@ static void generateChallenge(str buf, int min, int max) {
 #endif
 #endif
 		for (i = 0; i < size; i++) {
-			bte = rand();
+			bte = MT_rand();
 			bte %= 62;
 			buf[i] = seedChars[bte];
 		}

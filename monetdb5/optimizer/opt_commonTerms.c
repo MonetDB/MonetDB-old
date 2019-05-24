@@ -60,7 +60,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 		for ( k = 0; k < p->argc; k++)
 			if ( alias[getArg(p,k)] )
 				getArg(p,k) = alias[getArg(p,k)];
-			
+
 		if (p->token == ENDsymbol){
 			pushInstruction(mb,p);
 			/* wrap up the remainder */

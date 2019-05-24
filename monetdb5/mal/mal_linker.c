@@ -19,9 +19,6 @@
 
 #include "mutils.h"
 #include <sys/types.h> /* opendir */
-#ifdef HAVE_DIRENT_H
-#include <dirent.h>
-#endif
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
@@ -43,6 +40,24 @@ typedef struct{
 static FileRecord filesLoaded[MAXMODULES];
 static int maxfiles = MAXMODULES;
 static int lastfile = 0;
+
+/*
+ * In MonetDBLite, libmonetdb5 will be set dynamically.
+ */
+static char* monetdb_lib_path = NULL;
+
+bool
+initLinker(const char* path)
+{
+	if (monetdb_lib_path)
+		GDKfree(monetdb_lib_path);
+	monetdb_lib_path = GDKstrdup(path);
+	if (!monetdb_lib_path) {
+		MT_fprintf(stderr,"#initLinker:" MAL_MALLOC_FAIL);
+		return false;
+	}
+	return true;
+}
 
 #ifndef O_CLOEXEC
 #define O_CLOEXEC 0
@@ -103,17 +118,23 @@ getAddress(str fcnname)
 	 *
 	 * the first argument must be the same as the base name of the
 	 * library that is created in src/tools */
-	dl = mdlopen("libsql", RTLD_NOW | RTLD_GLOBAL);
+	assert(monetdb_lib_path);
+	dl = mdlopen(monetdb_lib_path, RTLD_NOW
+#ifndef HAVE_EMBEDDED
+	| RTLD_GLOBAL);
+#else
+	| RTLD_LOCAL);
+#endif
 	if (dl == NULL) 
 		return NULL;
 
 	adr = (MALfcn) dlsym(dl, fcnname);
-	filesLoaded[lastfile].modname = GDKstrdup("libsql");
+	filesLoaded[lastfile].modname = GDKstrdup(monetdb_lib_path);
 	if(filesLoaded[lastfile].modname == NULL) {
 		dlclose(dl);
 		return NULL;
 	}
-	filesLoaded[lastfile].fullname = GDKstrdup("libsql");
+	filesLoaded[lastfile].fullname = GDKstrdup(monetdb_lib_path);
 	if(filesLoaded[lastfile].fullname == NULL) {
 		dlclose(dl);
 		GDKfree(filesLoaded[lastfile].modname);
@@ -287,6 +308,10 @@ mal_linker_reset(void)
 	}
 	lastfile = 0;
 	MT_lock_unset(&mal_contextLock);
+	if (monetdb_lib_path) {
+		GDKfree(monetdb_lib_path);
+		monetdb_lib_path = NULL;
+	}
 }
 
 /*

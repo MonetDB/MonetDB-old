@@ -332,7 +332,7 @@ main(int argc, char *argv[])
 
 	/* seed the randomiser for when we create a database, send responses
 	 * to HELO, etc */
-	srand(time(NULL));
+	MT_srand(time(NULL));
 	/* figure out our hostname */
 	gethostname(_mero_hostname, 128);
 	/* where is the mserver5 binary we fork on demand?

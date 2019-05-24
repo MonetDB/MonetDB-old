@@ -234,21 +234,13 @@ GDKlog(FILE *lockFile, const char *format, ...)
 	fflush(lockFile);
 }
 
+#ifndef HAVE_EMBEDDED
 /*
  * @+ Interrupt handling
  * The current version simply catches signals and prints a warning.
  * It should be extended to cope with the specifics of the interrupt
  * received.
  */
-#if 0				/* these are unused */
-static void
-BATSIGignore(int nr)
-{
-	(void) nr;
-	GDKsyserror("! ERROR signal %d caught by thread %zu\n", nr, (size_t) MT_getpid());
-}
-#endif
-
 #ifdef WIN32
 static void
 BATSIGabort(int nr)
@@ -268,6 +260,7 @@ BATSIGinit(void)
 	return 0;
 }
 #endif /* NATIVE_WIN32 */
+#endif /* HAVE_EMBEDDED */
 
 /* memory thresholds; these values some "sane" constants only, really
  * set in GDKinit() */
@@ -506,6 +499,7 @@ GDKinit(opt *set, int setlen)
 	MT_init_posix();
 	if (THRinit() < 0)
 		return GDK_FAIL;
+#ifndef HAVE_EMBEDDED
 #ifndef NATIVE_WIN32
 	if (BATSIGinit() < 0)
 		return GDK_FAIL;
@@ -515,6 +509,7 @@ GDKinit(opt *set, int setlen)
 #if !defined(__MINGW32__) && !defined(__CYGWIN__)
 	_set_abort_behavior(0, _CALL_REPORTFAULT | _WRITE_ABORT_MSG);
 	_set_error_mode(_OUT_TO_STDERR);
+#endif
 #endif
 #endif
 	MT_init();
@@ -1022,8 +1017,7 @@ doGDKaddbuf(const char *prefix, const char *message, size_t messagelen, const ch
 		}
 		*dst = '\0';
 	} else {
-		mnstr_printf(GDKout, "%s%.*s%s", prefix,
-			     (int) messagelen, message, suffix);
+		MT_fprintf(stdout, "%s%.*s%s", prefix, (int) messagelen, message, suffix);
 	}
 	MT_fprintf(stderr, "#%s:%s%.*s%s",
 		MT_thread_getname(),
@@ -1193,7 +1187,7 @@ GDKfatal(const char *format, ...)
 	va_list ap;
 
 	GDKdebug |= IOMASK;
-#ifndef NATIVE_WIN32
+#if !defined(NATIVE_WIN32) && !defined(HAVE_EMBEDDED)
 	BATSIGinit();
 #endif
 	if (!strncmp(format, GDKFATAL, len)) {
@@ -1213,8 +1207,7 @@ GDKfatal(const char *format, ...)
 	} else
 #endif
 	{
-		fputs(message, stderr);
-		fputs("\n", stderr);
+		MT_fprintf(stderr, "%s\n", message);
 		fflush(stderr);
 
 		/*
@@ -1223,7 +1216,9 @@ GDKfatal(const char *format, ...)
 		 */
 		if (GDKexiting()) {
 			fflush(stdout);
+#ifndef HAVE_EMBEDDED
 			exit(1);
+#endif
 		} else {
 			GDKlog(GET_GDKLOCK(PERSISTENT), "%s", message);
 #ifdef COREDUMP

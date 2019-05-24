@@ -16,6 +16,7 @@
  */
 #include "monetdb_config.h"
 #include "gdk.h"
+#include "mutils.h"
 #include "gdk_private.h"
 #include "gdk_cand.h"
 
@@ -143,7 +144,7 @@ insert_string_bat(BAT *b, BAT *n, BAT *s, bool force)
 			int match = 0, i;
 			size_t len = b->tvheap->hashash ? 1024 * EXTRALEN : 0;
 			for (i = 0; i < 1024; i++) {
-				p = (BUN) (((double) rand() / RAND_MAX) * (cnt - 1));
+				p = (BUN) (((double) MT_rand() / RAND_MAX) * (cnt - 1));
 				if (cand)
 					p = cand[p] - n->hseqbase;
 				else

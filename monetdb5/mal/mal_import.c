@@ -106,7 +106,6 @@ malLoadScript(str name, bstream **fdin)
 	}
 	return MAL_SUCCEED;
 }
-#endif
 
 /*
  * Beware that we have to isolate the execution of the source file
@@ -139,9 +138,6 @@ malLoadScript(str name, bstream **fdin)
 	restoreClient1 \
 	restoreClient2
 
-#ifdef HAVE_EMBEDDED
-extern char* mal_init_inline;
-#endif
 /*
  * The include operation parses the file indentified and
  * leaves the MAL code behind in the 'main' function.
@@ -199,6 +195,7 @@ malInclude(Client c, str name, int listing)
 	restoreClient;
 	return msg;
 }
+#endif
 
 /*File and input processing
  * A recurring situation is to execute a stream of simple MAL instructions
