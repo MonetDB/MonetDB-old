@@ -26,7 +26,9 @@ malSignatures sqlMalModules[] =
 #include "sql_aggr_lng.mal.h"
 #include "sql_aggr_flt.mal.h"
 #include "sql_aggr_dbl.mal.h"
+#ifndef HAVE_EMBEDDED
 #include "sql_inspect.mal.h"
+#endif
 #include "sql_generator.mal.h"
 
 #ifdef HAVE_HGE
@@ -39,7 +41,9 @@ malSignatures sqlMalModules[] =
 
 #include "sqlcatalog.mal.h"
 #include "sql_transaction.mal.h"
+#ifndef HAVE_EMBEDDED
 #include "wlr.mal.h"
+#endif
 #include "sql.mal.h"
 	{NULL, NULL}
 };

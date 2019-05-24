@@ -260,6 +260,7 @@ sql_update_hugeint(Client c, mvc *sql)
 }
 #endif
 
+#ifndef HAVE_EMBEDDED
 static str
 sql_update_geom(Client c, mvc *sql, int olddb)
 {
@@ -308,6 +309,7 @@ sql_update_geom(Client c, mvc *sql, int olddb)
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
 }
+#endif
 
 static str
 sql_update_jul2017(Client c, mvc *sql)
@@ -331,6 +333,7 @@ sql_update_jul2017(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos,
 			"update sys.functions set side_effect = false where name in ('like', 'ilike') and schema_id = (select id from sys.schemas where name = 'sys');\n");
 
+#ifndef HAVE_EMBEDDED
 	/* 25_debug.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
 			"drop function sys.malfunctions;\n"
@@ -348,6 +351,7 @@ sql_update_jul2017(Client c, mvc *sql)
 			"drop procedure profiler.setpoolsize;\n"
 			"drop procedure profiler.setstream;\n"
 			"update sys.functions set system = true where name in ('getlimit', 'setlimit') and schema_id = (select id from sys.schemas where name = 'profiler');\n");
+#endif
 
 	/* 51_sys_schema_extensions.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -523,6 +527,7 @@ sql_update_jul2017_sp3(Client c, mvc *sql)
 	return err;
 }
 
+#ifndef HAVE_EMBEDDED
 static str
 sql_update_mar2018_geom(Client c, mvc *sql, sql_table *t)
 {
@@ -561,6 +566,7 @@ sql_update_mar2018_geom(Client c, mvc *sql, sql_table *t)
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
 }
+#endif
 
 static str
 sql_update_mar2018(Client c, mvc *sql)
@@ -838,6 +844,7 @@ sql_update_mar2018(Client c, mvc *sql)
 " AND schema_id IN (SELECT id FROM sys.schemas WHERE name = 'sys');\n"
 	);
 
+#ifndef HAVE_EMBEDDED
 	/* 25_debug.sql */
 	t = mvc_bind_table(sql, s, "environment");
 	t->system = 0;
@@ -847,6 +854,7 @@ sql_update_mar2018(Client c, mvc *sql)
 			"create view sys.environment as select * from sys.env();\n"
 			"GRANT SELECT ON sys.environment TO PUBLIC;\n"
 			"update sys._tables set system = true where system = false and name = 'environment' and schema_id in (select id from sys.schemas where name = 'sys');\n");
+#endif
 
 	/* 39_analytics.sql, 39_analytics_hge.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -976,6 +984,7 @@ sql_update_mar2018(Client c, mvc *sql)
 			"INSERT INTO sys.function_languages VALUES (4, 'C', 'C'), (12, 'C++', 'CPP');\n"
 		);
 
+#ifndef HAVE_EMBEDDED
 	/* 60_wlcr.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
 			"create procedure master()\n"
@@ -1014,6 +1023,7 @@ sql_update_mar2018(Client c, mvc *sql)
 			"external name wlr.\"getreplicatick\";\n"
 			"update sys.functions set system = true where name in ('master', 'stopmaster', 'masterbeat', 'masterclock', 'mastertick', 'replicate', 'replicabeat', 'replicaclock', 'replicatick') and schema_id = (select id from sys.schemas where name = 'sys');\n"
 		);
+#endif
 
 	/* comments */
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -1189,6 +1199,7 @@ sql_update_mar2018_sp1(Client c, mvc *sql)
 	return err;		/* usually MAL_SUCCEED */
 }
 
+#ifndef HAVE_EMBEDDED
 static str
 sql_update_remote_tables(Client c, mvc *sql)
 {
@@ -1280,6 +1291,7 @@ bailout:
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
 }
+#endif
 
 static str
 sql_replace_Mar2018_ids_view(Client c, mvc *sql)
@@ -1351,6 +1363,7 @@ sql_replace_Mar2018_ids_view(Client c, mvc *sql)
 	return err;		/* usually MAL_SUCCEED */
 }
 
+#ifndef HAVE_EMBEDDED
 static str
 sql_update_gsl(Client c, mvc *sql)
 {
@@ -1373,6 +1386,7 @@ sql_update_gsl(Client c, mvc *sql)
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
 }
+#endif
 
 static str
 sql_update_aug2018(Client c, mvc *sql)
@@ -1402,7 +1416,9 @@ sql_update_aug2018(Client c, mvc *sql)
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	if (err)
 		goto bailout;
+#ifndef HAVE_EMBEDDED
 	err = sql_update_remote_tables(c, sql);
+#endif
 
   bailout:
 	GDKfree(buf);
@@ -1511,6 +1527,7 @@ sql_update_apr2019(Client c, mvc *sql)
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema sys;\n");
 
+#ifndef HAVE_EMBEDDED
 	/* 15_querylog.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
 			"drop procedure sys.querylog_enable(smallint);\n"
@@ -1535,6 +1552,7 @@ sql_update_apr2019(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos,
 			"grant execute on function sys.queue to public;\n"
 			"grant select on sys.queue to public;\n");
+#endif
 
 	/* 51_sys_schema_extensions.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -1949,6 +1967,7 @@ SQLupgrades(Client c, mvc *m)
 		table_funcs.table_insert(m->session->tr, privs, &f->func->base.id, &pub, &p, &zero, &zero);
 	}
 
+#ifndef HAVE_EMBEDDED
 	/* If the point type exists, but the geometry type does not
 	 * exist any more at the "sys" schema (i.e., the first part of
 	 * the upgrade has been completed succesfully), then move on
@@ -1972,6 +1991,7 @@ SQLupgrades(Client c, mvc *m)
 			}
 		}
 	}
+#endif
 
 	if (mvc_bind_table(m, s, "function_languages") == NULL) {
 		if ((err = sql_update_jul2017(c, m)) != NULL) {
@@ -1990,6 +2010,7 @@ SQLupgrades(Client c, mvc *m)
 		freeException(err);
 	}
 
+#ifndef HAVE_EMBEDDED
 	if ((t = mvc_bind_table(m, s, "geometry_columns")) != NULL &&
 	    (col = mvc_bind_column(m, t, "coord_dimension")) != NULL &&
 	    strcmp(col->type.type->sqlname, "int") != 0) {
@@ -1998,6 +2019,7 @@ SQLupgrades(Client c, mvc *m)
 			freeException(err);
 		}
 	}
+#endif
 
 	if (!sql_bind_func(m->sa, s, "master", NULL, NULL, F_PROC)) {
 		if ((err = sql_update_mar2018(c, m)) != NULL) {
@@ -2051,6 +2073,7 @@ SQLupgrades(Client c, mvc *m)
 			res_tables_destroy(output);
 	}
 
+#ifndef HAVE_EMBEDDED
 	/* temporarily use variable `err' to check existence of MAL
 	 * module gsl */
 	if ((err = getName("gsl")) == NULL || getModule(err) == NULL) {
@@ -2065,6 +2088,7 @@ SQLupgrades(Client c, mvc *m)
 			}
 		}
 	}
+#endif
 
 	sql_find_subtype(&tp, "clob", 0, 0);
 	if (sql_bind_aggr(m->sa, s, "group_concat", &tp) == NULL) {

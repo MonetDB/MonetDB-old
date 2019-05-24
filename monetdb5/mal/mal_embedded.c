@@ -24,7 +24,9 @@ malSignatures malModules[MAXMODULES] =
 {
 // Include the MAL definitions files in the proper order.
 
+#ifndef NDEBUG
 #include "mdb.mal.h"
+#endif
 #include "alarm.mal.h"
 #include "mmath.mal.h"
 #include "streams.mal.h"
@@ -40,51 +42,64 @@ malSignatures malModules[MAXMODULES] =
 #include "mkey.mal.h"
 
 #include "blob.mal.h"
-#include "color.mal.h"
 #include "str.mal.h"
+#include "mtime.mal.h"
+#ifndef HAVE_EMBEDDED
+#include "color.mal.h"
 #include "url.mal.h"
 #include "uuid.mal.h"
 #include "json.mal.h"
 #include "json_util.mal.h"
-#include "mtime.mal.h"
 #include "inet.mal.h"
 #include "identifier.mal.h"
 #include "xml.mal.h"
-#include "batxml.mal.h"
+#endif
 
 #include "batmmath.mal.h"
 #include "batmtime.mal.h"
 #include "batstr.mal.h"
+#ifndef HAVE_EMBEDDED
 #include "batcolor.mal.h"
+#include "batxml.mal.h"
+#endif
 
 #include "pcre.mal.h"
+#ifndef HAVE_EMBEDDED
 #include "clients.mal.h"
+#endif
 #include "bbp.mal.h"
 #include "mal_io.mal.h"
 #include "manifold.mal.h"
+#ifndef HAVE_EMBEDDED
 #include "factories.mal.h"
 #include "remote.mal.h"
+#endif
 
 #include "mat.mal.h"
 #include "inspect.mal.h"
 #include "manual.mal.h"
 #include "language.mal.h"
 
+#ifndef HAVE_EMBEDDED
 #include "profiler.mal.h"
 #include "querylog.mal.h"
 #include "sysmon.mal.h"
+#endif
 #include "sample.mal.h"
 
 #include "optimizer.mal.h"
 
 #include "iterator.mal.h"
+#ifndef HAVE_EMBEDDED
 #include "txtsim.mal.h"
 #include "tokenizer.mal.h"
-
 #include "mal_mapi.mal.h"
+#endif
 #include "oltp.mal.h"
 #include "microbenchmark.mal.h"
+#ifndef HAVE_EMBEDDED
 #include "wlc.mal.h"
+#endif
 
 #ifdef HAVE_HGE
 #include "00_aggr_hge.mal.h"
@@ -102,9 +117,11 @@ malSignatures malModules[MAXMODULES] =
 #include "01_batcalc.mal.h"
 #include "01_calc.mal.h"
 
+#ifndef HAVE_EMBEDDED
 #include "run_adder.mal.h"
 #include "run_isolate.mal.h"
 #include "run_memo.mal.h"
+#endif
 { 0, 0}
 };
 
