@@ -157,14 +157,14 @@ SQLprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		freeException(tmp);
 		if ((tmp = GDKerrbuf) && *tmp)
 			MT_fprintf(stderr, SQLSTATE(42000) "GDK reported: %s\n", tmp);
-		fflush(stderr);
+		MT_flush(stderr);
 		exit(1);
 #else
 		return tmp;
 #endif
 	}
 	MT_fprintf(stdout, "# MonetDB/SQL module loaded\n");
-	fflush(stdout);		/* make merovingian see this *now* */
+	MT_flush(stdout);		/* make merovingian see this *now* */
 	if (GDKinmemory()) {
 		s->name = "sql";
 		ms->name = "msql";
@@ -554,8 +554,8 @@ SQLinit(Client c)
 		}
 		maybeupgrade = 0;
 	}
-	fflush(stdout);
-	fflush(stderr);
+	MT_flush(stdout);
+	MT_flush(stderr);
 
 	/* send error from create scripts back to the first client */
 	if (msg) {

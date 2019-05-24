@@ -284,7 +284,7 @@ q_dequeue(Queue *q, Client cntxt)
 	/* try out random draw *
 	{
 		int i;
-		i = rand() % q->last;
+		i = MT_rand() % q->last;
 		r = q->data[i];
 		for (i++; i < q->last; i++)
 			q->data[i - 1] = q->data[i];

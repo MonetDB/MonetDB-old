@@ -1056,7 +1056,7 @@ logger_readlog(logger *lg, char *filename, bool *filemissing)
 	t0 = time(NULL);
 	if (lg->debug & 1) {
 		MT_fprintf(stdout, "# Start reading the write-ahead log '%s'\n", filename);
-		fflush(stdout);
+		MT_flush(stdout);
 	}
 	while (err == LOG_OK && log_read_format(lg, &l)) {
 		char *name = NULL;
@@ -1071,7 +1071,7 @@ logger_readlog(logger *lg, char *filename, bool *filemissing)
 			fpos = (lng) getfilepos(getFile(lg->log));
 			if (fpos >= 0) {
 				MT_fprintf(stdout, "# still reading write-ahead log \"%s\" (%d%% done)\n", filename, (int) ((fpos * 100 + 50) / sb.st_size));
-				fflush(stdout);
+				MT_flush(stdout);
 			}
 		}
 		if ((l.flag >= LOG_INSERT && l.flag <= LOG_CLEAR) || l.flag == LOG_CREATE_ID || l.flag == LOG_USE_ID) {
@@ -1220,7 +1220,7 @@ logger_readlog(logger *lg, char *filename, bool *filemissing)
 	t0 = time(NULL);
 	if (lg->debug & 1) {
 		MT_fprintf(stdout, "# Finished reading the write-ahead log '%s'\n", filename);
-		fflush(stdout);
+		MT_flush(stdout);
 	}
 	GDKdebug = dbg;
 	/* we cannot distinguish errors from incomplete transactions
@@ -2259,7 +2259,7 @@ logger_create(int debug, const char *fn, const char *logdir, int version, prever
 		return NULL;
 	if (lg->debug & 1) {
 		MT_fprintf(stdout, "# Started processing logs %s/%s version %d\n",fn,logdir,version);
-		fflush(stdout);
+		MT_flush(stdout);
 	}
 	if (logger_open(lg) != GDK_SUCCEED) {
 		logger_destroy(lg);
@@ -2272,7 +2272,7 @@ logger_create(int debug, const char *fn, const char *logdir, int version, prever
 		logger_destroy(lg);
 		return NULL;
 	}
-	fflush(stdout);
+	MT_flush(stdout);
 	if (lg->changes &&
 	    (logger_restart(lg) != GDK_SUCCEED ||
 	     logger_cleanup(lg) != GDK_SUCCEED)) {

@@ -57,7 +57,7 @@ void
 mserver_abort()
 {
 	MT_fprintf(stderr, "\n! mserver_abort() was called by terminate(). !\n");
-	fflush(stderr);
+	MT_flush(stderr);
 	exit(0);
 }
 #endif
@@ -295,8 +295,6 @@ main(int argc, char **av)
 	_set_output_format(_TWO_DIGIT_EXPONENT);
 #endif
 #endif
-
-	MT_fprintf_silent(false);
 
 	if (setlocale(LC_CTYPE, "") == NULL) {
 		MT_fprintf(stderr, "cannot set locale\n");
@@ -574,13 +572,13 @@ main(int argc, char **av)
 				MT_fprintf(stdout, "#warning: unusable binary location, "
 					   "please use --set monet_mod_path=/path/to/... to "
 					   "allow finding modules\n");
-				fflush(NULL);
+				MT_flush(NULL);
 			}
 		} else {
 			MT_fprintf(stdout, "#warning: unable to determine binary location, "
 				   "please use --set monet_mod_path=/path/to/... to "
 				   "allow finding modules\n");
-			fflush(NULL);
+			MT_flush(NULL);
 		}
 		if (modpath != NULL &&
 		    GDKsetenv("monet_mod_path", modpath) != GDK_SUCCEED) {

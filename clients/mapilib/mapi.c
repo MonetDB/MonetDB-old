@@ -2724,7 +2724,7 @@ mapi_reconnect(Mapi mid)
 	}
 	if (mid->trace) {
 		MT_fprintf(stdout,"sending first request [%zu]:%s", sizeof(buf), buf);
-		fflush(stdout);
+		MT_flush(stdout);
 	}
 	len = strlen(buf);
 	mnstr_write(mid->to, buf, 1, len);

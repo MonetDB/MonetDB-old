@@ -1208,14 +1208,14 @@ GDKfatal(const char *format, ...)
 #endif
 	{
 		MT_fprintf(stderr, "%s\n", message);
-		fflush(stderr);
+		MT_flush(stderr);
 
 		/*
 		 * Real errors should be saved in the log file for post-crash
 		 * inspection.
 		 */
 		if (GDKexiting()) {
-			fflush(stdout);
+			MT_flush(stdout);
 #ifndef HAVE_EMBEDDED
 			exit(1);
 #endif

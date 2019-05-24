@@ -512,6 +512,15 @@ MT_fprintf(FILE *fp, const char *format, ...)
 	return res;
 }
 
+int
+MT_flush(FILE *fp)
+{
+	int res = 0;
+	if (!MT_silent)
+		res = fflush(fp);
+	return res;
+}
+
 #ifdef HAVE_EMBEDDED_R
 extern int embedded_r_rand(void);
 #endif

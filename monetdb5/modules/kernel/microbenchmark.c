@@ -126,7 +126,7 @@ BATuniform(BAT **bn, oid *base, lng *size, int *domain)
 
 	/* mix BUNs randomly */
 	for (r = 0, i = 0; i < n; i++) {
-		const BUN j = i + ((r += rand()) % (n - i));
+		const BUN j = i + ((r += MT_rand()) % (n - i));
 		const int tmp = val[i];
 
 		val[i] = val[j];
@@ -371,7 +371,7 @@ MBMmix(bat *bn, bat *batid)
 	n = BATcount(b);
 	/* mix BUNs randomly */
 	for (r = i = 0; i < n; i++) {
-		BUN idx = i + ((r += (BUN) rand()) % (n - i));
+		BUN idx = i + ((r += (BUN) MT_rand()) % (n - i));
 		int val;
 
 		val = *(int *) Tloc(b, i);

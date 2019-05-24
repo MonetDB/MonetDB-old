@@ -84,5 +84,6 @@ mutils_export const char *mercurial_revision(void);
 mutils_export void MT_fprintf_silent(bool silent);
 mutils_export int MT_fprintf(FILE *, _In_z_ _Printf_format_string_ const char *, ...)
 	__attribute__((__format__(__printf__, 2, 3)));
+mutils_export int MT_flush(FILE *);
 
 #endif	/* _MUTILS_H_ */

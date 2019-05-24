@@ -82,7 +82,7 @@ terminateProcess(pid_t pid, char *dbname, mtype type, int lock)
 			pthread_mutex_unlock(&fork_lock);
 		Mfprintf(stdout, "database '%s' appears to have shut down already\n",
 				 dbname);
-		fflush(stdout);
+			MT_flush(stdout);
 		msab_freeStatus(&stats);
 		free(dbname);
 		return;

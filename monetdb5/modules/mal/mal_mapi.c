@@ -253,7 +253,7 @@ doChallenge(void *data)
 
 #ifdef DEBUG_SERVER
 	MT_fprintf(stderr,"mal_mapi:Client accepted %s\n", buf);
-	fflush(stderr);
+	MT_flush(stderr);
 
 	mnstr_printf(cntxt->fdout, "#SERVERlisten:client accepted\n");
 	mnstr_printf(cntxt->fdout, "#SERVERlisten:client string %s\n", buf);
@@ -446,7 +446,7 @@ SERVERlistenThread(SOCKET *Sock)
 		}
 #ifdef DEBUG_SERVER
 		MT_fprintf(stderr,"server:accepted\n");
-		fflush(stdout);
+		MT_flush(stdout);
 #endif
 		data = GDKmalloc(sizeof(*data));
 		if( data == NULL){

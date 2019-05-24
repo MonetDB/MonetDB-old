@@ -1690,7 +1690,7 @@ BBPdump(void)
 	MT_fprintf(stderr,
 		"# %d bats: mem=%zu, vm=%zu %d cached bats: mem=%zu, vm=%zu\n",
 		n, mem, vm, nc, cmem, cvm);
-	fflush(stderr);
+	MT_flush(stderr);
 }
 
 /*

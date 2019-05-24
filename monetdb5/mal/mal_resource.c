@@ -199,7 +199,7 @@ MALresourceFairness(lng usec)
 		}
 		if ( delayed == MAX_DELAYS){
 				PARDEBUG MT_fprintf(stderr, "#delay abort ["LLFMT"] memory  %zu[%f]\n", clk, rss, MEMORY_THRESHOLD );
-				PARDEBUG fflush(stderr);
+				PARDEBUG MT_flush(stderr);
 				break;
 		}
 		MT_sleep_ms(DELAYUNIT);

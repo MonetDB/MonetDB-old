@@ -24,7 +24,7 @@ libgeom_init(void)
 	initGEOS((GEOSMessageHandler) GDKerror, (GEOSMessageHandler) GDKerror);
 	GEOS_setWKBByteOrder(1);	/* NDR (little endian) */
 	MT_fprintf(stdout, "# MonetDB/GIS module loaded\n");
-	fflush(stdout);		/* make merovingian see this *now* */
+	MT_flush(stdout);		/* make merovingian see this *now* */
 }
 
 void
