@@ -83,7 +83,7 @@ foreach(script IN LISTS MAL_SCRIPTS_LIST)
 	get_filename_component(SCRIPT_BASENAME "${script}" NAME)
 	execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/mal2h.py" "-f"
 					"${CMAKE_SOURCE_DIR}/monetdb5/${script}" "-t" "-o" "${CMAKE_CURRENT_BINARY_DIR}/${SCRIPT_BASENAME}.h"
-					RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET ERROR_QUIET)
+					RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET)
 	if(NOT PY_SCRIPT_RC EQUAL 0)
 		message(FATAL_ERROR "Could not generate ${SCRIPT_BASENAME}.h file")
 	endif()

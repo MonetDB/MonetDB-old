@@ -20,7 +20,7 @@ set(SQL_SCRIPTS_LIST 09_like.sql 10_math.sql 11_times.sql 12_url.sql 13_date.sql
 foreach(script IN LISTS SQL_SCRIPTS_LIST)
 	execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/sql2h.py" "-f"
 					"${CMAKE_CURRENT_SOURCE_DIR}/${script}" "-t" "-o" "${CMAKE_CURRENT_BINARY_DIR}/${script}.h"
-					RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET ERROR_QUIET)
+					RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET)
 	if(NOT PY_SCRIPT_RC EQUAL 0)
 		message(FATAL_ERROR "Could not generate ${script}.h file")
 	endif()

@@ -24,7 +24,7 @@ set(SQL_MAL_SCRIPTS_LIST sql.mal sqlcatalog.mal sql_transaction.mal sql_decimal.
 foreach(script IN LISTS SQL_MAL_SCRIPTS_LIST)
 	execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/mal2h.py" "-f"
 					"${CMAKE_CURRENT_SOURCE_DIR}/${script}" "-t" "-o" "${CMAKE_CURRENT_BINARY_DIR}/${script}.h"
-					RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET ERROR_QUIET)
+					RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET)
 	if(NOT PY_SCRIPT_RC EQUAL 0)
 		message(FATAL_ERROR "Could not generate ${script}.h file")
 	endif()
