@@ -280,11 +280,11 @@ SQLprepareClient(Client c, int login)
 			throw(SQL,"sql.initClient", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 		if(global_variables(be, "monetdb", "sys") < 0) {
-			mvc_destroy(m);
 			backend_destroy(be);
+			mvc_destroy(m);
 			throw(SQL,"sql.initClient",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
-		if (strcmp(c->scenario, "msql") == 0)
+		if (c->scenario && strcmp(c->scenario, "msql") == 0)
 			m->reply_size = -1;
 	} else {
 		be = c->sqlcontext;
