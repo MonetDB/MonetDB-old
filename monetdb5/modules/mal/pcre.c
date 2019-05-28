@@ -32,7 +32,7 @@
 /* old library version on e.g. EPEL 6 */
 #define pcre_free_study(x)		pcre_free(x)
 #endif
-#elif defined(HAVE_LIBGNUREGEX)
+#elif defined(HAVE_POSIX_REGEX)
 #include <regex.h>
 typedef regex_t pcre;
 #else
@@ -81,7 +81,7 @@ mal_export str LIKEjoin1(bat *r1, bat *r2, const bat *lid, const bat *rid, const
 mal_export str ILIKEjoin(bat *r1, bat *r2, const bat *lid, const bat *rid, const str *esc, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate);
 mal_export str ILIKEjoin1(bat *r1, bat *r2, const bat *lid, const bat *rid, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate);
 
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 /* current implementation assumes simple %keyword% [keyw%]* */
 typedef struct RE {
 	char *k;
@@ -660,7 +660,7 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, bool caseignore, boo
 	const char *error;
 	int errpos;
 	int ovector[10];
-#elif defined(HAVE_LIBGNUREGEX)
+#elif defined(HAVE_POSIX_REGEX)
 	int options = REG_NEWLINE | REG_NOSUB | REG_EXTENDED;
 	regex_t re;
 	int errcode;
@@ -673,7 +673,7 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, bool caseignore, boo
 
 	assert(ATOMstorage(b->ttype) == TYPE_str);
 
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	if (caseignore) {
 #if defined(HAVE_LIBPCRE)
 		options |= PCRE_CASELESS;
@@ -703,7 +703,7 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, bool caseignore, boo
 #if defined(HAVE_LIBPCRE)
 		pcre_free_study(pe);
 		pcre_free(re);
-#elif defined(HAVE_LIBGNUREGEX)
+#elif defined(HAVE_POSIX_REGEX)
 		regfree(&re);
 #endif
 		throw(MAL, "pcre.likeselect", SQLSTATE(HY001) MAL_MALLOC_FAIL);
@@ -725,7 +725,7 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, bool caseignore, boo
 		candlist = (const oid *) Tloc(s, p);
 #if defined(HAVE_LIBPCRE)
 #define BODY     (pcre_exec(re, pe, v, (int) strlen(v), 0, 0, ovector, 10) >= 0)
-#elif defined(HAVE_LIBGNUREGEX)
+#elif defined(HAVE_POSIX_REGEX)
 #define BODY     (regexec(&re, v, (size_t) 0, NULL, 0) != REG_NOMATCH)
 #else
 #define BODY     (STRlike(pat, v, caseignore, '\0'))
@@ -755,7 +755,7 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, bool caseignore, boo
 #if defined(HAVE_LIBPCRE)
 	pcre_free_study(pe);
 	pcre_free(re);
-#elif defined(HAVE_LIBGNUREGEX)
+#elif defined(HAVE_POSIX_REGEX)
 	regfree(&re);
 #endif
 	BATsetcount(bn, BATcount(bn)); /* set some properties */
@@ -772,14 +772,14 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, bool caseignore, boo
 #if defined(HAVE_LIBPCRE)
 	pcre_free_study(pe);
 	pcre_free(re);
-#elif defined(HAVE_LIBGNUREGEX)
+#elif defined(HAVE_POSIX_REGEX)
 	regfree(&re);
 #endif
 	*bnp = NULL;
 	throw(MAL, "pcre.likeselect", OPERATION_FAILED);
 }
 
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 static str
 re_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, bool caseignore, bool anti, bool use_strcmp)
 {
@@ -1314,7 +1314,7 @@ pcre_init(void *ret)
 	return NULL;
 }
 
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 static str
 pcre_match_with_flags(bit *ret, const char *val, const char *pat, const char *flags)
 {
@@ -1588,7 +1588,7 @@ PCREreplacefirst_bat_wrap(bat *res, const bat *bid, const str *pat, const str *r
 str
 PCREmatch(bit *ret, const str *val, const str *pat)
 {
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	return pcre_match_with_flags(ret, *val, *pat,
 #ifdef HAVE_LIBPCRE
 								 "s"
@@ -1607,7 +1607,7 @@ PCREmatch(bit *ret, const str *val, const str *pat)
 str
 PCREimatch(bit *ret, const str *val, const str *pat)
 {
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	return pcre_match_with_flags(ret, *val, *pat, "i"
 #ifndef HAVE_LIBPCRE
 								 "x"
@@ -1668,7 +1668,7 @@ PCREpatindex(int *ret, const str *pat, const str *val)
 str
 PCREquote(str *ret, const str *val)
 {
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	char *p;
 	const char *s = *val;
 
@@ -1698,7 +1698,7 @@ PCREquote(str *ret, const str *val)
 str
 PCREsql2pcre(str *ret, const str *pat, const str *esc)
 {
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	return sql2pcre(ret, *pat, *esc);
 #else
 	(void) ret;
@@ -1711,7 +1711,7 @@ PCREsql2pcre(str *ret, const str *pat, const str *esc)
 static str
 PCRElike4(bit *ret, const str *s, const str *pat, const str *esc, const bit *isens)
 {
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	char *ppat = NULL;
 	str r = sql2pcre(&ppat, *pat, *esc);
 
@@ -1829,7 +1829,7 @@ BATPCRElike3(bat *ret, const bat *bid, const str *pat, const str *esc, const bit
 	BUN p, q, i = 0;
 	str res = MAL_SUCCEED;
 
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	char *ppat = NULL;
 	res = sql2pcre(&ppat, *pat, *esc);
 	if (res != MAL_SUCCEED)
@@ -1851,7 +1851,7 @@ BATPCRElike3(bat *ret, const bat *bid, const str *pat, const str *esc, const bit
 	br = (bit*)Tloc(r, 0);
 	strsi = bat_iterator(strs);
 
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	if (strcmp(ppat, str_nil) == 0) {
 		BATloop(strs, p, q) {
 			const char *s = (str)BUNtvar(strsi, p);
@@ -1960,7 +1960,7 @@ BATPCRElike3(bat *ret, const bat *bid, const str *pat, const str *esc, const bit
 	BBPkeepref(*ret = r->batCacheid);
 	BBPunfix(strs->batCacheid);
 finish:
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	if (ppat)
 		GDKfree(ppat);
 #endif
@@ -2050,7 +2050,7 @@ PCRElikeselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, const 
 		throw(MAL, "algebra.likeselect", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 	}
 
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	/* no escape, try if a simple list of keywords works */
 	if (is_strcmpable(*pat, *esc)) {
 		use_re = true;
@@ -2171,7 +2171,7 @@ pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 	int retval;
 	int rskipped = 0;	/* whether we skipped values in r */
 	char *msg = MAL_SUCCEED;
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	RE *re = NULL;
 	char *pcrepat = NULL;
 	int nr;
@@ -2193,7 +2193,7 @@ pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 	(void) retval;
 #endif
 
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	if (caseignore)
 #ifdef HAVE_LIBPCRE
 		pcreopt |= PCRE_CASELESS;
@@ -2257,7 +2257,7 @@ pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 		}
 		if (strcmp(vr, str_nil) == 0)
 			continue;
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 		if (*esc == 0 && (nr = re_simple(vr)) > 0) {
 			re = re_create(vr, nr, caseignore);
 			if (re == NULL) {
@@ -2331,7 +2331,7 @@ pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 			}
 			if (strcmp(vl, str_nil) == 0)
 				continue;
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 			if (re) {
 				if (caseignore) {
 					if (!re_match_ignore(vl, re))
@@ -2389,7 +2389,7 @@ pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 			lastl = lo;
 			nl++;
 		}
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 		if (re) {
 			re_destroy(re);
 			re = NULL;
@@ -2439,7 +2439,7 @@ pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 	return MAL_SUCCEED;
 
   bailout:
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	if (re)
 		re_destroy(re);
 	if (pcrepat)
@@ -2538,7 +2538,7 @@ LIKEjoin(bat *r1, bat *r2, const bat *lid, const bat *rid, const str *esc, const
 str
 LIKEjoin1(bat *r1, bat *r2, const bat *lid, const bat *rid, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate)
 {
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	(void) nil_matches;
 	(void) estimate;
 	return PCREjoin(r1, r2, *lid, *rid, slid ? *slid : 0, srid ? *srid : 0, "", 0);
@@ -2559,7 +2559,7 @@ ILIKEjoin(bat *r1, bat *r2, const bat *lid, const bat *rid, const str *esc, cons
 str
 ILIKEjoin1(bat *r1, bat *r2, const bat *lid, const bat *rid, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate)
 {
-#if defined(HAVE_LIBPCRE) || defined(HAVE_LIBGNUREGEX)
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	(void) nil_matches;
 	(void) estimate;
 	return PCREjoin(r1, r2, *lid, *rid, slid ? *slid : 0, srid ? *srid : 0, "", 1);

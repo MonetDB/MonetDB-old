@@ -64,7 +64,10 @@ sql_h_output_file.write(insert1)
 # Let's remove comments from the sql script with a Markov chain :) Bugs might still be there
 # STATES 0 - OK, 1 in # comment, 2 in -- comment, 3 in /* comment, 4 inside ' string, 5 inside " string,
 # 6 inside whitespaces
-CACHE_SIZE = file_stat.st_blksize  # we will set the cache size to the filesystem blocksize
+if os.name == 'nt':
+    CACHE_SIZE = 512
+else:
+    CACHE_SIZE = file_stat.st_blksize  # we will set the cache size to the filesystem blocksize
 
 buffer = ['\0'] * CACHE_SIZE
 cur_state = 0

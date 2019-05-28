@@ -1725,7 +1725,7 @@ AS_VAR_IF([have_pcre], [no], [
 
 AS_VAR_IF([have_pcre], [no], [
 	AS_VAR_IF([have_gnuregex], [yes], [
-		AC_DEFINE([HAVE_LIBGNUREGEX], 1, [Define if you have the posix regex library])])])
+		AC_DEFINE([HAVE_POSIX_REGEX], 1, [Define if you have the posix regex library])])])
 
 org_have_libxml2=yes
 have_libxml2=$org_have_libxml2

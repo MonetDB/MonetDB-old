@@ -67,7 +67,10 @@ mal_h_output_file.write(insert1)
 # 3 inside address comment block (removing comments),
 # 4 between comment keyword and comment block (not removing comments),
 # 5 inside address comment block (not removing comments), 6 inside " string, 7 inside whitespaces
-CACHE_SIZE = file_stat.st_blksize  # we will set the cache size to the filesystem blocksize
+if os.name == 'nt':
+    CACHE_SIZE = 512
+else:
+    CACHE_SIZE = file_stat.st_blksize  # we will set the cache size to the filesystem blocksize
 
 buffer = ['\0'] * CACHE_SIZE
 cur_state = 0
