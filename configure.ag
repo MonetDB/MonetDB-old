@@ -1723,13 +1723,9 @@ AS_VAR_IF([have_pcre], [no], [
 		[AC_MSG_RESULT([no]); have_gnuregex=no])
 ])
 
-AS_CASE([$enable_monetdb5-$have_pcre-$have_gnuregex],
-[yes-no-no], [
-	AC_MSG_ERROR([PCRE library or GNU regex library not found but required for MonetDB5])],
-[auto-no-no], [
-	enable_monetdb5=no
-	AS_VAR_IF([why_not_monetdb5], [], [
-		why_not_monetdb5="(PCRE library or GNU regex library not found but required for MonetDB5)"])])
+AS_VAR_IF([have_pcre], [no], [
+	AS_VAR_IF([have_gnuregex], [yes], [
+		AC_DEFINE([HAVE_LIBGNUREGEX], 1, [Define if you have the posix regex library])])])
 
 org_have_libxml2=yes
 have_libxml2=$org_have_libxml2
@@ -2174,7 +2170,8 @@ AS_CASE([$enable_geom],
 		GEOS_INCS=`$GEOS_CONFIG --cflags`
 		AS_IF([GEOS_LIBS=`$GEOS_CONFIG --clibs 2> /dev/null`],
 			[],
-			[GEOS_LIBS=`$GEOS_CONFIG --libs | sed 's:-lgeos:-lgeos_c:'`])])
+			[GEOS_LIBS=`$GEOS_CONFIG --libs | sed 's:-lgeos:-lgeos_c:'`])
+		AC_DEFINE([HAVE_GEOM], 1, [Define if you have the geos version $GEOS_VERSION_REQUIRED_MIN])])
 	AS_VAR_IF([have_geos], [no], [
 		AS_VAR_IF([enable_geom], [yes], [
 			AC_MSG_ERROR([geos library required for geom module])])
@@ -2218,6 +2215,8 @@ AS_VAR_IF([enable_geom], [no],
 		have_shp=no
 		AS_VAR_IF([why_not_shp], [], [
 			why_not_shp="(gdal library required for ESRI Shapefile vault)"])])])
+AS_VAR_IF([have_shp], [no], [], [
+	AC_DEFINE([HAVE_SHP], 1, [Define if you have Shapefile vault library])])
 AM_CONDITIONAL([HAVE_SHP], [test x"$have_shp" != xno])
 AM_CONDITIONAL([HAVE_GDAL], [test x"$have_gdal" != xno])
 
@@ -2314,7 +2313,8 @@ AS_CASE([$have_lidar],
 	why_not_liblas="(lidar module is disabled)"])
 AS_VAR_IF([have_lidar], [no],
 	[LIBLAS_RPM=without],
-	[LIBLAS_RPM=with])
+	[LIBLAS_RPM=with
+	AC_DEFINE([HAVE_LIDAR], 1, [Define if you have lidar module enabled])])
 # this is only used in rpm.mk.in to maybe avoid building MonetDB-lidar
 AC_SUBST([LIBLAS_RPM])
 

@@ -17,6 +17,7 @@
 
 #include "monetdb_config.h"
 #include "utils.h"
+#include "mutils.h"
 #include <unistd.h> /* unlink */
 #include <strings.h> /* strcasecmp */
 #include <sys/types.h>
@@ -397,7 +398,7 @@ generateSalt(char *buf, unsigned int len)
 #endif
 #endif
 #ifndef STATIC_CODE_ANALYSIS
-		size = (unsigned int)rand();
+		size = (unsigned int)MT_rand();
 #else
 		size = 0;
 #endif
@@ -419,7 +420,7 @@ generateSalt(char *buf, unsigned int len)
 #endif
 		for (c = 0; c < size; c++) {
 #ifndef STATIC_CODE_ANALYSIS
-			buf[c] = seedChars[rand() % 62];
+			buf[c] = seedChars[MT_rand() % 62];
 #else
 			buf[c] = seedChars[0];
 #endif

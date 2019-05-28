@@ -22,11 +22,8 @@ int MCreadClient(Client c)
 	__attribute__((__visibility__("hidden")));
 void MCpopClientInput(Client c)
 	__attribute__((__visibility__("hidden")));
-str defaultScenario(Client c)	/* used in src/mal/mal_session.c */
-	__attribute__((__visibility__("hidden")));
-void mdbStep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
-	__attribute__((__visibility__("hidden")));
 
+#ifndef HAVE_EMBEDDED
 str runFactory(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr stk, InstrPtr pci)
 	__attribute__((__visibility__("hidden")));
 int yieldResult(MalBlkPtr mb, InstrPtr p, int pc)
@@ -35,32 +32,35 @@ str yieldFactory(MalBlkPtr mb, InstrPtr p, int pc)
 	__attribute__((__visibility__("hidden")));
 str callFactory(Client cntxt, MalBlkPtr mb, ValPtr argv[],char flag)
 	__attribute__((__visibility__("hidden")));
-
+#endif
 #endif
 
+#ifndef NDEBUG
+void mdbStep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
+	__attribute__((__visibility__("hidden")));
+bool mdbInit(void)
+	__attribute__((__visibility__("hidden")));
+void mdbExit(void)
+	__attribute__((__visibility__("hidden")));
+#endif
+
+#ifndef HAVE_EMBEDDED
+void malGarbageCollector(MalBlkPtr mb)
+	__attribute__((__visibility__("hidden")));
+mal_export void AUTHreset(void)
+	__attribute__((__visibility__("hidden")));
+mal_export void mal_runtime_reset(void)
+	__attribute__((__visibility__("hidden")));
 void initResource(void)
 	__attribute__((__visibility__("hidden")));
-int moreClients(int reruns)
-	__attribute__((__visibility__("hidden")));
+#endif
 
 str malAtomDefinition(str name,int tpe)
 	__attribute__((__visibility__("hidden")));
 str malAtomProperty(MalBlkPtr mb, InstrPtr pci)
 	__attribute__((__visibility__("hidden")));
 
-extern MT_Lock mal_namespaceLock;
-
 void setqptimeout(lng usecs)
-	__attribute__((__visibility__("hidden")));
-
-bool mdbInit(void)
-	__attribute__((__visibility__("hidden")));
-void mdbExit(void)
-	__attribute__((__visibility__("hidden")));
-
-str createScriptException(MalBlkPtr, int, enum malexception,
-	const char *, _In_z_ _Printf_format_string_ const char *, ...)
-	__attribute__((__format__(__printf__, 5, 6)))
 	__attribute__((__visibility__("hidden")));
 
 #ifdef MAXSCOPE
@@ -68,17 +68,10 @@ str createScriptException(MalBlkPtr, int, enum malexception,
 Symbol cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 	__attribute__((__visibility__("hidden")));
 #endif
+
 int getBarrierEnvelop(MalBlkPtr mb)
 	__attribute__((__visibility__("hidden")));
-void malGarbageCollector(MalBlkPtr mb)
-	__attribute__((__visibility__("hidden")));
 void listFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg, int first, int step)
-	__attribute__((__visibility__("hidden")));
-
-/* mal_http_daemon.h */
-void startHttpdaemon(void)
-	__attribute__((__visibility__("hidden")));
-void stopHttpdaemon(void)
 	__attribute__((__visibility__("hidden")));
 
 /* mal_linker.h */
@@ -86,9 +79,6 @@ char *MSP_locate_script(const char *mod_name)
 	__attribute__((__visibility__("hidden")));
 
 /* Reset primitives */
-mal_export void AUTHreset(void)
-	__attribute__((__visibility__("hidden")));
-
 mal_export void mal_client_reset(void)
 	__attribute__((__visibility__("hidden")));
 
@@ -108,9 +98,6 @@ mal_export void mal_namespace_reset(void)
 	__attribute__((__visibility__("hidden")));
 
 mal_export void mal_resource_reset(void)
-	__attribute__((__visibility__("hidden")));
-
-mal_export void mal_runtime_reset(void)
 	__attribute__((__visibility__("hidden")));
 
 extern ATOMIC_TYPE mal_running;

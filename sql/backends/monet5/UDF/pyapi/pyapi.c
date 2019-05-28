@@ -1371,7 +1371,7 @@ PYFUNCNAME(PyAPIprelude)(void *ret) {
 			return msg;
 		}
 		pyapiInitialized = true;
-		fprintf(stdout, "# MonetDB/Python%d module loaded\n",
+		MT_fprintf(stdout, "# MonetDB/Python%d module loaded\n",
 #ifdef IS_PY3K
 			3
 #else

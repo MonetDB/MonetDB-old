@@ -125,13 +125,13 @@ atom_int( sql_allocator *sa, sql_subtype *tpe,
 			break;
 #endif
 		default:
-			fprintf(stderr, "atom_int %d\n", a->data.vtype);
+			MT_fprintf(stderr, "atom_int %d\n", a->data.vtype);
 			assert(0);
 		}
 		a->d = (dbl) val;
 		a->data.len = 0;
 		if (atom_debug)
-			fprintf(stderr, "atom_int(%s,%.40g)\n", tpe->type->sqlname, (dbl)val);
+			MT_fprintf(stderr, "atom_int(%s,%.40g)\n", tpe->type->sqlname, (dbl)val);
 		return a;
 	}
 }
@@ -211,7 +211,7 @@ atom_string(sql_allocator *sa, sql_subtype *tpe, const char *val)
 	}
 
 	if (atom_debug)
-		fprintf(stderr, "atom_string(%s,%s)\n", tpe->type->sqlname, val);
+		MT_fprintf(stderr, "atom_string(%s,%s)\n", tpe->type->sqlname, val);
 	return a;
 }
 
@@ -233,7 +233,7 @@ atom_float(sql_allocator *sa, sql_subtype *tpe, double val)
 	a->data.vtype = tpe->type->localtype;
 	a->data.len = 0;
 	if (atom_debug)
-		fprintf(stderr, "atom_float(%s,%f)\n", tpe->type->sqlname, val);
+		MT_fprintf(stderr, "atom_float(%s,%f)\n", tpe->type->sqlname, val);
 	return a;
 }
 
@@ -244,7 +244,7 @@ atom_general(sql_allocator *sa, sql_subtype *tpe, const char *val)
 	ptr p = NULL;
 
 	if (atom_debug)
-		fprintf(stderr, "atom_general(%s,%s)\n", tpe->type->sqlname, val);
+		MT_fprintf(stderr, "atom_general(%s,%s)\n", tpe->type->sqlname, val);
 
 	if (tpe->type->localtype == TYPE_str)
 		return atom_string(sa, tpe, val);

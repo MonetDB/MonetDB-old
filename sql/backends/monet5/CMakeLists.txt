@@ -10,14 +10,14 @@ if(NOT WIN32)
 	add_subdirectory(vaults)
 endif()
 add_subdirectory(UDF)
-add_subdirectory(generator)
 
 include_directories(../../include ../../common ../../storage ../../server ../../../monetdb5/modules/atoms 
 					../../../monetdb5/modules/kernel ../../../monetdb5/mal ../../../monetdb5/modules/mal 
-					../../../monetdb5/optimizer ../../../monetdb5/scheduler ../../../monetdb5/extras/rapi 
-					../../../common/stream ../../../common/utils ../../../gdk)
+					../../../monetdb5/optimizer ../../../monetdb5/scheduler ../../../monetdb5/embedded
+					../../../monetdb5/extras/rapi ../../../common/stream ../../../common/utils ../../scripts
+					../../../gdk)
 
-set(SQL_LINK_LIBRARIES sqlserver store batstore sqlcommon)
+set(SQL_LINK_LIBRARIES sqlserver store batstore sqlcommon sqlscripts)
 if(WIN32)
 	list(APPEND SQL_LINK_LIBRARIES mapi monetdb5 gdk stream ${CRYPTO_LIBRARIES})
 endif()
@@ -47,23 +47,12 @@ add_library(sql MODULE
 			sql_orderidx.c sql_orderidx.h
 			wlr.c wlr.h
 			sql_datetrunc.c
-			sql_rank.c sql_rank.h)
+			sql_rank.c sql_rank.h
+			sql_generator.c sql_generator.h)
 target_link_libraries(sql PRIVATE ${SQL_LINK_LIBRARIES})
 set_target_properties(sql PROPERTIES OUTPUT_NAME _sql)
 target_compile_definitions(sql PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)
 
 install(TARGETS sql DESTINATION ${LIBDIR}/monetdb5)
-install(FILES
-		sql_aggr_bte.mal sql_aggr_flt.mal sql_aggr_dbl.mal sql_aggr_int.mal sql_aggr_lng.mal
-		sql_aggr_sht.mal sql_decimal.mal sql_inspect.mal wlr.mal
-		sql_rank.mal sqlcatalog.mal sql_transaction.mal sql.mal
-		DESTINATION ${LIBDIR}/monetdb5)
+install(FILES sql.mal DESTINATION ${LIBDIR}/monetdb5)
 install(FILES 40_sql.mal DESTINATION ${LIBDIR}/monetdb5/autoload)
-if(WIN32)
-	install(FILES $<TARGET_PDB_FILE:sql> DESTINATION ${LIBDIR}/monetdb5 OPTIONAL)
-endif()
-
-if(HAVE_HGE)
-	install(FILES sql_hge.mal sql_aggr_hge.mal sql_decimal_hge.mal sql_rank_hge.mal DESTINATION ${LIBDIR}/monetdb5)
-	install(FILES 41_sql_hge.mal DESTINATION ${LIBDIR}/monetdb5/autoload)
-endif()

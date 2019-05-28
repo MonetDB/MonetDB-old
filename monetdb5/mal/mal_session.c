@@ -14,61 +14,13 @@
 #include "mal_interpreter.h" /* for runMAL(), garbageElement() */
 #include "mal_parser.h"	     /* for parseMAL() */
 #include "mal_namespace.h"
-#include "mal_authorize.h"
 #include "mal_builder.h"
-#include "msabaoth.h"
 #include "mal_private.h"
+#ifndef HAVE_EMBEDDED
+#include "msabaoth.h"
+#include "mal_authorize.h"
+#endif
 #include "gdk.h"	/* for opendir and friends */
-
-/*
- * The MonetDB server uses a startup script to boot the system.
- * This script is an ordinary MAL program, but will mostly
- * consist of include statements to load modules of general interest.
- * The startup script is run as user Admin.
- */
-str
-malBootstrap(void)
-{
-	Client c;
-	str msg = MAL_SUCCEED;
-	str bootfile = "mal_init";
-
-	c = MCinitClient((oid) 0, NULL, NULL);
-	if(c == NULL) {
-		throw(MAL, "malBootstrap", "Failed to initialize client");
-	}
-	assert(c != NULL);
-	c->curmodule = c->usermodule = userModule();
-	if(c->usermodule == NULL) {
-		MCfreeClient(c);
-		throw(MAL, "malBootstrap", "Failed to initialize client MAL module");
-	}
-	if ( (msg = defaultScenario(c)) ) {
-		MCfreeClient(c);
-		return msg;
-	}
-	if((msg = MSinitClientPrg(c, "user", "main")) != MAL_SUCCEED) {
-		MCfreeClient(c);
-		return msg;
-	}
-	if( MCinitClientThread(c) < 0){
-		MCfreeClient(c);
-		throw(MAL, "malBootstrap", "Failed to create client thread");
-	}
-	if ((msg = malInclude(c, bootfile, 0)) != MAL_SUCCEED) {
-		MCfreeClient(c);
-		return msg;
-	}
-	pushEndInstruction(c->curprg->def);
-	chkProgram(c->usermodule, c->curprg->def);
-	if ( (msg= c->curprg->def->errors) != MAL_SUCCEED ) {
-		MCfreeClient(c);
-		return msg;
-	}
-	msg = MALengine(c);
-	MCfreeClient(c);
-	return msg;
-}
 
 /*
  * Every client has a 'main' function to collect the statements.  Once
@@ -102,11 +54,11 @@ MSresetClientPrg(Client cntxt, str mod, str fcn)
 	p->argv[0] = 0;
 
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"reset sym %s %s to %s, id %d\n", 
+	MT_fprintf(stderr,"reset sym %s %s to %s, id %d\n",
 		cntxt->curprg->name, getFunctionId(p), nme, findVariable(mb,nme) );
-	fprintf(stderr,"vtop %d\n", mb->vtop);
+	MT_fprintf(stderr,"vtop %d\n", mb->vtop);
 	if( mb->vtop)
-	fprintf(stderr,"first var %s\n", mb->var[0].id);
+	MT_fprintf(stderr,"first var %s\n", mb->var[0].id);
 #endif
 
 	setModuleId(p, mod);
@@ -150,6 +102,7 @@ MSinitClientPrg(Client cntxt, str mod, str nme)
 	return MAL_SUCCEED;
 }
 
+#ifndef HAVE_EMBEDDED
 /*
  * The default method to interact with the database server is to connect
  * using a port number. The first line received should contain
@@ -287,7 +240,7 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 			if (err != NULL) {
 				/* this is kind of awful, but we need to get rid of this
 				 * message */
-				fprintf(stderr, "!msab_getMyStatus: %s\n", err);
+				MT_fprintf(stderr, "!msab_getMyStatus: %s\n", err);
 				free(err);
 				mnstr_printf(fout, "!internal server error, "
 							 "please try again later\n");
@@ -386,6 +339,7 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 		freeException(msg);
 	}
 }
+#endif
 
 /*
  * After the client initialization has been finished, we can start the
@@ -432,7 +386,7 @@ MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start)
 	int i;
 
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"resetVarables %d  vtop %d errors %s\n", start, mb->vtop,mb->errors);
+	MT_fprintf(stderr,"resetVarables %d  vtop %d errors %s\n", start, mb->vtop,mb->errors);
 #endif
 	for (i = 0; i < start && i < mb->vtop ; i++)
 		setVarUsed(mb,i);
@@ -453,15 +407,16 @@ MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start)
 		}
 
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"resetVar %s %d\n", getFunctionId(mb->stmt[0]), mb->var[mb->stmt[0]->argv[0]].used);
+	MT_fprintf(stderr,"resetVar %s %d\n", getFunctionId(mb->stmt[0]), mb->var[mb->stmt[0]->argv[0]].used);
 #endif
 	if (mb->errors == MAL_SUCCEED)
 		trimMalVariables_(mb, glb);
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"after trim %s %d\n", getFunctionId(mb->stmt[0]), mb->vtop);
+	MT_fprintf(stderr,"after trim %s %d\n", getFunctionId(mb->stmt[0]), mb->vtop);
 #endif
 }
 
+#ifndef HAVE_EMBEDDED
 /*
  * Here we start the client.  We need to initialize and allocate space
  * for the global variables.  Thereafter it is up to the scenario
@@ -537,6 +492,7 @@ MSserveClient(Client c)
 	}
 	return MAL_SUCCEED;
 }
+#endif
 
 /*
  * The stages of processing user requests are controlled by a scenario.
@@ -573,6 +529,14 @@ MALexitClient(Client c)
 	if (c->usermodule){
 		freeModule(c->usermodule);
 		c->usermodule = NULL;
+	}
+	if (c->prompt) {
+		GDKfree(c->prompt);
+		c->prompt = NULL;
+	}
+	if (c->glb) {
+		freeStack(c->glb);
+		c->glb = NULL;
 	}
 	return NULL;
 }

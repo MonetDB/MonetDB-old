@@ -9,6 +9,9 @@
 #ifndef _GDK_SYSTEM_H_
 #define _GDK_SYSTEM_H_
 
+#include "mutils.h"
+#include "stream.h"
+
 #ifdef WIN32
 #ifndef LIBGDK
 #define gdk_export extern __declspec(dllimport)
@@ -578,5 +581,9 @@ gdk_export void MT_thread_setsemawait(MT_Sema *sema);
 gdk_export void MT_thread_setworking(const char *work);
 
 gdk_export int MT_check_nr_cores(void);
+
+#define HOST_LITTLE_ENDIAN 1
+#define HOST_BIG_ENDIAN 2
+gdk_export int MT_check_endianness(void);
 
 #endif /*_GDK_SYSTEM_H_*/

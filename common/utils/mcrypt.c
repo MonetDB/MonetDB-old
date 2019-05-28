@@ -8,8 +8,8 @@
 
 #include "monetdb_config.h"
 #include "mcrypt.h"
+#include "mutils.h"
 
-#ifndef HAVE_EMBEDDED
 /* only provide digest functions if not embedded */
 #ifdef HAVE_OPENSSL
 #include <openssl/md5.h>
@@ -19,7 +19,6 @@
 #ifdef HAVE_COMMONCRYPTO
 #define COMMON_DIGEST_FOR_OPENSSL
 #include <CommonCrypto/CommonDigest.h>
-#endif
 #endif
 #endif
 
@@ -70,7 +69,7 @@ mcrypt_getHashAlgorithms(void)
 char *
 mcrypt_MD5Sum(const char *string, size_t len)
 {
-#if !defined(HAVE_EMBEDDED) && defined(HAVE_MD5_UPDATE)
+#if defined(HAVE_MD5_UPDATE)
 	MD5_CTX c;
 	unsigned char md[MD5_DIGEST_LENGTH];
 	char *ret;
@@ -95,7 +94,7 @@ mcrypt_MD5Sum(const char *string, size_t len)
 #else
 	(void) string;
 	(void) len;
-	fprintf(stderr, "No MD5 digest function available.\n");
+	MT_fprintf(stderr, "No MD5 digest function available.\n");
 	return NULL;
 #endif
 }
@@ -107,7 +106,7 @@ mcrypt_MD5Sum(const char *string, size_t len)
 char *
 mcrypt_SHA1Sum(const char *string, size_t len)
 {
-#if !defined(HAVE_EMBEDDED) && defined(HAVE_SHA1_UPDATE)
+#if defined(HAVE_SHA1_UPDATE)
 	SHA_CTX c;
 	unsigned char md[SHA_DIGEST_LENGTH];
 	char *ret;
@@ -132,7 +131,7 @@ mcrypt_SHA1Sum(const char *string, size_t len)
 #else
 	(void) string;
 	(void) len;
-	fprintf(stderr, "No SHA1 digest function available.\n");
+	MT_fprintf(stderr, "No SHA1 digest function available.\n");
 	return NULL;
 #endif
 }
@@ -144,7 +143,7 @@ mcrypt_SHA1Sum(const char *string, size_t len)
 char *
 mcrypt_SHA224Sum(const char *string, size_t len)
 {
-#if !defined(HAVE_EMBEDDED) && defined(HAVE_SHA224_UPDATE)
+#if defined(HAVE_SHA224_UPDATE)
 	SHA256_CTX c;
 	unsigned char md[SHA224_DIGEST_LENGTH];
 	char *ret;
@@ -172,7 +171,7 @@ mcrypt_SHA224Sum(const char *string, size_t len)
 #else
 	(void) string;
 	(void) len;
-	fprintf(stderr, "No SHA224 digest function available.\n");
+	MT_fprintf(stderr, "No SHA224 digest function available.\n");
 	return NULL;
 #endif
 }
@@ -184,7 +183,7 @@ mcrypt_SHA224Sum(const char *string, size_t len)
 char *
 mcrypt_SHA256Sum(const char *string, size_t len)
 {
-#if !defined(HAVE_EMBEDDED) && defined(HAVE_SHA256_UPDATE)
+#if defined(HAVE_SHA256_UPDATE)
 	SHA256_CTX c;
 	unsigned char md[SHA256_DIGEST_LENGTH];
 	char *ret;
@@ -214,7 +213,7 @@ mcrypt_SHA256Sum(const char *string, size_t len)
 #else
 	(void) string;
 	(void) len;
-	fprintf(stderr, "No SHA256 digest function available.\n");
+	MT_fprintf(stderr, "No SHA256 digest function available.\n");
 	return NULL;
 #endif
 }
@@ -226,7 +225,7 @@ mcrypt_SHA256Sum(const char *string, size_t len)
 char *
 mcrypt_SHA384Sum(const char *string, size_t len)
 {
-#if !defined(HAVE_EMBEDDED) && defined(HAVE_SHA384_UPDATE)
+#if defined(HAVE_SHA384_UPDATE)
 	SHA512_CTX c;
 	unsigned char md[SHA384_DIGEST_LENGTH];
 	char *ret;
@@ -260,7 +259,7 @@ mcrypt_SHA384Sum(const char *string, size_t len)
 #else
 	(void) string;
 	(void) len;
-	fprintf(stderr, "No SHA384 digest function available.\n");
+	MT_fprintf(stderr, "No SHA384 digest function available.\n");
 	return NULL;
 #endif
 }
@@ -272,7 +271,7 @@ mcrypt_SHA384Sum(const char *string, size_t len)
 char *
 mcrypt_SHA512Sum(const char *string, size_t len)
 {
-#if !defined(HAVE_EMBEDDED) && defined(HAVE_SHA512_UPDATE)
+#if defined(HAVE_SHA512_UPDATE)
 	SHA512_CTX c;
 	unsigned char md[SHA512_DIGEST_LENGTH];
 	char *ret;
@@ -311,7 +310,7 @@ mcrypt_SHA512Sum(const char *string, size_t len)
 #else
 	(void) string;
 	(void) len;
-	fprintf(stderr, "No SHA512 digest function available.\n");
+	MT_fprintf(stderr, "No SHA512 digest function available.\n");
 	return NULL;
 #endif
 }
@@ -323,7 +322,7 @@ mcrypt_SHA512Sum(const char *string, size_t len)
 char *
 mcrypt_RIPEMD160Sum(const char *string, size_t len)
 {
-#if !defined(HAVE_EMBEDDED) && defined(HAVE_RIPEMD160_UPDATE)
+#if defined(HAVE_RIPEMD160_UPDATE)
 	RIPEMD160_CTX c;
 	unsigned char md[RIPEMD160_DIGEST_LENGTH];
 	char *ret;
@@ -348,7 +347,7 @@ mcrypt_RIPEMD160Sum(const char *string, size_t len)
 #else
 	(void) string;
 	(void) len;
-	fprintf(stderr, "No RIPEMD160 digest function available.\n");
+	MT_fprintf(stderr, "No RIPEMD160 digest function available.\n");
 	return NULL;
 #endif
 }
@@ -362,12 +361,12 @@ mcrypt_RIPEMD160Sum(const char *string, size_t len)
 char *
 mcrypt_BackendSum(const char *string, size_t len)
 {
-#if !defined(HAVE_EMBEDDED) && (defined(HAVE_OPENSSL) || defined(HAVE_COMMONCRYPTO))
+#if defined(HAVE_OPENSSL) || defined(HAVE_COMMONCRYPTO)
 	return mcryptsum(MONETDB5_PASSWDHASH_TOKEN)(string, len);
 #else
 	(void) string;
 	(void) len;
-	fprintf(stderr, "No digest function available.\n");
+	MT_fprintf(stderr, "No digest function available.\n");
 	return NULL;
 #endif
 }
@@ -385,7 +384,7 @@ mcrypt_hashPassword(
 		const char *password,
 		const char *challenge)
 {
-#if !defined(HAVE_EMBEDDED) && (defined(HAVE_OPENSSL) || defined(HAVE_COMMONCRYPTO))
+#if defined(HAVE_OPENSSL) || defined(HAVE_COMMONCRYPTO)
 	unsigned char md[64];	/* should be SHA512_DIGEST_LENGTH */
 	char ret[sizeof(md) * 2 + 1];
 	int len;
@@ -482,11 +481,11 @@ mcrypt_hashPassword(
 		(void) algo;
 		(void) password;
 		(void) challenge;
-		fprintf(stderr, "MonetDB was built without OpenSSL, but what you are trying to do requires it.\n");
+		MT_fprintf(stderr, "MonetDB was built without OpenSSL, but what you are trying to do requires it.\n");
 		return NULL;
 	}
 
-#if !defined(HAVE_EMBEDDED) && (defined(HAVE_OPENSSL) || defined(HAVE_COMMONCRYPTO))
+#if defined(HAVE_OPENSSL) || defined(HAVE_COMMONCRYPTO)
 	snprintf(ret, sizeof(ret),
 			"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"
 			"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"

@@ -50,5 +50,3 @@ add_library(optimizer OBJECT
 target_compile_definitions(optimizer PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
 set_target_properties(optimizer PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:optimizer> PARENT_SCOPE)
-
-install(FILES optimizer.mal DESTINATION ${LIBDIR}/monetdb5)

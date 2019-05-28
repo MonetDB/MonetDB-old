@@ -15,8 +15,10 @@
 #define _MAL_INTERPRET_H
 
 #include "mal_client.h"
+#ifndef HAVE_EMBEDDED
 #include "mal_factory.h"
 #include "mal_profiler.h"
+#endif
 
 /*
  * Activation of a thread requires construction of the argument list

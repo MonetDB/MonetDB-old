@@ -67,7 +67,7 @@ GDALWConnection * GDALWConnect(char * source) {
 	OGRRegisterAll();
 	conn = malloc(sizeof(GDALWConnection));
 	if (conn == NULL) {
-		fprintf(stderr, "Could not allocate memory\n");
+		MT_fprintf(stderr, "Could not allocate memory\n");
 		return NULL;
 	}
 	conn->handler = OGROpen(source, 0 , &(conn->driver));
@@ -93,7 +93,7 @@ GDALWConnection * GDALWConnect(char * source) {
 	if (conn->fieldDefinitions == NULL) {
 		OGRReleaseDataSource(conn->handler);
 		free(conn);
-		fprintf(stderr, "Could not allocate memory\n");
+		MT_fprintf(stderr, "Could not allocate memory\n");
 		return NULL;
 	}
 	for (i=0 ; i<fieldCount ; i++) {
@@ -113,12 +113,12 @@ GDALWSimpleFieldDef * GDALWGetSimpleFieldDefinitions(GDALWConnection conn) {
 	GDALWSimpleFieldDef * columns;
 	OGRFieldDefnH fieldDefn;
 	/*if (conn.layer == NULL || conn.handler == NULL || conn.driver == NULL) {
-		printf("Could not extract columns, initialize a connection first.\n");
+		MT_fprintf(stdout, "Could not extract columns, initialize a connection first.\n");
 		exit(-1);
 	}*/
 	columns = malloc(conn.numFieldDefinitions * sizeof(GDALWSimpleFieldDef));
 	if (columns == NULL) {
-		//fprintf(stderr, "Could not allocate memory\n");
+		//MT_fprintf(stderr, "Could not allocate memory\n");
 		return NULL;
 	}
 	for (i=0 ; i<conn.numFieldDefinitions ; i++) {
@@ -142,17 +142,17 @@ void GDALWPrintRecords(GDALWConnection conn) {
 		for(i = 0; i < OGR_FD_GetFieldCount(featureDefn); i++ ) {
 			OGRFieldDefnH hFieldDefn = OGR_FD_GetFieldDefn( featureDefn, i );
 		    if( OGR_Fld_GetType(hFieldDefn) == OFTInteger )
-		    	printf( "%d,", OGR_F_GetFieldAsInteger( feature, i ) );
+				MT_fprintf(stdout, "%d,", OGR_F_GetFieldAsInteger( feature, i ) );
 		    else if( OGR_Fld_GetType(hFieldDefn) == OFTReal )
-		        printf( "%.3f,", OGR_F_GetFieldAsDouble( feature, i) );
+				MT_fprintf(stdout, "%.3f,", OGR_F_GetFieldAsDouble( feature, i) );
 		    else
-		    	printf( "%s,", OGR_F_GetFieldAsString( feature, i) );
+				MT_fprintf(stdout, "%s,", OGR_F_GetFieldAsString( feature, i) );
 
 		}
 		geometry = OGR_F_GetGeometryRef(feature);
 		OGR_G_ExportToWkt(geometry, &wkt);
-		printf("%s", wkt);
-		printf("\n");
+		MT_fprintf(stdout, "%s", wkt);
+		MT_fprintf(stdout, "\n");
 		CPLFree(wkt);
 		OGR_F_Destroy(feature);
 	}

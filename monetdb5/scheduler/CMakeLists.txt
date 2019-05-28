@@ -17,5 +17,3 @@ add_library(scheduler OBJECT
 target_compile_definitions(scheduler PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
 set_target_properties(scheduler PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:scheduler> PARENT_SCOPE)
-
-install(FILES run_adder.mal run_isolate.mal run_memo.mal DESTINATION ${LIBDIR}/monetdb5)

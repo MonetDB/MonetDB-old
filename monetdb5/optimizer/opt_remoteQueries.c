@@ -72,7 +72,7 @@ RQcall2str(MalBlkPtr mb, InstrPtr p)
 		}
 		strcat(msg,");");
 	}
-/* printf("#RQcall:%s\n",msg);*/
+/* MT_fprintf(stdout, "#RQcall:%s\n",msg);*/
 	return msg;
 }
 /*
@@ -157,7 +157,7 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 
 
 #ifdef DEBUG_OPT_REMOTEQUERIES
-	fprintf(stderr, "RemoteQueries optimizer started\n");
+	MT_fprintf(stderr, "RemoteQueries optimizer started\n");
 #endif
 	(void) cntxt;
 	(void) stk;
@@ -268,7 +268,7 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 				remoteAction()
 			} else {
 #ifdef DEBUG_OPT_REMOTEQUERIES
-				fprintf(stderr, "found remote variable %s ad %d\n",
+				MT_fprintf(stderr, "found remote variable %s ad %d\n",
 					getVarName(mb,getArg(p,0)), location[getArg(p,0)]);
 #endif
 				pushInstruction(mb,p);
@@ -359,7 +359,7 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 	GDKfree(old);
 #ifdef DEBUG_OPT_REMOTE
 	if (doit) {
-		fprintf(stderr, "remoteQueries %d\n", doit);
+		MT_fprintf(stderr, "remoteQueries %d\n", doit);
 		fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
 	}
 #endif

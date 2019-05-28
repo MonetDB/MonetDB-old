@@ -125,7 +125,7 @@ HEAPalloc(Heap *h, size_t nitems, size_t itemsize)
 	     h->size < (h->farmid == 0 ? GDK_mmap_minsize_persistent : GDK_mmap_minsize_transient))) {
 		h->storage = STORE_MEM;
 		h->base = GDKmalloc(h->size);
-		HEAPDEBUG fprintf(stderr, "#HEAPalloc %zu %p\n", h->size, h->base);
+		HEAPDEBUG MT_fprintf(stderr, "#HEAPalloc %zu %p\n", h->size, h->base);
 	}
 	if (!GDKinmemory() && h->base == NULL) {
 		char *nme;
@@ -213,7 +213,7 @@ HEAPextend(Heap *h, size_t size, bool mayshare)
 		char *p;
 		char *path;
 
-		HEAPDEBUG fprintf(stderr, "#HEAPextend: extending %s mmapped heap (%s)\n", h->storage == STORE_MMAP ? "shared" : "privately", h->filename);
+		HEAPDEBUG MT_fprintf(stderr, "#HEAPextend: extending %s mmapped heap (%s)\n", h->storage == STORE_MMAP ? "shared" : "privately", h->filename);
 		/* extend memory mapped file */
 		if ((path = GDKfilepath(h->farmid, BATDIR, nme, ext)) == NULL) {
 			return GDK_FAIL;
@@ -248,7 +248,7 @@ HEAPextend(Heap *h, size_t size, bool mayshare)
 		if (!must_mmap) {
 			h->newstorage = h->storage = STORE_MEM;
 			h->base = GDKrealloc(h->base, size);
-			HEAPDEBUG fprintf(stderr, "#HEAPextend: extending malloced heap %zu %zu %p %p\n", size, h->size, bak.base, h->base);
+			HEAPDEBUG MT_fprintf(stderr, "#HEAPextend: extending malloced heap %zu %zu %p %p\n", size, h->size, bak.base, h->base);
 			h->size = size;
 			if (h->base)
 				return GDK_SUCCEED; /* success */
@@ -291,7 +291,7 @@ HEAPextend(Heap *h, size_t size, bool mayshare)
 				h->newstorage = h->storage;
 
 				h->base = NULL;
-				HEAPDEBUG fprintf(stderr, "#HEAPextend: converting malloced to %s mmapped heap\n", h->newstorage == STORE_MMAP ? "shared" : "privately");
+				HEAPDEBUG MT_fprintf(stderr, "#HEAPextend: converting malloced to %s mmapped heap\n", h->newstorage == STORE_MMAP ? "shared" : "privately");
 				/* try to allocate a memory-mapped based
 				 * heap */
 				if (HEAPload(h, nme, ext, false) == GDK_SUCCEED) {
@@ -340,7 +340,7 @@ HEAPshrink(Heap *h, size_t size)
 	assert(size <= h->size);
 	if (h->storage == STORE_MEM) {
 		p = GDKrealloc(h->base, size);
-		HEAPDEBUG fprintf(stderr, "#HEAPshrink: shrinking malloced "
+		HEAPDEBUG MT_fprintf(stderr, "#HEAPshrink: shrinking malloced "
 				  "heap %zu %zu %p "
 				  "%p\n", h->size, size,
 				  h->base, p);
@@ -365,7 +365,7 @@ HEAPshrink(Heap *h, size_t size)
 				MMAP_READ | MMAP_WRITE,
 			      h->base, h->size, &size);
 		GDKfree(path);
-		HEAPDEBUG fprintf(stderr, "#HEAPshrink: shrinking %s mmapped "
+		HEAPDEBUG MT_fprintf(stderr, "#HEAPshrink: shrinking %s mmapped "
 				  "heap (%s) %zu %zu %p "
 				  "%p\n",
 				  h->storage == STORE_MMAP ? "shared" : "privately",
@@ -390,7 +390,7 @@ file_exists(int farmid, const char *dir, const char *name, const char *ext)
 
 	path = GDKfilepath(farmid, dir, name, ext);
 	ret = stat(path, &st);
-	IODEBUG fprintf(stderr, "#stat(%s) = %d\n", path, ret);
+	IODEBUG MT_fprintf(stderr, "#stat(%s) = %d\n", path, ret);
 	GDKfree(path);
 	return (ret == 0);
 }
@@ -587,7 +587,7 @@ HEAPfree(Heap *h, bool rmheap)
 {
 	if (h->base) {
 		if (h->storage == STORE_MEM) {	/* plain memory */
-			HEAPDEBUG fprintf(stderr, "#HEAPfree %zu"
+			HEAPDEBUG MT_fprintf(stderr, "#HEAPfree %zu"
 					  " %p\n",
 					  h->size, h->base);
 			GDKfree(h->base);
@@ -602,7 +602,7 @@ HEAPfree(Heap *h, bool rmheap)
 					    h->filename);
 				assert(0);
 			}
-			HEAPDEBUG fprintf(stderr, "#munmap(base=%p, "
+			HEAPDEBUG MT_fprintf(stderr, "#munmap(base=%p, "
 					  "size=%zu) = %d\n",
 					  (void *)h->base,
 					  h->size, (int) ret);
@@ -665,7 +665,7 @@ HEAPload_intern(Heap *h, const char *nme, const char *ext, const char *suffix, b
 		if (truncsize < h->size &&
 		    (fd = GDKfdlocate(h->farmid, nme, "mrb+", ext)) >= 0) {
 			ret = ftruncate(fd, truncsize);
-			HEAPDEBUG fprintf(stderr,
+			HEAPDEBUG MT_fprintf(stderr,
 					  "#ftruncate(file=%s.%s, size=%zu"
 					  ") = %d\n", nme, ext, truncsize, ret);
 			close(fd);
@@ -675,7 +675,7 @@ HEAPload_intern(Heap *h, const char *nme, const char *ext, const char *suffix, b
 		}
 	}
 
-	HEAPDEBUG fprintf(stderr, "#HEAPload(%s.%s,storage=%d,free=%zu"
+	HEAPDEBUG MT_fprintf(stderr, "#HEAPload(%s.%s,storage=%d,free=%zu"
 			  ",size=%zu)\n", nme, ext,
 			  (int) h->storage, h->free, h->size);
 
@@ -697,7 +697,7 @@ HEAPload_intern(Heap *h, const char *nme, const char *ext, const char *suffix, b
 
 	t0 = GDKms();
 	ret = rename(srcpath, dstpath);
-	HEAPDEBUG fprintf(stderr, "#rename %s %s = %d %s (%dms)\n",
+	HEAPDEBUG MT_fprintf(stderr, "#rename %s %s = %d %s (%dms)\n",
 			  srcpath, dstpath, ret, ret < 0 ? strerror(errno) : "",
 			  GDKms() - t0);
 	GDKfree(srcpath);
@@ -751,7 +751,7 @@ HEAPsave_intern(Heap *h, const char *nme, const char *ext, const char *suffix)
 		store = h->storage;
 	}
 	HEAPDEBUG {
-		fprintf(stderr, "#HEAPsave(%s.%s,storage=%d,free=%zu,size=%zu)\n", nme, ext, (int) h->newstorage, h->free, h->size);
+		MT_fprintf(stderr, "#HEAPsave(%s.%s,storage=%d,free=%zu,size=%zu)\n", nme, ext, (int) h->newstorage, h->free, h->size);
 	}
 	return GDKsave(h->farmid, nme, ext, h->base, h->free, store, true);
 }
@@ -902,7 +902,7 @@ HEAP_printstatus(Heap *heap)
 	size_t block, cur_free = hheader->head;
 	CHUNK *blockp;
 
-	fprintf(stderr,
+	MT_fprintf(stderr,
 		"#HEAP has head %zu and alignment %d and size %zu\n",
 		hheader->head, hheader->alignment, heap->free);
 
@@ -913,7 +913,7 @@ HEAP_printstatus(Heap *heap)
 		blockp = HEAP_index(heap, block, CHUNK);
 
 		if (block == cur_free) {
-			fprintf(stderr,
+			MT_fprintf(stderr,
 				"#   free block at %p has size %zu and next %zu\n",
 				(void *)block,
 				blockp->size, blockp->next);
@@ -923,7 +923,7 @@ HEAP_printstatus(Heap *heap)
 		} else {
 			size_t size = blocksize(hheader, blockp);
 
-			fprintf(stderr,
+			MT_fprintf(stderr,
 				"#   block at %zu with size %zu\n",
 				block, size);
 			block += size;
@@ -956,7 +956,7 @@ HEAP_empty(Heap *heap, size_t nprivate, int alignment)
 	headp->size = (size_t) (heap->size - head);
 	headp->next = 0;
 #ifdef TRACE
-	fprintf(stderr, "#We created the following heap\n");
+	MT_fprintf(stderr, "#We created the following heap\n");
 	HEAP_printstatus(heap);
 #endif
 }
@@ -995,7 +995,7 @@ HEAP_malloc(Heap *heap, size_t nbytes)
 	HEADER *hheader = HEAP_index(heap, 0, HEADER);
 
 #ifdef TRACE
-	fprintf(stderr, "#Enter malloc with %zu bytes\n", nbytes);
+	MT_fprintf(stderr, "#Enter malloc with %zu bytes\n", nbytes);
 #endif
 
 	/* add space for size field */
@@ -1014,7 +1014,7 @@ HEAP_malloc(Heap *heap, size_t nbytes)
 		blockp = HEAP_index(heap, block, CHUNK);
 
 #ifdef TRACE
-		fprintf(stderr, "#block %zu is %zu bytes\n", block, blockp->size);
+		MT_fprintf(stderr, "#block %zu is %zu bytes\n", block, blockp->size);
 #endif
 		assert(trail == 0 || block > trail);
 		if (trail != 0 && block <= trail) {
@@ -1040,11 +1040,11 @@ HEAP_malloc(Heap *heap, size_t nbytes)
 		block = (size_t) heap->free;	/* current end-of-heap */
 
 #ifdef TRACE
-		fprintf(stderr, "#No block found\n");
+		MT_fprintf(stderr, "#No block found\n");
 #endif
 
 		/* Increase the size of the heap. */
-		HEAPDEBUG fprintf(stderr, "#HEAPextend in HEAP_malloc %s %zu %zu\n", heap->filename, heap->size, newsize);
+		HEAPDEBUG MT_fprintf(stderr, "#HEAPextend in HEAP_malloc %s %zu %zu\n", heap->filename, heap->size, newsize);
 		if (HEAPextend(heap, newsize, false) != GDK_SUCCEED)
 			return 0;
 		heap->free = newsize;
@@ -1054,7 +1054,7 @@ HEAP_malloc(Heap *heap, size_t nbytes)
 		trailp = HEAP_index(heap, trail, CHUNK);
 
 #ifdef TRACE
-		fprintf(stderr, "#New block made at pos %zu with size %zu\n", block, heap->size - block);
+		MT_fprintf(stderr, "#New block made at pos %zu with size %zu\n", block, heap->size - block);
 #endif
 
 		blockp->next = 0;
@@ -1065,7 +1065,7 @@ HEAP_malloc(Heap *heap, size_t nbytes)
 		 * newly allocated memory */
 		if ((trail != 0) && (trail + trailp->size == block)) {
 #ifdef TRACE
-			fprintf(stderr, "#Glue newly generated block to adjacent last\n");
+			MT_fprintf(stderr, "#Glue newly generated block to adjacent last\n");
 #endif
 
 			trailp->size += blockp->size;

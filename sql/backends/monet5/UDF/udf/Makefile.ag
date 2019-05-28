@@ -16,6 +16,7 @@ INCLUDES = ../.. \
 	../../../../../monetdb5/optimizer \
 	../../../../../common/utils \
 	../../../../../common/stream \
+	../../../../../common/utils \
 	../../../../../gdk
 
 lib__udf = {

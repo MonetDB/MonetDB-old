@@ -123,7 +123,7 @@ GDKlockstatistics(int what)
 	int n = 0;
 
 	if (ATOMIC_TAS(&GDKlocklistlock) != 0) {
-		fprintf(stderr, "#WARNING: GDKlocklistlock is set, so cannot access lock list\n");
+		MT_fprintf(stderr, "#WARNING: GDKlocklistlock is set, so cannot access lock list\n");
 		return;
 	}
 	if (what == -1) {
@@ -136,14 +136,14 @@ GDKlockstatistics(int what)
 		return;
 	}
 	GDKlocklist = sortlocklist(GDKlocklist);
-	fprintf(stderr, "# lock name\tcount\tcontention\tsleep\tlocked\t(un)locker\tthread\n");
+	MT_fprintf(stderr, "# lock name\tcount\tcontention\tsleep\tlocked\t(un)locker\tthread\n");
 	for (l = GDKlocklist; l; l = l->next) {
 		n++;
 		if (what == 0 ||
 		    (what == 1 && l->count) ||
 		    (what == 2 && ATOMIC_GET(&l->contention)) ||
 		    (what == 3 && lock_isset(l)))
-			fprintf(stderr, "# %-18s\t%zu\t%zu\t%zu\t%s\t%s\t%s\n",
+			MT_fprintf(stderr, "# %-18s\t%zu\t%zu\t%zu\t%s\t%s\t%s\n",
 				l->name, l->count,
 				(size_t) ATOMIC_GET(&l->contention),
 				(size_t) ATOMIC_GET(&l->sleep),
@@ -151,10 +151,10 @@ GDKlockstatistics(int what)
 				l->locker ? l->locker : "",
 				l->thread ? l->thread : "");
 	}
-	fprintf(stderr, "#number of locks  %d\n", n);
-	fprintf(stderr, "#total lock count %zu\n", (size_t) ATOMIC_GET(&GDKlockcnt));
-	fprintf(stderr, "#lock contention  %zu\n", (size_t) ATOMIC_GET(&GDKlockcontentioncnt));
-	fprintf(stderr, "#lock sleep count %zu\n", (size_t) ATOMIC_GET(&GDKlocksleepcnt));
+	MT_fprintf(stderr, "#number of locks  %d\n", n);
+	MT_fprintf(stderr, "#total lock count %zu\n", (size_t) ATOMIC_GET(&GDKlockcnt));
+	MT_fprintf(stderr, "#lock contention  %zu\n", (size_t) ATOMIC_GET(&GDKlockcontentioncnt));
+	MT_fprintf(stderr, "#lock sleep count %zu\n", (size_t) ATOMIC_GET(&GDKlocksleepcnt));
 	ATOMIC_CLEAR(&GDKlocklistlock);
 }
 
@@ -188,7 +188,7 @@ dump_threads(void)
 {
 	EnterCriticalSection(&winthread_cs);
 	for (struct winthread *w = winthreads; w; w = w->next) {
-		fprintf(stderr, "%s, waiting for %s, working on %.200s\n",
+		MT_fprintf(stderr, "%s, waiting for %s, working on %.200s\n",
 			w->threadname,
 			w->lockwait ? w->lockwait->name :
 			w->semawait ? w->semawait->name :
@@ -306,7 +306,7 @@ thread_starter(LPVOID arg)
 	TlsSetValue(threadslot, w);
 	(*w->func)(data);
 	ATOMIC_SET(&w->exited, 1);
-	THRDDEBUG fprintf(stderr, "#exit \"%s\"\n", w->threadname);
+	THRDDEBUG MT_fprintf(stderr, "#exit \"%s\"\n", w->threadname);
 	return 0;
 }
 
@@ -323,7 +323,7 @@ join_threads(void)
 			if (w->detached && !w->waiting && ATOMIC_GET(&w->exited)) {
 				w->waiting = true;
 				LeaveCriticalSection(&winthread_cs);
-				THRDDEBUG fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), w->threadname);
+				THRDDEBUG MT_fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), w->threadname);
 				self->joinwait = w;
 				WaitForSingleObject(w->hdl, INFINITE);
 				self->joinwait = NULL;
@@ -351,7 +351,7 @@ join_detached_threads(void)
 			if (w->detached && !w->waiting) {
 				w->waiting = true;
 				LeaveCriticalSection(&winthread_cs);
-				THRDDEBUG fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), w->threadname);
+				THRDDEBUG MT_fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), w->threadname);
 				self->joinwait = w;
 				WaitForSingleObject(w->hdl, INFINITE);
 				self->joinwait = NULL;
@@ -388,7 +388,7 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d, 
 	w->next = winthreads;
 	winthreads = w;
 	LeaveCriticalSection(&winthread_cs);
-	THRDDEBUG fprintf(stderr, "#create \"%s\" \"%s\"\n", MT_thread_getname(), threadname);
+	THRDDEBUG MT_fprintf(stderr, "#create \"%s\" \"%s\"\n", MT_thread_getname(), threadname);
 	w->hdl = CreateThread(NULL, THREAD_STACK_SIZE, thread_starter, w,
 			      0, &w->tid);
 	if (w->hdl == NULL) {
@@ -427,7 +427,7 @@ MT_join_thread(MT_Id t)
 	w = find_winthread((DWORD) t);
 	if (w == NULL || w->hdl == NULL)
 		return -1;
-	THRDDEBUG fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), w->threadname);
+	THRDDEBUG MT_fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), w->threadname);
 	struct winthread *self = TlsGetValue(threadslot);
 	self->joinwait = w;
 	DWORD ret = WaitForSingleObject(w->hdl, INFINITE);
@@ -497,7 +497,7 @@ dump_threads(void)
 {
 	pthread_mutex_lock(&posthread_lock);
 	for (struct posthread *p = posthreads; p; p = p->next) {
-		fprintf(stderr, "%s, waiting for %s, working on %.200s\n",
+		MT_fprintf(stderr, "%s, waiting for %s, working on %.200s\n",
 			p->threadname,
 			p->lockwait ? p->lockwait->name :
 			p->semawait ? p->semawait->name :
@@ -515,14 +515,14 @@ MT_thread_init(void)
 	int ret;
 
 	if ((ret = pthread_key_create(&threadkey, NULL)) != 0) {
-		fprintf(stderr,
+		MT_fprintf(stderr,
 			"#MT_thread_init: creating specific key for thread "
 			"failed: %s\n", strerror(ret));
 		return false;
 	}
 	mainthread.tid = pthread_self();
 	if ((ret = pthread_setspecific(threadkey, &mainthread)) != 0) {
-		fprintf(stderr,
+		MT_fprintf(stderr,
 			"#MT_thread_init: setting specific value failed: %s\n",
 			strerror(ret));
 	}
@@ -634,7 +634,7 @@ thread_starter(void *arg)
 	pthread_setspecific(threadkey, p);
 	(*p->func)(data);
 	ATOMIC_SET(&p->exited, 1);
-	THRDDEBUG fprintf(stderr, "#exit \"%s\"\n", p->threadname);
+	THRDDEBUG MT_fprintf(stderr, "#exit \"%s\"\n", p->threadname);
 	return NULL;
 }
 
@@ -651,7 +651,7 @@ join_threads(void)
 			if (p->detached && !p->waiting && ATOMIC_GET(&p->exited)) {
 				p->waiting = true;
 				pthread_mutex_unlock(&posthread_lock);
-				THRDDEBUG fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), p->threadname);
+				THRDDEBUG MT_fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), p->threadname);
 				self->joinwait = p;
 				pthread_join(p->tid, NULL);
 				self->joinwait = NULL;
@@ -678,7 +678,7 @@ join_detached_threads(void)
 			if (p->detached && !p->waiting) {
 				p->waiting = true;
 				pthread_mutex_unlock(&posthread_lock);
-				THRDDEBUG fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), p->threadname);
+				THRDDEBUG MT_fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), p->threadname);
 				self->joinwait = p;
 				pthread_join(p->tid, NULL);
 				self->joinwait = NULL;
@@ -702,13 +702,13 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d, 
 
 	join_threads();
 	if ((ret = pthread_attr_init(&attr)) != 0) {
-		fprintf(stderr,
+		MT_fprintf(stderr,
 			"#MT_create_thread: cannot init pthread attr: %s\n",
 			strerror(ret));
 		return -1;
 	}
 	if ((ret = pthread_attr_setstacksize(&attr, THREAD_STACK_SIZE)) != 0) {
-		fprintf(stderr,
+		MT_fprintf(stderr,
 			"#MT_create_thread: cannot set stack size: %s\n",
 			strerror(ret));
 		pthread_attr_destroy(&attr);
@@ -716,7 +716,7 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d, 
 	}
 	p = malloc(sizeof(struct posthread));
 	if (p == NULL) {
-		fprintf(stderr,
+		MT_fprintf(stderr,
 			"#MT_create_thread: cannot allocate memory: %s\n",
 			strerror(errno));
 		pthread_attr_destroy(&attr);
@@ -739,10 +739,10 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d, 
 
 	(void) sigfillset(&new_mask);
 	MT_thread_sigmask(&new_mask, &orig_mask);
-	THRDDEBUG fprintf(stderr, "#create \"%s\" \"%s\"\n", MT_thread_getname(), threadname);
+	THRDDEBUG MT_fprintf(stderr, "#create \"%s\" \"%s\"\n", MT_thread_getname(), threadname);
 	ret = pthread_create(&p->tid, &attr, thread_starter, p);
 	if (ret != 0) {
-		fprintf(stderr,
+		MT_fprintf(stderr,
 			"#MT_create_thread: cannot start thread: %s\n",
 			strerror(ret));
 		rm_posthread(p);
@@ -786,13 +786,13 @@ MT_join_thread(MT_Id t)
 	p = find_posthread(t);
 	if (p == NULL)
 		return -1;
-	THRDDEBUG fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), p->threadname);
+	THRDDEBUG MT_fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), p->threadname);
 	struct posthread *self = pthread_getspecific(threadkey);
 	self->joinwait = p;
 	ret = pthread_join(p->tid, NULL);
 	self->joinwait = NULL;
 	if (ret != 0) {
-		fprintf(stderr, "#MT_join_thread: joining thread failed: %s\n",
+		MT_fprintf(stderr, "#MT_join_thread: joining thread failed: %s\n",
 			strerror(ret));
 		return -1;
 	}
@@ -857,4 +857,15 @@ MT_check_nr_cores(void)
 #endif
 
 	return ncpus;
+}
+
+int
+MT_check_endianness(void)
+{
+	int num = 1;
+	if(*(char *)&num == 1) {
+		return HOST_LITTLE_ENDIAN;
+	} else {
+		return HOST_BIG_ENDIAN;
+	}
 }

@@ -9,6 +9,8 @@
 #ifndef _MUTILS_H_
 #define _MUTILS_H_
 
+#include "monetdb_config.h"
+
 #ifdef WIN32
 #if !defined(LIBMUTILS) && !defined(LIBGDK) && !defined(LIBMEROUTIL)
 #define mutils_export extern __declspec(dllimport)
@@ -39,9 +41,7 @@ mutils_export DIR *opendir(const char *dirname);
 mutils_export struct dirent *readdir(DIR *dir);
 mutils_export void rewinddir(DIR *dir);
 mutils_export int closedir(DIR *dir);
-
 mutils_export char *dirname(char *path);
-
 #endif
 
 #ifndef S_IWGRP
@@ -66,15 +66,24 @@ mutils_export char *dirname(char *path);
 #define F_LOCK	1		/* lock a region for exclusive use */
 
 mutils_export int MT_lockf(char *filename, int mode, off_t off, off_t len);
+mutils_export int MT_rand(void);
+mutils_export void MT_srand(unsigned int seed);
 
+#ifndef HAVE_EMBEDDED
 /* Retrieves the absolute path to the executable being run, with no
  * extra /, /./, or /../ sequences.  On Darwin and Solaris this function
  * needs to be called before any chdirs are performed.  Returns a
  * pointer to a static buffer that is overwritten by subsequent calls to
  * this function. */
 mutils_export char *get_bin_path(void);
-
 /* Returns the Mercurial changeset of the current checkout, if available */
 mutils_export const char *mercurial_revision(void);
+#endif
+
+/* print to stdout/stderr conditionally */
+mutils_export void MT_fprintf_silent(bool silent);
+mutils_export int MT_fprintf(FILE *, _In_z_ _Printf_format_string_ const char *, ...)
+	__attribute__((__format__(__printf__, 2, 3)));
+mutils_export int MT_flush(FILE *);
 
 #endif	/* _MUTILS_H_ */

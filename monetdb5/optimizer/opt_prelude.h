@@ -316,4 +316,6 @@ mal_export  str wlcRef;
 mal_export  str wlrRef;
 mal_export  str zero_or_oneRef;
 /* ! please keep this list sorted for easier maintenance ! */
+
+void optimizerReset(void);
 #endif

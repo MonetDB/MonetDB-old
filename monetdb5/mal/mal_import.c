@@ -106,7 +106,6 @@ malLoadScript(str name, bstream **fdin)
 	}
 	return MAL_SUCCEED;
 }
-#endif
 
 /*
  * Beware that we have to isolate the execution of the source file
@@ -139,9 +138,6 @@ malLoadScript(str name, bstream **fdin)
 	restoreClient1 \
 	restoreClient2
 
-#ifdef HAVE_EMBEDDED
-extern char* mal_init_inline;
-#endif
 /*
  * The include operation parses the file indentified and
  * leaves the MAL code behind in the 'main' function.
@@ -172,38 +168,6 @@ malInclude(Client c, str name, int listing)
 	c->listing = listing;
 	c->fdin = NULL;
 
-#ifdef HAVE_EMBEDDED
-	(void) filename;
-	(void) p;
-	{
-		size_t mal_init_len = strlen(mal_init_inline);
-		buffer* mal_init_buf;
-		stream* mal_init_stream;
-
-		if ((mal_init_buf = GDKmalloc(sizeof(buffer))) == NULL)
-			throw(MAL, "malInclude", MAL_MALLOC_FAIL);
-		if ((mal_init_stream = buffer_rastream(mal_init_buf, name)) == NULL) {
-			GDKfree(mal_init_buf);
-			throw(MAL, "malInclude", MAL_MALLOC_FAIL);
-		}
-		buffer_init(mal_init_buf, mal_init_inline, mal_init_len);
-		c->srcFile = name;
-		c->yycur = 0;
-		c->bak = NULL;
-		if ((c->fdin = bstream_create(mal_init_stream, mal_init_len)) == NULL) {
-			mnstr_destroy(mal_init_stream);
-			GDKfree(mal_init_buf);
-			throw(MAL, "malInclude", MAL_MALLOC_FAIL);
-		}
-		bstream_next(c->fdin);
-		parseMAL(c, c->curprg, 1, INT_MAX);
-		free(mal_init_buf);
-		free(mal_init_stream);
-		free(c->fdin);
-		c->fdin = NULL;
-		GDKfree(mal_init_buf);
-	}
-#else
 	if ((filename = malResolveFile(name)) != NULL) {
 		name = filename;
 		do {
@@ -227,10 +191,11 @@ malInclude(Client c, str name, int listing)
 		GDKfree(name);
 		c->fdin = NULL;
 	}
-#endif
+
 	restoreClient;
 	return msg;
 }
+#endif
 
 /*File and input processing
  * A recurring situation is to execute a stream of simple MAL instructions

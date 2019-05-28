@@ -67,7 +67,7 @@ if(NOT MSVC AND NOT ${CMAKE_C_COMPILER_ID} MATCHES "^GNU|Intel|Clang|AppleClang$
 endif()
 if(NOT CMAKE_BUILD_TYPE) # Set default build options
 	message(STATUS "Setting build type to Debug as none was selected")
-	set(CMAKE_BUILD_TYPE Debug CACHE STRING "The type of build")
+	set(CMAKE_BUILD_TYPE Debug CACHE STRING "The type of build" FORCE)
 endif()
 
 # Extensions to use (please add to the OPTIONS_LIST bellow whenever a new option is added)
@@ -100,7 +100,7 @@ set(WITH_LIBXML2 "AUTO" CACHE STRING "Include libxml2 support (default=AUTO)") #
 set(WITH_LZ4 "AUTO" CACHE STRING "Include lz4 library support (default=AUTO)") # Check with HAVE_LIBLZ4
 set(WITH_PROJ "AUTO" CACHE STRING "Include proj support (default=AUTO)") # Check with HAVE_PROJ
 set(WITH_READLINE "AUTO" CACHE STRING "Include readline support (default=AUTO)") # Check with HAVE_LIBREADLINE
-set(WITH_REGEX "AUTO" CACHE STRING "Use either PCRE or POSIX regular expressions (default=AUTO)") # Check with HAVE_LIBPCRE and HAVE_POSIX_REGEX
+set(WITH_REGEX "AUTO" CACHE STRING "Use either PCRE or POSIX regular expressions (default=AUTO)") # Check with HAVE_LIBPCRE and HAVE_LIBGNUREGEX
 set(WITH_SNAPPY "AUTO" CACHE STRING "Include snappy support (default=AUTO)") # Check with HAVE_LIBSNAPPY
 set(WITH_UUID "AUTO" CACHE STRING "Include UUID support (default=AUTO)") # Check with HAVE_UUID
 set(WITH_VALGRIND "NO" CACHE STRING "Include valgrind support (default=NO)") # Check with HAVE_VALGRIND
@@ -459,9 +459,9 @@ endif()
 if(NOT HAVE_LIBPCRE)
 	set(PCRE_INCLUDE_DIR "" CACHE INTERNAL "pcre include directory" FORCE)
 	set(PCRE_LIBRARIES "" CACHE INTERNAL "pcre libraries to link" FORCE)
-	check_symbol_exists("regcomp" "regex.h" HAVE_POSIX_REGEX)
+	check_symbol_exists("regcomp" "regex.h" HAVE_LIBGNUREGEX)
 endif()
-if(NOT HAVE_LIBPCRE AND NOT HAVE_POSIX_REGEX)
+if(NOT HAVE_LIBPCRE AND NOT HAVE_LIBGNUREGEX)
 	if(${ENABLE_MONETDB5} STREQUAL "YES")
 		message(FATAL_ERROR "PCRE library or GNU regex library not found but required for MonetDB5")
 	else()

@@ -26,22 +26,3 @@ add_library(atoms OBJECT
 target_compile_definitions(atoms PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
 set_target_properties(atoms PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:atoms> PARENT_SCOPE)
-
-install(FILES
-		batxml.mal
-		blob.mal
-		color.mal
-		identifier.mal
-		inet.mal
-		json.mal
-		mtime.mal
-		streams.mal
-		str.mal
-		url.mal
-		uuid.mal
-		xml.mal
-		DESTINATION ${LIBDIR}/monetdb5)
-
-if(HAVE_HGE)
-	install(FILES 00_json_hge.mal DESTINATION ${LIBDIR}/monetdb5/autoload)
-endif()

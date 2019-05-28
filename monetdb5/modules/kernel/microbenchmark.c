@@ -16,13 +16,14 @@
  * @f microbenchmark
  */
 #include "monetdb_config.h"
+#include "mutils.h"
 #include "mal.h"
 #include <math.h>
 #include "mal_exception.h"
 #include "microbenchmark.h"
 
 #ifdef STATIC_CODE_ANALYSIS
-#define rand()		0
+#define MT_rand()		0
 #endif
 
 static gdk_return
@@ -58,20 +59,20 @@ BATrandom(BAT **bn, oid *base, lng *size, int *domain, int seed)
 
 	/* create BUNs with random distribution */
 	if (!is_int_nil(seed))
-		srand(seed);
+		MT_srand(seed);
 	if (is_int_nil(*domain)) {
 	        for (i = 0; i < n; i++) {
-			val[i] = rand();
+			val[i] = MT_rand();
 		}
 #if RAND_MAX < 46340	    /* 46340*46340 = 2147395600 < INT_MAX */
 	} else if (*domain > RAND_MAX + 1) {
 	        for (i = 0; i < n; i++) {
-			val[i] = (rand() * (RAND_MAX + 1) + rand()) % *domain;
+			val[i] = (MT_rand() * (RAND_MAX + 1) + MT_rand()) % *domain;
 		}
 #endif
 	} else {
 	        for (i = 0; i < n; i++) {
-			val[i] = rand() % *domain;
+			val[i] = MT_rand() % *domain;
 		}
 	}
 
@@ -125,7 +126,7 @@ BATuniform(BAT **bn, oid *base, lng *size, int *domain)
 
 	/* mix BUNs randomly */
 	for (r = 0, i = 0; i < n; i++) {
-		const BUN j = i + ((r += rand()) % (n - i));
+		const BUN j = i + ((r += MT_rand()) % (n - i));
 		const int tmp = val[i];
 
 		val[i] = val[j];
@@ -181,13 +182,13 @@ BATskewed(BAT **bn, oid *base, lng *size, int *domain, int *skew)
 
 	/* create BUNs with skewed distribution */
 	for (i = 0; i < skewedSize; i++)
-		val[i] = rand() % skewedDomain;
+		val[i] = MT_rand() % skewedDomain;
 	for( ; i < n; i++)
-		val[i] = (rand() % (*domain - skewedDomain)) + skewedDomain;
+		val[i] = (MT_rand() % (*domain - skewedDomain)) + skewedDomain;
 
 	/* mix BUNs randomly */
 	for (r = 0, i = 0; i < n; i++) {
-		const BUN j = i + ((r += rand()) % (n - i));
+		const BUN j = i + ((r += MT_rand()) % (n - i));
 		const int tmp = val[i];
 
 		val[i] = val[j];
@@ -370,7 +371,7 @@ MBMmix(bat *bn, bat *batid)
 	n = BATcount(b);
 	/* mix BUNs randomly */
 	for (r = i = 0; i < n; i++) {
-		BUN idx = i + ((r += (BUN) rand()) % (n - i));
+		BUN idx = i + ((r += (BUN) MT_rand()) % (n - i));
 		int val;
 
 		val = *(int *) Tloc(b, i);

@@ -15,9 +15,11 @@
 #include "mal_interpreter.h"
 #include "mal_resource.h"
 #include "mal_listing.h"
-#include "mal_debugger.h"   /* for mdbStep() */
 #include "mal_type.h"
 #include "mal_private.h"
+#ifndef HAVE_EMBEDDED
+#include "mal_debugger.h"   /* for mdbStep() */
+#endif
 
 static lng qptimeout = 0; /* how often we print still running queries (usec) */
 
@@ -390,7 +392,7 @@ callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *env, ValPtr argv[], char debug)
 
 	cntxt->lastcmd= time(0);
 #ifdef DEBUG_CALLMAL
-	fprintf(stderr, "callMAL\n");
+	MT_fprintf(stderr, "callMAL\n");
 	fprintInstruction(stderr, mb, 0, pci, LIST_MAL_ALL);
 #endif
 	switch (pci->token) {
@@ -427,10 +429,12 @@ callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *env, ValPtr argv[], char debug)
 		stk->cmd = debug;
 		ret = runMALsequence(cntxt, mb, 1, 0, stk, 0, 0);
 		break;
+#ifndef HAVE_EMBEDDED
 	case FACTORYsymbol:
 	case FACcall:
 		ret = callFactory(cntxt, mb, argv, debug);
 		break;
+#endif
 	case PATcall:
 	case CMDcall:
 	default:
@@ -462,11 +466,14 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 	ValPtr backup;
 	int garbages[16], *garbage;
 	int stkpc = 0;
+
+#ifndef HAVE_EMBEDDED
 	RuntimeProfileRecord runtimeProfile, runtimeProfileFunction;
 	lng lastcheck = 0;
 	int	startedProfileQueue = 0;
 #define CHECKINTERVAL 1000 /* how often do we check for client disconnect */
 	runtimeProfile.ticks = runtimeProfileFunction.ticks = 0;
+#endif
 
 	if (stk == NULL)
 		throw(MAL, "mal.interpreter", MAL_STACK_FAIL);
@@ -505,9 +512,11 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 
 	/* also produce event record for start of function */
 	if ( startpc == 1 &&  startpc < mb->stop ){
+#ifndef HAVE_EMBEDDED
 		startedProfileQueue = 1;
 		runtimeProfileInit(cntxt, mb, stk);
 		runtimeProfileBegin(cntxt, mb, stk, getInstrPtr(mb,0), &runtimeProfileFunction);
+#endif
 		mb->starttime = GDKusec();
 		if (cntxt->stimeout && cntxt->session && GDKusec()- cntxt->session > cntxt->stimeout) {
 			if ( backup != backups) GDKfree(backup);
@@ -540,7 +549,9 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 
 			if (stk->cmd == 0)
 				stk->cmd = cntxt->itrace;
+#ifndef HAVE_EMBEDDED
 			mdbStep(cntxt, mb, stk, stkpc);
+#endif
 			if (stk->cmd == 'x' ) {
 				stk->cmd = 0;
 				stkpc = mb->stop;
@@ -549,6 +560,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 		}
 #endif
 
+#ifndef HAVE_EMBEDDED
 		//Ensure we spread system resources over multiple users as well.
 		runtimeProfileBegin(cntxt, mb, stk, pci, &runtimeProfile);
 		if (runtimeProfile.ticks > lastcheck + CHECKINTERVAL) {
@@ -560,6 +572,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			}
 			lastcheck = runtimeProfile.ticks;
 		}
+#endif
 
 		if (qptimeout > 0) {
 			lng t = GDKusec();
@@ -694,6 +707,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			}
 #endif
 			break;
+#ifndef HAVE_EMBEDDED
 		case FACcall:
 			/*
 			 * Factory calls are more involved. At this stage it
@@ -719,6 +733,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 				ret = runFactory(cntxt, pci->blk, mb, stk, pci);
 			}
 			break;
+#endif
 		case FCNcall:
 			/*
 			 * MAL function calls are relatively expensive,
@@ -779,10 +794,12 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 		case REMsymbol:
 			break;
 		case ENDsymbol:
+#ifndef HAVE_EMBEDDED
 			if (getInstrPtr(mb, 0)->token == FACTORYsymbol)
 				ret = shutdownFactory(cntxt, mb);
 			runtimeProfileExit(cntxt, mb, stk, pci, &runtimeProfile);
 			runtimeProfileExit(cntxt, mb, stk, getInstrPtr(mb,0), &runtimeProfileFunction);
+#endif
 			if (pcicaller && garbageControl(getInstrPtr(mb, 0)))
 				garbageCollector(cntxt, mb, stk, TRUE);
 			if (cntxt->qtimeout && mb->starttime && GDKusec()- mb->starttime > cntxt->qtimeout){
@@ -818,7 +835,9 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 		/* this hack means we loose a closing event */
 		if( mb->stop <= 1)
 			continue;
+#ifndef HAVE_EMBEDDED
 		runtimeProfileExit(cntxt, mb, stk, pci, &runtimeProfile);
+#endif
 		/* check for strong debugging after each MAL statement */
 		/* when we find a timeout situation, then the result is already known 
 		 * and assigned,  the backup version is not removed*/
@@ -864,7 +883,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 						bat bid = stk->stk[a].val.bval;
 
 						if (garbage[i] >= 0) {
-							PARDEBUG fprintf(stderr, "#GC pc=%d bid=%d %s done\n", stkpc, bid, getVarName(mb, garbage[i]));
+							PARDEBUG MT_fprintf(stderr, "#GC pc=%d bid=%d %s done\n", stkpc, bid, getVarName(mb, garbage[i]));
 							bid = stk->stk[garbage[i]].val.bval;
 							stk->stk[garbage[i]].val.bval = bat_nil;
 							BBPrelease(bid);
@@ -1159,28 +1178,34 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 						break;
 				}
 			}
+#ifndef HAVE_EMBEDDED
 			if (stkpc == mb->stop) {
 				runtimeProfileExit(cntxt, mb, stk, pci, &runtimeProfile);
 				runtimeProfileExit(cntxt, mb, stk, getInstrPtr(mb,0), &runtimeProfileFunction);
 				break;
 			}
+#endif
 			if (stkpc == mb->stop)
 				ret = mb->errors = createMalException(mb, stkpc, TYPE,
 					"Exception raised\n");
 			break;
+#ifndef HAVE_EMBEDDED
 		case YIELDsymbol:     /* to be defined */
 			if( startedProfileQueue)
 				runtimeProfileFinish(cntxt, mb, stk);
 			if ( backup != backups) GDKfree(backup);
 			if ( garbage != garbages) GDKfree(garbage);
 			return yieldFactory(mb, pci, stkpc);
+#endif
 		case RETURNsymbol:
 			/* Return from factory involves cleanup */
 
+#ifndef HAVE_EMBEDDED
 			if (getInstrPtr(mb, 0)->token == FACTORYsymbol) {
 				yieldResult(mb, pci, stkpc);
 				shutdownFactory(cntxt, mb);
 			} else {
+#endif
 				/* a fake multi-assignment */
 				if (env != NULL && pcicaller != NULL) {
 					InstrPtr pp = pci;
@@ -1196,11 +1221,15 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 					}
 					if (garbageControl(getInstrPtr(mb, 0)))
 						garbageCollector(cntxt, mb, stk, TRUE);
+#ifndef HAVE_EMBEDDED
 					/* reset the clock */
 					runtimeProfileExit(cntxt, mb, stk, pp, &runtimeProfile);
 					runtimeProfileExit(cntxt, mb, stk, getInstrPtr(mb,0), &runtimeProfileFunction);
-				} 
+#endif
+				}
+#ifndef HAVE_EMBEDDED
 			}
+#endif
 			stkpc = mb->stop;
 			continue;
 		default:
@@ -1237,8 +1266,10 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			ret = createException(MAL, nme, "Exception not caught");
 		}
 	}
+#ifndef HAVE_EMBEDDED
 	if( startedProfileQueue)
 		runtimeProfileFinish(cntxt, mb, stk);
+#endif
 	if ( backup != backups) GDKfree(backup);
 	if ( garbage != garbages) GDKfree(garbage);
 	return ret;
@@ -1380,7 +1411,7 @@ void garbageElement(Client cntxt, ValPtr v)
 		 * All references should be logical.
 		 */
 		bat bid = v->val.bval;
-		/* printf("garbage collecting: %d lrefs=%d refs=%d\n",
+		/* MT_fprintf(stdout, "garbage collecting: %d lrefs=%d refs=%d\n",
 		   bid, BBP_lrefs(bid),BBP_refs(bid));*/
 		v->val.bval = bat_nil;
 		if (is_bat_nil(bid))

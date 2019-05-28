@@ -14,6 +14,7 @@
 #include <time.h>
 
 #include "msabaoth.h"
+#include "mutils.h"
 #include "utils/glob.h"
 #include "utils/utils.h"
 #include "utils/properties.h"
@@ -444,8 +445,8 @@ discoveryRunner(void *d)
 			Mfprintf(_mero_discout, "new neighbour %s (%s)\n", buf + 5, host);
 			/* sleep a random amount of time to avoid an avalanche of
 			 * ANNC messages flooding the network */
-#ifndef STATIC_CODE_ANALYSIS	/* hide rand() from Coverity */
-			sleep_ms(1 + (int)(2500.0 * (rand() / (RAND_MAX + 1.0))));
+#ifndef STATIC_CODE_ANALYSIS	/* hide MT_rand() from Coverity */
+			sleep_ms(1 + (int)(2500.0 * (MT_rand() / (RAND_MAX + 1.0))));
 #endif
 			/* force an announcement round by dropping the deadline */
 			forceannc = 1;

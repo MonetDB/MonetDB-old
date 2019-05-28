@@ -137,13 +137,13 @@ MALadmission(lng argclaim, lng hotclaim)
 			memorypool -= (argclaim + hotclaim);
 			memoryclaims++;
 			PARDEBUG
-			fprintf(stderr, "#DFLOWadmit %3d thread %d pool " LLFMT "claims " LLFMT "," LLFMT "\n",
+			MT_fprintf(stderr, "#DFLOWadmit %3d thread %d pool " LLFMT "claims " LLFMT "," LLFMT "\n",
 						 memoryclaims, THRgettid(), memorypool, argclaim, hotclaim);
 			MT_lock_unset(&admissionLock);
 			return 0;
 		}
 		PARDEBUG
-		fprintf(stderr, "#Delayed due to lack of memory " LLFMT " requested " LLFMT " memoryclaims %d\n", memorypool, argclaim + hotclaim, memoryclaims);
+		MT_fprintf(stderr, "#Delayed due to lack of memory " LLFMT " requested " LLFMT " memoryclaims %d\n", memorypool, argclaim + hotclaim, memoryclaims);
 		MT_lock_unset(&admissionLock);
 		return -1;
 	}
@@ -151,7 +151,7 @@ MALadmission(lng argclaim, lng hotclaim)
 	memorypool += -argclaim - hotclaim;
 	memoryclaims--;
 	PARDEBUG
-	fprintf(stderr, "#DFLOWadmit %3d thread %d pool " LLFMT " claims " LLFMT "," LLFMT "\n",
+	MT_fprintf(stderr, "#DFLOWadmit %3d thread %d pool " LLFMT " claims " LLFMT "," LLFMT "\n",
 				 memoryclaims, THRgettid(), memorypool, argclaim, hotclaim);
 	MT_lock_unset(&admissionLock);
 	return 0;
@@ -195,11 +195,11 @@ MALresourceFairness(lng usec)
 	/* always keep one running to avoid all waiting  */
 	while (clk > DELAYUNIT && users > 1 && (int) ATOMIC_GET(&mal_running) > GDKnr_threads && rss > MEMORY_THRESHOLD) {
 		if ( delayed++ == 0){
-				PARDEBUG fprintf(stderr, "#delay initial ["LLFMT"] memory  %zu[%f]\n", clk, rss, MEMORY_THRESHOLD );
+				PARDEBUG MT_fprintf(stderr, "#delay initial ["LLFMT"] memory  %zu[%f]\n", clk, rss, MEMORY_THRESHOLD );
 		}
 		if ( delayed == MAX_DELAYS){
-				PARDEBUG fprintf(stderr, "#delay abort ["LLFMT"] memory  %zu[%f]\n", clk, rss, MEMORY_THRESHOLD );
-				PARDEBUG fflush(stderr);
+				PARDEBUG MT_fprintf(stderr, "#delay abort ["LLFMT"] memory  %zu[%f]\n", clk, rss, MEMORY_THRESHOLD );
+				PARDEBUG MT_flush(stderr);
 				break;
 		}
 		MT_sleep_ms(DELAYUNIT);

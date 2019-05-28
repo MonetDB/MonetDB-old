@@ -16,6 +16,7 @@
 #include "mal_function.h"
 #include "monet_version.h"
 #include "mal_authorize.h"
+#include "mal_embedded.h"
 #include "msabaoth.h"
 #include "mutils.h"
 #include <signal.h>
@@ -34,8 +35,8 @@
 void
 mserver_abort()
 {
-	fprintf(stderr, "\n! mserver_abort() was called by terminate(). !\n");
-	fflush(stderr);
+	MT_fprintf(stderr, "\n! mserver_abort() was called by terminate(). !\n");
+	MT_flush(stderr);
 	exit(0);
 }
 #endif
@@ -65,30 +66,30 @@ static _Noreturn void usage(char *prog, int xit);
 static void
 usage(char *prog, int xit)
 {
-	fprintf(stderr, "Usage: %s [options] [scripts]\n", prog);
-	fprintf(stderr, "    --dbpath=<directory>      Specify database location\n");
-	fprintf(stderr, "    --dbextra=<directory>     Directory for transient BATs\n");
-	fprintf(stderr, "    --config=<config_file>    Use config_file to read options from\n");
-	fprintf(stderr, "    --single-user             Allow only one user at a time\n");
-	fprintf(stderr, "    --readonly                Safeguard database\n");
-	fprintf(stderr, "    --set <option>=<value>    Set configuration option\n");
-	fprintf(stderr, "    --help                    Print this list of options\n");
-	fprintf(stderr, "    --version                 Print version and compile time info\n");
-	fprintf(stderr, "    --verbose[=value]         Set or increase verbosity level\n");
+	MT_fprintf(stderr, "Usage: %s [options] [scripts]\n", prog);
+	MT_fprintf(stderr, "    --dbpath=<directory>      Specify database location\n");
+	MT_fprintf(stderr, "    --dbextra=<directory>     Directory for transient BATs\n");
+	MT_fprintf(stderr, "    --config=<config_file>    Use config_file to read options from\n");
+	MT_fprintf(stderr, "    --single-user             Allow only one user at a time\n");
+	MT_fprintf(stderr, "    --readonly                Safeguard database\n");
+	MT_fprintf(stderr, "    --set <option>=<value>    Set configuration option\n");
+	MT_fprintf(stderr, "    --help                    Print this list of options\n");
+	MT_fprintf(stderr, "    --version                 Print version and compile time info\n");
+	MT_fprintf(stderr, "    --verbose[=value]         Set or increase verbosity level\n");
 
-	fprintf(stderr, "The debug, testing & trace options:\n");
-	fprintf(stderr, "     --threads\n");
-	fprintf(stderr, "     --memory\n");
-	fprintf(stderr, "     --io\n");
-	fprintf(stderr, "     --heaps\n");
-	fprintf(stderr, "     --properties\n");
-	fprintf(stderr, "     --transactions\n");
-	fprintf(stderr, "     --modules\n");
-	fprintf(stderr, "     --algorithms\n");
-	fprintf(stderr, "     --performance\n");
-	fprintf(stderr, "     --optimizers\n");
-	fprintf(stderr, "     --forcemito\n");
-	fprintf(stderr, "     --debug=<bitmask>\n");
+	MT_fprintf(stderr, "The debug, testing & trace options:\n");
+	MT_fprintf(stderr, "     --threads\n");
+	MT_fprintf(stderr, "     --memory\n");
+	MT_fprintf(stderr, "     --io\n");
+	MT_fprintf(stderr, "     --heaps\n");
+	MT_fprintf(stderr, "     --properties\n");
+	MT_fprintf(stderr, "     --transactions\n");
+	MT_fprintf(stderr, "     --modules\n");
+	MT_fprintf(stderr, "     --algorithms\n");
+	MT_fprintf(stderr, "     --performance\n");
+	MT_fprintf(stderr, "     --optimizers\n");
+	MT_fprintf(stderr, "     --forcemito\n");
+	MT_fprintf(stderr, "     --debug=<bitmask>\n");
 
 	exit(xit);
 }
@@ -110,23 +111,23 @@ monet_hello(void)
 		qi++;
 	}
 
-	printf("# MonetDB 5 server v%s", GDKversion());
+	MT_fprintf(stdout, "# MonetDB 5 server v%s", GDKversion());
 	{
 #ifdef MONETDB_RELEASE
-		printf(" (%s)", MONETDB_RELEASE);
+		MT_fprintf(stdout, " (%s)", MONETDB_RELEASE);
 #else
 		const char *rev = mercurial_revision();
 		if (strcmp(rev, "Unknown") != 0)
-			printf(" (hg id: %s)", rev);
+			MT_fprintf(stdout, " (hg id: %s)", rev);
 #endif
 	}
 #ifndef MONETDB_RELEASE
-	printf("\n# This is an unreleased version");
+	MT_fprintf(stdout, "\n# This is an unreleased version");
 #endif
-	printf("\n# Serving database '%s', using %d thread%s\n",
+	MT_fprintf(stdout, "\n# Serving database '%s', using %d thread%s\n",
 			GDKgetenv("gdk_dbname"),
 			GDKnr_threads, (GDKnr_threads != 1) ? "s" : "");
-	printf("# Compiled for %s/%zubit%s\n",
+	MT_fprintf(stdout, "# Compiled for %s/%zubit%s\n",
 			HOST, sizeof(ptr) * 8,
 #ifdef HAVE_HGE
 			" with 128bit integers"
@@ -134,15 +135,15 @@ monet_hello(void)
 			""
 #endif
 			);
-	printf("# Found %.3f %ciB available main-memory.\n",
+	MT_fprintf(stdout, "# Found %.3f %ciB available main-memory.\n",
 			sz_mem_h, qc[qi]);
 #ifdef MONET_GLOBAL_DEBUG
-	printf("# Database path:%s\n", GDKgetenv("gdk_dbpath"));
-	printf("# Module path:%s\n", GDKgetenv("monet_mod_path"));
+	MT_fprintf(stdout, "# Database path:%s\n", GDKgetenv("gdk_dbpath"));
+	MT_fprintf(stdout, "# Module path:%s\n", GDKgetenv("monet_mod_path"));
 #endif
-	printf("# Copyright (c) 1993 - July 2008 CWI.\n");
-	printf("# Copyright (c) August 2008 - 2019 MonetDB B.V., all rights reserved\n");
-	printf("# Visit https://www.monetdb.org/ for further information\n");
+	MT_fprintf(stdout, "# Copyright (c) 1993 - July 2008 CWI.\n");
+	MT_fprintf(stdout, "# Copyright (c) August 2008 - 2019 MonetDB B.V., all rights reserved\n");
+	MT_fprintf(stdout, "# Visit https://www.monetdb.org/ for further information\n");
 
 	// The properties shipped through the performance profiler
 	(void) snprintf(monet_characteristics, sizeof(monet_characteristics),
@@ -272,14 +273,15 @@ main(int argc, char **av)
 	_set_output_format(_TWO_DIGIT_EXPONENT);
 #endif
 #endif
+
 	if (setlocale(LC_CTYPE, "") == NULL) {
-		fprintf(stderr, "cannot set locale\n");
+		MT_fprintf(stderr, "cannot set locale\n");
 		exit(1);
 	}
 
 	if (getcwd(monet_cwd, FILENAME_MAX - 1) == NULL) {
 		perror("pwd");
-		fprintf(stderr,"monet_init: could not determine current directory\n");
+		MT_fprintf(stderr, "monet_init: could not determine current directory\n");
 		exit(-1);
 	}
 
@@ -315,14 +317,14 @@ main(int argc, char **av)
 					optarg[--optarglen] = '\0';
 				dbpath = absolute_path(optarg);
 				if( dbpath == NULL)
-					fprintf(stderr, "#error: can not allocate memory for dbpath\n");
+					MT_fprintf(stderr, "#error: can not allocate memory for dbpath\n");
 				else
 					setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_dbpath", dbpath);
 				break;
 			}
 			if (strcmp(long_options[option_index].name, "dbextra") == 0) {
 				if (dbextra)
-					fprintf(stderr, "#warning: ignoring multiple --dbextra arguments\n");
+					MT_fprintf(stderr, "#warning: ignoring multiple --dbextra arguments\n");
 				else
 					dbextra = optarg;
 				break;
@@ -391,7 +393,7 @@ main(int argc, char **av)
 				char *endarg;
 				debug |= strtol(optarg, &endarg, 10);
 				if (*endarg != '\0') {
-					fprintf(stderr, "ERROR: wrong format for --debug=%s\n",
+					MT_fprintf(stderr, "ERROR: wrong format for --debug=%s\n",
 							optarg);
 					usage(prog, -1);
 				}
@@ -411,7 +413,7 @@ main(int argc, char **av)
 				*tmp = '\0';
 				setlen = mo_add_option(&set, setlen, opt_cmdline, optarg, tmp + 1);
 			} else
-				fprintf(stderr, "ERROR: wrong format %s\n", optarg);
+				MT_fprintf(stderr, "ERROR: wrong format %s\n", optarg);
 			}
 			break;
 		case 'v':
@@ -419,7 +421,7 @@ main(int argc, char **av)
 				char *endarg;
 				verbosity = (int) strtol(optarg, &endarg, 10);
 				if (*endarg != '\0') {
-					fprintf(stderr, "ERROR: wrong format for --verbose=%s\n",
+					MT_fprintf(stderr, "ERROR: wrong format for --verbose=%s\n",
 							optarg);
 					usage(prog, -1);
 				}
@@ -433,7 +435,7 @@ main(int argc, char **av)
 			   it: if -? or --help, exit with 0, else with -1 */
 			usage(prog, strcmp(av[optind - 1], "-?") == 0 || strcmp(av[optind - 1], "--help") == 0 ? 0 : -1);
 		default:
-			fprintf(stderr, "ERROR: getopt returned character "
+			MT_fprintf(stderr, "ERROR: getopt returned character "
 				"code '%c' 0%o\n", c, (uint8_t) c);
 			usage(prog, -1);
 		}
@@ -449,14 +451,14 @@ main(int argc, char **av)
 
 	monet_script = (str *) malloc(sizeof(str) * (argc + 1));
 	if (monet_script == NULL) {
-		fprintf(stderr, "!ERROR: cannot allocate memory for script \n");
+		MT_fprintf(stderr, "!ERROR: cannot allocate memory for script \n");
 		exit(1);
 	}
 	i = 0;
 	while (optind < argc) {
 		monet_script[i] = absolute_path(av[optind]);
 		if (monet_script[i] == NULL) {
-			fprintf(stderr, "!ERROR: cannot allocate memory for script \n");
+			MT_fprintf(stderr, "!ERROR: cannot allocate memory for script \n");
 			exit(1);
 		}
 		i++;
@@ -466,23 +468,23 @@ main(int argc, char **av)
 	if (!dbpath) {
 		dbpath = absolute_path(mo_find_option(set, setlen, "gdk_dbpath"));
 		if (!dbpath) {
-			fprintf(stderr, "!ERROR: cannot allocate memory for database directory \n");
+			MT_fprintf(stderr, "!ERROR: cannot allocate memory for database directory \n");
 			exit(1);
 		}
 	}
 	if (inmemory) {
 		if (BBPaddfarm(NULL, (1 << PERSISTENT) | (1 << TRANSIENT)) != GDK_SUCCEED) {
-			fprintf(stderr, "!ERROR: cannot add in-memory farm\n");
+			MT_fprintf(stderr, "!ERROR: cannot add in-memory farm\n");
 			exit(1);
 		}
 	} else {
 		if (BBPaddfarm(dbpath, 1 << PERSISTENT) != GDK_SUCCEED ||
 		    BBPaddfarm(dbextra ? dbextra : dbpath, 1 << TRANSIENT) != GDK_SUCCEED) {
-			fprintf(stderr, "!ERROR: cannot add farm\n");
+			MT_fprintf(stderr, "!ERROR: cannot add farm\n");
 			exit(1);
 		}
 		if (GDKcreatedir(dbpath) != GDK_SUCCEED) {
-			fprintf(stderr, "!ERROR: cannot create directory for %s\n", dbpath);
+			MT_fprintf(stderr, "!ERROR: cannot create directory for %s\n", dbpath);
 			exit(1);
 		}
 	}
@@ -490,7 +492,7 @@ main(int argc, char **av)
 	if (monet_init(set, setlen) == 0) {
 		mo_free_options(set, setlen);
 		if (GDKerrbuf && *GDKerrbuf)
-			fprintf(stderr, "%s\n", GDKerrbuf);
+			MT_fprintf(stderr, "%s\n", GDKerrbuf);
 		exit(1);
 	}
 	mo_free_options(set, setlen);
@@ -503,7 +505,7 @@ main(int argc, char **av)
 		      "unreleased"
 #endif
 		    ) != GDK_SUCCEED) {
-		fprintf(stderr, "!ERROR: GDKsetenv failed\n");
+		MT_fprintf(stderr, "!ERROR: GDKsetenv failed\n");
 		exit(1);
 	}
 
@@ -545,20 +547,20 @@ main(int argc, char **av)
 					}
 				}
 			} else {
-				printf("#warning: unusable binary location, "
+				MT_fprintf(stdout, "#warning: unusable binary location, "
 					   "please use --set monet_mod_path=/path/to/... to "
 					   "allow finding modules\n");
-				fflush(NULL);
+				MT_flush(NULL);
 			}
 		} else {
-			printf("#warning: unable to determine binary location, "
+			MT_fprintf(stdout, "#warning: unable to determine binary location, "
 				   "please use --set monet_mod_path=/path/to/... to "
 				   "allow finding modules\n");
-			fflush(NULL);
+			MT_flush(NULL);
 		}
 		if (modpath != NULL &&
 		    GDKsetenv("monet_mod_path", modpath) != GDK_SUCCEED) {
-			fprintf(stderr, "!ERROR: GDKsetenv failed\n");
+			MT_fprintf(stderr, "!ERROR: GDKsetenv failed\n");
 			exit(1);
 		}
 	}
@@ -575,7 +577,7 @@ main(int argc, char **av)
 		 * even earlier?  Sabaoth here registers the server is starting up. */
 		if ((err = msab_registerStarting()) != NULL) {
 			/* throw the error at the user, but don't die */
-			fprintf(stderr, "!%s\n", err);
+			MT_fprintf(stderr, "!%s\n", err);
 			free(err);
 		}
 	}
@@ -590,22 +592,22 @@ main(int argc, char **av)
 		if (sigaction(SIGINT, &sa, NULL) == -1 ||
 		    sigaction(SIGQUIT, &sa, NULL) == -1 ||
 		    sigaction(SIGTERM, &sa, NULL) == -1) {
-			fprintf(stderr, "!unable to create signal handlers\n");
+			MT_fprintf(stderr, "!unable to create signal handlers\n");
 		}
 	}
 #else
 #ifdef _MSC_VER
 	if (!SetConsoleCtrlHandler(winhandler, TRUE))
-		fprintf(stderr, "!unable to create console control handler\n");
+		MT_fprintf(stderr, "!unable to create console control handler\n");
 #else
 	if(signal(SIGINT, handler) == SIG_ERR)
-		fprintf(stderr, "!unable to create signal handlers\n");
+		MT_fprintf(stderr, "!unable to create signal handlers\n");
 #ifdef SIGQUIT
 	if(signal(SIGQUIT, handler) == SIG_ERR)
-		fprintf(stderr, "!unable to create signal handlers\n");
+		MT_fprintf(stderr, "!unable to create signal handlers\n");
 #endif
 	if(signal(SIGTERM, handler) == SIG_ERR)
-		fprintf(stderr, "!unable to create signal handlers\n");
+		MT_fprintf(stderr, "!unable to create signal handlers\n");
 #endif
 #endif
 
@@ -614,7 +616,7 @@ main(int argc, char **av)
 		/* we inited mal before, so publish its existence */
 		if ((err = msab_marchScenario(lang)) != NULL) {
 			/* throw the error at the user, but don't die */
-			fprintf(stderr, "!%s\n", err);
+			MT_fprintf(stderr, "!%s\n", err);
 			free(err);
 		}
 	}
@@ -632,7 +634,7 @@ main(int argc, char **av)
 			snprintf(secret, sizeof(secret), "%s", "Xas632jsi2whjds8");
 		} else {
 			if ((secretf = fopen(GDKgetenv("monet_vault_key"), "r")) == NULL) {
-				fprintf(stderr,
+				MT_fprintf(stderr,
 					"unable to open vault_key_file %s: %s\n",
 					GDKgetenv("monet_vault_key"), strerror(errno));
 				/* don't show this as a crash */
@@ -643,12 +645,12 @@ main(int argc, char **av)
 			secret[len] = '\0';
 			len = strlen(secret); /* secret can contain null-bytes */
 			if (len == 0) {
-				fprintf(stderr, "vault key has zero-length!\n");
+				MT_fprintf(stderr, "vault key has zero-length!\n");
 				/* don't show this as a crash */
 				msab_registerStop();
 				exit(1);
 			} else if (len < 5) {
-				fprintf(stderr, "#warning: your vault key is too short "
+				MT_fprintf(stderr, "#warning: your vault key is too short "
 								"(%zu), enlarge your vault key!\n", len);
 			}
 			fclose(secretf);
@@ -657,7 +659,7 @@ main(int argc, char **av)
 			/* don't show this as a crash */
 			if (!GDKinmemory())
 				msab_registerStop();
-			fprintf(stderr, "%s\n", err);
+			MT_fprintf(stderr, "%s\n", err);
 			freeException(err);
 			exit(1);
 		}
@@ -667,15 +669,17 @@ main(int argc, char **av)
 		/* don't show this as a crash */
 		if (!GDKinmemory())
 			msab_registerStop();
-		fprintf(stderr, "%s\n", err);
+		MT_fprintf(stderr, "%s\n", err);
 		freeException(err);
 		exit(1);
 	}
-	if (mal_init()) {
+	if ((err = malEmbeddedBoot("libmonetdb5")) != MAL_SUCCEED) {
 		/* don't show this as a crash */
 		if (!GDKinmemory())
 			msab_registerStop();
-		return 0;
+		MT_fprintf(stderr, "%s\n", err);
+		freeException(err);
+		return -1;
 	}
 
 	emergencyBreakpoint();
@@ -684,8 +688,8 @@ main(int argc, char **av)
 		/* check for internal exception message to terminate */
 		if (msg) {
 			if (strcmp(msg, "MALException:client.quit:Server stopped.") == 0)
-				mal_exit(0);
-			fprintf(stderr, "#%s: %s\n", monet_script[i], msg);
+				malEmbeddedStop(0);
+			MT_fprintf(stderr, "#%s: %s\n", monet_script[i], msg);
 			freeException(msg);
 		}
 		GDKfree(monet_script[i]);
@@ -695,7 +699,7 @@ main(int argc, char **av)
 
 	if (!GDKinmemory() && (err = msab_registerStarted()) != NULL) {
 		/* throw the error at the user, but don't die */
-		fprintf(stderr, "!%s\n", err);
+		MT_fprintf(stderr, "!%s\n", err);
 		free(err);
 	}
 
@@ -704,9 +708,9 @@ main(int argc, char **av)
 		MT_sleep_ms(100);
 	}
 
-	/* mal_exit calls exit, so statements after this call will
+	/* malEmbeddedStop calls exit, so statements after this call will
 	 * never get reached */
-	mal_exit(0);
+	malEmbeddedStop(0);
 
 	return 0;
 }

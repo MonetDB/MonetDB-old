@@ -14,10 +14,9 @@
 #include "monetdb_config.h"
 #include "opt_prelude.h"
 #include "algebra.h"
-#include "generator.h"
+#include "sql_generator.h"
 #include "mtime.h"
 #include <math.h>
-
 
 #define IDENTITY(x)	(x)
 

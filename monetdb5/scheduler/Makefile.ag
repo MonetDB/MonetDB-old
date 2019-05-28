@@ -22,10 +22,4 @@ lib_scheduler = {
 		run_pipeline.c run_pipeline.h
 }
 
-headers_mal = {
-	HEADERS = mal
-	DIR = libdir/monetdb5
-	SOURCES = run_adder.mal run_isolate.mal run_memo.mal
-}
-
 EXTRA_DIST_DIR = Tests

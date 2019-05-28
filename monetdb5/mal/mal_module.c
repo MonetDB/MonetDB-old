@@ -72,7 +72,7 @@ mal_module_reset(void)
 	Module m;
 
 #ifdef _DEBUG_MODULE_
-	fprintf(stderr,"#et the globale module structure \n");
+	MT_fprintf(stderr,"#et the globale module structure \n");
 #endif
 	for(i = 0; i < MODULE_HASH_SIZE; i++) {
 		m= moduleIndex[i];
@@ -167,7 +167,7 @@ Module globalModule(str nme)
 	// Global modules are not named 'user'
 	assert (strcmp(nme, "user"));
 #ifdef _DEBUG_MODULE_
-	fprintf(stderr,"#create new global module %s\n",nme);
+	MT_fprintf(stderr,"#create new global module %s\n",nme);
 #endif
 	nme = putName(nme);
 	cur = (Module) GDKzalloc(sizeof(ModuleRecord));
@@ -227,7 +227,7 @@ static void freeSubScope(Module scope)
 	if (scope->space == NULL) 
 		return;
 #ifdef _DEBUG_MODULE_
-	fprintf(stderr,"#freeSubScope %s \n", scope->name);
+	MT_fprintf(stderr,"#freeSubScope %s \n", scope->name);
 #endif
 	for(i = 0; i < MAXSCOPE; i++) {
 		if( scope->space[i]){
@@ -251,13 +251,15 @@ void freeModule(Module m)
 		if (pci && pci->token == COMMANDsymbol && pci->argc == 1) {
 			int ret = 0;
 
-			assert(pci->fcn != NULL);
-			(*pci->fcn)(&ret);
+			if ( pci->fcn)
+				(*pci->fcn)(&ret);
+			else
+				GDKerror("Missing address for epilogue '%s' ", m->name); 
 			(void)ret;
 		}
 	}
 #ifdef _DEBUG_MODULE_
-	fprintf(stderr,"#freeModue %s \n", m->name);
+	MT_fprintf(stderr,"#freeModue %s \n", m->name);
 #endif
 	freeSubScope(m);	
 	if (strcmp(m->name, "user")) {
@@ -282,7 +284,7 @@ void insertSymbol(Module scope, Symbol prg){
 	assert(scope);
 	sig = getSignature(prg);
 #ifdef _DEBUG_MODULE_
-	fprintf(stderr,"#insertSymbol: %s.%s in %s ", getModuleId(sig), getFunctionId(sig), scope->name);
+	MT_fprintf(stderr,"#insertSymbol: %s.%s in %s ", getModuleId(sig), getFunctionId(sig), scope->name);
 #endif
 	if(getModuleId(sig) && getModuleId(sig)!= scope->name){
 		/* move the definition to the proper place */
@@ -291,7 +293,7 @@ void insertSymbol(Module scope, Symbol prg){
 		if ( c )
 			scope = c;
 #ifdef _DEBUG_MODULE_
-	fprintf(stderr," found alternative module %s ", scope->name);
+	MT_fprintf(stderr," found alternative module %s ", scope->name);
 #endif
 	}
 	t = getSymbolIndex(getFunctionId(sig));
@@ -304,7 +306,7 @@ void insertSymbol(Module scope, Symbol prg){
 	if (scope->space[t] == prg){
 		/* already known, last inserted */
 #ifdef _DEBUG_MODULE_
-	fprintf(stderr," unexpected double insert  ");
+	MT_fprintf(stderr," unexpected double insert  ");
 #endif
 	} else {
 		prg->peer= scope->space[t];
@@ -317,7 +319,7 @@ void insertSymbol(Module scope, Symbol prg){
 	}
 	assert(prg != prg->peer);
 #ifdef _DEBUG_MODULE_
-	fprintf(stderr,"\n");
+	MT_fprintf(stderr,"\n");
 #endif
 }
 /*
@@ -333,7 +335,7 @@ void deleteSymbol(Module scope, Symbol prg){
 
 	sig = getSignature(prg);
 #ifdef _DEBUG_MODULE_
-	fprintf(stderr,"#delete symbol %s.%s from %s\n", getModuleId(sig), getFunctionId(sig), prg->name);
+	MT_fprintf(stderr,"#delete symbol %s.%s from %s\n", getModuleId(sig), getFunctionId(sig), prg->name);
 #endif
 	if (getModuleId(sig) && getModuleId(sig)!= scope->name ){
 		/* move the definition to the proper place */
@@ -374,7 +376,7 @@ Module findModule(Module scope, str name){
 	if (name == NULL) return scope;
 
 #ifdef _DEBUG_MODULE_
-	fprintf(stderr,"Locate module %s in scope %s\n", name,scope->name);
+	MT_fprintf(stderr,"Locate module %s in scope %s\n", name,scope->name);
 #endif
 	m = getModule(name);
 	if (m) return m;
@@ -399,7 +401,7 @@ Symbol findSymbolInModule(Module v, str fcn) {
 	Symbol s;
 	if (v == NULL || fcn == NULL) return NULL;
 #ifdef _DEBUG_MODULE_
-	fprintf(stderr,"#find symbol %s in %s\n", fcn, v->name);
+	MT_fprintf(stderr,"#find symbol %s in %s\n", fcn, v->name);
 #endif
 	s = v->space[(int)(*fcn)];
 	while (s != NULL) {

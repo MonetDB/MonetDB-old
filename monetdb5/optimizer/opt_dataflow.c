@@ -98,7 +98,7 @@ dataflowBreakpoint(Client cntxt, MalBlkPtr mb, InstrPtr p, States states)
 	if (p->token == ENDsymbol || p->barrier || isUnsafeFunction(p) || 
 		(isMultiplex(p) && MANIFOLDtypecheck(cntxt,mb,p,0) == NULL) ){
 #ifdef DEBUG_OPT_DATAFLOW
-			fprintf(stderr,"#breakpoint on instruction\n");
+			MT_fprintf(stderr,"#breakpoint on instruction\n");
 #endif
 			return TRUE;
 		}
@@ -110,7 +110,7 @@ dataflowBreakpoint(Client cntxt, MalBlkPtr mb, InstrPtr p, States states)
 	for(j=0; j<p->retc; j++)
 		if ( getState(states,p,j) & (VARWRITE | VARREAD | VARBLOCK)){
 #ifdef DEBUG_OPT_DATAFLOW
-			fprintf(stderr,"#breakpoint on argument %s state %d\n", getVarName(mb,getArg(p,j)), getState(states,p,j));
+			MT_fprintf(stderr,"#breakpoint on argument %s state %d\n", getVarName(mb,getArg(p,j)), getState(states,p,j));
 #endif
 			return 1;
 		}
@@ -126,7 +126,7 @@ dataflowBreakpoint(Client cntxt, MalBlkPtr mb, InstrPtr p, States states)
 			return 1;
 #ifdef DEBUG_OPT_DATAFLOW
 		if( getState(states,p,1) & (VARREAD | VARBLOCK))
-			fprintf(stderr,"#breakpoint on update %s state %d\n", getVarName(mb,getArg(p,j)), getState(states,p,j));
+			MT_fprintf(stderr,"#breakpoint on update %s state %d\n", getVarName(mb,getArg(p,j)), getState(states,p,j));
 #endif
 		return getState(states,p,p->retc) & (VARREAD | VARBLOCK);
 	}
@@ -135,13 +135,13 @@ dataflowBreakpoint(Client cntxt, MalBlkPtr mb, InstrPtr p, States states)
 		if ( getState(states,p,j) & VARBLOCK){
 #ifdef DEBUG_OPT_DATAFLOW
 			if( getState(states,p,j) & VARREAD)
-				fprintf(stderr,"#breakpoint on blocked var %s state %d\n", getVarName(mb,getArg(p,j)), getState(states,p,j));
+				MT_fprintf(stderr,"#breakpoint on blocked var %s state %d\n", getVarName(mb,getArg(p,j)), getState(states,p,j));
 #endif
 			return 1;
 		}
 #ifdef DEBUG_OPT_DATAFLOW
 	if( hasSideEffects(mb,p,FALSE))
-		fprintf(stderr,"#breakpoint on sideeffect var %s %s.%s\n", getVarName(mb,getArg(p,j)), getModuleId(p), getFunctionId(p));
+		MT_fprintf(stderr,"#breakpoint on sideeffect var %s %s.%s\n", getVarName(mb,getArg(p,j)), getModuleId(p), getFunctionId(p));
 #endif
 	return hasSideEffects(mb,p,FALSE);
 }
@@ -193,7 +193,7 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		return MAL_SUCCEED;
 
 #ifdef DEBUG_OPT_DATAFLOW
-		fprintf(stderr,"#dataflow input\n");
+		MT_fprintf(stderr,"#dataflow input\n");
 		fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
 #endif
 
@@ -226,7 +226,7 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			/* close previous flow block */
 			simple = simpleFlow(old,start,i);
 #ifdef DEBUG_OPT_DATAFLOW
-			fprintf(stderr,"#breakpoint pc %d  %s\n",i, (simple?"simple":"") );
+			MT_fprintf(stderr,"#breakpoint pc %d  %s\n",i, (simple?"simple":"") );
 #endif
 			if ( !simple){
 				flowblock = newTmpVariable(mb,TYPE_bit);
@@ -306,10 +306,10 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 				setState(states, p ,k, VARREAD);
 		}
 #ifdef DEBUG_OPT_DATAFLOW
-		fprintf(stderr,"# variable states\n");
+		MT_fprintf(stderr,"# variable states\n");
 		fprintInstruction(stderr,mb, 0, p , LIST_MAL_ALL);
 		for(k = 0; k < p->argc; k++)
-			fprintf(stderr,"#%s %d\n", getVarName(mb,getArg(p,k)), states[getArg(p,k)] );
+			MT_fprintf(stderr,"#%s %d\n", getVarName(mb,getArg(p,k)), states[getArg(p,k)] );
 #endif
 	}
 	/* take the remainder as is */
@@ -323,7 +323,7 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
         chkDeclarations(mb);
     }
 #ifdef DEBUG_OPT_DATAFLOW
-		fprintf(stderr,"#dataflow output %s\n", mb->errors?"ERROR":"");
+		MT_fprintf(stderr,"#dataflow output %s\n", mb->errors?"ERROR":"");
 		fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
 #endif
     /* keep all actions taken as a post block comment */

@@ -876,7 +876,7 @@ trimMalVariables_(MalBlkPtr mb, MalStkPtr glb)
 	/* build the alias table */
 	for (i = 0; i < mb->vtop; i++) {
 #ifdef DEBUG_REDUCE
-		fprintf(stderr,"used %s %d\n", getVarName(mb,i), isVarUsed(mb,i));
+		MT_fprintf(stderr,"used %s %d\n", getVarName(mb,i), isVarUsed(mb,i));
 #endif
 		if ( isVarUsed(mb,i) == 0) {
 			if (glb && isVarConstant(mb, i))
@@ -901,9 +901,9 @@ trimMalVariables_(MalBlkPtr mb, MalStkPtr glb)
 		cnt++;
 	}
 #ifdef DEBUG_REDUCE
-	fprintf(stderr, "Variable reduction %d -> %d\n", mb->vtop, cnt);
+	MT_fprintf(stderr, "Variable reduction %d -> %d\n", mb->vtop, cnt);
 	for (i = 0; i < mb->vtop; i++)
-		fprintf(stderr, "map %d->%d\n", i, alias[i]);
+		MT_fprintf(stderr, "map %d->%d\n", i, alias[i]);
 #endif
 
 	/* remap all variable references to their new position. */
@@ -912,7 +912,7 @@ trimMalVariables_(MalBlkPtr mb, MalStkPtr glb)
 			q = getInstrPtr(mb, i);
 			for (j = 0; j < q->argc; j++){
 #ifdef DEBUG_REDUCE
-				fprintf(stderr, "map %d->%d\n", getArg(q,j), alias[getArg(q,j)]);
+				MT_fprintf(stderr, "map %d->%d\n", getArg(q,j), alias[getArg(q,j)]);
 #endif
 				getArg(q, j) = alias[getArg(q, j)];
 			}
@@ -925,7 +925,7 @@ trimMalVariables_(MalBlkPtr mb, MalStkPtr glb)
         (void) snprintf(mb->var[i].id, IDLENGTH,"%c%c%d", REFMARKER, TMPMARKER,mb->vid++);
 	
 #ifdef DEBUG_REDUCE
-	fprintf(stderr, "After reduction \n");
+	MT_fprintf(stderr, "After reduction \n");
 	fprintFunction(stderr, mb, 0, 0);
 #endif
 	GDKfree(alias);

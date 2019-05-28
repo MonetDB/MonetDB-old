@@ -28,16 +28,19 @@
 #include "sql_mvc.h"
 #include "sql_user.h"
 #include "sql_datetime.h"
-#include "mal_io.h"
 #include "mal_parser.h"
 #include "mal_builder.h"
 #include "mal_namespace.h"
-#include "mal_debugger.h"
+#include "mal_embedded.h"
 #include "mal_linker.h"
 #include "bat5.h"
+#ifndef HAVE_EMBEDDED
+#include "mal_io.h"
+#include "mal_debugger.h"
 #include "wlc.h"
 #include "wlr.h"
 #include "msabaoth.h"
+#endif
 #include "mtime.h"
 #include "optimizer.h"
 #include "opt_prelude.h"
@@ -47,12 +50,19 @@
 #include <unistd.h>
 #endif
 #include "sql_upgrades.h"
+#include "sql_scripts.h"
 
 static int SQLinitialized = 0;
 static int SQLnewcatalog = 0;
 int SQLdebug = 0;
 static const char *sqlinit = NULL;
 MT_Lock sql_contextLock = MT_LOCK_INITIALIZER("sql_contextLock");
+
+int
+SQLisInitialized(void)
+{
+	return SQLinitialized > 0;
+}
 
 static void
 monet5_freestack(int clientid, backend_stack stk)
@@ -63,7 +73,7 @@ monet5_freestack(int clientid, backend_stack stk)
 	if (p != NULL)
 		freeStack(p);
 #ifdef _SQL_SCENARIO_DEBUG
-	fprintf(stderr, "#monet5_freestack\n");
+	MT_fprintf(stderr, "#monet5_freestack\n");
 #endif
 }
 
@@ -81,7 +91,7 @@ monet5_freecode(int clientid, backend_code code, backend_stack stk, int nr, char
 		freeException(msg);	/* do something with error? */
 
 #ifdef _SQL_SCENARIO_DEBUG
-	fprintf(stderr, "#monet5_free:%d\n", nr);
+	MT_fprintf(stderr, "#monet5_free:%d\n", nr);
 #endif
 }
 
@@ -145,17 +155,19 @@ SQLprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	tmp = SQLinit(cntxt);
 	if (tmp != MAL_SUCCEED) {
-		fprintf(stderr, "Fatal error during initialization:\n%s\n", tmp);
+		MT_fprintf(stderr, "Fatal error during initialization:\n%s\n", tmp);
+#ifndef HAVE_EMBEDDED
 		freeException(tmp);
 		if ((tmp = GDKerrbuf) && *tmp)
-			fprintf(stderr, SQLSTATE(42000) "GDK reported: %s\n", tmp);
-		fflush(stderr);
+			MT_fprintf(stderr, SQLSTATE(42000) "GDK reported: %s\n", tmp);
+		MT_flush(stderr);
 		exit(1);
-	}
-#ifndef HAVE_EMBEDDED
-	fprintf(stdout, "# MonetDB/SQL module loaded\n");
-	fflush(stdout);		/* make merovingian see this *now* */
+#else
+		return tmp;
 #endif
+	}
+	MT_fprintf(stdout, "# MonetDB/SQL module loaded\n");
+	MT_flush(stdout);		/* make merovingian see this *now* */
 	if (GDKinmemory()) {
 		s->name = "sql";
 		ms->name = "msql";
@@ -163,6 +175,7 @@ SQLprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	/* only register availability of scenarios AFTER we are inited! */
 	s->name = "sql";
+#ifndef HAVE_EMBEDDED
 	tmp = msab_marchScenario(s->name);
 	if (tmp != NULL) {
 		char *err = createException(MAL, "sql.start", "%s", tmp);
@@ -177,13 +190,15 @@ SQLprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return err;
 	}
 	return MAL_SUCCEED;
+#endif
+	return tmp;
 }
 
 str
 SQLexit(Client c)
 {
 #ifdef _SQL_SCENARIO_DEBUG
-	fprintf(stderr, "#SQLexit\n");
+	MT_fprintf(stderr, "#SQLexit\n");
 #endif
 	(void) c;		/* not used */
 	MT_lock_set(&sql_contextLock);
@@ -199,10 +214,11 @@ str
 SQLepilogue(void *ret)
 {
 	char *s = "sql", *m = "msql";
-	str res;
+	str res = MAL_SUCCEED;
 
 	(void) ret;
 	SQLexit(NULL);
+#ifndef HAVE_EMBEDDED
 	/* this function is never called, but for the style of it, we clean
 	 * up our own mess */
 	if (!GDKinmemory()) {
@@ -215,7 +231,8 @@ SQLepilogue(void *ret)
 			return err;
 		}
 	}
-	return MAL_SUCCEED;
+#endif
+	return res;
 }
 
 #define SQLglobal(name, val, failure)                                                                             \
@@ -304,7 +321,7 @@ SQLprepareClient(Client c, int login)
 			throw(PERMD, "SQLinitClient", SQLSTATE(08004) "schema authorization error");
 		}
 		_DELETE(schema);
-	} 
+	}
 
 	/*expect SQL text first */
 	be->language = 'S';
@@ -354,6 +371,40 @@ SQLresetClient(Client c)
 
 MT_Id sqllogthread, idlethread;
 
+malSignatures sqlMalModules[] =
+{
+#ifdef HAVE_EMBEDDED
+#include "sql.mal.h"
+#endif
+#include "sqlcatalog.mal.h"
+#include "sql_transaction.mal.h"
+
+#include "sql_decimal.mal.h"
+#include "sql_rank.mal.h"
+#include "sql_aggr_bte.mal.h"
+#include "sql_aggr_sht.mal.h"
+#include "sql_aggr_int.mal.h"
+#include "sql_aggr_lng.mal.h"
+#include "sql_aggr_flt.mal.h"
+#include "sql_aggr_dbl.mal.h"
+#ifndef HAVE_EMBEDDED
+#include "sql_inspect.mal.h"
+#endif
+#include "sql_generator.mal.h"
+
+#ifdef HAVE_HGE
+#include "sql_decimal_hge.mal.h"
+#include "sql_rank_hge.mal.h"
+#include "sql_aggr_hge.mal.h"
+#include "sql_generator_hge.mal.h"
+#endif
+
+#ifndef HAVE_EMBEDDED
+#include "wlr.mal.h"
+#endif
+	{NULL, NULL}
+};
+
 static str
 SQLinit(Client c)
 {
@@ -367,13 +418,11 @@ SQLinit(Client c)
 	backend *be = NULL;
 	mvc *m = NULL;
 
-
 #ifdef _SQL_SCENARIO_DEBUG
-	fprintf(stderr, "#SQLinit Monet 5\n");
+	MT_fprintf(stderr, "#SQLinit Monet 5\n");
 #endif
 	if (SQLinitialized)
 		return MAL_SUCCEED;
-
 
 	MT_lock_set(&sql_contextLock);
 	be_funcs = (backend_functions) {
@@ -389,6 +438,12 @@ SQLinit(Client c)
 		return msg;
 	}
 	(void) tz;
+
+	if ((msg = malExtraModulesBoot(c, sqlMalModules)) != MAL_SUCCEED) {
+		MT_lock_unset(&sql_contextLock);
+		return msg;
+	}
+
 	if (debug_str)
 		SQLdebug = strtol(debug_str, NULL, 10);
 	if (single_user)
@@ -432,11 +487,11 @@ SQLinit(Client c)
 
 		bstream_next(fdin);
 		if( MCpushClientInput(c, fdin, 0, "") < 0)
-			fprintf(stderr, "SQLinit:Could not switch client input stream");
+			MT_fprintf(stderr, "SQLinit:Could not switch client input stream");
 	}
 	if ((msg = SQLprepareClient(c, 0)) != NULL) {
 		MT_lock_unset(&sql_contextLock);
-		fprintf(stderr, "%s\n", msg);
+		MT_fprintf(stderr, "%s\n", msg);
 		return msg;
 	}
 	be = c->sqlcontext;
@@ -452,52 +507,28 @@ SQLinit(Client c)
 			SQLnewcatalog = 1;
 	}
 	if (SQLnewcatalog > 0) {
+		char path[FILENAME_MAX];
+		str fullname;
+		char *commit = "commit;\n";
+
 		SQLnewcatalog = 0;
 		maybeupgrade = 0;
 
-#ifdef HAVE_EMBEDDED
-		size_t createdb_len = strlen(createdb_inline);
-		buffer* createdb_buf;
-		stream* createdb_stream;
-		bstream* createdb_bstream;
-		if ((createdb_buf = GDKmalloc(sizeof(buffer))) == NULL) {
-			MT_lock_unset(&sql_contextLock);
-			throw(MAL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-		}
-		buffer_init(createdb_buf, createdb_inline, createdb_len);
-		if ((createdb_stream = buffer_rastream(createdb_buf, "createdb.sql")) == NULL) {
-			MT_lock_unset(&sql_contextLock);
-			GDKfree(createdb_buf);
-			throw(MAL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-		}
-		if ((createdb_bstream = bstream_create(createdb_stream, createdb_len)) == NULL) {
-			MT_lock_unset(&sql_contextLock);
-			close_stream(createdb_stream);
-			GDKfree(createdb_buf);
-			throw(MAL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-		}
-		if (bstream_next(createdb_bstream) >= 0)
-			msg = SQLstatementIntern(c, &createdb_bstream->buf, "sql.init", TRUE, FALSE, NULL);
-		else
-			msg = createException(MAL, "createdb", SQLSTATE(42000) "Could not load inlined createdb script");
+		MT_fprintf(stdout, "# Loading bundled SQL scripts\n");
 
-		bstream_destroy(createdb_bstream);
-		GDKfree(createdb_buf);
-		if (m->sa)
-			sa_destroy(m->sa);
-		m->sa = NULL;
+		if ((msg = install_sql_scripts1(c)) != MAL_SUCCEED) {
+			MT_lock_unset(&sql_contextLock);
+			return msg;
+		}
 
-#else
-		char path[FILENAME_MAX];
-		str fullname;
-
+		//load custom scripts here
 		snprintf(path, FILENAME_MAX, "createdb");
 		slash_2_dir_sep(path);
 		fullname = MSP_locate_sqlscript(path, 1);
 		if (fullname) {
 			str filename = fullname;
 			str p, n, newmsg= MAL_SUCCEED;
-			fprintf(stdout, "# SQL catalog created, loading sql scripts once\n");
+			MT_fprintf(stdout, "# SQL catalog created, loading sql scripts once\n");
 			do {
 				stream *fd = NULL;
 
@@ -509,7 +540,7 @@ SQLinit(Client c)
 				} else {
 					n++;
 				}
-				fprintf(stdout, "# loading sql script: %s\n", n);
+				MT_fprintf(stdout, "# loading sql script: %s\n", n);
 				fd = open_rastream(filename);
 				if (p)
 					filename = p + 1;
@@ -536,27 +567,38 @@ SQLinit(Client c)
 						sa_destroy(m->sa);
 					m->sa = NULL;
 					if (newmsg){
-						fprintf(stderr,"%s",newmsg);
+						MT_fprintf(stderr,"%s",newmsg);
 						freeException(newmsg);
 					}
 				}
 			} while (p);
 			GDKfree(fullname);
 		} else
-			fprintf(stderr, "!could not read createdb.sql\n");
-#endif
+			MT_fprintf(stderr, "!could not read createdb.sql\n");
+
+		if ((msg = install_sql_scripts2(c)) != MAL_SUCCEED) {
+			MT_lock_unset(&sql_contextLock);
+			return msg;
+		}
+		if ((msg = SQLstatementIntern(c, &commit, "sql.init", 1, 0, NULL)) != MAL_SUCCEED) {
+			MT_lock_unset(&sql_contextLock);
+			return msg;
+		}
+		if (m->sa)
+			sa_destroy(m->sa);
+		m->sa = NULL;
 	} else {		/* handle upgrades */
 		if (!m->sa)
 			m->sa = sa_create();
 		if (!m->sa) {
-			msg = createException(MAL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			msg = createException(MAL, "sql.init", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		} else if (maybeupgrade) {
 			SQLupgrades(c,m);
 		}
 		maybeupgrade = 0;
 	}
-	fflush(stdout);
-	fflush(stderr);
+	MT_flush(stdout);
+	MT_flush(stderr);
 
 	/* send error from create scripts back to the first client */
 	if (msg) {
@@ -583,7 +625,10 @@ SQLinit(Client c)
 		}
 		GDKregister(idlethread);
 	}
-	return WLCinit();
+#ifndef HAVE_EMBEDDED
+	msg = WLCinit();
+#endif
+	return msg;
 }
 
 #define TRANS_ABORTED SQLSTATE(25005) "Current transaction is aborted (please ROLLBACK)\n"
@@ -666,26 +711,22 @@ SQLtrans(mvc *m)
 	}
 }
 
-#ifdef HAVE_EMBEDDED
-extern char* createdb_inline;
-#endif
-
 str
 SQLinitClient(Client c)
 {
 	str msg = MAL_SUCCEED;
 
 #ifdef _SQL_SCENARIO_DEBUG
-	fprintf(stderr, "#SQLinitClient\n");
+	MT_fprintf(stderr, "#SQLinitClient\n");
 #endif
 	if (SQLinitialized == 0)// && (msg = SQLprelude(NULL)) != MAL_SUCCEED)
 		return msg;
 	MT_lock_set(&sql_contextLock);
+#ifndef HAVE_EMBEDDED
 	if ((msg = WLRinit()) != MAL_SUCCEED) {
 		MT_lock_unset(&sql_contextLock);
 		return msg;
 	}
-#ifndef HAVE_EMBEDDED
 	msg = SQLprepareClient(c, 1);
 #else
 	msg = SQLprepareClient(c, 0);
@@ -699,7 +740,7 @@ SQLexitClient(Client c)
 {
 	str err;
 #ifdef _SQL_SCENARIO_DEBUG
-	fprintf(stderr, "#SQLexitClient\n");
+	MT_fprintf(stderr, "#SQLexitClient\n");
 #endif
 	if (SQLinitialized == FALSE)
 		throw(SQL, "SQLexitClient", SQLSTATE(42000) "Catalogue not available");
@@ -823,13 +864,13 @@ SQLreader(Client c)
 	}
 	if (!be || c->mode <= FINISHCLIENT) {
 #ifdef _SQL_READER_DEBUG
-		fprintf(stderr, "#SQL client finished\n");
+		MT_fprintf(stderr, "#SQL client finished\n");
 #endif
 		c->mode = FINISHCLIENT;
 		return MAL_SUCCEED;
 	}
 #ifdef _SQL_READER_DEBUG
-	fprintf(stderr, "#SQLparser: start reading SQL %s\n", (blocked ? "Blocked read" : ""));
+	MT_fprintf(stderr, "#SQLparser: start reading SQL %s\n", (blocked ? "Blocked read" : ""));
 #endif
 	language = be->language;	/* 'S' for SQL, 'D' from debugger */
 	m = be->mvc;
@@ -839,7 +880,7 @@ SQLreader(Client c)
 	 */
 
 #ifdef _SQL_READER_DEBUG
-	fprintf(stderr, "#pos %d len %d eof %d \n", in->pos, in->len, in->eof);
+	MT_fprintf(stderr, "#pos %d len %d eof %d \n", in->pos, in->len, in->eof);
 #endif
 	while (more) {
 		more = false;
@@ -863,7 +904,7 @@ SQLreader(Client c)
 
 			if (c->bak) {
 #ifdef _SQL_READER_DEBUG
-				fprintf(stderr, "#Switch to backup stream\n");
+				MT_fprintf(stderr, "#Switch to backup stream\n");
 #endif
 				in = c->fdin;
 				blocked = isa_block_stream(in->s);
@@ -893,7 +934,7 @@ SQLreader(Client c)
 				go = false;
 			} else if (go && (rd = bstream_next(in)) <= 0) {
 #ifdef _SQL_READER_DEBUG
-				fprintf(stderr, "#rd %d  language %d eof %d\n", rd, language, in->eof);
+				MT_fprintf(stderr, "#rd %d  language %d eof %d\n", rd, language, in->eof);
 #endif
 				if (be->language == 'D' && !in->eof)
 					return msg;
@@ -920,7 +961,7 @@ SQLreader(Client c)
 				}
 			}
 #ifdef _SQL_READER_DEBUG
-			fprintf(stderr, "#SQL blk:%s\n", in->buf + in->pos);
+			MT_fprintf(stderr, "#SQL blk:%s\n", in->buf + in->pos);
 #endif
 		}
 	}
@@ -962,7 +1003,7 @@ cachable(mvc *m, sql_rel *r)
 	if (m->type == Q_TRANS )	/* m->type == Q_SCHEMA || cachable to make sure we have trace on alter statements  */
 		return 0;
 	/* we don't store queries with a large footprint */
-	if(r && sa_size(m->sa) > MAX_QUERY) 
+	if (r && sa_size(m->sa) > MAX_QUERY)
 		return 0;
 	return 1;
 }
@@ -994,7 +1035,7 @@ SQLparser(Client c)
 	be = (backend *) c->sqlcontext;
 	if (be == 0) {
 		/* leave a message in the log */
-		fprintf(stderr, "SQL state descriptor missing, cannot handle client!\n");
+		MT_fprintf(stderr, "SQL state descriptor missing, cannot handle client!\n");
 		/* stop here, instead of printing the exception below to the
 		 * client in an endless loop */
 		c->mode = FINISHCLIENT;
@@ -1004,8 +1045,8 @@ SQLparser(Client c)
 	oldstop = c->curprg->def->stop;
 	be->vtop = oldvtop;
 #ifdef _SQL_PARSER_DEBUG
-	fprintf(stderr, "#SQL compilation \n");
-	fprintf(stderr,"debugger? %d(%d)\n", (int) be->mvc->emode, (int) be->mvc->emod);
+	MT_fprintf(stderr, "#SQL compilation \n");
+	MT_fprintf(stderr,"debugger? %d(%d)\n", (int) be->mvc->emode, (int) be->mvc->emod);
 #endif
 	m = be->mvc;
 	m->type = Q_PARSE;
@@ -1024,7 +1065,7 @@ SQLparser(Client c)
 
 	/* sqlparse needs sql allocator to be available.  It can be NULL at
 	 * this point if this is a recursive call. */
-	if (!m->sa) 
+	if (!m->sa)
 		m->sa = sa_create();
 	if (!m->sa) {
 		c->mode = FINISHCLIENT;
@@ -1306,7 +1347,7 @@ SQLCacheRemove(Client c, str nme)
 	Symbol s;
 
 #ifdef _SQL_CACHE_DEBUG
-	fprintf(stderr, "#SQLCacheRemove %s\n", nme);
+	MT_fprintf(stderr, "#SQLCacheRemove %s\n", nme);
 #endif
 
 	s = findSymbolInModule(c->usermodule, nme);
@@ -1322,7 +1363,7 @@ SQLcallback(Client c, str msg){
 		// massage the error to comply with SQL
 		char *s;
 		s= strchr(msg,(int)':');
-		if (s ) 
+		if (s)
 			s= strchr(msg,(int)':');
 		if( s){
 			char newerr[1024];

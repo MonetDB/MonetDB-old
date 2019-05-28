@@ -13,14 +13,32 @@
  */
 #include "monetdb_config.h"
 #include "mal_builder.h"
-#include "mal_debugger.h"
-#include "mal_runtime.h"
+#include "mal_resource.h"
 #include "opt_prelude.h"
 #include "sql_mvc.h"
 #include "sql_optimizer.h"
 #include "sql_scenario.h"
 #include "sql_gencode.h"
 #include "opt_pipes.h"
+#ifndef HAVE_EMBEDDED
+#include "mal_runtime.h"
+#include "mal_debugger.h"
+#endif
+
+static lng
+getBatSpace(BAT *b)
+{
+	lng space=0;
+	if( b == NULL)
+		return 0;
+	space += BATcount(b) * b->twidth;
+	if( space){
+		if( b->tvheap) space += heapinfo(b->tvheap, b->batCacheid);
+		space += hashinfo(b->thash, b->batCacheid);
+		space += IMPSimprintsize(b);
+	}
+	return space;
+}
 
 /* calculate the footprint for optimizer pipe line choices
  * and identify empty columns upfront for just in time optimizers.
@@ -253,11 +271,13 @@ SQLoptimizeQuery(Client c, MalBlkPtr mb)
 	if (mb->errors) {
 		if (c->listing)
 			printFunction(c->fdout, mb, 0, c->listing);
+#ifndef HAVE_EMBEDDED
 		if (be->mvc->debug) {
 			msg = runMALDebugger(c, c->curprg->def);
 			if (msg != MAL_SUCCEED)
 				freeException(msg); /* ignore error */
 		}
+#endif
 		return NULL;
 	}
 

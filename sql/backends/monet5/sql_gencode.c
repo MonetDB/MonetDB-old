@@ -35,9 +35,12 @@
 #include "sql_qc.h"
 #include "mal_namespace.h"
 #include "opt_prelude.h"
-#include "querylog.h"
 #include "mal_builder.h"
-#include "mal_debugger.h"
+
+#ifndef HAVE_EMBEDDED
+#include "muuid.h"
+#include "msabaoth.h"		/* msab_getUUID */
+#endif
 
 #include "rel_select.h"
 #include "rel_unnest.h"
@@ -51,9 +54,6 @@
 #include "rel_bin.h"
 #include "rel_dump.h"
 #include "rel_remote.h"
-
-#include "msabaoth.h"		/* msab_getUUID */
-#include "muuid.h"
 
 int
 constantAtom(backend *sql, MalBlkPtr mb, atom *a)
@@ -259,6 +259,7 @@ cleanup:
 	return res;
 }
 
+#ifndef HAVE_EMBEDDED
 /* stub and remote function */
 static int
 _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *rel, stmt *call, prop *prp)
@@ -569,16 +570,18 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 	GDKfree(lname);		/* make sure stub is called */
 	return 0;
 }
+#endif
 
 int
 monet5_create_relational_function(mvc *m, const char *mod, const char *name, sql_rel *rel, stmt *call, list *rel_ops, int inline_func)
 {
 	prop *p = NULL;
 
+#ifndef HAVE_EMBEDDED
 	if (rel && (p = find_prop(rel->p, PROP_REMOTE)) != NULL)
 		return _create_relational_remote(m, mod, name, rel, call, p);
-	else
-		return _create_relational_function(m, mod, name, rel, call, rel_ops, inline_func);
+#endif
+	return _create_relational_function(m, mod, name, rel, call, rel_ops, inline_func);
 }
 
 /*
@@ -596,7 +599,38 @@ sql_relation2stmt(backend *be, sql_rel *r)
 		return NULL;
 	} else {
 		if (c->emode == m_plan) {
+#ifdef HAVE_EMBEDDED
+			list *refs = sa_list(c->sa);
+			stream *s;
+			buffer *b = buffer_create(16364); /* hopefully enough */
+			if (!b)
+				return NULL;
+			s = buffer_wastream(b, "SQL Plan");
+			if (!s) {
+				buffer_destroy(b);
+				return NULL;
+			}
+
+			rel_print_refs(c, s, r, 0, refs, 1);
+			rel_print_(c, s, r, 0, refs, 1);
+			mnstr_printf(s, "\n");
+			mnstr_writeBte(s, 0);
+
+			c->results = res_table_create(c->session->tr, c->result_id++, 1, 1, 1, NULL, NULL);
+			if (!c->results) {
+				mnstr_close(s);
+				mnstr_destroy(s);
+				buffer_destroy(b);
+				return NULL;
+			} else {
+				res_col_create(c->session->tr, c->results, "plan", "plan", "varchar", 0, 0, TYPE_str, b->buf);
+			}
+
+			close_stream(s);
+			buffer_destroy(b);
+#else
 			rel_print(c, r, 0);
+#endif
 		} else {
 			s = output_rel_bin(be, r);
 		}
@@ -614,7 +648,7 @@ backend_dumpstmt(backend *be, MalBlkPtr mb, sql_rel *r, int top, int add_end, co
 	stmt *s;
 
 	// Always keep the SQL query around for monitoring
-
+#ifndef HAVE_EMBEDDED
 	if (query) {
 		while (*query && isspace((unsigned char) *query))
 			query++;
@@ -631,7 +665,9 @@ backend_dumpstmt(backend *be, MalBlkPtr mb, sql_rel *r, int top, int add_end, co
 			return -1;
 		}
 	}
-
+#else
+	(void) query;
+#endif
 	/* announce the transaction mode */
 	q = newStmt(mb, sqlRef, "mvc");
 	if (q == NULL)
@@ -1215,6 +1251,7 @@ _rel_print(mvc *sql, sql_rel *rel)
 	mnstr_printf(GDKstdout, "\n");
 }
 
+#ifndef HAVE_EMBEDDED
 void
 rel_print(mvc *sql, sql_rel *rel, int depth) 
 {
@@ -1262,4 +1299,4 @@ rel_print(mvc *sql, sql_rel *rel, int depth)
 	close_stream(s);
 	buffer_destroy(b);
 }
-
+#endif

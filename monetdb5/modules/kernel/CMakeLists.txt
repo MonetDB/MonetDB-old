@@ -23,15 +23,3 @@ add_library(kernel OBJECT
 target_compile_definitions(kernel PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
 set_target_properties(kernel PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:kernel> PARENT_SCOPE)
-
-install(FILES
-		bat5.mal algebra.mal status.mal
-		mmath.mal alarm.mal batstr.mal
-		batcolor.mal batmmath.mal
-		group.mal aggr.mal
-		microbenchmark.mal
-		DESTINATION ${LIBDIR}/monetdb5)
-
-if(HAVE_HGE)
-	install(FILES 00_aggr_hge.mal DESTINATION ${LIBDIR}/monetdb5/autoload)
-endif()

@@ -46,7 +46,8 @@ headers_png = {
 bin_mserver5 = {
 	# hack: include mserver5.1.in here to get it expanded
 	SOURCES = mserver5.c monet_version.h monet_version.c.in
-	LIBS = ../../monetdb5/tools/libmonetdb5 \
+	LIBS = ../sql/libsql \
+		../../monetdb5/tools/libmonetdb5 \
 		../../gdk/libbat \
 		../../common/stream/libstream \
 		../../clients/mapilib/libmapi \
@@ -73,7 +74,8 @@ bin_mserver5 = {
 bin_shutdowntest = {
 	CONDINST = HAVE_TESTING
 	SOURCES = shutdowntest.c
-	LIBS = ../../monetdb5/tools/libmonetdb5 \
+	LIBS = ../sql/libsql \
+		../../monetdb5/tools/libmonetdb5 \
 		../../gdk/libbat \
 		../../common/stream/libstream \
 		../../clients/mapilib/libmapi \

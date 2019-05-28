@@ -196,7 +196,7 @@ UUIDgenerateUuid(uuid **retval)
 #endif
 		/* if it failed, use rand */
 		for (i = 0; i < UUID_SIZE;) {
-			r = rand() % 65536;
+			r = MT_rand() % 65536;
 			u->u[i++] = (unsigned char) (r >> 8);
 			u->u[i++] = (unsigned char) r;
 		}

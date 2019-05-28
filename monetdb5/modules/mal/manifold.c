@@ -173,7 +173,7 @@ MANIFOLDjob(MULTItask *mut)
 	}
 
 #ifdef _DEBUG_MANIFOLD_
-	fprintf(stderr,mut->cntxt->fdout,"#MANIFOLDjob fvar %d lvar %d type %d\n",mut->fvar,mut->lvar, ATOMstorage(mut->args[mut->fvar].b->ttype));
+	MT_fprintf(stderr,mut->cntxt->fdout,"#MANIFOLDjob fvar %d lvar %d type %d\n",mut->fvar,mut->lvar, ATOMstorage(mut->args[mut->fvar].b->ttype));
 #endif
 	// use limited argument list expansion.
 	switch(mut->pci->argc){
@@ -231,7 +231,7 @@ MANIFOLDtypecheck(Client cntxt, MalBlkPtr mb, InstrPtr pci, int checkprops){
 	}
 
 #ifdef _DEBUG_MANIFOLD_
-	fprintf(stderr,"#MANIFOLD operation\n");
+	MT_fprintf(stderr,"#MANIFOLD operation\n");
 	fprintInstruction(stderr,mb,0,pci,LIST_MAL_ALL);
 	fprintInstruction(stderr,nmb,0,q,LIST_MAL_ALL);
 #endif
@@ -247,7 +247,7 @@ MANIFOLDtypecheck(Client cntxt, MalBlkPtr mb, InstrPtr pci, int checkprops){
 			setVarType( mb, getArg(pci,0), newBatType(getArgType(nmb,q,0)) );
 	}
 #ifdef _DEBUG_MANIFOLD_
-	fprintf(stderr,"success? %s\n",(fcn == NULL? "no":"yes"));
+	MT_fprintf(stderr,"success? %s\n",(fcn == NULL? "no":"yes"));
 	fprintInstruction(stderr,nmb,0,q,LIST_MAL_ALL);
 #endif
 	freeMalBlk(nmb);

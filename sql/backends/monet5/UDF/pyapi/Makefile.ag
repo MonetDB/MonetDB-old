@@ -8,6 +8,7 @@ INCLUDES = \
 	../../../../../clients/mapilib \
 	../../../../../common/utils \
 	../../../../../common/stream \
+	../../../../../common/utils \
 	../../../../../monetdb5/modules/atoms \
 	../../../../../monetdb5/modules/mal \
 	../../../../../gdk \

@@ -12,8 +12,11 @@
 #include "monetdb_config.h"
 #include "mal_type.h"
 #include "mal_namespace.h"
+#include "mal_client.h"
 #include "mal_exception.h"
 #include "mal_private.h"
+
+MT_Lock     mal_namespaceLock = MT_LOCK_INITIALIZER("mal_namespaceLk");
 
 #define MAXIDENTIFIERS 4096
 #define HASHMASK  4095
@@ -120,7 +123,7 @@ static str findName(const char *nme, size_t len, int allocate)
 		if (ns == NULL) {
 			/* error we cannot recover from */
 			showException(GDKout, MAL, "findName", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-			mal_exit(1);
+			exit(1);
 		}
 		ns->next = namespace;
 		ns->count = 0;

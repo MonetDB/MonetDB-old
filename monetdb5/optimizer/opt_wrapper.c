@@ -114,8 +114,8 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 		throw(MAL, "opt_wrapper", SQLSTATE(42000) "MAL block contains errors");
 	snprintf(optimizer,256,"%s", fcnnme = getFunctionId(p));
 
-	OPTIMIZERDEBUG 
-		fprintf(stderr,"=APPLY OPTIMIZER %s\n",fcnnme);
+	OPTIMIZERDEBUG
+		MT_fprintf(stderr,"=APPLY OPTIMIZER %s\n",fcnnme);
 	if( p && p->argc > 1 ){
 		if( getArgType(mb,p,1) != TYPE_str ||
 			getArgType(mb,p,2) != TYPE_str ||
@@ -155,7 +155,7 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 		throw(MAL, optimizer, SQLSTATE(HY002) "Optimizer implementation '%s' missing", fcnnme);
 
 	OPTIMIZERDEBUG {
-		fprintf(stderr,"=FINISHED %s  %d\n",optimizer, actions);
+		MT_fprintf(stderr,"=FINISHED %s  %d\n",optimizer, actions);
 		fprintFunction(stderr,mb,0,LIST_MAL_DEBUG );
 	}
 	if ( mb->errors)

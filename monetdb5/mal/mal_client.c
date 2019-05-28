@@ -45,17 +45,23 @@
 #include "mal_namespace.h"
 #include "mal_private.h"
 #include "mal_runtime.h"
+#ifndef HAVE_EMBEDDED
+#include "mal_profiler.h"
 #include "mal_authorize.h"
+#endif
 
+static volatile int shutdowninprogress = 0;
 int MAL_MAXCLIENTS = 0;
-ClientRec *mal_clients;
+ClientRec *mal_clients = 0;
 
 void 
 mal_client_reset(void)
 {
 	MAL_MAXCLIENTS = 0;
-	if (mal_clients)
+	if (mal_clients) {
 		GDKfree(mal_clients);
+		mal_clients = 0;
+	}
 }
 
 bool
@@ -69,7 +75,7 @@ MCinit(void)
 	if (maxclients <= 0) {
 		maxclients = 64;
 		if (GDKsetenv("max_clients", "64") != GDK_SUCCEED) {
-			fprintf(stderr,"#MCinit: GDKsetenv failed");
+			MT_fprintf(stderr,"#MCinit: GDKsetenv failed");
 			return false;
 		}
 	}
@@ -77,11 +83,12 @@ MCinit(void)
 	MAL_MAXCLIENTS = /* client connections */ maxclients;
 	mal_clients = GDKzalloc(sizeof(ClientRec) * MAL_MAXCLIENTS);
 	if( mal_clients == NULL){
-		fprintf(stderr,"#MCinit:" MAL_MALLOC_FAIL);
+		MT_fprintf(stderr,"#MCinit:" MAL_MALLOC_FAIL);
 		return false;
 	}
 	for (int i = 0; i < MAL_MAXCLIENTS; i++)
 		ATOMIC_INIT(&mal_clients[i].lastprint, 0);
+	shutdowninprogress = 0;
 	return true;
 }
 
@@ -145,7 +152,7 @@ MCnewClient(void)
 		return NULL;
 	c->idx = (int) (c - mal_clients);
 #ifdef MAL_CLIENT_DEBUG
-	fprintf(stderr,"New client created %d\n", (int) (c - mal_clients));
+	MT_fprintf(stderr,"New client created %d\n", (int) (c - mal_clients));
 #endif
 	return c;
 }
@@ -173,10 +180,12 @@ void
 MCexitClient(Client c)
 {
 #ifdef MAL_CLIENT_DEBUG
-	fprintf(stderr,"# Exit client %d\n", c->idx);
+	MT_fprintf(stderr,"# Exit client %d\n", c->idx);
 #endif
+#ifndef HAVE_EMBEDDED
 	finishSessionProfiler(c);
 	MPresetProfiler(c->fdout);
+#endif
 	if (c->father == NULL) { /* normal client */
 		if (c->fdout && c->fdout != GDKstdout) {
 			close_stream(c->fdout);
@@ -297,7 +306,9 @@ MCinitClientThread(Client c)
 
 	t = MT_thread_getdata();	/* should succeed */
 	if (t == NULL) {
+#ifndef HAVE_EMBEDDED
 		MPresetProfiler(c->fdout);
+#endif
 		return -1;
 	}
 	/*
@@ -311,7 +322,9 @@ MCinitClientThread(Client c)
 	if (c->errbuf == NULL) {
 		char *n = GDKzalloc(GDKMAXERRLEN);
 		if ( n == NULL){
+#ifndef HAVE_EMBEDDED
 			MPresetProfiler(c->fdout);
+#endif
 			return -1;
 		}
 		GDKsetbuf(n);
@@ -383,7 +396,7 @@ MCfreeClient(Client c)
 	c->mode = FINISHCLIENT;
 
 #ifdef MAL_CLIENT_DEBUG
-	fprintf(stderr,"# Free client %d\n", c->idx);
+	MT_fprintf(stderr,"# Free client %d\n", c->idx);
 #endif
 	MCexitClient(c);
 
@@ -396,10 +409,7 @@ MCfreeClient(Client c)
 	c->prompt = NULL;
 	c->promptlength = -1;
 	if (c->errbuf) {
-/* no client threads in embedded mode */
-#ifndef HAVE_EMBEDDED
 		GDKsetbuf(0);
-#endif
 		if (c->father == NULL)
 			GDKfree(c->errbuf);
 		c->errbuf = 0;
@@ -452,7 +462,6 @@ MCfreeClient(Client c)
  * When the server is about to shutdown, we should softly terminate
  * all outstanding session.
  */
-static volatile int shutdowninprogress = 0;
 
 int
 MCshutdowninprogress(void){
@@ -495,7 +504,7 @@ void
 MCcloseClient(Client c)
 {
 #ifdef MAL_DEBUG_CLIENT
-	fprintf(stderr,"closeClient %d " OIDFMT "\n", (int) (c - mal_clients), c->user);
+	MT_fprintf(stderr,"closeClient %d " OIDFMT "\n", (int) (c - mal_clients), c->user);
 #endif
 	/* free resources of a single thread */
 	MCfreeClient(c);
@@ -547,7 +556,7 @@ MCreadClient(Client c)
 	bstream *in = c->fdin;
 
 #ifdef MAL_CLIENT_DEBUG
-	fprintf(stderr,"# streamClient %d %d\n", c->idx, isa_block_stream(in->s));
+	MT_fprintf(stderr,"# streamClient %d %d\n", c->idx, isa_block_stream(in->s));
 #endif
 
 	while (in->pos < in->len &&
@@ -582,13 +591,13 @@ MCreadClient(Client c)
 				in->len++;
 		}
 #ifdef MAL_CLIENT_DEBUG
-		fprintf(stderr, "# simple stream received %d sum %zu\n", c->idx, sum);
+		MT_fprintf(stderr, "# simple stream received %d sum %zu\n", c->idx, sum);
 #endif
 	}
 	if (in->pos >= in->len) {
 		/* end of stream reached */
 #ifdef MAL_CLIENT_DEBUG
-		fprintf(stderr,"# end of stream received %d %d\n", c->idx, c->bak == 0);
+		MT_fprintf(stderr,"# end of stream received %d %d\n", c->idx, c->bak == 0);
 #endif
 		if (c->bak) {
 			MCpopClientInput(c);
@@ -599,8 +608,8 @@ MCreadClient(Client c)
 		return 0;
 	}
 #ifdef MAL_CLIENT_DEBUG
-	fprintf(stderr,"# finished stream read %d %d\n", (int) in->pos, (int) in->len);
-	printf("#%s\n", in->buf);
+	MT_fprintf(stderr,"# finished stream read %d %d\n", (int) in->pos, (int) in->len);
+	MT_fprintf(stdout, "#%s\n", in->buf);
 #endif
 	return 1;
 }
@@ -627,13 +636,22 @@ MCvalid(Client tc)
 str
 PROFinitClient(Client c){
 	(void) c;
+#ifndef HAVE_EMBEDDED
 	return startProfiler();
+#else
+	return MAL_SUCCEED;
+#endif
+
 }
 
 str
 PROFexitClient(Client c){
 	(void) c;
+#ifndef HAVE_EMBEDDED
 	return stopProfiler();
+#else
+	return MAL_SUCCEED;
+#endif
 }
 
 

@@ -33,7 +33,7 @@ OPTconstantsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	str msg = MAL_SUCCEED;
 
 #ifdef DEBUG_OPT_CONSTANTS
-	fprintf(stderr,"#OPT_CONSTANTS: MATCHING CONSTANTS ELEMENTS\n");
+	MT_fprintf(stderr,"#OPT_CONSTANTS: MATCHING CONSTANTS ELEMENTS\n");
 #endif
 
 	alias= (int*) GDKzalloc(sizeof(int) * mb->vtop);
@@ -62,7 +62,7 @@ OPTconstantsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 					 x->value.vtype == y->value.vtype &&
 					ATOMcmp(x->value.vtype, VALptr(&x->value), VALptr(&y->value)) == 0){
 #ifdef DEBUG_OPT_CONSTANTS
-					fprintf(stderr,"#opt_constants: matching elements %s %d %d\n", getVarName(mb,i), i,k);
+					MT_fprintf(stderr,"#opt_constants: matching elements %s %d %d\n", getVarName(mb,i), i,k);
 #endif
 					/* re-use a constant */
 					alias[i]= index[k];
@@ -73,7 +73,7 @@ OPTconstantsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 			}
 			if ( fnd == 0){
 #ifdef DEBUG_OPT_CONSTANTS
-				fprintf(stderr,"swith elements %d %d\n", i,n);
+				MT_fprintf(stderr,"swith elements %d %d\n", i,n);
 #endif
 				cst[n]= x;
 				index[n]= i;

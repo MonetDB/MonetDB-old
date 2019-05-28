@@ -6,6 +6,8 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
+include_directories(../utils)
+
 set(OPTIONS_OBJECTS monet_options.c monet_options.h monet_getopt.h)
 
 if(WIN32)
@@ -17,5 +19,7 @@ else()
 	add_library(moptions STATIC ${OPTIONS_OBJECTS})
 	set_target_properties(moptions PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
+
+target_link_libraries(moptions PRIVATE mutils)
 
 install(FILES monet_options.h DESTINATION ${INCLUDEDIR}/monetdb)

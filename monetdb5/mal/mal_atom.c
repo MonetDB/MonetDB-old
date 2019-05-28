@@ -19,6 +19,7 @@
  * They should be implemented with parameter-less functions.
  */
 #include "monetdb_config.h"
+#include "mal_client.h"
 #include "mal_instruction.h"
 #include "mal_atom.h"
 #include "mal_namespace.h"

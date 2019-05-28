@@ -6,6 +6,6 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
+add_subdirectory(utils)
 add_subdirectory(stream)
 add_subdirectory(options)
-add_subdirectory(utils)

@@ -6643,14 +6643,14 @@ print_deps(mvc *sql, char *deps, list *refs)
 
 	for (i=0; i<n; i++) {
 		sql_rel *r = list_fetch(refs, i);
-		printf("dep %d\n", i);
+		MT_fprintf(stdout, "dep %d\n", i);
 		_rel_print(sql,r);
 	}
 	for (i=0; i<n; i++) {
 		for (j=0; j<n; j++) {
-			printf("%c ", i==j?'x' : deps[i*n + j]?'1':'0');
+			MT_fprintf(stdout, "%c ", i==j?'x' : deps[i*n + j]?'1':'0');
 		}
-		printf("\n");
+		MT_fprintf(stdout, "\n");
 	}
 
 }	
@@ -7132,7 +7132,7 @@ exp_merge(list *exps)
 				sql_exp *rf = f->r;
 
 				if (rf->card == CARD_ATOM && f->flag < cmp_equal) {
-					printf("possible candidate\n");
+					MT_fprintf(stdout, "possible candidate\n");
 				}
 			}
 		}
@@ -8925,7 +8925,7 @@ optimize_rel(mvc *sql, sql_rel *rel, int *g_changes, int level, int value_based_
 	int i;
 	for (i = 0; i < MAXOPS; i++) {
 		if (gp.cnt[i]> 0)
-			printf("%s %d\n", op2string((operator_type)i), gp.cnt[i]);
+			MT_fprintf(stdout, "%s %d\n", op2string((operator_type)i), gp.cnt[i]);
 	}
 }
 #endif

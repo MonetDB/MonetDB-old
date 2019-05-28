@@ -15,7 +15,6 @@
  */
 #include "monetdb_config.h"
 #include "sql.h"
-#include "streams.h"
 #include "sql_result.h"
 #include "sql_gencode.h"
 #include "sql_storage.h"
@@ -33,13 +32,15 @@
 #include "rel_exp.h"
 #include "rel_dump.h"
 #include "rel_bin.h"
-#include "bbp.h"
 #include "opt_pipes.h"
 #include "orderidx.h"
-#include "clients.h"
 #include "mal_instruction.h"
 #include "mal_resource.h"
+#ifndef HAVE_EMBEDDED
 #include "mal_authorize.h"
+#include "clients.h"
+#include "bbp.h"
+#endif
 
 static int
 rel_is_table(sql_rel *rel)
@@ -260,6 +261,7 @@ SQLabort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return msg;
 }
 
+#ifndef HAVE_EMBEDDED
 str
 SQLshutdown_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -271,6 +273,7 @@ SQLshutdown_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	return msg;
 }
+#endif
 
 str
 create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
@@ -2098,8 +2101,8 @@ mvc_export_table_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bool tostdout;
 	char buf[80];
 	ssize_t sz;
-
-	(void) format;
+	backend *be = (backend *) cntxt->sqlcontext;
+	ofmt prev_format = be->output_format;
 
 	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
 		return msg;
@@ -2181,8 +2184,25 @@ mvc_export_table_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			goto wrapup_result_set1;
 		}
 	}
+
+	if (!m->sa)
+		m->sa = sa_create();
+	if (!m->sa) {
+		msg = createException(SQL, "sql.resultSet", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		goto wrapup_result_set1;
+	}
+	if (strncmp(format, "csv", 3) == 0) {
+		be->output_format = OFMT_CSV;
+	} else if (strncmp(format, "json", 4) == 0) {
+		be->output_format = OFMT_JSON;
+	} else {
+		be->output_format = OFMT_NONE;
+	}
+
 	if (mvc_export_result(cntxt->sqlcontext, s, res, tostdout, mb->starttime, mb->optimize))
 		msg = createException(SQL, "sql.resultset", SQLSTATE(45000) "Result set construction failed");
+
+	be->output_format = prev_format; //in MonetDBLite keep no output
 	mb->starttime = 0;
 	mb->optimize = 0;
 	if (onclient) {
@@ -4191,6 +4211,7 @@ dump_opt_stats(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 dump_trace(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+#ifndef HAVE_EMBEDDED
 	int i;
 	BAT *t[13];
 	bat id;
@@ -4207,17 +4228,33 @@ dump_trace(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	} else
 		throw(SQL,"dump_trace", SQLSTATE(45000) "Missing trace BAT ");
 	return MAL_SUCCEED;
+#else
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	throw(SQL,"sql.dump_trace", SQLSTATE(42000) "Not available in MonetDBLite version");
+#endif
 }
 
 str
 sql_sessions_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+#ifndef HAVE_EMBEDDED
 	return CLTsessions(cntxt, mb, stk, pci);
+#else
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	throw(SQL,"sql.sessions_wrap", SQLSTATE(42000) "Not available in MonetDBLite version");
+#endif
 }
 
 str
 sql_rt_credentials_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+#ifndef HAVE_EMBEDDED
 	BAT *urib = NULL;
 	BAT *unameb = NULL;
 	BAT *hashb = NULL;
@@ -4268,12 +4305,20 @@ sql_rt_credentials_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (unameb) BBPunfix(unameb->batCacheid);
 	if (hashb) BBPunfix(hashb->batCacheid);
 	return msg;
+#else
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	throw(SQL,"sql.remote_table_credentials", SQLSTATE(42000) "Not available in MonetDBLite version");
+#endif
 }
 
 
 str
 sql_querylog_catalog(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+#ifndef HAVE_EMBEDDED
 	int i;
 	BAT *t[8];
 	str msg;
@@ -4292,11 +4337,19 @@ sql_querylog_catalog(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	} else
 		throw(SQL,"sql.querylog", SQLSTATE(45000) "Missing query catalog BAT");
 	return MAL_SUCCEED;
+#else
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	throw(SQL,"sql.querylog", SQLSTATE(42000) "Not available in MonetDBLite version");
+#endif
 }
 
 str
 sql_querylog_calls(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+#ifndef HAVE_EMBEDDED
 	int i;
 	BAT *t[10];
 	str msg;
@@ -4315,6 +4368,13 @@ sql_querylog_calls(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	} else
 		throw(SQL,"sql.querylog", SQLSTATE(45000) "Missing query call BAT");
 	return MAL_SUCCEED;
+#else
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	throw(SQL,"sql.querylog", SQLSTATE(42000) "Not available in MonetDBLite version");
+#endif
 }
 
 str
@@ -4324,7 +4384,11 @@ sql_querylog_empty(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 	(void) stk;
 	(void) pci;
+#ifndef HAVE_EMBEDDED
 	return QLOGempty(NULL);
+#else
+	throw(SQL,"sql.querylog", SQLSTATE(42000) "Not available in MonetDBLite version");
+#endif
 }
 
 /* str sql_rowid(oid *rid, ptr v, str *sname, str *tname); */
@@ -4872,7 +4936,7 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 								if (bn == NULL)
 									throw(SQL, "sql.storage", SQLSTATE(HY005) "Cannot access column descriptor");
 
-								/*printf("schema %s.%s.%s" , b->name, bt->name, bc->name); */
+								/*MT_fprintf(stdout, "schema %s.%s.%s" , b->name, bt->name, bc->name); */
 								if (BUNappend(sch, b->name, false) != GDK_SUCCEED ||
 								    BUNappend(tab, bt->name, false) != GDK_SUCCEED ||
 								    BUNappend(col, bc->name, false) != GDK_SUCCEED)
@@ -4893,15 +4957,15 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 								if (BUNappend(type, c->type.type->sqlname, false) != GDK_SUCCEED)
 									goto bailout;
 
-								/*printf(" cnt "BUNFMT, BATcount(bn)); */
+								/*MT_fprintf(stdout, " cnt "BUNFMT, BATcount(bn)); */
 								sz = BATcount(bn);
 								if (BUNappend(cnt, &sz, false) != GDK_SUCCEED)
 									goto bailout;
 
-								/*printf(" loc %s", BBP_physical(bn->batCacheid)); */
+								/*MT_fprintf(stdout, " loc %s", BBP_physical(bn->batCacheid)); */
 								if (BUNappend(loc, BBP_physical(bn->batCacheid), false) != GDK_SUCCEED)
 									goto bailout;
-								/*printf(" width %d", bn->twidth); */
+								/*MT_fprintf(stdout, " width %d", bn->twidth); */
 								w = bn->twidth;
 								if (bn->ttype == TYPE_str) {
 									BUN p, q;
@@ -4950,8 +5014,8 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 								sz = IMPSimprintsize(bn);
 								if (BUNappend(imprints, &sz, false) != GDK_SUCCEED)
 									goto bailout;
-								/*printf(" indices "BUNFMT, bn->thash?bn->thash->heap.size:0); */
-								/*printf("\n"); */
+								/*MT_fprintf(stdout, " indices "BUNFMT, bn->thash?bn->thash->heap.size:0); */
+								/*MT_fprintf(stdout, "\n"); */
 
 								bitval = BATtordered(bn);
 								if (!bitval && bn->tnosorted == 0)
@@ -4990,7 +5054,7 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 										throw(SQL, "sql.storage", SQLSTATE(HY005) "Cannot access column descriptor");
 									if( cname && strcmp(bc->name, cname) )
 										continue;
-									/*printf("schema %s.%s.%s" , b->name, bt->name, bc->name); */
+									/*MT_fprintf(stdout, "schema %s.%s.%s" , b->name, bt->name, bc->name); */
 									if (BUNappend(sch, b->name, false) != GDK_SUCCEED ||
 									    BUNappend(tab, bt->name, false) != GDK_SUCCEED ||
 									    BUNappend(col, bc->name, false) != GDK_SUCCEED)
@@ -5011,15 +5075,15 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 									if (BUNappend(type, "oid", false) != GDK_SUCCEED)
 										goto bailout;
 
-									/*printf(" cnt "BUNFMT, BATcount(bn)); */
+									/*MT_fprintf(stdout, " cnt "BUNFMT, BATcount(bn)); */
 									sz = BATcount(bn);
 									if (BUNappend(cnt, &sz, false) != GDK_SUCCEED)
 										goto bailout;
 
-									/*printf(" loc %s", BBP_physical(bn->batCacheid)); */
+									/*MT_fprintf(stdout, " loc %s", BBP_physical(bn->batCacheid)); */
 									if (BUNappend(loc, BBP_physical(bn->batCacheid), false) != GDK_SUCCEED)
 										goto bailout;
-									/*printf(" width %d", bn->twidth); */
+									/*MT_fprintf(stdout, " width %d", bn->twidth); */
 									w = bn->twidth;
 									if (bn->ttype == TYPE_str) {
 										BUN p, q;
@@ -5042,7 +5106,7 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 									}
 									if (BUNappend(atom, &w, false) != GDK_SUCCEED)
 										goto bailout;
-									/*printf(" size "BUNFMT, tailsize(bn,BATcount(bn)) + (bn->tvheap? bn->tvheap->size:0)); */
+									/*MT_fprintf(stdout, " size "BUNFMT, tailsize(bn,BATcount(bn)) + (bn->tvheap? bn->tvheap->size:0)); */
 									sz = tailsize(bn, BATcount(bn));
 									if (BUNappend(size, &sz, false) != GDK_SUCCEED)
 										goto bailout;
@@ -5061,8 +5125,8 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 									sz = IMPSimprintsize(bn);
 									if (BUNappend(imprints, &sz, false) != GDK_SUCCEED)
 										goto bailout;
-									/*printf(" indices "BUNFMT, bn->thash?bn->thash->heap.size:0); */
-									/*printf("\n"); */
+									/*MT_fprintf(stdout, " indices "BUNFMT, bn->thash?bn->thash->heap.size:0); */
+									/*MT_fprintf(stdout, "\n"); */
 									bitval = BATtordered(bn);
 									if (!bitval && bn->tnosorted == 0)
 										bitval = bit_nil;

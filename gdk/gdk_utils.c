@@ -73,15 +73,15 @@ static bool
 GDKenvironment(const char *dbpath)
 {
 	if (dbpath == NULL) {
-		fprintf(stderr, "!GDKenvironment: database name missing.\n");
+		MT_fprintf(stderr, "!GDKenvironment: database name missing.\n");
 		return false;
 	}
 	if (strlen(dbpath) >= FILENAME_MAX) {
-		fprintf(stderr, "!GDKenvironment: database name too long.\n");
+		MT_fprintf(stderr, "!GDKenvironment: database name too long.\n");
 		return false;
 	}
 	if (!MT_path_absolute(dbpath)) {
-		fprintf(stderr, "!GDKenvironment: directory not an absolute path: %s.\n", dbpath);
+		MT_fprintf(stderr, "!GDKenvironment: directory not an absolute path: %s.\n", dbpath);
 		return false;
 	}
 	return true;
@@ -218,21 +218,13 @@ GDKlog(FILE *lockFile, const char *format, ...)
 	fflush(lockFile);
 }
 
+#ifndef HAVE_EMBEDDED
 /*
  * @+ Interrupt handling
  * The current version simply catches signals and prints a warning.
  * It should be extended to cope with the specifics of the interrupt
  * received.
  */
-#if 0				/* these are unused */
-static void
-BATSIGignore(int nr)
-{
-	(void) nr;
-	GDKsyserror("! ERROR signal %d caught by thread %zu\n", nr, (size_t) MT_getpid());
-}
-#endif
-
 #ifdef WIN32
 static void
 BATSIGabort(int nr)
@@ -252,6 +244,7 @@ BATSIGinit(void)
 	return 0;
 }
 #endif /* NATIVE_WIN32 */
+#endif /* HAVE_EMBEDDED */
 
 /* memory thresholds; these values some "sane" constants only, really
  * set in GDKinit() */
@@ -450,6 +443,8 @@ GDKinit(opt *set, int setlen)
 	static_assert(SIZEOF_OID == SIZEOF_INT || SIZEOF_OID == SIZEOF_LNG,
 		      "SIZEOF_OID should be equal to SIZEOF_INT or SIZEOF_LNG");
 
+	ATOMIC_SET(&GDKstopped, 0);
+
 	if (first) {
 		/* some things are really only initialized once */
 		if (!MT_thread_init())
@@ -486,6 +481,7 @@ GDKinit(opt *set, int setlen)
 	MT_init_posix();
 	if (THRinit() < 0)
 		return GDK_FAIL;
+#ifndef HAVE_EMBEDDED
 #ifndef NATIVE_WIN32
 	if (BATSIGinit() < 0)
 		return GDK_FAIL;
@@ -495,6 +491,7 @@ GDKinit(opt *set, int setlen)
 #if !defined(__MINGW32__) && !defined(__CYGWIN__)
 	_set_abort_behavior(0, _CALL_REPORTFAULT | _WRITE_ABORT_MSG);
 	_set_error_mode(_OUT_TO_STDERR);
+#endif
 #endif
 #endif
 	MT_init();
@@ -769,7 +766,7 @@ GDKreset(int status)
 
 					killed = true;
 					e = MT_kill_thread(victim);
-					fprintf(stderr, "#GDKexit: killing thread %d\n", e);
+					MT_fprintf(stderr, "#GDKexit: killing thread %d\n", e);
 					(void) ATOMIC_DEC(&GDKnrofthreads);
 				}
 				GDKfree(t->name);
@@ -1002,10 +999,9 @@ doGDKaddbuf(const char *prefix, const char *message, size_t messagelen, const ch
 		}
 		*dst = '\0';
 	} else {
-		mnstr_printf(GDKout, "%s%.*s%s", prefix,
-			     (int) messagelen, message, suffix);
+		MT_fprintf(stdout, "%s%.*s%s", prefix, (int) messagelen, message, suffix);
 	}
-	fprintf(stderr, "#%s:%s%.*s%s",
+	MT_fprintf(stderr, "#%s:%s%.*s%s",
 		MT_thread_getname(),
 		prefix[0] == '#' ? prefix + 1 : prefix,
 		(int) messagelen, message, suffix);
@@ -1173,7 +1169,7 @@ GDKfatal(const char *format, ...)
 	va_list ap;
 
 	GDKdebug |= IOMASK;
-#ifndef NATIVE_WIN32
+#if !defined(NATIVE_WIN32) && !defined(HAVE_EMBEDDED)
 	BATSIGinit();
 #endif
 	if (!strncmp(format, GDKFATAL, len)) {
@@ -1193,17 +1189,18 @@ GDKfatal(const char *format, ...)
 	} else
 #endif
 	{
-		fputs(message, stderr);
-		fputs("\n", stderr);
-		fflush(stderr);
+		MT_fprintf(stderr, "%s\n", message);
+		MT_flush(stderr);
 
 		/*
 		 * Real errors should be saved in the log file for post-crash
 		 * inspection.
 		 */
 		if (GDKexiting()) {
-			fflush(stdout);
+			MT_flush(stdout);
+#ifndef HAVE_EMBEDDED
 			exit(1);
+#endif
 		} else {
 			GDKlog(GET_GDKLOCK(PERSISTENT), "%s", message);
 #ifdef COREDUMP
@@ -1332,7 +1329,7 @@ THRnew(const char *name, MT_Id pid)
 	char *nme = GDKstrdup(name);
 
 	if (nme == NULL) {
-		IODEBUG fprintf(stderr, "#THRnew: malloc failure\n");
+		IODEBUG MT_fprintf(stderr, "#THRnew: malloc failure\n");
 		GDKerror("THRnew: malloc failure\n");
 		return NULL;
 	}
@@ -1344,17 +1341,17 @@ THRnew(const char *name, MT_Id pid)
 			s->data[1] = THRdata[1];
 			s->sp = THRsp();
 			s->name = nme;
-			PARDEBUG fprintf(stderr, "#%x %zu sp = %zu\n",
+			PARDEBUG MT_fprintf(stderr, "#%x %zu sp = %zu\n",
 					 (unsigned) s->tid,
 					 (size_t) ATOMIC_GET(&s->pid),
 					 (size_t) s->sp);
-			PARDEBUG fprintf(stderr, "#nrofthreads %d\n",
+			PARDEBUG MT_fprintf(stderr, "#nrofthreads %d\n",
 					 (int) ATOMIC_GET(&GDKnrofthreads) + 1);
 			return s;
 		}
 	}
 	GDKfree(nme);
-	IODEBUG fprintf(stderr, "#THRnew: too many threads\n");
+	IODEBUG MT_fprintf(stderr, "#THRnew: too many threads\n");
 	GDKerror("THRnew: too many threads\n");
 	return NULL;
 }
@@ -1427,7 +1424,7 @@ THRdel(Thread t)
 {
 	assert(GDKthreads <= t && t < GDKthreads + THREADS);
 	MT_thread_setdata(NULL);
-	PARDEBUG fprintf(stderr, "#pid = %zu, disconnected, %d left\n",
+	PARDEBUG MT_fprintf(stderr, "#pid = %zu, disconnected, %d left\n",
 			 (size_t) ATOMIC_GET(&t->pid),
 			 (int) ATOMIC_GET(&GDKnrofthreads));
 
@@ -1587,7 +1584,7 @@ GDKmemfail(const char *s, size_t len)
 	   }
 	 */
 
-	fprintf(stderr, "#%s(%zu) fails, try to free up space [memory in use=%zu,virtual memory in use=%zu]\n", s, len, GDKmem_cursize(), GDKvm_cursize());
+	MT_fprintf(stderr, "#%s(%zu) fails, try to free up space [memory in use=%zu,virtual memory in use=%zu]\n", s, len, GDKmem_cursize(), GDKvm_cursize());
 }
 
 /* Memory allocation

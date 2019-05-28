@@ -404,6 +404,7 @@ MT_lockf(char *filename, int mode, off_t off, off_t len)
 
 #endif
 
+#ifndef HAVE_EMBEDDED
 #ifndef PATH_MAX
 # define PATH_MAX 1024
 #endif
@@ -440,4 +441,59 @@ get_bin_path(void)
 	/* could use argv[0] (passed) to deduce location based on PATH, but
 	 * that's a lot of work and unreliable */
 	return NULL;
+}
+#endif
+
+static bool MT_silent = false;
+
+void
+MT_fprintf_silent(bool silent)
+{
+	MT_silent = silent;
+}
+
+int
+MT_fprintf(FILE *fp, const char *format, ...)
+{
+	int res = 0;
+	if (!MT_silent) {
+		va_list ap;
+		va_start(ap, format);
+		res = vfprintf(fp, format, ap);
+		va_end(ap);
+	}
+	return res;
+}
+
+int
+MT_flush(FILE *fp)
+{
+	int res = 0;
+	if (!MT_silent)
+		res = fflush(fp);
+	return res;
+}
+
+#ifdef HAVE_EMBEDDED_R
+extern int embedded_r_rand(void);
+#endif
+
+int
+MT_rand(void)
+{
+#ifdef HAVE_EMBEDDED_R
+	return embedded_r_rand();
+#else
+	return rand();
+#endif
+}
+
+void
+MT_srand(unsigned int seed)
+{
+#ifdef HAVE_EMBEDDED_R
+	(void) seed;
+#else
+	srand(seed);
+#endif
 }

@@ -43,7 +43,7 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) pci;
 
 	OPTDEBUGjit(
-		fprintf(stderr, "#Optimize JIT\n");
+		MT_fprintf(stderr, "#Optimize JIT\n");
 		fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG);
 	)
 
@@ -73,7 +73,7 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				getArg(p,2)=  getArg(q,2);
 				p= pushArgument(mb,p, getArg(q,1));
 				OPTDEBUGjit(
-					fprintf(stderr, "#Optimize JIT case 1\n");
+					MT_fprintf(stderr, "#Optimize JIT case 1\n");
 					fprintInstruction(stderr, mb,0,p,LIST_MAL_DEBUG);
 				)
 			}
@@ -85,7 +85,7 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		chkTypes(cntxt->usermodule,mb,TRUE);
 		freeException(msg);
 		msg = MAL_SUCCEED;
-		fprintf(stderr, "#Optimize JIT done\n");
+		MT_fprintf(stderr, "#Optimize JIT done\n");
 		fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG);
 	)
 

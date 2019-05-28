@@ -21,10 +21,8 @@
 #include "sql_upgrades.h"
 
 #include "rel_remote.h"
+#ifndef HAVE_EMBEDDED
 #include "mal_authorize.h"
-
-#ifdef HAVE_EMBEDDED
-#define printf(fmt,...) ((void) 0)
 #endif
 
 /* this function can be used to recreate the system tables (types,
@@ -180,7 +178,7 @@ sql_fix_system_tables(Client c, mvc *sql)
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
 
 	assert(pos < bufsize);
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
@@ -257,13 +255,14 @@ sql_update_hugeint(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 	assert(pos < bufsize);
 
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
 }
 #endif
 
+#ifndef HAVE_EMBEDDED
 static str
 sql_update_geom(Client c, mvc *sql, int olddb)
 {
@@ -307,11 +306,12 @@ sql_update_geom(Client c, mvc *sql, int olddb)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
 }
+#endif
 
 static str
 sql_update_jul2017(Client c, mvc *sql)
@@ -335,6 +335,7 @@ sql_update_jul2017(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos,
 			"update sys.functions set side_effect = false where name in ('like', 'ilike') and schema_id = (select id from sys.schemas where name = 'sys');\n");
 
+#ifndef HAVE_EMBEDDED
 	/* 25_debug.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
 			"drop function sys.malfunctions;\n"
@@ -352,6 +353,7 @@ sql_update_jul2017(Client c, mvc *sql)
 			"drop procedure profiler.setpoolsize;\n"
 			"drop procedure profiler.setstream;\n"
 			"update sys.functions set system = true where name in ('getlimit', 'setlimit') and schema_id = (select id from sys.schemas where name = 'profiler');\n");
+#endif
 
 	/* 51_sys_schema_extensions.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -423,7 +425,7 @@ sql_update_jul2017(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
@@ -467,7 +469,7 @@ sql_update_jul2017_sp2(Client c)
 				);
 			pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 			assert(pos < bufsize);
-			printf("Running database upgrade commands:\n%s\n", buf);
+			MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 			err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 			GDKfree(buf);
 		}
@@ -520,13 +522,14 @@ sql_update_jul2017_sp3(Client c, mvc *sql)
 			pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
 		pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 		assert(pos < bufsize);
-		printf("Running database upgrade commands:\n%s\n", buf);
+		MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 		err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 		GDKfree(buf);
 	}
 	return err;
 }
 
+#ifndef HAVE_EMBEDDED
 static str
 sql_update_mar2018_geom(Client c, mvc *sql, sql_table *t)
 {
@@ -560,11 +563,12 @@ sql_update_mar2018_geom(Client c, mvc *sql, sql_table *t)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
 }
+#endif
 
 static str
 sql_update_mar2018(Client c, mvc *sql)
@@ -842,6 +846,7 @@ sql_update_mar2018(Client c, mvc *sql)
 " AND schema_id IN (SELECT id FROM sys.schemas WHERE name = 'sys');\n"
 	);
 
+#ifndef HAVE_EMBEDDED
 	/* 25_debug.sql */
 	t = mvc_bind_table(sql, s, "environment");
 	t->system = 0;
@@ -851,6 +856,7 @@ sql_update_mar2018(Client c, mvc *sql)
 			"create view sys.environment as select * from sys.env();\n"
 			"GRANT SELECT ON sys.environment TO PUBLIC;\n"
 			"update sys._tables set system = true where system = false and name = 'environment' and schema_id in (select id from sys.schemas where name = 'sys');\n");
+#endif
 
 	/* 39_analytics.sql, 39_analytics_hge.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -980,6 +986,7 @@ sql_update_mar2018(Client c, mvc *sql)
 			"INSERT INTO sys.function_languages VALUES (4, 'C', 'C'), (12, 'C++', 'CPP');\n"
 		);
 
+#ifndef HAVE_EMBEDDED
 	/* 60_wlcr.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
 			"create procedure master()\n"
@@ -1018,6 +1025,7 @@ sql_update_mar2018(Client c, mvc *sql)
 			"external name wlr.\"getreplicatick\";\n"
 			"update sys.functions set system = true where name in ('master', 'stopmaster', 'masterbeat', 'masterclock', 'mastertick', 'replicate', 'replicabeat', 'replicaclock', 'replicatick') and schema_id = (select id from sys.schemas where name = 'sys');\n"
 		);
+#endif
 
 	/* comments */
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -1032,7 +1040,7 @@ sql_update_mar2018(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	if (err == MAL_SUCCEED) {
 		schema = stack_get_string(sql, "current_schema");
@@ -1043,7 +1051,7 @@ sql_update_mar2018(Client c, mvc *sql)
 		if (schema)
 			pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
 		pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-		printf("Running database upgrade commands:\n%s\n", buf);
+		MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 		err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	}
 	GDKfree(buf);
@@ -1080,7 +1088,7 @@ sql_update_mar2018_netcdf(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
@@ -1159,7 +1167,7 @@ sql_update_mar2018_samtools(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
@@ -1187,12 +1195,13 @@ sql_update_mar2018_sp1(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 	assert(pos < bufsize);
 
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
 }
 
+#ifndef HAVE_EMBEDDED
 static str
 sql_update_remote_tables(Client c, mvc *sql)
 {
@@ -1221,7 +1230,7 @@ sql_update_remote_tables(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "create function", 1, 0, NULL);
 	if (err)
 		goto bailout;
@@ -1284,6 +1293,7 @@ bailout:
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
 }
+#endif
 
 static str
 sql_replace_Mar2018_ids_view(Client c, mvc *sql)
@@ -1349,12 +1359,13 @@ sql_replace_Mar2018_ids_view(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 	assert(pos < bufsize);
 
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
 }
 
+#ifndef HAVE_EMBEDDED
 static str
 sql_update_gsl(Client c, mvc *sql)
 {
@@ -1372,11 +1383,12 @@ sql_update_gsl(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 	assert(pos < bufsize);
 
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
 }
+#endif
 
 static str
 sql_update_aug2018(Client c, mvc *sql)
@@ -1402,11 +1414,13 @@ sql_update_aug2018(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	if (err)
 		goto bailout;
+#ifndef HAVE_EMBEDDED
 	err = sql_update_remote_tables(c, sql);
+#endif
 
   bailout:
 	GDKfree(buf);
@@ -1447,7 +1461,7 @@ sql_update_aug2018_sp2(Client c, mvc *sql)
 			pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 			assert(pos < bufsize);
-			printf("Running database upgrade commands:\n%s\n", buf);
+			MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 			err = SQLstatementIntern(c, &buf, "update", 1, 0, &output);
 		}
 		BBPunfix(b->batCacheid);
@@ -1492,7 +1506,7 @@ sql_drop_functions_dependencies_Xs_on_Ys(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 	assert(pos < bufsize);
 
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
@@ -1515,6 +1529,7 @@ sql_update_apr2019(Client c, mvc *sql)
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema sys;\n");
 
+#ifndef HAVE_EMBEDDED
 	/* 15_querylog.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
 			"drop procedure sys.querylog_enable(smallint);\n"
@@ -1539,6 +1554,7 @@ sql_update_apr2019(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos,
 			"grant execute on function sys.queue to public;\n"
 			"grant select on sys.queue to public;\n");
+#endif
 
 	/* 51_sys_schema_extensions.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -1583,7 +1599,7 @@ sql_update_apr2019(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	if (err == MAL_SUCCEED) {
 		schema = stack_get_string(sql, "current_schema");
@@ -1592,7 +1608,7 @@ sql_update_apr2019(Client c, mvc *sql)
 		if (schema)
 			pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
 		pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
-		printf("Running database upgrade commands:\n%s\n", buf);
+		MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 		err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	}
 
@@ -1625,10 +1641,10 @@ sql_update_storagemodel(Client c, mvc *sql)
 	if ((t = mvc_bind_table(sql, s, "tablestoragemodel")) != NULL)
 		t->system = 0;
 
-	/* new 75_storagemodel.sql */
+	/* new 70_storagemodel.sql */
 	pos += snprintf(buf + pos, bufsize - pos,
 		"set schema sys;\n"
-		/* drop objects in reverse order of original creation of old 75_storagemodel.sql */
+		/* drop objects in reverse order of original creation of old 70_storagemodel.sql */
 		"drop view if exists sys.tablestoragemodel;\n"
 		"drop view if exists sys.storagemodel cascade;\n"
 		"drop function if exists sys.storagemodel() cascade;\n"
@@ -1915,7 +1931,7 @@ sql_update_storagemodel(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 	assert(pos < bufsize);
 
-	printf("Running database upgrade commands:\n%s\n", buf);
+	MT_fprintf(stdout, "Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0, NULL);
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
@@ -1937,7 +1953,7 @@ SQLupgrades(Client c, mvc *m)
 		sql_find_subtype(&tp, "hugeint", 0, 0);
 		if (!sql_bind_aggr(m->sa, s, "var_pop", &tp)) {
 			if ((err = sql_update_hugeint(c, m)) != NULL) {
-				fprintf(stderr, "!%s\n", err);
+				MT_fprintf(stderr, "!%s\n", err);
 				freeException(err);
 			}
 			hugeint_upgraded = true;
@@ -1953,6 +1969,7 @@ SQLupgrades(Client c, mvc *m)
 		table_funcs.table_insert(m->session->tr, privs, &f->func->base.id, &pub, &p, &zero, &zero);
 	}
 
+#ifndef HAVE_EMBEDDED
 	/* If the point type exists, but the geometry type does not
 	 * exist any more at the "sys" schema (i.e., the first part of
 	 * the upgrade has been completed succesfully), then move on
@@ -1961,7 +1978,7 @@ SQLupgrades(Client c, mvc *m)
 		/* type sys.point exists: this is an old geom-enabled
 		 * database */
 		if ((err = sql_update_geom(c, m, 1)) != NULL) {
-			fprintf(stderr, "!%s\n", err);
+			MT_fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}
 	} else if (geomsqlfix_get() != NULL) {
@@ -1971,53 +1988,56 @@ SQLupgrades(Client c, mvc *m)
 				   &tp, NULL, F_FUNC)) {
 			/* ... but the database is not geom-enabled */
 			if ((err = sql_update_geom(c, m, 0)) != NULL) {
-				fprintf(stderr, "!%s\n", err);
+				MT_fprintf(stderr, "!%s\n", err);
 				freeException(err);
 			}
 		}
 	}
+#endif
 
 	if (mvc_bind_table(m, s, "function_languages") == NULL) {
 		if ((err = sql_update_jul2017(c, m)) != NULL) {
-			fprintf(stderr, "!%s\n", err);
+			MT_fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}
 	}
 
 	if ((err = sql_update_jul2017_sp2(c)) != NULL) {
-		fprintf(stderr, "!%s\n", err);
+		MT_fprintf(stderr, "!%s\n", err);
 		freeException(err);
 	}
 
 	if ((err = sql_update_jul2017_sp3(c, m)) != NULL) {
-		fprintf(stderr, "!%s\n", err);
+		MT_fprintf(stderr, "!%s\n", err);
 		freeException(err);
 	}
 
+#ifndef HAVE_EMBEDDED
 	if ((t = mvc_bind_table(m, s, "geometry_columns")) != NULL &&
 	    (col = mvc_bind_column(m, t, "coord_dimension")) != NULL &&
 	    strcmp(col->type.type->sqlname, "int") != 0) {
 		if ((err = sql_update_mar2018_geom(c, m, t)) != NULL) {
-			fprintf(stderr, "!%s\n", err);
+			MT_fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}
 	}
+#endif
 
 	if (!sql_bind_func(m->sa, s, "master", NULL, NULL, F_PROC)) {
 		if ((err = sql_update_mar2018(c, m)) != NULL) {
-			fprintf(stderr, "!%s\n", err);
+			MT_fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}
 #ifdef HAVE_NETCDF
 		if (mvc_bind_table(m, s, "netcdf_files") != NULL &&
 		    (err = sql_update_mar2018_netcdf(c, m)) != NULL) {
-			fprintf(stderr, "!%s\n", err);
+			MT_fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}
 #endif
 #ifdef HAVE_SAMTOOLS
 		if ((err = sql_update_mar2018_samtools(c, m)) != NULL) {
-			fprintf(stderr, "!%s\n", err);
+			MT_fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}
 #endif
@@ -2025,7 +2045,7 @@ SQLupgrades(Client c, mvc *m)
 
 	if (sql_bind_func(m->sa, s, "dependencies_functions_os_triggers", NULL, NULL, F_UNION)) {
 		if ((err = sql_update_mar2018_sp1(c, m)) != NULL) {
-			fprintf(stderr, "!%s\n", err);
+			MT_fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}
 	}
@@ -2036,7 +2056,7 @@ SQLupgrades(Client c, mvc *m)
 		res_table *output = NULL;
 		err = SQLstatementIntern(c, &qry, "update", 1, 0, &output);
 		if (err) {
-			fprintf(stderr, "!%s\n", err);
+			MT_fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		} else {
 			BAT *b = BATdescriptor(output->cols[0].b);
@@ -2044,7 +2064,7 @@ SQLupgrades(Client c, mvc *m)
 				if (BATcount(b) > 0) {
 					/* yes old view definition exists, it needs to be replaced */
 					if ((err = sql_replace_Mar2018_ids_view(c, m)) != NULL) {
-						fprintf(stderr, "!%s\n", err);
+						MT_fprintf(stderr, "!%s\n", err);
 						freeException(err);
 					}
 				}
@@ -2055,6 +2075,7 @@ SQLupgrades(Client c, mvc *m)
 			res_tables_destroy(output);
 	}
 
+#ifndef HAVE_EMBEDDED
 	/* temporarily use variable `err' to check existence of MAL
 	 * module gsl */
 	if ((err = getName("gsl")) == NULL || getModule(err) == NULL) {
@@ -2064,16 +2085,17 @@ SQLupgrades(Client c, mvc *m)
 			/* sys.chi2prob exists, but there is no
 			 * implementation */
 			if ((err = sql_update_gsl(c, m)) != NULL) {
-				fprintf(stderr, "!%s\n", err);
+				MT_fprintf(stderr, "!%s\n", err);
 				freeException(err);
 			}
 		}
 	}
+#endif
 
 	sql_find_subtype(&tp, "clob", 0, 0);
 	if (sql_bind_aggr(m->sa, s, "group_concat", &tp) == NULL) {
 		if ((err = sql_update_aug2018(c, m)) != NULL) {
-			fprintf(stderr, "!%s\n", err);
+			MT_fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}
 	}
@@ -2096,13 +2118,13 @@ SQLupgrades(Client c, mvc *m)
 	 && sql_bind_func(m->sa, s, "dependencies_functions_on_triggers", NULL, NULL, F_UNION)
 	 && sql_bind_func(m->sa, s, "dependencies_keys_on_foreignkeys", NULL, NULL, F_UNION)	) {
 		if ((err = sql_drop_functions_dependencies_Xs_on_Ys(c, m)) != NULL) {
-			fprintf(stderr, "!%s\n", err);
+			MT_fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}
 	}
 
 	if ((err = sql_update_aug2018_sp2(c, m)) != NULL) {
-		fprintf(stderr, "!%s\n", err);
+		MT_fprintf(stderr, "!%s\n", err);
 		freeException(err);
 	}
 
@@ -2110,23 +2132,23 @@ SQLupgrades(Client c, mvc *m)
 	    t->type == tt_table) {
 		if (!hugeint_upgraded &&
 		    (err = sql_fix_system_tables(c, m)) != NULL) {
-			fprintf(stderr, "!%s\n", err);
+			MT_fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}
 		if ((err = sql_update_apr2019(c, m)) != NULL) {
-			fprintf(stderr, "!%s\n", err);
+			MT_fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}
 	}
 
 	/* when function storagemodel() exists and views tablestorage
 	 * and schemastorage don't, then upgrade storagemodel to match
-	 * 75_storagemodel.sql */
+	 * 70_storagemodel.sql */
 	if (sql_bind_func(m->sa, s, "storagemodel", NULL, NULL, F_UNION)
 	 && (t = mvc_bind_table(m, s, "tablestorage")) == NULL
 	 && (t = mvc_bind_table(m, s, "schemastorage")) == NULL ) {
 		if ((err = sql_update_storagemodel(c, m)) != NULL) {
-			fprintf(stderr, "!%s\n", err);
+			MT_fprintf(stderr, "!%s\n", err);
 			freeException(err);
 		}
 	}

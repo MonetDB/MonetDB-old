@@ -29,6 +29,7 @@
  * the module remote.
  */
 #include "monetdb_config.h"
+#include "mutils.h"
 #ifdef HAVE_MAPI
 #include "mal_mapi.h"
 #include <sys/types.h>
@@ -88,7 +89,7 @@ static void generateChallenge(str buf, int min, int max) {
 	if (CCRandomGenerateBytes(&size, sizeof(size)) != kCCSuccess)
 #endif
 #endif
-		size = rand();
+		size = MT_rand();
 	size = (size % (max - min)) + min;
 #ifdef HAVE_OPENSSL
 	if (RAND_bytes((unsigned char *) buf, (int) size) >= 0)
@@ -104,7 +105,7 @@ static void generateChallenge(str buf, int min, int max) {
 #endif
 #endif
 		for (i = 0; i < size; i++) {
-			bte = rand();
+			bte = MT_rand();
 			bte %= 62;
 			buf[i] = seedChars[bte];
 		}
@@ -242,8 +243,8 @@ doChallenge(void *data)
 	}
 
 #ifdef DEBUG_SERVER
-	fprintf(stderr,"mal_mapi:Client accepted %s\n", buf);
-	fflush(stderr);
+	MT_fprintf(stderr,"mal_mapi:Client accepted %s\n", buf);
+	MT_flush(stderr);
 
 	mnstr_printf(cntxt->fdout, "#SERVERlisten:client accepted\n");
 	mnstr_printf(cntxt->fdout, "#SERVERlisten:client string %s\n", buf);
@@ -410,7 +411,7 @@ SERVERlistenThread(SOCKET *Sock)
 					(void) shutdown(msgsock, SHUT_WR);
 					closesocket(msgsock);
 					if (!cmsg || cmsg->cmsg_type != SCM_RIGHTS) {
-						fprintf(stderr, "!mal_mapi.listen: "
+						MT_fprintf(stderr, "!mal_mapi.listen: "
 								"expected filedescriptor, but "
 								"received something else\n");
 						continue;
@@ -426,7 +427,7 @@ SERVERlistenThread(SOCKET *Sock)
 				default:
 					/* some unknown state */
 					closesocket(msgsock);
-					fprintf(stderr, "!mal_mapi.listen: "
+					MT_fprintf(stderr, "!mal_mapi.listen: "
 							"unknown command type in first byte\n");
 					continue;
 			}
@@ -435,8 +436,8 @@ SERVERlistenThread(SOCKET *Sock)
 			continue;
 		}
 #ifdef DEBUG_SERVER
-		fprintf(stderr,"server:accepted\n");
-		fflush(stdout);
+		MT_fprintf(stderr,"server:accepted\n");
+		MT_flush(stdout);
 #endif
 		data = GDKmalloc(sizeof(*data));
 		if( data == NULL){
@@ -486,7 +487,7 @@ SERVERlistenThread(SOCKET *Sock)
 		closesocket(usock);
 	return;
 error:
-	fprintf(stderr, "!mal_mapi.listen: %s, terminating listener\n", msg);
+	MT_fprintf(stderr, "!mal_mapi.listen: %s, terminating listener\n", msg);
 	if (sock != INVALID_SOCKET)
 		closesocket(sock);
 	if (usock != INVALID_SOCKET)
@@ -900,7 +901,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 #endif
 
 #ifdef DEBUG_SERVER
-	fprintf(stderr, "#SERVERlisten:Network started at %d\n", port);
+	MT_fprintf(stderr, "#SERVERlisten:Network started at %d\n", port);
 #endif
 
 	psock[0] = sock;
@@ -927,7 +928,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 #ifdef DEBUG_SERVER
 	gethostname(host, (int) 512);
 	snprintf(msg, (int) 512, "#Ready to accept connections on %s:%d\n", host, port);
-	fprintf(stderr, "%s", msg);
+	MT_fprintf(stderr, "%s", msg);
 #endif
 
 	/* seed the randomiser such that our challenges aren't
@@ -973,8 +974,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 			free(buf);
 		else
 			/* announce that we're now reachable */
-			printf("# Listening for connection requests on "
-				   "mapi:monetdb://%s:%i/\n", host, port);
+			MT_fprintf(stdout, "# Listening for connection requests on mapi:monetdb://%s:%i/\n", host, port);
 	}
 	if (usockfile != NULL) {
 		port = 0;
@@ -982,8 +982,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 			free(buf);
 		else
 			/* announce that we're now reachable */
-			printf("# Listening for UNIX domain connection requests on "
-				   "mapi:monetdb://%s\n", usockfile);
+			MT_fprintf(stdout, "# Listening for UNIX domain connection requests on mapi:monetdb://%s\n", usockfile);
 	}
 
 	if (usockfile)
@@ -1042,7 +1041,7 @@ SERVERlisten_port(int *ret, int *pid)
 str
 SERVERstop(void *ret)
 {
-fprintf(stderr, "SERVERstop\n");
+	MT_fprintf(stderr, "SERVERstop\n");
 	ATOMIC_SET(&serverexiting, 1);
 	/* wait until they all exited, but skip the wait if the whole
 	 * system is going down */
@@ -1051,7 +1050,6 @@ fprintf(stderr, "SERVERstop\n");
 	(void) ret;		/* fool compiler */
 	return MAL_SUCCEED;
 }
-
 
 str
 SERVERsuspend(void *res)

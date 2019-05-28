@@ -39,6 +39,7 @@
 #include "monetdb_config.h"
 #include "mdb.h"
 #include "mal_function.h"
+#include "mal_embedded.h"
 
 #define MDBstatus(X) \
 	if( stk->cmd && X==0 ) \
@@ -629,7 +630,7 @@ MDBdummy(int *ret)
 /*
  * CMDmodules
  * Obtains a list of modules by looking at what files are present in the
- * module directory.
+ * module directory and embedded in the source code.
  */
 static BAT *
 TBL_getdir(void)
@@ -645,6 +646,14 @@ TBL_getdir(void)
 
 	if ( b == 0)
 		return NULL;
+
+	for (int j = 0; malModules[j].modnme ; j++ ) { //add MAL embedded loaded modules
+		if (BUNappend(b, malModules[j].modnme, false) != GDK_SUCCEED) {
+			BBPreclaim(b);
+			return NULL;
+		}
+	}
+
 	mod_path = GDKgetenv("monet_mod_path");
 	if (mod_path == NULL)
 		return b;

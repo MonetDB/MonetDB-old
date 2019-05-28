@@ -270,7 +270,7 @@ nomatch(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BUN lstart, BUN lend,
 			*r2p = r2;
 		}
 		*r1p = r1;
-		ALGODEBUG fprintf(stderr,
+		ALGODEBUG MT_fprintf(stderr,
 				  "#%s(l=%s,r=%s)=(" ALGOBATFMT "," ALGOOPTBATFMT ") " LLFMT "us -- nomatch\n",
 				  func, BATgetId(l), BATgetId(r),
 				  ALGOBATPAR(r1), ALGOOPTBATPAR(r2),
@@ -312,7 +312,7 @@ nomatch(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BUN lstart, BUN lend,
 		*r2p = r2;
 	}
 	*r1p = r1;
-	ALGODEBUG fprintf(stderr,
+	ALGODEBUG MT_fprintf(stderr,
 			  "#%s(l=%s,r=%s)=(" ALGOBATFMT "," ALGOOPTBATFMT ") " LLFMT "us -- nomatch\n",
 			  func, BATgetId(l), BATgetId(r),
 			  ALGOBATPAR(r1), ALGOOPTBATPAR(r2),
@@ -333,7 +333,7 @@ selectjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr,
 	const void *v;
 	BAT *bn = NULL;
 
-	ALGODEBUG fprintf(stderr, "#selectjoin(l=" ALGOBATFMT ","
+	ALGODEBUG MT_fprintf(stderr, "#selectjoin(l=" ALGOBATFMT ","
 			  "r=" ALGOBATFMT ",sl=" ALGOOPTBATFMT ","
 			  "sr=" ALGOOPTBATFMT ",nil_matches=%d)%s\n",
 			  ALGOBATPAR(l), ALGOBATPAR(r), ALGOOPTBATPAR(sl), ALGOOPTBATPAR(sr),
@@ -440,7 +440,7 @@ selectjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr,
 	BBPunfix(bn->batCacheid);
 	*r1p = r1;
 	*r2p = r2;
-	ALGODEBUG fprintf(stderr, "#selectjoin(l=%s,r=%s)=(" ALGOBATFMT "," ALGOOPTBATFMT ") " LLFMT "us\n",
+	ALGODEBUG MT_fprintf(stderr, "#selectjoin(l=%s,r=%s)=(" ALGOBATFMT "," ALGOOPTBATFMT ") " LLFMT "us\n",
 			  BATgetId(l), BATgetId(r),
 			  ALGOBATPAR(r1), ALGOOPTBATPAR(r2),
 			  GDKusec() - t0);
@@ -472,7 +472,7 @@ mergejoin_void(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr,
 	BAT *r1 = NULL, *r2 = NULL;
 	const oid *lvals = NULL;
 
-	ALGODEBUG fprintf(stderr, "#mergejoin_void(l=" ALGOBATFMT ","
+	ALGODEBUG MT_fprintf(stderr, "#mergejoin_void(l=" ALGOBATFMT ","
 			  "r=" ALGOBATFMT ",sl=" ALGOOPTBATFMT ","
 			  "sr=" ALGOOPTBATFMT ","
 			  "nil_on_miss=%d,only_misses=%d)%s\n",
@@ -843,7 +843,7 @@ mergejoin_void(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr,
 	if (r2->tkey && r2->tsorted)
 		virtualize(r2);
   doreturn2:
-	ALGODEBUG fprintf(stderr, "#mergejoin_void(l=%s,r=%s)=(" ALGOBATFMT "," ALGOOPTBATFMT ") " LLFMT "us\n",
+	ALGODEBUG MT_fprintf(stderr, "#mergejoin_void(l=%s,r=%s)=(" ALGOBATFMT "," ALGOOPTBATFMT ") " LLFMT "us\n",
 			  BATgetId(l), BATgetId(r),
 			  ALGOBATPAR(r1), ALGOOPTBATPAR(r2),
 			  GDKusec() - t0);
@@ -867,7 +867,7 @@ mergejoin_int(BAT **r1p, BAT **r2p, BAT *l, BAT *r,
 	oid lv;
 	BUN i;
 
-	ALGODEBUG fprintf(stderr, "#mergejoin_int(l=" ALGOBATFMT ","
+	ALGODEBUG MT_fprintf(stderr, "#mergejoin_int(l=" ALGOBATFMT ","
 			  "r=" ALGOBATFMT ",nil_matches=%d)%s\n",
 			  ALGOBATPAR(l), ALGOBATPAR(r), nil_matches,
 			  swapped ? " swapped" : "");
@@ -1115,7 +1115,7 @@ mergejoin_int(BAT **r1p, BAT **r2p, BAT *l, BAT *r,
 	} else {
 		r1->tseqbase = r2->tseqbase = 0;
 	}
-	ALGODEBUG fprintf(stderr, "#mergejoin_int(l=%s,r=%s)=(" ALGOBATFMT "," ALGOBATFMT ") " LLFMT "us\n",
+	ALGODEBUG MT_fprintf(stderr, "#mergejoin_int(l=%s,r=%s)=(" ALGOBATFMT "," ALGOBATFMT ") " LLFMT "us\n",
 			  BATgetId(l), BATgetId(r),
 			  ALGOBATPAR(r1), ALGOBATPAR(r2),
 			  GDKusec() - t0);
@@ -1144,7 +1144,7 @@ mergejoin_lng(BAT **r1p, BAT **r2p, BAT *l, BAT *r,
 	oid lv;
 	BUN i;
 
-	ALGODEBUG fprintf(stderr, "#mergejoin_lng(l=" ALGOBATFMT ","
+	ALGODEBUG MT_fprintf(stderr, "#mergejoin_lng(l=" ALGOBATFMT ","
 			  "r=" ALGOBATFMT ",nil_matches=%d)%s\n",
 			  ALGOBATPAR(l), ALGOBATPAR(r), nil_matches,
 			  swapped ? " swapped" : "");
@@ -1392,7 +1392,7 @@ mergejoin_lng(BAT **r1p, BAT **r2p, BAT *l, BAT *r,
 	} else {
 		r1->tseqbase = r2->tseqbase = 0;
 	}
-	ALGODEBUG fprintf(stderr, "#mergejoin_lng(l=%s,r=%s)=(" ALGOBATFMT "," ALGOBATFMT ") " LLFMT "us\n",
+	ALGODEBUG MT_fprintf(stderr, "#mergejoin_lng(l=%s,r=%s)=(" ALGOBATFMT "," ALGOBATFMT ") " LLFMT "us\n",
 			  BATgetId(l), BATgetId(r),
 			  ALGOBATPAR(r1), ALGOBATPAR(r2),
 			  GDKusec() - t0);
@@ -1473,7 +1473,7 @@ mergejoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr,
 		}
 	}
 
-	ALGODEBUG fprintf(stderr, "#mergejoin(l=" ALGOBATFMT ","
+	ALGODEBUG MT_fprintf(stderr, "#mergejoin(l=" ALGOBATFMT ","
 			  "r=" ALGOBATFMT ",sl=" ALGOOPTBATFMT ","
 			  "sr=" ALGOOPTBATFMT ",nil_matches=%d,"
 			  "nil_on_miss=%d,semi=%d,only_misses=%d,"
@@ -2376,7 +2376,7 @@ mergejoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr,
 			r2->tseqbase = 0;
 		}
 	}
-	ALGODEBUG fprintf(stderr, "#mergejoin(l=%s,r=%s)=(" ALGOBATFMT "," ALGOOPTBATFMT ") " LLFMT "us\n",
+	ALGODEBUG MT_fprintf(stderr, "#mergejoin(l=%s,r=%s)=(" ALGOBATFMT "," ALGOOPTBATFMT ") " LLFMT "us\n",
 			  BATgetId(l), BATgetId(r),
 			  ALGOBATPAR(r1), ALGOOPTBATPAR(r2),
 			  GDKusec() - t0);
@@ -2498,7 +2498,7 @@ hashjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr,
 	int t;
 
 	(void) rcandend;
-	ALGODEBUG fprintf(stderr, "#hashjoin(l=" ALGOBATFMT ","
+	ALGODEBUG MT_fprintf(stderr, "#hashjoin(l=" ALGOBATFMT ","
 			  "r=" ALGOBATFMT ",sl=" ALGOOPTBATFMT ","
 			  "sr=" ALGOOPTBATFMT ",nil_matches=%d,"
 			  "nil_on_miss=%d,semi=%d,only_misses=%d,"
@@ -2543,7 +2543,7 @@ hashjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr,
 	if (phash) {
 		BAT *b = BBPdescriptor(VIEWtparent(r));
 		assert(sr == NULL);
-		ALGODEBUG fprintf(stderr, "#hashjoin(%s): using "
+		ALGODEBUG MT_fprintf(stderr, "#hashjoin(%s): using "
 				  "parent(" ALGOBATFMT ") for hash\n",
 				  BATgetId(r), ALGOBATPAR(b));
 		rl = (BUN) ((r->theap.base - b->theap.base) >> r->tshift);
@@ -2557,7 +2557,7 @@ hashjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr,
 		if (BATtdense(sr) &&
 		    BATcheckhash(r) &&
 		    BATcount(r) / ((size_t *) r->thash->heap.base)[5] * lcnt < lcnt + rcnt) {
-			ALGODEBUG fprintf(stderr, "#hashjoin(%s): using "
+			ALGODEBUG MT_fprintf(stderr, "#hashjoin(%s): using "
 					  "existing hash with candidate list\n",
 					  BATgetId(r));
 			hsh = r->thash;
@@ -2565,7 +2565,7 @@ hashjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr,
 		} else {
 			char ext[32];
 			assert(!phash);
-			ALGODEBUG fprintf(stderr, "#hashjoin(%s): creating "
+			ALGODEBUG MT_fprintf(stderr, "#hashjoin(%s): creating "
 					  "hash for candidate list\n",
 					  BATgetId(r));
 			snprintf(ext, sizeof(ext), "thash%x", sr->batCacheid);
@@ -2900,7 +2900,7 @@ hashjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr,
 			r2->tseqbase = 0;
 		}
 	}
-	ALGODEBUG fprintf(stderr, "#hashjoin(l=%s,r=%s)=(" ALGOBATFMT ","
+	ALGODEBUG MT_fprintf(stderr, "#hashjoin(l=%s,r=%s)=(" ALGOBATFMT ","
 			  ALGOOPTBATFMT ") " LLFMT "us\n",
 			  BATgetId(l), BATgetId(r),
 			  ALGOBATPAR(r1), ALGOOPTBATPAR(r2),
@@ -2946,7 +2946,7 @@ thetajoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int opcode, BU
 	lng loff = 0, roff = 0;
 	oid lval = oid_nil, rval = oid_nil;
 
-	ALGODEBUG fprintf(stderr, "#thetajoin(l=" ALGOBATFMT ","
+	ALGODEBUG MT_fprintf(stderr, "#thetajoin(l=" ALGOBATFMT ","
 			  "r=" ALGOBATFMT ",sl=" ALGOOPTBATFMT ","
 			  "sr=" ALGOOPTBATFMT ",op=%s%s%s)\n",
 			  ALGOBATPAR(l), ALGOBATPAR(r), ALGOOPTBATPAR(sl), ALGOOPTBATPAR(sr),
@@ -3122,7 +3122,7 @@ thetajoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int opcode, BU
 	} else {
 		r1->tseqbase = r2->tseqbase = 0;
 	}
-	ALGODEBUG fprintf(stderr, "#thetajoin(l=%s,r=%s)=(" ALGOBATFMT "," ALGOBATFMT ") " LLFMT "us\n",
+	ALGODEBUG MT_fprintf(stderr, "#thetajoin(l=%s,r=%s)=(" ALGOBATFMT "," ALGOBATFMT ") " LLFMT "us\n",
 			  BATgetId(l), BATgetId(r),
 			  ALGOBATPAR(r1), ALGOBATPAR(r2),
 			  GDKusec() - t0);
@@ -3522,7 +3522,7 @@ bandjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr,
 	} else {
 		r1->tseqbase = r2->tseqbase = 0;
 	}
-	ALGODEBUG fprintf(stderr, "#BATbandjoin(l=%s,r=%s)=(" ALGOBATFMT "," ALGOBATFMT ") " LLFMT "us\n",
+	ALGODEBUG MT_fprintf(stderr, "#BATbandjoin(l=%s,r=%s)=(" ALGOBATFMT "," ALGOBATFMT ") " LLFMT "us\n",
 			  BATgetId(l), BATgetId(r),
 			  ALGOBATPAR(r1), ALGOBATPAR(r2),
 			  GDKusec() - t0);
@@ -3543,7 +3543,7 @@ fetchjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BUN lstart, BUN lend,
 	BUN b, e, p;
 	BAT *r1, *r2 = NULL;
 
-	ALGODEBUG fprintf(stderr, "#fetchjoin(l=" ALGOBATFMT ","
+	ALGODEBUG MT_fprintf(stderr, "#fetchjoin(l=" ALGOBATFMT ","
 			  "r=" ALGOBATFMT ")\n",
 			  ALGOBATPAR(l), ALGOBATPAR(r));
 
@@ -3584,7 +3584,7 @@ fetchjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BUN lstart, BUN lend,
 	r1->tsorted = r->tsorted || e - b <= 1;
 	r1->trevsorted = r->trevsorted || e - b <= 1;
 	r1->tseqbase = e == b ? 0 : e - b == 1 ? *(const oid *)Tloc(r1, 0) : oid_nil;
-	ALGODEBUG fprintf(stderr, "#fetchjoin(l=%s,r=%s)=(" ALGOBATFMT "," ALGOOPTBATFMT ") " LLFMT "us\n",
+	ALGODEBUG MT_fprintf(stderr, "#fetchjoin(l=%s,r=%s)=(" ALGOBATFMT "," ALGOOPTBATFMT ") " LLFMT "us\n",
 			  BATgetId(l), BATgetId(r),
 			  ALGOBATPAR(r1), ALGOOPTBATPAR(r2),
 			  GDKusec() - t0);
@@ -3624,7 +3624,7 @@ leftjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr,
 	rcnt = rcand ? (BUN) (rcandend - rcand) : rend - rstart;
 
 	if (lcnt == 0 || (!only_misses && !nil_on_miss && rcnt == 0)) {
-		ALGODEBUG fprintf(stderr, "#%s(l=" ALGOBATFMT ","
+		ALGODEBUG MT_fprintf(stderr, "#%s(l=" ALGOBATFMT ","
 				  "r=" ALGOBATFMT ",sl=" ALGOOPTBATFMT ","
 				  "sr=" ALGOOPTBATFMT ",nil_matches=%d,"
 				  "nil_on_miss=%d,semi=%d,only_misses=%d,"
@@ -3832,7 +3832,7 @@ BATjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, bool nil_matches
 		return GDK_FAIL;
 
 	if (lcnt == 0 || rcnt == 0) {
-		ALGODEBUG fprintf(stderr, "#BATjoin(l=" ALGOBATFMT ","
+		ALGODEBUG MT_fprintf(stderr, "#BATjoin(l=" ALGOBATFMT ","
 				  "r=" ALGOBATFMT ",sl=" ALGOOPTBATFMT ","
 				  "sr=" ALGOOPTBATFMT ",nil_matches=%d)\n",
 				  ALGOBATPAR(l), ALGOBATPAR(r),
@@ -4000,7 +4000,7 @@ BATbandjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr,
 
 	ALGODEBUG t0 = GDKusec();
 
-	ALGODEBUG fprintf(stderr, "#BATbandjoin("
+	ALGODEBUG MT_fprintf(stderr, "#BATbandjoin("
 			  "l=" ALGOBATFMT ",r=" ALGOBATFMT ","
 			  "sl=" ALGOOPTBATFMT ",sr=" ALGOOPTBATFMT ")\n",
 			  ALGOBATPAR(l), ALGOBATPAR(r),

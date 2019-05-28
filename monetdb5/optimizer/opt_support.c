@@ -13,7 +13,6 @@
 #include "opt_support.h"
 #include "mal_interpreter.h"
 #include "mal_listing.h"
-#include "mal_debugger.h"
 #include "opt_multiplex.h"
 #include "optimizer_private.h"
 #include "manifold.h"
@@ -123,7 +122,7 @@ optimizeMALBlock(Client cntxt, MalBlkPtr mb)
 		qot = 0;
 		for (pc = 0; pc < mb->stop; pc++) {
 			p = getInstrPtr(mb, pc);
-			if (getModuleId(p) == optimizerRef && p->fcn && p->token != REMsymbol) {
+			if (getModuleId(p) == optimizerRef && p->fcnname && strcmp(getFunctionId(p), "prelude") != 0 && p->fcn && p->token != REMsymbol) {
 				/* all optimizers should behave like patterns */
 				/* However, we don't have a stack now */
 				qot++;

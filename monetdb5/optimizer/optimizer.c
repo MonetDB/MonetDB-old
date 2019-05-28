@@ -20,7 +20,6 @@
 */
 #include "monetdb_config.h"
 #include "optimizer.h"
-#include "mal_debugger.h"
 #include "optimizer_private.h"
 #include "opt_pipes.h"
 

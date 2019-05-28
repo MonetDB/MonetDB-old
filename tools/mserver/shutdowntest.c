@@ -15,6 +15,7 @@
 #include "mal_client.h"
 #include "mal_function.h"
 #include "mal_authorize.h"
+#include "mal_embedded.h"
 #include "msabaoth.h"
 #include "mutils.h"
 #include "mal_linker.h"
@@ -268,9 +269,13 @@ static str monetdb_initialize(void) {
 		exit(1);
 	}
 
-	if (mal_init() != 0) { // mal_init() does not return meaningful codes on failure
-		retval = GDKstrdup("mal_init() failed");
-		goto cleanup;
+	if ((err = malEmbeddedBoot("libmonetdb5")) != MAL_SUCCEED) {
+		fprintf(stderr, "%s\n", err);
+		/* don't show this as a crash */
+		err = msab_registerStop();
+		if (err)
+			free(err);
+		exit(1);
 	}
 	GDKfataljumpenable = 0;
 
@@ -305,7 +310,7 @@ cleanup:
 
 static void monetdb_shutdown(void) {
 	if (monetdb_initialized) {
-		mserver_reset();
+		(void) malEmbeddedReset();
 		monetdb_initialized = 0;
 	}
 }

@@ -217,7 +217,7 @@ COLnew(oid hseq, int tt, BUN cap, role_t role)
 		GDKfree(bn->tvheap);
 		goto bailout;
 	}
-	ALGODEBUG fprintf(stderr, "#COLnew()=" ALGOBATFMT "\n", ALGOBATPAR(bn));
+	ALGODEBUG MT_fprintf(stderr, "#COLnew()=" ALGOBATFMT "\n", ALGOBATPAR(bn));
 	return bn;
   bailout:
 	BBPclear(bn->batCacheid);
@@ -235,10 +235,16 @@ BATdense(oid hseq, oid tseq, BUN cnt)
 	if (bn != NULL) {
 		BATtseqbase(bn, tseq);
 		BATsetcount(bn, cnt);
-		ALGODEBUG fprintf(stderr, "#BATdense()=" ALGOBATFMT "\n", ALGOBATPAR(bn));
+		ALGODEBUG MT_fprintf(stderr, "#BATdense()=" ALGOBATFMT "\n", ALGOBATPAR(bn));
 	}
 	return bn;
 }
+
+#if defined(HAVE_EMBEDDED) && defined(HAVE_EMBEDDED_JAVA)
+extern int TYPE_date;
+extern int TYPE_daytime;
+extern int TYPE_timestamp;
+#endif
 
 BAT *
 BATattach(int tt, const char *heapfile, role_t role)
@@ -247,6 +253,10 @@ BATattach(int tt, const char *heapfile, role_t role)
 	char *p;
 	size_t m;
 	FILE *f;
+#if defined(HAVE_EMBEDDED) && defined(HAVE_EMBEDDED_JAVA)
+	//The JVM is always Big-Endian, so the integer values must be swapped if so
+	int swapendianess = MT_check_endianness() != HOST_BIG_ENDIAN;
+#endif
 
 	ERRORcheck(tt <= 0 , "BATattach: bad tail type (<=0)\n", NULL);
 	ERRORcheck(ATOMvarsized(tt) && ATOMstorage(tt) != TYPE_str, "BATattach: bad tail type (varsized and not str)\n", NULL);
@@ -356,6 +366,41 @@ BATattach(int tt, const char *heapfile, role_t role)
 		p = Tloc(bn, 0);
 		n = (lng) st.st_size;
 		while (n > 0 && (m = fread(p, 1, (size_t) MIN(1024*1024, n), f)) > 0) {
+#if defined(HAVE_EMBEDDED) && defined(HAVE_EMBEDDED_JAVA)
+			if (swapendianess) {
+				BUN j = 0, end = 0;
+				int stype = ATOMstorage(tt);
+				if (stype == TYPE_sht) {
+					sht *bufptr = (sht*) p;
+					for (j = 0; j < end; j++) {
+						bufptr[j] = short_int_SWAP(bufptr[j]);
+					}
+				} else if (stype == TYPE_int || stype == TYPE_flt || stype == TYPE_date || stype == TYPE_daytime
+						   || stype == TYPE_timestamp) {
+					int *bufptr = (int*) p;
+					end = m / atomsize;
+					if (stype == TYPE_timestamp)
+						end <<= 2; /* 4 times entries (alignment -> 4 bytes + date -> 1 byte + daytime -> 1 byte) */
+					/* the alignment field is not properly swapped, but we never use it anyway */
+					for (j = 0; j < end; j++) {
+						bufptr[j] = normal_int_SWAP(bufptr[j]);
+					}
+				} else if (stype == TYPE_dbl || stype == TYPE_lng) {
+					lng *bufptr = (lng*) p;
+					for (j = 0, end = m / atomsize; j < end; j++) {
+						bufptr[j] = long_long_SWAP(bufptr[j]);
+					}
+				}
+#ifdef HAVE_HGE
+				else if (stype == TYPE_hge) {
+					hge *bufptr = (hge*) p;
+					for (j = 0, end = m / atomsize; j < end; j++) {
+						bufptr[j] = huge_int_SWAP(bufptr[j]);
+					}
+				}
+#endif
+			}
+#endif
 			p += m;
 			n -= m;
 		}
@@ -453,7 +498,7 @@ BATextend(BAT *b, BUN newcap)
 
 	theap_size *= Tsize(b);
 	if (b->theap.base && GDKdebug & HEAPMASK)
-		fprintf(stderr, "#HEAPextend in BATextend %s %zu %zu\n", b->theap.filename, b->theap.size, theap_size);
+		MT_fprintf(stderr, "#HEAPextend in BATextend %s %zu %zu\n", b->theap.filename, b->theap.size, theap_size);
 	if (b->theap.base &&
 	    HEAPextend(&b->theap, theap_size, b->batRestricted == BAT_READ) != GDK_SUCCEED)
 		return GDK_FAIL;
@@ -849,7 +894,7 @@ COLcopy(BAT *b, int tt, bool writable, role_t role)
 	}
 	if (!writable)
 		bn->batRestricted = BAT_READ;
-	ALGODEBUG fprintf(stderr, "#COLcopy(" ALGOBATFMT ")=" ALGOBATFMT "\n",
+	ALGODEBUG MT_fprintf(stderr, "#COLcopy(" ALGOBATFMT ")=" ALGOBATFMT "\n",
 			  ALGOBATPAR(b), ALGOBATPAR(bn));
 	return bn;
       bunins_failed:
@@ -1847,12 +1892,12 @@ backup_new(Heap *hp, int lockbat)
 		if ((ret = rename(batpath, bakpath)) < 0)
 			GDKsyserror("backup_new: rename %s to %s failed\n",
 				    batpath, bakpath);
-		IODEBUG fprintf(stderr, "#rename(%s,%s) = %d\n", batpath, bakpath, ret);
+		IODEBUG MT_fprintf(stderr, "#rename(%s,%s) = %d\n", batpath, bakpath, ret);
 	} else if (batret == 0) {
 		/* there is a backup already; just remove the X.new */
 		if ((ret = remove(batpath)) != 0)
 			GDKsyserror("backup_new: remove %s failed\n", batpath);
-		IODEBUG fprintf(stderr, "#remove(%s) = %d\n", batpath, ret);
+		IODEBUG MT_fprintf(stderr, "#remove(%s) = %d\n", batpath, ret);
 	}
 	GDKfree(batpath);
 	GDKfree(bakpath);
@@ -2107,7 +2152,7 @@ BATmode(BAT *b, bool transient)
 #ifdef NDEBUG
 /* assertions are disabled, turn failing tests into a message */
 #undef assert
-#define assert(test)	((void) ((test) || fprintf(stderr, "!WARNING: %s:%d: assertion `%s' failed\n", __FILE__, __LINE__, #test)))
+#define assert(test)	((void) ((test) || MT_fprintf(stderr, "!WARNING: %s:%d: assertion `%s' failed\n", __FILE__, __LINE__, #test)))
 #endif
 
 /* Assert that properties are set correctly.
@@ -2360,7 +2405,7 @@ BATassertProps(BAT *b)
 			BUN mask;
 
 			if ((hs = GDKzalloc(sizeof(Hash))) == NULL) {
-				fprintf(stderr,
+				MT_fprintf(stderr,
 					"#BATassertProps: cannot allocate "
 					"hash table\n");
 				goto abort_check;
@@ -2378,7 +2423,7 @@ BATassertProps(BAT *b)
 			    HASHnew(hs, b->ttype, BUNlast(b),
 				    mask, BUN_NONE) != GDK_SUCCEED) {
 				GDKfree(hs);
-				fprintf(stderr,
+				MT_fprintf(stderr,
 					"#BATassertProps: cannot allocate "
 					"hash table\n");
 				goto abort_check;

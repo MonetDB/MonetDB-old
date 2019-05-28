@@ -11,6 +11,7 @@
  */
 
 #include "monetdb_config.h"
+#include "stream.h"
 #include "sql_result.h"
 #include "str.h"
 #include "tablet.h"
@@ -19,31 +20,10 @@
 #include "bat/bat_storage.h"
 #include "rel_exp.h"
 
-#ifdef _MSC_VER
-/* use intrinsic functions on Windows */
-#define short_int_SWAP(s)	((short) _byteswap_ushort((unsigned short) (s)))
-/* on Windows, long is the same size as int */
-#define normal_int_SWAP(s)	((int) _byteswap_ulong((unsigned long) (s)))
-#define long_long_SWAP(s)	((lng) _byteswap_uint64((unsigned __int64) (s)))
-#else
-#define short_int_SWAP(s) ((short)(((0x00ff&(s))<<8) | ((0xff00&(s))>>8)))
-
-#define normal_int_SWAP(i) (((0x000000ff&(i))<<24) | ((0x0000ff00&(i))<<8) | \
-			    ((0x00ff0000&(i))>>8)  | ((0xff000000&(i))>>24))
-#define long_long_SWAP(l)				\
-		((((lng)normal_int_SWAP(l))<<32) |	\
-		 (0xffffffff&normal_int_SWAP(l>>32)))
-#endif
-
-#ifdef HAVE_HGE
-#define huge_int_SWAP(h)					\
-		((((hge)long_long_SWAP(h))<<64) |		\
-		 (0xffffffffffffffff&long_long_SWAP(h>>64)))
-#endif
-
-static lng 
-mnstr_swap_lng(stream *s, lng lngval) {
-	return mnstr_get_swapbytes(s) ? long_long_SWAP(lngval) : lngval;
+static lng
+mnstr_swap_lng(stream *s, lng lngval)
+{
+	return mnstr_get_swapbytes(s) ? long_int_SWAP(lngval) : lngval;
 }
 
 #define DEC_TOSTR(TYPE)							\
@@ -1075,7 +1055,23 @@ mvc_export_prepare(mvc *c, stream *out, cq *q, str w)
 	sql_arg *a;
 	sql_subtype *t;
 	sql_rel *r = q->rel;
+#ifdef HAVE_EMBEDDED
+	BAT *b_order  = NULL;
+	BAT *b_inout  = COLnew(0, TYPE_str, nrows, TRANSIENT);
+	BAT *b_offset = COLnew(0, TYPE_int, nrows, TRANSIENT);
+	BAT *b_type   = COLnew(0, TYPE_str, nrows, TRANSIENT);
+	BAT *b_digits = COLnew(0, TYPE_int, nrows, TRANSIENT);
+	BAT *b_scale  = COLnew(0, TYPE_int, nrows, TRANSIENT);
+	BAT *b_schema = COLnew(0, TYPE_str, nrows, TRANSIENT);
+	BAT *b_table  = COLnew(0, TYPE_str, nrows, TRANSIENT);
+	BAT *b_column = COLnew(0, TYPE_str, nrows, TRANSIENT);
+	int result_offset = 0, param_offset = 0;
 
+	if (!b_inout || !b_type || !b_digits || !b_scale || !b_schema || !b_table || !b_column) {
+		goto failure;
+	}
+	(void) w;
+#endif
 	if (!out)
 		return 0;
 
@@ -1160,6 +1156,19 @@ mvc_export_prepare(mvc *c, stream *out, cq *q, str w)
 			if (!rname && e->type == e_column && e->l)
 				rname = e->l;
 
+#ifdef HAVE_EMBEDDED
+			if (BUNappend(b_inout,  "result",             FALSE) != GDK_SUCCEED ||
+				BUNappend(b_offset, &result_offset,       FALSE) != GDK_SUCCEED ||
+				BUNappend(b_type,   t->type->sqlname,     FALSE) != GDK_SUCCEED ||
+				BUNappend(b_digits, &(t->digits),         FALSE) != GDK_SUCCEED ||
+				BUNappend(b_scale,  &(t->scale),          FALSE) != GDK_SUCCEED ||
+				BUNappend(b_schema, schema ? schema : "", FALSE) != GDK_SUCCEED ||
+				BUNappend(b_table,  rname ? rname : "",   FALSE) != GDK_SUCCEED ||
+				BUNappend(b_column, name ? name : "",     FALSE) != GDK_SUCCEED) {
+
+				goto failure;
+			}
+#endif
 			if (mnstr_printf(out, "[ \"%s\",\t%u,\t%u,\t\"%s\",\t\"%s\",\t\"%s\"\t]\n", t->type->sqlname, t->digits, t->scale, schema ? schema : "", rname ? rname : "", name ? name : "") < 0) {
 				return -1;
 			}
@@ -1175,6 +1184,18 @@ mvc_export_prepare(mvc *c, stream *out, cq *q, str w)
 			t = &a->type;
 
 			if (t) {
+#ifdef HAVE_EMBEDDED
+				if (BUNappend(b_inout,  "param",          FALSE) != GDK_SUCCEED ||
+					BUNappend(b_offset, &param_offset,    FALSE) != GDK_SUCCEED ||
+					BUNappend(b_type,   t->type->sqlname, FALSE) != GDK_SUCCEED ||
+					BUNappend(b_digits, &(t->digits),     FALSE) != GDK_SUCCEED ||
+					BUNappend(b_scale,  &(t->scale),      FALSE) != GDK_SUCCEED ||
+					BUNappend(b_schema, str_nil,          FALSE) != GDK_SUCCEED ||
+					BUNappend(b_table,  str_nil,          FALSE) != GDK_SUCCEED ||
+					BUNappend(b_column, str_nil,          FALSE) != GDK_SUCCEED) {
+					goto failure;
+				}
+#endif
 				if (mnstr_printf(out, "[ \"%s\",\t%u,\t%u,\tNULL,\tNULL,\tNULL\t]\n", t->type->sqlname, t->digits, t->scale) < 0) {
 					return -1;
 				}
@@ -1185,9 +1206,47 @@ mvc_export_prepare(mvc *c, stream *out, cq *q, str w)
 			}
 		}
 	}
+#ifdef HAVE_EMBEDDED
+	b_order = BATdense(0, 0, BATcount(b_inout));
+	if (!b_order) {
+		goto failure; // this leaks
+	}
+	c->results = res_table_create(c->session->tr, c->result_id++, q->id, 8, Q_PREPARE, NULL, b_order);
+	if (!c->results ||
+			!res_col_create(c->session->tr, c->results, "prepare", "result_or_param", "varchar", 0, 0, TYPE_bat, b_inout) ||
+			!res_col_create(c->session->tr, c->results, "prepare", "col_index",       "int",     0, 0, TYPE_bat, b_offset) ||
+			!res_col_create(c->session->tr, c->results, "prepare", "type",            "varchar", 0, 0, TYPE_bat, b_type) ||
+			!res_col_create(c->session->tr, c->results, "prepare", "digits",          "int",     0, 0, TYPE_bat, b_digits) ||
+			!res_col_create(c->session->tr, c->results, "prepare", "scale",           "int",     0, 0, TYPE_bat, b_scale) ||
+			!res_col_create(c->session->tr, c->results, "prepare", "schema",          "varchar", 0, 0, TYPE_bat, b_schema) ||
+			!res_col_create(c->session->tr, c->results, "prepare", "table",           "varchar", 0, 0, TYPE_bat, b_table) ||
+			!res_col_create(c->session->tr, c->results, "prepare", "column",          "varchar", 0, 0, TYPE_bat, b_column)) {
+		goto failure;
+	}
+#endif
 	if (mvc_export_warning(out, w) != 1)
 		return -1;
 	return 0;
+#ifdef HAVE_EMBEDDED
+failure:
+	if (b_order)
+		BBPreclaim(b_order);
+	if (b_offset)
+		BBPreclaim(b_offset);
+	if (b_type)
+		BBPreclaim(b_type);
+	if (b_digits)
+		BBPreclaim(b_digits);
+	if (b_scale)
+		BBPreclaim(b_scale);
+	if (b_schema)
+		BBPreclaim(b_schema);
+	if (b_table)
+		BBPreclaim(b_table);
+	if (b_column)
+		BBPreclaim(b_column);
+	return -1;
+#endif
 }
 
 
@@ -1680,7 +1739,7 @@ mvc_export_table_prot10(backend *b, stream *s, res_table *t, BAT *order, BUN off
 					lng *bufptr = (lng*) buf;
 					for(j = 0; j < (row - srow); j++) {
 						MTIMEepoch2lng(&time, times + j);
-						bufptr[j] = swap ? long_long_SWAP(time) : time;
+						bufptr[j] = swap ? long_int_SWAP(time) : time;
 					}
 					atom_size = sizeof(lng);
 				} else if (c->type.type->eclass == EC_DATE) {
@@ -1694,7 +1753,7 @@ mvc_export_table_prot10(backend *b, stream *s, res_table *t, BAT *order, BUN off
 					for(j = 0; j < (row - srow); j++) {
 						tstamp.payload.p_days = dates[j];
 						MTIMEepoch2lng(&time, &tstamp);
-						bufptr[j] = swap ? long_long_SWAP(time) : time;
+						bufptr[j] = swap ? long_int_SWAP(time) : time;
 					}
 					atom_size = sizeof(lng);
 				} else {
@@ -1721,7 +1780,7 @@ mvc_export_table_prot10(backend *b, stream *s, res_table *t, BAT *order, BUN off
 							lng *bufptr = (lng*) buf;
 							lng *exported_values = (lng*) Tloc(iterators[i].b, srow);
 							for(j = 0; j < (row - srow); j++) {
-								bufptr[j] = long_long_SWAP(exported_values[j]);
+								bufptr[j] = long_int_SWAP(exported_values[j]);
 							}
 							break;
 						}
@@ -1746,7 +1805,7 @@ mvc_export_table_prot10(backend *b, stream *s, res_table *t, BAT *order, BUN off
 
 		assert(buf >= bs2_buffer(s).buf);
 		if (buf - bs2_buffer(s).buf > (lng) bsize) {
-			fprintf(stderr, "Too many bytes in the buffer.\n");
+			MT_fprintf(stderr, "Too many bytes in the buffer.\n");
 			fres = -1;
 			goto cleanup;
 		}
@@ -2119,10 +2178,10 @@ mvc_export_affrows(backend *b, stream *s, lng val, str w, oid query_id, lng star
 	 * If we would fail on having no stream here, those internal commands
 	 * fail too.
 	 */
+	m->rowcnt = val;
 	if (!s)
 		return 0;
 
-	m->rowcnt = val;
 	stack_set_number(m, "rowcnt", m->rowcnt);
 	if (mnstr_write(s, "&2 ", 3, 1) != 1 ||
 	    !mvc_send_lng(s, val) ||

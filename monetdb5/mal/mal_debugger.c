@@ -293,7 +293,7 @@ mdbInit(void)
 	 */
 	mdbTable = GDKzalloc(sizeof(mdbStateRecord) * MAL_MAXCLIENTS);
 	if (mdbTable == NULL) {
-		fprintf(stderr,"#mdbInit:" MAL_MALLOC_FAIL);
+		MT_fprintf(stderr,"#mdbInit:" MAL_MALLOC_FAIL);
 		return false;
 	}
 	return true;

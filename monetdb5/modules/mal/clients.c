@@ -16,10 +16,10 @@
  * adjust global properties.
  */
 
-
 #include "monetdb_config.h"
 #include "clients.h"
 #include "mcrypt.h"
+#include "mal_embedded.h"
 #include "mal_scenario.h"
 #include "mal_instruction.h"
 #include "mal_client.h"
@@ -595,7 +595,7 @@ CLTshutdown(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 		snprintf(buf, 1024,"%d client sessions still running",leftover);
 	*ret = GDKstrdup(buf);
 	if ( force)
-		mal_exit(0);
+		malEmbeddedStop(0);
 	if(*ret == NULL)
 		throw(MAL, "mal.shutdown", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	return MAL_SUCCEED;

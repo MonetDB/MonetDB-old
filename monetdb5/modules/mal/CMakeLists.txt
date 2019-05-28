@@ -6,8 +6,8 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../../mal ../atoms ../kernel ../../../clients/mapilib ../../../common/stream ../../../common/utils
-					../../../gdk ${PCRE_INCLUDE_DIR} ${CRYPTO_INCLUDE_DIR})
+include_directories(../../mal ../atoms ../kernel ../../embedded ../../../clients/mapilib ../../../common/stream
+					../../../common/utils ../../../gdk ${PCRE_INCLUDE_DIR} ${CRYPTO_INCLUDE_DIR})
 
 add_library(malmodules OBJECT
 			batExtensions.c batExtensions.h
@@ -45,24 +45,4 @@ target_compile_definitions(malmodules PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIM
 set_target_properties(malmodules PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:malmodules> PARENT_SCOPE)
 
-install(FILES
-		language.mal mal_init.mal bbp.mal
-		profiler.mal batExtensions.mal orderidx.mal
-		inspect.mal manual.mal mal_io.mal mkey.mal manifold.mal
-		iterator.mal clients.mal
-		factories.mal groupby.mal mdb.mal pcre.mal mat.mal
-		transaction.mal oltp.mal wlc.mal
-		mal_mapi.mal remote.mal
-		txtsim.mal
-		tokenizer.mal sample.mal json_util.mal
-		batmtime.mal querylog.mal sysmon.mal
-		DESTINATION ${LIBDIR}/monetdb5)
-install(FILES 01_calc.mal 01_batcalc.mal DESTINATION ${LIBDIR}/monetdb5/autoload)
-
-if(HAVE_HGE)
-	install(FILES
-			00_calc_hge.mal 00_batcalc_hge.mal
-			00_iterator_hge.mal 00_language_hge.mal
-			00_mal_mapi_hge.mal 00_mkey_hge.mal 00_batExtensions_hge.mal
-			DESTINATION ${LIBDIR}/monetdb5/autoload)
-endif()
+install(FILES mal_init.mal DESTINATION ${LIBDIR}/monetdb5)

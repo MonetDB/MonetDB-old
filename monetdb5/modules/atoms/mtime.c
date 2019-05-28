@@ -1562,7 +1562,10 @@ MTIMEtimezone(tzone *ret, const char * const *name)
 	BATiter tzi;
 
 	if ((p = BUNfnd(timezone_name, *name)) == BUN_NONE)
-		throw(MAL, "mtime.setTimezone", "unknown timezone");
+		throw(MAL, "mtime.setTimezone", "unknown timezone_name");
+	if ( timezone_def == 0)
+		throw(MAL, "mtime.setTimezone", "unknown timezone_def");
+
 	tzi = bat_iterator(timezone_def);
 	z = (tzone *) BUNtloc(tzi, p);
 	if ((s = tzone_set_local(z)) != MAL_SUCCEED)

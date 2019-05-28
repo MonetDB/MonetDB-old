@@ -272,7 +272,7 @@ static void replaceTypeVar(MalBlkPtr mb, InstrPtr p, int v, malType t){
 	int j,i,x,y;
 #ifdef DEBUG_MAL_FCN
 	char *tpenme = getTypeName(t);
-	fprintf(stderr,"#replace type _%d by type %s\n",v, tpenme);
+	MT_fprintf(stderr,"#replace type _%d by type %s\n",v, tpenme);
 	GDKfree(tpenme);
 #endif
 	for(j=0; j<mb->stop; j++){
@@ -298,7 +298,7 @@ static void replaceTypeVar(MalBlkPtr mb, InstrPtr p, int v, malType t){
 #ifdef DEBUG_MAL_FCN
 			{
 				char *xnme = getTypeName(x), *ynme = getTypeName(y);
-				fprintf(stderr," %d replaced %s->%s \n",i,xnme,ynme);
+				MT_fprintf(stderr," %d replaced %s->%s \n",i,xnme,ynme);
 				GDKfree(xnme);
 				GDKfree(ynme);
 			}
@@ -307,7 +307,7 @@ static void replaceTypeVar(MalBlkPtr mb, InstrPtr p, int v, malType t){
 		if(getTypeIndex(x) == v){
 #ifdef DEBUG_MAL_FCN
 			char *xnme = getTypeName(x);
-			fprintf(stderr," replace x= %s polymorphic\n",xnme);
+			MT_fprintf(stderr," replace x= %s polymorphic\n",xnme);
 			GDKfree(xnme);
 #endif
 			setArgType(mb,p,i,t);
@@ -315,7 +315,7 @@ static void replaceTypeVar(MalBlkPtr mb, InstrPtr p, int v, malType t){
 #ifdef DEBUG_MAL_FCN
 		else {
 			char *xnme = getTypeName(x);
-			fprintf(stderr," non x= %s %d\n",xnme,getTypeIndex(x));
+			MT_fprintf(stderr," non x= %s %d\n",xnme,getTypeIndex(x));
 			GDKfree(xnme);
 		}
 #endif
@@ -377,24 +377,24 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 	InstrPtr pp;
 
 #ifdef DEBUG_CLONE
-	fprintf(stderr,"clone the function %s to scope %s\n",
+	MT_fprintf(stderr,"clone the function %s to scope %s\n",
 				 proc->name,scope->name);
 	fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
 #endif
 	new = newFunction(scope->name, proc->name, getSignature(proc)->token);
 	if( new == NULL){
-		fprintf(stderr,"cloneFunction() failed");
+		MT_fprintf(stderr,"cloneFunction() failed");
 		return NULL;
 	}
 	freeMalBlk(new->def);
 	if((new->def = copyMalBlk(proc->def)) == NULL) {
 		freeSymbol(new);
-		fprintf(stderr,"cloneFunction() failed");
+		MT_fprintf(stderr,"cloneFunction() failed");
 		return NULL;
 	}
 	/* now change the definition of the original proc */
 #ifdef DEBUG_CLONE
-	fprintf(stderr, "CLONED VERSION\n");
+	MT_fprintf(stderr, "CLONED VERSION\n");
 	fprintFunction(stderr, new->def, 0, LIST_MAL_ALL);
 #endif
 	/* check for errors after fixation , TODO*/
@@ -414,7 +414,7 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 #ifdef DEBUG_MAL_FCN
 		else {
 			char *tpenme = getTypeName(v);
-			fprintf(stderr,"%d remains %s\n", i, tpenme);
+			MT_fprintf(stderr,"%d remains %s\n", i, tpenme);
 			GDKfree(tpenme);
 		}
 #endif
@@ -431,7 +431,7 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 		clrVarFixed(new->def, i);
 
 #ifdef DEBUG_MAL_FCN
-	fprintf(stderr, "FUNCTION TO BE CHECKED\n");
+	MT_fprintf(stderr, "FUNCTION TO BE CHECKED\n");
 	fprintFunction(stderr, new->def, 0, LIST_MAL_ALL);
 #endif
 
@@ -450,7 +450,7 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 		}
 	}
 #ifdef DEBUG_CLONE
-	fprintf(stderr, "newly cloned function added to %s %d \n",
+	MT_fprintf(stderr, "newly cloned function added to %s %d \n",
 				 scope->name, i);
 	fprintFunction(stderr, new->def, 0, LIST_MAL_ALL);
 #endif
@@ -828,7 +828,7 @@ void chkDeclarations(MalBlkPtr mb){
 				else
 					setVarScope(mb, l, blks[top]);
 #ifdef DEBUG_MAL_FCN
-				fprintf(stderr,"#defined %s in block %d\n", getVarName(mb,l), getVarScope(mb,l));
+				MT_fprintf(stderr,"#defined %s in block %d\n", getVarName(mb,l), getVarScope(mb,l));
 #endif
 			}
 			if( blockCntrl(p) || blockStart(p) )
@@ -849,12 +849,12 @@ void chkDeclarations(MalBlkPtr mb){
 				} 
 				blks[++top]= blkId;
 #ifdef DEBUG_MAL_FCN
-				fprintf(stderr,"#new block %d at top %d\n",blks[top], top);
+				MT_fprintf(stderr,"#new block %d at top %d\n",blks[top], top);
 #endif
 			}
 			if( blockExit(p) && top > 0 ){
 #ifdef DEBUG_MAL_FCN
-				fprintf(stderr,"leave block %d at top %d\n",blks[top], top);
+				MT_fprintf(stderr,"leave block %d at top %d\n",blks[top], top);
 #endif
 				if( dflow == blkId){
 					dflow = -1;

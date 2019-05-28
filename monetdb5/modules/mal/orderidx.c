@@ -11,6 +11,7 @@
  * Implement a parallel sort-merge MAL program generator
  */
 #include "monetdb_config.h"
+#include "mutils.h"
 #include "orderidx.h"
 #include "gdk.h"
 
@@ -92,12 +93,12 @@ OIDXcreateImplementation(Client cntxt, int tpe, BAT *b, int pieces)
 		pieces = 1;
 	}
 #ifdef _DEBUG_OIDX_
-	fprintf(stderr,"#bat.orderidx pieces %d\n",pieces);
-	fprintf(stderr,"#oidx ttype %s bat %s\n", ATOMname(b->ttype),ATOMname(tpe));
+	MT_fprintf(stderr,"#bat.orderidx pieces %d\n",pieces);
+	MT_fprintf(stderr,"#oidx ttype %s bat %s\n", ATOMname(b->ttype),ATOMname(tpe));
 #endif
 
 	/* create a temporary MAL function to sort the BAT in parallel */
-	snprintf(name, IDLENGTH, "sort%d", rand()%1000);
+	snprintf(name, IDLENGTH, "sort%d", MT_rand()%1000);
 	snew = newFunction(putName("user"), putName(name),
 	       FUNCTIONsymbol);
 	if(snew == NULL) {
