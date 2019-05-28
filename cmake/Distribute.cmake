@@ -37,7 +37,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 
 	find_program(ECHO NAMES echo DOC "echo program fullpath")
 	if(NOT ECHO OR NOT BASH)
-		message(FATAL_ERROR "echo and bash program are required to build rpms")
+		message(FATAL_ERROR "echo and bash programs are required to build rpms")
 	endif()
 
 	# Create a temporary file in CMakeFiles and copy it to the final location while setting proper permissions
@@ -47,7 +47,8 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 		 FILE_PERMISSIONS ${PROGRAM_PERMISSIONS_DEFAULT})
 	file(REMOVE ${CMAKE_BINARY_DIR}/CMakeFiles/find_linux_distro.sh)
 
-	exec_program("${CMAKE_BINARY_DIR}/find_linux_distro.sh" OUTPUT_VARIABLE LINUX_DIST RETURN_VALUE LINUX_DIST_RC)
+	execute_process(COMMAND "${CMAKE_BINARY_DIR}/find_linux_distro.sh" RESULT_VARIABLE LINUX_DIST_RC
+					OUTPUT_VARIABLE LINUX_DIST OUTPUT_STRIP_TRAILING_WHITESPACE)
 	if(LINUX_DIST AND LINUX_DIST_RC EQUAL 0)
 		configure_file(${CMAKE_SOURCE_DIR}/rpm.mk.in ${CMAKE_BINARY_DIR}/rpm.mk @ONLY)
 		install(FILES ${CMAKE_BINARY_DIR}/rpm.mk DESTINATION ${INCLUDEDIR}/monetdb)

@@ -43,7 +43,7 @@ foreach(loop_var IN LISTS HAVE_LIST)
 	if(HAVE_${loop_var})
 		set(HAVE_${loop_var}_FALSE "#")
 	endif()
-endforeach(loop_var)
+endforeach()
 
 configure_file(Mtest.py.in ${CMAKE_CURRENT_BINARY_DIR}/Mtest.py @ONLY)
 configure_file(monet_options.py.in ${CMAKE_CURRENT_BINARY_DIR}/monet_options.py @ONLY)

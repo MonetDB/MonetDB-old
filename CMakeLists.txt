@@ -67,7 +67,7 @@ if(NOT MSVC AND NOT ${CMAKE_C_COMPILER_ID} MATCHES "^GNU|Intel|Clang|AppleClang$
 endif()
 if(NOT CMAKE_BUILD_TYPE) # Set default build options
 	message(STATUS "Setting build type to Debug as none was selected")
-	set(CMAKE_BUILD_TYPE Debug CACHE STRING "The type of build")
+	set(CMAKE_BUILD_TYPE Debug CACHE STRING "The type of build" FORCE)
 endif()
 
 # Extensions to use (please add to the OPTIONS_LIST bellow whenever a new option is added)
@@ -320,8 +320,10 @@ if(Python3_Interpreter_FOUND)
 	if("${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}" VERSION_LESS ${PYTHON3_REQUIRED_VERSION})
 		message(WARNING "The Python 3 executable is too old ${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR} < ${PYTHON3_REQUIRED_VERSION}")
 	else()
-		exec_program("${Python3_EXECUTABLE}" ARGS "-c \"import distutils.sysconfig; print(distutils.sysconfig.get_python_lib(1,0,'${CMAKE_INSTALL_PREFIX}'))\"" OUTPUT_VARIABLE PYTHON3_LIBDIR RETURN_VALUE PYTHON3_LIBDIR_CODE)
-		if(PYTHON3_LIBDIR AND PYTHON3_LIBDIR_CODE EQUAL 0)
+		execute_process(COMMAND "${Python3_EXECUTABLE}" "-c"
+						"import distutils.sysconfig; print(distutils.sysconfig.get_python_lib(1,0,'${CMAKE_INSTALL_PREFIX}'))"
+						RESULT_VARIABLE PY3_LIBDIR_CODE OUTPUT_VARIABLE PYTHON3_LIBDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+		if(PYTHON3_LIBDIR AND PY3_LIBDIR_CODE EQUAL 0)
 			set(HAVE_PYTHON3 ON CACHE INTERNAL "python3 is available")
 		else()
 			message(WARNING "Could not determine MonetDB Python testing files instalation directory")
