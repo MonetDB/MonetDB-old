@@ -11,11 +11,24 @@ if(NOT WIN32)
 endif()
 add_subdirectory(UDF)
 
-include_directories(../../include ../../common ../../storage ../../server ../../../monetdb5/modules/atoms 
-					../../../monetdb5/modules/kernel ../../../monetdb5/mal ../../../monetdb5/modules/mal 
-					../../../monetdb5/optimizer ../../../monetdb5/scheduler ../../../monetdb5/embedded
-					../../../monetdb5/extras/rapi ../../../common/stream ../../../common/utils ../../scripts
-					../../../gdk)
+include_directories(${CMAKE_CURRENT_BINARY_DIR} ../../include ../../common ../../storage ../../server
+					../../../monetdb5/modules/atoms ../../../monetdb5/modules/kernel ../../../monetdb5/mal
+					../../../monetdb5/modules/mal ../../../monetdb5/optimizer ../../../monetdb5/scheduler
+					../../../monetdb5/embedded ../../../monetdb5/extras/rapi ../../../common/stream
+					../../../common/utils ../../scripts ../../../gdk)
+
+set(SQL_MAL_SCRIPTS_LIST sql.mal sqlcatalog.mal sql_transaction.mal sql_decimal.mal sql_rank.mal sql_aggr_bte.mal
+	sql_aggr_sht.mal sql_aggr_int.mal sql_aggr_lng.mal sql_aggr_flt.mal sql_aggr_dbl.mal sql_inspect.mal
+	sql_generator.mal sql_decimal_hge.mal sql_rank_hge.mal sql_aggr_hge.mal sql_generator_hge.mal wlr.mal)
+
+foreach(script IN LISTS SQL_MAL_SCRIPTS_LIST)
+	execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/mal2h.py" "-f"
+					"${CMAKE_CURRENT_SOURCE_DIR}/${script}" "-t" "-o" "${CMAKE_CURRENT_BINARY_DIR}/${script}.h"
+					RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET ERROR_QUIET)
+	if(NOT PY_SCRIPT_RC EQUAL 0)
+		message(FATAL_ERROR "Could not generate ${script}.h file")
+	endif()
+endforeach()
 
 set(SQL_LINK_LIBRARIES sqlserver store batstore sqlcommon sqlscripts)
 if(WIN32)
@@ -48,7 +61,7 @@ add_library(sql MODULE
 			wlr.c wlr.h
 			sql_datetrunc.c
 			sql_rank.c sql_rank.h
-			sql_generator.c sql_generator.h)
+			sql_generator.c sql_generator.h) # The mal script header files should be in CMAKE_CURRENT_BINARY_DIR
 target_link_libraries(sql PRIVATE ${SQL_LINK_LIBRARIES})
 set_target_properties(sql PROPERTIES OUTPUT_NAME _sql)
 target_compile_definitions(sql PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)

@@ -11,7 +11,8 @@ import argparse
 
 
 parser = argparse.ArgumentParser(description='Convert MonetDB MAL scripts to C header files to be inlined')
-parser.add_argument('file', metavar='F', type=str, help='The MAL file to convert')
+parser.add_argument('-f', '--file', metavar='F', dest='file', type=str, help='The MAL file to convert')
+parser.add_argument('-o', '--output', metavar='O', dest='output', type=str, help='The output header file to write to')
 parser.add_argument('-t', '--trim', dest='trim', action='store_true', help='trim whitespaces')
 parser.add_argument('-r', '--rcomments', dest='rcom', action='store_true', help='remove comments')
 
@@ -28,18 +29,23 @@ if file_stat.st_size > (1 << 29):
     raise Exception("File {0} is too large to process".format(args.file))
 
 # get the file name and extension
-base = os.path.basename(args.file)
-split = os.path.splitext(base)
-if len(split) < 2 or split[1] != '.mal':
-    raise Exception("Only .mal files are supported")
+input_file_base = os.path.basename(args.file)
+input_file_split = os.path.splitext(input_file_base)
+if len(input_file_split) < 2 or input_file_split[1] != '.mal':
+    raise Exception("Only .mal files are supported for the input file")
 
-filebasename = split[0]
-# output file will be written on the same directory
-mal_h_output_file = open(os.path.join(os.path.dirname(args.file), filebasename) + split[1] + ".h", 'w')
+output_file_base = os.path.basename(args.output)
+output_file_split = os.path.splitext(output_file_base)
+if len(output_file_split) < 2 or output_file_split[1] != '.h':
+    raise Exception("Only .h files are supported for the output file")
 
 mal_content_file = open(args.file, 'r')
 mal_content = mal_content_file.read()
 mal_content_file.close()
+
+filebasename = output_file_split[0]
+# output file will be written on the same directory
+mal_h_output_file = open(args.output, 'w')
 
 # write the common header, plus the C array entry
 insert1 = (

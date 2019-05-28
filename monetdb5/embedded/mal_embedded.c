@@ -108,6 +108,7 @@ malSignatures malModules[MAXMODULES] =
 #include "querylog.mal.h"
 #include "sysmon.mal.h"
 #endif
+#include "tablet.mal.h"
 #include "sample.mal.h"
 
 #include "optimizer.mal.h"
