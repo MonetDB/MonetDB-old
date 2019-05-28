@@ -17,8 +17,10 @@ if(NOT "${ENABLE_PY3INTEGRATION}" STREQUAL "NO")
 				message(STATUS "Python ${PYTHON3_DEV_REQUIRED_VERSION} is required for Python 3 integration support")
 			endif()
 		else()
-			exec_program("${Python3_EXECUTABLE}" ARGS "-c \"import numpy; print(int(numpy.__version__.split('.').__getitem__(1)) >= 7)\"" OUTPUT_VARIABLE NUMPY_OUTPUT RETURN_VALUE NUMPY_RETURN_CODE)
-			exec_program("${Python3_EXECUTABLE}" ARGS "-c \"import numpy; print(numpy.get_include())\"" OUTPUT_VARIABLE NUMPY_CPP_FLAGS RETURN_VALUE NUMPY_CPP_RC)
+			execute_process(COMMAND "${Python3_EXECUTABLE}" "-c" "import numpy; print(int(numpy.__version__.split('.').__getitem__(1)) >= 7)"
+							RESULT_VARIABLE NUMPY_RETURN_CODE OUTPUT_VARIABLE NUMPY_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
+			execute_process(COMMAND "${Python3_EXECUTABLE}" "-c" "import numpy; print(numpy.get_include())"
+							RESULT_VARIABLE NUMPY_CPP_RC OUTPUT_VARIABLE NUMPY_CPP_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
 			if(NUMPY_RETURN_CODE EQUAL 0 AND NUMPY_CPP_RC EQUAL 0 AND "${NUMPY_OUTPUT}" STREQUAL "True")
 				set(HAVE_LIBPY3 ON CACHE INTERNAL "pyapi3 extension is available" FORCE)
 				set(NUMPY3_INCLUDE_DIR ${NUMPY_CPP_FLAGS} CACHE INTERNAL "Numpy include directory path")

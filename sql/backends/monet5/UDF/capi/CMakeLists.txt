@@ -28,8 +28,9 @@ if(NOT "${ENABLE_CINTEGRATION}" STREQUAL "NO" AND HAVE_PYTHON3 AND NOT WIN32)
 	endif()
 
 	# Generate cheader.text.h file
-	exec_program("${Python3_EXECUTABLE}" ARGS "${CMAKE_CURRENT_SOURCE_DIR}/boot.py ${CMAKE_CURRENT_SOURCE_DIR}/cheader.h ${CMAKE_CURRENT_BINARY_DIR}/cheader.text.h"
-				 OUTPUT_VARIABLE CHEADER_OUTPUT RETURN_VALUE CHEADER_CODE)
+	execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/boot.py"
+					"${CMAKE_CURRENT_SOURCE_DIR}/cheader.h" "${CMAKE_CURRENT_BINARY_DIR}/cheader.text.h"
+					RESULT_VARIABLE CHEADER_CODE OUTPUT_QUIET)
 	if(NOT CHEADER_CODE EQUAL 0)
 		message(FATAL_ERROR "Could not generate cheader.text.h file")
 	endif()
