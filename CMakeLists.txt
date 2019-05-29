@@ -72,7 +72,7 @@ endif()
 
 # Extensions to use (please add to the OPTIONS_LIST bellow whenever a new option is added)
 set(ENABLE_CINTEGRATION "AUTO" CACHE STRING "Enable support for C UDFs (default=AUTO)") # Check with HAVE_CUDF
-set(ENABLE_EMBEDDED "NO" CACHE STRING "Enable support for running MonetDB as a library (default=NO)") # TODO check this
+set(ENABLE_EMBEDDED "NO" CACHE STRING "Enable support for running MonetDB as a library (default=NO)") # Check with HAVE_EMBEDDED
 set(ENABLE_FITS "AUTO" CACHE STRING "Enable support for FITS (default=AUTO)") # Check with HAVE_FITS
 set(ENABLE_GDK "YES" CACHE STRING "Enable support for GDK (default=YES)") # Check with HAVE_GDK
 set(ENABLE_GEOM "AUTO" CACHE STRING "Enable support for geom module (default=AUTO)") # Check with HAVE_GEOM
@@ -352,6 +352,11 @@ if(NOT HAVE_PYTHON3)
 	else()
 		set(ENABLE_SQL "NO" CACHE STRING "A valid Python 3 interpreter is required for MonetDB/SQL" FORCE)
 	endif()
+	if("${ENABLE_EMBEDDED}" STREQUAL "YES")
+		message(FATAL_ERROR "A valid Python 3 interpreter is required for MonetDB embedded library")
+	else()
+		set(ENABLE_EMBEDDED "NO" CACHE STRING "A valid Python 3 interpreter is required for MonetDB embedded library" FORCE)
+	endif()
 endif()
 
 # Bison
@@ -360,7 +365,11 @@ if(NOT BISON_FOUND)
 	if(${ENABLE_SQL} STREQUAL "YES")
 		message(FATAL_ERROR "MonetDB/SQL requires bison")
 	endif()
+	if(${ENABLE_EMBEDDED} STREQUAL "YES")
+		message(FATAL_ERROR "MonetDB embedded library requires bison")
+	endif()
 	set(ENABLE_SQL "NO" CACHE STRING "Bison is required for MonetDB/SQL" FORCE)
+	set(ENABLE_EMBEDDED "NO" CACHE STRING "Bison is required for MonetDB embedded library" FORCE)
 endif()
 
 # Iconv
@@ -590,9 +599,9 @@ else()
 	set(HAVE_SQL OFF CACHE INTERNAL "MonetDB/SQL is available" FORCE)
 endif()
 if(${ENABLE_EMBEDDED} MATCHES "^YES|AUTO$")
-	set(HAVE_EMBEDDED ON CACHE INTERNAL "Embedded MonetDB is enabled" FORCE)
+	set(HAVE_EMBEDDED ON CACHE INTERNAL "MonetDB embedded library is enabled" FORCE)
 else()
-	set(HAVE_EMBEDDED OFF CACHE INTERNAL "Embedded MonetDB is enabled" FORCE)
+	set(HAVE_EMBEDDED OFF CACHE INTERNAL "MonetDB embedded library is enabled" FORCE)
 endif()
 if(${ENABLE_STATIC_ANALYSIS} MATCHES "^YES|AUTO$")
 	set(STATIC_CODE_ANALYSIS ON CACHE INTERNAL "Static code analysis is available" FORCE)
@@ -789,6 +798,9 @@ if(HAVE_SQL)
 	add_subdirectory(sql)
 endif()
 add_subdirectory(tools)
+if(HAVE_EMBEDDED)
+	add_subdirectory(embedded)
+endif()
 if(HAVE_TESTING)
 	add_subdirectory(testing) # This one must be the last visted directory!
 endif()
