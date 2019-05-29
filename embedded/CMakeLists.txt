@@ -41,38 +41,38 @@ set(MAL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/01_calc.mal")
 
 set(SQL_MAL_SCRIPTS_LIST
-	"${CMAKE_CURRENT_SOURCE_DIR}/sqlcatalog.mal"
-	"${CMAKE_CURRENT_SOURCE_DIR}/sql_transaction.mal"
-	"${CMAKE_CURRENT_SOURCE_DIR}/sql_decimal.mal"
-	"${CMAKE_CURRENT_SOURCE_DIR}/sql_rank.mal"
-	"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_bte.mal"
-	"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_sht.mal"
-	"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_int.mal"
-	"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_lng.mal"
-	"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_flt.mal"
-	"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_dbl.mal"
-	"${CMAKE_CURRENT_SOURCE_DIR}/sql_inspect.mal"
-	"${CMAKE_CURRENT_SOURCE_DIR}/sql_generator.mal")
+	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sqlcatalog.mal"
+	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql_transaction.mal"
+	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql_decimal.mal"
+	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql_rank.mal"
+	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql_aggr_bte.mal"
+	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql_aggr_sht.mal"
+	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql_aggr_int.mal"
+	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql_aggr_lng.mal"
+	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql_aggr_flt.mal"
+	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql_aggr_dbl.mal"
+	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql_inspect.mal"
+	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql_generator.mal")
 
 set(SQL_SCRIPTS_LIST1
-	"${CMAKE_CURRENT_SOURCE_DIR}/09_like.sql"
-	"${CMAKE_CURRENT_SOURCE_DIR}/10_math.sql"
-	"${CMAKE_CURRENT_SOURCE_DIR}/11_times.sql"
-	"${CMAKE_CURRENT_SOURCE_DIR}/13_date.sql"
-	"${CMAKE_CURRENT_SOURCE_DIR}/16_tracelog.sql"
-	"${CMAKE_CURRENT_SOURCE_DIR}/17_temporal.sql"
-	"${CMAKE_CURRENT_SOURCE_DIR}/18_index.sql"
-	"${CMAKE_CURRENT_SOURCE_DIR}/20_vacuum.sql"
-	"${CMAKE_CURRENT_SOURCE_DIR}/21_dependency_views.sql"
-	"${CMAKE_CURRENT_SOURCE_DIR}/25_debug.sql"
-	"${CMAKE_CURRENT_SOURCE_DIR}/39_analytics.sql"
-	"${CMAKE_CURRENT_SOURCE_DIR}/51_sys_schema_extension.sql"
-	"${CMAKE_CURRENT_SOURCE_DIR}/70_storagemodel.sql"
-	"${CMAKE_CURRENT_SOURCE_DIR}/71_statistics.sql"
-	"${CMAKE_CURRENT_SOURCE_DIR}/90_generator.sql")
+	"${CMAKE_SOURCE_DIR}/sql/scripts/09_like.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/10_math.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/11_times.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/13_date.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/16_tracelog.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/17_temporal.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/18_index.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/20_vacuum.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/21_dependency_views.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/25_debug.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/39_analytics.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/51_sys_schema_extension.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/70_storagemodel.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/71_statistics.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/90_generator.sql")
 
 set(SQL_SCRIPTS_LIST2
-	"${CMAKE_CURRENT_SOURCE_DIR}/99_system.sql")
+	"${CMAKE_SOURCE_DIR}/sql/scripts/99_system.sql")
 
 add_library(monetdblite MODULE
 			embedded.c
