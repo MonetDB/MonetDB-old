@@ -42,112 +42,8 @@
 static bool embeddedinitialized = false;
 static int nDefaultModules = 0;
 
-/* The source for the MAL signatures*/
-malSignatures malModules[MAXMODULES] =
-{
-// Include the MAL definitions files in the proper order.
-
-#ifndef NDEBUG
-#include "mdb.mal.h"
-#endif
-#include "alarm.mal.h"
-#include "mmath.mal.h"
-#include "streams.mal.h"
-
-#include "bat5.mal.h"
-#include "batExtensions.mal.h"
-#include "algebra.mal.h"
-#include "orderidx.mal.h"
-#include "status.mal.h"
-#include "groupby.mal.h"
-#include "group.mal.h"
-#include "aggr.mal.h"
-#include "mkey.mal.h"
-
-#include "blob.mal.h"
-#include "str.mal.h"
-#include "mtime.mal.h"
-#ifndef HAVE_EMBEDDED
-#include "color.mal.h"
-#include "url.mal.h"
-#include "uuid.mal.h"
-#include "json.mal.h"
-#include "json_util.mal.h"
-#include "inet.mal.h"
-#include "identifier.mal.h"
-#include "xml.mal.h"
-#endif
-
-#include "batmmath.mal.h"
-#include "batmtime.mal.h"
-#include "batstr.mal.h"
-#ifndef HAVE_EMBEDDED
-#include "batcolor.mal.h"
-#include "batxml.mal.h"
-#endif
-
-#include "pcre.mal.h"
-#ifndef HAVE_EMBEDDED
-#include "clients.mal.h"
-#endif
-#include "bbp.mal.h"
-#include "mal_io.mal.h"
-#include "manifold.mal.h"
-#ifndef HAVE_EMBEDDED
-#include "factories.mal.h"
-#include "remote.mal.h"
-#endif
-
-#include "mat.mal.h"
-#include "inspect.mal.h"
-#include "manual.mal.h"
-#include "language.mal.h"
-
-#ifndef HAVE_EMBEDDED
-#include "profiler.mal.h"
-#include "querylog.mal.h"
-#include "sysmon.mal.h"
-#endif
-#include "tablet.mal.h"
-#include "sample.mal.h"
-
-#include "optimizer.mal.h"
-
-#include "iterator.mal.h"
-#ifndef HAVE_EMBEDDED
-#include "txtsim.mal.h"
-#include "tokenizer.mal.h"
-#include "mal_mapi.mal.h"
-#endif
-#include "oltp.mal.h"
-#include "microbenchmark.mal.h"
-#ifndef HAVE_EMBEDDED
-#include "wlc.mal.h"
-#endif
-
-#ifdef HAVE_HGE
-#include "00_aggr_hge.mal.h"
-#include "00_batcalc_hge.mal.h"
-#include "00_calc_hge.mal.h"
-#include "00_batExtensions_hge.mal.h"
-#include "00_iterator_hge.mal.h"
-#include "00_language_hge.mal.h"
-#include "00_mkey_hge.mal.h"
-#include "00_mal_mapi_hge.mal.h"
-#include "00_json_hge.mal.h"
-#endif
-
-#include "language.mal.h"
-#include "01_batcalc.mal.h"
-#include "01_calc.mal.h"
-
-#ifndef HAVE_EMBEDDED
-#include "run_adder.mal.h"
-#include "run_isolate.mal.h"
-#include "run_memo.mal.h"
-#endif
-{ 0, 0}
-};
+#include "mal_inline.h"
+#include "mal_inline_names.h"
 
 extern void WLCreset(void); // Don't include wlc.h or opt_support.h, it creates a circular dependency
 extern void opt_pipes_reset(void);
@@ -156,7 +52,6 @@ str
 malEmbeddedBoot(const char* library_path)
 {
 	Client c;
-	int i = 0;
 	str msg = MAL_SUCCEED;
 
 	if( embeddedinitialized )
@@ -195,17 +90,15 @@ malEmbeddedBoot(const char* library_path)
 		MCcloseClient(c);
 		return msg;
 	}
-	if((msg = MSinitClientPrg(c, "user", "main")) != MAL_SUCCEED) {
+	if ((msg = MSinitClientPrg(c, "user", "main")) != MAL_SUCCEED) {
 		MCcloseClient(c);
 		return msg;
 	}
-	for(; malModules[i].modnme; i++) {
-		if ((msg = callString(c, malModules[i].source, FALSE)) != MAL_SUCCEED) {
-			MCcloseClient(c);
-			return msg;
-		}
+	if ((msg = malInlineBoot(c, "mal_boot_scripts", mal_inline, 0)) != MAL_SUCCEED) {
+		MCcloseClient(c);
+		return msg;
 	}
-	nDefaultModules = i;
+	for(nDefaultModules = 0; malModules[nDefaultModules]; nDefaultModules++);
 #ifndef HAVE_EMBEDDED
 	if ((msg = malInclude(c, "mal_init", 0)) != MAL_SUCCEED) {
 		MCcloseClient(c);
@@ -225,27 +118,22 @@ malEmbeddedBoot(const char* library_path)
 }
 
 str
-malExtraModulesBoot(Client c, malSignatures extraMalModules[])
+malExtraModulesBoot(Client c, str extraMalModules[], char* mal_scripts)
 {
 	int i, j, k;
-	str msg = MAL_SUCCEED;
 
-	for (i = 0; malModules[i].modnme; i++);
+	for (i = 0; malModules[i]; i++);
 	if (i == MAXMODULES-1) //the last entry must be set to NULL
 		throw(MAL, "malInclude", "too many MAL modules loaded");
 
-	for (j = 0, k = i; k < MAXMODULES-1 && extraMalModules[j].modnme && extraMalModules[j].source; k++, j++);
+	for (j = 0, k = i; k < MAXMODULES-1 && extraMalModules[j]; k++, j++);
 	if (k == MAXMODULES-1)
 		throw(MAL, "malInclude", "the number of MAL modules to load, exceed the available MAL modules slots");
 
-	memcpy(&malModules[i], &extraMalModules[0], j * sizeof(malSignatures));
-	memset(&malModules[k], 0, sizeof(malSignatures));
+	memcpy(&malModules[i], &extraMalModules[0], j * sizeof(str));
+	memset(&malModules[k], 0, sizeof(str));
 
-	for(i = 0; extraMalModules[i].modnme && extraMalModules[i].source; i++) {
-		if ((msg = callString(c, extraMalModules[i].source, FALSE)) != MAL_SUCCEED)
-			return msg;
-	}
-	return msg;
+	return malInlineBoot(c, "mal_extra_scripts", mal_scripts, 0);
 }
 
 /*
@@ -262,10 +150,12 @@ malExtraModulesBoot(Client c, malSignatures extraMalModules[])
 void
 malEmbeddedReset(void) //remove extra modules and set to non-initialized again
 {
-	memset(&malModules[nDefaultModules], 0, (MAXMODULES-1 - nDefaultModules) * sizeof(malSignatures));
-	embeddedinitialized = false;
-	str err = 0;
+	str msg = MAL_SUCCEED;
 
+	if (!embeddedinitialized)
+		return;
+
+	memset(&malModules[nDefaultModules], 0, (MAXMODULES-1 - nDefaultModules) * sizeof(str));
 	GDKprepareExit();
 	MCstopClients(0);
 #ifndef HAVE_EMBEDDED
@@ -274,13 +164,13 @@ malEmbeddedReset(void) //remove extra modules and set to non-initialized again
 	stopProfiler();
 	AUTHreset();
 	if (!GDKinmemory()) {
-		if ((err = msab_wildRetreat()) != NULL) {
-			MT_fprintf(stderr, "!%s", err);
-			free(err);
+		if ((msg = msab_wildRetreat()) != NULL) {
+			MT_fprintf(stderr, "!%s", msg);
+			free(msg);
 		}
-		if ((err = msab_registerStop()) != NULL) {
-			MT_fprintf(stderr, "!%s", err);
-			free(err);
+		if ((msg = msab_registerStop()) != NULL) {
+			MT_fprintf(stderr, "!%s", msg);
+			free(msg);
 		}
 	}
 	mal_factory_reset();
@@ -306,6 +196,7 @@ malEmbeddedReset(void) //remove extra modules and set to non-initialized again
 #ifndef HAVE_EMBEDDED
 	GDKreset(0);	// terminate all other threads
 #endif
+	embeddedinitialized = false;
 }
 
 /* stopping clients should be done with care, as they may be in the mids of

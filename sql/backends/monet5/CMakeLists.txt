@@ -17,18 +17,43 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ../../include ../../common ../..
 					../../../monetdb5/embedded ../../../monetdb5/extras/rapi ../../../common/stream
 					../../../common/utils ../../scripts ../../../gdk)
 
-set(SQL_MAL_SCRIPTS_LIST sql.mal sqlcatalog.mal sql_transaction.mal sql_decimal.mal sql_rank.mal sql_aggr_bte.mal
-	sql_aggr_sht.mal sql_aggr_int.mal sql_aggr_lng.mal sql_aggr_flt.mal sql_aggr_dbl.mal sql_inspect.mal
-	sql_generator.mal sql_decimal_hge.mal sql_rank_hge.mal sql_aggr_hge.mal sql_generator_hge.mal wlr.mal)
+set(SQL_MAL_SCRIPTS_LIST
+		"${CMAKE_CURRENT_SOURCE_DIR}/sqlcatalog.mal"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_transaction.mal"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_decimal.mal"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_rank.mal"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_bte.mal"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_sht.mal"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_int.mal"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_lng.mal"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_flt.mal"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_dbl.mal"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_inspect.mal"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_generator.mal"
+		"${CMAKE_CURRENT_SOURCE_DIR}/wlr.mal")
+if(HAVE_HGE)
+	list(APPEND SQL_MAL_SCRIPTS_LIST
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_decimal_hge.mal"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_rank_hge.mal"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_hge.mal"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_generator_hge.mal")
+endif()
 
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/mal2h.py"
+				"${CMAKE_CURRENT_BINARY_DIR}/sql_mal_inline.h" ${SQL_MAL_SCRIPTS_LIST}
+				RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET)
+if(NOT PY_SCRIPT_RC EQUAL 0)
+	message(FATAL_ERROR "Could not generate sql_mal_inline.h file")
+endif()
+
+# Generate the list of the sql mal module names
+set(SQL_MAL_NAMES "str sqlMalModules[MAXMODULES] = {")
 foreach(script IN LISTS SQL_MAL_SCRIPTS_LIST)
-	execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/mal2h.py" "-f"
-					"${CMAKE_CURRENT_SOURCE_DIR}/${script}" "-t" "-o" "${CMAKE_CURRENT_BINARY_DIR}/${script}.h"
-					RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET)
-	if(NOT PY_SCRIPT_RC EQUAL 0)
-		message(FATAL_ERROR "Could not generate ${script}.h file")
-	endif()
+	get_filename_component(SCRIPT_BASENAME "${script}" NAME)
+	string(APPEND SQL_MAL_NAMES "\"${SCRIPT_BASENAME}\",")
 endforeach()
+string(APPEND SQL_MAL_NAMES "0};\n")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/sql_mal_inline_names.h" "${SQL_MAL_NAMES}")
 
 set(SQL_LINK_LIBRARIES sqlserver store batstore sqlcommon sqlscripts)
 if(WIN32)

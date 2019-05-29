@@ -11,20 +11,56 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ../include ../common ../storage 
 					../../monetdb5/modules/mal ../../common/options ../../common/stream ../../common/utils
 					../backends/monet5 ../server ../../gdk)
 
-set(SQL_SCRIPTS_LIST 09_like.sql 10_math.sql 11_times.sql 12_url.sql 13_date.sql 14_inet.sql 15_querylog.sql
-	16_tracelog.sql 17_temporal.sql 18_index.sql 20_vacuum.sql 21_dependency_views.sql 22_clients.sql 23_skyserver.sql
-	25_debug.sql 26_sysmon.sql 27_rejects.sql 39_analytics_hge.sql 39_analytics.sql 40_json_hge.sql 40_json.sql
-	41_md5sum.sql 45_uuid.sql 46_profiler.sql 51_sys_schema_extension.sql 60_wlcr.sql 70_storagemodel.sql
-	71_statistics.sql 90_generator.sql 90_generator_hge.sql 99_system.sql)
+set(SQL_SCRIPTS_LIST1
+	"${CMAKE_CURRENT_SOURCE_DIR}/09_like.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/10_math.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/11_times.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/12_url.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/13_date.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/14_inet.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/15_querylog.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/16_tracelog.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/17_temporal.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/18_index.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/20_vacuum.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/21_dependency_views.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/22_clients.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/23_skyserver.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/25_debug.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/26_sysmon.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/27_rejects.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/39_analytics.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/40_json.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/41_md5sum.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/45_uuid.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/46_profiler.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/51_sys_schema_extension.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/60_wlcr.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/70_storagemodel.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/71_statistics.sql"
+	"${CMAKE_CURRENT_SOURCE_DIR}/90_generator.sql")
+if(HAVE_HGE)
+	list(APPEND SQL_SCRIPTS_LIST1
+		"${CMAKE_CURRENT_SOURCE_DIR}/39_analytics_hge.sql"
+		"${CMAKE_CURRENT_SOURCE_DIR}/40_json_hge.sql"
+		"${CMAKE_CURRENT_SOURCE_DIR}/90_generator_hge.sql")
+endif()
 
-foreach(script IN LISTS SQL_SCRIPTS_LIST)
-	execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/sql2h.py" "-f"
-					"${CMAKE_CURRENT_SOURCE_DIR}/${script}" "-t" "-o" "${CMAKE_CURRENT_BINARY_DIR}/${script}.h"
-					RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET)
-	if(NOT PY_SCRIPT_RC EQUAL 0)
-		message(FATAL_ERROR "Could not generate ${script}.h file")
-	endif()
-endforeach()
+# These scripts loads after all custom installed SQL scripts
+set(SQL_SCRIPTS_LIST2 "${CMAKE_CURRENT_SOURCE_DIR}/99_system.sql")
+
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/sql2h.py"
+				"${CMAKE_CURRENT_BINARY_DIR}/createdb_inline1.h" ${SQL_SCRIPTS_LIST1}
+				RESULT_VARIABLE PY_SCRIPT_RC1 OUTPUT_QUIET)
+if(NOT PY_SCRIPT_RC1 EQUAL 0)
+	message(FATAL_ERROR "Could not generate createdb_inline1.h file")
+endif()
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/sql2h.py"
+				"${CMAKE_CURRENT_BINARY_DIR}/createdb_inline2.h" ${SQL_SCRIPTS_LIST2}
+				RESULT_VARIABLE PY_SCRIPT_RC2 OUTPUT_QUIET)
+if(NOT PY_SCRIPT_RC2 EQUAL 0)
+	message(FATAL_ERROR "Could not generate createdb_inline2.h file")
+endif()
 
 # The sql script header files should be in CMAKE_CURRENT_BINARY_DIR
 add_library(sqlscripts STATIC sql_scripts.c sql_scripts.h)

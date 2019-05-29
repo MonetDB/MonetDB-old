@@ -647,8 +647,8 @@ TBL_getdir(void)
 	if ( b == 0)
 		return NULL;
 
-	for (int j = 0; malModules[j].modnme ; j++ ) { //add MAL embedded loaded modules
-		if (BUNappend(b, malModules[j].modnme, false) != GDK_SUCCEED) {
+	for (int j = 0; malModules[j] ; j++ ) { //add MAL embedded loaded modules
+		if (BUNappend(b, malModules[j], false) != GDK_SUCCEED) {
 			BBPreclaim(b);
 			return NULL;
 		}

@@ -371,39 +371,8 @@ SQLresetClient(Client c)
 
 MT_Id sqllogthread, idlethread;
 
-malSignatures sqlMalModules[] =
-{
-#ifdef HAVE_EMBEDDED
-#include "sql.mal.h"
-#endif
-#include "sqlcatalog.mal.h"
-#include "sql_transaction.mal.h"
-
-#include "sql_decimal.mal.h"
-#include "sql_rank.mal.h"
-#include "sql_aggr_bte.mal.h"
-#include "sql_aggr_sht.mal.h"
-#include "sql_aggr_int.mal.h"
-#include "sql_aggr_lng.mal.h"
-#include "sql_aggr_flt.mal.h"
-#include "sql_aggr_dbl.mal.h"
-#ifndef HAVE_EMBEDDED
-#include "sql_inspect.mal.h"
-#endif
-#include "sql_generator.mal.h"
-
-#ifdef HAVE_HGE
-#include "sql_decimal_hge.mal.h"
-#include "sql_rank_hge.mal.h"
-#include "sql_aggr_hge.mal.h"
-#include "sql_generator_hge.mal.h"
-#endif
-
-#ifndef HAVE_EMBEDDED
-#include "wlr.mal.h"
-#endif
-	{NULL, NULL}
-};
+#include "sql_mal_inline.h"
+#include "sql_mal_inline_names.h"
 
 static str
 SQLinit(Client c)
@@ -439,7 +408,7 @@ SQLinit(Client c)
 	}
 	(void) tz;
 
-	if ((msg = malExtraModulesBoot(c, sqlMalModules)) != MAL_SUCCEED) {
+	if ((msg = malExtraModulesBoot(c, sqlMalModules, sql_mal_inline)) != MAL_SUCCEED) {
 		MT_lock_unset(&sql_contextLock);
 		return msg;
 	}

@@ -14,18 +14,12 @@
 #include "mal_client.h"
 #include "mal_import.h"
 
-/* #define MAL_EMBEDDED_DEBUG  */
-
 #define MAXMODULES  128
 
-typedef struct {
-	str modnme, source;
-} malSignatures;
-
-mal_export malSignatures malModules[];
+mal_export str malModules[];
 
 mal_export str malEmbeddedBoot(const char* library_path);
-mal_export str malExtraModulesBoot(Client c, malSignatures extraMalModules[]);
+mal_export str malExtraModulesBoot(Client c, str extraMalModules[], char* mal_scripts);
 mal_export void malEmbeddedReset(void);
 mal_export _Noreturn void malEmbeddedStop(int status);
 

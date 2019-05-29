@@ -197,6 +197,62 @@ malInclude(Client c, str name, int listing)
 }
 #endif
 
+str
+malInlineBoot(Client c, str name, char *mal_init_inline, int listing)
+{
+	str msg = MAL_SUCCEED;
+
+	bstream *oldfdin = c->fdin;
+	int oldyycur = c->yycur;
+	int oldlisting = c->listing;
+	enum clientmode oldmode = c->mode;
+	int oldblkmode = c->blkmode;
+	ClientInput *oldbak = c->bak;
+	str oldprompt = c->prompt;
+	str oldsrcFile = c->srcFile;
+
+	MalStkPtr oldglb = c->glb;
+	Module oldusermodule = c->usermodule;
+	Module oldcurmodule = c->curmodule;
+	Symbol oldprg = c->curprg;
+
+	size_t mal_init_len;
+	buffer mal_init_buf;
+	stream* mal_init_stream;
+
+	c->prompt = GDKstrdup("");	/* do not produce visible prompts */
+	c->promptlength = 0;
+	c->listing = listing;
+	c->fdin = NULL;
+
+	assert(mal_init_inline);
+	mal_init_len = strlen(mal_init_inline);
+	mal_init_stream = buffer_rastream(&mal_init_buf, name);
+
+	if (!mal_init_stream) {
+		restoreClient;
+		throw(MAL, "mal.malInlineBoot", "WARNING: could not setup init script.");
+	}
+	mal_init_buf.pos = 0;
+	mal_init_buf.len = mal_init_len;
+	mal_init_buf.buf = mal_init_inline;
+	c->srcFile = name;
+	c->yycur = 0;
+	c->bak = NULL;
+	c->fdin = bstream_create(mal_init_stream, mal_init_len);
+	if (!c->fdin) {
+		restoreClient;
+		throw(MAL, "mal.malInlineBoot", "WARNING: could not setup init script.");
+	}
+	bstream_next(c->fdin);
+	parseMAL(c, c->curprg, 1, INT_MAX);
+	bstream_destroy(c->fdin);
+	c->fdin = NULL;
+
+	restoreClient;
+	return msg;
+}
+
 /*File and input processing
  * A recurring situation is to execute a stream of simple MAL instructions
  * stored on a file or comes from standard input. We parse one MAL

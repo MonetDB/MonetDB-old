@@ -14,86 +14,47 @@
 #include "sql_catalog.h"
 #include "sql_execute.h"
 
-struct sql_scripts {
-	char *name;
-	char *script;
-};
-
-static struct sql_scripts scripts1[] = {
-#include "09_like.sql.h"
-#include "10_math.sql.h"
-#include "11_times.sql.h"
-#ifndef HAVE_EMBEDDED
-#include "12_url.sql.h"
-#endif
-#include "13_date.sql.h"
-#ifndef HAVE_EMBEDDED
-#include "14_inet.sql.h"
-#include "15_querylog.sql.h"
-#include "16_tracelog.sql.h"
-#endif
-#include "17_temporal.sql.h"
-#include "18_index.sql.h"
-#include "20_vacuum.sql.h"
-#include "21_dependency_views.sql.h"
-#ifndef HAVE_EMBEDDED
-#include "22_clients.sql.h"
-#include "23_skyserver.sql.h"
-#include "25_debug.sql.h"
-#include "26_sysmon.sql.h"
-#include "27_rejects.sql.h"
-#endif
-#include "39_analytics.sql.h"
-#ifdef HAVE_HGE
-#include "39_analytics_hge.sql.h"
-#endif
-#ifndef HAVE_EMBEDDED
-#include "40_json.sql.h"
-#ifdef HAVE_HGE
-#include "40_json_hge.sql.h"
-#endif
-#endif
-#ifndef HAVE_EMBEDDED
-#include "41_md5sum.sql.h"
-#include "45_uuid.sql.h"
-#include "46_profiler.sql.h"
-#endif
-#include "51_sys_schema_extension.sql.h"
-#ifndef HAVE_EMBEDDED
-#include "60_wlcr.sql.h"
-#endif
-#include "70_storagemodel.sql.h"
-#include "71_statistics.sql.h"
-#include "90_generator.sql.h"
-#ifdef HAVE_HGE
-#include "90_generator_hge.sql.h"
-#endif
-	{NULL, NULL}
-};
-
-static struct sql_scripts scripts2[] = {
-#include "99_system.sql.h"
-	{NULL, NULL}
-};
+#include "createdb_inline1.h"
+#include "createdb_inline2.h"
 
 static str
-install_sql_scripts_array(Client c, struct sql_scripts scripts[])
+install_sql_scripts_array(Client c, char* scripts_array, const char* array_name)
 {
-	str err;
+	str msg = MAL_SUCCEED;
+	size_t createdb_len;
+	buffer* createdb_buf;
+	stream* createdb_stream;
+	bstream* createdb_bstream;
 
-	for (int i = 0 ; scripts[i].name ; i++) {
-		MT_fprintf(stdout, "# loading sql script: %s.sql\n", scripts[i].name);
-		if ((err = SQLstatementIntern(c, &scripts[i].script, scripts[i].name, 1, 0, NULL)) != MAL_SUCCEED)
-			return err;
+	assert(scripts_array && array_name);
+	createdb_len = strlen(scripts_array);
+	if ((createdb_buf = GDKmalloc(sizeof(buffer))) == NULL)
+		throw(MAL, "sql.install_sql_scripts_array", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	buffer_init(createdb_buf, scripts_array, createdb_len);
+	if ((createdb_stream = buffer_rastream(createdb_buf, "sql.install_sql_scripts_array")) == NULL) {
+		GDKfree(createdb_buf);
+		throw(MAL, "sql.install_sql_scripts_array", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
-	return MAL_SUCCEED;
+	if ((createdb_bstream = bstream_create(createdb_stream, createdb_len)) == NULL) {
+		mnstr_destroy(createdb_stream);
+		GDKfree(createdb_buf);
+		throw(MAL, "sql.install_sql_scripts_array", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	}
+	if (bstream_next(createdb_bstream) >= 0)
+		msg = SQLstatementIntern(c, &createdb_bstream->buf, "sql.install_sql_scripts_array", TRUE, FALSE, NULL);
+	else
+		msg = createException(MAL, "sql.install_sql_scripts_array", SQLSTATE(HY0002) "Could not load %s script", array_name);
+
+	bstream_destroy(createdb_bstream);
+	GDKfree(createdb_buf);
+	return msg;
 }
 
 str
 install_sql_scripts1(Client c)
 {
 	str err;
-	if ((err = install_sql_scripts_array(c, scripts1)) != MAL_SUCCEED)
+	if ((err = install_sql_scripts_array(c, createdb_inline1, "createdb_inline1")) != MAL_SUCCEED)
 		return err;
 	return MAL_SUCCEED;
 }
@@ -102,7 +63,7 @@ str
 install_sql_scripts2(Client c)
 {
 	str err;
-	if ((err = install_sql_scripts_array(c, scripts2)) != MAL_SUCCEED)
+	if ((err = install_sql_scripts_array(c, createdb_inline2, "createdb_inline2")) != MAL_SUCCEED)
 		return err;
 	return MAL_SUCCEED;
 }
