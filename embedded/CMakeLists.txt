@@ -38,7 +38,8 @@ set(MAL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/iterator.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/language.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/01_batcalc.mal"
-	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/01_calc.mal")
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/01_calc.mal"
+	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql.mal") # sql.mal MUST be here
 
 set(SQL_MAL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sqlcatalog.mal"
