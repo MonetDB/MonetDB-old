@@ -84,23 +84,7 @@
 #include <Windows.h>
 #endif /* _MSC_VER */
 
-/* location where binaries are installed */
-#cmakedefine BINDIR "@BIN_DIR@"
-
-/* read-only architecture-independent data */
-#cmakedefine DATA_DIR "@DATA_DIR@"
-
-/* Program to perform diffs */
-#cmakedefine DIFF "@DIFF@"
-
-/* Directory separator */
-#cmakedefine DIR_SEP @DIR_SEP@
-
-/* Directory separator */
-#cmakedefine DIR_SEP_STR "@DIR_SEP_STR@"
-
-/* Define to 1 if you have the `accept4' function. */
-#cmakedefine HAVE_ACCEPT4 1
+#ifndef HAVE_EMBEDDED /* Extensions not available in MonetDBLite */
 
 /* Define to 1 if you have the CommonCrypto library */
 #cmakedefine HAVE_COMMONCRYPTO 1
@@ -108,17 +92,8 @@
 /* Define to 1 if you have the cURL library */
 #cmakedefine HAVE_CURL 1
 
-/* Support for MonetDB as a library */
-#cmakedefine HAVE_EMBEDDED 1
-
-/* Define to 1 if you have the `fallocate' function. */
-#cmakedefine HAVE_FALLOCATE 1
-
 /* Define to 1 if the fits module is to be enabled */
 #cmakedefine HAVE_FITS 1
-
-/* Define if you have the `fseeko' function. (Using _MT suffix to avoid conflict with Python.h header file, easy fix) */
-#define HAVE_FSEEKO_MT (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS == 64) || (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L) || defined(__MACH__) || defined(__FreeBSD__)
 
 /* Have huge */
 #cmakedefine HAVE_HGE 1
@@ -156,9 +131,6 @@
 /* Define to 1 if you have the z library */
 #cmakedefine HAVE_LIBZ 1
 
-/* Define to 1 if you have the `madvise' function. */
-#cmakedefine HAVE_MADVISE 1
-
 /* Enable MAPI */
 #cmakedefine HAVE_MAPI 1
 
@@ -171,29 +143,14 @@
 /* Define to 1 if you have the OpenSSL library */
 #cmakedefine HAVE_OPENSSL 1
 
-/* Define to 1 if you have the `pipe2' function. */
-#cmakedefine HAVE_PIPE2 1
-
-/* Define to 1 if you have the `posix_fallocate' function. */
-#cmakedefine HAVE_POSIX_FALLOCATE 1
-
-/* Define to 1 if you have the `posix_madvise' function. */
-#cmakedefine HAVE_POSIX_MADVISE 1
-
 /* Define to 1 if the proj library exists */
 #cmakedefine HAVE_PROJ 1
-
-/* Define to 1 if you have the <pthread.h> header file. */
-#cmakedefine HAVE_PTHREAD_H 1
 
 /* Define to 1 if you have the `RIPEMD160_Update' function. */
 #cmakedefine HAVE_RIPEMD160_UPDATE 1
 
 /* Define to 1 if you have the samtools version 0.1.x (providing the bam library) */
 #cmakedefine HAVE_SAMTOOLS 1
-
-/* Define to 1 if semtimedop exists */
-#cmakedefine HAVE_SEMTIMEDOP 1
 
 /* Define to 1 if you have the `SHA1_Update' function. */
 #cmakedefine HAVE_SHA1_UPDATE 1
@@ -210,12 +167,6 @@
 /* Define to 1 if you have the `SHA512_Update' function. */
 #cmakedefine HAVE_SHA512_UPDATE 1
 
-/* Define to 1 if you have the <stdatomic.h> header file */
-#cmakedefine HAVE_STDATOMIC_H 1
-
-/* Define to 1 if `tm_zone' is a member of `struct tm'. */
-#cmakedefine HAVE_STRUCT_TM_TM_ZONE 1
-
 /* uuid */
 #cmakedefine HAVE_UUID 1
 
@@ -224,6 +175,59 @@
 
 /* Define to 1 if you have the `__builtin_{add,sub,mul}_overflow' functions. */
 #cmakedefine HAVE___BUILTIN_ADD_OVERFLOW 1
+
+#endif
+
+/* location where binaries are installed */
+#cmakedefine BINDIR "@BIN_DIR@"
+
+/* read-only architecture-independent data */
+#cmakedefine DATA_DIR "@DATA_DIR@"
+
+/* Program to perform diffs */
+#cmakedefine DIFF "@DIFF@"
+
+/* Directory separator */
+#cmakedefine DIR_SEP @DIR_SEP@
+
+/* Directory separator */
+#cmakedefine DIR_SEP_STR "@DIR_SEP_STR@"
+
+/* Define to 1 if you have the `accept4' function. */
+#cmakedefine HAVE_ACCEPT4 1
+
+/* Define to 1 if you have the `fallocate' function. */
+#cmakedefine HAVE_FALLOCATE 1
+
+/* Define if you have the `fseeko' function. (Using _MT suffix to avoid conflict with Python.h header file, easy fix) */
+#define HAVE_FSEEKO_MT (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS == 64) || (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L) || defined(__MACH__) || defined(__FreeBSD__)
+
+/* Define to 1 if you have the `madvise' function. */
+#cmakedefine HAVE_MADVISE 1
+
+/* Define to 1 if you have the `pipe2' function. */
+#cmakedefine HAVE_PIPE2 1
+
+/* Define to 1 if you have the `posix_fallocate' function. */
+#cmakedefine HAVE_POSIX_FALLOCATE 1
+
+/* Define to 1 if you have the `posix_madvise' function. */
+#cmakedefine HAVE_POSIX_MADVISE 1
+
+/* Define to 1 if you have posix regex */
+#cmakedefine HAVE_POSIX_REGEX 1
+
+/* Define to 1 if you have the <pthread.h> header file. */
+#cmakedefine HAVE_PTHREAD_H 1
+
+/* Define to 1 if semtimedop exists */
+#cmakedefine HAVE_SEMTIMEDOP 1
+
+/* Define to 1 if you have the <stdatomic.h> header file */
+#cmakedefine HAVE_STDATOMIC_H 1
+
+/* Define to 1 if `tm_zone' is a member of `struct tm'. */
+#cmakedefine HAVE_STRUCT_TM_TM_ZONE 1
 
 /* Host identifier */
 #cmakedefine HOST "@HOST@"

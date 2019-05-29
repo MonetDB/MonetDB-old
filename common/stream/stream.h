@@ -116,7 +116,6 @@ stream_export int mnstr_writeInt(stream *s, int val);
 stream_export int mnstr_readLng(stream *restrict s, int64_t *restrict val);
 stream_export int mnstr_writeLng(stream *s, int64_t val);
 
-
 stream_export int mnstr_writeFlt(stream *s, float val);
 stream_export int mnstr_writeDbl(stream *s, double val);
 
@@ -225,7 +224,6 @@ stream_export stream *block_stream(stream *s);
 stream_export bool isa_block_stream(stream *s);
 stream_export stream *bs_stream(stream *s);
 
-
 typedef enum {
 	PROTOCOL_AUTO = 0,
 	PROTOCOL_9 = 1,
@@ -243,7 +241,6 @@ stream_export stream *block_stream2(stream *s, size_t bufsiz, compression_method
 stream_export int bs2_resizebuf(stream *ss, size_t bufsiz);
 stream_export buffer bs2_buffer(stream *s);
 stream_export void bs2_setpos(stream *ss, size_t pos);
-
 
 /* read block of data including the end of block marker */
 stream_export ssize_t mnstr_read_block(stream *restrict s, void *restrict buf, size_t elmsize, size_t cnt);
@@ -281,8 +278,6 @@ stream_export stream *callback_stream(
 	void (*close)(void *priv),
 	void (*destroy)(void *priv),
 	const char *restrict name);
-
-stream_export stream *stream_blackhole_create(void);
 
 stream_export stream *stream_fwf_create(stream *restrict s, size_t num_fields, size_t *restrict widths, char filler);
 

@@ -75,7 +75,6 @@ mo_print_options(opt *set, int setlen)
 	}
 }
 
-
 char *
 mo_find_option(opt *set, int setlen, const char *name)
 {
@@ -200,7 +199,6 @@ mo_system_config(opt **Set, int setlen)
 	return setlen;
 }
 
-
 int
 mo_builtin_settings(opt **Set)
 {
@@ -210,15 +208,19 @@ mo_builtin_settings(opt **Set)
 	if (Set == NULL)
 		return 0;
 
-#define N_OPTIONS	8	/*MUST MATCH # OPTIONS BELOW */
+#ifdef HAVE_EMBEDDED
+#define N_OPTIONS	1	/*MUST MATCH # OPTIONS BELOW */
+#else
+#define N_OPTIONS	8
+#endif
 	set = malloc(sizeof(opt) * N_OPTIONS);
 	if (set == NULL)
 		return 0;
 
+#ifndef HAVE_EMBEDDED
 	set[i].kind = opt_builtin;
 	set[i].name = strdup("gdk_dbpath");
-	set[i].value = strdup(LOCALSTATEDIR DIR_SEP_STR "monetdb5" DIR_SEP_STR
-			      "dbfarm" DIR_SEP_STR "demo");
+	set[i].value = strdup(LOCALSTATEDIR DIR_SEP_STR "monetdb5" DIR_SEP_STR "dbfarm" DIR_SEP_STR "demo");
 	i++;
 	set[i].kind = opt_builtin;
 	set[i].name = strdup("monet_prompt");
@@ -244,6 +246,7 @@ mo_builtin_settings(opt **Set)
 	set[i].name = strdup("sql_optimizer");
 	set[i].value = strdup("default_pipe");
 	i++;
+#endif
 	set[i].kind = opt_builtin;
 	set[i].name = strdup("sql_debug");
 	set[i].value = strdup("0");
