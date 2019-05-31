@@ -75,6 +75,11 @@ set(SQL_SCRIPTS_LIST1
 set(SQL_SCRIPTS_LIST2
 	"${CMAKE_SOURCE_DIR}/sql/scripts/99_system.sql")
 
+build_embedded_mal_scripts(mal_inline malModules "${MAL_SCRIPTS_LIST}")
+build_embedded_mal_scripts(sql_mal_inline sqlMalModules "${SQL_MAL_SCRIPTS_LIST}")
+build_embedded_sql_scripts(createdb_inline1 "${SQL_SCRIPTS_LIST1}")
+build_embedded_sql_scripts(createdb_inline2 "${SQL_SCRIPTS_LIST2}")
+
 add_library(monetdblite SHARED
 			monetdb_embedded.c
 			../common/options/monet_options.c
@@ -250,7 +255,6 @@ add_library(monetdblite SHARED
 			../sql/storage/bat/bat_storage.c
 			../sql/storage/bat/bat_table.c
 			../sql/storage/bat/bat_utils.c
-			../sql/storage/bat/nop_logger.c
 			../sql/storage/bat/res_table.c
 			../sql/storage/sql_catalog.c
 			../sql/storage/store.c

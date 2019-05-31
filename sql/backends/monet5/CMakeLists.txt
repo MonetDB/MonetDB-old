@@ -17,19 +17,19 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ../../../gdk ../../include ../..
 					../../../monetdb5/extras/rapi ../../../common/stream ../../../common/utils ../../scripts)
 
 set(SQL_MAL_SCRIPTS_LIST
-		"${CMAKE_CURRENT_SOURCE_DIR}/sqlcatalog.mal"
-		"${CMAKE_CURRENT_SOURCE_DIR}/sql_transaction.mal"
-		"${CMAKE_CURRENT_SOURCE_DIR}/sql_decimal.mal"
-		"${CMAKE_CURRENT_SOURCE_DIR}/sql_rank.mal"
-		"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_bte.mal"
-		"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_sht.mal"
-		"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_int.mal"
-		"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_lng.mal"
-		"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_flt.mal"
-		"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_dbl.mal"
-		"${CMAKE_CURRENT_SOURCE_DIR}/sql_inspect.mal"
-		"${CMAKE_CURRENT_SOURCE_DIR}/sql_generator.mal"
-		"${CMAKE_CURRENT_SOURCE_DIR}/wlr.mal")
+	"${CMAKE_CURRENT_SOURCE_DIR}/sqlcatalog.mal"
+	"${CMAKE_CURRENT_SOURCE_DIR}/sql_transaction.mal"
+	"${CMAKE_CURRENT_SOURCE_DIR}/sql_decimal.mal"
+	"${CMAKE_CURRENT_SOURCE_DIR}/sql_rank.mal"
+	"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_bte.mal"
+	"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_sht.mal"
+	"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_int.mal"
+	"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_lng.mal"
+	"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_flt.mal"
+	"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_dbl.mal"
+	"${CMAKE_CURRENT_SOURCE_DIR}/sql_inspect.mal"
+	"${CMAKE_CURRENT_SOURCE_DIR}/sql_generator.mal"
+	"${CMAKE_CURRENT_SOURCE_DIR}/wlr.mal")
 if(HAVE_HGE)
 	list(APPEND SQL_MAL_SCRIPTS_LIST
 		"${CMAKE_CURRENT_SOURCE_DIR}/sql_hge.mal"
@@ -39,21 +39,7 @@ if(HAVE_HGE)
 		"${CMAKE_CURRENT_SOURCE_DIR}/sql_generator_hge.mal")
 endif()
 
-execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/mal2h.py"
-				"${CMAKE_CURRENT_BINARY_DIR}/sql_mal_inline.h" ${SQL_MAL_SCRIPTS_LIST}
-				RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET)
-if(NOT PY_SCRIPT_RC EQUAL 0)
-	message(FATAL_ERROR "Could not generate sql_mal_inline.h file")
-endif()
-
-# Generate the list of the sql mal module names
-set(SQL_MAL_NAMES "str sqlMalModules[MAXMODULES] = {")
-foreach(script IN LISTS SQL_MAL_SCRIPTS_LIST)
-	get_filename_component(SCRIPT_BASENAME "${script}" NAME)
-	string(APPEND SQL_MAL_NAMES "\"${SCRIPT_BASENAME}\",")
-endforeach()
-string(APPEND SQL_MAL_NAMES "0};\n")
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/sql_mal_inline_names.h" "${SQL_MAL_NAMES}")
+build_embedded_mal_scripts(sql_mal_inline sqlMalModules "${SQL_MAL_SCRIPTS_LIST}")
 
 set(SQL_LINK_LIBRARIES sqlserver store batstore sqlcommon sqlscripts)
 if(WIN32)

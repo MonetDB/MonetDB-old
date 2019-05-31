@@ -49,18 +49,8 @@ endif()
 # These scripts loads after all custom installed SQL scripts
 set(SQL_SCRIPTS_LIST2 "${CMAKE_CURRENT_SOURCE_DIR}/99_system.sql")
 
-execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/sql2h.py"
-				"${CMAKE_CURRENT_BINARY_DIR}/createdb_inline1.h" ${SQL_SCRIPTS_LIST1}
-				RESULT_VARIABLE PY_SCRIPT_RC1 OUTPUT_QUIET)
-if(NOT PY_SCRIPT_RC1 EQUAL 0)
-	message(FATAL_ERROR "Could not generate createdb_inline1.h file")
-endif()
-execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/sql2h.py"
-				"${CMAKE_CURRENT_BINARY_DIR}/createdb_inline2.h" ${SQL_SCRIPTS_LIST2}
-				RESULT_VARIABLE PY_SCRIPT_RC2 OUTPUT_QUIET)
-if(NOT PY_SCRIPT_RC2 EQUAL 0)
-	message(FATAL_ERROR "Could not generate createdb_inline2.h file")
-endif()
+build_embedded_sql_scripts(createdb_inline1 "${SQL_SCRIPTS_LIST1}")
+build_embedded_sql_scripts(createdb_inline2 "${SQL_SCRIPTS_LIST2}")
 
 # The sql script header files should be in CMAKE_CURRENT_BINARY_DIR
 add_library(sqlscripts STATIC sql_scripts.c sql_scripts.h)

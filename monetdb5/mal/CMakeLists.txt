@@ -14,93 +14,79 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
 	list(APPEND MAL_SCRIPTS_LIST "${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/mdb.mal")
 endif()
 list(APPEND MAL_SCRIPTS_LIST
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/alarm.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/mmath.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/streams.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/bat5.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/batExtensions.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/algebra.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/orderidx.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/status.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/groupby.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/group.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/aggr.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/mkey.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/blob.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/str.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/mtime.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/color.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/url.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/uuid.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/json.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/json_util.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/inet.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/identifier.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/xml.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/batmmath.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/batmtime.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/batstr.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/batcolor.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/batxml.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/pcre.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/clients.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/bbp.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/mal_io.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/manifold.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/factories.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/remote.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/mat.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/inspect.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/manual.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/language.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/profiler.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/querylog.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/sysmon.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/tablet.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/sample.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/optimizer/optimizer.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/iterator.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/txtsim.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/tokenizer.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/mal_mapi.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/oltp.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/microbenchmark.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/wlc.mal")
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/alarm.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/mmath.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/streams.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/bat5.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/batExtensions.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/algebra.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/orderidx.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/status.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/groupby.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/group.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/aggr.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/mkey.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/blob.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/str.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/mtime.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/color.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/url.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/uuid.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/json.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/json_util.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/inet.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/identifier.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/xml.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/batxml.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/batmmath.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/batmtime.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/batstr.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/batcolor.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/pcre.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/clients.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/bbp.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/mal_io.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/manifold.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/factories.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/remote.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/mat.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/inspect.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/manual.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/language.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/profiler.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/querylog.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/sysmon.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/tablet.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/sample.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/optimizer/optimizer.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/iterator.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/txtsim.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/tokenizer.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/mal_mapi.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/oltp.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/microbenchmark.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/wlc.mal")
 if(HAVE_HGE)
 	list(APPEND MAL_SCRIPTS_LIST
-			"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/00_aggr_hge.mal"
-			"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/00_batcalc_hge.mal"
-			"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/00_calc_hge.mal"
-			"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/00_batExtensions_hge.mal"
-			"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/00_iterator_hge.mal"
-			"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/00_language_hge.mal"
-			"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/00_mkey_hge.mal"
-			"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/00_mal_mapi_hge.mal"
-			"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/00_json_hge.mal")
+		"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/00_aggr_hge.mal"
+		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/00_batcalc_hge.mal"
+		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/00_calc_hge.mal"
+		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/00_batExtensions_hge.mal"
+		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/00_iterator_hge.mal"
+		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/00_language_hge.mal"
+		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/00_mkey_hge.mal"
+		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/00_mal_mapi_hge.mal"
+		"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/00_json_hge.mal")
 endif()
 list(APPEND MAL_SCRIPTS_LIST
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/language.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/01_batcalc.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/01_calc.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/scheduler/run_adder.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/scheduler/run_isolate.mal"
-		"${CMAKE_SOURCE_DIR}/monetdb5/scheduler/run_memo.mal")
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/language.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/01_batcalc.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/01_calc.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/scheduler/run_adder.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/scheduler/run_isolate.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/scheduler/run_memo.mal")
 
-execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/mal2h.py"
-		"${CMAKE_CURRENT_BINARY_DIR}/mal_inline.h" ${MAL_SCRIPTS_LIST}
-		RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET)
-if(NOT PY_SCRIPT_RC EQUAL 0)
-	message(FATAL_ERROR "Could not generate mal_inline.h file")
-endif()
-
-# Generate the string names
-set(MAL_NAMES "str malModules[MAXMODULES] = {")
-foreach(script IN LISTS MAL_SCRIPTS_LIST)
-	get_filename_component(SCRIPT_BASENAME "${script}" NAME)
-	string(APPEND MAL_NAMES "\"${SCRIPT_BASENAME}\",")
-endforeach()
-string(APPEND MAL_NAMES "0};\n")
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/mal_inline_names.h" "${MAL_NAMES}")
+build_embedded_mal_scripts(mal_inline malModules "${MAL_SCRIPTS_LIST}")
 
 add_library(mal OBJECT
 			mal.c mal.h
