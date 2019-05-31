@@ -73,7 +73,7 @@ monetdb_connect(monetdb_connection *conn)
 		msg = createException(MAL, "embedded.monetdb_connect", SQLSTATE(42000) "monetdb_connection parameter is NULL");
 		goto cleanup;
 	}
-	mc = MCinitClient((oid) 0, bstream_create(GDKstdin, 0), GDKstdout);
+	mc = MCinitClient((oid) 0, 0, 0);
 	if (!MCvalid(mc)) {
 		msg = createException(MAL, "embedded.monetdb_connect", SQLSTATE(HY001) "Failed to initialize client");
 		goto cleanup;
@@ -248,7 +248,7 @@ monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** re
 	}
 	if (bstream_next(c->fdin) < 0) {
 		close_stream(query_stream);
-		throw(MAL, "embedded.monetdb_query_internal", SQLSTATE(HY001) "Internal error with ");
+		throw(MAL, "embedded.monetdb_query_internal", SQLSTATE(HY001) "Internal error while starting the query");
 	}
 
 	b->language = language;
@@ -262,15 +262,10 @@ monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** re
 		goto cleanup;
 	if ((msg = SQLparser(c)) != MAL_SUCCEED)
 		goto cleanup;
-	if ((msg = SQLparser(c)) != MAL_SUCCEED)
-		goto cleanup;
-
 	if (prepare_id && m->emode == m_prepare)
 		*prepare_id = b->q->id;
-
 	if ((msg = SQLengine(c)) != MAL_SUCCEED)
 		goto cleanup;
-
 	if (!m->results && m->rowcnt >= 0 && affected_rows)
 		*affected_rows = m->rowcnt;
 

@@ -209,7 +209,7 @@ mo_builtin_settings(opt **Set)
 		return 0;
 
 #ifdef HAVE_EMBEDDED
-#define N_OPTIONS	1	/*MUST MATCH # OPTIONS BELOW */
+#define N_OPTIONS	2	/*MUST MATCH # OPTIONS BELOW */
 #else
 #define N_OPTIONS	8
 #endif
@@ -221,10 +221,6 @@ mo_builtin_settings(opt **Set)
 	set[i].kind = opt_builtin;
 	set[i].name = strdup("gdk_dbpath");
 	set[i].value = strdup(LOCALSTATEDIR DIR_SEP_STR "monetdb5" DIR_SEP_STR "dbfarm" DIR_SEP_STR "demo");
-	i++;
-	set[i].kind = opt_builtin;
-	set[i].name = strdup("monet_prompt");
-	set[i].value = strdup(">");
 	i++;
 	set[i].kind = opt_builtin;
 	set[i].name = strdup("mapi_port");
@@ -247,6 +243,10 @@ mo_builtin_settings(opt **Set)
 	set[i].value = strdup("default_pipe");
 	i++;
 #endif
+	set[i].kind = opt_builtin;
+	set[i].name = strdup("monet_prompt");
+	set[i].value = strdup(">");
+	i++;
 	set[i].kind = opt_builtin;
 	set[i].name = strdup("sql_debug");
 	set[i].value = strdup("0");

@@ -43,8 +43,6 @@ mal_export int initTrace(void);
 mal_export str cleanupTraces(void);
 mal_export BAT *getTrace(const char *ev);
 
-
-mal_export lng getDiskSpace(void);
 mal_export lng getDiskReads(void);
 mal_export lng getDiskWrites(void);
 mal_export lng getUserTime(void);

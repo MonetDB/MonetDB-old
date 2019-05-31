@@ -74,7 +74,7 @@ malEmbeddedBoot(void)
 	initProfiler();
 #endif
 
-	c = MCinitClient((oid) 0, bstream_create(GDKstdin, 0), GDKstdout);
+	c = MCinitClient((oid) 0, 0, 0);
 	if(c == NULL)
 		throw(MAL, "malEmbeddedBoot", "Failed to initialize client");
 	c->curmodule = c->usermodule = userModule();

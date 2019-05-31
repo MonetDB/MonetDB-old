@@ -22,7 +22,6 @@ bison_target(sqlparserlite ../sql/server/sql_parser.y ${CMAKE_CURRENT_BINARY_DIR
 			 COMPILE_FLAGS "-d -p sql -r all" DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/sql_sqlparserlite.tab.h)
 add_library(bisonlite_obj OBJECT ${BISON_sqlparserlite_OUTPUTS})
 set_target_properties(bisonlite_obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_compile_definitions(bisonlite_obj PRIVATE HAVE_EMBEDDED)
 if(COMPILER_Wnounreachablecode)
 	target_compile_options(bisonlite_obj PRIVATE -Wno-unreachable-code)
 endif()

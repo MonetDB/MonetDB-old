@@ -1020,34 +1020,6 @@ getSystemTime(void)
 #endif
 }
 
-lng
-getDiskSpace(void)
-{
-	BAT *b;
-	bat i;
-	lng size = 0;
-
-	for (i = 1; i < getBBPsize(); i++)
-		if (BBP_logical(i) && (BBP_refs(i) || BBP_lrefs(i))) {
-			b = BATdescriptor(i);
-			if (b) {
-				size += sizeof(BAT);
-				if (!isVIEW(b)) {
-					BUN cnt = BATcount(b);
-
-					size += tailsize(b, cnt);
-					/* the upperbound is used for the heaps */
-					if (b->tvheap)
-						size += b->tvheap->size;
-					if (b->thash)
-						size += sizeof(BUN) * cnt;
-				}
-				BBPunfix(i);
-			}
-		}
-	return size;
-}
-
 void profilerGetCPUStat(lng *user, lng *nice, lng *sys, lng *idle, lng *iowait)
 {
 	(void) getCPULoad(0);
