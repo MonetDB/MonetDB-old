@@ -127,16 +127,22 @@ static struct PIPELINES {
 	 "optimizer.reorder();"
 	 "optimizer.matpack();"
 	 "optimizer.dataflow();"
+#ifndef HAVE_EMBEDDED
 	 "optimizer.querylog();"
+	 #endif
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
+#ifndef HAVE_EMBEDDED
 	 "optimizer.postfix();"
+#endif
 	 "optimizer.deadcode();"
 //	 "optimizer.jit();" awaiting the new batcalc api
+#ifndef HAVE_EMBEDDED
 	 "optimizer.oltp();"
 	 "optimizer.wlc();"
+#endif
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /*
@@ -168,16 +174,18 @@ static struct PIPELINES {
 #endif
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
+#ifndef HAVE_EMBEDDED
 	 "optimizer.volcano();"
+#endif
 	 "optimizer.profiler();"
 	 "optimizer.candidates();"
 #ifndef HAVE_EMBEDDED
 	 "optimizer.postfix();"
 #endif
 	 "optimizer.deadcode();"
+#ifndef HAVE_EMBEDDED
 //	 "optimizer.jit();" awaiting the new batcalc api
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
-#ifndef HAVE_EMBEDDED
 	 "optimizer.wlc();"
 #endif
 	 "optimizer.garbageCollector();",
@@ -223,9 +231,9 @@ static struct PIPELINES {
 	 "optimizer.postfix();"
 #endif
 	 "optimizer.deadcode();"
+ #ifndef HAVE_EMBEDDED
 //	 "optimizer.jit();" awaiting the new batcalc api
 //	 "optimizer.oltp();"awaiting the autocommit front-end changes
-#ifndef HAVE_EMBEDDED
 	 "optimizer.wlc();"
 #endif
 	 "optimizer.garbageCollector();",

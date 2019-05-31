@@ -8,26 +8,6 @@
 
 # This file holds macros for compilation objects common to MonetDB and MonetDBLite
 
-# Compile sqlparser with Bison only once for both MonetDB and MonetDBLite
-# Warning! So far the HAVE_EMBEDDED macro is not used in sql_parser.y
-macro(COMPILE_SQLPARSER)
-	bison_target(sqlparser sql/server/sql_parser.y ${CMAKE_BINARY_DIR}/sql_parser.tab.c
-				COMPILE_FLAGS "-d -p sql -r all" DEFINES_FILE ${CMAKE_BINARY_DIR}/sql_parser.tab.h)
-	add_library(bison_obj OBJECT ${BISON_sqlparser_OUTPUTS})
-	set_target_properties(bison_obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
-	target_include_directories(bison_obj PRIVATE common/utils common/stream gdk monetdb5/mal sql/common sql/include
-							   sql/server sql/storage sql/storage/bat)
-	if(NOT MSVC)
-		cmake_push_check_state()
-		set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS};-Wno-unreachable-code")
-		check_c_source_compiles("int main(int argc,char** argv){(void)argc;(void)argv;return 0;}" COMPILER_Wnounreachablecode) # Warning don't add '-' or '/' to the output variable!
-		cmake_pop_check_state()
-		if(COMPILER_Wnounreachablecode)
-			target_compile_options(bison_obj PRIVATE -Wno-unreachable-code) # use this flag only to compile the bison output
-		endif()
-	endif()
-endmacro()
-
 # Create C array with MAL scripts content as well the module names bundled
 macro(BUILD_EMBEDDED_MAL_SCRIPTS BUNDLE_NAME VARIABLE_NAME SCRIPTS_LIST)
 	execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/mal2h.py"

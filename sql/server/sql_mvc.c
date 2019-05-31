@@ -195,6 +195,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 		return -1;
 	}
 
+#ifndef HAVE_EMBEDDED
 	//as the sql_parser is not yet initialized in the storage, we determine the sql type of the sql_parts here
 	for (node *n = m->session->tr->schemas.set->h; n; n = n->next) {
 		sql_schema *ss = (sql_schema*) n->data;
@@ -213,6 +214,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 			}
 		}
 	}
+#endif
 
 	if ((msg = mvc_commit(m, 0, NULL, false)) != MAL_SUCCEED) {
 		MT_fprintf(stderr, "!mvc_init: unable to commit system tables: %s\n", (msg + 6));
@@ -368,7 +370,7 @@ mvc_commit(mvc *m, int chain, const char *name, bool enabling_auto_commit)
 {
 	sql_trans *cur, *tr = m->session->tr, *ctr;
 	int ok = SQL_OK;//, wait = 0;
-	str msg, other;
+	str msg = MAL_SUCCEED, other;
 	char operation[BUFSIZ];
 
 	assert(tr);
@@ -405,7 +407,9 @@ mvc_commit(mvc *m, int chain, const char *name, bool enabling_auto_commit)
 				freeException(other);
 			return msg;
 		}
+#ifndef HAVE_EMBEDDED
 		msg = WLCcommit(m->clientid);
+#endif
 		store_unlock();
 		if(msg != MAL_SUCCEED) {
 			if((other = mvc_rollback(m, chain, name, false)) != MAL_SUCCEED)
@@ -449,7 +453,9 @@ build up the hash (not copied in the trans dup)) */
 		if (!chain) 
 			sql_trans_end(m->session);
 		m->type = Q_TRANS;
+#ifndef HAVE_EMBEDDED
 		msg = WLCcommit(m->clientid);
+#endif
 		store_unlock();
 		if(msg != MAL_SUCCEED) {
 			if((other = mvc_rollback(m, chain, name, false)) != MAL_SUCCEED)
@@ -491,7 +497,9 @@ build up the hash (not copied in the trans dup)) */
 			freeException(other);
 		return msg;
 	}
+#ifndef HAVE_EMBEDDED
 	msg = WLCcommit(m->clientid);
+#endif
 	if(msg != MAL_SUCCEED) {
 		store_unlock();
 		if((other = mvc_rollback(m, chain, name, false)) != MAL_SUCCEED)
@@ -515,7 +523,7 @@ str
 mvc_rollback(mvc *m, int chain, const char *name, bool disabling_auto_commit)
 {
 	sql_trans *tr = m->session->tr;
-	str msg;
+	str msg = MAL_SUCCEED;
 
 	if (mvc_debug)
 		MT_fprintf(stderr, "#mvc_rollback %s\n", (name) ? name : "");
@@ -561,7 +569,9 @@ mvc_rollback(mvc *m, int chain, const char *name, bool disabling_auto_commit)
 		if (chain) 
 			sql_trans_begin(m->session);
 	}
+#ifndef HAVE_EMBEDDED
 	msg = WLCrollback(m->clientid);
+#endif
 	store_unlock();
 	if (msg != MAL_SUCCEED) {
 		m->session->status = -1;
@@ -1255,6 +1265,10 @@ mvc_create_table(mvc *m, sql_schema *s, const char *name, int tt, bit system, in
 		t->s = s;
 	} else {
 		t = sql_trans_create_table(m->session->tr, s, name, NULL, tt, system, persistence, commit_action, sz, properties);
+#ifdef HAVE_EMBEDDED
+		(void) err;
+		(void) check;
+#else
 		if(t && isPartitionedByExpressionTable(t) && (err = bootstrap_partition_expression(m, m->session->tr->sa, t, 1))) {
 			(void) sql_error(m, 02, "%s", err);
 			return NULL;
@@ -1267,6 +1281,7 @@ mvc_create_table(mvc *m, sql_schema *s, const char *name, int tt, bit system, in
 			(void) sql_error(m, 02, SQLSTATE(42000) "CREATE TABLE: %s_%s: an internal error occurred", s->base.name, t->base.name);
 			return NULL;
 		}
+#endif
 	}
 	return t;
 }
@@ -1313,6 +1328,7 @@ mvc_drop_table(mvc *m, sql_schema *s, sql_table *t, int drop_action)
 	if (mvc_debug)
 		MT_fprintf(stderr, "#mvc_drop_table %s %s\n", s->base.name, t->base.name);
 
+#ifndef HAVE_EMBEDDED
 	if (isRemote(t)) {
 		str AUTHres;
 		sql_allocator *sa = m->sa;
@@ -1334,6 +1350,7 @@ mvc_drop_table(mvc *m, sql_schema *s, sql_table *t, int drop_action)
 		if(AUTHres != MAL_SUCCEED)
 			return AUTHres;
 	}
+#endif
 
 	if(sql_trans_drop_table(m->session->tr, s, t->base.id, drop_action ? DROP_CASCADE_START : DROP_RESTRICT))
 		throw(SQL, "sql.mvc_drop_table", SQLSTATE(HY001) MAL_MALLOC_FAIL);

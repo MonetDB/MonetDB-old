@@ -11,6 +11,15 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ../common/options ../common/util
 					../monetdb5/optimizer ../sql/backends/monet5 ../sql/include ../sql/common ../sql/scripts
 					../sql/server ../sql/storage ../sql/storage/bat)
 
+bison_target(sqlparserlite ../sql/server/sql_parser.y ${CMAKE_CURRENT_BINARY_DIR}/sql_sqlparserlite.tab.c
+			 COMPILE_FLAGS "-d -p sql -r all" DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/sql_sqlparserlite.tab.h)
+add_library(bisonlite_obj OBJECT ${BISON_sqlparserlite_OUTPUTS})
+set_target_properties(bisonlite_obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(bisonlite_obj PRIVATE HAVE_EMBEDDED)
+if(COMPILER_Wnounreachablecode)
+	target_compile_options(bisonlite_obj PRIVATE -Wno-unreachable-code)
+endif()
+
 set(MAL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/mmath.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/bat5.mal"
@@ -85,8 +94,11 @@ add_library(monetdblite SHARED
 			../common/options/monet_options.c
 			../common/stream/stream.c
 			../common/utils/mutils.c
+			../common/utils/revision.c
 			../gdk/gdk_aggr.c
 			../gdk/gdk_align.c
+			../gdk/gdk_analytic_bounds.c
+			../gdk/gdk_analytic_func.c
 			../gdk/gdk_atoms.c
 			../gdk/gdk_bat.c
 			../gdk/gdk_batop.c
@@ -260,7 +272,8 @@ add_library(monetdblite SHARED
 			../sql/storage/sql_catalog.c
 			../sql/storage/store.c
 			../sql/storage/store_dependency.c
-			$<TARGET_OBJECTS:bison_obj>)
+			../sql/storage/store_sequence.c
+			$<TARGET_OBJECTS:bisonlite_obj>)
 target_link_libraries(monetdblite PRIVATE ${MATH_LIBRARIES} ${THREAD_LIBRARIES} ${DL_LIBRARIES} ${KVM_LIBRARIES}
 					  ${PSAPI_LIBRARIES})
 set_target_properties(monetdblite PROPERTIES VERSION ${MONETDB_VERSION} SOVERSION ${MONETDB_VERSION_MAJOR}

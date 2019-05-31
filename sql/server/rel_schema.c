@@ -1486,6 +1486,9 @@ sql_alter_table(sql_query *query, dlist *dl, dlist *qname, symbol *te, int if_ex
 		if (t->persistence != SQL_DECLARED_TABLE)
 			sname = s->base.name;
 
+#ifdef HAVE_EMBEDDED
+		(void) dl;
+#else
 		if (te && (te->token == SQL_TABLE || te->token == SQL_DROP_TABLE)) {
 			dlist *nqname = te->data.lval->h->data.lval;
 			sql_schema *spt = NULL;
@@ -1561,6 +1564,7 @@ sql_alter_table(sql_query *query, dlist *dl, dlist *qname, symbol *te, int if_ex
 				return rel_alter_table(sql->sa, DDL_ALTER_TABLE_DEL_TABLE, sname, tname, nsname, ntname, drop_action);
 			}
 		}
+#endif
 
 		/* read only or read write */
 		if (te && te->token == SQL_ALTER_TABLE) {

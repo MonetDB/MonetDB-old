@@ -6,9 +6,17 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR} ../include ../common ../storage ../../monetdb5/mal
+include_directories(${CMAKE_CURRENT_BINARY_DIR} ../include ../common ../storage ../../monetdb5/mal
 					../../monetdb5/modules/atoms ../../monetdb5/modules/mal ../../monetdb5/extras/rapi
 					../../clients/mapilib ../../common/stream ../../common/utils ../../gdk)
+
+bison_target(sqlparser sql/server/sql_parser.y ${CMAKE_CURRENT_BINARY_DIR}/sql_parser.tab.c
+			 COMPILE_FLAGS "-d -p sql -r all" DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/sql_parser.tab.h)
+add_library(bison_obj OBJECT ${BISON_sqlparser_OUTPUTS})
+set_target_properties(bison_obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(COMPILER_Wnounreachablecode)
+	target_compile_options(bison_obj PRIVATE -Wno-unreachable-code) # use this flag only to compile the bison output
+endif()
 
 add_library(sqlserver STATIC
 			sql_atom.c

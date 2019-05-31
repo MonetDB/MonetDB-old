@@ -101,7 +101,6 @@ malOpenSource(str file)
 	restoreClient1 \
 	restoreClient2
 
-#ifndef HAVE_EMBEDDED
 /*
  * The malLoadScript routine merely reads the contents of a file into
  * the input buffer of the client. It is typically used in situations
@@ -195,7 +194,6 @@ malInclude(Client c, str name, int listing)
 	restoreClient;
 	return msg;
 }
-#endif
 
 str
 malInlineBoot(Client c, str name, char *mal_init_inline, int listing)

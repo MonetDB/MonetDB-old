@@ -38,7 +38,7 @@ monetdb_is_initialized(void)
 	return monetdb_embedded_initialized > 0;
 }
 
-static str
+static char*
 validate_connection(monetdb_connection conn, const char* call)
 {
 	if (!monetdb_is_initialized())
@@ -58,11 +58,11 @@ typedef struct {
 	monetdb_column **converted_columns;
 } monetdb_result_internal;
 
-str
+char*
 monetdb_connect(monetdb_connection *conn)
 {
 	mvc *m;
-	str msg = MAL_SUCCEED;
+	char* msg = MAL_SUCCEED;
 	Client mc = NULL;
 
 	if (!monetdb_is_initialized()) {
@@ -91,7 +91,7 @@ monetdb_connect(monetdb_connection *conn)
 
 cleanup:
 	if (msg && mc) {
-		str other = monetdb_disconnect(mc);
+		char* other = monetdb_disconnect(mc);
 		if (other)
 			GDKfree(other);
 		*conn = NULL;
@@ -100,10 +100,10 @@ cleanup:
 	return msg;
 }
 
-str
+char*
 monetdb_disconnect(monetdb_connection conn)
 {
-	str msg = MAL_SUCCEED;
+	char* msg = MAL_SUCCEED;
 
 	if ((msg = validate_connection(conn, "embedded.monetdb_disconnect")) != MAL_SUCCEED)
 		return msg;
@@ -112,7 +112,7 @@ monetdb_disconnect(monetdb_connection conn)
 	return MAL_SUCCEED;
 }
 
-static str
+static char*
 monetdb_shutdown_internal(void)
 {
 	if (monetdb_embedded_initialized) {
@@ -122,10 +122,10 @@ monetdb_shutdown_internal(void)
 	return MAL_SUCCEED;
 }
 
-str
+char*
 monetdb_startup(char* dbdir, char silent, char sequential)
 {
-	str msg = MAL_SUCCEED;
+	char* msg = MAL_SUCCEED;
 	monetdb_result* res = NULL;
 	void* c;
 	opt *set = NULL;
@@ -208,11 +208,11 @@ cleanup:
 	return msg;
 }
 
-static str
-monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** result, lng* affected_rows,
-					   lng* prepare_id, char language)
+static char*
+monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** result, int64_t* affected_rows,
+					   int64_t* prepare_id, char language)
 {
-	str msg = MAL_SUCCEED, commit_msg;
+	char* msg = MAL_SUCCEED, *commit_msg;
 	Client c = (Client) conn;
 	mvc* m;
 	backend *b;
@@ -320,7 +320,7 @@ cleanup:
 	commit_msg = SQLautocommit(m); //need always to commit even if msg is set
 	if ((msg != MAL_SUCCEED || commit_msg != MAL_SUCCEED)) {
 		if (res_internal) {
-			str other = monetdb_cleanup_result(conn, (monetdb_result*) res_internal);
+			char* other = monetdb_cleanup_result(conn, (monetdb_result*) res_internal);
 			if (other)
 				GDKfree(other);
 		}
@@ -334,8 +334,8 @@ cleanup:
 	return msg;
 }
 
-str
-monetdb_clear_prepare(monetdb_connection conn, lng id)
+char*
+monetdb_clear_prepare(monetdb_connection conn, int64_t id)
 {
 	char query[100];
 
@@ -343,8 +343,8 @@ monetdb_clear_prepare(monetdb_connection conn, lng id)
 	return(monetdb_query_internal(conn, query, NULL, NULL, NULL, 'X'));
 }
 
-str
-monetdb_send_close(monetdb_connection conn, lng id)
+char*
+monetdb_send_close(monetdb_connection conn, int64_t id)
 {
 	char query[100];
 
@@ -354,7 +354,7 @@ monetdb_send_close(monetdb_connection conn, lng id)
 	return(monetdb_query_internal(conn, query, NULL, NULL, NULL, 'X'));
 }
 
-str
+char*
 monetdb_set_autocommit(monetdb_connection conn, char value)
 {
 	char query[100];
@@ -365,18 +365,18 @@ monetdb_set_autocommit(monetdb_connection conn, char value)
 	return(monetdb_query_internal(conn, query, NULL, NULL, NULL, 'X'));
 }
 
-str
-monetdb_query(monetdb_connection conn, char* query, monetdb_result** result, lng* affected_rows, lng* prepare_id)
+char*
+monetdb_query(monetdb_connection conn, char* query, monetdb_result** result, int64_t* affected_rows, int64_t* prepare_id)
 {
 	return(monetdb_query_internal(conn, query, result, affected_rows, prepare_id, 'S'));
 }
 
-str
+char*
 monetdb_append(monetdb_connection conn, const char* schema, const char* table, append_data *data, size_t column_count)
 {
 	Client c = (Client) conn;
 	mvc *m;
-	str msg = MAL_SUCCEED;
+	char* msg = MAL_SUCCEED;
 
 	if ((msg = validate_connection(conn, "embedded.monetdb_append")) != MAL_SUCCEED)
 		return msg;
@@ -437,10 +437,10 @@ monetdb_append(monetdb_connection conn, const char* schema, const char* table, a
 	return SQLautocommit(m);
 }
 
-str
+char*
 monetdb_cleanup_result(monetdb_connection conn, monetdb_result* result)
 {
-	str msg = MAL_SUCCEED;
+	char* msg = MAL_SUCCEED;
 	monetdb_result_internal* res = (monetdb_result_internal *) result;
 
 	if ((msg = validate_connection(conn, "embedded.monetdb_cleanup_result")) != MAL_SUCCEED)
@@ -462,14 +462,14 @@ monetdb_cleanup_result(monetdb_connection conn, monetdb_result* result)
 	return msg;
 }
 
-str
+char*
 monetdb_get_columns(monetdb_connection conn, const char* schema_name, const char *table_name, size_t *column_count,
 					char ***column_names, int **column_types)
 {
 	mvc *m;
 	sql_schema *s;
 	sql_table *t;
-	str msg = MAL_SUCCEED;
+	char* msg = MAL_SUCCEED;
 	int columns;
 	node *n;
 	Client c = (Client) conn;
@@ -523,10 +523,10 @@ monetdb_get_columns(monetdb_connection conn, const char* schema_name, const char
 	return msg;
 }
 
-str
+char*
 monetdb_shutdown(void)
 {
-	str msg = MAL_SUCCEED;
+	char* msg = MAL_SUCCEED;
 	MT_lock_set(&embedded_lock);
 	msg = monetdb_shutdown_internal();
 	MT_lock_unset(&embedded_lock);
@@ -588,12 +588,12 @@ static void data_from_date(date d, monetdb_data_date *ptr);
 static void data_from_time(daytime d, monetdb_data_time *ptr);
 static void data_from_timestamp(timestamp d, monetdb_data_timestamp *ptr);
 
-str
+char*
 monetdb_result_fetch(monetdb_column** res, monetdb_result* mres, size_t column_index)
 {
 	BAT* b = NULL;
 	int bat_type;
-	str msg = NULL;
+	char* msg = NULL;
 	monetdb_result_internal* result = (monetdb_result_internal*) mres;
 	sql_subtype* sqltpe = NULL;
 	monetdb_column* column_result = NULL;
@@ -780,7 +780,7 @@ wrapup:
 	return msg;
 }
 
-str
+char*
 monetdb_result_fetch_rawcol(void** res, monetdb_result* mres, size_t column_index)
 {
 	monetdb_result_internal* result = (monetdb_result_internal*) mres;

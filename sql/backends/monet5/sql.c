@@ -359,6 +359,9 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 		if(isPartitionedByColumnTable(t) && c->base.id == t->part.pcol->base.id)
 			nt->part.pcol = copied;
 	}
+#ifdef HAVE_EMBEDDED
+	(void) check;
+#else
 	if(isPartitionedByExpressionTable(t)) {
 		char *err = NULL;
 
@@ -386,6 +389,7 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 		sql->sa = osa;
 		throw(SQL, "sql.catalog", SQLSTATE(42000) "CREATE TABLE: %s_%s: an internal error occurred", s->base.name, t->base.name);
 	}
+#endif
 
 	if (t->idxs.set) {
 		for (n = t->idxs.set->h; n; n = n->next) {
@@ -396,6 +400,7 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 	if (t->keys.set) {
 		for (n = t->keys.set->h; n; n = n->next) {
 			sql_key *k = n->data;
+#ifndef HAVE_EMBEDDED
 			char *err = NULL;
 
 			sql->sa = sa_create();
@@ -411,6 +416,7 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 				sql->sa = osa;
 				return err;
 			}
+#endif
 			mvc_copy_key(sql, nt, k);
 		}
 	}

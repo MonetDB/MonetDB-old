@@ -13,7 +13,11 @@
 #include "sql_types.h"
 #include "sql_symbol.h"
 #include "sql_mvc.h"
+#ifdef HAVE_EMBEDDED
+#include "sql_sqlparserlite.tab.h"
+#else
 #include "sql_parser.tab.h"
+#endif
 #include "sql_semantic.h"
 #include "sql_parser.h"		/* for sql_error() */
 

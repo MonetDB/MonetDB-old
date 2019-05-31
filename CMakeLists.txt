@@ -755,6 +755,12 @@ if(${ENABLE_STRICT} STREQUAL "YES")
 		MT_addCompilerFlag("/WX" "/WX" "${CMAKE_C_FLAGS}" "all" CMAKE_C_FLAGS)
 	endif()
 endif()
+if(NOT MSVC)
+	cmake_push_check_state()
+	set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS};-Wno-unreachable-code")
+	check_c_source_compiles("int main(int argc,char** argv){(void)argc;(void)argv;return 0;}" COMPILER_Wnounreachablecode) # Warning don't add '-' or '/' to the output variable!
+	cmake_pop_check_state()
+endif()
 
 if(${ENABLE_SANITIZER} STREQUAL "YES")
 	if(${CMAKE_C_COMPILER_ID} STREQUAL "GNU")
@@ -785,6 +791,11 @@ find_program(DIFF NAMES gdiff diff DOC "Diff program fullpath")
 find_program(BASH NAMES bash DOC "bash interpreter fullpath")
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
+# FindRevision script must run every time to detect the current revision
+add_custom_target(mrevision COMMAND ${CMAKE_COMMAND} ARGS -P ${CMAKE_SOURCE_DIR}/cmake/FindRevision.cmake
+				  ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/monetdb_hgversion.h)
+
 add_subdirectory(buildtools)
 add_subdirectory(common)
 add_subdirectory(clients) # Must come before monetdb5!
@@ -795,9 +806,6 @@ if(HAVE_MONETDB5)
 	add_subdirectory(monetdb5)
 	add_subdirectory(geom) # The SHP vault requires the geom module, so the geom module should compile before SQL
 	add_subdirectory(tools)
-endif()
-if(HAVE_SQL OR HAVE_EMBEDDED)
-	compile_sqlparser()
 endif()
 if(HAVE_SQL)
 	add_subdirectory(sql)
