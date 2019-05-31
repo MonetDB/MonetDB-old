@@ -8,7 +8,7 @@
 
 if(HAVE_MONETDB5)
 	add_subdirectory(mserver)
-endif()
-if(NOT WIN32)
-	add_subdirectory(merovingian)
+	if(NOT WIN32)
+		add_subdirectory(merovingian)
+	endif()
 endif()

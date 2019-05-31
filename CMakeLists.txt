@@ -770,11 +770,11 @@ endif()
 if(HAVE_MONETDB5)
 	add_subdirectory(monetdb5)
 	add_subdirectory(geom) # The SHP vault requires the geom module, so the geom module should compile before SQL
+	add_subdirectory(tools)
 endif()
 if(HAVE_SQL)
 	add_subdirectory(sql)
 endif()
-add_subdirectory(tools)
 if(HAVE_TESTING)
 	add_subdirectory(testing) # This one must be the last visted directory!
 endif()
