@@ -49,7 +49,7 @@ extern void WLCreset(void); // Don't include wlc.h or opt_support.h, it creates 
 extern void opt_pipes_reset(void);
 
 str
-malEmbeddedBoot(const char* library_path)
+malEmbeddedBoot(void)
 {
 	Client c;
 	str msg = MAL_SUCCEED;
@@ -65,10 +65,6 @@ malEmbeddedBoot(const char* library_path)
 		throw(MAL, "malEmbeddedBoot", "MAL debugger failed to start");
 	}
 #endif
-	if (!initLinker(library_path)) {
-		mal_client_reset();
-		throw(MAL, "malEmbeddedBoot", "MAL linker failed to start");
-	}
 	monet_memory = MT_npages() * MT_pagesize();
 	initNamespace();
 	initParser();

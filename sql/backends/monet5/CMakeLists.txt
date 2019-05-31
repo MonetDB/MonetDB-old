@@ -11,11 +11,10 @@ if(NOT WIN32)
 endif()
 add_subdirectory(UDF)
 
-include_directories(${CMAKE_CURRENT_BINARY_DIR} ../../include ../../common ../../storage ../../server
+include_directories(${CMAKE_CURRENT_BINARY_DIR} ../../../gdk ../../include ../../common ../../storage ../../server
 					../../../monetdb5/modules/atoms ../../../monetdb5/modules/kernel ../../../monetdb5/mal
 					../../../monetdb5/modules/mal ../../../monetdb5/optimizer ../../../monetdb5/scheduler
-					../../../monetdb5/embedded ../../../monetdb5/extras/rapi ../../../common/stream
-					../../../common/utils ../../scripts ../../../gdk)
+					../../../monetdb5/extras/rapi ../../../common/stream ../../../common/utils ../../scripts)
 
 set(SQL_MAL_SCRIPTS_LIST
 		"${CMAKE_CURRENT_SOURCE_DIR}/sqlcatalog.mal"
@@ -33,6 +32,7 @@ set(SQL_MAL_SCRIPTS_LIST
 		"${CMAKE_CURRENT_SOURCE_DIR}/wlr.mal")
 if(HAVE_HGE)
 	list(APPEND SQL_MAL_SCRIPTS_LIST
+		"${CMAKE_CURRENT_SOURCE_DIR}/sql_hge.mal"
 		"${CMAKE_CURRENT_SOURCE_DIR}/sql_decimal_hge.mal"
 		"${CMAKE_CURRENT_SOURCE_DIR}/sql_rank_hge.mal"
 		"${CMAKE_CURRENT_SOURCE_DIR}/sql_aggr_hge.mal"

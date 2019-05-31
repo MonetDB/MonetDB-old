@@ -47,17 +47,15 @@ static int lastfile = 0;
  */
 static char* monetdb_lib_path = NULL;
 
-bool
+str
 initLinker(const char* path)
 {
 	if (monetdb_lib_path)
 		GDKfree(monetdb_lib_path);
 	monetdb_lib_path = GDKstrdup(path);
-	if (!monetdb_lib_path) {
-		MT_fprintf(stderr,"#initLinker:" MAL_MALLOC_FAIL);
-		return false;
-	}
-	return true;
+	if (!monetdb_lib_path)
+		throw(LOADER, "initLinker", MAL_MALLOC_FAIL);
+	return MAL_SUCCEED;
 }
 
 #ifndef O_CLOEXEC
@@ -84,6 +82,7 @@ getAddress(str fcnname)
 	MALfcn adr;
 	int idx=0;
 	static int prev= -1;
+	char *monetdb5library = monetdb_lib_path ? monetdb_lib_path : "libmonetdb5";
 
 	/* First try the last module loaded */
 	if( prev >= 0){
@@ -116,8 +115,7 @@ getAddress(str fcnname)
 	 *
 	 * the first argument must be the same as the base name of the
 	 * library that is created in src/tools */
-	assert(monetdb_lib_path);
-	dl = mdlopen(monetdb_lib_path, RTLD_NOW
+	dl = mdlopen(monetdb5library, RTLD_NOW
 #ifndef HAVE_EMBEDDED
 	| RTLD_GLOBAL);
 #else
@@ -127,12 +125,12 @@ getAddress(str fcnname)
 		return NULL;
 
 	adr = (MALfcn) dlsym(dl, fcnname);
-	filesLoaded[lastfile].modname = GDKstrdup(monetdb_lib_path);
+	filesLoaded[lastfile].modname = GDKstrdup(monetdb5library);
 	if(filesLoaded[lastfile].modname == NULL) {
 		dlclose(dl);
 		return NULL;
 	}
-	filesLoaded[lastfile].fullname = GDKstrdup(monetdb_lib_path);
+	filesLoaded[lastfile].fullname = GDKstrdup(monetdb5library);
 	if(filesLoaded[lastfile].fullname == NULL) {
 		dlclose(dl);
 		GDKfree(filesLoaded[lastfile].modname);

@@ -5440,6 +5440,37 @@ callback_stream(void *restrict private,
 	return s;
 }
 
+static ssize_t
+stream_blackhole_write(stream *restrict s, const void *restrict buf, size_t elmsize, size_t cnt)
+{
+	(void) s;
+	(void) buf;
+	(void) elmsize;
+	return (ssize_t) cnt;
+}
+
+static void
+stream_blackhole_close(stream *s)
+{
+	(void) s;
+	/* no resources to close */
+}
+
+stream *
+stream_blackhole_create(void)
+{
+	stream *s;
+	if ((s = create_stream("blackhole")) == NULL)
+		return NULL;
+
+	s->read = NULL;
+	s->write = stream_blackhole_write;
+	s->close = stream_blackhole_close;
+	s->flush = NULL;
+	s->readonly = false;
+	return s;
+}
+
 /* fixed-width format streams */
 #define STREAM_FWF_NAME "fwf_ftw"
 
@@ -5457,7 +5488,6 @@ typedef struct {
 	size_t out_buf_start;
 	size_t out_buf_remaining;
 } stream_fwf_data;
-
 
 static ssize_t
 stream_fwf_read(stream *restrict s, void *restrict buf, size_t elmsize, size_t cnt)
@@ -5528,7 +5558,6 @@ stream_fwf_read(stream *restrict s, void *restrict buf, size_t elmsize, size_t c
 	}
 	return (ssize_t) buf_written;
 }
-
 
 static void
 stream_fwf_close(stream *s)

@@ -476,8 +476,6 @@ SQLinit(Client c)
 			SQLnewcatalog = 1;
 	}
 	if (SQLnewcatalog > 0) {
-		char path[FILENAME_MAX];
-		str fullname;
 		char *commit = "commit;\n";
 
 		SQLnewcatalog = 0;
@@ -490,60 +488,66 @@ SQLinit(Client c)
 			return msg;
 		}
 
-		//load custom scripts here
-		snprintf(path, FILENAME_MAX, "createdb");
-		slash_2_dir_sep(path);
-		fullname = MSP_locate_sqlscript(path, 1);
-		if (fullname) {
-			str filename = fullname;
-			str p, n, newmsg= MAL_SUCCEED;
-			MT_fprintf(stdout, "# SQL catalog created, loading sql scripts once\n");
-			do {
-				stream *fd = NULL;
+#ifndef HAVE_EMBEDDED
+		{
+			char path[FILENAME_MAX];
+			str fullname;
+			//load custom scripts here
+			snprintf(path, FILENAME_MAX, "createdb");
+			slash_2_dir_sep(path);
+			fullname = MSP_locate_sqlscript(path, 1);
+			if (fullname) {
+				str filename = fullname;
+				str p, n, newmsg= MAL_SUCCEED;
+				MT_fprintf(stdout, "# SQL catalog created, loading sql scripts once\n");
+				do {
+					stream *fd = NULL;
 
-				p = strchr(filename, PATH_SEP);
-				if (p)
-					*p = '\0';
-				if ((n = strrchr(filename, DIR_SEP)) == NULL) {
-					n = filename;
-				} else {
-					n++;
-				}
-				MT_fprintf(stdout, "# loading sql script: %s\n", n);
-				fd = open_rastream(filename);
-				if (p)
-					filename = p + 1;
-
-				if (fd) {
-					size_t sz;
-					sz = getFileSize(fd);
-					if (sz > (size_t) 1 << 29) {
-						close_stream(fd);
-						newmsg = createException(MAL, "createdb", SQLSTATE(42000) "File %s too large to process", filename);
+					p = strchr(filename, PATH_SEP);
+					if (p)
+						*p = '\0';
+					if ((n = strrchr(filename, DIR_SEP)) == NULL) {
+						n = filename;
 					} else {
-						bstream *bfd = NULL;
+						n++;
+					}
+					MT_fprintf(stdout, "# loading sql script: %s\n", n);
+					fd = open_rastream(filename);
+					if (p)
+						filename = p + 1;
 
-						if((bfd = bstream_create(fd, sz == 0 ? (size_t) (128 * BLOCK) : sz)) == NULL) {
+					if (fd) {
+						size_t sz;
+						sz = getFileSize(fd);
+						if (sz > (size_t) 1 << 29) {
 							close_stream(fd);
-							newmsg = createException(MAL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+							newmsg = createException(MAL, "createdb", SQLSTATE(42000) "File %s too large to process", filename);
 						} else {
-							if (bstream_next(bfd) >= 0)
-								newmsg = SQLstatementIntern(c, &bfd->buf, "sql.init", TRUE, FALSE, NULL);
-							bstream_destroy(bfd);
+							bstream *bfd = NULL;
+
+							if((bfd = bstream_create(fd, sz == 0 ? (size_t) (128 * BLOCK) : sz)) == NULL) {
+								close_stream(fd);
+								newmsg = createException(MAL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+							} else {
+								if (bstream_next(bfd) >= 0)
+									newmsg = SQLstatementIntern(c, &bfd->buf, "sql.init", TRUE, FALSE, NULL);
+								bstream_destroy(bfd);
+							}
+						}
+						if (m->sa)
+							sa_destroy(m->sa);
+						m->sa = NULL;
+						if (newmsg){
+							MT_fprintf(stderr,"%s",newmsg);
+							freeException(newmsg);
 						}
 					}
-					if (m->sa)
-						sa_destroy(m->sa);
-					m->sa = NULL;
-					if (newmsg){
-						MT_fprintf(stderr,"%s",newmsg);
-						freeException(newmsg);
-					}
-				}
-			} while (p);
-			GDKfree(fullname);
-		} else
-			MT_fprintf(stderr, "!could not read createdb.sql\n");
+				} while (p);
+				GDKfree(fullname);
+			} else
+				MT_fprintf(stderr, "!could not read createdb.sql\n");
+		}
+#endif
 
 		if ((msg = install_sql_scripts2(c)) != MAL_SUCCEED) {
 			MT_lock_unset(&sql_contextLock);

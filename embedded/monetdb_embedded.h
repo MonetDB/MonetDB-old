@@ -113,7 +113,7 @@ DEFAULT_STRUCT_DEFINITION(monetdb_data_timestamp, timestamp);
 
 embedded_export str monetdb_connect(monetdb_connection *conn)
 embedded_export str monetdb_disconnect(monetdb_connection conn);
-embedded_export str monetdb_startup(char* dbdir, char silent, char sequential, char* library_path);
+embedded_export str monetdb_startup(char* dbdir, char silent, char sequential);
 embedded_export int monetdb_is_initialized(void);
 
 embedded_export str monetdb_set_autocommit(monetdb_connection conn, char value);

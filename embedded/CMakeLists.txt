@@ -7,9 +7,9 @@
 #]]
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR} ../common/options ../common/utils ../common/stream ../gdk
-					../monetdb5/embedded ../monetdb5/mal ../monetdb5/modules/kernel ../monetdb5/modules/atoms
-					../monetdb5/modules/mal ../monetdb5/optimizer ../sql/backends/monet5 ../sql/include ../sql/common
-					../sql/scripts ../sql/server ../sql/storage ../sql/storage/bat)
+					../monetdb5/mal ../monetdb5/modules/kernel ../monetdb5/modules/atoms ../monetdb5/modules/mal
+					../monetdb5/optimizer ../sql/backends/monet5 ../sql/include ../sql/common ../sql/scripts
+					../sql/server ../sql/storage ../sql/storage/bat)
 
 set(MAL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/mmath.mal"
@@ -75,8 +75,8 @@ set(SQL_SCRIPTS_LIST1
 set(SQL_SCRIPTS_LIST2
 	"${CMAKE_SOURCE_DIR}/sql/scripts/99_system.sql")
 
-add_library(monetdblite MODULE
-			embedded.c
+add_library(monetdblite SHARED
+			monetdb_embedded.c
 			../common/options/monet_options.c
 			../common/stream/stream.c
 			../common/utils/mutils.c
@@ -110,12 +110,12 @@ add_library(monetdblite MODULE
 			../gdk/gdk_unique.c
 			../gdk/gdk_utils.c
 			../gdk/gdk_value.c
-			../monetdb5/embedded/mal_embedded.c
 			../monetdb5/mal/mal.c
 			../monetdb5/mal/mal_atom.c
 			../monetdb5/mal/mal_builder.c
 			../monetdb5/mal/mal_client.c
 			../monetdb5/mal/mal_dataflow.c
+			../monetdb5/mal/mal_embedded.c
 			../monetdb5/mal/mal_exception.c
 			../monetdb5/mal/mal_function.c
 			../monetdb5/mal/mal_import.c
@@ -256,15 +256,16 @@ add_library(monetdblite MODULE
 			../sql/storage/store.c
 			../sql/storage/store_dependency.c
 			$<TARGET_OBJECTS:bison_obj>)
-# TODO If we are going to deploy MonetDBLite on FreeBSD we have to check the availability of the kvm library
 target_link_libraries(monetdblite PRIVATE ${MATH_LIBRARIES} ${THREAD_LIBRARIES} ${DL_LIBRARIES} ${KVM_LIBRARIES}
-					  ${PSAPI_LIBRARIES} ${SOCKET_LIBRARIES})
+					  ${PSAPI_LIBRARIES})
 set_target_properties(monetdblite PROPERTIES VERSION ${MONETDB_VERSION} SOVERSION ${MONETDB_VERSION_MAJOR}
 					  OUTPUT_NAME monetdb5)
 target_compile_definitions(monetdblite PRIVATE LIBMUTILS LIBMEROUTIL LIBSTREAM LIBGDK LIBMAL LIBATOMS LIBKERNEL
 						   LIBSCHEDULER LIBMONETDB5 LIBOPTIMIZER LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE
 						   LIBMOPTIONS LIBEMBEDDED HAVE_EMBEDDED)
+
 install(TARGETS monetdblite DESTINATION ${LIBDIR}/monetdblite)
+install(FILES monetdb_embedded.h DESTINATION ${INCLUDEDIR}/monetdb)
 if(WIN32)
 	install(FILES $<TARGET_PDB_FILE:monetdblite> DESTINATION ${LIBDIR}/monetdblite OPTIONAL)
 endif()

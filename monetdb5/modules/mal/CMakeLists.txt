@@ -6,8 +6,8 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../../mal ../atoms ../kernel ../../embedded ../../../clients/mapilib ../../../common/stream
-					../../../common/utils ../../../gdk ${PCRE_INCLUDE_DIR} ${CRYPTO_INCLUDE_DIR})
+include_directories(../../mal ../atoms ../kernel ../../../clients/mapilib ../../../common/stream ../../../common/utils
+					../../../gdk ${PCRE_INCLUDE_DIR} ${CRYPTO_INCLUDE_DIR})
 
 add_library(malmodules OBJECT
 			batExtensions.c batExtensions.h

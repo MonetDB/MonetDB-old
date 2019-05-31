@@ -269,7 +269,7 @@ static str monetdb_initialize(void) {
 		exit(1);
 	}
 
-	if ((err = malEmbeddedBoot("libmonetdb5")) != MAL_SUCCEED) {
+	if ((err = malEmbeddedBoot()) != MAL_SUCCEED) {
 		fprintf(stderr, "%s\n", err);
 		/* don't show this as a crash */
 		err = msab_registerStop();

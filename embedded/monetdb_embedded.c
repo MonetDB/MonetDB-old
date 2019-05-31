@@ -13,7 +13,7 @@
 
 #include "monetdb_config.h"
 
-#include "embedded.h"
+#include "monetdb_embedded.h"
 
 #include "mal.h"
 #include "mal_client.h"
@@ -122,7 +122,7 @@ monetdb_disconnect(monetdb_connection conn)
 }
 
 str
-monetdb_startup(char* dbdir, char silent, char sequential, char* library_path)
+monetdb_startup(char* dbdir, char silent, char sequential)
 {
 	str msg = MAL_SUCCEED;
 	monetdb_result* res = NULL;
@@ -143,11 +143,6 @@ monetdb_startup(char* dbdir, char silent, char sequential, char* library_path)
 
 	if (monetdb_embedded_initialized)
 		goto cleanup;
-
-	if (!library_path) {
-		msg = createException(MAL, "embedded.monetdb_startup", SQLSTATE(42000) "library_path parameter is NULL");
-		goto cleanup;
-	}
 
 	if (silent)
 		MT_fprintf_silent(true);
@@ -177,7 +172,7 @@ monetdb_startup(char* dbdir, char silent, char sequential, char* library_path)
 		goto cleanup;
 	}
 
-	if ((msg = malEmbeddedBoot(library_path)) != MAL_SUCCEED)
+	if ((msg = malEmbeddedBoot()) != MAL_SUCCEED)
 		goto cleanup;
 	if (!SQLisInitialized()) {
 		msg = createException(MAL, "embedded.monetdb_startup", SQLSTATE(HY002) "SQL initialization failed");

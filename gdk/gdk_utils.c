@@ -1220,7 +1220,9 @@ GDKusec(void)
 {
 	/* Return the time in microseconds since an epoch.  The epoch
 	 * is roughly the time this program started. */
-#ifdef NATIVE_WIN32
+#ifdef HAVE_EMBEDDED
+	return 0; // Just ignore on MonetDBLite
+#elif defined(NATIVE_WIN32)
 	static LARGE_INTEGER freq, start;	/* automatically initialized to 0 */
 	LARGE_INTEGER ctr;
 
@@ -1466,10 +1468,13 @@ THRinit(void)
 	int i = 0;
 	Thread s;
 	static bool first = true;
+	bool isSilent = MT_is_fprintf_silent();
 
-	if ((THRdata[0] = (void *) file_wastream(stdout, "stdout")) == NULL)
+	THRdata[0] = isSilent ? (void *) stream_blackhole_create() : (void *) file_wastream(stdout, "stdout");
+	if (!THRdata[0])
 		return -1;
-	if ((THRdata[1] = (void *) file_rastream(stdin, "stdin")) == NULL) {
+	THRdata[1] = isSilent ? (void *) stream_blackhole_create() : (void *) file_rastream(stdin, "stdin");
+	if (!THRdata[1]) {
 		mnstr_destroy(THRdata[0]);
 		THRdata[0] = NULL;
 		return -1;

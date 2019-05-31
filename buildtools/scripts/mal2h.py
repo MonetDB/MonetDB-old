@@ -110,7 +110,7 @@ while current_input_file_number < total_files:
             cur_state = 1
             i += 1
             continue
-        elif c == 'c' and i + 7 < endloop and mal_content[i:i+7] == 'comment':
+        elif c == 'c' and i + 8 < endloop and mal_content[i:i+7] == 'comment' and mal_content[i+8] in (' ', '\t', '\n'):
             cur_state = 2
             i += 6
             continue

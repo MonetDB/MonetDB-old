@@ -673,7 +673,7 @@ main(int argc, char **av)
 		freeException(err);
 		exit(1);
 	}
-	if ((err = malEmbeddedBoot("libmonetdb5")) != MAL_SUCCEED) {
+	if ((err = malEmbeddedBoot()) != MAL_SUCCEED) {
 		/* don't show this as a crash */
 		if (!GDKinmemory())
 			msab_registerStop();

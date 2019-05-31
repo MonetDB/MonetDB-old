@@ -452,6 +452,12 @@ MT_fprintf_silent(bool silent)
 	MT_silent = silent;
 }
 
+bool
+MT_is_fprintf_silent(void)
+{
+	return MT_silent;
+}
+
 int
 MT_fprintf(FILE *fp, const char *format, ...)
 {

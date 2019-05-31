@@ -6,10 +6,10 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(. ../../monetdb5/mal ../../monetdb5/embedded ../../gdk ../../common/stream ../../common/utils
-					../../common/options ../../monetdb5/modules/atoms ../../monetdb5/modules/mal
-					../../sql/backends/monet5 ../../sql/common ../../sql/include ../../sql/server ../../sql/storage
-					${CRYPTO_INCLUDE_DIR} ${PCRE_INCLUDE_DIR} ${LIBXML2_INCLUDE_DIR} ${ICONV_INCLUDE_DIR})
+include_directories(. ../../monetdb5/mal ../../gdk ../../common/stream ../../common/utils ../../common/options
+					../../monetdb5/modules/atoms ../../monetdb5/modules/mal ../../sql/backends/monet5 ../../sql/common
+					../../sql/include ../../sql/server ../../sql/storage ${CRYPTO_INCLUDE_DIR} ${PCRE_INCLUDE_DIR}
+					${LIBXML2_INCLUDE_DIR} ${ICONV_INCLUDE_DIR})
 
 site_name(BUILD_HOST)
 set(builtby "$ENV{USER}@${BUILD_HOST}")
