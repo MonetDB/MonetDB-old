@@ -35,12 +35,9 @@ str yieldFactory(MalBlkPtr mb, InstrPtr p, int pc)
 	__attribute__((__visibility__("hidden")));
 str callFactory(Client cntxt, MalBlkPtr mb, ValPtr argv[],char flag)
 	__attribute__((__visibility__("hidden")));
-
 #endif
 
 void initResource(void)
-	__attribute__((__visibility__("hidden")));
-int moreClients(int reruns)
 	__attribute__((__visibility__("hidden")));
 
 str malAtomDefinition(str name,int tpe)
@@ -48,19 +45,12 @@ str malAtomDefinition(str name,int tpe)
 str malAtomProperty(MalBlkPtr mb, InstrPtr pci)
 	__attribute__((__visibility__("hidden")));
 
-extern MT_Lock mal_namespaceLock;
-
 void setqptimeout(lng usecs)
 	__attribute__((__visibility__("hidden")));
 
 bool mdbInit(void)
 	__attribute__((__visibility__("hidden")));
 void mdbExit(void)
-	__attribute__((__visibility__("hidden")));
-
-str createScriptException(MalBlkPtr, int, enum malexception,
-	const char *, _In_z_ _Printf_format_string_ const char *, ...)
-	__attribute__((__format__(__printf__, 5, 6)))
 	__attribute__((__visibility__("hidden")));
 
 #ifdef MAXSCOPE
@@ -73,12 +63,6 @@ int getBarrierEnvelop(MalBlkPtr mb)
 void malGarbageCollector(MalBlkPtr mb)
 	__attribute__((__visibility__("hidden")));
 void listFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg, int first, int step)
-	__attribute__((__visibility__("hidden")));
-
-/* mal_http_daemon.h */
-void startHttpdaemon(void)
-	__attribute__((__visibility__("hidden")));
-void stopHttpdaemon(void)
 	__attribute__((__visibility__("hidden")));
 
 /* mal_linker.h */
