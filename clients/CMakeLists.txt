@@ -6,15 +6,17 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-if(${ENABLE_MAPI} STREQUAL "YES")
+if(NOT ${ENABLE_MAPI} STREQUAL "NO")
 	set(HAVE_MAPI ON CACHE INTERNAL "mapi extension is available" FORCE)
 	add_subdirectory(mapilib)
 	add_subdirectory(mapiclient)
 	add_subdirectory(examples)
+	if(WIN32)
+		add_subdirectory(NT)
+	endif()
 else()
 	set(HAVE_MAPI OFF CACHE INTERNAL "mapi extension is available" FORCE)
 endif()
-add_subdirectory(odbc)
-if(WIN32)
-	add_subdirectory(NT)
+if(NOT ${ENABLE_ODBC} STREQUAL "NO")
+	add_subdirectory(odbc)
 endif()

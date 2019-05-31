@@ -507,90 +507,6 @@ re_create(const char *pat, int nr, bool caseignore)
 	re_destroy(r);
 	return NULL;
 }
-#else
-static bit
-STRlike(const char* const_pattern, const char* const_data, bit case_insensitive, char escape)
-{
-	BATiter toi = bat_iterator(UTF8_lowerBat);
-	BATiter fromi = bat_iterator(UTF8_upperBat);
-	BUN UTF8_CONV_r;
-	char *back_pat = NULL, *back_str = NULL;
-	str pattern = (char*) const_pattern;
-	str pattern_start = NULL;
-	str data = (char*) const_data;
-	bit retval = 0;
-
-	(void) escape; // FIXME
-	if (case_insensitive) {
-		STRLower(&pattern, (const str*) &const_pattern);
-		pattern_start = pattern;
-	}
-
-	for (;;) {
-		unsigned char *c = (unsigned char *) data++;
-		unsigned char *d = (unsigned char *) pattern++;
-		char sz_c = 0, sz_d = 0;
-		unsigned int cp_c = 0, cp_d = 0;
-
-		switch (*d) {
-		case '_':
-			if (*c == '\0')
-				goto bailout;
-			UTF8_GETCHAR_SZ(cp_c, sz_c, c);
-			data += sz_c - 1;
-			break;
-		case '%':
-			if (*pattern == '\0') {
-				retval = 1;
-				goto bailout;
-			}
-			back_pat = pattern;
-			back_str = --data; /* Allow zero-length match */
-			break;
-		/* case '\\':
-			d = *pat++;
-			//FALLTHROUGH*/
-		default:        /* Literal character */
-			if (case_insensitive && *c != '\0') {
-				// get code points from strings
-				UTF8_GETCHAR_SZ(cp_c, sz_c, c);
-				UTF8_GETCHAR_SZ(cp_d, sz_d, d);
-
-				if (cp_c < 0x80) {
-					if ('A' <= cp_c && cp_c <= 'Z')
-						cp_c += 'a' - 'A';
-				} else {
-					HASHfnd_int(UTF8_CONV_r, fromi, &cp_c);
-					if (UTF8_CONV_r != BUN_NONE)
-						cp_c = *(int*) BUNtloc(toi, UTF8_CONV_r);
-				}
-				data += sz_c - 1;
-				pattern += sz_d - 1;
-				if (cp_c == cp_d)
-					break;
-			} else {
-				if (*c == *d) {
-					if (*d == '\0') {
-						retval = 1;
-						goto bailout;
-					}
-					break;
-				}
-			}
-			if (*c == '\0' || !back_pat)
-				goto bailout;   /* No point continuing */
-			/* Try again from last *, one character later in str. */
-			pattern = back_pat;
-			data = ++back_str;
-			break;
-		}
-	}
-bailout:
-hashfnd_failed:
-	if (case_insensitive)
-		GDKfree(pattern_start);
-	return retval;
-}
 #endif
 
 #ifdef HAVE_LIBPCRE
@@ -728,7 +644,7 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, bool caseignore, boo
 #elif defined(HAVE_POSIX_REGEX)
 #define BODY     (regexec(&re, v, (size_t) 0, NULL, 0) != REG_NOMATCH)
 #else
-#define BODY     (STRlike(pat, v, caseignore, '\0'))
+#define BODY     (STRRegexlike(pat, v, caseignore, '\0'))
 #endif
 		if (anti)
 			candscanloop(v && *v != '\200' && !BODY);
@@ -1738,7 +1654,7 @@ PCRElike4(bit *ret, const str *s, const str *pat, const str *esc, const bit *ise
 		GDKfree(ppat);
 	return r;
 #else
-	*ret = STRlike(*pat, *s, *isens, **esc);
+	*ret = STRRegexlike(*pat, *s, *isens, **esc);
 	return MAL_SUCCEED;
 #endif
 }
@@ -1946,7 +1862,7 @@ BATPCRElike3(bat *ret, const bat *bid, const str *pat, const str *esc, const bit
 			r->tnonil = false;
 			r->tnil = true;
 		} else {
-			bit retval = STRlike(*pat, s, *isens, **esc);
+			bit retval = STRRegexlike(*pat, s, *isens, **esc);
 			br[i] = *not ? !retval:retval;
 		}
 		i++;
@@ -2354,7 +2270,7 @@ pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 					continue;
 			}
 #else //neither
-			retval = STRlike(vr, vl, caseignore, *esc);
+			retval = STRRegexlike(vr, vl, caseignore, *esc);
 			if (retval == 0)
 				continue;
 #endif

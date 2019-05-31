@@ -7,6 +7,7 @@
  */
 
 #include "monetdb_config.h"
+#include "mal_exception.h"
 #include "rel_trans.h"
 #include "rel_rel.h"
 #include "rel_select.h"

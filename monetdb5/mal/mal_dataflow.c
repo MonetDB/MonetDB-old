@@ -456,16 +456,16 @@ DFLOWworker(void *T)
 		MT_lock_unset(&flow->flowlock);
 
 		q_enqueue(flow->done, fe);
+#ifndef HAVE_EMBEDDED
 		if ( fnxt == 0 && malProfileMode) {
 			int last;
 			MT_lock_set(&todo->l);
 			last = todo->last;
 			MT_lock_unset(&todo->l);
-#ifndef HAVE_EMBEDDED
 			if (last == 0)
 				profilerHeartbeatEvent("wait");
-#endif
 		}
+#endif
 	}
 	GDKfree(GDKerrbuf);
 	GDKsetbuf(0);

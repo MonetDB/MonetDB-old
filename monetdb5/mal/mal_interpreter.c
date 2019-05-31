@@ -536,7 +536,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 				ret= createException(MAL, "mal.interpreter", "prematurely stopped client");
 			break;
 		}
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(HAVE_EMBEDDED)
 		if (cntxt->itrace || stk->status) {
 			if (stk->status == 'p'){
 				// execution is paused
@@ -549,9 +549,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 
 			if (stk->cmd == 0)
 				stk->cmd = cntxt->itrace;
-#ifndef HAVE_EMBEDDED
 			mdbStep(cntxt, mb, stk, stkpc);
-#endif
 			if (stk->cmd == 'x' ) {
 				stk->cmd = 0;
 				stkpc = mb->stop;
@@ -904,7 +902,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 		if (ret != MAL_SUCCEED) {
 			str msg = 0;
 
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(HAVE_EMBEDDED)
 			if (stk->cmd) {
 				mnstr_printf(cntxt->fdout, "!ERROR: %s\n", ret);
 				stk->cmd = '\n'; /* in debugging go to step mode */
@@ -968,7 +966,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			}
 			/* position yourself at the catch instruction for further decisions */
 			/* skipToCatch(exceptionVar,@2,@3) */
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(HAVE_EMBEDDED)
 			if (stk->cmd == 'C') {
 				stk->cmd = 'n';
 				mdbStep(cntxt, mb, stk, stkpc);
@@ -1154,7 +1152,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 				ret = createException(MAL, nme, "%s", stk->stk[getDestVar(pci)].val.sval);
 			}
 			/* skipToCatch(exceptionVar, @2, stk) */
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(HAVE_EMBEDDED)
 			if (stk->cmd == 'C') {
 				stk->cmd = 'n';
 				mdbStep(cntxt, mb, stk, stkpc);

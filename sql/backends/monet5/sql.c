@@ -36,6 +36,7 @@
 #include "orderidx.h"
 #include "mal_instruction.h"
 #include "mal_resource.h"
+#include "bat5.h"
 #ifndef HAVE_EMBEDDED
 #include "mal_authorize.h"
 #include "clients.h"

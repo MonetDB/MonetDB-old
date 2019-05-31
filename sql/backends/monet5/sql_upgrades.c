@@ -1948,6 +1948,7 @@ SQLupgrades(Client c, mvc *m)
 	sql_column *col;
 	bool hugeint_upgraded = false;
 
+	(void) col;
 #ifdef HAVE_HGE
 	if (have_hge) {
 		sql_find_subtype(&tp, "hugeint", 0, 0);

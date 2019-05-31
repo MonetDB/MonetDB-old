@@ -110,6 +110,7 @@ add_library(monetdblite SHARED
 			../gdk/gdk_select.c
 			../gdk/gdk_ssort.c
 			../gdk/gdk_storage.c
+			../gdk/gdk_string.c
 			../gdk/gdk_system.c
 			../gdk/gdk_tm.c
 			../gdk/gdk_unique.c

@@ -407,11 +407,8 @@ monet5_rename_user(ptr _mvc, str olduser, str newuser)
 {
 	mvc *m = (mvc *) _mvc;
 #ifdef HAVE_EMBEDDED
-	(void) user;
-	(void) passwd;
-	(void) enc;
-	(void) schema_id;
-	(void) oldpasswd;
+	(void) olduser;
+	(void) newuser;
 	(void) sql_error(m, 02, SQLSTATE(42000) "ALTER USER: User administration not available in MonetDBLite version");
 	return FALSE;
 #else

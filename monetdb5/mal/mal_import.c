@@ -70,6 +70,37 @@ malOpenSource(str file)
 	return fd;
 }
 
+/*
+ * Beware that we have to isolate the execution of the source file
+ * in its own environment. E.g. we have to remove the execution
+ * state until we are finished.
+ * The script being read may contain errors, such as non-balanced
+ * brackets as indicated by blkmode.
+ * It should be reset before continuing.
+*/
+#define restoreClient1 \
+	if (c->fdin)  \
+		bstream_destroy(c->fdin); \
+	c->fdin = oldfdin;  \
+	c->yycur = oldyycur;  \
+	c->listing = oldlisting; \
+	c->mode = oldmode; \
+	c->blkmode = oldblkmode; \
+	c->bak = oldbak; \
+	c->srcFile = oldsrcFile; \
+	if(c->prompt) GDKfree(c->prompt); \
+	c->prompt = oldprompt; \
+	c->promptlength= (int)strlen(c->prompt);
+#define restoreClient2 \
+	assert(c->glb == 0 || c->glb == oldglb); /* detect leak */ \
+	c->glb = oldglb; \
+	c->usermodule = oldusermodule; \
+	c->curmodule = oldcurmodule;; \
+	c->curprg = oldprg;
+#define restoreClient \
+	restoreClient1 \
+	restoreClient2
+
 #ifndef HAVE_EMBEDDED
 /*
  * The malLoadScript routine merely reads the contents of a file into
@@ -106,37 +137,6 @@ malLoadScript(str name, bstream **fdin)
 	}
 	return MAL_SUCCEED;
 }
-
-/*
- * Beware that we have to isolate the execution of the source file
- * in its own environment. E.g. we have to remove the execution
- * state until we are finished.
- * The script being read may contain errors, such as non-balanced
- * brackets as indicated by blkmode.
- * It should be reset before continuing.
-*/
-#define restoreClient1 \
-	if (c->fdin)  \
-		bstream_destroy(c->fdin); \
-	c->fdin = oldfdin;  \
-	c->yycur = oldyycur;  \
-	c->listing = oldlisting; \
-	c->mode = oldmode; \
-	c->blkmode = oldblkmode; \
-	c->bak = oldbak; \
-	c->srcFile = oldsrcFile; \
-	if(c->prompt) GDKfree(c->prompt); \
-	c->prompt = oldprompt; \
-	c->promptlength= (int)strlen(c->prompt);
-#define restoreClient2 \
-	assert(c->glb == 0 || c->glb == oldglb); /* detect leak */ \
-	c->glb = oldglb; \
-	c->usermodule = oldusermodule; \
-	c->curmodule = oldcurmodule;; \
-	c->curprg = oldprg;
-#define restoreClient \
-	restoreClient1 \
-	restoreClient2
 
 /*
  * The include operation parses the file indentified and

@@ -225,6 +225,7 @@ _create_relational_function(mvc *m, const char *mod, const char *name, sql_rel *
 	return 0;
 }
 
+#ifndef HAVE_EMBEDDED
 static str
 rel2str( mvc *sql, sql_rel *rel)
 {
@@ -259,7 +260,6 @@ cleanup:
 	return res;
 }
 
-#ifndef HAVE_EMBEDDED
 /* stub and remote function */
 static int
 _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *rel, stmt *call, prop *prp)
@@ -575,9 +575,8 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 int
 monet5_create_relational_function(mvc *m, const char *mod, const char *name, sql_rel *rel, stmt *call, list *rel_ops, int inline_func)
 {
-	prop *p = NULL;
-
 #ifndef HAVE_EMBEDDED
+	prop *p = NULL;
 	if (rel && (p = find_prop(rel->p, PROP_REMOTE)) != NULL)
 		return _create_relational_remote(m, mod, name, rel, call, p);
 #endif

@@ -76,9 +76,9 @@ mutils_export void MT_srand(unsigned int seed);
  * pointer to a static buffer that is overwritten by subsequent calls to
  * this function. */
 mutils_export char *get_bin_path(void);
+#endif
 /* Returns the Mercurial changeset of the current checkout, if available */
 mutils_export const char *mercurial_revision(void);
-#endif
 
 /* print to stdout/stderr conditionally */
 mutils_export void MT_fprintf_silent(bool silent);

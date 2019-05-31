@@ -35,6 +35,7 @@ str callFactory(Client cntxt, MalBlkPtr mb, ValPtr argv[],char flag)
 #endif
 #endif
 
+#ifndef HAVE_EMBEDDED
 #ifndef NDEBUG
 void mdbStep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
 	__attribute__((__visibility__("hidden")));
@@ -43,15 +44,7 @@ bool mdbInit(void)
 void mdbExit(void)
 	__attribute__((__visibility__("hidden")));
 #endif
-
-#ifndef HAVE_EMBEDDED
-void malGarbageCollector(MalBlkPtr mb)
-	__attribute__((__visibility__("hidden")));
 mal_export void AUTHreset(void)
-	__attribute__((__visibility__("hidden")));
-mal_export void mal_runtime_reset(void)
-	__attribute__((__visibility__("hidden")));
-void initResource(void)
 	__attribute__((__visibility__("hidden")));
 #endif
 
@@ -78,7 +71,15 @@ void listFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg, int first, i
 char *MSP_locate_script(const char *mod_name)
 	__attribute__((__visibility__("hidden")));
 
+void initResource(void)
+	__attribute__((__visibility__("hidden")));
+void malGarbageCollector(MalBlkPtr mb)
+	__attribute__((__visibility__("hidden")));
+
 /* Reset primitives */
+mal_export void mal_runtime_reset(void)
+	__attribute__((__visibility__("hidden")));
+
 mal_export void mal_client_reset(void)
 	__attribute__((__visibility__("hidden")));
 

@@ -213,7 +213,6 @@ SQLexit(Client c)
 str
 SQLepilogue(void *ret)
 {
-	char *s = "sql", *m = "msql";
 	str res = MAL_SUCCEED;
 
 	(void) ret;
@@ -222,6 +221,7 @@ SQLepilogue(void *ret)
 	/* this function is never called, but for the style of it, we clean
 	 * up our own mess */
 	if (!GDKinmemory()) {
+		char *s = "sql", *m = "msql";
 		res = msab_retreatScenario(m);
 		if (!res)
 			res = msab_retreatScenario(s);

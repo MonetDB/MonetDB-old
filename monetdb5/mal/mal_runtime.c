@@ -181,9 +181,11 @@ runtimeProfileBegin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Run
 	if( isaBatType(getArgType(mb, pci, 0)) )
 		(void) ATOMIC_INC(&mal_running);
 
+#ifndef HAVE_EMBEDDED
 	/* emit the instruction upon start as well */
 	if(malProfileMode > 0 )
 		profilerEvent(mb, stk, pci, TRUE, cntxt->username);
+#endif
 }
 
 void
@@ -191,6 +193,7 @@ runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Runt
 {
 	int tid = THRgettid();
 
+	(void) stk;
 	/* keep track on the instructions in progress*/
 	if ( tid < THREADS) {
 		cntxt->inprogress[tid].mb = 0;
@@ -207,7 +210,8 @@ runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Runt
 	pci->ticks = GDKusec() - prof->ticks;
 	pci->totticks += pci->ticks;
 	pci->calls++;
-	
+
+#ifndef HAVE_EMBEDDED
 	if(malProfileMode > 0 )
 		profilerEvent(mb, stk, pci, FALSE, cntxt->username);
 	if( malProfileMode < 0){
@@ -215,6 +219,7 @@ runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Runt
 		if( getInstrPtr(mb,0) == pci)
 			malProfileMode = 1;
 	}
+#endif
 	cntxt->active = FALSE;
 	/* reduce threads of non-admin long running transaction if needed */
 	if ( cntxt->idx > 1 )

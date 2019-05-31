@@ -3971,8 +3971,137 @@ STRrepeat(str *ret, const str *s, const int *c)
 	}
 	return MAL_SUCCEED;
 }
+
 str
 STRspace(str *ret, const int *l){
 	char buf[]= " ", *s= buf;
 	return STRrepeat(ret,&s,l);
 }
+
+#if !defined(HAVE_LIBPCRE) && !defined(HAVE_POSIX_REGEX) && defined(HAVE_EMBEDDED)
+/* Get the first char in (X2), and #bytes it takes */
+#define UTF8_GETCHAR_SZ(X1, SZ, X2)				\
+	do {										\
+		if (*(X2) < 0x80) {						\
+			(X1) = *(X2)++;						\
+			(SZ) = 1;							\
+		} else if (*(X2) < 0xE0) {				\
+			(X1)  = (*(X2)++ & 0x1F) << 6;		\
+			(X1) |= (*(X2)++ & 0x3F);			\
+			(SZ) = 2;							\
+		} else if (*(X2) < 0xF0) {				\
+			(X1)  = (*(X2)++ & 0x0F) << 12;		\
+			(X1) |= (*(X2)++ & 0x3F) << 6;		\
+			(X1) |= (*(X2)++ & 0x3F);			\
+			(SZ) = 3;							\
+		} else if (*(X2) < 0xF8) {				\
+			(X1)  = (*(X2)++ & 0x07) << 18;		\
+			(X1) |= (*(X2)++ & 0x3F) << 12;		\
+			(X1) |= (*(X2)++ & 0x3F) << 6;		\
+			(X1) |= (*(X2)++ & 0x3F);			\
+			(SZ) = 4;							\
+		} else if (*(X2) < 0xFC) {				\
+			(X1)  = (*(X2)++ & 0x03) << 24;		\
+			(X1) |= (*(X2)++ & 0x3F) << 18;		\
+			(X1) |= (*(X2)++ & 0x3F) << 12;		\
+			(X1) |= (*(X2)++ & 0x3F) << 6;		\
+			(X1) |= (*(X2)++ & 0x3F);			\
+			(SZ) = 5;							\
+		} else if (*(X2) < 0xFE) {				\
+			(X1)  = (*(X2)++ & 0x01) << 30;		\
+			(X1) |= (*(X2)++ & 0x3F) << 24;		\
+			(X1) |= (*(X2)++ & 0x3F) << 18;		\
+			(X1) |= (*(X2)++ & 0x3F) << 12;		\
+			(X1) |= (*(X2)++ & 0x3F) << 6;		\
+			(X1) |= (*(X2)++ & 0x3F);			\
+			(SZ) = 6;							\
+		} else {								\
+			(X1) = int_nil;						\
+			(SZ) = 0;							\
+		}										\
+	} while (0)
+
+bit
+STRRegexlike(const char* const_pattern, const char* const_data, bit case_insensitive, char escape)
+{
+	BATiter toi = bat_iterator(UTF8_toLowerTo);
+	BATiter fromi = bat_iterator(UTF8_toUpperTo);
+	BUN UTF8_CONV_r;
+	char *back_pat = NULL, *back_str = NULL;
+	str pattern = (char*) const_pattern;
+	str pattern_start = NULL;
+	str data = (char*) const_data;
+	bit retval = 0;
+
+	(void) escape; // FIXME
+	if (case_insensitive) {
+		STRLower(&pattern, (const str*) &const_pattern);
+		pattern_start = pattern;
+	}
+
+	for (;;) {
+		unsigned char *c = (unsigned char *) data++;
+		unsigned char *d = (unsigned char *) pattern++;
+		char sz_c = 0, sz_d = 0;
+		unsigned int cp_c = 0, cp_d = 0;
+
+		switch (*d) {
+			case '_':
+				if (*c == '\0')
+					goto bailout;
+				UTF8_GETCHAR_SZ(cp_c, sz_c, c);
+				data += sz_c - 1;
+				break;
+			case '%':
+				if (*pattern == '\0') {
+					retval = 1;
+					goto bailout;
+				}
+				back_pat = pattern;
+				back_str = --data; /* Allow zero-length match */
+				break;
+				/* case '\\':
+					d = *pat++;
+					//FALLTHROUGH*/
+			default:        /* Literal character */
+				if (case_insensitive && *c != '\0') {
+					// get code points from strings
+					UTF8_GETCHAR_SZ(cp_c, sz_c, c);
+					UTF8_GETCHAR_SZ(cp_d, sz_d, d);
+
+					if (cp_c < 0x80) {
+						if ('A' <= cp_c && cp_c <= 'Z')
+							cp_c += 'a' - 'A';
+					} else {
+						HASHfnd_int(UTF8_CONV_r, fromi, &cp_c);
+						if (UTF8_CONV_r != BUN_NONE)
+							cp_c = *(int*) BUNtloc(toi, UTF8_CONV_r);
+					}
+					data += sz_c - 1;
+					pattern += sz_d - 1;
+					if (cp_c == cp_d)
+						break;
+				} else {
+					if (*c == *d) {
+						if (*d == '\0') {
+							retval = 1;
+							goto bailout;
+						}
+						break;
+					}
+				}
+				if (*c == '\0' || !back_pat)
+					goto bailout;   /* No point continuing */
+				/* Try again from last *, one character later in str. */
+				pattern = back_pat;
+				data = ++back_str;
+				break;
+		}
+	}
+bailout:
+hashfnd_failed:
+	if (case_insensitive)
+		GDKfree(pattern_start);
+	return retval;
+}
+#endif

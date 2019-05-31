@@ -59,7 +59,7 @@ malEmbeddedBoot(void)
 
 	if (!MCinit())
 		throw(MAL, "malEmbeddedBoot", "MAL debugger failed to start");
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(HAVE_EMBEDDED)
 	if (!mdbInit()) {
 		mal_client_reset();
 		throw(MAL, "malEmbeddedBoot", "MAL debugger failed to start");
@@ -146,8 +146,6 @@ malExtraModulesBoot(Client c, str extraMalModules[], char* mal_scripts)
 void
 malEmbeddedReset(void) //remove extra modules and set to non-initialized again
 {
-	str msg = MAL_SUCCEED;
-
 	if (!embeddedinitialized)
 		return;
 
@@ -160,6 +158,7 @@ malEmbeddedReset(void) //remove extra modules and set to non-initialized again
 	stopProfiler();
 	AUTHreset();
 	if (!GDKinmemory()) {
+		str msg = MAL_SUCCEED;
 		if ((msg = msab_wildRetreat()) != NULL) {
 			MT_fprintf(stderr, "!%s", msg);
 			free(msg);
@@ -179,7 +178,7 @@ malEmbeddedReset(void) //remove extra modules and set to non-initialized again
 	mal_module_reset();
 	mal_atom_reset();
 	opt_pipes_reset();
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(HAVE_EMBEDDED)
 	mdbExit();
 #endif
 
