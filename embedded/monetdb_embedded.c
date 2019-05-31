@@ -393,15 +393,8 @@ monetdb_append(monetdb_connection conn, const char* schema, const char* table, a
 	if (m->session->status < 0 && m->session->auto_commit == 0)
 		return createException(MAL, "embedded.monetdb_append", SQLSTATE(25005) "Current transaction is aborted (please ROLLBACK)");
 
-	SQLtrans(m);
-	if (*m->errstr) {
-		if (strlen(m->errstr) > 6 && m->errstr[5] == '!')
-			msg = createException(MAL, "embedded.monetdb_append", "%s", m->errstr);
-		else
-			msg = createException(MAL, "embedded.monetdb_append", SQLSTATE(42000) "%s", m->errstr);
-		*m->errstr=0;
+	if ((msg = SQLtrans(m)) != MAL_SUCCEED)
 		return msg;
-	}
 	if (!m->sa) { // unclear why this is required
 		m->sa = sa_create();
 		if (!m->sa)
