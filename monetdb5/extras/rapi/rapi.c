@@ -43,7 +43,7 @@
 #endif
 
 CREATE_SQL_FUNCTION_PTR(str, SQLstatementIntern);
-CREATE_SQL_FUNCTION_PTR(void, res_table_destroy);
+CREATE_SQL_FUNCTION_PTR(void, SQLdestroyResult);
 
 /* we need the BAT-SEXP-BAT conversion in two places, here and in tools/embedded */
 #include "converters.c.h"
@@ -208,7 +208,7 @@ static char *RAPIinitialize(void) {
 	if (e)
 		return e;
 
-	LOAD_SQL_FUNCTION_PTR(res_table_destroy);
+	LOAD_SQL_FUNCTION_PTR(SQLdestroyResult);
 	if (e)
 		return e;
 
@@ -512,12 +512,12 @@ void* RAPIloopback(void *query) {
 				SET_STRING_ELT(names, i, RSTR(output->cols[i].name));
 				SET_VECTOR_ELT(retlist, i, varvalue);
 			}
-			(*res_table_destroy_ptr)(output);
+			(*SQLdestroyResult_ptr)(output);
 			SET_NAMES(retlist, names);
 			UNPROTECT(ncols + 2);
 			return retlist;
 		}
-		(*res_table_destroy_ptr)(output);
+		(*SQLdestroyResult_ptr)(output);
 	}
 	return ScalarLogical(1);
 }
