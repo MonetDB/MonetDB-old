@@ -11,6 +11,13 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ../common/options ../common/util
 					../monetdb5/optimizer ../sql/backends/monet5 ../sql/include ../sql/common ../sql/scripts
 					../sql/server ../sql/storage ../sql/storage/bat)
 
+add_definitions(${COMPILER_OPTION}DLIBMUTILS ${COMPILER_OPTION}DLIBMEROUTIL ${COMPILER_OPTION}DLIBSTREAM
+				${COMPILER_OPTION}DLIBGDK ${COMPILER_OPTION}DLIBMAL ${COMPILER_OPTION}DLIBATOMS
+				${COMPILER_OPTION}DLIBKERNEL ${COMPILER_OPTION}DLIBSCHEDULER ${COMPILER_OPTION}DLIBMONETDB5
+				${COMPILER_OPTION}DLIBOPTIMIZER ${COMPILER_OPTION}DLIBSQL ${COMPILER_OPTION}DLIBSQLSERVER
+				${COMPILER_OPTION}DLIBSQLCOMMON ${COMPILER_OPTION}DLIBBATSTORE ${COMPILER_OPTION}DLIBSTORE
+				${COMPILER_OPTION}DLIBMOPTIONS ${COMPILER_OPTION}DLIBEMBEDDED ${COMPILER_OPTION}DHAVE_EMBEDDED)
+
 bison_target(sqlparserlite ../sql/server/sql_parser.y ${CMAKE_CURRENT_BINARY_DIR}/sql_sqlparserlite.tab.c
 			 COMPILE_FLAGS "-d -p sql -r all" DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/sql_sqlparserlite.tab.h)
 add_library(bisonlite_obj OBJECT ${BISON_sqlparserlite_OUTPUTS})
@@ -170,6 +177,7 @@ add_library(monetdblite SHARED
 			../monetdb5/modules/kernel/mmath.c
 			../monetdb5/modules/atoms/mtime.c
 			../monetdb5/modules/atoms/mtime_analytic.c
+			../monetdb5/modules/atoms/strptime.c
 			../monetdb5/modules/mal/orderidx.c
 			../monetdb5/modules/mal/pcre.c
 			../monetdb5/modules/mal/projectionpath.c
@@ -278,9 +286,6 @@ target_link_libraries(monetdblite PRIVATE ${MATH_LIBRARIES} ${THREAD_LIBRARIES} 
 					  ${PSAPI_LIBRARIES})
 set_target_properties(monetdblite PROPERTIES VERSION ${MONETDB_VERSION} SOVERSION ${MONETDB_VERSION_MAJOR}
 					  OUTPUT_NAME monetdb5)
-target_compile_definitions(monetdblite PRIVATE LIBMUTILS LIBMEROUTIL LIBSTREAM LIBGDK LIBMAL LIBATOMS LIBKERNEL
-						   LIBSCHEDULER LIBMONETDB5 LIBOPTIMIZER LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE
-						   LIBMOPTIONS LIBEMBEDDED HAVE_EMBEDDED)
 
 install(TARGETS monetdblite DESTINATION ${LIBDIR}/monetdblite)
 install(FILES monetdb_embedded.h DESTINATION ${INCLUDEDIR}/monetdb)

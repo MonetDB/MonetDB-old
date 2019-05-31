@@ -15,6 +15,7 @@
 #ifndef NATIVE_WIN32
 #include <dlfcn.h>
 #else
+#define RTLD_LOCAL  0
 #define RTLD_LAZY   1
 #define RTLD_NOW    2
 #define RTLD_GLOBAL 4

@@ -116,10 +116,10 @@ getAddress(str fcnname)
 	 * the first argument must be the same as the base name of the
 	 * library that is created in src/tools */
 	dl = mdlopen(monetdb5library, RTLD_NOW
-#ifndef HAVE_EMBEDDED
-	| RTLD_GLOBAL);
-#else
+#ifdef HAVE_EMBEDDED
 	| RTLD_LOCAL);
+#else
+	| RTLD_GLOBAL);
 #endif
 	if (dl == NULL) 
 		return NULL;

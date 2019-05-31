@@ -136,6 +136,7 @@ gdk_export void *mdlopen(const char *library, int mode);
 
 #ifdef NATIVE_WIN32
 
+#define RTLD_LOCAL  0
 #define RTLD_LAZY	1
 #define RTLD_NOW	2
 #define RTLD_GLOBAL	4

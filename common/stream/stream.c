@@ -156,7 +156,7 @@ mnstr_init(void)
 	if (ATOMIC_TAS(&inited))
 		return 0;
 
-#ifdef NATIVE_WIN32
+#if defined(NATIVE_WIN32) && !defined(HAVE_EMBEDDED)
 	{
 		WSADATA w;
 
@@ -2663,6 +2663,8 @@ socket_wstream(SOCKET sock, const char *name)
 	return s;
 }
 
+#endif /* HAVE EMBEDDED*/
+
 /* ------------------------------------------------------------------ */
 /* streams working on an open file pointer */
 
@@ -2971,7 +2973,6 @@ console_destroy(stream *s)
 	destroy(s);
 }
 #endif
-#endif /* HAVE EMBEDDED*/
 
 static stream *
 file_stream(const char *name)
