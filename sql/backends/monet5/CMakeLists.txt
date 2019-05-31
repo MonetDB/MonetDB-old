@@ -17,6 +17,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ../../../gdk ../../include ../..
 					../../../monetdb5/extras/rapi ../../../common/stream ../../../common/utils ../../scripts)
 
 set(SQL_MAL_SCRIPTS_LIST
+	"${CMAKE_CURRENT_SOURCE_DIR}/sql_sysmon.mal"
 	"${CMAKE_CURRENT_SOURCE_DIR}/sqlcatalog.mal"
 	"${CMAKE_CURRENT_SOURCE_DIR}/sql_transaction.mal"
 	"${CMAKE_CURRENT_SOURCE_DIR}/sql_decimal.mal"

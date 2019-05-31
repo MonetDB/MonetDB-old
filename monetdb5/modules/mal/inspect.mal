@@ -6,6 +6,10 @@
 
 module inspect;
 
+pattern optimizer_stats()(:bat[:str], :bat[:int], :bat[:lng])
+address OPTstatistics
+comment "Get optimizer use statistics, i.e. calls and total time";
+
 pattern getDefinition(mod:str,fcn:str) :bat[:str] 
 address INSPECTgetDefinition
 comment "Returns a string representation of a specific function.";

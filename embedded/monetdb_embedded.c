@@ -73,7 +73,7 @@ monetdb_connect(monetdb_connection *conn)
 		msg = createException(MAL, "embedded.monetdb_connect", SQLSTATE(42000) "monetdb_connection parameter is NULL");
 		goto cleanup;
 	}
-	mc = MCinitClient((oid) 0, 0, 0);
+	mc = MCinitClient((oid) 0, bstream_create(GDKstdin, 0), GDKstdout);
 	if (!MCvalid(mc)) {
 		msg = createException(MAL, "embedded.monetdb_connect", SQLSTATE(HY001) "Failed to initialize client");
 		goto cleanup;
@@ -152,7 +152,7 @@ monetdb_startup(char* dbdir, char silent, char sequential)
 		msg = createException(MAL, "embedded.monetdb_startup", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		goto cleanup;
 	}
-	if ((setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_dbpath", dbdir)) == 0) {
+	if (dbdir && (setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_dbpath", dbdir)) == 0) {
 		mo_free_options(set, setlen);
 		msg = createException(MAL, "embedded.monetdb_startup", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		goto cleanup;

@@ -262,19 +262,24 @@ SQLabort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return msg;
 }
 
-#ifndef HAVE_EMBEDDED
 str
 SQLshutdown_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str msg;
+	str msg = MAL_SUCCEED;
 
+#ifdef HAVE_EMBEDDED
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+#else
 	if ((msg = CLTshutdown(cntxt, mb, stk, pci)) == MAL_SUCCEED) {
 		/* administer the shutdown */
 		mnstr_printf(GDKstdout, "#%s\n", *getArgReference_str(stk, pci, 0));
 	}
+#endif
 	return msg;
 }
-#endif
 
 str
 create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)

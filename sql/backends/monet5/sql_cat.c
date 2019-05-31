@@ -1449,12 +1449,19 @@ SQLdrop_trigger(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return msg;
 }
 
-#ifndef HAVE_EMBEDDED
 str
 SQLalter_add_table(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) 
-{	mvc *sql = NULL;
+{
+#ifdef HAVE_EMBEDDED
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	return MAL_SUCCEED;
+#else
+	mvc *sql = NULL;
 	str msg;
-	str sname = *getArgReference_str(stk, pci, 1); 
+	str sname = *getArgReference_str(stk, pci, 1);
 	char *mtname = SaveArgReference(stk, pci, 2);
 	char *psname = SaveArgReference(stk, pci, 3);
 	char *ptname = SaveArgReference(stk, pci, 4);
@@ -1462,11 +1469,20 @@ SQLalter_add_table(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	initcontext();
 	msg = alter_table_add_table(sql, sname, mtname, psname, ptname);
 	return msg;
+#endif
 }
 
 str
 SQLalter_add_range_partition(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{	mvc *sql = NULL;
+{
+#ifdef HAVE_EMBEDDED
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	return MAL_SUCCEED;
+#else
+	mvc *sql = NULL;
 	str msg;
 	str sname = *getArgReference_str(stk, pci, 1);
 	char *mtname = SaveArgReference(stk, pci, 2);
@@ -1480,11 +1496,20 @@ SQLalter_add_range_partition(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 	initcontext();
 	msg = alter_table_add_range_partition(sql, sname, mtname, psname, ptname, VALget(min), VALget(max), with_nills, update);
 	return msg;
+#endif
 }
 
 str
 SQLalter_add_value_partition(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{	mvc *sql = NULL;
+{
+#ifdef HAVE_EMBEDDED
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	return MAL_SUCCEED;
+#else
+	mvc *sql = NULL;
 	str msg;
 	str sname = *getArgReference_str(stk, pci, 1);
 	char *mtname = SaveArgReference(stk, pci, 2);
@@ -1496,11 +1521,20 @@ SQLalter_add_value_partition(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 	initcontext();
 	msg = alter_table_add_value_partition(sql, stk, pci, sname, mtname, psname, ptname, with_nills, update);
 	return msg;
+#endif
 }
 
 str
 SQLalter_del_table(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) 
-{	mvc *sql = NULL;
+{
+#ifdef HAVE_EMBEDDED
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	return MAL_SUCCEED;
+#else
+	mvc *sql = NULL;
 	str msg;
 	str sname = *getArgReference_str(stk, pci, 1); 
 	char *mtname = SaveArgReference(stk, pci, 2);
@@ -1511,8 +1545,8 @@ SQLalter_del_table(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	initcontext();
 	msg= alter_table_del_table(sql, sname, mtname, psname, ptname, drop_action);
 	return msg;
-}
 #endif
+}
 
 str
 SQLalter_set_table(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) 

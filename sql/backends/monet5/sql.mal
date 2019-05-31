@@ -579,38 +579,6 @@ comment "Obtain the query log calls";
 pattern querylog_empty()
 address sql_querylog_empty;
 
-command querylog_enable()
-address QLOGenable;
-command querylog_enable(thres:int)
-address QLOGenableThreshold;
-command querylog_disable()
-address QLOGdisable;
-
-
-pattern sysmon_queue()(qtag:bat[:lng], user:bat[:str],started:bat[:timestamp],estimate:bat[:timestamp],progress:bat[:int], status:bat[:str], tag:bat[:oid], query:bat[:str])
-address SYSMONqueue;
-
-pattern sysmon_pause(tag:sht)
-address SYSMONpause;
-pattern sysmon_pause(tag:int)
-address SYSMONpause;
-pattern sysmon_pause(tag:lng)
-address SYSMONpause;
-
-pattern sysmon_resume(tag:sht)
-address SYSMONresume;
-pattern sysmon_resume(tag:int)
-address SYSMONresume;
-pattern sysmon_resume(tag:lng)
-address SYSMONresume;
-
-pattern sysmon_stop(tag:sht)
-address SYSMONstop;
-pattern sysmon_stop(tag:int)
-address SYSMONstop;
-pattern sysmon_stop(tag:lng)
-address SYSMONstop;
-
 pattern copy_rejects() (rowid:bat[:lng], fldid:bat[:int], msg:bat[:str], inp:bat[:str])
 address COPYrejects;
 pattern copy_rejects_clear()

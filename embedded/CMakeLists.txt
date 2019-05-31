@@ -39,6 +39,7 @@ set(MAL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/blob.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/str.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/mtime.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/atoms/streams.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/batmmath.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/batmtime.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/batstr.mal"
@@ -46,7 +47,6 @@ set(MAL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/bbp.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/manifold.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/mat.mal"
-	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/inspect.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/language.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/tablet.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/sample.mal"
@@ -160,6 +160,7 @@ add_library(monetdblite SHARED
 			../monetdb5/mal/mal_type.c
 			../monetdb5/mal/mal_utils.c
 			../monetdb5/modules/kernel/aggr.c
+			../monetdb5/modules/atoms/streams.c
 			../monetdb5/modules/kernel/algebra.c
 			../monetdb5/modules/kernel/bat5.c
 			../monetdb5/modules/mal/batcalc.c
@@ -167,6 +168,7 @@ add_library(monetdblite SHARED
 			../monetdb5/modules/kernel/batmmath.c
 			../monetdb5/modules/kernel/batstr.c
 			../monetdb5/modules/atoms/blob.c
+			../monetdb5/modules/mal/bbp.c
 			../monetdb5/modules/mal/calc.c
 			../monetdb5/modules/kernel/group.c
 			../monetdb5/modules/mal/iterator.c
@@ -219,8 +221,10 @@ add_library(monetdblite SHARED
 			../sql/backends/monet5/sql_bat2time.c
 			../sql/backends/monet5/sql_cast.c
 			../sql/backends/monet5/sql_cat.c
+			../sql/backends/monet5/sql_datetrunc.c
 			../sql/backends/monet5/sql_execute.c
 			../sql/backends/monet5/sql_fround.c
+			../sql/backends/monet5/sql_generator.c
 			../sql/backends/monet5/sql_gencode.c
 			../sql/backends/monet5/sql_optimizer.c
 			../sql/backends/monet5/sql_orderidx.c

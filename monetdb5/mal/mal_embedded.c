@@ -100,6 +100,7 @@ malEmbeddedBoot(void)
 		MCcloseClient(c);
 		return msg;
 	}
+#endif
 	pushEndInstruction(c->curprg->def);
 	chkProgram(c->usermodule, c->curprg->def);
 	if ( (msg= c->curprg->def->errors) != MAL_SUCCEED ) {
@@ -107,7 +108,6 @@ malEmbeddedBoot(void)
 		return msg;
 	}
 	msg = MALengine(c);
-#endif
 	embeddedinitialized = true;
 	MCcloseClient(c);
 	return msg;
