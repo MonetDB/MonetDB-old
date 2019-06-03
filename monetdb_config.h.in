@@ -84,16 +84,20 @@
 #include <Windows.h>
 #endif /* _MSC_VER */
 
-#ifdef HAVE_EMBEDDED /* Extensions not available in MonetDBLite */
+#ifdef HAVE_EMBEDDED
 
 #if defined(__GLIBC__) && (defined(__amd64) || defined(__amd64__) || defined(__x86_64) || defined(__x86_64__))
-//__asm__(".symver powf,powf@GLIBC_2.2.5"); // Perform this hack for backwards compatibility
-//__asm__(".symver logf,logf@GLIBC_2.2.5");
-//__asm__(".symver expf,expf@GLIBC_2.2.5");
-//__asm__(".symver memcpy,memcpy@GLIBC_2.2.5");
+__asm__(".symver exp,exp@GLIBC_2.2.5"); // Make compatible with old versions of glibc (tested on glibc 2.19)
+__asm__(".symver expf,expf@GLIBC_2.2.5");
+__asm__(".symver log,log@GLIBC_2.2.5");
+__asm__(".symver logf,logf@GLIBC_2.2.5");
+__asm__(".symver log2,log2@GLIBC_2.2.5");
+__asm__(".symver log2f,log2f@GLIBC_2.2.5");
+__asm__(".symver pow,pow@GLIBC_2.2.5");
+__asm__(".symver powf,powf@GLIBC_2.2.5");
 #endif
 
-#else
+#else  /* Extensions not available in MonetDBLite */
 
 /* Define to 1 if you have the `accept4' function. */
 #cmakedefine HAVE_ACCEPT4 1
