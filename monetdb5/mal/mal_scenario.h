@@ -60,19 +60,19 @@ typedef struct SCENARIO {
 	void *callbackState;
 } *Scenario;
 
-mal_export str setScenario(Client c, str nme);
-mal_export str runScenario(Client c, int once);
-mal_export str getScenarioLanguage(Client c);
-mal_export Scenario getFreeScenario(void);
+mal5_export str setScenario(Client c, str nme);
+mal5_export str runScenario(Client c, int once);
+mal5_export str getScenarioLanguage(Client c);
+mal5_export Scenario getFreeScenario(void);
 
-mal_export void showCurrentScenario(void);
-mal_export void showScenarioByName(stream *f, str s);
-mal_export void showScenario(stream *f, Scenario s);
-mal_export void showAllScenarios(stream *f);
-mal_export void resetScenario(Client c);
+mal5_export void showCurrentScenario(void);
+mal5_export void showScenarioByName(stream *f, str s);
+mal5_export void showScenario(stream *f, Scenario s);
+mal5_export void showAllScenarios(stream *f);
+mal5_export void resetScenario(Client c);
 
-mal_export Scenario findScenario(str nme);
-mal_export void updateScenario(str scen, str nme, MALfcn fcn);
-mal_export str defaultScenario(Client c);
+mal5_export Scenario findScenario(str nme);
+mal5_export void updateScenario(str scen, str nme, MALfcn fcn);
+mal5_export str defaultScenario(Client c);
 
 #endif /* _MAL_SCENARIO_H */

@@ -11,7 +11,7 @@
 
 /* #define MAL_ATOM_DEBUG  */
 
-mal_export int malAtomSize(int size, const char *name);
-mal_export void mal_atom_reset(void);
+mal5_export int malAtomSize(int size, const char *name);
+mal5_export void mal_atom_reset(void);
 
 #endif /*  _MAL_ATOM_H*/

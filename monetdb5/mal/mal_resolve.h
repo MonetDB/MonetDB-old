@@ -19,10 +19,10 @@
 */
 #define MAXTYPEVAR  10
 
-mal_export void chkProgram(Module s, MalBlkPtr mb);
-mal_export int chkInstruction(Module s, MalBlkPtr mb, InstrPtr p);
-mal_export void chkTypes(Module s, MalBlkPtr mb, int silent);
-mal_export void typeChecker(Module scope, MalBlkPtr mb, InstrPtr p, int silent);
+mal5_export void chkProgram(Module s, MalBlkPtr mb);
+mal5_export int chkInstruction(Module s, MalBlkPtr mb, InstrPtr p);
+mal5_export void chkTypes(Module s, MalBlkPtr mb, int silent);
+mal5_export void typeChecker(Module scope, MalBlkPtr mb, InstrPtr p, int silent);
 
 /*
  * @- Type resolution algorithm.
@@ -33,6 +33,6 @@ mal_export void typeChecker(Module scope, MalBlkPtr mb, InstrPtr p, int silent);
  * i.e. of type 'any'. The type resolution algorithm creates the concrete
  * type for subsequent use.
  */
-mal_export int resolveType(int dsttype, int srctype);
+mal5_export int resolveType(int dsttype, int srctype);
 
 #endif /*  _MAL_RESOLVE_H*/

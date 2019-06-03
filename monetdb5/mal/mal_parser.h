@@ -19,8 +19,8 @@
 #define nextChar(X) X->yycur++
 #define prevChar(X) if(X->yycur) X->yycur--
 
-mal_export void initParser(void);   /* needed in src/mal/mal.c */
-mal_export void parseMAL(Client cntxt, Symbol curPrg, int skipcomments, int lines);
+mal5_export void initParser(void);   /* needed in src/mal/mal.c */
+mal5_export void parseMAL(Client cntxt, Symbol curPrg, int skipcomments, int lines);
 
 #endif /* _MAL_PARSER_H */
 

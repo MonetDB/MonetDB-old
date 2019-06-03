@@ -10,7 +10,7 @@
 #define MAL_UTILS_H
 #include "mal.h"
 
-mal_export str mal_quote(const char *msg, size_t size);
-mal_export void mal_unquote(char *msg);
+mal5_export str mal_quote(const char *msg, size_t size);
+mal5_export void mal_unquote(char *msg);
 
 #endif /* MAL_UTILS_H */

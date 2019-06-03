@@ -40,7 +40,7 @@ static PlantRecord plants[MAXPLANTS];
 static int lastPlant= 0;
 static int plantId = 1;
 
-mal_export Plant newPlant(MalBlkPtr mb);
+mal5_export Plant newPlant(MalBlkPtr mb);
 
 
 static int

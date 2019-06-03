@@ -26,6 +26,16 @@
 #define mal_export extern
 #endif
 
+#if defined(WIN32) && !defined(HAVE_EMBEDDED)
+#if !defined(LIBMONETDB5)
+#define mal5_export extern __declspec(dllimport)
+#else
+#define mal5_export extern __declspec(dllexport)
+#endif
+#else
+#define mal5_export extern
+#endif
+
 #ifndef NATIVE_WIN32
 # include <sys/times.h>
 #endif
@@ -46,13 +56,13 @@
 #define GB (((lng)1024)*1024*1024)
 #define MEMORY_THRESHOLD  (0.2 * monet_memory > 8 * GB?  monet_memory - 8 * GB: 0.8 * monet_memory)
 
-mal_export char     monet_cwd[FILENAME_MAX];
-mal_export size_t	monet_memory;
-mal_export char 	monet_characteristics[4096];
-mal_export lng 		memorypool;      /* memory claimed by concurrent threads */
-mal_export int 		memoryclaims;    /* number of threads active with expensive operations */
+mal5_export char   monet_cwd[FILENAME_MAX];
+mal5_export size_t monet_memory;
+mal5_export char   monet_characteristics[4096];
+mal5_export lng    memorypool;      /* memory claimed by concurrent threads */
+mal5_export int    memoryclaims;    /* number of threads active with expensive operations */
 #ifdef HAVE_HGE
-mal_export int have_hge;
+mal5_export int have_hge;
 #endif
 
 /*
@@ -72,12 +82,12 @@ mal_export int have_hge;
 #define GRPoptimizers  (OPTMASK)
 #define GRPforcemito (FORCEMITOMASK | NOSYNCMASK)
 
-mal_export MT_Lock  mal_contextLock;
-mal_export MT_Lock  mal_remoteLock;
-mal_export MT_Lock  mal_profileLock ;
-mal_export MT_Lock  mal_copyLock ;
-mal_export MT_Lock  mal_delayLock ;
-mal_export MT_Lock  mal_oltpLock ;
+mal5_export MT_Lock  mal_contextLock;
+mal5_export MT_Lock  mal_remoteLock;
+mal5_export MT_Lock  mal_profileLock ;
+mal5_export MT_Lock  mal_copyLock ;
+mal5_export MT_Lock  mal_delayLock ;
+mal5_export MT_Lock  mal_oltpLock ;
 
 /* This should be here, but cannot, as "Client" isn't known, yet ... |-(
  * For now, we move the prototype declaration to src/mal/mal_client.c,

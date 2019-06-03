@@ -60,11 +60,11 @@
 #define REMsymbol     99	/* commentary to be retained */
 
 
-mal_export str getTypeName(malType tpe);
-mal_export str getTypeIdentifier(malType tpe);
-mal_export int getAtomIndex(const char *nme, int len, int deftpe);
+mal5_export str getTypeName(malType tpe);
+mal5_export str getTypeIdentifier(malType tpe);
+mal5_export int getAtomIndex(const char *nme, int len, int deftpe);
 #define idcmp(n, m)	strcmp(n, m)
-mal_export int isIdentifier(str s);
-mal_export int findGDKtype(int type);	/* used in src/mal/mal_interpreter.c */
+mal5_export int isIdentifier(str s);
+mal5_export int findGDKtype(int type);	/* used in src/mal/mal_interpreter.c */
 
 #endif /* MAL_TYPE_H */

@@ -14,8 +14,8 @@
 /* #define _SQL_READER_DEBUG */
 /* #define _SQL_PARSER_DEBUG */
 
-sql5_export int SQLisInitialized(void);
-sql5_export int SQLdebug;
+extern int SQLisInitialized(void);
+extern int SQLdebug;
 sql5_export str SQLprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLepilogue(void *ret);
 
@@ -33,7 +33,7 @@ sql5_export str SQLcallback(Client c, str msg);
 sql5_export str SQLassert(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLassertInt(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLassertLng(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-sql5_export str handle_error(mvc *m, int pstatus, str msg);
+extern str handle_error(mvc *m, int pstatus, str msg);
 #ifdef HAVE_HGE
 sql5_export str SQLassertHge(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 #endif
@@ -47,5 +47,5 @@ sql5_export str SQLescapeString(str s);
 sql5_export str SYSupdate_tables(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SYSupdate_schemas(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
-sql5_export MT_Lock sql_contextLock;
+extern MT_Lock sql_contextLock;
 #endif /* _SQL_SCENARIO_H_ */

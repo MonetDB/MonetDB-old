@@ -12,7 +12,7 @@
 #include "mutils.h"
 #include "stream.h"
 
-#ifdef WIN32
+#if defined(WIN32) && !defined(HAVE_EMBEDDED)
 #ifndef LIBGDK
 #define gdk_export extern __declspec(dllimport)
 #else

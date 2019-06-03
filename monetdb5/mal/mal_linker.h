@@ -22,10 +22,10 @@
 #endif
 
 mal_export str initLinker(const char* path);
-mal_export MALfcn getAddress(str fcnname);
-mal_export char *MSP_locate_sqlscript(const char *mod_name, bit recurse);
-mal_export str loadLibrary(str modulename, int flag);
-mal_export char *locate_file(const char *basename, const char *ext, bit recurse);
-mal_export int malLibraryEnabled(str name);
-mal_export char* malLibraryHowToEnable(str name);
+mal5_export MALfcn getAddress(str fcnname);
+mal5_export char *MSP_locate_sqlscript(const char *mod_name, bit recurse);
+mal5_export str loadLibrary(str modulename, int flag);
+mal5_export char *locate_file(const char *basename, const char *ext, bit recurse);
+mal5_export int malLibraryEnabled(str name);
+mal5_export char* malLibraryHowToEnable(str name);
 #endif /* _MAL_LINKER_H */
