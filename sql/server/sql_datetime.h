@@ -23,31 +23,31 @@ typedef enum inttype {
 	iweek
 } itype;
 
-int parse_interval_qualifier(mvc *sql, struct dlist *pers, int *sk, int *ek, int *sp, int *ep);
+sql_extern int parse_interval_qualifier(mvc *sql, struct dlist *pers, int *sk, int *ek, int *sp, int *ep);
 /* returns 0 for month intervals, 
  *         1 for sec intervals, 
  * 	   in both cases sk/ek contain the start and end qualifiers 
  *         <0 for errors */
 
-lng qualifier2multiplier( int sk );
+sql_extern lng qualifier2multiplier( int sk );
 /* returns the multiplier for the given interval qualifier */
 
-int parse_interval(mvc *sql, lng sign, char *str, int sk, int ek, int sp, int ep, lng *i);
+sql_extern int parse_interval(mvc *sql, lng sign, char *str, int sk, int ek, int sp, int ep, lng *i);
 /* returns 0 for month intervals and value in val, 
  *         1 for sec intervals and value in val, 
  *         <0 for errors */
 
-int interval_from_str(char *str, int d, int p, lng *val);
+sql_extern int interval_from_str(char *str, int d, int p, lng *val);
 /* returns 0 for month intervals and value in val, 
  *         1 for sec intervals and value in val, 
  *         <0 for errors */
 
-char *datetime_field(itype field);
+sql_extern char *datetime_field(itype field);
 /* returns the datetime_field string representation */
 
-int inttype2digits( int sk, int ek );
-int digits2sk( int digits);
-int digits2ek( int digits );
+sql_extern int inttype2digits( int sk, int ek );
+sql_extern int digits2sk( int digits);
+sql_extern int digits2ek( int digits );
 
 #endif /*_SQL_DATETIME_H_*/
 

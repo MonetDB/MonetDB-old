@@ -14,7 +14,7 @@
 #include "sql_relation.h"
 #include "sql_query.h"
 
-extern sql_rel *rel_transactions(sql_query *query, symbol *sym);
+sql_extern sql_rel *rel_transactions(sql_query *query, symbol *sym);
 
 #endif /*_REL_TRANS_H_*/
 

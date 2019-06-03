@@ -8,5 +8,5 @@
 
 /* return the logarigthm of the first argument with the second
  * argument as base */
-extern double logbs(double, double);
-extern float logbsf(float, float);
+mal_extern double logbs(double, double);
+mal_extern float logbsf(float, float);

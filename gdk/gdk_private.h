@@ -78,7 +78,8 @@ gdk_return BBPcacheit(BAT *bn, bool lock)
 	__attribute__((__warn_unused_result__))
 	__attribute__((__visibility__("hidden")));
 void BBPdump(void)		/* never called: for debugging only */
-	__attribute__((__cold__));
+	__attribute__((__cold__))
+	__attribute__((__visibility__("hidden")));
 void BBPexit(void)
 	__attribute__((__visibility__("hidden")));
 BAT *BBPgetdesc(bat i)
@@ -199,7 +200,8 @@ int IMPSgetbin(int tpe, bte bits, const char *restrict bins, const void *restric
 	__attribute__((__visibility__("hidden")));
 #ifndef NDEBUG
 void IMPSprint(BAT *b)		/* never called: for debugging only */
-	__attribute__((__cold__));
+	__attribute__((__cold__))
+	__attribute__((__visibility__("hidden")));
 #endif
 void MT_init_posix(void)
 	__attribute__((__visibility__("hidden")));
@@ -325,20 +327,20 @@ typedef char long_str[IDLENGTH];	/* standard GDK static string */
 
 #define MAXFARMS       32
 
-extern struct BBPfarm_t {
+gdk_extern struct BBPfarm_t {
 	unsigned int roles;	/* bitmask of allowed roles */
 	const char *dirname;	/* farm directory */
 	FILE *lock_file;
 } BBPfarms[MAXFARMS];
 
-extern batlock_t GDKbatLock[BBP_BATMASK + 1];
-extern bbplock_t GDKbbpLock[BBP_THREADMASK + 1];
-extern size_t GDK_mmap_minsize_persistent; /* size after which we use memory mapped files for persistent heaps */
-extern size_t GDK_mmap_minsize_transient; /* size after which we use memory mapped files for transient heaps */
-extern size_t GDK_mmap_pagesize; /* mmap granularity */
-extern MT_Lock GDKnameLock;
-extern MT_Lock GDKthreadLock;
-extern MT_Lock GDKtmLock;
+gdk_extern batlock_t GDKbatLock[BBP_BATMASK + 1];
+gdk_extern bbplock_t GDKbbpLock[BBP_THREADMASK + 1];
+gdk_extern size_t GDK_mmap_minsize_persistent; /* size after which we use memory mapped files for persistent heaps */
+gdk_extern size_t GDK_mmap_minsize_transient; /* size after which we use memory mapped files for transient heaps */
+gdk_extern size_t GDK_mmap_pagesize; /* mmap granularity */
+gdk_extern MT_Lock GDKnameLock;
+gdk_extern MT_Lock GDKthreadLock;
+gdk_extern MT_Lock GDKtmLock;
 
 #define BATcheck(tst, msg, err)						\
 	do {								\

@@ -53,7 +53,9 @@ typedef struct Ssabuplog {
 	double crashavg30; /* average of crashes in the last 30 start attempts */
 } sabuplog;
 
-#if defined(WIN32) && !defined(HAVE_EMBEDDED)
+#ifdef HAVE_EMBEDDED
+#define msab_export extern __attribute__((__visibility__("hidden")))
+#elif defined(WIN32)
 #if !defined(LIBMSABAOTH)
 #define msab_export extern __declspec(dllimport)
 #else

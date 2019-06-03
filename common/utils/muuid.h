@@ -13,15 +13,20 @@
  * msabaoth is part of monetdb5 and we want this function to be
  * exported so that the call in sql can be satisfied by the version
  * that is included in monetdb5 */
-extern
-#if defined(WIN32) && !defined(HAVE_EMBEDDED)
+
+#ifdef HAVE_EMBEDDED
+#define muuid_export extern __attribute__((__visibility__("hidden")))
+#elif defined(WIN32)
 #if !defined(LIBMUUID)
-__declspec(dllimport)
+#define muuid_export extern __declspec(dllimport)
 #else
-__declspec(dllexport)
+#define muuid_export extern __declspec(dllexport)
 #endif
+#else
+#define muuid_export extern
 #endif
-char *generateUUID(void);
+
+muuid_export char* generateUUID(void);
 
 #endif
 

@@ -573,7 +573,7 @@ rel_select_into( sql_query *query, symbol *sq, exp_kind ek)
 	return nl;
 }
 
-extern sql_rel *
+sql_rel *
 rel_select_with_into(sql_query *query, symbol *sq)
 {
 	exp_kind ek = {type_value, card_row, TRUE};

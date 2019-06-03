@@ -12,6 +12,6 @@
 #include "sql_relation.h"
 #include "sql_mvc.h"
 
-extern sql_rel * rel_planner(mvc *sql, list *rels, list *djes, list *ojes);
+sql_extern sql_rel * rel_planner(mvc *sql, list *rels, list *djes, list *ojes);
 
 #endif /*_REL_PLANNER_H_ */

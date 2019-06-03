@@ -17,35 +17,35 @@
 typedef struct rusage Rusage;
 #endif
 
-mal5_export int malProfileMode;
+mal_export int malProfileMode;
 
-mal5_export void initProfiler(void);
-mal5_export str openProfilerStream(stream *fd, int mode);
-mal5_export str closeProfilerStream(void);
+mal_export void initProfiler(void);
+mal_export str openProfilerStream(stream *fd, int mode);
+mal_export str closeProfilerStream(void);
 
-mal5_export void profilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str usrname);
+mal_export void profilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str usrname);
 
-mal5_export str startProfiler(void);
-mal5_export str stopProfiler(void);
-mal5_export str startTrace(str path);
-mal5_export str stopTrace(str path);
-mal5_export void setHeartbeat(int delay);
-mal5_export void initHeartbeat(void);
-mal5_export void profilerHeartbeatEvent(char *alter);
-mal5_export int getprofilerlimit(void);
-mal5_export void setprofilerlimit(int limit);
+mal_export str startProfiler(void);
+mal_export str stopProfiler(void);
+mal_export str startTrace(str path);
+mal_export str stopTrace(str path);
+mal_export void setHeartbeat(int delay);
+mal_export void initHeartbeat(void);
+mal_export void profilerHeartbeatEvent(char *alter);
+mal_export int getprofilerlimit(void);
+mal_export void setprofilerlimit(int limit);
 
-mal5_export void MPresetProfiler(stream *fdout);
+mal_export void MPresetProfiler(stream *fdout);
 
-mal5_export void clearTrace(void);
-mal5_export int TRACEtable(BAT **r);
-mal5_export int initTrace(void);
-mal5_export str cleanupTraces(void);
-mal5_export BAT *getTrace(const char *ev);
+mal_export void clearTrace(void);
+mal_export int TRACEtable(BAT **r);
+mal_export int initTrace(void);
+mal_export str cleanupTraces(void);
+mal_export BAT *getTrace(const char *ev);
 
-mal5_export lng getDiskReads(void);
-mal5_export lng getDiskWrites(void);
-mal5_export lng getUserTime(void);
-mal5_export lng getSystemTime(void);
-mal5_export void profilerGetCPUStat(lng *user, lng *nice, lng *sys, lng *idle, lng *iowait);
+mal_export lng getDiskReads(void);
+mal_export lng getDiskWrites(void);
+mal_export lng getUserTime(void);
+mal_export lng getSystemTime(void);
+mal_export void profilerGetCPUStat(lng *user, lng *nice, lng *sys, lng *idle, lng *iowait);
 #endif

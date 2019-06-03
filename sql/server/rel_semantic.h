@@ -16,8 +16,8 @@
 #include "sql_relation.h"
 #include "sql_query.h"
 
-extern sql_rel *rel_semantic(sql_query *query, symbol *sym);
-extern sql_rel *rel_parse(mvc *m, sql_schema *s, char *query, char emode);
+sql_extern sql_rel *rel_semantic(sql_query *query, symbol *sym);
+sql_extern sql_rel *rel_parse(mvc *m, sql_schema *s, char *query, char emode);
 
 #endif /*_REL_SEMANTIC_H_*/
 

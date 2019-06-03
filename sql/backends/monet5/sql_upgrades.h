@@ -10,6 +10,6 @@
 #define _SQL_UPGRADES_H_
 #include "sql.h"
 
-extern void SQLupgrades(Client c, mvc *m);
+sql_extern void SQLupgrades(Client c, mvc *m);
 
 #endif /* _SQL_UPGRADES_H_ */

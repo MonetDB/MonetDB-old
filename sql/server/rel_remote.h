@@ -11,10 +11,10 @@
 
 #include "sql_relation.h"
 
-extern int mapiuri_valid( const char *uri);
-extern const char *mapiuri_uri(const char *uri, sql_allocator *sa);
-extern const char *mapiuri_database(const char *uri, sql_allocator *sa);
-extern const char *mapiuri_schema(const char *uri, sql_allocator *sa, const char *fallback);
-extern const char *mapiuri_table(const char *uri, sql_allocator *sa, const char *fallback);
+sql_extern int mapiuri_valid( const char *uri);
+sql_extern const char *mapiuri_uri(const char *uri, sql_allocator *sa);
+sql_extern const char *mapiuri_database(const char *uri, sql_allocator *sa);
+sql_extern const char *mapiuri_schema(const char *uri, sql_allocator *sa, const char *fallback);
+sql_extern const char *mapiuri_table(const char *uri, sql_allocator *sa, const char *fallback);
 
 #endif /*_REL_REMOTE_H_*/

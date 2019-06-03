@@ -41,16 +41,16 @@ typedef struct qc {
 	cq *q;
 } qc;
 
-extern qc *qc_create(int clientid, int seqnr);
-extern void qc_destroy(qc *cache);
-extern void qc_clean(qc *cache);
-extern cq *qc_find(qc *cache, int id);
-extern cq *qc_match(qc *cache, mvc *sql, symbol *s, atom **params, int plen, int key);
-extern cq *qc_insert(qc *cache, sql_allocator *sa, sql_rel *r, char *qname, symbol *s, atom **params, int paramlen, int key, int type, char *codedstr, int no_mitosis);
-extern void qc_delete(qc *cache, cq *q);
-extern int qc_size(qc *cache);
-extern int qc_isaquerytemplate(char *nme);
-extern int qc_isapreparedquerytemplate(char *nme);
+sql_extern qc *qc_create(int clientid, int seqnr);
+sql_extern void qc_destroy(qc *cache);
+sql_extern void qc_clean(qc *cache);
+sql_extern cq *qc_find(qc *cache, int id);
+sql_extern cq *qc_match(qc *cache, mvc *sql, symbol *s, atom **params, int plen, int key);
+sql_extern cq *qc_insert(qc *cache, sql_allocator *sa, sql_rel *r, char *qname, symbol *s, atom **params, int paramlen, int key, int type, char *codedstr, int no_mitosis);
+sql_extern void qc_delete(qc *cache, cq *q);
+sql_extern int qc_size(qc *cache);
+sql_extern int qc_isaquerytemplate(char *nme);
+sql_extern int qc_isapreparedquerytemplate(char *nme);
 
 #endif /*_SQL_QC_H_*/
 

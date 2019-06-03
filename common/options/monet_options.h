@@ -27,7 +27,9 @@ extern "C" {
 
 #ifndef moptions_export
 /* avoid using "#ifdef WIN32" so that this file does not need our config.h */
-#if defined(WIN32) && !defined(HAVE_EMBEDDED)
+#ifdef HAVE_EMBEDDED
+#define moptions_export extern __attribute__((__visibility__("hidden")))
+#elif defined(WIN32)
 #if !defined(LIBMOPTIONS)
 #define moptions_export extern __declspec(dllimport)
 #else

@@ -11,19 +11,19 @@
 
 #include "mal_scenario.h"
 
-mal5_export str MSserveClient(Client cntxt);
-mal5_export str MSinitClientPrg(Client cntxt, str mod, str nme);
-mal5_export void MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protocol_version protocol, size_t blocksize);
+mal_export str MSserveClient(Client cntxt);
+mal_export str MSinitClientPrg(Client cntxt, str mod, str nme);
+mal_export void MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protocol_version protocol, size_t blocksize);
 
-mal5_export str MALreader(Client c);
-mal5_export str MALinitClient(Client c);
-mal5_export str MALexitClient(Client c);
-mal5_export str MALparser(Client c);
-mal5_export str MALengine(Client c);
-mal5_export str MALcallback(Client c, str msg);
-mal5_export void MSresetInstructions(MalBlkPtr mb, int start);
-mal5_export void MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start);
-mal5_export int MALcommentsOnly(MalBlkPtr mb);
+mal_export str MALreader(Client c);
+mal_export str MALinitClient(Client c);
+mal_export str MALexitClient(Client c);
+mal_export str MALparser(Client c);
+mal_export str MALengine(Client c);
+mal_export str MALcallback(Client c, str msg);
+mal_export void MSresetInstructions(MalBlkPtr mb, int start);
+mal_export void MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start);
+mal_export int MALcommentsOnly(MalBlkPtr mb);
 
 #endif /*  _MAL_SESSION_H */
 

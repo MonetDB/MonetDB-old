@@ -22,13 +22,13 @@
 
 #define USE_MAL_ADMISSION
 #ifdef USE_MAL_ADMISSION
-mal5_export int MALadmission(lng argclaim, lng hotclaim);
+mal_export int MALadmission(lng argclaim, lng hotclaim);
 #endif
 
 #define FAIRNESS_THRESHOLD (MAX_DELAYS * DELAYUNIT)
 
-mal5_export lng getMemoryClaim(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int i, int flag);
-mal5_export void MALresourceFairness(lng usec);
-mal5_export size_t MALrunningThreads(void);
+mal_export lng getMemoryClaim(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int i, int flag);
+mal_export void MALresourceFairness(lng usec);
+mal_export size_t MALrunningThreads(void);
 
 #endif /*  _MAL_RESOURCE_H*/

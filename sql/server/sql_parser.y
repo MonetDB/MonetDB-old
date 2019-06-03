@@ -176,7 +176,7 @@ uescape_xform(char *restrict s, const char *restrict esc)
 	sql_subtype	type;
 }
 %{
-extern int sqllex( YYSTYPE *yylval, void *m );
+sql_extern int sqllex( YYSTYPE *yylval, void *m );
 /* enable to activate debugging support
 int yydebug=1;
 */

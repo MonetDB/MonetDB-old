@@ -23,20 +23,20 @@ typedef struct SCOPEDEF {
 	str help;   			/* short description of module functionality*/
 } *Module, ModuleRecord;
 
-mal5_export Module   userModule(void);
-mal5_export Module   globalModule(str nme);
-mal5_export Module   fixModule(str nme);
-mal5_export Module   getModule(str nme);
-mal5_export void     freeModule(Module cur);
-mal5_export void     insertSymbol(Module scope, Symbol prg);
-mal5_export void     deleteSymbol(Module scope, Symbol prg);
-mal5_export Module   findModule(Module scope, str name);
-mal5_export Symbol   findSymbol(Module usermodule, str mod, str fcn);
-mal5_export Symbol   findSymbolInModule(Module v, str fcn);
-mal5_export void     getModuleList(Module** out, int* length);
-mal5_export void     freeModuleList(Module* list);
-mal5_export void     listModules(stream *out, Module s);
-mal5_export void     dumpModules(stream *out);
+mal_export Module   userModule(void);
+mal_export Module   globalModule(str nme);
+mal_export Module   fixModule(str nme);
+mal_export Module   getModule(str nme);
+mal_export void     freeModule(Module cur);
+mal_export void     insertSymbol(Module scope, Symbol prg);
+mal_export void     deleteSymbol(Module scope, Symbol prg);
+mal_export Module   findModule(Module scope, str name);
+mal_export Symbol   findSymbol(Module usermodule, str mod, str fcn);
+mal_export Symbol   findSymbolInModule(Module v, str fcn);
+mal_export void     getModuleList(Module** out, int* length);
+mal_export void     freeModuleList(Module* list);
+mal_export void     listModules(stream *out, Module s);
+mal_export void     dumpModules(stream *out);
 
 #define getSymbolIndex(N)  (int)(*(char*)(N))
 

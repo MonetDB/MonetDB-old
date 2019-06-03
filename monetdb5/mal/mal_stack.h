@@ -12,10 +12,10 @@
 
 #define stackSize(CNT) (sizeof(ValRecord)*(CNT) + offsetof(MalStack, stk))
 
-mal5_export MalStkPtr newGlobalStack(int size);
-mal5_export MalStkPtr reallocGlobalStack(MalStkPtr s, int cnt);
-mal5_export void freeStack(MalStkPtr stk);
-mal5_export void clearStack(MalStkPtr s);
+mal_export MalStkPtr newGlobalStack(int size);
+mal_export MalStkPtr reallocGlobalStack(MalStkPtr s, int cnt);
+mal_export void freeStack(MalStkPtr stk);
+mal_export void clearStack(MalStkPtr s);
 
 #define VARfreeze(X)    if(X){X->frozen=TRUE;}
 #define VARfixate(X)    if(X){X->constant=TRUE;}

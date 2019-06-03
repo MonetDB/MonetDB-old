@@ -9,6 +9,6 @@
 #ifndef _GDK_STORAGE_H_
 #define _GDK_STORAGE_H_
 
-extern void DESCclean(BAT *);
+gdk_extern void DESCclean(BAT *);
 
 #endif /* _GDK_STORAGE_H_ */

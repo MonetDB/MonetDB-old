@@ -12,8 +12,8 @@
 #include "sql_storage.h"
 #include "gdk_logger.h"
 
-extern logger *bat_logger;
+sql_extern logger *bat_logger;
 
-extern void bat_logger_init( logger_functions *lf );
+sql_extern void bat_logger_init( logger_functions *lf );
 
 #endif /*BAT_LOGGER_H */

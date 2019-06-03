@@ -18,10 +18,10 @@ typedef struct sql_query {
 	sql_stack *outer;
 } sql_query;
 
-extern sql_query *query_create(mvc *sql);
-extern void query_push_outer(sql_query *q, sql_rel *r);
-extern sql_rel *query_pop_outer(sql_query *q);
-extern sql_rel *query_fetch_outer(sql_query *q, int i);
-extern int query_has_outer(sql_query *q);
+sql_extern sql_query *query_create(mvc *sql);
+sql_extern void query_push_outer(sql_query *q, sql_rel *r);
+sql_extern sql_rel *query_pop_outer(sql_query *q);
+sql_extern sql_rel *query_fetch_outer(sql_query *q, int i);
+sql_extern int query_has_outer(sql_query *q);
 
 #endif 

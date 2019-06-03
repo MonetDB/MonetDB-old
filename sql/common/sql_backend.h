@@ -43,19 +43,19 @@ typedef struct _backend_functions {
 	resolve_function fresolve_function;
 } backend_functions;
 
-extern void backend_freestack(int clientid, backend_stack stk);
-extern void backend_freecode(int clientid, backend_code code, backend_stack stk, int nr, char *name);
+sql_extern void backend_freestack(int clientid, backend_stack stk);
+sql_extern void backend_freecode(int clientid, backend_code code, backend_stack stk, int nr, char *name);
 
-extern char *backend_create_user(ptr mvc, char *user, char *passwd, char enc, char *fullname, sqlid defschemid, sqlid grantor);
-extern int  backend_drop_user(ptr mvc, char *user);
-extern int  backend_find_user(ptr mp, char *user);
-extern void backend_create_privileges(ptr mvc, sql_schema *s);
-extern int  backend_schema_has_user(ptr mvc, sql_schema *s);
-extern int	backend_alter_user(ptr mvc, str user, str passwd, char enc, sqlid schema_id, str oldpasswd);
-extern int	backend_rename_user(ptr mvc, str olduser, str newuser);
-extern void*	backend_schema_user_dependencies(ptr trans, sqlid schema_id);
-extern int	backend_resolve_function(ptr trans, sql_func *f);
+sql_extern char *backend_create_user(ptr mvc, char *user, char *passwd, char enc, char *fullname, sqlid defschemid, sqlid grantor);
+sql_extern int  backend_drop_user(ptr mvc, char *user);
+sql_extern int  backend_find_user(ptr mp, char *user);
+sql_extern void backend_create_privileges(ptr mvc, sql_schema *s);
+sql_extern int  backend_schema_has_user(ptr mvc, sql_schema *s);
+sql_extern int	backend_alter_user(ptr mvc, str user, str passwd, char enc, sqlid schema_id, str oldpasswd);
+sql_extern int	backend_rename_user(ptr mvc, str olduser, str newuser);
+sql_extern void*	backend_schema_user_dependencies(ptr trans, sqlid schema_id);
+sql_extern int	backend_resolve_function(ptr trans, sql_func *f);
 
-extern backend_functions be_funcs;
+sql_extern backend_functions be_funcs;
 
 #endif /* _SQL_BACKEND_H_ */

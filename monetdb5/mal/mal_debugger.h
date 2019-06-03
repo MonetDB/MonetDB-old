@@ -17,10 +17,10 @@
 
 #define MAXBREAKS 32
 
-mal5_export void mdbDump(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-mal5_export void printStack(stream *f, MalBlkPtr mb, MalStkPtr s);
+mal_export void mdbDump(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+mal_export void printStack(stream *f, MalBlkPtr mb, MalStkPtr s);
 
-mal5_export void mdbSetBreakRequest(Client cntxt, MalBlkPtr mb, str request, char cmd);
-mal5_export str runMALDebugger(Client cntxt, MalBlkPtr mb);
+mal_export void mdbSetBreakRequest(Client cntxt, MalBlkPtr mb, str request, char cmd);
+mal_export str runMALDebugger(Client cntxt, MalBlkPtr mb);
 
 #endif /* _MAL_DEBUGGER_h */

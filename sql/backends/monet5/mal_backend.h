@@ -50,8 +50,8 @@ typedef struct backend {
 	cq 	*q;		/* pointer to the cached query */
 } backend;
 
-extern backend *backend_reset(backend *b);
-extern backend *backend_create(mvc *m, Client c);
-extern void backend_destroy(backend *b);
+sql_extern backend *backend_reset(backend *b);
+sql_extern backend *backend_create(mvc *m, Client c);
+sql_extern void backend_destroy(backend *b);
 
 #endif /*MAL_BACKEND_H*/

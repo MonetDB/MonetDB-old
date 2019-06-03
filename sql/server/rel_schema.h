@@ -12,16 +12,16 @@
 #include "sql_list.h"
 #include "sql_symbol.h"
 
-extern sql_rel *rel_schemas(sql_query *query, symbol *sym);
+sql_extern sql_rel *rel_schemas(sql_query *query, symbol *sym);
 
-extern sql_rel *rel_create_table(sql_query *query, sql_schema *ss, int temp,
+sql_extern sql_rel *rel_create_table(sql_query *query, sql_schema *ss, int temp,
 				 const char *sname, const char *name,
 				 symbol *table_elements_or_subquery,
 				 int commit_action, const char *loc,
 				 const char *username, const char *passwd,
 				 bool pw_encrypted, symbol* partition_def, int if_not_exists);
 
-extern sql_rel *rel_list(sql_allocator *sa, sql_rel *l, sql_rel *r);
-extern sql_table * mvc_create_table_as_subquery( mvc *sql, sql_rel *sq, sql_schema *s, const char *tname, dlist *column_spec, int temp, int commit_action );
+sql_extern sql_rel *rel_list(sql_allocator *sa, sql_rel *l, sql_rel *r);
+sql_extern sql_table * mvc_create_table_as_subquery( mvc *sql, sql_rel *sq, sql_schema *s, const char *tname, dlist *column_spec, int temp, int commit_action );
 
 #endif /*_REL_SCHEMA_H_*/

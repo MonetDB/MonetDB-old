@@ -12,6 +12,6 @@
 #include "sql_relation.h"
 #include "sql_mvc.h"
 
-extern sql_rel * rel_distribute(mvc *sql, sql_rel *rel);
+sql_extern sql_rel * rel_distribute(mvc *sql, sql_rel *rel);
 
 #endif /*_REL_DISTRIBUTE_H_*/

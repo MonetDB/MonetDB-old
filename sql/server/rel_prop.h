@@ -26,12 +26,12 @@ typedef struct prop {
 #define PROP_USED	10	/* number of times exp is used */
 #define PROP_DISTRIBUTE	11	/* number of times exp is used */
 
-extern prop * prop_create( sql_allocator *sa, int kind, prop *pre );
-extern prop * prop_copy( sql_allocator *sa, prop *p);
-extern prop * prop_remove( prop *plist, prop *p);
-extern prop * find_prop( prop *p, int kind);
-extern const char * propkind2string( prop *p);
-extern char * propvalue2string( prop *p);
+sql_extern prop * prop_create( sql_allocator *sa, int kind, prop *pre );
+sql_extern prop * prop_copy( sql_allocator *sa, prop *p);
+sql_extern prop * prop_remove( prop *plist, prop *p);
+sql_extern prop * find_prop( prop *p, int kind);
+sql_extern const char * propkind2string( prop *p);
+sql_extern char * propvalue2string( prop *p);
 
 #endif /* _REL_PROP_H_ */
 

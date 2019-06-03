@@ -44,7 +44,7 @@ bool mdbInit(void)
 void mdbExit(void)
 	__attribute__((__visibility__("hidden")));
 #endif
-mal5_export void AUTHreset(void)
+mal_export void AUTHreset(void)
 	__attribute__((__visibility__("hidden")));
 #endif
 
@@ -77,28 +77,28 @@ void malGarbageCollector(MalBlkPtr mb)
 	__attribute__((__visibility__("hidden")));
 
 /* Reset primitives */
-mal5_export void mal_runtime_reset(void)
+mal_export void mal_runtime_reset(void)
 	__attribute__((__visibility__("hidden")));
 
-mal5_export void mal_client_reset(void)
+mal_export void mal_client_reset(void)
 	__attribute__((__visibility__("hidden")));
 
-mal5_export void mal_dataflow_reset(void)
+mal_export void mal_dataflow_reset(void)
 	__attribute__((__visibility__("hidden")));
 
-mal5_export void mal_factory_reset(void)
+mal_export void mal_factory_reset(void)
 	__attribute__((__visibility__("hidden")));
 
-mal5_export void mal_linker_reset(void)
+mal_export void mal_linker_reset(void)
 	__attribute__((__visibility__("hidden")));
 
-mal5_export void mal_module_reset(void)
+mal_export void mal_module_reset(void)
 	__attribute__((__visibility__("hidden")));
 
-mal5_export void mal_namespace_reset(void)
+mal_export void mal_namespace_reset(void)
 	__attribute__((__visibility__("hidden")));
 
-mal5_export void mal_resource_reset(void)
+mal_export void mal_resource_reset(void)
 	__attribute__((__visibility__("hidden")));
 
-extern ATOMIC_TYPE mal_running;
+mal_extern ATOMIC_TYPE mal_running;

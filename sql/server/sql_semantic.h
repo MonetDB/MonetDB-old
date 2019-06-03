@@ -19,15 +19,15 @@ typedef struct exp_kind_t {
 	bit reduce;	
 } exp_kind;
 
-extern sql_schema *cur_schema(mvc *sql);
-extern sql_schema *tmp_schema(mvc *sql);
-extern char *qname_schema(dlist *qname);
-extern char *qname_table(dlist *qname);
-extern char *qname_catalog(dlist *qname);
+sql_extern sql_schema *cur_schema(mvc *sql);
+sql_extern sql_schema *tmp_schema(mvc *sql);
+sql_extern char *qname_schema(dlist *qname);
+sql_extern char *qname_table(dlist *qname);
+sql_extern char *qname_catalog(dlist *qname);
 #define qname_module(qname) qname_schema(qname)
 #define qname_fname(qname) qname_table(qname)
 
-extern sql_subtype *supertype(sql_subtype *super, sql_subtype *r, sql_subtype *i);
+sql_extern sql_subtype *supertype(sql_subtype *super, sql_subtype *r, sql_subtype *i);
 
 typedef enum {
 	type_set,	/* set operations have very limiting coersion rules */
@@ -39,25 +39,25 @@ typedef enum {
 /* literals in the parser are kept outside of the abstract syntax tree
    in the arg array, this to allow for more reuse of cached queries */
 
-extern atom *sql_add_arg(mvc *sql, atom *v);
-extern atom *sql_set_arg(mvc *sql, int nr, atom *v);
-extern atom *sql_bind_arg(mvc *sql, int nr);
-extern void sql_destroy_args(mvc *sql);		/* used in backend */
+sql_extern atom *sql_add_arg(mvc *sql, atom *v);
+sql_extern atom *sql_set_arg(mvc *sql, int nr, atom *v);
+sql_extern atom *sql_bind_arg(mvc *sql, int nr);
+sql_extern void sql_destroy_args(mvc *sql);		/* used in backend */
 
 /* SQL's parameters '?' (in prepare statements) and parameters of sql
  * functions and procedures are kept in the param list.  */
 
-extern void sql_add_param(mvc *sql, const char *name, sql_subtype *st);	
-extern sql_arg *sql_bind_param(mvc *sql, const char *name);
+sql_extern void sql_add_param(mvc *sql, const char *name, sql_subtype *st);
+sql_extern sql_arg *sql_bind_param(mvc *sql, const char *name);
 /* once the type of the '?' parameters is known it's set using the set_type
  * function */
-extern int set_type_param(mvc *sql, sql_subtype *type, int nr);
-extern void sql_destroy_params(mvc *sql);	/* used in backend */
+sql_extern int set_type_param(mvc *sql, sql_subtype *type, int nr);
+sql_extern void sql_destroy_params(mvc *sql);	/* used in backend */
 
-extern char *symbol2string(mvc *sql, symbol *s, int expression, char **err);
-extern char *dlist2string(mvc *sql, dlist *s, int expression, char **err);
+sql_extern char *symbol2string(mvc *sql, symbol *s, int expression, char **err);
+sql_extern char *dlist2string(mvc *sql, dlist *s, int expression, char **err);
 
-extern char * toUpperCopy(char *dest, const char *src); 
+sql_extern char * toUpperCopy(char *dest, const char *src);
 
 #endif /*_SQL_SEMANTIC_H_*/
 

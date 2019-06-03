@@ -96,7 +96,7 @@
  */
 
 /* These tables were generated from the Unicode 10.0.0 spec. */
-struct UTF8_lower_upper {
+static struct UTF8_lower_upper {
 	unsigned int from, to;
 } UTF8_toUpper[] = { /* code points with non-null uppercase conversion */
 	{ 0x0061, 0x0041, },
@@ -3476,7 +3476,7 @@ rstrip(const char *s, size_t len, const int *rm, size_t nrm)
 	return len;
 }
 
-const int whitespace[] = {
+static const int whitespace[] = {
 	' ',						/* space */
 	'\t',						/* tab (character tabulation) */
 	'\n',						/* line feed */

@@ -11,7 +11,9 @@
 
 #include "monetdb_config.h"
 
-#if defined(WIN32) && !defined(HAVE_EMBEDDED)
+#ifdef HAVE_EMBEDDED
+#define mutils_export extern __attribute__((__visibility__("hidden")))
+#elif defined(WIN32)
 #if !defined(LIBMUTILS)
 #define mutils_export extern __declspec(dllimport)
 #else

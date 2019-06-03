@@ -20,21 +20,21 @@
 /* #define DEBUG_MAL_FCN */
 /* #define DEBUG_CLONE */
 
-mal5_export Symbol   newFunction(str mod, str nme,int kind);
-mal5_export int      getPC(MalBlkPtr mb, InstrPtr p);
+mal_export Symbol   newFunction(str mod, str nme,int kind);
+mal_export int      getPC(MalBlkPtr mb, InstrPtr p);
 
-mal5_export Symbol   getFunctionSymbol(Module scope, InstrPtr p);
-mal5_export void chkFlow(MalBlkPtr mb);
-mal5_export void chkDeclarations(MalBlkPtr mb);
-mal5_export void clrDeclarations(MalBlkPtr mb);
-mal5_export int isLoopBarrier(MalBlkPtr mb, int pc);
-mal5_export int getBlockExit(MalBlkPtr mb,int pc);
-mal5_export int getBlockBegin(MalBlkPtr mb,int pc);
-mal5_export void setVariableScope(MalBlkPtr mb);
+mal_export Symbol   getFunctionSymbol(Module scope, InstrPtr p);
+mal_export void chkFlow(MalBlkPtr mb);
+mal_export void chkDeclarations(MalBlkPtr mb);
+mal_export void clrDeclarations(MalBlkPtr mb);
+mal_export int isLoopBarrier(MalBlkPtr mb, int pc);
+mal_export int getBlockExit(MalBlkPtr mb,int pc);
+mal_export int getBlockBegin(MalBlkPtr mb,int pc);
+mal_export void setVariableScope(MalBlkPtr mb);
 
-mal5_export void printFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg);
-mal5_export void fprintFunction(FILE *fd, MalBlkPtr mb, MalStkPtr stk, int flg);
-mal5_export void debugFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg, int first, int size);
+mal_export void printFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg);
+mal_export void fprintFunction(FILE *fd, MalBlkPtr mb, MalStkPtr stk, int flg);
+mal_export void debugFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg, int first, int size);
 
 #include "mal_exception.h"
 

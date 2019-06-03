@@ -27,17 +27,17 @@
 
 /* #define DEBUG_FLOW */
 
-mal5_export MalStkPtr prepareMALstack(MalBlkPtr mb, int size);
-mal5_export str runMAL(Client c, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr env);
-mal5_export str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc, int stoppc, MalStkPtr stk, MalStkPtr env, InstrPtr pcicaller);
-mal5_export str reenterMAL(Client cntxt, MalBlkPtr mb, int startpc, int stoppc, MalStkPtr stk);
-mal5_export str callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *glb, ValPtr argv[], char debug);
-mal5_export void garbageElement(Client cntxt, ValPtr v);
-mal5_export void garbageCollector(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int flag);
-mal5_export str malCommandCall(MalStkPtr stk, InstrPtr pci);
-mal5_export int isNotUsedIn(InstrPtr p, int start, int a);
+mal_export MalStkPtr prepareMALstack(MalBlkPtr mb, int size);
+mal_export str runMAL(Client c, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr env);
+mal_export str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc, int stoppc, MalStkPtr stk, MalStkPtr env, InstrPtr pcicaller);
+mal_export str reenterMAL(Client cntxt, MalBlkPtr mb, int startpc, int stoppc, MalStkPtr stk);
+mal_export str callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *glb, ValPtr argv[], char debug);
+mal_export void garbageElement(Client cntxt, ValPtr v);
+mal_export void garbageCollector(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int flag);
+mal_export str malCommandCall(MalStkPtr stk, InstrPtr pci);
+mal_export int isNotUsedIn(InstrPtr p, int start, int a);
 
-mal5_export ptr getArgReference(MalStkPtr stk, InstrPtr pci, int k);
+mal_export ptr getArgReference(MalStkPtr stk, InstrPtr pci, int k);
 #if !defined(NDEBUG) && defined(__GNUC__)
 /* for ease of programming and debugging (assert reporting a useful
  * location), we use a GNU C extension to check the type of arguments,

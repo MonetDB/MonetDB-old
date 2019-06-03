@@ -48,7 +48,7 @@ validate_connection(monetdb_connection conn, const char* call)
 	return MAL_SUCCEED;
 }
 
-MT_Lock embedded_lock = MT_LOCK_INITIALIZER("embedded_lock");
+static MT_Lock embedded_lock = MT_LOCK_INITIALIZER("embedded_lock");
 
 static void monetdb_destroy_column(monetdb_column* column);
 

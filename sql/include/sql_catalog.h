@@ -137,7 +137,7 @@
 #define dt_schema 	"%dt%"
 #define isDeclaredSchema(s) 	(strcmp(s->base.name, dt_schema) == 0)
 
-extern const char *TID;
+sql_extern const char *TID;
 
 typedef enum temp_t { 
 	SQL_PERSIST = 0,
@@ -213,7 +213,7 @@ typedef struct sql_base {
 #define removeRenamedFlag(x) ((x)->base.flags &= ~TR_RENAMED)
 #define isRenamed(x)         (((x)->base.flags & TR_RENAMED) == TR_RENAMED)
 
-extern void base_init(sql_allocator *sa, sql_base * b, sqlid id, int flags, const char *name);
+sql_extern void base_init(sql_allocator *sa, sql_base * b, sqlid id, int flags, const char *name);
 
 typedef struct changeset {
 	sql_allocator *sa;
@@ -223,20 +223,20 @@ typedef struct changeset {
 	node *nelm;
 } changeset;
 
-extern void cs_new(changeset * cs, sql_allocator *sa, fdestroy destroy);
-extern void cs_destroy(changeset * cs);
-extern void cs_add(changeset * cs, void *elm, int flag);
-extern void *cs_add_with_validate(changeset * cs, void *elm, int flag, fvalidate cmp);
-extern void cs_add_before(changeset * cs, node *n, void *elm);
-extern void cs_del(changeset * cs, node *elm, int flag);
-extern void cs_move(changeset *from, changeset *to, void *data);
-extern void *cs_transverse_with_validate(changeset * cs, void *elm, fvalidate cmp);
-extern int cs_size(changeset * cs);
-extern node *cs_find_name(changeset * cs, const char *name);
-extern node *cs_find_id(changeset * cs, sqlid id);
-extern node *cs_first_node(changeset * cs);
-extern node *cs_last_node(changeset * cs);
-extern void cs_remove_node(changeset * cs, node *n);
+sql_extern void cs_new(changeset * cs, sql_allocator *sa, fdestroy destroy);
+sql_extern void cs_destroy(changeset * cs);
+sql_extern void cs_add(changeset * cs, void *elm, int flag);
+sql_extern void *cs_add_with_validate(changeset * cs, void *elm, int flag, fvalidate cmp);
+sql_extern void cs_add_before(changeset * cs, node *n, void *elm);
+sql_extern void cs_del(changeset * cs, node *elm, int flag);
+sql_extern void cs_move(changeset *from, changeset *to, void *data);
+sql_extern void *cs_transverse_with_validate(changeset * cs, void *elm, fvalidate cmp);
+sql_extern int cs_size(changeset * cs);
+sql_extern node *cs_find_name(changeset * cs, const char *name);
+sql_extern node *cs_find_id(changeset * cs, sqlid id);
+sql_extern node *cs_first_node(changeset * cs);
+sql_extern node *cs_last_node(changeset * cs);
+sql_extern void cs_remove_node(changeset * cs, node *n);
 
 typedef void *backend_code;
 typedef size_t backend_stack;
@@ -651,49 +651,49 @@ typedef struct sql_session {
 	backend_stack stk;
 } sql_session;
 
-extern void schema_destroy(sql_schema *s);
-extern void table_destroy(sql_table *t);
-extern void column_destroy(sql_column *c);
-extern void kc_destroy(sql_kc *kc);
-extern void key_destroy(sql_key *k);
-extern void idx_destroy(sql_idx * i);
+sql_extern void schema_destroy(sql_schema *s);
+sql_extern void table_destroy(sql_table *t);
+sql_extern void column_destroy(sql_column *c);
+sql_extern void kc_destroy(sql_kc *kc);
+sql_extern void key_destroy(sql_key *k);
+sql_extern void idx_destroy(sql_idx * i);
 
-extern int base_key(sql_base *b);
-extern node *list_find_name(list *l, const char *name);
-extern node *list_find_id(list *l, sqlid id);
-extern node *list_find_base_id(list *l, sqlid id);
+sql_extern int base_key(sql_base *b);
+sql_extern node *list_find_name(list *l, const char *name);
+sql_extern node *list_find_id(list *l, sqlid id);
+sql_extern node *list_find_base_id(list *l, sqlid id);
 
-extern sql_key *find_sql_key(sql_table *t, const char *kname);
+sql_extern sql_key *find_sql_key(sql_table *t, const char *kname);
 
-extern sql_idx *find_sql_idx(sql_table *t, const char *kname);
+sql_extern sql_idx *find_sql_idx(sql_table *t, const char *kname);
 
-extern sql_column *find_sql_column(sql_table *t, const char *cname);
+sql_extern sql_column *find_sql_column(sql_table *t, const char *cname);
 
-extern sql_part *find_sql_part(sql_table *t, const char *tname);
+sql_extern sql_part *find_sql_part(sql_table *t, const char *tname);
 
-extern sql_table *find_sql_table(sql_schema *s, const char *tname);
-extern sql_table *find_sql_table_id(sql_schema *s, sqlid id);
-extern node *find_sql_table_node(sql_schema *s, sqlid id);
+sql_extern sql_table *find_sql_table(sql_schema *s, const char *tname);
+sql_extern sql_table *find_sql_table_id(sql_schema *s, sqlid id);
+sql_extern node *find_sql_table_node(sql_schema *s, sqlid id);
 
-extern sql_sequence *find_sql_sequence(sql_schema *s, const char *sname);
+sql_extern sql_sequence *find_sql_sequence(sql_schema *s, const char *sname);
 
-extern sql_schema *find_sql_schema(sql_trans *t, const char *sname);
-extern sql_schema *find_sql_schema_id(sql_trans *t, sqlid id);
-extern node *find_sql_schema_node(sql_trans *t, sqlid id);
+sql_extern sql_schema *find_sql_schema(sql_trans *t, const char *sname);
+sql_extern sql_schema *find_sql_schema_id(sql_trans *t, sqlid id);
+sql_extern node *find_sql_schema_node(sql_trans *t, sqlid id);
 
-extern sql_type *find_sql_type(sql_schema * s, const char *tname);
-extern sql_type *sql_trans_bind_type(sql_trans *tr, sql_schema *s, const char *name);
-extern node *find_sql_type_node(sql_schema *s, sqlid id);
+sql_extern sql_type *find_sql_type(sql_schema * s, const char *tname);
+sql_extern sql_type *sql_trans_bind_type(sql_trans *tr, sql_schema *s, const char *name);
+sql_extern node *find_sql_type_node(sql_schema *s, sqlid id);
 
-extern sql_func *find_sql_func(sql_schema * s, const char *tname);
-extern list *find_all_sql_func(sql_schema * s, const char *tname, int type);
-extern sql_func *sql_trans_bind_func(sql_trans *tr, const char *name);
-extern sql_func *sql_trans_find_func(sql_trans *tr, sqlid id);
-extern node *find_sql_func_node(sql_schema *s, sqlid id);
+sql_extern sql_func *find_sql_func(sql_schema * s, const char *tname);
+sql_extern list *find_all_sql_func(sql_schema * s, const char *tname, int type);
+sql_extern sql_func *sql_trans_bind_func(sql_trans *tr, const char *name);
+sql_extern sql_func *sql_trans_find_func(sql_trans *tr, sqlid id);
+sql_extern node *find_sql_func_node(sql_schema *s, sqlid id);
 
-extern void *sql_values_list_element_validate_and_insert(void *v1, void *v2, int* res);
-extern void *sql_range_part_validate_and_insert(void *v1, void *v2);
-extern void *sql_values_part_validate_and_insert(void *v1, void *v2);
+sql_extern void *sql_values_list_element_validate_and_insert(void *v1, void *v2, int* res);
+sql_extern void *sql_range_part_validate_and_insert(void *v1, void *v2);
+sql_extern void *sql_values_part_validate_and_insert(void *v1, void *v2);
 
 typedef struct {
 	BAT *b;

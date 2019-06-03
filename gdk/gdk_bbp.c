@@ -111,8 +111,8 @@ struct BBPfarm_t BBPfarms[MAXFARMS];
  * tuned for perfect hashing (1 lookup). The bucket chain uses the
  * 'next' field in the BBPrec records.
  */
-bat *BBP_hash = NULL;		/* BBP logical name hash buckets */
-bat BBP_mask = 0;		/* number of buckets = & mask */
+static bat *BBP_hash = NULL;		/* BBP logical name hash buckets */
+static bat BBP_mask = 0;		/* number of buckets = & mask */
 
 static gdk_return BBPfree(BAT *b, const char *calledFrom);
 static void BBPdestroy(BAT *b);

@@ -12,7 +12,11 @@
 #include "mutils.h"
 #include "stream.h"
 
-#if defined(WIN32) && !defined(HAVE_EMBEDDED)
+#define gdk_extern extern __attribute__((__visibility__("hidden")))
+
+#ifdef HAVE_EMBEDDED
+#define gdk_export extern __attribute__((__visibility__("hidden")))
+#elif defined(WIN32)
 #ifndef LIBGDK
 #define gdk_export extern __declspec(dllimport)
 #else

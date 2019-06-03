@@ -6,4 +6,4 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
-extern date DATE_MAX, DATE_MIN;		/* often used dates; computed once */
+mal_extern date DATE_MAX, DATE_MIN;		/* often used dates; computed once */

@@ -32,10 +32,10 @@ typedef struct sql_hash {
 	fkeyvalue key;
 } sql_hash;
 
-extern sql_hash *hash_new(sql_allocator *sa, int size, fkeyvalue key);
-extern sql_hash_e *hash_add(sql_hash *ht, int key, void *value);
-extern void hash_del(sql_hash *ht, int key, void *value);
+sql_extern sql_hash *hash_new(sql_allocator *sa, int size, fkeyvalue key);
+sql_extern sql_hash_e *hash_add(sql_hash *ht, int key, void *value);
+sql_extern void hash_del(sql_hash *ht, int key, void *value);
 
-extern unsigned int hash_key(const char *n);
+sql_extern unsigned int hash_key(const char *n);
 
 #endif /* SQL_HASH_H */

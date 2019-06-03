@@ -36,11 +36,11 @@ typedef struct sql_dbat {
 } sql_dbat;
 
 /* initialize bat storage call back functions interface */
-extern void bat_storage_init( store_functions *sf );
+sql_extern void bat_storage_init( store_functions *sf );
 
-extern int dup_bat(sql_trans *tr, sql_table *t, sql_delta *obat, sql_delta *bat, int type, int oc_isnew, int c_isnew);
-extern sql_delta * timestamp_delta( sql_delta *d, int ts);
-extern sql_dbat * timestamp_dbat( sql_dbat *d, int ts);
+sql_extern int dup_bat(sql_trans *tr, sql_table *t, sql_delta *obat, sql_delta *bat, int type, int oc_isnew, int c_isnew);
+sql_extern sql_delta * timestamp_delta( sql_delta *d, int ts);
+sql_extern sql_dbat * timestamp_dbat( sql_dbat *d, int ts);
 
 #endif /*BATSTORAGE_H */
 

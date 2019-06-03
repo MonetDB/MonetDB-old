@@ -170,9 +170,9 @@ advance(Client cntxt, int length)
  * instruction datastructures.
 */
 
-short opCharacter[256];
-short idCharacter[256];
-short idCharacter2[256];
+static short opCharacter[256];
+static short idCharacter[256];
+static short idCharacter2[256];
 
 void
 initParser(void)

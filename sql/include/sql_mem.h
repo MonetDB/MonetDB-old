@@ -14,7 +14,11 @@
 #define SQL_OK 	1
 #define SQL_ERR 0
 
-#if defined(WIN32) && !defined(HAVE_EMBEDDED)
+#define sql_extern extern __attribute__((__visibility__("hidden")))
+
+#ifdef HAVE_EMBEDDED
+#define sqlstore_export extern __attribute__((__visibility__("hidden")))
+#elif defined(WIN32)
 #ifdef LIBSTORE
 #define sqlstore_export extern __declspec(dllexport)
 #else
@@ -33,15 +37,15 @@
 #define _DELETE( ptr )	do { GDKfree(ptr); ptr = NULL; } while (0)
 #define _STRDUP( ptr )	GDKstrdup((char*)ptr)
 
-extern void c_delete( const void *p );
+sql_extern void c_delete( const void *p );
 
 typedef struct sql_ref {
 	int refcnt;
 } sql_ref;
 
-extern sql_ref *sql_ref_init(sql_ref *r);
-extern int sql_ref_inc(sql_ref *r);
-extern int sql_ref_dec(sql_ref *r);
+sql_extern sql_ref *sql_ref_init(sql_ref *r);
+sql_extern int sql_ref_inc(sql_ref *r);
+sql_extern int sql_ref_dec(sql_ref *r);
 
 typedef struct sql_allocator {
 	size_t size;
@@ -51,16 +55,16 @@ typedef struct sql_allocator {
 	size_t usedmem;	/* used memory */
 } sql_allocator;
 
-extern sql_allocator *sa_create(void);
-extern sql_allocator *sa_reset( sql_allocator *sa );
-extern void *sa_alloc( sql_allocator *sa,  size_t sz );
-extern void *sa_zalloc( sql_allocator *sa,  size_t sz );
-extern void *sa_realloc( sql_allocator *sa,  void *ptr, size_t sz, size_t osz );
-extern void sa_destroy( sql_allocator *sa );
-extern char *sa_strndup( sql_allocator *sa, const char *s, size_t l);
-extern char *sa_strdup( sql_allocator *sa, const char *s);
-extern char *sa_strconcat( sql_allocator *sa, const char *s1, const char *s2);
-extern size_t sa_size( sql_allocator *sa );
+sql_extern sql_allocator *sa_create(void);
+sql_extern sql_allocator *sa_reset( sql_allocator *sa );
+sql_extern void *sa_alloc( sql_allocator *sa,  size_t sz );
+sql_extern void *sa_zalloc( sql_allocator *sa,  size_t sz );
+sql_extern void *sa_realloc( sql_allocator *sa,  void *ptr, size_t sz, size_t osz );
+sql_extern void sa_destroy( sql_allocator *sa );
+sql_extern char *sa_strndup( sql_allocator *sa, const char *s, size_t l);
+sql_extern char *sa_strdup( sql_allocator *sa, const char *s);
+sql_extern char *sa_strconcat( sql_allocator *sa, const char *s1, const char *s2);
+sql_extern size_t sa_size( sql_allocator *sa );
 
 #define SA_NEW( sa, type ) ((type*)sa_alloc( sa, sizeof(type)) )
 #define SA_ZNEW( sa, type ) ((type*)sa_zalloc( sa, sizeof(type)) )

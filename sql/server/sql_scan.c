@@ -1305,7 +1305,7 @@ sql_get_next_token(YYSTYPE *yylval, void *parm) {
 }
 
 /* also see sql_parser.y */
-extern int sqllex( YYSTYPE *yylval, void *m );
+sql_extern int sqllex( YYSTYPE *yylval, void *m );
 
 int
 sqllex(YYSTYPE * yylval, void *parm)

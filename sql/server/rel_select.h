@@ -13,25 +13,25 @@
 #include "sql_semantic.h"
 #include "sql_query.h"
 
-extern sql_rel *rel_selects(sql_query *query, symbol *sym);
-extern sql_rel *schema_selects(sql_query *query, sql_schema *s, symbol *sym);
-extern sql_rel * rel_subquery(sql_query *query, sql_rel *rel, symbol *sq, exp_kind ek);
-extern sql_rel * rel_logical_exp(sql_query *query, sql_rel *rel, symbol *sc, int f);
-extern sql_exp * rel_logical_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f);
+sql_extern sql_rel *rel_selects(sql_query *query, symbol *sym);
+sql_extern sql_rel *schema_selects(sql_query *query, sql_schema *s, symbol *sym);
+sql_extern sql_rel * rel_subquery(sql_query *query, sql_rel *rel, symbol *sq, exp_kind ek);
+sql_extern sql_rel * rel_logical_exp(sql_query *query, sql_rel *rel, symbol *sc, int f);
+sql_extern sql_exp * rel_logical_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f);
 
-extern sql_exp *rel_column_exp(sql_query *query, sql_rel **rel, symbol *column_e, int f);
-extern sql_exp * rel_value_exp(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek);
-extern sql_exp * rel_value_exp2(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek, int *is_last);
+sql_extern sql_exp *rel_column_exp(sql_query *query, sql_rel **rel, symbol *column_e, int f);
+sql_extern sql_exp * rel_value_exp(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek);
+sql_extern sql_exp * rel_value_exp2(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek, int *is_last);
 
 /* TODO rename to exp_check_type + move to rel_exp.c */
-extern sql_exp *rel_check_type(mvc *sql, sql_subtype *t, sql_exp *exp, int tpe);
+sql_extern sql_exp *rel_check_type(mvc *sql, sql_subtype *t, sql_exp *exp, int tpe);
 
-extern sql_exp *rel_unop_(sql_query *query, sql_exp *e, sql_schema *s, char *fname, int card);
-extern sql_exp *rel_binop_(sql_query *query, sql_exp *l, sql_exp *r, sql_schema *s, char *fname, int card);
-extern sql_exp *rel_nop_(sql_query *query, sql_exp *l, sql_exp *r, sql_exp *r2, sql_exp *r3, sql_schema *s, char *fname, int card);
-extern sql_rel *rel_with_query(sql_query *query, symbol *q);
-extern sql_rel *table_ref(sql_query *query, sql_rel *rel, symbol *tableref, int lateral);
+sql_extern sql_exp *rel_unop_(sql_query *query, sql_exp *e, sql_schema *s, char *fname, int card);
+sql_extern sql_exp *rel_binop_(sql_query *query, sql_exp *l, sql_exp *r, sql_schema *s, char *fname, int card);
+sql_extern sql_exp *rel_nop_(sql_query *query, sql_exp *l, sql_exp *r, sql_exp *r2, sql_exp *r3, sql_schema *s, char *fname, int card);
+sql_extern sql_rel *rel_with_query(sql_query *query, symbol *q);
+sql_extern sql_rel *table_ref(sql_query *query, sql_rel *rel, symbol *tableref, int lateral);
 
-extern sql_rel *rel_loader_function(sql_query* query, symbol* s, list *fexps, sql_subfunc **loader_function);
+sql_extern sql_rel *rel_loader_function(sql_query* query, symbol* s, list *fexps, sql_subfunc **loader_function);
 
 #endif /*_REL_SELECT_H_*/

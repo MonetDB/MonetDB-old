@@ -11,7 +11,7 @@
 #include "sql_symbol.h"
 #include "sql_parser.h"
 
-int symbol_debug = 0;
+static int symbol_debug = 0;
 
 static symbol *
 symbol_init(symbol *s, tokens token, symtype type )

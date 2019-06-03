@@ -401,7 +401,7 @@ install_sql_scripts(Client c, char* scripts_array, const char* array_name)
 	return msg;
 }
 
-MT_Id sqllogthread, idlethread;
+static MT_Id sqllogthread, idlethread;
 
 #include "createdb_inline1.h"
 #ifndef HAVE_EMBEDDED

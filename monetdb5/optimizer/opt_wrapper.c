@@ -52,7 +52,7 @@
 #include "opt_volcano.h"
 #include "opt_wlc.h"
 
-struct{
+static struct {
 	str nme;
 	str (*fcn)();
 	int calls;

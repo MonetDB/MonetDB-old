@@ -3344,7 +3344,7 @@ func_name(sql_allocator *sa, const char *n1, const char *n2)
 	}
 }
 
-const char *_column_name(sql_allocator *sa, stmt *st);
+static const char *_column_name(sql_allocator *sa, stmt *st);
 
 const char *
 column_name(sql_allocator *sa, stmt *st)
@@ -3418,7 +3418,7 @@ _column_name(sql_allocator *sa, stmt *st)
 	}
 }
 
-const char *_table_name(sql_allocator *sa, stmt *st);
+static const char *_table_name(sql_allocator *sa, stmt *st);
 
 const char *
 table_name(sql_allocator *sa, stmt *st)

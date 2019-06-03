@@ -202,7 +202,7 @@ add_library(monetdblite_no_export STATIC
 		$<TARGET_OBJECTS:bisonlite_obj>)
 set_target_properties(monetdblite_no_export PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(monetdblite_no_export PUBLIC ${MATH_LIBRARIES} ${THREAD_LIBRARIES} ${DL_LIBRARIES}
-					  ${KVM_LIBRARIES} ${PSAPI_LIBRARIES} monetdblite_no_export)
+					  ${KVM_LIBRARIES} ${PSAPI_LIBRARIES})
 
 add_library(monetdblite SHARED
 			monetdb_embedded.c

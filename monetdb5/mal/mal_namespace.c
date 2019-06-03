@@ -19,7 +19,7 @@
 #define MAXIDENTIFIERS 4096
 #define HASHMASK  4095
 
-MT_Lock mal_namespaceLock = MT_LOCK_INITIALIZER("mal_namespaceLk");
+static MT_Lock mal_namespaceLock = MT_LOCK_INITIALIZER("mal_namespaceLk");
 
 /* taken from gdk_atoms */
 #define NME_HASH(_key,y,K)								\

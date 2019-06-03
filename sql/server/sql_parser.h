@@ -19,10 +19,10 @@
 #define YYDEBUG 1
 */
 
-extern int find_subgeometry_type(char*);
-extern char *token2string(tokens token);
-extern int sqlparse(mvc *m);
-extern int sqlerror(mvc *sql, const char *s);
+sql_extern int find_subgeometry_type(char*);
+sql_extern char *token2string(tokens token);
+sql_extern int sqlparse(mvc *m);
+sql_extern int sqlerror(mvc *sql, const char *s);
 
 #include "mal_errors.h"		/* for SQLSTATE() */
 

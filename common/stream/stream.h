@@ -29,7 +29,9 @@
 #include <limits.h>
 
 /* avoid using "#ifdef WIN32" so that this file does not need our config.h */
-#if defined(WIN32) && !defined(HAVE_EMBEDDED)
+#ifdef HAVE_EMBEDDED
+#define stream_export extern __attribute__((__visibility__("hidden")))
+#elif defined(WIN32)
 # ifndef LIBSTREAM
 #  define stream_export extern __declspec(dllimport)
 # else

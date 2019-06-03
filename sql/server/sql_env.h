@@ -14,12 +14,12 @@
 #include "sql_mvc.h"
 
 #ifdef HAVE_HGE
-extern str sql_update_var(mvc *sql, const char *name, char *sval, hge sgn);
+sql_extern str sql_update_var(mvc *sql, const char *name, char *sval, hge sgn);
 #else
-extern str sql_update_var(mvc *sql, const char *name, char *sval, lng sgn);
+sql_extern str sql_update_var(mvc *sql, const char *name, char *sval, lng sgn);
 #endif
 
-extern int sql_create_env(mvc *sql, sql_schema *s);
+sql_extern int sql_create_env(mvc *sql, sql_schema *s);
 
 #define NR_KEEPQUERY_ARGS 4
 #define NR_KEEPCALL_ARGS 9

@@ -43,15 +43,15 @@ typedef struct dlist {
 	int cnt;
 } dlist;
 
-extern dlist *dlist_create(sql_allocator *sa);
-extern int dlist_length(dlist *l);
+sql_extern dlist *dlist_create(sql_allocator *sa);
+sql_extern int dlist_length(dlist *l);
 
-extern dlist *dlist_append_string(sql_allocator *sa, dlist *l, const char *data);
-extern dlist *dlist_append_list(sql_allocator *sa, dlist *l, dlist *data);
-extern dlist *dlist_append_int(sql_allocator *sa, dlist *l, int data);
-extern dlist *dlist_append_lng(sql_allocator *sa, dlist *l, lng data);
-extern dlist *dlist_append_symbol(sql_allocator *sa, dlist *l, struct symbol *data);
-extern dlist *dlist_append_type(sql_allocator *sa, dlist *l, struct sql_subtype *data);
+sql_extern dlist *dlist_append_string(sql_allocator *sa, dlist *l, const char *data);
+sql_extern dlist *dlist_append_list(sql_allocator *sa, dlist *l, dlist *data);
+sql_extern dlist *dlist_append_int(sql_allocator *sa, dlist *l, int data);
+sql_extern dlist *dlist_append_lng(sql_allocator *sa, dlist *l, lng data);
+sql_extern dlist *dlist_append_symbol(sql_allocator *sa, dlist *l, struct symbol *data);
+sql_extern dlist *dlist_append_type(sql_allocator *sa, dlist *l, struct sql_subtype *data);
 
 typedef struct symbol {
 	tokens token;
@@ -83,15 +83,15 @@ typedef struct AtomNode {
 	struct atom *a;
 } AtomNode;
 
-extern symbol *symbol_create(sql_allocator *sa, tokens token, char *data);
-extern symbol *symbol_create_list(sql_allocator *sa, tokens token, dlist *data);
-extern symbol *symbol_create_int(sql_allocator *sa, tokens token, int data);
-extern symbol *symbol_create_lng(sql_allocator *sa, tokens token, lng data);
-extern symbol *symbol_create_symbol(sql_allocator *sa, tokens token, symbol *data);
+sql_extern symbol *symbol_create(sql_allocator *sa, tokens token, char *data);
+sql_extern symbol *symbol_create_list(sql_allocator *sa, tokens token, dlist *data);
+sql_extern symbol *symbol_create_int(sql_allocator *sa, tokens token, int data);
+sql_extern symbol *symbol_create_lng(sql_allocator *sa, tokens token, lng data);
+sql_extern symbol *symbol_create_symbol(sql_allocator *sa, tokens token, symbol *data);
 
-extern symbol *newSelectNode(sql_allocator *sa, int distinct, struct dlist *selection, struct dlist *into, symbol *from, symbol *where, symbol *groupby, symbol *having, symbol *orderby, symbol *name, symbol *limit, symbol *offset, symbol *sample, symbol *window);
+sql_extern symbol *newSelectNode(sql_allocator *sa, int distinct, struct dlist *selection, struct dlist *into, symbol *from, symbol *where, symbol *groupby, symbol *having, symbol *orderby, symbol *name, symbol *limit, symbol *offset, symbol *sample, symbol *window);
 
-extern symbol *newAtomNode(sql_allocator *sa, atom *a);
+sql_extern symbol *newAtomNode(sql_allocator *sa, atom *a);
 
 #endif /* SQL_SYMBOL_H */
 

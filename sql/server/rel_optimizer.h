@@ -12,13 +12,13 @@
 #include "sql_relation.h"
 #include "sql_mvc.h"
 
-extern sql_rel * rel_optimizer(mvc *sql, sql_rel *rel, int value_based_opt);
+sql_extern sql_rel * rel_optimizer(mvc *sql, sql_rel *rel, int value_based_opt);
 
-extern int exp_joins_rels(sql_exp *e, list *rels);
+sql_extern int exp_joins_rels(sql_exp *e, list *rels);
 
-extern void *name_find_column( sql_rel *rel, const char *rname, const char *name, int pnr, sql_rel **bt );
-extern int exps_unique(mvc *sql, sql_rel *rel, list *exps);
+sql_extern void *name_find_column( sql_rel *rel, const char *rname, const char *name, int pnr, sql_rel **bt );
+sql_extern int exps_unique(mvc *sql, sql_rel *rel, list *exps);
 
-extern sql_rel * rel_dce(mvc *sql, sql_rel *rel);
+sql_extern sql_rel * rel_dce(mvc *sql, sql_rel *rel);
 
 #endif /*_REL_OPTIMIZER_H_*/

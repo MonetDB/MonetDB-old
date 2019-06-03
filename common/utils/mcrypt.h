@@ -9,7 +9,9 @@
 #ifndef MT_SEEN_MCRYPT_H
 #define MT_SEEN_MCRYPT_H 1
 
-#if defined(WIN32) && !defined(HAVE_EMBEDDED)
+#ifdef HAVE_EMBEDDED
+#define mcrypt_export extern __attribute__((__visibility__("hidden")))
+#elif defined(WIN32)
 #if !defined(LIBMCRYPT)
 #define mcrypt_export extern __declspec(dllimport)
 #else

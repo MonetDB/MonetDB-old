@@ -16,22 +16,22 @@
 
 #define MAL_ADMIN 0
 
-mal5_export str AUTHcheckCredentials(oid *ret, Client c, const char *user, const char *passwd, const char *challenge, const char *algo);
-mal5_export str AUTHaddUser(oid *ret, Client c, const char *user, const char *pass);
-mal5_export str AUTHremoveUser(Client c, const char *username);
-mal5_export str AUTHchangeUsername(Client c, const char *olduser, const char *newuser);
-mal5_export str AUTHchangePassword(Client c, const char *oldpass, const char *passwd);
-mal5_export str AUTHsetPassword(Client c, const char *username, const char *passwd);
-mal5_export str AUTHresolveUser(str *ret, oid uid);
-mal5_export str AUTHgetUsername(str *ret, Client c);
-mal5_export str AUTHgetUsers(BAT **ret1, BAT **ret2, Client c);
-mal5_export str AUTHgetPasswordHash(str *ret, Client c, const char *username);
+mal_export str AUTHcheckCredentials(oid *ret, Client c, const char *user, const char *passwd, const char *challenge, const char *algo);
+mal_export str AUTHaddUser(oid *ret, Client c, const char *user, const char *pass);
+mal_export str AUTHremoveUser(Client c, const char *username);
+mal_export str AUTHchangeUsername(Client c, const char *olduser, const char *newuser);
+mal_export str AUTHchangePassword(Client c, const char *oldpass, const char *passwd);
+mal_export str AUTHsetPassword(Client c, const char *username, const char *passwd);
+mal_export str AUTHresolveUser(str *ret, oid uid);
+mal_export str AUTHgetUsername(str *ret, Client c);
+mal_export str AUTHgetUsers(BAT **ret1, BAT **ret2, Client c);
+mal_export str AUTHgetPasswordHash(str *ret, Client c, const char *username);
 
-mal5_export str AUTHinitTables(const char *passwd);
+mal_export str AUTHinitTables(const char *passwd);
 
-mal5_export str AUTHaddRemoteTableCredentials(const char *local_table, const char *localuser, const char *uri, const char *remoteuser, const char *pass, bool pw_encrypted);
-mal5_export str AUTHgetRemoteTableCredentials(const char *local_table, str *uri, str *username, str *password);
-mal5_export str AUTHdeleteRemoteTableCredentials(const char *local_table);
+mal_export str AUTHaddRemoteTableCredentials(const char *local_table, const char *localuser, const char *uri, const char *remoteuser, const char *pass, bool pw_encrypted);
+mal_export str AUTHgetRemoteTableCredentials(const char *local_table, str *uri, str *username, str *password);
+mal_export str AUTHdeleteRemoteTableCredentials(const char *local_table);
 
 /*
  * Authorisation is based on a password.  The passwords are stored hashed
@@ -44,6 +44,6 @@ mal5_export str AUTHdeleteRemoteTableCredentials(const char *local_table);
  * needed.  A locked vault means noone can log into the system, hence, the
  * vault needs to be unlocked as part of the server startup ritual.
  */
-mal5_export str AUTHunlockVault(const char *password);
+mal_export str AUTHunlockVault(const char *password);
 
 #endif /* _MAL_AUTHORIZE_H */

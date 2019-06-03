@@ -13,10 +13,10 @@
 #include "sql_statement.h"
 #include "mal_backend.h"
 
-extern stmt *output_rel_bin(backend *be, sql_rel *rel);
+sql_extern stmt *output_rel_bin(backend *be, sql_rel *rel);
 
-extern stmt *sql_parse(backend *be, sql_allocator *sa, const char *query, char mode);
+sql_extern stmt *sql_parse(backend *be, sql_allocator *sa, const char *query, char mode);
 
-extern list *rel_dependencies(mvc *sql, sql_rel *r);
+sql_extern list *rel_dependencies(mvc *sql, sql_rel *r);
 
 #endif /*_REL_BIN_H_*/

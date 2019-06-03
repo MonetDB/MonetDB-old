@@ -16,11 +16,11 @@
 
 #define MAXMODULES  128
 
-mal5_export str malModules[];
+mal_export str malModules[];
 
-mal5_export str malEmbeddedBoot(void);
-mal5_export str malExtraModulesBoot(Client c, str extraMalModules[], char* mal_scripts);
-mal5_export void malEmbeddedReset(void);
-mal5_export _Noreturn void malEmbeddedStop(int status);
+mal_export str malEmbeddedBoot(void);
+mal_export str malExtraModulesBoot(Client c, str extraMalModules[], char* mal_scripts);
+mal_export void malEmbeddedReset(void);
+mal_export _Noreturn void malEmbeddedStop(int status);
 
 #endif /*  _MAL_EMBEDDED_H*/

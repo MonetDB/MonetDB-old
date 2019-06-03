@@ -32,7 +32,7 @@
 /* #define _DEBUG_MODULE_*/
 
 #define MODULE_HASH_SIZE 1024
-Module moduleIndex[MODULE_HASH_SIZE] = { NULL };
+static Module moduleIndex[MODULE_HASH_SIZE] = { NULL };
 
 void
 listModules(stream *out, Module s)

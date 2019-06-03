@@ -22,11 +22,11 @@ typedef struct keyword {
 	struct keyword *next;
 } keyword;
 
-extern int keywords_insert(char *k, int token);
-extern keyword *find_keyword(char *text);
-extern int keyword_exists(char *text);
+sql_extern int keywords_insert(char *k, int token);
+sql_extern keyword *find_keyword(char *text);
+sql_extern int keyword_exists(char *text);
 
-extern void keyword_init(void);
-extern void keyword_exit(void);
+sql_extern void keyword_init(void);
+sql_extern void keyword_exit(void);
 
 #endif /* SQL_KEYWORD_H */

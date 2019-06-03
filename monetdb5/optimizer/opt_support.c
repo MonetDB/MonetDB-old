@@ -20,7 +20,7 @@
 /*
  * Optimizer catalog with runtime statistics;
  */
-struct OPTcatalog {
+/* struct OPTcatalog {
 	char *name;
 	int enabled;
 	int calls;
@@ -56,7 +56,7 @@ struct OPTcatalog {
 {"wlcr",		0,	0,	0},
 {"pushselect",	0,	0,	0},
 { 0,	0,	0,	0}
-};
+}; */
 
 /* some optimizers can only be applied once.
  * The optimizer trace at the end of the MAL block

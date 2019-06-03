@@ -36,7 +36,7 @@ int store_readonly = 0;
 int store_singleuser = 0;
 int store_initialized = 0;
 
-backend_stack backend_stk;
+static backend_stack backend_stk;
 
 store_functions store_funcs;
 table_functions table_funcs;

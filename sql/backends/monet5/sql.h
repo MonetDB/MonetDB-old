@@ -54,11 +54,11 @@
 #include "bat/bat_storage.h"
 #include "bat/bat_utils.h"
 
-extern int sqlcleanup(mvc *c, int err);
-extern sql_rel *sql_symbol2relation(mvc *c, symbol *sym);
+sql_extern int sqlcleanup(mvc *c, int err);
+sql_extern sql_rel *sql_symbol2relation(mvc *c, symbol *sym);
 
-extern BAT *mvc_bind(mvc *m, const char *sname, const char *tname, const char *cname, int access);
-extern BAT *mvc_bind_idxbat(mvc *m, const char *sname, const char *tname, const char *iname, int access);
+sql_extern BAT *mvc_bind(mvc *m, const char *sname, const char *tname, const char *cname, int access);
+sql_extern BAT *mvc_bind_idxbat(mvc *m, const char *sname, const char *tname, const char *iname, int access);
 
 sql5_export str SQLmvc(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

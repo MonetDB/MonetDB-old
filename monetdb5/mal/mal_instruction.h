@@ -127,65 +127,65 @@
 #define getGDKType(T) 		( T <= TYPE_str ? T : (T == TYPE_any ? TYPE_void : findGDKtype(T)))
 
 
-mal5_export void addMalException(MalBlkPtr mb, str msg);
-mal5_export void mal_instruction_reset(void);
-mal5_export InstrPtr newInstruction(MalBlkPtr mb, str modnme, str fcnnme);
-mal5_export InstrPtr copyInstruction(InstrPtr p);
-mal5_export void oldmoveInstruction(InstrPtr dst, InstrPtr src);
-mal5_export void clrInstruction(InstrPtr p);
-mal5_export void freeInstruction(InstrPtr p);
-mal5_export void clrFunction(InstrPtr p);
-mal5_export Symbol newSymbol(str nme, int kind);
-mal5_export void freeSymbol(Symbol s);
-mal5_export void freeSymbolList(Symbol s);
-mal5_export void printSignature(stream *fd, Symbol s, int flg);
+mal_export void addMalException(MalBlkPtr mb, str msg);
+mal_export void mal_instruction_reset(void);
+mal_export InstrPtr newInstruction(MalBlkPtr mb, str modnme, str fcnnme);
+mal_export InstrPtr copyInstruction(InstrPtr p);
+mal_export void oldmoveInstruction(InstrPtr dst, InstrPtr src);
+mal_export void clrInstruction(InstrPtr p);
+mal_export void freeInstruction(InstrPtr p);
+mal_export void clrFunction(InstrPtr p);
+mal_export Symbol newSymbol(str nme, int kind);
+mal_export void freeSymbol(Symbol s);
+mal_export void freeSymbolList(Symbol s);
+mal_export void printSignature(stream *fd, Symbol s, int flg);
 
-mal5_export MalBlkPtr newMalBlk(int elements);
-mal5_export void resetMalBlk(MalBlkPtr mb, int stop);
-mal5_export void resetMalBlkAndFreeInstructions(MalBlkPtr mb, int stop);
-mal5_export int newMalBlkStmt(MalBlkPtr mb, int elements);
-mal5_export int resizeMalBlk(MalBlkPtr mb, int elements);
-mal5_export int prepareMalBlk(MalBlkPtr mb, str s);
-mal5_export void freeMalBlk(MalBlkPtr mb);
-mal5_export MalBlkPtr copyMalBlk(MalBlkPtr mb);
-mal5_export void addtoMalBlkHistory(MalBlkPtr mb);
-mal5_export MalBlkPtr getMalBlkHistory(MalBlkPtr mb, int idx);
-mal5_export MalBlkPtr getMalBlkOptimized(MalBlkPtr mb, str name);
-mal5_export void trimMalVariables(MalBlkPtr mb, MalStkPtr stk);
-mal5_export void trimMalVariables_(MalBlkPtr mb, MalStkPtr glb);
-mal5_export void moveInstruction(MalBlkPtr mb, int pc, int target);
-mal5_export void removeInstruction(MalBlkPtr mb, InstrPtr p);
-mal5_export void removeInstructionBlock(MalBlkPtr mb, int pc, int cnt);
-mal5_export str operatorName(int i);
+mal_export MalBlkPtr newMalBlk(int elements);
+mal_export void resetMalBlk(MalBlkPtr mb, int stop);
+mal_export void resetMalBlkAndFreeInstructions(MalBlkPtr mb, int stop);
+mal_export int newMalBlkStmt(MalBlkPtr mb, int elements);
+mal_export int resizeMalBlk(MalBlkPtr mb, int elements);
+mal_export int prepareMalBlk(MalBlkPtr mb, str s);
+mal_export void freeMalBlk(MalBlkPtr mb);
+mal_export MalBlkPtr copyMalBlk(MalBlkPtr mb);
+mal_export void addtoMalBlkHistory(MalBlkPtr mb);
+mal_export MalBlkPtr getMalBlkHistory(MalBlkPtr mb, int idx);
+mal_export MalBlkPtr getMalBlkOptimized(MalBlkPtr mb, str name);
+mal_export void trimMalVariables(MalBlkPtr mb, MalStkPtr stk);
+mal_export void trimMalVariables_(MalBlkPtr mb, MalStkPtr glb);
+mal_export void moveInstruction(MalBlkPtr mb, int pc, int target);
+mal_export void removeInstruction(MalBlkPtr mb, InstrPtr p);
+mal_export void removeInstructionBlock(MalBlkPtr mb, int pc, int cnt);
+mal_export str operatorName(int i);
 
-mal5_export int findVariable(MalBlkPtr mb, const char *name);
-mal5_export int findVariableLength(MalBlkPtr mb, str name, int len);
-mal5_export malType getType(MalBlkPtr mb, str nme);
-mal5_export str getArgDefault(MalBlkPtr mb, InstrPtr p, int idx);
-mal5_export int newVariable(MalBlkPtr mb, const char *name, size_t len, malType type);
-mal5_export int cloneVariable(MalBlkPtr dst, MalBlkPtr src, int varid);
+mal_export int findVariable(MalBlkPtr mb, const char *name);
+mal_export int findVariableLength(MalBlkPtr mb, str name, int len);
+mal_export malType getType(MalBlkPtr mb, str nme);
+mal_export str getArgDefault(MalBlkPtr mb, InstrPtr p, int idx);
+mal_export int newVariable(MalBlkPtr mb, const char *name, size_t len, malType type);
+mal_export int cloneVariable(MalBlkPtr dst, MalBlkPtr src, int varid);
 /* generate a new variable name based on a pattern with 1 %d argument
  * -- not used, but this is how to do it */
 /* #define renameVariable(mb, id, pattern, newid) snprintf(getVarName(mb,id),IDLENGTH,pattern,newid) */
-mal5_export int newTmpVariable(MalBlkPtr mb, malType type);
-mal5_export int newTypeVariable(MalBlkPtr mb, malType type);
-mal5_export void freeVariable(MalBlkPtr mb, int varid);
-mal5_export void clearVariable(MalBlkPtr mb, int varid);
-mal5_export int cpyConstant(MalBlkPtr mb, VarPtr vr);
-mal5_export int defConstant(MalBlkPtr mb, int type, ValPtr cst);
-mal5_export int fndConstant(MalBlkPtr mb, const ValRecord *cst, int depth);
-mal5_export str convertConstant(malType type, ValPtr vr);
+mal_export int newTmpVariable(MalBlkPtr mb, malType type);
+mal_export int newTypeVariable(MalBlkPtr mb, malType type);
+mal_export void freeVariable(MalBlkPtr mb, int varid);
+mal_export void clearVariable(MalBlkPtr mb, int varid);
+mal_export int cpyConstant(MalBlkPtr mb, VarPtr vr);
+mal_export int defConstant(MalBlkPtr mb, int type, ValPtr cst);
+mal_export int fndConstant(MalBlkPtr mb, const ValRecord *cst, int depth);
+mal_export str convertConstant(malType type, ValPtr vr);
 
-mal5_export void pushInstruction(MalBlkPtr mb, InstrPtr p);
-mal5_export InstrPtr pushArgument(MalBlkPtr mb, InstrPtr p, int varid);
-mal5_export InstrPtr setArgument(MalBlkPtr mb, InstrPtr p, int idx, int varid);
-mal5_export InstrPtr pushReturn(MalBlkPtr mb, InstrPtr p, int varid);
-mal5_export InstrPtr pushArgumentId(MalBlkPtr mb, InstrPtr p, const char *name);
-mal5_export void delArgument(InstrPtr p, int varid);
-mal5_export void setArgType(MalBlkPtr mb, InstrPtr p, int i, int tpe);
-mal5_export void setReturnArgument(InstrPtr p, int varid);
-mal5_export malType destinationType(MalBlkPtr mb, InstrPtr p);
-mal5_export void setPolymorphic(InstrPtr p, int tpe, int force);
+mal_export void pushInstruction(MalBlkPtr mb, InstrPtr p);
+mal_export InstrPtr pushArgument(MalBlkPtr mb, InstrPtr p, int varid);
+mal_export InstrPtr setArgument(MalBlkPtr mb, InstrPtr p, int idx, int varid);
+mal_export InstrPtr pushReturn(MalBlkPtr mb, InstrPtr p, int varid);
+mal_export InstrPtr pushArgumentId(MalBlkPtr mb, InstrPtr p, const char *name);
+mal_export void delArgument(InstrPtr p, int varid);
+mal_export void setArgType(MalBlkPtr mb, InstrPtr p, int i, int tpe);
+mal_export void setReturnArgument(InstrPtr p, int varid);
+mal_export malType destinationType(MalBlkPtr mb, InstrPtr p);
+mal_export void setPolymorphic(InstrPtr p, int tpe, int force);
 /* Utility macros to inspect an instruction */
 #define functionStart(X) ((X)->token == FUNCTIONsymbol || \
               (X)->token == COMMANDsymbol || \
@@ -202,8 +202,8 @@ mal5_export void setPolymorphic(InstrPtr p, int tpe, int force);
 #define isLinearFlow(X)  (!(blockStart(X) || blockExit(X) || \
 				(X)->barrier== LEAVEsymbol ||  (X)->barrier== REDOsymbol ))
 
-mal5_export void strBeforeCall(ValPtr v, ValPtr bak);
-mal5_export void strAfterCall(ValPtr v, ValPtr bak);
-mal5_export void batBeforeCall(ValPtr v, ValPtr bak);
-mal5_export void batAfterCall(ValPtr v, ValPtr bak);
+mal_export void strBeforeCall(ValPtr v, ValPtr bak);
+mal_export void strAfterCall(ValPtr v, ValPtr bak);
+mal_export void batBeforeCall(ValPtr v, ValPtr bak);
+mal_export void batAfterCall(ValPtr v, ValPtr bak);
 #endif /*  _MAL_INSTR_H */
