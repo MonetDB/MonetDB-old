@@ -8,8 +8,8 @@
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR} ../common/options ../common/utils ../common/stream ../gdk
 					../monetdb5/mal ../monetdb5/modules/kernel ../monetdb5/modules/atoms ../monetdb5/modules/mal
-					../monetdb5/optimizer ../sql/backends/monet5 ../sql/include ../sql/common ../sql/scripts
-					../sql/server ../sql/storage ../sql/storage/bat)
+					../monetdb5/optimizer ../sql/backends/monet5 ../sql/include ../sql/common ../sql/server
+					../sql/storage ../sql/storage/bat)
 
 add_definitions(${COMPILER_OPTION}DLIBMUTILS ${COMPILER_OPTION}DLIBMEROUTIL ${COMPILER_OPTION}DLIBSTREAM
 				${COMPILER_OPTION}DLIBGDK ${COMPILER_OPTION}DLIBMAL ${COMPILER_OPTION}DLIBATOMS
@@ -54,9 +54,7 @@ set(MAL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/language.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/01_batcalc.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/01_calc.mal"
-	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql.mal") # sql.mal MUST be here
-
-set(SQL_MAL_SCRIPTS_LIST
+	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql.mal" # sql.mal MUST be here
 	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sqlcatalog.mal"
 	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql_transaction.mal"
 	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql_decimal.mal"
@@ -70,7 +68,7 @@ set(SQL_MAL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql_inspect.mal"
 	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql_generator.mal")
 
-set(SQL_SCRIPTS_LIST1
+set(SQL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/sql/scripts/09_like.sql"
 	"${CMAKE_SOURCE_DIR}/sql/scripts/10_math.sql"
 	"${CMAKE_SOURCE_DIR}/sql/scripts/11_times.sql"
@@ -85,15 +83,11 @@ set(SQL_SCRIPTS_LIST1
 	"${CMAKE_SOURCE_DIR}/sql/scripts/51_sys_schema_extension.sql"
 	"${CMAKE_SOURCE_DIR}/sql/scripts/70_storagemodel.sql"
 	"${CMAKE_SOURCE_DIR}/sql/scripts/71_statistics.sql"
-	"${CMAKE_SOURCE_DIR}/sql/scripts/90_generator.sql")
-
-set(SQL_SCRIPTS_LIST2
+	"${CMAKE_SOURCE_DIR}/sql/scripts/90_generator.sql"
 	"${CMAKE_SOURCE_DIR}/sql/scripts/99_system.sql")
 
 build_embedded_mal_scripts(mal_inline malModules "${MAL_SCRIPTS_LIST}")
-build_embedded_mal_scripts(sql_mal_inline sqlMalModules "${SQL_MAL_SCRIPTS_LIST}")
-build_embedded_sql_scripts(createdb_inline1 "${SQL_SCRIPTS_LIST1}")
-build_embedded_sql_scripts(createdb_inline2 "${SQL_SCRIPTS_LIST2}")
+build_embedded_sql_scripts(createdb_inline1 "${SQL_SCRIPTS_LIST}")
 
 add_library(monetdblite SHARED
 			monetdb_embedded.c
@@ -274,7 +268,6 @@ add_library(monetdblite SHARED
 			../sql/server/sql_scan.c
 			../sql/server/sql_semantic.c
 			../sql/server/sql_symbol.c
-			../sql/scripts/sql_scripts.c
 			../sql/storage/bat/bat_logger.c
 			../sql/storage/bat/bat_storage.c
 			../sql/storage/bat/bat_table.c

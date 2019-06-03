@@ -14,7 +14,7 @@ add_subdirectory(UDF)
 include_directories(${CMAKE_CURRENT_BINARY_DIR} ../../../gdk ../../include ../../common ../../storage ../../server
 					../../../monetdb5/modules/atoms ../../../monetdb5/modules/kernel ../../../monetdb5/mal
 					../../../monetdb5/modules/mal ../../../monetdb5/optimizer ../../../monetdb5/scheduler
-					../../../monetdb5/extras/rapi ../../../common/stream ../../../common/utils ../../scripts)
+					../../../monetdb5/extras/rapi ../../../common/stream ../../../common/utils)
 
 set(SQL_MAL_SCRIPTS_LIST
 	"${CMAKE_CURRENT_SOURCE_DIR}/sql_sysmon.mal"
@@ -40,9 +40,49 @@ if(HAVE_HGE)
 		"${CMAKE_CURRENT_SOURCE_DIR}/sql_generator_hge.mal")
 endif()
 
-build_embedded_mal_scripts(sql_mal_inline sqlMalModules "${SQL_MAL_SCRIPTS_LIST}")
+set(SQL_SCRIPTS_LIST1
+	"${CMAKE_SOURCE_DIR}/sql/scripts/09_like.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/10_math.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/11_times.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/12_url.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/13_date.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/14_inet.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/15_querylog.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/16_tracelog.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/17_temporal.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/18_index.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/20_vacuum.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/21_dependency_views.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/22_clients.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/23_skyserver.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/25_debug.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/26_sysmon.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/27_rejects.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/39_analytics.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/40_json.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/41_md5sum.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/45_uuid.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/46_profiler.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/51_sys_schema_extension.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/60_wlcr.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/70_storagemodel.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/71_statistics.sql"
+	"${CMAKE_SOURCE_DIR}/sql/scripts/90_generator.sql")
+if(HAVE_HGE)
+	list(APPEND SQL_SCRIPTS_LIST1
+		"${CMAKE_SOURCE_DIR}/sql/scripts/39_analytics_hge.sql"
+		"${CMAKE_SOURCE_DIR}/sql/scripts/40_json_hge.sql"
+		"${CMAKE_SOURCE_DIR}/sql/scripts/90_generator_hge.sql")
+endif()
 
-set(SQL_LINK_LIBRARIES sqlserver store batstore sqlcommon sqlscripts)
+# These scripts loads after all custom installed SQL scripts
+set(SQL_SCRIPTS_LIST2 "${CMAKE_SOURCE_DIR}/sql/scripts/99_system.sql")
+
+build_embedded_mal_scripts(sql_mal_inline sqlMalModules "${SQL_MAL_SCRIPTS_LIST}")
+build_embedded_sql_scripts(createdb_inline1 "${SQL_SCRIPTS_LIST1}")
+build_embedded_sql_scripts(createdb_inline2 "${SQL_SCRIPTS_LIST2}")
+
+set(SQL_LINK_LIBRARIES sqlserver store batstore sqlcommon)
 if(WIN32)
 	list(APPEND SQL_LINK_LIBRARIES mapi monetdb5 gdk stream ${CRYPTO_LIBRARIES})
 endif()

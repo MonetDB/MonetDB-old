@@ -50,7 +50,6 @@
 #include <unistd.h>
 #endif
 #include "sql_upgrades.h"
-#include "sql_scripts.h"
 
 static int SQLinitialized = 0;
 static int SQLnewcatalog = 0;
@@ -369,10 +368,47 @@ SQLresetClient(Client c)
 	return msg;
 }
 
+static str
+install_sql_scripts(Client c, char* scripts_array, const char* array_name)
+{
+	str msg = MAL_SUCCEED;
+	size_t createdb_len;
+	buffer* createdb_buf;
+	stream* createdb_stream;
+	bstream* createdb_bstream;
+
+	assert(scripts_array && array_name);
+	createdb_len = strlen(scripts_array);
+	if ((createdb_buf = GDKmalloc(sizeof(buffer))) == NULL)
+		throw(MAL, "sql.install_sql_scripts_array", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	buffer_init(createdb_buf, scripts_array, createdb_len);
+	if ((createdb_stream = buffer_rastream(createdb_buf, "sql.install_sql_scripts_array")) == NULL) {
+		GDKfree(createdb_buf);
+		throw(MAL, "sql.install_sql_scripts_array", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	}
+	if ((createdb_bstream = bstream_create(createdb_stream, createdb_len)) == NULL) {
+		mnstr_destroy(createdb_stream);
+		GDKfree(createdb_buf);
+		throw(MAL, "sql.install_sql_scripts_array", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	}
+	if (bstream_next(createdb_bstream) >= 0)
+		msg = SQLstatementIntern(c, &createdb_bstream->buf, "sql.install_sql_scripts_array", TRUE, FALSE, NULL);
+	else
+		msg = createException(MAL, "sql.install_sql_scripts_array", SQLSTATE(HY0002) "Could not load %s script", array_name);
+
+	bstream_destroy(createdb_bstream);
+	GDKfree(createdb_buf);
+	return msg;
+}
+
 MT_Id sqllogthread, idlethread;
 
+#include "createdb_inline1.h"
+#ifndef HAVE_EMBEDDED
 #include "sql_mal_inline.h"
 #include "sql_mal_inline_names.h"
+#include "createdb_inline2.h"
+#endif
 
 static str
 SQLinit(Client c)
@@ -408,10 +444,12 @@ SQLinit(Client c)
 	}
 	(void) tz;
 
+#ifndef HAVE_EMBEDDED
 	if ((msg = malExtraModulesBoot(c, sqlMalModules, sql_mal_inline)) != MAL_SUCCEED) {
 		MT_lock_unset(&sql_contextLock);
 		return msg;
 	}
+#endif
 
 	if (debug_str)
 		SQLdebug = strtol(debug_str, NULL, 10);
@@ -483,7 +521,7 @@ SQLinit(Client c)
 
 		MT_fprintf(stdout, "# Loading bundled SQL scripts\n");
 
-		if ((msg = install_sql_scripts1(c)) != MAL_SUCCEED) {
+		if ((msg = install_sql_scripts(c, createdb_inline1, "createdb_inline1")) != MAL_SUCCEED) {
 			MT_lock_unset(&sql_contextLock);
 			return msg;
 		}
@@ -547,12 +585,12 @@ SQLinit(Client c)
 			} else
 				MT_fprintf(stderr, "!could not read createdb.sql\n");
 		}
-#endif
 
-		if ((msg = install_sql_scripts2(c)) != MAL_SUCCEED) {
+		if ((msg = install_sql_scripts(c, createdb_inline2, "createdb_inline2")) != MAL_SUCCEED) {
 			MT_lock_unset(&sql_contextLock);
 			return msg;
 		}
+#endif
 		if ((msg = SQLstatementIntern(c, &commit, "sql.init", 1, 0, NULL)) != MAL_SUCCEED) {
 			MT_lock_unset(&sql_contextLock);
 			return msg;
