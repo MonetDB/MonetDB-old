@@ -11,8 +11,8 @@
 
 #include "monetdb_config.h"
 
-#ifdef WIN32
-#if !defined(LIBMUTILS) && !defined(LIBGDK) && !defined(LIBMEROUTIL)
+#if defined(WIN32) && !defined(HAVE_EMBEDDED)
+#if !defined(LIBMUTILS)
 #define mutils_export extern __declspec(dllimport)
 #else
 #define mutils_export extern __declspec(dllexport)

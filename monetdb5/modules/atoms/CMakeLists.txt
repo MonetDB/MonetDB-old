@@ -23,6 +23,6 @@ add_library(atoms OBJECT
 			url.c url.h
 			uuid.c
 			xml.c xml.h)
-target_compile_definitions(atoms PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
+target_compile_definitions(atoms PRIVATE LIBMONETDB5)
 set_target_properties(atoms PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:atoms> PARENT_SCOPE)

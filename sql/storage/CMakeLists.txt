@@ -16,4 +16,4 @@ add_library(store STATIC
 			sql_storage.h store_dependency.h
 			store_sequence.h)
 set_target_properties(store PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_compile_definitions(store PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)
+target_compile_definitions(store PRIVATE LIBSQL LIBSTORE)

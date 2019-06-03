@@ -15,4 +15,4 @@ add_library(batstore STATIC
 			res_table.c
 			bat_logger.h bat_storage.h bat_table.h bat_utils.h res_table.h)
 set_target_properties(batstore PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_compile_definitions(batstore PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)
+target_compile_definitions(batstore PRIVATE LIBSQL LIBSTORE)

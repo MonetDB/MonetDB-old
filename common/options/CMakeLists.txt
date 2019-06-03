@@ -12,7 +12,7 @@ set(OPTIONS_OBJECTS monet_options.c monet_options.h monet_getopt.h)
 
 if(WIN32)
 	add_library(moptions SHARED ${OPTIONS_OBJECTS})
-	target_compile_definitions(moptions PRIVATE LIBMOPTIONS LIBGDK LIBMAPI)
+	target_compile_definitions(moptions PRIVATE LIBMOPTIONS)
 	install(TARGETS moptions DESTINATION ${LIBDIR})
 	install(FILES $<TARGET_PDB_FILE:moptions> DESTINATION ${LIBDIR} OPTIONAL)
 else()

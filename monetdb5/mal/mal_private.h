@@ -8,7 +8,7 @@
 
 /* This file should not be included in any file outside of this directory */
 
-#ifndef LIBMAL
+#ifndef LIBMONETDB5
 #error this file should not be included outside its source directory
 #endif
 

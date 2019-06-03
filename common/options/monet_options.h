@@ -27,8 +27,8 @@ extern "C" {
 
 #ifndef moptions_export
 /* avoid using "#ifdef WIN32" so that this file does not need our config.h */
-#if defined(_MSC_VER) || defined(__CYGWIN__) || defined(__MINGW32__)
-#if !defined(LIBMOPTIONS) && !defined(LIBGDK) && !defined(LIBMAPI)
+#if defined(WIN32) && !defined(HAVE_EMBEDDED)
+#if !defined(LIBMOPTIONS)
 #define moptions_export extern __declspec(dllimport)
 #else
 #define moptions_export extern __declspec(dllexport)

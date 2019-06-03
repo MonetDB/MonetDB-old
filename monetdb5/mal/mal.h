@@ -17,7 +17,7 @@
 #include "gdk.h"
 
 #ifdef WIN32
-#if !defined(LIBMAL) && !defined(LIBATOMS) && !defined(LIBKERNEL) && !defined(LIBOPTIMIZER) && !defined(LIBSCHEDULER) && !defined(LIBMONETDB5)
+#if !defined(LIBMONETDB5)
 #define mal_export extern __declspec(dllimport)
 #else
 #define mal_export extern __declspec(dllexport)

@@ -20,6 +20,6 @@ add_library(kernel OBJECT
 			microbenchmark.c microbenchmark.h
 			mmath.c mmath.h mmath_private.h
 			status.c status.h)
-target_compile_definitions(kernel PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
+target_compile_definitions(kernel PRIVATE LIBMONETDB5)
 set_target_properties(kernel PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:kernel> PARENT_SCOPE)

@@ -53,8 +53,8 @@ typedef struct Ssabuplog {
 	double crashavg30; /* average of crashes in the last 30 start attempts */
 } sabuplog;
 
-#ifdef WIN32
-#if !defined(LIBMAL) && !defined(LIBATOMS) && !defined(LIBKERNEL) && !defined(LIBMAL) && !defined(LIBOPTIMIZER) && !defined(LIBSCHEDULER) && !defined(LIBMONETDB5) && !defined(LIBMSABAOTH)
+#if defined(WIN32) && !defined(HAVE_EMBEDDED)
+#if !defined(LIBMSABAOTH)
 #define msab_export extern __declspec(dllimport)
 #else
 #define msab_export extern __declspec(dllexport)

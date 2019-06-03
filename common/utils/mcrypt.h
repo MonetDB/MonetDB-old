@@ -9,8 +9,8 @@
 #ifndef MT_SEEN_MCRYPT_H
 #define MT_SEEN_MCRYPT_H 1
 
-#if defined(_MSC_VER) || defined(__CYGWIN__) || defined(__MINGW32__)
-#if !defined(LIBMAPI) && !defined(LIBMCRYPT)
+#if defined(WIN32) && !defined(HAVE_EMBEDDED)
+#if !defined(LIBMCRYPT)
 #define mcrypt_export extern __declspec(dllimport)
 #else
 #define mcrypt_export extern __declspec(dllexport)

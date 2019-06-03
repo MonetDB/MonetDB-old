@@ -29,7 +29,7 @@
 #include <limits.h>
 
 /* avoid using "#ifdef WIN32" so that this file does not need our config.h */
-#if defined(_MSC_VER) || defined(__CYGWIN__) || defined(__MINGW32__)
+#if defined(WIN32) && !defined(HAVE_EMBEDDED)
 # ifndef LIBSTREAM
 #  define stream_export extern __declspec(dllimport)
 # else

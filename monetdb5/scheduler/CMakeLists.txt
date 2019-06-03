@@ -14,6 +14,6 @@ add_library(scheduler OBJECT
 			run_isolate.c run_isolate.h
 			run_memo.c run_memo.h
 			run_pipeline.c run_pipeline.h)
-target_compile_definitions(scheduler PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
+target_compile_definitions(scheduler PRIVATE LIBMONETDB5)
 set_target_properties(scheduler PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:scheduler> PARENT_SCOPE)

@@ -14,19 +14,18 @@ set(MSABAOTH_OBJECTS muuid.h muuid.c msabaoth.h msabaoth.c)
 
 if(WIN32)
 	add_library(mutils SHARED ${MUTILS_OBJECTS})
-	target_compile_definitions(mutils PRIVATE LIBMUTILS LIBGDK LIBMEROUTIL)
+	target_compile_definitions(mutils PRIVATE LIBMUTILS)
 	install(TARGETS mutils DESTINATION ${LIBDIR})
 	install(FILES $<TARGET_PDB_FILE:mutils> DESTINATION ${LIBDIR} OPTIONAL)
 
 	add_library(mcrypt SHARED ${MCRYPT_OBJECTS})
-	target_compile_definitions(mcrypt PRIVATE LIBMAPI LIBMCRYPT)
+	target_compile_definitions(mcrypt PRIVATE LIBMCRYPT)
 	target_link_libraries(mcrypt PRIVATE ${CRYPTO_LIBRARIES} mutils)
 	install(TARGETS mcrypt DESTINATION ${LIBDIR})
 	install(FILES $<TARGET_PDB_FILE:mcrypt> DESTINATION ${LIBDIR} OPTIONAL)
 
 	add_library(msabaoth SHARED ${MSABAOTH_OBJECTS})
-	target_compile_definitions(msabaoth PRIVATE LIBMSABAOTH LIBMUUID LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER
-							   LIBMONETDB5)
+	target_compile_definitions(msabaoth PRIVATE LIBMSABAOTH LIBMUUID)
 	target_link_libraries(msabaoth PRIVATE ${CRYPTO_LIBRARIES} mutils)
 	install(TARGETS msabaoth DESTINATION ${LIBDIR})
 	install(FILES $<TARGET_PDB_FILE:msabaoth> DESTINATION ${LIBDIR} OPTIONAL)

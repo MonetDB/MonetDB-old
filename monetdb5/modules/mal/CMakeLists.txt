@@ -41,7 +41,7 @@ add_library(malmodules OBJECT
 			sample.c sample.h
 			json_util.c json_util.h
 			calc.c batcalc.c)
-target_compile_definitions(malmodules PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
+target_compile_definitions(malmodules PRIVATE LIBMONETDB5)
 set_target_properties(malmodules PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:malmodules> PARENT_SCOPE)
 

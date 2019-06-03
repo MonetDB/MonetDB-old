@@ -119,7 +119,7 @@ add_library(mal OBJECT
 			mal_type.c mal_type.h
 			mal_utils.c mal_utils.h
 			mal_private.h)
-target_compile_definitions(mal PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
+target_compile_definitions(mal PRIVATE LIBMONETDB5)
 set_target_properties(mal PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:mal> PARENT_SCOPE)
 

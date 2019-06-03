@@ -21,7 +21,7 @@ extern "C" {
 
 #include <stdint.h>
 
-#if defined(_MSC_VER) || defined(__CYGWIN__) || defined(__MINGW32__)
+#ifdef WIN32
 #if !defined(LIBEMBEDDED)
 #define embedded_export extern __declspec(dllimport)
 #else

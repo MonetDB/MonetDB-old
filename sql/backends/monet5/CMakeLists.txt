@@ -116,7 +116,7 @@ add_library(sql MODULE
 			sql_generator.c sql_generator.h) # The mal script header files should be in CMAKE_CURRENT_BINARY_DIR
 target_link_libraries(sql PRIVATE ${SQL_LINK_LIBRARIES})
 set_target_properties(sql PROPERTIES OUTPUT_NAME _sql)
-target_compile_definitions(sql PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)
+target_compile_definitions(sql PRIVATE LIBSQL LIBSTORE)
 
 install(TARGETS sql DESTINATION ${LIBDIR}/monetdb5)
 install(FILES sql.mal DESTINATION ${LIBDIR}/monetdb5)

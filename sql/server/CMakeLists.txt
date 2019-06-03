@@ -58,4 +58,4 @@ add_library(sqlserver STATIC
 			sql_privileges.h sql_query.h sql_qc.h sql_scan.h
 			sql_semantic.h sql_symbol.h sql_tokens.h sql_partition.h $<TARGET_OBJECTS:bison_obj>)
 set_target_properties(sqlserver PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_compile_definitions(sqlserver PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)
+target_compile_definitions(sqlserver PRIVATE LIBSQL LIBSTORE)

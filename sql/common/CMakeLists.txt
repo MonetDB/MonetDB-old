@@ -13,4 +13,4 @@ add_library(sqlcommon STATIC
 			sql_keyword.c sql_changeset.c sql_types.c sql_string.c
 			sql_backend.h sql_string.h sql_types.h)
 set_target_properties(sqlcommon PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_compile_definitions(sqlcommon PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)
+target_compile_definitions(sqlcommon PRIVATE LIBSQL LIBSTORE)

@@ -14,8 +14,8 @@
  * exported so that the call in sql can be satisfied by the version
  * that is included in monetdb5 */
 extern
-#ifdef WIN32
-#if !defined(LIBMSABAOTH) && !defined(LIBMUUID)
+#if defined(WIN32) && !defined(HAVE_EMBEDDED)
+#if !defined(LIBMUUID)
 __declspec(dllimport)
 #else
 __declspec(dllexport)

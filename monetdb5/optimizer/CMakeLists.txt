@@ -47,6 +47,6 @@ add_library(optimizer OBJECT
 			opt_postfix.c opt_postfix.h
 			opt_volcano.c opt_volcano.h
 			opt_wrapper.c)
-target_compile_definitions(optimizer PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
+target_compile_definitions(optimizer PRIVATE LIBMONETDB5)
 set_target_properties(optimizer PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:optimizer> PARENT_SCOPE)
