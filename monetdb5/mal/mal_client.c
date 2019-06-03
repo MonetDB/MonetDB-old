@@ -193,8 +193,8 @@ MCexitClient(Client c)
 		assert(c->bak == NULL);
 		if (c->fdin) {
 			/* protection against closing stdin stream */
-                        if (c->fdin->s == GDKstdin)
-                                c->fdin->s = NULL;
+			if (c->fdin->s == GDKstdin)
+				c->fdin->s = NULL;
 			bstream_destroy(c->fdin);
 		}
 		c->fdout = NULL;

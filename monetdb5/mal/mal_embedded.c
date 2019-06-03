@@ -188,9 +188,7 @@ malEmbeddedReset(void) //remove extra modules and set to non-initialized again
 	mal_namespace_reset();
 	/* No need to clean up the namespace, it will simply be extended
 	 * upon restart mal_namespace_reset(); */
-#ifndef HAVE_EMBEDDED
 	GDKreset(0);	// terminate all other threads
-#endif
 	embeddedinitialized = false;
 }
 

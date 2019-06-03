@@ -221,10 +221,12 @@ monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** re
 	buffer query_buf;
 	stream *query_stream;
 	monetdb_result_internal *res_internal = NULL;
+	bstream *old_bstream;
 
 	if ((msg = validate_connection(conn, "embedded.monetdb_query_internal")) != MAL_SUCCEED)
 		return msg;
 
+	old_bstream = c->fdin;
 	b = (backend *) c->sqlcontext;
 	m = b->mvc;
 
@@ -243,12 +245,12 @@ monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** re
 	query_buf.buf = nq;
 
 	if (!(c->fdin = bstream_create(query_stream, query_len))) {
-		close_stream(query_stream);
-		return createException(MAL, "embedded.monetdb_query_internal", SQLSTATE(HY001) "WARNING: could not setup query stream.");
+		msg = createException(MAL, "embedded.monetdb_query_internal", SQLSTATE(HY001) "WARNING: could not setup query stream.");
+		goto cleanup;
 	}
 	if (bstream_next(c->fdin) < 0) {
-		close_stream(query_stream);
-		throw(MAL, "embedded.monetdb_query_internal", SQLSTATE(HY001) "Internal error while starting the query");
+		msg = createException(MAL, "embedded.monetdb_query_internal", SQLSTATE(HY001) "Internal error while starting the query");
+		goto cleanup;
 	}
 
 	b->language = language;
@@ -310,7 +312,7 @@ cleanup:
 	GDKfree(nq);
 	MSresetInstructions(c->curprg->def, 1);
 	bstream_destroy(c->fdin);
-	c->fdin = NULL;
+	c->fdin = old_bstream;
 
 	commit_msg = SQLautocommit(m); //need always to commit even if msg is set
 	if ((msg != MAL_SUCCEED || commit_msg != MAL_SUCCEED)) {
