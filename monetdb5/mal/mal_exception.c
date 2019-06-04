@@ -58,7 +58,7 @@ static str
 createExceptionInternal(enum malexception type, const char *fcn, const char *format, va_list ap)
 {
 	char *message;
-	int len;
+	int len = 0;
 	// if there is an error we allow memory allocation once again
 #ifndef NDEBUG
 	GDKsetmallocsuccesscount(-1);
@@ -66,7 +66,12 @@ createExceptionInternal(enum malexception type, const char *fcn, const char *for
 	message = GDKmalloc(GDKMAXERRLEN);
 	if (message == NULL)
 		return M5OutOfMemory;	/* last resort */
+#ifdef HAVE_EMBEDDED
+	(void) type;
+	(void) fcn;
+#else
 	len = snprintf(message, GDKMAXERRLEN, "%s:%s:", exceptionNames[type], fcn);
+#endif
 	if (len >= GDKMAXERRLEN)	/* shouldn't happen */
 		return message;
 	len += vsnprintf(message + len, GDKMAXERRLEN - len, format, ap);

@@ -46,9 +46,9 @@ static char*
 validate_connection(monetdb_connection conn, const char* call) // Call this function always inside the embedded_lock
 {
 	if (!monetdb_embedded_initialized)
-		return createException(MAL, call, SQLSTATE(HY001) "Embedded MonetDB is not started");
+		return createException(MAL, call, "Embedded MonetDB is not started");
 	if (!MCvalid((Client) conn))
-		return createException(MAL, call, SQLSTATE(HY001) "Invalid connection");
+		return createException(MAL, call, "Invalid connection");
 	return MAL_SUCCEED;
 }
 
@@ -130,14 +130,14 @@ monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** re
 	m = b->mvc;
 
 	if (!query)
-		return createException(MAL, "embedded.monetdb_query_internal", SQLSTATE(42000) "Query missing");
+		return createException(MAL, "embedded.monetdb_query_internal", "Query missing");
 	if (!(query_stream = buffer_rastream(&query_buf, qname))) {
-		msg = createException(MAL, "embedded.monetdb_query_internal", SQLSTATE(HY001) "WARNING: could not setup query stream.");
+		msg = createException(MAL, "embedded.monetdb_query_internal", "Could not setup query stream");
 		goto cleanup;
 	}
 	query_len = strlen(query) + 3;
 	if (!(nq = GDKmalloc(query_len))) {
-		msg = createException(MAL, "embedded.monetdb_query_internal", SQLSTATE(HY001) "WARNING: could not setup query stream.");
+		msg = createException(MAL, "embedded.monetdb_query_internal", "Could not setup query stream");
 		goto cleanup;
 	}
 	sprintf(nq, "%s\n;", query);
@@ -147,11 +147,11 @@ monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** re
 	query_buf.buf = nq;
 
 	if (!(c->fdin = bstream_create(query_stream, query_len))) {
-		msg = createException(MAL, "embedded.monetdb_query_internal", SQLSTATE(HY001) "WARNING: could not setup query stream.");
+		msg = createException(MAL, "embedded.monetdb_query_internal", "Could not setup query stream");
 		goto cleanup;
 	}
 	if (bstream_next(c->fdin) < 0) {
-		msg = createException(MAL, "embedded.monetdb_query_internal", SQLSTATE(HY001) "Internal error while starting the query");
+		msg = createException(MAL, "embedded.monetdb_query_internal", "Internal error while starting the query");
 		goto cleanup;
 	}
 
@@ -175,7 +175,7 @@ monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** re
 
 	if (result) {
 		if (!(res_internal = GDKzalloc(sizeof(monetdb_result_internal)))) {
-			msg = createException(MAL, "embedded.monetdb_query_internal", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			msg = createException(MAL, "embedded.monetdb_query_internal", MAL_MALLOC_FAIL);
 			goto cleanup;
 		}
 		if (m->emode == m_execute)
@@ -193,7 +193,7 @@ monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** re
 			if (m->results->nr_cols > 0 && m->results->order) {
 				BAT* bb = BATdescriptor(m->results->order);
 				if (!bb) {
-					msg = createException(MAL, "embedded.monetdb_query_internal", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
+					msg = createException(MAL, "embedded.monetdb_query_internal", RUNTIME_OBJECT_MISSING);
 					goto cleanup;
 				}
 				res_internal->res.nrows = BATcount(bb);
@@ -202,7 +202,7 @@ monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** re
 			res_internal->monetdb_resultset = m->results;
 			res_internal->converted_columns = GDKzalloc(sizeof(monetdb_column*) * res_internal->res.ncols);
 			if (!res_internal->converted_columns) {
-				msg = createException(MAL, "embedded.monetdb_query_internal", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+				msg = createException(MAL, "embedded.monetdb_query_internal", MAL_MALLOC_FAIL);
 				goto cleanup;
 			}
 			m->results = NULL;
@@ -257,17 +257,17 @@ monetdb_connect_internal(monetdb_connection *conn)
 	Client mc = NULL;
 
 	if (!monetdb_embedded_initialized) {
-		msg = createException(MAL, "embedded.monetdb_connect_internal", SQLSTATE(42000) "Embedded MonetDB is not started");
+		msg = createException(MAL, "embedded.monetdb_connect_internal", "Embedded MonetDB is not started");
 		goto cleanup;
 	}
 	mc = MCinitClient((oid) 0, 0, 0);
 	if (!MCvalid(mc)) {
-		msg = createException(MAL, "embedded.monetdb_connect_internal", SQLSTATE(HY001) "Failed to initialize client");
+		msg = createException(MAL, "embedded.monetdb_connect_internal", "Failed to initialize client");
 		goto cleanup;
 	}
 	mc->curmodule = mc->usermodule = userModule();
 	if (mc->usermodule == NULL) {
-		msg = createException(MAL, "embedded.monetdb_connect_internal", SQLSTATE(HY001) "Failed to initialize client MAL module");
+		msg = createException(MAL, "embedded.monetdb_connect_internal", "Failed to initialize client MAL module");
 		goto cleanup;
 	}
 	if ((msg = SQLinitClient(mc)) != MAL_SUCCEED)
@@ -292,7 +292,7 @@ monetdb_connect(monetdb_connection *conn)
 {
 	char* msg = MAL_SUCCEED;
 	if (!conn)
-		return createException(MAL, "embedded.monetdb_connect_internal", SQLSTATE(42000) "monetdb_connection parameter is NULL");
+		return createException(MAL, "embedded.monetdb_connect_internal", "monetdb_connection parameter is NULL");
 	MT_lock_set(&embedded_lock);
 	msg = monetdb_connect_internal(conn);
 	MT_lock_unset(&embedded_lock);
@@ -334,24 +334,24 @@ monetdb_startup(char* dbdir, bool silent, bool sequential)
 		msg = GDKfatalmsg;
 		// we will get here if GDKfatal was called.
 		if (msg == NULL)
-			msg = createException(MAL, "embedded.monetdb_startup", SQLSTATE(HY002) "GDKfatal() with unspecified error");
+			msg = createException(MAL, "embedded.monetdb_startup", "GDKfatal() with unspecified error");
 		goto cleanup;
 	}
 
 	if (monetdb_embedded_initialized) {
-		msg = createException(MAL, "embedded.monetdb_startup", SQLSTATE(42000) "MonetDBLite is already initialized");
+		msg = createException(MAL, "embedded.monetdb_startup", "MonetDBLite is already initialized");
 		goto done;
 	}
 
 	MT_fprintf_silent(silent);
 
 	if ((setlen = mo_builtin_settings(&set)) == 0) {
-		msg = createException(MAL, "embedded.monetdb_startup", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		msg = createException(MAL, "embedded.monetdb_startup", MAL_MALLOC_FAIL);
 		goto cleanup;
 	}
 	if (dbdir && (setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_dbpath", dbdir)) == 0) {
 		mo_free_options(set, setlen);
-		msg = createException(MAL, "embedded.monetdb_startup", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		msg = createException(MAL, "embedded.monetdb_startup", MAL_MALLOC_FAIL);
 		goto cleanup;
 	}
 	if (sequential)
@@ -360,20 +360,20 @@ monetdb_startup(char* dbdir, bool silent, bool sequential)
 		setlen = mo_add_option(&set, setlen, opt_cmdline, "sql_optimizer", "default_pipe");
 	if (setlen == 0) {
 		mo_free_options(set, setlen);
-		msg = createException(MAL, "embedded.monetdb_startup", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		msg = createException(MAL, "embedded.monetdb_startup", MAL_MALLOC_FAIL);
 		goto cleanup;
 	}
 	gdk_res = GDKinit(set, setlen);
 	mo_free_options(set, setlen);
 	if (gdk_res == GDK_FAIL) {
-		msg = createException(MAL, "embedded.monetdb_startup", SQLSTATE(HY002) "GDKinit() failed");
+		msg = createException(MAL, "embedded.monetdb_startup", "GDKinit() failed");
 		goto cleanup;
 	}
 
 	if ((msg = malEmbeddedBoot()) != MAL_SUCCEED)
 		goto cleanup;
 	if (!SQLisInitialized()) {
-		msg = createException(MAL, "embedded.monetdb_startup", SQLSTATE(HY002) "SQL initialization failed");
+		msg = createException(MAL, "embedded.monetdb_startup", "SQL initialization failed");
 		goto cleanup;
 	}
 
@@ -415,7 +415,7 @@ monetdb_send_close(monetdb_connection conn, int64_t id)
 	char query[100], *msg;
 
 	if (id < 1)
-		return createException(MAL, "embedded.monetdb_send_close", SQLSTATE(42000) "Invalid value, must be positive.");
+		return createException(MAL, "embedded.monetdb_send_close", "Invalid value, must be positive.");
 	sprintf(query, "close "LLFMT, id);
 	MT_lock_set(&embedded_lock);
 	msg = monetdb_query_internal(conn, query, NULL, NULL, NULL, 'X');
@@ -429,7 +429,7 @@ monetdb_set_autocommit(monetdb_connection conn, char value)
 	char query[100], *msg;
 
 	if (value != 1 && value != 0)
-		return createException(MAL, "embedded.monetdb_set_autocommit", SQLSTATE(42000) "Invalid value, need 0 or 1.");
+		return createException(MAL, "embedded.monetdb_set_autocommit", "Invalid value, need 0 or 1.");
 	sprintf(query, "auto_commit %i", value);
 	MT_lock_set(&embedded_lock);
 	msg = monetdb_query_internal(conn, query, NULL, NULL, NULL, 'X');
@@ -455,11 +455,11 @@ monetdb_append(monetdb_connection conn, const char* schema, const char* table, a
 	char* msg = MAL_SUCCEED;
 
 	if (table == NULL)
-		return createException(MAL, "embedded.monetdb_append", SQLSTATE(42000) "table parameter is NULL");
+		return createException(MAL, "embedded.monetdb_append", "table parameter is NULL");
 	if (data == NULL)
-		return createException(MAL, "embedded.monetdb_append", SQLSTATE(42000) "data parameter is NULL");
+		return createException(MAL, "embedded.monetdb_append", "data parameter is NULL");
 	if (column_count < 1)
-		return createException(MAL, "embedded.monetdb_append", SQLSTATE(42000) "column_count must be higher than 0");
+		return createException(MAL, "embedded.monetdb_append", "column_count must be higher than 0");
 
 	MT_lock_set(&embedded_lock);
 	if ((msg = validate_connection(conn, "embedded.monetdb_append")) != MAL_SUCCEED)
@@ -467,13 +467,13 @@ monetdb_append(monetdb_connection conn, const char* schema, const char* table, a
 	if ((msg = getSQLContext(c, NULL, &m, NULL)) != MAL_SUCCEED)
 		goto cleanup;
 	if (m->session->status < 0 && m->session->auto_commit == 0) {
-		msg = createException(SQL, "embedded.monetdb_append", SQLSTATE(25005) "Current transaction is aborted (please ROLLBACK)");
+		msg = createException(SQL, "embedded.monetdb_append", "Current transaction is aborted (please ROLLBACK)");
 		goto cleanup;
 	}
 	if (!m->sa) // unclear why this is required
 		m->sa = sa_create();
 	if (!m->sa) {
-		msg = createException(SQL, "embedded.monetdb_append", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		msg = createException(SQL, "embedded.monetdb_append", MAL_MALLOC_FAIL);
 		goto cleanup;
 	}
 
@@ -491,15 +491,15 @@ monetdb_append(monetdb_connection conn, const char* schema, const char* table, a
 
 		assert(f);
 		if (!(s = mvc_bind_schema(m, schema))) {
-			msg = createException(SQL, "embedded.monetdb_append", SQLSTATE(3F000) "Schema missing %s", schema);
+			msg = createException(SQL, "embedded.monetdb_append", "Schema missing %s", schema);
 			goto cleanup;
 		}
 		if (!(t = mvc_bind_table(m, s, table))) {
-			msg = createException(SQL, "embedded.monetdb_append", SQLSTATE(42S02) "Table missing %s.%s", schema, table);
+			msg = createException(SQL, "embedded.monetdb_append", "Table missing %s.%s", schema, table);
 			goto cleanup;
 		}
 		if (column_count != (size_t)list_length(t->columns.set)) {
-			msg = createException(SQL, "embedded.monetdb_append", SQLSTATE(21S01) "Incorrect number of columns");
+			msg = createException(SQL, "embedded.monetdb_append", "Incorrect number of columns");
 			goto cleanup;
 		}
 		for (i = 0, n = t->columns.set->h; i < column_count && n; i++, n = n->next) {
@@ -516,7 +516,7 @@ monetdb_append(monetdb_connection conn, const char* schema, const char* table, a
 		m->errstr[0] = '\0';
 
 		if (backend_dumpstmt((backend *) c->sqlcontext, c->curprg->def, rel, 1, 1, "append") < 0) {
-			msg = createException(SQL, "embedded.monetdb_append", SQLSTATE(HY001) "Append plan generation failure");
+			msg = createException(SQL, "embedded.monetdb_append", "Append plan generation failure");
 			goto cleanup;
 		}
 		if ((msg = SQLoptimizeQuery(c, c->curprg->def)) != MAL_SUCCEED)
@@ -536,7 +536,7 @@ monetdb_cleanup_result(monetdb_connection conn, monetdb_result* result)
 	char* msg = MAL_SUCCEED;
 
 	if (!result)
-		return createException(MAL, "embedded.monetdb_cleanup_result_internal", SQLSTATE(42000) "Parameter result is NULL");
+		return createException(MAL, "embedded.monetdb_cleanup_result_internal", "Parameter result is NULL");
 	MT_lock_set(&embedded_lock);
 	msg = monetdb_cleanup_result_internal(conn, result);
 	MT_lock_unset(&embedded_lock);
@@ -556,15 +556,15 @@ monetdb_get_columns(monetdb_connection conn, const char* schema_name, const char
 	Client c = (Client) conn;
 
 	if (!column_count)
-		return createException(MAL, "embedded.monetdb_get_columns", SQLSTATE(42000) "Parameter column_count is NULL");
+		return createException(MAL, "embedded.monetdb_get_columns", "Parameter column_count is NULL");
 	if (!column_names)
-		return createException(MAL, "embedded.monetdb_get_columns", SQLSTATE(42000) "Parameter column_names is NULL");
+		return createException(MAL, "embedded.monetdb_get_columns", "Parameter column_names is NULL");
 	if (!column_types)
-		return createException(MAL, "embedded.monetdb_get_columns", SQLSTATE(42000) "Parameter column_types is NULL");
+		return createException(MAL, "embedded.monetdb_get_columns", "Parameter column_types is NULL");
 	if (!schema_name)
-		return createException(MAL, "embedded.monetdb_get_columns", SQLSTATE(42000) "Parameter schema_name is NULL");
+		return createException(MAL, "embedded.monetdb_get_columns", "Parameter schema_name is NULL");
 	if (!table_name)
-		return createException(MAL, "embedded.monetdb_get_columns", SQLSTATE(42000) "Parameter table_name is NULL");
+		return createException(MAL, "embedded.monetdb_get_columns", "Parameter table_name is NULL");
 
 	MT_lock_set(&embedded_lock);
 	if ((msg = validate_connection(conn, "embedded.monetdb_get_columns")) != MAL_SUCCEED)
@@ -572,11 +572,11 @@ monetdb_get_columns(monetdb_connection conn, const char* schema_name, const char
 	if ((msg = getSQLContext(c, NULL, &m, NULL)) != MAL_SUCCEED)
 		goto cleanup;
 	if (!(s = mvc_bind_schema(m, schema_name))) {
-		msg = createException(MAL, "embedded.monetdb_get_columns", SQLSTATE(3F000) "Missing schema");
+		msg = createException(MAL, "embedded.monetdb_get_columns", "Missing schema");
 		goto cleanup;
 	}
 	if (!(t = mvc_bind_table(m, s, table_name))) {
-		msg = createException(MAL, "embedded.monetdb_get_columns", SQLSTATE(3F000) "Could not find table %s", table_name);
+		msg = createException(MAL, "embedded.monetdb_get_columns", "Could not find table %s", table_name);
 		goto cleanup;
 	}
 
@@ -593,7 +593,7 @@ monetdb_get_columns(monetdb_connection conn, const char* schema_name, const char
 			GDKfree(*column_types);
 			*column_types = NULL;
 		}
-		msg = createException(MAL, "embedded.monetdb_get_columns", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		msg = createException(MAL, "embedded.monetdb_get_columns", MAL_MALLOC_FAIL);
 		goto cleanup;
 	}
 
@@ -616,7 +616,7 @@ monetdb_shutdown(void)
 	if (monetdb_embedded_initialized)
 		monetdb_shutdown_internal();
 	else
-		msg = createException(MAL, "embedded.monetdb_shutdown", SQLSTATE(42000) "MonetDBLite is not yet initialized");
+		msg = createException(MAL, "embedded.monetdb_shutdown", "MonetDBLite is not yet initialized");
 	MT_lock_unset(&embedded_lock);
 	return msg;
 }
@@ -647,7 +647,7 @@ GENERATE_BASE_HEADERS(monetdb_data_timestamp, timestamp);
 #define GENERATE_BAT_INPUT_BASE(tpe)                                           \
 	monetdb_column_##tpe *bat_data = GDKzalloc(sizeof(monetdb_column_##tpe));  \
 	if (!bat_data) {                                                           \
-		msg = createException(MAL, "embedded.monetdb_result_fetch", SQLSTATE(HY001) MAL_MALLOC_FAIL); \
+		msg = createException(MAL, "embedded.monetdb_result_fetch", MAL_MALLOC_FAIL); \
 		goto cleanup;                                                          \
 	}                                                                          \
 	bat_data->type = monetdb_##tpe;                                            \
@@ -662,7 +662,7 @@ GENERATE_BASE_HEADERS(monetdb_data_timestamp, timestamp);
 		bat_data->null_value = mtype##_nil;                                    \
 		bat_data->data = GDKzalloc(bat_data->count * sizeof(bat_data->null_value)); \
 		if (!bat_data->data) {                                                 \
-			msg = createException(MAL, "embedded.monetdb_result_fetch", SQLSTATE(HY001) MAL_MALLOC_FAIL); \
+			msg = createException(MAL, "embedded.monetdb_result_fetch", MAL_MALLOC_FAIL); \
 			goto cleanup;                                                      \
 		}                                                                      \
 		size_t it = 0;                                                         \
@@ -709,7 +709,7 @@ monetdb_result_fetch(monetdb_connection conn, monetdb_column** res, monetdb_resu
 	// otherwise we have to convert the column
 	b = BATdescriptor(result->monetdb_resultset->cols[column_index].b);
 	if (!b) {
-		msg = createException(MAL, "embedded.monetdb_result_fetch", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
+		msg = createException(MAL, "embedded.monetdb_result_fetch", RUNTIME_OBJECT_MISSING);
 		goto cleanup;
 	}
 	bat_type = b->ttype;
@@ -737,7 +737,7 @@ monetdb_result_fetch(monetdb_connection conn, monetdb_column** res, monetdb_resu
 		bat_data->data = GDKzalloc(sizeof(char *) * bat_data->count);
 		bat_data->null_value = NULL;
 		if (!bat_data->data) {
-			msg = createException(MAL, "embedded.monetdb_result_fetch", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			msg = createException(MAL, "embedded.monetdb_result_fetch", MAL_MALLOC_FAIL);
 			goto cleanup;
 		}
 
@@ -762,7 +762,7 @@ monetdb_result_fetch(monetdb_connection conn, monetdb_column** res, monetdb_resu
 		bat_data->count = BATcount(b);
 		bat_data->data = GDKmalloc(sizeof(bat_data->null_value) * bat_data->count);
 		if (!bat_data->data) {
-			msg = createException(MAL, "embedded.monetdb_result_fetch", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			msg = createException(MAL, "embedded.monetdb_result_fetch", MAL_MALLOC_FAIL);
 			goto cleanup;
 		}
 
@@ -776,7 +776,7 @@ monetdb_result_fetch(monetdb_connection conn, monetdb_column** res, monetdb_resu
 		bat_data->count = BATcount(b);
 		bat_data->data = GDKmalloc(sizeof(bat_data->null_value) * bat_data->count);
 		if (!bat_data->data) {
-			msg = createException(MAL, "embedded.monetdb_result_fetch", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			msg = createException(MAL, "embedded.monetdb_result_fetch", MAL_MALLOC_FAIL);
 			goto cleanup;
 		}
 
@@ -790,7 +790,7 @@ monetdb_result_fetch(monetdb_connection conn, monetdb_column** res, monetdb_resu
 		bat_data->count = BATcount(b);
 		bat_data->data = GDKmalloc(sizeof(bat_data->null_value) * bat_data->count);
 		if (!bat_data->data) {
-			msg = createException(MAL, "embedded.monetdb_result_fetch", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			msg = createException(MAL, "embedded.monetdb_result_fetch", MAL_MALLOC_FAIL);
 			goto cleanup;
 		}
 
@@ -805,7 +805,7 @@ monetdb_result_fetch(monetdb_connection conn, monetdb_column** res, monetdb_resu
 		bat_data->count = BATcount(b);
 		bat_data->data = GDKmalloc(sizeof(monetdb_data_blob) * bat_data->count);
 		if (!bat_data->data) {
-			msg = createException(MAL, "embedded.monetdb_result_fetch", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			msg = createException(MAL, "embedded.monetdb_result_fetch", MAL_MALLOC_FAIL);
 			goto cleanup;
 		}
 		j = 0;
@@ -821,7 +821,7 @@ monetdb_result_fetch(monetdb_connection conn, monetdb_column** res, monetdb_resu
 				bat_data->data[j].size = t->nitems;
 				bat_data->data[j].data = GDKmalloc(t->nitems);
 				if (!bat_data->data[j].data) {
-					msg = createException(MAL, "embedded.monetdb_result_fetch", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+					msg = createException(MAL, "embedded.monetdb_result_fetch", MAL_MALLOC_FAIL);
 					goto cleanup;
 				}
 				memcpy(bat_data->data[j].data, t->data, t->nitems);
@@ -839,7 +839,7 @@ monetdb_result_fetch(monetdb_connection conn, monetdb_column** res, monetdb_resu
 		bat_data->null_value = NULL;
 		bat_data->data = GDKzalloc(sizeof(char *) * bat_data->count);
 		if (!bat_data->data) {
-			msg = createException(MAL, "embedded.monetdb_result_fetch", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			msg = createException(MAL, "embedded.monetdb_result_fetch", MAL_MALLOC_FAIL);
 			goto cleanup;
 		}
 		j = 0;
@@ -854,7 +854,7 @@ monetdb_result_fetch(monetdb_connection conn, monetdb_column** res, monetdb_resu
 				char *sresult = NULL;
 				size_t length = 0;
 				if (BATatoms[bat_type].atomToStr(&sresult, &length, t, true) == 0) {
-					msg = createException(MAL, "embedded.monetdb_result_fetch", SQLSTATE(42000) "Failed to convert element to string");
+					msg = createException(MAL, "embedded.monetdb_result_fetch", "Failed to convert element to string");
 					goto cleanup;
 				}
 				bat_data->data[j] = sresult;
@@ -885,7 +885,7 @@ monetdb_result_fetch_rawcol(monetdb_connection conn, void** res, monetdb_result*
 	if ((msg = validate_connection(conn, "embedded.monetdb_result_fetch_rawcol")) != MAL_SUCCEED)
 		goto cleanup;
 	if (column_index >= mres->ncols) { // index out of range
-		msg = createException(MAL, "embedded.monetdb_result_fetch_rawcol", SQLSTATE(42000) "Index out of range");
+		msg = createException(MAL, "embedded.monetdb_result_fetch_rawcol", "Index out of range");
 		goto cleanup;
 	}
 	*res = &(result->monetdb_resultset->cols[column_index]);

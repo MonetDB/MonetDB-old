@@ -40,7 +40,11 @@
 #ifndef MAL_ERRORS
 #define MAL_ERRORS
 
-#define SQLSTATE(sqlstate)	#sqlstate "!"
+#ifdef HAVE_EMBEDDED
+#define SQLSTATE(sqlstate) " "
+#else
+#define SQLSTATE(sqlstate) #sqlstate "!"
+#endif
 
 #define MANUAL_HELP "See documentation for details"
 
