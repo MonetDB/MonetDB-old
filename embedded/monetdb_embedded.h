@@ -111,14 +111,14 @@ DEFAULT_STRUCT_DEFINITION(monetdb_data_timestamp, timestamp);
 
 embedded_export char* monetdb_connect(monetdb_connection *conn);
 embedded_export char* monetdb_disconnect(monetdb_connection conn);
-embedded_export char* monetdb_startup(char* dbdir, char silent, char sequential);
-embedded_export int monetdb_is_initialized(void);
+embedded_export char* monetdb_startup(char* dbdir, bool silent, bool sequential);
+embedded_export bool  monetdb_is_initialized(void);
 
 embedded_export char* monetdb_set_autocommit(monetdb_connection conn, char value);
 embedded_export char* monetdb_query(monetdb_connection conn, char* query, monetdb_result** result, int64_t* affected_rows, int64_t* prepare_id);
 
-embedded_export char* monetdb_result_fetch(monetdb_column** res, monetdb_result* mres, size_t column_index);
-embedded_export char* monetdb_result_fetch_rawcol(void** res, monetdb_result* mres, size_t column_index); // actually a res_col
+embedded_export char* monetdb_result_fetch(monetdb_connection conn, monetdb_column** res, monetdb_result* mres, size_t column_index);
+embedded_export char* monetdb_result_fetch_rawcol(monetdb_connection conn, void** res, monetdb_result* mres, size_t column_index); // actually a res_col
 
 embedded_export char* monetdb_clear_prepare(monetdb_connection conn, int64_t id);
 embedded_export char* monetdb_send_close(monetdb_connection conn, int64_t id);
