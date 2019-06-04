@@ -111,12 +111,11 @@ static char*
 monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** result, int64_t* affected_rows,
 					   int64_t* prepare_id, char language)
 {
-	char* msg = MAL_SUCCEED, *commit_msg = MAL_SUCCEED;
+	char* msg = MAL_SUCCEED, *commit_msg = MAL_SUCCEED, *nq = NULL;
 	Client c = (Client) conn;
 	mvc* m = NULL;
 	backend *b;
-	char *nq = NULL, *qname = "somequery";
-	size_t query_len;
+	size_t query_len, input_query_len;
 	buffer query_buf;
 	stream *query_stream;
 	monetdb_result_internal *res_internal = NULL;
@@ -131,16 +130,18 @@ monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** re
 
 	if (!query)
 		return createException(MAL, "embedded.monetdb_query_internal", "Query missing");
-	if (!(query_stream = buffer_rastream(&query_buf, qname))) {
+	if (!(query_stream = buffer_rastream(&query_buf, "sqlstatement"))) {
 		msg = createException(MAL, "embedded.monetdb_query_internal", "Could not setup query stream");
 		goto cleanup;
 	}
-	query_len = strlen(query) + 3;
+	input_query_len = strlen(query);
+	query_len = input_query_len + 3;
 	if (!(nq = GDKmalloc(query_len))) {
 		msg = createException(MAL, "embedded.monetdb_query_internal", "Could not setup query stream");
 		goto cleanup;
 	}
-	sprintf(nq, "%s\n;", query);
+	strcpy(nq, query);
+	strcpy(nq + input_query_len, "\n;");
 
 	query_buf.pos = 0;
 	query_buf.len = query_len;
@@ -162,7 +163,7 @@ monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** re
 	m->user_id = m->role_id = USER_MONETDB;
 	m->errstr[0] = '\0';
 
-	if ((msg = MSinitClientPrg(c, "user", qname)) != MAL_SUCCEED)
+	if ((msg = MSinitClientPrg(c, "user", "main")) != MAL_SUCCEED)
 		goto cleanup;
 	if ((msg = SQLparser(c)) != MAL_SUCCEED)
 		goto cleanup;
@@ -224,14 +225,14 @@ cleanup:
 		if (res_internal) {
 			char* other = monetdb_cleanup_result_internal(conn, (monetdb_result*) res_internal);
 			if (other)
-				GDKfree(other);
+				freeException(other);
 		}
 		if (result)
 			*result = NULL;
 		if (msg == MAL_SUCCEED) //if the error happened in the autocommit, set it as the returning error message
 			msg = commit_msg;
 		else if(commit_msg) //otherwise if msg is set, discard commit_msg
-			GDKfree(commit_msg);
+			freeException(commit_msg);
 	}
 	return msg;
 }
@@ -280,7 +281,7 @@ cleanup:
 	if (msg && mc) {
 		char* other = monetdb_disconnect_internal(mc);
 		if (other)
-			GDKfree(other);
+			freeException(other);
 		*conn = NULL;
 	} else if(conn)
 		*conn = mc;
@@ -400,7 +401,7 @@ done:
 char*
 monetdb_clear_prepare(monetdb_connection conn, int64_t id)
 {
-	char query[100], *msg;
+	char query[64], *msg;
 
 	sprintf(query, "release "LLFMT, id);
 	MT_lock_set(&embedded_lock);
@@ -412,7 +413,7 @@ monetdb_clear_prepare(monetdb_connection conn, int64_t id)
 char*
 monetdb_send_close(monetdb_connection conn, int64_t id)
 {
-	char query[100], *msg;
+	char query[64], *msg;
 
 	if (id < 1)
 		return createException(MAL, "embedded.monetdb_send_close", "Invalid value, must be positive.");
@@ -426,7 +427,7 @@ monetdb_send_close(monetdb_connection conn, int64_t id)
 char*
 monetdb_set_autocommit(monetdb_connection conn, char value)
 {
-	char query[100], *msg;
+	char query[64], *msg;
 
 	if (value != 1 && value != 0)
 		return createException(MAL, "embedded.monetdb_set_autocommit", "Invalid value, need 0 or 1.");
