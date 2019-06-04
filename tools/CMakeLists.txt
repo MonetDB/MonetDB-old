@@ -6,7 +6,9 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-add_subdirectory(mserver)
-if(NOT WIN32)
-	add_subdirectory(merovingian)
+if(HAVE_MONETDB5)
+	add_subdirectory(mserver)
+	if(NOT WIN32)
+		add_subdirectory(merovingian)
+	endif()
 endif()

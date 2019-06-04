@@ -57,7 +57,6 @@
 
 #define QUERY_MODE(m) (m==m_normal || m==m_instantiate || m==m_deps)
 
-
 /* different query execution modifiers (emod) */
 #define mod_none 	0
 #define mod_debug 	1
@@ -203,7 +202,6 @@ sql_extern sql_column *mvc_null(mvc *c, sql_column *col, int flag);
 sql_extern sql_column *mvc_default(mvc *c, sql_column *col, char *val);
 sql_extern sql_column *mvc_drop_default(mvc *c, sql_column *col);
 sql_extern sql_column *mvc_storage(mvc *c, sql_column *col, char *storage);
-sql_extern sql_column *mvc_rename_column(mvc *c, sql_column *col, char *new_name);
 sql_extern sql_table * mvc_access(mvc *m, sql_table *t, sht access);
 sql_extern int mvc_is_sorted(mvc *c, sql_column *col);
 
@@ -222,7 +220,6 @@ sql_extern int mvc_drop_idx(mvc *c, sql_schema *s, sql_idx * i);
 sql_extern sql_trigger * mvc_create_trigger(mvc *m, sql_table *t, const char *name, sht time, sht orientation, sht event, const char *old_name, const char *new_name, const char *condition, const char *statement );
 sql_extern sql_trigger * mvc_create_tc(mvc *m, sql_trigger * i, sql_column *c /*, extra options such as trunc */ );
 sql_extern int mvc_drop_trigger(mvc *m, sql_schema *s, sql_trigger * tri);
-
 
 /*dependency control*/
 sql_extern void mvc_create_dependency(mvc *m, sqlid id, sqlid depend_id, sht depend_type);

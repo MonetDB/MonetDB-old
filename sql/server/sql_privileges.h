@@ -41,7 +41,6 @@ sql_extern char *sql_revoke_role(mvc *m, str grantee, str auth, sqlid grantor, i
 sql_extern int sql_create_privileges(mvc *m, sql_schema *s);
 sql_extern int sql_schema_has_user(mvc *m, sql_schema *s);
 
-
 sql_extern char * sql_create_user(mvc *sql, char *user, char *passwd, char enc, char *fullname, char *schema);
 sql_extern char * sql_drop_user(mvc *sql, char *user);
 sql_extern char * sql_alter_user(mvc *sql, char *user, char *passwd, char enc, char *schema, char *oldpasswd);
