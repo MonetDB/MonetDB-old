@@ -482,6 +482,85 @@ gdk_export ATOMIC_TYPE GDKlocksleepcnt;
 #endif
 
 /*
+ * A simple read-write lock implementation.
+ * https://stackoverflow.com/questions/12033188/how-would-you-implement-your-own-reader-writer-lock-in-c11
+ * Very simple implementation, but it does what is required for MonetDBLite so far. Later we could avoid starvation of
+ * writers, ordering of requests.
+ * This implementation uses a single global MT_Lock, which bottlenecks a lot.
+ */
+
+typedef struct MT_RWLock {
+	MT_Lock lock;
+	bool writer;
+	int readers;
+} MT_RWLock;
+
+#define MT_RWLOCK_INITIALIZER(n) { .lock = MT_LOCK_INITIALIZER(n), .writer = false, .readers = 0, }
+
+#define MT_rwlock_read_set(l) \
+	do { \
+		MT_lock_set(&(l)->lock); \
+		if ((l)->writer) { \
+			MT_thread_setlockwait(&(l)->lock); \
+			do { \
+				MT_lock_unset(&(l)->lock); \
+				MT_sleep_ms(1); \
+				MT_lock_set(&(l)->lock); \
+			} while ((l)->writer); \
+			MT_thread_setlockwait(NULL); \
+		} \
+		(l)->readers++; \
+		MT_lock_unset(&(l)->lock); \
+	} while (0)
+
+#define MT_rwlock_read_unset(l) \
+	do { \
+		MT_lock_set(&(l)->lock); \
+		assert((l)->readers); \
+		assert(!(l)->writer); \
+		(l)->readers--; \
+		MT_lock_unset(&(l)->lock); \
+	} while (0)
+
+#define MT_rwlock_write_set(l) \
+	do { \
+		MT_lock_set(&(l)->lock); \
+		if ((l)->writer || (l)->readers) { \
+			MT_thread_setlockwait(&(l)->lock); \
+			do { \
+				MT_lock_unset(&(l)->lock); \
+				MT_sleep_ms(1); \
+				MT_lock_set(&(l)->lock); \
+			} while ((l)->writer || (l)->readers); \
+			MT_thread_setlockwait(NULL); \
+		} \
+		assert(!(l)->readers); \
+		(l)->writer = true; \
+		MT_lock_unset(&(l)->lock); \
+	} while (0)
+
+#define MT_rwlock_write_unset(l) \
+	do { \
+		MT_lock_set(&(l)->lock); \
+		assert((l)->writer); \
+		assert(!(l)->readers); \
+		(l)->writer = false; \
+		MT_lock_unset(&(l)->lock); \
+	} while (0)
+
+#define MT_rwlock_init(l, n) \
+	do { \
+		MT_lock_init(&(l)->lock, n); \
+		(l)->writer = false; \
+		(l)->readers = 0; \
+	} while (0)
+
+#define MT_rwlock_destroy(l) \
+	do { \
+		MT_lock_destroy(&(l)->lock); \
+	} while (0)
+
+/*
  * @- MT Semaphore API
  */
 #if !defined(HAVE_PTHREAD_H) && defined(WIN32)
