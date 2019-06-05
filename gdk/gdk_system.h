@@ -98,11 +98,6 @@
 # include <sys/sysctl.h>
 #endif
 
-/* new pthread interface, where the thread id changed to a struct */
-#ifdef PTW32_VERSION
-#define PTW32 1
-#endif
-
 /* debug and errno integers */
 gdk_export int GDKdebug;
 gdk_export void GDKsetdebug(int debug);
@@ -148,7 +143,6 @@ gdk_export int MT_join_thread(MT_Id t);
 /* and address space fragmentation is no issue */
 #define THREAD_STACK_SIZE	((size_t)2*1024*1024)
 #endif
-
 
 /*
  * @- MT Lock API

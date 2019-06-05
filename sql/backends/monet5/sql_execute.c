@@ -677,10 +677,11 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 				error = createException(PARSE, "SQLparser", "%s", m->errstr);
 			else if (*m->errstr)
 				error = createException(PARSE, "SQLparser", SQLSTATE(42000) "%s", m->errstr);
-			else
+			else if (msg)
 				error = createException(PARSE, "SQLparser", SQLSTATE(42000) "%s", msg);
 			if (msg)
 				freeException(msg);
+			assert(error);
 			msg = error;
 			*m->errstr = 0;
 			goto endofcompile;
