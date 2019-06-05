@@ -36,8 +36,6 @@ int store_readonly = 0;
 int store_singleuser = 0;
 int store_initialized = 0;
 
-backend_stack backend_stk;
-
 store_functions store_funcs;
 table_functions table_funcs;
 logger_functions logger_funcs;
@@ -1237,7 +1235,7 @@ load_schema(sql_trans *tr, sqlid id, oid rid)
 }
 
 static sql_trans *
-create_trans(sql_allocator *sa, backend_stack stk)
+create_trans(sql_allocator *sa)
 {
 	sql_trans *t = ZNEW(sql_trans);
 
@@ -1253,7 +1251,6 @@ create_trans(sql_allocator *sa, backend_stack stk)
 	t->status = 0;
 
 	t->parent = NULL;
-	t->stk = stk;
 
 	cs_new(&t->schemas, t->sa, (fdestroy) &schema_destroy);
 	return t;
@@ -1778,7 +1775,7 @@ store_load(void) {
 
 	if(!sequences_init())
 		return -1;
-	gtrans = tr = create_trans(sa, backend_stk);
+	gtrans = tr = create_trans(sa);
 	if(!gtrans)
 		return -1;
 
@@ -1790,7 +1787,7 @@ store_load(void) {
 		if (store_readonly) {
 			return -1;
 		}
-		tr = sql_trans_create(backend_stk, NULL, NULL);
+		tr = sql_trans_create(NULL, NULL);
 		if(!tr)
 			return -1;
 	} else {
@@ -1984,12 +1981,11 @@ store_load(void) {
 }
 
 int
-store_init(int debug, store_type store, int readonly, int singleuser, backend_stack stk)
+store_init(int debug, store_type store, int readonly, int singleuser)
 {
 
 	int v = 1;
 
-	backend_stk = stk;
 	logger_debug = debug;
 	bs_debug = debug&2;
 	store_readonly = readonly;
@@ -2217,7 +2213,7 @@ idle_manager(void)
 			continue;
 		}
 
-		s = sql_session_create(gtrans->stk, 0);
+		s = sql_session_create(0);
 		if(!s) {
 			MT_lock_unset(&bs_lock);
 			continue;
@@ -3052,7 +3048,7 @@ schema_dup(sql_trans *tr, int flags, sql_schema *os, sql_trans *o)
 }
 
 static sql_trans *
-trans_init(sql_trans *t, backend_stack stk, sql_trans *ot)
+trans_init(sql_trans *t, sql_trans *ot)
 {
 	t->wtime = t->rtime = 0;
 	t->stime = ot->wtime;
@@ -3065,7 +3061,6 @@ trans_init(sql_trans *t, backend_stack stk, sql_trans *ot)
 
 	t->schema_number = store_schema_number();
 	t->parent = ot;
-	t->stk = stk;
 
 	t->name = NULL;
 	if (bs_debug) 
@@ -3075,7 +3070,7 @@ trans_init(sql_trans *t, backend_stack stk, sql_trans *ot)
 }
 
 static sql_trans *
-trans_dup(backend_stack stk, sql_trans *ot, const char *newname)
+trans_dup(sql_trans *ot, const char *newname)
 {
 	node *n;
 	sql_trans *t = ZNEW(sql_trans);
@@ -3088,7 +3083,7 @@ trans_dup(backend_stack stk, sql_trans *ot, const char *newname)
 		_DELETE(t);
 		return NULL;
 	}
-	t = trans_init(t, stk, ot);
+	t = trans_init(t, ot);
 
 	cs_new(&t->schemas, t->sa, (fdestroy) &schema_destroy);
 
@@ -4043,7 +4038,7 @@ reset_trans(sql_trans *tr, sql_trans *ptr)
 }
 
 sql_trans *
-sql_trans_create(backend_stack stk, sql_trans *parent, const char *name)
+sql_trans_create(sql_trans *parent, const char *name)
 {
 	sql_trans *tr = NULL;
 
@@ -4054,7 +4049,7 @@ sql_trans_create(backend_stack stk, sql_trans *parent, const char *name)
 			fprintf(stderr, "#reuse trans (%p) %d\n", tr, spares);
 #endif
 		} else {
-			tr = trans_dup(stk, (parent) ? parent : gtrans, name);
+			tr = trans_dup((parent) ? parent : gtrans, name);
 #ifdef STORE_DEBUG
 			fprintf(stderr, "#new trans (%p)\n", tr);
 #endif
@@ -6465,7 +6460,7 @@ sql_trans_sequence_restart(sql_trans *tr, sql_sequence *seq, lng start)
 }
 
 sql_session *
-sql_session_create(backend_stack stk, int ac )
+sql_session_create(int ac )
 {
 	sql_session *s;
        
@@ -6475,14 +6470,13 @@ sql_session_create(backend_stack stk, int ac )
 	s = ZNEW(sql_session);
 	if (!s)
 		return NULL;
-	s->tr = sql_trans_create(s->stk, NULL, NULL);
+	s->tr = sql_trans_create(NULL, NULL);
 	if(!s->tr) {
 		_DELETE(s);
 		return NULL;
 	}
 	s->schema_name = NULL;
 	s->active = 0;
-	s->stk = stk;
 	if(!sql_session_reset(s, ac)) {
 		sql_trans_destroy(s->tr);
 		_DELETE(s);
@@ -6553,12 +6547,12 @@ sql_trans_begin(sql_session *s)
 		if (!list_empty(tr->moved_tables)) {
 			tr->name = (char*)1; /* make sure it get destroyed properly */
 			sql_trans_destroy(tr);
-			s->tr = tr = sql_trans_create(s->stk, NULL, NULL);
+			s->tr = tr = sql_trans_create(NULL, NULL);
 		} else {
 			reset_trans(tr, gtrans);
 		}
 	}
-	tr = trans_init(tr, tr->stk, tr->parent);
+	tr = trans_init(tr, tr->parent);
 	s->active = 1;
 	s->schema = find_sql_schema(tr, s->schema_name);
 	s->tr = tr;

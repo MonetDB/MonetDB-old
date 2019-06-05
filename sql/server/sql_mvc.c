@@ -56,7 +56,7 @@ sql_create_comments(mvc *m, sql_schema *s)
 	}
 
 int
-mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
+mvc_init(int debug, store_type store, int ro, int su)
 {
 	int first = 0;
 	sql_schema *s;
@@ -75,12 +75,12 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 		return -1;
 	}
 
-	if ((first = store_init(debug, store, ro, su, stk)) < 0) {
+	if ((first = store_init(debug, store, ro, su)) < 0) {
 		fprintf(stderr, "!mvc_init: unable to create system tables\n");
 		return -1;
 	}
 
-	m = mvc_create(0, stk, 0, NULL, NULL);
+	m = mvc_create(0, 0, NULL, NULL);
 	if (!m) {
 		fprintf(stderr, "!mvc_init: malloc failure\n");
 		return -1;
@@ -396,7 +396,7 @@ mvc_commit(mvc *m, int chain, const char *name, bool enabling_auto_commit)
 		if (mvc_debug)
 			fprintf(stderr, "#mvc_savepoint\n");
 		store_lock();
-		m->session->tr = sql_trans_create(m->session->stk, tr, name);
+		m->session->tr = sql_trans_create(tr, name);
 		if(!m->session->tr) {
 			store_unlock();
 			msg = createException(SQL, "sql.commit", SQLSTATE(HY001) "%s allocation failure while committing the transaction, will ROLLBACK instead", operation);
@@ -623,7 +623,7 @@ mvc_release(mvc *m, const char *name)
 }
 
 mvc *
-mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
+mvc_create(int clientid, int debug, bstream *rs, stream *ws)
 {
 	mvc *m;
 
@@ -680,7 +680,7 @@ mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 	m->cascade_action = NULL;
 
 	store_lock();
-	m->session = sql_session_create(stk, 1 /*autocommit on*/);
+	m->session = sql_session_create(1 /*autocommit on*/);
 	store_unlock();
 	if(!m->session) {
 		qc_destroy(m->qc);

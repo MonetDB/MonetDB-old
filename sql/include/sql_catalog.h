@@ -258,7 +258,6 @@ typedef struct sql_trans {
 	sql_allocator *sa;	/* transaction allocator */
 
 	struct sql_trans *parent;	/* multilevel transaction support */
-	backend_stack stk;		
 } sql_trans;
 
 typedef struct sql_schema {
@@ -648,7 +647,6 @@ typedef struct sql_session {
 	int level;		/* TRANSACTION isolation level */
 	int active;		/* active transaction */
 	int status;		/* status, ok/error */
-	backend_stack stk;
 } sql_session;
 
 extern void schema_destroy(sql_schema *s);

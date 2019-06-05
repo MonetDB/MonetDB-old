@@ -270,7 +270,7 @@ SQLprepareClient(Client c, int login)
 	backend *be;
 
 	if (c->sqlcontext == 0) {
-		m = mvc_create(c->idx, 0, SQLdebug, c->fdin, c->fdout);
+		m = mvc_create(c->idx, SQLdebug, c->fdin, c->fdout);
 		if( m == NULL) {
 			throw(SQL,"sql.initClient",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
@@ -394,7 +394,7 @@ SQLinit(Client c)
 		SQLdebug |= 64;
 	if (readonly)
 		SQLdebug |= 32;
-	if ((SQLnewcatalog = mvc_init(SQLdebug, GDKinmemory() ? store_mem : store_bat, readonly, single_user, 0)) < 0) {
+	if ((SQLnewcatalog = mvc_init(SQLdebug, GDKinmemory() ? store_mem : store_bat, readonly, single_user)) < 0) {
 		MT_lock_unset(&sql_contextLock);
 		throw(SQL, "SQLinit", SQLSTATE(42000) "Catalogue initialization failed");
 	}
