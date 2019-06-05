@@ -50,7 +50,7 @@ static int SQLinitialized = 0;
 static int SQLnewcatalog = 0;
 int SQLdebug = 0;
 static const char *sqlinit = NULL;
-MT_Lock sql_contextLock = MT_LOCK_INITIALIZER("sql_contextLock");
+static MT_Lock sql_contextLock = MT_LOCK_INITIALIZER("sql_contextLock");
 
 static void
 monet5_freestack(int clientid, backend_stack stk)
@@ -1035,8 +1035,10 @@ SQLparser(Client c)
 			n = sscanf(in->buf + in->pos + 7, "%d %d %d", &v, &off, &len);
 
 		if (n == 2 || n == 3) {
-			if (mvc_export_chunk(be, out, v, off, n == 3 ? len : m->reply_size))
-				throw(SQL, "SQLparser", SQLSTATE(45000) "Result set construction failed");
+			if (mvc_export_chunk(be, out, v, off, n == 3 ? len : m->reply_size)) {
+				msg = createException(SQL, "SQLparser", SQLSTATE(45000) "Result set construction failed");
+				goto finalize;
+			}
 
 			in->pos = in->len;	/* HACK: should use parsed length */
 			return MAL_SUCCEED;
