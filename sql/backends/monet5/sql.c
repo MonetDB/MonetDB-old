@@ -4991,7 +4991,7 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 									BATloop(bn, p, q) {
 										str s = BUNtvar(bi, p);
 										if (s != NULL && strcmp(s, str_nil))
-											sum += (int) strlen(s);
+											sum += strlen(s);
 										if (--cnt1 <= 0)
 											break;
 									}
@@ -5109,7 +5109,7 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 										BATloop(bn, p, q) {
 											str s = BUNtvar(bi, p);
 											if (s != NULL && strcmp(s, str_nil))
-												sum += (int) strlen(s);
+												sum += strlen(s);
 											if (--cnt1 <= 0)
 												break;
 										}
