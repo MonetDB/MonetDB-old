@@ -43,7 +43,8 @@ static int maxfiles = MAXMODULES;
 static int lastfile = 0;
 
 /*
- * In MonetDBLite, libmonetdb5 will be set dynamically.
+ * In MonetDBLite, libmonetdblite might be located on a different directory location from the executable, nor not set on
+ * LD_LIBRARY_PATH. On this case the function initLinker sets monetdb_lib_path variable with libmonetdblite location.
  */
 static char* monetdb_lib_path = NULL;
 
@@ -52,8 +53,7 @@ initLinker(const char* path)
 {
 	if (monetdb_lib_path)
 		GDKfree(monetdb_lib_path);
-	monetdb_lib_path = GDKstrdup(path);
-	if (!monetdb_lib_path)
+	if (!(monetdb_lib_path = GDKstrdup(path)))
 		throw(LOADER, "initLinker", MAL_MALLOC_FAIL);
 	return MAL_SUCCEED;
 }
@@ -82,7 +82,12 @@ getAddress(str fcnname)
 	MALfcn adr;
 	int idx=0;
 	static int prev= -1;
-	char *monetdb5library = monetdb_lib_path ? monetdb_lib_path : "libmonetdb5";
+	char *monetdb5library = monetdb_lib_path ? monetdb_lib_path :
+#ifdef HAVE_EMBEDDED
+	"libmonetdblite";
+#else
+	"libmonetdb5";
+#endif
 
 	/* First try the last module loaded */
 	if( prev >= 0){
@@ -313,7 +318,6 @@ cmpstr(const void *_p1, const void *_p2)
 	return strcmp(f1?f1:p1, f2?f2:p2);
 }
 
-
 #define MAXMULTISCRIPT 48
 char *
 locate_file(const char *basename, const char *ext, bit recurse)
@@ -454,7 +458,6 @@ MSP_locate_sqlscript(const char *filename, bit recurse)
 	/* no directory semantics (yet) */
 	return locate_file(filename, SQL_EXT, recurse);
 }
-
 
 int
 malLibraryEnabled(str name) {

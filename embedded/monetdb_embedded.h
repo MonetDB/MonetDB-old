@@ -69,10 +69,10 @@ typedef struct {
 } monetdb_column;
 
 typedef struct {
-	size_t nrows;
+	int64_t nrows;
 	size_t ncols;
-	char type;
-	size_t id;
+	int type;
+	int64_t id;
 } monetdb_result;
 
 typedef void* monetdb_connection;

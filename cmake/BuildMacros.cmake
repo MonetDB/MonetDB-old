@@ -38,7 +38,8 @@ macro(BUILD_EMBEDDED_SQL_SCRIPTS BUNDLE_NAME SCRIPTS_LIST)
 	endif()
 endmacro()
 
-# This macros sets the required system libraries besides the C standard library. It should be used by
+# This macros sets the required system libraries besides the C standard library. It should be used by the MonetDBLite
+# programing language bindings
 macro(SET_SYSTEM_LIBRARIES)
 	if(NOT WIN32)
 		set(THREADS_PREFER_PTHREAD_FLAG ON) # We do prefer pthreads on UNIX platforms

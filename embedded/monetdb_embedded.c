@@ -120,8 +120,7 @@ monetdb_cleanup_result_internal(monetdb_connection conn, monetdb_result* result)
 		res_tables_destroy(res->monetdb_resultset);
 
 	if (res->converted_columns) {
-		size_t i;
-		for (i = 0; i < res->res.ncols; i++)
+		for (size_t i = 0; i < res->res.ncols; i++)
 			monetdb_destroy_column(res->converted_columns[i]);
 		GDKfree(res->converted_columns);
 	}
@@ -208,17 +207,17 @@ monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** re
 			goto cleanup;
 		}
 		if (m->emode == m_execute)
-			res_internal->res.type = (m->results) ? (char) Q_TABLE : (char) Q_UPDATE;
+			res_internal->res.type = (m->results) ? Q_TABLE : Q_UPDATE;
 		else if (m->emode & m_prepare)
-			res_internal->res.type = (char) Q_PREPARE;
+			res_internal->res.type = Q_PREPARE;
 		else
-			res_internal->res.type = (char) m->type;
-		res_internal->res.id = (size_t) m->last_id;
+			res_internal->res.type = m->type;
+		res_internal->res.id = m->last_id;
 		*result = (monetdb_result*) res_internal;
 		m->reply_size = -2; /* do not clean up result tables */
 
 		if (m->results) {
-			res_internal->res.ncols = m->results->nr_cols;
+			res_internal->res.ncols = (size_t) m->results->nr_cols;
 			if (m->results->nr_cols > 0 && m->results->order) {
 				BAT* bb = BATdescriptor(m->results->order);
 				if (!bb) {
