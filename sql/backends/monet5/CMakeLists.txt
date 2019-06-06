@@ -78,7 +78,7 @@ endif()
 # These scripts loads after all custom installed SQL scripts
 set(SQL_SCRIPTS_LIST2 "${CMAKE_SOURCE_DIR}/sql/scripts/99_system.sql")
 
-build_embedded_mal_scripts(sql_mal_inline sqlMalModules "${SQL_MAL_SCRIPTS_LIST}")
+build_embedded_mal_scripts(sql_mal_inline sqlMalModules --no-remove-command-comments "${SQL_MAL_SCRIPTS_LIST}")
 build_embedded_sql_scripts(createdb_inline1 "${SQL_SCRIPTS_LIST1}")
 build_embedded_sql_scripts(createdb_inline2 "${SQL_SCRIPTS_LIST2}")
 

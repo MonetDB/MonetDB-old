@@ -37,13 +37,7 @@ insert1 = ''.join([
 sql_h_output_file.write(insert1)
 
 file_stat = os.stat(sys.argv[1])
-if os.name == 'nt':
-    CACHE_SIZE = 512
-else:
-    CACHE_SIZE = file_stat.st_blksize  # we will set the cache size to the filesystem blocksize
-
-buffer = ['\0'] * CACHE_SIZE
-current_output_file_pointer = 0
+buffer = bytearray()
 current_input_file_number = 2
 
 # Iterate over the input files
@@ -114,16 +108,7 @@ while current_input_file_number < total_files:
             i += 2
             continue
 
-        if current_output_file_pointer == CACHE_SIZE:
-            sql_h_output_file.write("".join(buffer))
-            current_output_file_pointer = 0
-        buffer[current_output_file_pointer] = str(ord(c))
-        current_output_file_pointer += 1
-        if current_output_file_pointer == CACHE_SIZE:
-            sql_h_output_file.write("".join(buffer))
-            current_output_file_pointer = 0
-        buffer[current_output_file_pointer] = ','
-        current_output_file_pointer += 1
+        buffer.append(ord(c))
 
         if c in (' ', '\t', '\n'):
             cur_state = 4  # Trim always
@@ -131,8 +116,9 @@ while current_input_file_number < total_files:
 
     current_input_file_number += 1
 
-if current_output_file_pointer > 0:
-    sql_h_output_file.write("".join(buffer[:current_output_file_pointer]))
+if len(buffer) > 0:  # write only if something was found
+    result = ",".join(str(c) for c in buffer) + ','
+    sql_h_output_file.write(result)
 
 # finish C array entry
 sql_h_output_file.write("0};\n")

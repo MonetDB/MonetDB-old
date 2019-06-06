@@ -9,10 +9,10 @@
 # This file holds macros for compilation objects common to MonetDB and MonetDBLite
 
 # Create C array with MAL scripts content as well the module names bundled
-macro(BUILD_EMBEDDED_MAL_SCRIPTS BUNDLE_NAME VARIABLE_NAME SCRIPTS_LIST)
+macro(BUILD_EMBEDDED_MAL_SCRIPTS BUNDLE_NAME VARIABLE_NAME REMOVE_COMMENTS SCRIPTS_LIST)
 	execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/mal2h.py"
-			"${CMAKE_CURRENT_BINARY_DIR}/${BUNDLE_NAME}.h" ${SCRIPTS_LIST}
-			RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET)
+					"${REMOVE_COMMENTS}" "${CMAKE_CURRENT_BINARY_DIR}/${BUNDLE_NAME}.h" ${SCRIPTS_LIST}
+					RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET)
 	if(NOT PY_SCRIPT_RC EQUAL 0)
 		message(FATAL_ERROR "Could not generate sql_mal_inline.h file")
 	endif()
@@ -31,8 +31,8 @@ endmacro()
 # Create C array with SQL scripts content
 macro(BUILD_EMBEDDED_SQL_SCRIPTS BUNDLE_NAME SCRIPTS_LIST)
 	execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildtools/scripts/sql2h.py"
-			"${CMAKE_CURRENT_BINARY_DIR}/${BUNDLE_NAME}.h" ${SCRIPTS_LIST}
-			RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET)
+					"${CMAKE_CURRENT_BINARY_DIR}/${BUNDLE_NAME}.h" ${SCRIPTS_LIST}
+					RESULT_VARIABLE PY_SCRIPT_RC OUTPUT_QUIET)
 	if(NOT PY_SCRIPT_RC EQUAL 0)
 		message(FATAL_ERROR "Could not generate ${BUNDLE_NAME}.h file")
 	endif()

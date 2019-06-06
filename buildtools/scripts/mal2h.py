@@ -8,19 +8,25 @@ from __future__ import print_function
 
 import os, sys
 
-total_files = len(sys.argv)
-if total_files < 2:
-    raise Exception("There is no output file")
+total_files = len(sys.argv)  # first argument is reserved for compression
 if total_files < 3:
+    raise Exception("There is no output file")
+if total_files < 4:
     raise Exception("There are no input files")
 
+removing_inline_comments = False
+if sys.argv[1] == '--remove-command-comments':
+    removing_inline_comments = True
+elif sys.argv[1] != '--no-remove-command-comments':
+    raise Exception("The first argument must be either --remove-command-comments or --no-remove-command-comments")
+
 # The output file will be the first argument
-output_file_base = os.path.basename(sys.argv[1])
+output_file_base = os.path.basename(sys.argv[2])
 output_file_split = os.path.splitext(output_file_base)
 if len(output_file_split) < 2 or output_file_split[1] != '.h':
     raise Exception("Only .h files are supported for the output file")
 
-mal_h_output_file = open(sys.argv[1], 'w')
+mal_h_output_file = open(sys.argv[2], 'w')
 
 # write the C array entry
 insert1 = ''.join([
@@ -36,15 +42,9 @@ insert1 = ''.join([
     'static char ', output_file_split[0], '[] = {'])
 mal_h_output_file.write(insert1)
 
-file_stat = os.stat(sys.argv[1])
-if os.name == 'nt':
-    CACHE_SIZE = 512
-else:
-    CACHE_SIZE = file_stat.st_blksize  # we will set the cache size to the filesystem blocksize
-
-buffer = ['\0'] * CACHE_SIZE
-current_output_file_pointer = 0
-current_input_file_number = 2
+file_stat = os.stat(sys.argv[2])
+buffer = bytearray()
+current_input_file_number = 3
 
 # Iterate over the input files
 while current_input_file_number < total_files:
@@ -110,21 +110,13 @@ while current_input_file_number < total_files:
             cur_state = 1
             i += 1
             continue
-        elif c == 'c' and i + 8 < endloop and mal_content[i:i+7] == 'comment' and mal_content[i+8] in (' ', '\t', '\n'):
+        elif removing_inline_comments and c == 'c' and i + 8 < endloop and mal_content[i:i+7] == 'comment' \
+                and mal_content[i+8] in (' ', '\t', '\n'):
             cur_state = 2
             i += 6
             continue
 
-        if current_output_file_pointer == CACHE_SIZE:
-            mal_h_output_file.write("".join(buffer))
-            current_output_file_pointer = 0
-        buffer[current_output_file_pointer] = str(ord(c))
-        current_output_file_pointer += 1
-        if current_output_file_pointer == CACHE_SIZE:
-            mal_h_output_file.write("".join(buffer))
-            current_output_file_pointer = 0
-        buffer[current_output_file_pointer] = ','
-        current_output_file_pointer += 1
+        buffer.append(ord(c))
 
         if c in (' ', '\t', '\n'):
             cur_state = 4
@@ -132,8 +124,9 @@ while current_input_file_number < total_files:
 
     current_input_file_number += 1
 
-if current_output_file_pointer > 0:
-    mal_h_output_file.write("".join(buffer[:current_output_file_pointer]))
+if len(buffer) > 0:  # write only if something was found
+    result = ",".join(str(c) for c in buffer) + ','
+    mal_h_output_file.write(result)
 
 # finish C array entry
 mal_h_output_file.write("0};\n")

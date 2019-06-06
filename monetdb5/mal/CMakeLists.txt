@@ -86,7 +86,7 @@ list(APPEND MAL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/monetdb5/scheduler/run_isolate.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/scheduler/run_memo.mal")
 
-build_embedded_mal_scripts(mal_inline malModules "${MAL_SCRIPTS_LIST}")
+build_embedded_mal_scripts(mal_inline malModules --no-remove-command-comments "${MAL_SCRIPTS_LIST}")
 
 add_library(mal OBJECT
 			mal.c mal.h

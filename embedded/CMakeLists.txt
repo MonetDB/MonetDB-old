@@ -82,7 +82,7 @@ set(SQL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/sql/scripts/90_generator.sql"
 	"${CMAKE_SOURCE_DIR}/sql/scripts/99_system.sql")
 
-build_embedded_mal_scripts(mal_inline malModules "${MAL_SCRIPTS_LIST}")
+build_embedded_mal_scripts(mal_inline malModules --remove-command-comments "${MAL_SCRIPTS_LIST}")
 build_embedded_sql_scripts(createdb_inline1 "${SQL_SCRIPTS_LIST}")
 
 # All symbols present in monetdblite_no_export and and not required by monetdblite will be ditched on Windows
@@ -204,88 +204,92 @@ set_target_properties(monetdblite_no_export PROPERTIES POSITION_INDEPENDENT_CODE
 target_link_libraries(monetdblite_no_export PUBLIC ${MATH_LIBRARIES} ${THREAD_LIBRARIES} ${DL_LIBRARIES}
 					  ${KVM_LIBRARIES} ${PSAPI_LIBRARIES})
 
-add_library(monetdblite SHARED
-			monetdb_embedded.c
-			../monetdb5/modules/kernel/aggr.c
-			../monetdb5/modules/atoms/streams.c
-			../monetdb5/modules/kernel/algebra.c
-			../monetdb5/modules/kernel/bat5.c
-			../monetdb5/modules/mal/batcalc.c
-			../monetdb5/modules/mal/batExtensions.c
-			../monetdb5/modules/kernel/batmmath.c
-			../monetdb5/modules/kernel/batstr.c
-			../monetdb5/modules/atoms/blob.c
-			../monetdb5/modules/mal/bbp.c
-			../monetdb5/modules/mal/calc.c
-			../monetdb5/modules/kernel/group.c
-			../monetdb5/modules/mal/iterator.c
-			../monetdb5/modules/mal/language.c
-			../monetdb5/modules/mal/manifold.c
-			../monetdb5/modules/mal/mat.c
-			../monetdb5/modules/mal/mkey.c
-			../monetdb5/modules/kernel/mmath.c
-			../monetdb5/modules/atoms/mtime.c
-			../monetdb5/modules/atoms/mtime_analytic.c
-			../monetdb5/modules/atoms/strptime.c
-			../monetdb5/modules/mal/orderidx.c
-			../monetdb5/modules/mal/pcre.c
-			../monetdb5/modules/mal/projectionpath.c
-			../monetdb5/modules/mal/sample.c
-			../monetdb5/modules/atoms/str.c
-			../monetdb5/modules/mal/tablet.c
-			../monetdb5/optimizer/opt_aliases.c
-			../monetdb5/optimizer/opt_candidates.c
-			../monetdb5/optimizer/opt_coercion.c
-			../monetdb5/optimizer/opt_commonTerms.c
-			../monetdb5/optimizer/opt_constants.c
-			../monetdb5/optimizer/opt_costModel.c
-			../monetdb5/optimizer/opt_dataflow.c
-			../monetdb5/optimizer/opt_deadcode.c
-			../monetdb5/optimizer/opt_emptybind.c
-			../monetdb5/optimizer/opt_evaluate.c
-			../monetdb5/optimizer/opt_garbageCollector.c
-			../monetdb5/optimizer/opt_generator.c
-			../monetdb5/optimizer/opt_inline.c
-			../monetdb5/optimizer/opt_macro.c
-			../monetdb5/optimizer/opt_matpack.c
-			../monetdb5/optimizer/opt_mergetable.c
-			../monetdb5/optimizer/opt_mitosis.c
-			../monetdb5/optimizer/opt_multiplex.c
-			../monetdb5/optimizer/opt_pipes.c
-			../monetdb5/optimizer/opt_prelude.c
-			../monetdb5/optimizer/opt_profiler.c
-			../monetdb5/optimizer/opt_projectionpath.c
-			../monetdb5/optimizer/opt_pushselect.c
-			../monetdb5/optimizer/opt_remap.c
-			../monetdb5/optimizer/opt_reorder.c
-			../monetdb5/optimizer/opt_support.c
-			../monetdb5/optimizer/opt_wrapper.c
-			../monetdb5/optimizer/optimizer.c
-			../sql/backends/monet5/sql.c
-			../sql/backends/monet5/sql_assert.c
-			../sql/backends/monet5/sql_bat2time.c
-			../sql/backends/monet5/sql_cast.c
-			../sql/backends/monet5/sql_cat.c
-			../sql/backends/monet5/sql_datetrunc.c
-			../sql/backends/monet5/sql_execute.c
-			../sql/backends/monet5/sql_fround.c
-			../sql/backends/monet5/sql_generator.c
-			../sql/backends/monet5/sql_gencode.c
-			../sql/backends/monet5/sql_orderidx.c
-			../sql/backends/monet5/sql_rank.c
-			../sql/backends/monet5/sql_result.c
-			../sql/backends/monet5/sql_round.c
-			../sql/backends/monet5/sql_scenario.c
-			../sql/backends/monet5/sql_statement.c
-			../sql/backends/monet5/sql_statistics.c
-			../sql/backends/monet5/sql_transaction.c
-			../sql/backends/monet5/sql_user.c)
+set(MONETDBLITE_TRANSLATIONS_UNITS
+	monetdb_embedded.c
+	../monetdb5/modules/kernel/aggr.c
+	../monetdb5/modules/atoms/streams.c
+	../monetdb5/modules/kernel/algebra.c
+	../monetdb5/modules/kernel/bat5.c
+	../monetdb5/modules/mal/batcalc.c
+	../monetdb5/modules/mal/batExtensions.c
+	../monetdb5/modules/kernel/batmmath.c
+	../monetdb5/modules/kernel/batstr.c
+	../monetdb5/modules/atoms/blob.c
+	../monetdb5/modules/mal/bbp.c
+	../monetdb5/modules/mal/calc.c
+	../monetdb5/modules/kernel/group.c
+	../monetdb5/modules/mal/iterator.c
+	../monetdb5/modules/mal/language.c
+	../monetdb5/modules/mal/manifold.c
+	../monetdb5/modules/mal/mat.c
+	../monetdb5/modules/mal/mkey.c
+	../monetdb5/modules/kernel/mmath.c
+	../monetdb5/modules/atoms/mtime.c
+	../monetdb5/modules/atoms/mtime_analytic.c
+	../monetdb5/modules/atoms/strptime.c
+	../monetdb5/modules/mal/orderidx.c
+	../monetdb5/modules/mal/pcre.c
+	../monetdb5/modules/mal/projectionpath.c
+	../monetdb5/modules/mal/sample.c
+	../monetdb5/modules/atoms/str.c
+	../monetdb5/modules/mal/tablet.c
+	../monetdb5/optimizer/opt_aliases.c
+	../monetdb5/optimizer/opt_candidates.c
+	../monetdb5/optimizer/opt_coercion.c
+	../monetdb5/optimizer/opt_commonTerms.c
+	../monetdb5/optimizer/opt_constants.c
+	../monetdb5/optimizer/opt_costModel.c
+	../monetdb5/optimizer/opt_dataflow.c
+	../monetdb5/optimizer/opt_deadcode.c
+	../monetdb5/optimizer/opt_emptybind.c
+	../monetdb5/optimizer/opt_evaluate.c
+	../monetdb5/optimizer/opt_garbageCollector.c
+	../monetdb5/optimizer/opt_generator.c
+	../monetdb5/optimizer/opt_inline.c
+	../monetdb5/optimizer/opt_macro.c
+	../monetdb5/optimizer/opt_matpack.c
+	../monetdb5/optimizer/opt_mergetable.c
+	../monetdb5/optimizer/opt_mitosis.c
+	../monetdb5/optimizer/opt_multiplex.c
+	../monetdb5/optimizer/opt_pipes.c
+	../monetdb5/optimizer/opt_prelude.c
+	../monetdb5/optimizer/opt_profiler.c
+	../monetdb5/optimizer/opt_projectionpath.c
+	../monetdb5/optimizer/opt_pushselect.c
+	../monetdb5/optimizer/opt_remap.c
+	../monetdb5/optimizer/opt_reorder.c
+	../monetdb5/optimizer/opt_support.c
+	../monetdb5/optimizer/opt_wrapper.c
+	../monetdb5/optimizer/optimizer.c
+	../sql/backends/monet5/sql.c
+	../sql/backends/monet5/sql_assert.c
+	../sql/backends/monet5/sql_bat2time.c
+	../sql/backends/monet5/sql_cast.c
+	../sql/backends/monet5/sql_cat.c
+	../sql/backends/monet5/sql_datetrunc.c
+	../sql/backends/monet5/sql_execute.c
+	../sql/backends/monet5/sql_fround.c
+	../sql/backends/monet5/sql_generator.c
+	../sql/backends/monet5/sql_gencode.c
+	../sql/backends/monet5/sql_orderidx.c
+	../sql/backends/monet5/sql_rank.c
+	../sql/backends/monet5/sql_result.c
+	../sql/backends/monet5/sql_round.c
+	../sql/backends/monet5/sql_scenario.c
+	../sql/backends/monet5/sql_statement.c
+	../sql/backends/monet5/sql_statistics.c
+	../sql/backends/monet5/sql_transaction.c
+	../sql/backends/monet5/sql_user.c)
+if(${ENABLE_EMBEDDED} STREQUAL "STATIC")
+	add_library(monetdblite STATIC ${MONETDBLITE_TRANSLATIONS_UNITS})
+else()
+	add_library(monetdblite SHARED ${MONETDBLITE_TRANSLATIONS_UNITS})
+endif()
 target_link_libraries(monetdblite PRIVATE monetdblite_no_export)
-set_target_properties(monetdblite PROPERTIES VERSION ${MONETDB_VERSION} SOVERSION ${MONETDB_VERSION_MAJOR}
-					  OUTPUT_NAME monetdb5)
+set_target_properties(monetdblite PROPERTIES VERSION ${MONETDB_VERSION} SOVERSION ${MONETDB_VERSION_MAJOR})
 
-install(TARGETS monetdblite DESTINATION ${LIBDIR}/monetdblite)
+install(TARGETS monetdblite DESTINATION ${LIBDIR})
 install(FILES monetdb_embedded.h DESTINATION ${INCLUDEDIR}/monetdb)
 if(WIN32)
-	install(FILES $<TARGET_PDB_FILE:monetdblite> DESTINATION ${LIBDIR}/monetdblite OPTIONAL)
+	install(FILES $<TARGET_PDB_FILE:monetdblite> DESTINATION ${LIBDIR} OPTIONAL)
 endif()
