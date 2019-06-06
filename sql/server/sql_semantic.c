@@ -258,7 +258,7 @@ supertype(sql_subtype *super, sql_subtype *r, sql_subtype *i)
 
 char * toUpperCopy(char *dest, const char *src) 
 {
-	int i, len;
+	size_t i, len;
 
 	if (src == NULL) {
 		*dest = '\0';
