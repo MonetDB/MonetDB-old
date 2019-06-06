@@ -37,3 +37,31 @@ macro(BUILD_EMBEDDED_SQL_SCRIPTS BUNDLE_NAME SCRIPTS_LIST)
 		message(FATAL_ERROR "Could not generate ${BUNDLE_NAME}.h file")
 	endif()
 endmacro()
+
+# This macros sets the required system libraries besides the C standard library. It should be used by
+macro(SET_SYSTEM_LIBRARIES)
+	if(NOT WIN32)
+		set(THREADS_PREFER_PTHREAD_FLAG ON) # We do prefer pthreads on UNIX platforms
+	endif()
+	find_package(Threads)
+	set(THREAD_LIBRARIES "${CMAKE_THREAD_LIBS_INIT}")
+
+	set(DL_LIBRARIES "")
+	set(KVM_LIBRARIES "")
+	set(MATH_LIBRARIES "")
+	set(PSAPI_LIBRARIES "")
+	set(SOCKET_LIBRARIES "")
+	if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+		set(DL_LIBRARIES "${CMAKE_DL_LIBS}")
+	endif()
+	if(${CMAKE_SYSTEM_NAME} MATCHES "^FreeBSD|DragonFly|NetBSD$") # Warning - I checked the man pages and only tested on FreeBSD yet
+		set(KVM_LIBRARIES "kvm")
+	endif()
+	if(${CMAKE_SYSTEM_NAME} MATCHES "^Linux|FreeBSD|NetBSD$")
+		set(MATH_LIBRARIES "m")
+	endif()
+	if(WIN32) # Both these libraries and respective include files (psapi.h and winsock2.h) come with the Windows SDK <version>, which should be installed with Visual Studio and set on the path by MSVC
+		set(PSAPI_LIBRARIES "psapi") # We need the psapi library for GetProcessMemoryInfo function, which is no longer required from Windows 7 and Windows Server 2008 R2 up (the latter is suported until January 2020)
+		set(SOCKET_LIBRARIES "ws2_32")
+	endif()
+endmacro()

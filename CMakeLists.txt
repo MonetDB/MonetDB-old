@@ -355,7 +355,7 @@ if(NOT HAVE_PYTHON3)
 	else()
 		set(ENABLE_SQL "NO" CACHE STRING "A valid Python 3 interpreter is required for MonetDB/SQL" FORCE)
 	endif()
-	if(${ENABLE_EMBEDDED} MATCHES "^SHARED|STATIC$")
+	if(${ENABLE_EMBEDDED} MATCHES "^SHARED|OBJECT")
 		message(FATAL_ERROR "A valid Python 3 interpreter is required for MonetDB embedded library")
 	else()
 		set(ENABLE_EMBEDDED "NO" CACHE STRING "A valid Python 3 interpreter is required for MonetDB embedded library" FORCE)
@@ -368,7 +368,7 @@ if(NOT BISON_FOUND)
 	if(${ENABLE_SQL} STREQUAL "YES")
 		message(FATAL_ERROR "MonetDB/SQL requires bison")
 	endif()
-	if(${ENABLE_EMBEDDED} MATCHES "^SHARED|STATIC$")
+	if(${ENABLE_EMBEDDED} MATCHES "^SHARED|OBJECT")
 		message(FATAL_ERROR "MonetDB embedded library requires bison")
 	endif()
 	set(ENABLE_SQL "NO" CACHE STRING "Bison is required for MonetDB/SQL" FORCE)
@@ -384,12 +384,6 @@ else()
 	set(ICONV_LIBRARIES "" CACHE INTERNAL "iconv libraries to link")
 endif()
 
-# Thread libraries
-if(NOT WIN32)
-	set(THREADS_PREFER_PTHREAD_FLAG ON) # We do prefer pthreads on UNIX platforms
-endif()
-find_package(Threads)
-set(THREAD_LIBRARIES "${CMAKE_THREAD_LIBS_INIT}")
 check_include_file("pthread.h" HAVE_PTHREAD_H) # Distinguish between posix thread and win32 thread libraries
 
 # Password hash algorithm
@@ -507,25 +501,7 @@ if(NOT HAVE_LIBPCRE AND NOT HAVE_POSIX_REGEX)
 	endif()
 endif()
 
-# System libraries and optional extra libraries
-set(DL_LIBRARIES "")
-set(KVM_LIBRARIES "")
-set(MATH_LIBRARIES "")
-set(PSAPI_LIBRARIES "")
-set(SOCKET_LIBRARIES "")
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-	set(DL_LIBRARIES "${CMAKE_DL_LIBS}")
-endif()
-if(${CMAKE_SYSTEM_NAME} MATCHES "^FreeBSD|DragonFly|NetBSD$") # Warning - I checked the man pages and only tested on FreeBSD yet
-	set(KVM_LIBRARIES "kvm")
-endif()
-if(${CMAKE_SYSTEM_NAME} MATCHES "^Linux|FreeBSD|NetBSD$")
-	set(MATH_LIBRARIES "m")
-endif()
-if(WIN32) # Both these libraries and respective include files (psapi.h and winsock2.h) come with the Windows SDK <version>, which should be installed with Visual Studio and set on the path by MSVC
-	set(PSAPI_LIBRARIES "psapi") # We need the psapi library for GetProcessMemoryInfo function, which is no longer required from Windows 7 and Windows Server 2008 R2 up (the latter is suported until January 2020)
-	set(SOCKET_LIBRARIES "ws2_32")
-endif()
+set_system_libraries() # Inside BuildMacros.cmake file
 include(FindExtraLibraries)
 
 # C types existence
@@ -601,12 +577,12 @@ if("${ENABLE_SQL}" MATCHES "^YES|AUTO$") # The SQL module requires the monetdb5 
 else()
 	set(HAVE_SQL OFF CACHE INTERNAL "MonetDB/SQL is available" FORCE)
 endif()
-if(${ENABLE_EMBEDDED} MATCHES "^SHARED|STATIC$")
+if(${ENABLE_EMBEDDED} MATCHES "^SHARED|OBJECT")
 	set(HAVE_EMBEDDED ON CACHE INTERNAL "MonetDB embedded library is enabled" FORCE)
 elseif(${ENABLE_EMBEDDED} STREQUAL "NO")
 	set(HAVE_EMBEDDED OFF CACHE INTERNAL "MonetDB embedded library is enabled" FORCE)
 else()
-	message(FATAL_ERROR "ENABLE_EMBEDDED parameter must be either SHARED, STATIC or NO")
+	message(FATAL_ERROR "ENABLE_EMBEDDED parameter must be either SHARED, OBJECT or NO")
 endif()
 if(${ENABLE_STATIC_ANALYSIS} MATCHES "^YES|AUTO$")
 	set(STATIC_CODE_ANALYSIS ON CACHE INTERNAL "Static code analysis is available" FORCE)

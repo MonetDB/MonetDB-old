@@ -85,127 +85,69 @@ set(SQL_SCRIPTS_LIST
 build_embedded_mal_scripts(mal_inline malModules --remove-command-comments "${MAL_SCRIPTS_LIST}")
 build_embedded_sql_scripts(createdb_inline1 "${SQL_SCRIPTS_LIST}")
 
-# All symbols present in monetdblite_no_export and and not required by monetdblite will be ditched on Windows
-add_library(monetdblite_no_export STATIC
-		../common/options/monet_options.c
-		../common/stream/stream.c
-		../common/utils/mutils.c
-		../common/utils/revision.c
-		../gdk/gdk_aggr.c
-		../gdk/gdk_align.c
-		../gdk/gdk_analytic_bounds.c
-		../gdk/gdk_analytic_func.c
-		../gdk/gdk_atoms.c
-		../gdk/gdk_bat.c
-		../gdk/gdk_batop.c
-		../gdk/gdk_bbp.c
-		../gdk/gdk_calc.c
-		../gdk/gdk_cross.c
-		../gdk/gdk_delta.c
-		../gdk/gdk_firstn.c
-		../gdk/gdk_group.c
-		../gdk/gdk_hash.c
-		../gdk/gdk_heap.c
-		../gdk/gdk_imprints.c
-		../gdk/gdk_join.c
-		../gdk/gdk_logger.c
-		../gdk/gdk_orderidx.c
-		../gdk/gdk_posix.c
-		../gdk/gdk_project.c
-		../gdk/gdk_qsort.c
-		../gdk/gdk_sample.c
-		../gdk/gdk_search.c
-		../gdk/gdk_select.c
-		../gdk/gdk_ssort.c
-		../gdk/gdk_storage.c
-		../gdk/gdk_string.c
-		../gdk/gdk_system.c
-		../gdk/gdk_tm.c
-		../gdk/gdk_unique.c
-		../gdk/gdk_utils.c
-		../gdk/gdk_value.c
-		../monetdb5/mal/mal.c
-		../monetdb5/mal/mal_atom.c
-		../monetdb5/mal/mal_builder.c
-		../monetdb5/mal/mal_client.c
-		../monetdb5/mal/mal_dataflow.c
-		../monetdb5/mal/mal_embedded.c
-		../monetdb5/mal/mal_exception.c
-		../monetdb5/mal/mal_function.c
-		../monetdb5/mal/mal_import.c
-		../monetdb5/mal/mal_instruction.c
-		../monetdb5/mal/mal_interpreter.c
-		../monetdb5/mal/mal_linker.c
-		../monetdb5/mal/mal_listing.c
-		../monetdb5/mal/mal_module.c
-		../monetdb5/mal/mal_namespace.c
-		../monetdb5/mal/mal_parser.c
-		../monetdb5/mal/mal_resolve.c
-		../monetdb5/mal/mal_resource.c
-		../monetdb5/mal/mal_runtime.c
-		../monetdb5/mal/mal_scenario.c
-		../monetdb5/mal/mal_session.c
-		../monetdb5/mal/mal_stack.c
-		../monetdb5/mal/mal_type.c
-		../monetdb5/mal/mal_utils.c
-		../sql/backends/monet5/mal_backend.c
-		../sql/backends/monet5/rel_bin.c
-		../sql/backends/monet5/sql_optimizer.c
-		../sql/backends/monet5/sql_upgrades.c
-		../sql/common/sql_backend.c
-		../sql/common/sql_changeset.c
-		../sql/common/sql_hash.c
-		../sql/common/sql_keyword.c
-		../sql/common/sql_list.c
-		../sql/common/sql_mem.c
-		../sql/common/sql_stack.c
-		../sql/common/sql_string.c
-		../sql/common/sql_types.c
-		../sql/server/rel_distribute.c
-		../sql/server/rel_dump.c
-		../sql/server/rel_exp.c
-		../sql/server/rel_optimizer.c
-		../sql/server/rel_partition.c
-		../sql/server/rel_planner.c
-		../sql/server/rel_prop.c
-		../sql/server/rel_psm.c
-		../sql/server/rel_rel.c
-		../sql/server/rel_remote.c
-		../sql/server/rel_schema.c
-		../sql/server/rel_select.c
-		../sql/server/rel_semantic.c
-		../sql/server/rel_sequence.c
-		../sql/server/rel_trans.c
-		../sql/server/rel_updates.c
-		../sql/server/rel_unnest.c
-		../sql/server/rel_xml.c
-		../sql/server/sql_atom.c
-		../sql/server/sql_datetime.c
-		../sql/server/sql_decimal.c
-		../sql/server/sql_env.c
-		../sql/server/sql_mvc.c
-		../sql/server/sql_privileges.c
-		../sql/server/sql_qc.c
-		../sql/server/sql_query.c
-		../sql/server/sql_scan.c
-		../sql/server/sql_semantic.c
-		../sql/server/sql_symbol.c
-		../sql/storage/bat/bat_logger.c
-		../sql/storage/bat/bat_storage.c
-		../sql/storage/bat/bat_table.c
-		../sql/storage/bat/bat_utils.c
-		../sql/storage/bat/res_table.c
-		../sql/storage/sql_catalog.c
-		../sql/storage/store.c
-		../sql/storage/store_dependency.c
-		../sql/storage/store_sequence.c
-		$<TARGET_OBJECTS:bisonlite_obj>)
-set_target_properties(monetdblite_no_export PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(monetdblite_no_export PUBLIC ${MATH_LIBRARIES} ${THREAD_LIBRARIES} ${DL_LIBRARIES}
-					  ${KVM_LIBRARIES} ${PSAPI_LIBRARIES})
-
-set(MONETDBLITE_TRANSLATIONS_UNITS
+set(MONETDBLITE_TRANSLATION_UNITS
 	monetdb_embedded.c
+	../common/options/monet_options.c
+	../common/stream/stream.c
+	../common/utils/mutils.c
+	../common/utils/revision.c
+	../gdk/gdk_aggr.c
+	../gdk/gdk_align.c
+	../gdk/gdk_analytic_bounds.c
+	../gdk/gdk_analytic_func.c
+	../gdk/gdk_atoms.c
+	../gdk/gdk_bat.c
+	../gdk/gdk_batop.c
+	../gdk/gdk_bbp.c
+	../gdk/gdk_calc.c
+	../gdk/gdk_cross.c
+	../gdk/gdk_delta.c
+	../gdk/gdk_firstn.c
+	../gdk/gdk_group.c
+	../gdk/gdk_hash.c
+	../gdk/gdk_heap.c
+	../gdk/gdk_imprints.c
+	../gdk/gdk_join.c
+	../gdk/gdk_logger.c
+	../gdk/gdk_orderidx.c
+	../gdk/gdk_posix.c
+	../gdk/gdk_project.c
+	../gdk/gdk_qsort.c
+	../gdk/gdk_sample.c
+	../gdk/gdk_search.c
+	../gdk/gdk_select.c
+	../gdk/gdk_ssort.c
+	../gdk/gdk_storage.c
+	../gdk/gdk_string.c
+	../gdk/gdk_system.c
+	../gdk/gdk_tm.c
+	../gdk/gdk_unique.c
+	../gdk/gdk_utils.c
+	../gdk/gdk_value.c
+	../monetdb5/mal/mal.c
+	../monetdb5/mal/mal_atom.c
+	../monetdb5/mal/mal_builder.c
+	../monetdb5/mal/mal_client.c
+	../monetdb5/mal/mal_dataflow.c
+	../monetdb5/mal/mal_embedded.c
+	../monetdb5/mal/mal_exception.c
+	../monetdb5/mal/mal_function.c
+	../monetdb5/mal/mal_import.c
+	../monetdb5/mal/mal_instruction.c
+	../monetdb5/mal/mal_interpreter.c
+	../monetdb5/mal/mal_linker.c
+	../monetdb5/mal/mal_listing.c
+	../monetdb5/mal/mal_module.c
+	../monetdb5/mal/mal_namespace.c
+	../monetdb5/mal/mal_parser.c
+	../monetdb5/mal/mal_resolve.c
+	../monetdb5/mal/mal_resource.c
+	../monetdb5/mal/mal_runtime.c
+	../monetdb5/mal/mal_scenario.c
+	../monetdb5/mal/mal_session.c
+	../monetdb5/mal/mal_stack.c
+	../monetdb5/mal/mal_type.c
+	../monetdb5/mal/mal_utils.c
 	../monetdb5/modules/kernel/aggr.c
 	../monetdb5/modules/atoms/streams.c
 	../monetdb5/modules/kernel/algebra.c
@@ -261,6 +203,8 @@ set(MONETDBLITE_TRANSLATIONS_UNITS
 	../monetdb5/optimizer/opt_support.c
 	../monetdb5/optimizer/opt_wrapper.c
 	../monetdb5/optimizer/optimizer.c
+	../sql/backends/monet5/mal_backend.c
+	../sql/backends/monet5/rel_bin.c
 	../sql/backends/monet5/sql.c
 	../sql/backends/monet5/sql_assert.c
 	../sql/backends/monet5/sql_bat2time.c
@@ -269,8 +213,9 @@ set(MONETDBLITE_TRANSLATIONS_UNITS
 	../sql/backends/monet5/sql_datetrunc.c
 	../sql/backends/monet5/sql_execute.c
 	../sql/backends/monet5/sql_fround.c
-	../sql/backends/monet5/sql_generator.c
 	../sql/backends/monet5/sql_gencode.c
+	../sql/backends/monet5/sql_generator.c
+	../sql/backends/monet5/sql_optimizer.c
 	../sql/backends/monet5/sql_orderidx.c
 	../sql/backends/monet5/sql_rank.c
 	../sql/backends/monet5/sql_result.c
@@ -279,17 +224,68 @@ set(MONETDBLITE_TRANSLATIONS_UNITS
 	../sql/backends/monet5/sql_statement.c
 	../sql/backends/monet5/sql_statistics.c
 	../sql/backends/monet5/sql_transaction.c
-	../sql/backends/monet5/sql_user.c)
-if(${ENABLE_EMBEDDED} STREQUAL "STATIC")
-	add_library(monetdblite STATIC ${MONETDBLITE_TRANSLATIONS_UNITS})
+	../sql/backends/monet5/sql_upgrades.c
+	../sql/backends/monet5/sql_user.c
+	../sql/common/sql_backend.c
+	../sql/common/sql_changeset.c
+	../sql/common/sql_hash.c
+	../sql/common/sql_keyword.c
+	../sql/common/sql_list.c
+	../sql/common/sql_mem.c
+	../sql/common/sql_stack.c
+	../sql/common/sql_string.c
+	../sql/common/sql_types.c
+	../sql/server/rel_distribute.c
+	../sql/server/rel_dump.c
+	../sql/server/rel_exp.c
+	../sql/server/rel_optimizer.c
+	../sql/server/rel_partition.c
+	../sql/server/rel_planner.c
+	../sql/server/rel_prop.c
+	../sql/server/rel_psm.c
+	../sql/server/rel_rel.c
+	../sql/server/rel_remote.c
+	../sql/server/rel_schema.c
+	../sql/server/rel_select.c
+	../sql/server/rel_semantic.c
+	../sql/server/rel_sequence.c
+	../sql/server/rel_trans.c
+	../sql/server/rel_unnest.c
+	../sql/server/rel_updates.c
+	../sql/server/rel_xml.c
+	../sql/server/sql_atom.c
+	../sql/server/sql_datetime.c
+	../sql/server/sql_decimal.c
+	../sql/server/sql_env.c
+	../sql/server/sql_mvc.c
+	../sql/server/sql_privileges.c
+	../sql/server/sql_qc.c
+	../sql/server/sql_query.c
+	../sql/server/sql_scan.c
+	../sql/server/sql_semantic.c
+	../sql/server/sql_symbol.c
+	../sql/storage/bat/bat_logger.c
+	../sql/storage/bat/bat_storage.c
+	../sql/storage/bat/bat_table.c
+	../sql/storage/bat/bat_utils.c
+	../sql/storage/bat/res_table.c
+	../sql/storage/sql_catalog.c
+	../sql/storage/store.c
+	../sql/storage/store_dependency.c
+	../sql/storage/store_sequence.c
+	$<TARGET_OBJECTS:bisonlite_obj>)
+if(${ENABLE_EMBEDDED} STREQUAL "OBJECT")
+	add_library(monetdblite OBJECT ${MONETDBLITE_TRANSLATION_UNITS})
+	set_target_properties(monetdblite PROPERTIES POSITION_INDEPENDENT_CODE ON)
+	install(TARGETS monetdblite DESTINATION ${LIBDIR}/monetdblite)
 else()
-	add_library(monetdblite SHARED ${MONETDBLITE_TRANSLATIONS_UNITS})
+	add_library(monetdblite SHARED ${MONETDBLITE_TRANSLATION_UNITS})
+	target_link_libraries(monetdblite PRIVATE ${MATH_LIBRARIES} ${THREAD_LIBRARIES} ${DL_LIBRARIES})
+	set_target_properties(monetdblite PROPERTIES VERSION ${MONETDB_VERSION} SOVERSION ${MONETDB_VERSION_MAJOR})
+	install(TARGETS monetdblite DESTINATION ${LIBDIR})
+	if(WIN32)
+		install(FILES $<TARGET_PDB_FILE:monetdblite> DESTINATION ${LIBDIR} OPTIONAL)
+	endif()
 endif()
-target_link_libraries(monetdblite PRIVATE monetdblite_no_export)
-set_target_properties(monetdblite PROPERTIES VERSION ${MONETDB_VERSION} SOVERSION ${MONETDB_VERSION_MAJOR})
 
-install(TARGETS monetdblite DESTINATION ${LIBDIR})
 install(FILES monetdb_embedded.h DESTINATION ${INCLUDEDIR}/monetdb)
-if(WIN32)
-	install(FILES $<TARGET_PDB_FILE:monetdblite> DESTINATION ${LIBDIR} OPTIONAL)
-endif()
