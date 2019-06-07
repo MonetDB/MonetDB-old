@@ -183,9 +183,6 @@
 /* Define to 1 if the proj library exists */
 #cmakedefine HAVE_PROJ 1
 
-/* Define to 1 if you have the <pthread.h> header file. */
-#cmakedefine HAVE_PTHREAD_H 1
-
 /* Define to 1 if you have the `RIPEMD160_Update' function. */
 #cmakedefine HAVE_RIPEMD160_UPDATE 1
 

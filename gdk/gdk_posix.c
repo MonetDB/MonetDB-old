@@ -19,7 +19,6 @@
 #include "gdk.h"		/* includes gdk_posix.h */
 #include "gdk_private.h"
 #include "mutils.h"
-#include <sys/types.h>
 #include <fcntl.h>
 #ifdef __MACH__
 # include <mach/task.h>
@@ -221,13 +220,11 @@
  * this may be around 2000 BATs easily.
  */
 
-#ifdef HAVE_PTHREAD_H
+#ifndef NATIVE_WIN32
+
 #include <sched.h>
 #include <pthread.h>
 #include <semaphore.h>
-#endif
-
-#ifndef NATIVE_WIN32
 
 void
 MT_init_posix(void)
