@@ -14,7 +14,11 @@
 #define SQL_OK 	1
 #define SQL_ERR 0
 
+#ifdef HAVE_EMBEDDED
 #define sql_extern extern __attribute__((__visibility__("hidden")))
+#else
+#define sql_extern extern
+#endif
 
 #ifdef HAVE_EMBEDDED
 #define sqlstore_export extern __attribute__((__visibility__("hidden")))
