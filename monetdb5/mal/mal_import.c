@@ -201,7 +201,7 @@ malInlineBoot(Client c, str name, char *mal_init_inline, int listing)
 	str msg = MAL_SUCCEED;
 
 	bstream *oldfdin = c->fdin;
-	int oldyycur = c->yycur;
+	size_t oldyycur = c->yycur;
 	int oldlisting = c->listing;
 	enum clientmode oldmode = c->mode;
 	int oldblkmode = c->blkmode;
