@@ -384,8 +384,6 @@ else()
 	set(ICONV_LIBRARIES "" CACHE INTERNAL "iconv libraries to link")
 endif()
 
-check_include_file("pthread.h" HAVE_PTHREAD_H) # Distinguish between posix thread and win32 thread libraries
-
 # Password hash algorithm
 set(PASSWORD_BACKEND "SHA512" CACHE STRING "Password hash algorithm, one of MD5, SHA1, RIPEMD160, SHA224, SHA256, SHA384, SHA512, defaults to SHA512")
 if(${PASSWORD_BACKEND} MATCHES "^MD5|SHA1|RIPEMD160|SHA224|SHA256|SHA384|SHA512$")

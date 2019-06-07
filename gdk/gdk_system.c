@@ -160,7 +160,7 @@ GDKlockstatistics(int what)
 
 #endif	/* LOCK_STATS */
 
-#if !defined(HAVE_PTHREAD_H) && defined(WIN32)
+#ifdef WIN32
 static struct winthread {
 	struct winthread *next;
 	HANDLE hdl;
@@ -466,7 +466,7 @@ MT_kill_thread(MT_Id t)
 	return -1;
 }
 
-#else  /* !defined(HAVE_PTHREAD_H) && defined(_MSC_VER) */
+#else
 
 static struct posthread {
 	struct posthread *next;

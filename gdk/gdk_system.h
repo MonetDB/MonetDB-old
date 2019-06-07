@@ -80,22 +80,16 @@
 #define TEMMASK		(1<<10)
 #define TEMDEBUG	if (GDKdebug & TEMMASK)
 
-/*
- * @- pthreads Includes and Definitions
- */
-#ifdef HAVE_PTHREAD_H
-#include <sched.h>
-#include <pthread.h>
-#include <semaphore.h>
-#endif
-
 #ifdef __MACH__ /* dispatch_semaphore_create function */
 #include <dispatch/dispatch.h>
 #endif
 
 #ifndef NATIVE_WIN32
-# include <sys/param.h>	   /* prerequisite of sys/sysctl on OpenBSD */
-# include <sys/sysctl.h>
+#include <sched.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <sys/param.h>	   /* prerequisite of sys/sysctl on OpenBSD */
+#include <sys/sysctl.h>
 #endif
 
 /* debug and errno integers */
@@ -266,7 +260,7 @@ gdk_export int MT_join_thread(MT_Id t);
 
 #ifdef USE_PTHREAD_LOCKS
 
-#if !defined(HAVE_PTHREAD_H) && defined(WIN32)
+#ifdef WIN32
 typedef struct MT_Lock {
 	HANDLE lock;
 	char name[16];
@@ -557,7 +551,7 @@ typedef struct MT_RWLock {
 /*
  * @- MT Semaphore API
  */
-#if !defined(HAVE_PTHREAD_H) && defined(WIN32)
+#ifdef WIN32
 
 typedef struct {
 	HANDLE sema;
