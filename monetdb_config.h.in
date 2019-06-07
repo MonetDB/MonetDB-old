@@ -233,9 +233,6 @@ __asm__(".symver powf,powf@GLIBC_2.2.5");
 /* Define to 1 if you have posix regex */
 #cmakedefine HAVE_POSIX_REGEX 1
 
-/* Define to 1 if you have the <pthread.h> header file. */
-#cmakedefine HAVE_PTHREAD_H 1
-
 /* Define to 1 if you have the <stdatomic.h> header file */
 #cmakedefine HAVE_STDATOMIC_H 1
 
