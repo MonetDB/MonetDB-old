@@ -69,6 +69,10 @@ stderr of test 'prepare_decimal_bug.SF-2831994` in directory 'sql/test/BugTracke
 # 19:40:00 >  mclient -lsql -umonetdb -Pmonetdb --host=alf --port=32876 
 # 19:40:00 >  
 
+MAPI  = (monetdb) /var/tmp/mtest-24011/.s.monetdb.33167
+QUERY = exec  0 (3,0.0,2.34);
+ERROR = !Too many digits (6 > 5)
+CODE  = 22003
 
 # 19:40:00 >  
 # 19:40:00 >  Done.

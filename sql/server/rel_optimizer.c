@@ -3021,7 +3021,7 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 			 * min_no_nil or max_no_nil), in which case we
 			 * ignore the NULL and return the other
 			 * value */
-			if (exp_is_atom(le) && exp_is_null(sql, le)) {
+			if (exp_is_atom(le) && exp_is_null(le)) {
 				(*changes)++;
 				if (f && f->func && f->func->imp && strstr(f->func->imp, "_no_nil") != NULL) {
 					exp_setname(sql->sa, re, exp_relname(e), exp_name(e));
@@ -3034,7 +3034,7 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 					le = exp_convert(sql->sa, le, exp_subtype(le), et);
 				return le;
 			}
-			if (exp_is_atom(re) && exp_is_null(sql, re)) {
+			if (exp_is_atom(re) && exp_is_null(re)) {
 				(*changes)++;
 				if (f && f->func && f->func->imp && strstr(f->func->imp, "_no_nil") != NULL) {
 					exp_setname(sql->sa, le, exp_relname(e), exp_name(e));
@@ -3054,7 +3054,7 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 			sql_subtype *et = exp_subtype(e);
 
 			/* 0*a = 0 */
-			if (exp_is_atom(le) && exp_is_zero(sql, le) && exp_is_atom(re) && exp_is_not_null(sql, re)) {
+			if (exp_is_atom(le) && exp_is_zero(le) && exp_is_atom(re) && exp_is_not_null(re)) {
 				(*changes)++;
 				exp_setname(sql->sa, le, exp_relname(e), exp_name(e));
 				if (subtype_cmp(et, exp_subtype(le)) != 0)
@@ -3062,7 +3062,7 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 				return le;
 			}
 			/* a*0 = 0 */
-			if (exp_is_atom(re) && exp_is_zero(sql, re) && exp_is_atom(le) && exp_is_not_null(sql, le)) {
+			if (exp_is_atom(re) && exp_is_zero(re) && exp_is_atom(le) && exp_is_not_null(le)) {
 				(*changes)++;
 				exp_setname(sql->sa, re, exp_relname(e), exp_name(e));
 				if (subtype_cmp(et, exp_subtype(re)) != 0)
@@ -3070,14 +3070,14 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 				return re;
 			}
 			/* 1*a = a
-			if (exp_is_atom(le) && exp_is_one(sql, le)) {
+			if (exp_is_atom(le) && exp_is_one(le)) {
 				(*changes)++;
 				exp_setname(sql->sa, re, exp_relname(e), exp_name(e));
 				return re;
 			}
 			*/
 			/* a*1 = a
-			if (exp_is_atom(re) && exp_is_one(sql, re)) {
+			if (exp_is_atom(re) && exp_is_one(re)) {
 				(*changes)++;
 				exp_setname(sql->sa, le, exp_relname(e), exp_name(e));
 				return le;
@@ -3136,7 +3136,7 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 					sql_exp *lle = l->h->data;
 					sql_exp *lre = l->h->next->data;
 					if (exp_equal(re, lle)==0) {
-						if (atom_inc(exp_value(sql, lre, sql->args, sql->argc))) {
+						if (atom_inc(exp_value(sql, lre))) {
 							(*changes)++;
 							exp_setname(sql->sa, le, exp_relname(e), exp_name(e));
 							return le;
@@ -3171,12 +3171,12 @@ exp_simplify_math( mvc *sql, sql_exp *e, int *changes)
 		if (!f->func->s && !strcmp(f->func->base.name, "sql_add") && list_length(l) == 2) {
 			sql_exp *le = l->h->data;
 			sql_exp *re = l->h->next->data;
-			if (exp_is_atom(le) && exp_is_zero(sql, le)) {
+			if (exp_is_atom(le) && exp_is_zero(le)) {
 				(*changes)++;
 				exp_setname(sql->sa, re, exp_relname(e), exp_name(e));
 				return re;
 			}
-			if (exp_is_atom(re) && exp_is_zero(sql, re)) {
+			if (exp_is_atom(re) && exp_is_zero(re)) {
 				(*changes)++;
 				exp_setname(sql->sa, le, exp_relname(e), exp_name(e));
 				return le;
@@ -3355,8 +3355,6 @@ rel_simplify_math(int *changes, mvc *sql, sql_rel *rel)
 			list_append(rel->exps, e);
 		}
 	} 
-	if (*changes) /* if rewritten don't cache this query */
-		sql->caching = 0;
 	return rel;
 }
 
@@ -3499,11 +3497,11 @@ exps_cse( mvc *sql, list *oexps, list *l, list *r )
 	if (list_length(l) == list_length(r) && list_length(l) == 1) {
 		sql_exp *le = l->h->data, *re = r->h->data;
 
-		if (exp_is_true(sql, le)) {
+		if (exp_is_true(le)) {
 			append(oexps, le);
 			return 1;
 		}
-		if (exp_is_true(sql, re)) {
+		if (exp_is_true(re)) {
 			append(oexps, re);
 			return 1;
 		}
@@ -3703,7 +3701,6 @@ rel_project_cse(int *changes, mvc *sql, sql_rel *rel)
 			}
 			append(nexps, e1);
 		}
-		sql->caching = 0;
 		rel->exps = nexps;
 	}
 	return rel;
@@ -7197,13 +7194,8 @@ rel_simplify_like_select(int *changes, mvc *sql, sql_rel *rel)
 				if (is_atom(fmt->type)) {
 					atom *fa = NULL;
 
-					if (fmt->l) {
+					if (fmt->l) 
 						fa = fmt->l;
-					/* simple numbered argument */
-					} else if (!fmt->r && !fmt->f) {
-						fa = sql->args[fmt->flag];
-
-					}
 					if (fa && fa->data.vtype == TYPE_str && 
 					    !strchr(fa->data.val.sval, '%') &&
 					    !strchr(fa->data.val.sval, '_'))
@@ -7212,13 +7204,8 @@ rel_simplify_like_select(int *changes, mvc *sql, sql_rel *rel)
 				if (rewrite && esc && is_atom(esc->type)) {
 			 		atom *ea = NULL;
 
-					if (esc->l) {
+					if (esc->l)
 						ea = esc->l;
-					/* simple numbered argument */
-					} else if (!esc->r && !esc->f) {
-						ea = sql->args[esc->flag];
-
-					}
 					if (ea && (ea->data.vtype != TYPE_str ||
 					    strlen(ea->data.val.sval) != 0))
 						rewrite = 0;
@@ -7227,9 +7214,7 @@ rel_simplify_like_select(int *changes, mvc *sql, sql_rel *rel)
 					list *l = e->l;
 					list *r = e->r;
 					sql_exp *ne = exp_compare(sql->sa, l->h->data, r->h->data, cmp_equal);
-					/* if rewritten don't cache this query */
 					list_append(exps, ne);
-					sql->caching = 0;
 					(*changes)++;
 				} else {
 					list_append(exps, e);
@@ -7260,16 +7245,6 @@ rel_simplify_predicates(int *changes, mvc *sql, sql_rel *rel)
 				/* remove simple select true expressions */
 				if (flag)
 					continue;
-			}
-			if (is_atom(e->type) && !e->l && !e->r) { /* numbered variable */
-				atom *a = sql->args[e->flag];
-				int flag = a->data.val.bval;
-
-				/* remove simple select true expressions */
-				if (flag) {
-					sql->caching = 0;
-					continue;
-				}
 			}
 			if (e->type == e_cmp && get_cmp(e) == cmp_equal) {
 				sql_exp *l = e->l;
@@ -7822,8 +7797,8 @@ rel_project_reduce_casts(int *changes, mvc *sql, sql_rel *rel)
 					sql_exp *t = args->t->data;
 					atom *a;
 
-					if ((is_atom(h->type) && (a = exp_value(sql, h, sql->args, sql->argc)) != NULL) ||
-					    (is_atom(t->type) && (a = exp_value(sql, t, sql->args, sql->argc)) != NULL)) {
+					if ((is_atom(h->type) && (a = exp_value(sql, h)) != NULL) ||
+					    (is_atom(t->type) && (a = exp_value(sql, t)) != NULL)) {
 						int rs = reduce_scale(a);
 
 						res->scale -= rs; 
@@ -7877,7 +7852,6 @@ rel_reduce_casts(int *changes, mvc *sql, sql_rel *rel)
 						e = exp_compare(sql->sa, le->l, re, cmp_gt);
 					else
 						e = exp_compare(sql->sa, le->l, re, cmp_lt);
-					sql->caching = 0;
 				} else
 				/* if convert on left then find
 				 * mul or div on right which increased
@@ -7898,7 +7872,7 @@ rel_reduce_casts(int *changes, mvc *sql, sql_rel *rel)
 							atom *a;
 
 							if (fst->scale == ft->scale &&
-							   (a = exp_value(sql, ce, sql->args, sql->argc)) != NULL) {
+							   (a = exp_value(sql, ce)) != NULL) {
 #ifdef HAVE_HGE
 								hge v = 1;
 #else
@@ -8617,8 +8591,6 @@ rel_merge_table_rewrite(int *changes, mvc *sql, sql_rel *rel)
 						if (!skip) {
 							append(tables, prel);
 							nrel = prel;
-						} else {
-							sql->caching = 0;
 						}
 					}
 					while (list_length(tables) > 1) {
@@ -8743,7 +8715,6 @@ rel_remove_union_partitions(int *changes, mvc *sql, sql_rel *rel)
 		rel->r = NULL;
 		rel_destroy(rel);
 		(*changes)++;
-		sql->caching = 0;
 		return r;
 	}
 	if (exp_is_zero_rows(sql, rel->r, NULL)) {
@@ -8751,7 +8722,6 @@ rel_remove_union_partitions(int *changes, mvc *sql, sql_rel *rel)
 		rel->l = NULL;
 		rel_destroy(rel);
 		(*changes)++;
-		sql->caching = 0;
 		return l;
 	}
 	return rel;

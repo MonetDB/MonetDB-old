@@ -26,6 +26,7 @@ sql_rel *
 rel_parse(mvc *m, sql_schema *s, char *query, char emode)
 {
 	mvc o = *m;
+	sql_var *nvars;
 	sql_rel *rel = NULL;
 	buffer *b;
 	bstream *bs;
@@ -37,7 +38,6 @@ rel_parse(mvc *m, sql_schema *s, char *query, char emode)
 
 	m->qc = NULL;
 
-	m->caching = 0;
 	m->emode = emode;
 	if (s)
 		m->session->schema = s;
@@ -70,7 +70,6 @@ rel_parse(mvc *m, sql_schema *s, char *query, char emode)
 	bstream_next(m->scanner.rs);
 
 	m->params = NULL;
-	m->argc = 0;
 	m->sym = NULL;
 	m->errstr[0] = '\0';
 	/* via views we give access to protected objects */
@@ -86,12 +85,14 @@ rel_parse(mvc *m, sql_schema *s, char *query, char emode)
 	bstream_destroy(m->scanner.rs);
 
 	m->sym = NULL;
+	nvars = m->vars;
 	if (m->session->status || m->errstr[0]) {
 		int status = m->session->status;
 		char errstr[ERRSIZE];
 
 		strcpy(errstr, m->errstr);
 		*m = o;
+		m->vars = nvars;
 		m->session->status = status;
 		strcpy(m->errstr, errstr);
 	} else {
@@ -102,6 +103,7 @@ rel_parse(mvc *m, sql_schema *s, char *query, char emode)
 				c_delete(m->vars[m->topvars].name);
 		}
 		*m = o;
+		m->vars = nvars;
 		m->label = label;
 	}
 	m->session->schema = c;

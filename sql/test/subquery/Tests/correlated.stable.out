@@ -26,7 +26,7 @@ stdout of test 'correlated` in directory 'sql/test/subquery` itself:
 #INSERT INTO integers VALUES (1), (2), (3), (NULL);
 [ 4	]
 #SELECT i, (SELECT 42+i1.i) AS j FROM integers i1 ORDER BY i;
-% sys.i1,	.L3 # table_name
+% sys.i1,	sys.L3 # table_name
 % i,	j # name
 % int,	bigint # type
 % 1,	2 # length

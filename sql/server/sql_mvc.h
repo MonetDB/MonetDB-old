@@ -47,14 +47,13 @@
 
 /* different query execution modes (emode) */
 #define m_normal 	0
-#define m_execute 	2
-#define m_prepare 	3
-#define m_plan 		4
+#define m_prepare 	1
+#define m_plan 		2
 
 /* special modes for function/procedure and view instantiation and
    dependency generation */
-#define m_instantiate 	5
-#define m_deps 		6
+#define m_instantiate 	3
+#define m_deps 		4
 
 #define QUERY_MODE(m) (m==m_normal || m==m_instantiate || m==m_deps)
 
@@ -93,16 +92,11 @@ typedef struct mvc {
 	int topvars;
 	int sizevars;
 	int frame;
-	atom **args;
-	int argc;
-	int argmax;
 	struct symbol *sym;
 
 	bool use_views:1,	/* for triggers we sometimes have views on the stack (for old/new values), which need to be handled as normal stack variables (values),
        			           as triggers iterate over the to be inserted/deleted/updated values.	*/
-		pushdown:1,	/* AND or OR query handling */
-		caching:1;	/* cache current query */
-	int cache;		/* query cache size */
+		pushdown:1;	/* AND or OR query handling */
 	struct qc *qc;
 	int clientid;		/* id of the owner */
 

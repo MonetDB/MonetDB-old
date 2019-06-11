@@ -138,8 +138,8 @@ top N (
 % mal # name
 % clob # type
 % 114 # length
-function user.s8_0():void;
-    X_1:void := querylog.define("explain select * from oblo;":str, "minimal_pipe":str, 21:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select * from oblo;":str, "minimal_pipe":str, 20:int);
     X_4:int := sql.mvc();
     C_5:bat[:oid] := sql.tid(X_4:int, "sys":str, "oblo":str);
     X_8:bat[:int] := sql.bind(X_4:int, "sys":str, "oblo":str, "a":str, 0:int);
@@ -158,7 +158,7 @@ function user.s8_0():void;
     X_31:bat[:int] := bat.append(X_23:bat[:int], 32:int);
     X_33:bat[:int] := bat.append(X_25:bat[:int], 0:int);
     sql.resultSet(X_26:bat[:str], X_28:bat[:str], X_29:bat[:str], X_31:bat[:int], X_33:bat[:int], X_17:bat[:int]);
-end user.s8_0;
+end user.main;
 #inline               actions= 0 time=0 usec 
 #remap                actions= 0 time=1 usec 
 #deadcode             actions= 0 time=4 usec 
@@ -172,8 +172,8 @@ end user.s8_0;
 % mal # name
 % clob # type
 % 114 # length
-function user.s10_0():void;
-    X_1:void := querylog.define("explain select * from oblo offset 2;":str, "minimal_pipe":str, 27:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select * from oblo offset 2;":str, "minimal_pipe":str, 26:int);
     X_4:int := sql.mvc();
     C_5:bat[:oid] := sql.tid(X_4:int, "sys":str, "oblo":str);
     X_8:bat[:int] := sql.bind(X_4:int, "sys":str, "oblo":str, "a":str, 0:int);
@@ -198,8 +198,8 @@ function user.s10_0():void;
     X_39:bat[:int] := bat.append(X_31:bat[:int], 32:int);
     X_41:bat[:int] := bat.append(X_33:bat[:int], 0:int);
     sql.resultSet(X_34:bat[:str], X_36:bat[:str], X_37:bat[:str], X_39:bat[:int], X_41:bat[:int], X_25:bat[:int]);
-end user.s10_0;
-#inline               actions= 0 time=0 usec 
+end user.main;
+#inline               actions= 0 time=1 usec 
 #remap                actions= 0 time=1 usec 
 #deadcode             actions= 0 time=5 usec 
 #multiplex            actions= 0 time=1 usec 
@@ -212,8 +212,8 @@ end user.s10_0;
 % mal # name
 % clob # type
 % 114 # length
-function user.s12_0():void;
-    X_1:void := querylog.define("explain select * from oblo limit 2;":str, "minimal_pipe":str, 28:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select * from oblo limit 2;":str, "minimal_pipe":str, 27:int);
     X_4:int := sql.mvc();
     C_7:bat[:oid] := sql.tid(X_4:int, "sys":str, "oblo":str);
     X_10:bat[:int] := sql.bind(X_4:int, "sys":str, "oblo":str, "a":str, 0:int);
@@ -238,7 +238,7 @@ function user.s12_0():void;
     X_40:bat[:int] := bat.append(X_32:bat[:int], 32:int);
     X_42:bat[:int] := bat.append(X_34:bat[:int], 0:int);
     sql.resultSet(X_35:bat[:str], X_37:bat[:str], X_38:bat[:str], X_40:bat[:int], X_42:bat[:int], X_26:bat[:int]);
-end user.s12_0;
+end user.main;
 #inline               actions= 0 time=0 usec 
 #remap                actions= 0 time=0 usec 
 #deadcode             actions= 1 time=5 usec 
@@ -252,8 +252,8 @@ end user.s12_0;
 % mal # name
 % clob # type
 % 114 # length
-function user.s14_0():void;
-    X_1:void := querylog.define("explain select * from oblo limit 1 offset 2;":str, "minimal_pipe":str, 30:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select * from oblo limit 1 offset 2;":str, "minimal_pipe":str, 29:int);
     X_4:int := sql.mvc();
     C_10:bat[:oid] := sql.tid(X_4:int, "sys":str, "oblo":str);
     X_13:bat[:int] := sql.bind(X_4:int, "sys":str, "oblo":str, "a":str, 0:int);
@@ -278,7 +278,7 @@ function user.s14_0():void;
     X_42:bat[:int] := bat.append(X_34:bat[:int], 32:int);
     X_44:bat[:int] := bat.append(X_36:bat[:int], 0:int);
     sql.resultSet(X_37:bat[:str], X_39:bat[:str], X_40:bat[:str], X_42:bat[:int], X_44:bat[:int], X_28:bat[:int]);
-end user.s14_0;
+end user.main;
 #inline               actions= 0 time=0 usec 
 #remap                actions= 0 time=1 usec 
 #deadcode             actions= 3 time=5 usec 
@@ -292,8 +292,8 @@ end user.s14_0;
 % mal # name
 % clob # type
 % 114 # length
-function user.s16_0():void;
-    X_1:void := querylog.define("explain select * from oblo limit 2 offset 1;":str, "minimal_pipe":str, 30:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select * from oblo limit 2 offset 1;":str, "minimal_pipe":str, 29:int);
     X_4:int := sql.mvc();
     C_10:bat[:oid] := sql.tid(X_4:int, "sys":str, "oblo":str);
     X_13:bat[:int] := sql.bind(X_4:int, "sys":str, "oblo":str, "a":str, 0:int);
@@ -318,8 +318,8 @@ function user.s16_0():void;
     X_42:bat[:int] := bat.append(X_34:bat[:int], 32:int);
     X_44:bat[:int] := bat.append(X_36:bat[:int], 0:int);
     sql.resultSet(X_37:bat[:str], X_39:bat[:str], X_40:bat[:str], X_42:bat[:int], X_44:bat[:int], X_28:bat[:int]);
-end user.s16_0;
-#inline               actions= 0 time=1 usec 
+end user.main;
+#inline               actions= 0 time=0 usec 
 #remap                actions= 0 time=1 usec 
 #deadcode             actions= 3 time=5 usec 
 #multiplex            actions= 0 time=1 usec 
@@ -332,8 +332,8 @@ end user.s16_0;
 % mal # name
 % clob # type
 % 118 # length
-function user.s18_0():void;
-    X_1:void := querylog.define("explain select * from oblo order by a;":str, "minimal_pipe":str, 23:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select * from oblo order by a;":str, "minimal_pipe":str, 22:int);
     X_4:int := sql.mvc();
     C_5:bat[:oid] := sql.tid(X_4:int, "sys":str, "oblo":str);
     X_8:bat[:int] := sql.bind(X_4:int, "sys":str, "oblo":str, "a":str, 0:int);
@@ -354,7 +354,7 @@ function user.s18_0():void;
     X_37:bat[:int] := bat.append(X_29:bat[:int], 32:int);
     X_39:bat[:int] := bat.append(X_31:bat[:int], 0:int);
     sql.resultSet(X_32:bat[:str], X_34:bat[:str], X_35:bat[:str], X_37:bat[:int], X_39:bat[:int], X_23:bat[:int]);
-end user.s18_0;
+end user.main;
 #inline               actions= 0 time=0 usec 
 #remap                actions= 0 time=1 usec 
 #deadcode             actions= 0 time=5 usec 
@@ -368,8 +368,8 @@ end user.s18_0;
 % mal # name
 % clob # type
 % 118 # length
-function user.s20_0():void;
-    X_1:void := querylog.define("explain select * from oblo order by a offset 2;":str, "minimal_pipe":str, 29:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select * from oblo order by a offset 2;":str, "minimal_pipe":str, 28:int);
     X_4:int := sql.mvc();
     C_5:bat[:oid] := sql.tid(X_4:int, "sys":str, "oblo":str);
     X_8:bat[:int] := sql.bind(X_4:int, "sys":str, "oblo":str, "a":str, 0:int);
@@ -396,7 +396,7 @@ function user.s20_0():void;
     X_46:bat[:int] := bat.append(X_37:bat[:int], 32:int);
     X_48:bat[:int] := bat.append(X_39:bat[:int], 0:int);
     sql.resultSet(X_40:bat[:str], X_42:bat[:str], X_44:bat[:str], X_46:bat[:int], X_48:bat[:int], X_31:bat[:int]);
-end user.s20_0;
+end user.main;
 #inline               actions= 0 time=0 usec 
 #remap                actions= 0 time=1 usec 
 #deadcode             actions= 0 time=5 usec 
@@ -410,8 +410,8 @@ end user.s20_0;
 % mal # name
 % clob # type
 % 118 # length
-function user.s22_0():void;
-    X_1:void := querylog.define("explain select * from oblo order by a limit 2;":str, "minimal_pipe":str, 35:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select * from oblo order by a limit 2;":str, "minimal_pipe":str, 34:int);
     X_4:int := sql.mvc();
     X_5:lng := calc.lng(2:lng);
     C_7:bat[:oid] := sql.tid(X_4:int, "sys":str, "oblo":str);
@@ -443,7 +443,7 @@ function user.s22_0():void;
     X_53:bat[:int] := bat.append(X_44:bat[:int], 32:int);
     X_55:bat[:int] := bat.append(X_46:bat[:int], 0:int);
     sql.resultSet(X_47:bat[:str], X_49:bat[:str], X_51:bat[:str], X_53:bat[:int], X_55:bat[:int], X_38:bat[:int]);
-end user.s22_0;
+end user.main;
 #inline               actions= 0 time=1 usec 
 #remap                actions= 0 time=3 usec 
 #deadcode             actions= 1 time=5 usec 
@@ -456,8 +456,8 @@ end user.s22_0;
 % mal # name
 % clob # type
 % 123 # length
-function user.s24_0():void;
-    X_1:void := querylog.define("explain select * from oblo order by a limit 2 offset 1;":str, "minimal_pipe":str, 37:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select * from oblo order by a limit 2 offset 1;":str, "minimal_pipe":str, 36:int);
     X_4:int := sql.mvc();
     X_5:lng := calc.lng(2:lng);
     X_7:lng := calc.lng(1:lng);
@@ -491,8 +491,8 @@ function user.s24_0():void;
     X_56:bat[:int] := bat.append(X_47:bat[:int], 32:int);
     X_58:bat[:int] := bat.append(X_49:bat[:int], 0:int);
     sql.resultSet(X_50:bat[:str], X_52:bat[:str], X_54:bat[:str], X_56:bat[:int], X_58:bat[:int], X_41:bat[:int]);
-end user.s24_0;
-#inline               actions= 0 time=1 usec 
+end user.main;
+#inline               actions= 0 time=0 usec 
 #remap                actions= 0 time=1 usec 
 #deadcode             actions= 1 time=6 usec 
 #multiplex            actions= 0 time=1 usec 
@@ -505,8 +505,8 @@ end user.s24_0;
 % mal # name
 % clob # type
 % 123 # length
-function user.s26_0():void;
-    X_1:void := querylog.define("explain select * from oblo order by a limit 1 offset 2;":str, "minimal_pipe":str, 37:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select * from oblo order by a limit 1 offset 2;":str, "minimal_pipe":str, 36:int);
     X_4:int := sql.mvc();
     X_5:lng := calc.lng(1:lng);
     X_7:lng := calc.lng(2:lng);
@@ -540,7 +540,7 @@ function user.s26_0():void;
     X_56:bat[:int] := bat.append(X_47:bat[:int], 32:int);
     X_58:bat[:int] := bat.append(X_49:bat[:int], 0:int);
     sql.resultSet(X_50:bat[:str], X_52:bat[:str], X_54:bat[:str], X_56:bat[:int], X_58:bat[:int], X_41:bat[:int]);
-end user.s26_0;
+end user.main;
 #inline               actions= 0 time=0 usec 
 #remap                actions= 0 time=1 usec 
 #deadcode             actions= 1 time=6 usec 

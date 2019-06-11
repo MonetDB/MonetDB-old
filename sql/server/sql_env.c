@@ -72,13 +72,6 @@ sql_update_var(mvc *m, const char *name, char *sval, lng sgn)
 		assert((lng) GDK_int_min <= sgn && sgn <= (lng) GDK_int_max);
 #endif
 		m->timezone = (int) sgn;
-	} else if (strcmp(name, "cache") == 0) {
-#ifdef HAVE_HGE
-		assert((hge) GDK_int_min <= sgn && sgn <= (hge) GDK_int_max);
-#else
-		assert((lng) GDK_int_min <= sgn && sgn <= (lng) GDK_int_max);
-#endif
-		m->cache = (int) sgn;
 	} 
 	return NULL;
 }

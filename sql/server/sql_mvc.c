@@ -94,9 +94,6 @@ mvc_init(int debug, store_type store, int ro, int su)
 		return -1;
 	}
 
-	/* disable caching */
-	m->caching = 0;
-
 	if (first || catalog_version) {
 		if(mvc_trans(m) < 0) {
 			mvc_destroy(m);
@@ -291,7 +288,7 @@ mvc_trans(mvc *m)
 		fprintf(stderr, "#%s: starting transaction\n",
 			MT_thread_getname());
 	schema_changed = sql_trans_begin(m->session);
-	if (m->qc && (schema_changed || m->qc->nr > m->cache || err)){
+	if (m->qc && (schema_changed || err)){
 		if (schema_changed || err) {
 			int seqnr = m->qc->id;
 			if (m->qc)
@@ -302,8 +299,6 @@ mvc_trans(mvc *m)
 				store_unlock();
 				return -1;
 			}
-		} else { /* clean all but the prepared statements */
-			qc_clean(m->qc);
 		}
 	}
 	store_unlock();
@@ -412,9 +407,6 @@ mvc_commit(mvc *m, int chain, const char *name, bool enabling_auto_commit)
 			return msg;
 		}
 		m->type = Q_TRANS;
-		if (m->qc) /* clean query cache, protect against concurrent access on the hash tables (when functions already exists, concurrent mal will
-build up the hash (not copied in the trans dup)) */
-			qc_clean(m->qc);
 		m->session->schema = find_sql_schema(m->session->tr, m->session->schema_name);
 		if (mvc_debug)
 			fprintf(stderr, "#mvc_commit %s done\n", name);
@@ -524,8 +516,6 @@ mvc_rollback(mvc *m, int chain, const char *name, bool disabling_auto_commit)
 	(void) disabling_auto_commit;
 
 	store_lock();
-	if (m->qc) 
-		qc_clean(m->qc);
 	if (name && name[0] != '\0') {
 		while (tr && (!tr->name || strcmp(tr->name, name) != 0))
 			tr = tr->parent;
@@ -653,16 +643,12 @@ mvc_create(int clientid, int debug, bstream *rs, stream *ws)
 	m->topvars = 0;
 	m->frame = 1;
 	m->use_views = 0;
-	m->argmax = MAXPARAMS;
-	m->args = NEW_ARRAY(atom*,m->argmax);
-	if(!m->vars || !m->args) {
+	if(!m->vars) {
 		qc_destroy(m->qc);
 		_DELETE(m->vars);
-		_DELETE(m->args);
 		_DELETE(m);
 		return NULL;
 	}
-	m->argc = 0;
 	m->sym = NULL;
 
 	m->role_id = m->user_id = -1;
@@ -673,8 +659,6 @@ mvc_create(int clientid, int debug, bstream *rs, stream *ws)
 	m->emod = mod_none;
 	m->reply_size = 100;
 	m->debug = debug;
-	m->cache = DEFAULT_CACHESIZE;
-	m->caching = m->cache;
 
 	m->label = 0;
 	m->cascade_action = NULL;
@@ -685,7 +669,6 @@ mvc_create(int clientid, int debug, bstream *rs, stream *ws)
 	if(!m->session) {
 		qc_destroy(m->qc);
 		_DELETE(m->vars);
-		_DELETE(m->args);
 		_DELETE(m);
 		return NULL;
 	}
@@ -729,7 +712,6 @@ mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars)
 	/* reset topvars to the set of global variables */
 	stack_pop_until(m, globalvars);
 	m->frame = 1;
-	m->argc = 0;
 	m->sym = NULL;
 
 	m->role_id = m->user_id = -1;
@@ -744,10 +726,6 @@ mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars)
 	if (m->debug != debug)
 		stack_set_number(m, "debug", debug);
 	m->debug = debug;
-	if (m->cache != DEFAULT_CACHESIZE)
-		stack_set_number(m, "cache", DEFAULT_CACHESIZE);
-	m->cache = DEFAULT_CACHESIZE;
-	m->caching = m->cache;
 
 	m->label = 0;
 	m->cascade_action = NULL;
@@ -790,9 +768,6 @@ mvc_destroy(mvc *m)
 	if (m->qc)
 		qc_destroy(m->qc);
 	m->qc = NULL;
-
-	_DELETE(m->args);
-	m->args = NULL;
 	_DELETE(m);
 }
 
@@ -2085,19 +2060,8 @@ _symbol_cmp(mvc *sql, symbol *s1, symbol *s2)
 			if (!s1->data.sval || !s2->data.sval)
 				return -1;
 			return strcmp(s1->data.sval, s2->data.sval);
-		case type_list: {
-			if (s1->token == SQL_IDENT) {
-				atom *at1, *at2;
-
-				if (s2->token != SQL_IDENT)
-					return -1;
-				at1 = sql_bind_arg(sql, s1->data.lval->h->data.i_val);
-				at2 = sql_bind_arg(sql, s2->data.lval->h->data.i_val);
-				return atom_cmp(at1, at2);
-			} else {
-				return dlist_cmp(sql, s1->data.lval, s2->data.lval);
-			}
-		}
+		case type_list:
+			return dlist_cmp(sql, s1->data.lval, s2->data.lval);
 		case type_type:
 			return subtype_cmp(&s1->data.typeval, &s2->data.typeval);
 		case type_symbol:

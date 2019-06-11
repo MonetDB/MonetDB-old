@@ -982,17 +982,6 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos,
 	}
 
 	if (!exp && b != e) { /* simple ident */
-		if (b[0] == 'A' && isdigit((unsigned char) b[1])) {
-			char *e2;
-			int nr = strtol(b+1,&e2,10);
-
-			if (e == e2 && nr < sql->argc) {
-				atom *a = sql->args[nr];
-
-				exp = exp_atom_ref(sql->sa, nr, &a->tpe);
-			}
-			assert(exp);
-		}
 		if (!exp) {
 			old = *e;
 			*e = 0;

@@ -27,7 +27,7 @@ stdout of test 'sql_server_crash.SF-1080024` in directory 'sql/test/BugDay_2005-
 % .L2 # table_name
 % L2 # name
 % char # type
-% 5 # length
+% 6 # length
 [ NULL	]
 
 # 12:45:31 >  

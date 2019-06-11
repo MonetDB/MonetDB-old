@@ -144,7 +144,6 @@ int
 sqlcleanup(backend *be, int err)
 {
 	sql_destroy_params(be->mvc);
-	sql_destroy_args(be->mvc);
 
 	if ((be->mvc->emod & mod_locked) == mod_locked) {
 		/* here we should commit the transaction */
@@ -4156,13 +4155,11 @@ dump_cache(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	for (q = m->qc->q; q; q = q->next) {
-		if (q->type != Q_PREPARE) {
-			if (BUNappend(query, q->codestring, false) != GDK_SUCCEED ||
-			    BUNappend(count, &q->count, false) != GDK_SUCCEED) {
-				BBPunfix(query->batCacheid);
-				BBPunfix(count->batCacheid);
-				throw(SQL, "sql.dumpcache", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-			}
+		if (BUNappend(query, q->f->query, false) != GDK_SUCCEED ||
+		    BUNappend(count, &q->count, false) != GDK_SUCCEED) {
+			BBPunfix(query->batCacheid);
+			BBPunfix(count->batCacheid);
+			throw(SQL, "sql.dumpcache", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 	}
 	*rquery = query->batCacheid;

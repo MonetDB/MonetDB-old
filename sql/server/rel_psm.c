@@ -1507,8 +1507,8 @@ rel_psm(sql_query *query, symbol *s)
 		sql->type = Q_SCHEMA;
 		break;
 	case SQL_CALL:
+		sql->type = Q_UPDATE; 
 		ret = rel_psm_stmt(sql->sa, rel_psm_call(query, s->data.sym));
-		sql->type = Q_UPDATE;
 		break;
 	case SQL_CREATE_TABLE_LOADER:
 	{

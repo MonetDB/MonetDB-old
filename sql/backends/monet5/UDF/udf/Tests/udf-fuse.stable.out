@@ -27,11 +27,11 @@ stdout of test 'udf-fuse` in directory 'sql/backends/monet5/UDF/udf` itself:
 % mal # name
 % clob # type
 % 95 # length
-function user.s4_0():void;
-    X_3:void := querylog.define("explain select fuse(1,2);":str, "sequential_pipe":str, 8:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select fuse(1,2);":str, "sequential_pipe":str, 7:int);
     X_9:sht := udf.fuse(1:bte, 2:bte);
     sql.resultSet(".L2":str, "L2":str, "smallint":str, 16:int, 0:int, 7:int, X_9:sht);
-end user.s4_0;
+end user.main;
 #inline               actions= 0 time=0 usec 
 #remap                actions= 0 time=1 usec 
 #costmodel            actions= 1 time=0 usec 
@@ -68,11 +68,11 @@ end user.s4_0;
 % mal # name
 % clob # type
 % 101 # length
-function user.s6_0():void;
-    X_3:void := querylog.define("explain select fuse(1000,2000);":str, "sequential_pipe":str, 8:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select fuse(1000,2000);":str, "sequential_pipe":str, 7:int);
     X_9:int := udf.fuse(1000:sht, 2000:sht);
     sql.resultSet(".L2":str, "L2":str, "int":str, 32:int, 0:int, 7:int, X_9:int);
-end user.s6_0;
+end user.main;
 #inline               actions= 0 time=0 usec 
 #remap                actions= 0 time=1 usec 
 #costmodel            actions= 1 time=0 usec 
@@ -109,13 +109,13 @@ end user.s6_0;
 % mal # name
 % clob # type
 % 107 # length
-function user.s8_0():void;
-    X_3:void := querylog.define("explain select fuse(1000000,2000000);":str, "sequential_pipe":str, 8:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select fuse(1000000,2000000);":str, "sequential_pipe":str, 7:int);
     X_9:lng := udf.fuse(1000000:int, 2000000:int);
     sql.resultSet(".L2":str, "L2":str, "bigint":str, 64:int, 0:int, 7:int, X_9:lng);
-end user.s8_0;
-#inline               actions= 0 time=1 usec 
-#remap                actions= 0 time=0 usec 
+end user.main;
+#inline               actions= 0 time=0 usec 
+#remap                actions= 0 time=1 usec 
 #costmodel            actions= 1 time=0 usec 
 #coercion             actions= 0 time=0 usec 
 #aliases              actions= 2 time=2 usec 
@@ -168,8 +168,8 @@ end user.s8_0;
 % mal # name
 % clob # type
 % 114 # length
-function user.s16_0():void;
-    X_1:void := querylog.define("explain select fuse(a,b) from udf_fuse;":str, "sequential_pipe":str, 27:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select fuse(a,b) from udf_fuse;":str, "sequential_pipe":str, 26:int);
     X_29:bat[:str] := bat.new(nil:str);
     X_35:bat[:int] := bat.new(nil:int);
     X_33:bat[:int] := bat.new(nil:int);
@@ -188,9 +188,9 @@ function user.s16_0():void;
     X_42:bat[:int] := bat.append(X_33:bat[:int], 16:int);
     X_44:bat[:int] := bat.append(X_35:bat[:int], 0:int);
     sql.resultSet(X_36:bat[:str], X_38:bat[:str], X_40:bat[:str], X_42:bat[:int], X_44:bat[:int], X_25:bat[:sht]);
-end user.s16_0;
-#inline               actions= 0 time=1 usec 
-#remap                actions= 1 time=6 usec 
+end user.main;
+#inline               actions= 0 time=0 usec 
+#remap                actions= 1 time=9 usec 
 #costmodel            actions= 1 time=1 usec 
 #coercion             actions= 0 time=1 usec 
 #aliases              actions= 0 time=1 usec 
@@ -219,8 +219,8 @@ end user.s16_0;
 % mal # name
 % clob # type
 % 114 # length
-function user.s18_0():void;
-    X_1:void := querylog.define("explain select fuse(c,d) from udf_fuse;":str, "sequential_pipe":str, 27:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select fuse(c,d) from udf_fuse;":str, "sequential_pipe":str, 26:int);
     X_29:bat[:str] := bat.new(nil:str);
     X_35:bat[:int] := bat.new(nil:int);
     X_33:bat[:int] := bat.new(nil:int);
@@ -239,7 +239,7 @@ function user.s18_0():void;
     X_42:bat[:int] := bat.append(X_33:bat[:int], 32:int);
     X_44:bat[:int] := bat.append(X_35:bat[:int], 0:int);
     sql.resultSet(X_36:bat[:str], X_38:bat[:str], X_40:bat[:str], X_42:bat[:int], X_44:bat[:int], X_25:bat[:int]);
-end user.s18_0;
+end user.main;
 #inline               actions= 0 time=0 usec 
 #remap                actions= 1 time=4 usec 
 #costmodel            actions= 1 time=1 usec 
@@ -270,8 +270,8 @@ end user.s18_0;
 % mal # name
 % clob # type
 % 114 # length
-function user.s20_0():void;
-    X_1:void := querylog.define("explain select fuse(e,f) from udf_fuse;":str, "sequential_pipe":str, 27:int);
+function user.main():void;
+    X_1:void := querylog.define("explain select fuse(e,f) from udf_fuse;":str, "sequential_pipe":str, 26:int);
     X_29:bat[:str] := bat.new(nil:str);
     X_35:bat[:int] := bat.new(nil:int);
     X_33:bat[:int] := bat.new(nil:int);
@@ -290,9 +290,9 @@ function user.s20_0():void;
     X_42:bat[:int] := bat.append(X_33:bat[:int], 64:int);
     X_44:bat[:int] := bat.append(X_35:bat[:int], 0:int);
     sql.resultSet(X_36:bat[:str], X_38:bat[:str], X_40:bat[:str], X_42:bat[:int], X_44:bat[:int], X_25:bat[:lng]);
-end user.s20_0;
-#inline               actions= 0 time=0 usec 
-#remap                actions= 1 time=4 usec 
+end user.main;
+#inline               actions= 0 time=1 usec 
+#remap                actions= 1 time=5 usec 
 #costmodel            actions= 1 time=1 usec 
 #coercion             actions= 0 time=1 usec 
 #aliases              actions= 0 time=0 usec 

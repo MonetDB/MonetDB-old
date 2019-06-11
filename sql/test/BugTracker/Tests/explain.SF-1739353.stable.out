@@ -28,8 +28,8 @@ Operation successful
 +------------------------------------------------------------------------------------------------------------------------+
 | mal                                                                                                                    |
 +========================================================================================================================+
-| function user.s4_0():void;                                                                                             |
-|     X_1:void := querylog.define("explain select \"name\" from \"tables\"\n;":str, "sequential_pipe":str, 36:int);      |
+| function user.main():void;                                                                                             |
+|     X_1:void := querylog.define("explain select \"name\" from \"tables\"\n;":str, "sequential_pipe":str, 35:int);      |
 |     X_35:bat[:str] := bat.new(nil:str);                                                                                |
 |     X_4:int := sql.mvc();                                                                                              |
 |     X_18:bat[:sht] := sql.bind(X_4:int, "sys":str, "_tables":str, "type":str, 0:int);                                  |
@@ -60,32 +60,32 @@ Operation successful
 |     X_53:bat[:int] := bat.append(X_44:bat[:int], 1024:int);                                                            |
 |     X_55:bat[:int] := bat.append(X_46:bat[:int], 0:int);                                                               |
 |     sql.resultSet(X_47:bat[:str], X_49:bat[:str], X_51:bat[:str], X_53:bat[:int], X_55:bat[:int], X_39:bat[:str]);     |
-| end user.s4_0;                                                                                                         |
-| #inline               actions= 0 time=0 usec                                                                           |
+| end user.main;                                                                                                         |
+| #inline               actions= 0 time=1 usec                                                                           |
 | #remap                actions= 0 time=2 usec                                                                           |
-| #costmodel            actions= 1 time=1 usec                                                                           |
+| #costmodel            actions= 1 time=2 usec                                                                           |
 | #coercion             actions= 1 time=5 usec                                                                           |
-| #aliases              actions= 1 time=5 usec                                                                           |
-| #evaluate             actions= 0 time=4 usec                                                                           |
-| #emptybind            actions= 0 time=1 usec                                                                           |
+| #aliases              actions= 1 time=6 usec                                                                           |
+| #evaluate             actions= 0 time=5 usec                                                                           |
+| #emptybind            actions= 0 time=0 usec                                                                           |
 | #pushselect           actions= 5 time=22 usec                                                                          |
 | #aliases              actions= 2 time=5 usec                                                                           |
-| #mergetable           actions= 0 time=31 usec                                                                          |
-| #deadcode             actions= 3 time=8 usec                                                                           |
-| #aliases              actions= 0 time=0 usec                                                                           |
-| #constants            actions= 2 time=5 usec                                                                           |
-| #commonTerms          actions= 0 time=5 usec                                                                           |
-| #projectionpath       actions= 0 time=3 usec                                                                           |
-| #deadcode             actions= 0 time=7 usec                                                                           |
-| #reorder              actions= 1 time=19 usec                                                                          |
+| #mergetable           actions= 0 time=30 usec                                                                          |
+| #deadcode             actions= 3 time=9 usec                                                                           |
+| #aliases              actions= 0 time=1 usec                                                                           |
+| #constants            actions= 2 time=6 usec                                                                           |
+| #commonTerms          actions= 0 time=6 usec                                                                           |
+| #projectionpath       actions= 0 time=2 usec                                                                           |
+| #deadcode             actions= 0 time=6 usec                                                                           |
+| #reorder              actions= 1 time=20 usec                                                                          |
 | #matpack              actions= 0 time=0 usec                                                                           |
 | #multiplex            actions= 0 time=1 usec                                                                           |
 | #profiler             actions= 1 time=1 usec                                                                           |
-| #candidates           actions= 1 time=1 usec                                                                           |
-| #deadcode             actions= 0 time=6 usec                                                                           |
+| #candidates           actions= 1 time=0 usec                                                                           |
+| #deadcode             actions= 0 time=7 usec                                                                           |
 | #wlc                  actions= 0 time=0 usec                                                                           |
-| #garbagecollector     actions= 1 time=18 usec                                                                          |
-| #total                actions=27 time=228 usec                                                                         |
+| #garbagecollector     actions= 1 time=19 usec                                                                          |
+| #total                actions=27 time=245 usec                                                                         |
 +------------------------------------------------------------------------------------------------------------------------+
 58 rows
 

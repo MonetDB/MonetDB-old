@@ -435,7 +435,7 @@ column_option(
 			sql_exp *e = rel_logical_value_exp(query, NULL, sym, sql_sel);
 			
 			if (e && is_atom(e->type)) {
-				atom *a = exp_value(sql, e, sql->args, sql->argc);
+				atom *a = exp_value(sql, e);
 
 				if (atom_null(a)) {
 					mvc_default(sql, cs, NULL);

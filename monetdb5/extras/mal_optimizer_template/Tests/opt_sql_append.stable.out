@@ -60,8 +60,8 @@ stdout of test 'opt_sql_append` in directory 'monetdb5/extras/mal_optimizer_temp
 % mal # name
 % clob # type
 % 180 # length
-function user.s10_0():void;
-    X_1:void := querylog.define("explain copy into ttt from \\'/tmp/xyz\\';":str, "sequential_pipe":str, 22:int);
+function user.main():void;
+    X_1:void := querylog.define("explain copy into ttt from '/tmp/xyz';":str, "sequential_pipe":str, 21:int);
     X_4:int := sql.mvc();
     (X_26:bat[:int], X_27:bat[:int], X_28:bat[:int]) := sql.copy_from(nil:ptr, "|":str, "\n":str, nil:str, "null":str, "/tmp/xyz":str, -1:lng, 0:lng, 0:int, 0:int, nil:str, 0:int);
     X_30:int := sql.append(X_4:int, "sys":str, "ttt":str, "a":str, X_26:bat[:int]);
@@ -69,23 +69,17 @@ function user.s10_0():void;
     X_38:int := sql.append(X_35:int, "sys":str, "ttt":str, "c":str, X_28:bat[:int]);
     X_40:lng := aggr.count(X_28:bat[:int]);
     sql.affectedRows(X_38:int, X_40:lng);
-end user.s10_0;
-#inline               actions= 0 time=1 usec 
-#candidates           actions= 1 time=14 usec 
-#remap                actions= 0 time=3 usec 
-#costModel            actions= 1 time=12 usec 
-#coercions            actions=10 time=13 usec 
-#evaluate             actions= 0 time=2 usec 
-#emptybind            actions= 0 time=4 usec 
-#pushselect           actions= 0 time=3 usec 
-#aliases              actions= 0 time=4 usec 
-#mitosis              actions= 0 time=2 usec 
-#mergetable           actions= 0 time=17 usec 
-#deadcode             actions= 0 time=5 usec 
-#aliases              actions= 0 time=4 usec 
-#constants            actions= 0 time=5 usec 
-#commonTerms          actions= 0 time=4 usec 
-#projectionpath       actions= 0 time=3 usec 
+end user.main;
+#inline               actions= 0 time=0 usec 
+#remap                actions= 0 time=1 usec 
+#costmodel            actions= 1 time=1 usec 
+#coercion             actions=12 time=3 usec 
+#aliases              actions=12 time=5 usec 
+#evaluate             actions= 0 time=3 usec 
+#emptybind            actions= 0 time=0 usec 
+#pushselect           actions= 0 time=2 usec 
+#aliases              actions= 0 time=0 usec 
+#mergetable           actions= 0 time=15 usec 
 #deadcode             actions= 0 time=4 usec 
 #reorder              actions= 1 time=19 usec 
 #reduce               actions=33 time=23 usec 
@@ -119,8 +113,8 @@ end user.s10_0;
 % mal # name
 % clob # type
 % 180 # length
-function user.s26_0():void;
-    X_1:void := querylog.define("explain copy into ttt from \\'/tmp/xyz\\';":str, "user_0":str, 22:int);
+function user.main():void;
+    X_1:void := querylog.define("explain copy into ttt from '/tmp/xyz';":str, "user_0":str, 21:int);
     X_4:int := sql.mvc();
     (X_26:bat[:int], X_27:bat[:int], X_28:bat[:int]) := sql.copy_from(nil:ptr, "|":str, "\n":str, nil:str, "null":str, "/tmp/xyz":str, -1:lng, 0:lng, 0:int, 0:int, nil:str, 0:int);
     X_30:int := sql.append(X_4:int, "sys":str, "ttt":str, "a":str, X_26:bat[:int]);
@@ -128,7 +122,7 @@ function user.s26_0():void;
     X_40:lng := aggr.count(X_28:bat[:int]);
     X_38:int := sql.append(X_35:int, "sys":str, "ttt":str, "c":str, X_28:bat[:int]);
     sql.affectedRows(X_38:int, X_40:lng);
-end user.s26_0;
+end user.main;
 #inline               actions= 0 time=1 usec 
 #candidates           actions= 1 time=14 usec 
 #remap                actions= 0 time=3 usec 

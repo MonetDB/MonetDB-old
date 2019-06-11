@@ -22,16 +22,11 @@ typedef struct cq {
 	sql_allocator *sa;	/* the symbols are allocated from this sa */
 	sql_rel *rel;		/* relational query */
 	symbol *s;		/* the SQL parse tree */
-	sql_subtype *params;	/* parameter types */
-	int paramlen;		/* number of parameters */
-	backend_stack stk;	/* V4 state information */
-	backend_code code;	/* V4 state information */
 	int id;			/* cache identity */
-	int key;		/* the hash key for the query text */
-	char *codestring;	/* keep code in string form to aid debugging */
-	char *name;		/* name of cache query */
+	char *name;		/* name of cached query */
 	int no_mitosis;		/* run query without mitosis */
 	int count;		/* number of times the query is matched */
+	sql_func *f;
 } cq;
 
 typedef struct qc {
@@ -43,14 +38,10 @@ typedef struct qc {
 
 extern qc *qc_create(int clientid, int seqnr);
 extern void qc_destroy(qc *cache);
-extern void qc_clean(qc *cache);
 extern cq *qc_find(qc *cache, int id);
-extern cq *qc_match(qc *cache, mvc *sql, symbol *s, atom **params, int plen, int key);
-extern cq *qc_insert(qc *cache, sql_allocator *sa, sql_rel *r, char *qname, symbol *s, atom **params, int paramlen, int key, int type, char *codedstr, int no_mitosis);
+extern cq *qc_insert(qc *cache, sql_allocator *sa, sql_rel *r, symbol *s, list *params, int type, char *codedstr, int no_mitosis);
 extern void qc_delete(qc *cache, cq *q);
 extern int qc_size(qc *cache);
-extern int qc_isaquerytemplate(char *nme);
-extern int qc_isapreparedquerytemplate(char *nme);
 
 #endif /*_SQL_QC_H_*/
 

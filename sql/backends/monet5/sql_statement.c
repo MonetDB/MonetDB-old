@@ -118,13 +118,27 @@ pushSchema(MalBlkPtr mb, InstrPtr q, sql_table *t)
 		return pushNil(mb, q, TYPE_str);
 }
 
+static int
+constantAtom(MalBlkPtr mb, atom *a)
+{
+	int idx;
+	ValPtr vr = (ValPtr) &a->data;
+	ValRecord cst;
+
+	cst.vtype = 0;
+	if(VALcopy(&cst, vr) == NULL)
+		return -1;
+	idx = defConstant(mb, vr->vtype, &cst);
+	return idx;
+}
+
 void
 create_merge_partitions_accumulator(backend *be)
 {
 	sql_subtype tpe;
 
 	sql_find_subtype(&tpe, "bigint", 0, 0);
-	be->cur_append = constantAtom(be, be->mb, atom_int(be->mvc->sa, &tpe, 0));
+	be->cur_append = constantAtom(be->mb, atom_int(be->mvc->sa, &tpe, 0));
 }
 
 int
@@ -412,17 +426,13 @@ stmt_varnr(backend *be, int nr, sql_subtype *t)
 {
 	MalBlkPtr mb = be->mb;
 	InstrPtr q = newAssignment(mb);
+	char buf[IDLENGTH];
 
 	if (!q)
 		return NULL;
-	if (be->mvc->argc && be->mvc->args[nr]->varid >= 0) {
-		q = pushArgument(mb, q, be->mvc->args[nr]->varid);
-	} else {
-		char buf[IDLENGTH];
 
-		(void) snprintf(buf, sizeof(buf), "A%d", nr);
-		q = pushArgumentId(mb, q, buf);
-	}
+	(void) snprintf(buf, sizeof(buf), "A%d", nr);
+	q = pushArgumentId(mb, q, buf);
 	if (q) {
 		stmt *s = stmt_create(be->mvc->sa, st_var);
 		if (s == NULL) {
@@ -1278,7 +1288,7 @@ stmt_atom(backend *be, atom *a)
 		q = pushNil(mb, q, atom_type(a)->type->localtype);
 	} else {
 		int k;
-		if((k = constantAtom(be, mb, a)) == -1) {
+		if((k = constantAtom(mb, a)) == -1) {
 			freeInstruction(q);
 			return NULL;
 		}
@@ -1529,55 +1539,6 @@ stmt_uselect(backend *be, stmt *op1, stmt *op2, comp_type cmptype, stmt *sub, in
 	return NULL;
 }
 
-/*
-static int
-range_join_convertable(stmt *s, stmt **base, stmt **L, stmt **H)
-{
-	int ls = 0, hs = 0;
-	stmt *l = NULL, *h = NULL;
-	stmt *bl = s->op2, *bh = s->op3;
-	int tt = tail_type(s->op2)->type->localtype;
-
-#ifdef HAVE_HGE
-	if (tt > TYPE_hge)
-#else
-	if (tt > TYPE_lng)
-#endif
-		return 0;
-	if (s->op2->type == st_Nop && list_length(s->op2->op1->op4.lval) == 2) {
-		bl = s->op2->op1->op4.lval->h->data;
-		l = s->op2->op1->op4.lval->t->data;
-	}
-	if (s->op3->type == st_Nop && list_length(s->op3->op1->op4.lval) == 2) {
-		bh = s->op3->op1->op4.lval->h->data;
-		h = s->op3->op1->op4.lval->t->data;
-	}
-
-	if (((ls = (l && strcmp(s->op2->op4.funcval->func->base.name, "sql_sub") == 0 && l->nrcols == 0)) || (hs = (h && strcmp(s->op3->op4.funcval->func->base.name, "sql_add") == 0 && h->nrcols == 0))) && (ls || hs) && bl == bh) {
-		*base = bl;
-		*L = l;
-		*H = h;
-		return 1;
-	}
-	return 0;
-}
-
-static int
-argumentZero(MalBlkPtr mb, int tpe)
-{
-	ValRecord cst;
-	str msg;
-
-	cst.vtype = TYPE_int;
-	cst.val.ival = 0;
-	msg = convertConstant(tpe, &cst);
-	if( msg)
-		freeException(msg); // will not be called
-	return defConstant(mb, tpe, &cst);
-}
-*/
-
-
 static InstrPtr
 select2_join2(backend *be, stmt *op1, stmt *op2, stmt *op3, int cmp, stmt *sub, int anti, int swapped, int type)
 {
@@ -1617,40 +1578,10 @@ select2_join2(backend *be, stmt *op1, stmt *op2, stmt *op3, int cmp, stmt *sub, 
 		if (q == NULL)
 			return NULL;
 	} else {
-		/* if st_join2 try to convert to bandjoin */
-		/* ie check if we subtract/add a constant, to the
-	   	same column */
-		/* move this optimization into the relational phase! */
-	/*
-		stmt *base, *low = NULL, *high = NULL;
-		if (type == st_join2 && range_join_convertable(s, &base, &low, &high)) {
-			int tt = tail_type(base)->type->localtype;
-	
-			if ((rs = _dumpstmt(sql, mb, base)) < 0)
-				return -1;
-			if (low) {
-				if ((r1 = _dumpstmt(sql, mb, low)) < 0)
-					return -1;
-			} else
-				r1 = argumentZero(mb, tt);
-			if (high) {
-				if ((r2 = _dumpstmt(sql, mb, high)) < 0)
-					return -1;
-			} else
-				r2 = argumentZero(mb, tt);
-			cmd = bandjoinRef;
-		}
-	*/
-
 		int r1 = op2->nr;
 		int r2 = op3->nr;
 		int rs = 0;
-		/*
-		if (!rs) {
-			r1 = op2->nr;
-			r2 = op3->nr;
-		}
-		*/
+
 		q = newStmt(mb, algebraRef, cmd);
 		if (type == st_join2)
 			q = pushReturn(mb, q, newTmpVariable(mb, TYPE_any));
@@ -2922,7 +2853,7 @@ stmt_Nop(backend *be, stmt *ops, sql_subfunc *f)
 		}
 	} else {
 		fimp = convertOperator(fimp);
-		q = newStmt(mb, mod, fimp);
+		q = newStmt(mb, mod?mod:"user", fimp);
 		
 		if (f->res && list_length(f->res)) {
 			sql_subtype *res = f->res->h->data;

@@ -13,6 +13,7 @@
 				   the dependent code into sql_mvc */
 #include "sql_privileges.h"
 #include "sql_env.h"
+#include "sql_qc.h"
 #include "rel_rel.h"
 #include "rel_exp.h"
 #include "rel_xml.h"
@@ -910,28 +911,7 @@ rel_column_ref(sql_query *query, sql_rel **rel, symbol *column_r, int f)
 	assert((column_r->token == SQL_COLUMN || column_r->token == SQL_IDENT) && column_r->type == type_list);
 	l = column_r->data.lval;
 
-	if (dlist_length(l) == 1 && l->h->type == type_int) {
-		int nr = l->h->data.i_val;
-		atom *a;
-		if ((a = sql_bind_arg(sql, nr)) != NULL) {
-			if (EC_TEMP_FRAC(atom_type(a)->type->eclass)) {
-				/* fix fraction */
-				sql_subtype *st = atom_type(a), t;
-				int digits = st->digits;
-				sql_exp *e;
-
-				sql_find_subtype(&t, st->type->sqlname, digits, 0);
-	
-				st->digits = 3;
-				e = exp_atom_ref(sql->sa, nr, st);
-	
-				return exp_convert(sql->sa, e, st, &t); 
-			} else {
-				return exp_atom_ref(sql->sa, nr, atom_type(a));
-			}
-		}
-		return NULL;
-	} else if (dlist_length(l) == 1) {
+	if (dlist_length(l) == 1) {
 		char *name = l->h->data.sval;
 		sql_arg *a = sql_bind_param(sql, name);
 		int var = stack_find_var(sql, name);
@@ -3726,16 +3706,15 @@ rel_nop(sql_query *query, sql_rel **rel, symbol *se, int fs, exp_kind ek)
 	mvc *sql = query->sql;
 	int nr_args = 0;
 	dnode *l = se->data.lval->h;
-	dnode *ops = l->next->data.lval->h;
+	dnode *ops = l->next->data.lval?l->next->data.lval->h:NULL;
 	list *exps = new_exp_list(sql->sa);
 	list *tl = sa_list(sql->sa);
 	sql_subfunc *f = NULL;
 	sql_subtype *obj_type = NULL;
-	char *fname = qname_fname(l->data.lval);
-	char *sname = qname_schema(l->data.lval);
 	sql_schema *s = sql->session->schema;
 	exp_kind iek = {type_value, card_column, FALSE};
 	int err = 0;
+	char *fname, *sname;
 
 	for (; ops; ops = ops->next, nr_args++) {
 		sql_exp *e = rel_value_exp(query, rel, ops->data.sym, fs, iek);
@@ -3751,6 +3730,43 @@ rel_nop(sql_query *query, sql_rel **rel, symbol *se, int fs, exp_kind ek)
 			append(tl, tpe);
 		}
 	}
+	if (l->type == type_int) {
+		/* exec nr (ops)*/
+		int nr = l->data.i_val;
+		cq *q = qc_find(sql->qc, nr);
+		
+		if (q) {
+			node *n, *m;
+	       		list *nexps = new_exp_list(sql->sa);
+			sql_func *f = q->f;
+
+			tl = sa_list(sql->sa);
+			if (list_length(f->ops) != list_length(exps))
+				return sql_error(sql, 02, SQLSTATE(42000) "EXEC: argument lists differ");
+			if (exps->h && f->ops) {
+				for (n = exps->h, m = f->ops->h; n && m; n = n->next, m = m->next) {
+					sql_arg *a = m->data;
+					sql_exp *e = n->data;
+					sql_subtype *ntp = &a->type;
+	
+					e = rel_check_type(sql, ntp, e, type_equal);
+					if (!e) {
+						nexps = NULL;
+						break;
+					}
+					append(nexps, e);
+					append(tl, exp_subtype(e));
+				}
+			}
+			sql->type = q->type;
+			if (nexps)
+				return exp_op(sql->sa, nexps, sql_dup_subfunc(sql->sa, f, tl, NULL));
+		} else {
+			return sql_error(sql, 02, SQLSTATE(42000) "EXEC: PREPARED Statement missing '%d'", nr);
+		}
+	}
+       	fname = qname_fname(l->data.lval);
+	sname = qname_schema(l->data.lval);
 	if (sname)
 		s = mvc_bind_schema(sql, sname);
 	
@@ -4725,15 +4741,13 @@ rel_order_by(sql_query *query, sql_rel **R, symbol *orderby, int f )
 					/* integer atom on the stack */
 					if (e->type == e_atom &&
 					    tpe->type->eclass == EC_NUM) {
-						atom *a = e->l?e->l:sql->args[e->flag];
+						atom *a = e->l;
 						int nr = (int)atom_get_int(a);
 
 						e = exps_get_exp(rel->exps, nr);
 						if (!e)
 							return NULL;
 						e = exp_column(sql->sa, e->rname, exp_name(e), exp_subtype(e), exp_card(e), has_nil(e), is_intern(e));
-						if (e) /* do not cache this query */
-							sql->caching = 0;
 					} else if (e->type == e_atom) {
 						return sql_error(sql, 02, SQLSTATE(42000) "order not of type SQL_COLUMN");
 					}
@@ -4901,12 +4915,8 @@ calculate_window_bound(sql_query *query, sql_rel *p, tokens token, symbol *bound
 		iet = exp_subtype(ie);
 
 		assert(token == SQL_PRECEDING || token == SQL_FOLLOWING);
-		if (bound->token == SQL_NULL ||
-		    (bound->token == SQL_IDENT &&
-		     bound->data.lval->h->type == type_int &&
-		     sql->args[bound->data.lval->h->data.i_val]->isnull)) {
+		if (bound->token == SQL_NULL)
 			return sql_error(sql, 02, SQLSTATE(42000) "%s offset must not be NULL", bound_desc);
-		}
 		res = rel_value_exp2(query, &p, bound, f, ek, &is_last);
 		if(!res)
 			return NULL;

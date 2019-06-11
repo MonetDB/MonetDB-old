@@ -395,7 +395,7 @@ exp_atom_ref(sql_allocator *sa, int i, sql_subtype *tpe)
 }
 
 atom *
-exp_value(mvc *sql, sql_exp *e, atom **args, int maxarg)
+exp_value(mvc *sql, sql_exp *e)
 {
 	if (!e || e->type != e_atom)
 		return NULL; 
@@ -405,8 +405,6 @@ exp_value(mvc *sql, sql_exp *e, atom **args, int maxarg)
 		if (e->flag <= 1) /* global variable */
 			return stack_get_var(sql, e->r); 
 		return NULL; 
-	} else if (sql->emode == m_normal && e->flag < maxarg) { /* do not get the value in the prepared case */
-		return args[e->flag]; 
 	}
 	return NULL; 
 }
@@ -1081,8 +1079,6 @@ exp_match_exp(mvc *sql, sql_exp *e1, sql_exp *e2)
 		case e_atom:
 			if (e1->l && e2->l && !atom_cmp(e1->l, e2->l))
 				return 1;
-			else if (!e1->l && !e1->r && !e1->f && !e2->l && !e2->r && !e2->f && !atom_cmp(sql->args[e1->flag], sql->args[e2->flag]))
-				return 1;
 			break;
 		default:
 			break;
@@ -1411,46 +1407,31 @@ exp_is_correlation(sql_exp *e, sql_rel *r )
 }
 
 int
-exp_is_true(mvc *sql, sql_exp *e) 
+exp_is_true(sql_exp *e) 
 {
-	if (e->type == e_atom) {
-		if (e->l) {
-			return atom_is_true(e->l);
-		} else if(sql->emode == m_normal && sql->argc > e->flag && EC_BOOLEAN(exp_subtype(e)->type->eclass)) {
-			return atom_is_true(sql->args[e->flag]);
-		}
-	}
+	if (e->type == e_atom && e->l) 
+		return atom_is_true(e->l);
 	return 0;
 }
 
 int
-exp_is_zero(mvc *sql, sql_exp *e) 
+exp_is_zero(sql_exp *e) 
 {
-	if (e->type == e_atom) {
-		if (e->l) {
-			return atom_is_zero(e->l);
-		} else if(sql->emode == m_normal && sql->argc > e->flag && EC_COMPUTE(exp_subtype(e)->type->eclass)) {
-			return atom_is_zero(sql->args[e->flag]);
-		}
-	}
+	if (e->type == e_atom && e->l)
+		return atom_is_zero(e->l);
 	return 0;
 }
 
 int
-exp_is_not_null(mvc *sql, sql_exp *e) 
+exp_is_not_null(sql_exp *e) 
 {
-	if (e->type == e_atom) {
-		if (e->l) {
-			return !(atom_null(e->l));
-		} else if(sql->emode == m_normal && sql->argc > e->flag && EC_COMPUTE(exp_subtype(e)->type->eclass)) {
-			return !atom_null(sql->args[e->flag]);
-		}
-	}
+	if (e->type == e_atom && e->l)
+		return !(atom_null(e->l));
 	return 0;
 }
 
 int
-exp_is_null(mvc *sql, sql_exp *e )
+exp_is_null(sql_exp *e )
 {
 	switch (e->type) {
 	case e_atom:
@@ -1458,12 +1439,10 @@ exp_is_null(mvc *sql, sql_exp *e )
 			return 0;
 		if (e->l) {
 			return (atom_null(e->l));
-		} else if (sql->emode == m_normal && sql->argc > e->flag) {
-			return atom_null(sql->args[e->flag]);
 		}
 		return 0;
 	case e_convert:
-		return exp_is_null(sql, e->l);
+		return exp_is_null(e->l);
 	case e_func:
 	case e_aggr:
 	{	
@@ -1473,7 +1452,7 @@ exp_is_null(mvc *sql, sql_exp *e )
 
 		if (!r && l && list_length(l) == 2) {
 			for (n = l->h; n && !r; n = n->next) 
-				r |= exp_is_null(sql, n->data);
+				r |= exp_is_null(n->data);
 		}
 		return r;
 	}
@@ -2009,7 +1988,7 @@ atom *
 exp_flatten(mvc *sql, sql_exp *e) 
 {
 	if (e->type == e_atom) {
-		atom *v =  exp_value(sql, e, sql->args, sql->argc);
+		atom *v =  exp_value(sql, e);
 
 		if (v)
 			return atom_dup(sql->sa, v);

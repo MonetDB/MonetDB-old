@@ -889,7 +889,6 @@ sql_update_mar2018(Client c, mvc *sql)
 			"CREATE VIEW sys.roles AS SELECT id, name, grantor FROM sys.auths a WHERE a.name NOT IN (SELECT u.name FROM sys.db_users() u);\n"
 			"GRANT SELECT ON sys.roles TO PUBLIC;\n"
 			"CREATE VIEW sys.var_values (var_name, value) AS\n"
-			"SELECT 'cache' AS var_name, convert(cache, varchar(10)) AS value UNION ALL\n"
 			"SELECT 'current_role', current_role UNION ALL\n"
 			"SELECT 'current_schema', current_schema UNION ALL\n"
 			"SELECT 'current_timezone', current_timezone UNION ALL\n"
@@ -1548,7 +1547,6 @@ sql_update_apr2019(Client c, mvc *sql)
 	pos += snprintf(buf + pos, bufsize - pos,
 			"DROP VIEW sys.var_values;\n"
 			"CREATE VIEW sys.var_values (var_name, value) AS\n"
-			"SELECT 'cache' AS var_name, convert(cache, varchar(10)) AS value UNION ALL\n"
 			"SELECT 'current_role', current_role UNION ALL\n"
 			"SELECT 'current_schema', current_schema UNION ALL\n"
 			"SELECT 'current_timezone', current_timezone UNION ALL\n"

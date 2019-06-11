@@ -55,21 +55,6 @@
 #include "msabaoth.h"		/* msab_getUUID */
 #include "muuid.h"
 
-int
-constantAtom(backend *sql, MalBlkPtr mb, atom *a)
-{
-	int idx;
-	ValPtr vr = (ValPtr) &a->data;
-	ValRecord cst;
-
-	(void) sql;
-	cst.vtype = 0;
-	if(VALcopy(&cst, vr) == NULL)
-		return -1;
-	idx = defConstant(mb, vr->vtype, &cst);
-	return idx;
-}
-
 InstrPtr
 table_func_create_result(MalBlkPtr mb, InstrPtr q, sql_func *f, list *restypes)
 {
@@ -140,7 +125,6 @@ _create_relational_function(mvc *m, const char *mod, const char *name, sql_rel *
 	MalBlkPtr curBlk = 0;
 	InstrPtr curInstr = 0;
 	Symbol backup = NULL, curPrg = NULL;
-	int old_argc = be->mvc->argc;
 
 	backup = c->curprg;
 	curPrg = c->curprg = newFunction(putName(mod), putName(name), FUNCTIONsymbol);
@@ -200,14 +184,12 @@ _create_relational_function(mvc *m, const char *mod, const char *name, sql_rel *
 
 	/* add return statement */
 	r = rel_psm_stmt(m->sa, exp_return(m->sa,  exp_rel(m, r), 0));
-	be->mvc->argc = 0;
 	if (backend_dumpstmt(be, curBlk, r, 0, 1, NULL) < 0) {
 		freeSymbol(curPrg);
 		if (backup)
 			c->curprg = backup;
 		return -1;
 	}
-	be->mvc->argc = old_argc;
 	/* SQL function definitions meant for inlineing should not be optimized before */
 	if (inline_func)
 		curBlk->inlineProp = 1;
@@ -667,45 +649,6 @@ backend_dumpstmt(backend *be, MalBlkPtr mb, sql_rel *r, int top, int add_end, co
 	return 0;
 }
 
-/* Generate the assignments of the query arguments to the query template*/
-int
-backend_callinline(backend *be, Client c)
-{
-	mvc *m = be->mvc;
-	InstrPtr curInstr = 0;
-	MalBlkPtr curBlk = c->curprg->def;
-
-	setVarType(curBlk, 0, 0);
-	if (m->argc) {	
-		int argc = 0;
-
-		for (; argc < m->argc; argc++) {
-			atom *a = m->args[argc];
-			int type = atom_type(a)->type->localtype;
-			int varid = 0;
-
-			curInstr = newAssignment(curBlk);
-			if (curInstr == NULL)
-				return -1;
-			a->varid = varid = getDestVar(curInstr);
-			setVarType(curBlk, varid, type);
-			setVarUDFtype(curBlk, varid);
-
-			if (atom_null(a)) {
-				sql_subtype *t = atom_type(a);
-				(void) pushNil(curBlk, curInstr, t->type->localtype);
-			} else {
-				int _t;
-				if((_t = constantAtom(be, curBlk, a)) == -1)
-					return -1;
-				(void) pushArgument(curBlk, curInstr, _t);
-			}
-		}
-	}
-	c->curprg->def = curBlk;
-	return 0;
-}
-
 /* SQL procedures, functions and PREPARE statements are compiled into a parameterised plan */
 Symbol
 backend_dumpproc(backend *be, Client c, cq *cq, sql_rel *r)
@@ -714,9 +657,9 @@ backend_dumpproc(backend *be, Client c, cq *cq, sql_rel *r)
 	MalBlkPtr mb = 0;
 	Symbol curPrg = 0, backup = NULL;
 	InstrPtr curInstr = 0;
-	int argc = 0;
 	char arg[IDLENGTH];
 	node *n;
+	int argc = 0;
 
 	backup = c->curprg;
 	if (cq)
@@ -735,27 +678,7 @@ backend_dumpproc(backend *be, Client c, cq *cq, sql_rel *r)
 	setVarUDFtype(mb, 0);
 	setModuleId(curInstr, userRef);
 
-	if (m->argc) {
-		for (argc = 0; argc < m->argc; argc++) {
-			atom *a = m->args[argc];
-			sql_type *tpe = atom_type(a)->type;
-			int type, varid = 0;
-
-			if (!tpe) {
-				sql_error(m, 003, SQLSTATE(42000) "Could not determine type for argument number %d\n", argc+1);
-				goto cleanup;
-			}
-			type = tpe->localtype;
-			snprintf(arg, IDLENGTH, "A%d", argc);
-			a->varid = varid = newVariable(mb, arg,strlen(arg), type);
-			curInstr = pushArgument(mb, curInstr, varid);
-			assert(curInstr);
-			if (curInstr == NULL) 
-				goto cleanup;
-			setVarType(mb, varid, type);
-			setVarUDFtype(mb, 0);
-		}
-	} else if (m->params) {	/* needed for prepare statements */
+	if (m->params) {	/* needed for prepare statements */
 
 		for (n = m->params->h; n; n = n->next, argc++) {
 			sql_arg *a = n->data;
@@ -778,13 +701,13 @@ backend_dumpproc(backend *be, Client c, cq *cq, sql_rel *r)
 		}
 	}
 
-	if (backend_dumpstmt(be, mb, r, 1, 1, be->q?be->q->codestring:NULL) < 0) 
+	if (backend_dumpstmt(be, mb, r, 1, 1, be->q?be->q->f->query:NULL) < 0) 
 		goto cleanup;
 
 	if (cq){
 		SQLaddQueryToCache(c);
 		// optimize this code the 'old' way
-		if ( (m->emode == m_prepare || !qc_isaquerytemplate(getFunctionId(getInstrPtr(c->curprg->def,0)))) && !c->curprg->def->errors )
+		if (m->emode == m_prepare && !c->curprg->def->errors )
 			c->curprg->def->errors = SQLoptimizeFunction(c,c->curprg->def);
 	}
 
@@ -799,53 +722,6 @@ cleanup:
 	if (backup)
 		c->curprg = backup;
 	return NULL;
-}
-
-void
-backend_call(backend *be, Client c, cq *cq)
-{
-	mvc *m = be->mvc;
-	InstrPtr q;
-	MalBlkPtr mb = c->curprg->def;
-
-	q = newStmt(mb, userRef, cq->name);
-	if (!q) {
-		m->session->status = -3;
-		return;
-	}
-	/* cached (factorized queries return bit??) */
-	if (cq->code && getInstrPtr(((Symbol)cq->code)->def, 0)->token == FACTORYsymbol) {
-		setVarType(mb, getArg(q, 0), TYPE_bit);
-		setVarUDFtype(mb, getArg(q, 0));
-	} else {
-		setVarType(mb, getArg(q, 0), TYPE_void);
-		setVarUDFtype(mb, getArg(q, 0));
-	}
-	if (m->argc) {
-		int i;
-
-		for (i = 0; i < m->argc; i++) {
-			atom *a = m->args[i];
-			sql_subtype *pt = cq->params + i;
-
-			if (!atom_cast(m->sa, a, pt)) {
-				sql_error(m, 003, SQLSTATE(42000) "wrong type for argument %d of " "function call: %s, expected %s\n", i + 1, atom_type(a)->type->sqlname, pt->type->sqlname);
-				break;
-			}
-			if (atom_null(a)) {
-				sql_subtype *t = cq->params + i;
-				/* need type from the prepared argument */
-				q = pushNil(mb, q, t->type->localtype);
-			} else {
-				int _t;
-				if((_t = constantAtom(be, mb, a)) == -1) {
-					(void) sql_error(m, 02, SQLSTATE(HY001) "Allocation failure during function call: %s\n", atom_type(a)->type->sqlname);
-					break;
-				}
-				q = pushArgument(mb, q, _t);
-			}
-		}
-	}
 }
 
 int
@@ -1151,7 +1027,7 @@ cleanup:
 }
 
 /* TODO handle aggr */
-int
+static int
 backend_create_func(backend *be, sql_func *f, list *restypes, list *ops)
 {
 	switch(f->lang) {

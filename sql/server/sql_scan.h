@@ -27,7 +27,6 @@ struct scanner {
 	size_t yycur;	/* next char in the queue */
 	char yybak;		/* sometimes it's needed to write an EOS marker */
 	size_t as;		/* start of query part of view's etc */
-	int key;		/* query hash */
 	int started;	/* found at least one token */
 	prot mode;		/* which mode (line (1,N), blocked) */
 	char *schema;	/* Keep schema name of create statement, needed AUTO_INCREMENT, SERIAL */

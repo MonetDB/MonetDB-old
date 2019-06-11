@@ -18,11 +18,8 @@
 #include "mal_function.h"
 
 sql5_export Symbol backend_dumpproc(backend *be, Client c, cq *q, sql_rel *r);
-sql5_export int backend_callinline(backend *be, Client c);
 sql5_export int backend_dumpstmt(backend *be, MalBlkPtr mb, sql_rel *r, int top, int addend, const char *query);
-sql5_export void backend_call(backend *be, Client c, cq *q);
 sql5_export int monet5_resolve_function(ptr M, sql_func *f);
-sql5_export int backend_create_func(backend *be, sql_func *f, list *restypes, list *ops);
 extern int backend_create_subfunc(backend *be, sql_subfunc *f, list *ops);
 extern int backend_create_subaggr(backend *be, sql_subaggr *f);
 
@@ -31,7 +28,6 @@ sql5_export int monet5_create_relational_function(mvc *m, const char *mod, const
 extern void rel_print(mvc *sql, sql_rel *rel, int depth);
 extern void _rel_print(mvc *sql, sql_rel *rel);
 
-extern int constantAtom(backend *be, MalBlkPtr mb, atom *a);
 extern InstrPtr table_func_create_result(MalBlkPtr mb, InstrPtr q, sql_func *f, list *restypes);
 extern InstrPtr relational_func_create_result(mvc *sql, MalBlkPtr mb, InstrPtr q, sql_rel *f);
 

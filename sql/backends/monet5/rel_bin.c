@@ -268,7 +268,7 @@ distinct_value_list(backend *be, list *vals, stmt ** last_null_value)
 		sql_exp *e = n->data;
 		stmt *i = exp_bin(be, e, NULL, NULL, NULL, NULL, NULL, NULL);
 
-		if (exp_is_null(be->mvc, e))
+		if (exp_is_null(e))
 			*last_null_value = i;
 
 		if (!i)
@@ -1084,57 +1084,19 @@ check_table_types(backend *be, list *types, stmt *s, check_type tpe)
 }
 #endif
 
-static void
-sql_convert_arg(mvc *sql, int nr, sql_subtype *rt)
-{
-	atom *a = sql_bind_arg(sql, nr);
-
-	if (atom_null(a)) {
-		if (a->data.vtype != rt->type->localtype) {
-			a->data.vtype = rt->type->localtype;
-			VALset(&a->data, a->data.vtype, (ptr) ATOMnilptr(a->data.vtype));
-		}
-	}
-	a->tpe = *rt;
-}
-
-/* try to do an inplace convertion 
- * 
- * inplace conversion is only possible if the s is an variable.
- * This is only done to be able to map more cached queries onto the same 
- * interface.
- */
-static stmt *
-inplace_convert(backend *be, sql_subtype *ct, stmt *s)
-{
-	atom *a;
-
-	/* exclude named variables */
-	if (s->type != st_var || (s->op1 && s->op1->op4.aval->data.val.sval) || 
-		(ct->scale && ct->type->eclass != EC_FLT))
-		return s;
-
-	a = sql_bind_arg(be->mvc, s->flag);
-	if (atom_cast(be->mvc->sa, a, ct)) {
-		stmt *r = stmt_varnr(be, s->flag, ct);
-		sql_convert_arg(be->mvc, s->flag, ct);
-		return r;
-	}
-	return s;
-}
-
 static int
 stmt_set_type_param(mvc *sql, sql_subtype *type, stmt *param)
 {
-	if (!type || !param || param->type != st_var)
-		return -1;
+        if (!type || !param || param->type != st_var)
+                return -1;
 
-	if (set_type_param(sql, type, param->flag) == 0) {
-		param->op4.typeval = *type;
-		return 0;
-	}
-	return -1;
+        if (set_type_param(sql, type, param->flag) == 0) {
+                param->op4.typeval = *type;
+                return 0;
+        }
+        return -1;
 }
+
 
 /* check_types tries to match the ct type with the type of s if they don't
  * match s is converted. Returns NULL on failure.
@@ -1157,10 +1119,6 @@ check_types(backend *be, sql_subtype *ct, stmt *s, check_type tpe)
 	} else if (!st) {
 		return sql_error(sql, 02, SQLSTATE(42000) "statement has no type information");
 	}
-
-	/* first try cheap internal (inplace) convertions ! */
-	s = inplace_convert(be, ct, s);
-	t = st = tail_type(s);
 
 	/* check if the types are the same */
 	if (t && subtype_cmp(t, ct) != 0) {
@@ -1408,17 +1366,6 @@ exp2bin_args(backend *be, sql_exp *e, list *args)
 			snprintf(nme, 64, "A%s", (char*)e->r);
 			if (!list_find(args, nme, (fcmp)&alias_cmp)) {
 				stmt *s = stmt_var(be, e->r, &e->tpe, 0, 0);
-
-				s = stmt_alias(be, s, NULL, sa_strdup(sql->sa, nme));
-				list_append(args, s);
-			}
-		} else {
-			char nme[16];
-
-			snprintf(nme, 16, "A%d", e->flag);
-			if (!list_find(args, nme, (fcmp)&alias_cmp)) {
-				atom *a = sql->args[e->flag];
-				stmt *s = stmt_varnr(be, e->flag, &a->tpe);
 
 				s = stmt_alias(be, s, NULL, sa_strdup(sql->sa, nme));
 				list_append(args, s);

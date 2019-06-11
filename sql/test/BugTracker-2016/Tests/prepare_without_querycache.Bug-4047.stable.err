@@ -28,6 +28,10 @@ stderr of test 'prepare_without_querycache.Bug-4047` in directory 'sql/test/BugT
 # 12:52:08 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-20726" "--port=34463"
 # 12:52:08 >  
 
+MAPI  = (monetdb) /var/tmp/mtest-24011/.s.monetdb.33167
+QUERY = set cache=0;
+ERROR = !Variable cache unknown
+CODE  = 42000
 
 # 12:52:08 >  
 # 12:52:08 >  "Done."

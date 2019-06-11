@@ -29,10 +29,6 @@ stderr of test 'prepare_stmt.Bug-2533.Bug-2534` in directory 'sql/test/BugTracke
 # 23:36:34 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-7551" "--port=35003"
 # 23:36:34 >  
 
-MAPI  = (monetdb) /var/tmp/mtest-7551/.s.monetdb.35003
-QUERY = exec  3(2.3);
-ERROR = !wrong type for argument 1 of function call: decimal, expected bigint
-CODE  = 42000
 
 
 # 23:36:35 >  
