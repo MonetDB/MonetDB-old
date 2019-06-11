@@ -994,7 +994,8 @@ SQLparser(Client c)
 		throw(SQL, "SQLparser", SQLSTATE(HY001) MAL_MALLOC_FAIL " for SQL allocator");
 	}
 	if (eb_savepoint(m->eb)) {
-		printf("Exception: we should cleanup\n");
+		sa_reset(m->sa);
+		/* what else to cleanup ?? */
 	}
 
 	m->emode = m_normal;

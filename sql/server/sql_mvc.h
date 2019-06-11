@@ -209,7 +209,6 @@ extern int mvc_check_dependency(mvc * m, sqlid id, sht type, list *ignore_ids);
 
 /* variable management */
 extern sql_var* stack_push_var(mvc *sql, const char *name, sql_subtype *type);
-extern sql_var* stack_push_rel_var(mvc *sql, const char *name, sql_rel *var, sql_subtype *type);
 extern sql_var* stack_push_table(mvc *sql, const char *name, sql_rel *var, sql_table *t);
 extern sql_var* stack_push_rel_view(mvc *sql, const char *name, sql_rel *view);
 extern sql_var* stack_push_window_def(mvc *sql, const char *name, dlist *sym);

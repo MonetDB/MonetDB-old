@@ -1531,15 +1531,6 @@ stack_push_var(mvc *sql, const char *name, sql_subtype *type)
 }
 
 sql_var*
-stack_push_rel_var(mvc *sql, const char *name, sql_rel *var, sql_subtype *type)
-{
-	sql_var* res = stack_set(sql, sql->topvars, name, type, var, NULL, NULL, 0, 0);
-	if(res)
-		sql->topvars++;
-	return res;
-}
-
-sql_var*
 stack_push_table(mvc *sql, const char *name, sql_rel *var, sql_table *t)
 {
 	sql_var* res = stack_set(sql, sql->topvars, name, NULL, var, t, NULL, 0, 0);

@@ -7245,6 +7245,12 @@ rel_simplify_predicates(int *changes, mvc *sql, sql_rel *rel)
 				/* remove simple select true expressions */
 				if (flag)
 					continue;
+				if (!flag) { /* select xxx and false -> select false */
+					if (list_length(exps))
+						exps = sa_list(sql->sa);
+					list_append(exps, e);
+					break;
+				}
 			}
 			if (e->type == e_cmp && get_cmp(e) == cmp_equal) {
 				sql_exp *l = e->l;
