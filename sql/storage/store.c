@@ -2020,7 +2020,7 @@ store_init(int debug, store_type store, int readonly, int singleuser)
 	return store_load();
 }
 
-static int logging = 0;
+static bool logging = false;
 
 void
 store_exit(void)
@@ -2068,7 +2068,7 @@ store_apply_deltas(void)
 {
 	int res = LOG_OK;
 
-	logging = 1;
+	logging = true;
 	/* make sure we reset all transactions on re-activation */
 	gtrans->wstime = timestamp();
 	if (store_funcs.gtrans_update)
@@ -2076,15 +2076,15 @@ store_apply_deltas(void)
 	res = logger_funcs.restart();
 	if (logging && res == LOG_OK)
 		res = logger_funcs.cleanup();
-	logging = 0;
+	logging = false;
 }
 
-static int need_flush = 0;
+static bool need_flush = false;
 
 void
 store_flush_log(void)
 {
-	need_flush = 1;
+	need_flush = true;
 }
 
 static int
@@ -2137,6 +2137,7 @@ store_manager(void)
 {
 	const int sleeptime = GDKdebug & FORCEMITOMASK ? 10 : 50;
 	const int timeout = GDKdebug & FORCEMITOMASK ? 500 : 50000;
+	const int changes = GDKdebug & FORCEMITOMASK ? 100 : 1000000;
 
 	MT_thread_setworking("sleeping");
 	while (!GDKexiting()) {
@@ -2154,11 +2155,11 @@ store_manager(void)
 			MT_lock_unset(&bs_lock);
 			return;
 		}
-		if (!need_flush && logger_funcs.changes() < 1000000) {
+		if (!need_flush && logger_funcs.changes() < changes) {
 			MT_lock_unset(&bs_lock);
 			continue;
 		}
-		need_flush = 0;
+		need_flush = false;
 		while (ATOMIC_GET(&store_nr_active)) { /* find a moment to flush */
 			MT_lock_unset(&bs_lock);
 			if (GDKexiting())
@@ -2168,7 +2169,7 @@ store_manager(void)
 		}
 
 		MT_thread_setworking("flushing");
-		logging = 1;
+		logging = true;
 		/* make sure we reset all transactions on re-activation */
 		gtrans->wstime = timestamp();
 		if (store_funcs.gtrans_update) {
@@ -2182,7 +2183,7 @@ store_manager(void)
 		}
 
 		MT_lock_set(&bs_lock);
-		logging = 0;
+		logging = false;
 		MT_lock_unset(&bs_lock);
 
 		if (res != LOG_OK)
