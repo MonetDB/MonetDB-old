@@ -800,7 +800,6 @@ MT_join_thread(MT_Id t)
 	return 0;
 }
 
-
 int
 MT_kill_thread(MT_Id t)
 {

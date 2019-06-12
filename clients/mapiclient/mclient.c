@@ -3051,7 +3051,8 @@ getfile(void *data, const char *filename, bool binary,
 	struct privdata *priv = data;
 	ssize_t s;
 
-	*size = 0;		/* most returns require this */
+	if (size)
+		*size = 0;	/* most returns require this */
 	if (priv->buf == NULL) {
 		priv->buf = malloc(READSIZE);
 		if (priv->buf == NULL)
