@@ -238,10 +238,10 @@
 #cmakedefine LOCALSTATEDIR "@LOCALSTATE_DIR@"
 
 /* The used password hash algorithm */
-#cmakedefine MONETDB5_PASSWDHASH "@MONETDB5_PASSWDHASH@"
+#define MONETDB5_PASSWDHASH "@PASSWORD_BACKEND@"
 
 /* The used password hash algorithm */
-#cmakedefine MONETDB5_PASSWDHASH_TOKEN @MONETDB5_PASSWDHASH_TOKEN@
+#define MONETDB5_PASSWDHASH_TOKEN @PASSWORD_BACKEND@
 
 /* Release name or "unreleased" */
 #cmakedefine MONETDB_RELEASE "@MONETDB_RELEASE@"
