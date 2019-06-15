@@ -4649,7 +4649,7 @@ sql_trans_create_type(sql_trans *tr, sql_schema * s, const char *sqlname, int di
 	sql_type *t;
 	sql_table *systype;
 	int localtype = ATOMindex(impl);
-	int eclass = EC_EXTERNAL;
+	sql_class eclass = EC_EXTERNAL;
 
 	if (localtype < 0) 
 		return NULL;
