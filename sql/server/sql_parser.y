@@ -5827,30 +5827,21 @@ ustring:
     USTRING
 		{ $$ = $1; }
  |  USTRING sstring
-		{ char *s = strconcat($1,$2);
-	 	  $$ = sa_strdup(SA, s);
-		  _DELETE(s);
-		}
+		{ $$ = sa_strconcat(SA, $1, $2); }
  ;
 
 blobstring:
     XSTRING	/* X'<hexit>...' */
 		{ $$ = $1; }
  |  XSTRING sstring
-		{ char *s = strconcat($1,$2);
-	 	  $$ = sa_strdup(SA, s);
-		  _DELETE(s);
-		}
+		{ $$ = sa_strconcat(SA, $1, $2); }
  ;
 
 sstring:
     STRING
 		{ $$ = $1; }
  |  STRING sstring
-		{ char *s = strconcat($1,$2);
-	 	  $$ = sa_strdup(SA, s);
-		  _DELETE(s);
-		}
+		{ $$ = sa_strconcat(SA, $1, $2); }
  ;
 
 string:
@@ -6311,10 +6302,8 @@ XML_namespace_URI:
 
 XML_regular_namespace_declaration_item:
     XML_namespace_URI AS XML_namespace_prefix
-				{ char *s = strconcat("xmlns:", $3);
-				  dlist *l = L();
-	  			  append_string(l, sa_strdup(SA, s));
-				  _DELETE(s);
+				{ dlist *l = L();
+	  			  append_string(l, sa_strconcat(SA, "xmlns:", $3));
 	  			  append_symbol(l, $1);
 	  			  $$ = _symbol_create_list( SQL_XMLATTRIBUTE, l ); }
   ;
