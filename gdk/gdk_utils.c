@@ -278,9 +278,12 @@ static ATOMIC_TYPE GDK_vm_cursize = ATOMIC_VAR_INIT(0);
 size_t _MT_pagesize = 0;	/* variable holding page size */
 size_t _MT_npages = 0;		/* variable holding memory size in pages */
 
+static lng programepoch;
+
 void
 MT_init(void)
 {
+	programepoch = GDKusec();
 #ifdef _MSC_VER
 	{
 		SYSTEM_INFO sysInfo;
@@ -1219,70 +1222,41 @@ lng
 GDKusec(void)
 {
 	/* Return the time in microseconds since an epoch.  The epoch
-	 * is roughly the time this program started. */
+	 * is currently midnight at the start of January 1, 1970, UTC. */
 #ifdef HAVE_EMBEDDED
 	return 0; // Just ignore on MonetDBLite
 #elif defined(NATIVE_WIN32)
-	static LARGE_INTEGER freq, start;	/* automatically initialized to 0 */
-	LARGE_INTEGER ctr;
-
-	if (start.QuadPart == 0 &&
-	    (!QueryPerformanceFrequency(&freq) ||
-	     !QueryPerformanceCounter(&start)))
-		start.QuadPart = -1;
-	if (start.QuadPart > 0) {
-		QueryPerformanceCounter(&ctr);
-		return (lng) (((ctr.QuadPart - start.QuadPart) * 1000000) / freq.QuadPart);
-	}
-	{
-		static struct timeb tbbase;	/* automatically initialized to 0 */
-		struct timeb tb;
-
-		if (tbbase.time == 0) {
-			ftime(&tbbase);
-			return (lng) tbbase.millitm * 1000;
-		}
-		ftime(&tb);
-		return (lng) (tb.time - tbbase.time) * 1000000 + (lng) tb.millitm * 1000;
-	}
+	FILETIME ft;
+	ULARGE_INTEGER f;
+	GetSystemTimeAsFileTime(&ft); /* time since Jan 1, 1601 */
+	f.LowPart = ft.dwLowDateTime;
+	f.HighPart = ft.dwHighDateTime;
+	/* there are 369 years, of which 89 are leap years from
+	 * January 1, 1601 to January 1, 1970 which makes 134774 days;
+	 * multiply that with the number of seconds in a day and the
+	 * number of 100ns units in a second; subtract that from the
+	 * value for the current time since January 1, 1601 to get the
+	 * time since the Unix epoch */
+	f.QuadPart -= LL_CONSTANT(134774) * 24 * 60 * 60 * 10000000;
+	/* and convert to microseconds */
+	return (lng) (f.QuadPart / 10);
+#elif defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0
+	struct timespec ts;
+	clock_gettime(CLOCK_REALTIME, &ts);
+	return (lng) (ts.tv_sec * LL_CONSTANT(1000000) + ts.tv_nsec / 1000);
 #else
-#if defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0
-#if defined(CLOCK_UPTIME_FAST)
-#define CLK_ID CLOCK_UPTIME_FAST	/* FreeBSD */
-#else
-#define CLK_ID CLOCK_MONOTONIC		/* Posix (fallback) */
-#endif
-	{
-		static struct timespec tsbase;
-		struct timespec ts;
-		if (tsbase.tv_sec == 0) {
-			clock_gettime(CLK_ID, &tsbase);
-			return tsbase.tv_nsec / 1000;
-		}
-		if (clock_gettime(CLK_ID, &ts) == 0)
-			return (ts.tv_sec - tsbase.tv_sec) * 1000000 + ts.tv_nsec / 1000;
-	}
-#endif //leave gettimeofday code as the last resort
-	{
-		static struct timeval tpbase;	/* automatically initialized to 0 */
-		struct timeval tp;
-
-		if (tpbase.tv_sec == 0) {
-			gettimeofday(&tpbase, NULL);
-			return (lng) tpbase.tv_usec;
-		}
-		gettimeofday(&tp, NULL);
-		return (lng) (tp.tv_sec - tpbase.tv_sec) * 1000000 + (lng) tp.tv_usec;
-	}
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return (lng) (tv.tv_sec * LL_CONSTANT(1000000) + tv.tv_usec);
 #endif
 }
 
 int
 GDKms(void)
 {
-	return (int) (GDKusec() / 1000);
+	/* wraps around after a bit over 24 days */
+	return (int) ((GDKusec() - programepoch) / 1000);
 }
-
 
 /*
  * @+ Logical Thread management

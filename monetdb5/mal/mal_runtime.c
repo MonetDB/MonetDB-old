@@ -84,7 +84,7 @@ runtimeProfileInit(Client cntxt, MalBlkPtr mb, MalStkPtr stk)
 		QRYqueue[i].tag = qtag++;
 		mb->tag = QRYqueue[i].tag;
 		QRYqueue[i].stk = stk;				// for status pause 'p'/running '0'/ quiting 'q'
-		QRYqueue[i].start = (lng)time(0);
+		QRYqueue[i].start = time(0);
 		QRYqueue[i].runtime = mb->runtime; 	// the estimated execution time
 		q = isaSQLquery(mb);
 		QRYqueue[i].query = q? GDKstrdup(q):0;
@@ -116,7 +116,7 @@ runtimeProfileFinish(Client cntxt, MalBlkPtr mb, MalStkPtr stk)
 			return;
 		}
 		QRYqueue[i].mb->calls++;
-		QRYqueue[i].mb->runtime += (lng) (((lng)time(0) - QRYqueue[i].start) * 1000.0/QRYqueue[i].mb->calls);
+		QRYqueue[i].mb->runtime += (lng) ((lng)(time(0) - QRYqueue[i].start) * 1000.0/QRYqueue[i].mb->calls);
 
 		// reset entry
 		if (QRYqueue[i].query)

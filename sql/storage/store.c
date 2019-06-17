@@ -885,7 +885,7 @@ load_type(sql_trans *tr, sql_schema *s, oid rid)
 	v = table_funcs.column_find_value(tr, find_sql_column(types, "radix"), rid);
 	t->radix = *(int *)v;			_DELETE(v);
 	v = table_funcs.column_find_value(tr, find_sql_column(types, "eclass"), rid);
-	t->eclass = *(int *)v;			_DELETE(v);
+	t->eclass = (sql_class)(*(int *)v);			_DELETE(v);
 	t->localtype = ATOMindex(t->base.name);
 	t->bits = 0;
 	t->s = s;
@@ -1400,7 +1400,7 @@ insert_types(sql_trans *tr, sql_table *systype)
 	for (n = types->h; n; n = n->next) {
 		sql_type *t = n->data;
 		int radix = t->radix;
-		int eclass = t->eclass;
+		int eclass = (int) t->eclass;
 
 		if (t->s)
 			table_funcs.table_insert(tr, systype, &t->base.id, t->base.name, t->sqlname, &t->digits, &t->scale, &radix, &eclass, &t->s->base.id);
@@ -2024,7 +2024,7 @@ store_init(int debug, store_type store, int readonly, int singleuser, backend_st
 	return store_load();
 }
 
-static int logging = 0;
+static bool logging = false;
 
 void
 store_exit(void)
@@ -2072,7 +2072,7 @@ store_apply_deltas(void)
 {
 	int res = LOG_OK;
 
-	logging = 1;
+	logging = true;
 	/* make sure we reset all transactions on re-activation */
 	gtrans->wstime = timestamp();
 	if (store_funcs.gtrans_update)
@@ -2080,15 +2080,15 @@ store_apply_deltas(void)
 	res = logger_funcs.restart();
 	if (logging && res == LOG_OK)
 		res = logger_funcs.cleanup();
-	logging = 0;
+	logging = false;
 }
 
-static int need_flush = 0;
+static bool need_flush = false;
 
 void
 store_flush_log(void)
 {
-	need_flush = 1;
+	need_flush = true;
 }
 
 static int
@@ -2141,6 +2141,7 @@ store_manager(void)
 {
 	const int sleeptime = GDKdebug & FORCEMITOMASK ? 10 : 50;
 	const int timeout = GDKdebug & FORCEMITOMASK ? 500 : 50000;
+	const int changes = GDKdebug & FORCEMITOMASK ? 100 : 1000000;
 
 	MT_thread_setworking("sleeping");
 	while (!GDKexiting()) {
@@ -2158,11 +2159,11 @@ store_manager(void)
 			MT_lock_unset(&bs_lock);
 			return;
 		}
-		if (!need_flush && logger_funcs.changes() < 1000000) {
+		if (!need_flush && logger_funcs.changes() < changes) {
 			MT_lock_unset(&bs_lock);
 			continue;
 		}
-		need_flush = 0;
+		need_flush = false;
 		while (ATOMIC_GET(&store_nr_active)) { /* find a moment to flush */
 			MT_lock_unset(&bs_lock);
 			if (GDKexiting())
@@ -2172,7 +2173,7 @@ store_manager(void)
 		}
 
 		MT_thread_setworking("flushing");
-		logging = 1;
+		logging = true;
 		/* make sure we reset all transactions on re-activation */
 		gtrans->wstime = timestamp();
 		if (store_funcs.gtrans_update) {
@@ -2186,7 +2187,7 @@ store_manager(void)
 		}
 
 		MT_lock_set(&bs_lock);
-		logging = 0;
+		logging = false;
 		MT_lock_unset(&bs_lock);
 
 		if (res != LOG_OK)
@@ -4653,7 +4654,8 @@ sql_trans_create_type(sql_trans *tr, sql_schema * s, const char *sqlname, int di
 	sql_type *t;
 	sql_table *systype;
 	int localtype = ATOMindex(impl);
-	int eclass = EC_EXTERNAL;
+	sql_class eclass = EC_EXTERNAL;
+	int eclass_cast = (int) eclass;
 
 	if (localtype < 0) 
 		return NULL;
@@ -4669,7 +4671,7 @@ sql_trans_create_type(sql_trans *tr, sql_schema * s, const char *sqlname, int di
 	t->s = s;
 
 	cs_add(&s->types, t, TR_NEW);
-	table_funcs.table_insert(tr, systype, &t->base.id, t->base.name, t->sqlname, &t->digits, &t->scale, &radix, &eclass, &s->base.id);
+	table_funcs.table_insert(tr, systype, &t->base.id, t->base.name, t->sqlname, &t->digits, &t->scale, &radix, &eclass_cast, &s->base.id);
 
 	t->base.wtime = s->base.wtime = tr->wtime = tr->wstime;
 	tr->schema_updates ++;
