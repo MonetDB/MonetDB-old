@@ -288,4 +288,16 @@ else()
 	endif()
 endif()
 
-install(FILES monetdb_embedded.h DESTINATION ${INCLUDEDIR}/monetdb)
+install(FILES
+		monetdb_embedded.h
+		../common/utils/mutils.h
+		../gdk/gdk.h
+		../gdk/gdk_atoms.h
+		../gdk/gdk_bbp.h
+		../gdk/gdk_calc.h
+		../gdk/gdk_delta.h
+		../gdk/gdk_posix.h
+		../gdk/gdk_hash.h
+		../gdk/gdk_system.h
+		../gdk/gdk_utils.h
+		DESTINATION ${INCLUDEDIR}/monetdb)

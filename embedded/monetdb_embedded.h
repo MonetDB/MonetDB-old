@@ -14,6 +14,7 @@
 #define _EMBEDDED_LIB_
 
 #include "monetdb_config.h"
+#include "gdk.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -69,10 +70,10 @@ typedef struct {
 } monetdb_column;
 
 typedef struct {
-	int64_t nrows;
+	lng nrows;
 	size_t ncols;
 	int type;
-	int64_t id;
+	lng id;
 } monetdb_result;
 
 typedef void* monetdb_connection;
@@ -109,17 +110,16 @@ embedded_export char* monetdb_disconnect(monetdb_connection conn);
 embedded_export char* monetdb_startup(char* dbdir, bool silent, bool sequential);
 embedded_export bool  monetdb_is_initialized(void);
 
-embedded_export char* monetdb_set_autocommit(monetdb_connection conn, int8_t value);
-embedded_export char* monetdb_query(monetdb_connection conn, char* query, monetdb_result** result, int64_t* affected_rows, int64_t* prepare_id);
+embedded_export char* monetdb_set_autocommit(monetdb_connection conn, int value);
+embedded_export char* monetdb_query(monetdb_connection conn, char* query, monetdb_result** result, lng* affected_rows, int* prepare_id);
 
 embedded_export char* monetdb_result_fetch(monetdb_connection conn, monetdb_column** res, monetdb_result* mres, size_t column_index);
 embedded_export char* monetdb_result_fetch_rawcol(monetdb_connection conn, void** res, monetdb_result* mres, size_t column_index); // actually a res_col
 
-embedded_export char* monetdb_clear_prepare(monetdb_connection conn, int64_t id);
-embedded_export char* monetdb_send_close(monetdb_connection conn, int64_t id);
+embedded_export char* monetdb_clear_prepare(monetdb_connection conn, int id);
+embedded_export char* monetdb_send_close(monetdb_connection conn, int id);
 
-/* Disclaimer: this header is GDK-free, so batids is a integer pointer instead of bat pointers */
-embedded_export char* monetdb_append(monetdb_connection conn, const char* schema, const char* table, int *batids, size_t column_count);
+embedded_export char* monetdb_append(monetdb_connection conn, const char* schema, const char* table, bat *batids, size_t column_count);
 embedded_export char* monetdb_cleanup_result(monetdb_connection conn, monetdb_result* result);
 embedded_export char* monetdb_get_columns(monetdb_connection conn, const char* schema_name, const char *table_name, size_t *column_count, char ***column_names, int **column_types);
 

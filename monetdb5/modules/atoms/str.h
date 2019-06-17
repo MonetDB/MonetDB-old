@@ -57,7 +57,7 @@ mal_export str STRrepeat(str *ret, const str *s, const int *c);
 mal_export str STRspace(str *ret, const int *l);
 
 #if !defined(HAVE_LIBPCRE) && !defined(HAVE_POSIX_REGEX) && defined(HAVE_EMBEDDED)
-bit STRRegexlike(const char* const_pattern, const char* const_data, bit case_insensitive, char escape);
+mal_export bit STRRegexlike(const char* const_pattern, const char* const_data, bit case_insensitive, char escape);
 #endif
 
 #endif /* __string_H__ */

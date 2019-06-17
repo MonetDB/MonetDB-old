@@ -131,8 +131,8 @@ cleanup:
 }
 
 static char*
-monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** result, int64_t* affected_rows,
-					   int64_t* prepare_id, char language)
+monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** result, lng* affected_rows,
+					   int* prepare_id, char language)
 {
 	char* msg = MAL_SUCCEED, *commit_msg = MAL_SUCCEED, *nq = NULL;
 	Client c = (Client) conn;
@@ -431,11 +431,11 @@ done:
 }
 
 char*
-monetdb_clear_prepare(monetdb_connection conn, int64_t id)
+monetdb_clear_prepare(monetdb_connection conn, int id)
 {
 	char query[64], *msg;
 
-	sprintf(query, "release "LLFMT, id); //no need to validate at this level
+	sprintf(query, "release %d", id); //no need to validate at this level
 	MT_rwlock_read_set(&embedded_lock);
 	msg = monetdb_query_internal(conn, query, NULL, NULL, NULL, 'X');
 	MT_rwlock_read_unset(&embedded_lock);
@@ -443,11 +443,11 @@ monetdb_clear_prepare(monetdb_connection conn, int64_t id)
 }
 
 char*
-monetdb_send_close(monetdb_connection conn, int64_t id)
+monetdb_send_close(monetdb_connection conn, int id)
 {
 	char query[64], *msg;
 
-	sprintf(query, "close "LLFMT, id); //no need to validate at this level
+	sprintf(query, "close %d", id); //no need to validate at this level
 	MT_rwlock_read_set(&embedded_lock);
 	msg = monetdb_query_internal(conn, query, NULL, NULL, NULL, 'X');
 	MT_rwlock_read_unset(&embedded_lock);
@@ -455,11 +455,11 @@ monetdb_send_close(monetdb_connection conn, int64_t id)
 }
 
 char*
-monetdb_set_autocommit(monetdb_connection conn, int8_t value)
+monetdb_set_autocommit(monetdb_connection conn, int value)
 {
 	char query[64], *msg;
 
-	sprintf(query, "auto_commit %"PRIi8, value); //no need to validate at this level
+	sprintf(query, "auto_commit %d", value); //no need to validate at this level
 	MT_rwlock_read_set(&embedded_lock);
 	msg = monetdb_query_internal(conn, query, NULL, NULL, NULL, 'X');
 	MT_rwlock_read_unset(&embedded_lock);
@@ -467,7 +467,7 @@ monetdb_set_autocommit(monetdb_connection conn, int8_t value)
 }
 
 char*
-monetdb_query(monetdb_connection conn, char* query, monetdb_result** result, int64_t* affected_rows, int64_t* prepare_id)
+monetdb_query(monetdb_connection conn, char* query, monetdb_result** result, lng* affected_rows, int* prepare_id)
 {
 	char* msg;
 	MT_rwlock_read_set(&embedded_lock);
@@ -477,7 +477,7 @@ monetdb_query(monetdb_connection conn, char* query, monetdb_result** result, int
 }
 
 char*
-monetdb_append(monetdb_connection conn, const char* schema, const char* table, int *batids, size_t column_count)
+monetdb_append(monetdb_connection conn, const char* schema, const char* table, bat *batids, size_t column_count)
 {
 	Client c = (Client) conn;
 	mvc *m;
@@ -534,7 +534,7 @@ monetdb_append(monetdb_connection conn, const char* schema, const char* table, i
 		}
 		for (i = 0, n = t->columns.set->h; i < column_count && n; i++, n = n->next) {
 			sql_column *col = n->data;
-			list_append(args, exp_atom_lng(m->sa, batids[i]));
+			list_append(args, exp_atom_lng(m->sa, (lng) batids[i]));
 			list_append(exps, exp_column(m->sa, t->base.name, col->base.name, &col->type, CARD_MULTI, col->null, 0));
 			list_append(col_types, &col->type);
 		}
