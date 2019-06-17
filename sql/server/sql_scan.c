@@ -631,7 +631,7 @@ scanner_getc(struct scanner *lc)
 	int c, m, n, mask;
 
 	if (scanner_read_more(lc, 1) == EOF) {
-		lc->errstr = "end of input stream";
+		//lc->errstr = "end of input stream";
 		return EOF;
 	}
 	lc->errstr = NULL;
@@ -648,7 +648,7 @@ scanner_getc(struct scanner *lc)
 		/* incorrect UTF-8 sequence */
 		/* n==0: c == 10xxxxxx */
 		/* n>=6: c == 1111111x */
-		lc->errstr = SQLSTATE(42000) "invalid start of UTF-8 sequence";
+		lc->errstr = "invalid start of UTF-8 sequence";
 		goto error;
 	}
 
@@ -664,14 +664,14 @@ scanner_getc(struct scanner *lc)
 		if (((m = *s++) & 0xC0) != 0x80) {
 			/* incorrect UTF-8 sequence: byte is not 10xxxxxx */
 			/* this includes end-of-string (m == 0) */
-			lc->errstr = SQLSTATE(42000) "invalid continuation in UTF-8 sequence";
+			lc->errstr = "invalid continuation in UTF-8 sequence";
 			goto error;
 		}
 		c |= m & 0x3F;
 	}
 	if ((c & mask) == 0) {
 		/* incorrect UTF-8 sequence: not shortest possible */
-		lc->errstr = "!not shortest possible UTF-8 sequence";
+		lc->errstr = "not shortest possible UTF-8 sequence";
 		goto error;
 	}
 
@@ -736,6 +736,7 @@ scanner_string(mvc *c, int quote, bool escapes)
 		}
 	}
 	(void) sql_error(c, 2, SQLSTATE(42000) "%s", lc->errstr ? lc->errstr : "unexpected end of input");
+	lc->errstr = NULL;
 	return LEX_ERROR;
 }
 
@@ -1351,6 +1352,10 @@ sqllex(YYSTYPE * yylval, void *parm)
 	if (lc->log) 
 		mnstr_write(lc->log, lc->rs->buf+pos, lc->rs->pos + lc->yycur - pos, 1);
 
+	if (token == EOF && lc->errstr) {
+		(void)sql_error(c, 4, SQLSTATE(42000) "%s in: \"%.80s\"\n", lc->errstr, QUERY((*lc)));
+		lc->errstr = NULL;
+	}
 	lc->started += (token != EOF);
 	return token;
 }

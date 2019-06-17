@@ -20,6 +20,10 @@
 #include "mal.h"		/* for have_hge */
 #endif
 
+static int sqlerror(mvc *sql, const char *err);
+static int sqlformaterror(mvc *sql, _In_z_ _Printf_format_string_ const char *format, ...)
+	        __attribute__((__format__(__printf__, 2, 3)));
+
 #include <unistd.h>
 #include <string.h>
 
@@ -2129,9 +2133,7 @@ func_def:
 			else if (l == 'J' || l == 'j')
 				lang = FUNC_LANG_J;
 			else {
-				char *msg = sql_message("Language name R, C, PYTHON[3], PYTHON[3]_MAP or J(avascript):expected, received '%c'", l);
-				yyerror(m, msg);
-				_DELETE(msg);
+				sqlformaterror(m, "Language name R, C, PYTHON[3], PYTHON[3]_MAP or J(avascript):expected, received '%c'", l);
 			}
 
 			append_list(f, $3);
@@ -2207,9 +2209,7 @@ func_def:
 			else if (l == 'J' || l == 'j')
 				lang = FUNC_LANG_J;
 			else {
-				char *msg = sql_message("Language name R, C, PYTHON[3], PYTHON[3]_MAP or J(avascript):expected, received '%c'", l);
-				yyerror(m, msg);
-				_DELETE(msg);
+				sqlformaterror(m, "Language name R, C, PYTHON[3], PYTHON[3]_MAP or J(avascript):expected, received '%c'", l);
 			}
 
 			append_list(f, $3);
@@ -2258,7 +2258,7 @@ func_def:
 			if (l == 'P' || l == 'p') {
 				lang = FUNC_LANG_PY;
 			} else
-				yyerror(m, sql_message("Language name P(ython) expected, received '%c'", l));
+				sqlformaterror(m, "Language name P(ython) expected, received '%c'", l);
 
 			append_list(f, $3);
 			append_list(f, $5);
@@ -3885,7 +3885,7 @@ like_exp:
  |  scalar_exp ESCAPE string
  	{ const char *s = $3;
 	  if (_strlen(s) != 1) {
-		yyerror(m, SQLSTATE(22019) "ESCAPE must be one character");
+		sqlformaterror(m, SQLSTATE(22019) "%s", "ESCAPE must be one character");
 		$$ = NULL;
 		YYABORT;
 	  } else {
@@ -4677,7 +4677,7 @@ interval_type:
 
 		$$.type = NULL;
 	  	if ( (tpe = parse_interval_qualifier( m, $2, &sk, &ek, &sp, &ep )) < 0){
-			yyerror(m, SQLSTATE(22006) "incorrect interval");
+			sqlformaterror(m, SQLSTATE(22006) "%s", "incorrect interval");
 			YYABORT;
 	  	} else {
 			int d = inttype2digits(sk, ek);
@@ -4757,10 +4757,7 @@ literal:
 		  }
 
 		  if (err != 0) {
-			char *msg = sql_message(SQLSTATE(22003) "Invalid hexadecimal number or hexadecimal too large (%s)", $1);
-
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22003) "Invalid hexadecimal number or hexadecimal too large (%s)", $1);
 			$$ = NULL;
 			YYABORT;
 		  } else {
@@ -4788,10 +4785,7 @@ literal:
 		  }
 
 		  if (err) {
-			char *msg = sql_message(SQLSTATE(22003) "OID value too large or not a number (%s)", $1);
-
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22003) "OID value too large or not a number (%s)", $1);
 			$$ = NULL;
 			YYABORT;
 		  } else {
@@ -4849,10 +4843,7 @@ literal:
 		  }
 
 		  if (err) {
-			char *msg = sql_message(SQLSTATE(22003) "integer value too large or not a number (%s)", $1);
-
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22003) "integer value too large or not a number (%s)", $1);
 			$$ = NULL;
 			YYABORT;
 		  } else {
@@ -4887,10 +4878,7 @@ literal:
 			errno = 0;
 			val = strtod($1,&p);
 			if (p == $1 || is_dbl_nil(val) || (errno == ERANGE && (val < -1 || val > 1))) {
-				char *msg = sql_message(SQLSTATE(22003) "Double value too large or not a number (%s)", $1);
-
-				yyerror(m, msg);
-				_DELETE(msg);
+				sqlformaterror(m, SQLSTATE(22003) "Double value too large or not a number (%s)", $1);
 				$$ = NULL;
 				YYABORT;
 			}
@@ -4906,10 +4894,7 @@ literal:
 		  errno = 0;
  		  val = strtod($1,&p);
 		  if (p == $1 || is_dbl_nil(val) || (errno == ERANGE && (val < -1 || val > 1))) {
-			char *msg = sql_message(SQLSTATE(22003) "Double value too large or not a number (%s)", $1);
-
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22003) "Double value too large or not a number (%s)", $1);
 			$$ = NULL;
 			YYABORT;
 		  }
@@ -4922,10 +4907,7 @@ literal:
 
  		  r = sql_find_subtype(&t, "date", 0, 0 );
 		  if (!r || (a = atom_general(SA, &t, $2)) == NULL) {
-			char *msg = sql_message(SQLSTATE(22007) "Incorrect date value (%s)", $2);
-
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22007) "Incorrect date value (%s)", $2);
 			$$ = NULL;
 			YYABORT;
 		  } else {
@@ -4938,10 +4920,7 @@ literal:
 
 	          r = sql_find_subtype(&t, ($3)?"timetz":"time", $2, 0);
 		  if (!r || (a = atom_general(SA, &t, $4)) == NULL) {
-			char *msg = sql_message(SQLSTATE(22007) "Incorrect time value (%s)", $4);
-
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22007) "Incorrect time value (%s)", $4);
 			$$ = NULL;
 			YYABORT;
 		  } else {
@@ -4954,10 +4933,7 @@ literal:
 
  		  r = sql_find_subtype(&t, ($3)?"timestamptz":"timestamp",$2,0);
 		  if (!r || (a = atom_general(SA, &t, $4)) == NULL) {
-			char *msg = sql_message(SQLSTATE(22007) "Incorrect timestamp value (%s)", $4);
-
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22007) "Incorrect timestamp value (%s)", $4);
 			$$ = NULL;
 			YYABORT;
 		  } else {
@@ -4974,10 +4950,7 @@ literal:
 	          if (r && (a = atom_general(SA, &t, $2)) != NULL)
 			$$ = _newAtomNode(a);
 		  if (!$$) {
-			char *msg = sql_message(SQLSTATE(22M28) "incorrect blob %s", $2);
-
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22M28) "incorrect blob %s", $2);
 			YYABORT;
 		  }
 		}
@@ -4991,10 +4964,7 @@ literal:
 	          if (r && (a = atom_general(SA, &t, $1)) != NULL)
 			$$ = _newAtomNode(a);
 		  if (!$$) {
-			char *msg = sql_message(SQLSTATE(22M28) "incorrect blob %s", $1);
-
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22M28) "incorrect blob %s", $1);
 			YYABORT;
 		  }
 		}
@@ -5008,10 +4978,7 @@ literal:
 	          if (r && (a = atom_general(SA, &t, $2)) != NULL)
 			$$ = _newAtomNode(a);
 		  if (!$$) {
-			char *msg = sql_message(SQLSTATE(22000) "incorrect %s %s", $1, $2);
-
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22000) "incorrect %s %s", $1, $2);
 			YYABORT;
 		  }
 		}
@@ -5025,10 +4992,7 @@ literal:
 	          if (r && (a = atom_general(SA, &t, $2)) != NULL)
 			$$ = _newAtomNode(a);
 		  if (!$$) {
-			char *msg = sql_message(SQLSTATE(22000) "incorrect %s %s", $1, $2);
-
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22000) "incorrect %s %s", $1, $2);
 			YYABORT;
 		  }
 		}
@@ -5046,10 +5010,7 @@ literal:
 				$$ = _newAtomNode(a);
 		  }
 		  if (!t || !$$) {
-			char *msg = sql_message(SQLSTATE(22000) "type (%s) unknown", $1);
-
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22000) "type (%s) unknown", $1);
 			YYABORT;
 		  }
 		}
@@ -5095,8 +5056,7 @@ interval_expression:
 			while (cpyval /= 10)
 				inlen++;
 		    	if (inlen > t.digits) {
-				char *msg = sql_message(SQLSTATE(22006) "incorrect interval (" LLFMT " > %d)", inlen, t.digits);
-				yyerror(m, msg);
+				sqlformaterror(m, SQLSTATE(22006) "incorrect interval (" LLFMT " > %d)", inlen, t.digits);
 				$$ = NULL;
 				YYABORT;
 			}
@@ -5320,9 +5280,7 @@ data_type:
 			{ 
 			  int d = $3;
 			  if (d > MAX_DEC_DIGITS) {
-				char *msg = sql_message(SQLSTATE(22003) "Decimal of %d digits are not supported", d);
-				yyerror(m, msg);
-				_DELETE(msg);
+				sqlformaterror(m, SQLSTATE(22003) "Decimal of %d digits are not supported", d);
 				$$.type = NULL;
 				YYABORT;
 			  } else {
@@ -5334,13 +5292,10 @@ data_type:
 			  int d = $3;
 			  int s = $5;
 			  if (s > d || d > MAX_DEC_DIGITS) {
-				char *msg = NULL;
 				if (s > d)
-					msg = sql_message(SQLSTATE(22003) "Scale (%d) should be less or equal to the precision (%d)", s, d);
+					sqlformaterror(m, SQLSTATE(22003) "Scale (%d) should be less or equal to the precision (%d)", s, d);
 				else
-					msg = sql_message(SQLSTATE(22003) "Decimal(%d,%d) isn't supported because P=%d > %d", d, s, d, MAX_DEC_DIGITS);
-				yyerror(m, msg);
-				_DELETE(msg);
+					sqlformaterror(m, SQLSTATE(22003) "Decimal(%d,%d) isn't supported because P=%d > %d", d, s, d, MAX_DEC_DIGITS);
 				$$.type = NULL;
 				YYABORT;
 			  } else {
@@ -5354,20 +5309,14 @@ data_type:
 			  } else if ($3 > 24 && $3 <= 53) {
 				sql_find_subtype(&$$, "double", $3, 0);
 			  } else {
-				char *msg = sql_message(SQLSTATE(22003) "Number of digits for FLOAT values should be between 1 and 53");
-
-				yyerror(m, msg);
-				_DELETE(msg);
+				sqlformaterror(m, SQLSTATE(22003) "Number of digits for FLOAT values should be between 1 and 53");
 				$$.type = NULL;
 				YYABORT;
 			  }
 			}
  |  sqlFLOAT '(' intval ',' intval ')'
 			{ if ($5 >= $3) {
-				char *msg = sql_message(SQLSTATE(22003) "Precision(%d) should be less than number of digits(%d)", $5, $3);
-
-				yyerror(m, msg);
-				_DELETE(msg);
+				sqlformaterror(m, SQLSTATE(22003) "Precision(%d) should be less than number of digits(%d)", $5, $3);
 				$$.type = NULL;
 				YYABORT;
 			  } else if ($3 > 0 && $3 <= 24) {
@@ -5375,9 +5324,7 @@ data_type:
 			  } else if ($3 > 24 && $3 <= 53) {
 				sql_find_subtype(&$$, "double", $3, $5);
 			  } else {
-				char *msg = sql_message(SQLSTATE(22003) "Number of digits for FLOAT values should be between 1 and 53");
-				yyerror(m, msg);
-				_DELETE(msg);
+				sqlformaterror(m, SQLSTATE(22003) "Number of digits for FLOAT values should be between 1 and 53");
 				$$.type = NULL;
 				YYABORT;
 			  }
@@ -5395,10 +5342,7 @@ data_type:
 			{ sql_find_subtype(&$$, $1, $3, 0); }
  | type_alias '(' intval ',' intval ')'
 			{ if ($5 >= $3) {
-				char *msg = sql_message(SQLSTATE(22003) "Precision(%d) should be less than number of digits(%d)", $5, $3);
-
-				yyerror(m, msg);
-				_DELETE(msg);
+				sqlformaterror(m, SQLSTATE(22003) "Precision(%d) should be less than number of digits(%d)", $5, $3);
 				$$.type = NULL;
 				YYABORT;
 			  } else {
@@ -5408,10 +5352,7 @@ data_type:
  | ident_or_uident	{
 			  sql_type *t = mvc_bind_type(m, $1);
 			  if (!t) {
-				char *msg = sql_message(SQLSTATE(22000) "Type (%s) unknown", $1);
-
-				yyerror(m, msg);
-				_DELETE(msg);
+				sqlformaterror(m, SQLSTATE(22000) "Type (%s) unknown", $1);
 				$$.type = NULL;
 				YYABORT;
 			  } else {
@@ -5423,10 +5364,7 @@ data_type:
 			{
 			  sql_type *t = mvc_bind_type(m, $1);
 			  if (!t) {
-				char *msg = sql_message(SQLSTATE(22000) "Type (%s) unknown", $1);
-
-				yyerror(m, msg);
-				_DELETE(msg);
+				sqlformaterror(m, SQLSTATE(22000) "Type (%s) unknown", $1);
 				$$.type = NULL;
 				YYABORT;
 			  } else {
@@ -5435,7 +5373,7 @@ data_type:
 			}
 | GEOMETRY {
 		if (!sql_find_subtype(&$$, "geometry", 0, 0 )) {
-			yyerror(m, SQLSTATE(22000) "type (geometry) unknown");
+			sqlformaterror(m, "%s", SQLSTATE(22000) "type (geometry) unknown");
 			$$.type = NULL;
 			YYABORT;
 		}
@@ -5447,9 +5385,7 @@ data_type:
 			$$.type = NULL;
 			YYABORT;
 		} else if (!sql_find_subtype(&$$, "geometry", geoSubType, 0 )) {
-			char *msg = sql_message(SQLSTATE(22000) "Type (%s) unknown", $1);
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22000) "Type (%s) unknown", $1);
 			$$.type = NULL;
 			YYABORT;
 		}
@@ -5463,16 +5399,14 @@ data_type:
 			$$.type = NULL;
 			YYABORT;
 		} else if (!sql_find_subtype(&$$, "geometry", geoSubType, srid )) {
-			char *msg = sql_message(SQLSTATE(22000) "Type (%s) unknown", $1);
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22000) "Type (%s) unknown", $1);
 			$$.type = NULL;
 			YYABORT;
 		}
 	}
 | GEOMETRYA {
 		if (!sql_find_subtype(&$$, "geometrya", 0, 0 )) {
-			yyerror(m, SQLSTATE(22000) "type (geometrya) unknown");
+			sqlformaterror(m, "%s", SQLSTATE(22000) "type (geometrya) unknown");
 			$$.type = NULL;
 			YYABORT;
 		}
@@ -5481,21 +5415,15 @@ data_type:
 	int geoSubType = find_subgeometry_type($1);
 
 	if(geoSubType == 0) {
-		char *msg = sql_message(SQLSTATE(22000) "Type (%s) unknown", $1);
 		$$.type = NULL;
-		yyerror(m, msg);
-		_DELETE(msg);
+		sqlformaterror(m, SQLSTATE(22000) "Type (%s) unknown", $1);
 		YYABORT;
 	} else if (geoSubType == -1) {
-		char *msg = sql_message(SQLSTATE(HY001) "allocation failure");
 		$$.type = NULL;
-		yyerror(m, msg);
-		_DELETE(msg);
+		sqlformaterror(m, SQLSTATE(HY001) "%s", "allocation failure");
 		YYABORT;
 	}  else if (!sql_find_subtype(&$$, "geometry", geoSubType, 0 )) {
-		char *msg = sql_message(SQLSTATE(22000) "Type (%s) unknown", $1);
-		yyerror(m, msg);
-		_DELETE(msg);
+		sqlformaterror(m, SQLSTATE(22000) "Type (%s) unknown", $1);
 		$$.type = NULL;
 		YYABORT;
 	}
@@ -5508,14 +5436,10 @@ subgeometry_type:
 	char* geoSubType = $1;
 
 	if(subtype == 0) {
-		char *msg = sql_message(SQLSTATE(22000) "Type (%s) unknown", geoSubType);
-		yyerror(m, msg);
-		_DELETE(msg);
+		sqlformaterror(m, SQLSTATE(22000) "Type (%s) unknown", geoSubType);
 		YYABORT;
 	} else if(subtype == -1) {
-		char *msg = sql_message(SQLSTATE(HY001) "allocation failure");
-		yyerror(m, msg);
-		_DELETE(msg);
+		sqlformaterror(m, SQLSTATE(HY001) "%s", "allocation failure");
 		YYABORT;
 	} 
 	$$ = subtype;	
@@ -5525,14 +5449,10 @@ subgeometry_type:
 	char* geoSubType = $1;
 
 	if(subtype == 0) {
-		char *msg = sql_message(SQLSTATE(22000) "Type (%s) unknown", geoSubType);
-		yyerror(m, msg);
-		_DELETE(msg);
+		sqlformaterror(m, SQLSTATE(22000) "Type (%s) unknown", geoSubType);
 		YYABORT;
 	} else if (subtype == -1) {
-		char *msg = sql_message(SQLSTATE(HY001) "allocation failure");
-		yyerror(m, msg);
-		_DELETE(msg);
+		sqlformaterror(m, SQLSTATE(HY001) "%s", "allocation failure");
 		YYABORT;
 	} 
 	$$ = subtype;	
@@ -5543,10 +5463,7 @@ type_alias:
  ALIAS
 	{ 	char *t = sql_bind_alias($1);
 	  	if (!t) {
-			char *msg = sql_message(SQLSTATE(22000) "Type (%s) unknown", $1);
-
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22000) "Type (%s) unknown", $1);
 			$$ = NULL;
 			YYABORT;
 		}
@@ -5589,9 +5506,7 @@ restricted_ident:
 	{
 		$$ = $1;
 		if (!$1 || _strlen($1) == 0) {
-			char *msg = sql_message(SQLSTATE(42000) "An identifier cannot be empty");
-			yyerror(m, msg);
-			_DELETE(msg);
+			yyerror(m, "An identifier cannot be empty");
 			YYABORT;
 		}
 	}
@@ -5615,9 +5530,7 @@ ident:
 	{
 		$$ = $1;
 		if (!$1 || _strlen($1) == 0) {
-			char *msg = sql_message(SQLSTATE(42000) "An identifier cannot be empty");
-			yyerror(m, msg);
-			_DELETE(msg);
+			yyerror(m, "An identifier cannot be empty");
 			YYABORT;
 		}
 	}
@@ -5737,11 +5650,8 @@ lngval:
 			$$ = 0;
 		  }
 		  if (s+l != end || errno == ERANGE) {
-			char *msg = sql_message(SQLSTATE(22003) "Integer value too large or not a number (%s)", $1);
-
 			errno = 0;
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22003) "Integer value too large or not a number (%s)", $1);
 			$$ = 0;
 			YYABORT;
 		  }
@@ -5765,11 +5675,8 @@ intval:
 			$$ = 0;
 		  }
 		  if (s+l != end || errno == ERANGE) {
-			char *msg = sql_message(SQLSTATE(22003) "Integer value too large or not a number (%s)", $1);
-
 			errno = 0;
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22003) "Integer value too large or not a number (%s)", $1);
 			$$ = 0;
 			YYABORT;
 		  }
@@ -5779,10 +5686,7 @@ intval:
 		  sql_subtype *tpe;
 
 		  if (!stack_find_var(m, name)) {
-			char *msg = sql_message(SQLSTATE(22000) "Constant (%s) unknown", $1);
-
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22000) "Constant (%s) unknown", $1);
 			$$ = 0;
 			YYABORT;
 		  }
@@ -5800,10 +5704,7 @@ intval:
 #endif
 			$$ = (int) sgn;
 		  } else {
-			char *msg = sql_message(SQLSTATE(22000) "Constant (%s) has wrong type (number expected)", $1);
-
-			yyerror(m, msg);
-			_DELETE(msg);
+			sqlformaterror(m, SQLSTATE(22000) "Constant (%s) has wrong type (number expected)", $1);
 			$$ = 0;
 			YYABORT;
 		  }
@@ -5815,7 +5716,7 @@ opt_uescape:
 | UESCAPE string
 		{ char *s = $2;
 		  if (strlen(s) != 1 || strchr("\"'0123456789abcdefABCDEF+ \t\n\r\f", *s) != NULL) {
-			yyerror(m, SQLSTATE(22019) "UESCAPE must be one character");
+			sqlformaterror(m, SQLSTATE(22019) "%s", "UESCAPE must be one character");
 			$$ = NULL;
 			YYABORT;
 		  } else {
@@ -5849,7 +5750,7 @@ string:
  | ustring opt_uescape
 		{ $$ = uescape_xform($1, $2);
 		  if ($$ == NULL) {
-			yyerror(m, SQLSTATE(22019) "Bad Unicode string");
+			sqlformaterror(m, SQLSTATE(22019) "%s", "Bad Unicode string");
 			YYABORT;
 		  }
 		}
@@ -6661,31 +6562,36 @@ void *sql_error( mvc * sql, int error_code, char *format, ... )
 	return NULL;
 }
 
-int sqlerror(mvc * c, const char *err)
+static int 
+sqlformaterror(mvc * sql, _In_z_ _Printf_format_string_ const char *format, ...)
 {
-	const char *sqlstate;
+	va_list	ap;
+	const char *sqlstate = NULL;
+	size_t len = 0;
 
-	if (err && strlen(err) > 6 && err[5] == '!') {
+	va_start (ap,format);
+	if (format && strlen(format) > 6 && format[5] == '!') {
 		/* sql state provided */
-		sqlstate = "";
+		sqlstate = NULL;
 	} else {
 		/* default: Syntax error or access rule violation */
 		sqlstate = SQLSTATE(42000);
 	}
-	if (c->scanner.errstr) {
-		if (c->scanner.errstr[0] == '!'){
-			assert(0);// catch it
-			(void)sql_error(c, 4,
-					"%s%s: %s\n",
-					sqlstate, err, c->scanner.errstr + 1);
-		} else
-			(void)sql_error(c, 4,
-					"%s%s: %s in \"%.80s\"\n",
-					sqlstate, err, c->scanner.errstr,
-					QUERY(c->scanner));
-	} else
-		(void)sql_error(c, 4,
-				"%s%s in: \"%.80s\"\n",
-				sqlstate, err, QUERY(c->scanner));
+	assert(sql->scanner.errstr == NULL);
+	if (sql->errstr[0] == '\0') {
+		if (sqlstate)
+			len += snprintf(sql->errstr+len, ERRSIZE-1-len, "%s", sqlstate);
+		len += vsnprintf(sql->errstr+len, ERRSIZE-1-len, _(format), ap);
+		snprintf(sql->errstr+len, ERRSIZE-1-len, " in: \"%.80s\"\n", QUERY(sql->scanner));
+	}
+	if (!sql->session->status)
+		sql->session->status = -4;
+	va_end (ap);
 	return 1;
+}
+
+static int 
+sqlerror(mvc * sql, const char *err)
+{
+	return sqlformaterror(sql, "%s", err);
 }
