@@ -342,16 +342,20 @@ daytime_add_usec_modulo(daytime t, lng usec)
 timestamp
 timestamp_fromtime(time_t timeval)
 {
-	struct tm tm, *tmp;
+	struct tm tm;
 	date d;
 	daytime t;
 
-	if ((tmp = gmtime_r(&timeval, &tm)) == NULL)
+#ifdef NATIVE_WIN32
+	if (gmtime_s(&tm, &timeval) != 0)
+#else
+	if (gmtime_r(&timeval, &tm) == NULL)
+#endif
 		return timestamp_nil;
-	if (tmp->tm_sec >= 60)
-		tmp->tm_sec = 59;			/* ignore leap seconds */
-	d = date_create(tmp->tm_year + 1900, tmp->tm_mon + 1, tmp->tm_mday);
-	t = daytime_create(tmp->tm_hour, tmp->tm_min, tmp->tm_sec, 0);
+	if (tm.tm_sec >= 60)
+		tm.tm_sec = 59;			/* ignore leap seconds */
+	d = date_create(tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
+	t = daytime_create(tm.tm_hour, tm.tm_min, tm.tm_sec, 0);
 	if (is_date_nil(d) || is_daytime_nil(t))
 		return timestamp_nil;
 	return mktimestamp(d, t);
@@ -1662,7 +1666,7 @@ MTIMElocal_timezone_msec(lng *ret)
 {
 	int tzone;
 
-#if defined(_MSC_VER)
+#if defined(NATIVE_WIN32)
 	DYNAMIC_TIME_ZONE_INFORMATION tzinf;
 
 	/* documentation says: UTC = localtime + Bias (in minutes),
@@ -1684,32 +1688,33 @@ MTIMElocal_timezone_msec(lng *ret)
 	}
 #elif defined(HAVE_STRUCT_TM_TM_ZONE)
 	time_t t;
-	struct tm *tmp;
+	struct tm tm;
 
 	t = time(NULL);
-	tmp = localtime(&t);
-	tzone = (int) tmp->tm_gmtoff;
+	(void) localtime_r(&t, &tm);
+
+	tzone = (int) tm.tm_gmtoff;
 #else
 	time_t t;
 	timestamp lt, gt;
-	struct tm tm, *tmp;
+	struct tm tm;
 
 	t = time(NULL);
-	tmp = gmtime_r(&t, &tm);
-	gt = mktimestamp(mkdate(tmp->tm_year + 1900,
-							tmp->tm_mon + 1,
-							tmp->tm_mday),
-					 mkdaytime(tmp->tm_hour,
-							   tmp->tm_min,
-							   tmp->tm_sec == 60 ? 59 : tmp->tm_sec,
+	(void) gmtime_r(&t, &tm);
+	gt = mktimestamp(mkdate(tm.tm_year + 1900,
+							tm.tm_mon + 1,
+							tm.tm_mday),
+					 mkdaytime(tm.tm_hour,
+							   tm.tm_min,
+							   tm.tm_sec == 60 ? 59 : tm.tm_sec,
 							   0));
-	tmp = localtime_r(&t, &tm);
-	lt = mktimestamp(mkdate(tmp->tm_year + 1900,
-							tmp->tm_mon + 1,
-							tmp->tm_mday),
-					 mkdaytime(tmp->tm_hour,
-							   tmp->tm_min,
-							   tmp->tm_sec == 60 ? 59 : tmp->tm_sec,
+	(void) localtime_r(&t, &tm);
+	lt = mktimestamp(mkdate(tm.tm_year + 1900,
+							tm.tm_mon + 1,
+							tm.tm_mday),
+					 mkdaytime(tm.tm_hour,
+							   tm.tm_min,
+							   tm.tm_sec == 60 ? 59 : tm.tm_sec,
 							   0));
 	tzone = (int) (timestamp_diff(lt, gt) / 1000000);
 #endif
@@ -1796,7 +1801,11 @@ MTIMEtime_to_str(str *ret, const daytime *d, const char *const *format)
 	}
 	time_t now = time(NULL);
 	/* fill in current date in struct tm */
-	localtime_r(&now, &tm);
+#ifdef NATIVE_WIN32
+	(void) localtime_s(&tm, &now);
+#else
+	(void) localtime_r(&now, &tm);
+#endif
 	/* replace time with requested time */
 	dt /= 1000000;
 	tm.tm_sec = dt % 60;
