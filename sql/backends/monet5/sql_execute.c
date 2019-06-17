@@ -195,7 +195,7 @@ SQLrun(Client c, mvc *m)
 {
 	str msg= MAL_SUCCEED;
 	MalBlkPtr mb=c->curprg->def;
-			
+
 	if (*m->errstr){
 		if (strlen(m->errstr) > 6 && m->errstr[5] == '!')
 			msg = createException(PARSE, "SQLparser", "%s", m->errstr);
@@ -208,6 +208,7 @@ SQLrun(Client c, mvc *m)
 	// locate and inline the query template instruction
 	mb = copyMalBlk(c->curprg->def);
 	if (!mb) {
+		MT_thread_setworking(NULL);
 		throw(SQL, "sql.prepare", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 	mb->history = c->curprg->def->history;
@@ -514,7 +515,6 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 			msg = SQLrun(c,m);
 		MSresetInstructions(c->curprg->def, oldstop);
 		freeVariables(c, c->curprg->def, NULL, oldvtop);
-
 		sqlcleanup(sql, 0);
 
 		/* construct a mock result set to determine schema */

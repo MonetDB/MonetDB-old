@@ -29,7 +29,7 @@ insert_value(sql_query *query, sql_column *c, sql_rel **r, symbol *s, const char
 	} else if (s->token == SQL_DEFAULT) {
 		if (c->def) {
 			sql_exp *e = rel_parse_val(sql, c->def, &c->type, sql->emode, NULL);
-			if (!e || (e = rel_check_type(sql, &c->type, e, type_equal)) == NULL)
+			if (!e || (e = rel_check_type(sql, &c->type, r ? *r : NULL, e, type_equal)) == NULL)
 				return sql_error(sql, 02, SQLSTATE(HY005) "%s: default expression could not be evaluated", action);
 			return e;
 		} else {
@@ -42,7 +42,7 @@ insert_value(sql_query *query, sql_column *c, sql_rel **r, symbol *s, const char
 
 		if (!e)
 			return(NULL);
-		return rel_check_type(sql, &c->type, e, type_equal); 
+		return rel_check_type(sql, &c->type, r ? *r : NULL, e, type_equal);
 	}
 }
 
@@ -188,10 +188,10 @@ rel_insert_join_idx(sql_query *query, const char* alias, sql_idx *i, sql_rel *in
 			} else {
 				lnll_exps = lnl;
 				rnll_exps = rnl;
-		    }
+			}
 		}
 
-		if (rel_convert_types(sql, &rtc, &_is, 1, type_equal) < 0) 
+		if (rel_convert_types(sql, rt, ins, &rtc, &_is, 1, type_equal) < 0)
 			return NULL;
 		je = exp_compare(sql->sa, rtc, _is, cmp_equal);
 		append(join_exps, je);
@@ -328,7 +328,7 @@ rel_inserts(mvc *sql, sql_table *t, sql_rel *r, list *collist, size_t rowcount, 
 				sql_column *c = m->data;
 				sql_exp *e = n->data;
 		
-				inserts[c->colnr] = rel_check_type(sql, &c->type, e, type_equal);
+				inserts[c->colnr] = rel_check_type(sql, &c->type, r, e, type_equal);
 			}
 		} else {
 			for (m = collist->h; m; m = m->next) {
@@ -355,7 +355,7 @@ rel_inserts(mvc *sql, sql_table *t, sql_rel *r, list *collist, size_t rowcount, 
 
 						if (c->def) {
 							e = rel_parse_val(sql, c->def, &c->type, sql->emode, NULL);
-							if (!e || (e = rel_check_type(sql, &c->type, e, type_equal)) == NULL)
+							if (!e || (e = rel_check_type(sql, &c->type, r, e, type_equal)) == NULL)
 								return sql_error(sql, 02, SQLSTATE(HY005) "%s: default expression could not be evaluated", action);
 						} else {
 							atom *a = atom_general(sql->sa, &c->type, NULL);
@@ -794,7 +794,7 @@ rel_update_join_idx(mvc *sql, const char* alias, sql_idx *i, sql_rel *updates)
 				rnll_exps = rnl;
 			}
 		}
-		if (rel_convert_types(sql, &rtc, &upd, 1, type_equal) < 0) {
+		if (rel_convert_types(sql, rt, updates, &rtc, &upd, 1, type_equal) < 0) {
 			list_destroy(join_exps);
 			return NULL;
 		}
@@ -943,7 +943,7 @@ update_check_column(mvc *sql, sql_table *t, sql_column *c, sql_exp *v, sql_rel *
 	}
 	if (!table_privs(sql, t, PRIV_UPDATE) && !sql_privilege(sql, sql->user_id, c->base.id, PRIV_UPDATE, 0)) 
 		return sql_error(sql, 02, SQLSTATE(42000) "%s: insufficient privileges for user '%s' to update table '%s' on column '%s'", action, stack_get_string(sql, "current_user"), t->base.name, cname);
-	if (!v || (v = rel_check_type(sql, &c->type, v, type_equal)) == NULL) {
+	if (!v || (v = rel_check_type(sql, &c->type, r, v, type_equal)) == NULL) {
 		rel_destroy(r);
 		return NULL;
 	}
@@ -2158,7 +2158,7 @@ rel_parse_val(mvc *m, char *query, sql_subtype *tpe, char emode, sql_rel *from)
 			if (r != from && from == NULL) 
 				e = NULL;
 			if (e && tpe)
-				e = rel_check_type(m, tpe, e, type_cast);
+				e = rel_check_type(m, tpe, from, e, type_cast);
 		}
 	}
 	GDKfree(query);
