@@ -82,7 +82,12 @@ getAddress(str fcnname)
 	MALfcn adr;
 	int idx=0;
 	static int prev= -1;
-	char *monetdb5library = monetdb_lib_path ? monetdb_lib_path : "libmonetdb5";
+	char *monetdb5library = monetdb_lib_path ? monetdb_lib_path :
+#ifdef HAVE_EMBEDDED
+	"libmonetdblite";
+#else
+	"libmonetdb5";
+#endif
 
 	/* First try the last module loaded */
 	if( prev >= 0){
@@ -115,7 +120,12 @@ getAddress(str fcnname)
 	 *
 	 * the first argument must be the same as the base name of the
 	 * library that is created in src/tools */
-	dl = mdlopen(monetdb5library, RTLD_NOW | RTLD_GLOBAL);
+	dl = mdlopen(monetdb5library, RTLD_NOW
+#ifdef HAVE_EMBEDDED
+	| RTLD_LOCAL);
+#else
+	| RTLD_GLOBAL);
+#endif
 	if (dl == NULL) 
 		return NULL;
 
