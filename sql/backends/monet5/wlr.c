@@ -282,7 +282,7 @@ WLRprocess(void *arg)
 				goto wrapup;
 			} else
 			if( getModuleId(q) == wlrRef && getFunctionId(q) == transactionRef ){
-				snprintf(wlr_read, 26, "%s", getVarConstant(mb, getArg(q,2)).val.sval);
+				snprintf(wlr_read, sizeof(wlr_read), "%s", getVarConstant(mb, getArg(q,2)).val.sval);
 				wlr_tag = getVarConstant(mb, getArg(q,1)).val.lval;
 #ifdef _WLR_DEBUG_
 				mnstr_printf(GDKerr,"#run tlimit %s  tag %s\n", wlr_timelimit, wlr_read);
@@ -357,7 +357,7 @@ WLRprocess(void *arg)
 			freeException(msg);
 		}
 		// stop when we are about to read beyond the limited transaction (timestamp)
-		if( (wlr_limit != -1 || (wlr_timelimit[0] && wlr_read[0] && strncmp(wlr_read,wlr_timelimit,26)>= 0) )  && wlr_limit <= wlr_tag) {
+		if( (wlr_limit != -1 || (wlr_timelimit[0] && wlr_read[0] && strncmp(wlr_read,wlr_timelimit,sizeof(wlr_timelimit))>= 0) )  && wlr_limit <= wlr_tag) {
 			bstream_destroy(c->fdin);
 			break;
 		}
@@ -414,11 +414,11 @@ WLRprocessScheduler(void *arg)
 			clk = clock.tv_sec;
 #endif
 			ctm = *localtime(&clk);
-			strftime(clktxt, 26, "%Y-%m-%dT%H:%M:%S.000",&ctm);
+			strftime(clktxt, sizeof(clktxt), "%Y-%m-%dT%H:%M:%S.000",&ctm);
 			mnstr_printf(cntxt->fdout,"#now %s tlimit %s\n",clktxt, wlr_timelimit);
 			// actually never wait longer then the timelimit requires
 			// preference is given to the beat.
-			if(strncmp(clktxt, wlr_timelimit,26) >= 0) 
+			if(strncmp(clktxt, wlr_timelimit,sizeof(wlr_timelimit)) >= 0) 
 				MT_sleep_ms(duration);
 		} else
 			for( ; duration > 0  && wlr_state == WLR_PAUSE; duration -= 100){
@@ -432,7 +432,7 @@ WLRprocessScheduler(void *arg)
 			if( wlrprocessrunning == 0 && 
 			    ( (wlr_batches == wlc_batches && wlr_tag < wlr_limit) || wlr_limit > wlr_tag  ||
 			      (wlr_limit == -1 && wlr_timelimit[0] == 0 && wlr_batches < wlc_batches) ||
-			      (wlr_timelimit[0]  && strncmp(clktxt, wlr_timelimit, 26)> 0)  ) ) {
+			      (wlr_timelimit[0]  && strncmp(clktxt, wlr_timelimit, sizeof(wlr_timelimit))> 0)  ) ) {
 				MT_thread_setworking("processing");
 				WLRprocess(cntxt);
 			}
@@ -464,7 +464,7 @@ WLRinit(void)
 str
 WLRreplicate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {	str timelimit  = wlr_timelimit;
-	size_t size = 26;
+	size_t size = sizeof(wlr_timelimit);
 	str msg;
 	(void) mb;
 
@@ -492,7 +492,7 @@ WLRreplicate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	if( getArgType(mb, pci, pci->argc-1) == TYPE_timestamp){
-		if (timestamp_tz_tostr(&timelimit, &size, (timestamp*) getArgReference(stk,pci,1), &tzone_local, true) < 0)
+		if (timestamp_precision_tostr(&timelimit, &size, *getArgReference_TYPE(stk, pci, 1, timestamp), 3, true) < 0)
 			throw(SQL, "wlr.replicate", GDK_EXCEPTION);
 		mnstr_printf(cntxt->fdout,"#time limit %s\n",timelimit);
 	} else

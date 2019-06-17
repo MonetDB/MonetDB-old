@@ -127,7 +127,7 @@ extern int exp_is_not_null(mvc *sql, sql_exp *e);
 extern int exp_is_null(mvc *sql, sql_exp *e);
 extern int exps_are_atoms(list *exps);
 extern int exp_has_func(sql_exp *e);
-extern int exp_unsafe(sql_exp *e);
+extern int exp_unsafe(sql_exp *e, int allow_identity);
 extern int exp_has_sideeffect(sql_exp *e);
 
 /* returns 0 when the relation contain the passed expression else < 0 */
@@ -162,4 +162,5 @@ extern int exp_aggr_is_count(sql_exp *e);
 
 extern void exps_reset_freevar(list *exps);
 
+extern int rel_set_type_recurse(mvc *sql, sql_subtype *type, sql_rel *rel, const char **relname, const char **expname);
 #endif /* _REL_EXP_H_ */

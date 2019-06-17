@@ -951,7 +951,7 @@ create_partition_definition(mvc *sql, sql_table *t, symbol *partition_def)
 		if(isPartitionedByColumnTable(t)) {
 			str colname = list2->h->data.sval;
 			node *n;
-			int sql_ec;
+			sql_class sql_ec;
 			for (n = t->columns.set->h; n ; n = n->next) {
 				sql_column *col = n->data;
 				if(!strcmp(col->base.name, colname)) {
@@ -1604,7 +1604,7 @@ sql_alter_table(sql_query *query, dlist *dl, dlist *qname, symbol *te, int if_ex
 				} else {
 					e = exp_atom(sql->sa, atom_general(sql->sa, &c->type, NULL));
 				}
-				if (!e || (e = rel_check_type(sql, &c->type, e, type_equal)) == NULL) {
+				if (!e || (e = rel_check_type(sql, &c->type, r, e, type_equal)) == NULL) {
 					rel_destroy(r);
 					return NULL;
 				}

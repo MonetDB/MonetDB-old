@@ -16,7 +16,7 @@ add_library(atoms OBJECT
 			identifier.c
 			inet.c
 			json.c json.h
-			mtime.c mtime_analytic.c mtime.h mtime_private.h
+			mtime.c mtime_analytic.c mtime.h
 			str.c str.h
 			streams.c streams.h
 			strptime.c
