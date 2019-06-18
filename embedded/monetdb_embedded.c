@@ -455,6 +455,31 @@ monetdb_send_close(monetdb_connection conn, int id)
 }
 
 char*
+monetdb_get_autocommit(monetdb_connection conn, int* result)
+{
+	mvc *m;
+	char *msg = MAL_SUCCEED;
+	Client connection = (Client) conn;
+
+	MT_rwlock_read_set(&embedded_lock);
+	if ((msg = validate_connection(conn, "embedded.monetdb_get_autocommit")) != MAL_SUCCEED) {
+		MT_rwlock_read_unset(&embedded_lock);
+		return msg;
+	}
+
+	if (!result) {
+		msg = createException(MAL, "embedded.monetdb_get_autocommit", "Parameter result is NULL");
+		goto cleanup;
+	}
+
+	m = ((backend *) connection->sqlcontext)->mvc;
+	*result = m->session->auto_commit;
+cleanup:
+	MT_rwlock_read_unset(&embedded_lock);
+	return msg;
+}
+
+char*
 monetdb_set_autocommit(monetdb_connection conn, int value)
 {
 	char query[64], *msg;
@@ -566,6 +591,47 @@ monetdb_cleanup_result(monetdb_connection conn, monetdb_result* result)
 	char* msg = MAL_SUCCEED;
 	MT_rwlock_read_set(&embedded_lock);
 	msg = monetdb_cleanup_result_internal(conn, result);
+	MT_rwlock_read_unset(&embedded_lock);
+	return msg;
+}
+
+char*
+monetdb_get_table(monetdb_connection conn, sql_table** table, const char* schema_name, const char* table_name)
+{
+	mvc *m;
+	sql_schema *s;
+	char *msg = MAL_SUCCEED;
+	Client connection = (Client) conn;
+
+	MT_rwlock_read_set(&embedded_lock);
+	if ((msg = validate_connection(conn, "embedded.monetdb_get_table")) != MAL_SUCCEED) {
+		MT_rwlock_read_unset(&embedded_lock);
+		return msg;
+	}
+
+	if ((msg = getSQLContext(connection, NULL, &m, NULL)) != NULL)
+		goto cleanup;
+	if ((msg = SQLtrans(m)) != MAL_SUCCEED)
+		goto cleanup;
+	if (!table) {
+		msg = createException(MAL, "embedded.monetdb_get_table", "Parameter table is NULL");
+		goto cleanup;
+	}
+	if (schema_name) {
+		if (!(s = mvc_bind_schema(m, schema_name))) {
+			msg = createException(MAL, "embedded.monetdb_get_table", "Could not find schema %s", schema_name);
+			goto cleanup;
+		}
+	} else {
+		s = cur_schema(m);
+	}
+	if (!(*table = mvc_bind_table(m, s, table_name))) {
+		msg = createException(MAL, "embedded.monetdb_get_table", "Could not find table %s", table_name);
+		goto cleanup;
+	}
+
+cleanup:
+	msg = commit_action(m, msg);
 	MT_rwlock_read_unset(&embedded_lock);
 	return msg;
 }
@@ -928,7 +994,7 @@ cleanup:
 }
 
 char*
-monetdb_result_fetch_rawcol(monetdb_connection conn, void** res, monetdb_result* mres, size_t column_index)
+monetdb_result_fetch_rawcol(monetdb_connection conn, res_col** res, monetdb_result* mres, size_t column_index)
 {
 	char* msg = MAL_SUCCEED;
 	monetdb_result_internal* result = (monetdb_result_internal*) mres;

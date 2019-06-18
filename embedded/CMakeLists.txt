@@ -277,7 +277,7 @@ set(MONETDBLITE_TRANSLATION_UNITS
 if(${ENABLE_EMBEDDED} STREQUAL "OBJECT")
 	add_library(monetdblite OBJECT ${MONETDBLITE_TRANSLATION_UNITS})
 	set_target_properties(monetdblite PROPERTIES POSITION_INDEPENDENT_CODE ON)
-	install(TARGETS monetdblite DESTINATION ${LIBDIR}/monetdblite)
+	install(TARGETS monetdblite bisonlite_obj DESTINATION ${LOCALSTATEDIR}/monetdblite)
 else()
 	add_library(monetdblite SHARED ${MONETDBLITE_TRANSLATION_UNITS})
 	target_link_libraries(monetdblite PRIVATE ${MATH_LIBRARIES} ${THREAD_LIBRARIES} ${DL_LIBRARIES})
@@ -290,6 +290,7 @@ endif()
 
 install(FILES
 		monetdb_embedded.h
+		../common/stream/stream.h
 		../common/utils/mutils.h
 		../gdk/gdk.h
 		../gdk/gdk_atoms.h
@@ -300,4 +301,28 @@ install(FILES
 		../gdk/gdk_hash.h
 		../gdk/gdk_system.h
 		../gdk/gdk_utils.h
+		../monetdb5/mal/mal.h
+		../monetdb5/mal/mal_client.h
+		../monetdb5/mal/mal_errors.h
+		../monetdb5/mal/mal_exception.h
+		../monetdb5/mal/mal_factory.h
+		../monetdb5/mal/mal_function.h
+		../monetdb5/mal/mal_instruction.h
+		../monetdb5/mal/mal_interpreter.h
+		../monetdb5/mal/mal_linker.h
+		../monetdb5/mal/mal_listing.h
+		../monetdb5/mal/mal_module.h
+		../monetdb5/mal/mal_namespace.h
+		../monetdb5/mal/mal_profiler.h
+		../monetdb5/mal/mal_resolve.h
+		../monetdb5/mal/mal_stack.h
+		../monetdb5/mal/mal_type.h
+		../monetdb5/modules/atoms/blob.h
+		../monetdb5/modules/atoms/mtime.h
+		../sql/include/sql_catalog.h
+		../sql/include/sql_hash.h
+		../sql/include/sql_list.h
+		../sql/include/sql_mem.h
+		../sql/include/sql_querytype.h
+		../sql/storage/bat/res_table.h
 		DESTINATION ${INCLUDEDIR}/monetdb)

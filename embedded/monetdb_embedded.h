@@ -14,6 +14,7 @@
 #define _EMBEDDED_LIB_
 
 #include "monetdb_config.h"
+#include "res_table.h"
 #include "gdk.h"
 
 #ifdef __cplusplus
@@ -110,17 +111,19 @@ embedded_export char* monetdb_disconnect(monetdb_connection conn);
 embedded_export char* monetdb_startup(char* dbdir, bool silent, bool sequential);
 embedded_export bool  monetdb_is_initialized(void);
 
+embedded_export char* monetdb_get_autocommit(monetdb_connection conn, int* result);
 embedded_export char* monetdb_set_autocommit(monetdb_connection conn, int value);
 embedded_export char* monetdb_query(monetdb_connection conn, char* query, monetdb_result** result, lng* affected_rows, int* prepare_id);
 
 embedded_export char* monetdb_result_fetch(monetdb_connection conn, monetdb_column** res, monetdb_result* mres, size_t column_index);
-embedded_export char* monetdb_result_fetch_rawcol(monetdb_connection conn, void** res, monetdb_result* mres, size_t column_index); // actually a res_col
+embedded_export char* monetdb_result_fetch_rawcol(monetdb_connection conn, res_col** res, monetdb_result* mres, size_t column_index);
 
 embedded_export char* monetdb_clear_prepare(monetdb_connection conn, int id);
 embedded_export char* monetdb_send_close(monetdb_connection conn, int id);
 
 embedded_export char* monetdb_append(monetdb_connection conn, const char* schema, const char* table, bat *batids, size_t column_count);
 embedded_export char* monetdb_cleanup_result(monetdb_connection conn, monetdb_result* result);
+embedded_export char* monetdb_get_table(monetdb_connection conn, sql_table** table, const char* schema_name, const char* table_name);
 embedded_export char* monetdb_get_columns(monetdb_connection conn, const char* schema_name, const char *table_name, size_t *column_count, char ***column_names, int **column_types);
 
 embedded_export char* monetdb_shutdown(void);
