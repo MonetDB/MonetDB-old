@@ -3334,10 +3334,10 @@ rel_unop(sql_query *query, sql_rel **rel, symbol *se, int fs, exp_kind ek)
 		e = rel_aggr(query, rel, se, fs);
 		if (e)
 			return e;
+		/* reset error */
+		sql->session->status = 0;
+		sql->errstr[0] = '\0';
 	}
-	/* reset error */
-	sql->session->status = 0;
-	sql->errstr[0] = '\0';
 	e = rel_value_exp(query, rel, l->next->data.sym, fs, iek);
 	if (!e) {
 		if (!f && *rel && (*rel)->card == CARD_AGGR) {
