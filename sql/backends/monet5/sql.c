@@ -775,12 +775,12 @@ mvc_logfile(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 mvc_next_value(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	backend *be = NULL;
 	str msg;
 	sql_schema *s;
 	lng *res = getArgReference_lng(stk, pci, 0);
 	const char *sname = *getArgReference_str(stk, pci, 1);
 	const char *seqname = *getArgReference_str(stk, pci, 2);
-	backend *be;
 
 	(void)mb;
 	if ((msg = getBackendContext(cntxt, &be)) != NULL)
@@ -2017,7 +2017,7 @@ mvc_result_set_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int *digits, *scaledigits;
 	oid o = 0;
 	BATiter itertbl,iteratr,itertpe;
-	backend *be;
+	backend *be = NULL;
 	BAT *b, *tbl, *atr, *tpe,*len,*scale;
 
 	if ((msg = getBackendContext(cntxt, &be)) != NULL)
@@ -2233,7 +2233,7 @@ mvc_row_result_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int *digits, *scaledigits;
 	oid o = 0;
 	BATiter itertbl,iteratr,itertpe;
-	backend *be;
+	backend *be = NULL;
 	ptr v;
 	int mtype;
 	BAT  *tbl, *atr, *tpe,*len,*scale;
@@ -2419,7 +2419,7 @@ mvc_table_result_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str res = MAL_SUCCEED;
 	BAT *order;
-	backend *be;
+	backend *be = NULL;
 	str msg;
 	int *res_id;
 	int nr_cols;
