@@ -31,7 +31,7 @@ extern prop * prop_copy( sql_allocator *sa, prop *p);
 extern prop * prop_remove( prop *plist, prop *p);
 extern prop * find_prop( prop *p, int kind);
 extern const char * propkind2string( prop *p);
-extern char * propvalue2string( prop *p);
+extern char * propvalue2string(sql_allocator *sa, prop *p);
 
 #endif /* _REL_PROP_H_ */
 

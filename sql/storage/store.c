@@ -1749,7 +1749,7 @@ store_schema_number(void)
 }
 
 static int
-store_load(void) {
+store_load(sql_allocator *pa) {
 	int first;
 
 	sql_allocator *sa;
@@ -1760,7 +1760,7 @@ store_load(void) {
 	lng lng_store_oid;
 	sqlid id = 0;
 
-	sa = sa_create(NULL /*TODO*/);
+	sa = sa_create(pa);
 	if(!sa)
 		return -1;
 
@@ -1981,9 +1981,8 @@ store_load(void) {
 }
 
 int
-store_init(int debug, store_type store, int readonly, int singleuser)
+store_init(sql_allocator *pa, int debug, store_type store, int readonly, int singleuser)
 {
-
 	int v = 1;
 
 	logger_debug = debug;
@@ -2017,7 +2016,7 @@ store_init(int debug, store_type store, int readonly, int singleuser)
 
 	/* create the initial store structure or re-load previous data */
 	MT_lock_unset(&bs_lock);
-	return store_load();
+	return store_load(pa);
 }
 
 static bool logging = false;
@@ -3079,7 +3078,7 @@ trans_dup(sql_trans *ot, const char *newname)
 	if(!t)
 		return NULL;
 
-	t->sa = sa_create(NULL /*TODO*/);
+	t->sa = sa_create(NULL);
 	if(!t->sa) {
 		_DELETE(t);
 		return NULL;

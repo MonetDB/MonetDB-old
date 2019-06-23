@@ -271,16 +271,13 @@ atom_general(sql_allocator *sa, sql_subtype *tpe, const char *val)
 
 			/* no result or nil means error (SQL has NULL not nil) */
 			if (res < 0 || !p || ATOMcmp(type, p, ATOMnilptr(type)) == 0) {
-				/*_DELETE(val);*/
 				if (p)
-					GDKfree(p);
+					_DELETE(p);
 				return NULL;
 			}
 			VALset(&a->data, a->data.vtype, p);
 			SA_VALcopy(sa, &a->data, &a->data);
-
-			GDKfree(p);
-			/*_DELETE(val);*/
+			_DELETE(p);
 		}
 	} else { 
 		VALset(&a->data, a->data.vtype, (ptr) ATOMnilptr(a->data.vtype));
@@ -1112,7 +1109,7 @@ atom_cast(sql_allocator *sa, atom *a, sql_subtype *tp)
 				s = decimal_to_str(dec, at);
 				len = sizeof(double);
 				res = ATOMfromstr(TYPE_dbl, &p, &len, s, false);
-				GDKfree(s);
+				_DELETE(s);
 				if (res < 0)
 					return 0;
 			}
@@ -1137,7 +1134,7 @@ atom_cast(sql_allocator *sa, atom *a, sql_subtype *tp)
 			/* no result or nil means error (SQL has NULL not nil) */
 			if (res < (ssize_t) strlen(a->data.val.sval) || !p ||
 			    ATOMcmp(type, p, ATOMnilptr(type)) == 0) {
-				GDKfree(p);
+				_DELETE(p);
 				a->data.len = strlen(a->data.val.sval);
 				return 0;
 			}
@@ -1145,7 +1142,7 @@ atom_cast(sql_allocator *sa, atom *a, sql_subtype *tp)
 			a->data.vtype = type;
 			VALset(&a->data, a->data.vtype, p);
 			SA_VALcopy(sa, &a->data, &a->data);
-			GDKfree(p);
+			_DELETE(p);
 			return 1;
 		}	
 	} else {

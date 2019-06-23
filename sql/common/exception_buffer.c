@@ -11,29 +11,21 @@
 #include <string.h>
 
 exception_buffer *
-eb_create(void)
+eb_init(exception_buffer *eb)
 {
-	exception_buffer *eb = (exception_buffer*)malloc(sizeof(exception_buffer));
 	if (eb) {
+		eb->enabled = 0;
 		eb->code = 0;
 		eb->msg = NULL;
 	}
 	return eb;
 }
 
-void
-eb_destroy(exception_buffer *eb)
-{
-	if (eb->msg)
-		free(eb->msg);
-	free(eb);
-}
-
 void 
 eb_error( exception_buffer *eb, char *msg, int val ) 
 {
 	eb->code = val;
-	eb->msg = (msg)?strdup(msg):strdup("ERROR");
+	eb->msg = msg;
 	fprintf(stderr, "%s\n", msg?msg:"ERROR");
 	longjmp(eb->state, eb->code);
 }

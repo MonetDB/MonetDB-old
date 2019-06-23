@@ -35,10 +35,11 @@ backend_reset(backend *b)
 backend *
 backend_create(mvc *m, Client c)
 {
-	backend *b = MNEW(backend);
+	backend *b = SA_NEW(m->pa, backend);
 
-	if( b== NULL)
+	if (!b)
 		return NULL;
+	b->sa = m->pa; 
 	b->mvc = m;
 	b->client = c;
 	b->mvc_var = 0;
@@ -46,10 +47,3 @@ backend_create(mvc *m, Client c)
 	b->output_format = OFMT_CSV;
 	return backend_reset(b);
 }
-
-void
-backend_destroy(backend *b)
-{
-	_DELETE(b);
-}
-

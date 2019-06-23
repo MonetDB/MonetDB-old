@@ -218,7 +218,10 @@ char * toUpperCopy(char *dest, const char *src)
 	return(dest);
 }
 
-char *dlist2string(mvc *sql, dlist *l, int expression, char **err)
+static char * _symbol2string(mvc *sql, symbol *se, int expression, char **err);
+
+static char *
+dlist2string(mvc *sql, dlist *l, int expression, char **err)
 {
 	char *b = NULL;
 	dnode *n;
@@ -227,20 +230,16 @@ char *dlist2string(mvc *sql, dlist *l, int expression, char **err)
 		char *s = NULL;
 
 		if (n->type == type_string && n->data.sval)
-			s = _STRDUP(n->data.sval);
+			s = sa_strdup(sql->ta, n->data.sval);
 		else if (n->type == type_symbol)
-			s = symbol2string(sql, n->data.sym, expression, err);
+			s = _symbol2string(sql, n->data.sym, expression, err);
 
-		if (!s) {
-			_DELETE(b);
+		if (!s) 
 			return NULL;
-		}
 		if (b) {
-			char *o = NEW_ARRAY(char, strlen(b) + strlen(s) + 2);
+			char *o = SA_NEW_ARRAY(sql->ta, char, strlen(b) + strlen(s) + 2);
 			if (o)
 				stpcpy(stpcpy(stpcpy(o, b), "."), s);
-			_DELETE(b);
-			_DELETE(s);
 			b = o;
 			if (b == NULL)
 				return NULL;
@@ -251,7 +250,23 @@ char *dlist2string(mvc *sql, dlist *l, int expression, char **err)
 	return b;
 }
 
-char *symbol2string(mvc *sql, symbol *se, int expression, char **err) /**/
+char *
+subtype2string(sql_allocator *sa, sql_subtype *t)
+{
+	char buf[BUFSIZ]; 
+
+	if (t->digits && t->scale)
+		snprintf(buf, BUFSIZ, "%s(%u,%u)", t->type->sqlname, t->digits, t->scale);
+	else if (t->digits && t->type->radix != 2)
+		snprintf(buf, BUFSIZ, "%s(%u)", t->type->sqlname, t->digits);
+	else
+		snprintf(buf, BUFSIZ, "%s", t->type->sqlname);
+	return sa_strdup(sa, buf);
+}
+
+static char *
+_symbol2string(mvc *sql, symbol *se, int expression, char **err) 
+	/* inner symbol2string uses the temporary allocator */
 {
 	int len = 0;
 	char buf[BUFSIZ];
@@ -265,13 +280,12 @@ char *symbol2string(mvc *sql, symbol *se, int expression, char **err) /**/
 
 		len = snprintf( buf+len, BUFSIZ-len, "%s(", op); 
 		for (; ops; ops = ops->next) {
-			char *tmp = symbol2string(sql, ops->data.sym, expression, err);
+			char *tmp = _symbol2string(sql, ops->data.sym, expression, err);
 			if (tmp == NULL)
 				return NULL;
 			len = snprintf( buf+len, BUFSIZ-len, "%s%s", 
 				tmp, 
 				(ops->next)?",":"");
-			_DELETE(tmp);
 		}
 		len = snprintf( buf+len, BUFSIZ-len, ")"); 
 	} break;
@@ -280,17 +294,14 @@ char *symbol2string(mvc *sql, symbol *se, int expression, char **err) /**/
 		char *op = qname_fname(lst->data.lval);
 		char *l;
 		char *r;
-		l = symbol2string(sql, lst->next->data.sym, expression, err);
+		l = _symbol2string(sql, lst->next->data.sym, expression, err);
 		if (l == NULL)
 			return NULL;
-		r = symbol2string(sql, lst->next->next->data.sym, expression, err);
+		r = _symbol2string(sql, lst->next->next->data.sym, expression, err);
 		if (r == NULL) {
-			_DELETE(l);
 			return NULL;
 		}
 		len = snprintf( buf+len, BUFSIZ-len, "%s(%s,%s)", op, l, r); 
-		_DELETE(l);
-		_DELETE(r);
 	} break;
 	case SQL_OP: {
 		dnode *lst = se->data.lval->h;
@@ -300,11 +311,10 @@ char *symbol2string(mvc *sql, symbol *se, int expression, char **err) /**/
 	case SQL_UNOP: {
 		dnode *lst = se->data.lval->h;
 		char *op = qname_fname(lst->data.lval);
-		char *l = symbol2string(sql, lst->next->data.sym, expression, err);
+		char *l = _symbol2string(sql, lst->next->data.sym, expression, err);
 		if (l == NULL)
 			return NULL;
 		len = snprintf( buf+len, BUFSIZ-len, "%s(%s)", op, l); 
-		_DELETE(l);
 		break;
 	}
 	case SQL_PARAMETER:
@@ -367,18 +377,13 @@ char *symbol2string(mvc *sql, symbol *se, int expression, char **err) /**/
 		char *val;
 		char *tpe;
 
-		val = symbol2string(sql, dl->h->data.sym, expression, err);
+		val = _symbol2string(sql, dl->h->data.sym, expression, err);
 		if (val == NULL)
 			return NULL;
-		tpe = subtype2string(&dl->h->next->data.typeval);
-		if (tpe == NULL) {
-			_DELETE(val);
+		tpe = subtype2string(sql->ta, &dl->h->next->data.typeval);
+		if (tpe == NULL)
 			return NULL;
-		}
-		len = snprintf( buf+len, BUFSIZ-len, "cast ( %s as %s )",
-				val, tpe);
-		_DELETE(val);
-		_DELETE(tpe);
+		len = snprintf( buf+len, BUFSIZ-len, "cast ( %s as %s )", val, tpe);
 		break;
 	}
 	case SQL_AGGR:
@@ -389,5 +394,18 @@ char *symbol2string(mvc *sql, symbol *se, int expression, char **err) /**/
 	default:
 		return NULL;
 	}
-	return _STRDUP(buf);
+	return sa_strdup(sql->ta, buf);
+}
+
+char *
+symbol2string(mvc *sql, symbol *se, int expression, char **err) 
+{
+	char *res = _symbol2string(sql, se, expression, err);
+
+	if (res)
+		res = sa_strdup(sql->sa, res);
+	if (*err)
+		*err = sa_strdup(sql->sa, *err);
+	sa_reset(sql->ta);
+	return res;
 }

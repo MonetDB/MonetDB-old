@@ -9,6 +9,7 @@
 #include "monetdb_config.h"
 
 #include "sql_partition.h"
+#include "sql_semantic.h"
 #include "rel_rel.h"
 #include "sql_mvc.h"
 #include "sql_catalog.h"
@@ -296,13 +297,11 @@ bootstrap_partition_expression(mvc* sql, sql_allocator *rsa, sql_table *mt, int 
 	sql_ec = mt->part.pexp->type.type->eclass;
 	if(!(sql_ec == EC_BIT || EC_VARCHAR(sql_ec) || EC_TEMP(sql_ec) || sql_ec == EC_POS || sql_ec == EC_NUM ||
 		 EC_INTERVAL(sql_ec)|| sql_ec == EC_DEC || sql_ec == EC_BLOB)) {
-		char *err = sql_subtype_string(&(mt->part.pexp->type));
+		char *err = subtype2string(sql->ta, &(mt->part.pexp->type));
 		if (!err) {
 			throw(SQL, "sql.partition", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		} else {
-			msg = createException(SQL, "sql.partition",
-								  SQLSTATE(42000) "Column type %s not supported for the expression return value", err);
-			GDKfree(err);
+			msg = createException(SQL, "sql.partition", SQLSTATE(42000) "Column type %s not supported for the expression return value", err);
 		}
 	}
 
@@ -328,7 +327,6 @@ bootstrap_partition_expression(mvc* sql, sql_allocator *rsa, sql_table *mt, int 
 			mvc_create_dependencies(sql, id_l, mt->base.id, TABLE_DEPENDENCY);
 		}
 	}
-
 	return msg;
 }
 

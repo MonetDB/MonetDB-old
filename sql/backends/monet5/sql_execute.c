@@ -397,7 +397,7 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 	m->params = NULL;
 	m->session->auto_commit = 0;
 	if (!m->sa)
-		m->sa = sa_create(m->eb);
+		m->sa = sa_create(m->pa);
 	if (!m->sa) {
 		*m = *o;
 		_DELETE(o);
@@ -414,7 +414,7 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 		sql_rel *r;
 
 		if (!m->sa)
-			m->sa = sa_create(m->eb);
+			m->sa = sa_create(m->pa);
 		if (!m->sa) {
 			msg = createException(PARSE, "SQLparser",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			goto endofcompile;
@@ -583,7 +583,6 @@ endofcompile:
 		MSresetInstructions(c->curprg->def, 1);
 
 	c->sqlcontext = be;
-	backend_destroy(sql);
 	GDKfree(n);
 	GDKfree(b);
 	bstream_destroy(m->scanner.rs);
@@ -718,7 +717,7 @@ RAstatement(Client c, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((msg = checkSQLContext(c)) != NULL)
 		return msg;
 	if (!m->sa)
-		m->sa = sa_create(m->eb);
+		m->sa = sa_create(m->pa);
 	if (!m->sa)
 		return createException(SQL,"RAstatement",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	refs = sa_list(m->sa);
@@ -787,7 +786,7 @@ RAstatement2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 	if (!m->sa)
-		m->sa = sa_create(m->eb);
+		m->sa = sa_create(m->pa);
 	if (!m->sa)
 		return createException(SQL,"RAstatement2",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 

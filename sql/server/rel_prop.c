@@ -79,7 +79,7 @@ propkind2string( prop *p)
 }
 
 char *
-propvalue2string( prop *p)
+propvalue2string(sql_allocator *sa, prop *p)
 {
 	char buf [BUFSIZ];
 
@@ -89,16 +89,16 @@ propvalue2string( prop *p)
 			   sql_idx *i = p->value;
 
 			   snprintf(buf, BUFSIZ, "%s.%s.%s", i->t->s->base.name, i->t->base.name, i->base.name);
-			   return _STRDUP(buf);
+			   return sa_strdup(sa, buf);
 			}
 		case PROP_REMOTE: {
 			   char *uri = p->value;
 
-			   return _STRDUP(uri);
+			   return sa_strdup(sa, uri);
 			}
 		default:
 			break;
 		}
 	}
-	return _STRDUP("");
+	return sa_strdup(sa, "");
 }

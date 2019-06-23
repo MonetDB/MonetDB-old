@@ -291,7 +291,6 @@ sql_subtype_string(sql_subtype *t)
 		snprintf(buf, BUFSIZ, "%s(%u,%u)", t->type->sqlname, t->digits, t->scale);
 	else if (t->digits && t->type->radix != 2)
 		snprintf(buf, BUFSIZ, "%s(%u)", t->type->sqlname, t->digits);
-
 	else
 		snprintf(buf, BUFSIZ, "%s", t->type->sqlname);
 	return _STRDUP(buf);
@@ -393,46 +392,6 @@ is_subtypeof(sql_subtype *sub, sql_subtype *super)
 	/* subtypes are only equal iff
 	   they map onto the same systemtype */
 	return (type_cmp(sub->type, super->type) == 0);
-}
-
-char *
-subtype2string(sql_subtype *t)
-{
-	char buf[BUFSIZ]; 
-
-	if (t->digits > 0) {
-		if (t->scale > 0)
-			snprintf(buf, BUFSIZ, "%s(%u,%u)", 
-				t->type->sqlname, t->digits, t->scale);
-		else
-			snprintf(buf, BUFSIZ, "%s(%u)", 
-				t->type->sqlname, t->digits);
-	} else {
-			snprintf(buf, BUFSIZ, "%s", t->type->sqlname);
-	}
-	return _STRDUP(buf);
-}
-
-char *
-subtype2string2(sql_subtype *tpe) //distinguish char(n), decimal(n,m) from other SQL types
-{
-	char buf[BUFSIZ];
-
-	switch (tpe->type->eclass) {
-		case EC_SEC:
-			snprintf(buf, BUFSIZ, "BIGINT");
-			break;
-		case EC_MONTH:
-			snprintf(buf, BUFSIZ, "INT");
-			break;
-		case EC_CHAR:
-		case EC_STRING:
-		case EC_DEC:
-			return subtype2string(tpe);
-		default:
-			snprintf(buf, BUFSIZ, "%s", tpe->type->sqlname);
-	}
-	return _STRDUP(buf);
 }
 
 int 

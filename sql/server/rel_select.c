@@ -4933,12 +4933,12 @@ calculate_window_bound(sql_query *query, sql_rel *p, tokens token, symbol *bound
 		if(!bt || !(bclass == EC_NUM || EC_INTERVAL(bclass) || bclass == EC_DEC || bclass == EC_FLT))
 			return sql_error(sql, 02, SQLSTATE(42000) "%s offset must be of a countable SQL type", bound_desc);
 		if((frame_type == FRAME_ROWS || frame_type == FRAME_GROUPS) && bclass != EC_NUM) {
-			char *err = subtype2string(bt);
+			char *err = subtype2string(sql->ta, bt);
 			if(!err)
 				return sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			(void) sql_error(sql, 02, SQLSTATE(42000) "Values on %s boundary on %s frame can't be %s type", bound_desc,
 							 (frame_type == FRAME_ROWS) ? "rows":"groups", err);
-			_DELETE(err);
+			sa_reset(sql->ta);
 			return NULL;
 		}
 		if(frame_type == FRAME_RANGE) {
@@ -4951,19 +4951,19 @@ calculate_window_bound(sql_query *query, sql_rel *p, tokens token, symbol *bound
 			if(bclass != EC_DEC && iet->type->eclass == EC_DEC)
 				return sql_error(sql, 02, SQLSTATE(42000) "Values on %s boundary aren't decimals while on input are", bound_desc);
 			if(bclass != EC_SEC && iet->type->eclass == EC_TIME) {
-				char *err = subtype2string(iet);
+				char *err = subtype2string(sql->ta, iet);
 				if(!err)
 					return sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 				(void) sql_error(sql, 02, SQLSTATE(42000) "For %s input the %s boundary must be an interval type up to the day", err, bound_desc);
-				_DELETE(err);
+				sa_reset(sql->ta);
 				return NULL;
 			}
 			if(EC_INTERVAL(bclass) && !EC_TEMP(iet->type->eclass)) {
-				char *err = subtype2string(iet);
+				char *err = subtype2string(sql->ta, iet);
 				if(!err)
 					return sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 				(void) sql_error(sql, 02, SQLSTATE(42000) "For %s input the %s boundary must be an interval type", err, bound_desc);
-				_DELETE(err);
+				sa_reset(sql->ta);
 				return NULL;
 			}
 		}

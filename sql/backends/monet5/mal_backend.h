@@ -32,6 +32,8 @@ typedef enum output_format {
 } ofmt;
 
 typedef struct backend {
+	sql_allocator *sa;	/* backend/session level allocator */
+
 	char 	language;		/* 'S' or 's' or 'X' */
 	char	depth;			/* depth >= 1 means no output for trans/schema statements */
 	int 	remote;			/* counter to make remote function names unique */
@@ -62,6 +64,5 @@ typedef struct backend {
 
 extern backend *backend_reset(backend *b);
 extern backend *backend_create(mvc *m, Client c);
-extern void backend_destroy(backend *b);
 
 #endif /*MAL_BACKEND_H*/

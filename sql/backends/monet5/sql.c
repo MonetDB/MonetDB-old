@@ -285,6 +285,28 @@ SQLshutdown_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return msg;
 }
 
+static char *
+subtype2default(sql_allocator *sa, sql_subtype *tpe) //distinguish char(n), decimal(n,m) from other SQL types
+{
+	char buf[BUFSIZ];
+
+	switch (tpe->type->eclass) {
+		case EC_SEC:
+			snprintf(buf, BUFSIZ, "BIGINT");
+			break;
+		case EC_MONTH:
+			snprintf(buf, BUFSIZ, "INT");
+			break;
+		case EC_CHAR:
+		case EC_STRING:
+		case EC_DEC:
+			return subtype2string(sa, tpe);
+		default:
+			snprintf(buf, BUFSIZ, "%s", tpe->type->sqlname);
+	}
+	return sa_strdup(sa, buf);
+}
+
 str
 create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 {
@@ -309,7 +331,7 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 	}
 
 	osa = sql->sa;
-	sql->sa = NULL;
+	sql->sa = sql->ta;
 
 	nt = sql_trans_create_table(sql->session->tr, s, tname, t->query, t->type, t->system, temp, t->commit_action,
 								t->sz, t->properties);
@@ -323,39 +345,33 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 			sql_rel *r = NULL;
 			list *id_l;
 
-			sql->sa = sa_create(sql->eb);
-			if(!sql->sa) {
-				sql->sa = osa;
-				throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
-			}
-			buf = sa_alloc(sql->sa, strlen(c->def) + 8);
-			if(!buf) {
-				sa_destroy(sql->sa);
-				sql->sa = osa;
-				throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
-			}
-			typestr = subtype2string2(&c->type);
+			sql->sa = sql->ta;
+			typestr = subtype2default(sql->ta, &c->type);
 			if(!typestr) {
-				sa_destroy(sql->sa);
+				sa_reset(sql->ta);
+				sql->sa = osa;
+				throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			}
+			buf = sa_alloc(sql->ta, strlen(c->def) + strlen(typestr) + 32);
+			if(!buf) {
+				sa_reset(sql->ta);
 				sql->sa = osa;
 				throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			}
 			snprintf(buf, BUFSIZ, "select cast(%s as %s);", c->def, typestr);
-			_DELETE(typestr);
 			r = rel_parse(sql, s, buf, m_deps);
 			if (!r || !is_project(r->op) || !r->exps || list_length(r->exps) != 1 ||
 				rel_check_type(sql, &c->type, r, r->exps->h->data, type_equal) == NULL) {
 				if(r)
 					rel_destroy(r);
-				sa_destroy(sql->sa);
+				sa_reset(sql->ta);
 				sql->sa = osa;
 				throw(SQL, "sql.catalog", SQLSTATE(42000) "%s", sql->errstr);
 			}
 			id_l = rel_dependencies(sql, r);
 			mvc_create_dependencies(sql, id_l, nt->base.id, FUNC_DEPENDENCY);
 			rel_destroy(r);
-			sa_destroy(sql->sa);
-			sql->sa = NULL;
+			sa_reset(sql->ta);
 		}
 	}
 
@@ -363,6 +379,7 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 		sql_column *c = n->data, *copied = mvc_copy_column(sql, nt, c);
 
 		if (copied == NULL) {
+			sa_reset(sql->ta);
 			sql->sa = osa;
 			throw(SQL, "sql.catalog", SQLSTATE(42000) "CREATE TABLE: %s_%s_%s conflicts", s->base.name, t->base.name, c->base.name);
 		}
@@ -373,17 +390,9 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 		char *err = NULL;
 
 		nt->part.pexp->exp = sa_strdup(sql->session->tr->sa, t->part.pexp->exp);
-
-		sql->sa = sa_create(sql->eb);
-		if(!sql->sa) {
-			sql->sa = osa;
-			throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
-		}
-
 		err = bootstrap_partition_expression(sql, sql->session->tr->sa, nt, 1);
-		sa_destroy(sql->sa);
-		sql->sa = NULL;
-		if(err) {
+		sa_reset(sql->ta);
+		if (err) {
 			sql->sa = osa;
 			return err;
 		}
@@ -408,15 +417,8 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 			sql_key *k = n->data;
 			char *err = NULL;
 
-			sql->sa = sa_create(sql->eb);
-			if(!sql->sa) {
-				sql->sa = osa;
-				throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
-			}
-
 			err = sql_partition_validate_key(sql, nt, k, "CREATE");
-			sa_destroy(sql->sa);
-			sql->sa = NULL;
+			sa_reset(sql->ta);
 			if(err) {
 				sql->sa = osa;
 				return err;
@@ -440,11 +442,6 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 	if (nt->query && isView(nt)) {
 		sql_rel *r = NULL;
 
-		sql->sa = sa_create(sql->eb);
-		if(!sql->sa) {
-			sql->sa = osa;
-			throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
-		}
 		r = rel_parse(sql, s, nt->query, m_deps);
 		if (r)
 			r = rel_unnest(sql, r);
@@ -455,7 +452,7 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 
 			mvc_create_dependencies(sql, id_l, nt->base.id, VIEW_DEPENDENCY);
 		}
-		sa_destroy(sql->sa);
+		sa_reset(sql->ta);
 	}
 	sql->sa = osa;
 	return MAL_SUCCEED;
@@ -476,7 +473,7 @@ create_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *col
 		return msg;
 
 	/* for some reason we don't have an allocator here, so make one */
-	sql->sa = sa_create(sql->eb);
+	sql->sa = sa_create(sql->pa);
 	if (!sql->sa) {
 		msg = sql_error(sql, 02, SQLSTATE(HY001) "CREATE TABLE: %s", MAL_MALLOC_FAIL);
 		goto cleanup;
@@ -556,7 +553,7 @@ append_to_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *
 		return msg;
 
 	/* for some reason we don't have an allocator here, so make one */
-	sql->sa = sa_create(sql->eb);
+	sql->sa = sa_create(sql->pa);
 	if (!sql->sa) {
 		msg = sql_error(sql, 02, SQLSTATE(HY001) "CREATE TABLE: %s", MAL_MALLOC_FAIL);
 		goto cleanup;

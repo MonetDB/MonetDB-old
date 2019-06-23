@@ -837,19 +837,15 @@ rel_create_func(sql_query *query, dlist *qname, dlist *params, symbol *res, dlis
 				node *n;
 				
 				for (n = type_list->h; n; n = n->next) {
-					char *tpe =  subtype2string((sql_subtype *) n->data);
+					char *tpe =  subtype2string(sql->ta, (sql_subtype *) n->data);
 					
 					if (arg_list) {
-						char *t = arg_list;
-						arg_list = sql_message("%s, %s", arg_list, tpe);
-						_DELETE(t);
-						_DELETE(tpe);
+						arg_list = sa_message(sql->ta, "%s, %s", arg_list, tpe);
 					} else {
 						arg_list = tpe;
 					}
 				}
 				(void)sql_error(sql, 02, SQLSTATE(42000) "CREATE %s%s: name '%s' (%s) already in use", KF, F, fname, arg_list ? arg_list : "");
-				_DELETE(arg_list);
 				list_destroy(type_list);
 				return NULL;
 			} else {
@@ -958,12 +954,14 @@ rel_create_func(sql_query *query, dlist *qname, dlist *params, symbol *res, dlis
 			} else {
 				sql_func *f = sf->func;
 				if (!f->mod || strcmp(f->mod, fmod))
-					f->mod = _STRDUP(fmod);
+					f->mod = (f->sa)?sa_strdup(f->sa, fmod):_STRDUP(fmod);
 				if (!f->imp || strcmp(f->imp, fnme)) 
 					f->imp = (f->sa)?sa_strdup(f->sa, fnme):_STRDUP(fnme);
 				if(!f->mod || !f->imp) {
-					_DELETE(f->mod);
-					_DELETE(f->imp);
+					if (!f->sa) {
+						_DELETE(f->mod);
+						_DELETE(f->imp);
+					}
 					return sql_error(sql, 02, SQLSTATE(HY001) "CREATE %s%s: could not allocate space", KF, F);
 				}
 				f->sql = 0; /* native */
@@ -1040,13 +1038,10 @@ resolve_func( mvc *sql, sql_schema *s, const char *name, dlist *typelist, int ty
 			
 			if (type_list->cnt > 0) {
 				for (n = type_list->h; n; n = n->next) {
-					char *tpe =  subtype2string((sql_subtype *) n->data);
+					char *tpe =  subtype2string(sql->ta, (sql_subtype *) n->data);
 				
 					if (arg_list) {
-						char *t = arg_list;
-						arg_list = sql_message("%s, %s", arg_list, tpe);
-						_DELETE(tpe);
-						_DELETE(t);
+						arg_list = sa_message(sql->ta, "%s, %s", arg_list, tpe);
 					} else {
 						arg_list = tpe;
 					}
@@ -1055,7 +1050,6 @@ resolve_func( mvc *sql, sql_schema *s, const char *name, dlist *typelist, int ty
 				list_destroy(type_list);
 				if(!if_exists)
 					e = sql_error(sql, 02, SQLSTATE(42000) "%s %s%s: no such %s%s '%s' (%s)", op, KF, F, kf, f, name, arg_list);
-				_DELETE(arg_list);
 				return e;
 			}
 			list_destroy(list_func);

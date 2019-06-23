@@ -202,7 +202,7 @@ mvc_create_table_as_subquery( mvc *sql, sql_rel *sq, sql_schema *s, const char *
 }
 
 static char *
-table_constraint_name(symbol *s, sql_table *t)
+table_constraint_name(mvc *sql, symbol *s, sql_table *t)
 {
 	/* create a descriptive name like table_col_pkey */
 	char *suffix;		/* stores the type of this constraint */
@@ -236,7 +236,7 @@ table_constraint_name(symbol *s, sql_table *t)
 	slen = strlen(suffix);
 	while (len + slen >= buflen)
 		buflen += BUFSIZ;
-	buf = GDKmalloc(buflen);
+	buf = SA_NEW_ARRAY(sql->ta, char, buflen);
 	if (!buf) {
 		return NULL;
 	}
@@ -246,14 +246,12 @@ table_constraint_name(symbol *s, sql_table *t)
 	for (; nms; nms = nms->next) {
 		slen = strlen(nms->data.sval);
 		while (len + slen + 1 >= buflen) {
-			char *nbuf;
+			size_t olen = buflen;
+
 			buflen += BUFSIZ;
-			nbuf = GDKrealloc(buf, buflen);
-			if (!nbuf) {
-				GDKfree(buf);
+			buf = SA_RENEW_ARRAY(sql->ta, char, buf, buflen, olen);
+			if (!buf) 
 				return NULL;
-			}
-			buf = nbuf;
 		}
 		snprintf(buf + len, buflen - len, "_%s", nms->data.sval);
 		len += slen + 1;
@@ -262,17 +260,14 @@ table_constraint_name(symbol *s, sql_table *t)
 	/* add suffix */
 	slen = strlen(suffix);
 	while (len + slen >= buflen) {
-		char *nbuf;
+		size_t olen = buflen;
+
 		buflen += BUFSIZ;
-		nbuf = GDKrealloc(buf, buflen);
-		if (!nbuf) {
-			GDKfree(buf);
+		buf = SA_RENEW_ARRAY(sql->ta, char, buf, buflen, olen);
+		if (!buf)
 			return NULL;
-		}
-		buf = nbuf;
 	}
 	snprintf(buf + len, buflen - len, "%s", suffix);
-
 	return buf;
 }
 
@@ -450,11 +445,9 @@ column_option(
 	       	r = symbol2string(sql, s->data.sym, 0, &err);
 		if (!r) {
 			(void) sql_error(sql, 02, SQLSTATE(42000) "Incorrect default value '%s'\n", err?err:"");
-			if (err) _DELETE(err);
 			return SQL_ERR;
 		} else {
 			mvc_default(sql, cs, r);
-			_DELETE(r);
 			res = SQL_OK;
 		}
 	} 	break;
@@ -470,9 +463,7 @@ column_option(
 			if (a->data.vtype == TYPE_str) {
 				mvc_default(sql, cs, a->data.val.sval);
 			} else {
-				char *r = atom2string(sql->sa, a);
-
-				mvc_default(sql, cs, r);
+				mvc_default(sql, cs, atom2string(sql->sa, a));
 			}
 		}
 		res = SQL_OK;
@@ -645,12 +636,10 @@ table_constraint(mvc *sql, symbol *s, sql_schema *ss, sql_table *t)
 		symbol *sym = l->h->next->data.sym;
 
 		if (!opt_name)
-			opt_name = table_constraint_name(sym, t);
+			opt_name = table_constraint_name(sql, sym, t);
 		if (opt_name == NULL)
 			return SQL_ERR;
 		res = table_constraint_type(sql, opt_name, sym, ss, t);
-		if (opt_name != l->h->data.sval)
-			GDKfree(opt_name);
 	}
 
 	if (res != SQL_OK) {
@@ -796,11 +785,9 @@ table_element(sql_query *query, symbol *s, sql_schema *ss, sql_table *t, int alt
 		r = symbol2string(sql, sym, 0, &err);
 		if (!r) {
 			(void) sql_error(sql, 02, SQLSTATE(42000) "incorrect default value '%s'\n", err?err:"");
-			if (err) _DELETE(err);
 			return SQL_ERR;
 		}
 		mvc_default(sql, c, r);
-		_DELETE(r);
 	}
 	break;
 	case SQL_STORAGE:
@@ -966,12 +953,11 @@ create_partition_definition(mvc *sql, sql_table *t, symbol *partition_def)
 			sql_ec = t->part.pcol->type.type->eclass;
 			if(!(sql_ec == EC_BIT || EC_VARCHAR(sql_ec) || EC_TEMP(sql_ec) || sql_ec == EC_POS || sql_ec == EC_NUM ||
 				 EC_INTERVAL(sql_ec)|| sql_ec == EC_DEC || sql_ec == EC_BLOB)) {
-				err = sql_subtype_string(&(t->part.pcol->type));
+				err = subtype2string(sql->ta, &(t->part.pcol->type));
 				if (!err) {
 					sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 				} else {
 					sql_error(sql, 02, SQLSTATE(42000) "CREATE MERGE TABLE: column type %s not yet supported for the partition column", err);
-					GDKfree(err);
 				}
 				return SQL_ERR;
 			}
@@ -980,13 +966,11 @@ create_partition_definition(mvc *sql, sql_table *t, symbol *partition_def)
 			char *query = symbol2string(sql, list2->h->data.sym, 1, &err);
 			if (!query) {
 				(void) sql_error(sql, 02, SQLSTATE(42000) "CREATE MERGE TABLE: error compiling expression '%s'", err?err:"");
-				if (err) _DELETE(err);
 				return SQL_ERR;
 			}
 			t->part.pexp = SA_ZNEW(sql->sa, sql_expression);
-			t->part.pexp->exp = sa_strdup(sql->sa, query);
+			t->part.pexp->exp = query;
 			t->part.pexp->type = *empty;
-			_DELETE(query);
 		}
 	}
 	return SQL_OK;
@@ -1218,7 +1202,7 @@ rel_create_view(sql_query *query, sql_schema *ss, dlist *qname, dlist *column_sp
 		if (create) {
 			q = query_cleaned(q);
 			t = mvc_create_view(sql, s, name, SQL_DECLARED_TABLE, q, 0);
-			GDKfree(q);
+			_DELETE(q);
 			if (as_subquery( sql, t, sq, column_spec, "CREATE VIEW") != 0) {
 				rel_destroy(sq);
 				return NULL;

@@ -32,11 +32,9 @@ cq_delete(int clientid, cq *q)
 {
 	if (q->name)
 		backend_freecode(clientid, q->name);
-
-	/* params and name are allocated using sa, ie need to be delete last */
+	/* q, params and name are allocated using sa, ie need to be delete last */
 	if (q->sa) 
 		sa_destroy(q->sa);
-	_DELETE(q);
 }
 
 void
@@ -90,12 +88,11 @@ qc_insert(qc *cache, sql_allocator *sa, sql_rel *r, symbol *s, list *params, int
 {
 	int namelen;
 	sql_func *f = SA_ZNEW(sa, sql_func);
-	cq *n = MNEW(cq);
+	cq *n = SA_ZNEW(sa, cq);
 	list *res = NULL;
 
-	if(!n)
+	if(!n || !f)
 		return NULL;
-
 	n->id = cache->id++;
 	cache->nr++;
 
@@ -109,10 +106,8 @@ qc_insert(qc *cache, sql_allocator *sa, sql_rel *r, symbol *s, list *params, int
 	namelen = 5 + ((n->id+7)>>3) + ((cache->clientid+7)>>3);
 	n->name = sa_alloc(sa, namelen);
 	n->no_mitosis = no_mitosis;
-	if(!n->name) {
-		_DELETE(n);
+	if(!n->name)
 		return NULL;
-	}
 	(void) snprintf(n->name, namelen, "p%d_%d", n->id, cache->clientid);
 	cache->q = n;
 

@@ -251,7 +251,7 @@ SQLprepareClient(Client c, int login)
 	backend *be;
 
 	if (c->sqlcontext == 0) {
-		m = mvc_create(c->idx, SQLdebug, c->fdin, c->fdout);
+		m = mvc_create(sa_create(NULL), c->idx, SQLdebug, c->fdin, c->fdout);
 		if( m == NULL) {
 			throw(SQL,"sql.initClient",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
@@ -261,7 +261,6 @@ SQLprepareClient(Client c, int login)
 			throw(SQL,"sql.initClient", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
 		if(global_variables(be, "monetdb", "sys") < 0) {
-			backend_destroy(be);
 			mvc_destroy(m);
 			throw(SQL,"sql.initClient",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
@@ -319,7 +318,6 @@ SQLresetClient(Client c)
 		be->results = NULL;
 
 		mvc_destroy(m);
-		backend_destroy(be);
 		c->state[MAL_SCENARIO_OPTIMIZE] = NULL;
 		c->state[MAL_SCENARIO_PARSER] = NULL;
 		c->sqlcontext = NULL;
@@ -366,7 +364,7 @@ SQLinit(Client c)
 		SQLdebug |= 64;
 	if (readonly)
 		SQLdebug |= 32;
-	if ((SQLnewcatalog = mvc_init(SQLdebug, GDKinmemory() ? store_mem : store_bat, readonly, single_user)) < 0) {
+	if ((SQLnewcatalog = mvc_init(sa_create(NULL), SQLdebug, GDKinmemory() ? store_mem : store_bat, readonly, single_user)) < 0) {
 		MT_lock_unset(&sql_contextLock);
 		throw(SQL, "SQLinit", SQLSTATE(42000) "Catalogue initialization failed");
 	}
@@ -518,7 +516,7 @@ SQLinit(Client c)
 #endif
 	} else {		/* handle upgrades */
 		if (!m->sa)
-			m->sa = sa_create(m->eb);
+			m->sa = sa_create(m->pa);
 		if (!m->sa) {
 			msg = createException(MAL, "createdb", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		} else if (maybeupgrade) {
@@ -980,12 +978,12 @@ SQLparser(Client c)
 	/* sqlparse needs sql allocator to be available.  It can be NULL at
 	 * this point if this is a recursive call. */
 	if (!m->sa) 
-		m->sa = sa_create(m->eb);
+		m->sa = sa_create(m->pa);
 	if (!m->sa) {
 		c->mode = FINISHCLIENT;
 		throw(SQL, "SQLparser", SQLSTATE(HY001) MAL_MALLOC_FAIL " for SQL allocator");
 	}
-	if (eb_savepoint(m->eb)) {
+	if (eb_savepoint(&m->sa->eb)) {
 		sa_reset(m->sa);
 		/* what else to cleanup ?? */
 	}

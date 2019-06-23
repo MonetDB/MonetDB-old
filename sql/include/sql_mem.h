@@ -54,15 +54,16 @@ extern int sql_ref_inc(sql_ref *r);
 extern int sql_ref_dec(sql_ref *r);
 
 typedef struct sql_allocator {
+	struct sql_allocator *pa;
 	size_t size;
 	size_t nr;
 	char **blks;
 	size_t used; 	/* memory used in last block */
 	size_t usedmem;	/* used memory */
-	exception_buffer *eb;
+	exception_buffer eb;
 } sql_allocator;
 
-extern sql_allocator *sa_create(exception_buffer *eb);
+extern sql_allocator *sa_create( sql_allocator *pa );
 extern sql_allocator *sa_reset( sql_allocator *sa );
 extern void *sa_alloc( sql_allocator *sa,  size_t sz );
 extern void *sa_zalloc( sql_allocator *sa,  size_t sz );

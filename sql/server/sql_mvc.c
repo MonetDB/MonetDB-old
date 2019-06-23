@@ -56,7 +56,7 @@ sql_create_comments(mvc *m, sql_schema *s)
 	}
 
 int
-mvc_init(int debug, store_type store, int ro, int su)
+mvc_init(sql_allocator *pa, int debug, store_type store, int ro, int su)
 {
 	int first = 0;
 	sql_schema *s;
@@ -75,19 +75,19 @@ mvc_init(int debug, store_type store, int ro, int su)
 		return -1;
 	}
 
-	if ((first = store_init(debug, store, ro, su)) < 0) {
+	if ((first = store_init(pa, debug, store, ro, su)) < 0) {
 		fprintf(stderr, "!mvc_init: unable to create system tables\n");
 		return -1;
 	}
 
-	m = mvc_create(0, 0, NULL, NULL);
+	m = mvc_create(pa, 0, 0, NULL, NULL);
 	if (!m) {
 		fprintf(stderr, "!mvc_init: malloc failure\n");
 		return -1;
 	}
 
-	m->eb = eb_create();
-	m->sa = sa_create(m->eb);
+	assert(m->sa == NULL);
+	m->sa = sa_create(m->pa);
 	if (!m->sa) {
 		mvc_destroy(m);
 		fprintf(stderr, "!mvc_init: malloc failure\n");
@@ -470,11 +470,8 @@ mvc_commit(mvc *m, int chain, const char *name, bool enabling_auto_commit)
 	 * */
 	/* validation phase */
 	if (sql_trans_validate(tr)) {
-		if ((ok = sql_trans_commit(tr)) != SQL_OK) {
-			char *err = sql_message(SQLSTATE(40000) "%s transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", operation, GDKerrbuf);
-			GDKfatal("%s", err);
-			_DELETE(err);
-		}
+		if ((ok = sql_trans_commit(tr)) != SQL_OK)
+			GDKfatal(SQLSTATE(40000) "%s transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", operation, GDKerrbuf);
 	} else {
 		store_unlock();
 		msg = createException(SQL, "sql.commit", SQLSTATE(40000) "%s transaction is aborted because of concurrency conflicts, will ROLLBACK instead", operation);
@@ -613,11 +610,11 @@ mvc_release(mvc *m, const char *name)
 }
 
 mvc *
-mvc_create(int clientid, int debug, bstream *rs, stream *ws)
+mvc_create(sql_allocator *pa, int clientid, int debug, bstream *rs, stream *ws)
 {
 	mvc *m;
 
- 	m = ZNEW(mvc);
+ 	m = SA_ZNEW(pa, mvc);
 	if(!m) {
 		return NULL;
 	}
@@ -630,23 +627,21 @@ mvc_create(int clientid, int debug, bstream *rs, stream *ws)
 
 	m->qc = qc_create(clientid, 0);
 	if(!m->qc) {
-		_DELETE(m);
 		return NULL;
 	}
-	m->eb = eb_create();
+	m->pa = pa;
 	m->sa = NULL;
+	m->ta = sa_create(m->pa);
 
 	m->params = NULL;
 	m->sizevars = MAXPARAMS;
-	m->vars = NEW_ARRAY(sql_var, m->sizevars);
+	m->vars = SA_NEW_ARRAY(pa, sql_var, m->sizevars);
 
 	m->topvars = 0;
 	m->frame = 1;
 	m->use_views = 0;
 	if(!m->vars) {
 		qc_destroy(m->qc);
-		_DELETE(m->vars);
-		_DELETE(m);
 		return NULL;
 	}
 	m->sym = NULL;
@@ -668,8 +663,6 @@ mvc_create(int clientid, int debug, bstream *rs, stream *ws)
 	store_unlock();
 	if(!m->session) {
 		qc_destroy(m->qc);
-		_DELETE(m->vars);
-		_DELETE(m);
 		return NULL;
 	}
 
@@ -702,9 +695,10 @@ mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars)
 	if (m->sa)
 		m->sa = sa_reset(m->sa);
 	else
-		m->sa = sa_create(m->eb);
+		m->sa = sa_create(m->pa);
 	if(!m->sa)
 		res = 0;
+	m->ta = sa_reset(m->ta);
 
 	m->errstr[0] = '\0';
 
@@ -756,19 +750,15 @@ mvc_destroy(mvc *m)
 	sql_session_destroy(m->session);
 
 	stack_pop_until(m, 0);
-	_DELETE(m->vars);
 
 	if (m->scanner.log) /* close and destroy stream */
 		close_stream(m->scanner.log);
 
-	if (m->sa)
-		sa_destroy(m->sa);
 	m->sa = NULL;
-	eb_destroy(m->eb);
+	m->ta = NULL;
 	if (m->qc)
 		qc_destroy(m->qc);
 	m->qc = NULL;
-	_DELETE(m);
 }
 
 sql_type *
@@ -1273,22 +1263,12 @@ mvc_drop_table(mvc *m, sql_schema *s, sql_table *t, int drop_action)
 
 	if (isRemote(t)) {
 		str AUTHres;
-		sql_allocator *sa = m->sa;
 
-		m->sa = sa_create(m->eb);
-		if (!m->sa)
+		char *qualified_name = sa_strconcat(m->ta, sa_strconcat(m->ta, t->s->base.name, "."), t->base.name);
+		if (!qualified_name)
 			throw(SQL, "sql.mvc_drop_table", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-		char *qualified_name = sa_strconcat(m->sa, sa_strconcat(m->sa, t->s->base.name, "."), t->base.name);
-		if (!qualified_name) {
-			sa_destroy(m->sa);
-			m->sa = sa;
-			throw(SQL, "sql.mvc_drop_table", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-		}
-
 		AUTHres = AUTHdeleteRemoteTableCredentials(qualified_name);
-		sa_destroy(m->sa);
-		m->sa = sa;
-
+		sa_reset(m->ta);
 		if(AUTHres != MAL_SUCCEED)
 			return AUTHres;
 	}
@@ -1425,7 +1405,7 @@ mvc_default(mvc *m, sql_column *col, char *val)
 		fprintf(stderr, "#mvc_default %s %s\n", col->base.name, val);
 
 	if (col->t->persistence == SQL_DECLARED_TABLE) {
-		col->def = val?sa_strdup(m->sa, val):NULL;
+		col->def = val;
 		return col;
 	} else {
 		return sql_trans_alter_default(m->session->tr, col, val);
@@ -1487,10 +1467,10 @@ static sql_var*
 stack_set(mvc *sql, int var, const char *name, sql_subtype *type, sql_rel *rel, sql_table *t, dlist *wdef, int view, int frame)
 {
 	sql_var *v, *nvars;
-	int nextsize = sql->sizevars;
+	int osize = sql->sizevars, nextsize=osize;
 	if (var == nextsize) {
 		nextsize <<= 1;
-		nvars = RENEW_ARRAY(sql_var,sql->vars,nextsize);
+		nvars = SA_RENEW_ARRAY(sql->pa, sql_var, sql->vars, nextsize, osize);
 		if(!nvars) {
 			return NULL;
 		} else {

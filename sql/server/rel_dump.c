@@ -11,6 +11,7 @@
 #define TABSTOP 2
 
 #include "rel_dump.h"
+#include "sql_semantic.h"
 #include "rel_rel.h"
 #include "rel_exp.h"
 #include "rel_prop.h"
@@ -114,11 +115,10 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 	 	break;
 	}
 	case e_convert: {
-		char *to_type = sql_subtype_string(&e->tpe);
+		char *to_type = subtype2string(sql->ta, &e->tpe);
 		mnstr_printf(fout, "%s[", to_type);
 		exp_print(sql, fout, e->l, depth, refs, 0, 0);
 		mnstr_printf(fout, "]");
-		_DELETE(to_type);
 	 	break;
 	}
 	case e_atom: {
@@ -132,7 +132,7 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 					isReplicaTable(t)?"replica table":"table",
 					t->base.name);
 			} else {
-				char *t = sql_subtype_string(atom_type(a));
+				char *t = subtype2string(sql->ta, atom_type(a));
 				if (a->isnull)
 					mnstr_printf(fout, "%s \"NULL\"", t);
 				else {
@@ -141,9 +141,8 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 						mnstr_printf(fout, "%s %s", t, s);
 					else if (s)
 						mnstr_printf(fout, "%s \"%s\"", t, s);
-					GDKfree(s);
+					_DELETE(s);
 				}
-				_DELETE(t);
 			}
 		} else { /* variables */
 			if (e->r) { /* named parameters */
@@ -245,9 +244,8 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 		char *pv;
 
 		for (; p; p = p->p) {
-			pv = propvalue2string(p);
+			pv = propvalue2string(sql->ta, p);
 			mnstr_printf(fout, " %s %s", propkind2string(p), pv);
-			GDKfree(pv);
 		}
 	}
 	if (e->name && alias) {
@@ -532,9 +530,8 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 		char *pv;
 
 		for (; p; p = p->p) {
-			pv = propvalue2string(p);
+			pv = propvalue2string(sql->ta, p);
 			mnstr_printf(fout, " %s %s", propkind2string(p), pv);
-			GDKfree(pv);
 		}
 	}
 }

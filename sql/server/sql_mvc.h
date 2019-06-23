@@ -24,7 +24,6 @@
 #include "sql_atom.h"
 #include "sql_tokens.h"
 #include "sql_symbol.h"
-#include "exception_buffer.h"
 
 #define ERRSIZE 8192
 
@@ -79,8 +78,7 @@ typedef struct sql_var {
 typedef struct mvc {
 	char errstr[ERRSIZE];
 
-	exception_buffer *eb;
-	sql_allocator *sa;
+	sql_allocator *sa, *ta, *pa;
 
 	struct scanner scanner;
 
@@ -120,12 +118,12 @@ typedef struct mvc {
 	list *cascade_action;  /* protection against recursive cascade actions */
 } mvc;
 
-extern int mvc_init(int debug, store_type store, int ro, int su);
+extern int mvc_init(sql_allocator *pa, int debug, store_type store, int ro, int su);
 extern void mvc_exit(void);
 extern void mvc_logmanager(void);
 extern void mvc_idlemanager(void);
 
-extern mvc *mvc_create(int clientid, int debug, bstream *rs, stream *ws);
+extern mvc *mvc_create(sql_allocator *pa, int clientid, int debug, bstream *rs, stream *ws);
 extern int mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars);
 extern void mvc_destroy(mvc *c);
 
