@@ -3865,19 +3865,15 @@ _rel_aggr(sql_query *query, sql_rel **rel, int distinct, sql_schema *s, char *an
 	}
 
 	if (!groupby) {
-		char *uaname = GDKmalloc(strlen(aname) + 1);
+		char *uaname = SA_NEW_ARRAY(sql->ta, char, strlen(aname) + 1);
 		sql_exp *e = sql_error(sql, 02, SQLSTATE(42000) "%s: missing group by",
 				       uaname ? toUpperCopy(uaname, aname) : aname);
-		if (uaname)
-			GDKfree(uaname);
 		return e;
 	} else if(is_sql_groupby(f) || (is_sql_partitionby(f) && groupby->op != op_groupby)) {
 		const char *clause = is_sql_groupby(f) ? "GROUP BY":"PARTITION BY";
-		char *uaname = GDKmalloc(strlen(aname) + 1);
+		char *uaname = SA_NEW_ARRAY(sql->ta, char, strlen(aname) + 1);
 		sql_exp *e = sql_error(sql, 02, SQLSTATE(42000) "%s: aggregate function '%s' not allowed in %s clause",
 							   uaname ? toUpperCopy(uaname, aname) : aname, aname, clause);
-		if (uaname)
-			GDKfree(uaname);
 		return e;
 	}
 
@@ -3899,11 +3895,9 @@ _rel_aggr(sql_query *query, sql_rel **rel, int distinct, sql_schema *s, char *an
 		return NULL;
 
 	if (!query_has_outer(query) && is_sql_where(f)) {
-		char *uaname = GDKmalloc(strlen(aname) + 1);
+		char *uaname = SA_NEW_ARRAY(sql->ta, char, strlen(aname) + 1);
 		sql_exp *e = sql_error(sql, 02, SQLSTATE(42000) "%s: not allowed in WHERE clause",
 				       uaname ? toUpperCopy(uaname, aname) : aname);
-		if (uaname)
-			GDKfree(uaname);
 		return e;
 	}
 
@@ -3911,11 +3905,9 @@ _rel_aggr(sql_query *query, sql_rel **rel, int distinct, sql_schema *s, char *an
 		sql_exp *e;
 
 		if (strcmp(aname, "count") != 0) {
-			char *uaname = GDKmalloc(strlen(aname) + 1);
+			char *uaname = SA_NEW_ARRAY(sql->ta, char, strlen(aname) + 1);
 			sql_exp *e = sql_error(sql, 02, SQLSTATE(42000) "%s: unable to perform '%s(*)'",
 					       uaname ? toUpperCopy(uaname, aname) : aname, aname);
-			if (uaname)
-				GDKfree(uaname);
 			return e;
 		}
 		a = sql_bind_aggr(sql->sa, s, aname, NULL);
@@ -4098,18 +4090,14 @@ _rel_aggr(sql_query *query, sql_rel **rel, int distinct, sql_schema *s, char *an
 	} else {
 		sql_exp *e;
 		char *type = "unknown";
-		char *uaname = GDKmalloc(strlen(aname) + 1);
+		char *uaname = SA_NEW_ARRAY(sql->ta, char, strlen(aname) + 1);
 
 		if (exps->h) {
 			sql_exp *e = exps->h->data;
 			type = exp_subtype(e)->type->sqlname;
 		}
-
 		e = sql_error(sql, 02, SQLSTATE(42000) "%s: no such operator '%s(%s)'",
 			      uaname ? toUpperCopy(uaname, aname) : aname, aname, type);
-
-		if (uaname)
-			GDKfree(uaname);
 		return e;
 	}
 }
@@ -5104,12 +5092,10 @@ rel_rankop(sql_query *query, sql_rel **rel, symbol *se, int f)
 					  (strcmp(s->base.name, "sys") == 0 && ((strcmp(aname, "first_value") == 0) || strcmp(aname, "last_value") == 0));
 
 	if (is_sql_where(f) || is_sql_groupby(f) || is_sql_having(f) || is_sql_orderby(f) || is_sql_partitionby(f)) {
-		char *uaname = GDKmalloc(strlen(aname) + 1);
+		char *uaname = SA_NEW_ARRAY(sql->ta, char, strlen(aname) + 1);
 		const char *clause = is_sql_where(f)?"WHERE":is_sql_groupby(f)?"GROUP BY":is_sql_having(f)?"HAVING":is_sql_orderby(f)?"ORDER BY":"PARTITION BY";
 		(void) sql_error(sql, 02, SQLSTATE(42000) "%s: window function '%s' not allowed in %s clause",
 						 uaname ? toUpperCopy(uaname, aname) : aname, aname, clause);
-		if (uaname)
-			GDKfree(uaname);
 		return NULL;
 	}
 

@@ -24,6 +24,9 @@ static int sqlerror(mvc *sql, const char *err);
 static int sqlformaterror(mvc *sql, _In_z_ _Printf_format_string_ const char *format, ...)
 	        __attribute__((__format__(__printf__, 2, 3)));
 
+static void *ma_alloc(sql_allocator *sa, size_t sz);
+static void ma_free(void *p);
+
 #include <unistd.h>
 #include <string.h>
 
@@ -47,8 +50,9 @@ static int sqlformaterror(mvc *sql, _In_z_ _Printf_format_string_ const char *fo
 
 #define _atom_string(t, v)   atom_string(SA, t, v)
 
-#define YYMALLOC GDKmalloc
-#define YYFREE GDKfree
+#define Malloc(sz) ma_alloc(m->ta,sz)
+#define YYMALLOC Malloc
+#define YYFREE ma_free 
 
 #define YY_parse_LSP_NEEDED	/* needed for bison++ 1.21.11-3 */
 
@@ -5412,7 +5416,7 @@ data_type:
 		}
 	}
 | GEOMETRYSUBTYPE {
-	int geoSubType = find_subgeometry_type($1);
+	int geoSubType = find_subgeometry_type(m, $1);
 
 	if(geoSubType == 0) {
 		$$.type = NULL;
@@ -5432,7 +5436,7 @@ data_type:
 
 subgeometry_type:
   GEOMETRYSUBTYPE {
-	int subtype = find_subgeometry_type($1);
+	int subtype = find_subgeometry_type(m, $1);
 	char* geoSubType = $1;
 
 	if(subtype == 0) {
@@ -5445,7 +5449,7 @@ subgeometry_type:
 	$$ = subtype;	
 }
 | string {
-	int subtype = find_subgeometry_type($1);
+	int subtype = find_subgeometry_type(m, $1);
 	char* geoSubType = $1;
 
 	if(subtype == 0) {
@@ -6332,7 +6336,7 @@ XML_aggregate:
  ;
 
 %%
-int find_subgeometry_type(char* geoSubType) {
+int find_subgeometry_type(mvc *m, char* geoSubType) {
 	int subType = 0;
 	if(strcmp(geoSubType, "point") == 0 )
 		subType = (1 << 2);
@@ -6351,7 +6355,7 @@ int find_subgeometry_type(char* geoSubType) {
 	else {
 		size_t strLength = strlen(geoSubType);
 		if(strLength > 0 ) {
-			char *typeSubStr = GDKmalloc(strLength);
+			char *typeSubStr = SA_NEW_ARRAY(m->ta, char, strLength);
 			char flag = geoSubType[strLength-1]; 
 
 			if (typeSubStr == NULL) {
@@ -6360,9 +6364,8 @@ int find_subgeometry_type(char* geoSubType) {
 			memcpy(typeSubStr, geoSubType, strLength-1);
 			typeSubStr[strLength-1]='\0';
 			if(flag == 'z' || flag == 'm' ) {
-				subType = find_subgeometry_type(typeSubStr);
+				subType = find_subgeometry_type(m, typeSubStr);
 				if (subType == -1) {
-					GDKfree(typeSubStr);
 					return -1;
 				}
 				if(flag == 'z')
@@ -6370,9 +6373,7 @@ int find_subgeometry_type(char* geoSubType) {
 				if(flag == 'm')
 					SET_M(subType);
 			}
-			GDKfree(typeSubStr);
 		}
-
 	}
 	return subType;	
 }
@@ -6594,4 +6595,14 @@ static int
 sqlerror(mvc * sql, const char *err)
 {
 	return sqlformaterror(sql, "%s", err);
+}
+
+static void *ma_alloc(sql_allocator *sa, size_t sz)
+{
+	printf("#ma_alloc\n");
+	return sa_alloc(sa, sz);
+}
+static void ma_free(void *p)
+{
+	(void)p;
 }

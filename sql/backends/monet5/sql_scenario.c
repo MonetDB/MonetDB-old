@@ -942,12 +942,9 @@ SQLparser(Client c)
 	int oldvtop, oldstop;
 	int pstatus = 0;
 	int err = 0, opt = 0;
-	char *q = NULL;
 
 	/* clean up old stuff */
-	q = c->query;
 	c->query = NULL;
-	GDKfree(q);		/* may be NULL */
 
 	be = (backend *) c->sqlcontext;
 	if (be == 0) {
@@ -1095,10 +1092,9 @@ SQLparser(Client c)
 	 * produce code.
 	 */
 	be->q = NULL;
-	q = query_cleaned(QUERY(m->scanner));
-	c->query = q;
+	c->query = query_cleaned(m->sa, QUERY(m->scanner));
 
-	if (q == NULL) {
+	if (c->query == NULL) {
 		err = 1;
 		msg = createException(PARSE, "SQLparser", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	} else {
@@ -1122,12 +1118,12 @@ SQLparser(Client c)
 
 			err = 0;
 			setVarType(c->curprg->def, 0, 0);
-			if (backend_dumpstmt(be, c->curprg->def, r, 1, 0, q) < 0)
+			if (backend_dumpstmt(be, c->curprg->def, r, 1, 0, c->query) < 0)
 				err = 1;
 			else 
 				opt = 1;
 		} else {
-			char *escaped_q = sa_escape_str(m->sa, q);
+			char *escaped_q = sa_escape_str(m->sa, c->query);
 
 			be->q = NULL;
 			if(!escaped_q) {
@@ -1215,9 +1211,7 @@ SQLparser(Client c)
 finalize:
 	if (msg) {
 		sqlcleanup(be, 0);
-		q = c->query;
 		c->query = NULL;
-		GDKfree(q);
 	}
 	return msg;
 }

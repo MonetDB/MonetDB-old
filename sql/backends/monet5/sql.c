@@ -159,6 +159,15 @@ sqlcleanup(backend *be, int err)
 	}
 	/* some statements dynamically disable caching */
 	be->mvc->sym = NULL;
+#if 0
+	printf("#used memory %zu %zu %zu %zu\n", 
+			be->mvc->pa->usedmem, 
+			be->mvc->sa?be->mvc->sa->usedmem:0, 
+			be->mvc->ta->usedmem, 
+			be->mvc->session->tr?be->mvc->session->tr->sa->usedmem:0);
+#endif 
+	if (be->mvc->ta)
+		be->mvc->ta = sa_reset(be->mvc->ta);
 	if (be->mvc->sa)
 		be->mvc->sa = sa_reset(be->mvc->sa);
 	if (err >0)
