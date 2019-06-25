@@ -14,9 +14,9 @@
 #include "rel_exp.h"
 
 qc *
-qc_create(int clientid, int seqnr)
+qc_create(sql_allocator *sa, int clientid, int seqnr)
 {
-	qc *r = MNEW(qc);
+	qc *r = SA_ZNEW(sa, qc);
 	if(!r)
 		return NULL;
 	r->clientid = clientid;
@@ -66,7 +66,6 @@ qc_destroy(qc *cache)
 		cq_delete(cache->clientid, q);
 		cache->nr--;
 	}
-	_DELETE(cache);
 }
 
 cq *

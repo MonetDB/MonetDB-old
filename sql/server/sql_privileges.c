@@ -644,10 +644,8 @@ sql_grantable_(mvc *m, sqlid grantorid, sqlid obj_id, int privs, int sub)
 			continue;
 		rid = table_funcs.column_find_row(m->session->tr, priv_obj, &obj_id, priv_auth, &grantorid, priv_priv, &priv, NULL);
 		if (!is_oid_nil(rid)) {
-			void *p = table_funcs.column_find_value(m->session->tr, priv_allowed, rid);
-			int allowed = *(int *)p;
+			int allowed = table_funcs.column_find_int(m->session->tr, priv_allowed, rid);
 
-			_DELETE(p);
 			/* switch of priv bit */
 			if (allowed)
 				privs = (privs & ~priv);
@@ -716,7 +714,7 @@ mvc_set_schema(mvc *m, char *schema)
 		if (m->session->active)
 			m->session->schema = s;
 		ret = 1;
-	} else if(new_schema_name) {
+	} else if (new_schema_name) {
 		_DELETE(new_schema_name);
 	}
 	return ret;
@@ -751,7 +749,7 @@ sql_create_user(mvc *sql, char *user, char *passwd, char enc, char *fullname, ch
 			e++;
 		}
 		r = createException(SQL,"sql.create_user", SQLSTATE(M0M27) "CREATE USER: %s", e);
-		_DELETE(err);
+		GDKfree(err);
 		return r;
 	}
 	return NULL;

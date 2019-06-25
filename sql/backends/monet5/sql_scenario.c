@@ -49,7 +49,6 @@
 static int SQLinitialized = 0;
 static int SQLnewcatalog = 0;
 int SQLdebug = 0;
-static const char *sqlinit = NULL;
 static MT_Lock sql_contextLock = MT_LOCK_INITIALIZER("sql_contextLock");
 
 static void
@@ -79,7 +78,6 @@ SQLprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) pci;
 	if (!s)
 		throw(MAL, "sql.start", SQLSTATE(42000) "out of scenario slots");
-	sqlinit = GDKgetenv("sqlinit");
 	*s = (struct SCENARIO) {
 		.name = "S_Q_L",
 		.language = "sql",
@@ -369,6 +367,8 @@ SQLinit(Client c)
 		throw(SQL, "SQLinit", SQLSTATE(42000) "Catalogue initialization failed");
 	}
 	SQLinitialized = TRUE;
+#if 0
+	//static const char *sqlinit = NULL;
 	sqlinit = GDKgetenv("sqlinit");
 	if (sqlinit) {		/* add sqlinit to the fdin stack */
 		buffer *b = (buffer *) GDKmalloc(sizeof(buffer));
@@ -403,6 +403,7 @@ SQLinit(Client c)
 		if( MCpushClientInput(c, fdin, 0, "") < 0)
 			fprintf(stderr, "SQLinit:Could not switch client input stream");
 	}
+#endif
 	if ((msg = SQLprepareClient(c, 0)) != NULL) {
 		MT_lock_unset(&sql_contextLock);
 		fprintf(stderr, "%s\n", msg);

@@ -36,7 +36,7 @@ typedef struct qc {
 	cq *q;
 } qc;
 
-extern qc *qc_create(int clientid, int seqnr);
+extern qc *qc_create(sql_allocator *sa, int clientid, int seqnr);
 extern void qc_destroy(qc *cache);
 extern cq *qc_find(qc *cache, int id);
 extern cq *qc_insert(qc *cache, sql_allocator *sa, sql_rel *r, symbol *s, list *params, int type, char *codedstr, int no_mitosis);

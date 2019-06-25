@@ -326,7 +326,7 @@ _symbol2string(mvc *sql, symbol *se, int expression, char **err)
 	case SQL_ATOM:{
 		AtomNode *an = (AtomNode *) se;
 		if (an && an->a) 
-			return atom2sql(an->a);
+			return atom2sql(sql->ta, an->a);
 		else
 			strcpy(buf,"NULL");
 		break;
@@ -338,11 +338,10 @@ _symbol2string(mvc *sql, symbol *se, int expression, char **err)
 
 		if (!sname)
 			sname = sql->session->schema->base.name;
-		s = sql_escape_ident(seq);
+		s = sql_escape_ident(sql->ta, seq);
 		if(!s)
 			return NULL;
 		len = snprintf( buf+len, BUFSIZ-len, "next value for \"%s\".\"%s\"", sname, s);
-		c_delete(s);
 	}	break;
 	case SQL_IDENT:
 	case SQL_COLUMN: {
@@ -351,7 +350,7 @@ _symbol2string(mvc *sql, symbol *se, int expression, char **err)
 		assert(l->h->type != type_lng);
 		if (expression && dlist_length(l) == 1 && l->h->type == type_string) {
 			/* when compiling an expression, a column of a table might be present in the symbol, so we need this case */
-			return _STRDUP(l->h->data.sval);
+			return sa_strdup(sql->ta, l->h->data.sval);
 		} else if (expression && dlist_length(l) == 2 && l->h->type == type_string && l->h->next->type == type_string) {
 			char *first = l->h->data.sval;
 			char *second = l->h->next->data.sval;
@@ -360,10 +359,9 @@ _symbol2string(mvc *sql, symbol *se, int expression, char **err)
 			if(!first || !second) {
 				return NULL;
 			}
-			res = NEW_ARRAY(char, strlen(first) + strlen(second) + 2);
-			if (res) {
+			res = SA_NEW_ARRAY(sql->ta, char, strlen(first) + strlen(second) + 2);
+			if (res)
 				stpcpy(stpcpy(stpcpy(res, first), "."), second);
-			}
 			return res;
 		} else {
 			char *e = dlist2string(sql, l, expression, err);

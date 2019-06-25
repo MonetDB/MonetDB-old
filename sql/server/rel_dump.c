@@ -141,7 +141,7 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 						mnstr_printf(fout, "%s %s", t, s);
 					else if (s)
 						mnstr_printf(fout, "%s \"%s\"", t, s);
-					_DELETE(s);
+					GDKfree(s);
 				}
 			}
 		} else { /* variables */

@@ -4787,7 +4787,7 @@ check_for_foreign_key_references(mvc *sql, struct tablelist* list, struct tablel
 									found = 1;
 							}
 							if(!found) {
-								if((new_node = MNEW(struct tablelist)) == NULL) {
+								if((new_node = SA_NEW(sql->ta, struct tablelist)) == NULL) {
 									sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 									*error = 1;
 									return;
@@ -4821,7 +4821,7 @@ sql_truncate(backend *be, sql_table *t, int restart_sequences, int cascade)
 	sql_trans *tr = sql->session->tr;
 	node *n = NULL;
 	int error = 0;
-	struct tablelist* new_list = MNEW(struct tablelist), *list_node, *aux;
+	struct tablelist* new_list = SA_NEW(sql->ta, struct tablelist), *list_node;
 
 	if(!new_list) {
 		sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
@@ -4843,7 +4843,7 @@ sql_truncate(backend *be, sql_table *t, int restart_sequences, int cascade)
 			for (n = next->columns.set->h; n; n = n->next) {
 				col = n->data;
 				if (col->def && (seq_pos = strstr(col->def, next_value_for))) {
-					seq_name = _STRDUP(seq_pos + (strlen(next_value_for) - strlen("seq_")));
+					seq_name = sa_strdup(sql->ta, seq_pos + (strlen(next_value_for) - strlen("seq_")));
 					if(!seq_name) {
 						sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 						error = 1;
@@ -4856,7 +4856,6 @@ sql_truncate(backend *be, sql_table *t, int restart_sequences, int cascade)
 						seq->base.wtime = sche->base.wtime = tr->wtime = tr->wstime;
 						tr->schema_updates++;
 					}
-					_DELETE(seq_name);
 				}
 			}
 		}
@@ -4911,12 +4910,7 @@ sql_truncate(backend *be, sql_table *t, int restart_sequences, int cascade)
 	}
 
 finalize:
-	for (list_node = new_list; list_node;) {
-		aux = list_node->next;
-		_DELETE(list_node);
-		list_node = aux;
-	}
-
+	sa_reset(sql->ta);
 	if(error)
 		return NULL;
 	return ret;

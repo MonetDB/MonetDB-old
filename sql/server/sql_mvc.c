@@ -293,7 +293,8 @@ mvc_trans(mvc *m)
 			int seqnr = m->qc->id;
 			if (m->qc)
 				qc_destroy(m->qc);
-			m->qc = qc_create(m->clientid, seqnr);
+			/* TODO Change into recreate all */
+			m->qc = qc_create(m->pa, m->clientid, seqnr);
 			if (!m->qc) {
 				sql_trans_end(m->session);
 				store_unlock();
@@ -625,7 +626,7 @@ mvc_create(sql_allocator *pa, int clientid, int debug, bstream *rs, stream *ws)
 	/* if an error exceeds the buffer we don't want garbage at the end */
 	m->errstr[ERRSIZE-1] = '\0';
 
-	m->qc = qc_create(clientid, 0);
+	m->qc = qc_create(pa, clientid, 0);
 	if(!m->qc) {
 		return NULL;
 	}
@@ -1794,11 +1795,11 @@ stack_set_string(mvc *sql, const char *name, const char *val)
 		ValRecord *v = &a->data;
 
 		if (v->val.sval)
-			_DELETE(v->val.sval);
+			GDKfree(v->val.sval);
 		v->val.sval = new_val;
 		return new_val;
 	} else if(new_val) {
-		_DELETE(new_val);
+		GDKfree(new_val);
 	}
 	return NULL;
 }

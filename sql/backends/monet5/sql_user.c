@@ -38,12 +38,8 @@ sql_find_auth_schema(mvc *m, str auth)
 
 	if (!is_oid_nil(rid)) {
 		sql_column *users_schema = find_sql_column(users, "default_schema");
-		int *p = (int *) table_funcs.column_find_value(m->session->tr, users_schema, rid);
 
-		if (p) {
-			res = *p;
-			_DELETE(p);
-		}
+		res = table_funcs.column_find_int(m->session->tr, users_schema, rid);
 	}
 	return res;
 }
@@ -61,9 +57,9 @@ monet5_drop_user(ptr _mvc, str user)
 	Client c = MCgetClient(m->clientid);
 
 	err = AUTHremoveUser(c, user);
-	if (err !=MAL_SUCCEED) {
+	if (err != MAL_SUCCEED) {
 		(void) sql_error(m, 02, "DROP USER: %s", getExceptionMessage(err));
-		_DELETE(err);
+		GDKfree(err);
 		return FALSE;
 	}
 	sys = find_sql_schema(m->session->tr, "sys");
@@ -129,7 +125,7 @@ monet5_find_user(ptr mp, str user)
 	str err;
 
 	if ((err = AUTHgetUsers(&uid, &nme, c)) != MAL_SUCCEED) {
-		_DELETE(err);
+		GDKfree(err);
 		return -1;
 	}
 	p = BUNfnd(nme, user);
@@ -443,7 +439,6 @@ monet5_user_get_def_schema(mvc *m, int user)
 	sql_table *auths = NULL;
 	sql_column *auths_id = NULL;
 	sql_column *auths_name = NULL;
-	void *p = 0;
 	str username = NULL;
 	str schema = NULL;
 
@@ -460,12 +455,9 @@ monet5_user_get_def_schema(mvc *m, int user)
 	users_schema = find_sql_column(user_info, "default_schema");
 	rid = table_funcs.column_find_row(m->session->tr, users_name, username, NULL);
 	if (!is_oid_nil(rid))
-		p = table_funcs.column_find_value(m->session->tr, users_schema, rid);
+		schema_id = table_funcs.column_find_sqlid(m->session->tr, users_schema, rid);
 
 	_DELETE(username);
-	assert(p);
-	schema_id = *(sqlid *) p;
-	_DELETE(p);
 
 	schemas = find_sql_table(sys, "schemas");
 	schemas_name = find_sql_column(schemas, "name");
@@ -495,8 +487,6 @@ monet5_user_set_def_schema(mvc *m, oid user)
 	sql_column *auths_name = NULL;
 	str other;
 
-	void *p = 0;
-
 	str schema = NULL;
 	str username = NULL;
 	str err = NULL;
@@ -521,11 +511,7 @@ monet5_user_set_def_schema(mvc *m, oid user)
 
 	rid = table_funcs.column_find_row(m->session->tr, users_name, username, NULL);
 	if (!is_oid_nil(rid))
-		p = table_funcs.column_find_value(m->session->tr, users_schema, rid);
-
-	assert(p);
-	schema_id = *(sqlid *) p;
-	_DELETE(p);
+		schema_id = table_funcs.column_find_sqlid(m->session->tr, users_schema, rid);
 
 	schemas = find_sql_table(sys, "schemas");
 	schemas_name = find_sql_column(schemas, "name");
@@ -541,12 +527,8 @@ monet5_user_set_def_schema(mvc *m, oid user)
 	rid = table_funcs.column_find_row(m->session->tr, auths_name, username, NULL);
 	if (!is_oid_nil(rid)) {
 		sql_column *auths_id = find_sql_column(auths, "id");
-		int id;
-		p = table_funcs.column_find_value(m->session->tr, auths_id, rid);
-		id = *(int *) p;
-		_DELETE(p);
 
-		m->user_id = m->role_id = id;
+		m->user_id = m->role_id = table_funcs.column_find_int(m->session->tr, auths_id, rid);
 	} else {
 		schema = NULL;
 	}

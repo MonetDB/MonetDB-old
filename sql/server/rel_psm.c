@@ -900,8 +900,8 @@ rel_create_func(sql_query *query, dlist *qname, dlist *params, symbol *res, dlis
 				return sql_error(sql, 01, SQLSTATE(42000) "CREATE %s%s: R function %s.%s not bound", KF, F, s->base.name, fname );
 			} /*else {
 				sql_func *f = sf->func;
-				f->mod = _STRDUP("rapi");
-				f->imp = _STRDUP("eval");
+				f->mod = "rapi";
+				f->imp = "eval";
 				if (res && restype)
 					f->res = restype;
 				f->sql = 0;
@@ -952,16 +952,11 @@ rel_create_func(sql_query *query, dlist *qname, dlist *params, symbol *res, dlis
 			} else {
 				sql_func *f = sf->func;
 				if (!f->mod || strcmp(f->mod, fmod))
-					f->mod = (f->sa)?sa_strdup(f->sa, fmod):_STRDUP(fmod);
+					f->mod = (f->sa)?sa_strdup(f->sa, fmod):sa_strdup(sql->pa, fmod);
 				if (!f->imp || strcmp(f->imp, fnme)) 
-					f->imp = (f->sa)?sa_strdup(f->sa, fnme):_STRDUP(fnme);
-				if(!f->mod || !f->imp) {
-					if (!f->sa) {
-						_DELETE(f->mod);
-						_DELETE(f->imp);
-					}
+					f->imp = (f->sa)?sa_strdup(f->sa, fnme):sa_strdup(sql->pa, fnme);
+				if(!f->mod || !f->imp) 
 					return sql_error(sql, 02, SQLSTATE(HY001) "CREATE %s%s: could not allocate space", KF, F);
-				}
 				f->sql = 0; /* native */
 				f->lang = FUNC_LANG_INT;
 			}

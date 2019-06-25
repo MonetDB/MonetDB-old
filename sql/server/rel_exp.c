@@ -2148,7 +2148,7 @@ create_table_part_atom_exp(mvc *sql, sql_subtype tpe, ptr value)
 			assert(0);
 	}
 	if(buf)
-		_DELETE(buf);
+		GDKfree(buf);
 	return res;
 }
 

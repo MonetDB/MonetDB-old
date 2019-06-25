@@ -672,9 +672,6 @@ cleanup_engine:
 		m->session->status = -10;
 	}
 
-	if (m->type != Q_SCHEMA && be->q && msg) {
-		qc_delete(m->qc, be->q);
-	} 
 	be->q = NULL;
 	sqlcleanup(be, (!msg) ? 0 : -1);
 	MSresetInstructions(c->curprg->def, 1);

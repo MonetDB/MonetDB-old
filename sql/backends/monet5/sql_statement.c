@@ -2172,13 +2172,13 @@ dump_export_header(mvc *sql, MalBlkPtr mb, list *l, int file, const char * forma
 		const char *tn = (tname) ? tname : _empty;
 		const char *sn = (sname) ? sname : _empty;
 		const char *cn = column_name(sql->sa, c);
-		const char *ntn = sql_escape_ident(tn);
-		const char *nsn = sql_escape_ident(sn);
+		const char *ntn = sql_escape_ident(sql->ta, tn);
+		const char *nsn = sql_escape_ident(sql->ta, sn);
 		size_t fqtnl;
 		char *fqtn = NULL;
 
 		if (ntn && nsn && (fqtnl = strlen(ntn) + 1 + strlen(nsn) + 1) ){
-			fqtn = NEW_ARRAY(char, fqtnl);
+			fqtn = SA_NEW_ARRAY(sql->ta, char, fqtnl);
 			if(fqtn) {
 				snprintf(fqtn, fqtnl, "%s.%s", nsn, ntn);
 				metaInfo(tblId, Str, fqtn);
@@ -2187,16 +2187,14 @@ dump_export_header(mvc *sql, MalBlkPtr mb, list *l, int file, const char * forma
 				metaInfo(lenId, Int, t->digits);
 				metaInfo(scaleId, Int, t->scale);
 				list = pushArgument(mb, list, c->nr);
-				_DELETE(fqtn);
 			} else
 				q = NULL;
 		} else
 			q = NULL;
-		c_delete(ntn);
-		c_delete(nsn);
 		if (q == NULL)
 			return -1;
 	}
+	sa_reset(sql->ta);
 	// add the correct variable ids
 	getArg(list,k++) = tblId;
 	getArg(list,k++) = nmeId;
@@ -2440,13 +2438,13 @@ dump_header(mvc *sql, MalBlkPtr mb, stmt *s, list *l)
 		const char *tn = (tname) ? tname : _empty;
 		const char *sn = (sname) ? sname : _empty;
 		const char *cn = column_name(sql->sa, c);
-		const char *ntn = sql_escape_ident(tn);
-		const char *nsn = sql_escape_ident(sn);
+		const char *ntn = sql_escape_ident(sql->ta, tn);
+		const char *nsn = sql_escape_ident(sql->ta, sn);
 		size_t fqtnl;
 		char *fqtn = NULL;
 
 		if (ntn && nsn && (fqtnl = strlen(ntn) + 1 + strlen(nsn) + 1) ){
-			fqtn = NEW_ARRAY(char, fqtnl);
+			fqtn = SA_NEW_ARRAY(sql->ta, char, fqtnl);
 			if(fqtn) {
 				snprintf(fqtn, fqtnl, "%s.%s", nsn, ntn);
 				metaInfo(tblId,Str,fqtn);
@@ -2455,16 +2453,14 @@ dump_header(mvc *sql, MalBlkPtr mb, stmt *s, list *l)
 				metaInfo(lenId,Int,t->digits);
 				metaInfo(scaleId,Int,t->scale);
 				list = pushArgument(mb,list,c->nr);
-				_DELETE(fqtn);
 			} else
 				q = NULL;
 		} else
 			q = NULL;
-		c_delete(ntn);
-		c_delete(nsn);
 		if (q == NULL)
 			return NULL;
 	}
+	sa_reset(sql->ta);
 	// add the correct variable ids
 	getArg(list,k++) = tblId;
 	getArg(list,k++) = nmeId;
@@ -2499,15 +2495,15 @@ stmt_output(backend *be, stmt *lst)
 		const char *tn = (tname) ? tname : _empty;
 		const char *sn = (sname) ? sname : _empty;
 		const char *cn = column_name(be->mvc->sa, c);
-		const char *ntn = sql_escape_ident(tn);
-		const char *nsn = sql_escape_ident(sn);
+		const char *ntn = sql_escape_ident(be->mvc->ta, tn);
+		const char *nsn = sql_escape_ident(be->mvc->ta, sn);
 		size_t fqtnl;
 		char *fqtn = NULL;
 
 		if(ntn && nsn) {
 			fqtnl = strlen(ntn) + 1 + strlen(nsn) + 1;
-			fqtn = NEW_ARRAY(char, fqtnl);
-			if(fqtn) {
+			fqtn = SA_NEW_ARRAY(be->mvc->ta, char, fqtnl);
+			if (fqtn) {
 				ok = 1;
 				snprintf(fqtn, fqtnl, "%s.%s", nsn, ntn);
 
@@ -2524,9 +2520,7 @@ stmt_output(backend *be, stmt *lst)
 				}
 			}
 		}
-		c_delete(ntn);
-		c_delete(nsn);
-		_DELETE(fqtn);
+		sa_reset(be->mvc->ta);
 		if(!ok)
 			return NULL;
 	} else {
