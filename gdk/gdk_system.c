@@ -324,9 +324,11 @@ join_threads(void)
 				w->waiting = true;
 				LeaveCriticalSection(&winthread_cs);
 				THRDDEBUG MT_fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), w->threadname);
-				self->joinwait = w;
+				if (self)
+					self->joinwait = w;
 				WaitForSingleObject(w->hdl, INFINITE);
-				self->joinwait = NULL;
+				if (self)
+					self->joinwait = NULL;
 				CloseHandle(w->hdl);
 				rm_winthread(w);
 				waited = true;
@@ -352,9 +354,11 @@ join_detached_threads(void)
 				w->waiting = true;
 				LeaveCriticalSection(&winthread_cs);
 				THRDDEBUG MT_fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), w->threadname);
-				self->joinwait = w;
+				if (self)
+					self->joinwait = w;
 				WaitForSingleObject(w->hdl, INFINITE);
-				self->joinwait = NULL;
+				if (self)
+					self->joinwait = NULL;
 				CloseHandle(w->hdl);
 				rm_winthread(w);
 				waited = true;
@@ -429,9 +433,11 @@ MT_join_thread(MT_Id t)
 		return -1;
 	THRDDEBUG MT_fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), w->threadname);
 	struct winthread *self = TlsGetValue(threadslot);
-	self->joinwait = w;
+	if (self)
+		self->joinwait = w;
 	DWORD ret = WaitForSingleObject(w->hdl, INFINITE);
-	self->joinwait = NULL;
+	if (self)
+		self->joinwait = NULL;
 	if (ret == WAIT_OBJECT_0 && CloseHandle(w->hdl)) {
 		rm_winthread(w);
 		return 0;
@@ -652,9 +658,11 @@ join_threads(void)
 				p->waiting = true;
 				pthread_mutex_unlock(&posthread_lock);
 				THRDDEBUG MT_fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), p->threadname);
-				self->joinwait = p;
+				if (self)
+					self->joinwait = p;
 				pthread_join(p->tid, NULL);
-				self->joinwait = NULL;
+				if (self)
+					self->joinwait = NULL;
 				rm_posthread(p);
 				waited = true;
 				pthread_mutex_lock(&posthread_lock);
@@ -679,9 +687,11 @@ join_detached_threads(void)
 				p->waiting = true;
 				pthread_mutex_unlock(&posthread_lock);
 				THRDDEBUG MT_fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), p->threadname);
-				self->joinwait = p;
+				if (self)
+					self->joinwait = p;
 				pthread_join(p->tid, NULL);
-				self->joinwait = NULL;
+				if (self)
+					self->joinwait = NULL;
 				rm_posthread(p);
 				waited = true;
 				pthread_mutex_lock(&posthread_lock);

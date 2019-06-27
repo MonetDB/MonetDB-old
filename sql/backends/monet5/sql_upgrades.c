@@ -2054,7 +2054,7 @@ SQLupgrades(Client c, mvc *m)
 	}
 #endif
 
-	if (!sql_bind_func(m->sa, s, "master", NULL, NULL, F_PROC)) {
+	if (mvc_bind_table(m, s, "comments") == NULL) {
 		if ((err = sql_update_mar2018(c, m)) != NULL) {
 			MT_fprintf(stderr, "!%s\n", err);
 			freeException(err);
