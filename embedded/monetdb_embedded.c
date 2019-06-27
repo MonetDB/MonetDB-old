@@ -396,6 +396,25 @@ monetdb_startup(char* dbdir, bool silent, bool sequential)
 		msg = createException(MAL, "embedded.monetdb_startup", MAL_MALLOC_FAIL);
 		goto cleanup;
 	}
+	if (!dbdir) {
+		if (BBPaddfarm(NULL, (1 << PERSISTENT) | (1 << TRANSIENT)) != GDK_SUCCEED) {
+			mo_free_options(set, setlen);
+			msg = createException(MAL, "embedded.monetdb_startup", "Cannot add in-memory farm");
+			goto cleanup;
+		}
+	} else {
+		if (BBPaddfarm(dbdir, 1 << PERSISTENT) != GDK_SUCCEED ||
+			BBPaddfarm(/*dbextra ? dbextra : */dbdir, 1 << TRANSIENT) != GDK_SUCCEED) {
+			mo_free_options(set, setlen);
+			msg = createException(MAL, "embedded.monetdb_startup", "Cannot add farm %s", dbdir);
+			goto cleanup;
+		}
+		if (GDKcreatedir(dbdir) != GDK_SUCCEED) {
+			mo_free_options(set, setlen);
+			msg = createException(MAL, "embedded.monetdb_startup", "Cannot create directory %s", dbdir);
+			goto cleanup;
+		}
+	}
 	gdk_res = GDKinit(set, setlen);
 	mo_free_options(set, setlen);
 	if (gdk_res == GDK_FAIL) {
