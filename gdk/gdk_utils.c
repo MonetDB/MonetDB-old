@@ -54,6 +54,20 @@ static void GDKunlockHome(int farmid);
 #undef realloc
 #undef free
 
+static bool BATbin_import_swap = false;
+
+void
+GDK_set_bin_import_swap(bool swap)
+{
+	BATbin_import_swap = swap;
+}
+
+bool
+GDK_is_bin_import_swap(void)
+{
+	return BATbin_import_swap;
+}
+
 /*
  * @+ Monet configuration file
  * Parse a possible MonetDB config file (if specified by command line
@@ -830,6 +844,7 @@ GDKreset(int status)
 		MT_lock_unset(&GDKthreadLock);
 	}
 	ATOMunknown_clean();
+	BATbin_import_swap = false;
 }
 
 /* coverity[+kill] */

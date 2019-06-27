@@ -240,7 +240,7 @@ BATdense(oid hseq, oid tseq, BUN cnt)
 	return bn;
 }
 
-#if defined(HAVE_EMBEDDED) && defined(HAVE_EMBEDDED_JAVA)
+#ifdef HAVE_EMBEDDED
 extern int TYPE_date;
 extern int TYPE_daytime;
 extern int TYPE_timestamp;
@@ -253,10 +253,14 @@ BATattach(int tt, const char *heapfile, role_t role)
 	char *p;
 	size_t m;
 	FILE *f;
-#if defined(HAVE_EMBEDDED) && defined(HAVE_EMBEDDED_JAVA)
 	//The JVM is always Big-Endian, so the integer values must be swapped if so
-	int swapendianess = MT_check_endianness() != HOST_BIG_ENDIAN;
+	bool swapendianess = GDK_is_bin_import_swap() &&
+#ifdef HAVE_EMBEDDED
+		MT_check_endianness() != HOST_BIG_ENDIAN;
+#else
+		false
 #endif
+	;
 
 	ERRORcheck(tt <= 0 , "BATattach: bad tail type (<=0)\n", NULL);
 	ERRORcheck(ATOMvarsized(tt) && ATOMstorage(tt) != TYPE_str, "BATattach: bad tail type (varsized and not str)\n", NULL);
@@ -366,7 +370,6 @@ BATattach(int tt, const char *heapfile, role_t role)
 		p = Tloc(bn, 0);
 		n = (lng) st.st_size;
 		while (n > 0 && (m = fread(p, 1, (size_t) MIN(1024*1024, n), f)) > 0) {
-#if defined(HAVE_EMBEDDED) && defined(HAVE_EMBEDDED_JAVA)
 			if (swapendianess) {
 				BUN j = 0, end = 0;
 				int stype = ATOMstorage(tt);
@@ -388,7 +391,7 @@ BATattach(int tt, const char *heapfile, role_t role)
 				} else if (stype == TYPE_dbl || stype == TYPE_lng) {
 					lng *bufptr = (lng*) p;
 					for (j = 0, end = m / atomsize; j < end; j++) {
-						bufptr[j] = long_long_SWAP(bufptr[j]);
+						bufptr[j] = long_int_SWAP(bufptr[j]);
 					}
 				}
 #ifdef HAVE_HGE
@@ -400,7 +403,6 @@ BATattach(int tt, const char *heapfile, role_t role)
 				}
 #endif
 			}
-#endif
 			p += m;
 			n -= m;
 		}

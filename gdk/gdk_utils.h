@@ -11,6 +11,9 @@
 
 #include <setjmp.h>
 
+gdk_export void GDK_set_bin_import_swap(bool swap);
+gdk_export bool GDK_is_bin_import_swap(void);
+
 gdk_export const char *GDKgetenv(const char *name);
 
 gdk_export bool GDKgetenv_istext(const char *name, const char* text);
