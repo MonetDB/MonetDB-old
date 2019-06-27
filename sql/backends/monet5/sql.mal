@@ -281,6 +281,10 @@ address mvc_import_table_wrap
 comment "Import a table from bstream s with the 
 	given tuple and seperators (sep/rsep)";
 
+unsafe pattern append(id:lng...) (:bat[:any]...)
+address mvc_append_bats_wrap
+comment "Generate list of bats from their batids as input";
+
 #command copy_errors() (efile:bat[:str], erow:bat[:int], efld:bat[:int], emsg:bat[:str], einp:bat[:str])
 #address mvc_import_errors
 #comment "Summary of the failed tuple imports";

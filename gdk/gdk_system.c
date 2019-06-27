@@ -788,9 +788,11 @@ MT_join_thread(MT_Id t)
 		return -1;
 	THRDDEBUG MT_fprintf(stderr, "#join \"%s\" \"%s\"\n", MT_thread_getname(), p->threadname);
 	struct posthread *self = pthread_getspecific(threadkey);
-	self->joinwait = p;
+	if (self)
+		self->joinwait = p;
 	ret = pthread_join(p->tid, NULL);
-	self->joinwait = NULL;
+	if (self)
+		self->joinwait = NULL;
 	if (ret != 0) {
 		MT_fprintf(stderr, "#MT_join_thread: joining thread failed: %s\n",
 			strerror(ret));

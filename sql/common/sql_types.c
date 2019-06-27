@@ -2167,6 +2167,11 @@ sqltypeinit( sql_allocator *sa)
 			create_arg(sa, NULL, sql_create_subtype(sa, INT, 0, 0), ARG_IN)), sres, FALSE, F_UNION, SCALE_FIX);
 	f->varres = 1;
 
+	/* MonetDBLite BAT append */
+	f = sql_create_func_(sa, "append", "sql", "append", sa_list(sa), sres, FALSE, F_UNION, SCALE_FIX);
+	f->varres = 1;
+	f->vararg = 1;
+
 	/* sys_update_schemas, sys_update_tables */
 	f = sql_create_func_(sa, "sys_update_schemas", "sql", "update_schemas", NULL, NULL, FALSE, F_PROC, SCALE_NONE);
 	f = sql_create_func_(sa, "sys_update_tables", "sql", "update_tables", NULL, NULL, FALSE, F_PROC, SCALE_NONE);

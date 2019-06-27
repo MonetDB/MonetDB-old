@@ -211,7 +211,7 @@ monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** re
 		else if (m->emode & m_prepare)
 			res_internal->res.type = Q_PREPARE;
 		else
-			res_internal->res.type = m->type;
+			res_internal->res.type = (m->results) ? m->results->query_type : m->type;
 		res_internal->res.id = m->last_id;
 		*result = (monetdb_result*) res_internal;
 		m->reply_size = -2; /* do not clean up result tables */
@@ -530,6 +530,12 @@ monetdb_append(monetdb_connection conn, const char* schema, const char* table, b
 		msg = createException(MAL, "embedded.monetdb_append", "column_count must be higher than 0");
 		goto cleanup;
 	}
+	if (!m->sa)
+		m->sa = sa_create();
+	if (!m->sa) {
+		msg = createException(SQL, "embedded.monetdb_append", MAL_MALLOC_FAIL);
+		goto cleanup;
+	}
 	{
 		node *n;
 		size_t i;
@@ -543,7 +549,7 @@ monetdb_append(monetdb_connection conn, const char* schema, const char* table, b
 		assert(f);
 		if (schema) {
 			if (!(s = mvc_bind_schema(m, schema))) {
-				msg = createException(MAL, "embedded.monetdb_get_columns", "Schema missing %s", schema);
+				msg = createException(MAL, "embedded.monetdb_append", "Schema missing %s", schema);
 				goto cleanup;
 			}
 		} else {

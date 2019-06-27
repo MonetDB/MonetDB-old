@@ -3046,6 +3046,21 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 }
 
 str
+mvc_append_bats_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	str msg = MAL_SUCCEED;
+	int i;
+
+	(void) cntxt;
+	(void) mb;
+	for (i = 0; i < pci->retc; i++) {
+		lng *batid = getArgReference_lng(stk, pci, pci->retc + i);
+		*getArgReference_bat(stk, pci, i) = *batid;
+	}
+	return msg;
+}
+
+str
 zero_or_one_error(ptr ret, const bat *bid, const bit *err)
 {
 	BAT *b;
