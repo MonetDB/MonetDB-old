@@ -42,6 +42,7 @@ set(MAL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/bbp.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/manifold.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/mat.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/inspect.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/language.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/tablet.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/sample.mal"
@@ -160,6 +161,7 @@ set(MONETDBLITE_TRANSLATION_UNITS
 	../monetdb5/modules/mal/bbp.c
 	../monetdb5/modules/mal/calc.c
 	../monetdb5/modules/kernel/group.c
+	../monetdb5/modules/mal/inspect.c
 	../monetdb5/modules/mal/iterator.c
 	../monetdb5/modules/mal/language.c
 	../monetdb5/modules/mal/manifold.c

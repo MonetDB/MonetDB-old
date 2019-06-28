@@ -371,35 +371,26 @@ BATattach(int tt, const char *heapfile, role_t role)
 		n = (lng) st.st_size;
 		while (n > 0 && (m = fread(p, 1, (size_t) MIN(1024*1024, n), f)) > 0) {
 			if (swapendianess) {
-				BUN j = 0, end = 0;
+				BUN j = 0, end = m / atomsize;
 				int stype = ATOMstorage(tt);
 				if (stype == TYPE_sht) {
 					sht *bufptr = (sht*) p;
-					for (j = 0; j < end; j++) {
+					for (j = 0; j < end; j++)
 						bufptr[j] = short_int_SWAP(bufptr[j]);
-					}
-				} else if (stype == TYPE_int || stype == TYPE_flt || stype == TYPE_date || stype == TYPE_daytime
-						   || stype == TYPE_timestamp) {
+				} else if (stype == TYPE_int || stype == TYPE_flt || stype == TYPE_daytime) {
 					int *bufptr = (int*) p;
-					end = m / atomsize;
-					if (stype == TYPE_timestamp)
-						end <<= 2; /* 4 times entries (alignment -> 4 bytes + date -> 1 byte + daytime -> 1 byte) */
-					/* the alignment field is not properly swapped, but we never use it anyway */
-					for (j = 0; j < end; j++) {
+					for (j = 0; j < end; j++)
 						bufptr[j] = normal_int_SWAP(bufptr[j]);
-					}
-				} else if (stype == TYPE_dbl || stype == TYPE_lng) {
+				} else if (stype == TYPE_dbl || stype == TYPE_lng || stype == TYPE_date || stype == TYPE_timestamp) {
 					lng *bufptr = (lng*) p;
-					for (j = 0, end = m / atomsize; j < end; j++) {
+					for (j = 0; j < end; j++)
 						bufptr[j] = long_int_SWAP(bufptr[j]);
-					}
 				}
 #ifdef HAVE_HGE
 				else if (stype == TYPE_hge) {
 					hge *bufptr = (hge*) p;
-					for (j = 0, end = m / atomsize; j < end; j++) {
+					for (j = 0; j < end; j++)
 						bufptr[j] = huge_int_SWAP(bufptr[j]);
-					}
 				}
 #endif
 			}

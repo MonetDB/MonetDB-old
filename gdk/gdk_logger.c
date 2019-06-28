@@ -2287,9 +2287,9 @@ logger_load(int debug, const char *fn, char filename[FILENAME_MAX], logger *lg)
 				    fflush(fp1) != 0 || /* make sure it's save on disk */
 #if defined(_MSC_VER)
 				    _commit(_fileno(fp1)) < 0 ||
-#elif defined(HAVE_FDATASYNC)
+#elif defined(_POSIX_SYNCHRONIZED_IO) && _POSIX_SYNCHRONIZED_IO > 0
 				    fdatasync(fileno(fp1)) < 0 ||
-#elif defined(HAVE_FSYNC)
+#else
 				    fsync(fileno(fp1)) < 0 ||
 #endif
 				    fclose(fp1) != 0) {
