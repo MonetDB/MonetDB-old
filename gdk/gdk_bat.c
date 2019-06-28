@@ -254,13 +254,9 @@ BATattach(int tt, const char *heapfile, role_t role)
 	size_t m;
 	FILE *f;
 	//The JVM is always Big-Endian, so the integer values must be swapped if so
-	bool swapendianess = GDK_is_bin_import_swap() &&
 #ifdef HAVE_EMBEDDED
-		MT_check_endianness() != HOST_BIG_ENDIAN;
-#else
-		false
+	bool swapendianess = GDK_is_bin_import_swap() && MT_check_endianness() != HOST_BIG_ENDIAN;
 #endif
-	;
 
 	ERRORcheck(tt <= 0 , "BATattach: bad tail type (<=0)\n", NULL);
 	ERRORcheck(ATOMvarsized(tt) && ATOMstorage(tt) != TYPE_str, "BATattach: bad tail type (varsized and not str)\n", NULL);
@@ -370,6 +366,7 @@ BATattach(int tt, const char *heapfile, role_t role)
 		p = Tloc(bn, 0);
 		n = (lng) st.st_size;
 		while (n > 0 && (m = fread(p, 1, (size_t) MIN(1024*1024, n), f)) > 0) {
+#ifdef HAVE_EMBEDDED
 			if (swapendianess) {
 				BUN j = 0, end = m / atomsize;
 				int stype = ATOMstorage(tt);
@@ -394,6 +391,7 @@ BATattach(int tt, const char *heapfile, role_t role)
 				}
 #endif
 			}
+#endif
 			p += m;
 			n -= m;
 		}
