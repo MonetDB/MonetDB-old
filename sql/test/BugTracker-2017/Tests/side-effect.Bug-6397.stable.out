@@ -59,8 +59,8 @@ barrier X_98:bit := language.dataflow();
     X_24:bat[:lng] := algebra.projection(X_22:bat[:oid], X_20:bat[:lng]);
     X_25:bat[:lng] := algebra.projection(X_23:bat[:oid], X_21:bat[:lng]);
     X_26:bat[:lng] := batcalc.*(X_24:bat[:lng], X_25:bat[:lng]);
-    X_37:bat[:str] := bat.append(X_30:bat[:str], ".L7":str);
-    X_39:bat[:str] := bat.append(X_32:bat[:str], "L7":str);
+    X_37:bat[:str] := bat.append(X_30:bat[:str], ".L6":str);
+    X_39:bat[:str] := bat.append(X_32:bat[:str], "L6":str);
     X_41:bat[:str] := bat.append(X_33:bat[:str], "bigint":str);
     X_43:bat[:int] := bat.append(X_34:bat[:int], 64:int);
     X_45:bat[:int] := bat.append(X_36:bat[:int], 0:int);
@@ -97,22 +97,22 @@ end user.main;
 #total                actions=29 time=257 usec 
 #select count(*) from my_generate_series(1,5) as t1,
 #my_generate_series(1,100) as t2;
-% .L7 # table_name
-% L7 # name
+% .L6 # table_name
+% L6 # name
 % bigint # type
 % 3 # length
 [ 500	]
 #select count(*) from my_generate_series(1,5) as t1,
 #my_generate_series(1,100) as t2;
-% .L7 # table_name
-% L7 # name
+% .L6 # table_name
+% L6 # name
 % bigint # type
 % 3 # length
 [ 500	]
 #select count(*) from my_generate_series(1,5) as t1,
 #my_generate_series(1,100) as t2;
-% .L7 # table_name
-% L7 # name
+% .L6 # table_name
+% L6 # name
 % bigint # type
 % 3 # length
 [ 500	]
