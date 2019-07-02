@@ -983,7 +983,8 @@ SQLparser(Client c)
 	}
 	if (eb_savepoint(&m->sa->eb)) {
 		sa_reset(m->sa);
-		/* what else to cleanup ?? */
+
+		throw(SQL, "SQLparser", SQLSTATE(HY001) MAL_MALLOC_FAIL " for SQL allocator");
 	}
 
 	m->emode = m_normal;
