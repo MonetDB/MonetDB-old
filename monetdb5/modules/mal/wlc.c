@@ -484,8 +484,12 @@ WLCsettime(Client cntxt, InstrPtr pci, InstrPtr p, str call)
 	clk = clock.tv_sec;
 #endif
 	(void) pci;
-	ctm = *localtime(&clk);
-	strftime(wlc_time, 26, "%Y-%m-%dT%H:%M:%S",&ctm);
+#ifdef NATIVE_WIN32
+	(void) localtime_s(&ctm, &clk);
+#else
+	(void) localtime_r(&clk, &ctm);
+#endif
+	strftime(wlc_time, sizeof(wlc_time), "%Y-%m-%dT%H:%M:%S.000",&ctm);
 	if (pushStr(cntxt->wlc, p, wlc_time) == NULL)
 		throw(MAL, call, MAL_MALLOC_FAIL);
 	return MAL_SUCCEED;

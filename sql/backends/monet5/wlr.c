@@ -404,6 +404,7 @@ WLRprocessScheduler(void *arg)
 
 			ftime(&tb);
 			clk = tb.time;
+			(void) localtime_s(&ctm, &clk);
 #else
 			struct timeval clock;
 
@@ -412,8 +413,8 @@ WLRprocessScheduler(void *arg)
 				return;
 			}
 			clk = clock.tv_sec;
+			(void) localtime_r(&clk, &ctm);
 #endif
-			ctm = *localtime(&clk);
 			strftime(clktxt, sizeof(clktxt), "%Y-%m-%dT%H:%M:%S.000",&ctm);
 			mnstr_printf(cntxt->fdout,"#now %s tlimit %s\n",clktxt, wlr_timelimit);
 			// actually never wait longer then the timelimit requires
