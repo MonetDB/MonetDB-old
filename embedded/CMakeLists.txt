@@ -101,6 +101,7 @@ set(MONETDBLITE_TRANSLATION_UNITS
 	../gdk/gdk_batop.c
 	../gdk/gdk_bbp.c
 	../gdk/gdk_calc.c
+	../gdk/gdk_cand.c
 	../gdk/gdk_cross.c
 	../gdk/gdk_delta.c
 	../gdk/gdk_firstn.c
