@@ -184,11 +184,19 @@ monetdb_query_internal(monetdb_connection conn, char* query, monetdb_result** re
 
 	assert(language);
 	b->language = language;
-	m->scanner.mode = LINE_N;
-	m->scanner.rs = c->fdin;
 	b->output_format = OFMT_NONE;
 	m->user_id = m->role_id = USER_MONETDB;
 	m->errstr[0] = '\0';
+	m->params = NULL;
+	m->argc = 0;
+	m->sym = NULL;
+	m->label = 0;
+	m->no_mitosis = 0;
+	if (m->sa)
+		m->sa = sa_reset(m->sa);
+	m->scanner.mode = LINE_N;
+	m->scanner.rs = c->fdin;
+	scanner_query_processed(&(m->scanner));
 
 	if ((msg = MSinitClientPrg(c, "user", "main")) != MAL_SUCCEED)
 		goto cleanup;
