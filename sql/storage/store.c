@@ -35,6 +35,8 @@ store_type active_store_type = store_bat;
 int store_readonly = 0;
 int store_singleuser = 0;
 int store_initialized = 0;
+static bool logging = false;
+static ATOMIC_TYPE need_flush = ATOMIC_VAR_INIT(0);
 
 static backend_stack backend_stk;
 
@@ -1986,7 +1988,6 @@ store_load(void) {
 int
 store_init(int debug, store_type store, int readonly, int singleuser, backend_stack stk)
 {
-
 	int v = 1;
 
 	backend_stk = stk;
@@ -1994,6 +1995,15 @@ store_init(int debug, store_type store, int readonly, int singleuser, backend_st
 	bs_debug = debug&2;
 	store_readonly = readonly;
 	store_singleuser = singleuser;
+	store_initialized = 0;
+	nr_sessions = 0;
+	store_oid = 0;
+	prev_oid = 0;
+	transactions = 0;
+	store_oids = NULL;
+	nstore_oids = 0;
+	logging = false;
+	ATOMIC_SET(&need_flush, 0);
 
 	MT_lock_set(&bs_lock);
 
@@ -2023,8 +2033,6 @@ store_init(int debug, store_type store, int readonly, int singleuser, backend_st
 	MT_lock_unset(&bs_lock);
 	return store_load();
 }
-
-static bool logging = false;
 
 void
 store_exit(void)
@@ -2082,8 +2090,6 @@ store_apply_deltas(void)
 		res = logger_funcs.cleanup();
 	logging = false;
 }
-
-static ATOMIC_TYPE need_flush = ATOMIC_VAR_INIT(0);
 
 void
 store_flush_log(void)
