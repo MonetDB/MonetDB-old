@@ -44,6 +44,7 @@ int GDKverbose = 0;
 #include <unistd.h> /* for _POSIX_TIMERS */
 #include <sys/param.h>  /* prerequisite of sys/sysctl on OpenBSD */
 #include <sys/sysctl.h>
+#include <sys/resource.h>
 #endif
 
 static ATOMIC_TYPE GDKstopped = ATOMIC_VAR_INIT(0);
@@ -382,6 +383,48 @@ MT_init(void)
 #else
 # error "don't know how to get the amount of physical memory for your OS"
 #endif
+	/* limit values to whatever cgroups gives us */
+	FILE *f;
+	/* limit of memory usage */
+	f = fopen("/sys/fs/cgroup/memory/memory.limit_in_bytes", "r");
+	if (f != NULL) {
+		uint64_t mem;
+		if (fscanf(f, "%" SCNu64, &mem) == 1
+		    && mem < (uint64_t) _MT_pagesize * _MT_npages) {
+			_MT_npages = (size_t) (mem / _MT_pagesize);
+		}
+		fclose(f);
+	}
+	/* soft limit of memory usage */
+	f = fopen("/sys/fs/cgroup/memory/memory.soft_limit_in_bytes", "r");
+	if (f != NULL) {
+		uint64_t mem;
+		if (fscanf(f, "%" SCNu64, &mem) == 1
+		    && mem < (uint64_t) _MT_pagesize * _MT_npages) {
+			_MT_npages = (size_t) (mem / _MT_pagesize);
+		}
+		fclose(f);
+	}
+	/* limit of memory+swap usage
+	 * we use this as maximum virtual memory size */
+	f = fopen("/sys/fs/cgroup/memory/memory.memsw.limit_in_bytes", "r");
+	if (f != NULL) {
+		uint64_t mem;
+		if (fscanf(f, "%" SCNu64, &mem) == 1
+		    && mem < (uint64_t) GDK_vm_maxsize) {
+			GDK_vm_maxsize = (size_t) mem;
+		}
+		fclose(f);
+	}
+#ifndef NATIVE_WIN32
+	struct rlimit l;
+	/* address space (virtual memory) limit */
+	if (getrlimit(RLIMIT_AS, &l) == 0
+	    && l.rlim_cur != RLIM_INFINITY
+	    && l.rlim_cur < GDK_vm_maxsize) {
+		GDK_vm_maxsize = l.rlim_cur;
+	}
+#endif
 }
 
 /*
@@ -691,51 +734,19 @@ GDKexiting(void)
 	return (bool) (ATOMIC_GET(&GDKstopped) > 0);
 }
 
-struct serverthread {
-	struct serverthread *next;
-	MT_Id pid;
-};
-static ATOMIC_PTR_TYPE serverthread = ATOMIC_PTR_VAR_INIT(NULL);
-
 void
 GDKprepareExit(void)
 {
-	struct serverthread *st;
-
 	if (ATOMIC_ADD(&GDKstopped, 1) > 0)
 		return;
 
 	THRDDEBUG dump_threads();
-	/* we're saved from the ABA problem in this code because it is
-	 * only executed by one thread */
-	while ((st = ATOMIC_PTR_GET(&serverthread)) != NULL) {
-		while (!ATOMIC_PTR_CAS(&serverthread, &((void *) {st}), st->next))
-			;
-		MT_join_thread(st->pid);
-		GDKfree(st);
-	}
 	join_detached_threads();
-}
-
-/* Register a thread that should be waited for in GDKreset.  The
- * thread must exit by itself when GDKexiting() returns true. */
-void
-GDKregister(MT_Id pid)
-{
-	struct serverthread *st;
-
-	if ((st = GDKmalloc(sizeof(struct serverthread))) == NULL)
-		return;
-	st->pid = pid;
-	st->next = ATOMIC_PTR_GET(&serverthread);
-	while (!ATOMIC_PTR_CAS(&serverthread, &((void *) {st->next}), st))
-		;
 }
 
 void
 GDKreset(int status)
 {
-	struct serverthread *st;
 	MT_Id pid = MT_getpid();
 
 	assert(GDKexiting());
@@ -749,21 +760,12 @@ GDKreset(int status)
 		GDKval = NULL;
 	}
 
-	/* we're saved from the ABA problem in this code because it is
-	 * only executed by one thread */
-	while ((st = ATOMIC_PTR_GET(&serverthread)) != NULL) {
-		while (!ATOMIC_PTR_CAS(&serverthread, &((void *) {st}), st->next))
-			;
-		MT_join_thread(st->pid);
-		GDKfree(st);
-	}
 	join_detached_threads();
 
 	if (status == 0) {
 		/* they had their chance, now kill them */
 		bool killed = false;
 		MT_lock_set(&GDKthreadLock);
-		assert(ATOMIC_PTR_GET(&serverthread) == NULL);
 		for (Thread t = GDKthreads; t < GDKthreads + THREADS; t++) {
 			MT_Id victim;
 			if ((victim = (MT_Id) ATOMIC_GET(&t->pid)) != 0) {

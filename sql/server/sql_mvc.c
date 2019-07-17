@@ -285,7 +285,7 @@ int
 mvc_trans(mvc *m)
 {
 	int schema_changed = 0, err = m->session->status;
-	assert(!m->session->active);	/* can only start a new transaction */
+	assert(!m->session->tr->active);	/* can only start a new transaction */
 
 	store_lock();
 	if (GDKverbose >= 1)
@@ -372,7 +372,7 @@ mvc_commit(mvc *m, int chain, const char *name, bool enabling_auto_commit)
 	char operation[BUFSIZ];
 
 	assert(tr);
-	assert(m->session->active);	/* only commit an active transaction */
+	assert(m->session->tr->active);	/* only commit an active transaction */
 
 	if (mvc_debug)
 		fprintf(stderr, "#mvc_commit %s\n", (name) ? name : "");
@@ -521,7 +521,7 @@ mvc_rollback(mvc *m, int chain, const char *name, bool disabling_auto_commit)
 		fprintf(stderr, "#mvc_rollback %s\n", (name) ? name : "");
 
 	assert(tr);
-	assert(m->session->active);	/* only abort an active transaction */
+	assert(m->session->tr->active);	/* only abort an active transaction */
 	(void) disabling_auto_commit;
 
 	store_lock();
@@ -589,7 +589,7 @@ mvc_release(mvc *m, const char *name)
 	str msg = MAL_SUCCEED;
 
 	assert(tr);
-	assert(m->session->active);	/* only release active transactions */
+	assert(m->session->tr->active);	/* only release active transactions */
 
 	if (mvc_debug)
 		fprintf(stderr, "#mvc_release %s\n", (name) ? name : "");
@@ -697,7 +697,6 @@ mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 
 	m->type = Q_PARSE;
 	m->pushdown = 1;
-	m->has_groupby_expressions = false;
 
 	m->result_id = 0;
 	m->results = NULL;
@@ -716,7 +715,7 @@ mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars)
 		fprintf(stderr, "#mvc_reset\n");
 	tr = m->session->tr;
 	if (tr && tr->parent) {
-		assert(m->session->active == 0);
+		assert(m->session->tr->active == 0);
 		store_lock();
 		while (tr->parent->parent != NULL) 
 			tr = sql_trans_destroy(tr);
@@ -764,7 +763,6 @@ mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars)
 	m->cascade_action = NULL;
 	m->type = Q_PARSE;
 	m->pushdown = 1;
-	m->has_groupby_expressions = false;
 
 	for(i=0;i<MAXSTATS;i++)
 		m->opt_stats[i] = 0;
@@ -786,7 +784,7 @@ mvc_destroy(mvc *m)
 	tr = m->session->tr;
 	if (tr) {
 		store_lock();
-		if (m->session->active)
+		if (m->session->tr->active)
 			sql_trans_end(m->session);
 		while (tr->parent)
 			tr = sql_trans_destroy(tr);
@@ -1637,20 +1635,15 @@ stack_push_groupby_expression(mvc *sql, symbol *def, sql_exp *exp)
 		if(res)
 			sql->topvars++;
 	}
-	sql->has_groupby_expressions = true;
 	return res;
 }
 
 sql_exp*
 stack_get_groupby_expression(mvc *sql, symbol *def)
 {
-	if(sql->has_groupby_expressions) {
-		for (int i = sql->topvars-1; i >= 0; i--) {
-			if (!sql->vars[i].frame && sql->vars[i].exp && sql->vars[i].exp->token == def->token && symbol_cmp(sql, sql->vars[i].exp->sdef, def)==0) {
-				return sql->vars[i].exp->exp;
-			}
-		}
-	}
+	for (int i = sql->topvars-1; i >= 0; i--)
+		if (!sql->vars[i].frame && sql->vars[i].exp && sql->vars[i].exp->token == def->token && symbol_cmp(sql, sql->vars[i].exp->sdef, def)==0)
+			return sql->vars[i].exp->exp;
 	return NULL;
 }
 
