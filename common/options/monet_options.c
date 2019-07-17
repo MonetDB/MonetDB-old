@@ -211,7 +211,7 @@ mo_builtin_settings(opt **Set)
 #ifdef HAVE_EMBEDDED
 #define N_OPTIONS	2	/*MUST MATCH # OPTIONS BELOW */
 #else
-#define N_OPTIONS	8
+#define N_OPTIONS	7
 #endif
 	set = malloc(sizeof(opt) * N_OPTIONS);
 	if (set == NULL)
@@ -220,7 +220,8 @@ mo_builtin_settings(opt **Set)
 #ifndef HAVE_EMBEDDED
 	set[i].kind = opt_builtin;
 	set[i].name = strdup("gdk_dbpath");
-	set[i].value = strdup(LOCALSTATEDIR DIR_SEP_STR "monetdb5" DIR_SEP_STR "dbfarm" DIR_SEP_STR "demo");
+	set[i].value = strdup(LOCALSTATEDIR DIR_SEP_STR "monetdb5" DIR_SEP_STR
+			      "dbfarm" DIR_SEP_STR "demo");
 	i++;
 	set[i].kind = opt_builtin;
 	set[i].name = strdup("mapi_port");

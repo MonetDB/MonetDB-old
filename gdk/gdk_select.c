@@ -1547,7 +1547,7 @@ BATselect(BAT *b, BAT *s, const void *tl, const void *th,
 				b = view;
 			}
 		}
-		ALGODEBUG if (view && b != view) fprintf(stderr, "#BATselect: switch from " ALGOBATFMT " to " ALGOBATFMT " " OIDFMT "-" OIDFMT " off " LLFMT "\n", ALGOBATPAR(view), ALGOBATPAR(b), vwl, vwh, vwo);
+		ALGODEBUG if (view && b != view) MT_fprintf(stderr, "#BATselect: switch from " ALGOBATFMT " to " ALGOBATFMT " " OIDFMT "-" OIDFMT " off " LLFMT "\n", ALGOBATPAR(view), ALGOBATPAR(b), vwl, vwh, vwo);
 	}
 
 	if (BATordered(b) || BATordered_rev(b) || use_orderidx) {

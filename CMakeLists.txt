@@ -644,8 +644,13 @@ else() # GCC, Clang and Apple clang
 	# Replace -g flag with -g3
 	MT_removeCompilerFlag("-g([ ]|$)" "-g" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
 	MT_removeCompilerFlag("-g([ ]|$)" "-g" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
-	MT_addCompilerFlag("-g3" "-g3" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
-	MT_addCompilerFlag("-g3" "-g3" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
+	if(${CMAKE_C_COMPILER_ID} STREQUAL "GNU")
+		set(DEBUG_FLAG "-ggdb3") # TODO add a option to set ggdb3 or g3 conditionaly
+	else()
+		set(DEBUG_FLAG "-g3")
+	endif()
+	MT_addCompilerFlag("${DEBUG_FLAG}" "${DEBUG_FLAG}" "${CMAKE_C_FLAGS_DEBUG}" "Debug" CMAKE_C_FLAGS_DEBUG)
+	MT_addCompilerFlag("${DEBUG_FLAG}" "${DEBUG_FLAG}" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)
 
 	MT_removeCompilerFlag("-D_FORTIFY_SOURCE=[013-9]" "-D_FORTIFY_SOURCE=x" "${CMAKE_C_FLAGS_RELEASE}" "Release" CMAKE_C_FLAGS_RELEASE)
 	MT_removeCompilerFlag("-D_FORTIFY_SOURCE=[013-9]" "-D_FORTIFY_SOURCE=x" "${CMAKE_C_FLAGS_RELWITHDEBINFO}" "RelWithDebugInfo" CMAKE_C_FLAGS_RELWITHDEBINFO)

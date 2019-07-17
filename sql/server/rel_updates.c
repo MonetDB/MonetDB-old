@@ -1248,7 +1248,7 @@ update_table(sql_query *query, dlist *qname, str alias, dlist *assignmentlist, s
 				    be updated table. We add a select all */
 				//r = rel_crossproduct(sql->sa, NULL, r, op_semi);
 				//r = res;
-				printf("#simple select\n");
+				MT_fprintf(stdout, "#simple select\n");
 			} else {
 				sql->errstr[0] = 0;
 				sql->session->status = status;

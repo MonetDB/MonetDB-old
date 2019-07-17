@@ -912,7 +912,7 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 #endif
 	psock[2] = INVALID_SOCKET;
 	if (MT_create_thread(&pid, (void (*)(void *)) SERVERlistenThread, psock,
-						 MT_THR_JOINABLE, "listenThread") != 0) {
+						 MT_THR_DETACHED, "listenThread") != 0) {
 		if (sock != INVALID_SOCKET)
 			closesocket(sock);
 #ifndef NATIVE_WIN32
@@ -924,7 +924,6 @@ SERVERlisten(int *Port, const char *Usockfile, int *Maxusers)
 			GDKfree(usockfile);
 		throw(MAL, "mal_mapi.listen", OPERATION_FAILED ": starting thread failed");
 	}
-	GDKregister(pid);
 #ifdef DEBUG_SERVER
 	gethostname(host, (int) 512);
 	snprintf(msg, (int) 512, "#Ready to accept connections on %s:%d\n", host, port);

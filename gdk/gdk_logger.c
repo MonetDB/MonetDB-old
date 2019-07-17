@@ -2824,7 +2824,7 @@ log_bat_transient(logger *lg, const char *name, char tpe, oid id)
 				return GDK_FAIL;
 		}
 		//	else
-		//		printf("%d != %d\n", lg->tid, tid);
+		//		MT_fprintf(stdout, "%d != %d\n", lg->tid, tid);
 		//	assert(lg->tid == tid);
 	}
 

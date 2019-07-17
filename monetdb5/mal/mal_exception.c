@@ -170,7 +170,7 @@ dumpExceptionsToStream(stream *out, str whatever) {
 				if (out)
 					mnstr_printf(out, "!%s\n", whatever + last);
 				else
-					fprintf(stderr, "!%s\n", whatever + last);
+					MT_fprintf(stderr, "!%s\n", whatever + last);
 			}
 			last = i + 1;
 		}
@@ -180,7 +180,7 @@ dumpExceptionsToStream(stream *out, str whatever) {
 		if (out)
 			mnstr_printf(out, "!%s\n", whatever + last);
 		else
-			fprintf(stderr, "!%s\n", whatever + last);
+			MT_fprintf(stderr, "!%s\n", whatever + last);
 	}
 }
 

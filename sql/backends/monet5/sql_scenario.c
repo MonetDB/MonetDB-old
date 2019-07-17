@@ -215,7 +215,7 @@ SQLepilogue(void *ret)
 	str res = MAL_SUCCEED;
 
 	(void) ret;
-	SQLexit(NULL);
+	(void) SQLexit(NULL);
 #ifndef HAVE_EMBEDDED
 	/* this function is never called, but for the style of it, we clean
 	 * up our own mess */
@@ -344,11 +344,11 @@ SQLresetClient(Client c)
 		mvc *m = be->mvc;
 
 		assert(m->session);
-		if (m->session->auto_commit && m->session->active) {
+		if (m->session->auto_commit && m->session->tr->active) {
 			if (mvc_status(m) >= 0)
 				msg = mvc_commit(m, 0, NULL, false);
 		}
-		if (m->session->active)
+		if (m->session->tr->active)
 			other = mvc_rollback(m, 0, NULL, false);
 
 		res_tables_destroy(m->results);
@@ -414,7 +414,7 @@ static str
 SQLinit(Client c)
 {
 	const char *debug_str = GDKgetenv("sql_debug");
-	char *msg = MAL_SUCCEED;
+	char *msg = MAL_SUCCEED, *other = MAL_SUCCEED;
 	bool readonly = GDKgetenv_isyes("gdk_readonly");
 	bool single_user = GDKgetenv_isyes("gdk_single_user");
 	static int maybeupgrade = 1;
@@ -424,10 +424,13 @@ SQLinit(Client c)
 #ifdef _SQL_SCENARIO_DEBUG
 	MT_fprintf(stderr, "#SQLinit Monet 5\n");
 #endif
-	if (SQLinitialized)
-		return MAL_SUCCEED;
-
 	MT_lock_set(&sql_contextLock);
+
+	if (SQLinitialized) {
+		MT_lock_unset(&sql_contextLock);
+		return MAL_SUCCEED;
+	}
+
 	be_funcs = (backend_functions) {
 		.fstack = &monet5_freestack,
 		.fcode = &monet5_freecode,
@@ -595,7 +598,9 @@ SQLinit(Client c)
 		if (!m->sa) {
 			msg = createException(MAL, "sql.init", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		} else if (maybeupgrade) {
+			SQLtrans(m);
 			SQLupgrades(c,m);
+			msg = mvc_commit(m, 0, NULL, false);
 		}
 		maybeupgrade = 0;
 	}
@@ -609,23 +614,25 @@ SQLinit(Client c)
 		sqlcleanup(m, mvc_status(m));
 	}
 
-	msg = SQLresetClient(c);
+	other = SQLresetClient(c);
 	MT_lock_unset(&sql_contextLock);
+	if (other && !msg) /* 'msg' variable might be set or not, as well as 'other'. Throw the earliest one */
+		msg = other;
+	else if (other)
+		freeException(other);
 	if (msg != MAL_SUCCEED)
 		return msg;
 
 	if (GDKinmemory())
 		return MAL_SUCCEED;
 
-	if ((sqllogthread = THRcreate((void (*)(void *)) mvc_logmanager, NULL, MT_THR_JOINABLE, "logmanager")) == 0) {
+	if ((sqllogthread = THRcreate((void (*)(void *)) mvc_logmanager, NULL, MT_THR_DETACHED, "logmanager")) == 0) {
 		throw(SQL, "SQLinit", SQLSTATE(42000) "Starting log manager failed");
 	}
-	GDKregister(sqllogthread);
 	if (!(SQLdebug&1024)) {
-		if ((idlethread = THRcreate((void (*)(void *)) mvc_idlemanager, NULL, MT_THR_JOINABLE, "idlemanager")) == 0) {
+		if ((idlethread = THRcreate((void (*)(void *)) mvc_idlemanager, NULL, MT_THR_DETACHED, "idlemanager")) == 0) {
 			throw(SQL, "SQLinit", SQLSTATE(42000) "Starting idle manager failed");
 		}
-		GDKregister(idlethread);
 	}
 #ifndef HAVE_EMBEDDED
 	msg = WLCinit();
@@ -675,7 +682,7 @@ SQLautocommit(mvc *m)
 {
 	str msg = MAL_SUCCEED;
 
-	if (m->session->auto_commit && m->session->active) {
+	if (m->session->auto_commit && m->session->tr->active) {
 		if (mvc_status(m) < 0) {
 			msg = mvc_rollback(m, 0, NULL, false);
 		} else {
@@ -689,7 +696,7 @@ str
 SQLtrans(mvc *m)
 {
 	m->caching = m->cache;
-	if (!m->session->active) {
+	if (!m->session->tr->active) {
 		sql_session *s;
 
 		if (mvc_trans(m) < 0)
@@ -719,9 +726,12 @@ SQLinitClient(Client c)
 #ifdef _SQL_SCENARIO_DEBUG
 	MT_fprintf(stderr, "#SQLinitClient\n");
 #endif
-	if (SQLinitialized == 0)// && (msg = SQLprelude(NULL)) != MAL_SUCCEED)
-		return msg;
+
 	MT_lock_set(&sql_contextLock);
+	if (SQLinitialized == 0) {// && (msg = SQLprelude(NULL)) != MAL_SUCCEED)
+		MT_lock_unset(&sql_contextLock);
+		return msg;
+	}
 #ifndef HAVE_EMBEDDED
 	if ((msg = WLRinit()) != MAL_SUCCEED) {
 		MT_lock_unset(&sql_contextLock);
@@ -739,12 +749,19 @@ str
 SQLexitClient(Client c)
 {
 	str err;
+
 #ifdef _SQL_SCENARIO_DEBUG
 	MT_fprintf(stderr, "#SQLexitClient\n");
 #endif
-	if (SQLinitialized == FALSE)
+
+	MT_lock_set(&sql_contextLock);
+	if (SQLinitialized == FALSE) {
+		MT_lock_unset(&sql_contextLock);
 		throw(SQL, "SQLexitClient", SQLSTATE(42000) "Catalogue not available");
-	if ((err = SQLresetClient(c)) != MAL_SUCCEED)
+	}
+	err = SQLresetClient(c);
+	MT_lock_unset(&sql_contextLock);
+	if (err != MAL_SUCCEED)
 		return err;
 	MALexitClient(c);
 	return MAL_SUCCEED;
@@ -772,12 +789,11 @@ SQLcompile(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	(void) mb;
 	*ret = NULL;
-	msg = SQLstatementIntern(cntxt, expr, "SQLcompile", FALSE, FALSE, NULL);
-	if (msg == MAL_SUCCEED)
-		*ret = _STRDUP("SQLcompile");
-	if(*ret == NULL)
+	if ((msg = SQLstatementIntern(cntxt, expr, "SQLcompile", FALSE, FALSE, NULL)) != MAL_SUCCEED)
+		return msg;
+	if((*ret = _STRDUP("SQLcompile")) == NULL)
 		throw(SQL,"sql.compile",SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	return msg;
+	return MAL_SUCCEED;
 }
 
 /*
@@ -857,8 +873,13 @@ SQLreader(Client c)
 	int language = -1;
 	mvc *m = NULL;
 	bool blocked = isa_block_stream(in->s);
+	int isSQLinitialized;
 
-	if (SQLinitialized == FALSE) {
+	MT_lock_set(&sql_contextLock);
+	isSQLinitialized = SQLinitialized;
+	MT_lock_unset(&sql_contextLock);
+
+	if (isSQLinitialized == FALSE) {
 		c->mode = FINISHCLIENT;
 		return MAL_SUCCEED;
 	}
@@ -1109,7 +1130,7 @@ SQLparser(Client c)
 			commit = (!m->session->auto_commit && v);
 			m->session->auto_commit = (v) != 0;
 			m->session->ac_on_commit = m->session->auto_commit;
-			if (m->session->active) {
+			if (m->session->tr->active) {
 				if (commit) {
 					msg = mvc_commit(m, 0, NULL, true);
 				} else {

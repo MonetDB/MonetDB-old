@@ -157,7 +157,7 @@ gdk_export int MT_join_thread(MT_Id t);
 #define _DBG_LOCK_COUNT_0(l)						\
 	do {								\
 		(void) ATOMIC_INC(&GDKlockcnt);				\
-		TEMDEBUG fprintf(stderr, "#%s: %s: locking %s...\n",	\
+		TEMDEBUG MT_fprintf(stderr, "#%s: %s: locking %s...\n",	\
 				 MT_thread_getname(), __func__, (l)->name); \
 	} while (0)
 
@@ -171,13 +171,13 @@ gdk_export int MT_join_thread(MT_Id t);
 	do {							\
 		(l)->locker = __func__;				\
 		(l)->thread = NULL;				\
-		TEMDEBUG fprintf(stderr, "#%s: %s: unlocking %s\n",	\
+		TEMDEBUG MT_fprintf(stderr, "#%s: %s: unlocking %s\n",	\
 				 MT_thread_getname(), __func__, (l)->name); \
 	} while (0)
 
 #define _DBG_LOCK_CONTENTION(l)						\
 	do {								\
-		TEMDEBUG fprintf(stderr, "#%s: %s: lock %s contention\n", \
+		TEMDEBUG MT_fprintf(stderr, "#%s: %s: lock %s contention\n", \
 				 MT_thread_getname(), __func__, (l)->name); \
 		(void) ATOMIC_INC(&GDKlockcontentioncnt);		\
 		(void) ATOMIC_INC(&(l)->contention);			\
@@ -195,7 +195,7 @@ gdk_export int MT_join_thread(MT_Id t);
 			GDKlocklist = (l);				\
 			ATOMIC_CLEAR(&GDKlocklistlock);			\
 		}							\
-		TEMDEBUG fprintf(stderr, "#%s: %s: locking %s complete\n", \
+		TEMDEBUG MT_fprintf(stderr, "#%s: %s: locking %s complete\n", \
 				 MT_thread_getname(), __func__, (l)->name); \
 	} while (0)
 
@@ -577,7 +577,7 @@ typedef struct {
 
 #define MT_sema_down(s)							\
 	do {								\
-		TEMDEBUG fprintf(stderr, "#%s: %s: sema %s down...\n",	\
+		TEMDEBUG MT_fprintf(stderr, "#%s: %s: sema %s down...\n",	\
 				 MT_thread_getname(), __func__, (s)->name); \
 		if (WaitForSingleObject((s)->sema, 0) != WAIT_OBJECT_0) { \
 			MT_thread_setsemawait(s);			\
@@ -585,7 +585,7 @@ typedef struct {
 				;					\
 			MT_thread_setsemawait(NULL);			\
 		}							\
-		TEMDEBUG fprintf(stderr, "#%s: %s: sema %s down complete\n", \
+		TEMDEBUG MT_fprintf(stderr, "#%s: %s: sema %s down complete\n", \
 				 MT_thread_getname(), __func__, (s)->name); \
 	} while (0)
 
@@ -626,14 +626,14 @@ typedef struct {
 
 #define MT_sema_up(s)						\
 	do {							\
-		TEMDEBUG fprintf(stderr, "#%s: %s: sema %s up\n",	\
+		TEMDEBUG MT_fprintf(stderr, "#%s: %s: sema %s up\n",	\
 				 MT_thread_getname(), __func__, (s)->name); \
 		sem_post(&(s)->sema);				\
 	} while (0)
 
 #define MT_sema_down(s)							\
 	do {								\
-		TEMDEBUG fprintf(stderr, "#%s: %s: sema %s down...\n",	\
+		TEMDEBUG MT_fprintf(stderr, "#%s: %s: sema %s down...\n",	\
 				 MT_thread_getname(), __func__, (s)->name); \
 		if (sem_trywait(&(s)->sema) != 0) {			\
 			MT_thread_setsemawait(s);			\
@@ -641,7 +641,7 @@ typedef struct {
 				;					\
 			MT_thread_setsemawait(NULL);			\
 		}							\
-		TEMDEBUG fprintf(stderr, "#%s: %s: sema %s down complete\n", \
+		TEMDEBUG MT_fprintf(stderr, "#%s: %s: sema %s down complete\n", \
 				 MT_thread_getname(), __func__, (s)->name); \
 	} while (0)
 
