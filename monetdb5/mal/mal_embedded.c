@@ -108,7 +108,8 @@ malEmbeddedBoot(void)
 		return msg;
 	}
 	msg = MALengine(c);
-	embeddedinitialized = true;
+	if (msg == MAL_SUCCEED)
+		embeddedinitialized = true;
 	MCcloseClient(c);
 	return msg;
 }

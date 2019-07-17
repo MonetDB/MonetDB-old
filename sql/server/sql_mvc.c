@@ -189,13 +189,13 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 		}
 	}
 
+#ifndef HAVE_EMBEDDED
 	if(mvc_trans(m) < 0) {
 		mvc_destroy(m);
 		MT_fprintf(stderr, "!mvc_init: failed to start transaction\n");
 		return -1;
 	}
 
-#ifndef HAVE_EMBEDDED
 	//as the sql_parser is not yet initialized in the storage, we determine the sql type of the sql_parts here
 	for (node *n = m->session->tr->schemas.set->h; n; n = n->next) {
 		sql_schema *ss = (sql_schema*) n->data;
@@ -214,13 +214,13 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 			}
 		}
 	}
-#endif
 
 	if ((msg = mvc_commit(m, 0, NULL, false)) != MAL_SUCCEED) {
 		MT_fprintf(stderr, "!mvc_init: unable to commit system tables: %s\n", (msg + 6));
 		freeException(msg);
 		return -1;
 	}
+#endif
 
 	mvc_destroy(m);
 	return first;
