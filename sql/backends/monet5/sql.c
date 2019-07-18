@@ -3151,7 +3151,7 @@ mvc_append_bats_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 	for (i = 0; i < pci->retc; i++) {
 		lng *batid = getArgReference_lng(stk, pci, pci->retc + i);
-		*getArgReference_bat(stk, pci, i) = *batid;
+		*getArgReference_bat(stk, pci, i) = (bat) *batid;
 	}
 	return msg;
 }
