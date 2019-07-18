@@ -2013,6 +2013,8 @@ store_init(int debug, store_type store, int readonly, int singleuser, backend_st
 	nstore_oids = 0;
 	logging = false;
 	ATOMIC_SET(&need_flush, 0);
+	ATOMIC_SET(&store_nr_active, 0);
+	active_sessions = NULL;
 
 	MT_lock_set(&bs_lock);
 
