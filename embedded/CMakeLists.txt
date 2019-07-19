@@ -302,6 +302,7 @@ install(FILES
 		../gdk/gdk_delta.h
 		../gdk/gdk_posix.h
 		../gdk/gdk_hash.h
+		../gdk/gdk_logger.h
 		../gdk/gdk_system.h
 		../gdk/gdk_utils.h
 		../monetdb5/mal/mal.h
@@ -322,10 +323,14 @@ install(FILES
 		../monetdb5/mal/mal_type.h
 		../monetdb5/modules/atoms/blob.h
 		../monetdb5/modules/atoms/mtime.h
+		../sql/common/sql_string.h
+		../sql/common/sql_types.h
+		../sql/server/sql_decimal.h
 		../sql/include/sql_catalog.h
 		../sql/include/sql_hash.h
 		../sql/include/sql_list.h
 		../sql/include/sql_mem.h
 		../sql/include/sql_querytype.h
+		../sql/storage/sql_storage.h
 		../sql/storage/bat/res_table.h
 		DESTINATION ${INCLUDEDIR}/monetdb)
