@@ -800,6 +800,8 @@ GDKreset(int status)
 		if (!killed) {
 			/* we can't clean up after killing threads */
 			BBPexit();
+		} else {
+			BBPlock();
 		}
 		GDKlog(GET_GDKLOCK(PERSISTENT), GDKLOGOFF);
 

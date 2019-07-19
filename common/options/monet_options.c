@@ -208,16 +208,11 @@ mo_builtin_settings(opt **Set)
 	if (Set == NULL)
 		return 0;
 
-#ifdef HAVE_EMBEDDED
-#define N_OPTIONS	2	/*MUST MATCH # OPTIONS BELOW */
-#else
-#define N_OPTIONS	7
-#endif
+#define N_OPTIONS	7	/*MUST MATCH # OPTIONS BELOW */
 	set = malloc(sizeof(opt) * N_OPTIONS);
 	if (set == NULL)
 		return 0;
 
-#ifndef HAVE_EMBEDDED
 	set[i].kind = opt_builtin;
 	set[i].name = strdup("gdk_dbpath");
 	set[i].value = strdup(LOCALSTATEDIR DIR_SEP_STR "monetdb5" DIR_SEP_STR
@@ -242,11 +237,6 @@ mo_builtin_settings(opt **Set)
 	set[i].kind = opt_builtin;
 	set[i].name = strdup("sql_optimizer");
 	set[i].value = strdup("default_pipe");
-	i++;
-#endif
-	set[i].kind = opt_builtin;
-	set[i].name = strdup("monet_prompt");
-	set[i].value = strdup(">");
 	i++;
 	set[i].kind = opt_builtin;
 	set[i].name = strdup("sql_debug");
