@@ -755,6 +755,8 @@ GDKprepareExit(void)
 	join_detached_threads();
 }
 
+extern MT_Id mainthreadid;
+
 void
 GDKreset(int status)
 {
@@ -780,7 +782,7 @@ GDKreset(int status)
 		for (Thread t = GDKthreads; t < GDKthreads + THREADS; t++) {
 			MT_Id victim;
 			if ((victim = (MT_Id) ATOMIC_GET(&t->pid)) != 0) {
-				if (victim != pid && victim > 1) { /* Not the main thread */
+				if (victim != pid && victim != mainthreadid) { /* Not the main thread */
 					int e;
 
 					killed = true;

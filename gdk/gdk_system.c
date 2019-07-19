@@ -160,6 +160,8 @@ GDKlockstatistics(int what)
 
 #endif	/* LOCK_STATS */
 
+MT_Id mainthreadid = 0;
+
 #ifdef WIN32
 static struct winthread {
 	struct winthread *next;
@@ -208,6 +210,7 @@ MT_thread_init(void)
 		if (threadslot == TLS_OUT_OF_INDEXES)
 			return false;
 		mainthread.tid = GetCurrentThreadId();
+		mainthreadid = (MT_Id) mainthread.tid;
 		if (TlsSetValue(threadslot, &mainthread) == 0) {
 			TlsFree(threadslot);
 			threadslot = TLS_OUT_OF_INDEXES;
@@ -527,6 +530,7 @@ MT_thread_init(void)
 		return false;
 	}
 	mainthread.tid = pthread_self();
+	mainthreadid = mainthread.tid;
 	if ((ret = pthread_setspecific(threadkey, &mainthread)) != 0) {
 		MT_fprintf(stderr,
 			"#MT_thread_init: setting specific value failed: %s\n",
