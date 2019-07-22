@@ -211,6 +211,11 @@ trans_drop_tmp(sql_trans *tr)
 }
 
 /*#define STORE_DEBUG 1*/
+/*#define STORE_FLUSHER_DEBUG 1 */
+
+#ifdef STORE_DEBUG
+#define STORE_FLUSHER_DEBUG 1
+#endif
 
 sql_trans *
 sql_trans_destroy(sql_trans *t)
@@ -1338,7 +1343,7 @@ store_upgrade_ids(sql_trans* tr)
 			}
 		}
 	}
-	store_apply_deltas();
+	store_apply_deltas(true);
 	logger_funcs.with_ids();
 	return SQL_OK;
 }
@@ -1784,14 +1789,18 @@ store_load(sql_allocator *pa) {
 
 	if (first) {
 		/* cannot initialize database in readonly mode */
-		if (store_readonly) {
+		if (store_readonly)
+			return -1;
+		tr = sql_trans_create(NULL, NULL);
+		if (!tr) {
+			fprintf(stderr, "Failure to start a transaction while loading the storage\n");
 			return -1;
 		}
-		tr = sql_trans_create(NULL, NULL);
-		if(!tr)
-			return -1;
 	} else {
-		store_oids = GDKzalloc(300 * sizeof(sqlid)); /* 150 suffices */
+		if (!(store_oids = GDKzalloc(300 * sizeof(sqlid)))) { /* 150 suffices */
+			fprintf(stderr, "Allocation failure while loading the storage\n");
+			return -1;
+		}
 	}
 
 	s = bootstrap_create_schema(tr, "sys", ROLE_SYSADMIN, USER_MONETDB);
@@ -2019,73 +2028,6 @@ store_init(sql_allocator *pa, int debug, store_type store, int readonly, int sin
 	return store_load(pa);
 }
 
-static bool logging = false;
-
-void
-store_exit(void)
-{
-	MT_lock_set(&bs_lock);
-
-#ifdef STORE_DEBUG
-	fprintf(stderr, "#store exit locked\n");
-#endif
-	/* busy wait till the logmanager is ready */
-	while (logging) {
-		MT_lock_unset(&bs_lock);
-		MT_sleep_ms(100);
-		MT_lock_set(&bs_lock);
-	}
-
-	if (gtrans) {
-		MT_lock_unset(&bs_lock);
-		sequences_exit();
-		MT_lock_set(&bs_lock);
-	}
-	if (spares > 0)
-		destroy_spare_transactions();
-
-	logger_funcs.destroy();
-
-	/* Open transactions have a link to the global transaction therefore
-	   we need busy waiting until all transactions have ended or
-	   (current implementation) simply keep the gtrans alive and simply
-	   exit (but leak memory).
-	 */
-	if (!transactions) {
-		sql_trans_destroy(gtrans);
-		gtrans = NULL;
-	}
-#ifdef STORE_DEBUG
-	fprintf(stderr, "#store exit unlocked\n");
-#endif
-	MT_lock_unset(&bs_lock);
-}
-
-/* call locked ! */
-void
-store_apply_deltas(void)
-{
-	int res = LOG_OK;
-
-	logging = true;
-	/* make sure we reset all transactions on re-activation */
-	gtrans->wstime = timestamp();
-	if (store_funcs.gtrans_update)
-		store_funcs.gtrans_update(gtrans);
-	res = logger_funcs.restart();
-	if (logging && res == LOG_OK)
-		res = logger_funcs.cleanup();
-	logging = false;
-}
-
-static ATOMIC_TYPE need_flush = ATOMIC_VAR_INIT(0);
-
-void
-store_flush_log(void)
-{
-	ATOMIC_SET(&need_flush, 1);
-}
-
 static int
 store_needs_vacuum( sql_trans *tr )
 {
@@ -2131,65 +2073,201 @@ store_vacuum( sql_trans *tr )
 	return 0;
 }
 
+// All this must only be accessed while holding the bs_lock.
+// The exception is flush_now, which can be set by anyone at any
+// time and therefore needs some special treatment.
+static struct {
+	// These two are inputs, set from outside the store_manager
+	bool enabled;
+	ATOMIC_TYPE flush_now;
+	// These are state set from within the store_manager
+	bool working;
+	int countdown_ms;
+	unsigned int cycle;
+	char *reason_to;
+	char *reason_not_to;
+} flusher = {
+	.flush_now = ATOMIC_VAR_INIT(0),
+	.enabled = true,
+};
+
+static void
+flusher_new_cycle(void)
+{
+	int cycle_time = GDKdebug & FORCEMITOMASK ? 500 : 50000;
+
+	// do not touch .enabled and .flush_now, those are inputs
+	flusher.working = false;
+	flusher.countdown_ms = cycle_time;
+	flusher.cycle += 1;
+	flusher.reason_to = NULL;
+	flusher.reason_not_to = NULL;
+}
+
+/* Determine whether this is a good moment to flush the log.
+ * Note: this function clears flusher.flush_now if it was set,
+ * so if it returns true you must either flush the log or 
+ * set flush_log to true again, otherwise the request will
+ * be lost.
+ *
+ * This is done this way because flush_now can be set at any time
+ * without first obtaining bs_lock. To avoid time-of-check-to-time-of-use
+ * issues, this function both checks and clears the flag.
+ */
+static bool
+flusher_should_run(void)
+{
+	// We will flush if we have a reason to and no reason not to.
+	char *reason_to = NULL, *reason_not_to = NULL;
+
+	if (flusher.countdown_ms <= 0)
+		reason_to = "timer expired";
+
+	int many_changes = GDKdebug & FORCEMITOMASK ? 100 : 1000000;
+	if (logger_funcs.changes() >= many_changes)
+		reason_to = "many changes";
+
+	// Read and clear flush_now. If we decide not to flush
+	// we'll put it back.
+	bool my_flush_now = (bool) ATOMIC_XCG(&flusher.flush_now, 0);
+	if (my_flush_now)
+		reason_to = "user request";
+
+	if (ATOMIC_GET(&store_nr_active) > 0)
+		reason_not_to = "awaiting idle time";
+
+	if (!flusher.enabled)
+		reason_not_to = "disabled";
+
+	bool do_it = (reason_to && !reason_not_to);
+
+#ifdef STORE_FLUSHER_DEBUG
+	if (reason_to != flusher.reason_to || reason_not_to != flusher.reason_not_to) {
+		fprintf(stderr, "#store flusher %s, reason to flush: %s, reason not to: %s\n",
+			do_it ? "flushing" : "not flushing",
+			reason_to ? reason_to : "none",
+			reason_not_to ? reason_not_to : "none"
+		);
+	}
+#endif
+	flusher.reason_to = reason_to;
+	flusher.reason_not_to = reason_not_to;
+
+	// Remember the request for next time.
+	if (!do_it && my_flush_now)
+		ATOMIC_SET(&flusher.flush_now, 1);
+
+	return do_it;
+}
+
+void
+store_exit(void)
+{
+	MT_lock_set(&bs_lock);
+
+#ifdef STORE_DEBUG
+	fprintf(stderr, "#store exit locked\n");
+#endif
+	/* busy wait till the logmanager is ready */
+	while (flusher.working) {
+		MT_lock_unset(&bs_lock);
+		MT_sleep_ms(100);
+		MT_lock_set(&bs_lock);
+	}
+
+	if (gtrans) {
+		MT_lock_unset(&bs_lock);
+		sequences_exit();
+		MT_lock_set(&bs_lock);
+	}
+	if (spares > 0)
+		destroy_spare_transactions();
+
+	logger_funcs.destroy();
+
+	/* Open transactions have a link to the global transaction therefore
+	   we need busy waiting until all transactions have ended or
+	   (current implementation) simply keep the gtrans alive and simply
+	   exit (but leak memory).
+	 */
+	if (!transactions) {
+		sql_trans_destroy(gtrans);
+		gtrans = NULL;
+	}
+#ifdef STORE_DEBUG
+	fprintf(stderr, "#store exit unlocked\n");
+#endif
+	MT_lock_unset(&bs_lock);
+}
+
+
+/* call locked! */
+int
+store_apply_deltas(bool locked)
+{
+	int res = LOG_OK;
+
+	flusher.working = true;
+	/* make sure we reset all transactions on re-activation */
+	gtrans->wstime = timestamp();
+	if (store_funcs.gtrans_update)
+		store_funcs.gtrans_update(gtrans);
+	res = logger_funcs.restart();
+	if (res == LOG_OK) {
+		if (!locked)
+			MT_lock_unset(&bs_lock);
+		res = logger_funcs.cleanup();
+		if (!locked)
+			MT_lock_set(&bs_lock);
+	}
+	flusher.working = false;
+
+	return res;
+}
+
+void
+store_flush_log(void)
+{
+	ATOMIC_SET(&flusher.flush_now, 1);
+}
+
 void
 store_manager(void)
 {
-	const int sleeptime = GDKdebug & FORCEMITOMASK ? 10 : 50;
-	const int timeout = GDKdebug & FORCEMITOMASK ? 500 : 50000;
-	const int changes = GDKdebug & FORCEMITOMASK ? 100 : 1000000;
-
 	MT_thread_setworking("sleeping");
+
+	// In the main loop we always hold the lock except when sleeping
+	MT_lock_set(&bs_lock);
+
 	while (!GDKexiting()) {
-		int res = LOG_OK;
-		int t;
+		int res;
 
-		for (t = timeout; t > 0 && !ATOMIC_GET(&need_flush); t -= sleeptime) {
+		if (!flusher_should_run()) {
+			const int sleeptime = 100;
+			MT_lock_unset(&bs_lock);
 			MT_sleep_ms(sleeptime);
-			if (GDKexiting())
-				return;
-		}
-
-		MT_lock_set(&bs_lock);
-		if (GDKexiting()) {
-			MT_lock_unset(&bs_lock);
-			return;
-		}
-		if (!ATOMIC_GET(&need_flush) && logger_funcs.changes() < changes) {
-			MT_lock_unset(&bs_lock);
+			flusher.countdown_ms -= sleeptime;
+			MT_lock_set(&bs_lock);
 			continue;
 		}
-		ATOMIC_SET(&need_flush, 1);
-		while (ATOMIC_GET(&store_nr_active)) { /* find a moment to flush */
-			MT_lock_unset(&bs_lock);
-			if (GDKexiting())
-				return;
-			MT_sleep_ms(sleeptime);
-			MT_lock_set(&bs_lock);
-		}
-		ATOMIC_SET(&need_flush, 0);
 
 		MT_thread_setworking("flushing");
-		logging = true;
-		/* make sure we reset all transactions on re-activation */
-		gtrans->wstime = timestamp();
-		if (store_funcs.gtrans_update) {
-			store_funcs.gtrans_update(gtrans);
-		}
-		res = logger_funcs.restart();
+		res = store_apply_deltas(false);
 
-		MT_lock_unset(&bs_lock);
-		if (logging && res == LOG_OK) {
-			res = logger_funcs.cleanup();
-		}
-
-		MT_lock_set(&bs_lock);
-		logging = false;
-		MT_lock_unset(&bs_lock);
-
-		if (res != LOG_OK)
+		if (res != LOG_OK) {
+			MT_lock_unset(&bs_lock);
 			GDKfatal("write-ahead logging failure, disk full?");
+		}
+
+		flusher_new_cycle();
 		MT_thread_setworking("sleeping");
+#ifdef STORE_FLUSHER_DEBUG
+		fprintf(stderr, "#store flusher done\n");
+#endif
 	}
+
+	// End of loop, end of lock
+	MT_lock_unset(&bs_lock);
 }
 
 void
@@ -2641,6 +2719,21 @@ column_dup(sql_trans *tr, int flags, sql_column *oc, sql_table *t)
 	base_init(sa, &c->base, oc->base.id, tr_flag(&oc->base, flags), oc->base.name);
 	obj_ref(oc,c,flags);
 	c->type = oc->type;
+	if (c->type.type->s) { /* user type */
+		sql_schema *s = t->s;
+		sql_type *lt = NULL;
+
+		if (s->base.id == c->type.type->s->base.id) {
+			/* Current user type belongs to current schema. So search there for current user type. */
+			lt = find_sql_type(s, c->type.type->base.name);
+		} else {
+			/* Current user type belongs to another schema in the current transaction. Search there for current user type. */
+			lt = sql_trans_bind_type(tr, NULL, c->type.type->base.name);
+		}
+		if (lt == NULL) 
+			GDKfatal("SQL type %s missing", c->type.type->base.name);
+		sql_init_subtype(&c->type, lt, c->type.digits, c->type.scale);
+	}
 	c->def = NULL;
 	if (oc->def)
 		c->def = sa_strdup(sa, oc->def);
@@ -3049,25 +3142,70 @@ schema_dup(sql_trans *tr, int flags, sql_schema *os, sql_trans *o)
 }
 
 static sql_trans *
-trans_init(sql_trans *t, sql_trans *ot)
+trans_init(sql_trans *tr, sql_trans *otr)
 {
-	t->wtime = t->rtime = 0;
-	t->stime = ot->wtime;
-	t->wstime = timestamp ();
-	t->schema_updates = 0;
-	t->dropped = NULL;
-	t->status = 0;
-	if (ot != gtrans)
-		t->schema_updates = ot->schema_updates;
+	node *m,*n;
 
-	t->schema_number = store_schema_number();
-	t->parent = ot;
+	tr->wtime = tr->rtime = 0;
+	tr->stime = otr->wtime;
+	tr->wstime = timestamp ();
+	tr->schema_updates = 0;
+	tr->dropped = NULL;
+	tr->status = 0;
+	if (otr != gtrans)
+		tr->schema_updates = otr->schema_updates;
 
-	t->name = NULL;
+	tr->schema_number = store_schema_number();
+	tr->parent = otr;
+
+	for (m = otr->schemas.set->h, n = tr->schemas.set->h; m && n; m = m->next, n = n->next ) { 
+		sql_schema *ps = m->data; /* parent transactions schema */
+		sql_schema *s = n->data; 
+
+		if (s->base.id == ps->base.id) {
+			node *k, *l;
+
+			s->base.rtime = s->base.wtime = 0;
+			s->base.stime = ps->base.wtime;
+
+			if (ps->tables.set && s->tables.set)
+			for (k = ps->tables.set->h, l = s->tables.set->h; k && l; k = k->next, l = l->next ) { 
+				sql_table *pt = k->data; /* parent transactions table */
+				sql_table *t = l->data; 
+
+				t->base.rtime = t->base.wtime = 0;
+				t->base.stime = pt->base.wtime;
+
+				if (pt->base.id == t->base.id) {
+					node *i, *j;
+
+					for (i = pt->columns.set->h, j = t->columns.set->h; i && j; i = i->next, j = j->next ) { 
+						sql_column *pc = i->data; /* parent transactions column */
+						sql_column *c = j->data; 
+
+						if (pc->base.id == c->base.id) {
+							c->base.rtime = c->base.wtime = 0;
+							c->base.stime = pc->base.wtime;
+						} else {
+							/* for now assert */
+							assert(0);
+						}
+					}
+				} else {
+					/* for now assert */
+					assert(0);
+				}
+			}
+		} else {
+			/* for now assert */
+			assert(0);
+		}
+	}
+	tr->name = NULL;
 	if (bs_debug) 
 		fprintf(stderr, "#trans (%p) init (%d,%d,%d)\n", 
-			t, t->wstime, t->stime, t->schema_number ); 
-	return t;
+			tr, tr->wstime, tr->stime, tr->schema_number ); 
+	return tr;
 }
 
 static sql_trans *
@@ -3084,7 +3222,8 @@ trans_dup(sql_trans *ot, const char *newname)
 		_DELETE(t);
 		return NULL;
 	}
-	t = trans_init(t, ot);
+	//t = trans_init(t, ot);
+	t->parent = ot;
 
 	cs_new(&t->schemas, t->sa, (fdestroy) &schema_destroy);
 
@@ -3180,6 +3319,8 @@ rollforward_changeset_updates(sql_trans *tr, changeset * fs, changeset * ts, sql
 							tb->rtime = fb->rtime;
 						if (apply && fb->wtime && fb->wtime > tb->wtime)
 							tb->wtime = fb->wtime;
+						if (apply)
+							fb->stime = tb->stime = tb->wtime;
 					}
 				}
 			}
@@ -3204,6 +3345,7 @@ rollforward_changeset_updates(sql_trans *tr, changeset * fs, changeset * ts, sql
 						fb->flags = 0;
 					}
 					tb->flags = 0;
+					fb->stime = tb->stime = tb->wtime;
 				} else if (!rollforward_creates(tr, fb, mode)) {
 					ok = LOG_ERR;
 				}
@@ -3721,8 +3863,6 @@ rollforward_trans(sql_trans *tr, int mode)
 			if (tr->schema_updates) 
 				schema_number++;
 		}
-		//tr->wtime = tr->rtime = 0;
-	//	assert(gtrans->wstime == gtrans->wtime);
 	}
 	return ok;
 }
@@ -3802,7 +3942,6 @@ reset_changeset(sql_trans *tr, changeset * fs, changeset * pfs, sql_base *b, res
 			if (fb->id == pfb->id) {
 				if (rf)
 					ok = rf(tr, fb, pfb);
-				fb->rtime = fb->wtime = 0;
 				n = n->next;
 				m = m->next;
 				if (bs_debug) 
@@ -3820,7 +3959,6 @@ reset_changeset(sql_trans *tr, changeset * fs, changeset * pfs, sql_base *b, res
 				sql_base *r = fd(tr, 0, pfb, b);
 				/* cs_add_before add r to fs before node n */
 				cs_add_before(fs, n, r);
-				r->rtime = r->wtime = 0;
 				m = m->next;
 				if (bs_debug) 
 					fprintf(stderr, "#reset_cs new %s\n", (r->name)?r->name:"help");
@@ -3831,7 +3969,6 @@ reset_changeset(sql_trans *tr, changeset * fs, changeset * pfs, sql_base *b, res
 			sql_base *pfb = m->data;
 			sql_base *r = fd(tr, 0, pfb, b);
 			cs_add(fs, r, 0);
-			r->rtime = r->wtime = 0;
 			if (bs_debug) {
 				fprintf(stderr, "#reset_cs new %s\n",
 					(r->name)?r->name:"help");
@@ -3863,7 +4000,6 @@ reset_idx(sql_trans *tr, sql_idx *fi, sql_idx *pfi)
 	if (fi->base.rtime || fi->base.wtime || tr->stime < pfi->base.wtime) {
 		if (isTable(fi->t)) 
 			store_funcs.destroy_idx(NULL, fi);
-		fi->base.wtime = fi->base.rtime = 0;
 	}
 	return LOG_OK;
 }
@@ -3893,7 +4029,6 @@ reset_column(sql_trans *tr, sql_column *fc, sql_column *pfc)
 		fc->def = NULL;
 		if (pfc->def)
 			fc->def = pfc->def;
-		fc->base.wtime = fc->base.rtime = 0;
 		fc->min = fc->max = NULL;
 	}
 	return LOG_OK;
@@ -3941,10 +4076,8 @@ reset_table(sql_trans *tr, sql_table *ft, sql_table *pft)
 		if (isTable(ft)) 
 			store_funcs.destroy_del(NULL, ft);
 
-		ft->base.wtime = ft->base.rtime = 0;
 		ft->cleared = 0;
 		ft->access = pft->access;
-
 		if (tr->status == 1 && isRenamed(ft)) { /* remove possible renaming */
 			list_hash_delete(ft->s->tables.set, ft, NULL);
 			ft->base.name = sa_strdup(tr->sa, pft->base.name);
@@ -6478,7 +6611,7 @@ sql_session_create(int ac )
 		return NULL;
 	}
 	s->schema_name = NULL;
-	s->active = 0;
+	s->tr->active = 0;
 	if(!sql_session_reset(s, ac)) {
 		sql_trans_destroy(s->tr);
 		_DELETE(s);
@@ -6491,7 +6624,7 @@ sql_session_create(int ac )
 void
 sql_session_destroy(sql_session *s) 
 {
-	assert(s->active == 0);
+	assert(!s->tr || s->tr->active == 0);
 	if (s->tr)
 		sql_trans_destroy(s->tr);
 	if (s->schema_name)
@@ -6524,7 +6657,7 @@ sql_session_reset(sql_session *s, int ac)
 				sql_trans_clear_table(s->tr, t);
 		}
 	}
-	assert(s->active == 0);
+	assert(s->tr && s->tr->active == 0);
 
 	if (s->schema_name)
 		_DELETE(s->schema_name);
@@ -6541,23 +6674,15 @@ sql_trans_begin(sql_session *s)
 	sql_trans *tr;
 	int snr;
 
-	/*
-	while (ATOMIC_GET(&need_flush)) {
-		store_unlock();
-		if (GDKexiting())
-			return -1;
-		MT_sleep_ms(100);
-		store_lock();
-	}
-	*/
 	tr = s->tr;
 	snr = tr->schema_number;
 
 #ifdef STORE_DEBUG
 	fprintf(stderr,"#sql trans begin %d\n", snr);
 #endif
-	if (tr->stime < gtrans->wstime || tr->wtime || 
-			store_schema_number() != snr) {
+	if (tr->parent && tr->parent == gtrans && 
+	    (tr->stime < gtrans->wstime || tr->wtime || 
+			store_schema_number() != snr)) {
 		if (!list_empty(tr->moved_tables)) {
 			tr->name = (char*)1; /* make sure it get destroyed properly */
 			sql_trans_destroy(tr);
@@ -6567,7 +6692,7 @@ sql_trans_begin(sql_session *s)
 		}
 	}
 	tr = trans_init(tr, tr->parent);
-	s->active = 1;
+	tr->active = 1;
 	s->schema = find_sql_schema(tr, s->schema_name);
 	s->tr = tr;
 	(void) ATOMIC_INC(&store_nr_active);
@@ -6585,7 +6710,7 @@ sql_trans_end(sql_session *s)
 #ifdef STORE_DEBUG
 	fprintf(stderr,"#sql trans end (%d)\n", s->tr->schema_number);
 #endif
-	s->active = 0;
+	s->tr->active = 0;
 	s->auto_commit = s->ac_on_commit;
 	list_remove_data(active_sessions, s);
 	(void) ATOMIC_DEC(&store_nr_active);

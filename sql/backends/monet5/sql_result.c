@@ -874,7 +874,7 @@ mvc_import_table(Client cntxt, BAT ***bats, mvc *m, bstream *bs, sql_table *t, c
 	if (locked) {
 		/* flush old changes to disk */
 		sql_trans_end(m->session);
-		store_apply_deltas();
+		store_apply_deltas(true);
 		sql_trans_begin(m->session);
 	}
 
@@ -2056,6 +2056,8 @@ get_print_width(int mtype, sql_class eclass, int digits, int scale, int tz, bat 
 		return count;
 	} else if (eclass == EC_BIT) {
 		return 5;	/* max(strlen("true"), strlen("false")) */
+	} else if (strcmp(ATOMname(mtype), "uuid") == 0) {
+		return 36;	/* xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx */
 	} else {
 		return 0;
 	}

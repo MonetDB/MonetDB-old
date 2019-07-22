@@ -60,10 +60,9 @@ stdout of test 'MAL-signatures` in directory 'clients` itself:
 # MonetDB/Python2 module loaded
 # MonetDB/R   module loaded
 
-
-# 16:09:44 >  
-# 16:09:44 >  "mclient" "-lsql" "-ftest" "-tnone" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-1158" "--port=39285"
-# 16:09:44 >  
+# 16:10:29 >  
+# 16:10:29 >  "mclient" "-lsql" "-ftest" "-tnone" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-29643" "--port=32888"
+# 16:10:29 >  
 
 #select * from sys.malfunctions() order by module, "function", address, signature, comment;
 % .L1,	.L1,	.L1,	.L1,	.L1 # table_name
@@ -16045,7 +16044,9 @@ stdout of test 'MAL-signatures` in directory 'clients` itself:
 [ "sql",	"delete",	"unsafe pattern sql.delete(mvc:int, sname:str, tname:str, b:any):int ",	"mvc_delete_wrap;",	"Delete a row from a table. Returns sequence number for order dependece."	]
 [ "sql",	"delta",	"command sql.delta(col:bat[:any_3], uid:bat[:oid], uval:bat[:any_3]):bat[:any_3] ",	"DELTAbat2;",	"Return column bat with delta's applied."	]
 [ "sql",	"delta",	"command sql.delta(col:bat[:any_3], uid:bat[:oid], uval:bat[:any_3], ins:bat[:any_3]):bat[:any_3] ",	"DELTAbat;",	"Return column bat with delta's applied."	]
-[ "sql",	"deltas",	"pattern sql.deltas(schema:str, table:str, column:str):bat[:lng] ",	"mvc_delta_values;",	"Return the delta values sizes of a bat, plus the current transaction level"	]
+[ "sql",	"deltas",	"pattern sql.deltas(schema:str) (ids:bat[:int], cleared:bat[:bit], readonly:bat[:lng], inserted:bat[:lng], updated:bat[:lng], deleted:bat[:lng], tr_level:bat[:int]) ",	"mvc_delta_values;",	"Return the delta values sizes of all columns of the schema's tables, plus the current transaction level"	]
+[ "sql",	"deltas",	"pattern sql.deltas(schema:str, table:str) (ids:bat[:int], cleared:bat[:bit], readonly:bat[:lng], inserted:bat[:lng], updated:bat[:lng], deleted:bat[:lng], tr_level:bat[:int]) ",	"mvc_delta_values;",	"Return the delta values sizes from the table's columns, plus the current transaction level"	]
+[ "sql",	"deltas",	"pattern sql.deltas(schema:str, table:str, column:str) (ids:bat[:int], cleared:bat[:bit], readonly:bat[:lng], inserted:bat[:lng], updated:bat[:lng], deleted:bat[:lng], tr_level:bat[:int]) ",	"mvc_delta_values;",	"Return the delta values sizes of a column, plus the current transaction level"	]
 [ "sql",	"dense_rank",	"pattern sql.dense_rank(b:any_1, p:bit, o:bit):int ",	"SQLdense_rank;",	"return the densely ranked groups"	]
 [ "sql",	"diff",	"pattern sql.diff(b:any_1):bit ",	"SQLdiff;",	"return true if cur != prev row"	]
 [ "sql",	"diff",	"pattern sql.diff(p:bit, b:any_1):bit ",	"SQLdiff;",	"return true if cur != prev row"	]
