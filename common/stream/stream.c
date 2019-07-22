@@ -156,7 +156,7 @@ mnstr_init(void)
 	if (ATOMIC_TAS(&inited))
 		return 0;
 
-#ifdef NATIVE_WIN32
+#if defined(NATIVE_WIN32) && !defined(HAVE_EMBEDDED)
 	{
 		WSADATA w;
 
