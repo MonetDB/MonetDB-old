@@ -114,7 +114,7 @@ typedef struct mvc {
 	int type;		/* query type */
 
 	/* during query needed flags */
-	int label;		/* numbers for relational projection labels */
+	unsigned int label;	/* numbers for relational projection labels */
 	list *cascade_action;  /* protection against recursive cascade actions */
 } mvc;
 

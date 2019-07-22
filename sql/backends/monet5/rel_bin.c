@@ -466,12 +466,12 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 			stmt *r = exp_bin(be, e->l, left, right, grp, ext, cnt, sel);
 			if(!r)
 				return NULL;
-			return stmt_assign(be, e->name, r, GET_PSM_LEVEL(e->flag));
+			return stmt_assign(be, exp_name(e), r, GET_PSM_LEVEL(e->flag));
 		} else if (e->flag & PSM_VAR) {
 			if (e->f)
-				return stmt_vars(be, e->name, e->f, 1, GET_PSM_LEVEL(e->flag));
+				return stmt_vars(be, exp_name(e), e->f, 1, GET_PSM_LEVEL(e->flag));
 			else
-				return stmt_var(be, e->name, &e->tpe, 1, GET_PSM_LEVEL(e->flag));
+				return stmt_var(be, exp_name(e), &e->tpe, 1, GET_PSM_LEVEL(e->flag));
 		} else if (e->flag & PSM_RETURN) {
 			sql_exp *l = e->l;
 			stmt *r = exp_bin(be, l, left, right, grp, ext, cnt, sel);
@@ -1188,8 +1188,8 @@ parse_value(backend *be, char *query, sql_subtype *tpe, char emode)
 static stmt *
 stmt_rename(backend *be, sql_rel *rel, sql_exp *exp, stmt *s )
 {
-	const char *name = exp->name;
-	const char *rname = exp->rname;
+	const char *name = exp_name(exp);
+	const char *rname = exp_relname(exp);
 	stmt *o = s;
 
 	(void)rel;
@@ -1262,7 +1262,7 @@ rel2bin_basetable(backend *be, sql_rel *rel)
 	assert(rel->exps);
 	for( en = rel->exps->h; en; en = en->next ) {
 		sql_exp *exp = en->data;
-		const char *rname = exp->rname?exp->rname:exp->l;
+		const char *rname = exp_relname(exp)?exp_relname(exp):exp->l;
 		const char *oname = exp->r;
 		stmt *s = NULL;
 
@@ -1303,7 +1303,7 @@ rel2bin_basetable(backend *be, sql_rel *rel)
 			s = stmt_col(be, c, dels);
 		}
 		s->tname = rname;
-		s->cname = exp->name;
+		s->cname = exp_name(exp);
 		list_append(l, s);
 	}
 	return stmt_list(be, l);
@@ -1508,10 +1508,10 @@ rel2bin_table(backend *be, sql_rel *rel, list *refs)
 					for(i=0, en = rel->exps->h, n = f->res->h; en; en = en->next, n = n->next, i++ ) {
 						sql_exp *exp = en->data;
 						sql_subtype *st = n->data;
-						const char *rnme = exp->rname?exp->rname:exp->l;
+						const char *rnme = exp_relname(exp)?exp_relname(exp):exp->l;
 						stmt *s = stmt_rs_column(be, psub, i, st); 
 				
-						s = stmt_alias(be, s, rnme, exp->name);
+						s = stmt_alias(be, s, rnme, exp_name(exp));
 						list_append(l, s);
 					}
 				} else {
@@ -1574,7 +1574,7 @@ rel2bin_table(backend *be, sql_rel *rel, list *refs)
 	l = sa_list(sql->sa);
 	for( en = rel->exps->h; en; en = en->next ) {
 		sql_exp *exp = en->data;
-		const char *rnme = exp->rname?exp->rname:exp->l;
+		const char *rnme = exp_relname(exp)?exp_relname(exp):exp->l;
 		stmt *s;
 
 		/* no relation names */
@@ -1588,7 +1588,7 @@ rel2bin_table(backend *be, sql_rel *rel, list *refs)
 		}
 		if (sub && sub->nrcols >= 1 && s->nrcols == 0)
 			s = stmt_const(be, bin_first_column(be, sub), s);
-		s = stmt_alias(be, s, rnme, exp->name);
+		s = stmt_alias(be, s, rnme, exp_name(exp));
 		list_append(l, s);
 	}
 	if (osub && osub->nrcols) 
@@ -4433,7 +4433,7 @@ rel2bin_update(backend *be, sql_rel *rel, list *refs)
 	/* lookup the updates */
 	for (m = rel->exps->h; m; m = m->next) {
 		sql_exp *ce = m->data;
-		sql_column *c = find_sql_column(t, ce->name);
+		sql_column *c = find_sql_column(t, exp_name(ce));
 
 		if (c) 
 			updates[c->colnr] = bin_find_column(be, update, ce->l, ce->r);
@@ -4445,7 +4445,7 @@ rel2bin_update(backend *be, sql_rel *rel, list *refs)
 	updcol = first_updated_col(updates, list_length(t->columns.set));
 	for (m = rel->exps->h; m; m = m->next) {
 		sql_exp *ce = m->data;
-		sql_idx *i = find_sql_idx(t, ce->name+1);
+		sql_idx *i = find_sql_idx(t, exp_name(ce)+1);
 
 		if (i) {
 			stmt *update_idx = bin_find_column(be, update, ce->l, ce->r), *is = NULL;
@@ -4476,7 +4476,7 @@ rel2bin_update(backend *be, sql_rel *rel, list *refs)
 /* apply the update */
 	for (m = rel->exps->h; m; m = m->next) {
 		sql_exp *ce = m->data;
-		sql_column *c = find_sql_column(t, ce->name);
+		sql_column *c = find_sql_column(t, exp_name(ce));
 
 		if (c) 
 			append(l, stmt_update_col(be,  c, tids, updates[c->colnr]));

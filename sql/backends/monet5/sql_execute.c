@@ -542,10 +542,10 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 						msg = createException(SQL,"SQLstatement", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 						goto endofcompile;
 					}
-					name = e->name;
+					name = exp_name(e);
 					if (!name && e->type == e_column && e->r)
 						name = e->r;
-					rname = e->rname;
+					rname = exp_relname(e);
 					if (!rname && e->type == e_column && e->l)
 						rname = e->l;
 					if (res_col_create(m->session->tr, res, rname, name, t->type->sqlname, t->digits,
