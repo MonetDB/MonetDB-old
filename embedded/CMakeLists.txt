@@ -175,6 +175,7 @@ set(MONETDBLITE_TRANSLATION_UNITS
 	../monetdb5/modules/mal/batcalc.c
 	../monetdb5/modules/mal/bbp.c
 	../monetdb5/modules/mal/calc.c
+	../monetdb5/modules/mal/clients.c
 	../monetdb5/modules/mal/inspect.c
 	../monetdb5/modules/mal/iterator.c
 	../monetdb5/modules/mal/language.c

@@ -414,6 +414,7 @@ str CLTripemd160sum(str *ret, str *pw) {
 
 str CLTsha2sum(str *ret, str *pw, int *bits) {
 	char *mret;
+	(void) pw;
 	switch (*bits) {
 #ifdef HAVE_SHA512_UPDATE
 		case 512:
