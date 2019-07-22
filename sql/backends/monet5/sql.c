@@ -15,6 +15,7 @@
  */
 #include "monetdb_config.h"
 #include "sql.h"
+#include "streams.h"
 #include "sql_result.h"
 #include "sql_gencode.h"
 #include "sql_storage.h"
@@ -32,16 +33,13 @@
 #include "rel_exp.h"
 #include "rel_dump.h"
 #include "rel_bin.h"
+#include "bbp.h"
 #include "opt_pipes.h"
 #include "orderidx.h"
+#include "clients.h"
 #include "mal_instruction.h"
 #include "mal_resource.h"
-#include "bat5.h"
-#ifndef HAVE_EMBEDDED
 #include "mal_authorize.h"
-#include "clients.h"
-#include "bbp.h"
-#endif
 
 static int
 rel_is_table(sql_rel *rel)
@@ -265,19 +263,12 @@ SQLabort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 SQLshutdown_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str msg = MAL_SUCCEED;
+	str msg;
 
-#ifdef HAVE_EMBEDDED
-	(void) cntxt;
-	(void) mb;
-	(void) stk;
-	(void) pci;
-#else
 	if ((msg = CLTshutdown(cntxt, mb, stk, pci)) == MAL_SUCCEED) {
 		/* administer the shutdown */
 		mnstr_printf(GDKstdout, "#%s\n", *getArgReference_str(stk, pci, 0));
 	}
-#endif
 	return msg;
 }
 
@@ -365,9 +356,6 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 		if(isPartitionedByColumnTable(t) && c->base.id == t->part.pcol->base.id)
 			nt->part.pcol = copied;
 	}
-#ifdef HAVE_EMBEDDED
-	(void) check;
-#else
 	if(isPartitionedByExpressionTable(t)) {
 		char *err = NULL;
 
@@ -395,7 +383,6 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 		sql->sa = osa;
 		throw(SQL, "sql.catalog", SQLSTATE(42000) "CREATE TABLE: %s_%s: an internal error occurred", s->base.name, t->base.name);
 	}
-#endif
 
 	if (t->idxs.set) {
 		for (n = t->idxs.set->h; n; n = n->next) {
@@ -406,7 +393,6 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 	if (t->keys.set) {
 		for (n = t->keys.set->h; n; n = n->next) {
 			sql_key *k = n->data;
-#ifndef HAVE_EMBEDDED
 			char *err = NULL;
 
 			sql->sa = sa_create();
@@ -422,7 +408,6 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 				sql->sa = osa;
 				return err;
 			}
-#endif
 			mvc_copy_key(sql, nt, k);
 		}
 	}
@@ -4344,7 +4329,6 @@ dump_opt_stats(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 dump_trace(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-#ifndef HAVE_EMBEDDED
 	int i;
 	BAT *t[13];
 	bat id;
@@ -4361,33 +4345,17 @@ dump_trace(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	} else
 		throw(SQL,"dump_trace", SQLSTATE(45000) "Missing trace BAT ");
 	return MAL_SUCCEED;
-#else
-	(void) cntxt;
-	(void) mb;
-	(void) stk;
-	(void) pci;
-	throw(SQL,"sql.dump_trace", SQLSTATE(42000) "Not available in MonetDBLite version");
-#endif
 }
 
 str
 sql_sessions_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-#ifndef HAVE_EMBEDDED
 	return CLTsessions(cntxt, mb, stk, pci);
-#else
-	(void) cntxt;
-	(void) mb;
-	(void) stk;
-	(void) pci;
-	throw(SQL,"sql.sessions_wrap", SQLSTATE(42000) "Not available in MonetDBLite version");
-#endif
 }
 
 str
 sql_rt_credentials_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-#ifndef HAVE_EMBEDDED
 	BAT *urib = NULL;
 	BAT *unameb = NULL;
 	BAT *hashb = NULL;
@@ -4438,20 +4406,12 @@ sql_rt_credentials_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (unameb) BBPunfix(unameb->batCacheid);
 	if (hashb) BBPunfix(hashb->batCacheid);
 	return msg;
-#else
-	(void) cntxt;
-	(void) mb;
-	(void) stk;
-	(void) pci;
-	throw(SQL,"sql.remote_table_credentials", SQLSTATE(42000) "Not available in MonetDBLite version");
-#endif
 }
 
 
 str
 sql_querylog_catalog(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-#ifndef HAVE_EMBEDDED
 	int i;
 	BAT *t[8];
 	str msg;
@@ -4470,19 +4430,11 @@ sql_querylog_catalog(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	} else
 		throw(SQL,"sql.querylog", SQLSTATE(45000) "Missing query catalog BAT");
 	return MAL_SUCCEED;
-#else
-	(void) cntxt;
-	(void) mb;
-	(void) stk;
-	(void) pci;
-	throw(SQL,"sql.querylog", SQLSTATE(42000) "Not available in MonetDBLite version");
-#endif
 }
 
 str
 sql_querylog_calls(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-#ifndef HAVE_EMBEDDED
 	int i;
 	BAT *t[10];
 	str msg;
@@ -4501,13 +4453,6 @@ sql_querylog_calls(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	} else
 		throw(SQL,"sql.querylog", SQLSTATE(45000) "Missing query call BAT");
 	return MAL_SUCCEED;
-#else
-	(void) cntxt;
-	(void) mb;
-	(void) stk;
-	(void) pci;
-	throw(SQL,"sql.querylog", SQLSTATE(42000) "Not available in MonetDBLite version");
-#endif
 }
 
 str
@@ -4517,11 +4462,7 @@ sql_querylog_empty(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 	(void) stk;
 	(void) pci;
-#ifndef HAVE_EMBEDDED
 	return QLOGempty(NULL);
-#else
-	throw(SQL,"sql.querylog", SQLSTATE(42000) "Not available in MonetDBLite version");
-#endif
 }
 
 /* str sql_rowid(oid *rid, ptr v, str *sname, str *tname); */

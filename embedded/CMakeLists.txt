@@ -14,8 +14,8 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ../common/options ../common/util
 add_definitions(${COMPILER_OPTION}DLIBGDK ${COMPILER_OPTION}DLIBMONETDB5 ${COMPILER_OPTION}DLIBSQL
 				${COMPILER_OPTION}DLIBEMBEDDED ${COMPILER_OPTION}DHAVE_EMBEDDED)
 
-bison_target(sqlparserlite ../sql/server/sql_parser.y ${CMAKE_CURRENT_BINARY_DIR}/sql_sqlparserlite.tab.c
-			 COMPILE_FLAGS "-d -p sql -r all" DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/sql_sqlparserlite.tab.h)
+bison_target(sqlparserlite ../sql/server/sql_parser.y ${CMAKE_CURRENT_BINARY_DIR}/sql_parser.tab.c
+			 COMPILE_FLAGS "-d -p sql -r all" DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/sql_parser.tab.h)
 add_library(bisonlite_obj OBJECT ${BISON_sqlparserlite_OUTPUTS})
 set_target_properties(bisonlite_obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if(COMPILER_Wnounreachablecode)
@@ -49,6 +49,7 @@ set(MAL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/monetdb5/optimizer/optimizer.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/iterator.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/language.mal"
+	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/querylog.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/01_batcalc.mal"
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/mal/01_calc.mal"
 	"${CMAKE_SOURCE_DIR}/sql/backends/monet5/sql.mal" # sql.mal MUST be here
@@ -90,7 +91,10 @@ set(MONETDBLITE_TRANSLATION_UNITS
 	monetdb_embedded.c
 	../common/options/monet_options.c
 	../common/stream/stream.c
+	../common/utils/mcrypt.c
+	../common/utils/msabaoth.c
 	../common/utils/mutils.c
+	../common/utils/muuid.c
 	../common/utils/revision.c
 	../gdk/gdk_aggr.c
 	../gdk/gdk_align.c
@@ -128,11 +132,14 @@ set(MONETDBLITE_TRANSLATION_UNITS
 	../gdk/gdk_value.c
 	../monetdb5/mal/mal.c
 	../monetdb5/mal/mal_atom.c
+	../monetdb5/mal/mal_authorize.c
 	../monetdb5/mal/mal_builder.c
 	../monetdb5/mal/mal_client.c
 	../monetdb5/mal/mal_dataflow.c
+	../monetdb5/mal/mal_debugger.c
 	../monetdb5/mal/mal_embedded.c
 	../monetdb5/mal/mal_exception.c
+	../monetdb5/mal/mal_factory.c
 	../monetdb5/mal/mal_function.c
 	../monetdb5/mal/mal_import.c
 	../monetdb5/mal/mal_instruction.c
@@ -142,6 +149,7 @@ set(MONETDBLITE_TRANSLATION_UNITS
 	../monetdb5/mal/mal_module.c
 	../monetdb5/mal/mal_namespace.c
 	../monetdb5/mal/mal_parser.c
+	../monetdb5/mal/mal_profiler.c
 	../monetdb5/mal/mal_resolve.c
 	../monetdb5/mal/mal_resource.c
 	../monetdb5/mal/mal_runtime.c
@@ -150,34 +158,36 @@ set(MONETDBLITE_TRANSLATION_UNITS
 	../monetdb5/mal/mal_stack.c
 	../monetdb5/mal/mal_type.c
 	../monetdb5/mal/mal_utils.c
-	../monetdb5/modules/kernel/aggr.c
+	../monetdb5/modules/atoms/blob.c
+	../monetdb5/modules/atoms/mtime.c
+	../monetdb5/modules/atoms/mtime_analytic.c
+	../monetdb5/modules/atoms/str.c
 	../monetdb5/modules/atoms/streams.c
+	../monetdb5/modules/atoms/strptime.c
+	../monetdb5/modules/kernel/aggr.c
 	../monetdb5/modules/kernel/algebra.c
 	../monetdb5/modules/kernel/bat5.c
-	../monetdb5/modules/mal/batcalc.c
-	../monetdb5/modules/mal/batExtensions.c
 	../monetdb5/modules/kernel/batmmath.c
 	../monetdb5/modules/kernel/batstr.c
-	../monetdb5/modules/atoms/blob.c
+	../monetdb5/modules/kernel/group.c
+	../monetdb5/modules/kernel/mmath.c
+	../monetdb5/modules/mal/batExtensions.c
+	../monetdb5/modules/mal/batcalc.c
 	../monetdb5/modules/mal/bbp.c
 	../monetdb5/modules/mal/calc.c
-	../monetdb5/modules/kernel/group.c
 	../monetdb5/modules/mal/inspect.c
 	../monetdb5/modules/mal/iterator.c
 	../monetdb5/modules/mal/language.c
 	../monetdb5/modules/mal/manifold.c
 	../monetdb5/modules/mal/mat.c
 	../monetdb5/modules/mal/mkey.c
-	../monetdb5/modules/kernel/mmath.c
-	../monetdb5/modules/atoms/mtime.c
-	../monetdb5/modules/atoms/mtime_analytic.c
-	../monetdb5/modules/atoms/strptime.c
 	../monetdb5/modules/mal/orderidx.c
 	../monetdb5/modules/mal/pcre.c
 	../monetdb5/modules/mal/projectionpath.c
+	../monetdb5/modules/mal/querylog.c
 	../monetdb5/modules/mal/sample.c
-	../monetdb5/modules/atoms/str.c
 	../monetdb5/modules/mal/tablet.c
+	../monetdb5/modules/mal/wlc.c
 	../monetdb5/optimizer/opt_aliases.c
 	../monetdb5/optimizer/opt_candidates.c
 	../monetdb5/optimizer/opt_coercion.c
@@ -191,19 +201,28 @@ set(MONETDBLITE_TRANSLATION_UNITS
 	../monetdb5/optimizer/opt_garbageCollector.c
 	../monetdb5/optimizer/opt_generator.c
 	../monetdb5/optimizer/opt_inline.c
+	../monetdb5/optimizer/opt_jit.c
+	../monetdb5/optimizer/opt_json.c
 	../monetdb5/optimizer/opt_macro.c
 	../monetdb5/optimizer/opt_matpack.c
 	../monetdb5/optimizer/opt_mergetable.c
 	../monetdb5/optimizer/opt_mitosis.c
 	../monetdb5/optimizer/opt_multiplex.c
+	../monetdb5/optimizer/opt_oltp.c
 	../monetdb5/optimizer/opt_pipes.c
+	../monetdb5/optimizer/opt_postfix.c
 	../monetdb5/optimizer/opt_prelude.c
 	../monetdb5/optimizer/opt_profiler.c
 	../monetdb5/optimizer/opt_projectionpath.c
 	../monetdb5/optimizer/opt_pushselect.c
+	../monetdb5/optimizer/opt_querylog.c
+	../monetdb5/optimizer/opt_reduce.c
 	../monetdb5/optimizer/opt_remap.c
+	../monetdb5/optimizer/opt_remoteQueries.c
 	../monetdb5/optimizer/opt_reorder.c
 	../monetdb5/optimizer/opt_support.c
+	../monetdb5/optimizer/opt_volcano.c
+	../monetdb5/optimizer/opt_wlc.c
 	../monetdb5/optimizer/opt_wrapper.c
 	../monetdb5/optimizer/optimizer.c
 	../sql/backends/monet5/mal_backend.c
@@ -229,6 +248,7 @@ set(MONETDBLITE_TRANSLATION_UNITS
 	../sql/backends/monet5/sql_transaction.c
 	../sql/backends/monet5/sql_upgrades.c
 	../sql/backends/monet5/sql_user.c
+	../sql/backends/monet5/wlr.c
 	../sql/common/sql_backend.c
 	../sql/common/sql_changeset.c
 	../sql/common/sql_hash.c
@@ -245,6 +265,7 @@ set(MONETDBLITE_TRANSLATION_UNITS
 	../sql/server/rel_partition.c
 	../sql/server/rel_planner.c
 	../sql/server/rel_prop.c
+	../sql/server/rel_propagate.c
 	../sql/server/rel_psm.c
 	../sql/server/rel_rel.c
 	../sql/server/rel_remote.c
@@ -261,6 +282,7 @@ set(MONETDBLITE_TRANSLATION_UNITS
 	../sql/server/sql_decimal.c
 	../sql/server/sql_env.c
 	../sql/server/sql_mvc.c
+	../sql/server/sql_partition.c
 	../sql/server/sql_privileges.c
 	../sql/server/sql_qc.c
 	../sql/server/sql_query.c

@@ -28,19 +28,16 @@
 #include "sql_mvc.h"
 #include "sql_user.h"
 #include "sql_datetime.h"
+#include "mal_io.h"
 #include "mal_parser.h"
 #include "mal_builder.h"
 #include "mal_namespace.h"
-#include "mal_embedded.h"
+#include "mal_debugger.h"
 #include "mal_linker.h"
 #include "bat5.h"
-#ifndef HAVE_EMBEDDED
-#include "mal_io.h"
-#include "mal_debugger.h"
 #include "wlc.h"
 #include "wlr.h"
 #include "msabaoth.h"
-#endif
 #include "mtime.h"
 #include "optimizer.h"
 #include "opt_prelude.h"
@@ -174,7 +171,6 @@ SQLprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	/* only register availability of scenarios AFTER we are inited! */
 	s->name = "sql";
-#ifndef HAVE_EMBEDDED
 	tmp = msab_marchScenario(s->name);
 	if (tmp != NULL) {
 		char *err = createException(MAL, "sql.start", "%s", tmp);
@@ -189,8 +185,6 @@ SQLprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return err;
 	}
 	return MAL_SUCCEED;
-#endif
-	return tmp;
 }
 
 str
@@ -212,15 +206,14 @@ SQLexit(Client c)
 str
 SQLepilogue(void *ret)
 {
-	str res = MAL_SUCCEED;
+	char *s = "sql", *m = "msql";
+	str res;
 
 	(void) ret;
 	(void) SQLexit(NULL);
-#ifndef HAVE_EMBEDDED
 	/* this function is never called, but for the style of it, we clean
 	 * up our own mess */
 	if (!GDKinmemory()) {
-		char *s = "sql", *m = "msql";
 		res = msab_retreatScenario(m);
 		if (!res)
 			res = msab_retreatScenario(s);
@@ -230,8 +223,7 @@ SQLepilogue(void *ret)
 			return err;
 		}
 	}
-#endif
-	return res;
+	return MAL_SUCCEED;
 }
 
 #define SQLglobal(name, val, failure)                                                                             \
@@ -526,7 +518,6 @@ SQLinit(Client c)
 			return msg;
 		}
 
-#ifndef HAVE_EMBEDDED
 		{
 			char path[FILENAME_MAX];
 			str fullname;
@@ -586,6 +577,7 @@ SQLinit(Client c)
 				MT_fprintf(stderr, "!could not read createdb.sql\n");
 		}
 
+#ifndef HAVE_EMBEDDED
 		if ((msg = install_sql_scripts(c, createdb_inline2, "createdb_inline2")) != MAL_SUCCEED) {
 			MT_lock_unset(&sql_contextLock);
 			return msg;
@@ -643,10 +635,7 @@ SQLinit(Client c)
 			throw(SQL, "SQLinit", SQLSTATE(42000) "Starting idle manager failed");
 		}
 	}
-#ifndef HAVE_EMBEDDED
-	msg = WLCinit();
-#endif
-	return msg;
+	return WLCinit();
 }
 
 #define TRANS_ABORTED SQLSTATE(25005) "Current transaction is aborted (please ROLLBACK)\n"
@@ -741,11 +730,11 @@ SQLinitClient(Client c)
 		MT_lock_unset(&sql_contextLock);
 		return msg;
 	}
-#ifndef HAVE_EMBEDDED
 	if ((msg = WLRinit()) != MAL_SUCCEED) {
 		MT_lock_unset(&sql_contextLock);
 		return msg;
 	}
+#ifndef HAVE_EMBEDDED
 	msg = SQLprepareClient(c, 1);
 #else
 	msg = SQLprepareClient(c, 0);
@@ -1061,7 +1050,7 @@ cachable(mvc *m, sql_rel *r)
 	if (m->type == Q_TRANS )	/* m->type == Q_SCHEMA || cachable to make sure we have trace on alter statements  */
 		return 0;
 	/* we don't store queries with a large footprint */
-	if (r && sa_size(m->sa) > MAX_QUERY)
+	if(r && sa_size(m->sa) > MAX_QUERY)
 		return 0;
 	return 1;
 }

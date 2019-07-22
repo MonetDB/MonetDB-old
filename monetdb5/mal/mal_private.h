@@ -23,7 +23,6 @@ int MCreadClient(Client c)
 void MCpopClientInput(Client c)
 	__attribute__((__visibility__("hidden")));
 
-#ifndef HAVE_EMBEDDED
 str runFactory(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr stk, InstrPtr pci)
 	__attribute__((__visibility__("hidden")));
 int yieldResult(MalBlkPtr mb, InstrPtr p, int pc)
@@ -33,9 +32,7 @@ str yieldFactory(MalBlkPtr mb, InstrPtr p, int pc)
 str callFactory(Client cntxt, MalBlkPtr mb, ValPtr argv[],char flag)
 	__attribute__((__visibility__("hidden")));
 #endif
-#endif
 
-#ifndef HAVE_EMBEDDED
 #ifndef NDEBUG
 void mdbStep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
 	__attribute__((__visibility__("hidden")));
@@ -46,7 +43,6 @@ void mdbExit(void)
 #endif
 mal_export void AUTHreset(void)
 	__attribute__((__visibility__("hidden")));
-#endif
 
 str malAtomDefinition(str name,int tpe)
 	__attribute__((__visibility__("hidden")));

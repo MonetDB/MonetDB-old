@@ -43,12 +43,10 @@
 #include "mal_import.h"
 #include "mal_parser.h"
 #include "mal_namespace.h"
+#include "mal_profiler.h"
 #include "mal_private.h"
 #include "mal_runtime.h"
-#ifndef HAVE_EMBEDDED
-#include "mal_profiler.h"
 #include "mal_authorize.h"
-#endif
 
 static volatile int shutdowninprogress = 0;
 int MAL_MAXCLIENTS = 0;
@@ -182,10 +180,8 @@ MCexitClient(Client c)
 #ifdef MAL_CLIENT_DEBUG
 	MT_fprintf(stderr,"# Exit client %d\n", c->idx);
 #endif
-#ifndef HAVE_EMBEDDED
 	finishSessionProfiler(c);
 	MPresetProfiler(c->fdout);
-#endif
 	if (c->father == NULL) { /* normal client */
 		if (c->fdout && c->fdout != GDKstdout) {
 			close_stream(c->fdout);
@@ -304,9 +300,7 @@ MCinitClientThread(Client c)
 
 	t = MT_thread_getdata();	/* should succeed */
 	if (t == NULL) {
-#ifndef HAVE_EMBEDDED
 		MPresetProfiler(c->fdout);
-#endif
 		return -1;
 	}
 	/*
@@ -320,9 +314,7 @@ MCinitClientThread(Client c)
 	if (c->errbuf == NULL) {
 		char *n = GDKzalloc(GDKMAXERRLEN);
 		if ( n == NULL){
-#ifndef HAVE_EMBEDDED
 			MPresetProfiler(c->fdout);
-#endif
 			return -1;
 		}
 		GDKsetbuf(n);
@@ -634,22 +626,13 @@ MCvalid(Client tc)
 str
 PROFinitClient(Client c){
 	(void) c;
-#ifndef HAVE_EMBEDDED
 	return startProfiler();
-#else
-	return MAL_SUCCEED;
-#endif
-
 }
 
 str
 PROFexitClient(Client c){
 	(void) c;
-#ifndef HAVE_EMBEDDED
 	return stopProfiler();
-#else
-	return MAL_SUCCEED;
-#endif
 }
 
 

@@ -8365,6 +8365,19 @@ rel_add_dicts(int *changes, mvc *sql, sql_rel *rel)
 }
 
 static int
+find_col_exp( list *exps, sql_exp *e)
+{
+	node *n;
+	int nr = 0;
+
+	for (n=exps->h; n; n=n->next, nr++){
+		if (n->data == e)
+			return nr;
+	}
+	return -1;
+}
+
+static int
 exp_range_overlap( mvc *sql, sql_exp *e, char *min, char *max, atom *emin, atom *emax)
 {
 	sql_subtype *t = exp_subtype(e);
@@ -8413,20 +8426,6 @@ exp_range_overlap( mvc *sql, sql_exp *e, char *min, char *max, atom *emin, atom 
 			return 0;
 	}
 	return 1;
-}
-
-#ifndef HAVE_EMBEDDED
-static int
-find_col_exp( list *exps, sql_exp *e)
-{
-	node *n;
-	int nr = 0;
-
-	for (n=exps->h; n; n=n->next, nr++){
-		if (n->data == e)
-			return nr;
-	}
-	return -1;
 }
 
 static sql_rel *
@@ -8667,7 +8666,6 @@ rel_merge_table_rewrite(int *changes, mvc *sql, sql_rel *rel)
 		return sel;
 	return rel;
 }
-#endif
 
 static sql_rel*
 exp_skip_output_parts(sql_rel *rel)
@@ -9086,9 +9084,7 @@ optimize_rel(mvc *sql, sql_rel *rel, int *g_changes, int level, int value_based_
 		changes = 0;
 	}
 
-#ifndef HAVE_EMBEDDED
 	rel = rewrite_topdown(sql, rel, &rel_merge_table_rewrite, &changes);
-#endif
 	if (level <= 0 && mvc_debug_on(sql,8))
 		rel = rewrite_topdown(sql, rel, &rel_add_dicts, &changes);
 	*g_changes = changes;

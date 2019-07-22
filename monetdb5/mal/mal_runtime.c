@@ -16,9 +16,12 @@
 #include "mal_runtime.h"
 #include "mal_interpreter.h"
 #include "mal_function.h"
+#include "mal_profiler.h"
 #include "mal_listing.h"
-#include "mal_private.h"
+#include "mal_authorize.h"
 #include "mal_resource.h"
+#include "mal_private.h"
+
 
 // Keep a queue of running queries
 QueryQueue QRYqueue;
@@ -181,11 +184,9 @@ runtimeProfileBegin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Run
 	if( isaBatType(getArgType(mb, pci, 0)) )
 		(void) ATOMIC_INC(&mal_running);
 
-#ifndef HAVE_EMBEDDED
 	/* emit the instruction upon start as well */
 	if(malProfileMode > 0 )
 		profilerEvent(mb, stk, pci, TRUE, cntxt->username);
-#endif
 }
 
 void
@@ -193,7 +194,6 @@ runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Runt
 {
 	int tid = THRgettid();
 
-	(void) stk;
 	/* keep track on the instructions in progress*/
 	if ( tid < THREADS) {
 		cntxt->inprogress[tid].mb = 0;
@@ -211,7 +211,6 @@ runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Runt
 	pci->totticks += pci->ticks;
 	pci->calls++;
 
-#ifndef HAVE_EMBEDDED
 	if(malProfileMode > 0 )
 		profilerEvent(mb, stk, pci, FALSE, cntxt->username);
 	if( malProfileMode < 0){
@@ -219,7 +218,6 @@ runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Runt
 		if( getInstrPtr(mb,0) == pci)
 			malProfileMode = 1;
 	}
-#endif
 	cntxt->active = FALSE;
 	/* reduce threads of non-admin long running transaction if needed */
 	if ( cntxt->idx > 1 )
@@ -233,6 +231,20 @@ runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Runt
  * may trigger a side effect, such as creating a hash-index.
  * Side effects are ignored.
  */
+
+lng
+getBatSpace(BAT *b){
+	lng space=0;
+	if( b == NULL)
+		return 0;
+	space += BATcount(b) * b->twidth;
+	if( space){
+		if( b->tvheap) space += heapinfo(b->tvheap, b->batCacheid);
+		space += hashinfo(b->thash, b->batCacheid);
+		space += IMPSimprintsize(b);
+	}
+	return space;
+}
 
 lng getVolume(MalStkPtr stk, InstrPtr pci, int rd)
 {

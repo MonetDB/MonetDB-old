@@ -1244,9 +1244,7 @@ GDKusec(void)
 {
 	/* Return the time in microseconds since an epoch.  The epoch
 	 * is currently midnight at the start of January 1, 1970, UTC. */
-#ifdef HAVE_EMBEDDED
-	return 0; // Just ignore on MonetDBLite
-#elif defined(NATIVE_WIN32)
+#if defined(NATIVE_WIN32)
 	FILETIME ft;
 	ULARGE_INTEGER f;
 	GetSystemTimeAsFileTime(&ft); /* time since Jan 1, 1601 */

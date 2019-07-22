@@ -52,7 +52,7 @@
 #include "opt_volcano.h"
 #include "opt_wlc.h"
 
-static struct {
+static struct{
 	str nme;
 	str (*fcn)();
 	int calls;
@@ -71,34 +71,24 @@ static struct {
 	{"garbageCollector", &OPTgarbageCollectorImplementation,0,0},
 	{"generator", &OPTgeneratorImplementation,0,0},
 	{"inline", &OPTinlineImplementation,0,0},
-#ifndef HAVE_EMBEDDED
 	{"jit", &OPTjitImplementation,0,0},
 	{"json", &OPTjsonImplementation,0,0},
-#endif
 	{"matpack", &OPTmatpackImplementation,0,0},
 	{"mergetable", &OPTmergetableImplementation,0,0},
 	{"mitosis", &OPTmitosisImplementation,0,0},
 	{"multiplex", &OPTmultiplexImplementation,0,0},
-#ifndef HAVE_EMBEDDED
 	{"oltp", &OPToltpImplementation,0,0},
 	{"postfix", &OPTpostfixImplementation,0,0},
-#endif
 	{"profiler", &OPTprofilerImplementation,0,0},
 	{"projectionpath", &OPTprojectionpathImplementation,0,0},
 	{"pushselect", &OPTpushselectImplementation,0,0},
-#ifndef HAVE_EMBEDDED
 	{"querylog", &OPTquerylogImplementation,0,0},
 	{"reduce", &OPTreduceImplementation,0,0},
-#endif
 	{"remap", &OPTremapImplementation,0,0},
-#ifndef HAVE_EMBEDDED
 	{"remoteQueries", &OPTremoteQueriesImplementation,0,0},
-#endif
 	{"reorder", &OPTreorderImplementation,0,0},
-#ifndef HAVE_EMBEDDED
 	{"volcano", &OPTvolcanoImplementation,0,0},
 	{"wlc", &OPTwlcImplementation,0,0},
-#endif
 	{0,0,0,0}
 };
 mal_export str OPTwrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);

@@ -14,12 +14,10 @@
 #include "mal_interpreter.h" /* for runMAL(), garbageElement() */
 #include "mal_parser.h"	     /* for parseMAL() */
 #include "mal_namespace.h"
-#include "mal_builder.h"
-#include "mal_private.h"
-#ifndef HAVE_EMBEDDED
-#include "msabaoth.h"
 #include "mal_authorize.h"
-#endif
+#include "mal_builder.h"
+#include "msabaoth.h"
+#include "mal_private.h"
 #include "gdk.h"	/* for opendir and friends */
 
 /*
@@ -102,7 +100,6 @@ MSinitClientPrg(Client cntxt, str mod, str nme)
 	return MAL_SUCCEED;
 }
 
-#ifndef HAVE_EMBEDDED
 /*
  * The default method to interact with the database server is to connect
  * using a port number. The first line received should contain
@@ -339,7 +336,6 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 		freeException(msg);
 	}
 }
-#endif
 
 /*
  * After the client initialization has been finished, we can start the
@@ -416,7 +412,6 @@ MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start)
 #endif
 }
 
-#ifndef HAVE_EMBEDDED
 /*
  * Here we start the client.  We need to initialize and allocate space
  * for the global variables.  Thereafter it is up to the scenario
@@ -492,7 +487,6 @@ MSserveClient(Client c)
 	}
 	return MAL_SUCCEED;
 }
-#endif
 
 /*
  * The stages of processing user requests are controlled by a scenario.

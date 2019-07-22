@@ -33,11 +33,9 @@
 #include "mal_atom.h"
 #include "mal_resource.h"
 #include "mal_atom.h"
-#ifndef HAVE_EMBEDDED
 #include "msabaoth.h"
 #include "mal_authorize.h"
 #include "mal_profiler.h"
-#endif
 
 static bool embeddedinitialized = false;
 static int nDefaultModules = 0;
@@ -59,7 +57,7 @@ malEmbeddedBoot(void)
 
 	if (!MCinit())
 		throw(MAL, "malEmbeddedBoot", "MAL debugger failed to start");
-#if !defined(NDEBUG) && !defined(HAVE_EMBEDDED)
+#ifndef NDEBUG
 	if (!mdbInit()) {
 		mal_client_reset();
 		throw(MAL, "malEmbeddedBoot", "MAL debugger failed to start");
@@ -68,11 +66,9 @@ malEmbeddedBoot(void)
 	monet_memory = MT_npages() * MT_pagesize();
 	initNamespace();
 	initParser();
-#ifndef HAVE_EMBEDDED
 	initHeartbeat();
 	initResource();
 	initProfiler();
-#endif
 
 	c = MCinitClient((oid) 0, 0, 0);
 	if(c == NULL)
@@ -95,12 +91,10 @@ malEmbeddedBoot(void)
 		return msg;
 	}
 	for(nDefaultModules = 0; malModules[nDefaultModules]; nDefaultModules++);
-#ifndef HAVE_EMBEDDED
 	if ((msg = malInclude(c, "mal_init", 0)) != MAL_SUCCEED) {
 		MCcloseClient(c);
 		return msg;
 	}
-#endif
 	pushEndInstruction(c->curprg->def);
 	chkProgram(c->usermodule, c->curprg->def);
 	if ( (msg= c->curprg->def->errors) != MAL_SUCCEED ) {
@@ -153,7 +147,6 @@ malEmbeddedReset(void) //remove extra modules and set to non-initialized again
 	memset(&malModules[nDefaultModules], 0, (MAXMODULES-1 - nDefaultModules) * sizeof(str));
 	GDKprepareExit();
 	MCstopClients(0);
-#ifndef HAVE_EMBEDDED
 	WLCreset();
 	setHeartbeat(-1);
 	stopProfiler();
@@ -171,7 +164,6 @@ malEmbeddedReset(void) //remove extra modules and set to non-initialized again
 	}
 	mal_factory_reset();
 	mal_runtime_reset();
-#endif
 	mal_dataflow_reset();
 	mal_client_reset();
 	mal_linker_reset();
@@ -179,7 +171,7 @@ malEmbeddedReset(void) //remove extra modules and set to non-initialized again
 	mal_module_reset();
 	mal_atom_reset();
 	opt_pipes_reset();
-#if !defined(NDEBUG) && !defined(HAVE_EMBEDDED)
+#ifndef NDEBUG
 	mdbExit();
 #endif
 

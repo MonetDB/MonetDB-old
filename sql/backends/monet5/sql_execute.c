@@ -34,14 +34,12 @@
 #include "rel_rel.h"
 #include "rel_exp.h"
 #include "rel_dump.h"
+#include "mal_debugger.h"
 #include "mtime.h"
 #include "optimizer.h"
 #include "opt_inline.h"
 #ifndef NATIVE_WIN32
 #include <unistd.h>
-#endif
-#ifndef HAVE_EMBEDDED
-#include "mal_debugger.h"
 #endif
 
 /*
@@ -67,7 +65,6 @@
 * is executed within the client context specified. This leads to context juggling.
 */
 
-#ifndef HAVE_EMBEDDED
 /*
  * The trace operation collects the events in the BATs
  * and creates a secondary result set upon termination
@@ -194,7 +191,6 @@ SQLsetTrace(Client cntxt, MalBlkPtr mb)
 
 	return msg;
 }
-#endif
 
 /*
  * Execution of the SQL program is delegated to the MALengine.
@@ -274,10 +270,8 @@ SQLexecutePrepared(Client c, backend *be, MalBlkPtr mb)
 		v->val.ival = int_nil;
 	}
 	q->stk = (backend_stack) glb; /* save garbageCollected stack */
-#ifndef HAVE_EMBEDDED
 	if (glb && SQLdebug & 1)
 		printStack(GDKstdout, mb, glb);
-#endif
 	if (pci->argc >= MAXARG && argv != argvbuffer)
 		GDKfree(argv);
 	if (pci->retc >= MAXARG && argrec != argrecbuffer)
@@ -381,19 +375,17 @@ SQLrun(Client c, backend *be, mvc *m)
 	if (m->emod & mod_explain) {
 		if (c->curprg->def)
 			printFunction(c->fdout, mb, 0, LIST_MAL_NAME | LIST_MAL_VALUE  | LIST_MAL_TYPE |  LIST_MAL_MAPI);
-	}
-#ifndef HAVE_EMBEDDED
-	else if( m->emod & mod_debug) {
+	} else if( m->emod & mod_debug) {
 		msg = runMALDebugger(c, mb);
-	} else if( m->emod & mod_trace){
-		if((msg = SQLsetTrace(c,mb)) == MAL_SUCCEED) {
+	} else {
+		if( m->emod & mod_trace){
+			if((msg = SQLsetTrace(c,mb)) == MAL_SUCCEED) {
+				msg = runMAL(c, mb, 0, 0);
+				stopTrace(0);
+			}
+		} else {
 			msg = runMAL(c, mb, 0, 0);
-			stopTrace(0);
 		}
-	}
-#endif
-	else {
-		msg = runMAL(c, mb, 0, 0);
 	}
 
 	// release the resources
@@ -683,11 +675,10 @@ SQLstatementIntern(Client c, str *expr, str nme, bit execute, bit output, res_ta
 				error = createException(PARSE, "SQLparser", "%s", m->errstr);
 			else if (*m->errstr)
 				error = createException(PARSE, "SQLparser", SQLSTATE(42000) "%s", m->errstr);
-			else if (msg)
+			else
 				error = createException(PARSE, "SQLparser", SQLSTATE(42000) "%s", msg);
 			if (msg)
 				freeException(msg);
-			assert(*error);
 			msg = error;
 			*m->errstr = 0;
 			goto endofcompile;

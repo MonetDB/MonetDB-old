@@ -7,7 +7,6 @@
  */
 
 #include "monetdb_config.h"
-#include "mal_exception.h"
 #include "rel_trans.h"
 #include "rel_rel.h"
 #include "rel_select.h"
@@ -21,9 +20,7 @@
 #include "sql_privileges.h"
 #include "sql_partition.h"
 
-#ifndef HAVE_EMBEDDED
 #include "mal_authorize.h"
-#endif
 
 #define qname_index(qname) qname_table(qname)
 #define qname_func(qname) qname_table(qname)

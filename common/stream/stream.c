@@ -156,7 +156,7 @@ mnstr_init(void)
 	if (ATOMIC_TAS(&inited))
 		return 0;
 
-#if defined(NATIVE_WIN32) && !defined(HAVE_EMBEDDED)
+#ifdef NATIVE_WIN32
 	{
 		WSADATA w;
 
@@ -2075,7 +2075,6 @@ open_wastream(const char *filename)
 	return s;
 }
 
-#ifndef HAVE_EMBEDDED
 /* ------------------------------------------------------------------ */
 /* streams working on a remote file using cURL */
 
@@ -2659,8 +2658,6 @@ socket_wstream(SOCKET sock, const char *name)
 	s->binary = true;
 	return s;
 }
-
-#endif /* HAVE EMBEDDED*/
 
 /* ------------------------------------------------------------------ */
 /* streams working on an open file pointer */

@@ -231,7 +231,6 @@ MT_init_posix(void)
 {
 }
 
-#ifndef HAVE_EMBEDDED
 /* return RSS in bytes */
 size_t
 MT_getrss(void)
@@ -293,7 +292,6 @@ MT_getrss(void)
 #endif
 	return 0;
 }
-#endif
 
 void *
 MT_mmap(const char *path, int mode, size_t len)
@@ -680,7 +678,6 @@ MT_init_posix(void)
 	SetUnhandledExceptionFilter(MT_ignore_exceptions);
 }
 
-#ifndef HAVE_EMBEDDED
 size_t
 MT_getrss(void)
 {
@@ -689,7 +686,6 @@ MT_getrss(void)
 		return ctr.WorkingSetSize;
 	return 0;
 }
-#endif
 
 /* Windows mmap keeps a global list of base addresses for complex
  * (remapped) memory maps the reason is that each remapped segment

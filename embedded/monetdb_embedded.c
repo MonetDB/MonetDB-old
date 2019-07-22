@@ -30,6 +30,7 @@
 #include "rel_rel.h"
 #include "rel_updates.h"
 #include "monet_options.h"
+#include "msabaoth.h"
 
 typedef struct {
 	monetdb_result res;
@@ -362,7 +363,7 @@ monetdb_shutdown_internal(void) // Call this function always inside the embedded
 char*
 monetdb_startup(char* dbdir, bool silent, bool sequential)
 {
-	char* msg = MAL_SUCCEED;
+	char* msg = MAL_SUCCEED, *err;
 	monetdb_result* res = NULL;
 	void* c;
 	opt *set = NULL;
@@ -404,7 +405,7 @@ monetdb_startup(char* dbdir, bool silent, bool sequential)
 		msg = createException(MAL, "embedded.monetdb_startup", MAL_MALLOC_FAIL);
 		goto cleanup;
 	}
-	if (!dbdir) {
+	if (!dbdir) { /* in-memory */
 		if (BBPaddfarm(NULL, (1 << PERSISTENT) | (1 << TRANSIENT)) != GDK_SUCCEED) {
 			mo_free_options(set, setlen);
 			msg = createException(MAL, "embedded.monetdb_startup", "Cannot add in-memory farm");
@@ -420,6 +421,19 @@ monetdb_startup(char* dbdir, bool silent, bool sequential)
 		if (GDKcreatedir(dbdir) != GDK_SUCCEED) {
 			mo_free_options(set, setlen);
 			msg = createException(MAL, "embedded.monetdb_startup", "Cannot create directory %s", dbdir);
+			goto cleanup;
+		}
+		msab_dbpathinit(dbdir);
+		if ((err = msab_wildRetreat()) != NULL) {
+			mo_free_options(set, setlen);
+			msg = createException(MAL, "embedded.monetdb_startup", "%s", err);
+			free(err);
+			goto cleanup;
+		}
+		if ((err = msab_registerStarting()) != NULL) {
+			mo_free_options(set, setlen);
+			msg = createException(MAL, "embedded.monetdb_startup", "%s", err);
+			free(err);
 			goto cleanup;
 		}
 	}

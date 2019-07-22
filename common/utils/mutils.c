@@ -404,7 +404,6 @@ MT_lockf(char *filename, int mode, off_t off, off_t len)
 
 #endif
 
-#ifndef HAVE_EMBEDDED
 #ifndef PATH_MAX
 # define PATH_MAX 1024
 #endif
@@ -442,7 +441,6 @@ get_bin_path(void)
 	 * that's a lot of work and unreliable */
 	return NULL;
 }
-#endif
 
 static bool MT_silent = false;
 

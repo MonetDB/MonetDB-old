@@ -21,9 +21,7 @@
 #include "sql_upgrades.h"
 
 #include "rel_remote.h"
-#ifndef HAVE_EMBEDDED
 #include "mal_authorize.h"
-#endif
 
 /* this function can be used to recreate the system tables (types,
  * functions, args) when internal types and/or functions have changed

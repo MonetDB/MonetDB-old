@@ -35,12 +35,9 @@
 #include "sql_qc.h"
 #include "mal_namespace.h"
 #include "opt_prelude.h"
+#include "querylog.h"
 #include "mal_builder.h"
-
-#ifndef HAVE_EMBEDDED
-#include "muuid.h"
-#include "msabaoth.h"		/* msab_getUUID */
-#endif
+#include "mal_debugger.h"
 
 #include "rel_select.h"
 #include "rel_unnest.h"
@@ -54,6 +51,9 @@
 #include "rel_bin.h"
 #include "rel_dump.h"
 #include "rel_remote.h"
+
+#include "msabaoth.h"		/* msab_getUUID */
+#include "muuid.h"
 
 int
 constantAtom(backend *sql, MalBlkPtr mb, atom *a)
@@ -225,7 +225,6 @@ _create_relational_function(mvc *m, const char *mod, const char *name, sql_rel *
 	return 0;
 }
 
-#ifndef HAVE_EMBEDDED
 static str
 rel2str( mvc *sql, sql_rel *rel)
 {
@@ -570,17 +569,16 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 	GDKfree(lname);		/* make sure stub is called */
 	return 0;
 }
-#endif
 
 int
 monet5_create_relational_function(mvc *m, const char *mod, const char *name, sql_rel *rel, stmt *call, list *rel_ops, int inline_func)
 {
-#ifndef HAVE_EMBEDDED
 	prop *p = NULL;
+
 	if (rel && (p = find_prop(rel->p, PROP_REMOTE)) != NULL)
 		return _create_relational_remote(m, mod, name, rel, call, p);
-#endif
-	return _create_relational_function(m, mod, name, rel, call, rel_ops, inline_func);
+	else
+		return _create_relational_function(m, mod, name, rel, call, rel_ops, inline_func);
 }
 
 /*
@@ -647,7 +645,7 @@ backend_dumpstmt(backend *be, MalBlkPtr mb, sql_rel *r, int top, int add_end, co
 	stmt *s;
 
 	// Always keep the SQL query around for monitoring
-#ifndef HAVE_EMBEDDED
+
 	if (query) {
 		while (*query && isspace((unsigned char) *query))
 			query++;
@@ -664,9 +662,7 @@ backend_dumpstmt(backend *be, MalBlkPtr mb, sql_rel *r, int top, int add_end, co
 			return -1;
 		}
 	}
-#else
-	(void) query;
-#endif
+
 	/* announce the transaction mode */
 	q = newStmt(mb, sqlRef, "mvc");
 	if (q == NULL)
