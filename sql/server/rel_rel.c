@@ -27,8 +27,8 @@ rel_name( sql_rel *r )
 		return rel_name(r->l);
 	if (r->exps && list_length(r->exps)) {
 		sql_exp *e = r->exps->h->data;
-		if (e->rname)
-			return e->rname;
+		if (exp_relname(e))
+			return exp_relname(e);
 		if (e->type == e_column)
 			return e->l;
 	}
@@ -274,7 +274,7 @@ rel_bind_column( mvc *sql, sql_rel *rel, const char *cname, int f )
 	if ((is_project(rel->op) || is_base(rel->op)) && rel->exps) {
 		sql_exp *e = exps_bind_column(rel->exps, cname, NULL);
 		if (e)
-			return exp_alias_or_copy(sql, e->rname, cname, rel, e);
+			return exp_alias_or_copy(sql, exp_relname(e), cname, rel, e);
 	}
 	return NULL;
 }
@@ -536,10 +536,11 @@ rel_project_add_exp( mvc *sql, sql_rel *rel, sql_exp *e)
 {
 	assert(is_project(rel->op));
 
-	if (!e->rname) {
-		exp_setrelname(sql->sa, e, ++sql->label);
-		if (!e->name)
-			e->name = e->rname;
+	if (!exp_relname(e)) {
+		if (exp_name(e))
+			exp_setrelname(sql->sa, e, ++sql->label);
+		else
+			exp_label(sql->sa, e, ++sql->label);
 	}
 	if (rel->op == op_project) {
 		if (!rel->exps)
@@ -643,7 +644,7 @@ rel_groupby_add_aggr(mvc *sql, sql_rel *rel, sql_exp *e)
 	char name[16], *nme = NULL;
 
 	if ((m=exps_find_match_exp(rel->exps, e)) == NULL) {
-		if (!e->name) {
+		if (!exp_name(e)) {
 			nme = number2name(name, 16, ++sql->label);
 			exp_setname(sql->sa, e, nme, nme);
 		}
@@ -731,6 +732,7 @@ rel_basetable(mvc *sql, sql_table *t, const char *atname)
 			p = e->p = prop_create(sa, PROP_HASHCOL, e->p);
 			p->value = NULL;
 		}
+		set_basecol(e);
 		append(rel->exps, e);
 	}
 	append(rel->exps, exp_alias(sa, atname, TID, tname, TID, sql_bind_localtype("oid"), CARD_MULTI, 0, 1));
@@ -906,7 +908,7 @@ exps_has_nil(list *exps)
 }
 
 list *
-rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int intern)
+_rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int intern, int basecol /* basecol only */ )
 {
 	list *lexps, *rexps, *exps;
 	int include_subquery = (intern==2)?1:0;
@@ -922,10 +924,10 @@ rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int int
 	case op_left:
 	case op_right:
 	case op_full:
-		exps = rel_projections(sql, rel->l, tname, settname, intern);
+		exps = _rel_projections(sql, rel->l, tname, settname, intern, basecol);
 		if (rel->op == op_full || rel->op == op_right)
 			exps_has_nil(exps);
-		rexps = rel_projections(sql, rel->r, tname, settname, intern);
+		rexps = _rel_projections(sql, rel->r, tname, settname, intern, basecol);
 		if (rel->op == op_full || rel->op == op_left)
 			exps_has_nil(rexps);
 		exps = list_merge( exps, rexps, (fdup)NULL);
@@ -945,6 +947,9 @@ rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int int
 			exps = new_exp_list(sql->sa);
 			for (en = rel->exps->h; en; en = en->next) {
 				sql_exp *e = en->data;
+
+				if (basecol && !is_basecol(e))
+					continue;
 				if (intern || !is_intern(e)) {
 					append(exps, e = exp_alias_or_copy(sql, tname, exp_name(e), rel, e));
 					if (!settname) /* noname use alias */
@@ -954,8 +959,8 @@ rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int int
 			}
 			return exps;
 		}
-		lexps = rel_projections(sql, rel->l, tname, settname, intern);
-		rexps = rel_projections(sql, rel->r, tname, settname, intern);
+		lexps = _rel_projections(sql, rel->l, tname, settname, intern, basecol);
+		rexps = _rel_projections(sql, rel->r, tname, settname, intern, basecol);
 		exps = sa_list(sql->sa);
 		if (lexps && rexps && exps) {
 			node *en, *ren;
@@ -976,10 +981,16 @@ rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int int
 	case op_select:
 	case op_topn:
 	case op_sample:
-		return rel_projections(sql, rel->l, tname, settname, intern);
+		return _rel_projections(sql, rel->l, tname, settname, intern, basecol);
 	default:
 		return NULL;
 	}
+}
+
+list *
+rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int intern)
+{
+	return _rel_projections(sql, rel, tname, settname, intern, 0);
 }
 
 /* find the path to the relation containing the base of the expression
@@ -1360,7 +1371,7 @@ rel_find_column( sql_allocator *sa, sql_rel *rel, const char *tname, const char 
 		if (!e && cname[0] == '%')
 			e = exps_bind_column(rel->exps, cname, &ambiguous);
 		if (e && !ambiguous)
-			return exp_alias(sa, e->rname, exp_name(e), e->rname, cname, exp_subtype(e), e->card, has_nil(e), is_intern(e));
+			return exp_alias(sa, exp_relname(e), exp_name(e), exp_relname(e), cname, exp_subtype(e), e->card, has_nil(e), is_intern(e));
 	}
 	if (is_project(rel->op) && rel->l && !is_processed(rel)) {
 		return rel_find_column(sa, rel->l, tname, cname);

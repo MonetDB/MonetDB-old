@@ -44,7 +44,7 @@ rel_table_projections( mvc *sql, sql_rel *rel, char *tname, int level )
 
 	if (!tname) {
 		if (is_project(rel->op) && rel->l)
-			return rel_projections(sql, rel->l, NULL, 1, 0);
+			return _rel_projections(sql, rel->l, NULL, 1, 0, 1);
 		else
 			return NULL;
 		/* return rel_projections(sql, rel, NULL, 1, 0); */
@@ -83,9 +83,9 @@ rel_table_projections( mvc *sql, sql_rel *rel, char *tname, int level )
 			for (en = rel->exps->h; en; en = en->next) {
 				sql_exp *e = en->data;
 				/* first check alias */
-				if (!is_intern(e) && e->rname && strcmp(e->rname, tname) == 0)
+				if (is_basecol(e) && exp_relname(e) && strcmp(exp_relname(e), tname) == 0)
 					append(exps, exp_alias_or_copy(sql, tname, exp_name(e), rel, e));
-				if (!is_intern(e) && !e->rname && e->l && strcmp(e->l, tname) == 0)
+				if (is_basecol(e) && !exp_relname(e) && e->l && strcmp(e->l, tname) == 0)
 					append(exps, exp_alias_or_copy(sql, tname, exp_name(e), rel, e));
 			}
 			if (exps && list_length(exps))
@@ -206,6 +206,7 @@ static sql_rel *
 rel_table_optname(mvc *sql, sql_rel *sq, symbol *optname)
 {
 	sql_rel *osq = sq;
+	node *ne;
 
 	if (optname && optname->token == SQL_NAME) {
 		dlist *columnrefs = NULL;
@@ -221,8 +222,8 @@ rel_table_optname(mvc *sql, sql_rel *sq, symbol *optname)
 			return sql_error(sql, 02, SQLSTATE(42000) "SELECT: The number of aliases is longer than the number of columns (%d>%d)", dlist_length(columnrefs), sq->nrcols);
 		if (columnrefs && sq->exps) {
 			dnode *d = columnrefs->h;
-			node *ne = sq->exps->h;
 
+			ne = sq->exps->h;
 			MT_lock_set(&sq->exps->ht_lock);
 			sq->exps->ht = NULL;
 			MT_lock_unset(&sq->exps->ht_lock);
@@ -232,12 +233,12 @@ rel_table_optname(mvc *sql, sql_rel *sq, symbol *optname)
 				if (exps_bind_column2(l, tname, d->data.sval))
 					return sql_error(sql, ERR_AMBIGUOUS, SQLSTATE(42000) "SELECT: Duplicate column name '%s.%s'", tname, d->data.sval);
 				exp_setname(sql->sa, e, tname, d->data.sval );
+				if (!is_intern(e))
+					set_basecol(e);
 				append(l, e);
 			}
 		}
 		if (!columnrefs && sq->exps) {
-			node *ne;
-
 			ne = sq->exps->h;
 			for (; ne; ne = ne->next) {
 				sql_exp *e = ne->data;
@@ -245,8 +246,21 @@ rel_table_optname(mvc *sql, sql_rel *sq, symbol *optname)
 				if (exp_name(e) && exps_bind_column2(l, tname, exp_name(e)))
 					return sql_error(sql, ERR_AMBIGUOUS, SQLSTATE(42000) "SELECT: Duplicate column name '%s.%s'", tname, exp_name(e));
 				noninternexp_setname(sql->sa, e, tname, NULL );
+				if (!is_intern(e))
+					set_basecol(e);
 				append(l, e);
 			}
+		}
+	} else {
+		if (!is_project(sq->op) || is_topn(sq->op) || (is_project(sq->op) && sq->r)) {
+			sq = rel_project(sql->sa, sq, rel_projections(sql, sq, NULL, 1, 1));
+			osq = sq;
+		}
+		for (ne = osq->exps->h; ne; ne = ne->next) {
+			sql_exp *e = ne->data;
+
+			if (!is_intern(e))
+				set_basecol(e);
 		}
 	}
 	return osq;
@@ -309,8 +323,13 @@ rel_with_query(sql_query *query, symbol *q )
 		if (is_project(nrel->op) && nrel->exps) {
 			node *ne = nrel->exps->h;
 
-			for (; ne; ne = ne->next) 
-				noninternexp_setname(sql->sa, ne->data, name, NULL );
+			for (; ne; ne = ne->next) {
+				sql_exp *e = ne->data;
+
+				noninternexp_setname(sql->sa, e, name, NULL );
+				if (!is_intern(e))
+					set_basecol(e);
+			}
 		}
 	}
 	rel = rel_semantic(query, next);
@@ -650,8 +669,10 @@ rel_named_table_function(sql_query *query, sql_rel *rel, symbol *ast, int latera
 	exps = new_exp_list(sql->sa);
 	for (m = sf->func->res->h; m; m = m->next) {
 		sql_arg *a = m->data;
+		sql_exp *e = exp_column(sql->sa, tname, a->name, &a->type, CARD_MULTI, 1, 0);
 
-		append(exps, exp_column(sql->sa, tname, a->name, &a->type, CARD_MULTI, 1, 0));
+		set_basecol(e);
+		append(exps, e);
 	}
 	rel = rel_table_func(sql->sa, rel, e, exps, (sq != NULL));
 	if (ast->data.lval->h->next->data.sym && ast->data.lval->h->next->data.sym->data.lval->h->next->data.lval)
@@ -840,8 +861,12 @@ table_ref(sql_query *query, sql_rel *rel, symbol *tableref, int lateral)
 			list *exps = rel_projections(sql, temp_table, NULL, 1, 1);
 
 			temp_table = rel_project(sql->sa, temp_table, exps);
-			for (n = exps->h; n; n = n->next)
-				noninternexp_setname(sql->sa, n->data, tname, NULL);
+			for (n = exps->h; n; n = n->next) {
+				sql_exp *e = n->data;
+
+				noninternexp_setname(sql->sa, e, tname, NULL);
+				set_basecol(e);
+			}
 			return temp_table;
 		} else if (isView(t)) {
 			/* instantiate base view */
@@ -867,6 +892,7 @@ table_ref(sql_query *query, sql_rel *rel, symbol *tableref, int lateral)
 					sql_exp *e = m->data;
 
 					exp_setname(sql->sa, e, tname, c->base.name);
+					set_basecol(e);
 				}
 			}
 			return rel;
@@ -1257,7 +1283,7 @@ rel_check_type(mvc *sql, sql_subtype *t, sql_rel *rel, sql_exp *exp, int tpe)
 			t->digits,
 			t->scale,
 			(exp->type == e_column ? " for column '" : ""),
-			(exp->type == e_column ? exp->name : ""),
+			(exp->type == e_column ? exp_name(exp) : ""),
 			(exp->type == e_column ? "'" : "")
 		);
 		return res;
@@ -1446,15 +1472,15 @@ rel_filter(mvc *sql, sql_rel *rel, list *l, list *r, char *sname, char *filter_o
 	/* atom or row => select */
 	if (exps_card(l) > rel->card) {
 		sql_exp *ls = l->h->data;
-		if (ls->name)
-			return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", ls->name);
+		if (exp_name(ls))
+			return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", exp_name(ls));
 		else
 			return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column in query results without an aggregate function");
 	}
 	if (exps_card(r) > rel->card) {
 		sql_exp *rs = l->h->data;
-		if (rs->name)
-			return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", rs->name);
+		if (exp_name(rs))
+			return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", exp_name(rs));
 		else
 			return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column in query results without an aggregate function");
 	}
@@ -1554,14 +1580,14 @@ rel_compare_exp_(sql_query *query, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_e
 
 	/* atom or row => select */
 	if (ls->card > rel->card) {
-		if (ls->name)
-			return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", ls->name);
+		if (exp_name(ls))
+			return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", exp_name(ls));
 		else
 			return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column in query results without an aggregate function");
 	}
 	if (rs->card > rel->card || (rs2 && rs2->card > rel->card)) {
-		if (rs->name)
-			return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", rs->name);
+		if (exp_name(rs))
+			return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", exp_name(rs));
 		else
 			return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column in query results without an aggregate function");
 	}
@@ -4604,7 +4630,7 @@ exp_rewrite(mvc *sql, sql_exp *e, sql_rel *r)
 		}
 		if (!e)
 			return NULL;
-		return exp_column(sql->sa, e->l, e->r, exp_subtype(e), exp_card(e), has_nil(e), is_intern(e));
+		return exp_propagate(sql->sa, exp_column(sql->sa, e->l, e->r, exp_subtype(e), exp_card(e), has_nil(e), is_intern(e)), e);
 	case e_aggr:
 	case e_cmp: 
 		return NULL;
@@ -4772,9 +4798,9 @@ rel_order_by(sql_query *query, sql_rel **R, symbol *orderby, int f )
 					} else if (e->type == e_atom) {
 						return sql_error(sql, 02, SQLSTATE(42000) "order not of type SQL_COLUMN");
 					}
-				} else if (e && e->card != rel->card) {
-					if (e && e->name) {
-						return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", e->name);
+				} else if (e && exp_card(e) != rel->card) {
+					if (e && exp_name(e)) {
+						return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", exp_name(e));
 					} else {
 						return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column in query results without an aggregate function");
 					}
@@ -5665,7 +5691,7 @@ rel_value_exp2(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek, 
 			e = _rel_lastexp(sql, r);
 
 			/* group by needed ? */
-			if (e->card >= CARD_ATOM && e->card > ek.card) {
+			if (e->card >= CARD_ATOM && e->card > (unsigned) ek.card) {
 
 				int processed = is_processed(r);
 
@@ -5995,7 +6021,7 @@ join_on_column_name(sql_query *query, sql_rel *rel, sql_rel *t1, sql_rel *t2, in
 		return NULL;
 	for (n = exps->h; n; n = n->next) {
 		sql_exp *le = n->data;
-		const char *nm = le->name;
+		const char *nm = exp_name(le);
 		sql_exp *re = exps_bind_column(r_exps, nm, NULL);
 
 		if (re) {
@@ -6115,8 +6141,8 @@ rel_select_exp(sql_query *query, sql_rel *rel, SelectNode *sn, exp_kind ek)
 
 		if (ce && exp_subtype(ce)) {
 			if (rel->card < ce->card) {
-				if (ce->name) {
-					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", ce->name);
+				if (exp_name(ce)) {
+					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", exp_name(ce));
 				} else {
 					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column in query results without an aggregate function");
 				}
@@ -6641,7 +6667,7 @@ rel_unionjoinquery(sql_query *query, sql_rel *rel, symbol *q)
 	rexps = new_exp_list(sql->sa);
 	for (m = lexps->h; m; m = m->next) {
 		sql_exp *le = m->data;
-		sql_exp *rc = rel_bind_column(sql, rv, le->name, sql_where);
+		sql_exp *rc = rel_bind_column(sql, rv, exp_name(le), sql_where);
 			
 		if (!rc && all)
 			break;
