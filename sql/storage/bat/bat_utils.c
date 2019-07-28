@@ -147,8 +147,10 @@ ebat_copy(log_bid b, oid ibase, int temp)
 		return BID_NIL;
 	if (!ebats[o->ttype]) {
 		ebats[o->ttype] = bat_new(o->ttype, 0, TRANSIENT);
-		if (!ebats[o->ttype])
+		if (!ebats[o->ttype]) {
+			bat_destroy(o);
 			return BID_NIL;
+		}
 	}
 
 	if (!temp && BATcount(o)) {

@@ -725,6 +725,7 @@ rel_basetable(mvc *sql, sql_table *t, const char *atname)
 			rel_destroy(rel);
 			return NULL;
 		}
+		set_basecol(e);
 		if (c->t->pkey && ((sql_kc*)c->t->pkey->k.columns->h->data)->c == c) {
 			p = e->p = prop_create(sa, PROP_HASHCOL, e->p);
 			p->value = c->t->pkey;

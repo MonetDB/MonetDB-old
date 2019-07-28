@@ -1928,7 +1928,7 @@ exp_copy( sql_allocator *sa, sql_exp * e)
 
 	switch(e->type){
 	case e_column:
-		ne = exp_column(sa, e->l, e->r, exp_subtype(e), e->card, has_nil(e), is_intern(e));
+		ne = exp_column(sa, e->l, e->r, exp_subtype(e), exp_card(e), has_nil(e), is_intern(e));
 		ne->flag = e->flag;
 		break;
 	case e_cmp:

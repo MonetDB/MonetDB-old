@@ -512,7 +512,7 @@ stmt_temp(backend *be, sql_subtype *t)
 }
 
 stmt *
-stmt_tid(backend *be, sql_table *t, int partition)
+stmt_tid(backend *be, sql_table *t, int partition, stmt *all)
 {
 	int tt = TYPE_oid;
 	MalBlkPtr mb = be->mb;
@@ -546,6 +546,10 @@ stmt_tid(backend *be, sql_table *t, int partition)
 		if (t->p && 0)
 			setMitosisPartition(q, t->p->base.id);
 	}
+	if (all)
+		q = pushArgument(mb, q, all->nr);
+	else
+		q = pushBit(mb, q, TRUE);
 	if (q) {
 		stmt *s = stmt_create(be->mvc->sa, st_tid);
 		if (s == NULL) {

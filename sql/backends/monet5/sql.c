@@ -2212,6 +2212,14 @@ SQLtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BAT *tids;
 	size_t nr, inr = 0, dcnt;
 	oid sb = 0;
+	bit all = *getArgReference_bit(stk, pci, 4);
+
+	if (!all) {
+		tids = BATdense(0, 0, 0);
+		if (tids == NULL)
+			throw(SQL, "sql.tid", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		BBPkeepref(*res = tids->batCacheid);
+	}
 
 	*res = bat_nil;
 	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
@@ -2233,10 +2241,10 @@ SQLtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	    t->persistence == SQL_PERSIST && !t->commit_action)
 		inr = store_funcs.count_col(tr, c, 0);
 	nr -= inr;
-	if (pci->argc == 6) {	/* partitioned version */
+	if (pci->argc == 7) {	/* partitioned version */
 		size_t cnt = nr;
-		int part_nr = *getArgReference_int(stk, pci, 4);
-		int nr_parts = *getArgReference_int(stk, pci, 5);
+		int part_nr = *getArgReference_int(stk, pci, 5);
+		int nr_parts = *getArgReference_int(stk, pci, 6);
 
 		nr /= nr_parts;
 		sb = (oid) (part_nr * nr);
@@ -2262,8 +2270,8 @@ SQLtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 
 		diff = BATdiff(tids, d, NULL, NULL, false, false, BUN_NONE);
-		// assert(pci->argc == 6 || BATcount(diff) == (nr-dcnt));
-		if( !(pci->argc == 6 || BATcount(diff) == (nr-dcnt)) )
+		// assert(pci->argc == 7 || BATcount(diff) == (nr-dcnt));
+		if( !(pci->argc == 7 || BATcount(diff) == (nr-dcnt)) )
 			msg = createException(SQL, "sql.tid", SQLSTATE(00000) "Invalid sqltid state argc= %d diff=  %d, dcnt=%d", pci->argc, (int)nr, (int)dcnt);
 		BBPunfix(d->batCacheid);
 		BBPunfix(tids->batCacheid);

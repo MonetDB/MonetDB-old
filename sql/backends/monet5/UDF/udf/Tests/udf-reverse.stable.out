@@ -108,22 +108,22 @@ end user.main;
 % 114 # length
 function user.main():void;
     X_1:void := querylog.define("explain select reverse(x) from udf_reverse;":str, "sequential_pipe":str, 21:int);
-    X_22:bat[:str] := bat.new(nil:str);
-    X_28:bat[:int] := bat.new(nil:int);
-    X_26:bat[:int] := bat.new(nil:int);
+    X_23:bat[:str] := bat.new(nil:str);
+    X_29:bat[:int] := bat.new(nil:int);
+    X_27:bat[:int] := bat.new(nil:int);
+    X_26:bat[:str] := bat.new(nil:str);
     X_25:bat[:str] := bat.new(nil:str);
-    X_24:bat[:str] := bat.new(nil:str);
     X_4:int := sql.mvc();
-    C_5:bat[:oid] := sql.tid(X_4:int, "sys":str, "udf_reverse":str);
-    X_8:bat[:str] := sql.bind(X_4:int, "sys":str, "udf_reverse":str, "x":str, 0:int);
-    X_17:bat[:str] := algebra.projection(C_5:bat[:oid], X_8:bat[:str]);
-    X_18:bat[:str] := batudf.reverse(X_17:bat[:str]);
-    X_29:bat[:str] := bat.append(X_22:bat[:str], "sys.L1":str);
-    X_31:bat[:str] := bat.append(X_24:bat[:str], "L1":str);
-    X_33:bat[:str] := bat.append(X_25:bat[:str], "clob":str);
-    X_35:bat[:int] := bat.append(X_26:bat[:int], 0:int);
-    X_36:bat[:int] := bat.append(X_28:bat[:int], 0:int);
-    sql.resultSet(X_29:bat[:str], X_31:bat[:str], X_33:bat[:str], X_35:bat[:int], X_36:bat[:int], X_18:bat[:str]);
+    C_5:bat[:oid] := sql.tid(X_4:int, "sys":str, "udf_reverse":str, true:bit);
+    X_9:bat[:str] := sql.bind(X_4:int, "sys":str, "udf_reverse":str, "x":str, 0:int);
+    X_18:bat[:str] := algebra.projection(C_5:bat[:oid], X_9:bat[:str]);
+    X_19:bat[:str] := batudf.reverse(X_18:bat[:str]);
+    X_30:bat[:str] := bat.append(X_23:bat[:str], "sys.L1":str);
+    X_32:bat[:str] := bat.append(X_25:bat[:str], "L1":str);
+    X_34:bat[:str] := bat.append(X_26:bat[:str], "clob":str);
+    X_36:bat[:int] := bat.append(X_27:bat[:int], 0:int);
+    X_37:bat[:int] := bat.append(X_29:bat[:int], 0:int);
+    sql.resultSet(X_30:bat[:str], X_32:bat[:str], X_34:bat[:str], X_36:bat[:int], X_37:bat[:int], X_19:bat[:str]);
 end user.main;
 #inline               actions= 0 time=1 usec 
 #remap                actions= 1 time=5 usec 

@@ -233,12 +233,12 @@ unsafe pattern clear_table(sname:str, tname:str) :lng
 address mvc_clear_table_wrap
 comment "Clear the table sname.tname.";
 
-pattern tid( mvc:int, sname:str, tname:str):bat[:oid] 
+pattern tid( mvc:int, sname:str, tname:str, all:bit):bat[:oid] 
 address SQLtid
-comment "Return a column with the valid tuple identifiers associated with the table sname.tname.";
-pattern tid( mvc:int, sname:str, tname:str, part_nr:int, nr_parts:int ):bat[:oid] 
+comment "Return a column with the valid tuple identifiers associated with the table sname.tname (if all is true).";
+pattern tid( mvc:int, sname:str, tname:str, all:bit, part_nr:int, nr_parts:int):bat[:oid] 
 address SQLtid
-comment "Return the tables tid column.";
+comment "Return the tables tid column (if all is true).";
 
 unsafe pattern delete(mvc:int, sname:str, tname:str, b:any):int
 address mvc_delete_wrap

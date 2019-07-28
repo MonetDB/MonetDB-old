@@ -142,7 +142,7 @@ extern stmt *stmt_rs_column(backend *be, stmt *result_set, int i, sql_subtype *t
 
 extern stmt *stmt_bat(backend *be, sql_column *c, int access, int partition);
 extern stmt *stmt_idxbat(backend *be, sql_idx *i, int access, int partition);
-extern stmt *stmt_tid(backend *be, sql_table *t, int partition);
+extern stmt *stmt_tid(backend *be, sql_table *t, int partition, stmt *all);
 
 extern stmt *stmt_append_col(backend *be, sql_column *c, stmt *b, int locked);
 extern stmt *stmt_append_idx(backend *be, sql_idx *i, stmt *b);
