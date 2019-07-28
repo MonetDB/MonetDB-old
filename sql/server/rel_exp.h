@@ -70,7 +70,8 @@ extern list * exp_types(sql_allocator *sa, list *exps);
 extern int have_nil(list *exps);
 
 extern sql_exp * exp_column(sql_allocator *sa, const char *rname, const char *name, sql_subtype *t, int card, int has_nils, int intern);
-#define exp_ref(sa, e) exp_column(sa, exp_relname(e), exp_name(e), exp_subtype(e), exp_card(e), has_nil(e), is_intern(e))
+extern sql_exp * exp_propagate(sql_allocator *sa, sql_exp *ne, sql_exp *oe);
+#define exp_ref(sa, e) exp_propagate(sa, exp_column(sa, exp_relname(e), exp_name(e), exp_subtype(e), exp_card(e), has_nil(e), is_intern(e)), e)
 extern sql_exp * exp_alias(sql_allocator *sa, const char *arname, const char *acname, const char *org_rname, const char *org_cname, sql_subtype *t, int card, int has_nils, int intern);
 extern sql_exp * exp_alias_or_copy( mvc *sql, const char *tname, const char *cname, sql_rel *orel, sql_exp *old);
 extern sql_exp * exp_set(sql_allocator *sa, const char *name, sql_exp *val, int level);
@@ -114,11 +115,11 @@ extern int exp_equal( sql_exp *e1, sql_exp *e2);
 extern int exp_refers( sql_exp *p, sql_exp *c);
 extern int exp_match( sql_exp *e1, sql_exp *e2);
 extern sql_exp* exps_find_exp( list *l, sql_exp *e);  /* find the exact expression in the list */
-extern sql_exp* exps_match_exp(mvc *sql, list *l, sql_exp *e); /* find a matching expression in the list */
-extern int exp_match_exp(mvc *sql, sql_exp *e1, sql_exp *e2);
+extern sql_exp* exps_match_exp( list *l, sql_exp *e); /* find a matching expression in the list */
+extern int exp_match_exp( sql_exp *e1, sql_exp *e2);
 /* match just the column (cmp equality) expressions */
-extern int exp_match_col_exps(mvc *sql, sql_exp *e, list *l);
-extern int exps_match_col_exps(mvc *sql, sql_exp *e1, sql_exp *e2);
+extern int exp_match_col_exps( sql_exp *e, list *l);
+extern int exps_match_col_exps( sql_exp *e1, sql_exp *e2);
 extern int exp_is_join(sql_exp *e, list *rels);
 extern int exp_is_eqjoin(sql_exp *e);
 extern int exp_is_correlation(sql_exp *e, sql_rel *r );

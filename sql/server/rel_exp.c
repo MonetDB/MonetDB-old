@@ -95,6 +95,7 @@ exp_create(sql_allocator *sa, int type )
 	e->freevar = 0;
 	e->intern = 0;
 	e->anti = 0;
+	e->base = 0;
 	e->used = 0;
 	e->tpe.type = NULL;
 	e->tpe.digits = e->tpe.scale = 0;
@@ -480,6 +481,19 @@ exp_column(sql_allocator *sa, const char *rname, const char *cname, sql_subtype 
 	return e;
 }
 
+sql_exp *
+exp_propagate(sql_allocator *sa, sql_exp *ne, sql_exp *oe)
+{
+	if (is_intern(oe))
+		set_intern(ne);
+	if (is_anti(oe))
+		set_anti(ne);
+	if (is_basecol(oe))
+		set_basecol(ne);
+	ne->p = prop_copy(sa, oe->p);
+	return ne;
+}
+
 sql_exp * 
 exp_alias(sql_allocator *sa, const char *arname, const char *acname, const char *org_rname, const char *org_cname, sql_subtype *t, int card, int has_nils, int intern) 
 {
@@ -505,22 +519,19 @@ exp_alias_or_copy( mvc *sql, const char *tname, const char *cname, sql_rel *orel
 
 	if (!cname && exp_name(old) && exp_name(old)[0] == 'L') {
 		ne = exp_column(sql->sa, exp_relname(old), exp_name(old), exp_subtype(old), orel?orel->card:CARD_ATOM, has_nil(old), is_intern(old));
-		ne->p = prop_copy(sql->sa, old->p);
-		return ne;
+		return exp_propagate(sql->sa, ne, old);
 	} else if (!cname) {
 		char name[16], *nme;
 		nme = number2name(name, 16, ++sql->label);
 
 		exp_setname(sql->sa, old, nme, nme);
 		ne = exp_column(sql->sa, exp_relname(old), exp_name(old), exp_subtype(old), orel?orel->card:CARD_ATOM, has_nil(old), is_intern(old));
-		ne->p = prop_copy(sql->sa, old->p);
-		return ne;
+		return exp_propagate(sql->sa, ne, old);
 	} else if (cname && !old->alias.name) {
 		exp_setname(sql->sa, old, tname, cname);
 	}
 	ne = exp_column(sql->sa, tname, cname, exp_subtype(old), orel?orel->card:CARD_ATOM, has_nil(old), is_intern(old));
-	ne->p = prop_copy(sql->sa, old->p);
-	return ne;
+	return exp_propagate(sql->sa, ne, old);
 }
 
 sql_exp *
@@ -895,7 +906,7 @@ exps_find_exp( list *l, sql_exp *e)
 }
 
 sql_exp*
-exps_match_exp(mvc *sql, list *l, sql_exp *e) 
+exps_match_exp( list *l, sql_exp *e) 
 {
 	node *n;
 
@@ -903,7 +914,7 @@ exps_match_exp(mvc *sql, list *l, sql_exp *e)
 		return NULL;
 
 	for(n=l->h; n; n = n->next) {
-		if (exp_match_exp(sql, n->data, e))
+		if (exp_match_exp(n->data, e))
 			return n->data;
 	}
 	return NULL;
@@ -925,7 +936,7 @@ exp_refers( sql_exp *p, sql_exp *c)
 }
 
 int
-exp_match_col_exps(mvc *sql, sql_exp *e, list *l)
+exp_match_col_exps( sql_exp *e, list *l)
 {
 	node *n;
 
@@ -934,17 +945,17 @@ exp_match_col_exps(mvc *sql, sql_exp *e, list *l)
 		sql_exp *re_r = re->r;
 	
 		if (re->type == e_cmp && re->flag == cmp_or)
-			return exp_match_col_exps(sql, e, re->l) &&
-			       exp_match_col_exps(sql, e, re->r); 
+			return exp_match_col_exps(e, re->l) &&
+			       exp_match_col_exps(e, re->r); 
 
-		if (re->type != e_cmp || /*re->flag != cmp_equal ||*/ !re_r || re_r->card != 1 || !exp_match_exp(sql, e, re->l)) 
+		if (re->type != e_cmp || /*re->flag != cmp_equal ||*/ !re_r || re_r->card != 1 || !exp_match_exp(e, re->l)) 
 			return 0;
 	} 
 	return 1;
 }
 
 int
-exps_match_col_exps(mvc *sql, sql_exp *e1, sql_exp *e2)
+exps_match_col_exps( sql_exp *e1, sql_exp *e2)
 {
 	sql_exp *e1_r = e1->r;
 	sql_exp *e2_r = e2->r;
@@ -954,25 +965,25 @@ exps_match_col_exps(mvc *sql, sql_exp *e1, sql_exp *e2)
 
 	if (!is_complex_exp(e1->flag) && e1_r && e1_r->card == CARD_ATOM &&
 	    !is_complex_exp(e2->flag) && e2_r && e2_r->card == CARD_ATOM)
-		return exp_match_exp(sql, e1->l, e2->l);
+		return exp_match_exp(e1->l, e2->l);
 
 	if (!is_complex_exp(e1->flag) && e1_r && e1_r->card == CARD_ATOM &&
 	    (e2->flag == cmp_in || e2->flag == cmp_notin))
- 		return exp_match_exp(sql, e1->l, e2->l); 
+ 		return exp_match_exp(e1->l, e2->l); 
 
 	if ((e1->flag == cmp_in || e1->flag == cmp_notin) &&
 	    (e2->flag == cmp_in || e2->flag == cmp_notin))
- 		return exp_match_exp(sql, e1->l, e2->l); 
+ 		return exp_match_exp(e1->l, e2->l); 
 
 	if (!is_complex_exp(e1->flag) && e1_r && e1_r->card == CARD_ATOM &&
 	    e2->flag == cmp_or)
- 		return exp_match_col_exps(sql, e1->l, e2->l) &&
- 		       exp_match_col_exps(sql, e1->l, e2->r); 
+ 		return exp_match_col_exps(e1->l, e2->l) &&
+ 		       exp_match_col_exps(e1->l, e2->r); 
 
 	if (e1->flag == cmp_or &&
 	    !is_complex_exp(e2->flag) && e2_r && e2_r->card == CARD_ATOM)
- 		return exp_match_col_exps(sql, e2->l, e1->l) &&
- 		       exp_match_col_exps(sql, e2->l, e1->r); 
+ 		return exp_match_col_exps(e2->l, e1->l) &&
+ 		       exp_match_col_exps(e2->l, e1->r); 
 
 	if (e1->flag == cmp_or && e2->flag == cmp_or) {
 		list *l = e1->l, *r = e1->r;	
@@ -980,14 +991,14 @@ exps_match_col_exps(mvc *sql, sql_exp *e1, sql_exp *e2)
 		sql_exp *er = r->h->data;
 
 		return list_length(l) == 1 && list_length(r) == 1 &&
-		       exps_match_col_exps(sql, el, e2) &&
-		       exps_match_col_exps(sql, er, e2);
+		       exps_match_col_exps(el, e2) &&
+		       exps_match_col_exps(er, e2);
 	}
 	return 0;
 }
 
 static int 
-exp_match_list(mvc *sql, list *l, list *r)
+exp_match_list( list *l, list *r)
 {
 	node *n, *m;
 	char *lu, *ru;
@@ -1005,7 +1016,7 @@ exp_match_list(mvc *sql, list *l, list *r)
 		for ( m = r->h, rc = 0; m; m = m->next, rc++) {
 			sql_exp *re = m->data;
 
-			if (!ru[rc] && exp_match_exp(sql, le,re)) {
+			if (!ru[rc] && exp_match_exp(le,re)) {
 				lu[lc] = 1;
 				ru[rc] = 1;
 				match = 1;
@@ -1024,7 +1035,7 @@ exp_match_list(mvc *sql, list *l, list *r)
 }
 
 static int 
-exps_equal(mvc *sql, list *l, list *r)
+exps_equal( list *l, list *r)
 {
 	node *n, *m;
 
@@ -1035,14 +1046,14 @@ exps_equal(mvc *sql, list *l, list *r)
 	for (n = l->h, m = r->h; n && m; n = n->next, m = m->next) {
 		sql_exp *le = n->data, *re = m->data;
 
-		if (!exp_match_exp(sql, le, re))
+		if (!exp_match_exp(le, re))
 			return 0;
 	}
 	return 1;
 }
 
 int 
-exp_match_exp(mvc *sql, sql_exp *e1, sql_exp *e2)
+exp_match_exp( sql_exp *e1, sql_exp *e2)
 {
 	if (exp_match(e1, e2))
 		return 1;
@@ -1050,37 +1061,37 @@ exp_match_exp(mvc *sql, sql_exp *e1, sql_exp *e2)
 		switch(e1->type) {
 		case e_cmp:
 			if (e1->flag == e2->flag && !is_complex_exp(e1->flag) &&
-		            exp_match_exp(sql, e1->l, e2->l) && 
-			    exp_match_exp(sql, e1->r, e2->r) && 
-			    ((!e1->f && !e2->f) || exp_match_exp(sql, e1->f, e2->f)))
+		            exp_match_exp(e1->l, e2->l) && 
+			    exp_match_exp(e1->r, e2->r) && 
+			    ((!e1->f && !e2->f) || exp_match_exp(e1->f, e2->f)))
 				return 1;
 			else if (e1->flag == e2->flag && get_cmp(e1) == cmp_or &&
-		            exp_match_list(sql, e1->l, e2->l) && 
-			    exp_match_list(sql, e1->r, e2->r))
+		            exp_match_list(e1->l, e2->l) && 
+			    exp_match_list(e1->r, e2->r))
 				return 1;
 			else if (e1->flag == e2->flag && is_anti(e1) == is_anti(e2) &&
 				(e1->flag == cmp_in || e1->flag == cmp_notin) &&
-		            exp_match_exp(sql, e1->l, e2->l) && 
-			    exp_match_list(sql, e1->r, e2->r))
+		            exp_match_exp(e1->l, e2->l) && 
+			    exp_match_list(e1->r, e2->r))
 				return 1;
 			break;
 		case e_convert:
 			if (!subtype_cmp(exp_totype(e1), exp_totype(e2)) &&
 			    !subtype_cmp(exp_fromtype(e1), exp_fromtype(e2)) &&
-			    exp_match_exp(sql, e1->l, e2->l))
+			    exp_match_exp(e1->l, e2->l))
 				return 1;
 			break;
 		case e_aggr:
 			if (!subaggr_cmp(e1->f, e2->f) && /* equal aggregation*/
-			    exps_equal(sql, e1->l, e2->l) && 
+			    exps_equal(e1->l, e2->l) && 
 			    e1->flag == e2->flag)
 				return 1;
 			break;
 		case e_func:
 			if (!subfunc_cmp(e1->f, e2->f) && /* equal functions */
-			    exps_equal(sql, e1->l, e2->l) &&
+			    exps_equal(e1->l, e2->l) &&
 			    /* optional order by expressions */
-			    exps_equal(sql, e1->r, e2->r)) {
+			    exps_equal(e1->r, e2->r)) {
 				sql_subfunc *f = e1->f;
 				if (!f->func->side_effect)
 					return 1;
@@ -1794,7 +1805,7 @@ exps_fix_card( list *exps, int card)
 	for (n = exps->h; n; n = n->next) {
 		sql_exp *e = n->data;
 
-		if (e->card > card)
+		if (e->card > (unsigned) card)
 			e->card = card;
 	}
 }
@@ -1986,14 +1997,12 @@ exp_copy( sql_allocator *sa, sql_exp * e)
 	}
 	if (!ne)
 		return ne;
-	if (e->p)
-		ne->p = prop_copy(sa, e->p);
 	if (e->alias.name)
 		//exp_setname(sa, ne, exp_find_rel_name(e), exp_name(e));
 		exp_prop_alias(ne, e);
-	ne->freevar = e->freevar;
-	ne->intern = e->intern;
-	ne->anti = e->anti;
+	ne = exp_propagate(sa, ne, e);
+	if (is_freevar(e))
+		set_freevar(ne);
 	return ne;
 }
 
