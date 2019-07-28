@@ -3180,7 +3180,7 @@ trans_init(sql_trans *tr, sql_trans *otr)
 {
 	node *m,*n;
 
-	_trans_init(tr, stk, otr);
+	_trans_init(tr, otr);
 
 	for (m = otr->schemas.set->h, n = tr->schemas.set->h; m && n; m = m->next, n = n->next ) { 
 		sql_schema *ps = m->data; /* parent transactions schema */
