@@ -64,7 +64,7 @@ key_cmp(sql_key *k, sqlid *id)
 
 static int stamp = 1;
 
-static int timestamp (void) {
+static int timestamp(void) {
 	return stamp++;
 }
 
@@ -220,7 +220,7 @@ trans_drop_tmp(sql_trans *tr)
 #endif
 
 sql_trans *
-sql_trans_destroy(sql_trans *t)
+sql_trans_destroy(sql_trans *t, bool try_spare)
 {
 	sql_trans *res = t->parent;
 
@@ -228,7 +228,7 @@ sql_trans_destroy(sql_trans *t)
 	fprintf(stderr, "#destroy trans (%p)\n", t);
 #endif
 
-	if (res == gtrans && spares < MAX_SPARES && !t->name) {
+	if (res == gtrans && spares < MAX_SPARES && !t->name && try_spare) {
 #ifdef STORE_DEBUG
 		fprintf(stderr, "#spared (%d) trans (%p)\n", spares, t);
 #endif
@@ -254,7 +254,7 @@ destroy_spare_transactions(void)
 
 	spares = MAX_SPARES; /* ie now there not spared anymore */
 	for (i = 0; i < s; i++) {
-		sql_trans_destroy(spare_trans[i]);
+		sql_trans_destroy(spare_trans[i], false);
 	}
 	spares = 0;
 }
@@ -1057,6 +1057,7 @@ set_members(changeset *ts)
 				sql_part *p = m->data;
 				sql_table *pt = find_sql_table(t->s, p->base.name);
 
+				p->t = pt;
 				pt->p = t;
 			}
 		}
@@ -1253,7 +1254,7 @@ create_trans(sql_allocator *sa, backend_stack stk)
 	t->name = NULL;
 	t->wtime = t->rtime = 0;
 	t->stime = 0;
-	t->wstime = timestamp ();
+	t->wstime = timestamp();
 	t->schema_updates = 0;
 	t->status = 0;
 
@@ -1607,36 +1608,34 @@ dup_sql_column(sql_allocator *sa, sql_table *t, sql_column *c)
 }
 
 static sql_part *
-dup_sql_part(sql_allocator *sa, sql_table *t, sql_part *opt)
+dup_sql_part(sql_allocator *sa, sql_table *mt, sql_part *op)
 {
-	sql_part *pt = SA_ZNEW(sa, sql_part);
+	sql_part *p = SA_ZNEW(sa, sql_part);
 
-	base_init(sa, &pt->base, opt->base.id, opt->base.flags, opt->base.name);
-	pt->tpe = opt->tpe;
-	pt->t = t;
-	pt->with_nills = opt->with_nills;
+	base_init(sa, &p->base, op->base.id, op->base.flags, op->base.name);
+	p->tpe = op->tpe;
+	p->with_nills = op->with_nills;
 
-	if(isRangePartitionTable(t)) {
-		pt->part.range.minvalue = sa_alloc(sa, opt->part.range.minlength);
-		pt->part.range.maxvalue = sa_alloc(sa, opt->part.range.maxlength);
-		memcpy(pt->part.range.minvalue, opt->part.range.minvalue, opt->part.range.minlength);
-		memcpy(pt->part.range.maxvalue, opt->part.range.maxvalue, opt->part.range.maxlength);
-		pt->part.range.minlength = opt->part.range.minlength;
-		pt->part.range.maxlength = opt->part.range.maxlength;
-	} else if(isListPartitionTable(t)) {
-		pt->part.values = list_new(sa, (fdestroy) NULL);
-		for(node *n = opt->part.values->h ; n ; n = n->next) {
+	if(isRangePartitionTable(mt)) {
+		p->part.range.minvalue = sa_alloc(sa, op->part.range.minlength);
+		p->part.range.maxvalue = sa_alloc(sa, op->part.range.maxlength);
+		memcpy(p->part.range.minvalue, op->part.range.minvalue, op->part.range.minlength);
+		memcpy(p->part.range.maxvalue, op->part.range.maxvalue, op->part.range.maxlength);
+		p->part.range.minlength = op->part.range.minlength;
+		p->part.range.maxlength = op->part.range.maxlength;
+	} else if(isListPartitionTable(mt)) {
+		p->part.values = list_new(sa, (fdestroy) NULL);
+		for(node *n = op->part.values->h ; n ; n = n->next) {
 			sql_part_value *prev = (sql_part_value*) n->data, *nextv = SA_ZNEW(sa, sql_part_value);
 			nextv->tpe = prev->tpe;
 			nextv->value = sa_alloc(sa, prev->length);
 			memcpy(nextv->value, prev->value, prev->length);
 			nextv->length = prev->length;
-			list_append(pt->part.values, nextv);
+			list_append(p->part.values, nextv);
 		}
 	}
-
-	cs_add(&t->members, pt, TR_NEW);
-	return pt;
+	cs_add(&mt->members, p, TR_NEW);
+	return p;
 }
 
 sql_table *
@@ -1794,7 +1793,7 @@ store_load(void) {
 		/* cannot initialize database in readonly mode */
 		if (store_readonly)
 			return -1;
-		tr = sql_trans_create(backend_stk, NULL, NULL);
+		tr = sql_trans_create(backend_stk, NULL, NULL, true);
 		if (!tr) {
 			fprintf(stderr, "Failure to start a transaction while loading the storage\n");
 			return -1;
@@ -1963,7 +1962,7 @@ store_load(void) {
 		if (sql_trans_commit(tr) != SQL_OK) {
 			fprintf(stderr, "cannot commit initial transaction\n");
 		}
-		sql_trans_destroy(tr);
+		sql_trans_destroy(tr, true);
 	} else {
 		GDKqsort(store_oids, NULL, NULL, nstore_oids, sizeof(sqlid), 0, TYPE_int, false, false);
 		store_oid = store_oids[nstore_oids - 1] + 1;
@@ -2195,13 +2194,14 @@ store_exit(void)
 	   exit (but leak memory).
 	 */
 	if (!transactions) {
-		sql_trans_destroy(gtrans);
+		sql_trans_destroy(gtrans, false);
 		gtrans = NULL;
 	}
 #ifdef STORE_DEBUG
 	fprintf(stderr, "#store exit unlocked\n");
 #endif
 	MT_lock_unset(&bs_lock);
+	store_initialized=0;
 }
 
 
@@ -2714,6 +2714,9 @@ trigger_dup(sql_trans *tr, int flags, sql_trigger * i, sql_table *t)
 	return nt;
 }
 
+/* flags 0, dup from parent to new tr 
+ *	 TR_NEW, dup from child tr to parent
+ * */
 static sql_column *
 column_dup(sql_trans *tr, int flags, sql_column *oc, sql_table *t)
 {
@@ -2732,7 +2735,7 @@ column_dup(sql_trans *tr, int flags, sql_column *oc, sql_table *t)
 			lt = find_sql_type(s, c->type.type->base.name);
 		} else {
 			/* Current user type belongs to another schema in the current transaction. Search there for current user type. */
-			lt = sql_trans_bind_type(tr, NULL, c->type.type->base.name);
+			lt = sql_trans_bind_type((newFlagSet(flags))?tr->parent:tr, NULL, c->type.type->base.name);
 		}
 		if (lt == NULL) 
 			GDKfatal("SQL type %s missing", c->type.type->base.name);
@@ -2751,6 +2754,12 @@ column_dup(sql_trans *tr, int flags, sql_column *oc, sql_table *t)
 
 	/* Needs copy when committing (ie from tr to gtrans) and 
 	 * on savepoints from tr->parent to new tr */
+	if (flags) {
+		c->base.allocated = oc->base.allocated;
+		c->data = oc->data;
+		oc->base.allocated = 0;
+		oc->data = NULL;
+	} else 
 	if ((isNew(oc) && newFlagSet(flags) && tr->parent == gtrans) ||
 	    (oc->base.allocated && tr->parent != gtrans))
 		if (isTable(c->t)) 
@@ -2761,37 +2770,40 @@ column_dup(sql_trans *tr, int flags, sql_column *oc, sql_table *t)
 }
 
 static sql_part *
-part_dup(sql_trans *tr, int flags, sql_part *opt, sql_table *ot)
+part_dup(sql_trans *tr, int flags, sql_part *op, sql_table *mt)
 {
 	sql_allocator *sa = (newFlagSet(flags))?tr->parent->sa:tr->sa;
-	sql_part *pt = SA_ZNEW(sa, sql_part);
+	sql_part *p = SA_ZNEW(sa, sql_part);
+	sql_table *pt = find_sql_table(mt->s, op->base.name);
 
-	base_init(sa, &pt->base, opt->base.id, tr_flag(&opt->base, flags), opt->base.name);
-	pt->tpe = opt->tpe;
-	pt->with_nills = opt->with_nills;
+	base_init(sa, &p->base, op->base.id, tr_flag(&op->base, flags), op->base.name);
+	p->tpe = op->tpe;
+	p->with_nills = op->with_nills;
+	p->t = pt;
+	if (pt) /* during loading we use set_members */
+		pt->p = mt;
 	if (newFlagSet(flags) && tr->parent == gtrans)
-		removeNewFlag(opt);
+		removeNewFlag(op);
 
-	if(isRangePartitionTable(ot)) {
-		pt->part.range.minvalue = sa_alloc(sa, opt->part.range.minlength);
-		pt->part.range.maxvalue = sa_alloc(sa, opt->part.range.maxlength);
-		memcpy(pt->part.range.minvalue, opt->part.range.minvalue, opt->part.range.minlength);
-		memcpy(pt->part.range.maxvalue, opt->part.range.maxvalue, opt->part.range.maxlength);
-		pt->part.range.minlength = opt->part.range.minlength;
-		pt->part.range.maxlength = opt->part.range.maxlength;
-	} else if(isListPartitionTable(ot)) {
-		pt->part.values = list_new(sa, (fdestroy) NULL);
-		for(node *n = opt->part.values->h ; n ; n = n->next) {
+	if(isRangePartitionTable(mt)) {
+		p->part.range.minvalue = sa_alloc(sa, op->part.range.minlength);
+		p->part.range.maxvalue = sa_alloc(sa, op->part.range.maxlength);
+		memcpy(p->part.range.minvalue, op->part.range.minvalue, op->part.range.minlength);
+		memcpy(p->part.range.maxvalue, op->part.range.maxvalue, op->part.range.maxlength);
+		p->part.range.minlength = op->part.range.minlength;
+		p->part.range.maxlength = op->part.range.maxlength;
+	} else if(isListPartitionTable(mt)) {
+		p->part.values = list_new(sa, (fdestroy) NULL);
+		for(node *n = op->part.values->h ; n ; n = n->next) {
 			sql_part_value *prev = (sql_part_value*) n->data, *nextv = SA_ZNEW(sa, sql_part_value);
 			nextv->tpe = prev->tpe;
 			nextv->value = sa_alloc(sa, prev->length);
 			memcpy(nextv->value, prev->value, prev->length);
 			nextv->length = prev->length;
-			list_append(pt->part.values, nextv);
+			list_append(p->part.values, nextv);
 		}
 	}
-
-	return pt;
+	return p;
 }
 
 static int
@@ -2945,6 +2957,12 @@ table_dup(sql_trans *tr, int flags, sql_table *ot, sql_schema *s)
 
 	/* Needs copy when committing (ie from tr to gtrans) and 
 	 * on savepoints from tr->parent to new tr */
+	if (flags) {
+		t->base.allocated = ot->base.allocated;
+		t->data = ot->data;
+		ot->base.allocated = 0;
+		ot->data = NULL;
+	} else 
 	if ((isNew(ot) && newFlagSet(flags) && tr->parent == gtrans) ||
 	    (ot->base.allocated && tr->parent != gtrans))
 		if (isTable(t))
@@ -2969,9 +2987,9 @@ table_dup(sql_trans *tr, int flags, sql_table *ot, sql_schema *s)
 	if (ot->columns.set) {
 		for (n = ot->columns.set->h; n; n = n->next) {
 			sql_column *c = n->data, *copy = column_dup(tr, flags, c, t);
+
 			if(isPartitionedByColumnTable(ot) && ot->part.pcol->base.id == c->base.id)
 				t->part.pcol = copy;
-
 			cs_add(&t->columns, copy, tr_flag(&c->base, flags));
 		}
 		if (tr->parent == gtrans)
@@ -2979,8 +2997,8 @@ table_dup(sql_trans *tr, int flags, sql_table *ot, sql_schema *s)
 	}
 	if (ot->members.set) {
 		for (n = ot->members.set->h; n; n = n->next) {
-			sql_part *pt = n->data, *dupped = part_dup(tr, flags, pt, ot);
-			dupped->t = t;
+			sql_part *pt = n->data, *dupped = part_dup(tr, flags, pt, t);
+
 			cs_add(&t->members, dupped, tr_flag(&pt->base, flags));
 		}
 		if (tr->parent == gtrans)
@@ -3145,14 +3163,12 @@ schema_dup(sql_trans *tr, int flags, sql_schema *os, sql_trans *o)
 	return s;
 }
 
-static sql_trans *
-trans_init(sql_trans *tr, backend_stack stk, sql_trans *otr)
+static void
+_trans_init(sql_trans *tr, backend_stack stk, sql_trans *otr)
 {
-	node *m,*n;
-
 	tr->wtime = tr->rtime = 0;
 	tr->stime = otr->wtime;
-	tr->wstime = timestamp ();
+	tr->wstime = timestamp();
 	tr->schema_updates = 0;
 	tr->dropped = NULL;
 	tr->status = 0;
@@ -3162,11 +3178,20 @@ trans_init(sql_trans *tr, backend_stack stk, sql_trans *otr)
 	tr->schema_number = store_schema_number();
 	tr->parent = otr;
 	tr->stk = stk;
+}
+
+static sql_trans *
+trans_init(sql_trans *tr, backend_stack stk, sql_trans *otr)
+{
+	node *m,*n;
+
+	_trans_init(tr, stk, otr);
 
 	for (m = otr->schemas.set->h, n = tr->schemas.set->h; m && n; m = m->next, n = n->next ) { 
 		sql_schema *ps = m->data; /* parent transactions schema */
 		sql_schema *s = n->data; 
-
+		int istmp = isTempSchema(ps);
+	
 		if (s->base.id == ps->base.id) {
 			node *k, *l;
 
@@ -3180,6 +3205,9 @@ trans_init(sql_trans *tr, backend_stack stk, sql_trans *otr)
 
 				t->base.rtime = t->base.wtime = 0;
 				t->base.stime = pt->base.wtime;
+				if (!istmp && !t->base.allocated)
+					t->data = NULL;
+				assert (istmp || (!t->data && !t->base.allocated));
 
 				if (pt->base.id == t->base.id) {
 					node *i, *j;
@@ -3191,6 +3219,9 @@ trans_init(sql_trans *tr, backend_stack stk, sql_trans *otr)
 						if (pc->base.id == c->base.id) {
 							c->base.rtime = c->base.wtime = 0;
 							c->base.stime = pc->base.wtime;
+							if (!istmp && !c->base.allocated)
+								c->data = NULL;
+							assert (istmp || (!c->data && !c->base.allocated));
 						} else {
 							/* for now assert */
 							assert(0);
@@ -3227,9 +3258,7 @@ trans_dup(backend_stack stk, sql_trans *ot, const char *newname)
 		_DELETE(t);
 		return NULL;
 	}
-	//t = trans_init(t, stk, ot);
-	t->stk = stk;
-	t->parent = ot;
+	_trans_init(t, stk, ot);
 
 	cs_new(&t->schemas, t->sa, (fdestroy) &schema_destroy);
 
@@ -3315,6 +3344,7 @@ rollforward_changeset_updates(sql_trans *tr, changeset * fs, changeset * ts, sql
 				if (fb->wtime && !newFlagSet(fb->flags)) {
 					node *tbn = cs_find_id(ts, fb->id);
 
+					assert(fb->rtime <= fb->wtime);
 					if (tbn) {
 						sql_base *tb = tbn->data;
 
@@ -3327,6 +3357,7 @@ rollforward_changeset_updates(sql_trans *tr, changeset * fs, changeset * ts, sql
 							tb->wtime = fb->wtime;
 						if (apply)
 							fb->stime = tb->stime = tb->wtime;
+						assert(!apply || tb->rtime <= tb->wtime);
 					}
 				}
 			}
@@ -3746,7 +3777,6 @@ rollforward_update_table(sql_trans *tr, sql_table *ft, sql_table *tt, int mode)
 				fprintf(stderr, "#update table %s\n", tt->base.name);
 			ok = store_funcs.update_table(tr, ft, tt);
 			ft->cleared = 0;
-			ft->base.rtime = ft->base.wtime = 0;
 			tt->access = ft->access;
 		}
 	}
@@ -4137,13 +4167,11 @@ reset_schema(sql_trans *tr, sql_schema *fs, sql_schema *pfs)
 				n = nxt;
 			}
 		}
-		fs->base.wtime = fs->base.rtime = 0;
 		return ok;
 	}
 
 	/* did we access the schema or is the global changed after we started */
 	if (fs->base.rtime || fs->base.wtime || tr->stime < pfs->base.wtime) {
-		fs->base.wtime = fs->base.rtime = 0;
 
 		if (tr->status == 1 && isRenamed(fs)) { /* remove possible renaming */
 			list_hash_delete(tr->schemas.set, fs, NULL);
@@ -4173,17 +4201,16 @@ reset_trans(sql_trans *tr, sql_trans *ptr)
 #ifdef STORE_DEBUG
 	fprintf(stderr,"#reset trans %d\n", tr->wtime);
 #endif
-	tr->wtime = tr->rtime = 0;
 	return res;
 }
 
 sql_trans *
-sql_trans_create(backend_stack stk, sql_trans *parent, const char *name)
+sql_trans_create(backend_stack stk, sql_trans *parent, const char *name, bool try_spare)
 {
 	sql_trans *tr = NULL;
 
 	if (gtrans) {
-		if (!parent && spares > 0 && !name) {
+		 if (!parent && spares > 0 && !name && try_spare) {
 			tr = spare_trans[--spares];
 #ifdef STORE_DEBUG
 			fprintf(stderr, "#reuse trans (%p) %d\n", tr, spares);
@@ -6611,7 +6638,7 @@ sql_session_create(backend_stack stk, int ac )
 	s = ZNEW(sql_session);
 	if (!s)
 		return NULL;
-	s->tr = sql_trans_create(s->stk, NULL, NULL);
+	s->tr = sql_trans_create(s->stk, NULL, NULL, true);
 	if(!s->tr) {
 		_DELETE(s);
 		return NULL;
@@ -6620,7 +6647,7 @@ sql_session_create(backend_stack stk, int ac )
 	s->tr->active = 0;
 	s->stk = stk;
 	if(!sql_session_reset(s, ac)) {
-		sql_trans_destroy(s->tr);
+		sql_trans_destroy(s->tr, true);
 		_DELETE(s);
 		return NULL;
 	}
@@ -6633,7 +6660,7 @@ sql_session_destroy(sql_session *s)
 {
 	assert(!s->tr || s->tr->active == 0);
 	if (s->tr)
-		sql_trans_destroy(s->tr);
+		sql_trans_destroy(s->tr, true);
 	if (s->schema_name)
 		_DELETE(s->schema_name);
 	_DELETE(s);
@@ -6691,19 +6718,21 @@ sql_trans_begin(sql_session *s)
 	    (tr->stime < gtrans->wstime || tr->wtime || 
 			store_schema_number() != snr)) {
 		if (!list_empty(tr->moved_tables)) {
-			tr->name = (char*)1; /* make sure it get destroyed properly */
-			sql_trans_destroy(tr);
-			s->tr = tr = sql_trans_create(s->stk, NULL, NULL);
+			sql_trans_destroy(tr, false);
+			s->tr = tr = sql_trans_create(s->stk, NULL, NULL, false);
 		} else {
 			reset_trans(tr, gtrans);
 		}
 	}
-	tr = trans_init(tr, tr->stk, tr->parent);
+	if (tr->parent == gtrans)
+		tr = trans_init(tr, tr->stk, tr->parent);
 	tr->active = 1;
 	s->schema = find_sql_schema(tr, s->schema_name);
 	s->tr = tr;
-	(void) ATOMIC_INC(&store_nr_active);
-	list_append(active_sessions, s); 
+	if (tr->parent == gtrans) {
+		(void) ATOMIC_INC(&store_nr_active);
+		list_append(active_sessions, s); 
+	}
 	s->status = 0;
 #ifdef STORE_DEBUG
 	fprintf(stderr,"#sql trans begin (%d)\n", tr->schema_number);
@@ -6719,8 +6748,10 @@ sql_trans_end(sql_session *s)
 #endif
 	s->tr->active = 0;
 	s->auto_commit = s->ac_on_commit;
-	list_remove_data(active_sessions, s);
-	(void) ATOMIC_DEC(&store_nr_active);
+	if (s->tr->parent == gtrans) {
+		list_remove_data(active_sessions, s);
+		(void) ATOMIC_DEC(&store_nr_active);
+	}
 	assert(list_length(active_sessions) == (int) ATOMIC_GET(&store_nr_active));
 }
 
