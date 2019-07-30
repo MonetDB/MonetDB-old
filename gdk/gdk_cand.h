@@ -55,7 +55,3 @@
 			}						\
 		}							\
 	} while (0)
-
-gdk_export int BATnegcands( BAT *cands, BAT *odels);
-gdk_export BAT *BATcands( BAT *negcands);
-
