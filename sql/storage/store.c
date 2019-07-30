@@ -218,7 +218,7 @@ trans_drop_tmp(sql_trans *tr)
 #endif
 
 sql_trans *
-sql_trans_destroy(sql_trans *t)
+sql_trans_destroy(sql_trans *t, bool try_spare)
 {
 	sql_trans *res = t->parent;
 
@@ -226,7 +226,7 @@ sql_trans_destroy(sql_trans *t)
 	fprintf(stderr, "#destroy trans (%p)\n", t);
 #endif
 
-	if (res == gtrans && spares < MAX_SPARES && !t->name) {
+	if (res == gtrans && spares < MAX_SPARES && !t->name && try_spare) {
 #ifdef STORE_DEBUG
 		fprintf(stderr, "#spared (%d) trans (%p)\n", spares, t);
 #endif
@@ -252,7 +252,7 @@ destroy_spare_transactions(void)
 
 	spares = MAX_SPARES; /* ie now there not spared anymore */
 	for (i = 0; i < s; i++) {
-		sql_trans_destroy(spare_trans[i]);
+		sql_trans_destroy(spare_trans[i], false);
 	}
 	spares = 0;
 }
@@ -1790,7 +1790,7 @@ store_load(sql_allocator *pa) {
 		/* cannot initialize database in readonly mode */
 		if (store_readonly)
 			return -1;
-		tr = sql_trans_create(NULL, NULL);
+		tr = sql_trans_create(NULL, NULL, true);
 		if (!tr) {
 			fprintf(stderr, "Failure to start a transaction while loading the storage\n");
 			return -1;
@@ -1959,7 +1959,7 @@ store_load(sql_allocator *pa) {
 		if (sql_trans_commit(tr) != SQL_OK) {
 			fprintf(stderr, "cannot commit initial transaction\n");
 		}
-		sql_trans_destroy(tr);
+		sql_trans_destroy(tr, true);
 	} else {
 		GDKqsort(store_oids, NULL, NULL, nstore_oids, sizeof(sqlid), 0, TYPE_int, false, false);
 		store_oid = store_oids[nstore_oids - 1] + 1;
@@ -2190,7 +2190,7 @@ store_exit(void)
 	   exit (but leak memory).
 	 */
 	if (!transactions) {
-		sql_trans_destroy(gtrans);
+		sql_trans_destroy(gtrans, false);
 		gtrans = NULL;
 	}
 #ifdef STORE_DEBUG
@@ -4200,12 +4200,12 @@ reset_trans(sql_trans *tr, sql_trans *ptr)
 }
 
 sql_trans *
-sql_trans_create(sql_trans *parent, const char *name)
+sql_trans_create(sql_trans *parent, const char *name, bool try_spare)
 {
 	sql_trans *tr = NULL;
 
 	if (gtrans) {
-		if (!parent && spares > 0 && !name) {
+		if (!parent && spares > 0 && !name && try_spare) {
 			tr = spare_trans[--spares];
 #ifdef STORE_DEBUG
 			fprintf(stderr, "#reuse trans (%p) %d\n", tr, spares);
@@ -6633,7 +6633,7 @@ sql_session_create(int ac )
 	s = ZNEW(sql_session);
 	if (!s)
 		return NULL;
-	s->tr = sql_trans_create(NULL, NULL);
+	s->tr = sql_trans_create(NULL, NULL, true);
 	if(!s->tr) {
 		_DELETE(s);
 		return NULL;
@@ -6641,7 +6641,7 @@ sql_session_create(int ac )
 	s->schema_name = NULL;
 	s->tr->active = 0;
 	if(!sql_session_reset(s, ac)) {
-		sql_trans_destroy(s->tr);
+		sql_trans_destroy(s->tr, true);
 		_DELETE(s);
 		return NULL;
 	}
@@ -6654,7 +6654,7 @@ sql_session_destroy(sql_session *s)
 {
 	assert(!s->tr || s->tr->active == 0);
 	if (s->tr)
-		sql_trans_destroy(s->tr);
+		sql_trans_destroy(s->tr, true);
 	if (s->schema_name)
 		_DELETE(s->schema_name);
 	_DELETE(s);
@@ -6712,9 +6712,8 @@ sql_trans_begin(sql_session *s)
 	    (tr->stime < gtrans->wstime || tr->wtime || 
 			store_schema_number() != snr)) {
 		if (!list_empty(tr->moved_tables)) {
-			tr->name = (char*)1; /* make sure it get destroyed properly */
-			sql_trans_destroy(tr);
-			s->tr = tr = sql_trans_create(NULL, NULL);
+			sql_trans_destroy(tr, false);
+			s->tr = tr = sql_trans_create(NULL, NULL, false);
 		} else {
 			reset_trans(tr, gtrans);
 		}
