@@ -859,7 +859,8 @@ RAstatement(Client c, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if ((msg = checkSQLContext(c)) != NULL)
 		return msg;
-	SQLtrans(m);
+	if ((msg = SQLtrans(m)) != MAL_SUCCEED)
+		return msg;
 	if (!m->sa)
 		m->sa = sa_create();
 	if (!m->sa)
@@ -933,7 +934,8 @@ RAstatement2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
-	SQLtrans(m);
+	if ((msg = SQLtrans(m)) != MAL_SUCCEED)
+		return msg;
 	if (!m->sa)
 		m->sa = sa_create();
 	if (!m->sa)
