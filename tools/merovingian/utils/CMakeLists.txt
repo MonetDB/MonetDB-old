@@ -6,7 +6,12 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../../../common/stream ../../../common/utils ${CRYPTO_INCLUDE_DIR})
+include_directories(${CRYPTO_INCLUDE_DIR})
+
+add_library(meroutil_headers INTERFACE)
+target_include_directories(meroutil_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
 
 add_library(meroutil STATIC control.c control.h database.c database.h glob.c glob.h properties.c properties.h utils.c
 			utils.h)
+target_link_libraries(meroutil PUBLIC meroutil_headers PRIVATE utils_headers stream_headers)

@@ -6,7 +6,9 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../../mal ../atoms ../../../common/stream ../../../common/utils ../../../gdk)
+add_library(kernel_headers INTERFACE)
+target_include_directories(kernel_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
 
 add_library(kernel OBJECT
 			aggr.c
@@ -21,6 +23,8 @@ add_library(kernel OBJECT
 			mmath.c mmath.h mmath_private.h
 			status.c status.h)
 target_compile_definitions(kernel PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
+target_link_libraries(kernel PUBLIC kernel_headers PRIVATE utils_headers stream_headers gdk_headers mal_headers
+					  atoms_headers)
 set_target_properties(kernel PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:kernel> PARENT_SCOPE)
 

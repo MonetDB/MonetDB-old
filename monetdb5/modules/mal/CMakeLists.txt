@@ -6,8 +6,11 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../../mal ../atoms ../kernel ../../../clients/mapilib ../../../common/stream ../../../common/utils
-					../../../gdk ${PCRE_INCLUDE_DIR} ${CRYPTO_INCLUDE_DIR})
+include_directories(${PCRE_INCLUDE_DIR} ${CRYPTO_INCLUDE_DIR})
+
+add_library(malmodules_headers INTERFACE)
+target_include_directories(malmodules_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
 
 add_library(malmodules OBJECT
 			batExtensions.c batExtensions.h
@@ -42,6 +45,8 @@ add_library(malmodules OBJECT
 			json_util.c json_util.h
 			calc.c batcalc.c)
 target_compile_definitions(malmodules PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
+target_link_libraries(malmodules PUBLIC malmodules_headers PRIVATE utils_headers stream_headers mapi_headers gdk_headers
+					  mal_headers atoms_headers kernel_headers)
 set_target_properties(malmodules PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:malmodules> PARENT_SCOPE)
 

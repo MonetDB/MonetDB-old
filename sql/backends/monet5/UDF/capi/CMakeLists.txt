@@ -16,13 +16,10 @@ endif()
 if(NOT "${ENABLE_CINTEGRATION}" STREQUAL "NO" AND HAVE_PYTHON3 AND NOT WIN32)
 	set(HAVE_CUDF ON CACHE INTERNAL "C udfs extension is available")
 
-	include_directories(../../../../../clients/mapilib ../../../../../common/utils ../../../../../common/stream
-						../../../../../monetdb5/modules/atoms ../../../../../monetdb5/modules/mal ../../../../../gdk
-						../../../../../monetdb5/mal ../../../../../sql/backends/monet5 ../../../../../sql/common
-						../../../../../sql/include ../../../../../sql/server ../../../../../sql/storage
-						${CMAKE_CURRENT_BINARY_DIR})
+	include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-	set(CAPI_LINK_LIBRARIES )
+	set(CAPI_LINK_LIBRARIES utils_headers stream_headers gdk_headers mal_headers atoms_headers malmodules_headers
+							sqlmonet5_headers sql_headers sqlserver_headers sqlcommon_headers store_headers)
 	if(WIN32)
 		list(APPEND CAPI_LINK_LIBRARIES monetdb5 gdk)
 	endif()

@@ -15,6 +15,12 @@ add_custom_target(mrevision COMMAND ${CMAKE_COMMAND} ARGS -P ${CMAKE_CURRENT_SOU
 set(MUTILS_OBJECTS mutils.h mutils.c revision.c)
 set(MCRYPT_OBJECTS mcrypt.h mcrypt.c)
 set(MSABAOTH_OBJECTS muuid.h muuid.c msabaoth.h msabaoth.c)
+set(MCRYPT_LINK_LIBRARIES )
+set(MSABAOTH_LINK_LIBRARIES )
+
+add_library(utils_headers INTERFACE)
+target_include_directories(utils_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
 
 if(WIN32)
 	add_library(mutils SHARED ${MUTILS_OBJECTS})
@@ -24,14 +30,14 @@ if(WIN32)
 
 	add_library(mcrypt SHARED ${MCRYPT_OBJECTS})
 	target_compile_definitions(mcrypt PRIVATE LIBMAPI LIBMCRYPT)
-	target_link_libraries(mcrypt PRIVATE ${CRYPTO_LIBRARIES})
+	list(APPEND MCRYPT_LINK_LIBRARIES stream ${CRYPTO_LIBRARIES})
 	install(TARGETS mcrypt DESTINATION ${LIBDIR})
 	install(FILES $<TARGET_PDB_FILE:mcrypt> DESTINATION ${LIBDIR} OPTIONAL)
 
 	add_library(msabaoth SHARED ${MSABAOTH_OBJECTS})
 	target_compile_definitions(msabaoth PRIVATE LIBMSABAOTH LIBMUUID LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER
 							   LIBMONETDB5)
-	target_link_libraries(msabaoth PRIVATE ${CRYPTO_LIBRARIES} mutils)
+	list(APPEND MSABAOTH_LINK_LIBRARIES stream ${CRYPTO_LIBRARIES} mutils)
 	install(TARGETS msabaoth DESTINATION ${LIBDIR})
 	install(FILES $<TARGET_PDB_FILE:msabaoth> DESTINATION ${LIBDIR} OPTIONAL)
 else()
@@ -44,6 +50,10 @@ else()
 	add_library(msabaoth STATIC ${MSABAOTH_OBJECTS})
 	set_target_properties(msabaoth PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
+
+target_link_libraries(mutils PUBLIC utils_headers)
+target_link_libraries(mcrypt PUBLIC utils_headers PRIVATE ${MCRYPT_LINK_LIBRARIES})
+target_link_libraries(msabaoth PUBLIC utils_headers PRIVATE ${GDK_LINK_LIBRARIES})
 
 add_dependencies(mutils mrevision)
 install(FILES matomic.h DESTINATION ${INCLUDEDIR}/monetdb)

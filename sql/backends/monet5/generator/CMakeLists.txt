@@ -6,12 +6,8 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../../../include ../../../common ../../../storage ../../../server ../../../../monetdb5/modules/atoms
-					../../../../monetdb5/modules/kernel ../../../../monetdb5/mal ../../../../monetdb5/modules/mal
-					../../../../monetdb5/optimizer ../../../../monetdb5/scheduler ../../../../common/stream
-					../../../../common/utils ../../../../gdk)
-
-set(GENERATOR_LINK_LIBRARIES )
+set(GENERATOR_LINK_LIBRARIES utils_headers stream_headers gdk_headers mal_headers kernel_headers atoms_headers
+							 optimizer_headers)
 if(WIN32)
 	list(APPEND GENERATOR_LINK_LIBRARIES monetdb5 gdk)
 endif()

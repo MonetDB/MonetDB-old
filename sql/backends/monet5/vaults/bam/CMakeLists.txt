@@ -27,11 +27,10 @@ if(NOT ${ENABLE_SAMTOOLS} STREQUAL "NO" AND ZLIB_FOUND)
 endif()
 if(HAVE_SAMTOOLS)
 	configure_file(bam_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/bam_config.h @ONLY)
-	include_directories(${CMAKE_CURRENT_BINARY_DIR} .. ../.. ../../../../include ../../../../common ../../../../storage
-						../../../../server ../../../../../monetdb5/modules/atoms ../../../../../monetdb5/modules/kernel
-						../../../../../monetdb5/mal ../../../../../monetdb5/modules/mal ../../../../../monetdb5/optimizer
-						../../../../../common/stream ../../../../../common/utils ../../../../../gdk
-						../../../../../tools/merovingian ../../../../../tools/merovingian/daemon)
+	include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
+	list(APPEND BAM_LINK_LIBRARIES utils_headers stream_headers gdk_headers mal_headers atoms_headers malmodules_headers
+		 sqlmonet5_headers sql_headers sqlserver_headers sqlcommon_headers store_headers)
 
 	if(WIN32)
 		list(APPEND BAM_LINK_LIBRARIES monetdb5 gdk)

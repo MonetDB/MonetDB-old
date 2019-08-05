@@ -6,8 +6,11 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../../common/stream ../../common/utils ../../clients/mapilib ../../gdk ../optimizer ../modules/mal
-					${CRYPTO_INCLUDE_DIR})
+include_directories(${CRYPTO_INCLUDE_DIR})
+
+add_library(mal_headers INTERFACE)
+target_include_directories(mal_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
 
 add_library(mal OBJECT
 			mal.c mal.h
@@ -40,6 +43,7 @@ add_library(mal OBJECT
 			mal_utils.c mal_utils.h
 			mal_private.h)
 target_compile_definitions(mal PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
+target_link_libraries(mal PRIVATE utils_headers stream_headers gdk_headers)
 set_target_properties(mal PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:mal> PARENT_SCOPE)
 

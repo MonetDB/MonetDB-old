@@ -6,12 +6,16 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../common/options ../common/stream ../common/utils ${VALGRIND_INCLUDE_DIR})
+include_directories(${VALGRIND_INCLUDE_DIR})
 
 set(GDK_LINK_LIBRARIES moptions mutils)
 if(WIN32)
 	list(APPEND GDK_LINK_LIBRARIES stream ${SOCKET_LIBRARIES} ${THREAD_LIBRARIES} ${PSAPI_LIBRARIES})
 endif()
+
+add_library(gdk_headers INTERFACE)
+target_include_directories(gdk_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
 
 add_library(gdk SHARED
 			gdk_select.c
@@ -39,7 +43,7 @@ add_library(gdk SHARED
 			gdk_firstn.c
 			gdk_analytic_bounds.c
 			gdk_analytic_func.c gdk_analytic.h libbat.rc)
-target_link_libraries(gdk PRIVATE ${GDK_LINK_LIBRARIES})
+target_link_libraries(gdk PUBLIC gdk_headers PRIVATE utils_headers stream_headers ${GDK_LINK_LIBRARIES})
 set_target_properties(gdk PROPERTIES VERSION ${GDK_VERSION} SOVERSION ${GDK_VERSION_MAJOR} OUTPUT_NAME bat)
 target_compile_definitions(gdk PRIVATE LIBGDK)
 

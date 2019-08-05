@@ -12,12 +12,12 @@ endif()
 add_subdirectory(UDF)
 add_subdirectory(generator)
 
-include_directories(../../include ../../common ../../storage ../../server ../../../monetdb5/modules/atoms 
-					../../../monetdb5/modules/kernel ../../../monetdb5/mal ../../../monetdb5/modules/mal 
-					../../../monetdb5/optimizer ../../../monetdb5/scheduler ../../../monetdb5/extras/rapi 
-					../../../common/stream ../../../common/utils ../../../gdk)
+add_library(sqlmonet5_headers INTERFACE)
+target_include_directories(sqlmonet5_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+							$<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
 
-set(SQL_LINK_LIBRARIES sqlserver store batstore sqlcommon)
+set(SQL_LINK_LIBRARIES utils_headers stream_headers gdk_headers mal_headers atoms_headers malmodules_headers sql_headers
+					   kernel_headers optimizer_headers sqlserver store batstore sqlcommon)
 if(WIN32)
 	list(APPEND SQL_LINK_LIBRARIES mapi monetdb5 gdk stream ${CRYPTO_LIBRARIES})
 endif()
@@ -48,7 +48,7 @@ add_library(sql MODULE
 			wlr.c wlr.h
 			sql_datetrunc.c
 			sql_rank.c sql_rank.h)
-target_link_libraries(sql PRIVATE ${SQL_LINK_LIBRARIES})
+target_link_libraries(sql PUBLIC sqlmonet5_headers PRIVATE ${SQL_LINK_LIBRARIES})
 set_target_properties(sql PROPERTIES OUTPUT_NAME _sql)
 target_compile_definitions(sql PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)
 

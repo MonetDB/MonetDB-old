@@ -39,13 +39,11 @@ if(NOT "${ENABLE_PY3INTEGRATION}" STREQUAL "NO")
 endif()
 
 if(HAVE_LIBPY3)
-	include_directories(../../../../../clients/mapilib ../../../../../common/utils ../../../../../common/stream
-						../../../../../monetdb5/modules/atoms ../../../../../monetdb5/modules/mal ../../../../../gdk
-						../../../../../monetdb5/mal ../../../../../sql/backends/monet5 ../../../../../sql/common
-						../../../../../sql/include ../../../../../sql/server ../../../../../sql/storage ../pyapi
-						${Python3_INCLUDE_DIRS} ${NUMPY3_INCLUDE_DIR})
+	include_directories(../pyapi ${Python3_INCLUDE_DIRS} ${NUMPY3_INCLUDE_DIR})
 
-	set(PYAPI3_LINK_LIBRARIES ${Python3_LIBRARIES})
+	set(PYAPI3_LINK_LIBRARIES utils_headers stream_headers gdk_headers mal_headers atoms_headers malmodules_headers
+							  sqlmonet5_headers sql_headers sqlserver_headers sqlcommon_headers store_headers
+							  ${Python3_LIBRARIES})
 	if(WIN32)
 		list(APPEND PYAPI3_LINK_LIBRARIES monetdb5 gdk)
 	endif()

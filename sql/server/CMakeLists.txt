@@ -6,13 +6,13 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(. ../include ../common ../storage ../../monetdb5/mal ../../monetdb5/modules/atoms
-					../../monetdb5/modules/mal ../../monetdb5/extras/rapi ../../clients/mapilib
-					../../common/stream ../../common/utils ../../gdk ${CMAKE_CURRENT_BINARY_DIR})
+include_directories(. ${CMAKE_CURRENT_BINARY_DIR})
 
 bison_target(sqlparser sql_parser.y ${CMAKE_CURRENT_BINARY_DIR}/sql_parser.tab.c
 			COMPILE_FLAGS "-d -p sql -r all" DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/sql_parser.tab.h)
 add_library(bison_obj OBJECT ${BISON_sqlparser_OUTPUTS})
+target_link_libraries(bison_obj PRIVATE utils_headers stream_headers gdk_headers mal_headers sql_headers
+					  sqlcommon_headers store_headers)
 set_target_properties(bison_obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if(NOT MSVC)
 	cmake_push_check_state()
@@ -23,6 +23,10 @@ if(NOT MSVC)
 		target_compile_options(bison_obj PRIVATE -Wno-unreachable-code) # use this flag only to compile the bison output
 	endif()
 endif()
+
+add_library(sqlserver_headers INTERFACE)
+target_include_directories(sqlserver_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
 
 add_library(sqlserver STATIC
 			sql_atom.c
@@ -64,4 +68,6 @@ add_library(sqlserver STATIC
 			sql_privileges.h sql_query.h sql_qc.h sql_scan.h
 			sql_semantic.h sql_symbol.h sql_tokens.h sql_partition.h $<TARGET_OBJECTS:bison_obj>)
 set_target_properties(sqlserver PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(sqlserver PUBLIC sqlserver_headers PRIVATE utils_headers stream_headers gdk_headers mal_headers
+					  atoms_headers malmodules_headers sql_headers sqlcommon_headers store_headers)
 target_compile_definitions(sqlserver PRIVATE LIBSQL LIBSQLSERVER LIBSQLCOMMON LIBBATSTORE LIBSTORE)

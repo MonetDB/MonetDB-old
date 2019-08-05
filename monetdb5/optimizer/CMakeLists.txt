@@ -6,8 +6,9 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../mal ../modules/atoms ../modules/mal ../modules/kernel ../../clients/mapilib ../../common/stream
-					../../common/utils ../../gdk)
+add_library(optimizer_headers INTERFACE)
+target_include_directories(optimizer_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
 
 add_library(optimizer OBJECT
 			optimizer.c optimizer.h optimizer_private.h
@@ -48,6 +49,8 @@ add_library(optimizer OBJECT
 			opt_volcano.c opt_volcano.h
 			opt_wrapper.c)
 target_compile_definitions(optimizer PRIVATE LIBMAL LIBATOMS LIBKERNEL LIBOPTIMIZER LIBSCHEDULER LIBMONETDB5)
+target_link_libraries(optimizer PUBLIC optimizer_headers PRIVATE utils_headers stream_headers gdk_headers mal_headers
+					  atoms_headers malmodules_headers)
 set_target_properties(optimizer PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(MONETDB5_OBJECTS ${MONETDB5_OBJECTS} $<TARGET_OBJECTS:optimizer> PARENT_SCOPE)
 

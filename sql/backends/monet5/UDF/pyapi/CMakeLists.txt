@@ -6,13 +6,11 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../../../../../clients/mapilib ../../../../../common/utils ../../../../../common/stream
-					../../../../../monetdb5/modules/atoms ../../../../../monetdb5/modules/mal ../../../../../gdk
-					../../../../../monetdb5/mal ../../../../../sql/backends/monet5 ../../../../../sql/common
-					../../../../../sql/include ../../../../../sql/server ../../../../../sql/storage ${PY2_INCLUDE_DIR}
-					${NUMPY2_INCLUDE_DIR})
+include_directories(${PY2_INCLUDE_DIR} ${NUMPY2_INCLUDE_DIR})
 
-set(PYAPI_LINK_LIBRARIES ${PY2_LIBRARIES})
+set(PYAPI_LINK_LIBRARIES utils_headers stream_headers gdk_headers mal_headers atoms_headers malmodules_headers
+						 sqlmonet5_headers sql_headers sqlserver_headers sqlcommon_headers store_headers
+						 ${PY2_LIBRARIES})
 if(WIN32)
 	list(APPEND PYAPI_LINK_LIBRARIES monetdb5 gdk)
 endif()

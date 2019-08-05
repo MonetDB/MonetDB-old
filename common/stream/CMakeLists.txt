@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../utils ${ZLIB_INCLUDE_DIR} ${BZIP2_INCLUDE_DIR} ${SNAPPY_INCLUDE_DIR} ${LZ4_INCLUDE_DIR}
+include_directories(${ZLIB_INCLUDE_DIR} ${BZIP2_INCLUDE_DIR} ${SNAPPY_INCLUDE_DIR} ${LZ4_INCLUDE_DIR}
 					${LIBLZMA_INCLUDE_DIR} ${CURL_INCLUDE_DIR} ${ICONV_INCLUDE_DIR})
 
 set(STREAM_LINK_LIBRARIES )
@@ -15,8 +15,13 @@ if(WIN32)
 		 ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES} ${SOCKET_LIBRARIES})
 endif()
 
+# We don't want to link targets on stream library on UNIX enviromnents, so link to the header files definition
+add_library(stream_headers INTERFACE)
+target_include_directories(stream_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
+
 add_library(stream SHARED stream.c stream.h stream_socket.h)
-target_link_libraries(stream PRIVATE ${STREAM_LINK_LIBRARIES})
+target_link_libraries(stream PUBLIC stream_headers PRIVATE utils_headers ${STREAM_LINK_LIBRARIES})
 set_target_properties(stream PROPERTIES VERSION ${STREAM_VERSION} SOVERSION ${STREAM_VERSION_MAJOR})
 target_compile_definitions(stream PRIVATE LIBSTREAM)
 
