@@ -9,11 +9,11 @@
 include_directories(${ODBC_INCLUDE_DIR})
 
 add_library(MonetODBCs SHARED setup.c setup.rc setup.syms resource.h)
-target_link_libraries(MonetODBCs PRIVATE MonetODBC ${ODBCINST_LIBRARIES})
+target_link_libraries(MonetODBCs PRIVATE MonetODBC_headers ${ODBCINST_LIBRARIES})
 install(TARGETS MonetODBCs DESTINATION ${LIBDIR})
 
 add_executable(odbcinstall install.c)
-target_link_libraries(odbcinstall PRIVATE MonetODBC version shlwapi ${ODBC_LIBRARIES} ${ODBCINST_LIBRARIES})
+target_link_libraries(odbcinstall PRIVATE MonetODBC_headers version shlwapi ${ODBC_LIBRARIES} ${ODBCINST_LIBRARIES})
 install(TARGETS odbcinstall DESTINATION ${BINDIR})
 
 if(WIN32)

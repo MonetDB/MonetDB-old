@@ -14,12 +14,12 @@ add_subdirectory(generator)
 
 add_library(sqlmonet5_headers INTERFACE)
 target_include_directories(sqlmonet5_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-							$<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
+						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
 
 set(SQL_LINK_LIBRARIES utils_headers stream_headers gdk_headers mal_headers atoms_headers malmodules_headers sql_headers
 					   kernel_headers optimizer_headers sqlserver store batstore sqlcommon)
 if(WIN32)
-	list(APPEND SQL_LINK_LIBRARIES mapi monetdb5 gdk stream ${CRYPTO_LIBRARIES})
+	list(APPEND SQL_LINK_LIBRARIES mcrypt msabaoth stream mapi gdk monetdb5 ${CRYPTO_LIBRARIES})
 endif()
 
 add_library(sql MODULE

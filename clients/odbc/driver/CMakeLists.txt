@@ -8,6 +8,10 @@
 
 include_directories(${ODBC_INCLUDE_DIR})
 
+add_library(MonetODBC_headers INTERFACE)
+target_include_directories(MonetODBC_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+		$<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
+
 add_library(MonetODBC MODULE
 			ODBCConvert.c
 			ODBCDbc.c
@@ -100,10 +104,8 @@ add_library(MonetODBC MODULE
 			SQLTablePrivileges.c
 			SQLTables.c
 			SQLTransact.c driver.rc ODBC.syms)
-target_include_directories(MonetODBC INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
-target_link_libraries(MonetODBC PRIVATE mapi stream ${ICONV_LIBRARIES} ${ODBCINST_LIBRARIES} ${CRYPTO_LIBRARIES}
-					  ${SOCKET_LIBRARIES})
+target_link_libraries(MonetODBC PUBLIC MonetODBC_headers PRIVATE mapi stream ${ICONV_LIBRARIES} ${ODBCINST_LIBRARIES}
+					  ${CRYPTO_LIBRARIES} ${SOCKET_LIBRARIES})
 target_compile_definitions(MonetODBC PRIVATE LIBMONETODBC)
 install(TARGETS MonetODBC DESTINATION ${LIBDIR})
 if(WIN32)

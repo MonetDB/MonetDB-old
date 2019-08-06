@@ -17,10 +17,11 @@ configure_file(monet_version.c.in ${CMAKE_CURRENT_BINARY_DIR}/monet_version.c @O
 
 add_executable(mserver5 mserver5.c monet_version.h ${CMAKE_CURRENT_BINARY_DIR}/monet_version.c)
 target_link_libraries(mserver5 PRIVATE utils_headers sqlmonet5_headers sql_headers sqlcommon_headers store_headers
-					  sqlserver_headers monetdb5 gdk stream mapi moptions ${UUID_LIBRARIES} ${MATH_LIBRARIES}
-					  ${SOCKET_LIBRARIES} ${THREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES} ${PCRE_LIBRARIES}
-					  ${LIBXML2_LIBRARIES} ${PSAPI_LIBRARIES} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES}
-					  ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES} ${KVM_LIBRARIES})
+					  sqlserver_headers msabaoth moptions mutils stream mapi gdk monetdb5 ${UUID_LIBRARIES}
+					  ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${THREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES}
+					  ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} ${PSAPI_LIBRARIES} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES}
+					  ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES}
+					  ${KVM_LIBRARIES})
 install(TARGETS mserver5 DESTINATION ${BINDIR})
 
 install(FILES tomographintro.docx tomographintro.pdf DESTINATION ${DATADIR}/doc/MonetDB-client-tools)
@@ -36,11 +37,11 @@ endif()
 if(HAVE_TESTING)
 	add_executable(shutdowntest shutdowntest.c)
 	target_link_libraries(shutdowntest PRIVATE utils_headers sqlmonet5_headers sql_headers sqlserver_headers
-						  sqlcommon_headers store_headers monetdb5 gdk stream mapi moptions ${UUID_LIBRARIES}
-						  ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${THREAD_LIBRARIES} ${DL_LIBRARIES} ${CRYPTO_LIBRARIES}
-						  ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} ${PSAPI_LIBRARIES} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES}
-						  ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES}
-						  ${KVM_LIBRARIES})
+						  sqlcommon_headers store_headers msabaoth mutils moptions stream mapi gdk monetdb5
+						  ${UUID_LIBRARIES} ${MATH_LIBRARIES} ${SOCKET_LIBRARIES} ${THREAD_LIBRARIES} ${DL_LIBRARIES}
+						  ${CRYPTO_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} ${PSAPI_LIBRARIES}
+						  ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES} ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES}
+						  ${CURL_LIBRARIES} ${ICONV_LIBRARIES} ${KVM_LIBRARIES})
 	install(TARGETS shutdowntest DESTINATION ${BINDIR})
 	if(WIN32)
 		install(FILES $<TARGET_PDB_FILE:shutdowntest> DESTINATION ${BINDIR} OPTIONAL)

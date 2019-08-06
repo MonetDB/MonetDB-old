@@ -53,7 +53,7 @@ endif()
 
 target_link_libraries(mutils PUBLIC utils_headers)
 target_link_libraries(mcrypt PUBLIC utils_headers PRIVATE ${MCRYPT_LINK_LIBRARIES})
-target_link_libraries(msabaoth PUBLIC utils_headers PRIVATE ${GDK_LINK_LIBRARIES})
+target_link_libraries(msabaoth PUBLIC utils_headers PRIVATE ${MSABAOTH_LINK_LIBRARIES})
 
 add_dependencies(mutils mrevision)
 install(FILES matomic.h DESTINATION ${INCLUDEDIR}/monetdb)
