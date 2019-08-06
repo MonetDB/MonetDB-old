@@ -13,8 +13,8 @@ include_directories(.. ${ICONV_INCLUDE_DIR})
 add_executable(monetdbd merovingian.c merovingian.h argvcmds.c argvcmds.h client.c client.h connections.c connections.h
 			   controlrunner.c controlrunner.h discoveryrunner.c discoveryrunner.h forkmserver.c forkmserver.h
 			   handlers.c handlers.h multiplex-funnel.c multiplex-funnel.h proxy.c proxy.h)
-target_link_libraries(monetdbd PRIVATE meroutil_headers utils_headers meroutil moptions stream mapi monetdb5 gdk ${UUID_LIBRARIES}
-					  ${CRYPTO_LIBRARIES} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES}
+target_link_libraries(monetdbd PRIVATE meroutil_headers utils_headers meroutil moptions stream mapi gdk monetdb5
+					  ${UUID_LIBRARIES} ${CRYPTO_LIBRARIES} ${ZLIB_LIBRARIES} ${BZIP2_LIBRARIES} ${SNAPPY_LIBRARIES}
 					  ${LZ4_LIBRARIES} ${LIBLZMA_LIBRARIES} ${CURL_LIBRARIES} ${ICONV_LIBRARIES} ${MATH_LIBRARIES}
 					  ${THREAD_LIBRARIES} ${DL_LIBRARIES} ${PCRE_LIBRARIES} ${LIBXML2_LIBRARIES} ${KVM_LIBRARIES})
 
