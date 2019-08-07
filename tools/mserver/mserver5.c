@@ -69,6 +69,7 @@ usage(char *prog, int xit)
 	MT_fprintf(stderr, "Usage: %s [options]\n", prog);
 	MT_fprintf(stderr, "    --dbpath=<directory>      Specify database location\n");
 	MT_fprintf(stderr, "    --dbextra=<directory>     Directory for transient BATs\n");
+	MT_fprintf(stderr, "    --in-memory               Run database in-memory only\n");
 	MT_fprintf(stderr, "    --config=<config_file>    Use config_file to read options from\n");
 	MT_fprintf(stderr, "    --single-user             Allow only one user at a time\n");
 	MT_fprintf(stderr, "    --readonly                Safeguard database\n");
@@ -450,6 +451,11 @@ main(int argc, char **av)
 	if (debug)
 		mo_print_options(set, setlen);
 	GDKsetverbose(verbosity);
+
+	if (dbpath && inmemory) {
+		fprintf(stderr, "!ERROR: both dbpath and in-memory must not be set at the same time\n");
+		exit(1);
+	}
 
 	if (!dbpath) {
 		dbpath = absolute_path(mo_find_option(set, setlen, "gdk_dbpath"));

@@ -16,7 +16,8 @@ if(WIN32)
 endif()
 
 add_library(monetdb5 SHARED ${MONETDB5_OBJECTS} monetdb.c libmonetdb5.rc)
-target_link_libraries(monetdb5 PUBLIC mutils mcrypt msabaoth PRIVATE ${MONETDB5_PRIVATE_LINK_LIBRARIES})
+target_link_libraries(monetdb5 PUBLIC mal_headers atoms_headers kernel_headers malmodules_headers mutils mcrypt msabaoth
+					  PRIVATE ${MONETDB5_PRIVATE_LINK_LIBRARIES})
 set_target_properties(monetdb5 PROPERTIES VERSION ${MONETDB5_VERSION} SOVERSION ${MONETDB5_VERSION_MAJOR})
 
 install(TARGETS monetdb5 DESTINATION ${LIBDIR})

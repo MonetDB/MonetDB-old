@@ -26,13 +26,11 @@ if(NOT ${ENABLE_NETCDF} STREQUAL "NO")
 	endif()
 endif()
 if(HAVE_NETCDF)
-	include_directories(.. ../.. ../../../../include ../../../../common ../../../../storage ../../../../server
-						../../../../../monetdb5/modules/atoms ../../../../../monetdb5/modules/kernel
-						../../../../../monetdb5/mal ../../../../../monetdb5/modules/mal ../../../../../monetdb5/optimizer
-						../../../../../monetdb5/scheduler ../../../../../common/stream ../../../../../common/utils
-						../../../../../gdk ${NETCDF_INCLUDE_DIR})
+	include_directories(${NETCDF_INCLUDE_DIR})
 
-	set(NETCDF_LINK_LIBRARIES ${NETCDF_LIBRARIES})
+	set(NETCDF_LINK_LIBRARIES utils_headers stream_headers gdk_headers mal_headers atoms_headers malmodules_headers
+							  sqlmonet5_headers sql_headers sqlserver_headers sqlcommon_headers store_headers
+							  ${NETCDF_LIBRARIES})
 	if(WIN32)
 		list(APPEND NETCDF_LINK_LIBRARIES monetdb5 gdk)
 	endif()

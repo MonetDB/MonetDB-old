@@ -6,7 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../../../common/stream ../../../common/utils ../utils ${ICONV_INCLUDE_DIR})
+include_directories(${ICONV_INCLUDE_DIR})
 
 add_executable(monetdb monetdb.c)
 target_link_libraries(monetdb PRIVATE meroutil mcrypt msabaoth mutils stream ${UUID_LIBRARIES} ${CRYPTO_LIBRARIES}

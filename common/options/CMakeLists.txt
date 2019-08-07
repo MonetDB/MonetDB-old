@@ -10,6 +10,10 @@ include_directories(../utils)
 
 set(OPTIONS_OBJECTS monet_options.c monet_options.h monet_getopt.h)
 
+add_library(moptions_headers INTERFACE)
+target_include_directories(moptions_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
+
 if(WIN32)
 	add_library(moptions SHARED ${OPTIONS_OBJECTS})
 	target_compile_definitions(moptions PRIVATE LIBMOPTIONS)
@@ -19,6 +23,7 @@ else()
 	add_library(moptions STATIC ${OPTIONS_OBJECTS})
 	set_target_properties(moptions PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
+target_link_libraries(moptions PUBLIC moptions_headers)
 
 target_link_libraries(moptions PRIVATE mutils)
 

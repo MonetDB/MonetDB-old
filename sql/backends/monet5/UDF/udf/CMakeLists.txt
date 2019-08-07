@@ -6,12 +6,8 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../.. ../../../../include ../../../../common ../../../../storage ../../../../server
-					../../../../../monetdb5/modules/atoms ../../../../../monetdb5/modules/kernel
-					../../../../../monetdb5/mal ../../../../../monetdb5/modules/mal ../../../../../monetdb5/optimizer
-					../../../../../common/utils ../../../../../common/stream ../../../../../gdk)
-
-set(UDF_LINK_LIBRARIES )
+set(UDF_LINK_LIBRARIES utils_headers stream_headers gdk_headers mal_headers atoms_headers malmodules_headers
+					   sqlmonet5_headers sql_headers sqlserver_headers sqlcommon_headers store_headers)
 if(WIN32)
 	list(APPEND UDF_LINK_LIBRARIES monetdb5 gdk)
 endif()

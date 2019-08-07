@@ -6,15 +6,21 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../../common/stream ../../common/utils ${CRYPTO_INCLUDE_DIR})
+include_directories(${CRYPTO_INCLUDE_DIR})
 
 set(MAPI_LINK_LIBRARIES moptions mcrypt mutils)
 if(WIN32)
 	list(APPEND MAPI_LINK_LIBRARIES stream ${SOCKET_LIBRARIES} ${CRYPTO_LIBRARIES})
 endif()
 
-add_library(mapi SHARED mapi.c mapi.rc)
-target_link_libraries(mapi PRIVATE ${MAPI_LINK_LIBRARIES})
+add_library(mapi_headers INTERFACE)
+target_include_directories(mapi_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
+
+add_library(mapi SHARED mapi.c mapi.h mapi.rc)
+target_include_directories(mapi INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
+target_link_libraries(mapi PUBLIC mapi_headers PRIVATE stream_headers ${MAPI_LINK_LIBRARIES})
 set_target_properties(mapi PROPERTIES VERSION ${MAPI_VERSION} SOVERSION ${MAPI_VERSION_MAJOR})
 target_compile_definitions(mapi PRIVATE LIBMAPI)
 

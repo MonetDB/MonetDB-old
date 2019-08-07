@@ -47,11 +47,10 @@ if(NOT ${ENABLE_RINTEGRATION} STREQUAL "NO")
 endif()
 
 if(HAVE_LIBR)
-	include_directories(../../../common/stream ../../../common/utils ../../../gdk ../../mal ../../modules/kernel
-						../../modules/atoms ../../modules/mal ../../../sql/common ../../../sql/include
-						../../../sql/server ../../../sql/storage ../../../sql/backends/monet5 ${R_INCLUDE_DIR})
+	include_directories(${R_INCLUDE_DIR})
 
-	set(RAPI_LINK_LIBRARIES ${R_LIBRARIES})
+	set(RAPI_LINK_LIBRARIES utils_headers stream_headers gdk_headers mal_headers atoms_headers malmodules_headers
+		sqlmonet5_headers sql_headers sqlserver_headers sqlcommon_headers store_headers ${R_LIBRARIES})
 	if(WIN32)
 		list(APPEND RAPI_LINK_LIBRARIES monetdb5 gdk)
 	endif()

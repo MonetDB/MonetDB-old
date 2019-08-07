@@ -6,10 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(${CMAKE_CURRENT_BINARY_DIR} ../common/options ../common/utils ../common/stream ../gdk
-					../monetdb5/mal ../monetdb5/modules/kernel ../monetdb5/modules/atoms ../monetdb5/modules/mal
-					../monetdb5/optimizer ../sql/backends/monet5 ../sql/include ../sql/common ../sql/server
-					../sql/storage ../sql/storage/bat)
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 add_definitions(${COMPILER_OPTION}DLIBGDK ${COMPILER_OPTION}DLIBMONETDB5 ${COMPILER_OPTION}DLIBSQL
 				${COMPILER_OPTION}DLIBEMBEDDED ${COMPILER_OPTION}DHAVE_EMBEDDED)
@@ -17,10 +14,16 @@ add_definitions(${COMPILER_OPTION}DLIBGDK ${COMPILER_OPTION}DLIBMONETDB5 ${COMPI
 bison_target(sqlparserlite ../sql/server/sql_parser.y ${CMAKE_CURRENT_BINARY_DIR}/sql_parser.tab.c
 			 COMPILE_FLAGS "-d -p sql -r all" DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/sql_parser.tab.h)
 add_library(bisonlite_obj OBJECT ${BISON_sqlparserlite_OUTPUTS})
+target_link_libraries(bisonlite_obj PRIVATE utils_headers stream_headers gdk_headers mal_headers sql_headers
+					  sqlserver_headers sqlcommon_headers store_headers)
 set_target_properties(bisonlite_obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if(COMPILER_Wnounreachablecode)
 	target_compile_options(bisonlite_obj PRIVATE -Wno-unreachable-code)
 endif()
+
+add_library(monedblite_headers INTERFACE)
+target_include_directories(monedblite_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
 
 set(MAL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/monetdb5/modules/kernel/mmath.mal"
@@ -300,13 +303,20 @@ set(MONETDBLITE_TRANSLATION_UNITS
 	../sql/storage/store_dependency.c
 	../sql/storage/store_sequence.c
 	$<TARGET_OBJECTS:bisonlite_obj>)
+
+set(MONETDBLITE_BASE_LINK_LIBRARIES utils_headers stream_headers moptions_headers gdk_headers mal_headers atoms_headers
+	malmodules_headers kernel_headers optimizer_headers sql_headers sqlserver_headers sqlmonet5_headers
+	sqlcommon_headers store_headers batstore_headers)
+
 if(${ENABLE_EMBEDDED} STREQUAL "OBJECT")
 	add_library(monetdblite OBJECT ${MONETDBLITE_TRANSLATION_UNITS})
+	target_link_libraries(monetdblite PUBLIC monedblite_headers PRIVATE ${MONETDBLITE_BASE_LINK_LIBRARIES})
 	set_target_properties(monetdblite PROPERTIES POSITION_INDEPENDENT_CODE ON)
 	install(TARGETS monetdblite bisonlite_obj DESTINATION ${LOCALSTATEDIR}/monetdblite)
 else()
 	add_library(monetdblite SHARED ${MONETDBLITE_TRANSLATION_UNITS})
-	target_link_libraries(monetdblite PRIVATE ${MATH_LIBRARIES} ${THREAD_LIBRARIES} ${DL_LIBRARIES})
+	target_link_libraries(monetdblite PUBLIC monedblite_headers PRIVATE ${MONETDBLITE_BASE_LINK_LIBRARIES}
+						  ${MATH_LIBRARIES} ${THREAD_LIBRARIES} ${DL_LIBRARIES})
 	set_target_properties(monetdblite PROPERTIES VERSION ${MONETDB_VERSION} SOVERSION ${MONETDB_VERSION_MAJOR})
 	install(TARGETS monetdblite DESTINATION ${LIBDIR})
 	if(WIN32)

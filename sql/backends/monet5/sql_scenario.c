@@ -31,6 +31,7 @@
 #include "mal_io.h"
 #include "mal_parser.h"
 #include "mal_builder.h"
+#include "mal_embedded.h"
 #include "mal_namespace.h"
 #include "mal_debugger.h"
 #include "mal_linker.h"

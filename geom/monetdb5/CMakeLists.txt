@@ -26,16 +26,20 @@ if(NOT ${ENABLE_GEOM} STREQUAL "NO")
 	endif()
 endif()
 if(HAVE_GEOM)
-	include_directories(../../gdk ../../common/stream ../../common/utils ../../monetdb5/mal ${GEOS_INCLUDE_DIR}
-						${PROJ_INCLUDE_DIR})
+	include_directories(${GEOS_INCLUDE_DIR} ${PROJ_INCLUDE_DIR})
 
 	set(GEOM_LINK_LIBRARIES ${GEOS_LIBRARIES} ${PROJ_LIBRARIES})
 	if(WIN32)
 		list(APPEND GEOM_LINK_LIBRARIES monetdb5 gdk stream)
 	endif()
 
+	add_library(geom_headers INTERFACE)
+	target_include_directories(geom_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+							   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
+
 	add_library(geom MODULE geom.h geom.c geomBulk.c geom_upgrade.c libgeom.c libgeom.h)
-	target_link_libraries(geom PRIVATE ${GEOM_LINK_LIBRARIES})
+	target_link_libraries(geom PUBLIC geom_headers PRIVATE utils_headers stream_headers gdk_headers mal_headers
+						  ${GEOM_LINK_LIBRARIES})
 	set_target_properties(geom PROPERTIES OUTPUT_NAME _geom)
 	target_compile_definitions(geom PRIVATE LIBGEOM)
 

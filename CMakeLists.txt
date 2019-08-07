@@ -21,16 +21,16 @@ set(MONETDB_VERSION_PATCH "0")
 set(MONETDB_VERSION "${MONETDB_VERSION_MAJOR}.${MONETDB_VERSION_MINOR}.${MONETDB_VERSION_PATCH}")
 
 set(GDK_VERSION_MAJOR "18")
-set(GDK_VERSION "${GDK_VERSION_MAJOR}.1.0")
+set(GDK_VERSION "${GDK_VERSION_MAJOR}.2.0")
 
 set(MAPI_VERSION_MAJOR "12")
-set(MAPI_VERSION "${MAPI_VERSION_MAJOR}.0.0")
+set(MAPI_VERSION "${MAPI_VERSION_MAJOR}.1.0")
 
 set(MONETDB5_VERSION_MAJOR "27")
-set(MONETDB5_VERSION "${MONETDB5_VERSION_MAJOR}.1.0")
+set(MONETDB5_VERSION "${MONETDB5_VERSION_MAJOR}.2.0")
 
 set(STREAM_VERSION_MAJOR "13")
-set(STREAM_VERSION "${STREAM_VERSION_MAJOR}.1.0")
+set(STREAM_VERSION "${STREAM_VERSION_MAJOR}.2.0")
 
 # HOMEPAGE_URL "https://www.monetdb.org/" in project command supported from cmake 3.12 up
 # DESCRIPTION "MonetDB, SQL queries at light speed" in project command supported from cmake 3.9 up
@@ -779,17 +779,13 @@ add_custom_target(mrevision COMMAND ${CMAKE_COMMAND} ARGS -P ${CMAKE_SOURCE_DIR}
 add_subdirectory(buildtools)
 add_subdirectory(common)
 add_subdirectory(clients) # Must come before monetdb5!
-if(HAVE_GDK)
-	add_subdirectory(gdk)
-endif()
+add_subdirectory(gdk)
+add_subdirectory(monetdb5)
 if(HAVE_MONETDB5)
-	add_subdirectory(monetdb5)
 	add_subdirectory(geom) # The SHP vault requires the geom module, so the geom module should compile before SQL
 	add_subdirectory(tools)
 endif()
-if(HAVE_SQL)
-	add_subdirectory(sql)
-endif()
+add_subdirectory(sql)
 if(HAVE_EMBEDDED)
 	add_subdirectory(embedded)
 endif()

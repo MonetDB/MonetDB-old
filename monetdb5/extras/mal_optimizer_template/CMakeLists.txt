@@ -6,9 +6,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
 #]]
 
-include_directories(../../optimizer ../../mal ../../../gdk ../../../common/stream ../../../common/utils)
-
-set(OPT_SQL_APPEND_LINK_LIBRARIES )
+set(OPT_SQL_APPEND_LINK_LIBRARIES utils_headers stream_headers gdk_headers mal_headers optimizer_headers)
 if(WIN32)
 	list(APPEND OPT_SQL_APPEND_LINK_LIBRARIES monetdb5 gdk)
 endif()
