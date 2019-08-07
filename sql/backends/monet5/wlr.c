@@ -398,7 +398,11 @@ WLRprocessScheduler(void *arg)
 		if( wlr_timelimit[0]){
 			gettimeofday(&clock, NULL);
 			clk = clock.tv_sec;
+#ifdef HAVE_LOCALTIME_R
+			(void) localtime_r(&clk, &ctm);
+#else
 			ctm = *localtime(&clk);
+#endif
 			strftime(clktxt, 26, "%Y-%m-%dT%H:%M:%S.000",&ctm);
 			mnstr_printf(cntxt->fdout,"#now %s tlimit %s\n",clktxt, wlr_timelimit);
 			// actually never wait longer then the timelimit requires
@@ -439,10 +443,9 @@ WLRinit(void)
 		return MAL_SUCCEED;
 	// time to continue the consolidation process in the background
 	if (MT_create_thread(&wlr_thread, WLRprocessScheduler, (void*) cntxt,
-			     MT_THR_JOINABLE, "WLRprocessScheduler") < 0) {
+			     MT_THR_DETACHED, "WLRprocSched") < 0) {
 			throw(SQL,"wlr.init",SQLSTATE(42000) "Starting wlr manager failed");
 	}
-	GDKregister(wlr_thread);
 	return MAL_SUCCEED;
 }
 

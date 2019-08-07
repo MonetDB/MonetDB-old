@@ -290,11 +290,9 @@ SERVERlistenThread(SOCKET *Sock)
 	MT_Id tid;
 	stream *s;
 
-	if (*Sock) {
-		sock = Sock[0];
-		usock = Sock[1];
-		GDKfree(Sock);
-	}
+	sock = Sock[0];
+	usock = Sock[1];
+	GDKfree(Sock);
 
 	(void) ATOMIC_INC(&nlistener);
 
@@ -508,7 +506,9 @@ error:
  * hostname address is used, to make the info usable for servers outside
  * localhost.
  */
-static void SERVERannounce(struct in_addr addr, int port, str usockfile) {
+static void
+SERVERannounce(struct in_addr addr, int port, const char *usockfile)
+{
 	str buf;
 	char host[128];
 
@@ -546,7 +546,7 @@ static void SERVERannounce(struct in_addr addr, int port, str usockfile) {
 }
 
 static str
-SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
+SERVERlisten(int port, const char *usockfile, int maxusers)
 {
 	struct sockaddr_in server;
 	SOCKET sock = INVALID_SOCKET;
@@ -561,9 +561,6 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 	int on = 1;
 	int i = 0;
 	MT_Id pid;
-	int port;
-	int maxusers;
-	char *usockfile;
 #ifdef DEBUG_SERVER
 	char msg[512], host[512];
 	Client cntxt= mal_clients;
@@ -577,29 +574,18 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 		return MAL_SUCCEED;
 	}
 
-	psock = GDKmalloc(sizeof(SOCKET) * 3);
+	psock = GDKmalloc(sizeof(SOCKET) * 2);
 	if (psock == NULL)
 		throw(MAL,"mal_mapi.listen", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
-	port = *Port;
-	if (Usockfile == NULL || *Usockfile == 0 ||
-		*Usockfile[0] == '\0' || strcmp(*Usockfile, str_nil) == 0)
-	{
+	if (usockfile == NULL || strcmp(usockfile, str_nil) == 0) {
 		usockfile = NULL;
 	} else {
-#ifdef HAVE_SYS_UN_H
-		usockfile = GDKstrdup(*Usockfile);
-		if (usockfile == NULL) {
-			GDKfree(psock);
-			throw(MAL,"mal_mapi.listen", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-		}
-#else
-		usockfile = NULL;
+#ifndef HAVE_SYS_UN_H
 		GDKfree(psock);
 		throw(IO, "mal_mapi.listen", OPERATION_FAILED ": UNIX domain sockets are not supported");
 #endif
 	}
-	maxusers = *Maxusers;
 	maxusers = (maxusers ? maxusers : SERVERMAXUSERS);
 
 	if (port <= 0 && usockfile == NULL) {
@@ -609,7 +595,6 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 
 	if (port > 65535) {
 		GDKfree(psock);
-		GDKfree(usockfile);
 		throw(ILLARG, "mal_mapi.listen", OPERATION_FAILED ": port number should be between 1 and 65535");
 	}
 
@@ -622,7 +607,6 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 		if (sock == INVALID_SOCKET) {
 			int e = errno;
 			GDKfree(psock);
-			GDKfree(usockfile);
 			errno = e;
 			throw(IO, "mal_mapi.listen",
 				  OPERATION_FAILED ": creation of stream socket failed: %s",
@@ -644,7 +628,6 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 			const char *err = strerror(errno);
 #endif
 			GDKfree(psock);
-			GDKfree(usockfile);
 			closesocket(sock);
 			throw(IO, "mal_mapi.listen", OPERATION_FAILED ": setsockptr failed %s", err);
 		}
@@ -678,7 +661,6 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 				}
 				closesocket(sock);
 				GDKfree(psock);
-				GDKfree(usockfile);
 				errno = e;
 				throw(IO, "mal_mapi.listen",
 					  OPERATION_FAILED ": bind to stream socket port %d "
@@ -698,7 +680,6 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 			int e = errno;
 			closesocket(sock);
 			GDKfree(psock);
-			GDKfree(usockfile);
 			errno = e;
 			throw(IO, "mal_mapi.listen",
 				  OPERATION_FAILED ": failed getting socket name: %s",
@@ -713,7 +694,6 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 			int e = errno;
 			closesocket(sock);
 			GDKfree(psock);
-			GDKfree(usockfile);
 			errno = e;
 			throw(IO, "mal_mapi.listen",
 				  OPERATION_FAILED ": failed to set socket to listen %s",
@@ -727,6 +707,19 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 	}
 #ifdef HAVE_SYS_UN_H
 	if (usockfile) {
+		/* prevent silent truncation, sun_path is typically around 108
+		 * chars long :/ */
+		if (strlen(usockfile) >= sizeof(userver.sun_path)) {
+			char *e;
+			if (sock != INVALID_SOCKET)
+				closesocket(sock);
+			GDKfree(psock);
+			e = createException(MAL, "mal_mapi.listen",
+					OPERATION_FAILED ": UNIX socket path too long: %s",
+					usockfile);
+			return e;
+		}
+
 		usock = socket(AF_UNIX, SOCK_STREAM
 #ifdef SOCK_CLOEXEC
 					   | SOCK_CLOEXEC
@@ -735,7 +728,6 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 		if (usock == INVALID_SOCKET ) {
 			int e = errno;
 			GDKfree(psock);
-			GDKfree(usockfile);
 			errno = e;
 			if (sock != INVALID_SOCKET)
 				closesocket(sock);
@@ -752,32 +744,22 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 		(void) fcntl(usock, F_SETFD, FD_CLOEXEC);
 #endif
 
-		/* prevent silent truncation, sun_path is typically around 108
-		 * chars long :/ */
-		if (strlen(usockfile) >= sizeof(userver.sun_path)) {
-			char *e;
+		userver.sun_family = AF_UNIX;
+		size_t ulen = strlen(usockfile);
+		if (ulen >= sizeof(userver.sun_path)) {
 			if (sock != INVALID_SOCKET)
 				closesocket(sock);
 			closesocket(usock);
 			GDKfree(psock);
-			e = createException(MAL, "mal_mapi.listen",
-					OPERATION_FAILED ": UNIX socket path too long: %s",
-					usockfile);
-			GDKfree(usockfile);
-			return e;
+			throw(IO, "mal_mapi.listen", "usockfile name is too large");
 		}
-
-		userver.sun_family = AF_UNIX;
-		strncpy(userver.sun_path, usockfile, sizeof(userver.sun_path));
-		userver.sun_path[sizeof(userver.sun_path) - 1] = 0;
-
+		memcpy(userver.sun_path, usockfile, ulen + 1);
 		length = (SOCKLEN) sizeof(userver);
 		if(remove(usockfile) == -1 && errno != ENOENT) {
 			char *e = createException(IO, "mal_mapi.listen", OPERATION_FAILED ": remove UNIX socket file");
 			if (sock != INVALID_SOCKET)
 				closesocket(sock);
 			closesocket(usock);
-			GDKfree(usockfile);
 			GDKfree(psock);
 			return e;
 		}
@@ -800,7 +782,6 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 								strerror(errno)
 #endif
 				);
-			GDKfree(usockfile);
 			return e;
 		}
 		if(listen(usock, maxusers) == SOCKET_ERROR) {
@@ -822,7 +803,6 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 								strerror(errno)
 #endif
 				);
-			GDKfree(usockfile);
 			return e;
 		}
 	}
@@ -838,9 +818,8 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 #else
 	psock[1] = INVALID_SOCKET;
 #endif
-	psock[2] = INVALID_SOCKET;
 	if (MT_create_thread(&pid, (void (*)(void *)) SERVERlistenThread, psock,
-						 MT_THR_JOINABLE, "listenThread") != 0) {
+						 MT_THR_DETACHED, "listenThread") != 0) {
 		if (sock != INVALID_SOCKET)
 			closesocket(sock);
 #ifdef HAVE_SYS_UN_H
@@ -848,11 +827,8 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 			closesocket(usock);
 #endif
 		GDKfree(psock);
-		if (usockfile)
-			GDKfree(usockfile);
 		throw(MAL, "mal_mapi.listen", OPERATION_FAILED ": starting thread failed");
 	}
-	GDKregister(pid);
 #ifdef DEBUG_SERVER
 	gethostname(host, (int) 512);
 	snprintf(msg, (int) 512, "#Ready to accept connections on %s:%d\n", host, port);
@@ -864,8 +840,6 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 	srand((unsigned int) GDKusec());
 
 	SERVERannounce(server.sin_addr, port, usockfile);
-	if (usockfile)
-		GDKfree(usockfile);
 	return MAL_SUCCEED;
 }
 
@@ -881,32 +855,27 @@ SERVERlisten_default(int *ret)
 {
 	int port = SERVERPORT;
 	str p;
-	int maxusers = SERVERMAXUSERS;
 
 	(void) ret;
 	p = GDKgetenv("mapi_port");
 	if (p)
 		port = (int) strtol(p, NULL, 10);
 	p = GDKgetenv("mapi_usock");
-	return SERVERlisten(&port, &p, &maxusers);
+	return SERVERlisten(port, p, SERVERMAXUSERS);
 }
 
 str
 SERVERlisten_usock(int *ret, str *usock)
 {
-	int maxusers = SERVERMAXUSERS;
 	(void) ret;
-	return SERVERlisten(0, usock, &maxusers);
+	return SERVERlisten(0, usock ? *usock : NULL, SERVERMAXUSERS);
 }
 
 str
 SERVERlisten_port(int *ret, int *pid)
 {
-	int port = *pid;
-	int maxusers = SERVERMAXUSERS;
-
 	(void) ret;
-	return SERVERlisten(&port, 0, &maxusers);
+	return SERVERlisten(*pid, NULL, SERVERMAXUSERS);
 }
 /*
  * The internet connection listener may be terminated from the server console,

@@ -251,7 +251,7 @@ SQLabort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 
-	if (sql->session->active) {
+	if (sql->session->tr->active) {
 		msg = mvc_rollback(sql, 0, NULL, false);
 	}
 	return msg;
@@ -327,7 +327,8 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 			snprintf(buf, BUFSIZ, "select cast(%s as %s);", c->def, typestr);
 			_DELETE(typestr);
 			r = rel_parse(sql, s, buf, m_deps);
-			if (!r || !is_project(r->op) || !r->exps || list_length(r->exps) != 1 || rel_check_type(sql, &c->type, r->exps->h->data, type_equal) == NULL) {
+			if (!r || !is_project(r->op) || !r->exps || list_length(r->exps) != 1 ||
+				rel_check_type(sql, &c->type, r, r->exps->h->data, type_equal) == NULL) {
 				if(r)
 					rel_destroy(r);
 				sa_destroy(sql->sa);
@@ -1065,7 +1066,10 @@ mvc_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					bat_destroy(vl);
 					throw(SQL, "sql.bind", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 				}
-				assert(BATcount(id) == BATcount(vl));
+				if ( BATcount(id) != BATcount(vl)){
+					BBPunfix(b->batCacheid);
+					throw(SQL, "sql.bind", SQLSTATE(0000) "Inconsistent BAT count");
+				}
 				BBPkeepref(*bid = id->batCacheid);
 				BBPkeepref(*uvl = vl->batCacheid);
 			} else {
@@ -1089,6 +1093,268 @@ mvc_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (sname && strcmp(sname, str_nil) != 0)
 		throw(SQL, "sql.bind", SQLSTATE(42000) "unable to find %s.%s(%s)", sname, tname, cname);
 	throw(SQL, "sql.bind", SQLSTATE(42000) "unable to find %s(%s)", tname, cname);
+}
+
+/* The output of this function are 7 columns:
+ *  - The sqlid of the column
+ *  - A flag indicating if the column's upper table is cleared or not.
+ *  - Number of read-only values of the column (inherited from the previous transaction).
+ *  - Number of inserted rows during the current transaction.
+ *  - Number of updated rows during the current transaction.
+ *  - Number of deletes of the column's table.
+ *  - the number in the transaction chain (.i.e for each savepoint a new transaction is added in the chain)
+ *  If the table is cleared, the values RDONLY, RD_INS and RD_UPD_ID and the number of deletes will be 0.
+ */
+
+str
+mvc_delta_values(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	const char *sname = *getArgReference_str(stk, pci, 7),
+			   *tname = (pci->argc > 8) ? *getArgReference_str(stk, pci, 8) : NULL,
+			   *cname = (pci->argc > 9) ? *getArgReference_str(stk, pci, 9) : NULL;
+	mvc *m;
+	str msg = MAL_SUCCEED;
+	BAT *col1 = NULL, *col2 = NULL, *col3 = NULL, *col4 = NULL, *col5 = NULL, *col6 = NULL, *col7 = NULL;
+	bat *b1 = getArgReference_bat(stk, pci, 0),
+		*b2 = getArgReference_bat(stk, pci, 1),
+		*b3 = getArgReference_bat(stk, pci, 2),
+		*b4 = getArgReference_bat(stk, pci, 3),
+		*b5 = getArgReference_bat(stk, pci, 4),
+		*b6 = getArgReference_bat(stk, pci, 5),
+		*b7 = getArgReference_bat(stk, pci, 6);
+	sql_trans *tr;
+	sql_schema *s = NULL;
+	sql_table *t = NULL;
+	sql_column *c = NULL;
+	node *n;
+	bit cleared;
+	int level = 0;
+	BUN nrows = 0;
+	lng all, readonly, inserted, updates, deletes;
+
+	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
+		goto cleanup;
+	if ((msg = checkSQLContext(cntxt)) != NULL)
+		goto cleanup;
+
+	if (!(s = mvc_bind_schema(m, sname)))
+		throw(SQL, "sql.delta", SQLSTATE(3F000) "No such schema '%s'", sname);
+
+	if (tname) {
+		if (!(t = mvc_bind_table(m, s, tname)))
+			throw(SQL, "sql.delta", SQLSTATE(3F000) "No such table '%s' in schema '%s'", tname, s->base.name);
+		if (isView(t))
+			throw(SQL, "sql.delta", SQLSTATE(42000) "Views don't have delta values");
+		if (isMergeTable(t))
+			throw(SQL, "sql.delta", SQLSTATE(42000) "Merge tables don't have delta values");
+		if (isStream(t))
+			throw(SQL, "sql.delta", SQLSTATE(42000) "Stream tables don't have delta values");
+		if (isRemote(t))
+			throw(SQL, "sql.delta", SQLSTATE(42000) "Remote tables don't have delta values");
+		if (isReplicaTable(t))
+			throw(SQL, "sql.delta", SQLSTATE(42000) "Replica tables don't have delta values");
+		if (cname) {
+			if (!(c = mvc_bind_column(m, t, cname)))
+				throw(SQL, "sql.delta", SQLSTATE(3F000) "No such column '%s' in table '%s'", cname, t->base.name);
+			nrows = 1;
+		} else {
+			nrows = (BUN) t->columns.set->cnt;
+		}
+	} else if (s->tables.set) {
+		for (n = s->tables.set->h; n ; n = n->next) {
+			t = (sql_table *) n->data;
+			if (!(isView(t) || isMergeTable(t) || isStream(t) || isRemote(t) || isReplicaTable(t)))
+				nrows += t->columns.set->cnt;
+		}
+	}
+
+	if ((col1 = COLnew(0, TYPE_int, nrows, TRANSIENT)) == NULL) {
+		msg = createException(SQL, "sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		goto cleanup;
+	}
+	if ((col2 = COLnew(0, TYPE_bit, nrows, TRANSIENT)) == NULL) {
+		msg = createException(SQL, "sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		goto cleanup;
+	}
+	if ((col3 = COLnew(0, TYPE_lng, nrows, TRANSIENT)) == NULL) {
+		msg = createException(SQL, "sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		goto cleanup;
+	}
+	if ((col4 = COLnew(0, TYPE_lng, nrows, TRANSIENT)) == NULL) {
+		msg = createException(SQL, "sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		goto cleanup;
+	}
+	if ((col5 = COLnew(0, TYPE_lng, nrows, TRANSIENT)) == NULL) {
+		msg = createException(SQL, "sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		goto cleanup;
+	}
+	if ((col6 = COLnew(0, TYPE_lng, nrows, TRANSIENT)) == NULL) {
+		msg = createException(SQL, "sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		goto cleanup;
+	}
+	if ((col7 = COLnew(0, TYPE_int, nrows, TRANSIENT)) == NULL) {
+		msg = createException(SQL, "sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		goto cleanup;
+	}
+
+	if (nrows) {
+		tr = m->session->tr;
+		while((tr = tr->parent)) level++;
+
+		if (tname) {
+			cleared = (t->cleared != 0);
+			deletes = (lng) store_funcs.count_del(m->session->tr, t);
+			if (cname) {
+				inserted = (lng) store_funcs.count_col(m->session->tr, c, 0);
+				all = (lng) store_funcs.count_col(m->session->tr, c, 1);
+				updates = (lng) store_funcs.count_col_upd(m->session->tr, c);
+				assert(all >= inserted);
+				readonly = all - inserted;
+
+				if (BUNappend(col1, &c->base.id, false) != GDK_SUCCEED) {
+					msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+					goto cleanup;
+				}
+				if (BUNappend(col2, &cleared, false) != GDK_SUCCEED) {
+					msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+					goto cleanup;
+				}
+				if (BUNappend(col3, &readonly, false) != GDK_SUCCEED) {
+					msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+					goto cleanup;
+				}
+				if (BUNappend(col4, &inserted, false) != GDK_SUCCEED) {
+					msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+					goto cleanup;
+				}
+				if (BUNappend(col5, &updates, false) != GDK_SUCCEED) {
+					msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+					goto cleanup;
+				}
+				if (BUNappend(col6, &deletes, false) != GDK_SUCCEED) {
+					msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+					goto cleanup;
+				}
+				if (BUNappend(col7, &level, false) != GDK_SUCCEED) {
+					msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+					goto cleanup;
+				}
+			} else {
+				for (n = t->columns.set->h; n ; n = n->next) {
+					c = (sql_column*) n->data;
+
+					inserted = (lng) store_funcs.count_col(m->session->tr, c, 0);
+					all = (lng) store_funcs.count_col(m->session->tr, c, 1);
+					updates = (lng) store_funcs.count_col_upd(m->session->tr, c);
+					assert(all >= inserted);
+					readonly = all - inserted;
+
+					if (BUNappend(col1, &c->base.id, false) != GDK_SUCCEED) {
+						msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+						goto cleanup;
+					}
+					if (BUNappend(col2, &cleared, false) != GDK_SUCCEED) {
+						msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+						goto cleanup;
+					}
+					if (BUNappend(col3, &readonly, false) != GDK_SUCCEED) {
+						msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+						goto cleanup;
+					}
+					if (BUNappend(col4, &inserted, false) != GDK_SUCCEED) {
+						msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+						goto cleanup;
+					}
+					if (BUNappend(col5, &updates, false) != GDK_SUCCEED) {
+						msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+						goto cleanup;
+					}
+					if (BUNappend(col6, &deletes, false) != GDK_SUCCEED) {
+						msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+						goto cleanup;
+					}
+					if (BUNappend(col7, &level, false) != GDK_SUCCEED) {
+						msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+						goto cleanup;
+					}
+				}
+			}
+		} else if (s->tables.set) {
+			for (n = s->tables.set->h; n ; n = n->next) {
+				t = (sql_table *) n->data;
+				if (!(isView(t) || isMergeTable(t) || isStream(t) || isRemote(t) || isReplicaTable(t))) {
+					cleared = (t->cleared != 0);
+					deletes = (lng) store_funcs.count_del(m->session->tr, t);
+
+					for (node *nn = t->columns.set->h; nn ; nn = nn->next) {
+						c = (sql_column*) nn->data;
+
+						inserted = (lng) store_funcs.count_col(m->session->tr, c, 0);
+						all = (lng) store_funcs.count_col(m->session->tr, c, 1);
+						updates = (lng) store_funcs.count_col_upd(m->session->tr, c);
+						assert(all >= inserted);
+						readonly = all - inserted;
+
+						if (BUNappend(col1, &c->base.id, false) != GDK_SUCCEED) {
+							msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+							goto cleanup;
+						}
+						if (BUNappend(col2, &cleared, false) != GDK_SUCCEED) {
+							msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+							goto cleanup;
+						}
+						if (BUNappend(col3, &readonly, false) != GDK_SUCCEED) {
+							msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+							goto cleanup;
+						}
+						if (BUNappend(col4, &inserted, false) != GDK_SUCCEED) {
+							msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+							goto cleanup;
+						}
+						if (BUNappend(col5, &updates, false) != GDK_SUCCEED) {
+							msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+							goto cleanup;
+						}
+						if (BUNappend(col6, &deletes, false) != GDK_SUCCEED) {
+							msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+							goto cleanup;
+						}
+						if (BUNappend(col7, &level, false) != GDK_SUCCEED) {
+							msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+							goto cleanup;
+						}
+					}
+				}
+			}
+		}
+	}
+
+cleanup:
+	if (msg) {
+		if (col1)
+			BBPreclaim(col1);
+		if (col2)
+			BBPreclaim(col2);
+		if (col3)
+			BBPreclaim(col3);
+		if (col4)
+			BBPreclaim(col4);
+		if (col5)
+			BBPreclaim(col5);
+		if (col6)
+			BBPreclaim(col6);
+		if (col7)
+			BBPreclaim(col7);
+	} else {
+		BBPkeepref(*b1 = col1->batCacheid);
+		BBPkeepref(*b2 = col2->batCacheid);
+		BBPkeepref(*b3 = col3->batCacheid);
+		BBPkeepref(*b4 = col4->batCacheid);
+		BBPkeepref(*b5 = col5->batCacheid);
+		BBPkeepref(*b6 = col6->batCacheid);
+		BBPkeepref(*b7 = col7->batCacheid);
+	}
+	return msg;
 }
 
 /* str mvc_bind_idxbat_wrap(int *bid, str *sname, str *tname, str *iname, int *access); */
@@ -1911,7 +2177,7 @@ SQLtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	bat *res = getArgReference_bat(stk, pci, 0);
 	mvc *m = NULL;
-	str msg;
+	str msg = MAL_SUCCEED;
 	sql_trans *tr;
 	const char *sname = *getArgReference_str(stk, pci, 2);
 	const char *tname = *getArgReference_str(stk, pci, 3);
@@ -1920,7 +2186,7 @@ SQLtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_table *t;
 	sql_column *c;
 	BAT *tids;
-	size_t nr, inr = 0;
+	size_t nr, inr = 0, dcnt;
 	oid sb = 0;
 
 	*res = bat_nil;
@@ -1963,13 +2229,18 @@ SQLtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (tids == NULL)
 		throw(SQL, "sql.tid", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
-	if (store_funcs.count_del(tr, t)) {
+	if ((dcnt = store_funcs.count_del(tr, t)) > 0) {
 		BAT *d = store_funcs.bind_del(tr, t, RD_INS);
 		BAT *diff;
-		if (d == NULL)
+		if (d == NULL) {
+			BBPunfix(tids->batCacheid);
 			throw(SQL,"sql.tid", SQLSTATE(45002) "Can not bind delete column");
+		}
 
 		diff = BATdiff(tids, d, NULL, NULL, false, BUN_NONE);
+		// assert(pci->argc == 6 || BATcount(diff) == (nr-dcnt));
+		if( !(pci->argc == 6 || BATcount(diff) == (nr-dcnt)) )
+			msg = createException(SQL, "sql.tid", SQLSTATE(00000) "Invalid sqltid state argc= %d diff=  %d, dcnt=%d", pci->argc, (int)nr, (int)dcnt);
 		BBPunfix(d->batCacheid);
 		BBPunfix(tids->batCacheid);
 		if (diff == NULL)
@@ -1978,7 +2249,7 @@ SQLtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		tids = diff;
 	}
 	BBPkeepref(*res = tids->batCacheid);
-	return MAL_SUCCEED;
+	return msg;
 }
 
 /* unsafe pattern resultSet(tbl:bat[:str], attr:bat[:str], tpe:bat[:str], len:bat[:int],scale:bat[:int], cols:bat[:any]...) :int */
@@ -2644,7 +2915,10 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	be = cntxt->sqlcontext;
-	if (*ssep == 0)
+	/* The CSV parser expects ssep to have the value 0 if the user does not
+	 * specify a quotation character
+	 */
+	if (*ssep == 0 || strcmp(ssep, str_nil) == 0)
 		ssep = NULL;
 
 	if (fname != NULL && strcmp(str_nil, fname) == 0)
@@ -3011,7 +3285,6 @@ mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	}
 	return MAL_SUCCEED;
   bailout:
-	assert(msg != MAL_SUCCEED);
 	for (i = 0; i < pci->retc; i++) {
 		bat bid; 
 		if ((bid = *getArgReference_bat(stk, pci, i)) != 0) {
@@ -3690,7 +3963,7 @@ dump_cache(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	for (q = m->qc->q; q; q = q->next) {
-		if (q->type != Q_PREPARE) {
+		if (!q->prepared) {
 			if (BUNappend(query, q->codestring, false) != GDK_SUCCEED ||
 			    BUNappend(count, &q->count, false) != GDK_SUCCEED) {
 				BBPunfix(query->batCacheid);

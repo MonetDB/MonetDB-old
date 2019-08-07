@@ -258,7 +258,7 @@ atom_general(sql_allocator *sa, sql_subtype *tpe, const char *val)
 
 	assert(a->data.vtype >= 0);
 
-	if (val) {
+	if (!GDK_STRNIL(val)) {
 		int type = a->data.vtype;
 
 		a->isnull = 0;
@@ -346,17 +346,14 @@ atom2string(sql_allocator *sa, atom *a)
 		sprintf(buf, "%f", a->data.val.dval);
 		break;
 	case TYPE_str:
-		if (a->data.val.sval)
-			return sa_strdup(sa, a->data.val.sval);
-		else
-			sprintf(buf, "NULL");
-		break;
-        default:  
+		assert(a->data.val.sval);
+		return sa_strdup(sa, a->data.val.sval);
+	default:
 		v = &a->data.val.ival;
 		if (ATOMvarsized(a->data.vtype))
 			v = a->data.val.pval;
 		if ((p = ATOMformat(a->data.vtype, v)) == NULL) {
-                	snprintf(buf, BUFSIZ, "atom2string(TYPE_%d) not implemented", a->data.vtype);
+			snprintf(buf, BUFSIZ, "atom2string(TYPE_%d) not implemented", a->data.vtype);
 		} else {
 			 char *r = sa_strdup(sa, p);
 			 _DELETE(p);
@@ -373,8 +370,9 @@ atom2sql(atom *a)
 	char buf[BUFSIZ];
 
 	if (a->data.vtype == TYPE_str && EC_INTERVAL(ec))
-		ec = EC_STRING; 
-	/* todo handle NULL's early */
+		ec = EC_STRING;
+	if (a->isnull)
+		return _STRDUP("NULL");
 	switch (ec) {
 	case EC_BIT:
 		assert( a->data.vtype == TYPE_bit);
@@ -383,11 +381,8 @@ atom2sql(atom *a)
 		return _STRDUP("false");
 	case EC_CHAR:
 	case EC_STRING:
-		assert (a->data.vtype == TYPE_str);
-		if (a->data.val.sval)
-			sprintf(buf, "'%s'", a->data.val.sval);
-		else
-			sprintf(buf, "NULL");
+		assert(a->data.vtype == TYPE_str && a->data.val.sval);
+		sprintf(buf, "'%s'", a->data.val.sval);
 		break;
 	case EC_BLOB:
 		/* TODO atom to string */
@@ -500,11 +495,8 @@ atom2sql(atom *a)
 	case EC_DATE:
 	case EC_TIMESTAMP:
 		if (a->data.vtype == TYPE_str) {
-			if (a->data.val.sval)
-				sprintf(buf, "%s '%s'", a->tpe.type->sqlname,
-					a->data.val.sval);
-			else
-				sprintf(buf, "NULL");
+			assert(a->data.val.sval);
+			sprintf(buf, "%s '%s'", a->tpe.type->sqlname, a->data.val.sval);
 		}
 		break;
 	default:
@@ -1367,229 +1359,6 @@ atom_is_true( atom *a )
 		break;
 	}
 	return 0;
-}
-
-atom*
-atom_absolute_min(sql_allocator *sa, sql_subtype* tpe)
-{
-	void *ret = NULL;
-	atom *res = NULL;
-
-#ifdef HAVE_HGE
-	hge hval = GDK_hge_min;
-#endif
-	lng lval = GDK_lng_min;
-	int ival = GDK_int_min;
-	sht sval = GDK_sht_min;
-	bte bbval = GDK_bte_min;
-	bit bval = GDK_bit_min;
-	flt fval = GDK_flt_min;
-	dbl dval = GDK_dbl_min;
-	date dt = 0;
-	daytime dyt = 0;
-	timestamp tmp;
-
-	switch (tpe->type->eclass) {
-		case EC_BIT:
-		{
-			ret = &bval;
-			break;
-		}
-		case EC_POS:
-		case EC_NUM:
-		case EC_DEC:
-		case EC_SEC:
-		case EC_MONTH:
-			switch (tpe->type->localtype) {
-#ifdef HAVE_HGE
-				case TYPE_hge:
-				{
-					ret = &hval;
-					break;
-				}
-#endif
-				case TYPE_lng:
-				{
-					ret = &lval;
-					break;
-				}
-				case TYPE_int:
-				{
-					ret = &ival;
-					break;
-				}
-				case TYPE_sht:
-				{
-					ret = &sval;
-					break;
-				}
-				case TYPE_bte:
-				{
-					ret = &bbval;
-					break;
-				}
-				default:
-					break;
-			}
-			break;
-		case EC_FLT:
-			switch (tpe->type->localtype) {
-				case TYPE_flt:
-				{
-					ret = &fval;
-					break;
-				}
-				case TYPE_dbl:
-				{
-					ret = &dval;
-					break;
-				}
-				default:
-					break;
-			}
-			break;
-		case EC_DATE: {
-			ret = &dt;
-			break;
-		}
-		case EC_TIME: {
-			ret = &dyt;
-			break;
-		}
-		case EC_TIMESTAMP: {
-			tmp = (timestamp) {
-				.msecs = 0,
-				.days = 0,
-			};
-			ret = &tmp;
-			break;
-		}
-		default:
-			break;
-	} //no support for strings and blobs min value
-
-	if(ret != NULL) {
-		res = atom_create(sa);
-		res->tpe = *tpe;
-		res->isnull = 0;
-		res->data.vtype = tpe->type->localtype;
-		VALset(&res->data, res->data.vtype, ret);
-		SA_VALcopy(sa, &res->data, &res->data);
-	}
-
-	return res;
-}
-
-atom*
-atom_absolute_max(sql_allocator *sa, sql_subtype* tpe)
-{
-	void *ret = NULL;
-	atom *res = NULL;
-
-#ifdef HAVE_HGE
-	hge hval = GDK_hge_max;
-#endif
-	lng lval = GDK_lng_max;
-	int ival = GDK_int_max;
-	sht sval = GDK_sht_max;
-	bte bbval = GDK_bte_max;
-	bit bval = GDK_bit_max;
-	flt fval = GDK_flt_max;
-	dbl dval = GDK_dbl_max;
-	date dt = 0;
-	daytime dyt = 0;
-	timestamp tmp;
-
-	switch (tpe->type->eclass) {
-		case EC_BIT:
-		{
-			ret = &bval;
-			break;
-		}
-		case EC_POS:
-		case EC_NUM:
-		case EC_DEC:
-		case EC_SEC:
-		case EC_MONTH:
-			switch (tpe->type->localtype) {
-#ifdef HAVE_HGE
-				case TYPE_hge:
-				{
-					ret = &hval;
-					break;
-				}
-#endif
-				case TYPE_lng:
-				{
-					ret = &lval;
-					break;
-				}
-				case TYPE_int:
-				{
-					ret = &ival;
-					break;
-				}
-				case TYPE_sht:
-				{
-					ret = &sval;
-					break;
-				}
-				case TYPE_bte:
-				{
-					ret = &bbval;
-					break;
-				}
-				default:
-					break;
-			}
-			break;
-		case EC_FLT:
-			switch (tpe->type->localtype) {
-				case TYPE_flt:
-				{
-					ret = &fval;
-					break;
-				}
-				case TYPE_dbl:
-				{
-					ret = &dval;
-					break;
-				}
-				default:
-					break;
-			}
-			break;
-		case EC_DATE: {
-			dt = MTIMEtodate(31, 12, YEAR_MAX);
-			ret = &dt;
-			break;
-		}
-		case EC_TIME: {
-			dyt = 86399999; //milliseconds on a day
-			ret = &dyt;
-			break;
-		}
-		case EC_TIMESTAMP: {
-			tmp = (timestamp) {
-				.msecs = 86399999, //milliseconds on a day
-				.days = MTIMEtodate(31, 12, YEAR_MAX),
-			};
-			ret = &tmp;
-			break;
-		}
-		default:
-			break;
-	} //no support for strings and blobs max value
-
-	if(ret != NULL) {
-		res = atom_create(sa);
-		res->tpe = *tpe;
-		res->isnull = 0;
-		res->data.vtype = tpe->type->localtype;
-		VALset(&res->data, res->data.vtype, ret);
-	}
-
-	return res;
 }
 
 atom*

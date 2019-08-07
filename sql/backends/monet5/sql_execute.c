@@ -284,7 +284,7 @@ SQLrun(Client c, backend *be, mvc *m)
 	InstrPtr p=0;
 	int i,j, retc;
 	ValPtr val;
-			
+
 	if (*m->errstr){
 		if (strlen(m->errstr) > 6 && m->errstr[5] == '!')
 			msg = createException(PARSE, "SQLparser", "%s", m->errstr);
@@ -293,10 +293,13 @@ SQLrun(Client c, backend *be, mvc *m)
 		*m->errstr=0;
 		return msg;
 	}
+	if (m->emode == m_execute && be->q->paramlen != m->argc)
+		throw(SQL, "sql.prepare", SQLSTATE(42000) "EXEC called with wrong number of arguments: expected %d, got %d", be->q->paramlen, m->argc);
 	MT_thread_setworking(c->query);
 	// locate and inline the query template instruction
 	mb = copyMalBlk(c->curprg->def);
 	if (!mb) {
+		MT_thread_setworking(NULL);
 		throw(SQL, "sql.prepare", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 	mb->history = c->curprg->def->history;
@@ -315,6 +318,7 @@ SQLrun(Client c, backend *be, mvc *m)
 			mc = copyMalBlk(p->blk);
 			if (!mc) {
 				freeMalBlk(mb);
+				MT_thread_setworking(NULL);
 				throw(SQL, "sql.prepare", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			}
 			retc = p->retc;
@@ -325,14 +329,16 @@ SQLrun(Client c, backend *be, mvc *m)
 			for (j = 0; j < m->argc; j++) {
 				sql_subtype *pt = be->q->params + j;
 				atom *arg = m->args[j];
-				
+
 				if (!atom_cast(m->sa, arg, pt)) {
 					freeMalBlk(mb);
+					MT_thread_setworking(NULL);
 					throw(SQL, "sql.prepare", SQLSTATE(07001) "EXEC: wrong type for argument %d of " "query template : %s, expected %s", i + 1, atom_type(arg)->type->sqlname, pt->type->sqlname);
 				}
 				val= (ValPtr) &arg->data;
 				if (VALcopy(&mb->var[j+retc].value, val) == NULL){
 					freeMalBlk(mb);
+					MT_thread_setworking(NULL);
 					throw(MAL, "sql.prepare", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 				}
 				setVarConstant(mb, j+retc);
@@ -861,6 +867,7 @@ RAstatement(Client c, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if ((msg = checkSQLContext(c)) != NULL)
 		return msg;
+	SQLtrans(m);
 	if (!m->sa)
 		m->sa = sa_create();
 	if (!m->sa)
@@ -894,6 +901,10 @@ RAstatement(Client c, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			resetMalBlk(c->curprg->def, oldstop);
 			freeVariables(c, c->curprg->def, NULL, oldvtop);
 		}
+		if (!msg)
+			msg = mvc_commit(m, 0, NULL, false);
+		else
+			msg = mvc_rollback(m, 0, NULL, false);
 	}
 	return msg;
 }
@@ -928,6 +939,7 @@ RAstatement2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
+	SQLtrans(m);
 	if (!m->sa)
 		m->sa = sa_create();
 	if (!m->sa)
@@ -954,8 +966,10 @@ RAstatement2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		p = strchr(p, (int)'(');
 		*p++ = 0;
 		tnme = sa_strdup(m->sa, tnme);
-		if (!tnme)
+		if (!tnme) {
+			stack_pop_frame(m);
 			return createException(SQL,"RAstatement2",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		}
 		d = strtol(p, &p, 10);
 		p++; /* skip , */
 		s = strtol(p, &p, 10);
@@ -968,11 +982,15 @@ RAstatement2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		 * */
 		if (nr >= 0) { 
 			append(ops, exp_atom_ref(m->sa, nr, &t));
-			if(!sql_set_arg(m, nr, a))
+			if(!sql_set_arg(m, nr, a)) {
+				stack_pop_frame(m);
 				return createException(SQL,"RAstatement2",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			}
 		} else {
-			if(!stack_push_var(m, vnme+1, &t))
+			if(!stack_push_var(m, vnme+1, &t)) {
+				stack_pop_frame(m);
 				return createException(SQL,"RAstatement2",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			}
 			append(ops, exp_var(m->sa, sa_strdup(m->sa, vnme+1), &t, m->frame));
 		}
 		c = strchr(p, (int)',');

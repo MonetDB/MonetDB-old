@@ -136,6 +136,7 @@ typedef int (*delete_tab_fptr) (sql_trans *tr, sql_table *t, void *d, int tpe);
 typedef size_t (*count_del_fptr) (sql_trans *tr, sql_table *t);
 typedef size_t (*count_upd_fptr) (sql_trans *tr, sql_table *t);
 typedef size_t (*count_col_fptr) (sql_trans *tr, sql_column *c, int all /* all or new only */);
+typedef size_t (*count_col_upd_fptr) (sql_trans *tr, sql_column *c);
 typedef size_t (*count_idx_fptr) (sql_trans *tr, sql_idx *i, int all /* all or new only */);
 typedef size_t (*dcount_col_fptr) (sql_trans *tr, sql_column *c);
 typedef int (*prop_col_fptr) (sql_trans *tr, sql_column *c);
@@ -225,6 +226,7 @@ typedef struct store_functions {
 	count_del_fptr count_del;
 	count_upd_fptr count_upd;
 	count_col_fptr count_col;
+	count_col_upd_fptr count_col_upd;
 	count_idx_fptr count_idx;
 	dcount_col_fptr dcount_col;
 	prop_col_fptr sorted_col;
@@ -354,8 +356,8 @@ extern void store_lock(void);
 extern void store_unlock(void);
 extern int store_next_oid(void);
 
-extern sql_trans *sql_trans_create(backend_stack stk, sql_trans *parent, const char *name);
-extern sql_trans *sql_trans_destroy(sql_trans *tr);
+extern sql_trans *sql_trans_create(backend_stack stk, sql_trans *parent, const char *name, bool try_spare);
+extern sql_trans *sql_trans_destroy(sql_trans *tr, bool try_spare);
 extern int sql_trans_validate(sql_trans *tr);
 extern int sql_trans_commit(sql_trans *tr);
 
@@ -399,7 +401,7 @@ extern sql_column *sql_trans_alter_default(sql_trans *tr, sql_column *col, char 
 extern sql_column *sql_trans_alter_storage(sql_trans *tr, sql_column *col, char *storage);
 extern int sql_trans_is_sorted(sql_trans *tr, sql_column *col);
 extern size_t sql_trans_dist_count(sql_trans *tr, sql_column *col);
-extern int sql_trans_ranges(sql_trans *tr, sql_column *col, void **min, void **max);
+extern int sql_trans_ranges(sql_trans *tr, sql_column *col, char **min, char **max);
 
 extern sql_key *sql_trans_create_ukey(sql_trans *tr, sql_table *t, const char *name, key_type kt);
 extern sql_key * sql_trans_key_done(sql_trans *tr, sql_key *k);

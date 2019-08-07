@@ -320,9 +320,12 @@ value_list(backend *be, list *vals, stmt *left, stmt *sel)
 {
 	node *n;
 	stmt *s;
+	sql_subtype *type = exp_subtype(vals->h->data);
 
+	if (!type)
+		return sql_error(be->mvc, 02, SQLSTATE(42000) "Could not infer the type of a value list column");
 	/* create bat append values */
-	s = stmt_temp(be, exp_subtype(vals->h->data));
+	s = stmt_temp(be, type);
 	for( n = vals->h; n; n = n->next) {
 		sql_exp *e = n->data;
 		stmt *i = exp_bin(be, e, left, NULL, NULL, NULL, NULL, sel);
@@ -332,7 +335,6 @@ value_list(backend *be, list *vals, stmt *left, stmt *sel)
 
 		if (list_length(vals) == 1)
 			return i;
-		
 		s = stmt_append(be, s, i);
 	}
 	return s;
@@ -507,14 +509,14 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 		}
 		if (!l) 
 			return NULL;
-		s = stmt_convert(be, l, from, to);
+		s = stmt_convert(be, l, from, to, sel);
 	} 	break;
 	case e_func: {
 		node *en;
 		list *l = sa_list(sql->sa), *exps = e->l;
 		sql_subfunc *f = e->f;
 		stmt *rows = NULL, *cond_execution = NULL;
-		char name[16], *nme;
+		char name[16], *nme = NULL;
 
 		if (f->func->side_effect && left) {
 			if (!exps || list_empty(exps))
@@ -1110,7 +1112,7 @@ check_types(backend *be, sql_subtype *ct, stmt *s, check_type tpe)
                    (c == 3 && tpe != type_cast)) { 
 			s = NULL;
 		} else {
-			s = stmt_convert(be, s, st, ct);
+			s = stmt_convert(be, s, st, ct, NULL);
 		}
 	} 
 	if (!s) {
@@ -2827,6 +2829,11 @@ rel2bin_select(backend *be, sql_rel *rel, list *refs)
 		if (s->nrcols == 0){
 			if (!predicate && sub)
 				predicate = stmt_const(be, bin_first_column(be, sub), stmt_bool(be, 1));
+ 			if (e->type != e_cmp) {
+ 				sql_subtype *bt = sql_bind_localtype("bit");
+ 
+				s = stmt_convert(be, s, exp_subtype(e), bt, NULL);
+ 			}
 			sel = stmt_uselect(be, predicate, s, cmp_equal, sel, 0);
 		} else if (e->type != e_cmp) {
 			sel = stmt_uselect(be, s, stmt_bool(be, 1), cmp_equal, NULL, 0);
@@ -3422,19 +3429,20 @@ sql_insert_triggers(backend *be, sql_table *t, stmt **updates, int time)
 
 		if(!stack_push_frame(sql, "OLD-NEW"))
 			return 0;
-		if (trigger->event == 0 && trigger->time == time) { 
-			stmt *s = NULL;
+		if (trigger->event == 0 && trigger->time == time) {
 			const char *n = trigger->new_name;
 
 			/* add name for the 'inserted' to the stack */
 			if (!n) n = "new";
 
-			if(!sql_stack_add_inserted(sql, n, t, updates))
+			if(!sql_stack_add_inserted(sql, n, t, updates)) {
+				stack_pop_frame(sql);
 				return 0;
-			s = sql_parse(be, sql->sa, trigger->statement, m_instantiate);
-			
-			if (!s) 
+			}
+			if (!sql_parse(be, sql->sa, trigger->statement, m_instantiate)) {
+				stack_pop_frame(sql);
 				return 0;
+			}
 		}
 		stack_pop_frame(sql);
 	}
@@ -4384,20 +4392,22 @@ sql_update_triggers(backend *be, sql_table *t, stmt *tids, stmt **updates, int t
 		if(!stack_push_frame(sql, "OLD-NEW"))
 			return 0;
 		if (trigger->event == 2 && trigger->time == time) {
-			stmt *s = NULL;
-	
 			/* add name for the 'inserted' to the stack */
 			const char *n = trigger->new_name;
 			const char *o = trigger->old_name;
-	
+
 			if (!n) n = "new"; 
 			if (!o) o = "old"; 
 
-			if(!sql_stack_add_updated(sql, o, n, t, tids, updates))
+			if(!sql_stack_add_updated(sql, o, n, t, tids, updates)) {
+				stack_pop_frame(sql);
 				return 0;
-			s = sql_parse(be, sql->sa, trigger->statement, m_instantiate);
-			if (!s) 
+			}
+
+			if (!sql_parse(be, sql->sa, trigger->statement, m_instantiate)) {
+				stack_pop_frame(sql);
 				return 0;
+			}
 		}
 		stack_pop_frame(sql);
 	}
@@ -4653,19 +4663,20 @@ sql_delete_triggers(backend *be, sql_table *t, stmt *tids, int time, int firing_
 		if(!stack_push_frame(sql, "OLD-NEW"))
 			return 0;
 		if (trigger->event == firing_type && trigger->time == time) {
-			stmt *s = NULL;
-
 			/* add name for the 'deleted' to the stack */
 			const char *o = trigger->old_name;
 
 			if (!o) o = "old";
 
-			if(!sql_stack_add_deleted(sql, o, t, tids, internal_type))
+			if(!sql_stack_add_deleted(sql, o, t, tids, internal_type)) {
+				stack_pop_frame(sql);
 				return 0;
-			s = sql_parse(be, sql->sa, trigger->statement, m_instantiate);
+			}
 
-			if (!s) 
+			if (!sql_parse(be, sql->sa, trigger->statement, m_instantiate)) {
+				stack_pop_frame(sql);
 				return 0;
+			}
 		}
 		stack_pop_frame(sql);
 	}

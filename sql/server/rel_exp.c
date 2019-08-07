@@ -8,6 +8,7 @@
 
 #include "monetdb_config.h"
 #include "sql_relation.h"
+#include "sql_semantic.h"
 #include "rel_exp.h"
 #include "rel_prop.h" /* for prop_copy() */
 #include "rel_optimizer.h"
@@ -180,7 +181,6 @@ exp_in(sql_allocator *sa, sql_exp *l, list *r, int cmptype)
 	e->flag = cmptype;
 	return e;
 }
-
 
 static sql_subtype*
 dup_subtype(sql_allocator *sa, sql_subtype *st)
@@ -1427,9 +1427,10 @@ exp_is_null(mvc *sql, sql_exp *e )
 		node *n;
 		list *l = e->l;
 
-		if (!r && l)
-			for (n = l->h; n && r; n = n->next) 
+		if (!r && l && list_length(l) == 2) {
+			for (n = l->h; n && !r; n = n->next) 
 				r |= exp_is_null(sql, n->data);
+		}
 		return r;
 	}
 	case e_column:
@@ -1560,7 +1561,7 @@ exp_has_sideeffect( sql_exp *e )
 }
 
 int
-exp_unsafe( sql_exp *e) 
+exp_unsafe( sql_exp *e, int allow_identity) 
 {
 	if (!e)
 		return 0;
@@ -1569,18 +1570,18 @@ exp_unsafe( sql_exp *e)
 		return 0;
 
 	if (e->type == e_convert && e->l)
-		return exp_unsafe(e->l);
+		return exp_unsafe(e->l, allow_identity);
 	if (e->type == e_func && e->l) {
 		sql_subfunc *f = e->f;
 		list *args = e->l;
 		node *n;
 
-		if (IS_ANALYTIC(f->func) || is_identity(e, NULL))
+		if (IS_ANALYTIC(f->func) || (!allow_identity && is_identity(e, NULL)))
 			return 1;
 		for(n = args->h; n; n = n->next) {
 			sql_exp *e = n->data;
 
-			if (exp_unsafe(e))
+			if (exp_unsafe(e, allow_identity))
 				return 1;			
 		}
 	}
@@ -2090,25 +2091,25 @@ create_table_part_atom_exp(mvc *sql, sql_subtype tpe, ptr value)
 					return NULL;
 			}
 		case EC_DATE: {
-			if(date_tostr(&buf, &len, (const date *)value, true) < 0)
+			if(date_tostr(&buf, &len, (const date *)value, false) < 0)
 				return NULL;
 			res = exp_atom(sql->sa, atom_general(sql->sa, &tpe, buf));
 			break;
 		}
 		case EC_TIME: {
-			if(daytime_tostr(&buf, &len, (const daytime *)value, true) < 0)
+			if(daytime_tostr(&buf, &len, (const daytime *)value, false) < 0)
 				return NULL;
 			res = exp_atom(sql->sa, atom_general(sql->sa, &tpe, buf));
 			break;
 		}
 		case EC_TIMESTAMP: {
-			if(timestamp_tostr(&buf, &len, (const timestamp *)value, true) < 0)
+			if(timestamp_tostr(&buf, &len, (const timestamp *)value, false) < 0)
 				return NULL;
 			res = exp_atom(sql->sa, atom_general(sql->sa, &tpe, buf));
 			break;
 		}
 		case EC_BLOB: {
-			if(BLOBtostr(&buf, &len, (const blob *)value, true) < 0)
+			if(BLOBtostr(&buf, &len, (const blob *)value, false) < 0)
 				return NULL;
 			res = exp_atom(sql->sa, atom_general(sql->sa, &tpe, buf));
 			break;
@@ -2129,5 +2130,175 @@ exp_aggr_is_count(sql_exp *e)
 {
 	if (e->type == e_aggr && strcmp(((sql_subaggr *)e->f)->aggr->base.name, "count") == 0)
 		return 1;
+	return 0;
+}
+
+static int
+exp_set_list_recurse(mvc *sql, sql_subtype *type, sql_exp *e, const char **relname, const char** expname)
+{
+	if (THRhighwater()) {
+		(void) sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		return -1;
+	}
+	assert(*relname && *expname);
+	if (!e)
+		return 0;
+
+	if (e->f) {
+		const char *next_rel = exp_relname(e), *next_exp = exp_name(e);
+		if (next_rel && next_exp && !strcmp(next_rel, *relname) && !strcmp(next_exp, *expname))
+			for (node *n = ((list *) e->f)->h; n; n = n->next)
+				exp_set_list_recurse(sql, type, (sql_exp *) n->data, relname, expname);
+	}
+	if ((e->f || (!e->l && !e->r && !e->f)) && !e->tpe.type) {
+		if (set_type_param(sql, type, e->flag) == 0)
+			e->tpe = *type;
+		else
+			return -1;
+	}
+	return 0;
+}
+
+static int
+exp_set_type_recurse(mvc *sql, sql_subtype *type, sql_exp *e, const char **relname, const char** expname)
+{
+	if (THRhighwater()) {
+		(void) sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		return -1;
+	}
+	assert(*relname && *expname);
+	if (!e)
+		return 0;
+
+	switch (e->type) {
+		case e_atom: {
+			return exp_set_list_recurse(sql, type, e, relname, expname);
+		} break;
+		case e_convert:
+		case e_column: {
+			/* if the column pretended is found, set its type */
+			const char *next_rel = exp_relname(e), *next_exp = exp_name(e);
+			if (next_rel && !strcmp(next_rel, *relname)) {
+				*relname = (e->type == e_column && e->l) ? (const char*) e->l : next_rel;
+				if (next_exp && !strcmp(next_exp, *expname)) {
+					*expname = (e->type == e_column && e->r) ? (const char*) e->r : next_exp;
+					if (e->type == e_column && !e->tpe.type) {
+						if (set_type_param(sql, type, e->flag) == 0)
+							e->tpe = *type;
+						else
+							return -1;
+					}
+				}
+			}
+			if (e->type == e_convert)
+				exp_set_type_recurse(sql, type, e->l, relname, expname);
+		} break;
+		case e_psm: {
+			if (e->flag & PSM_RETURN) {
+				for(node *n = ((list*)e->r)->h ; n ; n = n->next)
+					exp_set_type_recurse(sql, type, (sql_exp*) n->data, relname, expname);
+			} else if (e->flag & PSM_WHILE) {
+				exp_set_type_recurse(sql, type, e->l, relname, expname);
+				for(node *n = ((list*)e->r)->h ; n ; n = n->next)
+					exp_set_type_recurse(sql, type, (sql_exp*) n->data, relname, expname);
+			} else if (e->flag & PSM_IF) {
+				exp_set_type_recurse(sql, type, e->l, relname, expname);
+				for(node *n = ((list*)e->r)->h ; n ; n = n->next)
+					exp_set_type_recurse(sql, type, (sql_exp*) n->data, relname, expname);
+				if (e->f)
+					for(node *n = ((list*)e->f)->h ; n ; n = n->next)
+						exp_set_type_recurse(sql, type, (sql_exp*) n->data, relname, expname);
+			} else if (e->flag & PSM_REL) {
+				rel_set_type_recurse(sql, type, e->l, relname, expname);
+			} else if (e->flag & PSM_EXCEPTION) {
+				exp_set_type_recurse(sql, type, e->l, relname, expname);
+			}
+		} break;
+		case e_func: {
+			for(node *n = ((list*)e->l)->h ; n ; n = n->next)
+				exp_set_type_recurse(sql, type, (sql_exp*) n->data, relname, expname);
+			if (e->r)
+				for(node *n = ((list*)e->r)->h ; n ; n = n->next)
+					exp_set_type_recurse(sql, type, (sql_exp*) n->data, relname, expname);
+		} 	break;
+		case e_aggr: {
+			if (e->l)
+				for(node *n = ((list*)e->l)->h ; n ; n = n->next)
+					exp_set_type_recurse(sql, type, (sql_exp*) n->data, relname, expname);
+		} 	break;
+		case e_cmp: {
+			if (e->flag == cmp_in || e->flag == cmp_notin) {
+				exp_set_type_recurse(sql, type, e->l, relname, expname);
+				for(node *n = ((list*)e->r)->h ; n ; n = n->next)
+					exp_set_type_recurse(sql, type, (sql_exp*) n->data, relname, expname);
+			} else if (get_cmp(e) == cmp_or || get_cmp(e) == cmp_filter) {
+				for(node *n = ((list*)e->l)->h ; n ; n = n->next)
+					exp_set_type_recurse(sql, type, (sql_exp*) n->data, relname, expname);
+				for(node *n = ((list*)e->r)->h ; n ; n = n->next)
+					exp_set_type_recurse(sql, type, (sql_exp*) n->data, relname, expname);
+			} else {
+				if(e->l)
+					exp_set_type_recurse(sql, type, e->l, relname, expname);
+				if(e->r)
+					exp_set_type_recurse(sql, type, e->r, relname, expname);
+				if(e->f)
+					exp_set_type_recurse(sql, type, e->f, relname, expname);
+			}
+		} break;
+	}
+	return 0;
+}
+
+int
+rel_set_type_recurse(mvc *sql, sql_subtype *type, sql_rel *rel, const char **relname, const char **expname)
+{
+	if (THRhighwater()) {
+		(void) sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		return -1;
+	}
+	assert(*relname && *expname);
+	if (!rel)
+		return 0;
+
+	if (rel->exps)
+		for(node *n = rel->exps->h; n; n = n->next)
+			exp_set_type_recurse(sql, type, (sql_exp*) n->data, relname, expname);
+
+	switch (rel->op) {
+		case op_basetable:
+		case op_table:
+		case op_ddl:
+			break;
+		case op_join:
+		case op_left:
+		case op_right:
+		case op_full:
+		case op_semi:
+		case op_anti:
+		case op_apply:
+		case op_union:
+		case op_inter:
+		case op_except:
+			if (rel->l)
+				rel_set_type_recurse(sql, type, rel->l, relname, expname);
+			if (rel->r)
+				rel_set_type_recurse(sql, type, rel->r, relname, expname);
+			break;
+		case op_groupby:
+		case op_project:
+		case op_select:
+		case op_topn:
+		case op_sample:
+			if (rel->l)
+				rel_set_type_recurse(sql, type, rel->l, relname, expname);
+			break;
+		case op_insert:
+		case op_update:
+		case op_delete:
+		case op_truncate:
+			if (rel->r)
+				rel_set_type_recurse(sql, type, rel->r, relname, expname);
+			break;
+	}
 	return 0;
 }

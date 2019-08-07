@@ -2714,7 +2714,7 @@ stmt_exception(backend *be, stmt *cond, const char *errstr, int errcode)
 }
 
 stmt *
-stmt_convert(backend *be, stmt *v, sql_subtype *f, sql_subtype *t)
+stmt_convert(backend *be, stmt *v, sql_subtype *f, sql_subtype *t, stmt *sel)
 {
 	MalBlkPtr mb = be->mb;
 	InstrPtr q = NULL;
@@ -2724,7 +2724,13 @@ stmt_convert(backend *be, stmt *v, sql_subtype *f, sql_subtype *t)
 	if (v->nr < 0)
 		return NULL;
 
-	if (t->type->localtype == f->type->localtype && (t->type->eclass == f->type->eclass || (EC_VARCHAR(f->type->eclass) && EC_VARCHAR(t->type->eclass))) && !EC_INTERVAL(f->type->eclass) && f->type->eclass != EC_DEC && (t->digits == 0 || f->digits == t->digits)) {
+	if (t->type->localtype == f->type->localtype &&
+	    (t->type->eclass == f->type->eclass ||
+	     (EC_VARCHAR(f->type->eclass) && EC_VARCHAR(t->type->eclass))) &&
+	    !EC_INTERVAL(f->type->eclass) &&
+	    f->type->eclass != EC_DEC &&
+	    (t->digits == 0 || f->digits == t->digits) &&
+	    type_has_tz(t) == type_has_tz(f)) {
 		return v;
 	}
 
@@ -2767,6 +2773,8 @@ stmt_convert(backend *be, stmt *v, sql_subtype *f, sql_subtype *t)
 		/* scale of the current decimal */
 		q = pushInt(mb, q, f->scale);
 	q = pushArgument(mb, q, v->nr);
+	if (sel && v->nrcols && f->type->eclass != EC_DEC && !EC_TEMP_FRAC(t->type->eclass) && !EC_INTERVAL(t->type->eclass))
+		q = pushArgument(mb, q, sel->nr);
 
 	if (t->type->eclass == EC_DEC || EC_TEMP_FRAC(t->type->eclass) || EC_INTERVAL(t->type->eclass)) {
 		/* digits, scale of the result decimal */
@@ -2808,6 +2816,7 @@ stmt_convert(backend *be, stmt *v, sql_subtype *f, sql_subtype *t)
 			return NULL;
 		}
 		s->op1 = v;
+		s->op2 = sel;
 		s->nrcols = 0;	/* function without arguments returns single value */
 		s->key = v->key;
 		s->nrcols = v->nrcols;
