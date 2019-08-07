@@ -26,7 +26,7 @@ if(WIN32)
 
 	add_library(mcrypt SHARED ${MCRYPT_OBJECTS})
 	target_compile_definitions(mcrypt PRIVATE LIBMCRYPT)
-	list(APPEND MCRYPT_LINK_LIBRARIES stream ${CRYPTO_LIBRARIES})
+	list(APPEND MCRYPT_LINK_LIBRARIES stream ${CRYPTO_LIBRARIES} mutils)
 	install(TARGETS mcrypt DESTINATION ${LIBDIR})
 	install(FILES $<TARGET_PDB_FILE:mcrypt> DESTINATION ${LIBDIR} OPTIONAL)
 
