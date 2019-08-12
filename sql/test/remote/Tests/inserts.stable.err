@@ -1,0 +1,40 @@
+stderr of test 'inserts` in directory 'sql/test/remote` itself:
+
+
+# 14:51:22 >  
+# 14:51:22 >  "/usr/bin/python2" "inserts.py" "inserts"
+# 14:51:22 >  
+
+# builtin opt 	gdk_dbpath = /home/ferreira/repositories/MonetDB-acticloud/BUILD/var/monetdb5/dbfarm/demo
+# builtin opt 	monet_prompt = >
+# builtin opt 	monet_daemon = no
+# builtin opt 	mapi_port = 50000
+# builtin opt 	mapi_open = false
+# builtin opt 	mapi_autosense = false
+# builtin opt 	sql_optimizer = default_pipe
+# builtin opt 	sql_debug = 0
+# cmdline opt 	gdk_nr_threads = 0
+# cmdline opt 	mapi_open = true
+# cmdline opt 	monet_prompt = 
+# cmdline opt 	mapi_port = 43457
+# cmdline opt 	mapi_usock = /var/tmp/mtest-18512/.s.monetdb.43457
+# cmdline opt 	gdk_dbpath = /tmp/tmpu3JLJT/s1/s1
+# builtin opt 	gdk_dbpath = /home/ferreira/repositories/MonetDB-acticloud/BUILD/var/monetdb5/dbfarm/demo
+# builtin opt 	monet_prompt = >
+# builtin opt 	monet_daemon = no
+# builtin opt 	mapi_port = 50000
+# builtin opt 	mapi_open = false
+# builtin opt 	mapi_autosense = false
+# builtin opt 	sql_optimizer = default_pipe
+# builtin opt 	sql_debug = 0
+# cmdline opt 	gdk_nr_threads = 0
+# cmdline opt 	mapi_open = true
+# cmdline opt 	monet_prompt = 
+# cmdline opt 	mapi_port = 38995
+# cmdline opt 	mapi_usock = /var/tmp/mtest-18512/.s.monetdb.38995
+# cmdline opt 	gdk_dbpath = /tmp/tmpu3JLJT/s2/s2
+
+# 14:51:24 >  
+# 14:51:24 >  "Done."
+# 14:51:24 >  
+

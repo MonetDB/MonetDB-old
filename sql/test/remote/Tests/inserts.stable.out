@@ -1,0 +1,150 @@
+stdout of test 'inserts` in directory 'sql/test/remote` itself:
+
+
+# 14:51:22 >  
+# 14:51:22 >  "/usr/bin/python2" "inserts.py" "inserts"
+# 14:51:22 >  
+
+#CREATE TABLE rt1 (col1 int);
+#CREATE TABLE rt2 (col1 int, col2 clob);
+#CREATE REMOTE TABLE rt1 (col1 int) ON 'mapi:monetdb://localhost:43457/s1';
+#CREATE REMOTE TABLE rt2 (col1 int, col2 clob) ON 'mapi:monetdb://localhost:43457/s1';
+#INSERT INTO rt1 VALUES (1);
+[ 1	]
+#INSERT INTO rt1 VALUES (1), (NULL), (3);
+[ 3	]
+#INSERT INTO rt2 VALUES (-32, 'hello');
+[ 1	]
+#INSERT INTO rt2 VALUES (1, 'another'), (NULL, NULL), (3, 'attempt');
+[ 3	]
+#SELECT col1 FROM rt1;
+% .rt1 # table_name
+% col1 # name
+% int # type
+% 1 # length
+[ 1	]
+[ 1	]
+[ NULL	]
+[ 3	]
+#SELECT col1, col2 FROM rt2;
+% .rt2,	.rt2 # table_name
+% col1,	col2 # name
+% int,	clob # type
+% 3,	7 # length
+[ -32,	"hello"	]
+[ 1,	"another"	]
+[ NULL,	NULL	]
+[ 3,	"attempt"	]
+#DROP TABLE rt1;
+#DROP TABLE rt2;
+#DROP TABLE rt1;
+#DROP TABLE rt2;
+# MonetDB 5 server v11.33.8 (hg id: 8dee38448c8f+92196c9ca0ad+)
+# This is an unreleased version
+# Serving database 's1', using 8 threads
+# Compiled for x86_64-pc-linux-gnu/64bit with 128bit integers
+# Found 15.527 GiB available main-memory.
+# Copyright (c) 1993 - July 2008 CWI.
+# Copyright (c) August 2008 - 2019 MonetDB B.V., all rights reserved
+# Visit https://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://localhost.localdomain:43457/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-18512/.s.monetdb.43457
+# MonetDB/GIS module loaded
+# SQL catalog created, loading sql scripts once
+# loading sql script: 09_like.sql
+# loading sql script: 10_math.sql
+# loading sql script: 11_times.sql
+# loading sql script: 12_url.sql
+# loading sql script: 13_date.sql
+# loading sql script: 14_inet.sql
+# loading sql script: 15_querylog.sql
+# loading sql script: 16_tracelog.sql
+# loading sql script: 17_temporal.sql
+# loading sql script: 18_index.sql
+# loading sql script: 20_vacuum.sql
+# loading sql script: 21_dependency_views.sql
+# loading sql script: 22_clients.sql
+# loading sql script: 23_skyserver.sql
+# loading sql script: 25_debug.sql
+# loading sql script: 26_sysmon.sql
+# loading sql script: 27_rejects.sql
+# loading sql script: 39_analytics.sql
+# loading sql script: 39_analytics_hge.sql
+# loading sql script: 40_geom.sql
+# loading sql script: 40_json.sql
+# loading sql script: 40_json_hge.sql
+# loading sql script: 41_md5sum.sql
+# loading sql script: 45_uuid.sql
+# loading sql script: 46_profiler.sql
+# loading sql script: 51_sys_schema_extension.sql
+# loading sql script: 60_wlcr.sql
+# loading sql script: 72_fits.sql
+# loading sql script: 74_netcdf.sql
+# loading sql script: 75_lidar.sql
+# loading sql script: 75_shp.sql
+# loading sql script: 75_storagemodel.sql
+# loading sql script: 80_statistics.sql
+# loading sql script: 80_udf.sql
+# loading sql script: 80_udf_hge.sql
+# loading sql script: 85_bam.sql
+# loading sql script: 90_generator.sql
+# loading sql script: 90_generator_hge.sql
+# loading sql script: 99_system.sql
+# MonetDB/SQL module loaded
+# MonetDB 5 server v11.33.8 (hg id: 8dee38448c8f+92196c9ca0ad+)
+# This is an unreleased version
+# Serving database 's2', using 8 threads
+# Compiled for x86_64-pc-linux-gnu/64bit with 128bit integers
+# Found 15.527 GiB available main-memory.
+# Copyright (c) 1993 - July 2008 CWI.
+# Copyright (c) August 2008 - 2019 MonetDB B.V., all rights reserved
+# Visit https://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://localhost.localdomain:38995/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-18512/.s.monetdb.38995
+# MonetDB/GIS module loaded
+# SQL catalog created, loading sql scripts once
+# loading sql script: 09_like.sql
+# loading sql script: 10_math.sql
+# loading sql script: 11_times.sql
+# loading sql script: 12_url.sql
+# loading sql script: 13_date.sql
+# loading sql script: 14_inet.sql
+# loading sql script: 15_querylog.sql
+# loading sql script: 16_tracelog.sql
+# loading sql script: 17_temporal.sql
+# loading sql script: 18_index.sql
+# loading sql script: 20_vacuum.sql
+# loading sql script: 21_dependency_views.sql
+# loading sql script: 22_clients.sql
+# loading sql script: 23_skyserver.sql
+# loading sql script: 25_debug.sql
+# loading sql script: 26_sysmon.sql
+# loading sql script: 27_rejects.sql
+# loading sql script: 39_analytics.sql
+# loading sql script: 39_analytics_hge.sql
+# loading sql script: 40_geom.sql
+# loading sql script: 40_json.sql
+# loading sql script: 40_json_hge.sql
+# loading sql script: 41_md5sum.sql
+# loading sql script: 45_uuid.sql
+# loading sql script: 46_profiler.sql
+# loading sql script: 51_sys_schema_extension.sql
+# loading sql script: 60_wlcr.sql
+# loading sql script: 72_fits.sql
+# loading sql script: 74_netcdf.sql
+# loading sql script: 75_lidar.sql
+# loading sql script: 75_shp.sql
+# loading sql script: 75_storagemodel.sql
+# loading sql script: 80_statistics.sql
+# loading sql script: 80_udf.sql
+# loading sql script: 80_udf_hge.sql
+# loading sql script: 85_bam.sql
+# loading sql script: 90_generator.sql
+# loading sql script: 90_generator_hge.sql
+# loading sql script: 99_system.sql
+# MonetDB/SQL module loaded
+
+# 14:51:24 >  
+# 14:51:24 >  "Done."
+# 14:51:24 >  
+
