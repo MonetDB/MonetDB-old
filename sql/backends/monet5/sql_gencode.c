@@ -33,7 +33,6 @@
 #include "sql_scenario.h"
 #include "sql_mvc.h"
 #include "sql_qc.h"
-#include "sql_optimizer.h"
 #include "mal_namespace.h"
 #include "opt_prelude.h"
 #include "querylog.h"
@@ -127,17 +126,23 @@ relational_func_create_result(mvc *sql, MalBlkPtr mb, InstrPtr q, sql_rel *f)
 
 	if (q == NULL)
 		return NULL;
-	if (is_topn(r->op))
-		r = r->l;
-	if (!is_project(r->op))
-		r = rel_project(sql->sa, r, rel_projections(sql, r, NULL, 1, 1));
-	q->argc = q->retc = 0;
-	for (i = 0, n = r->exps->h; n; n = n->next, i++) {
-		sql_exp *e = n->data;
-		int type = exp_subtype(e)->type->localtype;
 
-		type = newBatType(type);
-		q = pushReturn(mb, q, newTmpVariable(mb, type));
+	q->argc = q->retc = 0;
+	if (is_modify(r->op)) {
+		q = pushReturn(mb, q, newTmpVariable(mb, TYPE_lng)); /* number of rows affected */
+	} else {
+		if (is_topn(r->op))
+			r = r->l;
+		if (!is_project(r->op))
+			r = rel_project(sql->sa, r, rel_projections(sql, r, NULL, 1, 1));
+
+		for (i = 0, n = r->exps->h; n; n = n->next, i++) {
+			sql_exp *e = n->data;
+			int type = exp_subtype(e)->type->localtype;
+
+			type = newBatType(type);
+			q = pushReturn(mb, q, newTmpVariable(mb, type));
+		}
 	}
 	return q;
 }
@@ -279,31 +284,36 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 	Symbol backup = NULL;
 	const char *local_tbl = prp->value;
 	node *n;
-	int i, q, v;
-	int *lret, *rret;
+	prop *pl;
+	int i, q, v, lrow_count = 0, rrow_count = 0, *lret, *rret;
 	char *lname;
 	sql_rel *r = rel;
 
-	if(local_tbl == NULL)
+	if (local_tbl == NULL)
 		return -1;
-
-	lname = GDKstrdup(name);
-	if(lname == NULL)
+	if (!(lname = GDKstrdup(name)))
 		return -1;
 
 	if (is_topn(r->op))
 		r = r->l;
+	if (is_modify(r->op)) {
+		r = r->r; /* what will be inserted/updated/deleted */
+		if ((pl = find_prop(rel->p, PROP_REMOTE))) /* remove the remote tag */
+			rel->p = prop_remove(rel->p, pl);
+	}
 	if (!is_project(r->op))
 		r = rel_project(m->sa, r, rel_projections(m, r, NULL, 1, 1));
-	lret = SA_NEW_ARRAY(m->sa, int, list_length(r->exps));
-	if(lret == NULL) {
-		GDKfree(lname);
-		return -1;
-	}
-	rret = SA_NEW_ARRAY(m->sa, int, list_length(r->exps));
-	if(rret == NULL) {
-		GDKfree(lname);
-		return -1;
+	if (!is_modify(rel->op)) {
+		lret = SA_NEW_ARRAY(m->sa, int, list_length(r->exps));
+		if(lret == NULL) {
+			GDKfree(lname);
+			return -1;
+		}
+		rret = SA_NEW_ARRAY(m->sa, int, list_length(r->exps));
+		if(rret == NULL) {
+			GDKfree(lname);
+			return -1;
+		}
 	}
 
 	/* create stub */
@@ -336,7 +346,7 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 			const char *nme = (op->op3)?op->op3->op4.aval->data.val.sval:op->cname;
 			char buf[64];
 
-			snprintf(buf,64,"A%s",nme);
+			snprintf(buf, sizeof(buf),"A%s",nme);
 			varid = newVariable(curBlk, buf,strlen(buf), type);
 			curInstr = pushArgument(curBlk, curInstr, varid);
 			setVarType(curBlk, varid, type);
@@ -345,15 +355,19 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 	}
 
 	/* declare return variables */
-	for (i = 0, n = r->exps->h; n; n = n->next, i++) {
-		sql_exp *e = n->data;
-		int type = exp_subtype(e)->type->localtype;
+	if (is_modify(rel->op)) {
+		lrow_count = newTmpVariable(curBlk, TYPE_lng);
+	} else {
+		for (i = 0, n = r->exps->h; n; n = n->next, i++) {
+			sql_exp *e = n->data;
+			int type = exp_subtype(e)->type->localtype;
 
-		type = newBatType(type);
-		p = newFcnCall(curBlk, batRef, newRef);
-		p = pushType(curBlk, p, getBatType(type));
-		setArgType(curBlk, p, 0, type);
-		lret[i] = getArg(p, 0);
+			type = newBatType(type);
+			p = newFcnCall(curBlk, batRef, newRef);
+			p = pushType(curBlk, p, getBatType(type));
+			setArgType(curBlk, p, 0, type);
+			lret[i] = getArg(p, 0);
+		}
 	}
 
 	/* q := remote.connect("schema.table", "msql"); */
@@ -383,55 +397,55 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 	o = pushStr(curBlk, o, lname);
 	p = pushArgument(curBlk, p, getArg(o,0));
 
-	{ 
-	int len = 1024, nr = 0;
-	char *s, *buf = GDKmalloc(len);
-	if (!buf) {
-		GDKfree(lname);
-		return -1;
-	}
-	s = rel2str(m, rel);
-	if (!s) {
-		GDKfree(lname);
-		GDKfree(buf);
-		return -1;
-	}
-	o = newFcnCall(curBlk, remoteRef, putRef);
-	o = pushArgument(curBlk, o, q);
-	o = pushStr(curBlk, o, s);	/* relational plan */
-	p = pushArgument(curBlk, p, getArg(o,0));
-	free(s); 
-
-	s = "";
-	if (call && call->type == st_list) {
-		node *n;
-
-		buf[0] = 0;
-		for (n = call->op4.lval->h; n; n = n->next) {
-			stmt *op = n->data;
-			sql_subtype *t = tail_type(op);
-			const char *nme = (op->op3)?op->op3->op4.aval->data.val.sval:op->cname;
-
-			if ((nr + 100) > len) {
-				buf = GDKrealloc(buf, len*=2);
-				if(buf == NULL)
-					break;
-			}
-
-			nr += snprintf(buf+nr, len-nr, "%s %s(%u,%u)%c", nme, t->type->sqlname, t->digits, t->scale, n->next?',':' ');
+	{
+		int len = 1024, nr = 0;
+		char *s, *buf = GDKmalloc(len);
+		if (!buf) {
+			GDKfree(lname);
+			return -1;
 		}
-		s = buf;
-	}
-	if(buf) {
+		s = rel2str(m, rel);
+		if (!s) {
+			GDKfree(lname);
+			GDKfree(buf);
+			return -1;
+		}
 		o = newFcnCall(curBlk, remoteRef, putRef);
 		o = pushArgument(curBlk, o, q);
-		o = pushStr(curBlk, o, s);	/* signature */
+		o = pushStr(curBlk, o, s);	/* relational plan */
 		p = pushArgument(curBlk, p, getArg(o,0));
-		GDKfree(buf);
-	} else {
-		GDKfree(lname);
-		return -1;
-	}
+		free(s);
+
+		s = "";
+		if (call && call->type == st_list) {
+			node *n;
+
+			buf[0] = 0;
+			for (n = call->op4.lval->h; n; n = n->next) {
+				stmt *op = n->data;
+				sql_subtype *t = tail_type(op);
+				const char *nme = (op->op3)?op->op3->op4.aval->data.val.sval:op->cname;
+
+				if ((nr + 100) > len) {
+					buf = GDKrealloc(buf, len*=2);
+					if(buf == NULL)
+						break;
+				}
+
+				nr += snprintf(buf+nr, len-nr, "%s %s(%u,%u)%c", nme, t->type->sqlname, t->digits, t->scale, n->next?',':' ');
+			}
+			s = buf;
+		}
+		if(buf) {
+			o = newFcnCall(curBlk, remoteRef, putRef);
+			o = pushArgument(curBlk, o, q);
+			o = pushStr(curBlk, o, s);	/* signature */
+			p = pushArgument(curBlk, p, getArg(o,0));
+			GDKfree(buf);
+		} else {
+			GDKfree(lname);
+			return -1;
+		}
 	}
 	pushInstruction(curBlk, p);
 
@@ -473,7 +487,7 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 		 */
 		o = newFcnCall(curBlk, remoteRef, putRef);
 		o = pushArgument(curBlk, o, q);
-		o = pushInt(curBlk, o, TYPE_int);  
+		o = pushInt(curBlk, o, TYPE_int);
 		p = pushReturn(curBlk, p, getArg(o, 0));
 
 		o = newFcnCall(curBlk, remoteRef, putRef);
@@ -506,14 +520,24 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 	p = pushStr(curBlk, p, lname);
 	getArg(p, 0) = -1;
 
-	for (i = 0, n = r->exps->h; n; n = n->next, i++) {
+	if (is_modify(rel->op)) {
 		/* x1 := remote.put(q, :type) */
-		o = newFcnCall(curBlk, remoteRef, putRef);
+		o = newFcnCall(curBlk, remoteRef, putRef); /* add the row count */
 		o = pushArgument(curBlk, o, q);
-		o = pushArgument(curBlk, o, lret[i]);
+		o = pushArgument(curBlk, o, lrow_count);
 		v = getArg(o, 0);
 		p = pushReturn(curBlk, p, v);
-		rret[i] = v;
+		rrow_count = v;
+	} else {
+		for (i = 0, n = r->exps->h; n; n = n->next, i++) {
+			/* x1 := remote.put(q, :type) */
+			o = newFcnCall(curBlk, remoteRef, putRef);
+			o = pushArgument(curBlk, o, q);
+			o = pushArgument(curBlk, o, lret[i]);
+			v = getArg(o, 0);
+			p = pushReturn(curBlk, p, v);
+			rret[i] = v;
+		}
 	}
 
 	/* send arguments to remote */
@@ -527,12 +551,19 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 	pushInstruction(curBlk, p);
 
 	/* return results */
-	for (i = 0; i < curInstr->retc; i++) {
-		/* y1 := remote.get(q, x1); */
+	if (is_modify(rel->op)) {
 		p = newFcnCall(curBlk, remoteRef, getRef);
 		p = pushArgument(curBlk, p, q);
-		p = pushArgument(curBlk, p, rret[i]);
-		getArg(p, 0) = lret[i];
+		p = pushArgument(curBlk, p, rrow_count);
+		getArg(p, 0) = lrow_count;
+	} else {
+		for (i = 0; i < curInstr->retc; i++) {
+			/* y1 := remote.get(q, x1); */
+			p = newFcnCall(curBlk, remoteRef, getRef);
+			p = pushArgument(curBlk, p, q);
+			p = pushArgument(curBlk, p, rret[i]);
+			getArg(p, 0) = lret[i];
+		}
 	}
 
 	/* remote.disconnect(q); */
@@ -542,19 +573,27 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 	p = newInstruction(curBlk, NULL, NULL);
 	p->barrier= RETURNsymbol;
 	p->retc = p->argc = 0;
-	for (i = 0; i < curInstr->retc; i++)
-		p = pushArgument(curBlk, p, lret[i]);
+	if (is_modify(rel->op)) {
+		p = pushArgument(curBlk, p, lrow_count);
+	} else {
+		for (i = 0; i < curInstr->retc; i++)
+			p = pushArgument(curBlk, p, lret[i]);
+	}
 	p->retc = p->argc;
 	/* assignment of return */
-	for (i = 0; i < curInstr->retc; i++)
-		p = pushArgument(curBlk, p, lret[i]);
+	if (is_modify(rel->op)) {
+		p = pushArgument(curBlk, p, lrow_count);
+	} else {
+		for (i = 0; i < curInstr->retc; i++)
+			p = pushArgument(curBlk, p, lret[i]);
+	}
 	pushInstruction(curBlk, p);
 
 	/* catch exceptions */
 	p = newCatchStmt(curBlk,"MALexception");
-        p = newExitStmt(curBlk,"MALexception");
-        p = newCatchStmt(curBlk,"SQLexception");
-        p = newExitStmt(curBlk,"SQLexception");
+	p = newExitStmt(curBlk,"MALexception");
+	p = newCatchStmt(curBlk,"SQLexception");
+	p = newExitStmt(curBlk,"SQLexception");
 	/* remote.disconnect(q); */
 	p = newStmt(curBlk, remoteRef, disconnectRef);
 	p = pushArgument(curBlk, p, q);

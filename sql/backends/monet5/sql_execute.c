@@ -930,8 +930,8 @@ RAstatement2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str *sig = getArgReference_str(stk, pci, 4), c = *sig;
 	backend *be = NULL;
 	mvc *m = NULL;
-	str msg;
-	sql_rel *rel;
+	str msg = MAL_SUCCEED;
+	sql_rel *rel = NULL;
 	list *refs, *ops;
 	char buf[BUFSIZ];
 
@@ -939,17 +939,20 @@ RAstatement2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
-	SQLtrans(m);
 	if (!m->sa)
 		m->sa = sa_create();
 	if (!m->sa)
 		return createException(SQL,"RAstatement2",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
+	SQLtrans(m);
+
 	/* keep copy of signature and relational expression */
 	snprintf(buf, BUFSIZ, "%s %s", *sig, *expr);
 
-	if(!stack_push_frame(m, NULL))
-		return createException(SQL,"RAstatement2",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	if (!stack_push_frame(m, NULL)) {
+		msg = createException(SQL,"RAstatement2",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		goto cleanup;
+	}
 	ops = sa_list(m->sa);
 	while (c && *c && !isspace((unsigned char) *c)) {
 		char *vnme = c, *tnme;
@@ -968,7 +971,8 @@ RAstatement2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		tnme = sa_strdup(m->sa, tnme);
 		if (!tnme) {
 			stack_pop_frame(m);
-			return createException(SQL,"RAstatement2",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			msg = createException(SQL,"RAstatement2",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			goto cleanup;
 		}
 		d = strtol(p, &p, 10);
 		p++; /* skip , */
@@ -982,14 +986,16 @@ RAstatement2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		 * */
 		if (nr >= 0) { 
 			append(ops, exp_atom_ref(m->sa, nr, &t));
-			if(!sql_set_arg(m, nr, a)) {
+			if (!sql_set_arg(m, nr, a)) {
 				stack_pop_frame(m);
-				return createException(SQL,"RAstatement2",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+				msg = createException(SQL,"RAstatement2",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+				goto cleanup;
 			}
 		} else {
-			if(!stack_push_var(m, vnme+1, &t)) {
+			if (!stack_push_var(m, vnme+1, &t)) {
 				stack_pop_frame(m);
-				return createException(SQL,"RAstatement2",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+				msg = createException(SQL,"RAstatement2",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+				goto cleanup;
 			}
 			append(ops, exp_var(m->sa, sa_strdup(m->sa, vnme+1), &t, m->frame));
 		}
@@ -1002,9 +1008,19 @@ RAstatement2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	stack_pop_frame(m);
 	if (rel)
 		rel = rel_optimizer(m, rel, 0);
-	if (!rel || monet5_create_relational_function(m, *mod, *nme, rel, NULL, ops, 0) < 0)
-		throw(SQL, "sql.register", SQLSTATE(42000) "Cannot register %s", buf);
-	rel_destroy(rel);
+	if (!rel) {
+		if (strlen(m->errstr) > 6 && m->errstr[5] == '!')
+			msg = createException(SQL, "RAstatement2", "%s", m->errstr);
+		else
+			msg = createException(SQL, "RAstatement2", SQLSTATE(42000) "%s", m->errstr);
+		goto cleanup;
+	}
+	if (monet5_create_relational_function(m, *mod, *nme, rel, NULL, ops, 0) < 0)
+		msg = createException(SQL,"RAstatement2",SQLSTATE(42000) "Could not generate monet5 relational function");
+
+cleanup:
+	if (rel)
+		rel_destroy(rel);
 	sqlcleanup(m, 0);
 	return msg;
 }

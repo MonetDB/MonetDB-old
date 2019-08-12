@@ -2960,6 +2960,35 @@ stmt_Nop(backend *be, stmt *ops, sql_subfunc *f)
 	return NULL;
 }
 
+static stmt *
+stmt_remote_iud(backend *be, InstrPtr o) /* return the number of affected rows */
+{
+	MalBlkPtr mb = be->mb;
+	InstrPtr q = newAssignment(mb);
+	sql_subtype t;
+
+	if (!q)
+		return NULL;
+	q = pushArgument(mb, q, getArg(o, 0));
+	if (q) {
+		stmt *s = stmt_create(be->mvc->sa, st_var);
+		if (s == NULL) {
+			freeInstruction(q);
+			return NULL;
+		}
+
+		s->op1 = NULL;
+		sql_find_subtype(&t, "bigint", 64, 0);
+		s->op4.typeval = t;
+		s->flag = getArg(o, 0);
+		s->key = 1;
+		s->q = q;
+		s->nr = getDestVar(q);
+		return s;
+	}
+	return NULL;
+}
+
 stmt *
 stmt_func(backend *be, stmt *ops, const char *name, sql_rel *rel, int f_union)
 {
@@ -3011,7 +3040,7 @@ stmt_func(backend *be, stmt *ops, const char *name, sql_rel *rel, int f_union)
 			return NULL;
 		}
 		s->op1 = ops;
-		s->op2 = stmt_atom_string(be, name);
+		s->op2 = (p && is_modify(rel->op)) ? stmt_remote_iud(be, q) : stmt_atom_string(be, name);
 		s->op4.rel = rel;
 		s->flag = f_union;
 		if (ops && list_length(ops->op4.lval)) {

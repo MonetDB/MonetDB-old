@@ -577,7 +577,7 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 		}
 		if (cond_execution) {
 			/* var_x = nil; */
-			nme = number2name(name, 16, ++sql->label);
+			nme = number2name(name, sizeof(name), ++sql->label);
 			(void)stmt_var(be, nme, exp_subtype(e), 1, 2);
 			/* if_barrier ... */
 			cond_execution = stmt_cond(be, cond_execution, NULL, 0, 0);
@@ -1613,7 +1613,7 @@ rel2bin_table(backend *be, sql_rel *rel, list *refs)
 		char name[16], *nme;
 		sql_rel *fr;
 
-		nme = number2name(name, 16, ++sql->remote);
+		nme = number2name(name, sizeof(name), ++sql->remote);
 
 		l = rel2bin_args(be, rel->l, sa_list(sql->sa));
 		if(!l)
@@ -3549,7 +3549,7 @@ rel2bin_insert(backend *be, sql_rel *rel, list *refs)
 	}
 
 /* before */
-	if(be->cur_append && !be->first_statement_generated) {
+	if (be->cur_append && !be->first_statement_generated) {
 		for(sql_table *up = t->p ; up ; up = up->p) {
 			if (!sql_insert_triggers(be, up, updates, 0))
 				return sql_error(sql, 02, SQLSTATE(27000) "INSERT INTO: triggers failed for table '%s'", up->base.name);
@@ -3577,19 +3577,28 @@ rel2bin_insert(backend *be, sql_rel *rel, list *refs)
 			is = stmt_append_idx(be, i, is);
 	}
 
-	for (n = t->columns.set->h, m = inserts->op4.lval->h; 
-		n && m; n = n->next, m = m->next) {
+	if (isRemote(t)) {
+		stmt *sub;
+		char name[16], *nme = number2name(name, sizeof(name), ++sql->remote);
+		list *ll = rel2bin_args(be, rel->r, sa_list(sql->sa));
 
-		stmt *ins = m->data;
-		sql_column *c = n->data;
+		if (!ll)
+			return NULL;
+		sub = stmt_list(be, ll);
+		insert = stmt_func(be, sub, sa_strdup(sql->sa, nme), rel, 0);
+	} else {
+		for (n = t->columns.set->h, m = inserts->op4.lval->h; n && m; n = n->next, m = m->next) {
+			stmt *ins = m->data;
+			sql_column *c = n->data;
 
-		insert = stmt_append_col(be, c, ins, rel->flag&UPD_LOCKED);
-		append(l,insert);
+			insert = stmt_append_col(be, c, ins, rel->flag&UPD_LOCKED);
+			append(l, insert);
+		}
 	}
 	if (!insert)
 		return NULL;
 
-	if(be->cur_append && !be->first_statement_generated) {
+	if (be->cur_append && !be->first_statement_generated) {
 		for(sql_table *up = t->p ; up ; up = up->p) {
 			if (!sql_insert_triggers(be, up, updates, 1))
 				return sql_error(sql, 02, SQLSTATE(27000) "INSERT INTO: triggers failed for table '%s'", up->base.name);
@@ -3597,11 +3606,14 @@ rel2bin_insert(backend *be, sql_rel *rel, list *refs)
 	}
 	if (!sql_insert_triggers(be, t, updates, 1)) 
 		return sql_error(sql, 02, SQLSTATE(27000) "INSERT INTO: triggers failed for table '%s'", t->base.name);
+
 	if (ddl) {
 		ret = ddl;
 		list_prepend(l, ddl);
 	} else {
-		if (insert->op1->nrcols == 0) {
+		if (isRemote(t)) {
+			s = insert->op2;
+		} else if (insert->op1->nrcols == 0) {
 			s = stmt_atom_lng(be, 1);
 		} else {
 			s = stmt_aggr(be, insert->op1, NULL, NULL, sql_bind_aggr(sql->sa, sql->session->schema, "count", NULL), 1, 0, 1);
@@ -3609,7 +3621,7 @@ rel2bin_insert(backend *be, sql_rel *rel, list *refs)
 		ret = s;
 	}
 
-	if(be->cur_append) //building the total number of rows affected across all tables
+	if (be->cur_append) //building the total number of rows affected across all tables
 		ret->nr = add_to_merge_partitions_accumulator(be, ret->nr);
 
 	if (ddl)

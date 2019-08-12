@@ -201,6 +201,10 @@ replica(mvc *sql, sql_rel *rel, char *uri)
 		break;
 	}
 	case op_table:
+	case op_insert:
+	case op_update:
+	case op_delete:
+	case op_truncate:
 		break;
 	case op_join: 
 	case op_left: 
@@ -230,12 +234,6 @@ replica(mvc *sql, sql_rel *rel, char *uri)
 		rel->l = replica(sql, rel->l, uri);
 		if (rel->r)
 			rel->r = replica(sql, rel->r, uri);
-		break;
-	case op_insert:
-	case op_update:
-	case op_delete:
-	case op_truncate:
-		rel->r = replica(sql, rel->r, uri);
 		break;
 	}
 	return rel;
@@ -385,9 +383,18 @@ distribute(mvc *sql, sql_rel *rel)
 	case op_insert:
 	case op_update:
 	case op_delete:
-	case op_truncate:
-		rel->r = distribute(sql, rel->r);
+	case op_truncate: {
+		sql_rel *l = (sql_rel*) rel->l;
+		if (l->op == op_basetable) {
+			sql_table* t = (sql_table *) l->l;
+			if (isRemote(t)) {
+				char *local_name = sa_strconcat(sql->sa, sa_strconcat(sql->sa, t->s->base.name, "."), t->base.name);
+				p = rel->p = prop_create(sql->sa, PROP_REMOTE, rel->p);
+				p->value = local_name;
+			}
+		}
 		break;
+		}
 	}
 	return rel;
 }
@@ -437,6 +444,11 @@ rel_remote_func(mvc *sql, sql_rel *rel)
 		return rel;
 
 	switch (rel->op) {
+	case op_insert:
+	case op_update:
+	case op_delete:
+	case op_truncate:
+		return rel;
 	case op_basetable: 
 	case op_table:
 		break;
@@ -468,12 +480,6 @@ rel_remote_func(mvc *sql, sql_rel *rel)
 		rel->l = rel_remote_func(sql, rel->l);
 		if (rel->r)
 			rel->r = rel_remote_func(sql, rel->r);
-		break;
-	case op_insert:
-	case op_update:
-	case op_delete:
-	case op_truncate:
-		rel->r = rel_remote_func(sql, rel->r);
 		break;
 	}
 	if (find_prop(rel->p, PROP_REMOTE) != NULL) {

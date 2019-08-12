@@ -298,7 +298,7 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 					collectFirst= TRUE;
 			}
 			if( getModuleId(p)== ioRef || (getModuleId(p)== sqlRef
-		            && (getFunctionId(p)== resultSetRef ||
+		            && (getFunctionId(p)== resultSetRef || getFunctionId(p)== affectedRowsRef ||
 				getFunctionId(p)== rsColumnRef)))
 				 collectFirst= TRUE;
 
