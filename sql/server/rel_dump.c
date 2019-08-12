@@ -14,6 +14,7 @@
 #include "rel_rel.h"
 #include "rel_exp.h"
 #include "rel_prop.h"
+#include "rel_updates.h"
 #include "rel_remote.h"
 #include "mal_errors.h"		/* for SQLSTATE() */
 
@@ -720,7 +721,7 @@ read_prop( mvc *sql, sql_exp *exp, char *r, int *pos)
 		skipIdent(r,pos);
 		old = r[*pos];
 		r[*pos] = 0;
-		
+
 		s = mvc_bind_schema(sql, sname);
 		if (!find_prop(exp->p, PROP_JOINIDX)) {
 			p = exp->p = prop_create(sql->sa, PROP_JOINIDX, exp->p);
@@ -781,10 +782,9 @@ read_exps(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos
 }
 
 static sql_exp*
-exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos, int grp) 
+exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos, int grp)
 {
-	int f = -1;
-	int not = 1, old, d=0, s=0, unique = 0, no_nils = 0, quote = 0;
+	int f = -1, not = 1, old, d=0, s=0, unique = 0, no_nils = 0, quote = 0;
 	char *tname, *cname = NULL, *e, *b = r + *pos, *st;
 	sql_exp *exp = NULL;
 	list *exps = NULL;
@@ -805,7 +805,7 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos,
 		e = r+*pos - quote;
 		old = *e;
 		*e = 0;
-		
+
 		tname = sa_strdup(sql->sa, tname);
 		cname = sa_strdup(sql->sa, cname);
 		*e = old;
@@ -829,7 +829,7 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos,
 			int filter = 0, anti = 0;
 			list *lexps,*rexps;
 			char *fname = NULL;
-		       
+
 			lexps = read_exps(sql, lrel, rrel, pexps, r, pos, '(', 0);
 			skipWS(r, pos);
 			if (r[*pos] == '!') {
@@ -861,50 +861,57 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos,
 				sql_subfunc *func = sql_find_func(sql->sa, mvc_bind_schema(sql, "sys"), fname, 1+list_length(exps), F_FILT, NULL);
 				if (!func)
 					return sql_error(sql, -1, SQLSTATE(42000) "Filter: missing function '%s'\n", fname);
-					
+
 				return exp_filter(sql->sa, lexps, rexps, func, anti);
 			}
 			return exp_or(sql->sa, lexps, rexps, anti);
 		}
 		/* fall through */
-	case '[': 
-		old = *e;
-		*e = 0;
+	case '[':
 		tname = b;
-		if (old != '[') {
-			(*pos)++;
-			d = readInt(r,pos);
-			if (r[*pos] != ')' && r[*pos] != ',')
-				return sql_error(sql, -1, SQLSTATE(42000) "Type: missing ')' or ','\n");
-			if (r[*pos] == ',') {
-				(*pos)++;
-				s = readInt(r,pos);
-			}
-			if (r[*pos] != ')') 
-				return sql_error(sql, -1, SQLSTATE(42000) "Type: missing ')'\n");
-			(*pos)++;
-		}
-		tpe = sql_bind_subtype(sql->sa, tname, d, s);
-		skipWS(r, pos);
-		*e = old;
-		if (r[*pos] == '[') { /* convert */
-			(*pos)++;
-			skipWS(r, pos);
-			exp = exp_read(sql, lrel, rrel, pexps, r, pos, 0);
-			if (!exp)
+		if (tname && *tname == '[') { /* list of values */
+			exps = read_exps(sql, lrel, rrel, pexps, r, pos, '[', 0);
+			if (!exps)
 				return NULL;
-			if (r[*pos] != ']') 
-				return sql_error(sql, -1, SQLSTATE(42000) "Convert: missing ']'\n");
-			(*pos)++;
-			skipWS(r, pos);
-			exp = exp_convert(sql->sa, exp, exp_subtype(exp), tpe);
+			exp = exp_values(sql->sa, exps);
 		} else {
-			st = readString(r,pos);
-			if (st && strcmp(st, "NULL") == 0)
-				exp = exp_atom(sql->sa, atom_general(sql->sa, tpe, NULL));
-			else
-				exp = exp_atom(sql->sa, atom_general(sql->sa, tpe, st));
+			old = *e;
+			*e = 0;
+			if (old != '[') {
+				(*pos)++;
+				d = readInt(r,pos);
+				if (r[*pos] != ')' && r[*pos] != ',')
+					return sql_error(sql, -1, SQLSTATE(42000) "Type: missing ')' or ','\n");
+				if (r[*pos] == ',') {
+					(*pos)++;
+					s = readInt(r,pos);
+				}
+				if (r[*pos] != ')')
+					return sql_error(sql, -1, SQLSTATE(42000) "Type: missing ')'\n");
+				(*pos)++;
+			}
+			tpe = sql_bind_subtype(sql->sa, tname, d, s);
 			skipWS(r, pos);
+			*e = old;
+			if (r[*pos] == '[') { /* convert */
+				(*pos)++;
+				skipWS(r, pos);
+				exp = exp_read(sql, lrel, rrel, pexps, r, pos, 0);
+				if (!exp)
+					return NULL;
+				if (r[*pos] != ']')
+					return sql_error(sql, -1, SQLSTATE(42000) "Convert: missing ']'\n");
+				(*pos)++;
+				skipWS(r, pos);
+				exp = exp_convert(sql->sa, exp, exp_subtype(exp), tpe);
+			} else {
+				st = readString(r,pos);
+				if (st && strcmp(st, "NULL") == 0)
+					exp = exp_atom(sql->sa, atom_general(sql->sa, tpe, NULL));
+				else
+					exp = exp_atom(sql->sa, atom_general(sql->sa, tpe, st));
+				skipWS(r, pos);
+			}
 		}
 		break;
 	case '\"': 
@@ -964,13 +971,13 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos,
 			if (f && f->func->fix_scale == SCALE_MUL && list_length(exps) == 2) {
 				sql_arg *ares = f->func->res->h->data;
 
-        			if (strcmp(f->func->imp, "*") == 0 && ares->type.type->scale == SCALE_FIX) {
-                			sql_subtype *res = f->res->h->data;
+			if (strcmp(f->func->imp, "*") == 0 && ares->type.type->scale == SCALE_FIX) {
+					sql_subtype *res = f->res->h->data;
 					sql_subtype *lt = ops->h->data;
 					sql_subtype *rt = ops->h->next->data;
 
 					res->digits = lt->digits;
-                			res->scale = lt->scale + rt->scale;
+					res->scale = lt->scale + rt->scale;
 				}
 			}
 
@@ -1155,15 +1162,11 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos,
 	if (f >= 0) {
 		skipWS(r,pos);
 		if (f == cmp_in || f == cmp_notin) {
-	        	list *exps;
-		       
-			exps = read_exps(sql, lrel, rrel, pexps, r, pos, '(', 0);
+			list *exps = read_exps(sql, lrel, rrel, pexps, r, pos, '(', 0);
 			if (f == cmp_in || f == cmp_notin)
 				return exp_in(sql->sa, exp, exps, f);
 		} else {
-			sql_exp *e;
-
-	        	e = exp_read(sql, lrel, rrel, pexps, r, pos, 0);
+			sql_exp *e = exp_read(sql, lrel, rrel, pexps, r, pos, 0);
 			if (e && e->type == e_cmp) {
 				sql_exp *ne = exp_compare2(sql->sa, e->l, exp, e->r, compare2range(swap_compare((comp_type)f), e->flag));
 				if (is_anti(exp))
@@ -1205,6 +1208,60 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 	operator_type j = op_basetable;
 
 	skipWS(r,pos);
+
+	if (r[*pos] == 'i' && r[*pos+1] == 'n' && r[*pos+2] == 's') {
+		*pos += (int) strlen("insert");
+		skipWS(r, pos);
+		(*pos)++; /* ( */
+		lrel = rel_read(sql, r, pos, refs); /* to be inserted relation */
+		skipWS(r,pos);
+		rrel = rel_read(sql, r, pos, refs); /* the inserts relation */
+		skipWS(r,pos);
+		(*pos)++; /* ) */
+
+		return rel_insert(sql, lrel, rrel);
+	}
+
+	if (r[*pos] == 'd' && r[*pos+1] == 'e' && r[*pos+2] == 'l') {
+		*pos += (int) strlen("delete");
+		skipWS(r, pos);
+		(*pos)++; /* ( */
+		lrel = rel_read(sql, r, pos, refs); /* to be deleted relation */
+		skipWS(r,pos);
+		rrel = rel_read(sql, r, pos, refs); /* the deletes relation */
+		skipWS(r,pos);
+		(*pos)++; /* ) */
+
+		return rel_delete(sql->sa, lrel, rrel);
+	}
+
+	if (r[*pos] == 't' && r[*pos+1] == 'r' && r[*pos+2] == 'u') {
+		*pos += (int) strlen("truncate");
+		skipWS(r, pos);
+		(*pos)++; /* ( */
+		lrel = rel_read(sql, r, pos, refs); /* to be truncated relation */
+		skipWS(r,pos);
+		(*pos)++; /* ) */
+
+		return rel_truncate(sql->sa, lrel, 0, 0);
+	}
+
+	if (r[*pos] == 'u' && r[*pos+1] == 'p' && r[*pos+2] == 'd') {
+		*pos += (int) strlen("update");
+		skipWS(r, pos);
+		(*pos)++; /* ( */
+		lrel = rel_read(sql, r, pos, refs); /* to be updated relation */
+		skipWS(r,pos);
+		rrel = rel_read(sql, r, pos, refs); /* the updates relation */
+		skipWS(r,pos);
+		(*pos)++; /* ) */
+
+		exps = read_exps(sql, lrel, rrel, NULL, r, pos, '[', 0); /* columns to be updated */
+		if (!exps)
+			return NULL;
+		return rel_update(sql, lrel, rrel, NULL, exps);
+	}
+
 	if (r[*pos] == 'R') {
 		*pos += (int) strlen("REF");
 
@@ -1266,10 +1323,10 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 			if (!s || !t)
 				return sql_error(sql, -1, SQLSTATE(42000) "Table: missing '%s.%s'\n", sname, tname);
 			rel = rel_basetable(sql, t, tname);
-		
+
 			if (!r[*pos])
 				return rel;
-	
+
 			/* scan aliases */
 			exps = read_exps(sql, rel, NULL, NULL, r, pos, '[', 0);
 			if (exps && list_length(exps))
@@ -1505,6 +1562,18 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 		if (rel_set_types(sql, rel) < 0)
 			return NULL;
 		set_processed(rel);
+		break;
+	case '[': /* projection of list of values */
+		exps = read_exps(sql, NULL, NULL, NULL, r, pos, '[', 0);
+		if (!exps)
+			return NULL;
+		rel = rel_project(sql->sa, NULL, exps);
+		/* order by ? */
+		if (r[*pos] == '[')
+			rel->r = read_exps(sql, NULL, rel, NULL, r, pos, '[', 0);
+		if (distinct)
+			set_distinct(rel);
+		distinct = 0;
 		break;
 	case 'd':
 		/* 'ddl' not supported */
