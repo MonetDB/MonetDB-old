@@ -544,6 +544,8 @@ insert_generate_inserts(mvc *sql, sql_table *t, dlist *columns, symbol *val_or_q
 	} else {
 		exp_kind ek = {type_value, card_relation, TRUE};
 
+		if (isRemote(t))
+			return sql_error(sql, 02, SQLSTATE(4200) "%s: sub-queries not yet implemented for insert on REMOTE TABLES", action);
 		r = rel_subquery(sql, NULL, val_or_q, ek, APPLY_JOIN);
 	}
 	if (!r)
