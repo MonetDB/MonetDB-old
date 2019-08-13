@@ -1312,7 +1312,7 @@ rel2bin_basetable(backend *be, sql_rel *rel)
 
 	if (!t && c)
 		t = c->t;
-       	dels = stmt_tid(be, t, rel->flag == REL_PARTITION);
+	dels = stmt_tid(be, t, rel->flag == REL_PARTITION);
 
 	/* add aliases */
 	assert(rel->exps);
@@ -1328,7 +1328,7 @@ rel2bin_basetable(backend *be, sql_rel *rel)
 			const char *cname = cexp->r;
 			list *l = sa_list(sql->sa);
 
-		       	c = find_sql_column(t, cname);
+			c = find_sql_column(t, cname);
 			s = stmt_col(be, c, dels);
 			append(l, s);
 			if (exps->h->next) {
@@ -1346,7 +1346,7 @@ rel2bin_basetable(backend *be, sql_rel *rel)
 
 			s = dels?dels:stmt_tid(be, t, 0);
 			s = stmt_alias(be, s, rnme, TID);
-		} else if (oname[0] == '%') { 
+		} else if (oname[0] == '%') {
 			sql_idx *i = find_sql_idx(t, oname+1);
 
 			/* do not include empty indices in the plan */
@@ -1418,7 +1418,7 @@ exp2bin_args(backend *be, sql_exp *e, list *args)
 		} else if (e->r) {
 			char nme[64];
 
-			snprintf(nme, 64, "A%s", (char*)e->r);
+			snprintf(nme, sizeof(nme), "A%s", (char*)e->r);
 			if (!list_find(args, nme, (fcmp)&alias_cmp)) {
 				stmt *s = stmt_var(be, e->r, &e->tpe, 0, 0);
 
@@ -1428,7 +1428,7 @@ exp2bin_args(backend *be, sql_exp *e, list *args)
 		} else {
 			char nme[16];
 
-			snprintf(nme, 16, "A%d", e->flag);
+			snprintf(nme, sizeof(nme), "A%d", e->flag);
 			if (!list_find(args, nme, (fcmp)&alias_cmp)) {
 				atom *a = sql->args[e->flag];
 				stmt *s = stmt_varnr(be, e->flag, &a->tpe);
@@ -1520,7 +1520,7 @@ static stmt *
 rel2bin_table(backend *be, sql_rel *rel, list *refs)
 {
 	mvc *sql = be->mvc;
-	list *l; 
+	list *l;
 	stmt *sub = NULL, *osub = NULL;
 	node *en, *n;
 	sql_exp *op = rel->r;
@@ -1550,7 +1550,7 @@ rel2bin_table(backend *be, sql_rel *rel, list *refs)
 		int i;
 		sql_subfunc *f = op->f;
 		stmt *psub = NULL;
-			
+
 		if (rel->l) { /* first construct the sub relation */
 			sql_rel *l = rel->l;
 			if (l->op == op_ddl) {
@@ -1561,14 +1561,14 @@ rel2bin_table(backend *be, sql_rel *rel, list *refs)
 			} else {
 				sub = subrel_bin(be, rel->l, refs);
 			}
-			if (!sub) 
+			if (!sub)
 				return NULL;
 		}
 
 		psub = exp_bin(be, op, sub, NULL, NULL, NULL, NULL, NULL); /* table function */
-		if (!f || !psub) { 
+		if (!f || !psub) {
 			assert(0);
-			return NULL;	
+			return NULL;
 		}
 		l = sa_list(sql->sa);
 		if (f->func->res) {
@@ -1577,32 +1577,32 @@ rel2bin_table(backend *be, sql_rel *rel, list *refs)
 						sql_exp *exp = en->data;
 						sql_subtype *st = n->data;
 						const char *rnme = exp->rname?exp->rname:exp->l;
-						stmt *s = stmt_rs_column(be, psub, i, st); 
-				
+						stmt *s = stmt_rs_column(be, psub, i, st);
+
 						s = stmt_alias(be, s, rnme, exp->name);
 						list_append(l, s);
 					}
 				} else {
 					for(i = 0, n = f->func->res->h; n; n = n->next, i++ ) {
 						sql_arg *a = n->data;
-						stmt *s = stmt_rs_column(be, psub, i, &a->type); 
+						stmt *s = stmt_rs_column(be, psub, i, &a->type);
 						const char *rnme = exp_find_rel_name(op);
-			
+
 						s = stmt_alias(be, s, rnme, a->name);
 						list_append(l, s);
 					}
 					if (list_length(f->res) == list_length(f->func->res) + 1) {
 						/* add missing %TID% column */
 						sql_subtype *t = f->res->t->data;
-						stmt *s = stmt_rs_column(be, psub, i, t); 
+						stmt *s = stmt_rs_column(be, psub, i, t);
 						const char *rnme = exp_find_rel_name(op);
-			
+
 						s = stmt_alias(be, s, rnme, TID);
 						list_append(l, s);
 					}
 				}
 		}
-		if (!rel->flag && sub && sub->nrcols) { 
+		if (!rel->flag && sub && sub->nrcols) {
 			assert(0);
 			list_merge(l, sub->op4.lval, NULL);
 			osub = sub;
@@ -1624,7 +1624,7 @@ rel2bin_table(backend *be, sql_rel *rel, list *refs)
 		l = sa_list(sql->sa);
 		for(i = 0, n = rel->exps->h; n; n = n->next, i++ ) {
 			sql_exp *c = n->data;
-			stmt *s = stmt_rs_column(be, sub, i, exp_subtype(c)); 
+			stmt *s = stmt_rs_column(be, sub, i, exp_subtype(c));
 			const char *nme = exp_name(c);
 			const char *rnme = NULL;
 
@@ -1635,9 +1635,9 @@ rel2bin_table(backend *be, sql_rel *rel, list *refs)
 		}
 		sub = stmt_list(be, l);
 	}
-	if (!sub) { 
+	if (!sub) {
 		assert(0);
-		return NULL;	
+		return NULL;
 	}
 	l = sa_list(sql->sa);
 	for( en = rel->exps->h; en; en = en->next ) {
@@ -1659,7 +1659,7 @@ rel2bin_table(backend *be, sql_rel *rel, list *refs)
 		s = stmt_alias(be, s, rnme, exp->name);
 		list_append(l, s);
 	}
-	if (osub && osub->nrcols) 
+	if (osub && osub->nrcols)
 		list_merge(l, osub->op4.lval, NULL);
 	sub = stmt_list(be, l);
 	return sub;
@@ -3527,11 +3527,18 @@ rel2bin_insert(backend *be, sql_rel *rel, list *refs)
 		t = rel_ddl_table_get(tr);
 	}
 
-	if (rel->r) /* first construct the inserts relation */
+	if (rel->r) { /* first construct the inserts relation */
 		inserts = subrel_bin(be, rel->r, refs);
+		if (isRemote(t)) {
+			list *ll = rel2bin_args(be, rel->r, sa_list(sql->sa));
+			if (!ll)
+				return NULL;
+			inserts = stmt_list(be, ll);
+		}
+	}
 
 	if (!inserts)
-		return NULL;	
+		return NULL;
 
 	if (idx_ins)
 		pin = refs_find_rel(refs, prel);
@@ -3578,14 +3585,8 @@ rel2bin_insert(backend *be, sql_rel *rel, list *refs)
 	}
 
 	if (isRemote(t)) {
-		stmt *sub;
 		char name[16], *nme = number2name(name, sizeof(name), ++sql->remote);
-		list *ll = rel2bin_args(be, rel->r, sa_list(sql->sa));
-
-		if (!ll)
-			return NULL;
-		sub = stmt_list(be, ll);
-		insert = stmt_func(be, sub, sa_strdup(sql->sa, nme), rel, 0);
+		insert = stmt_func(be, inserts, sa_strdup(sql->sa, nme), rel, 0);
 	} else {
 		for (n = t->columns.set->h, m = inserts->op4.lval->h; n && m; n = n->next, m = m->next) {
 			stmt *ins = m->data;
