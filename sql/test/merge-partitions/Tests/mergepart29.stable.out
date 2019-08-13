@@ -111,7 +111,7 @@ stdout of test 'mergepart29` in directory 'sql/test/merge-partitions` itself:
 # loading sql script: 90_generator_hge.sql
 # loading sql script: 99_system.sql
 # MonetDB/SQL module loaded
-[(1, 1), (2, 2), (3, 3)]
+[(1, 1), (2, 2), (3, 3), (5, 5), (4, 4)]
 
 # 10:47:55 >  
 # 10:47:55 >  "Done."

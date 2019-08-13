@@ -6,8 +6,7 @@ stderr of test 'mergepart29` in directory 'sql/test/merge-partitions` itself:
 # 10:47:53 >  
 
 ALTER TABLE: there are values in the column col1 outside the partition range
-42000!INSERT: cannot insert remote table 'tb2' from this server at the moment
-# builtin opt 	gdk_dbpath = /home/ferreira/repositories/MonetDB-Apr2019/BUILD/var/monetdb5/dbfarm/demo
+# builtin opt 	gdk_dbpath = /home/ferreira/repositories/MonetDB-acticloud/BUILD/var/monetdb5/dbfarm/demo
 # builtin opt 	monet_prompt = >
 # builtin opt 	monet_daemon = no
 # builtin opt 	mapi_port = 50000

@@ -38,15 +38,13 @@ node2_cur.execute('INSERT INTO "tb2" VALUES (1, 1), (2, 2), (3, 3);')
 
 node1_cur.execute('CREATE MERGE TABLE "tb1" ("col1" int, "col2" int) PARTITION BY RANGE ON ("col1");')
 node1_cur.execute('CREATE REMOTE TABLE "tb2" ("col1" int, "col2" int) ON \'mapi:monetdb://localhost:'+str(node2_port)+'/db2\';')
+node1_cur.execute('INSERT INTO "tb2" VALUES (5, 5);')
 try:
     node1_cur.execute('ALTER TABLE "tb1" ADD TABLE "tb2" AS PARTITION FROM 0 TO 1;')  # error
 except Exception as ex:
     sys.stderr.write(ex.__str__())
 node1_cur.execute('ALTER TABLE "tb1" ADD TABLE "tb2" AS PARTITION FROM 0 TO 100;')
-try:
-    node1_cur.execute('INSERT INTO "tb1" VALUES (4, 4)')  # TODO, inserts on remote tables
-except Exception as ex:
-    sys.stderr.write(ex.__str__())
+node1_cur.execute('INSERT INTO "tb1" VALUES (4, 4);')
 node1_cur.execute('SELECT "col1", "col2" FROM "tb1";')
 output = node1_cur.fetchall()
 

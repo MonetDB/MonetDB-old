@@ -1209,6 +1209,29 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 
 	skipWS(r,pos);
 
+	if (r[*pos] == 'R') {
+		*pos += (int) strlen("REF");
+
+		skipWS(r, pos);
+		(void)readInt(r,pos);
+		skipWS(r, pos);
+		(*pos)++; /* ( */
+		(void)readInt(r,pos); /* skip nr refs */
+		(*pos)++; /* ) */
+		rel = rel_read(sql, r, pos, refs);
+		append(refs, rel);
+		skipWS(r,pos);
+	}
+	if (r[*pos] == '&') {
+		int nr;
+		(*pos)++;
+		skipWS(r, pos);
+		*pos += (int) strlen("REF");
+		skipWS(r, pos);
+		nr = readInt(r,pos); /* skip nr refs */
+		return rel_dup(list_fetch(refs, nr-1));
+	}
+
 	if (r[*pos] == 'i' && r[*pos+1] == 'n' && r[*pos+2] == 's') {
 		*pos += (int) strlen("insert");
 		skipWS(r, pos);
@@ -1262,28 +1285,6 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 		return rel_update(sql, lrel, rrel, NULL, exps);
 	}
 
-	if (r[*pos] == 'R') {
-		*pos += (int) strlen("REF");
-
-		skipWS(r, pos);
-		(void)readInt(r,pos);
-		skipWS(r, pos);
-		(*pos)++; /* ( */
-		(void)readInt(r,pos); /* skip nr refs */
-		(*pos)++; /* ) */
-		rel = rel_read(sql, r, pos, refs);
-		append(refs, rel);
-		skipWS(r,pos);
-	}
-	if (r[*pos] == '&') {
-		int nr;
-		(*pos)++;
-		skipWS(r, pos);
-		*pos += (int) strlen("REF");
-		skipWS(r, pos);
-		nr = readInt(r,pos); /* skip nr refs */
-		return rel_dup(list_fetch(refs, nr-1));
-	}
 	if (r[*pos] == 'd') {
 		*pos += (int) strlen("distinct");
 		skipWS(r, pos);
@@ -1585,6 +1586,14 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 		(*pos)+= (int) strlen("REMOTE");
 		skipWS(r, pos);
 		skipUntilWS(r, pos);
+		skipWS(r, pos);
+	}
+	while (strncmp(r+*pos, "USED", strlen("USED")) == 0) {
+		(*pos)+= (int) strlen("USED");
+		skipWS(r, pos);
+	}
+	while (strncmp(r+*pos, "DISTRIBUTE", strlen("DISTRIBUTE")) == 0) {
+		(*pos)+= (int) strlen("DISTRIBUTE");
 		skipWS(r, pos);
 	}
 	return rel;
