@@ -1770,18 +1770,17 @@ destroy_delta(sql_delta *b)
 }
 
 static int
-destroy_bat(sql_trans *tr, sql_delta *b)
+destroy_bat(sql_delta *b)
 {
 	sql_delta *n;
 
-	(void)tr;
 	if (!b)
 		return LOG_OK;
 	n = b->next;
 	destroy_delta(b);
 	_DELETE(b);
 	if (n)
-		return destroy_bat(tr, n);
+		return destroy_bat(n);
 	return LOG_OK;
 }
 
@@ -1790,9 +1789,10 @@ destroy_col(sql_trans *tr, sql_column *c)
 {
 	int ok = LOG_OK;
        
+	(void)tr;
 	if (c->data && c->base.allocated) {
 		c->base.allocated = 0;
-		ok = destroy_bat(tr, c->data);
+		ok = destroy_bat(c->data);
 	}
 	c->data = NULL;
 	return ok;
@@ -1811,9 +1811,10 @@ destroy_idx(sql_trans *tr, sql_idx *i)
 {
 	int ok = LOG_OK;
 
+	(void)tr;
 	if (i->data && i->base.allocated) {
 		i->base.allocated = 0;
-       		ok = destroy_bat(tr, i->data);
+       		ok = destroy_bat(i->data);
 	}
 	i->data = NULL;
 	return ok;
@@ -1966,6 +1967,7 @@ clear_col(sql_trans *tr, sql_column *c)
 			return 0;
 		c->base.allocated = 1;
 	}
+	c->t->s->base.wtime = c->t->base.wtime = c->base.wtime = tr->wstime;
 	if (c->data)
 		return clear_delta(tr, c->data);
 	return 0;
@@ -1987,6 +1989,7 @@ clear_idx(sql_trans *tr, sql_idx *i)
 			return 0;
 		i->base.allocated = 1;
 	}
+	i->t->s->base.wtime = i->t->base.wtime = i->base.wtime = tr->wstime;
 	if (i->data)
 		return clear_delta(tr, i->data);
 	return 0;
@@ -2030,6 +2033,7 @@ clear_del(sql_trans *tr, sql_table *t)
 		dup_dbat(tr, obat, bat, isNew(ot), isTempTable(t)); 
 		t->base.allocated = 1;
 	}
+	t->s->base.wtime = t->base.wtime = tr->wstime;
 	return clear_dbat(tr, t->data);
 }
 
@@ -2106,7 +2110,7 @@ gtr_update_delta( sql_trans *tr, sql_delta *cbat, int *changes, int id, int tpe)
 	bat_destroy(cur);
 	cbat->cleared = 0;
 	if (cbat->next) { 
-		ok = destroy_bat(tr, cbat->next);
+		ok = destroy_bat(cbat->next);
 		cbat->next = NULL;
 	}
 	return ok;
@@ -2325,6 +2329,8 @@ tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, int unique)
 			return LOG_ERR;
 	}
 	if (!obat->bid && tr != gtrans) {
+		if (obat->next)
+			destroy_bat(obat->next);
 		destroy_delta(obat);
 		*obat = *cbat;
 		cbat->bid = 0;
@@ -2421,7 +2427,7 @@ tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, int unique)
 	}
 	bat_destroy(cur);
 	if (obat->next) { 
-		ok = destroy_bat(tr, obat->next);
+		ok = destroy_bat(obat->next);
 		obat->next = NULL;
 	}
 	return ok;
@@ -2520,7 +2526,7 @@ tr_merge_delta( sql_trans *tr, sql_delta *obat, int unique)
 	obat->cleared = 0;
 	bat_destroy(cur);
 	if (obat->next) { 
-		ok = destroy_bat(tr, obat->next);
+		ok = destroy_bat(obat->next);
 		obat->next = NULL;
 	}
 	return ok;
