@@ -476,7 +476,7 @@ profilerHeartbeatEvent(char *alter)
 	prevUsage = infoUsage;
 #endif
 	logadd("\"state\":\"%s\",%s",alter,prettify);
-	logadd("\"cpuload\":%s%s",cpuload,prettify);
+	logadd("\"cpuload\":%s,%s",cpuload,prettify);
 	logadd("\"waiting\":%ld%s",GDKnr_threads - MALrunningThreads(),prettify);
 	logadd("}\n"); // end marker
 	logjsonInternal(logbuffer);
