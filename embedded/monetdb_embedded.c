@@ -581,7 +581,6 @@ monetdb_append(monetdb_connection conn, const char* schema, const char* table, b
 		node *n;
 		size_t i;
 		sql_rel *rel;
-		sql_query *query = query_create(m);
 		list *exps = sa_list(m->sa), *args = sa_list(m->sa), *col_types = sa_list(m->sa);
 		sql_schema *s;
 		sql_table *t;
@@ -612,7 +611,7 @@ monetdb_append(monetdb_connection conn, const char* schema, const char* table, b
 		}
 
 		f->res = col_types;
-		rel = rel_insert(query, rel_basetable(m, t, t->base.name), rel_table_func(m->sa, NULL, exp_op(m->sa,  args, f), exps, 1));
+		rel = rel_insert(m, rel_basetable(m, t, t->base.name), rel_table_func(m->sa, NULL, exp_op(m->sa,  args, f), exps, 1));
 		assert(rel);
 		m->scanner.rs = NULL;
 		m->errstr[0] = '\0';
