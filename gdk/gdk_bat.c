@@ -2383,6 +2383,7 @@ BATassertProps(BAT *b)
 			const char *nme = BBP_physical(b->batCacheid);
 			Hash *hs = NULL;
 			BUN mask;
+			int len;
 
 			if ((hs = GDKzalloc(sizeof(Hash))) == NULL) {
 				MT_fprintf(stderr,
@@ -2390,8 +2391,14 @@ BATassertProps(BAT *b)
 					"hash table\n");
 				goto abort_check;
 			}
-			snprintf(hs->heap.filename, sizeof(hs->heap.filename),
-				 "%s.hash%d", nme, THRgettid());
+			len = snprintf(hs->heap.filename, sizeof(hs->heap.filename), "%s.hash%d", nme, THRgettid());
+			if (len == -1 || len > (int) sizeof(hs->heap.filename)) {
+				GDKfree(hs);
+				fprintf(stderr,
+					"#BATassertProps: heap filename "
+					"is too large\n");
+				goto abort_check;
+			}
 			if (ATOMsize(b->ttype) == 1)
 				mask = (BUN) 1 << 8;
 			else if (ATOMsize(b->ttype) == 2)
