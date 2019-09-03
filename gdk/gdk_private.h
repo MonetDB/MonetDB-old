@@ -51,8 +51,6 @@ bool BATcheckimprints(BAT *b)
 gdk_return BATcheckmodes(BAT *b, bool persistent)
 	__attribute__((__warn_unused_result__))
 	__attribute__((__visibility__("hidden")));
-bool BATcheckorderidx(BAT *b)
-	__attribute__((__visibility__("hidden")));
 BAT *BATcreatedesc(oid hseq, int tt, bool heapnames, role_t role)
 	__attribute__((__visibility__("hidden")));
 void BATdelete(BAT *b)
@@ -71,9 +69,6 @@ void BATinit_idents(BAT *bn)
 BAT *BATload_intern(bat bid, bool lock)
 	__attribute__((__visibility__("hidden")));
 gdk_return BATmaterialize(BAT *b)
-	__attribute__((__warn_unused_result__))
-	__attribute__((__visibility__("hidden")));
-gdk_return BATsave(BAT *b)
 	__attribute__((__warn_unused_result__))
 	__attribute__((__visibility__("hidden")));
 void BATsetdims(BAT *b)
