@@ -16,7 +16,7 @@ endif()
 
 # Change these variables between releases
 set(MONETDB_VERSION_MAJOR "11")
-set(MONETDB_VERSION "${MONETDB_VERSION_MAJOR}.34.0")
+set(MONETDB_VERSION "${MONETDB_VERSION_MAJOR}.36.0")
 
 set(GDK_VERSION_MAJOR "18")
 set(GDK_VERSION "${GDK_VERSION_MAJOR}.4.0")

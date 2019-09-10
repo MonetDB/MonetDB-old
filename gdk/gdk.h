@@ -536,6 +536,8 @@ typedef uint64_t BUN8type;
 #define BUN8_NONE ((BUN8type) UINT64_C(0xFFFFFFFFFFFFFFFF))
 #endif
 
+#include "gdk_atoms.h"
+
 /*
  * @- Checking and Error definitions:
  */
@@ -1201,14 +1203,61 @@ typedef var_t stridx_t;
 #define BUNtvar(bi,p)	(assert((bi).b->ttype && (bi).b->tvarsized), (void *) (Tbase((bi).b)+BUNtvaroff(bi,p)))
 #define BUNtail(bi,p)	((bi).b->ttype?(bi).b->tvarsized?BUNtvar(bi,p):BUNtloc(bi,p):BUNtpos(bi,p))
 
+#define BUNlast(b)	(assert((b)->batCount <= BUN_MAX), (b)->batCount)
+
+#define BATcount(b)	((b)->batCount)
+
 /* return the oid value at BUN position p from the (v)oid bat b
  * works with any TYPE_void or TYPE_oid bat */
-#define BUNtoid(b,p)	(assert(ATOMtype((b)->ttype) == TYPE_oid),	\
-			 (is_oid_nil((b)->tseqbase)			\
-			  ? ((b)->ttype == TYPE_void			\
-			     ? (void) (p), oid_nil			\
-			     : ((const oid *) (b)->theap.base)[p])	\
-			  : (oid) ((b)->tseqbase + (BUN) (p))))
+static inline oid
+BUNtoid(BAT *b, BUN p)
+{
+	assert(ATOMtype(b->ttype) == TYPE_oid);
+	/* BATcount is the number of valid entries, so with
+	 * exceptions, the last value can well be larger than
+	 * b->tseqbase + BATcount(b) */
+	assert(p < BATcount(b));
+	assert(b->ttype == TYPE_void || b->tvheap == NULL);
+	if (is_oid_nil(b->tseqbase)) {
+		if (b->ttype == TYPE_void)
+			return b->tseqbase;
+		return ((const oid *) (b)->theap.base)[p];
+	}
+	oid o = b->tseqbase + p;
+	if (b->ttype == TYPE_oid || b->tvheap == NULL) {
+		return o;
+	}
+	/* only exceptions allowed on transient BATs */
+	assert(b->batRole == TRANSIENT);
+	/* make sure exception area is a reasonable size */
+	assert(b->tvheap->free % SIZEOF_OID == 0);
+	BUN nexc = (BUN) (b->tvheap->free / SIZEOF_OID);
+	if (nexc == 0) {
+		/* no exceptions (why the vheap?) */
+		return o;
+	}
+	const oid *exc = (oid *) b->tvheap->base;
+	BUN hi = 0;
+	if (nexc > 1024) {
+		BUN lo = 0;
+		hi = nexc - 1;
+		while (hi > lo + 1) {
+			BUN mid = (lo + hi) / 2;
+			if (exc[mid] == o) {
+				hi = mid;
+				break;
+			}
+			if (exc[mid] < o)
+				lo = mid;
+			else
+				hi = mid;
+		}
+	}
+	for (; hi < nexc; hi++)
+		if (o + hi < exc[hi])
+			break;
+	return o + hi;
+}
 
 static inline BATiter
 bat_iterator(BAT *b)
@@ -1219,10 +1268,6 @@ bat_iterator(BAT *b)
 	bi.tvid = 0;
 	return bi;
 }
-
-#define BUNlast(b)	(assert((b)->batCount <= BUN_MAX), (b)->batCount)
-
-#define BATcount(b)	((b)->batCount)
 
 /*
  * @- BAT properties
@@ -1409,7 +1454,8 @@ gdk_export void GDKqsort(void *restrict h, void *restrict t, const void *restric
 #define BATtordered(b)	((b)->tsorted)
 #define BATtrevordered(b) ((b)->trevsorted)
 /* BAT is dense (i.e., BATtvoid() is true and tseqbase is not NIL) */
-#define BATtdense(b)	(!is_oid_nil((b)->tseqbase))
+#define BATtdense(b)	(!is_oid_nil((b)->tseqbase) &&			\
+			 ((b)->tvheap == NULL || (b)->tvheap->free == 0))
 /* BATtvoid: BAT can be (or actually is) represented by TYPE_void */
 #define BATtvoid(b)	(BATtdense(b) || (b)->ttype==TYPE_void)
 #define BATtkey(b)	((b)->tkey || BATtdense(b))
@@ -2225,7 +2271,6 @@ gdk_export void GDKclrerr(void);
 
 #include "gdk_delta.h"
 #include "gdk_hash.h"
-#include "gdk_atoms.h"
 #include "gdk_bbp.h"
 #include "gdk_utils.h"
 
@@ -2343,9 +2388,7 @@ BATdescriptor(bat i)
 static inline void *
 Tpos(BATiter *bi, BUN p)
 {
-	bi->tvid = bi->b->tseqbase;
-	if (!is_oid_nil(bi->tvid))
-		bi->tvid += p;
+	bi->tvid = BUNtoid(bi->b, p);
 	return (void*)&bi->tvid;
 }
 
@@ -2717,11 +2760,11 @@ gdk_export BAT *BATunique(BAT *b, BAT *s);
 gdk_export BAT *BATmergecand(BAT *a, BAT *b);
 gdk_export BAT *BATintersectcand(BAT *a, BAT *b);
 gdk_export BAT *BATdiffcand(BAT *a, BAT *b);
-gdk_export bool BATcandcontains(BAT *s, oid o);
 
 gdk_export gdk_return BATfirstn(BAT **topn, BAT **gids, BAT *b, BAT *cands, BAT *grps, BUN n, bool asc, bool nilslast, bool distinct)
 	__attribute__((__warn_unused_result__));
 
+#include "gdk_cand.h"
 #include "gdk_calc.h"
 
 /*

@@ -383,6 +383,8 @@ MT_init(void)
 #else
 # error "don't know how to get the amount of physical memory for your OS"
 #endif
+
+#ifndef NATIVE_WIN32
 	/* limit values to whatever cgroups gives us */
 	FILE *f;
 	/* limit of memory usage */
@@ -416,7 +418,6 @@ MT_init(void)
 		}
 		fclose(f);
 	}
-#ifndef NATIVE_WIN32
 	struct rlimit l;
 	/* address space (virtual memory) limit */
 	if (getrlimit(RLIMIT_AS, &l) == 0
