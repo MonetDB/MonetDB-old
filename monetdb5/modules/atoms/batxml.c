@@ -1179,10 +1179,11 @@ BATxmlaggr(BAT **bnp, BAT *b, BAT *g, BAT *e, BAT *s, int skip_nils)
 	BAT *bn = NULL, *t1, *t2 = NULL;
 	BATiter bi;
 	oid min, max;
-	BUN ngrp, start, end;
+	BUN ngrp;
 	BUN nils = 0;
+	BUN ncand;
+	struct canditer ci;
 	int isnil;
-	const oid *cand = NULL, *candend = NULL;
 	const char *v;
 	const oid *grps, *map;
 	oid mapoff = 0;
@@ -1194,8 +1195,7 @@ BATxmlaggr(BAT **bnp, BAT *b, BAT *g, BAT *e, BAT *s, int skip_nils)
 	const char *err;
 	char *tmp;
 
-	if ((err = BATgroupaggrinit(b, g, e, s, &min, &max, &ngrp, &start, &end,
-								&cand, &candend)) != NULL) {
+	if ((err = BATgroupaggrinit(b, g, e, s, &min, &max, &ngrp, &ci, &ncand)) != NULL) {
 		return err;
 	}
 	assert(b->ttype == TYPE_xml);

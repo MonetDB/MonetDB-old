@@ -1050,11 +1050,11 @@ logger_open(logger *lg)
 	}
 	len = snprintf(id, sizeof(id), LLFMT, lg->id);
 	if (len == -1 || len >= BUFSIZ) {
-		fprintf(stderr, "!ERROR: logger_open: filename is too large\n");
+		MT_fprintf(stderr, "!ERROR: logger_open: filename is too large\n");
 		return GDK_FAIL;
 	}
 	if (!(filename = GDKfilepath(BBPselectfarm(PERSISTENT, 0, offheap), lg->dir, LOGFILE, id))) {
-		fprintf(stderr, "!ERROR: logger_open: allocation failure\n");
+		MT_fprintf(stderr, "!ERROR: logger_open: allocation failure\n");
 		return GDK_FAIL;
 	}
 
@@ -2434,7 +2434,7 @@ logger_new(int debug, const char *fn, const char *logdir, int version, preversio
 
 	len = snprintf(filename, sizeof(filename), "%s%c%s%c", logdir, DIR_SEP, fn, DIR_SEP);
 	if (len == -1 || len >= FILENAME_MAX) {
-		fprintf(stderr, "!ERROR: logger_new: filename is too large\n");
+		MT_fprintf(stderr, "!ERROR: logger_new: filename is too large\n");
 		GDKfree(lg);
 		return NULL;
 	}
@@ -2622,7 +2622,7 @@ logger_exit(logger *lg)
 		 * later cleanup actions */
 		len = snprintf(ext, sizeof(ext), "bak-" LLFMT, lg->id);
 		if (len == -1 || len >= FILENAME_MAX) {
-			fprintf(stderr, "!ERROR: logger_exit: new logger filename path is too large\n");
+			MT_fprintf(stderr, "!ERROR: logger_exit: new logger filename path is too large\n");
 			return GDK_FAIL;
 		}
 
@@ -2667,7 +2667,7 @@ logger_cleanup(logger *lg)
 	farmid = BBPselectfarm(PERSISTENT, 0, offheap);
 	len = snprintf(buf, sizeof(buf), "%s%s.bak-" LLFMT, lg->dir, LOGFILE, lg->id);
 	if (len == -1 || len >= BUFSIZ) {
-		fprintf(stderr, "#logger_cleanup: filename is too large\n");
+		MT_fprintf(stderr, "#logger_cleanup: filename is too large\n");
 		return GDK_FAIL;
 	}
 
@@ -2688,7 +2688,7 @@ logger_cleanup(logger *lg)
 
 		len = snprintf(log_id, sizeof(log_id), LLFMT, lid);
 		if (len == -1 || len >= FILENAME_MAX) {
-			fprintf(stderr, "#logger_cleanup: log_id filename is too large\n");
+			MT_fprintf(stderr, "#logger_cleanup: log_id filename is too large\n");
 			return GDK_FAIL;
 		}
 		if (GDKunlink(farmid, lg->dir, LOGFILE, log_id) != GDK_SUCCEED) {
@@ -2701,7 +2701,7 @@ logger_cleanup(logger *lg)
 
 	len = snprintf(buf, sizeof(buf), "bak-" LLFMT, lg->id);
 	if (len == -1 || len >= BUFSIZ) {
-		fprintf(stderr, "#logger_cleanup: filename is too large\n");
+		MT_fprintf(stderr, "#logger_cleanup: filename is too large\n");
 		GDKclrerr();
 	}
 

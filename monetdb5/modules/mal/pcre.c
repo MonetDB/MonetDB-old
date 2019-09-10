@@ -539,13 +539,12 @@ pcre_compile_wrap(pcre **res, const char *pattern, bit insensitive)
 						  "#BATselect(b=%s#"BUNFMT",s=%s,anti=%d): "	\
 						  "scanselect %s\n", BATgetId(b), BATcount(b),	\
 						  s ? BATgetId(s) : "NULL", anti, #TEST);		\
-		while (p < q) {													\
-			o = *candlist++;											\
+		for (p = 0; p < ci.ncand; p++) {								\
+			o = canditer_next(&ci);										\
 			r = (BUN) (o - off);										\
 			v = BUNtvar(bi, r);											\
 			if (TEST)													\
 				bunfastappTYPE(oid, bn, &o);							\
-			p++;														\
 		}																\
 	} while (0)
 
@@ -586,6 +585,9 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, bool caseignore, boo
 	BUN p, q;
 	oid o, off;
 	const char *v;
+	struct canditer ci;
+
+	canditer_init(&ci, b, s);
 
 	assert(ATOMstorage(b->ttype) == TYPE_str);
 
@@ -597,6 +599,7 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, bool caseignore, boo
 		options |= REG_ICASE;
 #endif
 	}
+#endif
 #if defined(HAVE_LIBPCRE)
 	if ((re = pcre_compile(pat, options, &error, &errpos, NULL)) == NULL)
 		throw(MAL, "pcre.likeselect",
@@ -613,8 +616,7 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, bool caseignore, boo
 			  OPERATION_FAILED ": compilation of pattern \"%s\" failed\n", pat);
 	}
 #endif
-#endif
-	bn = COLnew(0, TYPE_oid, s ? BATcount(s) : BATcount(b), TRANSIENT);
+	bn = COLnew(0, TYPE_oid, ci.ncand, TRANSIENT);
 	if (bn == NULL) {
 #if defined(HAVE_LIBPCRE)
 		pcre_free_study(pe);
@@ -627,19 +629,9 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, bool caseignore, boo
 	off = b->hseqbase;
 
 	if (s && !BATtdense(s)) {
-		const oid *candlist;
 		BUN r;
 
-		assert(s->ttype == TYPE_oid || s->ttype == TYPE_void);
-		assert(s->tsorted);
-		assert(s->tkey);
-		/* setup candscanloop loop vars to only iterate over
-		 * part of s that has values that are in range of b */
-		o = b->hseqbase + BATcount(b);
-		q = SORTfndfirst(s, &o);
-		p = SORTfndfirst(s, &b->hseqbase);
-		candlist = (const oid *) Tloc(s, p);
-#if defined(HAVE_LIBPCRE)
+#ifdef HAVE_LIBPCRE
 #define BODY     (pcre_exec(re, pe, v, (int) strlen(v), 0, 0, ovector, 9) >= 0)
 #elif defined(HAVE_POSIX_REGEX)
 #define BODY     (regexec(&re, v, (size_t) 0, NULL, 0) != REG_NOMATCH)
@@ -721,17 +713,11 @@ re_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, bool caseignore, bool 
 			throw(MAL, "pcre.likeselect", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 	if (s && !BATtdense(s)) {
-		const oid *candlist;
+		struct canditer ci;
 		BUN r;
-		assert(s->ttype == TYPE_oid || s->ttype == TYPE_void);
-		assert(s->tsorted);
-		assert(s->tkey);
-		/* setup candscanloop loop vars to only iterate over
-		 * part of s that has values that are in range of b */
-		o = b->hseqbase + BATcount(b);
-		q = SORTfndfirst(s, &o);
-		p = SORTfndfirst(s, &b->hseqbase);
-		candlist = (const oid *) Tloc(s, p);
+
+		canditer_init(&ci, b, s);
+
 		if (use_strcmp) {
 			if (caseignore) {
 				uint32_t *wpat;
@@ -2062,8 +2048,6 @@ PCRElikeselect5(bat *ret, const bat *bid, const bat *sid, const str *pat, const 
 	return PCRElikeselect2(ret, bid, sid, pat, &esc, &f, anti);
 }
 
-#include "gdk_cand.h"
-
 #define APPEND(b, o)	(((oid *) b->theap.base)[b->batCount++] = (o))
 #define VALUE(s, x)		(s##vars + VarHeapVal(s##vals, (x), s##width))
 
@@ -2071,17 +2055,13 @@ static char *
 pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 		 const char *esc, bool caseignore)
 {
-	BUN lstart, lend, lcnt;
-	const oid *lcand = NULL, *lcandend = NULL;
-	BUN rstart, rend, rcnt;
-	const oid *rcand = NULL, *rcandend = NULL;
+	struct canditer lci, rci;
 	const char *lvals, *rvals;
 	const char *lvars, *rvars;
 	int lwidth, rwidth;
 	const char *vl, *vr;
-	const oid *p;
 	oid lastl = 0;		/* last value inserted into r1 */
-	BUN n, nl;
+	BUN nl;
 	BUN newcap;
 	oid lo, ro;
 	int retval;
@@ -2090,7 +2070,6 @@ pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 #if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 	RE *re = NULL;
 	char *pcrepat = NULL;
-	int nr;
 #ifdef HAVE_LIBPCRE
 	pcre *pcrere = NULL;
 	pcre_extra *pcreex = NULL;
@@ -2139,8 +2118,8 @@ pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 	assert(sl == NULL || sl->tsorted);
 	assert(sr == NULL || sr->tsorted);
 
-	CANDINIT(l, sl, lstart, lend, lcnt, lcand, lcandend);
-	CANDINIT(r, sr, rstart, rend, rcnt, rcand, rcandend);
+	canditer_init(&lci, l, sl);
+	canditer_init(&rci, r, sr);
 
 	lvals = (const char *) Tloc(l, 0);
 	rvals = (const char *) Tloc(r, 0);
@@ -2158,19 +2137,11 @@ pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 	r2->trevsorted = true;
 
 	/* nested loop implementation for PCRE join */
-	for (;;) {
+	for (BUN ri = 0; ri < rci.ncand; ri++) {
+		int nr;
 
-		if (rcand) {
-			if (rcand == rcandend)
-				break;
-			ro = *rcand++;
-			vr = VALUE(r, ro - r->hseqbase);
-		} else {
-			if (rstart == rend)
-				break;
-			vr = VALUE(r, rstart);
-			ro = rstart++ + r->hseqbase;
-		}
+		ro = canditer_next(&rci);
+		vr = VALUE(r, ro - r->hseqbase);
 		if (strcmp(vr, str_nil) == 0)
 			continue;
 #if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
@@ -2231,20 +2202,10 @@ pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 		}
 #endif
 		nl = 0;
-		p = lcand;
-		n = lstart;
-		for (;;) {
-			if (lcand) {
-				if (p == lcandend)
-					break;
-				lo = *p++;
-				vl = VALUE(l, lo - l->hseqbase);
-			} else {
-				if (n == lend)
-					break;
-				vl = VALUE(l, n);
-				lo = n++ + l->hseqbase;
-			}
+		canditer_reset(&lci);
+		for (BUN li = 0; li < lci.ncand; li++) {
+			lo = canditer_next(&lci);
+			vl = VALUE(l, lo - l->hseqbase);
 			if (strcmp(vl, str_nil) == 0)
 				continue;
 #if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)

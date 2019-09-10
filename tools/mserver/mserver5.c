@@ -453,7 +453,7 @@ main(int argc, char **av)
 	GDKsetverbose(verbosity);
 
 	if (dbpath && inmemory) {
-		fprintf(stderr, "!ERROR: both dbpath and in-memory must not be set at the same time\n");
+		MT_fprintf(stderr, "!ERROR: both dbpath and in-memory must not be set at the same time\n");
 		exit(1);
 	}
 

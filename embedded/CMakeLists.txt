@@ -332,6 +332,7 @@ install(FILES
 		../gdk/gdk_atoms.h
 		../gdk/gdk_bbp.h
 		../gdk/gdk_calc.h
+		../gdk/gdk_cand.h
 		../gdk/gdk_delta.h
 		../gdk/gdk_posix.h
 		../gdk/gdk_hash.h

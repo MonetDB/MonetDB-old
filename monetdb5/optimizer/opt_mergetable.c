@@ -1833,7 +1833,7 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 
 			if (group_input[input]) {
 #ifdef DEBUG_OPT_MERGETABLE
-				fprintf(stderr,"WARNING::: mergetable bailout on group input reuse in group statement \n");
+				MT_fprintf(stderr,"WARNING::: mergetable bailout on group input reuse in group statement \n");
 #endif
 				bailout = 1;
 			}
@@ -1843,7 +1843,7 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		if (getModuleId(p) == algebraRef && 
 		    getFunctionId(p) == selectNotNilRef ) {
 #ifdef DEBUG_OPT_MERGETABLE
-			fprintf(stderr,"WARNING::: mergetable bailout not nil ref \n");
+			MT_fprintf(stderr,"WARNING::: mergetable bailout not nil ref \n");
 #endif
 			bailout = 1;
 		}

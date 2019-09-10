@@ -349,6 +349,8 @@ sql_extern void store_exit(void);
 
 sql_extern int store_apply_deltas(bool locked);
 sql_extern void store_flush_log(void);
+sql_extern void store_suspend_log(void);
+sql_extern void store_resume_log(void);
 sql_extern void store_manager(void);
 sql_extern void idle_manager(void);
 

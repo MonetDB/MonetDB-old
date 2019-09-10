@@ -390,6 +390,8 @@ MT_init(void)
 #else
 # error "don't know how to get the amount of physical memory for your OS"
 #endif
+
+#ifndef NATIVE_WIN32
 	/* limit values to whatever cgroups gives us */
 	FILE *f;
 	/* limit of memory usage */
@@ -423,7 +425,6 @@ MT_init(void)
 		}
 		fclose(f);
 	}
-#ifndef NATIVE_WIN32
 	struct rlimit l;
 	/* address space (virtual memory) limit */
 	if (getrlimit(RLIMIT_AS, &l) == 0
@@ -1397,7 +1398,7 @@ THRcreate(void (*f) (void *), void *arg, enum MT_thr_detach d, const char *name)
 	};
 	len = snprintf(semname, sizeof(semname), "THRcreate%" PRIu64, (uint64_t) ATOMIC_INC(&ctr));
 	if (len == -1 || len > (int) sizeof(semname)) {
-		IODEBUG fprintf(stderr, "#THRcreate: semaphore name is too large\n");
+		IODEBUG MT_fprintf(stderr, "#THRcreate: semaphore name is too large\n");
 		GDKerror("THRcreate: semaphore name is too large\n");
 		GDKfree(t);
 		GDKfree(s->name);

@@ -310,8 +310,10 @@ OIDXmerge(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) cntxt;
 	(void) mb;
 
-	assert(pci->retc == 1);
-	assert(pci->argc > 2);
+	if( pci->retc != 1 )
+		throw(MAL, "bat.orderidx", SQLSTATE(HY002) "INTERNAL ERROR, retc != 1 ");
+	if( pci->argc < 2 )
+		throw(MAL, "bat.orderidx", SQLSTATE(HY002) "INTERNAL ERROR, argc != 2");
 
 	n_ar = pci->argc - 2;
 
@@ -320,7 +322,8 @@ OIDXmerge(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (b == NULL)
 		throw(MAL, "bat.orderidx", SQLSTATE(HY002) RUNTIME_OBJECT_MISSING);
 
-	assert(b->torderidx == NULL);
+	if (b->torderidx )
+		throw(MAL, "bat.orderidx", SQLSTATE(HY002) "INTERNAL ERROR, torderidx already set");
 
 	switch (ATOMbasetype(b->ttype)) {
 	case TYPE_bte:
