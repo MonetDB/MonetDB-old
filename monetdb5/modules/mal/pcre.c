@@ -610,7 +610,7 @@ pcre_likeselect(BAT **bnp, BAT *b, BAT *s, const char *pat, bool caseignore, boo
 		throw(MAL, "pcre.likeselect",
 			  OPERATION_FAILED ": studying pattern \"%s\" failed\n", pat);
 	}
-#else //GNU regex
+#elif defined(HAVE_POSIX_REGEX)
 	if ((errcode = regcomp(&re, pat, options)) != 0) {
 		throw(MAL, "pcre.likeselect",
 			  OPERATION_FAILED ": compilation of pattern \"%s\" failed\n", pat);
@@ -2138,7 +2138,9 @@ pcrejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 
 	/* nested loop implementation for PCRE join */
 	for (BUN ri = 0; ri < rci.ncand; ri++) {
+#if defined(HAVE_LIBPCRE) || defined(HAVE_POSIX_REGEX)
 		int nr;
+#endif
 
 		ro = canditer_next(&rci);
 		vr = VALUE(r, ro - r->hseqbase);
