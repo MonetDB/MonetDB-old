@@ -37,6 +37,7 @@ int have_hge;
 #include "mal_atom.h"
 #include "opt_pipes.h"
 #include "tablet.h"
+#include "mlogger.h"
 
 MT_Lock     mal_contextLock = MT_LOCK_INITIALIZER("mal_contextLock");
 MT_Lock     mal_remoteLock = MT_LOCK_INITIALIZER("mal_remoteLock");
@@ -148,5 +149,6 @@ void mserver_reset(void)
 void mal_exit(int status)
 {
 	mserver_reset();
+	mlog_stop();
 	exit(status);				/* properly end GDK */
 }

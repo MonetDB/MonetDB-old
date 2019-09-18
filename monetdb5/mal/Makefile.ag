@@ -6,6 +6,7 @@
 
 INCLUDES = ../../common/stream \
 		   ../../common/utils \
+		   ../../common/mlogger \
 		   ../../clients/mapilib \
 		   ../../gdk \
 		   ../optimizer \
@@ -45,6 +46,7 @@ lib_mal = {
 		mal_type.c mal_type.h \
 		mal_utils.c mal_utils.h \
 		mal_private.h
+	LIBS = ../../common/mlogger/libmlogger
 }
 
 headers_h = {
