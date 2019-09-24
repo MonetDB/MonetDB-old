@@ -52,9 +52,10 @@
 # include <netinet/in.h> /* hton and ntoh */
 # include <arpa/inet.h>  /* addr_in */
 # include <sys/un.h>
+# include <sys/uio.h>
 # include <netdb.h>
 # include <netinet/in.h>
-# include <sys/uio.h>
+# include <poll.h>
 #endif
 
 #define SOCKPTR struct sockaddr *
@@ -267,8 +268,13 @@ SERVERlistenThread(SOCKET *Sock)
 {
 	char *msg = 0;
 	int retval;
+#ifndef NATIVE_WIN32
+	struct pollfd pfd[2];
+	nfds_t npfd;
+#else
 	struct timeval tv;
 	fd_set fds;
+#endif
 	SOCKET sock = INVALID_SOCKET;
 	SOCKET usock = INVALID_SOCKET;
 	SOCKET msgsock = INVALID_SOCKET;
@@ -283,24 +289,26 @@ SERVERlistenThread(SOCKET *Sock)
 	(void) ATOMIC_INC(&nlistener);
 
 	do {
+#ifndef NATIVE_WIN32
+		npfd = 0;
+		if (sock != INVALID_SOCKET)
+			pfd[npfd++] = (struct pollfd) {.fd = sock, .events = POLLIN};
+		if (usock != INVALID_SOCKET)
+			pfd[npfd++] = (struct pollfd) {.fd = usock, .events = POLLIN};
+		/* Wait up to 0.025 seconds (0.001 if testing) */
+		retval = poll(pfd, npfd, GDKdebug & FORCEMITOMASK ? 10 : 25);
+#else
 		FD_ZERO(&fds);
 		if (sock != INVALID_SOCKET)
 			FD_SET(sock, &fds);
-#ifndef NATIVE_WIN32
-		if (usock != INVALID_SOCKET)
-			FD_SET(usock, &fds);
-#endif
-		/* Wait up to 0.025 seconds (0.01 if testing) */
+		/* Wait up to 0.025 seconds (0.001 if testing) */
 		tv.tv_sec = 0;
 		tv.tv_usec = GDKdebug & FORCEMITOMASK ? 10000 : 25000;
 
 		/* temporarily use msgsock to record the larger of sock and usock */
 		msgsock = sock;
-#ifndef NATIVE_WIN32
-		if (usock != INVALID_SOCKET && (sock == INVALID_SOCKET || usock > sock))
-			msgsock = usock;
-#endif
 		retval = select((int)msgsock + 1, &fds, NULL, NULL, &tv);
+#endif
 		if (ATOMIC_GET(&serverexiting) || GDKexiting())
 			break;
 		if (retval == 0) {
@@ -309,7 +317,7 @@ SERVERlistenThread(SOCKET *Sock)
 		}
 		if (retval == SOCKET_ERROR) {
 			if (
-#ifdef _MSC_VER
+#ifdef NATIVE_WIN32
 				WSAGetLastError() != WSAEINTR
 #else
 				errno != EINTR
@@ -320,10 +328,16 @@ SERVERlistenThread(SOCKET *Sock)
 			}
 			continue;
 		}
-		if (sock != INVALID_SOCKET && FD_ISSET(sock, &fds)) {
+		if (sock != INVALID_SOCKET &&
+#ifndef NATIVE_WIN32
+			(npfd > 0 && pfd[0].fd == sock && pfd[0].revents & POLLIN)
+#else
+			FD_ISSET(sock, &fds)
+#endif
+			) {
 			if ((msgsock = accept4(sock, (SOCKPTR)0, (socklen_t *)0, SOCK_CLOEXEC)) == INVALID_SOCKET) {
 				if (
-#ifdef _MSC_VER
+#ifdef NATIVE_WIN32
 					WSAGetLastError() != WSAEINTR
 #else
 					errno != EINTR
@@ -338,7 +352,10 @@ SERVERlistenThread(SOCKET *Sock)
 			(void) fcntl(msgsock, F_SETFD, FD_CLOEXEC);
 #endif
 #ifndef NATIVE_WIN32
-		} else if (usock != INVALID_SOCKET && FD_ISSET(usock, &fds)) {
+		} else if (usock != INVALID_SOCKET &&
+				   ((npfd > 0 && pfd[0].fd == usock && pfd[0].revents & POLLIN) ||
+					(npfd > 1 && pfd[1].fd == usock && pfd[1].revents & POLLIN))
+			) {
 			struct msghdr msgh;
 			struct iovec iov;
 			char buf[1];
@@ -347,19 +364,13 @@ SERVERlistenThread(SOCKET *Sock)
 			struct cmsghdr *cmsg;
 
 			if ((msgsock = accept4(usock, (SOCKPTR)0, (socklen_t *)0, SOCK_CLOEXEC)) == INVALID_SOCKET) {
-				if (
-#ifdef _MSC_VER
-					WSAGetLastError() != WSAEINTR
-#else
-					errno != EINTR
-#endif
-					) {
+				if (errno != EINTR) {
 					msg = "accept failed";
 					goto error;
 				}
 				continue;
 			}
-#if !defined(NATIVE_WIN32) && (!defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4))
+#if !defined(SOCK_CLOEXEC) || !defined(HAVE_ACCEPT4)
 			(void) fcntl(msgsock, F_SETFD, FD_CLOEXEC);
 #endif
 

@@ -61,6 +61,7 @@
 #include <sys/un.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <fcntl.h>
 #include <unistd.h> /* unlink, isatty */
 #include <signal.h> /* handle Ctrl-C, etc. */
@@ -173,8 +174,7 @@ logListener(void *x)
 {
 	dpair d = _mero_topdp;
 	dpair w;
-	struct timeval tv;
-	fd_set readfds;
+	struct pollfd *pfd;
 	int nfds;
 
 	(void)x;
@@ -187,29 +187,27 @@ logListener(void *x)
 	do {
 		/* wait max 1 second, tradeoff between performance and being
 		 * able to catch up new logger streams */
-		tv.tv_sec = 1;
-		tv.tv_usec = 0;
-		FD_ZERO(&readfds);
 		nfds = 0;
 
 		/* make sure noone is killing or adding entries here */
 		pthread_mutex_lock(&_mero_topdp_lock);
 
-		w = d;
-		while (w != NULL) {
-			FD_SET(w->out, &readfds);
-			if (nfds < w->out)
-				nfds = w->out;
-			FD_SET(w->err, &readfds);
-			if (nfds < w->err)
-				nfds = w->err;
+		for (w = d; w != NULL; w = w->next) {
+			nfds += 2;
+		}
+		pfd = malloc(nfds * sizeof(struct pollfd));
+		nfds = 0;
+		for (w = d; w != NULL; w = w->next) {
+			pfd[nfds++] = (struct pollfd) {.fd = w->out, .events = POLLIN};
+			if (w->out != w->err)
+				pfd[nfds++] = (struct pollfd) {.fd = w->err, .events = POLLIN};
 			w->flag |= 1;
-			w = w->next;
 		}
 
 		pthread_mutex_unlock(&_mero_topdp_lock);
 
-		if (select(nfds + 1, &readfds, NULL, NULL, &tv) <= 0) {
+		if (poll(pfd, nfds, 1000) <= 0) {
+			free(pfd);
 			if (_mero_keep_logging != 0) {
 				continue;
 			} else {
@@ -224,12 +222,14 @@ logListener(void *x)
 		while (w != NULL) {
 			/* only look at records we've added in the previous loop */
 			if (w->flag & 1) {
-				if (FD_ISSET(w->out, &readfds) != 0)
-					logFD(w->out, "MSG", w->dbname,
-						  (long long int)w->pid, _mero_logfile, 0);
-				if (w->err != w->out && FD_ISSET(w->err, &readfds) != 0)
-					logFD(w->err, "ERR", w->dbname,
-						  (long long int)w->pid, _mero_logfile, 0);
+				for (int i = 0; i < nfds; i++) {
+					if (pfd[i].fd == w->out && pfd[i].revents & POLLIN)
+						logFD(w->out, "MSG", w->dbname,
+							  (long long int)w->pid, _mero_logfile, 0);
+					else if (pfd[i].fd == w->err && pfd[i].revents & POLLIN)
+						logFD(w->err, "ERR", w->dbname,
+							  (long long int)w->pid, _mero_logfile, 0);
+				}
 				w->flag &= ~1;
 			}
 			w = w->next;
@@ -237,6 +237,7 @@ logListener(void *x)
 
 		pthread_mutex_unlock(&_mero_topdp_lock);
 
+		free(pfd);
 		fflush(_mero_logfile);
 	} while (_mero_keep_logging);
 	return NULL;

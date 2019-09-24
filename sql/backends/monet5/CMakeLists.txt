@@ -45,7 +45,6 @@ if(HAVE_SQL)
 	set(SQL_SCRIPTS_LIST1
 		"${CMAKE_SOURCE_DIR}/sql/scripts/09_like.sql"
 		"${CMAKE_SOURCE_DIR}/sql/scripts/10_math.sql"
-		"${CMAKE_SOURCE_DIR}/sql/scripts/11_times.sql"
 		"${CMAKE_SOURCE_DIR}/sql/scripts/12_url.sql"
 		"${CMAKE_SOURCE_DIR}/sql/scripts/13_date.sql"
 		"${CMAKE_SOURCE_DIR}/sql/scripts/14_inet.sql"

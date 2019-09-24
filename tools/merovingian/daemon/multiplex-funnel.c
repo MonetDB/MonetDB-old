@@ -9,6 +9,7 @@
 #include "monetdb_config.h"
 #include <unistd.h>
 #include <sys/types.h>
+#include <poll.h>
 
 #include "mapi.h"
 #include "mutils.h" /* MT_lockf */
@@ -59,19 +60,14 @@ MFconnectionManager(void *d)
 	char buf[1024];
 	size_t len;
 	char *msg;
-	struct timeval tv;
-	fd_set fds;
+	struct pollfd pfd;
 
 	(void)d;
 
 	while (_mero_keep_listening == 1) {
-		FD_ZERO(&fds);
-		FD_SET(mfpipe[0], &fds);
-
+		pfd = (struct pollfd) {.fd = mfpipe[0], .events = POLLIN};
 		/* wait up to 5 seconds */
-		tv.tv_sec = 5;
-		tv.tv_usec = 0;
-		i = select(mfpipe[0] + 1, &fds, NULL, NULL, &tv);
+		i = poll(&pfd, 1, 5000);
 		if (i == 0)
 			continue;
 		if (i == -1 && errno != EINTR) {
@@ -683,8 +679,7 @@ static void *
 multiplexThread(void *d)
 {
 	multiplex *m = (multiplex *)d;
-	struct timeval tv;
-	fd_set fds;
+	struct pollfd *pfd;
 	multiplex_client *c;
 	int msock = -1;
 	char buf[10 * BLOCK + 1];
@@ -696,17 +691,17 @@ multiplexThread(void *d)
 	 * union all results, send back, and restart cycle. */
 	
 	while (m->shutdown == 0) {
-		FD_ZERO(&fds);
+		msock = 0;
 		for (c = m->clients; c != NULL; c = c->next) {
-			FD_SET(c->sock, &fds);
-			if (c->sock > msock)
-				msock = c->sock;
+			msock++;
 		}
-
+		pfd = malloc(msock * sizeof(struct pollfd));
+		msock = 0;
+		for (c = m->clients; c != NULL; c = c->next) {
+			pfd[msock++] = (struct pollfd) {.fd = c->sock, .events = POLLIN};
+		}
 		/* wait up to 1 second. */
-		tv.tv_sec = 1;
-		tv.tv_usec = 0;
-		r = select(msock + 1, &fds, NULL, NULL, &tv);
+		r = poll(pfd, msock, 1000);
 
 		/* evaluate if connections have to be switched */
 		for (i = 0; i < m->dbcc; i++) {
@@ -742,10 +737,16 @@ multiplexThread(void *d)
 		}
 
 		/* nothing interesting has happened */
-		if (r <= 0)
+		if (r <= 0) {
+			free(pfd);
 			continue;
+		}
 		for (c = m->clients; c != NULL; c = c->next) {
-			if (!FD_ISSET(c->sock, &fds))
+			for (i = 0; i < msock; i++) {
+				if (pfd[i].fd == c->sock)
+					break;
+			}
+			if (i == msock || (pfd[i].revents & POLLIN) == 0)
 				continue;
 			if ((len = mnstr_read(c->fdin, buf, 1, 10 * BLOCK)) < 0) {
 				/* error, or some garbage */
@@ -781,6 +782,7 @@ multiplexThread(void *d)
 			 * any idea what it is */
 			multiplexQuery(m, buf + 1, c->fout);
 		}
+		free(pfd);
 	}
 
 	Mfprintf(stdout, "stopping mfunnel '%s'\n", m->name);

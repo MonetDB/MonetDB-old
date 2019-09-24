@@ -15,7 +15,7 @@
 #include "sql_mvc.h"
 #include "sql_query.h"
 
-sql_extern sql_func *resolve_func( mvc *sql, sql_schema *s, const char *name, dlist *typelist, int type, char *op, int if_exists);
+sql_extern sql_func *resolve_func( mvc *sql, sql_schema *s, const char *name, dlist *typelist, sql_ftype type, char *op, int if_exists);
 sql_extern sql_rel *rel_psm_block(sql_allocator *sa, list *l);
 sql_extern sql_rel *rel_psm(sql_query *query, symbol *sym);
 sql_extern sql_rel *rel_select_with_into( sql_query *query, symbol *sq);

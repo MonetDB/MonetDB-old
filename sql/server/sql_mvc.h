@@ -55,8 +55,6 @@
 #define m_instantiate 	5
 #define m_deps 		6
 
-#define QUERY_MODE(m) (m==m_normal || m==m_instantiate || m==m_deps)
-
 /* different query execution modifiers (emod) */
 #define mod_none 	0
 #define mod_debug 	1
@@ -127,7 +125,7 @@ typedef struct mvc {
 
 	sql_session *session;	
 
-	int type;		/* query type */
+	sql_query_t type;	/* query type */
 	int pushdown;		/* AND or OR query handling */
 	unsigned int label;	/* numbers for relational projection labels */
 	int remote;
@@ -168,7 +166,7 @@ sql_extern str mvc_release(mvc *c, const char *name);
 sql_extern sql_type *mvc_bind_type(mvc *sql, const char *name);
 sql_extern sql_type *schema_bind_type(mvc *sql, sql_schema * s, const char *name);
 sql_extern sql_func *mvc_bind_func(mvc *sql, const char *name);
-sql_extern list *schema_bind_func(mvc *sql, sql_schema * s, const char *name, int type);
+sql_extern list *schema_bind_func(mvc *sql, sql_schema * s, const char *name, sql_ftype type);
 
 sql_extern sql_schema *mvc_bind_schema(mvc *c, const char *sname);
 sql_extern sql_table *mvc_bind_table(mvc *c, sql_schema *s, const char *tname);
@@ -182,7 +180,7 @@ sql_extern sql_trigger *mvc_bind_trigger(mvc *c, sql_schema *s, const char *tnam
 sql_extern sql_type *mvc_create_type(mvc *sql, sql_schema *s, const char *sqlname, int digits, int scale, int radix, const char *impl);
 sql_extern int mvc_drop_type(mvc *sql, sql_schema *s, sql_type *t, int drop_action);
 
-sql_extern sql_func *mvc_create_func(mvc *sql, sql_allocator *sa, sql_schema *s, const char *name, list *args, list *res, int type, int lang, const char *mod, const char *impl, const char *query, bit varres, bit vararg, bit system);
+sql_extern sql_func *mvc_create_func(mvc *sql, sql_allocator *sa, sql_schema *s, const char *name, list *args, list *res, sql_ftype type, sql_flang lang, const char *mod, const char *impl, const char *query, bit varres, bit vararg, bit system);
 sql_extern int mvc_drop_func(mvc *c, sql_schema *s, sql_func * func, int drop_action);
 sql_extern int mvc_drop_all_func(mvc *c, sql_schema *s, list *list_func, int drop_action);
 
@@ -221,9 +219,9 @@ sql_extern sql_trigger * mvc_create_tc(mvc *m, sql_trigger * i, sql_column *c /*
 sql_extern int mvc_drop_trigger(mvc *m, sql_schema *s, sql_trigger * tri);
 
 /*dependency control*/
-sql_extern void mvc_create_dependency(mvc *m, sqlid id, sqlid depend_id, sht depend_type);
-sql_extern void mvc_create_dependencies(mvc *m, list *id_l, sqlid depend_id, sht dep_type);
-sql_extern int mvc_check_dependency(mvc * m, sqlid id, sht type, list *ignore_ids);
+sql_extern void mvc_create_dependency(mvc *m, sqlid id, sqlid depend_id, sql_dependency depend_type);
+sql_extern void mvc_create_dependencies(mvc *m, list *id_l, sqlid depend_id, sql_dependency dep_type);
+sql_extern int mvc_check_dependency(mvc *m, sqlid id, sql_dependency type, list *ignore_ids);
 
 /* variable management */
 sql_extern sql_var* stack_push_var(mvc *sql, const char *name, sql_subtype *type);

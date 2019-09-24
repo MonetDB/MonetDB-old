@@ -72,7 +72,6 @@ set(MAL_SCRIPTS_LIST
 set(SQL_SCRIPTS_LIST
 	"${CMAKE_SOURCE_DIR}/sql/scripts/09_like.sql"
 	"${CMAKE_SOURCE_DIR}/sql/scripts/10_math.sql"
-	"${CMAKE_SOURCE_DIR}/sql/scripts/11_times.sql"
 	"${CMAKE_SOURCE_DIR}/sql/scripts/13_date.sql"
 	"${CMAKE_SOURCE_DIR}/sql/scripts/16_tracelog.sql"
 	"${CMAKE_SOURCE_DIR}/sql/scripts/17_temporal.sql"
