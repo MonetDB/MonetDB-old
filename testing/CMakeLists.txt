@@ -36,9 +36,12 @@ if(WIN32)
 else()
 	set(NOT_WIN32_FALSE "#")
 endif()
+if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+	set(HAVE_MAL_DEBUGGER ON)
+endif()
 
-set(HAVE_LIST CUDF CURL FITS GEOM HGE LIBBZ2 LIBLZ4 LIBLZMA LIBPCRE LIBR LIBPY3 LIBXML LIBZ LIDAR SHP NETCDF ODBC PROJ
-	SAMTOOLS)
+set(HAVE_LIST CUDF CURL FITS GEOM HGE LIBBZ2 LIBLZ4 LIBLZMA LIBPCRE LIBR LIBPY3 LIBXML LIBZ LIDAR MAL_DEBUGGER SHP 
+	NETCDF ODBC PROJ SAMTOOLS)
 foreach(loop_var IN LISTS HAVE_LIST)
 	if(HAVE_${loop_var})
 		set(HAVE_${loop_var}_FALSE "#")
@@ -46,13 +49,11 @@ foreach(loop_var IN LISTS HAVE_LIST)
 endforeach()
 
 configure_file(Mtest.py.in ${CMAKE_CURRENT_BINARY_DIR}/Mtest.py @ONLY)
-configure_file(monet_options.py.in ${CMAKE_CURRENT_BINARY_DIR}/monet_options.py @ONLY)
 configure_file(listexports.py.in ${CMAKE_CURRENT_BINARY_DIR}/listexports.py @ONLY)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/Mtest.py PERMISSIONS ${PROGRAM_PERMISSIONS_DEFAULT} DESTINATION ${BINDIR})
 if(PYTHON3_LIBDIR)
-	install(FILES Mfilter.py process.py ${CMAKE_CURRENT_BINARY_DIR}/monet_options.py __init__.py
-			${CMAKE_CURRENT_BINARY_DIR}/listexports.py exportutils.py malcheck.py
+	install(FILES Mfilter.py process.py __init__.py ${CMAKE_CURRENT_BINARY_DIR}/listexports.py exportutils.py malcheck.py
 			DESTINATION ${PYTHON3_LIBDIR}/MonetDBtesting)
 endif()
 

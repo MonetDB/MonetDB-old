@@ -634,7 +634,6 @@ static str CUDFeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci,
 		const int RANDOM_NAME_SIZE = 32;
 		char *path = NULL;
 		const char *prefix = TEMPDIR_NAME DIR_SEP_STR;
-		const char *extension = SO_EXT;
 		size_t prefix_size = strlen(prefix);
 		char *deldirpath;
 
@@ -659,7 +658,7 @@ static str CUDFeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci,
 				i + 1 - prefix_size);
 		memcpy(buf + prefix_size, SO_PREFIX, sizeof(char) * strlen(SO_PREFIX));
 		path =
-			GDKfilepath(0, BATDIR, buf, extension[0] == '.' ? extension + 1 : extension);
+			GDKfilepath(0, BATDIR, buf, SO_EXT[0] == '.' ? &SO_EXT[1] : SO_EXT);
 		if (!path) {
 			msg = createException(MAL, "cudf.eval", MAL_MALLOC_FAIL);
 			goto wrapup;

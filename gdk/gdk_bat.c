@@ -124,6 +124,9 @@ BATcreatedesc(oid hseq, int tt, bool heapnames, role_t role)
 		bn->tvheap->parentid = bn->batCacheid;
 		bn->tvheap->farmid = BBPselectfarm(role, bn->ttype, varheap);
 	}
+	char name[16];
+	snprintf(name, sizeof(name), "BATlock%d", bn->batCacheid); /* fits */
+	MT_lock_init(&bn->batIdxLock, name);
 	bn->batDirtydesc = true;
 	return bn;
       bailout:
@@ -186,16 +189,10 @@ COLnew(oid hseq, int tt, BUN cap, role_t role)
 		cap = (cap + BATTINY - 1) & ~(BATTINY - 1);
 	if (cap < BATTINY)
 		cap = BATTINY;
-	/* and in case we don't have assertions enabled: limit the size */
+	/* limit the size */
 	if (cap > BUN_MAX)
 		cap = BUN_MAX;
 
-	/* and in case we don't have assertions enabled: limit the size */
-	if (cap > BUN_MAX) {
-		/* shouldn't happen, but if it does... */
-		assert(0);
-		cap = BUN_MAX;
-	}
 	bn = BATcreatedesc(hseq, tt, tt != TYPE_void, role);
 	if (bn == NULL)
 		return NULL;
@@ -222,6 +219,7 @@ COLnew(oid hseq, int tt, BUN cap, role_t role)
   bailout:
 	BBPclear(bn->batCacheid);
 	HEAPfree(&bn->theap, true);
+	MT_lock_destroy(&bn->batIdxLock);
 	GDKfree(bn);
 	return NULL;
 }
@@ -579,6 +577,7 @@ BATdestroy(BAT *b)
 	if (b->tvheap)
 		GDKfree(b->tvheap);
 	PROPdestroy(b);
+	MT_lock_destroy(&b->batIdxLock);
 	GDKfree(b);
 }
 
@@ -1087,7 +1086,8 @@ BUNappend(BAT *b, const void *t, bool force)
 	do {
 		for (prop = b->tprops; prop; prop = prop->next)
 			if (prop->id != GDK_MAX_VALUE &&
-			    prop->id != GDK_MIN_VALUE) {
+			    prop->id != GDK_MIN_VALUE &&
+			    prop->id != GDK_HASH_MASK) {
 				BATrmprop(b, prop->id);
 				break;
 			}
@@ -1168,7 +1168,8 @@ BUNdelete(BAT *b, oid o)
 	do {
 		for (prop = b->tprops; prop; prop = prop->next)
 			if (prop->id != GDK_MAX_VALUE &&
-			    prop->id != GDK_MIN_VALUE) {
+			    prop->id != GDK_MIN_VALUE &&
+			    prop->id != GDK_HASH_MASK) {
 				BATrmprop(b, prop->id);
 				break;
 			}
@@ -1255,7 +1256,8 @@ BUNinplace(BAT *b, BUN p, const void *t, bool force)
 		do {
 			for (prop = b->tprops; prop; prop = prop->next)
 				if (prop->id != GDK_MAX_VALUE &&
-				    prop->id != GDK_MIN_VALUE) {
+				    prop->id != GDK_MIN_VALUE &&
+				    prop->id != GDK_HASH_MASK) {
 					BATrmprop(b, prop->id);
 					break;
 				}

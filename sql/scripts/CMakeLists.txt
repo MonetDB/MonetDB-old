@@ -9,7 +9,6 @@
 install(FILES
 		09_like.sql
 		10_math.sql
-		11_times.sql
 		12_url.sql
 		13_date.sql
 		14_inet.sql

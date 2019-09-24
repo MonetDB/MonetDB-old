@@ -793,6 +793,8 @@ typedef struct BAT {
 
 	/* dynamic column properties */
 	COLrec T;		/* column info */
+
+	MT_Lock batIdxLock;	/* lock to manipulate indexes */
 } BAT;
 
 typedef struct BATiter {
@@ -2698,6 +2700,7 @@ gdk_export void VIEWbounds(BAT *b, BAT *view, BUN l, BUN h);
 enum prop_t {
 	GDK_MIN_VALUE = 3,	/* smallest non-nil value in BAT */
 	GDK_MAX_VALUE,		/* largest non-nil value in BAT */
+	GDK_HASH_MASK,		/* last used hash mask */
 };
 
 gdk_export void PROPdestroy(BAT *b);

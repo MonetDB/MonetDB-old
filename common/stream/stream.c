@@ -93,6 +93,7 @@
 # include <netinet/ip.h>
 # include <netinet/tcp.h>
 # include <netdb.h>
+# include <poll.h>
 #endif
 
 #ifndef SHUT_RD
@@ -2472,29 +2473,37 @@ socket_read(stream *restrict s, void *restrict buf, size_t elmsize, size_t cnt)
 #endif
 	for (;;) {
 		if (s->timeout) {
+			int ret;
+#ifdef _MSC_VER
 			struct timeval tv;
 			fd_set fds;
-			int ret;
 
 			errno = 0;
-#ifdef _MSC_VER
+
 			WSASetLastError(0);
-#endif
 			FD_ZERO(&fds);
 			FD_SET(s->stream_data.s, &fds);
 			tv.tv_sec = s->timeout / 1000;
 			tv.tv_usec = (s->timeout % 1000) * 1000;
 			ret = select(
-#ifdef _MSC_VER
 				0,	/* ignored on Windows */
-#else
-				s->stream_data.s + 1,
-#endif
 				&fds, NULL, NULL, &tv);
 			if (ret == SOCKET_ERROR) {
 				s->errnr = MNSTR_READ_ERROR;
 				return -1;
 			}
+#else
+			struct pollfd pfd;
+
+			pfd = (struct pollfd) {.fd = s->stream_data.s,
+					       .events = POLLIN};
+
+			ret = poll(&pfd, 1, (int) s->timeout);
+			if (ret == -1 || (pfd.revents & POLLERR)) {
+				s->errnr = MNSTR_READ_ERROR;
+				return -1;
+			}
+#endif
 			if (ret == 0) {
 				if (s->timeout_func == NULL || s->timeout_func()) {
 					s->errnr = MNSTR_TIMEOUT;
@@ -2503,7 +2512,11 @@ socket_read(stream *restrict s, void *restrict buf, size_t elmsize, size_t cnt)
 				continue;
 			}
 			assert(ret == 1);
+#ifndef _MSC_VER
+			assert(pfd.revents & (POLLIN|POLLHUP));
+#else
 			assert(FD_ISSET(s->stream_data.s, &fds));
+#endif
 		}
 #ifdef _MSC_VER
 		nr = recv(s->stream_data.s, buf, (int) size, 0);
@@ -2598,22 +2611,30 @@ static int
 socket_isalive(stream *s)
 {
 	SOCKET fd = s->stream_data.s;
-	char buffer[32];
+#ifdef _MSC_VER
 	fd_set fds;
 	struct timeval t;
+	char buffer[32];
 
 	t.tv_sec = 0;
 	t.tv_usec = 0;
 	FD_ZERO(&fds);
 	FD_SET(fd, &fds);
 	return select(
-#ifdef _MSC_VER
 		0,	/* ignored on Windows */
-#else
-		fd + 1,
-#endif
 		&fds, NULL, NULL, &t) <= 0 ||
 		recv(fd, buffer, sizeof(buffer), MSG_PEEK | MSG_DONTWAIT) != 0;
+#else
+	struct pollfd pfd;
+	int ret;
+	pfd = (struct pollfd){.fd = fd};
+	if ((ret = poll(&pfd, 1, 0)) == 0)
+		return 1;
+	if (ret < 0 || pfd.revents & (POLLERR | POLLHUP))
+		return 0;
+	assert(0);		/* unexpected revents value */
+	return 0;
+#endif
 }
 
 static stream *

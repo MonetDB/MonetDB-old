@@ -283,7 +283,7 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 	int check = 0;
 
 	if (STORE_READONLY)
-		return sql_error(sql, 06, "25006!schema statements cannot be executed on a readonly database.");
+		return sql_error(sql, 06, SQLSTATE(25006) "schema statements cannot be executed on a readonly database.");
 
 	if (!s)
 		return sql_message(SQLSTATE(3F000) "CREATE %s: schema '%s' doesn't exist", (t->query) ? "TABLE" : "VIEW", sname);
@@ -464,8 +464,7 @@ create_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *col
 		return msg;
 
 	/* for some reason we don't have an allocator here, so make one */
-	sql->sa = sa_create();
-	if (!sql->sa) {
+	if (!(sql->sa = sa_create())) {
 		msg = sql_error(sql, 02, SQLSTATE(HY001) "CREATE TABLE: %s", MAL_MALLOC_FAIL);
 		goto cleanup;
 	}
@@ -473,52 +472,52 @@ create_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *col
 	if (!sname)
 		sname = "sys";
 	if (!(s = mvc_bind_schema(sql, sname))) {
-		msg = sql_error(sql, 02, "3F000!CREATE TABLE: no such schema '%s'", sname);
+		msg = sql_error(sql, 02, SQLSTATE(3F000) "CREATE TABLE: no such schema '%s'", sname);
 		goto cleanup;
 	}
 	if (!(t = mvc_create_table(sql, s, tname, tt_table, 0, SQL_DECLARED_TABLE, CA_COMMIT, -1, 0))) {
-		msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not create table '%s'", tname);
+		msg = sql_error(sql, 02, SQLSTATE(3F000) "CREATE TABLE: could not create table '%s'", tname);
 		goto cleanup;
 	}
 
-	for(i = 0; i < ncols; i++) {
+	for (i = 0; i < ncols; i++) {
 		BAT *b = columns[i].b;
-		sql_subtype *tpe = sql_bind_localtype(ATOMname(b->ttype));
+		str atoname = ATOMname(b->ttype);
+		sql_subtype tpe;
 		sql_column *col = NULL;
 
-		if (!tpe) {
-			msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not find type for column");
-			goto cleanup;
+		if (!strcmp(atoname, "str"))
+			sql_find_subtype(&tpe, "clob", 0, 0);
+		else {
+			sql_subtype *t = sql_bind_localtype(atoname);
+			if (!t) {
+				msg = sql_error(sql, 02, SQLSTATE(3F000) "CREATE TABLE: could not find type for column");
+				goto cleanup;
+			}
+			tpe = *t;
 		}
 
-		col = mvc_create_column(sql, t, columns[i].name, tpe);
-		if (!col) {
-			msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not create column %s", columns[i].name);
+		if (!(col = mvc_create_column(sql, t, columns[i].name, &tpe))) {
+			msg = sql_error(sql, 02, SQLSTATE(3F000) "CREATE TABLE: could not create column %s", columns[i].name);
 			goto cleanup;
 		}
 	}
-	msg = create_table_or_view(sql, sname, t->base.name, t, 0);
-	if (msg != MAL_SUCCEED) {
+	if ((msg = create_table_or_view(sql, sname, t->base.name, t, 0)) != MAL_SUCCEED)
+		goto cleanup;
+	if (!(t = mvc_bind_table(sql, s, tname))) {
+		msg = sql_error(sql, 02, SQLSTATE(3F000) "CREATE TABLE: could not bind table %s", tname);
 		goto cleanup;
 	}
-	t = mvc_bind_table(sql, s, tname);
-	if (!t) {
-		msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not bind table %s", tname);
-		goto cleanup;
-	}
-	for(i = 0; i < ncols; i++) {
+	for (i = 0; i < ncols; i++) {
 		BAT *b = columns[i].b;
 		sql_column *col = NULL;
 
-		col = mvc_bind_column(sql,t, columns[i].name);
-		if (!col) {
-			msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not bind column %s", columns[i].name);
+		if (!(col = mvc_bind_column(sql, t, columns[i].name))) {
+			msg = sql_error(sql, 02, SQLSTATE(3F000) "CREATE TABLE: could not bind column %s", columns[i].name);
 			goto cleanup;
 		}
-		msg = mvc_append_column(sql->session->tr, col, b);
-		if (msg != MAL_SUCCEED) {
+		if ((msg = mvc_append_column(sql->session->tr, col, b)) != MAL_SUCCEED)
 			goto cleanup;
-		}
 	}
 
 cleanup:
@@ -544,8 +543,7 @@ append_to_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *
 		return msg;
 
 	/* for some reason we don't have an allocator here, so make one */
-	sql->sa = sa_create();
-	if (!sql->sa) {
+	if (!(sql->sa = sa_create())) {
 		msg = sql_error(sql, 02, SQLSTATE(HY001) "CREATE TABLE: %s", MAL_MALLOC_FAIL);
 		goto cleanup;
 	}
@@ -553,27 +551,23 @@ append_to_table_from_emit(Client cntxt, char *sname, char *tname, sql_emit_col *
 	if (!sname)
 		sname = "sys";
 	if (!(s = mvc_bind_schema(sql, sname))) {
-		msg = sql_error(sql, 02, "3F000!CREATE TABLE: no such schema '%s'", sname);
+		msg = sql_error(sql, 02, SQLSTATE(3F000) "CREATE TABLE: no such schema '%s'", sname);
 		goto cleanup;
 	}
-	t = mvc_bind_table(sql, s, tname);
-	if (!t) {
-		msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not bind table %s", tname);
+	if (!(t = mvc_bind_table(sql, s, tname))) {
+		msg = sql_error(sql, 02, SQLSTATE(3F000) "CREATE TABLE: could not bind table %s", tname);
 		goto cleanup;
 	}
-	for(i = 0; i < ncols; i++) {
+	for (i = 0; i < ncols; i++) {
 		BAT *b = columns[i].b;
 		sql_column *col = NULL;
 
-		col = mvc_bind_column(sql,t, columns[i].name);
-		if (!col) {
-			msg = sql_error(sql, 02, "3F000!CREATE TABLE: could not bind column %s", columns[i].name);
+		if (!(col = mvc_bind_column(sql,t, columns[i].name))) {
+			msg = sql_error(sql, 02, SQLSTATE(3F000) "CREATE TABLE: could not bind column %s", columns[i].name);
 			goto cleanup;
 		}
-		msg = mvc_append_column(sql->session->tr, col, b);
-		if (msg != MAL_SUCCEED) {
+		if ((msg = mvc_append_column(sql->session->tr, col, b)) != MAL_SUCCEED)
 			goto cleanup;
-		}
 	}
 
 cleanup:
@@ -1112,6 +1106,51 @@ mvc_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
  *  If the table is cleared, the values RDONLY, RD_INS and RD_UPD_ID and the number of deletes will be 0.
  */
 
+static str
+mvc_insert_delta_values(mvc *m, BAT *col1, BAT *col2, BAT *col3, BAT *col4, BAT *col5, BAT *col6, BAT *col7, sql_column *c, bit cleared, lng deletes)
+{
+	int level = 0;
+
+	lng inserted = (lng) store_funcs.count_col(m->session->tr, c, 0);
+	lng all = (lng) store_funcs.count_col(m->session->tr, c, 1);
+	lng updates = (lng) store_funcs.count_col_upd(m->session->tr, c);
+	lng readonly = all - inserted;
+
+	assert(all >= inserted);
+
+	if (BUNappend(col1, &c->base.id, false) != GDK_SUCCEED) {
+		return createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	}
+	if (BUNappend(col2, &cleared, false) != GDK_SUCCEED) {
+		return createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	}
+	if (BUNappend(col3, &readonly, false) != GDK_SUCCEED) {
+		return createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	}
+	if (BUNappend(col4, &inserted, false) != GDK_SUCCEED) {
+		return createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	}
+	if (BUNappend(col5, &updates, false) != GDK_SUCCEED) {
+		return createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	}
+	if (BUNappend(col6, &deletes, false) != GDK_SUCCEED) {
+		return createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	}
+	/* compute level using global transaction */
+	if (gtrans) {
+		sql_column *oc = tr_find_column(gtrans, c);
+
+		if (oc) {
+			for(sql_delta *d = oc->data; d; d = d->next) 
+				level++;
+		}
+	}
+	if (BUNappend(col7, &level, false) != GDK_SUCCEED) {
+		return createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+	}
+	return MAL_SUCCEED;
+}
+
 str
 mvc_delta_values(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -1128,15 +1167,13 @@ mvc_delta_values(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		*b5 = getArgReference_bat(stk, pci, 4),
 		*b6 = getArgReference_bat(stk, pci, 5),
 		*b7 = getArgReference_bat(stk, pci, 6);
-	sql_trans *tr;
 	sql_schema *s = NULL;
 	sql_table *t = NULL;
 	sql_column *c = NULL;
 	node *n;
 	bit cleared;
-	int level = 0;
 	BUN nrows = 0;
-	lng all, readonly, inserted, updates, deletes;
+	lng deletes;
 
 	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
 		goto cleanup;
@@ -1204,85 +1241,17 @@ mvc_delta_values(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	if (nrows) {
-		tr = m->session->tr;
-		while((tr = tr->parent)) level++;
-
 		if (tname) {
 			cleared = (t->cleared != 0);
 			deletes = (lng) store_funcs.count_del(m->session->tr, t);
 			if (cname) {
-				inserted = (lng) store_funcs.count_col(m->session->tr, c, 0);
-				all = (lng) store_funcs.count_col(m->session->tr, c, 1);
-				updates = (lng) store_funcs.count_col_upd(m->session->tr, c);
-				assert(all >= inserted);
-				readonly = all - inserted;
-
-				if (BUNappend(col1, &c->base.id, false) != GDK_SUCCEED) {
-					msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+				if ((msg=mvc_insert_delta_values(m, col1, col2, col3, col4, col5, col6, col7, c, cleared, deletes)) != NULL)
 					goto cleanup;
-				}
-				if (BUNappend(col2, &cleared, false) != GDK_SUCCEED) {
-					msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-					goto cleanup;
-				}
-				if (BUNappend(col3, &readonly, false) != GDK_SUCCEED) {
-					msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-					goto cleanup;
-				}
-				if (BUNappend(col4, &inserted, false) != GDK_SUCCEED) {
-					msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-					goto cleanup;
-				}
-				if (BUNappend(col5, &updates, false) != GDK_SUCCEED) {
-					msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-					goto cleanup;
-				}
-				if (BUNappend(col6, &deletes, false) != GDK_SUCCEED) {
-					msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-					goto cleanup;
-				}
-				if (BUNappend(col7, &level, false) != GDK_SUCCEED) {
-					msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-					goto cleanup;
-				}
 			} else {
 				for (n = t->columns.set->h; n ; n = n->next) {
 					c = (sql_column*) n->data;
-
-					inserted = (lng) store_funcs.count_col(m->session->tr, c, 0);
-					all = (lng) store_funcs.count_col(m->session->tr, c, 1);
-					updates = (lng) store_funcs.count_col_upd(m->session->tr, c);
-					assert(all >= inserted);
-					readonly = all - inserted;
-
-					if (BUNappend(col1, &c->base.id, false) != GDK_SUCCEED) {
-						msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+					if ((msg=mvc_insert_delta_values(m, col1, col2, col3, col4, col5, col6, col7, c, cleared, deletes)) != NULL)
 						goto cleanup;
-					}
-					if (BUNappend(col2, &cleared, false) != GDK_SUCCEED) {
-						msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-						goto cleanup;
-					}
-					if (BUNappend(col3, &readonly, false) != GDK_SUCCEED) {
-						msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-						goto cleanup;
-					}
-					if (BUNappend(col4, &inserted, false) != GDK_SUCCEED) {
-						msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-						goto cleanup;
-					}
-					if (BUNappend(col5, &updates, false) != GDK_SUCCEED) {
-						msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-						goto cleanup;
-					}
-					if (BUNappend(col6, &deletes, false) != GDK_SUCCEED) {
-						msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-						goto cleanup;
-					}
-					if (BUNappend(col7, &level, false) != GDK_SUCCEED) {
-						msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-						goto cleanup;
-					}
 				}
 			}
 		} else if (s->tables.set) {
@@ -1295,40 +1264,9 @@ mvc_delta_values(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					for (node *nn = t->columns.set->h; nn ; nn = nn->next) {
 						c = (sql_column*) nn->data;
 
-						inserted = (lng) store_funcs.count_col(m->session->tr, c, 0);
-						all = (lng) store_funcs.count_col(m->session->tr, c, 1);
-						updates = (lng) store_funcs.count_col_upd(m->session->tr, c);
-						assert(all >= inserted);
-						readonly = all - inserted;
-
-						if (BUNappend(col1, &c->base.id, false) != GDK_SUCCEED) {
-							msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+						if ((msg=mvc_insert_delta_values(m, col1, col2, col3, col4, col5, col6, col7, 
+										 c, cleared, deletes)) != NULL)
 							goto cleanup;
-						}
-						if (BUNappend(col2, &cleared, false) != GDK_SUCCEED) {
-							msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-							goto cleanup;
-						}
-						if (BUNappend(col3, &readonly, false) != GDK_SUCCEED) {
-							msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-							goto cleanup;
-						}
-						if (BUNappend(col4, &inserted, false) != GDK_SUCCEED) {
-							msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-							goto cleanup;
-						}
-						if (BUNappend(col5, &updates, false) != GDK_SUCCEED) {
-							msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-							goto cleanup;
-						}
-						if (BUNappend(col6, &deletes, false) != GDK_SUCCEED) {
-							msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-							goto cleanup;
-						}
-						if (BUNappend(col7, &level, false) != GDK_SUCCEED) {
-							msg = createException(SQL,"sql.delta", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-							goto cleanup;
-						}
 					}
 				}
 			}
@@ -2311,7 +2249,7 @@ mvc_result_set_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	b = BATdescriptor(bid);
 	if ( b == NULL)
 		throw(MAL,"sql.resultset", SQLSTATE(HY005) "Cannot access column descriptor");
-	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 5), 1, b);
+	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 5), Q_TABLE, b);
 	if (res < 0)
 		msg = createException(SQL, "sql.resultSet", SQLSTATE(45000) "Result table construction failed");
 	BBPunfix(b->batCacheid);
@@ -2402,7 +2340,7 @@ mvc_export_table_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	order = BATdescriptor(bid);
 	if ( order == NULL)
 		throw(MAL,"sql.resultset", SQLSTATE(HY005) "Cannot access column descriptor");
-	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 12), 1, order);
+	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 12), Q_TABLE, order);
 	t = m->results;
 	if (res < 0){
 		msg = createException(SQL, "sql.resultSet", SQLSTATE(45000) "Result set construction failed");
@@ -2519,7 +2457,7 @@ mvc_row_result_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
-	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 5), 1, NULL);
+	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 5), Q_TABLE, NULL);
 	if (res < 0)
 		throw(SQL, "sql.resultset", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
@@ -2604,7 +2542,7 @@ mvc_export_row_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL, "sql.resultSet", "cannot transfer files to client");
 	}
 
-	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 12), 1, NULL);
+	res = *res_id = mvc_result_table(m, mb->tag, pci->argc - (pci->retc + 12), Q_TABLE, NULL);
 
 	t = m->results;
 	if (res < 0){
@@ -2702,7 +2640,7 @@ mvc_table_result_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg;
 	int *res_id;
 	int nr_cols;
-	int qtype;
+	sql_query_t qtype;
 	bat order_bid;
 
 	if ( pci->argc > 6)
@@ -2710,7 +2648,7 @@ mvc_table_result_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	res_id = getArgReference_int(stk, pci, 0);
 	nr_cols = *getArgReference_int(stk, pci, 1);
-	qtype = *getArgReference_int(stk, pci, 2);
+	qtype = (sql_query_t) *getArgReference_int(stk, pci, 2);
 	order_bid = *getArgReference_bat(stk, pci, 3);
 
 	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
@@ -2864,7 +2802,7 @@ mvc_scalar_value_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		p = *(ptr *) p;
 
 	// scalar values are single-column result sets
-	if((res_id = mvc_result_table(b->mvc, mb->tag, 1, 1, NULL)) < 0)
+	if ((res_id = mvc_result_table(b->mvc, mb->tag, 1, Q_TABLE, NULL)) < 0)
 		throw(SQL, "sql.exportValue", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	if (mvc_result_value(b->mvc, tn, cn, type, digits, scale, p, mtype))
 		throw(SQL, "sql.exportValue", SQLSTATE(45000) "Result set construction failed");
@@ -3472,6 +3410,63 @@ SQLnil(bit *ret, const bat *bid)
 		}
 	}
 	BBPunfix(b->batCacheid);
+	return MAL_SUCCEED;
+}
+
+str
+SQLnil_grp(bat *ret, const bat *bid, const bat *gp, const bat *gpe, bit *no_nil)
+{
+	BAT *l, *g, *e, *res;
+	bit F = FALSE;
+	BUN offset = 0;
+
+	(void)no_nil;
+	if ((l = BATdescriptor(*bid)) == NULL) {
+		throw(SQL, "any =", SQLSTATE(HY005) "Cannot access column descriptor");
+	}
+	if ((g = BATdescriptor(*gp)) == NULL) {
+		BBPunfix(l->batCacheid);
+		throw(SQL, "any =", SQLSTATE(HY005) "Cannot access column descriptor");
+	}
+	if ((e = BATdescriptor(*gpe)) == NULL) {
+		BBPunfix(l->batCacheid);
+		BBPunfix(g->batCacheid);
+		throw(SQL, "any =", SQLSTATE(HY005) "Cannot access column descriptor");
+	}
+	res = BATconstant(0, TYPE_bit, &F, BATcount(e), TRANSIENT);
+	BAThseqbase(res, e->hseqbase);
+	offset = g->hseqbase - l->hseqbase;
+	if (BATcount(g) > 0) {
+		BUN q, o, s;
+		int (*ocmp) (const void *, const void *);
+		BATiter li = bat_iterator(l);
+		BATiter gi = bat_iterator(g);
+		BATiter rt = bat_iterator(res);
+
+		bit *ret = BUNtail(rt, 0);
+		const void *nilp = ATOMnilptr(l->ttype);
+
+		o = BUNlast(g);
+		ocmp = ATOMcompare(l->ttype);
+		for (q = offset, s = 0; s < o; q++, s++) {
+			const void *lv = BUNtail(li, q);
+			oid id = *(oid*)BUNtail(gi, s);
+
+			if (ret[id] != TRUE) {
+				if (ocmp(lv, nilp) == 0)
+					ret[id] = TRUE;
+			}
+		}
+	}
+	res->hseqbase = g->hseqbase;
+	res->tnil = 0;
+	res->tnonil = 1;
+	res->tsorted = res->trevsorted = 0;
+	res->tkey = 0;
+	BBPunfix(l->batCacheid);
+	BBPunfix(g->batCacheid);
+	BBPunfix(e->batCacheid);
+	BBPkeepref(*ret = res->batCacheid);
 	return MAL_SUCCEED;
 }
 
