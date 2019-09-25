@@ -19,8 +19,7 @@
 #include "mal_authorize.h"
 #include "msabaoth.h"
 #include "mutils.h"
-#include "mlogger.h"
-
+#include "gdk_stalker.h"
 
 #ifdef HAVE_LIBGEN_H
 #include <libgen.h>
@@ -134,10 +133,6 @@ monet_hello(void)
 		qi++;
 	}
 
-	/* init logger */
-	mlog_init();
-	mlog_set_log_level(M_DEBUG);
-
 	printf("# MonetDB 5 server v%s", GDKversion());
 	{
 #ifdef MONETDB_RELEASE
@@ -150,15 +145,11 @@ monet_hello(void)
 	}
 	
 #ifndef MONETDB_RELEASE
-	mlog_log(M_DEBUG, 1, "\n# This is an unreleased version");
+	printf("\n# This is an unreleased version");
 #endif
-	// printf("\n# Serving database '%s', using %d thread%s\n",
-	// 		GDKgetenv("gdk_dbname"),
-	// 		GDKnr_threads, (GDKnr_threads != 1) ? "s" : "");
-
-	mlog_log(M_DEBUG, 1, "\n# Serving database '%s', using %d thread%s\n", 
-			 GDKgetenv("gdk_dbname"), GDKnr_threads, (GDKnr_threads != 1) ? "s" : "");
-	mlog_flush_buffer();
+	printf("\n# Serving database '%s', using %d thread%s\n",
+			GDKgetenv("gdk_dbname"),
+			GDKnr_threads, (GDKnr_threads != 1) ? "s" : "");
 
 	printf("# Compiled for %s/%zubit%s\n",
 			HOST, sizeof(ptr) * 8,
@@ -718,8 +709,7 @@ main(int argc, char **av)
 	}
 
 	/* mal_exit calls exit, so statements after this call will
-	 * never get reached -> mal_exit also calls mlog_stop to stop
-	 * the logger */
+	 * never get reached */
 	mal_exit(0);
 
 	return 0;

@@ -37,6 +37,7 @@ lib_gdk = {
 		gdk_firstn.c \
 		gdk_analytic_bounds.c \
 		gdk_analytic_func.c gdk_analytic.h \
+		gdk_stalker.c gdk_stalker.h \
 		libbat.rc
 	LIBS = ../common/options/libmoptions \
 		../common/utils/libmutils \
@@ -64,7 +65,8 @@ headers_h = {
 		gdk_posix.h \
 		gdk_hash.h \
 		gdk_system.h \
-		gdk_utils.h
+		gdk_utils.h \
+		gdk_stalker.h
 }
 
 headers_pc = {
