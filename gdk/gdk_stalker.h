@@ -1,5 +1,5 @@
 #define INT_MAX_LEN ((__CHAR_BIT__ * sizeof(int) - 1) / 3  + 2)
-#define BUFFER_SIZE 64000
+#define BUFFER_SIZE 5
 
 #define DEFAULT_LOG_LEVEL M_NONE
 #define DEFAULT_FLUSH_LEVEL M_ERROR
@@ -32,12 +32,13 @@ typedef enum {
 
 
 // GDKstalker Buffer
-typedef struct GDKstalker_buffer 
+typedef struct GDKstalker
 {
     char buffer[BUFFER_SIZE];
     int allocated_size;
+    unsigned long id;
 }
-gdk_stalker_buffer;
+gdk_stalker;
 
 
 /**

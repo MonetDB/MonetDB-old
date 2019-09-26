@@ -10,9 +10,15 @@
 #include "gdk.h"
 #include "gdk_stalker.h"
 
+pthread_t flushing_thread;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-gdk_stalker_buffer stalker = { .allocated_size = 0 };
+// 0 -> stalker
+// 1 -> secondary_stalker
+gdk_stalker stalker = { .allocated_size = 0, .id = 0 };
+gdk_stalker secondary_stalker = { .allocated_size = 0, .id = 1 };
+ATOMIC_TYPE SELECTED_STALKER_ID = 0;
+
 bool GDK_STALKER_STOP = false;
 
 FILE *output_file;
@@ -27,6 +33,7 @@ static void _GDKstalker_info(const char *function_name, char *error_msg)
 {
     fprintf(stderr, "[%s] %s\n", function_name, error_msg);
 }
+
 
 // Output error from snprintf of vsnprintf
 static void _GDKstalker_log_output_error(int bytes_written)
@@ -56,6 +63,28 @@ static void _GDKstalker_create_file(void)
 
     _GDKstalker_file_is_open();
 }
+
+
+static int _GDKstalker_fill_stalker(gdk_stalker *sel_stalker, const char *fmt, ...)
+{
+    va_list va;
+    va_start(va, fmt);
+    // vsnprintf(char *str, size_t count, ...) -> including null terminating character
+    int bytes_written = vsnprintf(sel_stalker->buffer + sel_stalker->allocated_size, BUFFER_SIZE - sel_stalker->allocated_size, fmt, va);
+    va_end(va);
+
+    _GDKstalker_log_output_error(bytes_written);
+
+    // vsnprintf returned value -> does not include the null terminating character
+    return bytes_written++;
+}
+
+
+static void* _GDKstalker_flush_buffer_helper()
+{
+    return (void*) GDKstalker_flush_buffer();
+}
+
 
 
 
@@ -127,7 +156,7 @@ gdk_return GDKstalker_set_flush_level(LOG_LEVEL level)
 {
     if(CUR_FLUSH_LEVEL == level)
         return GDK_SUCCEED;
-
+    
     ATOMIC_SET(&CUR_FLUSH_LEVEL, level);
 
     return GDK_SUCCEED;
@@ -145,75 +174,77 @@ gdk_return GDKstalker_reset_flush_level(void)
 }
 
 
-// TODO -> Rewrite this
 gdk_return GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...)
 {
+    printf("MPIKA\n");
     _GDKstalker_file_is_open();
     
     if(level >= CUR_LOG_LEVEL && CUR_LOG_LEVEL > M_NONE)
     {
+        // Select a stalker
+        gdk_stalker *fill_stalker;
+        if(ATOMIC_GET(&SELECTED_STALKER_ID) == stalker.id)
+            fill_stalker = &stalker;
+        else
+            fill_stalker = &secondary_stalker;
+
+        printf("Selected stalker -> %lu\n", fill_stalker->id);
+
         pthread_mutex_lock(&mutex);
-        
+        {
             va_list va;
-
-            // Calculate the remaining buffer space
-            int buffer_space = BUFFER_SIZE - stalker.allocated_size;
-            bool retry_buffer_fill = true;
-
-            // snprintf(char *str, size_t count, ...) -> including null terminating character
             va_start(va, fmt);
-            int bytes_written = vsnprintf(stalker.buffer + stalker.allocated_size, buffer_space, fmt, va);
+            int bytes_written = _GDKstalker_fill_stalker(fill_stalker, fmt, va);
             va_end(va);
 
-            _GDKstalker_log_output_error(bytes_written);
-
-            // snprintf returned value -> does not include the null terminating character
-            bytes_written++;
-
-            // Message fits the buffer
-            if(bytes_written < buffer_space)
+            // The message fits the buffer OR the buffer is empty (we don't care if it fits - just cut it off)
+            if(bytes_written < (BUFFER_SIZE - fill_stalker->allocated_size) || 
+               fill_stalker->allocated_size == 0)
             {
-                // Increase the current buffer size
-                stalker.allocated_size += bytes_written;
-                retry_buffer_fill = false;
-            }
-        
-        pthread_mutex_unlock(&mutex);
-
-
-        // Message did not fit in buffer
-        if(retry_buffer_fill)
-        {
-            int GDK_result = GDKstalker_flush_buffer();
-            if(GDK_result == GDK_FAIL)
-                return GDK_FAIL;
-
-            pthread_mutex_lock(&mutex);
-            
-                va_start(va, fmt);
-                bytes_written = vsnprintf(stalker.buffer + stalker.allocated_size, buffer_space, fmt, va);
-                va_end(va);
+                printf("CONTENT IS %s\n", fill_stalker->buffer);
+                printf("Filling buffer %lu\n", fill_stalker->id);
                 
-                _GDKstalker_log_output_error(bytes_written);
+                fill_stalker->allocated_size += bytes_written;
+                printf("EDW -> TELOS");
+            }
+            else
+            {
+                printf("Flushing buffer %lu", fill_stalker->id);
 
-                // Message is too big, to fit the empty buffer
-                if(bytes_written >= buffer_space)
-                {
-                    // Do nothing in this case
-                }
-                else 
-                {
-                    // Written to buffer
-                    bytes_written++;
-                    stalker.allocated_size += bytes_written;
-                }
-            
-            pthread_mutex_unlock(&mutex);
+                // Switch stalker
+                if(ATOMIC_GET(&SELECTED_STALKER_ID) == stalker.id)
+                    fill_stalker = &secondary_stalker;
+                else
+                    fill_stalker = &stalker;
+
+                printf(" and filling buffer %lu\n", fill_stalker->id);
+
+                // Flush current stalker
+                pthread_create(&flushing_thread, NULL, _GDKstalker_flush_buffer_helper, NULL);
+                
+                va_list va;
+                va_start(va, fmt);
+                bytes_written = _GDKstalker_fill_stalker(fill_stalker, fmt, va);
+                va_end(va);
+
+                void *GDK_th_result;
+                pthread_join(flushing_thread, &GDK_th_result); 
+                if(GDK_th_result == GDK_FAIL)
+                    return GDK_FAIL;
+
+                // Set the new selected stalker 
+                ATOMIC_SET(&SELECTED_STALKER_ID, fill_stalker->id);
+                printf("NEW selected buffer is %lu\n", fill_stalker->id);
+            }
         }
+        pthread_mutex_lock(&mutex);
 
-        // Flush the buffer in case the event is important depending on the flush-level
-        if(event_id >= (int) CUR_FLUSH_LEVEL)
+
+        // Flush the current buffer in case the event is 
+        // important depending on the flush-level
+        if(event_id >= (int) ATOMIC_GET(&CUR_FLUSH_LEVEL))
         {
+            printf("Event IS IMPORTANT -> Flushing buffer %llu\n", ATOMIC_GET(&SELECTED_STALKER_ID));
             int GDK_result = GDKstalker_flush_buffer();
             if(GDK_result == GDK_FAIL)
                 return GDK_FAIL;
@@ -224,19 +255,27 @@ gdk_return GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...)
 }
 
 
-gdk_return GDKstalker_flush_buffer(void)
+gdk_return GDKstalker_flush_buffer()
 {
+    printf("EDW EimI");
+    // Select a stalker
+    gdk_stalker *fl_stalker;
+    if(ATOMIC_GET(&SELECTED_STALKER_ID) == stalker.id)
+        fl_stalker = &stalker;
+    else
+        fl_stalker = &secondary_stalker;
+
     pthread_mutex_lock(&mutex);
     {
-        fwrite(&stalker.buffer, stalker.allocated_size, 1, output_file);
+        fwrite(&fl_stalker->buffer, fl_stalker->allocated_size, 1, output_file);
         fflush(output_file);
         
         // Increase file size tracking
-        file_size += stalker.allocated_size;
+        file_size += fl_stalker->allocated_size;
 
         // Reset buffer
-        memset(stalker.buffer, 0, BUFFER_SIZE);
-        stalker.allocated_size = 0;
+        memset(fl_stalker->buffer, 0, BUFFER_SIZE);
+        fl_stalker->allocated_size = 0;
     }
     pthread_mutex_unlock(&mutex);
 
