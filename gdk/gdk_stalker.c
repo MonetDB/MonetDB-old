@@ -129,6 +129,7 @@ gdk_return GDKstalker_set_log_level(LOG_LEVEL level)
     }
 
     ATOMIC_SET(&CUR_LOG_LEVEL, level);
+    GDKstalker_log(M_DEBUG, 1, "%s", "CHANGED_LEVEL_TO_DEBUG");
 
     return GDK_SUCCEED;
 }
@@ -144,6 +145,7 @@ gdk_return GDKstalker_reset_log_level(void)
         return GDK_FAIL;
 
     ATOMIC_SET(&CUR_LOG_LEVEL, M_NONE);
+    GDKstalker_log(M_DEBUG, 1, "%s", "RESET_LOG_LEVEL");
 
     return GDK_SUCCEED;
 }
@@ -155,6 +157,7 @@ gdk_return GDKstalker_set_flush_level(LOG_LEVEL level)
         return GDK_SUCCEED;
     
     ATOMIC_SET(&CUR_FLUSH_LEVEL, level);
+    GDKstalker_log(M_DEBUG, 1, "%s", "CHANGED_FLUSH_LEVEL_TO_DEBUG");
 
     return GDK_SUCCEED;
 }
@@ -166,6 +169,7 @@ gdk_return GDKstalker_reset_flush_level(void)
         return GDK_SUCCEED;
 
     ATOMIC_SET(&CUR_FLUSH_LEVEL, M_ERROR);
+    GDKstalker_log(M_DEBUG, 1, "%s", "RESET_FLUSH_LEVEL");
 
     return GDK_SUCCEED;
 }
@@ -276,6 +280,8 @@ gdk_return GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...)
 
 gdk_return GDKstalker_flush_buffer()
 {
+    GDKstalker_log(M_DEBUG, 1, "%s", "FLUSHING_BUFFER_CALL");
+
     // Select a stalker
     gdk_stalker *fl_stalker;
     pthread_mutex_t mutex;
