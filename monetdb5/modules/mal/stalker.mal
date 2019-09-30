@@ -1,0 +1,27 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.  If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+
+module logging;
+
+command flush()
+address GDKstalker_flush_buffer
+comment "Flush GDKstalker buffer";
+
+command setloglevel(ra1:int)
+address GDKstalker_set_log_level
+comment "Set GDKstalker log level";
+
+command resetloglevel()
+address GDKstalker_reset_log_level
+comment "Reset the log level of GDKstalker";
+
+command setflushlevel(ra1:int)
+address GDKstalker_set_flush_level
+comment "Set GDKstalker flush level";
+
+command resetflushlevel()
+address GDKstalker_reset_flush_level
+comment "Reset the flush level of GDKstalker";
