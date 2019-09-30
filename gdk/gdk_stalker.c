@@ -11,7 +11,8 @@
 #include "gdk_stalker.h"
 
 pthread_t flushing_thread;
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t stalker_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t secondary_stalker_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // 0 -> stalker
 // 1 -> secondary_stalker
@@ -178,18 +179,28 @@ gdk_return GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...)
     {
         // Select a stalker
         gdk_stalker *fill_stalker;
-        if(ATOMIC_GET(&SELECTED_STALKER_ID) == stalker.id)
-            fill_stalker = &stalker;
-        else
-            fill_stalker = &secondary_stalker;
+        pthread_mutex_t mutex;
+        bool SWITCH_STALKER = true;
+        int bytes_written = 0;
 
+        if(ATOMIC_GET(&SELECTED_STALKER_ID) == stalker.id)
+        {
+            fill_stalker = &stalker;
+            mutex = stalker_mutex;
+        }
+        else
+        {
+            fill_stalker = &secondary_stalker;
+            mutex = secondary_stalker_mutex;
+        }
+    
         printf("Selected stalker -> %lu\n", fill_stalker->id);
 
-        // pthread_mutex_lock(&mutex);
-        // {
+        pthread_mutex_lock(&mutex);
+        {
             va_list va;
             va_start(va, fmt);
-            int bytes_written = _GDKstalker_fill_stalker(fill_stalker, fmt, va);
+            bytes_written = _GDKstalker_fill_stalker(fill_stalker, fmt, va);
             va_end(va);
 
             // The message fits the buffer OR the buffer is empty (we don't care if it fits - just cut it off)
@@ -198,17 +209,29 @@ gdk_return GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...)
             {
                 printf("Filling stalker %lu\n", fill_stalker->id);
                 fill_stalker->allocated_size += bytes_written;
+                SWITCH_STALKER = false;
+            }
+        }
+        pthread_mutex_unlock(&mutex);
+
+        if(SWITCH_STALKER)
+        {       
+            printf("Flushing stalker %lu", fill_stalker->id);
+
+            // Switch stalker
+            if(ATOMIC_GET(&SELECTED_STALKER_ID) == stalker.id)
+            {
+                fill_stalker = &secondary_stalker;
+                mutex = secondary_stalker_mutex;
             }
             else
             {
-                printf("Flushing stalker %lu", fill_stalker->id);
-
-                // Switch stalker
-                if(ATOMIC_GET(&SELECTED_STALKER_ID) == stalker.id)
-                    fill_stalker = &secondary_stalker;
-                else
-                    fill_stalker = &stalker;
-
+                fill_stalker = &stalker;
+                mutex = stalker_mutex;
+            }
+                
+            pthread_mutex_lock(&mutex);
+            {
                 printf(" and filling stalker %lu\n", fill_stalker->id);
 
                 // Flush current stalker
@@ -233,10 +256,9 @@ gdk_return GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...)
                 ATOMIC_SET(&SELECTED_STALKER_ID, fill_stalker->id);
                 printf("Updated selected stalker to %lu\n", fill_stalker->id);
             }
-        // }
-        // pthread_mutex_lock(&mutex);
-
-
+            pthread_mutex_unlock(&mutex);
+        }
+           
         // Flush the current buffer in case the event is 
         // important depending on the flush-level
         if(event_id >= (int) ATOMIC_GET(&CUR_FLUSH_LEVEL))
@@ -256,17 +278,24 @@ gdk_return GDKstalker_flush_buffer()
 {
     // Select a stalker
     gdk_stalker *fl_stalker;
+    pthread_mutex_t mutex;
     if(ATOMIC_GET(&SELECTED_STALKER_ID) == stalker.id)
+    {
         fl_stalker = &stalker;
+        mutex = stalker_mutex;
+    }    
     else
+    {
         fl_stalker = &secondary_stalker;
-
+        mutex = secondary_stalker_mutex;
+    }
+        
     // No reason to flush a buffer with no content 
     if(fl_stalker->allocated_size == 0)
         return GDK_SUCCEED;
 
-    // pthread_mutex_lock(&mutex);
-    // {
+    pthread_mutex_lock(&mutex);
+    {
         fwrite(&fl_stalker->buffer, fl_stalker->allocated_size, 1, output_file);
         fflush(output_file);
         
@@ -276,8 +305,8 @@ gdk_return GDKstalker_flush_buffer()
         // Reset buffer
         memset(fl_stalker->buffer, 0, BUFFER_SIZE);
         fl_stalker->allocated_size = 0;
-    // }
-    // pthread_mutex_unlock(&mutex);
+    }
+    pthread_mutex_unlock(&mutex);
 
     // Even if the existing file is full, the logger should not create
     // a new file in case GDKstalker_stop has been called
