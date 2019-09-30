@@ -2088,7 +2088,8 @@ SQLupgrades(Client c, mvc *m)
 		}
 	}
 
-	if (!sql_bind_func(m->sa, s, "master", NULL, NULL, F_PROC)) {
+	if (mvc_bind_schema(m, "wlc") == NULL &&
+	    !sql_bind_func(m->sa, s, "master", NULL, NULL, F_PROC)) {
 		if ((err = sql_update_mar2018(c, m, prev_schema)) != NULL) {
 			fprintf(stderr, "!%s\n", err);
 			freeException(err);
