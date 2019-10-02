@@ -7,21 +7,21 @@
 module logging;
 
 command flush()
-address GDKstalker_flush_buffer
+address STLKRflush_buffer
 comment "Flush GDKstalker buffer";
 
-command setloglevel(ra1:int)
-address GDKstalker_set_log_level
+command setloglevel(lvl:int)
+address STLKRset_log_level
 comment "Set GDKstalker log level";
 
 command resetloglevel()
-address GDKstalker_reset_log_level
+address STLKRreset_log_level
 comment "Reset the log level of GDKstalker";
 
-command setflushlevel(ra1:int)
-address GDKstalker_set_flush_level
+command setflushlevel(lvl:int)
+address STLKRset_flush_level
 comment "Set GDKstalker flush level";
 
 command resetflushlevel()
-address GDKstalker_reset_flush_level
+address STLKRreset_flush_level
 comment "Reset the flush level of GDKstalker";

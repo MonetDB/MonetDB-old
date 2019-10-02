@@ -8,6 +8,10 @@ MTSAFE
 
 INCLUDES = ../common/options ../common/stream ../common/utils $(valgrind_CFLAGS)
 
+lib_gdkstalker = {
+	SOURCES = gdk_stalker.c gdk_stalker.h
+}
+
 lib_gdk = {
 	VERSION = $(GDK_VERSION)
 	NAME = bat
@@ -37,10 +41,10 @@ lib_gdk = {
 		gdk_firstn.c \
 		gdk_analytic_bounds.c \
 		gdk_analytic_func.c gdk_analytic.h \
-		gdk_stalker.c gdk_stalker.h \
 		libbat.rc
 	LIBS = ../common/options/libmoptions \
 		../common/utils/libmutils \
+		libgdkstalker \
 		WIN32?../common/stream/libstream \
 		WIN32?$(MATH_LIBS) \
 		WIN32?$(SOCKET_LIBS) \
@@ -49,10 +53,6 @@ lib_gdk = {
 		WIN32?$(DL_LIBS) \
 		WIN32?$(PSAPILIB) \
 		WIN32?$(KVM_LIBS)
-}
-
-lib_gdkstalker = {
-	SOURCES = gdk_stalker.c gdk_stalker.h
 }
 
 headers_h = {

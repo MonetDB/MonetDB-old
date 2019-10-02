@@ -35,8 +35,8 @@ headers_sql = {
 		60_wlcr.sql \
 		75_storagemodel.sql \
 		80_statistics.sql \
-		99_system.sql \
-		100_stalker.sql
+		81_stalker.sql
+		99_system.sql 
 }
 
 headers_hge = {

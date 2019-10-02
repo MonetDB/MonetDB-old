@@ -47,7 +47,8 @@ lib_mal = {
 		txtsim.c txtsim.h \
 		sample.c sample.h \
 		json_util.c json_util.h \
-		calc.c batcalc.c
+		calc.c batcalc.c \
+		stalker.c stalker.h \
 	LIBS = ../../../gdk/libgdkstalker
 }
 
