@@ -35,6 +35,10 @@ wlr50
 wlc70
 wlr70
 
+# stop the master
+wlc80
+wlr80
+#
 #stop the master
 wlc100
 wlr100

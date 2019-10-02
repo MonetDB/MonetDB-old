@@ -33,6 +33,7 @@ c = process.client('sql', server = slave, stdin = process.PIPE, stdout = process
 cout, cerr = c.communicate('''\
 call wlr.replicate();
 select * from tmp;
+call wlr.stop();
 ''' )
 
 sout, serr = slave.communicate()

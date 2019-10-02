@@ -33,8 +33,9 @@ c = process.client('sql', server = slave, stdin = process.PIPE, stdout = process
 # be aware that the replication thread may be running behind
 # For testing we need to wait for it.
 cout, cerr = c.communicate('''\
-call wlr.replicate();
+call wlr.replicate(9);
 select * from tmp;
+call wlr.stop();
 ''' )
 
 sout, serr = slave.communicate()
