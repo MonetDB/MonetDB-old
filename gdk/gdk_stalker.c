@@ -4,6 +4,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
  * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ *
+ * The stalker is the general logging system for the MonetDB stack.
+ * It is modelled after well-known logging schems, eg. Python
+ *
+ * Internally, the logger uses a dual buffer to capture log messages
+ * before they are written to a file. This way we avoid serial execution.
+ *
+ * The logger files come in two as well, where we switch them 
+ * once the logger is full.
+ * The logger file format is "stalker_YY-MM-DDTHH:MM:SS_number.log"
+ * An option to consider is we need a rotating scheme over 2 files only,
+ * Moreover, old log files might be sent in the background to long term storage as well.
  */
 
 #include <assert.h>
@@ -26,7 +38,7 @@ static pthread_mutex_t secondary_stalker_mutex = PTHREAD_MUTEX_INITIALIZER;
 // 1 -> secondary_stalker
 static gdk_stalker stalker = { .allocated_size = 0, .id = 0 };
 static gdk_stalker secondary_stalker = { .allocated_size = 0, .id = 1 };
-ATOMIC_TYPE SELECTED_STALKER_ID = 0;
+static ATOMIC_TYPE SELECTED_STALKER_ID = 0;
 
 static bool GDK_STALKER_STOP = false;
 
@@ -49,9 +61,9 @@ _GDKstalker_log_output_error(int bytes_written)
 
 // Check if log file is open
 static void 
-_GDKstalker_file_is_open(void)
+_GDKstalker_file_is_open(FILE file)
 {
-    assert(output_file);
+    assert(file);
 }
 
 
@@ -68,7 +80,7 @@ _GDKstalker_create_file(void)
 
     output_file = fopen(file_name, "w");
 
-    _GDKstalker_file_is_open();
+    _GDKstalker_file_is_open(output_file);
 }
 
 
@@ -306,7 +318,7 @@ GDKstalker_flush_buffer(void)
         return GDK_SUCCEED;
 
     // Check if file is open
-    _GDKstalker_file_is_open();
+    _GDKstalker_file_is_open(output_file);
     
     pthread_mutex_lock(&mutex);
     {
