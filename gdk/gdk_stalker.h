@@ -50,6 +50,7 @@ typedef struct GDKstalker
 gdk_stalker;
 
 
+
 /**
  *  GDKstalker API
  */
@@ -86,7 +87,8 @@ gdk_return GDKstalker_reset_flush_level(void);
 
 
 // TODO -> Write comments
-gdk_return GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...);
+// Candidate for ‘gnu_printf’ format attribute [-Werror=suggest-attribute=format] 
+gdk_return GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
 
 
 // Flush the buffer to the file. If after flushing the buffer, the file is greater 
