@@ -72,21 +72,22 @@ _GDKstalker_create_file(void)
 }
 
 
-static int 
-_GDKstalker_fill_stalker(gdk_stalker *sel_stalker, const char *fmt, va_list va)
-{
-    // vsnprintf(char *str, size_t count, ...) -> including null terminating character
-    int bytes_written = vsnprintf(sel_stalker->buffer + sel_stalker->allocated_size, BUFFER_SIZE - sel_stalker->allocated_size, fmt, va);
-    _GDKstalker_log_output_error(bytes_written);
+// static int 
+// _GDKstalker_fill_stalker(gdk_stalker *sel_stalker, const char *fmt, va_list va)
+// {
+//     // vsnprintf(char *str, size_t count, ...) -> including null terminating character
+//     int bytes_written = vsnprintf(sel_stalker->buffer + sel_stalker->allocated_size, BUFFER_SIZE - sel_stalker->allocated_size, fmt, va);
+//     _GDKstalker_log_output_error(bytes_written);
 
-    // vsnprintf returned value -> does not include the null terminating character
-    return bytes_written++;
-}
+//     // vsnprintf returned value -> does not include the null terminating character
+//     return bytes_written++;
+// }
 
 
 static void* 
-_GDKstalker_flush_buffer_helper()
+_GDKstalker_flush_buffer_helper(void* t)
 {
+    (void) t;
     return (void*) GDKstalker_flush_buffer();
 }
 
@@ -211,8 +212,12 @@ GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...)
         {
             va_list va;
             va_start(va, fmt);
-            bytes_written = _GDKstalker_fill_stalker(fill_stalker, fmt, va);
+            // bytes_written = _GDKstalker_fill_stalker(fill_stalker, fmt, va);
+            bytes_written = vsnprintf(fill_stalker->buffer + fill_stalker->allocated_size, BUFFER_SIZE - fill_stalker->allocated_size, fmt, va);
             va_end(va);
+
+            _GDKstalker_log_output_error(bytes_written);
+            bytes_written++;
 
             // The message fits the buffer OR the buffer is empty (we don't care if it fits - just cut it off)
             if(bytes_written < (BUFFER_SIZE - fill_stalker->allocated_size) || 
@@ -245,9 +250,13 @@ GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...)
                 
                 va_list va;
                 va_start(va, fmt);
-                bytes_written = _GDKstalker_fill_stalker(fill_stalker, fmt, va);
+                bytes_written = vsnprintf(fill_stalker->buffer + fill_stalker->allocated_size, BUFFER_SIZE - fill_stalker->allocated_size, fmt, va);
+                // bytes_written = _GDKstalker_fill_stalker(fill_stalker, fmt, va);
                 va_end(va);
 
+                _GDKstalker_log_output_error(bytes_written);
+                bytes_written++;
+                
                 // The second buffer will always be empty at start
                 // So if the message does not fit we cut it off
                 // message might be > BUFFER_SIZE
@@ -279,7 +288,7 @@ GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...)
 
 
 gdk_return
-GDKstalker_flush_buffer()
+GDKstalker_flush_buffer(void)
 {
     // Select a stalker
     gdk_stalker *fl_stalker;
