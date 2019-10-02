@@ -6,22 +6,22 @@
 
 module logging;
 
-command flush()
+pattern flush()
 address STLKRflush_buffer
 comment "Flush GDKstalker buffer";
 
-command setloglevel(lvl:int)
+pattern setloglevel(lvl:int)
 address STLKRset_log_level
 comment "Set GDKstalker log level";
 
-command resetloglevel()
+pattern resetloglevel()
 address STLKRreset_log_level
 comment "Reset the log level of GDKstalker";
 
-command setflushlevel(lvl:int)
+pattern setflushlevel(lvl:int)
 address STLKRset_flush_level
 comment "Set GDKstalker flush level";
 
-command resetflushlevel()
+pattern resetflushlevel()
 address STLKRreset_flush_level
 comment "Reset the flush level of GDKstalker";

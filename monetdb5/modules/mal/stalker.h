@@ -12,10 +12,10 @@
 #include "mal.h"
 #include "mal_interpreter.h"
 
-mal_export str STLKRflush_buffer(void);
-mal_export str STLKRset_log_level(void *ret, int *lvl);
-mal_export str STLKRreset_log_level(void);
-mal_export str STLKRset_flush_level(void *ret, int *lvl);
-mal_export str STLKRreset_flush_level(void);
+mal_export str STLKRflush_buffer(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+mal_export str STLKRset_log_level(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+mal_export str STLKRreset_log_level(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+mal_export str STLKRset_flush_level(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+mal_export str STLKRreset_flush_level(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 
 #endif

@@ -1,0 +1,17 @@
+# a simple script to check the working of the stalker
+
+stalker.flush();
+
+stalker.setloglevel(-1); # should raise an error
+stalker.setloglevel(0);
+stalker.setloglevel(1);
+stalker.setloglevel(999); # should raise an error
+
+stalker.resetloglevel();
+
+stalker.setflushlevel(-1); # should raise an error
+stalker.setflushlevel(0);
+stalker.setflushlevel(1);
+stalker.setflushlevel(999); # should raise an error
+
+stalker.resetflushlevel();

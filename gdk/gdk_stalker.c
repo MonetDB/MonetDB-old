@@ -18,24 +18,24 @@
 #include "gdk.h"
 #include "gdk_stalker.h"
 
-pthread_t flushing_thread;
-pthread_mutex_t stalker_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t secondary_stalker_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_t flushing_thread;
+static pthread_mutex_t stalker_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t secondary_stalker_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // 0 -> stalker
 // 1 -> secondary_stalker
-gdk_stalker stalker = { .allocated_size = 0, .id = 0 };
-gdk_stalker secondary_stalker = { .allocated_size = 0, .id = 1 };
+static gdk_stalker stalker = { .allocated_size = 0, .id = 0 };
+static gdk_stalker secondary_stalker = { .allocated_size = 0, .id = 1 };
 ATOMIC_TYPE SELECTED_STALKER_ID = 0;
 
-bool GDK_STALKER_STOP = false;
+static bool GDK_STALKER_STOP = false;
 
-FILE *output_file;
-int file_size = 0;
-int file_id = 1;
+static FILE *output_file;
+static int file_size = 0;
+static int file_id = 1;
 
-ATOMIC_TYPE CUR_LOG_LEVEL = DEFAULT_LOG_LEVEL;
-ATOMIC_TYPE CUR_FLUSH_LEVEL = DEFAULT_FLUSH_LEVEL;
+static ATOMIC_TYPE CUR_LOG_LEVEL = DEFAULT_LOG_LEVEL;
+static ATOMIC_TYPE CUR_FLUSH_LEVEL = DEFAULT_FLUSH_LEVEL;
 
 
 
