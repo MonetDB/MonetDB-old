@@ -12,8 +12,8 @@
 #define DEFAULT_LOG_LEVEL M_NONE
 #define DEFAULT_FLUSH_LEVEL M_ERROR
 
-#define FILE_NAME "merovingian"
-#define FILE_SEP "_"
+#define FILE_NAME "stalker"
+#define NAME_SEP '_'
 #define MAX_FILE_SIZE 1073741824
 
 /**
@@ -43,9 +43,10 @@ typedef enum {
 // GDKstalker Buffer
 typedef struct GDKstalker
 {
+    int id;
     char buffer[BUFFER_SIZE];
     int allocated_size;
-    int id;
+    MT_Lock lock;
 }
 gdk_stalker;
 
@@ -87,7 +88,7 @@ gdk_return GDKstalker_reset_flush_level(void);
 
 
 // TODO -> Write comments
-// Candidate for ‘gnu_printf’ format attribute [-Werror=suggest-attribute=format] 
+// Candidate for 'gnu_printf' format attribute [-Werror=suggest-attribute=format] 
 gdk_return GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
 
 

@@ -32,11 +32,12 @@ STLKRflush_buffer(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 str
 STLKRset_log_level(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{	int *lvl;
+{	
+	int *lvl;
 	(void) cntxt;
 	(void) mb;
 
-	lvl = (int*) getArgReference_str(stk,pci,1);
+	lvl = (int*) getArgReference_str(stk, pci, 1);
     if( GDKstalker_set_log_level(lvl) == GDK_FAIL)
         throw(STALKER, __FILE__, "%s:%s", __func__, OPERATION_FAILED);
     return MAL_SUCCEED; 
@@ -50,6 +51,7 @@ STLKRreset_log_level(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 	(void) stk;
 	(void) pci;
+
     if( GDKstalker_reset_log_level())
         throw(STALKER, __FILE__, "%s:%s", __func__, OPERATION_FAILED);
     return MAL_SUCCEED;
@@ -58,11 +60,12 @@ STLKRreset_log_level(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 str
 STLKRset_flush_level(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{	int *lvl;
+{	
+	int *lvl;
 	(void) cntxt;
 	(void) mb;
 
-	lvl = (int*) getArgReference_str(stk,pci,1);
+	lvl = (int*) getArgReference_str(stk, pci, 1);
     if( GDKstalker_set_flush_level(lvl))
         throw(STALKER, __FILE__, "%s:%s", __func__, OPERATION_FAILED);
 
@@ -77,6 +80,7 @@ STLKRreset_flush_level(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 	(void) stk;
 	(void) pci;
+	
     if( GDKstalker_reset_flush_level() == GDK_FAIL)
         throw(STALKER, __FILE__, "%s:%s", __func__, OPERATION_FAILED);
 

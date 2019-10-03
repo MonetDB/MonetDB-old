@@ -19,7 +19,6 @@
  */
 
 #include <assert.h>
-#include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,14 +29,10 @@
 #include "gdk.h"
 #include "gdk_stalker.h"
 
-static pthread_t flushing_thread;
-static pthread_mutex_t stalker_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t secondary_stalker_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 // 0 -> stalker
 // 1 -> secondary_stalker
-static gdk_stalker stalker = { .allocated_size = 0, .id = 0 };
-static gdk_stalker secondary_stalker = { .allocated_size = 0, .id = 1 };
+static gdk_stalker stalker = { .allocated_size = 0, .id = 0, .lock = MT_LOCK_INITIALIZER("GDKstalkerL") };
+static gdk_stalker secondary_stalker = { .allocated_size = 0, .id = 1, .lock = MT_LOCK_INITIALIZER("GDKstalkerL2") };
 static ATOMIC_TYPE SELECTED_STALKER_ID = 0;
 
 static bool GDK_STALKER_STOP = false;
@@ -61,7 +56,7 @@ _GDKstalker_log_output_error(int bytes_written)
 
 // Check if log file is open
 static void 
-_GDKstalker_file_is_open(FILE file)
+_GDKstalker_file_is_open(FILE *file)
 {
     assert(file);
 }
@@ -76,7 +71,7 @@ _GDKstalker_create_file(void)
     snprintf(id, INT_MAX_LEN, "%d", file_id);
 
     char file_name[FILENAME_MAX];
-    sprintf(file_name, "%s%c%s%s%s%s", GDKgetenv("gdk_dbpath"), DIR_SEP, FILE_NAME, FILE_SEP, id, ".log");
+    sprintf(file_name, "%s%c%s%c%s%c%s%s", GDKgetenv("gdk_dbpath"), DIR_SEP, FILE_NAME, NAME_SEP, GDKstalker_timestamp(), NAME_SEP, id, ".log");
 
     output_file = fopen(file_name, "w");
 
@@ -85,7 +80,7 @@ _GDKstalker_create_file(void)
 
 
 
-// Candidate for ‘gnu_printf’ format attribute [-Werror=suggest-attribute=format]
+// Candidate for 'gnu_printf'’' format attribute [-Werror=suggest-attribute=format]
 static int 
 _GDKstalker_fill_stalker(gdk_stalker *sel_stalker, const char *fmt, va_list va) __attribute__ ((format (printf, 2, 0)));
 
@@ -99,15 +94,6 @@ _GDKstalker_fill_stalker(gdk_stalker *sel_stalker, const char *fmt, va_list va)
     // vsnprintf returned value -> does not include the null terminating character
     return bytes_written++;
 }
-
-
-static void* 
-_GDKstalker_flush_buffer_helper(void* t)
-{
-    (void) t;
-    return (void*) GDKstalker_flush_buffer();
-}
-
 
 
 
@@ -210,22 +196,23 @@ GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...)
     {
         // Select a stalker
         gdk_stalker *fill_stalker;
-        pthread_mutex_t mutex;
+        MT_Lock lock;
+        int GDK_result;
         bool SWITCH_STALKER = true;
-        int bytes_written = 0;
+        int bytes_written = 0;        
 
         if((int) ATOMIC_GET(&SELECTED_STALKER_ID) == stalker.id)
         {
             fill_stalker = &stalker;
-            mutex = stalker_mutex;
+            lock = stalker.lock;
         }
         else
         {
             fill_stalker = &secondary_stalker;
-            mutex = secondary_stalker_mutex;
+            lock = secondary_stalker.lock;
         }
 
-        pthread_mutex_lock(&mutex);
+        MT_lock_set(&lock);
         {
             va_list va;
             va_start(va, fmt);
@@ -240,7 +227,7 @@ GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...)
                 SWITCH_STALKER = false;
             }
         }
-        pthread_mutex_unlock(&mutex);
+        MT_lock_unset(&lock);
 
         if(SWITCH_STALKER)
         {       
@@ -248,18 +235,21 @@ GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...)
             if((int) ATOMIC_GET(&SELECTED_STALKER_ID) == stalker.id)
             {
                 fill_stalker = &secondary_stalker;
-                mutex = secondary_stalker_mutex;
+                lock = secondary_stalker.lock;
             }
             else
             {
                 fill_stalker = &stalker;
-                mutex = stalker_mutex;
+                lock = stalker.lock;
             }
                 
-            pthread_mutex_lock(&mutex);
+            MT_lock_set(&lock);
             {
                 // Flush current stalker
-                pthread_create(&flushing_thread, NULL, _GDKstalker_flush_buffer_helper, NULL);
+                MT_Id tid;
+                
+                if(MT_create_thread(&tid, (void(*) (void*)) GDKstalker_flush_buffer, NULL, MT_THR_JOINABLE, "GDKstalkerFlush") < 0)
+                    return GDK_FAIL;
                 
                 va_list va;
                 va_start(va, fmt);
@@ -271,22 +261,21 @@ GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...)
                 // message might be > BUFFER_SIZE
                 fill_stalker->allocated_size += bytes_written;
 
-                void *GDK_th_result;
-                pthread_join(flushing_thread, &GDK_th_result); 
-                if(GDK_th_result == GDK_FAIL)
+                GDK_result = MT_join_thread(tid);
+                if(GDK_result == GDK_FAIL)
                     return GDK_FAIL;
 
                 // Set the new selected stalker 
                 ATOMIC_SET(&SELECTED_STALKER_ID, fill_stalker->id);
             }
-            pthread_mutex_unlock(&mutex);
+            MT_lock_unset(&lock);
         }
            
         // Flush the current buffer in case the event is 
         // important depending on the flush-level
         if(event_id >= (int) ATOMIC_GET(&CUR_FLUSH_LEVEL))
         {
-            int GDK_result = GDKstalker_flush_buffer();
+            GDK_result = GDKstalker_flush_buffer();
             if(GDK_result == GDK_FAIL)
                 return GDK_FAIL;
         }
@@ -301,16 +290,16 @@ GDKstalker_flush_buffer(void)
 {
     // Select a stalker
     gdk_stalker *fl_stalker;
-    pthread_mutex_t mutex;
+    MT_Lock lock;
     if((int) ATOMIC_GET(&SELECTED_STALKER_ID) == stalker.id)
     {
         fl_stalker = &stalker;
-        mutex = stalker_mutex;
+        lock = stalker.lock;
     }    
     else
     {
         fl_stalker = &secondary_stalker;
-        mutex = secondary_stalker_mutex;
+        lock = secondary_stalker.lock;
     }
         
     // No reason to flush a buffer with no content 
@@ -320,7 +309,7 @@ GDKstalker_flush_buffer(void)
     // Check if file is open
     _GDKstalker_file_is_open(output_file);
     
-    pthread_mutex_lock(&mutex);
+    MT_lock_set(&lock);
     {
         fwrite(&fl_stalker->buffer, fl_stalker->allocated_size, 1, output_file);
         fflush(output_file);
@@ -332,7 +321,7 @@ GDKstalker_flush_buffer(void)
         memset(fl_stalker->buffer, 0, BUFFER_SIZE);
         fl_stalker->allocated_size = 0;
     }
-    pthread_mutex_unlock(&mutex);
+    MT_lock_unset(&lock);
 
     // Even if the existing file is full, the logger should not create
     // a new file in case GDKstalker_stop has been called
