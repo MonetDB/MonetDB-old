@@ -6,22 +6,22 @@
 
 CREATE SCHEMA logging;
 
--- Flush GDKstalker buffer
+-- Flush GDKtracer buffer
 CREATE PROCEDURE logging.flush()
        EXTERNAL NAME logging.flush;
 
--- Set GDKstalker log level
+-- Set GDKtracer log level
 CREATE PROCEDURE logging.setloglevel(lvl INT)
        EXTERNAL NAME logging.setloglevel;
 
--- Reset the log level of GDKstalker 
+-- Reset the log level of GDKtracer 
 CREATE PROCEDURE logging.resetloglevel()
        EXTERNAL NAME logging.resetloglevel;
 
--- Set GDKstalker flush level
+-- Set GDKtracer flush level
 CREATE PROCEDURE logging.setflushlevel(lvl INT)
        EXTERNAL NAME logging.setflushlevel;
 
--- Reset the flush level of GDKstalker 
+-- Reset the flush level of GDKtracer 
 CREATE PROCEDURE logging.resetflushlevel()
         EXTERNAL NAME logging.resetflushlevel;

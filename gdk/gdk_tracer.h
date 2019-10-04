@@ -12,9 +12,19 @@
 #define DEFAULT_LOG_LEVEL M_NONE
 #define DEFAULT_FLUSH_LEVEL M_ERROR
 
-#define FILE_NAME "stalker"
+#define FILE_NAME "trace"
 #define NAME_SEP '_'
 #define MAX_FILE_SIZE 1073741824
+
+#define Trace(LVL, MSG, ...)                                        \
+    GDKtracer_log(LVL,                                              \
+                  "[%s] %s (%s:%d): # "MSG,                         \
+                  GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),     \
+                  __FILE__,                                         \
+                  __FUNCTION__,                                     \
+                  __LINE__,                                         \
+                  ## __VA_ARGS__);
+    
 
 /**
  *
@@ -40,58 +50,58 @@ typedef enum {
               } LOG_LEVEL;
 
 
-// GDKstalker Buffer
-typedef struct GDKstalker
+// GDKtracer Buffer
+typedef struct GDKtracer
 {
     int id;
     char buffer[BUFFER_SIZE];
     int allocated_size;
     MT_Lock lock;
 }
-gdk_stalker;
+gdk_tracer;
 
 
 
 /**
- *  GDKstalker API
+ *  GDKtracer API
  */
 // Returns the timestamp in the form of datetime
-char* GDKstalker_timestamp(void);
+char* GDKtracer_get_timestamp(char* fmt);
 
 
-// Initialize stalker - basically creates the file
-gdk_return GDKstalker_init(void);
+// Initialize tracer - basically creates the file
+gdk_return GDKtracer_init(void);
 
 
 // Flushes the contents of the buffer and closes the log file
-gdk_return GDKstalker_stop(void);
+gdk_return GDKtracer_stop(void);
 
 
 // Sets the log level to one of the enum LOG_LEVELS above. If the current log level 
-// is not NONE and GDK_stalker_set_log_level sets it to NONE we flush the buffer first 
+// is not NONE and GDK_tracer_set_log_level sets it to NONE we flush the buffer first 
 // in order to "discard" the messages that are there from the previous log levels
-gdk_return GDKstalker_set_log_level(int *level);
+gdk_return GDKtracer_set_log_level(int *level);
 
 
 // Resets the log level to the default one - NONE. If the current log level is not NONE 
-// and GDK_stalker_reset_log_level() is called we need to flush the buffer first in order to 
+// and GDK_tracer_reset_log_level() is called we need to flush the buffer first in order to 
 // "discard" messages kept from other log levels
-gdk_return GDKstalker_reset_log_level(void);
+gdk_return GDKtracer_reset_log_level(void);
 
 
 // Sets the minimum flush level that an event will trigger the logger to flush the buffer
-gdk_return GDKstalker_set_flush_level(int *level);
+gdk_return GDKtracer_set_flush_level(int *level);
 
 
 // Resets the flush level to the default (ERROR)
-gdk_return GDKstalker_reset_flush_level(void);
+gdk_return GDKtracer_reset_flush_level(void);
 
 
 // TODO -> Write comments
 // Candidate for 'gnu_printf' format attribute [-Werror=suggest-attribute=format] 
-gdk_return GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
+gdk_return GDKtracer_log(LOG_LEVEL level, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
 
 
 // Flush the buffer to the file. If after flushing the buffer, the file is greater 
 // or equal to 1 GB, then we close the current one and we swap to a new one increasing the ID
-gdk_return GDKstalker_flush_buffer(void);
+gdk_return GDKtracer_flush_buffer(void);

@@ -29,7 +29,7 @@ enum malexception {
 	ARITH,
 	PERMD,
 	SQL,
-	STALKER
+	TRACER
 };
 
 #define MAL_SUCCEED ((str) 0) /* no error */

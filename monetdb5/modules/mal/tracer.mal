@@ -7,21 +7,21 @@
 module logging;
 
 pattern flush()
-address STLKRflush_buffer
-comment "Flush GDKstalker buffer";
+address TRCRflush_buffer
+comment "Flush GDKtracer buffer";
 
 pattern setloglevel(lvl:int)
-address STLKRset_log_level
-comment "Set GDKstalker log level";
+address TRCRset_log_level
+comment "Set GDKtracer log level";
 
 pattern resetloglevel()
-address STLKRreset_log_level
-comment "Reset the log level of GDKstalker";
+address TRCRreset_log_level
+comment "Reset the log level of GDKtracer";
 
 pattern setflushlevel(lvl:int)
-address STLKRset_flush_level
-comment "Set GDKstalker flush level";
+address TRCRset_flush_level
+comment "Set GDKtracer flush level";
 
 pattern resetflushlevel()
-address STLKRreset_flush_level
-comment "Reset the flush level of GDKstalker";
+address TRCRreset_flush_level
+comment "Reset the flush level of GDKtracer";

@@ -1,0 +1,17 @@
+# a simple script to check the working of the tracer
+
+logging.flush();
+
+logging.setloglevel(-1); # should raise an error
+logging.setloglevel(0);
+logging.setloglevel(1);
+logging.setloglevel(999); # should raise an error
+
+logging.resetloglevel();
+
+logging.setflushlevel(-1); # should raise an error
+logging.setflushlevel(0);
+logging.setflushlevel(1);
+logging.setflushlevel(999); # should raise an error
+
+logging.resetflushlevel();

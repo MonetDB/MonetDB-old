@@ -19,7 +19,7 @@
 
 #include "gdk.h"
 #include "gdk_private.h"
-#include "gdk_stalker.h"
+#include "gdk_tracer.h"
 #include "mutils.h"
 
 static BAT *GDKkey = NULL;
@@ -742,8 +742,8 @@ GDKinit(opt *set, int setlen)
 		return GDK_FAIL;
 	}
 
-	/* initialize GDKstalker */
-	if (!GDKstalker_init())
+	/* initialize GDKtracer */
+	if (!GDKtracer_init())
 		return GDK_FAIL;
 
 	return GDK_SUCCEED;
@@ -861,8 +861,8 @@ GDKreset(int status)
 	}
 	ATOMunknown_clean();
 
-	/* stop GDKstalker */ 
-	GDKstalker_stop();
+	/* stop GDKtracer */ 
+	GDKtracer_stop();
 }
 
 /* coverity[+kill] */
@@ -873,8 +873,8 @@ GDKexit(int status)
 #ifdef HAVE_EMBEDDED
 		return;
 #else
-		/* stop GDKstalker */
-		GDKstalker_stop();
+		/* stop GDKtracer */
+		GDKtracer_stop();
 
 		/* no database lock, so no threads, so exit now */
 		exit(status);
@@ -882,7 +882,7 @@ GDKexit(int status)
 	}
 	GDKprepareExit();
 
-	/* at this point there is no need to call GDKstalker_stop
+	/* at this point there is no need to call GDKtracer_stop
 	 * because it is already called in GDKreset */
 	GDKreset(status);
 #ifndef HAVE_EMBEDDED

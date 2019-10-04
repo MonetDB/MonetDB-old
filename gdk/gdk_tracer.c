@@ -5,7 +5,7 @@
  *
  * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  *
- * The stalker is the general logging system for the MonetDB stack.
+ * The tracer is the general logging system for the MonetDB stack.
  * It is modelled after well-known logging schems, eg. Python
  *
  * Internally, the logger uses a dual buffer to capture log messages
@@ -13,7 +13,7 @@
  *
  * The logger files come in two as well, where we switch them 
  * once the logger is full.
- * The logger file format is "stalker_YY-MM-DDTHH:MM:SS_number.log"
+ * The logger file format is "tracer_YY-MM-DDTHH:MM:SS_number.log"
  * An option to consider is we need a rotating scheme over 2 files only,
  * Moreover, old log files might be sent in the background to long term storage as well.
  */
@@ -27,15 +27,15 @@
 
 #include "monetdb_config.h"
 #include "gdk.h"
-#include "gdk_stalker.h"
+#include "gdk_tracer.h"
 
-// 0 -> stalker
-// 1 -> secondary_stalker
-static gdk_stalker stalker = { .allocated_size = 0, .id = 0, .lock = MT_LOCK_INITIALIZER("GDKstalkerL") };
-static gdk_stalker secondary_stalker = { .allocated_size = 0, .id = 1, .lock = MT_LOCK_INITIALIZER("GDKstalkerL2") };
-static ATOMIC_TYPE SELECTED_STALKER_ID = 0;
+// 0 -> tracer
+// 1 -> secondary_tracer
+static gdk_tracer tracer = { .allocated_size = 0, .id = 0, .lock = MT_LOCK_INITIALIZER("GDKtracerL") };
+static gdk_tracer secondary_tracer = { .allocated_size = 0, .id = 1, .lock = MT_LOCK_INITIALIZER("GDKtracerL2") };
+static ATOMIC_TYPE SELECTED_tracer_ID = 0;
 
-static bool GDK_STALKER_STOP = false;
+static bool GDK_TRACER_STOP = false;
 
 static FILE *output_file;
 static int file_size = 0;
@@ -48,7 +48,7 @@ static ATOMIC_TYPE CUR_FLUSH_LEVEL = DEFAULT_FLUSH_LEVEL;
 
 // Output error from snprintf of vsnprintf
 static void 
-_GDKstalker_log_output_error(int bytes_written)
+_GDKtracer_log_output_error(int bytes_written)
 {
     assert(bytes_written >= 0);
 }
@@ -56,7 +56,7 @@ _GDKstalker_log_output_error(int bytes_written)
 
 // Check if log file is open
 static void 
-_GDKstalker_file_is_open(FILE *file)
+_GDKtracer_file_is_open(FILE *file)
 {
     assert(file);
 }
@@ -65,31 +65,31 @@ _GDKstalker_file_is_open(FILE *file)
 // Prepares a file in order to write the contents of the buffer 
 // when necessary. The file name each time is merovingian_{int}.log
 static void 
-_GDKstalker_create_file(void)
+_GDKtracer_create_file(void)
 {
     char id[INT_MAX_LEN]; 
     snprintf(id, INT_MAX_LEN, "%d", file_id);
 
     char file_name[FILENAME_MAX];
-    sprintf(file_name, "%s%c%s%c%s%c%s%s", GDKgetenv("gdk_dbpath"), DIR_SEP, FILE_NAME, NAME_SEP, GDKstalker_timestamp(), NAME_SEP, id, ".log");
+    sprintf(file_name, "%s%c%s%c%s%c%s%s", GDKgetenv("gdk_dbpath"), DIR_SEP, FILE_NAME, NAME_SEP, GDKtracer_get_timestamp("%Y-%m-%dT%H:%M:%S"), NAME_SEP, id, ".log");
 
     output_file = fopen(file_name, "w");
 
-    _GDKstalker_file_is_open(output_file);
+    _GDKtracer_file_is_open(output_file);
 }
 
 
 
 // Candidate for 'gnu_printf'’' format attribute [-Werror=suggest-attribute=format]
 static int 
-_GDKstalker_fill_stalker(gdk_stalker *sel_stalker, const char *fmt, va_list va) __attribute__ ((format (printf, 2, 0)));
+_GDKtracer_fill_tracer(gdk_tracer *sel_tracer, const char *fmt, va_list va) __attribute__ ((format (printf, 2, 0)));
 
 static int 
-_GDKstalker_fill_stalker(gdk_stalker *sel_stalker, const char *fmt, va_list va)
+_GDKtracer_fill_tracer(gdk_tracer *sel_tracer, const char *fmt, va_list va)
 {
     // vsnprintf(char *str, size_t count, ...) -> including null terminating character
-    int bytes_written = vsnprintf(sel_stalker->buffer + sel_stalker->allocated_size, BUFFER_SIZE - sel_stalker->allocated_size, fmt, va);
-    _GDKstalker_log_output_error(bytes_written);
+    int bytes_written = vsnprintf(sel_tracer->buffer + sel_tracer->allocated_size, BUFFER_SIZE - sel_tracer->allocated_size, fmt, va);
+    _GDKtracer_log_output_error(bytes_written);
 
     // vsnprintf returned value -> does not include the null terminating character
     return bytes_written++;
@@ -103,42 +103,42 @@ _GDKstalker_fill_stalker(gdk_stalker *sel_stalker, const char *fmt, va_list va)
  * 
  */ 
 char*
-GDKstalker_timestamp(void)
+GDKtracer_get_timestamp(char* fmt)
 {
     static char datetime[20];
     time_t now = time(NULL);
     struct tm *tmp = localtime(&now);
-    strftime(datetime, sizeof(datetime), "%Y-%m-%d %H:%M:%S", tmp);
+    strftime(datetime, sizeof(datetime), fmt, tmp);
 
     return datetime;
 }
 
 
 gdk_return
-GDKstalker_init(void)
+GDKtracer_init(void)
 {
-    _GDKstalker_create_file();
+    _GDKtracer_create_file();
     return GDK_SUCCEED;
 }
 
 
 gdk_return
-GDKstalker_stop(void)
+GDKtracer_stop(void)
 {
-    GDK_STALKER_STOP = true;
-    return GDKstalker_flush_buffer();
+    GDK_TRACER_STOP = true;
+    return GDKtracer_flush_buffer();
 }
 
 
 gdk_return
-GDKstalker_set_log_level(int *level)
+GDKtracer_set_log_level(int *level)
 {
     if((int) ATOMIC_GET(&CUR_LOG_LEVEL) == *level)
         return GDK_SUCCEED;
 
     if(*level == M_NONE && (int) ATOMIC_GET(&CUR_LOG_LEVEL) != M_NONE)
     {
-        int GDK_result = GDKstalker_flush_buffer();
+        int GDK_result = GDKtracer_flush_buffer();
         if(GDK_result == GDK_FAIL)
             return GDK_FAIL;
     }
@@ -150,12 +150,12 @@ GDKstalker_set_log_level(int *level)
 
 
 gdk_return
-GDKstalker_reset_log_level(void)
+GDKtracer_reset_log_level(void)
 {  
     if((int) ATOMIC_GET(&CUR_LOG_LEVEL) == M_NONE)
         return GDK_SUCCEED;
    
-    int GDK_result = GDKstalker_flush_buffer();
+    int GDK_result = GDKtracer_flush_buffer();
     if(GDK_result == GDK_FAIL)
         return GDK_FAIL;
 
@@ -166,7 +166,7 @@ GDKstalker_reset_log_level(void)
 
 
 gdk_return
-GDKstalker_set_flush_level(int *level)
+GDKtracer_set_flush_level(int *level)
 {
     if((int) ATOMIC_GET(&CUR_FLUSH_LEVEL) == *level)
         return GDK_SUCCEED;
@@ -178,7 +178,7 @@ GDKstalker_set_flush_level(int *level)
 
 
 gdk_return
-GDKstalker_reset_flush_level(void)
+GDKtracer_reset_flush_level(void)
 {
     if((int) ATOMIC_GET(&CUR_FLUSH_LEVEL) == M_ERROR)
         return GDK_SUCCEED;
@@ -190,92 +190,82 @@ GDKstalker_reset_flush_level(void)
 
 
 gdk_return
-GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...)
+GDKtracer_log(LOG_LEVEL level, const char *fmt, ...)
 {   
     if((int) level >= (int) ATOMIC_GET(&CUR_LOG_LEVEL) && (int) ATOMIC_GET(&CUR_LOG_LEVEL) > M_NONE)
     {
-        // Select a stalker
-        gdk_stalker *fill_stalker;
-        MT_Lock lock;
+        // Select a tracer
+        gdk_tracer *fill_tracer;
         int GDK_result;
-        bool SWITCH_STALKER = true;
+        bool SWITCH_tracer = true;
         int bytes_written = 0;        
 
-        if((int) ATOMIC_GET(&SELECTED_STALKER_ID) == stalker.id)
-        {
-            fill_stalker = &stalker;
-            lock = stalker.lock;
-        }
+        if((int) ATOMIC_GET(&SELECTED_tracer_ID) == tracer.id)
+            fill_tracer = &tracer;
         else
-        {
-            fill_stalker = &secondary_stalker;
-            lock = secondary_stalker.lock;
-        }
+            fill_tracer = &secondary_tracer;
 
-        MT_lock_set(&lock);
+        fprintf(stderr, "SELECTED STALKER -> %d\n", fill_tracer->id);
+
+        MT_lock_set(&fill_tracer->lock);
         {
             va_list va;
             va_start(va, fmt);
-            bytes_written = _GDKstalker_fill_stalker(fill_stalker, fmt, va);
+            bytes_written = _GDKtracer_fill_tracer(fill_tracer, fmt, va);
             va_end(va);
 
             // The message fits the buffer OR the buffer is empty (we don't care if it fits - just cut it off)
-            if(bytes_written < (BUFFER_SIZE - fill_stalker->allocated_size) || 
-               fill_stalker->allocated_size == 0)
+            if(bytes_written < (BUFFER_SIZE - fill_tracer->allocated_size) || 
+               fill_tracer->allocated_size == 0)
             {
-                fill_stalker->allocated_size += bytes_written;
-                SWITCH_STALKER = false;
+                fprintf(stderr, "FILLED TRACER -> %d with %d bytes\n", fill_tracer->id, fill_tracer->allocated_size);
+                fill_tracer->allocated_size += bytes_written;
+                SWITCH_tracer = false;
             }
         }
-        MT_lock_unset(&lock);
+        MT_lock_unset(&fill_tracer->lock);
 
-        if(SWITCH_STALKER)
+        if(SWITCH_tracer)
         {       
-            // Switch stalker
-            if((int) ATOMIC_GET(&SELECTED_STALKER_ID) == stalker.id)
-            {
-                fill_stalker = &secondary_stalker;
-                lock = secondary_stalker.lock;
-            }
+            // Switch tracer
+            if((int) ATOMIC_GET(&SELECTED_tracer_ID) == tracer.id)
+                fill_tracer = &secondary_tracer;
             else
-            {
-                fill_stalker = &stalker;
-                lock = stalker.lock;
-            }
+                fill_tracer = &tracer;
                 
-            MT_lock_set(&lock);
+            MT_lock_set(&fill_tracer->lock);
             {
-                // Flush current stalker
+                // Flush current tracer
                 MT_Id tid;
                 
-                if(MT_create_thread(&tid, (void(*) (void*)) GDKstalker_flush_buffer, NULL, MT_THR_JOINABLE, "GDKstalkerFlush") < 0)
+                if(MT_create_thread(&tid, (void(*) (void*)) GDKtracer_flush_buffer, NULL, MT_THR_JOINABLE, "GDKtracerFlush") < 0)
                     return GDK_FAIL;
                 
                 va_list va;
                 va_start(va, fmt);
-                bytes_written = _GDKstalker_fill_stalker(fill_stalker, fmt, va);
+                bytes_written = _GDKtracer_fill_tracer(fill_tracer, fmt, va);
                 va_end(va);
 
                 // The second buffer will always be empty at start
                 // So if the message does not fit we cut it off
                 // message might be > BUFFER_SIZE
-                fill_stalker->allocated_size += bytes_written;
+                fill_tracer->allocated_size += bytes_written;
 
                 GDK_result = MT_join_thread(tid);
                 if(GDK_result == GDK_FAIL)
                     return GDK_FAIL;
 
-                // Set the new selected stalker 
-                ATOMIC_SET(&SELECTED_STALKER_ID, fill_stalker->id);
+                // Set the new selected tracer 
+                ATOMIC_SET(&SELECTED_tracer_ID, fill_tracer->id);
             }
-            MT_lock_unset(&lock);
+            MT_lock_unset(&fill_tracer->lock);
         }
            
         // Flush the current buffer in case the event is 
         // important depending on the flush-level
-        if(event_id >= (int) ATOMIC_GET(&CUR_FLUSH_LEVEL))
+        if((int) level >= (int) ATOMIC_GET(&CUR_FLUSH_LEVEL))
         {
-            GDK_result = GDKstalker_flush_buffer();
+            GDK_result = GDKtracer_flush_buffer();
             if(GDK_result == GDK_FAIL)
                 return GDK_FAIL;
         }
@@ -286,53 +276,46 @@ GDKstalker_log(LOG_LEVEL level, int event_id, const char *fmt, ...)
 
 
 gdk_return
-GDKstalker_flush_buffer(void)
+GDKtracer_flush_buffer(void)
 {
-    // Select a stalker
-    gdk_stalker *fl_stalker;
-    MT_Lock lock;
-    if((int) ATOMIC_GET(&SELECTED_STALKER_ID) == stalker.id)
-    {
-        fl_stalker = &stalker;
-        lock = stalker.lock;
-    }    
+    // Select a tracer
+    gdk_tracer *fl_tracer;
+    if((int) ATOMIC_GET(&SELECTED_tracer_ID) == tracer.id)
+        fl_tracer = &tracer;
     else
-    {
-        fl_stalker = &secondary_stalker;
-        lock = secondary_stalker.lock;
-    }
+        fl_tracer = &secondary_tracer;
         
     // No reason to flush a buffer with no content 
-    if(fl_stalker->allocated_size == 0)
+    if(fl_tracer->allocated_size == 0)
         return GDK_SUCCEED;
 
     // Check if file is open
-    _GDKstalker_file_is_open(output_file);
+    _GDKtracer_file_is_open(output_file);
     
-    MT_lock_set(&lock);
+    MT_lock_set(&fl_tracer->lock);
     {
-        fwrite(&fl_stalker->buffer, fl_stalker->allocated_size, 1, output_file);
+        fwrite(&fl_tracer->buffer, fl_tracer->allocated_size, 1, output_file);
         fflush(output_file);
         
         // Increase file size tracking
-        file_size += fl_stalker->allocated_size;
+        file_size += fl_tracer->allocated_size;
 
         // Reset buffer
-        memset(fl_stalker->buffer, 0, BUFFER_SIZE);
-        fl_stalker->allocated_size = 0;
+        memset(fl_tracer->buffer, 0, BUFFER_SIZE);
+        fl_tracer->allocated_size = 0;
     }
-    MT_lock_unset(&lock);
+    MT_lock_unset(&fl_tracer->lock);
 
     // Even if the existing file is full, the logger should not create
-    // a new file in case GDKstalker_stop has been called
-    if (file_size >= MAX_FILE_SIZE && !GDK_STALKER_STOP)
+    // a new file in case GDKtracer_stop has been called
+    if (file_size >= MAX_FILE_SIZE && !GDK_TRACER_STOP)
     {
         fclose(output_file);
         file_size = 0;
         file_id++;
-        _GDKstalker_create_file();
+        _GDKtracer_create_file();
     }
-    else if(GDK_STALKER_STOP)
+    else if(GDK_TRACER_STOP)
     {
         fclose(output_file);
     }
