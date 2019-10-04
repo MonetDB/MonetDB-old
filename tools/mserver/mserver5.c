@@ -423,8 +423,7 @@ main(int argc, char **av)
 				char *endarg;
 				debug |= strtol(optarg, &endarg, 10);
 				if (*endarg != '\0') {
-					Trace(M_ERROR, "wrong format for --debug=%s\n",
-							optarg);
+					Trace(M_ERROR, "wrong format for --debug=%s\n", optarg);
 					usage(prog, -1);
 				}
 			} else {
@@ -451,8 +450,7 @@ main(int argc, char **av)
 				char *endarg;
 				verbosity = (int) strtol(optarg, &endarg, 10);
 				if (*endarg != '\0') {
-					Trace(M_ERROR, "wrong format for --verbose=%s\n",
-							optarg);
+					Trace(M_ERROR, "wrong format for --verbose=%s\n", optarg);
 					usage(prog, -1);
 				}
 			} else {
@@ -466,7 +464,7 @@ main(int argc, char **av)
 			usage(prog, strcmp(av[optind - 1], "-?") == 0 || strcmp(av[optind - 1], "--help") == 0 ? 0 : -1);
 		default:
 			Trace(M_ERROR, "getopt returned character "
-				"code '%c' 0%o\n", c, (uint8_t) c);
+						   "code '%c' 0%o\n", c, (uint8_t) c);
 			usage(prog, -1);
 		}
 	}
@@ -656,9 +654,8 @@ main(int argc, char **av)
 			snprintf(secret, sizeof(secret), "%s", "Xas632jsi2whjds8");
 		} else {
 			if ((secretf = fopen(GDKgetenv("monet_vault_key"), "r")) == NULL) {
-				Trace(M_CRITICAL,
-					"unable to open vault_key_file %s: %s\n",
-					GDKgetenv("monet_vault_key"), strerror(errno));
+				Trace(M_CRITICAL, "unable to open vault_key_file %s: %s\n",
+								  GDKgetenv("monet_vault_key"), strerror(errno));
 				/* don't show this as a crash */
 				msab_registerStop();
 				exit(1);
@@ -673,7 +670,7 @@ main(int argc, char **av)
 				exit(1);
 			} else if (len < 5) {
 				Trace(M_WARNING, "your vault key is too short "
-								"(%zu), enlarge your vault key!\n", len);
+								 "(%zu), enlarge your vault key!\n", len);
 			}
 			fclose(secretf);
 		}
