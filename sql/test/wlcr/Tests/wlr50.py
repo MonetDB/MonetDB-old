@@ -32,7 +32,7 @@ c = process.client('sql', server = slave, stdin = process.PIPE, stdout = process
 
 # Generate a wrong master record
 cout, cerr = c.communicate('''\
-call wlr.master('demo');   
+call wlr.master('demo');
 call wlr.replicate();
 select * from tmp;
 call wlr.stop();
