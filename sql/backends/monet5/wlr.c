@@ -45,8 +45,6 @@
 
 //#define _WLR_DEBUG_
   
-MT_Lock     wlr_lock = MT_LOCK_INITIALIZER("wlr_lock");
-
 /* The current status of the replica processing.
  * It is based on the assumption that at most one replica thread is running
  * importing data from a single master.
@@ -193,7 +191,7 @@ WLRgetMaster(void)
 	if (len == -1 || len >= FILENAME_MAX)
 		throw(MAL, "wlr.getMaster", "wlc.config filename path is too large");
 	if((dir = GDKfilepath(0,path,"wlc.config",0)) == NULL)
-		throw(MAL,"wlr.getMaster","Could not access wlc.config file\n");
+		throw(MAL,"wlr.getMaster","Could not access wlc.config file %s/wlc.config\n", path);
 
 	fd = fopen(dir,"r");
 	GDKfree(dir);
@@ -203,7 +201,7 @@ WLRgetMaster(void)
 			throw(MAL,"wlr.getMaster","Master not identified\n");
 		wlc_state = WLC_CLONE; // not used as master
 	} else
-		throw(MAL,"wlr.getMaster","Could not access wlc.config file\n");
+		throw(MAL,"wlr.getMaster","Could not get read access to '%s'config file\n", wlr_master);
 	return MAL_SUCCEED;
 }
 
@@ -535,8 +533,8 @@ WLRreplicate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	time_t clk;
 	struct tm ctm;
 	char clktxt[26];
-	int duration = 2000;
-	lng limit;
+	int duration = 5000;
+	lng limit = INT64_MAX;
 	str msg = MAL_SUCCEED;
 	(void) cntxt;
 
@@ -544,7 +542,7 @@ WLRreplicate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL, "sql.replicate", "No replication configuration");
 
 	if( !wlr_thread)
-		throw(MAL, "sql.replicate", "Replicator not started, call setmaster() first ");
+		throw(MAL, "sql.replicate", "Replicator not started, call wlr.master() first ");
 	
 	if( pci->argc == 0)
 		wlr_limit = INT64_MAX;
@@ -568,7 +566,7 @@ WLRreplicate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	
 	if ( limit < 0 && timelimit[0] == 0)
 		throw(MAL, "sql.replicate", "Stop tag limit should be positive or timestamp should be set");
-	if ( limit < INT64_MAX && limit >= wlc_tag)
+	if (limit < INT64_MAX && limit >= wlc_tag)
 		throw(MAL, "sql.replicate", "Stop tag limit "LLFMT" be less than wlc_tag "LLFMT, limit, wlc_tag);
 	if ( limit >= 0)
 		wlr_limit = limit;
@@ -576,13 +574,6 @@ WLRreplicate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (  wlc_state != WLC_CLONE)
 		throw(MAL, "sql.replicate", "No replication master set");
 	WLRputConfig();
-
-	if ( wlr_limit == INT64_MAX){
-#ifdef _WLR_DEBUG_
-		fprintf(stderr, "#replicate running in the background \n");
-#endif
-		return MAL_SUCCEED;
-	}
 
 	// the client thread should wait for the replicator to its job
 	gettimeofday(&clock, NULL);
@@ -598,6 +589,8 @@ WLRreplicate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif
 
 	while ( (wlr_tag < wlr_limit )  || (wlr_timelimit[0]  && strncmp(clktxt, wlr_timelimit, sizeof(wlr_timelimit)) > 0)  ) {
+		if( wlr_limit == INT64_MAX && wlr_tag >= wlc_tag -1 )
+			break;
 		if ( wlr_error[0])
 			throw(MAL, "sql.replicate", "tag "LLFMT": %s", wlr_tag, wlr_error);
 		if ( wlr_tag == wlc_tag)
@@ -615,8 +608,12 @@ WLRreplicate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 
 		duration -= 200;
-		if ( duration < 0)
-			throw(SQL,"wlr.startreplicate",SQLSTATE(42000) "Timeout to wait for replicator to catch up ");
+		if ( duration < 0){
+			if( wlr_limit == INT64_MAX && wlr_timelimit[0] == 0)
+				break;
+			throw(SQL,"wlr.startreplicate",SQLSTATE(42000) "Timeout to wait for replicator to catch up."
+			"Catched up until "LLFMT", " LLFMT " pending", wlr_tag, wlr_limit - wlr_tag);
+		}
 		// don't make the sleep too short.
 		MT_sleep_ms( 200);
 	}
@@ -658,6 +655,7 @@ str
 WLRstart(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int len;
+	str msg;
 
 	(void) cntxt;
 	(void) mb;
@@ -667,15 +665,13 @@ WLRstart(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	len = snprintf(wlr_master, IDLENGTH, "%s", *getArgReference_str(stk, pci, 1));
 	if (len == -1 || len >= IDLENGTH)
 		throw(MAL, "wlr.replicate", SQLSTATE(42000) "Input value is too large for wlr_master buffer");
-	if( WLRgetMaster())
-		throw(MAL, "wlr.replicate", SQLSTATE(42000) "Can not access the master configuration record ");
+	if( (msg =WLRgetMaster()) != MAL_SUCCEED)
+		return msg;
 
-	MT_lock_set(&wlr_lock);	 // avoid creation of multiple replicators in parallel.
 	
 	// time the consolidation process in the background
 	if (MT_create_thread(&wlr_thread, WLRprocessScheduler, (void*) NULL,
 			     MT_THR_DETACHED, "WLRprocessSched") < 0) {
-			MT_lock_unset(&wlr_lock);
 			throw(SQL,"wlr.init",SQLSTATE(42000) "Starting wlr manager failed");
 	}
 #ifdef _WLR_DEBUG_
@@ -683,13 +679,12 @@ WLRstart(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #else
 	(void) cntxt;
 #endif
-	MT_lock_unset(&wlr_lock);
 	// Wait until the replicator is properly initialized
 	while( wlr_state != WLR_RUN && wlr_error[0] == 0){
 #ifdef _WLR_DEBUG_
 		fprintf(stderr,"#WLR replicator initializing\n");
 #endif
-		MT_sleep_ms( 200);
+		MT_sleep_ms( 50);
 	}
 	return MAL_SUCCEED;
 }

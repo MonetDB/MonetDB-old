@@ -588,10 +588,10 @@ WLCpreparewrite(Client cntxt)
 		if( wlc_beat == 0 )
 			msg = WLCcloselogger();
 		
+		MT_lock_unset(&wlc_lock);
 		trimMalVariables(cntxt->wlc, NULL);
 		resetMalBlk(cntxt->wlc, 0);
 		cntxt->wlc_kind = WLC_QUERY;
-		MT_lock_unset(&wlc_lock);
 	} else
 			throw(MAL,"wlc.write","WLC log path missing ");
 

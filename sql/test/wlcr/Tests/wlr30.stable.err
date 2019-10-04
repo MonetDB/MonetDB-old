@@ -1,87 +1,29 @@
 stderr of test 'wlr30` in directory 'sql/test/wlcr` itself:
 
 
-# 10:21:36 >  
-# 10:21:36 >  "/usr/bin/python2" "wlr30.py" "wlr30"
-# 10:21:36 >  
+# 11:18:58 >  
+# 11:18:58 >  "/usr/bin/python3" "wlr30.py" "wlr30"
+# 11:18:58 >  
 
-# builtin opt 	gdk_dbpath = /export/scratch1/mk/wlcr//Linux/var/monetdb5/dbfarm/demo
-# builtin opt 	gdk_debug = 0
-# builtin opt 	gdk_vmtrim = no
-# builtin opt 	monet_prompt = >
-# builtin opt 	monet_daemon = no
+# builtin opt 	gdk_dbpath = /export/scratch1/mk/branches/wlcr//Linux/var/monetdb5/dbfarm/demo
 # builtin opt 	mapi_port = 50000
 # builtin opt 	mapi_open = false
+# builtin opt 	mapi_ipv6 = false
 # builtin opt 	mapi_autosense = false
 # builtin opt 	sql_optimizer = default_pipe
 # builtin opt 	sql_debug = 0
 # cmdline opt 	gdk_nr_threads = 0
 # cmdline opt 	mapi_open = true
-# cmdline opt 	mapi_port = 51217
-# cmdline opt 	mapi_usock = /var/tmp/mtest-27853/.s.monetdb.51217
+# cmdline opt 	mapi_port = 55817
+# cmdline opt 	mapi_usock = /var/tmp/mtest-29550/.s.monetdb.55817
 # cmdline opt 	gdk_dbpath = /export/scratch1/mk/branches/wlcr//Linux/var/MonetDB/mTests_sql_test_wlcr-clone
-#WLR scheduler forked
-#WLR replicator initializing
-#WLRgetConfig master=mTests_sql_test_wlcr
-#WLRgetConfig batches=7
-#WLRgetConfig tag=6
-#WLRgetConfig beat=0
-#Run the replicator 0 101
-#WLRgetConfig master=mTests_sql_test_wlcr
-#WLRgetConfig batches=7
-#WLRgetConfig tag=6
-#WLRgetConfig beat=0
 #client1:!ERROR:MALException:sql.replicate:Stop tag limit should be positive or timestamp should be set
-#WLRgetConfig master=mTests_sql_test_wlcr
-#WLRgetConfig batches=7
-#WLRgetConfig tag=6
-#WLRgetConfig beat=0
-#WLRput: batches 7 tag 6 limit 8 beat 0 timelimit 
-#replicate: wait until wlr_limit = 8 (tag 6) time  (2019-10-02T15:01:51.000)
-#replicate wait state 101 wlr_limit 8 (wlr_tag 6) wlc_tag 9 wlr_batches 7
-#replicate wait state 101 wlr_limit 8 (wlr_tag 6) wlc_tag 9 wlr_batches 7
-#Ready to start the replay against batches state 101 wlr 6  wlr_limit 8  wlc 9  taglimit 8
-#REPLAY LOG FILE:/export/scratch1/mk/branches/wlcr//Linux/var/MonetDB/mTests_sql_test_wlcr/wlc_logs//mTests_sql_test_wlcr_000000000007
-#do transaction tag 7 wlr_limit 8 wlr_tag 6
-#run against tlimit   wlr_tag 6  tag7 
-#process a transaction
-
-
-
-
-
-
-#WLRput: batches 7 tag 7 limit 8 beat 0 timelimit 
-#unexpected instruction =function user.wlr():void;
-#wlr.process:processed log file  wlr_tag 7 wlr_limit 8 time 
-#WLRput: batches 8 tag 7 limit 8 beat 0 timelimit 
-#REPLAY LOG FILE:/export/scratch1/mk/branches/wlcr//Linux/var/MonetDB/mTests_sql_test_wlcr/wlc_logs//mTests_sql_test_wlcr_000000000008
-#do transaction tag 8 wlr_limit 8 wlr_tag 7
-#run against tlimit   wlr_tag 7  tag8 
-#process a transaction
-
-
-
-
-
-
-
-
-
-
-
-#WLRput: batches 8 tag 8 limit 8 beat 0 timelimit 
-#wlr.process:processed log file  wlr_tag 8 wlr_limit 8 time 
-#WLRput: batches 9 tag 8 limit 8 beat 0 timelimit 
-#replicate finished 8 (tag 8)
-#WLR stop replication
-#Replicator thread is stopped 
-MAPI  = (monetdb) /var/tmp/mtest-27853/.s.monetdb.51217
+MAPI  = (monetdb) /var/tmp/mtest-29550/.s.monetdb.55817
 QUERY = call wlr.replicate(-1);
 ERROR = !Stop tag limit should be positive or timestamp should be set
 
 
-# 10:21:36 >  
-# 10:21:36 >  "Done."
-# 10:21:36 >  
+# 11:18:59 >  
+# 11:18:59 >  "Done."
+# 11:18:59 >  
 

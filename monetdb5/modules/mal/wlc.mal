@@ -18,7 +18,7 @@ pattern master(path:str)
 address WLCmaster
 comment "Activate the workload-capture-replay process. Use a different location for the logs.";
 
-pattern stopmaster()
+pattern stop()
 address WLCstop
 comment "Stop capturing the logs";
 

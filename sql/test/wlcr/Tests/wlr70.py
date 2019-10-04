@@ -23,20 +23,20 @@ def freeport():
 cloneport = freeport()
 
 dbname = tstdb
-dbnameclone = tstdb + '-clone'
+dbnameclone = tstdb + 'clone'
 
 #master = process.server(dbname = dbname, stdin = process.PIPE, stdout = process.PIPE, stderr = process.PIPE)
 slave = process.server(dbname = dbnameclone, mapiport = cloneport, stdin = process.PIPE, stdout = process.PIPE, stderr = process.PIPE)
 
 c = process.client('sql', server = slave, stdin = process.PIPE, stdout = process.PIPE, stderr = process.PIPE)
 
+# the previous test did not prepare the log files
 cout, cerr = c.communicate('''\
+call wlr.master('%s');
 call wlr.replicate(now());
-select * from tmp70;
-call wlr.replicate();
-select * from tmp70;
+select * from tmp;
 call wlr.stop();
-''' )
+''' % dbname)
 
 sout, serr = slave.communicate()
 #mout, merr = master.communicate()

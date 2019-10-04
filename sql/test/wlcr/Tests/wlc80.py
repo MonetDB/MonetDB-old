@@ -15,7 +15,6 @@ if not tstdb or not dbfarm:
 
 #clean up first
 dbname = tstdb
-dbnameclone = tstdb + '-clone'
 
 s = process.server(dbname = dbname, stdin = process.PIPE, stdout = process.PIPE, stderr = process.PIPE)
 
@@ -24,8 +23,8 @@ c = process.client('sql', server = s, stdin = process.PIPE, stdout = process.PIP
 #continue logging
 cout, cerr = c.communicate('''\
 call wlc.stop();
-create table tmp70(i int, s string);
-insert into tmp70 values(1,'thanks'), (2,'for the fish');
+create table tmp80(i int, s string);
+insert into tmp80 values(1,'thanks'), (2,'for the fish');
 select * from tmp70;
 ''')
 
