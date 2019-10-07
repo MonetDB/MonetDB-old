@@ -9,7 +9,7 @@
 #define INT_MAX_LEN ((__CHAR_BIT__ * sizeof(int) - 1) / 3  + 2)
 #define BUFFER_SIZE 64000
 
-#define DEFAULT_LOG_LEVEL M_NONE
+#define DEFAULT_LOG_LEVEL M_INFO
 #define DEFAULT_FLUSH_LEVEL M_ERROR
 
 #define FILE_NAME "trace"
@@ -24,26 +24,35 @@
                   __FUNCTION__,                                     \
                   __LINE__,                                         \
                   ## __VA_ARGS__);
-    
+
+
+#define TraceLN(LVL, FUNC_LN, MSG, ...)                             \
+    GDKtracer_log(LVL,                                              \
+                  "[%s] %s (%s:%d): # "MSG,                         \
+                  GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),     \
+                  __FILE__,                                         \
+                  FUNC_LNAME,                                       \
+                  __LINE__,                                         \
+                  ## __VA_ARGS__);
+
 
 /**
  *
- *      NONE      0 
- *      DEBUG     1 - 99        Following the DEBUG settings in the source code
- *      INFO      100 - 149     Reserved for package specific debugging
- *      WARNING   150 - 199
- *      ERROR     200 - 254     Package specific errors (GDK, MAL, SQL, MAPI)
- *      CRITICAL  255           Cannot be ignored
+ *      NONE        0 
+ *      INFO        1 - 99          Reserved for package specific debugging
+ *      WARNING     100 - 149     
+ *      DEBUG       150 - 199       Following the DEBUG settings in the source code
+ *      ERROR       200 - 254       Package specific errors (GDK, MAL, SQL, MAPI)
+ *      CRITICAL    255             Cannot be ignored
  * 
  */
- 
 // The minimum code is assigned to each LOG_LEVEL
 typedef enum { 
 
                M_NONE = 0, 
-               M_DEBUG = 1, 
-               M_INFO = 100, 
-               M_WARNING = 150, 
+               M_INFO = 1, 
+               M_WARNING = 100, 
+               M_DEBUG = 150, 
                M_ERROR = 200, 
                M_CRITICAL = 255 
 
