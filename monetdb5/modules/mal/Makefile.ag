@@ -49,7 +49,6 @@ lib_mal = {
 		json_util.c json_util.h \
 		calc.c batcalc.c \
 		tracer.c tracer.h \
-	LIBS = ../../../gdk/libgdktracer
 }
 
 headers_mal = {
