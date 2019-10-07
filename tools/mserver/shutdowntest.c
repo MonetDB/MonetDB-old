@@ -21,6 +21,7 @@
 #include "mal_linker.h"
 #include "sql_execute.h"
 #include "sql_scenario.h"
+#include "gdk_tracer.h"
 
 static char* dbdir = NULL;
 
@@ -198,7 +199,7 @@ static str monetdb_initialize(void) {
 	 * even earlier?  Sabaoth here registers the server is starting up. */
 	if ((retval = msab_registerStarting()) != NULL) {
 		/* throw the error at the user, but don't die */
-		fprintf(stderr, "!%s\n", retval);
+		Trace(M_ERROR, "%s\n", retval);
 		free(retval);
 	}
 
@@ -207,7 +208,7 @@ static str monetdb_initialize(void) {
 		/* we inited mal before, so publish its existence */
 		if ((retval = msab_marchScenario(lang)) != NULL) {
 			/* throw the error at the user, but don't die */
-			fprintf(stderr, "!%s\n", retval);
+			Trace(M_ERROR, "%s\n", retval);
 			free(retval);
 		}
 	}
@@ -225,9 +226,8 @@ static str monetdb_initialize(void) {
 			snprintf(secret, sizeof(secret), "%s", "Xas632jsi2whjds8");
 		} else {
 			if ((secretf = fopen(GDKgetenv("monet_vault_key"), "r")) == NULL) {
-				fprintf(stderr,
-					"unable to open vault_key_file %s: %s\n",
-					GDKgetenv("monet_vault_key"), strerror(errno));
+				Trace(M_CRITICAL, "unable to open vault_key_file %s: %s\n",
+								GDKgetenv("monet_vault_key"), strerror(errno))
 				/* don't show this as a crash */
 				err = msab_registerStop();
 				if (err)
@@ -238,14 +238,14 @@ static str monetdb_initialize(void) {
 			secret[len] = '\0';
 			len = strlen(secret); /* secret can contain null-bytes */
 			if (len == 0) {
-				fprintf(stderr, "vault key has zero-length!\n");
+				Trace(M_CRITICAL, "vault key has zero-length!\n")
 				/* don't show this as a crash */
 				err = msab_registerStop();
 				if (err)
 					free(err);
 				exit(1);
 			} else if (len < 5) {
-				fprintf(stderr, "#warning: your vault key is too short "
+				Trace(M_WARNING, "your vault key is too short "
 								"(%zu), enlarge your vault key!\n", len);
 			}
 			fclose(secretf);
@@ -255,7 +255,7 @@ static str monetdb_initialize(void) {
 			err = msab_registerStop();
 			if (err)
 				free(err);
-			fprintf(stderr, "%s\n", retval);
+			Trace(M_CRITICAL, "%s\n", retval);
 			exit(1);
 		}
 	}
@@ -265,7 +265,7 @@ static str monetdb_initialize(void) {
 		err = msab_registerStop();
 		if (err)
 			free(err);
-		fprintf(stderr, "%s\n", retval);
+		Trace(M_CRITICAL, "%s\n", retval);
 		exit(1);
 	}
 
