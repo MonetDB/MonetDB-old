@@ -26,6 +26,7 @@
 #include "mprompt.h"
 #include "mutils.h"		/* mercurial_revision */
 #include "dotmonetdb.h"
+#include "gdk_tracer.h"
 
 static _Noreturn void usage(const char *prog, int xit);
 
@@ -172,7 +173,7 @@ main(int argc, char **argv)
 	if (dbname)
 		free(dbname);
 	if (mid == NULL) {
-		fprintf(stderr, "failed to allocate Mapi structure\n");
+		Trace(M_CRITICAL, "failed to allocate Mapi structure\n");
 		exit(2);
 	}
 	if (mapi_error(mid)) {
@@ -183,14 +184,14 @@ main(int argc, char **argv)
 		const char *motd = mapi_get_motd(mid);
 
 		if (motd)
-			fprintf(stderr, "%s", motd);
+			Trace(M_INFO, "%s", motd);
 	}
 	mapi_trace(mid, trace);
 	mapi_cache_limit(mid, 10000);
 
 	out = file_wastream(stdout, "stdout");
 	if (out == NULL) {
-		fprintf(stderr, "failed to allocate stream\n");
+		Trace(M_CRITICAL, "failed to allocate stream\n");
 		exit(2);
 	}
 	if (!quiet) {
@@ -236,7 +237,7 @@ main(int argc, char **argv)
 
 	mapi_destroy(mid);
 	if (mnstr_errnr(out)) {
-		fprintf(stderr, "%s: %s", argv[0], mnstr_error(out));
+		Trace(M_ERROR, "%s: %s", argv[0], mnstr_error(out));
 		return 1;
 	}
 
