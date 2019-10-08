@@ -1172,13 +1172,12 @@ logger_readlog(logger *lg, char *filename, bool *filemissing)
 			}
 		}
 		if (lg->debug & 1) {
-			fprintf(stderr, "#logger_readlog: ");
 			if (l.flag > 0 &&
 			    l.flag < (char) (sizeof(log_commands) / sizeof(log_commands[0]))) {
-				Trace(M_DEBUG, "logger_readlog %s %d " LLFMT " %s\n", 
+				Trace(M_DEBUG, "%s %d " LLFMT " %s\n", 
 					log_commands[(int) l.flag], l.tid, l.nr, (name ? name : " "));
 			} else {
-				Trace(M_DEBUG,  "logger_readlog %d %d " LLFMT " %s\n", 
+				Trace(M_DEBUG,  "%d %d " LLFMT " %s\n", 
 					l.flag, l.tid, l.nr, (name ? name : " "));
 			}
 		}
@@ -1203,7 +1202,7 @@ logger_readlog(logger *lg, char *filename, bool *filemissing)
 				break;
 			}
 			if (lg->debug & 1)
-				Trace(M_DEBUG, "logger tstart %d\n", tr->tid);
+				Trace(M_DEBUG, "logger transaction start %d\n", tr->tid);
 			break;
 		case LOG_END:
 			if (tr == NULL)
@@ -1375,7 +1374,7 @@ static gdk_return
 logger_commit(logger *lg)
 {
 	if (lg->debug & 1)
-		Trace(M_DEBUG, "logger_commit\n");
+		Trace(M_DEBUG, "enter logger_commit\n");
 
 	/* cleanup old snapshots */
 	if (BATcount(lg->snapshots_bid)) {
@@ -2446,7 +2445,7 @@ logger_new(int debug, const char *fn, const char *logdir, int version, preversio
 	lg->bufsize = 64*1024;
 	lg->buf = GDKmalloc(lg->bufsize);
 	if (lg->fn == NULL || lg->dir == NULL || lg->buf == NULL) {
-		Trace(M_ERROR, "strdup failedn\n");
+		Trace(M_ERROR, "strdup failed\n");
 		GDKfree(lg->fn);
 		GDKfree(lg->dir);
 		GDKfree(lg->buf);
@@ -3053,7 +3052,7 @@ log_tend(logger *lg)
 	gdk_return res = GDK_SUCCEED;
 
 	if (lg->debug & 1)
-		Trace(M_DEBUG, "log_tend %d\n", lg->tid);
+		Trace(M_DEBUG, "transaction end %d\n", lg->tid);
 
 	if (DELTAdirty(lg->snapshots_bid)) {
 		/* sub commit all new snapshots */
