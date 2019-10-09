@@ -10,6 +10,7 @@
 */
 
 #include "monetdb_config.h"
+#include "gdk_tracer.h"
 #include "mal_parser.h"
 #include "mal_resolve.h"
 #include "mal_linker.h"
@@ -992,7 +993,7 @@ parseModule(Client cntxt)
 	} else 
 	if( getModule(modnme) == NULL){
 #ifdef _DEBUG_PARSER_
-		fprintf(stderr,"Module create %s\n",modnme);
+		Trace(M_DEBUG, "Module create: %s\n", modnme)
 #endif
 		if( globalModule(modnme) == NULL)
 			parseError(cntxt,"<module> could not be created");
