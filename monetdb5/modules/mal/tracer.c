@@ -24,7 +24,7 @@ TRCRflush_buffer(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) stk;
 	(void) pci;
 
-    if ( GDKtracer_flush_buffer() == GDK_FAIL)
+    if (GDKtracer_flush_buffer() == GDK_FAIL)
         throw(TRACER, __FILE__, "%s:%s", __func__, OPERATION_FAILED);
     return MAL_SUCCEED;
 }
@@ -38,7 +38,7 @@ TRCRset_log_level(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 
 	lvl = (int*) getArgReference_str(stk,pci,1);
-    if( GDKtracer_set_log_level(lvl) == GDK_FAIL)
+    if(GDKtracer_set_log_level(lvl) == GDK_FAIL)
         throw(TRACER, __FILE__, "%s:%s", __func__, OPERATION_FAILED);
     return MAL_SUCCEED; 
 }
@@ -52,8 +52,8 @@ TRCRreset_log_level(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) stk;
 	(void) pci;
 
-    if( GDKtracer_reset_log_level())
-        throw(TRACER, __FILE__, "%s:%s", __func__, OPERATION_FAILED);
+    if(GDKtracer_reset_log_level())
+		throw(TRACER, __FILE__, "%s:%s", __func__, OPERATION_FAILED);
     return MAL_SUCCEED;
 }
 
@@ -66,7 +66,7 @@ TRCRset_flush_level(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) mb;
 
 	lvl = (int*) getArgReference_str(stk,pci,1);
-    if( GDKtracer_set_flush_level(lvl))
+    if(GDKtracer_set_flush_level(lvl))
         throw(TRACER, __FILE__, "%s:%s", __func__, OPERATION_FAILED);
     return MAL_SUCCEED;
 }
@@ -80,7 +80,7 @@ TRCRreset_flush_level(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) stk;
 	(void) pci;
 
-    if( GDKtracer_reset_flush_level() == GDK_FAIL)
+    if(GDKtracer_reset_flush_level() == GDK_FAIL)
         throw(TRACER, __FILE__, "%s:%s", __func__, OPERATION_FAILED);
 
     return MAL_SUCCEED;
