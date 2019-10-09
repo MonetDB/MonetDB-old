@@ -14,6 +14,7 @@
 
 #define FILE_NAME "trace"
 #define NAME_SEP '_'
+#define NEW_LINE '\n'
 #define MAX_FILE_SIZE 1073741824
 
 #define Trace(LVL, MSG, ...)                                        \

@@ -80,15 +80,32 @@ _GDKtracer_create_file(void)
 
 
 
-// Candidate for 'gnu_printf'’' format attribute [-Werror=suggest-attribute=format]
+// Candidate for 'gnu_printf' format attribute [-Werror=suggest-attribute=format]
 static int 
 _GDKtracer_fill_tracer(gdk_tracer *sel_tracer, const char *fmt, va_list va) __attribute__ ((format (printf, 2, 0)));
 
 static int 
 _GDKtracer_fill_tracer(gdk_tracer *sel_tracer, const char *fmt, va_list va)
 {
+    const char *msg;
+    size_t fmt_len = strlen(fmt);
+
+    // Check if the message contains at the end \n - if not add it
+    if(fmt[fmt_len - 1] != NEW_LINE)
+    {
+        char *tmp = malloc(sizeof(char) * (fmt_len + 1));
+        strcpy(tmp, fmt);
+        tmp[fmt_len] = NEW_LINE;
+        msg = tmp;
+        free(tmp);
+    }
+    else
+    {
+        msg = fmt;
+    }
+
     // vsnprintf(char *str, size_t count, ...) -> including null terminating character
-    int bytes_written = vsnprintf(sel_tracer->buffer + sel_tracer->allocated_size, BUFFER_SIZE - sel_tracer->allocated_size, fmt, va);
+    int bytes_written = vsnprintf(sel_tracer->buffer + sel_tracer->allocated_size, BUFFER_SIZE - sel_tracer->allocated_size, msg, va);
     _GDKtracer_log_output_error(bytes_written);
 
     // vsnprintf returned value -> does not include the null terminating character
@@ -205,8 +222,6 @@ GDKtracer_log(LOG_LEVEL level, const char *fmt, ...)
         else
             fill_tracer = &secondary_tracer;
 
-        fprintf(stderr, "SELECTED STALKER -> %d\n", fill_tracer->id);
-
         MT_lock_set(&fill_tracer->lock);
         {
             va_list va;
@@ -218,7 +233,6 @@ GDKtracer_log(LOG_LEVEL level, const char *fmt, ...)
             if(bytes_written < (BUFFER_SIZE - fill_tracer->allocated_size) || 
                fill_tracer->allocated_size == 0)
             {
-                fprintf(stderr, "FILLED TRACER -> %d with %d bytes\n", fill_tracer->id, fill_tracer->allocated_size);
                 fill_tracer->allocated_size += bytes_written;
                 SWITCH_tracer = false;
             }
