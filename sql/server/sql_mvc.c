@@ -290,7 +290,7 @@ mvc_trans(mvc *m)
 
 	store_lock();
 	if (GDKverbose >= 1)
-		Trace(M_INFO, "%s: starting transaction\n",
+		Trace(M_INFO, "Thread %s: starting transaction\n",
 			MT_thread_getname());
 	schema_changed = sql_trans_begin(m->session);
 	if (m->qc && (schema_changed || m->qc->nr > m->cache || err)){
@@ -391,7 +391,7 @@ mvc_commit(mvc *m, int chain, const char *name, bool enabling_auto_commit)
 	assert(m->session->tr->active);	/* only commit an active transaction */
 
 	if (mvc_debug)
-		Trace(M_DEBUG, "Commit: %s\n", (name) ? name : "");
+		Trace(M_DEBUG, "Commit transaction: %s\n", (name) ? name : "");
 
 	if(enabling_auto_commit)
 		snprintf(operation, BUFSIZ, "Commit failed while enabling auto_commit: ");
@@ -411,7 +411,7 @@ mvc_commit(mvc *m, int chain, const char *name, bool enabling_auto_commit)
 	if (name && name[0] != '\0') {
 		sql_trans *tr = m->session->tr;
 		if (mvc_debug)
-			Trace(M_DEBUG, "MVC savepoint\n");
+			Trace(M_DEBUG, "Transaction savepoint\n");
 		store_lock();
 		m->session->tr = sql_trans_create(m->session->stk, tr, name, true);
 		if(!m->session->tr) {
@@ -434,9 +434,9 @@ build up the hash (not copied in the trans dup)) */
 			qc_clean(m->qc);
 		m->session->schema = find_sql_schema(m->session->tr, m->session->schema_name);
 		if (mvc_debug)
-			Trace(M_DEBUG, "Commit: %s done\n", name);
+			Trace(M_DEBUG, "Commit transaction: %s done\n", name);
 		if (GDKverbose >= 1)
-			Trace(M_INFO, "%s: savepoint commit: %s done\n",
+			Trace(M_INFO, "Thread %s: savepoint commit transaction: %s done\n",
 				MT_thread_getname(), name);
 		return msg;
 	}
@@ -473,9 +473,9 @@ build up the hash (not copied in the trans dup)) */
 			return msg;
 		}
 		if (mvc_debug)
-			Trace(M_DEBUG, "Commit done\n");
+			Trace(M_DEBUG, "Commit transaction done\n");
 		if (GDKverbose >= 1)
-			Trace(M_INFO, "%s: commit done (no changes)%s%.200s\n",
+			Trace(M_INFO, "Thread %s: commit transaction done (no changes)%s%.200s\n",
 				MT_thread_getname(),
 				GDKverbose >= 2 && m->query ? ", query: " : "",
 				GDKverbose >= 2 && m->query ? m->query : "");
@@ -535,9 +535,9 @@ build up the hash (not copied in the trans dup)) */
 	store_unlock();
 	m->type = Q_TRANS;
 	if (mvc_debug)
-		Trace(M_DEBUG, "Commit done\n");
+		Trace(M_DEBUG, "Commit transaction done\n");
 	if (GDKverbose >= 1)
-		Trace(M_INFO, "%s: commit done%s%.200s\n",
+		Trace(M_INFO, "Thread %s: commit transaction done%s%.200s\n",
 			MT_thread_getname(),
 			GDKverbose >= 2 && m->query ? ", query: " : "",
 			GDKverbose >= 2 && m->query ? m->query : "");
@@ -551,7 +551,7 @@ mvc_rollback(mvc *m, int chain, const char *name, bool disabling_auto_commit)
 	str msg;
 
 	if (mvc_debug)
-		Trace(M_DEBUG, "Rollback: %s\n", (name) ? name : "");
+		Trace(M_DEBUG, "Rollback transaction: %s\n", (name) ? name : "");
 
 	assert(tr);
 	assert(m->session->tr->active);	/* only abort an active transaction */
@@ -602,9 +602,9 @@ mvc_rollback(mvc *m, int chain, const char *name, bool disabling_auto_commit)
 	}
 	m->type = Q_TRANS;
 	if (mvc_debug)
-		Trace(M_DEBUG, "Rollback: %s done\n", (name) ? name : "");
+		Trace(M_DEBUG, "Rollback transaction: %s done\n", (name) ? name : "");
 	if (GDKverbose >= 1)
-		Trace(M_INFO, "%s: commit%s%s rolled back%s%s%.200s\n",
+		Trace(M_INFO, "Thread %s: commit%s%s rolled back%s%s%.200s\n",
 			MT_thread_getname(), name ? " " : "", name ? name : "",
 			tr->wtime == 0 ? " (no changes)" : "",
 			GDKverbose >= 2 && m->query ? ", query: " : "",
@@ -626,7 +626,7 @@ mvc_release(mvc *m, const char *name)
 	assert(m->session->tr->active);	/* only release active transactions */
 
 	if (mvc_debug)
-		Trace(M_DEBUG, "Release: %s\n", (name) ? name : "");
+		Trace(M_DEBUG, "Release savepoint: %s\n", (name) ? name : "");
 
 	if (!name && (msg = mvc_rollback(m, 0, name, false)) != MAL_SUCCEED) {
 		m->session->status = -1;
@@ -1005,7 +1005,7 @@ mvc_bind_idx(mvc *m, sql_schema *s, const char *iname)
 	i = n->data;
 
 	if (mvc_debug)
-		Trace(M_DEBUG, "MVC bind idx %s.%s\n", s->base.name, iname);
+		Trace(M_DEBUG, "Bind index: %s.%s\n", s->base.name, iname);
 
 	return i;
 }
@@ -1430,7 +1430,7 @@ mvc_create_dependencies(mvc *m, list *id_l, sqlid depend_id, sql_dependency dep_
 	int i;
 
 	if (mvc_debug)
-		Trace(M_DEBUG, "Create dependencies on %d of type %d\n", depend_id, (int) dep_type);
+		Trace(M_DEBUG, "Create dependencies on (%d) of type (%d)\n", depend_id, (int) dep_type);
 
 	for (i = 0; i < list_length(id_l); i++)
 	{
@@ -1445,7 +1445,7 @@ mvc_check_dependency(mvc * m, sqlid id, sql_dependency type, list *ignore_ids)
 	list *dep_list = NULL;
 
 	if (mvc_debug)
-		Trace(M_DEBUG, "Check dependency on %d\n", id);
+		Trace(M_DEBUG, "Check dependency on (%d)\n", id);
 
 	switch (type) {
 		case OWNER_DEPENDENCY: 
@@ -1525,7 +1525,7 @@ sql_column *
 mvc_storage(mvc *m, sql_column *col, char *storage)
 {
 	if (mvc_debug)
-		Trace(M_DEBUG, "Storage %s %s\n", col->base.name, storage);
+		Trace(M_DEBUG, "Storage: %s %s\n", col->base.name, storage);
 
 	if (col->t->persistence == SQL_DECLARED_TABLE) {
 		col->storage_type = storage?sa_strdup(m->sa, storage):NULL;
