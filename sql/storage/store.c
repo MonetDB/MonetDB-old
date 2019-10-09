@@ -578,7 +578,7 @@ load_column(sql_trans *tr, sql_table *t, oid rid)
 	c->sorted = sql_trans_is_sorted(tr, c);
 	c->dcount = 0;
 	if (bs_debug)
-		Trace(M_DEBUG, "Load column %s\n", c->base.name);
+		Trace(M_DEBUG, "Load column: %s\n", c->base.name);
 	return c;
 }
 
@@ -774,7 +774,7 @@ load_table(sql_trans *tr, sql_schema *s, sqlid tid, subrids *nrs)
 	}
 
 	if (bs_debug)
-		Trace(M_DEBUG, "Load table %s\n", t->base.name);
+		Trace(M_DEBUG, "Load table: %s\n", t->base.name);
 
 	partitions_table_id = find_sql_column(partitions, "table_id");
 	rs = table_funcs.rids_select(tr, partitions_table_id, &t->base.id, &t->base.id, NULL);
@@ -973,7 +973,7 @@ load_func(sql_trans *tr, sql_schema *s, sqlid fid, subrids *rs)
 	}
 
 	if (bs_debug)
-		Trace(M_DEBUG, "Load function %s\n", t->base.name);
+		Trace(M_DEBUG, "Load function: %s\n", t->base.name);
 
 	t->ops = list_new(tr->sa, (fdestroy)NULL);
 	if (rs) {
@@ -1086,7 +1086,7 @@ sql_trans_update_schema(sql_trans *tr, oid rid)
 		return ;
 
 	if (bs_debug)
-		Trace(M_DEBUG, "Update schema %s %d\n", s->base.name, s->base.id);
+		Trace(M_DEBUG, "Update schema: %s %d\n", s->base.name, s->base.id);
 
 	v = table_funcs.column_find_value(tr, find_sql_column(ss, "name"), rid);
 	base_init(tr->sa, &s->base, sid, 0, v); _DELETE(v);
@@ -1154,7 +1154,7 @@ load_schema(sql_trans *tr, sqlid id, oid rid)
 	}
 
 	if (bs_debug)
-		Trace(M_DEBUG, "Load schema %s %d\n", s->base.name, s->base.id);
+		Trace(M_DEBUG, "Load schema: %s %d\n", s->base.name, s->base.id);
 
 	sqlid tmpid = store_oids ? FUNC_OIDS : id;
 
@@ -1521,7 +1521,7 @@ bootstrap_create_column(sql_trans *tr, sql_table *t, char *name, char *sqltype, 
 	sql_column *col = SA_ZNEW(tr->sa, sql_column);
 
 	if (bs_debug)
-		Trace(M_DEBUG, "Create column %s\n", name );
+		Trace(M_DEBUG, "Create column: %s\n", name );
 
 	if (store_oids) {
 		sqlid *idp = logger_funcs.log_find_table_value("sys__columns_id", "sys__columns_name", name, "sys__columns_table_id", &t->base.id, NULL, NULL);
@@ -1697,7 +1697,7 @@ bootstrap_create_table(sql_trans *tr, sql_schema *s, char *name)
 	t->bootstrap = 1;
 
 	if (bs_debug)
-		Trace(M_DEBUG, "Create table %s\n", name );
+		Trace(M_DEBUG, "Create table: %s\n", name );
 
 	t->base.flags = s->base.flags;
 	t->query = NULL;
@@ -1717,7 +1717,7 @@ bootstrap_create_schema(sql_trans *tr, char *name, sqlid auth_id, int owner)
 	sql_schema *s = SA_ZNEW(tr->sa, sql_schema);
 
 	if (bs_debug)
-		Trace(M_DEBUG, "Create schema %s %d %d\n", name, auth_id, owner);
+		Trace(M_DEBUG, "Create schema: %s %d %d\n", name, auth_id, owner);
 
 	if (store_oids) {
 		sqlid *idp = logger_funcs.log_find_table_value("sys_schemas_id", "sys_schemas_name", name, NULL, NULL);
@@ -3572,7 +3572,7 @@ rollforward_create_table(sql_trans *tr, sql_table *t, int mode)
 	int ok = LOG_OK;
 
 	if (bs_debug) 
-		Trace(M_DEBUG, "Create table %s\n", t->base.name);
+		Trace(M_DEBUG, "Create table: %s\n", t->base.name);
 
 	if (isKindOfTable(t) && isGlobal(t)) {
 		int p = (tr->parent == gtrans && !isTempTable(t));
@@ -3803,7 +3803,7 @@ rollforward_update_table(sql_trans *tr, sql_table *ft, sql_table *tt, int mode)
 		} else if (mode == R_APPLY) {
 			assert(cs_size(&tt->columns) == cs_size(&ft->columns));
 			if (bs_debug) 
-				Trace(M_DEBUG, "Update table %s\n", tt->base.name);
+				Trace(M_DEBUG, "Update table: %s\n", tt->base.name);
 			ok = store_funcs.update_table(tr, ft, tt);
 			ft->cleared = 0;
 			tt->access = ft->access;
@@ -4027,13 +4027,13 @@ reset_changeset(sql_trans *tr, changeset * fs, changeset * pfs, sql_base *b, res
 				n = n->next;
 				m = m->next;
 				if (bs_debug) 
-					Trace(M_DEBUG, "Reset changeset %s\n", (fb->name)?fb->name:"help");
+					Trace(M_DEBUG, "Reset changeset: %s\n", (fb->name)?fb->name:"help");
 			} else if (fb->id < pfb->id) {  
 				node *t = n->next;
 
 				if (bs_debug) {
 					sql_base *b = n->data;
-					Trace(M_DEBUG, "Reset changeset (free) %s\n", (b->name)?b->name:"help");
+					Trace(M_DEBUG, "Reset changeset (free): %s\n", (b->name)?b->name:"help");
 				}
 				cs_remove_node(fs, n);
 				n = t;
@@ -4043,7 +4043,7 @@ reset_changeset(sql_trans *tr, changeset * fs, changeset * pfs, sql_base *b, res
 				cs_add_before(fs, n, r);
 				m = m->next;
 				if (bs_debug) 
-					Trace(M_DEBUG, "Reset changeset (new) %s\n", (r->name)?r->name:"help");
+					Trace(M_DEBUG, "Reset changeset (new): %s\n", (r->name)?r->name:"help");
 			}
 		}
 		/* add new bases */
@@ -4052,14 +4052,14 @@ reset_changeset(sql_trans *tr, changeset * fs, changeset * pfs, sql_base *b, res
 			sql_base *r = fd(tr, 0, pfb, b);
 			cs_add(fs, r, 0);
 			if (bs_debug)
-				Trace(M_DEBUG, "Reset changeset (new) %s\n", (r->name)?r->name:"help");
+				Trace(M_DEBUG, "Reset changeset (new): %s\n", (r->name)?r->name:"help");
 		}
 		while ( ok == LOG_OK && n) { /* remove remaining old stuff */
 			node *t = n->next;
 
 			if (bs_debug) {
 				sql_base *b = n->data;
-				Trace(M_DEBUG, "Reset changeset (free) %s\n", (b->name)?b->name:"help");
+				Trace(M_DEBUG, "Reset changeset (free): %s\n", (b->name)?b->name:"help");
 			}
 			cs_remove_node(fs, n);
 			n = t;
@@ -4243,7 +4243,7 @@ reset_trans(sql_trans *tr, sql_trans *ptr)
 {
 	int res = reset_changeset(tr, &tr->schemas, &ptr->schemas, (sql_base *)tr->parent, (resetf) &reset_schema, (dupfunc) &schema_dup);
 #ifdef STORE_DEBUG
-	Trace(M_DEBUG, "Reset transaction %d\n", tr->wtime);
+	Trace(M_DEBUG, "Reset transaction: %d\n", tr->wtime);
 #endif
 	return res;
 }
@@ -4375,7 +4375,7 @@ sql_trans_commit(sql_trans *tr)
 
 	/* write phase */
 	if (bs_debug)
-		Trace(M_DEBUG, "Forwarding changes %d,%d %d,%d\n", gtrans->stime, tr->stime, gtrans->wstime, tr->wstime);
+		Trace(M_DEBUG, "Forwarding changes: %d,%d %d,%d\n", gtrans->stime, tr->stime, gtrans->wstime, tr->wstime);
 	/* snap shots should be saved first */
 	if (tr->parent == gtrans) {
 		ok = rollforward_trans(tr, R_SNAPSHOT);
@@ -4397,7 +4397,7 @@ sql_trans_commit(sql_trans *tr)
 		ok = rollforward_trans(tr, R_APPLY);
 	}
 	if (bs_debug)
-		Trace(M_DEBUG, "Done forwarding changes %d,%d\n", gtrans->stime, gtrans->wstime);
+		Trace(M_DEBUG, "Done forwarding changes: %d,%d\n", gtrans->stime, gtrans->wstime);
 	return (ok==LOG_OK)?SQL_OK:SQL_ERR;
 }
 
@@ -6814,7 +6814,7 @@ sql_trans_begin(sql_session *s)
 	snr = tr->schema_number;
 
 #ifdef STORE_DEBUG
-	Trace(M_DEBUG, "SQL transaction begin %d\n", snr);
+	Trace(M_DEBUG, "SQL transaction begin (%d)\n", snr);
 #endif
 	if (tr->parent && tr->parent == gtrans && 
 	    (tr->stime < gtrans->wstime || tr->wtime || 
