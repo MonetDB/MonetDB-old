@@ -293,7 +293,7 @@ la_bat_clear(logger *lg, logaction *la)
 	BAT *b;
 
 	if (lg->debug & 1)
-		Trace(M_DEBUG, "%s\n", NAME(la->name, la->tpe, la->cid));
+		Trace(M_DEBUG, "clearing BAT %s\n", NAME(la->name, la->tpe, la->cid));
 
 	/* do we need to skip these old updates */
 	if (avoid_snapshot(lg, bid))
@@ -771,7 +771,7 @@ log_read_create(logger *lg, trans *tr, char *name, char tpe, oid id)
 
 	assert(!lg->inmemory);
 	if (lg->debug & 1)
-		Trace(M_DEBUG, "log_read_create %s\n", name);
+		Trace(M_DEBUG, "new log read %s\n", name);
 
 	if (buf == NULL)
 		return LOG_EOF;
@@ -1010,7 +1010,7 @@ tr_abort(logger *lg, trans *tr)
 	int i;
 
 	if (lg->debug & 1)
-		Trace(M_DEBUG, "tr_abort\n");
+		Trace(M_DEBUG, "abort transaction\n");
 
 	for (i = 0; i < tr->nr; i++)
 		la_destroy(&tr->changes[i]);
@@ -1023,7 +1023,7 @@ tr_commit(logger *lg, trans *tr)
 	int i;
 
 	if (lg->debug & 1)
-		Trace(M_DEBUG, "tr_commit\n");
+		Trace(M_DEBUG, "commit transaction\n");
 
 	for (i = 0; i < tr->nr; i++) {
 		if (la_apply(lg, &tr->changes[i]) != GDK_SUCCEED) {
@@ -1374,7 +1374,7 @@ static gdk_return
 logger_commit(logger *lg)
 {
 	if (lg->debug & 1)
-		Trace(M_DEBUG, "enter logger_commit\n");
+		Trace(M_DEBUG, "entering function\n");
 
 	/* cleanup old snapshots */
 	if (BATcount(lg->snapshots_bid)) {
@@ -2520,7 +2520,7 @@ logger_destroy(logger *lg)
 		BAT *b = lg->catalog_bid;
 
 		if (logger_cleanup(lg) != GDK_SUCCEED)
-			Trace(M_ERROR, "logger_cleanup failed\n");
+			Trace(M_ERROR, "logger cleanup failed\n");
 
 		/* free resources */
 		const log_bid *bids = (const log_bid *) Tloc(b, 0);
@@ -2587,7 +2587,7 @@ logger_exit(logger *lg)
 
 		if (logger_commit(lg) != GDK_SUCCEED) {
 			(void) fclose(fp);
-			Trace(M_ERROR, "logger_commit failed\n");
+			Trace(M_ERROR, "logger commit failed\n");
 			return GDK_FAIL;
 		}
 
@@ -2669,7 +2669,7 @@ logger_cleanup(logger *lg)
 	}
 
 	if (lg->debug & 1) {
-		Trace(M_DEBUG, "cleanup %s\n", buf);
+		Trace(M_DEBUG, "logger cleanup %s\n", buf);
 	}
 
 	lng lid = lg->id;
@@ -2780,7 +2780,7 @@ log_bat_persists(logger *lg, BAT *b, const char *name, char tpe, oid id)
 	}
 
 	if (lg->debug & 1)
-		Trace(M_DEBUG, "persists bat %s (%d) %s\n",
+		Trace(M_DEBUG, "persists BAT %s (%d) %s\n",
 			name, b->batCacheid,
 			(flag == LOG_USE) ? "use" : "create");
 
@@ -2814,12 +2814,12 @@ log_bat_persists(logger *lg, BAT *b, const char *name, char tpe, oid id)
 	len++;			/* include EOS */
 	if (!mnstr_writeInt(lg->log, len) ||
 	    mnstr_write(lg->log, buf, 1, len) != (ssize_t) len) {
-		Trace(M_ERROR, "write_failed\n");
+		Trace(M_ERROR, "write failed\n");
 		return GDK_FAIL;
 	}
 
 	if (lg->debug & 1)
-		Trace(M_DEBUG, "logged new bat [%s,%s] %s " BUNFMT " (%d)\n",
+		Trace(M_DEBUG, "logged new BAT [%s,%s] %s " BUNFMT " (%d)\n",
 			ha, ta, name, BATcount(b), b->batCacheid);
 	return log_bat(lg, b, name, tpe, id);
 }
@@ -2874,7 +2874,7 @@ log_bat_transient(logger *lg, const char *name, char tpe, oid id)
 	}
 
 	if (lg->debug & 1)
-		Trace(M_DEBUG, "logged destroyed bat %s\n", NAME(name, tpe, id));
+		Trace(M_DEBUG, "logged destroyed BAT %s\n", NAME(name, tpe, id));
 	return GDK_SUCCEED;
 }
 
@@ -3105,7 +3105,7 @@ log_abort(logger *lg)
 	if (lg->inmemory)
 		return GDK_SUCCEED;
 	if (lg->debug & 1)
-		Trace(M_DEBUG, "log_abort %d\n", lg->tid);
+		Trace(M_DEBUG, "log abort %d\n", lg->tid);
 
 	l.flag = LOG_END;
 	l.tid = lg->tid;
