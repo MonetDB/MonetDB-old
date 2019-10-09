@@ -19,7 +19,7 @@
 
 #define Trace(LVL, MSG, ...)                                        \
     GDKtracer_log(LVL,                                              \
-                  "[%s] %s (%s:%d): # "MSG,                         \
+                  "[%s] %s (%s:%d) # "MSG,                          \
                   GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),     \
                   __FILE__,                                         \
                   __FUNCTION__,                                     \
@@ -29,7 +29,7 @@
 
 #define TraceLN(LVL, FUNC_LN, MSG, ...)                             \
     GDKtracer_log(LVL,                                              \
-                  "[%s] %s (%s:%d): # "MSG,                         \
+                  "[%s] %s (%s:%d) # "MSG,                          \
                   GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),     \
                   __FILE__,                                         \
                   FUNC_LNAME,                                       \

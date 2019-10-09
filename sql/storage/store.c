@@ -226,7 +226,7 @@ sql_trans_destroy(sql_trans *t, bool try_spare)
 	sql_trans *res = t->parent;
 
 #ifdef STORE_DEBUG
-	Trace(M_DEBUG, "Destroy transaction (%p)\n", t);
+	Trace(M_DEBUG, "Destroy transaction: %p\n", t);
 #endif
 
 	if (res == gtrans && spares < MAX_SPARES && !t->name && try_spare) {
@@ -550,7 +550,7 @@ load_column(sql_trans *tr, sql_table *t, oid rid)
 	if (!sql_find_subtype(&c->type, tpe, sz, d)) {
 		sql_type *lt = sql_trans_bind_type(tr, t->s, tpe);
 		if (lt == NULL) {
-			Trace(M_CRITICAL, "SQL type %s missing\n", tpe);
+			Trace(M_CRITICAL, "SQL type (%s) missing\n", tpe);
 			_DELETE(tpe);
 			return NULL;
 		}
@@ -768,7 +768,7 @@ load_table(sql_trans *tr, sql_schema *s, sqlid tid, subrids *nrs)
 	if (isTable(t)) {
 		if (store_funcs.create_del(tr, t) != LOG_OK) {
 			if (bs_debug)
-				Trace(M_DEBUG, "Load table %s missing 'deletes'\n", t->base.name);
+				Trace(M_DEBUG, "Load table (%s) missing 'deletes'\n", t->base.name);
 			t->persistence = SQL_GLOBAL_TEMP;
 		}
 	}
@@ -922,7 +922,7 @@ load_arg(sql_trans *tr, sql_func * f, oid rid)
 	if (!sql_find_subtype(&a->type, tpe, digits, scale)) {
 		sql_type *lt = sql_trans_bind_type(tr, f->s, tpe);
 		if (lt == NULL) {
-			Trace(M_CRITICAL, "SQL type %s missing\n", tpe);
+			Trace(M_CRITICAL, "SQL type (%s) missing\n", tpe);
 			_DELETE(tpe);
 			return NULL;
 		}
@@ -2148,7 +2148,7 @@ flusher_should_run(void)
 
 #ifdef STORE_FLUSHER_DEBUG
 	if (reason_to != flusher.reason_to || reason_not_to != flusher.reason_not_to) {
-		Trace(M_DEBUG, "Store flusher %s, Reason to flush: %s, Reason not to: %s\n",
+		Trace(M_DEBUG, "Store flusher: %s, Reason to flush: %s, Reason not to: %s\n",
 			do_it ? "flushing" : "not flushing",
 			reason_to ? reason_to : "none",
 			reason_not_to ? reason_not_to : "none"
@@ -2339,7 +2339,7 @@ store_lock(void)
 {
 	MT_lock_set(&bs_lock);
 #ifdef STORE_DEBUG
-	Trace(M_DEBUG, "Locked\n");
+	Trace(M_DEBUG, "Store locked\n");
 #endif
 }
 
@@ -2347,7 +2347,7 @@ void
 store_unlock(void)
 {
 #ifdef STORE_DEBUG
-	Trace(M_DEBUG, "Unlocked\n");
+	Trace(M_DEBUG, "Store unlocked\n");
 #endif
 	MT_lock_unset(&bs_lock);
 }
@@ -3268,7 +3268,7 @@ trans_init(sql_trans *tr, backend_stack stk, sql_trans *otr)
 	}
 	tr->name = NULL;
 	if (bs_debug) 
-		Trace(M_DEBUG, "Transaction (%p) init (%d,%d,%d)\n", 
+		Trace(M_DEBUG, "Transaction (%p) init: %d %d %d\n", 
 			tr, tr->wstime, tr->stime, tr->schema_number ); 
 	return tr;
 }
@@ -4257,12 +4257,12 @@ sql_trans_create(backend_stack stk, sql_trans *parent, const char *name, bool tr
 		 if (!parent && spares > 0 && !name && try_spare) {
 			tr = spare_trans[--spares];
 #ifdef STORE_DEBUG
-			Trace(M_DEBUG, "Reuse transaction (%p) %d\n", tr, spares);
+			Trace(M_DEBUG, "Reuse transaction: %p %d\n", tr, spares);
 #endif
 		} else {
 			tr = trans_dup(stk, (parent) ? parent : gtrans, name);
 #ifdef STORE_DEBUG
-			Trace(M_DEBUG, "New transaction (%p)\n", tr);
+			Trace(M_DEBUG, "New transaction: %p\n", tr);
 #endif
 			if(tr)
 				transactions++;
@@ -4375,7 +4375,7 @@ sql_trans_commit(sql_trans *tr)
 
 	/* write phase */
 	if (bs_debug)
-		Trace(M_DEBUG, "Forwarding changes: %d,%d %d,%d\n", gtrans->stime, tr->stime, gtrans->wstime, tr->wstime);
+		Trace(M_DEBUG, "Forwarding changes: (%d, %d) (%d, %d)\n", gtrans->stime, tr->stime, gtrans->wstime, tr->wstime);
 	/* snap shots should be saved first */
 	if (tr->parent == gtrans) {
 		ok = rollforward_trans(tr, R_SNAPSHOT);
@@ -4397,7 +4397,7 @@ sql_trans_commit(sql_trans *tr)
 		ok = rollforward_trans(tr, R_APPLY);
 	}
 	if (bs_debug)
-		Trace(M_DEBUG, "Done forwarding changes: %d,%d\n", gtrans->stime, gtrans->wstime);
+		Trace(M_DEBUG, "Done forwarding changes: %d %d\n", gtrans->stime, gtrans->wstime);
 	return (ok==LOG_OK)?SQL_OK:SQL_ERR;
 }
 
@@ -5562,7 +5562,7 @@ sql_trans_create_table(sql_trans *tr, sql_schema *s, const char *name, const cha
 	if (isTable(t)) {
 		if (store_funcs.create_del(tr, t) != LOG_OK) {
 			if (bs_debug)
-				Trace(M_DEBUG, "Load table %s missing 'deletes'\n", t->base.name);
+				Trace(M_DEBUG, "Load table (%s) missing 'deletes'\n", t->base.name);
 			t->persistence = SQL_GLOBAL_TEMP;
 		}
 	}
@@ -6814,7 +6814,7 @@ sql_trans_begin(sql_session *s)
 	snr = tr->schema_number;
 
 #ifdef STORE_DEBUG
-	Trace(M_DEBUG, "SQL transaction begin (%d)\n", snr);
+	Trace(M_DEBUG, "SQL transaction begin: %d\n", snr);
 #endif
 	if (tr->parent && tr->parent == gtrans && 
 	    (tr->stime < gtrans->wstime || tr->wtime || 
@@ -6837,7 +6837,7 @@ sql_trans_begin(sql_session *s)
 	}
 	s->status = 0;
 #ifdef STORE_DEBUG
-	Trace(M_DEBUG, "SQL transaction begin (%d)\n", tr->schema_number);
+	Trace(M_DEBUG, "SQL transaction begin: %d\n", tr->schema_number);
 #endif
 	return snr != tr->schema_number;
 }
@@ -6846,7 +6846,7 @@ void
 sql_trans_end(sql_session *s)
 {
 #ifdef STORE_DEBUG
-	Trace(M_DEBUG, "SQL transaction end (%d)\n", s->tr->schema_number);
+	Trace(M_DEBUG, "SQL transaction end: %d\n", s->tr->schema_number);
 #endif
 	s->tr->active = 0;
 	s->auto_commit = s->ac_on_commit;
