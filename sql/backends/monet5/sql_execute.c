@@ -15,6 +15,7 @@
  * Before we are can process SQL statements the global catalog should be initialized. 
  */
 #include "monetdb_config.h"
+#include "gdk_tracer.h"
 #include "mal_backend.h"
 #include "sql_scenario.h"
 #include "sql_result.h"
@@ -719,7 +720,7 @@ SQLengineIntern(Client c, backend *be)
 	}
 
 #ifdef SQL_SCENARIO_DEBUG
-	fprintf(stderr, "#Ready to execute SQL statement\n");
+	Trace(M_DEBUG, "Ready to execute SQL statement\n");
 #endif
 
 	if (c->curprg->def->stop == 1) {
