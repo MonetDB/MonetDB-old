@@ -56,7 +56,7 @@
 void
 mserver_abort()
 {
-	Trace(FATAL, "\n! mserver_abort() was called by terminate(). !\n");
+	fprintf(stderr, "\n! mserver_abort() was called by terminate(). !\n");
 	exit(0);
 }
 #endif
@@ -297,13 +297,13 @@ main(int argc, char **av)
 #endif
 #endif
 	if (setlocale(LC_CTYPE, "") == NULL) {
-		Trace(M_CRITICAL, "cannot set locale\n");
+		fprintf(stderr, "cannot set locale\n");
 		exit(1);
 	}
 
 	if (getcwd(monet_cwd, FILENAME_MAX - 1) == NULL) {
 		perror("pwd");
-		Trace(M_CRITICAL, "monet_init: could not determine current directory\n");
+		fprintf(stderr,"monet_init: could not determine current directory\n");
 		exit(-1);
 	}
 
@@ -340,7 +340,7 @@ main(int argc, char **av)
 				dbpath = absolute_path(optarg);
 				if( dbpath == NULL)
 				{
-					Trace(M_ERROR, "can not allocate memory for dbpath\n");
+					fprintf(stderr, "#error: can not allocate memory for dbpath\n");
 				}
 				else
 				{
@@ -351,7 +351,7 @@ main(int argc, char **av)
 			if (strcmp(long_options[option_index].name, "dbextra") == 0) {
 				if (dbextra)
 				{
-					Trace(M_WARNING, "ignoring multiple --dbextra arguments\n");
+					fprintf(stderr, "#warning: ignoring multiple --dbextra arguments\n");
 				}
 				else
 				{
@@ -423,7 +423,8 @@ main(int argc, char **av)
 				char *endarg;
 				debug |= strtol(optarg, &endarg, 10);
 				if (*endarg != '\0') {
-					Trace(M_ERROR, "wrong format for --debug=%s\n", optarg);
+					fprintf(stderr, "ERROR: wrong format for --debug=%s\n",
+							optarg);
 					usage(prog, -1);
 				}
 			} else {
@@ -442,7 +443,7 @@ main(int argc, char **av)
 				*tmp = '\0';
 				setlen = mo_add_option(&set, setlen, opt_cmdline, optarg, tmp + 1);
 			} else
-				Trace(M_ERROR, "wrong format %s\n", optarg);
+				fprintf(stderr, "ERROR: wrong format %s\n", optarg);
 			}
 			break;
 		case 'v':
@@ -450,7 +451,8 @@ main(int argc, char **av)
 				char *endarg;
 				verbosity = (int) strtol(optarg, &endarg, 10);
 				if (*endarg != '\0') {
-					Trace(M_ERROR, "wrong format for --verbose=%s\n", optarg);
+					fprintf(stderr, "ERROR: wrong format for --verbose=%s\n",
+							optarg);
 					usage(prog, -1);
 				}
 			} else {
@@ -463,8 +465,8 @@ main(int argc, char **av)
 			   it: if -? or --help, exit with 0, else with -1 */
 			usage(prog, strcmp(av[optind - 1], "-?") == 0 || strcmp(av[optind - 1], "--help") == 0 ? 0 : -1);
 		default:
-			Trace(M_ERROR, "getopt returned character "
-						   "code '%c' 0%o\n", c, (uint8_t) c);
+			fprintf(stderr, "ERROR: getopt returned character "
+					"code '%c' 0%o\n", c, (uint8_t) c);
 			usage(prog, -1);
 		}
 	}
@@ -481,30 +483,30 @@ main(int argc, char **av)
 	GDKsetverbose(verbosity);
 
 	if (dbpath && inmemory) {
-		Trace(M_CRITICAL, "both dbpath and in-memory must not be set at the same time\n");
+		fprintf(stderr, "!ERROR: both dbpath and in-memory must not be set at the same time\n");
 		exit(1);
 	}
 
 	if (!dbpath) {
 		dbpath = absolute_path(mo_find_option(set, setlen, "gdk_dbpath"));
 		if (!dbpath) {
-			Trace(M_CRITICAL, "cannot allocate memory for database directory \n");
+			fprintf(stderr, "!ERROR: cannot allocate memory for database directory \n");
 			exit(1);
 		}
 	}
 	if (inmemory) {
 		if (BBPaddfarm(NULL, (1 << PERSISTENT) | (1 << TRANSIENT)) != GDK_SUCCEED) {
-			Trace(M_CRITICAL, "cannot add in-memory farm\n");
+			fprintf(stderr, "!ERROR: cannot add in-memory farm\n");
 			exit(1);
 		}
 	} else {
 		if (BBPaddfarm(dbpath, 1 << PERSISTENT) != GDK_SUCCEED ||
 		    BBPaddfarm(dbextra ? dbextra : dbpath, 1 << TRANSIENT) != GDK_SUCCEED) {
-			Trace(M_CRITICAL, "cannot add farm\n");
+			fprintf(stderr, "!ERROR: cannot add farm\n");
 			exit(1);
 		}
 		if (GDKcreatedir(dbpath) != GDK_SUCCEED) {
-			Trace(M_CRITICAL, "cannot create directory for %s\n", dbpath);
+			fprintf(stderr, "!ERROR: cannot create directory for %s\n", dbpath);
 			exit(1);
 		}
 	}
@@ -512,7 +514,7 @@ main(int argc, char **av)
 	if (monet_init(set, setlen) == 0) {
 		mo_free_options(set, setlen);
 		if (GDKerrbuf && *GDKerrbuf)
-			Trace(M_CRITICAL, "%s\n", GDKerrbuf);
+			fprintf(stderr, "%s\n", GDKerrbuf);
 		exit(1);
 	}
 	mo_free_options(set, setlen);
@@ -525,7 +527,7 @@ main(int argc, char **av)
 		      "unreleased"
 #endif
 		    ) != GDK_SUCCEED) {
-		Trace(M_CRITICAL, "GDKsetenv failed\n");
+		fprintf(stderr, "!ERROR: GDKsetenv failed\n");
 		exit(1);
 	}
 
@@ -580,7 +582,7 @@ main(int argc, char **av)
 		}
 		if (modpath != NULL &&
 		    GDKsetenv("monet_mod_path", modpath) != GDK_SUCCEED) {
-			Trace(M_CRITICAL, "GDKsetenv failed\n");
+			fprintf(stderr, "!ERROR: GDKsetenv failed\n");
 			exit(1);
 		}
 	}
@@ -597,7 +599,7 @@ main(int argc, char **av)
 		 * even earlier?  Sabaoth here registers the server is starting up. */
 		if ((err = msab_registerStarting()) != NULL) {
 			/* throw the error at the user, but don't die */
-			Trace(M_ERROR, "!%s\n", err);
+			fprintf(stderr, "!%s\n", err);
 			free(err);
 		}
 	}
@@ -612,22 +614,22 @@ main(int argc, char **av)
 		if (sigaction(SIGINT, &sa, NULL) == -1 ||
 		    sigaction(SIGQUIT, &sa, NULL) == -1 ||
 		    sigaction(SIGTERM, &sa, NULL) == -1) {
-			Trace(M_ERROR, "unable to create signal handlers\n");
+			fprintf(stderr, "!unable to create signal handlers\n");
 		}
 	}
 #else
 #ifdef _MSC_VER
 	if (!SetConsoleCtrlHandler(winhandler, TRUE))
-		Trace(M_ERROR, "unable to create console control handler\n");
+		fprintf(stderr, "!unable to create console control handler\n");
 #else
 	if(signal(SIGINT, handler) == SIG_ERR)
-		Trace(M_ERROR, "unable to create signal handlers\n");
+		fprintf(stderr, "!unable to create signal handlers\n");
 #ifdef SIGQUIT
 	if(signal(SIGQUIT, handler) == SIG_ERR)
-		Trace(M_ERROR, "unable to create signal handlers\n");
+		fprintf(stderr, "!unable to create signal handlers\n");
 #endif
 	if(signal(SIGTERM, handler) == SIG_ERR)
-		Trace(M_ERROR, "unable to create signal handlers\n");
+		fprintf(stderr, "!unable to create signal handlers\n");
 #endif
 #endif
 
@@ -636,7 +638,7 @@ main(int argc, char **av)
 		/* we inited mal before, so publish its existence */
 		if ((err = msab_marchScenario(lang)) != NULL) {
 			/* throw the error at the user, but don't die */
-			Trace(M_ERROR, "%s\n", err);
+			fprintf(stderr, "!%s\n", err);
 			free(err);
 		}
 	}
@@ -654,8 +656,9 @@ main(int argc, char **av)
 			snprintf(secret, sizeof(secret), "%s", "Xas632jsi2whjds8");
 		} else {
 			if ((secretf = fopen(GDKgetenv("monet_vault_key"), "r")) == NULL) {
-				Trace(M_CRITICAL, "unable to open vault_key_file %s: %s\n",
-								  GDKgetenv("monet_vault_key"), strerror(errno));
+				fprintf(stderr,
+						"unable to open vault_key_file %s: %s\n",
+						GDKgetenv("monet_vault_key"), strerror(errno));
 				/* don't show this as a crash */
 				msab_registerStop();
 				exit(1);
@@ -664,13 +667,13 @@ main(int argc, char **av)
 			secret[len] = '\0';
 			len = strlen(secret); /* secret can contain null-bytes */
 			if (len == 0) {
-				Trace(M_CRITICAL, "vault key has zero-length!\n");
+				fprintf(stderr, "vault key has zero-length!\n");
 				/* don't show this as a crash */
 				msab_registerStop();
 				exit(1);
 			} else if (len < 5) {
-				Trace(M_WARNING, "your vault key is too short "
-								 "(%zu), enlarge your vault key!\n", len);
+				fprintf(stderr, "#warning: your vault key is too short "
+								"(%zu), enlarge your vault key!\n", len);
 			}
 			fclose(secretf);
 		}
@@ -678,7 +681,7 @@ main(int argc, char **av)
 			/* don't show this as a crash */
 			if (!GDKinmemory())
 				msab_registerStop();
-			Trace(M_CRITICAL, "%s\n", err);
+			fprintf(stderr, "%s\n", err);
 			freeException(err);
 			exit(1);
 		}
@@ -688,7 +691,7 @@ main(int argc, char **av)
 		/* don't show this as a crash */
 		if (!GDKinmemory())
 			msab_registerStop();
-		Trace(M_CRITICAL, "%s\n", err);
+		fprintf(stderr, "%s\n", err);
 		freeException(err);
 		exit(1);
 	}
@@ -703,7 +706,7 @@ main(int argc, char **av)
 
 	if (!GDKinmemory() && (err = msab_registerStarted()) != NULL) {
 		/* throw the error at the user, but don't die */
-		Trace(M_ERROR, "!%s\n", err);
+		fprintf(stderr, "%s\n", err);
 		free(err);
 	}
 
