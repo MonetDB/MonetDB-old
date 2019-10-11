@@ -10,7 +10,6 @@
 */
 
 #include "monetdb_config.h"
-#include "gdk_tracer.h"
 #include "mal_parser.h"
 #include "mal_resolve.h"
 #include "mal_linker.h"
@@ -22,6 +21,7 @@
 #include "mal_builder.h"
 #include "mal_type.h"
 #include "mal_private.h"
+#include "gdk_tracer.h"
 
 #define FATALINPUT MAXERRORS+1
 #define NL(X) ((X)=='\n' || (X)=='\r')
