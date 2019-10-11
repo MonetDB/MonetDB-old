@@ -19,7 +19,6 @@
 #include "mal_authorize.h"
 #include "msabaoth.h"
 #include "mutils.h"
-#include "gdk_tracer.h"
 
 #ifdef HAVE_LIBGEN_H
 #include <libgen.h>
