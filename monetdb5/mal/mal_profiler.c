@@ -167,7 +167,6 @@ renderProfilerEvent(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int
 	microseconds = (uint64_t)startup_time.tv_sec*1000000 + (uint64_t)startup_time.tv_usec + (uint64_t)usec;
 #endif
 
-	microseconds = (uint64_t)startup_time.tv_sec*1000000 + (uint64_t)startup_time.tv_usec + (uint64_t)usec;
 	/* make profile event tuple  */
 	lognew();
 	logadd("{"PRETTIFY); // fill in later with the event counter

@@ -533,7 +533,6 @@ WLRprocessScheduler(void *arg)
     MT_lock_unset(&wlr_lock);
 	MCcloseClient(cntxt);
 
-	MCcloseClient(cntxt);
 #ifdef _WLR_DEBUG_
 	fprintf(stderr, "#Replicator thread is stopped \n");
 #endif
@@ -553,7 +552,6 @@ str
 WLRreplicate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {	str timelimit  = wlr_timelimit;
 	size_t size = sizeof(wlr_timelimit);
-	struct timeval clock;
 	time_t clk;
 	struct tm ctm;
 	char clktxt[26];
@@ -600,12 +598,19 @@ WLRreplicate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	WLRputConfig();
 
 	// the client thread should wait for the replicator to its job
-	gettimeofday(&clock, NULL);
-	clk = clock.tv_sec;
-#ifdef HAVE_LOCALTIME_R
-	(void) localtime_r(&clk, &ctm);
+#ifdef NATIVE_WIN32
+	struct timeb tb;
+
+	ftime(&tb);
+	clk = tb.time;
+	(void) localtime_s(&ctm, &clk);
 #else
-	ctm = *localtime(&clk);
+	struct timeval clock;
+
+	if(gettimeofday(&clock,NULL) == -1)
+		throw(MAL, "sql.replicate", "Unable to retrieve current time");
+	clk = clock.tv_sec;
+	(void) localtime_r(&clk, &ctm);
 #endif
 	strftime(clktxt, sizeof(clktxt), "%Y-%m-%dT%H:%M:%S.000",&ctm);
 #ifdef _WLR_DEBUG_
