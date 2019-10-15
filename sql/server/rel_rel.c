@@ -11,6 +11,7 @@
 #include "rel_exp.h"
 #include "rel_prop.h"
 #include "rel_remote.h"
+#include "rel_unnest.h"
 #include "sql_semantic.h"
 #include "sql_mvc.h"
 
@@ -190,7 +191,7 @@ rel_issubquery(sql_rel*r)
 }
 
 static sql_rel *
-rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname )
+rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname)
 {
 	int ambiguous = 0;
 	sql_rel *l = NULL, *r = NULL;
@@ -214,7 +215,7 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname )
 			if (!r || !e || !is_freevar(e)) {
 				*p = rel;
 				l = rel_bind_column_(sql, p, rel->l, cname);
-				if (l && r && !rel_issubquery(r)) {
+				if (l && r && !rel_issubquery(r) && !is_dependent(rel)) {
 					(void) sql_error(sql, ERR_AMBIGUOUS, SQLSTATE(42000) "SELECT: identifier '%s' ambiguous", cname);
 					return NULL;
 				}
@@ -243,7 +244,7 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname )
 		if (is_processed(rel))
 			return NULL;
 		if (rel->l && !(is_base(rel->op)))
-			return rel_bind_column_(sql, p, rel->l, cname );
+			return rel_bind_column_(sql, p, rel->l, cname);
 		break;
 	case op_semi:
 	case op_anti:
@@ -264,7 +265,7 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname )
 sql_exp *
 rel_bind_column( mvc *sql, sql_rel *rel, const char *cname, int f )
 {
-	sql_rel *p = NULL;
+	sql_rel *p = NULL, *orel = rel;
 
 	if (is_sql_sel(f) && rel && is_simple_project(rel->op) && !is_processed(rel))
 		rel = rel->l;
@@ -275,7 +276,10 @@ rel_bind_column( mvc *sql, sql_rel *rel, const char *cname, int f )
 	if ((is_project(rel->op) || is_base(rel->op)) && rel->exps) {
 		sql_exp *e = exps_bind_column(rel->exps, cname, NULL);
 		if (e)
-			return exp_alias_or_copy(sql, exp_relname(e), cname, rel, e);
+			e = exp_alias_or_copy(sql, exp_relname(e), cname, rel, e);
+		if (p && e && is_simple_project(p->op) && !is_processed(p) && is_sql_orderby(f) && orel != rel)
+			e = rel_project_add_exp(sql, p, e);
+		return e;
 	}
 	return NULL;
 }
@@ -290,6 +294,18 @@ rel_bind_column2( mvc *sql, sql_rel *rel, const char *tname, const char *cname, 
 
 	if (rel->exps && (is_project(rel->op) || is_base(rel->op))) {
 		sql_exp *e = exps_bind_column2(rel->exps, tname, cname);
+		/* in case of orderby we should also lookup the column in group by list (and use existing references) */
+		if (!e && is_sql_orderby(f) && is_groupby(rel->op) && rel->r) {
+			e = exps_bind_alias(rel->r, tname, cname);
+			if (e) { 
+				if (exp_relname(e))
+					e = exps_bind_column2(rel->exps, exp_relname(e), exp_name(e));
+				else
+					e = exps_bind_column(rel->exps, exp_name(e), NULL);
+				if (e)
+					return e;
+			}
+		}
 		if (e)
 			return exp_alias_or_copy(sql, tname, cname, rel, e);
 	}
@@ -311,7 +327,6 @@ rel_bind_column2( mvc *sql, sql_rel *rel, const char *tname, const char *cname, 
 	}
 	return NULL;
 }
-
 
 sql_rel *
 rel_inplace_setop(sql_rel *rel, sql_rel *l, sql_rel *r, operator_type setop, list *exps)
@@ -544,12 +559,15 @@ rel_project_add_exp( mvc *sql, sql_rel *rel, sql_exp *e)
 			exp_label(sql->sa, e, ++sql->label);
 	}
 	if (rel->op == op_project) {
+		sql_rel *l = rel->l;
 		if (!rel->exps)
 			rel->exps = new_exp_list(sql->sa);
-		append(rel->exps, e);
-		rel->nrcols++;
+		if (l && is_groupby(l->op) && exp_card(e) <= CARD_ATOM && list_empty(l->exps)) 
+			e = rel_project_add_exp(sql, l, e);
 		if (e->card > rel->card)
 			rel->card = e->card;
+		append(rel->exps, e);
+		rel->nrcols++;
 	} else if (rel->op == op_groupby) {
 		return rel_groupby_add_aggr(sql, rel, e);
 	}
@@ -1359,6 +1377,56 @@ rel_add_identity(mvc *sql, sql_rel *rel, sql_exp **exp)
 	if (rel && is_project(rel->op) && (*exp = exps_find_identity(rel->exps, rel->l)) != NULL)
 		return rel;
 	return _rel_add_identity(sql, rel, exp);
+}
+
+static sql_rel *
+_rel_add_identity2(mvc *sql, sql_rel *rel, sql_exp **exp)
+{
+	list *exps = rel_projections(sql, rel, NULL, 1, 2);
+	sql_exp *e;
+
+	if (list_length(exps) == 0) {
+		*exp = NULL;
+		return rel;
+	}
+	rel = rel_project(sql->sa, rel, exps);
+	e = rel->exps->h->data;
+	e = exp_column(sql->sa, exp_relname(e), exp_name(e), exp_subtype(e), rel->card, has_nil(e), is_intern(e));
+	e = exp_unop(sql->sa, e, sql_bind_func(sql->sa, NULL, "identity", exp_subtype(e), NULL, F_FUNC));
+	set_intern(e);
+	e->p = prop_create(sql->sa, PROP_HASHCOL, e->p);
+	*exp = exp_label(sql->sa, e, ++sql->label);
+	(void) rel_project_add_exp(sql, rel, e);
+	return rel;
+}
+
+sql_rel *
+rel_add_identity2(mvc *sql, sql_rel *rel, sql_exp **exp)
+{
+	sql_rel *l = rel, *p = rel;
+
+	if (rel && is_project(rel->op) && (*exp = exps_find_identity(rel->exps, rel->l)) != NULL)
+		return rel;
+	while(l && !is_set(l->op) && rel_has_freevar(sql, l) && l->l) {
+		p = l;
+		l = l->l;
+	}
+	if (l != p) {
+		sql_rel *o = rel;
+		sql_exp *id;
+
+		p->l = _rel_add_identity2(sql, l, exp);
+		l = p->l;
+		id = exp_ref(sql->sa, *exp);
+		while (o && o != l) {
+			*exp = id;
+			if (is_project(o->op))
+				rel_project_add_exp(sql, o, id);
+			o = o->l;
+		}
+		return rel;
+	}
+	return _rel_add_identity2(sql, rel, exp);
 }
 
 sql_exp *

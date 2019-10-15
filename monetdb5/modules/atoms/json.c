@@ -512,8 +512,6 @@ JSONgetValue(JSON *jt, int idx)
 
 	if (jt->elm[idx].valuelen == 0)
 		return GDKstrdup(str_nil);
-	if (strncmp(jt->elm[idx].value, "null", 4) == 0)
-		return GDKstrdup(str_nil);
 	s = GDKzalloc(jt->elm[idx].valuelen + 1);
 	if (s)
 		strncpy(s, jt->elm[idx].value, jt->elm[idx].valuelen);
@@ -1845,8 +1843,7 @@ JSONfoldKeyValue(str *ret, const bat *id, const bat *key, const bat *values)
 	}
 	tpe = bv->ttype;
 	cnt = BATcount(bv);
-	if (bk)
-		bki = bat_iterator(bk);
+	bki = bat_iterator(bk);
 	bvi = bat_iterator(bv);
 	if (id) {
 		bo = BATdescriptor(*id);

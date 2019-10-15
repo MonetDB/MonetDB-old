@@ -264,6 +264,20 @@ global_variables(mvc *sql, const char *user, const char *schema)
 	return failure;
 }
 
+static const char *
+SQLgetquery(Client c)
+{
+	if (c) {
+		backend *be = c->sqlcontext;
+		if (be) {
+			mvc *m = be->mvc;
+			if (m)
+				return m->query;
+		}
+	}
+	return NULL;
+}
+
 static char*
 SQLprepareClient(Client c, int login)
 {
@@ -271,6 +285,7 @@ SQLprepareClient(Client c, int login)
 	str schema;
 	backend *be;
 
+	c->getquery = SQLgetquery;
 	if (c->sqlcontext == 0) {
 		m = mvc_create(c->idx, 0, SQLdebug, c->fdin, c->fdout);
 		if( m == NULL) {
@@ -590,7 +605,9 @@ SQLinit(Client c)
 			throw(SQL, "SQLinit", SQLSTATE(42000) "Starting idle manager failed");
 		}
 	}
-	return WLCinit();
+	if( wlc_state == WLC_STARTUP)
+		return WLCinit();
+	return MAL_SUCCEED;
 }
 
 #define TRANS_ABORTED SQLSTATE(25005) "Current transaction is aborted (please ROLLBACK)\n"
@@ -695,7 +712,6 @@ SQLinitClient(Client c)
 	msg = SQLprepareClient(c, 0);
 #endif
 	MT_lock_unset(&sql_contextLock);
-	WLRinit();
 	return msg;
 }
 
@@ -1030,11 +1046,6 @@ SQLparser(Client c)
 	int err = 0, opt = 0;
 	char *q = NULL;
 
-	/* clean up old stuff */
-	q = c->query;
-	c->query = NULL;
-	GDKfree(q);		/* may be NULL */
-
 	be = (backend *) c->sqlcontext;
 	if (be == 0) {
 		/* leave a message in the log */
@@ -1053,6 +1064,11 @@ SQLparser(Client c)
 #endif
 	m = be->mvc;
 	m->type = Q_PARSE;
+	/* clean up old stuff */
+	q = m->query;
+	m->query = NULL;
+	GDKfree(q);		/* may be NULL */
+
 	if (be->language != 'X') {
 		if ((msg = SQLtrans(m)) != MAL_SUCCEED) {
 			c->mode = FINISHCLIENT;
@@ -1178,7 +1194,7 @@ SQLparser(Client c)
 	 */
 	be->q = NULL;
 	q = query_cleaned(QUERY(m->scanner));
-	c->query = q;
+	m->query = q;
 
 	if (q == NULL) {
 		err = 1;
@@ -1330,8 +1346,8 @@ SQLparser(Client c)
 finalize:
 	if (msg) {
 		sqlcleanup(m, 0);
-		q = c->query;
-		c->query = NULL;
+		q = m->query;
+		m->query = NULL;
 		GDKfree(q);
 	}
 	return msg;
