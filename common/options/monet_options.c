@@ -199,7 +199,6 @@ mo_system_config(opt **Set, int setlen)
 	return setlen;
 }
 
-
 int
 mo_builtin_settings(opt **Set)
 {
