@@ -53,9 +53,6 @@ static int logger_debug = 0;
 static sql_trans *spare_trans[MAX_SPARES];
 static int spares = 0;
 
-/* builtin functions have ids less than this */
-#define FUNC_OIDS 2000
-
 static int
 key_cmp(sql_key *k, sqlid *id)
 {
@@ -2146,8 +2143,10 @@ flusher_should_run(void)
 	// Read and clear flush_now. If we decide not to flush
 	// we'll put it back.
 	bool my_flush_now = (bool) ATOMIC_XCG(&flusher.flush_now, 0);
-	if (my_flush_now)
+	if (my_flush_now) {
 		reason_to = "user request";
+		reason_not_to = NULL;
+	}
 
 	if (ATOMIC_GET(&store_nr_active) > 0)
 		reason_not_to = "awaiting idle time";
@@ -2220,7 +2219,7 @@ store_exit(void)
 
 /* call locked! */
 int
-store_apply_deltas(bool locked)
+store_apply_deltas(bool not_locked)
 {
 	int res = LOG_OK;
 
@@ -2231,10 +2230,10 @@ store_apply_deltas(bool locked)
 		store_funcs.gtrans_update(gtrans);
 	res = logger_funcs.restart();
 	if (res == LOG_OK) {
-		if (!locked)
+		if (!not_locked)
 			MT_lock_unset(&bs_lock);
 		res = logger_funcs.cleanup();
-		if (!locked)
+		if (!not_locked)
 			MT_lock_set(&bs_lock);
 	}
 	flusher.working = false;
@@ -5899,8 +5898,28 @@ sql_trans_rename_column(sql_trans *tr, sql_table *t, const char *old_name, const
 int
 sql_trans_drop_column(sql_trans *tr, sql_table *t, sqlid id, int drop_action)
 {
-	node *n = list_find_base_id(t->columns.set, id);
-	sql_column *col = n->data;
+	node *n = NULL;
+	sql_table *syscolumn = find_sql_table(find_sql_schema(tr, "sys"), "_columns");
+	sql_column *col = NULL, *cid = find_sql_column(syscolumn, "id"), *cnr = find_sql_column(syscolumn, "number");
+
+	for (node *nn = t->columns.set->h ; nn ; nn = nn->next) {
+		sql_column *next = (sql_column *) nn->data;
+		if (next->base.id == id) {
+			n = nn;
+			col = next;
+		} else if (col) { /* if the column to be dropped was found, decrease the column number for others after it */
+			oid rid;
+			next->colnr--;
+
+			rid = table_funcs.column_find_row(tr, cid, &next->base.id, NULL);
+			assert(!is_oid_nil(rid));
+			table_funcs.column_update_value(tr, cnr, rid, &next->colnr);
+
+			next->base.wtime = tr->wtime = tr->wstime;
+		}
+	}
+
+	assert(n && col); /* the column to be dropped must have been found */
 
 	if (drop_action == DROP_CASCADE_START || drop_action == DROP_CASCADE) {
 		sqlid *local_id = MNEW(sqlid);

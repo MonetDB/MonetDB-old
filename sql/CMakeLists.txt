@@ -12,10 +12,8 @@ add_subdirectory(storage)
 add_subdirectory(server)
 add_subdirectory(backends)
 
-if(HAVE_SQL)
-	if(WIN32)
-		add_subdirectory(NT)
-	endif()
-
-	install(FILES dump-restore.txt dump-restore.html DESTINATION ${DATADIR}/doc/MonetDB-SQL)
+if(WIN32)
+	add_subdirectory(NT)
 endif()
+
+install(FILES dump-restore.txt dump-restore.html DESTINATION ${DATADIR}/doc/MonetDB-SQL)

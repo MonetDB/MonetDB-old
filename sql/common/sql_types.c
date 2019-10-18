@@ -1268,7 +1268,6 @@ sql_create_funcSE(sql_allocator *sa, const char *name, const char *mod, const ch
 	return sql_create_func_(sa, name, mod, imp, l, sres, TRUE, F_FUNC, fix_scale);
 }
 
-
 static sql_func *
 sql_create_func3(sql_allocator *sa, const char *name, const char *mod, const char *imp, sql_type *tpe1, sql_type *tpe2, sql_type *tpe3, sql_type *res, int fix_scale)
 {
@@ -1622,8 +1621,9 @@ sqltypeinit( sql_allocator *sa)
 	if (HAVE_HGE)
 		sql_create_aggr(sa, "prod", "aggr", "prod", HGE, LargestINT);
 #endif
-	/*sql_create_aggr(sa, "prod", "aggr", "prod", LNG, LNG);*/
 
+#if 0
+	/* prod for decimals introduce errors in the output scales */
 	t = decimals; /* BTE */
 	sql_create_aggr(sa, "prod", "aggr", "prod", *(t), LargestDEC);
 	t++; /* SHT */
@@ -1637,6 +1637,7 @@ sqltypeinit( sql_allocator *sa)
 		t++; /* HGE */
 		sql_create_aggr(sa, "prod", "aggr", "prod", *(t), LargestDEC);
 	}
+#endif
 #endif
 
 	for (t = numerical; t < dates; t++) {
@@ -1661,6 +1662,9 @@ sqltypeinit( sql_allocator *sa)
 		sql_create_aggr(sa, "avg", "aggr", "avg", HGE, DBL);
 #endif
 	sql_create_aggr(sa, "avg", "aggr", "avg", FLT, DBL);
+
+	sql_create_aggr(sa, "avg", "aggr", "avg", MONINT, DBL);
+	sql_create_aggr(sa, "avg", "aggr", "avg", SECINT, DBL);
 
 	sql_create_aggr(sa, "count_no_nil", "aggr", "count_no_nil", NULL, LNG);
 	sql_create_aggr(sa, "count", "aggr", "count", NULL, LNG);
@@ -1816,6 +1820,8 @@ sqltypeinit( sql_allocator *sa)
 		sql_create_analytic(sa, "prod", "sql", "prod", HGE, LargestINT, SCALE_NONE);
 #endif
 
+#if 0
+	/* prod for decimals introduce errors in the output scales */
 	t = decimals; // BTE
 	sql_create_analytic(sa, "prod", "sql", "prod", *(t), LargestDEC, SCALE_NONE);
 	t++; // SHT
@@ -1829,6 +1835,7 @@ sqltypeinit( sql_allocator *sa)
 		t++; // HGE
 		sql_create_analytic(sa, "prod", "sql", "prod", *(t), LargestDEC, SCALE_NONE);
 	}
+#endif
 #endif
 
 	for (t = floats; t < dates; t++) {
@@ -1848,6 +1855,9 @@ sqltypeinit( sql_allocator *sa)
 	if (have_hge)
 		sql_create_analytic(sa, "avg", "sql", "avg", HGE, DBL, SCALE_NONE);
 #endif
+
+	sql_create_analytic(sa, "avg", "sql", "avg", MONINT, DBL, SCALE_NONE);
+	sql_create_analytic(sa, "avg", "sql", "avg", SECINT, DBL, SCALE_NONE);
 
 #if 0
 	t = decimals; // BTE
@@ -2193,4 +2203,3 @@ types_init(sql_allocator *sa, int debug)
 	MT_lock_unset(&funcs->ht_lock);
 	sqltypeinit( sa );
 }
-

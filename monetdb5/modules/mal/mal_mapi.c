@@ -116,6 +116,7 @@ static void generateChallenge(str buf, int min, int max) {
 struct challengedata {
 	stream *in;
 	stream *out;
+	char challenge[13];
 };
 
 static void
@@ -135,15 +136,14 @@ doChallenge(void *data)
 #ifdef _MSC_VER
 	srand((unsigned int) GDKusec());
 #endif
+	memcpy(challenge, ((struct challengedata *) data)->challenge, sizeof(challenge));
 	GDKfree(data);
 	if (buf == NULL) {
+		MT_fprintf(stderr, "#doChallenge" MAL_MALLOC_FAIL);
 		close_stream(fdin);
 		close_stream(fdout);
 		return;
 	}
-
-	/* generate the challenge string */
-	generateChallenge(challenge, 8, 12);
 
 	// send the challenge over the block stream
 	mnstr_printf(fdout, "%s:mserver:9:%s:%s:%s:",
@@ -430,8 +430,7 @@ SERVERlistenThread(SOCKET *Sock)
 				default:
 					/* some unknown state */
 					closesocket(msgsock);
-					MT_fprintf(stderr, "!mal_mapi.listen: "
-							"unknown command type in first byte\n");
+					MT_fprintf(stderr, "!mal_mapi.listen: unknown command type in first byte\n");
 					continue;
 			}
 #endif
@@ -445,7 +444,7 @@ SERVERlistenThread(SOCKET *Sock)
 		data = GDKmalloc(sizeof(*data));
 		if( data == NULL){
 			closesocket(msgsock);
-			showException(GDKstdout, MAL, "initClient", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			MT_fprintf(stderr, "#initClient " SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			continue;
 		}
 		data->in = socket_rstream(msgsock, "Server read");
@@ -456,8 +455,7 @@ SERVERlistenThread(SOCKET *Sock)
 			mnstr_destroy(data->out);
 			GDKfree(data);
 			closesocket(msgsock);
-			showException(GDKstdout, MAL, "initClient",
-						  "cannot allocate stream");
+			MT_fprintf(stderr, "!initClient cannot allocate stream");
 			continue;
 		}
 		s = block_stream(data->in);
@@ -473,13 +471,16 @@ SERVERlistenThread(SOCKET *Sock)
 		char name[16];
 		snprintf(name, sizeof(name), "client%d",
 				 (int) ATOMIC_INC(&threadno));
+
+		/* generate the challenge string */
+		generateChallenge(data->challenge, 8, 12);
+
 		if ((tid = THRcreate(doChallenge, data, MT_THR_DETACHED, name)) == 0) {
 			mnstr_destroy(data->in);
 			mnstr_destroy(data->out);
 			GDKfree(data);
 			closesocket(msgsock);
-			showException(GDKstdout, MAL, "initClient",
-						  "cannot fork new client thread");
+			MT_fprintf(stderr, "!initClient:cannot fork new client thread");
 			continue;
 		}
 	} while (!ATOMIC_GET(&serverexiting) && !GDKexiting());
@@ -1054,6 +1055,10 @@ SERVERclient(void *res, const Stream *In, const Stream *Out)
 	char name[16];
 	snprintf(name, sizeof(name), "client%d",
 			 (int) ATOMIC_INC(&threadno));
+
+	/* generate the challenge string */
+	generateChallenge(data->challenge, 8, 12);
+
 	if ((tid = THRcreate(doChallenge, data, MT_THR_DETACHED, name)) == 0) {
 		mnstr_destroy(data->in);
 		mnstr_destroy(data->out);

@@ -14,6 +14,7 @@
 #include "mal_namespace.h"
 #include "mal_client.h"
 #include "mal_exception.h"
+#include "mal_embedded.h"
 #include "mal_private.h"
 
 #define MAXIDENTIFIERS 4096
@@ -121,8 +122,8 @@ static str findName(const char *nme, size_t len, int allocate)
 		struct namespace *ns = GDKmalloc(sizeof(struct namespace));
 		if (ns == NULL) {
 			/* error we cannot recover from */
-			showException(GDKout, MAL, "findName", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-			exit(1);
+			MT_fprintf(stderr, "!findName" SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			malEmbeddedStop(1);
 		}
 		ns->next = namespace;
 		ns->count = 0;

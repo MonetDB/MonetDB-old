@@ -10,13 +10,11 @@ add_library(sqlcommon_headers INTERFACE)
 target_include_directories(sqlcommon_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
 
-if(HAVE_SQL)
-	add_library(sqlcommon STATIC
-				sql_mem.c sql_list.c sql_hash.c sql_stack.c sql_backend.c
-				sql_keyword.c sql_changeset.c sql_types.c sql_string.c
-				sql_backend.h sql_string.h sql_types.h)
-	set_target_properties(sqlcommon PROPERTIES POSITION_INDEPENDENT_CODE ON)
-	target_compile_definitions(sqlcommon PRIVATE LIBSQL LIBSTORE)
-	target_link_libraries(sqlcommon PUBLIC sqlcommon_headers PRIVATE utils_headers stream_headers gdk_headers
-						  mal_headers sql_headers store_headers)
-endif()
+add_library(sqlcommon STATIC
+			sql_mem.c sql_list.c sql_hash.c sql_stack.c sql_backend.c
+			sql_keyword.c sql_changeset.c sql_types.c sql_string.c
+			sql_backend.h sql_string.h sql_types.h)
+set_target_properties(sqlcommon PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(sqlcommon PRIVATE LIBSQL LIBSTORE)
+target_link_libraries(sqlcommon PUBLIC sqlcommon_headers PRIVATE utils_headers stream_headers gdk_headers
+						mal_headers sql_headers store_headers)

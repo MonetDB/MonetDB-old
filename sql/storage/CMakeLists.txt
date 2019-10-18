@@ -12,14 +12,12 @@ target_include_directories(store_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CUR
 
 add_subdirectory(bat)
 
-if(HAVE_SQL)
-	add_library(store STATIC
-				store_dependency.c store_sequence.c
-				store.c sql_catalog.c
-				sql_storage.h store_dependency.h
-				store_sequence.h)
-	set_target_properties(store PROPERTIES POSITION_INDEPENDENT_CODE ON)
-	target_compile_definitions(store PRIVATE LIBSQL LIBSTORE)
-	target_link_libraries(store PUBLIC store_headers PRIVATE utils_headers stream_headers gdk_headers sql_headers
-						  sqlcommon_headers)
-endif()
+add_library(store STATIC
+			store_dependency.c store_sequence.c
+			store.c sql_catalog.c
+			sql_storage.h store_dependency.h
+			store_sequence.h)
+set_target_properties(store PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(store PRIVATE LIBSQL LIBSTORE)
+target_link_libraries(store PUBLIC store_headers PRIVATE utils_headers stream_headers gdk_headers sql_headers
+					  sqlcommon_headers)

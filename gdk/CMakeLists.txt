@@ -10,75 +10,73 @@ add_library(gdk_headers INTERFACE)
 target_include_directories(gdk_headers INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 						   $<INSTALL_INTERFACE:${INCLUDEDIR}/monetdb>)
 
-if(HAVE_GDK)
-	include_directories(${VALGRIND_INCLUDE_DIR})
+include_directories(${VALGRIND_INCLUDE_DIR})
 
-	set(GDK_LINK_LIBRARIES moptions mutils)
-	if(WIN32)
-		list(APPEND GDK_LINK_LIBRARIES stream ${SOCKET_LIBRARIES} ${THREAD_LIBRARIES} ${PSAPI_LIBRARIES})
+set(GDK_LINK_LIBRARIES moptions mutils)
+if(WIN32)
+	list(APPEND GDK_LINK_LIBRARIES stream ${SOCKET_LIBRARIES} ${THREAD_LIBRARIES} ${PSAPI_LIBRARIES})
+endif()
+
+add_library(gdk SHARED
+			gdk_select.c
+			gdk_calc.c gdk_calc.h gdk_calc_compare.h gdk_calc_private.h
+			gdk_ssort.c gdk_ssort_impl.h
+			gdk_aggr.c
+			gdk.h gdk_batop.c
+			gdk_cand.h gdk_cand.c
+			gdk_search.c gdk_hash.c gdk_hash.h gdk_tm.c
+			gdk_orderidx.c
+			gdk_align.c gdk_bbp.c gdk_bbp.h
+			gdk_heap.c gdk_utils.c gdk_utils.h
+			gdk_atoms.c gdk_atoms.h gdk_string.c
+			gdk_qsort.c gdk_qsort_impl.h
+			gdk_storage.c gdk_bat.c
+			gdk_delta.c gdk_cross.c gdk_system.c gdk_value.c
+			gdk_posix.c gdk_logger.c gdk_sample.c xoshiro256starstar.h
+			gdk_private.h gdk_delta.h gdk_logger.h gdk_posix.h
+			gdk_system.h gdk_system_private.h gdk_tm.h gdk_storage.h
+			gdk_group.c
+			gdk_imprints.c gdk_imprints.h
+			gdk_join.c gdk_project.c
+			gdk_unique.c
+			gdk_interprocess.c gdk_interprocess.h
+			gdk_firstn.c
+			gdk_analytic_bounds.c
+			gdk_analytic_func.c gdk_analytic.h libbat.rc)
+target_link_libraries(gdk PUBLIC gdk_headers PRIVATE utils_headers stream_headers ${GDK_LINK_LIBRARIES})
+set_target_properties(gdk PROPERTIES VERSION ${GDK_VERSION} SOVERSION ${GDK_VERSION_MAJOR} OUTPUT_NAME bat)
+target_compile_definitions(gdk PRIVATE LIBGDK)
+
+install(TARGETS gdk DESTINATION ${LIBDIR})
+install(FILES
+		gdk.h
+		gdk_analytic.h
+		gdk_atoms.h
+		gdk_bbp.h
+		gdk_calc.h
+		gdk_cand.h
+		gdk_delta.h
+		gdk_posix.h
+		gdk_hash.h
+		gdk_system.h
+		gdk_utils.h
+		DESTINATION ${INCLUDEDIR}/monetdb)
+
+if(WIN32)
+	install(FILES $<TARGET_PDB_FILE:gdk> DESTINATION ${LIBDIR} OPTIONAL)
+else()
+	if(NOT "${MATH_LIBRARIES}" STREQUAL "")
+		set(PKG_MATH "-l${MATH_LIBRARIES}")
 	endif()
-
-	add_library(gdk SHARED
-				gdk_select.c
-				gdk_calc.c gdk_calc.h gdk_calc_compare.h gdk_calc_private.h
-				gdk_ssort.c gdk_ssort_impl.h
-				gdk_aggr.c
-				gdk.h gdk_batop.c
-				gdk_cand.h gdk_cand.c
-				gdk_search.c gdk_hash.c gdk_hash.h gdk_tm.c
-				gdk_orderidx.c
-				gdk_align.c gdk_bbp.c gdk_bbp.h
-				gdk_heap.c gdk_utils.c gdk_utils.h
-				gdk_atoms.c gdk_atoms.h gdk_string.c
-				gdk_qsort.c gdk_qsort_impl.h
-				gdk_storage.c gdk_bat.c
-				gdk_delta.c gdk_cross.c gdk_system.c gdk_value.c
-				gdk_posix.c gdk_logger.c gdk_sample.c xoshiro256starstar.h
-				gdk_private.h gdk_delta.h gdk_logger.h gdk_posix.h
-				gdk_system.h gdk_system_private.h gdk_tm.h gdk_storage.h
-				gdk_group.c
-				gdk_imprints.c gdk_imprints.h
-				gdk_join.c gdk_project.c
-				gdk_unique.c
-				gdk_interprocess.c gdk_interprocess.h
-				gdk_firstn.c
-				gdk_analytic_bounds.c
-				gdk_analytic_func.c gdk_analytic.h libbat.rc)
-	target_link_libraries(gdk PUBLIC gdk_headers PRIVATE utils_headers stream_headers ${GDK_LINK_LIBRARIES})
-	set_target_properties(gdk PROPERTIES VERSION ${GDK_VERSION} SOVERSION ${GDK_VERSION_MAJOR} OUTPUT_NAME bat)
-	target_compile_definitions(gdk PRIVATE LIBGDK)
-
-	install(TARGETS gdk DESTINATION ${LIBDIR})
-	install(FILES
-			gdk.h
-			gdk_analytic.h
-			gdk_atoms.h
-			gdk_bbp.h
-			gdk_calc.h
-			gdk_cand.h
-			gdk_delta.h
-			gdk_posix.h
-			gdk_hash.h
-			gdk_system.h
-			gdk_utils.h
-			DESTINATION ${INCLUDEDIR}/monetdb)
-
-	if(WIN32)
-		install(FILES $<TARGET_PDB_FILE:gdk> DESTINATION ${LIBDIR} OPTIONAL)
-	else()
-		if(NOT "${MATH_LIBRARIES}" STREQUAL "")
-			set(PKG_MATH "-l${MATH_LIBRARIES}")
-		endif()
-		if(NOT "${THREAD_LIBRARIES}" STREQUAL "")
-			set(PKG_THREAD "${THREAD_LIBRARIES}")
-		endif()
-		if(NOT "${DL_LIBRARIES}" STREQUAL "")
-			set(PKG_DL "-l${DL_LIBRARIES}")
-		endif()
-		if(NOT "${KVM_LIBRARIES}" STREQUAL "")
-			set(PKG_KVM "-l${KVM_LIBRARIES}")
-		endif()
-		configure_file(monetdb-gdk.pc.in ${CMAKE_CURRENT_BINARY_DIR}/monetdb-gdk.pc @ONLY)
-		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/monetdb-gdk.pc DESTINATION ${PKGCONFIGDIR})
+	if(NOT "${THREAD_LIBRARIES}" STREQUAL "")
+		set(PKG_THREAD "${THREAD_LIBRARIES}")
 	endif()
+	if(NOT "${DL_LIBRARIES}" STREQUAL "")
+		set(PKG_DL "-l${DL_LIBRARIES}")
+	endif()
+	if(NOT "${KVM_LIBRARIES}" STREQUAL "")
+		set(PKG_KVM "-l${KVM_LIBRARIES}")
+	endif()
+	configure_file(monetdb-gdk.pc.in ${CMAKE_CURRENT_BINARY_DIR}/monetdb-gdk.pc @ONLY)
+	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/monetdb-gdk.pc DESTINATION ${PKGCONFIGDIR})
 endif()

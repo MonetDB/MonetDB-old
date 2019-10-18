@@ -1261,15 +1261,7 @@ BUNtoid(BAT *b, BUN p)
 	return o + hi;
 }
 
-static inline BATiter
-bat_iterator(BAT *b)
-{
-	BATiter bi;
-
-	bi.b = b;
-	bi.tvid = 0;
-	return bi;
-}
+#define bat_iterator(_b)	((BATiter) {.b = (_b), .tvid = 0})
 
 /*
  * @- BAT properties
@@ -1423,7 +1415,7 @@ gdk_export void OIDXdestroy(BAT *b);
  *
  */
 gdk_export gdk_return BATprintcolumns(stream *s, int argc, BAT *argv[]);
-gdk_export gdk_return BATprint(BAT *b);
+gdk_export gdk_return BATprint(stream *s, BAT *b);
 
 /*
  * @- BAT clustering

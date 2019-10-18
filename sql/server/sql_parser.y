@@ -3696,7 +3696,6 @@ opt_having_clause:
  |  HAVING search_condition	 { $$ = $2; }
  ;
 
-
 search_condition:
     search_condition OR and_exp
 		{ dlist *l = L();
@@ -3781,16 +3780,15 @@ sort_specification_list:
  ;
 
 ordering_spec:
-    scalar_exp opt_asc_desc opt_nulls_first_last
+    search_condition opt_asc_desc opt_nulls_first_last
 	{ dlist *l = L();
 	  append_symbol(l, $1);
 	  append_int(l, $2 | (($3 == -1 ? !$2 : $3) << 1));
 	  $$ = _symbol_create_list(SQL_COLUMN, l ); }
-
  ;
 
 opt_asc_desc:
-    /* empty */ 	{ $$ = TRUE; }
+    /* empty */ { $$ = TRUE; }
  |  ASC			{ $$ = TRUE; }
  |  DESC		{ $$ = FALSE; }
  ;

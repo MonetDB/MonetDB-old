@@ -7,6 +7,6 @@
 #]]
 
 add_subdirectory(monetdb5)
-if(HAVE_SQL AND HAVE_GEOM)
+if(HAVE_GEOM)
 	add_subdirectory(sql)
 endif()

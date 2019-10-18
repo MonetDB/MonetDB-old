@@ -36,6 +36,9 @@ typedef enum store_type {
 
 #define STORE_READONLY (store_readonly)
 
+/* builtin functions have ids less than this */
+#define FUNC_OIDS 2000
+
 sql_extern sql_trans *gtrans;
 sql_extern list *active_sessions;
 sql_extern ATOMIC_TYPE store_nr_active;

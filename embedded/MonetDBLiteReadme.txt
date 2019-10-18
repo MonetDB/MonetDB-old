@@ -4,8 +4,7 @@ files without any linking. This will be the better approach to compile the langu
 
 To simplify the compilation process set the following variables:
 
-cmake -DCMAKE_INSTALL_PREFIX=<build dir> -DENABLE_EMBEDDED=SHARED -DENABLE_ODBC=NO -DENABLE_MAPI=NO -DENABLE_GDK=NO \
-      -DENABLE_MONETDB5=NO -DENABLE_SQL=NO -DENABLE_TESTING=NO <source dir>
+cmake -DCMAKE_INSTALL_PREFIX=<build dir> -DENABLE_EMBEDDED=SHARED -DENABLE_ODBC=NO -DENABLE_TESTING=NO <source dir>
 
 The ABI is listed on the monetdb_embedded.h header file.
 - The major changes are more C99 compliance and most of the calls return a char* which is set to non-NULL whenever an

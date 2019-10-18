@@ -290,7 +290,7 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		OPTremoveDep(dep, limit);
 		throw(MAL,"optimizer.reorder", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
-	
+
 	pushInstruction(mb,old[0]);
 	old[0]=0;
 
@@ -315,12 +315,13 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			/* collect all seen sofar by backward grouping */
 			/* since p has side-effects, we should secure all seen sofar */
 			for(j=i-1; j>=start;j--) {
-#ifdef DEBUG_OPT_REORDER
-				if( old[j]){
-					MT_fprintf(stderr,"leftover: %d",start+1);
-					fprintInstruction(stderr,mb,0,old[j],LIST_MAL_DEBUG);
+				if( OPTdebug &  OPTreorder){
+					if( old[j]){
+						MT_fprintf(stderr,"leftover: %d",start+1);
+						fprintInstruction(stderr,mb,0,old[j],LIST_MAL_ALL);
+					}
 				}
-#endif
+
 				if (OPTbreadthfirst(cntxt, mb, j, i, old, dep, uselist) < 0) {
 					i = limit;	/* cause break from outer loop */
 					break;
@@ -354,5 +355,9 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
     newComment(mb,buf);
 	addtoMalBlkHistory(mb);
 
+    if( OPTdebug &  OPTreorder){
+        MT_fprintf(stderr, "#reorder optimizer entry\n");
+        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+    }
 	return msg;
 }

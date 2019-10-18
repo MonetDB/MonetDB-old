@@ -77,12 +77,10 @@ endif()
 set(ENABLE_CINTEGRATION "AUTO" CACHE STRING "Enable support for C UDFs (default=AUTO)") # Check with HAVE_CUDF
 set(ENABLE_EMBEDDED "NO" CACHE STRING "Enable support for running MonetDB as a library (default=NO)") # Check with HAVE_EMBEDDED
 set(ENABLE_FITS "AUTO" CACHE STRING "Enable support for FITS (default=AUTO)") # Check with HAVE_FITS
-set(ENABLE_GDK "YES" CACHE STRING "Enable support for GDK (default=YES)") # Check with HAVE_GDK
 set(ENABLE_GEOM "AUTO" CACHE STRING "Enable support for geom module (default=AUTO)") # Check with HAVE_GEOM
 set(ENABLE_INT128 "AUTO" CACHE STRING "Enable support for 128-bit integers (default=AUTO)") # Check with HAVE_HGE
 set(ENABLE_LIDAR "AUTO" CACHE STRING "Enable support for LiDAR data (default=AUTO)") # Check with HAVE_LIDAR
 set(ENABLE_MAPI "YES" CACHE STRING "Enable MAPI (default=YES)") # Check with HAVE_MAPI
-set(ENABLE_MONETDB5 "YES" CACHE STRING "Enable support for MonetDB5 (default=YES)") # Check with HAVE_MONETDB5
 set(ENABLE_NETCDF "AUTO" CACHE STRING "Enable support for netcdf (default=AUTO)") # Check with HAVE_NETCDF
 set(ENABLE_ODBC "AUTO" CACHE STRING "Compile the MonetDB ODBC driver (default=AUTO)") # Check with HAVE_ODBC
 set(ENABLE_PY3INTEGRATION "AUTO" CACHE STRING "enable support for Python 3 integration into MonetDB (default=AUTO)") # Check with HAVE_LIBPY3
@@ -90,7 +88,6 @@ set(ENABLE_RINTEGRATION "AUTO" CACHE STRING "Enable support for R integration in
 set(ENABLE_SAMTOOLS "AUTO" CACHE STRING "Include Samtools support (default=AUTO)") # Check with HAVE_SAMTOOLS
 set(ENABLE_SANITIZER "NO" CACHE STRING "Enable support for the GCC address sanitizer (default=NO)")
 set(ENABLE_SHP "AUTO" CACHE STRING "Enable support for ESRI Shapefiles (default=AUTO)") # Check with HAVE_SHP
-set(ENABLE_SQL "YES" CACHE STRING "Enable support for MonetDB/SQL (default=YES)") # Check with HAVE_SQL
 set(ENABLE_STATIC_ANALYSIS "NO" CACHE STRING "Configure for static code analysis (use only if you know what you are doing)") # Check with STATIC_CODE_ANALYSIS
 set(ENABLE_STRICT "${DFT_STRICT}" CACHE STRING "Enable strict compiler flags (default=YES for development sources, NO for tarball instalation)")
 set(ENABLE_TESTING "AUTO" CACHE STRING "Enable support for testing (default=AUTO)") # Check with HAVE_TESTING
@@ -110,8 +107,8 @@ set(WITH_VALGRIND "NO" CACHE STRING "Include valgrind support (default=NO)") # C
 set(WITH_ZLIB "AUTO" CACHE STRING "Include zlib support (default=AUTO)") # Check with HAVE_LIBZ
 
 # Cmake doesn't support string case insensitive compare, so convert MonetDB options to uppercase on every invocation
-set(OPTIONS_LIST CINTEGRATION EMBEDDED FITS GDK GEOM INT128 LIDAR MAPI MONETDB5 NETCDF ODBC PY3INTEGRATION
-	RINTEGRATION SAMTOOLS SANITIZER SHP SQL STATIC_ANALYSIS STRICT TESTING
+set(OPTIONS_LIST CINTEGRATION EMBEDDED FITS GEOM INT128 LIDAR MAPI NETCDF ODBC PY3INTEGRATION
+	RINTEGRATION SAMTOOLS SANITIZER SHP STATIC_ANALYSIS STRICT TESTING
 	BZ2 CURL LIBLZMA LIBXML2 LZ4 PROJ READLINE REGEX SNAPPY UUID VALGRIND ZLIB)
 foreach(EXTENSION IN LISTS OPTIONS_LIST)
 	if(ENABLE_${EXTENSION})
@@ -340,39 +337,13 @@ if(Python3_Interpreter_FOUND)
 	endif()
 endif()
 if(NOT HAVE_PYTHON3)
-	if("${ENABLE_TESTING}" STREQUAL "YES")
-		message(FATAL_ERROR "A valid Python 3 interpreter is required for MonetDB testing tools")
-	else()
-		set(ENABLE_TESTING "NO" CACHE STRING "A valid Python 3 interpreter is required for MonetDB testing tools" FORCE)
-	endif()
-	if("${ENABLE_MONETDB5}" STREQUAL "YES")
-		message(FATAL_ERROR "A valid Python 3 interpreter is required for MonetDB5")
-	else()
-		set(ENABLE_MONETDB5 "NO" CACHE STRING "A valid Python 3 interpreter is required for MonetDB5" FORCE)
-	endif()
-	if("${ENABLE_SQL}" STREQUAL "YES")
-		message(FATAL_ERROR "A valid Python 3 interpreter is required for MonetDB/SQL")
-	else()
-		set(ENABLE_SQL "NO" CACHE STRING "A valid Python 3 interpreter is required for MonetDB/SQL" FORCE)
-	endif()
-	if(${ENABLE_EMBEDDED} MATCHES "^SHARED|OBJECT$")
-		message(FATAL_ERROR "A valid Python 3 interpreter is required for MonetDB embedded library")
-	else()
-		set(ENABLE_EMBEDDED "NO" CACHE STRING "A valid Python 3 interpreter is required for MonetDB embedded library" FORCE)
-	endif()
+	message(FATAL_ERROR "A valid Python 3 interpreter is required for MonetDB")
 endif()
 
 # Bison
 find_package(BISON)
 if(NOT BISON_FOUND)
-	if(${ENABLE_SQL} STREQUAL "YES")
-		message(FATAL_ERROR "MonetDB/SQL requires bison")
-	endif()
-	if(${ENABLE_EMBEDDED} MATCHES "^SHARED|OBJECT$")
-		message(FATAL_ERROR "MonetDB embedded library requires bison")
-	endif()
-	set(ENABLE_SQL "NO" CACHE STRING "Bison is required for MonetDB/SQL" FORCE)
-	set(ENABLE_EMBEDDED "NO" CACHE STRING "Bison is required for MonetDB embedded library" FORCE)
+	message(FATAL_ERROR "MonetDB/SQL requires Bison")
 endif()
 
 # Iconv
@@ -429,22 +400,10 @@ if(NOT COMMONCRYPTO_FOUND)
 endif()
 cmake_pop_check_state()
 if(NOT COMMONCRYPTO_FOUND AND NOT OPENSSL_FOUND)
-	if(${ENABLE_MONETDB5} STREQUAL "YES")
-		message(FATAL_ERROR "Neither OpenSSL or CommonCrypto library found, but required for MonetDB5")
-	else()
-		set(ENABLE_MONETDB5 "NO" CACHE STRING "Neither OpenSSL or CommonCrypto library found, but required for MonetDB5" FORCE)
-		message(WARNING "Neither OpenSSL or CommonCrypto library found, but required for MonetDB5")
-	endif()
+	message(FATAL_ERROR "Neither OpenSSL or CommonCrypto library found, but required for MonetDB5")
 endif()
 if(NOT HAVE_${PASSWORD_BACKEND}_UPDATE)
-	if(${ENABLE_MONETDB5} STREQUAL "YES")
-		message(FATAL_ERROR "A crypto library was found, but checksum algorithm required for MonetDB5 was not found")
-	else()
-		set(HAVE_COMMONCRYPTO NO)
-		set(OPENSSL_FOUND NO)
-		set(ENABLE_MONETDB5 "NO" CACHE STRING "A crypto library was found, but checksum algorithm required for MonetDB5 was not found" FORCE)
-		message(WARNING "A crypto library was found, but required checksum algorithm was not found, so disabling MonetDB5")
-	endif()
+	message(FATAL_ERROR "A crypto library was found, but checksum algorithm required for MonetDB5 was not found")
 endif()
 
 # Regex library
@@ -488,12 +447,7 @@ if(NOT HAVE_LIBPCRE)
 endif()
 check_symbol_exists("regcomp" "regex.h" HAVE_POSIX_REGEX)
 if(NOT HAVE_LIBPCRE AND NOT HAVE_POSIX_REGEX)
-	if(${ENABLE_MONETDB5} STREQUAL "YES")
-		message(FATAL_ERROR "PCRE library or GNU regex library not found but required for MonetDB5")
-	else()
-		set(ENABLE_MONETDB5 "NO" CACHE STRING "PCRE library or GNU regex library not found but required for MonetDB5" FORCE)
-		message(WARNING "PCRE library or GNU regex library not found but required for MonetDB5")
-	endif()
+	message(FATAL_ERROR "PCRE library or GNU regex library not found but required for MonetDB5")
 endif()
 
 set_system_libraries() # Inside BuildMacros.cmake file
@@ -547,31 +501,6 @@ check_symbol_exists("posix_fallocate" "fcntl.h" HAVE_POSIX_FALLOCATE) # Some POS
 check_symbol_exists("posix_madvise" "sys/mman.h" HAVE_POSIX_MADVISE) # The Linux kernel can be compiled without madvise, and posix_madvise is implemented using madvise
 check_symbol_exists("semtimedop" "sys/types.h;sys/ipc.h;sys/sem.h" HAVE_SEMTIMEDOP) # Some libc versions on Linux distributions don't have it
 
-if(${ENABLE_GDK} STREQUAL "NO")
-	if(${ENABLE_MONETDB5} STREQUAL "YES")
-		message(FATAL_ERROR "MonetDB5 requires GDK")
-	elseif(${ENABLE_MONETDB5} STREQUAL "AUTO")
-		set(ENABLE_MONETDB5 "NO" CACHE STRING "MonetDB5 requires GDK" FORCE)
-	endif()
-	set(HAVE_GDK OFF CACHE INTERNAL "MonetDB5 is available" FORCE)
-else()
-	set(HAVE_GDK ON CACHE INTERNAL "GDK layer is available" FORCE)
-endif()
-if(${ENABLE_MONETDB5} STREQUAL "NO")
-	if(${ENABLE_SQL} STREQUAL "YES")
-		message(FATAL_ERROR "MonetDB/SQL requires MonetDB5")
-	elseif(${ENABLE_SQL} STREQUAL "AUTO")
-		set(ENABLE_SQL "NO" CACHE STRING "MonetDB/SQL requires MonetDB5" FORCE)
-	endif()
-	set(HAVE_MONETDB5 OFF CACHE INTERNAL "MonetDB5 is available" FORCE)
-else()
-	set(HAVE_MONETDB5 ON CACHE INTERNAL "MonetDB5 is available" FORCE)
-endif()
-if("${ENABLE_SQL}" MATCHES "^YES|AUTO$") # The SQL module requires the monetdb5 module, so monetdb5 should compile first
-	set(HAVE_SQL ON CACHE INTERNAL "MonetDB/SQL is available" FORCE)
-else()
-	set(HAVE_SQL OFF CACHE INTERNAL "MonetDB/SQL is available" FORCE)
-endif()
 if(${ENABLE_EMBEDDED} MATCHES "^SHARED|OBJECT$")
 	set(HAVE_EMBEDDED ON CACHE INTERNAL "MonetDB embedded library is enabled" FORCE)
 elseif(${ENABLE_EMBEDDED} STREQUAL "NO")
@@ -781,10 +710,8 @@ add_subdirectory(common)
 add_subdirectory(clients) # Must come before monetdb5!
 add_subdirectory(gdk)
 add_subdirectory(monetdb5)
-if(HAVE_MONETDB5)
-	add_subdirectory(geom) # The SHP vault requires the geom module, so the geom module should compile before SQL
-	add_subdirectory(tools)
-endif()
+add_subdirectory(geom) # The SHP vault requires the geom module, so the geom module should compile before SQL
+add_subdirectory(tools)
 add_subdirectory(sql)
 if(HAVE_EMBEDDED)
 	add_subdirectory(embedded)

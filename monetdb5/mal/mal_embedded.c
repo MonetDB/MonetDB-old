@@ -68,7 +68,6 @@ malEmbeddedBoot(void)
 	initParser();
 	initHeartbeat();
 	initResource();
-	initProfiler();
 
 	c = MCinitClient((oid) 0, 0, 0);
 	if(c == NULL)
@@ -105,6 +104,7 @@ malEmbeddedBoot(void)
 	if (msg == MAL_SUCCEED)
 		embeddedinitialized = true;
 	MCcloseClient(c);
+	initProfiler();
 	return msg;
 }
 
@@ -146,10 +146,10 @@ malEmbeddedReset(void) //remove extra modules and set to non-initialized again
 
 	memset(&malModules[nDefaultModules], 0, (MAXMODULES-1 - nDefaultModules) * sizeof(str));
 	GDKprepareExit();
-	MCstopClients(0);
 	WLCreset();
+	MCstopClients(0);
 	setHeartbeat(-1);
-	stopProfiler();
+	stopProfiler(0);
 	AUTHreset();
 	if (!GDKinmemory()) {
 		str msg = MAL_SUCCEED;
@@ -163,11 +163,11 @@ malEmbeddedReset(void) //remove extra modules and set to non-initialized again
 		}
 	}
 	mal_factory_reset();
-	mal_runtime_reset();
 	mal_dataflow_reset();
 	mal_client_reset();
-	mal_linker_reset();
+  	mal_linker_reset();
 	mal_resource_reset();
+	mal_runtime_reset();
 	mal_module_reset();
 	mal_atom_reset();
 	opt_pipes_reset();

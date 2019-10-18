@@ -8,6 +8,4 @@
 
 add_subdirectory(utils)
 add_subdirectory(client)
-if(HAVE_MONETDB5)
-	add_subdirectory(daemon)
-endif()
+add_subdirectory(daemon)
