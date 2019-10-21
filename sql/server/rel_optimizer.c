@@ -1243,7 +1243,7 @@ exp_rename(mvc *sql, sql_exp *e, sql_rel *f, sql_rel *t)
 		sql->errstr[0] = 0;
 		if (!e && exp_is_atom(ne))
 			return ne;
-		return e;
+		return exp_ref(sql->sa ,e);
 	case e_cmp: 
 		if (get_cmp(e) == cmp_or || get_cmp(e) == cmp_filter) {
 			list *l = exps_rename(sql, e->l, f, t);
@@ -3690,7 +3690,7 @@ rel_select_cse(int *changes, mvc *sql, sql_rel *rel)
 		for (n=rel->exps->h; n; n = n->next) {
 			sql_exp *e = n->data;
 
-			if (e->type == e_cmp && e->flag == cmp_or) {
+			if (e->type == e_cmp && e->flag == cmp_or && !is_anti(e)) {
 				/* split the common expressions */
 				*changes += exps_cse(sql, nexps, e->l, e->r);
 			} else {
@@ -9145,50 +9145,6 @@ optimize_rel(mvc *sql, sql_rel *rel, int *g_changes, int level, int value_based_
 	return rel;
 }
 
-static void
-rel_reset_subquery(sql_rel *rel)
-{
-	if (!rel)
-		return;
-
-	rel->subquery = 0;
-	switch(rel->op){
-	case op_basetable:
-	case op_table:
-	case op_ddl:
-
-	case op_insert:
-	case op_update:
-	case op_delete:
-	case op_truncate:
-		break;
-	case op_select:
-	case op_topn:
-	case op_sample:
-
-	case op_project:
-	case op_groupby:
-		if (rel->l)
-			rel_reset_subquery(rel->l);
-		break;
-	case op_join:
-	case op_left:
-	case op_right:
-	case op_full:
-	case op_semi:
-	case op_anti:
-
-	case op_union:
-	case op_inter:
-	case op_except:
-		if (rel->l)
-			rel_reset_subquery(rel->l);
-		if (rel->r)
-			rel_reset_subquery(rel->r);
-	}
-
-}
-
 static sql_rel *
 optimize(mvc *sql, sql_rel *rel, int value_based_opt) 
 {
@@ -9197,7 +9153,6 @@ optimize(mvc *sql, sql_rel *rel, int value_based_opt)
 	int level = 0, changes = 1;
 
 
-	rel_reset_subquery(rel);
 	for( ;rel && level < 20 && changes; level++)
 		rel = optimize_rel(sql, rel, &changes, level, value_based_opt);
 

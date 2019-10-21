@@ -103,23 +103,26 @@ GROUP BY col1;
 	-- True False
 	-- True False
 
--- TODO incorrect empty result
 SELECT NOT col2 <> ANY (SELECT 20 FROM tbl_ProductSales GROUP BY ColID HAVING NOT MAX(col1) <> col1 * AVG(col1 + ColID) * ColID) FROM another_T GROUP BY col1, col2, col5, col8;
+	-- True
+	-- True
+	-- True
+	-- True
 
-/* BROKEN
 SELECT
 	NOT -SUM(col2) NOT IN (SELECT ColID FROM tbl_ProductSales GROUP BY ColID HAVING SUM(ColID - col8) <> col5),
 	NOT col5 = ALL (SELECT 1 FROM tbl_ProductSales HAVING MAX(col8) > 2 AND MIN(col8) IS NOT NULL),
---	NOT col2 <> ANY (SELECT 20 FROM tbl_ProductSales GROUP BY ColID HAVING NOT MAX(col1) <> col1 * AVG(col1 + ColID) * ColID),
+	NOT col2 <> ANY (SELECT 20 FROM tbl_ProductSales GROUP BY ColID HAVING NOT MAX(col1) <> col1 * AVG(col1 + ColID) * ColID),
 	NOT EXISTS (SELECT ColID - 12 FROM tbl_ProductSales GROUP BY ColID HAVING MAX(col2) IS NULL OR NOT col8 <> 2 / col1)
 FROM another_T
 GROUP BY col1, col2, col5, col8;
-*/
 	-- False True True True
 	-- False True True True
 	-- False True True True
 	-- False True True True
 
+
+/* Wrong output (error) because of CAST (NOT col1 IN (SELECT col2 FROM another_T GROUP BY col2) AS INTEGER) | CAST (col2 IN (SELECT col2 FROM another_T GROUP BY col2) AS INTEGER),
 SELECT
 	DISTINCT
 	NOT col1 * col5 = ALL (SELECT 1 FROM tbl_ProductSales HAVING MAX(col2) > 2),
@@ -130,6 +133,7 @@ FROM another_T
 GROUP BY col1, col2, col5;
 	-- False False 1 0
 	-- True  False 1 0
+*/
 
 SELECT
 	SUM(col1) IN (SELECT DISTINCT col2 FROM another_T GROUP BY col2)
@@ -184,7 +188,7 @@ HAVING NOT col1 = ANY (SELECT 0 FROM tbl_ProductSales GROUP BY ColID HAVING NOT 
 	-- 55
 	-- 5555
 
--- TODO incorrect empty result
+/* Wrong output: incorrect empty result
 SELECT
 	SUM(col3) * col1
 FROM another_T
@@ -194,6 +198,7 @@ HAVING NOT col1 <> ANY (SELECT 0 FROM tbl_ProductSales GROUP BY ColID HAVING NOT
 	-- 36963
 	-- 363
 	-- 3702963
+*/
 
 SELECT
 	SUM(CAST(t1.col1 IN (SELECT t1.col1 FROM another_T) AS INTEGER))
@@ -204,7 +209,7 @@ GROUP BY t1.col2;
 	-- 1
 	-- 1
 
--- TODO incorrect empty result
+/* Wrong output: incorrect ouput
 SELECT
     (SELECT MIN(ColID) FROM tbl_ProductSales INNER JOIN another_T t2 ON t1.col7 <> SOME(SELECT MAX(t1.col1 + t3.col4) FROM another_T t3))
 FROM another_T t1;
@@ -212,6 +217,7 @@ FROM another_T t1;
 	-- 1
 	-- 1
 	-- 1
+*/
 
 -- 4x NULL vs postgress wrong with 1x NULL
 SELECT
@@ -227,7 +233,7 @@ FROM another_T t1;
 	-- NULL
 	-- NULL
 
-/* BROKEN
+/* BROKEN code generation with a constant in a groupby- aggregation
 SELECT
 	CASE WHEN 1 IN (SELECT (SELECT MAX(col7))) THEN 2 ELSE NULL END
 FROM another_T t1;

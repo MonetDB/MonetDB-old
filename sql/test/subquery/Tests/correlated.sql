@@ -498,10 +498,10 @@ SELECT i, CAST((SELECT (SELECT SUM(i) FROM integers)+42+i1.i) AS BIGINT) AS j FR
 --NULL	NULL
 
 SELECT i, (SELECT row_number() OVER (ORDER BY i) FROM integers WHERE i1.i=i) FROM integers i1 ORDER BY i;
+--NULL	NULL
 --1	1
 --2	1
 --3	1
---NULL	NULL
 
 /*Wrong results
 SELECT i1.i, (SELECT rank() OVER (ORDER BY i) FROM integers WHERE i1.i=i) FROM integers i1, integers i2 ORDER BY i1.i;*/

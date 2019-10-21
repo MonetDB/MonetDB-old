@@ -571,6 +571,7 @@ rel_project_add_exp( mvc *sql, sql_rel *rel, sql_exp *e)
 	} else if (rel->op == op_groupby) {
 		return rel_groupby_add_aggr(sql, rel, e);
 	}
+	e = exp_ref(sql->sa, e);
 	return e;
 }
 
@@ -671,8 +672,7 @@ rel_groupby_add_aggr(mvc *sql, sql_rel *rel, sql_exp *e)
 		rel->nrcols++;
 		m = e;
 	}
-	ne = exp_column(sql->sa, exp_relname(m), exp_name(m), exp_subtype(m),
-			rel->card, has_nil(m), is_intern(m));
+	ne = exp_ref(sql->sa, m);
 	return ne;
 }
 
@@ -1080,7 +1080,7 @@ rel_bind_path_(mvc *sql, sql_rel *rel, sql_exp *e, list *path )
 }
 
 static list *
-rel_bind_path(mvc *sql, sql_rel *rel, sql_exp *e )
+rel_bind_path(mvc *sql, sql_rel *rel, sql_exp *e)
 {
 	list *path = new_rel_list(sql->sa);
 	if(!path) {

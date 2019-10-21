@@ -102,8 +102,8 @@ stdout of test 'scalar` in directory 'sql/test/subquery` itself:
 #INSERT INTO integers VALUES (1), (2), (3), (NULL);
 [ 4	]
 #SELECT EXISTS(SELECT 1) FROM integers; -- true, true, true, true
-% .L2 # table_name
-% L2 # name
+% .L1 # table_name
+% L1 # name
 % boolean # type
 % 5 # length
 [ true	]
@@ -111,14 +111,14 @@ stdout of test 'scalar` in directory 'sql/test/subquery` itself:
 [ true	]
 [ true	]
 #SELECT EXISTS(SELECT * FROM integers); -- true
-% .L4 # table_name
-% L4 # name
+% .L3 # table_name
+% L3 # name
 % boolean # type
 % 5 # length
 [ true	]
 #SELECT EXISTS(SELECT * FROM integers WHERE i IS NULL); -- true
-% .L4 # table_name
-% L4 # name
+% .L3 # table_name
+% L3 # name
 % boolean # type
 % 5 # length
 [ true	]
@@ -151,20 +151,20 @@ stdout of test 'scalar` in directory 'sql/test/subquery` itself:
 #INSERT INTO integers VALUES (1), (2), (3);
 [ 3	]
 #SELECT 4 IN (SELECT * FROM integers); -- false
-% .L14 # table_name
-% L14 # name
+% .L13 # table_name
+% L13 # name
 % boolean # type
 % 5 # length
 [ false	]
 #SELECT 1 IN (SELECT * FROM integers); -- true
-% .L14 # table_name
-% L14 # name
+% .L13 # table_name
+% L13 # name
 % boolean # type
 % 5 # length
 [ true	]
 #SELECT 1 IN (SELECT * FROM integers) FROM integers; -- true, true, true
-% .L13 # table_name
-% L13 # name
+% .L11 # table_name
+% L11 # name
 % boolean # type
 % 5 # length
 [ true	]
@@ -173,14 +173,14 @@ stdout of test 'scalar` in directory 'sql/test/subquery` itself:
 #INSERT INTO integers VALUES (NULL); 
 [ 1	]
 #SELECT 4 IN (SELECT * FROM integers); -- NULL
-% .L14 # table_name
-% L14 # name
+% .L13 # table_name
+% L13 # name
 % boolean # type
 % 5 # length
 [ NULL	]
 #SELECT 1 IN (SELECT * FROM integers); -- true
-% .L14 # table_name
-% L14 # name
+% .L13 # table_name
+% L13 # name
 % boolean # type
 % 5 # length
 [ true	]

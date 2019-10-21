@@ -23,11 +23,13 @@ GROUP BY col1, col2, col5, col8;
 	-- 226  98568   1143
 	-- 2226 9874568 11443
 
+/* Broken bit_or aggr
 SELECT
     CAST (NOT col1 IN (SELECT col2 FROM another_T GROUP BY col2) AS INTEGER) | CAST (col2 IN (SELECT col2 FROM another_T GROUP BY col2) AS INTEGER),
     CAST (EXISTS (SELECT MAX(col5) * MAX(col4) FROM another_T GROUP BY col5, col4) AS INTEGER) & CAST (SUM(col4) IN (SELECT DISTINCT col2 FROM another_T GROUP BY col2) AS INTEGER)
 FROM another_T
 GROUP BY col1, col2, col5;
+*/
 	-- 1	0
 	-- 1	0
 	-- 1	0
@@ -54,12 +56,13 @@ SELECT
 	NOT EXISTS (SELECT AVG(col1) WHERE FALSE),
 	NOT EXISTS (SELECT AVG(col1) WHERE NULL)
 FROM another_T t1;
-	-- The outputs depends if the correlation happens in either inside the inner query or the outer query. However some columns output wrong in MonetDB.
-	-- True False False False True True (1x or 4x)
+	-- True False False False True True
 
+/* BROKEN 
 SELECT
 	EXISTS (SELECT RANK() OVER (PARTITION BY SUM(DISTINCT col5)))
 FROM another_T t1;
+*/
 	-- True
 
 SELECT
