@@ -8,7 +8,6 @@
 
 #include "monetdb_config.h"
 #include "opt_mergetable.h"
-#include "gdk_tracer.h"
 
 typedef enum mat_type_t {
 	mat_none = 0,	/* Simple mat aligned operations (ie batcalc etc) */

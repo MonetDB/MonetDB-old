@@ -8,7 +8,6 @@
 
 #include "monetdb_config.h"
 #include "opt_costModel.h"
-#include "gdk_tracer.h"
 
 /*
  * The cost formula are repetative

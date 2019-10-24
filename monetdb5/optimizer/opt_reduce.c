@@ -9,7 +9,6 @@
 #include "monetdb_config.h"
 #include "opt_reduce.h"
 #include "mal_interpreter.h"
-#include "gdk_tracer.h"
 
 str
 OPTreduceImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)

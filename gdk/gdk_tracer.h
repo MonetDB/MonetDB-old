@@ -52,8 +52,8 @@
  */
 // The minimum code is assigned to each LOG_LEVEL
 typedef enum { 
-
-               M_NONE = 0, 
+    
+               M_NONE = 0,
                M_INFO = 1, 
                M_WARNING = 100, 
                M_DEBUG = 150, 

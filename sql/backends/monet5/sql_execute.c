@@ -16,7 +16,6 @@
  */
 #include "monetdb_config.h"
 #include "mal_backend.h"
-#include "gdk_tracer.h"
 #include "sql_scenario.h"
 #include "sql_result.h"
 #include "sql_gencode.h"

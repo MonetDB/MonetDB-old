@@ -149,7 +149,7 @@ renderProfilerEvent(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int
 	*/
 	if( !start && pci->calls > HIGHWATERMARK){
 		if( pci->calls == 10000 || pci->calls == 100000 || pci->calls == 1000000 || pci->calls == 10000000)
-			fprintf(stderr, "#Profiler too many calls %d\n", pci->calls);
+			TraceLN(M_INFO, "render_profiler_evt", "Profiler called too many times: %d\n", pci->calls);
 		return;
 	}
 

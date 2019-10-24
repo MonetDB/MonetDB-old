@@ -14,7 +14,6 @@
 #include "monetdb_config.h"
 #include "mal_instruction.h"
 #include "opt_volcano.h"
-#include "gdk_tracer.h"
 
 // delaying the startup should not be continued throughout the plan
 // after the startup phase there should be intermediate work to do

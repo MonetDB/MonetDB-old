@@ -11,7 +11,6 @@
 #include "opt_macro.h"
 #include "mal_interpreter.h"
 #include "mal_instruction.h"
-#include "gdk_tracer.h"
 
 static int
 malMatch(InstrPtr p1, InstrPtr p2)

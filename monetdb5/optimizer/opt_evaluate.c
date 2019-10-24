@@ -9,7 +9,6 @@
 #include "monetdb_config.h"
 #include "opt_evaluate.h"
 #include "opt_aliases.h"
-#include "gdk_tracer.h"
 
 static int
 OPTallConstant(Client cntxt, MalBlkPtr mb, InstrPtr p)

@@ -8,7 +8,6 @@
 
 #include "monetdb_config.h"
 #include "opt_inline.h"
-#include "gdk_tracer.h"
 
 static bool
 isCorrectInline(MalBlkPtr mb){

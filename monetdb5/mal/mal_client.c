@@ -69,7 +69,7 @@ MCinit(void)
 	if (maxclients <= 0) {
 		maxclients = 64;
 		if (GDKsetenv("max_clients", "64") != GDK_SUCCEED) {
-			fprintf(stderr, "!MCinit: GDKsetenv failed");
+			TraceLN(M_CRITICAL, "mc_init", "GDKsetenv failed\n");
 			return false;
 		}
 	}
@@ -77,7 +77,7 @@ MCinit(void)
 	MAL_MAXCLIENTS = /* client connections */ maxclients;
 	mal_clients = GDKzalloc(sizeof(ClientRec) * MAL_MAXCLIENTS);
 	if( mal_clients == NULL){
-		fprintf(stderr,"!MCinit:" MAL_MALLOC_FAIL);
+		TraceLN(M_CRITICAL, "mc_init", MAL_MALLOC_FAIL"\n");
 		return false;
 	}
 	return true;
@@ -143,7 +143,7 @@ MCnewClient(void)
 		return NULL;
 	c->idx = (int) (c - mal_clients);
 #ifdef MAL_CLIENT_DEBUG
-	fprintf(stderr,"New client created %d\n", (int) (c - mal_clients));
+	TraceLN(M_DEBUG, "new_client", "New client created %d\n", (int) (c - mal_clients));
 #endif
 	return c;
 }
@@ -186,7 +186,7 @@ void
 MCexitClient(Client c)
 {
 #ifdef MAL_CLIENT_DEBUG
-	fprintf(stderr,"# Exit client %d\n", c->idx);
+	TraceLN(M_DEBUG, "exit_client", "Exit client %d\n", c->idx);
 #endif
 	finishSessionProfiler(c);
 	MCresetProfiler(c->fdout);
@@ -223,7 +223,7 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 		MT_lock_set(&mal_contextLock);
 		c->mode = FREECLIENT;
 		MT_lock_unset(&mal_contextLock);
-		fprintf(stderr,"!initClientRecord:" MAL_MALLOC_FAIL);
+		TraceLN(M_CRITICAL, "init_client_record", MAL_MALLOC_FAIL"\n");
 		return NULL;
 	}
 	c->yycur = 0;
@@ -257,7 +257,7 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 			c->mode = FREECLIENT;
 			MT_lock_unset(&mal_contextLock);
 		}
-		fprintf(stderr, "!initClientRecord:" MAL_MALLOC_FAIL);
+		TraceLN(M_CRITICAL, "init_client_record", MAL_MALLOC_FAIL"\n");
 		return NULL;
 	}
 	c->promptlength = strlen(prompt);
@@ -398,7 +398,7 @@ MCfreeClient(Client c)
 	c->mode = FINISHCLIENT;
 
 #ifdef MAL_CLIENT_DEBUG
-	fprintf(stderr,"# Free client %d\n", c->idx);
+	TraceLN(M_DEBUG, "free_client", "Free client %d\n", c->idx);
 #endif
 	MCexitClient(c);
 
@@ -514,7 +514,7 @@ void
 MCcloseClient(Client c)
 {
 #ifdef MAL_DEBUG_CLIENT
-	fprintf(stderr,"closeClient %d " OIDFMT "\n", (int) (c - mal_clients), c->user);
+	TraceLN(M_DEBUG, "close_client", "Close client %d " OIDFMT "\n", (int) (c - mal_clients), c->user);
 #endif
 	/* free resources of a single thread */
 	MCfreeClient(c);

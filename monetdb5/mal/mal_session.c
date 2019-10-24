@@ -87,6 +87,7 @@ malBootstrap(void)
 static str
 MSresetClientPrg(Client cntxt, str mod, str fcn)
 {
+	str func_ln = "reset_client_prg";
 	MalBlkPtr mb;
 	InstrPtr p;
 
@@ -102,11 +103,11 @@ MSresetClientPrg(Client cntxt, str mod, str fcn)
 	p->argv[0] = 0;
 
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"reset sym %s %s to %s, id %d\n", 
-		cntxt->curprg->name, getFunctionId(p), nme, findVariable(mb,nme) );
-	fprintf(stderr,"vtop %d\n", mb->vtop);
+	TraceLN(M_DEBUG, func_ln, "Reset sym %s %s to %s, id %d\n", 
+		cntxt->curprg->name, getFunctionId(p), nme, findVariable(mb,nme));
+	TraceLN(M_DEBUG, func_ln, "vtop %d\n", mb->vtop);
 	if( mb->vtop)
-	fprintf(stderr,"first var %s\n", mb->var[0].id);
+	TraceLN(M_DEBUG, func_ln, "First var %s\n", mb->var[0].id);
 #endif
 
 	setModuleId(p, mod);
@@ -174,6 +175,7 @@ const char* mal_enableflag = "mal_for_all";
 void
 MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protocol_version protocol, size_t blocksize)
 {
+	str func_ln = "schedule_client";
 	char *user = command, *algo = NULL, *passwd = NULL, *lang = NULL;
 	char *database = NULL, *s;
 	const char *dbname;
@@ -287,7 +289,7 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout, protoco
 			if (err != NULL) {
 				/* this is kind of awful, but we need to get rid of this
 				 * message */
-				fprintf(stderr, "!msab_getMyStatus: %s\n", err);
+				TraceLN(M_CRITICAL, func_ln, "msab_getMyStatus: %s\n", err);
 				free(err);
 				mnstr_printf(fout, "!internal server error, "
 							 "please try again later\n");
@@ -429,10 +431,11 @@ MSresetInstructions(MalBlkPtr mb, int start)
 void
 MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start)
 {
+	str func_ln = "reset_variables";
 	int i;
 
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"resetVarables %d  vtop %d errors %s\n", start, mb->vtop,mb->errors);
+	TraceLN(M_DEBUG, func_ln, "Reset %d vtop %d errors %s\n", start, mb->vtop, mb->errors)
 #endif
 	for (i = 0; i < start && i < mb->vtop ; i++)
 		setVarUsed(mb,i);
@@ -453,12 +456,12 @@ MSresetVariables(Client cntxt, MalBlkPtr mb, MalStkPtr glb, int start)
 		}
 
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"resetVar %s %d\n", getFunctionId(mb->stmt[0]), mb->var[mb->stmt[0]->argv[0]].used);
+	TraceLN(M_DEBUG, func_ln, "Reset var %s %d\n", getFunctionId(mb->stmt[0]), mb->var[mb->stmt[0]->argv[0]].used);
 #endif
 	if (mb->errors == MAL_SUCCEED)
 		trimMalVariables_(mb, glb);
 #ifdef _DEBUG_SESSION_
-	fprintf(stderr,"after trim %s %d\n", getFunctionId(mb->stmt[0]), mb->vtop);
+	TraceLN(M_DEBUG, func_ln, "After trim %s %d\n", getFunctionId(mb->stmt[0]), mb->vtop);
 #endif
 }
 

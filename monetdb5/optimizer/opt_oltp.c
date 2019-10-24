@@ -13,7 +13,6 @@
  */
 #include "monetdb_config.h"
 #include "opt_oltp.h"
-#include "gdk_tracer.h"
 
 static void
 addLock(Client cntxt, OLTPlocks locks, MalBlkPtr mb, InstrPtr p, int sch, int tbl)

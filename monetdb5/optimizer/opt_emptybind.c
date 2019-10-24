@@ -19,7 +19,6 @@
 #include "opt_aliases.h"
 #include "opt_deadcode.h"
 #include "mal_builder.h"
-#include "gdk_tracer.h"
 
 #define addresult(I)									\
 	do {												\

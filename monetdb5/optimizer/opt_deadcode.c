@@ -10,7 +10,6 @@
  */
 #include "monetdb_config.h"
 #include "opt_deadcode.h"
-#include "gdk_tracer.h"
 
 str 
 OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)

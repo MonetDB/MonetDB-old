@@ -12,7 +12,6 @@
  */
 #include "monetdb_config.h"
 #include "opt_wlc.h"
-#include "gdk_tracer.h"
 
 str
 OPTwlcImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)

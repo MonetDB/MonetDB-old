@@ -45,7 +45,6 @@
 #include "opt_reorder.h"
 #include "mal_instruction.h"
 #include "mal_interpreter.h"
-#include "gdk_tracer.h"
 
 /*
  * Collect the statement dependencies in a table first

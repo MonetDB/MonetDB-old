@@ -21,7 +21,6 @@
 #include "monetdb_config.h"
 #include "mal_builder.h"
 #include "opt_jit.h"
-#include "gdk_tracer.h"
 
 str
 OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)

@@ -9,7 +9,6 @@
 #include "monetdb_config.h"
 #include "opt_generator.h"
 #include "mal_builder.h"
-#include "gdk_tracer.h"
 
 /*
  * (c) Martin Kersten, Sjoerd Mullender

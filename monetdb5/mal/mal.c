@@ -79,7 +79,7 @@ int mal_init(void){
 #ifndef NDEBUG
 		mdbExit();
 #endif
-		fprintf(stderr, "%s", err);
+		Trace(M_ERROR, "%s", err);
 		freeException(err);
 		return -1;
 	}
@@ -109,11 +109,11 @@ void mserver_reset(void)
 	AUTHreset();
 	if (!GDKinmemory()) {
 		if ((err = msab_wildRetreat()) != NULL) {
-			fprintf(stderr, "!%s", err);
+			Trace(M_ERROR, "%s", err);
 			free(err);
 		}
 		if ((err = msab_registerStop()) != NULL) {
-			fprintf(stderr, "!%s", err);
+			Trace(M_ERROR, "%s", err);
 			free(err);
 		}
 	}

@@ -13,8 +13,6 @@
 
 #include "monetdb_config.h"
 #include "tracer.h"
-#include "gdk_tracer.h"
-
 
 str 
 TRCRflush_buffer(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)

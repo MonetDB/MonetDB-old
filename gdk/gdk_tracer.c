@@ -159,7 +159,8 @@ GDKtracer_set_log_level(int *level)
         if(GDK_result == GDK_FAIL)
             return GDK_FAIL;
     }
-
+    
+    // TODO: Check level exists
     ATOMIC_SET(&CUR_LOG_LEVEL, *level);
 
     return GDK_SUCCEED;
@@ -188,6 +189,7 @@ GDKtracer_set_flush_level(int *level)
     if((int) ATOMIC_GET(&CUR_FLUSH_LEVEL) == *level)
         return GDK_SUCCEED;
 
+    // TODO: Check level exists
     ATOMIC_SET(&CUR_FLUSH_LEVEL, *level);
 
     return GDK_SUCCEED;

@@ -14,7 +14,6 @@
 #include "mal_instruction.h"
 #include "mal_interpreter.h"
 #include "manifold.h"
-#include "gdk_tracer.h"
 
 /*
  * Dataflow processing incurs overhead and is only

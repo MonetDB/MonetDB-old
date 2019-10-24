@@ -25,7 +25,6 @@
 #include "monetdb_config.h"
 #include "mal_instruction.h"
 #include "opt_constants.h"
-#include "gdk_tracer.h"
 
 str
 OPTconstantsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)

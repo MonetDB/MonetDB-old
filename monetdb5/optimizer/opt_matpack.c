@@ -12,7 +12,6 @@
  */
 #include "monetdb_config.h"
 #include "opt_matpack.h"
-#include "gdk_tracer.h"
 
 str 
 OPTmatpackImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)

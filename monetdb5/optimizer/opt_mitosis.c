@@ -10,7 +10,6 @@
 #include "opt_mitosis.h"
 #include "mal_interpreter.h"
 #include "gdk_utils.h"
-#include "gdk_tracer.h"
 
 static int
 eligible(MalBlkPtr mb)

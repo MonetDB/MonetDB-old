@@ -14,7 +14,6 @@
 #include "monetdb_config.h"
 #include "mal_builder.h"
 #include "opt_json.h"
-#include "gdk_tracer.h"
 
 str 
 OPTjsonImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)

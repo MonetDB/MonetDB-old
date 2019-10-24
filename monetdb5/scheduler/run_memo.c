@@ -176,7 +176,7 @@ RUNchoice(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		}
 	}
 #ifdef DEBUG_RUN_MEMORUN
-	fprintf(stderr, "#function target %s cost %d\n", getVarName(mb, target), mincost);
+	TraceLN(M_DEBUG, "run_choice", "Function target %s cost %d\n", getVarName(mb, target), mincost);
 #else
 	(void) cntxt;
 #endif
@@ -189,9 +189,9 @@ RUNchoice(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	propagateNonTarget(mb, pc + 1);
 #ifdef DEBUG_RUN_MEMORUN
-	fprintf(stderr, "#cost choice selected %s %d\n",
-			getVarName(mb, target), mincost);
-	fprintFunction(stderr, mb, 1);
+	TraceLN(M_DEBUG, "run_choice", "Cost choice selected %s %d\n",
+			getVarName(mb, target), mincost)
+	fprintFunction(M_DEBUG, "run_choice", mb, 1);
 #endif
 	return MAL_SUCCEED;
 }

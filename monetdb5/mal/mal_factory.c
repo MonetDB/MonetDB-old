@@ -63,7 +63,7 @@ runFactory(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr stk, InstrP
 	str msg;
 
 #ifdef DEBUG_MAL_FACTORY
-	fprintf(stderr, "#factoryMgr called\n");
+	TraceLN(M_DEBUG, "run_factory", "FactoryMgr called\n");
 #endif
 	/* the lookup can be largely avoided by handing out the index
 	   upon factory definition. todo
@@ -276,7 +276,7 @@ yieldResult(MalBlkPtr mb, InstrPtr p, int pc)
 				return(int) (pl-plants);
 			for (i = 0; i < p->retc; i++) {
 #ifdef DEBUG_MAL_FACTORY
-				fprintf(stderr,"#lhs %d rhs %d\n", getArg(pl->pci, i), getArg(p, i));
+				TraceLN(M_DEBUG, "yield_result", "lhs %d rhs %d\n", getArg(pl->pci, i), getArg(p, i))
 #endif
 				rhs = &pl->stk->stk[getArg(p, i)];
 				lhs = &pl->env->stk[getArg(pl->pci, i)];

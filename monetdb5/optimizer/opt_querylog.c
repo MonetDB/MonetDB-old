@@ -11,8 +11,6 @@
 #include "mtime.h"
 #include "querylog.h"
 
-#include "gdk_tracer.h"
-
 str 
 OPTquerylogImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {

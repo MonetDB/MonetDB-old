@@ -12,7 +12,6 @@
 #include "mal_builder.h"
 #include "mal_function.h"
 #include "opt_prelude.h"
-#include "gdk_tracer.h"
 
 /* The garbage collector is focused on removing temporary BATs only.
  * Leaving some garbage on the stack is an issue.

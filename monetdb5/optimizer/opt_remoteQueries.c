@@ -10,7 +10,6 @@
 #include "opt_remoteQueries.h"
 #include "mal_interpreter.h"	/* for showErrors() */
 #include "mal_builder.h"
-#include "gdk_tracer.h"
 
 /*
  * The instruction sent is produced with a variation of call2str
