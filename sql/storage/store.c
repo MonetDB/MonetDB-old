@@ -2528,7 +2528,7 @@ end:
 static gdk_return
 hot_snapshot_write_tar(stream *out, const char *prefix, const char *plan)
 {
-	gdk_return ret;
+	gdk_return ret = GDK_FAIL;
 	const char *p = plan; // our cursor in the plan
 	time_t timestamp = time(NULL);
 	// Name convention: _path for the absolute path
@@ -2542,7 +2542,6 @@ hot_snapshot_write_tar(stream *out, const char *prefix, const char *plan)
 	int len;
 	if (sscanf(p, "%[^\n]\n%n", abs_src_path, &len) != 1) {
 		GDKerror("internal error: first line of plan is malformed");
-		ret = GDK_FAIL;
 		goto end;
 	}
 	p += len;
@@ -2568,6 +2567,7 @@ hot_snapshot_write_tar(stream *out, const char *prefix, const char *plan)
 				if (tar_copy_stream(out, dest_path, timestamp, infile, size) != GDK_SUCCEED)
 					goto end;
 				mnstr_close(infile);
+				infile = NULL;
 				break;
 			case 'w':
 				if (tar_write_data(out, dest_path, timestamp, p, size) != GDK_SUCCEED)
@@ -2576,7 +2576,6 @@ hot_snapshot_write_tar(stream *out, const char *prefix, const char *plan)
 				break;
 			default:
 				GDKerror("Unknown command in snapshot plan: %c (%s)", command, src_name);
-				ret = GDK_FAIL;
 				goto end;
 		}
 	}
@@ -2593,9 +2592,9 @@ store_hot_snapshot(str tarfile)
 {
 	int locked = 0;
 	lng result = 0;
-	char tmppath[PATH_MAX];
-	char dirpath[PATH_MAX];
-	int do_unlink = 0;
+	char tmppath[FILENAME_MAX];
+	char dirpath[FILENAME_MAX];
+	int do_remove = 0;
 	int dir_fd = -1;
 	stream *tar_stream = NULL;
 	buffer *plan_buf = NULL;
@@ -2607,19 +2606,25 @@ store_hot_snapshot(str tarfile)
 		goto end;
 	}
 
-	snprintf(tmppath, PATH_MAX, "%s.tmp", tarfile);
+	snprintf(tmppath, sizeof(tmppath), "%s.tmp", tarfile);
 	tar_stream = open_wstream(tmppath);
 	if (!tar_stream) {
 		GDKerror("Failed to open %s for writing", tmppath);
 		goto end;
 	}
-	do_unlink = 1;
+	do_remove = 1;
+
+#ifdef HAVE_FSYNC
+	// The following only makes sense on POSIX, where fsync'ing a file
+	// guarantees the bytes of the file to go to disk, but not necessarily
+	// guarantees the existence of the file in a directory to be persistent.
+	// Hence the fsync-the-parent ceremony.
 
 	// Set dirpath to the directory containing the tar file.
 	// Call realpath(2) to make the path absolute so it has at least
 	// one DIR_SEP in it. Realpath requires the file to exist so
 	// we feed it tmppath rather than tarfile.
-	if (realpath(tmppath, dirpath) == NULL) {
+	if (realpath(tmppath, dirpath) == NULL) { // ERROR no realpath
 		GDKerror("couldn't resolve path %s: %s", tarfile, strerror(errno));
 		goto end;
 	}
@@ -2628,17 +2633,21 @@ store_hot_snapshot(str tarfile)
 	// Open the directory so we can call fsync on it.
 	// We use raw posix calls because this is not available in the streams library
 	// and I'm not quite sure what a generic streams-api should look like.
-	dir_fd = open(dirpath, O_RDONLY);
+	dir_fd = open(dirpath, O_RDONLY); // ERROR no o_rdonly
 	if (dir_fd < 0) {
 		GDKerror("couldn't open directory %s: %s", dirpath, strerror(errno));
 		goto end;
 	}
 
 	// Fsync the directory. Postgres believes this is necessary for durability.
-	if (fsync(dir_fd) < 0) {
+	if (fsync(dir_fd) < 0) { // ERROR no fsync
 		GDKerror("First fsync on %s failed: %s", dirpath, strerror(errno));
 		goto end;
 	}
+#else
+	(void)dirpath;
+#endif
+
 
 	plan_buf = buffer_create(64 * 1024);
 	if (!plan_buf) {
@@ -2675,12 +2684,14 @@ store_hot_snapshot(str tarfile)
 		GDKerror("rename %s to %s failed: %s", tmppath, tarfile, strerror(errno));
 		goto end;
 	}
-	do_unlink = 0;
+	do_remove = 0;
+#ifdef HAVE_FSYNC
+	// More POSIX fsync-the-parent-dir ceremony
 	if (fsync(dir_fd) < 0) {
 		GDKerror("fsync on dir %s failed: %s", dirpath, strerror(errno));
 		goto end;
 	}
-
+#endif
 	// the original idea was to return a sort of sequence number of the
 	// database that identifies exactly which version has been snapshotted
 	// but no such number is available:
@@ -2701,8 +2712,8 @@ end:
 		close_stream(plan_stream);
 	if (plan_buf)
 		buffer_destroy(plan_buf);
-	if (do_unlink)
-		(void) unlink(tmppath);	// Best effort, ignore the result
+	if (do_remove) // ERROR no unlink
+		(void) remove(tmppath);	// Best effort, ignore the result
 	return result;
 }
 
