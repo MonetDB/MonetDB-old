@@ -12,6 +12,7 @@
 #define INT_MAX_LEN ((__CHAR_BIT__ * sizeof(int) - 1) / 3  + 2)
 #define BUFFER_SIZE 64000
 
+#define DEFAULT_COMPONENT_SEL SQL_ATOM
 #define DEFAULT_LOG_LEVEL M_CRITICAL
 #define DEFAULT_FLUSH_LEVEL M_ERROR
 
@@ -20,8 +21,9 @@
 #define NEW_LINE '\n'
 #define MAX_FILE_SIZE 1073741824
 
-#define Trace(LVL, MSG, ...)                                        \
-    GDKtracer_log(LVL,                                              \
+#define Trace(COMP, LVL, MSG, ...)                                  \
+    GDKtracer_log(COMP,                                             \
+                  LVL,                                              \
                   "[%s] %s (%s:%d) # "MSG,                          \
                   GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),     \
                   __FILE__,                                         \
@@ -30,8 +32,9 @@
                   ## __VA_ARGS__);
 
 
-#define TraceLN(LVL, FUNC_LN, MSG, ...)                             \
-    GDKtracer_log(LVL,                                              \
+#define TraceLN(COMP, LVL, FUNC_LN, MSG, ...)                       \
+    GDKtracer_log(COMP,                                             \
+                  LVL,                                              \
                   "[%s] %s (%s:%d) # "MSG,                          \
                   GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),     \
                   __FILE__,                                         \
@@ -39,6 +42,22 @@
                   __LINE__,                                         \
                   ## __VA_ARGS__);
 
+
+
+// COMPONENTS
+typedef enum { 
+               // SQL
+               SQL_ATOM
+
+
+               // MAL
+
+
+               // GDK
+
+
+              } COMPONENT;
+              
 // LOG LEVELS
 typedef enum { 
 
@@ -100,7 +119,7 @@ gdk_return GDKtracer_reset_flush_level(void);
 
 // TODO -> Write comments
 // Candidate for 'gnu_printf' format attribute [-Werror=suggest-attribute=format] 
-gdk_return GDKtracer_log(LOG_LEVEL level, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
+gdk_return GDKtracer_log(COMPONENT comp, LOG_LEVEL level, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
 
 
 // Flush the buffer to the file. If after flushing the buffer, the file is greater 

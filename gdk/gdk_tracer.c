@@ -209,8 +209,11 @@ GDKtracer_reset_flush_level(void)
 
 
 gdk_return
-GDKtracer_log(LOG_LEVEL level, const char *fmt, ...)
+GDKtracer_log(COMPONENT comp, LOG_LEVEL level, const char *fmt, ...)
 {   
+    // Check component here
+    (void) comp;
+    
     if((int) level >= (int) ATOMIC_GET(&CUR_LOG_LEVEL))
     {
         // Select a tracer
