@@ -6,6 +6,9 @@
  * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
  */
 
+#ifndef _GDK_TRACER_H_
+#define _GDK_TRACER_H_
+
 #define INT_MAX_LEN ((__CHAR_BIT__ * sizeof(int) - 1) / 3  + 2)
 #define BUFFER_SIZE 64000
 
@@ -32,7 +35,7 @@
                   "[%s] %s (%s:%d) # "MSG,                          \
                   GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),     \
                   __FILE__,                                         \
-                  FUNC_LNAME,                                       \
+                  FUNC_LN,                                          \
                   __LINE__,                                         \
                   ## __VA_ARGS__);
 
@@ -115,3 +118,5 @@ gdk_return GDKtracer_log(LOG_LEVEL level, const char *fmt, ...) __attribute__ ((
 // Flush the buffer to the file. If after flushing the buffer, the file is greater 
 // or equal to 1 GB, then we close the current one and we swap to a new one increasing the ID
 gdk_return GDKtracer_flush_buffer(void);
+
+#endif

@@ -9,6 +9,7 @@
 #include "monetdb_config.h"
 #include "opt_generator.h"
 #include "mal_builder.h"
+#include "gdk_tracer.h"
 
 /*
  * (c) Martin Kersten, Sjoerd Mullender
@@ -59,6 +60,7 @@ pushInstruction(mb,P);
 str 
 OPTgeneratorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "generator_opt";
 	InstrPtr p,q, *old, *series;
 	int i, k, limit, slimit, actions=0;
 	str m;
@@ -74,6 +76,11 @@ OPTgeneratorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	(void) cntxt;
 	(void) stk;
 	(void) pci;
+
+    if( OPTdebug &  OPTgenerator){
+        TraceLN(M_DEBUG, func_ln, "GENERATOR optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
 
 	series = (InstrPtr*) GDKzalloc(sizeof(InstrPtr) * mb->vtop);
 	if(series == NULL)
@@ -172,8 +179,8 @@ OPTgeneratorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 		addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTgenerator){
-        fprintf(stderr, "#GENERATOR optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "GENERATOR optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return MAL_SUCCEED;
 }

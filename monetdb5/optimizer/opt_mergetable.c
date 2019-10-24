@@ -8,6 +8,7 @@
 
 #include "monetdb_config.h"
 #include "opt_mergetable.h"
+#include "gdk_tracer.h"
 
 typedef enum mat_type_t {
 	mat_none = 0,	/* Simple mat aligned operations (ie batcalc etc) */
@@ -1777,6 +1778,7 @@ mat_sample(MalBlkPtr mb, InstrPtr p, matlist_t *ml, int m)
 str
 OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p) 
 {
+	str func_ln = "mergetable_opt";
 	InstrPtr *old;
 	matlist_t ml;
 	int oldtop, fm, fn, fo, fe, i, k, m, n, o, e, slimit, bailout = 0;
@@ -1784,6 +1786,11 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 	char buf[256], *group_input;
 	lng usec = GDKusec();
 	str msg = MAL_SUCCEED;
+
+	if( OPTdebug & OPTmergetable ){
+        TraceLN(M_DEBUG, func_ln, "MERGETABLE optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
 
 	//if( optimizerIsApplied(mb, "mergetable") || !optimizerIsApplied(mb,"mitosis"))
 		//return 0;
@@ -1829,7 +1836,7 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 
 			if (group_input[input]) {
 				if( OPTdebug &  OPTmergetable){
-					fprintf(stderr,"WARNING::: mergetable bailout on group input reuse in group statement \n");
+					TraceLN(M_DEBUG, func_ln, "Mergetable bailout on group input reuse in group statement\n");
 				}
 				bailout = 1;
 			}
@@ -1839,7 +1846,7 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		if (getModuleId(p) == algebraRef && 
 		    getFunctionId(p) == selectNotNilRef ) {
 			if( OPTdebug &  OPTmergetable){
-				fprintf(stderr,"WARNING::: mergetable bailout not nil ref \n");
+				TraceLN(M_DEBUG, func_ln, "Mergetable bailout not nil ref\n");
 			}
 			bailout = 1;
 		}
@@ -2241,7 +2248,7 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		 * It requires MAT materialization.
 		 */
 		if( OPTdebug &  OPTmergetable){
-			fprintf(stderr, "# %s.%s %d\n", getModuleId(p), getFunctionId(p), match);
+			TraceLN(M_DEBUG, func_ln, "%s.%s %d\n", getModuleId(p), getFunctionId(p), match);
 		}
 
 		for (k = p->retc; k<p->argc; k++) {
@@ -2264,11 +2271,11 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 
 	if( OPTdebug &  OPTmergetable)
 	{
-		fprintf(stderr,"#Result of multi table optimizer\n");
+		TraceLN(M_DEBUG, func_ln, "Result of multi table optimizer\n");
         chkTypes(cntxt->usermodule, mb, FALSE);
         chkFlow(mb);
         chkDeclarations(mb);
-		fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
+		fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
 	}
 
 	if ( mb->errors == MAL_SUCCEED) {
@@ -2300,8 +2307,8 @@ cleanup:
 		addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTmergetable){
-        fprintf(stderr, "#MERGETABLE optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "MERGETABLE optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

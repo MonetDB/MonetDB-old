@@ -8,6 +8,7 @@
 
 #include "monetdb_config.h"
 #include "opt_costModel.h"
+#include "gdk_tracer.h"
 
 /*
  * The cost formula are repetative
@@ -35,6 +36,7 @@
 str
 OPTcostModelImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "costmodel_opt";
 	int i;
 	BUN c1, c2;
 	InstrPtr p;
@@ -45,10 +47,11 @@ OPTcostModelImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	(void) stk;
 	(void) pci;
 
-    if( OPTdebug &  OPTcostmodel){
-        fprintf(stderr, "#COSTMODEL optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+ 	if( OPTdebug &  OPTcostmodel){
+        TraceLN(M_DEBUG, func_ln, "COSTMODEL optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
+	
 	if ( mb->inlineProp )
 		return MAL_SUCCEED;
 
@@ -158,8 +161,8 @@ OPTcostModelImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTcostmodel){
-        fprintf(stderr, "#COSTMODEL optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "COSTMODEL optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return MAL_SUCCEED;
 }

@@ -12,10 +12,12 @@
  */
 #include "monetdb_config.h"
 #include "opt_matpack.h"
+#include "gdk_tracer.h"
 
 str 
 OPTmatpackImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "matpack_opt";
 	int v, i, j, limit, slimit;
 	InstrPtr p,q;
 	int actions = 0;
@@ -28,6 +30,12 @@ OPTmatpackImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 	(void) pci;
 	(void) cntxt;
 	(void) stk;		/* to fool compilers */
+
+	if( OPTdebug &  OPTmatpack){
+        TraceLN(M_DEBUG, func_ln, "MATPACK optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
+
 	for( i = 1; i < mb->stop; i++)
 		if( getModuleId(getInstrPtr(mb,i)) == matRef  && getFunctionId(getInstrPtr(mb,i)) == packRef && isaBatType(getArgType(mb,getInstrPtr(mb,i),1))) 
 			break;
@@ -86,8 +94,8 @@ wrapup:
 		addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTmatpack){
-        fprintf(stderr, "#MATPACK optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "MATPACK optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return MAL_SUCCEED;
 }

@@ -9,6 +9,7 @@
 #include "monetdb_config.h"
 #include "mal_instruction.h"
 #include "opt_aliases.h"
+#include "gdk_tracer.h"
 
 /* an alias is recognized by a simple assignment */
 #define OPTisAlias(X) (X->argc == 2 && X->token == ASSIGNsymbol && X->barrier == 0 )
@@ -23,6 +24,7 @@ OPTaliasRemap(InstrPtr p, int *alias){
 str
 OPTaliasesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
+	str func_ln = "aliases_opt";
 	int i,j,k=1, limit, actions=0;
 	int *alias = 0;
 	char buf[256];
@@ -30,6 +32,11 @@ OPTaliasesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	(void) stk;
 	(void) cntxt;
+
+	if( OPTdebug &  OPTaliases){
+		TraceLN(M_DEBUG, func_ln, "ALIASES optimizer entry\n");
+		fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+	}
 
 	limit = mb->stop;
 	for (i = 1; i < limit; i++){
@@ -85,8 +92,8 @@ OPTaliasesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		addtoMalBlkHistory(mb);
 
 	if( OPTdebug &  OPTaliases){
-		fprintf(stderr, "#ALIASES optimizer  result\n");
-		fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+		TraceLN(M_DEBUG, func_ln, "ALIASES optimizer exit\n");
+		fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
 	}
 	return MAL_SUCCEED;
 }

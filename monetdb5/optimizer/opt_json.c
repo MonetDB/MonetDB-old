@@ -14,10 +14,12 @@
 #include "monetdb_config.h"
 #include "mal_builder.h"
 #include "opt_json.h"
+#include "gdk_tracer.h"
 
 str 
 OPTjsonImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "json_opt";
 	int i, j, limit, slimit;
 	int bu = 0, br = 0, bj = 0;
 	str nme;
@@ -31,6 +33,12 @@ OPTjsonImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) pci;
 	(void) cntxt;
 	(void) stk;		/* to fool compilers */
+
+	if( OPTdebug &  OPTjson){
+		TraceLN(M_DEBUG, func_ln, "JSON optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
+
 	old= mb->stmt;
 	limit= mb->stop;
 	slimit = mb->ssize;
@@ -89,8 +97,8 @@ OPTjsonImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTjson){
-        fprintf(stderr, "#JIT optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+		TraceLN(M_DEBUG, func_ln, "JSON optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

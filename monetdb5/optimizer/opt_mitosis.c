@@ -10,6 +10,7 @@
 #include "opt_mitosis.h"
 #include "mal_interpreter.h"
 #include "gdk_utils.h"
+#include "gdk_tracer.h"
 
 static int
 eligible(MalBlkPtr mb)
@@ -32,6 +33,7 @@ eligible(MalBlkPtr mb)
 str
 OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
+	str func_ln = "mitosis_opt";
 	int i, j, limit, slimit, estimate = 0, pieces = 1, mito_parts = 0, mito_size = 0, row_size = 0, mt = -1;
 	str schema = 0, table = 0;
 	BUN r = 0, rowcnt = 0;    /* table should be sizeable to consider parallel execution*/
@@ -48,6 +50,12 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		//return 0;
 	(void) cntxt;
 	(void) stk;
+
+	if( OPTdebug &  OPTmitosis){
+        TraceLN(M_DEBUG, func_ln, "MITOSIS optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
+
 	if (!eligible(mb))
 		return MAL_SUCCEED;
 
@@ -172,13 +180,13 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		pieces = (int) ((rowcnt * row_size) / (mito_size * 1024));
 
     if( OPTdebug &  OPTmitosis){
-		fprintf(stderr, "#opt_mitosis: target is %s.%s "
-							   " with " BUNFMT " rows of size %d into %zu"
-								" rows/piece %d threads %d pieces"
-								" fixed parts %d fixed size %d\n",
-				 getVarConstant(mb, getArg(target, 2)).val.sval,
-				 getVarConstant(mb, getArg(target, 3)).val.sval,
-				 rowcnt, row_size, m, threads, pieces, mito_parts, mito_size);
+		TraceLN(M_DEBUG, func_ln,	"Target is %s.%s "
+									" with " BUNFMT " rows of size %d into %zu"
+									" rows/piece %d threads %d pieces"
+									" fixed parts %d fixed size %d\n",
+									getVarConstant(mb, getArg(target, 2)).val.sval,
+									getVarConstant(mb, getArg(target, 3)).val.sval,
+									rowcnt, row_size, m, threads, pieces, mito_parts, mito_size);
 	}
 
 	if (pieces <= 1)
@@ -296,8 +304,8 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTmitosis){
-        fprintf(stderr, "#MITOSIS optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "MITOSIS optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

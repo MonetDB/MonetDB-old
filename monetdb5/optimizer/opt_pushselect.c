@@ -9,6 +9,7 @@
 #include "monetdb_config.h"
 #include "opt_pushselect.h"
 #include "mal_interpreter.h"	/* for showErrors() */
+#include "gdk_tracer.h"
 
 static InstrPtr
 PushArgument(MalBlkPtr mb, InstrPtr p, int arg, int pos)
@@ -131,12 +132,18 @@ no_updates(InstrPtr *old, int *vars, int oldv, int newv)
 str
 OPTpushselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "pushselect_opt";
 	int i, j, limit, slimit, actions=0, *vars, *nvars = NULL, *slices = NULL, push_down_delta = 0, nr_topn = 0, nr_likes = 0;
 	char *rslices = NULL, *oclean = NULL;
 	InstrPtr p, *old;
 	subselect_t subselects;
 	char buf[256];
 	lng usec = GDKusec();
+
+	if( OPTdebug &  OPTpushselect){
+        TraceLN(M_DEBUG, func_ln, "PUSH_SELECT optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
 
 	subselects = (subselect_t) {0};
 	if( mb->errors)
@@ -704,8 +711,8 @@ wrapup:
 		addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTpushselect){
-        fprintf(stderr, "#PUSHSELECT optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "PUSH_SELECT optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return MAL_SUCCEED;
 }

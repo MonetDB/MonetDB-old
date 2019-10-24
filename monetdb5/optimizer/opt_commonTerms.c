@@ -9,6 +9,8 @@
 #include "monetdb_config.h"
 #include "opt_commonTerms.h"
 #include "mal_exception.h"
+#include "gdk_tracer.h"
+
  /*
  * Caveat. A lot of time was lost due to constants that are indistinguisable
  * at the surface level.  It requires the constant optimizer to be ran first.
@@ -19,6 +21,7 @@
 str
 OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "common_terms_opt";
 	int i, j, k, barrier= 0;
 	InstrPtr p, q;
 	int actions = 0;
@@ -36,6 +39,12 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 	(void) cntxt;
 	(void) stk;
 	(void) pci;
+
+	if( OPTdebug &  OPTcommonterms){
+        TraceLN(M_DEBUG, func_ln, "COMMON_TERMS optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
+
 	alias = (int*) GDKzalloc(sizeof(int) * mb->vtop);
 	list = (int*) GDKzalloc(sizeof(int) * mb->stop);
 	hash = (int*) GDKzalloc(sizeof(int) * mb->vtop);
@@ -85,7 +94,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 		if (barrier || p->token == NOOPsymbol || p->token == ASSIGNsymbol) {
 
 			if( OPTdebug & OPTcommonterms){
-				fprintf(stderr, "#COMMON SKIPPED[%d] %d %d\n",i, barrier, p->retc == p->argc);
+				TraceLN(M_DEBUG, func_ln, "SKIPPED[%d] %d %d\n", i, barrier, p->retc == p->argc);
 			}
 
 			pushInstruction(mb,p);
@@ -102,7 +111,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 		if ( mayhaveSideEffects(cntxt, mb, p,TRUE) || p->argc == p->retc){
 
 			if( OPTdebug & OPTcommonterms){
-				fprintf(stderr, "#COMMON SKIPPED[%d] side-effect %d\n", i, p->retc == p->argc);
+				TraceLN(M_DEBUG, func_ln, "SKIPPED[%d] side-effect %d\n", i, p->retc == p->argc);
 			}
 
 			pushInstruction(mb,p);
@@ -112,9 +121,9 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 		/* from here we have a candidate to look for a match */
 
 		if( OPTdebug & OPTcommonterms){
-			fprintf(stderr,"#CANDIDATE[%d] look at list[%d]=>%d\n",
-				i, HASHinstruction(p), hash[HASHinstruction(p)]);
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+			TraceLN(M_DEBUG, func_ln, "CANDIDATE[%d] look at list[%d]=>%d\n", i, 
+										HASHinstruction(p), hash[HASHinstruction(p)]);
+			fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 		}
 
 		/* Look into the hash structure for matching instructions */
@@ -122,7 +131,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 			if ( (q= getInstrPtr(mb,j)) && getFunctionId(q) == getFunctionId(p) && getModuleId(q) == getModuleId(p)  ){
 
 				if( OPTdebug & OPTcommonterms){
-					fprintf(stderr,"#CANDIDATE[%d->%d] %d %d :%d %d %d=%d %d %d %d ",
+					TraceLN(M_DEBUG, func_ln, "CANDIDATE[%d->%d] %d %d :%d %d %d=%d %d %d %d\n",
 						j, list[j], 
 						hasSameSignature(mb, p, q), 
 						hasSameArguments(mb, p, q),
@@ -132,7 +141,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 						!isUnsafeFunction(q),
 						!isUpdateInstruction(q),
 						isLinearFlow(q));
-					fprintInstruction(stderr, mb, 0, q, LIST_MAL_ALL);
+					fprintInstruction(M_DEBUG, func_ln, mb, 0, q, LIST_MAL_ALL);
 				}
 
 				/*
@@ -150,7 +159,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 					if (safetyBarrier(p, q) ){
 
 						if( OPTdebug & OPTcommonterms){
-							fprintf(stderr,"#safetybarrier reached\n");
+							TraceLN(M_DEBUG, func_ln, "Safety barrier reached\n");
 						}
 
 						break;
@@ -164,8 +173,8 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 					}
 
 					if( OPTdebug & OPTcommonterms){
-						fprintf(stderr, "#MODIFIED EXPRESSION %d -> %d ",getArg(p,0),getArg(p,1));
-						fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+						TraceLN(M_DEBUG, func_ln, "MODIFIED EXPRESSION %d -> %d\n", getArg(p,0), getArg(p,1));
+						fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 					}
 
 					actions++;
@@ -174,8 +183,8 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 			}
 
 			else if( OPTdebug & OPTcommonterms && isUpdateInstruction(p)){
-				fprintf(stderr, "#COMMON SKIPPED %d %d ", mayhaveSideEffects(cntxt, mb, q, TRUE) , isUpdateInstruction(p));
-				fprintInstruction(stderr, mb, 0, q, LIST_MAL_ALL);
+				TraceLN(M_DEBUG, func_ln, "SKIPPED %d %d\n", mayhaveSideEffects(cntxt, mb, q, TRUE), isUpdateInstruction(p));
+				fprintInstruction(M_DEBUG, func_ln, mb, 0, q, LIST_MAL_ALL);
 			}
 
 		if (duplicate){
@@ -185,9 +194,9 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 		/* update the hash structure with another candidate for re-use */
 
 		if( OPTdebug & OPTcommonterms){
-			fprintf(stderr,"#UPDATE HASH[%d] look at  arg %d hash %d list %d\n",
-				i, getArg(p,p->argc-1), HASHinstruction(p), hash[HASHinstruction(p)]);
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+			TraceLN(M_DEBUG, func_ln, "UPDATE HASH[%d] look at arg %d hash %d list %d\n",
+									 	i, getArg(p,p->argc-1), HASHinstruction(p), hash[HASHinstruction(p)]);
+			fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 		}
 
 		if ( !mayhaveSideEffects(cntxt, mb, p, TRUE) && p->argc != p->retc &&  isLinearFlow(p) && !isUnsafeFunction(p) && !isUpdateInstruction(p)){
@@ -218,8 +227,8 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 	if(hash) GDKfree(hash);
 	if(old) GDKfree(old);
     if( OPTdebug &  OPTcommonterms){
-        fprintf(stderr, "#COMMONTERMS optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "COMMON_TERMS optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

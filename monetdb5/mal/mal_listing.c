@@ -641,21 +641,18 @@ printInstruction(stream *fd, MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int flg)
 }
 
 void
-fprintInstruction(FILE *fd, MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int flg)
+fprintInstruction(LOG_LEVEL lvl, str caller, MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int flg)
 {
 	str ps;
 
-	if (fd == 0)
-		return;
 	ps = instruction2str(mb, stk, p, flg);
 	/* ps[strlen(ps)-1] = 0; remove '\n' */
 	if ( ps ){
-		fprintf(fd, "%s%s", (flg & LIST_MAL_MAPI ? "=" : ""), ps);
+		TraceLN(lvl, caller, "%s%s\n", (flg & LIST_MAL_MAPI ? "=" : ""), ps);
 		GDKfree(ps);
 	} else {
-		fprintf(fd,"#failed instruction2str()");
+		TraceLN(lvl, caller, "Failed instruction2str()\n");
 	}
-	fprintf(fd, "\n");
 }
 
 void

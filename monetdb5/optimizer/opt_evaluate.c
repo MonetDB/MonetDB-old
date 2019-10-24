@@ -9,6 +9,7 @@
 #include "monetdb_config.h"
 #include "opt_evaluate.h"
 #include "opt_aliases.h"
+#include "gdk_tracer.h"
 
 static int
 OPTallConstant(Client cntxt, MalBlkPtr mb, InstrPtr p)
@@ -117,6 +118,7 @@ OPTremoveUnusedBlocks(Client cntxt, MalBlkPtr mb)
 str
 OPTevaluateImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "evaluate_opt";
 	InstrPtr p;
 	int i, k, limit, *alias = 0, barrier;
 	MalStkPtr env = NULL;
@@ -130,14 +132,14 @@ OPTevaluateImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	(void)stk;
 	(void)pci;
 
+    if( OPTdebug &  OPTevaluate){
+		TraceLN(M_DEBUG, func_ln, "EVALUATE optimizer entry\n");
+	}
+
 	if ( mb->inlineProp )
 		return MAL_SUCCEED;
 
 	cntxt->itrace = 0;
-
-    if( OPTdebug &  OPTevaluate){
-		fprintf(stderr, "Constant expression optimizer started\n");
-	}
 
 	assigned = (int*) GDKzalloc(sizeof(int) * mb->vtop);
 	if (assigned == NULL)
@@ -172,7 +174,7 @@ OPTevaluateImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			if (alias[getArg(p, k)])
 				getArg(p, k) = alias[getArg(p, k)];
 		if( OPTdebug &  OPTevaluate){
-			fprintInstruction(stderr , mb, 0, p, LIST_MAL_ALL);
+			fprintInstruction(M_DEBUG, func_ln , mb, 0, p, LIST_MAL_ALL);
 		}
 		/* be aware that you only assign once to a variable */
 		if (use && p->retc == 1 && OPTallConstant(cntxt, mb, p) && !isUnsafeFunction(p)) {
@@ -194,8 +196,7 @@ OPTevaluateImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			cntxt->sqlprofiler = sqlprofiler;
 			p->barrier = barrier;
 			if( OPTdebug &  OPTevaluate){
-				fprintf(stderr, "#retc var %s\n", getVarName(mb, getArg(p, 0)));
-				fprintf(stderr, "#result:%s\n", msg == MAL_SUCCEED ? "ok" : msg);
+				TraceLN(M_DEBUG, func_ln, "Retc var %s => result: %s\n", getVarName(mb, getArg(p, 0)), msg == MAL_SUCCEED ? "ok" : msg);
 			}
 			if (msg == MAL_SUCCEED) {
 				int nvar;
@@ -221,15 +222,15 @@ OPTevaluateImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 				setVarUDFtype(mb,getArg(p,1));
 				if( OPTdebug &  OPTevaluate){
 					str tpename;
-					fprintf(stderr, "Evaluated new constant=%d -> %d:%s\n",
-						getArg(p, 0), getArg(p, 1), tpename = getTypeName(getArgType(mb, p, 1)));
+					TraceLN(M_DEBUG, func_ln, "Evaluated new constant=%d -> %d:%s\n",
+							getArg(p, 0), getArg(p, 1), tpename = getTypeName(getArgType(mb, p, 1)));
 					GDKfree(tpename);
 				}
 			} else {
 				/* if there is an error, we should postpone message handling,
 					as the actual error (eg. division by zero ) may not happen) */
 				if( OPTdebug &  OPTevaluate){
-					fprintf(stderr, "Evaluated %s\n", msg);
+					TraceLN(M_DEBUG, func_ln, "Evaluated %s\n", msg);
 				}
 				freeException(msg);
 				msg= MAL_SUCCEED;
@@ -261,8 +262,8 @@ wrapup:
 	if(assigned) GDKfree(assigned);
 	if(alias)	GDKfree(alias);
     if( OPTdebug &  OPTevaluate){
-        fprintf(stderr, "#EVALUATE optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+		TraceLN(M_DEBUG, func_ln, "EVALUATE optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

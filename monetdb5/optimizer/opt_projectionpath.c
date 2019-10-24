@@ -12,7 +12,7 @@
 #include "monetdb_config.h"
 #include "opt_deadcode.h"
 #include "opt_projectionpath.h"
-
+#include "gdk_tracer.h"
 
 // Common prefix reduction was not effective it is retained for 
 // future experiments.
@@ -27,6 +27,7 @@
 static int
 OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 {
+	str func_ln = "projection_path_prefix";
 	int i, j, k, match, actions=0;
 	InstrPtr p,q,r,*old;
 	int limit, slimit;
@@ -39,7 +40,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 		return 0;
 
     if( OPTdebug &  OPTprojectionpath){
-		fprintf(stderr,"#projectionpath find common prefix prefixlength %d\n", prefixlength);
+		TraceLN(M_DEBUG, func_ln, "Find common prefix prefixlength %d\n", prefixlength);
 	}
  
 	for( i = 0; i < limit; i++){
@@ -51,8 +52,8 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 		}
 
 		if( OPTdebug &  OPTprojectionpath){
-			fprintf(stderr,"#projectionpath candidate prefix pc %d \n", i);
-			fprintInstruction(stderr,mb, 0, p, LIST_MAL_ALL);
+			TraceLN(M_DEBUG, func_ln, "Candidate prefix pc %d \n", i);
+			fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 		}
 		/* we fixed a projection path of the target prefixlength
 		 * Search now the remainder for at least one case where it
@@ -74,8 +75,8 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 			 */
 
 			if( OPTdebug &  OPTprojectionpath){
-				fprintf(stderr,"#projectionpath found common prefix pc %d \n", j);
-				fprintInstruction(stderr,mb, 0, p, LIST_MAL_ALL);
+				TraceLN(M_DEBUG, func_ln, "Found common prefix pc %d \n", j);
+				fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 			}
 
 			/* create the factored out prefix projection */
@@ -92,8 +93,8 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 			pushInstruction(mb,r);
 
 			if( OPTdebug &  OPTprojectionpath){
-				fprintf(stderr,"#projectionpath prefix instruction\n");
-				fprintInstruction(stderr,mb, 0, r, LIST_MAL_ALL);
+				TraceLN(M_DEBUG, func_ln, "Prefix instruction\n");
+				fprintInstruction(M_DEBUG, func_ln, mb, 0, r, LIST_MAL_ALL);
 			}
 
 
@@ -107,8 +108,8 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 				if (match &&  match == prefixlength - r->retc ){
 					actions++;
 					if( OPTdebug &  OPTprojectionpath){
-							fprintf(stderr,"#projectionpath before:");
-							fprintInstruction(stderr,mb, 0, q, LIST_MAL_ALL);
+						TraceLN(M_DEBUG, func_ln, "Before \n ");
+						fprintInstruction(M_DEBUG, func_ln, mb, 0, q, LIST_MAL_ALL);
 					}
 					if( q->argc == r->argc ){
 						clrFunction(q);
@@ -122,8 +123,8 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 							setFunctionId(q,projectionRef);
 					}
 					if( OPTdebug &  OPTprojectionpath){
-						fprintf(stderr,"#projectionpath after :");
-						fprintInstruction(stderr,mb, 0, q, LIST_MAL_ALL);
+						TraceLN(M_DEBUG, func_ln, "After \n");
+						fprintInstruction(M_DEBUG, func_ln, mb, 0, q, LIST_MAL_ALL);
 					}
 				}
 			}
@@ -169,6 +170,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 str
 OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
+	str func_ln = "projection_path_opt";
 	int i,j,k, actions=0, maxprefixlength=0;
 	int *pc =0;
 	InstrPtr q,r;
@@ -181,17 +183,17 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 
 	(void) cntxt;
 	(void) stk;
+
+	if( OPTdebug &  OPTprojectionpath){
+		TraceLN(M_DEBUG, func_ln, "PROJECTION_PATH optimizer entry\n");
+		fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+	}
+
 	if ( mb->inlineProp)
 		return MAL_SUCCEED;
 	//if ( optimizerIsApplied(mb,"projectionpath") )
 		//return 0;
-
-
-	if( OPTdebug &  OPTprojectionpath){
-		fprintf(stderr,"#projectionpath optimizer start \n");
-		fprintFunction(stderr,mb, 0, LIST_MAL_ALL);
-	}
-
+		
 	old= mb->stmt;
 	limit= mb->stop;
 	slimit= mb->ssize;
@@ -232,8 +234,8 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 				goto wrapupall;
 			}
 			if( OPTdebug &  OPTprojectionpath){
-				fprintf(stderr,"#before ");
-				fprintInstruction(stderr,mb, 0, p, LIST_MAL_ALL);
+				TraceLN(M_DEBUG, func_ln, "Before \n");
+				fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 			}
 
 			q->argc=p->retc;
@@ -249,8 +251,8 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 
 			if( OPTdebug &  OPTprojectionpath){
 				if (r) {
-					fprintf(stderr,"#inject ");
-					fprintInstruction(stderr,mb, 0, r, LIST_MAL_ALL);
+					TraceLN(M_DEBUG, func_ln, "Inject \n");
+					fprintInstruction(M_DEBUG, func_ln, mb, 0, r, LIST_MAL_ALL);
 				}
 			}
 				if ( getFunctionId(p) == projectionRef){
@@ -285,8 +287,8 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 			q->typechk = TYPE_UNKNOWN;
 
 			if( OPTdebug &  OPTprojectionpath){
-				fprintf(stderr,"#after ");
-				fprintInstruction(stderr,mb, 0, q, LIST_MAL_ALL);
+				TraceLN(M_DEBUG, func_ln, "After \n");
+				fprintInstruction(M_DEBUG, func_ln, mb, 0, q, LIST_MAL_ALL);
 			}
 			freeInstruction(p);
 			p = q;
@@ -301,13 +303,13 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 		if( getModuleId(p)== algebraRef && ( getFunctionId(p)== projectionRef  || getFunctionId(p)== projectionpathRef) ){
 			pc[getArg(p,j)]= mb->stop-1;
 			if( OPTdebug &  OPTprojectionpath){
-					fprintf(stderr,"#keep ");
-					fprintInstruction(stderr,mb, 0, p, LIST_MAL_ALL);
+				TraceLN(M_DEBUG, func_ln, "Keep \n");
+				fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 			}
 		}
 	}
     if( OPTdebug &  OPTprojectionpath){
-		fprintf(stderr,"#projection path prefixlength %d\n",maxprefixlength);
+		TraceLN(M_DEBUG, func_ln, "Prefixlength %d\n", maxprefixlength);
 	}
 
 	for(; i<slimit; i++)
@@ -349,8 +351,8 @@ wrapupall:
 	if(old) GDKfree(old);
 
     if( OPTdebug &  OPTprojectionpath){
-        fprintf(stderr, "#PROJECTIONPATH optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "PROJECTION_PATH optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

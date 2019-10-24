@@ -14,6 +14,7 @@
 #include "monetdb_config.h"
 #include "mal_instruction.h"
 #include "opt_volcano.h"
+#include "gdk_tracer.h"
 
 // delaying the startup should not be continued throughout the plan
 // after the startup phase there should be intermediate work to do
@@ -23,6 +24,7 @@
 str
 OPTvolcanoImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "volcano_opt";
 	int i, limit;
 	int mvcvar = -1;
 	int count=0;
@@ -34,6 +36,11 @@ OPTvolcanoImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 	(void) pci;
 	(void) cntxt;
 	(void) stk;		/* to fool compilers */
+
+	if( OPTdebug &  OPTvolcano){
+        TraceLN(M_DEBUG, func_ln, "VOLCANO optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
 
     if ( mb->inlineProp )
         return MAL_SUCCEED;
@@ -105,8 +112,8 @@ OPTvolcanoImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 		addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTvolcano){
-        fprintf(stderr, "#volcano optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "VOLCANO optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

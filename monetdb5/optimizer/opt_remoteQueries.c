@@ -10,6 +10,7 @@
 #include "opt_remoteQueries.h"
 #include "mal_interpreter.h"	/* for showErrors() */
 #include "mal_builder.h"
+#include "gdk_tracer.h"
 
 /*
  * The instruction sent is produced with a variation of call2str
@@ -141,6 +142,7 @@ typedef struct{
 str
 OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "remote_queries_opt";
 	InstrPtr p, q, r, *old;
 	int i, j, cnt, limit, slimit, doit=0;
 	int remoteSite,collectFirst;
@@ -159,6 +161,11 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 	(void) cntxt;
 	(void) stk;
 	(void) pci;
+
+	if( OPTdebug &  OPTremotequeries){
+        TraceLN(M_DEBUG, func_ln, "REMOTE_QUERIES optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
 
 	limit = mb->stop;
 	slimit = mb->ssize;
@@ -265,8 +272,8 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 				remoteAction()
 			} else {
 				if( OPTdebug &  OPTremotequeries){
-					fprintf(stderr, "found remote variable %s ad %d\n",
-						getVarName(mb,getArg(p,0)), location[getArg(p,0)]);
+					TraceLN(M_DEBUG, func_ln, "Found remote variable %s ad %d\n",
+							getVarName(mb,getArg(p,0)), location[getArg(p,0)]);
 				}
 				pushInstruction(mb,p);
 			}
@@ -371,8 +378,8 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 		addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTremotequeries){
-        fprintf(stderr, "#remotequeries optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "REMOTE_QUERIES optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

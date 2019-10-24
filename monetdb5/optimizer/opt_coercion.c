@@ -13,6 +13,7 @@
 #include "monetdb_config.h"
 #include "opt_coercion.h"
 #include "opt_aliases.h"
+#include "gdk_tracer.h"
 
 typedef struct{
 	int pc;
@@ -30,6 +31,7 @@ typedef struct{
 static void
 coercionOptimizerCalcStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 {
+	str func_ln = "coercion_opt_calc_step";
 	InstrPtr p = getInstrPtr(mb,i);
 	int r, a, b, varid;
 
@@ -48,8 +50,8 @@ coercionOptimizerCalcStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 	if ( a == r && coerce[varid].src && coerce[varid].fromtype < r ) 
 	{
 		if( OPTdebug &  OPTaliases){
-			fprintf(stderr,"#remove upcast on first argument %d\n", varid);
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+			TraceLN(M_DEBUG, func_ln, "Remove upcast on first argument %d\n", varid);
+			fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 		}
 		getArg(p,1) = coerce[varid].src;
 		if ( chkInstruction(cntxt->usermodule, mb, p) || p->typechk == TYPE_UNKNOWN)
@@ -59,16 +61,16 @@ coercionOptimizerCalcStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 	if ( b == r && coerce[varid].src &&  coerce[varid].fromtype < r ) 
 	{
 		if( OPTdebug &  OPTaliases){
-			fprintf(stderr,"#remove upcast on second argument %d\n", varid);
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+			TraceLN(M_DEBUG, func_ln, "Remove upcast on second argument %d\n", varid);
+			fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 		}
 		getArg(p,2) = coerce[varid].src;
 		if ( chkInstruction(cntxt->usermodule, mb, p) || p->typechk == TYPE_UNKNOWN)
 			getArg(p,2) = varid;
 	}
 		if( OPTdebug &  OPTaliases){
-			fprintf(stderr,"#final instruction\n");
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+			TraceLN(M_DEBUG, func_ln, "Final instruction\n");
+			fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 		}
 	return;
 }
@@ -98,6 +100,7 @@ coercionOptimizerAggrStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 str
 OPTcoercionImplementation(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "coercion_opt";
 	int i, k, t;
 	InstrPtr p;
 	int actions = 0;
@@ -106,6 +109,11 @@ OPTcoercionImplementation(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 	char buf[256];
 	lng usec = GDKusec();
 	str msg = MAL_SUCCEED;
+
+    if( OPTdebug &  OPTcoercion){
+        TraceLN(M_DEBUG, func_ln, "COERCION optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
 
 	if( coerce == NULL)
 		throw(MAL,"optimizer.coercion", SQLSTATE(HY001) MAL_MALLOC_FAIL);
@@ -186,8 +194,8 @@ OPTcoercionImplementation(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 	/* else we can also remove the request to apply the next alias optimizer */
 
     if( OPTdebug &  OPTcoercion){
-        fprintf(stderr, "#COERCION optimizer entry\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "COERCION optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

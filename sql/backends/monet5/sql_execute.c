@@ -722,7 +722,7 @@ SQLengineIntern(Client c, backend *be)
 	}
 
 #ifdef SQL_SCENARIO_DEBUG
-	Trace(M_DEBUG, "Ready to execute SQL statement\n");
+	TraceLN(M_DEBUG, "sql_engine_intern", "Ready to execute SQL statement\n");
 #endif
 
 	if (c->curprg->def->stop == 1) {

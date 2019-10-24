@@ -9,16 +9,23 @@
 #include "monetdb_config.h"
 #include "opt_reduce.h"
 #include "mal_interpreter.h"
+#include "gdk_tracer.h"
 
 str
 OPTreduceImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
+	str func_ln = "reduce_opt";
 	int actions = 0;
 	char buf[256];
 	lng usec = GDKusec();
 	(void)cntxt;
 	(void)stk;
 	(void) p;
+
+	if( OPTdebug &  OPTreduce){
+        TraceLN(M_DEBUG, func_ln, "REDUCE optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+	}	
 
 	actions = mb->vtop;
 	trimMalVariables(mb,0);
@@ -40,8 +47,8 @@ OPTreduceImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTreduce){
-        fprintf(stderr, "#REDUCE optimizer entry\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "REDUCE optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return MAL_SUCCEED;
 }

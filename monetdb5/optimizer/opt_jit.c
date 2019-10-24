@@ -21,10 +21,12 @@
 #include "monetdb_config.h"
 #include "mal_builder.h"
 #include "opt_jit.h"
+#include "gdk_tracer.h"
 
 str
 OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "jit_opt";
 	int i,actions = 0;
 	int limit = mb->stop;
 	InstrPtr p, q, *old = mb->stmt;
@@ -37,8 +39,8 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) pci;
 
     if( OPTdebug &  OPTjit){
-		fprintf(stderr, "#Optimize JIT\n");
-		fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
+		TraceLN(M_DEBUG, func_ln, "JIT optimizer entry\n");
+		fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
 	}
 
 	setVariableScope(mb);
@@ -67,8 +69,8 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				getArg(p,2)=  getArg(q,2);
 				p= pushArgument(mb,p, getArg(q,1));
 				if( OPTdebug &  OPTjit){
-					fprintf(stderr, "#Optimize JIT case 1\n");
-					fprintInstruction(stderr, mb,0,p,LIST_MAL_ALL);
+					TraceLN(M_DEBUG, func_ln, "Optimize JIT case 1\n");
+					fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 				}
 			}
 		}
@@ -88,8 +90,8 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTjit){
-        fprintf(stderr, "#JIT optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "JIT optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

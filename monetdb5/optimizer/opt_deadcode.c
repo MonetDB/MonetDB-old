@@ -10,10 +10,12 @@
  */
 #include "monetdb_config.h"
 #include "opt_deadcode.h"
+#include "gdk_tracer.h"
 
 str 
 OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "deadcode_opt";
 	int i, k, se,limit, slimit;
 	InstrPtr p=0, *old= mb->stmt;
 	int actions = 0;
@@ -26,6 +28,11 @@ OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	(void) pci;
 	(void) stk;		/* to fool compilers */
 
+	if( OPTdebug &  OPTdeadcode){
+		TraceLN(M_DEBUG, func_ln, "DEADCODE optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
+	
 	if ( mb->inlineProp )
 		return MAL_SUCCEED;
 
@@ -142,8 +149,8 @@ wrapup:
 	if(old) GDKfree(old);
 	if(varused) GDKfree(varused);
     if( OPTdebug &  OPTdeadcode){
-        fprintf(stderr, "#DEADCODE optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "DEADCODE optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

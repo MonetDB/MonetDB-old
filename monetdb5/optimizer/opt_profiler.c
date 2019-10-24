@@ -15,6 +15,7 @@
 #include "mal_instruction.h"
 #include "opt_prelude.h"
 #include "opt_profiler.h"
+#include "gdk_tracer.h"
 
 /*
 static struct{
@@ -51,6 +52,7 @@ static struct{
 str
 OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "profiler_opt";
 	int i;
 	InstrPtr p;
 	char buf[BUFSIZ];
@@ -59,6 +61,11 @@ OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	(void) pci;
 	(void) stk;
 	(void) cntxt;
+
+	if( OPTdebug &  OPTprofiler){
+        TraceLN(M_DEBUG, func_ln, "PROFILER optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
 
 	for( i=0; i< mb->stop; i++){
 		p= getInstrPtr(mb,i);
@@ -117,8 +124,8 @@ OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	newComment(mb,buf);
 	addtoMalBlkHistory(mb);
     if( OPTdebug &  OPTprofiler){
-        fprintf(stderr, "#PROFILER optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "PROFILER optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return MAL_SUCCEED;
 }

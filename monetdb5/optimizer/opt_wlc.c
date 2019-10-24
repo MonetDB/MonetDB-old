@@ -12,10 +12,13 @@
  */
 #include "monetdb_config.h"
 #include "opt_wlc.h"
+#include "gdk_tracer.h"
 
 str
 OPTwlcImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{	int i, j, limit, slimit, updates=0, query=1;
+{	
+	str func_ln = "wlc_opt";
+	int i, j, limit, slimit, updates=0, query=1;
 	InstrPtr p, q, def = 0;
 	InstrPtr *old;
 	lng usec = GDKusec();
@@ -24,6 +27,11 @@ OPTwlcImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) pci;
 	(void) cntxt;
 	(void) stk;		/* to fool compilers */
+
+	if( OPTdebug &  OPTwlc){
+		TraceLN(M_DEBUG, func_ln, "WLC optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
 
 	if( ! WLCused() )
 		goto wrapup;
@@ -150,8 +158,8 @@ wrapup:
     snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","wlc",updates,GDKusec() - usec);
     newComment(mb,buf);
     if( OPTdebug &  OPTwlc){
-        fprintf(stderr, "#wlc optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+		TraceLN(M_DEBUG, func_ln, "WLC optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return MAL_SUCCEED;
 }

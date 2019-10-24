@@ -45,6 +45,8 @@
 #include "opt_reorder.h"
 #include "mal_instruction.h"
 #include "mal_interpreter.h"
+#include "gdk_tracer.h"
+
 /*
  * Collect the statement dependencies in a table first
  * This can be done in linear time in size of the program.
@@ -267,6 +269,7 @@ OPTpostponeAppends(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 str
 OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
+	str func_ln = "reorder_opt";
 	int i,j, start;
 	InstrPtr *old;
 	int limit, slimit, *uselist = NULL;
@@ -277,6 +280,12 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	(void) cntxt;
 	(void) stk;
+
+	if( OPTdebug &  OPTreorder){
+        TraceLN(M_DEBUG, func_ln, "REORDER optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
+
 	dep = OPTdependencies(cntxt,mb,&uselist);
 	if ( dep == NULL)
 		return MAL_SUCCEED;
@@ -312,12 +321,12 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			}
 			/* collect all seen sofar by backward grouping */
 			/* since p has side-effects, we should secure all seen sofar */
-			for(j=i-1; j>=start;j--) {
+			for(j=i-1; j>=start; j--) {
 
 				if( OPTdebug &  OPTreorder){
 					if( old[j]){
-						fprintf(stderr,"leftover: %d",start+1);
-						fprintInstruction(stderr,mb,0,old[j],LIST_MAL_ALL);
+						TraceLN(M_DEBUG, func_ln, "Leftover: %d\n", start+1);
+						fprintInstruction(M_DEBUG, func_ln, mb, 0, old[j], LIST_MAL_ALL);
 					}
 				}
 
@@ -355,8 +364,8 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTreorder){
-        fprintf(stderr, "#reorder optimizer entry\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "REORDER optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

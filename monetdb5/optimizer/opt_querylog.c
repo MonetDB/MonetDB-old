@@ -11,9 +11,12 @@
 #include "mtime.h"
 #include "querylog.h"
 
+#include "gdk_tracer.h"
+
 str 
 OPTquerylogImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "querylog_opt";
 	int i, limit, slimit;
 	InstrPtr p = 0, *old= mb->stmt, q,r;
 	int argc, io, user,nice,sys,idle,iowait,load, arg, start,finish, name;
@@ -23,6 +26,10 @@ OPTquerylogImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	lng usec = GDKusec();
 	str msg = MAL_SUCCEED;
 
+	if( OPTdebug &  OPTquerylog){
+        TraceLN(M_DEBUG, func_ln, "Querylog optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
 
 	// query log needed?
 	if ( !QLOGisset() )
@@ -202,8 +209,8 @@ OPTquerylogImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	newComment(mb,buf);
 	addtoMalBlkHistory(mb);
     if( OPTdebug &  OPTquerylog){
-        fprintf(stderr, "#QUERYLOG optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "Querylog optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

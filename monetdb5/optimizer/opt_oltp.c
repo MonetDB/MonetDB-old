@@ -13,6 +13,7 @@
  */
 #include "monetdb_config.h"
 #include "opt_oltp.h"
+#include "gdk_tracer.h"
 
 static void
 addLock(Client cntxt, OLTPlocks locks, MalBlkPtr mb, InstrPtr p, int sch, int tbl)
@@ -29,7 +30,9 @@ addLock(Client cntxt, OLTPlocks locks, MalBlkPtr mb, InstrPtr p, int sch, int tb
 
 str
 OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{	int i, limit, slimit, updates=0;
+{	
+	str func_ln = "oltp_opt";
+	int i, limit, slimit, updates=0;
 	InstrPtr p, q, lcks;
 	int actions = 0;
 	InstrPtr *old;
@@ -41,6 +44,11 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) pci;
 	(void) cntxt;
 	(void) stk;		/* to fool compilers */
+
+	if( OPTdebug &  OPToltp){
+        TraceLN(M_DEBUG, func_ln, "OLTP optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
 
 	old= mb->stmt;
 	limit= mb->stop;
@@ -139,8 +147,8 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( actions >= 0)
 		addtoMalBlkHistory(mb);
     if( OPTdebug &  OPToltp){
-        fprintf(stderr, "#OLTP optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "OLTP optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

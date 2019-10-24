@@ -25,10 +25,12 @@
 #include "monetdb_config.h"
 #include "mal_instruction.h"
 #include "opt_constants.h"
+#include "gdk_tracer.h"
 
 str
 OPTconstantsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
+	str func_ln = "constants_opt";
 	int i, k = 1, n  = 0, fnd = 0, actions  = 0, limit = 0;
 	int *alias, *index;
 	VarPtr x,y, *cst;
@@ -37,9 +39,10 @@ OPTconstantsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	str msg = MAL_SUCCEED;
 
     if( OPTdebug &  OPTconstants){
-        fprintf(stderr, "#CONSTANTS optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+		TraceLN(M_DEBUG, func_ln, "CONSTANTS optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
+
 	alias= (int*) GDKzalloc(sizeof(int) * mb->vtop);
 	cst= (VarPtr*) GDKzalloc(sizeof(VarPtr) * mb->vtop);
 	index= (int*) GDKzalloc(sizeof(int) * mb->vtop);
@@ -67,7 +70,7 @@ OPTconstantsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 					 x->value.vtype == y->value.vtype &&
 					ATOMcmp(x->value.vtype, VALptr(&x->value), VALptr(&y->value)) == 0){
 					if( OPTdebug &  OPTconstants){
-						fprintf(stderr,"#opt_constants: matching elements %s %d %d\n", getVarName(mb,i), i,k);
+						TraceLN(M_DEBUG, func_ln, "Matching elements %s %d %d\n", getVarName(mb, i), i, k);
 					}
 					/* re-use a constant */
 					alias[i]= index[k];
@@ -78,7 +81,7 @@ OPTconstantsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 			}
 			if ( fnd == 0){
 				if( OPTdebug &  OPTconstants){
-					fprintf(stderr,"swith elements %d %d\n", i,n);
+					TraceLN(M_DEBUG, func_ln, "Switch elements %d %d\n", i, n);
 				}
 				cst[n]= x;
 				index[n]= i;
@@ -111,8 +114,8 @@ wrapup:
 	if( cst) GDKfree(cst);
 	if( index) GDKfree(index);
     if( OPTdebug &  OPTconstants){
-        fprintf(stderr, "#CONSTANTS optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "CONSTANTS optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

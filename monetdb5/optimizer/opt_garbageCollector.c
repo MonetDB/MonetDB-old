@@ -12,6 +12,7 @@
 #include "mal_builder.h"
 #include "mal_function.h"
 #include "opt_prelude.h"
+#include "gdk_tracer.h"
 
 /* The garbage collector is focused on removing temporary BATs only.
  * Leaving some garbage on the stack is an issue.
@@ -25,6 +26,7 @@
 str
 OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "garbage_collector_opt";
 	int i, limit, slimit, vlimit;
 	InstrPtr p, *old;
 	int actions = 0;
@@ -37,9 +39,15 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 	(void) pci;
 	(void) cntxt;
 	(void) stk;
+
+	if( OPTdebug &  OPTgarbagecollector){
+		TraceLN(M_DEBUG, func_ln, "GARBAGE_COLLECTOR optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
+	
 	if ( mb->inlineProp)
 		return 0;
-	
+
 	used = (char*) GDKzalloc(sizeof(char) * mb->vtop);
 	if ( used == NULL)
 		throw(MAL, "optimizer.garbagecollector", SQLSTATE(HY001) MAL_MALLOC_FAIL);
@@ -129,21 +137,21 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 	//GDKfree(stmtlnk);
 	GDKfree(old);
 	GDKfree(used);
-    if( OPTdebug &  OPTgarbagecollector)
-	{ 	int k;
-		fprintf(stderr, "#Garbage collected BAT variables \n");
+    if( OPTdebug &  OPTgarbagecollector){ 	
+		int k;
+		TraceLN(M_DEBUG, func_ln, "Garbage collected BAT variables\n");
 		for ( k =0; k < vlimit; k++)
-		fprintf(stderr,"%10s eolife %3d  begin %3d lastupd %3d end %3d\n",
+		TraceLN(M_DEBUG, func_ln, 
+			"%10s eolife %3d begin %3d lastupd %3d end %3d\n",
 			getVarName(mb,k), getVarEolife(mb,k),
 			getBeginScope(mb,k), getLastUpdate(mb,k), getEndScope(mb,k));
 		chkFlow(mb);
 		if ( mb->errors != MAL_SUCCEED ){
-			fprintf(stderr,"%s\n",mb->errors);
+			TraceLN(M_DEBUG, func_ln, "%s\n", mb->errors);
 			freeException(mb->errors);
 			mb->errors = MAL_SUCCEED;
 		}
-		fprintFunction(stderr,mb, 0, LIST_MAL_ALL);
-		fprintf(stderr, "End of GCoptimizer\n");
+		fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
 	}
 
 	/* leave a consistent scope admin behind */
@@ -163,8 +171,8 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 		addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTgarbagecollector){
-        fprintf(stderr, "#GARBAGECOLLECTOR optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+		TraceLN(M_DEBUG, func_ln, "GARBAGE_COLLECTOR optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

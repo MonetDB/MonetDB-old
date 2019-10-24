@@ -13,12 +13,14 @@
 #include "monetdb_config.h"
 #include "mal_instruction.h"
 #include "opt_postfix.h"
+#include "gdk_tracer.h"
 
 #define isCandidateList(M,P,I) ((M)->var[getArg(P,I)].id[0]== 'C')
 str
 OPTpostfixImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
 #if 0							// Don't use this right now
+	str func_ln = "postfix_opt";
 	int i, j, slimit, limit, actions=0;
 	InstrPtr *old = 0;
     InstrPtr q, *vars = 0;
@@ -28,6 +30,11 @@ OPTpostfixImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	(void) stk;
 	(void) cntxt;
+
+	if( OPTdebug &  OPTpostfix){
+        TraceLN(M_DEBUG, func_ln, "POSTFIX optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
 
 	limit = mb->stop;
 	slimit = mb->ssize;
@@ -91,8 +98,8 @@ wrapup:
 	if(vars) GDKfree(vars);
 
     if( OPTdebug &  OPTpostfix){
-        fprintf(stderr, "#POSTFIX optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "POSTFIX optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 #else

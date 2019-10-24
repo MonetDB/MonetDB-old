@@ -10,6 +10,7 @@
 #include "opt_multiplex.h"
 #include "manifold.h"
 #include "mal_interpreter.h"
+#include "gdk_tracer.h"
 
 /*
  * The generic solution to the multiplex operators is to translate
@@ -33,6 +34,7 @@
 static str
 OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "multiplex_opt_expand";
 	int i = 2, iter = 0;
 	int hvar, tvar;
 	str mod, fcn;
@@ -59,8 +61,8 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	fcn = putName(fcn);
 	if(mod == NULL || fcn == NULL)
 		throw(MAL, "optimizer.multiplex", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	fprintf(stderr,"#WARNING To speedup %s.%s a bulk operator implementation is needed\n#", mod,fcn);
-	fprintInstruction(stderr, mb, stk, pci, LIST_MAL_ALL);
+	TraceLN(M_WARNING, func_ln, "To speedup %s.%s a bulk operator implementation is needed\n", mod, fcn);
+	fprintInstruction(M_DEBUG, func_ln, mb, stk, pci, LIST_MAL_ALL);
 
 	/* search the iterator bat */
 	for (i = pci->retc+2; i < pci->argc; i++)
@@ -73,12 +75,12 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
     if( OPTdebug &  OPTmultiplex)
 	{	char *tpenme;
-		fprintf(stderr,"#calling the optimize multiplex script routine\n");
-		fprintFunction(stderr,mb, 0, LIST_MAL_ALL );
+		TraceLN(M_DEBUG, func_ln, "Calling the optimize multiplex script routine\n");
+		fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
 		tpenme = getTypeName(getVarType(mb,iter));
-		fprintf(stderr,"#multiplex against operator %d %s\n",iter, tpenme);
+		TraceLN(M_DEBUG, func_ln, "Multiplex against operator %d %s\n", iter, tpenme);
 		GDKfree(tpenme);
-		fprintInstruction(stderr,mb, 0, pci,LIST_MAL_ALL);
+		fprintInstruction(M_DEBUG, func_ln, mb, 0, pci, LIST_MAL_ALL);
 	}
 
 	/*
@@ -214,6 +216,7 @@ OPTmultiplexSimple(Client cntxt, MalBlkPtr mb)
 str
 OPTmultiplexImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	str func_ln = "multiplex_opt";
 	InstrPtr *old = 0, p;
 	int i, limit, slimit, actions= 0;
 	str msg= MAL_SUCCEED;
@@ -222,12 +225,17 @@ OPTmultiplexImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 
 	(void) stk;
 	(void) pci;
+    
+	if( OPTdebug &  OPTmultiplex){
+        TraceLN(M_DEBUG, func_ln, "MULTIPLEX optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
 
 	old = mb->stmt;
 	limit = mb->stop;
 	slimit = mb->ssize;
 	if ( newMalBlkStmt(mb, mb->ssize) < 0 )
-		throw(MAL,"optimizer.mergetable", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		throw(MAL,"optimizer.multiplex", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
 	for (i = 0; i < limit; i++) {
 		p = old[i];
@@ -271,8 +279,8 @@ OPTmultiplexImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 		addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTmultiplex){
-        fprintf(stderr, "#MULTIPLEX optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "MULTIPLEX optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

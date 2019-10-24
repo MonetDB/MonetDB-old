@@ -14,6 +14,7 @@
 #include "mal_instruction.h"
 #include "mal_interpreter.h"
 #include "manifold.h"
+#include "gdk_tracer.h"
 
 /*
  * Dataflow processing incurs overhead and is only
@@ -93,13 +94,14 @@ simpleFlow(InstrPtr *old, int start, int last)
 static int
 dataflowBreakpoint(Client cntxt, MalBlkPtr mb, InstrPtr p, States states)
 {
+	str func_ln = "dataflow_opt_breadkpoint";
 	int j;
-
+	
 	if (p->token == ENDsymbol || p->barrier || isUnsafeFunction(p) || 
 		(isMultiplex(p) && MANIFOLDtypecheck(cntxt,mb,p,0) == NULL) ){
 
 			if( OPTdebug &  OPTdataflow){
-				fprintf(stderr,"#breakpoint on instruction\n");
+				TraceLN(M_DEBUG, func_ln, "Breakpoint on instruction\n");
 			}
 			return TRUE;
 		}
@@ -112,7 +114,7 @@ dataflowBreakpoint(Client cntxt, MalBlkPtr mb, InstrPtr p, States states)
 		if ( getState(states,p,j) & (VARWRITE | VARREAD | VARBLOCK)){
 
 			if( OPTdebug &  OPTdataflow){
-				fprintf(stderr,"#breakpoint on argument %s state %d\n", getVarName(mb,getArg(p,j)), getState(states,p,j));
+				TraceLN(M_DEBUG, func_ln, "Breakpoint on argument %s state %d\n", getVarName(mb,getArg(p,j)), getState(states,p,j));
 			}
 
 			return 1;
@@ -130,7 +132,8 @@ dataflowBreakpoint(Client cntxt, MalBlkPtr mb, InstrPtr p, States states)
 
 		if( OPTdebug &  OPTdataflow){
 			if( getState(states,p,1) & (VARREAD | VARBLOCK))
-				fprintf(stderr,"#breakpoint on update %s state %d\n", getVarName(mb,getArg(p,j)), getState(states,p,j));
+				TraceLN(M_DEBUG, func_ln, "Breakpoint on update %s state %d\n", getVarName(mb,getArg(p,j)), getState(states,p,j));
+				
 		}
 		return getState(states,p,p->retc) & (VARREAD | VARBLOCK);
 	}
@@ -139,14 +142,14 @@ dataflowBreakpoint(Client cntxt, MalBlkPtr mb, InstrPtr p, States states)
 		if ( getState(states,p,j) & VARBLOCK){
 			if( OPTdebug &  OPTdataflow){
 				if( getState(states,p,j) & VARREAD)
-					fprintf(stderr,"#breakpoint on blocked var %s state %d\n", getVarName(mb,getArg(p,j)), getState(states,p,j));
+					TraceLN(M_DEBUG, func_ln, "Breakpoint on blocked var %s state %d\n", getVarName(mb,getArg(p,j)), getState(states,p,j));
 			}
 			return 1;
 		}
 
 		if( OPTdebug &  OPTdataflow){
 			if( hasSideEffects(mb,p,FALSE))
-				fprintf(stderr,"#breakpoint on sideeffect var %s %s.%s\n", getVarName(mb,getArg(p,j)), getModuleId(p), getFunctionId(p));
+				TraceLN(M_DEBUG, func_ln, "Breakpoint on sideeffect var %s %s.%s\n", getVarName(mb,getArg(p,j)), getModuleId(p), getFunctionId(p));
 		}
 	}
 	return hasSideEffects(mb,p,FALSE);
@@ -178,6 +181,7 @@ dflowGarbagesink(Client cntxt, MalBlkPtr mb, int var, InstrPtr *sink, int top)
 str
 OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
+	str func_ln = "dataflow_opt";
 	int i,j,k, start=1, slimit, breakpoint, actions=0, simple = TRUE;
 	int flowblock= 0;
 	InstrPtr *sink = NULL, *old = NULL, q;
@@ -187,6 +191,11 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	lng usec = GDKusec();
 	str msg = MAL_SUCCEED;
 
+	if( OPTdebug &  OPTdataflow){
+		TraceLN(M_DEBUG, func_ln, "DATAFLOW optimizer entry\n");
+		fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+	}
+	
 	/* don't use dataflow on single processor systems */
 	if (GDKnr_threads <= 1)
 		return MAL_SUCCEED;
@@ -197,11 +206,6 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	/* inlined functions will get their dataflow control later */
 	if ( mb->inlineProp)
 		return MAL_SUCCEED;
-
-	if( OPTdebug &  OPTdataflow){
-		fprintf(stderr,"#dataflow input\n");
-		fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
-	}
 
 	vlimit = mb->vsize;
 	states = (States) GDKzalloc(vlimit * sizeof(char));
@@ -233,7 +237,7 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			simple = simpleFlow(old,start,i);
 
 			if( OPTdebug &  OPTdataflow){
-				fprintf(stderr,"#breakpoint pc %d  %s\n",i, (simple?"simple":"") );
+				TraceLN(M_DEBUG, func_ln, "Breakpoint pc %d %s\n", i, (simple?"simple":""));
 			}
 			if ( !simple){
 				flowblock = newTmpVariable(mb,TYPE_bit);
@@ -314,10 +318,10 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		}
 
 		if( OPTdebug &  OPTdataflow){
-			fprintf(stderr,"# variable states\n");
-			fprintInstruction(stderr,mb, 0, p , LIST_MAL_ALL);
+			TraceLN(M_DEBUG, func_ln, "Variable states\n");
+			fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 			for(k = 0; k < p->argc; k++)
-				fprintf(stderr,"#%s %d\n", getVarName(mb,getArg(p,k)), states[getArg(p,k)] );
+				TraceLN(M_DEBUG, func_ln, "%s %d\n", getVarName(mb,getArg(p,k)), states[getArg(p,k)]);
 		}
 
 	}
@@ -343,8 +347,8 @@ wrapup:
 	if(sink)   GDKfree(sink);
 	if(old)    GDKfree(old);
     if( OPTdebug &  OPTdataflow){
-        fprintf(stderr, "#DATAFLOW optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "DATAFLOW optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 
 	return msg;

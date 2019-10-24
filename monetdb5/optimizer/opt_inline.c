@@ -8,6 +8,7 @@
 
 #include "monetdb_config.h"
 #include "opt_inline.h"
+#include "gdk_tracer.h"
 
 static bool
 isCorrectInline(MalBlkPtr mb){
@@ -51,6 +52,7 @@ static bool OPTinlineMultiplex(Client cntxt, MalBlkPtr mb, InstrPtr p){
 str
 OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
+	str func_ln = "inline_opt";
 	int i;
 	InstrPtr q,sig;
 	int actions = 0;
@@ -60,6 +62,11 @@ OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	(void) p;
 	(void)stk;
+
+	if( OPTdebug &  OPTinline){
+        TraceLN(M_DEBUG, func_ln, "INLINE optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
 
 	for (i = 1; i < mb->stop; i++) {
 		q = getInstrPtr(mb, i);
@@ -73,8 +80,8 @@ OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 				if (OPTinlineMultiplex(cntxt,mb,q)) {
 
 					if( OPTdebug &  OPTinline){
-						fprintf(stderr,"#multiplex inline function\n");
-						fprintInstruction(stderr,mb,0,q,LIST_MAL_ALL);
+						TraceLN(M_DEBUG, func_ln, "Multiplex inline function\n");
+						fprintInstruction(M_DEBUG, func_ln, mb, 0, q, LIST_MAL_ALL);
 					}
 				}
 			} else
@@ -88,9 +95,9 @@ OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 				actions++;
 
 				if( OPTdebug &  OPTinline){
-					fprintf(stderr,"#inline function at %d\n",i);
-					fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
-					fprintInstruction(stderr,q->blk,0,sig,LIST_MAL_ALL);
+					TraceLN(M_DEBUG, func_ln, "Inline function at %d\n", i);
+					fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+					fprintInstruction(M_DEBUG, func_ln, q->blk, 0, sig, LIST_MAL_ALL);
 				}
 
 			}
@@ -111,8 +118,8 @@ OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTinline){
-        fprintf(stderr, "#INLINE optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "INLINE optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

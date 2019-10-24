@@ -16,9 +16,11 @@
 #include "opt_remap.h"
 #include "opt_macro.h"
 #include "opt_multiplex.h"
+#include "gdk_tracer.h"
 
 static int
 OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module scope){
+	str func_ln = "remap_direct";
 	str mod,fcn;
 	char buf[1024];
 	int i, retc = pci->retc;
@@ -34,7 +36,7 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 		mod+=3;
 
     if( OPTdebug &  OPTremap){
-		fprintf(stderr,"#Found a candidate %s.%s\n",mod,fcn);
+		TraceLN(M_DEBUG, func_ln, "Found a candidate %s.%s\n", mod, fcn);
 	}
 
 
@@ -56,7 +58,7 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 		p= pushArgument(mb,p,getArg(pci,i));
 
     if( OPTdebug &  OPTremap){
-		fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
+		fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 	}
 
 	/* now see if we can resolve the instruction */
@@ -64,8 +66,8 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 	if( p->typechk== TYPE_UNKNOWN) {
 
 		if( OPTdebug &  OPTremap){
-			fprintf(stderr,"#type error\n");
-			fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
+			TraceLN(M_DEBUG, func_ln, "Type error\n");
+			fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 		}
 
 		freeInstruction(p);
@@ -73,7 +75,7 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 	}
 	pushInstruction(mb,p);
 	if( OPTdebug &  OPTremap){
-		fprintf(stderr,"success\n");
+		TraceLN(M_DEBUG, func_ln, "Success\n");
 	}
 	return 1;
 }
@@ -112,6 +114,7 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 static int 
 OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 {
+	str func_ln = "remap_multiplex_inline";
 	MalBlkPtr mq;
 	InstrPtr q = NULL, sig;
 	char buf[1024];
@@ -131,9 +134,13 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 
 		if( OPTdebug &  OPTremap){
 			if( s== NULL)
-				fprintf(stderr,"#not found \n");
+			{
+				TraceLN(M_DEBUG, func_ln, "Not found\n");
+			}
 			else
-				fprintf(stderr,"#side-effects\n");
+			{
+				TraceLN(M_DEBUG, func_ln, "Side-effects\n");
+			}
 		}
 
 		return 0;
@@ -147,9 +154,9 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 	sig= getInstrPtr(mq,0);
 
 	if( OPTdebug &  OPTremap){
-		fprintf(stderr,"#Modify the code\n");
-		fprintFunction(stderr,mq, 0, LIST_MAL_ALL);
-		fprintInstruction(stderr,mb, 0, p,LIST_MAL_ALL);
+		TraceLN(M_DEBUG, func_ln, "Modify the code\n");
+		fprintFunction(M_DEBUG, func_ln, mq, 0, LIST_MAL_ALL);
+		fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 	}
 
 
@@ -170,13 +177,13 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 			if( getBatType(getArgType(mb,p,i)) != getArgType(mq,sig,i-2)){
 
 				if( OPTdebug &  OPTremap){
-					fprintf(stderr,"#Type mismatch %d\n",i);
+					TraceLN(M_DEBUG, func_ln, "Type mismatch %d\n", i);
 				}
 
 				goto terminateMX;
 			}
 			if( OPTdebug &  OPTremap){
-				fprintf(stderr,"#Upgrade type %d %d\n",i, getArg(sig,i-2));
+				TraceLN(M_DEBUG, func_ln, "Upgrade type %d %d\n", i, getArg(sig,i-2));
 			}
 
 			setVarType(mq, i-2,newBatType(getArgType(mb,p,i)));
@@ -287,9 +294,9 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 terminateMX:
 
 		if( OPTdebug &  OPTremap){
-			fprintf(stderr,"Abort remap\n");
+			TraceLN(M_DEBUG, func_ln, "Abort remap\n");
 			if (q)
-				fprintInstruction(stderr,mb,0,q,LIST_MAL_ALL);
+				fprintInstruction(M_DEBUG, func_ln, mb, 0, q, LIST_MAL_ALL);
 		}
 
 		freeMalBlk(mq);
@@ -313,11 +320,11 @@ terminateMX:
 	inlineMALblock(mb,pc,mq);
 
 	if( OPTdebug &  OPTremap){
-		fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
-		fprintf(stderr,"#NEW BLOCK\n");
-		fprintFunction(stderr,mq, 0, LIST_MAL_ALL);
-		fprintf(stderr,"#INLINED RESULT\n");
-		fprintFunction(stderr,mb, 0, LIST_MAL_ALL);
+		fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
+		TraceLN(M_DEBUG, func_ln, "NEW BLOCK\n");
+		fprintFunction(M_DEBUG, func_ln, mq, 0, LIST_MAL_ALL);
+		TraceLN(M_DEBUG, func_ln, "INLINED RESULT\n");
+		fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
 	}
 
 	freeMalBlk(mq);
@@ -378,7 +385,7 @@ OPTremapSwitched(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module
 str
 OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-
+	str func_ln = "remap_opt";
 	InstrPtr *old, p;
 	int i, limit, slimit, doit= 0;
 	Module scope = cntxt->usermodule;
@@ -387,6 +394,12 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg = MAL_SUCCEED;
 
 	(void) pci;
+
+	if( OPTdebug &  OPTremap){
+        TraceLN(M_DEBUG, func_ln, "REMAP optimizer entry\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
+    }
+
 	old = mb->stmt;
 	limit = mb->stop;
 	slimit = mb->ssize;
@@ -408,9 +421,9 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 			if (s && s->def->inlineProp ){
 
-				if( OPTdebug &  OPTremap){
-					fprintf(stderr,"#Multiplex inline\n");
-					fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
+				if(  OPTdebug & OPTremap){
+					TraceLN(M_DEBUG, func_ln, "Multiplex inline\n");
+					fprintInstruction(M_DEBUG, func_ln, mb, 0, p, LIST_MAL_ALL);
 				}
 
 				pushInstruction(mb, p);
@@ -418,7 +431,7 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					doit++;
 
 					if( OPTdebug &  OPTremap){
-						fprintf(stderr,"#actions %d\n",doit);
+						TraceLN(M_DEBUG, "remap_opt", "Actions %d\n", doit);
 					}
 				}
 
@@ -508,8 +521,8 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		addtoMalBlkHistory(mb);
 
     if( OPTdebug &  OPTremap){
-        fprintf(stderr, "#REMAP optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        TraceLN(M_DEBUG, func_ln, "REMAP optimizer exit\n");
+        fprintFunction(M_DEBUG, func_ln, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }
