@@ -1682,10 +1682,14 @@ rel_compare_exp_(sql_query *query, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_e
 	if (anti)
 		set_anti(e);
 
+	if (!rel)
+		return rel_select(sql->sa, rel_project_exp(sql->sa, exp_atom_bool(sql->sa, 1)), e);
+#if 0
 	if (!rel && query_has_outer(query)) {
 		/* for now only top of stack */
 		return rel_select(sql->sa, query_fetch_outer(query, 0), e);
 	}
+#endif
 
 	/* atom or row => select */
 	if (ls->card > rel->card) {
