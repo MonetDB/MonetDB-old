@@ -2287,9 +2287,7 @@ static str
 sql_update_default(Client c, mvc *sql, const char *prev_schema)
 {
 	sql_table *t;
-	sql_subfunc *f;
-	sql_subtype tp;
-	size_t bufsize = 2048, pos = 0;
+	size_t bufsize = 4096, pos = 0;
 	char *err = NULL, *buf = GDKmalloc(bufsize);
 	sql_schema *sys = mvc_bind_schema(sql, "sys");
 
@@ -2302,8 +2300,10 @@ sql_update_default(Client c, mvc *sql, const char *prev_schema)
 			" external name sql.suspend_log_flushing;\n"
 			"create procedure resume_log_flushing()\n"
 			" external name sql.resume_log_flushing;\n"
+			"create procedure hot_snapshot(tarfile string)\n"
+			" external name sql.hot_snapshot;\n"
 			"update sys.functions set system = true where schema_id = (select id from sys.schemas where name = 'sys')"
-			" and name in ('suspend_log_flushing', 'resume_log_flushing') and type = %d;\n", (int) F_PROC);
+			" and name in ('suspend_log_flushing', 'resume_log_flushing', 'hot_snapshot') and type = %d;\n", (int) F_PROC);
 
 	/* 16_tracelog */
 	t = mvc_bind_table(sql, sys, "tracelog");
@@ -2319,14 +2319,16 @@ sql_update_default(Client c, mvc *sql, const char *prev_schema)
 			"	external name sql.dump_trace;\n"
 			"create view sys.tracelog as select * from sys.tracelog();\n");
 
+	pos += snprintf(buf + pos, bufsize - pos,
+			"update sys.functions set system = true where schema_id = (select id from sys.schemas where name = 'sys')"
+			" and name = 'tracelog' and type = %d;\n", (int) F_UNION);
+	pos += snprintf(buf + pos, bufsize - pos,
+			"update sys._tables set system = true where schema_id = (select id from sys.schemas where name = 'sys')"
+			" and name = 'tracelog';\n");
+
 	/* 22_clients */
 	t = mvc_bind_table(sql, sys, "sessions");
 	t->system = 0; /* make it non-system else the drop view will fail */
-	f = sql_bind_func_(sql->sa, sys, "sessions", NULL, F_UNION);
-	f->func->system = 0; /* make it non-system else the drop function will fail */
-	sql_find_subtype(&tp, "bigint", 0, 0);
-	f = sql_bind_func(sql->sa, sys, "settimeout", &tp, &tp, F_PROC);
-	f->func->system = 0; /* make it non-system else the drop procedure will fail */
 
 	pos += snprintf(buf + pos, bufsize - pos,
 			"drop view sys.sessions;\n"
@@ -2344,6 +2346,47 @@ sql_update_default(Client c, mvc *sql, const char *prev_schema)
 			"external name clients.sessiontimeout;\n"
 			"create procedure sys.stopsession(\"sessionid\" int)\n"
 			"external name clients.stopsession;\n");
+
+	pos += snprintf(buf + pos, bufsize - pos,
+			"update sys.functions set system = true where schema_id = (select id from sys.schemas where name = 'sys')"
+			" and name = 'sessions' and type = %d;\n", (int) F_UNION);
+	pos += snprintf(buf + pos, bufsize - pos,
+			"update sys._tables set system = true where schema_id = (select id from sys.schemas where name = 'sys')"
+			" and name = 'sessions';\n");
+	pos += snprintf(buf + pos, bufsize - pos,
+			"update sys.functions set system = true where schema_id = (select id from sys.schemas where name = 'sys')"
+			" and name in ('settimeout', 'querytimeout', 'sessiontimeout', 'stopsession') and type = %d;\n", (int) F_PROC);
+
+	/* 26_sysmon */
+	t = mvc_bind_table(sql, sys, "queue");
+	t->system = 0; /* make it non-system else the drop view will fail */
+
+	pos += snprintf(buf + pos, bufsize - pos,
+			"drop view sys.queue;\n"
+			"drop function sys.queue;\n"
+			"create function sys.queue()\n"
+			"returns table(\n"
+			"	qtag bigint,\n"
+			"	sessionid int,\n"
+			"	\"user\" string,\n"
+			"	started timestamp,\n"
+			"	estimate timestamp,\n"
+			"	progress int,\n"
+			"	status string,\n"
+			"	tag oid,\n"
+			"	query string\n"
+			")\n"
+			"external name sql.sysmon_queue;\n"
+			"grant execute on function sys.queue to public;\n"
+			"create view sys.queue as select * from sys.queue();\n"
+			"grant select on sys.queue to public;\n");
+
+	pos += snprintf(buf + pos, bufsize - pos,
+			"update sys.functions set system = true where schema_id = (select id from sys.schemas where name = 'sys')"
+			" and name = 'queue' and type = %d;\n", (int) F_UNION);
+	pos += snprintf(buf + pos, bufsize - pos,
+			"update sys._tables set system = true where schema_id = (select id from sys.schemas where name = 'sys')"
+			" and name = 'queue';\n");
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
 	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
