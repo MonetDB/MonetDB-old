@@ -22,6 +22,7 @@
 #define sql_farg   128 //ORed
 #define sql_window 256 //ORed
 #define sql_join   512 //ORed
+#define sql_outer 1024 //ORed
 
 #define is_sql_from(X)    ((X & sql_from) == sql_from)
 #define is_sql_where(X)   ((X & sql_where) == sql_where)
@@ -33,6 +34,7 @@
 #define is_sql_farg(X)    ((X & sql_farg) == sql_farg)
 #define is_sql_window(X)  ((X & sql_window) == sql_window)
 #define is_sql_join(X)    ((X & sql_join) == sql_join)
+#define is_sql_outer(X)   ((X & sql_outer) == sql_outer)
 
 #define rel_groupby_gbe(m,r,e) rel_groupby(m, r, append(new_exp_list(m->sa), e))
 #define new_rel_list(sa) sa_list(sa)

@@ -3400,7 +3400,9 @@ _column_name(sql_allocator *sa, stmt *st)
 		return func_name(sa, st->op4.aggrval->aggr->base.name, cn);
 	}
 	case st_alias:
-		return column_name(sa, st->op3);
+		if (st->op3)
+			return column_name(sa, st->op3);
+		break;
 	case st_bat:
 		return st->op4.cval->base.name;
 	case st_atom:
@@ -3423,6 +3425,7 @@ _column_name(sql_allocator *sa, stmt *st)
 	default:
 		return NULL;
 	}
+	return NULL;
 }
 
 const char *_table_name(sql_allocator *sa, stmt *st);

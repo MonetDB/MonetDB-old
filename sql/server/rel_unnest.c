@@ -614,12 +614,24 @@ push_up_project(mvc *sql, sql_rel *rel, list *ad)
 		/* merge project expressions into the join expressions  */
 		rel->exps = push_up_project_exps(sql, r, rel->exps);
 
-		if (r && r->op == op_project) {
+		if (r && r->op == op_project && r->l) {
 			/* remove old project */
 			rel->r = r->l;
 			r->l = NULL;
 			rel_destroy(r);
 			return rel;
+		} else if (r && r->op == op_project) {
+			/* remove freevars from projection */
+			list *exps = r->exps, *nexps = sa_list(sql->sa);
+			node *m;
+
+			for (m=exps->h; m; m = m->next) {
+				sql_exp *e = m->data;
+
+				if (!e->freevar) 
+					append(nexps, e);
+			}
+			r->exps = nexps;
 		}
 	}
 	return rel;
@@ -1297,6 +1309,8 @@ bind_exp(mvc *sql, sql_rel *rel, sql_exp *e, int top_groupby)
 		}
 		if (found) 
 			return found;
+		if (!is_aggr(e->type))
+			return found;
 		s = s->l;
 	}
 	if (is_project(s->op) || is_base(s->op)) {
@@ -1306,8 +1320,20 @@ bind_exp(mvc *sql, sql_rel *rel, sql_exp *e, int top_groupby)
 			found = exps_bind_column(s->exps, e->r, NULL);
 		}
 		if (!found) { /* add */
-			sql_exp *ne = exp_column(sql->sa, e->l, e->r, exp_subtype(e), exp_card(e), has_nil(e), is_intern(e)); 
-
+			sql_exp *ne = NULL;
+		       
+			if (!top_groupby && is_groupby(s->op))
+				ne = bind_exp(sql, s, e, 1);
+			else //if (is_groupby(s->op))
+				ne = !is_base(s->op)?bind_exp(sql, s->l, e, 0):NULL; 
+				//sql_exp *ne = exp_column(sql->sa, e->l, e->r, exp_subtype(e), exp_card(e), has_nil(e), is_intern(e)); 
+			if (!ne) {
+				if (exp_name(e)) {
+					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", exp_name(e));
+				} else {
+					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column in query results without an aggregate function");
+				}
+			}
 			ne = rel_project_add_exp(sql, s, ne);
 			return ne;
 		}
@@ -1352,7 +1378,7 @@ rel_bind_exp_(mvc *sql, sql_rel *rel, sql_exp *e)
 		found = bind_exp(sql, is_simple_project(rel->op)?rel->l:rel, e, is_groupby(rel->op));
 		if (!found) { 
 			printf("#not found %s.%s\n", (char*)e->l, (char*)e->r);
-			//assert(0);
+			return -1;
 		}
 		return !ok;
 	case e_convert:
@@ -1440,11 +1466,16 @@ rel_bind(mvc *sql, sql_rel *rel)
 	case op_select:
 	case op_topn:
 	case op_sample:
+		if (rel->l)
+			ok = !rel_bind(sql, rel->l);
+		break;
 
 	case op_project:
 	case op_groupby:
 		if (rel->l)
 			ok = !rel_bind(sql, rel->l);
+		if (list_empty(rel->exps)) 
+			append(rel->exps, exp_atom_bool(sql->sa, 1));
 		break;
 	case op_join:
 	case op_left:
@@ -1469,7 +1500,7 @@ rel_unnest(mvc *sql, sql_rel *rel)
 {
 	rel_reset_subquery(rel);
 	if (rel_bind(sql, rel)) {
-		/* error */
+		return NULL;
 	}
 	return _rel_unnest(sql, rel);
 }

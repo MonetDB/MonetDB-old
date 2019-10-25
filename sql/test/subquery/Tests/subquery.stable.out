@@ -90,7 +90,7 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 % 1 # length
 [ 3	]
 #SELECT *, (SELECT MAX(i) FROM integers) FROM integers ORDER BY i;
-% sys.integers,	.L3 # table_name
+% .integers,	.L3 # table_name
 % i,	L3 # name
 % int,	int # type
 % 1,	1 # length
@@ -99,14 +99,14 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 [ 2,	3	]
 [ 3,	3	]
 #SELECT (SELECT 42) AS k, MAX(i) FROM integers GROUP BY k; -- 42, 3
-% .L1,	sys.L2 # table_name
+% .,	sys.L2 # table_name
 % k,	L2 # name
 % tinyint,	int # type
 % 2,	1 # length
 [ 42,	3	]
 #SELECT i, MAX((SELECT 42)) FROM integers GROUP BY i ORDER BY i;
-% sys.integers,	.L1 # table_name
-% i,	L1 # name
+% sys.integers,	.L2 # table_name
+% i,	L2 # name
 % int,	tinyint # type
 % 1,	2 # length
 [ NULL,	42	]
@@ -257,8 +257,8 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 [ NULL	]
 [ NULL	]
 #SELECT CAST(SUM(i) AS BIGINT) FROM integers WHERE 1 IN (SELECT * FROM integers); -- 6
-% sys.L5 # table_name
-% L5 # name
+% sys.L3 # table_name
+% L3 # name
 % bigint # type
 % 1 # length
 [ 6	]
@@ -278,14 +278,14 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 [ true	]
 [ true	]
 #SELECT (SELECT MAX(i) FROM integers) AS k, CAST(SUM(i) AS BIGINT) FROM integers GROUP BY k; -- 3,6
-% .L3,	.L5 # table_name
-% k,	L5 # name
+% .L2,	.L3 # table_name
+% k,	L3 # name
 % int,	bigint # type
 % 1,	1 # length
 [ 3,	6	]
 #SELECT i % 2 AS k, CAST(SUM(i) AS BIGINT) FROM integers GROUP BY k HAVING SUM(i) > (SELECT MAX(i) FROM integers); -- 1,4
-% sys.L1,	sys.L3 # table_name
-% k,	L3 # name
+% sys.,	sys.L1 # table_name
+% k,	L1 # name
 % int,	bigint # type
 % 1,	1 # length
 [ 1,	4	]
@@ -296,8 +296,8 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 % 1 # length
 [ 1	]
 #SELECT (SELECT CAST(SUM(i) AS BIGINT) FROM integers), (SELECT 42);
-% .L5,	.L7 # table_name
-% L5,	L7 # name
+% .L4,	.L6 # table_name
+% L4,	L6 # name
 % bigint,	tinyint # type
 % 1,	2 # length
 [ 6,	42	]

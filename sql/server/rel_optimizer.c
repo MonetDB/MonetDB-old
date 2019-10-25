@@ -2269,6 +2269,7 @@ exp_push_down_prj(mvc *sql, sql_exp *e, sql_rel *f, sql_rel *t)
 {
 	sql_exp *ne = NULL, *l, *r, *r2;
 
+	return NULL;
 	assert(is_project(f->op));
 
 	switch(e->type) {
@@ -2483,7 +2484,7 @@ rel_distinct_project2groupby(int *changes, mvc *sql, sql_rel *rel)
 	sql_rel *l = rel->l;
 
 	/* rewrite distinct project (table) [ constant ] -> project [ constant ] */
-	if (rel->op == op_project && rel->l && !rel->r /* no order by */ && need_distinct(rel) &&
+	if (0 && rel->op == op_project && rel->l && !rel->r /* no order by */ && need_distinct(rel) &&
 	    exps_card(rel->exps) <= CARD_ATOM) {
 		set_nodistinct(rel);
 		rel->l = rel_topn(sql->sa, rel->l, append(sa_list(sql->sa), exp_atom_lng(sql->sa, 1)));
@@ -4001,7 +4002,7 @@ rel_push_aggr_down(int *changes, mvc *sql, sql_rel *rel)
 		if (u->op == op_project)
 			u = u->l;
 
-		if (!u || !is_union(u->op) || need_distinct(u) || !u->exps || rel_is_ref(u)) 
+		if (!u || !is_union(u->op) || need_distinct(u) || !u->exps || rel_is_ref(u))
 			return rel;
 
 		ul = u->l;
@@ -4057,13 +4058,13 @@ rel_push_aggr_down(int *changes, mvc *sql, sql_rel *rel)
 		ul->r = lgbe;
 		ul->nrcols = g->nrcols;
 		ul->card = g->card;
-		ul->exps = exps_copy(sql->sa, g->exps);
+		ul->exps = list_merge(exps_copy(sql->sa, g->exps), exps_copy(sql->sa, ul->r), (fdup)NULL);
 
 		ur = rel_groupby(sql, ur, NULL);
 		ur->r = rgbe;
 		ur->nrcols = g->nrcols;
 		ur->card = g->card;
-		ur->exps = exps_copy(sql->sa, g->exps);
+		ur->exps = list_merge(exps_copy(sql->sa, g->exps), exps_copy(sql->sa, ur->r), (fdup)NULL);
 
 		/* group by on primary keys which define the partioning scheme 
 		 * don't need a finalizing group by */
@@ -4090,7 +4091,7 @@ rel_push_aggr_down(int *changes, mvc *sql, sql_rel *rel)
 		}
 
 		u = rel_setop(sql->sa, ul, ur, op_union);
-		u->exps = rel_projections(sql, rel, NULL, 1, 1);
+		u->exps = rel_projections(sql, ul, NULL, 1, 1);
 		set_processed(u);
 
 		if (rel->r) {
@@ -4101,7 +4102,9 @@ rel_push_aggr_down(int *changes, mvc *sql, sql_rel *rel)
 				sql_exp *e = n->data, *ne;
 
 				ne = exp_uses_exp( rel->exps, e);
-				assert(ne);
+				//assert(ne);
+				if (!ne)
+					ne = e;
 				ne = list_find_exp( u->exps, ne);
 				assert(ne);
 				ne = exp_column(sql->sa, exp_find_rel_name(ne), exp_name(ne), exp_subtype(ne), ne->card, has_nil(ne), is_intern(ne));
@@ -7292,7 +7295,7 @@ rel_simplify_like_select(int *changes, mvc *sql, sql_rel *rel)
 static sql_rel *
 rel_simplify_predicates(int *changes, mvc *sql, sql_rel *rel) 
 {
-	if ((is_select(rel->op) || is_join(rel->op)) && rel->exps) {
+	if ((is_select(rel->op) || is_join(rel->op)) && rel->exps && rel->card > CARD_ATOM) {
 		node *n;
 		list *exps = sa_list(sql->sa);
 			
@@ -8990,7 +8993,7 @@ optimize_rel(mvc *sql, sql_rel *rel, int *g_changes, int level, int value_based_
 
 	/* simple merging of projects */
 	if (gp.cnt[op_project] || gp.cnt[op_groupby] || gp.cnt[op_ddl]) {
-		rel = rewrite(sql, rel, &rel_merge_projects, &changes);
+		if (0) rel = rewrite(sql, rel, &rel_merge_projects, &changes);
 
 		/* push (simple renaming) projections up */
 		if (gp.cnt[op_project])
@@ -9086,7 +9089,7 @@ optimize_rel(mvc *sql, sql_rel *rel, int *g_changes, int level, int value_based_
 		rel = rewrite(sql, rel, &rel_remove_union_partitions, &changes); 
 
 	if (gp.cnt[op_groupby]) {
-		rel = rewrite_topdown(sql, rel, &rel_push_aggr_down, &changes);
+		if (0) rel = rewrite_topdown(sql, rel, &rel_push_aggr_down, &changes); /* needs fixes because sometimes it loses the groupby columns */ 
 		rel = rewrite_topdown(sql, rel, &rel_push_groupby_down, &changes);
 		rel = rewrite(sql, rel, &rel_groupby_order, &changes); 
 		rel = rewrite(sql, rel, &rel_reduce_groupby_exps, &changes); 

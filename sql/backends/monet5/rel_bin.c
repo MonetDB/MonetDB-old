@@ -121,11 +121,13 @@ list_find_column(backend *be, list *l, const char *rname, const char *name )
 
 		for (n = l->h; n; n = n->next) {
 			const char *nme = column_name(be->mvc->sa, n->data);
-			int key = hash_key(nme);
+			if (nme) {
+				int key = hash_key(nme);
 
-			if (hash_add(l->ht, key, n->data) == NULL) {
-				MT_lock_unset(&l->ht_lock);
-				return NULL;
+				if (hash_add(l->ht, key, n->data) == NULL) {
+					MT_lock_unset(&l->ht_lock);
+					return NULL;
+				}
 			}
 		}
 	}
@@ -727,7 +729,10 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 			fprintf(stderr, "could not find %s.%s\n", (char*)e->l, (char*)e->r);
 			print_stmtlist(sql->sa, left);
 			print_stmtlist(sql->sa, right);
-			assert(s);
+			if (!s) {
+				fprintf(stderr, "query: '%s'\n", sql->query);
+			}
+			//assert(s);
 			return NULL;
 		}
 	 }	break;
@@ -897,7 +902,8 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
  			r2 = exp_bin(be, re2, left, right, grp, ext, cnt, sel);
 
 		if (!l || !r || (re2 && !r2)) {
-			assert(0);
+			//assert(0);
+			fprintf(stderr, "query: '%s'\n", sql->query);
 			return NULL;
 		}
 
@@ -1904,7 +1910,7 @@ rel2bin_join(backend *be, sql_rel *rel, list *refs)
  	 * 	first cheap join(s) (equality or idx) 
  	 * 	second selects/filters 
 	 */
-	if (rel->exps) {
+	if (!list_empty(rel->exps)) {
 		int used_hash = 0;
 		int idx = 0;
 		list *jexps = sa_list(sql->sa);
@@ -2806,8 +2812,10 @@ rel2bin_project(backend *be, sql_rel *rel, list *refs, sql_rel *topn)
 	psub = stmt_list(be, pl);
 	for( en = rel->exps->h; en; en = en->next ) {
 		sql_exp *exp = en->data;
-		stmt *s = exp_bin(be, exp, sub, psub, NULL, NULL, NULL, NULL);
+		stmt *s = exp_bin(be, exp, sub, NULL /*psub*/, NULL, NULL, NULL, NULL);
 
+		if (!s) /* try with own projection as well */
+			s = exp_bin(be, exp, sub, psub, NULL, NULL, NULL, NULL);
 		if (!s) /* error */
 			return NULL;
 		/* single value with limit */
@@ -2876,7 +2884,7 @@ rel2bin_project(backend *be, sql_rel *rel, list *refs, sql_rel *topn)
 		stmt *distinct = NULL;
 		psub = rel2bin_distinct(be, psub, &distinct);
 		/* also rebuild sub as multiple orderby expressions may use the sub table (ie aren't part of the result columns) */
-		if (sub) {
+		if (sub && distinct) {
 			list *npl = sa_list(sql->sa);
 			
 			pl = sub->op4.lval;

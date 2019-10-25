@@ -808,10 +808,8 @@ exp_relname( sql_exp *e )
 {
 	if (e->alias.rname)
 		return e->alias.rname;
-	/*
 	if (e->type == e_column && e->l)
 		return e->l;
-	*/
 	return NULL;
 }
 

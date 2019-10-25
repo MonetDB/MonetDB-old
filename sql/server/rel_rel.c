@@ -236,6 +236,8 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname)
 	case op_basetable:
 		if (rel->exps && exps_bind_column(rel->exps, cname, &ambiguous))
 			return rel;
+		if (rel->r && is_groupby(rel->op) && exps_bind_column(rel->r, cname, &ambiguous))
+			return rel;
 		if (ambiguous) {
 			(void) sql_error(sql, ERR_AMBIGUOUS, SQLSTATE(42000) "SELECT: identifier '%s' ambiguous", cname);
 			return NULL;
@@ -263,9 +265,9 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname)
 }
 
 sql_exp *
-rel_bind_column( mvc *sql, sql_rel *rel, const char *cname, int f )
+rel_bind_column( mvc *sql, sql_rel *rel, const char *cname, int f)
 {
-	sql_rel *p = NULL, *orel = rel;
+	sql_rel *p = NULL;//, *orel = rel;
 
 	if (is_sql_sel(f) && rel && is_simple_project(rel->op) && !is_processed(rel))
 		rel = rel->l;
@@ -277,39 +279,57 @@ rel_bind_column( mvc *sql, sql_rel *rel, const char *cname, int f )
 		sql_exp *e = exps_bind_column(rel->exps, cname, NULL);
 		if (e)
 			e = exp_alias_or_copy(sql, exp_relname(e), cname, rel, e);
+		if (!e && is_groupby(rel->op) && rel->r) {
+			sql_exp *e = exps_bind_column(rel->r, cname, NULL);
+			if (e)
+				e = exp_alias_or_copy(sql, exp_relname(e), cname, rel, e);
+			return e;
+		}
+		/*
 		if (p && e && is_simple_project(p->op) && !is_processed(p) && is_sql_orderby(f) && orel != rel)
 			e = rel_project_add_exp(sql, p, e);
+			*/
 		return e;
-	}
+	} 
 	return NULL;
 }
 
 sql_exp *
-rel_bind_column2( mvc *sql, sql_rel *rel, const char *tname, const char *cname, int f )
+rel_bind_column2( mvc *sql, sql_rel *rel, const char *tname, const char *cname, int f)
 {
-	(void)f;
-
 	if (!rel)
 		return NULL;
 
-	if (rel->exps && (is_project(rel->op) || is_base(rel->op))) {
-		sql_exp *e = exps_bind_column2(rel->exps, tname, cname);
+	if ((is_project(rel->op) || is_base(rel->op))) {
+		sql_exp *e = NULL; 
+
 		/* in case of orderby we should also lookup the column in group by list (and use existing references) */
-		if (!e && is_sql_orderby(f) && is_groupby(rel->op) && rel->r) {
-			e = exps_bind_alias(rel->r, tname, cname);
-			if (e) { 
-				if (exp_relname(e))
-					e = exps_bind_column2(rel->exps, exp_relname(e), exp_name(e));
-				else
-					e = exps_bind_column(rel->exps, exp_name(e), NULL);
-				if (e)
-					return e;
+		if (!list_empty(rel->exps)) {
+			e = exps_bind_column2(rel->exps, tname, cname);
+			if (!e && (is_sql_orderby(f) || (0 && is_sql_outer(f))) && is_groupby(rel->op) && rel->r) {
+				e = exps_bind_alias(rel->r, tname, cname);
+				if (e) { 
+					if (exp_relname(e))
+						e = exps_bind_column2(rel->exps, exp_relname(e), exp_name(e));
+					else
+						e = exps_bind_column(rel->exps, exp_name(e), NULL);
+					if (e)
+						return e;
+				}
+			}
+		}
+		if (!e && (is_sql_sel(f) | is_sql_having(f) | !f) && is_groupby(rel->op) && rel->r) {
+			e = exps_bind_column2(rel->r, tname, cname);
+			if (e) {
+				e = exp_ref(sql->sa, e);
+				e->card = rel->card;
+				return e;
 			}
 		}
 		if (e)
 			return exp_alias_or_copy(sql, tname, cname, rel, e);
 	}
-	if (is_simple_project(rel->op) && rel->l) {
+	if ((is_simple_project(rel->op) || (is_groupby(rel->op) && is_sql_aggr(f)) ) && rel->l) {
 		if (!is_processed(rel))
 			return rel_bind_column2(sql, rel->l, tname, cname, f);
 	} else if (is_join(rel->op)) {
@@ -817,6 +837,7 @@ rel_groupby(mvc *sql, sql_rel *l, list *groupbyexps )
 		groupbyexps = gexps;
 	}
 
+#if 0
 	if (groupbyexps) {
 		rel->card = CARD_AGGR;
 		for (en = groupbyexps->h; en; en = en->next) {
@@ -831,6 +852,7 @@ rel_groupby(mvc *sql, sql_rel *l, list *groupbyexps )
 			append(aggrs, ne);
 		}
 	}
+#endif
 	rel->l = l;
 	rel->r = groupbyexps;
 	rel->exps = aggrs;
@@ -953,6 +975,27 @@ _rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int in
 		exps = list_merge( exps, rexps, (fdup)NULL);
 		return exps;
 	case op_groupby:
+		if (list_empty(rel->exps) && rel->r) {
+			node *en;
+			list *r = rel->r;
+			int label = ++sql->label;
+
+			exps = new_exp_list(sql->sa);
+			for (en = r->h; en; en = en->next) {
+				sql_exp *e = en->data;
+
+				if (basecol && !is_basecol(e))
+					continue;
+				if (intern || !is_intern(e)) {
+					append(exps, e = exp_alias_or_copy(sql, tname, exp_name(e), rel, e));
+					if (!settname) /* noname use alias */
+						exp_setrelname(sql->sa, e, label);
+
+				}
+			}
+			return exps;
+		}
+		/* fall through */
 	case op_project:
 	case op_basetable:
 	case op_table:
