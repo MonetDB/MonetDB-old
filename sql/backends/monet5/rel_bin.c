@@ -19,6 +19,7 @@
 #include "rel_optimizer.h"
 #include "sql_env.h"
 #include "sql_optimizer.h"
+#include "gdk_tracer.h"
 
 #define OUTER_ZERO 64
 
@@ -98,7 +99,7 @@ print_stmtlist(sql_allocator *sa, stmt *l)
 			const char *rnme = table_name(sa, n->data);
 			const char *nme = column_name(sa, n->data);
 
-			fprintf(stderr, "%s.%s\n", rnme ? rnme : "(null!)", nme ? nme : "(null!)");
+			INFO(SQL_ALL, "%s.%s\n", rnme ? rnme : "(null!)", nme ? nme : "(null!)");
 		}
 	}
 }
@@ -724,7 +725,7 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 		if (s && grp)
 			s = stmt_project(be, ext, s);
 		if (!s && right) {
-			fprintf(stderr, "could not find %s.%s\n", (char*)e->l, (char*)e->r);
+			CRITICAL(SQL_ALL, "Could not find %s.%s\n", (char*)e->l, (char*)e->r);
 			print_stmtlist(sql->sa, left);
 			print_stmtlist(sql->sa, right);
 			assert(s);
