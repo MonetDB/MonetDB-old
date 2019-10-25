@@ -882,7 +882,7 @@ SQLreader(Client c)
 	 * Continue processing any left-over input from the previous round.
 	 */
 
-	DEBUG(SQL_READER, "Pos %d len %d eof %d \n", in->pos, in->len, in->eof);
+	DEBUG(SQL_READER, "Pos %zu len %zu eof %d \n", in->pos, in->len, in->eof);
 
 	while (more) {
 		more = false;
@@ -934,7 +934,7 @@ SQLreader(Client c)
 				more = false;
 				go = false;
 			} else if (go && (rd = bstream_next(in)) <= 0) {
-				DEBUG(SQL_READER, "Read %d language %d eof %d\n", rd, language, in->eof);
+				DEBUG(SQL_READER, "Read %zu language %d eof %d\n", rd, language, in->eof);
 				if (be->language == 'D' && !in->eof) {
 					in->pos++;// skip 's' or 'S'
 					return msg;

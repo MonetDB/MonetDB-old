@@ -21,78 +21,6 @@
 #define NEW_LINE '\n'
 #define MAX_FILE_SIZE 1073741824
 
-#include "monetdb_config.h"
-#include "gdk.h"
-
-/**
- * 
- * Macros for logging
- * Function name is detected automatically
- * 
- */
-#define GDK_TRACER_LOG(LOG_LEVEL, MSG, ...)                             \
-    if((int) ATOMIC_GET(&CUR_LOG_LEVEL) >= (int) LOG_LEVEL)             \
-    {                                                                   \
-        GDKtracer_log(LOG_LEVEL,                                        \
-                      "[%s] %s (%s:%d) # "MSG,                          \
-                      GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),     \
-                      __FILE__,                                         \
-                      __FUNCTION__,                                     \
-                      __LINE__,                                         \
-                      ## __VA_ARGS__);                                  \
-    }                                                                   \
-
-#define CRITICAL(COMP, MSG, ...)                                        \
-    GDK_TRACER_LOG(M_CRITICAL, MSG, ...)                                \
-
-#define ERROR(COMP, MSG, ...)                                           \
-    GDK_TRACER_LOG(M_ERROR, MSG, ...)                                   \
-
-#define WARNING(COMP, MSG, ...)                                         \
-    GDK_TRACER_LOG(M_WARNING, MSG, ...)                                 \
-
-#define INFO(COMP, MSG, ...)                                            \
-    GDK_TRACER_LOG(M_INFO, MSG, ...)                                    \
-
-#define DEBUG(COMP, MSG, ...)                                           \
-    GDK_TRACER_LOG(M_DEBUG, MSG, ...)                                   \
-
-
-
-/**
- *  
- * Macros for logging 
- * They take as argument the logical function name 
- *  
- */
-#define GDK_TRACER_LOG_LN(LOG_LEVEL, FUNC_LN, MSG, ...)                 \
-    if((int) ATOMIC_GET(&CUR_LOG_LEVEL) >= (int) LOG_LEVEL)             \
-    {                                                                   \
-        GDKtracer_log(LOG_LEVEL,                                        \
-                      "[%s] %s (%s:%d) # "MSG,                          \
-                      GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),     \
-                      __FILE__,                                         \
-                      FUNC_LN,                                          \
-                      __LINE__,                                         \
-                      ## __VA_ARGS__);                                  \
-    }                                                                   \
-
-#define CRITICAL_LN(COMP, FUNC_LN, MSG, ...)                            \
-    GDK_TRACER_LOG_LN(M_CRITICAL, FUNC_LN, MSG, ...)                    \
-
-#define ERROR_LN(COMP, FUNC_LN, MSG, ...)                               \
-    GDK_TRACER_LOG_LN(M_ERROR, FUNC_LN, MSG, ...)                       \
-
-#define WARNING_LN(COMP, FUNC_LN, MSG, ...)                             \
-    GDK_TRACER_LOG_LN(M_WARNING, FUNC_LN, MSG, ...)                     \
-
-#define INFO_LN(COMP, FUNC_LN, MSG, ...)                                \
-    GDK_TRACER_LOG_LN(M_INFO, FUNC_LN, MSG, ...)                        \
-
-#define DEBUG_LN(COMP, FUNC_LN, MSG, ...)                               \
-    GDK_TRACER_LOG_LN(M_DEBUG, FUNC_LN, MSG, ...)                       \
-
-
 // TODO -> Sort it per layer
 // COMPONENTS 
 typedef enum { 
@@ -132,8 +60,75 @@ typedef enum {
               } LOG_LEVEL;
 
 
-// We need it as a global - else create a wrapper function that returns it
-ATOMIC_TYPE CUR_LOG_LEVEL = DEFAULT_LOG_LEVEL;
+extern ATOMIC_TYPE CUR_LOG_LEVEL;
+
+/**
+ * 
+ * Macros for logging
+ * Function name is detected automatically
+ * 
+ */
+#define GDK_TRACER_LOG(LOG_LEVEL, MSG, ...)                             \
+    if((int) ATOMIC_GET(&CUR_LOG_LEVEL) >= (int) LOG_LEVEL)             \
+    {                                                                   \
+        GDKtracer_log(LOG_LEVEL,                                        \
+                      "[%s] %s (%s:%d) # "MSG,                          \
+                      GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),     \
+                      __FILE__,                                         \
+                      __FUNCTION__,                                     \
+                      __LINE__,                                         \
+                      ## __VA_ARGS__);                                  \
+    }                                                                   \
+
+#define CRITICAL(COMP, MSG, ...)                                        \
+    GDK_TRACER_LOG(M_CRITICAL, MSG, ## __VA_ARGS__)                     \
+
+#define ERROR(COMP, MSG, ...)                                           \
+    GDK_TRACER_LOG(M_ERROR, MSG, ## __VA_ARGS__)                        \
+
+#define WARNING(COMP, MSG, ...)                                         \
+    GDK_TRACER_LOG(M_WARNING, MSG, ## __VA_ARGS__)                      \
+
+#define INFO(COMP, MSG, ...)                                            \
+    GDK_TRACER_LOG(M_INFO, MSG, ## __VA_ARGS__)                         \
+
+#define DEBUG(COMP, MSG, ...)                                           \
+    GDK_TRACER_LOG(M_DEBUG, MSG, ## __VA_ARGS__)                        \
+
+
+
+/**
+ *  
+ * Macros for logging 
+ * They take as argument the logical function name 
+ *  
+ */
+#define GDK_TRACER_LOG_LN(LOG_LEVEL, FUNC_LN, MSG, ...)                 \
+    if((int) ATOMIC_GET(&CUR_LOG_LEVEL) >= (int) LOG_LEVEL)             \
+    {                                                                   \
+        GDKtracer_log(LOG_LEVEL,                                        \
+                      "[%s] %s (%s:%d) # "MSG,                          \
+                      GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),     \
+                      __FILE__,                                         \
+                      FUNC_LN,                                          \
+                      __LINE__,                                         \
+                      ## __VA_ARGS__);                                  \
+    }                                                                   \
+
+#define CRITICAL_LN(COMP, FUNC_LN, MSG, ...)                            \
+    GDK_TRACER_LOG_LN(M_CRITICAL, FUNC_LN, MSG, ## __VA_ARGS__)         \
+
+#define ERROR_LN(COMP, FUNC_LN, MSG, ...)                               \
+    GDK_TRACER_LOG_LN(M_ERROR, FUNC_LN, MSG, ## __VA_ARGS__)            \
+
+#define WARNING_LN(COMP, FUNC_LN, MSG, ...)                             \
+    GDK_TRACER_LOG_LN(M_WARNING, FUNC_LN, MSG, ## __VA_ARGS__)          \
+
+#define INFO_LN(COMP, FUNC_LN, MSG, ...)                                \
+    GDK_TRACER_LOG_LN(M_INFO, FUNC_LN, MSG, ## __VA_ARGS__)             \
+
+#define DEBUG_LN(COMP, FUNC_LN, MSG, ...)                               \
+    GDK_TRACER_LOG_LN(M_DEBUG, FUNC_LN, MSG, ## __VA_ARGS__)            \
 
 
 // GDKtracer Buffer

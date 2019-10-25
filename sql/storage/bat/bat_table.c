@@ -261,7 +261,7 @@ table_insert(sql_trans *tr, sql_table *t, ...)
 		/* CHECK */
 		// This part of the code should never get reached. In case it does the logger will
 		// keep the message in the buffer without flushing it and MonetDB will crash.  
-		CRITICAL(SQL_ALL, "called table_insert(%s) with wrong number of args (%d,%d)\n", t->base.name, list_length(t->columns.set), cnt);
+		CRITICAL(SQL_ALL, "Called table_insert(%s) with wrong number of args (%d,%d)\n", t->base.name, list_length(t->columns.set), cnt);
 		assert(0);
 		return LOG_ERR;
 	}

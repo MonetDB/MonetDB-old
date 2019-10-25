@@ -25,6 +25,8 @@
 #include <string.h>
 #include <time.h>
 
+#include "monetdb_config.h"
+#include "gdk.h"
 #include "gdk_tracer.h"
 
 // 0 -> tracer
@@ -40,7 +42,8 @@ static int file_size = 0;
 static int file_id = 1;
 
 static ATOMIC_TYPE CUR_FLUSH_LEVEL = DEFAULT_FLUSH_LEVEL;
-
+// We need it as a global - else create a wrapper function that returns it
+ATOMIC_TYPE CUR_LOG_LEVEL = DEFAULT_LOG_LEVEL;
 
 // Output error from snprintf of vsnprintf
 static void 
