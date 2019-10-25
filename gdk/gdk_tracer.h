@@ -42,18 +42,21 @@
                   __LINE__,                                         \
                   ## __VA_ARGS__);
 
-// COMPONENTS
+
+// TODO -> Sort it per layer
+// COMPONENTS 
 typedef enum { 
                // ALL
                ALL,
 
                // SQL
                SQL_ALL,
-               SQL_ATOM,
+               SQL_ATOM_TR,
                SQL_SCENARIO,
                SQL_STATISTICS,
                SQL_ORDERIDX,
                SQL_N,
+               SQL_WLR,
 
                // MAL
                MAL_ALL,
