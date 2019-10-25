@@ -39,6 +39,7 @@ typedef enum {
                SQL_PARSER,
                SQL_READER,
                SQL_SYMBOL,
+               SQL_MVC,
 
                // MAL
                MAL_ALL,
