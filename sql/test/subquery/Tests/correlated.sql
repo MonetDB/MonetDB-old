@@ -64,7 +64,6 @@ SELECT i, i=ANY(SELECT i FROM integers WHERE 1=0 AND i1.i=i) AS j FROM integers 
 -- subquery with OFFSET is not supported
 SELECT i, (SELECT i+i1.i FROM integers LIMIT 1 OFFSET 1) AS j FROM integers i1 ORDER BY i; -- errror
 -- correlated filter without FROM clause
-/* Wrong error */
 SELECT i, (SELECT 42 WHERE i1.i>2) AS j FROM integers i1 ORDER BY i;
 	-- NULL, NULL
 	-- 1, NULL
@@ -244,9 +243,7 @@ SELECT i AS j, CAST((SELECT j*SUM(i) FROM integers) AS BIGINT) AS k FROM integer
 --3	18
 --NULL	NULL
 
-/*Wrong result, cannot find column
 SELECT i AS j, CAST((SELECT i1.i*SUM(i) FROM integers) AS BIGINT) AS k FROM integers i1 GROUP BY j ORDER BY j;
- */
 --1	6
 --2	12
 --3	18
@@ -357,9 +354,7 @@ SELECT i, (SELECT i FROM integers i2 WHERE i-2=(SELECT COUNT(*) FROM integers i2
 --3	2
 --NULL	2
 
-/*Wrong results
 SELECT i, (SELECT COUNT(*) FROM integers i2 WHERE i2.i>i1.i GROUP BY i1.i) FROM integers i1 ORDER BY i;
- */
 --1	2
 --2	1
 --3	NULL
@@ -430,9 +425,7 @@ SELECT i, (SELECT s1.i FROM integers s1 INNER JOIN integers s2 ON s1.i=s2.i AND 
 --2	2
 --3	1
 
-/*Extra projection
 SELECT * FROM integers s1 INNER JOIN integers s2 ON (SELECT 2*SUM(i)*s1.i FROM integers)=(SELECT SUM(i)*s2.i FROM integers) ORDER BY s1.i;
- */
 --1 2
 
 SELECT * FROM integers s1 INNER JOIN integers s2 ON (SELECT s1.i=s2.i) ORDER BY s1.i;
@@ -440,9 +433,7 @@ SELECT * FROM integers s1 INNER JOIN integers s2 ON (SELECT s1.i=s2.i) ORDER BY 
 --2	2
 --3	3
 
-/*Extra projection
 SELECT * FROM integers s1 INNER JOIN integers s2 ON (SELECT s1.i=i FROM integers WHERE s2.i=i) ORDER BY s1.i;
- */
 --1	1
 --2	2
 --3	3
@@ -471,6 +462,10 @@ SELECT i, CAST((SELECT SUM(s1.i) FROM integers s1 FULL OUTER JOIN integers s2 ON
 /*Wrong results
 SELECT i, (SELECT row_number() OVER (ORDER BY i)) FROM integers i1 ORDER BY i; --Should we support correlated expressions inside PARTITION BY and ORDER BY on Window functions?
 */
+--1	1
+--2	1
+--3	1
+--NULL	1
 
 SELECT i, (SELECT i FROM integers WHERE i=i1.i UNION SELECT i FROM integers WHERE i=i1.i) AS j FROM integers i1 ORDER BY i;
 --1	1
