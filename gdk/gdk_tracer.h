@@ -52,11 +52,14 @@ typedef enum {
                // SQL
                SQL_ALL,
                SQL_ATOM_TR,
-               SQL_SCENARIO,
                SQL_STATISTICS,
                SQL_ORDERIDX,
                SQL_N,
                SQL_WLR,
+               SQL_SCENARIO,
+               SQL_CACHE,
+               SQL_PARSER,
+               SQL_READER,
 
                // MAL
                MAL_ALL,
