@@ -578,7 +578,7 @@ push_up_project(mvc *sql, sql_rel *rel, list *ad)
 					if (exp_has_freevar(sql, e)) 
 						rel_bind_var(sql, rel->l, e);
 				}
-				e = exp_rewrite(sql, r->l, e, ad, is_left(rel->op));
+				e = exp_rewrite(sql, r->l, e, ad, is_left(rel->op)|is_semi(rel->op));
 				append(n->exps, e);
 			}
 			if (r->r) {

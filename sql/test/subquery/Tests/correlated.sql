@@ -255,9 +255,7 @@ SELECT i, CAST(SUM((SELECT SUM(i)*i1.i FROM integers)) AS BIGINT) AS k FROM inte
 --3	18
 --NULL	NULL
 
-/*Wrong results, aggregation functions cannot be nested, todo keep state (f) with outer 
 SELECT i, SUM((SELECT SUM(i)*SUM(i1.i) FROM integers)) AS k FROM integers i1 GROUP BY i ORDER BY i; --error
- */
 
 SELECT CAST((SELECT SUM(i1.i)) AS BIGINT) FROM integers i1;
 --6

@@ -306,7 +306,7 @@ rel_bind_column2( mvc *sql, sql_rel *rel, const char *tname, const char *cname, 
 		/* in case of orderby we should also lookup the column in group by list (and use existing references) */
 		if (!list_empty(rel->exps)) {
 			e = exps_bind_column2(rel->exps, tname, cname);
-			if (!e && (is_sql_orderby(f) || (0 && is_sql_outer(f))) && is_groupby(rel->op) && rel->r) {
+			if (!e && (1 || is_sql_orderby(f) || (0 && is_sql_outer(f))) && is_groupby(rel->op) && rel->r) {
 				e = exps_bind_alias(rel->r, tname, cname);
 				if (e) { 
 					if (exp_relname(e))
@@ -662,7 +662,7 @@ exps_match(sql_exp *m, sql_exp *e)
 	return NULL;
 }
 
-static sql_exp *
+sql_exp *
 exps_find_match_exp(list *l, sql_exp *e)
 {
 	node *n;
@@ -837,7 +837,6 @@ rel_groupby(mvc *sql, sql_rel *l, list *groupbyexps )
 		groupbyexps = gexps;
 	}
 
-#if 0
 	if (groupbyexps) {
 		rel->card = CARD_AGGR;
 		for (en = groupbyexps->h; en; en = en->next) {
@@ -852,6 +851,8 @@ rel_groupby(mvc *sql, sql_rel *l, list *groupbyexps )
 			append(aggrs, ne);
 		}
 	}
+#if 0
+
 #endif
 	rel->l = l;
 	rel->r = groupbyexps;

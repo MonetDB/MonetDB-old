@@ -3095,7 +3095,7 @@ rel2bin_groupby(backend *be, sql_rel *rel, list *refs)
 		   therefore we pass the group by columns too 
 		 */
 		if (!aggrstmt) 
-			aggrstmt = exp_bin(be, aggrexp, sub, cursub, NULL, NULL, NULL, NULL); 
+			aggrstmt = exp_bin(be, aggrexp, sub, cursub, grp, ext, cnt, NULL); 
 		if (!aggrstmt) {
 			assert(0);
 			return NULL;
