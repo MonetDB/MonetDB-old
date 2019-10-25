@@ -69,7 +69,7 @@ GDALWConnection * GDALWConnect(char * source) {
 	OGRRegisterAll();
 	conn = malloc(sizeof(GDALWConnection));
 	if (conn == NULL) {
-		Trace(SQL_ALL, M_CRITICAL, "Could not allocate memory\n");
+		CRITICAL(SQL_ALL, "Could not allocate memory\n");
 		return NULL;
 	}
 	conn->handler = OGROpen(source, 0 , &(conn->driver));
@@ -95,7 +95,7 @@ GDALWConnection * GDALWConnect(char * source) {
 	if (conn->fieldDefinitions == NULL) {
 		OGRReleaseDataSource(conn->handler);
 		free(conn);
-		Trace(SQL_ALL, M_CRITICAL, "Could not allocate memory\n");
+		CRITICAL(SQL_ALL, "Could not allocate memory\n");
 		return NULL;
 	}
 	for (i=0 ; i<fieldCount ; i++) {
@@ -120,7 +120,7 @@ GDALWSimpleFieldDef * GDALWGetSimpleFieldDefinitions(GDALWConnection conn) {
 	}*/
 	columns = malloc(conn.numFieldDefinitions * sizeof(GDALWSimpleFieldDef));
 	if (columns == NULL) {
-		Trace(SQL_ALL, M_CRITICAL, "Could not allocate memory\n");
+		CRITICAL(SQL_ALL, "Could not allocate memory\n");
 		return NULL;
 	}
 	for (i=0 ; i<conn.numFieldDefinitions ; i++) {

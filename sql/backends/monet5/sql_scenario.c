@@ -62,7 +62,7 @@ monet5_freestack(int clientid, backend_stack stk)
 	if (p != NULL)
 		freeStack(p);
 	
-	Trace(SQL_SCENARIO, M_DEBUG, "Enter monet5_freestack\n");
+	DEBUG(SQL_SCENARIO, "Enter monet5_freestack\n");
 }
 
 static void
@@ -78,7 +78,7 @@ monet5_freecode(int clientid, backend_code code, backend_stack stk, int nr, char
 	if (msg)
 		freeException(msg);	/* do something with error? */
 
-	Trace(SQL_SCENARIO, M_DEBUG, "Enter monet5_free: %d\n", nr);
+	DEBUG(SQL_SCENARIO, "Enter monet5_free: %d\n", nr);
 }
 
 static str SQLinit(Client c);
@@ -141,10 +141,10 @@ SQLprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	tmp = SQLinit(cntxt);
 	if (tmp != MAL_SUCCEED) {
-		Trace(SQL_ALL, M_CRITICAL, "Fatal error during initialization: %s\n", tmp);
+		CRITICAL(SQL_ALL, "Fatal error during initialization: %s\n", tmp);
 		freeException(tmp);
 		if ((tmp = GDKerrbuf) && *tmp)
-			Trace(SQL_ALL, M_CRITICAL, SQLSTATE(42000) "GDK reported: %s\n", tmp);
+			CRITICAL(SQL_ALL, SQLSTATE(42000) "GDK reported: %s\n", tmp);
 		fflush(stderr);
 		exit(1);
 	}
@@ -178,7 +178,7 @@ SQLprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 SQLexit(Client c)
 {
-	Trace(SQL_SCENARIO, M_DEBUG, "Enter SQLexit\n");
+	DEBUG(SQL_SCENARIO, "Enter SQLexit\n");
 
 	(void) c;		/* not used */
 	MT_lock_set(&sql_contextLock);
@@ -381,7 +381,7 @@ SQLinit(Client c)
 	backend *be = NULL;
 	mvc *m = NULL;
 
-	Trace(SQL_SCENARIO, M_DEBUG, "Enter SQLinit\n");
+	DEBUG(SQL_SCENARIO, "Enter SQLinit\n");
 
 	MT_lock_set(&sql_contextLock);
 
@@ -440,13 +440,13 @@ SQLinit(Client c)
 
 		bstream_next(fdin);
 		if( MCpushClientInput(c, fdin, 0, "") < 0)
-			Trace(SQL_ALL, M_ERROR, "Could not switch client input stream\n");
+			ERROR(SQL_ALL, "Could not switch client input stream\n");
 	}
 	if ((msg = SQLprepareClient(c, 0)) != NULL) {
 		MT_lock_unset(&sql_contextLock);
 		/* CHECK */
 		// Not sure if this is an info msg
-		Trace(SQL_ALL, M_INFO, "%s\n", msg);
+		INFO(SQL_ALL, "%s\n", msg);
 		return msg;
 	}
 	be = c->sqlcontext;
@@ -546,14 +546,14 @@ SQLinit(Client c)
 						sa_destroy(m->sa);
 					m->sa = NULL;
 					if (newmsg){
-						Trace(SQL_ALL, M_ERROR, "%s", newmsg);
+						ERROR(SQL_ALL, "%s", newmsg);
 						freeException(newmsg);
 					}
 				}
 			} while (p);
 			GDKfree(fullname);
 		} else
-			Trace(SQL_ALL, M_ERROR, "Could not read createdb.sql\n");
+			ERROR(SQL_ALL, "Could not read createdb.sql\n");
 #endif
 	} else {		/* handle upgrades */
 		if (!m->sa)
@@ -693,7 +693,7 @@ SQLinitClient(Client c)
 {
 	str msg = MAL_SUCCEED;
 
-	Trace(SQL_SCENARIO, M_DEBUG, "Enter SQLinitClient\n");
+	DEBUG(SQL_SCENARIO, "Enter SQLinitClient\n");
 
 	MT_lock_set(&sql_contextLock);
 	if (SQLinitialized == 0) {// && (msg = SQLprelude(NULL)) != MAL_SUCCEED)
@@ -737,7 +737,7 @@ SQLexitClient(Client c)
 {
 	str err;
 
-	Trace(SQL_SCENARIO, M_DEBUG, "Enter SQLexitClient\n");
+	DEBUG(SQL_SCENARIO, "Enter SQLexitClient\n");
 
 	MT_lock_set(&sql_contextLock);
 	if (SQLinitialized == FALSE) {
@@ -868,7 +868,7 @@ SQLreader(Client c)
 		return MAL_SUCCEED;
 	}
 	if (!be || c->mode <= FINISHCLIENT) {
-		Trace(SQL_READER, M_DEBUG, "SQL client finished\n");
+		DEBUG(SQL_READER, "SQL client finished\n");
 		c->mode = FINISHCLIENT;
 		return MAL_SUCCEED;
 	}
@@ -882,7 +882,7 @@ SQLreader(Client c)
 	 * Continue processing any left-over input from the previous round.
 	 */
 
-	Trace(SQL_READER, M_DEBUG, "Pos %d len %d eof %d \n", in->pos, in->len, in->eof);
+	DEBUG(SQL_READER, "Pos %d len %d eof %d \n", in->pos, in->len, in->eof);
 
 	while (more) {
 		more = false;
@@ -905,7 +905,7 @@ SQLreader(Client c)
 			ssize_t rd;
 
 			if (c->bak) {
-				Trace(SQL_READER, M_DEBUG, "Switch to backup stream\n");
+				DEBUG(SQL_READER, "Switch to backup stream\n");
 				in = c->fdin;
 				blocked = isa_block_stream(in->s);
 				m->scanner.rs = c->fdin;
@@ -934,7 +934,7 @@ SQLreader(Client c)
 				more = false;
 				go = false;
 			} else if (go && (rd = bstream_next(in)) <= 0) {
-				Trace(SQL_READER, M_DEBUG, "Read %d language %d eof %d\n", rd, language, in->eof);
+				DEBUG(SQL_READER, "Read %d language %d eof %d\n", rd, language, in->eof);
 				if (be->language == 'D' && !in->eof) {
 					in->pos++;// skip 's' or 'S'
 					return msg;
@@ -964,7 +964,7 @@ SQLreader(Client c)
 				in->pos++;// skip 's' or 'S'
 			}
 
-			Trace(SQL_READER, M_DEBUG, "SQL blk: %s\n", in->buf + in->pos);
+			DEBUG(SQL_READER, "SQL blk: %s\n", in->buf + in->pos);
 		}
 	}
 	if ( (c->stimeout && (GDKusec() - c->session) > c->stimeout) || !go || (strncmp(CURRENT(c), "\\q", 2) == 0)) {
@@ -1032,7 +1032,7 @@ SQLparser(Client c)
 	be = (backend *) c->sqlcontext;
 	if (be == 0) {
 		/* leave a message in the log */
-		Trace(SQL_ALL, M_ERROR, "SQL state description is missing, cannot handle client!\n");
+		ERROR(SQL_ALL, "SQL state description is missing, cannot handle client!\n");
 		/* stop here, instead of printing the exception below to the
 		 * client in an endless loop */
 		c->mode = FINISHCLIENT;
@@ -1042,7 +1042,7 @@ SQLparser(Client c)
 	oldstop = c->curprg->def->stop;
 	be->vtop = oldvtop;
 
-	Trace(SQL_PARSER, M_DEBUG, "SQL compilation - debugger? %d(%d)\n", (int) be->mvc->emode, (int) be->mvc->emod);
+	DEBUG(SQL_PARSER, "SQL compilation - debugger? %d(%d)\n", (int) be->mvc->emode, (int) be->mvc->emod);
 
 	m = be->mvc;
 	m->type = Q_PARSE;
