@@ -25,8 +25,6 @@
 #include <string.h>
 #include <time.h>
 
-#include "monetdb_config.h"
-#include "gdk.h"
 #include "gdk_tracer.h"
 
 // 0 -> tracer
@@ -41,9 +39,7 @@ static FILE *output_file;
 static int file_size = 0;
 static int file_id = 1;
 
-static ATOMIC_TYPE CUR_LOG_LEVEL = DEFAULT_LOG_LEVEL;
 static ATOMIC_TYPE CUR_FLUSH_LEVEL = DEFAULT_FLUSH_LEVEL;
-
 
 
 // Output error from snprintf of vsnprintf
@@ -209,85 +205,79 @@ GDKtracer_reset_flush_level(void)
 
 
 gdk_return
-GDKtracer_log(COMPONENT comp, LOG_LEVEL level, const char *fmt, ...)
+GDKtracer_log(LOG_LEVEL level, const char *fmt, ...)
 {   
-    // Check component here
-    (void) comp;
-    
-    if((int) level >= (int) ATOMIC_GET(&CUR_LOG_LEVEL))
+    // Select a tracer
+    gdk_tracer *fill_tracer;
+    int GDK_result;
+    bool SWITCH_tracer = true;
+    int bytes_written = 0;        
+
+    if((int) ATOMIC_GET(&SELECTED_tracer_ID) == tracer.id)
+        fill_tracer = &tracer;
+    else
+        fill_tracer = &secondary_tracer;
+
+    MT_lock_set(&fill_tracer->lock);
     {
-        // Select a tracer
-        gdk_tracer *fill_tracer;
-        int GDK_result;
-        bool SWITCH_tracer = true;
-        int bytes_written = 0;        
+        va_list va;
+        va_start(va, fmt);
+        bytes_written = _GDKtracer_fill_tracer(fill_tracer, fmt, va);
+        va_end(va);
 
+        // The message fits the buffer OR the buffer is empty (we don't care if it fits - just cut it off)
+        if(bytes_written < (BUFFER_SIZE - fill_tracer->allocated_size) || 
+            fill_tracer->allocated_size == 0)
+        {
+            fill_tracer->allocated_size += bytes_written;
+            SWITCH_tracer = false;
+        }
+    }
+    MT_lock_unset(&fill_tracer->lock);
+
+    if(SWITCH_tracer)
+    {       
+        // Switch tracer
         if((int) ATOMIC_GET(&SELECTED_tracer_ID) == tracer.id)
-            fill_tracer = &tracer;
-        else
             fill_tracer = &secondary_tracer;
-
+        else
+            fill_tracer = &tracer;
+            
         MT_lock_set(&fill_tracer->lock);
         {
+            // Flush current tracer
+            MT_Id tid;
+            
+            if(MT_create_thread(&tid, (void(*) (void*)) GDKtracer_flush_buffer, NULL, MT_THR_JOINABLE, "GDKtracerFlush") < 0)
+                return GDK_FAIL;
+            
             va_list va;
             va_start(va, fmt);
             bytes_written = _GDKtracer_fill_tracer(fill_tracer, fmt, va);
             va_end(va);
 
-            // The message fits the buffer OR the buffer is empty (we don't care if it fits - just cut it off)
-            if(bytes_written < (BUFFER_SIZE - fill_tracer->allocated_size) || 
-               fill_tracer->allocated_size == 0)
-            {
-                fill_tracer->allocated_size += bytes_written;
-                SWITCH_tracer = false;
-            }
-        }
-        MT_lock_unset(&fill_tracer->lock);
+            // The second buffer will always be empty at start
+            // So if the message does not fit we cut it off
+            // message might be > BUFFER_SIZE
+            fill_tracer->allocated_size += bytes_written;
 
-        if(SWITCH_tracer)
-        {       
-            // Switch tracer
-            if((int) ATOMIC_GET(&SELECTED_tracer_ID) == tracer.id)
-                fill_tracer = &secondary_tracer;
-            else
-                fill_tracer = &tracer;
-                
-            MT_lock_set(&fill_tracer->lock);
-            {
-                // Flush current tracer
-                MT_Id tid;
-                
-                if(MT_create_thread(&tid, (void(*) (void*)) GDKtracer_flush_buffer, NULL, MT_THR_JOINABLE, "GDKtracerFlush") < 0)
-                    return GDK_FAIL;
-                
-                va_list va;
-                va_start(va, fmt);
-                bytes_written = _GDKtracer_fill_tracer(fill_tracer, fmt, va);
-                va_end(va);
-
-                // The second buffer will always be empty at start
-                // So if the message does not fit we cut it off
-                // message might be > BUFFER_SIZE
-                fill_tracer->allocated_size += bytes_written;
-
-                GDK_result = MT_join_thread(tid);
-                if(GDK_result == GDK_FAIL)
-                    return GDK_FAIL;
-
-                // Set the new selected tracer 
-                ATOMIC_SET(&SELECTED_tracer_ID, fill_tracer->id);
-            }
-            MT_lock_unset(&fill_tracer->lock);
-        }
-           
-        // Flush the current buffer in case the event is 
-        // important depending on the flush-level
-        if((int) level >= (int) ATOMIC_GET(&CUR_FLUSH_LEVEL))
-        {
-            GDK_result = GDKtracer_flush_buffer();
+            GDK_result = MT_join_thread(tid);
             if(GDK_result == GDK_FAIL)
                 return GDK_FAIL;
+
+            // Set the new selected tracer 
+            ATOMIC_SET(&SELECTED_tracer_ID, fill_tracer->id);
         }
+        MT_lock_unset(&fill_tracer->lock);
+    }
+        
+    // Flush the current buffer in case the event is 
+    // important depending on the flush-level
+    if((int) level >= (int) ATOMIC_GET(&CUR_FLUSH_LEVEL))
+    {
+        GDK_result = GDKtracer_flush_buffer();
+        if(GDK_result == GDK_FAIL)
+            return GDK_FAIL;
     }
 
     return GDK_SUCCEED;

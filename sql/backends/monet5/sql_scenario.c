@@ -873,7 +873,7 @@ SQLreader(Client c)
 		return MAL_SUCCEED;
 	}
 
-	Trace(SQL_READER, M_DEBUG, "Start reading SQL %s\n", (blocked ? "Blocked read" : ""))
+	DEBUG(SQL_READER, "Start reading SQL %s\n", (blocked ? "Blocked read" : ""));
 
 	language = be->language;	/* 'S' for SQL, 'D' from debugger */
 	m = be->mvc;
@@ -1347,7 +1347,7 @@ SQLCacheRemove(Client c, str nme)
 {
 	Symbol s;
 
-	Trace(SQL_CACHE, M_DEBUG, "SQLCache remove %s\n", nme);
+	DEBUG(SQL_CACHE_TR, "SQLCache remove %s\n", nme);
 
 	s = findSymbolInModule(c->usermodule, nme);
 	if (s == NULL)
