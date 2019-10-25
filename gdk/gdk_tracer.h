@@ -50,6 +50,10 @@ typedef enum {
                // SQL
                SQL_ALL,
                SQL_ATOM,
+               SQL_SCENARIO,
+               SQL_STATISTICS,
+               SQL_ORDERIDX,
+               SQL_N,
 
                // MAL
                MAL_ALL,

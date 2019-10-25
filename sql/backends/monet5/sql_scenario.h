@@ -10,7 +10,6 @@
 #define _SQL_SCENARIO_H_
 #include "sql.h"
 
-/* #define _SQL_SCENARIO_DEBUG */
 /* #define _SQL_READER_DEBUG */
 /* #define _SQL_PARSER_DEBUG */
 
