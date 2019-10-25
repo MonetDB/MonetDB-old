@@ -12,7 +12,7 @@
 #define INT_MAX_LEN ((__CHAR_BIT__ * sizeof(int) - 1) / 3  + 2)
 #define BUFFER_SIZE 64000
 
-#define DEFAULT_COMPONENT_SEL SQL_ATOM
+#define DEFAULT_COMPONENT_SEL ALL
 #define DEFAULT_LOG_LEVEL M_CRITICAL
 #define DEFAULT_FLUSH_LEVEL M_ERROR
 
@@ -42,19 +42,20 @@
                   __LINE__,                                         \
                   ## __VA_ARGS__);
 
-
-
 // COMPONENTS
 typedef enum { 
-               // SQL
-               SQL_ATOM
+               // ALL
+               ALL,
 
+               // SQL
+               SQL_ALL,
+               SQL_ATOM,
 
                // MAL
-
+               MAL_ALL,
 
                // GDK
-
+               GDK_ALL
 
               } COMPONENT;
               
