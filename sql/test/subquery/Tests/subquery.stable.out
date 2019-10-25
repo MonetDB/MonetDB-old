@@ -90,8 +90,8 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 % 1 # length
 [ 3	]
 #SELECT *, (SELECT MAX(i) FROM integers) FROM integers ORDER BY i;
-% .integers,	.L3 # table_name
-% i,	L3 # name
+% .integers,	.L2 # table_name
+% i,	L2 # name
 % int,	int # type
 % 1,	1 # length
 [ NULL,	3	]
@@ -99,14 +99,14 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 [ 2,	3	]
 [ 3,	3	]
 #SELECT (SELECT 42) AS k, MAX(i) FROM integers GROUP BY k; -- 42, 3
-% .,	sys.L2 # table_name
-% k,	L2 # name
+% .,	sys.L1 # table_name
+% k,	L1 # name
 % tinyint,	int # type
 % 2,	1 # length
 [ 42,	3	]
 #SELECT i, MAX((SELECT 42)) FROM integers GROUP BY i ORDER BY i;
-% sys.integers,	.L2 # table_name
-% i,	L2 # name
+% sys.integers,	.L1 # table_name
+% i,	L1 # name
 % int,	tinyint # type
 % 1,	2 # length
 [ NULL,	42	]
@@ -141,8 +141,8 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 [ 3	]
 [ NULL	]
 #SELECT (SELECT i FROM integers WHERE i=1); --1
-% sys.L2 # table_name
-% L2 # name
+% sys.L1 # table_name
+% L1 # name
 % int # type
 % 1 # length
 [ 1	]
@@ -186,20 +186,20 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 % int # type
 % 1 # length
 #SELECT EXISTS(SELECT * FROM integers); -- true
-% .L3 # table_name
-% L3 # name
+% .L2 # table_name
+% L2 # name
 % boolean # type
 % 5 # length
 [ true	]
 #SELECT EXISTS(SELECT * FROM integers WHERE i>10); -- false
-% .L3 # table_name
-% L3 # name
+% .L2 # table_name
+% L2 # name
 % boolean # type
 % 5 # length
 [ false	]
 #SELECT EXISTS(SELECT * FROM integers), EXISTS(SELECT * FROM integers); -- true, true
-% .L3,	.L6 # table_name
-% L3,	L6 # name
+% .L2,	.L4 # table_name
+% L2,	L4 # name
 % boolean,	boolean # type
 % 5,	5 # length
 [ true,	true	]
@@ -210,8 +210,8 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 % 5 # length
 [ true	]
 #SELECT EXISTS(SELECT EXISTS(SELECT * FROM integers)); -- true
-% .L7 # table_name
-% L7 # name
+% .L6 # table_name
+% L6 # name
 % boolean # type
 % 5 # length
 [ true	]
@@ -257,14 +257,14 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 [ NULL	]
 [ NULL	]
 #SELECT CAST(SUM(i) AS BIGINT) FROM integers WHERE 1 IN (SELECT * FROM integers); -- 6
-% sys.L3 # table_name
-% L3 # name
+% sys.L4 # table_name
+% L4 # name
 % bigint # type
 % 1 # length
 [ 6	]
 #SELECT (SELECT (SELECT (SELECT 42))); -- 42
-% .L2 # table_name
-% L2 # name
+% . # table_name
+% single_value # name
 % tinyint # type
 % 2 # length
 [ 42	]
@@ -278,14 +278,14 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 [ true	]
 [ true	]
 #SELECT (SELECT MAX(i) FROM integers) AS k, CAST(SUM(i) AS BIGINT) FROM integers GROUP BY k; -- 3,6
-% .L2,	.L3 # table_name
+% .L1,	.L3 # table_name
 % k,	L3 # name
 % int,	bigint # type
 % 1,	1 # length
 [ 3,	6	]
 #SELECT i % 2 AS k, CAST(SUM(i) AS BIGINT) FROM integers GROUP BY k HAVING SUM(i) > (SELECT MAX(i) FROM integers); -- 1,4
-% sys.,	sys.L1 # table_name
-% k,	L1 # name
+% sys.,	sys.L2 # table_name
+% k,	L2 # name
 % int,	bigint # type
 % 1,	1 # length
 [ 1,	4	]
@@ -296,8 +296,8 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 % 1 # length
 [ 1	]
 #SELECT (SELECT CAST(SUM(i) AS BIGINT) FROM integers), (SELECT 42);
-% .L4,	.L6 # table_name
-% L4,	L6 # name
+% sys.L2,	. # table_name
+% L2,	single_value # name
 % bigint,	tinyint # type
 % 1,	2 # length
 [ 6,	42	]
@@ -306,26 +306,26 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 #INSERT INTO strings VALUES ('hello'), ('world'), (NULL);
 [ 3	]
 #SELECT NULL IN (SELECT * FROM strings); -- NULL
-% .L13 # table_name
-% L13 # name
+% .L12 # table_name
+% L12 # name
 % boolean # type
 % 5 # length
 [ NULL	]
 #SELECT 'hello' IN (SELECT * FROM strings); -- true
-% .L13 # table_name
-% L13 # name
+% .L12 # table_name
+% L12 # name
 % boolean # type
 % 5 # length
 [ true	]
 #SELECT 'bla' IN (SELECT * FROM strings); -- NULL
-% .L13 # table_name
-% L13 # name
+% .L12 # table_name
+% L12 # name
 % boolean # type
 % 5 # length
 [ NULL	]
 #SELECT 'bla' IN (SELECT * FROM strings WHERE v IS NOT NULL); -- false
-% .L13 # table_name
-% L13 # name
+% .L12 # table_name
+% L12 # name
 % boolean # type
 % 5 # length
 [ false	]
