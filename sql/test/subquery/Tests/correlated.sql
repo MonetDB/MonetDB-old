@@ -338,15 +338,11 @@ SELECT i, (SELECT COUNT(*) FROM integers i2 WHERE i2.i>i1.i OR (i1.i IS NULL AND
 --3	0
 --NULL	1
 
-/*Wrong results
 SELECT i FROM integers i1 WHERE (SELECT COUNT(*) FROM integers i2 WHERE i2.i>i1.i)=0 ORDER BY i;
- */
 --3
 --NULL
 
-/*Wrong results
 SELECT i, (SELECT i FROM integers i2 WHERE i-2=(SELECT COUNT(*) FROM integers i2 WHERE i2.i>i1.i)) FROM integers i1 ORDER BY 1;
- */
 --1	NULL
 --2	3
 --3	2
@@ -436,7 +432,7 @@ SELECT * FROM integers s1 INNER JOIN integers s2 ON (SELECT s1.i=i FROM integers
 --2	2
 --3	3
 
-/*Wrong results
+/*Wrong results, left outer 2 low 
 SELECT * FROM integers s1 LEFT OUTER JOIN integers s2 ON (SELECT 2*SUM(i)*s1.i FROM integers)=(SELECT SUM(i)*s2.i FROM integers) ORDER BY s1.i;
  */
 --1	2
@@ -457,7 +453,7 @@ SELECT i, CAST((SELECT SUM(s1.i) FROM integers s1 FULL OUTER JOIN integers s2 ON
 --NULL	6
 
 -- 
-/*Wrong results
+/*Wrong results, rank/window broken
 SELECT i, (SELECT row_number() OVER (ORDER BY i)) FROM integers i1 ORDER BY i; --Should we support correlated expressions inside PARTITION BY and ORDER BY on Window functions?
 */
 --1	1
@@ -536,7 +532,7 @@ SELECT i1.i, (SELECT row_number() OVER (ORDER BY i) FROM integers WHERE i1.i=i) 
 --NULL	NULL
 --NULL	NULL
 
-/*MAL error
+/*Wrong results, rank/window broken
 SELECT i, CAST((SELECT SUM(i) OVER (ORDER BY i) FROM integers WHERE i1.i=i) AS BIGINT) FROM integers i1 ORDER BY i;
  */
 --1	1
@@ -576,7 +572,7 @@ SELECT i, CAST((SELECT SUM(i)+(SELECT 42+i1.i) FROM integers) AS BIGINT) AS j FR
 --3	51
 --NULL	NULL
 
-/* BROKEN, cannot find column
+/* BROKEN, cannot find column, multilevel outer
 SELECT i, (SELECT ((SELECT ((SELECT ((SELECT SUM(i)+SUM(i4.i)+SUM(i3.i)+SUM(i2.i)+SUM(i1.i) FROM integers i5)) FROM integers i4)) FROM integers i3)) FROM integers i2) AS j FROM integers i1 GROUP BY i ORDER BY i;
  */
 --1	25
@@ -590,15 +586,13 @@ SELECT i, CAST((SELECT (SELECT (SELECT (SELECT i1.i+i1.i+i1.i+i1.i+i1.i+i2.i) FR
 --3	18
 --NULL	NULL
 
-/* BROKEN
 SELECT i, (SELECT SUM(s1.i) FROM integers s1 INNER JOIN integers s2 ON (SELECT i1.i+s1.i)=(SELECT i1.i+s2.i)) AS j FROM integers i1 ORDER BY i;
-*/
 --1	6
 --2	6
 --3	6
 --NULL	NULL
 
-/* BROKEN
+/* BROKEN, multilevel outer
 SELECT i, SUM(i), (SELECT (SELECT SUM(i)+SUM(i1.i)+SUM(i2.i) FROM integers) FROM integers i2) FROM integers i1 GROUP BY i ORDER BY i;
 */
 --1	1 13
@@ -618,9 +612,7 @@ SELECT i, CAST((SELECT SUM(ss2.i) FROM (SELECT i FROM integers s1 WHERE i=i1.i A
 --3	3
 --NULL	NULL
 
-/* BROKEN
 SELECT i, (SELECT SUM(s1.i) FROM integers s1 LEFT OUTER JOIN integers s2 ON (SELECT i1.i+s1.i)=(SELECT i1.i+s2.i)) AS j FROM integers i1 ORDER BY i;
-*/
 --1	6
 --2	6
 --3	6

@@ -2011,7 +2011,7 @@ exp_copy( sql_allocator *sa, sql_exp * e)
 		exp_prop_alias(ne, e);
 	ne = exp_propagate(sa, ne, e);
 	if (is_freevar(e))
-		set_freevar(ne);
+		set_freevar(ne, is_freevar(e)-1);
 	return ne;
 }
 

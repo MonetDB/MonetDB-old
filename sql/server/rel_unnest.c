@@ -46,7 +46,7 @@ exp_set_freevar(mvc *sql, sql_exp *e, sql_rel *r)
 		if ((e->l && rel_bind_column2(sql, r, e->l, e->r, 0)) ||
 		    (!e->l && rel_bind_column(sql, r, e->r, 0)))
 		     return;
-		set_freevar(e);
+		set_freevar(e, 0);
 		break;
 	case e_atom: 
 	case e_psm: 
@@ -485,7 +485,10 @@ exp_rewrite(mvc *sql, sql_rel *rel, sql_exp *e, list *ad, int isleftouter)
 	e->l = exps_rewrite(sql, rel, e->l, ad, isleftouter);
        	sf = e->f;
 	/* window functions need to be run per freevars */
-	if (sf->func->type == F_ANALYTIC && list_length(sf->func->ops) > 2) {
+	if (sf->func->type == F_ANALYTIC && list_length(sf->func->ops) > 2 && 
+			(strcmp(sf->func->base.name, "diff") == 0 ||
+			 strcmp(sf->func->base.name, "rank") == 0 ||
+			 strcmp(sf->func->base.name, "row_number") == 0)) {
 		sql_subtype *bt = sql_bind_localtype("bit");
 		node *d;
 		list *rankopargs = e->l;
@@ -578,7 +581,7 @@ push_up_project(mvc *sql, sql_rel *rel, list *ad)
 					if (exp_has_freevar(sql, e)) 
 						rel_bind_var(sql, rel->l, e);
 				}
-				e = exp_rewrite(sql, r->l, e, ad, is_left(rel->op)|is_semi(rel->op));
+				e = exp_rewrite(sql, r->l, e, ad, is_left(rel->op));
 				append(n->exps, e);
 			}
 			if (r->r) {
@@ -628,8 +631,16 @@ push_up_project(mvc *sql, sql_rel *rel, list *ad)
 			for (m=exps->h; m; m = m->next) {
 				sql_exp *e = m->data;
 
-				if (!e->freevar) 
+				if (!exp_has_freevar(sql, e))
 					append(nexps, e);
+			}
+			if (list_empty(nexps)) {
+				/* remove old project and change outer into select */
+				rel->r = r->l;
+				r->l = NULL;
+				rel_destroy(r);
+				rel->op = op_select;
+				return rel;
 			}
 			r->exps = nexps;
 		}
@@ -890,6 +901,8 @@ push_up_join(mvc *sql, sql_rel *rel)
 				set_dependent(j);
 				n = rel_crossproduct(sql->sa, rel, j, j->op);
 				j->op = rel->op;
+				if (is_semi(n->op)) 
+					j->op = op_left;
 				n->l = rel_project(sql->sa, n->l, rel_projections(sql, n->l, NULL, 1, 1));
 				nr = n->r;
 				nr = n->r = rel_project(sql->sa, n->r, rel_projections(sql, nr->r, NULL, 1, 1));
@@ -906,7 +919,6 @@ push_up_join(mvc *sql, sql_rel *rel)
 					append(nr->exps, pe);
 					pe = exp_ref(sql->sa, pe);
 					e = exp_ref(sql->sa, e);
-					//je = exp_compare(sql->sa, e, pe, cmp_equal);
 					je = exp_compare(sql->sa, e, pe, cmp_equal_nil);
 					append(n->exps, je);
 				}
@@ -1029,7 +1041,7 @@ rel_general_unnest(mvc *sql, sql_rel *rel, list *ad)
 
 		r = rel_crossproduct(sql->sa, D, r, rel->op);
 		//if (is_semi(rel->op)) /* keep semi/anti only on the outer side */
-                	r->op = op_join;
+                	r->op = is_semi(rel->op)?op_left:op_join;
 		//if (rel->op != op_left)
 			move_join_exps(sql, rel, r);
 		/*
@@ -1049,7 +1061,7 @@ rel_general_unnest(mvc *sql, sql_rel *rel, list *ad)
 
 			l = exp_ref(sql->sa, l);
 			r = exp_ref(sql->sa, r);
-			e = exp_compare(sql->sa, l, r, is_outerjoin(rel->op)?cmp_equal_nil:cmp_equal);
+			e = exp_compare(sql->sa, l, r, (is_outerjoin(rel->op)|is_semi(rel->op))?cmp_equal_nil:cmp_equal);
 			if (!rel->exps)
 				rel->exps = sa_list(sql->sa);
 			append(rel->exps, e);

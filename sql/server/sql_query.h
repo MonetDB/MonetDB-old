@@ -29,6 +29,6 @@ extern sql_rel *query_pop_outer(sql_query *q);
 extern sql_rel *query_fetch_outer(sql_query *q, int i);
 extern int query_fetch_outer_state(sql_query *q, int i);
 extern void query_update_outer(sql_query *q, sql_rel *r, int i);
-extern int query_has_outer(sql_query *q);
+extern int query_has_outer(sql_query *q); /* returns number of outer relations */
 
 #endif 

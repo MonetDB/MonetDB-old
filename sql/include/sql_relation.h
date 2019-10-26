@@ -40,7 +40,7 @@ typedef struct expression {
 	unsigned int
 	 flag:18,	/* EXP_DISTINCT, NO_NIL, ASCENDING, NULLS_LAST, cmp types */
 	 card:2,	/* card (0 truth value!) (1 atoms) (2 aggr) (3 multi value) */
-	 freevar:1,	/* free variable, ie binds to the upper dependent join */
+	 freevar:4,	/* free variable, ie binds to the upper dependent join */
 	 intern:1,
 	 anti:1,
 	 base:1,
@@ -300,8 +300,8 @@ typedef enum operator_type {
 
 #define is_freevar(e) \
 	((e)->freevar)
-#define set_freevar(e) \
-	(e)->freevar = 1
+#define set_freevar(e,level) \
+	(e)->freevar = level+1
 #define reset_freevar(e) \
 	(e)->freevar = 0
 

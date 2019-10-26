@@ -19,7 +19,6 @@ stdout of test 'foreign_key_outer_join_dead_code_elimination-prologue` in direct
 # SQL catalog created, loading sql scripts once
 # loading sql script: 09_like.sql
 # loading sql script: 10_math.sql
-# loading sql script: 11_times.sql
 # loading sql script: 12_url.sql
 # loading sql script: 13_date.sql
 # loading sql script: 14_inet.sql
@@ -28,7 +27,7 @@ stdout of test 'foreign_key_outer_join_dead_code_elimination-prologue` in direct
 # loading sql script: 17_temporal.sql
 # loading sql script: 18_index.sql
 # loading sql script: 20_vacuum.sql
-# loading sql script: 21_dependency_functions.sql
+# loading sql script: 21_dependency_views.sql
 # loading sql script: 22_clients.sql
 # loading sql script: 23_skyserver.sql
 # loading sql script: 25_debug.sql
@@ -44,6 +43,7 @@ stdout of test 'foreign_key_outer_join_dead_code_elimination-prologue` in direct
 # loading sql script: 46_profiler.sql
 # loading sql script: 51_sys_schema_extension.sql
 # loading sql script: 60_wlcr.sql
+# loading sql script: 61_wlcr.sql
 # loading sql script: 72_fits.sql
 # loading sql script: 74_netcdf.sql
 # loading sql script: 75_lidar.sql
@@ -55,10 +55,8 @@ stdout of test 'foreign_key_outer_join_dead_code_elimination-prologue` in direct
 # loading sql script: 85_bam.sql
 # loading sql script: 90_generator.sql
 # loading sql script: 90_generator_hge.sql
-# loading sql script: 97_comments.sql
 # loading sql script: 99_system.sql
 # MonetDB/SQL module loaded
-
 
 # 01:44:33 >  
 # 01:44:33 >  "mclient" "-lsql" "-ftest" "-tnone" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-6225" "--port=33793"
@@ -158,38 +156,38 @@ stdout of test 'foreign_key_outer_join_dead_code_elimination-prologue` in direct
 [ 5,	4,	NULL,	4,	14,	NULL,	NULL	]
 [ 6,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	]
 #select count(*) from fk;
+% .L1 # table_name
+% L1 # name
+% bigint # type
+% 1 # length
+[ 6	]
+#select count(*) from v0;
 % .L2 # table_name
 % L2 # name
 % bigint # type
 % 1 # length
 [ 6	]
-#select count(*) from v0;
-% .L5 # table_name
-% L5 # name
+#select count(*) from fk left outer join pk1 on fk.fk1 = pk1.pk1;
+% .L3 # table_name
+% L3 # name
 % bigint # type
 % 1 # length
 [ 6	]
-#select count(*) from fk left outer join pk1 on fk.fk1 = pk1.pk1;
+#select count(*) from v1;
 % .L4 # table_name
 % L4 # name
 % bigint # type
 % 1 # length
 [ 6	]
-#select count(*) from v1;
-% .L7 # table_name
-% L7 # name
-% bigint # type
-% 1 # length
-[ 6	]
 #select count(*) from fk left outer join pk1 on fk.fk1 = pk1.pk1 left outer join pk2 on fk.fk2 = pk2.pk2;
-% .L6 # table_name
-% L6 # name
+% .L5 # table_name
+% L5 # name
 % bigint # type
 % 1 # length
 [ 6	]
 #select count(*) from v2;
-% .L11 # table_name
-% L11 # name
+% .L6 # table_name
+% L6 # name
 % bigint # type
 % 1 # length
 [ 6	]
@@ -216,7 +214,7 @@ stdout of test 'foreign_key_outer_join_dead_code_elimination-prologue` in direct
 [ 5	]
 [ 6	]
 #select id       from fk left outer join pk1 on fk.fk1 = pk1.pk1 order by id;
-% sys.fk # table_name
+% .fk # table_name
 % id # name
 % int # type
 % 1 # length
@@ -227,7 +225,7 @@ stdout of test 'foreign_key_outer_join_dead_code_elimination-prologue` in direct
 [ 5	]
 [ 6	]
 #select id       from v1 order by id;
-% sys.v1 # table_name
+% .v1 # table_name
 % id # name
 % int # type
 % 1 # length

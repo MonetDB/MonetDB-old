@@ -1069,7 +1069,7 @@ rel_column_ref(sql_query *query, sql_rel **rel, symbol *column_r, int f)
 			int i;
 			sql_rel *outer;
 
-			for (i=0; !exp && (outer = query_fetch_outer(query,i)); i++) {
+			for (i=query_has_outer(query)-1; i>= 0 && !exp && (outer = query_fetch_outer(query,i)); i--) {
 				int sql_state = query_fetch_outer_state(query,i);
 
 				exp = rel_bind_column(sql, outer, name, f);
@@ -1082,6 +1082,8 @@ rel_column_ref(sql_query *query, sql_rel **rel, symbol *column_r, int f)
 				if (exp && is_sql_aggr(f) && is_sql_aggr(sql_state)) {
 					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: aggregate function calls cannot be nested");
 				}
+				if (exp)
+					break;
 			}
 			if (exp && outer && outer->card <= CARD_AGGR && exp->card > CARD_AGGR && !is_sql_aggr(f))
 				return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", name);
@@ -1093,7 +1095,7 @@ rel_column_ref(sql_query *query, sql_rel **rel, symbol *column_r, int f)
 					exp = exp_ref(sql->sa, exp);
 				else
 					exp->card = CARD_ATOM;
-				set_freevar(exp);
+				set_freevar(exp, i);
 			}
 		}
 		if (exp) {
@@ -1146,7 +1148,7 @@ rel_column_ref(sql_query *query, sql_rel **rel, symbol *column_r, int f)
 			int i;
 			sql_rel *outer;
 
-			for (i=0; !exp && (outer = query_fetch_outer(query,i)); i++) {
+			for (i=query_has_outer(query)-1; i>= 0 && !exp && (outer = query_fetch_outer(query,i)); i--) {
 				int sql_state = query_fetch_outer_state(query,i);
 
 				exp = rel_bind_column2(sql, outer, tname, cname, f | sql_outer);
@@ -1159,6 +1161,8 @@ rel_column_ref(sql_query *query, sql_rel **rel, symbol *column_r, int f)
 				if (exp && is_sql_aggr(f) && is_sql_aggr(sql_state)) {
 					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: aggregate function calls cannot be nested");
 				}
+				if (exp)
+					break;
 			}
 			if (exp && outer && outer->card <= CARD_AGGR && exp->card > CARD_AGGR && !is_sql_aggr(f))
 				return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s.%s' in query results without an aggregate function", tname, cname);
@@ -1170,7 +1174,7 @@ rel_column_ref(sql_query *query, sql_rel **rel, symbol *column_r, int f)
 					exp = exp_ref(sql->sa, exp);
 				else
 					exp->card = CARD_ATOM;
-				set_freevar(exp);
+				set_freevar(exp, i);
 			}
 		}
 
@@ -1702,12 +1706,6 @@ rel_compare_exp_(sql_query *query, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_e
 
 	if (!rel)
 		return rel_select(sql->sa, rel_project_exp(sql->sa, exp_atom_bool(sql->sa, 1)), e);
-#if 0
-	if (!rel && query_has_outer(query)) {
-		/* for now only top of stack */
-		return rel_select(sql->sa, query_fetch_outer(query, 0), e);
-	}
-#endif
 
 	/* atom or row => select */
 	if (ls->card > rel->card) {
@@ -1822,6 +1820,67 @@ compare_aggr_op( char *compare, int quantifier)
 }
 
 static sql_rel *
+rel_compare_selects(sql_query *query, sql_rel *rel, symbol *lo, symbol *ro, char *compare_op, 
+		int f, exp_kind k, int quantifier, int need_not)
+{
+	mvc *sql = query->sql;
+	sql_exp *rs = NULL, *ls = NULL;
+	exp_kind ek = {type_value, card_column, FALSE};
+	sql_rel *l, *r;
+	int ldependent = 0, rdependent = 0;
+       
+	assert(is_sql_where(f)); /* for now just where part */
+	l = rel_subquery(query, NULL, lo, ek);
+	if (!l && sql->session->status != -ERR_AMBIGUOUS) {
+		/* reset error */
+		sql->session->status = 0;
+		sql->errstr[0] = 0;
+		query_push_outer(query, rel, f);
+		l = rel_subquery(query, NULL, lo, ek);
+		if (l)
+			set_subquery(l);
+		rel = query_pop_outer(query);
+		ldependent = 1;
+	}
+	r = rel_subquery(query, NULL, ro, ek);
+	if (!r && sql->session->status != -ERR_AMBIGUOUS) {
+		/* reset error */
+		sql->session->status = 0;
+		sql->errstr[0] = 0;
+		query_push_outer(query, rel, f);
+		r = rel_subquery(query, NULL, ro, ek);
+		if (r)
+			set_subquery(r);
+		rel = query_pop_outer(query);
+		rdependent = 1;
+	}
+	if (!l || !r)
+		return NULL;
+	ls = rel_lastexp(sql, l);
+	rs = rel_lastexp(sql, r);
+	if (rel) {
+		r = rel_crossproduct(sql->sa, l, r, op_join);
+		set_subquery(r);
+		if (rel && is_left(rel->op)) {
+			r = rel->r = rel_crossproduct(sql->sa, rel->r, r, /*(!quantifier)?op_semi:*/op_join);
+			if (rdependent)
+				set_dependent(r);
+		} else if (rel && is_right(rel->op)) {
+			l = rel->l = rel_crossproduct(sql->sa, rel->l, r, (!quantifier)?op_semi:op_join);
+			if (ldependent)
+				set_dependent(l);
+		} else {
+			rel = rel_crossproduct(sql->sa, rel, r, (!quantifier)?op_semi:op_join);
+		}
+	} else {
+		rel = rel_crossproduct(sql->sa, l, r, (!quantifier)?op_semi:op_join);
+	}
+	if (rel && ldependent && rdependent)
+		set_dependent(rel);
+	return rel_compare_exp(query, rel, ls, rs, compare_op, NULL, k.reduce, quantifier, need_not);
+}
+
+static sql_rel *
 rel_compare(sql_query *query, sql_rel *rel, symbol *sc, symbol *lo, symbol *ro, symbol *ro2,
 		char *compare_op, int f, exp_kind k, int quantifier)
 {
@@ -1852,6 +1911,9 @@ rel_compare(sql_query *query, sql_rel *rel, symbol *sc, symbol *lo, symbol *ro, 
 		compare_op[0] = '=';
 		compare_op[1] = 0;
 	}
+
+	if (0 && !ro2 && lo->token == SQL_SELECT && ro->token == SQL_SELECT)
+		return rel_compare_selects(query, rel, lo, ro, compare_op, f, k, quantifier, need_not);
 
 	if (!ro2 && lo->token == SQL_SELECT) { /* swap subquery to the right hand side */
 		symbol *tmp = lo;
@@ -3102,7 +3164,7 @@ rel_in_exp(sql_query *query, sql_rel *rel, symbol *sc, int f)
 					} else if (!exp_is_atom(l) && exp_name(l)) {
 						l = exp_ref(sql->sa, l);
 					}
-					set_freevar(l);
+					set_freevar(l, 0); /* TODO: which outer ? */
 					/* label to solve name conflicts with outer query */
 					z = rel_add_identity2(sql, z, &tid);
 					tid = exp_ref(sql->sa, tid);
@@ -4226,9 +4288,14 @@ _rel_aggr(sql_query *query, sql_rel **rel, int distinct, sql_schema *s, char *an
 	}
 
 	if (all_freevar) { //* case 2, ie use outer 
-		//assert(query->outer->top == 1);
-		/* TODO find proper relation */
-		res = groupby = query_fetch_outer(query, 0);
+		/* find proper relation, base on freevar (stack hight) */
+		for (node *n = exps->h; n; n = n->next) {
+			sql_exp *e = n->data;
+
+			if (all_freevar<is_freevar(e))
+				all_freevar = is_freevar(e);
+		}
+		res = groupby = query_fetch_outer(query, all_freevar-1);
 	}
 
 	/* find having select */
@@ -4339,7 +4406,7 @@ _rel_aggr(sql_query *query, sql_rel **rel, int distinct, sql_schema *s, char *an
 				e = exp_ref(sql->sa, e);
 			}
 			e->card = CARD_ATOM;
-			set_freevar(e);
+			set_freevar(e, all_freevar-1);
 			return e;
 		}
 		return e;
@@ -4466,7 +4533,7 @@ _rel_aggr(sql_query *query, sql_rel **rel, int distinct, sql_schema *s, char *an
 				e = exp_ref(sql->sa, e);
 			}
 			e->card = CARD_ATOM;
-			set_freevar(e);
+			set_freevar(e, all_freevar-1);
 			return e;
 		}
 		return e;

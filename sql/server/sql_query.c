@@ -49,7 +49,7 @@ query_pop_outer(sql_query *q)
 sql_rel *
 query_fetch_outer(sql_query *q, int i)
 {
-	stacked_query *sq = sql_stack_peek(q->outer, i);
+	stacked_query *sq = sql_stack_fetch(q->outer, i);
 	if (!sq)
 		return NULL;
 	return sq->rel;
@@ -58,7 +58,7 @@ query_fetch_outer(sql_query *q, int i)
 int
 query_fetch_outer_state(sql_query *q, int i)
 {
-	stacked_query *sq = sql_stack_peek(q->outer, i);
+	stacked_query *sq = sql_stack_fetch(q->outer, i);
 	if (!sq)
 		return 0;
 	return sq->sql_state;
@@ -67,12 +67,12 @@ query_fetch_outer_state(sql_query *q, int i)
 void 
 query_update_outer(sql_query *q, sql_rel *r, int i)
 {
-	stacked_query *sq = sql_stack_peek(q->outer, i);
+	stacked_query *sq = sql_stack_fetch(q->outer, i);
 	sq->rel = r;
 }
 
 int 
 query_has_outer(sql_query *q)
 {
-	return !sql_stack_empty(q->outer);
+	return sql_stack_top(q->outer);
 }

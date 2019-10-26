@@ -5,5 +5,5 @@ scalar
 any_all
 exists
 correlated
-#subquery2
+subquery2
 #subquery3
