@@ -851,9 +851,7 @@ rel_groupby(mvc *sql, sql_rel *l, list *groupbyexps )
 			append(aggrs, ne);
 		}
 	}
-#if 0
 
-#endif
 	rel->l = l;
 	rel->r = groupbyexps;
 	rel->exps = aggrs;

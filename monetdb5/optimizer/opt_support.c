@@ -345,7 +345,6 @@ safetyBarrier(InstrPtr p, InstrPtr q)
 	return FALSE;
 }
 
-
 int
 isUpdateInstruction(InstrPtr p){
 	if ( getModuleId(p) == sqlRef &&
@@ -364,6 +363,7 @@ isUpdateInstruction(InstrPtr p){
 			return TRUE;
 	return FALSE;
 }
+
 int
 hasSideEffects(MalBlkPtr mb, InstrPtr p, int strict)
 {
