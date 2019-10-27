@@ -3897,7 +3897,7 @@ rel_binop(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek)
 	mvc *sql = query->sql;
 	dnode *dl = se->data.lval->h;
 	sql_exp *l, *r;
-	sql_rel *orel = *rel, *left, *right = NULL;
+	sql_rel *orel = *rel, *left;
 	char *fname = qname_fname(dl->data.lval);
 	char *sname = qname_schema(dl->data.lval);
 	sql_schema *s = sql->session->schema;
@@ -3917,17 +3917,7 @@ rel_binop(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek)
 		l = rel_project_add_exp(sql, left, l);
 		orel = left;
 	}
-	r = rel_value_exp(query, &right, dl->next->next->data.sym, f, iek);
-	if (!r) {
-		/* reset error */
-		sql->session->status = 0;
-		sql->errstr[0] = '\0';
-		r = rel_value_exp(query, rel, dl->next->next->data.sym, f, iek);
-	} else if (left && right) {
-		*rel = rel_crossproduct(sql->sa, left, right, is_sql_sel(f)?op_left:op_join);
-	} else if (right) {
-		*rel = right;
-	}
+	r = rel_value_exp(query, rel, dl->next->next->data.sym, f, iek);
 	if (l && *rel && exp_card(l) > CARD_AGGR && rel_find_groupby(*rel)) {
 		if (l && exp_relname(l) && exp_name(l))
 			return sql_error(sql, ERR_GROUPBY, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s.%s' in query results without an aggregate function", exp_relname(l), exp_name(l));
@@ -5965,7 +5955,7 @@ rel_table_exp(sql_query *query, sql_rel **rel, symbol *column_e )
 		char *tname = column_e->data.lval->h->data.sval;
 		list *exps;
 	
-		if ((exps = rel_table_projections(sql, *rel, tname, 0)) != NULL)
+		if ((exps = rel_table_projections(sql, *rel, tname, 0)) != NULL && !list_empty(exps))
 			return exps;
 		if (!tname)
 			return sql_error(sql, 02,
@@ -6215,7 +6205,7 @@ rel_select_exp(sql_query *query, sql_rel *rel, SelectNode *sn, exp_kind ek)
 			te = rel_table_exp(query, &rel, n->data.sym);
 		} else 
 			ce = NULL;
-		if (!ce && (!te || list_empty(te))) {
+		if (!ce && !te) {
 			if (sql->errstr[0])
 				return NULL;
 			return sql_error(sql, 02, SQLSTATE(42000) "SELECT: subquery result missing");
