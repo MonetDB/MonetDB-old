@@ -137,6 +137,8 @@ e_aggr
 	-> l 	list of sub expressions (args for the func and aggr)
 		+ optional conditional execution argument
 	-> f	func / aggr
+	-> r 	list of the partition by and order by expression lists 
+		(only used during AST->relations->unnesting)
 for aggr
 	-> flag DISTINCT and NO_NIL could be set
 
