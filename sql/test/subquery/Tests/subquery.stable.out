@@ -141,7 +141,7 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 [ 3	]
 [ NULL	]
 #SELECT (SELECT i FROM integers WHERE i=1); --1
-% sys.L1 # table_name
+% .L1 # table_name
 % L1 # name
 % int # type
 % 1 # length
@@ -296,8 +296,8 @@ stdout of test 'subquery` in directory 'sql/test/subquery` itself:
 % 1 # length
 [ 1	]
 #SELECT (SELECT CAST(SUM(i) AS BIGINT) FROM integers), (SELECT 42);
-% sys.L2,	. # table_name
-% L2,	single_value # name
+% .L3,	. # table_name
+% L3,	single_value # name
 % bigint,	tinyint # type
 % 1,	2 # length
 [ 6,	42	]

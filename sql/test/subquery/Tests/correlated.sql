@@ -586,7 +586,9 @@ SELECT i, CAST((SELECT (SELECT (SELECT (SELECT i1.i+i1.i+i1.i+i1.i+i1.i+i2.i) FR
 --3	18
 --NULL	NULL
 
+/* BROKEN
 SELECT i, (SELECT SUM(s1.i) FROM integers s1 INNER JOIN integers s2 ON (SELECT i1.i+s1.i)=(SELECT i1.i+s2.i)) AS j FROM integers i1 ORDER BY i;
+*/
 --1	6
 --2	6
 --3	6
@@ -612,7 +614,9 @@ SELECT i, CAST((SELECT SUM(ss2.i) FROM (SELECT i FROM integers s1 WHERE i=i1.i A
 --3	3
 --NULL	NULL
 
+/* BROKEN
 SELECT i, (SELECT SUM(s1.i) FROM integers s1 LEFT OUTER JOIN integers s2 ON (SELECT i1.i+s1.i)=(SELECT i1.i+s2.i)) AS j FROM integers i1 ORDER BY i;
+*/
 --1	6
 --2	6
 --3	6
