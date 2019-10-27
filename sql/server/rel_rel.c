@@ -348,6 +348,17 @@ rel_bind_column2( mvc *sql, sql_rel *rel, const char *tname, const char *cname, 
 	return NULL;
 }
 
+sql_exp *
+rel_first_column(mvc *sql, sql_rel *r)
+{
+	list *exps = rel_projections(sql, r, NULL, 1, 1);
+
+	if (!list_empty(exps))
+		return exps->h->data;
+
+	return NULL;
+}
+
 sql_rel *
 rel_inplace_setop(sql_rel *rel, sql_rel *l, sql_rel *r, operator_type setop, list *exps)
 {

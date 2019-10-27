@@ -32,6 +32,7 @@ extern sql_exp *exp_in(sql_allocator *sa, sql_exp *l, list *r, int cmptype);
 extern sql_exp *exp_convert(sql_allocator *sa, sql_exp *exp, sql_subtype *fromtype, sql_subtype *totype );
 extern str number2name(str s, int len, int i);
 extern sql_exp *exp_op(sql_allocator *sa, list *l, sql_subfunc *f );
+extern sql_exp *exp_rank_op(sql_allocator *sa, list *largs, list *gbe, list *obe, sql_subfunc *f );
 
 #define append(l,v) list_append(l,v) 
 #define exp_unop(sa,l,f) \

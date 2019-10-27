@@ -232,6 +232,21 @@ exp_op( sql_allocator *sa, list *l, sql_subfunc *f )
 }
 
 sql_exp * 
+exp_rank_op( sql_allocator *sa, list *l, list *gbe, list *obe, sql_subfunc *f )
+{
+	sql_exp *e = exp_create(sa, e_func);
+	if (e == NULL)
+		return NULL;
+	e->card = exps_card(l);
+	if (!l || list_length(l) == 0) 
+		e->card = CARD_ATOM; /* unop returns a single atom */
+	e->l = l;
+	e->r = append(append(sa_list(sa), gbe), obe);
+	e->f = f; 
+	return e;
+}
+
+sql_exp * 
 exp_aggr( sql_allocator *sa, list *l, sql_subaggr *a, int distinct, int no_nils, unsigned int card, int has_nils )
 {
 	sql_exp *e = exp_create(sa, e_aggr);
@@ -1704,7 +1719,7 @@ exps_bind_column( list *exps, const char *cname, int *ambiguous )
 		for (en = exps->h; en; en = en->next ) {
 			sql_exp *ce = en->data;
 			if (ce->alias.name && strcmp(ce->alias.name, cname) == 0) {
-				if (e) {
+				if (e && e != ce && ce->alias.rname && e->alias.rname && strcmp(ce->alias.rname, e->alias.rname) != 0 ) {
 					if (ambiguous)
 						*ambiguous = 1;
 					return NULL;

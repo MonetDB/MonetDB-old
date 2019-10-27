@@ -5091,43 +5091,6 @@ get_window_clauses(mvc *sql, char* ident, symbol **partition_by_clause, symbol *
 	return window_specification; //return something to say there were no errors
 }
 
-static sql_exp*
-opt_groupby_add_exp(mvc *sql, sql_rel *p, sql_rel *pp, sql_exp *in)
-{
-	sql_exp *found;
-
-	if (p->op == op_groupby) {
-		if (!exp_name(in))
-			exp_label(sql->sa, in, ++sql->label);
-		found = exps_find_exp( p->exps, in);
-		if (!found)
-			append(p->exps, in);
-		else
-			in = found;
-		in = exp_ref(sql->sa, in);
-	} else if (pp && pp->op == op_groupby) {
-		if (!exp_name(in))
-			exp_label(sql->sa, in, ++sql->label);
-		found = exps_find_exp( p->exps, in);
-		if (!found) {
-			sql_rel *l = p->l;
-
-			while (l && l != pp && !is_base(l->op)) {
-				if (!exps_find_exp(l->exps, in)) {
-					if (is_project(l->op))
-						append(l->exps, exp_copy(sql->sa, in));
-				} else
-					break;
-				l = l->l;
-			}
-			append(p->exps, in);
-		} else
-			in = found;
-		in = exp_ref(sql->sa, in);
-	}
-	return in;
-}
-
 /*
  * select x, y, rank_op() over (partition by x order by y) as, ...
                 aggr_op(z) over (partition by y order by x) as, ...
@@ -5153,11 +5116,11 @@ rel_rankop(sql_query *query, sql_rel **rel, symbol *se, int f)
 	char *aname = NULL, *sname = NULL, *window_ident = NULL;
 	sql_subfunc *wf = NULL;
 	sql_exp *in = NULL, *pe = NULL, *oe = NULL, *call = NULL, *start = NULL, *eend = NULL, *fstart = NULL, *fend = NULL;
-	sql_rel *r = *rel, *p, *pp, *g = NULL;
+	sql_rel /**r = *rel,*/ *p, *pp/*, *g = NULL*/;
 	list *gbe = NULL, *obe = NULL, *args = NULL, *types = NULL, *fargs = NULL;
 	sql_schema *s = sql->session->schema;
 	dnode *dn = window_function->data.lval->h;
-	int distinct = 0, project_added = 0, is_last, frame_type, pos, group = 0, nf = f;
+	int distinct = 0, is_last, frame_type, pos, nf = f;
 	bool is_nth_value, supports_frames;
 
 	stack_clear_frame_visited_flag(sql); //clear visited flags before iterating
@@ -5209,143 +5172,35 @@ rel_rankop(sql_query *query, sql_rel **rel, symbol *se, int f)
 		return NULL;
 	}
 
-	/* 
-	 * We need to keep track of the input relation, pp (projection)
-	 * which may in the first step (which could be in the partitioning, ordering or window operator) change into a group by.
-	 * then we project the partitioning/ordering + require result columns (p).
-	 * followed by the projection with window operators. 
-	 */
 	/* window operations are only allowed in the projection */
-	if (r && r->op != op_project) {
-		*rel = r = rel_project(sql->sa, r, rel_projections(sql, r, NULL, 1, 1));
-		reset_processed(r);
-		project_added = 1;
-	}
-	if (!is_sql_sel(f) || !r || !is_project(r->op))
+	if (!is_sql_sel(f))
 		return sql_error(sql, 02, SQLSTATE(42000) "OVER: only possible within the selection");
 
-	/* outer project (*rel) r  r->l will be rewritten!
-	 * 	in case of project_added (ie outer project added) we add the expression to r 
-	 * rank project (new or existing non processed project) pp (needed for rank)
-	 * inner project/groupby p (if groupby group is set)
-	 * op used to reset p
-	 */
-	p = r->l;
-	if (!p || (!is_joinop(p->op) && !p->exps->h)) { //no from clause, use a constant as the expression to project
-		sql_exp *exp = exp_atom_lng(sql->sa, 0);
-		exp_label(sql->sa, exp, ++sql->label);
-		if (!p) {
-			p = rel_project(sql->sa, NULL, sa_list(sql->sa));
-			set_processed(p);
-		}
-		append(p->exps, exp);
-	}
-
-	if (p && p->op != op_project) {
-		p = rel_project(sql->sa, p, rel_projections(sql, p, NULL, 1, 1));
-		reset_processed(p);
-	}
-	pp = p;
-
-	g = p;
-	while (g && !group) {
-		if (g && g->op == op_groupby) {
-			group = 1;
-		} else if (g->l && !is_processed(g) && !is_base(g->op)) {
-			g = g->l;
-		} else {
-			g = NULL;
-		}
-	}
+	p = pp = *rel;
 	/* Partition By */
 	if (partition_by_clause) {
 		gbe = rel_group_by(query, &pp, partition_by_clause, NULL /* cannot use (selection) column references, as this result is a selection column */, nf | sql_window);
-		if (!gbe && !group) { /* try with implicit groupby */
-			/* reset error */
-			sql->session->status = 0;
-			sql->errstr[0] = '\0';
-			p = pp = rel_project(sql->sa, p, sa_list(sql->sa));
-			reset_processed(p);
-			gbe = rel_group_by(query, &p, partition_by_clause, NULL /* cannot use (selection) column references, as this result is a selection column */, f | sql_window);
-		}
 		if (!gbe)
 			return NULL;
-
-		if (p->op == op_groupby) {
-			sql_rel *npp = pp;
-
-			pp = g = p;
-			p = rel_project(sql->sa, npp, rel_projections(sql, npp, NULL, 1, 0));
-			reset_processed(p);
-		}
-
 		for (n = gbe->h ; n ; n = n->next) {
 			sql_exp *en = n->data;
 
-			n->data = en = opt_groupby_add_exp(sql, p, group?g:pp, en);
 			set_direction(en, 1);
 		}
-		p->r = gbe;
 	}
+
 	/* Order By */
 	if (order_by_clause) {
 		obe = rel_order_by(query, &pp, order_by_clause, nf | sql_window);
-		if (!obe && !group && !gbe) { /* try with implicit groupby */
-			/* reset error */
-			sql->session->status = 0;
-			sql->errstr[0] = '\0';
-			p = pp = rel_project(sql->sa, p, sa_list(sql->sa));
-			reset_processed(p);
-			obe = rel_order_by(query, &p, order_by_clause, f | sql_window);
-		}
 		if (!obe)
 			return NULL;
-
-		if (p->op == op_groupby) {
-			sql_rel *npp = pp;
-
-			pp = g = p;
-			p = rel_project(sql->sa, npp, rel_projections(sql, npp, NULL, 1, 0));
-			reset_processed(p);
-		}
-
 		for (n = obe->h ; n ; n = n->next) {
-			sql_exp *oexp = n->data, *nexp;
+			sql_exp *oexp = n->data, *nexp = oexp;
 
-			if (is_sql_sel(f) && pp->op == op_project && !is_processed(pp) && !rel_find_exp(pp, oexp)) {
-				append(pp->exps, oexp);
-				if (!exp_name(oexp))
-					exp_label(sql->sa, oexp, ++sql->label);
-				oexp = exp_ref(sql->sa, oexp);
-			}
-			n->data = nexp = opt_groupby_add_exp(sql, p, group?g:pp, oexp);
 			if (is_ascending(oexp))
 				set_direction(nexp, 1);
 			if (nulls_last(oexp))
 				set_direction(nexp, 2);
-		}
-		if (p->r) {
-			p->r = list_merge(sa_list(sql->sa), p->r, (fdup)NULL); /* make sure the p->r is a different list than the gbe list */
-			for(n = obe->h ; n ; n = n->next) {
-				sql_exp *e1 = n->data;
-				bool found = false;
-
-				for(node *nn = ((list*)p->r)->h ; nn && !found ; nn = nn->next) {
-					sql_exp *e2 = nn->data;
-					//the partition expression order should be the same as the one in the order by clause (if it's in there as well)
-					if(!exp_equal(e1, e2)) {
-						if(is_ascending(e1))
-							e2->flag |= ASCENDING;
-						else
-							e2->flag &= ~ASCENDING;
-						found = true;
-					}
-				}
-				if(!found)
-					append(p->r, e1);
-			}
-		} else {
-			p->r = obe;
 		}
 	}
 
@@ -5358,14 +5213,9 @@ rel_rankop(sql_query *query, sql_rel **rel, symbol *se, int f)
 		int nfargs = 0;
 
 		if (!dnn || is_ntile) { //pass an input column for analytic functions that don't require it
-			sql_rel *lr = p;
-
-			if (!lr || !is_project(lr->op)) {
-				p = pp = rel_project(sql->sa, p, rel_projections(sql, p, NULL, 1, 0));
-				reset_processed(p);
-				lr = p->l;
-			}
-			in = lr->exps->h->data;
+			in = rel_first_column(sql, p);
+			if (!exp_name(in))
+				exp_label(sql->sa, in, ++sql->label);
 			in = exp_ref(sql->sa, in);
 			if(!in)
 				return NULL;
@@ -5388,8 +5238,7 @@ rel_rankop(sql_query *query, sql_rel **rel, symbol *se, int f)
 				} else if(is_nth_value && nfargs == 1) { //nth_value second argument null handling case
 					sql_subtype *empty = sql_bind_localtype("void");
 					if(subtype_cmp(&(in->tpe), empty) == 0) {
-						sql_rel *lr = p->l;
-						sql_exp *ep = lr->exps->h->data;
+						sql_exp *ep = rel_first_column(sql, p);
 						in = exp_convert(sql->sa, in, empty, &(ep->tpe));
 					}
 				} else if((is_lag || is_lead) && nfargs == 2) { //lag and lead 3rd arg must have same type as 1st arg
@@ -5397,7 +5246,6 @@ rel_rankop(sql_query *query, sql_rel **rel, symbol *se, int f)
 					if(!(in = rel_check_type(sql, &first->tpe, p, in, type_equal)))
 						return NULL;
 				}
-				in = opt_groupby_add_exp(sql, p, pp, in);
 				append(fargs, in);
 				nfargs++;
 			}
@@ -5407,19 +5255,13 @@ rel_rankop(sql_query *query, sql_rel **rel, symbol *se, int f)
 
 		if (n) {
 			if (!n->next->data.sym) { /* count(*) */
-				sql_rel *lr = p->l;
-
-				if (!lr || !is_project(lr->op)) {
-					p = pp = rel_project(sql->sa, p, rel_projections(sql, p, NULL, 1, 0));
-					reset_processed(p);
-					lr = p->l;
-				}
-				in = lr->exps->h->data;
+				in = rel_first_column(sql, p);
+				if (!exp_name(in))
+					exp_label(sql->sa, in, ++sql->label);
 				in = exp_ref(sql->sa, in);
 				append(fargs, in);
 				append(fargs, exp_atom_bool(sql->sa, 0)); //don't ignore nills
 			} else {
-				sql_rel *lop = p;
 				is_last = 0;
 				exp_kind ek = {type_value, card_column, FALSE};
 
@@ -5429,20 +5271,9 @@ rel_rankop(sql_query *query, sql_rel **rel, symbol *se, int f)
 				 * symbol compilation is required
 				 */
 				in = rel_value_exp2(query, &p, n->next->data.sym, f | sql_window, ek, &is_last);
-				if (!in && !group && !obe && !gbe) { /* try with implicit groupby */
-					/* reset error */
-					sql->session->status = 0;
-					sql->errstr[0] = '\0';
-					p = rel_project(sql->sa, lop, sa_list(sql->sa));
-					reset_processed(p);
-					in = rel_value_exp2(query, &p, n->next->data.sym, f | sql_window, ek, &is_last);
-				}
 				if(!in)
 					return NULL;
-				in = opt_groupby_add_exp(sql, p, pp, in);
-				if (group) 
-					//rel_intermediates_add_exp(sql, p, g, in);
-					in = opt_groupby_add_exp(sql, p, g, in);
+
 				append(fargs, in);
 				if(strcmp(s->base.name, "sys") == 0 && strcmp(aname, "count") == 0) {
 					sql_subtype *empty = sql_bind_localtype("void"), *bte = sql_bind_localtype("bte");
@@ -5458,11 +5289,6 @@ rel_rankop(sql_query *query, sql_rel **rel, symbol *se, int f)
 
 	if (distinct)
 		return sql_error(sql, 02, SQLSTATE(42000) "SELECT: DISTINCT clause is not implemented for window functions");
-
-	if (p->exps && list_length(p->exps)) {
-		p = rel_project(sql->sa, p, sa_list(sql->sa));
-		reset_processed(p);
-	}
 
 	/* diff for partitions */
 	if (gbe) {
@@ -5625,16 +5451,7 @@ rel_rankop(sql_query *query, sql_rel **rel, symbol *se, int f)
 		append(args, start);
 		append(args, eend);
 	}
-	call = exp_op(sql->sa, args, wf);
-	exp_label(sql->sa, call, ++sql->label);
-	r->l = p;
-	p->exps = list_merge(p->exps, rel_projections(sql, p->l, NULL, 1, 1), NULL);
-	append(p->exps, call);
-	call = exp_ref(sql->sa, call);
-	if (project_added) {
-		append(r->exps, call);
-		call = exp_ref(sql->sa, call);
-	}
+	call = exp_rank_op(sql->sa, args, gbe, obe, wf);
 	return call;
 }
 

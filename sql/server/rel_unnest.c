@@ -1311,6 +1311,8 @@ bind_exp(mvc *sql, sql_rel *rel, sql_exp *e, int top_groupby)
 	sql_rel *s = rel;
 	sql_exp *found = NULL;
 
+	if (!s)
+		return NULL;
 	if (is_groupby(s->op) && top_groupby) {
 		if (s->r) {
 			if (e->l) {
@@ -1373,6 +1375,52 @@ bind_exp(mvc *sql, sql_rel *rel, sql_exp *e, int top_groupby)
 	return found;
 }
 
+static list*
+aggrs_split_args(mvc *sql, list *aggrs, list *exps) 
+{
+	if (list_empty(aggrs))
+		return aggrs;
+	for (node *n=aggrs->h; n; n = n->next) {
+		sql_exp *a = n->data;
+		list *args = a->l;
+
+		if (!list_empty(args)) {
+			for (node *an = args->h; an; an = an->next) {
+				sql_exp *e1 = an->data, *found = NULL;
+
+				for (node *nn = exps->h; nn && !found; nn = nn->next) {
+					sql_exp *e2 = nn->data;
+		
+					if (!exp_equal(e1, e2))
+						found = e2;
+				}
+				if (!found) {
+					append(exps, e1);
+					if (!exp_name(e1))
+						e1 = exp_label(sql->sa, e1, ++sql->label);
+				} else {
+					e1 = found;
+				}
+				e1 = exp_ref(sql->sa, e1);
+				an->data = e1; /* replace by reference */
+			}
+		}
+	}
+	return aggrs;
+}
+
+static sql_rel *
+rel_groupby_split_exps(mvc *sql, sql_rel *rel)
+{
+	list *exps = sa_list(sql->sa);
+
+	assert(is_groupby(rel->op));
+	rel->r = aggrs_split_args(sql, rel->r, exps);
+	rel->exps = aggrs_split_args(sql, rel->exps, exps);
+	rel->l = rel_project(sql->sa, rel->l, exps);
+	return rel;
+}
+
 static int
 rel_bind_exp_(mvc *sql, sql_rel *rel, sql_exp *e) 
 {
@@ -1397,6 +1445,48 @@ rel_bind_exp_(mvc *sql, sql_rel *rel, sql_exp *e)
 		return rel_bind_exp_(sql, rel, e->l);
 	case e_aggr:
 	case e_func: 
+		if (e->r) { /* rewrite rank op */
+			/* TODO find all rank op's and merge gbe/obe */
+			list *r = e->r, *gbe = r->h->data, *obe = r->h->next->data; 
+
+			assert(is_simple_project(rel->op) || is_groupby(rel->op));
+			/* First push rank expressions down under the group by */
+			if (is_groupby(rel->op)) {
+				rel = rel_groupby_split_exps(sql, rel);
+				return !ok;
+			}
+			assert(is_simple_project(rel->op));
+			if (gbe || obe) {
+				sql_rel *r = rel_project(sql->sa, rel->l, rel_projections(sql, rel->l, NULL, 1, 1));
+				if (gbe && obe) {
+					gbe = list_merge(sa_list(sql->sa), gbe, (fdup)NULL); /* make sure the p->r is a different list than the gbe list */
+					for(node *n = obe->h ; n ; n = n->next) {
+						sql_exp *e1 = n->data;
+						bool found = false;
+
+						for(node *nn = gbe->h ; nn && !found ; nn = nn->next) {
+							sql_exp *e2 = nn->data;
+							//the partition expression order should be the same as the one in the order by clause (if it's in there as well)
+							if(!exp_equal(e1, e2)) {
+								if(is_ascending(e1))
+									e2->flag |= ASCENDING;
+								else
+									e2->flag &= ~ASCENDING;
+								found = true;
+							}
+						}
+						if(!found)
+							append(gbe, e1);
+					}
+				} else if (obe) {
+					gbe = obe;
+				}
+				r->r = gbe;
+				rel->l = r;
+			}
+			/* mark a normal (analytic) function now */
+			e->r = NULL;
+		}
 		if (e->l) {
 			list *l = e->l;
 			node *n;
