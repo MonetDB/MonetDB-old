@@ -1719,67 +1719,6 @@ compare_aggr_op( char *compare, int quantifier)
 }
 
 static sql_rel *
-rel_compare_selects(sql_query *query, sql_rel *rel, symbol *lo, symbol *ro, char *compare_op, 
-		int f, exp_kind k, int quantifier, int need_not)
-{
-	mvc *sql = query->sql;
-	sql_exp *rs = NULL, *ls = NULL;
-	exp_kind ek = {type_value, card_column, FALSE};
-	sql_rel *l, *r;
-	int ldependent = 0, rdependent = 0;
-       
-	assert(is_sql_where(f)); /* for now just where part */
-	l = rel_subquery(query, NULL, lo, ek);
-	if (!l && sql->session->status != -ERR_AMBIGUOUS) {
-		/* reset error */
-		sql->session->status = 0;
-		sql->errstr[0] = 0;
-		query_push_outer(query, rel, f);
-		l = rel_subquery(query, NULL, lo, ek);
-		if (l)
-			set_subquery(l);
-		rel = query_pop_outer(query);
-		ldependent = 1;
-	}
-	r = rel_subquery(query, NULL, ro, ek);
-	if (!r && sql->session->status != -ERR_AMBIGUOUS) {
-		/* reset error */
-		sql->session->status = 0;
-		sql->errstr[0] = 0;
-		query_push_outer(query, rel, f);
-		r = rel_subquery(query, NULL, ro, ek);
-		if (r)
-			set_subquery(r);
-		rel = query_pop_outer(query);
-		rdependent = 1;
-	}
-	if (!l || !r)
-		return NULL;
-	ls = rel_lastexp(sql, l);
-	rs = rel_lastexp(sql, r);
-	if (rel) {
-		r = rel_crossproduct(sql->sa, l, r, op_join);
-		set_subquery(r);
-		if (rel && is_left(rel->op)) {
-			r = rel->r = rel_crossproduct(sql->sa, rel->r, r, /*(!quantifier)?op_semi:*/op_join);
-			if (rdependent)
-				set_dependent(r);
-		} else if (rel && is_right(rel->op)) {
-			l = rel->l = rel_crossproduct(sql->sa, rel->l, r, (!quantifier)?op_semi:op_join);
-			if (ldependent)
-				set_dependent(l);
-		} else {
-			rel = rel_crossproduct(sql->sa, rel, r, (!quantifier)?op_semi:op_join);
-		}
-	} else {
-		rel = rel_crossproduct(sql->sa, l, r, (!quantifier)?op_semi:op_join);
-	}
-	if (rel && ldependent && rdependent)
-		set_dependent(rel);
-	return rel_compare_exp(query, rel, ls, rs, compare_op, NULL, k.reduce, quantifier, need_not);
-}
-
-static sql_rel *
 rel_compare(sql_query *query, sql_rel *rel, symbol *sc, symbol *lo, symbol *ro, symbol *ro2,
 		char *compare_op, int f, exp_kind k, int quantifier)
 {
@@ -1810,9 +1749,6 @@ rel_compare(sql_query *query, sql_rel *rel, symbol *sc, symbol *lo, symbol *ro, 
 		compare_op[0] = '=';
 		compare_op[1] = 0;
 	}
-
-	if (0 && !ro2 && lo->token == SQL_SELECT && ro->token == SQL_SELECT)
-		return rel_compare_selects(query, rel, lo, ro, compare_op, f, k, quantifier, need_not);
 
 	if (!ro2 && lo->token == SQL_SELECT) { /* swap subquery to the right hand side */
 		symbol *tmp = lo;
@@ -2084,9 +2020,6 @@ rel_in_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f)
 		l_is_value=0;
 	}
 	ek.card = card_set;
-	if (0 && l && is_aggr(l->type) && is_groupby(left->op)) {
-		l = rel_project_add_exp(sql, left, l);
-	}
 
 	/* For each r in values keep a list of vals/rels, union these groupby (in/not in) etc  */
 	if (n->type == type_list) {
@@ -3890,10 +3823,6 @@ rel_binop(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek)
 
 	l = rel_value_exp(query, rel, dl->next->data.sym, f, iek);
 	left = *rel;
-	if (0 && l && is_aggr(l->type) && is_groupby(left->op)) {
-		l = rel_project_add_exp(sql, left, l);
-		orel = left;
-	}
 	r = rel_value_exp(query, rel, dl->next->next->data.sym, f, iek);
 	if (l && *rel && exp_card(l) > CARD_AGGR && rel_find_groupby(*rel)) {
 		if (l && exp_relname(l) && exp_name(l))
@@ -5564,18 +5493,7 @@ rel_value_exp2(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek, 
 					exp_setname(sql->sa, ne, exp_relname(e), exp_name(e));
 					e = ne;
 				} else { 
-#if 0
-					if (is_sql_sel(f) && is_project(p->op) && !is_processed(p)) {
-						if (p->l) {
-							p->l = rel_crossproduct(sql->sa, p->l, r, op_join);
-						} else {
-							p->l = r;
-						}
-					} else {
-						*rel = rel_crossproduct(sql->sa, p, r, is_sql_sel(f)?op_left:op_join);
-					}
-#endif
-						*rel = rel_crossproduct(sql->sa, p, r, is_sql_sel(f)?op_left:op_join);
+					*rel = rel_crossproduct(sql->sa, p, r, is_sql_sel(f)?op_left:op_join);
 				}
 				*is_last = 1;
 				return e;
@@ -5588,8 +5506,6 @@ rel_value_exp2(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek, 
 
 						if (e->l && e->r)
 							ne = rel_bind_column2(sql, r, e->l, e->r, 0);
-						else if (!e->l && e->r && /* DISABLES CODE */ (0)) {
-							ne = rel_bind_column(sql, r, e->r, 0);
 						}
 						if (ne) {
 							e = ne;
