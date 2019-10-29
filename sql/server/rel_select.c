@@ -3807,7 +3807,6 @@ rel_binop(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek)
 	mvc *sql = query->sql;
 	dnode *dl = se->data.lval->h;
 	sql_exp *l, *r;
-	sql_rel *orel = *rel, *left;
 	char *fname = qname_fname(dl->data.lval);
 	char *sname = qname_schema(dl->data.lval);
 	sql_schema *s = sql->session->schema;
@@ -3822,7 +3821,6 @@ rel_binop(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek)
 		return NULL;
 
 	l = rel_value_exp(query, rel, dl->next->data.sym, f, iek);
-	left = *rel;
 	r = rel_value_exp(query, rel, dl->next->next->data.sym, f, iek);
 	if (l && *rel && exp_card(l) > CARD_AGGR && rel_find_groupby(*rel)) {
 		if (l && exp_relname(l) && exp_name(l))
@@ -3831,7 +3829,6 @@ rel_binop(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek)
 	}
 
 	if (!l || !r) {
-		*rel = orel;
 		sf = find_func(sql, s, fname, 2, F_AGGR, NULL);
 	}
 	if (!sf && (!l || !r) && *rel && (*rel)->card == CARD_AGGR) {
@@ -5506,7 +5503,6 @@ rel_value_exp2(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek, 
 
 						if (e->l && e->r)
 							ne = rel_bind_column2(sql, r, e->l, e->r, 0);
-						}
 						if (ne) {
 							e = ne;
 							r = r->l;
