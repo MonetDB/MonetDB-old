@@ -105,4 +105,10 @@ extern int rel_in_rel(sql_rel *super, sql_rel *sub);
 extern list *rel_dependencies(mvc *sql, sql_rel *r);
 extern sql_exp * exps_find_match_exp(list *l, sql_exp *e);
 
+typedef sql_exp *(*exp_rewrite_fptr)(mvc *sql, sql_rel *rel, sql_exp *e);
+extern sql_rel *rel_exp_visitor(mvc *sql, sql_rel *rel, exp_rewrite_fptr exp_rewriter);
+
+typedef sql_rel *(*rel_rewrite_fptr)(mvc *sql, sql_rel *rel);
+extern sql_rel *rel_visitor(mvc *sql, sql_rel *rel, rel_rewrite_fptr rel_rewriter);
+
 #endif /* _REL_REL_H_ */

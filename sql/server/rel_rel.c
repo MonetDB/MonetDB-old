@@ -694,6 +694,9 @@ rel_groupby_add_aggr(mvc *sql, sql_rel *rel, sql_exp *e)
 	sql_exp *m = NULL, *ne;
 	char name[16], *nme = NULL;
 
+	if (list_empty(rel->r))
+		rel->card = e->card = CARD_ATOM;
+
 	if ((m=exps_find_match_exp(rel->exps, e)) == NULL) {
 		if (!exp_name(e)) {
 			nme = number2name(name, 16, ++sql->label);
@@ -1773,4 +1776,158 @@ rel_dependencies(mvc *sql, sql_rel *r)
 	if (rel_deps(sql, r, refs, l) != 0)
 		return NULL;
 	return l;
+}
+
+
+static list *exps_exp_visitor(mvc *sql, sql_rel *rel, list *exps, exp_rewrite_fptr exp_rewriter);
+
+static sql_exp *
+exp_visitor(mvc *sql, sql_rel *rel, sql_exp *e, exp_rewrite_fptr exp_rewriter) 
+{
+	assert(e);
+	switch(e->type) {
+	case e_column:
+		break;
+	case e_convert:
+		e->l = exp_visitor(sql, rel, e->l, exp_rewriter);
+		break;
+	case e_aggr:
+	case e_func: 
+		if (e->r) /* rewrite rank */
+			e->r = exps_exp_visitor(sql, rel, e->r, exp_rewriter);
+		if (e->l)
+			e->l = exps_exp_visitor(sql, rel, e->l, exp_rewriter);
+		break;
+	case e_cmp:	
+		if (get_cmp(e) == cmp_or || get_cmp(e) == cmp_filter) {
+			e->l = exps_exp_visitor(sql, rel, e->l, exp_rewriter);
+			e->r = exps_exp_visitor(sql, rel, e->r, exp_rewriter);
+		} else if (e->flag == cmp_in || e->flag == cmp_notin) {
+			e->l = exp_visitor(sql, rel, e->l, exp_rewriter);
+			e->r = exps_exp_visitor(sql, rel, e->r, exp_rewriter);
+		} else {
+			e->l = exp_visitor(sql, rel, e->l, exp_rewriter);
+			e->r = exp_visitor(sql, rel, e->r, exp_rewriter);
+			if (e->f)
+				e->f = exp_visitor(sql, rel, e->f, exp_rewriter);
+		}
+		break;
+	case e_psm:
+		if (e->flag == PSM_REL) 
+			e->l = rel_exp_visitor(sql, e->l, exp_rewriter);
+	case e_atom:
+		break;
+	}
+	e = exp_rewriter(sql, rel, e);
+	return e;
+}
+
+static list *
+exps_exp_visitor(mvc *sql, sql_rel *rel, list *exps, exp_rewrite_fptr exp_rewriter) 
+{
+	node *n;
+
+	if (list_empty(exps))
+		return exps;
+	for (n = exps->h; n; n = n->next) {
+		if (n->data)
+			n->data = exp_visitor(sql, rel, n->data, exp_rewriter);
+	}
+	list_hash_clear(exps);
+	return exps;
+}
+
+sql_rel *
+rel_exp_visitor(mvc *sql, sql_rel *rel, exp_rewrite_fptr exp_rewriter) 
+{
+	if (!rel)
+		return rel;
+
+	rel->exps = exps_exp_visitor(sql, rel, rel->exps, exp_rewriter);
+	if (is_groupby(rel->op) && rel->r)
+		rel->r = exps_exp_visitor(sql, rel, rel->r, exp_rewriter);
+
+	switch(rel->op){
+	case op_basetable:
+	case op_table:
+		return rel;
+	case op_ddl:
+		return rel;
+
+	case op_insert:
+	case op_update:
+	case op_delete:
+	case op_truncate:
+
+	case op_join:
+	case op_left:
+	case op_right:
+	case op_full:
+	case op_semi:
+	case op_anti:
+
+	case op_union:
+	case op_inter:
+	case op_except:
+		if (rel->l)
+			rel->l = rel_exp_visitor(sql, rel->l, exp_rewriter);
+		if (rel->r)
+			rel->r = rel_exp_visitor(sql, rel->r, exp_rewriter);
+		break;
+	case op_select:
+	case op_topn:
+	case op_sample:
+	case op_project:
+	case op_groupby:
+		if (rel->l)
+			rel->l = rel_exp_visitor(sql, rel->l, exp_rewriter);
+		break;
+	}
+	return rel;
+}
+
+sql_rel *
+rel_visitor(mvc *sql, sql_rel *rel, rel_rewrite_fptr rel_rewriter) 
+{
+	if (!rel)
+		return rel;
+
+	switch(rel->op){
+	case op_basetable:
+	case op_table:
+		return rel;
+	case op_ddl:
+		return rel;
+
+	case op_insert:
+	case op_update:
+	case op_delete:
+	case op_truncate:
+
+	case op_join:
+	case op_left:
+	case op_right:
+	case op_full:
+	case op_semi:
+	case op_anti:
+
+	case op_union:
+	case op_inter:
+	case op_except:
+		if (rel->l)
+			rel->l = rel_visitor(sql, rel->l, rel_rewriter);
+		if (rel->r)
+			rel->r = rel_visitor(sql, rel->r, rel_rewriter);
+		break;
+	case op_select:
+	case op_topn:
+	case op_sample:
+	case op_project:
+	case op_groupby:
+		if (rel->l)
+			rel->l = rel_visitor(sql, rel->l, rel_rewriter);
+		break;
+	}
+	rel = rel_rewriter(sql, rel);
+	return rel;
 }

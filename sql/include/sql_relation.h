@@ -165,6 +165,8 @@ typedef enum operator_type {
 	(et == e_func)
 #define is_aggr(et) \
 	(et == e_aggr)
+#define is_convert(et) \
+	(et == e_convert)
 #define is_map_op(et) \
 	(et == e_func || et == e_convert)
 #define is_column(et) \

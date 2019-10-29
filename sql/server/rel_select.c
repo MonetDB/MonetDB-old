@@ -1039,21 +1039,8 @@ rel_column_ref(sql_query *query, sql_rel **rel, symbol *column_r, int f)
 			}
 			return rel_var_ref(sql, name, 0);
 		}
-		if (!exp && !var) {
-#if 0
-			if (rel && *rel && (*rel)->card <= CARD_AGGR && !is_sql_aggr(f) && (is_sql_sel(f) || is_sql_having(f))) {
-				sql_rel *gb = *rel;
-
-				while (gb->l && !is_groupby(gb->op))
-					gb = gb->l;
-				if (gb && is_select(gb->op)) /* check for having clause generated selection */
-					gb = gb->l;
-				if (gb && gb->l && rel_bind_column(sql, gb->l, name, f)) 
-					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", name);
-			}
-#endif
+		if (!exp && !var)
 			return sql_error(sql, 02, SQLSTATE(42000) "SELECT: identifier '%s' unknown", name);
-		}
 		if (exp && inner && inner->card <= CARD_AGGR && exp->card > CARD_AGGR && is_sql_sel(f) && !is_sql_aggr(f))
 			return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", name);
 		if (exp && inner && is_groupby(inner->op) && !is_sql_aggr(f) && !is_freevar(exp)) 
@@ -1116,21 +1103,8 @@ rel_column_ref(sql_query *query, sql_rel **rel, symbol *column_r, int f)
 				exp = rel_bind_column2(sql, *rel, tname, cname, f);
 			}
 		}
-		if (!exp) {
-#if 0
-			if (inner && inner->card <= CARD_AGGR && !is_sql_aggr(f) && (is_sql_sel(f) || is_sql_having(f))) {
-				sql_rel *gb = inner;
-
-				while (gb->l && !is_groupby(gb->op) && is_project(gb->op))
-					gb = gb->l;
-				if (gb && is_select(gb->op)) /* check for having clause generated selection */
-					gb = gb->l;
-				if (gb && is_groupby(gb->op) && gb->l && rel_bind_column2(sql, gb->l, tname, cname, f))
-					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s.%s' in query results without an aggregate function", tname, cname);
-			}
-#endif
+		if (!exp)
 			return sql_error(sql, 02, SQLSTATE(42S22) "SELECT: no such column '%s.%s'", tname, cname);
-		}
 		if (exp && inner && inner->card <= CARD_AGGR && exp->card > CARD_AGGR && is_sql_sel(f) && !is_sql_aggr(f))
 			return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s.%s' in query results without an aggregate function", tname, cname);
 		if (exp && inner && is_groupby(inner->op) && !is_sql_aggr(f) && !is_freevar(exp)) 
@@ -1973,6 +1947,10 @@ rel_compare(sql_query *query, sql_rel *rel, symbol *sc, symbol *lo, symbol *ro, 
 	}
 	if (!rs) 
 		return NULL;
+	if (ls->card > rs->card && rs->card == CARD_AGGR && is_sql_having(f))
+		return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s.%s' in query results without an aggregate function", exp_relname(ls), exp_name(ls));
+	if (rs->card > ls->card && ls->card == CARD_AGGR && is_sql_having(f))
+		return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s.%s' in query results without an aggregate function", exp_relname(rs), exp_name(rs));
 	return rel_compare_exp(query, rel, ls, rs, compare_op, rs2, k.reduce, quantifier, need_not);
 }
 
@@ -2397,7 +2375,6 @@ rel_exists_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f)
 
 	le = rel_is_constant(&sq, le);
 	if (!sq) {
-		assert(0);
 		*rel = orel;
 		return exp_exist(query, le, NULL, exists);
 	} else {
@@ -4700,7 +4677,8 @@ rel_group_by(sql_query *query, sql_rel **rel, symbol *groupby, dlist *selection,
 			if(!stack_push_groupby_expression(sql, grp, e))
 				return NULL;
 		}
-		e->card = CARD_AGGR;
+		if (e->card > CARD_AGGR)
+			e->card = CARD_AGGR;
 		append(exps, e);
 	}
 	return exps;
@@ -4898,6 +4876,8 @@ rel_order_by(sql_query *query, sql_rel **R, symbol *orderby, int f )
 	}
 	if (is_sql_orderby(f) && or != rel)
 		or->l = rel;
+	if (is_sql_window(f))
+		*R = rel;
 	return exps;
 }
 
@@ -5116,7 +5096,7 @@ rel_rankop(sql_query *query, sql_rel **rel, symbol *se, int f)
 	char *aname = NULL, *sname = NULL, *window_ident = NULL;
 	sql_subfunc *wf = NULL;
 	sql_exp *in = NULL, *pe = NULL, *oe = NULL, *call = NULL, *start = NULL, *eend = NULL, *fstart = NULL, *fend = NULL;
-	sql_rel /**r = *rel,*/ *p, *pp/*, *g = NULL*/;
+	sql_rel *p;
 	list *gbe = NULL, *obe = NULL, *args = NULL, *types = NULL, *fargs = NULL;
 	sql_schema *s = sql->session->schema;
 	dnode *dn = window_function->data.lval->h;
@@ -5176,10 +5156,10 @@ rel_rankop(sql_query *query, sql_rel **rel, symbol *se, int f)
 	if (!is_sql_sel(f))
 		return sql_error(sql, 02, SQLSTATE(42000) "OVER: only possible within the selection");
 
-	p = pp = *rel;
+	p = *rel;
 	/* Partition By */
 	if (partition_by_clause) {
-		gbe = rel_group_by(query, &pp, partition_by_clause, NULL /* cannot use (selection) column references, as this result is a selection column */, nf | sql_window);
+		gbe = rel_group_by(query, &p, partition_by_clause, NULL /* cannot use (selection) column references, as this result is a selection column */, nf | sql_window);
 		if (!gbe)
 			return NULL;
 		for (n = gbe->h ; n ; n = n->next) {
@@ -5191,7 +5171,7 @@ rel_rankop(sql_query *query, sql_rel **rel, symbol *se, int f)
 
 	/* Order By */
 	if (order_by_clause) {
-		obe = rel_order_by(query, &pp, order_by_clause, nf | sql_window);
+		obe = rel_order_by(query, &p, order_by_clause, nf | sql_window);
 		if (!obe)
 			return NULL;
 		for (n = obe->h ; n ; n = n->next) {
@@ -5452,6 +5432,7 @@ rel_rankop(sql_query *query, sql_rel **rel, symbol *se, int f)
 		append(args, eend);
 	}
 	call = exp_rank_op(sql->sa, args, gbe, obe, wf);
+	*rel = p;
 	return call;
 }
 
@@ -5535,6 +5516,10 @@ rel_value_exp2(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek, 
 			}
 			r = rel_subquery(query, NULL, se, ek);
 		}
+		if (0 && r) {
+			/* ugh */
+			return exp_rel(sql, r);
+		}
 
 		if (r) {
 			sql_exp *e;
@@ -5579,6 +5564,7 @@ rel_value_exp2(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek, 
 					exp_setname(sql->sa, ne, exp_relname(e), exp_name(e));
 					e = ne;
 				} else { 
+#if 0
 					if (is_sql_sel(f) && is_project(p->op) && !is_processed(p)) {
 						if (p->l) {
 							p->l = rel_crossproduct(sql->sa, p->l, r, op_join);
@@ -5588,6 +5574,8 @@ rel_value_exp2(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek, 
 					} else {
 						*rel = rel_crossproduct(sql->sa, p, r, is_sql_sel(f)?op_left:op_join);
 					}
+#endif
+						*rel = rel_crossproduct(sql->sa, p, r, is_sql_sel(f)?op_left:op_join);
 				}
 				*is_last = 1;
 				return e;
@@ -5728,7 +5716,7 @@ rel_value_exp(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek)
 		return sql_error(query->sql, 10, SQLSTATE(42000) "SELECT: too many nested operators");
 
 	e = rel_value_exp2(query, rel, se, f, ek, &is_last);
-	if (e && (se->token == SQL_SELECT || se->token == SQL_TABLE) && !is_last) {
+	if (e && (se->token == SQL_SELECT || se->token == SQL_TABLE) && !is_last && !exp_is_rel(e)) {
 		assert(*rel);
 		return rel_lastexp(query->sql, *rel);
 	}
@@ -5853,13 +5841,23 @@ rel_having_limits_nodes(sql_query *query, sql_rel *rel, SelectNode *sn, exp_kind
 
 	if (rel && sn->orderby) {
 		list *obe = NULL;
+		sql_rel *sel = NULL, *l = rel->l;
 
+		/* project( select ) */
+		if (sn->having && is_select(l->op)) {
+			sel = l;
+			rel->l = l->l;
+		}
 		rel = rel_orderby(sql, rel);
 		set_processed(rel);
 		obe = rel_order_by(query, &rel, sn->orderby, sql_orderby);
 		if (!obe)
 			return NULL;
 		rel->r = obe;
+		if (sel) {
+			sql_rel *o = rel, *p = o->l;
+			p->l = sel;
+		}
 	}
 	if (!rel)
 		return NULL;
@@ -6051,8 +6049,13 @@ rel_unique_names(mvc *sql, sql_rel *rel)
 	for (n = rel->exps->h; n; n = n->next) {
 		sql_exp *e = n->data;
 
-		if (exp_name(e) && exps_bind_column2(l, exp_relname(e), exp_name(e))) 
-			exp_label(sql->sa, e, ++sql->label);
+		if (exp_relname(e)) { 
+			if (exp_name(e) && exps_bind_column2(l, exp_relname(e), exp_name(e))) 
+				exp_label(sql->sa, e, ++sql->label);
+		} else {
+			if (exp_name(e) && exps_bind_column(l, exp_name(e), NULL)) 
+				exp_label(sql->sa, e, ++sql->label);
+		}
 		append(l,e);
 	}
 	rel->exps = l;

@@ -85,7 +85,7 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 	(void)sql;
 	if (!e)
 		return;
-	//mnstr_printf(fout, "%p ", e);
+	/*mnstr_printf(fout, "%p ", e);*/
 	switch(e->type) {
 	case e_psm: {
 		if (e->flag & PSM_SET) {
@@ -106,7 +106,7 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 			if (e->f)
 				exps_print(sql, fout, e->f, depth, refs, alias, 0);
 		} else if (e->flag & PSM_REL) {
-			rel_print_(sql, fout, e->l, depth+1, refs, 1);
+			rel_print_(sql, fout, e->l, depth+10, refs, 1);
 		} else if (e->flag & PSM_EXCEPTION) {
 			mnstr_printf(fout, "except ");
 			exp_print(sql, fout, e->l, depth, refs, 0, 0);
@@ -164,8 +164,11 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 				f->func->s?f->func->s->base.name:"sys",
 				f->func->base.name);
 		exps_print(sql, fout, e->l, depth, refs, alias, 1);
-		if (e->r)
-			exps_print(sql, fout, e->r, depth, refs, alias, 1);
+		if (e->r) { /* list of optional lists */
+			list *l = e->r;
+			for(node *n = l->h; n; n = n->next) 
+				exps_print(sql, fout, n->data, depth, refs, alias, 1);
+		}
 	} 	break;
 	case e_aggr: {
 		sql_subaggr *a = e->f;

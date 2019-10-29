@@ -15,7 +15,7 @@
 #include "rel_rel.h"
 #include "rel_exp.h"
 #include "mal_errors.h" /* for SQLSTATE() */
-
+ 
 static void
 exp_set_freevar(mvc *sql, sql_exp *e, sql_rel *r)
 {
@@ -370,6 +370,7 @@ push_up_project_exps(mvc *sql, sql_rel *rel, list *exps)
 
 		n->data = push_up_project_exp(sql, rel, e);
 	}
+	list_hash_clear(exps);
 	return exps;
 }
 
@@ -1341,6 +1342,8 @@ bind_exp(mvc *sql, sql_rel *rel, sql_exp *e, int top_groupby)
 			else //if (is_groupby(s->op))
 				ne = !is_base(s->op)?bind_exp(sql, s->l, e, 0):NULL; 
 				//sql_exp *ne = exp_column(sql->sa, e->l, e->r, exp_subtype(e), exp_card(e), has_nil(e), is_intern(e)); 
+			if (!ne)
+				return e;
 			if (!ne) {
 				if (exp_name(e)) {
 					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", exp_name(e));
@@ -1375,6 +1378,37 @@ bind_exp(mvc *sql, sql_rel *rel, sql_exp *e, int top_groupby)
 	return found;
 }
 
+static sql_exp *
+rewrite_exp_rel(mvc *sql, sql_rel *rel, sql_exp *e)
+{
+	if (exp_is_rel(e)) {
+		sql_rel *l = e->l;
+		sql_exp *ne;
+
+		if (is_join(rel->op)){ /* TODO handle set operators etc */ 
+			rel->r = rel_crossproduct(sql->sa, rel->r, l, op_join);
+		} else if (is_project(rel->op)){ /* projection -> op_left */
+			rel->l = rel_crossproduct(sql->sa, rel->l, l, op_left);
+		} else {
+			rel->l = rel_crossproduct(sql->sa, rel->l, l, op_join);
+		}
+		ne = l->exps->t->data;
+		if (exp_name(e))
+			exp_prop_alias(ne, e);
+		e = exp_ref(sql->sa, ne);
+	}
+	return e;
+}
+
+/* add an dummy true projection column */
+static sql_rel *
+rewrite_empty_project(mvc *sql, sql_rel *rel)
+{
+	if (is_simple_project(rel->op) && list_empty(rel->exps))
+		append(rel->exps, exp_atom_bool(sql->sa, 1));
+	return rel;
+}
+
 static list*
 aggrs_split_args(mvc *sql, list *aggrs, list *exps) 
 {
@@ -1382,12 +1416,37 @@ aggrs_split_args(mvc *sql, list *aggrs, list *exps)
 		return aggrs;
 	for (node *n=aggrs->h; n; n = n->next) {
 		sql_exp *a = n->data;
+
+		if (!is_aggr(a->type)) {
+			sql_exp *e1 = a, *found = NULL;
+
+			for (node *nn = exps->h; nn && !found; nn = nn->next) {
+				sql_exp *e2 = nn->data;
+		
+				if (!exp_equal(e1, e2))
+					found = e2;
+			}
+			if (!found) {
+				if (!exp_name(e1))
+					e1 = exp_label(sql->sa, e1, ++sql->label);
+				append(exps, e1);
+			} else {
+				e1 = found;
+			}
+			e1 = exp_ref(sql->sa, e1);
+			n->data = e1; /* replace by reference */
+			continue;
+		}
 		list *args = a->l;
 
 		if (!list_empty(args)) {
 			for (node *an = args->h; an; an = an->next) {
-				sql_exp *e1 = an->data, *found = NULL;
+				sql_exp *e1 = an->data, *found = NULL, *eo = e1;
+				/* we keep converts as they reuse names of inner columns */
+				int convert = is_convert(e1->type);
 
+				if (convert)
+					e1 = e1->l;
 				for (node *nn = exps->h; nn && !found; nn = nn->next) {
 					sql_exp *e2 = nn->data;
 		
@@ -1395,30 +1454,125 @@ aggrs_split_args(mvc *sql, list *aggrs, list *exps)
 						found = e2;
 				}
 				if (!found) {
-					append(exps, e1);
 					if (!exp_name(e1))
 						e1 = exp_label(sql->sa, e1, ++sql->label);
+					append(exps, e1);
 				} else {
 					e1 = found;
 				}
 				e1 = exp_ref(sql->sa, e1);
-				an->data = e1; /* replace by reference */
+				/* replace by reference */
+				if (convert) 
+					eo->l = e1;
+				else
+					an->data = e1; 
 			}
 		}
 	}
 	return aggrs;
 }
 
-static sql_rel *
-rel_groupby_split_exps(mvc *sql, sql_rel *rel)
+static int
+exps_complex(list *exps) 
 {
-	list *exps = sa_list(sql->sa);
+	if (list_empty(exps))
+		return 0;
+	for(node *n = exps->h; n; n = n->next) {
+		sql_exp *e = n->data;
 
-	assert(is_groupby(rel->op));
-	rel->r = aggrs_split_args(sql, rel->r, exps);
-	rel->exps = aggrs_split_args(sql, rel->exps, exps);
-	rel->l = rel_project(sql->sa, rel->l, exps);
+		if (e->type != e_column && e->type != e_atom)
+			return 1;
+	}
+	return 0;
+}
+
+static int
+aggrs_complex(list *exps) 
+{
+	if (list_empty(exps))
+		return 0;
+	for(node *n = exps->h; n; n = n->next) {
+		sql_exp *e = n->data;
+
+		if (e->type != e_column) {
+			if (e->type == e_aggr) {
+				if (exps_complex(e->l))
+					return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+/* simplify aggregates, ie push functions under the groupby relation */
+/* rel visitor */
+static sql_rel *
+rewrite_aggregates(mvc *sql, sql_rel *rel)
+{
+	if (is_groupby(rel->op) && (exps_complex(rel->r) || aggrs_complex(rel->exps))) {
+		list *exps = sa_list(sql->sa);
+
+		rel->r = aggrs_split_args(sql, rel->r, exps);
+		rel->exps = aggrs_split_args(sql, rel->exps, exps);
+		rel->l = rel_project(sql->sa, rel->l, exps);
+		return rel;
+	}
 	return rel;
+}
+
+/* exp visitor */
+static sql_exp *
+rewrite_rank(mvc *sql, sql_rel *rel, sql_exp *e)
+{
+	if (e->type != e_func || !e->r)
+		return e;
+
+	assert(is_simple_project(rel->op));
+	list *r = e->r, *gbe = r->h->data, *obe = r->h->next->data; 
+
+	if (gbe || obe) {
+		sql_rel *r = rel_project(sql->sa, rel->l, rel_projections(sql, rel->l, NULL, 1, 1));
+		if (gbe && obe) {
+			gbe = list_merge(sa_list(sql->sa), gbe, (fdup)NULL); /* make sure the p->r is a different list than the gbe list */
+			for(node *n = obe->h ; n ; n = n->next) {
+				sql_exp *e1 = n->data;
+				bool found = false;
+
+				for(node *nn = gbe->h ; nn && !found ; nn = nn->next) {
+					sql_exp *e2 = nn->data;
+					//the partition expression order should be the same as the one in the order by clause (if it's in there as well)
+					if(!exp_equal(e1, e2)) {
+						if(is_ascending(e1))
+							e2->flag |= ASCENDING;
+						else
+							e2->flag &= ~ASCENDING;
+						found = true;
+					}
+				}
+				if(!found)
+					append(gbe, e1);
+			}
+		} else if (obe) {
+			gbe = obe;
+		}
+		r->r = gbe;
+		rel->l = r;
+
+		/* mark as normal (analytic) function now */
+		e->r = NULL;
+
+		/* add project with rank */
+		r = rel->l = rel_project(sql->sa, rel->l, rel_projections(sql, rel->l, NULL, 1, 1));
+		/* move rank down add ref */
+		if (!exp_name(e))
+			e = exp_label(sql->sa, e, ++sql->label);
+		append(r->exps, e); 
+		e = exp_ref(sql->sa, e);
+	} else {
+		/* mark as normal (analytic) function now */
+		e->r = NULL;
+	}
+	return e;
 }
 
 static int
@@ -1442,57 +1596,19 @@ rel_bind_exp_(mvc *sql, sql_rel *rel, sql_exp *e)
 		}
 		return !ok;
 	case e_convert:
+		e->l = rewrite_exp_rel(sql, rel, e->l);
 		return rel_bind_exp_(sql, rel, e->l);
 	case e_aggr:
 	case e_func: 
-		if (e->r) { /* rewrite rank op */
-			/* TODO find all rank op's and merge gbe/obe */
-			list *r = e->r, *gbe = r->h->data, *obe = r->h->next->data; 
-
-			assert(is_simple_project(rel->op) || is_groupby(rel->op));
-			/* First push rank expressions down under the group by */
-			if (is_groupby(rel->op)) {
-				rel = rel_groupby_split_exps(sql, rel);
-				return !ok;
-			}
-			assert(is_simple_project(rel->op));
-			if (gbe || obe) {
-				sql_rel *r = rel_project(sql->sa, rel->l, rel_projections(sql, rel->l, NULL, 1, 1));
-				if (gbe && obe) {
-					gbe = list_merge(sa_list(sql->sa), gbe, (fdup)NULL); /* make sure the p->r is a different list than the gbe list */
-					for(node *n = obe->h ; n ; n = n->next) {
-						sql_exp *e1 = n->data;
-						bool found = false;
-
-						for(node *nn = gbe->h ; nn && !found ; nn = nn->next) {
-							sql_exp *e2 = nn->data;
-							//the partition expression order should be the same as the one in the order by clause (if it's in there as well)
-							if(!exp_equal(e1, e2)) {
-								if(is_ascending(e1))
-									e2->flag |= ASCENDING;
-								else
-									e2->flag &= ~ASCENDING;
-								found = true;
-							}
-						}
-						if(!found)
-							append(gbe, e1);
-					}
-				} else if (obe) {
-					gbe = obe;
-				}
-				r->r = gbe;
-				rel->l = r;
-			}
-			/* mark a normal (analytic) function now */
-			e->r = NULL;
-		}
+		assert(!e->r);
 		if (e->l) {
 			list *l = e->l;
 			node *n;
 	
-			for(n = l->h; n && ok; n = n->next)
+			for(n = l->h; n && ok; n = n->next) {
+				n->data = rewrite_exp_rel(sql, rel, n->data);
 				ok = !rel_bind_exp_(sql, rel, n->data);
+			}
 		}
 		return !ok;
 	case e_cmp:	
@@ -1505,14 +1621,17 @@ rel_bind_exp_(mvc *sql, sql_rel *rel, sql_exp *e)
 			if (ok)
 				ok = !rel_bind_exps(sql, rel, e->r);
 		} else {
+			e->l = rewrite_exp_rel(sql, rel, e->l);
 			ok = !rel_bind_exp_(sql, rel, e->l);
-			if (ok)
+			if (ok) {
+				e->r = rewrite_exp_rel(sql, rel, e->r);
 				ok = !rel_bind_exp_(sql, rel, e->r);
+			}
 			if (ok && e->f)
 				ok = !rel_bind_exp_(sql, rel, e->f);
 		}
 		return !ok;
-	case e_psm:	
+	case e_psm:
 	case e_atom:
 		return 0;
 	}
@@ -1527,8 +1646,13 @@ rel_bind_exps(mvc *sql, sql_rel *rel, list *exps)
 
 	if (list_empty(exps))
 		return 0;
-	for (n = exps->h; n && ok; n = n->next)
-		rel_bind_exp_(sql, rel, n->data);
+	for (n = exps->h; n && ok; n = n->next) {
+		if (n->data) {
+	       		n->data = rewrite_exp_rel(sql, rel, n->data);
+			rel_bind_exp_(sql, rel, n->data);
+		}
+	}
+	list_hash_clear(exps);
 	return !ok;
 }
 
@@ -1540,10 +1664,6 @@ rel_bind(mvc *sql, sql_rel *rel)
 	if (!rel || is_base(rel->op) || is_ddl(rel->op))
 		return 0;
 
-	if (is_simple_project(rel->op) && list_empty(rel->exps)) {
-		append(rel->exps, exp_atom_bool(sql->sa, 1));
-		return 0;
-	}
 	if (ok && rel->exps)
 		ok = !rel_bind_exps(sql, rel, rel->exps);
 	if (ok && is_groupby(rel->op) && rel->r)
@@ -1601,6 +1721,9 @@ sql_rel *
 rel_unnest(mvc *sql, sql_rel *rel)
 {
 	rel_reset_subquery(rel);
+	rel = rel_visitor(sql, rel, &rewrite_empty_project);
+	rel = rel_visitor(sql, rel, &rewrite_aggregates);
+	rel = rel_exp_visitor(sql, rel, &rewrite_rank);
 	if (rel_bind(sql, rel)) {
 		return NULL;
 	}

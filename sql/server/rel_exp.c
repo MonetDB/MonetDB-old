@@ -540,17 +540,11 @@ exp_alias_or_copy( mvc *sql, const char *tname, const char *cname, sql_rel *orel
 	if (!tname)
 		tname = old->alias.rname;
 
-	if (!tname && old->type == e_column)
-		tname = old->l;
-
 	if (!cname && exp_name(old) && exp_name(old)[0] == 'L') {
 		ne = exp_column(sql->sa, exp_relname(old), exp_name(old), exp_subtype(old), orel?orel->card:CARD_ATOM, has_nil(old), is_intern(old));
 		return exp_propagate(sql->sa, ne, old);
 	} else if (!cname) {
-		char name[16], *nme;
-		nme = number2name(name, 16, ++sql->label);
-
-		exp_setname(sql->sa, old, nme, nme);
+		exp_label(sql->sa, old, ++sql->label);
 		ne = exp_column(sql->sa, exp_relname(old), exp_name(old), exp_subtype(old), orel?orel->card:CARD_ATOM, has_nil(old), is_intern(old));
 		return exp_propagate(sql->sa, ne, old);
 	} else if (cname && !old->alias.name) {
@@ -652,6 +646,11 @@ exp_rel(mvc *sql, sql_rel *rel)
 	*/
 	e->l = rel;
 	e->flag = PSM_REL;
+	assert(rel);
+	if (is_project(rel->op)) {
+		sql_exp *last = rel->exps->t->data;
+		e->tpe = *exp_subtype(last);
+	}
 	return e;
 }
 
@@ -804,6 +803,10 @@ exp_subtype( sql_exp *e )
 	}
 	case e_cmp:
 		/* return bit */
+	case e_psm:
+		if (e->tpe.type)
+			return &e->tpe;
+		/* fall through */
 	default:
 		return NULL;
 	}
@@ -825,8 +828,6 @@ exp_relname( sql_exp *e )
 {
 	if (e->alias.rname)
 		return e->alias.rname;
-	if (e->type == e_column && e->l)
-		return e->l;
 	return NULL;
 }
 
@@ -837,8 +838,6 @@ exp_find_rel_name(sql_exp *e)
 		return e->alias.rname;
 	switch(e->type) {
 	case e_column:
-		if (e->l)
-			return e->l;
 		break;
 	case e_convert:
 		return exp_find_rel_name(e->l);
@@ -880,6 +879,8 @@ exp_equal( sql_exp *e1, sql_exp *e2)
 	if (e1 == e2)
 		return 0;
 	if (e1->alias.rname && e2->alias.rname && strcmp(e1->alias.rname, e2->alias.rname) == 0)
+		return strcmp(e1->alias.name, e2->alias.name);
+	if (!e1->alias.rname && !e2->alias.rname && e1->alias.label == e2->alias.label && e1->alias.name && e2->alias.name)
 		return strcmp(e1->alias.name, e2->alias.name);
 	return -1;
 }
@@ -1542,6 +1543,12 @@ exp_is_atom( sql_exp *e )
 }
 
 int
+exp_is_rel( sql_exp *e )
+{
+	return (e->type == e_psm && e->flag == PSM_REL && e->l);
+}
+
+int
 exps_are_atoms( list *exps)
 {
 	node *n;
@@ -2024,7 +2031,6 @@ exp_copy( sql_allocator *sa, sql_exp * e)
 	if (!ne)
 		return ne;
 	if (e->alias.name)
-		//exp_setname(sa, ne, exp_find_rel_name(e), exp_name(e));
 		exp_prop_alias(ne, e);
 	ne = exp_propagate(sa, ne, e);
 	if (is_freevar(e))
