@@ -2155,25 +2155,25 @@ rel_push_topn_down(int *changes, mvc *sql, sql_rel *rel)
 
 			/* introduce projects under the set */
 			ul = rel_project(sql->sa, ul, NULL);
-			ul->exps = exps_copy(sql->sa, r->exps);
+			ul->exps = exps_copy(sql, r->exps);
 			/* possibly add order by column */
 			if (add_r)
-				ul->exps = list_merge(ul->exps, exps_copy(sql->sa, r->r), NULL);
-			ul->r = exps_copy(sql->sa, r->r);
+				ul->exps = list_merge(ul->exps, exps_copy(sql, r->r), NULL);
+			ul->r = exps_copy(sql, r->r);
 			ul = rel_topn(sql->sa, ul, sum_limit_offset(sql, rel->exps));
 			ur = rel_project(sql->sa, ur, NULL);
-			ur->exps = exps_copy(sql->sa, r->exps);
+			ur->exps = exps_copy(sql, r->exps);
 			/* possibly add order by column */
 			if (add_r)
-				ur->exps = list_merge(ur->exps, exps_copy(sql->sa, r->r), NULL);
-			ur->r = exps_copy(sql->sa, r->r);
+				ur->exps = list_merge(ur->exps, exps_copy(sql, r->r), NULL);
+			ur->r = exps_copy(sql, r->r);
 			ur = rel_topn(sql->sa, ur, sum_limit_offset(sql, rel->exps));
 			u = rel_setop(sql->sa, ul, ur, op_union);
 			u->exps = exps_alias(sql->sa, r->exps); 
 			set_processed(u);
 			/* possibly add order by column */
 			if (add_r)
-				u->exps = list_merge(u->exps, exps_copy(sql->sa, r->r), NULL);
+				u->exps = list_merge(u->exps, exps_copy(sql, r->r), NULL);
 			if (need_distinct(r)) {
 				set_distinct(ul);
 				set_distinct(ur);
@@ -2311,7 +2311,7 @@ exp_push_down_prj(mvc *sql, sql_exp *e, sql_rel *f, sql_rel *t)
 				return NULL;
 		}
 		if (ne->type == e_atom) 
-			e = exp_copy(sql->sa, ne);
+			e = exp_copy(sql, ne);
 		else
 			e = exp_alias(sql->sa, exp_relname(e), exp_name(e), ne->l, ne->r, exp_subtype(e), e->card, has_nil(e), is_intern(e));
 		return exp_propagate(sql->sa, e, ne);
@@ -4041,30 +4041,30 @@ rel_push_aggr_down(int *changes, mvc *sql, sql_rel *rel)
 		rel_rename_exps(sql, u->exps, ur->exps);
 		if (u != ou) {
 			ul = rel_project(sql->sa, ul, NULL);
-			ul->exps = exps_copy(sql->sa, ou->exps);
+			ul->exps = exps_copy(sql, ou->exps);
 			rel_rename_exps(sql, ou->exps, ul->exps);
 			ur = rel_project(sql->sa, ur, NULL);
-			ur->exps = exps_copy(sql->sa, ou->exps);
+			ur->exps = exps_copy(sql, ou->exps);
 			rel_rename_exps(sql, ou->exps, ur->exps);
 		}	
 
 		if (g->r && list_length(g->r) > 0) {
 			list *gbe = g->r;
 
-			lgbe = exps_copy(sql->sa, gbe);
-			rgbe = exps_copy(sql->sa, gbe);
+			lgbe = exps_copy(sql, gbe);
+			rgbe = exps_copy(sql, gbe);
 		}
 		ul = rel_groupby(sql, ul, NULL);
 		ul->r = lgbe;
 		ul->nrcols = g->nrcols;
 		ul->card = g->card;
-		ul->exps = list_merge(exps_copy(sql->sa, g->exps), exps_copy(sql->sa, ul->r), (fdup)NULL);
+		ul->exps = list_merge(exps_copy(sql, g->exps), exps_copy(sql, ul->r), (fdup)NULL);
 
 		ur = rel_groupby(sql, ur, NULL);
 		ur->r = rgbe;
 		ur->nrcols = g->nrcols;
 		ur->card = g->card;
-		ur->exps = list_merge(exps_copy(sql->sa, g->exps), exps_copy(sql->sa, ur->r), (fdup)NULL);
+		ur->exps = list_merge(exps_copy(sql, g->exps), exps_copy(sql, ur->r), (fdup)NULL);
 
 		/* group by on primary keys which define the partioning scheme 
 		 * don't need a finalizing group by */
@@ -4129,7 +4129,7 @@ rel_push_aggr_down(int *changes, mvc *sql, sql_rel *rel)
 				if (/* DISABLES CODE */ (0) && cnt)
 					ne->p = prop_create(sql->sa, PROP_COUNT, ne->p);
 			} else {
-				ne = exp_copy(sql->sa, oa);
+				ne = exp_copy(sql, oa);
 			}
 			exp_setname(sql->sa, ne, exp_find_rel_name(oa), exp_name(oa));
 			append(exps, ne);
@@ -4802,8 +4802,8 @@ rel_push_semijoin_down(int *changes, mvc *sql, sql_rel *rel)
 			if (!right && !left)
 				return rel;
 		} 
-		nsexps = exps_copy(sql->sa, rel->exps);
-		njexps = exps_copy(sql->sa, l->exps);
+		nsexps = exps_copy(sql, rel->exps);
+		njexps = exps_copy(sql, l->exps);
 		if (right)
 			l = rel_crossproduct(sql->sa, rel_dup(ll), rel_dup(r), op);
 		else
@@ -4980,9 +4980,9 @@ rel_push_join_down_union(int *changes, mvc *sql, sql_rel *rel)
 			rel_rename_exps(sql, l->exps, lr->exps);
 			if (l != ol) {
 				ll = rel_project(sql->sa, ll, NULL);
-				ll->exps = exps_copy(sql->sa, ol->exps);
+				ll->exps = exps_copy(sql, ol->exps);
 				lr = rel_project(sql->sa, lr, NULL);
-				lr->exps = exps_copy(sql->sa, ol->exps);
+				lr->exps = exps_copy(sql, ol->exps);
 			}	
 			nl = rel_crossproduct(sql->sa, ll, rel_dup(or), rel->op);
 			nr = rel_crossproduct(sql->sa, lr, rel_dup(or), rel->op);
@@ -4990,8 +4990,8 @@ rel_push_join_down_union(int *changes, mvc *sql, sql_rel *rel)
 				set_no_nil(nl);
 				set_no_nil(nr);
 			}
-			nl->exps = exps_copy(sql->sa, exps);
-			nr->exps = exps_copy(sql->sa, exps);
+			nl->exps = exps_copy(sql, exps);
+			nr->exps = exps_copy(sql, exps);
 			nl = rel_project(sql->sa, nl, rel_projections(sql, nl, NULL, 1, 1));
 			nr = rel_project(sql->sa, nr, rel_projections(sql, nr, NULL, 1, 1));
 			(*changes)++;
@@ -5013,9 +5013,9 @@ rel_push_join_down_union(int *changes, mvc *sql, sql_rel *rel)
 			rel_rename_exps(sql, l->exps, lr->exps);
 			if (l != ol) {
 				ll = rel_project(sql->sa, ll, NULL);
-				ll->exps = exps_copy(sql->sa, ol->exps);
+				ll->exps = exps_copy(sql, ol->exps);
 				lr = rel_project(sql->sa, lr, NULL);
-				lr->exps = exps_copy(sql->sa, ol->exps);
+				lr->exps = exps_copy(sql, ol->exps);
 			}	
 			if (!is_project(rl->op))
 				rl = rel_project(sql->sa, rl, 
@@ -5027,9 +5027,9 @@ rel_push_join_down_union(int *changes, mvc *sql, sql_rel *rel)
 			rel_rename_exps(sql, r->exps, rr->exps);
 			if (r != or) {
 				rl = rel_project(sql->sa, rl, NULL);
-				rl->exps = exps_copy(sql->sa, or->exps);
+				rl->exps = exps_copy(sql, or->exps);
 				rr = rel_project(sql->sa, rr, NULL);
-				rr->exps = exps_copy(sql->sa, or->exps);
+				rr->exps = exps_copy(sql, or->exps);
 			}	
 			nl = rel_crossproduct(sql->sa, ll, rl, rel->op);
 			nr = rel_crossproduct(sql->sa, lr, rr, rel->op);
@@ -5037,8 +5037,8 @@ rel_push_join_down_union(int *changes, mvc *sql, sql_rel *rel)
 				set_no_nil(nl);
 				set_no_nil(nr);
 			}
-			nl->exps = exps_copy(sql->sa, exps);
-			nr->exps = exps_copy(sql->sa, exps);
+			nl->exps = exps_copy(sql, exps);
+			nr->exps = exps_copy(sql, exps);
 			nl = rel_project(sql->sa, nl, rel_projections(sql, nl, NULL, 1, 1));
 			nr = rel_project(sql->sa, nr, rel_projections(sql, nr, NULL, 1, 1));
 			(*changes)++;
@@ -5060,9 +5060,9 @@ rel_push_join_down_union(int *changes, mvc *sql, sql_rel *rel)
 			rel_rename_exps(sql, r->exps, rr->exps);
 			if (r != or) {
 				rl = rel_project(sql->sa, rl, NULL);
-				rl->exps = exps_copy(sql->sa, or->exps);
+				rl->exps = exps_copy(sql, or->exps);
 				rr = rel_project(sql->sa, rr, NULL);
-				rr->exps = exps_copy(sql->sa, or->exps);
+				rr->exps = exps_copy(sql, or->exps);
 			}	
 			nl = rel_crossproduct(sql->sa, rel_dup(ol), rl, rel->op);
 			nr = rel_crossproduct(sql->sa, rel_dup(ol), rr, rel->op);
@@ -5070,8 +5070,8 @@ rel_push_join_down_union(int *changes, mvc *sql, sql_rel *rel)
 				set_no_nil(nl);
 				set_no_nil(nr);
 			}
-			nl->exps = exps_copy(sql->sa, exps);
-			nr->exps = exps_copy(sql->sa, exps);
+			nl->exps = exps_copy(sql, exps);
+			nr->exps = exps_copy(sql, exps);
 			nl = rel_project(sql->sa, nl, rel_projections(sql, nl, NULL, 1, 1));
 			nr = rel_project(sql->sa, nr, rel_projections(sql, nr, NULL, 1, 1));
 			(*changes)++;
@@ -5114,12 +5114,12 @@ rel_push_join_down_union(int *changes, mvc *sql, sql_rel *rel)
 				rel_rename_exps(sql, r->exps, rl->exps);
 				if (r != or) {
 					rl = rel_project(sql->sa, rl, NULL);
-					rl->exps = exps_copy(sql->sa, or->exps);
+					rl->exps = exps_copy(sql, or->exps);
 				}	
 				nl = rel_crossproduct(sql->sa, rel_dup(ol), rl, rel->op);
 				if (need_no_nil(rel)) 
 					set_no_nil(nl);
-				nl->exps = exps_copy(sql->sa, exps);
+				nl->exps = exps_copy(sql, exps);
 				(*changes)++;
 				return rel_inplace_project(sql->sa, rel, nl, rel_projections(sql, rel, NULL, 1, 1));
 			/* case 2: uses right not left */
@@ -5134,12 +5134,12 @@ rel_push_join_down_union(int *changes, mvc *sql, sql_rel *rel)
 				rel_rename_exps(sql, r->exps, rr->exps);
 				if (r != or) {
 					rr = rel_project(sql->sa, rr, NULL);
-					rr->exps = exps_copy(sql->sa, or->exps);
+					rr->exps = exps_copy(sql, or->exps);
 				}	
 				nl = rel_crossproduct(sql->sa, rel_dup(ol), rr, rel->op);
 				if (need_no_nil(rel)) 
 					set_no_nil(nl);
-				nl->exps = exps_copy(sql->sa, exps);
+				nl->exps = exps_copy(sql, exps);
 				(*changes)++;
 				return rel_inplace_project(sql->sa, rel, nl, rel_projections(sql, rel, NULL, 1, 1));
 			}
@@ -5236,10 +5236,10 @@ rel_push_select_down_union(int *changes, mvc *sql, sql_rel *rel)
 
 		if (u != ou) {
 			ul = rel_project(sql->sa, ul, NULL);
-			ul->exps = exps_copy(sql->sa, ou->exps);
+			ul->exps = exps_copy(sql, ou->exps);
 			rel_rename_exps(sql, ou->exps, ul->exps);
 			ur = rel_project(sql->sa, ur, NULL);
-			ur->exps = exps_copy(sql->sa, ou->exps);
+			ur->exps = exps_copy(sql, ou->exps);
 			rel_rename_exps(sql, ou->exps, ur->exps);
 		}	
 
@@ -5249,8 +5249,8 @@ rel_push_select_down_union(int *changes, mvc *sql, sql_rel *rel)
 		ul = rel_select(sql->sa, ul, NULL);
 		ur = rel_select(sql->sa, ur, NULL);
 		
-		ul->exps = exps_copy(sql->sa, s->exps);
-		ur->exps = exps_copy(sql->sa, s->exps);
+		ul->exps = exps_copy(sql, s->exps);
+		ur->exps = exps_copy(sql, s->exps);
 
 		rel = rel_inplace_setop(rel, ul, ur, op_union, rel_projections(sql, rel, NULL, 1, 1));
 		(*changes)++;
@@ -5304,8 +5304,8 @@ rel_push_project_down_union(int *changes, mvc *sql, sql_rel *rel)
 		if (need_distinct)
 			set_distinct(ur);
 		
-		ul->exps = exps_copy(sql->sa, p->exps);
-		ur->exps = exps_copy(sql->sa, p->exps);
+		ul->exps = exps_copy(sql, p->exps);
+		ur->exps = exps_copy(sql, p->exps);
 
 		rel = rel_inplace_setop(rel, ul, ur, op_union,
 			rel_projections(sql, rel, NULL, 1, 1));
@@ -5551,7 +5551,7 @@ rel_reduce_groupby_exps(int *changes, mvc *sql, sql_rel *rel)
 						else
 							ne = exps_bind_column(dgbe, e->r, NULL);
 						if (ne) {
-							ne = exp_copy(sql->sa, ne);
+							ne = exp_copy(sql, ne);
 							exp_prop_alias(ne, e);
 							e = ne;
 						}
@@ -5729,7 +5729,7 @@ rel_groupby_distinct(int *changes, mvc *sql, sql_rel *rel)
 		}
 
 		darg = arg->h->data;
-		list_append(gbe, darg = exp_copy(sql->sa, darg));
+		list_append(gbe, darg = exp_copy(sql, darg));
 		exp_label(sql->sa, darg, ++sql->label);
 
 		darg = exp_ref(sql->sa, darg);
@@ -8149,7 +8149,7 @@ rel_rewrite_antijoin(int *changes, mvc *sql, sql_rel *rel)
 			nl = rel_crossproduct(sql->sa, rel->l, rl, op_anti);
 			if (need_no_nil(rel))
 				set_no_nil(nl);
-			nl->exps = exps_copy(sql->sa, rel->exps);
+			nl->exps = exps_copy(sql, rel->exps);
 			rel->l = nl;
 			rel->r = rr;
 			rel_destroy(r);
@@ -8236,16 +8236,16 @@ rel_split_outerjoin(int *changes, mvc *sql, sql_rel *rel)
 		/* expect only a single or expr for now */
 		assert(list_length(rel->exps) == 1);
 	       	e = rel->exps->h->data;
-		nll->exps = exps_copy(sql->sa, e->l);
-		nlr->exps = exps_copy(sql->sa, e->r);
+		nll->exps = exps_copy(sql, e->l);
+		nlr->exps = exps_copy(sql, e->r);
 		nl = rel_or( sql, NULL, nll, nlr, NULL, NULL, NULL);
 
 		if (rel->op == op_left || rel->op == op_full) {
 			/* split in 2 anti joins */
 			nr = rel_crossproduct(sql->sa, rel_dup(l), rel_dup(r), op_anti);
-			nr->exps = exps_copy(sql->sa, e->l);
+			nr->exps = exps_copy(sql, e->l);
 			nr = rel_crossproduct(sql->sa, nr, rel_dup(r), op_anti);
-			nr->exps = exps_copy(sql->sa, e->r);
+			nr->exps = exps_copy(sql, e->r);
 
 			/* project left */
 			nr = rel_project(sql->sa, nr, 
@@ -8260,9 +8260,9 @@ rel_split_outerjoin(int *changes, mvc *sql, sql_rel *rel)
 		if (rel->op == op_right || rel->op == op_full) {
 			/* split in 2 anti joins */
 			nr = rel_crossproduct(sql->sa, rel_dup(r), rel_dup(l), op_anti);
-			nr->exps = exps_copy(sql->sa, e->l);
+			nr->exps = exps_copy(sql, e->l);
 			nr = rel_crossproduct(sql->sa, nr, rel_dup(l), op_anti);
-			nr->exps = exps_copy(sql->sa, e->r);
+			nr->exps = exps_copy(sql, e->r);
 
 			nr = rel_project(sql->sa, nr, sa_list(sql->sa));
 			/* add null's for left */

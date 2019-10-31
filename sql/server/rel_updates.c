@@ -181,7 +181,9 @@ rel_insert_join_idx(mvc *sql, const char* alias, sql_idx *i, sql_rel *inserts)
 			exp_label(sql->sa, _is, ++sql->label);
 		_is = exp_ref(sql->sa, _is);
 		lnl = exp_unop(sql->sa, _is, isnil);
+		set_has_no_nil(lnl);
 		rnl = exp_unop(sql->sa, _is, isnil);
+		set_has_no_nil(rnl);
 		if (need_nulls) {
 			if (lnll_exps) {
 				lnll_exps = exp_binop(sql->sa, lnll_exps, lnl, or);
@@ -789,7 +791,9 @@ rel_update_join_idx(mvc *sql, const char* alias, sql_idx *i, sql_rel *updates)
 		/* Currently only the default MATCH SIMPLE is supported */
 		upd = exp_ref(sql->sa, upd);
 		lnl = exp_unop(sql->sa, upd, isnil);
+		set_has_no_nil(lnl);
 		rnl = exp_unop(sql->sa, upd, isnil);
+		set_has_no_nil(rnl);
 		if (need_nulls) {
 			if (lnll_exps) {
 				lnll_exps = exp_binop(sql->sa, lnll_exps, lnl, or);
@@ -1528,7 +1532,8 @@ merge_into_table(sql_query *query, dlist *qname, str alias, symbol *tref, symbol
 				//select bt values which are not null (they had a match in the join)
 				project_first = extra_project->exps->h->next->data; // this expression must come from bt!!
 				project_first = exp_ref(sql->sa, project_first);
-				nils = rel_unop_(query, extra_project, project_first, NULL, "isnull", card_value);
+				nils = rel_unop_(sql, extra_project, project_first, NULL, "isnull", card_value);
+				set_has_no_nil(nils);
 				extra_select = rel_select(sql->sa, extra_project, exp_compare(sql->sa, nils, exp_atom_bool(sql->sa, 1), cmp_notequal));
 
 				//the update statement requires a projection on the right side
@@ -1556,7 +1561,8 @@ merge_into_table(sql_query *query, dlist *qname, str alias, symbol *tref, symbol
 				//select bt values which are not null (they had a match in the join)
 				project_first = extra_project->exps->h->next->data; // this expression must come from bt!!
 				project_first = exp_ref(sql->sa, project_first);
-				nils = rel_unop_(query, extra_project, project_first, NULL, "isnull", card_value);
+				nils = rel_unop_(sql, extra_project, project_first, NULL, "isnull", card_value);
+				set_has_no_nil(nils);
 				extra_select = rel_select(sql->sa, extra_project, exp_compare(sql->sa, nils, exp_atom_bool(sql->sa, 1), cmp_notequal));
 
 				//the delete statement requires a projection on the right side, which will be the oid values
@@ -1592,7 +1598,8 @@ merge_into_table(sql_query *query, dlist *qname, str alias, symbol *tref, symbol
 			//select bt values which are null (they didn't have match in the join)
 			project_first = extra_project->exps->h->next->data; // this expression must come from bt!!
 			project_first = exp_ref(sql->sa, project_first);
-			nils = rel_unop_(query, extra_project, project_first, NULL, "isnull", card_value);
+			nils = rel_unop_(sql, extra_project, project_first, NULL, "isnull", card_value);
+			set_has_no_nil(nils);
 			extra_select = rel_select(sql->sa, extra_project, exp_compare(sql->sa, nils, exp_atom_bool(sql->sa, 1), cmp_equal));
 
 			//project only values from the joined relation

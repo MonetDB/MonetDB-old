@@ -1572,8 +1572,9 @@ rel_compare_exp_(sql_query *query, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_e
 	sql_exp *L = ls, *R = rs, *e = NULL;
 
 	if (quantifier) {
-		sql_exp *nl = rel_unop_(query, rel, ls, NULL, "isnull", card_value);
-		e = rel_nop_(query, rel, rs, nl, rs2, NULL, NULL, (quantifier==1)?"any":"all", card_value);
+		sql_exp *nl = rel_unop_(sql, rel, ls, NULL, "isnull", card_value);
+		set_has_no_nil(nl);
+		e = rel_nop_(sql, rel, rs, nl, rs2, NULL, NULL, (quantifier==1)?"any":"all", card_value);
 		e = exp_compare(sql->sa, e, exp_atom_bool(sql->sa, (anti)?0:1), cmp_equal);
 		anti = 0;
 	} else if (!rs2) {
@@ -2217,7 +2218,7 @@ rel_in_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f)
 
 
 static sql_exp *
-exp_exist(sql_query *query, sql_exp *le, sql_exp *ne, int exists)
+exp_exist(sql_query *query, sql_exp *le, int exists)
 {
 	mvc *sql = query->sql;
 	sql_subfunc *exists_func = NULL;
@@ -2229,117 +2230,56 @@ exp_exist(sql_query *query, sql_exp *le, sql_exp *ne, int exists)
 
 	if (!exists_func) 
 		return sql_error(sql, 02, SQLSTATE(42000) "exist operator on type %s missing", exp_subtype(le)->type->sqlname);
-	if (ne) { /* correlated case */
-		ne = rel_unop_(query, NULL, ne, NULL, "isnull", card_value);
-		le = rel_nop_(query, NULL, ne, exp_atom_bool(sql->sa, !exists), exp_atom_bool(sql->sa, exists), NULL, NULL, "ifthenelse", card_value);
-		return le;
-	} else {
-		return exp_unop(sql->sa, le, exists_func);
-	}
+	return exp_unop(sql->sa, le, exists_func);
 }
 
 static sql_exp *
 rel_exists_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f)
 {
-	mvc *sql = query->sql;
-	exp_kind ek = {type_value, card_column, FALSE};
+	exp_kind ek = {type_value, card_set, FALSE};
+	sql_rel *sq = NULL;
+	sql_exp *le, *e;
 
-	symbol *lo = sc->data.sym;
-	sql_rel *orel = *rel, *sq = NULL;
-	list *pexps = NULL;
-	int needproj = 0, exists=(sc->token == SQL_EXISTS), is_value = is_sql_sel(f);
-	sql_exp *le;
-
-	if (ek.type == type_value)
-		is_value = 1;
-
-	/* no input, assume single value */
-	if ((!orel || (is_project(orel->op) && !is_processed(orel) && !orel->l && list_empty(orel->exps))) && !query_has_outer(query))
-		orel = *rel = rel_project_exp(sql->sa, exp_atom_bool(sql->sa, 1));
-	ek.card = card_set;
-
-	le = rel_value_exp(query, &sq, lo, f, ek);
-	if (!le && sql->session->status != -ERR_AMBIGUOUS) { /* correlated */
-		sql_subaggr *ea = NULL;
-		sql_exp *ne = NULL;
-
-		/* reset error */
-		sql->session->status = 0;
-		sql->errstr[0] = 0;
-
+	if (rel && *rel)
 		query_push_outer(query, *rel, f);
-		sq = rel_subquery(query, NULL, lo, ek);
+	le = rel_value_exp(query, &sq, sc->data.sym, f|tmp_exists, ek);
+	if (rel && *rel)
 		*rel = query_pop_outer(query);
-
-		if (!sq)
-			return NULL;
-
-		le = _rel_lastexp(sql, sq);
-		if (is_value && is_freevar(lastexp(sq))) {
-			sql_exp *re, *jc, *null;
-
-			re = rel_bound_exp(sql, sq);
-			re = rel_project_add_exp(sql, sq, re);
-			jc = rel_unop_(query, NULL, re, NULL, "isnull", card_value);
-			null = exp_null(sql->sa, exp_subtype(le));
-			le = rel_nop_(query, NULL, jc, null, le, NULL, NULL, "ifthenelse", card_value);
-		}
-		if (is_value) { /* aggr (not) exist */
-			sq = rel_groupby(sql, sq, NULL);
-
-			ea = sql_bind_aggr(sql->sa, sql->session->schema, exists?"exist":"not_exist", exp_subtype(le));
-			le = exp_aggr1(sql->sa, le, ea, 0, 0, CARD_ATOM, 0);
-			le = rel_groupby_add_aggr(sql, sq, le);
-			ne = le;
-			set_processed(sq);
-		} 
-		*rel = rel_crossproduct(sql->sa, *rel, sq, is_value?op_left:exists?op_semi:op_anti); 
-		set_dependent(*rel);
-		if (*rel && needproj) {
-			*rel = rel_project(sql->sa, *rel, pexps);
-			reset_processed(*rel);
-		} 
-		if (is_sql_sel(f))
-			return exp_exist(query, le, ne, exists);
-		return le;
-	}
-	if (!le)
+	if (!le) 
 		return NULL;
-
-	le = rel_is_constant(&sq, le);
-	if (!sq) {
-		*rel = orel;
-		return exp_exist(query, le, NULL, exists);
-	} else {
-		/* non correlated subquery */
-		sql_subaggr *ea = NULL;
-
-		if (*rel != orel) { /* remove project */
-			orel->l = NULL;
-			rel_destroy(orel);
-		}
-
-		if (!is_project(sq->op)) 
-			sq = rel_project(sql->sa, sq, rel_projections(sql, sq, NULL, 1, 1));
-		if (!exp_is_atom(le))
-			le = _rel_lastexp(sql, sq);
-		if (is_value) { /* aggr (not) exist */
-			sq = rel_groupby(sql, sq, NULL);
-			ea = sql_bind_aggr(sql->sa, sql->session->schema, exists?"exist":"not_exist", exp_subtype(le));
-			le = exp_aggr1(sql->sa, le, ea, 0, 0, CARD_ATOM, 0);
-			le = rel_groupby_add_aggr(sql, sq, le);
-			set_processed(sq);
-		}
-		*rel = rel_crossproduct(sql->sa, *rel, sq, is_value?op_left:exists?op_semi:op_anti); 
-		if (rel_has_freevar(sql, sq))
-			set_dependent(*rel);
-		if (*rel && needproj) {
-			*rel = rel_project(sql->sa, *rel, pexps);
-			reset_processed(*rel);
-		} 
-		return le;
+	e = exp_exist(query, le, sc->token == SQL_EXISTS);
+	if (e) {
+		/* only freevar should have CARD_AGGR */
+		e->card = CARD_ATOM;
 	}
-	return NULL;
+	return e;
+}
+
+static sql_rel *
+rel_exists_exp(sql_query *query, sql_rel *rel, symbol *sc, int f) 
+{
+	exp_kind ek = {type_value, card_set, TRUE};
+	mvc *sql = query->sql;
+	sql_rel *sq = NULL;
+
+	if (rel)
+		query_push_outer(query, rel, f);
+	sq = rel_subquery(query, NULL, sc->data.sym, ek);
+	if (rel)
+		rel = query_pop_outer(query);
+	assert(!is_sql_sel(f));
+	if (sq) {
+		rel = rel_crossproduct(sql->sa, rel, sq, op_join);
+		if (sc->token == SQL_EXISTS) {
+			rel->op = op_semi;
+		} else {	
+			rel->op = op_anti;
+		}
+		if (rel_has_freevar(sql, sq))
+			set_dependent(rel);
+		return rel;
+	}
+	return sq;
 }
 
 sql_exp *
@@ -2466,7 +2406,7 @@ rel_logical_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f)
 				return NULL;
 			rs = rel_binop_(query, rel ? *rel : NULL, ls, rs, NULL, compare_op, card_value);
 			if (need_not)
-				rs = rel_unop_(query, rel ? *rel : NULL, rs, NULL, "not", card_value);
+				rs = rel_unop_(sql, rel ? *rel : NULL, rs, NULL, "not", card_value);
 			return rs;
 		} else {
 			/* first try without current relation, too see if there
@@ -2576,11 +2516,12 @@ rel_logical_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f)
 				return NULL;
 			rs = rel_binop_(query, rel ? *rel : NULL, ls, rs, NULL, compare_op, card_value);
 			if (rs2) { 
-				sql_exp *nl = rel_unop_(query, rel ? *rel : NULL, ls, NULL, "isnull", card_value);
-				rs = rel_nop_(query, rel ? *rel : NULL, rs, nl, rs2, NULL, NULL, (quantifier==1)?"any":"all", card_value);
+				sql_exp *nl = rel_unop_(sql, rel ? *rel : NULL, ls, NULL, "isnull", card_value);
+				set_has_no_nil(nl);
+				rs = rel_nop_(sql, rel ? *rel : NULL, rs, nl, rs2, NULL, NULL, (quantifier==1)?"any":"all", card_value);
 			}
 			if (need_not)
-				rs = rel_unop_(query, rel ? *rel : NULL, rs, NULL, "not", card_value);
+				rs = rel_unop_(sql, rel ? *rel : NULL, rs, NULL, "not", card_value);
 			return rs;
 		}
 	}
@@ -2625,7 +2566,7 @@ rel_logical_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f)
 			ee = exp_atom(sql->sa, atom_string(sql->sa, st, sa_strdup(sql->sa, escape)));
 		}
 		if (ee)
-			return rel_nop_(query, rel ? *rel : NULL, le, re, ee, NULL, sys, like, card_value);
+			return rel_nop_(sql, rel ? *rel : NULL, le, re, ee, NULL, sys, like, card_value);
 		return rel_binop_(query, rel ? *rel : NULL, le, re, sys, like, card_value);
 	}
 	case SQL_BETWEEN:
@@ -2687,9 +2628,11 @@ rel_logical_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f)
 
 		if (!le)
 			return NULL;
-		le = rel_unop_(query, rel ? *rel : NULL, le, NULL, "isnull", card_value);
+		le = rel_unop_(sql, rel ? *rel : NULL, le, NULL, "isnull", card_value);
+		set_has_no_nil(le);
 		if (sc->token != SQL_IS_NULL)
-			le = rel_unop_(query, rel ? *rel : NULL, le, NULL, "not", card_value);
+			le = rel_unop_(sql, rel ? *rel : NULL, le, NULL, "not", card_value);
+		set_has_no_nil(le);
 		return le;
 	}
 	case SQL_NOT: {
@@ -2697,7 +2640,7 @@ rel_logical_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f)
 
 		if (!le)
 			return le;
-		return rel_unop_(query, rel ? *rel : NULL, le, NULL, "not", card_value);
+		return rel_unop_(sql, rel ? *rel : NULL, le, NULL, "not", card_value);
 	}
 	case SQL_ATOM: {
 		/* TRUE or FALSE */
@@ -3164,67 +3107,7 @@ rel_logical_exp(sql_query *query, sql_rel *rel, symbol *sc, int f)
 		return rel_in_exp(query, rel, sc, f);
 	case SQL_EXISTS:
 	case SQL_NOT_EXISTS:
-	{
-		symbol *lo = sc->data.sym;
-		sql_rel *orel = rel, *sq = NULL;
-		list *pexps = NULL;
-		int needproj = 0, exists=(sc->token == SQL_EXISTS);
-
-		ek.card = card_set;
-		if (orel && is_project(orel->op) && !is_processed(orel)) {
-			needproj = 1;
-			pexps = orel->exps;
-			rel = orel->l;
-		}
-
-		sq = rel_subquery(query, NULL, lo, ek);
-		if (!sq && rel && sql->session->status != -ERR_AMBIGUOUS) { /* correlation */
-			sql_subaggr *ea = NULL;
-			sql_exp *le;
-
-			/* reset error */
-			sql->session->status = 0;
-			sql->errstr[0] = '\0';
-
-			query_push_outer(query, rel, f);
-			sq = rel_subquery(query, NULL, lo, ek);
-			rel = query_pop_outer(query);
-
-			if (!sq)
-				return NULL;
-
-			if (rel != orel) { /* remove project */
-				orel->l = NULL;
-				rel_destroy(orel);
-			}
-
-			le = _rel_lastexp(sql, sq);
-			if (is_sql_sel(f)) { /* aggr (not) exist */
-				sq = rel_groupby(sql, sq, NULL);
-				ea = sql_bind_aggr(sql->sa, sql->session->schema, exists?"exist":"not_exist", exp_subtype(le));
-				le = exp_aggr1(sql->sa, le, ea, 0, 0, CARD_ATOM, 0);
-				le = rel_groupby_add_aggr(sql, sq, le);
-			}
-			rel = rel_crossproduct(sql->sa, rel, sq, is_sql_sel(f)?op_left:exists?op_semi:op_anti); 
-			set_dependent(rel);
-			if (rel && needproj) {
-				rel = rel_project(sql->sa, rel, pexps);
-				reset_processed(rel);
-			} 
-			return rel;
-		}
-		if (!sq || !rel)
-			return NULL;
-		if (!rel)
-			assert(0);
-		rel = rel_crossproduct(sql->sa, rel, sq, op_join);
-		if (sc->token == SQL_EXISTS) {
-			rel->op = op_semi;
-		} else {	
-			rel->op = op_anti;
-		}
-		return rel;
-	}
+		return rel_exists_exp(query, rel , sc, f);
 	case SQL_LIKE:
 	case SQL_NOT_LIKE:
 	{
@@ -3335,7 +3218,8 @@ rel_logical_exp(sql_query *query, sql_rel *rel, symbol *sc, int f)
 
 		if (!le)
 			return NULL;
-		le = rel_unop_(query, rel, le, NULL, "isnull", card_value);
+		le = rel_unop_(sql, rel, le, NULL, "isnull", card_value);
+		set_has_no_nil(le);
 		if (sc->token == SQL_IS_NULL)
 			re = exp_atom_bool(sql->sa, 1);
 		else
@@ -3360,7 +3244,7 @@ rel_logical_exp(sql_query *query, sql_rel *rel, symbol *sc, int f)
 
 		if (!le)
 			return NULL;
-		le = rel_unop_(query, rel, le, NULL, "not", card_value);
+		le = rel_unop_(sql, rel, le, NULL, "not", card_value);
 		if (le == NULL)
 			return NULL;
 		re = exp_atom_bool(sql->sa, 1);
@@ -3423,9 +3307,8 @@ rel_op(mvc *sql, symbol *se, exp_kind ek )
 }
 
 sql_exp *
-rel_unop_(sql_query *query, sql_rel *rel, sql_exp *e, sql_schema *s, char *fname, int card)
+rel_unop_(mvc *sql, sql_rel *rel, sql_exp *e, sql_schema *s, char *fname, int card)
 {
-	mvc *sql = query->sql;
 	sql_subfunc *f = NULL;
 	sql_subtype *t = NULL;
 	sql_ftype type = (card == card_loader)?F_LOADER:((card == card_none)?F_PROC:
@@ -3546,7 +3429,7 @@ rel_unop(sql_query *query, sql_rel **rel, symbol *se, int fs, exp_kind ek)
 		if (!e)
 			return NULL;
 	}
-	return rel_unop_(query, rel ? *rel : NULL, e, s, fname, ek.card);
+	return rel_unop_(sql, rel ? *rel : NULL, e, s, fname, ek.card);
 }
 
 #define is_addition(fname) (strcmp(fname, "sql_add") == 0)
@@ -3865,10 +3748,9 @@ rel_binop(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek)
 }
 
 sql_exp *
-rel_nop_(sql_query *query, sql_rel *rel, sql_exp *a1, sql_exp *a2, sql_exp *a3, sql_exp *a4, sql_schema *s, char *fname,
+rel_nop_(mvc *sql, sql_rel *rel, sql_exp *a1, sql_exp *a2, sql_exp *a3, sql_exp *a4, sql_schema *s, char *fname,
 		 int card)
 {
-	mvc *sql = query->sql;
 	list *tl = sa_list(sql->sa);
 	sql_subfunc *f = NULL;
 	sql_ftype type = (card == card_none)?F_PROC:((card == card_relation)?F_UNION:F_FUNC);
@@ -4307,7 +4189,7 @@ rel_case(sql_query *query, sql_rel **rel, tokens token, symbol *opt_cond, dlist 
 			if (e1 && e2) {
 				cond = rel_binop_(query, rel ? *rel : NULL, e1, e2, NULL, "=", card_value);
 				result = exp_null(sql->sa, exp_subtype(e1));
-				else_exp = exp_copy(sql->sa, e1);	/* ELSE case */
+				else_exp = exp_copy(sql, e1);	/* ELSE case */
 			}
 			/* COALESCE(e1,e2) == CASE WHEN e1
 			   IS NOT NULL THEN e1 ELSE e2 END */
@@ -4315,9 +4197,13 @@ rel_case(sql_query *query, sql_rel **rel, tokens token, symbol *opt_cond, dlist 
 			cond = rel_value_exp(query, rel, dn->data.sym, f, ek);
 
 			if (cond) {
-				result = exp_copy(sql->sa, cond);
-				cond = rel_unop_(query, rel ? *rel : NULL, rel_unop_(query, rel ? *rel : NULL, cond, NULL, "isnull",
-								 card_value), NULL, "not", card_value);
+				sql_exp *le;
+
+				result = exp_copy(sql, cond);
+				le = rel_unop_(sql, rel ? *rel : NULL, cond, NULL, "isnull", card_value);
+				set_has_no_nil(le);
+				cond = rel_unop_(sql, rel ? *rel : NULL, le, NULL, "not", card_value);
+				set_has_no_nil(cond);
 			}
 		} else {
 			dlist *when = dn->data.sym->data.lval;
@@ -4355,9 +4241,13 @@ rel_case(sql_query *query, sql_rel **rel, tokens token, symbol *opt_cond, dlist 
 			cond = rel_value_exp(query, rel, dn->data.sym, f, ek);
 
 			if (cond) {
-				result = exp_copy(sql->sa, cond);
-				cond = rel_unop_(query, rel ? *rel : NULL, rel_unop_(query, rel ? *rel : NULL, cond, NULL, "isnull",
-								 card_value), NULL, "not", card_value);
+				sql_exp *le;
+
+				result = exp_copy(sql, cond);
+				le = rel_unop_(sql, rel ? *rel : NULL, cond, NULL, "isnull", card_value);
+				set_has_no_nil(le);
+				cond = rel_unop_(sql, rel ? *rel : NULL, le, NULL, "not", card_value);
+				set_has_no_nil(cond);
 			}
 		} else {
 			dlist *when = dn->data.sym->data.lval;
@@ -4421,16 +4311,9 @@ rel_case(sql_query *query, sql_rel **rel, tokens token, symbol *opt_cond, dlist 
 		if (!(cond = rel_check_type(sql, &bt, rel ? *rel : NULL, cond, type_equal)))
 			return NULL;
 
-		/* remove any null's in the condition */
-		if (has_nil(cond) && token != SQL_COALESCE) {
-			sql_exp *condnil = rel_unop_(query, rel ? *rel : NULL, cond, NULL, "isnull", card_value);
-			cond = exp_copy(sql->sa, cond);
-			cond = rel_nop_(query, rel ? *rel : NULL, condnil, exp_atom_bool(sql->sa, 0), cond, NULL, NULL,
-							"ifthenelse", card_value);
-		}
 		if (!cond || !result || !res)
 			return NULL;
-		res = rel_nop_(query, rel ? *rel : NULL, cond, result, res, NULL, NULL, "ifthenelse", card_value);
+		res = rel_nop_(sql, rel ? *rel : NULL, cond, result, res, NULL, NULL, "ifthenelse", card_value);
 		if (!res) 
 			return NULL;
 		/* ugh overwrite res type */
@@ -4835,11 +4718,11 @@ generate_window_bound_call(mvc *sql, sql_exp **estart, sql_exp **eend, sql_schem
 	if(pe) {
 		append(targs1, exp_subtype(pe));
 		append(targs2, exp_subtype(pe));
-		append(rargs1, exp_copy(sql->sa, pe));
-		append(rargs2, exp_copy(sql->sa, pe));
+		append(rargs1, exp_copy(sql, pe));
+		append(rargs2, exp_copy(sql, pe));
 	}
-	append(rargs1, exp_copy(sql->sa, e));
-	append(rargs2, exp_copy(sql->sa, e));
+	append(rargs1, exp_copy(sql, e));
+	append(rargs2, exp_copy(sql, e));
 	append(targs1, exp_subtype(e));
 	append(targs2, exp_subtype(e));
 	append(targs1, it);
@@ -5442,7 +5325,7 @@ rel_value_exp2(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek, 
 			}
 			r = rel_subquery(query, NULL, se, ek);
 		}
-		if (0 && r) {
+		if (r && ek.card == card_set && is_sql_exists(f)) {
 			/* ugh */
 			return exp_rel(sql, r);
 		}
@@ -5539,9 +5422,10 @@ rel_value_exp2(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek, 
 				       
 					re = rel_bound_exp(sql, r);
 					re = rel_project_add_exp(sql, r, re);
-					jc = rel_unop_(query, NULL, re, NULL, "isnull", card_value);
+					jc = rel_unop_(sql, NULL, re, NULL, "isnull", card_value);
+					set_has_no_nil(jc);
 					null = exp_null(sql->sa, exp_subtype(rs));
-					rs = rel_nop_(query, NULL, jc, null, rs, NULL, NULL, "ifthenelse", card_value);
+					rs = rel_nop_(sql, NULL, jc, null, rs, NULL, NULL, "ifthenelse", card_value);
 				}
 				if (is_sql_sel(f) && ek.card <= card_column && r->card > CARD_ATOM) {
 					sql_subaggr *zero_or_one = sql_bind_aggr(sql->sa, sql->session->schema, "zero_or_one", exp_subtype(rs));
@@ -5846,8 +5730,9 @@ join_on_column_name(sql_query *query, sql_rel *rel, sql_rel *t1, sql_rel *t2, in
 			found = 1;
 			rel = rel_compare_exp(query, rel, le, re, "=", NULL, TRUE, 0, 0);
 			if (full) {
-				sql_exp *cond = rel_unop_(query, rel, le, NULL, "isnull", card_value);
-				le = rel_nop_(query, rel, cond, re, le, NULL, NULL, "ifthenelse", card_value);
+				sql_exp *cond = rel_unop_(sql, rel, le, NULL, "isnull", card_value);
+				set_has_no_nil(cond);
+				le = rel_nop_(sql, rel, cond, re, le, NULL, NULL, "ifthenelse", card_value);
 			}
 			exp_setname(sql->sa, le, nme, sa_strdup(sql->sa, nm));
 			append(outexps, le);
@@ -6245,10 +6130,11 @@ rel_joinquery_(sql_query *query, sql_rel *rel, symbol *tab1, int natural, jt joi
 			}
 			rel = rel_compare_exp(query, rel, ls, rs, "=", NULL, TRUE, 0, 0);
 			if (op != op_join) {
-				cond = rel_unop_(query, rel, ls, NULL, "isnull", card_value);
+				cond = rel_unop_(sql, rel, ls, NULL, "isnull", card_value);
+				set_has_no_nil(cond);
 				if (rel_convert_types(sql, t1, t2, &ls, &rs, 1, type_equal) < 0)
 					return NULL;
-				ls = rel_nop_(query, rel, cond, rs, ls, NULL, NULL, "ifthenelse", card_value);
+				ls = rel_nop_(sql, rel, cond, rs, ls, NULL, NULL, "ifthenelse", card_value);
 			}
 			exp_setname(sql->sa, ls, rnme, nm);
 			append(outexps, ls);

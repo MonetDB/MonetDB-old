@@ -109,9 +109,9 @@ rel_create( sql_allocator *sa )
 }
 
 sql_rel *
-rel_copy( sql_allocator *sa, sql_rel *i, int deep )
+rel_copy( mvc *sql, sql_rel *i, int deep )
 {
-	sql_rel *rel = rel_create(sa);
+	sql_rel *rel = rel_create(sql->sa);
 	if(!rel)
 		return NULL;
 
@@ -129,7 +129,7 @@ rel_copy( sql_allocator *sa, sql_rel *i, int deep )
 		rel->r = i->r;
 		break;
 	case op_groupby:
-		rel->l = rel_copy(sa, i->l, deep);
+		rel->l = rel_copy(sql, i->l, deep);
 		if (i->r) {
 			if (!deep) {
 				rel->r = list_dup(i->r, (fdup) NULL);
@@ -137,7 +137,7 @@ rel_copy( sql_allocator *sa, sql_rel *i, int deep )
 				list* l = (list*)i->r;
 				rel->r = list_new(l->sa, l->destroy);
 				for(node *n = l->h ; n ; n = n->next)
-					list_append(rel->r, rel_copy(sa, (sql_rel *)n->data, deep));
+					list_append(rel->r, rel_copy(sql, (sql_rel *)n->data, deep));
 			}
 		}
 		break;
@@ -151,13 +151,13 @@ rel_copy( sql_allocator *sa, sql_rel *i, int deep )
 	case op_select:
 	default:
 		if (i->l)
-			rel->l = rel_copy(sa, i->l, deep);
+			rel->l = rel_copy(sql, i->l, deep);
 		if (i->r)
-			rel->r = rel_copy(sa, i->r, deep);
+			rel->r = rel_copy(sql, i->r, deep);
 		break;
 	}
 	rel->op = i->op;
-	rel->exps = (!i->exps)?NULL:deep?exps_copy(sa, i->exps):list_dup(i->exps, (fdup)NULL);
+	rel->exps = (!i->exps)?NULL:deep?exps_copy(sql, i->exps):list_dup(i->exps, (fdup)NULL);
 	return rel;
 }
 

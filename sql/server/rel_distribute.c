@@ -146,7 +146,7 @@ replica(mvc *sql, sql_rel *rel, char *uri)
 
 	if (rel_is_ref(rel)) {
 		if (has_remote_or_replica(rel)) {
-			sql_rel *nrel = rel_copy(sql->sa, rel, 0);
+			sql_rel *nrel = rel_copy(sql, rel, 0);
 
 			if (nrel && rel->p)
 				nrel->p = prop_copy(sql->sa, rel->p);
@@ -288,7 +288,7 @@ distribute(mvc *sql, sql_rel *rel)
 
 	if (rel_is_ref(rel)) {
 		if (has_remote_or_replica(rel)) {
-			sql_rel *nrel = rel_copy(sql->sa, rel, 0);
+			sql_rel *nrel = rel_copy(sql, rel, 0);
 
 			if (nrel && rel->p)
 				nrel->p = prop_copy(sql->sa, rel->p);

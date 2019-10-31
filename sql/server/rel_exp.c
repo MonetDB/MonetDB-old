@@ -646,6 +646,7 @@ exp_rel(mvc *sql, sql_rel *rel)
 	*/
 	e->l = rel;
 	e->flag = PSM_REL;
+	e->card = rel->card;
 	assert(rel);
 	if (is_project(rel->op)) {
 		sql_exp *last = rel->exps->t->data;
@@ -1545,7 +1546,7 @@ exp_is_atom( sql_exp *e )
 int
 exp_is_rel( sql_exp *e )
 {
-	return (e->type == e_psm && e->flag == PSM_REL && e->l);
+	return (e && e->type == e_psm && e->flag == PSM_REL && e->l);
 }
 
 int
@@ -1934,7 +1935,7 @@ exps_alias( sql_allocator *sa, list *exps)
 }
 
 list *
-exps_copy( sql_allocator *sa, list *exps)
+exps_copy( mvc *sql, list *exps)
 {
 	node *n;
 	list *nl;
@@ -1942,11 +1943,11 @@ exps_copy( sql_allocator *sa, list *exps)
 	if (!exps)
 		return exps;
 
-	nl = new_exp_list(sa);
+	nl = new_exp_list(sql->sa);
 	for(n = exps->h; n; n = n->next) {
 		sql_exp *arg = n->data;
 
-		arg = exp_copy(sa, arg);
+		arg = exp_copy(sql, arg);
 		if (!arg) 
 			return NULL;
 		append(nl, arg);
@@ -1955,48 +1956,48 @@ exps_copy( sql_allocator *sa, list *exps)
 }
 
 sql_exp *
-exp_copy( sql_allocator *sa, sql_exp * e)
+exp_copy( mvc *sql, sql_exp * e)
 {
 	sql_exp *l, *r, *r2, *ne = NULL;
 
 	switch(e->type){
 	case e_column:
-		ne = exp_column(sa, e->l, e->r, exp_subtype(e), e->card, has_nil(e), is_intern(e));
+		ne = exp_column(sql->sa, e->l, e->r, exp_subtype(e), e->card, has_nil(e), is_intern(e));
 		ne->flag = e->flag;
 		break;
 	case e_cmp:
 		if (get_cmp(e) == cmp_or || get_cmp(e) == cmp_filter) {
-			list *l = exps_copy(sa, e->l);
-			list *r = exps_copy(sa, e->r);
+			list *l = exps_copy(sql, e->l);
+			list *r = exps_copy(sql, e->r);
 			if (l && r) {
 				if (get_cmp(e) == cmp_filter)
-					ne = exp_filter(sa, l, r, e->f, is_anti(e));
+					ne = exp_filter(sql->sa, l, r, e->f, is_anti(e));
 				else
-					ne = exp_or(sa, l, r, is_anti(e));
+					ne = exp_or(sql->sa, l, r, is_anti(e));
 			}
 		} else if (e->flag == cmp_in || e->flag == cmp_notin) {
-			sql_exp *l = exp_copy(sa, e->l);
-			list *r = exps_copy(sa, e->r);
+			sql_exp *l = exp_copy(sql, e->l);
+			list *r = exps_copy(sql, e->r);
 
 			if (l && r) 
-				ne = exp_in(sa, l, r, e->flag);
+				ne = exp_in(sql->sa, l, r, e->flag);
 		} else {
-			l = exp_copy(sa, e->l);
-			r = exp_copy(sa, e->r);
+			l = exp_copy(sql, e->l);
+			r = exp_copy(sql, e->r);
 
 			if (e->f) {
-				r2 = exp_copy(sa, e->f);
+				r2 = exp_copy(sql, e->f);
 				if (l && r && r2)
-					ne = exp_compare2(sa, l, r, r2, e->flag);
+					ne = exp_compare2(sql->sa, l, r, r2, e->flag);
 			} else if (l && r) {
-				ne = exp_compare(sa, l, r, e->flag);
+				ne = exp_compare(sql->sa, l, r, e->flag);
 			}
 		}
 		break;
 	case e_convert:
-		l = exp_copy(sa, e->l);
+		l = exp_copy(sql, e->l);
 		if (l)
-			ne = exp_convert(sa, l, exp_fromtype(e), exp_totype(e));
+			ne = exp_convert(sql->sa, l, exp_fromtype(e), exp_totype(e));
 		break;
 	case e_aggr:
 	case e_func: {
@@ -2005,34 +2006,39 @@ exp_copy( sql_allocator *sa, sql_exp * e)
 		if (!l) {
 			return e;
 		} else {
-			nl = exps_copy(sa, l);
+			nl = exps_copy(sql, l);
 			if (!nl)
 				return NULL;
 		}
 		if (e->type == e_func)
-			ne = exp_op(sa, nl, e->f);
+			ne = exp_op(sql->sa, nl, e->f);
 		else 
-			ne = exp_aggr(sa, nl, e->f, need_distinct(e), need_no_nil(e), e->card, has_nil(e));
+			ne = exp_aggr(sql->sa, nl, e->f, need_distinct(e), need_no_nil(e), e->card, has_nil(e));
 		break;
 	}	
 	case e_atom:
 		if (e->l)
-			ne = exp_atom(sa, e->l);
+			ne = exp_atom(sql->sa, e->l);
 		else if (!e->r)
-			ne = exp_atom_ref(sa, e->flag, &e->tpe);
+			ne = exp_atom_ref(sql->sa, e->flag, &e->tpe);
 		else 
-			ne = exp_param(sa, e->r, &e->tpe, e->flag);
+			ne = exp_param(sql->sa, e->r, &e->tpe, e->flag);
 		break;
 	case e_psm:
 		if (e->flag == PSM_SET) 
-			ne = exp_set(sa, e->alias.name, exp_copy(sa, e->l), GET_PSM_LEVEL(e->flag));
+			ne = exp_set(sql->sa, e->alias.name, exp_copy(sql, e->l), GET_PSM_LEVEL(e->flag));
+		if (e->flag == PSM_REL) {
+			if (!exp_name(e))
+				exp_label(sql->sa, e, ++sql->label);
+			return exp_ref(sql->sa, e);
+		}
 		break;
 	}
 	if (!ne)
 		return ne;
 	if (e->alias.name)
 		exp_prop_alias(ne, e);
-	ne = exp_propagate(sa, ne, e);
+	ne = exp_propagate(sql->sa, ne, e);
 	if (is_freevar(e))
 		set_freevar(ne, is_freevar(e)-1);
 	return ne;

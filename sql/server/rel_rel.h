@@ -24,6 +24,9 @@
 #define sql_join   512 //ORed
 #define sql_outer 1024 //ORed
 
+#define tmp_exists 2048 //ORed
+#define is_sql_exists(X)   ((X & tmp_exists) == tmp_exists)
+
 #define is_sql_from(X)    ((X & sql_from) == sql_from)
 #define is_sql_where(X)   ((X & sql_where) == sql_where)
 #define is_sql_sel(X)     ((X & sql_sel) == sql_sel)
@@ -49,7 +52,7 @@ extern sql_rel *rel_distinct(sql_rel *l);
 extern sql_rel *rel_dup(sql_rel *r);
 extern void rel_destroy(sql_rel *rel);
 extern sql_rel *rel_create(sql_allocator *sa);
-extern sql_rel *rel_copy(sql_allocator *sa, sql_rel *r, int deep);
+extern sql_rel *rel_copy(mvc *sql, sql_rel *r, int deep);
 extern sql_rel *rel_select_copy(sql_allocator *sa, sql_rel *l, list *exps);
 
 extern sql_exp *rel_bind_column( mvc *sql, sql_rel *rel, const char *cname, int f );

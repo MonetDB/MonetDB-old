@@ -82,7 +82,7 @@ rel_xmlelement(sql_query *query, sql_rel **rel, symbol *sym, int f, exp_kind knd
 
 	if (!ns_st || !attr_st || !res) 
 		return NULL;
-	return rel_nop_(query, rel ? *rel : NULL, exp_atom_clob(sql->sa, tag), ns_st, attr_st, res, NULL, "element",
+	return rel_nop_(query->sql, rel ? *rel : NULL, exp_atom_clob(sql->sa, tag), ns_st, attr_st, res, NULL, "element",
 					card_value);
 }
 
@@ -131,7 +131,7 @@ rel_xmlforest(sql_query *query, sql_rel **rel, symbol *sym, int f, exp_kind knd)
 				if (!tag)
 					tag = "single_value";
 			}
-			c_st = rel_nop_(query, rel ? *rel : NULL, exp_atom_clob(sql->sa, tag), ns_st, attr_st, c_st, NULL,
+			c_st = rel_nop_(query->sql, rel ? *rel : NULL, exp_atom_clob(sql->sa, tag), ns_st, attr_st, c_st, NULL,
 							"element", card_value);
 			/* lets glue the xml content together */
 			if (res) {
@@ -154,7 +154,7 @@ rel_xmlcomment(sql_query *query, sql_rel **rel, symbol *sym, int f, exp_kind knd
 	comment_st = rel_value_exp(query, rel, comment, f, knd); 
 	if (!comment_st)
 		return NULL;
-	return rel_unop_(query, rel ? *rel : NULL, comment_st, NULL, "comment", card_value);
+	return rel_unop_(query->sql, rel ? *rel : NULL, comment_st, NULL, "comment", card_value);
 }
 
 static sql_exp *
@@ -208,7 +208,7 @@ rel_xmldocument(sql_query *query, sql_rel **rel, symbol *sym, int f, exp_kind kn
 	val_st = rel_value_exp(query, rel, val, f, knd); 
 	if (!val_st)
 		return NULL;
-	return rel_unop_(query, rel ? *rel : NULL, val_st, NULL, "document", card_value);
+	return rel_unop_(query->sql, rel ? *rel : NULL, val_st, NULL, "document", card_value);
 }
 
 static sql_exp *
