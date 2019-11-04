@@ -420,7 +420,6 @@ WLRprocessBatch(void *arg)
 		if ( wlr_tag == wlr_limit)
 			break;
 	}
-	(void) fflush(stderr);
 	close_stream(c->fdout);
 	SQLexitClient(c);
 	MCcloseClient(c);
