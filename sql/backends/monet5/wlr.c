@@ -420,6 +420,9 @@ WLRprocessBatch(void *arg)
 		if ( wlr_tag == wlr_limit)
 			break;
 	}
+	/* CHECK */
+	// Remove this when fprintFunction is fixed!
+	(void) fflush(stderr);
 	close_stream(c->fdout);
 	SQLexitClient(c);
 	MCcloseClient(c);
