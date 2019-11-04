@@ -562,7 +562,7 @@ SQLinit(Client c)
 			freeException(other);
 
 		if (msg)
-			fprintf(stderr, "%s", msg);
+			INFO(SQL_ALL, "%s\n", msg);
 #endif
 	} else {		/* handle upgrades */
 		if (!m->sa)

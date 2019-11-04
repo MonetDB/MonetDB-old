@@ -26,7 +26,8 @@
 typedef enum { 
                // ALL
                ALL,
-
+               ALLOC,
+               
                // SQL
                SQL_ALL,
                SQL_ATOM_TR,
