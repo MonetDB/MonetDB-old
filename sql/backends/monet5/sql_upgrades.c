@@ -249,7 +249,6 @@ sql_update_hugeint(Client c, mvc *sql, const char *prev_schema, bool *systabfixe
 			"update sys.functions set system = true where name = 'filter' and schema_id = (select id from sys.schemas where name = 'json');\n");
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 	assert(pos < bufsize);
 
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -298,7 +297,6 @@ sql_update_geom(Client c, mvc *sql, int olddb, const char *prev_schema)
 	}
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -412,7 +410,6 @@ sql_update_jul2017(Client c, const char *prev_schema)
 	res_tables_destroy(output);
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -457,7 +454,6 @@ sql_update_jul2017_sp2(Client c)
 				"GRANT EXECUTE ON FUNCTION sys.environment() TO PUBLIC;\n"
 				"GRANT SELECT ON sys.environment TO PUBLIC;\n"
 				);
-			pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 			assert(pos < bufsize);
 			printf("Running database upgrade commands:\n%s\n", buf);
 			err = SQLstatementIntern(c, &buf, "update", true, false, NULL);
@@ -509,7 +505,6 @@ sql_update_jul2017_sp3(Client c, mvc *sql, const char *prev_schema, bool *systab
 			"create trigger system_update_schemas after update on sys.schemas for each statement call sys_update_schemas();\n"
 			"create trigger system_update_tables after update on sys._tables for each statement call sys_update_tables();\n");
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-		pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 		assert(pos < bufsize);
 		printf("Running database upgrade commands:\n%s\n", buf);
 		err = SQLstatementIntern(c, &buf, "update", true, false, NULL);
@@ -546,7 +541,6 @@ sql_update_mar2018_geom(Client c, sql_table *t, const char *prev_schema)
 			"update sys._tables set system = true where name = 'geometry_columns' and schema_id in (select id from schemas where name = 'sys');\n");
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -1015,7 +1009,6 @@ sql_update_mar2018(Client c, mvc *sql, const char *prev_schema, bool *systabfixe
 		);
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -1026,7 +1019,6 @@ sql_update_mar2018(Client c, mvc *sql, const char *prev_schema, bool *systabfixe
 			       "ALTER TABLE sys.function_types SET READ ONLY;\n"
 			       "ALTER TABLE sys.function_languages SET READ ONLY;\n");
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-		pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 		assert(pos < bufsize);
 		printf("Running database upgrade commands:\n%s\n", buf);
 		err = SQLstatementIntern(c, &buf, "update", true, false, NULL);
@@ -1058,7 +1050,6 @@ sql_update_mar2018_netcdf(Client c, const char *prev_schema)
 			"grant execute on procedure sys.netcdf_importvar(integer, varchar(256)) to public;\n");
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -1134,7 +1125,6 @@ sql_update_mar2018_samtools(Client c, mvc *sql, const char *prev_schema)
 			"GRANT EXECUTE ON PROCEDURE bam.bam_export(STRING) TO PUBLIC;\n");
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -1161,7 +1151,6 @@ sql_update_mar2018_sp1(Client c, const char *prev_schema)
 			"update sys.functions set system = true where name in ('dependencies_functions_on_triggers') and schema_id = (select id from sys.schemas where name = 'sys');\n");
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 	assert(pos < bufsize);
 
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -1190,7 +1179,6 @@ sql_update_remote_tables(Client c, mvc *sql, const char *prev_schema)
 			"update sys.functions set system = true where name = 'remote_table_credentials' and schema_id = (select id from sys.schemas where name = 'sys');\n");
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -1313,7 +1301,6 @@ sql_replace_Mar2018_ids_view(Client c, mvc *sql, const char *prev_schema)
 			);
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 	assert(pos < bufsize);
 
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -1335,7 +1322,6 @@ sql_update_gsl(Client c, const char *prev_schema)
 			"drop function sys.chi2prob(double, double);\n");
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 	assert(pos < bufsize);
 
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -1362,7 +1348,6 @@ sql_update_aug2018(Client c, mvc *sql, const char *prev_schema)
 			"update sys.functions set system = true where name in ('group_concat') and schema_id = (select id from sys.schemas where name = 'sys');\n");
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -1404,7 +1389,6 @@ sql_update_aug2018_sp2(Client c, const char *prev_schema)
 					"update sys.functions set side_effect = true where language <> 0 and not side_effect and type <> 4 and (type = 2 or (language <> 2 and id not in (select func_id from sys.args where inout = 1)));\n");
 
 			pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-			pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 			assert(pos < bufsize);
 			printf("Running database upgrade commands:\n%s\n", buf);
@@ -1448,7 +1432,6 @@ sql_drop_functions_dependencies_Xs_on_Ys(Client c, const char *prev_schema)
 			"DROP FUNCTION dependencies_keys_on_foreignKeys();\n");
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 	assert(pos < bufsize);
 
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -1534,7 +1517,6 @@ sql_update_apr2019(Client c, mvc *sql, const char *prev_schema)
 			"update sys._columns set type_digits = 1048576 where name = 'query' and table_id in (select id from sys._tables t where t.name = 'tables' and t.schema_id in (select id from sys.schemas s where s.name = 'sys'));\n");
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 
 	assert(pos < bufsize);
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -1544,7 +1526,6 @@ sql_update_apr2019(Client c, mvc *sql, const char *prev_schema)
 			       "ALTER TABLE sys.keywords SET READ ONLY;\n");
 
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-		pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 		assert(pos < bufsize);
 		printf("Running database upgrade commands:\n%s\n", buf);
 		err = SQLstatementIntern(c, &buf, "update", true, false, NULL);
@@ -1564,7 +1545,7 @@ sql_update_storagemodel(Client c, mvc *sql, const char *prev_schema)
 
 	if ((buf = GDKmalloc(bufsize)) == NULL)
 		throw(SQL, "sql_update_storagemodel", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	
+
 	/* set views and tables internally to non-system to allow drop commands to succeed without error */
 	if ((t = mvc_bind_table(sql, s, "storage")) != NULL)
 		t->system = 0;
@@ -1861,7 +1842,6 @@ sql_update_storagemodel(Client c, mvc *sql, const char *prev_schema)
 		" and name in ('columnsize', 'heapsize', 'hashsize', 'imprintsize') and type = %d;\n", (int) F_FUNC);
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 	assert(pos < bufsize);
 
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -1900,41 +1880,31 @@ sql_update_apr2019_sp1(Client c)
 }
 
 static str
-sql_update_apr2019_sp2(Client c)
+sql_update_apr2019_sp2(Client c, mvc *sql, const char *prev_schema, bool *systabfixed)
 {
-	/* Determine if system function sys.prod(decimal) exists in sys.functions, if so remove them.
-	 * see also https://dev.monetdb.org/hg/MonetDB?cmd=changeset;node=f93d5290abe4
-	 */
-	char *err = NULL;
-	char *qry = "select f.id from sys.functions f where f.name = 'prod' and func = 'prod'"
-		" and mod in ('sql', 'aggr') and language = 0 and f.type in (3,6) and f.system"
-		" and schema_id in (select s.id from sys.schemas s where s.name = 'sys')"
-		" and f.id in (select a.func_id from sys.args a where a.type = 'decimal'"
-		" and type_digits in (2,4,9,18,38) and a.name in ('arg','arg_1') and inout = 1 and number = 1);";
-	res_table *output = NULL;
+	size_t bufsize = 1000, pos = 0;
+	char *buf = GDKmalloc(bufsize), *err;
 
-	err = SQLstatementIntern(c, &qry, "update", true, false, &output);
-	if (err == NULL) {
-		BAT *b = BATdescriptor(output->cols[0].b);
-		if (b) {
-			if (BATcount(b) > 0) {
-				/* found entries, we need to remove them sys.functions and sys.args */
-				char *upd = "delete from sys.functions f where f.name = 'prod' and func = 'prod'"
-					" and mod in ('sql', 'aggr') and language = 0 and f.type in (3,6) and f.system"
-					" and schema_id in (select s.id from sys.schemas s where s.name = 'sys')"
-					" and f.id in (select a.func_id from sys.args a where a.type = 'decimal'"
-					" and type_digits in (2,4,9,18,38) and a.name in ('arg','arg_1') and inout = 1 and number = 1);\n"
-					"delete from sys.args where func_id not in (select id from sys.functions);\n";
+	if (buf == NULL)
+		throw(SQL, "sql_update_apr2019_sp2", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 
-				printf("Running database upgrade commands:\n%s\n", upd);
-				err = SQLstatementIntern(c, &upd, "update", true, false, NULL);
-			}
-			BBPunfix(b->batCacheid);
-		}
+	if (!*systabfixed) {
+		sql_fix_system_tables(c, sql, prev_schema);
+		*systabfixed = true;
 	}
-	if (output != NULL)
-		res_tables_destroy(output);
 
+	pos += snprintf(buf + pos, bufsize - pos, "set schema sys;\n");
+
+	/* 11_times.sql */
+	pos += snprintf(buf + pos, bufsize - pos,
+			"drop procedure sys.times();\n");
+
+	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
+
+	assert(pos < bufsize);
+	printf("Running database upgrade commands:\n%s\n", buf);
+	err = SQLstatementIntern(c, &buf, "update", true, false, NULL);
+	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
 }
 
@@ -1979,7 +1949,7 @@ sql_update_nov2019_missing_dependencies(Client c, mvc *sql)
 			for (node *m = s->funcs.set->h; m; m = m->next) {
 				sql_func *f = (sql_func*) m->data;
 
-				if (f->query && !LANG_EXT(f->lang)) {
+				if (f->query && f->lang == FUNC_LANG_SQL) {
 					char *relt;
 					sql_rel *r = NULL;
 
@@ -2125,7 +2095,6 @@ sql_update_nov2019(Client c, mvc *sql, const char *prev_schema, bool *systabfixe
 	pos = 0;
 	pos += snprintf(buf + pos, bufsize - pos,
 			"set schema \"sys\";\n"
-			"drop procedure sys.times();\n"
 			"create function sys.deltas (\"schema\" string)"
 			" returns table (\"id\" int, \"cleared\" boolean, \"immutable\" bigint, \"inserted\" bigint, \"updates\" bigint, \"deletes\" bigint, \"level\" int)"
 			" external name \"sql\".\"deltas\";\n"
@@ -2274,7 +2243,6 @@ sql_update_nov2019(Client c, mvc *sql, const char *prev_schema, bool *systabfixe
 			" and name in ('master', 'stop', 'accept', 'replicate', 'beat') and type = %d;\n", (int) F_PROC);
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 	assert(pos < bufsize);
 
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -2334,7 +2302,16 @@ sql_update_default(Client c, mvc *sql, const char *prev_schema)
 			"drop view sys.sessions;\n"
 			"drop function sys.sessions;\n"
  			"create function sys.sessions()\n"
- 			" returns table (\"sessionid\" int, \"user\" string, \"login\" timestamp, \"sessiontimeout\" bigint, \"lastcommand\" timestamp, \"querytimeout\" bigint, \"threads\" int)\n"
+			"returns table(\n"
+				"\"sessionid\" int,\n"
+				"\"user\" string,\n"
+				"\"login\" timestamp,\n"
+				"\"idle\" timestamp,\n"
+				"\"optimizer\" string,\n"
+				"\"sessiontimeout\" bigint,\n"
+				"\"querytimeout\" bigint,\n"
+				"\"workerlimit\" int,\n"
+				"\"memorylimit\" bigint)\n"
  			" external name sql.sessions;\n"
 			"create view sys.sessions as select * from sys.sessions();\n");
 
@@ -2355,7 +2332,7 @@ sql_update_default(Client c, mvc *sql, const char *prev_schema)
 			" and name = 'sessions';\n");
 	pos += snprintf(buf + pos, bufsize - pos,
 			"update sys.functions set system = true where schema_id = (select id from sys.schemas where name = 'sys')"
-			" and name in ('settimeout', 'querytimeout', 'sessiontimeout', 'stopsession') and type = %d;\n", (int) F_PROC);
+			" and name in ('querytimeout', 'sessiontimeout', 'stopsession') and type = %d;\n", (int) F_PROC);
 
 	/* 26_sysmon */
 	t = mvc_bind_table(sql, sys, "queue");
@@ -2379,17 +2356,26 @@ sql_update_default(Client c, mvc *sql, const char *prev_schema)
 			"external name sql.sysmon_queue;\n"
 			"grant execute on function sys.queue to public;\n"
 			"create view sys.queue as select * from sys.queue();\n"
-			"grant select on sys.queue to public;\n");
+			"grant select on sys.queue to public;\n"
+
+			"create procedure sys.pause(tag tinyint)\n"
+			"external name sql.sysmon_pause;\n"
+			"create procedure sys.resume(tag tinyint)\n"
+			"external name sql.sysmon_resume;\n"
+			"create procedure sys.stop(tag tinyint)\n"
+			"external name sql.sysmon_stop;\n");
 
 	pos += snprintf(buf + pos, bufsize - pos,
 			"update sys.functions set system = true where schema_id = (select id from sys.schemas where name = 'sys')"
 			" and name = 'queue' and type = %d;\n", (int) F_UNION);
 	pos += snprintf(buf + pos, bufsize - pos,
+			"update sys.functions set system = true where schema_id = (select id from sys.schemas where name = 'sys')"
+			" and name in ('pause', 'resume', 'stop') and type = %d;\n", (int) F_PROC);
+	pos += snprintf(buf + pos, bufsize - pos,
 			"update sys._tables set system = true where schema_id = (select id from sys.schemas where name = 'sys')"
 			" and name = 'queue';\n");
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
-	pos += snprintf(buf + pos, bufsize - pos, "commit;\n");
 	assert(pos < bufsize);
 
 	printf("Running database upgrade commands:\n%s\n", buf);
@@ -2398,7 +2384,7 @@ sql_update_default(Client c, mvc *sql, const char *prev_schema)
 	return err;		/* usually MAL_SUCCEED */
 }
 
-void
+int
 SQLupgrades(Client c, mvc *m)
 {
 	sql_subtype tp;
@@ -2408,26 +2394,28 @@ SQLupgrades(Client c, mvc *m)
 	sql_table *t;
 	sql_column *col;
 	bool systabfixed = false;
+	int res = 0;
 
 	if (!prev_schema) {
 		CRITICAL(SQL_ALL, "Allocation failure while running SQL upgrades\n");
-		return;
+		res = -1;
 	}
 
 #ifdef HAVE_HGE
-	if (have_hge) {
+	if (!res && have_hge) {
 		sql_find_subtype(&tp, "hugeint", 0, 0);
 		if (!sql_bind_aggr(m->sa, s, "var_pop", &tp)) {
 			if ((err = sql_update_hugeint(c, m, prev_schema, &systabfixed)) != NULL) {
 				ERROR(SQL_ALL, "%s\n", err);
 				freeException(err);
+				res = -1;
 			}
 		}
 	}
 #endif
 
 	f = sql_bind_func_(m->sa, s, "env", NULL, F_UNION);
-	if (f && sql_privilege(m, ROLE_PUBLIC, f->func->base.id, PRIV_EXECUTE, 0) != PRIV_EXECUTE) {
+	if (!res && f && sql_privilege(m, ROLE_PUBLIC, f->func->base.id, PRIV_EXECUTE, 0) != PRIV_EXECUTE) {
 		sql_table *privs = find_sql_table(s, "privileges");
 		int pub = ROLE_PUBLIC, p = PRIV_EXECUTE, zero = 0;
 
@@ -2438,14 +2426,15 @@ SQLupgrades(Client c, mvc *m)
 	 * exist any more at the "sys" schema (i.e., the first part of
 	 * the upgrade has been completed succesfully), then move on
 	 * to the second part */
-	if (find_sql_type(s, "point") != NULL) {
+	if (!res && find_sql_type(s, "point") != NULL) {
 		/* type sys.point exists: this is an old geom-enabled
 		 * database */
 		if ((err = sql_update_geom(c, m, 1, prev_schema)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
-	} else if (geomsqlfix_get() != NULL) {
+	} else if (!res && geomsqlfix_get() != NULL) {
 		/* the geom module is loaded... */
 		sql_find_subtype(&tp, "clob", 0, 0);
 		if (!sql_bind_func(m->sa, s, "st_wkttosql",
@@ -2454,65 +2443,74 @@ SQLupgrades(Client c, mvc *m)
 			if ((err = sql_update_geom(c, m, 0, prev_schema)) != NULL) {
 				ERROR(SQL_ALL, "%s\n", err);
 				freeException(err);
+				res = -1;
 			}
 		}
 	}
 
-	if (mvc_bind_table(m, s, "function_languages") == NULL) {
+	if (!res && mvc_bind_table(m, s, "function_languages") == NULL) {
 		if ((err = sql_update_jul2017(c, prev_schema)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
 	}
 
-	if ((err = sql_update_jul2017_sp2(c)) != NULL) {
+	if (!res && (err = sql_update_jul2017_sp2(c)) != NULL) {
 		ERROR(SQL_ALL, "%s\n", err);
 		freeException(err);
+		res = -1;
 	}
 
-	if ((err = sql_update_jul2017_sp3(c, m, prev_schema, &systabfixed)) != NULL) {
+	if (!res && (err = sql_update_jul2017_sp3(c, m, prev_schema, &systabfixed)) != NULL) {
 		ERROR(SQL_ALL, "%s\n", err);
 		freeException(err);
+		res = -1;
 	}
 
-	if ((t = mvc_bind_table(m, s, "geometry_columns")) != NULL &&
+	if (!res && (t = mvc_bind_table(m, s, "geometry_columns")) != NULL &&
 	    (col = mvc_bind_column(m, t, "coord_dimension")) != NULL &&
 	    strcmp(col->type.type->sqlname, "int") != 0) {
 		if ((err = sql_update_mar2018_geom(c, t, prev_schema)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
 	}
 
-	if (mvc_bind_schema(m, "wlc") == NULL &&
+	if (!res && mvc_bind_schema(m, "wlc") == NULL &&
 	    !sql_bind_func(m->sa, s, "master", NULL, NULL, F_PROC)) {
 		if ((err = sql_update_mar2018(c, m, prev_schema, &systabfixed)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
 #ifdef HAVE_NETCDF
 		if (mvc_bind_table(m, s, "netcdf_files") != NULL &&
 		    (err = sql_update_mar2018_netcdf(c, prev_schema)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
 #endif
 #ifdef HAVE_SAMTOOLS
 		if ((err = sql_update_mar2018_samtools(c, m, prev_schema)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
 #endif
 	}
 
-	if (sql_bind_func(m->sa, s, "dependencies_functions_os_triggers", NULL, NULL, F_UNION)) {
+	if (!res && sql_bind_func(m->sa, s, "dependencies_functions_os_triggers", NULL, NULL, F_UNION)) {
 		if ((err = sql_update_mar2018_sp1(c, prev_schema)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
 	}
 
-	if (mvc_bind_table(m, s, "ids") != NULL) {
+	if (!res && mvc_bind_table(m, s, "ids") != NULL) {
 		/* determine if sys.ids needs to be updated (only the version of Mar2018) */
 		char * qry = "select id from sys._tables where name = 'ids' and query like '% tmp.keys k join sys._tables% tmp.idxs i join sys._tables% tmp.triggers g join sys._tables% ';";
 		res_table *output = NULL;
@@ -2520,6 +2518,7 @@ SQLupgrades(Client c, mvc *m)
 		if (err) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		} else {
 			BAT *b = BATdescriptor(output->cols[0].b);
 			if (b) {
@@ -2528,6 +2527,7 @@ SQLupgrades(Client c, mvc *m)
 					if ((err = sql_replace_Mar2018_ids_view(c, m, prev_schema)) != NULL) {
 						ERROR(SQL_ALL, "%s\n", err);
 						freeException(err);
+						res = -1;
 					}
 				}
 				BBPunfix(b->batCacheid);
@@ -2539,7 +2539,7 @@ SQLupgrades(Client c, mvc *m)
 
 	/* temporarily use variable `err' to check existence of MAL
 	 * module gsl */
-	if ((err = getName("gsl")) == NULL || getModule(err) == NULL) {
+	if (!res && (((err = getName("gsl")) == NULL || getModule(err) == NULL))) {
 		/* no MAL module gsl, check for SQL function sys.chi2prob */
 		sql_find_subtype(&tp, "double", 0, 0);
 		if (sql_bind_func(m->sa, s, "chi2prob", &tp, &tp, F_FUNC)) {
@@ -2548,19 +2548,21 @@ SQLupgrades(Client c, mvc *m)
 			if ((err = sql_update_gsl(c, prev_schema)) != NULL) {
 				ERROR(SQL_ALL, "%s\n", err);
 				freeException(err);
+				res = -1;
 			}
 		}
 	}
 
 	sql_find_subtype(&tp, "clob", 0, 0);
-	if (sql_bind_aggr(m->sa, s, "group_concat", &tp) == NULL) {
+	if (!res && sql_bind_aggr(m->sa, s, "group_concat", &tp) == NULL) {
 		if ((err = sql_update_aug2018(c, m, prev_schema)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
 	}
 
-	if (sql_bind_func(m->sa, s, "dependencies_schemas_on_users", NULL, NULL, F_UNION)
+	if (!res && sql_bind_func(m->sa, s, "dependencies_schemas_on_users", NULL, NULL, F_UNION)
 	 && sql_bind_func(m->sa, s, "dependencies_owners_on_schemas", NULL, NULL, F_UNION)
 	 && sql_bind_func(m->sa, s, "dependencies_tables_on_views", NULL, NULL, F_UNION)
 	 && sql_bind_func(m->sa, s, "dependencies_tables_on_indexes", NULL, NULL, F_UNION)
@@ -2580,73 +2582,88 @@ SQLupgrades(Client c, mvc *m)
 		if ((err = sql_drop_functions_dependencies_Xs_on_Ys(c, prev_schema)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
 	}
 
-	if ((err = sql_update_aug2018_sp2(c, prev_schema)) != NULL) {
+	if (!res && (err = sql_update_aug2018_sp2(c, prev_schema)) != NULL) {
 		ERROR(SQL_ALL, "%s\n", err);
 		freeException(err);
+		res = -1;
 	}
 
-	if ((t = mvc_bind_table(m, s, "systemfunctions")) != NULL &&
+	if (!res && (t = mvc_bind_table(m, s, "systemfunctions")) != NULL &&
 	    t->type == tt_table) {
 		if (!systabfixed &&
 		    (err = sql_fix_system_tables(c, m, prev_schema)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
 		systabfixed = true;
 		if ((err = sql_update_apr2019(c, m, prev_schema)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
 	}
 
 	/* when function storagemodel() exists and views tablestorage
 	 * and schemastorage don't, then upgrade storagemodel to match
 	 * 75_storagemodel.sql */
-	if (sql_bind_func(m->sa, s, "storagemodel", NULL, NULL, F_UNION)
+	if (!res && sql_bind_func(m->sa, s, "storagemodel", NULL, NULL, F_UNION)
 	 && (t = mvc_bind_table(m, s, "tablestorage")) == NULL
 	 && (t = mvc_bind_table(m, s, "schemastorage")) == NULL ) {
 		if ((err = sql_update_storagemodel(c, m, prev_schema)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
 	}
 
-	if ((err = sql_update_apr2019_sp1(c)) != NULL) {
+	if (!res && (err = sql_update_apr2019_sp1(c)) != NULL) {
 		ERROR(SQL_ALL, "%s\n", err);
 		freeException(err);
+		res = -1;
 	}
-	if ((err = sql_update_apr2019_sp2(c)) != NULL) {
-		ERROR(SQL_ALL, "%s\n", err);
-		freeException(err);
+
+	if (!res && sql_bind_func(m->sa, s, "times", NULL, NULL, F_PROC)) {
+		if (!res && (err = sql_update_apr2019_sp2(c, m, prev_schema, &systabfixed)) != NULL) {
+			ERROR(SQL_ALL, "%s\n", err);
+			freeException(err);
+			res = -1;
+		}
 	}
 
 	sql_find_subtype(&tp, "string", 0, 0);
-	if (!sql_bind_func3(m->sa, s, "deltas", &tp, &tp, &tp, F_UNION)) {
+	if (!res && !sql_bind_func3(m->sa, s, "deltas", &tp, &tp, &tp, F_UNION)) {
 		if ((err = sql_update_nov2019_missing_dependencies(c, m)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
 		if (!systabfixed &&
 		    (err = sql_fix_system_tables(c, m, prev_schema)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
 		systabfixed = true;
 		if ((err = sql_update_nov2019(c, m, prev_schema, &systabfixed)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
 	}
 
-	if (!sql_bind_func(m->sa, s, "suspend_log_flushing", NULL, NULL, F_PROC)) {
+	if (!res && !sql_bind_func(m->sa, s, "suspend_log_flushing", NULL, NULL, F_PROC)) {
 		if ((err = sql_update_default(c, m, prev_schema)) != NULL) {
 			ERROR(SQL_ALL, "%s\n", err);
 			freeException(err);
+			res = -1;
 		}
 	}
 
 	GDKfree(prev_schema);
+	return res;
 }
