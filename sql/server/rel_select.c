@@ -946,6 +946,39 @@ exps_get_exp(list *exps, int nth)
 	return NULL;
 }
 
+static sql_rel *
+rel_find_groupby(sql_rel *groupby)
+{
+	if (groupby && !is_processed(groupby) && !is_base(groupby->op)) { 
+		while(!is_processed(groupby) && !is_base(groupby->op)) {
+			if (groupby->op == op_groupby || !groupby->l)
+				break;
+			if (groupby->l)
+				groupby = groupby->l;
+		}
+		if (groupby && groupby->op == op_groupby)
+			return groupby;
+	}
+	return NULL;
+}
+
+static int
+is_groupby_col(sql_rel *gb, sql_exp *e)
+{
+	gb = rel_find_groupby(gb);
+
+	if (gb) {
+		if (exp_relname(e)) { 
+			if (exp_name(e) && exps_bind_column2(gb->r, exp_relname(e), exp_name(e))) 
+				return 1;
+		} else {
+			if (exp_name(e) && exps_bind_column(gb->r, exp_name(e), NULL)) 
+				return 1;
+		}
+	}
+	return 0;
+}
+
 static sql_exp *
 rel_column_ref(sql_query *query, sql_rel **rel, symbol *column_r, int f)
 {
@@ -1004,7 +1037,7 @@ rel_column_ref(sql_query *query, sql_rel **rel, symbol *column_r, int f)
 				if (exp && is_simple_project(outer->op) && !rel_find_exp(outer, exp)) {
 					exp = rel_project_add_exp(sql, outer, exp);
 				}
-				if (exp && is_sql_aggr(f) && is_sql_aggr(sql_state)) {
+				if (exp && is_sql_aggr(f) && is_sql_aggr(sql_state) && !is_groupby_col(outer, exp)) {
 					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: aggregate function calls cannot be nested");
 				}
 				if (exp)
@@ -1070,7 +1103,7 @@ rel_column_ref(sql_query *query, sql_rel **rel, symbol *column_r, int f)
 				if (exp && is_simple_project(outer->op) && !rel_find_exp(outer, exp)) {
 					exp = rel_project_add_exp(sql, outer, exp);
 				}
-				if (exp && is_sql_aggr(f) && is_sql_aggr(sql_state)) {
+				if (exp && is_sql_aggr(f) && is_sql_aggr(sql_state) && !is_groupby_col(outer, exp)) {
 					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: aggregate function calls cannot be nested");
 				}
 				if (exp)
@@ -3305,22 +3338,6 @@ rel_check_card(sql_rel *rel, sql_exp *l , sql_exp *r)
 	return 0;
 }
 
-static sql_rel *
-rel_find_groupby(sql_rel *groupby)
-{
-	if (groupby && !is_processed(groupby) && !is_base(groupby->op)) { 
-		while(!is_processed(groupby) && !is_base(groupby->op)) {
-			if (groupby->op == op_groupby || !groupby->l)
-				break;
-			if (groupby->l)
-				groupby = groupby->l;
-		}
-		if (groupby && groupby->op == op_groupby)
-			return groupby;
-	}
-	return NULL;
-}
-
 static sql_exp *
 rel_binop(sql_query *query, sql_rel **rel, symbol *se, int f, exp_kind ek)
 {
@@ -5446,6 +5463,7 @@ rel_select_exp(sql_query *query, sql_rel *rel, SelectNode *sn, exp_kind ek)
 		sql_exp *ce = rel_column_exp(query, &inner, n->data.sym, sql_sel);
 
 		if (ce && exp_subtype(ce)) {
+			/*
 			if (inner && inner->card < ce->card) {
 				if (exp_name(ce)) {
 					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", exp_name(ce));
@@ -5453,6 +5471,7 @@ rel_select_exp(sql_query *query, sql_rel *rel, SelectNode *sn, exp_kind ek)
 					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column in query results without an aggregate function");
 				}
 			}
+			*/
 			pexps = append(pexps, ce);
 			rel = inner;
 			continue;
@@ -5470,6 +5489,18 @@ rel_select_exp(sql_query *query, sql_rel *rel, SelectNode *sn, exp_kind ek)
 		 * t1.* or a subquery.
 		 */
 		pexps = list_merge(pexps, te, (fdup)NULL);
+	}
+	if (is_groupby(rel->op) && !sn->groupby) {
+		for (node *n=pexps->h; n; n = n->next) {
+			sql_exp *ce = n->data;
+			if (rel->card < ce->card) {
+				if (exp_name(ce)) {
+					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column '%s' in query results without an aggregate function", exp_name(ce));
+				} else {
+					return sql_error(sql, 05, SQLSTATE(42000) "SELECT: cannot use non GROUP BY column in query results without an aggregate function");
+				}
+			}
+		}
 	}
 	rel = rel_project(sql->sa, rel, pexps);
 

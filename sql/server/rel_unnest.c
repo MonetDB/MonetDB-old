@@ -1483,7 +1483,8 @@ rewrite_or_exp(mvc *sql, sql_rel *rel)
 					/* rewrite into setop */
 					sql_rel *l = rel; 
 					sql_rel *r = rel_dup(rel);
-					
+					list *exps = rel_projections(sql, rel, NULL, 1, 1);
+
 					l = rel_select(sql->sa, l, NULL);
 					l->exps = e->l;
 					r = rel_select(sql->sa, r, NULL);
@@ -1492,6 +1493,7 @@ rewrite_or_exp(mvc *sql, sql_rel *rel)
 					list_remove_node(rel->exps, n); /* remove or expression */
 					rel = rel_setop(sql->sa, l, r, op_union);
 					rel = rel_distinct(rel);
+					rel->exps = exps;
 					return rewrite_or_exp(sql, rel);
 				}
 			}	

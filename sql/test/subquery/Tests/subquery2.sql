@@ -122,7 +122,6 @@ GROUP BY col1, col2, col5, col8;
 	-- False True True True
 
 
-/* Wrong output (error) because of CAST (NOT col1 IN (SELECT col2 FROM another_T GROUP BY col2) AS INTEGER) | CAST (col2 IN (SELECT col2 FROM another_T GROUP BY col2) AS INTEGER),
 SELECT
 	DISTINCT
 	NOT col1 * col5 = ALL (SELECT 1 FROM tbl_ProductSales HAVING MAX(col2) > 2),
@@ -133,7 +132,6 @@ FROM another_T
 GROUP BY col1, col2, col5;
 	-- False False 1 0
 	-- True  False 1 0
-*/
 
 SELECT
 	SUM(col1) IN (SELECT DISTINCT col2 FROM another_T GROUP BY col2)
@@ -233,11 +231,9 @@ FROM another_T t1;
 	-- NULL
 	-- NULL
 
-/* BROKEN code generation with a constant in a groupby- aggregation
 SELECT
 	CASE WHEN 1 IN (SELECT (SELECT MAX(col7))) THEN 2 ELSE NULL END
 FROM another_T t1;
-*/
 	-- NULL
 	-- NULL
 	-- NULL
