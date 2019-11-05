@@ -50,16 +50,14 @@ sql_update_var(mvc *m, const char *name, char *sval, hge sgn)
 sql_update_var(mvc *m, const char *name, char *sval, lng sgn)
 #endif
 {
-/*	CHECK */
-/*	if (strcmp(name, "debug") == 0) {
+if (strcmp(name, "debug") == 0) {
 #ifdef HAVE_HGE
 		assert((hge) GDK_int_min <= sgn && sgn <= (hge) GDK_int_max);
 #else
 		assert((lng) GDK_int_min <= sgn && sgn <= (lng) GDK_int_max);
 #endif
 		m->debug = (int) sgn;
-	} else if (strcmp(name, "current_schema") == 0) { */
-	if (strcmp(name, "current_schema") == 0) {
+	} else if (strcmp(name, "current_schema") == 0) {
 		if (!mvc_set_schema(m, sval)) {
 			throw(SQL,"sql.update_var", SQLSTATE(3F000) "Schema (%s) missing\n", sval);
 		}
