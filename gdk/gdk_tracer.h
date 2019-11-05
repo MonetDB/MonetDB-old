@@ -25,16 +25,20 @@
 // COMPONENTS 
 typedef enum { 
                // ALL
-               ALL,
+               M_ALL,
                ALLOC,
                
                // SQL
                SQL_ALL,
+
+               
                SQL_ATOM_TR,
                SQL_STATISTICS,
                SQL_ORDERIDX,
-               SQL_N,
+               SQL_OPTIMIZER,
+               SQL_FITS,
                SQL_WLR,
+               SQL_USER,
                SQL_SCENARIO,
                SQL_CACHE_TR,
                SQL_PARSER,
@@ -43,6 +47,8 @@ typedef enum {
                SQL_MVC,
                SQL_STORE,
                SQL_STORE_FLUSHER,
+               SQL_LIDAR,
+               SQL_BAM,
 
                // MAL
                MAL_ALL,

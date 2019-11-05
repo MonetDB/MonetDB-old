@@ -233,7 +233,7 @@ monet5_create_privileges(ptr _mvc, sql_schema *s)
 			    "\"sys\".\"db_user_info\" AS ui "
 			    "ON u.\"name\" = ui.\"name\";");
 	if (!t) {
-		CRITICAL(SQL_ALL, "Failed to create 'users' view\n");
+		CRITICAL(M_ALL, "Failed to create 'users' view\n");
 		return ;
 	}
 
@@ -506,7 +506,7 @@ monet5_user_set_def_schema(mvc *m, oid user)
 	str username = NULL;
 	str err = NULL;
 
-	DEBUG(SQL_ALL, OIDFMT "\n", user);
+	DEBUG(SQL_USER, OIDFMT "\n", user);
 
 	if ((err = AUTHresolveUser(&username, user)) !=MAL_SUCCEED) {
 		freeException(err);

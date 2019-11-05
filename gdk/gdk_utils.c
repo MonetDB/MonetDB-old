@@ -24,7 +24,6 @@
 static BAT *GDKkey = NULL;
 static BAT *GDKval = NULL;
 int GDKdebug = 0;
-int GDKverbose = 0;
 
 #include <signal.h>
 
@@ -515,12 +514,6 @@ void
 GDKsetdebug(int debug)
 {
 	GDKdebug = debug;
-}
-
-void
-GDKsetverbose(int verbose)
-{
-	GDKverbose = verbose;
 }
 
 gdk_return

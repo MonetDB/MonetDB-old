@@ -110,8 +110,6 @@
 /* debug and errno integers */
 gdk_export int GDKdebug;
 gdk_export void GDKsetdebug(int debug);
-gdk_export int GDKverbose;
-gdk_export void GDKsetverbose(int verbosity);
 
 gdk_export int GDKnr_threads;
 

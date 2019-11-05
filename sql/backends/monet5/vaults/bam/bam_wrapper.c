@@ -32,6 +32,7 @@
 #endif
 
 #include "bam_wrapper.h"
+#include "gdk_tracer.h"
 
 str
 ordering_str(ordering ord)
@@ -1326,14 +1327,12 @@ check_alignment_buffers(bam_wrapper *bw, alignment * alig, int qname_size,
 		alig->qual = tmp;
 	}
 
-#ifdef BAM_DEBUG
 	if (resized[0])
-		TO_LOG("<bam_loader> Increased size of qname buffer to %d characters\n", alig->qname_size);
+		DEBUG(SQL_BAM, "Increased size of qname buffer to: %d characters\n", alig->qname_size);
 	if (resized[1])
-		TO_LOG("<bam_loader> Increased size of cigar buffer to %d characters\n", alig->cigar_size);
+		DEBUG(SQL_BAM, "Increased size of cigar buffer to: %d characters\n", alig->cigar_size);
 	if (resized[2])
-		TO_LOG("<bam_loader> Increased size of seq and qual buffers to %d characters\n", alig->seq_size);
-#endif
+		DEBUG(SQL_BAM, "Increased size of seq and qual buffers to: %d characters\n", alig->seq_size);
 
 	return (alig->cigar != NULL && alig->seq != NULL
 		&& alig->qual != NULL);
@@ -1358,7 +1357,7 @@ check_qname_buffer(alignment * alig, int cur_size) {
 		if (tmp == NULL)
 			return 0;
 		alig->qname = tmp;
-		TO_LOG("<bam_loader> Increased size of qname buffer to %d characters\n", alig->qname_size);
+		DEBUG(SQL_BAM, "Increased size of qname buffer to: %d characters\n", alig->qname_size);
 	}
 	return alig->qname != NULL;
 }
@@ -1380,7 +1379,7 @@ check_rname_rnext_buffers(alignment * alig, int cur_size) {
 		if (tmp == NULL)
 			return 0;
 		alig->rnext = tmp;
-		TO_LOG("<bam_loader> Increased size of cigar buffer to %d characters\n", alig->rname_size);
+		DEBUG(SQL_BAM, "Increased size of cigar buffer to: %d characters\n", alig->rname_size);
 	}
 	return alig->rname != NULL && alig->rnext != NULL;
 }
@@ -1398,7 +1397,7 @@ check_cigar_buffer(alignment * alig, int cur_size) {
 		if (tmp == NULL)
 			return 0;
 		alig->cigar = tmp;
-		TO_LOG("<bam_loader> Increased size of cigar buffer to %d characters\n", alig->cigar_size);
+		DEBUG(SQL_BAM, "Increased size of cigar buffer to: %d characters\n", alig->cigar_size);
 	}
 	return alig->cigar != NULL;
 }
@@ -1419,7 +1418,7 @@ check_seq_qual_buffers(alignment * alig, int cur_size) {
 		if (tmp == NULL)
 			return 0;
 		alig->qual = tmp;
-		TO_LOG("<bam_loader> Increased size of seq and qual buffers to %d characters\n", alig->seq_size);
+		DEBUG(SQL_BAM, "Increased size of seq and qual buffers to: %d characters\n", alig->seq_size);
 	}
 	return alig->seq != NULL && alig->qual != NULL;
 }
@@ -1436,7 +1435,7 @@ check_aux_buffer(alignment * alig, int cur_size) {
 		if (tmp == NULL)
 			return 0;
 		alig->aux = tmp;
-		TO_LOG("<bam_loader> Increased size of aux buffer to %d characters\n", alig->aux_size);
+		DEBUG(SQL_BAM, "Increased size of aux buffer to: %d characters\n", alig->aux_size);
 	}
 	return alig->aux != NULL;
 }
@@ -2319,7 +2318,7 @@ process_alignments(bam_wrapper * bw, bit * some_thread_failed)
 						}
 					}
 					nr_aligs = new_nr_aligs;
-					TO_LOG("<bam_loader> Increased size of alignment buffer to %d alignments\n", nr_aligs);
+					DEBUG(SQL_BAM, "<bam_loader> Increased size of alignment buffer to: %d alignments\n", nr_aligs);
 				}
 			}
 		}

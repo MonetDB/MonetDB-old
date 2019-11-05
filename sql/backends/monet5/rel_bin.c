@@ -725,7 +725,7 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 		if (s && grp)
 			s = stmt_project(be, ext, s);
 		if (!s && right) {
-			CRITICAL(SQL_ALL, "Could not find %s.%s\n", (char*)e->l, (char*)e->r);
+			CRITICAL(M_ALL, "Could not find %s.%s\n", (char*)e->l, (char*)e->r);
 			print_stmtlist(sql->sa, left);
 			print_stmtlist(sql->sa, right);
 			assert(s);
