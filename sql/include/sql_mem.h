@@ -80,58 +80,58 @@ extern size_t sa_size( sql_allocator *sa );
 #define _strlen(s) (int)strlen(s)
 
 #if !defined(NDEBUG) && !defined(STATIC_CODE_ANALYSIS) && defined(__GNUC__)
-#define sa_alloc(sa, sz)									\
-	({														\
-		sql_allocator *_sa = (sa);							\
-		size_t _sz = (sz);									\
-		void *_res = sa_alloc(_sa, _sz);					\
-		DEBUG(ALLOC,										\
-			"sa_alloc(%p, %zu) -> %p\n",					\
-			_sa, _sz, _res);								\
-		_res;												\
+#define sa_alloc(sa, sz)                                    \
+	({                                                      \
+		sql_allocator *_sa = (sa);                          \
+		size_t _sz = (sz);                                  \
+		void *_res = sa_alloc(_sa, _sz);                    \
+		DEBUG(ALLOC,                                        \
+			"sa_alloc(%p, %zu) -> %p\n",                    \
+			_sa, _sz, _res);                                \
+		_res;                                               \
 	})
-#define sa_zalloc(sa, sz)									\
-	({														\
-		sql_allocator *_sa = (sa);							\
-		size_t _sz = (sz);									\
-		void *_res = sa_zalloc(_sa, _sz);					\
-		DEBUG(ALLOC,										\
-			"sa_zalloc(%p, %zu) -> %p\n",					\
-			_sa, _sz, _res);								\
-		_res;												\
+#define sa_zalloc(sa, sz)                                   \
+	({                                                      \
+		sql_allocator *_sa = (sa);                          \
+		size_t _sz = (sz);                                  \
+		void *_res = sa_zalloc(_sa, _sz);                   \
+		DEBUG(ALLOC,                                        \
+			"sa_zalloc(%p, %zu) -> %p\n",                   \
+			_sa, _sz, _res);                                \
+		_res;                                               \
 	})
-#define sa_realloc(sa, ptr, sz, osz)						\
-	({														\
-		sql_allocator *_sa = (sa);							\
-		void *_ptr = (ptr);									\
-		size_t _sz = (sz);									\
-		size_t _osz = (osz);								\
-		void *_res = sa_realloc(_sa, _ptr, _sz, _osz);		\
-		DEBUG(ALLOC,										\
-			"sa_realloc(%p, %p, %zu, %zu) -> %p",			\
-			_sa, _ptr, _sz, _osz, _res);					\
-		_res;												\
+#define sa_realloc(sa, ptr, sz, osz)                        \
+	({                                                      \
+		sql_allocator *_sa = (sa);                          \
+		void *_ptr = (ptr);                                 \
+		size_t _sz = (sz);                                  \
+		size_t _osz = (osz);                                \
+		void *_res = sa_realloc(_sa, _ptr, _sz, _osz)       \
+		DEBUG(ALLOC,                                        \
+			"sa_realloc(%p, %p, %zu, %zu) -> %p",           \
+			_sa, _ptr, _sz, _osz, _res);                    \
+		_res;                                               \
 	})
-#define sa_strdup(sa, s)									\
-	({														\
-		sql_allocator *_sa = (sa);							\
-		const char *_s = (s);								\
-		char *_res = sa_strdup(_sa, _s);					\
-		DEBUG(ALLOC, 										\
-			"sa_strdup(%p, len = %zu) -> %p",				\
-			_sa, strlen(_s), _res);							\
-		_res;												\
+#define sa_strdup(sa, s)                                    \
+	({                                                      \
+		sql_allocator *_sa = (sa);                          \
+		const char *_s = (s);                               \
+		char *_res = sa_strdup(_sa, _s);                    \
+		DEBUG(ALLOC,                                        \
+			"sa_strdup(%p, len = %zu) -> %p",               \
+			_sa, strlen(_s), _res);                         \
+		_res;                                               \
 	})
-#define sa_strndup(sa, s, l)								\
-	({														\
-		sql_allocator *_sa = (sa);							\
-		const char *_s = (s);								\
-		size_t _l = (l);									\
-		char *_res = sa_strndup(_sa, _s, _l);				\
-		DEBUG(ALLOC, 										\
-			"sa_strndup(%p, len = %zu) -> %p",				\
-			_sa, _l, _res);									\
-		_res;												\
+#define sa_strndup(sa, s, l)                                \
+	({                                                      \
+		sql_allocator *_sa = (sa);                          \
+		const char *_s = (s);                               \
+		size_t _l = (l);                                    \
+		char *_res = sa_strndup(_sa, _s, _l);               \
+		DEBUG(ALLOC,                                        \
+			"sa_strndup(%p, len = %zu) -> %p",              \
+			_sa, _l, _res);                                 \
+		_res;                                               \
 	})
 #endif
 

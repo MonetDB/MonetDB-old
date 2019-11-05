@@ -86,14 +86,14 @@ bailout:
 	return t;
 }
 
-#define MVC_INIT_DROP_TABLE(SQLID, TNAME)						\
-	t = mvc_bind_table(m, s, TNAME);							\
-	SQLID = t->base.id;											\
-	if((output = mvc_drop_table(m, s, t, 0)) != MAL_SUCCEED) {	\
-		mvc_destroy(m);											\
-		CRITICAL(M_ALL, "Initialization: %s\n", output)				\
-		freeException(output);									\
-		return -1;												\
+#define MVC_INIT_DROP_TABLE(SQLID, TNAME)                       \
+	t = mvc_bind_table(m, s, TNAME);                            \
+	SQLID = t->base.id;                                         \
+	if((output = mvc_drop_table(m, s, t, 0)) != MAL_SUCCEED) {  \
+		mvc_destroy(m);                                         \
+		CRITICAL(M_ALL, "Initialization: %s\n", output)         \
+		freeException(output);                                  \
+		return -1;                                              \
 	}
 
 int

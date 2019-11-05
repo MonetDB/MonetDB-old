@@ -981,11 +981,11 @@ cleanup:
  * (variable msg and tag cleanup will not be defined).
  */
 #define WLRvalue(TPE)                                                   \
-	{	TPE val = *getArgReference_##TPE(stk,pci,5);            		\
-			if (BUNappend(upd, (void*) &val, false) != GDK_SUCCEED) { 	\
-				ERROR(M_ALL, "BUNappend failed\n");			\
-				goto cleanup;                                   		\
-		}                                                       		\
+	{	TPE val = *getArgReference_##TPE(stk,pci,5);                    \
+			if (BUNappend(upd, (void*) &val, false) != GDK_SUCCEED) {   \
+				ERROR(M_ALL, "BUNappend failed\n");                     \
+				goto cleanup;                                           \
+		}                                                               \
 	}
 
 str
