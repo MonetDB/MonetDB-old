@@ -106,7 +106,7 @@ extern size_t sa_size( sql_allocator *sa );
 		void *_ptr = (ptr);                                 \
 		size_t _sz = (sz);                                  \
 		size_t _osz = (osz);                                \
-		void *_res = sa_realloc(_sa, _ptr, _sz, _osz)       \
+		void *_res = sa_realloc(_sa, _ptr, _sz, _osz);      \
 		DEBUG(ALLOC,                                        \
 			"sa_realloc(%p, %p, %zu, %zu) -> %p",           \
 			_sa, _ptr, _sz, _osz, _res);                    \
