@@ -3006,7 +3006,10 @@ rel_case_fixup(int *changes, mvc *sql, sql_rel *rel, int top)
 		/* get proper output first, then rewrite lower project (such that it can split expressions) */
 		push_down = is_simple_project(rel->op) && !rel->r && !rel_is_ref(rel);
 		if (push_down) {
-			res = rel_project(sql->sa, rel, rel_projections(sql, rel, NULL, 1, 2));
+			if (top)
+				res = rel_safe_project(sql, rel);
+			else
+				res = rel_project(sql->sa, rel, rel_projections(sql, rel, NULL, 1, 2));
 			if (need_distinct(rel))
 				set_distinct(res);
 		}
@@ -7336,10 +7339,12 @@ rel_simplify_predicates(int *changes, mvc *sql, sql_rel *rel)
 
 						assert(list_length(args) == 1);
 						l = args->h->data;
-						r = exp_atom(sql->sa, atom_general(sql->sa, exp_subtype(l), NULL));
-						e = exp_compare2(sql->sa, l, r, r, 3);
-						if (e && !flag)
-							set_anti(e);
+						if (exp_subtype(l)) {
+							r = exp_atom(sql->sa, atom_general(sql->sa, exp_subtype(l), NULL));
+							e = exp_compare2(sql->sa, l, r, r, 3);
+							if (e && !flag)
+								set_anti(e);
+						}
 					} else if (!f->func->s && !strcmp(f->func->base.name, "not")) {
 						if (is_atom(r->type) && r->l) { /* direct literal */
 							atom *a = r->l;

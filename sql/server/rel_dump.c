@@ -360,7 +360,6 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 		mnstr_printf(fout, "\n%cREF %d (%d)", decorate?'=':' ', nr, cnt);
 	}
 
-
 	switch (rel->op) {
 	case op_basetable: {
 		sql_table *t = rel->l;
@@ -551,6 +550,7 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 			GDKfree(pv);
 		}
 	}
+	//mnstr_printf(fout, " %p ", rel);
 }
 
 void

@@ -1899,10 +1899,10 @@ copyfrom(sql_query *query, dlist *qname, dlist *columns, dlist *files, dlist *he
 				append(args, exp_atom_clob(sql->sa, format));
 				ne = exp_op(sql->sa, args, f);
 				exp_setname(sql->sa, ne, exp_relname(e), exp_name(e));
-				append(nexps, ne);
 			} else {
-				append(nexps, e);
+				ne = exp_ref(sql->sa, e); 
 			}
+			append(nexps, ne);
 			m = m->next;
 		}
 		rel = rel_project(sql->sa, rel, nexps);

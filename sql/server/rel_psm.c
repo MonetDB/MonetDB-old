@@ -395,7 +395,7 @@ rel_psm_case( sql_query *query, sql_subtype *res, list *restypelist, dnode *case
 			sql_exp *case_stmt = NULL;
 
 			if (!when_value || rel ||
-			   (cond = rel_binop_(query, rel, v, when_value, NULL, "=", card_value)) == NULL ||
+			   (cond = rel_binop_(sql, rel, v, when_value, NULL, "=", card_value)) == NULL ||
 			   (if_stmts = sequential_block( query, res, restypelist, m->next->data.lval, NULL, is_func)) == NULL ) {
 				if (rel)
 					return sql_error(sql, 02, SQLSTATE(42000) "CASE: No SELECT statements allowed within the CASE condition");

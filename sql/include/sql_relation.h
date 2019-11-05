@@ -160,7 +160,9 @@ typedef enum operator_type {
 	(et == e_atom)
 /* a simple atom is a literal or on the query stack */
 #define is_simple_atom(e) \
-	(is_atom(e->flag) && !e->r && !e->f)
+	(is_atom(e->type) && !e->r && !e->f)
+#define is_values(e) \
+	((e)->type == e_atom && (e)->f)
 #define is_func(et) \
 	(et == e_func)
 #define is_aggr(et) \
@@ -169,6 +171,8 @@ typedef enum operator_type {
 	(et == e_convert)
 #define is_map_op(et) \
 	(et == e_func || et == e_convert)
+#define is_compare(et) \
+	(et == e_cmp)
 #define is_column(et) \
 	(et != e_cmp)
 #define is_alias(et) \

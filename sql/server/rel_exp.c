@@ -187,6 +187,26 @@ exp_in(sql_allocator *sa, sql_exp *l, list *r, int cmptype)
 	return e;
 }
 
+sql_exp *
+exp_in_func(mvc *sql, sql_exp *le, sql_exp *vals, int anyequal, int is_tuple)
+{
+	sql_subfunc *a_func = NULL;
+	sql_exp *e = le;
+			
+	if (is_tuple) {
+		list *l = exp_get_values(e);
+		e = l->h->data;
+	}
+	if (anyequal)
+		a_func = sql_bind_func(sql->sa, sql->session->schema, "sql_anyequal", exp_subtype(e), exp_subtype(e), F_FUNC);
+	else
+		a_func = sql_bind_func(sql->sa, sql->session->schema, "sql_not_anyequal", exp_subtype(e), exp_subtype(e), F_FUNC);
+
+	if (!a_func) 
+		return sql_error(sql, 02, SQLSTATE(42000) "(NOT) IN operator on type %s missing", exp_subtype(le)->type->sqlname);
+	return exp_binop(sql->sa, le, vals, a_func);
+}
+
 static sql_subtype*
 dup_subtype(sql_allocator *sa, sql_subtype *st)
 {
@@ -222,7 +242,7 @@ exp_op( sql_allocator *sa, list *l, sql_subfunc *f )
 	e->card = exps_card(l);
 	if (!l || list_length(l) == 0) 
 		e->card = CARD_ATOM; /* unop returns a single atom */
-	/* 
+	/*
 	if (f->func->side_effect)
 		e->card = CARD_MULTI;
 		*/
@@ -456,9 +476,17 @@ exp_values(sql_allocator *sa, list *exps)
 	sql_exp *e = exp_create(sa, e_atom);
 	if (e == NULL)
 		return NULL;
-	e->card = CARD_MULTI;
+	e->card = exps_card(exps);
 	e->f = exps;
 	return e;
+}
+
+list *
+exp_get_values(sql_exp *e)
+{
+	if (is_atom(e->type) && e->f)
+		return e->f;
+	return NULL;
 }
 
 list * 
@@ -1546,8 +1574,46 @@ exp_is_atom( sql_exp *e )
 int
 exp_is_rel( sql_exp *e )
 {
-	return (e && e->type == e_psm && e->flag == PSM_REL && e->l);
+	if (!e)
+		return 0;
+	switch(e->type){
+	case e_func:
+	case e_aggr:
+		return exps_have_rel_exp(e->l);
+	case e_cmp:
+		if (get_cmp(e) == cmp_or || get_cmp(e) == cmp_filter) {
+			return (exps_have_rel_exp(e->l) || exps_have_rel_exp(e->r));
+		} else if (e->flag == cmp_in || e->flag == cmp_notin) {
+			return (exp_is_rel(e->l) || exps_have_rel_exp(e->r));
+		} else {
+			return (exp_is_rel(e->l) || exp_is_rel(e->r) || (e->f && exp_is_rel(e->f)));
+		}
+	case e_convert:
+		return exp_is_rel(e->l);
+	case e_psm:
+		return (e->flag == PSM_REL && e->l);
+	case e_atom:
+		return (e->f && exps_have_rel_exp(e->f));
+	case e_column:
+		return 0;
+	}
+	return 0;
 }
+
+int
+exps_have_rel_exp( list *exps)
+{
+	if (list_empty(exps))
+		return 0;
+	for(node *n=exps->h; n; n=n->next) {
+		sql_exp *e = n->data;
+
+		if (exp_is_rel(e))
+			return 1;
+	}
+	return 0;
+}
+
 
 int
 exps_are_atoms( list *exps)

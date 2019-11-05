@@ -164,5 +164,5 @@ e_psm
 				->r loop_exp_list
 		psm_return	->l return_exp
 		psm_rel		->l relation
-		psm_exception ->l cond_exp
-					  ->r error_string
+		psm_exception   ->l cond_exp
+				->r error_string

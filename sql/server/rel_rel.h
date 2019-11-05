@@ -24,8 +24,8 @@
 #define sql_join   512 //ORed
 #define sql_outer 1024 //ORed
 
-#define tmp_exists 2048 //ORed
-#define is_sql_exists(X)   ((X & tmp_exists) == tmp_exists)
+#define tmp_pushed 2048 //ORed
+#define is_sql_pushed(X)   ((X & tmp_pushed) == tmp_pushed)
 
 #define is_sql_from(X)    ((X & sql_from) == sql_from)
 #define is_sql_where(X)   ((X & sql_where) == sql_where)
@@ -76,7 +76,7 @@ extern sql_rel *rel_sample(sql_allocator *sa, sql_rel *l, list *exps );
 
 extern sql_rel *rel_label( mvc *sql, sql_rel *r, int all);
 extern sql_exp *rel_project_add_exp( mvc *sql, sql_rel *rel, sql_exp *e);
-extern void rel_select_add_exp(sql_allocator *sa, sql_rel *l, sql_exp *e);
+extern sql_rel *rel_select_add_exp(sql_allocator *sa, sql_rel *l, sql_exp *e);
 extern void rel_join_add_exp(sql_allocator *sa, sql_rel *rel, sql_exp *e);
 extern sql_exp *rel_groupby_add_aggr(mvc *sql, sql_rel *rel, sql_exp *e);
 
@@ -92,6 +92,7 @@ extern sql_rel *rel_table_func(sql_allocator *sa, sql_rel *l, sql_exp *f, list *
 
 extern list *_rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname , int intern, int basecol);
 extern list *rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname , int intern);
+extern sql_rel *rel_safe_project(mvc *sql, sql_rel *rel);
 
 extern sql_rel *rel_push_select(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *e);
 extern sql_rel *rel_push_join(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_exp *rs2, sql_exp *e);
@@ -108,7 +109,7 @@ extern int rel_in_rel(sql_rel *super, sql_rel *sub);
 extern list *rel_dependencies(mvc *sql, sql_rel *r);
 extern sql_exp * exps_find_match_exp(list *l, sql_exp *e);
 
-typedef sql_exp *(*exp_rewrite_fptr)(mvc *sql, sql_rel *rel, sql_exp *e);
+typedef sql_exp *(*exp_rewrite_fptr)(mvc *sql, sql_rel *rel, sql_exp *e, int depth /* depth of the nested expression */ );
 extern sql_rel *rel_exp_visitor(mvc *sql, sql_rel *rel, exp_rewrite_fptr exp_rewriter);
 
 typedef sql_rel *(*rel_rewrite_fptr)(mvc *sql, sql_rel *rel);

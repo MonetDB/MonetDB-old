@@ -2992,7 +2992,7 @@ rel2bin_select(backend *be, sql_rel *rel, list *refs)
 			}
 			sel = stmt_uselect(be, predicate, s, cmp_equal, sel, 0);
 		} else if (e->type != e_cmp) {
-			sel = stmt_uselect(be, s, stmt_bool(be, 1), cmp_equal, NULL, 0);
+			sel = stmt_uselect(be, s, stmt_bool(be, 1), cmp_equal, sel, 0);
 		} else {
 			sel = s;
 		}
