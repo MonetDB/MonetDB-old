@@ -119,6 +119,7 @@ typedef struct mvc {
 	int caching;		/* cache current query ? */
 	int reply_size;		/* reply size */
 	bool sizeheader;	/* print size header in result set */
+	int debug;
 
 	lng Topt;		/* timer for optimizer phase */
 	char emode;		/* execution mode */
@@ -140,18 +141,19 @@ typedef struct mvc {
 } mvc;
 
 extern sql_table *mvc_init_create_view(mvc *sql, sql_schema *s, const char *name, const char *query);
-extern int mvc_init(store_type store, int ro, int su, backend_stack stk);
+extern int mvc_init(int debug, store_type store, int ro, int su, backend_stack stk);
 extern void mvc_exit(void);
 extern void mvc_logmanager(void);
 extern void mvc_idlemanager(void);
 
-extern mvc *mvc_create(int clientid, backend_stack stk, bstream *rs, stream *ws);
-extern int mvc_reset(mvc *m, bstream *rs, stream *ws, int globalvars);
+extern mvc *mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws);
+extern int mvc_reset(mvc *m, bstream *rs, stream *ws, int debug, int globalvars);
 extern void mvc_destroy(mvc *c);
 
 extern int mvc_status(mvc *c);
 extern int mvc_error_retry(mvc *c); // error code on errors else 0, errors AMBIGUOUS and GROUPBY will also output 0
 extern int mvc_type(mvc *c);
+extern int mvc_debug_on(mvc *m, int flag);
 extern void mvc_cancel_session(mvc *m);
 
 /* since Savepoints and transactions are related the 
