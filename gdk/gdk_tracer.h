@@ -58,6 +58,10 @@ typedef enum {
                MAL_SESSION,
                MAL_INTERPRETER,
                MAL_SCHEDULER,
+               MAL_LISTING,
+               MAL_FACTORY,
+               MAL_PARSER,
+               MAL_WLC,
 
                // GDK
                GDK_ALL,
