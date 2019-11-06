@@ -67,6 +67,7 @@ typedef enum {
                MAL_WLC,
                MAL_REDUCE,
                MAL_CLIENT,
+               MAL_OIDX,
 
                // GDK
                GDK_ALL,
