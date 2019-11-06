@@ -15,6 +15,7 @@
 
 #include "monetdb_config.h"
 #include "libgeom.h"
+#include "gdk_tracer.h"
 
 #include <math.h>
 
@@ -193,18 +194,14 @@ geom_type2str(int t, int flag)
 str
 geomerty_2_geometry(wkb *res, wkb **geom, int *columnType, int *columnSRID, int *valueSRID)
 {
-
 	//char* geomStr;
 	//size_t len = 0;
-	//fprintf(stderr, "geometry_2_geometry\n");
+	DEBUG(GEOM, "Enter geometry_2_geometry\n");
 	//wkbTOSTR(&geomStr, &len, *geom);
 	if (*geom != NULL)
-		fprintf(stderr, "type:%d - wkbTOSTR cannot be seen at this point\n", *columnType);
+		DEBUG(GEOM, "Type: %d - wkbTOSTR cannot be seen at this point\n", *columnType);
 
-	if (res == NULL)
-		fprintf(stderr, "-> ");
-
-	fprintf(stderr, "%d vs %d\n", *columnSRID, *valueSRID);
+	DEBUG(GEOM, "%s %d vs %d\n", res == NULL ? "->" : "", *columnSRID, *valueSRID);
 	return "0";
 }
 */

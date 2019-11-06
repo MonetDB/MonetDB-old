@@ -35,6 +35,7 @@
 #define geom_export extern
 #endif
 
+/* #define DEBUG_GEOM */
 
 /* general functions */
 geom_export str geoHasZ(int* res, int* info);
