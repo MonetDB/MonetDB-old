@@ -119,14 +119,14 @@ run_process_bam_alignments(void *d)
 	bam_wrapper *bw;
 
 	for (;;) {
-		DEBUG(SQL_BAM, "<Thread %d> Starting on next file\n", data->thread_id);
+		DEBUG(BAM, "<Thread %d> Starting on next file\n", data->thread_id);
 		/* First, find out on which bam wrapper we have to work */
 		MT_lock_set(data->reader_lock);
 		if (*data->cur_file == data->nr_files - 1) {
 			/* The last file is already (being) processed, this
 			 * thread is done */
 			MT_lock_unset(data->reader_lock);
-			DEBUG(SQL_BAM, 
+			DEBUG(BAM, 
 				"<Thread %d> No files left to work on; thread done\n",
 				data->thread_id);
 			return;
@@ -134,7 +134,7 @@ run_process_bam_alignments(void *d)
 		(*data->cur_file) += 1;
 		bw = &data->bws[*data->cur_file];
 		MT_lock_unset(data->reader_lock);
-		DEBUG(SQL_BAM, 
+		DEBUG(BAM, 
 			"<Thread %d> Processing alignments of file '%s' (file id " LLFMT ")\n", 
 			data->thread_id, bw->file_location, bw->file_id);
 
@@ -153,7 +153,7 @@ run_process_bam_alignments(void *d)
 			return;
 		}
 
-		DEBUG(SQL_BAM, 
+		DEBUG(BAM, 
 			"<Thread %d> All alignments in file '%s' (file id " LLFMT ") processed!\n", 
 			data->thread_id, bw->file_location, bw->file_id);
 	}
@@ -187,7 +187,7 @@ bam_loader(Client cntxt, MalBlkPtr mb, str * filenames, int nr_files,
 	int i, errnr;
 	str msg = MAL_SUCCEED;
 
-	DEBUG(SQL_BAM, "Loader started for %d BAM file%s\n", nr_files, (nr_files != 1 ? "s" : ""));
+	DEBUG(BAM, "Loader started for %d BAM file%s\n", nr_files, (nr_files != 1 ? "s" : ""));
 
 	/* Check sanity of input */
 	if (dbschema != 0 && dbschema != 1) {
@@ -222,7 +222,7 @@ bam_loader(Client cntxt, MalBlkPtr mb, str * filenames, int nr_files,
 		goto cleanup;
 
 	/* Get next file id from files table */
-	DEBUG(SQL_BAM, "Retrieving next file id\n");
+	DEBUG(BAM, "Retrieving next file id\n");
 	if ((msg = next_file_id(m, files_table, &cur_file_id)) != MAL_SUCCEED) {
 		goto cleanup;
 	}
@@ -240,7 +240,7 @@ bam_loader(Client cntxt, MalBlkPtr mb, str * filenames, int nr_files,
 
 	for (i = 0; i < nr_files; ++i) {
 		int fln = strlen(filenames[i]);
-		DEBUG(SQL_BAM, "Initializing BAM wrapper for file '%s'\n", filenames[i]);
+		DEBUG(BAM, "Initializing BAM wrapper for file '%s'\n", filenames[i]);
 		if ((msg =
 			 init_bam_wrapper(bws + i, (IS_BAM(filenames[i], fln) ? BAM : SAM),
 					  filenames[i], cur_file_id++, dbschema)) != MAL_SUCCEED) {
@@ -250,7 +250,7 @@ bam_loader(Client cntxt, MalBlkPtr mb, str * filenames, int nr_files,
 
 	/* Parse all headers */
 	for (i = 0; i < nr_files; ++i) {
-		DEBUG(SQL_BAM, "Parsing header for file '%s'\n",
+		DEBUG(BAM, "Parsing header for file '%s'\n",
 			   filenames[i]);
 		if ((msg = process_header(bws + i)) != MAL_SUCCEED) {
 			goto cleanup;
@@ -262,7 +262,7 @@ bam_loader(Client cntxt, MalBlkPtr mb, str * filenames, int nr_files,
 	 * QNAME */
 	if (dbschema == 1) {
 		for (i = 0; i < nr_files; ++i) {
-			DEBUG(SQL_BAM, "Checking sortedness for BAM file '%s'\n", filenames[i]);
+			DEBUG(BAM, "Checking sortedness for BAM file '%s'\n", filenames[i]);
 			if (bws[i].ord != ORDERING_QUERYNAME) {
 				msg = createException(MAL, "bam_loader",
 							  SQLSTATE(BA000) "Only BAM files that are sorted on queryname can be inserted into the pairwise storage schema; "
@@ -277,7 +277,7 @@ bam_loader(Client cntxt, MalBlkPtr mb, str * filenames, int nr_files,
 
 	/* Create alignment storage */
 	for (i = 0; i < nr_files; ++i) {
-		DEBUG(SQL_BAM, "Creating alignment tables for file '%s'\n", filenames[i]);
+		DEBUG(BAM, "Creating alignment tables for file '%s'\n", filenames[i]);
 		if ((dbschema == 0
 			 && (msg = create_alignment_storage_0(cntxt,
 								  "bam.create_storage_0",
@@ -292,7 +292,7 @@ bam_loader(Client cntxt, MalBlkPtr mb, str * filenames, int nr_files,
 
 
 	/* Now create threads to read alignment data of different files */
-	DEBUG(SQL_BAM, "Creating reader threads\n");
+	DEBUG(BAM, "Creating reader threads\n");
 	if ((reader_threads =
 		 (MT_Id *) GDKmalloc(nr_threads * sizeof(MT_Id))) == NULL) {
 		msg = createException(MAL, "bam_loader", SQLSTATE(HY001) MAL_MALLOC_FAIL);
@@ -319,7 +319,7 @@ bam_loader(Client cntxt, MalBlkPtr mb, str * filenames, int nr_files,
 		}
 	}
 
-	DEBUG(SQL_BAM, "Waiting for reader threads to finish\n");
+	DEBUG(BAM, "Waiting for reader threads to finish\n");
 	/* Wait until all threads finish and collect their
 	 * messages. Though it is not very likely, it could be the
 	 * case that more than 1 thread generates an error message (not
@@ -365,7 +365,7 @@ bam_loader(Client cntxt, MalBlkPtr mb, str * filenames, int nr_files,
 		goto cleanup;
 	}
 
-	DEBUG(SQL_BAM, "Copying data into DB\n");
+	DEBUG(BAM, "Copying data into DB\n");
 	/* All threads finished succesfully, copy all data into DB */
 	for (i = 0; i < nr_files; ++i) {
 		if ((msg = copy_into_db(cntxt, bws + i)) != MAL_SUCCEED) {
@@ -390,7 +390,7 @@ bam_loader(Client cntxt, MalBlkPtr mb, str * filenames, int nr_files,
 		ERROR(M_ALL, "Error on processing BAM files: %s\n", msg);
 	}
 
-	DEBUG(SQL_BAM, "Loader finished processing %d BAM file%s\n", nr_files, (nr_files != 1 ? "s" : ""));
+	DEBUG(BAM, "Loader finished processing %d BAM file%s\n", nr_files, (nr_files != 1 ? "s" : ""));
 	return msg;
 }
 
