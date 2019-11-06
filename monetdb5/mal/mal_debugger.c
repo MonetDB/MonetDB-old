@@ -20,6 +20,7 @@
 #include "mal_parser.h"
 #include "mal_namespace.h"
 #include "mal_private.h"
+#include "gdk_tracer.h"
 
 typedef struct {
 	MalBlkPtr brkBlock[MAXBREAKS];
@@ -293,7 +294,7 @@ mdbInit(void)
 	 */
 	mdbTable = GDKzalloc(sizeof(mdbStateRecord) * MAL_MAXCLIENTS);
 	if (mdbTable == NULL) {
-		fprintf(stderr,"#mdbInit:" MAL_MALLOC_FAIL);
+		CRITICAL(M_ALL, "Initialization failed: \n" MAL_MALLOC_FAIL);
 		return false;
 	}
 	return true;

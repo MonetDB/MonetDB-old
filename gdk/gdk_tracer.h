@@ -26,19 +26,24 @@
 typedef enum { 
                // ALL
                M_ALL,
+
+               // Specific 
                ALLOC,
                PAR,
+
+               // Modules
                GEOM,
-               
+               ATOMS, 
+               LIDAR,
+               BAM,
+               FITS,
+
                // SQL
                SQL_ALL,
-
-               
                SQL_ATOM_TR,
                SQL_STATISTICS,
                SQL_ORDERIDX,
                SQL_OPTIMIZER,
-               SQL_FITS,
                SQL_WLR,
                SQL_USER,
                SQL_SCENARIO,
@@ -49,8 +54,6 @@ typedef enum {
                SQL_MVC,
                SQL_STORE,
                SQL_STORE_FLUSHER,
-               SQL_LIDAR,
-               SQL_BAM,
 
                // MAL
                MAL_ALL,
@@ -62,6 +65,7 @@ typedef enum {
                MAL_FACTORY,
                MAL_PARSER,
                MAL_WLC,
+               MAL_REDUCE,
 
                // GDK
                GDK_ALL,

@@ -9,6 +9,7 @@
 /* (author) M. Kersten */
 #include "monetdb_config.h"
 #include "mal.h"
+#include "gdk_tracer.h"
 
 char 	monet_cwd[FILENAME_MAX] = { 0 };
 size_t 	monet_memory = 0;
@@ -79,7 +80,7 @@ int mal_init(void){
 #ifndef NDEBUG
 		mdbExit();
 #endif
-		fprintf(stderr, "%s", err);
+		ERROR(M_ALL, "%s\n", err);
 		freeException(err);
 		return -1;
 	}
@@ -109,11 +110,11 @@ void mserver_reset(void)
 	AUTHreset();
 	if (!GDKinmemory()) {
 		if ((err = msab_wildRetreat()) != NULL) {
-			fprintf(stderr, "!%s", err);
+			ERROR(M_ALL, "%s\n", err);
 			free(err);
 		}
 		if ((err = msab_registerStop()) != NULL) {
-			fprintf(stderr, "!%s", err);
+			ERROR(M_ALL, "%s\n", err);
 			free(err);
 		}
 	}
