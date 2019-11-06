@@ -30,6 +30,7 @@ typedef enum {
                // Specific 
                ALLOC,
                PAR,
+               ALGO,
 
                // Modules
                GEOM,
@@ -68,6 +69,7 @@ typedef enum {
                MAL_REDUCE,
                MAL_CLIENT,
                MAL_OIDX,
+               MAL_REMOTE,
 
                // GDK
                GDK_ALL,
