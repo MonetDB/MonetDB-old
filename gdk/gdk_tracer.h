@@ -53,7 +53,8 @@ typedef enum {
 
                // MAL
                MAL_ALL,
-
+               MAL_MEMORUN,
+               
                // GDK
                GDK_ALL,
                GDK_LOGGER
