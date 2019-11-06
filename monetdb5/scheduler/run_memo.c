@@ -177,7 +177,7 @@ RUNchoice(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		}
 	}
 
-	DEBUG(MAL_MEMORUN, "Function target '%s' cost: %lld\n", getVarName(mb, target), mincost);
+	DEBUG(MAL_MEMO, "Function target '%s' cost: %lld\n", getVarName(mb, target), mincost);
 	(void) cntxt;
 
 	/* remove non-qualifying variables */
@@ -189,7 +189,7 @@ RUNchoice(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	propagateNonTarget(mb, pc + 1);
 
-	DEBUG(MAL_MEMORUN, "Cost choice selected: %s %lld\n", getVarName(mb, target), mincost);
+	DEBUG(MAL_MEMO, "Cost choice selected: %s %lld\n", getVarName(mb, target), mincost);
 	/* CHECK */
 	// Uncomment this line below!
 	// fprintFunction(mb, stk, 1);
