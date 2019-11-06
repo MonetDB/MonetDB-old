@@ -904,9 +904,8 @@ segmentizeLineString(GEOSGeometry **outGeometry, const GEOSGeometry *geosGeometr
 
 		//compute the distance of the current point to the last added one
 		while ((dist = sqrt(pow(xl - xCoords_org[i], 2) + pow(yl - yCoords_org[i], 2) + pow(zl - zCoords_org[i], 2))) > sz) {
-#ifdef DEBUG_GEOM
 			DEBUG(GEOM, "Old : (%f, %f, %f) vs (%f, %f, %f) = %f\n", xl, yl, zl, xCoords_org[i], yCoords_org[i], zCoords_org[i], dist);
-#endif
+
 			additionalPoints++;
 			//compute the point
 			xl = xl + (xCoords_org[i] - xl) * sz / dist;
@@ -954,10 +953,8 @@ segmentizeLineString(GEOSGeometry **outGeometry, const GEOSGeometry *geosGeometr
 		//compute the distance of the current point to the last added one
 		double dist;
 		while ((dist = sqrt(pow(xl - xCoords_org[i], 2) + pow(yl - yCoords_org[i], 2) + pow(zl - zCoords_org[i], 2))) > sz) {
-
-#ifdef DEBUG_GEOM
 			DEBUG(GEOM, "Old: (%f, %f, %f) vs (%f, %f, %f) = %f\n", xl, yl, zl, xCoords_org[i], yCoords_org[i], zCoords_org[i], dist);
-#endif
+			
 			assert(j < additionalPoints);
 
 			//compute intermediate point
@@ -2397,11 +2394,7 @@ wkbAsBinary(char **toStr, wkb **geomWKB)
 		*s++ = hexit[val];
 		val = (*geomWKB)->data[i] & 0xf;
 		*s++ = hexit[val];
-
-	#ifdef DEBUG_GEOM
 		DEBUG(GEOM, "%d: First: %c - Second: %c ==> Original %c (%d)\n", i, *(s-2), *(s-1), (*geomWKB)->data[i], (int)((*geomWKB)->data[i]));
-	#endif
-
 	}
 	*s = '\0';
 	return MAL_SUCCEED;
