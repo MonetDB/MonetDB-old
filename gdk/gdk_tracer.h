@@ -54,7 +54,8 @@ typedef enum {
                MAL_ALL,
 
                // GDK
-               GDK_ALL
+               GDK_ALL,
+               GDK_LOGGER
 
               } COMPONENT;
               
