@@ -1964,7 +1964,7 @@ store_load(void) {
 }
 
 int
-store_init(store_type store, int readonly, int singleuser, backend_stack stk)
+store_init(int debug, store_type store, int readonly, int singleuser, backend_stack stk)
 {
 	int v = 1;
 
@@ -1990,8 +1990,6 @@ store_init(store_type store, int readonly, int singleuser, backend_stack stk)
 		break;
 	}
 	active_store_type = store;
-	/* CHECK -> Remove debug! */
-	int debug = 0;
 	if (!logger_funcs.create ||
 	    logger_funcs.create(debug, "sql_logs", CATALOG_VERSION*v) != LOG_OK) {
 		MT_lock_unset(&bs_lock);

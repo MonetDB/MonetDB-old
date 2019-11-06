@@ -99,7 +99,6 @@ bailout:
 int
 mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 {
-	(void) debug;
 	int first = 0;
 	sql_schema *s;
 	sql_table *t;
@@ -114,7 +113,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 		return -1;
 	}
 
-	if ((first = store_init(store, ro, su, stk)) < 0) {
+	if ((first = store_init(debug, store, ro, su, stk)) < 0) {
 		CRITICAL(ALL, "Unable to create system tables\n");
 		return -1;
 	}
