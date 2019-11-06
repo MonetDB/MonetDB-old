@@ -869,7 +869,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 						bat bid = stk->stk[a].val.bval;
 
 						if (garbage[i] >= 0) {
-							DEBUG(MAL_PAR, "GC pc=%d bid=%d %s done\n", stkpc, bid, getVarName(mb, garbage[i]));
+							DEBUG(PAR, "GC pc=%d bid=%d %s done\n", stkpc, bid, getVarName(mb, garbage[i]));
 							bid = stk->stk[garbage[i]].val.bval;
 							stk->stk[garbage[i]].val.bval = bat_nil;
 							BBPrelease(bid);

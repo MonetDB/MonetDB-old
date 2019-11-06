@@ -27,6 +27,7 @@ typedef enum {
                // ALL
                M_ALL,
                ALLOC,
+               PAR,
                GEOM,
                
                // SQL
@@ -55,7 +56,6 @@ typedef enum {
                MAL_ALL,
                MAL_MEMORUN,
                MAL_SESSION,
-               MAL_PAR,
                MAL_INTERPRETER,
                MAL_SCHEDULER,
 
