@@ -879,12 +879,12 @@ SQLreader(Client c)
 		return MAL_SUCCEED;
 	}
 	if (!be || c->mode <= FINISHCLIENT) {
-		DEBUG(SQL_READER, "SQL client finished\n");
+		DEBUG(SQL_SCENARIO, "SQL client finished\n");
 		c->mode = FINISHCLIENT;
 		return MAL_SUCCEED;
 	}
 
-	DEBUG(SQL_READER, "Start reading SQL %s\n", (blocked ? "Blocked read" : ""));
+	DEBUG(SQL_SCENARIO, "Start reading SQL %s\n", (blocked ? "Blocked read" : ""));
 
 	language = be->language;	/* 'S' for SQL, 'D' from debugger */
 	m = be->mvc;
@@ -893,7 +893,7 @@ SQLreader(Client c)
 	 * Continue processing any left-over input from the previous round.
 	 */
 
-	DEBUG(SQL_READER, "Pos %zu len %zu eof %d \n", in->pos, in->len, in->eof);
+	DEBUG(SQL_SCENARIO, "Pos %zu len %zu eof %d \n", in->pos, in->len, in->eof);
 
 	while (more) {
 		more = false;
@@ -916,7 +916,7 @@ SQLreader(Client c)
 			ssize_t rd;
 
 			if (c->bak) {
-				DEBUG(SQL_READER, "Switch to backup stream\n");
+				DEBUG(SQL_SCENARIO, "Switch to backup stream\n");
 				in = c->fdin;
 				blocked = isa_block_stream(in->s);
 				m->scanner.rs = c->fdin;
@@ -945,7 +945,7 @@ SQLreader(Client c)
 				more = false;
 				go = false;
 			} else if (go && (rd = bstream_next(in)) <= 0) {
-				DEBUG(SQL_READER, "Read %zu language %d eof %d\n", rd, language, in->eof);
+				DEBUG(SQL_SCENARIO, "Read %zu language %d eof %d\n", rd, language, in->eof);
 				if (be->language == 'D' && !in->eof) {
 					in->pos++;// skip 's' or 'S'
 					return msg;
@@ -975,7 +975,7 @@ SQLreader(Client c)
 				in->pos++;// skip 's' or 'S'
 			}
 
-			DEBUG(SQL_READER, "SQL blk: %s\n", in->buf + in->pos);
+			DEBUG(SQL_SCENARIO, "SQL blk: %s\n", in->buf + in->pos);
 		}
 	}
 	if ( (c->sessiontimeout && (GDKusec() - c->session) > c->sessiontimeout) || !go || (strncmp(CURRENT(c), "\\q", 2) == 0)) {
@@ -1053,7 +1053,7 @@ SQLparser(Client c)
 	oldstop = c->curprg->def->stop;
 	be->vtop = oldvtop;
 
-	DEBUG(SQL_PARSER, "SQL compilation - debugger? %d(%d)\n", (int) be->mvc->emode, (int) be->mvc->emod);
+	DEBUG(SQL_SCENARIO, "SQL compilation - debugger? %d(%d)\n", (int) be->mvc->emode, (int) be->mvc->emod);
 
 	m = be->mvc;
 	m->type = Q_PARSE;
