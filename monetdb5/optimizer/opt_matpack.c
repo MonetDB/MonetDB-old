@@ -87,7 +87,7 @@ wrapup:
 
     if( OPTdebug &  OPTmatpack){
         fprintf(stderr, "#MATPACK optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        // fprintFunction(OPT_MATPACK, mb, 0, LIST_MAL_ALL);
     }
 	return MAL_SUCCEED;
 }

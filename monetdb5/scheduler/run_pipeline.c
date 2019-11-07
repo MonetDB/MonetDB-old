@@ -215,7 +215,7 @@ RUNsqlbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	}
 
 	DEBUG(MAL_SCHEDULER, "Results from scheduler.sqlbind");
-	fprintFunction(mb, stk, LIST_MAL_ALL);
+	fprintFunction(MAL_SCHEDULER, mb, stk, LIST_MAL_ALL);
 	return msg;
 }
 #endif

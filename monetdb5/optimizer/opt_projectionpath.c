@@ -52,7 +52,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 
 		if( OPTdebug &  OPTprojectionpath){
 			fprintf(stderr,"#projectionpath candidate prefix pc %d \n", i);
-			fprintInstruction(stderr,mb, 0, p, LIST_MAL_ALL);
+			// fprintInstruction(OPT_PROJECTIONPATH, mb, 0, p, LIST_MAL_ALL);
 		}
 		/* we fixed a projection path of the target prefixlength
 		 * Search now the remainder for at least one case where it
@@ -75,7 +75,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 
 			if( OPTdebug &  OPTprojectionpath){
 				fprintf(stderr,"#projectionpath found common prefix pc %d \n", j);
-				fprintInstruction(stderr,mb, 0, p, LIST_MAL_ALL);
+				// fprintInstruction(OPT_PROJECTIONPATH, mb, 0, p, LIST_MAL_ALL);
 			}
 
 			/* create the factored out prefix projection */
@@ -93,7 +93,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 
 			if( OPTdebug &  OPTprojectionpath){
 				fprintf(stderr,"#projectionpath prefix instruction\n");
-				fprintInstruction(stderr,mb, 0, r, LIST_MAL_ALL);
+				// fprintInstruction(OPT_PROJECTIONPATH, mb, 0, r, LIST_MAL_ALL);
 			}
 
 
@@ -108,7 +108,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 					actions++;
 					if( OPTdebug &  OPTprojectionpath){
 							fprintf(stderr,"#projectionpath before:");
-							fprintInstruction(stderr,mb, 0, q, LIST_MAL_ALL);
+							// fprintInstruction(OPT_PROJECTIONPATH, mb, 0, q, LIST_MAL_ALL);
 					}
 					if( q->argc == r->argc ){
 						clrFunction(q);
@@ -123,7 +123,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 					}
 					if( OPTdebug &  OPTprojectionpath){
 						fprintf(stderr,"#projectionpath after :");
-						fprintInstruction(stderr,mb, 0, q, LIST_MAL_ALL);
+						// fprintInstruction(OPT_PROJECTIONPATH, mb, 0, q, LIST_MAL_ALL);
 					}
 				}
 			}
@@ -141,7 +141,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 			}
 
 			if( OPTdebug &  OPTprojectionpath){
-				fprintInstruction(stderr,mb, 0, p, LIST_MAL_ALL);
+				// fprintInstruction(OPT_PROJECTIONPATH, mb, 0, p, LIST_MAL_ALL);
 			}
 		}
 		pushInstruction(mb,p);
@@ -189,7 +189,7 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 
 	if( OPTdebug &  OPTprojectionpath){
 		fprintf(stderr,"#projectionpath optimizer start \n");
-		fprintFunction(stderr,mb, 0, LIST_MAL_ALL);
+		// fprintFunction(OPT_PROJECTIONPATH, mb, 0, LIST_MAL_ALL);
 	}
 
 	old= mb->stmt;
@@ -233,7 +233,7 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 			}
 			if( OPTdebug &  OPTprojectionpath){
 				fprintf(stderr,"#before ");
-				fprintInstruction(stderr,mb, 0, p, LIST_MAL_ALL);
+				// fprintInstruction(OPT_PROJECTIONPATH, mb, 0, p, LIST_MAL_ALL);
 			}
 
 			q->argc=p->retc;
@@ -250,7 +250,7 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 			if( OPTdebug &  OPTprojectionpath){
 				if (r) {
 					fprintf(stderr,"#inject ");
-					fprintInstruction(stderr,mb, 0, r, LIST_MAL_ALL);
+					// fprintInstruction(OPT_PROJECTIONPATH, mb, 0, r, LIST_MAL_ALL);
 				}
 			}
 				if ( getFunctionId(p) == projectionRef){
@@ -286,7 +286,7 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 
 			if( OPTdebug &  OPTprojectionpath){
 				fprintf(stderr,"#after ");
-				fprintInstruction(stderr,mb, 0, q, LIST_MAL_ALL);
+				// fprintInstruction(OPT_PROJECTIONPATH, mb, 0, q, LIST_MAL_ALL);
 			}
 			freeInstruction(p);
 			p = q;
@@ -302,7 +302,7 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 			pc[getArg(p,j)]= mb->stop-1;
 			if( OPTdebug &  OPTprojectionpath){
 					fprintf(stderr,"#keep ");
-					fprintInstruction(stderr,mb, 0, p, LIST_MAL_ALL);
+					// fprintInstruction(OPT_PROJECTIONPATH, mb, 0, p, LIST_MAL_ALL);
 			}
 		}
 	}
@@ -350,7 +350,7 @@ wrapupall:
 
     if( OPTdebug &  OPTprojectionpath){
         fprintf(stderr, "#PROJECTIONPATH optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        // fprintFunction(OPT_PROJECTIONPATH, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

@@ -184,9 +184,9 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 #ifdef DEBUG_MAL_RESOLVE
 		if (sig->polymorphic || sig->retc == p->retc) {
 			fprintf(stderr, "#resolving: ");
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+			// fprintInstruction(MAL_RESOLVE, mb, 0, p, LIST_MAL_ALL);
 			fprintf(stderr, "#against:");
-			fprintInstruction(stderr, s->def, 0, getSignature(s), LIST_MAL_ALL);
+			// fprintInstruction(MAL_RESOLVE, s->def, 0, getSignature(s), LIST_MAL_ALL);
 		}
 #endif
 			for (k = 0; k < limit; k++)
@@ -274,9 +274,9 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 #ifdef DEBUG_MAL_RESOLVE
 		if (sig->polymorphic || sig->retc == p->retc) {
 			fprintf(stderr, "#resolving: ");
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+			// fprintInstruction(MAL_RESOLVE, mb, 0, p, LIST_MAL_ALL);
 			fprintf(stderr, "#against:");
-			fprintInstruction(stderr, s->def, 0, getSignature(s), LIST_MAL_ALL);
+			// fprintInstruction(MAL_RESOLVE, s->def, 0, getSignature(s), LIST_MAL_ALL);
 		}
 #endif
 			for (i = p->retc; i < p->argc; i++) {
@@ -322,9 +322,9 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 				fprintf(stderr,"\n");
 			}
 			fprintf(stderr, "#resolving:");
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+			// fprintInstruction(MAL_RESOLVE, mb, 0, p, LIST_MAL_ALL);
 			fprintf(stderr, "#against :");
-			fprintInstruction(stderr, s->def, 0, getSignature(s), LIST_MAL_ALL);
+			// fprintInstruction(MAL_RESOLVE, s->def, 0, getSignature(s), LIST_MAL_ALL);
 			tpe = getTypeName(getArgType(mb, p, unmatched));
 			tpe2 = getTypeName(getArgType(s->def, sig, unmatched));
 			if( unmatched)
@@ -400,7 +400,7 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 		 */
 #ifdef DEBUG_MAL_RESOLVE
 		fprintf(stderr,"#TYPE RESOLVED:");
-		fprintInstruction(stderr, mb, 0, p, LIST_MAL_DEBUG);
+		// fprintInstruction(MAL_RESOLVE, mb, 0, p, LIST_MAL_DEBUG);
 #endif
 		p->typechk = TYPE_RESOLVED;
 		for (i = 0; i < p->retc; i++) {
@@ -480,7 +480,7 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 #ifdef DEBUG_MAL_RESOLVE
 		{
 			fprintf(stderr, "#Wrapup matching returntype %d returns %d:",*returntype,*returns);
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+			// fprintInstruction(MAL_RESOLVE, mb, 0, p, LIST_MAL_ALL);
 		}
 #endif
 	if (returntype != returns)

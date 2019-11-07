@@ -71,6 +71,9 @@ typedef enum {
                MAL_TABLET,
                MAL_OLTP,
                MAL_MANIFOLD,
+               MAL_RESOLVE,
+               MAL_FCN,
+               MAL_DATAFLOW,
 
                // GDK
                GDK_ALL,

@@ -192,7 +192,7 @@ RUNchoice(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	DEBUG(MAL_MEMO, "Cost choice selected: %s %lld\n", getVarName(mb, target), mincost);
 	/* CHECK */
 	// Uncomment this line below!
-	// fprintFunction(mb, stk, 1);
+	// fprintFunction(MAL_MEMO, mb, stk, 1);
 
 
 	return MAL_SUCCEED;

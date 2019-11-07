@@ -38,7 +38,7 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
     if( OPTdebug &  OPTjit){
 		fprintf(stderr, "#Optimize JIT\n");
-		fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
+		// fprintFunction(OPT_JIT, mb, 0, LIST_MAL_ALL);
 	}
 
 	setVariableScope(mb);
@@ -68,7 +68,7 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				p= pushArgument(mb,p, getArg(q,1));
 				if( OPTdebug &  OPTjit){
 					fprintf(stderr, "#Optimize JIT case 1\n");
-					fprintInstruction(stderr, mb,0,p,LIST_MAL_ALL);
+					// fprintInstruction(OPT_JIT, mb, 0, p, LIST_MAL_ALL);
 				}
 			}
 		}
@@ -89,7 +89,7 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
     if( OPTdebug &  OPTjit){
         fprintf(stderr, "#JIT optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        // fprintFunction(OPT_JIT, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

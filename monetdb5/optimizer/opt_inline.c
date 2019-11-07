@@ -74,7 +74,7 @@ OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 					if( OPTdebug &  OPTinline){
 						fprintf(stderr,"#multiplex inline function\n");
-						fprintInstruction(stderr,mb,0,q,LIST_MAL_ALL);
+						// fprintInstruction(OPT_INLINE, mb, 0, q, LIST_MAL_ALL);
 					}
 				}
 			} else
@@ -89,8 +89,8 @@ OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 				if( OPTdebug &  OPTinline){
 					fprintf(stderr,"#inline function at %d\n",i);
-					fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
-					fprintInstruction(stderr,q->blk,0,sig,LIST_MAL_ALL);
+					// fprintFunction(OPT_INLINE, mb, 0, LIST_MAL_ALL);
+					// fprintInstruction(OPT_INLINE, q->blk, 0, sig, LIST_MAL_ALL);
 				}
 
 			}
@@ -112,7 +112,7 @@ OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
     if( OPTdebug &  OPTinline){
         fprintf(stderr, "#INLINE optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        // fprintFunction(OPT_INLINE, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

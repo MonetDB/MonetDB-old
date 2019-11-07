@@ -49,7 +49,7 @@ coercionOptimizerCalcStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 	{
 		if( OPTdebug &  OPTaliases){
 			fprintf(stderr,"#remove upcast on first argument %d\n", varid);
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+			// fprintInstruction(OPT_COERCION, mb, 0, p, LIST_MAL_ALL);
 		}
 		getArg(p,1) = coerce[varid].src;
 		if ( chkInstruction(cntxt->usermodule, mb, p) || p->typechk == TYPE_UNKNOWN)
@@ -60,7 +60,7 @@ coercionOptimizerCalcStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 	{
 		if( OPTdebug &  OPTaliases){
 			fprintf(stderr,"#remove upcast on second argument %d\n", varid);
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+			// fprintInstruction(OPT_COERCION, mb, 0, p, LIST_MAL_ALL);
 		}
 		getArg(p,2) = coerce[varid].src;
 		if ( chkInstruction(cntxt->usermodule, mb, p) || p->typechk == TYPE_UNKNOWN)
@@ -68,7 +68,7 @@ coercionOptimizerCalcStep(Client cntxt, MalBlkPtr mb, int i, Coercion *coerce)
 	}
 		if( OPTdebug &  OPTaliases){
 			fprintf(stderr,"#final instruction\n");
-			fprintInstruction(stderr, mb, 0, p, LIST_MAL_ALL);
+			// fprintInstruction(OPT_COERCION, mb, 0, p, LIST_MAL_ALL);
 		}
 	return;
 }
@@ -187,7 +187,7 @@ OPTcoercionImplementation(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 
     if( OPTdebug &  OPTcoercion){
         fprintf(stderr, "#COERCION optimizer entry\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        // fprintFunction(OPT_COERCION, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

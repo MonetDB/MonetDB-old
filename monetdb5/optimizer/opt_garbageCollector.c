@@ -142,7 +142,7 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 			freeException(mb->errors);
 			mb->errors = MAL_SUCCEED;
 		}
-		fprintFunction(stderr,mb, 0, LIST_MAL_ALL);
+		// fprintFunction(OPT_GC, mb, 0, LIST_MAL_ALL);
 		fprintf(stderr, "End of GCoptimizer\n");
 	}
 
@@ -164,7 +164,7 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 
     if( OPTdebug &  OPTgarbagecollector){
         fprintf(stderr, "#GARBAGECOLLECTOR optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+		// fprintFunction(OPT_GC, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

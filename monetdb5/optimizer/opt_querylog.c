@@ -203,7 +203,7 @@ OPTquerylogImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	addtoMalBlkHistory(mb);
     if( OPTdebug &  OPTquerylog){
         fprintf(stderr, "#QUERYLOG optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        // fprintFunction(OPT_QUERYLOG, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

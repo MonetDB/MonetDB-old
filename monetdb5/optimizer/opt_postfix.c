@@ -92,7 +92,7 @@ wrapup:
 
     if( OPTdebug &  OPTpostfix){
         fprintf(stderr, "#POSTFIX optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        fprintFunction(OPT_POSTFIX, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 #else

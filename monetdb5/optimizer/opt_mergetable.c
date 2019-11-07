@@ -2268,7 +2268,7 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
         chkTypes(cntxt->usermodule, mb, FALSE);
         chkFlow(mb);
         chkDeclarations(mb);
-		fprintFunction(stderr, mb, 0, LIST_MAL_ALL);
+		// fprintFunction(OPT_MERGETABLE, mb, 0, LIST_MAL_ALL);
 	}
 
 	if ( mb->errors == MAL_SUCCEED) {
@@ -2301,7 +2301,7 @@ cleanup:
 
     if( OPTdebug &  OPTmergetable){
         fprintf(stderr, "#MERGETABLE optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        // fprintFunction(OPT_MERGETABLE, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

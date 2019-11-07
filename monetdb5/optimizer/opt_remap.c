@@ -56,7 +56,7 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 		p= pushArgument(mb,p,getArg(pci,i));
 
     if( OPTdebug &  OPTremap){
-		fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
+		// fprintInstruction(OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
 	}
 
 	/* now see if we can resolve the instruction */
@@ -65,7 +65,7 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 
 		if( OPTdebug &  OPTremap){
 			fprintf(stderr,"#type error\n");
-			fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
+			// fprintInstruction(OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
 		}
 
 		freeInstruction(p);
@@ -148,8 +148,8 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 
 	if( OPTdebug &  OPTremap){
 		fprintf(stderr,"#Modify the code\n");
-		fprintFunction(stderr,mq, 0, LIST_MAL_ALL);
-		fprintInstruction(stderr,mb, 0, p,LIST_MAL_ALL);
+		// fprintFunction(OPT_REMAP,mq, 0, LIST_MAL_ALL);
+		// fprintInstruction(OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
 	}
 
 
@@ -288,8 +288,10 @@ terminateMX:
 
 		if( OPTdebug &  OPTremap){
 			fprintf(stderr,"Abort remap\n");
-			if (q)
-				fprintInstruction(stderr,mb,0,q,LIST_MAL_ALL);
+			/* CHECK */
+			// Uncomment!
+			// if (q)
+				//fprintInstruction(OPT_REMAP, mb, 0, q, LIST_MAL_ALL);
 		}
 
 		freeMalBlk(mq);
@@ -313,11 +315,11 @@ terminateMX:
 	inlineMALblock(mb,pc,mq);
 
 	if( OPTdebug &  OPTremap){
-		fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
+		// fprintInstruction(OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
 		fprintf(stderr,"#NEW BLOCK\n");
-		fprintFunction(stderr,mq, 0, LIST_MAL_ALL);
+		// fprintFunction(OPT_REMAP, mq, 0, LIST_MAL_ALL);
 		fprintf(stderr,"#INLINED RESULT\n");
-		fprintFunction(stderr,mb, 0, LIST_MAL_ALL);
+		// fprintFunction(OPT_REMAP, mb, 0, LIST_MAL_ALL);
 	}
 
 	freeMalBlk(mq);
@@ -410,7 +412,7 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 				if( OPTdebug &  OPTremap){
 					fprintf(stderr,"#Multiplex inline\n");
-					fprintInstruction(stderr,mb,0,p,LIST_MAL_ALL);
+					// fprintInstruction(OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
 				}
 
 				pushInstruction(mb, p);
@@ -509,7 +511,7 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
     if( OPTdebug &  OPTremap){
         fprintf(stderr, "#REMAP optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        // fprintFunction(OPT_REMAP, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

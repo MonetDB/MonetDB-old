@@ -106,7 +106,7 @@ OPTvolcanoImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 
     if( OPTdebug &  OPTvolcano){
         fprintf(stderr, "#volcano optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        // fprintFunction(OPT_VOLCANO, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

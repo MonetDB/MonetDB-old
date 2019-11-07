@@ -173,7 +173,7 @@ OPTgeneratorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 
     if( OPTdebug &  OPTgenerator){
         fprintf(stderr, "#GENERATOR optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
+        // fprintFunction(OPT_GENERATOR, mb, 0, LIST_MAL_ALL);
     }
 	return MAL_SUCCEED;
 }
