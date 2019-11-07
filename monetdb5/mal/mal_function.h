@@ -18,9 +18,6 @@
 #define getEndScope(L,I)	((L)->var[I].eolife)
 #define getBeginScope(L,I)	((L)->var[I].declared)
 
-/* #define DEBUG_MAL_FCN */
-/* #define DEBUG_CLONE */
-
 mal_export Symbol   newFunction(str mod, str nme,int kind);
 mal_export int      getPC(MalBlkPtr mb, InstrPtr p);
 
