@@ -131,21 +131,18 @@ MALadmission(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, lng argcla
 	 */
 	workers = stk->workers;
 	if( cntxt->workerlimit && cntxt->workerlimit <= workers){
-		PARDEBUG
-			fprintf(stderr, "#DFLOWadmit worker limit reached, %d <= %d\n", cntxt->workerlimit, workers);
+		DEBUG(PAR, "Worker limit reached, %d <= %d\n", cntxt->workerlimit, workers);
 		MT_lock_unset(&admissionLock);
 		return -1;
 	}
 	/* Determine if the total memory resource is exhausted, because it is overall limitation.
 	 */
 	if ( memoryclaims < 0){
-		PARDEBUG
-			fprintf(stderr, "#DFLOWadmit memoryclaim reset ");
+		DEBUG(PAR, "Memoryclaim reset\n");
 		memoryclaims = 0;
 	}
 	if ( memorypool <= 0 && memoryclaims == 0){
-		PARDEBUG
-			fprintf(stderr, "#DFLOWadmit memorypool reset ");
+		DEBUG(PAR, "Memorypool reset\n");
 		memorypool = (lng)(MEMORY_THRESHOLD );
 	}
 
@@ -158,8 +155,7 @@ MALadmission(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, lng argcla
 				mbytes = ((lng) cntxt->memorylimit) * 1024 * 1024;
 				if (argclaim + stk->memory > mbytes){
 					MT_lock_unset(&admissionLock);
-					PARDEBUG
-					fprintf(stderr, "#Delayed due to lack of session memory " LLFMT " requested "LLFMT"\n", 
+					DEBUG(PAR, "Delayed due to lack of session memory " LLFMT " requested "LLFMT"\n", 
 						stk->memory, argclaim);
 					return -1;
 				}
@@ -167,15 +163,13 @@ MALadmission(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, lng argcla
 			memorypool -= (lng) (argclaim);
 			stk->memory += argclaim;
 			memoryclaims++;
-			PARDEBUG
-			fprintf(stderr, "#DFLOWadmit %3d thread %d pool " LLFMT "claims " LLFMT "\n",
-						 memoryclaims, THRgettid(), memorypool, argclaim);
+			DEBUG(PAR, "%3d thread %d pool " LLFMT "claims " LLFMT "\n",
+				memoryclaims, THRgettid(), memorypool, argclaim);
 			MT_lock_unset(&admissionLock);
 			stk->workers++;
 			return 0;
 		}
-		PARDEBUG
-		fprintf(stderr, "#Delayed due to lack of memory " LLFMT " requested " LLFMT " memoryclaims %d\n", 
+		DEBUG(PAR, "Delayed due to lack of memory " LLFMT " requested " LLFMT " memoryclaims %d\n", 
 			memorypool, argclaim, memoryclaims);
 		MT_lock_unset(&admissionLock);
 		return -1;
@@ -183,8 +177,7 @@ MALadmission(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, lng argcla
 	
 	/* return the session budget */
 	if(cntxt->memorylimit){
-		PARDEBUG
-			fprintf(stderr, "#Return memory to session budget " LLFMT "\n", stk->memory);
+		DEBUG(PAR, "Return memory to session budget " LLFMT "\n", stk->memory);
 		stk->memory += -argclaim;
 	}
 	/* release memory claimed before */
@@ -192,9 +185,8 @@ MALadmission(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, lng argcla
 	memoryclaims--;
 	stk->workers--;
 
-	PARDEBUG
-	fprintf(stderr, "#DFLOWadmit %3d thread %d pool " LLFMT " claims " LLFMT "\n",
-				 memoryclaims, THRgettid(), memorypool, argclaim);
+	DEBUG(PAR, "%3d thread %d pool " LLFMT " claims " LLFMT "\n",
+		memoryclaims, THRgettid(), memorypool, argclaim);
 	MT_lock_unset(&admissionLock);
 	return 0;
 }
