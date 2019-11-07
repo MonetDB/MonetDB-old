@@ -31,13 +31,15 @@
 
 #define copyDiagString(str, buf, len, lenp)				\
 		do {							\
-			size_t _l;					\
+			SQLSMALLINT _l;					\
 			if (len < 0)					\
 				return SQL_ERROR;			\
-			_l = strcpy_len((char *) buf, str, len);	\
+			_l = (SQLSMALLINT) strlen(str);			\
+			if (buf && len > 0)				\
+				strncpy((char *) buf, str, len);	\
 			if (lenp)					\
-				*lenp = (SQLSMALLINT) _l;		\
-			if (buf == NULL || _l >= (size_t) len)		\
+				*lenp = _l;				\
+			if (buf == NULL || _l >= len)			\
 				return SQL_SUCCESS_WITH_INFO;		\
 		} while (0)
 

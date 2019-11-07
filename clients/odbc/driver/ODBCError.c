@@ -240,10 +240,14 @@ newODBCError(const char *SQLState, const char *msg, int nativeCode)
 	}
 
 	if (SQLState) {
-		strcpy_len(error->sqlState, SQLState, sizeof(error->sqlState));
+		strncpy(error->sqlState, SQLState, SQL_SQLSTATE_SIZE);
+		error->sqlState[SQL_SQLSTATE_SIZE] = '\0';
 	} else {
 		/* initialize it with nulls */
-		memset(error->sqlState, 0, sizeof(error->sqlState));
+		int i = 0;
+
+		for (; i <= SQL_SQLSTATE_SIZE; i++)
+			error->sqlState[i] = 0;
 	}
 
 	if (msg) {

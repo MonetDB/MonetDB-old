@@ -19,18 +19,19 @@
 str
 SYSMONqueue(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	BAT *tag, *sessionid, *user, *started, *status, *query, *progress, *workers, *memory;
+	BAT *tag, *sessionid, *user, *query, *estimate, *started, *progress, *activity, *oids;
 	bat *t = getArgReference_bat(stk,pci,0);
-	bat *s = getArgReference_bat(stk,pci,1);
+	bat *d = getArgReference_bat(stk,pci,1);
 	bat *u = getArgReference_bat(stk,pci,2);
-	bat *sd = getArgReference_bat(stk,pci,3);
-	bat *ss = getArgReference_bat(stk,pci,4);
-	bat *q = getArgReference_bat(stk,pci,5);
-	bat *p = getArgReference_bat(stk,pci,6);
-	bat *w = getArgReference_bat(stk,pci,7);
-	bat *m = getArgReference_bat(stk,pci,8);
-	lng i, qtag;
-	int wrk, mem;
+	bat *s = getArgReference_bat(stk,pci,3);
+	bat *e = getArgReference_bat(stk,pci,4);
+	bat *p = getArgReference_bat(stk,pci,5);
+	bat *a = getArgReference_bat(stk,pci,6);
+	bat *o = getArgReference_bat(stk,pci,7);
+	bat *q = getArgReference_bat(stk,pci,8);
+	time_t now;
+	lng i;
+	int prog;
 	str usr;
 	timestamp tsn;
 	str msg = MAL_SUCCEED;
@@ -41,29 +42,34 @@ SYSMONqueue(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sessionid = COLnew(0, TYPE_int, 256, TRANSIENT);
 	user = COLnew(0, TYPE_str, 256, TRANSIENT);
 	started = COLnew(0, TYPE_timestamp, 256, TRANSIENT);
-	status = COLnew(0, TYPE_str, 256, TRANSIENT);
-	query = COLnew(0, TYPE_str, 256, TRANSIENT);
+	estimate = COLnew(0, TYPE_timestamp, 256, TRANSIENT);
 	progress = COLnew(0, TYPE_int, 256, TRANSIENT);
-	workers = COLnew(0, TYPE_int, 256, TRANSIENT);
-	memory = COLnew(0, TYPE_int, 256, TRANSIENT);
-	if ( tag == NULL || sessionid == NULL || user == NULL || query == NULL || started == NULL || progress == NULL || workers == NULL || memory == NULL){
+	activity = COLnew(0, TYPE_str, 256, TRANSIENT);
+	oids = COLnew(0, TYPE_oid, 256, TRANSIENT);
+	query = COLnew(0, TYPE_str, 256, TRANSIENT);
+	if ( tag == NULL || sessionid == NULL || user == NULL || query == NULL || started == NULL || estimate == NULL || progress == NULL || activity == NULL || oids == NULL){
 		BBPreclaim(tag);
 		BBPreclaim(sessionid);
 		BBPreclaim(user);
-		BBPreclaim(started);
-		BBPreclaim(status);
 		BBPreclaim(query);
+		BBPreclaim(activity);
+		BBPreclaim(started);
+		BBPreclaim(estimate);
 		BBPreclaim(progress);
-		BBPreclaim(workers);
-		BBPreclaim(memory);
+		BBPreclaim(oids);
 		throw(MAL, "SYSMONqueue", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 
 	MT_lock_set(&mal_delayLock);
 	for ( i = 0; i< qtop; i++)
 	if( QRYqueue[i].query && (QRYqueue[i].cntxt->user == MAL_ADMIN || QRYqueue[i].cntxt->user == cntxt->user)) {
-		qtag = (lng) QRYqueue[i].tag;
-		if (BUNappend(tag, &qtag, false) != GDK_SUCCEED)
+		now= time(0);
+		if ( (now-QRYqueue[i].start) > QRYqueue[i].runtime)
+			prog =QRYqueue[i].runtime > 0 ? 100: int_nil;
+		else
+			// calculate progress based on past observations
+			prog = (int) ((now- QRYqueue[i].start) / (QRYqueue[i].runtime/100.0));
+		if (BUNappend(tag, &(lng){QRYqueue[i].tag}, false) != GDK_SUCCEED)
 			goto bailout;
 		msg = AUTHgetUsername(&usr, QRYqueue[i].cntxt);
 		if (msg != MAL_SUCCEED)
@@ -80,7 +86,7 @@ SYSMONqueue(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 		GDKfree(usr);
 		if (BUNappend(query, QRYqueue[i].query, false) != GDK_SUCCEED ||
-			BUNappend(status, QRYqueue[i].status, false) != GDK_SUCCEED)
+			BUNappend(activity, QRYqueue[i].status, false) != GDK_SUCCEED)
 			goto bailout;
 
 		/* convert number of seconds into a timestamp */
@@ -91,24 +97,33 @@ SYSMONqueue(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 		if (BUNappend(started, &tsn, false) != GDK_SUCCEED)
 			goto bailout;
-		
-		wrk = (int) ATOMIC_GET(&QRYqueue[i].stk->workers);
-		mem = (int) ATOMIC_GET(&QRYqueue[i].stk->memory);
-		if (BUNappend(progress, &QRYqueue[i].progress, false) != GDK_SUCCEED ||
-		    BUNappend(workers, &wrk, false) != GDK_SUCCEED ||
-			BUNappend(memory, &mem, false) != GDK_SUCCEED)
+
+		if ( QRYqueue[i].mb->runtime == 0) {
+			if (BUNappend(estimate, &timestamp_nil, false) != GDK_SUCCEED)
+				goto bailout;
+		} else {
+			tsn = timestamp_add_usec(tsn, 1000 * QRYqueue[i].mb->runtime);
+			if (is_timestamp_nil(tsn)) {
+				msg = createException(MAL, "SYSMONqueue", SQLSTATE(22003) "cannot convert time");
+				goto bailout;
+			}
+			if (BUNappend(estimate, &tsn, false) != GDK_SUCCEED)
+				goto bailout;
+		}
+		if (BUNappend(oids, &QRYqueue[i].mb->tag, false) != GDK_SUCCEED ||
+			BUNappend(progress, &prog, false) != GDK_SUCCEED)
 			goto bailout;
 	}
 	MT_lock_unset(&mal_delayLock);
 	BBPkeepref( *t =tag->batCacheid);
-	BBPkeepref( *s =sessionid->batCacheid);
+	BBPkeepref( *d =sessionid->batCacheid);
 	BBPkeepref( *u =user->batCacheid);
-	BBPkeepref( *sd =started->batCacheid);
-	BBPkeepref( *ss =status->batCacheid);
-	BBPkeepref( *q =query->batCacheid);
+	BBPkeepref( *s =started->batCacheid);
+	BBPkeepref( *e = estimate->batCacheid);
+	BBPkeepref( *a =activity->batCacheid);
 	BBPkeepref( *p =progress->batCacheid);
-	BBPkeepref( *w =workers->batCacheid);
-	BBPkeepref( *m =memory->batCacheid);
+	BBPkeepref( *o =oids->batCacheid);
+	BBPkeepref( *q =query->batCacheid);
 	return MAL_SUCCEED;
 
   bailout:
@@ -116,12 +131,12 @@ SYSMONqueue(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BBPunfix(tag->batCacheid);
 	BBPunfix(sessionid->batCacheid);
 	BBPunfix(user->batCacheid);
-	BBPunfix(started->batCacheid);
-	BBPunfix(status->batCacheid);
 	BBPunfix(query->batCacheid);
+	BBPunfix(activity->batCacheid);
+	BBPunfix(started->batCacheid);
+	BBPunfix(estimate->batCacheid);
 	BBPunfix(progress->batCacheid);
-	BBPunfix(workers->batCacheid);
-	BBPunfix(memory->batCacheid);
+	BBPunfix(oids->batCacheid);
 	return msg ? msg : createException(MAL, "SYSMONqueue", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 }
 
@@ -133,7 +148,6 @@ SYSMONpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) pci;
 	
 	switch( getArgType(mb,pci,1)){
-	case TYPE_bte: tag = *getArgReference_bte(stk,pci,1); break;
 	case TYPE_sht: tag = *getArgReference_sht(stk,pci,1); break;
 	case TYPE_int: tag = *getArgReference_int(stk,pci,1); break;
 	case TYPE_lng: tag = *getArgReference_lng(stk,pci,1); break;
@@ -164,7 +178,6 @@ SYSMONresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) pci;
 	
 	switch( getArgType(mb,pci,1)){
-	case TYPE_bte: tag = *getArgReference_bte(stk,pci,1); break;
 	case TYPE_sht: tag = *getArgReference_sht(stk,pci,1); break;
 	case TYPE_int: tag = *getArgReference_int(stk,pci,1); break;
 	case TYPE_lng: tag = *getArgReference_lng(stk,pci,1); break;
@@ -195,7 +208,6 @@ SYSMONstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) pci;
 	
 	switch( getArgType(mb,pci,1)){
-	case TYPE_bte: tag = *getArgReference_bte(stk,pci,1); break;
 	case TYPE_sht: tag = *getArgReference_sht(stk,pci,1); break;
 	case TYPE_int: tag = *getArgReference_int(stk,pci,1); break;
 	case TYPE_lng: tag = *getArgReference_lng(stk,pci,1); break;

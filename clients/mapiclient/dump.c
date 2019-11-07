@@ -9,7 +9,6 @@
 #include "monetdb_config.h"
 #include "mapi.h"
 #include "stream.h"
-#include "mstring.h"
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
@@ -1148,13 +1147,14 @@ describe_table(Mapi mid, const char *schema, const char *tname,
 
 	if (schema == NULL) {
 		if ((sname = strchr(tname, '.')) != NULL) {
-			size_t len = sname - tname + 1;
+			size_t len = sname - tname;
 
-			sname = malloc(len);
+			sname = malloc(len + 1);
 			if (sname == NULL)
 				goto bailout;
-			strcpy_len(sname, tname, len);
-			tname += len;
+			strncpy(sname, tname, len);
+			sname[len] = 0;
+			tname += len + 1;
 		} else if ((sname = get_schema(mid)) == NULL) {
 			return 1;
 		}
@@ -1489,13 +1489,14 @@ describe_sequence(Mapi mid, const char *schema, const char *tname, stream *toCon
 
 	if (schema == NULL) {
 		if ((sname = strchr(tname, '.')) != NULL) {
-			size_t len = sname - tname + 1;
+			size_t len = sname - tname;
 
-			sname = malloc(len);
+			sname = malloc(len + 1);
 			if (sname == NULL)
 				goto bailout;
-			strcpy_len(sname, tname, len);
-			tname += len;
+			strncpy(sname, tname, len);
+			sname[len] = 0;
+			tname += len + 1;
 		} else if ((sname = get_schema(mid)) == NULL) {
 			return 1;
 		}
@@ -1656,13 +1657,14 @@ dump_table_data(Mapi mid, const char *schema, const char *tname, stream *toConso
 
 	if (schema == NULL) {
 		if ((sname = strchr(tname, '.')) != NULL) {
-			size_t len = sname - tname + 1;
+			size_t len = sname - tname;
 
-			sname = malloc(len);
+			sname = malloc(len + 1);
 			if (sname == NULL)
 				goto bailout;
-			strcpy_len(sname, tname, len);
-			tname += len;
+			strncpy(sname, tname, len);
+			sname[len] = 0;
+			tname += len + 1;
 		} else if ((sname = get_schema(mid)) == NULL) {
 			goto bailout;
 		}
@@ -2167,13 +2169,14 @@ dump_functions(Mapi mid, stream *toConsole, char set_schema, const char *sname, 
 			/* no schema given, so figure it out */
 			const char *dot = strchr(fname, '.');
 			if (dot != NULL) {
-				size_t len = dot - fname + 1;
+				size_t len = dot - fname;
 
-				to_free = malloc(len);
+				to_free = malloc(len + 1);
 				if (to_free == NULL)
 					goto bailout;
-				strcpy_len(to_free, fname, len);
-				fname += len;
+				strncpy(to_free, fname, len);
+				to_free[len] = 0;
+				fname += len + 1;
 			} else if ((to_free = get_schema(mid)) == NULL) {
 				return 1;
 			}

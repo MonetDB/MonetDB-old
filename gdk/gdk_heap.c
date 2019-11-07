@@ -160,10 +160,14 @@ HEAPextend(Heap *h, size_t size, bool mayshare)
 	const char *failure = "None";
 
 	if (GDKinmemory()) {
-		strcpy_len(nme, ":inmemory", sizeof(nme));
+		strncpy(nme, ":inmemory", sizeof(nme));
 		ext = "ext";
 	} else {
-		strcpy_len(nme, h->filename, sizeof(nme));
+		strncpy(nme, h->filename, sizeof(nme));
+#ifdef STATIC_CODE_ANALYSIS
+		/* help coverity */
+		nme[sizeof(nme) - 1] = 0;
+#endif
 		ext = decompose_filename(nme);
 	}
 	if (size <= h->size)
@@ -708,7 +712,7 @@ HEAPsave_intern(Heap *h, const char *nme, const char *ext, const char *suffix)
 		/* anonymous or private VM is saved as if it were malloced */
 		store = STORE_MEM;
 		assert(strlen(ext) + strlen(suffix) < sizeof(extension));
-		strconcat_len(extension, sizeof(extension), ext, suffix, NULL);
+		stpconcat(extension, ext, suffix, NULL);
 		ext = extension;
 	} else if (store != STORE_MEM) {
 		store = h->storage;
@@ -745,7 +749,7 @@ HEAPdelete(Heap *h, const char *o, const char *ext)
 		return GDK_SUCCEED;
 	}
 	assert(strlen(ext) + strlen(".new") < sizeof(ext2));
-	strconcat_len(ext2, sizeof(ext2), ext, ".new", NULL);
+	stpconcat(ext2, ext, ".new", NULL);
 	return (GDKunlink(h->farmid, BATDIR, o, ext) == GDK_SUCCEED) | (GDKunlink(h->farmid, BATDIR, o, ext2) == GDK_SUCCEED) ? GDK_SUCCEED : GDK_FAIL;
 }
 

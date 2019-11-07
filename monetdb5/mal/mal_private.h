@@ -96,3 +96,5 @@ __hidden mal_export void mal_resource_reset(void)
 
 __hidden mal_export void mal_runtime_reset(void)
 	__attribute__((__visibility__("hidden")));
+
+extern ATOMIC_TYPE mal_running;

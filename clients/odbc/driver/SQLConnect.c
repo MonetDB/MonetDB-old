@@ -35,7 +35,7 @@
 #endif
 
 #ifndef HAVE_SQLGETPRIVATEPROFILESTRING
-#define SQLGetPrivateProfileString(section,entry,default,buffer,bufferlen,filename)	((int) strcpy_len(buffer,default,bufferlen))
+#define SQLGetPrivateProfileString(section,entry,default,buffer,bufferlen,filename)	(strncpy(buffer,default,bufferlen), buffer[bufferlen-1]=0, strlen(buffer))
 #endif
 
 static void
