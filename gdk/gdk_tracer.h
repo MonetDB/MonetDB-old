@@ -106,6 +106,7 @@ typedef enum {
                MAL_OPT_OLTP,
                MAL_OPT_PROFILER,
                MAL_OPT_REDUCE,
+               MAL_OPT_REMOTE,
                MAL_OPT_VOLCANO,
                MAL_OPT_MACRO,
             
