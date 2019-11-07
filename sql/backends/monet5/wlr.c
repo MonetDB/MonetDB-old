@@ -308,19 +308,16 @@ WLRprocessBatch(void *arg)
 				snprintf(line, FILENAME_MAX,"#wlr.process:failed further parsing '%s':",path);
 				snprintf(wlr_error, FILENAME_MAX, "%.*s", FILENAME_MAX, line);
 				INFO(SQL_ALL, "%s\n", line);
-				fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG );
+				fprintFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG );
 				cleanup();
 				DEBUG(SQL_WLR, "Redo transaction error\n");
 				continue;
 			}
 			q= getInstrPtr(mb, mb->stop - 1);
 			if( getModuleId(q) != wlrRef){
-
-				/* CHECK */
-				// This needs to be fixed along with other functions that use stderr
 				DEBUG(SQL_WLR, "Unexpected instruction");
-				fprintInstruction(stderr, mb, 0, q, LIST_MAL_ALL);
-
+				fprintInstruction(SQL_WLR, mb, 0, q, LIST_MAL_ALL);
+				
 				cleanup();
 				break;
 			}
@@ -360,11 +357,8 @@ WLRprocessBatch(void *arg)
 					if(mvc_trans(sql) < 0) {
 						CRITICAL(M_ALL, "Allocation failure while starting the transaction\n");
 					} else {
-						
-						/* CHECK */
-						// This needs to be fixed along with other functions that use stderr
 						DEBUG(SQL_WLR, "Process a transaction\n");
-						fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG | LIST_MAL_MAPI );
+						fprintFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG | LIST_MAL_MAPI );
 
 						wlr_tag =  tag; // remember which transaction we executed
 						snprintf(wlr_read, sizeof(wlr_read), "%s", tag_read);
@@ -382,7 +376,7 @@ WLRprocessBatch(void *arg)
 						if( msg != MAL_SUCCEED){
 							// they should always succeed
 							msg =createException(MAL,"wlr.process", "batch %d:"LLFMT" :%s\n", i, tag, msg);
-							//fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG );
+							fprintFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG );
 							if((other = mvc_rollback(sql,0,NULL, false)) != MAL_SUCCEED) //an error was already established
 								GDKfree(other);
 						} else
@@ -396,7 +390,7 @@ WLRprocessBatch(void *arg)
 					snprintf(line, FILENAME_MAX,"#wlr.process:typechecking failed '%s':\n",path);
 					snprintf(wlr_error, FILENAME_MAX, "%s", line);
 					INFO(SQL_ALL, "%s\n", line);
-					fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG );
+					fprintFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG );
 				}
 				cleanup();
 				if ( wlr_tag + 1 == wlc_tag || tag == wlr_limit)
@@ -420,9 +414,7 @@ WLRprocessBatch(void *arg)
 		if ( wlr_tag == wlr_limit)
 			break;
 	}
-	/* CHECK */
-	// Remove this when fprintFunction is fixed!
-	(void) fflush(stderr);
+	
 	close_stream(c->fdout);
 	SQLexitClient(c);
 	MCcloseClient(c);
@@ -674,8 +666,6 @@ WLRstart(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			throw(SQL,"wlr.init",SQLSTATE(42000) "Starting wlr manager failed");
 	}
 
-	/* CHECK */
-	// The line (void) cntxt exists on top of this function also
 	DEBUG(SQL_WLR, "Forked WLR scheduler\n");
 	(void) cntxt;
 

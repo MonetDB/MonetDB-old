@@ -552,7 +552,7 @@ void printFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg)
 	listFunction(fd,mb,stk,flg,0,mb->stop);
 }
 
-void fprintFunction(FILE *fd, MalBlkPtr mb, MalStkPtr stk, int flg)
+void fprintFunction(COMPONENT comp, MalBlkPtr mb, MalStkPtr stk, int flg)
 {
 	int i,j;
 	InstrPtr p;
@@ -568,7 +568,7 @@ void fprintFunction(FILE *fd, MalBlkPtr mb, MalStkPtr stk, int flg)
 				setVarUsed(mb, getArg(p,j));
 	}
 	for (i = 0; i < mb->stop; i++)
-		fprintInstruction(fd, mb, stk, getInstrPtr(mb, i), flg);
+		fprintInstruction(comp, mb, stk, getInstrPtr(mb, i), flg);
 }
 
 /* initialize the static scope boundaries for all variables */
