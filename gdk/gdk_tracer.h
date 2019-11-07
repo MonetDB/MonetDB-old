@@ -48,12 +48,9 @@ typedef enum {
                SQL_USER,
                SQL_SCENARIO,
                SQL_CACHE_TR,
-               SQL_PARSER,
-               SQL_READER,
                SQL_SYMBOL,
                SQL_MVC,
                SQL_STORE,
-               SQL_STORE_FLUSHER,
 
                // MAL
                MAL_ALL,
@@ -71,6 +68,7 @@ typedef enum {
                MAL_REMOTE,
                MAL_INET,
                MAL_GROUPBY,
+               MAL_TABLET,
 
                // GDK
                GDK_ALL,
