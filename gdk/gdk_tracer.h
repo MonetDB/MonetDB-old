@@ -34,7 +34,6 @@ typedef enum {
 
                // Modules
                GEOM,
-               ATOMS, 
                LIDAR,
                BAM,
                FITS,
@@ -70,6 +69,8 @@ typedef enum {
                MAL_CLIENT,
                MAL_OIDX,
                MAL_REMOTE,
+               MAL_INET,
+               MAL_GROUPBY,
 
                // GDK
                GDK_ALL,
