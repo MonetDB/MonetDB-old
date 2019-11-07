@@ -578,7 +578,7 @@ str RMTget(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 
 		snprintf(qbuf, BUFSIZ, "io.print(%s);", ident);
 		
-		DEBUG(MAL_REMOΤE, "Remote get: %s\n", qbuf);
+		DEBUG(MAL_REMOTE, "Remote get: %s\n", qbuf);
 
 		/* this call should be a single transaction over the channel*/
 		MT_lock_set(&c->lock);
