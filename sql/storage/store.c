@@ -2120,7 +2120,7 @@ flusher_should_run(void)
 	bool do_it = (reason_to && !reason_not_to);
 
 	if (reason_to != flusher.reason_to || reason_not_to != flusher.reason_not_to) {
-		DEBUG(SQL_STORE_FLUSHER, "Store flusher: %s, reason to flush: %s, reason not to: %s\n",
+		DEBUG(SQL_STORE, "Store flusher: %s, reason to flush: %s, reason not to: %s\n",
 			do_it ? "flushing" : "not flushing",
 			reason_to ? reason_to : "none",
 			reason_not_to ? reason_not_to : "none");
@@ -2264,7 +2264,7 @@ store_manager(void)
 
 		flusher_new_cycle();
 		MT_thread_setworking("sleeping");
-		DEBUG(SQL_STORE_FLUSHER, "Store flusher done\n");
+		DEBUG(SQL_STORE, "Store flusher done\n");
 	}
 
 	// End of loop, end of lock
