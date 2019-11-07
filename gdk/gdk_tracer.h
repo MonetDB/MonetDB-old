@@ -75,6 +75,7 @@ typedef enum {
                MAL_FCN,
                MAL_DATAFLOW,
                MAL_MODULE,
+               MAL_SERVER,
 
 
                // OPT
