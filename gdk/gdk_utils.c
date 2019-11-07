@@ -420,22 +420,20 @@ MT_init(void)
 			if (strstr(q, "memory") != NULL) {
 				char pth[1024];
 				FILE *f;
-				size_t l;
 				q = strchr(p, '\n');
 				if (q == NULL)
 					break;
 				*q = 0;
-				l = strconcat_len(pth, sizeof(pth),
-						  "/sys/fs/cgroup/memory",
-						  p, NULL);
+				q = stpconcat(pth, "/sys/fs/cgroup/memory",
+					      p, NULL);
 				/* sometimes the path in
 				 * /proc/self/cgroup ends in "/" (or
 				 * actually, is "/"); in all other
 				 * cases add one */
-				if (pth[l - 1] != '/')
-					pth[l++] = '/';
+				if (q[-1] != '/')
+					*q++ = '/';
 				/* limit of memory usage */
-				strcpy(pth + l, "memory.limit_in_bytes");
+				strcpy(q, "memory.limit_in_bytes");
 				f = fopen(pth, "r");
 				if (f != NULL) {
 					uint64_t mem;
@@ -446,7 +444,7 @@ MT_init(void)
 					fclose(f);
 				}
 				/* soft limit of memory usage */
-				strcpy(pth + l, "memory.soft_limit_in_bytes");
+				strcpy(q, "memory.soft_limit_in_bytes");
 				f = fopen(pth, "r");
 				if (f != NULL) {
 					uint64_t mem;
@@ -458,7 +456,7 @@ MT_init(void)
 				}
 				/* limit of memory+swap usage
 				 * we use this as maximum virtual memory size */
-				strcpy(pth + l, "memory.memsw.limit_in_bytes");
+				strcpy(q, "memory.memsw.limit_in_bytes");
 				f = fopen(pth, "r");
 				if (f != NULL) {
 					uint64_t mem;

@@ -17,7 +17,6 @@
 #include <fcntl.h>
 #include <string.h> /* strerror */
 
-#include "mstring.h"
 #include "stream.h"
 #include "stream_socket.h"
 
@@ -248,7 +247,7 @@ openConnectionUNIX(int *ret, const char *path, int mode, FILE *log)
 	server = (struct sockaddr_un) {
 		.sun_family = AF_UNIX,
 	};
-	strcpy_len(server.sun_path, path, sizeof(server.sun_path));
+	strncpy(server.sun_path, path, sizeof(server.sun_path) - 1);
 
 	/* have to use umask to restrict permissions to avoid a race
 	 * condition */

@@ -167,7 +167,8 @@ JSONtoString(str *s, size_t *len, const char *src, bool external)
 				return -1;
 		}
 		if (external) {
-			return (ssize_t) strcpy_len(*s, "nil", 4);
+			strncpy(*s, "nil", 4);
+			return 3;
 		}
 		strcpy(*s, str_nil);
 		return 1;

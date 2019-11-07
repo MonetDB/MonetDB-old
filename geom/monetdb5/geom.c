@@ -1593,12 +1593,14 @@ dumpGeometriesSingle(BAT *idBAT, BAT *geomBAT, const GEOSGeometry *geosGeometry,
 		snprintf(newPath, lvlDigitsNum + 1, "%u", *lvl);
 	} else {
 		//remove the comma at the end of the path
-		newPath = GDKmalloc(pathLength);
+		pathLength--;
+		newPath = GDKmalloc(pathLength + 1);
 		if (newPath == NULL) {
 			GDKfree(singleWKB);
 			throw(MAL, "geom.Dump", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
-		strcpy_len(newPath, path, pathLength);
+		strncpy(newPath, path, pathLength);
+		newPath[pathLength] = '\0';
 	}
 	if (BUNappend(idBAT, newPath, false) != GDK_SUCCEED ||
 	    BUNappend(geomBAT, singleWKB, false) != GDK_SUCCEED)

@@ -6,7 +6,7 @@
 
 DEFS = @DEFS@
 
-INCLUDES = $(ODBC_INCS) ../../../common/utils
+INCLUDES = $(ODBC_INCS)
 
 lib_MonetODBCs = {
 	MODULE

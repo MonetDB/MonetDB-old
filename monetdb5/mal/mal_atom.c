@@ -186,7 +186,8 @@ malAtomDefinition(str name, int tpe)
 	/* overload atom ? */
 	if (tpe) {
 		BATatoms[i] = BATatoms[tpe];
-		strcpy_len(BATatoms[i].name, name, sizeof(BATatoms[i].name));
+		strncpy(BATatoms[i].name, name, sizeof(BATatoms[i].name));
+		BATatoms[i].name[sizeof(BATatoms[i].name) - 1] = 0; /* make coverity happy */
 		BATatoms[i].storage = ATOMstorage(tpe);
 	} else { /* cannot overload void atoms */
 		BATatoms[i].storage = i;

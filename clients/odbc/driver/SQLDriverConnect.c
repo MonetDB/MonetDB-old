@@ -55,7 +55,8 @@ ODBCGetKeyAttr(SQLCHAR **conn, SQLSMALLINT *nconn, char **key, char **attr)
 	*key = (char *) malloc(len + 1);
 	if (*key == NULL)
 		return -1;
-	strcpy_len(*key, (char *) p, len + 1);
+	strncpy(*key, (char *) p, len);
+	(*key)[len] = 0;
 	(*conn)++;
 	(*nconn)--;
 	p = *conn;
@@ -75,7 +76,8 @@ ODBCGetKeyAttr(SQLCHAR **conn, SQLSMALLINT *nconn, char **key, char **attr)
 			*key = NULL;
 			return -1;
 		}
-		strcpy_len(*attr, (char *) p, len + 1);
+		strncpy(*attr, (char *) p, len);
+		(*attr)[len] = 0;
 		(*conn)++;
 		(*nconn)--;
 		/* should check that *nconn == 0 || **conn == ';' */
@@ -91,7 +93,8 @@ ODBCGetKeyAttr(SQLCHAR **conn, SQLSMALLINT *nconn, char **key, char **attr)
 			*key = NULL;
 			return -1;
 		}
-		strcpy_len(*attr, (char *) p, len + 1);
+		strncpy(*attr, (char *) p, len);
+		(*attr)[len] = 0;
 	}
 	if (*nconn > 0 && **conn) {
 		(*conn)++;
