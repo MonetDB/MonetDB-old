@@ -70,6 +70,7 @@ typedef enum {
                MAL_GROUPBY,
                MAL_TABLET,
                MAL_OLTP,
+               MAL_MANIFOLD,
 
                // GDK
                GDK_ALL,
