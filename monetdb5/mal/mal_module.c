@@ -71,7 +71,7 @@ mal_module_reset(void)
 	int i;
 	Module m;
 
-	DEBUG(MAL_MODULE< "Reset the global module structure\n");
+	DEBUG(MAL_MODULE, "Reset the global module structure\n");
 	for(i = 0; i < MODULE_HASH_SIZE; i++) {
 		m= moduleIndex[i];
 		moduleIndex[i] = 0;
@@ -161,7 +161,7 @@ Module globalModule(str nme)
 
 	// Global modules are not named 'user'
 	assert (strcmp(nme, "user"));
-	DEBUG(MAL_MODULE, "Create new global module: %s\n", name);
+	DEBUG(MAL_MODULE, "Create new global module: %s\n", nme);
 
 	nme = putName(nme);
 	cur = (Module) GDKzalloc(sizeof(ModuleRecord));

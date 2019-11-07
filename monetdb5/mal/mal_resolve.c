@@ -824,6 +824,6 @@ updateTypeMap(int formal, int actual, int polytype[MAXTYPEVAR])
 			return -1;
 	}
   updLabel:
-	DEBUG(MAL_RESOLVE, "Returns: %s\n", ret);
+	DEBUG(MAL_RESOLVE, "Returns: %d\n", ret);
 	return ret;
 }

@@ -89,7 +89,7 @@ createExceptionInternal(enum malexception type, const char *fcn, const char *for
 	for (char *p = strchr(q, '\n'); p; q = p + 1, p = strchr(q, '\n'))
 		ERROR(M_ALL, "%s: %.*s\n", MT_thread_getname(), (int) (p - q), q);
 	if (*q)
-		ERROR(M_ALL, "%s: %.*s\n", MT_thread_getname(), q);
+		ERROR(M_ALL, "%s: %s\n", MT_thread_getname(), q);
 	return message;
 }
 
