@@ -69,6 +69,7 @@ typedef enum {
                MAL_INET,
                MAL_GROUPBY,
                MAL_TABLET,
+               MAL_OLTP,
 
                // GDK
                GDK_ALL,
