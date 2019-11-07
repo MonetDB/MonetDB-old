@@ -60,7 +60,7 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if(mod == NULL || fcn == NULL)
 		throw(MAL, "optimizer.multiplex", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	fprintf(stderr,"#WARNING To speedup %s.%s a bulk operator implementation is needed\n#", mod,fcn);
-	// fprintInstruction(OPT_MULTIPLEX, mb, stk, pci, LIST_MAL_ALL);
+	fprintInstruction(MAL_OPT_MULTIPLEX, mb, stk, pci, LIST_MAL_ALL);
 
 	/* search the iterator bat */
 	for (i = pci->retc+2; i < pci->argc; i++)
@@ -74,11 +74,11 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     if( OPTdebug &  OPTmultiplex)
 	{	char *tpenme;
 		fprintf(stderr,"#calling the optimize multiplex script routine\n");
-		// fprintFunction(OPT_MULTIPLEX,mb, 0, LIST_MAL_ALL );
+		fprintFunction(MAL_OPT_MULTIPLEX,mb, 0, LIST_MAL_ALL );
 		tpenme = getTypeName(getVarType(mb,iter));
 		fprintf(stderr,"#multiplex against operator %d %s\n",iter, tpenme);
 		GDKfree(tpenme);
-		// fprintInstruction(OPT_MULTIPLEX, mb, 0, pci, LIST_MAL_ALL);
+		fprintInstruction(MAL_OPT_MULTIPLEX, mb, 0, pci, LIST_MAL_ALL);
 	}
 
 	/*
@@ -272,7 +272,7 @@ OPTmultiplexImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 
     if( OPTdebug &  OPTmultiplex){
         fprintf(stderr, "#MULTIPLEX optimizer exit\n");
-        // fprintFunction(OPT_MULTIPLEX, mb, 0, LIST_MAL_ALL);
+        fprintFunction(MAL_OPT_MULTIPLEX, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

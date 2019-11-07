@@ -705,7 +705,7 @@ wrapup:
 
     if( OPTdebug &  OPTpushselect){
         fprintf(stderr, "#PUSHSELECT optimizer exit\n");
-        // fprintFunction(OPT_PUSHSELECT, mb, 0, LIST_MAL_ALL);
+        fprintFunction(MAL_OPT_PUSHSELECT, mb, 0, LIST_MAL_ALL);
     }
 	return MAL_SUCCEED;
 }

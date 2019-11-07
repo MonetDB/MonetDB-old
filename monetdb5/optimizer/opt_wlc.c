@@ -151,7 +151,7 @@ wrapup:
     newComment(mb,buf);
     if( OPTdebug &  OPTwlc){
         fprintf(stderr, "#wlc optimizer exit\n");
-        // fprintFunction(OPT_WLC, mb, 0, LIST_MAL_ALL);
+        fprintFunction(MAL_OPT_WLC, mb, 0, LIST_MAL_ALL);
     }
 	return MAL_SUCCEED;
 }

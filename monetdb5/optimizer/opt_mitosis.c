@@ -297,7 +297,7 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
     if( OPTdebug &  OPTmitosis){
         fprintf(stderr, "#MITOSIS optimizer exit\n");
-        // fprintFunction(OPT_MITOSIS, mb, 0, LIST_MAL_ALL);
+        fprintFunction(MAL_OPT_MITOSIS, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

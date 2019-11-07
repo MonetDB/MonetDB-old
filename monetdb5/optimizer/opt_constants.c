@@ -38,7 +38,7 @@ OPTconstantsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 
     if( OPTdebug &  OPTconstants){
         fprintf(stderr, "#CONSTANTS optimizer exit\n");
-        // fprintFunction(OPT_CONSTANTS, mb, 0, LIST_MAL_ALL);
+        fprintFunction(MAL_OPT_CONSTANTS, mb, 0, LIST_MAL_ALL);
     }
 	alias= (int*) GDKzalloc(sizeof(int) * mb->vtop);
 	cst= (VarPtr*) GDKzalloc(sizeof(VarPtr) * mb->vtop);
@@ -112,7 +112,7 @@ wrapup:
 	if( index) GDKfree(index);
     if( OPTdebug &  OPTconstants){
         fprintf(stderr, "#CONSTANTS optimizer exit\n");
-        // fprintFunction(OPT_CONSTANTS, mb, 0, LIST_MAL_ALL);
+        fprintFunction(MAL_OPT_CONSTANTS, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

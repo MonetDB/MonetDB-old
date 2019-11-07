@@ -41,7 +41,7 @@ OPTreduceImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
     if( OPTdebug &  OPTreduce){
         fprintf(stderr, "#REDUCE optimizer entry\n");
-        // fprintFunction(OPT_REDUCE, mb, 0, LIST_MAL_ALL);
+        fprintFunction(MAL_OPT_REDUCE, mb, 0, LIST_MAL_ALL);
     }
 	return MAL_SUCCEED;
 }

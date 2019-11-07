@@ -143,7 +143,7 @@ wrapup:
 	if(varused) GDKfree(varused);
     if( OPTdebug &  OPTdeadcode){
         fprintf(stderr, "#DEADCODE optimizer exit\n");
-        // fprintFunction(OPT_DEADCODE, mb, 0, LIST_MAL_ALL);
+        fprintFunction(MAL_OPT_DEADCODE, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

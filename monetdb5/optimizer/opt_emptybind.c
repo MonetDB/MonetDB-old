@@ -84,7 +84,7 @@ OPTemptybindImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 
     if( OPTdebug &  OPTemptybind){
 		fprintf(stderr, "#Optimize Query Emptybind\n");
-		// fprintFunction(OPT_EMPTYBIND, mb, 0, LIST_MAL_ALL);
+		fprintFunction(MAL_OPT_EMPTYBIND, mb, 0, LIST_MAL_ALL);
 	}
 
 	if ( newMalBlkStmt(mb, mb->ssize) < 0) {
@@ -316,7 +316,7 @@ wrapup:
 
     if( OPTdebug &  OPTemptybind){
         fprintf(stderr, "#EMPTYBIND optimizer exit\n");
-        // fprintFunction(OPT_EMPTYBIND, mb, 0, LIST_MAL_ALL);
+        fprintFunction(MAL_OPT_EMPTYBIND, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

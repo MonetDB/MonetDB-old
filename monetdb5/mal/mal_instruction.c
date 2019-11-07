@@ -951,9 +951,7 @@ trimMalVariables_(MalBlkPtr mb, MalStkPtr glb)
         (void) snprintf(mb->var[i].id, IDLENGTH,"%c%c%d", REFMARKER, TMPMARKER,mb->vid++);
 	
 	DEBUG(MAL_REDUCE, "After reduction\n");
-	/* CHECK */
-	// Uncomment when fprintFunction is fixed
-	// fprintFunction(MAL_REDUCE, mb, 0, 0);
+	fprintFunction(MAL_REDUCE, mb, 0, 0);
 
 	GDKfree(alias);
 	mb->vtop = cnt;

@@ -218,7 +218,7 @@ void chkFlow(MalBlkPtr mb)
 		mb->errors = createMalException( mb,lastInstruction,SYNTAX,
 			"instructions after END");
 #ifdef DEBUG_MAL_FCN
-		//fprintFunction(MAL_FCN, mb, 0, LIST_MAL_ALL);
+		fprintFunction(MAL_FCN, mb, 0, LIST_MAL_ALL);
 #endif
 	}
 	if( endseen)
@@ -278,7 +278,7 @@ static void replaceTypeVar(MalBlkPtr mb, InstrPtr p, int v, malType t){
 	for(j=0; j<mb->stop; j++){
 	    p= getInstrPtr(mb,j);
 #ifdef DEBUG_MAL_FCN
-		// fprintInstruction(MAL_FCN, mb, 0, p, LIST_MAL_ALL);
+		fprintInstruction(MAL_FCN, mb, 0, p, LIST_MAL_ALL);
 #endif
 	if( p->polymorphic)
 	for(i=0;i<p->argc; i++)
@@ -321,7 +321,7 @@ static void replaceTypeVar(MalBlkPtr mb, InstrPtr p, int v, malType t){
 #endif
 	}
 #ifdef DEBUG_MAL_FCN
-		// fprintInstruction(MAL_FCN, mb, 0, p, LIST_MAL_ALL);
+		fprintInstruction(MAL_FCN, mb, 0, p, LIST_MAL_ALL);
 #endif
 	}
 }
@@ -379,7 +379,7 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 #ifdef DEBUG_CLONE
 	fprintf(stderr,"clone the function %s to scope %s\n",
 				 proc->name,scope->name);
-	// fprintInstruction(MAL_FCN, mb, 0, p, LIST_MAL_ALL);
+	fprintInstruction(MAL_FCN, mb, 0, p, LIST_MAL_ALL);
 #endif
 	new = newFunction(scope->name, proc->name, getSignature(proc)->token);
 	if( new == NULL){
@@ -395,7 +395,7 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 	/* now change the definition of the original proc */
 #ifdef DEBUG_CLONE
 	fprintf(stderr, "CLONED VERSION\n");
-	//fprintFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
+	fprintFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
 #endif
 	/* check for errors after fixation , TODO*/
 	pp = getSignature(new);
@@ -432,7 +432,7 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 
 #ifdef DEBUG_MAL_FCN
 	fprintf(stderr, "FUNCTION TO BE CHECKED\n");
-	//fprintFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
+	fprintFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
 #endif
 
 	/* check for errors after fixation , TODO*/
@@ -445,14 +445,14 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 			mb->errors = createMalException(mb,0,TYPE,"Error in cloned function");
 			new->def->errors = 0;
 #ifdef DEBUG_MAL_FCN
-			// fprintFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
+			fprintFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
 #endif
 		}
 	}
 #ifdef DEBUG_CLONE
 	fprintf(stderr, "newly cloned function added to %s %d \n",
 				 scope->name, i);
-	// fprintFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
+	fprintFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
 #endif
 	return new;
 }

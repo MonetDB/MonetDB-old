@@ -54,7 +54,7 @@ typedef enum {
 
                // MAL
                MAL_ALL,
-               MAL_MEMORUN,
+               MAL_MEMO,
                MAL_SESSION,
                MAL_INTERPRETER,
                MAL_SCHEDULER,
@@ -75,6 +75,40 @@ typedef enum {
                MAL_FCN,
                MAL_DATAFLOW,
 
+
+               // OPT
+               MAL_OPT_ALIASES,
+               MAL_OPT_CANDIDATES,
+               MAL_OPT_COERCION,
+               MAL_OPT_COMMONTERMS,
+               MAL_OPT_PIPES,
+               MAL_OPT_REMAP,
+               MAL_OPT_DATAFLOW,
+               MAL_OPT_EVALUATE,
+               MAL_OPT_INLINE,
+               MAL_OPT_JIT,
+               MAL_OPT_MULTIPLEX,
+               MAL_OPT_REORDER,
+               MAL_OPT_PROJECTIONPATH,
+               MAL_OPT_WLC,
+               MAL_OPT_CONSTANTS,
+               MAL_OPT_COSTMODEL,
+               MAL_OPT_DEADCODE,
+               MAL_OPT_EMPTYBIND,
+               MAL_OPT_GENERATOR,
+               MAL_OPT_JSON,
+               MAL_OPT_MATPACK,
+               MAL_OPT_GC,
+               MAL_OPT_MERGETABLE,
+               MAL_OPT_MITOSIS,
+               MAL_OPT_PUSHSELECT,
+               MAL_OPT_QUERYLOG,
+               MAL_OPT_OLTP,
+               MAL_OPT_PROFILER,
+               MAL_OPT_REDUCE,
+               MAL_OPT_VOLCANO,
+               MAL_OPT_MACRO,
+            
                // GDK
                GDK_ALL,
                GDK_LOGGER

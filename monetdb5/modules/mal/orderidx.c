@@ -185,9 +185,7 @@ OIDXcreateImplementation(Client cntxt, int tpe, BAT *b, int pieces)
 		freeStack(newstk);
 	}
 
-	/* CHECK */
-	// Uncomment this line when fprintfFunction is fixed
-	// fprintFunction(MAL_OIDX, smb, 0, LIST_MAL_ALL);
+	fprintFunction(MAL_OIDX, smb, 0, LIST_MAL_ALL);
 
 	/* get rid of temporary MAL block */
 bailout:

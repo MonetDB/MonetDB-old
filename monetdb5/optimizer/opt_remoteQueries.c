@@ -372,7 +372,7 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 
     if( OPTdebug &  OPTremotequeries){
         fprintf(stderr, "#remotequeries optimizer exit\n");
-        // fprintFunction(OPT_REMOTE, mb, 0, LIST_MAL_ALL);
+        fprintFunction(MAL_OPT_REMOTE, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

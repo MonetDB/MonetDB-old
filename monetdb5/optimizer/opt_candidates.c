@@ -13,6 +13,7 @@
 #include "monetdb_config.h"
 #include "mal_instruction.h"
 #include "opt_candidates.h"
+#include "gdk_tracer.h"
 
 str
 OPTcandidatesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
@@ -91,7 +92,7 @@ OPTcandidatesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 	addtoMalBlkHistory(mb);
 	if( OPTdebug &  OPTaliases){
 		fprintf(stderr, "#CANDIDATES optimizer exit\n");
-		// fprintFunction(OPT_CANDIDATES, mb, 0, LIST_MAL_ALL);
+		fprintFunction(MAL_OPT_CANDIDATES, mb, 0, LIST_MAL_ALL);
 	}
 	return MAL_SUCCEED;
 }

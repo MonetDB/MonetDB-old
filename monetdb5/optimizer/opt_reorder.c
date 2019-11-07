@@ -317,7 +317,7 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 				if( OPTdebug &  OPTreorder){
 					if( old[j]){
 						fprintf(stderr,"leftover: %d",start+1);
-						// fprintInstruction(OPT_REORDER, mb, 0, old[j], LIST_MAL_ALL);
+						fprintInstruction(MAL_OPT_REORDER, mb, 0, old[j], LIST_MAL_ALL);
 					}
 				}
 
@@ -356,7 +356,7 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
     if( OPTdebug &  OPTreorder){
         fprintf(stderr, "#reorder optimizer entry\n");
-        // fprintFunction(OPT_REORDER, mb, 0, LIST_MAL_ALL);
+        fprintFunction(MAL_OPT_REORDER, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

@@ -9,6 +9,7 @@
 #include "monetdb_config.h"
 #include "mal_instruction.h"
 #include "opt_aliases.h"
+#include "gdk_tracer.h"
 
 /* an alias is recognized by a simple assignment */
 #define OPTisAlias(X) (X->argc == 2 && X->token == ASSIGNsymbol && X->barrier == 0 )
@@ -86,7 +87,7 @@ OPTaliasesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	if( OPTdebug &  OPTaliases){
 		fprintf(stderr, "#ALIASES optimizer  result\n");
-		// fprintFunction(OPT_ALIASES, mb, 0, LIST_MAL_ALL);
+		fprintFunction(MAL_OPT_ALIASES, mb, 0, LIST_MAL_ALL);
 	}
 	return MAL_SUCCEED;
 }

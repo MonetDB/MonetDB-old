@@ -553,9 +553,7 @@ WLCpreparewrite(Client cntxt)
 	// save the wlc record on a file 
 	if( cntxt->wlc){
 		DEBUG(MAL_WLC, "Prepare for writing: %d %d\n", cntxt->wlc->stop , cntxt->wlc_kind);
-		/* CHECK */
-		// Uncomment when fprintFunction is fixed
-		// fprintFunction(MAL_WLC, cntxt->wlc, 0, LIST_MAL_DEBUG );
+		fprintFunction(MAL_WLC, cntxt->wlc, 0, LIST_MAL_DEBUG );
 	}
 
 	if( cntxt->wlc == 0 || cntxt->wlc->stop <= 1 ||  cntxt->wlc_kind == WLC_QUERY )
@@ -590,10 +588,7 @@ WLCpreparewrite(Client cntxt)
 		cntxt->wlc_kind = WLC_QUERY;
 	} else
 			throw(MAL,"wlc.write","WLC log path missing ");
-
-	/* CHECK */
-	// Uncomment when fprintFunction is fixed
-	// fprintFunction(MAL_WLC, cntxt->wlc, 0, LIST_MAL_ALL );
+	fprintFunction(MAL_WLC, cntxt->wlc, 0, LIST_MAL_ALL );
 
 	if( wlc_state == WLC_STOP)
 		throw(MAL,"wlc.write","Logging for this snapshot has been stopped. Use a new snapshot to continue logging.");

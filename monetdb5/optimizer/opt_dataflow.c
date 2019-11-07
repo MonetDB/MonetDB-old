@@ -200,7 +200,7 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	if( OPTdebug &  OPTdataflow){
 		fprintf(stderr,"#dataflow input\n");
-		// fprintFunction(OPT_DATAFLOW, mb, 0, LIST_MAL_ALL);
+		fprintFunction(MAL_OPT_DATAFLOW, mb, 0, LIST_MAL_ALL);
 	}
 
 	vlimit = mb->vsize;
@@ -315,7 +315,7 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 		if( OPTdebug &  OPTdataflow){
 			fprintf(stderr,"# variable states\n");
-			// fprintInstruction(OPT_DATAFLOW, mb, 0, p, LIST_MAL_ALL);
+			fprintInstruction(MAL_OPT_DATAFLOW, mb, 0, p, LIST_MAL_ALL);
 			for(k = 0; k < p->argc; k++)
 				fprintf(stderr,"#%s %d\n", getVarName(mb,getArg(p,k)), states[getArg(p,k)] );
 		}
@@ -344,7 +344,7 @@ wrapup:
 	if(old)    GDKfree(old);
     if( OPTdebug &  OPTdataflow){
         fprintf(stderr, "#DATAFLOW optimizer exit\n");
-        // fprintFunction(OPT_DATAFLOW, mb, 0, LIST_MAL_ALL);
+        fprintFunction(MAL_OPT_DATAFLOW, mb, 0, LIST_MAL_ALL);
     }
 
 	return msg;

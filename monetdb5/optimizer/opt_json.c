@@ -90,7 +90,7 @@ OPTjsonImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
     if( OPTdebug &  OPTjson){
         fprintf(stderr, "#JSON optimizer exit\n");
-        // fprintFunction(OPT_JSON, mb, 0, LIST_MAL_ALL);
+        fprintFunction(MAL_OPT_JSON, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

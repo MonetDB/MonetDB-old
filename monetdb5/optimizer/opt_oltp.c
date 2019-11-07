@@ -140,7 +140,7 @@ OPToltpImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		addtoMalBlkHistory(mb);
     if( OPTdebug &  OPToltp){
         fprintf(stderr, "#OLTP optimizer exit\n");
-        // fprintFunction(OPT_OLTP, mb, 0, LIST_MAL_ALL);
+        fprintFunction(MAL_OPT_OLTP, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }

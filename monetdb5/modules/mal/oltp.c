@@ -115,9 +115,7 @@ OLTPlock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return MAL_SUCCEED;
 
 	DEBUG(MAL_OLTP, "%6d lock request for client: %d", GDKms(), cntxt->idx);
-	/* CHECK */
-	// Uncomment the line below when fprintInstruction is fixed
-	// fprintInstruction(MAL_OLTP, mb, stk, pci, LIST_MAL_ALL);
+	fprintInstruction(MAL_OLTP, mb, stk, pci, LIST_MAL_ALL);
 	do{
 		MT_lock_set(&mal_oltpLock);
 		clk = GDKms();
@@ -180,9 +178,7 @@ OLTPrelease(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	clk = GDKusec();
 
 	DEBUG(MAL_OLTP, "%6d release the locks: %d", GDKms(), cntxt->idx);
-	/* CHECK */ 
-	// Uncomment the line below when the function is fixed
-	// fprintInstruction(MAL_OLTP, mb, stk, pci, LIST_MAL_ALL);
+	fprintInstruction(MAL_OLTP, mb, stk, pci, LIST_MAL_ALL);
 
 	for( i=1; i< pci->argc; i++){
 		lck= getVarConstant(mb, getArg(pci,i)).val.ival;

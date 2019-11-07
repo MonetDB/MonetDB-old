@@ -9,6 +9,8 @@
 #include "monetdb_config.h"
 #include "opt_commonTerms.h"
 #include "mal_exception.h"
+#include "gdk_tracer.h"
+
  /*
  * Caveat. A lot of time was lost due to constants that are indistinguisable
  * at the surface level.  It requires the constant optimizer to be ran first.
@@ -114,7 +116,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 		if( OPTdebug & OPTcommonterms){
 			fprintf(stderr,"#CANDIDATE[%d] look at list[%d]=>%d\n",
 				i, HASHinstruction(p), hash[HASHinstruction(p)]);
-			// fprintInstruction(OPT_COMMONTERMS, mb, 0, p, LIST_MAL_ALL);
+			fprintInstruction(MAL_OPT_COMMONTERMS, mb, 0, p, LIST_MAL_ALL);
 		}
 
 		/* Look into the hash structure for matching instructions */
@@ -132,7 +134,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 						!isUnsafeFunction(q),
 						!isUpdateInstruction(q),
 						isLinearFlow(q));
-					//fprintInstruction(OPT_COMMONTERMS, mb, 0, q, LIST_MAL_ALL);
+					fprintInstruction(MAL_OPT_COMMONTERMS, mb, 0, q, LIST_MAL_ALL);
 				}
 
 				/*
@@ -165,7 +167,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 
 					if( OPTdebug & OPTcommonterms){
 						fprintf(stderr, "#MODIFIED EXPRESSION %d -> %d ",getArg(p,0),getArg(p,1));
-						//fprintInstruction(OPT_COMMONTERMS, mb, 0, p, LIST_MAL_ALL);
+						fprintInstruction(MAL_OPT_COMMONTERMS, mb, 0, p, LIST_MAL_ALL);
 					}
 
 					actions++;
@@ -175,7 +177,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 
 			else if( OPTdebug & OPTcommonterms && isUpdateInstruction(p)){
 				fprintf(stderr, "#COMMON SKIPPED %d %d ", mayhaveSideEffects(cntxt, mb, q, TRUE) , isUpdateInstruction(p));
-				//fprintInstruction(OPT_COMMONTERMS, mb, 0, q, LIST_MAL_ALL);
+				fprintInstruction(MAL_OPT_COMMONTERMS, mb, 0, q, LIST_MAL_ALL);
 			}
 
 		if (duplicate){
@@ -187,7 +189,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 		if( OPTdebug & OPTcommonterms){
 			fprintf(stderr,"#UPDATE HASH[%d] look at  arg %d hash %d list %d\n",
 				i, getArg(p,p->argc-1), HASHinstruction(p), hash[HASHinstruction(p)]);
-			//fprintInstruction(OPT_COMMONTERMS, mb, 0, p, LIST_MAL_ALL);
+			fprintInstruction(MAL_OPT_COMMONTERMS, mb, 0, p, LIST_MAL_ALL);
 		}
 
 		if ( !mayhaveSideEffects(cntxt, mb, p, TRUE) && p->argc != p->retc &&  isLinearFlow(p) && !isUnsafeFunction(p) && !isUpdateInstruction(p)){
@@ -219,7 +221,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 	if(old) GDKfree(old);
     if( OPTdebug &  OPTcommonterms){
         fprintf(stderr, "#COMMONTERMS optimizer exit\n");
-        // fprintFunction(OPT_COMMONTERMS, mb, 0, LIST_MAL_ALL);
+        fprintFunction(MAL_OPT_COMMONTERMS, mb, 0, LIST_MAL_ALL);
     }
 	return msg;
 }
