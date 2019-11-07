@@ -11,6 +11,7 @@
 #include "monetdb_config.h"
 #include "mal_resource.h"
 #include "mal_private.h"
+#include "gdk_tracer.h"
 
 /* MEMORY admission does not seem to have a major impact */
 lng memorypool = 0;      /* memory claimed by concurrent threads */
@@ -136,23 +137,25 @@ MALadmission(lng argclaim, lng hotclaim)
 		if (memoryclaims == 0 || memorypool > argclaim + hotclaim) {
 			memorypool -= (argclaim + hotclaim);
 			memoryclaims++;
-			PARDEBUG
-			fprintf(stderr, "#DFLOWadmit %3d thread %d pool " LLFMT "claims " LLFMT "," LLFMT "\n",
-						 memoryclaims, THRgettid(), memorypool, argclaim, hotclaim);
+			DEBUG(PAR, 
+				"DFLOWadmit %3d thread %d pool " LLFMT "claims " LLFMT "," LLFMT "\n",
+				memoryclaims, THRgettid(), memorypool, argclaim, hotclaim);
 			MT_lock_unset(&admissionLock);
 			return 0;
 		}
-		PARDEBUG
-		fprintf(stderr, "#Delayed due to lack of memory " LLFMT " requested " LLFMT " memoryclaims %d\n", memorypool, argclaim + hotclaim, memoryclaims);
+		DEBUG(PAR, 
+			"Delayed due to lack of memory " LLFMT " requested " LLFMT " memoryclaims %d\n", 
+			memorypool, argclaim + hotclaim, memoryclaims);
 		MT_lock_unset(&admissionLock);
 		return -1;
 	}
 	/* release memory claimed before */
 	memorypool += -argclaim - hotclaim;
 	memoryclaims--;
-	PARDEBUG
-	fprintf(stderr, "#DFLOWadmit %3d thread %d pool " LLFMT " claims " LLFMT "," LLFMT "\n",
-				 memoryclaims, THRgettid(), memorypool, argclaim, hotclaim);
+	DEBUG(PAR, 
+		"DFLOWadmit %3d thread %d pool " LLFMT " claims " LLFMT "," LLFMT "\n",
+		memoryclaims, THRgettid(), memorypool, argclaim, hotclaim);
+
 	MT_lock_unset(&admissionLock);
 	return 0;
 }
@@ -203,11 +206,10 @@ MALresourceFairness(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, lng
 	/* always keep one running to avoid all waiting  */
 	while (clk > DELAYUNIT && users > 1 && rss > MEMORY_THRESHOLD && (int) ATOMIC_GET(&mal_running) > GDKnr_threads ) {
 		if ( delayed++ == 0){
-				PARDEBUG fprintf(stderr, "#delay initial ["LLFMT"] memory  %zu[%f]\n", clk, rss, MEMORY_THRESHOLD );
+			DEBUG(PAR, "Delay initial ["LLFMT"] memory %zu[%f]\n", clk, rss, MEMORY_THRESHOLD);
 		}
 		if ( delayed == MAX_DELAYS){
-				PARDEBUG fprintf(stderr, "#delay abort ["LLFMT"] memory  %zu[%f]\n", clk, rss, MEMORY_THRESHOLD );
-				PARDEBUG fflush(stderr);
+				DEBUG(PAR, "Delay abort ["LLFMT"] memory %zu[%f]\n", clk, rss, MEMORY_THRESHOLD);
 				break;
 		}
 		MT_sleep_ms(DELAYUNIT);
