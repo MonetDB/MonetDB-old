@@ -341,7 +341,7 @@ DFLOWworker(void *T)
 	} else {
 		GDKclrerr();
 	}
-
+		
 	cntxt = ATOMIC_PTR_GET(&t->cntxt);
 	if (cntxt) {
 		/* wait until we are allowed to start working */
@@ -665,6 +665,7 @@ DFLOWinitBlk(DataFlow flow, MalBlkPtr mb, int size)
 			assign[getArg(p, j)] = pc;  /* ensure recognition of dependency on first instruction and constant */
 	}
 	GDKfree(assign);
+
 	for (n = 0; n < flow->stop - flow->start; n++) {
 		DEBUG(PAR, "[%d] %d\n", flow->start + n, n);
 		fprintInstruction(PAR, mb, 0, getInstrPtr(mb, n + flow->start), LIST_MAL_ALL);
@@ -674,7 +675,8 @@ DFLOWinitBlk(DataFlow flow, MalBlkPtr mb, int size)
 			if (flow->edges[j] == -1)
 				break;
 		}
-	}	
+	}
+
 #ifdef USE_MAL_ADMISSION
 	memorypool = memoryclaims = 0;
 #endif
@@ -696,10 +698,10 @@ static void showFlowEvent(DataFlow flow, int pc)
 	int i;
 	FlowEvent fe = flow->status;
 
-	INFO(M_ALL, "End of data flow '%d' done '%d'\n", pc, flow->stop - flow->start);
+	INFO(MAL_ALL, "End of data flow '%d' done '%d'\n", pc, flow->stop - flow->start);
 	for (i = 0; i < flow->stop - flow->start; i++)
 		if (fe[i].state != DFLOWwrapup && fe[i].pc >= 0) {
-			INFO(M_ALL, "Missed pc %d status %d %d blocks %d\n", fe[i].state, i, fe[i].pc, fe[i].blocks);
+			INFO(MAL_ALL, "Missed pc %d status %d %d blocks %d\n", fe[i].state, i, fe[i].pc, fe[i].blocks);
 			fprintInstruction(MAL_DATAFLOW, fe[i].flow->mb, 0, getInstrPtr(fe[i].flow->mb, fe[i].pc), LIST_MAL_MAPI);
 		}
 }
@@ -744,7 +746,6 @@ DFLOWscheduler(DataFlow flow, struct worker *w)
 		}
 	MT_lock_unset(&flow->flowlock);
 	MT_sema_up(&w->s);
-
 	DEBUG(PAR, "Run '%d' instructions in dataflow block\n", actions);
 
 	while (actions != tasks ) {
@@ -782,7 +783,7 @@ DFLOWscheduler(DataFlow flow, struct worker *w)
 	/* wrap up errors */
 	assert(flow->done->last == 0);
 	if ((ret = ATOMIC_PTR_XCG(&flow->error, NULL)) != NULL ) {
-		DEBUG(PAR, "Errors encountered %s\n", ret);
+		DEBUG(PAR, "Errors encountered: %s\n", ret);
 	}
 	return ret;
 }
