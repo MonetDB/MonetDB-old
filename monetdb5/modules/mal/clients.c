@@ -86,42 +86,34 @@ CLTsetScenario(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return msg;
 }
 
-static char *
-local_itoa(int i)
-{
-	static char buf[32];
-
-	sprintf(buf, "%d", i);
-	return buf;
-}
-
 static void
-CLTtimeConvert(time_t l, char *s){
-			struct tm localt;
+CLTtimeConvert(time_t l, char *s)
+{
+	struct tm localt;
 
 #ifdef HAVE_LOCALTIME_R
-			(void) localtime_r(&l, &localt);
+	(void) localtime_r(&l, &localt);
 #else
-			/* race condition: return value could be
-			 * overwritten in parallel thread before
-			 * assignment complete */
-			localt = *localtime(&l);
+	/* race condition: return value could be
+	 * overwritten in parallel thread before
+	 * assignment complete */
+	localt = *localtime(&l);
 #endif
 
 #ifdef HAVE_ASCTIME_R3
-			asctime_r(&localt, s, 26);
+	asctime_r(&localt, s, 26);
 #else
 #ifdef HAVE_ASCTIME_R
-			asctime_r(&localt, s);
+	asctime_r(&localt, s);
 #else
-			/* race condition: return value could be
-			 * overwritten in parallel thread before copy
-			 * complete, however on Windows, asctime is
-			 * thread-safe */
-			strncpy(s, asctime(&localt), 26);
+	/* race condition: return value could be
+	 * overwritten in parallel thread before copy
+	 * complete, however on Windows, asctime is
+	 * thread-safe */
+	strcpy(s, asctime(&localt)); /* asctime produces string of length 25 */
 #endif
 #endif
-			s[24] = 0;
+	s[24] = 0;		/* remove newline */
 }
 
 str
@@ -131,7 +123,7 @@ CLTInfo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bat *ret2=  getArgReference_bat(stk,pci,0);
 	BAT *b = COLnew(0, TYPE_str, 12, TRANSIENT);
 	BAT *bn = COLnew(0, TYPE_str, 12, TRANSIENT);
-	char s[26];
+	char buf[32]; /* 32 bytes are enough */
 
 	(void) mb;
 	if (b == 0 || bn == 0){
@@ -140,29 +132,35 @@ CLTInfo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL, "clients.info", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	}
 
+	(void) sprintf(buf, ""LLFMT"", (lng) cntxt->user);
 	if (BUNappend(b, "user", false) != GDK_SUCCEED ||
-		BUNappend(bn, local_itoa((int)cntxt->user), false) != GDK_SUCCEED ||
-
-		BUNappend(b, "scenario", false) != GDK_SUCCEED ||
-		BUNappend(bn, cntxt->scenario, false) != GDK_SUCCEED ||
-
-		BUNappend(b, "listing", false) != GDK_SUCCEED ||
-		BUNappend(bn, local_itoa(cntxt->listing), false) != GDK_SUCCEED ||
-
-		BUNappend(b, "debug", false) != GDK_SUCCEED ||
-		BUNappend(bn, local_itoa(cntxt->debug), false) != GDK_SUCCEED)
+		BUNappend(bn, buf, false) != GDK_SUCCEED)
 		goto bailout;
 
-	CLTtimeConvert(cntxt->login, s);
+	if (BUNappend(b, "scenario", false) != GDK_SUCCEED ||
+		BUNappend(bn, cntxt->scenario, false) != GDK_SUCCEED)
+		goto bailout;
+
+	(void) sprintf(buf, "%d", cntxt->listing);
+	if (BUNappend(b, "listing", false) != GDK_SUCCEED ||
+		BUNappend(bn, buf, false) != GDK_SUCCEED)
+		goto bailout;
+
+	(void) sprintf(buf, "%d", cntxt->debug);
+	if (BUNappend(b, "debug", false) != GDK_SUCCEED ||
+		BUNappend(bn, buf, false) != GDK_SUCCEED)
+		goto bailout;
+
+	CLTtimeConvert(cntxt->login, buf);
 	if (BUNappend(b, "login", false) != GDK_SUCCEED ||
-		BUNappend(bn, s, false) != GDK_SUCCEED)
+		BUNappend(bn, buf, false) != GDK_SUCCEED)
 		goto bailout;
 	if (pseudo(ret,b,"client","info"))
 		goto bailout;
 	BBPkeepref(*ret2= bn->batCacheid);
 	return MAL_SUCCEED;
 
-  bailout:
+bailout:
 	BBPunfix(b->batCacheid);
 	BBPunfix(bn->batCacheid);
 	throw(MAL, "clients.info", SQLSTATE(HY001) MAL_MALLOC_FAIL);
@@ -174,7 +172,7 @@ CLTLogin(bat *nme, bat *ret)
 	BAT *b = COLnew(0, TYPE_str, 12, TRANSIENT);
 	BAT *u = COLnew(0, TYPE_oid, 12, TRANSIENT);
 	int i;
-	char s[26];
+	char s[32];
 
 	if (b == 0 || u == 0)
 		goto bailout;
@@ -193,7 +191,7 @@ CLTLogin(bat *nme, bat *ret)
 		goto bailout;
 	return MAL_SUCCEED;
 
-  bailout:
+bailout:
 	BBPreclaim(b);
 	BBPreclaim(u);
 	throw(MAL, "clients.getLogins", SQLSTATE(HY001) MAL_MALLOC_FAIL);
@@ -313,6 +311,9 @@ CLTsetPrintTimeout(void *ret, int *secs)
 str CLTmd5sum(str *ret, str *pw) {
 #ifdef HAVE_MD5_UPDATE
 	char *mret = mcrypt_MD5Sum(*pw, strlen(*pw));
+
+	if (!mret)
+		throw(MAL, "clients.md5sum", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	*ret = GDKstrdup(mret);
 	free(mret);
 	if(*ret == NULL)
@@ -328,6 +329,9 @@ str CLTmd5sum(str *ret, str *pw) {
 str CLTsha1sum(str *ret, str *pw) {
 #ifdef HAVE_SHA1_UPDATE
 	char *mret = mcrypt_SHA1Sum(*pw, strlen(*pw));
+
+	if (!mret)
+		throw(MAL, "clients.sha1sum", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	*ret = GDKstrdup(mret);
 	free(mret);
 	if(*ret == NULL)
@@ -343,6 +347,9 @@ str CLTsha1sum(str *ret, str *pw) {
 str CLTripemd160sum(str *ret, str *pw) {
 #ifdef HAVE_RIPEMD160_UPDATE
 	char *mret = mcrypt_RIPEMD160Sum(*pw, strlen(*pw));
+
+	if (!mret)
+		throw(MAL, "clients.ripemd160sum", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	*ret = GDKstrdup(mret);
 	free(mret);
 	if(*ret == NULL)
@@ -382,6 +389,9 @@ str CLTsha2sum(str *ret, str *pw, int *bits) {
 			throw(ILLARG, "clients.sha2sum", "wrong number of bits "
 					"for SHA2 sum: %d", *bits);
 	}
+
+	if (!mret)
+		throw(MAL, "clients.sha2sum", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	*ret = GDKstrdup(mret);
 	free(mret);
 	if(*ret == NULL)
@@ -473,7 +483,8 @@ str CLTcheckPermission(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) 
 
 	(void)mb;
 
-	pwd = mcrypt_SHA1Sum(*pw, strlen(*pw));
+	if (!(pwd = mcrypt_SHA1Sum(*pw, strlen(*pw))))
+		throw(MAL, "clients.checkPermission", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	msg = AUTHcheckCredentials(&id, cntxt, *usr, pwd, ch, algo);
 	free(pwd);
 	return msg;

@@ -310,18 +310,18 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 			list *id_l;
 
 			sql->sa = sa_create();
-			if(!sql->sa) {
+			if (!sql->sa) {
 				sql->sa = osa;
 				throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			}
 			buf = sa_alloc(sql->sa, strlen(c->def) + 8);
-			if(!buf) {
+			if (!buf) {
 				sa_destroy(sql->sa);
 				sql->sa = osa;
 				throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 			}
 			typestr = subtype2string2(&c->type);
-			if(!typestr) {
+			if (!typestr) {
 				sa_destroy(sql->sa);
 				sql->sa = osa;
 				throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
@@ -331,11 +331,14 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 			r = rel_parse(sql, s, buf, m_deps);
 			if (!r || !is_project(r->op) || !r->exps || list_length(r->exps) != 1 ||
 				rel_check_type(sql, &c->type, r, r->exps->h->data, type_equal) == NULL) {
-				if(r)
+				if (r)
 					rel_destroy(r);
 				sa_destroy(sql->sa);
 				sql->sa = osa;
-				throw(SQL, "sql.catalog", SQLSTATE(42000) "%s", sql->errstr);
+				if (strlen(sql->errstr) > 6 && sql->errstr[5] == '!')
+					throw(SQL, "sql.catalog", "%s", sql->errstr);
+				else 
+					throw(SQL, "sql.catalog", SQLSTATE(42000) "%s", sql->errstr);
 			}
 			id_l = rel_dependencies(sql, r);
 			mvc_create_dependencies(sql, id_l, nt->base.id, FUNC_DEPENDENCY);
@@ -352,16 +355,16 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 			sql->sa = osa;
 			throw(SQL, "sql.catalog", SQLSTATE(42000) "CREATE TABLE: %s_%s_%s conflicts", s->base.name, t->base.name, c->base.name);
 		}
-		if(isPartitionedByColumnTable(t) && c->base.id == t->part.pcol->base.id)
+		if (isPartitionedByColumnTable(t) && c->base.id == t->part.pcol->base.id)
 			nt->part.pcol = copied;
 	}
-	if(isPartitionedByExpressionTable(t)) {
+	if (isPartitionedByExpressionTable(t)) {
 		char *err = NULL;
 
 		nt->part.pexp->exp = sa_strdup(sql->session->tr->sa, t->part.pexp->exp);
 
 		sql->sa = sa_create();
-		if(!sql->sa) {
+		if (!sql->sa) {
 			sql->sa = osa;
 			throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
@@ -369,16 +372,16 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 		err = bootstrap_partition_expression(sql, sql->session->tr->sa, nt, 1);
 		sa_destroy(sql->sa);
 		sql->sa = NULL;
-		if(err) {
+		if (err) {
 			sql->sa = osa;
 			return err;
 		}
 	}
 	check = sql_trans_set_partition_table(sql->session->tr, nt);
-	if(check == -1) {
+	if (check == -1) {
 		sql->sa = osa;
 		throw(SQL, "sql.catalog", SQLSTATE(42000) "CREATE TABLE: %s_%s: the partition's expression is too long", s->base.name, t->base.name);
-	} else if(check) {
+	} else if (check) {
 		sql->sa = osa;
 		throw(SQL, "sql.catalog", SQLSTATE(42000) "CREATE TABLE: %s_%s: an internal error occurred", s->base.name, t->base.name);
 	}
@@ -403,7 +406,7 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 			err = sql_partition_validate_key(sql, nt, k, "CREATE");
 			sa_destroy(sql->sa);
 			sql->sa = NULL;
-			if(err) {
+			if (err) {
 				sql->sa = osa;
 				return err;
 			}
@@ -427,7 +430,7 @@ create_table_or_view(mvc *sql, char* sname, char *tname, sql_table *t, int temp)
 		sql_rel *r = NULL;
 
 		sql->sa = sa_create();
-		if(!sql->sa) {
+		if (!sql->sa) {
 			sql->sa = osa;
 			throw(SQL, "sql.catalog",SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		}
@@ -957,8 +960,148 @@ mvc_restart_seq(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(SQL, "sql.restart", SQLSTATE(HY050) "Failed to fetch sequence %s.%s", sname, seqname);
 	if (is_lng_nil(start))
 		throw(SQL, "sql.restart", SQLSTATE(HY050) "Cannot (re)start sequence %s.%s with NULL", sname, seqname);
-	*res = sql_trans_sequence_restart(m->session->tr, seq, start);
-	return MAL_SUCCEED;
+	if (seq->minvalue && start < seq->minvalue)
+		throw(SQL, "sql.restart", SQLSTATE(HY050) "Cannot set sequence %s.%s start to a value lesser than the minimum ("LLFMT" < "LLFMT")", sname, seqname, start, seq->minvalue);
+	if (seq->maxvalue && start > seq->maxvalue)
+		throw(SQL, "sql.restart", SQLSTATE(HY050) "Cannot set sequence %s.%s start to a value higher than the maximum ("LLFMT" > "LLFMT")", sname, seqname, start, seq->maxvalue);
+	if (sql_trans_sequence_restart(m->session->tr, seq, start)) {
+		*res = start;
+		return MAL_SUCCEED;
+	}
+	throw(SQL, "sql.restart", SQLSTATE(HY050) "Cannot (re)start sequence %s.%s", sname, seqname);
+}
+
+str
+mvc_bat_restart_seq(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	mvc *m = NULL;
+	str msg = MAL_SUCCEED, sname = NULL, seqname = NULL;
+	BAT *b = NULL, *c = NULL, *d = NULL, *r = NULL, *it;
+	BUN p, q;
+	sql_schema *s = NULL;
+	sql_sequence *seq = NULL;
+	seqbulk *sb = NULL;
+	BATiter bi, ci;
+	bat *res = getArgReference_bat(stk, pci, 0);
+	bat schid = 0, seqid = 0, startid = 0;
+	lng start = 0, *di = NULL;
+
+	if (isaBatType(getArgType(mb, pci, 1)))
+		schid = *getArgReference_bat(stk, pci, 1);
+	else
+		sname = *getArgReference_str(stk, pci, 1);
+	if (isaBatType(getArgType(mb, pci, 2)))
+		seqid = *getArgReference_bat(stk, pci, 2);
+	else
+		seqname = *getArgReference_str(stk, pci, 2);
+	if (isaBatType(getArgType(mb, pci, 3)))
+		startid = *getArgReference_bat(stk, pci, 3);
+	else
+		start = *getArgReference_lng(stk, pci, 3);
+
+	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
+		return msg;
+	if ((msg = checkSQLContext(cntxt)) != NULL)
+		return msg;
+
+	if (schid && !(b = BATdescriptor(schid))) {
+		msg = createException(SQL, "sql.restart", SQLSTATE(HY005) "Cannot access column descriptor");
+		goto bailout;
+	}
+	if (seqid && !(c = BATdescriptor(seqid))) {
+		msg = createException(SQL, "sql.restart", SQLSTATE(HY005) "Cannot access column descriptor");
+		goto bailout;
+	}
+	if (startid && !(d = BATdescriptor(startid))) {
+		msg = createException(SQL, "sql.restart", SQLSTATE(HY005) "Cannot access column descriptor");
+		goto bailout;
+	}
+	assert(b || c || d);
+	it = b ? b : c ? c : d; /* Either b, c or d must be set */
+
+	if (!(r = COLnew(it->hseqbase, TYPE_lng, BATcount(it), TRANSIENT))) {
+		msg = createException(SQL, "sql.restart", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		goto bailout;
+	}
+
+	if (!BATcount(it))
+		goto bailout; /* Success case */
+
+	if (b)
+		bi = bat_iterator(b);
+	if (c)
+		ci = bat_iterator(c);
+	if (d)
+		di = (lng *) Tloc(d, 0);
+
+	BATloop(it, p, q) {
+		str nsname, nseqname;
+		lng nstart;
+
+		if (b)
+			nsname = BUNtvar(bi, p);
+		else
+			nsname = sname;
+		if (c)
+			nseqname = BUNtvar(ci, p);
+		else
+			nseqname = seqname;
+		if (di)
+			nstart = di[p];
+		else
+			nstart = start;
+
+		if (!s || strcmp(s->base.name, nsname) != 0 || !seq || strcmp(seq->base.name, nseqname) != 0) {
+			if (sb) {
+				seqbulk_destroy(sb);
+				sb = NULL;
+			}
+			seq = NULL;
+			if ((!s || strcmp(s->base.name, nsname) != 0) && !(s = mvc_bind_schema(m, nsname))) {
+				msg = createException(SQL, "sql.restart", SQLSTATE(3F000) "Cannot find the schema %s", nsname);
+				goto bailout;
+			}
+			if (!(seq = find_sql_sequence(s, nseqname)) || !(sb = seqbulk_create(seq, BATcount(it)))) {
+				msg = createException(SQL, "sql.restart", SQLSTATE(HY050) "Cannot find the sequence %s.%s", nsname, nseqname);
+				goto bailout;
+			}
+		}
+		if (is_lng_nil(nstart)) {
+			msg = createException(SQL, "sql.restart", SQLSTATE(HY050) "Cannot (re)start sequence %s.%s with NULL", sname, seqname);
+			goto bailout;
+		}	
+		if (seq->minvalue && nstart < seq->minvalue) {
+			msg = createException(SQL, "sql.restart", SQLSTATE(HY050) "Cannot set sequence %s.%s start to a value lesser than the minimum ("LLFMT" < "LLFMT")", sname, seqname, start, seq->minvalue);
+			goto bailout;
+		}
+		if (seq->maxvalue && nstart > seq->maxvalue) {
+			msg = createException(SQL, "sql.restart", SQLSTATE(HY050) "Cannot set sequence %s.%s start to a value higher than the maximum ("LLFMT" > "LLFMT")", sname, seqname, start, seq->maxvalue);
+			goto bailout;
+		}
+		if (!sql_trans_seqbulk_restart(m->session->tr, sb, nstart)) {
+			msg = createException(SQL, "sql.restart", SQLSTATE(HY050) "Cannot restart sequence %s.%s", nsname, nseqname);
+			goto bailout;
+		}
+		if (BUNappend(r, &nstart, false) != GDK_SUCCEED) {
+			msg = createException(SQL, "sql.restart", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			goto bailout;
+		}
+	}
+
+bailout:
+	if (sb)
+		seqbulk_destroy(sb);
+	if (b)
+		BBPunfix(b->batCacheid);
+	if (c)
+		BBPunfix(c->batCacheid);
+	if (d)
+		BBPunfix(d->batCacheid);
+	if (msg)
+		BBPreclaim(r);
+	else
+		BBPkeepref(*res = r->batCacheid);
+	return msg;
 }
 
 static BAT *

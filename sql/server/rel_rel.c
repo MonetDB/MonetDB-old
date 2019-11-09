@@ -197,7 +197,7 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, const char *cname)
 	sql_rel *l = NULL, *r = NULL;
 
 	if (THRhighwater())
-		return sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		return sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 
 	switch(rel->op) {
 	case op_join:
@@ -290,7 +290,7 @@ rel_bind_column( mvc *sql, sql_rel *rel, const char *cname, int f)
 			e = rel_project_add_exp(sql, p, e);
 			*/
 		return e;
-	} 
+	}
 	return NULL;
 }
 
@@ -540,7 +540,7 @@ rel_label( mvc *sql, sql_rel *r, int all)
 	char tname[16], *tnme;
 	char cname[16], *cnme = NULL;
 
-	tnme = number2name(tname, 16, nr);
+	tnme = number2name(tname, sizeof(tname), nr);
 	if (!is_project(r->op)) {
 		r = rel_project(sql->sa, r, rel_projections(sql, r, NULL, 1, 1));
 		set_processed(r);
@@ -555,7 +555,7 @@ rel_label( mvc *sql, sql_rel *r, int all)
 			if (!e->freevar) {
 				if (all) {
 					nr = ++sql->label;
-					cnme = number2name(cname, 16, nr);
+					cnme = number2name(cname, sizeof(cname), nr);
 				}
 				exp_setname(sql->sa, e, tnme, cnme );
 			}
@@ -570,7 +570,7 @@ rel_label( mvc *sql, sql_rel *r, int all)
 		for (; ne; ne = ne->next) {
 			if (all) {
 				nr = ++sql->label;
-				cnme = number2name(cname, 16, nr);
+				cnme = number2name(cname, sizeof(cname), nr);
 			}
 			exp_setname(sql->sa, ne->data, tnme, cnme );
 		}
@@ -871,7 +871,6 @@ rel_groupby(mvc *sql, sql_rel *l, list *groupbyexps )
 			append(aggrs, ne);
 		}
 	}
-
 	rel->l = l;
 	rel->r = groupbyexps;
 	rel->exps = aggrs;
@@ -975,7 +974,7 @@ _rel_projections(mvc *sql, sql_rel *rel, const char *tname, int settname, int in
 	int include_subquery = (intern==2)?1:0;
 
 	if (THRhighwater())
-		return sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		return sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 
 	if (!rel || (!include_subquery && is_subquery(rel) && rel->op == op_project))
 		return new_exp_list(sql->sa);
@@ -1106,7 +1105,7 @@ rel_bind_path_(mvc *sql, sql_rel *rel, sql_exp *e, list *path )
 	int found = 0;
 
 	if (THRhighwater()) {
-		sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 		return 0;
 	}
 
@@ -1608,7 +1607,7 @@ static int
 exp_deps(mvc *sql, sql_exp *e, list *refs, list *l)
 {
 	if (THRhighwater()) {
-		(void) sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		(void) sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 		return -1;
 	}
 
@@ -1691,7 +1690,7 @@ static int
 rel_deps(mvc *sql, sql_rel *r, list *refs, list *l)
 {
 	if (THRhighwater()) {
-		(void) sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		(void) sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 		return -1;
 	}
 

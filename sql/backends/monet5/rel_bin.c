@@ -455,7 +455,7 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 	stmt *s = NULL;
 
  	if (THRhighwater())
-		return sql_error(be->mvc, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		return sql_error(be->mvc, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 
 	if (!e) {
 		assert(0);
@@ -647,7 +647,7 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 		}
 		if (cond_execution) {
 			/* var_x = nil; */
-			nme = number2name(name, 16, ++sql->label);
+			nme = number2name(name, sizeof(name), ++sql->label);
 			(void)stmt_var(be, nme, exp_subtype(e), 1, 2);
 			/* if_barrier ... */
 			cond_execution = stmt_cond(be, cond_execution, NULL, 0, 0);
@@ -1447,7 +1447,7 @@ exp2bin_args(backend *be, sql_exp *e, list *args)
 	mvc *sql = be->mvc;
 
 	if (THRhighwater())
-		return sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		return sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 
 	if (!e)
 		return args;
@@ -1525,7 +1525,7 @@ static list *
 rel2bin_args(backend *be, sql_rel *rel, list *args)
 {
 	if (THRhighwater())
-		return sql_error(be->mvc, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		return sql_error(be->mvc, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 
 	if (!rel)
 		return args;
@@ -1680,7 +1680,7 @@ rel2bin_table(backend *be, sql_rel *rel, list *refs)
 		char name[16], *nme;
 		sql_rel *fr;
 
-		nme = number2name(name, 16, ++sql->remote);
+		nme = number2name(name, sizeof(name), ++sql->remote);
 
 		l = rel2bin_args(be, rel->l, sa_list(sql->sa));
 		if(!l)
@@ -3228,7 +3228,7 @@ sql_parse(backend *be, sql_allocator *sa, const char *query, char mode)
 	bstream * bst;
 
  	if (THRhighwater())
-		return sql_error(m, 10, SQLSTATE(42000) "SELECT: too many nested operators");
+		return sql_error(m, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 
 	o = MNEW(mvc);
 	if (!o)
@@ -3696,7 +3696,7 @@ rel2bin_insert(backend *be, sql_rel *rel, list *refs)
 	}
 
 /* before */
-	if(be->cur_append && !be->first_statement_generated) {
+	if (be->cur_append && !be->first_statement_generated) {
 		for(sql_table *up = t->p ; up ; up = up->p) {
 			if (!sql_insert_triggers(be, up, updates, 0))
 				return sql_error(sql, 02, SQLSTATE(27000) "INSERT INTO: triggers failed for table '%s'", up->base.name);
@@ -3710,8 +3710,9 @@ rel2bin_insert(backend *be, sql_rel *rel, list *refs)
 		stmt *is = m->data;
 		sql_idx *i = n->data;
 
-		if ((hash_index(i->type) && list_length(i->columns) <= 1) ||
-		    i->type == no_idx)
+		if (non_updatable_index(i->type)) /* Some indexes don't hold delta structures */
+			continue;
+		if (hash_index(i->type) && list_length(i->columns) <= 1)
 			is = NULL;
 		if (i->key && constraint) {
 			stmt *ckeys = sql_insert_key(be, inserts->op4.lval, i->key, is, pin);
@@ -3736,7 +3737,7 @@ rel2bin_insert(backend *be, sql_rel *rel, list *refs)
 	if (!insert)
 		return NULL;
 
-	if(be->cur_append && !be->first_statement_generated) {
+	if (be->cur_append && !be->first_statement_generated) {
 		for(sql_table *up = t->p ; up ; up = up->p) {
 			if (!sql_insert_triggers(be, up, updates, 1))
 				return sql_error(sql, 02, SQLSTATE(27000) "INSERT INTO: triggers failed for table '%s'", up->base.name);
@@ -3756,7 +3757,7 @@ rel2bin_insert(backend *be, sql_rel *rel, list *refs)
 		ret = s;
 	}
 
-	if(be->cur_append) //building the total number of rows affected across all tables
+	if (be->cur_append) //building the total number of rows affected across all tables
 		ret->nr = add_to_merge_partitions_accumulator(be, ret->nr);
 
 	if (ddl)
@@ -4506,7 +4507,7 @@ sql_stack_add_updated(mvc *sql, const char *on, const char *nn, sql_table *t, st
 
 			append(exps, oe);
 			append(exps, ne);
-		} else { /* later select correct updated rows only ? */
+		} else {
 			sql_exp *oe = exp_column(sql->sa, on, c->base.name, &c->type, CARD_MULTI, c->null, 0);
 			sql_exp *ne = exp_column(sql->sa, nn, c->base.name, &c->type, CARD_MULTI, c->null, 0);
 
@@ -4561,7 +4562,6 @@ sql_update_triggers(backend *be, sql_table *t, stmt *tids, stmt **updates, int t
 	return res;
 }
 
-
 static void
 sql_update_check_null(backend *be, sql_table *t, stmt **updates)
 {
@@ -4611,7 +4611,7 @@ sql_update(backend *be, sql_table *t, stmt *rows, stmt **updates)
 	}
 
 /* before */
-	if(be->cur_append && !be->first_statement_generated) {
+	if (be->cur_append && !be->first_statement_generated) {
 		for(sql_table *up = t->p ; up ; up = up->p) {
 			if (!sql_update_triggers(be, up, rows, updates, 0))
 				return sql_error(sql, 02, SQLSTATE(27000) "UPDATE: triggers failed for table '%s'", up->base.name);
@@ -4631,7 +4631,7 @@ sql_update(backend *be, sql_table *t, stmt *rows, stmt **updates)
 		return sql_error(sql, 02, SQLSTATE(42000) "UPDATE: cascade failed for table '%s'", t->base.name);
 
 /* after */
-	if(be->cur_append && !be->first_statement_generated) {
+	if (be->cur_append && !be->first_statement_generated) {
 		for(sql_table *up = t->p ; up ; up = up->p) {
 			if (!sql_update_triggers(be, up, rows, updates, 1))
 				return sql_error(sql, 02, SQLSTATE(27000) "UPDATE: triggers failed for table '%s'", up->base.name);
@@ -4703,13 +4703,16 @@ rel2bin_update(backend *be, sql_rel *rel, list *refs)
 	for (m = rel->exps->h; m; m = m->next) {
 		sql_exp *ce = m->data;
 		sql_idx *i = find_sql_idx(t, exp_name(ce)+1);
+		stmt *update_idx, *is = NULL;
 
 		if (i) {
-			stmt *update_idx = bin_find_column(be, update, ce->l, ce->r), *is = NULL;
+			if (non_updatable_index(i->type)) /* Some indexes don't hold delta structures */
+				continue;
 
+			update_idx = bin_find_column(be, update, ce->l, ce->r);
 			if (update_idx)
 				is = update_idx;
-			if ((hash_index(i->type) && list_length(i->columns) <= 1) || i->type == no_idx) {
+			if (hash_index(i->type) && list_length(i->columns) <= 1) {
 				is = NULL;
 				update_idx = NULL;
 			}
@@ -4721,7 +4724,7 @@ rel2bin_update(backend *be, sql_rel *rel, list *refs)
 	}
 
 /* before */
-	if(be->cur_append && !be->first_statement_generated) {
+	if (be->cur_append && !be->first_statement_generated) {
 		for(sql_table *up = t->p ; up ; up = up->p) {
 			if (!sql_update_triggers(be, up, tids, updates, 0))
 				return sql_error(sql, 02, SQLSTATE(27000) "UPDATE: triggers failed for table '%s'", up->base.name);
@@ -4743,7 +4746,7 @@ rel2bin_update(backend *be, sql_rel *rel, list *refs)
 		return sql_error(sql, 02, SQLSTATE(42000) "UPDATE: cascade failed for table '%s'", t->base.name);
 
 /* after */
-	if(be->cur_append && !be->first_statement_generated) {
+	if (be->cur_append && !be->first_statement_generated) {
 		for(sql_table *up = t->p ; up ; up = up->p) {
 			if (!sql_update_triggers(be, up, tids, updates, 1))
 				return sql_error(sql, 02, SQLSTATE(27000) "UPDATE: triggers failed for table '%s'", up->base.name);
@@ -4760,7 +4763,7 @@ rel2bin_update(backend *be, sql_rel *rel, list *refs)
 		cnt = s;
 	}
 
-	if(be->cur_append) //building the total number of rows affected across all tables
+	if (be->cur_append) //building the total number of rows affected across all tables
 		cnt->nr = add_to_merge_partitions_accumulator(be, cnt->nr);
 
 	if (sql->cascade_action) 
@@ -4931,7 +4934,7 @@ sql_delete(backend *be, sql_table *t, stmt *rows)
 	}
 
 /* before */
-	if(be->cur_append && !be->first_statement_generated) {
+	if (be->cur_append && !be->first_statement_generated) {
 		for(sql_table *up = t->p ; up ; up = up->p) {
 			if (!sql_delete_triggers(be, up, v, 0, 1, 3))
 				return sql_error(sql, 02, SQLSTATE(27000) "DELETE: triggers failed for table '%s'", up->base.name);
@@ -4955,7 +4958,7 @@ sql_delete(backend *be, sql_table *t, stmt *rows)
 	}
 
 /* after */
-	if(be->cur_append && !be->first_statement_generated) {
+	if (be->cur_append && !be->first_statement_generated) {
 		for(sql_table *up = t->p ; up ; up = up->p) {
 			if (!sql_delete_triggers(be, up, v, 1, 1, 3))
 				return sql_error(sql, 02, SQLSTATE(27000) "DELETE: triggers failed for table '%s'", up->base.name);
@@ -4965,7 +4968,7 @@ sql_delete(backend *be, sql_table *t, stmt *rows)
 		return sql_error(sql, 02, SQLSTATE(27000) "DELETE: triggers failed for table '%s'", t->base.name);
 	if (rows)
 		s = stmt_aggr(be, rows, NULL, NULL, sql_bind_aggr(sql->sa, sql->session->schema, "count", NULL), 1, 0, 1);
-	if(be->cur_append) //building the total number of rows affected across all tables
+	if (be->cur_append) //building the total number of rows affected across all tables
 		s->nr = add_to_merge_partitions_accumulator(be, s->nr);
 	return s;
 }
@@ -5009,7 +5012,7 @@ check_for_foreign_key_references(mvc *sql, struct tablelist* list, struct tablel
 	int found;
 	struct tablelist* new_node, *node_check;
 
-	if(*error)
+	if (*error)
 		return;
 
 	if (t->keys.set) { /* Check for foreign key references */
@@ -5036,14 +5039,14 @@ check_for_foreign_key_references(mvc *sql, struct tablelist* list, struct tablel
 								*error = 1;
 								return;
 							}
-						} else if(k->t != t) {
+						} else if (k->t != t) {
 							found = 0;
 							for (node_check = list; node_check; node_check = node_check->next) {
-								if(node_check->table == k->t)
+								if (node_check->table == k->t)
 									found = 1;
 							}
-							if(!found) {
-								if((new_node = MNEW(struct tablelist)) == NULL) {
+							if (!found) {
+								if ((new_node = MNEW(struct tablelist)) == NULL) {
 									sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 									*error = 1;
 									return;
@@ -5079,7 +5082,7 @@ sql_truncate(backend *be, sql_table *t, int restart_sequences, int cascade)
 	int error = 0;
 	struct tablelist* new_list = MNEW(struct tablelist), *list_node, *aux;
 
-	if(!new_list) {
+	if (!new_list) {
 		sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 		error = 1;
 		goto finalize;
@@ -5088,19 +5091,19 @@ sql_truncate(backend *be, sql_table *t, int restart_sequences, int cascade)
 	new_list->table = t;
 	new_list->next = NULL;
 	check_for_foreign_key_references(sql, new_list, new_list, t, cascade, &error);
-	if(error)
+	if (error)
 		goto finalize;
 
 	for (list_node = new_list; list_node; list_node = list_node->next) {
 		next = list_node->table;
 		sche = next->s;
 
-		if(restart_sequences) { /* restart the sequences if it's the case */
+		if (restart_sequences) { /* restart the sequences if it's the case */
 			for (n = next->columns.set->h; n; n = n->next) {
 				col = n->data;
 				if (col->def && (seq_pos = strstr(col->def, next_value_for))) {
 					seq_name = _STRDUP(seq_pos + (strlen(next_value_for) - strlen("seq_")));
-					if(!seq_name) {
+					if (!seq_name) {
 						sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
 						error = 1;
 						goto finalize;
@@ -5108,7 +5111,11 @@ sql_truncate(backend *be, sql_table *t, int restart_sequences, int cascade)
 					seq_name[strlen(seq_name)-1] = '\0';
 					seq = find_sql_sequence(sche, seq_name);
 					if (seq) {
-						sql_trans_sequence_restart(tr, seq, seq->start);
+						if (!sql_trans_sequence_restart(tr, seq, seq->start)) {
+							sql_error(sql, 02, SQLSTATE(HY005) "Could not restart sequence %s.%s", sche->base.name, seq_name);
+							error = 1;
+							goto finalize;
+						}
 						seq->base.wtime = sche->base.wtime = tr->wtime = tr->wstime;
 						tr->schema_updates++;
 					}
@@ -5120,8 +5127,8 @@ sql_truncate(backend *be, sql_table *t, int restart_sequences, int cascade)
 		v = stmt_tid(be, next, 0);
 
 		/* before */
-		if(be->cur_append && !be->first_statement_generated) {
-			for(sql_table *up = t->p ; up ; up = up->p) {
+		if (be->cur_append && !be->first_statement_generated) {
+			for (sql_table *up = t->p ; up ; up = up->p) {
 				if (!sql_delete_triggers(be, up, v, 0, 3, 4)) {
 					sql_error(sql, 02, SQLSTATE(27000) "TRUNCATE: triggers failed for table '%s'", up->base.name);
 					error = 1;
@@ -5143,12 +5150,12 @@ sql_truncate(backend *be, sql_table *t, int restart_sequences, int cascade)
 
 		other = stmt_table_clear(be, next);
 		list_append(l, other);
-		if(next == t)
+		if (next == t)
 			ret = other;
 
 		/* after */
-		if(be->cur_append && !be->first_statement_generated) {
-			for(sql_table *up = t->p ; up ; up = up->p) {
+		if (be->cur_append && !be->first_statement_generated) {
+			for (sql_table *up = t->p ; up ; up = up->p) {
 				if (!sql_delete_triggers(be, up, v, 1, 3, 4)) {
 					sql_error(sql, 02, SQLSTATE(27000) "TRUNCATE: triggers failed for table '%s'", up->base.name);
 					error = 1;
@@ -5162,7 +5169,7 @@ sql_truncate(backend *be, sql_table *t, int restart_sequences, int cascade)
 			goto finalize;
 		}
 
-		if(be->cur_append) //building the total number of rows affected across all tables
+		if (be->cur_append) //building the total number of rows affected across all tables
 			other->nr = add_to_merge_partitions_accumulator(be, other->nr);
 	}
 
@@ -5173,7 +5180,7 @@ finalize:
 		list_node = aux;
 	}
 
-	if(error)
+	if (error)
 		return NULL;
 	return ret;
 }
@@ -5253,7 +5260,7 @@ rel2bin_list(backend *be, sql_rel *rel, list *refs)
 
 	(void)refs;
 
-	if(find_prop(rel->p, PROP_DISTRIBUTE) && be->cur_append == 0) /* create affected rows accumulator */
+	if (find_prop(rel->p, PROP_DISTRIBUTE) && be->cur_append == 0) /* create affected rows accumulator */
 		create_merge_partitions_accumulator(be);
 
 	if (rel->l)  /* first construct the sub relation */
@@ -5275,7 +5282,7 @@ rel2bin_psm(backend *be, sql_rel *rel)
 	list *l = sa_list(sql->sa);
 	stmt *sub = NULL;
 
-	for(n = rel->exps->h; n; n = n->next) {
+	for (n = rel->exps->h; n; n = n->next) {
 		sql_exp *e = n->data;
 		stmt *s = exp_bin(be, e, sub, NULL, NULL, NULL, NULL, NULL);
 		if(!s)
@@ -5304,8 +5311,8 @@ rel2bin_partition_limits(backend *be, sql_rel *rel, list *refs)
 	assert(rel->exps);
 	assert(rel->flag == ddl_alter_table_add_range_partition || rel->flag == ddl_alter_table_add_list_partition);
 
-	if(rel->exps) {
-		for(n = rel->exps->h; n; n = n->next) {
+	if (rel->exps) {
+		for (n = rel->exps->h; n; n = n->next) {
 			sql_exp *e = n->data;
 			stmt *s = exp_bin(be, e, l, r, NULL, NULL, NULL, NULL);
 			append(slist, s);
@@ -5321,7 +5328,7 @@ rel2bin_exception(backend *be, sql_rel *rel, list *refs)
 	node *n = NULL;
 	list *slist = sa_list(be->mvc->sa);
 
-	if(find_prop(rel->p, PROP_DISTRIBUTE) && be->cur_append == 0) /* create affected rows accumulator */
+	if (find_prop(rel->p, PROP_DISTRIBUTE) && be->cur_append == 0) /* create affected rows accumulator */
 		create_merge_partitions_accumulator(be);
 
 	if (rel->l)  /* first construct the sub relation */
@@ -5329,8 +5336,8 @@ rel2bin_exception(backend *be, sql_rel *rel, list *refs)
     if (rel->r)  /* first construct the sub relation */
 		r = subrel_bin(be, rel->r, refs);
 
-	if(rel->exps) {
-		for(n = rel->exps->h; n; n = n->next) {
+	if (rel->exps) {
+		for (n = rel->exps->h; n; n = n->next) {
 			sql_exp *e = n->data;
 			stmt *s = exp_bin(be, e, l, r, NULL, NULL, NULL, NULL);
 			append(slist, s);
@@ -5594,7 +5601,7 @@ subrel_bin(backend *be, sql_rel *rel, list *refs)
 	stmt *s = NULL;
 
 	if (THRhighwater())
-		return sql_error(be->mvc, 10, SQLSTATE(42000) "query too complex: running out of stack space");;
+		return sql_error(be->mvc, 10, SQLSTATE(42000) "Query too complex: running out of stack space");;
 
 	if (!rel)
 		return s;
@@ -5719,7 +5726,7 @@ output_rel_bin(backend *be, sql_rel *rel )
 	if (!is_ddl(rel->op) && s && s->type != st_none && sql->type == Q_TABLE)
 		s = stmt_output(be, s);
 	if (sqltype == Q_UPDATE && s && (s->type != st_list || be->cur_append)) {
-		if(be->cur_append) { /* finish the output bat */
+		if (be->cur_append) { /* finish the output bat */
 			s->nr = be->cur_append;
 			be->cur_append = 0;
 			be->first_statement_generated = false;
