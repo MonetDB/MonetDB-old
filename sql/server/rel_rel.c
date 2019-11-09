@@ -583,12 +583,16 @@ rel_project_add_exp( mvc *sql, sql_rel *rel, sql_exp *e)
 {
 	assert(is_project(rel->op));
 
+	/*
 	if (!exp_relname(e)) {
 		if (exp_name(e))
 			exp_setrelname(sql->sa, e, ++sql->label);
 		else
 			exp_label(sql->sa, e, ++sql->label);
 	}
+	*/
+	if (!exp_name(e))
+		exp_label(sql->sa, e, ++sql->label);
 	if (rel->op == op_project) {
 		sql_rel *l = rel->l;
 		if (!rel->exps)
@@ -697,16 +701,13 @@ sql_exp *
 rel_groupby_add_aggr(mvc *sql, sql_rel *rel, sql_exp *e)
 {
 	sql_exp *m = NULL, *ne;
-	char name[16], *nme = NULL;
 
 	if (list_empty(rel->r))
 		rel->card = e->card = CARD_ATOM;
 
 	if ((m=exps_find_match_exp(rel->exps, e)) == NULL) {
-		if (!exp_name(e)) {
-			nme = number2name(name, 16, ++sql->label);
-			exp_setname(sql->sa, e, nme, nme);
-		}
+		if (!exp_name(e))
+			exp_label(sql->sa, e, ++sql->label);
 		append(rel->exps, e);
 		rel->nrcols++;
 		m = e;
@@ -1815,50 +1816,63 @@ exp_visitor(mvc *sql, sql_rel *rel, sql_exp *e, int depth, exp_rewrite_fptr exp_
 	case e_column:
 		break;
 	case e_convert:
-		e->l = exp_visitor(sql, rel, e->l, depth+1, exp_rewriter);
+		if  ((e->l = exp_visitor(sql, rel, e->l, depth+1, exp_rewriter)) == NULL)
+			return NULL;
 		break;
 	case e_aggr:
 	case e_func: 
 		if (e->r) /* rewrite rank */
-			e->r = exps_exp_visitor(sql, rel, e->r, depth+1, exp_rewriter);
+			if ((e->r = exps_exp_visitor(sql, rel, e->r, depth+1, exp_rewriter)) == NULL)
+				return NULL;
 		if (e->l)
-			e->l = exps_exp_visitor(sql, rel, e->l, depth+1, exp_rewriter);
+			if ((e->l = exps_exp_visitor(sql, rel, e->l, depth+1, exp_rewriter)) == NULL)
+				return NULL;
 		break;
 	case e_cmp:	
 		if (get_cmp(e) == cmp_or || get_cmp(e) == cmp_filter) {
-			e->l = exps_exp_visitor(sql, rel, e->l, depth+1, exp_rewriter);
-			e->r = exps_exp_visitor(sql, rel, e->r, depth+1, exp_rewriter);
+			if ((e->l = exps_exp_visitor(sql, rel, e->l, depth+1, exp_rewriter)) == NULL)
+				return NULL;
+			if ((e->r = exps_exp_visitor(sql, rel, e->r, depth+1, exp_rewriter)) == NULL)
+				return NULL;
 		} else if (e->flag == cmp_in || e->flag == cmp_notin) {
-			e->l = exp_visitor(sql, rel, e->l, depth+1, exp_rewriter);
-			e->r = exps_exp_visitor(sql, rel, e->r, depth+1, exp_rewriter);
+			if ((e->l = exp_visitor(sql, rel, e->l, depth+1, exp_rewriter)) == NULL)
+				return NULL;
+			if ((e->r = exps_exp_visitor(sql, rel, e->r, depth+1, exp_rewriter)) == NULL)
+				return NULL;
 		} else {
-			e->l = exp_visitor(sql, rel, e->l, depth+1, exp_rewriter);
-			e->r = exp_visitor(sql, rel, e->r, depth+1, exp_rewriter);
-			if (e->f)
-				e->f = exp_visitor(sql, rel, e->f, depth+1, exp_rewriter);
+			if ((e->l = exp_visitor(sql, rel, e->l, depth+1, exp_rewriter)) == NULL)
+				return NULL;
+			if ((e->r = exp_visitor(sql, rel, e->r, depth+1, exp_rewriter)) == NULL)
+				return NULL;
+			if (e->f && (e->f = exp_visitor(sql, rel, e->f, depth+1, exp_rewriter)) == NULL)
+				return NULL;
 		}
 		break;
 	case e_psm:
 		if (e->flag & PSM_SET || e->flag & PSM_RETURN) {
-			e->l = exp_visitor(sql, rel, e->l, depth+1, exp_rewriter);
+			if ((e->l = exp_visitor(sql, rel, e->l, depth+1, exp_rewriter)) == NULL)
+				return NULL;
 		} else if (e->flag & PSM_VAR) {
 			return e;
 		} else if (e->flag & PSM_WHILE || e->flag & PSM_IF) {
-			e->l = exp_visitor(sql, rel, e->l, depth+1, exp_rewriter);
-			e->r = exps_exp_visitor(sql, rel, e->r, depth+1, exp_rewriter);
-			if (e->flag == PSM_IF && e->f)
-				e->f = exps_exp_visitor(sql, rel, e->f, depth+1, exp_rewriter);
+			if ((e->l = exp_visitor(sql, rel, e->l, depth+1, exp_rewriter)) == NULL)
+				return NULL;
+			if ((e->r = exps_exp_visitor(sql, rel, e->r, depth+1, exp_rewriter)) == NULL)
+				return NULL;
+			if (e->flag == PSM_IF && e->f && (e->f = exps_exp_visitor(sql, rel, e->f, depth+1, exp_rewriter)) == NULL)
+				return NULL;
 		} else if (e->flag & PSM_REL) {
-			e->l = rel_exp_visitor(sql, e->l, exp_rewriter);
+			if ((e->l = rel_exp_visitor(sql, e->l, exp_rewriter)) == NULL)
+				return NULL;
 		} else if (e->flag & PSM_EXCEPTION) {
-			e->l = exp_visitor(sql, rel, e->l, depth+1, exp_rewriter);
+			if ((e->l = exp_visitor(sql, rel, e->l, depth+1, exp_rewriter)) == NULL)
+				return NULL;
 		}
 		break;
 	case e_atom:
 		break;
 	}
-	e = exp_rewriter(sql, rel, e, depth);
-	return e;
+	return exp_rewriter(sql, rel, e, depth);
 }
 
 static list *
@@ -1869,8 +1883,8 @@ exps_exp_visitor(mvc *sql, sql_rel *rel, list *exps, int depth, exp_rewrite_fptr
 	if (list_empty(exps))
 		return exps;
 	for (n = exps->h; n; n = n->next) {
-		if (n->data)
-			n->data = exp_visitor(sql, rel, n->data, depth, exp_rewriter);
+		if (n->data && (n->data = exp_visitor(sql, rel, n->data, depth, exp_rewriter)) == NULL)
+			return NULL;
 	}
 	list_hash_clear(exps);
 	return exps;
@@ -1882,9 +1896,10 @@ rel_exp_visitor(mvc *sql, sql_rel *rel, exp_rewrite_fptr exp_rewriter)
 	if (!rel)
 		return rel;
 
-	rel->exps = exps_exp_visitor(sql, rel, rel->exps, 0, exp_rewriter);
-	if (is_groupby(rel->op) && rel->r)
-		rel->r = exps_exp_visitor(sql, rel, rel->r, 0, exp_rewriter);
+	if (rel->exps && (rel->exps = exps_exp_visitor(sql, rel, rel->exps, 0, exp_rewriter)) == NULL)
+		return NULL;
+	if (is_groupby(rel->op) && rel->r && (rel->r = exps_exp_visitor(sql, rel, rel->r, 0, exp_rewriter)) == NULL)
+		return NULL;
 
 	switch(rel->op){
 	case op_basetable:
@@ -1893,17 +1908,21 @@ rel_exp_visitor(mvc *sql, sql_rel *rel, exp_rewrite_fptr exp_rewriter)
 	case op_ddl:
 		if (rel->flag == ddl_output) {
 			if (rel->l)
-				rel->l = rel_exp_visitor(sql, rel->l, exp_rewriter);
+				if ((rel->l = rel_exp_visitor(sql, rel->l, exp_rewriter)) == NULL)
+					return NULL;
 		} else if (rel->flag == ddl_list || rel->flag == ddl_exception) {
 			if (rel->l)
-				rel->l = rel_exp_visitor(sql, rel->l, exp_rewriter);
+				if ((rel->l = rel_exp_visitor(sql, rel->l, exp_rewriter)) == NULL)
+					return NULL;
 			if (rel->r)
-				rel->r = rel_exp_visitor(sql, rel->r, exp_rewriter);
+				if ((rel->r = rel_exp_visitor(sql, rel->r, exp_rewriter)) == NULL)
+					return NULL;
 		} else if (rel->flag == ddl_psm) {
 			break;
 		} else if (rel->flag == ddl_create_seq || rel->flag == ddl_alter_seq) {
 			if (rel->l)
-				rel->l = rel_exp_visitor(sql, rel->l, exp_rewriter);
+				if ((rel->l = rel_exp_visitor(sql, rel->l, exp_rewriter)) == NULL)
+					return NULL;
 		}
 		return rel;
 
@@ -1923,9 +1942,11 @@ rel_exp_visitor(mvc *sql, sql_rel *rel, exp_rewrite_fptr exp_rewriter)
 	case op_inter:
 	case op_except:
 		if (rel->l)
-			rel->l = rel_exp_visitor(sql, rel->l, exp_rewriter);
+			if ((rel->l = rel_exp_visitor(sql, rel->l, exp_rewriter)) == NULL)
+				return NULL;
 		if (rel->r)
-			rel->r = rel_exp_visitor(sql, rel->r, exp_rewriter);
+			if ((rel->r = rel_exp_visitor(sql, rel->r, exp_rewriter)) == NULL)
+				return NULL;
 		break;
 	case op_select:
 	case op_topn:
@@ -1933,7 +1954,8 @@ rel_exp_visitor(mvc *sql, sql_rel *rel, exp_rewrite_fptr exp_rewriter)
 	case op_project:
 	case op_groupby:
 		if (rel->l)
-			rel->l = rel_exp_visitor(sql, rel->l, exp_rewriter);
+			if ((rel->l = rel_exp_visitor(sql, rel->l, exp_rewriter)) == NULL)
+				return NULL;
 		break;
 	}
 	return rel;
@@ -1949,43 +1971,57 @@ exp_rel_visitor(mvc *sql, sql_exp *e, rel_rewrite_fptr rel_rewriter)
 	case e_column:
 		break;
 	case e_convert:
-		e->l = exp_rel_visitor(sql, e->l, rel_rewriter);
+		if ((e->l = exp_rel_visitor(sql, e->l, rel_rewriter)) == NULL)
+			return NULL;
 		break;
 	case e_aggr:
 	case e_func: 
 		if (e->r) /* rewrite rank */
-			e->r = exps_rel_visitor(sql, e->r, rel_rewriter);
+			if ((e->r = exps_rel_visitor(sql, e->r, rel_rewriter)) == NULL)
+				return NULL;
 		if (e->l)
-			e->l = exps_rel_visitor(sql, e->l, rel_rewriter);
+			if ((e->l = exps_rel_visitor(sql, e->l, rel_rewriter)) == NULL)
+				return NULL;
 		break;
 	case e_cmp:	
 		if (get_cmp(e) == cmp_or || get_cmp(e) == cmp_filter) {
-			e->l = exps_rel_visitor(sql, e->l, rel_rewriter);
-			e->r = exps_rel_visitor(sql, e->r, rel_rewriter);
+			if ((e->l = exps_rel_visitor(sql, e->l, rel_rewriter)) == NULL)
+				return NULL;
+			if ((e->r = exps_rel_visitor(sql, e->r, rel_rewriter)) == NULL)
+				return NULL;
 		} else if (e->flag == cmp_in || e->flag == cmp_notin) {
-			e->l = exp_rel_visitor(sql, e->l, rel_rewriter);
-			e->r = exps_rel_visitor(sql, e->r, rel_rewriter);
+			if ((e->l = exp_rel_visitor(sql, e->l, rel_rewriter)) == NULL)
+				return NULL;
+			if ((e->r = exps_rel_visitor(sql, e->r, rel_rewriter)) == NULL)
+				return NULL;
 		} else {
-			e->l = exp_rel_visitor(sql, e->l, rel_rewriter);
-			e->r = exp_rel_visitor(sql, e->r, rel_rewriter);
-			if (e->f)
-				e->f = exp_rel_visitor(sql, e->f, rel_rewriter);
+			if ((e->l = exp_rel_visitor(sql, e->l, rel_rewriter)) == NULL)
+				return NULL;
+			if ((e->r = exp_rel_visitor(sql, e->r, rel_rewriter)) == NULL)
+				return NULL;
+			if (e->f && (e->f = exp_rel_visitor(sql, e->f, rel_rewriter)) == NULL)
+				return NULL;
 		}
 		break;
 	case e_psm:
 		if (e->flag & PSM_SET || e->flag & PSM_RETURN) {
-			e->l = exp_rel_visitor(sql, e->l, rel_rewriter);
+			if ((e->l = exp_rel_visitor(sql, e->l, rel_rewriter)) == NULL)
+				return NULL;
 		} else if (e->flag & PSM_VAR) {
 			return e;
 		} else if (e->flag & PSM_WHILE || e->flag & PSM_IF) {
-			e->l = exp_rel_visitor(sql, e->l, rel_rewriter);
-			e->r = exps_rel_visitor(sql, e->r, rel_rewriter);
-			if (e->flag == PSM_IF && e->f)
-				e->f = exps_rel_visitor(sql, e->f, rel_rewriter);
+			if ((e->l = exp_rel_visitor(sql, e->l, rel_rewriter)) == NULL)
+				return NULL;
+			if ((e->r = exps_rel_visitor(sql, e->r, rel_rewriter)) == NULL)
+				return NULL;
+			if (e->flag == PSM_IF && e->f && (e->f = exps_rel_visitor(sql, e->f, rel_rewriter)) == NULL)
+				return NULL;
 		} else if (e->flag & PSM_REL) {
-			e->l = rel_visitor(sql, e->l, rel_rewriter);
+			if ((e->l = rel_visitor(sql, e->l, rel_rewriter)) == NULL)
+				return NULL;
 		} else if (e->flag & PSM_EXCEPTION) {
-			e->l = exp_rel_visitor(sql, e->l, rel_rewriter);
+			if ((e->l = exp_rel_visitor(sql, e->l, rel_rewriter)) == NULL)
+				return NULL;
 		}
 		break;
 	case e_atom:
@@ -2004,7 +2040,8 @@ exps_rel_visitor(mvc *sql, list *exps, rel_rewrite_fptr rel_rewriter)
 	for (n = exps->h; n; n = n->next) {
 		sql_exp *e = n->data;
 
-		n->data = exp_rel_visitor(sql, e, rel_rewriter);
+		if (e && (n->data = exp_rel_visitor(sql, e, rel_rewriter)) == NULL)
+			return NULL;
 	}
 	list_hash_clear(exps);
 	return exps;
@@ -2022,18 +2059,23 @@ rel_visitor(mvc *sql, sql_rel *rel, rel_rewrite_fptr rel_rewriter)
 		return rel;
 	case op_ddl:
 		if (rel->flag == ddl_output) {
-			if (rel->l)
-				rel->l = rel_visitor(sql, rel->l, rel_rewriter);
+			if (rel->l) 
+				if ((rel->l = rel_visitor(sql, rel->l, rel_rewriter)) == NULL)
+					return NULL;
 		} else if (rel->flag == ddl_list || rel->flag == ddl_exception) {
 			if (rel->l)
-				rel->l = rel_visitor(sql, rel->l, rel_rewriter);
+				if ((rel->l = rel_visitor(sql, rel->l, rel_rewriter)) == NULL)
+					return NULL;
 			if (rel->r)
-				rel->r = rel_visitor(sql, rel->r, rel_rewriter);
+				if ((rel->r = rel_visitor(sql, rel->r, rel_rewriter)) == NULL)
+					return NULL;
 		} else if (rel->flag == ddl_psm) {
-			rel->exps = exps_rel_visitor(sql, rel->exps, rel_rewriter);
+			if ((rel->exps = exps_rel_visitor(sql, rel->exps, rel_rewriter)) == NULL)
+				return NULL;
 		} else if (rel->flag == ddl_create_seq || rel->flag == ddl_alter_seq) {
 			if (rel->l)
-				rel->l = rel_visitor(sql, rel->l, rel_rewriter);
+				if ((rel->l = rel_visitor(sql, rel->l, rel_rewriter)) == NULL)
+					return NULL;
 		}
 		return rel;
 
@@ -2053,9 +2095,11 @@ rel_visitor(mvc *sql, sql_rel *rel, rel_rewrite_fptr rel_rewriter)
 	case op_inter:
 	case op_except:
 		if (rel->l)
-			rel->l = rel_visitor(sql, rel->l, rel_rewriter);
+			if ((rel->l = rel_visitor(sql, rel->l, rel_rewriter)) == NULL)
+				return NULL;
 		if (rel->r)
-			rel->r = rel_visitor(sql, rel->r, rel_rewriter);
+			if ((rel->r = rel_visitor(sql, rel->r, rel_rewriter)) == NULL)
+				return NULL;
 		break;
 	case op_select:
 	case op_topn:
@@ -2063,9 +2107,9 @@ rel_visitor(mvc *sql, sql_rel *rel, rel_rewrite_fptr rel_rewriter)
 	case op_project:
 	case op_groupby:
 		if (rel->l)
-			rel->l = rel_visitor(sql, rel->l, rel_rewriter);
+			if ((rel->l = rel_visitor(sql, rel->l, rel_rewriter)) == NULL)
+				return NULL;
 		break;
 	}
-	rel = rel_rewriter(sql, rel);
-	return rel;
+	return rel_rewriter(sql, rel);
 }

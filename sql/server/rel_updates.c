@@ -1244,23 +1244,17 @@ update_table(sql_query *query, dlist *qname, str alias, dlist *assignmentlist, s
 
 			if (!table_privs(sql, t, PRIV_SELECT)) 
 				return sql_error(sql, 02, SQLSTATE(42000) "UPDATE: insufficient privileges for user '%s' to update table '%s'", stack_get_string(sql, "current_user"), tname);
+			/* TODO push outer (to be updated query) */
 			r = rel_logical_exp(query, NULL, opt_where, sql_where);
 			if (r) { /* simple predicate which is not using the to 
 				    be updated table. We add a select all */
-				//r = rel_crossproduct(sql->sa, NULL, r, op_semi);
-				//r = res;
 				printf("#simple select\n");
 			} else {
 				sql->errstr[0] = 0;
 				sql->session->status = status;
-				//query->outer = res;
-				//r = rel_logical_exp(query, NULL, opt_where, sql_where);
-				//query->outer = NULL;
 				r = rel_logical_exp(query, res, opt_where, sql_where);
 				if (!r)
 					return NULL;
-				//r = rel_crossproduct(sql->sa, res, r, op_semi);
-				//set_dependent(r);
 				/* handle join */
 				if (!opt_from && r && is_join(r->op))
 					r->op = op_semi;

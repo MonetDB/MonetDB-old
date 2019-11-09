@@ -88,10 +88,17 @@ psm_set_exp(sql_query *query, dnode *n)
 		e = rel_check_type(sql, tpe, rel, e, type_cast);
 		if (!e)
 			return NULL;
-		if (rel) {
-			sql_exp *er = exp_rel(sql, rel);
+
+		if (rel || exp_is_rel(e)) {
+			sql_exp *er = rel?exp_rel(sql, rel):e;
 			list *b = sa_list(sql->sa);
 
+			if (er == e) { /* move this split into the rel_unnest rewrite_exp_rel */
+				sql_exp *er = is_convert(e->type)?e->l:e;
+				sql_rel *r = er->l;
+				e =  r->exps->t->data; /*TODO cleanup */
+				e = exp_ref(sql->sa, e);
+			}
 			append(b, er);
 			append(b, exp_set(sql->sa, name, e, level));
 			res = exp_rel(sql, rel_psm_block(sql->sa, b));

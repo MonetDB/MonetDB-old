@@ -7448,7 +7448,7 @@ add_exps_too_project(mvc *sql, list *exps, sql_rel *rel)
 	for(n=exps->h; n; n = n->next) {
 		sql_exp *e = n->data;
 
-		if (e->type != e_column && e->type != e_atom)
+		if (e->type != e_column && !exp_is_atom(e))
 			n->data = add_exp_too_project(sql, e, rel);
 	}
 }
@@ -7456,6 +7456,8 @@ add_exps_too_project(mvc *sql, list *exps, sql_rel *rel)
 static sql_exp *
 split_exp(mvc *sql, sql_exp *e, sql_rel *rel)
 {
+	if (exp_is_atom(e))
+		return e;
 	switch(e->type) {
 	case e_column:
 		return e;

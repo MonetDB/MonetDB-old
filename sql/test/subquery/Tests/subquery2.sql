@@ -207,7 +207,6 @@ GROUP BY t1.col2;
 	-- 1
 	-- 1
 
-/* Wrong output: incorrect ouput
 SELECT
     (SELECT MIN(ColID) FROM tbl_ProductSales INNER JOIN another_T t2 ON t1.col7 <> SOME(SELECT MAX(t1.col1 + t3.col4) FROM another_T t3))
 FROM another_T t1;
@@ -215,7 +214,6 @@ FROM another_T t1;
 	-- 1
 	-- 1
 	-- 1
-*/
 
 -- 4x NULL vs postgress wrong with 1x NULL
 SELECT

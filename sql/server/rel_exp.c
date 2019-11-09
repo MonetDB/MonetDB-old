@@ -20,6 +20,30 @@
 #include "mtime.h"
 #include "blob.h"
 
+comp_type
+compare_str2type( char *compare_op)
+{
+	comp_type type = cmp_filter;
+
+	if (compare_op[0] == '=') {
+		type = cmp_equal;
+	} else if (compare_op[0] == '<') {
+		type = cmp_lt;
+		if (compare_op[1] != '\0') {
+			if (compare_op[1] == '>')
+				type = cmp_notequal;
+			else if (compare_op[1] == '=')
+				type = cmp_lte;
+		}
+	} else if (compare_op[0] == '>') {
+		type = cmp_gt;
+		if (compare_op[1] != '\0')
+			if (compare_op[1] == '=')
+				type = cmp_gte;
+	}
+	return type;
+}
+
 comp_type 
 swap_compare( comp_type t )
 {
@@ -205,6 +229,35 @@ exp_in_func(mvc *sql, sql_exp *le, sql_exp *vals, int anyequal, int is_tuple)
 	if (!a_func) 
 		return sql_error(sql, 02, SQLSTATE(42000) "(NOT) IN operator on type %s missing", exp_subtype(le)->type->sqlname);
 	return exp_binop(sql->sa, le, vals, a_func);
+}
+
+sql_exp *
+exp_compare_func(mvc *sql, sql_exp *le, sql_exp *re, sql_exp *oe, char *compareop, int quantifier)
+{
+	sql_subfunc *cmp_func = NULL;
+	sql_exp *e;
+
+	if (!oe) {
+		cmp_func = sql_bind_func(sql->sa, NULL, compareop, exp_subtype(le), exp_subtype(le), F_FUNC);
+		assert(cmp_func);
+		e = exp_binop(sql->sa, le, re, cmp_func);
+	} else {
+		list *types = sa_list(sql->sa), *args = sa_list(sql->sa);
+		append(types, exp_subtype(le));
+		append(types, exp_subtype(le));
+		append(types, exp_subtype(le));
+		append(args, le);
+		append(args, re);
+		append(args, oe);
+		cmp_func = sql_bind_func_(sql->sa, NULL, compareop, types, F_FUNC);
+		assert(cmp_func);
+		e = exp_op(sql->sa, args, cmp_func);
+	}
+	if (e) {
+		e->flag = quantifier;
+		e->card = le->card;
+	}
+	return e;
 }
 
 static sql_subtype*
@@ -538,6 +591,8 @@ exp_column(sql_allocator *sa, const char *rname, const char *cname, sql_subtype 
 sql_exp *
 exp_propagate(sql_allocator *sa, sql_exp *ne, sql_exp *oe)
 {
+	if (has_label(oe) && oe->alias.rname == ne->alias.rname && oe->alias.name == ne->alias.name)
+		ne->alias.label = oe->alias.label;
 	if (is_intern(oe))
 		set_intern(ne);
 	if (is_anti(oe))
@@ -668,7 +723,6 @@ exp_rel(mvc *sql, sql_rel *rel)
 	if (e == NULL)
 		return NULL;
 	/*
-	rel = rel_unnest(sql, rel);
 	rel = rel_optimizer(sql, rel, 0);
 	rel = rel_distribute(sql, rel);
 	*/
@@ -726,6 +780,10 @@ exp_setalias(sql_exp *e, const char *rname, const char *name )
 void 
 exp_prop_alias(sql_exp *e, sql_exp *oe )
 {
+	if (oe->alias.name == NULL && exp_has_rel(oe)) {
+		sql_rel *r = exp_rel_get_rel(oe);
+		oe = r->exps->t->data;
+	}
 	e->alias = oe->alias;
 }
 
@@ -737,6 +795,7 @@ number2name(str s, int len, int i)
 		s[--len] = '0' + (i & 7);
 		i >>= 3;
 	}
+//	s[--len] = '%';
 	s[--len] = 'L';
 	return s + len;
 }
@@ -849,6 +908,11 @@ exp_name( sql_exp *e )
 		return e->alias.name;
 	if (e->type == e_convert && e->l)
 		return exp_name(e->l);
+	if (e->type == e_psm && e->l) { /* subquery return name of last expression */
+		sql_rel *r = e->l;
+		if (is_project(r->op))
+			return exp_name(r->exps->t->data);
+	}
 	return NULL;
 }
 
@@ -1392,6 +1456,7 @@ rel_find_exp_( sql_rel *rel, sql_exp *e)
 			}
 			return ne;
 		}
+		break;
 		/* fall through */
 	case e_cmp:	
 	case e_psm:	
@@ -1574,6 +1639,12 @@ exp_is_atom( sql_exp *e )
 int
 exp_is_rel( sql_exp *e )
 {
+	return (e->type == e_psm && e->flag == PSM_REL && e->l);
+}
+
+int
+exp_has_rel( sql_exp *e )
+{
 	if (!e)
 		return 0;
 	switch(e->type){
@@ -1584,14 +1655,14 @@ exp_is_rel( sql_exp *e )
 		if (get_cmp(e) == cmp_or || get_cmp(e) == cmp_filter) {
 			return (exps_have_rel_exp(e->l) || exps_have_rel_exp(e->r));
 		} else if (e->flag == cmp_in || e->flag == cmp_notin) {
-			return (exp_is_rel(e->l) || exps_have_rel_exp(e->r));
+			return (exp_has_rel(e->l) || exps_have_rel_exp(e->r));
 		} else {
-			return (exp_is_rel(e->l) || exp_is_rel(e->r) || (e->f && exp_is_rel(e->f)));
+			return (exp_has_rel(e->l) || exp_has_rel(e->r) || (e->f && exp_has_rel(e->f)));
 		}
 	case e_convert:
-		return exp_is_rel(e->l);
+		return exp_has_rel(e->l);
 	case e_psm:
-		return (e->flag == PSM_REL && e->l);
+		return exp_is_rel(e);
 	case e_atom:
 		return (e->f && exps_have_rel_exp(e->f));
 	case e_column:
@@ -1608,12 +1679,137 @@ exps_have_rel_exp( list *exps)
 	for(node *n=exps->h; n; n=n->next) {
 		sql_exp *e = n->data;
 
-		if (exp_is_rel(e))
+		if (exp_has_rel(e))
 			return 1;
 	}
 	return 0;
 }
 
+/* For now only handle single relation, later combine multiple relations into one (using crossproduct */
+static sql_rel *
+exps_rel_get_rel( list *exps )
+{
+	if (list_empty(exps))
+		return NULL;
+	for (node *n = exps->h; n; n=n->next){
+		sql_exp *e = n->data;
+
+		if (exp_has_rel(e))
+			return exp_rel_get_rel(e);
+	}
+	return NULL;
+}
+
+sql_rel *
+exp_rel_get_rel( sql_exp *e)
+{
+	if (!e)
+		return NULL;
+
+	switch(e->type){
+	case e_func:
+	case e_aggr: 
+		return exps_rel_get_rel(e->l);
+	case e_cmp:
+		if (get_cmp(e) == cmp_or || get_cmp(e) == cmp_filter) {
+			if (exps_have_rel_exp(e->l))
+				return exps_rel_get_rel(e->l);
+			if (exps_have_rel_exp(e->r))
+				return exps_rel_get_rel(e->r);
+		} else if (e->flag == cmp_in || e->flag == cmp_notin) {
+			if (exp_has_rel(e->l))
+				return exp_rel_get_rel(e->l);
+			if (exps_have_rel_exp(e->r))
+				return exps_rel_get_rel(e->r);
+		} else {
+			if (exp_has_rel(e->l))
+				return exp_rel_get_rel(e->l);
+			if (exp_has_rel(e->r))
+				return exp_rel_get_rel(e->r);
+			if (e->f && exp_has_rel(e->f))
+				return exp_rel_get_rel(e->f);
+		}
+		return NULL;
+	case e_convert:
+		return exp_rel_get_rel(e->l);
+	case e_psm:
+		if (exp_is_rel(e))
+			return e->l;
+		return NULL;
+	case e_atom:
+		if (e->f && exps_have_rel_exp(e->f))
+			return exps_rel_get_rel(e->f);
+		return NULL;
+	case e_column:
+		return NULL;
+	}
+	return NULL;
+}
+
+static list *
+exp_rel_update_exps(sql_allocator *sa, list *exps )
+{
+	if (list_empty(exps))
+		return exps;
+	for (node *n = exps->h; n; n=n->next){
+		sql_exp *e = n->data;
+
+		if (exp_has_rel(e))
+			n->data = exp_rel_update_exp(sa, e);
+	}
+	return exps;
+}
+
+sql_exp *
+exp_rel_update_exp(sql_allocator *sa, sql_exp *e)
+{
+	if (!e)
+		return NULL;
+
+	switch(e->type){
+	case e_func:
+	case e_aggr: 
+		e->l = exp_rel_update_exps(sa, e->l);
+		return e;
+	case e_cmp:
+		if (get_cmp(e) == cmp_or || get_cmp(e) == cmp_filter) {
+			if (exps_have_rel_exp(e->l))
+				e->l = exp_rel_update_exps(sa, e->l);
+			if (exps_have_rel_exp(e->r))
+				e->r = exp_rel_update_exps(sa, e->r);
+		} else if (e->flag == cmp_in || e->flag == cmp_notin) {
+			if (exp_has_rel(e->l))
+				e->l = exp_rel_update_exp(sa, e->l);
+			if (exps_have_rel_exp(e->r))
+				e->r = exp_rel_update_exps(sa, e->r);
+		} else {
+			if (exp_has_rel(e->l))
+				e->l = exp_rel_update_exp(sa, e->l);
+			if (exp_has_rel(e->r))
+				e->r = exp_rel_update_exp(sa, e->r);
+			if (e->f && exp_has_rel(e->f))
+				e->f = exp_rel_update_exp(sa, e->f);
+		}
+		return e;
+	case e_convert:
+		e->l = exp_rel_update_exp(sa, e->l);
+		return e;
+	case e_psm:
+		if (exp_is_rel(e)) {
+			sql_rel *r = exp_rel_get_rel(e);
+			e = r->exps->t->data;
+			return exp_ref(sa, e);
+		}
+		return e;
+	case e_atom:
+		if (e->f && exps_have_rel_exp(e->f))
+			e->f = exp_rel_update_exps(sa, e->f);
+		return e;
+	case e_column:
+		return e;
+	}
+	return e;
+}
 
 int
 exps_are_atoms( list *exps)
@@ -1640,6 +1836,8 @@ exps_has_func( list *exps)
 int
 exp_has_func( sql_exp *e )
 {
+	if (!e)
+		return 0;
 	switch (e->type) {
 	case e_atom:
 		return 0;

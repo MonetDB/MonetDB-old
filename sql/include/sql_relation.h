@@ -185,8 +185,6 @@ typedef enum operator_type {
 	(op == op_basetable)
 #define is_ddl(op) \
 	(op == op_ddl)
-#define is_output(rel) \
-	(rel->op == op_ddl && rel->flag == DDL_OUTPUT)
 #define is_outerjoin(op) \
 	(op == op_left || op == op_right || op == op_full)
 #define is_left(op) \

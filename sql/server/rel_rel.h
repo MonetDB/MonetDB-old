@@ -24,9 +24,6 @@
 #define sql_join   512 //ORed
 #define sql_outer 1024 //ORed
 
-#define tmp_pushed 2048 //ORed
-#define is_sql_pushed(X)   ((X & tmp_pushed) == tmp_pushed)
-
 #define is_sql_from(X)    ((X & sql_from) == sql_from)
 #define is_sql_where(X)   ((X & sql_where) == sql_where)
 #define is_sql_sel(X)     ((X & sql_sel) == sql_sel)

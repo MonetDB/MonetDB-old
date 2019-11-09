@@ -1589,7 +1589,7 @@ select2_join2(backend *be, stmt *op1, stmt *op2, stmt *op3, int cmp, stmt *sub, 
 	if (op1->nr < 0 && (sub && sub->nr < 0))
 		return NULL;
 	l = op1->nr;
-	if (((cmp & CMP_BETWEEN) || op2->nrcols > 0 || op3->nrcols > 0) && (type == st_uselect2)) {
+	if (((cmp & CMP_BETWEEN && cmp & CMP_SYMMETRIC) || op2->nrcols > 0 || op3->nrcols > 0) && (type == st_uselect2)) {
 		int k;
 
 		if (op2->nr < 0 || op3->nr < 0)
@@ -3745,6 +3745,10 @@ stmt_assign(backend *be, const char *varname, stmt *val, int level)
 			return NULL;
 		getArg(q, 0) = be->mvc_var = newTmpVariable(mb, TYPE_int);
 		be->mvc_var = getDestVar(q);
+	}
+	if (val->type == st_table) {
+		stmt *l = val->op1;
+		val = l->op4.lval->h->data;
 	}
 	q = pushArgument(mb, q, val->nr);
 	if (q){

@@ -16,6 +16,7 @@
 #define new_exp_list(sa) sa_list(sa)
 #define exp2list(sa,e)   append(sa_list(sa),e)
 
+extern comp_type compare_str2type(char *compare_op);
 extern comp_type swap_compare( comp_type t );
 extern comp_type range2lcompare( int r );
 extern comp_type range2rcompare( int r );
@@ -27,6 +28,7 @@ extern sql_exp *exp_filter(sql_allocator *sa, list *l, list *r, sql_subfunc *f, 
 extern sql_exp *exp_or(sql_allocator *sa, list *l, list *r, int anti);
 extern sql_exp *exp_in(sql_allocator *sa, sql_exp *l, list *r, int cmptype);
 extern sql_exp *exp_in_func(mvc *sql, sql_exp *le, sql_exp *vals, int anyequal, int is_tuple);
+extern sql_exp *exp_compare_func(mvc *sql, sql_exp *le, sql_exp *re, sql_exp *oe, char *compareop, int quantifier);
 
 #define exp_fromtype(e)	((list*)e->r)->h->data
 #define exp_totype(e)	((list*)e->r)->h->next->data
@@ -133,7 +135,10 @@ extern int exp_is_zero(mvc *sql, sql_exp *e);
 extern int exp_is_not_null(mvc *sql, sql_exp *e);
 extern int exp_is_null(mvc *sql, sql_exp *e);
 extern int exp_is_rel(sql_exp *e);
+extern int exp_has_rel(sql_exp *e);
 extern int exps_have_rel_exp(list *exps);
+extern sql_rel *exp_rel_get_rel( sql_exp *e);
+extern sql_exp *exp_rel_update_exp(sql_allocator *sa, sql_exp *e);
 extern int exps_are_atoms(list *exps);
 extern int exp_has_func(sql_exp *e);
 extern int exp_unsafe(sql_exp *e, int allow_identity);

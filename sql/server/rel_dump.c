@@ -89,9 +89,12 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 	switch(e->type) {
 	case e_psm: {
 		if (e->flag & PSM_SET) {
-			/* todo */
+			mnstr_printf(fout, "%s = ", exp_name(e));
+			exp_print(sql, fout, e->l, depth, refs, 0, 0);
 		} else if (e->flag & PSM_VAR) {
-			/* todo */
+			// todo output table def (from e->f)
+			// or type if e-f == NULL
+			mnstr_printf(fout, "declare %s ", exp_name(e));
 		} else if (e->flag & PSM_RETURN) {
 			mnstr_printf(fout, "return ");
 			exp_print(sql, fout, e->l, depth, refs, 0, 0);
@@ -169,6 +172,8 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 			for(node *n = l->h; n; n = n->next) 
 				exps_print(sql, fout, n->data, depth, refs, alias, 1);
 		}
+		if (e->flag) 
+			mnstr_printf(fout, " %s", e->flag==1?"ANY":"ALL");
 	} 	break;
 	case e_aggr: {
 		sql_subaggr *a = e->f;
