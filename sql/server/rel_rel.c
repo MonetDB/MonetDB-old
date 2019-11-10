@@ -351,6 +351,9 @@ rel_bind_column2( mvc *sql, sql_rel *rel, const char *tname, const char *cname, 
 sql_exp *
 rel_first_column(mvc *sql, sql_rel *r)
 {
+	if (is_simple_project(r->op)) 
+		return r->exps->h->data;
+
 	list *exps = rel_projections(sql, r, NULL, 1, 1);
 
 	if (!list_empty(exps))

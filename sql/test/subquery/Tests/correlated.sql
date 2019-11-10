@@ -432,7 +432,7 @@ SELECT * FROM integers s1 INNER JOIN integers s2 ON (SELECT s1.i=i FROM integers
 --2	2
 --3	3
 
-/*Wrong results, left outer 2 low 
+/*BROKEN Wrong results, left outer 2 low 
 SELECT * FROM integers s1 LEFT OUTER JOIN integers s2 ON (SELECT 2*SUM(i)*s1.i FROM integers)=(SELECT SUM(i)*s2.i FROM integers) ORDER BY s1.i;
  */
 --1	2
@@ -453,9 +453,7 @@ SELECT i, CAST((SELECT SUM(s1.i) FROM integers s1 FULL OUTER JOIN integers s2 ON
 --NULL	6
 
 -- 
-/*Wrong results, rank/window broken
 SELECT i, (SELECT row_number() OVER (ORDER BY i)) FROM integers i1 ORDER BY i; --Should we support correlated expressions inside PARTITION BY and ORDER BY on Window functions?
-*/
 --1	1
 --2	1
 --3	1
@@ -532,9 +530,7 @@ SELECT i1.i, (SELECT row_number() OVER (ORDER BY i) FROM integers WHERE i1.i=i) 
 --NULL	NULL
 --NULL	NULL
 
-/*Wrong results, rank/window broken
 SELECT i, CAST((SELECT SUM(i) OVER (ORDER BY i) FROM integers WHERE i1.i=i) AS BIGINT) FROM integers i1 ORDER BY i;
- */
 --1	1
 --2	2
 --3	3

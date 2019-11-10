@@ -4343,9 +4343,13 @@ rel_rankop(sql_query *query, sql_rel **rel, symbol *se, int f)
 
 		if (!dnn || is_ntile) { //pass an input column for analytic functions that don't require it
 			in = rel_first_column(sql, p);
-			if (!exp_name(in))
-				exp_label(sql->sa, in, ++sql->label);
-			in = exp_ref(sql->sa, in);
+			if (is_atom(in->type)) {
+				in = exp_copy(sql, in);
+			} else {
+				if (!exp_name(in))
+					exp_label(sql->sa, in, ++sql->label);
+				in = exp_ref(sql->sa, in);
+			}
 			if(!in)
 				return NULL;
 			append(fargs, in);

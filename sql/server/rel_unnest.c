@@ -437,10 +437,10 @@ push_up_project_exp(mvc *sql, sql_rel *rel, sql_exp *e)
 	return e;
 }
 
-static sql_exp *exp_rewrite(mvc *sql, sql_rel *rel, sql_exp *e, list *ad, int isleftouter);
+static sql_exp *exp_rewrite(mvc *sql, sql_rel *rel, sql_exp *e, list *ad);
 
 static list *
-exps_rewrite(mvc *sql, sql_rel *rel, list *exps, list *ad, int isleftouter)
+exps_rewrite(mvc *sql, sql_rel *rel, list *exps, list *ad)
 {
 	list *nexps;
 	node *n;
@@ -449,54 +449,43 @@ exps_rewrite(mvc *sql, sql_rel *rel, list *exps, list *ad, int isleftouter)
 		return exps;
 	nexps = sa_list(sql->sa);
 	for(n=exps->h; n; n = n->next)
-		append(nexps, exp_rewrite(sql, rel, n->data, ad, isleftouter));
+		append(nexps, exp_rewrite(sql, rel, n->data, ad));
 	return nexps;
-}
-
-static int
-exp_is_count(sql_exp *e, sql_rel *rel) 
-{
-	if (!e || !rel)
-		return 0;
-	if (is_alias(e->type) && is_project(rel->op)) {
-		sql_exp *ne = rel_find_exp(rel->l, e);
-		return exp_is_count(ne, rel->l);
-	}
-	if (is_convert(e->type))
-		return exp_is_count(e->l, rel);
-	if (is_aggr(e->type) && exp_aggr_is_count(e)) 
-		return 1;
-	return 0;
 }
 
 /* recursively rewrite some functions */
 static sql_exp *
-exp_rewrite(mvc *sql, sql_rel *rel, sql_exp *e, list *ad, int isleftouter)
+exp_rewrite(mvc *sql, sql_rel *rel, sql_exp *e, list *ad)
 {
 	sql_subfunc *sf;
 
 	if (e->type == e_convert) { 
-		e->l = exp_rewrite(sql, rel, e->l, ad, isleftouter);
+		e->l = exp_rewrite(sql, rel, e->l, ad);
 		return e;
 	}
 	if (e->type != e_func)
 		return e;
-	e->l = exps_rewrite(sql, rel, e->l, ad, isleftouter);
+	e->l = exps_rewrite(sql, rel, e->l, ad);
        	sf = e->f;
 	/* window functions need to be run per freevars */
-	if (sf->func->type == F_ANALYTIC && list_length(sf->func->ops) > 2 && 
-			(strcmp(sf->func->base.name, "diff") == 0 ||
-			 strcmp(sf->func->base.name, "rank") == 0 ||
-			 strcmp(sf->func->base.name, "row_number") == 0)) {
+	if (sf->func->type == F_ANALYTIC && list_length(sf->func->ops) > 2) {
 		sql_subtype *bt = sql_bind_localtype("bit");
 		node *d;
 		list *rankopargs = e->l;
-		node *n = rankopargs->h->next; /* second arg */
+		/* window_bound has partition/orderby as first argument (before normal expressions), others as second (and have a boolean placeholder) */
+		int is_wb = (strcmp(sf->func->base.name, "window_bound") == 0);
+		node *n = (is_wb)?rankopargs->h:rankopargs->h->next;
 		sql_exp *pe = n->data;
 
+		/* if pe is window_bound function skip */
+		if (pe->type == e_func) {
+			sf = pe->f;
+			if (strcmp(sf->func->base.name, "window_bound") == 0)
+				return e;
+		}
 		/* find partition expression in rankfunc */
 		/* diff function */
-		if (exp_is_atom(pe))
+		if (exp_is_atom(pe) || is_wb)
 			pe = NULL;
 		for(d=ad->h; d; d=d->next) {
 			sql_subfunc *df;
@@ -512,7 +501,10 @@ exp_rewrite(mvc *sql, sql_rel *rel, sql_exp *e, list *ad, int isleftouter)
 			append(args, e);
 			pe = exp_op(sql->sa, args, df);
 		}
-		n->data = pe;
+		if (is_wb)
+			e->l = list_prepend(rankopargs, pe);
+		else
+			n->data = pe;
 	}
 	return e;
 }
@@ -582,7 +574,7 @@ push_up_project(mvc *sql, sql_rel *rel, list *ad)
 					if (exp_has_freevar(sql, e)) 
 						rel_bind_var(sql, rel->l, e);
 				}
-				e = exp_rewrite(sql, r->l, e, ad, is_left(rel->op));
+				e = exp_rewrite(sql, r->l, e, ad);
 				append(n->exps, e);
 			}
 			if (r->r) {
@@ -717,6 +709,22 @@ exps_is_constant( list *exps )
 		return 0;
 	e = exps->h->data;
 	return exp_is_atom(e);
+}
+
+static int
+exp_is_count(sql_exp *e, sql_rel *rel) 
+{
+	if (!e || !rel)
+		return 0;
+	if (is_alias(e->type) && is_project(rel->op)) {
+		sql_exp *ne = rel_find_exp(rel->l, e);
+		return exp_is_count(ne, rel->l);
+	}
+	if (is_convert(e->type))
+		return exp_is_count(e->l, rel);
+	if (is_aggr(e->type) && exp_aggr_is_count(e)) 
+		return 1;
+	return 0;
 }
 
 static sql_rel *
@@ -2189,6 +2197,7 @@ static sql_rel *
 rewrite_fix_count(mvc *sql, sql_rel *rel)
 {
 	if (rel->op == op_left) {
+		/* TODO simplify recurse down into the right side to an groupby, then add ifthenelse if needed */
 		int changes = 0;
 		sql_rel *r = rel->r;
 		/* TODO create an exp iterator */
