@@ -474,31 +474,7 @@ static sql_exp *
 exp_rewrite(mvc *sql, sql_rel *rel, sql_exp *e, list *ad, int isleftouter)
 {
 	sql_subfunc *sf;
-	if (isleftouter && e->type == e_column) {
-		sql_exp *ne = rel_find_exp(rel, e);
 
-		if (exp_is_count(ne, rel)) {
-			const char *rname = exp_relname(e), *name = exp_name(e);
-			/* rewrite count in subquery */
-			list *args, *targs;
-			sql_subfunc *isnil = sql_bind_func(sql->sa, NULL, "isnull", exp_subtype(e), NULL, F_FUNC), *ifthen;
-
-			ne = exp_unop(sql->sa, e, isnil);
-			set_has_no_nil(ne);
-			targs = sa_list(sql->sa);
-			append(targs, sql_bind_localtype("bit"));
-			append(targs, exp_subtype(e));
-			append(targs, exp_subtype(e));
-			ifthen = sql_bind_func_(sql->sa, NULL, "ifthenelse", targs, F_FUNC);
-			args = sa_list(sql->sa);
-			append(args, ne);
-			append(args, exp_atom(sql->sa, atom_zero_value(sql->sa, exp_subtype(e))));
-			append(args, e);
-			e = exp_op(sql->sa, args, ifthen);
-			exp_setname(sql->sa, e, rname, name);
-		}
-		return e;
-	}	
 	if (e->type == e_convert) { 
 		e->l = exp_rewrite(sql, rel, e->l, ad, isleftouter);
 		return e;
@@ -2208,6 +2184,50 @@ rewrite_remove_xp(mvc *sql, sql_rel *rel)
 	return rel;
 }
 
+/* rel visitor */
+static sql_rel *
+rewrite_fix_count(mvc *sql, sql_rel *rel)
+{
+	if (rel->op == op_left) {
+		int changes = 0;
+		sql_rel *r = rel->r;
+		/* TODO create an exp iterator */
+		list *rexps = rel_projections(sql, r, NULL, 1, 0), *exps;
+
+		for(node *n = rexps->h; n; n=n->next) {
+			sql_exp *e = n->data, *ne;
+
+			if (exp_is_count(e, r)) {
+				const char *rname = exp_relname(e), *name = exp_name(e);
+				/* rewrite count in subquery */
+				list *args, *targs;
+				sql_subfunc *isnil = sql_bind_func(sql->sa, NULL, "isnull", exp_subtype(e), NULL, F_FUNC), *ifthen;
+
+				changes = 1;
+				ne = exp_unop(sql->sa, e, isnil);
+				set_has_no_nil(ne);
+				targs = sa_list(sql->sa);
+				append(targs, sql_bind_localtype("bit"));
+				append(targs, exp_subtype(e));
+				append(targs, exp_subtype(e));
+				ifthen = sql_bind_func_(sql->sa, NULL, "ifthenelse", targs, F_FUNC);
+				args = sa_list(sql->sa);
+				append(args, ne);
+				append(args, exp_atom(sql->sa, atom_zero_value(sql->sa, exp_subtype(e))));
+				append(args, e);
+				e = exp_op(sql->sa, args, ifthen);
+				exp_setname(sql->sa, e, rname, name);
+				n->data = e;
+			}
+		}
+		if (changes) { /* add project */
+			exps = list_merge(rel_projections(sql, rel->l, NULL, 1, 0), rexps, (fdup)NULL);
+			rel = rel_project(sql->sa, rel, exps);
+		}
+	}
+	return rel;
+}
+
 sql_rel *
 rel_unnest(mvc *sql, sql_rel *rel)
 {
@@ -2222,6 +2242,7 @@ rel_unnest(mvc *sql, sql_rel *rel)
 	rel = rel_exp_visitor(sql, rel, &rewrite_ifthenelse); 	/* add isnull handling */
 	rel = rel_visitor(sql, rel, &rewrite_compare_exp); 	/* only allow for e_cmp in selects and  handling */
 	rel = rel_exp_visitor(sql, rel, &rewrite_exp_rel);
+	rel = rel_visitor(sql, rel, &rewrite_fix_count);	/* fix count inside a left join (adds a project (if (cnt IS null) then (0) else (cnt)) */
 	rel = rel_visitor(sql, rel, &rewrite_empty_project);
 	rel = _rel_unnest(sql, rel);
 	rel = rel_visitor(sql, rel, &rewrite_remove_xp);	/* remove crossproducts with project [ atom ] */
