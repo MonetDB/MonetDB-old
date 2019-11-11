@@ -39,9 +39,11 @@ rel_name( sql_rel *r )
 sql_rel *
 rel_distinct(sql_rel *l)
 {
+#if 0
 	if (l->card >= CARD_AGGR) /* in case of CARD_AGGR, we could
 	                             do better, ie check the group by
 	                             list etc */
+#endif
 		set_distinct(l);
 	return l;
 }

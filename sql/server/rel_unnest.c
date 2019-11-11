@@ -560,10 +560,10 @@ push_up_project(mvc *sql, sql_rel *rel, list *ad)
 		sql_rel *r = rel->r;
 
 		assert(!rel_is_ref(r));
-		if (r && r->op == op_project && r->l) {
+		if (r && r->op == op_project /*&& r->l*/) {
 			node *m;
 			/* move project up, ie all attributes of left + the old expression list */
-			sql_rel *n = rel_project( sql->sa, rel, 
+			sql_rel *n = rel_project( sql->sa, (r->l)?rel:rel->l, 
 					rel_projections(sql, rel->l, NULL, 1, 1));
 
 			/* only pass bound variables */
@@ -574,7 +574,8 @@ push_up_project(mvc *sql, sql_rel *rel, list *ad)
 					if (exp_has_freevar(sql, e)) 
 						rel_bind_var(sql, rel->l, e);
 				}
-				e = exp_rewrite(sql, r->l, e, ad);
+				if (r->l)
+					e = exp_rewrite(sql, r->l, e, ad);
 				append(n->exps, e);
 			}
 			if (r->r) {
@@ -596,12 +597,14 @@ push_up_project(mvc *sql, sql_rel *rel, list *ad)
 			rel_destroy(r);
 			r = rel->r;
 			return n;
+			/*
 		} else if (r && r->op == op_project && !r->l) {
 			sql_rel *l = rel->l;
 
 			rel->l = NULL;
 			rel_destroy(rel);
 			return l;
+			*/
 		}
 	}
 	/* a dependent semi/anti join with a project on the right side, could be removed */
@@ -1733,6 +1736,7 @@ rewrite_anyequal(mvc *sql, sql_rel *rel, sql_exp *e, int depth)
 			}
 
 			if (is_project(rel->op) || depth > 0) {
+				list *exps = NULL;
 				sql_exp *rid, *lid;
 				sql_rel *sq = lsq;
 
@@ -1742,9 +1746,13 @@ rewrite_anyequal(mvc *sql, sql_rel *rel, sql_exp *e, int depth)
 
 				if (!lsq)
 					lsq = rel->l;
-				list *exps = rel_projections(sql, lsq, NULL, 1/*keep names */, 1);
-				rel->l = lsq = rel_add_identity(sql, lsq, &lid);
-				lid = exp_ref(sql->sa, lid);
+				if (!lsq) { /* single row */
+					lid = exp_atom_lng(sql->sa, 1);
+				} else {
+					exps = rel_projections(sql, lsq, NULL, 1/*keep names */, 1);
+					rel->l = lsq = rel_add_identity(sql, lsq, &lid);
+					lid = exp_ref(sql->sa, lid);
+				}
 
 				if (sq)
 					(void)rewrite_inner(sql, rel, lsq, op_join);
@@ -1752,7 +1760,8 @@ rewrite_anyequal(mvc *sql, sql_rel *rel, sql_exp *e, int depth)
 					(void)rewrite_inner(sql, rel, rsq, op_join);
 	
 				lsq = rel->l = rel_groupby(sql, rel->l, exp2list(sql->sa, lid)); 
-				lsq->exps = exps; 
+				if (exps)
+					lsq->exps = exps; 
 
 				sql_subaggr *ea = sql_bind_aggr(sql->sa, sql->session->schema, is_anyequal(sf)?"anyequal":"allnotequal", exp_subtype(re));
 				sql_exp *a = exp_aggr1(sql->sa, le, ea, 0, 0, CARD_ATOM, 0);
@@ -2197,7 +2206,6 @@ static sql_rel *
 rewrite_fix_count(mvc *sql, sql_rel *rel)
 {
 	if (rel->op == op_left) {
-		/* TODO simplify recurse down into the right side to an groupby, then add ifthenelse if needed */
 		int changes = 0;
 		sql_rel *r = rel->r;
 		/* TODO create an exp iterator */
@@ -2251,9 +2259,9 @@ rel_unnest(mvc *sql, sql_rel *rel)
 	rel = rel_exp_visitor(sql, rel, &rewrite_ifthenelse); 	/* add isnull handling */
 	rel = rel_visitor(sql, rel, &rewrite_compare_exp); 	/* only allow for e_cmp in selects and  handling */
 	rel = rel_exp_visitor(sql, rel, &rewrite_exp_rel);
-	rel = rel_visitor(sql, rel, &rewrite_fix_count);	/* fix count inside a left join (adds a project (if (cnt IS null) then (0) else (cnt)) */
 	rel = rel_visitor(sql, rel, &rewrite_empty_project);
 	rel = _rel_unnest(sql, rel);
+	rel = rel_visitor(sql, rel, &rewrite_fix_count);	/* fix count inside a left join (adds a project (if (cnt IS null) then (0) else (cnt)) */
 	rel = rel_visitor(sql, rel, &rewrite_remove_xp);	/* remove crossproducts with project [ atom ] */
 	return rel;
 }

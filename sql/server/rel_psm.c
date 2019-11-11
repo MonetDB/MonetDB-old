@@ -93,12 +93,8 @@ psm_set_exp(sql_query *query, dnode *n)
 			sql_exp *er = rel?exp_rel(sql, rel):e;
 			list *b = sa_list(sql->sa);
 
-			if (er == e) { /* move this split into the rel_unnest rewrite_exp_rel */
-				sql_exp *er = is_convert(e->type)?e->l:e;
-				sql_rel *r = er->l;
-				e =  r->exps->t->data; /*TODO cleanup */
-				e = exp_ref(sql->sa, e);
-			}
+			if (er == e)
+				e = exp_rel_update_exp(sql->sa, e);
 			append(b, er);
 			append(b, exp_set(sql->sa, name, e, level));
 			res = exp_rel(sql, rel_psm_block(sql->sa, b));
@@ -263,6 +259,7 @@ rel_psm_while_do( sql_query *query, sql_subtype *res, list *restypelist, dnode *
 		if (sql->session->status || !cond || !whilestmts) 
 			return NULL;
 		if (rel) {
+			assert(0);
 			sql_exp *er = exp_rel(sql, rel);
 			list *b = sa_list(sql->sa);
 
@@ -302,6 +299,7 @@ psm_if_then_else( sql_query *query, sql_subtype *res, list *restypelist, dnode *
 		if (sql->session->status || !cond || !ifstmts) 
 			return NULL;
 		if (rel) {
+			assert(0);
 			sql_exp *er = exp_rel(sql, rel);
 			list *b = sa_list(sql->sa);
 
@@ -339,6 +337,7 @@ rel_psm_if_then_else( sql_query *query, sql_subtype *res, list *restypelist, dno
 		if (sql->session->status || !cond || !ifstmts) 
 			return NULL;
 		if (rel) {
+			assert(0);
 			sql_exp *er = exp_rel(sql, rel);
 			list *b = sa_list(sql->sa);
 
@@ -468,14 +467,14 @@ rel_psm_return( sql_query *query, sql_subtype *restype, list *restypelist, symbo
 	res = rel_value_exp2(query, &rel, return_sym, sql_sel, ek, &is_last);
 	if (!res)
 		return NULL;
+	if (!rel && exp_is_rel(res))
+		rel = exp_rel_get_rel(res);
 	if (ek.card != card_relation && (!restype || (res = rel_check_type(sql, restype, rel, res, type_equal)) == NULL))
 		return (!restype)?sql_error(sql, 02, SQLSTATE(42000) "RETURN: return type does not match"):NULL;
 	else if (ek.card == card_relation && !rel)
 		return NULL;
 
-	if (rel && ek.card != card_relation)
-		append(l, exp_rel(sql, rel));
-	else if (rel && !is_ddl(rel->op)) {
+	if (rel && !is_ddl(rel->op) && ek.card == card_relation) {
 		list *exps = sa_list(sql->sa), *oexps = rel->exps;
 		node *n, *m;
 		int isproject = (rel->op == op_project);

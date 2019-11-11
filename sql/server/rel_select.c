@@ -5194,7 +5194,7 @@ rel_setquery(sql_query *query, sql_rel *rel, symbol *q)
 	sql_rel *res = NULL;
 	dnode *n = q->data.lval->h;
 	symbol *tab_ref1 = n->data.sym;
-	int dist = n->next->data.i_val;//, used = 0;
+	int distinct = n->next->data.i_val;
 	dlist *corresponding = n->next->next->data.lval;
 	symbol *tab_ref2 = n->next->next->next->data.sym;
 	sql_rel *t1, *t2; 
@@ -5202,8 +5202,6 @@ rel_setquery(sql_query *query, sql_rel *rel, symbol *q)
 	assert(n->next->type == type_int);
 	t1 = table_ref(query, NULL, tab_ref1, 0);
 	if (rel && !t1 && sql->session->status != -ERR_AMBIGUOUS) {
-		//used = 1;
-
 		/* reset error */
 		sql->session->status = 0;
 		sql->errstr[0] = 0;
@@ -5215,8 +5213,6 @@ rel_setquery(sql_query *query, sql_rel *rel, symbol *q)
 		return NULL;
 	t2 = table_ref(query, NULL, tab_ref2, 0);
 	if (rel && !t2 && sql->session->status != -ERR_AMBIGUOUS) {
-		//used = 1;
-
 		/* reset error */
 		sql->session->status = 0;
 		sql->errstr[0] = 0;
@@ -5243,9 +5239,9 @@ rel_setquery(sql_query *query, sql_rel *rel, symbol *q)
 	}
 	if ( q->token == SQL_UNION) {
 		/* For EXCEPT/INTERSECT the group by is always done within the implementation */
-		if (t1 && dist)
+		if (t1 && distinct)
 			t1 = rel_distinct(t1);
-		if (t2 && dist)
+		if (t2 && distinct)
 			t2 = rel_distinct(t2);
 		res = rel_setquery_(query, t1, t2, corresponding, op_union );
 	}
@@ -5253,7 +5249,7 @@ rel_setquery(sql_query *query, sql_rel *rel, symbol *q)
 		res = rel_setquery_(query, t1, t2, corresponding, op_except );
 	if ( q->token == SQL_INTERSECT)
 		res = rel_setquery_(query, t1, t2, corresponding, op_inter );
-	if (res && dist)
+	if (res && distinct)
 		res = rel_distinct(res);
 	return res;
 }

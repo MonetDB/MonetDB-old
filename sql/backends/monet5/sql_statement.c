@@ -468,6 +468,8 @@ stmt_table(backend *be, stmt *cols, int temp)
 
 		s->op1 = cols;
 		s->flag = temp;
+		s->nr = cols->nr;
+		s->nrcols = cols->nrcols;
 		return s;
 	}
 	return NULL;
@@ -2461,6 +2463,7 @@ stmt_set_nrcols(stmt *s)
 		if (f->nrcols > nrcols)
 			nrcols = f->nrcols;
 		key &= f->key;
+		s->nr = f->nr;
 	}
 	s->nrcols = nrcols;
 	s->key = key;
@@ -3749,10 +3752,6 @@ stmt_assign(backend *be, const char *varname, stmt *val, int level)
 			return NULL;
 		getArg(q, 0) = be->mvc_var = newTmpVariable(mb, TYPE_int);
 		be->mvc_var = getDestVar(q);
-	}
-	if (val->type == st_table) {
-		stmt *l = val->op1;
-		val = l->op4.lval->h->data;
 	}
 	q = pushArgument(mb, q, val->nr);
 	if (q){
