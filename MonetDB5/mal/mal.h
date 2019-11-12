@@ -39,8 +39,12 @@
 #define MAXSCRIPT 64
 
 /* The compile time debugging flags are turned into bit masks, akin to GDK */
+/* CHECK */
+// Remove?
 mal_export lng OPTdebug;
 
+/* CHECK */
+// Remove?
 #define OPTaliases			(1 )
 #define OPTcandidates		((lng)1 << 1)
 #define OPTcoercion			((lng)1 << 2)

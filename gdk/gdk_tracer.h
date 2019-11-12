@@ -111,6 +111,7 @@ typedef enum {
                MAL_OPT_REMOTE,
                MAL_OPT_VOLCANO,
                MAL_OPT_MACRO,
+               MAL_OPT_POSTFIX,
             
                // GDK
                GDK_ALL,
@@ -140,7 +141,7 @@ extern ATOMIC_TYPE CUR_LOG_LEVEL;
  */
 #define GDK_TRACER_LOG(LOG_LEVEL, MSG, ...)                             \
     if((int) ATOMIC_GET(&CUR_LOG_LEVEL) >= (int) LOG_LEVEL)             \
-    {                                                                   \   // Take into account component
+    {                                                                   \
         GDKtracer_log(LOG_LEVEL,                                        \
                       "[%s] %s (%s:%d) # "MSG,                          \
                       GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),     \

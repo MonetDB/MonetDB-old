@@ -83,6 +83,8 @@ mserver_invalid_parameter_handler(
 
 static _Noreturn void usage(char *prog, int xit);
 
+/* CHECK */
+// Remove --optimizers option?
 static void
 usage(char *prog, int xit)
 {
