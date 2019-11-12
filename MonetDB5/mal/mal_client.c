@@ -241,11 +241,13 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->father = NULL;
 	c->idle  = c->login = c->lastcmd = time(0);
 	c->session = GDKusec();
-	strcpy_len(c->optimizer, "default_pipe", sizeof(c->optimizer));
+	strncpy(c->optimizer, "default_pipe", IDLENGTH);
 	c->workerlimit = 0;
 	c->memorylimit = 0;
 	c->querytimeout = 0;
 	c->sessiontimeout = 0;
+	c->workers = 0;
+	c->memoryclaim = 0;
 	c->itrace = 0;
 	c->errbuf = 0;
 
@@ -364,11 +366,13 @@ MCforkClient(Client father)
 		son->login = father->login;
 		son->idle = father->idle;
 		son->scenario = father->scenario;
-		strcpy_len(father->optimizer, son->optimizer, sizeof(father->optimizer));
+		strcpy(father->optimizer, son->optimizer);
 		son->workerlimit = father->workerlimit;
 		son->memorylimit = father->memorylimit;
 		son->querytimeout = father->querytimeout;
 		son->sessiontimeout = father->sessiontimeout;
+		son->workers = father->workers;
+		son->memoryclaim = father->memoryclaim;
 
 		if (son->prompt)
 			GDKfree(son->prompt);
@@ -431,11 +435,13 @@ MCfreeClient(Client c)
 	c->usermodule = c->curmodule = 0;
 	c->father = 0;
 	c->idle = c->login = c->lastcmd = 0;
-	strcpy_len(c->optimizer, "default_pipe", sizeof(c->optimizer));
+	strncpy(c->optimizer, "default_pipe", IDLENGTH);
 	c->workerlimit = 0;
 	c->memorylimit = 0;
 	c->querytimeout = 0;
 	c->sessiontimeout = 0;
+	c->workers = 0;
+	c->memoryclaim = 0;
 	c->user = oid_nil;
 	if( c->username){
 		GDKfree(c->username);

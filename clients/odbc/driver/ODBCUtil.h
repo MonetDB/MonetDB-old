@@ -75,20 +75,26 @@ extern char *dupODBCstring(const SQLCHAR *inStr, size_t length);
    the input string did not fit. */
 #define copyString(str, strlen, buf, buflen, lenp, lent, errfunc, hdl, ret) \
 	do {								\
-		size_t _l;						\
+		lent _l;						\
 		if ((buflen) < 0) {					\
 			/* Invalid string or buffer length */		\
 			errfunc((hdl), "HY090", NULL, 0);		\
 			ret;						\
 		}							\
-		if (buf && (buflen) > 0) {				\
-			_l = strcpy_len((char *) (buf), (str) ? (const char *) (str) : "", (buflen)); \
-		} else {						\
-			_l = (str) ? (lent) (strlen) : 0;		\
+		_l = (str) ? (lent) (strlen) : 0;			\
+		if (buf) {						\
+			if ((buflen) > 1) {				\
+				/* note: if second arg short, rest */	\
+				/* of buf is cleared (i.e. terminated) */ \
+				strncpy((char *) (buf), (str) ? (const char *) (str) : "", (buflen) - 1); \
+			}						\
+			if ((buflen) > 0) {				\
+				((char *)(buf))[(buflen) - 1] = 0;	\
+			}						\
 		}							\
 		if (lenp)						\
-			*(lenp) = (lent) _l;				\
-		if ((buf) == NULL || (lent) _l >= (buflen))		\
+			*(lenp) = _l;					\
+		if ((buf) == NULL || _l >= (buflen))			\
 			/* String data, right-truncated */		\
 			errfunc((hdl), "01004", NULL, 0);		\
 	} while (0)

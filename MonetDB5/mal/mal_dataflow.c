@@ -187,6 +187,7 @@ q_enqueue(Queue *q, FlowEvent d)
  * that want to use a big recent result
  */
 
+#ifdef USE_MAL_ADMISSION
 static void
 q_requeue_(Queue *q, FlowEvent d)
 {
@@ -215,6 +216,7 @@ q_requeue(Queue *q, FlowEvent d)
 	MT_lock_unset(&q->l);
 	MT_sema_up(&q->s);
 }
+#endif
 
 static FlowEvent
 q_dequeue(Queue *q, Client cntxt)
@@ -382,9 +384,10 @@ DFLOWworker(void *T)
 			continue;
 		}
 
-		p= getInstrPtr(flow->mb,fe->pc);
-		if (MALadmission(flow->cntxt, flow->mb, flow->stk, p, fe->argclaim)) {
+#ifdef USE_MAL_ADMISSION
+		if (MALrunningThreads() > 2 && MALadmission(fe->argclaim, fe->hotclaim)) {
 			// never block on deblockdataflow()
+			p= getInstrPtr(flow->mb,fe->pc);
 			if( p->fcn != (MALfcn) deblockdataflow){
 				fe->hotclaim = 0;   /* don't assume priority anymore */
 				fe->maxclaim = 0;
@@ -394,12 +397,14 @@ DFLOWworker(void *T)
 				continue;
 			}
 		}
+#endif
 		error = runMALsequence(flow->cntxt, flow->mb, fe->pc, fe->pc + 1, flow->stk, 0, 0);
 		DEBUG(PAR, "Executed pc=%d wrk=%d claim=" LLFMT "," LLFMT "," LLFMT " %s\n",
 					fe->pc, id, fe->argclaim, fe->hotclaim, fe->maxclaim, error ? error : "");
-
+#ifdef USE_MAL_ADMISSION
 		/* release the memory claim */
-		MALadmission(flow->cntxt, flow->mb, flow->stk, p,  -fe->argclaim);
+		MALadmission(-fe->argclaim, -fe->hotclaim);
+#endif
 		/* update the numa information. keep the thread-id producing the value */
 		p= getInstrPtr(flow->mb,fe->pc);
 		for( i = 0; i < p->argc; i++)
@@ -425,6 +430,7 @@ DFLOWworker(void *T)
 		 * because we hold the logical lock.
 		 * All eligible instructions are queued
 		 */
+#ifdef USE_MAL_ADMISSION
 	{
 		InstrPtr p = getInstrPtr(flow->mb, fe->pc);
 		assert(p);
@@ -438,6 +444,7 @@ DFLOWworker(void *T)
 			if( footprint > fe->maxclaim) fe->maxclaim = footprint;
 		}
 	}
+#endif
 		MT_lock_set(&flow->flowlock);
 
 		for (last = fe->pc - flow->start; last >= 0 && (i = flow->nodes[last]) > 0; last = flow->edges[last])
@@ -669,6 +676,10 @@ DFLOWinitBlk(DataFlow flow, MalBlkPtr mb, int size)
 				break;
 		}
 	}
+
+#ifdef USE_MAL_ADMISSION
+	memorypool = memoryclaims = 0;
+#endif
 	return MAL_SUCCEED;
 }
 
@@ -701,8 +712,10 @@ DFLOWscheduler(DataFlow flow, struct worker *w)
 {
 	int last;
 	int i;
+#ifdef USE_MAL_ADMISSION
 	int j;
 	InstrPtr p;
+#endif
 	int tasks=0, actions;
 	str ret = MAL_SUCCEED;
 	FlowEvent fe, f = 0;
@@ -718,6 +731,7 @@ DFLOWscheduler(DataFlow flow, struct worker *w)
 	MT_lock_set(&flow->flowlock);
 	for (i = 0; i < actions; i++)
 		if (fe[i].blocks == 0) {
+#ifdef USE_MAL_ADMISSION
 			p = getInstrPtr(flow->mb,fe[i].pc);
 			if (p == NULL) {
 				MT_lock_unset(&flow->flowlock);
@@ -725,6 +739,7 @@ DFLOWscheduler(DataFlow flow, struct worker *w)
 			}
 			for (j = p->retc; j < p->argc; j++)
 				fe[i].argclaim = getMemoryClaim(fe[0].flow->mb, fe[0].flow->stk, p, j, FALSE);
+#endif
 			q_enqueue(todo, flow->status + i);
 			flow->status[i].state = DFLOWrunning;
 			DEBUG(PAR, "Enqueue pc=%d claim=" LLFMT "\n", flow->status[i].pc, flow->status[i].argclaim);

@@ -21,7 +21,6 @@
 #include "stream.h"
 #include "stream_socket.h"
 #include "mcrypt.h"
-#include "mstring.h"
 
 #define SOCKPTR struct sockaddr *
 
@@ -70,7 +69,7 @@ char* control_send(
 		server = (struct sockaddr_un) {
 			.sun_family = AF_UNIX,
 		};
-		strcpy_len(server.sun_path, host, sizeof(server.sun_path));
+		strncpy(server.sun_path, host, sizeof(server.sun_path) - 1);
 		if (connect(sock, (SOCKPTR) &server, sizeof(struct sockaddr_un)) == -1) {
 			snprintf(sbuf, sizeof(sbuf), "cannot connect: %s", strerror(errno));
 			closesocket(sock);
@@ -299,14 +298,6 @@ char* control_send(
 				{
 					snprintf(sbuf, sizeof(sbuf), "cannot connect: "
 							"monetdbd server requires unknown hash: %s", shash);
-					close_stream(fdout);
-					close_stream(fdin);
-					return(strdup(sbuf));
-				}
-
-				if (!phash) {
-					snprintf(sbuf, sizeof(sbuf), "cannot connect: "
-							"allocation failure while establishing connection");
 					close_stream(fdout);
 					close_stream(fdin);
 					return(strdup(sbuf));
