@@ -262,6 +262,19 @@ stdout of test 'subquery2` in directory 'sql/test/subquery` itself:
 [ 555	]
 [ 5555	]
 #SELECT
+#	SUM(col3) * col1
+#FROM another_T
+#GROUP BY col1
+#HAVING NOT col1 <> ANY (SELECT 0 FROM tbl_ProductSales GROUP BY ColID HAVING NOT MAX(col1) <> col1 * AVG(col1 + ColID) * ColID);
+% sys.L34 # table_name
+% L34 # name
+% hugeint # type
+% 1 # length
+[ 3		]
+[ 363		]
+[ 36963		]
+[ 3702963	]
+#SELECT
 #	SUM(CAST(t1.col1 IN (SELECT t1.col1 FROM another_T) AS INTEGER))
 #FROM another_T t1
 #GROUP BY t1.col2;

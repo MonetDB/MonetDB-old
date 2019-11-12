@@ -490,8 +490,10 @@ exp_rewrite(mvc *sql, sql_rel *rel, sql_exp *e, list *ad)
 		}
 		/* find partition expression in rankfunc */
 		/* diff function */
-		if (exp_is_atom(pe) || is_wb)
+		if (exp_is_atom(pe) || (is_wb && (pe->type != e_func || strcmp(sf->func->base.name, "diff") != 0)))
 			pe = NULL;
+		else
+			is_wb = 0;
 		for(d=ad->h; d; d=d->next) {
 			sql_subfunc *df;
 			sql_exp *e = d->data;
