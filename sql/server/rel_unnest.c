@@ -2246,7 +2246,7 @@ rewrite_fix_count(mvc *sql, sql_rel *rel)
 		int changes = 0;
 		sql_rel *r = rel->r;
 		/* TODO create an exp iterator */
-		list *rexps = rel_projections(sql, r, NULL, 1, 0), *exps;
+		list *rexps = rel_projections(sql, r, NULL, 1, 1), *exps;
 
 		for(node *n = rexps->h; n; n=n->next) {
 			sql_exp *e = n->data, *ne;
@@ -2275,7 +2275,7 @@ rewrite_fix_count(mvc *sql, sql_rel *rel)
 			}
 		}
 		if (changes) { /* add project */
-			exps = list_merge(rel_projections(sql, rel->l, NULL, 1, 0), rexps, (fdup)NULL);
+			exps = list_merge(rel_projections(sql, rel->l, NULL, 1, 1), rexps, (fdup)NULL);
 			rel = rel_project(sql->sa, rel, exps);
 		}
 	}
