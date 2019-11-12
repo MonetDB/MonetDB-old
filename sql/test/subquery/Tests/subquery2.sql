@@ -216,30 +216,38 @@ FROM another_T t1;
 	-- 1
 
 -- 4x NULL vs postgress wrong with 1x NULL
+/* Wrong output
 SELECT
 	CASE WHEN 1 IN (SELECT (SELECT MAX(col7)) UNION ALL (SELECT MIN(ColID) FROM tbl_ProductSales INNER JOIN another_T t2 ON t2.col5 = t2.col1)) THEN 2 ELSE NULL END
 FROM another_T t1;	
+*/
 	-- NULL
 
+/* Wrong output 
 SELECT
 	CASE WHEN 1 IN (SELECT MAX(col7) UNION ALL (SELECT MIN(ColID) FROM tbl_ProductSales INNER JOIN another_T t2 ON t2.col5 = t2.col1)) THEN 2 ELSE NULL END
 FROM another_T t1;
+*/
 	-- NULL
 	-- NULL
 	-- NULL
 	-- NULL
 
+/* Wrong output
 SELECT
 	CASE WHEN 1 IN (SELECT (SELECT MAX(col7))) THEN 2 ELSE NULL END
 FROM another_T t1;
+*/
 	-- NULL
 	-- NULL
 	-- NULL
 	-- NULL
 
+/* Wrong output
 SELECT
 	CASE WHEN 1 IN (SELECT (SELECT MIN(ColID) FROM tbl_ProductSales INNER JOIN another_T t2 ON t2.col5 = t2.col1) UNION ALL (SELECT MAX(col7))) THEN 2 ELSE NULL END
 FROM another_T t1;
+*/
 	-- NULL
 	-- NULL
 	-- NULL

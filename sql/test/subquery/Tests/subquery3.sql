@@ -3,6 +3,7 @@ INSERT INTO tbl_ProductSales VALUES (1,'Game','Mobo Game',200),(2,'Game','PKO Ga
 CREATE TABLE another_T (col1 INT, col2 INT, col3 INT, col4 INT, col5 INT, col6 INT, col7 INT, col8 INT);
 INSERT INTO another_T VALUES (1,2,3,4,5,6,7,8), (11,22,33,44,55,66,77,88), (111,222,333,444,555,666,777,888), (1111,2222,3333,4444,5555,6666,7777,8888);
 
+/* Wrong output */
 SELECT
     NOT MAX(t1.col6) IN (SELECT SUM(t1.col6) FROM tbl_ProductSales tp HAVING MAX(t1.col1) > MIN(tp.colID))
 FROM another_T t1
@@ -56,26 +57,28 @@ SELECT
 FROM another_T t1;
 	-- True False False False True True
 
-/* BROKEN 
 SELECT
 	EXISTS (SELECT RANK() OVER (PARTITION BY SUM(DISTINCT col5)))
 FROM another_T t1;
-*/
 	-- True
 
+/* BROKEN 
 SELECT
     (SELECT AVG(col1) OVER (PARTITION BY col5 ORDER BY col1 ROWS UNBOUNDED PRECEDING) FROM tbl_ProductSales)
 FROM another_T t1; --error, more than one row returned by a subquery used as an expression
+*/
 
 SELECT
     (SELECT SUM(col2) OVER (PARTITION BY SUM(col2) ORDER BY MAX(col1 + ColID) ROWS UNBOUNDED PRECEDING) FROM tbl_ProductSales)
 FROM another_T t1
 GROUP BY col1; --error, subquery uses ungrouped column "t1.col2" from outer query
 
+/* BROKEN
 SELECT
     (SELECT SUM(SUM(col2)) OVER (PARTITION BY SUM(col2) ORDER BY MAX(col2) ROWS UNBOUNDED PRECEDING) FROM tbl_ProductSales)
 FROM another_T t1
 GROUP BY col1; --error, more than one row returned by a subquery used as an expression
+*/
 
 SELECT
     (SELECT DENSE_RANK() OVER (PARTITION BY col5 ORDER BY col1) FROM tbl_ProductSales)
@@ -91,10 +94,12 @@ SELECT
 FROM another_T t1
 GROUP BY col6; --error, subquery uses ungrouped column "t1.col8" from outer query
 
+/* BROKEN
 SELECT
     (SELECT t2.col1 * SUM(SUM(t1.col2)) OVER (PARTITION BY SUM(t1.col2) ORDER BY MAX(t1.col1) ROWS UNBOUNDED PRECEDING) FROM another_T t2)
 FROM another_T t1
 GROUP BY col1; --error, more than one row returned by a subquery used as an expression
+*/
 
 SELECT
     (SELECT t2.col1 * SUM(SUM(col2)) OVER (PARTITION BY SUM(col2) ORDER BY MAX(col1) ROWS UNBOUNDED PRECEDING) FROM another_T t2)

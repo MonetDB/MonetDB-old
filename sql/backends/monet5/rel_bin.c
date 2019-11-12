@@ -1912,27 +1912,42 @@ rel2bin_join(backend *be, sql_rel *rel, list *refs)
 	 */
 	if (!list_empty(rel->exps)) {
 		int used_hash = 0;
-		int idx = 0;
+		int idx = 0, i;
 		list *jexps = sa_list(sql->sa);
 		list *lje = sa_list(sql->sa);
 		list *rje = sa_list(sql->sa);
+		char *handled = SA_ZNEW_ARRAY(sql->sa, char, list_length(rel->exps));
 
 		/* get equi-joins/filters first */
+		/* TODO handle select expressions!! */
 		if (list_length(rel->exps) > 1) {
-			for( en = rel->exps->h; en; en = en->next ) {
+			for( en = rel->exps->h, i=0; en; en = en->next, i++) {
 				sql_exp *e = en->data;
-				if (e->type == e_cmp && (e->flag == cmp_equal || e->flag == cmp_filter))
-					append(jexps, e);
+				if (e->type == e_cmp && (e->flag == cmp_equal || e->flag == cmp_filter)) {
+					if ( !((rel_find_exp(rel->l, e->l) && rel_find_exp(rel->l, e->r))  ||
+					       (rel_find_exp(rel->r, e->l) && rel_find_exp(rel->r, e->r)))) {
+						append(jexps, e);
+						handled[i] = 1;
+					}
+				}
 			}
-			for( en = rel->exps->h; en; en = en->next ) {
+			if (list_empty(jexps)) {
+				stmt *l = bin_first_column(be, left);
+				stmt *r = bin_first_column(be, right);
+				join = stmt_join(be, l, r, 0, cmp_all); 
+			}
+			for( en = rel->exps->h, i=0; en; en = en->next, i++) {
 				sql_exp *e = en->data;
-				if (e->type != e_cmp || (e->flag != cmp_equal && e->flag != cmp_filter))
+				if (!handled[i])
 					append(jexps, e);
 			}
 			rel->exps = jexps;
 		}
 
 		/* generate a relational join */
+		if (join)
+			en = rel->exps->h;
+		else
 		for( en = rel->exps->h; en; en = en->next ) {
 			int join_idx = sql->opt_stats[0];
 			sql_exp *e = en->data;

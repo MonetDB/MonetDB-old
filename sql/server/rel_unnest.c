@@ -178,6 +178,7 @@ merge_freevar(list *l, list *r)
 }
 
 static list * exps_freevar(mvc *sql, list *exps);
+static list * rel_freevar(mvc *sql, sql_rel *rel);
 
 static list *
 exp_freevar(mvc *sql, sql_exp *e)
@@ -218,6 +219,10 @@ exp_freevar(mvc *sql, sql_exp *e)
 		}
 		break;
 	case e_psm:
+		if (exp_is_rel(e))
+			if (rel_has_freevar(sql, e->l))
+				return rel_freevar(sql, e->l);
+		return NULL;
 	case e_atom:
 	default:
 		return NULL;
@@ -509,6 +514,31 @@ exp_rewrite(mvc *sql, sql_rel *rel, sql_exp *e, list *ad)
 	return e;
 }
 
+static sql_exp *
+rel_bound_exp(mvc *sql, sql_rel *rel )
+{
+	while (rel->l) {
+		rel = rel->l;
+		if (is_base(rel->op) || is_project(rel->op))
+			break;
+	}
+
+	if (rel) {
+		node *n;
+		for(n = rel->exps->h; n; n = n->next){
+			sql_exp *e = n->data;
+
+			if (exp_is_atom(e))
+				return e;
+			if (!is_freevar(e))
+				return exp_ref(sql->sa, e);
+		}
+	}
+	if (rel && is_project(rel->op)) /* add dummy expression */
+		return rel_project_add_exp(sql, rel, exp_atom_bool(sql->sa, 1));
+	return NULL;
+}
+
 static sql_rel *
 push_up_project(mvc *sql, sql_rel *rel, list *ad) 
 {
@@ -561,18 +591,33 @@ push_up_project(mvc *sql, sql_rel *rel, list *ad)
 
 		assert(!rel_is_ref(r));
 		if (r && r->op == op_project /*&& r->l*/) {
+			sql_exp *id = NULL;
 			node *m;
 			/* move project up, ie all attributes of left + the old expression list */
 			sql_rel *n = rel_project( sql->sa, (r->l)?rel:rel->l, 
 					rel_projections(sql, rel->l, NULL, 1, 1));
 
 			/* only pass bound variables */
+			if (is_left(rel->op) && exps_have_freevar(sql, r->exps)) {
+				id = rel_bound_exp(sql, r);
+				id = rel_project_add_exp(sql, n, id);
+			}
 			for (m=r->exps->h; m; m = m->next) {
 				sql_exp *e = m->data;
 
 				if (!e->freevar || exp_name(e)) { /* only skip full freevars */
-					if (exp_has_freevar(sql, e)) 
+					if (exp_has_freevar(sql, e)) {
 						rel_bind_var(sql, rel->l, e);
+						if (is_left(rel->op)) { /* add ifthenelse */
+							/* need bound var from r */
+							/* if id is NULL then NULL else e */
+							sql_exp *ne = rel_unop_(sql, NULL, exp_copy(sql, id), NULL, "isnull", card_value);
+							set_has_no_nil(ne);
+							ne = rel_nop_(sql, NULL, ne, exp_null(sql->sa, exp_subtype(e)), e, NULL, NULL, "ifthenelse", card_value);
+							exp_prop_alias(ne, e);
+							e = ne;
+						}
+					}
 				}
 				if (r->l)
 					e = exp_rewrite(sql, r->l, e, ad);
@@ -1593,29 +1638,6 @@ rewrite_rank(mvc *sql, sql_rel *rel, sql_exp *e, int depth)
 	return e;
 }
 
-static sql_exp *
-rel_bound_exp(mvc *sql, sql_rel *rel )
-{
-	while (rel->l) {
-		rel = rel->l;
-		if (is_base(rel->op) || is_project(rel->op))
-			break;
-	}
-
-	if (rel) {
-		node *n;
-		for(n = rel->exps->h; n; n = n->next){
-			sql_exp *e = n->data;
-
-			if (exp_is_atom(e))
-				return e;
-			if (!is_freevar(e))
-				return exp_ref(sql->sa, e);
-		}
-	}
-	return NULL;
-}
-
 #define is_anyequal_func(sf) (strcmp(sf->func->base.name, "sql_anyequal") == 0 || strcmp(sf->func->base.name, "sql_not_anyequal") == 0)
 #define is_anyequal(sf) (strcmp(sf->func->base.name, "sql_anyequal") == 0)
 
@@ -1763,7 +1785,9 @@ rewrite_anyequal(mvc *sql, sql_rel *rel, sql_exp *e, int depth)
 					lid = exp_atom_lng(sql->sa, 1);
 				} else {
 					exps = rel_projections(sql, lsq, NULL, 1/*keep names */, 1);
-					rel->l = lsq = rel_add_identity(sql, lsq, &lid);
+					lsq = rel_add_identity(sql, lsq, &lid);
+					if (!sq)
+						rel->l = lsq;
 					lid = exp_ref(sql->sa, lid);
 				}
 
@@ -2270,8 +2294,8 @@ rel_unnest(mvc *sql, sql_rel *rel)
 	rel = rel_exp_visitor(sql, rel, &rewrite_compare);
 	rel = rel_exp_visitor(sql, rel, &rewrite_exists);
 	rel = rel_exp_visitor(sql, rel, &rewrite_ifthenelse); 	/* add isnull handling */
-	rel = rel_visitor(sql, rel, &rewrite_compare_exp); 	/* only allow for e_cmp in selects and  handling */
 	rel = rel_exp_visitor(sql, rel, &rewrite_exp_rel);
+	rel = rel_visitor(sql, rel, &rewrite_compare_exp); 	/* only allow for e_cmp in selects and  handling */
 	rel = rel_visitor(sql, rel, &rewrite_empty_project);
 	rel = _rel_unnest(sql, rel);
 	rel = rel_visitor(sql, rel, &rewrite_fix_count);	/* fix count inside a left join (adds a project (if (cnt IS null) then (0) else (cnt)) */
