@@ -229,8 +229,8 @@ str
 SQLoptimizeQuery(Client c, MalBlkPtr mb)
 {
 	backend *be;
-	str msg = 0, pipe = 0;
-	bool free_pipe = false;
+	str msg = 0;
+	str pipe;
 
 	if (mb->stop > 0 &&
 	    mb->stmt[mb->stop-1]->token == REMsymbol &&
@@ -263,15 +263,7 @@ SQLoptimizeQuery(Client c, MalBlkPtr mb)
 	}
 
 	pipe = getSQLoptimizer(be->mvc);
-	if( strcmp(pipe, "default_pipe") == 0 && c->optimizer) {
-		if (!(pipe = GDKstrdup(c->optimizer)))
-			throw(MAL, "sql.optimizeQuery", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-		free_pipe = true;
-	}
-
 	msg = addOptimizers(c, mb, pipe, FALSE);
-	if (free_pipe)
-		GDKfree(pipe);
 	if (msg)
 		return msg;
 	mb->keephistory |= be->mvc->emod & mod_debug;

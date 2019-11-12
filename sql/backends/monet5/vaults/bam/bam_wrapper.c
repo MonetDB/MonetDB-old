@@ -480,7 +480,8 @@ read_string_until_delim(str * src, str * ret, char *delims, sht nr_delims)
 	if (*ret == NULL)
 		return -1;
 
-	strcpy_len(*ret, *src, size + 1);
+	strncpy(*ret, *src, size);
+	*(*ret + size) = '\0';
 
 	/* and advance src */
 	*src += size;

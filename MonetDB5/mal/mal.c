@@ -73,6 +73,7 @@ int mal_init(void){
 #ifndef HAVE_EMBEDDED
 	initHeartbeat();
 #endif
+	initResource();
 	str err = malBootstrap();
 	if (err != MAL_SUCCEED) {
 		mal_client_reset();

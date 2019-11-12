@@ -304,7 +304,8 @@ typedef struct MT_Lock {
 	do {							\
 		assert((l)->lock == NULL);			\
 		(l)->lock = CreateMutex(NULL, 0, NULL);		\
-		strcpy_len((l)->name, (n), sizeof((l)->name));	\
+		strncpy((l)->name, (n), sizeof((l)->name));	\
+		(l)->name[sizeof((l)->name) - 1] = 0;		\
 		_DBG_LOCK_INIT(l);				\
 	} while (0)
 
@@ -375,7 +376,8 @@ typedef struct MT_Lock {
 #define MT_lock_init(l, n)					\
 	do {							\
 		pthread_mutex_init(&(l)->lock, 0);		\
-		strcpy_len((l)->name, (n), sizeof((l)->name));	\
+		strncpy((l)->name, (n), sizeof((l)->name));	\
+		(l)->name[sizeof((l)->name) - 1] = 0;		\
 		_DBG_LOCK_INIT(l);				\
 	} while (0)
 
@@ -505,7 +507,8 @@ typedef struct {
 #define MT_sema_init(s, nr, n)						\
 	do {								\
 		assert((s)->sema == NULL);				\
-		strcpy_len((s)->name, (n), sizeof((s)->name));		\
+		strncpy((s)->name, (n), sizeof((s)->name));		\
+		(s)->name[sizeof((s)->name) - 1] = 0;			\
 		(s)->sema = CreateSemaphore(NULL, nr, 0x7fffffff, NULL); \
 	} while (0)
 
@@ -542,7 +545,8 @@ typedef struct {
 
 #define MT_sema_init(s, nr, n)						\
 	do {								\
-		strcpy_len((s)->name, (n), sizeof((s)->name));		\
+		strncpy((s)->name, (n), sizeof((s)->name));		\
+		(s)->name[sizeof((s)->name) - 1] = 0;			\
 		(s)->sema = dispatch_semaphore_create((long) (nr));	\
 	} while (0)
 
@@ -563,7 +567,8 @@ typedef struct {
 
 #define MT_sema_init(s, nr, n)					\
 	do {							\
-		strcpy_len((s)->name, (n), sizeof((s)->name));	\
+		strncpy((s)->name, (n), sizeof((s)->name));	\
+		(s)->name[sizeof((s)->name) - 1] = 0;		\
 		(s)->cnt = (nr);				\
 		pthread_mutex_init(&(s)->mutex, 0);		\
 		pthread_cond_init(&(s)->cond, 0);		\
@@ -611,7 +616,8 @@ typedef struct {
 
 #define MT_sema_init(s, nr, n)					\
 	do {							\
-		strcpy_len((s)->name, (n), sizeof((s)->name));	\
+		strncpy((s)->name, (n), sizeof((s)->name));	\
+		(s)->name[sizeof((s)->name) - 1] = 0;		\
 		sem_init(&(s)->sema, 0, nr);			\
 	} while (0)
 

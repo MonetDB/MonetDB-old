@@ -6,7 +6,6 @@
 
 INCLUDES = \
 	../../mapilib \
-	../../../common/utils \
 	$(ODBC_INCS)
 
 DEFS = @DEFS@

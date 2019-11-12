@@ -265,8 +265,7 @@ prepareMALstack(MalBlkPtr mb, int size)
 	//stk->stksize = size;
 	stk->stktop = mb->vtop;
 	stk->blk = mb;
-	ATOMIC_SET(&stk->workers, 0);
-	ATOMIC_SET(&stk->memory, 0);
+
 	initStack(0, res);
 	if(!res) {
 		freeStack(stk);
@@ -569,10 +568,10 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 				 * time and print the query */
 				if (ATOMIC_CAS(&cntxt->lastprint, &lp, t)) {
 					const char *q = cntxt->getquery ? cntxt->getquery(cntxt) : NULL;
-					fprintf(stderr, "#%s: query already running "LLFMT"s: %.200s\n",
-							cntxt->mythread->name,
-							(lng) (time(0) - cntxt->lastcmd),
-							q ? q : "");
+					INFO(MAL_ALL, "%s: query already running "LLFMT"s: %.200s\n",
+						cntxt->mythread->name,
+						(lng) (time(0) - cntxt->lastcmd),
+						q ? q : "");
 				}
 			}
 		}

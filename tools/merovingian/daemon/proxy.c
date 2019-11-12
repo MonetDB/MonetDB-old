@@ -20,7 +20,6 @@
 # include <sys/uio.h>
 #endif
 
-#include "mstring.h"
 #include "stream.h"
 #include "stream_socket.h"
 
@@ -142,7 +141,7 @@ startProxy(int psock, stream *cfdin, stream *cfout, char *url, char *client)
 		server = (struct sockaddr_un) {
 			.sun_family = AF_UNIX,
 		};
-		strcpy_len(server.sun_path, conn, sizeof(server.sun_path));
+		strncpy(server.sun_path, conn, sizeof(server.sun_path) - 1);
 		free(conn);
 		if ((ssock = socket(PF_UNIX, SOCK_STREAM
 #ifdef SOCK_CLOEXEC

@@ -3236,7 +3236,8 @@ STRSubString(str *res, const str *arg1, const int *offset, const int *length)
 	*res = GDKmalloc(len + 1);
 	if (*res == NULL)
 		throw(MAL, "str.substring", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	strcpy_len(*res, s, len + 1);
+	strncpy(*res, s, len);
+	(*res)[len] = 0;
 	return MAL_SUCCEED;
 }
 

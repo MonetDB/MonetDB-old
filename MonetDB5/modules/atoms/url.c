@@ -380,7 +380,8 @@ URLgetBasename(str *retval, url *val)
 			l = s - b;
 		}
 		if ((*retval = GDKmalloc(l + 1)) != NULL) {
-			strcpy_len(*retval, b, l + 1);
+			strncpy(*retval, b, l);
+			(*retval)[l] = 0;
 		}
 	}
 	if (*retval == NULL)
@@ -416,7 +417,8 @@ URLgetContext(str *retval, url *val)
 	if (p == s) {
 		*retval = GDKstrdup(str_nil);
 	} else if ((*retval = GDKmalloc(s - p + 1)) != NULL) {
-		strcpy_len(*retval, p, s - p + 1);
+		strncpy(*retval, p, s - p);
+		(*retval)[s - p] = 0;
 	}
 	if (*retval == NULL)
 		throw(MAL, "url.getContext", SQLSTATE(HY001) MAL_MALLOC_FAIL);
@@ -444,7 +446,8 @@ URLgetExtension(str *retval, url *val)
 
 		assert(*e == '.');
 		if ((*retval = GDKmalloc(l)) != NULL) {
-			strcpy_len(*retval, e + 1, l);
+			strncpy(*retval, e + 1, l - 1);
+			(*retval)[l - 1] = 0;
 		}
 	}
 	if (*retval == NULL)
@@ -473,7 +476,8 @@ URLgetFile(str *retval, url *val)
 
 		l = s - b;
 		if ((*retval = GDKmalloc(l + 1)) != NULL) {
-			strcpy_len(*retval, b, l + 1);
+			strncpy(*retval, b, l);
+			(*retval)[l] = 0;
 		}
 	}
 	if (*retval == NULL)
@@ -506,7 +510,8 @@ URLgetHost(str *retval, url *val)
 			l = s - h;
 		}
 		if ((*retval = GDKmalloc(l + 1)) != NULL) {
-			strcpy_len(*retval, h, l + 1);
+			strncpy(*retval, h, l);
+			(*retval)[l] = 0;
 		}
 	}
 	if (*retval == NULL)
@@ -543,7 +548,8 @@ URLgetDomain(str *retval, url *val)
 			l++;
 		}
 		if ((*retval = GDKmalloc(l + 1)) != NULL) {
-			strcpy_len(*retval, p, l + 1);
+			strncpy(*retval, p, l);
+			(*retval)[l] = 0;
 		}
 	}
 	if (*retval == NULL)
@@ -570,7 +576,8 @@ URLgetPort(str *retval, url *val)
 		size_t l = s - p;
 
 		if ((*retval = GDKmalloc(l + 1)) != NULL) {
-			strcpy_len(*retval, p, l + 1);
+			strncpy(*retval, p, l);
+			(*retval)[l] = 0;
 		}
 	}
 	if (*retval == NULL)
@@ -593,7 +600,8 @@ URLgetProtocol(str *retval, url *val)
 	l = s - *val;
 	if ((*retval = GDKmalloc(l)) == NULL)
 		throw(MAL, "url.getProtocol", SQLSTATE(HY001) MAL_MALLOC_FAIL);
-	strcpy_len(*retval, *val, l);
+	strncpy(*retval, *val, l - 1);
+	(*retval)[l - 1] = 0;
 	return MAL_SUCCEED;
 }
 
@@ -618,7 +626,8 @@ URLgetQuery(str *retval, url *val)
 		q++;
 		l = s - q;
 		if ((*retval = GDKmalloc(l + 1)) != NULL) {
-			strcpy_len(*retval, q, l + 1);
+			strncpy(*retval, q, l);
+			(*retval)[l] = 0;
 		}
 	} else {
 		*retval = GDKstrdup(str_nil);
@@ -674,7 +683,8 @@ URLgetUser(str *retval, url *val)
 			;
 		l = p - u;
 		if ((*retval = GDKmalloc(l + 1)) != NULL) {
-			strcpy_len(*retval, u, l + 1);
+			strncpy(*retval, u, l);
+			(*retval)[l] = 0;
 		}
 	}
 	if (*retval == NULL)
