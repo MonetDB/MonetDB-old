@@ -35,7 +35,7 @@ int
 exp_has_freevar(mvc *sql, sql_exp *e)
 {
 	if (THRhighwater()) {
-		(void) sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		(void) sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 		return 0;
 	}
 
@@ -73,7 +73,7 @@ exps_have_freevar(mvc *sql, list *exps)
 	node *n;
 
 	if (THRhighwater()) {
-		(void) sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		(void) sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 		return 0;
 	}
 	if (!exps)
@@ -90,7 +90,7 @@ int
 rel_has_freevar(mvc *sql, sql_rel *rel)
 {
 	if (THRhighwater()) {
-		(void) sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		(void) sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 		return 0;
 	}
 
@@ -127,7 +127,7 @@ static list *
 exp_freevar(mvc *sql, sql_exp *e)
 {
 	if (THRhighwater())
-		return sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		return sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 
 	switch(e->type) {
 	case e_column:
@@ -176,7 +176,7 @@ exps_freevar(mvc *sql, list *exps)
 	list *c = NULL;
 
 	if (THRhighwater())
-		return sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		return sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 	if (!exps)
 		return NULL;
 	for (n = exps->h; n; n = n->next) {
@@ -194,7 +194,7 @@ rel_freevar(mvc *sql, sql_rel *rel)
 	list *lexps = NULL, *rexps = NULL, *exps = NULL;
 
 	if (THRhighwater())
-		return sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		return sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 	if (!rel)
 		return NULL;
 	switch(rel->op) {
@@ -326,7 +326,7 @@ static sql_exp *
 push_up_project_exp(mvc *sql, sql_rel *rel, sql_exp *e)
 {
 	if (THRhighwater())
-		return sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		return sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 
 	switch(e->type) {
 	case e_cmp:
@@ -586,10 +586,16 @@ push_up_groupby(mvc *sql, sql_rel *rel, list *ad)
 
 		/* left of rel should be a set */ 
 		if (l && is_distinct_set(sql, l, ad) && r && r->op == op_groupby) {
-			list *sexps, *jexps;
+			list *sexps, *jexps, *a = rel_projections(sql, rel->l, NULL, 1, 1);
 			node *n;
+			sql_exp *id = NULL;
+
 			/* move groupby up, ie add attributes of left + the old expression list */
-			list *a = rel_projections(sql, rel->l, NULL, 1, 1);
+
+			if (l && list_length(a) > 1 && !need_distinct(l)) { /* add identity call only if there's more than one column in the groupby */
+				rel->l = rel_add_identity(sql, l, &id); /* add identity call for group by */
+				assert(id);
+			}
 		
 			assert(rel->op != op_anti);
 			if (rel->op == op_semi && !need_distinct(l))
@@ -622,10 +628,17 @@ push_up_groupby(mvc *sql, sql_rel *rel, list *ad)
 					rel_bind_var(sql, rel->l, e);
 			}
 			r->exps = list_merge(r->exps, a, (fdup)NULL);
-			if (!r->r)
-				r->r = exps_copy(sql->sa, a);
-			else
-				r->r = list_distinct(list_merge(r->r, exps_copy(sql->sa, a), (fdup)NULL), (fcmp)exp_equal, (fdup)NULL);
+			if (!r->r) {
+				if (id)
+					r->r = list_append(sa_list(sql->sa), exp_ref(sql->sa, id));
+				else
+					r->r = exps_copy(sql->sa, a);
+			} else {
+				if (id)
+					list_append(r->r, exp_ref(sql->sa, id));
+				else
+					r->r = list_distinct(list_merge(r->r, exps_copy(sql->sa, a), (fdup)NULL), (fcmp)exp_equal, (fdup)NULL);
+			}
 
 			if (!r->l) {
 				r->l = rel->l;
@@ -983,7 +996,7 @@ rel_unnest_dependent(mvc *sql, sql_rel *rel)
 	sql_rel *nrel = rel;
 
 	if (THRhighwater())
-		return sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		return sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 
 	/* current unnest only possible for equality joins, <, <> etc needs more work */
 	if (rel && (is_join(rel->op) || is_semi(rel->op)) && is_dependent(rel)) {
@@ -1067,7 +1080,7 @@ sql_rel *
 rel_unnest(mvc *sql, sql_rel *rel)
 {
 	if (THRhighwater())
-		return sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		return sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 	if (!rel)
 		return rel;
 
