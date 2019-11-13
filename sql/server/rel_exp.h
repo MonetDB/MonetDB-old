@@ -90,7 +90,7 @@ extern sql_exp * exp_rel(mvc *sql, sql_rel * r);
 extern void exp_setname(sql_allocator *sa, sql_exp *e, const char *rname, const char *name );
 extern void exp_setrelname(sql_allocator *sa, sql_exp *e, int nr );
 extern void exp_setalias(sql_exp *e, const char *rname, const char *name);
-extern void exp_prop_alias(sql_exp *e, sql_exp *oe);
+extern void exp_prop_alias(sql_allocator *sa, sql_exp *e, sql_exp *oe);
 
 extern void noninternexp_setname(sql_allocator *sa, sql_exp *e, const char *rname, const char *name );
 extern char* make_label(sql_allocator *sa, int nr);
@@ -137,7 +137,7 @@ extern int exp_is_null(mvc *sql, sql_exp *e);
 extern int exp_is_rel(sql_exp *e);
 extern int exp_has_rel(sql_exp *e);
 extern int exps_have_rel_exp(list *exps);
-extern sql_rel *exp_rel_get_rel( sql_exp *e);
+extern sql_rel *exp_rel_get_rel(sql_allocator *sa, sql_exp *e);
 extern sql_exp *exp_rel_update_exp(sql_allocator *sa, sql_exp *e);
 extern int exps_are_atoms(list *exps);
 extern int exp_has_func(sql_exp *e);

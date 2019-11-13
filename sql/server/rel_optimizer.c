@@ -2901,7 +2901,7 @@ exp_case_fixup( mvc *sql, sql_rel *rel, sql_exp *e, sql_exp *cc )
 				list_append(l, a);
 			}
 			ne = exp_op(sql->sa, l, f);
-			exp_prop_alias(ne, e);
+			exp_prop_alias(sql->sa, ne, e);
 			if (cc && math_unsafe(f)) {
 				/* only add one condition */
 				assert(f->func->varres || f->func->vararg || list_length(ne->l) == list_length(f->func->ops)); 
@@ -2945,7 +2945,7 @@ exp_case_fixup( mvc *sql, sql_rel *rel, sql_exp *e, sql_exp *cc )
 			}
 			assert(cond && a1 && a2);
 			nne = exp_op3(sql->sa, cond, a1, a2, ne->f);
-			exp_prop_alias(nne, ne);
+			exp_prop_alias(sql->sa, nne, ne);
 			ne = nne;
 		}
 		return ne;
@@ -2954,7 +2954,7 @@ exp_case_fixup( mvc *sql, sql_rel *rel, sql_exp *e, sql_exp *cc )
 		sql_exp *e1 = exp_case_fixup(sql, rel, e->l, cc);
 		sql_exp *ne = exp_convert(sql->sa, e1, exp_fromtype(e), exp_totype(e));
 
-		exp_prop_alias(ne, e);
+		exp_prop_alias(sql->sa, ne, e);
 		return ne;
 	} 
 	if (e->type == e_aggr) {
@@ -2972,7 +2972,7 @@ exp_case_fixup( mvc *sql, sql_rel *rel, sql_exp *e, sql_exp *cc )
 			}
 		}
 		ne = exp_aggr(sql->sa, l, f, need_distinct(e), need_no_nil(e), e->card, has_nil(e));
-		exp_prop_alias(ne, e);
+		exp_prop_alias(sql->sa, ne, e);
 		return ne;
 	}
 	return e;
@@ -5603,7 +5603,7 @@ rel_reduce_groupby_exps(int *changes, mvc *sql, sql_rel *rel)
 							ne = exps_bind_column(dgbe, e->r, NULL);
 						if (ne) {
 							ne = exp_copy(sql, ne);
-							exp_prop_alias(ne, e);
+							exp_prop_alias(sql->sa, ne, e);
 							e = ne;
 						}
 					}
@@ -6255,6 +6255,20 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 	return rel;
 }
 
+static int exp_mark_used(sql_rel *subrel, sql_exp *e);
+
+static int 
+exps_mark_used(sql_rel *subrel, list *l) 
+{
+	int nr = 0;
+	if (list_empty(l))
+		return nr;
+
+	for (node *n = l->h; n != NULL; n = n->next) 
+		nr += exp_mark_used(subrel, n->data);
+	return nr;
+}
+
 static int
 exp_mark_used(sql_rel *subrel, sql_exp *e)
 {
@@ -6269,32 +6283,17 @@ exp_mark_used(sql_rel *subrel, sql_exp *e)
 		return exp_mark_used(subrel, e->l);
 	case e_aggr:
 	case e_func: {
-		if (e->l) {
-			list *l = e->l;
-			node *n = l->h;
-	
-			for (;n != NULL; n = n->next) 
-				nr += exp_mark_used(subrel, n->data);
-		}
+		if (e->l)
+			nr += exps_mark_used(subrel, e->l);
 		break;
 	}
 	case e_cmp:
 		if (get_cmp(e) == cmp_or || get_cmp(e) == cmp_filter) {
-			list *l = e->l;
-			node *n;
-	
-			for (n = l->h; n != NULL; n = n->next) 
-				nr += exp_mark_used(subrel, n->data);
-			l = e->r;
-			for (n = l->h; n != NULL; n = n->next) 
-				nr += exp_mark_used(subrel, n->data);
+			nr += exps_mark_used(subrel, e->l);
+			nr += exps_mark_used(subrel, e->r);
 		} else if (e->flag == cmp_in || e->flag == cmp_notin) {
-			list *r = e->r;
-			node *n;
-
 			nr += exp_mark_used(subrel, e->l);
-			for (n = r->h; n != NULL; n = n->next)
-				nr += exp_mark_used(subrel, n->data);
+			nr += exps_mark_used(subrel, e->r);
 		} else {
 			nr += exp_mark_used(subrel, e->l);
 			nr += exp_mark_used(subrel, e->r);
@@ -6306,7 +6305,9 @@ exp_mark_used(sql_rel *subrel, sql_exp *e)
 		/* atoms are used in e_cmp */
 		e->used = 1;
 		/* return 0 as constants may require a full column ! */
-		return 0;
+		if (e->f)
+			nr += exps_mark_used(subrel, e->f);
+		return nr;
 	case e_psm:
 		e->used = 1;
 		break;
@@ -6337,7 +6338,7 @@ positional_exps_mark_used( sql_rel *rel, sql_rel *subrel )
 }
 
 static void
-exps_mark_used(sql_allocator *sa, sql_rel *rel, sql_rel *subrel)
+rel_exps_mark_used(sql_allocator *sa, sql_rel *rel, sql_rel *subrel)
 {
 	int nr = 0;
 
@@ -6472,10 +6473,10 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 	case op_project:
 	case op_groupby: 
 		if (proj && rel->l) {
-			exps_mark_used(sql->sa, rel, rel->l);
+			rel_exps_mark_used(sql->sa, rel, rel->l);
 			rel_mark_used(sql, rel->l, 0);
 		} else if (proj) {
-			exps_mark_used(sql->sa, rel, NULL);
+			rel_exps_mark_used(sql->sa, rel, NULL);
 		}
 		break;
 	case op_update:
@@ -6486,7 +6487,7 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 				sql_exp *e = r->exps->h->data;
 				e->used = 1;
 			}
-			exps_mark_used(sql->sa, rel, rel->r);
+			rel_exps_mark_used(sql->sa, rel, rel->r);
 			rel_mark_used(sql, rel->r, 0);
 		}
 		break;
@@ -6498,7 +6499,7 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 
 	case op_select:
 		if (rel->l) {
-			exps_mark_used(sql->sa, rel, rel->l);
+			rel_exps_mark_used(sql->sa, rel, rel->l);
 			rel_mark_used(sql, rel->l, 0);
 		}
 		break;
@@ -6525,13 +6526,13 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 			sql_rel *l = rel->l;
 
 			positional_exps_mark_used(rel, l);
-			exps_mark_used(sql->sa, rel, l);
+			rel_exps_mark_used(sql->sa, rel, l);
 			rel_mark_used(sql, rel->l, 0);
 			/* based on child check set expression list */
 			if (is_project(l->op) && need_distinct(l))
 				positional_exps_mark_used(l, rel);
 			positional_exps_mark_used(rel, rel->r);
-			exps_mark_used(sql->sa, rel, rel->r);
+			rel_exps_mark_used(sql->sa, rel, rel->r);
 			rel_mark_used(sql, rel->r, 0);
 		}
 		break;
@@ -6542,8 +6543,8 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 	case op_full: 
 	case op_semi: 
 	case op_anti: 
-		exps_mark_used(sql->sa, rel, rel->l);
-		exps_mark_used(sql->sa, rel, rel->r);
+		rel_exps_mark_used(sql->sa, rel, rel->l);
+		rel_exps_mark_used(sql->sa, rel, rel->r);
 		rel_mark_used(sql, rel->l, 0);
 		rel_mark_used(sql, rel->r, 0);
 		break;
@@ -6590,7 +6591,7 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 				if (e->used)
 					append(exps, e);
 			}
-			/* atleast one (needed for crossproducts, count(*), rank() and single value projections) !, handled by exps_mark_used */
+			/* atleast one (needed for crossproducts, count(*), rank() and single value projections) !, handled by rel_exps_mark_used */
 			if (list_length(exps) == 0)
 				append(exps, rel->exps->h->data);
 			rel->exps = exps;

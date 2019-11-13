@@ -732,10 +732,10 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 			if (!s) {
 				fprintf(stderr, "query: '%s'\n", sql->query);
 			}
-			//assert(s);
+			assert(s);
 			return NULL;
 		}
-	 }	break;
+	}	break;
 	case e_cmp: {
 		stmt *l = NULL, *r = NULL, *r2 = NULL;
 		int swapped = 0, is_select = 0;

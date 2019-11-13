@@ -2092,6 +2092,8 @@ rel_visitor(mvc *sql, sql_rel *rel, rel_rewrite_fptr rel_rewriter)
 		if (rel->l)
 			if ((rel->l = rel_visitor(sql, rel->l, rel_rewriter)) == NULL)
 				return NULL;
+		if ((rel->exps = exps_rel_visitor(sql, rel->exps, rel_rewriter)) == NULL)
+			return NULL;
 		break;
 	}
 	return rel_rewriter(sql, rel);

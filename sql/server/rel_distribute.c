@@ -80,7 +80,7 @@ rewrite_replica( mvc *sql, sql_rel *rel, sql_table *t, sql_part *pd, int remote_
 		sql_exp *e = n->data;
 		sql_exp *ne = m->data;
 
-		exp_prop_alias(ne, e);
+		exp_prop_alias(sql->sa, ne, e);
 	}
 	rel_destroy(rel);
 

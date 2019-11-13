@@ -10,6 +10,7 @@
 #include "sql_relation.h"
 #include "sql_semantic.h"
 #include "rel_exp.h"
+#include "rel_rel.h"
 #include "rel_prop.h" /* for prop_copy() */
 #include "rel_unnest.h"
 #include "rel_optimizer.h"
@@ -778,10 +779,12 @@ exp_setalias(sql_exp *e, const char *rname, const char *name )
 }
 
 void 
-exp_prop_alias(sql_exp *e, sql_exp *oe )
+exp_prop_alias(sql_allocator *sa, sql_exp *e, sql_exp *oe )
 {
 	if (oe->alias.name == NULL && exp_has_rel(oe)) {
-		sql_rel *r = exp_rel_get_rel(oe);
+		sql_rel *r = exp_rel_get_rel(sa, oe);
+		if (!is_project(r->op))
+			return ;
 		oe = r->exps->t->data;
 	}
 	e->alias = oe->alias;
@@ -1685,23 +1688,32 @@ exps_have_rel_exp( list *exps)
 	return 0;
 }
 
-/* For now only handle single relation, later combine multiple relations into one (using crossproduct */
 static sql_rel *
-exps_rel_get_rel( list *exps )
+exps_rel_get_rel(sql_allocator *sa, list *exps )
 {
+	sql_rel *xp = NULL;
+
 	if (list_empty(exps))
 		return NULL;
 	for (node *n = exps->h; n; n=n->next){
 		sql_exp *e = n->data;
 
-		if (exp_has_rel(e))
-			return exp_rel_get_rel(e);
+		if (exp_has_rel(e)) {
+			sql_rel *r = exp_rel_get_rel(sa, e);
+
+			if (!r)
+				return NULL;
+			if (xp)
+				xp = rel_crossproduct(sa, xp, r, op_join);
+			else
+				xp = r;
+		}
 	}
-	return NULL;
+	return xp;
 }
 
 sql_rel *
-exp_rel_get_rel( sql_exp *e)
+exp_rel_get_rel(sql_allocator *sa, sql_exp *e)
 {
 	if (!e)
 		return NULL;
@@ -1709,36 +1721,36 @@ exp_rel_get_rel( sql_exp *e)
 	switch(e->type){
 	case e_func:
 	case e_aggr: 
-		return exps_rel_get_rel(e->l);
+		return exps_rel_get_rel(sa, e->l);
 	case e_cmp:
 		if (get_cmp(e) == cmp_or || get_cmp(e) == cmp_filter) {
 			if (exps_have_rel_exp(e->l))
-				return exps_rel_get_rel(e->l);
+				return exps_rel_get_rel(sa, e->l);
 			if (exps_have_rel_exp(e->r))
-				return exps_rel_get_rel(e->r);
+				return exps_rel_get_rel(sa, e->r);
 		} else if (e->flag == cmp_in || e->flag == cmp_notin) {
 			if (exp_has_rel(e->l))
-				return exp_rel_get_rel(e->l);
+				return exp_rel_get_rel(sa, e->l);
 			if (exps_have_rel_exp(e->r))
-				return exps_rel_get_rel(e->r);
+				return exps_rel_get_rel(sa, e->r);
 		} else {
 			if (exp_has_rel(e->l))
-				return exp_rel_get_rel(e->l);
+				return exp_rel_get_rel(sa, e->l);
 			if (exp_has_rel(e->r))
-				return exp_rel_get_rel(e->r);
+				return exp_rel_get_rel(sa, e->r);
 			if (e->f && exp_has_rel(e->f))
-				return exp_rel_get_rel(e->f);
+				return exp_rel_get_rel(sa, e->f);
 		}
 		return NULL;
 	case e_convert:
-		return exp_rel_get_rel(e->l);
+		return exp_rel_get_rel(sa, e->l);
 	case e_psm:
 		if (exp_is_rel(e))
 			return e->l;
 		return NULL;
 	case e_atom:
 		if (e->f && exps_have_rel_exp(e->f))
-			return exps_rel_get_rel(e->f);
+			return exps_rel_get_rel(sa, e->f);
 		return NULL;
 	case e_column:
 		return NULL;
@@ -1757,6 +1769,7 @@ exp_rel_update_exps(sql_allocator *sa, list *exps )
 		if (exp_has_rel(e))
 			n->data = exp_rel_update_exp(sa, e);
 	}
+	list_hash_clear(exps);
 	return exps;
 }
 
@@ -1796,7 +1809,7 @@ exp_rel_update_exp(sql_allocator *sa, sql_exp *e)
 		return e;
 	case e_psm:
 		if (exp_is_rel(e)) {
-			sql_rel *r = exp_rel_get_rel(e);
+			sql_rel *r = exp_rel_get_rel(sa, e);
 			e = r->exps->t->data;
 			return exp_ref(sa, e);
 		}
@@ -2301,7 +2314,7 @@ exp_copy( mvc *sql, sql_exp * e)
 	if (!ne)
 		return ne;
 	if (e->alias.name)
-		exp_prop_alias(ne, e);
+		exp_prop_alias(sql->sa, ne, e);
 	ne = exp_propagate(sql->sa, ne, e);
 	if (is_freevar(e))
 		set_freevar(ne, is_freevar(e)-1);

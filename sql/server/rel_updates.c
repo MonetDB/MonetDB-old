@@ -1170,52 +1170,6 @@ update_table(sql_query *query, dlist *qname, str alias, dlist *assignmentlist, s
 			for (node *nn = res->exps->h ; nn ; nn = nn->next)
 				exp_setname(sql->sa, (sql_exp*) nn->data, alias, NULL); //the last parameter is optional, hence NULL
 		}
-#if 0
-			dlist *selection = dlist_create(sql->sa);
-			dlist *from_list = dlist_create(sql->sa);
-			symbol *sym;
-			sql_rel *sq;
-
-			dlist_append_list(sql->sa, from_list, qname);
-			dlist_append_symbol(sql->sa, from_list, NULL);
-			sym = symbol_create_list(sql->sa, SQL_NAME, from_list);
-			from_list = dlist_create(sql->sa);
-			dlist_append_symbol(sql->sa, from_list, sym);
-
-			{
-				dlist *l = dlist_create(sql->sa);
-
-
-				dlist_append_string(sql->sa, l, tname);
-				dlist_append_string(sql->sa, l, TID);
-				sym = symbol_create_list(sql->sa, SQL_COLUMN, l);
-
-				l = dlist_create(sql->sa);
-				dlist_append_symbol(sql->sa, l, sym);
-				dlist_append_string(sql->sa, l, TID);
-				dlist_append_symbol(sql->sa, selection, 
-				  symbol_create_list(sql->sa, SQL_COLUMN, l));
-			}
-			for (n = assignmentlist->h; n; n = n->next) {
-				dlist *assignment = n->data.sym->data.lval, *l;
-				int single = (assignment->h->next->type == type_string);
-				symbol *a = assignment->h->data.sym;
-
-				l = dlist_create(sql->sa);
-				dlist_append_symbol(sql->sa, l, a);
-				dlist_append_string(sql->sa, l, (single)?assignment->h->next->data.sval:NULL);
-				a = symbol_create_list(sql->sa, SQL_COLUMN, l);
-				dlist_append_symbol(sql->sa, selection, a);
-			}
-		       
-			sym = newSelectNode(sql->sa, 0, selection, NULL, symbol_create_list(sql->sa, SQL_FROM, from_list), opt_where, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-			sq = rel_selects(sql, sym);
-			if (sq)
-				sq = rel_unnest(sql, sq);
-			if (sq)
-				sq = rel_optimizer(sql, sq, 0);
-		}
-#endif
 
 		if (opt_from) {
 			dlist *fl = opt_from->data.lval;
@@ -1244,12 +1198,8 @@ update_table(sql_query *query, dlist *qname, str alias, dlist *assignmentlist, s
 
 			if (!table_privs(sql, t, PRIV_SELECT)) 
 				return sql_error(sql, 02, SQLSTATE(42000) "UPDATE: insufficient privileges for user '%s' to update table '%s'", stack_get_string(sql, "current_user"), tname);
-			/* TODO push outer (to be updated query) */
 			r = rel_logical_exp(query, NULL, opt_where, sql_where);
-			if (r) { /* simple predicate which is not using the to 
-				    be updated table. We add a select all */
-				printf("#simple select\n");
-			} else {
+			if (!r) { 
 				sql->errstr[0] = 0;
 				sql->session->status = status;
 				r = rel_logical_exp(query, res, opt_where, sql_where);

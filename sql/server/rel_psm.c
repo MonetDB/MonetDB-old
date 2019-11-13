@@ -468,7 +468,7 @@ rel_psm_return( sql_query *query, sql_subtype *restype, list *restypelist, symbo
 	if (!res)
 		return NULL;
 	if (!rel && exp_is_rel(res))
-		rel = exp_rel_get_rel(res);
+		rel = exp_rel_get_rel(sql->sa, res);
 	if (ek.card != card_relation && (!restype || (res = rel_check_type(sql, restype, rel, res, type_equal)) == NULL))
 		return (!restype)?sql_error(sql, 02, SQLSTATE(42000) "RETURN: return type does not match"):NULL;
 	else if (ek.card == card_relation && !rel)
