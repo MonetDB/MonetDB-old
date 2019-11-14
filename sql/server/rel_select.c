@@ -3454,6 +3454,7 @@ _rel_aggr(sql_query *query, sql_rel **rel, int distinct, sql_schema *s, char *an
 		if (!group && !all_freevar)
 			return e;
 		if (all_freevar) {
+			exps_reset_freevar(exps);
 			if (is_simple_project(res->op)) {
 				assert(0);
 				e = rel_project_add_exp(sql, res, e);

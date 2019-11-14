@@ -32,14 +32,14 @@ stdout of test 'subquery3` in directory 'sql/test/subquery` itself:
 #    NOT MAX(t1.col6) IN (SELECT SUM(t1.col6) FROM tbl_ProductSales tp HAVING MAX(t1.col1) > MIN(tp.colID))
 #FROM another_T t1
 #GROUP BY t1.col6, t1.col7;
-% .L34 # table_name
-% L34 # name
+% .L31 # table_name
+% L31 # name
 % boolean # type
 % 5 # length
 [ false	]
+[ false	]
+[ false	]
 [ true	]
-[ false	]
-[ false	]
 #SELECT
 #    (SELECT MAX(ColID + col2) FROM tbl_ProductSales) * DENSE_RANK() OVER (PARTITION BY AVG(DISTINCT col5)),
 #    AVG(col1) * MIN(col8) OVER (PARTITION BY col5 ORDER BY col1 ROWS UNBOUNDED PRECEDING) evil,
