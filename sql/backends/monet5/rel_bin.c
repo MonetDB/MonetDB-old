@@ -1954,7 +1954,7 @@ rel2bin_join(backend *be, sql_rel *rel, list *refs)
 			stmt *s = NULL;
 			prop *p;
 
-			/* only handle simple joins here */		
+			/* only handle simple joins here */
 			if ((exp_has_func(e) && get_cmp(e) != cmp_filter) ||
 			    get_cmp(e) == cmp_or || e->f) {
 				if (!join && !list_length(lje)) {
@@ -2155,7 +2155,6 @@ rel2bin_antijoin(backend *be, sql_rel *rel, list *refs)
 	right = row2cols(be, right);
 
 	if (rel->exps) {
-
 		jexps = sa_list(sql->sa);
 		mexps = sa_list(sql->sa);
 
@@ -2232,7 +2231,7 @@ rel2bin_semijoin(backend *be, sql_rel *rel, list *refs)
  	 * 	first cheap join(s) (equality or idx) 
  	 * 	second selects/filters 
 	 */
-	
+
 #if 0
 	if (rel->exps && rel->op == op_anti && need_no_nil(rel)) {
 		sql_subtype *lng = sql_bind_localtype("lng");
@@ -2293,21 +2292,43 @@ rel2bin_semijoin(backend *be, sql_rel *rel, list *refs)
 #endif
 	if (rel->exps) {
 		int idx = 0;
+		list *jexps = sa_list(sql->sa);
 		list *lje = sa_list(sql->sa);
 		list *rje = sa_list(sql->sa);
+
+		/* get equi-joins/filters first */
+		if (list_length(rel->exps) > 1) {
+			for( en = rel->exps->h; en; en = en->next ) {
+				sql_exp *e = en->data;
+				if (e->type == e_cmp && (e->flag == cmp_equal || e->flag == cmp_filter))
+					list_append(jexps, e);
+			}
+			for( en = rel->exps->h; en; en = en->next ) {
+				sql_exp *e = en->data;
+				if (e->type != e_cmp || (e->flag != cmp_equal && e->flag != cmp_filter))
+					list_append(jexps, e);
+			}
+			rel->exps = jexps;
+		}
 
 		for( en = rel->exps->h; en; en = en->next ) {
 			int join_idx = sql->opt_stats[0];
 			sql_exp *e = en->data;
 			stmt *s = NULL;
 
-			/* only handle simple joins here */		
-			if (idx || e->type != e_cmp || (e->flag != cmp_equal && e->flag != mark_in))
-				break;
+			/* only handle simple joins here */
 			if ((exp_has_func(e) && get_cmp(e) != cmp_filter) ||
-			    (get_cmp(e) == cmp_or)) { 
+			    get_cmp(e) == cmp_or || e->f) {
+				if (!join && !list_length(lje)) {
+					stmt *l = bin_first_column(be, left);
+					stmt *r = bin_first_column(be, right);
+					join = stmt_join(be, l, r, 0, cmp_all); 
+				}
 				break;
 			}
+			if (list_length(lje) && (idx || e->type != e_cmp || (e->flag != cmp_equal && e->flag != cmp_filter) ||
+			   (join && e->flag == cmp_filter)))
+				break;
 
 			s = exp_bin(be, en->data, left, right, NULL, NULL, NULL, NULL);
 			if (!s) {

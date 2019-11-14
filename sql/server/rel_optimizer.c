@@ -3978,7 +3978,7 @@ rel_merge_rse(int *changes, mvc *sql, sql_rel *rel)
 	/* only execute once per select */
 	(void)*changes;
 
-	if (is_select(rel->op) && rel->exps) { 
+	if ((is_select(rel->op) || is_join(rel->op)) && rel->exps) { 
 		node *n, *o;
 		list *nexps = new_exp_list(sql->sa);
 
@@ -4539,7 +4539,8 @@ rel_push_select_down(int *changes, mvc *sql, sql_rel *rel)
 		for (n = exps->h; n; n = n->next) { 
 			sql_exp *e = n->data;
 
-			if (exp_is_join_exp(e) == 0) {
+			//if (exp_is_join_exp(e) == 0) {
+			if (exp_is_join(e, NULL) == 0) {
 				append(r->exps, e);
 				(*changes)++;
 			} else {
@@ -4645,8 +4646,7 @@ rel_remove_empty_select(int *changes, mvc *sql, sql_rel *rel)
 
 	if ((is_join(rel->op) || is_semi(rel->op) || is_select(rel->op) || is_project(rel->op) || is_topn(rel->op) || is_sample(rel->op)) && rel->l) {
 		sql_rel *l = rel->l;
-		if (is_select(l->op) && !(rel_is_ref(l)) &&
-		   (!l->exps || list_length(l->exps) == 0)) {
+		if (is_select(l->op) && !(rel_is_ref(l)) && list_empty(l->exps)) {
 			rel->l = l->l;
 			l->l = NULL;
 			rel_destroy(l);
@@ -4655,16 +4655,15 @@ rel_remove_empty_select(int *changes, mvc *sql, sql_rel *rel)
 	}
 	if ((is_join(rel->op) || is_semi(rel->op) || is_set(rel->op)) && rel->r) {
 		sql_rel *r = rel->r;
-		if (is_select(r->op) && !(rel_is_ref(r)) &&
-	   	   (!r->exps || list_length(r->exps) == 0)) {
+		if (is_select(r->op) && !(rel_is_ref(r)) && list_empty(r->exps)) {
 			rel->r = r->l;
 			r->l = NULL;
 			rel_destroy(r);
 			(*changes)++;
 		}
 	} 
-	if (is_join(rel->op) && rel->exps && list_length(rel->exps) == 0) 
-		rel->exps = NULL;
+	if (is_join(rel->op) && list_empty(rel->exps)) 
+		rel->exps = NULL; /* crossproduct */
 	return rel;
 }
 
@@ -5266,7 +5265,7 @@ rel_find_joins(mvc *sql, sql_rel *parent, sql_rel *rel, list *l)
 		case op_full:
 		case op_semi:
 		case op_anti: {
-			found_join *fl = MNEW(found_join);
+			found_join *fl = SA_NEW(sql->sa, found_join);
 			fl->p = parent;
 			fl->j = rel;
 			list_append(l, fl);
@@ -5306,43 +5305,41 @@ rel_find_joins(mvc *sql, sql_rel *parent, sql_rel *rel, list *l)
 static sql_rel *
 rel_merge_identical_joins(int *changes, mvc *sql, sql_rel *rel) 
 {
-	if (is_joinop(rel->op)) {
+	if (is_joinop(rel->op) && rel->l && rel->r) {
 		list *l1 = sa_list(sql->sa), *l2 = sa_list(sql->sa);
 
-		if (rel->l && rel->r) {
-			rel_find_joins(sql, rel, rel->l, l1);
-			rel_find_joins(sql, rel, rel->r, l2);
+		rel_find_joins(sql, rel, rel->l, l1);
+		rel_find_joins(sql, rel, rel->r, l2);
 
-			if (list_length(l1) && list_length(l2)) { /* found joins on both */
-				for (node *n1 = l1->h ; n1; n1 = n1->next) {
-					found_join *f1 = (found_join*) n1->data;
-					for (node *n2 = l2->h ; n2; n2 = n2->next) {
-						found_join *f2 = (found_join*) n2->data;
-						sql_rel *j1 = f1->j, *j2 = f2->j, *j1_l = j1->l, *j1_r = j1->r, *j2_l = j2->l, *j2_r = j2->r;
-						bool sides_equal = false;
+		if (list_length(l1) && list_length(l2)) { /* found joins on both */
+			for (node *n1 = l1->h ; n1; n1 = n1->next) {
+				found_join *f1 = (found_join*) n1->data;
+				for (node *n2 = l2->h ; n2; n2 = n2->next) {
+					found_join *f2 = (found_join*) n2->data;
+					sql_rel *j1 = f1->j, *j2 = f2->j, *j1_l = j1->l, *j1_r = j1->r, *j2_l = j2->l, *j2_r = j2->r;
+					bool sides_equal = false;
 
-						if (j1 != j2) {
-							const char *j1_ln = rel_name(j1_l), *j1_rn = rel_name(j1_r), *j2_ln = rel_name(j2_l), *j2_rn = rel_name(j2_r);
+					if (j1 != j2) {
+						const char *j1_ln = rel_name(j1_l), *j1_rn = rel_name(j1_r), *j2_ln = rel_name(j2_l), *j2_rn = rel_name(j2_r);
 
-							/* So far it looks on identical relations and common basetable relations */
-							if ((j1_l == j2_l || (is_basetable(j1_l->op) && is_basetable(j2_l->op) && strcmp(j1_ln, j2_ln) == 0 && j1_l->l == j2_l->l)) && 
-								(j1_r == j2_r || (is_basetable(j1_r->op) && is_basetable(j2_r->op) && strcmp(j1_rn, j2_rn) == 0 && j1_r->l == j2_r->l)))
-								sides_equal = true;
-							else if ((j1_l == j2_r || (is_basetable(j1_l->op) && is_basetable(j2_r->op) && strcmp(j1_ln, j2_rn) == 0 && j1_l->l == j2_r->l)) && 
-								(j1_r == j2_l || (is_basetable(j1_r->op) && is_basetable(j2_l->op) && strcmp(j1_rn, j2_ln) == 0 && j1_r->l == j2_l->l)))
-								sides_equal = true;
+						/* So far it looks on identical relations and common basetable relations */
+						if ((j1_l == j2_l || (is_basetable(j1_l->op) && is_basetable(j2_l->op) && strcmp(j1_ln, j2_ln) == 0 && j1_l->l == j2_l->l)) && 
+							(j1_r == j2_r || (is_basetable(j1_r->op) && is_basetable(j2_r->op) && strcmp(j1_rn, j2_rn) == 0 && j1_r->l == j2_r->l)))
+							sides_equal = true;
+						else if ((j1_l == j2_r || (is_basetable(j1_l->op) && is_basetable(j2_r->op) && strcmp(j1_ln, j2_rn) == 0 && j1_l->l == j2_r->l)) && 
+							(j1_r == j2_l || (is_basetable(j1_r->op) && is_basetable(j2_l->op) && strcmp(j1_rn, j2_ln) == 0 && j1_r->l == j2_l->l)))
+							sides_equal = true;
 
-							/* the left and right sides are equal */
-							if (sides_equal && exp_match_list(j1->exps, j2->exps)) {
-								sql_rel *p2 = f2->p;
+						/* the left and right sides are equal */
+						if (sides_equal && exp_match_list(j1->exps, j2->exps)) {
+							sql_rel *p2 = f2->p;
 
-								if (p2->l == j2) /* replace j2's parent join with j1 */
-									p2->l = rel_dup(j1);
-								else
-									p2->r = rel_dup(j1);
-								(*changes)++;
-								return rel;
-							}
+							if (p2->l == j2) /* replace j2's parent join with j1 */
+								p2->l = rel_dup(j1);
+							else
+								p2->r = rel_dup(j1);
+							(*changes)++;
+							return rel;
 						}
 					}
 				}
@@ -7295,37 +7292,6 @@ rel_use_index(int *changes, mvc *sql, sql_rel *rel)
 	return rel;
 }
 
-/* TODO CSE */
-#if 0
-static list *
-exp_merge(list *exps)
-{
-	node *n, *m;
-	for (n=exps->h; n && n->next; n = n->next) {
-		sql_exp *e = n->data;
-		/*sql_exp *le = e->l;*/
-		sql_exp *re = e->r;
-
-		if (e->type == e_cmp && e->flag == cmp_or && !is_anti(e))
-			continue;
-
-		/* only look for gt, gte, lte, lt */
-		if (re->card == CARD_ATOM && e->flag < cmp_equal) {
-			for (m=n->next; m; m = m->next) {
-				sql_exp *f = m->data;
-				/*sql_exp *lf = f->l;*/
-				sql_exp *rf = f->r;
-
-				if (rf->card == CARD_ATOM && f->flag < cmp_equal) {
-					printf("possible candidate\n");
-				}
-			}
-		}
-	}
-	return exps;
-}
-#endif
-
 static int
 score_se( mvc *sql, sql_rel *rel, sql_exp *e)
 {
@@ -7945,7 +7911,7 @@ static sql_rel *
 rel_find_range(int *changes, mvc *sql, sql_rel *rel) 
 {
 	(void)changes;
-	if ((is_join(rel->op) || is_select(rel->op)) && rel->exps && list_length(rel->exps)>1) 
+	if ((is_join(rel->op) || is_select(rel->op)) && rel->exps && !list_empty(rel->exps)) 
 		rel->exps = exp_merge_range(sql->sa, rel->exps);
 	return rel;
 }
