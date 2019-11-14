@@ -35,7 +35,7 @@ MAPI  = (monetdb) /var/tmp/mtest-2184/.s.monetdb.35625
 QUERY = SELECT
             (SELECT AVG(col1) OVER (PARTITION BY col5 ORDER BY col1 ROWS UNBOUNDED PRECEDING) FROM tbl_ProductSales)
         FROM another_T t1; --error, more than one row returned by a subquery used as an expression
-ERROR = !21000!zero_or_one: cardinality violation, scalar expression expected
+ERROR = !zero_or_one: cardinality violation, scalar expression expected
 CODE  = M0M29
 MAPI  = (monetdb) /var/tmp/mtest-2184/.s.monetdb.35625
 QUERY = SELECT
@@ -49,20 +49,20 @@ QUERY = SELECT
             (SELECT SUM(SUM(col2)) OVER (PARTITION BY SUM(col2) ORDER BY MAX(col2) ROWS UNBOUNDED PRECEDING) FROM tbl_ProductSales)
         FROM another_T t1
         GROUP BY col1; --error, more than one row returned by a subquery used as an expression
-ERROR = !21000!zero_or_one: cardinality violation, scalar expression expected
+ERROR = !zero_or_one: cardinality violation, scalar expression expected
 CODE  = M0M29
 MAPI  = (monetdb) /var/tmp/mtest-2184/.s.monetdb.35625
 QUERY = SELECT
             (SELECT DENSE_RANK() OVER (PARTITION BY col5 ORDER BY col1) FROM tbl_ProductSales)
         FROM another_T t1; --error, more than one row returned by a subquery used as an expression
-ERROR = !21000!zero_or_one: cardinality violation, scalar expression expected
+ERROR = !zero_or_one: cardinality violation, scalar expression expected
 CODE  = M0M29
 MAPI  = (monetdb) /var/tmp/mtest-2184/.s.monetdb.35625
 QUERY = SELECT
             (SELECT DENSE_RANK() OVER (PARTITION BY MIN(col5) ORDER BY MAX(col8)) FROM tbl_ProductSales)
         FROM another_T t1
         GROUP BY col6; --error, more than one row returned by a subquery used as an expression
-ERROR = !21000!zero_or_one: cardinality violation, scalar expression expected
+ERROR = !zero_or_one: cardinality violation, scalar expression expected
 CODE  = M0M29
 MAPI  = (monetdb) /var/tmp/mtest-2184/.s.monetdb.35625
 QUERY = SELECT
@@ -76,7 +76,7 @@ QUERY = SELECT
             (SELECT t2.col1 * SUM(SUM(t1.col2)) OVER (PARTITION BY SUM(t1.col2) ORDER BY MAX(t1.col1) ROWS UNBOUNDED PRECEDING) FROM another_T t2)
         FROM another_T t1
         GROUP BY col1; --error, more than one row returned by a subquery used as an expression
-ERROR = !21000!zero_or_one: cardinality violation, scalar expression expected
+ERROR = !zero_or_one: cardinality violation, scalar expression expected
 CODE  = M0M29
 MAPI  = (monetdb) /var/tmp/mtest-2184/.s.monetdb.35625
 QUERY = SELECT

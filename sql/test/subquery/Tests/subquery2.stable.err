@@ -38,7 +38,7 @@ QUERY = SELECT
         	(SELECT MAX(col6) FROM tbl_ProductSales) IN (SELECT MIN(col3) FROM another_T)
         FROM another_T
         GROUP BY col1; --error, subquery returns more than 1 row
-ERROR = !21000!zero_or_one: cardinality violation, scalar expression expected
+ERROR = !zero_or_one: cardinality violation, scalar expression expected
 CODE  = M0M29
 
 # 18:55:46 >  
