@@ -1076,6 +1076,9 @@ exps_match_col_exps( sql_exp *e1, sql_exp *e2)
 	if (!is_complex_exp(e1->flag) && e1_r && e1_r->card == CARD_ATOM &&
 	    (e2->flag == cmp_in || e2->flag == cmp_notin))
  		return exp_match_exp(e1->l, e2->l); 
+	if ((e1->flag == cmp_in || e1->flag == cmp_notin) &&
+	    !is_complex_exp(e2->flag) && e2_r && e2_r->card == CARD_ATOM)
+ 		return exp_match_exp(e1->l, e2->l); 
 
 	if ((e1->flag == cmp_in || e1->flag == cmp_notin) &&
 	    (e2->flag == cmp_in || e2->flag == cmp_notin))
@@ -1180,6 +1183,9 @@ exp_match_exp( sql_exp *e1, sql_exp *e2)
 		            exp_match_exp(e1->l, e2->l) && 
 			    exp_match_list(e1->r, e2->r))
 				return 1;
+			else if (e1->flag == e2->flag && (e1->flag == cmp_equal || e1->flag == cmp_notequal) &&
+				exp_match_exp(e1->l, e2->r) && exp_match_exp(e1->r, e2->l))
+				return 1; /* = and <> operations are reflective, so exp_match_exp can be called crossed */
 			break;
 		case e_convert:
 			if (!subtype_cmp(exp_totype(e1), exp_totype(e2)) &&
