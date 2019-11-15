@@ -163,7 +163,7 @@ e_psm
 				->f else_exp_list
 		psm_while	->l cond_exp
 				->r loop_exp_list
-		psm_return	->l return_exp
+		psm_return	->l return_exp,		pass table or value via cardinality
 		psm_rel		->l relation
 		psm_exception   ->l cond_exp
 				->r error_string
