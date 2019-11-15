@@ -294,7 +294,7 @@ mdbInit(void)
 	 */
 	mdbTable = GDKzalloc(sizeof(mdbStateRecord) * MAL_MAXCLIENTS);
 	if (mdbTable == NULL) {
-		CRITICAL(M_ALL, "Initialization failed: " MAL_MALLOC_FAIL "\n");
+		CRITICAL(MAL_DEBUGGER, "Initialization failed: " MAL_MALLOC_FAIL "\n");
 		return false;
 	}
 	return true;

@@ -534,7 +534,7 @@ load_column(sql_trans *tr, sql_table *t, oid rid)
 	if (!sql_find_subtype(&c->type, tpe, sz, d)) {
 		sql_type *lt = sql_trans_bind_type(tr, t->s, tpe);
 		if (lt == NULL) {
-			ERROR(M_ALL, "SQL type '%s' is missing\n", tpe);
+			ERROR(SQL_STORE, "SQL type '%s' is missing\n", tpe);
 			_DELETE(tpe);
 			return NULL;
 		}
@@ -903,7 +903,7 @@ load_arg(sql_trans *tr, sql_func * f, oid rid)
 	if (!sql_find_subtype(&a->type, tpe, digits, scale)) {
 		sql_type *lt = sql_trans_bind_type(tr, f->s, tpe);
 		if (lt == NULL) {
-			ERROR(M_ALL, "SQL type '%s' is missing\n", tpe);
+			ERROR(SQL_STORE, "SQL type '%s' is missing\n", tpe);
 			_DELETE(tpe);
 			return NULL;
 		}
@@ -1767,12 +1767,12 @@ store_load(void) {
 			return -1;
 		tr = sql_trans_create(backend_stk, NULL, NULL, true);
 		if (!tr) {
-			CRITICAL(M_ALL, "Failed to start a transaction while loading the storage\n");
+			CRITICAL(SQL_STORE, "Failed to start a transaction while loading the storage\n");
 			return -1;
 		}
 	} else {
 		if (!(store_oids = GDKzalloc(300 * sizeof(sqlid)))) { /* 150 suffices */
-			CRITICAL(M_ALL, "Allocation failure while loading the storage\n");
+			CRITICAL(SQL_STORE, "Allocation failure while loading the storage\n");
 			return -1;
 		}
 	}
@@ -1932,7 +1932,7 @@ store_load(void) {
 		insert_schemas(tr);
 
 		if (sql_trans_commit(tr) != SQL_OK) {
-			CRITICAL(M_ALL, "Cannot commit initial transaction\n");
+			CRITICAL(SQL_STORE, "Cannot commit initial transaction\n");
 		}
 		sql_trans_destroy(tr, true);
 	} else {
@@ -1959,7 +1959,7 @@ store_load(void) {
 	nstore_oids = 0;
 	if (logger_funcs.log_needs_update())
 		if (store_upgrade_ids(gtrans) != SQL_OK)
-			CRITICAL(M_ALL, "Cannot commit upgrade transaction\n");
+			CRITICAL(SQL_STORE, "Cannot commit upgrade transaction\n");
 	return first;
 }
 
