@@ -38,12 +38,12 @@ static ATOMIC_TYPE SELECTED_tracer_ID = 0;
 static bool GDK_TRACER_STOP = false;
 
 static FILE *output_file;
-static int file_size = 0;
-static int file_id = 1;
 
-static ATOMIC_TYPE CUR_FLUSH_LEVEL = DEFAULT_FLUSH_LEVEL;
+/* CHECK */
+// Should it be ATOMIC_TYPE?
+static LOG_LEVEL CUR_FLUSH_LEVEL = DEFAULT_FLUSH_LEVEL;
 // We need it as a global - else create a wrapper function that returns it
-ATOMIC_TYPE CUR_LOG_LEVEL = DEFAULT_LOG_LEVEL;
+LOG_LEVEL CUR_LOG_LEVEL = DEFAULT_LOG_LEVEL;
 
 // Output error from snprintf of vsnprintf
 static void 
@@ -67,7 +67,7 @@ static void
 _GDKtracer_create_file(void)
 {
     char id[INT_MAX_LEN]; 
-    snprintf(id, INT_MAX_LEN, "%d", file_id);
+    snprintf(id, INT_MAX_LEN, "%d", 1);
 
     char file_name[FILENAME_MAX];
     sprintf(file_name, "%s%c%s%c%s%c%s%s", GDKgetenv("gdk_dbpath"), DIR_SEP, FILE_NAME, NAME_SEP, GDKtracer_get_timestamp("%Y-%m-%dT%H:%M:%S"), NAME_SEP, id, ".log");
@@ -147,12 +147,12 @@ GDKtracer_stop(void)
 
 
 gdk_return
-GDKtracer_set_log_level(int *level)
+GDKtracer_set_log_level(LOG_LEVEL level)
 {
-    if((int) ATOMIC_GET(&CUR_LOG_LEVEL) == *level)
+    if(CUR_LOG_LEVEL == level)
         return GDK_SUCCEED;
 
-    if(*level == DEFAULT_LOG_LEVEL && (int) ATOMIC_GET(&CUR_LOG_LEVEL) != DEFAULT_LOG_LEVEL)
+    if(level == DEFAULT_LOG_LEVEL && CUR_LOG_LEVEL != DEFAULT_LOG_LEVEL)
     {
         int GDK_result = GDKtracer_flush_buffer();
         if(GDK_result == GDK_FAIL)
@@ -160,7 +160,7 @@ GDKtracer_set_log_level(int *level)
     }
     
     // TODO: Check level exists
-    ATOMIC_SET(&CUR_LOG_LEVEL, *level);
+    CUR_LOG_LEVEL = level;
 
     return GDK_SUCCEED;
 }
@@ -169,27 +169,27 @@ GDKtracer_set_log_level(int *level)
 gdk_return
 GDKtracer_reset_log_level(void)
 {  
-    if((int) ATOMIC_GET(&CUR_LOG_LEVEL) == DEFAULT_LOG_LEVEL)
+    if(CUR_LOG_LEVEL == DEFAULT_LOG_LEVEL)
         return GDK_SUCCEED;
    
     int GDK_result = GDKtracer_flush_buffer();
     if(GDK_result == GDK_FAIL)
         return GDK_FAIL;
-
-    ATOMIC_SET(&CUR_LOG_LEVEL, DEFAULT_LOG_LEVEL);
+    
+    CUR_LOG_LEVEL = DEFAULT_LOG_LEVEL;
 
     return GDK_SUCCEED;
 }
 
 
 gdk_return
-GDKtracer_set_flush_level(int *level)
+GDKtracer_set_flush_level(LOG_LEVEL level)
 {
-    if((int) ATOMIC_GET(&CUR_FLUSH_LEVEL) == *level)
+    if(CUR_FLUSH_LEVEL == level)
         return GDK_SUCCEED;
 
     // TODO: Check level exists
-    ATOMIC_SET(&CUR_FLUSH_LEVEL, *level);
+    CUR_FLUSH_LEVEL = level;
 
     return GDK_SUCCEED;
 }
@@ -198,10 +198,10 @@ GDKtracer_set_flush_level(int *level)
 gdk_return
 GDKtracer_reset_flush_level(void)
 {
-    if((int) ATOMIC_GET(&CUR_FLUSH_LEVEL) == DEFAULT_FLUSH_LEVEL)
+    if(CUR_FLUSH_LEVEL == DEFAULT_FLUSH_LEVEL)
         return GDK_SUCCEED;
 
-    ATOMIC_SET(&CUR_FLUSH_LEVEL, DEFAULT_FLUSH_LEVEL);
+    CUR_FLUSH_LEVEL = DEFAULT_FLUSH_LEVEL;
 
     return GDK_SUCCEED;
 }
@@ -276,7 +276,7 @@ GDKtracer_log(LOG_LEVEL level, const char *fmt, ...)
         
     // Flush the current buffer in case the event is 
     // important depending on the flush-level
-    if((int) level >= (int) ATOMIC_GET(&CUR_FLUSH_LEVEL))
+    if(level >= CUR_FLUSH_LEVEL)
     {
         GDK_result = GDKtracer_flush_buffer();
         if(GDK_result == GDK_FAIL)
@@ -309,25 +309,13 @@ GDKtracer_flush_buffer(void)
         fwrite(&fl_tracer->buffer, fl_tracer->allocated_size, 1, output_file);
         fflush(output_file);
         
-        // Increase file size tracking
-        file_size += fl_tracer->allocated_size;
-
         // Reset buffer
         memset(fl_tracer->buffer, 0, BUFFER_SIZE);
         fl_tracer->allocated_size = 0;
     }
     MT_lock_unset(&fl_tracer->lock);
 
-    // Even if the existing file is full, the logger should not create
-    // a new file in case GDKtracer_stop has been called
-    if (file_size >= MAX_FILE_SIZE && !GDK_TRACER_STOP)
-    {
-        fclose(output_file);
-        file_size = 0;
-        file_id++;
-        _GDKtracer_create_file();
-    }
-    else if(GDK_TRACER_STOP)
+    if(GDK_TRACER_STOP)
     {
         fclose(output_file);
     }
