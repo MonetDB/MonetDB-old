@@ -19,10 +19,6 @@ stream *maleventstream = 0;
 /* The compile time debugging flags are turned into bit masks, akin to GDK */
 lng MALdebug;
 
-/* CHECK */
-// Remove?
-lng OPTdebug;
-
 #ifdef HAVE_HGE
 int have_hge;
 #endif

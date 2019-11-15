@@ -136,7 +136,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 
 	/* CHECK */
 	// If OPTdebug is removed, what is going to happen with this?
-	if( OPTdebug &  OPTprojectionpath){
+	// if( OPTdebug &  OPTprojectionpath){
 		if( actions > 0){
 			chkTypes(cntxt->usermodule, mb, FALSE);
 			chkFlow(mb);
@@ -144,7 +144,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 		}
 		mnstr_printf(cntxt->fdout,"#projectionpath prefix actions %d\n",actions);
 		if(actions) printFunction(cntxt->fdout,mb, 0, LIST_MAL_ALL);
-	}
+	// }
 
 	for(; i<slimit; i++)
 		if(old[i])

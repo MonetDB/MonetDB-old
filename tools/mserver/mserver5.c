@@ -83,8 +83,6 @@ mserver_invalid_parameter_handler(
 
 static _Noreturn void usage(char *prog, int xit);
 
-/* CHECK */
-// Remove --optimizers option?
 static void
 usage(char *prog, int xit)
 {
@@ -109,7 +107,6 @@ usage(char *prog, int xit)
 	fprintf(stderr, "     --modules\n");
 	fprintf(stderr, "     --algorithms\n");
 	fprintf(stderr, "     --performance\n");
-	fprintf(stderr, "     --optimizers\n");
 	fprintf(stderr, "     --forcemito\n");
 	fprintf(stderr, "     --debug=<bitmask>\n");
 
@@ -274,7 +271,6 @@ main(int argc, char **av)
 		{ "transactions", no_argument, NULL, 0 },
 		{ "modules", no_argument, NULL, 0 },
 		{ "algorithms", no_argument, NULL, 0 },
-		{ "optimizers", no_argument, NULL, 0 },
 		{ "performance", no_argument, NULL, 0 },
 		{ "forcemito", no_argument, NULL, 0 },
 		{ "heaps", no_argument, NULL, 0 },
@@ -363,10 +359,6 @@ main(int argc, char **av)
 			}
 			if (strcmp(long_options[option_index].name, "algorithms") == 0) {
 				grpdebug |= GRPalgorithms;
-				break;
-			}
-			if (strcmp(long_options[option_index].name, "optimizers") == 0) {
-				grpdebug |= GRPoptimizers;
 				break;
 			}
 			if (strcmp(long_options[option_index].name, "forcemito") == 0) {
