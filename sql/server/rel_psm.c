@@ -529,7 +529,11 @@ rel_psm_return( sql_query *query, sql_subtype *restype, list *restypelist, symbo
 		rel = rel_project(sql->sa, rel, exps);
 		res = exp_rel(sql, rel);
 	}
-	append(l, exp_return(sql->sa, res, stack_nr_of_declared_tables(sql)));
+	append(l, res = exp_return(sql->sa, res, stack_nr_of_declared_tables(sql)));
+	if (ek.card != card_relation) 
+		res->card = CARD_ATOM;
+	else
+		res->card = CARD_MULTI;
 	return l;
 }
 

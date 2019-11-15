@@ -503,7 +503,7 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 			/* handle table returning functions */
 			if (l->type == e_psm && l->flag & PSM_REL) {
 				stmt *lst = r->op1;
-				if (r->type == st_table && lst->nrcols == 0 && lst->key) {
+				if (r->type == st_table && lst->nrcols == 0 && lst->key && e->card > CARD_ATOM) {
 					node *n;
 					list *l = sa_list(sql->sa);
 
@@ -551,20 +551,9 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 		} else if (e->flag & PSM_REL) {
 			sql_rel *rel = e->l;
 			stmt *r = rel_bin(be, rel);
-			if(!r)
+
+			if (!r)
 				return NULL;
-
-#if 0
-			if (r->type == st_list && r->nrcols == 0 && r->key) {
-				/* row to columns */
-				node *n;
-				list *l = sa_list(sql->sa);
-
-				for(n=r->op4.lval->h; n; n = n->next)
-					list_append(l, const_column(be, (stmt*)n->data));
-				r = stmt_list(be, l);
-			}
-#endif
 			if (is_modify(rel->op) || is_ddl(rel->op)) 
 				return r;
 			return stmt_table(be, r, 1);
