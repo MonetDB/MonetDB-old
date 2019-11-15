@@ -319,7 +319,7 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			for(j=i-1; j>=start;j--) {
 				if(old[j]){
 					DEBUG(MAL_OPT_REORDER, "Leftover: %d\n", start+1);
-					fprintInstruction(MAL_OPT_REORDER, mb, 0, old[j], LIST_MAL_ALL);
+					debugInstruction(MAL_OPT_REORDER, mb, 0, old[j], LIST_MAL_ALL);
 				}
 
 				if (OPTbreadthfirst(cntxt, mb, j, i, old, dep, uselist) < 0) {

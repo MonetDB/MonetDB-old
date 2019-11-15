@@ -660,7 +660,7 @@ DFLOWinitBlk(DataFlow flow, MalBlkPtr mb, int size)
 
 	for (n = 0; n < flow->stop - flow->start; n++) {
 		DEBUG(PAR, "[%d] %d\n", flow->start + n, n);
-		fprintInstruction(PAR, mb, 0, getInstrPtr(mb, n + flow->start), LIST_MAL_ALL);
+		debugInstruction(PAR, mb, 0, getInstrPtr(mb, n + flow->start), LIST_MAL_ALL);
 		DEBUG(PAR, "[%d] dependents block count %d wakeup\n", flow->start + n, flow->status[n].blocks);
 		for (j = n; flow->edges[j]; j = flow->edges[j]) {
 			DEBUG(PAR, "%d\n", flow->start + flow->nodes[j]);
@@ -690,7 +690,7 @@ static void showFlowEvent(DataFlow flow, int pc)
 	for (i = 0; i < flow->stop - flow->start; i++)
 		if (fe[i].state != DFLOWwrapup && fe[i].pc >= 0) {
 			INFO(MAL_ALL, "Missed pc %d status %d %d blocks %d\n", fe[i].state, i, fe[i].pc, fe[i].blocks);
-			fprintInstruction(MAL_DATAFLOW, fe[i].flow->mb, 0, getInstrPtr(fe[i].flow->mb, fe[i].pc), LIST_MAL_MAPI);
+			debugInstruction(MAL_DATAFLOW, fe[i].flow->mb, 0, getInstrPtr(fe[i].flow->mb, fe[i].pc), LIST_MAL_MAPI);
 		}
 }
 */

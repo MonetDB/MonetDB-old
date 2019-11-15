@@ -170,7 +170,7 @@ OPTevaluateImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			if (alias[getArg(p, k)])
 				getArg(p, k) = alias[getArg(p, k)];
 				
-		fprintInstruction(MAL_OPT_EVALUATE, mb, 0, p, LIST_MAL_ALL);
+		debugInstruction(MAL_OPT_EVALUATE, mb, 0, p, LIST_MAL_ALL);
 	
 		/* be aware that you only assign once to a variable */
 		if (use && p->retc == 1 && OPTallConstant(cntxt, mb, p) && !isUnsafeFunction(p)) {

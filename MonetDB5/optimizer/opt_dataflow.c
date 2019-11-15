@@ -297,7 +297,7 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		}
 
 		DEBUG(MAL_OPT_DATAFLOW, "Variable states\n");
-		fprintInstruction(MAL_OPT_DATAFLOW, mb, 0, p, LIST_MAL_ALL);
+		debugInstruction(MAL_OPT_DATAFLOW, mb, 0, p, LIST_MAL_ALL);
 		for(k = 0; k < p->argc; k++)
 			DEBUG(MAL_OPT_DATAFLOW, "%s %d\n", getVarName(mb,getArg(p,k)), states[getArg(p,k)]);
 	}

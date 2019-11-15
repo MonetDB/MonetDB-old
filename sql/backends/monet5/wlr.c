@@ -316,7 +316,7 @@ WLRprocessBatch(void *arg)
 			q= getInstrPtr(mb, mb->stop - 1);
 			if( getModuleId(q) != wlrRef){
 				DEBUG(SQL_WLR, "Unexpected instruction");
-				fprintInstruction(SQL_WLR, mb, 0, q, LIST_MAL_ALL);
+				debugInstruction(SQL_WLR, mb, 0, q, LIST_MAL_ALL);
 				
 				cleanup();
 				break;

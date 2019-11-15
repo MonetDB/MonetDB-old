@@ -229,8 +229,8 @@ MANIFOLDtypecheck(Client cntxt, MalBlkPtr mb, InstrPtr pci, int checkprops){
 	}
 
 	DEBUG(MAL_MANIFOLD, "Manifold operation\n");
-	fprintInstruction(MAL_MANIFOLD, mb, 0, pci, LIST_MAL_ALL);
-	fprintInstruction(MAL_MANIFOLD, nmb, 0, q, LIST_MAL_ALL);
+	debugInstruction(MAL_MANIFOLD, mb, 0, pci, LIST_MAL_ALL);
+	debugInstruction(MAL_MANIFOLD, nmb, 0, q, LIST_MAL_ALL);
 
 	// Localize the underlying scalar operator
 	typeChecker(cntxt->usermodule, nmb, q, TRUE);
@@ -245,7 +245,7 @@ MANIFOLDtypecheck(Client cntxt, MalBlkPtr mb, InstrPtr pci, int checkprops){
 	}
 
 	DEBUG(MAL_MANIFOLD, "Success? %s\n", (fcn == NULL? "no":"yes"));
-	fprintInstruction(MAL_MANIFOLD, nmb, 0, q, LIST_MAL_ALL);
+	debugInstruction(MAL_MANIFOLD, nmb, 0, q, LIST_MAL_ALL);
 
 	freeMalBlk(nmb);
 	return fcn;

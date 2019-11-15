@@ -74,7 +74,7 @@ OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			if (isMultiplex(q)) {
 				if (OPTinlineMultiplex(cntxt,mb,q)) {
 					DEBUG(MAL_OPT_INLINE, "Multiplex inline function\n")
-					fprintInstruction(MAL_OPT_INLINE, mb, 0, q, LIST_MAL_ALL);
+					debugInstruction(MAL_OPT_INLINE, mb, 0, q, LIST_MAL_ALL);
 				}
 			} else
 			/*
@@ -88,7 +88,7 @@ OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 				DEBUG(MAL_OPT_INLINE, "Inline function at %d\n", i);
 				fprintFunction(MAL_OPT_INLINE, mb, 0, LIST_MAL_ALL);
-				fprintInstruction(MAL_OPT_INLINE, q->blk, 0, sig, LIST_MAL_ALL);
+				debugInstruction(MAL_OPT_INLINE, q->blk, 0, sig, LIST_MAL_ALL);
 			}
 		}
 	}

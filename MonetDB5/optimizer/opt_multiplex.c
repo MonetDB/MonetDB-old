@@ -60,7 +60,7 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if(mod == NULL || fcn == NULL)
 		throw(MAL, "optimizer.multiplex", SQLSTATE(HY001) MAL_MALLOC_FAIL);
 	DEBUG(MAL_OPT_MULTIPLEX, "To speedup %s.%s a bulk operator implementation is needed\n", mod, fcn);
-	fprintInstruction(MAL_OPT_MULTIPLEX, mb, stk, pci, LIST_MAL_ALL);
+	debugInstruction(MAL_OPT_MULTIPLEX, mb, stk, pci, LIST_MAL_ALL);
 
 	/* search the iterator bat */
 	for (i = pci->retc+2; i < pci->argc; i++)
@@ -77,7 +77,7 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	tpenme = getTypeName(getVarType(mb,iter));
 	DEBUG(MAL_OPT_MULTIPLEX, "Multiplex against operator: %d %s\n", iter, tpenme);
 	GDKfree(tpenme);
-	fprintInstruction(MAL_OPT_MULTIPLEX, mb, 0, pci, LIST_MAL_ALL);
+	debugInstruction(MAL_OPT_MULTIPLEX, mb, 0, pci, LIST_MAL_ALL);
 
 	/*
 	 * Beware, the operator constant (arg=1) is passed along as well,

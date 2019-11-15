@@ -392,7 +392,7 @@ callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *env, ValPtr argv[], char debug)
 
 	cntxt->lastcmd= time(0);
 	DEBUG(MAL_INTERPRETER, "Enter callMAL\n");
-	fprintInstruction(MAL_INTERPRETER, mb, 0, pci, LIST_MAL_ALL);
+	debugInstruction(MAL_INTERPRETER, mb, 0, pci, LIST_MAL_ALL);
 
 	switch (pci->token) {
 	case FUNCTIONsymbol:

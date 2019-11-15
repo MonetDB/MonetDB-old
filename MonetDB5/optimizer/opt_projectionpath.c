@@ -49,7 +49,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 		}
 
 		DEBUG(MAL_OPT_PROJECTIONPATH, "Candidate prefix pc: %d \n", i);
-		fprintInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, p, LIST_MAL_ALL);
+		debugInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, p, LIST_MAL_ALL);
 
 		/* we fixed a projection path of the target prefixlength
 		 * Search now the remainder for at least one case where it
@@ -70,7 +70,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 			 * Inject the prefex projection path and replace all use cases
 			 */
 			DEBUG(MAL_OPT_PROJECTIONPATH, "Found common prefix pc: %d \n", j);
-			fprintInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, p, LIST_MAL_ALL);
+			debugInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, p, LIST_MAL_ALL);
 
 			/* create the factored out prefix projection */
 			r = copyInstruction(p);
@@ -86,7 +86,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 			pushInstruction(mb,r);
 
 			DEBUG(MAL_OPT_PROJECTIONPATH, "Prefix instruction\n");
-			fprintInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, r, LIST_MAL_ALL);
+			debugInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, r, LIST_MAL_ALL);
 
 			/* patch all instructions with same prefix. */
 			for( ; j < limit; j++) {
@@ -99,7 +99,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 					actions++;
 					DEBUG(MAL_OPT_PROJECTIONPATH, "Before\n");
 
-					fprintInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, q, LIST_MAL_ALL);
+					debugInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, q, LIST_MAL_ALL);
 					if( q->argc == r->argc ){
 						clrFunction(q);
 						getArg(q,q->retc) = getArg(r,0);
@@ -113,7 +113,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 					}
 
 					DEBUG(MAL_OPT_PROJECTIONPATH, "After\n");
-					fprintInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, q, LIST_MAL_ALL);
+					debugInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, q, LIST_MAL_ALL);
 				}
 			}
 			/* patch instruction p by deletion of common prefix */
@@ -129,7 +129,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 					setFunctionId(p,projectionRef);
 			}
 
-			fprintInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, p, LIST_MAL_ALL);
+			debugInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, p, LIST_MAL_ALL);
 		}
 		pushInstruction(mb,p);
 	}
@@ -220,7 +220,7 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 			}
 
 			DEBUG(MAL_OPT_PROJECTIONPATH, "Before\n");
-			fprintInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, p, LIST_MAL_ALL);
+			debugInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, p, LIST_MAL_ALL);
 		
 			q->argc=p->retc;
 			for(j=p->retc; j<p->argc; j++){
@@ -235,7 +235,7 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 
 				if (r) {
 					DEBUG(MAL_OPT_PROJECTIONPATH, "Inject\n");
-					fprintInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, r, LIST_MAL_ALL);
+					debugInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, r, LIST_MAL_ALL);
 				}
 
 				if ( getFunctionId(p) == projectionRef){
@@ -270,7 +270,7 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 			q->typechk = TYPE_UNKNOWN;
 
 			DEBUG(MAL_OPT_PROJECTIONPATH, "After\n");
-			fprintInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, q, LIST_MAL_ALL);
+			debugInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, q, LIST_MAL_ALL);
 			freeInstruction(p);
 			p = q;
 			/* keep track of the longest projection path */
@@ -285,7 +285,7 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 			pc[getArg(p,j)]= mb->stop-1;
 
 			DEBUG(MAL_OPT_PROJECTIONPATH, "Keep\n");
-			fprintInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, p, LIST_MAL_ALL);
+			debugInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, p, LIST_MAL_ALL);
 		}
 	}
 

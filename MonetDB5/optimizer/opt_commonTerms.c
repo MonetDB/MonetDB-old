@@ -109,7 +109,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 		/* from here we have a candidate to look for a match */
 		DEBUG(MAL_OPT_COMMONTERMS, "Candidate[%d] look at list[%d] => %d\n",
 									i, HASHinstruction(p), hash[HASHinstruction(p)]);
-		fprintInstruction(MAL_OPT_COMMONTERMS, mb, 0, p, LIST_MAL_ALL);
+		debugInstruction(MAL_OPT_COMMONTERMS, mb, 0, p, LIST_MAL_ALL);
 
 		/* Look into the hash structure for matching instructions */
 		for (j = hash[HASHinstruction(p)];  j > 0  ; j = list[j]) 
@@ -124,7 +124,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 					!isUnsafeFunction(q),
 					!isUpdateInstruction(q),
 					isLinearFlow(q));
-				fprintInstruction(MAL_OPT_COMMONTERMS, mb, 0, q, LIST_MAL_ALL);
+				debugInstruction(MAL_OPT_COMMONTERMS, mb, 0, q, LIST_MAL_ALL);
 
 				/*
 				 * Simple assignments are not replaced either. They should be
@@ -151,7 +151,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 					}
 
 					DEBUG(MAL_OPT_COMMONTERMS, "Modified expression %d -> %d ", getArg(p,0), getArg(p,1));
-					fprintInstruction(MAL_OPT_COMMONTERMS, mb, 0, p, LIST_MAL_ALL);
+					debugInstruction(MAL_OPT_COMMONTERMS, mb, 0, p, LIST_MAL_ALL);
 
 					actions++;
 					break; /* end of search */
@@ -160,7 +160,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 
 			else if(isUpdateInstruction(p)){
 				DEBUG(MAL_OPT_COMMONTERMS, "Skipped: %d %d\n", mayhaveSideEffects(cntxt, mb, q, TRUE) , isUpdateInstruction(p));
-				fprintInstruction(MAL_OPT_COMMONTERMS, mb, 0, q, LIST_MAL_ALL);
+				debugInstruction(MAL_OPT_COMMONTERMS, mb, 0, q, LIST_MAL_ALL);
 			}
 
 		if (duplicate){
@@ -170,7 +170,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 		/* update the hash structure with another candidate for re-use */
 		DEBUG(MAL_OPT_COMMONTERMS, "Update hash[%d] - look at arg '%d' hash '%d' list '%d'\n",
 									i, getArg(p,p->argc-1), HASHinstruction(p), hash[HASHinstruction(p)]);
-		fprintInstruction(MAL_OPT_COMMONTERMS, mb, 0, p, LIST_MAL_ALL);
+		debugInstruction(MAL_OPT_COMMONTERMS, mb, 0, p, LIST_MAL_ALL);
 
 		if ( !mayhaveSideEffects(cntxt, mb, p, TRUE) && p->argc != p->retc &&  isLinearFlow(p) && !isUnsafeFunction(p) && !isUpdateInstruction(p)){
 			list[i] = hash[HASHinstruction(p)];

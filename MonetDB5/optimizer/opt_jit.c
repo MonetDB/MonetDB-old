@@ -65,7 +65,7 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				p= pushArgument(mb,p, getArg(q,1));
 
 				DEBUG(MAL_OPT_JIT, "Optimize JIT case 1\n");
-				fprintInstruction(MAL_OPT_JIT, mb, 0, p, LIST_MAL_ALL);
+				debugInstruction(MAL_OPT_JIT, mb, 0, p, LIST_MAL_ALL);
 			}
 		}
 		pushInstruction(mb,p);

@@ -52,13 +52,13 @@ OPTremapDirect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Module s
 	for(i= pci->retc+2; i<pci->argc; i++)
 		p= pushArgument(mb,p,getArg(pci,i));
 
-	fprintInstruction(MAL_OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
+	debugInstruction(MAL_OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
 
 	/* now see if we can resolve the instruction */
 	typeChecker(scope,mb,p,TRUE);
 	if( p->typechk== TYPE_UNKNOWN) {
 		DEBUG(MAL_OPT_REMAP, "Type error\n");
-		fprintInstruction(MAL_OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
+		debugInstruction(MAL_OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
 		freeInstruction(p);
 		return 0;
 	}
@@ -136,7 +136,7 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 
 	DEBUG(MAL_OPT_REMAP, "Modify the code\n");
 	fprintFunction(MAL_OPT_REMAP, mq, 0, LIST_MAL_ALL);
-	fprintInstruction(MAL_OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
+	debugInstruction(MAL_OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
 
 	upgrade = (bit*) GDKzalloc(sizeof(bit)*mq->vtop);
 	if( upgrade == NULL) {
@@ -267,7 +267,7 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 terminateMX:
 		DEBUG(MAL_OPT_REMAP, "Abort remap\n");
 		if (q)
-			fprintInstruction(MAL_OPT_REMAP, mb, 0, q, LIST_MAL_ALL);
+			debugInstruction(MAL_OPT_REMAP, mb, 0, q, LIST_MAL_ALL);
 
 		freeMalBlk(mq);
 		GDKfree(upgrade);
@@ -289,7 +289,7 @@ terminateMX:
 	delArgument(p,1);
 	inlineMALblock(mb,pc,mq);
 
-	fprintInstruction(MAL_OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
+	debugInstruction(MAL_OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_REMAP, "New block\n");
 	fprintFunction(MAL_OPT_REMAP, mq, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_REMAP, "Inlined result\n");
@@ -386,7 +386,7 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 			if (s && s->def->inlineProp ){
 				DEBUG(MAL_OPT_REMAP, "Multiplex inline\n");
-				fprintInstruction(MAL_OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
+				debugInstruction(MAL_OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
 
 				pushInstruction(mb, p);
 				if( OPTmultiplexInline(cntxt,mb,p,mb->stop-1) ){
