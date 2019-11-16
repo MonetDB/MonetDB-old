@@ -1077,7 +1077,8 @@ push_up_set(mvc *sql, sql_rel *rel)
 				pe = exp_ref(sql->sa, e);
 				append(sexps, pe);
 			}
-			s->exps = list_merge(sexps, s->exps, (fdup)NULL);
+			/* TODO remove duplicates */
+			s->exps = list_merge(s->exps, sexps, (fdup)NULL);
 			return s;
 		}
 	}
