@@ -152,7 +152,7 @@ rel_orderby(mvc *sql, sql_rel *l)
 }
 
 /* forward refs */
-static sql_rel * rel_setquery(sql_query *query, sql_rel *rel, symbol *sq);
+static sql_rel * rel_setquery(sql_query *query, symbol *sq);
 static sql_rel * rel_joinquery(sql_query *query, sql_rel *rel, symbol *sq);
 static sql_rel * rel_crossquery(sql_query *query, sql_rel *rel, symbol *q);
 static sql_rel * rel_unionjoinquery(sql_query *query, sql_rel *rel, symbol *sq);
@@ -311,7 +311,8 @@ query_exp_optname(sql_query *query, sql_rel *r, symbol *q)
 	case SQL_EXCEPT:
 	case SQL_INTERSECT:
 	{
-		sql_rel *tq = rel_setquery(query, r, q);
+		sql_rel *tq = rel_setquery(query, q);
+		assert(!r);
 
 		if (!tq)
 			return NULL;
@@ -1836,15 +1837,10 @@ exp_exist(sql_query *query, sql_exp *le, int exists)
 static sql_exp *
 rel_exists_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f)
 {
-	exp_kind ek = {type_value, card_set, FALSE};
-	sql_rel *sq = NULL;
+	exp_kind ek = {type_value, card_exists, FALSE};
 	sql_exp *le, *e;
 
-	if (rel && *rel)
-		query_push_outer(query, *rel, f);
-	le = rel_value_exp(query, &sq, sc->data.sym, f, ek);
-	if (rel && *rel)
-		*rel = query_pop_outer(query);
+	le = rel_value_exp(query, rel, sc->data.sym, f, ek);
 	if (!le) 
 		return NULL;
 	e = exp_exist(query, le, sc->token == SQL_EXISTS);
@@ -1858,7 +1854,7 @@ rel_exists_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f)
 static sql_rel *
 rel_exists_exp(sql_query *query, sql_rel *rel, symbol *sc, int f) 
 {
-	exp_kind ek = {type_value, card_set, TRUE};
+	exp_kind ek = {type_value, card_exists, TRUE};
 	mvc *sql = query->sql;
 	sql_rel *sq = NULL;
 
@@ -1887,18 +1883,13 @@ rel_in_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f)
 {
 	exp_kind ek = {type_value, card_column, FALSE};
 	mvc *sql = query->sql;
-	sql_rel *sq = NULL;
 	sql_exp *le, *e;
 	dlist *dl = sc->data.lval;
 	symbol *lo = dl->h->data.sym;
 	dnode *n = dl->h->next;
 	list *vals = NULL;
 
-	if (rel && *rel)
-		query_push_outer(query, *rel, f);
-	le = rel_value_exp(query, &sq, lo, f, ek);
-	if (rel && *rel)
-		*rel = query_pop_outer(query);
+	le = rel_value_exp(query, rel, lo, f, ek);
 	if (!le)
 		return NULL;
 	ek.card = card_set;
@@ -1908,12 +1899,7 @@ rel_in_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f)
 		for (; n; n = n->next) {
 			sql_exp *r = NULL;
 
-			sq = NULL;
-			if (rel && *rel)
-				query_push_outer(query, *rel, f);
-			r = rel_value_exp(query, &sq, n->data.sym, f, ek);
-			if (rel && *rel)
-				*rel = query_pop_outer(query);
+			r = rel_value_exp(query, rel, n->data.sym, f, ek);
 			if (!r)
 				return NULL;
 			append( vals, r);
@@ -1935,7 +1921,6 @@ rel_in_exp(sql_query *query, sql_rel *rel, symbol *sc, int f)
 	dlist *dl = sc->data.lval;
 	symbol *lo = NULL;
 	dnode *n = dl->h->next, *dn = NULL;
-	sql_rel *sq = NULL;
 	sql_exp *le, *re;
 	list *vals = NULL, *ll = sa_list(sql->sa);
 	int is_tuple = 0;
@@ -1982,25 +1967,9 @@ rel_in_exp(sql_query *query, sql_rel *rel, symbol *sc, int f)
 	}
 
 	assert(!is_sql_sel(f));
-	if (sq) {
-		rel = rel_crossproduct(sql->sa, rel, sq, op_join);
-		if (sc->token == SQL_EXISTS) {
-			rel->op = op_semi;
-		} else {	
-			rel->op = op_anti;
-		}
-		if (rel_has_freevar(sql, sq))
-			set_dependent(rel);
-
-		sql_exp *e = exp_in_func(sql, le, exp_values(sql->sa, vals), (sc->token == SQL_IN), is_tuple);
-		rel_join_add_exp(sql->sa, rel, e);
-		return rel;
-	} else {
-		sql_exp *e = exp_in_func(sql, le, exp_values(sql->sa, vals), (sc->token == SQL_IN), is_tuple);
-		rel = rel_select_add_exp(sql->sa, rel, e);
-		return rel;
-	}
-	return sq;
+	sql_exp *e = exp_in_func(sql, le, exp_values(sql->sa, vals), (sc->token == SQL_IN), is_tuple);
+	rel = rel_select_add_exp(sql->sa, rel, e);
+	return rel;
 }
 
 
@@ -2263,7 +2232,11 @@ rel_logical_value_exp(sql_query *query, sql_rel **rel, symbol *sc, int f)
 	case SQL_UNION:
 	case SQL_EXCEPT:
 	case SQL_INTERSECT: {
-		sql_rel *sq = rel_setquery(query, *rel, sc);
+		if (rel && *rel)
+			query_push_outer(query, *rel, f);
+		sql_rel *sq = rel_setquery(query, sc);
+		if (rel && *rel)
+			*rel = query_pop_outer(query);
 		if (sq)
 			return exp_rel(sql, sq);
 		return NULL;
@@ -2614,7 +2587,8 @@ rel_logical_exp(sql_query *query, sql_rel *rel, symbol *sc, int f)
 	case SQL_UNION:
 	case SQL_EXCEPT:
 	case SQL_INTERSECT:
-		return rel_setquery(query, rel, sc);
+		assert(!rel);
+		return rel_setquery(query, sc);
 	case SQL_DEFAULT:
 		return sql_error(sql, 02, SQLSTATE(42000) "DEFAULT keyword not allowed outside insert and update statements");
 	default: {
@@ -5181,7 +5155,7 @@ rel_setquery_(sql_query *query, sql_rel *l, sql_rel *r, dlist *cols, int op )
 }
 
 static sql_rel *
-rel_setquery(sql_query *query, sql_rel *rel, symbol *q)
+rel_setquery(sql_query *query, symbol *q)
 {
 	mvc *sql = query->sql;
 	sql_rel *res = NULL;
@@ -5194,25 +5168,9 @@ rel_setquery(sql_query *query, sql_rel *rel, symbol *q)
 
 	assert(n->next->type == type_int);
 	t1 = table_ref(query, NULL, tab_ref1, 0);
-	if (rel && !t1 && sql->session->status != -ERR_AMBIGUOUS) {
-		/* reset error */
-		sql->session->status = 0;
-		sql->errstr[0] = 0;
-		query_push_outer(query, rel, sql_from);
-		t1 = table_ref(query, NULL, tab_ref1, 0);
-		rel = query_pop_outer(query);
-	}
 	if (!t1)
 		return NULL;
 	t2 = table_ref(query, NULL, tab_ref2, 0);
-	if (rel && !t2 && sql->session->status != -ERR_AMBIGUOUS) {
-		/* reset error */
-		sql->session->status = 0;
-		sql->errstr[0] = 0;
-		query_push_outer(query, rel, sql_from);
-		t2 = table_ref(query, NULL, tab_ref2, 0);
-		rel = query_pop_outer(query);
-	}
 	if (!t2)
 		return NULL;
 
@@ -5537,7 +5495,7 @@ rel_selects(sql_query *query, symbol *s)
 	case SQL_UNION:
 	case SQL_EXCEPT:
 	case SQL_INTERSECT:
-		ret = rel_setquery(query, NULL, s);
+		ret = rel_setquery(query, s);
 		sql->type = Q_TABLE;
 		break;
 	default:
