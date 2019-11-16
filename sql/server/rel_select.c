@@ -1949,14 +1949,9 @@ rel_in_exp(sql_query *query, sql_rel *rel, symbol *sc, int f)
 		lo = dl->h->data.sym;
 	}
 	for( ; lo; lo = dn?dn->data.sym:NULL, dn = dn?dn->next:NULL ) {
-		if (rel)
-			query_push_outer(query, rel, f);
-		le = rel_value_exp(query, &sq, lo, f, ek);
+		le = rel_value_exp(query, &rel, lo, f, ek);
 		if (!le)
 			return NULL;
-		if (rel)
-			rel = query_pop_outer(query);
-
 		ek.card = card_set;
 		append(ll, le);
 	}
@@ -1974,17 +1969,14 @@ rel_in_exp(sql_query *query, sql_rel *rel, symbol *sc, int f)
 		n = n->data.lval->h;
 
 		for (; n; n = n->next) {
-			sql_rel *rsq = NULL;
+			sql_rel *orel = rel;
 
-			if (rel)
-				query_push_outer(query, rel, f);
-			re = rel_value_exp(query, &rsq, n->data.sym, f, ek);
+			re = rel_value_exp(query, &rel, n->data.sym, f, ek);
+			assert(orel==rel);
 			if (!re)
 				return NULL;
 			if (is_tuple && !exp_is_rel(re)) 
 				return NULL;
-			if (rel)
-				rel = query_pop_outer(query);
 			append(vals, re);
 		}
 	}
