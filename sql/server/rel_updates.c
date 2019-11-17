@@ -2187,8 +2187,10 @@ rel_updates(sql_query *query, symbol *s)
 	    dlist *l = s->data.lval;
 	    dlist *qname = l->h->data.lval;
 	    symbol *sym = l->h->next->data.sym;
+	    sql_rel *rel = copyfromloader(query, qname, sym);
 
-	    ret = rel_psm_stmt(sql->sa, exp_rel(sql, copyfromloader(query, qname, sym)));
+	    if (rel)
+	    	ret = rel_psm_stmt(sql->sa, exp_rel(sql, rel));
 	    sql->type = Q_SCHEMA;
 	}
 		break;
