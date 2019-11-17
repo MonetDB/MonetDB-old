@@ -1077,8 +1077,10 @@ push_up_set(mvc *sql, sql_rel *rel)
 				pe = exp_ref(sql->sa, e);
 				append(sexps, pe);
 			}
-			/* TODO remove duplicates */
-			s->exps = list_merge(s->exps, sexps, (fdup)NULL);
+			s->exps = list_merge(sexps, s->exps, (fdup)NULL);
+			/* add projections to inner parts of the union */
+			s->l = rel_project(sql->sa, s->l, rel_projections(sql, s->l, NULL, 1, 1));
+			s->r = rel_project(sql->sa, s->r, rel_projections(sql, s->r, NULL, 1, 1));
 			return s;
 		}
 	}
