@@ -83,7 +83,7 @@ QUERY = SELECT
             (SELECT t2.col1 * SUM(SUM(col2)) OVER (PARTITION BY SUM(col2) ORDER BY MAX(col1) ROWS UNBOUNDED PRECEDING) FROM another_T t2)
         FROM another_T t1
         GROUP BY col1; --error, column "t2.col1" must appear in the GROUP BY clause or be used in an aggregate function
-ERROR = !SELECT: cannot use non GROUP BY column 't2.col1' in query results without an aggregate function
+ERROR = !SELECT: cannot use non GROUP BY column in query results without an aggregate function
 CODE  = 42000
 
 # 19:05:12 >  

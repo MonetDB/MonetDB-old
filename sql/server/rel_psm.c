@@ -89,20 +89,7 @@ psm_set_exp(sql_query *query, dnode *n)
 		if (!e)
 			return NULL;
 
-		/*
-		if (rel || exp_is_rel(e)) {
-			sql_exp *er = rel?exp_rel(sql, rel):e;
-			list *b = sa_list(sql->sa);
-
-			if (er == e)
-				e = exp_rel_update_exp(sql->sa, e);
-			append(b, er);
-			append(b, exp_set(sql->sa, name, e, level));
-			res = exp_rel(sql, rel_psm_block(sql->sa, b));
-		} else {
-		*/
-			res = exp_set(sql->sa, name, e, level);
-		//}
+		res = exp_set(sql->sa, name, e, level);
 	} else { /* multi assignment */
 		exp_kind ek = {type_value, card_relation, FALSE};
 		sql_rel *rel_val = rel_subquery(query, NULL, val, ek);
@@ -110,8 +97,6 @@ psm_set_exp(sql_query *query, dnode *n)
 		dnode *m;
 		node *n;
 		list *b;
-
-		assert(0);
 
 		if (!rel_val || !is_project(rel_val->op) || dlist_length(vars) != list_length(rel_val->exps))
 			return sql_error(sql, 02, SQLSTATE(42000) "SET: Number of variables not equal to number of supplied values");

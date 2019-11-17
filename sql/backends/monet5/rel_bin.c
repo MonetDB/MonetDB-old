@@ -488,6 +488,8 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 			stmt *r = exp_bin(be, e->l, left, right, grp, ext, cnt, sel);
 			if(!r)
 				return NULL;
+			if (e->card <= CARD_ATOM && r->nrcols > 0) /* single value, get result from bat */
+				r = stmt_fetch(be, r);
 			return stmt_assign(be, exp_name(e), r, GET_PSM_LEVEL(e->flag));
 		} else if (e->flag & PSM_VAR) {
 			if (e->f)
@@ -665,6 +667,8 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 			s = stmt_func(be, stmt_list(be, l), sa_strdup(sql->sa, f->func->base.name), f->func->rel, (f->func->type == F_UNION));
 		else
 			s = stmt_Nop(be, stmt_list(be, l), e->f); 
+		if (!s)
+			return NULL;
 		if (cond_execution) {
 			/* var_x = s */
 			(void)stmt_assign(be, nme, s, 2);
