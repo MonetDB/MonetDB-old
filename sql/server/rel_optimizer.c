@@ -2269,7 +2269,6 @@ exp_push_down_prj(mvc *sql, sql_exp *e, sql_rel *f, sql_rel *t)
 {
 	sql_exp *ne = NULL, *l, *r, *r2;
 
-	return NULL;
 	assert(is_project(f->op));
 
 	switch(e->type) {
@@ -2529,7 +2528,7 @@ rel_distinct_project2groupby(int *changes, mvc *sql, sql_rel *rel)
 	sql_rel *l = rel->l;
 
 	/* rewrite distinct project (table) [ constant ] -> project [ constant ] */
-	if (0 && rel->op == op_project && rel->l && !rel->r /* no order by */ && need_distinct(rel) &&
+	if (rel->op == op_project && rel->l && !rel->r /* no order by */ && need_distinct(rel) &&
 	    exps_card(rel->exps) <= CARD_ATOM) {
 		set_nodistinct(rel);
 		rel->l = rel_topn(sql->sa, rel->l, append(sa_list(sql->sa), exp_atom_lng(sql->sa, 1)));
@@ -9136,7 +9135,7 @@ optimize_rel(mvc *sql, sql_rel *rel, int *g_changes, int level, int value_based_
 
 	/* simple merging of projects */
 	if (gp.cnt[op_project] || gp.cnt[op_groupby] || gp.cnt[op_ddl]) {
-		if (0) rel = rewrite(sql, rel, &rel_merge_projects, &changes);
+		rel = rewrite(sql, rel, &rel_merge_projects, &changes);
 
 		/* push (simple renaming) projections up */
 		if (gp.cnt[op_project])
@@ -9230,7 +9229,7 @@ optimize_rel(mvc *sql, sql_rel *rel, int *g_changes, int level, int value_based_
 		rel = rewrite(sql, rel, &rel_remove_union_partitions, &changes); 
 
 	if (gp.cnt[op_groupby]) {
-		if (0) rel = rewrite_topdown(sql, rel, &rel_push_aggr_down, &changes); /* needs fixes because sometimes it loses the groupby columns */ 
+		rel = rewrite_topdown(sql, rel, &rel_push_aggr_down, &changes);
 		rel = rewrite_topdown(sql, rel, &rel_push_groupby_down, &changes);
 		rel = rewrite(sql, rel, &rel_groupby_order, &changes); 
 		rel = rewrite(sql, rel, &rel_reduce_groupby_exps, &changes); 
