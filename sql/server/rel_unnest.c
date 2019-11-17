@@ -1610,7 +1610,9 @@ rewrite_or_exp(mvc *sql, sql_rel *rel)
 					r->exps = e->r;
 
 					list_remove_node(rel->exps, n); /* remove or expression */
-					rel = rel_setop(sql->sa, l, r, op_union);
+					list *ls = rel_projections(sql, rel, NULL, 1, 1);
+					list *rs = rel_projections(sql, rel, NULL, 1, 1);
+					rel = rel_setop_check_types(sql, l, r, ls, rs, op_union);
 					rel = rel_distinct(rel);
 					rel->exps = exps;
 					return rewrite_or_exp(sql, rel);
