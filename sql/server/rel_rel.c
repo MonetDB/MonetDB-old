@@ -1853,6 +1853,9 @@ exp_visitor(mvc *sql, sql_rel *rel, sql_exp *e, int depth, exp_rewrite_fptr exp_
 		}
 		break;
 	case e_atom:
+		if (e->f)
+			if ((e->f = exps_exp_visitor(sql, rel, e->f, depth+1, exp_rewriter)) == NULL)
+				return NULL;
 		break;
 	}
 	return exp_rewriter(sql, rel, e, depth);
