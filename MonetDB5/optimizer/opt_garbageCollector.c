@@ -161,7 +161,7 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 	if( actions >= 0)
 		addtoMalBlkHistory(mb);
 
-	fprintFunction(MAL_OPT_GC, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_GC, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_GC, "GARBAGECOLLECTOR optimizer exit\n");
 
 	return msg;

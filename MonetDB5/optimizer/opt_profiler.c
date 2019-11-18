@@ -119,7 +119,7 @@ OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	newComment(mb,buf);
 	addtoMalBlkHistory(mb);
 
-	fprintFunction(MAL_OPT_PROFILER, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_PROFILER, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_PROFILER, "PROFILER optimizer exit\n");
 
 	return MAL_SUCCEED;

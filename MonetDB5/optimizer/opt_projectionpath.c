@@ -329,7 +329,7 @@ wrapupall:
 	if (varcnt ) GDKfree(varcnt);
 	if(old) GDKfree(old);
 
-	fprintFunction(MAL_OPT_PROJECTIONPATH, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_PROJECTIONPATH, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_PROJECTIONPATH, "PROJECTION optimizer exit\n");
 
 	return msg;

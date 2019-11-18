@@ -1106,7 +1106,7 @@ retryRead:
 						if( lstng == LIST_MAL_NAME)
 							printFunction(out, fs->def, 0, lstng);
 						else
-							debugFunction(out, fs->def, 0, lstng, 0,mb->stop);
+							snprintFunction(out, fs->def, 0, lstng, 0,mb->stop);
 					}
 					continue;
 				}
@@ -1114,7 +1114,7 @@ retryRead:
 					if( lstng == LIST_MAL_NAME)
 						printFunction(out, m, 0, lstng);
 					else
-						debugFunction(out, m, 0, lstng, 0,m->stop);
+						snprintFunction(out, m, 0, lstng, 0,m->stop);
 				}
 			} else {
 /*
@@ -1141,7 +1141,7 @@ partial:
 					mnstr_printf(out, "#line %d out of range (<=%d)\n", first, mb->stop);
 					first = pc;
 				} else {
-					debugFunction(out, mb, 0, lstng, first, stepsize);
+					snprintFunction(out, mb, 0, lstng, first, stepsize);
 					first = first + stepsize > mb->stop ? first : first + stepsize;
 				}
 			}

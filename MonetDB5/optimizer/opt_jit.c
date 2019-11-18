@@ -83,7 +83,7 @@ OPTjitImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( actions >= 0)
 		addtoMalBlkHistory(mb);
 
-	fprintFunction(MAL_OPT_JIT, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_JIT, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_JIT, "JIT optimizer exit\n");
 
 	return msg;

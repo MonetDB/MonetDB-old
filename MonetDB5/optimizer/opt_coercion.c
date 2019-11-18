@@ -184,7 +184,7 @@ OPTcoercionImplementation(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 		addtoMalBlkHistory(mb);
 	/* else we can also remove the request to apply the next alias optimizer */
 	
-	fprintFunction(MAL_OPT_COERCION, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_COERCION, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_COERCION, "COERCION optimizer exit\n");
 
 	return msg;

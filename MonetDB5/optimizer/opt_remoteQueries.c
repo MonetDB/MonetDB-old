@@ -369,7 +369,7 @@ OPTremoteQueriesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
     newComment(mb,buf);
 	if( doit >= 0)
 		addtoMalBlkHistory(mb);
-		fprintFunction(MAL_OPT_REMOTE, mb, 0, LIST_MAL_ALL);
+		debugFunction(MAL_OPT_REMOTE, mb, 0, LIST_MAL_ALL);
         DEBUG(MAL_OPT_REMOTE, "REMOTEQUERIES optimizer exit\n");
         
 	return msg;

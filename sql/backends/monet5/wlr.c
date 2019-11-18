@@ -308,7 +308,7 @@ WLRprocessBatch(void *arg)
 				snprintf(line, FILENAME_MAX,"#wlr.process:failed further parsing '%s':",path);
 				snprintf(wlr_error, FILENAME_MAX, "%.*s", FILENAME_MAX, line);
 				INFO(SQL_ALL, "%s\n", line);
-				fprintFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG );
+				debugFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG );
 				cleanup();
 				DEBUG(SQL_WLR, "Redo transaction error\n");
 				continue;
@@ -358,7 +358,7 @@ WLRprocessBatch(void *arg)
 						CRITICAL(SQL_WLR, "Allocation failure while starting the transaction\n");
 					} else {
 						DEBUG(SQL_WLR, "Process a transaction\n");
-						fprintFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG | LIST_MAL_MAPI );
+						debugFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG | LIST_MAL_MAPI );
 
 						wlr_tag =  tag; // remember which transaction we executed
 						snprintf(wlr_read, sizeof(wlr_read), "%s", tag_read);
@@ -376,7 +376,7 @@ WLRprocessBatch(void *arg)
 						if( msg != MAL_SUCCEED){
 							// they should always succeed
 							msg =createException(MAL,"wlr.process", "batch %d:"LLFMT" :%s\n", i, tag, msg);
-							fprintFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG );
+							debugFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG );
 							if((other = mvc_rollback(sql,0,NULL, false)) != MAL_SUCCEED) //an error was already established
 								GDKfree(other);
 						} else
@@ -390,7 +390,7 @@ WLRprocessBatch(void *arg)
 					snprintf(line, FILENAME_MAX,"#wlr.process:typechecking failed '%s':\n",path);
 					snprintf(wlr_error, FILENAME_MAX, "%s", line);
 					INFO(SQL_ALL, "%s\n", line);
-					fprintFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG );
+					debugFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG );
 				}
 				cleanup();
 				if ( wlr_tag + 1 == wlc_tag || tag == wlr_limit)

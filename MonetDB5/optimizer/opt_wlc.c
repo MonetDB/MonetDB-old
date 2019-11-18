@@ -151,7 +151,7 @@ OPTwlcImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 wrapup:
     snprintf(buf,256,"%-20s actions=%2d time=" LLFMT " usec","wlc",updates,GDKusec() - usec);
     newComment(mb,buf);
-	fprintFunction(MAL_OPT_WLC, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_WLC, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_WLC, "WLC optimizer exit\n");
         
 	return MAL_SUCCEED;

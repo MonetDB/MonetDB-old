@@ -425,7 +425,7 @@ OPTmacroImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			}
 	}
 
-	fprintFunction(MAL_OPT_MACRO, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_MACRO, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_MACRO, "MACRO optimizer exit\n");
 
 	return MAL_SUCCEED;
@@ -478,7 +478,7 @@ OPTorcamImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			}
 	}
 
-	fprintFunction(MAL_OPT_MACRO, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_MACRO, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_MACRO, "ORCAM optimizer exit\n");
 
 	return msg;
@@ -530,7 +530,7 @@ str OPTmacro(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	if (mb->errors)
 		throw(MAL, "optimizer.macro", SQLSTATE(42000) PROGRAM_GENERAL);
 
-	fprintFunction(MAL_OPT_MACRO, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_MACRO, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_MACRO, "MACRO optimizer exit\n");
 	
 	return msg;
@@ -579,7 +579,7 @@ str OPTorcam(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	if (mb->errors)
 		throw(MAL, "optimizer.orcam", SQLSTATE(42000) PROGRAM_GENERAL);
 
-	fprintFunction(MAL_OPT_MACRO, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_MACRO, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_MACRO, "ORCAM optimizer exit\n");
 
 	return msg;

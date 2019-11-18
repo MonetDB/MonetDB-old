@@ -154,7 +154,7 @@ OPTcostModelImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
     newComment(mb,buf);
 	addtoMalBlkHistory(mb);
 
-	fprintFunction(MAL_OPT_COSTMODEL, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_COSTMODEL, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_COSTMODEL, "COSTMODEL optimizer exit\n");
         
 	return MAL_SUCCEED;

@@ -73,7 +73,7 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	char *tpenme;
 	DEBUG(MAL_OPT_MULTIPLEX, "Calling the optimize multiplex script routine\n");
-	fprintFunction(MAL_OPT_MULTIPLEX,mb, 0, LIST_MAL_ALL );
+	debugFunction(MAL_OPT_MULTIPLEX,mb, 0, LIST_MAL_ALL );
 	tpenme = getTypeName(getVarType(mb,iter));
 	DEBUG(MAL_OPT_MULTIPLEX, "Multiplex against operator: %d %s\n", iter, tpenme);
 	GDKfree(tpenme);
@@ -270,8 +270,8 @@ OPTmultiplexImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	if( actions >= 0)
 		addtoMalBlkHistory(mb);
 
+	debugFunction(MAL_OPT_MULTIPLEX, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_MULTIPLEX, "MULTIPLEX optimizer exit\n");
-	fprintFunction(MAL_OPT_MULTIPLEX, mb, 0, LIST_MAL_ALL);
-    
+	
 	return msg;
 }

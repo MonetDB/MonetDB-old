@@ -204,7 +204,7 @@ OPTquerylogImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	newComment(mb,buf);
 	addtoMalBlkHistory(mb);
 	
-	fprintFunction(MAL_OPT_QUERYLOG, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_QUERYLOG, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_QUERYLOG, "QUERYLOG optimizer exit\n");
 
 	return msg;

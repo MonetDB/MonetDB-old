@@ -87,7 +87,7 @@ OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 				actions++;
 
 				DEBUG(MAL_OPT_INLINE, "Inline function at %d\n", i);
-				fprintFunction(MAL_OPT_INLINE, mb, 0, LIST_MAL_ALL);
+				debugFunction(MAL_OPT_INLINE, mb, 0, LIST_MAL_ALL);
 				debugInstruction(MAL_OPT_INLINE, q->blk, 0, sig, LIST_MAL_ALL);
 			}
 		}
@@ -106,7 +106,7 @@ OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	if( actions >= 0)
 		addtoMalBlkHistory(mb);
 
-	fprintFunction(MAL_OPT_INLINE, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_INLINE, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_INLINE, "INLINE optimizer exit\n");
 	
 

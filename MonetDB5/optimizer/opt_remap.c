@@ -135,7 +135,7 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 	sig= getInstrPtr(mq,0);
 
 	DEBUG(MAL_OPT_REMAP, "Modify the code\n");
-	fprintFunction(MAL_OPT_REMAP, mq, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_REMAP, mq, 0, LIST_MAL_ALL);
 	debugInstruction(MAL_OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
 
 	upgrade = (bit*) GDKzalloc(sizeof(bit)*mq->vtop);
@@ -291,9 +291,9 @@ terminateMX:
 
 	debugInstruction(MAL_OPT_REMAP, mb, 0, p, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_REMAP, "New block\n");
-	fprintFunction(MAL_OPT_REMAP, mq, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_REMAP, mq, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_REMAP, "Inlined result\n");
-	fprintFunction(MAL_OPT_REMAP, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_REMAP, mb, 0, LIST_MAL_ALL);
 
 	freeMalBlk(mq);
 	GDKfree(upgrade);
@@ -479,7 +479,7 @@ OPTremapImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( doit >= 0)
 		addtoMalBlkHistory(mb);
 
-	fprintFunction(MAL_OPT_REMAP, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_REMAP, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_REMAP, "REMAP optimizer exit\n");
 
 	return msg;

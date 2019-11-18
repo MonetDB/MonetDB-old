@@ -88,7 +88,7 @@ wrapup:
 	if( actions >= 0)
 		addtoMalBlkHistory(mb);
 
-	fprintFunction(MAL_OPT_MATPACK, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_MATPACK, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_MATPACK, "MATPACK optimizer exit\n");
 
 	return MAL_SUCCEED;

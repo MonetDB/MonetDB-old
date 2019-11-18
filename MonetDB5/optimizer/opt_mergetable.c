@@ -2262,7 +2262,7 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 	chkTypes(cntxt->usermodule, mb, FALSE);
 	chkFlow(mb);
 	chkDeclarations(mb);
-	fprintFunction(MAL_OPT_MERGETABLE, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_MERGETABLE, mb, 0, LIST_MAL_ALL);
 
 	if ( mb->errors == MAL_SUCCEED) {
 		for(i=0; i<slimit; i++)
@@ -2292,8 +2292,8 @@ cleanup:
 	if( actions >= 0)
 		addtoMalBlkHistory(mb);
 
+	debugFunction(MAL_OPT_MERGETABLE, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_MERGETABLE, "MERGETABLE optimizer exit\n");
-	fprintFunction(MAL_OPT_MERGETABLE, mb, 0, LIST_MAL_ALL);
     
 	return msg;
 }

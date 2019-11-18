@@ -254,7 +254,7 @@ wrapup:
 	if(assigned) GDKfree(assigned);
 	if(alias)	GDKfree(alias);
 
-	fprintFunction(MAL_OPT_EVALUATE, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_EVALUATE, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_EVALUATE, "EVALUATE optimizer exit\n");
 
 	return msg;

@@ -283,7 +283,7 @@ wrapup:
 	if( actions >= 0)
 		addtoMalBlkHistory(mb);
 
-	fprintFunction(MAL_OPT_EMPTYBIND, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_EMPTYBIND, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_EMPTYBIND, "EMPTYBIND optimizer exit\n");
 
 	return msg;

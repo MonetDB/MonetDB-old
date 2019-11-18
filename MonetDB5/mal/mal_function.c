@@ -218,7 +218,7 @@ void chkFlow(MalBlkPtr mb)
 	if(msg == MAL_SUCCEED && lastInstruction < mb->stop-1 ){
 		mb->errors = createMalException( mb,lastInstruction,SYNTAX,
 			"instructions after END");
-		fprintFunction(MAL_FCN, mb, 0, LIST_MAL_ALL);
+		debugFunction(MAL_FCN, mb, 0, LIST_MAL_ALL);
 	}
 	if( endseen)
 	for(btop--; btop>=0;btop--){
@@ -370,7 +370,7 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 	}
 	/* now change the definition of the original proc */
 	DEBUG(MAL_FCN, "Cloned version\n");
-	fprintFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
+	debugFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
 
 	/* check for errors after fixation , TODO*/
 	pp = getSignature(new);
@@ -401,7 +401,7 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 		clrVarFixed(new->def, i);
 
 	DEBUG(MAL_FCN, "Function to be checked\n");
-	fprintFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
+	debugFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
 
 	/* check for errors after fixation , TODO*/
 	/* beware, we should now ignore any cloning */
@@ -412,12 +412,12 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 			mb->errors = new->def->errors;
 			mb->errors = createMalException(mb,0,TYPE,"Error in cloned function");
 			new->def->errors = 0;
-			fprintFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
+			debugFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
 		}
 	}
 
 	DEBUG(MAL_FCN, "Newly cloned function added to: %s %d\n", scope->name, i);
-	fprintFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
+	debugFunction(MAL_FCN, new->def, 0, LIST_MAL_ALL);
 	return new;
 }
 
@@ -427,7 +427,7 @@ cloneFunction(Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
  * is returned.
  */
 void
-debugFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg, int first, int step)
+snprintFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg, int first, int step)
 {
 	int i,j;
 	str ps;
@@ -516,7 +516,7 @@ void printFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg)
 	listFunction(fd,mb,stk,flg,0,mb->stop);
 }
 
-void fprintFunction(COMPONENT comp, MalBlkPtr mb, MalStkPtr stk, int flg)
+void debugFunction(COMPONENT comp, MalBlkPtr mb, MalStkPtr stk, int flg)
 {
 	int i,j;
 	InstrPtr p;

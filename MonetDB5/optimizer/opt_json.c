@@ -91,7 +91,7 @@ OPTjsonImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( actions >= 0)
 		addtoMalBlkHistory(mb);
 
-	fprintFunction(MAL_OPT_JSON, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_JSON, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_JSON, "JSON optimizer exit\n");
 
 	return msg;

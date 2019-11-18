@@ -323,7 +323,7 @@ wrapup:
 	if(sink)   GDKfree(sink);
 	if(old)    GDKfree(old);
 
-	fprintFunction(MAL_OPT_DATAFLOW, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_DATAFLOW, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_DATAFLOW, "DATAFLOW optimizer exit\n");
 
 	return msg;

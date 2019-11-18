@@ -355,7 +355,7 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
     newComment(mb,buf);
 	addtoMalBlkHistory(mb);
 
-	fprintFunction(MAL_OPT_REORDER, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_REORDER, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_REORDER, "REORDER optimizer exit\n");
 
 	return msg;

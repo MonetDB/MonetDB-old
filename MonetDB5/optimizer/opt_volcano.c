@@ -106,7 +106,7 @@ OPTvolcanoImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 	if( count >= 0)
 		addtoMalBlkHistory(mb);
 
-	fprintFunction(MAL_OPT_VOLCANO, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_VOLCANO, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_VOLCANO, "VOLCANO optimizer exit\n");
 
 	return msg;

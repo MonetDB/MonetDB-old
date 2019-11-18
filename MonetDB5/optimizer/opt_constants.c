@@ -106,7 +106,7 @@ wrapup:
 	if( cst) GDKfree(cst);
 	if( index) GDKfree(index);
 
-	fprintFunction(MAL_OPT_CONSTANTS, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_CONSTANTS, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_CONSTANTS, "CONSTANTS optimizer exit\n");
     
 	return msg;

@@ -91,7 +91,7 @@ finished:
 
 wrapup:
 	if(vars) GDKfree(vars);
-	fprintFunction(MAL_OPT_POSTFIX, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_OPT_POSTFIX, mb, 0, LIST_MAL_ALL);
 	DEBUG(MAL_OPT_POSTFIX, "POSTFIX optimizer exit\n");
 	
 	return msg;

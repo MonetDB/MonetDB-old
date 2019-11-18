@@ -796,7 +796,7 @@ runMALdataflow(Client cntxt, MalBlkPtr mb, int startpc, int stoppc, MalStkPtr st
 	int i;
 
 	DEBUG(MAL_DATAFLOW, "Running for block: %d - %d\n", startpc, stoppc);
-	fprintFunction(MAL_DATAFLOW, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_DATAFLOW, mb, 0, LIST_MAL_ALL);
 
 	/* in debugging mode we should not start multiple threads */
 	if (stk == NULL)
