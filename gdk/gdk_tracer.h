@@ -20,6 +20,11 @@
 #define NAME_SEP '_'
 #define NEW_LINE '\n'
 
+// Print the enum as a string
+#define STR(x) #x
+#define ENUM_STR(x) STR(x)
+
+
 // TODO -> Sort it per layer
 // COMPONENTS 
 typedef enum { 
@@ -153,11 +158,14 @@ extern LOG_LEVEL CUR_LOG_LEVEL;
     if(CUR_LOG_LEVEL >= LOG_LEVEL)                                      \
     {                                                                   \
         GDKtracer_log(LOG_LEVEL,                                        \
-                      "[%s] %s (%s:%d) # "MSG,                          \
+                      "[%s] %s <%s:%d> (%s - %s) %s # "MSG,             \
                       GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),     \
                       __FILE__,                                         \
                       __FUNCTION__,                                     \
                       __LINE__,                                         \
+                      ENUM_STR(LOGG_LEVEL),                             \
+                      ENUM_STR(LOGG_LEVEL),                             \
+                      MT_thread_getname(),                              \
                       ## __VA_ARGS__);                                  \
     }                                                                   \
 
