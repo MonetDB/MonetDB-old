@@ -740,7 +740,6 @@ chkProgram(Module s, MalBlkPtr mb)
 	if (mb->errors)
 		return;
 	chkDeclarations(mb);
-	/* malGarbageCollector(mb); */
 }
 
 /*
