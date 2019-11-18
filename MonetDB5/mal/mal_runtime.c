@@ -140,10 +140,6 @@ runtimeProfileFinish(Client cntxt, MalBlkPtr mb, MalStkPtr stk)
 
 	qtop = j;
 	QRYqueue[qtop].query = NULL; /* sentinel for SYSMONqueue() */
-	cntxt->idle = time(0);
-	cntxt->lastcmd = 0;
-	cntxt->workers = 0;
-	cntxt->memoryclaim = 0;
 	MT_lock_unset(&mal_delayLock);
 }
 
@@ -193,7 +189,6 @@ runtimeProfileBegin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Run
 		workingset[tid].mb = mb;
 		workingset[tid].stk = stk;
 		workingset[tid].pci = pci;
-		cntxt->workers ++;
 		MT_lock_unset(&mal_delayLock);
 	}
 	/* always collect the MAL instruction execution time */
@@ -216,7 +211,6 @@ runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Runt
 		workingset[tid].mb = 0;
 		workingset[tid].stk = 0;
 		workingset[tid].pci = 0;
-		cntxt->workers --;
 		MT_lock_unset(&mal_delayLock);
 	}
 
