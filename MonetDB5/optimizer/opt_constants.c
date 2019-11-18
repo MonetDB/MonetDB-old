@@ -40,7 +40,7 @@ OPTconstantsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	cst= (VarPtr*) GDKzalloc(sizeof(VarPtr) * mb->vtop);
 	index= (int*) GDKzalloc(sizeof(int) * mb->vtop);
 
-	DEBUG(MAL_OPT_CONSTANTS) "CONSTANTS optimizer enter\n");
+	DEBUG(MAL_OPT_CONSTANTS, "CONSTANTS optimizer enter\n");
 
 	if ( alias == NULL || cst == NULL || index == NULL){
 		msg = createException(MAL,"optimizer.constants", SQLSTATE(HY001) MAL_MALLOC_FAIL);

@@ -216,10 +216,8 @@ OPTevaluateImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 				/* freeze the type */
 				setVarFixed(mb,getArg(p,1));
 				setVarUDFtype(mb,getArg(p,1));
-				str tpename;
 				DEBUG(MAL_OPT_EVALUATE, "Evaluated new constant=%d -> %d:%s\n",
-										getArg(p, 0), getArg(p, 1), tpename = getTypeName(getArgType(mb, p, 1)));
-				GDKfree(tpename);
+										getArg(p, 0), getArg(p, 1), getTypeName(getArgType(mb, p, 1)));
 			} else {
 				/* if there is an error, we should postpone message handling,
 					as the actual error (eg. division by zero ) may not happen) */

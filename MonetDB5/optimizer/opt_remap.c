@@ -119,11 +119,12 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 	if( s== NULL || !isSideEffectFree(s->def) || 
 		getInstrPtr(s->def,0)->retc != p->retc ) {
 
-		if( s== NULL)
+		if( s== NULL) {
 			DEBUG(MAL_OPT_REMAP, "Not found\n");
-		else
+		} else {
 			DEBUG(MAL_OPT_REMAP, "Side effects\n");
-
+		}
+			
 		return 0;
 	}
 	/*
