@@ -163,8 +163,8 @@ extern LOG_LEVEL CUR_LOG_LEVEL;
                       __FILE__,                                         \
                       __FUNCTION__,                                     \
                       __LINE__,                                         \
-                      ENUM_STR(LOGG_LEVEL),                             \
-                      ENUM_STR(LOGG_LEVEL),                             \
+                      ENUM_STR(LOG_LEVEL),                             \
+                      ENUM_STR(LOG_LEVEL),                             \
                       MT_thread_getname(),                              \
                       ## __VA_ARGS__);                                  \
     }                                                                   \
