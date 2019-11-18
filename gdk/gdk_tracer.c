@@ -133,6 +133,7 @@ GDKtracer_get_timestamp(char* fmt)
 gdk_return
 GDKtracer_init(void)
 {
+    fprintf(stderr, "INIT TRACER");
     _GDKtracer_create_file();
     return GDK_SUCCEED;
 }

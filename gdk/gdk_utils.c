@@ -19,6 +19,7 @@
 
 #include "gdk.h"
 #include "gdk_private.h"
+#include "gdk_tracer.h"
 #include "mutils.h"
 
 static BAT *GDKkey = NULL;
@@ -830,6 +831,10 @@ GDKinit(opt *set, int setlen)
 		return GDK_FAIL;
 	}
 
+	/* initialize GDKtracer */
+	if (!GDKtracer_init())
+		return GDK_FAIL;
+
 	return GDK_SUCCEED;
 }
 
@@ -944,6 +949,9 @@ GDKreset(int status)
 		MT_lock_unset(&GDKthreadLock);
 	}
 	ATOMunknown_clean();
+
+	/* stop GDKtracer */
+	GDKtracer_stop();
 }
 
 /* coverity[+kill] */
@@ -954,6 +962,9 @@ GDKexit(int status)
 #ifdef HAVE_EMBEDDED
 		return;
 #else
+		/* stop GDKtracer */
+		GDKtracer_stop();
+
 		/* no database lock, so no threads, so exit now */
 		exit(status);
 #endif
