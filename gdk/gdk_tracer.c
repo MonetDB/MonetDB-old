@@ -29,6 +29,9 @@
 #include "gdk.h"
 #include "gdk_tracer.h"
 
+/* CHECK */
+// Make CUR_FLUSH_LEVEL => ATOMIC_TYPE?
+
 // 0 -> tracer
 // 1 -> secondary_tracer
 static gdk_tracer tracer = { .allocated_size = 0, .id = 0, .lock = MT_LOCK_INITIALIZER("GDKtracerL") };
@@ -39,12 +42,9 @@ static bool GDK_TRACER_STOP = false;
 
 static FILE *output_file;
 static ATOMIC_TYPE CUR_ADAPTER = DEFAULT_ADAPTER;
-
-/* CHECK */
-// Should it be ATOMIC_TYPE?
 static LOG_LEVEL CUR_FLUSH_LEVEL = DEFAULT_FLUSH_LEVEL;
-// We need it as a global - else create a wrapper function that returns it
 LOG_LEVEL CUR_LOG_LEVEL = DEFAULT_LOG_LEVEL;
+
 
 // Output error from snprintf of vsnprintf
 static void 
@@ -77,7 +77,6 @@ _GDKtracer_create_file(void)
 
     _GDKtracer_file_is_open(output_file);
 }
-
 
 
 // Candidate for 'gnu_printf' format attribute [-Werror=suggest-attribute=format]
