@@ -16,6 +16,7 @@
 #include "mal_utils.h"
 #include "mal_exception.h"
 #include "mal_listing.h"
+#include "gdk_tracer.h"
 
 /* 
  * Since MAL programs can be created on the fly by linked-in query
@@ -641,18 +642,25 @@ printInstruction(stream *fd, MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int flg)
 void
 debugInstruction(COMPONENT comp, MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int flg)
 {
-	str ps;
+	// str ps;
 
-	ps = instruction2str(mb, stk, p, flg);
-	/* ps[strlen(ps)-1] = 0; remove '\n' */
-	if ( ps ){
-		DEBUG(comp, "%s%s\n", (flg & LIST_MAL_MAPI ? "=" : ""), ps);
-		GDKfree(ps);
-	} else {
-		DEBUG(comp, "Failed instruction2str()\n");
-	}
+	// ps = instruction2str(mb, stk, p, flg);
+	// /* ps[strlen(ps)-1] = 0; remove '\n' */
+	// if ( ps ){
+	// 	// DEBUG(comp, "%s%s\n", (flg & LIST_MAL_MAPI ? "=" : ""), ps);
+	// 	fprintf(stderr, "PS EXISTS!");
+	// 	GDKfree(ps);
+	// } else {
+	// 	// DEBUG(comp, "Failed instruction2str()\n");
+	// 	fprintf(stderr, "PS FAIIIILEEEEDDD!");
+	// }
 
-	(void) comp; /* compiler complains about unused parameter */
+	/* compiler complains about unused parameter */
+	(void) comp; 
+	(void) mb; 
+	(void) stk; 
+	(void) p; 
+	(void) flg; 
 }
 
 void
