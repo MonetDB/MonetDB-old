@@ -135,7 +135,7 @@ OPTprojectionPrefix(Client cntxt, MalBlkPtr mb, int prefixlength)
 	}
 
 	/* CHECK */
-	// If OPTdebug is removed, what is going to happen with this?
+	// This part of the code is executed on certain conditions
 	// if( OPTdebug &  OPTprojectionpath){
 		if( actions > 0){
 			chkTypes(cntxt->usermodule, mb, FALSE);
