@@ -13,8 +13,7 @@
 #define BUFFER_SIZE 64000
 
 #define DEFAULT_ADAPTER BASIC
-#define DEFAULT_COMPONENT_SEL M_ALL
-#define DEFAULT_LOG_LEVEL M_DEBUG
+#define DEFAULT_LOG_LEVEL M_CRITICAL
 #define DEFAULT_FLUSH_LEVEL M_DEBUG
 
 #define FILE_NAME "trace"
@@ -31,6 +30,7 @@
 // TODO -> Sort it per layer
 // COMPONENTS 
 typedef enum { 
+
                // ALL
                M_ALL,
 
@@ -94,6 +94,7 @@ typedef enum {
                MAL_NAMESPACE,
                MAL_PROFILER,
                MAL_MAL,
+               MAL_DEBUGGER,
 
 
                // OPT
@@ -133,18 +134,20 @@ typedef enum {
             
                // GDK
                GDK_ALL,
-               GDK_LOGGER
+               GDK_LOGGER,
 
+               COMPONENTS_COUNT // Do not remove - it is used in order to find quickly
+                                // the size of the COMPONENT array
               } COMPONENT;
               
 // LOG LEVELS
 typedef enum { 
 
-               M_CRITICAL = 1,
-               M_ERROR = 100, 
-               M_WARNING = 150,
-               M_INFO = 200,
-               M_DEBUG = 255
+               M_CRITICAL,
+               M_ERROR,
+               M_WARNING,
+               M_INFO,
+               M_DEBUG,
 
               } LOG_LEVEL;
 
@@ -158,8 +161,6 @@ typedef enum {
              } ADAPTER;
 
 
-extern LOG_LEVEL CUR_LOG_LEVEL;
-
 /**
  * 
  * Macros for logging
@@ -167,13 +168,15 @@ extern LOG_LEVEL CUR_LOG_LEVEL;
  * 
  */
 
+extern LOG_LEVEL LOG_LEVELS_LIST[COMPONENTS_COUNT];
+
 // If the LOG_LEVEL of the message is one of the following: CRITICAL, ERROR or WARNING 
 // it is logged no matter the component. In any other case the component is taken into account (needs fix)
 #define GDK_TRACER_LOG(LOG_LEVEL, COMP, MSG, ...)                                   \
     if(LOG_LEVEL == M_CRITICAL ||                                                   \
        LOG_LEVEL == M_ERROR    ||                                                   \
        LOG_LEVEL == M_WARNING  ||                                                   \
-       (LOG_LEVEL >= CUR_LOG_LEVEL))                                                \
+       (LOG_LEVELS_LIST[COMP] >= LOG_LEVEL))                                        \
     {                                                                               \
             GDKtracer_log(LOG_LEVEL,                                                \
                         "[%s] %s <%s:%d> (%s - %s) %s # "MSG,                       \
@@ -185,7 +188,6 @@ extern LOG_LEVEL CUR_LOG_LEVEL;
                         ENUM_STR(COMP),                                             \
                         MT_thread_getname(),                                        \
                         ## __VA_ARGS__);                                            \
-                                                                                    \
     }                                                                               \
 
 #define CRITICAL(COMP, MSG, ...)                                                    \
@@ -231,16 +233,10 @@ gdk_return GDKtracer_init(void);
 gdk_return GDKtracer_stop(void);
 
 
-// Sets the log level to one of the enum LOG_LEVELS above. If the current log level 
-// is not NONE and GDK_tracer_set_log_level sets it to NONE we flush the buffer first 
-// in order to "discard" the messages that are there from the previous log levels
-gdk_return GDKtracer_set_log_level(LOG_LEVEL level);
+gdk_return GDKtracer_set_component_log_level(COMPONENT comp, LOG_LEVEL level);
 
 
-// Resets the log level to the default one - NONE. If the current log level is not NONE 
-// and GDK_tracer_reset_log_level() is called we need to flush the buffer first in order to 
-// "discard" messages kept from other log levels
-gdk_return GDKtracer_reset_log_level(void);
+gdk_return GDKtracer_reset_component_log_level(COMPONENT comp);
 
 
 // Sets the minimum flush level that an event will trigger the logger to flush the buffer
