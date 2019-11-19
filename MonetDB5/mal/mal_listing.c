@@ -648,11 +648,9 @@ debugInstruction(COMPONENT comp, MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int fl
 	// /* ps[strlen(ps)-1] = 0; remove '\n' */
 	// if ( ps ){
 	// 	// DEBUG(comp, "%s%s\n", (flg & LIST_MAL_MAPI ? "=" : ""), ps);
-	// 	fprintf(stderr, "PS EXISTS!");
 	// 	GDKfree(ps);
 	// } else {
 	// 	// DEBUG(comp, "Failed instruction2str()\n");
-	// 	fprintf(stderr, "PS FAIIIILEEEEDDD!");
 	// }
 
 	/* compiler complains about unused parameter */
