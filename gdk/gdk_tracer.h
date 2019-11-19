@@ -13,8 +13,8 @@
 #define BUFFER_SIZE 64000
 
 #define DEFAULT_COMPONENT_SEL M_ALL
-#define DEFAULT_LOG_LEVEL M_CRITICAL
-#define DEFAULT_FLUSH_LEVEL M_CRITICAL
+#define DEFAULT_LOG_LEVEL M_DEBUG
+#define DEFAULT_FLUSH_LEVEL M_DEBUG
 
 #define FILE_NAME "trace"
 #define NAME_SEP '_'
@@ -163,8 +163,8 @@ extern LOG_LEVEL CUR_LOG_LEVEL;
                       __FILE__,                                         \
                       __FUNCTION__,                                     \
                       __LINE__,                                         \
-                      ENUM_STR(LOG_LEVEL),                             \
-                      ENUM_STR(LOG_LEVEL),                             \
+                      ENUM_STR(LOG_LEVEL),                              \
+                      ENUM_STR(LOG_LEVEL),                              \
                       MT_thread_getname(),                              \
                       ## __VA_ARGS__);                                  \
     }                                                                   \
