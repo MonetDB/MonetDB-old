@@ -54,7 +54,6 @@ _GDKtracer_log_output_error(int bytes_written)
 }
 
 
-// Check if log file is open
 static void 
 _GDKtracer_file_is_open(FILE *file)
 {
@@ -199,7 +198,7 @@ GDKtracer_set_component_log_level(COMPONENT comp, LOG_LEVEL level)
         return GDK_FAIL;
         
     LOG_LEVELS_LIST[comp] = level;
-    
+
     return GDK_SUCCEED;
 }
 

@@ -27,12 +27,12 @@
 // Print only the filename without the path
 #define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
 
-// TODO -> Sort it per layer
+/* CHECK */
+// Sort it per layer 
 // COMPONENTS 
 typedef enum { 
 
-               // ALL
-               M_ALL,
+               // M_ALL,
 
                // Specific 
                ALLOC,
@@ -46,8 +46,7 @@ typedef enum {
                FITS,
                SHP,
 
-               // SQL
-               SQL_ALL,
+               // SQL_ALL,
                SQL_ATOM_TR,
                SQL_STATISTICS,
                SQL_ORDERIDX,
@@ -65,9 +64,7 @@ typedef enum {
                SQL_STATEMENT,
                SQL_BAT,
 
-
-               // MAL
-               MAL_ALL,
+               // MAL_ALL,
                MAL_MEMO,
                MAL_SESSION,
                MAL_INTERPRETER,
@@ -95,9 +92,6 @@ typedef enum {
                MAL_PROFILER,
                MAL_MAL,
                MAL_DEBUGGER,
-
-
-               // OPT
                MAL_OPT_ALIASES,
                MAL_OPT_CANDIDATES,
                MAL_OPT_COERCION,
@@ -132,8 +126,7 @@ typedef enum {
                MAL_OPT_MACRO,
                MAL_OPT_POSTFIX,
             
-               // GDK
-               GDK_ALL,
+               // GDK_ALL,
                GDK_LOGGER,
 
                COMPONENTS_COUNT // Do not remove - it is used in order to find quickly
@@ -255,7 +248,6 @@ gdk_return GDKtracer_set_adapter(ADAPTER adapter);
 gdk_return GDKtracer_reset_adapter(void);
 
 
-// TODO -> Write comments
 // Candidate for 'gnu_printf' format attribute [-Werror=suggest-attribute=format] 
 gdk_return GDKtracer_log(LOG_LEVEL level, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
 
