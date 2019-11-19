@@ -141,10 +141,10 @@ SQLprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	tmp = SQLinit(cntxt);
 	if (tmp != MAL_SUCCEED) {
-		CRITICAL(M_ALL, "Fatal error during initialization: %s\n", tmp);
+		CRITICAL(SQL_SCENARIO, "Fatal error during initialization: %s\n", tmp);
 		freeException(tmp);
 		if ((tmp = GDKerrbuf) && *tmp)
-			CRITICAL(M_ALL, SQLSTATE(42000) "GDK reported: %s\n", tmp);
+			CRITICAL(SQL_SCENARIO, SQLSTATE(42000) "GDK reported: %s\n", tmp);
 		fflush(stderr);
 		exit(1);
 	}
@@ -440,13 +440,13 @@ SQLinit(Client c)
 
 		bstream_next(fdin);
 		if( MCpushClientInput(c, fdin, 0, "") < 0)
-			ERROR(M_ALL, "Could not switch client input stream\n");
+			ERROR(SQL_SCENARIO, "Could not switch client input stream\n");
 	}
 	if ((msg = SQLprepareClient(c, 0)) != NULL) {
 		MT_lock_unset(&sql_contextLock);
 		/* CHECK */
 		// Not sure if this is an info msg
-		INFO(SQL_ALL, "%s\n", msg);
+		INFO(SQL_SCENARIO, "%s\n", msg);
 		return msg;
 	}
 	be = c->sqlcontext;
@@ -562,7 +562,7 @@ SQLinit(Client c)
 			freeException(other);
 
 		if (msg)
-			INFO(SQL_ALL, "%s\n", msg);
+			INFO(SQL_SCENARIO, "%s\n", msg);
 #endif
 	} else {		/* handle upgrades */
 		if (!m->sa)
@@ -1043,7 +1043,7 @@ SQLparser(Client c)
 	be = (backend *) c->sqlcontext;
 	if (be == 0) {
 		/* leave a message in the log */
-		ERROR(M_ALL, "SQL state description is missing, cannot handle client!\n");
+		ERROR(SQL_SCENARIO, "SQL state description is missing, cannot handle client!\n");
 		/* stop here, instead of printing the exception below to the
 		 * client in an endless loop */
 		c->mode = FINISHCLIENT;

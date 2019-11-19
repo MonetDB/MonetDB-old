@@ -307,8 +307,8 @@ WLRprocessBatch(void *arg)
 				char line[FILENAME_MAX];
 				snprintf(line, FILENAME_MAX,"#wlr.process:failed further parsing '%s':",path);
 				snprintf(wlr_error, FILENAME_MAX, "%.*s", FILENAME_MAX, line);
-				INFO(SQL_ALL, "%s\n", line);
-				debugFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG );
+				INFO(SQL_WLR, "%s\n", line);
+				fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG );
 				cleanup();
 				DEBUG(SQL_WLR, "Redo transaction error\n");
 				continue;
@@ -316,7 +316,7 @@ WLRprocessBatch(void *arg)
 			q= getInstrPtr(mb, mb->stop - 1);
 			if( getModuleId(q) != wlrRef){
 				DEBUG(SQL_WLR, "Unexpected instruction");
-				debugInstruction(SQL_WLR, mb, 0, q, LIST_MAL_ALL);
+				fprintInstruction(stderr, mb, 0, q, LIST_MAL_ALL);
 				
 				cleanup();
 				break;
@@ -358,7 +358,7 @@ WLRprocessBatch(void *arg)
 						CRITICAL(SQL_WLR, "Allocation failure while starting the transaction\n");
 					} else {
 						DEBUG(SQL_WLR, "Process a transaction\n");
-						debugFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG | LIST_MAL_MAPI );
+						fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG | LIST_MAL_MAPI );
 
 						wlr_tag =  tag; // remember which transaction we executed
 						snprintf(wlr_read, sizeof(wlr_read), "%s", tag_read);
@@ -376,7 +376,7 @@ WLRprocessBatch(void *arg)
 						if( msg != MAL_SUCCEED){
 							// they should always succeed
 							msg =createException(MAL,"wlr.process", "batch %d:"LLFMT" :%s\n", i, tag, msg);
-							debugFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG );
+							fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG );
 							if((other = mvc_rollback(sql,0,NULL, false)) != MAL_SUCCEED) //an error was already established
 								GDKfree(other);
 						} else
@@ -389,8 +389,8 @@ WLRprocessBatch(void *arg)
 					char line[FILENAME_MAX];
 					snprintf(line, FILENAME_MAX,"#wlr.process:typechecking failed '%s':\n",path);
 					snprintf(wlr_error, FILENAME_MAX, "%s", line);
-					INFO(SQL_ALL, "%s\n", line);
-					debugFunction(SQL_WLR, mb, 0, LIST_MAL_DEBUG );
+					INFO(SQL_WLR, "%s\n", line);
+					fprintFunction(stderr, mb, 0, LIST_MAL_DEBUG );
 				}
 				cleanup();
 				if ( wlr_tag + 1 == wlc_tag || tag == wlr_limit)
@@ -540,7 +540,7 @@ WLRreplicate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( getArgType(mb, pci, 1) == TYPE_timestamp){
 		if (timestamp_precision_tostr(&timelimit, &size, *getArgReference_TYPE(stk, pci, 1, timestamp), 3, true) < 0)
 			throw(SQL, "wlr.replicate", GDK_EXCEPTION);
-		INFO(SQL_ALL, "Time limit %s\n", timelimit);
+		INFO(SQL_WLR, "Time limit %s\n", timelimit);
 	} else
 	if( getArgType(mb, pci, 1) == TYPE_bte)
 		limit = getVarConstant(mb,getArg(pci,1)).val.btval;
