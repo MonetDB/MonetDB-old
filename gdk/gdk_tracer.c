@@ -38,6 +38,7 @@ static ATOMIC_TYPE SELECTED_tracer_ID = 0;
 static bool GDK_TRACER_STOP = false;
 
 static FILE *output_file;
+static ATOMIC_TYPE CUR_ADAPTER = DEFAULT_ADAPTER;
 
 /* CHECK */
 // Should it be ATOMIC_TYPE?
@@ -208,6 +209,37 @@ GDKtracer_reset_flush_level(void)
 
 
 gdk_return
+GDKtracer_set_adapter(ADAPTER adapter)
+{
+    if(ATOMIC_GET(&CUR_ADAPTER) == adapter)
+        return GDK_SUCCEED;
+
+    // Here when switching between adapters we can open/close the file
+    // But it is not so important to keep it open in case the adapter switches
+
+    // From BASIC to other => close the file
+    // From other to BASIC => open the file
+    
+    // TODO: Check adapter exists
+    ATOMIC_SET(&CUR_ADAPTER, adapter);
+
+    return GDK_SUCCEED;
+}
+
+
+gdk_return
+GDKtracer_reset_adapter(void)
+{
+    if(ATOMIC_GET(&CUR_ADAPTER) == DEFAULT_ADAPTER)
+        return GDK_SUCCEED;
+
+    ATOMIC_SET(&CUR_ADAPTER, DEFAULT_ADAPTER);
+
+    return GDK_SUCCEED;
+}
+
+
+gdk_return
 GDKtracer_log(LOG_LEVEL level, const char *fmt, ...)
 {   
     // Select a tracer
@@ -301,19 +333,22 @@ GDKtracer_flush_buffer(void)
     if(fl_tracer->allocated_size == 0)
         return GDK_SUCCEED;
 
-    // Check if file is open
-    _GDKtracer_file_is_open(output_file);
-    
-    MT_lock_set(&fl_tracer->lock);
+    if(ATOMIC_GET(&CUR_ADAPTER) == BASIC)
     {
-        fwrite(&fl_tracer->buffer, fl_tracer->allocated_size, 1, output_file);
-        fflush(output_file);
+        // Check if file is open
+        _GDKtracer_file_is_open(output_file);
         
-        // Reset buffer
-        memset(fl_tracer->buffer, 0, BUFFER_SIZE);
-        fl_tracer->allocated_size = 0;
+        MT_lock_set(&fl_tracer->lock);
+        {
+            fwrite(&fl_tracer->buffer, fl_tracer->allocated_size, 1, output_file);
+            fflush(output_file);
+            
+            // Reset buffer
+            memset(fl_tracer->buffer, 0, BUFFER_SIZE);
+            fl_tracer->allocated_size = 0;
+        }
+        MT_lock_unset(&fl_tracer->lock);
     }
-    MT_lock_unset(&fl_tracer->lock);
 
     if(GDK_TRACER_STOP)
     {

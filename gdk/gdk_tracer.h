@@ -12,6 +12,7 @@
 #define INT_MAX_LEN ((__CHAR_BIT__ * sizeof(int) - 1) / 3  + 2)
 #define BUFFER_SIZE 64000
 
+#define DEFAULT_ADAPTER BASIC
 #define DEFAULT_COMPONENT_SEL M_ALL
 #define DEFAULT_LOG_LEVEL M_DEBUG
 #define DEFAULT_FLUSH_LEVEL M_DEBUG
@@ -148,6 +149,15 @@ typedef enum {
               } LOG_LEVEL;
 
 
+// GDKtracer adapters
+typedef enum {
+
+                BASIC,
+                PROFILER
+
+             } ADAPTER;
+
+
 extern LOG_LEVEL CUR_LOG_LEVEL;
 
 /**
@@ -232,6 +242,14 @@ gdk_return GDKtracer_set_flush_level(LOG_LEVEL level);
 
 // Resets the flush level to the default (ERROR)
 gdk_return GDKtracer_reset_flush_level(void);
+
+
+// Sets the adapter used when flush buffer takes place
+gdk_return GDKtracer_set_adapter(ADAPTER adapter);
+
+
+// Resets the adapter to the default (BASIC) when flush buffer takes place 
+gdk_return GDKtracer_reset_adapter(void);
 
 
 // TODO -> Write comments
