@@ -20,138 +20,153 @@
 #define NAME_SEP '_'
 #define NEW_LINE '\n'
 
-// Print the enum as a string
-#define STR(x) #x
-#define ENUM_STR(x) STR(x)
-
 // Print only the filename without the path
 #define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
 
-/* CHECK */
-// Sort it per layer 
-// COMPONENTS 
+// Print the enum as a string
+#define STR(x) #x
+#define AS_STR(x) STR(x)
+
+#define GENERATE_ENUM(ENUM) ENUM,
+#define GENERATE_STRING(STRING) #STRING,
+
+
+
+// ADAPTERS
+#define FOREACH_ADPTR(ADPTR)   \
+        ADPTR(BASIC)           \
+        ADPTR(PROFILER)        \
+
 typedef enum { 
+    FOREACH_ADPTR(GENERATE_ENUM)
+} ADAPTER;
 
-               // M_ALL,
+static const char *ADAPTER_STR[] = {
+    FOREACH_ADPTR(GENERATE_STRING)
+};
 
-               // Specific 
-               ALLOC,
-               PAR,
-               ALGO,
 
-               // Modules
-               GEOM,
-               LIDAR,
-               BAM,
-               FITS,
-               SHP,
 
-               // SQL_ALL,
-               SQL_ATOM_TR,
-               SQL_STATISTICS,
-               SQL_ORDERIDX,
-               SQL_OPTIMIZER,
-               SQL_WLR,
-               SQL_USER,
-               SQL_SCENARIO,
-               SQL_CACHE_TR,
-               SQL_SYMBOL,
-               SQL_MVC,
-               SQL_STORE,
-               SQL_UPGRADES,
-               SQL_RELATION,
-               SQL_RESULT,
-               SQL_STATEMENT,
-               SQL_BAT,
-
-               // MAL_ALL,
-               MAL_MEMO,
-               MAL_SESSION,
-               MAL_INTERPRETER,
-               MAL_SCHEDULER,
-               MAL_LISTING,
-               MAL_FACTORY,
-               MAL_PARSER,
-               MAL_WLC,
-               MAL_REDUCE,
-               MAL_CLIENT,
-               MAL_OIDX,
-               MAL_REMOTE,
-               MAL_INET,
-               MAL_GROUPBY,
-               MAL_TABLET,
-               MAL_OLTP,
-               MAL_MANIFOLD,
-               MAL_RESOLVE,
-               MAL_FCN,
-               MAL_DATAFLOW,
-               MAL_MODULE,
-               MAL_SERVER,
-               MAL_EXCEPTION,
-               MAL_NAMESPACE,
-               MAL_PROFILER,
-               MAL_MAL,
-               MAL_DEBUGGER,
-               MAL_OPT_ALIASES,
-               MAL_OPT_CANDIDATES,
-               MAL_OPT_COERCION,
-               MAL_OPT_COMMONTERMS,
-               MAL_OPT_PIPES,
-               MAL_OPT_REMAP,
-               MAL_OPT_DATAFLOW,
-               MAL_OPT_EVALUATE,
-               MAL_OPT_INLINE,
-               MAL_OPT_JIT,
-               MAL_OPT_MULTIPLEX,
-               MAL_OPT_REORDER,
-               MAL_OPT_PROJECTIONPATH,
-               MAL_OPT_WLC,
-               MAL_OPT_CONSTANTS,
-               MAL_OPT_COSTMODEL,
-               MAL_OPT_DEADCODE,
-               MAL_OPT_EMPTYBIND,
-               MAL_OPT_GENERATOR,
-               MAL_OPT_JSON,
-               MAL_OPT_MATPACK,
-               MAL_OPT_GC,
-               MAL_OPT_MERGETABLE,
-               MAL_OPT_MITOSIS,
-               MAL_OPT_PUSHSELECT,
-               MAL_OPT_QUERYLOG,
-               MAL_OPT_OLTP,
-               MAL_OPT_PROFILER,
-               MAL_OPT_REDUCE,
-               MAL_OPT_REMOTE,
-               MAL_OPT_VOLCANO,
-               MAL_OPT_MACRO,
-               MAL_OPT_POSTFIX,
-            
-               // GDK_ALL,
-               GDK_LOGGER,
-
-               COMPONENTS_COUNT // Do not remove - it is used in order to find quickly
-                                // the size of the COMPONENT array
-              } COMPONENT;
-              
 // LOG LEVELS
+#define FOREACH_LEVEL(LEVEL) \
+        LEVEL(M_CRITICAL)    \
+        LEVEL(M_ERROR)       \
+        LEVEL(M_WARNING)     \
+        LEVEL(M_INFO)        \
+        LEVEL(M_DEBUG)       \
+
 typedef enum { 
+    FOREACH_LEVEL(GENERATE_ENUM)
+} LOG_LEVEL;
 
-               M_CRITICAL,
-               M_ERROR,
-               M_WARNING,
-               M_INFO,
-               M_DEBUG,
-
-              } LOG_LEVEL;
+static const char *LEVEL_STR[] = {
+    FOREACH_LEVEL(GENERATE_STRING)
+};
 
 
-// GDKtracer adapters
-typedef enum {
 
-                BASIC,
-                PROFILER
+// COMPONENTS
+#define FOREACH_COMP(COMP)            \
+        COMP( ALLOC )                 \
+        COMP( PAR )                   \
+        COMP( ALGO )                  \
+        COMP( GEOM )                  \
+        COMP( LIDAR )                 \
+        COMP( BAM )                   \
+        COMP( FITS )                  \
+        COMP( SHP )                   \
+                                      \
+        COMP( SQL_ATOM_TR )           \
+        COMP( SQL_STATISTICS )        \
+        COMP( SQL_ORDERIDX )          \
+        COMP( SQL_OPTIMIZER )         \
+        COMP( SQL_WLR )               \
+        COMP( SQL_USER )              \
+        COMP( SQL_SCENARIO )          \
+        COMP( SQL_CACHE_TR )          \
+        COMP( SQL_SYMBOL )            \
+        COMP( SQL_MVC )               \
+        COMP( SQL_STORE )             \
+        COMP( SQL_UPGRADES )          \
+        COMP( SQL_RELATION )          \
+        COMP( SQL_RESULT )            \
+        COMP( SQL_STATEMENT )         \
+        COMP( SQL_BAT )               \
+                                      \
+        COMP( MAL_MEMO )              \
+        COMP( MAL_SESSION )           \
+        COMP( MAL_INTERPRETER )       \
+        COMP( MAL_SCHEDULER )         \
+        COMP( MAL_LISTING )           \
+        COMP( MAL_FACTORY )           \
+        COMP( MAL_PARSER )            \
+        COMP( MAL_WLC )               \
+        COMP( MAL_REDUCE )            \
+        COMP( MAL_CLIENT )            \
+        COMP( MAL_OIDX )              \
+        COMP( MAL_REMOTE )            \
+        COMP( MAL_INET )              \
+        COMP( MAL_GROUPBY )           \
+        COMP( MAL_TABLET )            \
+        COMP( MAL_OLTP )              \
+        COMP( MAL_MANIFOLD )          \
+        COMP( MAL_RESOLVE )           \
+        COMP( MAL_FCN )               \
+        COMP( MAL_DATAFLOW )          \
+        COMP( MAL_MODULE )            \
+        COMP( MAL_SERVER )            \
+        COMP( MAL_EXCEPTION )         \
+        COMP( MAL_NAMESPACE )         \
+        COMP( MAL_PROFILER )          \
+        COMP( MAL_MAL )               \
+        COMP( MAL_DEBUGGER )          \
+                                      \
+        COMP( MAL_OPT_ALIASES )       \
+        COMP( MAL_OPT_CANDIDATES )    \
+        COMP( MAL_OPT_COERCION )      \
+        COMP( MAL_OPT_COMMONTERMS )   \
+        COMP( MAL_OPT_PIPES )         \
+        COMP( MAL_OPT_REMAP )         \
+        COMP( MAL_OPT_DATAFLOW )      \
+        COMP( MAL_OPT_EVALUATE )      \
+        COMP( MAL_OPT_INLINE )        \
+        COMP( MAL_OPT_JIT )           \
+        COMP( MAL_OPT_MULTIPLEX )     \
+        COMP( MAL_OPT_REORDER )       \
+        COMP( MAL_OPT_PROJECTIONPATH )\
+        COMP( MAL_OPT_WLC )           \
+        COMP( MAL_OPT_CONSTANTS )     \
+        COMP( MAL_OPT_COSTMODEL )     \
+        COMP( MAL_OPT_DEADCODE )      \
+        COMP( MAL_OPT_EMPTYBIND )     \
+        COMP( MAL_OPT_GENERATOR )     \
+        COMP( MAL_OPT_JSON )          \
+        COMP( MAL_OPT_MATPACK )       \
+        COMP( MAL_OPT_GC )            \
+        COMP( MAL_OPT_MERGETABLE )    \
+        COMP( MAL_OPT_MITOSIS )       \
+        COMP( MAL_OPT_PUSHSELECT )    \
+        COMP( MAL_OPT_QUERYLOG )      \
+        COMP( MAL_OPT_OLTP )          \
+        COMP( MAL_OPT_PROFILER )      \
+        COMP( MAL_OPT_REDUCE )        \
+        COMP( MAL_OPT_REMOTE )        \
+        COMP( MAL_OPT_VOLCANO )       \
+        COMP( MAL_OPT_MACRO )         \
+        COMP( MAL_OPT_POSTFIX )       \
+                                      \
+        COMP( GDK_LOGGER )            \
+                                      \
+        COMP( COMPONENTS_COUNT )      \
 
-             } ADAPTER;
+typedef enum { 
+    FOREACH_COMP(GENERATE_ENUM)
+} COMPONENT;
+
+static const char *COMPONENT_STR[] = {
+    FOREACH_COMP(GENERATE_STRING)
+};
+
 
 
 /**
@@ -165,38 +180,38 @@ extern LOG_LEVEL LOG_LEVELS_LIST[COMPONENTS_COUNT];
 
 // If the LOG_LEVEL of the message is one of the following: CRITICAL, ERROR or WARNING 
 // it is logged no matter the component. In any other case the component is taken into account (needs fix)
-#define GDK_TRACER_LOG(LOG_LEVEL, COMP, MSG, ...)                                   \
-    if(LOG_LEVEL == M_CRITICAL ||                                                   \
-       LOG_LEVEL == M_ERROR    ||                                                   \
-       LOG_LEVEL == M_WARNING  ||                                                   \
-       (LOG_LEVELS_LIST[COMP] >= LOG_LEVEL))                                        \
-    {                                                                               \
-            GDKtracer_log(LOG_LEVEL,                                                \
-                        "[%s] %s <%s:%d> (%s - %s) %s # "MSG,                       \
-                        GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),               \
-                        __FILENAME__,                                               \
-                        __FUNCTION__,                                               \
-                        __LINE__,                                                   \
-                        ENUM_STR(LOG_LEVEL),                                        \
-                        ENUM_STR(COMP),                                             \
-                        MT_thread_getname(),                                        \
-                        ## __VA_ARGS__);                                            \
-    }                                                                               \
+#define GDK_TRACER_LOG(LOG_LEVEL, COMP, MSG, ...)                        \
+    if(LOG_LEVEL == M_CRITICAL ||                                        \
+       LOG_LEVEL == M_ERROR    ||                                        \
+       LOG_LEVEL == M_WARNING  ||                                        \
+       (LOG_LEVELS_LIST[COMP] >= LOG_LEVEL))                             \
+    {                                                                    \
+            GDKtracer_log(LOG_LEVEL,                                     \
+                        "[%s] %s <%s:%d> (%s - %s) %s # "MSG,            \
+                        GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),    \
+                        __FILENAME__,                                    \
+                        __FUNCTION__,                                    \
+                        __LINE__,                                        \
+                        AS_STR(LOG_LEVEL),                               \
+                        AS_STR(COMP),                                    \
+                        MT_thread_getname(),                             \
+                        ## __VA_ARGS__);                                 \
+    }                                                                    \
 
-#define CRITICAL(COMP, MSG, ...)                                                    \
-    GDK_TRACER_LOG(M_CRITICAL, COMP, MSG, ## __VA_ARGS__)                           \
+#define CRITICAL(COMP, MSG, ...)                                         \
+    GDK_TRACER_LOG(M_CRITICAL, COMP, MSG, ## __VA_ARGS__)                \
 
-#define ERROR(COMP, MSG, ...)                                                       \
-    GDK_TRACER_LOG(M_ERROR, COMP, MSG, ## __VA_ARGS__)                              \
+#define ERROR(COMP, MSG, ...)                                            \
+    GDK_TRACER_LOG(M_ERROR, COMP, MSG, ## __VA_ARGS__)                   \
 
-#define WARNING(COMP, MSG, ...)                                                     \
-    GDK_TRACER_LOG(M_WARNING, COMP, MSG, ## __VA_ARGS__)                            \
+#define WARNING(COMP, MSG, ...)                                          \
+    GDK_TRACER_LOG(M_WARNING, COMP, MSG, ## __VA_ARGS__)                 \
 
-#define INFO(COMP, MSG, ...)                                                        \
-    GDK_TRACER_LOG(M_INFO, COMP, MSG, ## __VA_ARGS__)                               \
+#define INFO(COMP, MSG, ...)                                             \
+    GDK_TRACER_LOG(M_INFO, COMP, MSG, ## __VA_ARGS__)                    \
 
-#define DEBUG(COMP, MSG, ...)                                                       \
-    GDK_TRACER_LOG(M_DEBUG, COMP, MSG, ## __VA_ARGS__)                              \
+#define DEBUG(COMP, MSG, ...)                                            \
+    GDK_TRACER_LOG(M_DEBUG, COMP, MSG, ## __VA_ARGS__)                   \
 
 
 // GDKtracer Buffer

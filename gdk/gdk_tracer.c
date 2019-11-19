@@ -80,7 +80,12 @@ _GDKtracer_level_exists(LOG_LEVEL level)
 static bool
 _GDKtracer_component_exists(COMPONENT comp)
 {
+    if(comp == COMPONENTS_COUNT)
+        return false;
+    
     (void) comp;
+    /* CHECK */
+    // Add all the cases in loop
     return true;   
 }
 
@@ -97,6 +102,26 @@ _GDKtracer_init_log_level_per_component(void)
     // Remove it later :)
     // Put only MAL_RESOLVE in DEBUG mode for testing 
     LOG_LEVELS_LIST[MAL_RESOLVE] = M_DEBUG;
+}
+
+
+static void
+_GDKtracer_show_log_level_per_component(void)
+{
+    // Find max width from components
+    int max_width = 0;
+    for(int i = 0; i < COMPONENTS_COUNT; i++)
+    {
+        int comp_width = strlen(COMPONENT_STR[i]);
+        if(comp_width > max_width)
+            max_width = comp_width;
+    }
+
+    for(int i = 0; i < COMPONENTS_COUNT; i++)
+    {
+        int space = (int) (max_width - strlen(COMPONENT_STR[i]) + 30);
+        fprintf(stderr, "# %s %*s\n", COMPONENT_STR[i], space, LEVEL_STR[LOG_LEVELS_LIST[i]]);
+    }
 }
 
 
@@ -172,6 +197,7 @@ gdk_return
 GDKtracer_init(void)
 {
     _GDKtracer_init_log_level_per_component();
+    _GDKtracer_show_log_level_per_component();
     _GDKtracer_create_file();
     return GDK_SUCCEED;
 }
