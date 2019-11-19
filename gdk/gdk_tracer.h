@@ -175,7 +175,6 @@ static const char *COMPONENT_STR[] = {
  * Function name is detected automatically
  * 
  */
-
 extern LOG_LEVEL LOG_LEVELS_LIST[COMPONENTS_COUNT];
 
 // If the LOG_LEVEL of the message is one of the following: CRITICAL, ERROR or WARNING 
@@ -187,7 +186,7 @@ extern LOG_LEVEL LOG_LEVELS_LIST[COMPONENTS_COUNT];
        (LOG_LEVELS_LIST[COMP] >= LOG_LEVEL))                             \
     {                                                                    \
             GDKtracer_log(LOG_LEVEL,                                     \
-                        "[%s] %s <%s:%d> (%s - %s) %s # "MSG,            \
+                        "[%s] %s %s:%d %s %s %s # "MSG,                  \
                         GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),    \
                         __FILENAME__,                                    \
                         __FUNCTION__,                                    \
