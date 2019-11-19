@@ -24,6 +24,8 @@
 #define STR(x) #x
 #define ENUM_STR(x) STR(x)
 
+// Print only the filename without the path
+#define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
 
 // TODO -> Sort it per layer
 // COMPONENTS 
@@ -154,35 +156,35 @@ extern LOG_LEVEL CUR_LOG_LEVEL;
  * Function name is detected automatically
  * 
  */
-#define GDK_TRACER_LOG(LOG_LEVEL, MSG, ...)                             \
+#define GDK_TRACER_LOG(LOG_LEVEL, COMP, MSG, ...)                       \
     if(CUR_LOG_LEVEL >= LOG_LEVEL)                                      \
     {                                                                   \
         GDKtracer_log(LOG_LEVEL,                                        \
                       "[%s] %s <%s:%d> (%s - %s) %s # "MSG,             \
                       GDKtracer_get_timestamp("%Y-%m-%d %H:%M:%S"),     \
-                      __FILE__,                                         \
+                      __FILENAME__,                                     \
                       __FUNCTION__,                                     \
                       __LINE__,                                         \
                       ENUM_STR(LOG_LEVEL),                              \
-                      ENUM_STR(LOG_LEVEL),                              \
+                      ENUM_STR(COMP),                                   \
                       MT_thread_getname(),                              \
                       ## __VA_ARGS__);                                  \
     }                                                                   \
 
-#define CRITICAL(COMP, MSG, ...)                                        \
-    GDK_TRACER_LOG(M_CRITICAL, MSG, ## __VA_ARGS__)                     \
+#define CRITICAL(COMP, MSG, ...)                                              \
+    GDK_TRACER_LOG(M_CRITICAL, COMP, MSG, ## __VA_ARGS__)                     \
 
-#define ERROR(COMP, MSG, ...)                                           \
-    GDK_TRACER_LOG(M_ERROR, MSG, ## __VA_ARGS__)                        \
+#define ERROR(COMP, MSG, ...)                                                 \
+    GDK_TRACER_LOG(M_ERROR, COMP, MSG, ## __VA_ARGS__)                        \
 
-#define WARNING(COMP, MSG, ...)                                         \
-    GDK_TRACER_LOG(M_WARNING, MSG, ## __VA_ARGS__)                      \
+#define WARNING(COMP, MSG, ...)                                               \
+    GDK_TRACER_LOG(M_WARNING, COMP, MSG, ## __VA_ARGS__)                      \
 
-#define INFO(COMP, MSG, ...)                                            \
-    GDK_TRACER_LOG(M_INFO, MSG, ## __VA_ARGS__)                         \
+#define INFO(COMP, MSG, ...)                                                  \
+    GDK_TRACER_LOG(M_INFO, COMP, MSG, ## __VA_ARGS__)                         \
 
-#define DEBUG(COMP, MSG, ...)                                           \
-    GDK_TRACER_LOG(M_DEBUG, MSG, ## __VA_ARGS__)                        \
+#define DEBUG(COMP, MSG, ...)                                                 \
+    GDK_TRACER_LOG(M_DEBUG, COMP, MSG, ## __VA_ARGS__)                        \
 
 
 // GDKtracer Buffer
