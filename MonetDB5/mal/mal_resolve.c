@@ -180,6 +180,8 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 				continue;
 			}
 
+			/* CHECK */
+			// If is in DEBUG MAL_RESOLVE
 			if (sig->polymorphic || sig->retc == p->retc) {
 				DEBUG(MAL_RESOLVE, "Resolving\n");
 				debugInstruction(MAL_RESOLVE, mb, 0, p, LIST_MAL_ALL);
@@ -270,6 +272,8 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 				continue;
 			}
 
+			/* CHECK */
+			// If is in DEBUG MAL_RESOLVE
 			if (sig->polymorphic || sig->retc == p->retc) {
 				DEBUG(MAL_RESOLVE, "Resolving\n");
 				debugInstruction(MAL_RESOLVE, mb, 0, p, LIST_MAL_ALL);
@@ -295,6 +299,8 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 		 * An optimizer may at a later stage automatically insert such
 		 * coercion requests.
 		 */
+		/* CHECK */
+		// From here
 		DEBUG(MAL_RESOLVE, 
 			"Finished %s.%s unmatched=%d polymorphic=%d %d\n",
 			getModuleId(sig), getFunctionId(sig), unmatched,
@@ -319,7 +325,8 @@ findFunctionType(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 				unmatched, 
 				getTypeName(getArgType(mb, p, unmatched)), 
 				getTypeName(getArgType(s->def, sig, unmatched)));
-		
+		// Till here - in in DEBUG MAL_RESOLVE
+
 		if (unmatched) {
 			s = s->peer;
 			continue;

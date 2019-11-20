@@ -233,6 +233,8 @@ OPTprojectionpathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Instr
 				
 				/* inject the complete sub-path */
 
+				/* CHECK */
+				// This if statement is in DEBUG MAL_OPT_PROJECTIONPATH
 				if (r) {
 					DEBUG(MAL_OPT_PROJECTIONPATH, "Inject\n");
 					debugInstruction(MAL_OPT_PROJECTIONPATH, mb, 0, r, LIST_MAL_ALL);

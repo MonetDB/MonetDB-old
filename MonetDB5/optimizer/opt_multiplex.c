@@ -71,6 +71,8 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( i == pci->argc)
 		throw(MAL, "optimizer.multiplex", SQLSTATE(HY002) "Iterator BAT type is missing");
 
+	/* CHECK */
+	// From here
 	char *tpenme;
 	DEBUG(MAL_OPT_MULTIPLEX, "Calling the optimize multiplex script routine\n");
 	debugFunction(MAL_OPT_MULTIPLEX,mb, 0, LIST_MAL_ALL );
@@ -78,6 +80,7 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	DEBUG(MAL_OPT_MULTIPLEX, "Multiplex against operator: %d %s\n", iter, tpenme);
 	GDKfree(tpenme);
 	debugInstruction(MAL_OPT_MULTIPLEX, mb, 0, pci, LIST_MAL_ALL);
+	// To here is in DEBUG MAL_OPT_MULTIPLEX
 
 	/*
 	 * Beware, the operator constant (arg=1) is passed along as well,

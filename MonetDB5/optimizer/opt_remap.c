@@ -119,11 +119,14 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 	if( s== NULL || !isSideEffectFree(s->def) || 
 		getInstrPtr(s->def,0)->retc != p->retc ) {
 
+		/* CHECK */
+		// From here 
 		if( s== NULL) {
 			DEBUG(MAL_OPT_REMAP, "Not found\n");
 		} else {
 			DEBUG(MAL_OPT_REMAP, "Side effects\n");
 		}
+		// To here is in DBEUG MAL_OPT_REMAP
 			
 		return 0;
 	}
@@ -266,9 +269,12 @@ OPTmultiplexInline(Client cntxt, MalBlkPtr mb, InstrPtr p, int pc )
 
 	if(mq->errors){
 terminateMX:
+		/* CHECK */
+		// From here 
 		DEBUG(MAL_OPT_REMAP, "Abort remap\n");
 		if (q)
 			debugInstruction(MAL_OPT_REMAP, mb, 0, q, LIST_MAL_ALL);
+		// To here is in DEBUG MAL_OPT_REMAP
 
 		freeMalBlk(mq);
 		GDKfree(upgrade);

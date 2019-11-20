@@ -644,24 +644,19 @@ debugInstruction(COMPONENT comp, MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int fl
 {
 	/* CHECK */
 	// Fix it - Activating this function causes mclient to hang and mserver to crash
+	str ps;
 
-	// str ps;
-
-	// ps = instruction2str(mb, stk, p, flg);
-	// /* ps[strlen(ps)-1] = 0; remove '\n' */
-	// if ( ps ){
-	// 	// DEBUG(comp, "%s%s\n", (flg & LIST_MAL_MAPI ? "=" : ""), ps);
-	// 	GDKfree(ps);
-	// } else {
-	// 	// DEBUG(comp, "Failed instruction2str()\n");
-	// }
+	ps = instruction2str(mb, stk, p, flg);
+	/* ps[strlen(ps)-1] = 0; remove '\n' */
+	if ( ps ){
+		DEBUG(comp, "%s%s\n", (flg & LIST_MAL_MAPI ? "=" : ""), ps);
+		GDKfree(ps);
+	} else {
+		DEBUG(comp, "Failed instruction2str()\n");
+	}
 
 	/* compiler complains about unused parameter */
 	(void) comp; 
-	(void) mb; 
-	(void) stk; 
-	(void) p; 
-	(void) flg; 
 }
 
 void

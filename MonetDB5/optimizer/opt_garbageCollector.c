@@ -93,6 +93,8 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 	getInstrPtr(mb,0)->gc |= GARBAGECONTROL;
 	GDKfree(used);
 
+	/* CHECK */
+	// From here
 	int k;
 	DEBUG(MAL_OPT_GC, "Garbage collected BAT variables\n");
 	for ( k =0; k < mb->vtop; k++)
@@ -105,6 +107,7 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 		freeException(mb->errors);
 		mb->errors = MAL_SUCCEED;
 	}
+	// To here is in DEBUG MAL_OPT_GC
 
 	/* leave a consistent scope admin behind */
 	setVariableScope(mb);

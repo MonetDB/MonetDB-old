@@ -925,9 +925,12 @@ SERVERlisten(int port, const char *usockfile, int maxusers)
 		throw(MAL, "mal_mapi.listen", OPERATION_FAILED ": starting thread failed");
 	}
 
+	/* CHECK */
+	// From here
 	gethostname(host, (int) 512);
 	DEBUG(MAL_SERVER, "Ready to accept connections on: %s:%d\n", host, port);
-
+	// To here is in DEBUG MAL_SERVER
+	
 	/* seed the randomiser such that our challenges aren't
 	 * predictable... */
 	srand((unsigned int) GDKusec());

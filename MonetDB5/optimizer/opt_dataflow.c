@@ -121,6 +121,8 @@ dataflowBreakpoint(Client cntxt, MalBlkPtr mb, InstrPtr p, States states)
 		if (getModuleId(p) == sqlRef)
 			return 1;
 
+		/* CHECK */
+		// If is in DEBUG MAL_OPT_DATAFLOW
 		if( getState(states,p,1) & (VARREAD | VARBLOCK))
 			DEBUG(MAL_OPT_DATAFLOW, "Breakpoint on update '%s' state '%d'\n", getVarName(mb,getArg(p,j)), getState(states,p,j));
 		return getState(states,p,p->retc) & (VARREAD | VARBLOCK);
@@ -128,11 +130,15 @@ dataflowBreakpoint(Client cntxt, MalBlkPtr mb, InstrPtr p, States states)
 
 	for(j=p->retc; j < p->argc; j++){
 		if ( getState(states,p,j) & VARBLOCK){
+			/* CHECK */
+			// If is in DEBUG MAL_OPT_DATAFLOW
 			if( getState(states,p,j) & VARREAD)
 				DEBUG(MAL_OPT_DATAFLOW, "Breakpoint on blocked var '%s' state '%d'\n", getVarName(mb,getArg(p,j)), getState(states,p,j));
 			return 1;
 		}
 
+		/* CHECK */
+		// If is in DEBUG MAL_OPT_DATAFLOW
 		if( hasSideEffects(mb,p,FALSE))
 			DEBUG(MAL_OPT_DATAFLOW, "Breakpoint on side-effect var '%s' '%s.%s'\n", getVarName(mb,getArg(p,j)), getModuleId(p), getFunctionId(p));
 	}
@@ -296,10 +302,14 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 				setState(states, p ,k, VARREAD);
 		}
 
+		/* CHECK */
+		// From here
 		DEBUG(MAL_OPT_DATAFLOW, "Variable states\n");
 		debugInstruction(MAL_OPT_DATAFLOW, mb, 0, p, LIST_MAL_ALL);
 		for(k = 0; k < p->argc; k++)
 			DEBUG(MAL_OPT_DATAFLOW, "%s %d\n", getVarName(mb,getArg(p,k)), states[getArg(p,k)]);
+		// To here - is in DEBUG MAL_OPT_DATAFLOW
+
 	}
 	/* take the remainder as is */
 	for (; i<slimit; i++) 

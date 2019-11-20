@@ -2258,11 +2258,14 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 	if( mb->errors != MAL_SUCCEED)
 		goto cleanup;
 
+	/* CHECK */
+	// From here
 	DEBUG(MAL_OPT_MERGETABLE, "Result of multi table optimizer\n");
 	chkTypes(cntxt->usermodule, mb, FALSE);
 	chkFlow(mb);
 	chkDeclarations(mb);
 	debugFunction(MAL_OPT_MERGETABLE, mb, 0, LIST_MAL_ALL);
+	// To here - its in DEBUG MAL_OPT_MERGETABLE
 
 	if ( mb->errors == MAL_SUCCEED) {
 		for(i=0; i<slimit; i++)

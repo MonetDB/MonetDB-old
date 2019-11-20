@@ -30,6 +30,7 @@
 #include "mal_private.h"
 #include "mal_runtime.h"
 #include "mal_resource.h"
+#include "gdk_tracer.h"
 
 #define DFLOWpending 0		/* runnable */
 #define DFLOWrunning 1		/* currently in progress */
@@ -658,6 +659,8 @@ DFLOWinitBlk(DataFlow flow, MalBlkPtr mb, int size)
 	}
 	GDKfree(assign);
 
+	/* CHECK */
+	// The whole for-loop is in PARDEBUG
 	for (n = 0; n < flow->stop - flow->start; n++) {
 		DEBUG(PAR, "[%d] %d\n", flow->start + n, n);
 		debugInstruction(PAR, mb, 0, getInstrPtr(mb, n + flow->start), LIST_MAL_ALL);

@@ -485,6 +485,8 @@ output_file_default(Tablet *as, BAT *order, stream *fd)
 		}
 		i++;
 
+		/* CHECK */
+		// If is in DEBUG MAL_TABLET
 		if ((i % 1000000) == 0)
 			DEBUG(MAL_TABLET, "Dumped " BUNFMT " lines\n", i);
 	}
@@ -513,6 +515,9 @@ output_file_dense(Tablet *as, stream *fd)
 			GDKfree(localbuf);
 			return res;
 		}
+
+		/* CHECK */
+		// If is in DEBUG MAL_TABLET
 		if ((i % 1000000) == 0)
 			DEBUG(MAL_TABLET, "Dumped " BUNFMT " lines\n", i);
 	}
@@ -540,6 +545,9 @@ output_file_ordered(Tablet *as, BAT *order, stream *fd)
 			GDKfree(buf);
 			return res;
 		}
+
+		/* CHECK */
+		// If is in DEBUG MAL_TABLET
 		if ((i % 1000000) == 0)
 			DEBUG(MAL_TABLET, "Dumped " BUNFMT " lines\n", i);
 	}
@@ -1272,6 +1280,8 @@ SQLproducer(void *p)
 	}
 	for (;;) {
 		ateof[cur] = !tablet_read_more(task->b, task->out, task->b->size);
+		/* CHECK */
+		// If is in DEBUG MAL_TABLET
 		if (!ateof[cur])
 			DEBUG(MAL_TABLET, 
 				"Read '%zu' bytes - pos=%zu eof=%d offset=" LLFMT " \n",
@@ -1297,6 +1307,8 @@ SQLproducer(void *p)
 		}
 
 	  parseSTDIN:
+		/* CHECK */
+		// If is in DEBUG MAL_TABLET
 		if (!ateof[cur])
 			DEBUG(MAL_TABLET, "Parse input: %.63s\n", task->b->buf + task->b->pos);
 
@@ -1477,12 +1489,16 @@ SQLproducer(void *p)
 		}
 		/* consumers ask us to stop? */
 		if (task->state == ENDOFCOPY) {
+			/* CHECK */
+			// If is in DEBUG MAL_TABLET
 			if (!ateof[cur])
 				DEBUG(MAL_TABLET, "SQL producer early exit %.63s\n", task->b->buf + task->b->pos);
 			GDKfree(rdfa);
 			return;
 		}
 		bufcnt[cur] = cnt;
+		/* CHECK */
+		// If is in DEBUG MAL_TABLET
 		if (!ateof[cur])
 			DEBUG(MAL_TABLET, "Shuffle %zu: %.63s\n", strlen(s), s);
 		

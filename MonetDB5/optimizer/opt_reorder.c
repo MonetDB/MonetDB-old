@@ -317,6 +317,8 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			/* collect all seen sofar by backward grouping */
 			/* since p has side-effects, we should secure all seen sofar */
 			for(j=i-1; j>=start;j--) {
+				/* CHECK */
+				// The whole if-statement is in DEBUG MAL_OPT_REORDER
 				if(old[j]){
 					DEBUG(MAL_OPT_REORDER, "Leftover: %d\n", start+1);
 					debugInstruction(MAL_OPT_REORDER, mb, 0, old[j], LIST_MAL_ALL);

@@ -929,6 +929,8 @@ trimMalVariables_(MalBlkPtr mb, MalStkPtr glb)
 		cnt++;
 	}
 
+	/* CHECK */
+	// The 1st DEBUG message and the for loop are both in DEBUG MAL_REDUCE
 	DEBUG(MAL_REDUCE, "Variable reduction %d -> %d\n", mb->vtop, cnt);
 	for (i = 0; i < mb->vtop; i++)
 		DEBUG(MAL_REDUCE, "map %d -> %d\n", i, alias[i]);
