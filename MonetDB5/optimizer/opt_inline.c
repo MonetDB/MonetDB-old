@@ -88,10 +88,6 @@ OPTinlineImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 				DEBUG(MAL_OPT_INLINE, "Inline function at %d\n", i);
 				debugFunction(MAL_OPT_INLINE, mb, 0, LIST_MAL_ALL);
-				/* CHECK */
-				// THIS HAS ISSUES! => Causes mserver5 to hang and mclient to freeze
-				// Do not enable!
-				// debugInstruction(MAL_OPT_INLINE, q->blk, 0, sig, LIST_MAL_ALL);
 			}
 		}
 	}

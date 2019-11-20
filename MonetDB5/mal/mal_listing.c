@@ -642,8 +642,6 @@ printInstruction(stream *fd, MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int flg)
 void
 debugInstruction(COMPONENT comp, MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int flg)
 {
-	/* CHECK */
-	// Fix it - Activating this function causes mclient to hang and mserver to crash
 	str ps;
 
 	ps = instruction2str(mb, stk, p, flg);
