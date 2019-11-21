@@ -232,8 +232,10 @@ GDKtracer_set_component_log_level(int *comp, int *level)
     {
         // GDK_ALL
     }
-
-    LOG_LVL_PER_COMPONENT[*comp] = *level;
+    else
+    {
+        LOG_LVL_PER_COMPONENT[*comp] = *level;
+    }
 
     return GDK_SUCCEED;
 }
@@ -265,8 +267,10 @@ GDKtracer_reset_component_log_level(int *comp)
     {
         // GDK_ALL
     }
-
-    LOG_LVL_PER_COMPONENT[*comp] = DEFAULT_LOG_LEVEL; 
+    else
+    {
+        LOG_LVL_PER_COMPONENT[*comp] = DEFAULT_LOG_LEVEL; 
+    }
 
     return GDK_SUCCEED;
 }
