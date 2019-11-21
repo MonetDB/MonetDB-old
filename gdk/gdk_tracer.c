@@ -43,7 +43,7 @@ static bool GDK_TRACER_STOP = false;
 static FILE *output_file;
 static ATOMIC_TYPE CUR_ADAPTER = DEFAULT_ADAPTER;
 static LOG_LEVEL CUR_FLUSH_LEVEL = DEFAULT_FLUSH_LEVEL;
-LOG_LEVEL LOG_LEVELS_LIST[COMPONENTS_COUNT];
+LOG_LEVEL LOG_LVL_PER_COMPONENT[COMPONENTS_COUNT];
 
 
 // Output error from snprintf of vsnprintf
@@ -62,30 +62,40 @@ _GDKtracer_file_is_open(FILE *file)
 
 
 static bool
-_GDKtracer_adapter_exists(ADAPTER adapter)
+_GDKtracer_adapter_exists(int *adapter)
 {
-    (void) adapter;
+    if(*adapter == ADAPTERS_COUNT)
+        return false;
+
+    if(*adapter >= 0 && *adapter < ADAPTERS_COUNT)
+        return true;
+
     return true;
 }
 
 
 static bool
-_GDKtracer_level_exists(LOG_LEVEL level)
+_GDKtracer_level_exists(int *level)
 {
-    (void) level;
-    return true;
+    if(*level == LOG_LEVELS_COUNT)
+        return false;
+
+    if(*level >= 0 && *level < LOG_LEVELS_COUNT)
+        return true;
+
+    return false;
 }
 
 
 static bool
-_GDKtracer_component_exists(COMPONENT comp)
+_GDKtracer_component_exists(int *comp)
 {
-    if(comp == COMPONENTS_COUNT)
+    if(*comp == COMPONENTS_COUNT)
         return false;
     
-    (void) comp;
-    /* CHECK */
-    // Add all the cases in loop
+    if(*comp >= 0 && *comp <= COMPONENTS_COUNT)
+        return true;
+
     return true;   
 }
 
@@ -95,13 +105,8 @@ _GDKtracer_init_log_level_per_component(void)
 {
     for(int i = 0; i < COMPONENTS_COUNT; i++)
     {
-        LOG_LEVELS_LIST[i] = DEFAULT_LOG_LEVEL;
+        LOG_LVL_PER_COMPONENT[i] = DEFAULT_LOG_LEVEL;
     }
-
-    /* CHECK */
-    // Remove it later :)
-    // Put only MAL_RESOLVE in DEBUG mode for testing 
-    LOG_LEVELS_LIST[MAL_RESOLVE] = M_DEBUG;
 }
 
 
@@ -199,9 +204,9 @@ GDKtracer_stop(void)
 
 
 gdk_return
-GDKtracer_set_component_log_level(COMPONENT comp, LOG_LEVEL level)
+GDKtracer_set_component_log_level(int *comp, int *level)
 {
-    if(LOG_LEVELS_LIST[comp] == level)
+    if(LOG_LVL_PER_COMPONENT[*comp] == *level)
         return GDK_SUCCEED;
 
     if(!_GDKtracer_component_exists(comp))
@@ -209,38 +214,74 @@ GDKtracer_set_component_log_level(COMPONENT comp, LOG_LEVEL level)
 
     if(!_GDKtracer_level_exists(level))
         return GDK_FAIL;
-        
-    LOG_LEVELS_LIST[comp] = level;
+
+    /* CHECK */
+    if(*comp == M_ALL)
+    {
+        // M_ALL
+    }
+    else if(*comp == SQL_ALL)
+    {
+        // SQL_ALL
+    }
+    else if(*comp == MAL_ALL)
+    {
+        // MAL_ALL
+    }
+    else if(*comp == GDK_ALL)
+    {
+        // GDK_ALL
+    }
+
+    LOG_LVL_PER_COMPONENT[*comp] = *level;
 
     return GDK_SUCCEED;
 }
 
 
 gdk_return
-GDKtracer_reset_component_log_level(COMPONENT comp)
+GDKtracer_reset_component_log_level(int *comp)
 {  
-    if(LOG_LEVELS_LIST[comp] == DEFAULT_LOG_LEVEL)
+    if(LOG_LVL_PER_COMPONENT[*comp] == DEFAULT_LOG_LEVEL)
         return GDK_SUCCEED;
    
     if(!_GDKtracer_component_exists(comp))
         return GDK_FAIL;
 
-    LOG_LEVELS_LIST[comp] = DEFAULT_LOG_LEVEL; 
+    /* CHECK */
+    if(*comp == M_ALL)
+    {
+        // M_ALL
+    }
+    else if(*comp == SQL_ALL)
+    {
+        // SQL_ALL
+    }
+    else if(*comp == MAL_ALL)
+    {
+        // MAL_ALL
+    }
+    else if(*comp == GDK_ALL)
+    {
+        // GDK_ALL
+    }
+
+    LOG_LVL_PER_COMPONENT[*comp] = DEFAULT_LOG_LEVEL; 
 
     return GDK_SUCCEED;
 }
 
 
 gdk_return
-GDKtracer_set_flush_level(LOG_LEVEL level)
+GDKtracer_set_flush_level(int *level)
 {
-    if(CUR_FLUSH_LEVEL == level)
+    if(CUR_FLUSH_LEVEL == *level)
         return GDK_SUCCEED;
 
     if(!_GDKtracer_level_exists(level))
         return GDK_FAIL;
         
-    CUR_FLUSH_LEVEL = level;
+    CUR_FLUSH_LEVEL = *level;
 
     return GDK_SUCCEED;
 }
@@ -259,9 +300,9 @@ GDKtracer_reset_flush_level(void)
 
 
 gdk_return
-GDKtracer_set_adapter(ADAPTER adapter)
+GDKtracer_set_adapter(int *adapter)
 {
-    if(ATOMIC_GET(&CUR_ADAPTER) == adapter)
+    if((int) ATOMIC_GET(&CUR_ADAPTER) == *adapter)
         return GDK_SUCCEED;
 
     // Here when switching between adapters we can open/close the file
@@ -272,7 +313,7 @@ GDKtracer_set_adapter(ADAPTER adapter)
     if(!_GDKtracer_adapter_exists(adapter))
         return GDK_FAIL;
 
-    ATOMIC_SET(&CUR_ADAPTER, adapter);
+    ATOMIC_SET(&CUR_ADAPTER, *adapter);
 
     return GDK_SUCCEED;
 }
@@ -293,6 +334,9 @@ GDKtracer_reset_adapter(void)
 gdk_return
 GDKtracer_log(LOG_LEVEL level, char *fmt, ...)
 {   
+    /* CHECK */
+    // If level matches the flush level flush it directly to file
+
     // Select a tracer
     gdk_tracer *fill_tracer;
     int GDK_result;
@@ -400,12 +444,16 @@ GDKtracer_flush_buffer(void)
         }
         MT_lock_unset(&fl_tracer->lock);
     }
-
-    if(GDK_TRACER_STOP)
+    else
     {
-        fclose(output_file);
+        fprintf(stderr, "ADAPTER USED: %s", ADAPTER_STR[(int) ATOMIC_GET(&CUR_ADAPTER)]);
     }
-    
+
+    // The file is kept open no matter the adapter
+    // When GDKtracer stops we need also to close the file
+    if(GDK_TRACER_STOP)
+        fclose(output_file);
+
     return GDK_SUCCEED;
 }
 
@@ -426,7 +474,7 @@ GDKtracer_show_log_levels(void)
     for(int i = 0; i < COMPONENTS_COUNT; i++)
     {
         int space = (int) (max_width - strlen(COMPONENT_STR[i]) + 30);
-        fprintf(stderr, "# %s %*s\n", COMPONENT_STR[i], space, LEVEL_STR[LOG_LEVELS_LIST[i]]);
+        fprintf(stderr, "# %s %*s\n", COMPONENT_STR[i], space, LEVEL_STR[LOG_LVL_PER_COMPONENT[i]]);
     }
 
     return GDK_SUCCEED;

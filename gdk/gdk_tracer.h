@@ -13,8 +13,8 @@
 #define BUFFER_SIZE 64000
 
 #define DEFAULT_ADAPTER BASIC
-#define DEFAULT_LOG_LEVEL M_DEBUG
-#define DEFAULT_FLUSH_LEVEL M_DEBUG
+#define DEFAULT_LOG_LEVEL M_CRITICAL
+#define DEFAULT_FLUSH_LEVEL M_ERROR
 
 #define FILE_NAME "trace"
 #define NAME_SEP '_'
@@ -36,6 +36,8 @@
 #define FOREACH_ADPTR(ADPTR)   \
         ADPTR(BASIC)           \
         ADPTR(PROFILER)        \
+                               \
+        ADPTR(ADAPTERS_COUNT)  \
 
 typedef enum { 
     FOREACH_ADPTR(GENERATE_ENUM)
@@ -48,12 +50,14 @@ static const char *ADAPTER_STR[] = {
 
 
 // LOG LEVELS
-#define FOREACH_LEVEL(LEVEL) \
-        LEVEL(M_CRITICAL)    \
-        LEVEL(M_ERROR)       \
-        LEVEL(M_WARNING)     \
-        LEVEL(M_INFO)        \
-        LEVEL(M_DEBUG)       \
+#define FOREACH_LEVEL(LEVEL)    \
+        LEVEL(M_CRITICAL)       \
+        LEVEL(M_ERROR)          \
+        LEVEL(M_WARNING)        \
+        LEVEL(M_INFO)           \
+        LEVEL(M_DEBUG)          \
+                                \
+        LEVEL(LOG_LEVELS_COUNT) \
 
 typedef enum { 
     FOREACH_LEVEL(GENERATE_ENUM)
@@ -155,7 +159,11 @@ static const char *LEVEL_STR[] = {
         COMP( MAL_OPT_MACRO )         \
         COMP( MAL_OPT_POSTFIX )       \
                                       \
-        COMP( GDK_LOGGER )            \
+                                      \
+        COMP( M_ALL )                 \
+        COMP( SQL_ALL )               \
+        COMP( MAL_ALL )               \
+        COMP( GDK_ALL )               \
                                       \
         COMP( COMPONENTS_COUNT )      \
 
@@ -191,8 +199,8 @@ extern LOG_LEVEL LOG_LEVELS_LIST[COMPONENTS_COUNT];
                         __FILENAME__,                                    \
                         __FUNCTION__,                                    \
                         __LINE__,                                        \
-                        AS_STR(LOG_LEVEL),                               \
-                        AS_STR(COMP),                                    \
+                        LEVEL_STR[LOG_LEVEL],                            \
+                        COMPONENT_STR[COMP],                             \
                         MT_thread_getname(),                             \
                         ## __VA_ARGS__);                                 \
     }                                                                    \
@@ -240,14 +248,14 @@ gdk_return GDKtracer_init(void);
 gdk_return GDKtracer_stop(void);
 
 
-gdk_return GDKtracer_set_component_log_level(COMPONENT comp, LOG_LEVEL level);
+gdk_return GDKtracer_set_component_log_level(int *comp, int *level);
 
 
-gdk_return GDKtracer_reset_component_log_level(COMPONENT comp);
+gdk_return GDKtracer_reset_component_log_level(int *comp);
 
 
 // Sets the minimum flush level that an event will trigger the logger to flush the buffer
-gdk_return GDKtracer_set_flush_level(LOG_LEVEL level);
+gdk_return GDKtracer_set_flush_level(int *level);
 
 
 // Resets the flush level to the default (ERROR)
@@ -255,7 +263,7 @@ gdk_return GDKtracer_reset_flush_level(void);
 
 
 // Sets the adapter used when flush buffer takes place
-gdk_return GDKtracer_set_adapter(ADAPTER adapter);
+gdk_return GDKtracer_set_adapter(int *adapter);
 
 
 // Resets the adapter to the default (BASIC) when flush buffer takes place 

@@ -1,0 +1,35 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.  If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+
+module logging;
+
+command flush()
+address TRACERflush_buffer
+comment "Flush GDKtracer buffer";
+
+command setcomploglevel(comp:int, lvl:int)
+address TRACERset_component_log_level
+comment "Set GDKtracer log level for a specific component";
+
+command resetcomploglevel(comp:int)
+address TRACERreset_component_log_level
+comment "Reset the log level for specific component of GDKtracer";
+
+command setflushlevel(lvl:int)
+address TRACERset_flush_level
+comment "Set GDKtracer flush level";
+
+command resetflushlevel()
+address TRACERreset_flush_level
+comment "Reset the flush level of GDKtracer";
+
+command setadapter(adapter:int)
+address TRACERset_adapter
+comment "Set the adapter of GDKtracer";
+
+command resetadapter()
+address TRACERreset_adapter
+comment "Reset the adapter of GDKtracer";
