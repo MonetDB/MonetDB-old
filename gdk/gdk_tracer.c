@@ -183,7 +183,7 @@ _GDKtracer_layer_level_helper(int *layer, int *level)
 {
     char *tmp = NULL;
     char *tok = NULL;
-    for(int i = 0; i < LAYERS_COUNT; i++)
+    for(int i = 0; i < COMPONENTS_COUNT; i++)
     {
         if(*layer == MDB_ALL)
         {
@@ -248,15 +248,6 @@ gdk_return
 GDKtracer_init(void)
 {
     _GDKtracer_init_components();
-
-    /* CHECK */
-    // Test - remove it
-    int t1 = M_DEBUG;
-    int *lvl = &t1;
-    int t2 = SQL_ALL;
-    int *layer = &t2;
-    GDKtracer_set_layer_level(layer, lvl);
-
     _GDKtracer_create_file();
     return GDK_SUCCEED;
 }
