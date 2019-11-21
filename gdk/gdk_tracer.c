@@ -216,25 +216,18 @@ GDKtracer_set_component_log_level(int *comp, int *level)
         return GDK_FAIL;
 
     /* CHECK */
-    if(*comp == M_ALL)
+    switch(*comp)
     {
-        // M_ALL
-    }
-    else if(*comp == SQL_ALL)
-    {
-        // SQL_ALL
-    }
-    else if(*comp == MAL_ALL)
-    {
-        // MAL_ALL
-    }
-    else if(*comp == GDK_ALL)
-    {
-        // GDK_ALL
-    }
-    else
-    {
-        LOG_LVL_PER_COMPONENT[*comp] = *level;
+        case M_ALL:
+            break;
+        case SQL_ALL:
+            break;
+        case MAL_ALL:
+            break;
+        case GDK_ALL:
+            break;
+        default:
+            LOG_LVL_PER_COMPONENT[*comp] = *level;
     }
 
     return GDK_SUCCEED;
@@ -251,25 +244,18 @@ GDKtracer_reset_component_log_level(int *comp)
         return GDK_FAIL;
 
     /* CHECK */
-    if(*comp == M_ALL)
+    switch(*comp)
     {
-        // M_ALL
-    }
-    else if(*comp == SQL_ALL)
-    {
-        // SQL_ALL
-    }
-    else if(*comp == MAL_ALL)
-    {
-        // MAL_ALL
-    }
-    else if(*comp == GDK_ALL)
-    {
-        // GDK_ALL
-    }
-    else
-    {
-        LOG_LVL_PER_COMPONENT[*comp] = DEFAULT_LOG_LEVEL; 
+        case M_ALL:
+            break;
+        case SQL_ALL:
+            break;
+        case MAL_ALL:
+            break;
+        case GDK_ALL:
+            break;
+        default:
+            LOG_LVL_PER_COMPONENT[*comp] = DEFAULT_LOG_LEVEL; 
     }
 
     return GDK_SUCCEED;
