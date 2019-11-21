@@ -18,14 +18,11 @@
 
 #define FILE_NAME "trace"
 #define NAME_SEP '_'
+#define NULL_CHAR '\0'
 #define NEW_LINE '\n'
 
 // Print only the filename without the path
 #define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
-
-// Print the enum as a string
-#define STR(x) #x
-#define AS_STR(x) STR(x)
 
 #define GENERATE_ENUM(ENUM) ENUM,
 #define GENERATE_STRING(STRING) #STRING,
@@ -33,11 +30,11 @@
 
 
 // ADAPTERS
-#define FOREACH_ADPTR(ADPTR)   \
-        ADPTR(BASIC)           \
-        ADPTR(PROFILER)        \
-                               \
-        ADPTR(ADAPTERS_COUNT)  \
+#define FOREACH_ADPTR(ADPTR)     \
+        ADPTR( BASIC )           \
+        ADPTR( PROFILER )        \
+                                 \
+        ADPTR( ADAPTERS_COUNT )  \
 
 typedef enum { 
     FOREACH_ADPTR(GENERATE_ENUM)
@@ -48,16 +45,15 @@ static const char *ADAPTER_STR[] = {
 };
 
 
-
 // LOG LEVELS
-#define FOREACH_LEVEL(LEVEL)    \
-        LEVEL(M_CRITICAL)       \
-        LEVEL(M_ERROR)          \
-        LEVEL(M_WARNING)        \
-        LEVEL(M_INFO)           \
-        LEVEL(M_DEBUG)          \
-                                \
-        LEVEL(LOG_LEVELS_COUNT) \
+#define FOREACH_LEVEL(LEVEL)      \
+        LEVEL( M_CRITICAL )       \
+        LEVEL( M_ERROR )          \
+        LEVEL( M_WARNING )        \
+        LEVEL( M_INFO )           \
+        LEVEL( M_DEBUG )          \
+                                  \
+        LEVEL( LOG_LEVELS_COUNT ) \
 
 typedef enum { 
     FOREACH_LEVEL(GENERATE_ENUM)
@@ -67,6 +63,23 @@ static const char *LEVEL_STR[] = {
     FOREACH_LEVEL(GENERATE_STRING)
 };
 
+
+// LAYERS
+#define FOREACH_LAYER(LAYER)      \
+        LAYER( MDB_ALL )          \
+        LAYER( SQL_ALL )          \
+        LAYER( MAL_ALL )          \
+        LAYER( GDK_ALL )          \
+                                  \
+        LAYER( LAYERS_COUNT )     \
+
+typedef enum { 
+    FOREACH_LAYER(GENERATE_ENUM)
+} LAYER;
+
+static const char *LAYER_STR[] = {
+    FOREACH_LAYER(GENERATE_STRING)
+};
 
 
 // COMPONENTS
@@ -159,12 +172,6 @@ static const char *LEVEL_STR[] = {
         COMP( MAL_OPT_MACRO )         \
         COMP( MAL_OPT_POSTFIX )       \
                                       \
-                                      \
-        COMP( M_ALL )                 \
-        COMP( SQL_ALL )               \
-        COMP( MAL_ALL )               \
-        COMP( GDK_ALL )               \
-                                      \
         COMP( COMPONENTS_COUNT )      \
 
 typedef enum { 
@@ -183,7 +190,7 @@ static const char *COMPONENT_STR[] = {
  * Function name is detected automatically
  * 
  */
-extern LOG_LEVEL LOG_LEVELS_LIST[COMPONENTS_COUNT];
+extern LOG_LEVEL LVL_PER_COMPONENT[COMPONENTS_COUNT];
 
 // If the LOG_LEVEL of the message is one of the following: CRITICAL, ERROR or WARNING 
 // it is logged no matter the component. In any other case the component is taken into account (needs fix)
@@ -191,7 +198,7 @@ extern LOG_LEVEL LOG_LEVELS_LIST[COMPONENTS_COUNT];
     if(LOG_LEVEL == M_CRITICAL ||                                        \
        LOG_LEVEL == M_ERROR    ||                                        \
        LOG_LEVEL == M_WARNING  ||                                        \
-       (LOG_LEVELS_LIST[COMP] >= LOG_LEVEL))                             \
+       (LVL_PER_COMPONENT[COMP] >= LOG_LEVEL))                           \
     {                                                                    \
             GDKtracer_log(LOG_LEVEL,                                     \
                         "[%s] %s %s:%d %s %s %s # "MSG,                  \
@@ -248,10 +255,16 @@ gdk_return GDKtracer_init(void);
 gdk_return GDKtracer_stop(void);
 
 
-gdk_return GDKtracer_set_component_log_level(int *comp, int *level);
+gdk_return GDKtracer_set_component_level(int *comp, int *level);
 
 
-gdk_return GDKtracer_reset_component_log_level(int *comp);
+gdk_return GDKtracer_reset_component_level(int *comp);
+
+
+gdk_return GDKtracer_set_layer_level(int *layer, int *level);
+
+
+gdk_return GDKtracer_reset_layer_level(int *layer);
 
 
 // Sets the minimum flush level that an event will trigger the logger to flush the buffer
@@ -274,11 +287,10 @@ gdk_return GDKtracer_reset_adapter(void);
 gdk_return GDKtracer_log(LOG_LEVEL level, char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
 
 
-// Flush the buffer to the file. If after flushing the buffer, the file is greater 
-// or equal to 1 GB, then we close the current one and we swap to a new one increasing the ID
+// Flush the buffer to the file
 gdk_return GDKtracer_flush_buffer(void);
 
 
-gdk_return GDKtracer_show_log_levels(void);
+gdk_return GDKtracer_show_info(void);
 
 #endif

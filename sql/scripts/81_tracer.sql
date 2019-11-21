@@ -11,12 +11,20 @@ CREATE PROCEDURE logging.flush()
         EXTERNAL NAME logging.flush;
 
 -- Set GDKtracer log level for a specific component
-CREATE PROCEDURE logging.setcomploglevel(comp INT, lvl INT)
-        EXTERNAL NAME logging.setcomploglevel;
+CREATE PROCEDURE logging.setcomplevel(comp INT, lvl INT)
+        EXTERNAL NAME logging.setcomplevel;
 
 -- Reset the log level of GDKtracer for a specific component
-CREATE PROCEDURE logging.resetcomploglevel(comp INT)
-        EXTERNAL NAME logging.resetcomploglevel;
+CREATE PROCEDURE logging.resetcomplevel(comp INT)
+        EXTERNAL NAME logging.resetcomplevel;
+
+-- Set GDKtracer log level for a specific layer
+CREATE PROCEDURE logging.setlayerlevel(layer INT, lvl INT)
+        EXTERNAL NAME logging.setlayerlevel;
+
+-- Reset the log level of GDKtracer for a specific layer
+CREATE PROCEDURE logging.resetlayerlevel(layer INT)
+        EXTERNAL NAME logging.resetlayerlevel;
 
 -- Set GDKtracer flush level
 CREATE PROCEDURE logging.setflushlevel(lvl INT)

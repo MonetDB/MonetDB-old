@@ -25,10 +25,10 @@ TRACERflush_buffer(void)
 
 
 str
-TRACERset_component_log_level(void *ret, int *comp, int *lvl)
+TRACERset_component_level(void *ret, int *comp, int *lvl)
 {
     (void) ret;
-    GDK_result = GDKtracer_set_component_log_level(comp, lvl);
+    GDK_result = GDKtracer_set_component_level(comp, lvl);
     // if(GDK_result == GDK_FAIL)
         // throw(TRACER, __FILE__, "%s:%s", __func__, OPERATION_FAILED);
 
@@ -37,9 +37,32 @@ TRACERset_component_log_level(void *ret, int *comp, int *lvl)
 
 
 str
-TRACERreset_component_log_level(int *comp)
+TRACERreset_component_level(int *comp)
 {
-    GDK_result = GDKtracer_reset_component_log_level(comp);
+    GDK_result = GDKtracer_reset_component_level(comp);
+    // if(GDK_result == GDK_FAIL)
+        // throw(TRACER, __FILE__, "%s:%s", __func__, OPERATION_FAILED);
+
+    return MAL_SUCCEED;
+}
+
+
+str
+TRACERset_layer_level(void *ret, int *layer, int *lvl)
+{
+    (void) ret;
+    GDK_result = GDKtracer_set_layer_level(layer, lvl);
+    // if(GDK_result == GDK_FAIL)
+        // throw(TRACER, __FILE__, "%s:%s", __func__, OPERATION_FAILED);
+
+    return MAL_SUCCEED; 
+}
+
+
+str
+TRACERreset_layer_level(int *layer)
+{
+    GDK_result = GDKtracer_reset_layer_level(layer);
     // if(GDK_result == GDK_FAIL)
         // throw(TRACER, __FILE__, "%s:%s", __func__, OPERATION_FAILED);
 

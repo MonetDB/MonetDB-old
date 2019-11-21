@@ -1693,9 +1693,9 @@ GDKversion(void)
 }
 
 void
-GDKloglevels(void)
+GDKtracerinfo(void)
 {
-	GDKtracer_show_log_levels();
+	GDKtracer_show_info();
 }
 
 size_t

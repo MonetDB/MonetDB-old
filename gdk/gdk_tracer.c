@@ -29,21 +29,18 @@
 #include "gdk.h"
 #include "gdk_tracer.h"
 
-/* CHECK */
-// Make CUR_FLUSH_LEVEL => ATOMIC_TYPE?
 
-// 0 -> tracer
-// 1 -> secondary_tracer
 static gdk_tracer tracer = { .allocated_size = 0, .id = 0, .lock = MT_LOCK_INITIALIZER("GDKtracerL") };
 static gdk_tracer secondary_tracer = { .allocated_size = 0, .id = 1, .lock = MT_LOCK_INITIALIZER("GDKtracerL2") };
 static ATOMIC_TYPE SELECTED_tracer_ID = 0;
 
-static bool GDK_TRACER_STOP = false;
-
 static FILE *output_file;
 static ATOMIC_TYPE CUR_ADAPTER = DEFAULT_ADAPTER;
+
 static LOG_LEVEL CUR_FLUSH_LEVEL = DEFAULT_FLUSH_LEVEL;
-LOG_LEVEL LOG_LVL_PER_COMPONENT[COMPONENTS_COUNT];
+LOG_LEVEL LVL_PER_COMPONENT[COMPONENTS_COUNT];
+
+static bool GDK_TRACER_STOP = false;
 
 
 // Output error from snprintf of vsnprintf
@@ -61,6 +58,32 @@ _GDKtracer_file_is_open(FILE *file)
 }
 
 
+// Prepares a file in order to write the contents of the buffer when necessary
+static void 
+_GDKtracer_create_file(void)
+{
+    char id[INT_MAX_LEN]; 
+    snprintf(id, INT_MAX_LEN, "%d", 1);
+
+    char file_name[FILENAME_MAX];
+    sprintf(file_name, "%s%c%s%c%s%c%s%s", GDKgetenv("gdk_dbpath"), DIR_SEP, FILE_NAME, NAME_SEP, GDKtracer_get_timestamp("%Y-%m-%dT%H:%M:%S"), NAME_SEP, id, ".log");
+
+    output_file = fopen(file_name, "w");
+
+    _GDKtracer_file_is_open(output_file);
+}
+
+
+static void
+_GDKtracer_init_components(void)
+{
+    for(int i = 0; i < COMPONENTS_COUNT; i++)
+    {
+        LVL_PER_COMPONENT[i] = DEFAULT_LOG_LEVEL;
+    }
+}
+
+
 static bool
 _GDKtracer_adapter_exists(int *adapter)
 {
@@ -70,7 +93,7 @@ _GDKtracer_adapter_exists(int *adapter)
     if(*adapter >= 0 && *adapter < ADAPTERS_COUNT)
         return true;
 
-    return true;
+    return false;
 }
 
 
@@ -88,42 +111,28 @@ _GDKtracer_level_exists(int *level)
 
 
 static bool
+_GDKtracer_layer_exists(int *layer)
+{
+    if(*layer == LAYERS_COUNT)
+        return false;
+    
+    if(*layer >= 0 && *layer < LAYERS_COUNT)
+        return true;
+
+    return false;   
+}
+
+
+static bool
 _GDKtracer_component_exists(int *comp)
 {
     if(*comp == COMPONENTS_COUNT)
         return false;
     
-    if(*comp >= 0 && *comp <= COMPONENTS_COUNT)
+    if(*comp >= 0 && *comp < COMPONENTS_COUNT)
         return true;
 
-    return true;   
-}
-
-
-static void
-_GDKtracer_init_log_level_per_component(void)
-{
-    for(int i = 0; i < COMPONENTS_COUNT; i++)
-    {
-        LOG_LVL_PER_COMPONENT[i] = DEFAULT_LOG_LEVEL;
-    }
-}
-
-
-// Prepares a file in order to write the contents of the buffer 
-// when necessary. The file name each time is merovingian_{int}.log
-static void 
-_GDKtracer_create_file(void)
-{
-    char id[INT_MAX_LEN]; 
-    snprintf(id, INT_MAX_LEN, "%d", 1);
-
-    char file_name[FILENAME_MAX];
-    sprintf(file_name, "%s%c%s%c%s%c%s%s", GDKgetenv("gdk_dbpath"), DIR_SEP, FILE_NAME, NAME_SEP, GDKtracer_get_timestamp("%Y-%m-%dT%H:%M:%S"), NAME_SEP, id, ".log");
-
-    output_file = fopen(file_name, "w");
-
-    _GDKtracer_file_is_open(output_file);
+    return false;   
 }
 
 
@@ -139,12 +148,13 @@ _GDKtracer_fill_tracer(gdk_tracer *sel_tracer, char *fmt, va_list va)
     size_t fmt_len = strlen(fmt);
     int bytes_written = 0;
 
+    // Add \n if it doesn't exist
     if(fmt[fmt_len - 1] != NEW_LINE)
     {
         tmp = GDKmalloc(sizeof(char) * (fmt_len + 2));
         strcpy(tmp, fmt);
         tmp[fmt_len] = NEW_LINE;
-        tmp[fmt_len + 1] = '\0';
+        tmp[fmt_len + 1] = NULL_CHAR;
         msg = tmp;
     }
     else
@@ -168,6 +178,55 @@ _GDKtracer_fill_tracer(gdk_tracer *sel_tracer, char *fmt, va_list va)
 }
 
 
+static gdk_return
+_GDKtracer_layer_level_helper(int *layer, int *level)
+{
+    char *tmp = NULL;
+    char *tok = NULL;
+    for(int i = 0; i < LAYERS_COUNT; i++)
+    {
+        if(*layer == MDB_ALL)
+        {
+            if(LVL_PER_COMPONENT[i] != *level)
+                LVL_PER_COMPONENT[i] = *level;
+        }
+        else
+        {
+            tmp = strdup(COMPONENT_STR[i]);
+            if(!tmp)
+                return GDK_FAIL;
+
+            tok = strtok(tmp, "_");
+            if(!tok)
+                return GDK_FAIL;
+
+            switch(*layer)
+            {
+                case SQL_ALL:
+                    if(strcmp(tok, "SQL") == 0)
+                        if(LVL_PER_COMPONENT[i] != *level)
+                            LVL_PER_COMPONENT[i] = *level;
+                    break;
+                case MAL_ALL:
+                    if(strcmp(tok, "MAL") == 0)
+                        if(LVL_PER_COMPONENT[i] != *level)
+                            LVL_PER_COMPONENT[i] = *level;
+                    break;
+                case GDK_ALL:
+                    if(strcmp(tok, "GDK") == 0)
+                        if(LVL_PER_COMPONENT[i] != *level)
+                            LVL_PER_COMPONENT[i] = *level;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    return GDK_SUCCEED;
+}
+
+
 
 /**
  * 
@@ -181,7 +240,6 @@ GDKtracer_get_timestamp(char* fmt)
     time_t now = time(NULL);
     struct tm *tmp = localtime(&now);
     strftime(datetime, sizeof(datetime), fmt, tmp);
-
     return datetime;
 }
 
@@ -189,7 +247,16 @@ GDKtracer_get_timestamp(char* fmt)
 gdk_return
 GDKtracer_init(void)
 {
-    _GDKtracer_init_log_level_per_component();
+    _GDKtracer_init_components();
+
+    /* CHECK */
+    // Test - remove it
+    int t1 = M_DEBUG;
+    int *lvl = &t1;
+    int t2 = SQL_ALL;
+    int *layer = &t2;
+    GDKtracer_set_layer_level(layer, lvl);
+
     _GDKtracer_create_file();
     return GDK_SUCCEED;
 }
@@ -204,9 +271,9 @@ GDKtracer_stop(void)
 
 
 gdk_return
-GDKtracer_set_component_log_level(int *comp, int *level)
+GDKtracer_set_component_level(int *comp, int *level)
 {
-    if(LOG_LVL_PER_COMPONENT[*comp] == *level)
+    if(LVL_PER_COMPONENT[*comp] == *level)
         return GDK_SUCCEED;
 
     if(!_GDKtracer_component_exists(comp))
@@ -214,51 +281,48 @@ GDKtracer_set_component_log_level(int *comp, int *level)
 
     if(!_GDKtracer_level_exists(level))
         return GDK_FAIL;
-
-    /* CHECK */
-    switch(*comp)
-    {
-        case M_ALL:
-            break;
-        case SQL_ALL:
-            break;
-        case MAL_ALL:
-            break;
-        case GDK_ALL:
-            break;
-        default:
-            LOG_LVL_PER_COMPONENT[*comp] = *level;
-    }
-
+        
+    LVL_PER_COMPONENT[*comp] = *level;
     return GDK_SUCCEED;
 }
 
 
 gdk_return
-GDKtracer_reset_component_log_level(int *comp)
+GDKtracer_reset_component_level(int *comp)
 {  
-    if(LOG_LVL_PER_COMPONENT[*comp] == DEFAULT_LOG_LEVEL)
+    if(LVL_PER_COMPONENT[*comp] == DEFAULT_LOG_LEVEL)
         return GDK_SUCCEED;
    
     if(!_GDKtracer_component_exists(comp))
         return GDK_FAIL;
 
-    /* CHECK */
-    switch(*comp)
-    {
-        case M_ALL:
-            break;
-        case SQL_ALL:
-            break;
-        case MAL_ALL:
-            break;
-        case GDK_ALL:
-            break;
-        default:
-            LOG_LVL_PER_COMPONENT[*comp] = DEFAULT_LOG_LEVEL; 
-    }
-
+    LVL_PER_COMPONENT[*comp] = DEFAULT_LOG_LEVEL; 
     return GDK_SUCCEED;
+}
+
+
+gdk_return
+GDKtracer_set_layer_level(int *layer, int *level)
+{
+    if(!_GDKtracer_layer_exists(layer))
+        return GDK_FAIL;
+
+    if(!_GDKtracer_level_exists(level))
+        return GDK_FAIL;
+    
+    return _GDKtracer_layer_level_helper(layer, level);
+}
+
+
+gdk_return
+GDKtracer_reset_layer_level(int *layer)
+{  
+    if(!_GDKtracer_layer_exists(layer))
+        return GDK_FAIL;
+
+    int tmp = DEFAULT_LOG_LEVEL;
+    int *level = &tmp;
+    return _GDKtracer_layer_level_helper(layer, level);
 }
 
 
@@ -436,7 +500,7 @@ GDKtracer_flush_buffer(void)
     }
     else
     {
-        fprintf(stderr, "ADAPTER USED: %s", ADAPTER_STR[(int) ATOMIC_GET(&CUR_ADAPTER)]);
+        fprintf(stderr, "Using adapter: %s", ADAPTER_STR[(int) ATOMIC_GET(&CUR_ADAPTER)]);
     }
 
     // The file is kept open no matter the adapter
@@ -449,22 +513,32 @@ GDKtracer_flush_buffer(void)
 
 
 gdk_return
-GDKtracer_show_log_levels(void)
+GDKtracer_show_info(void)
 {
-    // Find max width from components
+    int i = 0;
     int max_width = 0;
-    for(int i = 0; i < COMPONENTS_COUNT; i++)
+    int space = 0;
+    int comp_width = 0;
+
+    // Find max width from components
+    for(i = 0; i < COMPONENTS_COUNT; i++)
     {
-        int comp_width = strlen(COMPONENT_STR[i]);
+        comp_width = strlen(COMPONENT_STR[i]);
         if(comp_width > max_width)
             max_width = comp_width;
     }
 
     fprintf(stderr, "# LOG level per component\n");
-    for(int i = 0; i < COMPONENTS_COUNT; i++)
+    for(i = 0; i < COMPONENTS_COUNT; i++)
     {
-        int space = (int) (max_width - strlen(COMPONENT_STR[i]) + 30);
-        fprintf(stderr, "# %s %*s\n", COMPONENT_STR[i], space, LEVEL_STR[LOG_LVL_PER_COMPONENT[i]]);
+        space = (int) (max_width - strlen(COMPONENT_STR[i]) + 30);
+        fprintf(stderr, "# %s %*s\n", COMPONENT_STR[i], space, LEVEL_STR[LVL_PER_COMPONENT[i]]);
+    }
+
+    fprintf(stderr, "# You can use one of the following layers to massively set the LOG level\n");
+    for(i = 0; i < LAYERS_COUNT; i++)
+    {
+        fprintf(stderr, "# %s\n", LAYER_STR[i]);
     }
 
     return GDK_SUCCEED;

@@ -10,13 +10,21 @@ command flush()
 address TRACERflush_buffer
 comment "Flush GDKtracer buffer";
 
-command setcomploglevel(comp:int, lvl:int)
-address TRACERset_component_log_level
+command setcomplevel(comp:int, lvl:int)
+address TRACERset_component_level
 comment "Set GDKtracer log level for a specific component";
 
-command resetcomploglevel(comp:int)
-address TRACERreset_component_log_level
-comment "Reset the log level for specific component of GDKtracer";
+command resetcomplevel(comp:int)
+address TRACERreset_component_level
+comment "Reset the log level for specific component";
+
+command setlayerlevel(layer:int, lvl:int)
+address TRACERset_layer_level
+comment "Set GDKtracer log level for a specific layer";
+
+command resetlayerlevel(layer:int)
+address TRACERreset_layer_level
+comment "Reset the log level for specific layer";
 
 command setflushlevel(lvl:int)
 address TRACERset_flush_level

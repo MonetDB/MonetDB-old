@@ -13,8 +13,10 @@
 #include "mal_interpreter.h"
 
 mal_export str TRACERflush_buffer(void);
-mal_export str TRACERset_component_log_level(void *ret, int *comp, int *lvl);
-mal_export str TRACERreset_component_log_level(int *comp);
+mal_export str TRACERset_component_level(void *ret, int *comp, int *lvl);
+mal_export str TRACERreset_component_level(int *comp);
+mal_export str TRACERset_layer_level(void *ret, int *layer, int *lvl);
+mal_export str TRACERreset_layer_level(int *layer);
 mal_export str TRACERset_flush_level(void *ret, int *lvl);
 mal_export str TRACERreset_flush_level(void);
 mal_export str TRACERset_adapter(void *ret, int *adapter);
