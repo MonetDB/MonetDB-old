@@ -675,6 +675,9 @@ main(int argc, char **av)
 		return 0;
 	}
 
+	/* Show the log level per component */
+	GDKloglevels();
+
 	emergencyBreakpoint();
 
 	if (!GDKinmemory() && (err = msab_registerStarted()) != NULL) {

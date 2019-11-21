@@ -263,11 +263,14 @@ gdk_return GDKtracer_reset_adapter(void);
 
 
 // Candidate for 'gnu_printf' format attribute [-Werror=suggest-attribute=format] 
-gdk_return GDKtracer_log(LOG_LEVEL level, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
+gdk_return GDKtracer_log(LOG_LEVEL level, char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
 
 
 // Flush the buffer to the file. If after flushing the buffer, the file is greater 
 // or equal to 1 GB, then we close the current one and we swap to a new one increasing the ID
 gdk_return GDKtracer_flush_buffer(void);
+
+
+gdk_return GDKtracer_show_log_levels(void);
 
 #endif

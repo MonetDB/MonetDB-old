@@ -551,9 +551,6 @@ SERVERlisten(int port, const char *usockfile, int maxusers)
 	str buf;
 	char host[128];
 	const char *listenaddr;
-#ifdef DEBUG_SERVER
-	char msg[512], host[512];
-#endif
 
 	accept_any = GDKgetenv_istrue("mapi_open");
 	bind_ipv6 = GDKgetenv_istrue("mapi_ipv6");

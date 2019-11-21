@@ -1692,6 +1692,12 @@ GDKversion(void)
 	return (_gdk_version_string);
 }
 
+void
+GDKloglevels(void)
+{
+	GDKtracer_show_log_levels();
+}
+
 size_t
 GDKmem_cursize(void)
 {

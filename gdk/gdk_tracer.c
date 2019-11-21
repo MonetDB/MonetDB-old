@@ -105,26 +105,6 @@ _GDKtracer_init_log_level_per_component(void)
 }
 
 
-static void
-_GDKtracer_show_log_level_per_component(void)
-{
-    // Find max width from components
-    int max_width = 0;
-    for(int i = 0; i < COMPONENTS_COUNT; i++)
-    {
-        int comp_width = strlen(COMPONENT_STR[i]);
-        if(comp_width > max_width)
-            max_width = comp_width;
-    }
-
-    for(int i = 0; i < COMPONENTS_COUNT; i++)
-    {
-        int space = (int) (max_width - strlen(COMPONENT_STR[i]) + 30);
-        fprintf(stderr, "# %s %*s\n", COMPONENT_STR[i], space, LEVEL_STR[LOG_LEVELS_LIST[i]]);
-    }
-}
-
-
 // Prepares a file in order to write the contents of the buffer 
 // when necessary. The file name each time is merovingian_{int}.log
 static void 
@@ -144,30 +124,38 @@ _GDKtracer_create_file(void)
 
 // Candidate for 'gnu_printf' format attribute [-Werror=suggest-attribute=format]
 static int 
-_GDKtracer_fill_tracer(gdk_tracer *sel_tracer, const char *fmt, va_list va) __attribute__ ((format (printf, 2, 0)));
+_GDKtracer_fill_tracer(gdk_tracer *sel_tracer, char *fmt, va_list va) __attribute__ ((format (printf, 2, 0)));
 
 static int 
-_GDKtracer_fill_tracer(gdk_tracer *sel_tracer, const char *fmt, va_list va)
+_GDKtracer_fill_tracer(gdk_tracer *sel_tracer, char *fmt, va_list va)
 {
-    const char *msg;
+    char *tmp = NULL;
+    const char* msg = NULL;
     size_t fmt_len = strlen(fmt);
+    int bytes_written = 0;
 
-    // Check if the message contains at the end \n - if not add it
     if(fmt[fmt_len - 1] != NEW_LINE)
     {
-        char *tmp = malloc(sizeof(char) * (fmt_len + 1));
+        tmp = GDKmalloc(sizeof(char) * (fmt_len + 2));
         strcpy(tmp, fmt);
         tmp[fmt_len] = NEW_LINE;
+        tmp[fmt_len + 1] = '\0';
         msg = tmp;
-        free(tmp);
     }
     else
     {
         msg = fmt;
     }
 
-    // vsnprintf(char *str, size_t count, ...) -> including null terminating character
-    int bytes_written = vsnprintf(sel_tracer->buffer + sel_tracer->allocated_size, BUFFER_SIZE - sel_tracer->allocated_size, msg, va);
+    if(msg)
+    {
+        // vsnprintf(char *str, size_t count, ...) -> including null terminating character
+        bytes_written = vsnprintf(sel_tracer->buffer + sel_tracer->allocated_size, BUFFER_SIZE - sel_tracer->allocated_size, msg, va);
+
+        if(tmp)
+            GDKfree(tmp);    
+    }
+
     _GDKtracer_log_output_error(bytes_written);
 
     // vsnprintf returned value -> does not include the null terminating character
@@ -197,7 +185,6 @@ gdk_return
 GDKtracer_init(void)
 {
     _GDKtracer_init_log_level_per_component();
-    _GDKtracer_show_log_level_per_component();
     _GDKtracer_create_file();
     return GDK_SUCCEED;
 }
@@ -304,7 +291,7 @@ GDKtracer_reset_adapter(void)
 
 
 gdk_return
-GDKtracer_log(LOG_LEVEL level, const char *fmt, ...)
+GDKtracer_log(LOG_LEVEL level, char *fmt, ...)
 {   
     // Select a tracer
     gdk_tracer *fill_tracer;
@@ -419,5 +406,28 @@ GDKtracer_flush_buffer(void)
         fclose(output_file);
     }
     
+    return GDK_SUCCEED;
+}
+
+
+gdk_return
+GDKtracer_show_log_levels(void)
+{
+    // Find max width from components
+    int max_width = 0;
+    for(int i = 0; i < COMPONENTS_COUNT; i++)
+    {
+        int comp_width = strlen(COMPONENT_STR[i]);
+        if(comp_width > max_width)
+            max_width = comp_width;
+    }
+
+    fprintf(stderr, "# LOG level per component\n");
+    for(int i = 0; i < COMPONENTS_COUNT; i++)
+    {
+        int space = (int) (max_width - strlen(COMPONENT_STR[i]) + 30);
+        fprintf(stderr, "# %s %*s\n", COMPONENT_STR[i], space, LEVEL_STR[LOG_LEVELS_LIST[i]]);
+    }
+
     return GDK_SUCCEED;
 }
