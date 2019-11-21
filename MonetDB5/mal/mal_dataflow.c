@@ -398,7 +398,7 @@ DFLOWworker(void *T)
 			}
 		}
 		error = runMALsequence(flow->cntxt, flow->mb, fe->pc, fe->pc + 1, flow->stk, 0, 0);
-		PARDEBUG fprintf(stderr, "#executed pc= %d wrk= %d claim= " LLFMT "," LLFMT "," LLFMT " %s\n",
+		DEBUG(PAR, "Executed pc=%d wrk=%d claim=" LLFMT "," LLFMT "," LLFMT " %s\n",
 						 fe->pc, id, claim, fe->hotclaim, fe->maxclaim, error ? error : "");
 		/* release the memory claim */
 		MALadmission_release(flow->cntxt, flow->mb, flow->stk, p,  claim);
