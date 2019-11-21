@@ -13,15 +13,13 @@
 #include "mal_private.h"
 #include "gdk_tracer.h"
 
-/* MEMORY admission does not seem to have a major impact so far. */
+/* Memory based admission does not seem to have a major impact so far. */
 static lng memorypool = 0;      /* memory claimed by concurrent threads */
-static int memoryclaims = 0;
 
 void
 mal_resource_reset(void)
 {
-	memorypool = 0;
-	memoryclaims = 0;
+	memorypool = (lng) MEMORY_THRESHOLD;
 }
 /*
  * Running all eligible instructions in parallel creates
@@ -48,13 +46,7 @@ mal_resource_reset(void)
  * How long depends on the other instructions to free up
  * resources. The current policy simple takes a local
  * decision by delaying the instruction based on its
- * past and the size of the memory pool size.
- * The waiting penalty decreases with each step to ensure
- * it will ultimately taken into execution, with possibly
- * all resource contention effects.
- *
- * Another option would be to maintain a priority queue of
- * suspended instructions.
+ * claim of the memory.
  */
 
 /*
@@ -107,86 +99,88 @@ getMemoryClaim(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int i, int flag)
  */
 static MT_Lock admissionLock = MT_LOCK_INITIALIZER("admissionLock");
 
-/* experiments on sf-100 on small machine showed no real improvement */
-
 int
-MALadmission(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, lng argclaim)
+MALadmission_claim(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, lng argclaim)
 {
-	int workers;
-	lng mbytes;
-
 	(void) mb;
 	(void) pci;
-	/* optimistically set memory */
 	if (argclaim == 0)
 		return 0;
-	/* if we are dealing with a check instruction, just continue */
-	/* TOBEDONE */
 
 	MT_lock_set(&admissionLock);
 	/* Check if we are allowed to allocate another worker thread for this client */
 	/* It is somewhat tricky, because we may be in a dataflow recursion, each of which should be counted for.
-	 * A way out is to attach the thread count to the MAL stacks instead, which just limits the level
+	 * A way out is to attach the thread count to the MAL stacks, which just limits the level
 	 * of parallism for a single dataflow graph.
 	 */
-	workers = stk->workers;
-	if( cntxt->workerlimit && cntxt->workerlimit <= workers){
-		DEBUG(PAR, "Worker limit reached, %d <= %d\n", cntxt->workerlimit, workers);
+	if(cntxt->workerlimit && cntxt->workerlimit < stk->workers){
+		PARDEBUG
+			fprintf(stderr, "#DFLOWadmit worker limit reached, %d <= %d\n", cntxt->workerlimit, stk->workers);
 		MT_lock_unset(&admissionLock);
 		return -1;
 	}
-	/* Determine if the total memory resource is exhausted, because it is overall limitation.
-	 */
-	if ( memoryclaims < 0){
-		DEBUG(PAR, "Memoryclaim reset\n");
-		memoryclaims = 0;
-	}
-	if ( memorypool <= 0 && memoryclaims == 0){
-		DEBUG(PAR, "Memorypool reset\n");
+	/* Determine if the total memory resource is exhausted, because it is overall limitation.  */
+	if ( memorypool <= 0){
+		// we accidently released too much memory or need to initialize
+		PARDEBUG
+			fprintf(stderr, "#DFLOWadmit memorypool reset ");
 		memorypool = (lng) MEMORY_THRESHOLD;
 	}
 
 	/* the argument claim is based on the input for an instruction */
-	if (argclaim > 0) {
-		if ( memoryclaims == 0 || memorypool > argclaim ) {
-			/* If we are low on memory resources, limit the user if he exceeds his memory budget 
-			 * but make sure there is at least one thread active */
-			if ( cntxt->memorylimit) {
-				mbytes = (lng) cntxt->memorylimit * LL_CONSTANT(1048576);
-				if (argclaim + stk->memory > mbytes){
-					MT_lock_unset(&admissionLock);
-					DEBUG(PAR, "Delayed due to lack of session memory " LLFMT " requested "LLFMT"\n", 
-								stk->memory, argclaim);
-					return -1;
-				}
+	if ( memorypool > argclaim || stk->workers == 0 ) {
+		/* If we are low on memory resources, limit the user if he exceeds his memory budget 
+		 * but make sure there is at least one worker thread active */
+		if ( 0 &&  cntxt->memorylimit) {
+			if (argclaim + stk->memory > (lng) cntxt->memorylimit * LL_CONSTANT(1048576)){
+				MT_lock_unset(&admissionLock);
+				PARDEBUG
+					fprintf(stderr, "#Delayed due to lack of session memory " LLFMT " requested "LLFMT"\n", 
+							stk->memory, argclaim);
+				return -1;
 			}
-			memorypool -= argclaim;
 			stk->memory += argclaim;
-			memoryclaims++;
-			DEBUG(PAR, "%3d thread %d pool " LLFMT "claims " LLFMT "\n",
-						memoryclaims, THRgettid(), memorypool, argclaim);
-			stk->workers++;
-			MT_lock_unset(&admissionLock);
-			return 0;
 		}
-		DEBUG(PAR, "Delayed due to lack of memory " LLFMT " requested " LLFMT " memoryclaims %d\n", 
-					memorypool, argclaim, memoryclaims);
+		memorypool -= argclaim;
+		PARDEBUG
+			fprintf(stderr, "#DFLOWadmit thread %d pool " LLFMT "claims " LLFMT "\n",
+					 THRgettid(), memorypool, argclaim);
+		stk->workers++;
 		MT_lock_unset(&admissionLock);
-		return -1;
+		return 0;
 	}
-	
-	/* return the session budget */
-	if (cntxt->memorylimit) {
-		DEBUG(PAR, "Return memory to session budget " LLFMT "\n", stk->memory);
+	PARDEBUG
+		fprintf(stderr, "#Delayed due to lack of memory " LLFMT " requested " LLFMT "\n", 
+			memorypool, argclaim);
+	MT_lock_unset(&admissionLock);
+	return -1;
+}
+
+void
+MALadmission_release(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, lng argclaim)
+{
+	/* release memory claimed before */
+	(void) mb;
+	(void) pci;
+	if (argclaim == 0 )
+		return;
+
+	MT_lock_set(&admissionLock);
+	if ( 0 && cntxt->memorylimit) {
+		PARDEBUG
+			fprintf(stderr, "#Return memory to session budget " LLFMT "\n", stk->memory);
 		stk->memory -= argclaim;
 	}
-	/* release memory claimed before */
-	memorypool -= argclaim;
-	memoryclaims--;
+	memorypool += argclaim;
+	if ( memorypool > (lng) MEMORY_THRESHOLD ){
+		PARDEBUG
+			fprintf(stderr, "#DFLOWadmit memorypool reset ");
+		memorypool = (lng) MEMORY_THRESHOLD;
+	}
 	stk->workers--;
-
-	DEBUG(PAR, "%3d thread %d pool " LLFMT " claims " LLFMT "\n",
-				 memoryclaims, THRgettid(), memorypool, argclaim);
+	PARDEBUG
+		fprintf(stderr, "#DFLOWadmit thread %d pool " LLFMT " claims " LLFMT "\n",
+				 THRgettid(), memorypool, argclaim);
 	MT_lock_unset(&admissionLock);
-	return 0;
+	return;
 }
