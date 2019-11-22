@@ -792,11 +792,10 @@ newVariable(MalBlkPtr mb, const char *name, size_t len, malType type)
 		/* no space for a new variable */
 		return -1;
 	n = mb->vtop;
-	if( name == 0 || len == 0)
+	if( name == 0 || len == 0){
 		(void) snprintf(getVarName(mb,n), IDLENGTH,"%c%c%d", REFMARKER, TMPMARKER,mb->vid++);
-	else{
-		(void) strncpy( getVarName(mb,n), name,len);
-		getVarName(mb,n)[len]=0;
+	} else {
+		(void) strcpy_len( getVarName(mb,n), name, len + 1);
 	}
 
 	setRowCnt(mb,n,0);
