@@ -429,9 +429,6 @@
 /* M5, only; cf.,
  * monetdb5/mal/mal.h
  */
-#define OPTMASK		(1<<27)
-#define OPTDEBUG	if (GDKdebug & OPTMASK)
-
 #define HEAPMASK	(1<<28)
 #define HEAPDEBUG	if (GDKdebug & HEAPMASK)
 

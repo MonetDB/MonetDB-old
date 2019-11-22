@@ -35,7 +35,6 @@
 #define geom_export extern
 #endif
 
-
 /* general functions */
 geom_export str geoHasZ(int* res, int* info);
 geom_export str geoHasM(int* res, int* info);
