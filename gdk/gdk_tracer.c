@@ -39,7 +39,6 @@ static ATOMIC_TYPE CUR_ADAPTER = DEFAULT_ADAPTER;
 
 static LOG_LEVEL CUR_FLUSH_LEVEL = DEFAULT_FLUSH_LEVEL;
 LOG_LEVEL LVL_PER_COMPONENT[COMPONENTS_COUNT];
-
 static bool GDK_TRACER_STOP = false;
 
 
@@ -445,7 +444,7 @@ GDKtracer_log(LOG_LEVEL level, char *fmt, ...)
         
     // Flush the current buffer in case the event is 
     // important depending on the flush-level
-    if(level >= CUR_FLUSH_LEVEL)
+    if(level == CUR_FLUSH_LEVEL)
     {
         GDK_result = GDKtracer_flush_buffer();
         if(GDK_result == GDK_FAIL)

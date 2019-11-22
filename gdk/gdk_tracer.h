@@ -21,8 +21,7 @@
 #define NULL_CHAR '\0'
 #define NEW_LINE '\n'
 
-// Print only the filename without the path
-#define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
+#define __FILENAME__ (__builtin_strrchr(__FILE__, DIR_SEP) ? __builtin_strrchr(__FILE__, DIR_SEP) + 1 : __FILE__)
 
 #define GENERATE_ENUM(ENUM) ENUM,
 #define GENERATE_STRING(STRING) #STRING,
@@ -184,11 +183,8 @@ static const char *COMPONENT_STR[] = {
 
 
 
-/**
- * 
- * Macros for logging
- * Function name is detected automatically
- * 
+/*
+ * Logging macros 
  */
 extern LOG_LEVEL LVL_PER_COMPONENT[COMPONENTS_COUNT];
 
@@ -240,18 +236,17 @@ gdk_tracer;
 
 
 
-/**
+/*
  *  GDKtracer API
  */
 // Returns the timestamp in the form of datetime
 char* GDKtracer_get_timestamp(char* fmt);
 
 
-// Initialize tracer - basically creates the file
+// Initialize tracer
 gdk_return GDKtracer_init(void);
 
 
-// Flushes the contents of the buffer and closes the log file
 gdk_return GDKtracer_stop(void);
 
 

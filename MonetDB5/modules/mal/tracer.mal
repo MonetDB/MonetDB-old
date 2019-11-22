@@ -8,36 +8,36 @@ module logging;
 
 command flush()
 address TRACERflush_buffer
-comment "Flush GDKtracer buffer";
+comment "Flush the buffer";
 
 command setcomplevel(comp:int, lvl:int)
 address TRACERset_component_level
-comment "Set GDKtracer log level for a specific component";
+comment "Set the log level for a specific component";
 
 command resetcomplevel(comp:int)
 address TRACERreset_component_level
-comment "Reset the log level for specific component";
+comment "Reset the log level for a specific component";
 
 command setlayerlevel(layer:int, lvl:int)
 address TRACERset_layer_level
-comment "Set GDKtracer log level for a specific layer";
+comment "Set the log level for a specific layer";
 
 command resetlayerlevel(layer:int)
 address TRACERreset_layer_level
-comment "Reset the log level for specific layer";
+comment "Reset the log level for a specific layer";
 
 command setflushlevel(lvl:int)
 address TRACERset_flush_level
-comment "Set GDKtracer flush level";
+comment "Set the flush level";
 
 command resetflushlevel()
 address TRACERreset_flush_level
-comment "Reset the flush level of GDKtracer";
+comment "Reset the flush level";
 
 command setadapter(adapter:int)
 address TRACERset_adapter
-comment "Set the adapter of GDKtracer";
+comment "Set the adapter";
 
 command resetadapter()
 address TRACERreset_adapter
-comment "Reset the adapter of GDKtracer";
+comment "Reset the adapter";

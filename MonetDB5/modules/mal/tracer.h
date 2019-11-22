@@ -12,6 +12,9 @@
 #include "mal.h"
 #include "mal_interpreter.h"
 
+/*
+ * All the functions correspond one by one to the API calls in gdk_tracer.h
+ */
 mal_export str TRACERflush_buffer(void);
 mal_export str TRACERset_component_level(void *ret, int *comp, int *lvl);
 mal_export str TRACERreset_component_level(int *comp);
@@ -22,4 +25,4 @@ mal_export str TRACERreset_flush_level(void);
 mal_export str TRACERset_adapter(void *ret, int *adapter);
 mal_export str TRACERreset_adapter(void);
 
-#endif
+#endif /* _TRACER_H */

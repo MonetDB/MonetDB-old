@@ -6,38 +6,38 @@
 
 CREATE SCHEMA logging;
 
--- Flush GDKtracer buffer
+-- Flush the buffer
 CREATE PROCEDURE logging.flush()
         EXTERNAL NAME logging.flush;
 
--- Set GDKtracer log level for a specific component
+-- Set the log level for a specific component
 CREATE PROCEDURE logging.setcomplevel(comp INT, lvl INT)
         EXTERNAL NAME logging.setcomplevel;
 
--- Reset the log level of GDKtracer for a specific component
+-- Reset the log level for a specific component
 CREATE PROCEDURE logging.resetcomplevel(comp INT)
         EXTERNAL NAME logging.resetcomplevel;
 
--- Set GDKtracer log level for a specific layer
+-- Set the log level for a specific layer
 CREATE PROCEDURE logging.setlayerlevel(layer INT, lvl INT)
         EXTERNAL NAME logging.setlayerlevel;
 
--- Reset the log level of GDKtracer for a specific layer
+-- Reset the log level for a specific layer
 CREATE PROCEDURE logging.resetlayerlevel(layer INT)
         EXTERNAL NAME logging.resetlayerlevel;
 
--- Set GDKtracer flush level
+-- Set the flush level
 CREATE PROCEDURE logging.setflushlevel(lvl INT)
        EXTERNAL NAME logging.setflushlevel;
 
--- Reset the flush level of GDKtracer
+-- Reset the flush level
 CREATE PROCEDURE logging.resetflushlevel()
        EXTERNAL NAME logging.resetflushlevel;
 
--- Set the adapter of GDKtracer
+-- Set the adapter
 CREATE PROCEDURE logging.setadapter(adapter INT)
        EXTERNAL NAME logging.setadapter;
 
--- Reset the adapter of GDKtracer
+-- Reset the adapter
 CREATE PROCEDURE logging.resetadapter()
        EXTERNAL NAME logging.resetadapter;
