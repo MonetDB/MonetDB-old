@@ -42,7 +42,7 @@
 #include "monetdb_config.h"
 #include "gdk.h"
 #include "gdk_private.h"
-
+// Com
 #ifdef ALIGN
 #undef ALIGN
 #endif
