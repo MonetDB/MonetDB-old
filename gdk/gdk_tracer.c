@@ -423,6 +423,8 @@ GDKtracer_log(LOG_LEVEL level, char *fmt, ...)
             // Flush current tracer
             MT_Id tid;
             
+            /* CHECK */
+            // A thread is created everytime GDKtracer needs to flush - maybe keep one thread active from the start
             if(MT_create_thread(&tid, (void(*) (void*)) GDKtracer_flush_buffer, NULL, MT_THR_JOINABLE, "GDKtracerFlush") < 0)
                 return GDK_FAIL;
             
