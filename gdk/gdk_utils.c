@@ -19,6 +19,7 @@
 
 #include "gdk.h"
 #include "gdk_private.h"
+#include "gdk_tracer.h"
 #include "mutils.h"
 
 static BAT *GDKkey = NULL;
@@ -407,51 +408,110 @@ MT_init(void)
 	fc = fopen("/proc/self/cgroup", "r");
 	if (fc != NULL) {
 		char buf[1024];
+		/* each line is of the form:
+		 * hierarchy-ID:controller-list:cgroup-path
+		 *
+		 * For cgroup v1, the hierarchy-ID refers to the
+		 * second column in /proc/cgroups (which we ignore)
+		 * and the controller-list is a comma-separated list
+		 * of the controllers bound to the hierarchy.  We look
+		 * for the "memory" controller and use its
+		 * cgroup-path.  We ignore the other lines.
+		 *
+		 * For cgroup v2, the hierarchy-ID is 0 and the
+		 * controller-list is empty.  We just use the
+		 * cgroup-path.
+		 *
+		 * We use the first line that we can match (either v1
+		 * or v2) and for which we can open any of the files
+		 * that we are looking for.
+		 */
 		while (fgets(buf, (int) sizeof(buf), fc) != NULL) {
+			char pth[1024];
 			char *p, *q;
-			p = strchr(buf, ':');
+			bool success = false; /* true if we can open any file */
+			FILE *f;
+			uint64_t mem;
+			size_t l;
+
+			p = strchr(buf, '\n');
 			if (p == NULL)
 				break;
-			q = p + 1;
-			p = strchr(q, ':');
-			if (p == NULL)
-				break;
-			*p++ = 0;
-			if (strstr(q, "memory") != NULL) {
-				char pth[1024];
-				FILE *f;
-				q = strchr(p, '\n');
-				if (q == NULL)
+			*p = 0;
+			if (strncmp(buf, "0::", 3) == 0) {
+				/* cgroup v2 entry */
+				l = strconcat_len(pth, sizeof(pth),
+						  "/sys/fs/cgroup",
+						  buf + 3, "/", NULL);
+				/* hard limit */
+				strcpy(pth + l, "memory.max");
+				f = fopen(pth, "r");
+				if (f != NULL) {
+					if (fscanf(f, "%" SCNu64, &mem) == 1 && mem < (uint64_t) _MT_pagesize * _MT_npages) {
+						_MT_npages = (size_t) (mem / _MT_pagesize);
+					}
+					success = true;
+					/* assume "max" if not a number */
+					fclose(f);
+				}
+				/* soft limit */
+				strcpy(pth + l, "memory.high");
+				f = fopen(pth, "r");
+				if (f != NULL) {
+					if (fscanf(f, "%" SCNu64, &mem) == 1 && mem < (uint64_t) _MT_pagesize * _MT_npages) {
+						_MT_npages = (size_t) (mem / _MT_pagesize);
+					}
+					success = true;
+					/* assume "max" if not a number */
+					fclose(f);
+				}
+				/* limit of memory+swap usage
+				 * we use this as maximum virtual memory size */
+				strcpy(pth + l, "memory.swap.max");
+				f = fopen(pth, "r");
+				if (f != NULL) {
+					if (fscanf(f, "%" SCNu64, &mem) == 1
+					    && mem < (uint64_t) GDK_vm_maxsize) {
+						GDK_vm_maxsize = (size_t) mem;
+					}
+					success = true;
+					fclose(f);
+				}
+			} else {
+				/* cgroup v1 entry */
+				p = strchr(buf, ':');
+				if (p == NULL)
 					break;
-				*q = 0;
-				q = stpconcat(pth, "/sys/fs/cgroup/memory",
-					      p, NULL);
-				/* sometimes the path in
-				 * /proc/self/cgroup ends in "/" (or
-				 * actually, is "/"); in all other
-				 * cases add one */
-				if (q[-1] != '/')
-					*q++ = '/';
+				q = p + 1;
+				p = strchr(q, ':');
+				if (p == NULL)
+					break;
+				*p++ = 0;
+				if (strstr(q, "memory") == NULL)
+					continue;
+				l = strconcat_len(pth, sizeof(pth),
+						  "/sys/fs/cgroup/", q,
+						  p, "/", NULL);
 				/* limit of memory usage */
 				strcpy(q, "memory.limit_in_bytes");
 				f = fopen(pth, "r");
 				if (f != NULL) {
-					uint64_t mem;
 					if (fscanf(f, "%" SCNu64, &mem) == 1
 					    && mem < (uint64_t) _MT_pagesize * _MT_npages) {
 						_MT_npages = (size_t) (mem / _MT_pagesize);
 					}
+					success = true;
 					fclose(f);
 				}
 				/* soft limit of memory usage */
 				strcpy(q, "memory.soft_limit_in_bytes");
 				f = fopen(pth, "r");
 				if (f != NULL) {
-					uint64_t mem;
 					if (fscanf(f, "%" SCNu64, &mem) == 1
 					    && mem < (uint64_t) _MT_pagesize * _MT_npages) {
 						_MT_npages = (size_t) (mem / _MT_pagesize);
 					}
+					success = true;
 					fclose(f);
 				}
 				/* limit of memory+swap usage
@@ -459,16 +519,16 @@ MT_init(void)
 				strcpy(q, "memory.memsw.limit_in_bytes");
 				f = fopen(pth, "r");
 				if (f != NULL) {
-					uint64_t mem;
 					if (fscanf(f, "%" SCNu64, &mem) == 1
 					    && mem < (uint64_t) GDK_vm_maxsize) {
 						GDK_vm_maxsize = (size_t) mem;
 					}
+					success = true;
 					fclose(f);
 				}
-				break;
-
 			}
+			if (success)
+				break;
 		}
 		fclose(fc);
 	}
@@ -771,6 +831,10 @@ GDKinit(opt *set, int setlen)
 		return GDK_FAIL;
 	}
 
+	/* initialize GDKtracer */
+	if (!GDKtracer_init())
+		return GDK_FAIL;
+
 	return GDK_SUCCEED;
 }
 
@@ -885,6 +949,9 @@ GDKreset(int status)
 		MT_lock_unset(&GDKthreadLock);
 	}
 	ATOMunknown_clean();
+
+	/* stop GDKtracer */
+	GDKtracer_stop();
 }
 
 /* coverity[+kill] */
@@ -895,6 +962,9 @@ GDKexit(int status)
 #ifdef HAVE_EMBEDDED
 		return;
 #else
+		/* stop GDKtracer */
+		GDKtracer_stop();
+
 		/* no database lock, so no threads, so exit now */
 		exit(status);
 #endif
@@ -1620,6 +1690,12 @@ const char *
 GDKversion(void)
 {
 	return (_gdk_version_string);
+}
+
+void
+GDKtracerinfo(void)
+{
+	GDKtracer_show_info();
 }
 
 size_t

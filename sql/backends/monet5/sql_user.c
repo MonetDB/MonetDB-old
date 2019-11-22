@@ -233,7 +233,7 @@ monet5_create_privileges(ptr _mvc, sql_schema *s)
 			    "\"sys\".\"db_user_info\" AS ui "
 			    "ON u.\"name\" = ui.\"name\";");
 	if (!t) {
-		CRITICAL(M_ALL, "Failed to create 'users' view\n");
+		CRITICAL(SQL_USER, "Failed to create 'users' view\n");
 		return ;
 	}
 

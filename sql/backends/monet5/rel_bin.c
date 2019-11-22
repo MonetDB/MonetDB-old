@@ -99,7 +99,7 @@ print_stmtlist(sql_allocator *sa, stmt *l)
 			const char *rnme = table_name(sa, n->data);
 			const char *nme = column_name(sa, n->data);
 
-			INFO(SQL_ALL, "%s.%s\n", rnme ? rnme : "(null!)", nme ? nme : "(null!)");
+			INFO(SQL_RELATION, "%s.%s\n", rnme ? rnme : "(null!)", nme ? nme : "(null!)");
 		}
 	}
 }
@@ -331,6 +331,27 @@ handle_in_exps(backend *be, sql_exp *ce, list *nl, stmt *left, stmt *right, stmt
 			s = stmt_uselect(be, 
 				stmt_const(be, bin_first_column(be, left), s), 
 				stmt_bool(be, 1), cmp_equal, sel, 0); 
+	} else if (list_length(nl) < 16) {
+		comp_type cmp = (in)?cmp_equal:cmp_notequal;
+
+		if (!in)
+			s = sel;
+		for( n = nl->h; n; n = n->next) {
+			sql_exp *e = n->data;
+			stmt *i = exp_bin(be, use_r?e->r:e, left, right, grp, ext, cnt, NULL);
+			if(!i)
+				return NULL;
+
+			if (in) { 
+				i = stmt_uselect(be, c, i, cmp, sel, 0); 
+				if (s)
+					s = stmt_tunion(be, s, i); 
+				else
+					s = i;
+			} else {
+				s = stmt_uselect(be, c, i, cmp, s, 0); 
+			}
+		}
 	} else {
 		// TODO: handle_in_exps should contain all necessary logic for in-expressions to be SQL compliant.
 		// For non-SQL-standard compliant behavior, e.g. PostgreSQL backwards compatibility, we should
@@ -380,7 +401,6 @@ handle_in_exps(backend *be, sql_exp *ce, list *nl, stmt *left, stmt *right, stmt
 			s = stmt_result(be, s, 0);
 		}
 	}
-
 	return s;
 }
 
@@ -725,7 +745,7 @@ exp_bin(backend *be, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, 
 		if (s && grp)
 			s = stmt_project(be, ext, s);
 		if (!s && right) {
-			CRITICAL(M_ALL, "Could not find %s.%s\n", (char*)e->l, (char*)e->r);
+			CRITICAL(SQL_RELATION, "Could not find %s.%s\n", (char*)e->l, (char*)e->r);
 			print_stmtlist(sql->sa, left);
 			print_stmtlist(sql->sa, right);
 			assert(s);
@@ -1147,11 +1167,6 @@ check_types(backend *be, sql_subtype *ct, stmt *s, check_type tpe)
 	int c = 0;
 	sql_subtype *t = NULL, *st = NULL;
 
-	/*
-	if (ct->types) 
-		return check_table_types(sql, ct->types, s, tpe);
-		*/
-
  	st = tail_type(s);
 	if ((!st || !st->type) && stmt_set_type_param(sql, ct, s) == 0) {
 		return s;
@@ -1169,14 +1184,17 @@ check_types(backend *be, sql_subtype *ct, stmt *s, check_type tpe)
 	}
 
 	if (!t) {	/* try to convert if needed */
-		c = sql_type_convert(st->type->eclass, ct->type->eclass);
-		if (!c || (c == 2 && tpe == type_set) || 
-                   (c == 3 && tpe != type_cast)) { 
-			s = NULL;
+		if (EC_INTERVAL(st->type->eclass) && (ct->type->eclass == EC_NUM || ct->type->eclass == EC_POS) && ct->digits < st->digits) {
+			s = NULL; /* conversion from interval to num depends on the number of digits */
 		} else {
-			s = stmt_convert(be, s, st, ct, NULL);
+			c = sql_type_convert(st->type->eclass, ct->type->eclass);
+			if (!c || (c == 2 && tpe == type_set) || (c == 3 && tpe != type_cast)) { 
+				s = NULL;
+			} else {
+				s = stmt_convert(be, s, st, ct, NULL);
+			}
 		}
-	} 
+	}
 	if (!s) {
 		stmt *res = sql_error(
 			sql, 03,
@@ -1934,7 +1952,7 @@ rel2bin_join(backend *be, sql_rel *rel, list *refs)
 			stmt *s = NULL;
 			prop *p;
 
-			/* only handle simple joins here */		
+			/* only handle simple joins here */
 			if ((exp_has_func(e) && get_cmp(e) != cmp_filter) ||
 			    get_cmp(e) == cmp_or || e->f) {
 				if (!join && !list_length(lje)) {
@@ -2135,7 +2153,6 @@ rel2bin_antijoin(backend *be, sql_rel *rel, list *refs)
 	right = row2cols(be, right);
 
 	if (rel->exps) {
-
 		jexps = sa_list(sql->sa);
 		mexps = sa_list(sql->sa);
 
@@ -2212,7 +2229,7 @@ rel2bin_semijoin(backend *be, sql_rel *rel, list *refs)
  	 * 	first cheap join(s) (equality or idx) 
  	 * 	second selects/filters 
 	 */
-	
+
 #if 0
 	if (rel->exps && rel->op == op_anti && need_no_nil(rel)) {
 		sql_subtype *lng = sql_bind_localtype("lng");
@@ -2273,21 +2290,43 @@ rel2bin_semijoin(backend *be, sql_rel *rel, list *refs)
 #endif
 	if (rel->exps) {
 		int idx = 0;
+		list *jexps = sa_list(sql->sa);
 		list *lje = sa_list(sql->sa);
 		list *rje = sa_list(sql->sa);
+
+		/* get equi-joins/filters first */
+		if (list_length(rel->exps) > 1) {
+			for( en = rel->exps->h; en; en = en->next ) {
+				sql_exp *e = en->data;
+				if (e->type == e_cmp && (e->flag == cmp_equal || e->flag == cmp_filter))
+					list_append(jexps, e);
+			}
+			for( en = rel->exps->h; en; en = en->next ) {
+				sql_exp *e = en->data;
+				if (e->type != e_cmp || (e->flag != cmp_equal && e->flag != cmp_filter))
+					list_append(jexps, e);
+			}
+			rel->exps = jexps;
+		}
 
 		for( en = rel->exps->h; en; en = en->next ) {
 			int join_idx = sql->opt_stats[0];
 			sql_exp *e = en->data;
 			stmt *s = NULL;
 
-			/* only handle simple joins here */		
-			if (idx || e->type != e_cmp || (e->flag != cmp_equal && e->flag != mark_in))
-				break;
+			/* only handle simple joins here */
 			if ((exp_has_func(e) && get_cmp(e) != cmp_filter) ||
-			    (get_cmp(e) == cmp_or)) { 
+			    get_cmp(e) == cmp_or || e->f) {
+				if (!join && !list_length(lje)) {
+					stmt *l = bin_first_column(be, left);
+					stmt *r = bin_first_column(be, right);
+					join = stmt_join(be, l, r, 0, cmp_all); 
+				}
 				break;
 			}
+			if (list_length(lje) && (idx || e->type != e_cmp || (e->flag != cmp_equal && e->flag != cmp_filter) ||
+			   (join && e->flag == cmp_filter)))
+				break;
 
 			s = exp_bin(be, en->data, left, right, NULL, NULL, NULL, NULL);
 			if (!s) {
@@ -3622,20 +3661,8 @@ sql_insert_check_null(backend *be, sql_table *t, list *inserts)
 static stmt ** 
 table_update_stmts(mvc *sql, sql_table *t, int *Len)
 {
-	stmt **updates;
-	int i, len = list_length(t->columns.set);
-	node *m;
-
-	*Len = len;
-	updates = SA_NEW_ARRAY(sql->sa, stmt *, len);
-	for (m = t->columns.set->h, i = 0; m; m = m->next, i++) {
-		sql_column *c = m->data;
-
-		/* update the column number, for correct array access */
-		c->colnr = i;
-		updates[i] = NULL;
-	}
-	return updates;
+	*Len = list_length(t->columns.set);
+	return SA_ZNEW_ARRAY(sql->sa, stmt *, *Len);
 }
 
 static stmt *
@@ -4499,7 +4526,7 @@ sql_stack_add_updated(mvc *sql, const char *on, const char *nn, sql_table *t, st
 
 			append(exps, oe);
 			append(exps, ne);
-		} else { /* later select correct updated rows only ? */
+		} else {
 			sql_exp *oe = exp_column(sql->sa, on, c->base.name, &c->type, CARD_MULTI, c->null, 0);
 			sql_exp *ne = exp_column(sql->sa, nn, c->base.name, &c->type, CARD_MULTI, c->null, 0);
 

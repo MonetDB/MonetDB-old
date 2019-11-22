@@ -1442,7 +1442,7 @@ stmt_uselect(backend *be, stmt *op1, stmt *op2, comp_type cmptype, stmt *sub, in
 			op = ">=";
 			break;
 		default:
-			ERROR(M_ALL, "Unknown operator\n");
+			ERROR(SQL_STATEMENT, "Unknown operator\n");
 		}
 
 		if ((q = multiplex2(mb, mod, convertOperator(op), l, r, TYPE_bit)) == NULL) 
@@ -1503,7 +1503,7 @@ stmt_uselect(backend *be, stmt *op1, stmt *op2, comp_type cmptype, stmt *sub, in
 				q = pushStr(mb, q, anti?"<":">=");
 				break;
 			default:
-				ERROR(M_ALL, "Impossible select compare\n");
+				ERROR(SQL_STATEMENT, "Impossible select compare\n");
 				if (q)
 					freeInstruction(q);
 				q = NULL;
@@ -1591,7 +1591,7 @@ select2_join2(backend *be, stmt *op1, stmt *op2, stmt *op3, int cmp, stmt *sub, 
 	if (op1->nr < 0 && (sub && sub->nr < 0))
 		return NULL;
 	l = op1->nr;
-	if (((cmp & CMP_BETWEEN) || op2->nrcols > 0 || op3->nrcols > 0) && (type == st_uselect2)) {
+	if (((cmp & CMP_BETWEEN && cmp & CMP_SYMMETRIC) || op2->nrcols > 0 || op3->nrcols > 0) && (type == st_uselect2)) {
 		int k;
 
 		if (op2->nr < 0 || op3->nr < 0)
@@ -1693,8 +1693,8 @@ select2_join2(backend *be, stmt *op1, stmt *op2, stmt *op3, int cmp, stmt *sub, 
 			q = pushNil(mb, q, TYPE_lng); /* estimate */
 		if (type == st_uselect2) {
 			q = pushBit(mb, q, anti);
-			if (q == NULL)
-				return NULL;
+			if (cmp & CMP_BETWEEN)
+				q = pushBit(mb, q, TRUE); /* all nil's are != */
 		}
 		if (q == NULL)
 			return NULL;
@@ -1958,7 +1958,7 @@ stmt_join(backend *be, stmt *op1, stmt *op2, int anti, comp_type cmptype)
 		q = op1->q;
 		break;
 	default:
-		ERROR(M_ALL, "Impossible action\n");
+		ERROR(SQL_STATEMENT, "Impossible action\n");
 	}
 	if (q) {
 		stmt *s = stmt_create(be->mvc->sa, st_join);
@@ -2347,7 +2347,7 @@ stmt_trans(backend *be, int type, stmt *chain, stmt *name)
 		q = newStmt(mb, sqlRef, transaction_beginRef);
 		break;
 	default:
-		ERROR(M_ALL, "Unknown transaction type\n");
+		ERROR(SQL_STATEMENT, "Unknown transaction type\n");
 	}
 	q = pushArgument(mb, q, chain->nr);
 	if (name)
@@ -2422,7 +2422,7 @@ stmt_catalog(backend *be, int type, stmt *args)
 	case ddl_rename_table: q = newStmt(mb, sqlcatalogRef, rename_tableRef); break;
 	case ddl_rename_column: q = newStmt(mb, sqlcatalogRef, rename_columnRef); break;
 	default:
-		ERROR(M_ALL, "Unknown catalog operation\n");
+		ERROR(SQL_STATEMENT, "Unknown catalog operation\n");
 	}
 	// pass all arguments as before
 	for (n = args->op4.lval->h; n; n = n->next) {

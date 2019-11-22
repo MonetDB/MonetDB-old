@@ -12,13 +12,11 @@
 #include "gdk_tracer.h"
 
 char 	monet_cwd[FILENAME_MAX] = { 0 };
-size_t 	monet_memory = 0;
 char 	monet_characteristics[4096];
 stream *maleventstream = 0;
 
 /* The compile time debugging flags are turned into bit masks, akin to GDK */
 lng MALdebug;
-lng OPTdebug;
 
 #ifdef HAVE_HGE
 int have_hge;
@@ -67,7 +65,6 @@ int mal_init(void){
 		return -1;
 	}
 #endif
-	monet_memory = MT_npages() * MT_pagesize();
 	initNamespace();
 	initParser();
 #ifndef HAVE_EMBEDDED
@@ -80,7 +77,7 @@ int mal_init(void){
 #ifndef NDEBUG
 		mdbExit();
 #endif
-		ERROR(M_ALL, "%s\n", err);
+		ERROR(MAL_MAL, "%s\n", err);
 		freeException(err);
 		return -1;
 	}
@@ -110,11 +107,11 @@ void mserver_reset(void)
 	AUTHreset();
 	if (!GDKinmemory()) {
 		if ((err = msab_wildRetreat()) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(MAL_MAL, "%s\n", err);
 			free(err);
 		}
 		if ((err = msab_registerStop()) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(MAL_MAL, "%s\n", err);
 			free(err);
 		}
 	}
@@ -132,7 +129,6 @@ void mserver_reset(void)
 #endif
 
 	memset((char*)monet_cwd, 0, sizeof(monet_cwd));
-	monet_memory = 0;
 	memset((char*)monet_characteristics,0, sizeof(monet_characteristics));
 	mal_namespace_reset();
 	/* No need to clean up the namespace, it will simply be extended

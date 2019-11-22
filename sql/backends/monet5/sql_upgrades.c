@@ -2063,7 +2063,7 @@ bailout:
 static str
 sql_update_nov2019(Client c, mvc *sql, const char *prev_schema, bool *systabfixed)
 {
-	size_t bufsize = 8192, pos = 0;
+	size_t bufsize = 16384, pos = 0;
 	char *err = NULL, *buf = GDKmalloc(bufsize);
 	res_table *output;
 	BAT *b;
@@ -2242,6 +2242,65 @@ sql_update_nov2019(Client c, mvc *sql, const char *prev_schema, bool *systabfixe
 			"update sys.functions set system = true where schema_id = (select id from sys.schemas where name = 'wlr')"
 			" and name in ('master', 'stop', 'accept', 'replicate', 'beat') and type = %d;\n", (int) F_PROC);
 
+	/* 39_analytics.sql */
+	pos += snprintf(buf + pos, bufsize - pos,
+			"create aggregate stddev_samp(val INTERVAL SECOND) returns DOUBLE\n"
+			"external name \"aggr\".\"stdev\";\n"
+			"GRANT EXECUTE ON AGGREGATE stddev_samp(INTERVAL SECOND) TO PUBLIC;\n"
+			"create aggregate stddev_samp(val INTERVAL MONTH) returns DOUBLE\n"
+			"external name \"aggr\".\"stdev\";\n"
+			"GRANT EXECUTE ON AGGREGATE stddev_samp(INTERVAL MONTH) TO PUBLIC;\n"
+
+			"create aggregate stddev_pop(val INTERVAL SECOND) returns DOUBLE\n"
+			"external name \"aggr\".\"stdevp\";\n"
+			"GRANT EXECUTE ON AGGREGATE stddev_pop(INTERVAL SECOND) TO PUBLIC;\n"
+			"create aggregate stddev_pop(val INTERVAL MONTH) returns DOUBLE\n"
+			"external name \"aggr\".\"stdevp\";\n"
+			"GRANT EXECUTE ON AGGREGATE stddev_pop(INTERVAL MONTH) TO PUBLIC;\n"
+
+			"create aggregate var_samp(val INTERVAL SECOND) returns DOUBLE\n"
+			"external name \"aggr\".\"variance\";\n"
+			"GRANT EXECUTE ON AGGREGATE var_samp(INTERVAL SECOND) TO PUBLIC;\n"
+			"create aggregate var_samp(val INTERVAL MONTH) returns DOUBLE\n"
+			"external name \"aggr\".\"variance\";\n"
+			"GRANT EXECUTE ON AGGREGATE var_samp(INTERVAL MONTH) TO PUBLIC;\n"
+
+			"create aggregate var_pop(val INTERVAL SECOND) returns DOUBLE\n"
+			"external name \"aggr\".\"variancep\";\n"
+			"GRANT EXECUTE ON AGGREGATE var_pop(INTERVAL SECOND) TO PUBLIC;\n"
+			"create aggregate var_pop(val INTERVAL MONTH) returns DOUBLE\n"
+			"external name \"aggr\".\"variancep\";\n"
+			"GRANT EXECUTE ON AGGREGATE var_pop(INTERVAL MONTH) TO PUBLIC;\n"
+
+			"create aggregate median(val INTERVAL SECOND) returns INTERVAL SECOND\n"
+			"external name \"aggr\".\"median\";\n"
+			"GRANT EXECUTE ON AGGREGATE median(INTERVAL SECOND) TO PUBLIC;\n"
+			"create aggregate median(val INTERVAL MONTH) returns INTERVAL MONTH\n"
+			"external name \"aggr\".\"median\";\n"
+			"GRANT EXECUTE ON AGGREGATE median(INTERVAL MONTH) TO PUBLIC;\n"
+
+			"create aggregate quantile(val INTERVAL SECOND, q DOUBLE) returns INTERVAL SECOND\n"
+			"external name \"aggr\".\"quantile\";\n"
+			"GRANT EXECUTE ON AGGREGATE quantile(INTERVAL SECOND, DOUBLE) TO PUBLIC;\n"
+			"create aggregate quantile(val INTERVAL MONTH, q DOUBLE) returns INTERVAL MONTH\n"
+			"external name \"aggr\".\"quantile\";\n"
+			"GRANT EXECUTE ON AGGREGATE quantile(INTERVAL MONTH, DOUBLE) TO PUBLIC;\n"
+		);
+
+	pos += snprintf(buf + pos, bufsize - pos,
+			"update sys.functions set system = true where schema_id = (select id from sys.schemas where name = 'sys')"
+			" and name in ('stddev_samp', 'stddev_pop', 'var_samp', 'var_pop', 'median', 'quantile') and type = %d;\n", (int) F_AGGR);
+
+	/* The MAL implementation of functions json.text(string) and json.text(int) do not exist */
+	pos += snprintf(buf + pos, bufsize - pos,
+			"drop function json.text(string);\n"
+			"drop function json.text(int);\n");
+
+	/* The first argument to copyfrom is a PTR type */
+	pos += snprintf(buf + pos, bufsize - pos,
+			"update \"sys\".\"args\" set \"type\" = 'ptr' where"
+			" \"func_id\" = (select \"id\" from \"sys\".\"functions\" where \"name\" = 'copyfrom' and \"func\" = 'copy_from' and \"mod\" = 'sql') and \"name\" = 'arg_1';\n");
+
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", prev_schema);
 	assert(pos < bufsize);
 
@@ -2308,19 +2367,34 @@ sql_update_default(Client c, mvc *sql, const char *prev_schema)
 				"\"login\" timestamp,\n"
 				"\"idle\" timestamp,\n"
 				"\"optimizer\" string,\n"
-				"\"sessiontimeout\" bigint,\n"
-				"\"querytimeout\" bigint,\n"
+				"\"sessiontimeout\" int,\n"
+				"\"querytimeout\" int,\n"
 				"\"workerlimit\" int,\n"
-				"\"memorylimit\" bigint)\n"
+				"\"memorylimit\" int)\n"
  			" external name sql.sessions;\n"
 			"create view sys.sessions as select * from sys.sessions();\n");
 
 	pos += snprintf(buf + pos, bufsize - pos,
-			"drop procedure sys.settimeout(bigint,bigint);\n"
-			"create procedure sys.querytimeout(\"sessionid\" int, \"query\" bigint)\n"
-			"external name clients.querytimeout;\n"
-			"create procedure sys.sessiontimeout(\"sessionid\" int, \"query\" bigint)\n"
-			"external name clients.sessiontimeout;\n"
+			"create procedure sys.setoptimizer(\"optimizer\" string)\n"
+			" external name clients.setoptimizer;\n"
+			"create procedure sys.setquerytimeout(\"query\" int)\n"
+			" external name clients.setquerytimeout;\n"
+			"create procedure sys.setsessiontimeout(\"timeout\" int)\n"
+			" external name clients.setsessiontimeout;\n"
+			"create procedure sys.setworkerlimit(\"limit\" int)\n"
+			" external name clients.setworkerlimit;\n"
+			"create procedure sys.setmemorylimit(\"limit\" int)\n"
+			" external name clients.setmemorylimit;\n"
+			"create procedure sys.setoptimizer(\"sessionid\" int, \"optimizer\" string)\n"
+			" external name clients.setoptimizer;\n"
+			"create procedure sys.setquerytimeout(\"sessionid\" int, \"query\" int)\n"
+			" external name clients.setquerytimeout;\n"
+			"create procedure sys.setsessiontimeout(\"sessionid\" int, \"query\" int)\n"
+			" external name clients.setsessiontimeout;\n"
+			"create procedure sys.setworkerlimit(\"sessionid\" int, \"limit\" int)\n"
+			" external name clients.setworkerlimit;\n"
+			"create procedure sys.setmemorylimit(\"sessionid\" int, \"limit\" int)\n"
+			" external name clients.setmemorylimit;\n"
 			"create procedure sys.stopsession(\"sessionid\" int)\n"
 			"external name clients.stopsession;\n");
 
@@ -2332,7 +2406,7 @@ sql_update_default(Client c, mvc *sql, const char *prev_schema)
 			" and name = 'sessions';\n");
 	pos += snprintf(buf + pos, bufsize - pos,
 			"update sys.functions set system = true where schema_id = (select id from sys.schemas where name = 'sys')"
-			" and name in ('querytimeout', 'sessiontimeout', 'stopsession') and type = %d;\n", (int) F_PROC);
+			" and name in ('setoptimizer', 'setquerytimeout', 'setsessiontimeout', 'setworkerlimit', 'setmemorylimit', 'setoptimizer', 'stopsession') and type = %d;\n", (int) F_PROC);
 
 	/* 26_sysmon */
 	t = mvc_bind_table(sql, sys, "queue");
@@ -2363,6 +2437,13 @@ sql_update_default(Client c, mvc *sql, const char *prev_schema)
 			"create procedure sys.resume(tag tinyint)\n"
 			"external name sql.sysmon_resume;\n"
 			"create procedure sys.stop(tag tinyint)\n"
+			"external name sql.sysmon_stop;\n"
+
+			"create procedure sys.pause(tag smallint)\n"
+			"external name sql.sysmon_pause;\n"
+			"create procedure sys.resume(tag smallint)\n"
+			"external name sql.sysmon_resume;\n"
+			"create procedure sys.stop(tag smallint)\n"
 			"external name sql.sysmon_stop;\n");
 
 	pos += snprintf(buf + pos, bufsize - pos,
@@ -2397,7 +2478,7 @@ SQLupgrades(Client c, mvc *m)
 	int res = 0;
 
 	if (!prev_schema) {
-		CRITICAL(M_ALL, "Allocation failure while running SQL upgrades\n");
+		CRITICAL(SQL_UPGRADES, "Allocation failure while running SQL upgrades\n");
 		res = -1;
 	}
 
@@ -2406,7 +2487,7 @@ SQLupgrades(Client c, mvc *m)
 		sql_find_subtype(&tp, "hugeint", 0, 0);
 		if (!sql_bind_aggr(m->sa, s, "var_pop", &tp)) {
 			if ((err = sql_update_hugeint(c, m, prev_schema, &systabfixed)) != NULL) {
-				ERROR(M_ALL, "%s\n", err);
+				ERROR(SQL_UPGRADES, "%s\n", err);
 				freeException(err);
 				res = -1;
 			}
@@ -2430,7 +2511,7 @@ SQLupgrades(Client c, mvc *m)
 		/* type sys.point exists: this is an old geom-enabled
 		 * database */
 		if ((err = sql_update_geom(c, m, 1, prev_schema)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
@@ -2441,7 +2522,7 @@ SQLupgrades(Client c, mvc *m)
 				   &tp, NULL, F_FUNC)) {
 			/* ... but the database is not geom-enabled */
 			if ((err = sql_update_geom(c, m, 0, prev_schema)) != NULL) {
-				ERROR(M_ALL, "%s\n", err);
+				ERROR(SQL_UPGRADES, "%s\n", err);
 				freeException(err);
 				res = -1;
 			}
@@ -2450,20 +2531,20 @@ SQLupgrades(Client c, mvc *m)
 
 	if (!res && mvc_bind_table(m, s, "function_languages") == NULL) {
 		if ((err = sql_update_jul2017(c, prev_schema)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
 	}
 
 	if (!res && (err = sql_update_jul2017_sp2(c)) != NULL) {
-		ERROR(M_ALL, "%s\n", err);
+		ERROR(SQL_UPGRADES, "%s\n", err);
 		freeException(err);
 		res = -1;
 	}
 
 	if (!res && (err = sql_update_jul2017_sp3(c, m, prev_schema, &systabfixed)) != NULL) {
-		ERROR(M_ALL, "%s\n", err);
+		ERROR(SQL_UPGRADES, "%s\n", err);
 		freeException(err);
 		res = -1;
 	}
@@ -2472,7 +2553,7 @@ SQLupgrades(Client c, mvc *m)
 	    (col = mvc_bind_column(m, t, "coord_dimension")) != NULL &&
 	    strcmp(col->type.type->sqlname, "int") != 0) {
 		if ((err = sql_update_mar2018_geom(c, t, prev_schema)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
@@ -2481,21 +2562,21 @@ SQLupgrades(Client c, mvc *m)
 	if (!res && mvc_bind_schema(m, "wlc") == NULL &&
 	    !sql_bind_func(m->sa, s, "master", NULL, NULL, F_PROC)) {
 		if ((err = sql_update_mar2018(c, m, prev_schema, &systabfixed)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
 #ifdef HAVE_NETCDF
 		if (mvc_bind_table(m, s, "netcdf_files") != NULL &&
 		    (err = sql_update_mar2018_netcdf(c, prev_schema)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
 #endif
 #ifdef HAVE_SAMTOOLS
 		if ((err = sql_update_mar2018_samtools(c, m, prev_schema)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
@@ -2504,7 +2585,7 @@ SQLupgrades(Client c, mvc *m)
 
 	if (!res && sql_bind_func(m->sa, s, "dependencies_functions_os_triggers", NULL, NULL, F_UNION)) {
 		if ((err = sql_update_mar2018_sp1(c, prev_schema)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
@@ -2516,7 +2597,7 @@ SQLupgrades(Client c, mvc *m)
 		res_table *output = NULL;
 		err = SQLstatementIntern(c, &qry, "update", true, false, &output);
 		if (err) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		} else {
@@ -2525,7 +2606,7 @@ SQLupgrades(Client c, mvc *m)
 				if (BATcount(b) > 0) {
 					/* yes old view definition exists, it needs to be replaced */
 					if ((err = sql_replace_Mar2018_ids_view(c, m, prev_schema)) != NULL) {
-						ERROR(M_ALL, "%s\n", err);
+						ERROR(SQL_UPGRADES, "%s\n", err);
 						freeException(err);
 						res = -1;
 					}
@@ -2546,7 +2627,7 @@ SQLupgrades(Client c, mvc *m)
 			/* sys.chi2prob exists, but there is no
 			 * implementation */
 			if ((err = sql_update_gsl(c, prev_schema)) != NULL) {
-				ERROR(M_ALL, "%s\n", err);
+				ERROR(SQL_UPGRADES, "%s\n", err);
 				freeException(err);
 				res = -1;
 			}
@@ -2556,7 +2637,7 @@ SQLupgrades(Client c, mvc *m)
 	sql_find_subtype(&tp, "clob", 0, 0);
 	if (!res && sql_bind_aggr(m->sa, s, "group_concat", &tp) == NULL) {
 		if ((err = sql_update_aug2018(c, m, prev_schema)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
@@ -2580,14 +2661,14 @@ SQLupgrades(Client c, mvc *m)
 	 && sql_bind_func(m->sa, s, "dependencies_functions_on_triggers", NULL, NULL, F_UNION)
 	 && sql_bind_func(m->sa, s, "dependencies_keys_on_foreignkeys", NULL, NULL, F_UNION)	) {
 		if ((err = sql_drop_functions_dependencies_Xs_on_Ys(c, prev_schema)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
 	}
 
 	if (!res && (err = sql_update_aug2018_sp2(c, prev_schema)) != NULL) {
-		ERROR(M_ALL, "%s\n", err);
+		ERROR(SQL_UPGRADES, "%s\n", err);
 		freeException(err);
 		res = -1;
 	}
@@ -2596,13 +2677,13 @@ SQLupgrades(Client c, mvc *m)
 	    t->type == tt_table) {
 		if (!systabfixed &&
 		    (err = sql_fix_system_tables(c, m, prev_schema)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
 		systabfixed = true;
 		if ((err = sql_update_apr2019(c, m, prev_schema)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
@@ -2615,21 +2696,21 @@ SQLupgrades(Client c, mvc *m)
 	 && (t = mvc_bind_table(m, s, "tablestorage")) == NULL
 	 && (t = mvc_bind_table(m, s, "schemastorage")) == NULL ) {
 		if ((err = sql_update_storagemodel(c, m, prev_schema)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
 	}
 
 	if (!res && (err = sql_update_apr2019_sp1(c)) != NULL) {
-		ERROR(M_ALL, "%s\n", err);
+		ERROR(SQL_UPGRADES, "%s\n", err);
 		freeException(err);
 		res = -1;
 	}
 
 	if (!res && sql_bind_func(m->sa, s, "times", NULL, NULL, F_PROC)) {
 		if (!res && (err = sql_update_apr2019_sp2(c, m, prev_schema, &systabfixed)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
@@ -2638,19 +2719,19 @@ SQLupgrades(Client c, mvc *m)
 	sql_find_subtype(&tp, "string", 0, 0);
 	if (!res && !sql_bind_func3(m->sa, s, "deltas", &tp, &tp, &tp, F_UNION)) {
 		if ((err = sql_update_nov2019_missing_dependencies(c, m)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
 		if (!systabfixed &&
 		    (err = sql_fix_system_tables(c, m, prev_schema)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
 		systabfixed = true;
 		if ((err = sql_update_nov2019(c, m, prev_schema, &systabfixed)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}
@@ -2658,7 +2739,7 @@ SQLupgrades(Client c, mvc *m)
 
 	if (!res && !sql_bind_func(m->sa, s, "suspend_log_flushing", NULL, NULL, F_PROC)) {
 		if ((err = sql_update_default(c, m, prev_schema)) != NULL) {
-			ERROR(M_ALL, "%s\n", err);
+			ERROR(SQL_UPGRADES, "%s\n", err);
 			freeException(err);
 			res = -1;
 		}

@@ -107,7 +107,6 @@ usage(char *prog, int xit)
 	fprintf(stderr, "     --modules\n");
 	fprintf(stderr, "     --algorithms\n");
 	fprintf(stderr, "     --performance\n");
-	fprintf(stderr, "     --optimizers\n");
 	fprintf(stderr, "     --forcemito\n");
 	fprintf(stderr, "     --debug=<bitmask>\n");
 
@@ -123,13 +122,6 @@ monet_hello(void)
 	dbl sz_mem_h;
 	char  *qc = " kMGTPE";
 	int qi = 0;
-
-	monet_memory = MT_npages() * MT_pagesize();
-	sz_mem_h = (dbl) monet_memory;
-	while (sz_mem_h >= 1000.0 && qi < 6) {
-		sz_mem_h /= 1024.0;
-		qi++;
-	}
 
 	printf("# MonetDB 5 server v%s", GDKversion());
 	{
@@ -155,7 +147,20 @@ monet_hello(void)
 			""
 #endif
 			);
-	printf("# Found %.3f %ciB available main-memory.\n",
+	sz_mem_h = (dbl) (MT_npages() * MT_pagesize());
+	while (sz_mem_h >= 1000.0 && qi < 6) {
+		sz_mem_h /= 1024.0;
+		qi++;
+	}
+	printf("# Found %.3f %ciB available main-memory",
+			sz_mem_h, qc[qi]);
+	sz_mem_h = (dbl) GDK_mem_maxsize;
+	qi = 0;
+	while (sz_mem_h >= 1000.0 && qi < 6) {
+		sz_mem_h /= 1024.0;
+		qi++;
+	}
+	printf(" of which we use %.3f %ciB\n",
 			sz_mem_h, qc[qi]);
 #ifdef MONET_GLOBAL_DEBUG
 	printf("# Database path:%s\n", GDKgetenv("gdk_dbpath"));
@@ -272,7 +277,6 @@ main(int argc, char **av)
 		{ "transactions", no_argument, NULL, 0 },
 		{ "modules", no_argument, NULL, 0 },
 		{ "algorithms", no_argument, NULL, 0 },
-		{ "optimizers", no_argument, NULL, 0 },
 		{ "performance", no_argument, NULL, 0 },
 		{ "forcemito", no_argument, NULL, 0 },
 		{ "heaps", no_argument, NULL, 0 },
@@ -361,10 +365,6 @@ main(int argc, char **av)
 			}
 			if (strcmp(long_options[option_index].name, "algorithms") == 0) {
 				grpdebug |= GRPalgorithms;
-				break;
-			}
-			if (strcmp(long_options[option_index].name, "optimizers") == 0) {
-				grpdebug |= GRPoptimizers;
 				break;
 			}
 			if (strcmp(long_options[option_index].name, "forcemito") == 0) {
@@ -674,6 +674,9 @@ main(int argc, char **av)
 			msab_registerStop();
 		return 0;
 	}
+
+	/* show log level per component and available layers */
+	GDKtracerinfo();
 
 	emergencyBreakpoint();
 

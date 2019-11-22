@@ -13,15 +13,13 @@
 #include "mal_private.h"
 #include "gdk_tracer.h"
 
-/* MEMORY admission does not seem to have a major impact */
-lng memorypool = 0;      /* memory claimed by concurrent threads */
-int memoryclaims = 0;    /* number of threads active with expensive operations */
+/* Memory based admission does not seem to have a major impact so far. */
+static lng memorypool = 0;      /* memory claimed by concurrent threads */
 
 void
 mal_resource_reset(void)
 {
-	memorypool = 0;
-	memoryclaims = 0;
+	memorypool = (lng) MEMORY_THRESHOLD;
 }
 /*
  * Running all eligible instructions in parallel creates
@@ -48,13 +46,7 @@ mal_resource_reset(void)
  * How long depends on the other instructions to free up
  * resources. The current policy simple takes a local
  * decision by delaying the instruction based on its
- * past and the size of the memory pool size.
- * The waiting penalty decreases with each step to ensure
- * it will ultimately taken into execution, with possibly
- * all resource contention effects.
- *
- * Another option would be to maintain a priority queue of
- * suspended instructions.
+ * claim of the memory.
  */
 
 /*
@@ -119,119 +111,85 @@ getMemoryClaim(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int i, int flag)
 #ifdef USE_MAL_ADMISSION
 static MT_Lock admissionLock = MT_LOCK_INITIALIZER("admissionLock");
 
-/* experiments on sf-100 on small machine showed no real improvement */
 int
-MALadmission(lng argclaim, lng hotclaim)
+MALadmission_claim(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, lng argclaim)
 {
-	/* optimistically set memory */
+	(void) mb;
+	(void) pci;
 	if (argclaim == 0)
 		return 0;
 
 	MT_lock_set(&admissionLock);
-	if (memoryclaims < 0)
-		memoryclaims = 0;
-	if (memorypool <= 0 && memoryclaims == 0)
-		memorypool = (lng)(MEMORY_THRESHOLD );
-
-	if (argclaim > 0) {
-		if (memoryclaims == 0 || memorypool > argclaim + hotclaim) {
-			memorypool -= (argclaim + hotclaim);
-			memoryclaims++;
-			DEBUG(PAR, 
-				"DFLOWadmit %3d thread %d pool " LLFMT "claims " LLFMT "," LLFMT "\n",
-				memoryclaims, THRgettid(), memorypool, argclaim, hotclaim);
-			MT_lock_unset(&admissionLock);
-			return 0;
-		}
-		DEBUG(PAR, 
-			"Delayed due to lack of memory " LLFMT " requested " LLFMT " memoryclaims %d\n", 
-			memorypool, argclaim + hotclaim, memoryclaims);
+	/* Check if we are allowed to allocate another worker thread for this client */
+	/* It is somewhat tricky, because we may be in a dataflow recursion, each of which should be counted for.
+	 * A way out is to attach the thread count to the MAL stacks, which just limits the level
+	 * of parallism for a single dataflow graph.
+	 */
+	if(cntxt->workerlimit && cntxt->workerlimit < stk->workers){
+		DEBUG(PAR, "Worker limit reached, %d <= %d\n", cntxt->workerlimit, stk->workers);
 		MT_lock_unset(&admissionLock);
 		return -1;
 	}
-	/* release memory claimed before */
-	memorypool += -argclaim - hotclaim;
-	memoryclaims--;
-	DEBUG(PAR, 
-		"DFLOWadmit %3d thread %d pool " LLFMT " claims " LLFMT "," LLFMT "\n",
-		memoryclaims, THRgettid(), memorypool, argclaim, hotclaim);
+	/* Determine if the total memory resource is exhausted, because it is overall limitation.  */
+	if ( memorypool <= 0){
+		// we accidently released too much memory or need to initialize
+		DEBUG(PAR, "Memorypool reset\n");
+		memorypool = (lng) MEMORY_THRESHOLD;
+	}
 
+	/* the argument claim is based on the input for an instruction */
+	if ( memorypool > argclaim || stk->workers == 0 ) {
+		/* If we are low on memory resources, limit the user if he exceeds his memory budget 
+		 * but make sure there is at least one worker thread active */
+		/* on hold until after experiments
+		if ( 0 &&  cntxt->memorylimit) {
+			if (argclaim + stk->memory > (lng) cntxt->memorylimit * LL_CONSTANT(1048576)){
+				MT_lock_unset(&admissionLock);
+				DEBUG(PAR, "Delayed due to lack of session memory " LLFMT " requested "LLFMT"\n", 
+							stk->memory, argclaim);
+				return -1;
+			}
+			stk->memory += argclaim;
+		}
+		*/
+		memorypool -= argclaim;
+		DEBUG(PAR, "Thread %d pool " LLFMT "claims " LLFMT "\n",
+					THRgettid(), memorypool, argclaim);
+		stk->workers++;
+		MT_lock_unset(&admissionLock);
+		return 0;
+	}
+	DEBUG(PAR, "Delayed due to lack of memory " LLFMT " requested " LLFMT "\n", 
+			memorypool, argclaim);
 	MT_lock_unset(&admissionLock);
-	return 0;
+	return -1;
 }
-#endif
-
-/* Delay a thread if too much competition arises and memory becomes a scarce resource.
- * If in the mean time memory becomes free, or too many sleeping re-enable worker.
- * It may happen that all threads enter the wait state. So, keep one running at all time 
- * By keeping the query start time in the client record we can delay them when resource stress occurs.
- */
-ATOMIC_TYPE mal_running = ATOMIC_VAR_INIT(0);
 
 void
-MALresourceFairness(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, lng usec)
+MALadmission_release(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, lng argclaim)
 {
-#ifdef FAIRNESS_THRESHOLD
-	size_t rss;
-	lng clk;
-	int delayed= 0;
-	int users = 2;
-
+	/* release memory claimed before */
 	(void) cntxt;
 	(void) mb;
-	(void) stk;
 	(void) pci;
-
-
-	/* don't punish queries whose last instruction was fast to executed in the first place */
-	if ( usec <= TIMESLICE)
+	if (argclaim == 0 )
 		return;
 
-	/* use GDKmem_cursize as MT_getrss() is too expensive */
-	rss = GDKmem_cursize();
-	/* ample of memory available*/
-	if ( rss <= MEMORY_THRESHOLD )
-		return;
-
-	(void) ATOMIC_INC(&mal_running);
-
-	/* worker reporting time spent  in usec! */
-	clk =  usec / 1000;
-
-#if FAIRNESS_THRESHOLD < 1000	/* it's actually 2000 */
-	/* cap the maximum penalty */
-	clk = clk > FAIRNESS_THRESHOLD? FAIRNESS_THRESHOLD:clk;
-#endif
-
-	/* always keep one running to avoid all waiting  */
-	while (clk > DELAYUNIT && users > 1 && rss > MEMORY_THRESHOLD && (int) ATOMIC_GET(&mal_running) > GDKnr_threads ) {
-		if ( delayed++ == 0){
-			DEBUG(PAR, "Delay initial ["LLFMT"] memory %zu[%f]\n", clk, rss, MEMORY_THRESHOLD);
-		}
-		if ( delayed == MAX_DELAYS){
-				DEBUG(PAR, "Delay abort ["LLFMT"] memory %zu[%f]\n", clk, rss, MEMORY_THRESHOLD);
-				break;
-		}
-		MT_sleep_ms(DELAYUNIT);
-		users= MCactiveClients();
-		rss = GDKmem_cursize();
-		clk -= DELAYUNIT;
+	MT_lock_set(&admissionLock);
+	/* on hold until after experiments
+	if ( 0 && cntxt->memorylimit) {
+		DEBUG(PAR, "Return memory to session budget " LLFMT "\n", stk->memory);
+		stk->memory -= argclaim;
 	}
-	(void) ATOMIC_DEC(&mal_running);
-#else
-(void) usec;
-#endif
-}
-
-// Get a hint on the parallel behavior
-size_t
-MALrunningThreads(void)
-{
-	return ATOMIC_GET(&mal_running);
-}
-
-void
-initResource(void)
-{
-	ATOMIC_SET(&mal_running, GDKnr_threads);
+	*/
+	memorypool += argclaim;
+	if ( memorypool > (lng) MEMORY_THRESHOLD ){
+		DEBUG(PAR, "Memorypool reset\n");
+		memorypool = (lng) MEMORY_THRESHOLD;
+	}
+	stk->workers--;
+	DEBUG(PAR, "Thread %d pool " LLFMT " claims " LLFMT "\n",
+				THRgettid(), memorypool, argclaim);
+	MT_lock_unset(&admissionLock);
+	return;
 }

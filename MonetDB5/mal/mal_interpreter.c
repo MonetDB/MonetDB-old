@@ -265,7 +265,8 @@ prepareMALstack(MalBlkPtr mb, int size)
 	//stk->stksize = size;
 	stk->stktop = mb->vtop;
 	stk->blk = mb;
-
+	stk->workers = 0;
+	stk->memory = 0;
 	initStack(0, res);
 	if(!res) {
 		freeStack(stk);
@@ -391,7 +392,7 @@ callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *env, ValPtr argv[], char debug)
 
 	cntxt->lastcmd= time(0);
 	DEBUG(MAL_INTERPRETER, "Enter callMAL\n");
-	fprintInstruction(MAL_INTERPRETER, mb, 0, pci, LIST_MAL_ALL);
+	debugInstruction(MAL_INTERPRETER, mb, 0, pci, LIST_MAL_ALL);
 
 	switch (pci->token) {
 	case FUNCTIONsymbol:
@@ -568,10 +569,10 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 				 * time and print the query */
 				if (ATOMIC_CAS(&cntxt->lastprint, &lp, t)) {
 					const char *q = cntxt->getquery ? cntxt->getquery(cntxt) : NULL;
-					INFO(MAL_ALL, "%s: query already running "LLFMT"s: %.200s\n",
-						cntxt->mythread->name,
-						(lng) (time(0) - cntxt->lastcmd),
-						q ? q : "");
+					INFO(MAL_INTERPRETER, "%s: query already running "LLFMT"s: %.200s\n",
+							cntxt->mythread->name,
+							(lng) (time(0) - cntxt->lastcmd),
+							q ? q : "");
 				}
 			}
 		}

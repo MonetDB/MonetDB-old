@@ -91,7 +91,7 @@ bailout:
 	SQLID = t->base.id;                                         \
 	if((output = mvc_drop_table(m, s, t, 0)) != MAL_SUCCEED) {  \
 		mvc_destroy(m);                                         \
-		INFO(SQL_ALL, "Initialization: %s\n", output);          \
+		INFO(SQL_MVC, "Initialization: %s\n", output);          \
 		freeException(output);                                  \
 		return -1;                                              \
 	}
@@ -109,25 +109,25 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 	DEBUG(SQL_MVC, "Initialization\n");
 	keyword_init();
 	if(scanner_init_keywords() != 0) {
-		CRITICAL(ALL, "Malloc failure\n");
+		CRITICAL(SQL_MVC, "Malloc failure\n");
 		return -1;
 	}
 
 	if ((first = store_init(debug, store, ro, su, stk)) < 0) {
-		CRITICAL(ALL, "Unable to create system tables\n");
+		CRITICAL(SQL_MVC, "Unable to create system tables\n");
 		return -1;
 	}
 
 	m = mvc_create(0, stk, 0, NULL, NULL);
 	if (!m) {
-		CRITICAL(ALL, "Malloc failure\n");
+		CRITICAL(SQL_MVC, "Malloc failure\n");
 		return -1;
 	}
 
 	m->sa = sa_create();
 	if (!m->sa) {
 		mvc_destroy(m);
-		CRITICAL(ALL, "Malloc failure\n");
+		CRITICAL(SQL_MVC, "Malloc failure\n");
 		return -1;
 	}
 
@@ -139,7 +139,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 	if (first || catalog_version) {
 		if (mvc_trans(m) < 0) {
 			mvc_destroy(m);
-			CRITICAL(ALL, "Failed to start transaction\n");
+			CRITICAL(SQL_MVC, "Failed to start transaction\n");
 			return -1;
 		}
 
@@ -155,7 +155,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 		t = mvc_init_create_view(m, s, "tables", "SELECT \"id\", \"name\", \"schema_id\", \"query\", CAST(CASE WHEN \"system\" THEN \"type\" + 10 /* system table/view */ ELSE (CASE WHEN \"commit_action\" = 0 THEN \"type\" /* table/view */ ELSE \"type\" + 20 /* global temp table */ END) END AS SMALLINT) AS \"type\", \"system\", \"commit_action\", \"access\", CASE WHEN (NOT \"system\" AND \"commit_action\" > 0) THEN 1 ELSE 0 END AS \"temporary\" FROM \"sys\".\"_tables\" WHERE \"type\" <> 2 UNION ALL SELECT \"id\", \"name\", \"schema_id\", \"query\", CAST(\"type\" + 30 /* local temp table */ AS SMALLINT) AS \"type\", \"system\", \"commit_action\", \"access\", 1 AS \"temporary\" FROM \"tmp\".\"_tables\";");
 		if (!t) {
 			mvc_destroy(m);
-			CRITICAL(ALL, "Failed to create 'tables' view\n");
+			CRITICAL(SQL_MVC, "Failed to create 'tables' view\n");
 			return -1;
 		}
 
@@ -191,7 +191,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 		t = mvc_init_create_view(m, s, "columns", "SELECT * FROM (SELECT p.* FROM \"sys\".\"_columns\" AS p UNION ALL SELECT t.* FROM \"tmp\".\"_columns\" AS t) AS columns;");
 		if (!t) {
 			mvc_destroy(m);
-			CRITICAL(ALL, "Failed to create 'columns' view\n");
+			CRITICAL(SQL_MVC, "Failed to create 'columns' view\n");
 			return -1;
 		}
 		ncid = t->base.id;
@@ -232,7 +232,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 		assert(m->session->schema != NULL);
 
 		if ((msg = mvc_commit(m, 0, NULL, false)) != MAL_SUCCEED) {
-			CRITICAL(ALL, "Unable to commit system tables: %s\n", (msg + 6));
+			CRITICAL(SQL_MVC, "Unable to commit system tables: %s\n", (msg + 6));
 			freeException(msg);
 			return -1;
 		}
@@ -240,7 +240,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 
 	if(mvc_trans(m) < 0) {
 		mvc_destroy(m);
-		CRITICAL(ALL, "Failed to start transaction\n");
+		CRITICAL(SQL_MVC, "Failed to start transaction\n");
 		return -1;
 	}
 
@@ -253,7 +253,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 				if(isPartitionedByColumnTable(tt) || isPartitionedByExpressionTable(tt)) {
 					char *err;
 					if((err = initialize_sql_parts(m, tt)) != NULL) {
-						CRITICAL(ALL, "Unable to start partitioned table: %s.%s: %s\n", ss->base.name, tt->base.name, err);
+						CRITICAL(SQL_MVC, "Unable to start partitioned table: %s.%s: %s\n", ss->base.name, tt->base.name, err);
 						freeException(err);
 						return -1;
 					}
@@ -263,7 +263,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 	}
 
 	if ((msg = mvc_commit(m, 0, NULL, false)) != MAL_SUCCEED) {
-		CRITICAL(ALL, "Unable to commit system tables: %s\n", (msg + 6));
+		CRITICAL(SQL_MVC, "Unable to commit system tables: %s\n", (msg + 6));
 		freeException(msg);
 		return -1;
 	}
@@ -343,7 +343,7 @@ mvc_trans(mvc *m)
 	int schema_changed = 0, err = m->session->status;
 	assert(!m->session->tr->active);	/* can only start a new transaction */
 	store_lock();
-	INFO(SQL_ALL, "%s: starting transaction\n", MT_thread_getname());
+	INFO(SQL_MVC, "Starting transaction\n");
 	schema_changed = sql_trans_begin(m->session);
 	if (m->qc && (schema_changed || m->qc->nr > m->cache || err)){
 		if (schema_changed || err) {
@@ -481,7 +481,7 @@ mvc_commit(mvc *m, int chain, const char *name, bool enabling_auto_commit)
 build up the hash (not copied in the trans dup)) */
 			qc_clean(m->qc);
 		m->session->schema = find_sql_schema(m->session->tr, m->session->schema_name);
-		INFO(SQL_ALL, "%s: savepoint commit '%s' done\n", MT_thread_getname(), name);
+		INFO(SQL_MVC, "Savepoint commit '%s' done\n", name);
 		return msg;
 	}
 
@@ -516,9 +516,8 @@ build up the hash (not copied in the trans dup)) */
 				freeException(other);
 			return msg;
 		}
-		INFO(SQL_ALL, 
-			"%s: commit done (no changes)%s%.200s\n", 
-			MT_thread_getname(),
+		INFO(SQL_MVC, 
+			"Commit done (no changes)%s%.200s\n", 
 			m->query ? ", query: " : "",
 			m->query ? m->query : "");
 		return msg;
@@ -576,9 +575,8 @@ build up the hash (not copied in the trans dup)) */
 		sql_trans_begin(m->session);
 	store_unlock();
 	m->type = Q_TRANS;
-	INFO(SQL_ALL, 
-		"%s: commit done%s%.200s\n",
-		MT_thread_getname(),
+	INFO(SQL_MVC, 
+		"Commit done%s%.200s\n",
 		m->query ? ", query: " : "",
 		m->query ? m->query : "");
 	return msg;
@@ -639,9 +637,9 @@ mvc_rollback(mvc *m, int chain, const char *name, bool disabling_auto_commit)
 		return msg;
 	}
 	m->type = Q_TRANS;
-	INFO(SQL_ALL, 
-		"%s: commit%s%s rolled back%s%s%.200s\n",
-		MT_thread_getname(), name ? " " : "", name ? name : "",
+	INFO(SQL_MVC, 
+		"Commit%s%s rolled back%s%s%.200s\n",
+		name ? " " : "", name ? name : "",
 		tr->wtime == 0 ? " (no changes)" : "",
 		m->query ? ", query: " : "",
 		m->query ? m->query : "");
@@ -680,7 +678,7 @@ mvc_release(mvc *m, const char *name)
 	while (ok == SQL_OK && (!tr->name || strcmp(tr->name, name) != 0)) {
 		/* commit all intermediate savepoints */
 		if (sql_trans_commit(tr) != SQL_OK)
-			GDKfatal("release savepoints should not fail");
+			GDKfatal("Release savepoints should not fail");
 		tr = sql_trans_destroy(tr, true);
 	}
 	tr->name = NULL;

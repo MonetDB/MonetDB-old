@@ -149,7 +149,7 @@ run_process_bam_alignments(void *d)
 		if (*data->failure) {
 			/* process_bam_alignments returned because another
 			 * thread failed and not because this thread failed */
-			ERROR(M_ALL, "<Thread %d> Exit due to failure in other thread\n", data->thread_id);
+			ERROR(BAM, "<Thread %d> Exit due to failure in other thread\n", data->thread_id);
 			return;
 		}
 
@@ -387,7 +387,7 @@ bam_loader(Client cntxt, MalBlkPtr mb, str * filenames, int nr_files,
 		destroy_reader_thread_data(r_thread_data);
 
 	if (msg != MAL_SUCCEED) {
-		ERROR(M_ALL, "Error on processing BAM files: %s\n", msg);
+		ERROR(BAM, "Error on processing BAM files: %s\n", msg);
 	}
 
 	DEBUG(BAM, "Loader finished processing %d BAM file%s\n", nr_files, (nr_files != 1 ? "s" : ""));

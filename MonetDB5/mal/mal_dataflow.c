@@ -30,6 +30,7 @@
 #include "mal_private.h"
 #include "mal_runtime.h"
 #include "mal_resource.h"
+#include "gdk_tracer.h"
 
 #define DFLOWpending 0		/* runnable */
 #define DFLOWrunning 1		/* currently in progress */
@@ -329,6 +330,7 @@ DFLOWworker(void *T)
 	int tid = THRgettid();
 	str error = 0;
 	int i,last;
+	lng claim;
 	Client cntxt;
 	InstrPtr p;
 
@@ -337,7 +339,7 @@ DFLOWworker(void *T)
 #endif
 	GDKsetbuf(GDKmalloc(GDKMAXERRLEN)); /* where to leave errors */
 	if( GDKerrbuf == 0) {
-		CRITICAL(M_ALL, "Could not allocate GDKerrbuf\n");
+		CRITICAL(MAL_DATAFLOW, "Could not allocate GDKerrbuf\n");
 	} else {
 		GDKclrerr();
 	}
@@ -384,8 +386,9 @@ DFLOWworker(void *T)
 			continue;
 		}
 
-#ifdef USE_MAL_ADMISSION
-		if (MALrunningThreads() > 2 && MALadmission(fe->argclaim, fe->hotclaim)) {
+		p= getInstrPtr(flow->mb,fe->pc);
+		claim = fe->argclaim;
+		if (MALadmission_claim(flow->cntxt, flow->mb, flow->stk, p, claim)) {
 			// never block on deblockdataflow()
 			p= getInstrPtr(flow->mb,fe->pc);
 			if( p->fcn != (MALfcn) deblockdataflow){
@@ -400,11 +403,9 @@ DFLOWworker(void *T)
 #endif
 		error = runMALsequence(flow->cntxt, flow->mb, fe->pc, fe->pc + 1, flow->stk, 0, 0);
 		DEBUG(PAR, "Executed pc=%d wrk=%d claim=" LLFMT "," LLFMT "," LLFMT " %s\n",
-					fe->pc, id, fe->argclaim, fe->hotclaim, fe->maxclaim, error ? error : "");
-#ifdef USE_MAL_ADMISSION
+						 fe->pc, id, claim, fe->hotclaim, fe->maxclaim, error ? error : "");
 		/* release the memory claim */
-		MALadmission(-fe->argclaim, -fe->hotclaim);
-#endif
+		MALadmission_release(flow->cntxt, flow->mb, flow->stk, p,  claim);
 		/* update the numa information. keep the thread-id producing the value */
 		p= getInstrPtr(flow->mb,fe->pc);
 		for( i = 0; i < p->argc; i++)
@@ -666,9 +667,11 @@ DFLOWinitBlk(DataFlow flow, MalBlkPtr mb, int size)
 	}
 	GDKfree(assign);
 
+	/* CHECK */
+	// The whole for-loop is in PARDEBUG
 	for (n = 0; n < flow->stop - flow->start; n++) {
 		DEBUG(PAR, "[%d] %d\n", flow->start + n, n);
-		fprintInstruction(PAR, mb, 0, getInstrPtr(mb, n + flow->start), LIST_MAL_ALL);
+		debugInstruction(PAR, mb, 0, getInstrPtr(mb, n + flow->start), LIST_MAL_ALL);
 		DEBUG(PAR, "[%d] dependents block count %d wakeup\n", flow->start + n, flow->status[n].blocks);
 		for (j = n; flow->edges[j]; j = flow->edges[j]) {
 			DEBUG(PAR, "%d\n", flow->start + flow->nodes[j]);
@@ -676,10 +679,6 @@ DFLOWinitBlk(DataFlow flow, MalBlkPtr mb, int size)
 				break;
 		}
 	}
-
-#ifdef USE_MAL_ADMISSION
-	memorypool = memoryclaims = 0;
-#endif
 	return MAL_SUCCEED;
 }
 
@@ -698,11 +697,11 @@ static void showFlowEvent(DataFlow flow, int pc)
 	int i;
 	FlowEvent fe = flow->status;
 
-	INFO(MAL_ALL, "End of data flow '%d' done '%d'\n", pc, flow->stop - flow->start);
+	INFO(MAL_DATAFLOW, "End of data flow '%d' done '%d'\n", pc, flow->stop - flow->start);
 	for (i = 0; i < flow->stop - flow->start; i++)
 		if (fe[i].state != DFLOWwrapup && fe[i].pc >= 0) {
-			INFO(MAL_ALL, "Missed pc %d status %d %d blocks %d\n", fe[i].state, i, fe[i].pc, fe[i].blocks);
-			fprintInstruction(MAL_DATAFLOW, fe[i].flow->mb, 0, getInstrPtr(fe[i].flow->mb, fe[i].pc), LIST_MAL_MAPI);
+			INFO(MAL_DATAFLOW, "Missed pc %d status %d %d blocks %d\n", fe[i].state, i, fe[i].pc, fe[i].blocks);
+			debugInstruction(MAL_DATAFLOW, fe[i].flow->mb, 0, getInstrPtr(fe[i].flow->mb, fe[i].pc), LIST_MAL_MAPI);
 		}
 }
 */
@@ -812,7 +811,7 @@ runMALdataflow(Client cntxt, MalBlkPtr mb, int startpc, int stoppc, MalStkPtr st
 	int i;
 
 	DEBUG(MAL_DATAFLOW, "Running for block: %d - %d\n", startpc, stoppc);
-	fprintFunction(MAL_DATAFLOW, mb, 0, LIST_MAL_ALL);
+	debugFunction(MAL_DATAFLOW, mb, 0, LIST_MAL_ALL);
 
 	/* in debugging mode we should not start multiple threads */
 	if (stk == NULL)

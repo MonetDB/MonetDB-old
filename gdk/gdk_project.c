@@ -244,7 +244,7 @@ BATproject(BAT *l, BAT *r)
 
 	ALGODEBUG t0 = GDKusec();
 
-	ALGODEBUG fprintf(stderr, "#BATproject(l=" ALGOBATFMT ","
+	ALGODEBUG fprintf(stderr, "#%s: %s(l=" ALGOBATFMT ","
 			  "r=" ALGOBATFMT ")\n",
 			  ALGOBATPAR(l), ALGOBATPAR(r));
 
@@ -259,7 +259,8 @@ BATproject(BAT *l, BAT *r)
 		}
 		bn = BATslice(r, lo - r->hseqbase, hi - r->hseqbase);
 		BAThseqbase(bn, l->hseqbase);
-		ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=" ALGOOPTBATFMT " (slice)\n",
+		ALGODEBUG fprintf(stderr, "#%s: %s(l=%s,r=%s)=" ALGOOPTBATFMT " (slice)\n",
+				  MT_thread_getname(), __func__,
 				  BATgetId(l), BATgetId(r),  ALGOOPTBATPAR(bn));
 		return bn;
 	}
@@ -281,7 +282,8 @@ BATproject(BAT *l, BAT *r)
 		    BATcount(bn) == 0) {
 			BATtseqbase(bn, 0);
 		}
-		ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=" ALGOOPTBATFMT " (constant)\n",
+		ALGODEBUG fprintf(stderr, "#%s: %s(l=%s,r=%s)=" ALGOOPTBATFMT " (constant)\n",
+				  MT_thread_getname(), __func__,
 				  BATgetId(l), BATgetId(r), ALGOOPTBATPAR(bn));
 		return bn;
 	}
@@ -305,7 +307,8 @@ BATproject(BAT *l, BAT *r)
 	}
 	bn = COLnew(l->hseqbase, tpe, lcount, TRANSIENT);
 	if (bn == NULL) {
-		ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=0\n",
+		ALGODEBUG fprintf(stderr, "#%s: %s(l=%s,r=%s)=0\n",
+				  MT_thread_getname(), __func__,
 				  BATgetId(l), BATgetId(r));
 		return NULL;
 	}
@@ -425,7 +428,8 @@ BATproject(BAT *l, BAT *r)
 
 	if (!BATtdense(r))
 		BATtseqbase(bn, oid_nil);
-	ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=" ALGOBATFMT "%s " LLFMT "us\n",
+	ALGODEBUG fprintf(stderr, "#%s: %s(l=%s,r=%s)=" ALGOBATFMT "%s " LLFMT "us\n",
+			  MT_thread_getname(), __func__,
 			  BATgetId(l), BATgetId(r), ALGOBATPAR(bn),
 			  bn->ttype == TYPE_str && bn->tvheap == r->tvheap ? " shared string heap" : "",
 			  GDKusec() - t0);

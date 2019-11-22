@@ -150,7 +150,7 @@ renderProfilerEvent(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int
 	*/
 	if( !start && pci->calls > HIGHWATERMARK){
 		if( pci->calls == 10000 || pci->calls == 100000 || pci->calls == 1000000 || pci->calls == 10000000)
-			ERROR(M_ALL, "Too many calls: %d\n", pci->calls);
+			ERROR(MAL_PROFILER, "Too many calls: %d\n", pci->calls);
 		return;
 	}
 
@@ -329,7 +329,6 @@ This information can be used to determine memory footprint and variable life tim
 				lng total = 0;
 				BUN cnt = 0;
 				bat bid=0;
-				int p = getPC(mb,pci);
 
 				if( j == pci->retc ){
 					logadd("],"PRETTIFY"\"arg\":[");
@@ -389,7 +388,10 @@ This information can be used to determine memory footprint and variable life tim
 					GDKfree(cv);
 					GDKfree(stmtq);
 				}
-				logadd("\"eol\":%d"PRET, p == getEndScope(mb,getArg(pci,j)));
+				logadd("\"eol\":%d"PRET, getVarEolife(mb,getArg(pci,j)));
+				logadd("\"used\":%d"PRET, isVarUsed(mb,getArg(pci,j)));
+				logadd("\"fixed\":%d"PRET, isVarFixed(mb,getArg(pci,j)));
+				logadd("\"udf\":%d"PRET, isVarUDFtype(mb,getArg(pci,j)));
 				GDKfree(tname);
 				logadd("}%s", (j< pci->argc-1 && j != pci->retc -1?",":""));
 			}

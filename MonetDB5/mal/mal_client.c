@@ -70,7 +70,7 @@ MCinit(void)
 	if (maxclients <= 0) {
 		maxclients = 64;
 		if (GDKsetenv("max_clients", "64") != GDK_SUCCEED) {
-			CRITICAL(M_ALL, "GDKsetenv failed\n");
+			CRITICAL(MAL_CLIENT, "GDKsetenv failed\n");
 			return false;
 		}
 	}
@@ -78,7 +78,7 @@ MCinit(void)
 	MAL_MAXCLIENTS = /* client connections */ maxclients;
 	mal_clients = GDKzalloc(sizeof(ClientRec) * MAL_MAXCLIENTS);
 	if( mal_clients == NULL){
-		CRITICAL(M_ALL, "Initialization failed: " MAL_MALLOC_FAIL "\n");
+		CRITICAL(MAL_CLIENT, "Initialization failed: " MAL_MALLOC_FAIL "\n");
 		return false;
 	}
 	for (int i = 0; i < MAL_MAXCLIENTS; i++)
@@ -222,7 +222,7 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 		MT_lock_set(&mal_contextLock);
 		c->mode = FREECLIENT;
 		MT_lock_unset(&mal_contextLock);
-		CRITICAL(M_ALL, "Initialization failed: " MAL_MALLOC_FAIL "\n");
+		CRITICAL(MAL_CLIENT, "Initialization failed: " MAL_MALLOC_FAIL "\n");
 		return NULL;
 	}
 	c->yycur = 0;
@@ -241,13 +241,11 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->father = NULL;
 	c->idle  = c->login = c->lastcmd = time(0);
 	c->session = GDKusec();
-	strncpy(c->optimizer, "default_pipe", IDLENGTH);
+	strcpy_len(c->optimizer, "default_pipe", sizeof(c->optimizer));
 	c->workerlimit = 0;
 	c->memorylimit = 0;
 	c->querytimeout = 0;
 	c->sessiontimeout = 0;
-	c->workers = 0;
-	c->memoryclaim = 0;
 	c->itrace = 0;
 	c->errbuf = 0;
 
@@ -261,7 +259,7 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 			c->mode = FREECLIENT;
 			MT_lock_unset(&mal_contextLock);
 		}
-		CRITICAL(M_ALL, "Initialization failed: " MAL_MALLOC_FAIL "\n");
+		CRITICAL(MAL_CLIENT, "Initialization failed: " MAL_MALLOC_FAIL "\n");
 		return NULL;
 	}
 	c->promptlength = strlen(prompt);
@@ -366,13 +364,11 @@ MCforkClient(Client father)
 		son->login = father->login;
 		son->idle = father->idle;
 		son->scenario = father->scenario;
-		strcpy(father->optimizer, son->optimizer);
+		strcpy_len(father->optimizer, son->optimizer, sizeof(father->optimizer));
 		son->workerlimit = father->workerlimit;
 		son->memorylimit = father->memorylimit;
 		son->querytimeout = father->querytimeout;
 		son->sessiontimeout = father->sessiontimeout;
-		son->workers = father->workers;
-		son->memoryclaim = father->memoryclaim;
 
 		if (son->prompt)
 			GDKfree(son->prompt);
@@ -435,13 +431,11 @@ MCfreeClient(Client c)
 	c->usermodule = c->curmodule = 0;
 	c->father = 0;
 	c->idle = c->login = c->lastcmd = 0;
-	strncpy(c->optimizer, "default_pipe", IDLENGTH);
+	strcpy_len(c->optimizer, "default_pipe", sizeof(c->optimizer));
 	c->workerlimit = 0;
 	c->memorylimit = 0;
 	c->querytimeout = 0;
 	c->sessiontimeout = 0;
-	c->workers = 0;
-	c->memoryclaim = 0;
 	c->user = oid_nil;
 	if( c->username){
 		GDKfree(c->username);
@@ -515,14 +509,13 @@ MCstopClients(Client cntxt)
 int
 MCactiveClients(void)
 {
-	int finishing=0, running = 0;
+	int idles = 0;
 	Client cntxt = mal_clients;
 
 	for(cntxt = mal_clients;  cntxt<mal_clients+MAL_MAXCLIENTS; cntxt++){
-		finishing += (cntxt->mode == FINISHCLIENT);
-		running += (cntxt->mode == RUNCLIENT);
+		idles += (cntxt->idle != 0 && cntxt->mode == RUNCLIENT);
 	}
-	return finishing + running;
+	return idles;
 }
 
 void

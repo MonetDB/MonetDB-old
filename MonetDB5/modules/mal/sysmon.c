@@ -98,20 +98,11 @@ SYSMONqueue(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if (BUNappend(started, &tsn, false) != GDK_SUCCEED)
 			goto bailout;
 
-		if ( QRYqueue[i].mb->runtime == 0) {
-			if (BUNappend(estimate, &timestamp_nil, false) != GDK_SUCCEED)
-				goto bailout;
-		} else {
-			tsn = timestamp_add_usec(tsn, 1000 * QRYqueue[i].mb->runtime);
-			if (is_timestamp_nil(tsn)) {
-				msg = createException(MAL, "SYSMONqueue", SQLSTATE(22003) "cannot convert time");
-				goto bailout;
-			}
-			if (BUNappend(estimate, &tsn, false) != GDK_SUCCEED)
-				goto bailout;
-		}
-		if (BUNappend(oids, &QRYqueue[i].mb->tag, false) != GDK_SUCCEED ||
-			BUNappend(progress, &prog, false) != GDK_SUCCEED)
+		wrk = QRYqueue[i].stk->workers;
+		mem = (int) (QRYqueue[i].stk->memory / LL_CONSTANT(1048576)); /* Convert to MB */
+		if (BUNappend(progress, &QRYqueue[i].progress, false) != GDK_SUCCEED ||
+		    BUNappend(workers, &wrk, false) != GDK_SUCCEED ||
+			BUNappend(memory, &mem, false) != GDK_SUCCEED)
 			goto bailout;
 	}
 	MT_lock_unset(&mal_delayLock);
