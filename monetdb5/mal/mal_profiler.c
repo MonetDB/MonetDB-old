@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 /* (c) M.L. Kersten
@@ -339,7 +339,6 @@ This information can be used to determine memory footprint and variable life tim
 				lng total = 0;
 				BUN cnt = 0;
 				bat bid=0;
-				int p = getPC(mb,pci);
 
 				if( j == pci->retc ){
 					logadd("],"PRETTIFY"\"arg\":[");
@@ -399,7 +398,10 @@ This information can be used to determine memory footprint and variable life tim
 					GDKfree(cv);
 					GDKfree(stmtq);
 				}
-				logadd("\"eol\":%d"PRET, p == getEndScope(mb,getArg(pci,j)));
+				logadd("\"eol\":%d"PRET, getVarEolife(mb,getArg(pci,j)));
+				logadd("\"used\":%d"PRET, isVarUsed(mb,getArg(pci,j)));
+				logadd("\"fixed\":%d"PRET, isVarFixed(mb,getArg(pci,j)));
+				logadd("\"udf\":%d"PRET, isVarUDFtype(mb,getArg(pci,j)));
 				GDKfree(tname);
 				logadd("}%s", (j< pci->argc-1 && j != pci->retc -1?",":""));
 			}
@@ -456,7 +458,7 @@ getCPULoad(char cpuload[BUFSIZ]){
 				break;
 
 			while( *s && isspace((unsigned char)*s)) s++;
-			i= sscanf(s,LLFMT" "LLFMT" "LLFMT" "LLFMT" "LLFMT,  &user, &nice, &system, &idle, &iowait);
+			i= sscanf(s,LLSCN" "LLSCN" "LLSCN" "LLSCN" "LLSCN,  &user, &nice, &system, &idle, &iowait);
 			if ( i != 5 )
 				goto skip;
 			newload = (user - corestat[cpu].user + nice - corestat[cpu].nice + system - corestat[cpu].system);
@@ -846,6 +848,7 @@ getSystemTime(void)
 #endif
 }
 
+/* Calculate a pessimistic size of the disk storage */
 lng
 getDiskSpace(void)
 {
@@ -864,9 +867,14 @@ getDiskSpace(void)
 					size += tailsize(b, cnt);
 					/* the upperbound is used for the heaps */
 					if (b->tvheap)
-						size += b->tvheap->size;
+						size += HEAPvmsize(b->tvheap);
 					if (b->thash)
 						size += sizeof(BUN) * cnt;
+					/* also add the size of an imprint, ordered index or mosaic */
+					if( b->timprints)
+						size += IMPSimprintsize(b);
+					if( b->torderidx)
+						size += HEAPvmsize(b->torderidx);
 				}
 				BBPunfix(i);
 			}
@@ -925,6 +933,18 @@ void setHeartbeat(int delay)
 	if ( delay > 0 &&  delay <= 10)
 		delay = 10;
 	ATOMIC_SET(&hbdelay, delay);
+}
+
+/* TODO getprofilerlimit and setprofilerlimit functions */
+
+int getprofilerlimit(void)
+{
+	return 0;
+}
+
+void setprofilerlimit(int limit)
+{
+	(void) limit;
 }
 
 void initProfiler(void)

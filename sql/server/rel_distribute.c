@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 /*#define DEBUG*/
@@ -80,7 +80,7 @@ rewrite_replica( mvc *sql, sql_rel *rel, sql_table *t, sql_part *pd, int remote_
 		sql_exp *e = n->data;
 		sql_exp *ne = m->data;
 
-		exp_prop_alias(ne, e);
+		exp_prop_alias(sql->sa, ne, e);
 	}
 	rel_destroy(rel);
 
@@ -146,7 +146,7 @@ replica(mvc *sql, sql_rel *rel, char *uri)
 
 	if (rel_is_ref(rel)) {
 		if (has_remote_or_replica(rel)) {
-			sql_rel *nrel = rel_copy(sql->sa, rel, 0);
+			sql_rel *nrel = rel_copy(sql, rel, 0);
 
 			if (nrel && rel->p)
 				nrel->p = prop_copy(sql->sa, rel->p);
@@ -288,7 +288,7 @@ distribute(mvc *sql, sql_rel *rel)
 
 	if (rel_is_ref(rel)) {
 		if (has_remote_or_replica(rel)) {
-			sql_rel *nrel = rel_copy(sql->sa, rel, 0);
+			sql_rel *nrel = rel_copy(sql, rel, 0);
 
 			if (nrel && rel->p)
 				nrel->p = prop_copy(sql->sa, rel->p);

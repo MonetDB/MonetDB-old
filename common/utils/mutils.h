@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 #ifndef _MUTILS_H_
@@ -21,6 +21,8 @@
 
 #ifdef NATIVE_WIN32
 
+#include <stdio.h>
+
 struct DIR {
 	char *dir_name;
 	int just_opened;
@@ -30,7 +32,7 @@ struct DIR {
 
 typedef struct DIR DIR;
 struct dirent {
-	char d_name[256];
+	char d_name[FILENAME_MAX];
 	int d_namelen;
 };
 

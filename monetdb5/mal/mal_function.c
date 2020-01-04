@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 /*
@@ -503,6 +503,8 @@ void
 listFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg, int first, int size)
 {
 	int i;
+	int sample = 256;
+
 	if (mb == NULL) {
 		mnstr_printf(fd, "# function definition missing\n");
 		return;
@@ -519,7 +521,7 @@ listFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg, int first, int si
 		mnstr_printf(fd, "%% .explain # table_name\n");
 		mnstr_printf(fd, "%% mal # name\n");
 		mnstr_printf(fd, "%% clob # type\n");
-		for (i = first; i < first +size && i < mb->stop; i++) {
+		for (i = first; i < first +size && i < mb->stop && sample-- > 0; i++) {
 			ps = instruction2str(mb, stk, getInstrPtr(mb, i), flg);
 			if (ps) {
 				size_t l = strlen(ps);
@@ -702,26 +704,6 @@ getBlockExit(MalBlkPtr mb,int pc){
 			return pc;
 	}
 	return 0;
-}
-/*
- * Garbage collection
- * Variables are marked with their last line of use. At that point they
- * can be garbage collected by the interpreter. Care should be taken
- * for variables defined within a barrier block, they can be garbage collected
- * at the end only due to possible redo-statements.
- */
-void
-malGarbageCollector(MalBlkPtr mb)
-{
-	int i;
-
-	setVariableScope(mb);
-
-	for (i = 0; i < mb->vtop; i++)
-		if( isVarCleanup(mb,i) && getEndScope(mb,i) >= 0) {
-			setVarEolife(mb,i, getEndScope(mb,i));
-			mb->stmt[getVarEolife(mb,i)]->gc |= GARBAGECONTROL;
-		}
 }
 /*
  * Variable declaration

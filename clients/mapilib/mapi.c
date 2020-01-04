@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 /*
@@ -689,6 +689,7 @@
 #include "mapi.h"
 #include "mcrypt.h"
 #include "matomic.h"
+#include "mstring.h"
 
 #include <time.h>
 #include <sys/types.h>
@@ -866,10 +867,6 @@ struct MapiStatement {
 #define debugprint(fmt,arg)	printf(fmt,arg)
 #else
 #define debugprint(fmt,arg)	((void) 0)
-#endif
-
-#ifdef HAVE_EMBEDDED
-#define printf(...)	((void)0)
 #endif
 
 /*
@@ -1556,8 +1553,8 @@ add_error(struct MapiResultSet *result, char *error)
 	     (error[4] >= 'A' && error[4] <= 'Z'))) {
 		if (result->errorstr == NULL) {
 			/* remeber SQLSTATE for first error */
-			strncpy(result->sqlstate, error, 5);
-			result->sqlstate[5] = 0;
+			strcpy_len(result->sqlstate, error,
+				   sizeof(result->sqlstate));
 		}
 		/* skip SQLSTATE */
 		error += 6;
@@ -2309,8 +2306,7 @@ mapi_reconnect(Mapi mid)
 		userver = (struct sockaddr_un) {
 			.sun_family = AF_UNIX,
 		};
-		strncpy(userver.sun_path, mid->hostname, sizeof(userver.sun_path) - 1);
-		userver.sun_path[sizeof(userver.sun_path) - 1] = 0;
+		strcpy_len(userver.sun_path, mid->hostname, sizeof(userver.sun_path));
 
 		if (connect(s, serv, sizeof(struct sockaddr_un)) == SOCKET_ERROR) {
 			snprintf(errbuf, sizeof(errbuf),
@@ -3293,7 +3289,7 @@ mapi_param_store(MapiHdl hdl)
 			if (hdl->query == NULL)
 				return;
 		}
-		strncpy(hdl->query + k, p, q - p);
+		memcpy(hdl->query + k, p, q - p);
 		k += q - p;
 		hdl->query[k] = 0;
 
@@ -4375,8 +4371,7 @@ mapi_query_part(MapiHdl hdl, const char *query, size_t size)
 	if (hdl->query == NULL) {
 		hdl->query = malloc(size + 1);
 		if (hdl->query) {
-			strncpy(hdl->query, query, size);
-			hdl->query[size] = 0;
+			strcpy_len(hdl->query, query, size + 1);
 		}
 	} else {
 		size_t sz = strlen(hdl->query);
@@ -4384,8 +4379,7 @@ mapi_query_part(MapiHdl hdl, const char *query, size_t size)
 
 		if (sz < 512 &&
 		    (q = realloc(hdl->query, sz + size + 1)) != NULL) {
-			strncpy(q + sz, query, size);
-			q[sz + size] = 0;
+			strcpy_len(q + sz, query, size + 1);
 			hdl->query = q;
 		}
 	}
@@ -4748,10 +4742,8 @@ unquote(const char *msg, char **str, const char **next, int endchar, size_t *len
 		}
 		len = s - msg;
 		*str = malloc(len + 1);
-		strncpy(*str, msg, len);
+		strcpy_len(*str, msg, len + 1);
 
-		/* make sure value is NULL terminated */
-		(*str)[len] = 0;
 		if (next)
 			*next = p;
 		if (lenp)

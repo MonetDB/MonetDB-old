@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -59,7 +59,7 @@ leavedbS(sabdb *stats)
 	char *shared;
 	readProps(props, stats->path);
 	shared = getConfVal(props, "shared");
-	if (stats->locked != 1 && (shared == NULL || strcmp(shared, "no") != 0))
+	if (!stats->locked && (shared == NULL || strcmp(shared, "no") != 0))
 		leavedb(stats->dbname);
 	freeConfFile(props);
 	free(props);
@@ -73,7 +73,7 @@ setURI(sabdb *stats)
 	char *shared;
 	readProps(props, stats->path);
 	shared = getConfVal(props, "shared");
-	if (stats->locked != 1 && (shared == NULL || strcmp(shared, "no") != 0)) {
+	if (!stats->locked && (shared == NULL || strcmp(shared, "no") != 0)) {
 		snprintf(_internal_uri_buf, sizeof(_internal_uri_buf),
 				"mapi:monetdb://%s:%u/%s%s%s",
 				_mero_hostname,
@@ -95,7 +95,7 @@ anncdbS(sabdb *stats)
 	char *shared;
 	readProps(props, stats->path);
 	shared = getConfVal(props, "shared");
-	if (stats->locked != 1 && (shared == NULL || strcmp(shared, "no") != 0)) {
+	if (!stats->locked && (shared == NULL || strcmp(shared, "no") != 0)) {
 		snprintf(buf, sizeof(buf),
 				"ANNC %s%s%s mapi:monetdb://%s:%u/ %d",
 				stats->dbname,
@@ -154,6 +154,12 @@ control_authorise(
 
 	pwd = mcrypt_hashPassword(algo,
 			getConfVal(_mero_props, "passphrase"), chal);
+	if (!pwd) {
+		Mfprintf(_mero_ctlout, "%s: Allocation failure during authentication\n", host);
+		mnstr_printf(fout, "!allocation failure\n");
+		mnstr_flush(fout);
+		return 0;
+	}
 	if (strcmp(pwd, passwd) != 0) {
 		free(pwd);
 		Mfprintf(_mero_ctlout, "%s: permission denied "
@@ -305,7 +311,7 @@ static void ctl_handle_client(
 
 					msab_freeStatus(&stats);
 				}
-				if ((e = forkMserver(q, &stats, 1)) != NO_ERR) {
+				if ((e = forkMserver(q, &stats, true)) != NO_ERR) {
 					Mfprintf(_mero_ctlerr, "%s: failed to fork mserver: "
 							"%s\n", origin, getErrMsg(e));
 					len = snprintf(buf2, sizeof(buf2),

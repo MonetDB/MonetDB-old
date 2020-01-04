@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 /*
@@ -86,7 +86,6 @@ sql_tablename_generator(const char *text, int state)
 static char *
 sql_command_generator(const char *text, int state)
 {
-
 	static int idx, len;
 	const char *name;
 
@@ -95,7 +94,6 @@ sql_command_generator(const char *text, int state)
 		len = strlen(text);
 	}
 
-
 	while ((name = sql_commands[idx++])) {
 		if (strncasecmp(name, text, len) == 0)
 			return strdup(name);
@@ -103,7 +101,6 @@ sql_command_generator(const char *text, int state)
 
 	return NULL;
 }
-
 
 static char **
 sql_completion(const char *text, int start, int end)

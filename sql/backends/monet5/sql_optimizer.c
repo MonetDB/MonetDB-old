@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 /*
@@ -183,7 +183,7 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe, int prepare)
 			pipe = "default_pipe";
 	} else
 	*/
-		pipe = pipe? pipe: "default_pipe";
+	pipe = pipe? pipe: "default_pipe";
 	msg = addOptimizerPipe(c, mb, pipe);
 	if (msg){
 		return msg;
@@ -228,8 +228,8 @@ str
 SQLoptimizeQuery(Client c, MalBlkPtr mb)
 {
 	backend *be;
-	str msg = 0;
-	str pipe;
+	str msg = 0, pipe = 0;
+	bool free_pipe = false;
 
 	if (mb->stop > 0 &&
 	    mb->stmt[mb->stop-1]->token == REMsymbol &&
@@ -258,11 +258,19 @@ SQLoptimizeQuery(Client c, MalBlkPtr mb)
 			if (msg != MAL_SUCCEED)
 				freeException(msg); /* ignore error */
 		}
-		return NULL;
+		return createException(MAL, "optimizer.optimizeQuery", "%s", mb->errors);
 	}
 
 	pipe = getSQLoptimizer(be->mvc);
+	if( strcmp(pipe, "default_pipe") == 0 && strcmp(c->optimizer, "default_pipe") != 0) {
+		if (!(pipe = GDKstrdup(c->optimizer)))
+			throw(MAL, "sql.optimizeQuery", SQLSTATE(HY013) MAL_MALLOC_FAIL);
+		free_pipe = true;
+	}
+
 	msg = addOptimizers(c, mb, pipe, FALSE);
+	if (free_pipe)
+		GDKfree(pipe);
 	if (msg)
 		return msg;
 	mb->keephistory |= be->mvc->emod & mod_debug;
@@ -276,4 +284,3 @@ SQLaddQueryToCache(Client c)
 {
 	insertSymbol(c->usermodule, c->curprg);
 }
-

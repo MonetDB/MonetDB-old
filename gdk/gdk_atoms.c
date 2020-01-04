@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 /*
@@ -554,7 +554,7 @@ batToStr(char **dst, size_t *len, const bat *src, bool external)
 	}
 	i = strlen(s) + 3;
 	atommem(i);
-	return stpconcat(*dst, "<", s, ">", NULL) - *dst;
+	return (ssize_t) strconcat_len(*dst, *len, "<", s, ">", NULL);
 }
 
 
@@ -873,8 +873,7 @@ hgeToStr(char **dst, size_t *len, const hge *src, bool external)
 	atommem(hgeStrlen);
 	if (is_hge_nil(*src)) {
 		if (external) {
-			strncpy(*dst, "nil", 4);
-			return 3;
+			return (ssize_t) strcpy_len(*dst, "nil", 4);
 		}
 		strcpy(*dst, str_nil);
 		return 1;

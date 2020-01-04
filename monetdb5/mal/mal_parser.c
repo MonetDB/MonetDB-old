@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 /* (c): M. L. Kersten
@@ -876,12 +876,16 @@ term(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr, int ret)
 					setVarUDFtype(curBlk, cstidx);
 				} else {
 					cstidx = defConstant(curBlk, tpe, &cst);
+					if (cstidx < 0)
+						return 3;
 					setPolymorphic(*curInstr, tpe, FALSE);
 					setVarUDFtype(curBlk, cstidx);
 					free = 0;
 				}
 			} else if (cst.vtype != getVarType(curBlk, cstidx)) {
 				cstidx = defConstant(curBlk, cst.vtype, &cst);
+				if (cstidx < 0)
+					return 3;
 				setPolymorphic(*curInstr, cst.vtype, FALSE);
 				free = 0;
 			}
@@ -897,6 +901,8 @@ term(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr, int ret)
 			if (tpe < 0)
 				return 3;
 			cstidx = defConstant(curBlk, tpe, &cst);
+			if (cstidx < 0)
+				return 3;
 			setPolymorphic(*curInstr, tpe, FALSE);
 			if (flag)
 				setVarUDFtype(curBlk, cstidx);
@@ -1127,7 +1133,7 @@ fcnHeader(Client cntxt, int kind)
 	cntxt->curprg = newFunction( modnme, fnme, kind);
 	if(cntxt->curprg == NULL) {
 		cntxt->curprg = cntxt->backup;
-		parseError(cntxt, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		parseError(cntxt, SQLSTATE(HY013) MAL_MALLOC_FAIL);
 		return 0;
 	}
 	cntxt->curprg->def->errors = cntxt->backup->def->errors;
@@ -1224,7 +1230,7 @@ fcnHeader(Client cntxt, int kind)
 		max = curInstr->maxarg;
 		newarg = (short *) GDKmalloc(max * sizeof(curInstr->argv[0]));
 		if (newarg == NULL){
-			parseError(cntxt, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			parseError(cntxt, SQLSTATE(HY013) MAL_MALLOC_FAIL);
 			if (cntxt->backup) {
 				freeSymbol(cntxt->curprg);
 				cntxt->curprg = cntxt->backup;
@@ -1261,7 +1267,7 @@ fcnHeader(Client cntxt, int kind)
 	}
 	if (curInstr != getInstrPtr(curBlk, 0)) {
 		freeInstruction(getInstrPtr(curBlk, 0));
-		getInstrPtr(curBlk, 0) = curInstr;
+		putInstrPtr(curBlk, 0, curInstr);
 	}
 	return curBlk;
 }
@@ -1385,7 +1391,7 @@ parseFunction(Client cntxt, int kind)
 		}
 		nme = idCopy(cntxt, i);
 		if (nme == NULL) {
-			parseError(cntxt, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			parseError(cntxt, SQLSTATE(HY013) MAL_MALLOC_FAIL);
 			return 0;
 		}
 		curInstr->fcn = getAddress(nme);
@@ -1550,7 +1556,7 @@ parseAssign(Client cntxt, int cntrl)
 	curPrg = cntxt->curprg;
 	curBlk = curPrg->def;
 	if((curInstr = newInstruction(curBlk, NULL, NULL)) == NULL) {
-		parseError(cntxt, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		parseError(cntxt, SQLSTATE(HY013) MAL_MALLOC_FAIL);
 		return;
 	}
 
@@ -1797,7 +1803,7 @@ parseMAL(Client cntxt, Symbol curPrg, int skipcomments, int lines)
 			if (! skipcomments && e > start && curBlk->stop > 0 ) {
 				ValRecord cst;
 				if((curInstr = newInstruction(curBlk, NULL, NULL)) == NULL) {
-					parseError(cntxt, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+					parseError(cntxt, SQLSTATE(HY013) MAL_MALLOC_FAIL);
 					continue;
 				}
 				curInstr->token= REMsymbol;
@@ -1805,11 +1811,16 @@ parseMAL(Client cntxt, Symbol curPrg, int skipcomments, int lines)
 				cst.vtype = TYPE_str;
 				cst.len = strlen(start);
 				if((cst.val.sval = GDKstrdup(start)) == NULL) {
-					parseError(cntxt, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+					parseError(cntxt, SQLSTATE(HY013) MAL_MALLOC_FAIL);
 					freeInstruction(curInstr);
 					continue;
 				}
-				getArg(curInstr, 0) = defConstant(curBlk, TYPE_str, &cst);
+				int cstidx = defConstant(curBlk, TYPE_str, &cst);
+				if (cstidx < 0) {
+					freeInstruction(curInstr);
+					continue;
+				}
+				getArg(curInstr, 0) = cstidx;
 				clrVarConstant(curBlk, getArg(curInstr, 0));
 				setVarDisabled(curBlk, getArg(curInstr, 0));
 				pushInstruction(curBlk, curInstr);

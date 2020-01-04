@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 /*#define DEBUG*/
@@ -45,7 +45,7 @@ static void
 find_basetables(mvc *sql, sql_rel *rel, list *tables )
 {
 	if (THRhighwater()) {
-		(void) sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		(void) sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 		return;
 	}
 
@@ -65,10 +65,6 @@ find_basetables(mvc *sql, sql_rel *rel, list *tables )
 	case op_left: 
 	case op_right: 
 	case op_full: 
-
-	case op_semi: 
-	case op_anti: 
-
 	case op_union: 
 	case op_inter: 
 	case op_except: 
@@ -77,6 +73,8 @@ find_basetables(mvc *sql, sql_rel *rel, list *tables )
 		if (rel->r)
 			find_basetables(sql, rel->r, tables);
 		break;
+	case op_semi: 
+	case op_anti: 
 	case op_groupby: 
 	case op_project:
 	case op_select: 
@@ -143,7 +141,7 @@ sql_rel *
 rel_partition(mvc *sql, sql_rel *rel) 
 {
 	if (THRhighwater())
-		return sql_error(sql, 10, SQLSTATE(42000) "query too complex: running out of stack space");
+		return sql_error(sql, 10, SQLSTATE(42000) "Query too complex: running out of stack space");
 	(void)sql;
 	if (rel->op == op_basetable) {
 		rel->flag = REL_PARTITION;

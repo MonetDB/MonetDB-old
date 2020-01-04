@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 /* (author) M. Kersten */
@@ -11,7 +11,6 @@
 #include "mal.h"
 
 char 	monet_cwd[FILENAME_MAX] = { 0 };
-size_t 	monet_memory = 0;
 char 	monet_characteristics[4096];
 stream *maleventstream = 0;
 
@@ -63,13 +62,11 @@ int mal_init(void){
 		return -1;
 	}
 #endif
-	monet_memory = MT_npages() * MT_pagesize();
 	initNamespace();
 	initParser();
 #ifndef HAVE_EMBEDDED
 	initHeartbeat();
 #endif
-	initResource();
 	str err = malBootstrap();
 	if (err != MAL_SUCCEED) {
 		mal_client_reset();
@@ -103,7 +100,6 @@ void mserver_reset(void)
 	str err = 0;
 
 	GDKprepareExit();
-	WLCreset();
 	MCstopClients(0);
 	setHeartbeat(-1);
 	stopProfiler(0);
@@ -126,13 +122,11 @@ void mserver_reset(void)
 	mal_runtime_reset();
 	mal_module_reset();
 	mal_atom_reset();
-	opt_pipes_reset();
 #ifndef NDEBUG
 	mdbExit();
 #endif
 
 	memset((char*)monet_cwd, 0, sizeof(monet_cwd));
-	monet_memory = 0;
 	memset((char*)monet_characteristics,0, sizeof(monet_characteristics));
 	mal_namespace_reset();
 	/* No need to clean up the namespace, it will simply be extended

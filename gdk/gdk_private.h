@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 /* This file should not be included in any file outside of this directory */
@@ -59,6 +59,10 @@ void BATdestroy(BAT *b)
 	__attribute__((__visibility__("hidden")));
 void BATfree(BAT *b)
 	__attribute__((__visibility__("hidden")));
+PROPrec *BATgetprop(BAT *b, enum prop_t idx)
+	__attribute__((__visibility__("hidden")));
+PROPrec * BATgetprop_nolock(BAT *b, enum prop_t idx)
+	__attribute__((__visibility__("hidden")));
 gdk_return BATgroup_internal(BAT **groups, BAT **extents, BAT **histo, BAT *b, BAT *s, BAT *g, BAT *e, BAT *h, bool subsorted)
 	__attribute__((__warn_unused_result__))
 	__attribute__((__visibility__("hidden")));
@@ -71,7 +75,13 @@ BAT *BATload_intern(bat bid, bool lock)
 gdk_return BATmaterialize(BAT *b)
 	__attribute__((__warn_unused_result__))
 	__attribute__((__visibility__("hidden")));
+void BATrmprop(BAT *b, enum prop_t idx)
+	__attribute__((__visibility__("hidden")));
 void BATsetdims(BAT *b)
+	__attribute__((__visibility__("hidden")));
+void BATsetprop(BAT *b, enum prop_t idx, int type, const void *v)
+	__attribute__((__visibility__("hidden")));
+void BATsetprop_nolock(BAT *b, enum prop_t idx, int type, const void *v)
 	__attribute__((__visibility__("hidden")));
 gdk_return BBPcacheit(BAT *bn, bool lock)
 	__attribute__((__warn_unused_result__))
@@ -155,6 +165,11 @@ gdk_return GDKssort(void *restrict h, void *restrict t, const void *restrict bas
 	__attribute__((__visibility__("hidden")));
 gdk_return GDKunlink(int farmid, const char *dir, const char *nme, const char *extension)
 	__attribute__((__visibility__("hidden")));
+#ifdef NATIVE_WIN32
+void GDKwinerror(_In_z_ _Printf_format_string_ const char *format, ...)
+	__attribute__((__format__(__printf__, 1, 2)))
+	__attribute__((__visibility__("hidden")));
+#endif
 void HASHfree(BAT *b)
 	__attribute__((__visibility__("hidden")));
 bool HASHgonebad(BAT *b, const void *v)
@@ -204,22 +219,11 @@ void OIDXfree(BAT *b)
 	__attribute__((__visibility__("hidden")));
 void persistOIDX(BAT *b)
 	__attribute__((__visibility__("hidden")));
-gdk_return rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, bool li, bool hi, BUN maxsize)
+void PROPdestroy(BAT *b)
+	__attribute__((__visibility__("hidden")));
+gdk_return rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, struct canditer *lci, struct canditer *rci, bool li, bool hi, bool anti, bool symmetric, BUN maxsize)
 	__attribute__((__warn_unused_result__))
 	__attribute__((__visibility__("hidden")));
-static inline char *
-stpconcat(char *restrict dst, const char *src, ...)
-{
-	va_list ap;
-
-	va_start(ap, src);
-	while (src) {
-		dst = stpcpy(dst, src);
-		src = va_arg(ap, const char *);
-	}
-	va_end(ap);
-	return dst;
-}
 void strCleanHash(Heap *hp, bool rebuild)
 	__attribute__((__visibility__("hidden")));
 int strCmp(const char *l, const char *r)
@@ -354,7 +358,7 @@ extern MT_Lock GDKtmLock;
 
 #define GDKswapLock(x)  GDKbatLock[(x)&BBP_BATMASK].swap
 #if SIZEOF_SIZE_T == 8
-#define threadmask(y)	((int) ((mix_int((unsigned int) y) ^ mix_int((unsigned int) (y >> 32))) & BBP_THREADMASK))
+#define threadmask(y)	((int) (mix_lng(y) & BBP_THREADMASK))
 #else
 #define threadmask(y)	((int) (mix_int(y) & BBP_THREADMASK))
 #endif

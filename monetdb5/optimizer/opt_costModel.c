@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -45,10 +45,6 @@ OPTcostModelImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	(void) stk;
 	(void) pci;
 
-    if( OPTdebug &  OPTcostmodel){
-        fprintf(stderr, "#COSTMODEL optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
-    }
 	if ( mb->inlineProp )
 		return MAL_SUCCEED;
 
@@ -156,10 +152,5 @@ OPTcostModelImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
     snprintf(buf,256,"%-20s actions= 1 time=" LLFMT " usec","costmodel",usec);
     newComment(mb,buf);
 	addtoMalBlkHistory(mb);
-
-    if( OPTdebug &  OPTcostmodel){
-        fprintf(stderr, "#COSTMODEL optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
-    }
 	return MAL_SUCCEED;
 }

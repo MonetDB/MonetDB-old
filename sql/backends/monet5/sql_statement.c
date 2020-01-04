@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -104,7 +104,9 @@ pushPtr(MalBlkPtr mb, InstrPtr q, ptr val)
 	cst.val.pval = val;
 	cst.len = 0;
 	_t = defConstant(mb, TYPE_ptr, &cst);
-	return pushArgument(mb, q, _t);
+	if( _t >= 0)
+		return pushArgument(mb, q, _t);
+	return q;
 }
 
 static InstrPtr
@@ -466,6 +468,8 @@ stmt_table(backend *be, stmt *cols, int temp)
 
 		s->op1 = cols;
 		s->flag = temp;
+		s->nr = cols->nr;
+		s->nrcols = cols->nrcols;
 		return s;
 	}
 	return NULL;
@@ -531,8 +535,6 @@ stmt_tid(backend *be, sql_table *t, int partition)
 		sql_trans *tr = be->mvc->session->tr;
 		BUN rows = (BUN) store_funcs.count_col(tr, t->columns.set->h->data, 1);
 		setRowCnt(mb,getArg(q,0),rows);
-		if (t->p && 0)
-			setMitosisPartition(q, t->p->base.id);
 	}
 	if (q) {
 		stmt *s = stmt_create(be->mvc->sa, st_tid);
@@ -569,9 +571,11 @@ stmt_bat(backend *be, sql_column *c, int access, int partition)
 		s->nrcols = 1;
 		s->flag = access;
 		s->nr = l[c->colnr+1];
+		s->tname = c->t?c->t->base.name:NULL;
+		s->cname = c->base.name;
 		return s;
 	}
-       	q = newStmt(mb, sqlRef, bindRef);
+	q = newStmt(mb, sqlRef, bindRef);
 	if (q == NULL)
 		return NULL;
 	if (access == RD_UPD_ID) {
@@ -600,8 +604,6 @@ stmt_bat(backend *be, sql_column *c, int access, int partition)
 		if (c && (!isRemote(c->t) && !isMergeTable(c->t))) {
 			BUN rows = (BUN) store_funcs.count_col(tr, c, 1);
 			setRowCnt(mb,getArg(q,0),rows);
-			if (c->t->p && 0)
-				setMitosisPartition(q, c->t->p->base.id);
 		}
 	}
 	if (q) {
@@ -617,6 +619,8 @@ stmt_bat(backend *be, sql_column *c, int access, int partition)
 		s->flag = access;
 		s->nr = getDestVar(q);
 		s->q = q;
+		s->tname = c->t->base.name;
+		s->cname = c->base.name;
 		return s;
 	}
 	return NULL;
@@ -657,8 +661,6 @@ stmt_idxbat(backend *be, sql_idx *i, int access, int partition)
 		if (i && (!isRemote(i->t) && !isMergeTable(i->t))) {
 			BUN rows = (BUN) store_funcs.count_idx(tr, i, 1);
 			setRowCnt(mb,getArg(q,0),rows);
-			if (i->t->p && 0)
-				setMitosisPartition(q, i->t->p->base.id);
 		}
 	}
 	if (q) {
@@ -926,6 +928,8 @@ stmt_const(backend *be, stmt *s, stmt *val)
 		ns->aggr = s->aggr;
 		ns->q = q;
 		ns->nr = getDestVar(q);
+		ns->tname = val->tname;
+		ns->cname = val->cname;
 		return ns;
 	}
 	return NULL;
@@ -1587,7 +1591,7 @@ select2_join2(backend *be, stmt *op1, stmt *op2, stmt *op3, int cmp, stmt *sub, 
 	if (op1->nr < 0 && (sub && sub->nr < 0))
 		return NULL;
 	l = op1->nr;
-	if (((cmp & CMP_BETWEEN) || op2->nrcols > 0 || op3->nrcols > 0) && (type == st_uselect2)) {
+	if (((cmp & CMP_BETWEEN && cmp & CMP_SYMMETRIC) || (cmp & CMP_BETWEEN && anti) || op2->nrcols > 0 || op3->nrcols > 0) && (type == st_uselect2)) {
 		int k;
 
 		if (op2->nr < 0 || op3->nr < 0)
@@ -1685,13 +1689,14 @@ select2_join2(backend *be, stmt *op1, stmt *op2, stmt *op3, int cmp, stmt *sub, 
 			q = pushBit(mb, q, TRUE);
 			break;
 		}
+		q = pushBit(mb, q, anti);
+		if (type == st_uselect2) {
+			if (cmp & CMP_BETWEEN)
+				q = pushBit(mb, q, TRUE); /* all nil's are != */
+		} else
+			q = pushBit(mb, q, FALSE);
 		if (type == st_join2)
 			q = pushNil(mb, q, TYPE_lng); /* estimate */
-		if (type == st_uselect2) {
-			q = pushBit(mb, q, anti);
-			if (q == NULL)
-				return NULL;
-		}
 		if (q == NULL)
 			return NULL;
 		if (swapped) {
@@ -1997,14 +2002,6 @@ stmt_project_join(backend *be, stmt *op1, stmt *op2, stmt *ins)
 		q = pushArgument(mb, q, op2->nr);
 		if (q == NULL)
 			return NULL;
-		/*
-		if (s->key) {
-			q = newStmt(mb, batRef, putName("setKey"));
-			q = pushArgument(mb, q, s->nr);
-			q = pushBit(mb, q, TRUE);
-		}
-		*/
-		
 	}
 	return q;
 }
@@ -2023,6 +2020,8 @@ stmt_project(backend *be, stmt *op1, stmt *op2)
 		s->nrcols = MAX(op1->nrcols,op2->nrcols);
 		s->nr = getDestVar(q);
 		s->q = q;
+		s->tname = op2->tname;
+		s->cname = op2->cname;
 		return s;
 	}
 	return NULL;
@@ -2043,6 +2042,8 @@ stmt_project_delta(backend *be, stmt *col, stmt *upd, stmt *ins)
 		s->nrcols = 2;
 		s->nr = getDestVar(q);
 		s->q = q;
+		s->tname = col->tname;
+		s->cname = col->cname;
 		return s;
 	}
 	return NULL;
@@ -2190,28 +2191,32 @@ stmt_rs_column(backend *be, stmt *rs, int i, sql_subtype *tpe)
  */
 #define NEWRESULTSET
 
-#define meta(Id,Tpe) \
-q = newStmt(mb, batRef, newRef);\
-q= pushType(mb,q, Tpe);\
-Id = getArg(q,0); \
-list = pushArgument(mb,list,Id);
+#define meta(P, Id, Tpe, Args) \
+P = newStmtArgs(mb, batRef, packRef, Args);\
+Id = getArg(P,0);\
+setVarType(mb, Id, newBatType(Tpe));\
+setVarFixed(mb, Id);\
+list = pushArgument(mb, list, Id);
 
-#define metaInfo(Id,Tpe,Val)\
-p = newStmt(mb, batRef, appendRef);\
-p = pushArgument(mb,p, Id);\
-p = push##Tpe(mb,p, Val);\
-Id = getArg(p,0);
+#define metaInfo(P,Tpe,Val)\
+P = push##Tpe(mb, P, Val);
 
 
 static int
 dump_export_header(mvc *sql, MalBlkPtr mb, list *l, int file, const char * format, const char * sep,const char * rsep,const char * ssep,const char * ns, int onclient)
 {
 	node *n;
-	InstrPtr q = NULL;
+	bool error = false;
 	int ret = -1;
+	int args;
+
 	// gather the meta information
-	int tblId, nmeId, tpeId, lenId, scaleId, k;
-	InstrPtr p= NULL, list;
+	int tblId, nmeId, tpeId, lenId, scaleId;
+	InstrPtr list;
+	InstrPtr tblPtr, nmePtr, tpePtr, lenPtr, scalePtr;
+
+	args = 4;
+	for (n = l->h; n; n = n->next)  args ++;
 
 	list = newInstruction(mb, sqlRef, export_tableRef);
 	getArg(list,0) = newTmpVariable(mb,TYPE_int);
@@ -2224,12 +2229,13 @@ dump_export_header(mvc *sql, MalBlkPtr mb, list *l, int file, const char * forma
 		list = pushStr(mb, list, ns);
 		list = pushInt(mb, list, onclient);
 	}
-	k = list->argc;
-	meta(tblId,TYPE_str);
-	meta(nmeId,TYPE_str);
-	meta(tpeId,TYPE_str);
-	meta(lenId,TYPE_int);
-	meta(scaleId,TYPE_int);
+	meta(tblPtr, tblId, TYPE_str, args);
+	meta(nmePtr, nmeId, TYPE_str, args);
+	meta(tpePtr, tpeId, TYPE_str, args);
+	meta(lenPtr, lenId, TYPE_int, args);
+	meta(scalePtr, scaleId, TYPE_int, args);
+	if(tblPtr == NULL || nmePtr == NULL || tpePtr == NULL || lenPtr == NULL || scalePtr == NULL)
+		return -1;
 
 	for (n = l->h; n; n = n->next) {
 		stmt *c = n->data;
@@ -2249,28 +2255,22 @@ dump_export_header(mvc *sql, MalBlkPtr mb, list *l, int file, const char * forma
 			fqtn = NEW_ARRAY(char, fqtnl);
 			if(fqtn) {
 				snprintf(fqtn, fqtnl, "%s.%s", nsn, ntn);
-				metaInfo(tblId, Str, fqtn);
-				metaInfo(nmeId, Str, cn);
-				metaInfo(tpeId, Str, (t->type->localtype == TYPE_void ? "char" : t->type->sqlname));
-				metaInfo(lenId, Int, t->digits);
-				metaInfo(scaleId, Int, t->scale);
+				metaInfo(tblPtr, Str, fqtn);
+				metaInfo(nmePtr, Str, cn);
+				metaInfo(tpePtr, Str, (t->type->localtype == TYPE_void ? "char" : t->type->sqlname));
+				metaInfo(lenPtr, Int, t->digits);
+				metaInfo(scalePtr, Int, t->scale);
 				list = pushArgument(mb, list, c->nr);
 				_DELETE(fqtn);
 			} else
-				q = NULL;
+				error = true;
 		} else
-			q = NULL;
+			error = true; 
 		c_delete(ntn);
 		c_delete(nsn);
-		if (q == NULL)
+		if(error)
 			return -1;
 	}
-	// add the correct variable ids
-	getArg(list,k++) = tblId;
-	getArg(list,k++) = nmeId;
-	getArg(list,k++) = tpeId;
-	getArg(list,k++) = lenId;
-	getArg(list,k) = scaleId;
 	ret = getArg(list,0);
 	pushInstruction(mb,list);
 	return ret;
@@ -2459,6 +2459,7 @@ stmt_set_nrcols(stmt *s)
 		if (f->nrcols > nrcols)
 			nrcols = f->nrcols;
 		key &= f->key;
+		s->nr = f->nr;
 	}
 	s->nrcols = nrcols;
 	s->key = key;
@@ -2480,22 +2481,28 @@ static InstrPtr
 dump_header(mvc *sql, MalBlkPtr mb, stmt *s, list *l)
 {
 	node *n;
-	InstrPtr q = NULL;
+	bool error = false;
 	// gather the meta information
-	int tblId, nmeId, tpeId, lenId, scaleId, k;
-	InstrPtr p = NULL, list;
+	int tblId, nmeId, tpeId, lenId, scaleId;
+	int args;
+	InstrPtr list;
+	InstrPtr tblPtr, nmePtr, tpePtr, lenPtr, scalePtr;
+
+	args = 4;
+	for (n = l->h; n; n = n->next) args++;
 
 	list = newInstruction(mb,sqlRef, resultSetRef);
 	if(!list) {
 		return NULL;
 	}
 	getArg(list,0) = newTmpVariable(mb,TYPE_int);
-	k = list->argc;
-	meta(tblId,TYPE_str);
-	meta(nmeId,TYPE_str);
-	meta(tpeId,TYPE_str);
-	meta(lenId,TYPE_int);
-	meta(scaleId,TYPE_int);
+	meta(tblPtr, tblId, TYPE_str, args);
+	meta(nmePtr, nmeId, TYPE_str, args);
+	meta(tpePtr, tpeId, TYPE_str, args);
+	meta(lenPtr, lenId, TYPE_int, args);
+	meta(scalePtr, scaleId, TYPE_int, args);
+	if(tblPtr == NULL || nmePtr == NULL || tpePtr == NULL || lenPtr == NULL || scalePtr == NULL)
+		return NULL;
 
 	(void) s;
 
@@ -2517,28 +2524,22 @@ dump_header(mvc *sql, MalBlkPtr mb, stmt *s, list *l)
 			fqtn = NEW_ARRAY(char, fqtnl);
 			if(fqtn) {
 				snprintf(fqtn, fqtnl, "%s.%s", nsn, ntn);
-				metaInfo(tblId,Str,fqtn);
-				metaInfo(nmeId,Str,cn);
-				metaInfo(tpeId,Str,(t->type->localtype == TYPE_void ? "char" : t->type->sqlname));
-				metaInfo(lenId,Int,t->digits);
-				metaInfo(scaleId,Int,t->scale);
+				metaInfo(tblPtr,Str,fqtn);
+				metaInfo(nmePtr,Str,cn);
+				metaInfo(tpePtr,Str,(t->type->localtype == TYPE_void ? "char" : t->type->sqlname));
+				metaInfo(lenPtr,Int,t->digits);
+				metaInfo(scalePtr,Int,t->scale);
 				list = pushArgument(mb,list,c->nr);
 				_DELETE(fqtn);
 			} else
-				q = NULL;
+				error = true;
 		} else
-			q = NULL;
+			error = true;
 		c_delete(ntn);
 		c_delete(nsn);
-		if (q == NULL)
+		if (error)
 			return NULL;
 	}
-	// add the correct variable ids
-	getArg(list,k++) = tblId;
-	getArg(list,k++) = nmeId;
-	getArg(list,k++) = tpeId;
-	getArg(list,k++) = lenId;
-	getArg(list,k) = scaleId;
 	pushInstruction(mb,list);
 	return list;
 }
@@ -2794,9 +2795,14 @@ stmt_convert(backend *be, stmt *v, sql_subtype *f, sql_subtype *t, stmt *sel)
 		q = pushInt(mb, q, f->digits);
 		q = pushInt(mb, q, f->scale);
 		q = pushInt(mb, q, type_has_tz(f));
-	} else if (f->type->eclass == EC_DEC)
+	} else if (f->type->eclass == EC_DEC) {
 		/* scale of the current decimal */
 		q = pushInt(mb, q, f->scale);
+	} else if (f->type->eclass == EC_SEC &&
+		   (EC_COMPUTE(t->type->eclass) || t->type->eclass == EC_DEC)) {
+		/* scale of the current decimal */
+		q = pushInt(mb, q, 3);
+	}
 	q = pushArgument(mb, q, v->nr);
 	if (sel && v->nrcols && f->type->eclass != EC_DEC && !EC_TEMP_FRAC(t->type->eclass) && !EC_INTERVAL(t->type->eclass))
 		q = pushArgument(mb, q, sel->nr);
@@ -3001,8 +3007,7 @@ stmt_func(backend *be, stmt *ops, const char *name, sql_rel *rel, int f_union)
 	p = find_prop(rel->p, PROP_REMOTE);
 	if (p) 
 		rel->p = prop_remove(rel->p, p);
-	rel = rel_unnest(be->mvc, rel);
-	rel = rel_optimizer(be->mvc, rel, 0);
+	rel = sql_processrelation(be->mvc, rel, 0);
 	if (p) {
 		p->p = rel->p;
 		rel->p = p;
@@ -3398,7 +3403,9 @@ _column_name(sql_allocator *sa, stmt *st)
 		return func_name(sa, st->op4.aggrval->aggr->base.name, cn);
 	}
 	case st_alias:
-		return column_name(sa, st->op3);
+		if (st->op3)
+			return column_name(sa, st->op3);
+		break;
 	case st_bat:
 		return st->op4.cval->base.name;
 	case st_atom:
@@ -3421,71 +3428,14 @@ _column_name(sql_allocator *sa, stmt *st)
 	default:
 		return NULL;
 	}
+	return NULL;
 }
-
-const char *_table_name(sql_allocator *sa, stmt *st);
 
 const char *
 table_name(sql_allocator *sa, stmt *st)
 {
-	if (!st->tname)
-		st->tname = _table_name(sa, st);
+	(void)sa;
 	return st->tname;
-}
-
-const char *
-_table_name(sql_allocator *sa, stmt *st)
-{
-	switch (st->type) {
-	case st_const:
-	case st_join:
-	case st_join2:
-	case st_joinN:
-	case st_append:
-		return table_name(sa, st->op2);
-	case st_mirror:
-	case st_group:
-	case st_result:
-	case st_gen_group:
-	case st_uselect:
-	case st_uselect2:
-	case st_limit:
-	case st_limit2:
-	case st_sample:
-	case st_tunion:
-	case st_tdiff:
-	case st_tinter:
-	case st_aggr:
-		return table_name(sa, st->op1);
-
-	case st_table_clear:
-		return st->op4.tval->base.name;
-	case st_idxbat:
-	case st_bat:
-	case st_tid:
-		return st->op4.cval->t->base.name;
-	case st_alias:
-		if (st->tname)
-			return st->tname;
-		else
-			/* there are no table aliases, ie look into the base column */
-			return table_name(sa, st->op1);
-	case st_atom:
-		if (st->op4.aval->data.vtype == TYPE_str && st->op4.aval->data.val.sval && _strlen(st->op4.aval->data.val.sval))
-			return st->op4.aval->data.val.sval;
-		return NULL;
-
-	case st_list:
-		if (list_length(st->op4.lval) && st->op4.lval->h)
-			return table_name(sa, st->op4.lval->h->data);
-		return NULL;
-
-	case st_var:
-	case st_temp:
-	case st_single:
-	default:
-		return NULL;
-	}
 }
 
 const char *

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -107,21 +107,16 @@ static sql_rel *
 view_rename_columns( mvc *sql, char *name, sql_rel *sq, dlist *column_spec)
 {
 	dnode *n = column_spec->h;
-	node *m = sq->exps->h;
-	list *l = new_exp_list(sql->sa);
+	node *m = sq->exps->h, *p = m;
 
-	for (; n && m; n = n->next, m = m->next) {
+	assert(is_project(sq->op));
+	for (; n && m; n = n->next, p = m, m = m->next) {
 		char *cname = n->data.sval;
 		sql_exp *e = m->data;
-		sql_exp *n;
-	       
-		if (!exp_is_atom(e) && !exp_name(e))
-			exp_setname(sql->sa, e, NULL, cname);
-		n = exp_is_atom(e)?e:exp_column(sql->sa, exp_relname(e), exp_name(e), exp_subtype(e), sq->card, has_nil(e), is_intern(e));
+		sql_exp *n = e;
 
-		exp_setname(sql->sa, n, NULL, cname);
+		exp_setname(sql->sa, n, name, cname);
 		set_basecol(n);
-		list_append(l, n);
 	}
 	/* skip any intern columns */
 	for (; m; m = m->next) {
@@ -129,10 +124,10 @@ view_rename_columns( mvc *sql, char *name, sql_rel *sq, dlist *column_spec)
 		if (!is_intern(e))
 			break;
 	}
+	if (p)
+		p->next = 0;
 	if (n || m) 
 		return sql_error(sql, 02, SQLSTATE(M0M03) "Column lists do not match");
-	(void)name;
-	sq = rel_project(sql->sa, sq, l);
 	set_processed(sq);
 	return sq;
 }
@@ -226,6 +221,10 @@ table_constraint_name(symbol *s, sql_table *t)
 			suffix = "_fkey";
 			nms = s->data.lval->h->next->data.lval->h;	/* list of colums */
 			break;
+		case SQL_CHECK:
+			suffix = "_check";
+			nms = s->data.lval->h;	/* list of check constraint conditions */
+			break;
 		default:
 			suffix = "_?";
 			nms = NULL;
@@ -293,6 +292,9 @@ column_constraint_name(symbol *s, sql_column *sc, sql_table *t)
 			break;
 		case SQL_FOREIGN_KEY:
 			suffix = "fkey";
+			break;
+		case SQL_CHECK:
+			suffix = "check";
 			break;
 		default:
 			suffix = "?";
@@ -394,6 +396,10 @@ column_constraint_type(mvc *sql, char *name, symbol *s, sql_schema *ss, sql_tabl
 		mvc_null(sql, cs, null);
 		res = SQL_OK;
 	} 	break;
+	case SQL_CHECK: {
+		(void) sql_error(sql, 02, SQLSTATE(42000) "CONSTRAINT CHECK: check constraints not supported\n");
+		return SQL_ERR;
+	} 	break;
 	default:{
 		res = SQL_ERR;
 	}
@@ -422,8 +428,6 @@ column_option(
 		char *opt_name = l->h->data.sval;
 		symbol *sym = l->h->next->data.sym;
 
-		if (!sym) /* For now we only parse CHECK Constraints */
-			return SQL_OK;
 		if (!opt_name)
 			opt_name = column_constraint_name(sym, cs, t);
 		res = column_constraint_type(sql, opt_name, sym, ss, t, cs);
@@ -625,6 +629,10 @@ table_constraint_type(mvc *sql, char *name, symbol *s, sql_schema *ss, sql_table
 	case SQL_FOREIGN_KEY:
 		res = table_foreign_key(sql, name, s, ss, t);
 		break;
+	case SQL_CHECK: {
+		(void) sql_error(sql, 02, SQLSTATE(42000) "CONSTRAINT CHECK: check constraints not supported\n");
+		return SQL_ERR;
+	} 	break;
 	default:
 		res = SQL_ERR;
 	}
@@ -926,7 +934,7 @@ table_element(sql_query *query, symbol *s, sql_schema *ss, sql_table *t, int alt
 				}
 			}
 		}
-		if(mvc_drop_column(sql, t, col, drop_action)) {
+		if (mvc_drop_column(sql, t, col, drop_action)) {
 			sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: %s\n", MAL_MALLOC_FAIL);
 			return SQL_ERR;
 		}
@@ -973,7 +981,7 @@ create_partition_definition(mvc *sql, sql_table *t, symbol *partition_def)
 				 EC_INTERVAL(sql_ec)|| sql_ec == EC_DEC || sql_ec == EC_BLOB)) {
 				err = sql_subtype_string(&(t->part.pcol->type));
 				if (!err) {
-					sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+					sql_error(sql, 02, SQLSTATE(HY013) MAL_MALLOC_FAIL);
 				} else {
 					sql_error(sql, 02, SQLSTATE(42000) "CREATE MERGE TABLE: column type %s not yet supported for the partition column", err);
 					GDKfree(err);
@@ -1057,14 +1065,14 @@ rel_create_table(sql_query *query, sql_schema *ss, int temp, const char *sname, 
 			char *local_user = stack_get_string(sql, "current_user");
 			char *local_table = sa_strconcat(sql->sa, sa_strconcat(sql->sa, sname, "."), name);
 			if (!local_table) {
-				return sql_error(sql, 02, SQLSTATE(HY001) "CREATE TABLE: " MAL_MALLOC_FAIL);
+				return sql_error(sql, 02, SQLSTATE(HY013) "CREATE TABLE: " MAL_MALLOC_FAIL);
 			}
 			if (!mapiuri_valid(loc))
 				return sql_error(sql, 02, SQLSTATE(42000) "CREATE TABLE: incorrect uri '%s' for remote table '%s'", loc, name);
 
 			const char *remote_uri = mapiuri_uri(loc, sql->sa);
 			if (remote_uri == NULL) {
-				return sql_error(sql, 02, SQLSTATE(HY001) "CREATE TABLE: " MAL_MALLOC_FAIL);
+				return sql_error(sql, 02, SQLSTATE(HY013) "CREATE TABLE: " MAL_MALLOC_FAIL);
 			}
 			char *reg_credentials = AUTHaddRemoteTableCredentials(local_table, local_user, remote_uri, username, password, pw_encrypted);
 			if (reg_credentials != 0) {
@@ -1126,25 +1134,6 @@ rel_create_table(sql_query *query, sql_schema *ss, int temp, const char *sname, 
 	/*return NULL;*/ /* never reached as all branches of the above if() end with return ... */
 }
 
-static void
-rel_add_intern(mvc *sql, sql_rel *rel)
-{
-	if (rel->op == op_project && rel->l && rel->exps && !need_distinct(rel)) {
-		list *prjs = rel_projections(sql, rel->l, NULL, 1, 1);
-		node *n;
-	
-		for(n=prjs->h; n; n = n->next) {
-			sql_exp *e = n->data;
-
-			if (is_intern(e)) {
-				append(rel->exps, e);
-				n->data = NULL;
-			}
-		}
-	}
-}
-
-
 static sql_rel *
 rel_create_view(sql_query *query, sql_schema *ss, dlist *qname, dlist *column_spec, symbol *ast, int check, int persistent, int replace)
 {
@@ -1166,7 +1155,7 @@ rel_create_view(sql_query *query, sql_schema *ss, dlist *qname, dlist *column_sp
 		s = cur_schema(sql);
 
 	if (create && (!mvc_schema_privs(sql, s) && !(isTempSchema(s) && persistent == SQL_LOCAL_TEMP))) {
-		return sql_error(sql, 02, SQLSTATE(42000) "%s VIEW: access denied for %s to schema ;'%s'", base, stack_get_string(sql, "current_user"), s->base.name);
+		return sql_error(sql, 02, SQLSTATE(42000) "%s VIEW: access denied for %s to schema '%s'", base, stack_get_string(sql, "current_user"), s->base.name);
 	}
 
 	if (create && (t = mvc_bind_table(sql, s, name)) != NULL) {
@@ -1217,7 +1206,7 @@ rel_create_view(sql_query *query, sql_schema *ss, dlist *qname, dlist *column_sp
 					return NULL;
 				}
 			}
-			rel_add_intern(sql, sq);
+			//rel_add_intern(sql, sq);
 		}
 
 		if (create) {
@@ -1299,7 +1288,7 @@ rel_drop_type(mvc *sql, dlist *qname, int drop_action)
 	if (schema_bind_type(sql, s, name) == NULL) {
 		return sql_error(sql, 02, SQLSTATE(42S01) "DROP TYPE: type '%s' does not exist", name);
 	} else if (!mvc_schema_privs(sql, s)) {
-		return sql_error(sql, 02, SQLSTATE(42000) "DROP TYPE: access denied for %s to schema ;'%s'", stack_get_string(sql, "current_user"), s->base.name);
+		return sql_error(sql, 02, SQLSTATE(42000) "DROP TYPE: access denied for %s to schema '%s'", stack_get_string(sql, "current_user"), s->base.name);
 	}
 	return rel_schema2(sql->sa, ddl_drop_type, s->base.name, name, drop_action);
 }
@@ -1319,7 +1308,7 @@ rel_create_type(mvc *sql, dlist *qname, char *impl)
 	if (schema_bind_type(sql, s, name) != NULL) {
 		return sql_error(sql, 02, SQLSTATE(42S01) "CREATE TYPE: name '%s' already in use", name);
 	} else if (!mvc_schema_privs(sql, s)) {
-		return sql_error(sql, 02, SQLSTATE(42000) "CREATE TYPE: access denied for %s to schema ;'%s'", stack_get_string(sql, "current_user"), s->base.name);
+		return sql_error(sql, 02, SQLSTATE(42000) "CREATE TYPE: access denied for %s to schema '%s'", stack_get_string(sql, "current_user"), s->base.name);
 	}
 	return rel_schema3(sql->sa, ddl_create_type, s->base.name, name, impl);
 }
@@ -1471,10 +1460,9 @@ sql_alter_table(sql_query *query, dlist *dl, dlist *qname, symbol *te, int if_ex
 			return rel_psm_block(sql->sa, new_exp_list(sql->sa));
 		return sql_error(sql, 02, SQLSTATE(42S02) "ALTER TABLE: no such table '%s' in schema '%s'", tname, s->base.name);
 	} else {
-		node *n;
 		sql_rel *res = NULL, *r;
 		sql_table *nt = NULL;
-		sql_exp ** updates, *e;
+		sql_exp **updates, *e;
 
 		assert(te);
 		if (t->persistence != SQL_DECLARED_TABLE)
@@ -1590,18 +1578,18 @@ sql_alter_table(sql_query *query, dlist *dl, dlist *qname, symbol *te, int if_ex
 		if (!isTable(nt))
 			return res;
 
-		/* new columns need update with default values */
-		updates = table_update_array(sql, nt);
-		e = exp_column(sql->sa, nt->base.name, "%TID%", sql_bind_localtype("oid"), CARD_MULTI, 0, 1);
+		/* New columns need update with default values. Add one more element for new column */
+		updates = SA_ZNEW_ARRAY(sql->sa, sql_exp*, (list_length(nt->columns.set) + 1));
+		e = exp_column(sql->sa, nt->base.name, TID, sql_bind_localtype("oid"), CARD_MULTI, 0, 1);
 		r = rel_project(sql->sa, res, append(new_exp_list(sql->sa),e));
 		if (nt->columns.nelm) {
 			list *cols = new_exp_list(sql->sa);
-			for (n = nt->columns.nelm; n; n = n->next) {
+			for (node *n = nt->columns.nelm; n; n = n->next) {
 				sql_column *c = n->data;
 				if (c->def) {
 					char *d, *typestr = subtype2string2(&c->type);
-					if(!typestr)
-						return sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+					if (!typestr)
+						return sql_error(sql, 02, SQLSTATE(HY013) MAL_MALLOC_FAIL);
 					d = sql_message("select cast(%s as %s);", c->def, typestr);
 					_DELETE(typestr);
 					e = rel_parse_val(sql, d, sql->emode, NULL);
@@ -2124,12 +2112,12 @@ rel_create_index(mvc *sql, char *iname, idx_type itype, dlist *qname, dlist *col
 	sql_schema *s = NULL;
 	sql_table *t, *nt;
 	sql_rel *r, *res;
-	sql_exp ** updates, *e;
+	sql_exp **updates, *e;
 	sql_idx *i;
 	dnode *n;
 	char *sname = qname_schema(qname);
 	char *tname = qname_table(qname);
-	       
+
 	if (sname && !(s = mvc_bind_schema(sql, sname))) 
 		return sql_error(sql, 02, SQLSTATE(3F000) "CREATE INDEX: no such schema '%s'", sname);
 	if (!s) 
@@ -2163,8 +2151,8 @@ rel_create_index(mvc *sql, char *iname, idx_type itype, dlist *qname, dlist *col
 	}
 
 	/* new columns need update with default values */
-	updates = table_update_array(sql, nt); 
-	e = exp_column(sql->sa, nt->base.name, "%TID%", sql_bind_localtype("oid"), CARD_MULTI, 0, 1);
+	updates = SA_ZNEW_ARRAY(sql->sa, sql_exp*, list_length(nt->columns.set));
+	e = exp_column(sql->sa, nt->base.name, TID, sql_bind_localtype("oid"), CARD_MULTI, 0, 1);
 	res = rel_table(sql, ddl_alter_table, sname, nt, 0);
 	r = rel_project(sql->sa, res, append(new_exp_list(sql->sa),e));
 	res = rel_update(sql, res, r, updates, NULL); 

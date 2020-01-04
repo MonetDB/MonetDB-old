@@ -104,7 +104,7 @@ add_library(MonetODBC MODULE
 			SQLTablePrivileges.c
 			SQLTables.c
 			SQLTransact.c driver.rc ODBC.syms)
-target_link_libraries(MonetODBC PUBLIC MonetODBC_headers PRIVATE mapi stream ${ICONV_LIBRARIES} ${ODBCINST_LIBRARIES}
+target_link_libraries(MonetODBC PUBLIC MonetODBC_headers PRIVATE mutils mapi stream ${ICONV_LIBRARIES} ${ODBCINST_LIBRARIES}
 					  ${CRYPTO_LIBRARIES} ${SOCKET_LIBRARIES})
 target_compile_definitions(MonetODBC PRIVATE LIBMONETODBC)
 install(TARGETS MonetODBC DESTINATION ${LIBDIR})

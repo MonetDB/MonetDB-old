@@ -8,7 +8,7 @@
 
 include_directories(${CRYPTO_INCLUDE_DIR})
 
-set(MAPI_LINK_LIBRARIES moptions mcrypt)
+set(MAPI_LINK_LIBRARIES mcrypt mutils)
 if(WIN32)
 	list(APPEND MAPI_LINK_LIBRARIES stream ${SOCKET_LIBRARIES} ${CRYPTO_LIBRARIES})
 endif()

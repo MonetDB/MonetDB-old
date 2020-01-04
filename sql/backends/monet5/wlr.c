@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 /*
@@ -476,6 +476,7 @@ WLRprocessScheduler(void *arg)
 		// wait at most for the cycle period, also at start
 		duration = (wlc_beat > 0 ? wlc_beat:1) * 1000 ;
 		if( wlr_timelimit[0]){
+			ctm = (struct tm) {0};
 #ifdef NATIVE_WIN32
 			struct timeb tb;
 
@@ -486,7 +487,7 @@ WLRprocessScheduler(void *arg)
 			struct timeval clock;
 
 			if(gettimeofday(&clock,NULL) == -1) {
-				mnstr_printf(GDKerr,"Unable to retrieve current time\n");
+				fprintf(stderr,"Unable to retrieve current time\n");
 				return;
 			}
 			clk = clock.tv_sec;
@@ -553,7 +554,7 @@ WLRreplicate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {	str timelimit  = wlr_timelimit;
 	size_t size = sizeof(wlr_timelimit);
 	time_t clk;
-	struct tm ctm;
+	struct tm ctm = (struct tm) {0};
 	char clktxt[26];
 	int duration = 4000;
 	lng limit = INT64_MAX;
@@ -755,7 +756,7 @@ WLRgetclock(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		*ret= GDKstrdup(wlr_read);
 	else *ret= GDKstrdup(str_nil);
 	if (*ret == NULL)
-		throw(MAL, "wlr.getreplicaclock", SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		throw(MAL, "wlr.getreplicaclock", SQLSTATE(HY013) MAL_MALLOC_FAIL);
 	return msg;
 }
 
@@ -802,7 +803,7 @@ WLRquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	// we need to get rid of the escaped quote.
 	x = qtxt= (char*) GDKmalloc(strlen(qry) +1);
 	if( qtxt == NULL)
-		throw(SQL,"wlr.query",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		throw(SQL,"wlr.query",SQLSTATE(HY013) MAL_MALLOC_FAIL);
 	for(y = qry; *y; y++){
 		if( *y == '\\' ){
 			if( *(y+1) ==  '\'')
@@ -924,7 +925,7 @@ WLRappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	tpe= getArgType(mb,pci,4);
 	ins = COLnew(0, tpe, 0, TRANSIENT);
 	if( ins == NULL){
-		throw(SQL,"WLRappend",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		throw(SQL,"WLRappend",SQLSTATE(HY013) MAL_MALLOC_FAIL);
 	}
 
 	switch(ATOMstorage(tpe)){
@@ -994,7 +995,7 @@ WLRdelete(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	ins = COLnew(0, TYPE_oid, 0, TRANSIENT);
 	if( ins == NULL){
-		throw(SQL,"WLRappend",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		throw(SQL,"WLRappend",SQLSTATE(HY013) MAL_MALLOC_FAIL);
 	}
 
 	for( i = 3; i < pci->argc; i++){
@@ -1059,12 +1060,12 @@ WLRupdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	tids = COLnew(0, TYPE_oid, 0, TRANSIENT);
 	if( tids == NULL){
-		throw(SQL,"WLRupdate",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		throw(SQL,"WLRupdate",SQLSTATE(HY013) MAL_MALLOC_FAIL);
 	}
 	upd = COLnew(0, tpe, 0, TRANSIENT);
 	if( upd == NULL){
 		BBPunfix(((BAT *) tids)->batCacheid);
-		throw(SQL,"WLRupdate",SQLSTATE(HY001) MAL_MALLOC_FAIL);
+		throw(SQL,"WLRupdate",SQLSTATE(HY013) MAL_MALLOC_FAIL);
 	}
 	if (BUNappend(tids, &o, false) != GDK_SUCCEED) {
 		msg = createException(MAL, "WLRupdate", "BUNappend failed");

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -17,6 +17,7 @@
 #include <fcntl.h>
 #include <sys/uio.h>
 
+#include "mstring.h"
 #include "stream.h"
 #include "stream_socket.h"
 
@@ -138,7 +139,7 @@ startProxy(int psock, stream *cfdin, stream *cfout, char *url, char *client)
 		server = (struct sockaddr_un) {
 			.sun_family = AF_UNIX,
 		};
-		strncpy(server.sun_path, conn, sizeof(server.sun_path) - 1);
+		strcpy_len(server.sun_path, conn, sizeof(server.sun_path));
 		free(conn);
 		if ((ssock = socket(PF_UNIX, SOCK_STREAM
 #ifdef SOCK_CLOEXEC

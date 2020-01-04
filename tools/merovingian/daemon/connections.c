@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -16,6 +16,7 @@
 #include <netinet/in.h>
 #include <fcntl.h>
 
+#include "mstring.h"
 #include "stream.h"
 #include "stream_socket.h"
 
@@ -34,7 +35,6 @@ openConnectionTCP(int *ret, bool bind_ipv6, const char *bindaddr, unsigned short
 	int on = 1;
 	int i = 0;
 	char sport[16];
-	char host[512];
 
 	snprintf(sport, 16, "%hu", port);
 	if (bindaddr) {
@@ -134,14 +134,6 @@ openConnectionTCP(int *ret, bool bind_ipv6, const char *bindaddr, unsigned short
 		}
 	}
 
-	check = getnameinfo(server, length, host, sizeof(host), sport, sizeof(sport), NI_NUMERICSERV);
-	if (result)
-		freeaddrinfo(result);
-	if (check != 0) {
-		closesocket(sock);
-		return(newErr("failed getting socket name: %s", gai_strerror(check)));
-	}
-
 	/* keep queue of 5 */
 	if (listen(sock, 5) == -1) {
 		int e = errno;
@@ -150,7 +142,7 @@ openConnectionTCP(int *ret, bool bind_ipv6, const char *bindaddr, unsigned short
 		return(newErr("failed setting socket to listen: %s", strerror(errno)));
 	}
 
-	Mfprintf(log, "accepting connections on TCP socket %s:%s\n", host, sport);
+	Mfprintf(log, "accepting connections on TCP socket %s:%hu\n", bindaddr, port);
 
 	*ret = sock;
 	return(NO_ERR);
@@ -246,7 +238,7 @@ openConnectionUNIX(int *ret, const char *path, int mode, FILE *log)
 	server = (struct sockaddr_un) {
 		.sun_family = AF_UNIX,
 	};
-	strncpy(server.sun_path, path, sizeof(server.sun_path) - 1);
+	strcpy_len(server.sun_path, path, sizeof(server.sun_path));
 
 	/* have to use umask to restrict permissions to avoid a race
 	 * condition */

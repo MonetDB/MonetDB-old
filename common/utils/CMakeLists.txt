@@ -12,7 +12,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ${UUID_INCLUDE_DIR} ${CRYPTO_INC
 add_custom_target(mrevision COMMAND ${CMAKE_COMMAND} ARGS -P ${CMAKE_CURRENT_SOURCE_DIR}/FindRevision.cmake
 				  ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/monetdb_hgversion.h)
 
-set(MUTILS_OBJECTS mutils.h mutils.c revision.c)
+set(MUTILS_OBJECTS mutils.h mutils.c revision.c mstring.h)
 set(MCRYPT_OBJECTS mcrypt.h mcrypt.c)
 set(MSABAOTH_OBJECTS muuid.h muuid.c msabaoth.h msabaoth.c)
 set(MCRYPT_LINK_LIBRARIES )

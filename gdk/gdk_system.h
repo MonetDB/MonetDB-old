@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 #ifndef _GDK_SYSTEM_H_
@@ -82,7 +82,9 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <sys/param.h>	   /* prerequisite of sys/sysctl on OpenBSD */
+#ifdef BSD
 #include <sys/sysctl.h>
+#endif
 #endif
 
 /* debug and errno integers */
@@ -283,8 +285,7 @@ typedef struct MT_Lock {
 	do {							\
 		assert((l)->lock == NULL);			\
 		(l)->lock = CreateMutex(NULL, 0, NULL);		\
-		strncpy((l)->name, (n), sizeof((l)->name));	\
-		(l)->name[sizeof((l)->name) - 1] = 0;		\
+		strcpy_len((l)->name, (n), sizeof((l)->name));	\
 		_DBG_LOCK_INIT(l);				\
 	} while (0)
 
@@ -355,8 +356,7 @@ typedef struct MT_Lock {
 #define MT_lock_init(l, n)					\
 	do {							\
 		pthread_mutex_init(&(l)->lock, 0);		\
-		strncpy((l)->name, (n), sizeof((l)->name));	\
-		(l)->name[sizeof((l)->name) - 1] = 0;		\
+		strcpy_len((l)->name, (n), sizeof((l)->name));	\
 		_DBG_LOCK_INIT(l);				\
 	} while (0)
 
@@ -486,8 +486,7 @@ typedef struct {
 #define MT_sema_init(s, nr, n)						\
 	do {								\
 		assert((s)->sema == NULL);				\
-		strncpy((s)->name, (n), sizeof((s)->name));		\
-		(s)->name[sizeof((s)->name) - 1] = 0;			\
+		strcpy_len((s)->name, (n), sizeof((s)->name));		\
 		(s)->sema = CreateSemaphore(NULL, nr, 0x7fffffff, NULL); \
 	} while (0)
 
@@ -524,8 +523,7 @@ typedef struct {
 
 #define MT_sema_init(s, nr, n)						\
 	do {								\
-		strncpy((s)->name, (n), sizeof((s)->name));		\
-		(s)->name[sizeof((s)->name) - 1] = 0;			\
+		strcpy_len((s)->name, (n), sizeof((s)->name));		\
 		(s)->sema = dispatch_semaphore_create((long) (nr));	\
 	} while (0)
 
@@ -542,8 +540,7 @@ typedef struct {
 
 #define MT_sema_init(s, nr, n)					\
 	do {							\
-		strncpy((s)->name, (n), sizeof((s)->name));	\
-		(s)->name[sizeof((s)->name) - 1] = 0;		\
+		strcpy_len((s)->name, (n), sizeof((s)->name));	\
 		sem_init(&(s)->sema, 0, nr);			\
 	} while (0)
 

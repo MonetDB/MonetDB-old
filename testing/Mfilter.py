@@ -2,7 +2,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
 
 from __future__ import print_function
 
@@ -119,9 +119,9 @@ norm_out = (
     None, '...', None,                                                                                  # 12: 3
 )
 
-# match "table_name" SQL table header line to normalize "(sys)?.L[0-9]*" to "(sys)?."
-table_name = re.compile(r'^%.*[\t ](|sys)\.L[0-9]*[, ].*# table_name$')
-name = re.compile(r'^%.*[\t ]L[0-9]*[, ].*# name$')
+# match "table_name" SQL table header line to normalize "(sys)?.%[0-9]*" to "(sys)?."
+table_name = re.compile(r'^%.*[\t ](|sys)\.%[0-9]*[, ].*# table_name$')
+name = re.compile(r'^%.*[\t ]%[0-9]*[, ].*# name$')
 
 # match automatically generated sequence numbers
 seqre = re.compile(r'^.*\bseq_[0-9]+\b.*$')
@@ -212,13 +212,13 @@ def mFilter (FILE, IGNORE) :
             oline += '\n'
             xline = norm_hint + iline
         elif table_name.match(iline):
-            # normalize "(sys)?.L[0-9]*" to "(sys)?." in "table_name" line of SQL table header
-            oline = re.sub(r'([ \t])(|sys)(\.)L[0-9]*([, ])', r'\1\2\3\4', iline)
+            # normalize "(sys)?.%[0-9]*" to "(sys)?." in "table_name" line of SQL table header
+            oline = re.sub(r'([ \t])(|sys)(\.)%[0-9]*([, ])', r'\1\2\3\4', iline)
             # keep original line for reference as comment (i.e., ignore diffs, if any)
             xline = iline.replace('%','#',1)
         elif name.match(iline):
-            # normalize "L[0-9]*" to "L" in "name" line of SQL table header
-            oline = re.sub(r'([ \t])L[0-9]*([, ])', r'\1L\2', iline)
+            # normalize "%[0-9]*" to "%" in "name" line of SQL table header
+            oline = re.sub(r'([ \t])%[0-9]*([, ])', r'\1%\2', iline)
             # keep original line for reference as comment (i.e., ignore diffs, if any)
             xline = iline.replace('%','#',1)
         elif seqre.match(iline):

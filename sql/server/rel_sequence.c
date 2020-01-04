@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -116,7 +116,7 @@ rel_create_seq(
 	/* for multi statements we keep the sequence around */
 	if (res && stack_has_frame(sql, "MUL") != 0) {
 		if(!stack_push_rel_view(sql, name, rel_dup(res)))
-			return sql_error(sql, 02, SQLSTATE(HY001) MAL_MALLOC_FAIL);
+			return sql_error(sql, 02, SQLSTATE(HY013) MAL_MALLOC_FAIL);
 	}
 
 	return res;
@@ -218,7 +218,17 @@ list_create_seq(
 				assert(0);
 			}
 		}
+		if (!is_lng_nil(start)) {
+			if (!is_lng_nil(min) && start < min)
+				return sql_error(sql, 02, SQLSTATE(42000) "CREATE SEQUENCE: START value is lesser than MINVALUE ("LLFMT" < "LLFMT")", start, min);
+			if (!is_lng_nil(max) && start > max)
+				return sql_error(sql, 02, SQLSTATE(42000) "CREATE SEQUENCE: START value is higher than MAXVALUE ("LLFMT" > "LLFMT")", start, max);
+		}
+		if (!is_lng_nil(min) && !is_lng_nil(max) && max < min)
+			return sql_error(sql, 02, SQLSTATE(42000) "CREATE SEQUENCE: MAXVALUE value is lesser than MINVALUE ("LLFMT" < "LLFMT")", max, min);
 	}
+	if (is_lng_nil(start) && !is_lng_nil(min) && min) /* if start value not set, set it to the minimum if available */
+		start = min;
 	return rel_create_seq(sql, ss, qname, t, start, inc, min, max, cache, cycle, bedropped);
 }
 
@@ -278,7 +288,6 @@ rel_alter_seq(
 		if (r && r->op == op_project) {
 			exp_label(sql->sa, val, ++sql->label);
 			val = rel_project_add_exp(sql, r, val);
-			val = exp_ref(sql->sa, val);
 		}
 	} else if (start_type == 2) {
 		assert (start_list->h->next->type == type_lng);
@@ -286,7 +295,7 @@ rel_alter_seq(
 	}
 	if (val && val->card > CARD_ATOM) {
 		sql_subaggr *zero_or_one = sql_bind_aggr(sql->sa, sql->session->schema, "zero_or_one", exp_subtype(val));
-		val = exp_aggr1(sql->sa, val, zero_or_one, 0, 0, CARD_ATOM, 0);
+		val = exp_aggr1(sql->sa, val, zero_or_one, 0, 0, CARD_ATOM, has_nil(val));
 	}
 	return rel_seq(sql->sa, ddl_alter_seq, s->base.name, seq, r, val);
 }
@@ -367,6 +376,8 @@ list_alter_seq(
 			assert(0);
 		}
 	}
+	if (!is_lng_nil(min) && !is_lng_nil(max) && max < min)
+		return sql_error(sql, 02, SQLSTATE(42000) "ALTER SEQUENCE: MAXVALUE value is lesser than MINVALUE ("LLFMT" < "LLFMT")", max, min);
 	return rel_alter_seq(query, ss, qname, t, start, inc, min, max, cache, cycle);
 }
 

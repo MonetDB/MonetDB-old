@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 /*
@@ -15,38 +15,6 @@
 #include "mal_instruction.h"
 #include "opt_prelude.h"
 #include "opt_profiler.h"
-
-/*
-static struct{
-    char *mod, *fcn;
-    char *alias;
-}mapping[]={
-    {"algebra", "projectionpath", "projection"},
-    {"algebra", "thetaselect", "select"},
-    {"algebra", "projection", "projection"},
-    {"dataflow", "language", "parallel"},
-    {"algebra", "select", "select"},
-    {"sql", "projectdelta", "project"},
-    {"algebra", "join", "join"},
-    {"language", "pass(nil)", "release"},
-    {"mat", "packIncrement", "pack"},
-    {"language", "pass", "release"},
-    {"aggr", "subcount", "count"},
-    {"sql", "subdelta", "project"},
-    {"bat", "append", "append"},
-    {"aggr", "subavg", "average"},
-    {"aggr", "subsum", "sum"},
-    {"aggr", "submin", "minimum"},
-    {"aggr", "submax", "maximum"},
-    {"aggr", "count", "count"},
-    {"calc", "lng", "long"},
-    {"sql", "bind", "bind"},
-    {"batcalc", "hge", "hugeint"},
-    {"batcalc", "dbl", "real"},
-    {"batcalc", "flt", "real"},
-    {"batcalc", "lng", "bigint"},
-    {0,0,0}};
-*/
 
 str
 OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
@@ -116,9 +84,5 @@ OPTprofilerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	snprintf(buf,256,"%-20s actions= 1 time=" LLFMT " usec","profiler", usec);
 	newComment(mb,buf);
 	addtoMalBlkHistory(mb);
-    if( OPTdebug &  OPTprofiler){
-        fprintf(stderr, "#PROFILER optimizer exit\n");
-        fprintFunction(stderr, mb, 0,  LIST_MAL_ALL);
-    }
 	return MAL_SUCCEED;
 }

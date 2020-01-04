@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -45,6 +45,7 @@ struct clientdata {
 	int sock;
 	bool isusock;
 	struct threads *self;
+	char challenge[32];
 };
 
 static void *
@@ -75,6 +76,7 @@ handleClient(void *data)
 	sock = ((struct clientdata *) data)->sock;
 	isusock = ((struct clientdata *) data)->isusock;
 	self = ((struct clientdata *) data)->self;
+	memcpy(chal, ((struct clientdata *) data)->challenge, sizeof(chal));
 	free(data);
 	fdin = socket_rstream(sock, "merovingian<-client (read)");
 	if (fdin == 0) {
@@ -107,8 +109,6 @@ handleClient(void *data)
 	}
 
 	/* note: since Jan2012 we speak proto 9 for control connections */
-	chal[31] = '\0';
-	generateSalt(chal, 31);
 	mnstr_printf(fout, "%s:merovingian:9:%s:%s:%s:",
 			chal,
 			mcrypt_getHashAlgorithms(),
@@ -268,7 +268,7 @@ handleClient(void *data)
 		}
 	}
 
-	if ((e = forkMserver(database, &top, 0)) != NO_ERR) {
+	if ((e = forkMserver(database, &top, false)) != NO_ERR) {
 		if (top == NULL) {
 			mnstr_printf(fout, "!monetdbd: no such database '%s', please create it first\n", database);
 		} else {
@@ -590,6 +590,8 @@ acceptConnections(int sock, int usock)
 		data->isusock = isusock;
 		p->dead = 0;
 		data->self = p;
+		data->challenge[31] = '\0';
+		generateSalt(data->challenge, 31);
 		if (pthread_create(&p->tid, NULL, handleClient, data) == 0) {
 			p->next = threads;
 			threads = p;

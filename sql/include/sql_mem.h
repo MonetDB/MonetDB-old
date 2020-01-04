@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 #ifndef _SQL_MEM_H_
@@ -74,6 +74,7 @@ extern size_t sa_size( sql_allocator *sa );
 #define SA_NEW( sa, type ) ((type*)sa_alloc( sa, sizeof(type)) )
 #define SA_ZNEW( sa, type ) ((type*)sa_zalloc( sa, sizeof(type)) )
 #define SA_NEW_ARRAY( sa, type, size ) (type*)sa_alloc( sa, ((size)*sizeof(type)))
+#define SA_ZNEW_ARRAY( sa, type, size ) (type*)sa_zalloc( sa, ((size)*sizeof(type)))
 #define SA_RENEW_ARRAY( sa, type, ptr, sz, osz ) (type*)sa_realloc( sa, ptr, ((sz)*sizeof(type)), ((osz)*sizeof(type)))
 
 #define _strlen(s) (int)strlen(s)

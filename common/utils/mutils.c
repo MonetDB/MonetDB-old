@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <limits.h>		/* PATH_MAX on Solaris */
 #include "mutils.h"
+#include "mstring.h"
 
 #ifdef NATIVE_WIN32
 # include <io.h>
@@ -20,7 +21,9 @@
 #else
 # include <unistd.h>
 # include <sys/param.h>  /* realpath on OSX, prerequisite of sys/sysctl on OpenBSD */
+#ifdef BSD
 # include <sys/sysctl.h>  /* KERN_PROC_PATHNAME on BSD */
+#endif
 #endif
 
 #ifdef __MACH__
@@ -209,8 +212,7 @@ readdir(DIR *dir)
 	else if (!FindNextFile(dir->find_file_handle,
 			       (LPWIN32_FIND_DATA) dir->find_file_data))
 		return NULL;
-	strncpy(result.d_name, basename(((LPWIN32_FIND_DATA) dir->find_file_data)->cFileName), sizeof(result.d_name));
-	result.d_name[sizeof(result.d_name) - 1] = '\0';
+	strcpy_len(result.d_name, basename(((LPWIN32_FIND_DATA) dir->find_file_data)->cFileName), sizeof(result.d_name));
 	result.d_namelen = (int) strlen(result.d_name);
 
 	return &result;
@@ -423,7 +425,7 @@ get_bin_path(void)
 	if (_NSGetExecutablePath(buf, &size) == 0 &&
 			realpath(buf, _bin_path) != NULL)
 	return _bin_path;
-#elif defined(KERN_PROC_PATHNAME)  /* BSD */
+#elif defined(BSD) && defined(KERN_PROC_PATHNAME)  /* BSD */
 	int mib[4];
 	size_t cb = sizeof(_bin_path);
 	mib[0] = CTL_KERN;

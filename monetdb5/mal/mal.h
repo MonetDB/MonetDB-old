@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 /*
@@ -84,13 +84,10 @@ mal_export lng MALdebug;
  * leaving a small portion for other programs.
  */
 #define GB (((lng)1024)*1024*1024)
-#define MEMORY_THRESHOLD  (0.2 * monet_memory > 8 * GB?  monet_memory - 8 * GB: 0.8 * monet_memory)
+#define MEMORY_THRESHOLD  (0.2 * GDK_mem_maxsize > 8 * GB?  GDK_mem_maxsize - 8 * GB: 0.8 * GDK_mem_maxsize)
 
 mal_export char     monet_cwd[FILENAME_MAX];
-mal_export size_t	monet_memory;
 mal_export char 	monet_characteristics[4096];
-mal_export lng 		memorypool;      /* memory claimed by concurrent threads */
-mal_export int 		memoryclaims;    /* number of threads active with expensive operations */
 mal_export stream	*maleventstream;
 
 #ifdef HAVE_HGE
@@ -201,7 +198,6 @@ typedef struct {
 	int pc;						/* location in MAL plan for profiler*/
 	MALfcn fcn;					/* resolved function address */
 	struct MALBLK *blk;			/* resolved MAL function address */
-	int mitosis;				/* old mtProp value */
 	/* inline statistics */
 	lng clock;					/* when the last call was started */
 	lng ticks;					/* total micro seconds spent in last call */
@@ -268,13 +264,16 @@ typedef struct MALSTK {
  * It is handy to administer the timing in the stack frame
  * for use in profiling instructions.
  */
-	struct timeval clock;   /* time this stack was created */
-	char cmd;               /* debugger and runtime communication */
-	char status;	        /* srunning 'R' suspended 'S', quiting 'Q' */
-	int pcup;               /* saved pc upon a recursive all */
-	oid tag;                /* unique invocation call tag */
-	struct MALSTK *up;      /* stack trace list */
-	struct MALBLK *blk;    	/* associated definition */
+	struct timeval clock;	/* time this stack was created */
+	char cmd;				/* debugger and runtime communication */
+	char status;			/* srunning 'R' suspended 'S', quiting 'Q' */
+	int pcup;				/* saved pc upon a recursive all */
+	oid tag;				/* unique invocation call tag */
+	int	workers;			/* Actual number of concurrent workers */
+	lng	memory;				/* Actual memory claim highwater mark */
+
+	struct MALSTK *up;		/* stack trace list */
+	struct MALBLK *blk;		/* associated definition */
 	ValRecord stk[];
 } MalStack, *MalStkPtr;
 

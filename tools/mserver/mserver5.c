@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -100,16 +100,9 @@ usage(char *prog, int xit)
 static void
 monet_hello(void)
 {
-	dbl sz_mem_h;
+	double sz_mem_h;
 	char  *qc = " kMGTPE";
 	int qi = 0;
-
-	monet_memory = MT_npages() * MT_pagesize();
-	sz_mem_h = (dbl) monet_memory;
-	while (sz_mem_h >= 1000.0 && qi < 6) {
-		sz_mem_h /= 1024.0;
-		qi++;
-	}
 
 	printf("# MonetDB 5 server v%s", GDKversion());
 	{
@@ -135,14 +128,27 @@ monet_hello(void)
 			""
 #endif
 			);
-	printf("# Found %.3f %ciB available main-memory.\n",
+	sz_mem_h = (double) MT_npages() * MT_pagesize();
+	while (sz_mem_h >= 1000.0 && qi < 6) {
+		sz_mem_h /= 1024.0;
+		qi++;
+	}
+	printf("# Found %.3f %ciB available main-memory",
+			sz_mem_h, qc[qi]);
+	sz_mem_h = (double) GDK_mem_maxsize;
+	qi = 0;
+	while (sz_mem_h >= 1000.0 && qi < 6) {
+		sz_mem_h /= 1024.0;
+		qi++;
+	}
+	printf(" of which we use %.3f %ciB\n",
 			sz_mem_h, qc[qi]);
 #ifdef MONET_GLOBAL_DEBUG
 	printf("# Database path:%s\n", GDKgetenv("gdk_dbpath"));
 	printf("# Module path:%s\n", GDKgetenv("monet_mod_path"));
 #endif
 	printf("# Copyright (c) 1993 - July 2008 CWI.\n");
-	printf("# Copyright (c) August 2008 - 2019 MonetDB B.V., all rights reserved\n");
+	printf("# Copyright (c) August 2008 - 2020 MonetDB B.V., all rights reserved\n");
 	printf("# Visit https://www.monetdb.org/ for further information\n");
 
 	// The properties shipped through the performance profiler
@@ -677,6 +683,10 @@ main(int argc, char **av)
 		fprintf(stderr, "!%s\n", err);
 		free(err);
 	}
+
+#ifdef _MSC_VER
+	printf("# MonetDB server is started. To stop server press Ctrl-C.\n");
+#endif
 
 	/* why busy wait ? */
 	while (!interrupted && !GDKexiting()) {

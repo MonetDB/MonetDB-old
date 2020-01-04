@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 /*
@@ -695,12 +695,16 @@ typeChecker(Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 			 */
 			if (lhs != TYPE_void && lhs != TYPE_any) {
 				ValRecord cst;
+				int k;
+
 				cst.vtype = TYPE_void;
 				cst.val.oval = void_nil;
 				cst.len = 0;
 
 				rhs = isaBatType(lhs) ? TYPE_bat : lhs;
-				p->argv[i] = defConstant(mb, rhs, &cst);
+				k = defConstant(mb, rhs, &cst);
+				if( k >=0)
+					p->argv[i] = k;
 				rhs = lhs;
 			}
 		}
@@ -786,7 +790,6 @@ chkProgram(Module s, MalBlkPtr mb)
 	if (mb->errors)
 		return;
 	chkDeclarations(mb);
-	/* malGarbageCollector(mb); */
 }
 
 /*

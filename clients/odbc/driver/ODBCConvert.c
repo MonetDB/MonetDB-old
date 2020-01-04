@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 #include "ODBCGlobal.h"
@@ -2451,6 +2451,7 @@ ODBCFetch(ODBCStmt *stmt,
 					time_t t;
 
 		case SQL_TYPE_TIME:
+					tm = (struct tm) {0};
 					(void) time(&t);
 #ifdef NATIVE_WIN32
 					(void) localtime_s(&tm, &t);
@@ -3477,6 +3478,7 @@ ODBCStore(ODBCStmt *stmt,
 					time_t t;
 
 		case SQL_C_TYPE_TIME:
+					tm = (struct tm) {0};
 					(void) time(&t);
 #ifdef NATIVE_WIN32
 					(void) localtime_s(&tm, &t);

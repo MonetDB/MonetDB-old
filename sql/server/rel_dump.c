@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 1997 - July 2008 CWI, August 2008 - 2019 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2020 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -85,13 +85,16 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 	(void)sql;
 	if (!e)
 		return;
-	//mnstr_printf(fout, "%p ", e);
+	/*mnstr_printf(fout, "%p ", e);*/
 	switch(e->type) {
 	case e_psm: {
 		if (e->flag & PSM_SET) {
-			/* todo */
+			mnstr_printf(fout, "%s = ", exp_name(e));
+			exp_print(sql, fout, e->l, depth, refs, 0, 0);
 		} else if (e->flag & PSM_VAR) {
-			/* todo */
+			// todo output table def (from e->f)
+			// or type if e-f == NULL
+			mnstr_printf(fout, "declare %s ", exp_name(e));
 		} else if (e->flag & PSM_RETURN) {
 			mnstr_printf(fout, "return ");
 			exp_print(sql, fout, e->l, depth, refs, 0, 0);
@@ -106,7 +109,7 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 			if (e->f)
 				exps_print(sql, fout, e->f, depth, refs, alias, 0);
 		} else if (e->flag & PSM_REL) {
-			rel_print_(sql, fout, e->l, depth+1, refs, 1);
+			rel_print_(sql, fout, e->l, depth+10, refs, 1);
 		} else if (e->flag & PSM_EXCEPTION) {
 			mnstr_printf(fout, "except ");
 			exp_print(sql, fout, e->l, depth, refs, 0, 0);
@@ -164,8 +167,13 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 				f->func->s?f->func->s->base.name:"sys",
 				f->func->base.name);
 		exps_print(sql, fout, e->l, depth, refs, alias, 1);
-		if (e->r)
-			exps_print(sql, fout, e->r, depth, refs, alias, 1);
+		if (e->r) { /* list of optional lists */
+			list *l = e->r;
+			for(node *n = l->h; n; n = n->next) 
+				exps_print(sql, fout, n->data, depth, refs, alias, 1);
+		}
+		if (e->flag && is_compare_func(f)) 
+			mnstr_printf(fout, " %s", e->flag==1?"ANY":"ALL");
 	} 	break;
 	case e_aggr: {
 		sql_subaggr *a = e->f;
@@ -201,15 +209,15 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 			exp_print(sql, fout, e->l, depth, refs, 0, alias);
 			if (is_anti(e))
 				mnstr_printf(fout, " !");
-			cmp_print(sql, fout, get_cmp(e));
+			cmp_print(sql, fout, e->flag);
 			exps_print(sql, fout, e->r, depth, refs, alias, 1);
-		} else if (get_cmp(e) == cmp_or) {
+		} else if (e->flag == cmp_or) {
 			exps_print(sql, fout, e->l, depth, refs, alias, 1);
 			if (is_anti(e))
 				mnstr_printf(fout, " !");
-			cmp_print(sql, fout, get_cmp(e));
+			cmp_print(sql, fout, e->flag);
 			exps_print(sql, fout, e->r, depth, refs, alias, 1);
-		} else if (get_cmp(e) == cmp_filter) {
+		} else if (e->flag == cmp_filter) {
 			sql_subfunc *f = e->f;
 
 			exps_print(sql, fout, e->l, depth, refs, alias, 1);
@@ -227,13 +235,15 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 				mnstr_printf(fout, " !");
 			cmp_print(sql, fout, range2rcompare(e->flag) );
 			exp_print(sql, fout, e->f, depth+1, refs, 0, 0);
+			if (e->flag & CMP_BETWEEN)
+				mnstr_printf(fout, " BETWEEN ");
 			if (e->flag & CMP_SYMMETRIC)
 				mnstr_printf(fout, " SYM ");
 		} else {
 			exp_print(sql, fout, e->l, depth+1, refs, 0, 0);
 			if (is_anti(e))
 				mnstr_printf(fout, " !");
-			cmp_print(sql, fout, get_cmp(e));
+			cmp_print(sql, fout, e->flag);
 
 			exp_print(sql, fout, e->r, depth+1, refs, 0, 0);
 		}
@@ -241,8 +251,10 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, list *refs, int comma, 
 	default:
 		;
 	}
-	if (e->type != e_atom && is_ascending(e))
+	if (e->type != e_atom && e->type != e_cmp && is_ascending(e))
 		mnstr_printf(fout, " ASC");
+	if (e->type != e_atom && e->type != e_cmp && nulls_last(e))
+		mnstr_printf(fout, " NULLS LAST");
 	if (e->type != e_atom && e->type != e_cmp && !has_nil(e))
 		mnstr_printf(fout, " NOT NULL");
 	/*
@@ -357,7 +369,6 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 		mnstr_printf(fout, "\n%cREF %d (%d)", decorate?'=':' ', nr, cnt);
 	}
 
-
 	switch (rel->op) {
 	case op_basetable: {
 		sql_table *t = rel->l;
@@ -447,19 +458,23 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 		if (need_distinct(rel))
 			mnstr_printf(fout, "distinct ");
 		mnstr_printf(fout, "%s (", r);
-		if (rel_is_ref(rel->l)) {
-			int nr = find_ref(refs, rel->l);
-			print_indent(sql, fout, depth+1, decorate);
-			mnstr_printf(fout, "& REF %d ", nr);
-		} else
-			rel_print_(sql, fout, rel->l, depth+1, refs, decorate);
+		if (rel->l) {
+			if (rel_is_ref(rel->l)) {
+				int nr = find_ref(refs, rel->l);
+				print_indent(sql, fout, depth+1, decorate);
+				mnstr_printf(fout, "& REF %d ", nr);
+			} else
+				rel_print_(sql, fout, rel->l, depth+1, refs, decorate);
+		}
 		mnstr_printf(fout, ",");
-		if (rel_is_ref(rel->r)) {
-			int nr = find_ref(refs, rel->r);
-			print_indent(sql, fout, depth+1, decorate);
-			mnstr_printf(fout, "& REF %d  ", nr);
-		} else
-			rel_print_(sql, fout, rel->r, depth+1, refs, decorate);
+		if (rel->r) {
+			if (rel_is_ref(rel->r)) {
+				int nr = find_ref(refs, rel->r);
+				print_indent(sql, fout, depth+1, decorate);
+				mnstr_printf(fout, "& REF %d  ", nr);
+			} else
+				rel_print_(sql, fout, rel->r, depth+1, refs, decorate);
+		}
 		print_indent(sql, fout, depth, decorate);
 		mnstr_printf(fout, ")");
 		exps_print(sql, fout, rel->exps, depth, refs, 1, 0);
@@ -510,16 +525,23 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 			mnstr_printf(fout, "update(");
 		else if (rel->op == op_delete)
 			mnstr_printf(fout, "delete(");
-		else if (rel->op == op_truncate)
-			mnstr_printf(fout, "truncate(");
+		else if (rel->op == op_truncate) {
+			assert(list_length(rel->exps) == 2);
+			sql_exp *first = (sql_exp*) rel->exps->h->data, *second = (sql_exp*) rel->exps->h->next->data;
+			int restart_sequences = ((atom*)first->l)->data.val.ival,
+				drop_action = ((atom*)second->l)->data.val.ival;
+			mnstr_printf(fout, "truncate %s identity, %s(", restart_sequences ? "restart" : "continue", 
+												   drop_action ? "cascade" : "restrict");
+		}
 
-		if (rel_is_ref(rel->l)) {
-			int nr = find_ref(refs, rel->l);
-			print_indent(sql, fout, depth+1, decorate);
-			mnstr_printf(fout, "& REF %d ", nr);
-		} else
-			rel_print_(sql, fout, rel->l, depth+1, refs, decorate);
-
+		if (rel->l) {
+			if (rel_is_ref(rel->l)) {
+				int nr = find_ref(refs, rel->l);
+				print_indent(sql, fout, depth+1, decorate);
+				mnstr_printf(fout, "& REF %d ", nr);
+			} else
+				rel_print_(sql, fout, rel->l, depth+1, refs, decorate);
+		}
 		if (rel->r) {
 			if (rel_is_ref(rel->r)) {
 				int nr = find_ref(refs, rel->r);
@@ -530,14 +552,12 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 		}
 		print_indent(sql, fout, depth, decorate);
 		mnstr_printf(fout, ")");
-		if (rel->exps)
+		if (rel->op != op_truncate && rel->exps)
 			exps_print(sql, fout, rel->exps, depth, refs, 1, 0);
 	} 	break;
 	default:
 		assert(0);
 	}
-	if (rel->single)
-		mnstr_printf(fout, " single ");
 	if (rel->p) {
 		prop *p = rel->p;
 		char *pv;
@@ -548,6 +568,7 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 			GDKfree(pv);
 		}
 	}
+	//mnstr_printf(fout, " %p ", rel);
 }
 
 void
@@ -560,23 +581,23 @@ rel_print_refs(mvc *sql, stream* fout, sql_rel *rel, int depth, list *refs, int 
 	case op_table:
 		break;
 	case op_ddl:
-		if(rel->flag == ddl_list ||rel->flag == ddl_exception) {
-			if(rel->l) {
+		if (rel->flag == ddl_list || rel->flag == ddl_exception) {
+			if (rel->l) {
 				rel_print_refs(sql, fout, rel->l, depth, refs, decorate);
-				if(rel_is_ref(rel->l) && !find_ref(refs, rel->l)) {
+				if (rel_is_ref(rel->l) && !find_ref(refs, rel->l)) {
 					rel_print_(sql, fout, rel->l, depth, refs, decorate);
 					list_append(refs, rel->l);
 				}
 			}
-			if(rel->r) {
+			if (rel->r) {
 				rel_print_refs(sql, fout, rel->r, depth, refs, decorate);
-				if(rel_is_ref(rel->r) && !find_ref(refs, rel->r)) {
+				if (rel_is_ref(rel->r) && !find_ref(refs, rel->r)) {
 					rel_print_(sql, fout, rel->r, depth, refs, decorate);
 					list_append(refs, rel->r);
 				}
 			}
 		}
-	break;
+		break;
 	case op_join:
 	case op_left:
 	case op_right:
@@ -586,13 +607,15 @@ rel_print_refs(mvc *sql, stream* fout, sql_rel *rel, int depth, list *refs, int 
 	case op_union:
 	case op_inter:
 	case op_except:
-		rel_print_refs(sql, fout, rel->l, depth, refs, decorate);
-		rel_print_refs(sql, fout, rel->r, depth, refs, decorate);
-		if (rel_is_ref(rel->l) && !find_ref(refs, rel->l)) {
+		if (rel->l)
+			rel_print_refs(sql, fout, rel->l, depth, refs, decorate);
+		if (rel->r)
+			rel_print_refs(sql, fout, rel->r, depth, refs, decorate);
+		if (rel->l && rel_is_ref(rel->l) && !find_ref(refs, rel->l)) {
 			rel_print_(sql, fout, rel->l, depth, refs, decorate);
 			list_append(refs, rel->l);
 		}
-		if (rel_is_ref(rel->r) && !find_ref(refs, rel->r)) {
+		if (rel->r && rel_is_ref(rel->r) && !find_ref(refs, rel->r)) {
 			rel_print_(sql, fout, rel->r, depth, refs, decorate);
 			list_append(refs, rel->r);
 		}
@@ -602,7 +625,8 @@ rel_print_refs(mvc *sql, stream* fout, sql_rel *rel, int depth, list *refs, int 
 	case op_groupby:
 	case op_topn:
 	case op_sample:
-		rel_print_refs(sql, fout, rel->l, depth, refs, decorate);
+		if (rel->l)
+			rel_print_refs(sql, fout, rel->l, depth, refs, decorate);
 		if (rel->l && rel_is_ref(rel->l) && !find_ref(refs, rel->l)) {
 			rel_print_(sql, fout, rel->l, depth, refs, decorate);
 			list_append(refs, rel->l);
@@ -612,12 +636,14 @@ rel_print_refs(mvc *sql, stream* fout, sql_rel *rel, int depth, list *refs, int 
 	case op_update:
 	case op_delete:
 	case op_truncate:
-		rel_print_refs(sql, fout, rel->l, depth, refs, decorate);
+		if (rel->l)
+			rel_print_refs(sql, fout, rel->l, depth, refs, decorate);
 		if (rel->l && rel_is_ref(rel->l) && !find_ref(refs, rel->l)) {
 			rel_print_(sql, fout, rel->l, depth, refs, decorate);
 			list_append(refs, rel->l);
 		}
-		rel_print_refs(sql, fout, rel->r, depth, refs, decorate);
+		if (rel->r)
+			rel_print_refs(sql, fout, rel->r, depth, refs, decorate);
 		if (rel->r && rel_is_ref(rel->r) && !find_ref(refs, rel->r)) {
 			rel_print_(sql, fout, rel->r, depth, refs, decorate);
 			list_append(refs, rel->r);
@@ -1027,16 +1053,16 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos,
 			*e = 0;
 			cname = sa_strdup(sql->sa, b);
 			if (pexps) {
-				exp = exps_bind_column(pexps, cname, &amb);
+				exp = exps_bind_column(pexps, cname, &amb, 1);
 				if (exp)
 					exp = exp_alias_or_copy(sql, exp_relname(exp), cname, lrel, exp);
 			}
 			(void)amb;
 			assert(amb == 0);
 			if (!exp && lrel)
-				exp = rel_bind_column(sql, lrel, cname, 0);
+				exp = rel_bind_column(sql, lrel, cname, 0, 1);
 			if (!exp && rrel)
-				exp = rel_bind_column(sql, rrel, cname, 0);
+				exp = rel_bind_column(sql, rrel, cname, 0, 1);
 			*e = old;
 			skipWS(r,pos);
 		}
@@ -1058,7 +1084,24 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos,
 	if (strncmp(r+*pos, "ASC",  strlen("ASC")) == 0) {
 		(*pos)+= (int) strlen("ASC");
 		skipWS(r, pos);
-		set_direction(exp, 1);
+		set_ascending(exp);
+	}
+	/* [ NULLS LAST ] */
+	if (strncmp(r+*pos, "NULLS LAST",  strlen("NULLS LAST")) == 0) {
+		(*pos)+= (int) strlen("NULLS LAST");
+		skipWS(r, pos);
+		set_nulls_last(exp);
+	}
+	/* [ ANY|ALL ] */
+	if (strncmp(r+*pos, "ANY",  strlen("ANY")) == 0) {
+		(*pos)+= (int) strlen("ANY");
+		skipWS(r, pos);
+		exp->flag = 1;
+	}
+	if (strncmp(r+*pos, "ALL",  strlen("ALL")) == 0) {
+		(*pos)+= (int) strlen("ALL");
+		skipWS(r, pos);
+		exp->flag = 2;
 	}
 	/* [ NOT ] NULL */
 	if (strncmp(r+*pos, "NOT",  strlen("NOT")) == 0) {
@@ -1118,6 +1161,15 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos,
 	}
 	skipWS(r, pos);
 	switch(r[*pos]) {
+	case 'a':
+		if (strncmp(r+*pos, "any =",  strlen("any =")) == 0) {
+			(*pos)+= (int) strlen("any =");
+			f = mark_in;
+		} else if (strncmp(r+*pos, "all <>",  strlen("all <>")) == 0) {
+			(*pos)+= (int) strlen("all <>");
+			f = mark_notin;
+		}
+		break;
 	case 'n':
 		if (strncmp(r+*pos, "notin",  strlen("notin")) == 0) {
 			(*pos)+= (int) strlen("notin");
@@ -1187,14 +1239,34 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, list *pexps, char *r, int *pos,
 			if (f == cmp_in || f == cmp_notin)
 				return exp_in(sql->sa, exp, exps, f);
 		} else {
+			int sym = 0, between = 0;
 			sql_exp *e = exp_read(sql, lrel, rrel, pexps, r, pos, 0);
+
+			if (strncmp(r+*pos, "BETWEEN",  strlen("BETWEEN")) == 0) {
+				(*pos)+= (int) strlen("BETWEEN");
+				skipWS(r,pos);
+				between = 1;
+			}
+			if (strncmp(r+*pos, "SYM",  strlen("SYM")) == 0) {
+				(*pos)+= (int) strlen("SYM");
+				skipWS(r,pos);
+				sym = 1;
+			}
 			if (e && e->type == e_cmp) {
 				sql_exp *ne = exp_compare2(sql->sa, e->l, exp, e->r, compare2range(swap_compare((comp_type)f), e->flag));
+				if (sym)
+					ne->flag |= CMP_SYMMETRIC;
+				if (between)
+					ne->flag |= CMP_BETWEEN;
 				if (is_anti(exp))
 					set_anti(ne);
 				return ne;
 			} else if (e) {
 				sql_exp *ne = exp_compare(sql->sa, exp, e, f);
+				if (sym)
+					ne->flag |= CMP_SYMMETRIC;
+				if (between)
+					ne->flag |= CMP_BETWEEN;
 				if (is_anti(exp))
 					set_anti(ne);
 				return ne;
@@ -1279,15 +1351,27 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 	}
 
 	if (r[*pos] == 't' && r[*pos+1] == 'r' && r[*pos+2] == 'u') {
-		*pos += (int) strlen("truncate");
+		int restart_sequences = 0, drop_action = 0;
+		*pos += (int) strlen("truncate ");
+		if (r[*pos] == 'r') {
+			restart_sequences = 1;
+			*pos += (int) strlen("restart identity, ");
+		} else {
+			*pos += (int) strlen("continue identity, ");
+		}
+		if (r[*pos] == 'c') {
+			drop_action = 1;
+			*pos += (int) strlen("cascade");
+		} else {
+			*pos += (int) strlen("restrict");
+		}
 		skipWS(r, pos);
 		(*pos)++; /* ( */
 		lrel = rel_read(sql, r, pos, refs); /* to be truncated relation */
 		skipWS(r,pos);
 		(*pos)++; /* ) */
 
-		/* TODO drop_action and check_identity options */
-		return rel_truncate(sql->sa, lrel, 0, 0);
+		return rel_truncate(sql->sa, lrel, drop_action, restart_sequences);
 	}
 
 	if (r[*pos] == 'u' && r[*pos+1] == 'p' && r[*pos+2] == 'd') {
