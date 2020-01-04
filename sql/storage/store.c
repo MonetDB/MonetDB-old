@@ -17,6 +17,10 @@
 #include "bat/bat_table.h"
 #include "bat/bat_logger.h"
 
+#ifdef NATIVE_WIN32
+#define close _close
+#endif
+
 /* version 05.22.03 of catalog */
 #define CATALOG_VERSION 52203
 int catalog_version = 0;
