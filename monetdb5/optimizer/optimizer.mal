@@ -285,5 +285,12 @@ pattern optimizer.postfix(mod:str, fcn:str):str
 address OPTwrapper
 comment "Postfix the plan,e.g. pushing projections";
 
+#opt_hitchhiker.mal
+pattern optimizer.hitchhiker():str
+address OPTwrapper;
+pattern optimizer.hitchhiker(mod:any_1, fcn:any_2):str
+address OPTwrapper
+comment "Hitchhiker optimizer: nomadic query evaluation";
+
 optimizer.prelude();
 
