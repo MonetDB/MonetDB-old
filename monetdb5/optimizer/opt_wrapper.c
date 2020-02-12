@@ -51,6 +51,8 @@
 #include "opt_reorder.h"
 #include "opt_volcano.h"
 #include "opt_wlc.h"
+#include "opt_hitchhiker.h"
+
 
 struct{
 	str nme;
@@ -89,6 +91,7 @@ struct{
 	{"reorder", &OPTreorderImplementation,0,0},
 	{"volcano", &OPTvolcanoImplementation,0,0},
 	{"wlc", &OPTwlcImplementation,0,0},
+	{"hitchhiker", &OPThitchhikerImplementation,0,0},
 	{0,0,0,0}
 };
 mal_export str OPTwrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
