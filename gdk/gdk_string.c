@@ -84,12 +84,6 @@ strHeap(Heap *d, size_t cap)
 }
 
 
-BUN
-strHash(const char *s)
-{
-	return GDK_STRHASH(s);
-}
-
 void
 strCleanHash(Heap *h, bool rebuild)
 {
@@ -123,7 +117,7 @@ strCleanHash(Heap *h, bool rebuild)
 		if (h->hashash)
 			strhash = ((const BUN *) s)[-1];
 		else
-			strhash = GDK_STRHASH(s);
+			strhash = strHash(s);
 		off = strhash & GDK_STRHASHMASK;
 		newhash[off] = (stridx_t) (pos - extralen - sizeof(stridx_t));
 		pos += strLen(s);
@@ -167,7 +161,7 @@ strLocate(Heap *h, const char *v)
 
 	/* search hash-table, if double-elimination is still in place */
 	BUN off;
-	off = GDK_STRHASH(v);
+	off = strHash(v);
 	off &= GDK_STRHASHMASK;
 
 	/* should only use strLocate iff fully double eliminated */
@@ -192,7 +186,7 @@ strPut(Heap *h, var_t *dst, const char *v)
 	stridx_t *bucket;
 	BUN off, strhash;
 
-	off = GDK_STRHASH(v);
+	off = strHash(v);
 	strhash = off;
 	off &= GDK_STRHASHMASK;
 	bucket = ((stridx_t *) h->base) + off;
@@ -800,8 +794,8 @@ concat_strings(BAT **bnp, ValPtr pt, BAT *b, oid seqb,
 {
 	oid gid;
 	BUN i, p, nils = 0;
-	size_t *lengths = NULL, *lastseplength = NULL, separator_length = 0, next_length;
-	str *astrings = NULL, s, sl;
+	size_t *restrict lengths = NULL, *restrict lastseplength = NULL, separator_length = 0, next_length;
+	str *restrict astrings = NULL, s, sl;
 	BATiter bi, bis = (BATiter) {0};
 	BAT *bn = NULL;
 	gdk_return rres = GDK_SUCCEED;
