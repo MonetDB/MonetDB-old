@@ -11,69 +11,56 @@
 #include "mal_interpreter.h"
 
 
-
-static int 
-OPThitchhiker(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-    (void) cntxt;
-	(void) pci;
-	(void) stk;
-    (void) mb;
-    return 0;
-}
-
-
 str
 OPThitchhikerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
     (void) cntxt;
+    (void) stk;
+    (void) pci;
 
-    str modnme;
-	str fcnnme;
     str msg;
-    Symbol s = NULL;
-    int actions = 0;
     char buf[256];
-    lng clk= GDKusec();
+    int i, limit, slimit, actions = 0;
+    // InstrPtr p;
+    lng clk = GDKusec();
 
-    if(pci)
-        removeInstruction(mb, pci);
+    // if (newMalBlkStmt(mb, mb->ssize) < 0)
+    //     throw(MAL, "optimizer.hitchhiker", SQLSTATE(HY013) MAL_MALLOC_FAIL);
 
-    if(pci && pci->argc > 1){
-        if( getArgType(mb, pci, 1) != TYPE_str ||
-            getArgType(mb, pci, 2) != TYPE_str ||
-            !isVarConstant(mb, getArg(pci, 1)) ||
-            !isVarConstant(mb, getArg(pci, 2))
-        ) {
-            throw(MAL, "optimizer.hitchhiker", ILLARG_CONSTANTS);
+    limit = mb->stop;
+    slimit = mb->ssize;
+    // old = mb->stmt;
+    
+    // sql in bindRef and tidRef
+    for(i = 0; i < limit; i++)
+    {
+        if(getModuleId(mb->stmt[i]) == sqlRef && (getFunctionId(mb->stmt[i]) == bindRef || getFunctionId(mb->stmt[i]) == tidRef))
+        {
+            // if((q = copyInstruction(p)) == NULL) {
+            //     for (; i < slimit; i++)
+            //         if (old[i])
+            //             freeInstruction(old[i]);
+            //     GDKfree(old);
+
+            //     return createException(MAL, "optimizer.hitchhiker", SQLSTATE(HY013) MAL_MALLOC_FAIL);
+            // }
+
+            setModuleId(mb->stmt[i], hitchhikerRef);
+            actions++;
         }
-        if(stk != 0) {
-            modnme = *getArgReference_str(stk, pci, 1);
-            fcnnme = *getArgReference_str(stk, pci, 2);
-        } else {
-            modnme = getArgDefault(mb, pci, 1);
-            fcnnme = getArgDefault(mb, pci, 2);
-        }
-        s = findSymbol(cntxt->usermodule, putName(modnme), putName(fcnnme));
 
-        if(s == NULL) {
-            char buf[1024];
-            snprintf(buf, 1024, "%s.%s", modnme, fcnnme);
-            throw(MAL, "optimizer.hitchhiker", RUNTIME_OBJECT_UNDEFINED ":%s", buf);
-        }
-
-        mb = s->def;
-        stk = 0;
+        // if(p)
+        //     pushInstruction(mb, p);
     }
 
-    if(mb->errors) {
-        // when we have errors, we still want to see them
-        addtoMalBlkHistory(mb);
-        return MAL_SUCCEED;
-    }
+    // free old
+    // for (; i < slimit; i++)
+    //     if (old[i])
+    //         freeInstruction(old[i]);
+    // GDKfree(old);
 
-    // number of successfull changes to the code
-    actions = OPThitchhiker(cntxt, mb, stk, pci);
+    if(mb->errors)
+        throw(MAL, "optimizer.hitchhiker", SQLSTATE(42000) PROGRAM_GENERAL);
 
     // defense line against incorrect plans
     msg = chkTypes(cntxt->usermodule, mb, FALSE);

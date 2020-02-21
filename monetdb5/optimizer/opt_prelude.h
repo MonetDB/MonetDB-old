@@ -141,6 +141,7 @@ mal_export  str groupdoneRef;
 mal_export  str groupRef;
 mal_export  str hashRef;
 mal_export  str hgeRef;
+mal_export  str hitchhikerRef;
 mal_export  str identityRef;
 mal_export  str ifthenelseRef;
 mal_export  str ilikeRef;

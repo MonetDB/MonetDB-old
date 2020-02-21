@@ -9,8 +9,16 @@
 #include "monetdb_config.h"
 #include "sql_hitchhiker.h"
 
+
 str
-sql_hitchhiker(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+hh_tid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    return SQLtid(cntxt, mb, stk, pci);
+}
+
+
+str
+hh_bind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
     return mvc_bind_wrap(cntxt, mb, stk, pci);
 }

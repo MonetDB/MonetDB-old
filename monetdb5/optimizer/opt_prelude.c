@@ -144,6 +144,7 @@ str groupdoneRef;
 str groupRef;
 str hashRef;
 str hgeRef;
+str hitchhikerRef;
 str identityRef;
 str ifthenelseRef;
 str ilikeRef;
@@ -444,6 +445,7 @@ void optimizerInit(void)
 	groupRef = putName("group");
 	hashRef = putName("hash");
 	hgeRef = putName("hge");
+	hitchhikerRef = putName("hh");
 	identityRef = putName("identity");
 	ifthenelseRef = putName("ifthenelse");
 	ilikeRef = putName("ilike");
