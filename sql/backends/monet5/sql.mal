@@ -6,6 +6,7 @@
 
 module batsql;
 module sql;
+module hh;
 
 pattern shutdown(delay:bte, force:bit):str
 address SQLshutdown_wrap;
@@ -204,6 +205,34 @@ address mvc_bind_idxbat_wrap;
 pattern bind_idxbat(mvc:int, schema:str, table:str, index:str, access:int, part_nr:int, nr_parts:int)(uid:bat[:oid],uval:bat[:any_1])
 address mvc_bind_idxbat_wrap
 comment "Bind the 'schema.table.index' BAT with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern hh.bind(mvc:int, schema:str, table:str, column:str, access:int ):bat[:any_1]
+address sql_hitchhiker
+comment "Bind the 'schema.table.column' BAT with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern hh.bind(mvc:int, schema:str, table:str, column:str, access:int )(uid:bat[:oid],uval:bat[:any_1])
+address sql_hitchhiker
+comment "Bind the 'schema.table.column' BAT with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern hh.bind(mvc:int, schema:str, table:str, column:str, access:int, part_nr:int, nr_parts:int ):bat[:any_1]
+address sql_hitchhiker
+comment "Bind the 'schema.table.column' BAT partition with access kind:
+	0 - base table
+	1 - inserts
+	2 - updates";
+
+pattern hh.bind(mvc:int, schema:str, table:str, column:str, access:int, part_nr:int, nr_parts:int )(uid:bat[:oid],uval:bat[:any_1])
+address sql_hitchhiker
+comment "Bind the 'schema.table.column' BAT with access kind:
 	0 - base table
 	1 - inserts
 	2 - updates";
