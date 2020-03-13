@@ -11,14 +11,12 @@
 
 
 str
-hh_tid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+hh_move(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-    return SQLtid(cntxt, mb, stk, pci);
-}
-
-
-str
-hh_bind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-    return mvc_bind_wrap(cntxt, mb, stk, pci);
+    (void) cntxt;
+    (void) mb;
+    (void) stk;
+    (void) pci;
+    
+    return MAL_SUCCEED;
 }

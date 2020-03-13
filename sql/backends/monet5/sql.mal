@@ -209,28 +209,6 @@ comment "Bind the 'schema.table.index' BAT with access kind:
 	1 - inserts
 	2 - updates";
 
-
-
-
-pattern hh.bind(mvc:int, schema:str, table:str, column:str, access:int):bat[:any_1]
-address hh_bind
-comment "Hitchhiker hh.bind";
-
-pattern hh.bind(mvc:int, schema:str, table:str, column:str, access:int)(uid:bat[:oid],uval:bat[:any_1])
-address hh_bind
-comment "Hitchhiker hh.bind";
-
-pattern hh.bind(mvc:int, schema:str, table:str, column:str, access:int, part_nr:int, nr_parts:int):bat[:any_1]
-address hh_bind
-comment "Hitchhiker hh.bind";
-
-pattern hh.bind(mvc:int, schema:str, table:str, column:str, access:int, part_nr:int, nr_parts:int)(uid:bat[:oid],uval:bat[:any_1])
-address hh_bind
-comment "Hitchhiker hh.bind";
-
-
-
-
 pattern emptybind(mvc:int, schema:str, table:str, column:str, access:int ):bat[:any_1]
 address mvc_bind_wrap;
 pattern bind(mvc:int, schema:str, table:str, column:str, access:int ):bat[:any_1]
@@ -316,24 +294,20 @@ unsafe pattern clear_table(sname:str, tname:str) :lng
 address mvc_clear_table_wrap
 comment "Clear the table sname.tname.";
 
+
+
+pattern hh.move() :void
+address hh_move
+comment "Hitchhiker migrate to another database";
+
+
+
 pattern tid( mvc:int, sname:str, tname:str):bat[:oid] 
 address SQLtid
 comment "Return a column with the valid tuple identifiers associated with the table sname.tname.";
 pattern tid( mvc:int, sname:str, tname:str, part_nr:int, nr_parts:int ):bat[:oid] 
 address SQLtid
 comment "Return the tables tid column.";
-
-
-
-
-pattern hh.tid(mvc:int, sname:str, tname:str):bat[:oid] 
-address hh_tid
-comment "Hitchhiker hh.tid";
-pattern hh.tid(mvc:int, sname:str, tname:str, part_nr:int, nr_parts:int):bat[:oid] 
-address hh_tid
-comment "Hitchhiker hh.tid";
-
-
 
 unsafe pattern delete(mvc:int, sname:str, tname:str, b:any):int
 address mvc_delete_wrap

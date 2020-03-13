@@ -187,6 +187,7 @@ str mirrorRef;
 str mitosisRef;
 str mkeyRef;
 str mmathRef;
+str moveRef;
 str mtimeRef;
 str mulRef;
 str multicolumnRef;
@@ -488,6 +489,7 @@ void optimizerInit(void)
 	mitosisRef = putName("mitosis");
 	mkeyRef = putName("mkey");
 	mmathRef = putName("mmath");
+	moveRef = putName("move");
 	mtimeRef = putName("mtime");
 	mulRef = putName("*");
 	multicolumnRef = putName("multicolumn");

@@ -21,7 +21,6 @@
 #define sql5_export extern
 #endif
 
-sql5_export str hh_tid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-sql5_export str hh_bind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str hh_move(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 #endif /* _SQL_HITCHHIKER_ */

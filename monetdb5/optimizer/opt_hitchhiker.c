@@ -20,47 +20,57 @@ OPThitchhikerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 
     str msg;
     char buf[256];
-    int i, limit, slimit, actions = 0;
-    // InstrPtr p;
+    int i, limit, slimit, updates = 0, actions = 0;
+    InstrPtr p, q, *old;
     lng clk = GDKusec();
 
-    // if (newMalBlkStmt(mb, mb->ssize) < 0)
-    //     throw(MAL, "optimizer.hitchhiker", SQLSTATE(HY013) MAL_MALLOC_FAIL);
+    // check if optimizer has been applied
+    if(optimizerIsApplied(mb, "hh"))
+        return MAL_SUCCEED;
 
     limit = mb->stop;
     slimit = mb->ssize;
-    // old = mb->stmt;
-    
-    // sql in bindRef and tidRef
+    old = mb->stmt;
+
+    // count the number statements that need to be inserted
+    // in practice, for every sql.tid we need a hh.move
     for(i = 0; i < limit; i++)
+        if(getModuleId(mb->stmt[i]) == sqlRef && getFunctionId(mb->stmt[i]) == tidRef)
+            updates++;
+
+    if(updates)
     {
-        if(getModuleId(mb->stmt[i]) == sqlRef && (getFunctionId(mb->stmt[i]) == bindRef || getFunctionId(mb->stmt[i]) == tidRef))
+        // malloc new MAL block statement
+        if (newMalBlkStmt(mb, mb->ssize + updates) < 0)
+            throw(MAL, "hitchhiker.optimizer", SQLSTATE(HY013) MAL_MALLOC_FAIL);
+
+        // locate sql.tid and inject hh.move calls before that
+        for(i = 0; i < limit; i++)
         {
-            // if((q = copyInstruction(p)) == NULL) {
-            //     for (; i < slimit; i++)
-            //         if (old[i])
-            //             freeInstruction(old[i]);
-            //     GDKfree(old);
+            p = old[i];
 
-            //     return createException(MAL, "optimizer.hitchhiker", SQLSTATE(HY013) MAL_MALLOC_FAIL);
-            // }
+            // if instruction IS sql.tid first inject the new instruction first
+            if(getModuleId(p) == sqlRef && getFunctionId(p) == tidRef)
+            {
+                // create a new instruction and push it
+                q = newInstruction(mb, hitchhikerRef, moveRef);
+                getArg(q, 0) = newTmpVariable(mb, TYPE_any);
+                // setDestVar(q, newTmpVariable(mb, Typ));
+                pushInstruction(mb, q);
+                actions++;
+            }
 
-            setModuleId(mb->stmt[i], hitchhikerRef);
-            actions++;
+            // push the original instructions
+            if(p)
+                pushInstruction(mb, p);
         }
 
-        // if(p)
-        //     pushInstruction(mb, p);
+        // free old
+        for (; i < slimit; i++)
+            if (old[i])
+                freeInstruction(old[i]);
+        GDKfree(old);
     }
-
-    // free old
-    // for (; i < slimit; i++)
-    //     if (old[i])
-    //         freeInstruction(old[i]);
-    // GDKfree(old);
-
-    if(mb->errors)
-        throw(MAL, "optimizer.hitchhiker", SQLSTATE(42000) PROGRAM_GENERAL);
 
     // defense line against incorrect plans
     msg = chkTypes(cntxt->usermodule, mb, FALSE);
@@ -69,7 +79,7 @@ OPThitchhikerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 
     clk = GDKusec() - clk;
     snprintf(buf, 256, "%-20s actions=%2d time=" LLFMT " usec", "optimizer.hitchhiker", actions, clk);
-    newComment(mb,buf);
+    newComment(mb, buf);
     addtoMalBlkHistory(mb);
 
     return msg;
