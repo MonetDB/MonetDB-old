@@ -40,27 +40,26 @@ def monet_cleanup():
         p.communicate()
 
 
-# Each of the 3 servers holds a table s1 with the same structure (replicated schema) 
+# Each of the 3 servers holds a table s1 with the same structure (replicated schema)
 # A query select * from s1 comes to one of the servers. The hitchhiker has to find all
-# the databases that s1 exists and put the necessary move statements. In this case it 
+# the databases that s1 exists and put the necessary move statements. In this case it
 # needs to put 3 different statements (since there are 3 mservers holding the same table)
 # P.S: In this query we are not using merge tables!
 def monet_execute():
     server = mapi.Connection()
     for i in range(0, len(all_servers)):
         database = all_db_paths[i].split("/")[2]
-        server.connect(hostname=hostname, port=all_servers[i], 
+        server.connect(hostname=hostname, port=all_servers[i],
                        username=username, password=password,
                        database=database, language="sql")
         if monetcase == "create_tables":
             server.cmd(f"sCREATE TABLE s1(i INT);")
             server.cmd(f"sINSERT INTO s1 VALUES ({i + 23}), ({i + 42});")
         elif monetcase == "execute":
-            # we need to execute the query only on 1 mserver5 
+            # we need to execute the query only on 1 mserver5
             # the hitchhiker will do the rest of the work
             server.cmd("sexplain SELECT * FROM s1;")
             break
-        
 
 
 def main():
