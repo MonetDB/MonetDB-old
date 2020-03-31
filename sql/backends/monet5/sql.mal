@@ -294,13 +294,9 @@ unsafe pattern clear_table(sname:str, tname:str) :lng
 address mvc_clear_table_wrap
 comment "Clear the table sname.tname.";
 
-
-
-pattern hh.move() :void
+pattern hh.move(home_node:str, next_node_idx:int, landscape:str...) :void
 address hh_move
 comment "Hitchhiker migrate to another database";
-
-
 
 pattern tid( mvc:int, sname:str, tname:str):bat[:oid] 
 address SQLtid

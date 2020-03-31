@@ -21,8 +21,20 @@ OPThitchhikerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
     str msg;
     char buf[256];
     int i, limit, slimit, updates = 0, actions = 0;
+    size_t j;
     InstrPtr p, q, *old;
     lng clk = GDKusec();
+
+    // Initialize the landscape - this is hardcoded it needs to be removed
+    // It also assumes that the tables of the query have a replicated schema
+    // and all tables exist on all nodes (see the Python script for more details)
+    str home_node = "localhost:50000";
+    int next_node_idx = 2;
+    const char* landscape[3] = {
+        "localhost:50000",
+        "localhost:50001",
+        "localhost:50002",
+    };
 
     // check if optimizer has been applied
     if(optimizerIsApplied(mb, "hh"))
@@ -52,12 +64,31 @@ OPThitchhikerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
             // if instruction IS sql.tid first inject the new instruction first
             if(getModuleId(p) == sqlRef && getFunctionId(p) == tidRef)
             {
-                // create a new instruction and push it
-                q = newInstruction(mb, hitchhikerRef, moveRef);
-                getArg(q, 0) = newTmpVariable(mb, TYPE_any);
-                // setDestVar(q, newTmpVariable(mb, Typ));
-                pushInstruction(mb, q);
-                actions++;
+                // SOS: if table s1 is included - this needs to be removed 
+                if(strcmp(getVarConstant(mb, getArg(p, 3)).val.sval, "s1") == 0) {
+
+                    // do it if table is s1 - for now
+                    // create a new instruction and push it
+                    q = newInstruction(mb, hitchhikerRef, moveRef);
+
+                    // fill home node
+                    q = pushStr(mb, q, home_node);
+                    
+                    // next_arg
+                    q = pushInt(mb, q, next_node_idx);
+
+                    // landscape-fmt
+                    q = pushStr(mb, q, "sss");
+
+                    // fill landscape info
+                    for(j = 0; j < 3; j++)
+                        q = pushStr(mb, q, landscape[j]);
+
+                    // getArg(q, 0) = newTmpVariable(mb, TYPE_any);    
+                    setDestVar(q, newTmpVariable(mb, TYPE_any));
+                    pushInstruction(mb, q);
+                    actions++;
+                }
             }
 
             // push the original instructions
@@ -78,7 +109,7 @@ OPThitchhikerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
     if(msg == MAL_SUCCEED) msg = chkDeclarations(mb);
 
     clk = GDKusec() - clk;
-    snprintf(buf, 256, "%-20s actions=%2d time=" LLFMT " usec", "optimizer.hitchhiker", actions, clk);
+    snprintf(buf, 256, "%-20s actions=%2d time=" LLFMT " usec", "hitchhiker", actions, clk);
     newComment(mb, buf);
     addtoMalBlkHistory(mb);
 
