@@ -48,6 +48,8 @@ io_stdin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	bstream **ret= (bstream**) getArgReference(stk,pci,0);
 	(void) mb;
+	if( cntxt->fdin == NULL)
+		throw(MAL, "io.print", SQLSTATE(HY002) "Input channel missing");
 	*ret = cntxt->fdin;
 	return MAL_SUCCEED;
 }
@@ -57,6 +59,8 @@ io_stdout(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	stream **ret= (stream**) getArgReference(stk,pci,0);
 	(void) mb;
+	if( cntxt->fdout == NULL)
+		throw(MAL, "io.print", SQLSTATE(HY002) "Output channel missing");
 	*ret = cntxt->fdout;
 	return MAL_SUCCEED;
 }
@@ -69,6 +73,8 @@ IOprintBoth(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int indx, s
 	stream *fp = cntxt->fdout;
 
 	(void) mb;
+	if( cntxt->fdout == NULL)
+		throw(MAL, "io.print", SQLSTATE(HY002) "Output channel missing");
 
 	if (tpe == TYPE_any)
 		tpe = stk->stk[pci->argv[indx]].vtype;
@@ -686,11 +692,11 @@ IOimport(void *ret, bat *bid, str *fnme)
 			throw(MAL, "io.imports", OPERATION_FAILED "File too large");
 		}
 #endif
-		base = cur = (char *) MT_mmap(*fnme, MMAP_SEQUENTIAL, (size_t) st.st_size);
+		base = cur = (char *) GDKmmap(*fnme, MMAP_SEQUENTIAL, (size_t) st.st_size);
 		if (cur == NULL) {
 			BBPunfix(b->batCacheid);
 			GDKfree(buf);
-			throw(MAL, "io.mport", OPERATION_FAILED "MT_mmap()");
+			throw(MAL, "io.mport", OPERATION_FAILED "GDKmmap()");
 		}
 		end = cur + st.st_size;
 
@@ -762,7 +768,7 @@ IOimport(void *ret, bat *bid, str *fnme)
 			BBPunfix(b->batCacheid);
 			snprintf(msg,sizeof(msg),"error in input %s",buf);
 			GDKfree(buf);
-			MT_munmap(base, end - base);
+			GDKmunmap(base, end - base);
 			GDKfree(t);
 			throw(MAL, "io.import", "%s", msg);
 		}
@@ -771,7 +777,7 @@ IOimport(void *ret, bat *bid, str *fnme)
 			BBPunfix(b->batCacheid);
 			snprintf(msg,sizeof(msg),"error in input %s",buf);
 			GDKfree(buf);
-			MT_munmap(base, end - base);
+			GDKmunmap(base, end - base);
 			GDKfree(t);
 			throw(MAL, "io.import", "%s", msg);
 		}
@@ -780,7 +786,7 @@ IOimport(void *ret, bat *bid, str *fnme)
 			BBPunfix(b->batCacheid);
 			GDKfree(buf);
 			GDKfree(t);
-			MT_munmap(base, end - base);
+			GDKmunmap(base, end - base);
 			throw(MAL, "io.import", "insert failed");
 		}
 
@@ -791,7 +797,7 @@ IOimport(void *ret, bat *bid, str *fnme)
 #ifndef WIN32
 #define MAXBUF 40*MT_pagesize()
 		if ((unsigned) (cur - base) > MAXBUF) {
-			MT_munmap(base, MAXBUF);
+			GDKmunmap(base, MAXBUF);
 			base += MAXBUF;
 		}
 #endif
@@ -801,7 +807,7 @@ IOimport(void *ret, bat *bid, str *fnme)
 	if (t)
 		GDKfree(t);
 	GDKfree(buf);
-	MT_munmap(base, end - base);
+	GDKmunmap(base, end - base);
 	BBPunfix(b->batCacheid);
 	return MAL_SUCCEED;
 }

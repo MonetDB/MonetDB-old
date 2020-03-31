@@ -19,7 +19,6 @@
 #define PERSISTENTIDX 1
 
 #include "gdk_system_private.h"
-#include "gdk_tracer.h"
 
 enum heaptype {
 	offheap,
@@ -31,6 +30,7 @@ enum heaptype {
 
 #ifdef GDKLIBRARY_OLDDATE
 int cvtdate(int n)
+	__attribute__((__const__))
 	__attribute__((__visibility__("hidden")));
 #endif
 
@@ -154,9 +154,6 @@ gdk_return GDKmove(int farmid, const char *dir1, const char *nme1, const char *e
 	__attribute__((__visibility__("hidden")));
 void *GDKmremap(const char *path, int mode, void *old_address, size_t old_size, size_t *new_size)
 	__attribute__((__visibility__("hidden")));
-gdk_return GDKmunmap(void *addr, size_t len)
-	__attribute__((__warn_unused_result__))
-	__attribute__((__visibility__("hidden")));
 gdk_return GDKremovedir(int farmid, const char *nme)
 	__attribute__((__warn_unused_result__))
 	__attribute__((__visibility__("hidden")));
@@ -183,6 +180,7 @@ bool HASHgonebad(BAT *b, const void *v)
 void HASHins(BAT *b, BUN i, const void *v)
 	__attribute__((__visibility__("hidden")));
 BUN HASHmask(BUN cnt)
+	__attribute__((__const__))
 	__attribute__((__visibility__("hidden")));
 gdk_return HASHnew(Hash *h, int tpe, BUN size, BUN mask, BUN count, bool bcktonly)
 	__attribute__((__visibility__("hidden")));
@@ -219,9 +217,13 @@ void IMPSprint(BAT *b)		/* never called: for debugging only */
 #endif
 void MT_init_posix(void)
 	__attribute__((__visibility__("hidden")));
+void *MT_mmap(const char *path, int mode, size_t len)
+	__attribute__((__visibility__("hidden")));
 void *MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t *new_size)
 	__attribute__((__visibility__("hidden")));
 int MT_msync(void *p, size_t len)
+	__attribute__((__visibility__("hidden")));
+int MT_munmap(void *p, size_t len)
 	__attribute__((__visibility__("hidden")));
 void OIDXfree(BAT *b)
 	__attribute__((__visibility__("hidden")));
@@ -378,15 +380,6 @@ extern MT_Lock GDKtmLock;
 #if !defined(NDEBUG) && !defined(STATIC_CODE_ANALYSIS)
 /* see comment in gdk.h */
 #ifdef __GNUC__
-#define GDKmunmap(p, l)						\
-	({	void *_ptr = (p);				\
-		size_t _len = (l);				\
-		gdk_return _res = GDKmunmap(_ptr, _len);	\
-		TRC_DEBUG(ALLOC,				\
-				"GDKmunmap(%p,%zu) -> %u\n",	\
-				_ptr, _len, _res);		\
-		_res;						\
-	})
 #define GDKmremap(p, m, oa, os, ns)					\
 	({								\
 		const char *_path = (p);				\
@@ -396,30 +389,21 @@ extern MT_Lock GDKtmLock;
 		size_t *_ns = (ns);					\
 		size_t _ons = *_ns;					\
 		void *_res = GDKmremap(_path, _mode, _oa, _os, _ns);	\
-			TRC_DEBUG(ALLOC,				\
-				"GDKmremap(%s,0x%x,%p,%zu,%zu > %zu) -> %p\n", \
-				_path ? _path : "NULL", (unsigned) _mode, \
-				_oa, _os, _ons, *_ns, _res);		\
+		TRC_DEBUG(ALLOC,					\
+			  "GDKmremap(%s,0x%x,%p,%zu,%zu > %zu) -> %p\n", \
+			  _path ? _path : "NULL", (unsigned) _mode,	\
+			  _oa, _os, _ons, *_ns, _res);			\
 		_res;							\
 	 })
 #else
-static inline gdk_return
-GDKmunmap_debug(void *ptr, size_t len)
-{
-	gdk_return res = GDKmunmap(ptr, len);
-	TRC_DEBUG(ALLOC, "GDKmunmap(%p,%zu) -> %d\n",
-			   	  ptr, len, (int) res);
-	return res;
-}
-#define GDKmunmap(p, l)		GDKmunmap_debug((p), (l))
 static inline void *
 GDKmremap_debug(const char *path, int mode, void *old_address, size_t old_size, size_t *new_size)
 {
 	size_t orig_new_size = *new_size;
 	void *res = GDKmremap(path, mode, old_address, old_size, new_size);
-		TRC_DEBUG(ALLOC, "GDKmremap(%s,0x%x,%p,%zu,%zu > %zu) -> %p\n",
-					  path ? path : "NULL", mode,
-					  old_address, old_size, orig_new_size, *new_size, res);
+	TRC_DEBUG(ALLOC, "GDKmremap(%s,0x%x,%p,%zu,%zu > %zu) -> %p\n",
+		  path ? path : "NULL", (unsigned) mode,
+		  old_address, old_size, orig_new_size, *new_size, res);
 	return res;
 }
 #define GDKmremap(p, m, oa, os, ns)	GDKmremap_debug(p, m, oa, os, ns)

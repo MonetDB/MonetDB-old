@@ -297,7 +297,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end,
 								const char *t = (const char *)BUNtvar(li, p);
 								ptrdiff_t offset = t - b->tvheap->base;
 								if (!pyptrs[offset]) {
-									if (strcmp(t, str_nil) == 0) {
+									if (strNil(t)) {
 										// str_nil isn't a valid UTF-8 character
 										// (it's 0x80), so we can't decode it as
 										// UTF-8 (it will throw an error)
@@ -325,7 +325,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end,
 							BATloop(b, p, q)
 							{
 								char *t = (char *)BUNtvar(li, p);
-								if (strcmp(t, str_nil) == 0) {
+								if (strNil(t)) {
 									// str_nil isn't a valid UTF-8 character
 									// (it's 0x80), so we can't decode it as
 									// UTF-8 (it will throw an error)
@@ -1192,7 +1192,7 @@ str ConvertToSQLType(Client cntxt, BAT *b, sql_subtype *sql_subtype,
 			return createException(
 				MAL, "pyapi3.eval",
 				"Convert To SQL Type: Unrecognized SQL type %s (%d).",
-				sql_subtype->type->sqlname, sql_subtype->type->eclass);
+				sql_subtype->type->sqlname, (int) sql_subtype->type->eclass);
 	}
 	if (res == MAL_SUCCEED) {
 		*ret_bat = BATdescriptor(result_bat);

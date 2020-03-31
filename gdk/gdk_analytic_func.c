@@ -133,38 +133,35 @@ GDKanalyticaldiff(BAT *r, BAT *b, BAT *p, int tpe)
 	return GDK_SUCCEED;
 }
 
-#define NTILE_CALC(TPE, NEXT_VALUE, NEXT_CAST)	\
+#define NTILE_CALC(TPE, NEXT_VALUE, LNG_HGE, UPCAST)	\
 	do {					\
-		TPE buckets, i, j; \
-		for (; rb < rp; rb++) { \
+		for (TPE i = 0; rb < rp; i++, rb++) {	\
 			TPE val = NEXT_VALUE; \
 			if (is_##TPE##_nil(val)) {	\
 				has_nils = true;	\
 				*rb = TPE##_nil;	\
 			} else { \
-				BUN bval = (BUN) val; \
-				if (bval >= ncnt) {	\
-					*rb = (TPE) ((rb - prb1) + 1);	\
+				UPCAST nval = (UPCAST) LNG_HGE; \
+				if (nval >= ncnt) { \
+					*rb = i + 1;  \
 				} else { \
-					buckets = (TPE) (ncnt / bval);	\
-					i = (ncnt % bval == 0) ? 1 : 0; \
-					j = 1; \
-					for (prb2 = prb1; prb2 < rb; i++, prb2++) {	\
-						if (i == buckets) {	\
-							j++;	\
-							i = 0;	\
-						}	\
-					} \
-					*rb = j;	\
+					UPCAST bsize = ncnt / nval; \
+					UPCAST top = ncnt - nval * bsize; \
+					UPCAST small = top * (bsize + 1); \
+					if ((UPCAST) i < small) \
+						*rb = (TPE)(1 + i / (bsize + 1)); \
+					else \
+						*rb = (TPE)(1 + top + (i - small) / bsize); \
 				} \
 			} \
 		} \
 	} while (0)
 
-#define ANALYTICAL_NTILE_IMP(TPE, NEXT_VALUE, NEXT_CAST)	\
+#define ANALYTICAL_NTILE_IMP(TPE, NEXT_VALUE, LNG_HGE, UPCAST)	\
 	do {							\
-		TPE *rp, *rb, *prb1, *prb2;	\
-		prb1 = rb = rp = (TPE*)Tloc(r, 0);		\
+		TPE *rp, *rb;	\
+		UPCAST ncnt; \
+		rb = rp = (TPE*)Tloc(r, 0);		\
 		if (p) {					\
 			pnp = np = (bit*)Tloc(p, 0);	\
 			end = np + cnt;				\
@@ -172,37 +169,37 @@ GDKanalyticaldiff(BAT *r, BAT *b, BAT *p, int tpe)
 				if (*np) {			\
 					ncnt = np - pnp;	\
 					rp += ncnt;		\
-					NTILE_CALC(TPE, NEXT_VALUE, NEXT_CAST);\
+					NTILE_CALC(TPE, NEXT_VALUE, LNG_HGE, UPCAST);\
 					pnp = np;	\
-					prb1 = rp;	\
 				}				\
 			}					\
 			ncnt = np - pnp;			\
 			rp += ncnt;				\
-			NTILE_CALC(TPE, NEXT_VALUE, NEXT_CAST);	\
+			NTILE_CALC(TPE, NEXT_VALUE, LNG_HGE, UPCAST);	\
 		} else {					\
+			ncnt = (UPCAST) cnt; \
 			rp += cnt;				\
-			NTILE_CALC(TPE, NEXT_VALUE, NEXT_CAST);\
+			NTILE_CALC(TPE, NEXT_VALUE, LNG_HGE, UPCAST);	\
 		}						\
 	} while (0)
 
-#define ANALYTICAL_NTILE_SINGLE_IMP(TPE, NEXT_CAST) \
+#define ANALYTICAL_NTILE_SINGLE_IMP(TPE, LNG_HGE, UPCAST) \
 	do {	\
 		TPE ntl = *(TPE*) ntile; \
-		ANALYTICAL_NTILE_IMP(TPE, ntl, NEXT_CAST); \
+		ANALYTICAL_NTILE_IMP(TPE, ntl, LNG_HGE, UPCAST); \
 	} while (0)
 
-#define ANALYTICAL_NTILE_MULTI_IMP(TPE, NEXT_CAST) \
+#define ANALYTICAL_NTILE_MULTI_IMP(TPE, LNG_HGE, UPCAST) \
 	do {	\
 		BUN k = 0; \
 		TPE *restrict nn = (TPE*)Tloc(n, 0);	\
-		ANALYTICAL_NTILE_IMP(TPE, nn[k++], NEXT_CAST); \
+		ANALYTICAL_NTILE_IMP(TPE, nn[k++], LNG_HGE, UPCAST); \
 	} while (0)
 
 gdk_return
 GDKanalyticalntile(BAT *r, BAT *b, BAT *p, BAT *n, int tpe, const void *restrict ntile)
 {
-	BUN cnt = BATcount(b), ncnt = cnt;
+	BUN cnt = BATcount(b);
 	bit *np, *pnp, *end;
 	bool has_nils = false;
 
@@ -211,21 +208,28 @@ GDKanalyticalntile(BAT *r, BAT *b, BAT *p, BAT *n, int tpe, const void *restrict
 	if (ntile) {
 		switch (tpe) {
 		case TYPE_bte:
-			ANALYTICAL_NTILE_SINGLE_IMP(bte, val);
+			ANALYTICAL_NTILE_SINGLE_IMP(bte, val, BUN);
 			break;
 		case TYPE_sht:
-			ANALYTICAL_NTILE_SINGLE_IMP(sht, val);
+			ANALYTICAL_NTILE_SINGLE_IMP(sht, val, BUN);
 			break;
 		case TYPE_int:
-			ANALYTICAL_NTILE_SINGLE_IMP(int, val);
+			ANALYTICAL_NTILE_SINGLE_IMP(int, val, BUN);
 			break;
 		case TYPE_lng:
-			ANALYTICAL_NTILE_SINGLE_IMP(lng, val);
+#if SIZEOF_OID == SIZEOF_INT
+			ANALYTICAL_NTILE_SINGLE_IMP(lng, val, lng);
+#else
+			ANALYTICAL_NTILE_SINGLE_IMP(lng, val, BUN);
+#endif
 			break;
 #ifdef HAVE_HGE
 		case TYPE_hge:
-			ANALYTICAL_NTILE_SINGLE_IMP(hge, ((val > (hge) GDK_lng_max) ? GDK_lng_max : (lng) val));
-		break;
+#if SIZEOF_OID == SIZEOF_INT
+			ANALYTICAL_NTILE_SINGLE_IMP(hge, (val > (hge) GDK_int_max) ? GDK_int_max : (lng) val, lng);
+#else
+			ANALYTICAL_NTILE_SINGLE_IMP(hge, (val > (hge) GDK_lng_max) ? GDK_lng_max : (lng) val, BUN);
+#endif
 #endif
 		default:
 			goto nosupport;
@@ -233,20 +237,28 @@ GDKanalyticalntile(BAT *r, BAT *b, BAT *p, BAT *n, int tpe, const void *restrict
 	} else {
 		switch (tpe) {
 		case TYPE_bte:
-			ANALYTICAL_NTILE_MULTI_IMP(bte, val);
+			ANALYTICAL_NTILE_MULTI_IMP(bte, val, BUN);
 			break;
 		case TYPE_sht:
-			ANALYTICAL_NTILE_MULTI_IMP(sht, val);
+			ANALYTICAL_NTILE_MULTI_IMP(sht, val, BUN);
 			break;
 		case TYPE_int:
-			ANALYTICAL_NTILE_MULTI_IMP(int, val);
+			ANALYTICAL_NTILE_MULTI_IMP(int, val, BUN);
 			break;
 		case TYPE_lng:
-			ANALYTICAL_NTILE_MULTI_IMP(lng, val);
+#if SIZEOF_OID == SIZEOF_INT
+			ANALYTICAL_NTILE_MULTI_IMP(lng, val, lng);
+#else
+			ANALYTICAL_NTILE_MULTI_IMP(lng, val, BUN);
+#endif
 			break;
 #ifdef HAVE_HGE
 		case TYPE_hge:
-			ANALYTICAL_NTILE_MULTI_IMP(hge, ((val > (hge) GDK_lng_max) ? GDK_lng_max : (lng) val));
+#if SIZEOF_OID == SIZEOF_INT
+			ANALYTICAL_NTILE_MULTI_IMP(hge, (val > (hge) GDK_int_max) ? GDK_int_max : (lng) val, lng);
+#else
+			ANALYTICAL_NTILE_MULTI_IMP(hge, (val > (hge) GDK_lng_max) ? GDK_lng_max : (lng) val, BUN);
+#endif
 		break;
 #endif
 		default:
@@ -323,7 +335,7 @@ GDKanalyticalfirst(BAT *r, BAT *b, BAT *s, BAT *e, int tpe)
 		for (; i < cnt; i++) {
 			curval = (end[i] > start[i]) ? BUNtail(bpi, (BUN) start[i]) : (void *) nil;
 			if (BUNappend(r, curval, false) != GDK_SUCCEED)
-				goto allocation_error;
+				return GDK_FAIL;
 			has_nils |= atomcmp(curval, nil) == 0;
 		}
 	}
@@ -332,9 +344,6 @@ GDKanalyticalfirst(BAT *r, BAT *b, BAT *s, BAT *e, int tpe)
 	r->tnonil = !has_nils;
 	r->tnil = has_nils;
 	return GDK_SUCCEED;
-      allocation_error:
-	GDKerror("GDKanalyticalfirst: malloc failure\n");
-	return GDK_FAIL;
 }
 
 #define ANALYTICAL_LAST_IMP(TPE)					\
@@ -398,7 +407,7 @@ GDKanalyticallast(BAT *r, BAT *b, BAT *s, BAT *e, int tpe)
 		for (; i < cnt; i++) {
 			curval = (end[i] > start[i]) ? BUNtail(bpi, (BUN) (end[i] - 1)) : (void *) nil;
 			if (BUNappend(r, curval, false) != GDK_SUCCEED)
-				goto allocation_error;
+				return GDK_FAIL;
 			has_nils |= atomcmp(curval, nil) == 0;
 		}
 	}
@@ -407,9 +416,6 @@ GDKanalyticallast(BAT *r, BAT *b, BAT *s, BAT *e, int tpe)
 	r->tnonil = !has_nils;
 	r->tnil = has_nils;
 	return GDK_SUCCEED;
-      allocation_error:
-	GDKerror("GDKanalyticallast: malloc failure\n");
-	return GDK_FAIL;
 }
 
 #define ANALYTICAL_NTHVALUE_IMP_SINGLE_FIXED(TPE1)			\
@@ -493,7 +499,7 @@ GDKanalyticallast(BAT *r, BAT *b, BAT *s, BAT *e, int tpe)
 				has_nils |= atomcmp(curval, nil) == 0;	\
 			}	\
 			if (BUNappend(r, curval, false) != GDK_SUCCEED) \
-				goto allocation_error;			\
+				return GDK_FAIL;			\
 		}							\
 	} while (0)
 
@@ -570,13 +576,13 @@ GDKanalyticalnthvalue(BAT *r, BAT *b, BAT *s, BAT *e, BAT *l, const void *restri
 				has_nils = true;
 				for (; i < cnt; i++)
 					if (BUNappend(r, nil, false) != GDK_SUCCEED)
-						goto allocation_error;
+						return GDK_FAIL;
 			} else {
 				nth--;
 				for (; i < cnt; i++) {
 					curval = (end[i] > start[i] && nth < (end[i] - start[i])) ? BUNtail(bpi, (BUN) (start[i] + nth)) : (void *) nil;
 					if (BUNappend(r, curval, false) != GDK_SUCCEED)
-						goto allocation_error;
+						return GDK_FAIL;
 					has_nils |= atomcmp(curval, nil) == 0;
 				}
 			}
@@ -640,9 +646,6 @@ GDKanalyticalnthvalue(BAT *r, BAT *b, BAT *s, BAT *e, BAT *l, const void *restri
 	r->tnonil = !has_nils;
 	r->tnil = has_nils;
 	return GDK_SUCCEED;
-      allocation_error:
-	GDKerror("GDKanalyticalnthvalue: malloc failure\n");
-	return GDK_FAIL;
       nosupport:
 	GDKerror("GDKanalyticalnthvalue: type %s not supported for the nth_value.\n", ATOMname(tp2));
 	return GDK_FAIL;
@@ -696,13 +699,13 @@ GDKanalyticalnthvalue(BAT *r, BAT *b, BAT *s, BAT *e, BAT *l, const void *restri
 	do {								\
 		for (i = 0; i < lag && k < j; i++, k++) {		\
 			if (BUNappend(r, default_value, false) != GDK_SUCCEED) \
-				goto allocation_error;			\
+				return GDK_FAIL;			\
 		}							\
 		has_nils |= (lag > 0 && atomcmp(default_value, nil) == 0);	\
 		for (l = k - lag; k < j; k++, l++) {			\
 			curval = BUNtail(bpi, l);			\
 			if (BUNappend(r, curval, false) != GDK_SUCCEED)	\
-				goto allocation_error;			\
+				return GDK_FAIL;			\
 			has_nils |= atomcmp(curval, nil) == 0;			\
 		}	\
 	} while (0)
@@ -754,7 +757,7 @@ GDKanalyticallag(BAT *r, BAT *b, BAT *p, BUN lag, const void *restrict default_v
 			has_nils = true;
 			for (j = 0; j < cnt; j++) {
 				if (BUNappend(r, nil, false) != GDK_SUCCEED)
-					goto allocation_error;
+					return GDK_FAIL;
 			}
 		} else if (p) {
 			pnp = np = (bit *) Tloc(p, 0);
@@ -778,9 +781,6 @@ GDKanalyticallag(BAT *r, BAT *b, BAT *p, BUN lag, const void *restrict default_v
 	r->tnonil = !has_nils;
 	r->tnil = has_nils;
 	return GDK_SUCCEED;
-      allocation_error:
-	GDKerror("GDKanalyticallag: malloc failure\n");
-	return GDK_FAIL;
 }
 
 #define LEAD_CALC(TPE)						\
@@ -841,14 +841,14 @@ GDKanalyticallag(BAT *r, BAT *b, BAT *p, BUN lag, const void *restrict default_v
 			for (i = 0,n = k + lead; i < m; i++, n++) {	\
 				curval = BUNtail(bpi, n);		\
 				if (BUNappend(r, curval, false) != GDK_SUCCEED)	\
-					goto allocation_error;		\
+					return GDK_FAIL;		\
 				has_nils |= atomcmp(curval, nil) == 0;		\
 			}						\
 			k += i;						\
 		}							\
 		for (; k < j; k++) {					\
 			if (BUNappend(r, default_value, false) != GDK_SUCCEED) \
-				goto allocation_error;			\
+				return GDK_FAIL;			\
 		}							\
 		has_nils |= (lead > 0 && atomcmp(default_value, nil) == 0);	\
 	} while (0)
@@ -901,7 +901,7 @@ GDKanalyticallead(BAT *r, BAT *b, BAT *p, BUN lead, const void *restrict default
 			has_nils = true;
 			for (j = 0; j < cnt; j++) {
 				if (BUNappend(r, nil, false) != GDK_SUCCEED)
-					goto allocation_error;
+					return GDK_FAIL;
 			}
 		} else if (p) {
 			pnp = np = (bit *) Tloc(p, 0);
@@ -925,9 +925,6 @@ GDKanalyticallead(BAT *r, BAT *b, BAT *p, BUN lead, const void *restrict default
 	r->tnonil = !has_nils;
 	r->tnil = has_nils;
 	return GDK_SUCCEED;
-      allocation_error:
-	GDKerror("GDKanalyticallead: malloc failure\n");
-	return GDK_FAIL;
 }
 
 #define ANALYTICAL_MIN_MAX_CALC(TPE, OP)				\
@@ -1017,8 +1014,8 @@ GDKanalytical##OP(BAT *r, BAT *b, BAT *s, BAT *e, int tpe)		\
 				}					\
 			}						\
 			if (BUNappend(r, curval, false) != GDK_SUCCEED) \
-				goto allocation_error;			\
-			has_nils |= atomcmp(curval, nil) == 0;	\
+				return GDK_FAIL;			\
+			has_nils |= atomcmp(curval, nil) == 0;		\
 		}							\
 	}								\
 	}								\
@@ -1026,9 +1023,6 @@ GDKanalytical##OP(BAT *r, BAT *b, BAT *s, BAT *e, int tpe)		\
 	r->tnonil = !has_nils;						\
 	r->tnil = has_nils;						\
 	return GDK_SUCCEED;						\
-  allocation_error:							\
-	GDKerror("GDKanalytical""OP"": malloc failure\n");		\
-	return GDK_FAIL;						\
 }
 
 ANALYTICAL_MIN_MAX(min, MIN, >)

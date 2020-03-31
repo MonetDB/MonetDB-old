@@ -12,6 +12,7 @@
  */
 
 #include "geom.h"
+#include "gdk_logger.h"
 #include "mal_exception.h"
 
 int TYPE_mbr;
@@ -45,7 +46,7 @@ wkbNULLcopy(void)
 #ifdef HAVE_PROJ
 
 /** convert degrees to radians */
-static void
+static inline void
 degrees2radians(double *x, double *y, double *z)
 {
 	*x *= M_PI / 180.0;
@@ -54,7 +55,7 @@ degrees2radians(double *x, double *y, double *z)
 }
 
 /** convert radians to degrees */
-static void
+static inline void
 radians2degrees(double *x, double *y, double *z)
 {
 	*x *= 180.0 / M_PI;
@@ -415,8 +416,8 @@ wkbTransform(wkb **transformedWKB, wkb **geomWKB, int *srid_src, int *srid_dst, 
 	if (is_wkb_nil(*geomWKB) ||
 	    is_int_nil(*srid_src) ||
 	    is_int_nil(*srid_dst) ||
-	    strcmp(*proj4_src_str, str_nil) == 0 ||
-	    strcmp(*proj4_dst_str, str_nil) == 0) {
+	    strNil(*proj4_src_str) ||
+	    strNil(*proj4_dst_str)) {
 		if ((*transformedWKB = wkbNULLcopy()) == NULL)
 			throw(MAL, "geom.Transform", SQLSTATE(HY013) MAL_MALLOC_FAIL);
 		return MAL_SUCCEED;
@@ -2064,6 +2065,8 @@ geoGetType(char **res, int *info, int *flag)
 /* returns a pointer to a nil-mbr. */
 static mbr mbrNIL;		/* to be filled in */
 
+#include "gdk_geomlogger.h"
+
 str
 geom_prelude(void *ret)
 {
@@ -2430,7 +2433,7 @@ wkbFromBinary(wkb **geomWKB, const char **inStr)
 	size_t strLength, wkbLength, i;
 	wkb *w;
 
-	if (strcmp(*inStr, str_nil) == 0) {
+	if (strNil(*inStr)) {
 		if ((*geomWKB = wkbNULLcopy()) == NULL)
 			throw(MAL, "geom.FromBinary", SQLSTATE(HY013) MAL_MALLOC_FAIL);
 		return MAL_SUCCEED;
@@ -2505,7 +2508,7 @@ wkbFromText(wkb **geomWKB, str *geomWKT, int *srid, int *tpe)
 	size_t parsedBytes;
 
 	*geomWKB = NULL;
-	if (strcmp(*geomWKT, str_nil) == 0 || is_int_nil(*srid) || is_int_nil(*tpe)) {
+	if (strNil(*geomWKT) || is_int_nil(*srid) || is_int_nil(*tpe)) {
 		if ((*geomWKB = wkbNULLcopy()) == NULL)
 			throw(MAL, "wkb.FromText", SQLSTATE(HY013) MAL_MALLOC_FAIL);
 		return MAL_SUCCEED;
@@ -2579,7 +2582,7 @@ wkbMLineStringToPolygon(wkb **geomWKB, str *geomWKT, int *srid, int *flag)
 	double *linestringsArea;
 	bit ordered = 0;
 
-	if (strcmp(*geomWKT, str_nil) == 0 || is_int_nil(*srid) || is_int_nil(*flag)) {
+	if (strNil(*geomWKT) || is_int_nil(*srid) || is_int_nil(*flag)) {
 		if ((*geomWKB = wkbNULLcopy()) == NULL)
 			throw(MAL, "geom.MLineStringToPolygon", SQLSTATE(HY013) MAL_MALLOC_FAIL);
 		return MAL_SUCCEED;
@@ -4377,7 +4380,7 @@ wkbRelate(bit *out, wkb **geomWKB_a, wkb **geomWKB_b, str *pattern)
 	int res;
 	GEOSGeom geosGeometry_a, geosGeometry_b;
 
-	if (is_wkb_nil(*geomWKB_a) || is_wkb_nil(*geomWKB_b) || strcmp(*pattern, str_nil) == 0) {
+	if (is_wkb_nil(*geomWKB_a) || is_wkb_nil(*geomWKB_b) || strNil(*pattern)) {
 		*out = bit_nil;
 		return MAL_SUCCEED;
 	}
@@ -4652,8 +4655,7 @@ mbrrelation_wkb(bit *out, wkb **geom1WKB, wkb **geom2WKB, str (*func)(bit *, mbr
 	return ret;
 }
 
-/*returns true if the two
- * 	mbrs overlap */
+/*returns true if the two mbrs overlap */
 str
 mbrOverlaps(bit *out, mbr **b1, mbr **b2)
 {
@@ -5303,7 +5305,7 @@ mbrFROMSTR(const char *src, size_t *len, mbr **atom, bool external)
 		**atom = *mbrNULL();
 		return 3;
 	}
-	if (strcmp(src, str_nil) == 0) {
+	if (strNil(src)) {
 		**atom = *mbrNULL();
 		return 1;
 	}
@@ -5470,7 +5472,7 @@ wkbaTOSTR(char **toStr, size_t *len, const wkba *fromArray, bool external)
 		}
 		dataSize += ds;
 
-		if (strcmp(partialStrs[i], str_nil) == 0) {
+		if (strNil(partialStrs[i])) {
 			GDKfree(itemsNumStr);
 			while (i >= 0)
 				GDKfree(partialStrs[i--]);
@@ -5579,7 +5581,7 @@ wkbaHASH(const wkba *wArray)
 int
 wkbaCOMP(const wkba *l, const wkba *r)
 {
-	int i, res = 0;;
+	int i, res = 0;
 
 	//compare the number of items
 	if (l->itemsNum != r->itemsNum)

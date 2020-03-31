@@ -447,11 +447,12 @@ BATextend(BAT *b, BUN newcap)
 	b->batCapacity = newcap;
 
 	theap_size *= Tsize(b);
-	if (b->theap.base && GDKdebug & HEAPMASK)
-		TRC_INFO(BAT_, "HEAPextend in BATextend %s %zu %zu\n", b->theap.filename, b->theap.size, theap_size);
-	if (b->theap.base &&
-	    HEAPextend(&b->theap, theap_size, b->batRestricted == BAT_READ) != GDK_SUCCEED)
-		return GDK_FAIL;
+	if (b->theap.base) {
+		TRC_DEBUG(HEAP, "HEAPextend in BATextend %s %zu %zu\n",
+			  b->theap.filename, b->theap.size, theap_size);
+		if (HEAPextend(&b->theap, theap_size, b->batRestricted == BAT_READ) != GDK_SUCCEED)
+			return GDK_FAIL;
+	}
 	return GDK_SUCCEED;
 }
 
@@ -846,7 +847,7 @@ COLcopy(BAT *b, int tt, bool writable, role_t role)
 	if (!writable)
 		bn->batRestricted = BAT_READ;
 	TRC_DEBUG(ALGO, "COLcopy(" ALGOBATFMT ")=" ALGOBATFMT "\n",
-			  	ALGOBATPAR(b), ALGOBATPAR(bn));
+		  ALGOBATPAR(b), ALGOBATPAR(bn));
 	return bn;
       bunins_failed:
 	BBPreclaim(bn);
@@ -1128,7 +1129,8 @@ BUNdelete(BAT *b, oid o)
 		    && ATOMcmp(b->ttype, VALptr(&prop->v), val) <= 0)
 			BATrmprop(b, GDK_MIN_VALUE);
 	}
-	ATOMunfix(b->ttype, val);
+	if (ATOMunfix(b->ttype, val) != GDK_SUCCEED)
+		return GDK_FAIL;
 	ATOMdel(b->ttype, b->tvheap, (var_t *) BUNtloc(bi, p));
 	if (p != BUNlast(b) - 1 &&
 	    (b->ttype != TYPE_void || BATtdense(b))) {
@@ -1313,8 +1315,10 @@ BUNinplace(BAT *b, BUN p, const void *t, bool force)
 		}
 	} else {
 		assert(BATatoms[b->ttype].atomPut == NULL);
-		ATOMfix(b->ttype, t);
-		ATOMunfix(b->ttype, BUNtloc(bi, p));
+		if (ATOMfix(b->ttype, t) != GDK_SUCCEED)
+			return GDK_FAIL;
+		if (ATOMunfix(b->ttype, BUNtloc(bi, p)) != GDK_SUCCEED)
+			return GDK_FAIL;
 		switch (ATOMsize(b->ttype)) {
 		case 0:	     /* void */
 			break;
@@ -2092,8 +2096,8 @@ BATmode(BAT *b, bool transient)
 
 #ifdef NDEBUG
 /* assertions are disabled, turn failing tests into a message */
-//#undef assert
-//#define assert(test)	((void) ((test) || TRC_ERROR(BAT_, "Assertion `%s' failed\n", #test)))
+#undef assert
+#define assert(test)	((void) ((test) || TRC_CRITICAL_ENDIF(BAT_, "Assertion `%s' failed\n", #test)))
 #endif
 
 /* Assert that properties are set correctly.
@@ -2135,6 +2139,7 @@ BATmode(BAT *b, bool transient)
 void
 BATassertProps(BAT *b)
 {
+	unsigned bbpstatus;
 	BATiter bi = bat_iterator(b);
 	BUN p, q;
 	int (*cmpf)(const void *, const void *);
@@ -2150,9 +2155,7 @@ BATassertProps(BAT *b)
 	assert(b->hseqbase <= GDK_oid_max); /* non-nil seqbase */
 	assert(b->hseqbase + BATcount(b) <= GDK_oid_max);
 
-#ifndef NDEBUG
-	unsigned bbpstatus = BBP_status(b->batCacheid);
-#endif
+	bbpstatus = BBP_status(b->batCacheid);
 	/* only at most one of BBPDELETED, BBPEXISTING, BBPNEW may be set */
 	assert(((bbpstatus & BBPDELETED) != 0) +
 	       ((bbpstatus & BBPEXISTING) != 0) +
@@ -2213,9 +2216,7 @@ BATassertProps(BAT *b)
 				assert(b->tvheap->free <= b->tvheap->size);
 				assert(b->tvheap->free % SIZEOF_OID == 0);
 				if (b->tvheap->free > 0) {
-#ifndef NDEBUG
 					const oid *oids = (const oid *) b->tvheap->base;
-#endif
 					q = b->tvheap->free / SIZEOF_OID;
 					assert(oids != NULL);
 					assert(b->tseqbase + BATcount(b) + q <= GDK_oid_max);
@@ -2242,9 +2243,7 @@ BATassertProps(BAT *b)
 		assert(b->tkey);
 		assert(b->tnonil);
 		if ((q = b->batCount) != 0) {
-#ifndef NDEBUG
 			const oid *o = (const oid *) Tloc(b, 0);
-#endif
 			assert(*o == b->tseqbase);
 			for (p = 1; p < q; p++)
 				assert(o[p - 1] + 1 == o[p]);
@@ -2364,13 +2363,16 @@ BATassertProps(BAT *b)
 			BUN mask;
 
 			if ((hs = GDKzalloc(sizeof(Hash))) == NULL) {
-				TRC_ERROR(BAT_, "Cannot allocate hash table\n");
+				TRC_WARNING(BAT_, "Cannot allocate hash table\n");
 				goto abort_check;
 			}
-			if (snprintf(hs->heaplink.filename, sizeof(hs->heaplink.filename), "%s.thshprpl%x", nme, THRgettid()) >= (int) sizeof(hs->heaplink.filename) ||
-			    snprintf(hs->heapbckt.filename, sizeof(hs->heapbckt.filename), "%s.thshprpb%x", nme, THRgettid()) >= (int) sizeof(hs->heapbckt.filename)) {
+			if (snprintf(hs->heaplink.filename, sizeof(hs->heaplink.filename), "%s.thshprpl%x", nme, (unsigned) THRgettid()) >= (int) sizeof(hs->heaplink.filename) ||
+			    snprintf(hs->heapbckt.filename, sizeof(hs->heapbckt.filename), "%s.thshprpb%x", nme, (unsigned) THRgettid()) >= (int) sizeof(hs->heapbckt.filename)) {
+				/* cannot happen, see comment in gdk.h
+				 * about sizes near definition of
+				 * BBPINIT */
 				GDKfree(hs);
-				TRC_ERROR(BAT_, "Heap filename is too large\n");
+				TRC_CRITICAL(BAT_, "Heap filename is too large\n");
 				goto abort_check;
 			}
 			if (ATOMsize(b->ttype) == 1)
@@ -2386,7 +2388,7 @@ BATassertProps(BAT *b)
 			    HASHnew(hs, b->ttype, BUNlast(b),
 				    mask, BUN_NONE, false) != GDK_SUCCEED) {
 				GDKfree(hs);
-				TRC_ERROR(BAT_, "Cannot allocate hash table\n");
+				TRC_WARNING(BAT_, "Cannot allocate hash table\n");
 				goto abort_check;
 			}
 			BATloop(b, p, q) {

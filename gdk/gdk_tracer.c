@@ -10,25 +10,90 @@
 #include "gdk.h"
 #include "gdk_tracer.h"
 
-static gdk_tracer tracer = {.id = 0, .allocated_size = 0};
+#define DEFAULT_ADAPTER BASIC
+#define DEFAULT_LOG_LEVEL M_ERROR
+#define DEFAULT_FLUSH_LEVEL M_INFO
 
-static gdk_tracer *active_tracer = &tracer;
+#define FILE_NAME "mdbtrace.log"
+
+#define OPENFILE_FAILED "Failed to open "FILE_NAME
+#define GDKTRACER_FAILED "Failed to write logs"
+
+#define AS_STR(x) #x
+#define STR(x) AS_STR(x)
+
+#define GENERATE_STRING(STRING) #STRING,
+
+static FILE *active_tracer;
 MT_Lock lock = MT_LOCK_INITIALIZER("GDKtracer_1");
 
-static FILE *output_file;
 static char file_name[FILENAME_MAX];
 
-static ATOMIC_TYPE CUR_ADAPTER = ATOMIC_VAR_INIT(DEFAULT_ADAPTER);
-static bool INIT_BASIC_ADAPTER = false;
-static bool LOG_EXC_REP = false;
+static ATOMIC_TYPE cur_adapter = ATOMIC_VAR_INIT(DEFAULT_ADAPTER);
 
-static LOG_LEVEL CUR_FLUSH_LEVEL = DEFAULT_FLUSH_LEVEL;
-static bool GDK_TRACER_STOP = false;
+static log_level_t cur_flush_level = DEFAULT_FLUSH_LEVEL;
 
-LOG_LEVEL LVL_PER_COMPONENT[] = {
+#define GENERATE_LOG_LEVEL(COMP) DEFAULT_LOG_LEVEL,
+log_level_t lvl_per_component[] = {
 	FOREACH_COMP(GENERATE_LOG_LEVEL)
 };
 
+static const char *adapter_str[] = {
+	FOREACH_ADPTR(GENERATE_STRING)
+};
+
+static const char *layer_str[] = {
+	FOREACH_LAYER(GENERATE_STRING)
+};
+
+static const char *component_str[] = {
+	FOREACH_COMP(GENERATE_STRING)
+};
+
+static const char *level_str[] = {
+	FOREACH_LEVEL(GENERATE_STRING)
+};
+
+
+#define MXW "20"
+
+#define TS_SIZE	((size_t) 20)	/* buffer size needed for timestamp */
+
+
+/*
+ * GDKtracer Stream Macros
+ */
+// Exception
+#define GDK_TRACER_EXCEPTION(MSG, ...)					\
+	fprintf(stderr,							\
+		     "%s "						\
+		     "%-"MXW"s "					\
+		     "%"MXW"s:%d "					\
+		     "%"MXW"s "						\
+		     "%-"MXW"s "					\
+		     "%-"MXW"s # "MSG,					\
+		     GDKtracer_get_timestamp((char[TS_SIZE]){0}, TS_SIZE), \
+		     __FILE__,						\
+		     __func__,						\
+		     __LINE__,						\
+		     STR(M_CRITICAL),					\
+		     STR(GDK_TRACER),					\
+		     MT_thread_getname(),				\
+		     ## __VA_ARGS__);
+
+
+
+
+static inline char *
+GDKtracer_get_timestamp(char *datetime, size_t dtsz)
+{
+	time_t now = time(NULL);
+	struct tm tmp;
+	(void) localtime_r(&now, &tmp);
+	strftime(datetime, dtsz, "%Y-%m-%d %H:%M:%S", &tmp);
+
+	return datetime;
+}
 
 
 // When BASIC adapter is active, all the log messages are getting printed to a file.
@@ -36,140 +101,142 @@ LOG_LEVEL LVL_PER_COMPONENT[] = {
 static gdk_return
 _GDKtracer_init_basic_adptr(void)
 {
-	const char* TRACE_PATH = GDKgetenv("gdk_dbpath");
+	const char *trace_path;
 
-	if(GDKgetenv("gdk_dbtrace") != NULL)
-		TRACE_PATH = GDKgetenv("gdk_dbtrace");
+	trace_path = GDKgetenv("gdk_dbtrace");
+	if (trace_path == NULL) {
+		trace_path = GDKgetenv("gdk_dbpath");
+		if (trace_path == NULL) {
+			active_tracer = stderr;
+			return GDK_SUCCEED;
+		}
+		if (strconcat_len(file_name, sizeof(file_name),
+				  trace_path, DIR_SEP_STR, FILE_NAME, NULL)
+		    >= sizeof(file_name)) {
+			goto too_long;
+		}
+	} else {
+		if (strcpy_len(file_name, trace_path, sizeof(file_name))
+		    >= sizeof(file_name)) {
+			goto too_long;
+		}
+	}
 
-	snprintf(file_name, sizeof(file_name), "%s%c%s", TRACE_PATH, DIR_SEP, FILE_NAME);
-	output_file = fopen(file_name, "a");
+	active_tracer = fopen(file_name, "a");
 	
-	// Even if creating the file failed, the adapter has 
-	// still tried to initialize and we shouldn't retry it
-	INIT_BASIC_ADAPTER = true;
-
-	if(!output_file)
-	{
+	if (active_tracer == NULL) {
 		GDK_TRACER_EXCEPTION(OPENFILE_FAILED);
+		file_name[0] = 0; /* uninitialize */
+		active_tracer = stderr;
 		return GDK_FAIL;
 	}
 
 	return GDK_SUCCEED;
+
+  too_long:
+	GDK_TRACER_EXCEPTION("path name for dbtrace file too long");
+	file_name[0] = 0; /* uninitialize */
+	active_tracer = stderr;
+	return GDK_FAIL;
 }
 
 
-static bool
-_GDKtracer_adapter_exists(int adapter)
-{
-	if (adapter == ADAPTERS_COUNT)
-		return false;
-
-	if (adapter >= 0 && adapter < ADAPTERS_COUNT)
-		return true;
-
-	return false;
-}
-
-
-static bool
-_GDKtracer_level_exists(int lvl)
-{
-	if (lvl == LOG_LEVELS_COUNT)
-		return false;
-
-	if (lvl >= 0 && lvl < LOG_LEVELS_COUNT)
-		return true;
-
-	return false;
-}
-
-
-static bool
-_GDKtracer_layer_exists(int layer)
-{
-	if (layer == LAYERS_COUNT)
-		return false;
-
-	if (layer >= 0 && layer < LAYERS_COUNT)
-		return true;
-
-	return false;
-}
-
-
-static bool
-_GDKtracer_component_exists(int comp)
-{
-	if (comp == COMPONENTS_COUNT)
-		return false;
-
-	if (comp >= 0 && comp < COMPONENTS_COUNT)
-		return true;
-
-	return false;
-}
-
-
-// Candidate for 'gnu_printf' format attribute [-Werror=suggest-attribute=format]
-static int _GDKtracer_fill_tracer(gdk_tracer *sel_tracer, const char *fmt, va_list va)
-	__attribute__((format(printf, 2, 0)));
-
-static int
-_GDKtracer_fill_tracer(gdk_tracer *sel_tracer, const char *fmt, va_list va)
-{
-	size_t fmt_len = strlen(fmt);
-	int bytes_written = 0;
-
-	// vsnprintf(char *str, size_t count, ...) -> including null terminating character
-	bytes_written = vsnprintf(sel_tracer->buffer +sel_tracer->allocated_size, BUFFER_SIZE - sel_tracer->allocated_size, fmt, va);
-	// Add \n if it doesn't exist
-	if (bytes_written && fmt[fmt_len - 1] != NEW_LINE)
-		bytes_written += snprintf(sel_tracer->buffer +sel_tracer->allocated_size, BUFFER_SIZE - sel_tracer->allocated_size, "\n");
-
-	// Let GDKtracer_log to know about the failure
-	if (bytes_written < 0)
-		return -1;
-
-	// vsnprintf returned value -> does not include the null terminating character
-	return bytes_written++;
-}
-
-
-static gdk_return
+static void
 _GDKtracer_layer_level_helper(int layer, int lvl)
 {
 	const char *tok = NULL;
-	LOG_LEVEL level = (LOG_LEVEL) lvl;
+	log_level_t level = (log_level_t) lvl;
 
 	for (int i = 0; i < COMPONENTS_COUNT; i++) {
 		if (layer == MDB_ALL) {
-			if (LVL_PER_COMPONENT[i] != level)
-				LVL_PER_COMPONENT[i] = level;
+			if (lvl_per_component[i] != level)
+				lvl_per_component[i] = level;
 		} else {
-			tok = COMPONENT_STR[i];
+			tok = component_str[i];
 
 			switch (layer) {
 			case SQL_ALL:
 				if (strncmp(tok, "SQL_", 4) == 0)
-					if (LVL_PER_COMPONENT[i] != level)
-						LVL_PER_COMPONENT[i] = level;
+					if (lvl_per_component[i] != level)
+						lvl_per_component[i] = level;
 				break;
 			case MAL_ALL:
 				if (strncmp(tok, "MAL_", 4) == 0)
-					if (LVL_PER_COMPONENT[i] != level)
-						LVL_PER_COMPONENT[i] = level;
+					if (lvl_per_component[i] != level)
+						lvl_per_component[i] = level;
 				break;
 			case GDK_ALL:
-				if (strncmp(tok, "GDK_", 4) == 0)
-					if (LVL_PER_COMPONENT[i] != level)
-						LVL_PER_COMPONENT[i] = level;
+				if (strncmp(tok, "GDK", 3) == 0)
+					if (lvl_per_component[i] != level)
+						lvl_per_component[i] = level;
 				break;
 			default:
 				break;
 			}
 		}
 	}
-	return GDK_SUCCEED;
+}
+
+static inline adapter_t
+find_adapter(const char *adptr)
+{
+	if (adptr == NULL)
+		return ADAPTERS_COUNT;
+
+	for (int i = 0; i < (int) ADAPTERS_COUNT; i++) {
+		if (strcasecmp(adapter_str[i], adptr) == 0) {
+			return (adapter_t) i;
+		}
+	}
+	return ADAPTERS_COUNT;
+}
+
+static inline log_level_t
+find_level(const char *lvl)
+{
+	if (lvl == NULL)
+		return LOG_LEVELS_COUNT;
+
+	for (int i = 0; i < (int) LOG_LEVELS_COUNT; i++) {
+		if (strcasecmp(level_str[i] + 2, lvl) == 0) {
+			return (log_level_t) i;
+		}
+	}
+	return LOG_LEVELS_COUNT;
+}
+
+static inline layer_t
+find_layer(const char *layer)
+{
+	if (layer == NULL)
+		return LAYERS_COUNT;
+	for (int i = 0; i < (int) LAYERS_COUNT; i++) {
+		if (strcasecmp(layer_str[i], layer) == 0) {
+			return (layer_t) i;
+		}
+	}
+	return LAYERS_COUNT;
+}
+
+static inline component_t
+find_component(const char *comp)
+{
+	/* special case for the (currently) three components that end in _ */
+	if (comp == NULL || *comp == 0 || comp[strlen(comp) - 1] == '_')
+		return COMPONENTS_COUNT;
+	if (strcasecmp(comp, "io") == 0)
+		comp = "io_";
+	else if (strcasecmp(comp, "bat") == 0)
+		comp = "bat_";
+	else if (strcasecmp(comp, "check") == 0)
+		comp = "check_";
+
+	for (int i = 0; i < (int) COMPONENTS_COUNT; i++) {
+		if (strcasecmp(component_str[i], comp) == 0) {
+			return (component_t) i;
+		}
+	}
+	return COMPONENTS_COUNT;
 }
 
 
@@ -179,18 +246,6 @@ _GDKtracer_layer_level_helper(int layer, int lvl)
  * API CALLS
  *
  */
-char *
-GDKtracer_get_timestamp(const char *fmt, char *datetime, size_t dtsz)
-{
-	time_t now = time(NULL);
-	struct tm tmp;
-	(void) localtime_r(&now, &tmp);
-	strftime(datetime, dtsz, fmt, &tmp);
-
-	return datetime;
-}
-
-
 void
 GDKtracer_reinit_basic(int sig)
 {
@@ -198,106 +253,110 @@ GDKtracer_reinit_basic(int sig)
 
 	// GDKtracer needs to reopen the file only in 
 	// case the adapter is BASIC
-	if ((int) ATOMIC_GET(&CUR_ADAPTER) != BASIC)
+	if ((adapter_t) ATOMIC_GET(&cur_adapter) != BASIC)
 		return;
 
-	// BASIC adapter has been initialized already and file is open
-	if(INIT_BASIC_ADAPTER && output_file) {
-		// Make sure that GDKtracer is not trying to flush the buffer
-		MT_lock_set(&lock);
-		{
-			// Close file 
-			fclose(output_file);
-			output_file = NULL;
-			
-			// Open a new file in append mode
-			output_file = fopen(file_name, "a");
-			if(!output_file)
-				GDK_TRACER_EXCEPTION(OPENFILE_FAILED);
-		}
-		MT_lock_unset(&lock);		
+	// Make sure that GDKtracer is not trying to flush the buffer
+	MT_lock_set(&lock);
+
+	if (active_tracer) {
+		if (active_tracer != stderr)
+			fclose(active_tracer);
+		else
+			fflush(active_tracer);
+		active_tracer = NULL;
 	}
+	_GDKtracer_init_basic_adptr();
+
+	MT_lock_unset(&lock);
 }
 
 
 gdk_return
 GDKtracer_stop(void)
 {
-	GDK_TRACER_STOP = true;
+	_GDKtracer_layer_level_helper(MDB_ALL, DEFAULT_LOG_LEVEL);
 	return GDKtracer_flush_buffer();
 }
 
-
 gdk_return
-GDKtracer_set_component_level(int comp, int lvl)
+GDKtracer_set_component_level(const char *comp, const char *lvl)
 {
-	LOG_LEVEL level = (LOG_LEVEL) lvl;
+	log_level_t level = find_level(lvl);
+	component_t component = find_component(comp);
 
-	if (LVL_PER_COMPONENT[comp] == level)
-		return GDK_SUCCEED;
-
-	if (!_GDKtracer_component_exists(comp))
+	if (level == LOG_LEVELS_COUNT) {
+		GDKerror("%s: unknown level\n", __func__);
 		return GDK_FAIL;
-
-	if (!_GDKtracer_level_exists(lvl))
+	}
+	if (component == COMPONENTS_COUNT) {
+		GDKerror("%s: unknown component\n", __func__);
 		return GDK_FAIL;
+	}
 
-	LVL_PER_COMPONENT[comp] = level;
+	lvl_per_component[component] = level;
 
 	return GDK_SUCCEED;
 }
 
 
 gdk_return
-GDKtracer_reset_component_level(int comp)
+GDKtracer_reset_component_level(const char *comp)
 {
-	if (LVL_PER_COMPONENT[comp] == DEFAULT_LOG_LEVEL)
-		return GDK_SUCCEED;
+	component_t component = find_component(comp);
 
-	if (!_GDKtracer_component_exists(comp))
+	if (component == COMPONENTS_COUNT) {
+		GDKerror("%s: unknown component\n", __func__);
 		return GDK_FAIL;
-
-	LVL_PER_COMPONENT[comp] = DEFAULT_LOG_LEVEL;
+	}
+	lvl_per_component[component] = DEFAULT_LOG_LEVEL;
 	return GDK_SUCCEED;
 }
 
 
 gdk_return
-GDKtracer_set_layer_level(int layer, int lvl)
+GDKtracer_set_layer_level(const char *layer, const char *lvl)
 {
-	if (!_GDKtracer_layer_exists(layer))
+	layer_t lyr = find_layer(layer);
+	log_level_t level = find_level(lvl);
+	if (level == LOG_LEVELS_COUNT) {
+		GDKerror("%s: unknown level\n", __func__);
 		return GDK_FAIL;
-
-	if (!_GDKtracer_level_exists(lvl))
+	}
+	if (lyr == LAYERS_COUNT) {
+		GDKerror("%s: unknown layer\n", __func__);
 		return GDK_FAIL;
+	}
 
-	return _GDKtracer_layer_level_helper(layer, lvl);
+	_GDKtracer_layer_level_helper(lyr, level);
+	return GDK_SUCCEED;
 }
 
 
 gdk_return
-GDKtracer_reset_layer_level(int layer)
+GDKtracer_reset_layer_level(const char *layer)
 {
-	if (!_GDKtracer_layer_exists(layer))
+	layer_t lyr = find_layer(layer);
+	if (lyr == LAYERS_COUNT) {
+		GDKerror("%s: unknown layer\n", __func__);
 		return GDK_FAIL;
+	}
 
-	return _GDKtracer_layer_level_helper(layer, DEFAULT_LOG_LEVEL);
+	_GDKtracer_layer_level_helper(lyr, DEFAULT_LOG_LEVEL);
+	return GDK_SUCCEED;
 }
 
 
 gdk_return
-GDKtracer_set_flush_level(int lvl)
+GDKtracer_set_flush_level(const char *lvl)
 {
-	LOG_LEVEL level = (LOG_LEVEL) lvl;
-
-	if (CUR_FLUSH_LEVEL == level)
-		return GDK_SUCCEED;
-
-	if (!_GDKtracer_level_exists(lvl))
+	log_level_t level = find_level(lvl);
+	if (level == LOG_LEVELS_COUNT) {
+		GDKerror("%s: unknown level\n", __func__);
 		return GDK_FAIL;
+	}
 
-	CUR_FLUSH_LEVEL = level;
-
+	cur_flush_level = level;
 	return GDK_SUCCEED;
 }
 
@@ -305,30 +364,26 @@ GDKtracer_set_flush_level(int lvl)
 gdk_return
 GDKtracer_reset_flush_level(void)
 {
-	if (CUR_FLUSH_LEVEL == DEFAULT_FLUSH_LEVEL)
-		return GDK_SUCCEED;
-
-	CUR_FLUSH_LEVEL = DEFAULT_FLUSH_LEVEL;
-
+	cur_flush_level = DEFAULT_FLUSH_LEVEL;
 	return GDK_SUCCEED;
 }
 
 
 gdk_return
-GDKtracer_set_adapter(int adapter)
+GDKtracer_set_adapter(const char *adapter)
 {
-	if ((int) ATOMIC_GET(&CUR_ADAPTER) == adapter)
-		return GDK_SUCCEED;
+	adapter_t adptr = find_adapter(adapter);
+	if (adptr == ADAPTERS_COUNT) {
+		GDKerror("%s: unknown adapter\n", __func__);
+		return GDK_FAIL;
+	}
 
 	// Here when switching between adapters we can open/close the file
 	// But it is not so important to keep it open in case the adapter switches
 	// From BASIC to other => close the file
 	// From other to BASIC => open the file
 
-	if (!_GDKtracer_adapter_exists(adapter))
-		return GDK_FAIL;
-
-	ATOMIC_SET(&CUR_ADAPTER, adapter);
+	ATOMIC_SET(&cur_adapter, adptr);
 
 	return GDK_SUCCEED;
 }
@@ -337,70 +392,56 @@ GDKtracer_set_adapter(int adapter)
 gdk_return
 GDKtracer_reset_adapter(void)
 {
-	if (ATOMIC_GET(&CUR_ADAPTER) == DEFAULT_ADAPTER)
-		return GDK_SUCCEED;
-
-	ATOMIC_SET(&CUR_ADAPTER, DEFAULT_ADAPTER);
-
+	ATOMIC_SET(&cur_adapter, DEFAULT_ADAPTER);
 	return GDK_SUCCEED;
 }
 
 
 gdk_return
-GDKtracer_log(LOG_LEVEL level, const char *fmt, ...)
+GDKtracer_log(const char *file, const char *func, int lineno,
+	      log_level_t level, component_t comp,
+	      const char *fmt, ...)
 {
-	int bytes_written = 0;
+	int bytes_written;
+	char buffer[512];	/* should be plenty big enough for a message */
+	va_list va;
+	char ts[TS_SIZE];
+
+	va_start(va, fmt);
+	bytes_written = snprintf(buffer, sizeof(buffer),
+				 "%s "
+				 "%-"MXW"s:%d "
+				 "%"MXW"s "
+				 "%"MXW"s "
+				 "%-"MXW"s "
+				 "%-"MXW"s # ",
+				 GDKtracer_get_timestamp(ts, sizeof(ts)),
+				 file,
+				 lineno,
+				 func,
+				 level_str[level],
+				 component_str[comp],
+				 MT_thread_getname());
+	if (bytes_written > 0 && bytes_written < (int) sizeof(buffer)) {
+		bytes_written += vsnprintf(buffer + bytes_written,
+					   sizeof(buffer) - bytes_written,
+					   fmt, va);
+	}
+	va_end(va);
+	if (bytes_written < 0) {
+		GDK_TRACER_EXCEPTION(GDKTRACER_FAILED "\n");
+		return GDK_FAIL;
+	}
+	char *p;
+	if ((p = strchr(buffer, '\n')) != NULL)
+		*p = '\0';
 
 	MT_lock_set(&lock);
-
-	va_list va;
-	va_start(va, fmt);
-	bytes_written = _GDKtracer_fill_tracer(active_tracer, fmt, va);
-	va_end(va);
-
-	if (bytes_written >= 0) {
-		// The message fits the buffer OR the buffer is empty but the message does not fit (we cut it off)
-		if (bytes_written < (BUFFER_SIZE - active_tracer->allocated_size) || active_tracer->allocated_size == 0) {
-			active_tracer->allocated_size += bytes_written;
-			MT_lock_unset(&lock);
-		} else {
-			MT_lock_unset(&lock);
-
-			GDKtracer_flush_buffer();
-
-			MT_lock_set(&lock);
-			va_list va;
-			va_start(va, fmt);
-			bytes_written = _GDKtracer_fill_tracer(active_tracer, fmt, va);
-			va_end(va);
-
-			if (bytes_written >= 0) {
-				// The second buffer will always be empty at start
-				// So if the message does not fit we cut it off
-				// message might be > BUFFER_SIZE
-				active_tracer->allocated_size += bytes_written;
-				MT_lock_unset(&lock);
-			} else {
-				MT_lock_unset(&lock);
-
-				// Failed to write to the buffer - bytes_written < 0
-				if(!LOG_EXC_REP)
-				{
-					GDK_TRACER_EXCEPTION(GDKTRACER_FAILED "\n");
-					LOG_EXC_REP = true;
-				}
-			}
-		}
-	} else {
-		MT_lock_unset(&lock);
-
-		// Failed to write to the buffer - bytes_written < 0
-		if(!LOG_EXC_REP)
-		{
-			GDK_TRACER_EXCEPTION(GDKTRACER_FAILED "\n");
-			LOG_EXC_REP = true;
-		}
+	if (file_name[0] == 0) {
+		_GDKtracer_init_basic_adptr();
 	}
+	MT_lock_unset(&lock);
+	fprintf(active_tracer, "%s\n", buffer);
 
 	// Flush the current buffer in case the event is
 	// important depending on the flush-level
@@ -408,8 +449,10 @@ GDKtracer_log(LOG_LEVEL level, const char *fmt, ...)
 	// like mserver5 refusing to start due to allocated port
 	// and the error is never reported to the user because it
 	// is still in the buffer which it never gets flushed.
-	if (level == CUR_FLUSH_LEVEL || level == M_CRITICAL || level == M_ERROR) {
-		GDKtracer_flush_buffer();
+	if (level == cur_flush_level || level == M_CRITICAL || level == M_ERROR) {
+		fflush(active_tracer);
+		if (level == M_CRITICAL && active_tracer != stderr)
+			fprintf(stderr, "%s\n", buffer);
 	}
 	return GDK_SUCCEED;
 }
@@ -418,58 +461,8 @@ GDKtracer_log(LOG_LEVEL level, const char *fmt, ...)
 gdk_return
 GDKtracer_flush_buffer(void)
 {
-	// No reason to flush a buffer with no content
-	MT_lock_set(&lock);
-	if (active_tracer->allocated_size == 0) {
-		MT_lock_unset(&lock);
-		return GDK_SUCCEED;
-	}
-	MT_lock_unset(&lock);
-
-	if (ATOMIC_GET(&CUR_ADAPTER) == BASIC) {
-		// Initialize the BASIC adapter. It is used in order to avoid cases with files being
-		// created and no logs being produced. Even if the creating the file fails the function
-		// is going to be called only once.
-		if(!INIT_BASIC_ADAPTER)
-			_GDKtracer_init_basic_adptr();
-
-		MT_lock_set(&lock); 
-		{
-			if (output_file) {
-				size_t nitems = 1;
-				size_t w = fwrite(&active_tracer->buffer, active_tracer->allocated_size, nitems, output_file);
-
-				if (w == nitems)
-					fflush(output_file);
-				else
-					// fwrite failed for whatever reason (e.g: disk is full)
-					if(!LOG_EXC_REP)
-					{
-						GDK_TRACER_EXCEPTION(GDKTRACER_FAILED "\n");
-						LOG_EXC_REP = true;
-					}
-			}
-
-			// Reset buffer
-			memset(active_tracer->buffer, 0, BUFFER_SIZE);
-			active_tracer->allocated_size = 0;
-		}
-		MT_lock_unset(&lock);
-	} else {
-		MT_lock_set(&lock);
-		memset(active_tracer->buffer, 0, BUFFER_SIZE);
-		active_tracer->allocated_size = 0;
-		MT_lock_unset(&lock);
-
-		// Here we are supposed to send the logs to the profiler
-	}
-
-	// The file is kept open no matter the adapter
-	// When GDKtracer stops we need also to close the file
-	if (GDK_TRACER_STOP)
-		if (output_file)
-			fclose(output_file);
-
+	if (active_tracer)
+		fflush(active_tracer);
 	return GDK_SUCCEED;
 }
 
@@ -481,10 +474,10 @@ GDKtracer_fill_comp_info(BAT *id, BAT *component, BAT *log_level)
 		if (BUNappend(id, &i, false) != GDK_SUCCEED)
 			return GDK_FAIL;
 
-		if (BUNappend(component, COMPONENT_STR[i], false) != GDK_SUCCEED)
+		if (BUNappend(component, component_str[i], false) != GDK_SUCCEED)
 			return GDK_FAIL;
 
-		if (BUNappend(log_level, LEVEL_STR[LVL_PER_COMPONENT[i]], false) != GDK_SUCCEED) 
+		if (BUNappend(log_level, level_str[lvl_per_component[i]], false) != GDK_SUCCEED) 
 			return GDK_FAIL;
 	}
 

@@ -18,7 +18,7 @@
 #ifdef HAVE_HGE
 #include "mal.h"		/* for have_hge */
 #endif
-#include "mtime.h"
+#include "gdk_time.h"
 #include "blob.h"
 
 comp_type
@@ -120,6 +120,7 @@ exp_create(sql_allocator *sa, int type )
 	e->freevar = 0;
 	e->intern = 0;
 	e->anti = 0;
+	e->semantics = 0;
 	e->ascending = 0;
 	e->nulls_last = 0;
 	e->distinct = 0;
@@ -606,6 +607,8 @@ exp_propagate(sql_allocator *sa, sql_exp *ne, sql_exp *oe)
 		set_intern(ne);
 	if (is_anti(oe))
 		set_anti(ne);
+	if (is_semantics(oe))
+		set_semantics(ne);
 	if (is_ascending(oe))
 		set_ascending(ne);
 	if (nulls_last(oe))
@@ -657,7 +660,7 @@ exp_alias_or_copy( mvc *sql, const char *tname, const char *cname, sql_rel *orel
 	sql_exp *ne = NULL;
 
 	if (!tname)
-		tname = old->alias.rname;
+		tname = exp_relname(old);
 
 	if (!cname && exp_name(old) && has_label(old)) {
 		ne = exp_column(sql->sa, exp_relname(old), exp_name(old), exp_subtype(old), orel?orel->card:CARD_ATOM, has_nil(old), is_intern(old));
@@ -1593,7 +1596,7 @@ exp_is_true(mvc *sql, sql_exp *e)
 		}
 	}
 	if (e->type == e_cmp && e->flag == cmp_equal)
-		return (exp_is_true(sql, e->l) && exp_is_true(sql, e->r));
+		return (exp_is_true(sql, e->l) && exp_is_true(sql, e->r) && exp_match_exp(e->l, e->r));
 	return 0;
 }
 
@@ -2173,7 +2176,7 @@ exps_card( list *l )
 	if (l) for(n = l->h; n; n = n->next) {
 		sql_exp *e = n->data;
 
-		if (card < e->card)
+		if (e && card < e->card)
 			card = e->card;
 	}
 	return card;
@@ -2187,7 +2190,7 @@ exps_fix_card( list *exps, unsigned int card)
 	for (n = exps->h; n; n = n->next) {
 		sql_exp *e = n->data;
 
-		if (e->card > card)
+		if (e && e->card > card)
 			e->card = card;
 	}
 }
@@ -2200,7 +2203,7 @@ exps_setcard( list *exps, unsigned int card)
 	for (n = exps->h; n; n = n->next) {
 		sql_exp *e = n->data;
 
-		if (e->card != CARD_ATOM)
+		if (e && e->card != CARD_ATOM)
 			e->card = card;
 	}
 }

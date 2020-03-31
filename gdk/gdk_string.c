@@ -366,7 +366,7 @@ GDKstrFromStr(unsigned char *restrict dst, const unsigned char *restrict src, ss
 	bool escaped = false;
 	int mask = 0, n, c, utf8char = 0;
 
-	if (len >= 2 && strcmp((const char *) src, str_nil) == 0) {
+	if (len >= 2 && strNil((const char *) src)) {
 		strcpy((char *) dst, str_nil);
 		return 1;
 	}
@@ -1159,7 +1159,7 @@ BATgroupstr_group_concat(BAT *b, BAT *g, BAT *e, BAT *s, BAT *sep, bool skip_nil
 	if (BATtdense(g) || (g->tkey && g->tnonil)) {
 		/* trivial: singleton groups, so all results are equal
 		 * to the inputs (but possibly a different type) */
-		return BATconvert(b, s, TYPE_str, abort_on_error);
+		return BATconvert(b, s, NULL, TYPE_str, abort_on_error);
 	}
 
 	res = concat_strings(&bn, NULL, b, b->hseqbase, ngrp, &ci, ncand,

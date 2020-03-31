@@ -193,7 +193,7 @@ _create_relational_function(mvc *m, const char *mod, const char *name, sql_rel *
 			char buf[64];
 
 			if (e->type == e_atom)
-				snprintf(buf,64,"A%d",e->flag);
+				snprintf(buf,64,"A%u",e->flag);
 			else
 				snprintf(buf,64,"A%s",exp_name(e));
 			varid = newVariable(curBlk, (char *)buf, strlen(buf), type);
@@ -204,7 +204,6 @@ _create_relational_function(mvc *m, const char *mod, const char *name, sql_rel *
 	}
 	if (curBlk->errors) {
 		sql_error(m, 003, SQLSTATE(42000) "Internal error while compiling statement: %s", curBlk->errors);
-		freeSymbol(curPrg);
 		return -1;
 	}
 
@@ -214,7 +213,6 @@ _create_relational_function(mvc *m, const char *mod, const char *name, sql_rel *
 	e->card = CARD_MULTI;
 	be->mvc->argc = 0;
 	if (backend_dumpstmt(be, curBlk, r, 0, 1, NULL) < 0) {
-		freeSymbol(curPrg);
 		if (backup)
 			c->curprg = backup;
 		return -1;
@@ -241,7 +239,6 @@ _create_relational_function(mvc *m, const char *mod, const char *name, sql_rel *
 	}
 	if (c->curprg->def->errors) {
 		sql_error(m, 003, SQLSTATE(42000) "Internal error while compiling statement: %s", c->curprg->def->errors);
-		freeSymbol(curPrg);
 		res = -1;
 	}
 	if (backup)
@@ -424,7 +421,7 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 	free(s); 
 
 	s = "";
-	if (call && call->type == st_list) {
+	if (call && call->type == st_list) { /* Send existing variables in the plan */
 		node *n;
 
 		buf[0] = 0;
@@ -434,19 +431,60 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 			const char *nme = (op->op3)?op->op3->op4.aval->data.val.sval:op->cname;
 
 			if ((nr + 100) > len) {
-				buf = GDKrealloc(buf, len*=2);
-				if(buf == NULL)
+				char *tmp = GDKrealloc(buf, len*=2);
+				if (tmp == NULL) {
+					GDKfree(buf);
+					buf = NULL;
 					break;
+				}
+				buf = tmp;
 			}
 
 			nr += snprintf(buf+nr, len-nr, "%s %s(%u,%u)%c", nme, t->type->sqlname, t->digits, t->scale, n->next?',':' ');
 		}
 		s = buf;
 	}
-	if(buf) {
+	if (buf) {
 		o = newFcnCall(curBlk, remoteRef, putRef);
 		o = pushArgument(curBlk, o, q);
 		o = pushStr(curBlk, o, s);	/* signature */
+		p = pushArgument(curBlk, p, getArg(o,0));
+	} else {
+		GDKfree(lname);
+		sql_error(m, 001, SQLSTATE(HY013) MAL_MALLOC_FAIL);
+		return -1;
+	}
+
+	buf[0] = 0;
+	nr = 0;
+	for (n = r->exps->h; n; n = n->next) { /* Send SQL types of the projection's expressions */
+		sql_exp *e = n->data;
+		sql_subtype *t = exp_subtype(e);
+		str next = subtype2string(t);
+
+		if (!next) {
+			GDKfree(buf);
+			buf = NULL;
+			break;
+		}
+		if ((nr + 100) > len) {
+			char *tmp = GDKrealloc(buf, len*=2);
+			if (tmp == NULL) {
+				GDKfree(next);
+				GDKfree(buf);
+				buf = NULL;
+				break;
+			}
+			buf = tmp;
+		}
+
+		nr += snprintf(buf+nr, len-nr, "%s%s", next, n->next?"%%":"");
+		GDKfree(next);
+	}
+	if (buf) {
+		o = newFcnCall(curBlk, remoteRef, putRef);
+		o = pushArgument(curBlk, o, q);
+		o = pushStr(curBlk, o, s);	/* SQL types as a single string */
 		p = pushArgument(curBlk, p, getArg(o,0));
 		GDKfree(buf);
 	} else {
@@ -648,9 +686,10 @@ backend_dumpstmt(backend *be, MalBlkPtr mb, sql_rel *r, int top, int add_end, co
 	MalBlkPtr old_mb = be->mb;
 	stmt *s;
 
-	// Always keep the SQL query around for monitoring
-
+	/* Always keep the SQL query around for monitoring */
 	if (query) {
+		char *escaped_q;
+
 		while (*query && isspace((unsigned char) *query))
 			query++;
 
@@ -661,29 +700,25 @@ backend_dumpstmt(backend *be, MalBlkPtr mb, sql_rel *r, int top, int add_end, co
 		}
 		setVarType(mb, getArg(q, 0), TYPE_void);
 		setVarUDFtype(mb, getArg(q, 0));
-		q = pushStr(mb, q, query);
+		if (!(escaped_q = sql_escape_str((char*) query))) {
+			sql_error(m, 001, SQLSTATE(HY013) MAL_MALLOC_FAIL);
+			return -1;
+		}
+		q = pushStr(mb, q, escaped_q);
+		GDKfree(escaped_q);
+		if (q == NULL) {
+			sql_error(m, 001, SQLSTATE(HY013) MAL_MALLOC_FAIL);
+			return -1;
+		}
 		q = pushStr(mb, q, getSQLoptimizer(be->mvc));
 		if (q == NULL) {
 			sql_error(m, 001, SQLSTATE(HY013) MAL_MALLOC_FAIL);
 			return -1;
 		}
-
-/* Crashes
-		q = newStmt(mb, querylogRef, contextRef);
-		if (q == NULL) {
-			return -1;
-		}
-		setVarType(mb, getArg(q, 0), TYPE_void);
-		setVarUDFtype(mb, getArg(q, 0));
-		q = pushStr(mb, q, GDKgetenv("monet_release"));
-		q = pushStr(mb, q, GDKgetenv("monet_version"));
-		q = pushStr(mb, q, GDKgetenv("revision"));
-		q = pushStr(mb, q, GDKgetenv("merovingian_uri"));
-*/
 	}
 
 	/* announce the transaction mode */
-	q = newStmt(mb, sqlRef, "mvc");
+	q = newStmt(mb, sqlRef, mvcRef);
 	if (q == NULL) {
 		sql_error(m, 001, SQLSTATE(HY013) MAL_MALLOC_FAIL);
 		return -1;
@@ -779,7 +814,7 @@ backend_dumpproc(backend *be, Client c, cq *cq, sql_rel *r)
 	Symbol curPrg = 0, backup = NULL;
 	InstrPtr curInstr = 0;
 	int argc = 0, res;
-	char arg[IDLENGTH], *escaped_q = NULL;
+	char arg[IDLENGTH];
 	node *n;
 
 	backup = c->curprg;
@@ -854,15 +889,7 @@ backend_dumpproc(backend *be, Client c, cq *cq, sql_rel *r)
 		}
 	}
 
-	if (be->q) {
-		if (!(escaped_q = sql_escape_str(be->q->codestring))) {
-			sql_error(m, 001, SQLSTATE(HY013) MAL_MALLOC_FAIL);
-			goto cleanup;
-		}
-	}
-	res = backend_dumpstmt(be, mb, r, 1, 1, escaped_q);
-	GDKfree(escaped_q);
-	if (res < 0)
+	if ((res = backend_dumpstmt(be, mb, r, 1, 1, be->q ? be->q->codestring : NULL)) < 0)
 		goto cleanup;
 
 	if (cq) {
@@ -883,7 +910,6 @@ backend_dumpproc(backend *be, Client c, cq *cq, sql_rel *r)
 	return curPrg;
 
 cleanup:
-	freeSymbol(curPrg);
 	if (backup)
 		c->curprg = backup;
 	return NULL;
@@ -1136,7 +1162,10 @@ mal_function_find_implementation_address(mvc *m, sql_func *f)
 	m->type = Q_PARSE;
 	m->user_id = m->role_id = USER_MONETDB;
 
-	if (!(m->session = sql_session_create(0, 0))) {
+	store_lock();
+	m->session = sql_session_create(0, 0);
+	store_unlock();
+	if (!m->session) {
 		(void) sql_error(o, 02, SQLSTATE(HY013) MAL_MALLOC_FAIL);
 		goto bailout;
 	}
@@ -1179,8 +1208,11 @@ mal_function_find_implementation_address(mvc *m, sql_func *f)
 bailout:
 	if (m) {
 		bstream_destroy(m->scanner.rs);
-		if (m->session)
-			sql_session_destroy(m->session); 
+		if (m->session) {
+			store_lock();
+			sql_session_destroy(m->session);
+			store_unlock();
+		}
 		if (m->sa)
 			sa_destroy(m->sa);
 		_DELETE(m);
@@ -1344,7 +1376,6 @@ backend_create_sql_func(backend *be, sql_func *f, list *restypes, list *ops)
 		c->curprg = backup;
 	return 0;
 cleanup:
-	freeSymbol(curPrg);
 	if (backup)
 		c->curprg = backup;
 	return -1;
